@@ -1,17 +1,11 @@
-import BoxInfo from '@/components/box-info';
 import HeaderMuMate from '@/components/header-v2';
-import Menu from '@/components/menu';
-import ModalAIChat from '@/components/modal-ai-chat';
 import ModalAIChatStreamingGeneral from '@/components/modal-ai-chat-general-streaming';
 import ModalBlocking from '@/components/modal-blocking';
-import { FortuneStickGet } from '@/constants/api/api-fortune-stick-get';
 import { FortuneTellingGet } from '@/constants/api/api-fortune-telling-get';
-import { HeavenSpiritCardGet } from '@/constants/api/api-heaven-spirit-card-get copy';
 import { UserGetById } from '@/constants/api/api-user-get';
-import { CONFIG } from '@/constants/config';
 import { CookieKey } from '@/constants/cookie-key';
 import { PageRouter } from '@/constants/router';
-import { signOut, useSession } from "next-auth/react";
+import { useSession } from "next-auth/react";
 import Head from "next/head";
 import Image from "next/image";
 import { useRouter } from "next/router";

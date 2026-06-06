@@ -1,11 +1,9 @@
 "use client";
 import HeaderMuMate from '@/components/header-v2';
-import Menu from '@/components/menu';
 import ModalBlocking from '@/components/modal-blocking';
 import ModalPayment from '@/components/modal-payment';
 import ModalPaymentCreditCard from '@/components/modal-payment-creditcard';
 import ModalPaymentPromptPay from '@/components/modal-payment-qrcode';
-import { FortuneStickGet } from '@/constants/api/api-fortune-stick-get';
 import { PaymentPackageGet } from '@/constants/api/api-payment-package-get';
 import { API } from '@/constants/api/endpoint';
 import { CONFIG } from '@/constants/config';
@@ -13,7 +11,7 @@ import { CookieKey } from '@/constants/cookie-key';
 import { PaymentHoroscope } from '@/constants/payment-horoscope';
 import { PaymentPlan } from '@/constants/payment-plan';
 import { PageRouter } from '@/constants/router';
-import { signOut, useSession } from "next-auth/react";
+import { useSession } from "next-auth/react";
 import Head from "next/head";
 import Image from "next/image";
 import { useRouter } from "next/router";
@@ -101,11 +99,12 @@ const [isShowModalRegister, setIsShowModalRegister] = useState<boolean>(false)
 
 
   useEffect(() => {
-    if (window?.Omise) {
-      window.Omise.setPublicKey("pkey_5zlc86rc0y3bcea9eik");
-      // console.log("Omise JS Loaded:", window.Omise);
+    const omiseKey = process.env.NEXT_PUBLIC_OMISE_KEY;
+
+    if (window?.Omise && omiseKey) {
+      window.Omise.setPublicKey(omiseKey);
     } else {
-      // console.log("Omise JS NOT LOAD:");
+      console.error("Omise key not found");
     }
 
     setCookie(CookieKey.PAYMENT_PLAN, '', {

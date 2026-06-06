@@ -1,5 +1,4 @@
 import HeaderMuMate from '@/components/header-v2';
-import Menu from '@/components/menu';
 import ModalAddFriend from '@/components/modal-add-freind';
 import ModalAIChatStreamingGeneral from '@/components/modal-ai-chat-general-streaming';
 import ModalBlocking from '@/components/modal-blocking';

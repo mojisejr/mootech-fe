@@ -1,8 +1,5 @@
 import HeaderMuMate from '@/components/header-v2';
-import Menu from '@/components/menu';
-import { UserMatchingCalculateApi } from '@/constants/api/api-user-matching-calculate';
 import { UserMatchingGetApi } from '@/constants/api/api-user-matching-get';
-import { UserMatchingGetDetailApi } from '@/constants/api/api-user-matching-get-detail';
 import { UserMatchingReCalculateApi } from '@/constants/api/api-user-matching-re-calculate';
 import { CONFIG } from '@/constants/config';
 import { CookieKey } from '@/constants/cookie-key';

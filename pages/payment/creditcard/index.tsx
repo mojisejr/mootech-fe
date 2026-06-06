@@ -1,7 +1,6 @@
 "use client";
 import Menu from '@/components/menu';
 import { API } from '@/constants/api/endpoint';
-import { CONFIG } from '@/constants/config';
 import { CookieKey } from '@/constants/cookie-key';
 import { PageRouter } from '@/constants/router';
 import { useSession } from "next-auth/react";
@@ -76,11 +75,12 @@ export default function PaymentCreditCardPage() {
 
 
   useEffect(() => {
-    if (window?.Omise) {
-      window.Omise.setPublicKey("pkey_5zlc86rc0y3bcea9eik");
-      // console.log("Omise JS Loaded:", window.Omise);
+    const omiseKey = process.env.NEXT_PUBLIC_OMISE_KEY;
+
+    if (window?.Omise && omiseKey) {
+      window.Omise.setPublicKey(omiseKey);
     } else {
-      // console.log("Omise JS NOT LOAD:");
+      console.error("Omise key not found");
     }
   }, []);
 

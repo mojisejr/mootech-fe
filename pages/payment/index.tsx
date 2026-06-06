@@ -1,16 +1,10 @@
 "use client";
 import Menu from '@/components/menu';
-import ModalPayment from '@/components/modal-payment';
-import ModalPaymentCreditCard from '@/components/modal-payment-creditcard';
-import ModalPaymentPromptPay from '@/components/modal-payment-qrcode';
-import { FortuneStickGet } from '@/constants/api/api-fortune-stick-get';
-import { MemberWithFriendGetNewFriendApi } from '@/constants/api/api-member-with-friend-get-new-friend';
-import { API } from '@/constants/api/endpoint';
 import { CONFIG } from '@/constants/config';
 import { CookieKey } from '@/constants/cookie-key';
 import { CreditCardChannel } from '@/constants/creditcard-channel';
 import { PageRouter } from '@/constants/router';
-import { signOut, useSession } from "next-auth/react";
+import { useSession } from "next-auth/react";
 import Head from "next/head";
 import Image from "next/image";
 import { useRouter } from "next/router";
@@ -78,11 +72,12 @@ export default function PaymentPage() {
 
 
   useEffect(() => {
-    if (window?.Omise) {
-      window.Omise.setPublicKey("pkey_5zlc86rc0y3bcea9eik");
-      // console.log("Omise JS Loaded:", window.Omise);
+    const omiseKey = process.env.NEXT_PUBLIC_OMISE_KEY;
+
+    if (window?.Omise && omiseKey) {
+      window.Omise.setPublicKey(omiseKey);
     } else {
-      // console.log("Omise JS NOT LOAD:");
+      console.error("Omise key not found");
     }
   }, []);
 

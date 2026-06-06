@@ -1,6 +1,5 @@
 "use client";
 import HeaderMuMate from '@/components/header-v2';
-import Menu from '@/components/menu';
 import { CookieKey } from '@/constants/cookie-key';
 import { PageRouter } from '@/constants/router';
 import { useSession } from "next-auth/react";
@@ -74,12 +73,13 @@ export default function PaymentThankyouPage() {
 
 
   useEffect(() => {
-    if (window?.Omise) {
-      window.Omise.setPublicKey("pkey_5zlc86rc0y3bcea9eik");
-   
-    } else {
+ const omiseKey = process.env.NEXT_PUBLIC_OMISE_KEY;
 
-    }
+if (window?.Omise && omiseKey) {
+  window.Omise.setPublicKey(omiseKey);
+} else {
+  console.error("Omise key not found");
+}
   }, []);
 
 

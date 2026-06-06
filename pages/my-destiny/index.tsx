@@ -1,12 +1,8 @@
 import BoxChineseTable from "@/components/box-chinese-table";
-import BoxFriendGetFriendInfo from "@/components/box-freind-get-freind";
 import BoxInfo from "@/components/box-info";
-import Header from "@/components/header";
 import HologramScale from "@/components/hologram-scale";
 import ModalComingSoon from "@/components/modal-coming-soon";
 import ModalFriendGetFriend from "@/components/modal-friend-get-friend";
-import ModalOTP from "@/components/modal-otp";
-import ProductCatalog from "@/components/product-catalog";
 import { ChineseHoroscopeGet } from "@/constants/api/api-chinese-horoscope-get";
 import { UserGetById } from "@/constants/api/api-user-get";
 import { CookieKey } from "@/constants/cookie-key";
@@ -18,15 +14,10 @@ import Image from "next/image";
 import { useRouter } from "next/router";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useCookies } from "react-cookie";
-import html2canvas from 'html2canvas';
-import { API } from "@/constants/api/endpoint";
 import { LogSaveImageInsert } from "@/constants/api/api-log-save-image-insert";
-import HeaderDestiny from "@/components/header-destiny";
 import { CompatibilityLoveCheck } from "@/constants/api/api-check-compatibility-love";
 import { CompatibilityWorkCheck } from "@/constants/api/api-check-compatibility-work";
 import Menu from "@/components/menu";
-import BoxYearInfo from "@/components/box-year-info";
-import ModalAIChatGeneral from "@/components/modal-ai-chat-general";
 import ModalAIChatStreamingGeneral from "@/components/modal-ai-chat-general-streaming";
 import { ChineseElement } from "@/constants/chinese-element";
 

@@ -1,4 +1,4 @@
-import ModalLoginSuccess from '@/components/modal-login-success';
+
 import { CONFIG } from '@/constants/config';
 import { CookieKey } from '@/constants/cookie-key';
 import { PageRouter } from '@/constants/router';

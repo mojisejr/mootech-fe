@@ -6,7 +6,6 @@ import { PaymentPackageGet } from '@/constants/api/api-payment-package-get';
 import { API } from '@/constants/api/endpoint';
 import { CONFIG } from '@/constants/config';
 import { CookieKey } from '@/constants/cookie-key';
-import { PaymentHoroscope } from '@/constants/payment-horoscope';
 import { PaymentPackage } from '@/constants/payment-package';
 import { PaymentPlan } from '@/constants/payment-plan';
 import { PageRouter } from '@/constants/router';
@@ -89,12 +88,6 @@ export default function PackagePricePage() {
 
 
   useEffect(() => {
-    // if (window?.Omise) {
-    //   window.Omise.setPublicKey("pkey_5zlc86rc0y3bcea9eik");
-    //   // console.log("Omise JS Loaded:", window.Omise);
-    // } else {
-    //   // console.log("Omise JS NOT LOAD:");
-    // }
 
       setCookie(CookieKey.PAYMENT_PLAN, '', {
         path: '/',
