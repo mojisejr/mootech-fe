@@ -1,0 +1,14 @@
+enum PaymentPackage {
+  MEMBER_FAMILY_2 = "FAMILY_2",
+  MEMBER_FAMILY_3 = "FAMILY_3",
+  MEMBER_FAMILY_4 = "FAMILY_4",
+  MEMBER_FAMILY_5 = "FAMILY_5",
+  MEMBER_FAMILY_6 = "FAMILY_6",
+  MEMBER_MONTHLY = "MONTHLY",
+  MEMBER_FREE = "FREE",
+  SOULMATE = "SOULMATE",
+  PAY_3Q = "PAY_3Q",
+  PAY_10Q = "PAY_10Q",
+}
+
+export { PaymentPackage };

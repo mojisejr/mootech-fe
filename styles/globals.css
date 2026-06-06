@@ -1,0 +1,76 @@
+@import url('https://fonts.googleapis.com/css2?family=Prompt:wght@400;500;600&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Sarabun:wght@400;500&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Chonburi:wght@400;500&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+Thai:wght@400;500&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@100;200;300;400;500;600;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+
+@layer components {
+  input[type='range'].slider {
+    -webkit-appearance: none;
+    height: 8px;
+    border-radius: 9999px;
+    background: linear-gradient(
+      to right,
+      #1B9AAF 0%,
+      #1B9AAF 50%,
+      #E5E7EB 50%,
+      #E5E7EB 100%
+    );
+    outline: none;
+    cursor: pointer;
+  }
+
+  input[type='range'].slider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 0px;
+    height: 0px;
+    border: none;
+  }
+
+  input[type='range'].slider::-moz-range-thumb {
+    width: 0px;
+    height: 0px;
+    border: none;
+  }
+
+
+  @keyframes slideUp {
+    0% {
+      transform: translateY(40px);
+      opacity: 0;
+    }
+    100% {
+      transform: translateY(0px);
+      opacity: 1;
+    }
+  }
+
+  .animate-slide-up {
+    animation: slideUp 0.4s ease-out forwards;
+  }
+
+  @keyframes fade1 {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0; }
+  }
+
+  @keyframes fade2 {
+    0%, 100% { opacity: 0; }
+    50% { opacity: 1; }
+  }
+  
+
+  .animate-fade1 {
+    animation: fade1 6s ease-in-out infinite;
+  }
+
+  .animate-fade2 {
+    animation: fade2 6s ease-in-out infinite;
+  }
+}
+

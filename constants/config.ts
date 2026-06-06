@@ -1,0 +1,3 @@
+export const CONFIG = {
+  EXPIRED_TIME_COOKIE: 604800, //  7 DAYS
+}
