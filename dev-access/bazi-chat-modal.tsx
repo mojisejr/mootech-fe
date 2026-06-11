@@ -4,6 +4,7 @@
 // (choices[].delta.content), holding the message array client-side (stateless continuity).
 import { useEffect, useRef, useState } from "react"
 import type { DevBirthProfile } from "./birth-adapter"
+import { SUGGESTED_QUESTIONS } from "./suggested-questions"
 
 type ComponentProps = {
   birth: DevBirthProfile
@@ -16,6 +17,18 @@ type ChatItem = {
   is_ai: boolean
   is_loading?: boolean
 }
+
+// --- resizable sizes (dev playground) ---
+// 3 docked sizes + fullscreen. vh/dvh keeps it responsive; max-h caps it on big screens.
+type Size = "compact" | "default" | "tall" | "full"
+const SIZE_ORDER: Size[] = ["compact", "default", "tall", "full"]
+const SIZE_CLASS: Record<Size, string> = {
+  compact: "h-[45vh] max-h-[420px] rounded-t-[24px]",
+  default: "h-[62vh] max-h-[560px] rounded-t-[24px]",
+  tall: "h-[85vh] max-h-[760px] rounded-t-[24px]",
+  full: "h-[100dvh] rounded-none",
+}
+const SIZE_KEY = "dev-bazi-chat-size"
 
 const TypingDots = () => (
   <span className="inline-flex items-center gap-1">
@@ -33,8 +46,32 @@ const BaziChatModal = ({ birth, onClose }: ComponentProps) => {
   const [historyChat, setHistoryChat] = useState<ChatItem[]>([])
   const [chatMessage, setChatMessage] = useState("")
   const [isCallAI, setIsCallAI] = useState(false)
+  const [size, setSize] = useState<Size>("default")
   const abortRef = useRef<AbortController | null>(null)
   const bottomRef = useRef<HTMLDivElement | null>(null)
+
+  // restore last chosen size
+  useEffect(() => {
+    const saved = typeof window !== "undefined" ? window.localStorage.getItem(SIZE_KEY) : null
+    if (saved && (SIZE_ORDER as string[]).includes(saved)) setSize(saved as Size)
+  }, [])
+
+  const stepSize = (dir: 1 | -1) => {
+    setSize((prev) => {
+      const i = SIZE_ORDER.indexOf(prev)
+      const next = SIZE_ORDER[Math.min(SIZE_ORDER.length - 1, Math.max(0, i + dir))]
+      if (typeof window !== "undefined") window.localStorage.setItem(SIZE_KEY, next)
+      return next
+    })
+  }
+
+  const sizeIdx = SIZE_ORDER.indexOf(size)
+
+  // "next suggested questions": show the ones not asked yet (so the list shrinks as you go)
+  const askedSet = new Set(
+    historyChat.filter((m) => !m.is_ai).map((m) => m.message.trim()),
+  )
+  const remainingSuggestions = SUGGESTED_QUESTIONS.filter((q) => !askedSet.has(q))
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" })
@@ -47,8 +84,8 @@ const BaziChatModal = ({ birth, onClose }: ComponentProps) => {
   const updateAi = (id: string, fn: (prev: ChatItem) => ChatItem) =>
     setHistoryChat((list) => list.map((m) => (m.id === id ? fn(m) : m)))
 
-  const onSubmitChat = async () => {
-    const msg = chatMessage.trim()
+  const onSubmitChat = async (overrideText?: string) => {
+    const msg = (overrideText ?? chatMessage).trim()
     if (!msg || isCallAI) return
 
     const userItem: ChatItem = { id: nextId(), message: msg, is_ai: false }
@@ -154,22 +191,56 @@ const BaziChatModal = ({ birth, onClose }: ComponentProps) => {
   }
 
   return (
-    <div className="fixed z-[9999] bottom-0 left-0 w-full h-[410px] rounded-t-[24px] overflow-hidden shadow-2xl flex flex-col">
+    <div
+      className={
+        "fixed z-[9999] bottom-0 left-0 w-full overflow-hidden shadow-2xl flex flex-col" +
+        " transition-[height,border-radius] duration-300 ease-out " +
+        SIZE_CLASS[size]
+      }
+    >
       {/* header */}
       <div
         style={{
           background:
             "linear-gradient(180deg, rgba(37,153,174,1) 0%, rgba(58,120,169,1) 100%)",
         }}
-        className="flex-none w-full flex flex-nowrap p-[24px] items-center"
+        className="flex-none w-full flex flex-nowrap p-[24px] items-center gap-3"
       >
-        <span className="text-white font-medium">ซินแส Bazi (dev)</span>
+        <span className="text-white font-medium whitespace-nowrap">ซินแส Bazi (dev)</span>
         <div className="w-full grow flex justify-center">
           <span className="h-[3px] bg-white w-[50px] rounded-[100px]" />
         </div>
+        <div className="flex-none flex items-center gap-1">
+          <button
+            onClick={() => stepSize(-1)}
+            disabled={sizeIdx === 0}
+            title="ย่อ"
+            aria-label="ย่อหน้าต่างแชท"
+            className={
+              (sizeIdx === 0 ? "opacity-40 cursor-default" : "cursor-pointer hover:bg-white/15") +
+              " text-white w-[28px] h-[28px] rounded-full flex items-center justify-center text-[18px] leading-none"
+            }
+          >
+            −
+          </button>
+          <button
+            onClick={() => stepSize(1)}
+            disabled={sizeIdx === SIZE_ORDER.length - 1}
+            title={sizeIdx === SIZE_ORDER.length - 2 ? "เต็มจอ" : "ขยาย"}
+            aria-label="ขยายหน้าต่างแชท"
+            className={
+              (sizeIdx === SIZE_ORDER.length - 1
+                ? "opacity-40 cursor-default"
+                : "cursor-pointer hover:bg-white/15") +
+              " text-white w-[28px] h-[28px] rounded-full flex items-center justify-center text-[16px] leading-none"
+            }
+          >
+            {sizeIdx >= SIZE_ORDER.length - 2 ? "⛶" : "+"}
+          </button>
+        </div>
         <button
           onClick={onClose}
-          className="text-white text-[20px] leading-none cursor-pointer flex-none"
+          className="text-white text-[20px] leading-none cursor-pointer flex-none w-[28px] h-[28px] rounded-full flex items-center justify-center hover:bg-white/15"
           aria-label="close"
         >
           ✕
@@ -178,7 +249,7 @@ const BaziChatModal = ({ birth, onClose }: ComponentProps) => {
 
       {/* body */}
       <div className="w-full flex-1 min-h-0 flex flex-col bg-[#44588B]">
-        <div className="flex-1 min-h-0 overflow-y-auto w-full py-[20px]">
+        <div className="flex-1 min-h-0 overflow-y-auto w-full py-[20px] [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
           <div className="w-full flex flex-wrap px-[24px]">
             <div className="w-full text-white/70 text-[12px] mb-2">
               ดวงจาก: {birth.dob} {birth.time || "(ไม่ระบุเวลา → 12:00)"} · {birth.gender}
@@ -212,6 +283,31 @@ const BaziChatModal = ({ birth, onClose }: ComponentProps) => {
           </div>
           <div ref={bottomRef} />
         </div>
+
+        {/* suggested "next questions" — horizontal slider, hidden scrollbar, responsive */}
+        {remainingSuggestions.length > 0 && (
+          <div className="flex-none w-full">
+            <div className="flex gap-2 overflow-x-auto px-[24px] pb-[10px] [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
+              {remainingSuggestions.map((q) => (
+                <button
+                  key={q}
+                  onClick={() => onSubmitChat(q)}
+                  disabled={isCallAI}
+                  title={q}
+                  className={
+                    (isCallAI
+                      ? "opacity-50 cursor-default"
+                      : "cursor-pointer hover:bg-white/20 active:scale-[0.98]") +
+                    " flex-none whitespace-nowrap rounded-full border border-white/40 bg-white/10" +
+                    " text-white/90 text-[13px] py-[7px] px-[14px] transition"
+                  }
+                >
+                  {q}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* input */}
         <div className="flex-none h-[80px] w-full flex items-center px-[24px]">
