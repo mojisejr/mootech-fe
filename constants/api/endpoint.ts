@@ -5,6 +5,12 @@ const { publicRuntimeConfig } = getConfig()
 export const ENDPOINT = "https://bazichart.mumate.co/api/v1"; // "https://bazichart-dev.mumate.co/api/v1" // publicRuntimeConfig.NEXT_STATIC_HOST
 const backendURLGenerator = (pathname: string) => `${ENDPOINT}${pathname}`
 
+// --- strangler-fig base-URL split (#mootech-fullstack-supabase-fold) ---
+// Endpoints MIGRATED into this Next.js app (pages/api/* -> Supabase via Drizzle) use
+// `localApi` (same-origin /api). Everything not yet migrated stays on the NestJS
+// `backendURLGenerator` (ENDPOINT). To roll an endpoint back, flip localApi -> backendURLGenerator.
+const localApi = (pathname: string) => `/api${pathname}`
+
 export const API = {
   chinese_horoscope: {
     calculate: backendURLGenerator('/chinese-horoscope'),
@@ -34,7 +40,7 @@ export const API = {
     get_share_type: backendURLGenerator('/survey/share-type'),
   },
   product: {
-    get: backendURLGenerator('/product'),
+    get: localApi('/product'), // MIGRATED -> pages/api/product.ts (Supabase/Drizzle)
   },
   log_activity: {
     get: backendURLGenerator('/log-activity'),
