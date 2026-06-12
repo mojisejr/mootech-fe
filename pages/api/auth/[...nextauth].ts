@@ -4,9 +4,35 @@ import FacebookProvider from "next-auth/providers/facebook";
 import GoogleProvider from "next-auth/providers/google";
 import LineProvider from "next-auth/providers/line";
 import TwitterProvider from "next-auth/providers/twitter";
+import CredentialsProvider from "next-auth/providers/credentials";
+
+// DEV-ONLY login bypass (no OAuth, no old server). Active only under `next dev`
+// (NODE_ENV !== production) — auto-disabled in any production build/deploy.
+// Lets local testing pass the useSession gate; user_id flows via cookie (see /dev-login).
+const isDev = process.env.NODE_ENV !== "production";
 
 export const authOptions: NextAuthOptions = {
   providers: [
+    ...(isDev
+      ? [
+          CredentialsProvider({
+            id: "dev",
+            name: "Dev Login (no OAuth)",
+            credentials: {
+              user_id: { label: "user_id", type: "text" },
+              name: { label: "name", type: "text" },
+            },
+            async authorize(credentials) {
+              if (!credentials?.user_id) return null;
+              return {
+                id: credentials.user_id,
+                name: credentials.name || "Dev User",
+                email: "",
+              } as any;
+            },
+          }),
+        ]
+      : []),
     LineProvider({
       clientId: process.env.LINE_CLIENT_ID as string,
       clientSecret: process.env.LINE_CLIENT_SECRET as string,

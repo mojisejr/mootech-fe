@@ -224,6 +224,15 @@ useEffect(() => {
   const [isRegister, setIsRegister] = useState<boolean>(true)
   useEffect(() => {
     if (status === "authenticated") {
+      // DEV bypass: /dev-login already set MEMBER_ID cookie -> skip old-server register-or-login
+      if (cookies[CookieKey.LOGIN_PROVIDER] === "DEV") {
+        if (isRegister) {
+          setIsLogin(true)
+          setInfoUserId(cookies[CookieKey.MEMBER_ID])
+          setIsRegister(false)
+        }
+        return
+      }
       // clearToken()
       // router.replace(`/?callback=${callback}`);
       if (session && isRegister == true) {
