@@ -2,7 +2,10 @@ import getConfig from 'next/config'
 
 const { publicRuntimeConfig } = getConfig()
 
-export const ENDPOINT = "https://bazichart.mumate.co/api/v1"; // "https://bazichart-dev.mumate.co/api/v1" // publicRuntimeConfig.NEXT_STATIC_HOST
+// Backend base for NOT-yet-migrated endpoints (calc-family etc.). Env-overridable so local
+// dev can point at the local NestJS-on-Supabase (NEXT_PUBLIC_BACKEND_URL=http://localhost:3000)
+// instead of old prod (which is a different DB and doesn't know our dump's users).
+export const ENDPOINT = process.env.NEXT_PUBLIC_BACKEND_URL || "https://bazichart.mumate.co/api/v1";
 const backendURLGenerator = (pathname: string) => `${ENDPOINT}${pathname}`
 
 // --- strangler-fig base-URL split (#mootech-fullstack-supabase-fold) ---
@@ -26,7 +29,7 @@ export const API = {
     verify: backendURLGenerator('/otp/verify'),
   },
   user: {
-    get: backendURLGenerator('/user'),
+    get: localApi('/user'), // MIGRATED -> pages/api/user.ts (Supabase/Drizzle, getUserById parity)
     register_tel: backendURLGenerator('/user/register-tel'),
     register_line: backendURLGenerator('/user/register-line'),
     update_profile_pic: backendURLGenerator('/user/profile-pic'),
