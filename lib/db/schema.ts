@@ -364,7 +364,7 @@ export const heavenlySpiritCardLog = pgTable("heavenly_spirit_card_log", {
 
 export const logActivity = pgTable("log_activity", {
 	id: bigserial({ mode: "bigint" }).primaryKey().notNull(),
-	createat: varchar({ length: 255 }).notNull(),
+	createat: varchar("createAt", { length: 255 }).notNull(),
 	// You can use { mode: "bigint" } if numbers are exceeding js number limitations
 	activityId: bigint("activity_id", { mode: "number" }).notNull(),
 	// You can use { mode: "bigint" } if numbers are exceeding js number limitations
@@ -385,7 +385,7 @@ export const logAi = pgTable("log_ai", {
 export const logMatching = pgTable("log_matching", {
 	matchingId: varchar("matching_id", { length: 255 }).primaryKey().notNull(),
 	userId: varchar("user_id", { length: 255 }).notNull(),
-	createat: varchar({ length: 255 }).notNull(),
+	createat: varchar("createAt", { length: 255 }).notNull(),
 	type: varchar({ length: 255 }).notNull(),
 	name: varchar({ length: 255 }).notNull(),
 	dob: varchar({ length: 255 }).notNull(),
@@ -415,7 +415,7 @@ export const logMemberPayAsUse = pgTable("log_member_pay_as_use", {
 export const logSaveImage = pgTable("log_save_image", {
 	id: bigserial({ mode: "bigint" }).primaryKey().notNull(),
 	userId: varchar("user_id", { length: 255 }).notNull(),
-	createat: varchar({ length: 255 }).notNull(),
+	createat: varchar("createAt", { length: 255 }).notNull(),
 	page: varchar({ length: 255 }).default('PROFILE').notNull(),
 }, (table) => [
 	index("idx_17880_idx_0d3a2328bbbb156b0c292eac08").using("btree", table.userId.asc().nullsLast().op("text_ops")),
@@ -423,7 +423,7 @@ export const logSaveImage = pgTable("log_save_image", {
 
 export const logSurvey = pgTable("log_survey", {
 	id: bigserial({ mode: "bigint" }).primaryKey().notNull(),
-	createat: varchar({ length: 255 }).notNull(),
+	createat: varchar("createAt", { length: 255 }).notNull(),
 	code: varchar({ length: 255 }).notNull(),
 	result: text().notNull(),
 	userId: varchar("user_id", { length: 255 }).notNull(),
@@ -434,7 +434,7 @@ export const logSurvey = pgTable("log_survey", {
 
 export const logCalculate = pgTable("log_calculate", {
 	id: bigserial({ mode: "bigint" }).primaryKey().notNull(),
-	createat: varchar({ length: 255 }).notNull(),
+	createat: varchar("createAt", { length: 255 }).notNull(),
 	name: varchar({ length: 255 }).notNull(),
 	dob: varchar({ length: 255 }).notNull(),
 	time: varchar({ length: 255 }).notNull(),
@@ -451,7 +451,7 @@ export const logCalculate = pgTable("log_calculate", {
 
 export const logWorkVibe = pgTable("log_work_vibe", {
 	id: bigserial({ mode: "bigint" }).primaryKey().notNull(),
-	createat: varchar({ length: 255 }).notNull(),
+	createat: varchar("createAt", { length: 255 }).notNull(),
 	type: varchar({ length: 255 }).notNull(),
 	name: varchar({ length: 255 }).notNull(),
 	dob: varchar({ length: 255 }).notNull(),
@@ -471,7 +471,7 @@ export const logWorkVibe = pgTable("log_work_vibe", {
 
 export const logLoveMate = pgTable("log_love_mate", {
 	id: bigserial({ mode: "bigint" }).primaryKey().notNull(),
-	createat: varchar({ length: 255 }).notNull(),
+	createat: varchar("createAt", { length: 255 }).notNull(),
 	name: varchar({ length: 255 }).notNull(),
 	dob: varchar({ length: 255 }).notNull(),
 	time: varchar({ length: 255 }).notNull(),

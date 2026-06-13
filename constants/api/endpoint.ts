@@ -38,7 +38,7 @@ export const API = {
     register_or_login: backendURLGenerator('/user/register-login')
   },
   survey: {
-    get: backendURLGenerator('/survey'),
+    get: localApi('/survey'), // MIGRATED -> pages/api/survey/index.ts (static questionnaire)
     calculate: backendURLGenerator('/survey/calculate'),
     get_share_type: localApi('/survey/share-type'), // MIGRATED -> pages/api/survey/share-type.ts
   },
@@ -59,7 +59,7 @@ export const API = {
     download: backendURLGenerator('/card/preview'),
   },
   log_save_image: {
-    insert: backendURLGenerator('/log-save-image')
+    insert: localApi('/log-save-image') // MIGRATED -> pages/api/log-save-image.ts (Drizzle insert)
   },
   fortune_stick: {
     get: backendURLGenerator('/fortune-stick')
@@ -85,7 +85,7 @@ export const API = {
   member_with_friend: {
     create: backendURLGenerator('/member-with-friend'),
     get: backendURLGenerator('/member-with-friend'),
-    get_detail: backendURLGenerator('/member-with-friend/detail'),
+    get_detail: localApi('/member-with-friend/detail'), // MIGRATED -> pages/api/member-with-friend/detail.ts (read, no gate)
     update: backendURLGenerator('/member-with-friend'),
     update_profile: backendURLGenerator('/member-with-friend/profile'),
     new_friend: backendURLGenerator('/member-with-friend/new-friend'),
