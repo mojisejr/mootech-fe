@@ -46,10 +46,10 @@ export const API = {
     get: localApi('/product'), // MIGRATED -> pages/api/product.ts (Supabase/Drizzle)
   },
   log_activity: {
-    get: backendURLGenerator('/log-activity'),
+    get: localApi('/log-activity'), // MIGRATED -> pages/api/log-activity.ts (Supabase/Drizzle)
   },
   log_survey: {
-    get: backendURLGenerator('/log-survey'),
+    get: localApi('/log-survey'), // MIGRATED -> pages/api/log-survey.ts (Supabase/Drizzle)
   },
   object_storage: {
     upload: backendURLGenerator('/object-storage/upload-file'),
