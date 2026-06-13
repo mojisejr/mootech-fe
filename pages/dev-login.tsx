@@ -36,7 +36,10 @@ export default function DevLogin() {
     setCookie(CookieKey.MEMBER_NAME, name, opts);
     setCookie(CookieKey.LOGIN_PROVIDER, "DEV", opts);
     await signIn("dev", { user_id: userId, name, redirect: false });
-    router.push("/");
+    // FULL reload (not router.push) so cookies are committed before any page's
+    // useCookies reads them — avoids the my-destiny user_id=undefined race.
+    await new Promise((r) => setTimeout(r, 300));
+    window.location.href = "/";
   };
 
   return (
