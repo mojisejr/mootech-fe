@@ -84,7 +84,7 @@ export const API = {
   },
   member_with_friend: {
     create: backendURLGenerator('/member-with-friend'),
-    get: backendURLGenerator('/member-with-friend'),
+    get: localApi('/member-with-friend'), // MIGRATED -> pages/api/member-with-friend/index.ts (read + usage gate + user join)
     get_detail: localApi('/member-with-friend/detail'), // MIGRATED -> pages/api/member-with-friend/detail.ts (read, no gate)
     update: backendURLGenerator('/member-with-friend'),
     update_profile: backendURLGenerator('/member-with-friend/profile'),
@@ -100,8 +100,8 @@ export const API = {
     check: backendURLGenerator('/member-payment-code/check'),
   },
   chinese_calendar: {
-    diary: backendURLGenerator('/chinese-calendar/diary'),
-    month: backendURLGenerator('/chinese-calendar/month'),
+    diary: localApi('/chinese-calendar/diary'), // MIGRATED -> pages/api/chinese-calendar/diary.ts (5 lookups + usage gate)
+    month: localApi('/chinese-calendar/month'), // MIGRATED -> pages/api/chinese-calendar/month.ts (usage gate)
   },
   payment_package: {
     get: localApi('/payment-package'), // MIGRATED -> pages/api/payment-package.ts
