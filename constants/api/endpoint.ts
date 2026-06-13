@@ -40,7 +40,7 @@ export const API = {
   survey: {
     get: backendURLGenerator('/survey'),
     calculate: backendURLGenerator('/survey/calculate'),
-    get_share_type: backendURLGenerator('/survey/share-type'),
+    get_share_type: localApi('/survey/share-type'), // MIGRATED -> pages/api/survey/share-type.ts
   },
   product: {
     get: localApi('/product'), // MIGRATED -> pages/api/product.ts (Supabase/Drizzle)
@@ -104,6 +104,6 @@ export const API = {
     month: backendURLGenerator('/chinese-calendar/month'),
   },
   payment_package: {
-    get: backendURLGenerator('/payment-package'),
+    get: localApi('/payment-package'), // MIGRATED -> pages/api/payment-package.ts
   },
 }
