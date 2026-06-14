@@ -2,10 +2,25 @@ import getConfig from 'next/config'
 
 const { publicRuntimeConfig } = getConfig()
 
-// Backend base for NOT-yet-migrated endpoints (calc-family etc.). Env-overridable so local
-// dev can point at the local NestJS-on-Supabase (NEXT_PUBLIC_BACKEND_URL=http://localhost:3000)
-// instead of old prod (which is a different DB and doesn't know our dump's users).
-export const ENDPOINT = process.env.NEXT_PUBLIC_BACKEND_URL || "https://bazichart.mumate.co/api/v1";
+// Backend base for NOT-yet-migrated endpoints (calc-family etc.). Points ONLY at our own
+// NestJS-on-Supabase. Default is the local NestJS (:4000). The OLD-PROD URL has been removed
+// on purpose — see the guardrail below.
+//
+// 🚫 GUARDRAIL — NEVER touch the old team's database (#mootech-fullstack-supabase-fold)
+// Our Supabase is a one-time pgloader copy of the old MySQL; the two have diverged. We must
+// NEVER read/write the old prod backend (it would hit live users' real DB). This codebase must
+// never reference `bazichart.mumate.co` (or any old-prod host). The assert below fails LOUD if
+// ENDPOINT is ever pointed there via env — do not weaken or remove it.
+export const ENDPOINT = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:4000";
+
+const OLD_PROD_FORBIDDEN = /bazichart\.mumate\.co/i;
+if (OLD_PROD_FORBIDDEN.test(ENDPOINT)) {
+  throw new Error(
+    `[GUARDRAIL] ENDPOINT points at the old prod DB (${ENDPOINT}). ` +
+      `We never touch the old team's database. Set NEXT_PUBLIC_BACKEND_URL to our own NestJS-on-Supabase.`,
+  );
+}
+
 const backendURLGenerator = (pathname: string) => `${ENDPOINT}${pathname}`
 
 // --- strangler-fig base-URL split (#mootech-fullstack-supabase-fold) ---
