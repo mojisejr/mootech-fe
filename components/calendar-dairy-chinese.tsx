@@ -33,6 +33,9 @@ const CalendarChineseDairyCard = ({
   const [calendarInfo, setCalendarInfo] = useState<any>(null)
 
   const [isAllow, setIsAllow] = useState<boolean>(false)
+  // Don't show the lock overlay until the membership check has actually returned,
+  // otherwise members see a false "locked" flash before is_allow resolves.
+  const [allowChecked, setAllowChecked] = useState<boolean>(false)
 
 
   
@@ -42,6 +45,7 @@ const callApiCalendar = async (day: number, month: number, year: number) => {
   if (result) {
     setIsAllow(result.is_allow)
     setCalendarInfo(result)
+    setAllowChecked(true)
   }
 }
 
@@ -425,7 +429,7 @@ const getTime = (info: any) => {
                     </div>
 
                     {
-                        isAllow == false && (
+                        allowChecked && isAllow == false && (
                           <div className="absolute inset-0 z-50 flex items-center justify-center
                                           backdrop-blur-md bg-white/40 rounded-[16px]">
                             

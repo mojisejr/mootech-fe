@@ -75,6 +75,10 @@ export default function ProfilePage() {
   const [isShowFGF, setIsShowFGF] = useState<boolean>(false)
   const [linkRefer, setLinkRefer] = useState<any>(null)
 
+  // Data-ready gate: hold the page until the user fetch resolves, so we never
+  // flash empty/"-" birth fields before the data arrives.
+  const [profileLoaded, setProfileLoaded] = useState<boolean>(false)
+
   
     // Single auth guard — redirect ONLY when truly anonymous; wait while loading.
     useEffect(() => {
@@ -103,23 +107,28 @@ export default function ProfilePage() {
 
 
   const callApiGetUser = async (user_id: string) => {
-    const result = await UserGetById(user_id);
-    if (result && result.user_id) {
-      setMyDob(result.dob)
-      setMyTime(result.time)  
-      setMyGender(result.gender)   
-      setPlaceName(result.place_name)
-      if (result.picture_url) {
-        setDisplayImage(result.picture_url)
-      }
+    try {
+      const result = await UserGetById(user_id);
+      if (result && result.user_id) {
+        setMyDob(result.dob)
+        setMyTime(result.time)
+        setMyGender(result.gender)
+        setPlaceName(result.place_name)
+        if (result.picture_url) {
+          setDisplayImage(result.picture_url)
+        }
 
-      setTotalPoint(result.total_point)
-      setUsedPoint(result.used_point)   
+        setTotalPoint(result.total_point)
+        setUsedPoint(result.used_point)
 
-      if (result.payment && result.payment.expire_at) {
-        setMemberType('VIP')
-        setMemberExpired(result.payment.expire_at)
+        if (result.payment && result.payment.expire_at) {
+          setMemberType('VIP')
+          setMemberExpired(result.payment.expire_at)
+        }
       }
+    } finally {
+      // Always release the gate — even on error — to avoid an infinite spinner.
+      setProfileLoaded(true)
     }
   }
 
@@ -221,8 +230,9 @@ const [imageSrc, setImageSrc] = useState<string | null>(null);
   }
 
 
-  // Hold the page until identity resolves — prevents the blank/flash render.
-  if (authStatus !== "authed") {
+  // Hold the page until identity resolves AND the user data has actually loaded —
+  // prevents the brief flash of empty "-" birth fields before the fetch returns.
+  if (authStatus !== "authed" || !profileLoaded) {
     return <ScreenLoading />
   }
 

@@ -85,6 +85,10 @@ export default function ResultPage() {
     }, [authStatus]);
 
 
+  // Data-ready gate: hold the page until the main content (horoscope) has loaded,
+  // so the page doesn't render empty sections before the data arrives.
+  const [destinyLoaded, setDestinyLoaded] = useState<boolean>(false)
+
   const [resultHoroscope, setResultHoroscope] = useState<any>(null)
   const [resultPower, setResultPower] = useState<any>(null)
   const [resultSummary, setResultSummary] = useState<any>(null)
@@ -128,23 +132,36 @@ export default function ResultPage() {
   }, [authStatus, authUserId])
 
 const callApiGetUser = async (user_id: string) => {
-  const result = await UserGetById(user_id);
-  if (result && result.user_id) {
+  try {
+    const result = await UserGetById(user_id);
+    if (result && result.user_id) {
 
-     setCode(result.result_code)
+       setCode(result.result_code)
 
-      // Only replace the avatar with a truthy value — never flicker to placeholder.
-      if (result.picture_url) {
-        setDisplayImage(result.picture_url)
-        setImgSrc(result.picture_url)
-      }
+        // Only replace the avatar with a truthy value — never flicker to placeholder.
+        if (result.picture_url) {
+          setDisplayImage(result.picture_url)
+          setImgSrc(result.picture_url)
+        }
 
-      setTotalPoint(result.total_point)
-      setUsedPoint(result.used_point)   
+        setTotalPoint(result.total_point)
+        setUsedPoint(result.used_point)
 
-      if (result.is_refresh == true) {
-        router.replace(PageRouter.HOME)
-      }
+        if (result.is_refresh == true) {
+          router.replace(PageRouter.HOME)
+          return
+        }
+
+        // No chart to fetch → page is ready now. Otherwise the [code,userId]
+        // effect will fetch the horoscope and release the gate in callGetResult.
+        if (!result.result_code) {
+          setDestinyLoaded(true)
+        }
+    } else {
+      setDestinyLoaded(true)
+    }
+  } catch {
+    setDestinyLoaded(true)
   }
 }
 
@@ -176,8 +193,8 @@ const callApiGetUser = async (user_id: string) => {
 
 
       setImageUrl(data.share_profile_url)
-      
-      
+
+      setDestinyLoaded(true)
     } else {
       router.replace(PageRouter.LOGIN)
     }
@@ -716,8 +733,9 @@ const openMenu = (isOpenMenu: boolean) => {
   }
 
 
-  // Hold the page until identity resolves — prevents the blank/flash render.
-  if (authStatus !== "authed") {
+  // Hold the page until identity resolves AND the main content has loaded —
+  // prevents rendering empty sections before the horoscope data arrives.
+  if (authStatus !== "authed" || !destinyLoaded) {
     return <ScreenLoading />
   }
 
