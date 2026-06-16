@@ -47,6 +47,9 @@ const [listCalendars, setListCalendars] = useState<GridItem[]>(
 
 
   const [isAllow, setIsAllow] = useState<boolean>(false)
+  // Don't show the lock overlay until the membership check has returned,
+  // otherwise members see a false "locked" flash before is_allow resolves.
+  const [allowChecked, setAllowChecked] = useState<boolean>(false)
 
   const gotoPayment = () => {
     router.replace(PageRouter.PACKAGE_PRICE)
@@ -90,6 +93,7 @@ const callApiCalendar = async (month: number, year: number) => {
   if (result) {
     setIsAllow(result.is_allow)
     setCalendarInfo(result)
+    setAllowChecked(true)
   }
 }
 
@@ -548,7 +552,7 @@ const getStateDayBuddhistDay = (item: any) => {
           </div>
 
                     {
-                        isAllow == false && (
+                        allowChecked && isAllow == false && (
                           <div className="absolute inset-0 z-50 flex items-center justify-center
                                           backdrop-blur-md bg-white/40 rounded-[16px]">
                             
