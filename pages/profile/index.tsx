@@ -16,6 +16,8 @@ import Image from "next/image";
 import { useRouter } from "next/router";
 import { useEffect, useRef, useState } from "react";
 import { useCookies } from "react-cookie";
+import { useCurrentUser } from "@/lib/auth/use-current-user";
+import ScreenLoading from "@/components/screen-loading";
 const ImageCropper = dynamic(() => import('../../components/image-cropper'), { ssr: false });
 
 export default function ProfilePage() {
@@ -43,6 +45,7 @@ export default function ProfilePage() {
   const router = useRouter();
 
     const { data: session, status } = useSession();
+    const { userId: authUserId, status: authStatus } = useCurrentUser();
     const [userId, setUserId] = useState<string>('')
     const [displayName, setDisplayName] = useState<string>('')
     const [displaySurname, setDisplaySurname] = useState<string>('')
@@ -73,46 +76,30 @@ export default function ProfilePage() {
   const [linkRefer, setLinkRefer] = useState<any>(null)
 
   
+    // Single auth guard — redirect ONLY when truly anonymous; wait while loading.
     useEffect(() => {
-      if (status === "unauthenticated") {
+      if (authStatus === "anon") {
         router.replace(PageRouter.LOGIN)
       }
-    }, [status, session]);
+    }, [authStatus]);
 
-      
+
+  // Load profile data ONLY once identity is resolved — never UserGetById(undefined).
   useEffect(() => {
+    if (authStatus !== "authed") return
 
-
-  
-    const dataId = cookies[CookieKey.MEMBER_ID]
-    const dataName = cookies[CookieKey.MEMBER_NAME]
-    const dataSurName = cookies[CookieKey.MEMBER_SURNAME]
-    const dataImage = cookies[CookieKey.MEMBER_IMAGE]
-    const dataReferCode = cookies[CookieKey.MEMBER_REFER_CODE]
-    
-
-    if (dataId) {
- 
-      setUserId(dataId)
-      setDisplayName(dataName)
-      setDisplaySurname(dataSurName)
-
-      setDisplayImage(dataImage)
-
-      setReferCode(dataReferCode)
-
-      setLinkRefer(publicRuntimeConfig.NEXT_STATIC_NEXTAUTH_URL+'/login?callback=' + dataReferCode)
-
-      callApiGetUser(dataId)
-      callApiGetLogSurvey(dataId)
-
+    setUserId(authUserId)
+    setDisplayName(cookies[CookieKey.MEMBER_NAME])
+    setDisplaySurname(cookies[CookieKey.MEMBER_SURNAME])
+    if (cookies[CookieKey.MEMBER_IMAGE]) {
+      setDisplayImage(cookies[CookieKey.MEMBER_IMAGE])
     }
-    
-  
-  },  [
-        cookies[CookieKey.MEMBER_ID, CookieKey.MEMBER_NAME, CookieKey.MEMBER_SURNAME, CookieKey.MEMBER_IMAGE, CookieKey.MEMBER_REFER_CODE]
-      ]
-  )
+    setReferCode(cookies[CookieKey.MEMBER_REFER_CODE])
+    setLinkRefer(publicRuntimeConfig.NEXT_STATIC_NEXTAUTH_URL+'/login?callback=' + cookies[CookieKey.MEMBER_REFER_CODE])
+
+    callApiGetUser(authUserId)
+    callApiGetLogSurvey(authUserId)
+  }, [authStatus, authUserId])
 
 
   const callApiGetUser = async (user_id: string) => {
@@ -122,9 +109,11 @@ export default function ProfilePage() {
       setMyTime(result.time)  
       setMyGender(result.gender)   
       setPlaceName(result.place_name)
-      setDisplayImage(result.picture_url)
+      if (result.picture_url) {
+        setDisplayImage(result.picture_url)
+      }
 
-      setTotalPoint(result.total_point)   
+      setTotalPoint(result.total_point)
       setUsedPoint(result.used_point)   
 
       if (result.payment && result.payment.expire_at) {
@@ -230,7 +219,12 @@ const [imageSrc, setImageSrc] = useState<string | null>(null);
       setErrorMessageCode('ไม่สามารถใช้งาน code นี้ได้')
     }
   }
-  
+
+
+  // Hold the page until identity resolves — prevents the blank/flash render.
+  if (authStatus !== "authed") {
+    return <ScreenLoading />
+  }
 
   return (
     <div
