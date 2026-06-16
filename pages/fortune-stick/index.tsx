@@ -1,3 +1,4 @@
+import ScreenLoading from '@/components/screen-loading';
 import HeaderMuMate from '@/components/header-v2';
 import ModalAIChatStreamingGeneral from '@/components/modal-ai-chat-general-streaming';
 import ModalBlocking from '@/components/modal-blocking';
@@ -124,7 +125,7 @@ export default function FortuneStickPage() {
  
   // ✅ Loading
   if (status === "loading") {
-    return <p>Loading...</p>;
+    return <ScreenLoading />;
   }
 
 

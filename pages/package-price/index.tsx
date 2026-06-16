@@ -1,4 +1,5 @@
 "use client";
+import ScreenLoading from '@/components/screen-loading';
 import HeaderMuMate from '@/components/header-v2';
 import ModalBlocking from '@/components/modal-blocking';
 import ModalPayment from '@/components/modal-payment';
@@ -158,7 +159,7 @@ export default function PackagePricePage() {
  
   // ✅ Loading
   if (status === "loading") {
-    return <p>Loading...</p>;
+    return <ScreenLoading />;
   }
 
 

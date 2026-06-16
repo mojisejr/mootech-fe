@@ -1,4 +1,5 @@
 "use client";
+import ScreenLoading from '@/components/screen-loading';
 import Menu from '@/components/menu';
 import { CONFIG } from '@/constants/config';
 import { CookieKey } from '@/constants/cookie-key';
@@ -133,7 +134,7 @@ export default function PaymentPage() {
  
   // ✅ Loading
   if (status === "loading") {
-    return <p>Loading...</p>;
+    return <ScreenLoading />;
   }
 
   

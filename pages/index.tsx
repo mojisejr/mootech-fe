@@ -2,6 +2,7 @@ import HeaderMuMate from '@/components/header-v2';
 import Menu from '@/components/menu';
 import ModalEmail from '@/components/modal-email';
 import ModalLoginSuccess from '@/components/modal-login-success';
+import ScreenLoading from '@/components/screen-loading';
 import { MemberWithFriendGetNewFriendApi } from '@/constants/api/api-member-with-friend-get-new-friend';
 import { UserCheckLine } from '@/constants/api/api-user-check-line';
 import { UserRegisterOrLogin } from '@/constants/api/api-user-register-or-login';
@@ -275,7 +276,7 @@ useEffect(() => {
  
   // ✅ Loading
   if (status === "loading") {
-    return <p>Loading...</p>;
+    return <ScreenLoading />;
   }
 
   const onCloseModalEmail = () => {

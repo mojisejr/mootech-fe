@@ -86,7 +86,6 @@ const ModalSelectFriend = ({
 
   const onCopyLink = async () => {
     const shareUrl = linkReferCode;
-    console.log('linkReferCode', linkReferCode)
     try {
       // มือถือจะขึ้นเลือก LINE / Facebook / IG / อื่นๆ
       if (navigator.share) {
@@ -104,7 +103,6 @@ const ModalSelectFriend = ({
 
       alert("navigator");
     } catch (error) {
-      console.log(error);
     }
   };
 

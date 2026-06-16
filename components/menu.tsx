@@ -78,6 +78,18 @@ const Menu = ({
     }
    }
 
+  const handleLogout = () => {
+    // Clear auth cookies (the app's identity source) then end the NextAuth session.
+    removeCookie(CookieKey.MEMBER_ID, { path: '/' })
+    removeCookie(CookieKey.MEMBER_NAME, { path: '/' })
+    removeCookie(CookieKey.MEMBER_SURNAME, { path: '/' })
+    removeCookie(CookieKey.MEMBER_REFER_CODE, { path: '/' })
+    removeCookie(CookieKey.MEMBER_IMAGE, { path: '/' })
+    removeCookie(CookieKey.REFCODE_FGF, { path: '/' })
+    removeCookie(CookieKey.LOGIN_PROVIDER, { path: '/' })
+    signOut({ callbackUrl: PageRouter.LOGIN })
+  }
+
   return (
           <div className=' w-full flex flex-wrap bg-white fixed top-0 left-0  z-50 mt-[60px] rounded-b-lg shadow-sm'>
 
@@ -263,6 +275,12 @@ const Menu = ({
                 '  w-full  py-4 cursor-pointer px-2'}>
                   <span className={' w-full text-moumate_blue'}>{menus[4].title}</span>
               </div> */}
+
+              <div
+              onClick={handleLogout}
+              className={' w-full  py-4 cursor-pointer px-2'}>
+                  <span className={' w-full text-red-500'}>ออกจากระบบ</span>
+              </div>
 
           </div>
   )

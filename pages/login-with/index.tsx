@@ -1,4 +1,5 @@
 
+import ScreenLoading from '@/components/screen-loading';
 import { CONFIG } from '@/constants/config';
 import { CookieKey } from '@/constants/cookie-key';
 import { PageRouter } from '@/constants/router';
@@ -70,7 +71,7 @@ useEffect(() => {
 
   // ✅ Loading
   if (status === "loading") {
-    return <p>Loading...</p>;
+    return <ScreenLoading />;
   }
 
 

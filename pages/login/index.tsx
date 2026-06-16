@@ -1,3 +1,4 @@
+import ScreenLoading from '@/components/screen-loading';
 import HeaderMuMate from '@/components/header-v2';
 import { CONFIG } from '@/constants/config';
 import { CookieKey } from '@/constants/cookie-key';
@@ -89,7 +90,7 @@ useEffect(() => {
 
   // ✅ Loading
   if (status === "loading") {
-    return <p>Loading...</p>;
+    return <ScreenLoading />;
   }
 
 

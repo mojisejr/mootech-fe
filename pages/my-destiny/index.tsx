@@ -136,6 +136,13 @@ const callApiGetUser = async (user_id: string) => {
     const result = await UserGetById(user_id);
     if (result && result.user_id) {
 
+       // New-user guardrail: no birth data yet → complete the profile first
+       // (avoids landing on empty feature pages with nothing to compute).
+       if (!result.dob) {
+         router.replace(PageRouter.PROFILE_EDIT)
+         return
+       }
+
        setCode(result.result_code)
 
         // Only replace the avatar with a truthy value — never flicker to placeholder.

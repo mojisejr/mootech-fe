@@ -1,3 +1,4 @@
+import ScreenLoading from '@/components/screen-loading';
 import HeaderMuMate from '@/components/header-v2';
 import { UserMatchingGetDetailApi } from '@/constants/api/api-user-matching-get-detail';
 import { CookieKey } from '@/constants/cookie-key';
@@ -218,7 +219,7 @@ export default function MatchingResultPage() {
  
   // ✅ Loading
   if (status === "loading") {
-    return <p>Loading...</p>;
+    return <ScreenLoading />;
   }
 
 
