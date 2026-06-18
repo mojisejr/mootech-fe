@@ -531,8 +531,8 @@ export default function MatchingPage() {
 
 
            {
-              userId ?
-      
+              userId && process.env.NEXT_PUBLIC_ENABLE_CHAT !== 'false' ?
+
                 // <div className=' fixed z-[90]  right-0 bottom-0 m-6'>
                 //             <div className='w-[60px] h-[60px] relative mt-5'>
                 //               <Image
@@ -614,8 +614,8 @@ export default function MatchingPage() {
 
 
       {
-          isShowChat  ?
-          <ModalAIChatStreamingGeneral 
+          isShowChat && process.env.NEXT_PUBLIC_ENABLE_CHAT !== 'false' ?
+          <ModalAIChatStreamingGeneral
             user_id={userId}     
             onClose={onCloseChat}
           />

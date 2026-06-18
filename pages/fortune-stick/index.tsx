@@ -369,8 +369,8 @@ export default function FortuneStickPage() {
       } */}
 
       {
-        isShowChat  ?
-          <ModalAIChatStreamingGeneral 
+        isShowChat && process.env.NEXT_PUBLIC_ENABLE_CHAT !== 'false' ?
+          <ModalAIChatStreamingGeneral
             user_id={userId}        
             onClose={onCloseChat}
           />
