@@ -144,7 +144,7 @@ useEffect(() => {
               {/* Non-Google providers hidden (#mootech-google-login-supabase): own Google OAuth only.
                   LINE = no email fallback (provider-scoped userId) → re-enable under correct LINE provider.
                   FB/Twitter = env client IDs not set. */}
-              {/* LINE Login
+              {/* LINE Login (#mootech-ship-option1-deploy): re-enabled */}
               <div className="w-full flex justify-center">
                 <div
                   onClick={() => { handleLogin('line') }}
@@ -163,7 +163,7 @@ useEffect(() => {
                 </div>
               </div>
 
-              Facebook Login
+              {/* Facebook Login
               <div className="w-full flex justify-center">
                 <div
                   onClick={() => { handleLogin('facebook') }}

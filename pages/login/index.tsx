@@ -164,8 +164,8 @@ useEffect(() => {
               </div>
 
 
-              {/* LINE Login — hidden (#mootech-google-login-supabase): own Google OAuth only until LINE provider sorted */}
-              {/* <div className="w-full flex justify-center">
+              {/* LINE Login (#mootech-ship-option1-deploy): re-enabled — uses LINE_CLIENT_ID/SECRET of the real LINE Login channel */}
+              <div className="w-full flex justify-center">
                 <div
                   onClick={() => { handleLogin('line') }}
                   className="cursor-pointer w-full justify-center flex flex-wrap border rounded-[16px] bg-[#06C755]  py-[16px] px-[16px] mt-[24px]"
@@ -181,7 +181,7 @@ useEffect(() => {
                     ดำเนินการต่อด้วย Line
                   </span>
                 </div>
-              </div> */}
+              </div>
 
               {/* Facebook Login */}
               {/* <div className="w-full flex justify-center">
