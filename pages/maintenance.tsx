@@ -3,6 +3,12 @@ import Image from 'next/image';
 
 const BRAND_GRADIENT = 'linear-gradient(180deg, #1B9AAF 0%, #3A78A9 100%)';
 
+// Force SSR (dynamic) so the maintenance response is never full-route cached by the CDN.
+// Without this the static page gets cached under "/" and bypassed devs are served the stale page.
+export async function getServerSideProps() {
+  return { props: {} };
+}
+
 export default function MaintenancePage() {
   return (
     <>
