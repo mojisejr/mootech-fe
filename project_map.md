@@ -1,7 +1,35 @@
 # Project Map: mootech-fe-fork
 
-Updated: 2026-06-07
-Grounded from: `README.md`, `package.json`, `pages/`, `components/`, `constants/api/`, `utils/fetch.ts`, `pages/api/auth/[...nextauth].ts`, `pages/api/instagram/callback.ts`, `next.config.mjs`, and the checked-in `.env` key names.
+Updated: 2026-06-19
+Grounded from: `README.md`, `package.json`, `pages/`, `components/`, `constants/api/`, `utils/fetch.ts`, `pages/api/auth/[...nextauth].ts`, `middleware.ts`, `.vercel/project.json`, and the 2026-06-19 go-live cutover.
+
+## 0. Current State (2026-06-19)
+- **Live domain**: `bazichart.mumate.co` → Vercel project `mootech-fe` (CNAME). Currently serving the **maintenance gate** (`middleware.ts` + `pages/maintenance.tsx`, `MAINTENANCE_MODE=on`); dev bypass via `?bypass=<key>`.
+- Backend data now on Supabase **Pro `soxsccdlsycaevusndro`** (behind be); AI chat UI hidden via `NEXT_PUBLIC_ENABLE_CHAT=false`.
+- Google/non-LINE login fixed to use stable `providerId` (not OAuth access token).
+- Cutover Phase E (flip `NEXTAUTH_URL`→bazichart, close maintenance) pending operator go-ahead.
+
+## 🔒 Collaboration Contract (Human ↔ AI) — ratified 2026-06-19
+
+ข้อตกลง **บังคับ** สำหรับการทำงานร่วมกันหลังระบบ live. AI ต้องปฏิบัติตามทุกข้อ ห้ามข้าม.
+
+### Branch & Deploy
+- **Production branch = `feat/fullstack-supabase-fold`** (remote `origin` → github.com/mojisejr/mootech-fe). Deploy = `vercel --prod` (Vercel project `mootech-fe`, manual CLI).
+- **ห้าม push ตรงเข้า production branch และห้าม `vercel --prod` เด็ดขาด** จนกว่า: `feature branch → PR → operator review → approve → merge` แล้วเท่านั้น.
+- AI **ห้าม** merge PR ของตัวเอง และ **ห้าม** deploy (`vercel --prod`) เองโดยไม่ได้รับ approve.
+- Deploy ได้เมื่อ: `npm run build` เขียว **และ** PR merged **และ** operator OK เท่านั้น.
+- Follow-up: ตั้ง GitHub branch protection (require PR); พิจารณาเชื่อม Vercel Git auto-deploy + rename → `production`.
+
+### Database (ศักดิ์สิทธิ์ — แตะต้องคุยก่อน)
+- repo นี้ **ไม่ได้เป็นเจ้าของ DB** (consumer ผ่าน be API) แต่กฎเดียวกันใช้: การเปลี่ยนแปลงที่กระทบข้อมูล prod (ผ่าน be, migration, query) → **คุย + operator approve ก่อนเสมอ.**
+- prod DB = Supabase Pro `soxsccdlsycaevusndro` (เจ้าของ truth = be). ห้าม AI ยิง mutation prod ตรงๆ.
+
+### Ask-First (อะไรเสี่ยง ถามก่อน)
+AI ต้องหยุดถาม operator ก่อนทำ: deploy/cutover, เปิด-ปิด maintenance, env/secret changes (Vercel), domain/DNS, OAuth/payment keys, force git ops, ลบไฟล์/ข้อมูล, และ irreversible/outward-facing actions ทุกชนิด.
+
+### Hygiene
+- commit แนบ issue id (`#...`) + `Co-Authored-By`; PR body ระบุ **risk + rollback**.
+- ห้าม commit `.env*`; rotate secrets ก่อน live; ห้าม echo secret ออก chat.
 
 ## 1. Philosophy
 
