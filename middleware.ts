@@ -8,21 +8,28 @@ import type { NextRequest } from 'next/server';
 const BYPASS_COOKIE = 'mnt_bypass';
 
 export function middleware(req: NextRequest) {
-  // Maintenance off -> behave normally.
+  // Maintenance off -> behave normally (normal caching resumes).
   if (process.env.MAINTENANCE_MODE !== 'on') return NextResponse.next();
+
+  // While maintenance is on, NEVER let the CDN cache a gated response — otherwise the
+  // maintenance HTML gets cached under "/" and even bypassed devs get served the stale page.
+  const noStore = (res: NextResponse) => {
+    res.headers.set('Cache-Control', 'no-store, must-revalidate');
+    return res;
+  };
 
   const { pathname, searchParams } = req.nextUrl;
 
   // Always allow the maintenance page itself and a health endpoint.
   if (pathname === '/maintenance' || pathname === '/api/health') {
-    return NextResponse.next();
+    return noStore(NextResponse.next());
   }
 
   const key = process.env.MAINTENANCE_BYPASS_KEY;
 
   // Dev already holds a valid bypass cookie -> pass through (sees the real site).
   if (key && req.cookies.get(BYPASS_COOKIE)?.value === key) {
-    return NextResponse.next();
+    return noStore(NextResponse.next());
   }
 
   // Dev opens the secret link `?bypass=<key>` -> set cookie, redirect to clean URL, pass through.
@@ -37,11 +44,11 @@ export function middleware(req: NextRequest) {
       path: '/',
       maxAge: 60 * 60 * 24, // 24h
     });
-    return res;
+    return noStore(res);
   }
 
   // Everyone else -> the maintenance page (URL stays the same; content is replaced).
-  return NextResponse.rewrite(new URL('/maintenance', req.url));
+  return noStore(NextResponse.rewrite(new URL('/maintenance', req.url)));
 }
 
 export const config = {
