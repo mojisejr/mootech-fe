@@ -61,6 +61,12 @@ export const authOptions: NextAuthOptions = {
       if (account) {
         token.accessToken = account.access_token;
         token.idToken = account.id_token; // เก็บ id_token ถ้าคุณต้องการตรวจสอบ
+        // Stable per-provider account id for EVERY provider (not the OAuth access token).
+        // Google/FB/Twitter previously had no stable id, so the app fell back to the
+        // short-lived access token (ya29...) as the user identifier -> /api/user 400 +
+        // log_calculate varchar(255) overflow. providerAccountId is the stable fix.
+        token.providerId = account.providerAccountId;
+        token.provider = account.provider;
       }
       if (profile && account?.provider === "line") {
         // เก็บ profile จาก LINE ไว้ใน token เมื่อจำเป็น
@@ -73,6 +79,8 @@ export const authOptions: NextAuthOptions = {
       session.accessToken = token.accessToken as string;
       session.idToken = token.idToken as string;
       session.lineProfile = token.lineProfile; // ส่ง profile ไปยัง session ด้วย
+      session.providerId = token.providerId as string; // stable id for non-LINE lookups
+      session.provider = token.provider as string;
       return session;
     },
   },

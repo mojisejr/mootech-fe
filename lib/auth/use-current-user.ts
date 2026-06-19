@@ -24,11 +24,20 @@ export interface CurrentUser {
   status: AuthStatus;
 }
 
+// Internal user_id is always a DB-generated uuid (@PrimaryGeneratedColumn('uuid')).
+// Older builds briefly stored the OAuth access token (ya29...) in the MEMBER_ID cookie,
+// which would fire /api/user?user_id=ya29... (400) and overflow log_calculate (500).
+// Treat any non-uuid cookie value as "not resolved yet" so we never fetch with garbage;
+// register-login on "/" overwrites it with the real uuid.
+const UUID_RE =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 export function useCurrentUser(): CurrentUser {
   const { status: sessionStatus } = useSession();
   const [cookies] = useCookies([CookieKey.MEMBER_ID]);
 
-  const userId = (cookies[CookieKey.MEMBER_ID] as string) || "";
+  const rawId = (cookies[CookieKey.MEMBER_ID] as string) || "";
+  const userId = UUID_RE.test(rawId) ? rawId : "";
 
   let status: AuthStatus;
   if (userId) {

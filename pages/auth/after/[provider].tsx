@@ -53,15 +53,18 @@ export default function AfterProviderPage({
   useEffect(() => {
     if (session) {
       const expireDate = new Date(session?.expires || new Date());
+      // NOTE: do NOT set MEMBER_ID here. It used to be set to session.accessToken
+      // (a short-lived OAuth token), which leaked into /api/user and log_calculate as a
+      // bogus user_id (400 + varchar overflow). The single source of truth for MEMBER_ID is
+      // the register-login step on "/" which sets it to the internal user_id. We only
+      // pre-populate display fields (name/image/email) here.
       if(provider.toLocaleUpperCase() == "GOOGLE" || provider.toLocaleUpperCase() == "FACEBOOK"){
-        setCookie(CookieKey.MEMBER_ID, session?.accessToken || "", { path: "/", expires: expireDate })
         setCookie(CookieKey.MEMBER_IMAGE,session?.user?.image , {path:"/", expires: expireDate})
         setCookie(CookieKey.MEMBER_NAME,session?.user?.name , {path:"/", expires: expireDate})
         setCookie(CookieKey.MEMBER_EMAIL,session?.user?.email , {path:"/", expires: expireDate})
       }
 
       if(provider.toLocaleUpperCase() == "LINE" || provider.toLocaleUpperCase() == "TWITTER"){
-        setCookie(CookieKey.MEMBER_ID, session?.accessToken || "", { path: "/", expires: expireDate })
         setCookie(CookieKey.MEMBER_IMAGE,session?.user?.image , {path:"/", expires: expireDate})
         setCookie(CookieKey.MEMBER_NAME,session?.user?.name , {path:"/", expires: expireDate})
         setCookie(CookieKey.MEMBER_EMAIL,null , {path:"/", expires: expireDate}) // login LINE,TWITTER ไม่ได้อีเมล์
