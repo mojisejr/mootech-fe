@@ -9,6 +9,7 @@ import Menu from './menu';
 import { CookieKey } from '@/constants/cookie-key';
 import { useCookies } from 'react-cookie';
 import { UserGetById } from '@/constants/api/api-user-get';
+import { useCurrentUser } from '@/lib/auth/use-current-user';
 
 type ComponentProps = {
   isShowMenu: boolean,
@@ -34,21 +35,18 @@ const HeaderMuMate = ({
   const [imgSrc, setImgSrc] = useState(image || fallback)
 
   const [cookies, setCookie , removeCookie] = useCookies([
-    CookieKey.MEMBER_ID, 
+    CookieKey.MEMBER_ID,
   ])
 
+  // Use the uuid-validated identity (never the raw cookie) so a stale OAuth access
+  // token left in MEMBER_ID can't fire UserGetById(ya29...) -> 400.
+  const { userId: resolvedUserId } = useCurrentUser()
+
   useEffect(() => {
-    const dataId = cookies[CookieKey.MEMBER_ID]
- 
-    if (dataId) {
- 
-      callApiGetUser(dataId)
+    if (resolvedUserId) {
+      callApiGetUser(resolvedUserId)
     }
-  
-  },  [
-        cookies[CookieKey.MEMBER_ID]
-      ]
-  )
+  },  [resolvedUserId])
 
 
 

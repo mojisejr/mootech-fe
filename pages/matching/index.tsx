@@ -1,6 +1,8 @@
+import ScreenLoading from '@/components/screen-loading';
 import HeaderMuMate from '@/components/header-v2';
 import ModalAddFriend from '@/components/modal-add-freind';
 import ModalAIChatStreamingGeneral from '@/components/modal-ai-chat-general-streaming';
+import BaziChatLauncher from '@/components/bazi-chat-launcher';
 import ModalBlocking from '@/components/modal-blocking';
 import ModalSelectFriend from '@/components/modal-select-freind';
 import { UserGetById } from '@/constants/api/api-user-get';
@@ -122,7 +124,6 @@ export default function MatchingPage() {
       setImgSrc(dataImage)
 
       setAccountName(dataName)
-      console.log('dataReferCode', dataReferCode)
       setInfoReferCode(dataReferCode)
 
       getUserDetail(dataId)
@@ -140,7 +141,7 @@ export default function MatchingPage() {
  
   // ✅ Loading
   if (status === "loading") {
-    return <p>Loading...</p>;
+    return <ScreenLoading />;
   }
 
 
@@ -531,8 +532,8 @@ export default function MatchingPage() {
 
 
            {
-              userId ?
-      
+              userId && process.env.NEXT_PUBLIC_ENABLE_CHAT !== 'false' ?
+
                 // <div className=' fixed z-[90]  right-0 bottom-0 m-6'>
                 //             <div className='w-[60px] h-[60px] relative mt-5'>
                 //               <Image
@@ -613,10 +614,12 @@ export default function MatchingPage() {
 
 
 
+      <BaziChatLauncher />
+
       {
-          isShowChat  ?
-          <ModalAIChatStreamingGeneral 
-            user_id={userId}     
+          isShowChat && process.env.NEXT_PUBLIC_ENABLE_CHAT !== 'false' ?
+          <ModalAIChatStreamingGeneral
+            user_id={userId}
             onClose={onCloseChat}
           />
         :

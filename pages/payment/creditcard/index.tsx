@@ -1,4 +1,5 @@
 "use client";
+import ScreenLoading from '@/components/screen-loading';
 import Menu from '@/components/menu';
 import { API } from '@/constants/api/endpoint';
 import { CookieKey } from '@/constants/cookie-key';
@@ -137,7 +138,7 @@ const onChangeEmail = (e: any) => {
  
   // ✅ Loading
   if (status === "loading") {
-    return <p>Loading...</p>;
+    return <ScreenLoading />;
   }
 
 

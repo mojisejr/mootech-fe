@@ -19,7 +19,10 @@ import { CompatibilityLoveCheck } from "@/constants/api/api-check-compatibility-
 import { CompatibilityWorkCheck } from "@/constants/api/api-check-compatibility-work";
 import Menu from "@/components/menu";
 import ModalAIChatStreamingGeneral from "@/components/modal-ai-chat-general-streaming";
+import BaziChatLauncher from "@/components/bazi-chat-launcher";
 import { ChineseElement } from "@/constants/chinese-element";
+import { useCurrentUser } from "@/lib/auth/use-current-user";
+import ScreenLoading from "@/components/screen-loading";
 
 export default function ResultPage() {
 
@@ -36,6 +39,7 @@ export default function ResultPage() {
   const router = useRouter();
 
     const { data: session, status } = useSession();
+    const { userId: authUserId, status: authStatus } = useCurrentUser();
     const [userId, setUserId] = useState<string>('')
     const [displayName, setDisplayName] = useState<string>('')
     const [displaySurname, setDisplaySurname] = useState<string>('')
@@ -71,43 +75,20 @@ export default function ResultPage() {
     const checkSection = useRef(null);
     
   
+    // Single auth guard (see lib/auth/use-current-user.ts). Redirect ONLY when
+    // truly anonymous; while `loading` do nothing so we never bounce mid-hydration.
     useEffect(() => {
-      if (status === "unauthenticated") {
+      if (authStatus === "anon") {
         router.replace(PageRouter.LOGIN)
-      } else {
-      setIsLogin(true)
-    }
-    }, [status, session]);
-
-      
-  useEffect(() => {
+      } else if (authStatus === "authed") {
+        setIsLogin(true)
+      }
+    }, [authStatus]);
 
 
-  
-    const dataId = cookies[CookieKey.MEMBER_ID]
-    const dataName = cookies[CookieKey.MEMBER_NAME]
-    const dataSurName = cookies[CookieKey.MEMBER_SURNAME]
-    const dataImage = cookies[CookieKey.MEMBER_IMAGE]
-
-    const dataReferCode = cookies[CookieKey.MEMBER_REFER_CODE]
-
-    if (dataId) {
- 
-      setUserId(dataId)
-      setDisplayName(dataName)
-      setDisplaySurname(dataSurName)
-
-      setReferCode(dataReferCode)
-    } else {
-      router.replace(PageRouter.HOME)
-    }
-    
-  
-  },  [
-        cookies[CookieKey.MEMBER_ID, CookieKey.MEMBER_NAME, CookieKey.MEMBER_SURNAME, CookieKey.MEMBER_IMAGE, CookieKey.MEMBER_REFER_CODE]
-      ]
-  )
-
+  // Data-ready gate: hold the page until the main content (horoscope) has loaded,
+  // so the page doesn't render empty sections before the data arrives.
+  const [destinyLoaded, setDestinyLoaded] = useState<boolean>(false)
 
   const [resultHoroscope, setResultHoroscope] = useState<any>(null)
   const [resultPower, setResultPower] = useState<any>(null)
@@ -137,48 +118,58 @@ export default function ResultPage() {
 
   }, [code, userId])
 
+  // Load user data ONLY once identity is resolved — never UserGetById(undefined).
   useEffect(() => {
+    if (authStatus !== "authed") return
 
+    setUserId(authUserId)
+    setIsShowLogin(false)
+    setDisplayName(cookies[CookieKey.MEMBER_NAME])
+    setDisplaySurname(cookies[CookieKey.MEMBER_SURNAME])
+    setReferCode(cookies[CookieKey.MEMBER_REFER_CODE])
+    setLinkRefer(publicRuntimeConfig.NEXT_STATIC_NEXTAUTH_URL+'/login?callback=' + cookies[CookieKey.MEMBER_REFER_CODE])
 
-    const dataId = cookies[CookieKey.MEMBER_ID]
-    const dataName = cookies[CookieKey.MEMBER_NAME]
-    const dataSurName = cookies[CookieKey.MEMBER_SURNAME]
-    const dataReferCode = cookies[CookieKey.MEMBER_REFER_CODE]
-
-    if (dataId) {
-      setIsShowLogin(false)
-
-      setDisplayName(dataName)
-
-      setDisplaySurname(dataSurName)
-
-
-      setLinkRefer(publicRuntimeConfig.NEXT_STATIC_NEXTAUTH_URL+'/login?callback=' + dataReferCode)
-    }
-    
-        callApiGetUser(dataId)
-  
-  },  [
-        cookies[CookieKey.MEMBER_ID, CookieKey.MEMBER_NAME, CookieKey.MEMBER_SURNAME, CookieKey.MEMBER_REFER_CODE]
-      ]
-  )
+    callApiGetUser(authUserId)
+  }, [authStatus, authUserId])
 
 const callApiGetUser = async (user_id: string) => {
-  const result = await UserGetById(user_id);
-  if (result && result.user_id) {
+  try {
+    const result = await UserGetById(user_id);
+    if (result && result.user_id) {
 
-     setCode(result.result_code)
+       // New-user guardrail: no birth data yet → complete the profile first
+       // (avoids landing on empty feature pages with nothing to compute).
+       if (!result.dob) {
+         router.replace(PageRouter.PROFILE_EDIT)
+         return
+       }
 
-  
-      setDisplayImage(result.picture_url)
-      setImgSrc(result.picture_url)
+       setCode(result.result_code)
 
-      setTotalPoint(result.total_point)   
-      setUsedPoint(result.used_point)   
+        // Only replace the avatar with a truthy value — never flicker to placeholder.
+        if (result.picture_url) {
+          setDisplayImage(result.picture_url)
+          setImgSrc(result.picture_url)
+        }
 
-      if (result.is_refresh == true) {
-        router.replace(PageRouter.HOME)
-      }
+        setTotalPoint(result.total_point)
+        setUsedPoint(result.used_point)
+
+        if (result.is_refresh == true) {
+          router.replace(PageRouter.HOME)
+          return
+        }
+
+        // No chart to fetch → page is ready now. Otherwise the [code,userId]
+        // effect will fetch the horoscope and release the gate in callGetResult.
+        if (!result.result_code) {
+          setDestinyLoaded(true)
+        }
+    } else {
+      setDestinyLoaded(true)
+    }
+  } catch {
+    setDestinyLoaded(true)
   }
 }
 
@@ -210,8 +201,8 @@ const callApiGetUser = async (user_id: string) => {
 
 
       setImageUrl(data.share_profile_url)
-      
-      
+
+      setDestinyLoaded(true)
     } else {
       router.replace(PageRouter.LOGIN)
     }
@@ -749,6 +740,12 @@ const openMenu = (isOpenMenu: boolean) => {
     return null
   }
 
+
+  // Hold the page until identity resolves AND the main content has loaded —
+  // prevents rendering empty sections before the horoscope data arrives.
+  if (authStatus !== "authed" || !destinyLoaded) {
+    return <ScreenLoading />
+  }
 
   return (
         <div
@@ -1290,8 +1287,8 @@ const openMenu = (isOpenMenu: boolean) => {
       </div>
 
            {
-              userId ?
-      
+              userId && process.env.NEXT_PUBLIC_ENABLE_CHAT !== 'false' ?
+
                 // <div className=' fixed z-[90]  right-0 bottom-0 m-6'>
                 //             <div className='w-[60px] h-[60px] relative mt-5'>
                 //               <Image
@@ -1360,10 +1357,12 @@ const openMenu = (isOpenMenu: boolean) => {
       }
 
 
+      <BaziChatLauncher />
+
       {
-          isShowChat  ?
-          <ModalAIChatStreamingGeneral 
-            user_id={userId}     
+          isShowChat && process.env.NEXT_PUBLIC_ENABLE_CHAT !== 'false' ?
+          <ModalAIChatStreamingGeneral
+            user_id={userId}
             onClose={onCloseChat}
           />
         :

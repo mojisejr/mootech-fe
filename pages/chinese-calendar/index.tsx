@@ -2,6 +2,7 @@ import CalendarChineseDairyCard from '@/components/calendar-dairy-chinese';
 import CalendarChineseMonthCard from '@/components/calendar-month-chinese';
 import HeaderMuMate from '@/components/header-v2';
 import ModalAIChatStreamingGeneral from '@/components/modal-ai-chat-general-streaming';
+import BaziChatLauncher from '@/components/bazi-chat-launcher';
 import { ChineseCalendarGetDairyAPI } from '@/constants/api/api-chinese-calendar-get-dairy';
 import { CookieKey } from '@/constants/cookie-key';
 import { PageRouter } from '@/constants/router';
@@ -11,6 +12,8 @@ import Image from "next/image";
 import { useRouter } from "next/router";
 import { useEffect, useState } from "react";
 import { useCookies } from 'react-cookie';
+import { useCurrentUser } from "@/lib/auth/use-current-user";
+import ScreenLoading from "@/components/screen-loading";
 
 
 export default function ChineseCalendarPage() {
@@ -54,6 +57,7 @@ export default function ChineseCalendarPage() {
   const router = useRouter();
   const callback = router.query.callback as string || '/';
   const { data: session, status } = useSession();
+  const { userId: authUserId, status: authStatus } = useCurrentUser();
 
   const [userId, setUserId] = useState<string>('')
   const [displayName, setDisplayName] = useState<string>('')
@@ -68,61 +72,43 @@ export default function ChineseCalendarPage() {
     const [imgSrc, setImgSrc] = useState(displayImage || fallback)
   
 
+  // Single auth guard — redirect ONLY when truly anonymous; wait while loading.
   useEffect(() => {
-    if (status === "unauthenticated") {
+    if (authStatus === "anon") {
       router.replace(PageRouter.HOME)
-    } else {
+    } else if (authStatus === "authed") {
       setIsLogin(true)
     }
-  }, [status, session]);
+  }, [authStatus]);
 
 
 
 
 const callApiCalendar = async (day: number, month: number, year: number) => {
-  const result = await ChineseCalendarGetDairyAPI(userId, day, month, year);
+  const result = await ChineseCalendarGetDairyAPI(authUserId, day, month, year);
   if (result) {
     setCalendarInfo(result)
   }
 }
-    useEffect(() => {
+  // Load calendar data ONLY once identity is resolved — never fetch with empty id.
+  useEffect(() => {
+    if (authStatus !== "authed") return
 
-
-  
-    const dataId = cookies[CookieKey.MEMBER_ID]
-    const dataName = cookies[CookieKey.MEMBER_NAME]
-    const dataSurName = cookies[CookieKey.MEMBER_SURNAME]
-    const dataImage = cookies[CookieKey.MEMBER_IMAGE]
-
-    const dataReferCode = cookies[CookieKey.MEMBER_REFER_CODE]
-
-    if (dataId) {
- 
-      setUserId(dataId)
-
-            // setDisplayName(dataName)
-      setDisplaySurname(dataSurName)
-      setDisplayImage(dataImage)
-      setImgSrc(dataImage)
-
-      setAccountName(dataName)
-
-      callApiCalendar(day, month, year)
-
-    } else {
-      router.replace(PageRouter.HOME)
+    setUserId(authUserId)
+    setDisplaySurname(cookies[CookieKey.MEMBER_SURNAME])
+    setAccountName(cookies[CookieKey.MEMBER_NAME])
+    if (cookies[CookieKey.MEMBER_IMAGE]) {
+      setDisplayImage(cookies[CookieKey.MEMBER_IMAGE])
+      setImgSrc(cookies[CookieKey.MEMBER_IMAGE])
     }
-    
-  
-  },  [
-        cookies[CookieKey.MEMBER_ID, CookieKey.MEMBER_NAME, CookieKey.MEMBER_SURNAME, CookieKey.MEMBER_IMAGE, CookieKey.MEMBER_REFER_CODE]
-      ]
-  )
+
+    callApiCalendar(day, month, year)
+  }, [authStatus, authUserId])
 
  
-  // ✅ Loading
-  if (status === "loading") {
-    return <p>Loading...</p>;
+  // Hold the page until identity resolves.
+  if (authStatus !== "authed") {
+    return <ScreenLoading />
   }
 
 
@@ -358,8 +344,8 @@ const gotoPayment = () => {
 
 
 {
-              userId ?
-      
+              userId && process.env.NEXT_PUBLIC_ENABLE_CHAT !== 'false' ?
+
                 // <div className=' fixed z-[90]  right-0 bottom-0 m-6'>
                 //             <div className='w-[60px] h-[60px] relative mt-5'>
                 //               <Image
@@ -413,10 +399,12 @@ const gotoPayment = () => {
       </div>
 
 
+      <BaziChatLauncher />
+
       {
-          isShowChat  ?
-          <ModalAIChatStreamingGeneral 
-            user_id={userId}     
+          isShowChat && process.env.NEXT_PUBLIC_ENABLE_CHAT !== 'false' ?
+          <ModalAIChatStreamingGeneral
+            user_id={userId}
             onClose={onCloseChat}
           />
         :

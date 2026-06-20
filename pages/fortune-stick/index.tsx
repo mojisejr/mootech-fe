@@ -1,5 +1,7 @@
+import ScreenLoading from '@/components/screen-loading';
 import HeaderMuMate from '@/components/header-v2';
 import ModalAIChatStreamingGeneral from '@/components/modal-ai-chat-general-streaming';
+import BaziChatLauncher from '@/components/bazi-chat-launcher';
 import ModalBlocking from '@/components/modal-blocking';
 import { FortuneTellingGet } from '@/constants/api/api-fortune-telling-get';
 import { UserGetById } from '@/constants/api/api-user-get';
@@ -124,7 +126,7 @@ export default function FortuneStickPage() {
  
   // ✅ Loading
   if (status === "loading") {
-    return <p>Loading...</p>;
+    return <ScreenLoading />;
   }
 
 
@@ -367,10 +369,12 @@ export default function FortuneStickPage() {
       null
       } */}
 
+      <BaziChatLauncher />
+
       {
-        isShowChat  ?
-          <ModalAIChatStreamingGeneral 
-            user_id={userId}        
+        isShowChat && process.env.NEXT_PUBLIC_ENABLE_CHAT !== 'false' ?
+          <ModalAIChatStreamingGeneral
+            user_id={userId}
             onClose={onCloseChat}
           />
         :

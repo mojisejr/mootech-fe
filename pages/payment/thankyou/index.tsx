@@ -1,4 +1,5 @@
 "use client";
+import ScreenLoading from '@/components/screen-loading';
 import HeaderMuMate from '@/components/header-v2';
 import { CookieKey } from '@/constants/cookie-key';
 import { PageRouter } from '@/constants/router';
@@ -136,7 +137,7 @@ if (window?.Omise && omiseKey) {
  
   // ✅ Loading
   if (status === "loading") {
-    return <p>Loading...</p>;
+    return <ScreenLoading />;
   }
 
 

@@ -1,3 +1,4 @@
+import ScreenLoading from '@/components/screen-loading';
 import HeaderMuMate from '@/components/header-v2';
 import { CONFIG } from '@/constants/config';
 import { CookieKey } from '@/constants/cookie-key';
@@ -89,7 +90,7 @@ useEffect(() => {
 
   // ✅ Loading
   if (status === "loading") {
-    return <p>Loading...</p>;
+    return <ScreenLoading />;
   }
 
 
@@ -163,7 +164,7 @@ useEffect(() => {
               </div>
 
 
-              {/* LINE Login */}
+              {/* LINE Login (#mootech-ship-option1-deploy): re-enabled — uses LINE_CLIENT_ID/SECRET of the real LINE Login channel */}
               <div className="w-full flex justify-center">
                 <div
                   onClick={() => { handleLogin('line') }}
@@ -179,7 +180,7 @@ useEffect(() => {
                   <span className="text-white text-[14px] pl-4">
                     ดำเนินการต่อด้วย Line
                   </span>
-                </div> 
+                </div>
               </div>
 
               {/* Facebook Login */}

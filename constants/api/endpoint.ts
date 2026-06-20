@@ -2,8 +2,32 @@ import getConfig from 'next/config'
 
 const { publicRuntimeConfig } = getConfig()
 
-export const ENDPOINT = "https://bazichart.mumate.co/api/v1"; // "https://bazichart-dev.mumate.co/api/v1" // publicRuntimeConfig.NEXT_STATIC_HOST
+// Backend base for NOT-yet-migrated endpoints (calc-family etc.). Points ONLY at our own
+// NestJS-on-Supabase. Default is the local NestJS (:4000). The OLD-PROD URL has been removed
+// on purpose — see the guardrail below.
+//
+// 🚫 GUARDRAIL — NEVER touch the old team's database (#mootech-fullstack-supabase-fold)
+// Our Supabase is a one-time pgloader copy of the old MySQL; the two have diverged. We must
+// NEVER read/write the old prod backend (it would hit live users' real DB). This codebase must
+// never reference `bazichart.mumate.co` (or any old-prod host). The assert below fails LOUD if
+// ENDPOINT is ever pointed there via env — do not weaken or remove it.
+export const ENDPOINT = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:4000";
+
+const OLD_PROD_FORBIDDEN = /bazichart\.mumate\.co/i;
+if (OLD_PROD_FORBIDDEN.test(ENDPOINT)) {
+  throw new Error(
+    `[GUARDRAIL] ENDPOINT points at the old prod DB (${ENDPOINT}). ` +
+      `We never touch the old team's database. Set NEXT_PUBLIC_BACKEND_URL to our own NestJS-on-Supabase.`,
+  );
+}
+
 const backendURLGenerator = (pathname: string) => `${ENDPOINT}${pathname}`
+
+// --- strangler-fig base-URL split (#mootech-fullstack-supabase-fold) ---
+// Endpoints MIGRATED into this Next.js app (pages/api/* -> Supabase via Drizzle) use
+// `localApi` (same-origin /api). Everything not yet migrated stays on the NestJS
+// `backendURLGenerator` (ENDPOINT). To roll an endpoint back, flip localApi -> backendURLGenerator.
+const localApi = (pathname: string) => `/api${pathname}`
 
 export const API = {
   chinese_horoscope: {
@@ -20,7 +44,7 @@ export const API = {
     verify: backendURLGenerator('/otp/verify'),
   },
   user: {
-    get: backendURLGenerator('/user'),
+    get: localApi('/user'), // MIGRATED -> pages/api/user.ts (Supabase/Drizzle, getUserById parity)
     register_tel: backendURLGenerator('/user/register-tel'),
     register_line: backendURLGenerator('/user/register-line'),
     update_profile_pic: backendURLGenerator('/user/profile-pic'),
@@ -29,18 +53,18 @@ export const API = {
     register_or_login: backendURLGenerator('/user/register-login')
   },
   survey: {
-    get: backendURLGenerator('/survey'),
+    get: localApi('/survey'), // MIGRATED -> pages/api/survey/index.ts (static questionnaire)
     calculate: backendURLGenerator('/survey/calculate'),
-    get_share_type: backendURLGenerator('/survey/share-type'),
+    get_share_type: localApi('/survey/share-type'), // MIGRATED -> pages/api/survey/share-type.ts
   },
   product: {
-    get: backendURLGenerator('/product'),
+    get: localApi('/product'), // MIGRATED -> pages/api/product.ts (Supabase/Drizzle)
   },
   log_activity: {
-    get: backendURLGenerator('/log-activity'),
+    get: localApi('/log-activity'), // MIGRATED -> pages/api/log-activity.ts (Supabase/Drizzle)
   },
   log_survey: {
-    get: backendURLGenerator('/log-survey'),
+    get: localApi('/log-survey'), // MIGRATED -> pages/api/log-survey.ts (Supabase/Drizzle)
   },
   object_storage: {
     upload: backendURLGenerator('/object-storage/upload-file'),
@@ -50,7 +74,7 @@ export const API = {
     download: backendURLGenerator('/card/preview'),
   },
   log_save_image: {
-    insert: backendURLGenerator('/log-save-image')
+    insert: localApi('/log-save-image') // MIGRATED -> pages/api/log-save-image.ts (Drizzle insert)
   },
   fortune_stick: {
     get: backendURLGenerator('/fortune-stick')
@@ -75,8 +99,8 @@ export const API = {
   },
   member_with_friend: {
     create: backendURLGenerator('/member-with-friend'),
-    get: backendURLGenerator('/member-with-friend'),
-    get_detail: backendURLGenerator('/member-with-friend/detail'),
+    get: localApi('/member-with-friend'), // MIGRATED -> pages/api/member-with-friend/index.ts (read + usage gate + user join)
+    get_detail: localApi('/member-with-friend/detail'), // MIGRATED -> pages/api/member-with-friend/detail.ts (read, no gate)
     update: backendURLGenerator('/member-with-friend'),
     update_profile: backendURLGenerator('/member-with-friend/profile'),
     new_friend: backendURLGenerator('/member-with-friend/new-friend'),
@@ -91,10 +115,10 @@ export const API = {
     check: backendURLGenerator('/member-payment-code/check'),
   },
   chinese_calendar: {
-    diary: backendURLGenerator('/chinese-calendar/diary'),
-    month: backendURLGenerator('/chinese-calendar/month'),
+    diary: localApi('/chinese-calendar/diary'), // MIGRATED -> pages/api/chinese-calendar/diary.ts (5 lookups + usage gate)
+    month: localApi('/chinese-calendar/month'), // MIGRATED -> pages/api/chinese-calendar/month.ts (usage gate)
   },
   payment_package: {
-    get: backendURLGenerator('/payment-package'),
+    get: localApi('/payment-package'), // MIGRATED -> pages/api/payment-package.ts
   },
 }

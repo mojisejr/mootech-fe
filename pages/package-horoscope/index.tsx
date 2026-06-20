@@ -1,4 +1,5 @@
 "use client";
+import ScreenLoading from '@/components/screen-loading';
 import HeaderMuMate from '@/components/header-v2';
 import ModalBlocking from '@/components/modal-blocking';
 import ModalPayment from '@/components/modal-payment';
@@ -175,7 +176,7 @@ const [isShowModalRegister, setIsShowModalRegister] = useState<boolean>(false)
  
   // ✅ Loading
   if (status === "loading") {
-    return <p>Loading...</p>;
+    return <ScreenLoading />;
   }
 
 
@@ -230,7 +231,6 @@ const [isShowModalRegister, setIsShowModalRegister] = useState<boolean>(false)
   };
 
 const handleCharge = async (token: any, amount: number) => {
-  console.log('handleCharge:', token, amount)
   const res = await fetch(API.payment.pay_via_credit_card, {
     method: "POST",
     headers: { "Content-Type": "application/json" },

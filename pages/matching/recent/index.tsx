@@ -1,3 +1,4 @@
+import ScreenLoading from '@/components/screen-loading';
 import HeaderMuMate from '@/components/header-v2';
 import { UserMatchingGetApi } from '@/constants/api/api-user-matching-get';
 import { UserMatchingReCalculateApi } from '@/constants/api/api-user-matching-re-calculate';
@@ -122,7 +123,7 @@ export default function MatchingResultPage() {
  
   // ✅ Loading
   if (status === "loading") {
-    return <p>Loading...</p>;
+    return <ScreenLoading />;
   }
 
 

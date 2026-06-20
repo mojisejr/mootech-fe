@@ -1,4 +1,5 @@
 "use client";
+import ScreenLoading from '@/components/screen-loading';
 import Menu from '@/components/menu';
 import { PaymentRetrieveApi } from '@/constants/api/api-payment-retrieve';
 import { API } from '@/constants/api/endpoint';
@@ -181,7 +182,7 @@ export default function PaymentQRCodePage() {
  
   // ✅ Loading
   if (status === "loading") {
-    return <p>Loading...</p>;
+    return <ScreenLoading />;
   }
 
 

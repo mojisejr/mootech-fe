@@ -7,6 +7,7 @@ import { useRouter } from "next/router";
 import { useEffect } from "react";
 import { useCookies } from "react-cookie";
 import { CookieKey } from "../../../constants/cookie-key";
+import ScreenLoading from "@/components/screen-loading";
 
 type AfterProviderPageProps = {
   sessionFromServer: Session | null;
@@ -52,16 +53,18 @@ export default function AfterProviderPage({
   useEffect(() => {
     if (session) {
       const expireDate = new Date(session?.expires || new Date());
-      console.debug(`session`,session)
+      // NOTE: do NOT set MEMBER_ID here. It used to be set to session.accessToken
+      // (a short-lived OAuth token), which leaked into /api/user and log_calculate as a
+      // bogus user_id (400 + varchar overflow). The single source of truth for MEMBER_ID is
+      // the register-login step on "/" which sets it to the internal user_id. We only
+      // pre-populate display fields (name/image/email) here.
       if(provider.toLocaleUpperCase() == "GOOGLE" || provider.toLocaleUpperCase() == "FACEBOOK"){
-        setCookie(CookieKey.MEMBER_ID, session?.accessToken || "", { path: "/", expires: expireDate })
         setCookie(CookieKey.MEMBER_IMAGE,session?.user?.image , {path:"/", expires: expireDate})
         setCookie(CookieKey.MEMBER_NAME,session?.user?.name , {path:"/", expires: expireDate})
         setCookie(CookieKey.MEMBER_EMAIL,session?.user?.email , {path:"/", expires: expireDate})
       }
 
       if(provider.toLocaleUpperCase() == "LINE" || provider.toLocaleUpperCase() == "TWITTER"){
-        setCookie(CookieKey.MEMBER_ID, session?.accessToken || "", { path: "/", expires: expireDate })
         setCookie(CookieKey.MEMBER_IMAGE,session?.user?.image , {path:"/", expires: expireDate})
         setCookie(CookieKey.MEMBER_NAME,session?.user?.name , {path:"/", expires: expireDate})
         setCookie(CookieKey.MEMBER_EMAIL,null , {path:"/", expires: expireDate}) // login LINE,TWITTER ไม่ได้อีเมล์
@@ -71,26 +74,7 @@ export default function AfterProviderPage({
     }
   }, [session, setCookie, router]);
 
-  return (
-    <main style={{ padding: 24 }}>
-      <h1><b>{provider.toUpperCase()}</b> login success</h1>
-      <p>หน้านี้รองรับทั้ง Google และ LINE</p>
-
-      <section style={{ marginTop: 16 }}>
-        <h2>Session status</h2>
-        <p>สถานะปัจจุบัน: <code>{status}</code></p>
-      </section>
-
-      <section style={{ marginTop: 16 }}>
-        <h2>ข้อมูลใน session</h2>
-        {session ? (
-          <pre style={{ marginTop: 8 }}>
-            {JSON.stringify(session, null, 2)}
-          </pre>
-        ) : (
-          <p>ยังไม่พบข้อมูล session</p>
-        )}
-      </section>
-    </main>
-  );
+  // Transient page: sets cookies then redirects to "/". Show a clean loading
+  // screen instead of dumping the raw session (which contains tokens) to the UI.
+  return <ScreenLoading label="กำลังเข้าสู่ระบบ..." />;
 }

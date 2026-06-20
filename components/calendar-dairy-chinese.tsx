@@ -33,15 +33,26 @@ const CalendarChineseDairyCard = ({
   const [calendarInfo, setCalendarInfo] = useState<any>(null)
 
   const [isAllow, setIsAllow] = useState<boolean>(false)
+  // Don't show the lock overlay until the membership check has actually returned,
+  // otherwise members see a false "locked" flash before is_allow resolves.
+  const [allowChecked, setAllowChecked] = useState<boolean>(false)
+  // Loading indicator while the calendar data is being fetched.
+  const [isLoading, setIsLoading] = useState<boolean>(true)
 
 
   
 
 const callApiCalendar = async (day: number, month: number, year: number) => {
-  const result = await ChineseCalendarGetDairyAPI(userId, day, month, year);
-  if (result) {
-    setIsAllow(result.is_allow)
-    setCalendarInfo(result)
+  setIsLoading(true)
+  try {
+    const result = await ChineseCalendarGetDairyAPI(userId, day, month, year);
+    if (result) {
+      setIsAllow(result.is_allow)
+      setCalendarInfo(result)
+      setAllowChecked(true)
+    }
+  } finally {
+    setIsLoading(false)
   }
 }
 
@@ -425,7 +436,16 @@ const getTime = (info: any) => {
                     </div>
 
                     {
-                        isAllow == false && (
+                        isLoading && (
+                          <div className="absolute inset-0 z-50 flex items-center justify-center
+                                          backdrop-blur-sm bg-white/50 rounded-[16px]">
+                            <div className="h-10 w-10 animate-spin rounded-full border-4 border-gray-200 border-t-moumate_blue" />
+                          </div>
+                        )
+                      }
+
+                    {
+                        !isLoading && allowChecked && isAllow == false && (
                           <div className="absolute inset-0 z-50 flex items-center justify-center
                                           backdrop-blur-md bg-white/40 rounded-[16px]">
                             

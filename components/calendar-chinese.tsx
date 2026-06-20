@@ -47,6 +47,11 @@ const [listCalendars, setListCalendars] = useState<GridItem[]>(
 
 
   const [isAllow, setIsAllow] = useState<boolean>(false)
+  // Don't show the lock overlay until the membership check has returned,
+  // otherwise members see a false "locked" flash before is_allow resolves.
+  const [allowChecked, setAllowChecked] = useState<boolean>(false)
+  // Loading indicator while the calendar data is being fetched.
+  const [isLoading, setIsLoading] = useState<boolean>(true)
 
   const gotoPayment = () => {
     router.replace(PageRouter.PACKAGE_PRICE)
@@ -86,10 +91,16 @@ useEffect(() => {
 }
 
 const callApiCalendar = async (month: number, year: number) => {
-  const result = await ChineseCalendarGetMonthAPI(userId, month, year);
-  if (result) {
-    setIsAllow(result.is_allow)
-    setCalendarInfo(result)
+  setIsLoading(true)
+  try {
+    const result = await ChineseCalendarGetMonthAPI(userId, month, year);
+    if (result) {
+      setIsAllow(result.is_allow)
+      setCalendarInfo(result)
+      setAllowChecked(true)
+    }
+  } finally {
+    setIsLoading(false)
   }
 }
 
@@ -548,7 +559,16 @@ const getStateDayBuddhistDay = (item: any) => {
           </div>
 
                     {
-                        isAllow == false && (
+                        isLoading && (
+                          <div className="absolute inset-0 z-50 flex items-center justify-center
+                                          backdrop-blur-sm bg-white/50 rounded-[16px]">
+                            <div className="h-10 w-10 animate-spin rounded-full border-4 border-gray-200 border-t-moumate_blue" />
+                          </div>
+                        )
+                      }
+
+                    {
+                        !isLoading && allowChecked && isAllow == false && (
                           <div className="absolute inset-0 z-50 flex items-center justify-center
                                           backdrop-blur-md bg-white/40 rounded-[16px]">
                             

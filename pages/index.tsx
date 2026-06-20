@@ -2,6 +2,7 @@ import HeaderMuMate from '@/components/header-v2';
 import Menu from '@/components/menu';
 import ModalEmail from '@/components/modal-email';
 import ModalLoginSuccess from '@/components/modal-login-success';
+import ScreenLoading from '@/components/screen-loading';
 import { MemberWithFriendGetNewFriendApi } from '@/constants/api/api-member-with-friend-get-new-friend';
 import { UserCheckLine } from '@/constants/api/api-user-check-line';
 import { UserRegisterOrLogin } from '@/constants/api/api-user-register-or-login';
@@ -224,6 +225,15 @@ useEffect(() => {
   const [isRegister, setIsRegister] = useState<boolean>(true)
   useEffect(() => {
     if (status === "authenticated") {
+      // DEV bypass: /dev-login already set MEMBER_ID cookie -> skip old-server register-or-login
+      if (cookies[CookieKey.LOGIN_PROVIDER] === "DEV") {
+        if (isRegister) {
+          setIsLogin(true)
+          setInfoUserId(cookies[CookieKey.MEMBER_ID])
+          setIsRegister(false)
+        }
+        return
+      }
       // clearToken()
       // router.replace(`/?callback=${callback}`);
       if (session && isRegister == true) {
@@ -243,11 +253,14 @@ useEffect(() => {
             setIsRegistering(true)
           } else {
             setIsLogin(true)
-            setInfoToken(session.accessToken)
+            // Use the STABLE per-provider id, not the short-lived OAuth access token.
+            // Passing session.accessToken (ya29...) caused /api/user 400 + log_calculate
+            // varchar(255) overflow. providerId = account.providerAccountId.
+            setInfoToken(session.providerId)
             setInfoName(user?.name)
             setInfoImage(user.image)
             setImgSrc(user.image)
-            setInfoProvider(infoProvider)
+            setInfoProvider(session.provider ?? infoProvider)
             // setInfoRefCode(callback.length > 5 ? callback : '')
             setInfoEmail(user.email)
             setIsRegistering(true)
@@ -266,7 +279,7 @@ useEffect(() => {
  
   // ✅ Loading
   if (status === "loading") {
-    return <p>Loading...</p>;
+    return <ScreenLoading />;
   }
 
   const onCloseModalEmail = () => {
