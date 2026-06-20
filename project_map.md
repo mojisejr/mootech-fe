@@ -9,6 +9,33 @@ Grounded from: `README.md`, `package.json`, `pages/`, `components/`, `constants/
 - Google/non-LINE login fixed to use stable `providerId` (not OAuth access token).
 - Cutover Phase E (flip `NEXTAUTH_URL`→bazichart, close maintenance) pending operator go-ahead.
 
+## 🔗 Cross-Project Relations — "mumate" product group
+> Added 2026-06-20. This repo is **1 of 3 sibling repos** behind the MuMate (สายมู/ดวงจีน) product. Use this to orient when work spans repos.
+
+| Repo | Role | Stack / Host | DB |
+|------|------|--------------|-----|
+| **mootech-fe-fork** (FE) ← *you are here* | Consumer frontend — `bazichart.mumate.co` | Next.js Pages Router · Vercel `mootech-fe` | none of its own; **~11 `/api/*` routes query Supabase Pro `soxs` directly** via `DATABASE_URL` |
+| **mootech-be** (BE) | Legacy backend — auth/register-login, horoscope calc, payment, master-data, legacy `ai` chat, LINE multicast | NestJS · Render `srv-d8nc4j8k1i2s73d7e030` | Supabase Pro `soxsccdlsycaevusndro` |
+| **bazi** (`bazi-sft-dataset`) | Deterministic Bazi platform — symbolic engine, reading/PDF, **chat brain (API-only, OpenAI-compatible)**, LINE | Next.js App Router · Clerk | Neon (Drizzle) |
+
+### Edges (grounded in code)
+- **FE → BE** *(primary)*: all core flows. Base `https://bazichart.mumate.co/api/v1` → BE. Legacy chat = BE `/ai/chat` (gated by `NEXT_PUBLIC_ENABLE_CHAT`).
+- **FE → Supabase Pro `soxs`** *(direct)*: FE is **partial-fullstack** — ~11 `/api/*` routes hit the SAME DB as BE via `DATABASE_URL` (drizzle, `lib/db/index.ts`). Cutover must switch BOTH BE (Render) and FE (Vercel) pointers — else split-brain.
+- **FE → bazi** *(new chat brain)*: FE BFF [`pages/api/chat/bazi.ts`](pages/api/chat/bazi.ts) → bazi `/api/bazi/calculate` + `/api/v1/chat/completions` (server-side `OPEN_WEBUI_API_TOKEN`, `BAZI_BASE_URL`). UI prototype [`dev-access/bazi-chat-modal.tsx`](dev-access/bazi-chat-modal.tsx) — not yet promoted to prod.
+- **bazi ⟂ BE**: no direct code dependency (domain overlap only).
+
+```mermaid
+graph LR
+  FE[mootech-fe-fork<br/>MuMate frontend] -->|core /api/v1| BE[mootech-be<br/>NestJS]
+  FE -->|~11 routes DATABASE_URL| SOXS[(Supabase Pro soxs)]
+  BE --> SOXS
+  FE -->|BFF /api/chat/bazi| BAZI[bazi<br/>chat brain API]
+  BAZI --> NEON[(Neon)]
+  BE -. domain overlap, no code dep .- BAZI
+```
+
+> **This repo = FE.** It is the consumer: calls **BE** for core data, **bazi** for chat, and queries **soxs** directly for ~11 routes.
+
 ## 🔒 Collaboration Contract (Human ↔ AI) — ratified 2026-06-19
 
 ข้อตกลง **บังคับ** สำหรับการทำงานร่วมกันหลังระบบ live. AI ต้องปฏิบัติตามทุกข้อ ห้ามข้าม.
