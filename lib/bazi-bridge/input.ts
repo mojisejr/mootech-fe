@@ -59,3 +59,34 @@ export function toBaziInput(fe: FeCalcInput): BaziInputResult {
     name: nonEmpty(fe.name),
   }
 }
+
+// Shape of the mootech `user` row fields we read for chat (subset of SELECT * FROM "user").
+export interface UserBirthRow {
+  name?: string | null
+  dob?: string | null
+  time?: string | null
+  gender?: string | null
+  place_name?: string | null
+  is_remember_time?: boolean | null
+}
+
+// Map a stored user row -> FeCalcInput, honoring is_remember_time: we only trust the stored
+// birth time when the user explicitly remembered it (is_remember_time === true). Otherwise we
+// blank it so toBaziInput falls back to 12:00 and the hour pillar is suppressed (hasBirthTime
+// false) — mirroring NestJS "no hour pillar" behavior. Never fabricate an hour reading.
+export function userRowToFeCalcInput(row: UserBirthRow): FeCalcInput {
+  const trustTime = row.is_remember_time === true
+  return {
+    name: row.name ?? null,
+    dob: row.dob ?? null,
+    time: trustTime ? (row.time ?? null) : '',
+    gender: row.gender ?? null,
+    place_name: row.place_name ?? null,
+  }
+}
+
+// A profile is chat-ready only when birth date and gender are present. Province defaults to
+// Bangkok and time degrades gracefully, but date/gender must never be guessed.
+export function isBirthProfileComplete(row: UserBirthRow): boolean {
+  return nonEmpty(row.dob) !== '' && nonEmpty(row.gender) !== ''
+}

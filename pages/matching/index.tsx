@@ -2,6 +2,7 @@ import ScreenLoading from '@/components/screen-loading';
 import HeaderMuMate from '@/components/header-v2';
 import ModalAddFriend from '@/components/modal-add-freind';
 import ModalAIChatStreamingGeneral from '@/components/modal-ai-chat-general-streaming';
+import BaziChatLauncher from '@/components/bazi-chat-launcher';
 import ModalBlocking from '@/components/modal-blocking';
 import ModalSelectFriend from '@/components/modal-select-freind';
 import { UserGetById } from '@/constants/api/api-user-get';
@@ -613,10 +614,12 @@ export default function MatchingPage() {
 
 
 
+      <BaziChatLauncher />
+
       {
           isShowChat && process.env.NEXT_PUBLIC_ENABLE_CHAT !== 'false' ?
           <ModalAIChatStreamingGeneral
-            user_id={userId}     
+            user_id={userId}
             onClose={onCloseChat}
           />
         :

@@ -19,6 +19,7 @@ import { CompatibilityLoveCheck } from "@/constants/api/api-check-compatibility-
 import { CompatibilityWorkCheck } from "@/constants/api/api-check-compatibility-work";
 import Menu from "@/components/menu";
 import ModalAIChatStreamingGeneral from "@/components/modal-ai-chat-general-streaming";
+import BaziChatLauncher from "@/components/bazi-chat-launcher";
 import { ChineseElement } from "@/constants/chinese-element";
 import { useCurrentUser } from "@/lib/auth/use-current-user";
 import ScreenLoading from "@/components/screen-loading";
@@ -1356,10 +1357,12 @@ const openMenu = (isOpenMenu: boolean) => {
       }
 
 
+      <BaziChatLauncher />
+
       {
           isShowChat && process.env.NEXT_PUBLIC_ENABLE_CHAT !== 'false' ?
           <ModalAIChatStreamingGeneral
-            user_id={userId}     
+            user_id={userId}
             onClose={onCloseChat}
           />
         :

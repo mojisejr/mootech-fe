@@ -2,6 +2,7 @@ import CalendarChineseDairyCard from '@/components/calendar-dairy-chinese';
 import CalendarChineseMonthCard from '@/components/calendar-month-chinese';
 import HeaderMuMate from '@/components/header-v2';
 import ModalAIChatStreamingGeneral from '@/components/modal-ai-chat-general-streaming';
+import BaziChatLauncher from '@/components/bazi-chat-launcher';
 import { ChineseCalendarGetDairyAPI } from '@/constants/api/api-chinese-calendar-get-dairy';
 import { CookieKey } from '@/constants/cookie-key';
 import { PageRouter } from '@/constants/router';
@@ -398,10 +399,12 @@ const gotoPayment = () => {
       </div>
 
 
+      <BaziChatLauncher />
+
       {
           isShowChat && process.env.NEXT_PUBLIC_ENABLE_CHAT !== 'false' ?
           <ModalAIChatStreamingGeneral
-            user_id={userId}     
+            user_id={userId}
             onClose={onCloseChat}
           />
         :
