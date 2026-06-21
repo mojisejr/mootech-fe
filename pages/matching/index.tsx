@@ -34,6 +34,7 @@ export default function MatchingPage() {
   const [isLogin, setIsLogin] = useState<boolean>(false)
 
   const [isDisable, setIsDisable] = useState<boolean>(false)
+  const [errorMsg, setErrorMsg] = useState<string>('')
   const [isLimitation, setIsLimitation] = useState<boolean>(true)
 
   const [isShowChat, setIsShowChat] = useState<boolean>(false)
@@ -211,19 +212,22 @@ export default function MatchingPage() {
 
     const result = await UserMatchingCalculateApi(userId, friendId, matchingType)
 
-    if (result) {
-      if (result.matching_id) {
-        setCookie(CookieKey.MATCHING_ID, result.matching_id, {
-          path: '/',
-          maxAge: CONFIG.EXPIRED_TIME_COOKIE,
-          sameSite: true,
-        })
-       router.replace(PageRouter.MATCHING_RESULT)
-      } else {
+    // BE returns { matching_id } on success. A genuine membership/limit gate returns an
+    // AI code (402 EXPIRED / 403 NO_PLAN / 404 OUT_OF_LIMIT, inside the HTTP 410 body).
+    // Anything else (500 / network / unknown) is a real backend error — do NOT mislabel
+    // it as "please subscribe". #mootech-mysql-pg-migration-audit
+    const GATE_CODES = [402, 403, 404]
+    if (result && result.matching_id) {
+      setCookie(CookieKey.MATCHING_ID, result.matching_id, {
+        path: '/',
+        maxAge: CONFIG.EXPIRED_TIME_COOKIE,
+        sameSite: true,
+      })
+      router.replace(PageRouter.MATCHING_RESULT)
+    } else if (result && GATE_CODES.includes(result.code)) {
       setIsDisable(true)
-      }
-
     } else {
+      setErrorMsg('ระบบไม่สามารถคำนวณได้ในขณะนี้ กรุณาลองใหม่อีกครั้ง')
     }
   }
 
@@ -608,6 +612,24 @@ export default function MatchingPage() {
       {
         isDisable ?
           <ModalBlocking onSubmitOK={onClickBlockClose} onGoSubscribe={onClickBlockRegister} />
+        :
+        null
+      }
+
+      {
+        errorMsg ?
+          <div
+            className="fixed z-[9999] left-1/2 -translate-x-1/2 bottom-6 w-[92%] max-w-[420px] bg-white border border-red-200 shadow-box rounded-xl px-4 py-3 flex items-start gap-3"
+            role="alert"
+          >
+            <span className="text-[14px] text-black leading-relaxed flex-1">{errorMsg}</span>
+            <button
+              onClick={() => setErrorMsg('')}
+              className="text-[13px] text-moumate_blue font-semibold shrink-0"
+            >
+              ปิด
+            </button>
+          </div>
         :
         null
       }
