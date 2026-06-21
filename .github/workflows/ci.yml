@@ -1,0 +1,40 @@
+name: ci
+# Hard Gate on every PR — runs BEFORE merge (merge into main = production deploy).
+# See MUMATE-GITHUB-FLOW.md §7. Note: `next lint` is NOT used (eslint not installed);
+# tsc --noEmit is the static gate.
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  hard-gate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+
+      - name: typecheck (tsc --noEmit)
+        run: npx tsc --noEmit
+
+      - name: tests
+        run: |
+          for f in scripts/*.test.ts; do
+            echo "== $f"
+            npx tsx "$f"
+          done
+
+      - name: build
+        run: npm run build
+        env:
+          # Placeholders only — NO real secrets in CI.
+          # These are publicRuntimeConfig (runtime), build just needs them defined.
+          ENVIRONMENT: production
+          HOST: https://example.invalid
+          NEXTAUTH_URL: https://example.invalid
+          OMISE_PUBLIC_KEY: pkey_test_placeholder
