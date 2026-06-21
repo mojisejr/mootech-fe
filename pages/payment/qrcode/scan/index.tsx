@@ -31,7 +31,7 @@ export default function PaymentQRCodePage() {
 
 
 
-  // const [seconds, setSe conds] = useState<number>(330)
+  const [seconds, setSeconds] = useState<number>(330)
 
   const [isLogin, setIsLogin] = useState<boolean>(false)
 
@@ -73,6 +73,7 @@ export default function PaymentQRCodePage() {
 
   useEffect(() => {
   if (!chargeId) return;
+  if (seconds <= 0) return;
 
   const interval = setInterval(async () => {
 
@@ -86,7 +87,7 @@ export default function PaymentQRCodePage() {
   }, 3000);
 
   return () => clearInterval(interval);
-}, [chargeId, router]);
+}, [chargeId, router, seconds <= 0]);
 
 
 
@@ -191,18 +192,18 @@ export default function PaymentQRCodePage() {
   }
   
 
-//   useEffect(() => {
-//   if (seconds <= 0) {
+  useEffect(() => {
+  if (seconds <= 0) {
+    router.replace(`${PageRouter.PAYMENT_FAILURE}?reason=timeout`)
+    return
+  }
 
-//     return
-//   }
+  const timer = setInterval(() => {
+    setSeconds((prev) => prev - 1)
+  }, 1000)
 
-//   const timer = setInterval(() => {
-//     setSeconds((prev) => prev - 1)
-//   }, 1000)
-
-//   return () => clearInterval(timer)
-// }, [seconds])
+  return () => clearInterval(timer)
+}, [seconds, router])
 
 const formatTime = (totalSeconds: number) => {
   const minutes = Math.floor(totalSeconds / 60)
@@ -387,19 +388,19 @@ const onSubmit = () => {
                                         </div>
 
 
-                                          {/* <div className="w-full flex flex-wrap justify-center items-center  mt-6 ">
+                                          <div className="w-full flex flex-wrap justify-center items-center  mt-6 ">
 
                                             <Image
                                               src={'/images/mumate/ic_timer.svg'}
                                               width={24}
                                               height={24}
                                               alt='timer'
-                                            />  
+                                            />
                                             <span className='ml-2 text-[14px] text-[#888888]'>{formatTime(seconds)}</span>
-                                  
-                                            
+
+
                                           </div>
-                                       */}
+
                                     
                                       </div>
 

@@ -42,6 +42,7 @@ enum PageRouter {
   PAYMENT_VIA_QRCODE_SCAN = "/payment/qrcode/scan",
   PAYMENT_TRANSFER = "/payment/transfer",
   PAYMENT_THANKYOU = "/payment/thankyou",
+  PAYMENT_FAILURE = "/payment/failure",
 
   CHINESE_CALENDAR = "/chinese-calendar",
 

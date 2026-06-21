@@ -3,7 +3,6 @@ import ScreenLoading from '@/components/screen-loading';
 import HeaderMuMate from '@/components/header-v2';
 import ModalBlocking from '@/components/modal-blocking';
 import ModalPayment from '@/components/modal-payment';
-import ModalPaymentCreditCard from '@/components/modal-payment-creditcard';
 import ModalPaymentPromptPay from '@/components/modal-payment-qrcode';
 import { PaymentPackageGet } from '@/constants/api/api-payment-package-get';
 import { API } from '@/constants/api/endpoint';
@@ -38,13 +37,6 @@ export default function FortuneStickPage() {
   ])
 
 
-  /* OMISE */
-  const [name, setName] = useState<string>("Thunyasit Pholprasit");
-  const [number, setNumber] = useState<string>("4242424242424242");
-  const [expMonth, setExpMonth] = useState<string>("11");
-  const [expYear, setExpYear] = useState<string>("2030");
-  const [cvv, setCvv] = useState<string>("123");
-
   const [qrUrl, setQrUrl] = useState<string>("");
   const [chargeId, setChargeId] = useState<string>("");
 
@@ -58,8 +50,6 @@ const [isShowModalRegister, setIsShowModalRegister] = useState<boolean>(false)
 
   
 
-
-  const [isShowModalPaymentCreditCard, setIsShowModalPaymentCreditCard] = useState<boolean>(false)
 
   const [isShowModalPaymentPromptpay, setIsShowModalPaymentPromptpay] = useState<boolean>(false)
 
@@ -230,24 +220,6 @@ const [isShowModalRegister, setIsShowModalRegister] = useState<boolean>(false)
 
   };
 
-const handleCharge = async (token: any, amount: number) => {
-  const res = await fetch(API.payment.pay_via_credit_card, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      token: token,
-      amount: amount, // ยอดเงิน (บาท)
-    }),
-  });
-
-  const data = await res.json();
-  if (data && data.charge && data.charge.id) {
-    window.location.href = data.charge.authorize_uri
-    // window.location.href = data.charge.return_uri + '?chargeId='+data.charge.id;
-  }
-};
-
-
 const onCloseModalPayment = () => {
   setIsShowModalPayment(false)
 }
@@ -271,62 +243,12 @@ const onSubmitModalPayment = async (paymentMethod: number) => {
 
 
 
-const onCloseModalPaymentCreditCard = () => {
-  setIsShowModalPaymentCreditCard (false)
-}
-
-const onSubmitModalPaymentCreditCard = async (name: string, number: string, expMonth: string, expYear: string, cvv: string) => {
-
-  setName(name)
-  setNumber(number)
-  setExpMonth(expMonth)
-  setExpYear(expYear)
-  setCvv(cvv)
-
-  setIsShowModalPaymentCreditCard(false)
-  // callOmiseCreditCard(name, number, expMonth, expYear, cvv, modalPaymentAmount)
-  
-}
-
 const onSubmitModalPaymentPromptpay = () => {
   setIsShowModalPaymentPromptpay(false)
 }
 const onCloseModalPaymentPromptpay = () => {
   setIsShowModalPaymentPromptpay(false)
 }
-
-
-// 4000000000000002
-const callOmiseCreditCard = (
-  name: string,
-  number: string,
-  expMonth: string,
-  expYear: string,
-  cvv: string,
-  amount: number,
-) => {
-  window.Omise.createToken(
-    "card",
-    {
-      name,
-      number,
-      expiration_month: expMonth,
-      expiration_year: expYear,
-      security_code: cvv,
-    },
-    function (status: any, response: any) {
-      if (status === 200) {
-
-        handleCharge(response.id, amount,);
-      } else {
-
-      }
-    }
-  );
-
-  
-};
-
 
 
 const callOmisePromtpay = async ( amount: number) => {
@@ -563,13 +485,6 @@ const callOmisePromtpay = async ( amount: number) => {
           <ModalPayment onClose={onCloseModalPayment} onSubmitOK={onSubmitModalPayment} amount={modalPaymentAmount} />
         :
          null
-      }
-
-      {
-        isShowModalPaymentCreditCard ?
-          <ModalPaymentCreditCard onClose={onCloseModalPaymentCreditCard} onSubmitOK={onSubmitModalPaymentCreditCard} />
-          :
-          null
       }
 
       {
