@@ -28,8 +28,10 @@ export default function PaymentCallbackPage() {
     const result = await PaymentRetrieveApi(
       chargeId
     )
-    if (result) {
+    if (result?.paid) {
       router.replace(PageRouter.PAYMENT_THANKYOU)
+    } else {
+      router.replace(`${PageRouter.PAYMENT_FAILURE}?reason=declined`)
     }
   }
   
