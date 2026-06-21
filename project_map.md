@@ -173,3 +173,14 @@ User -> Next.js page -> NextAuth / cookies -> `constants/api/*` -> external back
 - **Pages Router Legacy Shape**: หลายหน้าใหญ่และมี logic orchestration อยู่ใน page component โดยตรง ทำให้ maintain ยากเมื่อฟีเจอร์โต
 - **Cookie + Session Dual State**: ใช้ทั้ง NextAuth session และ cookies ฝั่ง app พร้อมกัน จึงเสี่ยง state mismatch
 - **Database Ownership ไม่ชัดใน Repo**: หากจะต่อ Supabase/Neon ต้องตัดสินใจก่อนว่า DB จะอยู่หลัง backend เดิม หรือ frontend repo นี้จะกลายเป็น fullstack owner
+---
+
+## 🔀 GitHub Flow & Guardrails
+
+> Canonical cross-repo contract: [MUMATE-GITHUB-FLOW.md](MUMATE-GITHUB-FLOW.md). This section = **FE specifics**.
+
+- **Branch model**: `feat/*` → PR → `main`. `main` = production base (Vercel project `mootech-fe`).
+- **Deploy = merge into `main`.** 🚫 Never `vercel --prod` from local (deploy = merge, not CLI). Operator: enable/verify Vercel git auto-deploy.
+- **CI Hard Gate** (`.github/workflows/ci.yml`, on PR): `npm run build` + `npx tsc --noEmit` + loop `tsx scripts/*.test.ts`. ⚠️ NOT `next lint` (eslint not installed).
+- **Secret scan**: gitleaks on PR diff. No secrets in git/PR; `.env.example` is the masked contract.
+- **Ownership**: `@mojisejr` (CODEOWNERS). PR-only — AI never merges/deploys.
