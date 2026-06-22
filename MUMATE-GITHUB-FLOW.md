@@ -25,7 +25,7 @@
 | Repo | Flow | Deploy branch | PR target |
 |------|------|---------------|-----------|
 | **FE** | `feat/*` → PR → `main` | `main` | `main` |
-| **BE** | `feat/*` → PR → `main` | `main` (after migration from `feat/supabase-repoint`) | `main` |
+| **BE** | `feat/*` → PR → `main` | `main` (Render watches `main` — migration done 2026-06-21) | `main` |
 | **bazi** | `chat/*` → PR → `pdf-dev` | friend-controlled | `pdf-dev` (friend reviews) |
 
 - FE & BE are twins: `main` = production, owner controls via merge.
@@ -33,6 +33,24 @@
 
 ### Branch naming (all repos)
 `feat/<scope>` · `fix/<scope>` · `chore/<scope>` · `payment/<scope>` (payment changes — triggers the FE↔BE sync checklist)
+
+### Branch Hygiene (local discipline — prevents wrong-base mistakes)
+
+The fear: editing on a stale or already-merged local branch, then shipping from the wrong base.
+
+1. **Branch fresh, always.** Before starting new work: `git fetch`, then branch from the latest
+   deploy base — `git checkout <base> && git pull && git checkout -b <type>/<scope>`. Never branch
+   off a leftover feature branch.
+2. **Verify before delete / before "done".** Never delete a branch or report a fix as shipped on
+   assumption. Confirm the merge is real: `gh pr view <n>` shows `MERGED` **or** the commit is in
+   `origin/<base>`. A PR still `OPEN` = **not live** → do not clean up, do not say "done".
+3. **Return to base after merge.** When the operator says a PR is merged:
+   `git checkout <base> → git pull → git branch -d <merged-branch>`. Prefer `-d` (it refuses
+   unmerged branches as a safety net); use `-D` only after explicitly confirming the commits are in
+   `<base>` (e.g. `git cherry <base> <branch>` shows none). End every cleanup back on `<base>` at
+   latest, ready for the next mission.
+4. **Base per repo:** `main` for FE/BE. **bazi is exempt** — its base is `pdf-dev` (friend-owned);
+   branch from and return to `pdf-dev`, never force bazi onto `main`.
 
 ---
 
@@ -51,7 +69,7 @@ Both platforms are git-integration driven:
 - 🚫 **AI never merges its own PR and never deploys.** AI opens the PR; the operator reviews and merges. The merge IS the operator's deploy decision.
 - ✅ After a deploy, verify: Vercel deployment status (FE) / Render deploy id (BE).
 
-> **Deploy-trigger reality note (2026-06-21):** FE's last release (PR #1) required an explicit `vercel --prod` — git auto-deploy was not confirmed enabled. **Operator must enable/verify Vercel git auto-deploy** so "merge = ship" holds for FE. BE Render `autoDeploy` is already `yes`.
+> **Deploy-trigger reality note (updated 2026-06-22):** FE Vercel git auto-deploy is now confirmed working — merge → `main` ships prod automatically (operator verified). BE Render `autoDeploy: yes` on `main`. "merge = ship" now holds for both. (History: FE's PR #1 release once needed an explicit `vercel --prod` before auto-deploy was enabled.)
 
 ---
 
@@ -116,11 +134,11 @@ On FE `main` and BE `main`:
 ## 9. Operator-Only Steps (consolidated)
 
 These cannot be done by AI (classifier-blocked or live-infra):
-1. Enable / verify **Vercel git auto-deploy** + production branch = `main` (FE).
-2. Switch **Render deploy branch** `feat/supabase-repoint` → `main` (BE) in dashboard.
-3. Apply **branch protection** on FE/BE `main` (AI provides commands).
-4. **Rotate secrets** present in git history (go-live gate).
-5. Decide on **bazi proposal** (accept CODEOWNERS/gitleaks/CI or keep hands-off) — friend's repo.
+1. ✅ **DONE** — Vercel git auto-deploy + production branch = `main` (FE) verified working.
+2. ✅ **DONE** — Render deploy branch switched to `main` (BE).
+3. Apply **branch protection** on FE/BE `main` (AI provides commands). *(pending)*
+4. **Rotate secrets** present in git history (go-live gate). *(pending)*
+5. Decide on **bazi proposal** (accept CODEOWNERS/gitleaks/CI or keep hands-off) — friend's repo. *(pending)*
 
 ---
 
