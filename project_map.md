@@ -41,11 +41,12 @@ graph LR
 ข้อตกลง **บังคับ** สำหรับการทำงานร่วมกันหลังระบบ live. AI ต้องปฏิบัติตามทุกข้อ ห้ามข้าม.
 
 ### Branch & Deploy
-- **Production branch = `feat/fullstack-supabase-fold`** (remote `origin` → github.com/mojisejr/mootech-fe). Deploy = `vercel --prod` (Vercel project `mootech-fe`, manual CLI).
-- **ห้าม push ตรงเข้า production branch และห้าม `vercel --prod` เด็ดขาด** จนกว่า: `feature branch → PR → operator review → approve → merge` แล้วเท่านั้น.
-- AI **ห้าม** merge PR ของตัวเอง และ **ห้าม** deploy (`vercel --prod`) เองโดยไม่ได้รับ approve.
-- Deploy ได้เมื่อ: `npm run build` เขียว **และ** PR merged **และ** operator OK เท่านั้น.
-- Follow-up: ตั้ง GitHub branch protection (require PR); พิจารณาเชื่อม Vercel Git auto-deploy + rename → `production`.
+> Canonical: [MUMATE-GITHUB-FLOW.md](MUMATE-GITHUB-FLOW.md) §2–3 + **Branch Hygiene**. Summary here.
+- **Production branch = `main`** (remote `origin` → github.com/mojisejr/mootech-fe). **Deploy = merge into `main`** → Vercel auto-deploys (git integration confirmed 2026-06-22). 🚫 ห้าม `vercel --prod` จาก local.
+- Flow: `feat|fix|chore/*` (branch จาก `main` ล่าสุดเสมอ) → PR → operator review → **operator merge** = deploy.
+- AI **ห้าม** merge PR ของตัวเอง และ **ห้าม** deploy เอง.
+- **Branch hygiene**: branch จาก `origin/main` ล่าสุดเสมอ (fetch ก่อน) · verify `MERGED` ก่อนลบ/ก่อนบอก "done" · หลัง merge กลับมา `main` + pull + ลบ branch ที่ merged แล้ว (`-d`) → พร้อมงานถัดไป.
+- Follow-up (operator): GitHub branch protection (require PR + CI). *(pending)*
 
 ### Database (ศักดิ์สิทธิ์ — แตะต้องคุยก่อน)
 - repo นี้ **ไม่ได้เป็นเจ้าของ DB** (consumer ผ่าน be API) แต่กฎเดียวกันใช้: การเปลี่ยนแปลงที่กระทบข้อมูล prod (ผ่าน be, migration, query) → **คุย + operator approve ก่อนเสมอ.**
