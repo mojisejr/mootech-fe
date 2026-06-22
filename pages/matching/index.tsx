@@ -15,9 +15,11 @@ import { useSession } from "next-auth/react";
 import Head from "next/head";
 import Image from "next/image";
 import { useRouter } from "next/router";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useCookies } from 'react-cookie';
+import { motion, AnimatePresence } from 'framer-motion';
 import { useCurrentUser } from '@/lib/auth/use-current-user';
+import { useSubmit } from '@/lib/ui/use-submit';
 
 
 export default function MatchingPage() {
@@ -73,8 +75,44 @@ export default function MatchingPage() {
   const [matchingType, setMatchingType] = useState<string>('LOVE')
   const [matchingTypeDesc, setMatchingTypeDesc] = useState<string>('')
 
-      const fallback = '/images/mumate/ic_avatar.svg' 
+      const fallback = '/images/mumate/ic_avatar.svg'
     const [imgSrc, setImgSrc] = useState(displayImage || fallback)
+
+
+  // The calculate request. Wrapped by useSubmit so isCalculating drives the
+  // branded overlay + button-disable, and the ref-guard prevents a rapid
+  // double-tap from firing UserMatchingCalculateApi twice. #mootech-matching-loading-ux
+  const runCalculate = useCallback(async () => {
+    if (isDisable == true) {
+      return
+    }
+    if (!userId || !friendId || !matchingType) {
+      return
+    }
+
+
+    const result = await UserMatchingCalculateApi(userId, friendId, matchingType)
+
+    // BE returns { matching_id } on success. A genuine membership/limit gate returns an
+    // AI code (402 EXPIRED / 403 NO_PLAN / 404 OUT_OF_LIMIT, inside the HTTP 410 body).
+    // Anything else (500 / network / unknown) is a real backend error — do NOT mislabel
+    // it as "please subscribe". #mootech-mysql-pg-migration-audit
+    const GATE_CODES = [402, 403, 404]
+    if (result && result.matching_id) {
+      setCookie(CookieKey.MATCHING_ID, result.matching_id, {
+        path: '/',
+        maxAge: CONFIG.EXPIRED_TIME_COOKIE,
+        sameSite: true,
+      })
+      router.replace(PageRouter.MATCHING_RESULT)
+    } else if (result && GATE_CODES.includes(result.code)) {
+      setIsDisable(true)
+    } else {
+      setErrorMsg('ระบบไม่สามารถคำนวณได้ในขณะนี้ กรุณาลองใหม่อีกครั้ง')
+    }
+  }, [isDisable, userId, friendId, matchingType, setCookie, router])
+
+  const { isSubmitting: isCalculating, submit } = useSubmit(runCalculate)
 
 
   const getUserDetail = async (userId: string ) => {
@@ -185,35 +223,7 @@ export default function MatchingPage() {
     return true;
   }
 
-  const onSubmitCalculate = async () => {
-    if (isDisable == true) {
-      return
-    }
-    if (!userId || !friendId || !matchingType) {
-      return
-    }
-
-
-    const result = await UserMatchingCalculateApi(userId, friendId, matchingType)
-
-    // BE returns { matching_id } on success. A genuine membership/limit gate returns an
-    // AI code (402 EXPIRED / 403 NO_PLAN / 404 OUT_OF_LIMIT, inside the HTTP 410 body).
-    // Anything else (500 / network / unknown) is a real backend error — do NOT mislabel
-    // it as "please subscribe". #mootech-mysql-pg-migration-audit
-    const GATE_CODES = [402, 403, 404]
-    if (result && result.matching_id) {
-      setCookie(CookieKey.MATCHING_ID, result.matching_id, {
-        path: '/',
-        maxAge: CONFIG.EXPIRED_TIME_COOKIE,
-        sameSite: true,
-      })
-      router.replace(PageRouter.MATCHING_RESULT)
-    } else if (result && GATE_CODES.includes(result.code)) {
-      setIsDisable(true)
-    } else {
-      setErrorMsg('ระบบไม่สามารถคำนวณได้ในขณะนี้ กรุณาลองใหม่อีกครั้ง')
-    }
-  }
+  const onSubmitCalculate = () => submit()
 
    const onClickBlockClose = () => {
     setIsDisable(false)
@@ -236,6 +246,21 @@ export default function MatchingPage() {
       <Head>
         <title>Mumate</title>
       </Head>
+
+      <AnimatePresence>
+        {isCalculating && (
+          <motion.div
+            key="calculating-overlay"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.3 }}
+            className="fixed inset-0 z-[80]"
+          >
+            <ScreenLoading label="กำลังคำนวณดวงสมพงศ์..." />
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       <div className="w-full  block md:flex flex-wrap">
         {/* <div className='w-full bg-[#1B9AAF]  relative '>
@@ -466,17 +491,17 @@ export default function MatchingPage() {
                   <div className='w-full flex flex-wrap'>
 
                     <div className='w-full flex flex-wrap '>
-                        <div 
-                        
-                        onClick={() => { onSubmitCalculate() }}
+                        <div
+
+                        onClick={() => { if (!isCalculating) onSubmitCalculate() }}
                         className={
                           (
-                            isValidate() ? ' cursor-pointer  bg-[#1B9AAF] ' : '  bg-gray-200 '
-                          
-                          ) + 
+                            (isValidate() && !isCalculating) ? ' cursor-pointer  bg-[#1B9AAF] ' : '  bg-gray-200 pointer-events-none '
+
+                          ) +
                           'w-full flex flex-nowrap  rounded-[40px] py-[16px] px-[24px]'}>
 
-                          <span className=' w-full grow flex justify-center text-white font-medium'>ดูผลลัพท์เลย</span>
+                          <span className=' w-full grow flex justify-center text-white font-medium'>{isCalculating ? 'กำลังคำนวณ...' : 'ดูผลลัพท์เลย'}</span>
 
 
                         </div>
