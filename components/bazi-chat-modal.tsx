@@ -1,11 +1,14 @@
-// Production bazi chat modal (#mootech-bazi-chat-lane).
+// Production bazi chat modal (#mootech-bazi-chat-lane, sessions: #mootech-chat-sessions).
 // Transport: calls the BFF (/api/chat/bazi) which resolves birth SERVER-SIDE from the auth
 // cookie — this component sends ONLY the message turns (no birth), so the birthday is
 // immutable from the UI. Parses OpenAI-format SSE (choices[].delta.content).
-// Persistence: conversation is kept in localStorage keyed per user (survives reload).
+// Persistence: MULTI-SESSION via useChatSessions (localStorage today, DB-swap seam later).
+// The view (historyChat) mirrors the active session; turns persist on settle.
 import { useEffect, useRef, useState } from "react"
 import Link from "next/link"
 import { SUGGESTED_QUESTIONS } from "@/constants/suggested-questions"
+import { useChatSessions } from "@/lib/chat/use-chat-sessions"
+import type { ChatSessionMessage } from "@/lib/chat/session-store"
 
 type ComponentProps = {
   userId: string
@@ -29,7 +32,6 @@ const SIZE_CLASS: Record<Size, string> = {
   full: "h-[100dvh] rounded-none",
 }
 const SIZE_KEY = "bazi-chat-size"
-const historyKey = (userId: string) => `bazi-chat-history:${userId}`
 
 const TypingDots = () => (
   <span className="inline-flex items-center gap-1">
@@ -43,45 +45,105 @@ const TypingDots = () => (
 let idSeq = 0
 const nextId = () => `m_${++idSeq}`
 
+const toChatItems = (messages: ChatSessionMessage[]): ChatItem[] =>
+  messages.map((m) => ({ id: m.id, message: m.message, is_ai: m.is_ai, is_loading: false }))
+
+const toSessionMessages = (items: ChatItem[]): ChatSessionMessage[] =>
+  items
+    .filter((m) => !m.is_loading)
+    .map((m) => ({ id: m.id, message: m.message, is_ai: m.is_ai }))
+
+const relativeTime = (ts: number): string => {
+  const diff = Date.now() - ts
+  const min = Math.floor(diff / 60000)
+  if (min < 1) return "เมื่อกี้"
+  if (min < 60) return `${min} นาทีที่แล้ว`
+  const hr = Math.floor(min / 60)
+  if (hr < 24) return `${hr} ชม.ที่แล้ว`
+  const day = Math.floor(hr / 24)
+  return `${day} วันก่อน`
+}
+
 const BaziChatModal = ({ userId, onClose }: ComponentProps) => {
+  const { sessions, activeId, ready, newSession, switchTo, rename, remove, persist } =
+    useChatSessions(userId)
+
   const [historyChat, setHistoryChat] = useState<ChatItem[]>([])
   const [chatMessage, setChatMessage] = useState("")
   const [isCallAI, setIsCallAI] = useState(false)
   const [needProfile, setNeedProfile] = useState(false)
   const [size, setSize] = useState<Size>("default")
-  const [hydrated, setHydrated] = useState(false)
+  const [showSessions, setShowSessions] = useState(false)
+  const [editingId, setEditingId] = useState<string | null>(null)
+  const [editingTitle, setEditingTitle] = useState("")
   const abortRef = useRef<AbortController | null>(null)
   const bottomRef = useRef<HTMLDivElement | null>(null)
+  // true while loading a session's messages into the view, so the persist effect doesn't
+  // clobber a session with a hydration-triggered write.
+  const hydratingRef = useRef(false)
+  const loadedForRef = useRef<string | null>(null)
 
-  // restore last chosen size + per-user conversation history
+  // restore last chosen size
   useEffect(() => {
     if (typeof window === "undefined") return
     const savedSize = window.localStorage.getItem(SIZE_KEY)
     if (savedSize && (SIZE_ORDER as string[]).includes(savedSize)) setSize(savedSize as Size)
-    if (userId) {
-      try {
-        const raw = window.localStorage.getItem(historyKey(userId))
-        if (raw) {
-          const parsed = JSON.parse(raw) as ChatItem[]
-          if (Array.isArray(parsed)) setHistoryChat(parsed)
-        }
-      } catch {
-        // corrupt entry — start fresh
-      }
-    }
-    setHydrated(true)
-  }, [userId])
+  }, [])
 
-  // persist conversation (drop in-flight loading bubbles) once hydrated
+  // load the active session's messages into the view once the store is ready (first mount /
+  // identity resolved). Switching/new/remove load directly in their handlers.
   useEffect(() => {
-    if (!hydrated || typeof window === "undefined" || !userId) return
-    const persistable = historyChat.filter((m) => !m.is_loading)
-    try {
-      window.localStorage.setItem(historyKey(userId), JSON.stringify(persistable))
-    } catch {
-      // storage full / unavailable — non-fatal
+    if (!ready || !activeId || loadedForRef.current === activeId) return
+    const active = sessions.find((s) => s.id === activeId)
+    loadInto(active?.messages ?? [], activeId)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ready, activeId, sessions])
+
+  // persist the active session when a turn settles (not mid-stream, not during hydration)
+  useEffect(() => {
+    if (!ready || isCallAI || hydratingRef.current) return
+    persist(toSessionMessages(historyChat))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [historyChat, isCallAI, ready])
+
+  const loadInto = (messages: ChatSessionMessage[], id: string) => {
+    hydratingRef.current = true
+    setHistoryChat(toChatItems(messages))
+    setNeedProfile(false)
+    loadedForRef.current = id
+    queueMicrotask(() => {
+      hydratingRef.current = false
+    })
+  }
+
+  const onNewSession = () => {
+    abortRef.current?.abort()
+    const id = newSession()
+    if (id) loadInto([], id)
+    setShowSessions(false)
+  }
+
+  const onSwitchSession = (id: string) => {
+    if (id === activeId) {
+      setShowSessions(false)
+      return
     }
-  }, [historyChat, hydrated, userId])
+    abortRef.current?.abort()
+    loadInto(switchTo(id), id)
+    setShowSessions(false)
+  }
+
+  const onRemoveSession = (id: string) => {
+    if (!window.confirm("ลบแชทนี้?")) return
+    const remaining = remove(id)
+    if (id === activeId && activeId) loadInto(remaining, activeId)
+  }
+
+  const commitRename = (id: string) => {
+    if (editingTitle.trim()) rename(id, editingTitle)
+    setEditingId(null)
+    setEditingTitle("")
+  }
 
   const stepSize = (dir: 1 | -1) => {
     setSize((prev) => {
@@ -107,14 +169,6 @@ const BaziChatModal = ({ userId, onClose }: ComponentProps) => {
   useEffect(() => {
     return () => abortRef.current?.abort()
   }, [])
-
-  const onClearChat = () => {
-    setHistoryChat([])
-    setNeedProfile(false)
-    if (typeof window !== "undefined" && userId) {
-      window.localStorage.removeItem(historyKey(userId))
-    }
-  }
 
   const updateAi = (id: string, fn: (prev: ChatItem) => ChatItem) =>
     setHistoryChat((list) => list.map((m) => (m.id === id ? fn(m) : m)))
@@ -242,18 +296,26 @@ const BaziChatModal = ({ userId, onClose }: ComponentProps) => {
         }}
         className="flex-none w-full flex flex-nowrap p-[24px] items-center gap-3"
       >
+        <button
+          onClick={() => setShowSessions((v) => !v)}
+          title="รายการแชท"
+          aria-label="รายการแชท"
+          className="cursor-pointer hover:bg-white/15 text-white w-[28px] h-[28px] rounded-full flex items-center justify-center text-[16px] leading-none"
+        >
+          ☰
+        </button>
         <span className="text-white font-medium whitespace-nowrap">ซินแส Mumate</span>
         <div className="w-full grow flex justify-center">
           <span className="h-[3px] bg-white w-[50px] rounded-[100px]" />
         </div>
         <div className="flex-none flex items-center gap-1">
           <button
-            onClick={onClearChat}
+            onClick={onNewSession}
             title="เริ่มแชทใหม่"
             aria-label="เริ่มแชทใหม่"
-            className="cursor-pointer hover:bg-white/15 text-white w-[28px] h-[28px] rounded-full flex items-center justify-center text-[15px] leading-none"
+            className="cursor-pointer hover:bg-white/15 text-white w-[28px] h-[28px] rounded-full flex items-center justify-center text-[18px] leading-none"
           >
-            ↻
+            ＋
           </button>
           <button
             onClick={() => stepSize(-1)}
@@ -292,7 +354,7 @@ const BaziChatModal = ({ userId, onClose }: ComponentProps) => {
       </div>
 
       {/* body */}
-      <div className="w-full flex-1 min-h-0 flex flex-col bg-[#44588B]">
+      <div className="relative w-full flex-1 min-h-0 flex flex-col bg-[#44588B]">
         <div className="flex-1 min-h-0 overflow-y-auto w-full py-[20px] [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
           <div className="w-full flex flex-wrap px-[24px]">
             {needProfile ? (
@@ -395,6 +457,85 @@ const BaziChatModal = ({ userId, onClose }: ComponentProps) => {
             </button>
           </div>
         </div>
+
+        {/* session panel — slides over the body; tap a row to switch */}
+        {showSessions && (
+          <div className="absolute inset-0 z-10 flex flex-col bg-[#3a4a78]">
+            <div className="flex-none flex items-center gap-3 px-[24px] py-[18px] border-b border-white/10">
+              <button
+                onClick={() => setShowSessions(false)}
+                aria-label="ปิดรายการ"
+                className="cursor-pointer hover:bg-white/15 text-white w-[28px] h-[28px] rounded-full flex items-center justify-center text-[18px] leading-none"
+              >
+                ←
+              </button>
+              <span className="text-white font-medium">รายการแชท</span>
+            </div>
+            <button
+              onClick={onNewSession}
+              className="flex-none text-left px-[24px] py-[14px] text-white text-[14px] hover:bg-white/10 cursor-pointer border-b border-white/10"
+            >
+              ＋ เริ่มแชทใหม่
+            </button>
+            <div className="flex-1 min-h-0 overflow-y-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
+              {sessions.map((s) => (
+                <div
+                  key={s.id}
+                  className={
+                    (s.id === activeId ? "bg-white/10" : "") +
+                    " group flex items-center gap-2 px-[24px] py-[12px] hover:bg-white/10"
+                  }
+                >
+                  {editingId === s.id ? (
+                    <input
+                      autoFocus
+                      value={editingTitle}
+                      onChange={(e) => setEditingTitle(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") commitRename(s.id)
+                        if (e.key === "Escape") setEditingId(null)
+                      }}
+                      onBlur={() => commitRename(s.id)}
+                      className="flex-1 min-w-0 bg-white/10 text-white text-[14px] rounded-md px-2 py-1 outline-none"
+                    />
+                  ) : (
+                    <button
+                      onClick={() => onSwitchSession(s.id)}
+                      className="flex-1 min-w-0 text-left cursor-pointer"
+                    >
+                      <div className="flex items-center gap-2">
+                        {s.id === activeId ? (
+                          <span className="w-[6px] h-[6px] rounded-full bg-moumate_blue flex-none" />
+                        ) : null}
+                        <span className="text-white text-[14px] truncate">{s.title}</span>
+                      </div>
+                      <span className="text-white/50 text-[11px]">{relativeTime(s.updatedAt)}</span>
+                    </button>
+                  )}
+                  <button
+                    onClick={() => {
+                      setEditingId(s.id)
+                      setEditingTitle(s.title)
+                    }}
+                    title="เปลี่ยนชื่อ"
+                    aria-label="เปลี่ยนชื่อแชท"
+                    className="flex-none text-white/60 hover:text-white text-[14px] cursor-pointer w-[26px] h-[26px] rounded-full flex items-center justify-center"
+                  >
+                    ✎
+                  </button>
+                  <button
+                    onClick={() => onRemoveSession(s.id)}
+                    title="ลบ"
+                    aria-label="ลบแชท"
+                    className="flex-none text-white/60 hover:text-moumate_red text-[14px] cursor-pointer w-[26px] h-[26px] rounded-full flex items-center justify-center"
+                  >
+                    🗑
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
     </div>
   )
