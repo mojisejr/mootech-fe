@@ -15,45 +15,34 @@ const BaziChatLauncher = () => {
 
   return (
     <>
-      <motion.div
-        onClick={() => setOpen((v) => !v)}
-        title="คุยกับซินแส Mumate"
-        aria-label="เปิดแชทซินแส Mumate"
-        className="fixed right-0 bottom-0 m-6 z-[10000] w-[72px] h-[72px] rounded-2xl cursor-pointer flex items-center justify-center text-white text-[28px] leading-none select-none"
-        style={{
-          background: "linear-gradient(332.45deg, #1B9AAF 0%, #FF00EE 143.46%)",
-          boxShadow: "0px 0px 20px rgba(56,59,231,0.7)",
-        }}
-        // idle breathing pulse
-        animate={{ scale: [1, 1.05, 1] }}
-        transition={{ duration: 2.5, ease: "easeInOut", repeat: Infinity }}
-        whileTap={{ scale: 0.9 }}
-      >
-        {/* icon morph: ☯ idle → ✕ when open (rotate + crossfade) */}
-        <AnimatePresence mode="wait" initial={false}>
-          {open ? (
-            <motion.span
-              key="close"
-              initial={{ opacity: 0, rotate: -90 }}
-              animate={{ opacity: 1, rotate: 0 }}
-              exit={{ opacity: 0, rotate: 90 }}
-              transition={{ duration: 0.2 }}
-            >
-              ✕
-            </motion.span>
-          ) : (
-            <motion.span
-              key="yin"
-              initial={{ opacity: 0, rotate: 90 }}
-              animate={{ opacity: 1, rotate: 0 }}
-              exit={{ opacity: 0, rotate: -90 }}
-              transition={{ duration: 0.2 }}
-            >
-              ☯
-            </motion.span>
-          )}
-        </AnimatePresence>
-      </motion.div>
+      {/* floating launcher — hidden while the chat is open so it never covers the sheet
+          (the sheet has its own ✕ close). Animates out on open, back in on close. */}
+      <AnimatePresence>
+        {!open ? (
+          <motion.div
+            key="launcher"
+            onClick={() => setOpen(true)}
+            title="คุยกับซินแส Mumate"
+            aria-label="เปิดแชทซินแส Mumate"
+            className="fixed right-0 bottom-0 m-6 z-[10000] w-[72px] h-[72px] rounded-2xl cursor-pointer flex items-center justify-center text-white text-[28px] leading-none select-none"
+            style={{
+              background: "linear-gradient(332.45deg, #1B9AAF 0%, #FF00EE 143.46%)",
+              boxShadow: "0px 0px 20px rgba(56,59,231,0.7)",
+            }}
+            initial={{ opacity: 0, scale: 0.6 }}
+            // idle breathing pulse once shown
+            animate={{ opacity: 1, scale: [1, 1.05, 1] }}
+            exit={{ opacity: 0, scale: 0.6 }}
+            transition={{
+              opacity: { duration: 0.2 },
+              scale: { duration: 2.5, ease: "easeInOut", repeat: Infinity },
+            }}
+            whileTap={{ scale: 0.9 }}
+          >
+            ☯
+          </motion.div>
+        ) : null}
+      </AnimatePresence>
 
       {/* AnimatePresence lifted here so the sheet's exit animation actually plays on close */}
       <AnimatePresence>
