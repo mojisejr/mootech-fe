@@ -41,8 +41,6 @@ export default function MatchingPage() {
   const [errorMsg, setErrorMsg] = useState<string>('')
   const [isLimitation, setIsLimitation] = useState<boolean>(true)
 
-  const [isShowChat, setIsShowChat] = useState<boolean>(false)
-
   const [isShowModalSelectFriend, setIsShowModalSelectFriend] = useState<boolean>(false)
   const [isShowModalAddFriend, setIsShowModalAddFriend] = useState<boolean>(false)
   const [isShowModalSelectMatching, setIsShowModalSelectMatching] = useState<boolean>(false)
@@ -234,10 +232,6 @@ export default function MatchingPage() {
     setIsDisable(false)
 
     router.replace(PageRouter.PACKAGE_PRICE)
-  }
-
-  const onCloseChat = () => {
-    setIsShowChat(false)
   }
 
   return (
@@ -544,60 +538,6 @@ export default function MatchingPage() {
         </div>
 
 
-           {
-              userId && process.env.NEXT_PUBLIC_ENABLE_CHAT !== 'false' ?
-
-                // <div className=' fixed z-[90]  right-0 bottom-0 m-6'>
-                //             <div className='w-[60px] h-[60px] relative mt-5'>
-                //               <Image
-                //                 src='/images/icons/ic_ai_chat.svg'
-                //                 fill
-                //                 alt='mascot'
-                //                 onClick={() => { setIsShowChat(true) }}
-                //                 className=' cursor-pointer '
-                //               />
-                //             </div>
-                // </div>
-                <div className="fixed right-0 bottom-0 m-6 z-50">
-                  <div
-                    onClick={() => setIsShowChat(true)}
-                    className="relative w-[90px] h-[90px] rounded-2xl cursor-pointer overflow-hidden"
-                  >
-                    {/* gradient 1 */}
-                    <div
-                      className="absolute inset-0 animate-fade1"
-                      style={{
-                        background: "linear-gradient(243.43deg, #FF0000 0%, #FF8800 83.33%)",
-                      }}
-                    />
-
-                    {/* gradient 2 */}
-                    <div
-                      className="absolute inset-0 animate-fade2"
-                      style={{
-                        background: "linear-gradient(332.45deg, #1B9AAF 0%, #FF00EE 143.46%)",
-                      }}
-                    />
-
-                    {/* glow */}
-                    <div
-                      className="absolute inset-0 blur-xl opacity-70"
-                      style={{
-                        boxShadow: "0px 0px 20px rgba(56,59,231,0.7)",
-                      }}
-                    />
-
-                    {/* content */}
-                    <div className="relative flex flex-col items-center justify-center h-full text-white">
-                      <span className="text-lg">✨</span>
-                      <span className="text-xs font-semibold">MATE AI</span>
-                    </div>
-                  </div>
-                </div>
-            :
-            null
-            }
-   
       </div>
 
       
@@ -631,16 +571,10 @@ export default function MatchingPage() {
 
       <BaziChatLauncher />
 
-      {
-          isShowChat && process.env.NEXT_PUBLIC_ENABLE_CHAT !== 'false' ?
-          <ModalAIChatStreamingGeneral
-            user_id={userId}
-            onClose={onCloseChat}
-          />
-        :
-          null
-      }
-     
+      {/* PARKED (not deleted): the old MATE AI chat (ModalAIChatStreamingGeneral) + the
+          NEXT_PUBLIC_ENABLE_CHAT flag are intentionally kept available but no longer mounted
+          here — BaziChatLauncher is now the sole chat entry on this page. */}
+
     </div>
   );
 }

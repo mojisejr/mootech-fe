@@ -6,9 +6,11 @@
 // The view (historyChat) mirrors the active session; turns persist on settle.
 import { useEffect, useRef, useState } from "react"
 import Link from "next/link"
+import { motion, AnimatePresence, type PanInfo } from "framer-motion"
 import { SUGGESTED_QUESTIONS } from "@/constants/suggested-questions"
 import { useChatSessions } from "@/lib/chat/use-chat-sessions"
 import type { ChatSessionMessage } from "@/lib/chat/session-store"
+import { Menu, Minimize, Maximize, Close, Plus, Pencil, Trash, Send, ArrowLeft } from "@/components/ui/icons"
 
 type ComponentProps = {
   userId: string
@@ -156,6 +158,13 @@ const BaziChatModal = ({ userId, onClose }: ComponentProps) => {
 
   const sizeIdx = SIZE_ORDER.indexOf(size)
 
+  // swipe-down-to-dismiss (handle/header region only — never the scrollable body)
+  const onHandleDragEnd = (_e: unknown, info: PanInfo) => {
+    if (info.offset.y > 100 || info.velocity.y > 500) onClose()
+  }
+
+  const activeSession = sessions.find((s) => s.id === activeId)
+
   // "next suggested questions": show the ones not asked yet (so the list shrinks as you go)
   const askedSet = new Set(
     historyChat.filter((m) => !m.is_ai).map((m) => m.message.trim()),
@@ -281,77 +290,115 @@ const BaziChatModal = ({ userId, onClose }: ComponentProps) => {
   }
 
   return (
-    <div
-      className={
-        "fixed z-[9999] bottom-0 left-0 w-full overflow-hidden shadow-2xl flex flex-col" +
-        " transition-[height,border-radius] duration-300 ease-out " +
-        SIZE_CLASS[size]
-      }
-    >
-      {/* header */}
-      <div
-        style={{
-          background:
-            "linear-gradient(180deg, rgba(37,153,174,1) 0%, rgba(58,120,169,1) 100%)",
-        }}
-        className="flex-none w-full flex flex-nowrap p-[24px] items-center gap-3"
+    <>
+      {/* backdrop scrim — fades in/out behind the sheet, tap to close */}
+      <motion.div
+        className="fixed inset-0 z-[9998] bg-black/40 backdrop-blur-sm"
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        transition={{ duration: 0.25 }}
+        onClick={onClose}
+        aria-hidden="true"
+      />
+
+      {/* bottom sheet — spring slide-up; exit slides down + fades */}
+      <motion.div
+        initial={{ y: "100%" }}
+        animate={{ y: 0 }}
+        exit={{ y: "100%", opacity: 0 }}
+        transition={{ type: "spring", damping: 30, stiffness: 300 }}
+        className={
+          "fixed z-[9999] bottom-0 left-0 w-full overflow-hidden shadow-2xl flex flex-col" +
+          " transition-[height,border-radius] duration-300 ease-out " +
+          SIZE_CLASS[size]
+        }
       >
-        <button
-          onClick={() => setShowSessions((v) => !v)}
-          title="รายการแชท"
-          aria-label="รายการแชท"
-          className="cursor-pointer hover:bg-white/15 text-white w-[28px] h-[28px] rounded-full flex items-center justify-center text-[16px] leading-none"
+        {/* drag-handle (top-center) — swipe DOWN to dismiss. Lives above the header so the
+            gesture region never overlaps the scrollable message body. */}
+        <motion.div
+          drag="y"
+          dragConstraints={{ top: 0, bottom: 0 }}
+          dragElastic={0.4}
+          onDragEnd={onHandleDragEnd}
+          style={{
+            background:
+              "linear-gradient(180deg, rgba(37,153,174,1) 0%, rgba(45,140,172,1) 100%)",
+          }}
+          className="flex-none w-full flex justify-center pt-[10px] pb-[6px] cursor-grab active:cursor-grabbing touch-none"
         >
-          ☰
-        </button>
-        <span className="text-white font-medium whitespace-nowrap">ซินแส Mumate</span>
-        <div className="w-full grow flex justify-center">
-          <span className="h-[3px] bg-white w-[50px] rounded-[100px]" />
-        </div>
-        <div className="flex-none flex items-center gap-1">
-          <button
-            onClick={onNewSession}
-            title="เริ่มแชทใหม่"
-            aria-label="เริ่มแชทใหม่"
-            className="cursor-pointer hover:bg-white/15 text-white w-[28px] h-[28px] rounded-full flex items-center justify-center text-[18px] leading-none"
-          >
-            ＋
-          </button>
-          <button
-            onClick={() => stepSize(-1)}
-            disabled={sizeIdx === 0}
-            title="ย่อ"
-            aria-label="ย่อหน้าต่างแชท"
-            className={
-              (sizeIdx === 0 ? "opacity-40 cursor-default" : "cursor-pointer hover:bg-white/15") +
-              " text-white w-[28px] h-[28px] rounded-full flex items-center justify-center text-[18px] leading-none"
-            }
-          >
-            −
-          </button>
-          <button
-            onClick={() => stepSize(1)}
-            disabled={sizeIdx === SIZE_ORDER.length - 1}
-            title={sizeIdx === SIZE_ORDER.length - 2 ? "เต็มจอ" : "ขยาย"}
-            aria-label="ขยายหน้าต่างแชท"
-            className={
-              (sizeIdx === SIZE_ORDER.length - 1
-                ? "opacity-40 cursor-default"
-                : "cursor-pointer hover:bg-white/15") +
-              " text-white w-[28px] h-[28px] rounded-full flex items-center justify-center text-[16px] leading-none"
-            }
-          >
-            {sizeIdx >= SIZE_ORDER.length - 2 ? "⛶" : "+"}
-          </button>
-        </div>
-        <button
-          onClick={onClose}
-          className="text-white text-[20px] leading-none cursor-pointer flex-none w-[28px] h-[28px] rounded-full flex items-center justify-center hover:bg-white/15"
-          aria-label="close"
+          <span className="h-[4px] bg-white/70 w-[50px] rounded-[100px]" />
+        </motion.div>
+
+        {/* header — 3 zones: [☰ menu] | [title + active session subtitle] | [size−][size+][✕] */}
+        <motion.div
+          drag="y"
+          dragConstraints={{ top: 0, bottom: 0 }}
+          dragElastic={0.4}
+          onDragEnd={onHandleDragEnd}
+          style={{
+            background:
+              "linear-gradient(180deg, rgba(37,153,174,1) 0%, rgba(58,120,169,1) 100%)",
+          }}
+          className="flex-none w-full flex flex-nowrap px-[24px] pb-[20px] pt-[6px] items-center gap-3"
         >
-          ✕
-        </button>
-      </div>
+          {/* LEFT: open sessions */}
+          <button
+            onClick={() => setShowSessions((v) => !v)}
+            title="รายการแชท"
+            aria-label="รายการแชท"
+            className="flex-none cursor-pointer hover:bg-white/15 text-white w-[32px] h-[32px] rounded-full flex items-center justify-center"
+          >
+            <Menu className="w-[20px] h-[20px]" />
+          </button>
+
+          {/* CENTER: title + active session subtitle */}
+          <div className="flex-1 min-w-0 flex flex-col items-center text-center">
+            <span className="text-white font-medium whitespace-nowrap leading-tight">ซินแส Mumate</span>
+            {activeSession ? (
+              <span className="text-white/70 text-[11px] truncate max-w-full leading-tight">
+                {activeSession.title}
+              </span>
+            ) : null}
+          </div>
+
+          {/* RIGHT GROUP: size controls + close (gap separates from center) */}
+          <div className="flex-none flex items-center gap-1">
+            <button
+              onClick={() => stepSize(-1)}
+              disabled={sizeIdx === 0}
+              title="ย่อ"
+              aria-label="ย่อหน้าต่างแชท"
+              className={
+                (sizeIdx === 0 ? "opacity-40 cursor-default" : "cursor-pointer hover:bg-white/15") +
+                " text-white w-[32px] h-[32px] rounded-full flex items-center justify-center"
+              }
+            >
+              <Minimize className="w-[20px] h-[20px]" />
+            </button>
+            <button
+              onClick={() => stepSize(1)}
+              disabled={sizeIdx === SIZE_ORDER.length - 1}
+              title={sizeIdx === SIZE_ORDER.length - 2 ? "เต็มจอ" : "ขยาย"}
+              aria-label="ขยายหน้าต่างแชท"
+              className={
+                (sizeIdx === SIZE_ORDER.length - 1
+                  ? "opacity-40 cursor-default"
+                  : "cursor-pointer hover:bg-white/15") +
+                " text-white w-[32px] h-[32px] rounded-full flex items-center justify-center"
+              }
+            >
+              <Maximize className="w-[20px] h-[20px]" />
+            </button>
+            <button
+              onClick={onClose}
+              className="text-white cursor-pointer flex-none w-[32px] h-[32px] rounded-full flex items-center justify-center hover:bg-white/15 ml-1"
+              aria-label="close"
+            >
+              <Close className="w-[20px] h-[20px]" />
+            </button>
+          </div>
+        </motion.div>
 
       {/* body */}
       <div className="relative w-full flex-1 min-h-0 flex flex-col bg-[#44588B]">
@@ -368,31 +415,52 @@ const BaziChatModal = ({ userId, onClose }: ComponentProps) => {
                 </Link>
               </div>
             ) : null}
-            {historyChat.map((item) => (
-              <div
-                key={item.id}
-                className={
-                  (item.is_ai ? "justify-start" : "justify-end") + " w-full flex flex-wrap"
-                }
-              >
-                <div
+            {historyChat.map((item) => {
+              // AI is "actively streaming" once tokens arrive (is_loading flips false) while the
+              // call is still in flight → show a blinking cursor at the tail.
+              const streaming = item.is_ai && !item.is_loading && isCallAI
+              return (
+                <motion.div
+                  key={item.id}
+                  initial={{
+                    opacity: 0,
+                    x: item.is_ai ? -8 : 8,
+                    scale: 0.96,
+                  }}
+                  animate={{ opacity: 1, x: 0, scale: 1 }}
+                  transition={{ type: "spring", damping: 26, stiffness: 320 }}
                   className={
-                    (item.is_ai ? "justify-start" : "justify-end") +
-                    " w-3/4 flex flex-wrap my-2 text-white whitespace-pre-line"
+                    (item.is_ai ? "justify-start" : "justify-end") + " w-full flex flex-wrap"
                   }
                 >
-                  <span
+                  <div
                     className={
-                      (item.is_ai
-                        ? "bg-moumate_blue rounded-[8px] py-[8px] px-[12px]"
-                        : "bg-[#4B4F88CC] rounded-[8px] py-[8px] px-[12px]") + " flex-wrap"
+                      (item.is_ai ? "justify-start" : "justify-end") +
+                      " w-3/4 flex flex-wrap my-2 text-white whitespace-pre-line"
                     }
                   >
-                    {item.is_ai && item.is_loading ? <TypingDots /> : item.message}
-                  </span>
-                </div>
-              </div>
-            ))}
+                    <span
+                      className={
+                        (item.is_ai
+                          ? "bg-moumate_blue rounded-[8px] py-[8px] px-[12px]"
+                          : "bg-[#4B4F88CC] rounded-[8px] py-[8px] px-[12px]") + " flex-wrap"
+                      }
+                    >
+                      {item.is_ai && item.is_loading ? (
+                        <TypingDots />
+                      ) : (
+                        <>
+                          {item.message}
+                          {streaming ? (
+                            <span className="inline-block animate-pulse ml-[1px]">▋</span>
+                          ) : null}
+                        </>
+                      )}
+                    </span>
+                  </div>
+                </motion.div>
+              )
+            })}
           </div>
           <div ref={bottomRef} />
         </div>
@@ -448,34 +516,44 @@ const BaziChatModal = ({ userId, onClose }: ComponentProps) => {
             <button
               onClick={() => onSubmitChat()}
               disabled={isCallAI}
+              aria-label="ส่ง"
               className={
-                (isCallAI ? "opacity-50" : "cursor-pointer") +
-                " flex-none text-white text-[14px] font-medium"
+                (isCallAI ? "opacity-50" : "cursor-pointer hover:scale-110 active:scale-95") +
+                " flex-none text-white flex items-center justify-center transition-transform"
               }
             >
-              ส่ง
+              <Send className="w-[22px] h-[22px]" />
             </button>
           </div>
         </div>
 
-        {/* session panel — slides over the body; tap a row to switch */}
-        {showSessions && (
-          <div className="absolute inset-0 z-10 flex flex-col bg-[#3a4a78]">
+        {/* session panel — slides in from the left; tap a row to switch */}
+        <AnimatePresence>
+          {showSessions && (
+            <motion.div
+              key="sessions-panel"
+              initial={{ x: "-100%" }}
+              animate={{ x: 0 }}
+              exit={{ x: "-100%" }}
+              transition={{ type: "spring", damping: 30, stiffness: 320 }}
+              className="absolute inset-0 z-10 flex flex-col bg-[#3a4a78]"
+            >
             <div className="flex-none flex items-center gap-3 px-[24px] py-[18px] border-b border-white/10">
               <button
                 onClick={() => setShowSessions(false)}
                 aria-label="ปิดรายการ"
-                className="cursor-pointer hover:bg-white/15 text-white w-[28px] h-[28px] rounded-full flex items-center justify-center text-[18px] leading-none"
+                className="cursor-pointer hover:bg-white/15 text-white w-[32px] h-[32px] rounded-full flex items-center justify-center"
               >
-                ←
+                <ArrowLeft className="w-[20px] h-[20px]" />
               </button>
               <span className="text-white font-medium">รายการแชท</span>
             </div>
             <button
               onClick={onNewSession}
-              className="flex-none text-left px-[24px] py-[14px] text-white text-[14px] hover:bg-white/10 cursor-pointer border-b border-white/10"
+              className="flex-none flex items-center gap-2 text-left px-[24px] py-[14px] text-white text-[14px] hover:bg-white/10 cursor-pointer border-b border-white/10"
             >
-              ＋ เริ่มแชทใหม่
+              <Plus className="w-[18px] h-[18px]" />
+              เริ่มแชทใหม่
             </button>
             <div className="flex-1 min-h-0 overflow-y-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
               {sessions.map((s) => (
@@ -519,25 +597,27 @@ const BaziChatModal = ({ userId, onClose }: ComponentProps) => {
                     }}
                     title="เปลี่ยนชื่อ"
                     aria-label="เปลี่ยนชื่อแชท"
-                    className="flex-none text-white/60 hover:text-white text-[14px] cursor-pointer w-[26px] h-[26px] rounded-full flex items-center justify-center"
+                    className="flex-none text-white/60 hover:text-white cursor-pointer w-[28px] h-[28px] rounded-full flex items-center justify-center"
                   >
-                    ✎
+                    <Pencil className="w-[16px] h-[16px]" />
                   </button>
                   <button
                     onClick={() => onRemoveSession(s.id)}
                     title="ลบ"
                     aria-label="ลบแชท"
-                    className="flex-none text-white/60 hover:text-moumate_red text-[14px] cursor-pointer w-[26px] h-[26px] rounded-full flex items-center justify-center"
+                    className="flex-none text-white/60 hover:text-moumate_red cursor-pointer w-[28px] h-[28px] rounded-full flex items-center justify-center"
                   >
-                    🗑
+                    <Trash className="w-[16px] h-[16px]" />
                   </button>
                 </div>
               ))}
             </div>
-          </div>
-        )}
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
-    </div>
+    </motion.div>
+    </>
   )
 }
 
