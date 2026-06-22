@@ -9,6 +9,7 @@ import Image from "next/image";
 import { useRouter } from "next/router";
 import { useEffect, useState } from "react";
 import { useCookies } from 'react-cookie';
+import { motion } from 'framer-motion';
 import { useCurrentUser } from '@/lib/auth/use-current-user';
 
 
@@ -117,16 +118,21 @@ export default function MatchingResultPage() {
 
 
   const callApiUserMatchingGetDetail = async (matchingId: string) => {
-     const result =  await UserMatchingGetDetailApi(matchingId)
-     if (result) {
-      setRating(getResultAnalyticRating(result.result))
-      setPercentage(getResultAnalyticScore(result.result))
-      setNote(getResultAnalyticRatingDesc(result.result))
-      setDesc(getResultAnalytics(result.result))
-      setUserInfo(result.user)
-      setFriendInfo(result.friend)
-      setResult(result.result)
-      setMatchingType(result.type)
+     setIsDataLoading(true)
+     try {
+       const result =  await UserMatchingGetDetailApi(matchingId)
+       if (result) {
+        setRating(getResultAnalyticRating(result.result))
+        setPercentage(getResultAnalyticScore(result.result))
+        setNote(getResultAnalyticRatingDesc(result.result))
+        setDesc(getResultAnalytics(result.result))
+        setUserInfo(result.user)
+        setFriendInfo(result.friend)
+        setResult(result.result)
+        setMatchingType(result.type)
+       }
+     } finally {
+       setIsDataLoading(false)
      }
   }
 
@@ -163,6 +169,10 @@ export default function MatchingResultPage() {
   const [percentage, setPercentage] = useState<number>(0)
   const [note, setNote] = useState<string>('')
     const [desc, setDesc] = useState<any>(null)
+
+  // Data-loading state — scoped to the authed branch only. Never touches the
+  // identity ScreenLoading gate above. #mootech-matching-loading-ux
+  const [isDataLoading, setIsDataLoading] = useState<boolean>(true)
 
   // Identity guard: wait while id cookie hydrates, redirect only when truly anon.
   // #mootech-identity-guard-sweep
@@ -248,9 +258,36 @@ export default function MatchingResultPage() {
                 </div>
 
 
+                {isDataLoading ? (
+                  <div className='w-full flex flex-wrap mt-6 animate-pulse'>
+                    <div className='w-full flex flex-wrap justify-center mt-6 h-[80px]'>
+                      <div className='flex -ml-[40px] rounded-full w-[80px] h-[80px] bg-bg_gray' />
+                      <div className='flex ml-[40px] rounded-full w-[80px] h-[80px] bg-bg_gray' />
+                    </div>
+                    <div className='w-full flex justify-center mt-4'>
+                      <div className='h-[20px] w-[200px] rounded bg-bg_gray' />
+                    </div>
+                    <div className='w-full flex justify-center mt-4'>
+                      <div className='h-[44px] w-[300px] rounded-[16px] bg-bg_gray' />
+                    </div>
+                    <div className='w-full flex flex-col items-center gap-2 mt-4'>
+                      <div className='h-[20px] w-[160px] rounded bg-bg_gray' />
+                      <div className='h-[36px] w-[220px] rounded bg-bg_gray' />
+                    </div>
+                    <div className='w-full mt-4 bg-bg_gray h-[160px] rounded-[16px]' />
+                  </div>
+                ) : (
+                <motion.div
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.4 }}
+                  className='w-full flex flex-wrap'
+                >
+
+
                   <div className='w-full flex flex-wrap justify-center mt-6 h-[80px]'>
 
-                    
+
 
                     <div className='w-full  relative flex justify-center'>
 
@@ -366,13 +403,15 @@ export default function MatchingResultPage() {
                     <span className='w-full break-all text-[#888888]'>{desc}</span>
 
                   </div>
-               
-               
+
+
+                </motion.div>
+                )}
                 </div>
 
 
 
-                
+
 
 
          

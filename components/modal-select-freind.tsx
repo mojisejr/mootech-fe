@@ -6,6 +6,7 @@ import { useSession } from 'next-auth/react'
 import { useRouter } from 'next/router'
 import { useCookies } from 'react-cookie'
 import { MemberWithFriendGetApi } from '@/constants/api/api-member-with-friend-get'
+import SkeletonRow from '@/components/ui/skeleton-row'
 import getConfig from 'next/config'
 
 type ComponentProps = {
@@ -40,6 +41,7 @@ const ModalSelectFriend = ({
   const refresh = router.query.refresh as string;
 
   const [isLoading, setIsLoading] = useState<boolean>(false)
+  const [hasLoaded, setHasLoaded] = useState<boolean>(false)
 
   const { data: session, status } = useSession();
   const [memberId, setMemberId] = useState<string>('')
@@ -76,11 +78,14 @@ const ModalSelectFriend = ({
 
 
    const callApiGet = async ( userId: string ) => {
-    // setIsLoading(true)
-    const result = await MemberWithFriendGetApi(userId);
-    // setIsLoading(false)
-
-    setListFriends(result)
+    setIsLoading(true)
+    try {
+      const result = await MemberWithFriendGetApi(userId);
+      setListFriends(result)
+    } finally {
+      setIsLoading(false)
+      setHasLoaded(true)
+    }
   }
 
 
@@ -246,11 +251,18 @@ const ModalSelectFriend = ({
 
                   <div className='w-full flex flex-wrap mt-6 justify-start  px-[32px] pb-[60px]'>
 
-                    <span className=' w-full overflow-y-auto justify-start flex font-medium text-[#1B9AAF] mb-4'>Your Friends ( <span>{listFriends.length} คน</span> )</span>
+                    <span className=' w-full overflow-y-auto justify-start flex font-medium text-[#1B9AAF] mb-4'>Your Friends ( <span>{isLoading || !hasLoaded ? '...' : listFriends.length} คน</span> )</span>
 
 
                     <div className='w-full h-[200px] overflow-y-auto flex-wrap'>
                       {
+                        (isLoading || !hasLoaded) ? (
+                          <SkeletonRow count={3} />
+                        ) : listFriends.length === 0 ? (
+                          <div className='w-full flex justify-center text-moumate_gray font-prompt py-6'>
+                            ยังไม่มีเพื่อน เพิ่มเพื่อนคนแรกได้เลย
+                          </div>
+                        ) : (
                         listFriends.map(function(item, index) {
                           return (
                             <div
@@ -310,6 +322,7 @@ const ModalSelectFriend = ({
                             </div>
                           )
                         })
+                        )
                       }
                     </div>
 
