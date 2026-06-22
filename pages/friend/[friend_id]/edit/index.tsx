@@ -6,6 +6,7 @@ import Head from "next/head";
 import { CookieKey } from "@/constants/cookie-key";
 import { useSession } from "next-auth/react";
 import { useCookies } from "react-cookie";
+import { useCurrentUser } from "@/lib/auth/use-current-user";
 import getConfig from "next/config";
 import { validateNumberOnlyFull } from "@/utils/validate";
 import { AnimatePresence, motion } from "framer-motion";
@@ -65,6 +66,7 @@ export default function ProfileEditPage() {
 
 
     const { data: session, status } = useSession();
+    const { userId: authUserId, status: authStatus } = useCurrentUser();
     const [userId, setUserId] = useState<string>('')
     const [displayName, setDisplayName] = useState<string>('')
     const [displaySurname, setDisplaySurname] = useState<string>('')
@@ -608,43 +610,26 @@ export default function ProfileEditPage() {
   }
 
 
+    // Identity guard (am I logged in): redirect only when truly anon; wait while the id
+    // cookie hydrates. The friend data fetch is a SEPARATE axis keyed by friend_id.
+    // #mootech-identity-guard-sweep
     useEffect(() => {
-      if (status === "unauthenticated") {
+      if (authStatus === "anon") {
         router.replace(PageRouter.LOGIN)
       }
-    }, [status, session]);
+    }, [authStatus]);
 
-      
+
   useEffect(() => {
+      if (authStatus !== "authed") return
 
+      setUserId(authUserId)
+      setDisplayName(cookies[CookieKey.MEMBER_NAME])
+      setDisplaySurname(cookies[CookieKey.MEMBER_SURNAME])
+      setDisplayImage(cookies[CookieKey.MEMBER_IMAGE])
 
-  
-    const dataId = cookies[CookieKey.MEMBER_ID]
-    const dataName = cookies[CookieKey.MEMBER_NAME]
-    const dataSurName = cookies[CookieKey.MEMBER_SURNAME]
-    const dataImage = cookies[CookieKey.MEMBER_IMAGE]
-    const dataReferCode = cookies[CookieKey.MEMBER_REFER_CODE]
-
-    if (dataId) {
- 
-      setUserId(dataId)
-      setDisplayName(dataName)
-      setDisplaySurname(dataSurName)
-
-
-      setDisplayImage(dataImage)
-
-      setLinkRefer(publicRuntimeConfig.NEXT_STATIC_NEXTAUTH_URL+'/login?callback=' + dataReferCode)
-
-
-
-    }
-    
-  
-  },  [
-        cookies[CookieKey.MEMBER_ID, CookieKey.MEMBER_NAME, CookieKey.MEMBER_SURNAME, CookieKey.MEMBER_IMAGE, CookieKey.MEMBER_REFER_CODE]
-      ]
-  )
+      setLinkRefer(publicRuntimeConfig.NEXT_STATIC_NEXTAUTH_URL+'/login?callback=' + cookies[CookieKey.MEMBER_REFER_CODE])
+  },  [authStatus, authUserId])
 
 
   const callApiGetUser = async (friend_id: any) => {
