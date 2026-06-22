@@ -10,7 +10,7 @@ import { motion, AnimatePresence, type PanInfo } from "framer-motion"
 import { SUGGESTED_QUESTIONS } from "@/constants/suggested-questions"
 import { useChatSessions } from "@/lib/chat/use-chat-sessions"
 import type { ChatSessionMessage } from "@/lib/chat/session-store"
-import { Menu, Minimize, Maximize, Close, Plus, Pencil, Trash, Send, ArrowLeft } from "@/components/ui/icons"
+import { Menu, SquarePen, Minimize2, Maximize2, X, Pencil, Trash2, SendHorizontal } from "lucide-react"
 
 type ComponentProps = {
   userId: string
@@ -314,23 +314,9 @@ const BaziChatModal = ({ userId, onClose }: ComponentProps) => {
           SIZE_CLASS[size]
         }
       >
-        {/* drag-handle (top-center) — swipe DOWN to dismiss. Lives above the header so the
-            gesture region never overlaps the scrollable message body. */}
-        <motion.div
-          drag="y"
-          dragConstraints={{ top: 0, bottom: 0 }}
-          dragElastic={0.4}
-          onDragEnd={onHandleDragEnd}
-          style={{
-            background:
-              "linear-gradient(180deg, rgba(37,153,174,1) 0%, rgba(45,140,172,1) 100%)",
-          }}
-          className="flex-none w-full flex justify-center pt-[10px] pb-[6px] cursor-grab active:cursor-grabbing touch-none"
-        >
-          <span className="h-[4px] bg-white/70 w-[50px] rounded-[100px]" />
-        </motion.div>
-
-        {/* header — 3 zones: [☰ menu] | [title + active session subtitle] | [size−][size+][✕] */}
+        {/* header — ONE gradient strip. Top-center grab-bar + 3-zone controls row, swipe
+            DOWN to dismiss. The grab-bar lives INSIDE the header so there's no second
+            strip / seam, and the gesture region never overlaps the scrollable body. */}
         <motion.div
           drag="y"
           dragConstraints={{ top: 0, bottom: 0 }}
@@ -340,63 +326,79 @@ const BaziChatModal = ({ userId, onClose }: ComponentProps) => {
             background:
               "linear-gradient(180deg, rgba(37,153,174,1) 0%, rgba(58,120,169,1) 100%)",
           }}
-          className="flex-none w-full flex flex-nowrap px-[24px] pb-[20px] pt-[6px] items-center gap-3"
+          className="flex-none w-full flex flex-col pt-[8px] pb-[18px] cursor-grab active:cursor-grabbing touch-none"
         >
-          {/* LEFT: open sessions */}
-          <button
-            onClick={() => setShowSessions((v) => !v)}
-            title="รายการแชท"
-            aria-label="รายการแชท"
-            className="flex-none cursor-pointer hover:bg-white/15 text-white w-[32px] h-[32px] rounded-full flex items-center justify-center"
-          >
-            <Menu className="w-[20px] h-[20px]" />
-          </button>
-
-          {/* CENTER: title + active session subtitle */}
-          <div className="flex-1 min-w-0 flex flex-col items-center text-center">
-            <span className="text-white font-medium whitespace-nowrap leading-tight">ซินแส Mumate</span>
-            {activeSession ? (
-              <span className="text-white/70 text-[11px] truncate max-w-full leading-tight">
-                {activeSession.title}
-              </span>
-            ) : null}
+          {/* grab-bar (top-center) */}
+          <div className="w-full flex justify-center pb-[8px]">
+            <span className="h-[4px] w-[40px] bg-white/70 rounded-full" />
           </div>
 
-          {/* RIGHT GROUP: size controls + close (gap separates from center) */}
-          <div className="flex-none flex items-center gap-1">
+          {/* controls — 3 zones: [☰ menu] | [title + subtitle] | [new][size−][size+][✕] */}
+          <div className="w-full flex flex-nowrap px-[24px] items-center gap-3">
+            {/* LEFT: toggle sessions */}
             <button
-              onClick={() => stepSize(-1)}
-              disabled={sizeIdx === 0}
-              title="ย่อ"
-              aria-label="ย่อหน้าต่างแชท"
-              className={
-                (sizeIdx === 0 ? "opacity-40 cursor-default" : "cursor-pointer hover:bg-white/15") +
-                " text-white w-[32px] h-[32px] rounded-full flex items-center justify-center"
-              }
+              onClick={() => setShowSessions((v) => !v)}
+              title="รายการแชท"
+              aria-label="รายการแชท"
+              className="flex-none cursor-pointer hover:bg-white/15 text-white w-[32px] h-[32px] rounded-full flex items-center justify-center"
             >
-              <Minimize className="w-[20px] h-[20px]" />
+              <Menu className="w-5 h-5" strokeWidth={2} />
             </button>
-            <button
-              onClick={() => stepSize(1)}
-              disabled={sizeIdx === SIZE_ORDER.length - 1}
-              title={sizeIdx === SIZE_ORDER.length - 2 ? "เต็มจอ" : "ขยาย"}
-              aria-label="ขยายหน้าต่างแชท"
-              className={
-                (sizeIdx === SIZE_ORDER.length - 1
-                  ? "opacity-40 cursor-default"
-                  : "cursor-pointer hover:bg-white/15") +
-                " text-white w-[32px] h-[32px] rounded-full flex items-center justify-center"
-              }
-            >
-              <Maximize className="w-[20px] h-[20px]" />
-            </button>
-            <button
-              onClick={onClose}
-              className="text-white cursor-pointer flex-none w-[32px] h-[32px] rounded-full flex items-center justify-center hover:bg-white/15 ml-1"
-              aria-label="close"
-            >
-              <Close className="w-[20px] h-[20px]" />
-            </button>
+
+            {/* CENTER: title + active session subtitle */}
+            <div className="flex-1 min-w-0 flex flex-col items-center text-center">
+              <span className="text-white font-medium whitespace-nowrap leading-tight">ซินแส Mumate</span>
+              {activeSession ? (
+                <span className="text-white/70 text-[11px] truncate max-w-full leading-tight">
+                  {activeSession.title}
+                </span>
+              ) : null}
+            </div>
+
+            {/* RIGHT GROUP: new-chat + size controls + close */}
+            <div className="flex-none flex items-center gap-1">
+              <button
+                onClick={onNewSession}
+                title="เริ่มแชทใหม่"
+                aria-label="เริ่มแชทใหม่"
+                className="flex-none cursor-pointer hover:bg-white/15 text-white w-[32px] h-[32px] rounded-full flex items-center justify-center"
+              >
+                <SquarePen className="w-5 h-5" strokeWidth={2} />
+              </button>
+              <button
+                onClick={() => stepSize(-1)}
+                disabled={sizeIdx === 0}
+                title="ย่อ"
+                aria-label="ย่อหน้าต่างแชท"
+                className={
+                  (sizeIdx === 0 ? "opacity-40 cursor-default" : "cursor-pointer hover:bg-white/15") +
+                  " text-white w-[32px] h-[32px] rounded-full flex items-center justify-center"
+                }
+              >
+                <Minimize2 className="w-5 h-5" strokeWidth={2} />
+              </button>
+              <button
+                onClick={() => stepSize(1)}
+                disabled={sizeIdx === SIZE_ORDER.length - 1}
+                title={sizeIdx === SIZE_ORDER.length - 2 ? "เต็มจอ" : "ขยาย"}
+                aria-label="ขยายหน้าต่างแชท"
+                className={
+                  (sizeIdx === SIZE_ORDER.length - 1
+                    ? "opacity-40 cursor-default"
+                    : "cursor-pointer hover:bg-white/15") +
+                  " text-white w-[32px] h-[32px] rounded-full flex items-center justify-center"
+                }
+              >
+                <Maximize2 className="w-5 h-5" strokeWidth={2} />
+              </button>
+              <button
+                onClick={onClose}
+                className="text-white cursor-pointer flex-none w-[32px] h-[32px] rounded-full flex items-center justify-center hover:bg-white/15 ml-1"
+                aria-label="close"
+              >
+                <X className="w-5 h-5" strokeWidth={2} />
+              </button>
+            </div>
           </div>
         </motion.div>
 
@@ -522,7 +524,7 @@ const BaziChatModal = ({ userId, onClose }: ComponentProps) => {
                 " flex-none text-white flex items-center justify-center transition-transform"
               }
             >
-              <Send className="w-[22px] h-[22px]" />
+              <SendHorizontal className="w-5 h-5" strokeWidth={2} />
             </button>
           </div>
         </div>
@@ -538,23 +540,6 @@ const BaziChatModal = ({ userId, onClose }: ComponentProps) => {
               transition={{ type: "spring", damping: 30, stiffness: 320 }}
               className="absolute inset-0 z-10 flex flex-col bg-[#3a4a78]"
             >
-            <div className="flex-none flex items-center gap-3 px-[24px] py-[18px] border-b border-white/10">
-              <button
-                onClick={() => setShowSessions(false)}
-                aria-label="ปิดรายการ"
-                className="cursor-pointer hover:bg-white/15 text-white w-[32px] h-[32px] rounded-full flex items-center justify-center"
-              >
-                <ArrowLeft className="w-[20px] h-[20px]" />
-              </button>
-              <span className="text-white font-medium">รายการแชท</span>
-            </div>
-            <button
-              onClick={onNewSession}
-              className="flex-none flex items-center gap-2 text-left px-[24px] py-[14px] text-white text-[14px] hover:bg-white/10 cursor-pointer border-b border-white/10"
-            >
-              <Plus className="w-[18px] h-[18px]" />
-              เริ่มแชทใหม่
-            </button>
             <div className="flex-1 min-h-0 overflow-y-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
               {sessions.map((s) => (
                 <div
@@ -599,7 +584,7 @@ const BaziChatModal = ({ userId, onClose }: ComponentProps) => {
                     aria-label="เปลี่ยนชื่อแชท"
                     className="flex-none text-white/60 hover:text-white cursor-pointer w-[28px] h-[28px] rounded-full flex items-center justify-center"
                   >
-                    <Pencil className="w-[16px] h-[16px]" />
+                    <Pencil className="w-4 h-4" strokeWidth={2} />
                   </button>
                   <button
                     onClick={() => onRemoveSession(s.id)}
@@ -607,7 +592,7 @@ const BaziChatModal = ({ userId, onClose }: ComponentProps) => {
                     aria-label="ลบแชท"
                     className="flex-none text-white/60 hover:text-moumate_red cursor-pointer w-[28px] h-[28px] rounded-full flex items-center justify-center"
                   >
-                    <Trash className="w-[16px] h-[16px]" />
+                    <Trash2 className="w-4 h-4" strokeWidth={2} />
                   </button>
                 </div>
               ))}
