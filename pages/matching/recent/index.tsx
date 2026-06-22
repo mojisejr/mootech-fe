@@ -11,6 +11,7 @@ import Image from "next/image";
 import { useRouter } from "next/router";
 import { useEffect, useState } from "react";
 import { useCookies } from 'react-cookie';
+import { useCurrentUser } from '@/lib/auth/use-current-user';
 
 
 export default function MatchingResultPage() {
@@ -56,6 +57,7 @@ export default function MatchingResultPage() {
   const router = useRouter();
   const callback = router.query.callback as string || '/';
   const { data: session, status } = useSession();
+  const { userId: authUserId, status: authStatus } = useCurrentUser();
 
   const [userId, setUserId] = useState<string>('')
   const [displayName, setDisplayName] = useState<string>('')
@@ -71,58 +73,36 @@ export default function MatchingResultPage() {
     const [imgSrc, setImgSrc] = useState(displayImage || fallback)
 
 
+  // Identity guard: wait while id cookie hydrates, redirect only when truly anon.
+  // #mootech-identity-guard-sweep
   useEffect(() => {
-    if (status === "unauthenticated") {
+    if (authStatus === "anon") {
       router.replace(PageRouter.HOME)
-    } else {
+    } else if (authStatus === "authed") {
       setIsLogin(true)
     }
-  }, [status, session]);
+  }, [authStatus]);
 
 
 
     useEffect(() => {
+      if (authStatus !== "authed") return
 
+      setUserId(authUserId)
+      setDisplaySurname(cookies[CookieKey.MEMBER_SURNAME])
+      setDisplayImage(cookies[CookieKey.MEMBER_IMAGE])
+      setAccountName(cookies[CookieKey.MEMBER_NAME])
+      setImgSrc(cookies[CookieKey.MEMBER_IMAGE])
 
-  
-    const dataId = cookies[CookieKey.MEMBER_ID]
-    const dataName = cookies[CookieKey.MEMBER_NAME]
-    const dataSurName = cookies[CookieKey.MEMBER_SURNAME]
-    const dataImage = cookies[CookieKey.MEMBER_IMAGE]
-
-    const dataMatchingId = cookies[CookieKey.MATCHING_ID]
-
-
-    if (dataId) {
- 
-      setUserId(dataId)
-      setDisplaySurname(dataSurName)
-      setDisplayImage(dataImage)
-      setAccountName(dataName)
-      setImgSrc(dataImage)
-
-      callApiUserMatchingGetDetail(dataId)
-    }
-    
-  
-  },  [
-        cookies[
-          CookieKey.MEMBER_ID, 
-          CookieKey.MEMBER_NAME, 
-          CookieKey.MEMBER_SURNAME, 
-          CookieKey.MEMBER_IMAGE, 
-          CookieKey.MEMBER_REFER_CODE, 
-          CookieKey.MATCHING_ID
-        ]
-      ]
-  )
+      callApiUserMatchingGetDetail(authUserId)
+  }, [authStatus, authUserId])
 
 
 
 
- 
-  // ✅ Loading
-  if (status === "loading") {
+
+  // ✅ Loading — hold until identity resolves so we never flash/bounce
+  if (authStatus !== "authed") {
     return <ScreenLoading />;
   }
 

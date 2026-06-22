@@ -13,6 +13,7 @@ import Image from "next/image";
 import { useRouter } from "next/router";
 import { useEffect, useState } from "react";
 import { useCookies } from 'react-cookie';
+import { useCurrentUser } from '@/lib/auth/use-current-user';
 
 
 export default function FortuneStickPage() {
@@ -43,6 +44,7 @@ export default function FortuneStickPage() {
   const router = useRouter();
   const callback = router.query.callback as string || '/';
   const { data: session, status } = useSession();
+  const { userId: authUserId, status: authStatus } = useCurrentUser();
 
   const [userId, setUserId] = useState<string>('')
   const [displayName, setDisplayName] = useState<string>('')
@@ -61,13 +63,15 @@ export default function FortuneStickPage() {
     const [imgSrc, setImgSrc] = useState(displayImage || fallback)
   
 
+  // Identity guard: wait while id cookie hydrates, redirect only when truly anon.
+  // #mootech-identity-guard-sweep
   useEffect(() => {
-    if (status === "unauthenticated") {
+    if (authStatus === "anon") {
       router.replace(PageRouter.HOME)
-    } else {
+    } else if (authStatus === "authed") {
       setIsLogin(true)
     }
-  }, [status, session]);
+  }, [authStatus]);
 
 
 
@@ -90,42 +94,23 @@ export default function FortuneStickPage() {
     }
 
     useEffect(() => {
+      if (authStatus !== "authed") return
 
-
-  
-    const dataId = cookies[CookieKey.MEMBER_ID]
-    const dataName = cookies[CookieKey.MEMBER_NAME]
-    const dataSurName = cookies[CookieKey.MEMBER_SURNAME]
-    const dataImage = cookies[CookieKey.MEMBER_IMAGE]
-
-    const dataReferCode = cookies[CookieKey.MEMBER_REFER_CODE]
-
-    if (dataId) {
- 
-      setUserId(dataId)
+      setUserId(authUserId)
 
             // setDisplayName(dataName)
-      setDisplaySurname(dataSurName)
-      setDisplayImage(dataImage)
-      setImgSrc(dataImage)
+      setDisplaySurname(cookies[CookieKey.MEMBER_SURNAME])
+      setDisplayImage(cookies[CookieKey.MEMBER_IMAGE])
+      setImgSrc(cookies[CookieKey.MEMBER_IMAGE])
 
-      setAccountName(dataName)
+      setAccountName(cookies[CookieKey.MEMBER_NAME])
 
-      getUserDetail(dataId)
+      getUserDetail(authUserId)
+  }, [authStatus, authUserId])
 
-    } else {
-      router.replace(PageRouter.HOME)
-    }
-    
-  
-  },  [
-        cookies[CookieKey.MEMBER_ID, CookieKey.MEMBER_NAME, CookieKey.MEMBER_SURNAME, CookieKey.MEMBER_IMAGE, CookieKey.MEMBER_REFER_CODE]
-      ]
-  )
 
- 
-  // ✅ Loading
-  if (status === "loading") {
+  // ✅ Loading — hold until identity resolves so we never flash/bounce
+  if (authStatus !== "authed") {
     return <ScreenLoading />;
   }
 
