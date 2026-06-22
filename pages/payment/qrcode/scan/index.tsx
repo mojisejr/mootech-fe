@@ -9,8 +9,9 @@ import { useSession } from "next-auth/react";
 import Head from "next/head";
 import Image from "next/image";
 import { useRouter } from "next/router";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useCookies } from 'react-cookie';
+import { useCurrentUser } from '@/lib/auth/use-current-user';
 
 
 export default function PaymentQRCodePage() {
@@ -38,6 +39,9 @@ export default function PaymentQRCodePage() {
   const router = useRouter();
   const callback = router.query.callback as string || '/';
   const { data: session, status } = useSession();
+  const { userId: authUserId, status: authStatus } = useCurrentUser();
+  // guard: create the PromptPay charge at most once (money — never double-charge)
+  const promptpayFiredRef = useRef(false);
 
   const [userId, setUserId] = useState<string>('')
   const [displayName, setDisplayName] = useState<string>('')
@@ -63,13 +67,15 @@ export default function PaymentQRCodePage() {
 
   
 
+  // Identity guard: wait while id cookie hydrates, redirect only when truly anon.
+  // #mootech-identity-guard-sweep
   useEffect(() => {
-    if (status === "unauthenticated") {
+    if (authStatus === "anon") {
       router.replace(PageRouter.HOME)
-    } else {
+    } else if (authStatus === "authed") {
       setIsLogin(true)
     }
-  }, [status, session]);
+  }, [authStatus]);
 
   useEffect(() => {
   if (!chargeId) return;
@@ -108,47 +114,32 @@ export default function PaymentQRCodePage() {
 
 
   
-    const dataId = cookies[CookieKey.MEMBER_ID]
-    const dataName = cookies[CookieKey.MEMBER_NAME]
-    const dataSurName = cookies[CookieKey.MEMBER_SURNAME]
-    const dataImage = cookies[CookieKey.MEMBER_IMAGE]
+    if (authStatus !== "authed") return
 
-    const dataReferCode = cookies[CookieKey.MEMBER_REFER_CODE]
-
-    const dataPackageName = cookies[CookieKey.PAYMENT_PACKAGE_NAME]
     const dataAmount = cookies[CookieKey.PAYMENT_AMOUNT]
     const dataPackage = cookies[CookieKey.PAYMENT_PACKAGE]
-
-
     const dataEmail = cookies[CookieKey.PAYMENT_EMAIL]
 
-    if (dataId) {
- 
-      setUserId(dataId)
-      
+    setUserId(authUserId)
 
-            // setDisplayName(dataName)
-      setDisplaySurname(dataSurName)
-      setDisplayImage(dataImage)
+          // setDisplayName(dataName)
+    setDisplaySurname(cookies[CookieKey.MEMBER_SURNAME])
+    setDisplayImage(cookies[CookieKey.MEMBER_IMAGE])
+    setAccountName(cookies[CookieKey.MEMBER_NAME])
 
-      setAccountName(dataName)
+    setPaymentPackageName(cookies[CookieKey.PAYMENT_PACKAGE_NAME])
+    setPaymentAmount(dataAmount)
+    setPaymentPackage(dataPackage)
+    setEmail(dataEmail)
 
-
-
-      setPaymentPackageName(dataPackageName)
-      setPaymentAmount(dataAmount)
-      setPaymentPackage(dataPackage)
-
-      setEmail(dataEmail)
-
-      callOmisePromtpay(dataAmount, dataId, dataPackage, dataEmail)
-
+    // money: create the PromptPay charge exactly once even if this effect re-runs
+    if (!promptpayFiredRef.current) {
+      promptpayFiredRef.current = true
+      callOmisePromtpay(dataAmount, authUserId, dataPackage, dataEmail)
     }
-    
-  
   },  [
-        cookies[CookieKey.MEMBER_ID, CookieKey.MEMBER_NAME, CookieKey.MEMBER_SURNAME, CookieKey.MEMBER_IMAGE, CookieKey.MEMBER_REFER_CODE, CookieKey.PAYMENT_PACKAGE_NAME, CookieKey.PAYMENT_AMOUNT, CookieKey.PAYMENT_PACKAGE
-        ]
+        authStatus, authUserId,
+        cookies[CookieKey.PAYMENT_PACKAGE_NAME, CookieKey.PAYMENT_AMOUNT, CookieKey.PAYMENT_PACKAGE]
       ]
   )
 
@@ -181,8 +172,8 @@ export default function PaymentQRCodePage() {
       setChargeId(qr.id);
   }
  
-  // ✅ Loading
-  if (status === "loading") {
+  // ✅ Loading — hold until identity resolves so we never flash/bounce
+  if (authStatus !== "authed") {
     return <ScreenLoading />;
   }
 
