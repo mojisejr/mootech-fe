@@ -9,6 +9,7 @@ import { UserRegisterOrLogin } from '@/constants/api/api-user-register-or-login'
 import { CONFIG } from '@/constants/config';
 import { CookieKey } from '@/constants/cookie-key';
 import { PageRouter } from '@/constants/router';
+import { shouldClearToken, shouldRegister } from '@/lib/auth/login-state';
 import { signIn, signOut, useSession } from "next-auth/react";
 import Head from "next/head";
 import Image from "next/image";
@@ -32,6 +33,11 @@ export default function HomePage() {
 
   const [isLogin, setIsLogin] = useState<boolean>(false)
   const [isRegistering, setIsRegistering] = useState<boolean>(false)
+  // In-flight guard: idempotent register may re-evaluate on every authed render
+  // tick — this ref prevents firing the network round-trip twice concurrently
+  // (mirrors the promptpay/createSubmitGuard defensive pattern). Reset to false
+  // when the round-trip settles so a later genuine cookie-wipe can re-register.
+  const registerInFlightRef = useRef<boolean>(false)
 
   const router = useRouter();
   const callback = router.query.callback as string || '/';
@@ -147,20 +153,23 @@ useEffect(() => {
     if(isRegistering == true) {
         setIsRegistering(false)
         const result = await UserRegisterOrLogin(
-          id_token, 
-          image, 
+          id_token,
+          image,
           name,
-          refer_code, 
-          email, 
+          refer_code,
+          email,
           provider
         )
         if (result && result.ok == false) {
+          // Explicit BE rejection (real auth failure) — safe to clear + sign out.
+          registerInFlightRef.current = false
           clearToken()
           signOut({ redirect: false })
 
           return
         }
           if (result && result.user_id) {
+            registerInFlightRef.current = false
               getNotify(result.user_id)
             setCookie(CookieKey.MEMBER_ID, result.user_id, {
               path: '/',
@@ -199,7 +208,11 @@ useEffect(() => {
             setInfoUserId(result.user_id)
 
           } else {
-            router.replace(PageRouter.HOME)
+            // Defensive: response present but NO user_id (should not happen per BE
+            // logs). Do NOT clearToken or redirect-loop — release the in-flight
+            // guard and let the idempotent authed effect retry on the next render
+            // (MEMBER_ID still absent -> shouldRegister stays true). Never wipe.
+            registerInFlightRef.current = false
           }
     }
     }
@@ -222,25 +235,35 @@ useEffect(() => {
 }, [isRegistering, infoToken, infoImage, infoName, infoRefCode, infoEmail, infoProvider])
 
 
-  const [isRegister, setIsRegister] = useState<boolean>(true)
   useEffect(() => {
+    const hasMemberId = !!cookies[CookieKey.MEMBER_ID]
+
     if (status === "authenticated") {
       // DEV bypass: /dev-login already set MEMBER_ID cookie -> skip old-server register-or-login
       if (cookies[CookieKey.LOGIN_PROVIDER] === "DEV") {
-        if (isRegister) {
+        if (hasMemberId) {
           setIsLogin(true)
           setInfoUserId(cookies[CookieKey.MEMBER_ID])
-          setIsRegister(false)
         }
         return
       }
-      // clearToken()
-      // router.replace(`/?callback=${callback}`);
-      if (session && isRegister == true) {
+
+      // Already have a resolved identity -> nothing to do (avatar shows).
+      if (hasMemberId) {
+        setIsLogin(true)
+        return
+      }
+
+      // IDEMPOTENT register: fire the round-trip whenever authenticated AND the
+      // MEMBER_ID cookie is not present (first login OR after any wipe). The
+      // in-flight ref prevents firing twice concurrently while the network call
+      // is still pending.
+      if (session && shouldRegister(status, hasMemberId) && !registerInFlightRef.current) {
         const user = session.user
         const lineProfile = session.lineProfile
 
         if (user) {
+          registerInFlightRef.current = true
           if (lineProfile && lineProfile.sub) {
             setIsLogin(true)
             setInfoToken(lineProfile.sub)
@@ -264,17 +287,16 @@ useEffect(() => {
             // setInfoRefCode(callback.length > 5 ? callback : '')
             setInfoEmail(user.email)
             setIsRegistering(true)
-
-            
           }
         }
-
-        setIsRegister(false)
       }
-    } else {
+    } else if (shouldClearToken(status)) {
+      // ONLY on a genuine settled logout ("unauthenticated") — NEVER on the
+      // "loading" tick. The loading-tick wipe is what raced the register
+      // round-trip and caused the login loop.
       clearToken()
     }
-  }, [status , session, callback, isRegister]);
+  }, [status , session, callback, cookies[CookieKey.MEMBER_ID], cookies[CookieKey.LOGIN_PROVIDER]]);
 
  
   // ✅ Loading

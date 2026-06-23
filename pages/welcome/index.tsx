@@ -9,9 +9,9 @@ import { validateNumberOnlyFull, validateRefNumber } from "@/utils/validate";
 import Header from "@/components/header";
 import { useCookies } from "react-cookie";
 import { CookieKey } from "@/constants/cookie-key";
-import { useSession } from "next-auth/react";
 import { UserGetById } from "@/constants/api/api-user-get";
 import BirthDayInput from "@/components/birthday-input";
+import { useCurrentUser } from "@/lib/auth/use-current-user";
 
 export default function WelcomePage() {
  const [cookies, setCookie , removeCookie] = useCookies([
@@ -26,17 +26,23 @@ export default function WelcomePage() {
     const router = useRouter();
     const refresh = router.query.refresh as string;
 
-    const { data: session, status } = useSession();
+    // Settled-anon guard: resolveAuth encodes "fail-to-loading, never anon" — so
+    // authStatus is only 'anon' when there is genuinely no session AND no member
+    // cookie. Redirecting on raw next-auth "unauthenticated" bounced logged-in
+    // users during the transient hydration window (part of the login loop).
+    const { status: authStatus } = useCurrentUser()
     const [userId, setUserId] = useState<string>('')
     const [displayName, setDisplayName] = useState<string>('')
     const [displaySurname, setDisplaySurname] = useState<string>('')
     const [displayImage, setDisplayImage] = useState<string>('')
-  
+
     useEffect(() => {
-      if (status === "unauthenticated") {
+      // Only redirect when SETTLED anon — never while loading/transient. Genuine
+      // logged-out / new users still go to /login (don't hang them).
+      if (authStatus === "anon") {
         router.replace(PageRouter.LOGIN)
       }
-    }, [status, session]);
+    }, [authStatus]);
 
       
   useEffect(() => {
