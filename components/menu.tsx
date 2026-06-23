@@ -7,6 +7,10 @@ import { useRouter } from 'next/router';
 import { PageRouter } from '@/constants/router';
 import { useCookies } from 'react-cookie';
 import { CookieKey } from '@/constants/cookie-key';
+import { CONFIG } from '@/constants/config';
+import { useCurrentUser } from '@/lib/auth/use-current-user';
+import { resolveMatchingTarget } from '@/lib/auth/matching-target';
+import { UserGetById } from '@/constants/api/api-user-get';
 
 type ComponentProps = {
   is_show: boolean,
@@ -29,6 +33,7 @@ const Menu = ({
   const [resultCode, setResultCode] = useState<any>(null)
 
   const router = useRouter();
+  const { userId: authUserId, status: authStatus } = useCurrentUser();
 
   useEffect(() => {
 
@@ -63,20 +68,60 @@ const Menu = ({
   const [isOpen, setIsOpen] = useState<boolean>(true)
 
 
-  const gotoMatching = () => {
-    gotoWelcome(resultCode)
-
+  const goToMatchingWithCode = (code: string) => {
+    router.replace(PageRouter.MATCHING.replaceAll(':code', code))
   }
-  const gotoWelcome = (resultCode: string) => {
 
-    
-    if (resultCode && resultCode != '') {
-        router.replace(PageRouter.MATCHING.replaceAll(':code', resultCode))
-
-    } else {
-      router.replace(PageRouter.LOGIN_WITH+'?refresh=2')
+  // A logged-in user must NEVER be bounced to /login because the refer-code
+  // cookie is empty. Empty refer-code is a DATA hydration problem -> backfill it
+  // from get-user (UserGetById -> field `refer_code`), set the cookie, then route
+  // onward to /matching. If the backfill yields nothing, still route the user
+  // onward (HOME) rather than stranding/looping them. Only a genuinely anonymous
+  // user (no auth) is sent to /login. (#mootech-login-loop-fix-v2)
+  const backfillAndRoute = async () => {
+    let code = ''
+    try {
+      if (authUserId) {
+        const result = await UserGetById(authUserId)
+        if (result && result.refer_code) {
+          code = String(result.refer_code)
+          setCookie(CookieKey.MEMBER_REFER_CODE, code, {
+            path: '/',
+            maxAge: CONFIG.EXPIRED_TIME_COOKIE,
+            sameSite: true,
+          })
+          setResultCode(code)
+        }
+      }
+    } catch {
+      // swallow — fall through to the graceful onward route below
     }
-   }
+
+    if (code !== '') {
+      goToMatchingWithCode(code)
+    } else {
+      // Backfill failed/empty: do NOT route a logged-in user to /login. Send them
+      // home instead so they can retry without entering the old refresh=2 loop.
+      router.replace(PageRouter.HOME)
+    }
+  }
+
+  const gotoMatching = () => {
+    const isAuthed = authStatus === 'authed' || !!cookies[CookieKey.MEMBER_ID]
+    const target = resolveMatchingTarget(isAuthed, resultCode)
+
+    switch (target.kind) {
+      case 'go-matching':
+        goToMatchingWithCode(target.code)
+        break
+      case 'needs-backfill':
+        void backfillAndRoute()
+        break
+      case 'go-login':
+        router.replace(PageRouter.LOGIN_WITH)
+        break
+    }
+  }
 
   const handleLogout = () => {
     // Clear auth cookies (the app's identity source) then end the NextAuth session.

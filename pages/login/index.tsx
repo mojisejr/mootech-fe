@@ -9,6 +9,7 @@ import Image from "next/image";
 import { useRouter } from "next/router";
 import { useEffect, useRef, useState } from "react";
 import { useCookies } from 'react-cookie';
+import { useCurrentUser } from "@/lib/auth/use-current-user";
 export default function LoginPage() {
 
   const [cookies, setCookie , removeCookie] = useCookies([
@@ -31,6 +32,7 @@ export default function LoginPage() {
   const router = useRouter();
   const callback = router.query.callback as string || '/';
   const { data: session, status } = useSession();
+  const { status: authStatus } = useCurrentUser();
   const [tel, setTel] = useState<string>("");
 
 
@@ -71,6 +73,18 @@ useEffect(() => {
     signOut({ redirect: false })
   }
 }, [router.query])
+
+// Already-authenticated user landed on /login (e.g. via the old refresh=2 path):
+// forward them onward instead of stranding them on the login screen. A genuinely
+// anonymous user (authStatus !== "authed") still sees the login buttons normally.
+// Skip while a logout is in progress so sign-out is not undone.
+// (#mootech-login-loop-fix-v2)
+useEffect(() => {
+  if (router.query.fromLogout === 'true') return
+  if (authStatus === 'authed') {
+    router.replace(PageRouter.HOME)
+  }
+}, [authStatus, router.query])
 
   const handleLogin = (provider: string) => {
 
