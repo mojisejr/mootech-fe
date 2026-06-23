@@ -6,7 +6,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "test:e2e:auth": "playwright test e2e/auth-loop.spec.ts"
   },
   "dependencies": {
     "@line/liff": "^2.27.0",
@@ -28,6 +29,7 @@
     "recharts": "^3.1.0"
   },
   "devDependencies": {
+    "@playwright/test": "^1.61.0",
     "@types/file-saver": "^2.0.7",
     "@types/node": "^20",
     "@types/react": "^18",
