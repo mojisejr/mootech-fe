@@ -6,6 +6,7 @@ import ScreenLoading from '@/components/screen-loading';
 import { MemberWithFriendGetNewFriendApi } from '@/constants/api/api-member-with-friend-get-new-friend';
 import { UserCheckLine } from '@/constants/api/api-user-check-line';
 import { UserRegisterOrLogin } from '@/constants/api/api-user-register-or-login';
+import { UserGetById } from '@/constants/api/api-user-get';
 import { CONFIG } from '@/constants/config';
 import { CookieKey } from '@/constants/cookie-key';
 import { PageRouter } from '@/constants/router';
@@ -182,7 +183,24 @@ useEffect(() => {
               maxAge: CONFIG.EXPIRED_TIME_COOKIE,
               sameSite: true,
             })
-            setCookie(CookieKey.MEMBER_REFER_CODE, result.ref_code, {
+            // register-login returns the refer code as `ref_code`, but a BE edge
+            // branch can return it null/empty. An empty MEMBER_REFER_CODE cookie
+            // is what later bounced the logged-in user to /login?refresh=2 and
+            // caused the loop. BACKFILL from get-user (UserGetById -> field
+            // `refer_code`) so the cookie is reliably populated post-login.
+            // (#mootech-login-loop-fix-v2)
+            let referCode = result.ref_code
+            if (!referCode || referCode === '') {
+              try {
+                const fetched = await UserGetById(result.user_id)
+                if (fetched && fetched.refer_code) {
+                  referCode = fetched.refer_code
+                }
+              } catch {
+                // non-fatal: leave referCode as-is; never block login on backfill
+              }
+            }
+            setCookie(CookieKey.MEMBER_REFER_CODE, referCode, {
               path: '/',
               maxAge: CONFIG.EXPIRED_TIME_COOKIE,
               sameSite: true,
