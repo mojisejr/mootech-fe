@@ -6,19 +6,15 @@
 import type { NextApiRequest, NextApiResponse } from 'next'
 import { sql } from 'drizzle-orm'
 import { db } from '@/lib/db'
+// Bangkok-correct expiry check. The previous local copy used `new Date()` +
+// `setHours()` in the SERVER's timezone — on Vercel (UTC) that flipped expiry at
+// UTC midnight, ~7h off Bangkok, so members near a Bangkok day-boundary saw the
+// wrong is_not_expired (paid/free) — the "แตกเป็นจุดๆ" parity drift. usage-core's
+// isNotExpired mirrors the NestJS MomentService (Asia/Bangkok) and is unit-tested.
+// (#mootech-fold-parity-audit)
+import { isNotExpired } from '@/lib/usage-core'
 
 const FORTUNE_LIMIT_FREE = 1 // be: src/constants/fortune-limit.ts FORTUNE_LIMIT.FREE
-
-// be: UserService.isNotExpired — valid date AND today <= expiredDay (day granularity)
-function isNotExpired(expired: string | null | undefined): boolean {
-  if (!expired) return false
-  const exp = new Date(expired)
-  if (isNaN(exp.getTime())) return false
-  exp.setHours(0, 0, 0, 0)
-  const today = new Date()
-  today.setHours(0, 0, 0, 0)
-  return today.getTime() <= exp.getTime()
-}
 
 const rowsOf = (r: any): any[] => (Array.isArray(r) ? r : r?.rows ?? [])
 
