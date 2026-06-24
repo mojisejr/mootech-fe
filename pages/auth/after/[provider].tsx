@@ -4,7 +4,7 @@ import type { Session } from "next-auth";
 import { getServerSession } from "next-auth/next";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/router";
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { useCookies } from "react-cookie";
 import { CookieKey } from "../../../constants/cookie-key";
 import ScreenLoading from "@/components/screen-loading";
@@ -50,8 +50,17 @@ export default function AfterProviderPage({
   ])
 
   const router = useRouter();
+  // One-shot guard (#mootech-login-coldstart-fix). The effect deps used to
+  // include the unstable `setCookie`/`session` identities, so this effect re-ran
+  // and called `router.replace('/')` MULTIPLE times. Those repeated navigations
+  // ("Abort fetching component for route: /") cancelled the in-flight
+  // register-login on home -> identity landed late -> login appeared to need a
+  // second attempt + the avatar briefly vanished. Fire the cookie-set + redirect
+  // exactly ONCE per mount. (mirrors the defensive useRef single-fire pattern.)
+  const didRedirectRef = useRef(false);
   useEffect(() => {
-    if (session) {
+    if (session && !didRedirectRef.current) {
+      didRedirectRef.current = true;
       const expireDate = new Date(session?.expires || new Date());
       // NOTE: do NOT set MEMBER_ID here. It used to be set to session.accessToken
       // (a short-lived OAuth token), which leaked into /api/user and log_calculate as a
@@ -72,7 +81,9 @@ export default function AfterProviderPage({
       
       router.replace('/');
     }
-  }, [session, setCookie, router]);
+    // Only re-evaluate when the session resolves; the ref guarantees a single
+    // fire so unstable setCookie/router identities can no longer cause churn.
+  }, [session]);
 
   // Transient page: sets cookies then redirects to "/". Show a clean loading
   // screen instead of dumping the raw session (which contains tokens) to the UI.

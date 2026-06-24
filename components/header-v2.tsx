@@ -121,16 +121,22 @@ const HeaderMuMate = ({
                 </div>
               }
               {
-                isLogin && isShowProfile == true? 
+                // Show the avatar whenever identity is real — trust the
+                // cookie-validated `resolvedUserId` (useCurrentUser), not only the
+                // parent's optimistic local `isLogin`. During the cold/login window
+                // `isLogin` could lag while the MEMBER_ID cookie was already set,
+                // collapsing the slot to the "เข้าสู่ระบบ" text = the "icon หาย"
+                // symptom. (#mootech-login-coldstart-fix)
+                (isLogin || !!resolvedUserId) && isShowProfile == true?
                 <Image
                     src={imgSrc}
                     width={40}
                     height={40}
                     className=' rounded-full cursor-pointer '
-                    alt='icon-app' 
+                    alt='icon-app'
                     onClick={() => { router.push(PageRouter.PROFILE)}}
                     onError={() => setImgSrc(fallback)}
-                    
+
                 />
                 :
                 isShowProfile == true ?

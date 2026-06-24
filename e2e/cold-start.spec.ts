@@ -15,9 +15,10 @@
 //     router.replace('/') because its effect deps [session, setCookie, router]
 //     are unstable (+ reactStrictMode double-invoke in dev amplifies it).
 //
-// These specs encode that signature. They are EXPECTED TO FAIL against the
-// current (unfixed) code — a red test that documents the bug. Do not "fix" the
-// test to pass; the product fix is a separate plan.
+// These specs encode that signature as a REGRESSION GUARD. They were RED before
+// the fix (auth/after one-shot redirect guard + header identity from
+// useCurrentUser, #mootech-login-coldstart-fix) and are GREEN once it is in
+// place. If they go red again, the cold-start navigation churn has returned.
 //
 // Local-only: requires the full stack (FE :3000 -> BE :4000 -> dev Supabase).
 // Run: npx playwright test e2e/cold-start.spec.ts
