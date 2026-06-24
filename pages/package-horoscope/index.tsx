@@ -12,6 +12,7 @@ import { PaymentHoroscope } from '@/constants/payment-horoscope';
 import { PaymentPlan } from '@/constants/payment-plan';
 import { PageRouter } from '@/constants/router';
 import { useSession } from "next-auth/react";
+import { useCurrentUser } from '@/lib/auth/use-current-user';
 import Head from "next/head";
 import Image from "next/image";
 import { useRouter } from "next/router";
@@ -61,6 +62,10 @@ const [isShowModalRegister, setIsShowModalRegister] = useState<boolean>(false)
   const router = useRouter();
   const callback = router.query.callback as string || '/';
   const { data: session, status } = useSession();
+  // Cookie-validated identity for the pay-action guard. Page stays PUBLIC (no
+  // render-gate); only avoids bouncing a logged-in user while session hydrates.
+  // (#mootech-home-cta-bounce-migration)
+  const { status: authStatus } = useCurrentUser();
 
   const [userId, setUserId] = useState<string>('')
   const [displayName, setDisplayName] = useState<string>('')
@@ -179,7 +184,7 @@ const [isShowModalRegister, setIsShowModalRegister] = useState<boolean>(false)
 
   const handlePay = async (packageCode: string, packageName: string, amount: number, packageId: number) => {
 
-    if (isLogin == false) {
+    if (authStatus === 'anon') {
       setIsShowModalRegister(true)
       return;
     }
