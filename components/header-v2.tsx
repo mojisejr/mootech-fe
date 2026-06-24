@@ -32,11 +32,23 @@ const HeaderMuMate = ({
   const [isShowUpgrade, setIsShowUpgrade] = useState<boolean>(false)
 
   const fallback = '/images/mumate/ic_logo.svg'
-  const [imgSrc, setImgSrc] = useState(image || fallback)
 
   const [cookies, setCookie , removeCookie] = useCookies([
     CookieKey.MEMBER_ID,
+    CookieKey.MEMBER_IMAGE,
   ])
+
+  // Avatar source resolution (#mootech-login-coldstart-fix). On a returning /
+  // deep-link entry (paste a link, open-in-external-browser from LINE) the home
+  // page early-returns when MEMBER_ID already exists and never re-hydrates the
+  // image prop, so `image` arrives as the fallback logo even though the real
+  // photo is sitting in the MEMBER_IMAGE cookie. Prefer the real image (prop or
+  // cookie) over the logo so the avatar shows the user's photo on first paint,
+  // not after a navigate-away-and-back. (was "avatar หาย" = logo, not photo)
+  const memberImage = cookies[CookieKey.MEMBER_IMAGE]
+  const resolveAvatar = (img: string) =>
+    img && img !== fallback ? img : memberImage || fallback
+  const [imgSrc, setImgSrc] = useState(resolveAvatar(image))
 
   // Use the uuid-validated identity (never the raw cookie) so a stale OAuth access
   // token left in MEMBER_ID can't fire UserGetById(ya29...) -> 400.
@@ -64,10 +76,10 @@ const HeaderMuMate = ({
   }
 
   useEffect(() => {
-    if (image) {
-        setImgSrc(image)
-    }
-  }, [image])
+    // Keep the avatar on the real photo (prop or cookie); only fall to the logo
+    // when neither exists. Avoids the deep-link "logo instead of photo" flash.
+    setImgSrc(resolveAvatar(image))
+  }, [image, memberImage])
 
 
   const onClickMenu = () => {

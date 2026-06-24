@@ -86,4 +86,27 @@ test.describe("cold-start login race (#mootech-login-coldstart-investigation)", 
     // top-right must NOT show the fallback "เข้าสู่ระบบ" text for a logged-in user
     await expect(page.getByText("เข้าสู่ระบบ", { exact: true })).toHaveCount(0);
   });
+
+  // SYMPTOM A (returning / deep-link) — entering with MEMBER_IMAGE already in the
+  // cookie (paste a link / open-in-external-browser from LINE) must render the
+  // user's photo, NOT the fallback logo. Before the fix the home early-return
+  // never re-hydrated the image so the avatar showed ic_logo.svg = "avatar หาย".
+  test("returning entry shows the avatar photo from MEMBER_IMAGE cookie, not the logo (A)", async ({
+    page,
+  }) => {
+    await seedDevSession(page);
+    // a real, loadable local asset stands in for the user's photo cookie
+    const photo = "/images/mumate/img_footer_login.png";
+    await page.context().addCookies([
+      { name: "cookie-mumate-image", value: photo, url: "http://localhost:3000" },
+    ]);
+    await page.goto("/");
+
+    const avatar = page.locator("img.rounded-full").first();
+    await expect(avatar).toHaveCount(1); // avatar present, not the login text
+    const src = (await avatar.getAttribute("src")) ?? "";
+    expect(src, "avatar must be the photo, not the fallback logo").not.toContain(
+      "ic_logo.svg",
+    );
+  });
 });
