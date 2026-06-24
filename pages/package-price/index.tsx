@@ -11,6 +11,7 @@ import { PaymentPackage } from '@/constants/payment-package';
 import { PaymentPlan } from '@/constants/payment-plan';
 import { PageRouter } from '@/constants/router';
 import { useSession } from "next-auth/react";
+import { useCurrentUser } from '@/lib/auth/use-current-user';
 import Head from "next/head";
 import Image from "next/image";
 import { useRouter } from "next/router";
@@ -49,6 +50,10 @@ export default function PackagePricePage() {
   const router = useRouter();
   const callback = router.query.callback as string || '/';
   const { data: session, status } = useSession();
+  // Cookie-validated identity for the pay-action guards. Page stays PUBLIC (no
+  // render-gate); we only avoid bouncing a logged-in user to /login while the
+  // session is still hydrating. (#mootech-home-cta-bounce-migration)
+  const { status: authStatus } = useCurrentUser();
 
   const [userId, setUserId] = useState<string>('')
   const [displayName, setDisplayName] = useState<string>('')
@@ -190,7 +195,7 @@ const handleCharge = async (token: any, amount: number) => {
   const handlePay = async (packageCode: string, packageName: string, amount: number, packageId: number) => {
 
     if (packageCode == PaymentPackage.MEMBER_FREE) {
-      if(isLogin == false) {
+      if(authStatus === 'anon') {
         router.replace(PageRouter.LOGIN_WITH)
         return
       } else {
@@ -199,7 +204,7 @@ const handleCharge = async (token: any, amount: number) => {
       }
     }
 
-    if (isLogin == false) {
+    if (authStatus === 'anon') {
       setIsShowModalRegister(true)
       return;
     }
@@ -245,7 +250,7 @@ const handleCharge = async (token: any, amount: number) => {
 
   const handlePayTopup = async () => {
 
-    if (isLogin == false) {
+    if (authStatus === 'anon') {
       setIsShowModalRegister(true)
       return;
     }

@@ -11,6 +11,8 @@ import { CONFIG } from '@/constants/config';
 import { CookieKey } from '@/constants/cookie-key';
 import { PageRouter } from '@/constants/router';
 import { shouldClearToken, shouldRegister } from '@/lib/auth/login-state';
+import { useCurrentUser } from '@/lib/auth/use-current-user';
+import { resolveWelcomeTarget } from '@/lib/auth/welcome-target';
 import { signIn, signOut, useSession } from "next-auth/react";
 import Head from "next/head";
 import Image from "next/image";
@@ -43,6 +45,10 @@ export default function HomePage() {
   const router = useRouter();
   const callback = router.query.callback as string || '/';
   const { data: session, status } = useSession();
+  // Cookie-validated identity (never the optimistic local isLogin/infoUserId).
+  // The home CTA guard reads THIS, so a returning user with a valid MEMBER_ID is
+  // never bounced to /login. (#mootech-home-cta-bounce-migration)
+  const { status: authStatus } = useCurrentUser();
 
 
   const [isShowModalEmail, setIsShowModalEmail] = useState<boolean>(false)
@@ -342,25 +348,28 @@ useEffect(() => {
 
 
   const gotoWelcome = (resultCode: string, isRefreshResult: boolean) => {
+    // Decide from the cookie-validated identity, NOT the optimistic local
+    // isLogin/infoUserId. The returning-user branch never set infoUserId, so the
+    // old guard bounced logged-in users to /login. (#mootech-home-cta-bounce-migration)
+    const target = resolveWelcomeTarget(authStatus, resultCode, isRefreshResult)
 
-    if (isLogin == false || infoUserId == '') {
+    switch (target.kind) {
+      case 'login':
+        // Only a genuinely anonymous user is sent to login.
         router.replace(PageRouter.LOGIN_WITH)
         return
-    }
-
-    
-    if (resultCode && resultCode != '') {
-        router.replace(PageRouter.RESULT.replaceAll(':code', resultCode))
-
-    } else {
-    
-      if (isRefreshResult == false) {
+      case 'wait':
+        // Identity still hydrating — never bounce a logged-in/loading user.
+        return
+      case 'result':
+        router.replace(PageRouter.RESULT.replaceAll(':code', target.code))
+        return
+      case 'register':
         router.replace(PageRouter.REGISTER)
-      } else {
-        router.replace(PageRouter.REGISTER+'?refresh=1')
-
-      }
-
+        return
+      case 'register-refresh':
+        router.replace(PageRouter.REGISTER + '?refresh=1')
+        return
     }
    }
 
