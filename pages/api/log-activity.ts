@@ -2,6 +2,9 @@
 // Pure read: a user's point activity joined to activity names, newest first.
 // Parity: queryBuilder leftJoin Activity, orderBy createAt DESC,
 //   select [createAt AS create_at, activity.description AS activity_name, point].
+// NestJS returns `{ data: result }` and the consumer (pages/profile/activity reads
+// `result.data`); the migration had dropped the envelope -> empty list. Restored.
+// (#mootech-fold-parity-audit)
 import type { NextApiRequest, NextApiResponse } from 'next'
 import { sql } from 'drizzle-orm'
 import { db } from '@/lib/db'
@@ -25,7 +28,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     )
     // point is bigint -> string via postgres.js; NestJS getRawMany returns it numeric
     const out = rows.map((r) => ({ ...r, point: r.point == null ? r.point : Number(r.point) }))
-    return res.status(200).json(out)
+    // NestJS getLogsByUserId returns `{ data: result }` — preserve the envelope.
+    return res.status(200).json({ data: out })
   } catch (e: any) {
     return res.status(500).json({ error: e?.message ?? 'internal error' })
   }
