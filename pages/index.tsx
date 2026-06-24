@@ -13,6 +13,7 @@ import { PageRouter } from '@/constants/router';
 import { shouldClearToken, shouldRegister } from '@/lib/auth/login-state';
 import { useCurrentUser } from '@/lib/auth/use-current-user';
 import { resolveWelcomeTarget } from '@/lib/auth/welcome-target';
+import { resolveReturningResult } from '@/lib/auth/returning-result';
 import { signIn, signOut, useSession } from "next-auth/react";
 import Head from "next/head";
 import Image from "next/image";
@@ -41,6 +42,9 @@ export default function HomePage() {
   // (mirrors the promptpay/createSubmitGuard defensive pattern). Reset to false
   // when the round-trip settles so a later genuine cookie-wipe can re-register.
   const registerInFlightRef = useRef<boolean>(false)
+  // One-shot guard for the returning-user routing-state hydration (get-user).
+  // (#mootech-home-cta-bounce-migration)
+  const returningHydratedRef = useRef<boolean>(false)
 
   const router = useRouter();
   const callback = router.query.callback as string || '/';
@@ -259,6 +263,25 @@ useEffect(() => {
 }, [isRegistering, infoToken, infoImage, infoName, infoRefCode, infoEmail, infoProvider])
 
 
+  // Returning user: pull resultCode/isRefreshResult from get-user (register-login
+  // is skipped when MEMBER_ID exists). Fire once; allow retry only on failure.
+  // (#mootech-home-cta-bounce-migration)
+  const hydrateReturningUserResult = async (user_id: string) => {
+    if (returningHydratedRef.current) return
+    returningHydratedRef.current = true
+    try {
+      const result = await UserGetById(user_id)
+      if (result && result.user_id) {
+        const { resultCode: code, isRefreshResult: refresh } = resolveReturningResult(result)
+        setIsRefreshResult(refresh)
+        setResultCode(code)
+      }
+    } catch {
+      returningHydratedRef.current = false
+    }
+  }
+
+
   useEffect(() => {
     const hasMemberId = !!cookies[CookieKey.MEMBER_ID]
 
@@ -272,9 +295,16 @@ useEffect(() => {
         return
       }
 
-      // Already have a resolved identity -> nothing to do (avatar shows).
+      // Already have a resolved identity. register-login is skipped here, so the
+      // routing state the home CTA needs (resultCode/isRefreshResult) would stay
+      // empty -> a returning user with a computed chart was wrongly routed to
+      // /register instead of /my-destiny. Rehydrate those two values from get-user
+      // (the same source /my-destiny uses), exactly once.
+      // (#mootech-home-cta-bounce-migration)
       if (hasMemberId) {
         setIsLogin(true)
+        setInfoUserId(cookies[CookieKey.MEMBER_ID])
+        hydrateReturningUserResult(cookies[CookieKey.MEMBER_ID])
         return
       }
 
