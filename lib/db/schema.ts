@@ -340,7 +340,12 @@ export const fortuneTellingLog = pgTable("fortune_telling_log", {
 	// You can use { mode: "bigint" } if numbers are exceeding js number limitations
 	cardNo: bigint("card_no", { mode: "number" }).notNull(),
 	createAt: varchar("create_at", { length: 255 }).notNull(),
-});
+}, (table) => [
+	// (#mootech-latency-user-fold) /api/user runs `count(*) WHERE user_id` on this table on
+	// every user load (header/profile/my-destiny). Without this index that count was a full
+	// table scan (~2s). Mirrors the existing log_* user_id indexes (e.g. idx on log_activity).
+	index("idx_fortune_telling_log_user_id").using("btree", table.userId.asc().nullsLast().op("text_ops")),
+]);
 
 export const heavenlySpiritCard = pgTable("heavenly_spirit_card", {
 	id: bigserial({ mode: "bigint" }).primaryKey().notNull(),
@@ -679,7 +684,12 @@ export const memberWithFriend = pgTable("member_with_friend", {
 	isMember: boolean("is_member").notNull(),
 	memberId: text("member_id").notNull(),
 	isNotify: boolean("is_notify").notNull(),
-});
+}, (table) => [
+	// (#mootech-latency-user-fold) /api/user runs `count(*) WHERE user_id` on this table on
+	// every user load. Without this index that count was a full table scan. Mirrors the
+	// existing user_id indexes on member_payment / payment / user_matching.
+	index("idx_member_with_friend_user_id").using("btree", table.userId.asc().nullsLast().op("text_ops")),
+]);
 
 export const powerCustomerDescription = pgTable("power_customer_description", {
 	id: bigserial({ mode: "bigint" }).primaryKey().notNull(),

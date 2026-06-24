@@ -30,14 +30,18 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     if (user.used_point != null) user.used_point = Number(user.used_point)
     if (user.total_point != null) user.total_point = Number(user.total_point)
 
-    const memberPayment =
-      rowsOf(await db.execute(sql`SELECT * FROM member_payment WHERE user_id = ${userId} LIMIT 1`))[0] ?? null
-    const totalFriend = Number(
-      rowsOf(await db.execute(sql`SELECT count(*)::int AS n FROM member_with_friend WHERE user_id = ${userId}`))[0]?.n ?? 0,
-    )
-    const totalFortune = Number(
-      rowsOf(await db.execute(sql`SELECT count(*)::int AS n FROM fortune_telling_log WHERE user_id = ${userId}`))[0]?.n ?? 0,
-    )
+    // The 3 remaining lookups are independent of each other — fire them together instead of
+    // awaiting in series. postgres.js pipelines them over the pool so we pay ~1 round-trip
+    // instead of 3 (the old sequential awaits stacked ~2s of latency in prod). Same queries
+    // and same results as before — only the await became parallel. (#mootech-latency-user-fold)
+    const [memberPaymentRows, totalFriendRows, totalFortuneRows] = await Promise.all([
+      db.execute(sql`SELECT * FROM member_payment WHERE user_id = ${userId} LIMIT 1`),
+      db.execute(sql`SELECT count(*)::int AS n FROM member_with_friend WHERE user_id = ${userId}`),
+      db.execute(sql`SELECT count(*)::int AS n FROM fortune_telling_log WHERE user_id = ${userId}`),
+    ])
+    const memberPayment = rowsOf(memberPaymentRows)[0] ?? null
+    const totalFriend = Number(rowsOf(totalFriendRows)[0]?.n ?? 0)
+    const totalFortune = Number(rowsOf(totalFortuneRows)[0]?.n ?? 0)
     const isFree = !memberPayment
 
     return res.status(200).json({
