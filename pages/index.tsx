@@ -14,6 +14,7 @@ import { shouldClearToken, shouldRegister } from '@/lib/auth/login-state';
 import { useCurrentUser } from '@/lib/auth/use-current-user';
 import { resolveWelcomeTarget } from '@/lib/auth/welcome-target';
 import { resolveReturningResult } from '@/lib/auth/returning-result';
+import { resolveCtaReady } from '@/lib/auth/cta-ready';
 import { signIn, signOut, useSession } from "next-auth/react";
 import Head from "next/head";
 import Image from "next/image";
@@ -70,6 +71,13 @@ export default function HomePage() {
 
   const [resultCode, setResultCode] = useState<string>('')
   const [isRefreshResult, setIsRefreshResult] = useState<boolean>(false)
+  // Gate for the home CTA race (#mootech-cta-race-gate): resultCode hydrates from
+  // get-user async, but authStatus is cookie-instant. Until the routing state has
+  // settled we hold the CTA so a returning user can't click into /register before
+  // their chart loads. Set true at EVERY settle path (returning hydrate, DEV
+  // bypass, first-login register) — never in the error catch, so a failed hydrate
+  // keeps the gate closed and lets the retry re-open it.
+  const [resultHydrated, setResultHydrated] = useState<boolean>(false)
 
 
   const [isShowMenu, setIsShowMenu] = useState<boolean>(false)
@@ -234,6 +242,10 @@ useEffect(() => {
               }
             }
             setInfoUserId(result.user_id)
+            // Routing state for the CTA is now resolved (a first-login user with
+            // no chart simply has resultCode='' -> /register, which is correct).
+            // Open the CTA gate. (#mootech-cta-race-gate)
+            setResultHydrated(true)
 
           } else {
             // Defensive: response present but NO user_id (should not happen per BE
@@ -276,7 +288,14 @@ useEffect(() => {
         setIsRefreshResult(refresh)
         setResultCode(code)
       }
+      // Settle the CTA gate on ANY non-throwing response — even one without a
+      // user_id means get-user resolved as far as it can, so the routing state is
+      // known (empty -> /register, which is correct). Leaving this only inside the
+      // user_id branch would deadlock the CTA on that edge. (#mootech-cta-race-gate)
+      setResultHydrated(true)
     } catch {
+      // Network failure: keep the gate CLOSED and release the one-shot ref so the
+      // next render retries. The CTA stays in loading rather than firing blind.
       returningHydratedRef.current = false
     }
   }
@@ -291,6 +310,9 @@ useEffect(() => {
         if (hasMemberId) {
           setIsLogin(true)
           setInfoUserId(cookies[CookieKey.MEMBER_ID])
+          // DEV bypass never hydrates from get-user, so open the CTA gate here or
+          // the dev session's button would hang forever. (#mootech-cta-race-gate)
+          setResultHydrated(true)
         }
         return
       }
@@ -403,6 +425,12 @@ useEffect(() => {
     }
    }
 
+  // The CTA may only fire once the routing state is known (#mootech-cta-race-gate).
+  // While not ready (authed but result still hydrating, or identity loading) the
+  // button shows a spinner and ignores clicks, so a returning user can never click
+  // into /register before their chart loads. anon is ready immediately (-> /login).
+  const isCtaReady = resolveCtaReady(authStatus, resultHydrated)
+
    
 
   return (
@@ -505,23 +533,32 @@ useEffect(() => {
                 <div className='w-full flex flex-wrap mt-4'>
 
                   <div className='w-full relative'>
-                    <div 
-                    onClick={() => { gotoWelcome(resultCode, isRefreshResult) }}
-                    className=' cursor-pointer w-full bg-white rounded-[40px] p-4 flex items-center flex-nowrap mt-[20px]'>
+                    <div
+                    onClick={() => { if (!isCtaReady) return; gotoWelcome(resultCode, isRefreshResult) }}
+                    className={`${isCtaReady ? 'cursor-pointer' : 'opacity-60 pointer-events-none'} w-full bg-white rounded-[40px] p-4 flex items-center flex-nowrap mt-[20px]`}>
 
                       <span
 
                         className=' text-[18px] font-bold text-[#1B9AAF] ml-[30px] flex grow w-full'
-                      >เช็คพื้นดวงและธาตุของคุณ</span> 
+                      >เช็คพื้นดวงและธาตุของคุณ</span>
 
 
-                      <div className='w-fit  '>
+                      <div className='w-fit  flex items-center justify-center'>
 
-                        <Image
-                          src={'/images/mumate/ic_arrow_next.svg'}
-                          width={46}
-                          height={46}
-                          alt='icon-next' />
+                        {isCtaReady ? (
+                          <Image
+                            src={'/images/mumate/ic_arrow_next.svg'}
+                            width={46}
+                            height={46}
+                            alt='icon-next' />
+                        ) : (
+                          <div
+                            className='h-[46px] w-[46px] flex items-center justify-center'
+                            aria-label='กำลังโหลดข้อมูลพื้นดวง'
+                            role='status'>
+                            <div className='h-7 w-7 animate-spin rounded-full border-2 border-gray-200 border-t-moumate_blue' />
+                          </div>
+                        )}
 
                       </div>
 
