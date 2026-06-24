@@ -20,8 +20,26 @@ export function middleware(req: NextRequest) {
 
   const { pathname, searchParams } = req.nextUrl;
 
-  // Always allow the maintenance page itself and a health endpoint.
-  if (pathname === '/maintenance' || pathname === '/api/health') {
+  // Always allow: the maintenance page itself, a health endpoint, the NextAuth
+  // OAuth handshake, and the auth error page.
+  //
+  // The handshake (/api/auth/csrf | signin | callback | session) MUST run
+  // UNGATED so login behaves exactly like live even while maintenance is on.
+  // Gating it served NextAuth the maintenance HTML instead of JSON, which broke
+  // login for any cold-cookie client (incognito / fresh mobile): the cross-site
+  // OAuth callback could arrive without the `mnt_bypass` cookie, get rewritten to
+  // /maintenance, and never set a session -> auth/after sees no session ->
+  // bounce to /login -> the "เวียนเทียน login" loop. Warm desktops hid this
+  // because cached cookies/session skip the cold handshake entirely.
+  // This does NOT expose the app: every real page stays gated, so a user who
+  // logs in still only sees /maintenance without a valid bypass cookie — only
+  // the login handshake is allowed to complete. (#mootech-maint-gate-incognito-login)
+  if (
+    pathname === '/maintenance' ||
+    pathname === '/api/health' ||
+    pathname.startsWith('/api/auth') ||
+    pathname === '/auth/error'
+  ) {
     return noStore(NextResponse.next());
   }
 
