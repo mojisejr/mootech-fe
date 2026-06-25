@@ -1,35 +1,35 @@
 import { pgTable, bigserial, text, varchar, bigint, doublePrecision, json, index, boolean, primaryKey } from "drizzle-orm/pg-core"
 import { sql } from "drizzle-orm"
 
-// ⚠️⚠️  DO NOT RUN `drizzle-kit generate` / `drizzle-kit push` ON THIS SCHEMA  ⚠️⚠️
-// ------------------------------------------------------------------------------------
-// MIGRATIONS HERE ARE HAND-AUTHORED. Apply DDL manually (see lib/db/0001_*.sql) — write
-// CREATE INDEX CONCURRENTLY IF NOT EXISTS etc. by hand and run it on dev → then prod.
+// ───────────────────────────────────────────────────────────────────────────────────
+// DRIZZLE WORKFLOW CONTRACT (snapshot re-baselined 2026-06-25, #mootech-drizzle-rebaseline)
+// ───────────────────────────────────────────────────────────────────────────────────
+// STATE NOW: schema.ts ≡ meta/0000_snapshot.json ≡ live DB. `drizzle-kit generate` is SAFE
+// to run as a DIFF tool — it reports "No schema changes" today, and a real change generates
+// clean SQL (verified: a test index produced only `CREATE INDEX`, no rename/drop prompt).
 //
-// WHY (the landmine): this schema was introspected from a pgloader'd MySQL→Postgres copy.
-// 7 log tables (log_activity, log_matching, log_save_image, log_survey, log_calculate,
-// log_work_vibe, log_love_mate) have a literal camelCase column "createAt" (mapped here as
-// the `createat` field), while every other table uses snake_case "create_at". schema.ts was
-// corrected on 2026-06-13 to match the real DB, but the drizzle SNAPSHOT (meta/0000_snapshot.json)
-// predates that fix and still thinks those columns are "create_at". So `drizzle-kit generate`
-// diffs schema-vs-snapshot, sees "create_at gone / createAt new", and PROMPTS a rename-or-drop.
-// Accepting that prompt emits `RENAME COLUMN` or `DROP "create_at" + ADD "createAt"` →
-// **DATA LOSS in those 7 log tables**. The app runs fine today; the trap only fires if someone
-// runs generate and accepts the prompt. Walk around it: hand-write migrations.
+// ✅ SAFE: `drizzle-kit generate` (diff/preview only) — it never touches the DB.
+// 🚫 STILL FORBIDDEN: `drizzle-kit push` and auto-applying generated SQL via `drizzle migrate`.
+//    Migrations are APPLIED BY HAND: write CREATE INDEX CONCURRENTLY IF NOT EXISTS etc. and run
+//    it manually on dev → then prod (operator-gated). generated SQL is a starting point you
+//    REVIEW, never run blind. (vow: hand-authored migrations on this pgloader'd DB.)
 //
-// HOW TO ACTUALLY DEFUSE IT later (Option B — re-baseline), and is it safe?
-//   * Run `drizzle-kit pull` (introspect dev) → regenerates schema.ts + snapshot from the live
-//     DB so they agree again; after that `generate` is clean.
-//   * DATA SAFETY: `drizzle-kit pull` is READ-ONLY on the database — it reads the catalog and
-//     writes LOCAL FILES only. It executes NO DDL/DML, so pull itself CANNOT lose data.
-//     (Data loss in this whole story comes ONLY from `generate`+apply or `push`, never `pull`.)
-//   * The real cost of B is to the CODE, not the data: pull OVERWRITES this file (loses these
-//     comments + the index intent) and may quietly restructure other mappings, so it needs a
-//     careful diff + `tsc` + `next build` + a runtime query re-verify before trusting it.
-//   * Verdict: deferred on purpose. We don't use the generate/migrate workflow, so B fixes a
-//     problem we don't have while risking new code drift. Do B only if/when we adopt drizzle
-//     generate for real — otherwise this warning is the fix.
-// ------------------------------------------------------------------------------------
+// THE OLD LANDMINE (now defused): this schema was introspected from a pgloader'd MySQL→Postgres
+// copy. 7 log tables (log_activity, log_matching, log_save_image, log_survey, log_calculate,
+// log_work_vibe, log_love_mate) have a literal camelCase column "createAt" (mapped here as the
+// `createat` field); every other table uses snake_case "create_at". schema.ts was hand-corrected
+// on 2026-06-13 to match the real DB, but BOTH the old snapshot AND the old baseline SQL
+// (0000_polite_venus.sql) stayed at the stale "create_at". So `drizzle-kit generate` used to diff
+// schema-vs-stale-snapshot, see "create_at gone / createAt new", and PROMPT a rename-or-drop —
+// accepting it would have emitted `RENAME`/`DROP COLUMN` = DATA LOSS on those 7 tables.
+//   FIX APPLIED: re-baselined the snapshot FROM schema.ts (verified ≡ live DB first; READ-ONLY,
+//   no DDL/DML). The stale 0000_polite_venus.sql + the old meta were moved to lib/db/_archive/.
+//   The new lib/db/0000_baseline_current.sql is a full-schema baseline that REPRESENTS the
+//   already-existing DB — it is reference only, DO NOT RUN it (the tables already exist).
+//
+// DO NOT "normalize" the createat/createAt/create_at naming — the three casings (TS field
+// `createat`, DB column "createAt", JSON `create_at`) are intentional and load-bearing.
+// ───────────────────────────────────────────────────────────────────────────────────
 
 export const activity = pgTable("activity", {
 	id: bigserial({ mode: "bigint" }).primaryKey().notNull(),
