@@ -1,7 +1,35 @@
 import { pgTable, bigserial, text, varchar, bigint, doublePrecision, json, index, boolean, primaryKey } from "drizzle-orm/pg-core"
 import { sql } from "drizzle-orm"
 
-
+// ⚠️⚠️  DO NOT RUN `drizzle-kit generate` / `drizzle-kit push` ON THIS SCHEMA  ⚠️⚠️
+// ------------------------------------------------------------------------------------
+// MIGRATIONS HERE ARE HAND-AUTHORED. Apply DDL manually (see lib/db/0001_*.sql) — write
+// CREATE INDEX CONCURRENTLY IF NOT EXISTS etc. by hand and run it on dev → then prod.
+//
+// WHY (the landmine): this schema was introspected from a pgloader'd MySQL→Postgres copy.
+// 7 log tables (log_activity, log_matching, log_save_image, log_survey, log_calculate,
+// log_work_vibe, log_love_mate) have a literal camelCase column "createAt" (mapped here as
+// the `createat` field), while every other table uses snake_case "create_at". schema.ts was
+// corrected on 2026-06-13 to match the real DB, but the drizzle SNAPSHOT (meta/0000_snapshot.json)
+// predates that fix and still thinks those columns are "create_at". So `drizzle-kit generate`
+// diffs schema-vs-snapshot, sees "create_at gone / createAt new", and PROMPTS a rename-or-drop.
+// Accepting that prompt emits `RENAME COLUMN` or `DROP "create_at" + ADD "createAt"` →
+// **DATA LOSS in those 7 log tables**. The app runs fine today; the trap only fires if someone
+// runs generate and accepts the prompt. Walk around it: hand-write migrations.
+//
+// HOW TO ACTUALLY DEFUSE IT later (Option B — re-baseline), and is it safe?
+//   * Run `drizzle-kit pull` (introspect dev) → regenerates schema.ts + snapshot from the live
+//     DB so they agree again; after that `generate` is clean.
+//   * DATA SAFETY: `drizzle-kit pull` is READ-ONLY on the database — it reads the catalog and
+//     writes LOCAL FILES only. It executes NO DDL/DML, so pull itself CANNOT lose data.
+//     (Data loss in this whole story comes ONLY from `generate`+apply or `push`, never `pull`.)
+//   * The real cost of B is to the CODE, not the data: pull OVERWRITES this file (loses these
+//     comments + the index intent) and may quietly restructure other mappings, so it needs a
+//     careful diff + `tsc` + `next build` + a runtime query re-verify before trusting it.
+//   * Verdict: deferred on purpose. We don't use the generate/migrate workflow, so B fixes a
+//     problem we don't have while risking new code drift. Do B only if/when we adopt drizzle
+//     generate for real — otherwise this warning is the fix.
+// ------------------------------------------------------------------------------------
 
 export const activity = pgTable("activity", {
 	id: bigserial({ mode: "bigint" }).primaryKey().notNull(),
