@@ -78,6 +78,13 @@ const BaziChatModal = ({ userId, onClose }: ComponentProps) => {
   const [showSessions, setShowSessions] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editingTitle, setEditingTitle] = useState("")
+  // AI_GENERAL credit wallet — counter shown in the chat; refreshed after each turn.
+  const [wallet, setWallet] = useState<{
+    balance: number
+    unlimited: boolean
+    enforced: boolean
+  } | null>(null)
+  const [outOfCredit, setOutOfCredit] = useState(false)
   const abortRef = useRef<AbortController | null>(null)
   const bottomRef = useRef<HTMLDivElement | null>(null)
   // true while loading a session's messages into the view, so the persist effect doesn't
@@ -90,6 +97,32 @@ const BaziChatModal = ({ userId, onClose }: ComponentProps) => {
     if (typeof window === "undefined") return
     const savedSize = window.localStorage.getItem(SIZE_KEY)
     if (savedSize && (SIZE_ORDER as string[]).includes(savedSize)) setSize(savedSize as Size)
+  }, [])
+
+  // wallet balance — fetched on open, refreshed after each successful turn.
+  const refreshBalance = async () => {
+    try {
+      const r = await fetch("/api/chat/balance")
+      if (!r.ok) return
+      const b = (await r.json()) as {
+        balance?: number
+        unlimited?: boolean
+        enforced?: boolean
+      }
+      setWallet({
+        balance: b.balance ?? 0,
+        unlimited: !!b.unlimited,
+        enforced: b.enforced !== false,
+      })
+      if (b.unlimited || (b.balance ?? 0) > 0) setOutOfCredit(false)
+    } catch {
+      // best-effort; counter stays hidden on failure
+    }
+  }
+
+  useEffect(() => {
+    refreshBalance()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   // load the active session's messages into the view once the store is ready (first mount /
@@ -229,6 +262,14 @@ const BaziChatModal = ({ userId, onClose }: ComponentProps) => {
         return
       }
 
+      // out of credit -> drop the empty AI bubble and surface the top-up CTA strip
+      if (res.status === 402) {
+        setHistoryChat((list) => list.filter((m) => m.id !== aiId))
+        setOutOfCredit(true)
+        setWallet((w) => (w ? { ...w, balance: 0 } : w))
+        return
+      }
+
       if (!res.ok || !res.body) {
         const detail = await res.text().catch(() => "")
         updateAi(aiId, (prev) => ({
@@ -286,6 +327,8 @@ const BaziChatModal = ({ userId, onClose }: ComponentProps) => {
       }))
     } finally {
       setIsCallAI(false)
+      // reflect the credit just spent (members/unlimited unaffected)
+      void refreshBalance()
     }
   }
 
@@ -489,6 +532,25 @@ const BaziChatModal = ({ userId, onClose }: ComponentProps) => {
                 </button>
               ))}
             </div>
+          </div>
+        )}
+
+        {/* credit status — remaining questions / unlimited, with top-up CTA when empty */}
+        {wallet && (
+          <div className="flex-none w-full px-[24px] pb-[6px] flex items-center justify-between gap-3">
+            <span className="text-white/80 text-[12px]">
+              {wallet.unlimited
+                ? "✨ ถามได้ไม่จำกัด"
+                : `เหลือ ${Math.max(0, wallet.balance)} คำถาม`}
+            </span>
+            {!wallet.unlimited && (outOfCredit || wallet.balance <= 0) && (
+              <Link
+                href="/package-price?tab=PAYASUSE"
+                className="flex-none rounded-full bg-white text-[#3A78A9] text-[12px] font-medium px-3 py-[5px] cursor-pointer hover:bg-white/90 active:scale-95 transition"
+              >
+                ซื้อเพิ่ม
+              </Link>
+            )}
           </div>
         )}
 

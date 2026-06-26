@@ -55,6 +55,7 @@ export default function ProfilePage() {
     
     const [memberType, setMemberType] = useState<string>('')
     const [memberExpired, setMemberExpired] = useState<string>('')
+    const [aiBalance, setAiBalance] = useState<{ balance: number; unlimited: boolean } | null>(null)
 
     const [code, setCode] = useState<string>('')
 
@@ -103,6 +104,14 @@ export default function ProfilePage() {
 
     callApiGetUser(authUserId)
     callApiGetLogSurvey(authUserId)
+
+    // AI question-credit wallet (identity resolved server-side from the auth cookie)
+    fetch("/api/chat/balance")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((b) => {
+        if (b) setAiBalance({ balance: b.balance ?? 0, unlimited: !!b.unlimited })
+      })
+      .catch(() => {})
   }, [authStatus, authUserId])
 
 
@@ -379,6 +388,27 @@ const [imageSrc, setImageSrc] = useState<string | null>(null);
 
                     <div className="w-full lg:w-[690px]  grid grid-cols-1   gap-4 justify-center">
 
+                        {/* AI question-credit wallet */}
+                        {aiBalance && (
+                          <div className="w-full flex flex-wrap items-center justify-between gap-3 backdrop-blur-sm bg-white/45 p-[24px] rounded-[16px]">
+                            <div className="flex flex-col">
+                              <span className="font-bold text-moumate_blue text-[16px]">เครดิตคำถาม AI</span>
+                              <span className="text-[#444444] text-[15px] mt-1">
+                                {aiBalance.unlimited
+                                  ? "✨ ถามได้ไม่จำกัด"
+                                  : `เหลือ ${Math.max(0, aiBalance.balance)} คำถาม`}
+                              </span>
+                            </div>
+                            {!aiBalance.unlimited && (
+                              <button
+                                onClick={() => router.push("/package-price?tab=PAYASUSE")}
+                                className="w-fit cursor-pointer bg-[#1B9AAF] text-white font-medium py-[10px] px-[20px] rounded-[40px] hover:opacity-90 active:scale-95 transition"
+                              >
+                                เติมเครดิต
+                              </button>
+                            )}
+                          </div>
+                        )}
 
                         <div className="w-full  flex-wrap backdrop-blur-sm bg-white/45 p-[24px] rounded-[16px]">
                           <span className="w-full justify-start font-bold text-moumate_blue  text-[16px] mt-2 flex">Code Promotion</span>
