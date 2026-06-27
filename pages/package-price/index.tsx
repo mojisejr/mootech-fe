@@ -79,6 +79,15 @@ export default function PackagePricePage() {
 
   const [tab, setTab] = useState<any>('FREE') // FREE, SOULMATE, PAYASUSE
 
+  // deep-link preselect: /package-price?tab=PAYASUSE (from the AI credit top-up CTAs)
+  useEffect(() => {
+    if (!router.isReady) return
+    const q = router.query.tab
+    const next = Array.isArray(q) ? q[0] : q
+    if (next === 'FREE' || next === 'SOULMATE' || next === 'PAYASUSE') {
+      setTab(next)
+    }
+  }, [router.isReady, router.query.tab])
 
 
 
