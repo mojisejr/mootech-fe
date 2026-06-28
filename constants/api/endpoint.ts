@@ -32,7 +32,9 @@ const localApi = (pathname: string) => `/api${pathname}`
 export const API = {
   chinese_horoscope: {
     calculate: backendURLGenerator('/chinese-horoscope'),
-    get: backendURLGenerator('/chinese-horoscope'),
+    // GET routed to hybrid BFF (#my-destiny-bazi-engine-swap): overlays bazi readings on the
+    // 3 top cards + love + work, keeps everything else be. Flip to backendURLGenerator to roll back.
+    get: localApi('/chinese-horoscope'),
     compatibility_love: backendURLGenerator('/chinese-horoscope/compatibility-love'),
     compatibility_work: backendURLGenerator('/chinese-horoscope/compatibility-work'),
     get_share_profile: backendURLGenerator('/chinese-horoscope/share-profile'),
