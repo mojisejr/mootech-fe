@@ -29,6 +29,14 @@ const config: Config = {
         moumate_red: '#CB2C2A',
         bg_gray: '#E9EAEB',
         border_gray: '#D5D7DA',
+        // Chat surface palette — promoted from hardcoded hex in the chat modal so the
+        // full-screen rebuild themes via tokens, not inline JSX (#mootech-chat-mobile-ux).
+        chat_surface: '#44588B',      // chat body background (navy)
+        chat_panel: '#3a4a78',        // session drawer background
+        chat_bubble_user: '#4B4F88',  // user bubble (use /80 etc. for the old CC alpha)
+        chat_header_from: '#2599AE',  // header gradient start (teal)  rgba(37,153,174)
+        chat_header_to: '#3A78A9',    // header gradient end (slate) + top-up CTA text
+        launcher_magenta: '#FF00EE',  // launcher gradient end (teal -> magenta hero)
         violet: {
           new_2: '#6167BF',
         },
