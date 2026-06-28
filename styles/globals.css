@@ -74,3 +74,16 @@
   }
 }
 
+/* Safe-area + dynamic-viewport helpers for the full-screen mobile chat
+   (#mootech-chat-mobile-ux). Requires viewport-fit=cover (set in _app.tsx);
+   without it env(safe-area-inset-*) resolves to 0. */
+@layer utilities {
+  .pt-safe { padding-top: env(safe-area-inset-top, 0px); }
+  .pb-safe { padding-bottom: env(safe-area-inset-bottom, 0px); }
+  .pl-safe { padding-left: env(safe-area-inset-left, 0px); }
+  .pr-safe { padding-right: env(safe-area-inset-right, 0px); }
+  /* full mobile viewport that follows browser UI (dvh) with a 100vh fallback */
+  .min-h-screen-dvh { min-height: 100vh; min-height: 100dvh; }
+  .h-screen-dvh { height: 100vh; height: 100dvh; }
+}
+
