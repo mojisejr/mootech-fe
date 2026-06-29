@@ -10,6 +10,7 @@
 import type { NextApiRequest, NextApiResponse } from "next"
 import { mapChartFoundation } from "@/lib/destiny/map-chart-foundation"
 import { mapLove, mapWork } from "@/lib/destiny/map-love-work"
+import { mapBeCareful } from "@/lib/destiny/map-be-careful"
 
 // be NestJS base (same guardrailed env as the rest of the calc-family). Never old-prod.
 const BE_ENDPOINT = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:4000"
@@ -76,10 +77,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   if (!rawInput || !chart.analytic) return res.status(200).json({ data: chart })
 
   // 2) bazi consumer readings (parallel). Any failure -> that overlay is skipped.
-  const [cf, love, career] = await Promise.all([
+  const [cf, love, career, turning] = await Promise.all([
     baziConsumerTopic("chart_foundation", rawInput),
     baziConsumerTopic("love_partner", rawInput),
     baziConsumerTopic("career_potential", rawInput),
+    baziConsumerTopic("turning_points", rawInput),
   ])
 
   // 3) overlay — each guarded; on null we keep the be value.
@@ -95,6 +97,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   if (loveOverlay && a.love) a.love.note = loveOverlay.note
   const workOverlay = mapWork(career)
   if (workOverlay && a.prediction_work) a.prediction_work.desc = workOverlay.desc
+  // Zone 3 — ข้อพึงระวัง: real clash timeline (พ.ศ./age/ชง·ฮะ) deeper than be's
+  // day-element lookup. occupations stays be (bazi's career occupation text has a
+  // disposition-sentence bleed we can't fix read-only — see plan P0 NO-GO).
+  const beCarefulOverlay = mapBeCareful(turning)
+  if (beCarefulOverlay && a.be_careful) a.be_careful.description = beCarefulOverlay.description
 
   return res.status(200).json({ data: chart })
 }
