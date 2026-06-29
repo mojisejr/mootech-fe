@@ -60,14 +60,21 @@ t("mapChartFoundation returns null when prose triplet missing", () => {
   assert.equal(mapChartFoundation({}), null)
 })
 
-// ── Zone 2: love ──
+// ── Zone 2: love (T1 paragraphs + T3 noise removal) ──
 for (const chart of CHARTS) {
-  t(`love maps to a single clean note (${chart})`, () => {
+  t(`love maps to a clean multi-paragraph note (${chart})`, () => {
     const o = mapLove(load(chart, "love_partner"))
     assert.ok(o && o.note.length > 0)
     assert.ok(clean(o!.note), "no markup/headers in love note")
     // intro explainer dropped: love body should mention คู่ครอง, not the generic meta line
     assert.ok(o!.note.includes("คู่ครอง") || o!.note.includes("คู่"))
+    // T1: paragraph breaks preserved so the card can breathe (>=2 blocks)
+    const paras = o!.note.split(/\n{2,}/).filter((p) => p.trim().length > 0)
+    assert.ok(paras.length >= 2, `love should be multi-paragraph, got ${paras.length}`)
+    // T3: title-echo framing line removed
+    assert.ok(!o!.note.includes("พิจารณารายละเอียดต่อไปนี้"), "title-echo leaked")
+    // T3: no orphan connector-only paragraph
+    assert.ok(!paras.some((p) => p.trim() === "ขณะเดียวกัน"), "orphan connector leaked")
   })
 }
 
@@ -87,6 +94,8 @@ for (const chart of CHARTS) {
     assert.ok(!/อาชีพธาตุ.{0,8}อันดับ/.test(joined), "occupation-list header leaked")
     assert.ok(!joined.split("\n").some((l) => l.startsWith("•")), "bullet occupation leaked")
     assert.ok(!joined.includes("ดังนี้:"), "list lead-in leaked")
+    // T3: title-echo framing line removed from work bullets too
+    assert.ok(!joined.includes("พิจารณารายละเอียดต่อไปนี้"), "title-echo leaked into work")
   })
 }
 

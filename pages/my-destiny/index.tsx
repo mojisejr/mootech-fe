@@ -476,7 +476,23 @@ const callApiGetUser = async (user_id: string) => {
       const analytic = resultHoroscope.analytic
       if (analytic) {
         const data = analytic.love
-        if (data) {
+        if (data && data.note) {
+          // Render paragraph breaks as discrete blocks so the card breathes
+          // instead of collapsing into one wall of text. Falls back to a single
+          // block when the note has no paragraph breaks (e.g. be fallback value).
+          const paras = String(data.note)
+            .split(/\n{2,}/)
+            .map((p: string) => p.trim())
+            .filter((p: string) => p.length > 0)
+          if (paras.length > 0) {
+            return (
+              <span className="w-full flex flex-col gap-3">
+                {paras.map((p, i) => (
+                  <span key={i} className="break-words">{p}</span>
+                ))}
+              </span>
+            )
+          }
           return data.note
         }
       }

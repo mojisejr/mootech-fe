@@ -43,3 +43,48 @@ export function bodyLines(
   }
   return lines
 }
+
+// Narrative-glue connectors bazi inserts between thought-blocks. When we split a
+// reading into discrete paragraphs they read awkwardly as leading words (or as a
+// lone orphan paragraph), so we tidy them out. (T3)
+const CONNECTORS = ["ขณะเดียวกัน", "ในอีกด้านหนึ่ง", "นอกจากนี้", "อีกทั้ง", "ยิ่งไปกว่านั้น"]
+// The framing line every consumer reading opens with ("…— สำหรับเรื่อง… จากจุดนี้
+// จึงค่อยพิจารณารายละเอียดต่อไปนี้") just echoes the card title. Drop it. (T3)
+const TITLE_ECHO = /พิจารณารายละเอียดต่อไปนี้\s*$/
+
+/**
+ * Paragraph-aware body of a reading. Unlike `bodyLines`, this PRESERVES the
+ * blank-line paragraph boundaries from the source so the UI can render breathing
+ * room between thought-blocks instead of one wall of text. (T1)
+ * Options:
+ * - dropIntro: drop the first paragraph (the generic "how this reading works" note)
+ * - dropTitleEcho: drop the framing line that echoes the card title (T3)
+ * - tidyConnectors: drop orphan connector-only paragraphs and strip leading
+ *   connectors from real paragraphs (T3)
+ * - until: cut at the first paragraph matching (drops career occupation-lists)
+ */
+export function bodyParagraphs(
+  humanReading: string,
+  opts?: { dropIntro?: boolean; dropTitleEcho?: boolean; tidyConnectors?: boolean; until?: RegExp },
+): string[] {
+  if (!humanReading) return []
+  let paras = humanReading
+    .split(/\n{2,}/)
+    .map((p) => stripBaziMarkup(p).replace(/\s*\n\s*/g, " ").trim())
+    .filter((p) => p.length > 0 && !p.startsWith("##"))
+  if (opts?.dropIntro && paras.length > 0) paras = paras.slice(1)
+  if (opts?.dropTitleEcho) paras = paras.filter((p) => !TITLE_ECHO.test(p))
+  if (opts?.tidyConnectors) {
+    paras = paras
+      .filter((p) => !CONNECTORS.includes(p))
+      .map((p) => {
+        const hit = CONNECTORS.find((c) => p.startsWith(c + " "))
+        return hit ? p.slice(hit.length).trim() : p
+      })
+  }
+  if (opts?.until) {
+    const idx = paras.findIndex((p) => opts.until!.test(p))
+    if (idx >= 0) paras = paras.slice(0, idx)
+  }
+  return paras
+}
