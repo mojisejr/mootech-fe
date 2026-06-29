@@ -5,6 +5,7 @@ import { readFileSync } from "node:fs"
 import { join } from "node:path"
 import { mapChartFoundation } from "../lib/destiny/map-chart-foundation"
 import { mapLove, mapWork } from "../lib/destiny/map-love-work"
+import { mapBeCareful } from "../lib/destiny/map-be-careful"
 import { stripBaziMarkup } from "../lib/destiny/strip-bazi-markup"
 
 const DIR = join(__dirname, "fixtures", "destiny")
@@ -102,6 +103,29 @@ for (const chart of CHARTS) {
 t("mapWork returns null on empty", () => {
   assert.equal(mapWork({ humanReading: "" }), null)
   assert.equal(mapWork(null), null)
+})
+
+// ── Zone 3: be_careful (turning_points clash-timing lines only) ──
+for (const chart of CHARTS) {
+  t(`be_careful maps clash-timing lines, breathing paragraphs (${chart})`, () => {
+    const o = mapBeCareful(load(chart, "turning_points"))
+    assert.ok(o && o.description.length > 0)
+    assert.ok(clean(o!.description), "no markup/headers in be_careful")
+    const paras = o!.description.split(/\n{2,}/).filter((p) => p.trim().length > 0)
+    // multiple clash lines kept as breathing paragraphs
+    assert.ok(paras.length >= 2, `expected multiple clash lines, got ${paras.length}`)
+    // every paragraph IS a clash-timing line (no life-cycle narrative leaked)
+    assert.ok(paras.every((p) => /เป็นจังหวะ/.test(p)), "non-clash line leaked")
+    // includes at least one yearly clash + the recurring monthly clash
+    assert.ok(paras.some((p) => /ปี พ\.ศ\./.test(p)), "missing yearly clash")
+    assert.ok(paras.some((p) => /เดือนนักษัตร/.test(p)), "missing monthly clash")
+  })
+}
+
+t("mapBeCareful returns null on empty / no-clash", () => {
+  assert.equal(mapBeCareful({ humanReading: "" }), null)
+  assert.equal(mapBeCareful(null), null)
+  assert.equal(mapBeCareful({ humanReading: "บทนำเฉย ๆ ไม่มีจังหวะปะทะ" }), null)
 })
 
 console.log(`\ndestiny-zone-mappers: ${pass} passed`)

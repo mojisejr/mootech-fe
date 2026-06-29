@@ -366,7 +366,23 @@ const callApiGetUser = async (user_id: string) => {
       const analytic = resultHoroscope.analytic
       if (analytic) {
         const data = analytic.be_careful
-        if (data) {
+        if (data && data.description) {
+          // Render paragraph breaks as discrete blocks so multiple clash-timing
+          // lines breathe instead of collapsing into one wall. Single-block
+          // fallback when there are no breaks (e.g. be's one-line value).
+          const paras = String(data.description)
+            .split(/\n{2,}/)
+            .map((p: string) => p.trim())
+            .filter((p: string) => p.length > 0)
+          if (paras.length > 0) {
+            return (
+              <span className="w-full flex flex-col gap-3">
+                {paras.map((p, i) => (
+                  <span key={i} className="break-words">{p}</span>
+                ))}
+              </span>
+            )
+          }
           return data.description
         }
       }
