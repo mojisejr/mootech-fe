@@ -17,16 +17,41 @@ export type ChatStreamOutcome =
   | { type: "error"; status?: number; message: string }
   | { type: "aborted" } // caller aborted (session switch / unmount)
 
+// Glass Box trace frame (#bazi-chat-anti-drift v2). bazi emits one of these BEFORE the answer
+// tokens when the request opted in (x-glass-box). Prod chat never asks for it, so prod streams
+// carry none — the parser simply collects any it sees and prod callers ignore the extra channel.
+export type GlassBoxTrace = {
+  heard: {
+    topicId: string | null
+    timeframe: string | null
+    requiresBaziConsult: boolean
+    confidence: number
+    birthResolved: boolean
+  }
+  truthUsed: {
+    seam: string | null
+    injectedReadingText: string | null
+  }
+  filters: {
+    honestPrecisionApplied: boolean
+  }
+}
+
 // Pure SSE frame parser — exported for deterministic tests. Splits on the SSE event
 // delimiter ("\n\n"), reads `data:` lines, JSON-parses each, pulls choices[0].delta.content,
 // and detects the [DONE] sentinel. Returns the trailing incomplete chunk as `remainder` so the
 // caller can prepend it to the next network chunk. Keep-alives / non-JSON lines are ignored.
+//
+// `traces` is an ADDITIVE channel: any `{ object: "glass-box.trace", trace }` frame is collected
+// here. Existing callers destructure { tokens, done, remainder } and are unaffected.
 export function parseSseBuffer(buffer: string): {
   tokens: string[]
+  traces: GlassBoxTrace[]
   done: boolean
   remainder: string
 } {
   const tokens: string[] = []
+  const traces: GlassBoxTrace[] = []
   let done = false
   const parts = buffer.split("\n\n")
   const remainder = parts.pop() ?? ""
@@ -42,7 +67,15 @@ export function parseSseBuffer(buffer: string): {
         break
       }
       try {
-        const j = JSON.parse(d) as { choices?: Array<{ delta?: { content?: unknown } }> }
+        const j = JSON.parse(d) as {
+          object?: string
+          trace?: GlassBoxTrace
+          choices?: Array<{ delta?: { content?: unknown } }>
+        }
+        if (j?.object === "glass-box.trace" && j.trace) {
+          traces.push(j.trace)
+          continue
+        }
         const tok = j?.choices?.[0]?.delta?.content
         if (typeof tok === "string") tokens.push(tok)
       } catch {
@@ -52,7 +85,7 @@ export function parseSseBuffer(buffer: string): {
     if (done) break
   }
 
-  return { tokens, done, remainder }
+  return { tokens, traces, done, remainder }
 }
 
 export type UseBaziChatStream = {

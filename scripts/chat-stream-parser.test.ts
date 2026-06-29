@@ -75,4 +75,33 @@ t("empty buffer yields nothing", () => {
   assert.equal(r.done, false)
 })
 
+// ── Glass Box trace channel (#bazi-chat-anti-drift v2, Track B2) ──
+const traceObj = {
+  heard: { topicId: "wealth_and_investment", timeframe: "none", requiresBaziConsult: true, confidence: 0.91, birthResolved: true },
+  truthUsed: { seam: "wealth_and_investment", injectedReadingText: '{"intent":"wealth"}' },
+  filters: { honestPrecisionApplied: false },
+}
+const traceFrame = `data: ${JSON.stringify({ object: "glass-box.trace", trace: traceObj })}\n\n`
+
+t("surfaces a trace frame on the traces channel, not as a token", () => {
+  const r = parseSseBuffer(traceFrame + frame("ดวงการเงินดีค่ะ"))
+  assert.deepEqual(r.tokens, ["ดวงการเงินดีค่ะ"])
+  assert.equal(r.traces.length, 1)
+  assert.deepEqual(r.traces[0], traceObj)
+})
+
+t("a stream with no trace frame yields an empty traces array (prod path)", () => {
+  const r = parseSseBuffer(frame("สวัสดีค่ะ") + "data: [DONE]\n\n")
+  assert.deepEqual(r.traces, [])
+  assert.deepEqual(r.tokens, ["สวัสดีค่ะ"])
+  assert.equal(r.done, true)
+})
+
+t("trace before answer tokens preserves answer order", () => {
+  const r = parseSseBuffer(traceFrame + frame("ก") + frame("ข") + "data: [DONE]\n\n")
+  assert.deepEqual(r.tokens, ["ก", "ข"])
+  assert.equal(r.traces.length, 1)
+  assert.equal(r.done, true)
+})
+
 console.log(`\nchat-stream-parser: ${pass} passed`)

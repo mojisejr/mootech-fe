@@ -7,16 +7,66 @@ import type { NextRequest } from 'next/server';
 // Turn off by setting MAINTENANCE_MODE to anything other than 'on' (or removing it).
 const BYPASS_COOKIE = 'mnt_bypass';
 
-export function middleware(req: NextRequest) {
-  // Maintenance off -> behave normally (normal caching resumes).
-  if (process.env.MAINTENANCE_MODE !== 'on') return NextResponse.next();
+// Glass Box console gate (#bazi-chat-anti-drift v2, Track B2).
+//   GLASS_BOX_KEY=xxx -> ซินแส opens `?key=xxx` once to set a cookie and reach /glass-box.
+// This is ORTHOGONAL to maintenance: the trace console is an internal ซินแส tool, so it must
+// stay locked even when the site is fully live (maintenance off). Separate secret, separate cookie.
+const GLASS_BOX_COOKIE = 'gb_access';
 
-  // While maintenance is on, NEVER let the CDN cache a gated response — otherwise the
-  // maintenance HTML gets cached under "/" and even bypassed devs get served the stale page.
-  const noStore = (res: NextResponse) => {
-    res.headers.set('Cache-Control', 'no-store, must-revalidate');
-    return res;
-  };
+function noStore(res: NextResponse): NextResponse {
+  res.headers.set('Cache-Control', 'no-store, must-revalidate');
+  return res;
+}
+
+// Returns a response when the request targets the Glass Box surface (page or its BFF), otherwise
+// null so the normal middleware flow continues. Fails closed: with no key configured, the console
+// does not exist. The same cookie protects both /glass-box and /api/glass-box/* (same-origin
+// fetch sends it automatically), so the test-birth trace BFF can never be hit without the key.
+function guardGlassBox(req: NextRequest): NextResponse | null {
+  const { pathname, searchParams } = req.nextUrl;
+  const isGlassBox =
+    pathname === '/glass-box' ||
+    pathname.startsWith('/glass-box/') ||
+    pathname.startsWith('/api/glass-box');
+  if (!isGlassBox) return null;
+
+  const key = process.env.GLASS_BOX_KEY;
+  // Fail closed: unconfigured -> hide the console behind the existing deny surface.
+  if (!key) return noStore(NextResponse.rewrite(new URL('/maintenance', req.url)));
+
+  // Already holds a valid access cookie -> pass through.
+  if (req.cookies.get(GLASS_BOX_COOKIE)?.value === key) {
+    return noStore(NextResponse.next());
+  }
+
+  // Opens the secret link `?key=<GLASS_BOX_KEY>` -> set cookie, redirect to a clean URL, pass through.
+  if (searchParams.get('key') === key) {
+    const url = req.nextUrl.clone();
+    url.searchParams.delete('key');
+    const res = NextResponse.redirect(url);
+    res.cookies.set(GLASS_BOX_COOKIE, key, {
+      httpOnly: true,
+      sameSite: 'lax',
+      secure: true,
+      path: '/',
+      maxAge: 60 * 60 * 24, // 24h
+    });
+    return noStore(res);
+  }
+
+  // No valid key -> hide the console.
+  return noStore(NextResponse.rewrite(new URL('/maintenance', req.url)));
+}
+
+export function middleware(req: NextRequest) {
+  // Glass Box gate first — independent of maintenance mode.
+  const glassBox = guardGlassBox(req);
+  if (glassBox) return glassBox;
+
+  // Maintenance off -> behave normally (normal caching resumes).
+  // (While maintenance is on, every gated response below uses the module-level noStore so the
+  // CDN never caches the maintenance HTML under "/" and serves it to bypassed devs.)
+  if (process.env.MAINTENANCE_MODE !== 'on') return NextResponse.next();
 
   const { pathname, searchParams } = req.nextUrl;
 
