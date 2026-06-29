@@ -9,7 +9,7 @@
 //              cut before the occupation-lists which overlap the kept be `occupations`)
 // (#my-destiny-bazi-engine-swap)
 
-import { bodyLines } from "./strip-bazi-markup"
+import { bodyParagraphs } from "./strip-bazi-markup"
 
 interface TopicReadingLike {
   humanReading?: unknown
@@ -20,24 +20,37 @@ interface TopicReadingLike {
 // work-disposition portion is everything BEFORE it.
 const CAREER_LIST_MARKER = /ดังนี้\s*:|^•|อาชีพธาตุ.{0,8}อันดับ/
 
-/** love_partner consumer -> { note } overlay, or null to keep be. */
+/**
+ * love_partner consumer -> { note } overlay, or null to keep be.
+ * note keeps paragraph breaks (`\n\n`) so the card can render breathing room
+ * instead of one wall of text (T1). Title-echo + orphan connectors stripped (T3).
+ */
 export function mapLove(
   fixture: TopicReadingLike | null | undefined,
 ): { note: string } | null {
   const hr = fixture?.humanReading
   if (typeof hr !== "string" || !hr.trim()) return null
-  const lines = bodyLines(hr, { dropIntro: true })
-  const note = lines.join("\n").trim()
+  const paras = bodyParagraphs(hr, { dropIntro: true, dropTitleEcho: true, tidyConnectors: true })
+  const note = paras.join("\n\n").trim()
   return note ? { note } : null
 }
 
-/** career_potential consumer -> prediction_work.desc[] (disposition only), or null. */
+/**
+ * career_potential consumer -> prediction_work.desc[] (disposition only), or null.
+ * One paragraph per bullet; title-echo + connectors stripped (T3); occupation
+ * lists cut (W-A).
+ */
 export function mapWork(
   fixture: TopicReadingLike | null | undefined,
 ): { desc: { note: string }[] } | null {
   const hr = fixture?.humanReading
   if (typeof hr !== "string" || !hr.trim()) return null
-  const lines = bodyLines(hr, { dropIntro: true, until: CAREER_LIST_MARKER })
-  const desc = lines.filter((l) => l.length > 0).map((note) => ({ note }))
+  const paras = bodyParagraphs(hr, {
+    dropIntro: true,
+    dropTitleEcho: true,
+    tidyConnectors: true,
+    until: CAREER_LIST_MARKER,
+  })
+  const desc = paras.map((note) => ({ note }))
   return desc.length > 0 ? { desc } : null
 }
