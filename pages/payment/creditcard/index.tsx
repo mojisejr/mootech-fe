@@ -11,6 +11,8 @@ import { useRouter } from "next/router";
 import { useEffect, useState } from "react";
 import { useCookies } from 'react-cookie';
 import { useCurrentUser } from '@/lib/auth/use-current-user';
+import { useHasMounted } from '@/lib/hooks/use-has-mounted';
+import { shouldRenderScreenLoading } from '@/lib/auth/render-gate';
 
 
 export default function PaymentCreditCardPage() {
@@ -37,6 +39,7 @@ export default function PaymentCreditCardPage() {
   const callback = router.query.callback as string || '/';
   const { data: session, status } = useSession();
   const { userId: authUserId, status: authStatus } = useCurrentUser();
+  const hasMounted = useHasMounted();
 
   const [userId, setUserId] = useState<any>('')
   const [displayName, setDisplayName] = useState<any>('')
@@ -122,7 +125,7 @@ const onChangeEmail = (e: any) => {
 
  
   // ✅ Loading — hold until identity resolves so we never flash/bounce
-  if (authStatus !== "authed") {
+  if (shouldRenderScreenLoading(hasMounted, authStatus)) {
     return <ScreenLoading />;
   }
 
