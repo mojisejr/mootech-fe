@@ -51,6 +51,7 @@ export default function PaymentPage() {
 
 
   const [email, setEmail] = useState<any>('')
+  const [emailError, setEmailError] = useState("")
 
 
   const [isShowMenu, setIsShowMenu] = useState<boolean>(false)
@@ -129,8 +130,6 @@ export default function PaymentPage() {
     router.push(PageRouter.LOGIN_WITH)
   }
 
-
-const [emailError, setEmailError] = useState("")
 
 const validateEmail = (email: string) => {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)

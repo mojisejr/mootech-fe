@@ -175,6 +175,19 @@ export default function PaymentQRCodePage() {
       setChargeId(qr.id);
   }
  
+  useEffect(() => {
+    if (seconds <= 0) {
+      router.replace(`${PageRouter.PAYMENT_FAILURE}?reason=timeout`)
+      return
+    }
+
+    const timer = setInterval(() => {
+      setSeconds((prev) => prev - 1)
+    }, 1000)
+
+    return () => clearInterval(timer)
+  }, [seconds, router])
+
   // ✅ Loading — hold until identity resolves so we never flash/bounce
   if (shouldRenderScreenLoading(hasMounted, authStatus)) {
     return <ScreenLoading />;
@@ -185,19 +198,6 @@ export default function PaymentQRCodePage() {
     router.push(PageRouter.LOGIN_WITH)
   }
   
-
-  useEffect(() => {
-  if (seconds <= 0) {
-    router.replace(`${PageRouter.PAYMENT_FAILURE}?reason=timeout`)
-    return
-  }
-
-  const timer = setInterval(() => {
-    setSeconds((prev) => prev - 1)
-  }, 1000)
-
-  return () => clearInterval(timer)
-}, [seconds, router])
 
 const formatTime = (totalSeconds: number) => {
   const minutes = Math.floor(totalSeconds / 60)
