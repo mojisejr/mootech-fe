@@ -12,6 +12,8 @@ import { useRouter } from "next/router";
 import { useEffect, useRef, useState } from "react";
 import { useCookies } from 'react-cookie';
 import { useCurrentUser } from '@/lib/auth/use-current-user';
+import { useHasMounted } from '@/lib/hooks/use-has-mounted';
+import { shouldRenderScreenLoading } from '@/lib/auth/render-gate';
 
 
 export default function PaymentQRCodePage() {
@@ -40,6 +42,7 @@ export default function PaymentQRCodePage() {
   const callback = router.query.callback as string || '/';
   const { data: session, status } = useSession();
   const { userId: authUserId, status: authStatus } = useCurrentUser();
+  const hasMounted = useHasMounted();
   // guard: create the PromptPay charge at most once (money — never double-charge)
   const promptpayFiredRef = useRef(false);
 
@@ -173,7 +176,7 @@ export default function PaymentQRCodePage() {
   }
  
   // ✅ Loading — hold until identity resolves so we never flash/bounce
-  if (authStatus !== "authed") {
+  if (shouldRenderScreenLoading(hasMounted, authStatus)) {
     return <ScreenLoading />;
   }
 

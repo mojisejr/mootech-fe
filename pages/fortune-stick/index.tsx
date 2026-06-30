@@ -14,6 +14,8 @@ import { useRouter } from "next/router";
 import { useEffect, useState } from "react";
 import { useCookies } from 'react-cookie';
 import { useCurrentUser } from '@/lib/auth/use-current-user';
+import { useHasMounted } from '@/lib/hooks/use-has-mounted';
+import { shouldRenderScreenLoading } from '@/lib/auth/render-gate';
 
 
 export default function FortuneStickPage() {
@@ -45,6 +47,7 @@ export default function FortuneStickPage() {
   const callback = router.query.callback as string || '/';
   const { data: session, status } = useSession();
   const { userId: authUserId, status: authStatus } = useCurrentUser();
+  const hasMounted = useHasMounted();
 
   const [userId, setUserId] = useState<string>('')
   const [displayName, setDisplayName] = useState<string>('')
@@ -110,7 +113,7 @@ export default function FortuneStickPage() {
 
 
   // ✅ Loading — hold until identity resolves so we never flash/bounce
-  if (authStatus !== "authed") {
+  if (shouldRenderScreenLoading(hasMounted, authStatus)) {
     return <ScreenLoading />;
   }
 
