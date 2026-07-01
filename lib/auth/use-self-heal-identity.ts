@@ -30,16 +30,28 @@ import { buildRegisterParamsFromSession } from "./register-params";
 // the wait, authStatus flips to "authed", the effect re-runs and clears the timer.
 const SELF_HEAL_DELAY_MS = 3000;
 
+// DEV bypass marker. /dev-login sets LOGIN_PROVIDER=DEV and mints MEMBER_ID itself,
+// so a dev session must never be re-registered. Read from document.cookie at FIRE
+// time (not react-cookie's render snapshot, which can lag during hydration and let
+// the heal arm before the cookie is visible). Prod builds disable the dev provider,
+// so this is belt-and-suspenders parity with home.
+const DEV_PROVIDER_MARKER = `${CookieKey.LOGIN_PROVIDER}=DEV`;
+function isDevSession(): boolean {
+  if (typeof document === "undefined") {
+    return false;
+  }
+  return document.cookie.split(/;\s*/).includes(DEV_PROVIDER_MARKER);
+}
+
 export function useSelfHealIdentity(): void {
   const { data: session, status: sessionStatus } = useSession();
   const { status: authStatus } = useCurrentUser();
-  const [cookies, setCookie, removeCookie] = useCookies([
+  const [, setCookie, removeCookie] = useCookies([
     CookieKey.MEMBER_ID,
     CookieKey.MEMBER_NAME,
     CookieKey.MEMBER_SURNAME,
     CookieKey.MEMBER_REFER_CODE,
     CookieKey.MEMBER_IMAGE,
-    CookieKey.LOGIN_PROVIDER,
   ]);
 
   // Single-fire guard across this component's life (mirrors home's registerInFlightRef).
@@ -51,8 +63,12 @@ export function useSelfHealIdentity(): void {
     if (sessionStatus !== "authenticated" || authStatus !== "loading") {
       return;
     }
-    // DEV bypass already owns MEMBER_ID; never re-register it (mirrors home).
-    if (cookies[CookieKey.LOGIN_PROVIDER] === "DEV") {
+    // DEV bypass (mirrors home). /dev-login mints MEMBER_ID itself, so a dev session
+    // must never be re-registered. Defensive parity only: prod builds disable the dev
+    // provider, and a real dev session always holds MEMBER_ID (so authStatus is
+    // "authed" and this hook never reaches here). Read from document.cookie (the
+    // real jar) rather than react-cookie's render snapshot, which lags on hydration.
+    if (isDevSession()) {
       return;
     }
     if (healingRef.current) {
@@ -67,6 +83,10 @@ export function useSelfHealIdentity(): void {
 
     const timer = setTimeout(async () => {
       if (healingRef.current) {
+        return;
+      }
+      // DEV bypass, re-checked fresh at fire time (mirrors home; never re-register a dev session).
+      if (isDevSession()) {
         return;
       }
       const params = buildRegisterParamsFromSession(session);
