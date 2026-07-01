@@ -10,6 +10,13 @@ import { useRouter } from "next/router";
 import { useEffect, useRef, useState } from "react";
 import { useCookies } from 'react-cookie';
 import { useCurrentUser } from "@/lib/auth/use-current-user";
+
+// LINE in-app webview detection (#mumate-line-webview-oauth, Fix A). `\bLine\/`
+// matches the "Line/x.x.x" UA token that LINE's embedded browser reports, without
+// false-positive substrings like "online"/"airline". SSR-safe (navigator guarded).
+const isLineInAppBrowser = () =>
+  typeof navigator !== "undefined" && /\bLine\//i.test(navigator.userAgent);
+
 export default function LoginPage() {
 
   const [cookies, setCookie , removeCookie] = useCookies([
@@ -93,6 +100,16 @@ useEffect(() => {
       maxAge: CONFIG.EXPIRED_TIME_COOKIE,
       sameSite: true,
     })
+
+    // Google OAuth is blocked inside LINE's in-app webview (disallowed_useragent —
+    // permanent Google policy). LINE login works natively in the webview, so ONLY
+    // the Google button escapes: navigate the whole flow to the external browser via
+    // ?openExternalBrowser=1 (LINE opens it in the OS browser, where Google is allowed).
+    // The user continues login in the real browser and does not return to the webview.
+    if (provider === "google" && isLineInAppBrowser()) {
+      window.location.href = `${window.location.origin}/login?openExternalBrowser=1`;
+      return;
+    }
 
     if(provider==="instagram"){
       router.replace("https://www.instagram.com/oauth/authorize?force_reauth=true&client_id=1513079686516451&redirect_uri=https://bazichart-dev.mumate.co/api/instagram/callback&response_type=code&scope=instagram_business_basic%2Cinstagram_business_manage_messages%2Cinstagram_business_manage_comments%2Cinstagram_business_content_publish%2Cinstagram_business_manage_insights")
