@@ -2,6 +2,7 @@ import "@/styles/globals.css";
 import { SessionProvider } from "next-auth/react";
 import type { AppProps } from "next/app";
 import { CookiesProvider } from "react-cookie";
+import IdentitySelfHeal from "@/components/identity-self-heal";
 import Script from "next/script";
 import Head from "next/head";
 
@@ -28,6 +29,10 @@ export default function App({ Component, pageProps: { session, ...pageProps } }:
 
       <CookiesProvider>
         <SessionProvider session={session}>
+          {/* Global identity self-heal (#mumate-line-webview-oauth, Fix B):
+              recovers a missing MEMBER_ID on deep-link entry so auth-gated pages
+              don't hang on ScreenLoading. Renders null; runs before the page. */}
+          <IdentitySelfHeal />
           <Component {...pageProps} />
         </SessionProvider>
       </CookiesProvider>
