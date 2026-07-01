@@ -10,6 +10,7 @@ import { useRouter } from "next/router";
 import { useEffect, useRef, useState } from "react";
 import { useCookies } from 'react-cookie';
 import { useCurrentUser } from "@/lib/auth/use-current-user";
+import ModalGoogleExternal from "@/components/modal-google-external";
 
 // LINE in-app webview detection (#mumate-line-webview-oauth, Fix A). `\bLine\/`
 // matches the "Line/x.x.x" UA token that LINE's embedded browser reports, without
@@ -45,6 +46,9 @@ export default function LoginPage() {
 
 
   const [isShowModalSuccess, setIsShowModalSuccess] = useState<boolean>(false)
+
+  // Consent notice before escorting Google login to the external browser (P1.5).
+  const [isShowGoogleExternalNotice, setIsShowGoogleExternalNotice] = useState<boolean>(false)
 
 const hasSignedOut = useRef(false);
   const clearToken = () => {
@@ -102,12 +106,11 @@ useEffect(() => {
     })
 
     // Google OAuth is blocked inside LINE's in-app webview (disallowed_useragent —
-    // permanent Google policy). LINE login works natively in the webview, so ONLY
-    // the Google button escapes: navigate the whole flow to the external browser via
-    // ?openExternalBrowser=1 (LINE opens it in the OS browser, where Google is allowed).
-    // The user continues login in the real browser and does not return to the webview.
+    // permanent Google policy). LINE login works natively, so ONLY the Google button
+    // escapes to the external browser. P1.5: show a consent notice first so the jump
+    // is understood; the escort itself runs in proceedGoogleExternal on confirm.
     if (provider === "google" && isLineInAppBrowser()) {
-      window.location.href = `${window.location.origin}/login?openExternalBrowser=1`;
+      setIsShowGoogleExternalNotice(true);
       return;
     }
 
@@ -116,6 +119,12 @@ useEffect(() => {
     }else{
       signIn(provider, { callbackUrl: `/auth/after/${provider}` });
     }
+  };
+
+  // Escort the LINE-webview user out to the OS browser, where Google OAuth works.
+  // ?openExternalBrowser=1 makes LINE open the URL externally; login continues there.
+  const proceedGoogleExternal = () => {
+    window.location.href = `${window.location.origin}/login?openExternalBrowser=1`;
   };
 
 
@@ -136,6 +145,13 @@ useEffect(() => {
       <Head>
         <title>Mumate</title>
       </Head>
+
+      {isShowGoogleExternalNotice && (
+        <ModalGoogleExternal
+          onProceed={proceedGoogleExternal}
+          onCancel={() => setIsShowGoogleExternalNotice(false)}
+        />
+      )}
 
       <div className="w-full  flex-wrap">
         <div className='w-full flex flex-wrap'>
