@@ -23,6 +23,10 @@ import BaziChatLauncher from "@/components/bazi-chat-launcher";
 import { ChineseElement } from "@/constants/chinese-element";
 import { useCurrentUser } from "@/lib/auth/use-current-user";
 import ScreenLoading from "@/components/screen-loading";
+import { useHasMounted } from "@/lib/hooks/use-has-mounted";
+import { shouldRenderScreenLoading } from "@/lib/auth/render-gate";
+import { useLoadingTimeout } from "@/lib/hooks/use-loading-timeout";
+import ScreenIdentityStuck from "@/components/screen-identity-stuck";
 
 export default function ResultPage() {
 
@@ -40,6 +44,14 @@ export default function ResultPage() {
 
     const { data: session, status } = useSession();
     const { userId: authUserId, status: authStatus } = useCurrentUser();
+    const hasMounted = useHasMounted();
+    // Escape hatch (Fix B″): if identity is still "loading" 8s after mount (self-heal
+    // never resolved on this deep-link/LINE entry), stop the infinite spinner and offer
+    // re-login instead. 8s = self-heal 3s delay + network buffer.
+    const identityStuck = useLoadingTimeout(
+      hasMounted && authStatus === "loading",
+      8000,
+    );
     const [userId, setUserId] = useState<string>('')
     const [displayName, setDisplayName] = useState<string>('')
     const [displaySurname, setDisplaySurname] = useState<string>('')
@@ -773,9 +785,18 @@ const openMenu = (isOpenMenu: boolean) => {
   }
 
 
+  // Identity never resolved on this deep-link/LINE entry — give the user a way out
+  // instead of an infinite spinner (Fix B″).
+  if (identityStuck) {
+    return <ScreenIdentityStuck />
+  }
+
   // Hold the page until identity resolves AND the main content has loaded —
-  // prevents rendering empty sections before the horoscope data arrives.
-  if (authStatus !== "authed" || !destinyLoaded) {
+  // prevents rendering empty sections before the horoscope data arrives. The
+  // hasMounted term makes the server render and first client render agree (both
+  // ScreenLoading), removing the hydration mismatch that other gated pages already
+  // fixed but my-destiny was missing (#mumate-my-destiny-mountgate-hang).
+  if (shouldRenderScreenLoading(hasMounted, authStatus) || !destinyLoaded) {
     return <ScreenLoading />
   }
 
