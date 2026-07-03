@@ -30,6 +30,21 @@ import { buildRegisterParamsFromSession } from "./register-params";
 // the wait, authStatus flips to "authed", the effect re-runs and clears the timer.
 const SELF_HEAL_DELAY_MS = 3000;
 
+// Hard ceiling on the register-login round-trip. Without it, a hung request leaves
+// healingRef pinned true forever (the await never settles) and the user is stuck on
+// ScreenLoading with no recovery. On timeout the call rejects -> the catch releases
+// the guard, and my-destiny's escape hatch (Fix B″) offers re-login after 8s.
+const SELF_HEAL_CALL_TIMEOUT_MS = 10000;
+
+function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
+  return Promise.race([
+    promise,
+    new Promise<T>((_, reject) =>
+      setTimeout(() => reject(new Error("self-heal register timed out")), ms),
+    ),
+  ]);
+}
+
 // DEV bypass marker. /dev-login sets LOGIN_PROVIDER=DEV and mints MEMBER_ID itself,
 // so a dev session must never be re-registered. Read from document.cookie at FIRE
 // time (not react-cookie's render snapshot, which can lag during hydration and let
@@ -95,13 +110,16 @@ export function useSelfHealIdentity(): void {
       }
       healingRef.current = true;
       try {
-        const result: any = await UserRegisterOrLogin(
-          params.id_token,
-          params.image,
-          params.name,
-          params.refer_code,
-          params.email,
-          params.provider,
+        const result: any = await withTimeout(
+          UserRegisterOrLogin(
+            params.id_token,
+            params.image,
+            params.name,
+            params.refer_code,
+            params.email,
+            params.provider,
+          ),
+          SELF_HEAL_CALL_TIMEOUT_MS,
         );
 
         if (result && result.ok === false) {
