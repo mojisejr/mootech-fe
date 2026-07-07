@@ -197,7 +197,7 @@ Keep these as domain/flow components for now: `header-v2`, `header`, `product-ca
 
 - `#1B9AAF` is both tokenized as `moumate_blue` and repeated inline across many pages/components.
 - Many secondary colors remain magic hex values in feature files: `#F2F7FD`, `#444444`, `#D4F8F9`, `#F3FCA2`, `#E3ECFB`, calendar/element colors, and package/payment accents.
-- `DESIGN.md` probes target the Phase 3 dev-only showcase route; that route does not exist yet in Phase 2.
+- `DESIGN.md` probes target the Phase 3 dev-only showcase route at `pages/design-system.tsx`; browser token evidence remains pending until Phase 4.
 - `components/ui/` currently has only `SkeletonRow`; most UI is page-local or domain-owned.
 - `BirthdayInput` currently renders controlled/uncontrolled select warnings because select elements specify both `value` and `defaultValue`.
 - Prior public browser evidence reports Next Image width/height and LCP warnings on `/`, `/login`, `/package-price`, `/maintenance`, and `/welcome`.
