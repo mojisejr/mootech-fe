@@ -1,0 +1,373 @@
+import type { GetServerSideProps } from "next";
+import Head from "next/head";
+
+import SkeletonRow from "@/components/ui/skeleton-row";
+
+type TokenSpec = {
+  name: string;
+  value: string;
+  className: string;
+  textClassName?: string;
+  testId: string;
+  role: string;
+};
+
+const colorTokens: TokenSpec[] = [
+  {
+    name: "moumate_blue",
+    value: "#1B9AAF",
+    className: "bg-moumate_blue",
+    textClassName: "text-white",
+    testId: "design-token-moumate-blue",
+    role: "Primary brand teal",
+  },
+  {
+    name: "moumate_blue_dark",
+    value: "#4B96E5",
+    className: "bg-moumate_blue_dark",
+    textClassName: "text-white",
+    testId: "design-token-moumate-blue-dark",
+    role: "Secondary blue emphasis",
+  },
+  {
+    name: "moumate_blue_light",
+    value: "#EEFDFD",
+    className: "bg-moumate_blue_light",
+    testId: "design-token-moumate-blue-light",
+    role: "Soft selected background",
+  },
+  {
+    name: "moumate_gray",
+    value: "#888888",
+    className: "bg-white",
+    textClassName: "text-moumate_gray",
+    testId: "design-token-moumate-gray",
+    role: "Secondary copy",
+  },
+  {
+    name: "moumate_black",
+    value: "#101828",
+    className: "bg-white",
+    textClassName: "text-moumate_black",
+    testId: "design-token-moumate-black",
+    role: "Primary readable copy",
+  },
+  {
+    name: "moumate_white",
+    value: "#FFFFFF",
+    className: "bg-moumate_white",
+    testId: "design-token-moumate-white",
+    role: "Fields and cards",
+  },
+  {
+    name: "moumate_red",
+    value: "#CB2C2A",
+    className: "bg-white",
+    textClassName: "text-moumate_red",
+    testId: "design-token-moumate-red",
+    role: "Errors and required marks",
+  },
+  {
+    name: "bg_gray",
+    value: "#E9EAEB",
+    className: "bg-bg_gray",
+    testId: "design-token-bg-gray",
+    role: "Skeleton fill",
+  },
+  {
+    name: "border_gray",
+    value: "#D5D7DA",
+    className: "bg-white border-border_gray",
+    testId: "design-token-border-gray",
+    role: "Low-emphasis border",
+  },
+  {
+    name: "chat_surface",
+    value: "#44588B",
+    className: "bg-chat_surface",
+    textClassName: "text-white",
+    testId: "design-token-chat-surface",
+    role: "Chat body surface",
+  },
+  {
+    name: "chat_header_to",
+    value: "#3A78A9",
+    className: "bg-chat_header_to",
+    textClassName: "text-white",
+    testId: "design-token-chat-header-to",
+    role: "Chat header end",
+  },
+];
+
+function Section({
+  title,
+  children,
+}: {
+  title: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <section className="mx-auto w-full max-w-[1120px] px-4 py-8 sm:px-6">
+      <h2 className="font-prompt text-[22px] font-semibold text-moumate_black">
+        {title}
+      </h2>
+      <div className="mt-4">{children}</div>
+    </section>
+  );
+}
+
+function TokenSwatch({ token }: { token: TokenSpec }) {
+  return (
+    <div className="rounded-[16px] border border-border_gray bg-white p-3 shadow-custom">
+      <div
+        data-testid={token.testId}
+        className={`flex min-h-[112px] flex-col justify-between rounded-[12px] border border-border_gray p-4 ${token.className} ${
+          token.textClassName ?? "text-moumate_black"
+        }`}
+      >
+        <span className="font-prompt text-[14px] font-semibold">
+          {token.name}
+        </span>
+        <span className="font-ibm text-[13px]">{token.value}</span>
+      </div>
+      <p className="mt-3 font-ibm text-[13px] text-moumate_gray">
+        {token.role}
+      </p>
+    </div>
+  );
+}
+
+function PrimaryCTA({ children }: { children: React.ReactNode }) {
+  return (
+    <button
+      className="min-h-[48px] w-full rounded-[16px] bg-moumate_blue px-5 font-prompt text-[16px] font-semibold text-white shadow-custom transition hover:bg-moumate_blue_dark"
+      type="button"
+    >
+      {children}
+    </button>
+  );
+}
+
+function PillCTA({ children }: { children: React.ReactNode }) {
+  return (
+    <button
+      className="min-h-[40px] rounded-full border border-moumate_blue bg-moumate_blue_light px-5 font-prompt text-[14px] font-medium text-moumate_blue"
+      type="button"
+    >
+      {children}
+    </button>
+  );
+}
+
+function SoftCard({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="rounded-[24px] bg-white/45 p-5 shadow-custom backdrop-blur-sm">
+      {children}
+    </div>
+  );
+}
+
+function FieldSample() {
+  return (
+    <div className="grid gap-3 sm:grid-cols-2">
+      <label className="grid gap-2 font-ibm text-[14px] text-moumate_black">
+        ชื่อที่ใช้ใน MuMate
+        <input
+          className="h-[42px] rounded-[10px] border border-border_gray bg-moumate_white px-3 font-ibm text-[14px] text-moumate_black outline-none focus:border-moumate_blue"
+          defaultValue="คุณนนท์"
+        />
+      </label>
+      <label className="grid gap-2 font-ibm text-[14px] text-moumate_black">
+        โหมดตัวอย่าง
+        <select
+          className="h-[42px] rounded-[10px] border border-border_gray bg-moumate_white px-3 font-ibm text-[14px] text-moumate_black outline-none focus:border-moumate_blue"
+          defaultValue="soft"
+        >
+          <option value="soft">Soft card</option>
+          <option value="chat">Chat surface</option>
+        </select>
+      </label>
+    </div>
+  );
+}
+
+export default function DesignSystemPage() {
+  return (
+    <>
+      <Head>
+        <title>MuMate Design System</title>
+        <meta name="robots" content="noindex,nofollow" />
+      </Head>
+      <main
+        data-testid="design-showcase"
+        className="min-h-screen bg-[#F2F7FD] pb-10 text-moumate_black"
+      >
+        <header className="bg-moumate_blue px-4 py-4 text-white">
+          <div className="mx-auto flex w-full max-w-[1120px] items-center justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <img
+                alt="MuMate"
+                className="h-[32px] w-auto"
+                src="/images/mumate/ic_logo.svg"
+              />
+              <div>
+                <h1 className="font-prompt text-[20px] font-semibold">
+                  Design Foundation
+                </h1>
+                <p className="font-ibm text-[13px] text-white/85">
+                  Brownfield MuMate FE
+                </p>
+              </div>
+            </div>
+            <span className="rounded-full bg-white/15 px-3 py-1 font-ibm text-[12px]">
+              dev-only
+            </span>
+          </div>
+        </header>
+
+        <Section title="Token Probes">
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {colorTokens.map((token) => (
+              <TokenSwatch key={token.name} token={token} />
+            ))}
+          </div>
+        </Section>
+
+        <Section title="Typography">
+          <div className="grid gap-4 md:grid-cols-2">
+            <div
+              data-testid="design-type-ibm"
+              className="rounded-[24px] border border-border_gray bg-white p-5 font-ibm shadow-custom"
+            >
+              <p className="text-[13px] text-moumate_gray">
+                IBM Plex Sans Thai
+              </p>
+              <p className="mt-3 text-[24px] font-semibold text-moumate_black">
+                ดวงวันนี้อ่านง่ายและนุ่มนวล
+              </p>
+              <p className="mt-2 text-[15px] leading-7 text-moumate_gray">
+                ตัวอักษรหลักสำหรับฟอร์ม รายละเอียด และพื้นที่ที่ต้องอ่านซ้ำ
+              </p>
+            </div>
+            <div
+              data-testid="design-type-prompt"
+              className="rounded-[24px] border border-border_gray bg-white p-5 font-prompt shadow-custom"
+            >
+              <p className="text-[13px] text-moumate_gray">Prompt</p>
+              <p className="mt-3 text-[24px] font-semibold text-moumate_black">
+                FirstMate FlexiMate Soulmate
+              </p>
+              <p className="mt-2 text-[15px] leading-7 text-moumate_gray">
+                ใช้กับ landing, package, CTA และจังหวะที่ต้องมี brand voice
+              </p>
+            </div>
+          </div>
+        </Section>
+
+        <Section title="Buttons And Pills">
+          <div className="grid gap-4 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+            <SoftCard>
+              <div className="grid gap-3">
+                <PrimaryCTA>เริ่มดูดวงกับ MuMate</PrimaryCTA>
+                <div className="flex flex-wrap gap-2">
+                  <PillCTA>ความรัก</PillCTA>
+                  <PillCTA>การงาน</PillCTA>
+                  <PillCTA>โชคลาภ</PillCTA>
+                </div>
+              </div>
+            </SoftCard>
+            <div className="rounded-[24px] border border-border_gray bg-white p-5 shadow-custom">
+              <h3 className="font-prompt text-[18px] font-semibold">
+                Package Shell
+              </h3>
+              <div className="mt-4 rounded-[20px] border border-moumate_blue bg-moumate_blue_light p-4">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <p className="font-prompt text-[20px] font-semibold text-moumate_blue">
+                      FlexiMate
+                    </p>
+                    <p className="font-ibm text-[14px] text-moumate_gray">
+                      พื้นผิว package แบบนุ่มและอ่านง่าย
+                    </p>
+                  </div>
+                  <span className="rounded-full bg-moumate_blue px-3 py-1 font-prompt text-[12px] text-white">
+                    popular
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </Section>
+
+        <Section title="Surfaces And Inputs">
+          <div className="grid gap-4 md:grid-cols-2">
+            <SoftCard>
+              <div className="rounded-[20px] bg-white/70 p-4">
+                <div className="flex items-center gap-3">
+                  <img
+                    alt=""
+                    aria-hidden="true"
+                    className="h-[56px] w-[56px]"
+                    src="/images/icons/image_mascot_package.svg"
+                  />
+                  <div>
+                    <h3 className="font-prompt text-[18px] font-semibold">
+                      Glass Surface
+                    </h3>
+                    <p className="font-ibm text-[14px] text-moumate_gray">
+                      white alpha, blur, shadow, rounded shape
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </SoftCard>
+            <div className="rounded-[24px] border border-border_gray bg-white p-5 shadow-custom">
+              <FieldSample />
+            </div>
+          </div>
+        </Section>
+
+        <Section title="Skeleton And Chat">
+          <div className="grid gap-4 md:grid-cols-2">
+            <div
+              data-testid="primitive-skeleton-row"
+              className="rounded-[24px] border border-border_gray bg-white p-5 shadow-custom"
+            >
+              <SkeletonRow count={3} />
+            </div>
+            <div className="overflow-hidden rounded-[24px] bg-chat_surface text-white shadow-custom">
+              <div className="bg-gradient-to-r from-chat_header_from to-chat_header_to p-4">
+                <p className="font-prompt text-[18px] font-semibold">
+                  MuMate Chat
+                </p>
+                <p className="font-ibm text-[13px] text-white/85">
+                  chat_surface + chat_header tokens
+                </p>
+              </div>
+              <div className="grid gap-3 p-4 font-ibm text-[14px]">
+                <p className="w-[82%] rounded-[18px] bg-white/15 p-3">
+                  วันนี้เหมาะกับการจัดระบบให้ใจเบาขึ้น
+                </p>
+                <p className="ml-auto w-[68%] rounded-[18px] bg-chat_bubble_user p-3">
+                  แล้วเรื่องงานล่ะ?
+                </p>
+              </div>
+            </div>
+          </div>
+        </Section>
+      </main>
+    </>
+  );
+}
+
+export const getServerSideProps: GetServerSideProps = async () => {
+  if (process.env.NODE_ENV === "production") {
+    return {
+      notFound: true,
+    };
+  }
+
+  return {
+    props: {},
+  };
+};
