@@ -13,6 +13,13 @@ const BYPASS_COOKIE = 'mnt_bypass';
 // stay locked even when the site is fully live (maintenance off). Separate secret, separate cookie.
 const GLASS_BOX_COOKIE = 'gb_access';
 
+// What If campaign gate (temporary launch layer).
+//   WHATIF_KEY=xxx -> tester opens `/what-if?key=xxx` once to set a cookie and reach /what-if.
+// This is independent of maintenance and protects both the page and the generation proxy so
+// AI cost cannot leak before launch. Unconfigured means the whole surface is hidden.
+const WHATIF_COOKIE = 'whatif_access';
+const WHATIF_PLAYED_COOKIE = 'whatif_played';
+
 function noStore(res: NextResponse): NextResponse {
   res.headers.set('Cache-Control', 'no-store, must-revalidate');
   return res;
@@ -58,10 +65,65 @@ function guardGlassBox(req: NextRequest): NextResponse | null {
   return noStore(NextResponse.rewrite(new URL('/maintenance', req.url)));
 }
 
+function guardWhatIf(req: NextRequest): NextResponse | null {
+  const { pathname, searchParams } = req.nextUrl;
+  const isWhatIf =
+    pathname === '/what-if' ||
+    pathname.startsWith('/what-if/') ||
+    pathname === '/api/what-if' ||
+    pathname.startsWith('/api/what-if/');
+  if (!isWhatIf) return null;
+
+  const key = process.env.WHATIF_KEY;
+  // Fail closed: unconfigured -> hide the campaign and proxy behind maintenance.
+  if (!key) return noStore(NextResponse.rewrite(new URL('/maintenance', req.url)));
+
+  if (req.cookies.get(WHATIF_COOKIE)?.value === key) {
+    return noStore(NextResponse.next());
+  }
+
+  if (searchParams.get('key') === key) {
+    const url = req.nextUrl.clone();
+    url.searchParams.delete('key');
+    const res = NextResponse.redirect(url);
+    res.cookies.set(WHATIF_COOKIE, key, {
+      httpOnly: true,
+      sameSite: 'lax',
+      secure: true,
+      path: '/',
+      maxAge: 60 * 60 * 24, // 24h
+    });
+    return noStore(res);
+  }
+
+  return noStore(NextResponse.rewrite(new URL('/maintenance', req.url)));
+}
+
+function redirectWhatIfFirstVisit(req: NextRequest): NextResponse | null {
+  if (req.nextUrl.pathname !== '/') return null;
+
+  const key = process.env.WHATIF_KEY;
+  if (!key) return null;
+
+  // Temporary B-layer test gate: only testers who hold `whatif_access` get redirected.
+  // Launch switch: remove this `whatif_access` condition so first-visit redirect applies to everyone.
+  if (req.cookies.get(WHATIF_COOKIE)?.value !== key) return null;
+  if (req.cookies.get(WHATIF_PLAYED_COOKIE)?.value) return null;
+
+  return noStore(NextResponse.redirect(new URL('/what-if', req.url)));
+}
+
 export function middleware(req: NextRequest) {
   // Glass Box gate first — independent of maintenance mode.
   const glassBox = guardGlassBox(req);
   if (glassBox) return glassBox;
+
+  // What If gate first — independent of maintenance mode and protects the proxy cost surface.
+  const whatIf = guardWhatIf(req);
+  if (whatIf) return whatIf;
+
+  const whatIfRedirect = redirectWhatIfFirstVisit(req);
+  if (whatIfRedirect) return whatIfRedirect;
 
   // Maintenance off -> behave normally (normal caching resumes).
   // (While maintenance is on, every gated response below uses the module-level noStore so the
