@@ -18,6 +18,7 @@ import { useEffect, useRef, useState } from "react";
 import { useCookies } from "react-cookie";
 import { useCurrentUser } from "@/lib/auth/use-current-user";
 import ScreenLoading from "@/components/screen-loading";
+import { WHATIF_CARD_FILENAME, getWhatIfCardBlob } from "@/lib/what-if/storage";
 const ImageCropper = dynamic(() => import('../../components/image-cropper'), { ssr: false });
 
 export default function ProfilePage() {
@@ -56,6 +57,7 @@ export default function ProfilePage() {
     const [memberType, setMemberType] = useState<string>('')
     const [memberExpired, setMemberExpired] = useState<string>('')
     const [aiBalance, setAiBalance] = useState<{ balance: number; unlimited: boolean } | null>(null)
+    const [whatIfCardUrl, setWhatIfCardUrl] = useState<string | null>(null)
 
     const [code, setCode] = useState<string>('')
 
@@ -113,6 +115,22 @@ export default function ProfilePage() {
       })
       .catch(() => {})
   }, [authStatus, authUserId])
+
+  useEffect(() => {
+    let objectUrl: string | null = null
+    let alive = true
+
+    void getWhatIfCardBlob().then((blob) => {
+      if (!alive || !blob) return
+      objectUrl = URL.createObjectURL(blob)
+      setWhatIfCardUrl(objectUrl)
+    })
+
+    return () => {
+      alive = false
+      if (objectUrl) URL.revokeObjectURL(objectUrl)
+    }
+  }, [])
 
 
   const callApiGetUser = async (user_id: string) => {
@@ -236,6 +254,14 @@ const [imageSrc, setImageSrc] = useState<string | null>(null);
     else {
       setErrorMessageCode('ไม่สามารถใช้งาน code นี้ได้')
     }
+  }
+
+  const saveWhatIfCard = () => {
+    if (!whatIfCardUrl) return
+    const anchor = document.createElement('a')
+    anchor.href = whatIfCardUrl
+    anchor.download = WHATIF_CARD_FILENAME
+    anchor.click()
   }
 
 
@@ -407,6 +433,35 @@ const [imageSrc, setImageSrc] = useState<string | null>(null);
                                 เติมเครดิต
                               </button>
                             )}
+                          </div>
+                        )}
+
+                        {whatIfCardUrl && (
+                          <div className="w-full flex flex-wrap gap-4 backdrop-blur-sm bg-white/45 p-[24px] rounded-[16px]">
+                            <div className="w-full flex flex-wrap md:flex-nowrap gap-4 items-center">
+                              <div className="w-full md:w-[180px] flex-none overflow-hidden rounded-[16px] border border-white/70 bg-white/70">
+                                <img
+                                  src={whatIfCardUrl}
+                                  alt="การ์ดโลกคู่ขนานของฉัน"
+                                  className="w-full h-auto block"
+                                />
+                              </div>
+                              <div className="w-full flex flex-wrap grow">
+                                <span className="w-full flex font-bold text-moumate_blue text-[16px]">
+                                  การ์ดโลกคู่ขนานของฉัน
+                                </span>
+                                <span className="w-full flex text-[#444444] text-[15px] mt-1 leading-6">
+                                  เก็บการ์ด What If...? ที่สร้างไว้บนเครื่องนี้
+                                </span>
+                                <button
+                                  type="button"
+                                  onClick={saveWhatIfCard}
+                                  className="mt-4 min-h-[44px] w-fit cursor-pointer bg-[#1B9AAF] text-white font-medium py-[10px] px-[20px] rounded-[40px] hover:opacity-90 active:scale-95 transition"
+                                >
+                                  บันทึกรูป
+                                </button>
+                              </div>
+                            </div>
                           </div>
                         )}
 
