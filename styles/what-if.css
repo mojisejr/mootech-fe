@@ -59,6 +59,103 @@
   animation-delay: 1.8s;
 }
 
+.whatif__wormhole {
+  position: fixed;
+  inset: -12vh -12vw;
+  z-index: 0;
+  overflow: hidden;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.4s ease;
+  perspective: 900px;
+}
+
+.whatif-shell--portal .whatif__wormhole {
+  opacity: 1;
+}
+
+.whatif__depth-core {
+  position: absolute;
+  top: 10vh;
+  left: 50%;
+  width: min(70vw, 680px);
+  aspect-ratio: 1;
+  border-radius: 999px;
+  background:
+    radial-gradient(ellipse, rgba(255, 244, 200, 0.22) 0 4%, rgba(255, 209, 102, 0.1) 5% 13%, transparent 30%),
+    radial-gradient(circle, rgba(27, 154, 175, 0.18), transparent 62%),
+    radial-gradient(circle, rgba(124, 58, 237, 0.2), transparent 70%);
+  opacity: 0.72;
+  transform: translate3d(-50%, 0, -120px) scale(0.82);
+  animation: whatif-depth-pulse 26s ease-in-out infinite;
+}
+
+.whatif__tunnel {
+  --tunnel-rotate-x: 62deg;
+  --tunnel-rotate-z: 0deg;
+  --tunnel-scale-from: 1.18;
+  --tunnel-scale-to: 1.44;
+  position: absolute;
+  top: -8vh;
+  left: 50%;
+  width: min(160vw, 1380px);
+  height: 128vh;
+  opacity: 0.34;
+  transform-origin: 50% 18%;
+  transform: translateX(-50%) rotateX(var(--tunnel-rotate-x)) rotateZ(var(--tunnel-rotate-z)) scaleY(1.28);
+  background:
+    linear-gradient(90deg, transparent 49.82%, rgba(255, 209, 102, 0.26) 49.95% 50.05%, transparent 50.18%),
+    linear-gradient(78deg, transparent 49.86%, rgba(27, 154, 175, 0.2) 49.97% 50.03%, transparent 50.14%),
+    linear-gradient(102deg, transparent 49.86%, rgba(180, 107, 255, 0.18) 49.97% 50.03%, transparent 50.14%),
+    linear-gradient(64deg, transparent 49.9%, rgba(255, 209, 102, 0.1) 49.98% 50.02%, transparent 50.1%),
+    linear-gradient(116deg, transparent 49.9%, rgba(27, 154, 175, 0.1) 49.98% 50.02%, transparent 50.1%);
+  mask: radial-gradient(ellipse at 50% 18%, #000 0 58%, transparent 72%);
+  animation: whatif-tunnel-travel 58s linear infinite;
+}
+
+.whatif__tunnel--far {
+  --tunnel-rotate-x: 68deg;
+  --tunnel-rotate-z: 8deg;
+  --tunnel-scale-from: 1.36;
+  --tunnel-scale-to: 1.58;
+  opacity: 0.2;
+  width: min(178vw, 1540px);
+  animation-duration: 82s;
+  animation-direction: reverse;
+}
+
+.whatif__gravity-sheet {
+  position: absolute;
+  left: 50%;
+  top: 7vh;
+  width: min(78vw, 680px);
+  height: 12vh;
+  border-radius: 999px;
+  background: linear-gradient(90deg, transparent, rgba(255, 209, 102, 0.26), rgba(27, 154, 175, 0.16), transparent);
+  opacity: 0.22;
+  filter: blur(8px);
+  transform: translate3d(-50%, 0, 0) rotate(-14deg) scaleX(0.86);
+  animation: whatif-sheet-drift 34s ease-in-out infinite;
+}
+
+.whatif__gravity-sheet--two {
+  top: 42vh;
+  width: min(90vw, 780px);
+  opacity: 0.16;
+  transform: translate3d(-50%, 0, 0) rotate(11deg) scaleX(0.78);
+  animation-delay: -12s;
+  animation-duration: 46s;
+}
+
+.whatif__gravity-sheet--three {
+  top: 70vh;
+  width: min(96vw, 860px);
+  opacity: 0.14;
+  transform: translate3d(-50%, 0, 0) rotate(-5deg) scaleX(0.72);
+  animation-delay: -22s;
+  animation-duration: 62s;
+}
+
 .whatif__aurora {
   position: fixed;
   inset: -22vh -18vw;
@@ -169,59 +266,42 @@
 }
 
 .whatif__portal-halo {
-  position: absolute;
-  top: 26px;
-  width: min(94vw, 430px);
-  aspect-ratio: 1;
-  pointer-events: none;
-  filter: drop-shadow(0 0 36px rgba(255, 209, 102, 0.24));
+  display: none;
 }
 
 .whatif__portal-halo::before {
-  content: "";
-  position: absolute;
-  inset: 15%;
-  border-radius: 999px;
-  background:
-    radial-gradient(circle, transparent 48%, rgba(255, 209, 102, 0.23) 49%, transparent 51%),
-    conic-gradient(from 90deg, transparent 0 8deg, rgba(255, 209, 102, 0.62) 8deg 10deg, transparent 10deg 24deg, rgba(27, 154, 175, 0.42) 24deg 26deg, transparent 26deg 46deg);
-  animation: whatif-spin 24s linear infinite;
+  content: none;
 }
 
-.whatif__rune-ring {
-  position: absolute;
-  inset: var(--ring-inset);
-  border-radius: 999px;
-  border: 1px solid var(--ring-color);
-  background: repeating-conic-gradient(from var(--ring-angle), var(--ring-color) 0deg 1.5deg, transparent 1.5deg 10deg);
-  mask: radial-gradient(circle, transparent 0 71%, #000 72% 74%, transparent 75%);
-  opacity: var(--ring-opacity);
-  animation: whatif-spin var(--ring-speed) linear infinite;
+.whatif__wormhole-mark {
+  display: none;
 }
 
-.whatif__rune-ring--one {
-  --ring-inset: 4%;
-  --ring-color: rgba(255, 209, 102, 0.54);
-  --ring-angle: 0deg;
-  --ring-opacity: 0.64;
-  --ring-speed: 38s;
+.whatif__wormhole-mark--one {
+  --mark-inset: 8%;
+  --mark-color: rgba(255, 209, 102, 0.26);
+  --mark-opacity: 0.42;
+  --mark-angle: -12deg;
+  --mark-scale-x: 1.28;
+  --mark-speed: 18s;
 }
 
-.whatif__rune-ring--two {
-  --ring-inset: 14%;
-  --ring-color: rgba(180, 107, 255, 0.45);
-  --ring-angle: 18deg;
-  --ring-opacity: 0.48;
-  --ring-speed: 32s;
-  animation-direction: reverse;
+.whatif__wormhole-mark--two {
+  --mark-inset: 18%;
+  --mark-color: rgba(27, 154, 175, 0.24);
+  --mark-opacity: 0.32;
+  --mark-angle: 16deg;
+  --mark-scale-x: 1.44;
+  --mark-speed: 24s;
 }
 
-.whatif__rune-ring--three {
-  --ring-inset: 25%;
-  --ring-color: rgba(27, 154, 175, 0.5);
-  --ring-angle: 38deg;
-  --ring-opacity: 0.56;
-  --ring-speed: 44s;
+.whatif__wormhole-mark--three {
+  --mark-inset: 29%;
+  --mark-color: rgba(180, 107, 255, 0.22);
+  --mark-opacity: 0.34;
+  --mark-angle: -2deg;
+  --mark-scale-x: 1.18;
+  --mark-speed: 30s;
 }
 
 .whatif__eyebrow {
@@ -338,6 +418,14 @@
   transform-style: preserve-3d;
 }
 
+.whatif__portion.is-focused {
+  border-color: rgba(255, 209, 102, 0.58);
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.06),
+    0 0 54px rgba(255, 178, 62, 0.24),
+    0 18px 48px rgba(0, 0, 0, 0.3);
+}
+
 .whatif__portion--coordinate {
   --portion-tilt: -1.2deg;
 }
@@ -372,6 +460,23 @@
   opacity: 0;
   pointer-events: none;
   transform: translate3d(-40%, 0, 0) rotate(18deg);
+}
+
+.whatif__portion::after {
+  content: "";
+  position: absolute;
+  inset: auto 18px 10px 18px;
+  height: 38px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, transparent, rgba(27, 154, 175, 0.18), rgba(255, 209, 102, 0.16), transparent);
+  opacity: 0;
+  pointer-events: none;
+  transform: translate3d(0, 0, 0) scaleX(0.72);
+}
+
+.whatif__portion--active:not(.is-focused)::after {
+  opacity: 0.72;
+  animation: whatif-zero-g-light 5.8s ease-in-out infinite;
 }
 
 .whatif__portion--active::before {
@@ -1185,7 +1290,12 @@
     transform: translate3d(var(--orb-x), var(--orb-y), 0) scale(var(--orb-scale));
   }
 
+  .whatif__depth-core,
+  .whatif__tunnel,
+  .whatif__gravity-sheet,
+  .whatif__wormhole-mark,
   .whatif__ritual::before,
+  .whatif__portion--active:not(.is-focused)::after,
   .whatif__portion--active::before,
   .whatif__portion--active .whatif__portion-rift,
   .whatif__summon.is-ready .whatif__summon-rift {
@@ -1205,6 +1315,38 @@
 @keyframes whatif-orb-breathe {
   0%, 100% { opacity: calc(var(--orb-opacity) * 0.78); }
   50% { opacity: var(--orb-opacity); }
+}
+
+@keyframes whatif-depth-pulse {
+  0%, 100% { transform: translate3d(-50%, 2vh, -120px) scale(0.78); opacity: 0.46; }
+  50% { transform: translate3d(-50%, -1vh, -120px) scale(0.92); opacity: 0.8; }
+}
+
+@keyframes whatif-tunnel-travel {
+  0% {
+    background-position: 0 0, 0 0, 0 0, 0 0, 0 0;
+    transform: translateX(-50%) rotateX(var(--tunnel-rotate-x)) rotateZ(var(--tunnel-rotate-z)) scaleY(var(--tunnel-scale-from));
+  }
+  100% {
+    background-position: 0 0, 0 0, 0 0, 0 720px, 0 -720px;
+    transform: translateX(-50%) rotateX(var(--tunnel-rotate-x)) rotateZ(var(--tunnel-rotate-z)) scaleY(var(--tunnel-scale-to));
+  }
+}
+
+@keyframes whatif-sheet-drift {
+  0%, 100% { transform: translate3d(-58%, 2vh, 0) rotate(-14deg) scaleX(0.78); opacity: 0.1; }
+  45% { transform: translate3d(-48%, 22vh, 0) rotate(-8deg) scaleX(1.12); opacity: 0.26; }
+  70% { transform: translate3d(-52%, 38vh, 0) rotate(-18deg) scaleX(0.9); opacity: 0.14; }
+}
+
+@keyframes whatif-mark-drift {
+  0% { transform: rotate(var(--mark-angle)) scaleX(var(--mark-scale-x)) translateY(-4px); opacity: calc(var(--mark-opacity) * 0.66); }
+  100% { transform: rotate(calc(var(--mark-angle) + 4deg)) scaleX(calc(var(--mark-scale-x) * 1.08)) translateY(5px); opacity: var(--mark-opacity); }
+}
+
+@keyframes whatif-zero-g-light {
+  0%, 100% { transform: translate3d(-8px, 0, 0) scaleX(0.68); opacity: 0.28; }
+  50% { transform: translate3d(8px, -4px, 0) scaleX(1); opacity: 0.74; }
 }
 
 @keyframes whatif-ritual-breathe {
