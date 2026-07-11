@@ -1,4 +1,5 @@
 import { AnimatePresence, motion } from "framer-motion";
+import type { ReactNode } from "react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   WHATIF_CARD_FILENAME,
@@ -15,6 +16,7 @@ import {
 } from "@/lib/what-if/storage";
 
 type Stage = "portal" | "loading" | "result" | "reality";
+type RitualState = "active" | "complete";
 
 const API_URL = process.env.NEXT_PUBLIC_WHATIF_API_URL || "/api/what-if/generate";
 const MUMATE_APP_URL = "/";
@@ -65,12 +67,71 @@ const ELEMENT_EMOJI: Record<string, string> = {
   น้ำ: "🌊",
 };
 
+const RITUAL_PORTION_VARIANTS = {
+  hidden: {
+    opacity: 0,
+    y: 34,
+    scale: 0.94,
+    rotateX: -7,
+  },
+  active: {
+    opacity: 1,
+    y: 0,
+    scale: 1,
+    rotateX: 0,
+  },
+  complete: {
+    opacity: 0.86,
+    y: -6,
+    scale: 0.985,
+    rotateX: 1.5,
+  },
+};
+
+const PORTAL_STAGE_VARIANTS = {
+  hidden: { opacity: 0, y: 28, scale: 0.975 },
+  show: { opacity: 1, y: 0, scale: 1 },
+};
+
 function storyChapters(result: WhatIfResponse) {
   return [
     { key: "shift", no: 1, title: "จุดเปลี่ยน", text: result.story.shift },
     { key: "peak", no: 2, title: "จุดพีค", text: result.story.peak },
     { key: "future", no: 3, title: "อีก 10 ปีข้างหน้า", text: result.story.future },
   ].filter((chapter) => chapter.text);
+}
+
+function RitualPortion({
+  children,
+  state,
+  step,
+  title,
+  className = "",
+}: {
+  children: ReactNode;
+  state: RitualState;
+  step: string;
+  title: string;
+  className?: string;
+}) {
+  return (
+    <motion.div
+      layout
+      className={`whatif__portion whatif__portion--${state} ${className}`}
+      variants={RITUAL_PORTION_VARIANTS}
+      initial="hidden"
+      animate={state}
+      exit="hidden"
+      transition={{ type: "spring", stiffness: 150, damping: 21, mass: 0.72 }}
+    >
+      <div className="whatif__portion-header" aria-hidden="true">
+        <span className="whatif__portion-step">{step}</span>
+        <span className="whatif__portion-title">{title}</span>
+      </div>
+      <div className="whatif__portion-rift" aria-hidden="true" />
+      <div className="whatif__portion-fields">{children}</div>
+    </motion.div>
+  );
 }
 
 export default function WhatIfExperience() {
@@ -113,6 +174,8 @@ export default function WhatIfExperience() {
     return `${y}-${String(m).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
   }, [birthDay, birthMonth, birthYearBe]);
 
+  const coordinateComplete = Boolean(birthDateCe) && (timeUnknown || Boolean(birthTime));
+  const identityComplete = Boolean(gender) && currentJob.trim().length >= 2;
   const formReady = Boolean(birthDateCe) && Boolean(gender) && currentJob.trim().length >= 2 && consent;
   const chapters = result ? storyChapters(result) : [];
 
@@ -285,12 +348,25 @@ export default function WhatIfExperience() {
       <AnimatePresence mode="wait">
         {stage === "portal" && (
           <StageShell key="portal" className="whatif whatif--portal">
-            <div className="whatif__brand" aria-label="MuMate">
+            <motion.div
+              className="whatif__brand"
+              aria-label="MuMate"
+              variants={PORTAL_STAGE_VARIANTS}
+              initial="hidden"
+              animate="show"
+              transition={{ duration: 0.58, ease: [0.2, 0.8, 0.2, 1] }}
+            >
               <img src="/images/mumate/ic_logo.svg" alt="" />
               <span>MuMate</span>
-            </div>
+            </motion.div>
 
-            <header className="whatif__hero">
+            <motion.header
+              className="whatif__hero"
+              variants={PORTAL_STAGE_VARIANTS}
+              initial="hidden"
+              animate="show"
+              transition={{ duration: 0.74, delay: 0.08, ease: [0.2, 0.8, 0.2, 1] }}
+            >
               <div className="whatif__portal-halo" aria-hidden="true">
                 <span className="whatif__rune-ring whatif__rune-ring--one" />
                 <span className="whatif__rune-ring whatif__rune-ring--two" />
@@ -305,113 +381,160 @@ export default function WhatIfExperience() {
                 <br />
                 วันนี้ชีวิตคุณจะเป็นอย่างไรในจักรวาลคู่ขนาน?
               </p>
-            </header>
+            </motion.header>
 
             <section className="whatif__form" aria-label="ข้อมูลเปิดโลกคู่ขนาน">
-              <label className="whatif__field">
-                <span className="whatif__label">วัน/เดือน/ปีเกิด (พ.ศ.)</span>
-                <div className="whatif__row whatif__row--dob">
-                  <select className="whatif__input" aria-label="วันเกิด" value={birthDay} onChange={(e) => setBirthDay(e.target.value)}>
-                    <option value="">วันที่</option>
-                    {Array.from({ length: 31 }, (_, i) => i + 1).map((day) => (
-                      <option key={day} value={day}>{day}</option>
-                    ))}
-                  </select>
-                  <select className="whatif__input" aria-label="เดือนเกิด" value={birthMonth} onChange={(e) => setBirthMonth(e.target.value)}>
-                    <option value="">เดือน</option>
-                    {THAI_MONTHS.map((month, index) => (
-                      <option key={month} value={index + 1}>{month}</option>
-                    ))}
-                  </select>
-                  <select className="whatif__input" aria-label="ปีเกิด พ.ศ." value={birthYearBe} onChange={(e) => setBirthYearBe(e.target.value)}>
-                    <option value="">ปี พ.ศ.</option>
-                    {yearOptions.map((year) => (
-                      <option key={year} value={year}>{year}</option>
-                    ))}
-                  </select>
-                </div>
-                {birthDay && birthMonth && birthYearBe && !birthDateCe && (
-                  <span className="whatif__hint whatif__hint--warn">วันที่นี้ไม่มีจริง ลองตรวจอีกครั้ง</span>
-                )}
-              </label>
-
-              <div className="whatif__field">
-                <span className="whatif__label">เวลาเกิด</span>
-                <div className="whatif__row whatif__row--time">
-                  <input
-                    className="whatif__input"
-                    type="time"
-                    aria-label="เวลาเกิด"
-                    value={birthTime}
-                    disabled={timeUnknown}
-                    onChange={(e) => setBirthTime(e.target.value)}
-                  />
-                  <label className="whatif__checkbox whatif__checkbox--compact">
-                    <input type="checkbox" checked={timeUnknown} onChange={(e) => setTimeUnknown(e.target.checked)} />
-                    <span>ไม่ทราบ</span>
+              <div className="whatif__ritual">
+                <RitualPortion
+                  step="01"
+                  title="พิกัดกำเนิด"
+                  state={coordinateComplete ? "complete" : "active"}
+                  className="whatif__portion--coordinate"
+                >
+                  <label className="whatif__field">
+                    <span className="whatif__label">วัน/เดือน/ปีเกิด (พ.ศ.)</span>
+                    <div className="whatif__row whatif__row--dob">
+                      <select className="whatif__input" aria-label="วันเกิด" value={birthDay} onChange={(e) => setBirthDay(e.target.value)}>
+                        <option value="">วันที่</option>
+                        {Array.from({ length: 31 }, (_, i) => i + 1).map((day) => (
+                          <option key={day} value={day}>{day}</option>
+                        ))}
+                      </select>
+                      <select className="whatif__input" aria-label="เดือนเกิด" value={birthMonth} onChange={(e) => setBirthMonth(e.target.value)}>
+                        <option value="">เดือน</option>
+                        {THAI_MONTHS.map((month, index) => (
+                          <option key={month} value={index + 1}>{month}</option>
+                        ))}
+                      </select>
+                      <select className="whatif__input" aria-label="ปีเกิด พ.ศ." value={birthYearBe} onChange={(e) => setBirthYearBe(e.target.value)}>
+                        <option value="">ปี พ.ศ.</option>
+                        {yearOptions.map((year) => (
+                          <option key={year} value={year}>{year}</option>
+                        ))}
+                      </select>
+                    </div>
+                    {birthDay && birthMonth && birthYearBe && !birthDateCe && (
+                      <span className="whatif__hint whatif__hint--warn">วันที่นี้ไม่มีจริง ลองตรวจอีกครั้ง</span>
+                    )}
                   </label>
-                </div>
+
+                  <div className="whatif__field">
+                    <span className="whatif__label">เวลาเกิด</span>
+                    <div className="whatif__row whatif__row--time">
+                      <input
+                        className="whatif__input"
+                        type="time"
+                        aria-label="เวลาเกิด"
+                        value={birthTime}
+                        disabled={timeUnknown}
+                        onChange={(e) => setBirthTime(e.target.value)}
+                      />
+                      <label className="whatif__checkbox whatif__checkbox--compact">
+                        <input type="checkbox" checked={timeUnknown} onChange={(e) => setTimeUnknown(e.target.checked)} />
+                        <span>ไม่ทราบ</span>
+                      </label>
+                    </div>
+                  </div>
+                </RitualPortion>
+
+                <AnimatePresence initial={false}>
+                  {coordinateComplete && (
+                    <RitualPortion
+                      key="identity-axis"
+                      step="02"
+                      title="ตัวตนในโลกจริง"
+                      state={identityComplete ? "complete" : "active"}
+                      className="whatif__portion--identity"
+                    >
+                      <div className="whatif__field">
+                        <span className="whatif__label">เพศ</span>
+                        <div className="whatif__segmented" role="group" aria-label="เพศ">
+                          <button
+                            type="button"
+                            className={gender === "male" ? "whatif__segment is-active" : "whatif__segment"}
+                            onClick={() => setGender("male")}
+                          >
+                            ชาย
+                          </button>
+                          <button
+                            type="button"
+                            className={gender === "female" ? "whatif__segment is-active" : "whatif__segment"}
+                            onClick={() => setGender("female")}
+                          >
+                            หญิง
+                          </button>
+                        </div>
+                      </div>
+
+                      <label className="whatif__field">
+                        <span className="whatif__label">อาชีพปัจจุบัน</span>
+                        <input
+                          className="whatif__input"
+                          list="whatif-jobs"
+                          placeholder="เช่น พนักงานบัญชี, วิศวกร, ฟรีแลนซ์"
+                          maxLength={80}
+                          value={currentJob}
+                          onChange={(e) => setCurrentJob(e.target.value)}
+                        />
+                        <datalist id="whatif-jobs">
+                          {JOB_SUGGESTIONS.map((job) => (
+                            <option key={job} value={job} />
+                          ))}
+                        </datalist>
+                      </label>
+                    </RitualPortion>
+                  )}
+                </AnimatePresence>
+
+                <AnimatePresence initial={false}>
+                  {identityComplete && (
+                    <RitualPortion
+                      key="simulation-seal"
+                      step="03"
+                      title="ตราประทับก่อนเปิดประตู"
+                      state={formReady ? "complete" : "active"}
+                      className="whatif__portion--seal"
+                    >
+                      <label className="whatif__switch">
+                        <input type="checkbox" checked={withImage} onChange={(e) => setWithImage(e.target.checked)} />
+                        <span className="whatif__switch-track" aria-hidden="true" />
+                        <span>
+                          สร้างภาพ AI
+                          <small>ปิดได้ถ้าอยากเปิดผลแบบประหยัด</small>
+                        </span>
+                      </label>
+
+                      <label className="whatif__checkbox">
+                        <input type="checkbox" checked={consent} onChange={(e) => setConsent(e.target.checked)} />
+                        <span>
+                          ข้าพเจ้าเข้าใจว่านี่คือเรื่องราวจำลองในจักรวาลคู่ขนาน
+                          เพื่อความบันเทิงเท่านั้น
+                        </span>
+                      </label>
+                    </RitualPortion>
+                  )}
+                </AnimatePresence>
+
+                {error && <p className="whatif__error">{error}</p>}
+
+                <AnimatePresence initial={false}>
+                  {identityComplete && (
+                    <motion.div
+                      key="portal-summon"
+                      className={formReady ? "whatif__summon is-ready" : "whatif__summon"}
+                      initial={{ opacity: 0, y: 28, scale: 0.94 }}
+                      animate={{ opacity: 1, y: 0, scale: 1 }}
+                      exit={{ opacity: 0, y: 18, scale: 0.96 }}
+                      transition={{ type: "spring", stiffness: 150, damping: 19 }}
+                    >
+                      <span className="whatif__summon-rift" aria-hidden="true" />
+                      <button className="whatif__cta" type="button" disabled={!formReady} onClick={onOpenPortal}>
+                        เปิดประตูสู่โลกคู่ขนาน
+                      </button>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
               </div>
-
-              <div className="whatif__field">
-                <span className="whatif__label">เพศ</span>
-                <div className="whatif__segmented" role="group" aria-label="เพศ">
-                  <button
-                    type="button"
-                    className={gender === "male" ? "whatif__segment is-active" : "whatif__segment"}
-                    onClick={() => setGender("male")}
-                  >
-                    ชาย
-                  </button>
-                  <button
-                    type="button"
-                    className={gender === "female" ? "whatif__segment is-active" : "whatif__segment"}
-                    onClick={() => setGender("female")}
-                  >
-                    หญิง
-                  </button>
-                </div>
-              </div>
-
-              <label className="whatif__field">
-                <span className="whatif__label">อาชีพปัจจุบัน</span>
-                <input
-                  className="whatif__input"
-                  list="whatif-jobs"
-                  placeholder="เช่น พนักงานบัญชี, วิศวกร, ฟรีแลนซ์"
-                  maxLength={80}
-                  value={currentJob}
-                  onChange={(e) => setCurrentJob(e.target.value)}
-                />
-                <datalist id="whatif-jobs">
-                  {JOB_SUGGESTIONS.map((job) => (
-                    <option key={job} value={job} />
-                  ))}
-                </datalist>
-              </label>
-
-              <label className="whatif__switch">
-                <input type="checkbox" checked={withImage} onChange={(e) => setWithImage(e.target.checked)} />
-                <span className="whatif__switch-track" aria-hidden="true" />
-                <span>
-                  สร้างภาพ AI
-                  <small>ปิดได้ถ้าอยากเปิดผลแบบประหยัด</small>
-                </span>
-              </label>
-
-              <label className="whatif__checkbox">
-                <input type="checkbox" checked={consent} onChange={(e) => setConsent(e.target.checked)} />
-                <span>
-                  ข้าพเจ้าเข้าใจว่านี่คือเรื่องราวจำลองในจักรวาลคู่ขนาน
-                  เพื่อความบันเทิงเท่านั้น
-                </span>
-              </label>
-
-              {error && <p className="whatif__error">{error}</p>}
-
-              <button className="whatif__cta" type="button" disabled={!formReady} onClick={onOpenPortal}>
-                เปิดประตูสู่โลกคู่ขนาน
-              </button>
             </section>
           </StageShell>
         )}
