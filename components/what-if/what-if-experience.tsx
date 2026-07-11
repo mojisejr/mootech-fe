@@ -51,10 +51,10 @@ const JOB_SUGGESTIONS = [
 ];
 
 const LOADING_MESSAGES = [
-  "กำลังเปิดพิกัดโลกคู่ขนานของคุณ...",
-  "อ่านจังหวะชีวิตจากเส้นแสงในดวงชะตา...",
-  "แยกเส้นทางอาชีพจริงออกจากเส้นทางที่ซ่อนอยู่...",
-  "กำลังปิดผนึกภาพจากจักรวาลอีกใบ...",
+  "กำลังสแกนเส้นทางชีวิต...",
+  "ค้นหาอาชีพที่ซ่อนอยู่ในดวงชะตาของคุณ...",
+  "กำลังเชื่อมต่อกับจักรวาลคู่ขนาน...",
+  "สร้างภาพตัวตนของคุณในอีกมิติ...",
 ];
 
 const ELEMENT_EMOJI: Record<string, string> = {
@@ -188,7 +188,7 @@ export default function WhatIfExperience() {
         }),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data?.error?.message ?? "เปิดประตูโลกคู่ขนานไม่สำเร็จ");
+      if (!res.ok) throw new Error(data?.error?.message ?? "เชื่อมต่อจักรวาลคู่ขนานไม่สำเร็จ");
       const wait = Math.max(0, MIN_LOADING_MS - (Date.now() - startedAt));
       await new Promise((resolve) => window.setTimeout(resolve, wait));
       const nextResult = data as WhatIfResponse;
@@ -197,7 +197,7 @@ export default function WhatIfExperience() {
       markWhatIfPlayed();
       setStage("result");
     } catch (e) {
-      setError(e instanceof Error ? e.message : "เปิดประตูโลกคู่ขนานไม่สำเร็จ");
+      setError(e instanceof Error ? e.message : "เชื่อมต่อจักรวาลคู่ขนานไม่สำเร็จ");
       setStage("portal");
     }
   }
@@ -276,6 +276,12 @@ export default function WhatIfExperience() {
   return (
     <main className="whatif-shell">
       <div className="whatif__stars" aria-hidden="true" />
+      <div className="whatif__aurora" aria-hidden="true">
+        <span className="whatif__orb whatif__orb--violet" />
+        <span className="whatif__orb whatif__orb--gold" />
+        <span className="whatif__orb whatif__orb--teal" />
+        <span className="whatif__orb whatif__orb--deep" />
+      </div>
       <AnimatePresence mode="wait">
         {stage === "portal" && (
           <StageShell key="portal" className="whatif whatif--portal">
@@ -290,12 +296,14 @@ export default function WhatIfExperience() {
                 <span className="whatif__rune-ring whatif__rune-ring--two" />
                 <span className="whatif__rune-ring whatif__rune-ring--three" />
               </div>
-              <p className="whatif__eyebrow">โลกคู่ขนานของคุณ</p>
               <h1 className="whatif__title">
                 WHAT <span>IF</span>...?
               </h1>
+              <p className="whatif__tagline">ONE QUESTION CHANGES EVERYTHING</p>
               <p className="whatif__sub">
-                ถ้าคุณได้เห็นเส้นทางชีวิตอีกมิติหนึ่งก่อนตัดสินใจ วันนี้คุณจะใช้ชีวิตต่างจากเดิมแค่ไหน
+                ถ้าวันนั้นคุณเลือกเดินตามดวงชะตา...
+                <br />
+                วันนี้ชีวิตคุณจะเป็นอย่างไรในจักรวาลคู่ขนาน?
               </p>
             </header>
 
@@ -393,7 +401,10 @@ export default function WhatIfExperience() {
 
               <label className="whatif__checkbox">
                 <input type="checkbox" checked={consent} onChange={(e) => setConsent(e.target.checked)} />
-                <span>เข้าใจว่านี่คือเรื่องราวจำลองเพื่อความบันเทิงและแรงบันดาลใจ</span>
+                <span>
+                  ข้าพเจ้าเข้าใจว่านี่คือเรื่องราวจำลองในจักรวาลคู่ขนาน
+                  เพื่อความบันเทิงเท่านั้น
+                </span>
               </label>
 
               {error && <p className="whatif__error">{error}</p>}
@@ -409,11 +420,12 @@ export default function WhatIfExperience() {
           <StageShell key="loading" className="whatif whatif--loading">
             <section className="whatif__loading" aria-live="polite">
               <h1 className="whatif__sr-only">กำลังคำนวณโลกคู่ขนานของคุณ</h1>
-              <div className="whatif__gate" aria-hidden="true">
-                <span className="whatif__gate-ring whatif__gate-ring--gold" />
-                <span className="whatif__gate-ring whatif__gate-ring--violet" />
-                <span className="whatif__gate-ring whatif__gate-ring--teal" />
-                <span className="whatif__gate-core">Mu</span>
+              <div className="whatif__rift" aria-hidden="true">
+                <span className="whatif__rift-glow" />
+                <span className="whatif__rift-line" />
+                <span className="whatif__rift-flare whatif__rift-flare--one" />
+                <span className="whatif__rift-flare whatif__rift-flare--two" />
+                <span className="whatif__rift-flare whatif__rift-flare--three" />
               </div>
               <p key={loadingMsgIdx} className="whatif__loading-text">{LOADING_MESSAGES[loadingMsgIdx]}</p>
             </section>
@@ -429,11 +441,11 @@ export default function WhatIfExperience() {
 
               <header className="whatif__truth">
                 <p className="whatif__chart-badge">{result.destiny.ganzhiLabel}</p>
-                <h1 className="whatif__stage-title">โลกคู่ขนานของคุณถูกเปิดแล้ว</h1>
+                <h1 className="whatif__stage-title">โลกคู่ขนานของคุณ</h1>
                 <p className="whatif__truth-lead">
-                  ในโลกใบนี้ อาชีพของคุณคือ <strong>{result.input.currentJob}</strong>
+                  ในโลกใบนี้ อาชีพของคุณคือ <strong>{result.input.currentJob}</strong>...
                 </p>
-                <p className="whatif__truth-reveal">แต่อาชีพที่ดวงชะตาอีกเส้นหนึ่งชี้ไปคือ</p>
+                <p className="whatif__truth-reveal">แต่อาชีพที่ฟ้าลิขิตมาให้คุณคือ</p>
                 <p className="whatif__destined">{result.destiny.destinedCareer}</p>
                 <p className="whatif__reason">
                   {ELEMENT_EMOJI[result.destiny.element] ?? "✨"} {result.destiny.careerReason}
@@ -535,13 +547,16 @@ export default function WhatIfExperience() {
                 <span className="whatif__warp-core">Mu</span>
               </div>
               <p className="whatif__eyebrow">กลับสู่โลกจริง</p>
-              <h1 className="whatif__stage-title">ใช้ดวงเพื่อวางแผน ไม่ใช่เพื่อหนีชีวิตจริง</h1>
+              <h1 className="whatif__stage-title">กลับสู่โลกปัจจุบัน</h1>
               <p className="whatif__back-copy">
-                โลกคู่ขนานทำให้เห็นความเป็นไปได้ แต่โลกปัจจุบันต้องใช้จังหวะ การวางแผน และการตัดสินใจที่ค่อยเป็นค่อยไป
+                คุณอาจย้อนเวลากลับไปจักรวาลคู่ขนานไม่ได้...
+                แต่คุณสามารถกำหนด <strong>&ldquo;จังหวะชีวิต&rdquo;</strong>{" "}
+                ในโลกความเป็นจริงให้ดีที่สุดได้ตั้งแต่วินาทีนี้
               </p>
               <div className="whatif__disclaimer">
-                คำเตือน: ผลลัพธ์นี้เป็นเรื่องราวจำลองเพื่อความบันเทิงและแรงบันดาลใจ
-                โปรดอย่าตัดสินใจลาออกหรือเปลี่ยนชีวิตกะทันหันจากผลลัพธ์เพียงหน้าเดียว
+                คำเตือน: เรื่องราวข้างต้นเป็นเพียงความเป็นไปได้หนึ่งเพื่อเป็นแรงบันดาลใจ
+                โปรดอย่าตัดสินใจลาออกหรือเปลี่ยนแปลงชีวิตกะทันหัน
+                การเปลี่ยนแปลงที่ยั่งยืนต้องมาจากการวางแผนที่รัดกุม
               </div>
               <a className="whatif__cta whatif__cta--final" href={MUMATE_APP_URL}>
                 เช็คพื้นดวงและวางแผนชีวิตจริง
