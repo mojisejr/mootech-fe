@@ -1,4 +1,4 @@
-import { AnimatePresence, motion } from "framer-motion";
+import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import type { ReactNode } from "react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
@@ -18,6 +18,15 @@ import {
 type Stage = "portal" | "loading" | "result" | "reality";
 type RitualState = "active" | "complete";
 type RitualPortionKey = "coordinate" | "identity" | "seal";
+type PortalCanvasMode = "intro" | "filling" | "ready";
+type PortalParticle = {
+  angle: number;
+  distance: number;
+  lane: number;
+  size: number;
+  speed: number;
+  tint: "gold" | "teal" | "violet";
+};
 
 const API_URL = process.env.NEXT_PUBLIC_WHATIF_API_URL || "/api/what-if/generate";
 const MUMATE_APP_URL = "/";
@@ -94,6 +103,17 @@ const PORTAL_STAGE_VARIANTS = {
   show: { opacity: 1, y: 0, scale: 1 },
 };
 
+const RITUAL_STACK_VARIANTS = {
+  active: { opacity: 1, y: 0, scale: 1 },
+  locked: { opacity: 0, y: -34, scale: 0.94 },
+};
+
+const PORTAL_CANVAS_TINTS: Record<PortalParticle["tint"], string> = {
+  gold: "255, 209, 102",
+  teal: "27, 154, 175",
+  violet: "180, 107, 255",
+};
+
 function storyChapters(result: WhatIfResponse) {
   return [
     { key: "shift", no: 1, title: "จุดเปลี่ยน", text: result.story.shift },
@@ -140,6 +160,169 @@ function RitualPortion({
   );
 }
 
+function WhatIfPortalCanvas({ mode }: { mode: PortalCanvasMode }) {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const modeRef = useRef(mode);
+  const particlesRef = useRef<PortalParticle[]>([]);
+  const shouldReduceMotion = useReducedMotion();
+
+  useEffect(() => {
+    modeRef.current = mode;
+  }, [mode]);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    const ctx = canvas?.getContext("2d");
+    if (!canvas || !ctx) return;
+    const canvasElement = canvas;
+    const context = ctx;
+
+    let raf = 0;
+    let width = 0;
+    let height = 0;
+    let dpr = 1;
+
+    function buildParticles() {
+      const count = Math.min(92, Math.max(52, Math.round((width * height) / 12000)));
+      particlesRef.current = Array.from({ length: count }, (_, index) => ({
+        angle: (index / count) * Math.PI * 2 + Math.random() * 0.18,
+        distance: 0.18 + Math.random() * 0.92,
+        lane: 0.62 + Math.random() * 0.74,
+        size: 0.7 + Math.random() * 2.4,
+        speed: 0.14 + Math.random() * 0.32,
+        tint: index % 5 === 0 ? "teal" : index % 3 === 0 ? "violet" : "gold",
+      }));
+    }
+
+    function resize() {
+      const ctx = context;
+      width = window.innerWidth;
+      height = window.innerHeight;
+      dpr = Math.min(1.75, Math.max(1, window.devicePixelRatio || 1));
+      canvasElement.width = Math.round(width * dpr);
+      canvasElement.height = Math.round(height * dpr);
+      canvasElement.style.width = `${width}px`;
+      canvasElement.style.height = `${height}px`;
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      buildParticles();
+    }
+
+    function drawRibbon(t: number, index: number, ready: boolean) {
+      const ctx = context;
+      const cx = width / 2;
+      const cy = height * (ready ? 0.5 : 0.34);
+      const maxRadius = Math.max(width, height) * (ready ? 0.54 : 0.62);
+      const phase = t * (ready ? 0.12 : 0.2) + index * 1.36;
+      const tint = index % 3 === 0 ? "255, 209, 102" : index % 3 === 1 ? "27, 154, 175" : "180, 107, 255";
+
+      ctx.beginPath();
+      for (let step = 0; step <= 86; step += 1) {
+        const progress = step / 86;
+        const radius = maxRadius * (1 - progress * 0.82);
+        const twist = phase + progress * (ready ? 5.4 : 6.8) + Math.sin(t * 0.22 + index) * 0.18;
+        const x = cx + Math.cos(twist) * radius * (1.06 + index * 0.025);
+        const y = cy + Math.sin(twist) * radius * 0.46 + progress * height * (ready ? 0.03 : 0.13);
+        if (step === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
+      }
+
+      ctx.strokeStyle = `rgba(${tint}, ${ready ? 0.36 : 0.22})`;
+      ctx.lineWidth = ready ? 2.4 : 1.7;
+      ctx.lineCap = "round";
+      ctx.stroke();
+    }
+
+    function draw(time: number) {
+      const ctx = context;
+      const t = shouldReduceMotion ? 0 : time / 1000;
+      const modeNow = modeRef.current;
+      const ready = modeNow === "ready";
+      const filling = modeNow === "filling";
+      const cx = width / 2;
+      const cy = height * (ready ? 0.5 : filling ? 0.38 : 0.32);
+      const maxRadius = Math.max(width, height) * 0.62;
+
+      ctx.clearRect(0, 0, width, height);
+      ctx.globalCompositeOperation = "source-over";
+
+      const core = ctx.createRadialGradient(cx, cy, 0, cx, cy, maxRadius);
+      core.addColorStop(0, ready ? "rgba(255, 209, 102, 0.28)" : "rgba(255, 209, 102, 0.12)");
+      core.addColorStop(0.18, ready ? "rgba(27, 154, 175, 0.18)" : "rgba(124, 58, 237, 0.13)");
+      core.addColorStop(0.56, "rgba(124, 58, 237, 0.1)");
+      core.addColorStop(1, "rgba(11, 7, 35, 0)");
+      ctx.fillStyle = core;
+      ctx.fillRect(0, 0, width, height);
+
+      ctx.globalCompositeOperation = "lighter";
+      for (let i = 0; i < 7; i += 1) drawRibbon(t, i, ready);
+
+      for (const particle of particlesRef.current) {
+        const pull = ready ? 0.0018 : filling ? 0.0011 : 0.0006;
+        if (!shouldReduceMotion) {
+          particle.distance -= pull * particle.speed;
+          particle.angle += particle.speed * (ready ? 0.012 : 0.007);
+          if (particle.distance < 0.14) {
+            particle.distance = 1;
+            particle.angle += Math.PI * 0.72;
+          }
+        }
+        const radius = maxRadius * particle.distance;
+        const depth = 1 - particle.distance;
+        const x = cx + Math.cos(particle.angle + t * particle.speed * 0.16) * radius * particle.lane;
+        const y = cy + Math.sin(particle.angle) * radius * 0.52 + depth * height * (ready ? 0.02 : 0.12);
+        const alpha = Math.max(0.14, depth * (ready ? 0.92 : 0.66));
+        const size = particle.size * (0.7 + depth * 1.8) * (ready ? 1.12 : 1);
+        const tint = PORTAL_CANVAS_TINTS[particle.tint];
+        ctx.beginPath();
+        ctx.fillStyle = `rgba(${tint}, ${alpha})`;
+        ctx.arc(x, y, size, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      const ringCount = ready ? 4 : 3;
+      for (let i = 0; i < ringCount; i += 1) {
+        const pulse = shouldReduceMotion ? 0 : Math.sin(t * 1.3 + i) * 0.018;
+        const radius = (ready ? 86 : 68) + i * (ready ? 38 : 46);
+        ctx.beginPath();
+        ctx.ellipse(cx, cy, radius * (1.08 + pulse), radius * 0.42, (i - 1.5) * 0.18, 0, Math.PI * 2);
+        ctx.strokeStyle = i % 2 === 0
+          ? `rgba(255, 209, 102, ${ready ? 0.42 : 0.18})`
+          : `rgba(27, 154, 175, ${ready ? 0.3 : 0.16})`;
+        ctx.lineWidth = ready ? 2.2 : 1.4;
+        ctx.stroke();
+      }
+
+      if (ready) {
+        for (let i = 0; i < 18; i += 1) {
+          const angle = (i / 18) * Math.PI * 2 + (shouldReduceMotion ? 0 : Math.sin(t * 0.4) * 0.04);
+          const inner = 146;
+          const outer = i % 3 === 0 ? 176 : 164;
+          ctx.beginPath();
+          ctx.moveTo(cx + Math.cos(angle) * inner, cy + Math.sin(angle) * inner * 0.48);
+          ctx.lineTo(cx + Math.cos(angle) * outer, cy + Math.sin(angle) * outer * 0.48);
+          ctx.strokeStyle = i % 3 === 0 ? "rgba(255, 209, 102, 0.48)" : "rgba(244, 236, 255, 0.18)";
+          ctx.lineWidth = i % 3 === 0 ? 2 : 1;
+          ctx.stroke();
+        }
+      }
+
+      ctx.globalCompositeOperation = "source-over";
+      raf = window.requestAnimationFrame(draw);
+    }
+
+    resize();
+    window.addEventListener("resize", resize);
+    raf = window.requestAnimationFrame(draw);
+
+    return () => {
+      window.cancelAnimationFrame(raf);
+      window.removeEventListener("resize", resize);
+    };
+  }, [shouldReduceMotion]);
+
+  return <canvas ref={canvasRef} className="whatif__portal-canvas" aria-hidden="true" />;
+}
+
 export default function WhatIfExperience() {
   const [stage, setStage] = useState<Stage>("portal");
   const [birthDay, setBirthDay] = useState("");
@@ -165,6 +348,8 @@ export default function WhatIfExperience() {
   const coordinateRef = useRef<HTMLDivElement>(null);
   const identityRef = useRef<HTMLDivElement>(null);
   const sealRef = useRef<HTMLDivElement>(null);
+  const portalLockRef = useRef<HTMLDivElement>(null);
+  const portalButtonRef = useRef<HTMLButtonElement>(null);
   const jobInputRef = useRef<HTMLInputElement>(null);
 
   const yearOptions = useMemo(() => {
@@ -189,6 +374,7 @@ export default function WhatIfExperience() {
   const coordinateComplete = Boolean(birthDateCe) && (timeUnknown || birthTimeTouched);
   const identityComplete = Boolean(gender) && currentJob.trim().length >= 2;
   const formReady = coordinateComplete && Boolean(gender) && currentJob.trim().length >= 2 && consent;
+  const canvasMode: PortalCanvasMode = formReady ? "ready" : coordinateComplete ? "filling" : "intro";
   const chapters = result ? storyChapters(result) : [];
 
   function guideTo(element: HTMLElement | null, focusTarget?: HTMLElement | null) {
@@ -255,6 +441,15 @@ export default function WhatIfExperience() {
     if (!identityComplete || formReady) return;
     guideTo(sealRef.current);
   }, [identityComplete, formReady]);
+
+  useEffect(() => {
+    if (!formReady || stage !== "portal") return;
+    const prefersReduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    window.setTimeout(() => {
+      portalLockRef.current?.scrollIntoView({ block: "center", behavior: prefersReduced ? "auto" : "smooth" });
+      portalButtonRef.current?.focus({ preventScroll: true });
+    }, prefersReduced ? 0 : 260);
+  }, [formReady, stage]);
 
   useEffect(() => {
     if (!result) return;
@@ -390,25 +585,31 @@ export default function WhatIfExperience() {
   }
 
   return (
-    <main className={`whatif-shell whatif-shell--${stage}`}>
-      <div className="whatif__stars" aria-hidden="true" />
-      <div className="whatif__aurora" aria-hidden="true">
-        <span className="whatif__orb whatif__orb--violet" />
-        <span className="whatif__orb whatif__orb--gold" />
-        <span className="whatif__orb whatif__orb--teal" />
-        <span className="whatif__orb whatif__orb--deep" />
-      </div>
-      <div className="whatif__wormhole" aria-hidden="true">
-        <span className="whatif__depth-core" />
-        <span className="whatif__tunnel whatif__tunnel--near" />
-        <span className="whatif__tunnel whatif__tunnel--far" />
-        <span className="whatif__gravity-sheet whatif__gravity-sheet--one" />
-        <span className="whatif__gravity-sheet whatif__gravity-sheet--two" />
-        <span className="whatif__gravity-sheet whatif__gravity-sheet--three" />
-      </div>
+    <main className={`whatif-shell whatif-shell--${stage} ${stage === "portal" && formReady ? "whatif-shell--portal-ready" : ""}`}>
+      {stage === "portal" ? (
+        <WhatIfPortalCanvas mode={canvasMode} />
+      ) : (
+        <>
+          <div className="whatif__stars" aria-hidden="true" />
+          <div className="whatif__aurora" aria-hidden="true">
+            <span className="whatif__orb whatif__orb--violet" />
+            <span className="whatif__orb whatif__orb--gold" />
+            <span className="whatif__orb whatif__orb--teal" />
+            <span className="whatif__orb whatif__orb--deep" />
+          </div>
+          <div className="whatif__wormhole" aria-hidden="true">
+            <span className="whatif__depth-core" />
+            <span className="whatif__tunnel whatif__tunnel--near" />
+            <span className="whatif__tunnel whatif__tunnel--far" />
+            <span className="whatif__gravity-sheet whatif__gravity-sheet--one" />
+            <span className="whatif__gravity-sheet whatif__gravity-sheet--two" />
+            <span className="whatif__gravity-sheet whatif__gravity-sheet--three" />
+          </div>
+        </>
+      )}
       <AnimatePresence mode="wait">
         {stage === "portal" && (
-          <StageShell key="portal" className="whatif whatif--portal">
+          <StageShell key="portal" className={formReady ? "whatif whatif--portal whatif--lock" : "whatif whatif--portal"}>
             <motion.div
               className="whatif__brand"
               aria-label="MuMate"
@@ -446,181 +647,196 @@ export default function WhatIfExperience() {
 
             <section className="whatif__form" aria-label="ข้อมูลเปิดโลกคู่ขนาน">
               <div className="whatif__ritual">
-                <RitualPortion
-                  innerRef={coordinateRef}
-                  isFocused={focusedPortion === "coordinate"}
-                  step="01"
-                  title="พิกัดกำเนิด"
-                  state={coordinateComplete ? "complete" : "active"}
-                  className="whatif__portion--coordinate"
-                >
-                  <label className="whatif__field">
-                    <span className="whatif__label">วัน/เดือน/ปีเกิด (พ.ศ.)</span>
-                    <div className="whatif__row whatif__row--dob">
-                      <select className="whatif__input" aria-label="วันเกิด" value={birthDay} onFocus={() => markFocus("coordinate")} onBlur={clearFocus} onChange={(e) => setBirthDay(e.target.value)}>
-                        <option value="">วันที่</option>
-                        {Array.from({ length: 31 }, (_, i) => i + 1).map((day) => (
-                          <option key={day} value={day}>{day}</option>
-                        ))}
-                      </select>
-                      <select className="whatif__input" aria-label="เดือนเกิด" value={birthMonth} onFocus={() => markFocus("coordinate")} onBlur={clearFocus} onChange={(e) => setBirthMonth(e.target.value)}>
-                        <option value="">เดือน</option>
-                        {THAI_MONTHS.map((month, index) => (
-                          <option key={month} value={index + 1}>{month}</option>
-                        ))}
-                      </select>
-                      <select className="whatif__input" aria-label="ปีเกิด พ.ศ." value={birthYearBe} onFocus={() => markFocus("coordinate")} onBlur={clearFocus} onChange={(e) => setBirthYearBe(e.target.value)}>
-                        <option value="">ปี พ.ศ.</option>
-                        {yearOptions.map((year) => (
-                          <option key={year} value={year}>{year}</option>
-                        ))}
-                      </select>
-                    </div>
-                    {birthDay && birthMonth && birthYearBe && !birthDateCe && (
-                      <span className="whatif__hint whatif__hint--warn">วันที่นี้ไม่มีจริง ลองตรวจอีกครั้ง</span>
-                    )}
-                    {birthDateCe && !timeUnknown && !birthTimeTouched && (
-                      <span className="whatif__hint">เลือกเวลาเกิด หรือกดไม่ทราบ เพื่อเปิดชั้นถัดไป</span>
-                    )}
-                  </label>
-
-                  <div className="whatif__field">
-                    <span className="whatif__label">เวลาเกิด</span>
-                    <div className="whatif__row whatif__row--time">
-                      <input
-                        className="whatif__input"
-                        type="time"
-                        aria-label="เวลาเกิด"
-                        value={birthTime}
-                        disabled={timeUnknown}
-                        onFocus={() => markFocus("coordinate")}
-                        onBlur={clearFocus}
-                        onChange={(e) => {
-                          setBirthTime(e.target.value);
-                          setBirthTimeTouched(Boolean(e.target.value));
-                        }}
-                      />
-                      <label className="whatif__checkbox whatif__checkbox--compact">
-                        <input
-                          type="checkbox"
-                          checked={timeUnknown}
-                          onFocus={() => markFocus("coordinate")}
-                          onBlur={clearFocus}
-                          onChange={(e) => {
-                            setTimeUnknown(e.target.checked);
-                            if (e.target.checked) setBirthTimeTouched(false);
-                          }}
-                        />
-                        <span>ไม่ทราบ</span>
-                      </label>
-                    </div>
-                  </div>
-                </RitualPortion>
-
                 <AnimatePresence initial={false}>
-                  {coordinateComplete && (
-                    <RitualPortion
-                      innerRef={identityRef}
-                      isFocused={focusedPortion === "identity"}
-                      key="identity-axis"
-                      step="02"
-                      title="ตัวตนในโลกจริง"
-                      state={identityComplete ? "complete" : "active"}
-                      className="whatif__portion--identity"
+                  {!formReady && (
+                    <motion.div
+                      key="ritual-stack"
+                      className="whatif__ritual-stack"
+                      variants={RITUAL_STACK_VARIANTS}
+                      initial="active"
+                      animate="active"
+                      exit="locked"
+                      transition={{ duration: 0.42, ease: [0.2, 0.8, 0.2, 1] }}
                     >
-                      <div className="whatif__field">
-                        <span className="whatif__label">เพศ</span>
-                        <div className="whatif__segmented" role="group" aria-label="เพศ">
-                          <button
-                            type="button"
-                            className={gender === "male" ? "whatif__segment is-active" : "whatif__segment"}
-                            onFocus={() => markFocus("identity")}
-                            onBlur={clearFocus}
-                            onClick={() => setGender("male")}
-                          >
-                            ชาย
-                          </button>
-                          <button
-                            type="button"
-                            className={gender === "female" ? "whatif__segment is-active" : "whatif__segment"}
-                            onFocus={() => markFocus("identity")}
-                            onBlur={clearFocus}
-                            onClick={() => setGender("female")}
-                          >
-                            หญิง
-                          </button>
+                      <RitualPortion
+                        innerRef={coordinateRef}
+                        isFocused={focusedPortion === "coordinate"}
+                        step="01"
+                        title="พิกัดกำเนิด"
+                        state={coordinateComplete ? "complete" : "active"}
+                        className="whatif__portion--coordinate"
+                      >
+                        <label className="whatif__field">
+                          <span className="whatif__label">วัน/เดือน/ปีเกิด (พ.ศ.)</span>
+                          <div className="whatif__row whatif__row--dob">
+                            <select className="whatif__input" aria-label="วันเกิด" value={birthDay} onFocus={() => markFocus("coordinate")} onBlur={clearFocus} onChange={(e) => setBirthDay(e.target.value)}>
+                              <option value="">วันที่</option>
+                              {Array.from({ length: 31 }, (_, i) => i + 1).map((day) => (
+                                <option key={day} value={day}>{day}</option>
+                              ))}
+                            </select>
+                            <select className="whatif__input" aria-label="เดือนเกิด" value={birthMonth} onFocus={() => markFocus("coordinate")} onBlur={clearFocus} onChange={(e) => setBirthMonth(e.target.value)}>
+                              <option value="">เดือน</option>
+                              {THAI_MONTHS.map((month, index) => (
+                                <option key={month} value={index + 1}>{month}</option>
+                              ))}
+                            </select>
+                            <select className="whatif__input" aria-label="ปีเกิด พ.ศ." value={birthYearBe} onFocus={() => markFocus("coordinate")} onBlur={clearFocus} onChange={(e) => setBirthYearBe(e.target.value)}>
+                              <option value="">ปี พ.ศ.</option>
+                              {yearOptions.map((year) => (
+                                <option key={year} value={year}>{year}</option>
+                              ))}
+                            </select>
+                          </div>
+                          {birthDay && birthMonth && birthYearBe && !birthDateCe && (
+                            <span className="whatif__hint whatif__hint--warn">วันที่นี้ไม่มีจริง ลองตรวจอีกครั้ง</span>
+                          )}
+                          {birthDateCe && !timeUnknown && !birthTimeTouched && (
+                            <span className="whatif__hint">เลือกเวลาเกิด หรือกดไม่ทราบ เพื่อเปิดชั้นถัดไป</span>
+                          )}
+                        </label>
+
+                        <div className="whatif__field">
+                          <span className="whatif__label">เวลาเกิด</span>
+                          <div className="whatif__row whatif__row--time">
+                            <input
+                              className="whatif__input"
+                              type="time"
+                              aria-label="เวลาเกิด"
+                              value={birthTime}
+                              disabled={timeUnknown}
+                              onFocus={() => markFocus("coordinate")}
+                              onBlur={clearFocus}
+                              onChange={(e) => {
+                                setBirthTime(e.target.value);
+                                setBirthTimeTouched(Boolean(e.target.value));
+                              }}
+                            />
+                            <label className="whatif__checkbox whatif__checkbox--compact">
+                              <input
+                                type="checkbox"
+                                checked={timeUnknown}
+                                onFocus={() => markFocus("coordinate")}
+                                onBlur={clearFocus}
+                                onChange={(e) => {
+                                  setTimeUnknown(e.target.checked);
+                                  if (e.target.checked) setBirthTimeTouched(false);
+                                }}
+                              />
+                              <span>ไม่ทราบ</span>
+                            </label>
+                          </div>
                         </div>
-                      </div>
+                      </RitualPortion>
 
-                      <label className="whatif__field">
-                        <span className="whatif__label">อาชีพปัจจุบัน</span>
-                        <input
-                          ref={jobInputRef}
-                          className="whatif__input"
-                          list="whatif-jobs"
-                          placeholder="เช่น พนักงานบัญชี, วิศวกร, ฟรีแลนซ์"
-                          maxLength={80}
-                          value={currentJob}
-                          onFocus={() => markFocus("identity")}
-                          onBlur={clearFocus}
-                          onChange={(e) => setCurrentJob(e.target.value)}
-                        />
-                        <datalist id="whatif-jobs">
-                          {JOB_SUGGESTIONS.map((job) => (
-                            <option key={job} value={job} />
-                          ))}
-                        </datalist>
-                      </label>
-                    </RitualPortion>
-                  )}
-                </AnimatePresence>
+                      <AnimatePresence initial={false}>
+                        {coordinateComplete && (
+                          <RitualPortion
+                            innerRef={identityRef}
+                            isFocused={focusedPortion === "identity"}
+                            key="identity-axis"
+                            step="02"
+                            title="ตัวตนในโลกจริง"
+                            state={identityComplete ? "complete" : "active"}
+                            className="whatif__portion--identity"
+                          >
+                            <div className="whatif__field">
+                              <span className="whatif__label">เพศ</span>
+                              <div className="whatif__segmented" role="group" aria-label="เพศ">
+                                <button
+                                  type="button"
+                                  className={gender === "male" ? "whatif__segment is-active" : "whatif__segment"}
+                                  onFocus={() => markFocus("identity")}
+                                  onBlur={clearFocus}
+                                  onClick={() => setGender("male")}
+                                >
+                                  ชาย
+                                </button>
+                                <button
+                                  type="button"
+                                  className={gender === "female" ? "whatif__segment is-active" : "whatif__segment"}
+                                  onFocus={() => markFocus("identity")}
+                                  onBlur={clearFocus}
+                                  onClick={() => setGender("female")}
+                                >
+                                  หญิง
+                                </button>
+                              </div>
+                            </div>
 
-                <AnimatePresence initial={false}>
-                  {identityComplete && (
-                    <RitualPortion
-                      innerRef={sealRef}
-                      isFocused={focusedPortion === "seal"}
-                      key="simulation-seal"
-                      step="03"
-                      title="ตราประทับก่อนเปิดประตู"
-                      state={formReady ? "complete" : "active"}
-                      className="whatif__portion--seal"
-                    >
-                      <label className="whatif__switch">
-                        <input type="checkbox" checked={withImage} onFocus={() => markFocus("seal")} onBlur={clearFocus} onChange={(e) => setWithImage(e.target.checked)} />
-                        <span className="whatif__switch-track" aria-hidden="true" />
-                        <span>
-                          สร้างภาพ AI
-                          <small>ปิดได้ถ้าอยากเปิดผลแบบประหยัด</small>
-                        </span>
-                      </label>
+                            <label className="whatif__field">
+                              <span className="whatif__label">อาชีพปัจจุบัน</span>
+                              <input
+                                ref={jobInputRef}
+                                className="whatif__input"
+                                list="whatif-jobs"
+                                placeholder="เช่น พนักงานบัญชี, วิศวกร, ฟรีแลนซ์"
+                                maxLength={80}
+                                value={currentJob}
+                                onFocus={() => markFocus("identity")}
+                                onBlur={clearFocus}
+                                onChange={(e) => setCurrentJob(e.target.value)}
+                              />
+                              <datalist id="whatif-jobs">
+                                {JOB_SUGGESTIONS.map((job) => (
+                                  <option key={job} value={job} />
+                                ))}
+                              </datalist>
+                            </label>
+                          </RitualPortion>
+                        )}
+                      </AnimatePresence>
 
-                      <label className="whatif__checkbox">
-                        <input type="checkbox" checked={consent} onFocus={() => markFocus("seal")} onBlur={clearFocus} onChange={(e) => setConsent(e.target.checked)} />
-                        <span>
-                          ข้าพเจ้าเข้าใจว่านี่คือเรื่องราวจำลองในจักรวาลคู่ขนาน
-                          เพื่อความบันเทิงเท่านั้น
-                        </span>
-                      </label>
-                    </RitualPortion>
+                      <AnimatePresence initial={false}>
+                        {identityComplete && (
+                          <RitualPortion
+                            innerRef={sealRef}
+                            isFocused={focusedPortion === "seal"}
+                            key="simulation-seal"
+                            step="03"
+                            title="ตราประทับก่อนเปิดประตู"
+                            state="active"
+                            className="whatif__portion--seal"
+                          >
+                            <label className="whatif__switch">
+                              <input type="checkbox" checked={withImage} onFocus={() => markFocus("seal")} onBlur={clearFocus} onChange={(e) => setWithImage(e.target.checked)} />
+                              <span className="whatif__switch-track" aria-hidden="true" />
+                              <span>
+                                สร้างภาพ AI
+                                <small>ปิดได้ถ้าอยากเปิดผลแบบประหยัด</small>
+                              </span>
+                            </label>
+
+                            <label className="whatif__checkbox">
+                              <input type="checkbox" checked={consent} onFocus={() => markFocus("seal")} onBlur={clearFocus} onChange={(e) => setConsent(e.target.checked)} />
+                              <span>
+                                ข้าพเจ้าเข้าใจว่านี่คือเรื่องราวจำลองในจักรวาลคู่ขนาน
+                                เพื่อความบันเทิงเท่านั้น
+                              </span>
+                            </label>
+                          </RitualPortion>
+                        )}
+                      </AnimatePresence>
+                    </motion.div>
                   )}
                 </AnimatePresence>
 
                 {error && <p className="whatif__error">{error}</p>}
 
                 <AnimatePresence initial={false}>
-                  {identityComplete && (
+                  {formReady && (
                     <motion.div
                       key="portal-summon"
-                      className={formReady ? "whatif__summon is-ready" : "whatif__summon"}
-                      initial={{ opacity: 0, y: 28, scale: 0.94 }}
+                      ref={portalLockRef}
+                      className="whatif__summon is-ready"
+                      initial={{ opacity: 0, y: 38, scale: 0.82 }}
                       animate={{ opacity: 1, y: 0, scale: 1 }}
-                      exit={{ opacity: 0, y: 18, scale: 0.96 }}
-                      transition={{ type: "spring", stiffness: 150, damping: 19 }}
+                      exit={{ opacity: 0, y: 18, scale: 0.94 }}
+                      transition={{ type: "spring", stiffness: 128, damping: 17, mass: 0.92 }}
                     >
                       <span className="whatif__summon-rift" aria-hidden="true" />
-                      <button className="whatif__cta" type="button" disabled={!formReady} onClick={onOpenPortal}>
-                        เปิดประตูสู่โลกคู่ขนาน
+                      <button ref={portalButtonRef} className="whatif__cta whatif__cta--summon" type="button" onClick={onOpenPortal}>
+                        เปิดโลกคู่ขนาน
                       </button>
                     </motion.div>
                   )}
@@ -783,9 +999,11 @@ export default function WhatIfExperience() {
         )}
       </AnimatePresence>
 
-      <footer className="whatif__test-footer">
-        <button type="button" onClick={onResetForTeam}>↺ reset (ทีมเทส)</button>
-      </footer>
+      {!(stage === "portal" && formReady) && (
+        <footer className="whatif__test-footer">
+          <button type="button" onClick={onResetForTeam}>↺ reset (ทีมเทส)</button>
+        </footer>
+      )}
     </main>
   );
 }
