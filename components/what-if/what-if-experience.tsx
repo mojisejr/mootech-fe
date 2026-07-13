@@ -93,8 +93,8 @@ const RITUAL_PORTION_VARIANTS = {
     opacity: 0,
     x: 34,
     y: 54,
-    z: -700,
-    scale: 0.52,
+    z: -760,
+    scale: 0.5,
     rotateX: -10,
     rotateY: 7,
     filter: "blur(5px)",
@@ -119,8 +119,8 @@ const RITUAL_PORTION_VARIANTS = {
     opacity: 0,
     x: -48,
     y: -28,
-    z: 560,
-    scale: 1.52,
+    z: 610,
+    scale: 1.58,
     rotateX: 8,
     rotateY: -9,
     filter: "blur(8px)",
@@ -148,8 +148,8 @@ const SPLASH_HIDE_MS = 1280;
 const SPLASH_PORTAL_START_MS = 1500;
 const TITLE_CHECKPOINT_MS = 3950;
 const TITLE_CHECKPOINT_REDUCED_MS = 1150;
-const CHECKPOINT_TRAVEL_MS = 1200;
-const CTA_FOCUS_DELAY_MS = 560;
+const CHECKPOINT_TRAVEL_MS = 1320;
+const CTA_FOCUS_DELAY_MS = 620;
 
 function clamp01(value: number) {
   return Math.max(0, Math.min(1, value));
@@ -468,7 +468,7 @@ function WhatIfPortalCanvas({ active, mode, phase }: { active: boolean; mode: Po
       const reveal = shouldReduceMotion ? 1 : smoothstep(0.3, 0.74, intro);
       const pull = smoothstep(0.38, 0.68, intro) * (1 - smoothstep(0.78, 1, intro));
       const settle = smoothstep(0.72, 1, intro);
-      const transitionImpulse = phaseNow === "travel" ? 1 - smoothstep(0.28, 1.3, phaseElapsed) : 0;
+      const transitionImpulse = phaseNow === "travel" ? 1 - smoothstep(0.28, 1.42, phaseElapsed) : 0;
       const titleIn = phaseNow === "title" ? 1 - smoothstep(0.72, 1.42, phaseElapsed) : 0;
       const titleOut = phaseNow === "title" ? smoothstep(2.7, 3.68, phaseElapsed) : 0;
       const titleImpulse = Math.max(titleIn, titleOut);
@@ -1117,10 +1117,11 @@ export default function WhatIfExperience() {
                       key="portal-summon"
                       ref={portalLockRef}
                       className="whatif__summon is-ready"
-                      initial={{ opacity: 0, y: 38, scale: 0.82 }}
-                      animate={{ opacity: 1, y: 0, scale: 1 }}
-                      exit={{ opacity: 0, y: 18, scale: 0.94 }}
-                      transition={{ type: "spring", stiffness: 104, damping: 18, mass: 1.08 }}
+                      initial={{ opacity: 0, y: 34, z: -760, scale: 0.56, filter: "blur(0px)" }}
+                      animate={{ opacity: 1, y: 0, z: 0, scale: 1, filter: "blur(0px)" }}
+                      exit={{ opacity: 0, y: 18, z: 260, scale: 1.18, filter: "blur(0px)" }}
+                      transition={{ type: "spring", stiffness: 96, damping: 18, mass: 1.16 }}
+                      style={{ transformPerspective: 1100 }}
                     >
                       <span className="whatif__summon-rift" aria-hidden="true" />
                       <button ref={portalButtonRef} className="whatif__cta whatif__cta--summon" type="button" onClick={onOpenPortal}>
