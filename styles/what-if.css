@@ -68,6 +68,8 @@
 .whatif {
   position: relative;
   z-index: 1;
+  display: grid;
+  align-content: start;
   width: min(100%, 544px);
   min-height: 100vh;
   margin: 0 auto;
@@ -75,6 +77,7 @@
 }
 
 .whatif--portal {
+  perspective: 1200px;
   transition: opacity 0.56s ease, transform 0.56s ease;
 }
 
@@ -87,6 +90,35 @@
 .whatif--intro-settled {
   opacity: 1;
   transform: translate3d(0, 0, 0) scale(1);
+}
+
+.whatif--title-checkpoint {
+  align-content: center;
+}
+
+.whatif--title-checkpoint .whatif__brand {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.whatif--checkpoint-ready .whatif__brand {
+  animation: whatif-brand-return 0.64s ease both;
+}
+
+.whatif--intro-settled.whatif--title-checkpoint .whatif__hero {
+  animation: whatif-title-checkpoint 3.95s cubic-bezier(0.17, 0.84, 0.28, 1) both;
+  will-change: transform, opacity, filter;
+}
+
+.whatif--checkpoint-ready .whatif__hero {
+  height: 0;
+  min-height: 0;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  opacity: 0;
+  pointer-events: none;
+  transform: translate3d(0, 0, 220px) scale(1.8);
 }
 
 .whatif__stars,
@@ -218,10 +250,13 @@
 .whatif__hero {
   position: relative;
   display: grid;
+  align-content: center;
   justify-items: center;
   gap: 16px;
-  padding: 56px 0 24px;
+  min-height: min(58vh, 520px);
+  padding: 36px 0;
   text-align: center;
+  transform-style: preserve-3d;
 }
 
 .whatif__eyebrow {
@@ -289,7 +324,9 @@
 
 .whatif__form {
   display: grid;
+  align-items: center;
   gap: 0;
+  min-height: min(62vh, 560px);
   padding: 0;
   perspective: 1200px;
   transform-style: preserve-3d;
@@ -306,6 +343,7 @@
   display: grid;
   gap: 16px;
   transform-origin: 50% 14%;
+  transform-style: preserve-3d;
 }
 
 .whatif__ritual::before {
@@ -342,6 +380,8 @@
     0 0 34px rgba(124, 58, 237, 0.12);
   backdrop-filter: blur(18px);
   transform-style: preserve-3d;
+  transform-origin: 50% 52%;
+  will-change: transform, opacity, filter;
 }
 
 .whatif__portion.is-focused {
@@ -354,14 +394,17 @@
 
 .whatif__portion--coordinate {
   --portion-tilt: -1.2deg;
+  transform-origin: 42% 58%;
 }
 
 .whatif__portion--identity {
   --portion-tilt: 1deg;
+  transform-origin: 58% 48%;
 }
 
 .whatif__portion--seal {
   --portion-tilt: -0.6deg;
+  transform-origin: 50% 60%;
 }
 
 .whatif__portion--active {
@@ -466,6 +509,24 @@
   z-index: 1;
   display: grid;
   gap: 16px;
+}
+
+.whatif__portion--active .whatif__field,
+.whatif__portion--active .whatif__switch,
+.whatif__portion--active .whatif__checkbox {
+  animation: whatif-field-materialize 0.72s cubic-bezier(0.16, 0.84, 0.28, 1) both;
+}
+
+.whatif__portion--active .whatif__field:nth-child(2),
+.whatif__portion--active .whatif__switch:nth-child(2),
+.whatif__portion--active .whatif__checkbox:nth-child(2) {
+  animation-delay: 0.08s;
+}
+
+.whatif__portion--active .whatif__field:nth-child(3),
+.whatif__portion--active .whatif__switch:nth-child(3),
+.whatif__portion--active .whatif__checkbox:nth-child(3) {
+  animation-delay: 0.16s;
 }
 
 .whatif__summon {
@@ -1347,6 +1408,19 @@
   .whatif__cta--summon::before {
     animation: none !important;
   }
+
+  .whatif--intro-settled.whatif--title-checkpoint .whatif__hero {
+    animation: none !important;
+    opacity: 1;
+    filter: none;
+    transform: none;
+  }
+
+  .whatif__portion--active .whatif__field,
+  .whatif__portion--active .whatif__switch,
+  .whatif__portion--active .whatif__checkbox {
+    animation: none !important;
+  }
 }
 
 @keyframes whatif-spin {
@@ -1361,6 +1435,65 @@
 @keyframes whatif-orb-breathe {
   0%, 100% { opacity: calc(var(--orb-opacity) * 0.78); }
   50% { opacity: var(--orb-opacity); }
+}
+
+@keyframes whatif-brand-return {
+  from {
+    opacity: 0;
+    transform: translate3d(0, -10px, -80px) scale(0.94);
+    filter: blur(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) scale(1);
+    filter: blur(0);
+  }
+}
+
+@keyframes whatif-title-checkpoint {
+  0% {
+    opacity: 0;
+    transform: translate3d(0, 2vh, -860px) scale(0.38);
+    filter: blur(18px);
+  }
+  18% {
+    opacity: 1;
+    transform: translate3d(0, 0, -260px) scale(0.78);
+    filter: blur(5px);
+  }
+  34% {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) scale(1);
+    filter: blur(0);
+  }
+  70% {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) scale(1);
+    filter: blur(0);
+  }
+  88% {
+    opacity: 0.78;
+    transform: translate3d(0, -1vh, 260px) scale(1.62);
+    filter: blur(7px);
+  }
+  100% {
+    opacity: 0;
+    transform: translate3d(0, -2vh, 620px) scale(2.8);
+    filter: blur(18px);
+  }
+}
+
+@keyframes whatif-field-materialize {
+  from {
+    opacity: 0;
+    transform: translate3d(22px, 26px, -140px) scale(0.9);
+    filter: blur(9px);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) scale(1);
+    filter: blur(0);
+  }
 }
 
 @keyframes whatif-zero-g-light {
