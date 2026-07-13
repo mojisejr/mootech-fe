@@ -123,6 +123,7 @@ const PORTAL_CANVAS_TINTS: Record<PortalParticle["tint"], string> = {
   teal: "27, 154, 175",
   violet: "180, 107, 255",
 };
+const PORTAL_BLACKOUT_END = 0.18;
 
 function clamp01(value: number) {
   return Math.max(0, Math.min(1, value));
@@ -202,6 +203,7 @@ function WhatIfPortalCanvas({ mode }: { mode: PortalCanvasMode }) {
     const context = ctx;
 
     let raf = 0;
+    let startedAt: number | null = null;
     let width = 0;
     let height = 0;
     let dpr = 1;
@@ -313,7 +315,8 @@ function WhatIfPortalCanvas({ mode }: { mode: PortalCanvasMode }) {
       }
     }
 
-    function drawClouds(t: number, velocity: number, centerCalm: number, ready: boolean) {
+    function drawClouds(t: number, velocity: number, centerCalm: number, ready: boolean, reveal: number) {
+      if (reveal <= 0.01) return;
       const ctx = context;
       const cx = width / 2;
       const cy = height / 2;
@@ -341,7 +344,7 @@ function WhatIfPortalCanvas({ mode }: { mode: PortalCanvasMode }) {
         const centerDistance = Math.sqrt(dx * dx + dy * dy);
         const edgeAlpha = smoothstep(centerCalm, 0.95, centerDistance);
         const tint = PORTAL_CANVAS_TINTS[cloud.tint];
-        const alpha = (ready ? 0.2 : 0.16) * edgeAlpha * (1.1 - cloud.z * 0.34);
+        const alpha = (ready ? 0.2 : 0.16) * edgeAlpha * (1.1 - cloud.z * 0.34) * reveal;
 
         fillRadial(
           x,
@@ -359,7 +362,8 @@ function WhatIfPortalCanvas({ mode }: { mode: PortalCanvasMode }) {
       ctx.globalCompositeOperation = "source-over";
     }
 
-    function drawParticles(t: number, velocity: number, centerCalm: number, ready: boolean) {
+    function drawParticles(t: number, velocity: number, centerCalm: number, ready: boolean, reveal: number) {
+      if (reveal <= 0.01) return;
       const ctx = context;
       const cx = width / 2;
       const cy = height / 2;
@@ -388,7 +392,7 @@ function WhatIfPortalCanvas({ mode }: { mode: PortalCanvasMode }) {
         const depth = 1 - particle.z;
         const tint = PORTAL_CANVAS_TINTS[particle.tint];
         const size = particle.size * (0.7 + depth * 2.2) * (ready ? 1.08 : 1);
-        const alpha = Math.min(0.8, (0.18 + depth * 0.52) * edgeAlpha);
+        const alpha = Math.min(0.8, (0.18 + depth * 0.52) * edgeAlpha) * reveal;
 
         fillRadial(
           x,
@@ -405,67 +409,16 @@ function WhatIfPortalCanvas({ mode }: { mode: PortalCanvasMode }) {
       ctx.globalCompositeOperation = "source-over";
     }
 
-    function drawGate(t: number, intro: number) {
-      const ctx = context;
-      const cx = width / 2;
-      const cy = height / 2;
-      const open = smoothstep(0.1, 0.48, intro);
-      const pull = smoothstep(0.42, 0.72, intro) * (1 - smoothstep(0.78, 0.98, intro));
-      const fade = 1 - smoothstep(0.7, 0.98, intro);
-      if (open <= 0 || fade <= 0) return;
-
-      ctx.globalCompositeOperation = "lighter";
-      const apertureHeight = mix(28, height * 1.08, open);
-      const apertureWidth = mix(2, width * 0.34, open) * (1 + pull * 0.7);
-      const wobble = shouldReduceMotion ? 0 : Math.sin(t * 3.1) * 8;
-
-      const glow = ctx.createRadialGradient(cx, cy, 0, cx, cy, Math.max(width, height) * (0.18 + open * 0.32));
-      glow.addColorStop(0, `rgba(255, 244, 200, ${0.5 * fade})`);
-      glow.addColorStop(0.22, `rgba(255, 209, 102, ${0.32 * fade})`);
-      glow.addColorStop(0.48, `rgba(180, 107, 255, ${0.17 * fade})`);
-      glow.addColorStop(0.72, `rgba(27, 154, 175, ${0.08 * fade})`);
-      glow.addColorStop(1, "rgba(11, 7, 35, 0)");
-      ctx.fillStyle = glow;
-      ctx.fillRect(0, 0, width, height);
-
-      const slit = ctx.createLinearGradient(cx - apertureWidth, cy, cx + apertureWidth, cy);
-      slit.addColorStop(0, "rgba(255, 209, 102, 0)");
-      slit.addColorStop(0.46, `rgba(255, 209, 102, ${0.52 * fade})`);
-      slit.addColorStop(0.5, `rgba(255, 255, 232, ${0.78 * fade})`);
-      slit.addColorStop(0.54, `rgba(27, 154, 175, ${0.22 * fade})`);
-      slit.addColorStop(1, "rgba(255, 209, 102, 0)");
-
-      ctx.fillStyle = slit;
-      ctx.beginPath();
-      ctx.moveTo(cx, cy - apertureHeight * 0.5);
-      ctx.bezierCurveTo(
-        cx + apertureWidth * 0.46 + wobble,
-        cy - apertureHeight * 0.28,
-        cx + apertureWidth,
-        cy + apertureHeight * 0.18,
-        cx + apertureWidth * 0.18,
-        cy + apertureHeight * 0.5,
-      );
-      ctx.bezierCurveTo(
-        cx - apertureWidth * 0.7 - wobble,
-        cy + apertureHeight * 0.22,
-        cx - apertureWidth * 0.36,
-        cy - apertureHeight * 0.24,
-        cx,
-        cy - apertureHeight * 0.5,
-      );
-      ctx.closePath();
-      ctx.fill();
-      ctx.globalCompositeOperation = "source-over";
-    }
-
     function draw(time: number) {
       const ctx = context;
-      const t = shouldReduceMotion ? 0 : time / 1000;
+      if (startedAt === null) startedAt = time;
+      const elapsed = shouldReduceMotion ? 0 : (time - startedAt) / 1000;
+      const t = shouldReduceMotion ? 0 : elapsed;
       const modeNow = modeRef.current;
       const ready = modeNow === "ready";
       const filling = modeNow === "filling";
       const intro = shouldReduceMotion ? 1 : clamp01(t / 2.2);
+      const reveal = shouldReduceMotion ? 1 : smoothstep(0.3, 0.74, intro);
       const pull = smoothstep(0.38, 0.68, intro) * (1 - smoothstep(0.78, 1, intro));
       const settle = smoothstep(0.72, 1, intro);
       const focusCalm = filling ? 0.42 : ready ? 0.34 : 0.38;
@@ -474,10 +427,15 @@ function WhatIfPortalCanvas({ mode }: { mode: PortalCanvasMode }) {
 
       ctx.clearRect(0, 0, width, height);
       ctx.globalCompositeOperation = "source-over";
+      if (!shouldReduceMotion && intro < PORTAL_BLACKOUT_END) {
+        ctx.fillStyle = "#020106";
+        ctx.fillRect(0, 0, width, height);
+        raf = window.requestAnimationFrame(draw);
+        return;
+      }
       drawBase(t, ready, filling, intro);
-      drawClouds(t, velocity, centerCalm, ready);
-      drawParticles(t, velocity, centerCalm, ready);
-      drawGate(t, intro);
+      drawClouds(t, velocity, centerCalm, ready, reveal);
+      drawParticles(t, velocity, centerCalm, ready, reveal);
 
       ctx.globalCompositeOperation = "source-over";
       raf = window.requestAnimationFrame(draw);
