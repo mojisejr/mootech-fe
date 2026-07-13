@@ -148,6 +148,8 @@ const SPLASH_HIDE_MS = 1280;
 const SPLASH_PORTAL_START_MS = 1500;
 const TITLE_CHECKPOINT_MS = 3950;
 const TITLE_CHECKPOINT_REDUCED_MS = 1150;
+const CHECKPOINT_TRAVEL_MS = 1200;
+const CTA_FOCUS_DELAY_MS = 560;
 
 function clamp01(value: number) {
   return Math.max(0, Math.min(1, value));
@@ -196,7 +198,7 @@ function RitualPortion({
       initial="hidden"
       animate={state}
       exit="exit"
-      transition={{ type: "spring", stiffness: 108, damping: 18, mass: 1.06 }}
+      transition={{ type: "spring", stiffness: 92, damping: 19, mass: 1.18 }}
     >
       <div className="whatif__portion-header" aria-hidden="true">
         <span className="whatif__portion-step">{step}</span>
@@ -466,7 +468,7 @@ function WhatIfPortalCanvas({ active, mode, phase }: { active: boolean; mode: Po
       const reveal = shouldReduceMotion ? 1 : smoothstep(0.3, 0.74, intro);
       const pull = smoothstep(0.38, 0.68, intro) * (1 - smoothstep(0.78, 1, intro));
       const settle = smoothstep(0.72, 1, intro);
-      const transitionImpulse = phaseNow === "travel" ? 1 - smoothstep(0.36, 1.08, phaseElapsed) : 0;
+      const transitionImpulse = phaseNow === "travel" ? 1 - smoothstep(0.28, 1.3, phaseElapsed) : 0;
       const titleIn = phaseNow === "title" ? 1 - smoothstep(0.72, 1.42, phaseElapsed) : 0;
       const titleOut = phaseNow === "title" ? smoothstep(2.7, 3.68, phaseElapsed) : 0;
       const titleImpulse = Math.max(titleIn, titleOut);
@@ -693,7 +695,7 @@ export default function WhatIfExperience() {
       return;
     }
     setCheckpointPhase("travel");
-    const timer = window.setTimeout(() => setCheckpointPhase("hold"), shouldReduceMotion ? 0 : 720);
+    const timer = window.setTimeout(() => setCheckpointPhase("hold"), shouldReduceMotion ? 0 : CHECKPOINT_TRAVEL_MS);
     return () => window.clearTimeout(timer);
   }, [activeCheckpoint, portalCheckpointReady, shouldReduceMotion, stage]);
 
@@ -718,7 +720,7 @@ export default function WhatIfExperience() {
     window.setTimeout(() => {
       portalLockRef.current?.scrollIntoView({ block: "center", behavior: prefersReduced ? "auto" : "smooth" });
       portalButtonRef.current?.focus({ preventScroll: true });
-    }, prefersReduced ? 0 : 260);
+    }, prefersReduced ? 0 : CTA_FOCUS_DELAY_MS);
   }, [formReady, stage]);
 
   useEffect(() => {
@@ -1118,7 +1120,7 @@ export default function WhatIfExperience() {
                       initial={{ opacity: 0, y: 38, scale: 0.82 }}
                       animate={{ opacity: 1, y: 0, scale: 1 }}
                       exit={{ opacity: 0, y: 18, scale: 0.94 }}
-                      transition={{ type: "spring", stiffness: 128, damping: 17, mass: 0.92 }}
+                      transition={{ type: "spring", stiffness: 104, damping: 18, mass: 1.08 }}
                     >
                       <span className="whatif__summon-rift" aria-hidden="true" />
                       <button ref={portalButtonRef} className="whatif__cta whatif__cta--summon" type="button" onClick={onOpenPortal}>
