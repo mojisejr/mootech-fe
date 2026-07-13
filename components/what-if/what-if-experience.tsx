@@ -20,12 +20,22 @@ type RitualState = "active" | "complete";
 type RitualPortionKey = "coordinate" | "identity" | "seal";
 type PortalCanvasMode = "intro" | "filling" | "ready";
 type PortalParticle = {
-  angle: number;
-  distance: number;
-  lane: number;
+  x: number;
+  y: number;
+  z: number;
   size: number;
   speed: number;
+  drift: number;
   tint: "gold" | "teal" | "violet";
+};
+type PortalCloud = {
+  x: number;
+  y: number;
+  z: number;
+  radius: number;
+  speed: number;
+  tint: "gold" | "teal" | "violet";
+  phase: number;
 };
 
 const API_URL = process.env.NEXT_PUBLIC_WHATIF_API_URL || "/api/what-if/generate";
@@ -114,6 +124,19 @@ const PORTAL_CANVAS_TINTS: Record<PortalParticle["tint"], string> = {
   violet: "180, 107, 255",
 };
 
+function clamp01(value: number) {
+  return Math.max(0, Math.min(1, value));
+}
+
+function smoothstep(edge0: number, edge1: number, value: number) {
+  const x = clamp01((value - edge0) / (edge1 - edge0));
+  return x * x * (3 - 2 * x);
+}
+
+function mix(from: number, to: number, amount: number) {
+  return from + (to - from) * amount;
+}
+
 function storyChapters(result: WhatIfResponse) {
   return [
     { key: "shift", no: 1, title: "จุดเปลี่ยน", text: result.story.shift },
@@ -164,6 +187,7 @@ function WhatIfPortalCanvas({ mode }: { mode: PortalCanvasMode }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const modeRef = useRef(mode);
   const particlesRef = useRef<PortalParticle[]>([]);
+  const cloudsRef = useRef<PortalCloud[]>([]);
   const shouldReduceMotion = useReducedMotion();
 
   useEffect(() => {
@@ -182,16 +206,35 @@ function WhatIfPortalCanvas({ mode }: { mode: PortalCanvasMode }) {
     let height = 0;
     let dpr = 1;
 
-    function buildParticles() {
-      const count = Math.min(92, Math.max(52, Math.round((width * height) / 12000)));
-      particlesRef.current = Array.from({ length: count }, (_, index) => ({
-        angle: (index / count) * Math.PI * 2 + Math.random() * 0.18,
-        distance: 0.18 + Math.random() * 0.92,
-        lane: 0.62 + Math.random() * 0.74,
-        size: 0.7 + Math.random() * 2.4,
-        speed: 0.14 + Math.random() * 0.32,
-        tint: index % 5 === 0 ? "teal" : index % 3 === 0 ? "violet" : "gold",
-      }));
+    function resetParticle(index: number, count: number): PortalParticle {
+      const angle = (index / count) * Math.PI * 2 + Math.random() * 0.9;
+      const edgeBias = 0.56 + Math.random() * 0.48;
+      return {
+        x: Math.cos(angle) * edgeBias,
+        y: Math.sin(angle) * edgeBias * 0.82 + (Math.random() - 0.5) * 0.18,
+        z: 0.55 + Math.random() * 0.72,
+        size: 0.7 + Math.random() * 2.5,
+        speed: 0.34 + Math.random() * 0.78,
+        drift: (Math.random() - 0.5) * 0.18,
+        tint: index % 7 === 0 ? "teal" : index % 3 === 0 ? "violet" : "gold",
+      };
+    }
+
+    function buildWorld() {
+      const particleCount = Math.min(104, Math.max(56, Math.round((width * height) / 11000)));
+      particlesRef.current = Array.from({ length: particleCount }, (_, index) => resetParticle(index, particleCount));
+      cloudsRef.current = Array.from({ length: 9 }, (_, index) => {
+        const side = index % 2 === 0 ? -1 : 1;
+        return {
+          x: side * (0.46 + Math.random() * 0.46),
+          y: -0.64 + index * 0.16 + (Math.random() - 0.5) * 0.16,
+          z: 0.2 + Math.random() * 0.9,
+          radius: 0.18 + Math.random() * 0.22,
+          speed: 0.04 + Math.random() * 0.08,
+          tint: index % 5 === 0 ? "teal" : index % 3 === 0 ? "gold" : "violet",
+          phase: Math.random() * Math.PI * 2,
+        };
+      });
     }
 
     function resize() {
@@ -204,32 +247,216 @@ function WhatIfPortalCanvas({ mode }: { mode: PortalCanvasMode }) {
       canvasElement.style.width = `${width}px`;
       canvasElement.style.height = `${height}px`;
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-      buildParticles();
+      buildWorld();
     }
 
-    function drawRibbon(t: number, index: number, ready: boolean) {
+    function fillRadial(
+      x: number,
+      y: number,
+      radius: number,
+      stops: Array<[number, string]>,
+      scaleY = 1,
+      rotation = 0,
+    ) {
+      const ctx = context;
+      ctx.save();
+      ctx.translate(x, y);
+      ctx.rotate(rotation);
+      ctx.scale(1, scaleY);
+      const gradient = ctx.createRadialGradient(0, 0, 0, 0, 0, radius);
+      for (const [stop, color] of stops) {
+        gradient.addColorStop(stop, color);
+      }
+      ctx.fillStyle = gradient;
+      ctx.beginPath();
+      ctx.arc(0, 0, radius, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+    }
+
+    function drawBase(t: number, ready: boolean, filling: boolean, intro: number) {
       const ctx = context;
       const cx = width / 2;
-      const cy = height * (ready ? 0.5 : 0.34);
-      const maxRadius = Math.max(width, height) * (ready ? 0.54 : 0.62);
-      const phase = t * (ready ? 0.12 : 0.2) + index * 1.36;
-      const tint = index % 3 === 0 ? "255, 209, 102" : index % 3 === 1 ? "27, 154, 175" : "180, 107, 255";
+      const cy = height / 2;
+      const maxRadius = Math.max(width, height);
 
-      ctx.beginPath();
-      for (let step = 0; step <= 86; step += 1) {
-        const progress = step / 86;
-        const radius = maxRadius * (1 - progress * 0.82);
-        const twist = phase + progress * (ready ? 5.4 : 6.8) + Math.sin(t * 0.22 + index) * 0.18;
-        const x = cx + Math.cos(twist) * radius * (1.06 + index * 0.025);
-        const y = cy + Math.sin(twist) * radius * 0.46 + progress * height * (ready ? 0.03 : 0.13);
-        if (step === 0) ctx.moveTo(x, y);
-        else ctx.lineTo(x, y);
+      const base = ctx.createLinearGradient(0, 0, width, height);
+      base.addColorStop(0, "#05020f");
+      base.addColorStop(0.42, ready ? "#150934" : "#0c0524");
+      base.addColorStop(1, "#05020f");
+      ctx.fillStyle = base;
+      ctx.fillRect(0, 0, width, height);
+
+      const ambient = ctx.createRadialGradient(cx, cy, maxRadius * 0.08, cx, cy, maxRadius * 0.78);
+      ambient.addColorStop(0, ready ? "rgba(255, 209, 102, 0.12)" : "rgba(124, 58, 237, 0.09)");
+      ambient.addColorStop(0.38, filling ? "rgba(27, 154, 175, 0.08)" : "rgba(180, 107, 255, 0.08)");
+      ambient.addColorStop(1, "rgba(5, 2, 15, 0)");
+      ctx.fillStyle = ambient;
+      ctx.fillRect(0, 0, width, height);
+
+      const breathe = shouldReduceMotion ? 0 : Math.sin(t * 0.28) * 0.04;
+      fillRadial(
+        cx,
+        cy,
+        maxRadius * (0.46 + breathe),
+        [
+          [0, ready ? "rgba(255, 209, 102, 0.1)" : "rgba(244, 236, 255, 0.035)"],
+          [0.42, "rgba(27, 154, 175, 0.045)"],
+          [1, "rgba(11, 7, 35, 0)"],
+        ],
+        0.72,
+      );
+
+      if (intro < 0.86) {
+        ctx.fillStyle = `rgba(2, 1, 6, ${1 - smoothstep(0.08, 0.72, intro)})`;
+        ctx.fillRect(0, 0, width, height);
       }
+    }
 
-      ctx.strokeStyle = `rgba(${tint}, ${ready ? 0.36 : 0.22})`;
-      ctx.lineWidth = ready ? 2.4 : 1.7;
-      ctx.lineCap = "round";
-      ctx.stroke();
+    function drawClouds(t: number, velocity: number, centerCalm: number, ready: boolean) {
+      const ctx = context;
+      const cx = width / 2;
+      const cy = height / 2;
+      const scaleBase = Math.max(width, height);
+
+      ctx.globalCompositeOperation = "lighter";
+      cloudsRef.current.forEach((cloud, index) => {
+        if (!shouldReduceMotion) {
+          cloud.z -= cloud.speed * velocity * 0.0022;
+          cloud.y += Math.sin(t * 0.18 + cloud.phase) * 0.0008;
+          cloud.x += Math.cos(t * 0.11 + cloud.phase) * 0.0007;
+          if (cloud.z < 0.06) {
+            cloud.z = 1.12;
+            cloud.x = (index % 2 === 0 ? -1 : 1) * (0.48 + Math.random() * 0.44);
+            cloud.y = -0.58 + Math.random() * 1.16;
+          }
+        }
+
+        const perspective = 1 / (0.42 + cloud.z * 0.92);
+        const x = cx + cloud.x * width * 0.56 * perspective;
+        const y = cy + cloud.y * height * 0.52 * perspective;
+        const radius = scaleBase * cloud.radius * perspective;
+        const dx = (x - cx) / (width / 2);
+        const dy = (y - cy) / (height / 2);
+        const centerDistance = Math.sqrt(dx * dx + dy * dy);
+        const edgeAlpha = smoothstep(centerCalm, 0.95, centerDistance);
+        const tint = PORTAL_CANVAS_TINTS[cloud.tint];
+        const alpha = (ready ? 0.2 : 0.16) * edgeAlpha * (1.1 - cloud.z * 0.34);
+
+        fillRadial(
+          x,
+          y,
+          radius,
+          [
+            [0, `rgba(${tint}, ${alpha})`],
+            [0.48, `rgba(${tint}, ${alpha * 0.34})`],
+            [1, `rgba(${tint}, 0)`],
+          ],
+          0.58 + Math.sin(cloud.phase) * 0.14,
+          cloud.phase,
+        );
+      });
+      ctx.globalCompositeOperation = "source-over";
+    }
+
+    function drawParticles(t: number, velocity: number, centerCalm: number, ready: boolean) {
+      const ctx = context;
+      const cx = width / 2;
+      const cy = height / 2;
+
+      ctx.globalCompositeOperation = "lighter";
+      particlesRef.current.forEach((particle, index) => {
+        if (!shouldReduceMotion) {
+          particle.z -= particle.speed * velocity * 0.0048;
+          particle.x += Math.sin(t * 0.23 + index) * particle.drift * 0.002;
+          particle.y += Math.cos(t * 0.2 + index) * particle.drift * 0.0016;
+          if (particle.z < 0.08) {
+            particlesRef.current[index] = resetParticle(index, particlesRef.current.length);
+            return;
+          }
+        }
+
+        const perspective = 1 / (0.2 + particle.z * 1.18);
+        const x = cx + particle.x * width * 0.5 * perspective;
+        const y = cy + particle.y * height * 0.5 * perspective;
+        const dx = (x - cx) / (width / 2);
+        const dy = (y - cy) / (height / 2);
+        const centerDistance = Math.sqrt(dx * dx + dy * dy);
+        const edgeAlpha = smoothstep(centerCalm, 1.05, centerDistance);
+        if (edgeAlpha <= 0.02) return;
+
+        const depth = 1 - particle.z;
+        const tint = PORTAL_CANVAS_TINTS[particle.tint];
+        const size = particle.size * (0.7 + depth * 2.2) * (ready ? 1.08 : 1);
+        const alpha = Math.min(0.8, (0.18 + depth * 0.52) * edgeAlpha);
+
+        fillRadial(
+          x,
+          y,
+          size * 4.2,
+          [
+            [0, `rgba(${tint}, ${alpha})`],
+            [0.36, `rgba(${tint}, ${alpha * 0.34})`],
+            [1, `rgba(${tint}, 0)`],
+          ],
+          1,
+        );
+      });
+      ctx.globalCompositeOperation = "source-over";
+    }
+
+    function drawGate(t: number, intro: number) {
+      const ctx = context;
+      const cx = width / 2;
+      const cy = height / 2;
+      const open = smoothstep(0.1, 0.48, intro);
+      const pull = smoothstep(0.42, 0.72, intro) * (1 - smoothstep(0.78, 0.98, intro));
+      const fade = 1 - smoothstep(0.7, 0.98, intro);
+      if (open <= 0 || fade <= 0) return;
+
+      ctx.globalCompositeOperation = "lighter";
+      const apertureHeight = mix(28, height * 1.08, open);
+      const apertureWidth = mix(2, width * 0.34, open) * (1 + pull * 0.7);
+      const wobble = shouldReduceMotion ? 0 : Math.sin(t * 3.1) * 8;
+
+      const glow = ctx.createRadialGradient(cx, cy, 0, cx, cy, Math.max(width, height) * (0.18 + open * 0.32));
+      glow.addColorStop(0, `rgba(255, 244, 200, ${0.5 * fade})`);
+      glow.addColorStop(0.22, `rgba(255, 209, 102, ${0.32 * fade})`);
+      glow.addColorStop(0.48, `rgba(180, 107, 255, ${0.17 * fade})`);
+      glow.addColorStop(0.72, `rgba(27, 154, 175, ${0.08 * fade})`);
+      glow.addColorStop(1, "rgba(11, 7, 35, 0)");
+      ctx.fillStyle = glow;
+      ctx.fillRect(0, 0, width, height);
+
+      const slit = ctx.createLinearGradient(cx - apertureWidth, cy, cx + apertureWidth, cy);
+      slit.addColorStop(0, "rgba(255, 209, 102, 0)");
+      slit.addColorStop(0.46, `rgba(255, 209, 102, ${0.52 * fade})`);
+      slit.addColorStop(0.5, `rgba(255, 255, 232, ${0.78 * fade})`);
+      slit.addColorStop(0.54, `rgba(27, 154, 175, ${0.22 * fade})`);
+      slit.addColorStop(1, "rgba(255, 209, 102, 0)");
+
+      ctx.fillStyle = slit;
+      ctx.beginPath();
+      ctx.moveTo(cx, cy - apertureHeight * 0.5);
+      ctx.bezierCurveTo(
+        cx + apertureWidth * 0.46 + wobble,
+        cy - apertureHeight * 0.28,
+        cx + apertureWidth,
+        cy + apertureHeight * 0.18,
+        cx + apertureWidth * 0.18,
+        cy + apertureHeight * 0.5,
+      );
+      ctx.bezierCurveTo(
+        cx - apertureWidth * 0.7 - wobble,
+        cy + apertureHeight * 0.22,
+        cx - apertureWidth * 0.36,
+        cy - apertureHeight * 0.24,
+        cx,
+        cy - apertureHeight * 0.5,
+      );
+      ctx.closePath();
+      ctx.fill();
+      ctx.globalCompositeOperation = "source-over";
     }
 
     function draw(time: number) {
@@ -238,73 +465,19 @@ function WhatIfPortalCanvas({ mode }: { mode: PortalCanvasMode }) {
       const modeNow = modeRef.current;
       const ready = modeNow === "ready";
       const filling = modeNow === "filling";
-      const cx = width / 2;
-      const cy = height * (ready ? 0.5 : filling ? 0.38 : 0.32);
-      const maxRadius = Math.max(width, height) * 0.62;
+      const intro = shouldReduceMotion ? 1 : clamp01(t / 2.2);
+      const pull = smoothstep(0.38, 0.68, intro) * (1 - smoothstep(0.78, 1, intro));
+      const settle = smoothstep(0.72, 1, intro);
+      const focusCalm = filling ? 0.42 : ready ? 0.34 : 0.38;
+      const centerCalm = mix(0.16, focusCalm, settle);
+      const velocity = shouldReduceMotion ? 0 : mix(0.56, filling ? 0.28 : 0.34, settle) + pull * 3.4 + (ready ? 0.18 : 0);
 
       ctx.clearRect(0, 0, width, height);
       ctx.globalCompositeOperation = "source-over";
-
-      const core = ctx.createRadialGradient(cx, cy, 0, cx, cy, maxRadius);
-      core.addColorStop(0, ready ? "rgba(255, 209, 102, 0.28)" : "rgba(255, 209, 102, 0.12)");
-      core.addColorStop(0.18, ready ? "rgba(27, 154, 175, 0.18)" : "rgba(124, 58, 237, 0.13)");
-      core.addColorStop(0.56, "rgba(124, 58, 237, 0.1)");
-      core.addColorStop(1, "rgba(11, 7, 35, 0)");
-      ctx.fillStyle = core;
-      ctx.fillRect(0, 0, width, height);
-
-      ctx.globalCompositeOperation = "lighter";
-      for (let i = 0; i < 7; i += 1) drawRibbon(t, i, ready);
-
-      for (const particle of particlesRef.current) {
-        const pull = ready ? 0.0018 : filling ? 0.0011 : 0.0006;
-        if (!shouldReduceMotion) {
-          particle.distance -= pull * particle.speed;
-          particle.angle += particle.speed * (ready ? 0.012 : 0.007);
-          if (particle.distance < 0.14) {
-            particle.distance = 1;
-            particle.angle += Math.PI * 0.72;
-          }
-        }
-        const radius = maxRadius * particle.distance;
-        const depth = 1 - particle.distance;
-        const x = cx + Math.cos(particle.angle + t * particle.speed * 0.16) * radius * particle.lane;
-        const y = cy + Math.sin(particle.angle) * radius * 0.52 + depth * height * (ready ? 0.02 : 0.12);
-        const alpha = Math.max(0.14, depth * (ready ? 0.92 : 0.66));
-        const size = particle.size * (0.7 + depth * 1.8) * (ready ? 1.12 : 1);
-        const tint = PORTAL_CANVAS_TINTS[particle.tint];
-        ctx.beginPath();
-        ctx.fillStyle = `rgba(${tint}, ${alpha})`;
-        ctx.arc(x, y, size, 0, Math.PI * 2);
-        ctx.fill();
-      }
-
-      const ringCount = ready ? 4 : 3;
-      for (let i = 0; i < ringCount; i += 1) {
-        const pulse = shouldReduceMotion ? 0 : Math.sin(t * 1.3 + i) * 0.018;
-        const radius = (ready ? 86 : 68) + i * (ready ? 38 : 46);
-        ctx.beginPath();
-        ctx.ellipse(cx, cy, radius * (1.08 + pulse), radius * 0.42, (i - 1.5) * 0.18, 0, Math.PI * 2);
-        ctx.strokeStyle = i % 2 === 0
-          ? `rgba(255, 209, 102, ${ready ? 0.42 : 0.18})`
-          : `rgba(27, 154, 175, ${ready ? 0.3 : 0.16})`;
-        ctx.lineWidth = ready ? 2.2 : 1.4;
-        ctx.stroke();
-      }
-
-      if (ready) {
-        for (let i = 0; i < 18; i += 1) {
-          const angle = (i / 18) * Math.PI * 2 + (shouldReduceMotion ? 0 : Math.sin(t * 0.4) * 0.04);
-          const inner = 146;
-          const outer = i % 3 === 0 ? 176 : 164;
-          ctx.beginPath();
-          ctx.moveTo(cx + Math.cos(angle) * inner, cy + Math.sin(angle) * inner * 0.48);
-          ctx.lineTo(cx + Math.cos(angle) * outer, cy + Math.sin(angle) * outer * 0.48);
-          ctx.strokeStyle = i % 3 === 0 ? "rgba(255, 209, 102, 0.48)" : "rgba(244, 236, 255, 0.18)";
-          ctx.lineWidth = i % 3 === 0 ? 2 : 1;
-          ctx.stroke();
-        }
-      }
+      drawBase(t, ready, filling, intro);
+      drawClouds(t, velocity, centerCalm, ready);
+      drawParticles(t, velocity, centerCalm, ready);
+      drawGate(t, intro);
 
       ctx.globalCompositeOperation = "source-over";
       raf = window.requestAnimationFrame(draw);
@@ -325,6 +498,8 @@ function WhatIfPortalCanvas({ mode }: { mode: PortalCanvasMode }) {
 
 export default function WhatIfExperience() {
   const [stage, setStage] = useState<Stage>("portal");
+  const shouldReduceMotion = useReducedMotion();
+  const [portalIntroSettled, setPortalIntroSettled] = useState(false);
   const [birthDay, setBirthDay] = useState("");
   const [birthMonth, setBirthMonth] = useState("");
   const [birthYearBe, setBirthYearBe] = useState("");
@@ -426,6 +601,16 @@ export default function WhatIfExperience() {
   useEffect(() => {
     if (stage === "result" || stage === "reality") window.scrollTo({ top: 0, behavior: "auto" });
   }, [stage]);
+
+  useEffect(() => {
+    if (stage !== "portal" || shouldReduceMotion) {
+      setPortalIntroSettled(true);
+      return;
+    }
+    setPortalIntroSettled(false);
+    const timer = window.setTimeout(() => setPortalIntroSettled(true), 1780);
+    return () => window.clearTimeout(timer);
+  }, [stage, shouldReduceMotion]);
 
   useEffect(() => {
     if (!coordinateComplete || identityComplete) return;
@@ -597,19 +782,19 @@ export default function WhatIfExperience() {
             <span className="whatif__orb whatif__orb--teal" />
             <span className="whatif__orb whatif__orb--deep" />
           </div>
-          <div className="whatif__wormhole" aria-hidden="true">
-            <span className="whatif__depth-core" />
-            <span className="whatif__tunnel whatif__tunnel--near" />
-            <span className="whatif__tunnel whatif__tunnel--far" />
-            <span className="whatif__gravity-sheet whatif__gravity-sheet--one" />
-            <span className="whatif__gravity-sheet whatif__gravity-sheet--two" />
-            <span className="whatif__gravity-sheet whatif__gravity-sheet--three" />
-          </div>
         </>
       )}
       <AnimatePresence mode="wait">
         {stage === "portal" && (
-          <StageShell key="portal" className={formReady ? "whatif whatif--portal whatif--lock" : "whatif whatif--portal"}>
+          <StageShell
+            key="portal"
+            className={[
+              "whatif",
+              "whatif--portal",
+              formReady ? "whatif--lock" : "",
+              portalIntroSettled ? "whatif--intro-settled" : "whatif--intro-pending",
+            ].filter(Boolean).join(" ")}
+          >
             <motion.div
               className="whatif__brand"
               aria-label="MuMate"
@@ -629,11 +814,6 @@ export default function WhatIfExperience() {
               animate="show"
               transition={{ duration: 0.74, delay: 0.08, ease: [0.2, 0.8, 0.2, 1] }}
             >
-              <div className="whatif__portal-halo" aria-hidden="true">
-                <span className="whatif__wormhole-mark whatif__wormhole-mark--one" />
-                <span className="whatif__wormhole-mark whatif__wormhole-mark--two" />
-                <span className="whatif__wormhole-mark whatif__wormhole-mark--three" />
-              </div>
               <h1 className="whatif__title">
                 WHAT <span>IF</span>...?
               </h1>
