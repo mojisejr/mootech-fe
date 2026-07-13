@@ -346,6 +346,10 @@
   transform-style: preserve-3d;
 }
 
+.whatif__ritual-stack > .whatif__portion {
+  grid-area: 1 / 1;
+}
+
 .whatif__ritual::before {
   content: "";
   position: absolute;
@@ -1486,8 +1490,8 @@
 @keyframes whatif-field-materialize {
   from {
     opacity: 0;
-    transform: translate3d(22px, 26px, -140px) scale(0.9);
-    filter: blur(9px);
+    transform: translate3d(14px, 18px, -90px) scale(0.94);
+    filter: blur(3px);
   }
   to {
     opacity: 1;
