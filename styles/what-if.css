@@ -1475,15 +1475,20 @@
     transform: translate3d(0, 0, 0) scale(1);
     filter: blur(0);
   }
+  80% {
+    opacity: 0.72;
+    transform: translate3d(0, -0.5vh, 220px) scale(1.44);
+    filter: blur(3px);
+  }
   88% {
-    opacity: 0.78;
-    transform: translate3d(0, -1vh, 260px) scale(1.62);
-    filter: blur(7px);
+    opacity: 0.18;
+    transform: translate3d(0, -1.5vh, 520px) scale(2.35);
+    filter: blur(8px);
   }
   100% {
     opacity: 0;
-    transform: translate3d(0, -2vh, 620px) scale(2.8);
-    filter: blur(18px);
+    transform: translate3d(0, -2vh, 760px) scale(3.1);
+    filter: blur(12px);
   }
 }
 

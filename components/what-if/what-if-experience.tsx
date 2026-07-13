@@ -1117,7 +1117,7 @@ export default function WhatIfExperience() {
                       key="portal-summon"
                       ref={portalLockRef}
                       className="whatif__summon is-ready"
-                      initial={{ opacity: 0, y: 34, z: -760, scale: 0.56, filter: "blur(0px)" }}
+                      initial={{ opacity: 0, y: 6, z: -760, scale: 0.56, filter: "blur(0px)" }}
                       animate={{ opacity: 1, y: 0, z: 0, scale: 1, filter: "blur(0px)" }}
                       exit={{ opacity: 0, y: 18, z: 260, scale: 1.18, filter: "blur(0px)" }}
                       transition={{ type: "spring", stiffness: 96, damping: 18, mass: 1.16 }}
