@@ -90,21 +90,39 @@ const ELEMENT_EMOJI: Record<string, string> = {
 const RITUAL_PORTION_VARIANTS = {
   hidden: {
     opacity: 0,
-    y: 42,
-    scale: 0.9,
-    rotateX: -9,
+    x: 54,
+    y: 72,
+    z: -520,
+    scale: 0.58,
+    rotateX: -14,
+    rotateY: 10,
+    filter: "blur(14px)",
   },
   active: {
     opacity: 1,
+    x: 0,
     y: 0,
+    z: 0,
     scale: 1,
     rotateX: 0,
+    rotateY: 0,
+    filter: "blur(0px)",
   },
   complete: {
     opacity: 0.86,
     y: -6,
     scale: 0.985,
     rotateX: 1.5,
+  },
+  exit: {
+    opacity: 0,
+    x: -86,
+    y: -34,
+    z: 360,
+    scale: 1.34,
+    rotateX: 10,
+    rotateY: -12,
+    filter: "blur(14px)",
   },
 };
 
@@ -127,6 +145,8 @@ const PORTAL_BLACKOUT_END = 0.18;
 const PORTAL_INTRO_MS = 1780;
 const SPLASH_HIDE_MS = 1280;
 const SPLASH_PORTAL_START_MS = 1500;
+const TITLE_CHECKPOINT_MS = 3950;
+const TITLE_CHECKPOINT_REDUCED_MS = 1150;
 
 function clamp01(value: number) {
   return Math.max(0, Math.min(1, value));
@@ -174,8 +194,8 @@ function RitualPortion({
       variants={RITUAL_PORTION_VARIANTS}
       initial="hidden"
       animate={state}
-      exit="hidden"
-      transition={{ type: "spring", stiffness: 132, damping: 18, mass: 0.86 }}
+      exit="exit"
+      transition={{ type: "spring", stiffness: 118, damping: 17, mass: 0.92 }}
     >
       <div className="whatif__portion-header" aria-hidden="true">
         <span className="whatif__portion-step">{step}</span>
@@ -475,6 +495,7 @@ export default function WhatIfExperience() {
   const [splashVisible, setSplashVisible] = useState(true);
   const [portalIntroStarted, setPortalIntroStarted] = useState(false);
   const [portalIntroSettled, setPortalIntroSettled] = useState(false);
+  const [titleCheckpointDone, setTitleCheckpointDone] = useState(false);
   const [birthDay, setBirthDay] = useState("");
   const [birthMonth, setBirthMonth] = useState("");
   const [birthYearBe, setBirthYearBe] = useState("");
@@ -524,6 +545,7 @@ export default function WhatIfExperience() {
   const coordinateComplete = Boolean(birthDateCe) && (timeUnknown || birthTimeTouched);
   const identityComplete = Boolean(gender) && currentJob.trim().length >= 2;
   const formReady = coordinateComplete && Boolean(gender) && currentJob.trim().length >= 2 && consent;
+  const portalCheckpointReady = titleCheckpointDone || formReady;
   const canvasMode: PortalCanvasMode = formReady ? "ready" : coordinateComplete ? "filling" : "intro";
   const chapters = result ? storyChapters(result) : [];
 
@@ -608,6 +630,27 @@ export default function WhatIfExperience() {
     const timer = window.setTimeout(() => setPortalIntroSettled(true), PORTAL_INTRO_MS);
     return () => window.clearTimeout(timer);
   }, [stage, shouldReduceMotion, portalIntroStarted]);
+
+  useEffect(() => {
+    if (stage !== "portal") {
+      setTitleCheckpointDone(true);
+      return;
+    }
+    if (formReady) {
+      setTitleCheckpointDone(true);
+      return;
+    }
+    if (!portalIntroSettled) {
+      setTitleCheckpointDone(false);
+      return;
+    }
+    setTitleCheckpointDone(false);
+    const timer = window.setTimeout(
+      () => setTitleCheckpointDone(true),
+      shouldReduceMotion ? TITLE_CHECKPOINT_REDUCED_MS : TITLE_CHECKPOINT_MS,
+    );
+    return () => window.clearTimeout(timer);
+  }, [stage, portalIntroSettled, shouldReduceMotion, formReady]);
 
   useEffect(() => {
     if (!coordinateComplete || identityComplete) return;
@@ -795,9 +838,9 @@ export default function WhatIfExperience() {
               className="whatif__splash-logo"
               src="/images/mumate/ic_logo.svg"
               alt=""
-              initial={shouldReduceMotion ? { opacity: 0 } : { opacity: 0, scale: 0.96, filter: "blur(8px)" }}
-              animate={shouldReduceMotion ? { opacity: 1 } : { opacity: 1, scale: 1, filter: "blur(0px)" }}
-              exit={shouldReduceMotion ? { opacity: 0 } : { opacity: 0, scale: 0.92, filter: "blur(10px)" }}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
               transition={{ duration: shouldReduceMotion ? 0.18 : 0.36, ease: [0.2, 0.8, 0.2, 1] }}
             />
           </motion.div>
@@ -812,27 +855,24 @@ export default function WhatIfExperience() {
               "whatif--portal",
               formReady ? "whatif--lock" : "",
               portalIntroSettled ? "whatif--intro-settled" : "whatif--intro-pending",
+              portalCheckpointReady ? "whatif--checkpoint-ready" : "whatif--title-checkpoint",
             ].filter(Boolean).join(" ")}
           >
-            <motion.div
-              className="whatif__brand"
-              aria-label="MuMate"
-              variants={PORTAL_STAGE_VARIANTS}
-              initial="hidden"
-              animate="show"
-              transition={{ duration: 0.58, ease: [0.2, 0.8, 0.2, 1] }}
-            >
-              <img src="/images/mumate/ic_logo.svg" alt="" />
-              <span>MuMate</span>
-            </motion.div>
+            {portalCheckpointReady && !formReady && (
+              <motion.div
+                className="whatif__brand"
+                aria-label="MuMate"
+                variants={PORTAL_STAGE_VARIANTS}
+                initial="hidden"
+                animate="show"
+                transition={{ duration: 0.58, ease: [0.2, 0.8, 0.2, 1] }}
+              >
+                <img src="/images/mumate/ic_logo.svg" alt="" />
+                <span>MuMate</span>
+              </motion.div>
+            )}
 
-            <motion.header
-              className="whatif__hero"
-              variants={PORTAL_STAGE_VARIANTS}
-              initial="hidden"
-              animate="show"
-              transition={{ duration: 0.74, delay: 0.08, ease: [0.2, 0.8, 0.2, 1] }}
-            >
+            <header className="whatif__hero">
               <h1 className="whatif__title">
                 WHAT <span>IF</span>...?
               </h1>
@@ -842,12 +882,13 @@ export default function WhatIfExperience() {
                 <br />
                 วันนี้ชีวิตคุณจะเป็นอย่างไรในจักรวาลคู่ขนาน?
               </p>
-            </motion.header>
+            </header>
 
-            <section className="whatif__form" aria-label="ข้อมูลเปิดโลกคู่ขนาน">
-              <div className="whatif__ritual">
-                <AnimatePresence initial={false}>
-                  {!formReady && (
+            {portalCheckpointReady && (
+              <section className="whatif__form" aria-label="ข้อมูลเปิดโลกคู่ขนาน">
+                <div className="whatif__ritual">
+                  <AnimatePresence initial={false}>
+                    {!formReady && (
                     <motion.div
                       key="ritual-stack"
                       className="whatif__ritual-stack"
@@ -857,86 +898,89 @@ export default function WhatIfExperience() {
                       exit="locked"
                       transition={{ duration: 0.42, ease: [0.2, 0.8, 0.2, 1] }}
                     >
-                      <RitualPortion
-                        innerRef={coordinateRef}
-                        isFocused={focusedPortion === "coordinate"}
-                        step="01"
-                        title="พิกัดกำเนิด"
-                        state={coordinateComplete ? "complete" : "active"}
-                        className="whatif__portion--coordinate"
-                      >
-                        <label className="whatif__field">
-                          <span className="whatif__label">วัน/เดือน/ปีเกิด (พ.ศ.)</span>
-                          <div className="whatif__row whatif__row--dob">
-                            <select className="whatif__input" aria-label="วันเกิด" value={birthDay} onFocus={() => markFocus("coordinate")} onBlur={clearFocus} onChange={(e) => setBirthDay(e.target.value)}>
-                              <option value="">วันที่</option>
-                              {Array.from({ length: 31 }, (_, i) => i + 1).map((day) => (
-                                <option key={day} value={day}>{day}</option>
-                              ))}
-                            </select>
-                            <select className="whatif__input" aria-label="เดือนเกิด" value={birthMonth} onFocus={() => markFocus("coordinate")} onBlur={clearFocus} onChange={(e) => setBirthMonth(e.target.value)}>
-                              <option value="">เดือน</option>
-                              {THAI_MONTHS.map((month, index) => (
-                                <option key={month} value={index + 1}>{month}</option>
-                              ))}
-                            </select>
-                            <select className="whatif__input" aria-label="ปีเกิด พ.ศ." value={birthYearBe} onFocus={() => markFocus("coordinate")} onBlur={clearFocus} onChange={(e) => setBirthYearBe(e.target.value)}>
-                              <option value="">ปี พ.ศ.</option>
-                              {yearOptions.map((year) => (
-                                <option key={year} value={year}>{year}</option>
-                              ))}
-                            </select>
-                          </div>
-                          {birthDay && birthMonth && birthYearBe && !birthDateCe && (
-                            <span className="whatif__hint whatif__hint--warn">วันที่นี้ไม่มีจริง ลองตรวจอีกครั้ง</span>
-                          )}
-                          {birthDateCe && !timeUnknown && !birthTimeTouched && (
-                            <span className="whatif__hint">เลือกเวลาเกิด หรือกดไม่ทราบ เพื่อเปิดชั้นถัดไป</span>
-                          )}
-                        </label>
-
-                        <div className="whatif__field">
-                          <span className="whatif__label">เวลาเกิด</span>
-                          <div className="whatif__row whatif__row--time">
-                            <input
-                              className="whatif__input"
-                              type="time"
-                              aria-label="เวลาเกิด"
-                              value={birthTime}
-                              disabled={timeUnknown}
-                              onFocus={() => markFocus("coordinate")}
-                              onBlur={clearFocus}
-                              onChange={(e) => {
-                                setBirthTime(e.target.value);
-                                setBirthTimeTouched(Boolean(e.target.value));
-                              }}
-                            />
-                            <label className="whatif__checkbox whatif__checkbox--compact">
-                              <input
-                                type="checkbox"
-                                checked={timeUnknown}
-                                onFocus={() => markFocus("coordinate")}
-                                onBlur={clearFocus}
-                                onChange={(e) => {
-                                  setTimeUnknown(e.target.checked);
-                                  if (e.target.checked) setBirthTimeTouched(false);
-                                }}
-                              />
-                              <span>ไม่ทราบ</span>
+                      <AnimatePresence mode="wait" initial={false}>
+                        {!coordinateComplete && (
+                          <RitualPortion
+                            innerRef={coordinateRef}
+                            isFocused={focusedPortion === "coordinate"}
+                            key="coordinate-axis"
+                            step="01"
+                            title="พิกัดกำเนิด"
+                            state="active"
+                            className="whatif__portion--coordinate"
+                          >
+                            <label className="whatif__field">
+                              <span className="whatif__label">วัน/เดือน/ปีเกิด (พ.ศ.)</span>
+                              <div className="whatif__row whatif__row--dob">
+                                <select className="whatif__input" aria-label="วันเกิด" value={birthDay} onFocus={() => markFocus("coordinate")} onBlur={clearFocus} onChange={(e) => setBirthDay(e.target.value)}>
+                                  <option value="">วันที่</option>
+                                  {Array.from({ length: 31 }, (_, i) => i + 1).map((day) => (
+                                    <option key={day} value={day}>{day}</option>
+                                  ))}
+                                </select>
+                                <select className="whatif__input" aria-label="เดือนเกิด" value={birthMonth} onFocus={() => markFocus("coordinate")} onBlur={clearFocus} onChange={(e) => setBirthMonth(e.target.value)}>
+                                  <option value="">เดือน</option>
+                                  {THAI_MONTHS.map((month, index) => (
+                                    <option key={month} value={index + 1}>{month}</option>
+                                  ))}
+                                </select>
+                                <select className="whatif__input" aria-label="ปีเกิด พ.ศ." value={birthYearBe} onFocus={() => markFocus("coordinate")} onBlur={clearFocus} onChange={(e) => setBirthYearBe(e.target.value)}>
+                                  <option value="">ปี พ.ศ.</option>
+                                  {yearOptions.map((year) => (
+                                    <option key={year} value={year}>{year}</option>
+                                  ))}
+                                </select>
+                              </div>
+                              {birthDay && birthMonth && birthYearBe && !birthDateCe && (
+                                <span className="whatif__hint whatif__hint--warn">วันที่นี้ไม่มีจริง ลองตรวจอีกครั้ง</span>
+                              )}
+                              {birthDateCe && !timeUnknown && !birthTimeTouched && (
+                                <span className="whatif__hint">เลือกเวลาเกิด หรือกดไม่ทราบ เพื่อเปิดชั้นถัดไป</span>
+                              )}
                             </label>
-                          </div>
-                        </div>
-                      </RitualPortion>
 
-                      <AnimatePresence initial={false}>
-                        {coordinateComplete && (
+                            <div className="whatif__field">
+                              <span className="whatif__label">เวลาเกิด</span>
+                              <div className="whatif__row whatif__row--time">
+                                <input
+                                  className="whatif__input"
+                                  type="time"
+                                  aria-label="เวลาเกิด"
+                                  value={birthTime}
+                                  disabled={timeUnknown}
+                                  onFocus={() => markFocus("coordinate")}
+                                  onBlur={clearFocus}
+                                  onChange={(e) => {
+                                    setBirthTime(e.target.value);
+                                    setBirthTimeTouched(Boolean(e.target.value));
+                                  }}
+                                />
+                                <label className="whatif__checkbox whatif__checkbox--compact">
+                                  <input
+                                    type="checkbox"
+                                    checked={timeUnknown}
+                                    onFocus={() => markFocus("coordinate")}
+                                    onBlur={clearFocus}
+                                    onChange={(e) => {
+                                      setTimeUnknown(e.target.checked);
+                                      if (e.target.checked) setBirthTimeTouched(false);
+                                    }}
+                                  />
+                                  <span>ไม่ทราบ</span>
+                                </label>
+                              </div>
+                            </div>
+                          </RitualPortion>
+                        )}
+
+                        {coordinateComplete && !identityComplete && (
                           <RitualPortion
                             innerRef={identityRef}
                             isFocused={focusedPortion === "identity"}
                             key="identity-axis"
                             step="02"
                             title="ตัวตนในโลกจริง"
-                            state={identityComplete ? "complete" : "active"}
+                            state="active"
                             className="whatif__portion--identity"
                           >
                             <div className="whatif__field">
@@ -984,10 +1028,8 @@ export default function WhatIfExperience() {
                             </label>
                           </RitualPortion>
                         )}
-                      </AnimatePresence>
 
-                      <AnimatePresence initial={false}>
-                        {identityComplete && (
+                        {identityComplete && !formReady && (
                           <RitualPortion
                             innerRef={sealRef}
                             isFocused={focusedPortion === "seal"}
@@ -1017,13 +1059,13 @@ export default function WhatIfExperience() {
                         )}
                       </AnimatePresence>
                     </motion.div>
-                  )}
-                </AnimatePresence>
+                    )}
+                  </AnimatePresence>
 
-                {error && <p className="whatif__error">{error}</p>}
+                  {error && <p className="whatif__error">{error}</p>}
 
-                <AnimatePresence initial={false}>
-                  {formReady && (
+                  <AnimatePresence initial={false}>
+                    {formReady && (
                     <motion.div
                       key="portal-summon"
                       ref={portalLockRef}
@@ -1038,10 +1080,11 @@ export default function WhatIfExperience() {
                         เปิดโลกคู่ขนาน
                       </button>
                     </motion.div>
-                  )}
-                </AnimatePresence>
-              </div>
-            </section>
+                    )}
+                  </AnimatePresence>
+                </div>
+              </section>
+            )}
           </StageShell>
         )}
 
