@@ -19,6 +19,7 @@ type Stage = "portal" | "loading" | "result" | "reality";
 type RitualState = "active" | "complete";
 type RitualPortionKey = "coordinate" | "identity" | "seal";
 type PortalCanvasMode = "intro" | "filling" | "ready";
+type PortalCanvasPhase = "intro" | "title" | "travel" | "hold" | "ready";
 type PortalParticle = {
   x: number;
   y: number;
@@ -90,13 +91,13 @@ const ELEMENT_EMOJI: Record<string, string> = {
 const RITUAL_PORTION_VARIANTS = {
   hidden: {
     opacity: 0,
-    x: 54,
-    y: 72,
-    z: -520,
-    scale: 0.58,
-    rotateX: -14,
-    rotateY: 10,
-    filter: "blur(14px)",
+    x: 34,
+    y: 54,
+    z: -700,
+    scale: 0.52,
+    rotateX: -10,
+    rotateY: 7,
+    filter: "blur(5px)",
   },
   active: {
     opacity: 1,
@@ -116,13 +117,13 @@ const RITUAL_PORTION_VARIANTS = {
   },
   exit: {
     opacity: 0,
-    x: -86,
-    y: -34,
-    z: 360,
-    scale: 1.34,
-    rotateX: 10,
-    rotateY: -12,
-    filter: "blur(14px)",
+    x: -48,
+    y: -28,
+    z: 560,
+    scale: 1.52,
+    rotateX: 8,
+    rotateY: -9,
+    filter: "blur(8px)",
   },
 };
 
@@ -195,7 +196,7 @@ function RitualPortion({
       initial="hidden"
       animate={state}
       exit="exit"
-      transition={{ type: "spring", stiffness: 118, damping: 17, mass: 0.92 }}
+      transition={{ type: "spring", stiffness: 108, damping: 18, mass: 1.06 }}
     >
       <div className="whatif__portion-header" aria-hidden="true">
         <span className="whatif__portion-step">{step}</span>
@@ -207,10 +208,12 @@ function RitualPortion({
   );
 }
 
-function WhatIfPortalCanvas({ active, mode }: { active: boolean; mode: PortalCanvasMode }) {
+function WhatIfPortalCanvas({ active, mode, phase }: { active: boolean; mode: PortalCanvasMode; phase: PortalCanvasPhase }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const activeRef = useRef(active);
   const modeRef = useRef(mode);
+  const phaseRef = useRef(phase);
+  const phaseStartedAtRef = useRef(0);
   const particlesRef = useRef<PortalParticle[]>([]);
   const cloudsRef = useRef<PortalCloud[]>([]);
   const shouldReduceMotion = useReducedMotion();
@@ -222,6 +225,11 @@ function WhatIfPortalCanvas({ active, mode }: { active: boolean; mode: PortalCan
   useEffect(() => {
     modeRef.current = mode;
   }, [mode]);
+
+  useEffect(() => {
+    phaseRef.current = phase;
+    phaseStartedAtRef.current = performance.now();
+  }, [phase]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -343,7 +351,7 @@ function WhatIfPortalCanvas({ active, mode }: { active: boolean; mode: PortalCan
       }
     }
 
-    function drawClouds(t: number, velocity: number, centerCalm: number, ready: boolean, reveal: number) {
+    function drawClouds(t: number, velocity: number, centerCalm: number, ready: boolean, reveal: number, impulse: number) {
       if (reveal <= 0.01) return;
       const ctx = context;
       const cx = width / 2;
@@ -372,7 +380,7 @@ function WhatIfPortalCanvas({ active, mode }: { active: boolean; mode: PortalCan
         const centerDistance = Math.sqrt(dx * dx + dy * dy);
         const edgeAlpha = smoothstep(centerCalm, 0.95, centerDistance);
         const tint = PORTAL_CANVAS_TINTS[cloud.tint];
-        const alpha = (ready ? 0.2 : 0.16) * edgeAlpha * (1.1 - cloud.z * 0.34) * reveal;
+        const alpha = (ready ? 0.2 : 0.16) * edgeAlpha * (1.1 - cloud.z * 0.34) * reveal * (1 + impulse * 0.28);
 
         fillRadial(
           x,
@@ -390,7 +398,7 @@ function WhatIfPortalCanvas({ active, mode }: { active: boolean; mode: PortalCan
       ctx.globalCompositeOperation = "source-over";
     }
 
-    function drawParticles(t: number, velocity: number, centerCalm: number, ready: boolean, reveal: number) {
+    function drawParticles(t: number, velocity: number, centerCalm: number, ready: boolean, reveal: number, impulse: number) {
       if (reveal <= 0.01) return;
       const ctx = context;
       const cx = width / 2;
@@ -419,8 +427,8 @@ function WhatIfPortalCanvas({ active, mode }: { active: boolean; mode: PortalCan
 
         const depth = 1 - particle.z;
         const tint = PORTAL_CANVAS_TINTS[particle.tint];
-        const size = particle.size * (0.7 + depth * 2.2) * (ready ? 1.08 : 1);
-        const alpha = Math.min(0.8, (0.18 + depth * 0.52) * edgeAlpha) * reveal;
+        const size = particle.size * (0.7 + depth * 2.2) * (ready ? 1.08 : 1) * (1 + impulse * 0.16);
+        const alpha = Math.min(0.88, (0.18 + depth * 0.52) * edgeAlpha * (1 + impulse * 0.4)) * reveal;
 
         fillRadial(
           x,
@@ -450,15 +458,25 @@ function WhatIfPortalCanvas({ active, mode }: { active: boolean; mode: PortalCan
       const elapsed = shouldReduceMotion ? 0 : (time - startedAt) / 1000;
       const t = shouldReduceMotion ? 0 : elapsed;
       const modeNow = modeRef.current;
+      const phaseNow = phaseRef.current;
       const ready = modeNow === "ready";
       const filling = modeNow === "filling";
+      const phaseElapsed = shouldReduceMotion ? 2 : Math.max(0, (time - phaseStartedAtRef.current) / 1000);
       const intro = shouldReduceMotion ? 1 : clamp01(t / 2.2);
       const reveal = shouldReduceMotion ? 1 : smoothstep(0.3, 0.74, intro);
       const pull = smoothstep(0.38, 0.68, intro) * (1 - smoothstep(0.78, 1, intro));
       const settle = smoothstep(0.72, 1, intro);
+      const transitionImpulse = phaseNow === "travel" ? 1 - smoothstep(0.36, 1.08, phaseElapsed) : 0;
+      const titleIn = phaseNow === "title" ? 1 - smoothstep(0.72, 1.42, phaseElapsed) : 0;
+      const titleOut = phaseNow === "title" ? smoothstep(2.7, 3.68, phaseElapsed) : 0;
+      const titleImpulse = Math.max(titleIn, titleOut);
+      const impulse = shouldReduceMotion ? 0 : Math.max(transitionImpulse, titleImpulse);
       const focusCalm = filling ? 0.42 : ready ? 0.34 : 0.38;
-      const centerCalm = mix(0.16, focusCalm, settle);
-      const velocity = shouldReduceMotion ? 0 : mix(0.56, filling ? 0.28 : 0.34, settle) + pull * 3.4 + (ready ? 0.18 : 0);
+      const holdCalm = phaseNow === "hold" || phaseNow === "ready" ? focusCalm + 0.04 : focusCalm;
+      const centerCalm = mix(0.16, holdCalm, settle) - impulse * 0.04;
+      const velocity = shouldReduceMotion
+        ? 0
+        : mix(0.56, filling ? 0.24 : 0.32, settle) + pull * 3.4 + (ready ? 0.18 : 0) + impulse * 2.35;
 
       ctx.clearRect(0, 0, width, height);
       ctx.globalCompositeOperation = "source-over";
@@ -469,8 +487,8 @@ function WhatIfPortalCanvas({ active, mode }: { active: boolean; mode: PortalCan
         return;
       }
       drawBase(t, ready, filling, intro);
-      drawClouds(t, velocity, centerCalm, ready, reveal);
-      drawParticles(t, velocity, centerCalm, ready, reveal);
+      drawClouds(t, velocity, centerCalm, ready, reveal, impulse);
+      drawParticles(t, velocity, centerCalm, ready, reveal, impulse);
 
       ctx.globalCompositeOperation = "source-over";
       raf = window.requestAnimationFrame(draw);
@@ -496,6 +514,7 @@ export default function WhatIfExperience() {
   const [portalIntroStarted, setPortalIntroStarted] = useState(false);
   const [portalIntroSettled, setPortalIntroSettled] = useState(false);
   const [titleCheckpointDone, setTitleCheckpointDone] = useState(false);
+  const [checkpointPhase, setCheckpointPhase] = useState<"travel" | "hold">("travel");
   const [birthDay, setBirthDay] = useState("");
   const [birthMonth, setBirthMonth] = useState("");
   const [birthYearBe, setBirthYearBe] = useState("");
@@ -547,6 +566,22 @@ export default function WhatIfExperience() {
   const formReady = coordinateComplete && Boolean(gender) && currentJob.trim().length >= 2 && consent;
   const portalCheckpointReady = titleCheckpointDone || formReady;
   const canvasMode: PortalCanvasMode = formReady ? "ready" : coordinateComplete ? "filling" : "intro";
+  const activeCheckpoint: RitualPortionKey | "cta" = formReady
+    ? "cta"
+    : !coordinateComplete
+      ? "coordinate"
+      : !identityComplete
+        ? "identity"
+        : "seal";
+  const canvasPhase: PortalCanvasPhase = !portalIntroStarted
+    ? "intro"
+    : !portalIntroSettled
+      ? "intro"
+      : !portalCheckpointReady
+        ? "title"
+        : formReady
+          ? checkpointPhase === "travel" ? "travel" : "ready"
+          : checkpointPhase;
   const chapters = result ? storyChapters(result) : [];
 
   function guideTo(element: HTMLElement | null, focusTarget?: HTMLElement | null) {
@@ -651,6 +686,16 @@ export default function WhatIfExperience() {
     );
     return () => window.clearTimeout(timer);
   }, [stage, portalIntroSettled, shouldReduceMotion, formReady]);
+
+  useEffect(() => {
+    if (stage !== "portal" || !portalCheckpointReady) {
+      setCheckpointPhase("travel");
+      return;
+    }
+    setCheckpointPhase("travel");
+    const timer = window.setTimeout(() => setCheckpointPhase("hold"), shouldReduceMotion ? 0 : 720);
+    return () => window.clearTimeout(timer);
+  }, [activeCheckpoint, portalCheckpointReady, shouldReduceMotion, stage]);
 
   useEffect(() => {
     if (!coordinateComplete || identityComplete) return;
@@ -812,7 +857,7 @@ export default function WhatIfExperience() {
   return (
     <main className={`whatif-shell whatif-shell--${stage} ${stage === "portal" && formReady ? "whatif-shell--portal-ready" : ""}`}>
       {stage === "portal" ? (
-        <WhatIfPortalCanvas active={portalIntroStarted} mode={canvasMode} />
+        <WhatIfPortalCanvas active={portalIntroStarted} mode={canvasMode} phase={canvasPhase} />
       ) : (
         <>
           <div className="whatif__stars" aria-hidden="true" />
@@ -898,7 +943,7 @@ export default function WhatIfExperience() {
                       exit="locked"
                       transition={{ duration: 0.42, ease: [0.2, 0.8, 0.2, 1] }}
                     >
-                      <AnimatePresence mode="wait" initial={false}>
+                      <AnimatePresence initial={false}>
                         {!coordinateComplete && (
                           <RitualPortion
                             innerRef={coordinateRef}
