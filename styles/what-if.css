@@ -37,6 +37,34 @@
   pointer-events: none;
 }
 
+.whatif__splash {
+  position: fixed;
+  inset: 0;
+  z-index: 3;
+  display: grid;
+  place-items: center;
+  background: #020106;
+  pointer-events: none;
+}
+
+.whatif__splash::before {
+  content: "";
+  position: absolute;
+  width: min(46vw, 220px);
+  aspect-ratio: 1;
+  border-radius: 999px;
+  background: radial-gradient(circle, rgba(27, 154, 175, 0.12), transparent 64%);
+  filter: blur(18px);
+}
+
+.whatif__splash-logo {
+  position: relative;
+  width: clamp(148px, 44vw, 218px);
+  height: auto;
+  object-fit: contain;
+  filter: drop-shadow(0 0 24px rgba(27, 154, 175, 0.2));
+}
+
 .whatif {
   position: relative;
   z-index: 1;

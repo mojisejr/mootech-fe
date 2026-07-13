@@ -124,6 +124,9 @@ const PORTAL_CANVAS_TINTS: Record<PortalParticle["tint"], string> = {
   violet: "180, 107, 255",
 };
 const PORTAL_BLACKOUT_END = 0.18;
+const PORTAL_INTRO_MS = 1780;
+const SPLASH_HIDE_MS = 1280;
+const SPLASH_PORTAL_START_MS = 1500;
 
 function clamp01(value: number) {
   return Math.max(0, Math.min(1, value));
@@ -184,12 +187,17 @@ function RitualPortion({
   );
 }
 
-function WhatIfPortalCanvas({ mode }: { mode: PortalCanvasMode }) {
+function WhatIfPortalCanvas({ active, mode }: { active: boolean; mode: PortalCanvasMode }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const activeRef = useRef(active);
   const modeRef = useRef(mode);
   const particlesRef = useRef<PortalParticle[]>([]);
   const cloudsRef = useRef<PortalCloud[]>([]);
   const shouldReduceMotion = useReducedMotion();
+
+  useEffect(() => {
+    activeRef.current = active;
+  }, [active]);
 
   useEffect(() => {
     modeRef.current = mode;
@@ -411,6 +419,13 @@ function WhatIfPortalCanvas({ mode }: { mode: PortalCanvasMode }) {
 
     function draw(time: number) {
       const ctx = context;
+      if (!activeRef.current && !shouldReduceMotion) {
+        startedAt = null;
+        ctx.fillStyle = "#020106";
+        ctx.fillRect(0, 0, width, height);
+        raf = window.requestAnimationFrame(draw);
+        return;
+      }
       if (startedAt === null) startedAt = time;
       const elapsed = shouldReduceMotion ? 0 : (time - startedAt) / 1000;
       const t = shouldReduceMotion ? 0 : elapsed;
@@ -457,6 +472,8 @@ function WhatIfPortalCanvas({ mode }: { mode: PortalCanvasMode }) {
 export default function WhatIfExperience() {
   const [stage, setStage] = useState<Stage>("portal");
   const shouldReduceMotion = useReducedMotion();
+  const [splashVisible, setSplashVisible] = useState(true);
+  const [portalIntroStarted, setPortalIntroStarted] = useState(false);
   const [portalIntroSettled, setPortalIntroSettled] = useState(false);
   const [birthDay, setBirthDay] = useState("");
   const [birthMonth, setBirthMonth] = useState("");
@@ -537,6 +554,8 @@ export default function WhatIfExperience() {
   useEffect(() => {
     const stored = loadWhatIfResult();
     if (!stored) return;
+    setSplashVisible(false);
+    setPortalIntroStarted(true);
     setResult(stored);
     setSavedMode(hasWhatIfPlayedCookie());
     setStage("result");
@@ -546,6 +565,22 @@ export default function WhatIfExperience() {
       setCardUrl(URL.createObjectURL(blob));
     });
   }, []);
+
+  useEffect(() => {
+    if (stage !== "portal") {
+      setSplashVisible(false);
+      setPortalIntroStarted(true);
+      return;
+    }
+    setSplashVisible(true);
+    setPortalIntroStarted(false);
+    const hideTimer = window.setTimeout(() => setSplashVisible(false), shouldReduceMotion ? 720 : SPLASH_HIDE_MS);
+    const startTimer = window.setTimeout(() => setPortalIntroStarted(true), shouldReduceMotion ? 780 : SPLASH_PORTAL_START_MS);
+    return () => {
+      window.clearTimeout(hideTimer);
+      window.clearTimeout(startTimer);
+    };
+  }, [stage, shouldReduceMotion]);
 
   useEffect(() => {
     if (stage !== "loading") return;
@@ -565,10 +600,14 @@ export default function WhatIfExperience() {
       setPortalIntroSettled(true);
       return;
     }
+    if (!portalIntroStarted) {
+      setPortalIntroSettled(false);
+      return;
+    }
     setPortalIntroSettled(false);
-    const timer = window.setTimeout(() => setPortalIntroSettled(true), 1780);
+    const timer = window.setTimeout(() => setPortalIntroSettled(true), PORTAL_INTRO_MS);
     return () => window.clearTimeout(timer);
-  }, [stage, shouldReduceMotion]);
+  }, [stage, shouldReduceMotion, portalIntroStarted]);
 
   useEffect(() => {
     if (!coordinateComplete || identityComplete) return;
@@ -730,7 +769,7 @@ export default function WhatIfExperience() {
   return (
     <main className={`whatif-shell whatif-shell--${stage} ${stage === "portal" && formReady ? "whatif-shell--portal-ready" : ""}`}>
       {stage === "portal" ? (
-        <WhatIfPortalCanvas mode={canvasMode} />
+        <WhatIfPortalCanvas active={portalIntroStarted} mode={canvasMode} />
       ) : (
         <>
           <div className="whatif__stars" aria-hidden="true" />
@@ -742,6 +781,28 @@ export default function WhatIfExperience() {
           </div>
         </>
       )}
+      <AnimatePresence>
+        {stage === "portal" && splashVisible && (
+          <motion.div
+            className="whatif__splash"
+            aria-hidden="true"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.22, ease: [0.2, 0.8, 0.2, 1] }}
+          >
+            <motion.img
+              className="whatif__splash-logo"
+              src="/images/mumate/ic_logo.svg"
+              alt=""
+              initial={shouldReduceMotion ? { opacity: 0 } : { opacity: 0, scale: 0.96, filter: "blur(8px)" }}
+              animate={shouldReduceMotion ? { opacity: 1 } : { opacity: 1, scale: 1, filter: "blur(0px)" }}
+              exit={shouldReduceMotion ? { opacity: 0 } : { opacity: 0, scale: 0.92, filter: "blur(10px)" }}
+              transition={{ duration: shouldReduceMotion ? 0.18 : 0.36, ease: [0.2, 0.8, 0.2, 1] }}
+            />
+          </motion.div>
+        )}
+      </AnimatePresence>
       <AnimatePresence mode="wait">
         {stage === "portal" && (
           <StageShell
