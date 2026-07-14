@@ -150,6 +150,7 @@ const TITLE_CHECKPOINT_MS = 3950;
 const TITLE_CHECKPOINT_REDUCED_MS = 1150;
 const CHECKPOINT_TRAVEL_MS = 1320;
 const CTA_FOCUS_DELAY_MS = 620;
+const SUMMON_CHARGE_MS = 300;
 
 function clamp01(value: number) {
   return Math.max(0, Math.min(1, value));
@@ -517,6 +518,7 @@ export default function WhatIfExperience() {
   const [portalIntroSettled, setPortalIntroSettled] = useState(false);
   const [titleCheckpointDone, setTitleCheckpointDone] = useState(false);
   const [checkpointPhase, setCheckpointPhase] = useState<"travel" | "hold">("travel");
+  const [summonPhase, setSummonPhase] = useState<"idle" | "charge" | "reveal">("idle");
   const [birthDay, setBirthDay] = useState("");
   const [birthMonth, setBirthMonth] = useState("");
   const [birthYearBe, setBirthYearBe] = useState("");
@@ -698,6 +700,24 @@ export default function WhatIfExperience() {
     const timer = window.setTimeout(() => setCheckpointPhase("hold"), shouldReduceMotion ? 0 : CHECKPOINT_TRAVEL_MS);
     return () => window.clearTimeout(timer);
   }, [activeCheckpoint, portalCheckpointReady, shouldReduceMotion, stage]);
+
+  // Portal-summon choreography: form dissolves -> rift charges (empty, layout settles)
+  // -> CTA condenses from the rift. Splitting the beats is what removes the old
+  // layout-jump + warp (the summon no longer springs in while the form is still
+  // reflowing out).
+  useEffect(() => {
+    if (!formReady || stage !== "portal") {
+      setSummonPhase("idle");
+      return;
+    }
+    if (shouldReduceMotion) {
+      setSummonPhase("reveal");
+      return;
+    }
+    setSummonPhase("charge");
+    const timer = window.setTimeout(() => setSummonPhase("reveal"), SUMMON_CHARGE_MS);
+    return () => window.clearTimeout(timer);
+  }, [formReady, stage, shouldReduceMotion]);
 
   useEffect(() => {
     if (!coordinateComplete || identityComplete) return;
@@ -1116,17 +1136,30 @@ export default function WhatIfExperience() {
                     <motion.div
                       key="portal-summon"
                       ref={portalLockRef}
-                      className="whatif__summon is-ready"
-                      initial={{ opacity: 0, y: 6, z: -760, scale: 0.56, filter: "blur(0px)" }}
-                      animate={{ opacity: 1, y: 0, z: 0, scale: 1, filter: "blur(0px)" }}
-                      exit={{ opacity: 0, y: 18, z: 260, scale: 1.18, filter: "blur(0px)" }}
-                      transition={{ type: "spring", stiffness: 96, damping: 18, mass: 1.16 }}
+                      className={["whatif__summon", summonPhase === "reveal" ? "is-ready" : "is-charging"].join(" ")}
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      exit={{ opacity: 0, y: 18, scale: 1.06, filter: "blur(0px)" }}
+                      transition={{ duration: 0.24, ease: [0.2, 0.8, 0.2, 1] }}
                       style={{ transformPerspective: 1100 }}
                     >
                       <span className="whatif__summon-rift" aria-hidden="true" />
-                      <button ref={portalButtonRef} className="whatif__cta whatif__cta--summon" type="button" onClick={onOpenPortal}>
-                        เปิดโลกคู่ขนาน
-                      </button>
+                      <AnimatePresence initial={false}>
+                        {summonPhase === "reveal" && (
+                          <motion.div
+                            key="cta-forge"
+                            className="whatif__summon-forge"
+                            initial={{ opacity: 0, scaleY: 0.4, scaleX: 0.9, filter: "blur(4px)" }}
+                            animate={{ opacity: 1, scaleY: 1, scaleX: 1, filter: "blur(0px)" }}
+                            transition={{ type: "spring", stiffness: 210, damping: 24, mass: 0.9 }}
+                            style={{ transformOrigin: "center bottom", transformPerspective: 1100 }}
+                          >
+                            <button ref={portalButtonRef} className="whatif__cta whatif__cta--summon" type="button" onClick={onOpenPortal}>
+                              เปิดโลกคู่ขนาน
+                            </button>
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
                     </motion.div>
                     )}
                   </AnimatePresence>
