@@ -20,6 +20,13 @@ const GLASS_BOX_COOKIE = 'gb_access';
 const WHATIF_COOKIE = 'whatif_access';
 const WHATIF_PLAYED_COOKIE = 'whatif_played';
 
+// Ops dashboard gate (#mumate-ops-dashboard-phase1).
+//   OPS_DASHBOARD_KEY=xxx -> internal-only. Unlike Glass Box/What If, entry is a form submit
+//   (passkey + name dropdown) via POST /api/ops/login, not a `?key=` link — so this guard only
+//   checks the cookie/env at the edge. The page itself (getServerSideProps) renders the gate
+//   form when the cookie is missing/invalid. Fail closed: unconfigured = feature hidden.
+const OPS_COOKIE = 'ops_access';
+
 function noStore(res: NextResponse): NextResponse {
   res.headers.set('Cache-Control', 'no-store, must-revalidate');
   return res;
@@ -99,6 +106,35 @@ function guardWhatIf(req: NextRequest): NextResponse | null {
   return noStore(NextResponse.rewrite(new URL('/maintenance', req.url)));
 }
 
+// Returns a response when the request targets the Ops surface, otherwise null. `/api/ops/login`
+// is always reachable when the key is configured (it validates the submitted passkey itself and
+// is how the cookie gets set in the first place). `/ops` itself always passes through when the
+// key is configured — its getServerSideProps re-checks the cookie and renders the gate form or
+// the dashboard accordingly. Every OTHER /api/ops/* route (health, metrics, activity) is a data
+// endpoint and is denied here without a valid cookie (defense in depth — each of those routes
+// also re-validates the cookie itself, per too's review note: don't rely on the edge gate alone).
+function guardOps(req: NextRequest): NextResponse | null {
+  const { pathname } = req.nextUrl;
+  const isOps = pathname === '/ops' || pathname.startsWith('/ops/') || pathname.startsWith('/api/ops');
+  if (!isOps) return null;
+
+  const key = process.env.OPS_DASHBOARD_KEY;
+  if (!key) return noStore(NextResponse.rewrite(new URL('/maintenance', req.url)));
+
+  if (pathname === '/api/ops/login') return noStore(NextResponse.next());
+
+  const authenticated = req.cookies.get(OPS_COOKIE)?.value === key;
+  if (authenticated) return noStore(NextResponse.next());
+
+  if (pathname === '/ops') return noStore(NextResponse.next());
+
+  if (pathname.startsWith('/api/ops')) {
+    return noStore(NextResponse.json({ error: { message: 'Not authenticated' } }, { status: 401 }));
+  }
+
+  return noStore(NextResponse.redirect(new URL('/ops', req.url)));
+}
+
 function redirectWhatIfFirstVisit(req: NextRequest): NextResponse | null {
   if (req.nextUrl.pathname !== '/') return null;
 
@@ -124,6 +160,10 @@ export function middleware(req: NextRequest) {
 
   const whatIfRedirect = redirectWhatIfFirstVisit(req);
   if (whatIfRedirect) return whatIfRedirect;
+
+  // Ops dashboard gate — internal-only, independent of maintenance mode.
+  const ops = guardOps(req);
+  if (ops) return ops;
 
   // Maintenance off -> behave normally (normal caching resumes).
   // (While maintenance is on, every gated response below uses the module-level noStore so the
