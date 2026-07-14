@@ -1,4 +1,4 @@
-import { pgTable, bigserial, text, varchar, bigint, doublePrecision, json, index, boolean, primaryKey } from "drizzle-orm/pg-core"
+import { pgTable, bigserial, text, varchar, bigint, doublePrecision, json, index, boolean, primaryKey, uuid, timestamp } from "drizzle-orm/pg-core"
 import { sql } from "drizzle-orm"
 
 // ───────────────────────────────────────────────────────────────────────────────────
@@ -1033,3 +1033,16 @@ export const chineseCalendar = pgTable("chinese_calendar", {
 }, (table) => [
 	primaryKey({ columns: [table.day, table.month, table.year, table.percentage, table.above1, table.above2, table.above3, table.below1, table.below2, table.below3], name: "idx_17672_primary"}),
 ]);
+
+// Ops dashboard identity (#mumate-ops-dashboard-phase1). Isolated from the main product
+// tables: only used to populate the /ops gate dropdown and stamp last_seen_at. Not a real
+// auth/login system — the actual gate is OPS_DASHBOARD_KEY (shared passkey).
+export const dashboardUsers = pgTable("dashboard_users", {
+	id: uuid().primaryKey().notNull().default(sql`gen_random_uuid()`),
+	name: text().notNull(),
+	email: text().unique(),
+	role: text().notNull().default('member'),
+	isActive: boolean("is_active").notNull().default(true),
+	lastSeenAt: timestamp("last_seen_at", { withTimezone: true }),
+	createdAt: timestamp("created_at", { withTimezone: true }).notNull().default(sql`now()`),
+});
