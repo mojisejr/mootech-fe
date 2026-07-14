@@ -21,22 +21,35 @@ if (/bazichart\.mumate\.co/i.test(BE_ENDPOINT)) {
   throw new Error(`[GUARDRAIL] NEXT_PUBLIC_BACKEND_URL points at old prod (${BE_ENDPOINT}).`)
 }
 
-const DOB_RE = /^\d{4}-\d{2}-\d{2}$/
-const TIME_RE = /^\d{2}:\d{2}$/
+// Shape-only (not full calendar validity — mootech-be is the source of truth for that, verified
+// live: an out-of-range date like "2026-99-99" gets a real 500 there, which this API surfaces as
+// a clean "compute failed" 502 rather than crashing). Month/day are range-checked here anyway
+// (01-12 / 01-31) so an obviously-bogus date fails fast locally instead of wasting a round trip
+// to a backend call that's going to fail anyway.
+const DOB_RE = /^\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/
+const TIME_RE = /^([01]\d|2[0-3]):[0-5]\d$/
 
 type ComputeBody = { dob?: unknown; time?: unknown; gender?: unknown }
 
-function validateInput(body: ComputeBody): { dob: string; time: string; gender: string } | null {
-  const dob = typeof body.dob === 'string' ? body.dob : ''
+export function validateInput(body: ComputeBody): { dob: string; time: string; gender: string } | null {
+  if (typeof body.dob !== 'string') return null
+  // `time` is optional (empty string = "จำไม่ได้"), but if present it must be a string — a
+  // non-string time (wrong client type) is rejected outright rather than silently coerced to ''
+  // ("no time provided" has a different meaning than "malformed time provided").
+  if (body.time !== undefined && body.time !== null && typeof body.time !== 'string') return null
+  if (typeof body.gender !== 'string') return null
+
+  const dob = body.dob
   const time = typeof body.time === 'string' ? body.time : ''
-  const gender = typeof body.gender === 'string' ? body.gender.toUpperCase() : ''
+  const gender = body.gender.toUpperCase()
+
   if (!DOB_RE.test(dob)) return null
   if (time !== '' && !TIME_RE.test(time)) return null
   if (gender !== 'MALE' && gender !== 'FEMALE') return null
   return { dob, time, gender }
 }
 
-function sameOrigin(req: NextApiRequest): boolean {
+export function sameOrigin(req: NextApiRequest): boolean {
   const origin = req.headers.origin
   if (!origin) return false
   const host = req.headers.host
