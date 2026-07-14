@@ -890,6 +890,11 @@
   opacity: 0.72;
 }
 
+/* Launch — the CTA flares bright, then its glow blows out as it dives forward. */
+.whatif__cta--summon.is-launching {
+  animation: whatif-cta-launch 0.26s ease-out both;
+}
+
 .whatif__cta:hover:not(:disabled) {
   transform: translateY(-2px);
   box-shadow: 0 0 44px rgba(255, 178, 62, 0.62), 0 14px 34px rgba(0, 0, 0, 0.4);
@@ -1049,13 +1054,49 @@
   box-shadow: 0 0 36px rgba(27, 154, 175, 0.42);
 }
 
+/* Travel caption — the loading text's anchor. Not a portal/target: a thin luminous
+   "horizon" framing the rotating message so it reads composed on mobile and desktop. */
+.whatif__travel-caption {
+  display: grid;
+  justify-items: center;
+  align-content: center;
+  gap: clamp(16px, 3.4vh, 30px);
+  width: min(88vw, 540px);
+  padding: 0 20px;
+  text-align: center;
+  transition: opacity 0.5s ease, transform 0.5s ease;
+}
+
+.whatif__travel-shimmer {
+  width: clamp(120px, 42vw, 260px);
+  height: 2px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, transparent, rgba(255, 209, 102, 0.72), rgba(27, 154, 175, 0.4), transparent);
+  opacity: 0.7;
+  transform: scaleX(0.7);
+  animation: whatif-travel-shimmer 2.4s ease-in-out infinite;
+}
+
+.whatif__travel-shimmer--lower {
+  animation-delay: 0.4s;
+  background: linear-gradient(90deg, transparent, rgba(27, 154, 175, 0.4), rgba(255, 209, 102, 0.6), transparent);
+}
+
+/* Arrive — decelerate: the caption calmly fades as the field slows into the result. */
+.whatif--loading.is-arriving .whatif__travel-caption {
+  opacity: 0;
+  transform: translateY(-8px);
+}
+
 .whatif__loading-text {
   min-height: 56px;
   margin: 0;
   color: #eee8ff;
-  font-size: 18px;
+  font-size: clamp(17px, 4.4vw, 22px);
   font-weight: 700;
   line-height: 1.6;
+  letter-spacing: 0.01em;
+  text-shadow: 0 2px 24px rgba(124, 58, 237, 0.5);
   animation: whatif-pulse 1.9s ease-in-out infinite;
 }
 
@@ -1577,6 +1618,17 @@
   0% { transform: scaleX(0.26); opacity: 0.14; filter: blur(16px); }
   55% { transform: scaleX(1.08); opacity: 1; filter: blur(7px); }
   100% { transform: scaleX(1); opacity: 0.92; filter: blur(10px); }
+}
+
+@keyframes whatif-cta-launch {
+  0% { box-shadow: 0 0 36px rgba(255, 209, 102, 0.72), 0 0 76px rgba(255, 140, 26, 0.44), 0 20px 48px rgba(0, 0, 0, 0.46); }
+  38% { box-shadow: 0 0 74px rgba(255, 244, 200, 0.98), 0 0 160px rgba(255, 178, 62, 0.82), 0 0 240px rgba(124, 58, 237, 0.52); }
+  100% { box-shadow: 0 0 120px rgba(255, 244, 200, 0), 0 0 220px rgba(255, 178, 62, 0); }
+}
+
+@keyframes whatif-travel-shimmer {
+  0%, 100% { opacity: 0.34; transform: scaleX(0.66); }
+  50% { opacity: 1; transform: scaleX(1); }
 }
 
 @keyframes whatif-orbit-in {

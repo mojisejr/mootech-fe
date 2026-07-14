@@ -18,7 +18,7 @@ import {
 type Stage = "portal" | "loading" | "result" | "reality";
 type RitualState = "active" | "complete";
 type RitualPortionKey = "coordinate" | "identity" | "seal";
-type PortalCanvasMode = "intro" | "filling" | "ready";
+type PortalCanvasMode = "intro" | "filling" | "ready" | "warp";
 type PortalCanvasPhase = "intro" | "title" | "travel" | "hold" | "ready";
 type PortalParticle = {
   x: number;
@@ -151,6 +151,8 @@ const TITLE_CHECKPOINT_REDUCED_MS = 1150;
 const CHECKPOINT_TRAVEL_MS = 1320;
 const CTA_FOCUS_DELAY_MS = 620;
 const SUMMON_CHARGE_MS = 300;
+const LAUNCH_MS = 260;
+const ARRIVE_MS = 680;
 
 function clamp01(value: number) {
   return Math.max(0, Math.min(1, value));
@@ -219,6 +221,8 @@ function WhatIfPortalCanvas({ active, mode, phase }: { active: boolean; mode: Po
   const phaseStartedAtRef = useRef(0);
   const particlesRef = useRef<PortalParticle[]>([]);
   const cloudsRef = useRef<PortalCloud[]>([]);
+  const warpRef = useRef(0);
+  const lastTimeRef = useRef(0);
   const shouldReduceMotion = useReducedMotion();
 
   useEffect(() => {
@@ -401,7 +405,7 @@ function WhatIfPortalCanvas({ active, mode, phase }: { active: boolean; mode: Po
       ctx.globalCompositeOperation = "source-over";
     }
 
-    function drawParticles(t: number, velocity: number, centerCalm: number, ready: boolean, reveal: number, impulse: number) {
+    function drawParticles(t: number, velocity: number, centerCalm: number, ready: boolean, reveal: number, impulse: number, warp: number) {
       if (reveal <= 0.01) return;
       const ctx = context;
       const cx = width / 2;
@@ -425,13 +429,35 @@ function WhatIfPortalCanvas({ active, mode, phase }: { active: boolean; mode: Po
         const dx = (x - cx) / (width / 2);
         const dy = (y - cy) / (height / 2);
         const centerDistance = Math.sqrt(dx * dx + dy * dy);
-        const edgeAlpha = smoothstep(centerCalm, 1.05, centerDistance);
+        // At warp, stop culling the center so streaks emanate from the vanishing point.
+        const edgeAlpha = smoothstep(centerCalm * (1 - warp * 0.92), 1.05, centerDistance);
         if (edgeAlpha <= 0.02) return;
 
         const depth = 1 - particle.z;
         const tint = PORTAL_CANVAS_TINTS[particle.tint];
         const size = particle.size * (0.7 + depth * 2.2) * (ready ? 1.08 : 1) * (1 + impulse * 0.16);
-        const alpha = Math.min(0.88, (0.18 + depth * 0.52) * edgeAlpha * (1 + impulse * 0.4)) * reveal;
+        const alpha = Math.min(0.92, (0.18 + depth * 0.52) * edgeAlpha * (1 + impulse * 0.4) * (1 + warp * 0.7)) * reveal;
+
+        // Hyperspace star-streak: at warp, each particle stretches into a line pointing
+        // back toward the vanishing point (a deeper-z projection of the same particle).
+        if (warp > 0.05) {
+          const zTail = particle.z + warp * (0.42 + particle.speed * 0.55);
+          const perspTail = 1 / (0.2 + zTail * 1.18);
+          const xTail = cx + particle.x * width * 0.5 * perspTail;
+          const yTail = cy + particle.y * height * 0.5 * perspTail;
+          const streakAlpha = Math.min(0.95, (0.34 + depth * 0.6) * warp) * edgeAlpha * reveal;
+          const grad = ctx.createLinearGradient(xTail, yTail, x, y);
+          grad.addColorStop(0, `rgba(${tint}, 0)`);
+          grad.addColorStop(0.7, `rgba(${tint}, ${streakAlpha * 0.5})`);
+          grad.addColorStop(1, `rgba(${tint}, ${streakAlpha})`);
+          ctx.strokeStyle = grad;
+          ctx.lineWidth = Math.max(1.2, size * 1.35);
+          ctx.lineCap = "round";
+          ctx.beginPath();
+          ctx.moveTo(xTail, yTail);
+          ctx.lineTo(x, y);
+          ctx.stroke();
+        }
 
         fillRadial(
           x,
@@ -477,9 +503,21 @@ function WhatIfPortalCanvas({ active, mode, phase }: { active: boolean; mode: Po
       const focusCalm = filling ? 0.42 : ready ? 0.34 : 0.38;
       const holdCalm = phaseNow === "hold" || phaseNow === "ready" ? focusCalm + 0.04 : focusCalm;
       const centerCalm = mix(0.16, holdCalm, settle) - impulse * 0.04;
+
+      // Warp travel level (0..1) eased toward its target every frame so accelerate /
+      // decelerate are always continuous — never a per-frame jump. Quick to spin up,
+      // graceful to spin down (the "arrive" decel).
+      const dtRaw = lastTimeRef.current ? (time - lastTimeRef.current) / 1000 : 0.016;
+      lastTimeRef.current = time;
+      const dt = Math.min(0.05, Math.max(0, dtRaw));
+      const warpTarget = modeNow === "warp" ? 1 : 0;
+      const warpRate = warpTarget > warpRef.current ? 3.4 : 1.9;
+      warpRef.current += (warpTarget - warpRef.current) * Math.min(1, dt * warpRate);
+      const warp = shouldReduceMotion ? 0 : warpRef.current;
+
       const velocity = shouldReduceMotion
         ? 0
-        : mix(0.56, filling ? 0.24 : 0.32, settle) + pull * 3.4 + (ready ? 0.18 : 0) + impulse * 2.35;
+        : mix(0.56, filling ? 0.24 : 0.32, settle) + pull * 3.4 + (ready ? 0.18 : 0) + impulse * 2.35 + warp * 4.4;
 
       ctx.clearRect(0, 0, width, height);
       ctx.globalCompositeOperation = "source-over";
@@ -491,7 +529,7 @@ function WhatIfPortalCanvas({ active, mode, phase }: { active: boolean; mode: Po
       }
       drawBase(t, ready, filling, intro);
       drawClouds(t, velocity, centerCalm, ready, reveal, impulse);
-      drawParticles(t, velocity, centerCalm, ready, reveal, impulse);
+      drawParticles(t, velocity, centerCalm, ready, reveal, impulse, warp);
 
       ctx.globalCompositeOperation = "source-over";
       raf = window.requestAnimationFrame(draw);
@@ -519,6 +557,8 @@ export default function WhatIfExperience() {
   const [titleCheckpointDone, setTitleCheckpointDone] = useState(false);
   const [checkpointPhase, setCheckpointPhase] = useState<"travel" | "hold">("travel");
   const [summonPhase, setSummonPhase] = useState<"idle" | "charge" | "reveal">("idle");
+  const [launching, setLaunching] = useState(false);
+  const [loadingArriving, setLoadingArriving] = useState(false);
   const [birthDay, setBirthDay] = useState("");
   const [birthMonth, setBirthMonth] = useState("");
   const [birthYearBe, setBirthYearBe] = useState("");
@@ -569,7 +609,14 @@ export default function WhatIfExperience() {
   const identityComplete = Boolean(gender) && currentJob.trim().length >= 2;
   const formReady = coordinateComplete && Boolean(gender) && currentJob.trim().length >= 2 && consent;
   const portalCheckpointReady = titleCheckpointDone || formReady;
-  const canvasMode: PortalCanvasMode = formReady ? "ready" : coordinateComplete ? "filling" : "intro";
+  const canvasMode: PortalCanvasMode =
+    stage === "loading" && !loadingArriving
+      ? "warp"
+      : formReady
+        ? "ready"
+        : coordinateComplete
+          ? "filling"
+          : "intro";
   const activeCheckpoint: RitualPortionKey | "cta" = formReady
     ? "cta"
     : !coordinateComplete
@@ -772,9 +819,15 @@ export default function WhatIfExperience() {
     if (!formReady || !birthDateCe || !gender) return;
     setError(null);
     setSavedMode(false);
-    setStage("loading");
-    setLoadingMsgIdx(0);
+    setLoadingArriving(false);
+    // beat 1 — the CTA launches forward first, then the field hands off to warp travel.
+    setLaunching(true);
     const startedAt = Date.now();
+    const launchHold = shouldReduceMotion ? 0 : LAUNCH_MS;
+    window.setTimeout(() => {
+      setStage("loading");
+      setLoadingMsgIdx(0);
+    }, launchHold);
 
     try {
       const res = await fetch(API_URL, {
@@ -796,10 +849,21 @@ export default function WhatIfExperience() {
       setResult(nextResult);
       saveWhatIfResult(nextResult);
       markWhatIfPlayed();
-      setStage("result");
+      // beat 3 — decelerate the warp field, arrive, then reveal the result.
+      if (shouldReduceMotion) {
+        setStage("result");
+      } else {
+        setLoadingArriving(true);
+        await new Promise((resolve) => window.setTimeout(resolve, ARRIVE_MS));
+        setStage("result");
+        setLoadingArriving(false);
+      }
+      setLaunching(false);
     } catch (e) {
       setError(e instanceof Error ? e.message : "เชื่อมต่อจักรวาลคู่ขนานไม่สำเร็จ");
       setStage("portal");
+      setLaunching(false);
+      setLoadingArriving(false);
     }
   }
 
@@ -878,7 +942,7 @@ export default function WhatIfExperience() {
 
   return (
     <main className={`whatif-shell whatif-shell--${stage} ${stage === "portal" && formReady ? "whatif-shell--portal-ready" : ""}`}>
-      {stage === "portal" ? (
+      {stage === "portal" || stage === "loading" ? (
         <WhatIfPortalCanvas active={portalIntroStarted} mode={canvasMode} phase={canvasPhase} />
       ) : (
         <>
@@ -1150,11 +1214,24 @@ export default function WhatIfExperience() {
                             key="cta-forge"
                             className="whatif__summon-forge"
                             initial={{ opacity: 0, scaleY: 0.4, scaleX: 0.9, filter: "blur(4px)" }}
-                            animate={{ opacity: 1, scaleY: 1, scaleX: 1, filter: "blur(0px)" }}
-                            transition={{ type: "spring", stiffness: 210, damping: 24, mass: 0.9 }}
-                            style={{ transformOrigin: "center bottom", transformPerspective: 1100 }}
+                            animate={
+                              launching
+                                ? { opacity: 0, scaleX: 1.44, scaleY: 1.44, filter: "blur(3px)" }
+                                : { opacity: 1, scaleY: 1, scaleX: 1, filter: "blur(0px)" }
+                            }
+                            transition={
+                              launching
+                                ? { duration: 0.26, ease: [0.45, 0, 0.9, 0.5] }
+                                : { type: "spring", stiffness: 210, damping: 24, mass: 0.9 }
+                            }
+                            style={{ transformOrigin: "center center", transformPerspective: 1100 }}
                           >
-                            <button ref={portalButtonRef} className="whatif__cta whatif__cta--summon" type="button" onClick={onOpenPortal}>
+                            <button
+                              ref={portalButtonRef}
+                              className={launching ? "whatif__cta whatif__cta--summon is-launching" : "whatif__cta whatif__cta--summon"}
+                              type="button"
+                              onClick={onOpenPortal}
+                            >
                               เปิดโลกคู่ขนาน
                             </button>
                           </motion.div>
@@ -1170,17 +1247,14 @@ export default function WhatIfExperience() {
         )}
 
         {stage === "loading" && (
-          <StageShell key="loading" className="whatif whatif--loading">
+          <StageShell key="loading" className={loadingArriving ? "whatif whatif--loading is-arriving" : "whatif whatif--loading"}>
             <section className="whatif__loading" aria-live="polite">
               <h1 className="whatif__sr-only">กำลังคำนวณโลกคู่ขนานของคุณ</h1>
-              <div className="whatif__rift" aria-hidden="true">
-                <span className="whatif__rift-glow" />
-                <span className="whatif__rift-line" />
-                <span className="whatif__rift-flare whatif__rift-flare--one" />
-                <span className="whatif__rift-flare whatif__rift-flare--two" />
-                <span className="whatif__rift-flare whatif__rift-flare--three" />
+              <div className="whatif__travel-caption">
+                <span className="whatif__travel-shimmer" aria-hidden="true" />
+                <p key={loadingMsgIdx} className="whatif__loading-text">{LOADING_MESSAGES[loadingMsgIdx]}</p>
+                <span className="whatif__travel-shimmer whatif__travel-shimmer--lower" aria-hidden="true" />
               </div>
-              <p key={loadingMsgIdx} className="whatif__loading-text">{LOADING_MESSAGES[loadingMsgIdx]}</p>
             </section>
           </StageShell>
         )}
