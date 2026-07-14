@@ -24,6 +24,11 @@ const config: Config = {
         moumate_blue_dark: '#4B96E5',
         moumate_blue_light: '#EEFDFD',
         moumate_gray: '#888888',
+        // Darker muted text for small labels (#public-bazi-calculator) — moumate_gray fails
+        // 4.5:1 on both white and bg_gray (3.54/2.94, verified via relative-luminance formula)
+        // at the small sizes used across the calculator's 100+ timeline labels. Scoped to this
+        // feature rather than changing the shared brand token everywhere it's already used.
+        calc_muted: '#666666', // 5.74:1 white / 4.77:1 bg_gray
         moumate_black: '#101828',
         moumate_white: '#FFFFFF',
         moumate_red: '#CB2C2A',
