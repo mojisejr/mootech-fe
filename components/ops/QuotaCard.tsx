@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react'
-import { Card } from './Card'
+import { Card, METRIC_CARD_MIN_HEIGHT } from './Card'
 import { Disclosure } from './Disclosure'
 
 function formatNumber(n: number): string {
@@ -26,7 +26,7 @@ export function QuotaCard({
   const remaining = Math.max(0, capacity - used)
 
   return (
-    <Card title={title}>
+    <Card title={title} className={METRIC_CARD_MIN_HEIGHT}>
       <p className="-mt-1 mb-2 text-xs text-ops_text_muted">{subtitle}</p>
 
       <div

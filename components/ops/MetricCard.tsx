@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react'
-import { Card } from './Card'
+import { Card, METRIC_CARD_MIN_HEIGHT } from './Card'
 import { Disclosure } from './Disclosure'
 
 function formatNumber(n: number): string {
@@ -36,7 +36,7 @@ export function MetricCard({
   breakdown?: ReactNode
 }) {
   return (
-    <Card title={title}>
+    <Card title={title} className={METRIC_CARD_MIN_HEIGHT}>
       <p className="-mt-1 mb-2 text-xs text-ops_text_muted">{subtitle}</p>
       <div className="flex items-baseline justify-end gap-1.5 tabular-nums">
         <span className="text-2xl font-semibold text-ops_text">{formatNumber(value)}</span>
