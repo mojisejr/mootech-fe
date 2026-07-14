@@ -37,6 +37,22 @@ const config: Config = {
         chat_header_from: '#2599AE',  // header gradient start (teal)  rgba(37,153,174)
         chat_header_to: '#3A78A9',    // header gradient end (slate) + top-up CTA text
         launcher_magenta: '#FF00EE',  // launcher gradient end (teal -> magenta hero)
+        // Ops dashboard — dark-only (#mumate-ops-dashboard-phase1). This project has no
+        // theme infra at all (no `darkMode` config, no ThemeProvider), so these are just a
+        // fixed palette used directly in /ops, not a `dark:` variant of anything.
+        ops_bg: '#0B1220',        // page background
+        ops_surface: '#141B2B',   // card background
+        ops_border: '#232B3D',
+        ops_text: '#E6E9F0',
+        ops_text_muted: '#8A93A6',
+        // status_* are dark-tuned per design review (มุน, #mumate-ops-dashboard-phase1): NOT the
+        // light-mode moumate_red etc. lifted as-is — desaturated + lifted lightness so they read
+        // clearly on ops_bg/ops_surface without vibrating. Calm-when-calm: status_ok is meant to
+        // sit quietly as a small dot, not compete for attention — only warn/bad should draw the
+        // eye. Verify contrast with real screenshots before shipping (see PR).
+        status_ok: '#34D399',
+        status_warn: '#FBBF24',
+        status_bad: '#F87171',
         violet: {
           new_2: '#6167BF',
         },
