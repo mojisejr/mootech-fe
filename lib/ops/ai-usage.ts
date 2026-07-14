@@ -20,7 +20,7 @@ import { memberPayAsUse, logMemberPayAsUse, payment } from '@/lib/db/schema'
 // Mirrors WELCOME_CREDITS in mootech-be/src/member-pay-as-use/wallet.util.ts. One-time welcome
 // grant baked into every wallet row at creation (see member-pay-as-use.service.ts
 // createMemberPayAsUse / migration 2026-06-26-wallet-balance.sql) — not itself a DB column.
-const WELCOME_CREDITS = 3
+export const WELCOME_CREDITS = 3
 
 export type AiQuotaBreakdown = {
   welcome: number
@@ -29,6 +29,29 @@ export type AiQuotaBreakdown = {
   used: number
   remaining: number
   usagePercent: number
+}
+
+type WalletTotals = { walletCount: number; purchasedTotal: number; remaining: number }
+type PurchaseRow = { plan: string; credits: number }
+
+// Pure derivation, isolated from the DB round-trip so the edge cases (no wallets yet, a
+// remaining balance that exceeds granted from a data anomaly) are unit-testable without a live
+// connection. `used` clamps at 0 (never negative) and `usagePercent` clamps at 100 (never >100%
+// even if `remaining` is inconsistent with `granted` for some row).
+export function deriveAiQuota(wallet: WalletTotals, purchases: PurchaseRow[]): AiQuotaBreakdown {
+  const welcome = wallet.walletCount * WELCOME_CREDITS
+  const granted = welcome + wallet.purchasedTotal
+  const used = Math.max(0, granted - wallet.remaining)
+  const remaining = Math.max(0, wallet.remaining)
+
+  return {
+    welcome,
+    purchasedByPlan: purchases,
+    granted,
+    used,
+    remaining,
+    usagePercent: granted > 0 ? Math.min(100, Math.round((used / granted) * 100)) : 0,
+  }
 }
 
 export async function fetchAiQuota(): Promise<AiQuotaBreakdown> {
@@ -47,19 +70,12 @@ export async function fetchAiQuota(): Promise<AiQuotaBreakdown> {
       .groupBy(payment.paymentPlan),
   ])
 
-  const walletCount = Number(walletRows[0]?.walletCount ?? 0)
-  const remaining = Number(walletRows[0]?.remaining ?? 0)
-  const welcome = walletCount * WELCOME_CREDITS
-  const purchasedTotal = Number(walletRows[0]?.purchasedTotal ?? 0)
-  const granted = welcome + purchasedTotal
-  const used = Math.max(0, granted - remaining)
-
-  return {
-    welcome,
-    purchasedByPlan: purchaseRows.map((r) => ({ plan: r.plan, credits: Number(r.credits) })),
-    granted,
-    used,
-    remaining,
-    usagePercent: granted > 0 ? Math.round((used / granted) * 100) : 0,
-  }
+  return deriveAiQuota(
+    {
+      walletCount: Number(walletRows[0]?.walletCount ?? 0),
+      purchasedTotal: Number(walletRows[0]?.purchasedTotal ?? 0),
+      remaining: Number(walletRows[0]?.remaining ?? 0),
+    },
+    purchaseRows.map((r) => ({ plan: r.plan, credits: Number(r.credits) })),
+  )
 }

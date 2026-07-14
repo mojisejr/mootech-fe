@@ -104,7 +104,19 @@ export type PointsBreakdown = { in: PointsBreakdownRow[]; out: PointsBreakdownRo
 
 // Direction (เข้า/ออก) comes from the SIGN of today's summed points per activity, not a
 // hardcoded id map — so a future activity type with unexpected sign still lands correctly
-// instead of silently miscategorized.
+// instead of silently miscategorized. Pure + exported so this decision is unit-testable without
+// a DB round-trip (0 lands in `in`, matching "no negative activity happened" rather than being
+// dropped).
+export function categorizePointsRows(rows: Array<{ description: string; points: number }>): PointsBreakdown {
+  const result: PointsBreakdown = { in: [], out: [] }
+  for (const row of rows) {
+    const points = Number(row.points)
+    const label = ACTIVITY_LABEL_TH[row.description] ?? row.description
+    ;(points >= 0 ? result.in : result.out).push({ label, points })
+  }
+  return result
+}
+
 export async function fetchPointsBreakdown(range: DateRange = todayBangkokRange()): Promise<PointsBreakdown> {
   const rows = await db
     .select({
@@ -116,13 +128,7 @@ export async function fetchPointsBreakdown(range: DateRange = todayBangkokRange(
     .where(and(gte(logActivity.createat, range.start), lt(logActivity.createat, range.end)))
     .groupBy(activity.description)
 
-  const result: PointsBreakdown = { in: [], out: [] }
-  for (const row of rows) {
-    const points = Number(row.points)
-    const label = ACTIVITY_LABEL_TH[row.description] ?? row.description
-    ;(points >= 0 ? result.in : result.out).push({ label, points })
-  }
-  return result
+  return categorizePointsRows(rows.map((r) => ({ description: r.description, points: Number(r.points) })))
 }
 
 export type RevenueBreakdownRow = { plan: string; amount: number }
