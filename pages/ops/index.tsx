@@ -108,7 +108,7 @@ export default function OpsPage(props: Props) {
 
   const aiQuotaBreakdown = (
     <>
-      <BreakdownRow label="welcome ฟรีเริ่มต้น" value={aiQuota.welcome.toLocaleString('th-TH')} />
+      <BreakdownRow label="ฟรีเริ่มต้น" value={aiQuota.welcome.toLocaleString('th-TH')} />
       {aiQuota.purchasedByPlan.map((p) => (
         <BreakdownRow key={p.plan} label={p.plan} value={p.credits.toLocaleString('th-TH')} />
       ))}
@@ -135,7 +135,7 @@ export default function OpsPage(props: Props) {
 
           <section>
             <h2 className="mb-3 text-sm font-semibold text-ops_text_muted">Business Metrics — {metrics.rangeLabel}</h2>
-            <div className="grid grid-cols-1 gap-4 lg:grid-cols-5">
+            <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-5">
               <MetricCard
                 title="ขอดูดวง"
                 subtitle="ครั้ง·วันนี้"

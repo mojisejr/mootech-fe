@@ -55,20 +55,24 @@ export function deriveAiQuota(wallet: WalletTotals, purchases: PurchaseRow[]): A
 }
 
 export async function fetchAiQuota(): Promise<AiQuotaBreakdown> {
-  const [walletRows, purchaseRows] = await Promise.all([
-    db
-      .select({
-        walletCount: sql<number>`count(*)`,
-        purchasedTotal: sql<number>`coalesce(sum(${memberPayAsUse.total}), 0)`,
-        remaining: sql<number>`coalesce(sum(${memberPayAsUse.balance}), 0)`,
-      })
-      .from(memberPayAsUse),
-    db
-      .select({ plan: payment.paymentPlan, credits: sql<number>`coalesce(sum(${logMemberPayAsUse.total}), 0)` })
-      .from(logMemberPayAsUse)
-      .innerJoin(payment, eq(payment.id, logMemberPayAsUse.paymentId))
-      .groupBy(payment.paymentPlan),
-  ])
+  // Sequential, not Promise.all: running these two concurrently reproducibly hung indefinitely
+  // against the shared `max: 1` connection (lib/db/index.ts) — isolated and confirmed during
+  // browser-truth testing (each query alone: ~500ms / ~40ms; together via Promise.all: hangs
+  // past 40s). Root cause not fully understood (client-protocol pipelining on a single physical
+  // connection?), but every other ops query pattern in this codebase already uses Promise.all
+  // safely, so this is likely specific to these two shapes together — sequential is the safe fix.
+  const walletRows = await db
+    .select({
+      walletCount: sql<number>`count(*)`,
+      purchasedTotal: sql<number>`coalesce(sum(${memberPayAsUse.total}), 0)`,
+      remaining: sql<number>`coalesce(sum(${memberPayAsUse.balance}), 0)`,
+    })
+    .from(memberPayAsUse)
+  const purchaseRows = await db
+    .select({ plan: payment.paymentPlan, credits: sql<number>`coalesce(sum(${logMemberPayAsUse.total}), 0)` })
+    .from(logMemberPayAsUse)
+    .innerJoin(payment, eq(payment.id, logMemberPayAsUse.paymentId))
+    .groupBy(payment.paymentPlan)
 
   return deriveAiQuota(
     {
