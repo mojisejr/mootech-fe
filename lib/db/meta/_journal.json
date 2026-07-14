@@ -29,6 +29,13 @@
       "when": 1784020973289,
       "tag": "0003_pr56-metrics-upgrade",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1784070133826,
+      "tag": "0004_public-calculator-usage-log",
+      "breakpoints": true
     }
   ]
 }

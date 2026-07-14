@@ -1066,3 +1066,13 @@ export const dashboardUsers = pgTable("dashboard_users", {
 	lastSeenAt: timestamp("last_seen_at", { withTimezone: true }),
 	createdAt: timestamp("created_at", { withTimezone: true }).notNull().default(sql`now()`),
 });
+
+// Public calculator usage counter (#public-bazi-calculator). Deliberately separate from
+// LogCalculateService — PDPA-safe by construction: this table has NO PII columns at all (no
+// dob/name/gender/IP), just a timestamp per calc event. Ops dashboard aggregates count/trend
+// from this directly (GROUP BY date_trunc), no anonymization step needed because nothing
+// identifying was ever stored.
+export const calculatorUsageLog = pgTable("calculator_usage_log", {
+	id: bigserial({ mode: "bigint" }).primaryKey().notNull(),
+	createdAt: timestamp("created_at", { withTimezone: true }).notNull().default(sql`now()`),
+});
