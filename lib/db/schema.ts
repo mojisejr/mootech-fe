@@ -1,4 +1,4 @@
-import { pgTable, bigserial, text, varchar, bigint, doublePrecision, json, index, boolean, primaryKey } from "drizzle-orm/pg-core"
+import { pgTable, bigserial, text, varchar, bigint, doublePrecision, json, index, boolean, primaryKey, uuid, timestamp } from "drizzle-orm/pg-core"
 import { sql } from "drizzle-orm"
 
 // ───────────────────────────────────────────────────────────────────────────────────
@@ -405,6 +405,9 @@ export const logActivity = pgTable("log_activity", {
 	userId: varchar("user_id", { length: 255 }).notNull(),
 }, (table) => [
 	index("idx_17837_idx_07f4db96621b76d710322d0330").using("btree", table.userId.asc().nullsLast().op("text_ops")),
+	// Added for the ops dashboard's date-range aggregate (#mumate-ops-dashboard-phase1 Step 3) —
+	// this table had no index on createAt, so the range filter was a full seq scan.
+	index("idx_ops_log_activity_createat").using("btree", table.createat.asc().nullsLast().op("text_ops")),
 ]);
 
 export const logAi = pgTable("log_ai", {
@@ -463,6 +466,8 @@ export const logSurvey = pgTable("log_survey", {
 }, (table) => [
 	index("idx_17888_idx_30fe18a08c1c49be225ac9ab75").using("btree", table.userId.asc().nullsLast().op("text_ops")),
 	index("idx_17888_idx_ae653a048f9293d99b70f68ba9").using("btree", table.code.asc().nullsLast().op("text_ops")),
+	// #mumate-ops-dashboard-phase1 Step 3 — see log_activity above.
+	index("idx_ops_log_survey_createat").using("btree", table.createat.asc().nullsLast().op("text_ops")),
 ]);
 
 export const logCalculate = pgTable("log_calculate", {
@@ -480,6 +485,8 @@ export const logCalculate = pgTable("log_calculate", {
 }, (table) => [
 	index("idx_17851_idx_385729c804d03bd4b22c151ac4").using("btree", table.code.asc().nullsLast().op("text_ops")),
 	index("idx_17851_idx_7f3196edaae4f8c9e45375471c").using("btree", table.userId.asc().nullsLast().op("text_ops")),
+	// #mumate-ops-dashboard-phase1 Step 3 — see log_activity above.
+	index("idx_ops_log_calculate_createat").using("btree", table.createat.asc().nullsLast().op("text_ops")),
 ]);
 
 export const logWorkVibe = pgTable("log_work_vibe", {
@@ -648,6 +655,8 @@ export const payment = pgTable("payment", {
 	chargeId: text("charge_id").notNull(),
 }, (table) => [
 	index("idx_payment_user_id").using("btree", table.userId.asc().nullsLast().op("text_ops")),
+	// #mumate-ops-dashboard-phase1 Step 3 — see log_activity above.
+	index("idx_ops_payment_submit_at").using("btree", table.submitAt.asc().nullsLast().op("text_ops")),
 ]);
 
 export const paymentPackage = pgTable("payment_package", {
@@ -1033,3 +1042,16 @@ export const chineseCalendar = pgTable("chinese_calendar", {
 }, (table) => [
 	primaryKey({ columns: [table.day, table.month, table.year, table.percentage, table.above1, table.above2, table.above3, table.below1, table.below2, table.below3], name: "idx_17672_primary"}),
 ]);
+
+// Ops dashboard identity (#mumate-ops-dashboard-phase1). Isolated from the main product
+// tables: only used to populate the /ops gate dropdown and stamp last_seen_at. Not a real
+// auth/login system — the actual gate is OPS_DASHBOARD_KEY (shared passkey).
+export const dashboardUsers = pgTable("dashboard_users", {
+	id: uuid().primaryKey().notNull().default(sql`gen_random_uuid()`),
+	name: text().notNull(),
+	email: text().unique(),
+	role: text().notNull().default('member'),
+	isActive: boolean("is_active").notNull().default(true),
+	lastSeenAt: timestamp("last_seen_at", { withTimezone: true }),
+	createdAt: timestamp("created_at", { withTimezone: true }).notNull().default(sql`now()`),
+});

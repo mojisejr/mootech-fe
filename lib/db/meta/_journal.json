@@ -8,6 +8,20 @@
       "when": 1782363752356,
       "tag": "0000_baseline_current",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1784007609783,
+      "tag": "0001_add_dashboard_users",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1784008073520,
+      "tag": "0002_add_ops_date_indexes",
+      "breakpoints": true
     }
   ]
 }
