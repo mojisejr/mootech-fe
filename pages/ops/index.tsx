@@ -1,7 +1,7 @@
-// MuMate Ops Dashboard Phase 1 (#mumate-ops-dashboard-phase1). Single page, single scroll — no
-// side-menu/nested nav (locked in FROZEN v3). getServerSideProps is the real gate: middleware
-// only checks the cookie at the edge and lets `/ops` through either way (see middleware.ts
-// guardOps) so this page can render the passkey form itself when unauthenticated.
+// MuMate Ops Dashboard (#mumate-ops-dashboard-phase1, #mumate-ops-dashboard-pr56). Single page,
+// single scroll — no side-menu/nested nav. getServerSideProps is the real gate: middleware only
+// checks the cookie at the edge and lets `/ops` through either way (see middleware.ts guardOps)
+// so this page can render the passkey form itself when unauthenticated.
 import type { GetServerSideProps } from 'next'
 import Head from 'next/head'
 import { eq } from 'drizzle-orm'
@@ -9,12 +9,23 @@ import { db } from '@/lib/db'
 import { dashboardUsers } from '@/lib/db/schema'
 import { isOpsAuthenticated } from '@/lib/ops/gate'
 import { fetchSystemHealth, overallHealth, type ServiceHealth } from '@/lib/ops/health'
-import { fetchBusinessMetrics, type BusinessMetrics } from '@/lib/ops/metrics'
+import {
+  fetchBusinessMetrics,
+  fetchPointsBreakdown,
+  fetchRevenueBreakdown,
+  type BusinessMetrics,
+  type PointsBreakdown,
+  type RevenueBreakdownRow,
+} from '@/lib/ops/metrics'
+import { fetchAiQuota, type AiQuotaBreakdown } from '@/lib/ops/ai-usage'
 import { fetchTeamActivity, type TeamActivity } from '@/lib/ops/activity'
 import { GateForm } from '@/components/ops/GateForm'
 import { HeroStrip } from '@/components/ops/HeroStrip'
 import { HealthCard } from '@/components/ops/HealthCard'
 import { MetricCard } from '@/components/ops/MetricCard'
+import { QuotaCard } from '@/components/ops/QuotaCard'
+import { BreakdownRow } from '@/components/ops/BreakdownRow'
+import { SegmentedBar } from '@/components/ops/SegmentedBar'
 import { ActivityList } from '@/components/ops/ActivityList'
 
 type GateProps = { authenticated: false; users: Array<{ id: string; name: string }>; gateError: string | null }
@@ -22,6 +33,9 @@ type DashboardProps = {
   authenticated: true
   health: { fe: ServiceHealth; be: ServiceHealth }
   metrics: BusinessMetrics
+  points: PointsBreakdown
+  revenue: RevenueBreakdownRow[]
+  aiQuota: AiQuotaBreakdown
   activity: TeamActivity
 }
 type Props = GateProps | DashboardProps
@@ -40,13 +54,16 @@ export const getServerSideProps: GetServerSideProps<Props> = async (ctx) => {
     return { props: { authenticated: false, users, gateError } }
   }
 
-  const [health, metrics, activity] = await Promise.all([
+  const [health, metrics, points, revenue, aiQuota, activity] = await Promise.all([
     fetchSystemHealth(),
     fetchBusinessMetrics(),
+    fetchPointsBreakdown(),
+    fetchRevenueBreakdown(),
+    fetchAiQuota(),
     fetchTeamActivity(),
   ])
 
-  return { props: { authenticated: true, health, metrics, activity } }
+  return { props: { authenticated: true, health, metrics, points, revenue, aiQuota, activity } }
 }
 
 export default function OpsPage(props: Props) {
@@ -61,8 +78,42 @@ export default function OpsPage(props: Props) {
     )
   }
 
-  const { health, metrics, activity } = props
+  const { health, metrics, points, revenue, aiQuota, activity } = props
   const overall = overallHealth([health.fe.status, health.be.status, activity.status])
+
+  const pointsBreakdown = (
+    <>
+      <p className="mb-1 text-xs text-ops_text_muted">เข้า</p>
+      {points.in.map((r) => (
+        <BreakdownRow key={r.label} label={r.label} value={`+${r.points.toLocaleString('th-TH')}`} />
+      ))}
+      <p className="mb-1 mt-2 text-xs text-ops_text_muted">ออก</p>
+      {points.out.map((r) => (
+        <BreakdownRow key={r.label} label={r.label} value={r.points.toLocaleString('th-TH')} />
+      ))}
+    </>
+  )
+
+  const revenueBreakdown =
+    revenue.length === 0 ? (
+      <p className="text-xs text-ops_text_muted">ไม่มีรายการวันนี้</p>
+    ) : (
+      <>
+        <SegmentedBar segments={revenue.map((r) => ({ label: r.plan, amount: r.amount }))} />
+        {revenue.map((r) => (
+          <BreakdownRow key={r.plan} label={r.plan} value={`฿${r.amount.toLocaleString('th-TH')}`} />
+        ))}
+      </>
+    )
+
+  const aiQuotaBreakdown = (
+    <>
+      <BreakdownRow label="welcome ฟรีเริ่มต้น" value={aiQuota.welcome.toLocaleString('th-TH')} />
+      {aiQuota.purchasedByPlan.map((p) => (
+        <BreakdownRow key={p.plan} label={p.plan} value={p.credits.toLocaleString('th-TH')} />
+      ))}
+    </>
+  )
 
   return (
     <>
@@ -70,43 +121,66 @@ export default function OpsPage(props: Props) {
         <title>Ops Dashboard — MuMate</title>
       </Head>
       <main className="min-h-screen bg-ops_bg p-4 font-ibm text-ops_text sm:p-6 lg:p-8">
-      <div className="mx-auto max-w-5xl space-y-6">
-        <h1 className="sr-only">MuMate Ops Dashboard</h1>
-        <HeroStrip overall={overall} />
+        <div className="mx-auto max-w-5xl space-y-6">
+          <h1 className="sr-only">MuMate Ops Dashboard</h1>
+          <HeroStrip overall={overall} />
 
-        <section>
-          <h2 className="mb-3 text-sm font-semibold text-ops_text_muted">System Health</h2>
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <HealthCard service={health.fe} />
-            <HealthCard service={health.be} />
-          </div>
-        </section>
+          <section>
+            <h2 className="mb-3 text-sm font-semibold text-ops_text_muted">System Health</h2>
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <HealthCard service={health.fe} />
+              <HealthCard service={health.be} />
+            </div>
+          </section>
 
-        <section>
-          <h2 className="mb-3 text-sm font-semibold text-ops_text_muted">Business Metrics — {metrics.rangeLabel}</h2>
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            <MetricCard title="ขอดูดวง" value={metrics.calculate.count} delta={metrics.calculate.delta} unit="ครั้ง" />
-            <MetricCard title="Survey" value={metrics.survey.count} delta={metrics.survey.delta} unit="ครั้ง" />
-            <MetricCard
-              title="แต้ม"
-              value={metrics.activityPoints.points}
-              delta={metrics.activityPoints.deltaPoints}
-              unit="พอยต์"
-            />
-            <MetricCard
-              title="Revenue"
-              value={metrics.revenue.amount}
-              delta={metrics.revenue.deltaAmount}
-              unit="บาท"
-            />
-          </div>
-        </section>
+          <section>
+            <h2 className="mb-3 text-sm font-semibold text-ops_text_muted">Business Metrics — {metrics.rangeLabel}</h2>
+            <div className="grid grid-cols-1 gap-4 lg:grid-cols-5">
+              <MetricCard
+                title="ขอดูดวง"
+                subtitle="ครั้ง·วันนี้"
+                value={metrics.calculate.count}
+                delta={metrics.calculate.delta}
+                unit="ครั้ง"
+              />
+              <MetricCard
+                title="Survey"
+                subtitle="ครั้ง·วันนี้"
+                value={metrics.survey.count}
+                delta={metrics.survey.delta}
+                unit="ครั้ง"
+              />
+              <MetricCard
+                title="แต้ม"
+                subtitle="สุทธิ·เข้าออก"
+                value={metrics.activityPoints.points}
+                delta={metrics.activityPoints.deltaPoints}
+                unit="พอยต์"
+                breakdown={pointsBreakdown}
+              />
+              <MetricCard
+                title="Revenue"
+                subtitle="รวม 3 แพลน"
+                value={metrics.revenue.amount}
+                delta={metrics.revenue.deltaAmount}
+                unit="บาท"
+                breakdown={revenueBreakdown}
+              />
+              <QuotaCard
+                title="AI Chat"
+                subtitle="เครดิตสะสม·ไม่รวม MEMBER"
+                used={aiQuota.used}
+                capacity={aiQuota.granted}
+                breakdown={aiQuotaBreakdown}
+              />
+            </div>
+          </section>
 
-        <section>
-          <h2 className="mb-3 text-sm font-semibold text-ops_text_muted">Team Activity</h2>
-          <ActivityList activity={activity} />
-        </section>
-      </div>
+          <section>
+            <h2 className="mb-3 text-sm font-semibold text-ops_text_muted">Team Activity</h2>
+            <ActivityList activity={activity} />
+          </section>
+        </div>
       </main>
     </>
   )
