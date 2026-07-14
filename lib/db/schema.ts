@@ -1,4 +1,4 @@
-import { pgTable, bigserial, text, varchar, bigint, doublePrecision, json, index, boolean, primaryKey, uuid, timestamp } from "drizzle-orm/pg-core"
+import { pgTable, bigserial, text, varchar, bigint, doublePrecision, json, index, boolean, primaryKey, uuid, timestamp, integer } from "drizzle-orm/pg-core"
 import { sql } from "drizzle-orm"
 
 // ───────────────────────────────────────────────────────────────────────────────────
@@ -416,7 +416,12 @@ export const logAi = pgTable("log_ai", {
 	aiType: varchar("ai_type", { length: 255 }).notNull(),
 	createAt: varchar("create_at", { length: 255 }).notNull(),
 	message: text().notNull(),
-});
+}, (table) => [
+	// #mumate-ops-dashboard-pr56 — same pattern as the 4 indexes added in PR#55
+	// (lib/db/0002_add_ops_date_indexes.sql): date-range filters on this varchar column were a
+	// Seq Scan (small today, 801 rows, but same growth risk as the others).
+	index("idx_ops_log_ai_createat").using("btree", table.createAt.asc().nullsLast().op("text_ops")),
+]);
 
 export const logMatching = pgTable("log_matching", {
 	matchingId: varchar("matching_id", { length: 255 }).primaryKey().notNull(),
@@ -619,6 +624,12 @@ export const memberPayAsUse = pgTable("member_pay_as_use", {
 	total: bigint({ mode: "number" }).notNull(),
 	updateAt: varchar("update_at", { length: 255 }).notNull(),
 	userId: varchar("user_id", { length: 255 }).primaryKey().notNull(),
+	// Added to match live DB (#mumate-ops-dashboard-pr56) — this column already exists in
+	// production, created by mootech-be's own migration
+	// (member-pay-as-use/migrations/2026-06-26-wallet-balance.sql), NOT by this repo. schema.ts
+	// was just never updated to know about it. Decrement-only spendable wallet balance; `total`
+	// stays a cumulative-purchased audit trail. Verified live: information_schema says `integer`.
+	balance: integer("balance").notNull().default(0),
 });
 
 export const otp = pgTable("otp", {

@@ -10,7 +10,7 @@
 // (verified via EXPLAIN — see PR description).
 import { and, eq, gte, lt, sql } from 'drizzle-orm'
 import { db } from '@/lib/db'
-import { logActivity, logCalculate, logSurvey, payment } from '@/lib/db/schema'
+import { activity, logActivity, logCalculate, logSurvey, payment } from '@/lib/db/schema'
 
 export type DateRange = { start: string; end: string; label: string }
 
@@ -86,6 +86,61 @@ async function fetchRawTotals(range: DateRange): Promise<RawTotals> {
     revenueCount: Number(revenueRows[0]?.n ?? 0),
     revenueAmount: Number(revenueRows[0]?.amount ?? 0),
   }
+}
+
+// Thai display labels for the `activity` table (id 1-4, verified live 2026-07-14: New
+// Register/Friend Get Friend/Love Mate/Work Vibe — no other ids exist). Keyed by the DB
+// description so a renumbered id still resolves; an activity added later without an entry here
+// falls back to its raw description rather than being silently dropped (see fetchPointsBreakdown).
+const ACTIVITY_LABEL_TH: Record<string, string> = {
+  'New Register': 'สมัครใหม่',
+  'Friend Get Friend': 'ชวนเพื่อน',
+  'Love Mate': 'ดูดวงคู่รัก',
+  'Work Vibe': 'ดูดวงเรื่องงาน',
+}
+
+export type PointsBreakdownRow = { label: string; points: number }
+export type PointsBreakdown = { in: PointsBreakdownRow[]; out: PointsBreakdownRow[] }
+
+// Direction (เข้า/ออก) comes from the SIGN of today's summed points per activity, not a
+// hardcoded id map — so a future activity type with unexpected sign still lands correctly
+// instead of silently miscategorized. Pure + exported so this decision is unit-testable without
+// a DB round-trip (0 lands in `in`, matching "no negative activity happened" rather than being
+// dropped).
+export function categorizePointsRows(rows: Array<{ description: string; points: number }>): PointsBreakdown {
+  const result: PointsBreakdown = { in: [], out: [] }
+  for (const row of rows) {
+    const points = Number(row.points)
+    const label = ACTIVITY_LABEL_TH[row.description] ?? row.description
+    ;(points >= 0 ? result.in : result.out).push({ label, points })
+  }
+  return result
+}
+
+export async function fetchPointsBreakdown(range: DateRange = todayBangkokRange()): Promise<PointsBreakdown> {
+  const rows = await db
+    .select({
+      description: activity.description,
+      points: sql<number>`coalesce(sum(${logActivity.point}), 0)`,
+    })
+    .from(logActivity)
+    .innerJoin(activity, eq(activity.id, logActivity.activityId))
+    .where(and(gte(logActivity.createat, range.start), lt(logActivity.createat, range.end)))
+    .groupBy(activity.description)
+
+  return categorizePointsRows(rows.map((r) => ({ description: r.description, points: Number(r.points) })))
+}
+
+export type RevenueBreakdownRow = { plan: string; amount: number }
+
+export async function fetchRevenueBreakdown(range: DateRange = todayBangkokRange()): Promise<RevenueBreakdownRow[]> {
+  const rows = await db
+    .select({ plan: payment.paymentPlan, amount: sql<number>`coalesce(sum(${payment.amount}), 0)` })
+    .from(payment)
+    .where(and(eq(payment.status, 'APPROVED'), gte(payment.submitAt, range.start), lt(payment.submitAt, range.end)))
+    .groupBy(payment.paymentPlan)
+
+  return rows.map((r) => ({ plan: r.plan, amount: Number(r.amount) }))
 }
 
 export async function fetchBusinessMetrics(

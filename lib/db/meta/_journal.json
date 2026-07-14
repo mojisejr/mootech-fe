@@ -22,6 +22,13 @@
       "when": 1784008073520,
       "tag": "0002_add_ops_date_indexes",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1784020973289,
+      "tag": "0003_pr56-metrics-upgrade",
+      "breakpoints": true
     }
   ]
 }
