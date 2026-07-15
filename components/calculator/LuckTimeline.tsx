@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { elementColor, elementLabel } from '@/lib/calculator/elements'
 import type { AnnualLuckItem, DecadeLuckItem } from '@/lib/calculator/map-timeline'
 import { findDecadePhasePair, findLiuNianForYear, thaiToBaziElement } from '@/lib/calculator/map-enrichment'
+import { displayQi, displayReaction } from '@/lib/calculator/enrichment-labels'
 import type { Enrichment } from '@/pages/api/calculator/compute'
 
 function ScrubStrip<T>({
@@ -127,7 +128,7 @@ export function LuckTimeline({
               {decadePhases.upper && (
                 <>
                   {' '}
-                  · เชี่ยงแซ: {decadePhases.upper.qi} · {decadePhases.upper.reaction} (ดิถี)
+                  · เชี่ยงแซ: {displayQi(decadePhases.upper.qi)} · {displayReaction(decadePhases.upper.reaction)} (ดิถี)
                 </>
               )}
             </p>
@@ -149,8 +150,8 @@ export function LuckTimeline({
                           {decadePhases.upper.ageRange} ({decadePhases.upper.place})
                         </p>
                         <DetailRow label="สัญลักษณ์" value={`${decadePhases.upper.symbol} · ${decadePhases.upper.element}`} />
-                        <DetailRow label="เชี่ยงแซ" value={decadePhases.upper.qi} />
-                        <DetailRow label="ปฏิกิริยา (ดิถี)" value={decadePhases.upper.reaction} />
+                        <DetailRow label="เชี่ยงแซ" value={displayQi(decadePhases.upper.qi)} />
+                        <DetailRow label="ปฏิกิริยา (ดิถี)" value={displayReaction(decadePhases.upper.reaction)} />
                       </div>
                     )}
                     {decadePhases.lower && (
@@ -159,8 +160,8 @@ export function LuckTimeline({
                           {decadePhases.lower.ageRange} ({decadePhases.lower.place})
                         </p>
                         <DetailRow label="สัญลักษณ์" value={`${decadePhases.lower.symbol} · ${decadePhases.lower.element}`} />
-                        <DetailRow label="เชี่ยงแซ" value={decadePhases.lower.qi} />
-                        <DetailRow label="ปฏิกิริยา (ดิถี)" value={decadePhases.lower.reaction} />
+                        <DetailRow label="เชี่ยงแซ" value={displayQi(decadePhases.lower.qi)} />
+                        <DetailRow label="ปฏิกิริยา (ดิถี)" value={displayReaction(decadePhases.lower.reaction)} />
                       </div>
                     )}
                   </div>
@@ -203,7 +204,7 @@ export function LuckTimeline({
             </div>
             {yearEnrichment && (
               <p className="mt-2 text-center font-ibm text-sm text-calc_muted" data-testid="annual-tier1">
-                เชี่ยงแซ: {yearEnrichment.qi} · {yearEnrichment.reaction} (ดิถี)
+                เชี่ยงแซ: {displayQi(yearEnrichment.qi)} · {displayReaction(yearEnrichment.reaction)} (ดิถี)
                 {(yearEnrichment.clash || yearEnrichment.harm) && (
                   <>
                     {' '}
