@@ -85,8 +85,8 @@ export function LuckTimeline({
       {/* วัยจร */}
       <section>
         <div className="mb-2.5 flex items-center gap-2">
-          <h2 className="font-prompt text-[15px] font-semibold text-moumate_black">วัยจร</h2>
-          <span className="ml-auto font-ibm text-[11px] text-calc_muted">แตะช่วงอายุเพื่อดูรายละเอียด</span>
+          <h2 className="font-prompt text-[15px] font-semibold text-white">วัยจร</h2>
+          <span className="ml-auto font-ibm text-[11px] text-white/80">แตะช่วงอายุเพื่อดูรายละเอียด</span>
         </div>
         <div className="flex gap-2.5 overflow-x-auto pb-2" data-testid="decade-strip" style={{ scrollSnapType: 'x mandatory' }}>
           {decades.map((d, i) => {
@@ -126,8 +126,8 @@ export function LuckTimeline({
       {/* ปีจร */}
       <section>
         <div className="mb-2.5 flex items-center gap-2">
-          <h2 className="font-prompt text-[15px] font-semibold text-moumate_black">ปีจร</h2>
-          <span className="ml-auto font-ibm text-[11px] text-calc_muted">แตะปีเพื่อดูรายละเอียด</span>
+          <h2 className="font-prompt text-[15px] font-semibold text-white">ปีจร</h2>
+          <span className="ml-auto font-ibm text-[11px] text-white/80">แตะปีเพื่อดูรายละเอียด</span>
         </div>
         <div className="flex gap-2.5 overflow-x-auto pb-2" data-testid="annual-strip" style={{ scrollSnapType: 'x mandatory' }}>
           {annual.map((y, i) => {
@@ -162,7 +162,7 @@ export function LuckTimeline({
           })}
         </div>
         {timelineBadgeOverflow > 0 && (
-          <p className="mt-1 text-right font-ibm text-[11px] text-calc_muted" data-testid="timeline-badge-overflow">
+          <p className="mt-1 text-right font-ibm text-[11px] text-white/80" data-testid="timeline-badge-overflow">
             +{timelineBadgeOverflow} เพิ่มเติม
           </p>
         )}

@@ -22,8 +22,7 @@ export function StrengthMeter({
 
   return (
     <section
-      className="rounded-2xl border p-4 lg:p-5"
-      style={{ borderColor: hexToRgba(color, 0.22), background: hexToRgba(color, 0.05) }}
+      className="rounded-2xl border border-white/50 bg-white/90 p-4 shadow-custom backdrop-blur-md lg:p-5"
       data-testid="strength-meter"
       data-strength-band={band.id}
       aria-label={`กำลังดิถี ${band.displayLabel}`}

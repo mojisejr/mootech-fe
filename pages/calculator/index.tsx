@@ -14,8 +14,7 @@ import type { GetServerSideProps } from 'next'
 import Head from 'next/head'
 import Image from 'next/image'
 import { issueNonce, NONCE_COOKIE } from '@/lib/calculator/nonce'
-import { hexToRgba } from '@/lib/calculator/color'
-import { elementColor, ELEMENT_LABEL_TH, type BaziElement } from '@/lib/calculator/elements'
+import { ELEMENT_LABEL_TH, type BaziElement } from '@/lib/calculator/elements'
 import { mapPillarColumns } from '@/lib/calculator/map-pillars'
 import { mapDecadeLuck, mapAnnualLuck } from '@/lib/calculator/map-timeline'
 import HeaderMuMate from '@/components/header-v2'
@@ -130,72 +129,42 @@ export default function CalculatorPage() {
           )}
 
           {phase === 'result' && result && (
-            <div className="pb-16">
-              {/* teal hero band — index mood; the ดิถี headline is the h1 */}
-              <div className="px-4 pb-16 pt-6 text-center text-white">
+            <div className="mx-auto max-w-2xl px-4 pb-20 pt-4">
+              {/* hero — ดิถี circle IS the answer ("คุณเป็นคนธาตุ…"), on the teal canvas (no white card) */}
+              <div className="text-center text-white">
                 <p className="inline-flex items-center gap-1.5 font-ibm text-[13px] text-white/90">
                   <Image src="/images/mumate/ic_sparkles.svg" width={16} height={16} alt="" aria-hidden="true" />
                   ผังดวงจีนของคุณ · ฟรี ไม่ต้องล็อกอิน
                 </p>
-                <h1 className="mt-2 font-prompt text-[26px] font-semibold leading-snug">
-                  ดิถีของคุณคือ{' '}
-                  <span className="font-chonburi text-[#F3FCA2]">{ditiGlyph}</span>
-                  {ditiElement && <span className="text-[#F3FCA2]"> · ธาตุ{ELEMENT_LABEL_TH[ditiElement]}</span>}
+                <h1 className="mb-6 mt-2 font-prompt text-[24px] font-semibold leading-snug">
+                  คุณเป็นคน
+                  {ditiElement ? <span className="text-[#F3FCA2]">ธาตุ{ELEMENT_LABEL_TH[ditiElement]}</span> : 'ธาตุ…'}
                 </h1>
+                <DitiHero glyph={ditiGlyph} element={ditiElement} reveal />
               </div>
 
-              {/* white result card — floats on teal, overlaps the hero band (bridge). Keeps the
-                  verified glow-on-light: element radial tint lives on THIS white surface, not teal. */}
-              <div
-                className="mx-auto -mt-8 max-w-2xl rounded-[26px] bg-moumate_white px-4 pb-8 pt-2 shadow-custom sm:px-6"
-                style={
-                  ditiElement
-                    ? {
-                        backgroundImage: `radial-gradient(120% 60% at 50% 8%, ${hexToRgba(elementColor(ditiElement), 0.08)} 0%, transparent 58%)`,
-                      }
-                    : undefined
-                }
-              >
-                {/* ดิถี hero — sits near the top of the card (which itself overlaps the teal band),
-                    so it reads as emerging from the brand. Aura stays fully on white (glow-on-light
-                    invariant). No caption here — the teal headline above already names the ดิถี. */}
-                <div className="flex flex-col items-center pt-5">
-                  <DitiHero glyph={ditiGlyph} element={ditiElement} reveal />
+              {/* กำลังดิถี — real strengthScore, frosted pill under the hero (the self's power) */}
+              {typeof strengthScore === 'number' && (
+                <div className="mx-auto mt-6 max-w-md">
+                  <StrengthMeter score={strengthScore} element={ditiElement} bandId={(result.enrichment as any)?.strengthBand?.id} />
                 </div>
+              )}
 
-                {/* กำลังดิถี — real strengthScore, attached under the hero (the self's power) */}
-                {typeof strengthScore === 'number' && (
-                  <div className="mx-auto mt-5 max-w-md">
-                    <StrengthMeter score={strengthScore} element={ditiElement} bandId={(result.enrichment as any)?.strengthBand?.id} />
-                  </div>
-                )}
+              {/* connector: hero → the ผัง below */}
+              <div aria-hidden="true" className="mx-auto my-7 h-7 w-px bg-white/35" />
 
-                {/* connector: hero → the day pillar in the ผัง below (composition assist) */}
-                <div
-                  aria-hidden="true"
-                  className="mx-auto my-7 h-7 w-px"
-                  style={{
-                    background: ditiElement
-                      ? `linear-gradient(to bottom, ${hexToRgba(elementColor(ditiElement), 0.35)}, ${hexToRgba(elementColor(ditiElement), 0)})`
-                      : undefined,
-                  }}
-                />
+              <p className="mb-3 text-center font-ibm text-[13px] text-white/90">พื้นดวง · ลัคนา · ยาม · วัน · เดือน · ปี</p>
+              <PillarGrid
+                columns={columns}
+                reveal
+                badges={(result?.enrichment?.badges ?? []).filter((b) => b.point.startsWith('pillar-'))}
+              />
 
-                <div className="relative">
-                  <p className="mb-3 text-center font-ibm text-xs text-calc_muted">พื้นดวง · ลัคนา · ยาม · วัน · เดือน · ปี</p>
-                  <PillarGrid
-                    columns={columns}
-                    reveal
-                    badges={(result?.enrichment?.badges ?? []).filter((b) => b.point.startsWith('pillar-'))}
-                  />
-                </div>
-
-                <div className="mt-9">
-                  <LuckTimeline decades={decades} annual={annual} enrichment={result?.enrichment ?? null} />
-                </div>
-
-                <CtaEarned onTryAnother={handleTryAnother} />
+              <div className="mt-9">
+                <LuckTimeline decades={decades} annual={annual} enrichment={result?.enrichment ?? null} />
               </div>
+
+              <CtaEarned onTryAnother={handleTryAnother} />
             </div>
           )}
         </div>
