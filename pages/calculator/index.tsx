@@ -156,10 +156,10 @@ export default function CalculatorPage() {
                     : undefined
                 }
               >
-                {/* ดิถี hero — sits at the very top of the card, grazing the seam so it reads as
-                    emerging from the teal. Aura stays on white (glow-on-light invariant). */}
-                <div className="-mt-6 flex flex-col items-center">
-                  <p className="mb-4 font-ibm text-sm text-calc_muted">ดิถีประจำตัวของคุณ</p>
+                {/* ดิถี hero — sits near the top of the card (which itself overlaps the teal band),
+                    so it reads as emerging from the brand. Aura stays fully on white (glow-on-light
+                    invariant). No caption here — the teal headline above already names the ดิถี. */}
+                <div className="flex flex-col items-center pt-5">
                   <DitiHero glyph={ditiGlyph} element={ditiElement} reveal />
                 </div>
 
