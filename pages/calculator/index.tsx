@@ -9,7 +9,8 @@
 // stay intact. The ดิถี hero is kept and bridges the teal→white seam; กำลังดิถี (strengthScore, real
 // data) sits under it. Per-pillar 12-เชี่ยงแซ + pillar tap-sheet land in Phase 2 (needs goo's
 // public-calc `pillars`/`strengthBand` fields — see FROZEN note).
-import { useCallback, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
+import { useReducedMotion } from 'framer-motion'
 import type { GetServerSideProps } from 'next'
 import Head from 'next/head'
 import Image from 'next/image'
@@ -49,12 +50,40 @@ type ComputeResult = {
 
 type Phase = 'form' | 'ritual' | 'result'
 
+// อายุจีน = อายุไทย + 1 — computed frontend from the entered dob (no backend; goo confirmed the
+// table is FE-only). Thai age = years since birth, minus one if this year's birthday hasn't passed.
+function computeAges(dob?: string): { thaiAge: number; chineseAge: number } | null {
+  if (!dob) return null
+  const [y, m, d] = dob.split('-').map(Number)
+  if (!y || !m || !d) return null
+  const now = new Date()
+  const reached = now.getMonth() + 1 > m || (now.getMonth() + 1 === m && now.getDate() >= d)
+  const thaiAge = Math.max(now.getFullYear() - y - (reached ? 0 : 1), 0)
+  return { thaiAge, chineseAge: thaiAge + 1 }
+}
+
 export default function CalculatorPage() {
   const [phase, setPhase] = useState<Phase>('form')
   const [result, setResult] = useState<ComputeResult | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [isRepeat, setIsRepeat] = useState(false)
   const [pendingInput, setPendingInput] = useState<BirthFormValue | null>(null)
+  const inputRef = useRef<HTMLElement>(null)
+  const prefersReducedMotion = useReducedMotion()
+  // Gate motion-dependent markup to after mount so SSR/first-client render is deterministic
+  // (useReducedMotion resolves client-side only → animating className mismatches on hydration).
+  const [mounted, setMounted] = useState(false)
+  useEffect(() => setMounted(true), [])
+
+  // ACT 1 → ACT 2 (#calculator-hero-flow): gentle smooth-scroll to the input, then move focus into
+  // it. Motion doctrine = minimal — the hero doesn't move/scale, we only scroll and the input fades
+  // in on arrival. reduced-motion: instant jump.
+  const scrollToInput = useCallback(() => {
+    const el = inputRef.current
+    if (!el) return
+    el.scrollIntoView({ block: 'center', behavior: prefersReducedMotion ? 'auto' : 'smooth' })
+    el.focus({ preventScroll: true })
+  }, [prefersReducedMotion])
 
   const handleSubmit = useCallback((value: BirthFormValue) => {
     setError(null)
@@ -104,6 +133,7 @@ export default function CalculatorPage() {
   const decades = result ? mapDecadeLuck(result.cycleLife) : []
   const annual = result ? mapAnnualLuck(result.cycleYearLife) : []
   const strengthScore = result?.enrichment?.strengthScore
+  const ages = computeAges(pendingInput?.dob)
 
   return (
     <>
@@ -112,29 +142,73 @@ export default function CalculatorPage() {
         <meta name="robots" content="noindex" />
       </Head>
       <main className="min-h-screen" style={{ background: TEAL_CANVAS }}>
-        <HeaderMuMate isShowMenu={false} isLogin={false} isShowProfile={false} image={HEADER_LOGO} />
+        <HeaderMuMate isShowMenu={false} isLogin={false} isShowProfile={true} gateByLogin image={HEADER_LOGO} />
 
         <div className="pt-[60px]">
           {phase === 'form' && (
-            <div className="px-4 pb-16 pt-8">
-              <div className="mb-5 text-center text-white">
-                <p className="inline-flex items-center gap-1.5 font-ibm text-[13px] text-white/90">
-                  <Image src="/images/mumate/ic_sparkles.svg" width={16} height={16} alt="" aria-hidden="true" />
-                  ผังดวงจีนของคุณ · ฟรี ไม่ต้องล็อกอิน
+            <>
+              {/* ACT 1 — HERO (index marketing tone; greets before the calculator so it never reads
+                  as a bare tool). ข้อ③ copy lives here. */}
+              <section className="flex min-h-[calc(100vh-60px)] flex-col items-center justify-center px-6 pb-8 pt-6 text-center text-white">
+                <Image src="/images/mumate/ic_sparkles.svg" width={36} height={36} alt="" aria-hidden="true" />
+                <h1 className="mt-2 font-prompt text-[32px] font-semibold leading-tight">
+                  Mumate ดูดวงแบบ
+                  <br />
+                  <span className="text-[#F3FCA2]">Personal Destiny</span>
+                </h1>
+                <p className="mt-3 max-w-sm font-ibm text-[15px] text-white/90">
+                  AI อัจฉริยะ ดูดวงละเอียด การงาน เงิน ความรัก
+                  <br />
+                  รู้ลึก รู้จริง · ไม่ต้องรอคิว
                 </p>
-              </div>
-              {error && <p className="mx-auto mb-4 max-w-md text-center font-ibm text-sm text-[#FFE1DE]">{error}</p>}
-              <BirthForm onSubmit={handleSubmit} />
-            </div>
+                <Image
+                  src="/images/mumate/img_footer_login.png"
+                  width={280}
+                  height={200}
+                  alt=""
+                  aria-hidden="true"
+                  className="my-6 h-auto w-[240px]"
+                  priority
+                />
+                <div className="relative">
+                  <button
+                    type="button"
+                    onClick={scrollToInput}
+                    className="flex items-center gap-2 rounded-[40px] bg-white px-8 py-3.5 font-prompt text-lg font-semibold text-[#1B9AAF] shadow-custom"
+                  >
+                    คำนวนฟรี
+                    <Image src="/images/mumate/ic_arrow_next.svg" width={26} height={26} alt="" aria-hidden="true" />
+                  </button>
+                  <Image
+                    src="/images/mumate/ic_sparkles.svg"
+                    width={26}
+                    height={26}
+                    alt=""
+                    aria-hidden="true"
+                    className="pointer-events-none absolute -left-2 -top-2"
+                  />
+                </div>
+                <button
+                  type="button"
+                  onClick={scrollToInput}
+                  aria-label="เลื่อนไปกรอกวันเกิด"
+                  className={'mt-8 text-2xl text-white/80' + (mounted && !prefersReducedMotion ? ' animate-bounce' : '')}
+                >
+                  ⌄
+                </button>
+              </section>
+
+              {/* ACT 2 — INPUT (same page, revealed by the smooth-scroll). No entrance animation:
+                  the scroll IS the motion (minimal doctrine) + keeps this SSR'd section hydration-clean. */}
+              <section ref={inputRef} tabIndex={-1} className="px-4 pb-20 pt-2 outline-none">
+                <p className="mb-4 text-center font-prompt text-lg font-semibold text-white">กรอกวันเกิดเพื่อดูผัง</p>
+                {error && <p className="mx-auto mb-4 max-w-md text-center font-ibm text-sm text-[#FFE1DE]">{error}</p>}
+                <BirthForm onSubmit={handleSubmit} />
+              </section>
+            </>
           )}
 
-          {phase === 'ritual' && (
-            <div className="flex min-h-[70vh] items-center justify-center px-4">
-              <div className="w-full max-w-md rounded-[26px] bg-moumate_white p-8 shadow-custom">
-                <RitualLoader onComplete={handleRitualComplete} isRepeat={isRepeat} />
-              </div>
-            </div>
-          )}
+          {phase === 'ritual' && <RitualLoader onComplete={handleRitualComplete} isRepeat={isRepeat} />}
 
           {phase === 'result' && result && (
             <div className="mx-auto max-w-2xl px-4 pb-20 pt-4">
@@ -144,10 +218,15 @@ export default function CalculatorPage() {
                   <Image src="/images/mumate/ic_sparkles.svg" width={16} height={16} alt="" aria-hidden="true" />
                   ผังดวงจีนของคุณ · ฟรี ไม่ต้องล็อกอิน
                 </p>
-                <h1 className="mb-6 mt-2 font-prompt text-[24px] font-semibold leading-snug">
+                <h1 className="mt-2 font-prompt text-[24px] font-semibold leading-snug">
                   คุณเป็นคน
                   {ditiElement ? <span className="text-[#F3FCA2]">ธาตุ{ELEMENT_LABEL_TH[ditiElement]}</span> : 'ธาตุ…'}
                 </h1>
+                {ages && (
+                  <p className="mb-6 mt-1 font-ibm text-[13px] text-white/85">
+                    อายุ {ages.thaiAge} ปี · อายุจีน {ages.chineseAge} ปี
+                  </p>
+                )}
                 <DitiHero glyph={ditiGlyph} element={ditiElement} reveal />
               </div>
 
