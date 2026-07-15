@@ -15,14 +15,19 @@ type ComponentProps = {
   isShowMenu: boolean,
   isLogin: boolean,
   image: string,
-  isShowProfile?: boolean
+  isShowProfile?: boolean,
+  // calc-only opt-in (#calculator-hero-flow): public visitors (not logged in) get a
+  // "เข้าสู่ระบบ / สมัครสมาชิก" button and NO hamburger/menu; members get the menu + upgrade + avatar
+  // back. index.tsx doesn't pass this, so its header behaviour is unchanged.
+  gateByLogin?: boolean
 
 }
 const HeaderMuMate = ({
   isShowMenu,
   isLogin,
   image,
-  isShowProfile = true
+  isShowProfile = true,
+  gateByLogin = false
 }: ComponentProps) => {
 
 
@@ -53,6 +58,8 @@ const HeaderMuMate = ({
   // Use the uuid-validated identity (never the raw cookie) so a stale OAuth access
   // token left in MEMBER_ID can't fire UserGetById(ya29...) -> 400.
   const { userId: resolvedUserId } = useCurrentUser()
+  const isLoggedIn = isLogin || !!resolvedUserId
+  const showMenuTrigger = !gateByLogin || isLoggedIn
 
   useEffect(() => {
     if (resolvedUserId) {
@@ -102,15 +109,17 @@ const HeaderMuMate = ({
 
       <div className='w-full relative'>
           <div className='w-full z-50  bg-[#1B9AAF] fixed top-0 left-0 h-[60px] flex items-center px-4 flex-nowrap'>
-            <div className='w-fit flex flex-none'>
-              <Image
-                src={isShow ? '/images/icons/x.svg' : '/images/mumate/ic_menu.svg'}
-                width={32}
-                height={32}
-                onClick={() => { onClickMenu()}}
-                className=' cursor-pointer '
-                alt='icon-menu' />
-            </div>
+            {showMenuTrigger && (
+              <div className='w-fit flex flex-none'>
+                <Image
+                  src={isShow ? '/images/icons/x.svg' : '/images/mumate/ic_menu.svg'}
+                  width={32}
+                  height={32}
+                  onClick={() => { onClickMenu()}}
+                  className=' cursor-pointer '
+                  alt='icon-menu' />
+              </div>
+            )}
 
             <div className='w-full grow flex pl-4'>
               <Image
@@ -152,6 +161,13 @@ const HeaderMuMate = ({
                 />
                 :
                 isShowProfile == true ?
+                  gateByLogin ?
+                    <button
+                      type='button'
+                      onClick={ () => { gotoLoginWith() }}
+                      className='rounded-full bg-white px-4 py-1.5 text-[13px] font-medium text-[#1B9AAF] cursor-pointer'
+                    >เข้าสู่ระบบ / สมัครสมาชิก</button>
+                  :
                   <span
                     onClick={ () => { gotoLoginWith() }}
                     className=' text-white text-md cursor-pointer '
@@ -166,11 +182,11 @@ const HeaderMuMate = ({
           </div>
           
           {
-              isShow ?
+              isShow && showMenuTrigger ?
               <div className=' w-full flex flex-wrap fixed  top-0 left-0  z-50 '>
-                
+
                 <Menu is_show={isShow} />
-              
+
 
               </div>
               :

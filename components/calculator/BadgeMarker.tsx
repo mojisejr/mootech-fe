@@ -3,6 +3,7 @@ import Image from 'next/image'
 import { badgeIcon, badgePopoverText, type BadgePoint } from '@/lib/calculator/badges'
 
 const POPOVER_WIDTH = 200
+const POPOVER_EST_HEIGHT = 88 // fact-only text is 2–3 lines; used only to decide flip direction
 const VIEWPORT_MARGIN = 8
 
 // Signal-gated badge marker (#calculator-badge-mood-FROZEN-v1) — states: shown (idle icon) <->
@@ -15,17 +16,23 @@ const VIEWPORT_MARGIN = 8
 export function BadgeMarker({ badge, size = 22 }: { badge: BadgePoint; size?: number }) {
   const [tapped, setTapped] = useState(false)
   const [offsetX, setOffsetX] = useState(0)
+  const [flipUp, setFlipUp] = useState(false)
   const markerRef = useRef<HTMLSpanElement>(null)
 
-  // Clamp the popover within the viewport — a fixed "right-0" offset overflows off-screen for
-  // markers near the left edge (found live: ascendant column badges got clipped on a 390px
-  // viewport). Recompute on open since the marker's screen position depends on layout/scroll.
+  // Collision-aware positioning, both axes. Horizontal: a fixed "right-0" offset overflows off-screen
+  // for markers near the left edge (ascendant column, 390px). Vertical: the default below-placement
+  // clips at the bottom edge for markers low in the viewport (ฟีม sent a real cutoff) — flip above
+  // when there isn't room below but there is above. Recompute on open (position depends on scroll).
   useLayoutEffect(() => {
     if (!tapped || !markerRef.current) return
     const rect = markerRef.current.getBoundingClientRect()
     const idealLeft = rect.right - POPOVER_WIDTH
     const clampedLeft = Math.max(VIEWPORT_MARGIN, Math.min(idealLeft, window.innerWidth - POPOVER_WIDTH - VIEWPORT_MARGIN))
     setOffsetX(clampedLeft - idealLeft)
+
+    const roomBelow = window.innerHeight - rect.bottom
+    const roomAbove = rect.top
+    setFlipUp(roomBelow < POPOVER_EST_HEIGHT + VIEWPORT_MARGIN && roomAbove > roomBelow)
   }, [tapped])
 
   return (
@@ -51,7 +58,10 @@ export function BadgeMarker({ badge, size = 22 }: { badge: BadgePoint; size?: nu
       {tapped && (
         <div
           role="tooltip"
-          className="absolute top-full z-20 mt-1 rounded-lg border border-border_gray bg-moumate_white px-3 py-2 text-left font-ibm text-xs text-moumate_black shadow-custom"
+          className={
+            'absolute z-20 rounded-lg border border-border_gray bg-moumate_white px-3 py-2 text-left font-ibm text-xs text-moumate_black shadow-custom ' +
+            (flipUp ? 'bottom-full mb-1' : 'top-full mt-1')
+          }
           style={{ right: 0, width: POPOVER_WIDTH, transform: `translateX(${offsetX}px)` }}
         >
           {badgePopoverText(badge)}
