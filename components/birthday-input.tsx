@@ -104,8 +104,8 @@ const BirthDayInput = ({
         <div className='w-fit flex flex-wrap'>
           <select
             onChange={onChangeDay}
-           defaultValue={selectedDay}
            value={selectedDay}
+           aria-label="วันที่"
           className='w-full bg-moumate_white border border-gray-200 p-[8px] rounded-[10px]'
           >
           {dates.map((d) => (
@@ -115,12 +115,12 @@ const BirthDayInput = ({
            ))}
           </select>
         </div>
-      
+
         <div className='w-fit flex flex-wrap'>
           <select
             onChange={onChangeMonth}
-           defaultValue={selectedMonth}
            value={selectedMonth}
+           aria-label="เดือน"
           className='w-full bg-moumate_white border border-gray-200 p-[8px] rounded-[10px]'
           >
             {months.map((m) => (
@@ -130,12 +130,12 @@ const BirthDayInput = ({
               ))}
           </select>
         </div>
-      
+
         <div className='w-fit flex flex-wrap'>
           <select
             onChange={onChangeYear}
-           defaultValue={selectedYear}
            value={selectedYear}
+           aria-label="ปี"
           className='w-full bg-moumate_white border border-gray-200 p-[8px] rounded-[10px]'
           >
      {years.map((y) => (

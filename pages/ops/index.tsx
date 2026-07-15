@@ -19,6 +19,7 @@ import {
 } from '@/lib/ops/metrics'
 import { fetchAiQuota, type AiQuotaBreakdown } from '@/lib/ops/ai-usage'
 import { fetchTeamActivity, type TeamActivity } from '@/lib/ops/activity'
+import { fetchCalculatorUsage, type CalculatorUsage } from '@/lib/ops/calculator-usage'
 import { GateForm } from '@/components/ops/GateForm'
 import { HeroStrip } from '@/components/ops/HeroStrip'
 import { HealthCard } from '@/components/ops/HealthCard'
@@ -37,6 +38,7 @@ type DashboardProps = {
   revenue: RevenueBreakdownRow[]
   aiQuota: AiQuotaBreakdown
   activity: TeamActivity
+  calculatorUsage: CalculatorUsage
 }
 type Props = GateProps | DashboardProps
 
@@ -54,16 +56,24 @@ export const getServerSideProps: GetServerSideProps<Props> = async (ctx) => {
     return { props: { authenticated: false, users, gateError } }
   }
 
-  const [health, metrics, points, revenue, aiQuota, activity] = await Promise.all([
-    fetchSystemHealth(),
-    fetchBusinessMetrics(),
-    fetchPointsBreakdown(),
-    fetchRevenueBreakdown(),
-    fetchAiQuota(),
-    fetchTeamActivity(),
-  ])
+  // Sequential, not Promise.all: adding fetchCalculatorUsage as a 7th concurrent call
+  // reproducibly hung this page indefinitely (verified live, 2026-07-15 — isolated to a plain
+  // Node script: 7-way Promise.all never returned within 2 minutes; the same 7 calls run
+  // sequentially completed in 1.9s). This is the same class of bug found in PR#56's
+  // fetchAiQuota (two queries hanging when run concurrently on the shared `max: 1` postgres
+  // connection, lib/db/index.ts) — that fix made the queries *inside* one function sequential;
+  // this one makes the *page-level* fan-out sequential too, since apparently the trigger isn't
+  // limited to a single function's own internal concurrency. Root cause still not fully
+  // understood; sequential is the safe, verified-correct choice until it is.
+  const health = await fetchSystemHealth()
+  const metrics = await fetchBusinessMetrics()
+  const points = await fetchPointsBreakdown()
+  const revenue = await fetchRevenueBreakdown()
+  const aiQuota = await fetchAiQuota()
+  const activity = await fetchTeamActivity()
+  const calculatorUsage = await fetchCalculatorUsage()
 
-  return { props: { authenticated: true, health, metrics, points, revenue, aiQuota, activity } }
+  return { props: { authenticated: true, health, metrics, points, revenue, aiQuota, activity, calculatorUsage } }
 }
 
 export default function OpsPage(props: Props) {
@@ -78,7 +88,7 @@ export default function OpsPage(props: Props) {
     )
   }
 
-  const { health, metrics, points, revenue, aiQuota, activity } = props
+  const { health, metrics, points, revenue, aiQuota, activity, calculatorUsage } = props
   const overall = overallHealth([health.fe.status, health.be.status, activity.status])
 
   const pointsBreakdown = (
@@ -115,6 +125,14 @@ export default function OpsPage(props: Props) {
     </>
   )
 
+  const calculatorTrendBreakdown = (
+    <>
+      {calculatorUsage.trend.map((d) => (
+        <BreakdownRow key={d.label} label={d.label} value={d.count.toLocaleString('th-TH')} />
+      ))}
+    </>
+  )
+
   return (
     <>
       <Head>
@@ -135,7 +153,7 @@ export default function OpsPage(props: Props) {
 
           <section>
             <h2 className="mb-3 text-sm font-semibold text-ops_text_muted">Business Metrics — {metrics.rangeLabel}</h2>
-            <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-5">
+            <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-6">
               <MetricCard
                 title="ขอดูดวง"
                 subtitle="ครั้ง·วันนี้"
@@ -172,6 +190,14 @@ export default function OpsPage(props: Props) {
                 used={aiQuota.used}
                 capacity={aiQuota.granted}
                 breakdown={aiQuotaBreakdown}
+              />
+              <MetricCard
+                title="Public Calculator"
+                subtitle="ครั้ง·วันนี้"
+                value={calculatorUsage.today}
+                delta={calculatorUsage.delta}
+                unit="ครั้ง"
+                breakdown={calculatorTrendBreakdown}
               />
             </div>
           </section>
