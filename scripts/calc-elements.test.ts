@@ -44,12 +44,13 @@ function main() {
   })
 
   t('EARTH and METAL are distinguishable (the ΔE collision มุน caught and fixed)', () => {
-    // ΔE isn't computed here (no Lab conversion in this lightweight test), but the fix replaced
-    // METAL's hue family entirely (brown -> slate) — pin that they're not accidentally reverted
-    // to visually-similar browns again.
+    // v2 (#calculator-reframe-v2): METAL returned to GOLD (ฟีม direction) as a glyph tone #8A5E12,
+    // with EARTH shifted to a cooler OLIVE #5F5326 so the pair stays distinguishable — re-verified
+    // externally at CIE76 ΔE 24.0 (>=15). Pin the exact hexes so a naive revert to the old ochre
+    // #8B5F20 / a brighter gold (which would collide again) is caught.
     assert.notEqual(ELEMENT_COLOR.EARTH, ELEMENT_COLOR.METAL)
-    assert.equal(ELEMENT_COLOR.METAL, '#556270')
-    assert.equal(ELEMENT_COLOR.EARTH, '#8B5F20')
+    assert.equal(ELEMENT_COLOR.METAL, '#8A5E12')
+    assert.equal(ELEMENT_COLOR.EARTH, '#5F5326')
   })
 
   t('elementColor falls back to a neutral gray for unknown/missing element, never throws', () => {
