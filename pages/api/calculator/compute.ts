@@ -106,10 +106,34 @@ export type EnrichmentBadge = {
   clash: boolean
 }
 
+// Per-pillar stages from bazi-sft's OWN engine (public-calc `pillars`, PR-A) — glyph + เชี่ยงแซ come
+// from ONE engine so they can never mismatch (data-correctness rule, FROZEN v2). `*Element` are Thai
+// labels (ไม้/ไฟ/ดิน/ทอง/น้ำ) → map with thaiToBaziElement. day pillar omits upper/sitting (ดิถี = no
+// stage). Optional throughout: enrichment is best-effort and may be null/partial.
+export type EnrichmentPillar = {
+  stem: string
+  branch: string
+  stemElement: string
+  branchElement: string
+  upperStageDisplay?: string
+  lowerStageDisplay?: string
+  sittingStage?: string
+}
+
+export type EnrichmentPillars = {
+  ascendant: EnrichmentPillar
+  hour: EnrichmentPillar
+  day: EnrichmentPillar
+  month: EnrichmentPillar
+  year: EnrichmentPillar
+}
+
 export type Enrichment = {
   dayMaster: string
   dayMasterElement: string
   strengthScore: number
+  strengthBand?: { id: string; displayLabel: string }
+  pillars?: EnrichmentPillars
   daYun: DaYunRow[]
   liuNian: LiuNianRow[]
   badges: EnrichmentBadge[]

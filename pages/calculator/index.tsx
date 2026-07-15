@@ -17,6 +17,7 @@ import { issueNonce, NONCE_COOKIE } from '@/lib/calculator/nonce'
 import { ELEMENT_LABEL_TH, type BaziElement } from '@/lib/calculator/elements'
 import { mapPillarColumns } from '@/lib/calculator/map-pillars'
 import { mapDecadeLuck, mapAnnualLuck } from '@/lib/calculator/map-timeline'
+import { thaiToBaziElement } from '@/lib/calculator/map-enrichment'
 import HeaderMuMate from '@/components/header-v2'
 import { BirthForm, type BirthFormValue } from '@/components/calculator/BirthForm'
 import { RitualLoader } from '@/components/calculator/RitualLoader'
@@ -91,8 +92,15 @@ export default function CalculatorPage() {
 
   const columns = result ? mapPillarColumns(result.detail) : []
   const dayColumn = columns.find((c) => c.isDay)
-  const ditiGlyph = dayColumn?.above?.chinese_symbol ?? ''
-  const ditiElement = dayColumn?.above?.element as BaziElement | undefined
+  // ดิถี glyph/element: prefer bazi-sft's own day pillar (enrichment.pillars) so the hero glyph, its
+  // strength, and the pillar เชี่ยงแซ all come from ONE engine (data-correctness rule). Fall back to
+  // mootech-be's day column when enrichment is unavailable.
+  const enrichmentPillars = result?.enrichment?.pillars
+  const ditiEnrich = enrichmentPillars?.day
+  const ditiGlyph = ditiEnrich?.stem ?? dayColumn?.above?.chinese_symbol ?? ''
+  const ditiElement = (ditiEnrich ? thaiToBaziElement(ditiEnrich.stemElement) : dayColumn?.above?.element) as
+    | BaziElement
+    | undefined
   const decades = result ? mapDecadeLuck(result.cycleLife) : []
   const annual = result ? mapAnnualLuck(result.cycleYearLife) : []
   const strengthScore = result?.enrichment?.strengthScore
@@ -156,6 +164,7 @@ export default function CalculatorPage() {
               <p className="mb-3 text-center font-ibm text-[13px] text-white/90">พื้นดวง · ลัคนา · ยาม · วัน · เดือน · ปี</p>
               <PillarGrid
                 columns={columns}
+                enrichmentPillars={enrichmentPillars}
                 reveal
                 badges={(result?.enrichment?.badges ?? []).filter((b) => b.point.startsWith('pillar-'))}
               />
