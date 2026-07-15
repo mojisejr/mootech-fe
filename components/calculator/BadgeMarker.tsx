@@ -12,7 +12,7 @@ const VIEWPORT_MARGIN = 8
 //
 // Popover text is fact-only, always phrased against ดิถี, no promise/prediction language (too's
 // word-ban list — see lib/calculator/badges.ts's badgePopoverText for the exact wording rule).
-export function BadgeMarker({ badge, size = 18 }: { badge: BadgePoint; size?: number }) {
+export function BadgeMarker({ badge, size = 22 }: { badge: BadgePoint; size?: number }) {
   const [tapped, setTapped] = useState(false)
   const [offsetX, setOffsetX] = useState(0)
   const markerRef = useRef<HTMLSpanElement>(null)
@@ -38,10 +38,14 @@ export function BadgeMarker({ badge, size = 18 }: { badge: BadgePoint; size?: nu
         }}
         aria-label={badgePopoverText(badge)}
         aria-expanded={tapped}
-        className="flex items-center justify-center rounded-full bg-moumate_white shadow-custom"
+        // Deliberately bolder than the plain ambient reaction-dot (6px, no border, flat color) —
+        // found live that at thumbnail scale a same-language small dot reads as decorative noise,
+        // undermining "badge = signal, most blocks stay calm" (มุน's PR#58 review finding). A
+        // filled accent ring + larger icon makes "there's a real signal here" unmistakable.
+        className="flex items-center justify-center rounded-full border-2 border-moumate_blue bg-moumate_white shadow-custom"
         style={{ width: size, height: size }}
       >
-        <Image src={badgeIcon(badge.role)} width={size - 4} height={size - 4} alt="" aria-hidden="true" />
+        <Image src={badgeIcon(badge.role)} width={size - 8} height={size - 8} alt="" aria-hidden="true" />
       </button>
 
       {tapped && (

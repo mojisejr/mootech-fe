@@ -59,7 +59,7 @@ function ScrubStrip<T>({
               </span>
               <span className="mt-1 text-[11px] text-calc_muted">{renderLabel(item)}</span>
             </button>
-            {badge && <BadgeMarker badge={badge} size={16} />}
+            {badge && <BadgeMarker badge={badge} size={20} />}
           </div>
         )
       })}

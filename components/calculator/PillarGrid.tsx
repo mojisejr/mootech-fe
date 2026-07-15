@@ -53,7 +53,7 @@ function GlyphBox({ slot, isDay, badge }: { slot: PillarSlot; isDay: boolean; ba
       </div>
       {/* ดิถี hero ห้ามมี badge เด็ดขาด — invariant enforced by isDay guard at the call site below,
           not just by the backend never emitting a pillar-day badge. */}
-      {badge && !isDay && <BadgeMarker badge={badge} size={16} />}
+      {badge && !isDay && <BadgeMarker badge={badge} size={20} />}
     </div>
   )
 }

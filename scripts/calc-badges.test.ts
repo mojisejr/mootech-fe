@@ -78,8 +78,8 @@ function main() {
 
   t('badgeIcon: wealth and power map to distinct existing assets', () => {
     assert.notEqual(badgeIcon('wealth'), badgeIcon('power'))
-    assert.ok(badgeIcon('wealth').startsWith('/images/mumate/'))
-    assert.ok(badgeIcon('power').startsWith('/images/mumate/'))
+    assert.ok(badgeIcon('wealth').startsWith('/images/box/'))
+    assert.ok(badgeIcon('power').startsWith('/images/box/'))
   })
 
   t('badgePopoverText: fact-only phrasing, always compares against ดิถี, includes clash note only when clash=true', () => {

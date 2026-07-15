@@ -7,11 +7,14 @@ import type { EnrichmentBadge } from '@/pages/api/calculator/compute'
 export type BadgeRole = 'wealth' | 'power'
 export type BadgePoint = EnrichmentBadge
 
-// Placeholder subset (มุนยังไม่ confirm เต็มตาม FROZEN v1 — "ic_holo/ic_next icon mapping ยืนยัน
-// ตอนมุนทำ badge component จริง") — reuses existing topic icons already in
-// public/images/mumate/ as a reasonable stand-in, easy to swap once confirmed.
+// Final icon map confirmed by มุน (2026-07-15, PR#58 review round) — public/images/box/, NOT
+// mumate/ (verified the files exist there: ic_graph/ic_job/ic_charm/ic_behavior/ic_color/
+// ic_warning/ic_lifestyle/ic_love/ic_holo/ic_next, a pre-existing 10-icon topic set). Swapped from
+// the original placeholder guess (ic_love=wealth, ic_work=power — มุน corrected this pairing).
+// ic_next is reserved for nav ("ดูต่อ" arrows), never a domain badge. ic_holo excluded — no
+// "ภาพรวม" role exists in the current wealth/power-only badge system.
 export function badgeIcon(role: BadgeRole): string {
-  return role === 'wealth' ? '/images/mumate/ic_love_topic.svg' : '/images/mumate/ic_work_topic.svg'
+  return role === 'wealth' ? '/images/box/ic_graph.svg' : '/images/box/ic_job.svg'
 }
 
 // Word-ban list ของ too (ห้าม โอกาส/ระวัง/รุ่งเรือง ฯลฯ) — fact ล้วน เทียบดิถีเสมอ, ไม่ใช่คำสัญญา.
