@@ -1,7 +1,8 @@
 import { useState } from 'react'
 import { elementColor, elementLabel } from '@/lib/calculator/elements'
+import { hexToRgba } from '@/lib/calculator/color'
 import type { AnnualLuckItem, DecadeLuckItem } from '@/lib/calculator/map-timeline'
-import { findDecadePhasePair, findLiuNianForYear } from '@/lib/calculator/map-enrichment'
+import { findDecadePhasePair, findLiuNianForYear, thaiToBaziElement } from '@/lib/calculator/map-enrichment'
 import { displayQi, displayReaction } from '@/lib/calculator/enrichment-labels'
 import type { Enrichment } from '@/pages/api/calculator/compute'
 import { BadgeMarker } from '@/components/calculator/BadgeMarker'
@@ -30,6 +31,43 @@ function DetailRow({ label, value }: { label: string; value: string }) {
     <div className="flex items-center justify-between border-b border-border_gray py-2 font-ibm text-[13px] last:border-b-0">
       <span className="text-calc_muted">{label}</span>
       <span className="text-moumate_black">{value}</span>
+    </div>
+  )
+}
+
+type Glyph = { sym: string; color: string }
+
+function CurrentCard({
+  label,
+  sub,
+  above,
+  below,
+  qi,
+}: {
+  label: string
+  sub: string
+  above: Glyph
+  below?: Glyph
+  qi?: string
+}) {
+  return (
+    <div
+      className="flex flex-col items-center gap-1.5 rounded-2xl border bg-white/90 p-3 shadow-custom backdrop-blur-md"
+      style={{ borderColor: hexToRgba(above.color, 0.4) }}
+    >
+      <span className="font-prompt text-[13px] font-semibold text-moumate_black">{label}</span>
+      <span className="font-ibm text-[11px] text-calc_muted">{sub}</span>
+      <div className="flex flex-col items-center leading-none">
+        <span className="font-chonburi text-[28px]" style={{ color: above.color }}>
+          {above.sym}
+        </span>
+        {below && (
+          <span className="font-chonburi text-[28px]" style={{ color: below.color }}>
+            {below.sym}
+          </span>
+        )}
+      </div>
+      {qi && <StageChip text={qi} />}
     </div>
   )
 }
@@ -68,6 +106,32 @@ export function LuckTimeline({
     return row ? displayQi(row.qi) : undefined
   }
 
+  // ราศีบน + ล่าง for a decade. When enriched, BOTH come from bazi-sft's daYun pair (same engine as
+  // the qi) — mootech-be's DecadeLuckItem only carries the stem, so the branch needs the pair anyway.
+  const decadeGlyphs = (d: DecadeLuckItem): { above: Glyph; below?: Glyph } => {
+    if (enrichment) {
+      const pair = findDecadePhasePair(enrichment.daYun, d)
+      if (pair.upper) {
+        return {
+          above: { sym: pair.upper.symbol, color: elementColor(thaiToBaziElement(pair.upper.element)) },
+          below: pair.lower ? { sym: pair.lower.symbol, color: elementColor(thaiToBaziElement(pair.lower.element)) } : undefined,
+        }
+      }
+    }
+    return { above: { sym: d.chinese_symbol, color: elementColor(d.element) } }
+  }
+  // ค.ศ. + พ.ศ. for an annual year (real calendar year lives on the matched liuNian row).
+  const annualYears = (y: AnnualLuckItem): { ce: number; be: number } | null => {
+    if (!enrichment) return null
+    const row = findLiuNianForYear(enrichment.liuNian, y)
+    return row ? { ce: row.year, be: row.year + 543 } : null
+  }
+
+  // 2 "ตอนนี้" summary cards — prominent but frosted + element-accent only (NOT element-filled), so
+  // priority stays: ดิถี hero ≫ current cards > strips (มุน balance per freeze).
+  const currentDecade = decades.find((d) => d.isCurrent)
+  const currentAnnual = annual[0]
+
   const openSheet = (kind: 'decade' | 'annual', index: number) => {
     if (kind === 'decade') setDecadeIndex(index)
     else setYearIndex(index)
@@ -82,6 +146,30 @@ export function LuckTimeline({
 
   return (
     <div className="w-full space-y-6" data-testid="luck-timeline">
+      {/* 2 "ตอนนี้" cards — prominent (frosted + accent), priority below the ดิถี hero */}
+      {(currentAnnual || currentDecade) && (
+        <div className="grid grid-cols-2 gap-3" data-testid="current-luck-cards">
+          {currentAnnual && (
+            <CurrentCard
+              label="ปีจรปีนี้"
+              sub={annualYears(currentAnnual) ? `${annualYears(currentAnnual)!.ce} · พ.ศ. ${annualYears(currentAnnual)!.be}` : `อีก ${currentAnnual.year} ปี`}
+              above={{ sym: currentAnnual.above.chinese_symbol, color: elementColor(currentAnnual.above.element) }}
+              below={{ sym: currentAnnual.below.chinese_symbol, color: elementColor(currentAnnual.below.element) }}
+              qi={annualQi(currentAnnual)}
+            />
+          )}
+          {currentDecade && (
+            <CurrentCard
+              label="วัยจรปีนี้"
+              sub={`${currentDecade.ageStart}-${currentDecade.ageEnd} ปี`}
+              above={decadeGlyphs(currentDecade).above}
+              below={decadeGlyphs(currentDecade).below}
+              qi={decadeQi(currentDecade)}
+            />
+          )}
+        </div>
+      )}
+
       {/* วัยจร */}
       <section>
         <div className="mb-2.5 flex items-center gap-2">
@@ -92,6 +180,7 @@ export function LuckTimeline({
           {decades.map((d, i) => {
             const active = i === decadeIndex
             const qi = decadeQi(d)
+            const g = decadeGlyphs(d)
             const badge = enrichment ? findDecadeBadge(shownTimelineBadges, enrichment.daYun, d.ageStart) : undefined
             const interactive = Boolean(qi || (enrichment && findDecadePhasePair(enrichment.daYun, d).upper))
             return (
@@ -111,9 +200,16 @@ export function LuckTimeline({
                   <span className="font-ibm text-[11px] font-semibold text-calc_muted">
                     {d.ageStart}-{d.ageEnd}
                   </span>
-                  <span className="font-chonburi text-[23px] leading-none" style={{ color: elementColor(d.element) }}>
-                    {d.chinese_symbol}
-                  </span>
+                  <div className="flex flex-col items-center leading-none">
+                    <span className="font-chonburi text-[22px]" style={{ color: g.above.color }}>
+                      {g.above.sym}
+                    </span>
+                    {g.below && (
+                      <span className="font-chonburi text-[22px]" style={{ color: g.below.color }}>
+                        {g.below.sym}
+                      </span>
+                    )}
+                  </div>
                   {qi ? <StageChip text={qi} /> : <span className="h-[17px]" />}
                 </button>
                 {badge && <BadgeMarker badge={badge} size={20} />}
@@ -133,6 +229,7 @@ export function LuckTimeline({
           {annual.map((y, i) => {
             const active = i === yearIndex
             const qi = annualQi(y)
+            const years = annualYears(y)
             const badge = enrichment ? findAnnualBadge(shownTimelineBadges, y.year) : undefined
             const row = enrichment ? findLiuNianForYear(enrichment.liuNian, y) : undefined
             const interactive = Boolean(row)
@@ -150,10 +247,25 @@ export function LuckTimeline({
                     (interactive ? '' : ' cursor-default opacity-90')
                   }
                 >
-                  <span className="font-ibm text-[11px] font-semibold text-calc_muted">+{y.year}</span>
-                  <span className="font-chonburi text-[23px] leading-none" style={{ color: elementColor(y.above.element) }}>
-                    {y.above.chinese_symbol}
+                  <span className="text-center font-ibm text-[10.5px] font-semibold leading-tight text-calc_muted">
+                    {years ? (
+                      <>
+                        {years.ce}
+                        <br />
+                        พ.ศ. {years.be}
+                      </>
+                    ) : (
+                      `อีก ${y.year} ปี`
+                    )}
                   </span>
+                  <div className="flex flex-col items-center leading-none">
+                    <span className="font-chonburi text-[22px]" style={{ color: elementColor(y.above.element) }}>
+                      {y.above.chinese_symbol}
+                    </span>
+                    <span className="font-chonburi text-[22px]" style={{ color: elementColor(y.below.element) }}>
+                      {y.below.chinese_symbol}
+                    </span>
+                  </div>
                   {qi ? <StageChip text={qi} /> : <span className="h-[17px]" />}
                 </button>
                 {badge && <BadgeMarker badge={badge} size={20} />}
