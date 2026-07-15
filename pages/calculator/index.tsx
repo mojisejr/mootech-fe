@@ -16,6 +16,7 @@ import { DitiHero } from '@/components/calculator/DitiHero'
 import { PillarGrid } from '@/components/calculator/PillarGrid'
 import { LuckTimeline } from '@/components/calculator/LuckTimeline'
 import { CtaEarned } from '@/components/calculator/CtaEarned'
+import type { Enrichment } from '@/pages/api/calculator/compute'
 
 export const getServerSideProps: GetServerSideProps = async (ctx) => {
   const nonce = issueNonce()
@@ -30,6 +31,7 @@ type ComputeResult = {
   detail: Record<string, any>
   cycleLife: any
   cycleYearLife: any[]
+  enrichment: Enrichment | null
 }
 
 type Phase = 'form' | 'ritual' | 'result'
@@ -136,7 +138,7 @@ export default function CalculatorPage() {
               <PillarGrid columns={columns} reveal />
             </div>
 
-            <LuckTimeline decades={decades} annual={annual} />
+            <LuckTimeline decades={decades} annual={annual} enrichment={result?.enrichment ?? null} />
 
             <CtaEarned onTryAnother={handleTryAnother} />
           </div>
