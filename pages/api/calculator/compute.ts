@@ -98,12 +98,21 @@ export type LiuNianRow = {
   harm: boolean
 }
 
+export type EnrichmentBadge = {
+  point: string
+  role: 'wealth' | 'power'
+  element: string
+  qi: string
+  clash: boolean
+}
+
 export type Enrichment = {
   dayMaster: string
   dayMasterElement: string
   strengthScore: number
   daYun: DaYunRow[]
   liuNian: LiuNianRow[]
+  badges: EnrichmentBadge[]
 }
 
 // Best-effort only — timeout + swallow-all-errors by design (see comment at BAZI_SFT_ENDPOINT).

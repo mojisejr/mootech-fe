@@ -135,7 +135,11 @@ export default function CalculatorPage() {
             />
 
             <div className="relative">
-              <PillarGrid columns={columns} reveal />
+              <PillarGrid
+                columns={columns}
+                reveal
+                badges={(result?.enrichment?.badges ?? []).filter((b) => b.point.startsWith('pillar-'))}
+              />
             </div>
 
             <LuckTimeline decades={decades} annual={annual} enrichment={result?.enrichment ?? null} />

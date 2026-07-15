@@ -4,6 +4,10 @@ import type { AnnualLuckItem, DecadeLuckItem } from '@/lib/calculator/map-timeli
 import { findDecadePhasePair, findLiuNianForYear, thaiToBaziElement } from '@/lib/calculator/map-enrichment'
 import { displayQi, displayReaction } from '@/lib/calculator/enrichment-labels'
 import type { Enrichment } from '@/pages/api/calculator/compute'
+import { BadgeMarker } from '@/components/calculator/BadgeMarker'
+import { capBadges, findAnnualBadge, findDecadeBadge, type BadgePoint } from '@/lib/calculator/badges'
+
+const TIMELINE_BADGE_CAP = 4
 
 function ScrubStrip<T>({
   items,
@@ -12,6 +16,7 @@ function ScrubStrip<T>({
   renderLabel,
   renderGlyph,
   renderMarker,
+  renderBadge,
   testId,
 }: {
   items: T[]
@@ -20,6 +25,7 @@ function ScrubStrip<T>({
   renderLabel: (item: T) => string
   renderGlyph: (item: T) => { char: string; color: string }
   renderMarker?: (item: T) => string | undefined
+  renderBadge?: (item: T) => BadgePoint | undefined
   testId: string
 }) {
   return (
@@ -27,29 +33,34 @@ function ScrubStrip<T>({
       {items.map((item, i) => {
         const active = i === selectedIndex
         const g = renderGlyph(item)
-        const markerColor = renderMarker?.(item)
+        const badge = renderBadge?.(item)
+        const markerColor = badge ? undefined : renderMarker?.(item)
         return (
-          <button
-            key={i}
-            type="button"
-            onClick={() => onSelect(i)}
-            className={
-              'relative flex shrink-0 flex-col items-center rounded-xl border px-3 py-2 ' +
-              (active ? 'border-2 border-moumate_blue bg-moumate_blue_light' : 'border-border_gray bg-moumate_white')
-            }
-          >
-            {markerColor && (
-              <span
-                aria-hidden="true"
-                className="absolute right-1.5 top-1.5 h-[6px] w-[6px] rounded-full"
-                style={{ backgroundColor: markerColor }}
-              />
-            )}
-            <span className="text-[20px] leading-none" style={{ color: g.color }}>
-              {g.char}
-            </span>
-            <span className="mt-1 text-[11px] text-calc_muted">{renderLabel(item)}</span>
-          </button>
+          // Signal-gated badge marker is its own <button> (tappable, popover) — kept as a SIBLING
+          // of the select-button, never nested, since <button> inside <button> is invalid HTML.
+          <div key={i} className="relative shrink-0">
+            <button
+              type="button"
+              onClick={() => onSelect(i)}
+              className={
+                'flex flex-col items-center rounded-xl border px-3 py-2 ' +
+                (active ? 'border-2 border-moumate_blue bg-moumate_blue_light' : 'border-border_gray bg-moumate_white')
+              }
+            >
+              {markerColor && (
+                <span
+                  aria-hidden="true"
+                  className="absolute right-1.5 top-1.5 h-[6px] w-[6px] rounded-full"
+                  style={{ backgroundColor: markerColor }}
+                />
+              )}
+              <span className="text-[20px] leading-none" style={{ color: g.color }}>
+                {g.char}
+              </span>
+              <span className="mt-1 text-[11px] text-calc_muted">{renderLabel(item)}</span>
+            </button>
+            {badge && <BadgeMarker badge={badge} size={20} />}
+          </div>
         )
       })}
     </div>
@@ -97,6 +108,13 @@ export function LuckTimeline({
   const decadePhases = enrichment && selectedDecade ? findDecadePhasePair(enrichment.daYun, selectedDecade) : {}
   const yearEnrichment = enrichment && selectedYear ? findLiuNianForYear(enrichment.liuNian, selectedYear) : undefined
 
+  // Signal-gated timeline badges, ≤4 combined across decade+annual (มุน design, FRD §5) — capped
+  // BEFORE either strip renders so the two strips share one ceiling, not 4 each.
+  const timelineBadgeCandidates = (enrichment?.badges ?? []).filter(
+    (b) => b.point.startsWith('decade-') || b.point.startsWith('annual-'),
+  )
+  const { shown: shownTimelineBadges, overflow: timelineBadgeOverflow } = capBadges(timelineBadgeCandidates, TIMELINE_BADGE_CAP)
+
   return (
     <div className="mx-auto w-full max-w-2xl space-y-6" data-testid="luck-timeline">
       <section>
@@ -118,6 +136,9 @@ export function LuckTimeline({
                   return el ? elementColor(el) : undefined
                 }
               : undefined
+          }
+          renderBadge={
+            enrichment ? (d) => findDecadeBadge(shownTimelineBadges, enrichment.daYun, d.ageStart) : undefined
           }
           testId="decade-strip"
         />
@@ -188,8 +209,14 @@ export function LuckTimeline({
                 }
               : undefined
           }
+          renderBadge={enrichment ? (y) => findAnnualBadge(shownTimelineBadges, y.year) : undefined}
           testId="annual-strip"
         />
+        {timelineBadgeOverflow > 0 && (
+          <p className="mt-1 text-right font-ibm text-[11px] text-calc_muted" data-testid="timeline-badge-overflow">
+            +{timelineBadgeOverflow} เพิ่มเติม
+          </p>
+        )}
         {selectedYear && (
           <div className="mt-3">
             <div className="flex items-center justify-center gap-4">

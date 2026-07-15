@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import Image from 'next/image'
 import BirthDayInput from '@/components/birthday-input'
 
 export type BirthFormValue = { dob: string; time: string; gender: 'MALE' | 'FEMALE' }
@@ -23,8 +24,13 @@ export function BirthForm({ onSubmit, submitting }: { onSubmit: (v: BirthFormVal
         onSubmit({ dob, time: rememberTime ? time : '', gender })
       }}
     >
-      <h1 className="font-chonburi text-2xl text-moumate_black">ผังชะตากำเนิดของคุณ</h1>
-      <p className="mt-1 font-ibm text-sm text-calc_muted">ใส่วันเกิดเพื่อเริ่ม</p>
+      <div className="mb-2 flex justify-center">
+        <Image src="/images/mumate/Crystal-ball.svg" width={56} height={56} alt="" aria-hidden="true" />
+      </div>
+      {/* font-prompt = promo/headline copy (มุน mood/tone direction, #calculator-badge-mood-FROZEN-v1) —
+          distinct from font-chonburi (reserved for the ดิถี hero glyph only) and font-ibm (data labels). */}
+      <h1 className="text-center font-prompt text-2xl font-semibold text-moumate_black">ผังชะตากำเนิดของคุณ</h1>
+      <p className="mt-1 text-center font-ibm text-sm text-calc_muted">ใส่วันเกิดเพื่อเริ่ม</p>
 
       <div className="mt-6">
         <label className="mb-1 block font-ibm text-sm font-medium text-moumate_black">วันเกิด</label>
@@ -72,13 +78,25 @@ export function BirthForm({ onSubmit, submitting }: { onSubmit: (v: BirthFormVal
         </div>
       </div>
 
-      <button
-        type="submit"
-        disabled={!canSubmit || submitting}
-        className="mt-6 w-full rounded-2xl bg-moumate_blue py-3 font-ibm font-medium text-moumate_black disabled:opacity-50"
-      >
-        {submitting ? 'กำลังคำนวณ…' : 'ดูผังของฉัน'}
-      </button>
+      <div className="relative mt-6">
+        <button
+          type="submit"
+          disabled={!canSubmit || submitting}
+          className="w-full rounded-2xl bg-moumate_blue py-3 font-ibm font-medium text-moumate_black disabled:opacity-50"
+        >
+          {submitting ? 'กำลังคำนวณ…' : 'ดูผังของฉัน'}
+        </button>
+        {!submitting && (
+          <Image
+            src="/images/mumate/ic_sparkles.svg"
+            width={22}
+            height={22}
+            alt=""
+            aria-hidden="true"
+            className="pointer-events-none absolute -left-1.5 -top-2.5"
+          />
+        )}
+      </div>
     </form>
   )
 }
