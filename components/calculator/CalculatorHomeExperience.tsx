@@ -147,11 +147,14 @@ export function CalculatorHomeExperience() {
           <>
             {/* ACT 1 — HERO (index marketing tone; greets before the calculator so it never reads
                 as a bare tool). ข้อ③ copy lives here. Mobile = single column (copy top, mascot
-                bottom). Desktop (lg) = 2-col: copy LEFT (flexible) / mascot RIGHT (capped ~320px,
-                proportionate beside the hero — not dominant, per homepage-swap C). */}
-            <section className="flex min-h-[calc(100vh-60px)] flex-col text-white lg:flex-row lg:items-center lg:gap-8 lg:px-10">
-              {/* copy + CTA + cue — centered on mobile, left-aligned flexible column on desktop */}
-              <div className="flex flex-1 flex-col items-center justify-center px-6 pt-6 text-center lg:flex-1 lg:items-start lg:pt-0 lg:text-left">
+                bottom). Desktop (lg) = 2-col, but copy+mascot are pulled together as ONE centered
+                group in the middle of the screen (lg:justify-center + both columns content-width),
+                rather than flex-1 spreading them to the left/right edges with a big empty gap
+                (#calculator-homepage-swap centering, ฟีม: "มารวมกันเป็นชุดเดียว อยู่กลางจอ"). */}
+            <section className="flex min-h-[calc(100vh-60px)] flex-col text-white lg:flex-row lg:items-center lg:justify-center lg:gap-10 lg:px-10">
+              {/* copy + CTA + cue — full-width centered on mobile; on desktop a content-width block
+                  (not flex-1) so it hugs the mascot as a group instead of stretching to the edge */}
+              <div className="flex flex-1 flex-col items-center justify-center px-6 pt-6 text-center lg:flex-none lg:w-auto lg:max-w-md lg:items-start lg:pt-0 lg:text-left">
                 <Image src="/images/mumate/ic_sparkles.svg" width={36} height={36} alt="" aria-hidden="true" />
                 <h1 className="mt-2 font-prompt text-[32px] font-semibold leading-tight lg:text-[40px]">
                   Mumate ดูดวงแบบ
