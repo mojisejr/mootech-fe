@@ -141,7 +141,12 @@ export default function CalculatorPage() {
     | BaziElement
     | undefined
   const decades = result ? mapDecadeLuck(result.cycleLife) : []
-  const annual = result ? mapAnnualLuck(result.cycleYearLife) : []
+  // #calc-decade-annual-current-fix: birthYear (for the local ce/be fallback) and currentAge (for
+  // isCurrent) both come from the same source of truth as the rest of the response — the raw
+  // submitted dob and the already-fixed `cycleLife.age` — not re-derived independently.
+  const birthYear = pendingInput?.dob ? Number(pendingInput.dob.split('-')[0]) : null
+  const currentAge = result?.cycleLife?.age ?? null
+  const annual = result ? mapAnnualLuck(result.cycleYearLife, birthYear, currentAge) : []
   const strengthScore = result?.enrichment?.strengthScore
   const ages = computeAges(pendingInput?.dob)
 
