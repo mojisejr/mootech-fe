@@ -27,6 +27,7 @@ enum PageRouter {
   FORTUNE_STICK = "/fortune-stick",
   PACKAGE_HOROSCOPE = "/package-horoscope",
   PACKAGE_PRICE = "/package-price",
+  CALCULATOR = "/calculator",
 
 
   MATCHING = "/matching",
