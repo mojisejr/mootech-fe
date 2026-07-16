@@ -85,5 +85,9 @@
   /* full mobile viewport that follows browser UI (dvh) with a 100vh fallback */
   .min-h-screen-dvh { min-height: 100vh; min-height: 100dvh; }
   .h-screen-dvh { height: 100vh; height: 100dvh; }
+  /* Swipeable strips (calculator วัยจร/ปีจร) keep the swipe but drop the visible
+     bar so the horizontal scroll reads as a clean card rail, not a widget. */
+  .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+  .no-scrollbar::-webkit-scrollbar { display: none; }
 }
 
