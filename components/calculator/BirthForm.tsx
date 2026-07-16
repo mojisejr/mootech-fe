@@ -24,8 +24,13 @@ export function BirthForm({ onSubmit, submitting }: { onSubmit: (v: BirthFormVal
         onSubmit({ dob, time: rememberTime ? time : '', gender })
       }}
     >
-      <div className="mb-2 flex justify-center">
-        <Image src="/images/mumate/Crystal-ball.svg" width={56} height={56} alt="" aria-hidden="true" />
+      {/* small mumate brand mark, top-left — this form is intentionally mumate's, not a bare tool.
+          ic_logo.svg is a white wordmark (built for the teal header), so it sits on a teal chip to
+          stay legible on the white card. */}
+      <div className="mb-3 flex justify-start">
+        <span className="inline-flex items-center rounded-lg bg-moumate_blue px-2.5 py-1">
+          <Image src="/images/mumate/ic_logo.svg" width={72} height={17} alt="mumate" />
+        </span>
       </div>
       {/* font-prompt = promo/headline copy (มุน mood/tone direction, #calculator-badge-mood-FROZEN-v1) —
           distinct from font-chonburi (reserved for the ดิถี hero glyph only) and font-ibm (data labels). */}

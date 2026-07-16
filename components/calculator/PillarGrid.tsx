@@ -5,7 +5,7 @@ import { hexToRgba } from '@/lib/calculator/color'
 import { thaiToBaziElement } from '@/lib/calculator/map-enrichment'
 import { BadgeMarker } from '@/components/calculator/BadgeMarker'
 import { DetailSheet } from '@/components/calculator/DetailSheet'
-import { capBadges, findPillarBadge, type BadgePoint } from '@/lib/calculator/badges'
+import { capBadges, type BadgePoint } from '@/lib/calculator/badges'
 import type { EnrichmentPillar, EnrichmentPillars } from '@/pages/api/calculator/compute'
 
 const PILLAR_BADGE_CAP = 2
@@ -105,7 +105,10 @@ export function PillarGrid({
     <>
       <div className="mx-auto grid w-full max-w-md grid-cols-5 gap-2 lg:max-w-2xl lg:gap-3" data-testid="pillar-grid">
         {render.map((col, i) => {
-          const badge = col.isDay ? undefined : findPillarBadge(shownBadges, col.key)
+          // signal badge(s) for this pillar — the ดิถี anchor never carries one. Rendered at the CARD
+          // top-right corner (below), stacked, OUTSIDE the tile <button> (a badge is itself a <button>,
+          // so nesting it inside the tappable tile would be invalid DOM).
+          const cardBadges = col.isDay ? [] : shownBadges.filter((b) => b.point === 'pillar-' + col.key)
           const accent = elementColor(col.above?.element)
           const tappable = !col.isDay && hasStages(col.detail)
           const tileStyle = col.isDay
@@ -115,10 +118,7 @@ export function PillarGrid({
             <>
               <span aria-hidden="true" className="absolute inset-x-3 top-0 h-[3px] rounded-b-full" style={{ background: accent }} />
               <span className="mt-0.5 font-ibm text-[11px] font-medium text-calc_muted lg:text-[12px]">{col.label}</span>
-              <div className="relative">
-                <Glyph slot={col.above} />
-                {badge && <BadgeMarker badge={badge} size={18} />}
-              </div>
+              <Glyph slot={col.above} />
               <Glyph slot={col.below} />
             </>
           )
@@ -127,6 +127,7 @@ export function PillarGrid({
           return (
             <motion.div
               key={col.key}
+              className="relative"
               initial={playReveal ? { opacity: 0, y: 12 } : false}
               animate={{ opacity: 1, y: 0 }}
               transition={playReveal ? { duration: 0.38, ease: [0.22, 1, 0.36, 1], delay: staggerOrder[i] * 0.08 } : { duration: 0.2 }}
@@ -139,6 +140,14 @@ export function PillarGrid({
               ) : (
                 <div className={cls} style={tileStyle}>
                   {inner}
+                </div>
+              )}
+              {/* badge(s) at the card corner — sibling of the tile button (never nested), stacked */}
+              {cardBadges.length > 0 && (
+                <div className="absolute right-1.5 top-1.5 z-10 flex flex-col gap-1">
+                  {cardBadges.map((b, bi) => (
+                    <BadgeMarker key={bi} badge={b} size={28} />
+                  ))}
                 </div>
               )}
             </motion.div>

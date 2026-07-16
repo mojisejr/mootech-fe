@@ -1,4 +1,5 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
+import { useInView, useReducedMotion } from 'framer-motion'
 import { elementColor, elementLabel } from '@/lib/calculator/elements'
 import { hexToRgba } from '@/lib/calculator/color'
 import type { AnnualLuckItem, DecadeLuckItem } from '@/lib/calculator/map-timeline'
@@ -132,6 +133,19 @@ export function LuckTimeline({
   const currentDecade = decades.find((d) => d.isCurrent)
   const currentAnnual = annual[0]
 
+  // ③ When the timeline first scrolls into view, gently center the current period in each strip.
+  const prefersReducedMotion = useReducedMotion()
+  const rootRef = useRef<HTMLDivElement>(null)
+  const inView = useInView(rootRef, { once: true, amount: 0.2 })
+  const decadeCurRef = useRef<HTMLDivElement>(null)
+  const annualCurRef = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    if (!inView) return
+    const opts: ScrollIntoViewOptions = { inline: 'center', block: 'nearest', behavior: prefersReducedMotion ? 'auto' : 'smooth' }
+    decadeCurRef.current?.scrollIntoView(opts)
+    annualCurRef.current?.scrollIntoView(opts)
+  }, [inView, prefersReducedMotion])
+
   const openSheet = (kind: 'decade' | 'annual', index: number) => {
     if (kind === 'decade') setDecadeIndex(index)
     else setYearIndex(index)
@@ -145,7 +159,7 @@ export function LuckTimeline({
   const sheetAnnualRow = enrichment && sheetAnnual ? findLiuNianForYear(enrichment.liuNian, sheetAnnual) : undefined
 
   return (
-    <div className="w-full space-y-6" data-testid="luck-timeline">
+    <div ref={rootRef} className="w-full space-y-6" data-testid="luck-timeline">
       {/* 2 "ตอนนี้" cards — prominent (frosted + accent), priority below the ดิถี hero */}
       {(currentAnnual || currentDecade) && (
         <div className="grid grid-cols-2 gap-3" data-testid="current-luck-cards">
@@ -184,7 +198,7 @@ export function LuckTimeline({
             const badge = enrichment ? findDecadeBadge(shownTimelineBadges, enrichment.daYun, d.ageStart) : undefined
             const interactive = Boolean(qi || (enrichment && findDecadePhasePair(enrichment.daYun, d).upper))
             return (
-              <div key={i} className="relative shrink-0" style={{ scrollSnapAlign: 'start' }}>
+              <div key={i} ref={d.isCurrent ? decadeCurRef : undefined} className="relative shrink-0" style={{ scrollSnapAlign: 'start' }}>
                 <button
                   type="button"
                   disabled={!interactive}
@@ -194,6 +208,7 @@ export function LuckTimeline({
                     (active
                       ? 'border-2 border-moumate_blue bg-moumate_blue_light'
                       : 'border-border_gray bg-moumate_white') +
+                    (d.isCurrent ? ' ring-2 ring-moumate_blue/50' : '') +
                     (interactive ? '' : ' cursor-default opacity-90')
                   }
                 >
@@ -212,7 +227,11 @@ export function LuckTimeline({
                   </div>
                   {qi ? <StageChip text={qi} /> : <span className="h-[17px]" />}
                 </button>
-                {badge && <BadgeMarker badge={badge} size={20} />}
+                {badge && (
+                  <div className="absolute right-1.5 top-1.5 z-10">
+                    <BadgeMarker badge={badge} size={26} />
+                  </div>
+                )}
               </div>
             )
           })}
@@ -234,7 +253,7 @@ export function LuckTimeline({
             const row = enrichment ? findLiuNianForYear(enrichment.liuNian, y) : undefined
             const interactive = Boolean(row)
             return (
-              <div key={i} className="relative shrink-0" style={{ scrollSnapAlign: 'start' }}>
+              <div key={i} ref={i === 0 ? annualCurRef : undefined} className="relative shrink-0" style={{ scrollSnapAlign: 'start' }}>
                 <button
                   type="button"
                   disabled={!interactive}
@@ -244,6 +263,7 @@ export function LuckTimeline({
                     (active
                       ? 'border-2 border-moumate_blue bg-moumate_blue_light'
                       : 'border-border_gray bg-moumate_white') +
+                    (i === 0 ? ' ring-2 ring-moumate_blue/50' : '') +
                     (interactive ? '' : ' cursor-default opacity-90')
                   }
                 >
@@ -268,7 +288,11 @@ export function LuckTimeline({
                   </div>
                   {qi ? <StageChip text={qi} /> : <span className="h-[17px]" />}
                 </button>
-                {badge && <BadgeMarker badge={badge} size={20} />}
+                {badge && (
+                  <div className="absolute right-1.5 top-1.5 z-10">
+                    <BadgeMarker badge={badge} size={26} />
+                  </div>
+                )}
               </div>
             )
           })}

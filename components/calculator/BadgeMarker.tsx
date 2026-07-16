@@ -36,7 +36,7 @@ export function BadgeMarker({ badge, size = 22 }: { badge: BadgePoint; size?: nu
   }, [tapped])
 
   return (
-    <span ref={markerRef} className="absolute -right-1 -top-1 z-10" data-testid="badge-marker">
+    <span ref={markerRef} className="relative z-10 block" data-testid="badge-marker">
       <button
         type="button"
         onClick={(e) => {
