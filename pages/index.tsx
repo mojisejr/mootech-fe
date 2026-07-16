@@ -15,6 +15,7 @@ import { useCurrentUser } from '@/lib/auth/use-current-user';
 import { resolveWelcomeTarget } from '@/lib/auth/welcome-target';
 import { resolveReturningResult } from '@/lib/auth/returning-result';
 import { resolveCtaReady } from '@/lib/auth/cta-ready';
+import { isWithinRedirectWindow } from '@/lib/auth/redirect-window';
 import { signIn, signOut, useSession } from "next-auth/react";
 import type { GetServerSideProps } from "next";
 import Head from "next/head";
@@ -407,18 +408,22 @@ useEffect(() => {
   // user keeps a usable calculator and can click the "เข้าใช้งานเต็มระบบ" secondary CTA themselves.
   const REDIRECT_WINDOW_MS = 1500
   const redirectedRef = useRef<boolean>(false)
-  const redirectWindowClosedRef = useRef<boolean>(false)
+  // Timestamp (ms) when the calculator became visible (status settled past the loading gate); null
+  // until then. The auto-redirect may only fire while within REDIRECT_WINDOW_MS of it — the decision
+  // itself is the pure, unit-tested isWithinRedirectWindow. We start the clock only once the calc is
+  // visible (not at raw mount) so the window protecting interaction runs only when interaction is
+  // possible.
+  const windowStartRef = useRef<number | null>(null)
   useEffect(() => {
-    // Start the window only once the calculator is actually visible (past the loading gate) — before
-    // that the user can't interact anyway, so the clock protecting interaction shouldn't run yet.
     if (status === 'loading') return
-    const t = setTimeout(() => { redirectWindowClosedRef.current = true }, REDIRECT_WINDOW_MS)
-    return () => clearTimeout(t)
+    if (windowStartRef.current === null) windowStartRef.current = Date.now()
   }, [status])
   useEffect(() => {
-    if (redirectedRef.current || redirectWindowClosedRef.current) return
+    if (redirectedRef.current) return
     if (authStatus !== 'authed') return
     if (!resolveCtaReady(authStatus, resultHydrated)) return
+    const elapsed = windowStartRef.current === null ? null : Date.now() - windowStartRef.current
+    if (!isWithinRedirectWindow(elapsed, REDIRECT_WINDOW_MS)) return
     const target = resolveWelcomeTarget(authStatus, resultCode, isRefreshResult)
     // 'login'/'wait' are unreachable for an authed+ready user — guard anyway, never bounce.
     if (target.kind === 'login' || target.kind === 'wait') return
