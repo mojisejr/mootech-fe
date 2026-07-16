@@ -149,53 +149,60 @@ export default function CalculatorPage() {
             <>
               {/* ACT 1 — HERO (index marketing tone; greets before the calculator so it never reads
                   as a bare tool). ข้อ③ copy lives here. */}
-              <section className="flex min-h-[calc(100vh-60px)] flex-col items-center justify-center px-6 pb-8 pt-6 text-center text-white">
-                <Image src="/images/mumate/ic_sparkles.svg" width={36} height={36} alt="" aria-hidden="true" />
-                <h1 className="mt-2 font-prompt text-[32px] font-semibold leading-tight">
-                  Mumate ดูดวงแบบ
-                  <br />
-                  <span className="text-[#F3FCA2]">Personal Destiny</span>
-                </h1>
-                <p className="mt-3 max-w-sm font-ibm text-[15px] text-white/90">
-                  AI อัจฉริยะ ดูดวงละเอียด การงาน เงิน ความรัก
-                  <br />
-                  รู้ลึก รู้จริง · ไม่ต้องรอคิว
-                </p>
-                <Image
-                  src="/images/mumate/img_footer_login.png"
-                  width={280}
-                  height={200}
-                  alt=""
-                  aria-hidden="true"
-                  className="my-6 h-auto w-[240px]"
-                  priority
-                />
-                <div className="relative">
+              <section className="flex min-h-[calc(100vh-60px)] flex-col text-white">
+                {/* copy + CTA + cue centered in the flexible upper area */}
+                <div className="flex flex-1 flex-col items-center justify-center px-6 pt-6 text-center">
+                  <Image src="/images/mumate/ic_sparkles.svg" width={36} height={36} alt="" aria-hidden="true" />
+                  <h1 className="mt-2 font-prompt text-[32px] font-semibold leading-tight">
+                    Mumate ดูดวงแบบ
+                    <br />
+                    <span className="text-[#F3FCA2]">Personal Destiny</span>
+                  </h1>
+                  <p className="mt-3 max-w-sm font-ibm text-[15px] text-white/90">
+                    AI อัจฉริยะ ดูดวงละเอียด การงาน เงิน ความรัก
+                    <br />
+                    รู้ลึก รู้จริง · ไม่ต้องรอคิว
+                  </p>
+                  <div className="relative mt-8">
+                    <button
+                      type="button"
+                      onClick={scrollToInput}
+                      className="flex items-center gap-2 rounded-[40px] bg-white px-8 py-3.5 font-prompt text-lg font-semibold text-[#1B9AAF] shadow-custom"
+                    >
+                      คำนวนฟรี
+                      <Image src="/images/mumate/ic_arrow_next.svg" width={26} height={26} alt="" aria-hidden="true" />
+                    </button>
+                    <Image
+                      src="/images/mumate/ic_sparkles.svg"
+                      width={26}
+                      height={26}
+                      alt=""
+                      aria-hidden="true"
+                      className="pointer-events-none absolute -left-2 -top-2"
+                    />
+                  </div>
                   <button
                     type="button"
                     onClick={scrollToInput}
-                    className="flex items-center gap-2 rounded-[40px] bg-white px-8 py-3.5 font-prompt text-lg font-semibold text-[#1B9AAF] shadow-custom"
+                    aria-label="เลื่อนไปกรอกวันเกิด"
+                    className={'mt-6 text-2xl text-white/80' + (mounted && !prefersReducedMotion ? ' animate-bounce' : '')}
                   >
-                    คำนวนฟรี
-                    <Image src="/images/mumate/ic_arrow_next.svg" width={26} height={26} alt="" aria-hidden="true" />
+                    ⌄
                   </button>
+                </div>
+                {/* mascot — full-width bottom anchor (edge-to-edge on mobile, capped on desktop),
+                    shown complete so it never reads as a cropped card (layout A) */}
+                <div className="mt-6 w-full">
                   <Image
-                    src="/images/mumate/ic_sparkles.svg"
-                    width={26}
-                    height={26}
+                    src="/images/mumate/img_footer_login.png"
+                    width={600}
+                    height={240}
                     alt=""
                     aria-hidden="true"
-                    className="pointer-events-none absolute -left-2 -top-2"
+                    className="mx-auto h-auto w-full max-w-md"
+                    priority
                   />
                 </div>
-                <button
-                  type="button"
-                  onClick={scrollToInput}
-                  aria-label="เลื่อนไปกรอกวันเกิด"
-                  className={'mt-8 text-2xl text-white/80' + (mounted && !prefersReducedMotion ? ' animate-bounce' : '')}
-                >
-                  ⌄
-                </button>
               </section>
 
               {/* ACT 2 — INPUT (same page, revealed by the smooth-scroll). No entrance animation:
