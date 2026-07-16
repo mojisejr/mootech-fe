@@ -133,17 +133,50 @@ export function LuckTimeline({
   const currentDecade = decades.find((d) => d.isCurrent)
   const currentAnnual = annual[0]
 
-  // ③ When the timeline first scrolls into view, gently center the current period in each strip.
+  // ③/C When the timeline first scrolls into view, the two strips ROLL-CONVERGE on "now": each
+  // animates its scrollLeft to center its CURRENT card, but from OPPOSITE starting edges — วัยจร
+  // rolls in from the left, ปีจร rolls in from the right — so they meet at the present. This also
+  // fixes ปีจร (current = index 0 = already at the start → scrollIntoView produced no motion): we
+  // start it fully scrolled right and roll left to current. reduced-motion → jump, no roll.
   const prefersReducedMotion = useReducedMotion()
   const rootRef = useRef<HTMLDivElement>(null)
   const inView = useInView(rootRef, { once: true, amount: 0.2 })
+  const decadeStripRef = useRef<HTMLDivElement>(null)
+  const annualStripRef = useRef<HTMLDivElement>(null)
   const decadeCurRef = useRef<HTMLDivElement>(null)
   const annualCurRef = useRef<HTMLDivElement>(null)
   useEffect(() => {
     if (!inView) return
-    const opts: ScrollIntoViewOptions = { inline: 'center', block: 'nearest', behavior: prefersReducedMotion ? 'auto' : 'smooth' }
-    decadeCurRef.current?.scrollIntoView(opts)
-    annualCurRef.current?.scrollIntoView(opts)
+    // center a card within its strip (clamped to the scrollable range)
+    const centerTarget = (strip: HTMLDivElement, card: HTMLDivElement) => {
+      const max = strip.scrollWidth - strip.clientWidth
+      const raw = card.offsetLeft - (strip.clientWidth - card.clientWidth) / 2
+      return Math.max(0, Math.min(raw, max))
+    }
+    const rollTo = (strip: HTMLDivElement | null, card: HTMLDivElement | null, from: 'left' | 'right') => {
+      if (!strip || !card) return
+      const target = centerTarget(strip, card)
+      if (prefersReducedMotion) {
+        strip.scrollLeft = target
+        return
+      }
+      const start = from === 'left' ? 0 : strip.scrollWidth - strip.clientWidth
+      // snap fights a programmatic scrollLeft tween — disable it for the roll, restore after
+      strip.style.scrollSnapType = 'none'
+      strip.scrollLeft = start
+      let startTs: number | null = null
+      const step = (ts: number) => {
+        if (startTs === null) startTs = ts
+        const p = Math.min(1, (ts - startTs) / 700)
+        const eased = 1 - Math.pow(1 - p, 3) // easeOutCubic — deliberate, นวลๆ (not จ๊าบ)
+        strip.scrollLeft = start + (target - start) * eased
+        if (p < 1) requestAnimationFrame(step)
+        else strip.style.scrollSnapType = 'x mandatory'
+      }
+      requestAnimationFrame(step)
+    }
+    rollTo(decadeStripRef.current, decadeCurRef.current, 'left')
+    rollTo(annualStripRef.current, annualCurRef.current, 'right')
   }, [inView, prefersReducedMotion])
 
   const openSheet = (kind: 'decade' | 'annual', index: number) => {
@@ -190,7 +223,7 @@ export function LuckTimeline({
           <h2 className="font-prompt text-[15px] font-semibold text-white">วัยจร</h2>
           <span className="ml-auto font-ibm text-[11px] text-white/80">แตะช่วงอายุเพื่อดูรายละเอียด</span>
         </div>
-        <div className="flex gap-2.5 overflow-x-auto pb-2" data-testid="decade-strip" style={{ scrollSnapType: 'x mandatory' }}>
+        <div ref={decadeStripRef} className="no-scrollbar flex gap-2.5 overflow-x-auto pb-2 pt-3" data-testid="decade-strip" style={{ scrollSnapType: 'x mandatory' }}>
           {decades.map((d, i) => {
             const active = i === decadeIndex
             const qi = decadeQi(d)
@@ -228,7 +261,7 @@ export function LuckTimeline({
                   {qi ? <StageChip text={qi} /> : <span className="h-[17px]" />}
                 </button>
                 {badge && (
-                  <div className="absolute right-1.5 top-1.5 z-10">
+                  <div className="absolute -top-2 right-1 z-10">
                     <BadgeMarker badge={badge} size={26} />
                   </div>
                 )}
@@ -244,7 +277,7 @@ export function LuckTimeline({
           <h2 className="font-prompt text-[15px] font-semibold text-white">ปีจร</h2>
           <span className="ml-auto font-ibm text-[11px] text-white/80">แตะปีเพื่อดูรายละเอียด</span>
         </div>
-        <div className="flex gap-2.5 overflow-x-auto pb-2" data-testid="annual-strip" style={{ scrollSnapType: 'x mandatory' }}>
+        <div ref={annualStripRef} className="no-scrollbar flex gap-2.5 overflow-x-auto pb-2 pt-3" data-testid="annual-strip" style={{ scrollSnapType: 'x mandatory' }}>
           {annual.map((y, i) => {
             const active = i === yearIndex
             const qi = annualQi(y)
@@ -289,7 +322,7 @@ export function LuckTimeline({
                   {qi ? <StageChip text={qi} /> : <span className="h-[17px]" />}
                 </button>
                 {badge && (
-                  <div className="absolute right-1.5 top-1.5 z-10">
+                  <div className="absolute -top-2 right-1 z-10">
                     <BadgeMarker badge={badge} size={26} />
                   </div>
                 )}

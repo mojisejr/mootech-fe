@@ -10,6 +10,7 @@ import { CookieKey } from '@/constants/cookie-key';
 import { useCookies } from 'react-cookie';
 import { UserGetById } from '@/constants/api/api-user-get';
 import { useCurrentUser } from '@/lib/auth/use-current-user';
+import { useHasMounted } from '@/lib/hooks/use-has-mounted';
 
 type ComponentProps = {
   isShowMenu: boolean,
@@ -58,7 +59,15 @@ const HeaderMuMate = ({
   // Use the uuid-validated identity (never the raw cookie) so a stale OAuth access
   // token left in MEMBER_ID can't fire UserGetById(ya29...) -> 400.
   const { userId: resolvedUserId } = useCurrentUser()
-  const isLoggedIn = isLogin || !!resolvedUserId
+  // The calc page (gateByLogin) is PUBLIC and hard-SSR'd: a logged-in visitor arrives with the
+  // MEMBER_ID cookie in the request, but the server can't read it via react-cookie, so SSR renders
+  // logged-out. Trusting the client-only cookie on the very first client render would then diverge
+  // from that server HTML → hydration mismatch (#calculator-finetune-2). Gate the cookie identity
+  // behind hasMounted for the gateByLogin path only: first client render matches the server (logged
+  // out), then flips to the real identity post-mount. Other pages keep their immediate behavior.
+  const hasMounted = useHasMounted()
+  const effectiveUserId = gateByLogin && !hasMounted ? '' : resolvedUserId
+  const isLoggedIn = isLogin || !!effectiveUserId
   const showMenuTrigger = !gateByLogin || isLoggedIn
 
   useEffect(() => {
@@ -147,8 +156,9 @@ const HeaderMuMate = ({
                 // parent's optimistic local `isLogin`. During the cold/login window
                 // `isLogin` could lag while the MEMBER_ID cookie was already set,
                 // collapsing the slot to the "เข้าสู่ระบบ" text = the "icon หาย"
-                // symptom. (#mootech-login-coldstart-fix)
-                (isLogin || !!resolvedUserId) && isShowProfile == true?
+                // symptom. (#mootech-login-coldstart-fix) The gateByLogin mount-gate above keeps
+                // this hydration-safe on the public calc page.
+                isLoggedIn && isShowProfile == true?
                 <Image
                     src={imgSrc}
                     width={40}

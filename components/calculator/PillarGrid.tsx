@@ -5,7 +5,8 @@ import { hexToRgba } from '@/lib/calculator/color'
 import { thaiToBaziElement } from '@/lib/calculator/map-enrichment'
 import { BadgeMarker } from '@/components/calculator/BadgeMarker'
 import { DetailSheet } from '@/components/calculator/DetailSheet'
-import { capBadges, type BadgePoint } from '@/lib/calculator/badges'
+import { badgeIcon, badgePopoverText, capBadges, type BadgePoint } from '@/lib/calculator/badges'
+import Image from 'next/image'
 import type { EnrichmentPillar, EnrichmentPillars } from '@/pages/api/calculator/compute'
 
 const PILLAR_BADGE_CAP = 2
@@ -90,6 +91,8 @@ export function PillarGrid({
   const prefersReducedMotion = useReducedMotion()
   const playReveal = reveal && !prefersReducedMotion
   const [openKey, setOpenKey] = useState<string | null>(null)
+  // which pillar's "many signals" badge list is open (the +N sticker → modal fallback)
+  const [badgeListKey, setBadgeListKey] = useState<string | null>(null)
 
   const render = toRenderColumns(columns, enrichmentPillars)
   const dayIndex = render.findIndex((c) => c.isDay)
@@ -100,6 +103,10 @@ export function PillarGrid({
   // a pillar is tappable only when it carries stage detail and isn't the ดิถี anchor
   const open = render.find((c) => c.key === openKey)
   const hasStages = (d?: EnrichmentPillar) => Boolean(d && (d.upperStageDisplay || d.lowerStageDisplay || d.sittingStage))
+
+  // "+N" fallback — the full signal list for the pillar whose badge cluster was tapped
+  const badgeListCol = render.find((c) => c.key === badgeListKey)
+  const listBadges = badgeListKey ? shownBadges.filter((b) => b.point === 'pillar-' + badgeListKey) : []
 
   return (
     <>
@@ -142,12 +149,29 @@ export function PillarGrid({
                   {inner}
                 </div>
               )}
-              {/* badge(s) at the card corner — sibling of the tile button (never nested), stacked */}
-              {cardBadges.length > 0 && (
-                <div className="absolute right-1.5 top-1.5 z-10 flex flex-col gap-1">
-                  {cardBadges.map((b, bi) => (
-                    <BadgeMarker key={bi} badge={b} size={28} />
-                  ))}
+              {/* badge(s) at the card corner — sibling of the tile button (never nested). Sticker
+                  overhangs UP (-top-2) and hugs the right edge (right-1, NOT -right → would overlap
+                  the adjacent pillar on the tight mobile 5-col grid). One signal = one BadgeMarker;
+                  many = one sticker + a "+N" chip that opens a labeled modal (keeps the card calm). */}
+              {cardBadges.length === 1 && (
+                <div className="absolute -top-2 right-1 z-10">
+                  <BadgeMarker badge={cardBadges[0]} size={28} />
+                </div>
+              )}
+              {cardBadges.length > 1 && (
+                <div className="absolute -top-2 right-1 z-10">
+                  <button
+                    type="button"
+                    onClick={() => setBadgeListKey(col.key)}
+                    aria-label={`สัญญาณ ${cardBadges.length} รายการ`}
+                    className="flex items-center gap-0.5 rounded-full border-2 border-moumate_blue bg-moumate_white pl-0.5 pr-1.5 shadow-custom"
+                    style={{ height: 28 }}
+                  >
+                    <Image src={badgeIcon(cardBadges[0].role)} width={18} height={18} alt="" aria-hidden="true" />
+                    <span className="font-ibm text-[11px] font-semibold leading-none text-moumate_blue">
+                      +{cardBadges.length - 1}
+                    </span>
+                  </button>
                 </div>
               )}
             </motion.div>
@@ -172,6 +196,26 @@ export function PillarGrid({
             {open.detail.sittingStage && <SheetRow label="ตัวนั่ง" value={open.detail.sittingStage} />}
           </div>
         )}
+        <p className="mt-3 text-center font-ibm text-[11px] text-calc_muted">ข้อมูลเชิงโครงสร้าง — ไม่ใช่คำทำนาย</p>
+      </DetailSheet>
+
+      {/* "+N" signal list — every badge on this pillar, each with its own clear label */}
+      <DetailSheet
+        open={Boolean(badgeListKey && listBadges.length > 0)}
+        onClose={() => setBadgeListKey(null)}
+        kicker={badgeListCol ? `เสา${badgeListCol.label} · สัญญาณ` : undefined}
+        title={badgeListCol ? `สัญญาณทั้งหมด · ${listBadges.length} รายการ` : ''}
+      >
+        <div className="space-y-2">
+          {listBadges.map((b, bi) => (
+            <div key={bi} className="flex items-start gap-2.5 rounded-xl border border-border_gray bg-bg_gray/40 p-3">
+              <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border-2 border-moumate_blue bg-moumate_white">
+                <Image src={badgeIcon(b.role)} width={16} height={16} alt="" aria-hidden="true" />
+              </span>
+              <p className="font-ibm text-[13px] leading-snug text-moumate_black">{badgePopoverText(b)}</p>
+            </div>
+          ))}
+        </div>
         <p className="mt-3 text-center font-ibm text-[11px] text-calc_muted">ข้อมูลเชิงโครงสร้าง — ไม่ใช่คำทำนาย</p>
       </DetailSheet>
     </>

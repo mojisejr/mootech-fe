@@ -14,6 +14,9 @@ import { useReducedMotion } from 'framer-motion'
 import type { GetServerSideProps } from 'next'
 import Head from 'next/head'
 import Image from 'next/image'
+import { useRouter } from 'next/router'
+import { PageRouter } from '@/constants/router'
+import { useCurrentUser } from '@/lib/auth/use-current-user'
 import { issueNonce, NONCE_COOKIE } from '@/lib/calculator/nonce'
 import { ELEMENT_LABEL_TH, type BaziElement } from '@/lib/calculator/elements'
 import { mapPillarColumns } from '@/lib/calculator/map-pillars'
@@ -74,6 +77,13 @@ export default function CalculatorPage() {
   // (useReducedMotion resolves client-side only → animating className mismatches on hydration).
   const [mounted, setMounted] = useState(false)
   useEffect(() => setMounted(true), [])
+
+  // ④ auth-aware hero CTA. Identity resolves client-only (cookie via useCurrentUser) → the
+  // secondary CTA is gated behind `mounted` (same fix as the scroll-cue) so SSR/first-client
+  // render match. status 'authed' = logged-in path (into the full app), else the sign-up path.
+  const router = useRouter()
+  const { status: authStatus } = useCurrentUser()
+  const isLoggedIn = authStatus === 'authed'
 
   // ACT 1 → ACT 2 (#calculator-hero-flow): gentle smooth-scroll to the input, then move focus into
   // it. Motion doctrine = minimal — the hero doesn't move/scale, we only scroll and the input fades
@@ -148,17 +158,19 @@ export default function CalculatorPage() {
           {phase === 'form' && (
             <>
               {/* ACT 1 — HERO (index marketing tone; greets before the calculator so it never reads
-                  as a bare tool). ข้อ③ copy lives here. */}
-              <section className="flex min-h-[calc(100vh-60px)] flex-col text-white">
-                {/* copy + CTA + cue centered in the flexible upper area */}
-                <div className="flex flex-1 flex-col items-center justify-center px-6 pt-6 text-center">
+                  as a bare tool). ข้อ③ copy lives here. Mobile = single column (copy top, mascot
+                  bottom). Desktop (lg, item A) = 2-col: copy LEFT 45% / mascot RIGHT 55%, seamless
+                  like index. */}
+              <section className="flex min-h-[calc(100vh-60px)] flex-col text-white lg:flex-row lg:items-center lg:gap-8 lg:px-10">
+                {/* copy + CTA + cue — centered on mobile, left-aligned 45% column on desktop */}
+                <div className="flex flex-1 flex-col items-center justify-center px-6 pt-6 text-center lg:flex-none lg:w-[45%] lg:items-start lg:pt-0 lg:text-left">
                   <Image src="/images/mumate/ic_sparkles.svg" width={36} height={36} alt="" aria-hidden="true" />
-                  <h1 className="mt-2 font-prompt text-[32px] font-semibold leading-tight">
+                  <h1 className="mt-2 font-prompt text-[32px] font-semibold leading-tight lg:text-[40px]">
                     Mumate ดูดวงแบบ
                     <br />
                     <span className="text-[#F3FCA2]">Personal Destiny</span>
                   </h1>
-                  <p className="mt-3 max-w-sm font-ibm text-[15px] text-white/90">
+                  <p className="mt-3 max-w-sm font-ibm text-[15px] text-white/90 lg:text-[16px]">
                     AI อัจฉริยะ ดูดวงละเอียด การงาน เงิน ความรัก
                     <br />
                     รู้ลึก รู้จริง · ไม่ต้องรอคิว
@@ -181,25 +193,55 @@ export default function CalculatorPage() {
                       className="pointer-events-none absolute -left-2 -top-2"
                     />
                   </div>
+                  {/* ④ secondary CTA — ghost/outline white (lighter than primary), tight stack under
+                      it. Auth-gated behind `mounted` so the SSR tree (no cookie) matches first client
+                      paint. Logged-in → into the app; logged-out → sign up (+ small เข้าสู่ระบบ link). */}
+                  {mounted &&
+                    (isLoggedIn ? (
+                      <button
+                        type="button"
+                        onClick={() => router.push(PageRouter.HOME)}
+                        className="mt-3 rounded-[40px] border border-white/60 bg-white/5 px-6 py-2.5 font-prompt text-[15px] font-medium text-white backdrop-blur-sm transition-colors hover:bg-white/15"
+                      >
+                        เข้าใช้งานเต็มระบบ →
+                      </button>
+                    ) : (
+                      <div className="mt-3 flex flex-col items-center gap-1.5 lg:items-start">
+                        <button
+                          type="button"
+                          onClick={() => router.push(PageRouter.REGISTER)}
+                          className="rounded-[40px] border border-white/60 bg-white/5 px-6 py-2.5 font-prompt text-[15px] font-medium text-white backdrop-blur-sm transition-colors hover:bg-white/15"
+                        >
+                          สมัครฟรี · รับดวงแบบเต็ม →
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => router.push(PageRouter.LOGIN_WITH)}
+                          className="font-ibm text-[13px] text-white/80 underline-offset-2 hover:underline"
+                        >
+                          มีบัญชีแล้ว? เข้าสู่ระบบ
+                        </button>
+                      </div>
+                    ))}
                   <button
                     type="button"
                     onClick={scrollToInput}
                     aria-label="เลื่อนไปกรอกวันเกิด"
-                    className={'mt-6 text-2xl text-white/80' + (mounted && !prefersReducedMotion ? ' animate-bounce' : '')}
+                    className={'mt-6 text-2xl text-white/80 lg:hidden' + (mounted && !prefersReducedMotion ? ' animate-bounce' : '')}
                   >
                     ⌄
                   </button>
                 </div>
-                {/* mascot — full-width bottom anchor (edge-to-edge on mobile, capped on desktop),
-                    shown complete so it never reads as a cropped card (layout A) */}
-                <div className="mt-6 w-full">
+                {/* mascot — full-width bottom anchor on mobile (layout A); on desktop it fills the
+                    right 55% column, uncapped so it reads large & seamless (item A). */}
+                <div className="mt-6 w-full lg:mt-0 lg:w-[55%]">
                   <Image
                     src="/images/mumate/img_footer_login.png"
                     width={600}
                     height={240}
                     alt=""
                     aria-hidden="true"
-                    className="mx-auto h-auto w-full max-w-md"
+                    className="mx-auto h-auto w-full max-w-md object-contain lg:max-w-none"
                     priority
                   />
                 </div>
@@ -218,7 +260,7 @@ export default function CalculatorPage() {
           {phase === 'ritual' && <RitualLoader onComplete={handleRitualComplete} isRepeat={isRepeat} />}
 
           {phase === 'result' && result && (
-            <div className="mx-auto max-w-2xl px-4 pb-20 pt-4">
+            <div className="mx-auto max-w-2xl px-4 pb-20 pt-4 lg:max-w-3xl">
               {/* hero — ดิถี circle IS the answer ("คุณเป็นคนธาตุ…"), on the teal canvas (no white card) */}
               <div className="text-center text-white">
                 <p className="inline-flex items-center gap-1.5 font-ibm text-[13px] text-white/90">
