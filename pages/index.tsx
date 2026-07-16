@@ -396,12 +396,27 @@ useEffect(() => {
   // Gate carefully (per goo consult): authStatus==='authed' AND resolveCtaReady — NOT resolveCtaReady
   // alone, which is true for anon too (→ would bounce anon to /login and destroy the public calc).
   // resolveAuth reports 'loading' (never 'authed') throughout the first-login register round-trip, so
-  // this cannot fire before MEMBER_ID lands (no register race). One-shot ref guards against re-firing
-  // on every authed re-render. If hydrate fails and resultHydrated stays false, the redirect simply
-  // never fires and the authed user keeps a usable calculator (the fallback affordance).
+  // this cannot fire before MEMBER_ID lands (no register race). One-shot ref guards against re-firing.
+  //
+  // BOUNDED WINDOW (goo adversarial review of PR#64 · ฟีม chose option c): the redirect effect can't
+  // see the calculator's `phase` (separate component) — a naive fire yanks a logged-in user out of the
+  // form/result mid-interaction if resultHydrated settles late (slow network). So the auto-redirect is
+  // only allowed to fire within a short window (REDIRECT_WINDOW_MS) after the calculator becomes
+  // visible (status settles). In the common case hydrate (one get-user call) settles well inside the
+  // window → the funnel works. If it settles LATE, the window has closed → we do NOT yank; the authed
+  // user keeps a usable calculator and can click the "เข้าใช้งานเต็มระบบ" secondary CTA themselves.
+  const REDIRECT_WINDOW_MS = 1500
   const redirectedRef = useRef<boolean>(false)
+  const redirectWindowClosedRef = useRef<boolean>(false)
   useEffect(() => {
-    if (redirectedRef.current) return
+    // Start the window only once the calculator is actually visible (past the loading gate) — before
+    // that the user can't interact anyway, so the clock protecting interaction shouldn't run yet.
+    if (status === 'loading') return
+    const t = setTimeout(() => { redirectWindowClosedRef.current = true }, REDIRECT_WINDOW_MS)
+    return () => clearTimeout(t)
+  }, [status])
+  useEffect(() => {
+    if (redirectedRef.current || redirectWindowClosedRef.current) return
     if (authStatus !== 'authed') return
     if (!resolveCtaReady(authStatus, resultHydrated)) return
     const target = resolveWelcomeTarget(authStatus, resultCode, isRefreshResult)
