@@ -60,7 +60,7 @@ function main() {
       { year: 2025, age: 36, stem: '乙', branch: '巳', element: 'ไม้', qi: 'เชี่ยงแซ', reaction: 'โชคลาภ', clash: false, harm: false },
       { year: 2030, age: 41, stem: '庚', branch: '戌', element: 'ทอง', qi: 'ซวย', reaction: 'คู่ธาตุ', clash: true, harm: false },
     ]
-    const annualYear36: AnnualLuckItem = { year: 36, above: { chinese_symbol: '乙', element: 'WOOD' }, below: { chinese_symbol: '巳', element: 'FIRE' } }
+    const annualYear36: AnnualLuckItem = { year: 36, ceYear: 2025, beYear: 2025 + 543, isCurrent: false, above: { chinese_symbol: '乙', element: 'WOOD' }, below: { chinese_symbol: '巳', element: 'FIRE' } }
     const match = findLiuNianForYear(liuNian, annualYear36)
     assert.equal(match?.age, 36)
     assert.equal(match?.reaction, 'โชคลาภ')
@@ -70,7 +70,7 @@ function main() {
   })
 
   t('findLiuNianForYear: no matching age -> undefined, no crash', () => {
-    const annual: AnnualLuckItem = { year: 5, above: { chinese_symbol: 'x', element: 'WOOD' }, below: { chinese_symbol: 'y', element: 'WOOD' } }
+    const annual: AnnualLuckItem = { year: 5, ceYear: 1993, beYear: 1993 + 543, isCurrent: false, above: { chinese_symbol: 'x', element: 'WOOD' }, below: { chinese_symbol: 'y', element: 'WOOD' } }
     assert.equal(findLiuNianForYear([], annual), undefined)
   })
 

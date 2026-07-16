@@ -86,7 +86,10 @@ export function LuckTimeline({
 }) {
   const initialDecade = Math.max(0, decades.findIndex((d) => d.isCurrent))
   const [decadeIndex, setDecadeIndex] = useState(initialDecade)
-  const [yearIndex, setYearIndex] = useState(0)
+  // #calc-decade-annual-current-fix: was hardcoded to 0 (the earliest year of life, not "now") —
+  // find the real current row the same way decades already does, via isCurrent.
+  const initialYear = Math.max(0, annual.findIndex((y) => y.isCurrent))
+  const [yearIndex, setYearIndex] = useState(initialYear)
   const [sheet, setSheet] = useState<SheetTarget>(null)
 
   // Signal-gated timeline badges, ≤4 combined across decade+annual (มุน design, FRD §5) — capped
@@ -121,23 +124,32 @@ export function LuckTimeline({
     }
     return { above: { sym: d.chinese_symbol, color: elementColor(d.element) } }
   }
-  // ค.ศ. + พ.ศ. for an annual year (real calendar year lives on the matched liuNian row).
+  // ค.ศ. + พ.ศ. for an annual year — prefer the enrichment's real calendar year when the
+  // bazi-sft-dataset call succeeded (authoritative, independently verified), otherwise fall back
+  // to the locally-computed ceYear/beYear (birthYear + counter - 1) precomputed on every
+  // AnnualLuckItem in mapAnnualLuck. #calc-decade-annual-current-fix: previously returned null on
+  // any enrichment miss, which forced every affected row to render "อีก N ปี" instead of a real
+  // year — now only genuinely returns null if birthYear itself was unavailable (defensive, should
+  // not happen in practice since it comes from the just-submitted form input).
   const annualYears = (y: AnnualLuckItem): { ce: number; be: number } | null => {
-    if (!enrichment) return null
-    const row = findLiuNianForYear(enrichment.liuNian, y)
-    return row ? { ce: row.year, be: row.year + 543 } : null
+    const row = enrichment ? findLiuNianForYear(enrichment.liuNian, y) : undefined
+    if (row) return { ce: row.year, be: row.year + 543 }
+    if (y.ceYear != null && y.beYear != null) return { ce: y.ceYear, be: y.beYear }
+    return null
   }
 
   // 2 "ตอนนี้" summary cards — prominent but frosted + element-accent only (NOT element-filled), so
   // priority stays: ดิถี hero ≫ current cards > strips (มุน balance per freeze).
   const currentDecade = decades.find((d) => d.isCurrent)
-  const currentAnnual = annual[0]
+  // #calc-decade-annual-current-fix: was hardcoded `annual[0]` (the earliest year of life, not
+  // "now") — annual[0].isCurrent is essentially never true, so this silently showed the wrong
+  // "ปีจรปีนี้" summary card. Now finds the real current row the same way decades already does.
+  const currentAnnual = annual.find((y) => y.isCurrent) ?? annual[0]
 
   // ③/C When the timeline first scrolls into view, the two strips ROLL-CONVERGE on "now": each
   // animates its scrollLeft to center its CURRENT card, but from OPPOSITE starting edges — วัยจร
-  // rolls in from the left, ปีจร rolls in from the right — so they meet at the present. This also
-  // fixes ปีจร (current = index 0 = already at the start → scrollIntoView produced no motion): we
-  // start it fully scrolled right and roll left to current. reduced-motion → jump, no roll.
+  // rolls in from the left, ปีจร rolls in from the right — so they meet at the present.
+  // reduced-motion → jump, no roll.
   const prefersReducedMotion = useReducedMotion()
   const rootRef = useRef<HTMLDivElement>(null)
   const inView = useInView(rootRef, { once: true, amount: 0.2 })
@@ -286,7 +298,7 @@ export function LuckTimeline({
             const row = enrichment ? findLiuNianForYear(enrichment.liuNian, y) : undefined
             const interactive = Boolean(row)
             return (
-              <div key={i} ref={i === 0 ? annualCurRef : undefined} className="relative shrink-0" style={{ scrollSnapAlign: 'start' }}>
+              <div key={i} ref={y.isCurrent ? annualCurRef : undefined} className="relative shrink-0" style={{ scrollSnapAlign: 'start' }}>
                 <button
                   type="button"
                   disabled={!interactive}
@@ -296,7 +308,7 @@ export function LuckTimeline({
                     (active
                       ? 'border-2 border-moumate_blue bg-moumate_blue_light'
                       : 'border-border_gray bg-moumate_white') +
-                    (i === 0 ? ' ring-2 ring-moumate_blue/50' : '') +
+                    (y.isCurrent ? ' ring-2 ring-moumate_blue/50' : '') +
                     (interactive ? '' : ' cursor-default opacity-90')
                   }
                 >
@@ -352,7 +364,12 @@ export function LuckTimeline({
           sheetDecade
             ? `ช่วงอายุ ${sheetDecade.ageStart}-${sheetDecade.ageEnd} ปี`
             : sheetAnnual
-              ? `${sheetAnnual.above.chinese_symbol}${sheetAnnual.below.chinese_symbol} · อีก ${sheetAnnual.year} ปี`
+              ? // #calc-decade-annual-current-fix: same "always show a real year" fix as the strip
+                // cards — this title previously showed the relative "อีก N ปี" counter unconditionally.
+                (() => {
+                  const y = annualYears(sheetAnnual)
+                  return `${sheetAnnual.above.chinese_symbol}${sheetAnnual.below.chinese_symbol} · ${y ? `${y.ce}` : `อีก ${sheetAnnual.year} ปี`}`
+                })()
               : ''
         }
       >
