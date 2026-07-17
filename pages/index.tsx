@@ -15,22 +15,36 @@ import { useCurrentUser } from '@/lib/auth/use-current-user';
 import { resolveWelcomeTarget } from '@/lib/auth/welcome-target';
 import { resolveReturningResult } from '@/lib/auth/returning-result';
 import { resolveCtaReady } from '@/lib/auth/cta-ready';
+import { isWithinRedirectWindow } from '@/lib/auth/redirect-window';
 import { signIn, signOut, useSession } from "next-auth/react";
+import type { GetServerSideProps } from "next";
 import Head from "next/head";
 import Image from "next/image";
 import { useRouter } from "next/router";
 import { useEffect, useRef, useState } from "react";
 import { useCookies } from 'react-cookie';
+import { issueNonce, NONCE_COOKIE } from '@/lib/calculator/nonce';
+import { CalculatorHomeExperience } from '@/components/calculator/CalculatorHomeExperience';
+
+// #calculator-homepage-swap: the homepage now serves the public Bazi Calculator experience (shared
+// with /calculator). The calculator's compute API requires the nonce cookie, so this page must issue
+// it in getServerSideProps exactly like /calculator does — otherwise the first compute POST from the
+// homepage would be rejected.
+export const getServerSideProps: GetServerSideProps = async (ctx) => {
+  const nonce = issueNonce()
+  ctx.res.setHeader('Set-Cookie', `${NONCE_COOKIE}=${nonce}; HttpOnly; Path=/; SameSite=Lax; Secure; Max-Age=600`)
+  return { props: {} }
+}
 
 
 export default function HomePage() {
 
   const [cookies, setCookie , removeCookie] = useCookies([
-    CookieKey.MEMBER_ID, 
-    CookieKey.MEMBER_NAME, 
-    CookieKey.MEMBER_SURNAME, 
-    CookieKey.MEMBER_REFER_CODE, 
-    CookieKey.MEMBER_IMAGE, 
+    CookieKey.MEMBER_ID,
+    CookieKey.MEMBER_NAME,
+    CookieKey.MEMBER_SURNAME,
+    CookieKey.MEMBER_REFER_CODE,
+    CookieKey.MEMBER_IMAGE,
     CookieKey.REFCODE_FGF,
     CookieKey.LOGIN_PROVIDER
   ])
@@ -162,13 +176,13 @@ useEffect(() => {
 
     const callApiRegister = async (
       id_token: any,
-      image: any, 
+      image: any,
       name: any,
       refer_code: any,
       email: any,
       provider: any,
     ) => {
-      
+
     if(isRegistering == true) {
         setIsRegistering(false)
         const result = await UserRegisterOrLogin(
@@ -256,13 +270,13 @@ useEffect(() => {
           }
     }
     }
-    
+
 
 useEffect(() => {
   if (isRegistering) {
     callApiRegister(
       infoToken,
-      infoImage, 
+      infoImage,
       infoName,
       infoRefCode,
       infoEmail,
@@ -374,7 +388,60 @@ useEffect(() => {
     }
   }, [status , session, callback, cookies[CookieKey.MEMBER_ID], cookies[CookieKey.LOGIN_PROVIDER]]);
 
- 
+
+  // #calculator-homepage-swap — homepage funnel: a logged-in visitor is routed ONWARD to their
+  // destiny (resolveWelcomeTarget) instead of dwelling on the calculator. Same targets the old home
+  // CTA produced (result / register), just auto-fired once the routing state is known — replacing the
+  // manual click. Anonymous visitors are never touched here and stay on the calculator experience.
+  //
+  // Gate carefully (per goo consult): authStatus==='authed' AND resolveCtaReady — NOT resolveCtaReady
+  // alone, which is true for anon too (→ would bounce anon to /login and destroy the public calc).
+  // resolveAuth reports 'loading' (never 'authed') throughout the first-login register round-trip, so
+  // this cannot fire before MEMBER_ID lands (no register race). One-shot ref guards against re-firing.
+  //
+  // BOUNDED WINDOW (goo adversarial review of PR#64 · ฟีม chose option c): the redirect effect can't
+  // see the calculator's `phase` (separate component) — a naive fire yanks a logged-in user out of the
+  // form/result mid-interaction if resultHydrated settles late (slow network). So the auto-redirect is
+  // only allowed to fire within a short window (REDIRECT_WINDOW_MS) after the calculator becomes
+  // visible (status settles). In the common case hydrate (one get-user call) settles well inside the
+  // window → the funnel works. If it settles LATE, the window has closed → we do NOT yank; the authed
+  // user keeps a usable calculator and can click the "เข้าใช้งานเต็มระบบ" secondary CTA themselves.
+  const REDIRECT_WINDOW_MS = 1500
+  const redirectedRef = useRef<boolean>(false)
+  // Timestamp (ms) when the calculator became visible (status settled past the loading gate); null
+  // until then. The auto-redirect may only fire while within REDIRECT_WINDOW_MS of it — the decision
+  // itself is the pure, unit-tested isWithinRedirectWindow. We start the clock only once the calc is
+  // visible (not at raw mount) so the window protecting interaction runs only when interaction is
+  // possible.
+  const windowStartRef = useRef<number | null>(null)
+  useEffect(() => {
+    if (status === 'loading') return
+    if (windowStartRef.current === null) windowStartRef.current = Date.now()
+  }, [status])
+  useEffect(() => {
+    if (redirectedRef.current) return
+    if (authStatus !== 'authed') return
+    if (!resolveCtaReady(authStatus, resultHydrated)) return
+    const elapsed = windowStartRef.current === null ? null : Date.now() - windowStartRef.current
+    if (!isWithinRedirectWindow(elapsed, REDIRECT_WINDOW_MS)) return
+    const target = resolveWelcomeTarget(authStatus, resultCode, isRefreshResult)
+    // 'login'/'wait' are unreachable for an authed+ready user — guard anyway, never bounce.
+    if (target.kind === 'login' || target.kind === 'wait') return
+    redirectedRef.current = true
+    switch (target.kind) {
+      case 'result':
+        router.replace(PageRouter.RESULT.replaceAll(':code', target.code))
+        break
+      case 'register':
+        router.replace(PageRouter.REGISTER)
+        break
+      case 'register-refresh':
+        router.replace(PageRouter.REGISTER + '?refresh=1')
+        break
+    }
+  }, [authStatus, resultHydrated, resultCode, isRefreshResult, router])
+
+
   // ✅ Loading
   if (status === "loading") {
     return <ScreenLoading />;
@@ -388,7 +455,7 @@ useEffect(() => {
 
     callApiRegister(
       infoToken,
-      infoImage, 
+      infoImage,
       infoName,
       infoRefCode,
       email,
@@ -399,241 +466,21 @@ useEffect(() => {
   }
 
 
-  const gotoWelcome = (resultCode: string, isRefreshResult: boolean) => {
-    // Decide from the cookie-validated identity, NOT the optimistic local
-    // isLogin/infoUserId. The returning-user branch never set infoUserId, so the
-    // old guard bounced logged-in users to /login. (#mootech-home-cta-bounce-migration)
-    const target = resolveWelcomeTarget(authStatus, resultCode, isRefreshResult)
-
-    switch (target.kind) {
-      case 'login':
-        // Only a genuinely anonymous user is sent to login.
-        router.replace(PageRouter.LOGIN_WITH)
-        return
-      case 'wait':
-        // Identity still hydrating — never bounce a logged-in/loading user.
-        return
-      case 'result':
-        router.replace(PageRouter.RESULT.replaceAll(':code', target.code))
-        return
-      case 'register':
-        router.replace(PageRouter.REGISTER)
-        return
-      case 'register-refresh':
-        router.replace(PageRouter.REGISTER + '?refresh=1')
-        return
-    }
-   }
-
-  // The CTA may only fire once the routing state is known (#mootech-cta-race-gate).
-  // While not ready (authed but result still hydrating, or identity loading) the
-  // button shows a spinner and ignores clicks, so a returning user can never click
-  // into /register before their chart loads. anon is ready immediately (-> /login).
-  const isCtaReady = resolveCtaReady(authStatus, resultHydrated)
-
-   
-
   return (
-    <div 
-    style={{
-      background: 'linear-gradient(180deg, #1B9AAF 0%, #3A78A9 100%)'
-    }}
-    className="w-full  min-h-screen flex justify-center h-fit font-prompt">
+    <>
       <Head>
         <title>Mumate</title>
       </Head>
 
-      <div className="w-full flex flex-wrap">
-        {/* <div className='w-full relative'>
-          <div className='w-full z-50  bg-[#1B9AAF] fixed top-0 left-0 h-[60px] flex items-center px-4 flex-nowrap'>
-            <div className='w-fit flex flex-none'>
-              <Image
-                src={isShowMenu ? '/images/icons/x.svg' : '/images/mumate/ic_menu.svg'}
-                width={32}
-                height={32}
-                onClick={() => { setIsShowMenu(!isShowMenu)}}
-                className=' cursor-pointer '
-                alt='icon-menu' />
-            </div>
-
-            <div className='w-full grow flex pl-4'>
-              <Image
-                src={'/images/mumate/ic_logo.svg'}
-                width={103}
-                height={24}
-                alt='icon-app' />
-            </div>
-
-            <div className='w-fit flex  flex-none'>
-              {
-                isLogin ? 
-                <Image
-                src={imgSrc}
-                width={40}
-                height={40}
-                className=' rounded-full cursor-pointer '
-                alt='icon-app' 
-                onClick={() => { router.push(PageRouter.PROFILE)}}
-                onError={() => setImgSrc(fallback)}
-                
-                />
-                :
-
-                <span
-                  onClick={ () => { gotoLoginWith() }}
-                  className=' text-white text-md cursor-pointer '
-                >เข้าสู่ระบบ</span>
-              }
-            </div>
-
-
-            
-          </div>
-          
-          {
-              isShowMenu ?
-              <div className=' w-full flex flex-wrap absolute top-0 left-0  z-50 '>
-                
-                <Menu is_show={isShowMenu} />
-              
-
-              </div>
-              :
-              null
-          }
-
-        </div> */}
-        <div className='w-full flex flex-wrap'>
-          <HeaderMuMate isShowMenu={isShowMenu} isLogin={isLogin} image={imgSrc}  />
-        </div>
-
-
-        <div className="flex justify-center w-full flex-wrap mt-[60px]">
-          <div className="w-full lg:w-[400px] flex items-center px-[32px] flex-wrap">
-            <div className="w-full flex-wrap">
-
-
-              <div className='w-full flex flex-wrap'>
-                <div className='w-full flex justify-end'>
-                  <Image
-                    src={'/images/mumate/ic_sparkles.svg'}
-                    width={37}
-                    height={37}
-                    alt='icon-sparkles' />
-                </div>
-
-                <div className='w-full flex flex-wrap'>
-                  <span className='w-full flex flex-wrap justify-center text-white text-[32px] font-semibold'>Mumate ดูดวงแบบ</span>
-                  <span className='w-full flex flex-wrap justify-center text-[#F3FCA2] text-[32px] font-semibold'>Personal Destiny</span>
-                  <span className='w-full flex flex-wrap justify-center text-center text-white text-[16px]'>
-                    AI อัจฉริยะ ดูดวงละเอียด การงาน เงิน ความรัก <br/>รู้ลึก รู้จริง ไม่ต้องรอคิว!
-                  </span>
-                </div>
-
-                <div className='w-full flex flex-wrap mt-4'>
-
-                  <div className='w-full relative'>
-                    <div
-                    onClick={() => { if (!isCtaReady) return; gotoWelcome(resultCode, isRefreshResult) }}
-                    className={`${isCtaReady ? 'cursor-pointer' : 'opacity-60 pointer-events-none'} w-full bg-white rounded-[40px] p-4 flex items-center flex-nowrap mt-[20px]`}>
-
-                      <span
-
-                        className=' text-[18px] font-bold text-[#1B9AAF] ml-[30px] flex grow w-full'
-                      >เช็คพื้นดวงและธาตุของคุณ</span>
-
-
-                      <div className='w-fit  flex items-center justify-center'>
-
-                        {isCtaReady ? (
-                          <Image
-                            src={'/images/mumate/ic_arrow_next.svg'}
-                            width={46}
-                            height={46}
-                            alt='icon-next' />
-                        ) : (
-                          <div
-                            className='h-[46px] w-[46px] flex items-center justify-center'
-                            aria-label='กำลังโหลดข้อมูลพื้นดวง'
-                            role='status'>
-                            <div className='h-7 w-7 animate-spin rounded-full border-2 border-gray-200 border-t-moumate_blue' />
-                          </div>
-                        )}
-
-                      </div>
-
-                    </div>
-
-                    <div className='w-fit z-40 absolute top-0 left-0 '>
-                        <Image
-                          src={'/images/mumate/ic_sparkles.svg'}
-                          width={37}
-                          height={37}
-                          alt='icon-sparkles' />
-                      </div>
-
-                  </div>
-                  
-                </div>
-
-
-              </div>
-
-
-
-            </div>
-          </div>
-
-          {/* Responsive images */}
-          <div className="w-fit flex lg:flex flex-wrap lg:items-center mb-[90px]">
-            <div className="w-full flex lg:hidden items-end">
-              <div className="flex md:hidden lg:hidden w-full">
-                <Image
-                  alt="mootech-icon"
-                  src={"/images/mumate/img_footer_login.png"}
-                  width={600}
-                  height={240}
-                />
-              </div>
-
-              <div className="hidden md:flex lg:hidden w-full">
-                <Image
-                  alt="mootech-icon"
-                  src={"/images/mumate/img_footer_login.png"}
-                  width={600}
-                  height={240}
-                />
-              </div>
-            </div>
-
-            <div className="hidden lg:flex w-full h-fit">
-              <Image
-                alt="mootech-icon"
-                src={"/images/mumate/img_footer_login.png"}
-                width={322}
-                height={420}
-              />
-            </div>
-          </div>
-        </div>
-
-
-          <div className='flex md:hidden h-[60px] bg-[#1B9AAF] w-full fixed bottom-0 left-0'>
-
-            <Image
-              src={'/images/mumate/img_path_login.svg'}
-              width={600}
-              height={40}
-              alt='path'
-            />
-
-
-          </div>
-
-      </div>
+      {/* #calculator-homepage-swap — the homepage IS the public Bazi Calculator experience now
+          (shared component with /calculator). The auth/register machine above still runs on every
+          render; an authed visitor is redirected onward by the effect above, an anonymous visitor
+          stays here and uses the calculator. The legacy static hero was retired (git history:
+          commit 804f85f and earlier). */}
+      <CalculatorHomeExperience />
 
       {
-        isShowModalSuccess ? 
+        isShowModalSuccess ?
           <ModalLoginSuccess />
         :
           null
@@ -641,20 +488,20 @@ useEffect(() => {
 
       {
         isShowModalEmail ?
-          <ModalEmail 
+          <ModalEmail
             onClose={onCloseModalEmail}
-            onSubmitOK={onSubmitModalEmail} 
-            id_token={infoToken} 
-            name={infoName} 
-            image={infoImage} 
-            refer_code={infoRefCode} 
-            provider={infoProvider}      
+            onSubmitOK={onSubmitModalEmail}
+            id_token={infoToken}
+            name={infoName}
+            image={infoImage}
+            refer_code={infoRefCode}
+            provider={infoProvider}
           />
         :
           null
       }
 
-      
+
       {message && (
         <div
           className={`
@@ -676,6 +523,6 @@ useEffect(() => {
           {message}
         </div>
       )}
-    </div>
+    </>
   );
 }

@@ -57,8 +57,9 @@ const Menu = ({
           {title: 'Ai Chat' , to: PageRouter.HOME, image: '/images/mumate/ic_menu_7.svg'},
           {title: 'แพ็คเกจราคา' , to: PageRouter.PACKAGE_PRICE, image: '/images/mumate/ic_menu_8.svg'},
           {title: 'ร้านค้า' , to: PageRouter.HOME, image: '/images/mumate/ic_menu_9.svg'},
+          {title: 'คำนวณดวงจีน (ฟรี)' , to: PageRouter.CALCULATOR, image: '/images/mumate/ic_menu_2.svg'},
 
-        ] 
+        ]
     },
     { title: 'แพ็คเกจราคา' , to: PageRouter.PACKAGE_PRICE, items: [] },
     { title: 'ร้านค้า' , to: PageRouter.HOME, items: [] },
@@ -263,8 +264,23 @@ const Menu = ({
                               />
                             </div>
                             <span className={' w-full flex grow text-moumate_blue ml-2'}>{menus[1].items[5].title}</span>
-                      </div> 
-                      {/* <div 
+                      </div>
+                      <div
+                      onClick={() => { router.replace(menus[1].items[9].to)}}
+                      className={
+                          ' border-b border-gray-200  w-full flex  flex-nowrap py-4 cursor-pointer px-4 '}>
+                            <div className=' w-fit flex flex-none '>
+                              <Image
+                                className="  "
+                                alt="meu-icon"
+                                src={menus[1].items[9].image}
+                                width={24}
+                                height={24}
+                              />
+                            </div>
+                            <span className={' w-full flex grow text-moumate_blue ml-2'}>{menus[1].items[9].title}</span>
+                      </div>
+                      {/* <div
                       onClick={() => { router.replace(menus[1].items[6].to)}}
                       
                       className={
