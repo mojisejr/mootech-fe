@@ -6,8 +6,9 @@ import { ChineseHoroscopeCalculate } from '@/constants/api/api-chinese-horoscope
 import { UserGetById } from '@/constants/api/api-user-get';
 import { CookieKey } from '@/constants/cookie-key';
 import { PageRouter } from '@/constants/router';
+import { useCurrentUser } from '@/lib/auth/use-current-user';
 import { validateNumberOnlyFull } from '@/utils/validate';
-import { signIn, signOut, useSession } from "next-auth/react";
+import { signIn, signOut } from "next-auth/react";
 import Head from "next/head";
 import Image from "next/image";
 import { useRouter } from "next/router";
@@ -31,7 +32,14 @@ export default function LoginPage() {
 
   const [isLoading, setIsLoading] = useState<boolean>(false)
 
-  const { data: session, status } = useSession();
+  // Cookie-validated identity (never the raw NextAuth session status) — see
+  // pages/index.tsx / CalculatorHomeExperience.tsx for the same pattern. Raw
+  // `status` treats the register round-trip's in-flight window (session
+  // authenticated, MEMBER_ID cookie not yet written) as indistinguishable from
+  // truly-anon, which is exactly the class of bug behind #mootech-login-loop-fix-v2
+  // and #mootech-cta-race-gate. (The old raw useSession() status is gone —
+  // useCurrentUser() already reads the session internally.)
+  const { status: authStatus } = useCurrentUser();
   const [userId, setUserId] = useState<string>('')
   const [displayName, setDisplayName] = useState<string>('')
   const [displaySurname, setDisplaySurname] = useState<string>('')
@@ -49,13 +57,27 @@ export default function LoginPage() {
   const fallback = '/images/mumate/ic_avatar.svg' 
   const [imgSrc, setImgSrc] = useState(displayImage || fallback)
 
+  // Defense-in-depth gate (#mootech-register-anon-gate): a genuinely anonymous
+  // visitor must never dwell on this form — bounce to HOME (now a safe target:
+  // the calculator). This is the SECOND layer — the "สมัครฟรี" CTA itself no
+  // longer routes an anon visitor straight here (fixed alongside, see
+  // CalculatorHomeExperience.tsx) — but a direct URL/bookmark must be gated too.
+  //
+  // NEVER redirect while authStatus === 'loading' — that state covers BOTH
+  // NextAuth still resolving AND the register round-trip in flight (session
+  // authenticated, MEMBER_ID cookie not yet written). Bouncing during that
+  // window is exactly the login-loop/cta-race bug class this file must not
+  // reintroduce. A first-time authed user filling this form (no chart yet) is
+  // 'authed' the moment MEMBER_ID lands — never 'anon' — so this gate never
+  // touches them regardless of whether they have a computed chart.
   useEffect(() => {
-    if (status === "unauthenticated") {
-      // router.replace(PageRouter.HOME)
-    } else {
+    if (authStatus === 'anon') {
+      router.replace(PageRouter.HOME)
+    } else if (authStatus === 'authed') {
       setIsLogin(true)
     }
-  }, [status, session]);
+    // authStatus === 'loading' -> do nothing; wait for it to settle.
+  }, [authStatus]);
 
       
   useEffect(() => {

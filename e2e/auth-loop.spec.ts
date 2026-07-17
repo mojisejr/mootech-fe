@@ -121,3 +121,45 @@ test.describe("login loop regression (#mootech-login-loop-fix-v2)", () => {
     await expectMatchingNotLogin(page);
   });
 });
+
+// #mootech-register-anon-gate — defense-in-depth: /register itself must gate a
+// genuinely anonymous visitor (not just the homepage CTA that links to it).
+// Bug history this must not reintroduce: the OLD gate here read raw
+// useSession().status === "unauthenticated" (commented out, never even wired
+// live) — the SAME raw-status class of bug behind #mootech-login-loop-fix-v2 /
+// #mootech-cta-race-gate elsewhere in this app. Fixed to key off
+// useCurrentUser()'s cookie-validated authStatus instead.
+test.describe("register page anon gate (#mootech-register-anon-gate)", () => {
+  // Case C — a genuinely anonymous visitor landing on /register directly (bookmark
+  // / shared link / typed URL) must be bounced to HOME (now the calculator — a
+  // safe, useful landing spot), never stranded on the registration form.
+  test("anon direct-navigate to /register -> redirected to HOME", async ({
+    page,
+  }) => {
+    // No seedAuth() — this context has no session and no MEMBER_ID cookie.
+    await page.goto("/register");
+    await page.waitForURL(/\/$/, { timeout: 15000 });
+    expect(page.url(), "anon visitor must land on HOME, not /register").not.toContain(
+      "/register",
+    );
+  });
+
+  // Case D — THE required regression case (ฟีม's explicit precondition): an authed
+  // user filling out this form for the FIRST time (no chart computed yet) must
+  // NEVER be bounced off /register. authStatus becomes 'authed' the instant
+  // MEMBER_ID lands, independent of whether resultCode/a chart exists yet -- the
+  // gate has no chart-presence condition, so this is true by construction, but a
+  // real browser round-trip proves the cookie-truth gate genuinely never fires for
+  // this user, not just that the code reads that way.
+  test("authed first-time user (no chart yet) stays on /register -- never bounced", async ({
+    page,
+  }) => {
+    await seedAuth(page); // dev-login: session authenticated + MEMBER_ID cookie committed
+
+    await page.goto("/register");
+    // Stability window: assert the URL holds at /register, not just the first paint,
+    // to catch a transient bounce-then-settle as well as an immediate one.
+    await page.waitForTimeout(1500);
+    expect(page.url(), "authed user must stay on /register").toContain("/register");
+  });
+});
