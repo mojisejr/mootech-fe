@@ -26,7 +26,8 @@ export default function CalculatorPage() {
       <Head>
         <title>คำนวณดวงจีนฟรี · ผังชะตากำเนิด — MuMate</title>
       </Head>
-      <CalculatorHomeExperience />
+      {/* menu-reached, not a landing page → no hero, just the birth form */}
+      <CalculatorHomeExperience showHero={false} />
     </>
   )
 }

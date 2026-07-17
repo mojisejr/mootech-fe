@@ -53,7 +53,10 @@ function computeAges(dob?: string): { thaiAge: number; chineseAge: number } | nu
   return { thaiAge, chineseAge: thaiAge + 1 }
 }
 
-export function CalculatorHomeExperience() {
+// showHero — the homepage ("/") shows the full ACT-1 hero (marketing copy + mascot + scroll cue)
+// before the form; /calculator is reached from the nav menu (not a landing page) so it passes
+// showHero={false} to drop the hero and present just the birth form.
+export function CalculatorHomeExperience({ showHero = true }: { showHero?: boolean } = {}) {
   const [phase, setPhase] = useState<Phase>('form')
   const [result, setResult] = useState<ComputeResult | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -150,7 +153,9 @@ export function CalculatorHomeExperience() {
                 bottom). Desktop (lg) = 2-col, but copy+mascot are pulled together as ONE centered
                 group in the middle of the screen (lg:justify-center + both columns content-width),
                 rather than flex-1 spreading them to the left/right edges with a big empty gap
-                (#calculator-homepage-swap centering, ฟีม: "มารวมกันเป็นชุดเดียว อยู่กลางจอ"). */}
+                (#calculator-homepage-swap centering, ฟีม: "มารวมกันเป็นชุดเดียว อยู่กลางจอ").
+                Hidden on /calculator (showHero={false}) — that route is menu-reached, form-only. */}
+            {showHero && (
             <section className="flex min-h-[calc(100vh-60px)] flex-col text-white lg:flex-row lg:items-center lg:justify-center lg:gap-10 lg:px-10">
               {/* copy + CTA + cue — full-width centered on mobile; on desktop a content-width block
                   (not flex-1) so it hugs the mascot as a group instead of stretching to the edge */}
@@ -237,10 +242,12 @@ export function CalculatorHomeExperience() {
                 />
               </div>
             </section>
+            )}
 
-            {/* ACT 2 — INPUT (same page, revealed by the smooth-scroll). No entrance animation:
-                the scroll IS the motion (minimal doctrine) + keeps this SSR'd section hydration-clean. */}
-            <section ref={inputRef} tabIndex={-1} className="px-4 pb-20 pt-2 outline-none">
+            {/* ACT 2 — INPUT. On the homepage it's revealed by the smooth-scroll below the hero (pt-2,
+                the scroll IS the motion). On /calculator (no hero above) it's the top of the page, so
+                it gets real top breathing room under the fixed header instead of sitting jammed. */}
+            <section ref={inputRef} tabIndex={-1} className={`px-4 pb-20 outline-none ${showHero ? 'pt-2' : 'pt-8 lg:pt-12'}`}>
               <p className="mb-4 text-center font-prompt text-lg font-semibold text-white">กรอกวันเกิดเพื่อดูผัง</p>
               {error && <p className="mx-auto mb-4 max-w-md text-center font-ibm text-sm text-[#FFE1DE]">{error}</p>}
               <BirthForm onSubmit={handleSubmit} />
