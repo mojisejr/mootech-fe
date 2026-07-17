@@ -200,7 +200,7 @@ export function CalculatorHomeExperience() {
                     <div className="mt-3 flex flex-col items-center gap-1.5 lg:items-start">
                       <button
                         type="button"
-                        onClick={() => router.push(PageRouter.REGISTER)}
+                        onClick={() => router.push(PageRouter.LOGIN_WITH)}
                         className="rounded-[40px] border border-white/60 bg-white/5 px-6 py-2.5 font-prompt text-[15px] font-medium text-white backdrop-blur-sm transition-colors hover:bg-white/15"
                       >
                         สมัครฟรี · รับดวงแบบเต็ม →
