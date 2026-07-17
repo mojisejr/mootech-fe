@@ -15,7 +15,6 @@ import { useCurrentUser } from '@/lib/auth/use-current-user';
 import { resolveWelcomeTarget } from '@/lib/auth/welcome-target';
 import { resolveReturningResult } from '@/lib/auth/returning-result';
 import { resolveCtaReady } from '@/lib/auth/cta-ready';
-import { isWithinRedirectWindow } from '@/lib/auth/redirect-window';
 import { signIn, signOut, useSession } from "next-auth/react";
 import type { GetServerSideProps } from "next";
 import Head from "next/head";
@@ -389,45 +388,18 @@ useEffect(() => {
   }, [status , session, callback, cookies[CookieKey.MEMBER_ID], cookies[CookieKey.LOGIN_PROVIDER]]);
 
 
-  // #calculator-homepage-swap — homepage funnel: a logged-in visitor is routed ONWARD to their
-  // destiny (resolveWelcomeTarget) instead of dwelling on the calculator. Same targets the old home
-  // CTA produced (result / register), just auto-fired once the routing state is known — replacing the
-  // manual click. Anonymous visitors are never touched here and stay on the calculator experience.
-  //
-  // Gate carefully (per goo consult): authStatus==='authed' AND resolveCtaReady — NOT resolveCtaReady
-  // alone, which is true for anon too (→ would bounce anon to /login and destroy the public calc).
-  // resolveAuth reports 'loading' (never 'authed') throughout the first-login register round-trip, so
-  // this cannot fire before MEMBER_ID lands (no register race). One-shot ref guards against re-firing.
-  //
-  // BOUNDED WINDOW (goo adversarial review of PR#64 · ฟีม chose option c): the redirect effect can't
-  // see the calculator's `phase` (separate component) — a naive fire yanks a logged-in user out of the
-  // form/result mid-interaction if resultHydrated settles late (slow network). So the auto-redirect is
-  // only allowed to fire within a short window (REDIRECT_WINDOW_MS) after the calculator becomes
-  // visible (status settles). In the common case hydrate (one get-user call) settles well inside the
-  // window → the funnel works. If it settles LATE, the window has closed → we do NOT yank; the authed
-  // user keeps a usable calculator and can click the "เข้าใช้งานเต็มระบบ" secondary CTA themselves.
-  const REDIRECT_WINDOW_MS = 1500
-  const redirectedRef = useRef<boolean>(false)
-  // Timestamp (ms) when the calculator became visible (status settled past the loading gate); null
-  // until then. The auto-redirect may only fire while within REDIRECT_WINDOW_MS of it — the decision
-  // itself is the pure, unit-tested isWithinRedirectWindow. We start the clock only once the calc is
-  // visible (not at raw mount) so the window protecting interaction runs only when interaction is
-  // possible.
-  const windowStartRef = useRef<number | null>(null)
-  useEffect(() => {
-    if (status === 'loading') return
-    if (windowStartRef.current === null) windowStartRef.current = Date.now()
-  }, [status])
-  useEffect(() => {
-    if (redirectedRef.current) return
-    if (authStatus !== 'authed') return
-    if (!resolveCtaReady(authStatus, resultHydrated)) return
-    const elapsed = windowStartRef.current === null ? null : Date.now() - windowStartRef.current
-    if (!isWithinRedirectWindow(elapsed, REDIRECT_WINDOW_MS)) return
+  // #calculator-homepage-swap → manual continue (ฟีม): a logged-in visitor now lands on the FULL
+  // homepage exactly like an anon (some people show the site to friends) — NEVER auto-redirected. The
+  // hero instead shows a "ไปต่อ" button that routes them onward via resolveWelcomeTarget (result /
+  // register) only on click. This replaces the old auto-redirect effect + its bounded-window guard
+  // entirely. The register/session machine + resultHydrated above are untouched; `continueReady`
+  // (resolveCtaReady) gates the button until the routing state is known — the same correctness gate the
+  // auto-redirect used, now applied to a manual click instead of a timed auto-fire.
+  const handleContinueToApp = () => {
     const target = resolveWelcomeTarget(authStatus, resultCode, isRefreshResult)
-    // 'login'/'wait' are unreachable for an authed+ready user — guard anyway, never bounce.
+    // 'login'/'wait' are unreachable for an authed + ready user (the button is gated on that) — guard
+    // anyway so a stray early click can never bounce a logged-in/hydrating user.
     if (target.kind === 'login' || target.kind === 'wait') return
-    redirectedRef.current = true
     switch (target.kind) {
       case 'result':
         router.replace(PageRouter.RESULT.replaceAll(':code', target.code))
@@ -439,7 +411,7 @@ useEffect(() => {
         router.replace(PageRouter.REGISTER + '?refresh=1')
         break
     }
-  }, [authStatus, resultHydrated, resultCode, isRefreshResult, router])
+  }
 
 
   // ✅ Loading
@@ -477,7 +449,10 @@ useEffect(() => {
           render; an authed visitor is redirected onward by the effect above, an anonymous visitor
           stays here and uses the calculator. The legacy static hero was retired (git history:
           commit 804f85f and earlier). */}
-      <CalculatorHomeExperience />
+      <CalculatorHomeExperience
+        onContinueToApp={handleContinueToApp}
+        continueReady={resolveCtaReady(authStatus, resultHydrated)}
+      />
 
       {
         isShowModalSuccess ?
