@@ -56,7 +56,20 @@ function computeAges(dob?: string): { thaiAge: number; chineseAge: number } | nu
 // showHero — the homepage ("/") shows the full ACT-1 hero (marketing copy + mascot + scroll cue)
 // before the form; /calculator is reached from the nav menu (not a landing page) so it passes
 // showHero={false} to drop the hero and present just the birth form.
-export function CalculatorHomeExperience({ showHero = true }: { showHero?: boolean } = {}) {
+//
+// onContinueToApp / continueReady — on the homepage a logged-in visitor is NOT auto-redirected (ฟีม:
+// they should see the full page first, e.g. to show a friend); the hero shows a manual "ไปต่อ" button
+// that calls onContinueToApp (routing via resolveWelcomeTarget lives in the page). continueReady gates
+// the button until the routing state has hydrated so it can't fire before the destination is known.
+export function CalculatorHomeExperience({
+  showHero = true,
+  onContinueToApp,
+  continueReady = true,
+}: {
+  showHero?: boolean
+  onContinueToApp?: () => void
+  continueReady?: boolean
+} = {}) {
   const [phase, setPhase] = useState<Phase>('form')
   const [result, setResult] = useState<ComputeResult | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -194,12 +207,23 @@ export function CalculatorHomeExperience({ showHero = true }: { showHero?: boole
                     paint. Logged-in → into the app; logged-out → sign up (+ small เข้าสู่ระบบ link). */}
                 {mounted &&
                   (isLoggedIn ? (
+                    // logged-in: manual "ไปต่อ" — routes onward via onContinueToApp (resolveWelcomeTarget
+                    // in the page). Disabled + spinner until continueReady so it can't fire before the
+                    // routing state (result vs register) is known.
                     <button
                       type="button"
-                      onClick={() => router.push(PageRouter.HOME)}
-                      className="mt-3 rounded-[40px] border border-white/60 bg-white/5 px-6 py-2.5 font-prompt text-[15px] font-medium text-white backdrop-blur-sm transition-colors hover:bg-white/15"
+                      onClick={() => onContinueToApp?.()}
+                      disabled={!continueReady}
+                      aria-busy={!continueReady}
+                      className="mt-3 inline-flex items-center gap-2 rounded-[40px] border border-white/60 bg-white/5 px-6 py-2.5 font-prompt text-[15px] font-medium text-white backdrop-blur-sm transition-colors hover:bg-white/15 disabled:cursor-not-allowed disabled:opacity-60"
                     >
-                      เข้าใช้งานเต็มระบบ →
+                      ไปที่ดวงของฉัน →
+                      {!continueReady && (
+                        <span
+                          aria-hidden="true"
+                          className="h-4 w-4 animate-spin rounded-full border-2 border-white/40 border-t-white"
+                        />
+                      )}
                     </button>
                   ) : (
                     <div className="mt-3 flex flex-col items-center gap-1.5 lg:items-start">
