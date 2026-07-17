@@ -446,9 +446,9 @@ useEffect(() => {
 
       {/* #calculator-homepage-swap — the homepage IS the public Bazi Calculator experience now
           (shared component with /calculator). The auth/register machine above still runs on every
-          render; an authed visitor is redirected onward by the effect above, an anonymous visitor
-          stays here and uses the calculator. The legacy static hero was retired (git history:
-          commit 804f85f and earlier). */}
+          render; a logged-in visitor is NOT auto-redirected — they see the full homepage like anyone
+          else and click the "ไปต่อ" button (onContinueToApp) to proceed. An anonymous visitor just
+          uses the calculator. The legacy static hero was retired (git history: commit 804f85f). */}
       <CalculatorHomeExperience
         onContinueToApp={handleContinueToApp}
         continueReady={resolveCtaReady(authStatus, resultHydrated)}
