@@ -1,0 +1,5 @@
+oracle: bongbing-oracle
+date: 2026-07-18
+source: https://github.com/mojisejr/mootech-fe
+branch: main
+note: MuMate frontend (Next.js). Maintenance + implementation delegated to webgang (bong lead · goo build · too review · มุน design/UI) โดยฟีม, บน behalf ของ o (opilot). o ยังถือ design direction + guardrails + review plan-boundary (ไม่ใช่ยึด design authority มา). BRANCH หลัก = main (current, ไม่มี stale-main issue). long-term team dev. ก่อนแตะทุกครั้ง fetch origin/main ก่อน.
