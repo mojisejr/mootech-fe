@@ -49,6 +49,11 @@ Mystical แต่ **modern & confident** — ไม่ใช่ soft/glassy tea
 | `border-input` | `#E5E7EB` |
 | `border-card` | `#E9EAEB` |
 | `disabled-bg` | `#DDDDDD` (Neutral 03) |
+| `border-dropdown` | `#B0B0B0` (Neutral 06) |
+| `border-checkbox` | `#C2C2C2` (Neutral 05) |
+| `shade-02` (focus border/text) | `#222222` |
+| `tab-track` | `#EBEBEB` (Neutral 02) · `tab-focus` `#F7F7F7` |
+| `dropdown-label` | `#717171` (Neutral 07) |
 
 ### Element colors (5 ธาตุ) `✓`
 map จาก `lib/calculator/elements.ts` — `WOOD=ไม้ · FIRE=ไฟ · EARTH=ดิน · METAL=ทอง · WATER=น้ำ`.
@@ -121,19 +126,35 @@ height `52` · radius `100px` · pad 20H/14V · bg white · label บน (14/20 
 | Filled | `1px #E5E7EB` | value `#212121` |
 | Error | **`2px #E73E3E`** | label+helper `#E73E3E` |
 
-### Dropdown `~`
-= Input container + chevron-down 20×20. States mirror Input. *(focus/error hex อนุมานเท่ากับ Input — `?` ยังไม่ re-fetch)*
+### Dropdown `✓` (re-fetched node 300-591)
+container radius **`8px`** (ไม่ใช่ pill!) · w520 · pad 12H/16V · placeholder **Poppins Regular 16** `#222` · label (optional) **SF Pro Regular 12** `#717171` · chevron/CC icon 16.
+| State | Border |
+|---|---|
+| Default/Hover | `1px #B0B0B0` (Neutral 06) |
+| Focus | **`2px #222`** (Shade 02) |
+| Loading | `1px #B0B0B0` + ellipses graphic |
 
-### Checkbox `~`
-box `24×24` radius 6–8 · gap 8 · label 16/24 `#444`. Unselected: white + gray border · **Selected: `#1455A4` fill + white check**. รองรับ label + description. *(`?` unselected-border hex + disabled/error ยังไม่ยืนยัน — design_context refused, อ่านจาก pixel)*
+### Checkbox `✓` (re-fetched node 300-2012)
+box **`24×24`** radius **`4px`** · check icon 16×16 (inset 4).
+| State | Box |
+|---|---|
+| Unselected | white + **`1px #C2C2C2`** (Neutral 05) |
+| Unselected hover/focus | white + **`1px #1455A4`** |
+| Checked | **`#1455A4` fill** + white check |
+| Focus | box โต **32×32** radius 8 + **`2px #1455A4`** ring |
 
-### Tab / Pill Tabs `?`
-segmented pill · selected = white fill + เงาบาง + label เข้ม · unselected = โปร่ง + label เทา. *(hex/size ยังไม่ได้ — design_context refused node นี้ ต้อง re-fetch จาก desktop selection)*
+รองรับ label + description (จาก set `300-1944`): box + label 16/24 + description รอง.
+
+### Tab / Pill Tabs `✓` (re-fetched node 375-10888)
+container bg **`#EBEBEB`** (Neutral 02) · pad `4px` · radius `50px` · 2 segment.
+- segment: pad 12H/8V · radius `500px` (pill) · w151 · label **Poppins SemiBold 14** `#222`
+- **Selected** = bg white + **drop-shadow `0px 6px 8.5px rgba(0,0,0,.08)`**
+- **Focus** (unselected) = bg `#F7F7F7` + border `2px #222`
 
 ### Card / Sheet / Nav (Menubar)
 Card: white `radius 16` pad 16, flat. Nav: bottom Menubar variants `Status=default/focus/hover × Home/service/calendar/shop`. *(spec ละเอียดตอน implement)*
 
-> ⚠️ **3 node (Dropdown/Checkbox/Tab) `get_design_context` refused** — ค่าบางส่วนอ่านจาก screenshot ต้อง re-fetch จาก Figma desktop (เลือก layer) ก่อน finalize primitive.
+> ✅ **Dropdown/Checkbox/Tab re-fetched แล้ว (2026-07-19)** — ค่าจริงครบ (จุดที่ 1 ปิด). Method: ยิง `get_design_context` ที่ **node component-set** (`300-591`/`300-2012`/`375-10888`) ไม่ใช่ canvas wrapper (`300-587`/`300-1923`/`375-10887` ที่ width=0 → refuse). หมายเหตุ: component master ใช้ Poppins/SF Pro (Latin placeholder); production Thai ใช้ IBM Plex Sans Thai ตาม ramp.
 
 ---
 
