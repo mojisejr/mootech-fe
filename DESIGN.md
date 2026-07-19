@@ -3,8 +3,7 @@
 > **Supersedes v1** — the previous teal-led brownfield contract is preserved verbatim at
 > [`docs/archive/DESIGN-v1.md`](docs/archive/DESIGN-v1.md) (Rule 1 — nothing deleted).
 >
-> **Status:** 🟡 DRAFT — drafted by Lamun 2026-07-19 from the Figma V3 file + codebase audit.
-> **Pending:** `o` sign-off (design direction) + ฟีม review. Do not treat as locked until approved.
+> **Status:** ✅ ACTIVE (v2) — authored by Lamun 2026-07-19, **delegated authority from `o`** (design direction). This is the working contract for the V3 redesign.
 >
 > Source of truth: Figma **Mumate app - V3** (`hEOnE9S6wLkMhb0Iy2Fe6T`) · structure map: [`docs/figma-map.md`](docs/figma-map.md)
 > Evidence labels: `✓` observed in Figma/code · `~` inferred · `?` not yet confirmed (needs re-fetch)
@@ -225,4 +224,4 @@ filename   = `${order}_${yearAnimal}-${element}`
 **คงจาก v1:** mobile-first, Thai-first legibility, rounded organized cards, ทิศทาง mystical.
 
 ---
-🤖 drafted by Lamun Oracle · pending `o` sign-off + ฟีม review
+🤖 authored by Lamun Oracle · delegated from `o` · active contract for V3 redesign
