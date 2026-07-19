@@ -13,11 +13,44 @@ const config: Config = {
       sarabun: ['Sarabun'],
       prompt: ['Prompt'],
       chonburi: ['Chonburi'],
-      poppins: ['Noto+Sans+Thai'],        
+      poppins: ['Noto+Sans+Thai'],
       ibm: ['"IBM Plex Sans Thai"', 'sans-serif'],
+      // V3 primitive library (DESIGN.md §3). `poppins` above is legacy and maps to
+      // Noto Sans Thai (used by hologram-scale.tsx) — do NOT reuse it for real Poppins.
+      // Use `font-poppins-v3` for Latin/numerals + disabled button labels.
+      'poppins-v3': ['Poppins', 'sans-serif'],
     },
     extend: {
       colors: {
+        // V3 redesign tokens (DESIGN.md §2). Namespaced under `v3` so they never clash with
+        // the ~40 existing brownfield tokens above. Classes: bg-v3-sapphire, text-v3-navy, etc.
+        v3: {
+          // Brand
+          'sapphire': '#1455A4',        // primary — buttons, checkbox fill, accent heading
+          'sapphire-hover': '#10427F',  // primary hover/pressed
+          'lime': '#E1FF00',            // accent — button label + focus ring ONLY (low contrast on white)
+          'cyan': '#1B9AAF',            // secondary/legacy tie-in
+          // Surface & text
+          'ghost-white': '#ECF0FD',     // page bg + tile-icon chip
+          'navy': '#0B305B',            // screen headings (Oxford Navy)
+          'text-title': '#0B305B',      // alias of navy — matches DESIGN token name
+          'text-body': '#464646',       // body / label
+          'text-muted': '#71717A',      // secondary list-item
+          'placeholder': '#9CA3AF',     // input placeholder
+          'text-filled': '#212121',     // filled input value
+          // Semantic & border
+          'error': '#E73E3E',
+          'focus-border': '#3475E2',
+          'border-input': '#E5E7EB',
+          'border-card': '#E9EAEB',
+          'border-dropdown': '#B0B0B0', // Neutral 06
+          'border-checkbox': '#C2C2C2', // Neutral 05
+          'shade-02': '#222222',        // dropdown focus border/text
+          'tab-track': '#EBEBEB',       // Neutral 02
+          'tab-focus': '#F7F7F7',
+          'disabled-bg': '#DDDDDD',     // Neutral 03
+          'dropdown-label': '#717171',  // Neutral 07
+        },
         background: "var(--background)",
         foreground: "var(--foreground)",
         moumate_blue: '#1B9AAF',
@@ -73,7 +106,15 @@ const config: Config = {
         // ชื่อ custom: ค่า box-shadow
         'custom': '0px 12px 24px -8px rgba(194, 202, 255, 0.5)',
         'custom2': '0px 36px 24px -24px rgba(195, 200, 233, 1)'
-        
+
+      },
+      // V3 radius tokens (DESIGN.md §4). Additive — Tailwind merges these with its default
+      // rounded-* scale, so existing rounded-2xl/rounded-lg usages are untouched.
+      // Classes: rounded-pill, rounded-card, rounded-chip.
+      borderRadius: {
+        'pill': '100px',
+        'card': '16px',
+        'chip': '6px',
       },
       backdropBlur: { 
         // ชื่อ custom: ค่า blur

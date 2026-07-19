@@ -87,10 +87,11 @@ Letter-spacing: 0 ทั้งหมด.
 ## 4. Radius & elevation `✓`
 | Token | ค่า |
 |---|---|
-| pill (button/input/dropdown) | `100px` |
+| pill (button/input) | `100px` |
+| dropdown | `8px` |
 | card | `16px` |
 | icon chip | `6px` |
-| checkbox box | `6–8px` |
+| checkbox box | `4px (focus ring 8px)` |
 | screen frame | `40px` |
 
 **Flat — ไม่มี drop shadow.** ความลึกมาจาก bg contrast (ghost-white ↔ white). ข้อยกเว้นเดียว: **Tab ที่ selected** มีเงาบางๆ.
