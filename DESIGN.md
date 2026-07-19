@@ -141,25 +141,34 @@ Card: white `radius 16` pad 16, flat. Nav: bottom Menubar variants `Status=defau
 
 **หัวใจของ V3:** หน้าตาแอปเปลี่ยนตามดวงของ user. ปีเกิด → ธาตุ + นักษัตร → asset ที่ตรงตัว.
 
+### ✅ DECISION — C (hybrid): **นักษัตรปีเกิด + ธาตุ day-master** (locked 2026-07-19, ฟีม confirm)
+asset mascot ผสม 2 แกนคนละที่มา — เลือกแบบนี้เพื่อให้ mascot **ตรงกับ "ธาตุของคุณ" ที่จอ result โชว์**:
+- **นักษัตร** = **year animal** (จากปีเกิด) — engine ให้ `yearOfZodiac`; UI card art keys off year animal (`ชวด`)
+- **ธาตุ** = **day-master element** (ธาตุประจำตัว, ตัด polarity ไม้หยิน→ไม้) — engine + UI ทั้งคู่ใช้ day-master เป็น "ธาตุของคุณ" (`dayMasterElement` / `ธาตุไม้หยิน` = 乙)
+- ❌ **ไม่ใช้ year element** — จะทำให้ mascot ธาตุไม่ตรง headline (user งง)
+
 ### Data path — reuse ของเดิม (ไม่เขียน bazi ใหม่)
-- best: `POST /api/what-if/generate` → `destiny.{ element, animal }` จากวันเกิด (`lib/what-if/storage.ts`)
-- alt: `/api/calculator/compute` → `yearOfZodiac` + `dayMasterElement`
-- element Thai↔Eng มีแล้ว: `lib/calculator/elements.ts`, `lib/calculator/map-enrichment.ts`
+- **`/api/calculator/compute`** → ให้ทั้ง `yearOfZodiac` (year animal) + `dayMasterElement` (day-master) = ครบทั้ง 2 แกนที่ resolver ต้องการ
+- element Thai↔Eng มีแล้ว: `lib/calculator/elements.ts` (`WOOD=ไม้…`), `lib/calculator/map-enrichment.ts`
+- day-master element อยู่ที่ `enrichment.pillars.day.stemElement` / `analytic.habit.day_above_element`
 
 ### Asset resolver — ต้องสร้างใหม่ (gap)
-1. **zodiac-order table**: Thai นักษัตร → `01–12` (`01 ชวด … 12 กุน`) + English `animal`→Thai (เช่น `PIG→กุน`) — *ยังไม่มีในโค้ด*
-2. **filename builder**: `(order, thaiAnimal, thaiElement) → NN_<animal>-<element>.png` → `/images/v2/characters/` (no bg) หรือ `/cards/` (with bg, รอ rename)
-3. resolver เดียว ใช้ทุกจอ (result/home/profile)
+```
+yearAnimal = yearOfZodiac              // ปีเกิด → ชวด/ฉลู…
+element    = stripPolarity(dayMasterElement)  // ไม้หยิน → ไม้
+order      = zodiacOrder[yearAnimal]   // ชวด→01 … กุน→12
+filename   = `${order}_${yearAnimal}-${element}`
+→ character: /images/v2/characters/${filename}.png   (no bg)
+→ card:      /images/v2/cards/${filename}.jpg         (with bg)
+```
+1. **zodiac-order table**: Thai นักษัตร → `01–12` (`01 ชวด … 12 กุน`) + English `animal`→Thai (เช่น `PIG→กุน`) — *ยังไม่มีในโค้ด, ต้องสร้าง*
+2. **filename builder** (ตามด้านบน) — asset ครบทุกคู่ 12×5=60 → hybrid มี asset เสมอ
+3. **resolver hook เดียว** ใช้ทุกจอ (result/home/profile)
 
-### 🔶 Product decisions ที่ต้องเคาะ (ก่อน lock resolver)
-- ใช้ **นักษัตรปีเกิด** (`yearOfZodiac`/`destiny.animal`) หรือ day-master?
-- ใช้ **ธาตุไหน** — day-master element (`dayMasterElement`, ที่ DitiHero เรียก "คุณคือคนธาตุ X") หรือ year element?
-- characters filename = ปี-นักษัตร + element → ยืนยันว่า element ตัวไหน
-
-### ⚠️ Asset ที่ต้องแก้ (ฝั่งฟีม)
-- typo `803_ขาล-น้ำ.png` → ควร `03_ขาล-น้ำ.png` (จะ break lookup)
-- `cards/` ยังเป็น `Card N` ไม่มี convention → rename ให้ match characters
-- icon ธาตุ **ขาด ทอง + ไม้** (มีแค่ Fire/water/dirt)
+### Asset status
+- ✅ `characters/` (60) + `cards/` (60) — rename เสร็จ convention `NN_นักษัตร-ธาตุ` ตรงกันเป๊ะ (ฟีม 2026-07-19); typo `803_` แก้แล้ว
+- ⏳ icon ธาตุ **ขาด ทอง + ไม้** (มีแค่ Fire/water/dirt) — ใช้ตอน result breakdown, ไม่ block resolver
+- ⏳ 2 asset tree ซ้ำ (`images/v2` vs `mumate-v2-assets`) — เลือก canonical, ไม่ block
 
 ---
 
