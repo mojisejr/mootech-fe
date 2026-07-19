@@ -3,8 +3,7 @@
 > **Supersedes v1** — the previous teal-led brownfield contract is preserved verbatim at
 > [`docs/archive/DESIGN-v1.md`](docs/archive/DESIGN-v1.md) (Rule 1 — nothing deleted).
 >
-> **Status:** 🟡 DRAFT — drafted by Lamun 2026-07-19 from the Figma V3 file + codebase audit.
-> **Pending:** `o` sign-off (design direction) + ฟีม review. Do not treat as locked until approved.
+> **Status:** ✅ ACTIVE (v2) — authored by Lamun 2026-07-19, **delegated authority from `o`** (design direction). This is the working contract for the V3 redesign.
 >
 > Source of truth: Figma **Mumate app - V3** (`hEOnE9S6wLkMhb0Iy2Fe6T`) · structure map: [`docs/figma-map.md`](docs/figma-map.md)
 > Evidence labels: `✓` observed in Figma/code · `~` inferred · `?` not yet confirmed (needs re-fetch)
@@ -87,10 +86,11 @@ Letter-spacing: 0 ทั้งหมด.
 ## 4. Radius & elevation `✓`
 | Token | ค่า |
 |---|---|
-| pill (button/input/dropdown) | `100px` |
+| pill (button/input) | `100px` |
+| dropdown | `8px` |
 | card | `16px` |
 | icon chip | `6px` |
-| checkbox box | `6–8px` |
+| checkbox box | `4px (focus ring 8px)` |
 | screen frame | `40px` |
 
 **Flat — ไม่มี drop shadow.** ความลึกมาจาก bg contrast (ghost-white ↔ white). ข้อยกเว้นเดียว: **Tab ที่ selected** มีเงาบางๆ.
@@ -224,4 +224,4 @@ filename   = `${order}_${yearAnimal}-${element}`
 **คงจาก v1:** mobile-first, Thai-first legibility, rounded organized cards, ทิศทาง mystical.
 
 ---
-🤖 drafted by Lamun Oracle · pending `o` sign-off + ฟีม review
+🤖 authored by Lamun Oracle · delegated from `o` · active contract for V3 redesign
