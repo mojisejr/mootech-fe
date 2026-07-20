@@ -19,7 +19,14 @@ const V2_LOGIN_CALLBACK = '/v2/register'
 const isLineInAppBrowser = () =>
   typeof navigator !== 'undefined' && /\bLine\//i.test(navigator.userAgent)
 
-export function useV2Login() {
+// The seam Lamun's LoginView binds to: two provider callbacks + a loading flag.
+export type V2LoginApi = {
+  loading: boolean
+  onLine: () => void
+  onGoogle: () => void
+}
+
+export function useV2Login(): V2LoginApi {
   const [, setCookie] = useCookies([CookieKey.LOGIN_PROVIDER])
   const [loading, setLoading] = useState(false)
 
