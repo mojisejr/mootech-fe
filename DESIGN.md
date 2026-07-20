@@ -294,6 +294,27 @@ mascot ผสม 2 แกน เพื่อให้ตรงกับ "ธา�
 - **bottom Menubar** (หน้าหลัก/บริการ/ปฏิทิน/ร้านค้า + Mate AI FAB) มี state
 - bg = static `BG0–BG4` เลือกต่อจอ (ไม่ personalize); ฟีม ระบุ BGn ตอน build
 
+### 9.1 Container contract `✓` (v2 — บังคับด้วย typed wrapper, กัน bg-บีบ/max-width)
+ทุกจอ v2 = **หนึ่งใน 2 wrapper เท่านั้น** (`features/v2-shell/components/`) — ไม่ hand-roll, ไม่ผสม.
+มาจาก slice-1 post-mortem: จอ full-bleed ถูก mount ใน `max-w-md` ของ AppShell → `Image fill` เต็มแค่กล่อง ไม่ใช่ viewport → **bg บีบ**. wrapper ทำ contract เป็น**โครง** ผิดไม่ได้.
+
+| wrapper | ใช้เมื่อ | ให้อะไร | ห้าม |
+|---|---|---|---|
+| **`<FullBleedScreen>`** | จอ own viewport + photo bg, ไม่มี nav | `min-h-[100dvh]` เต็มจอ + bg (fill + fallback) + content column ไม่ clamp | max-w, AppShell, Menubar |
+| **`<AppScreen>`** | จอในแอป (มี nav) | AppShell (max-w-md + bottom Menubar) | — |
+
+**Mapping ต่อจอ:**
+| จอ | wrapper | bg |
+|---|---|---|
+| onboarding / splash | `FullBleedScreen` | BG1 (photo) |
+| login (`/v2/login`) | `FullBleedScreen` | BG3 (photo) |
+| register (`/v2/register`) | `FullBleedScreen` | BG3 (photo) หรือ ghost-white |
+| intent-check · pdpa | `FullBleedScreen` | ghost-white/photo (slice 2) |
+| destiny result | `FullBleedScreen` หรือ `AppScreen` (เคาะตอน build) | photo/cream |
+| home · service · calendar · shop | `AppScreen` | ghost-white/white + Menubar |
+
+> Verify gate (§verify-before-PR): design-verify ต้องรันบน **route จริง @393** ไม่ใช่ component แยก — isolated ไม่นับว่า verified. ดู [[design-verify-must-be-integrated-screen]].
+
 ---
 
 ## 10. Screen inventory `✓` (Figma ↔ ดู figma-map สำหรับ code map)
