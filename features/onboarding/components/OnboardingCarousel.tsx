@@ -96,9 +96,9 @@ export function OnboardingCarousel({ onComplete }: { onComplete: () => void }) {
         {/* footer — dots + next */}
         <div className="flex flex-col items-center gap-6">
           <DotsPager count={STEPS.length} active={index} />
-          <Button onClick={next} aria-label={isLast ? 'เริ่มใช้งาน' : 'ถัดไป'}>
-            ถัดไป
-          </Button>
+          {/* accessible name = visible text (WCAG 2.5.3 Label-in-Name). The button reads
+              "ถัดไป" throughout per Figma; on the last step it advances to /v2/login. */}
+          <Button onClick={next}>ถัดไป</Button>
         </div>
       </div>
     </div>
