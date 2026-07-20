@@ -6,6 +6,7 @@ import Image from "next/image";
 
 import SkeletonRow from "@/components/ui/skeleton-row";
 import { Button } from "@/components/ui/button";
+import { TextLink } from "@/components/ui/link";
 import { Field, Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
 import { Dropdown } from "@/components/ui/dropdown";
@@ -253,25 +254,48 @@ function Specimen({
 function ButtonShowcase() {
   return (
     <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-      <Specimen label="Full · default">
+      <Specimen label="Primary · full (sapphire + lime, UPPER)">
         <Button>เริ่มดูดวงกับ MuMate</Button>
       </Specimen>
-      <Specimen label="Full · hover → พื้น #10427F (ชี้เมาส์เพื่อดู)">
+      <Specimen label="Primary · hover → พื้น #10427F">
         <Button>เริ่มดูดวงกับ MuMate</Button>
       </Specimen>
-      <Specimen label="Full · disabled">
+      <Specimen label="Secondary (lime fill + sapphire label)">
+        <Button variant="secondary">ลงทะเบียนด้วย LINE</Button>
+      </Specimen>
+      <Specimen label="Tertiary (outline + sapphire)">
+        <Button variant="tertiary">ลงทะเบียนด้วย Google</Button>
+      </Specimen>
+      <Specimen label="CTA · cyan (white label + soft shadow, h56)">
+        <Button variant="cta-cyan">บันทึกเป็น PDF</Button>
+      </Specimen>
+      <Specimen label="CTA · sapphire (white label + soft shadow, h56)">
+        <Button variant="cta-sapphire">แชร์ผลดวงสมพงศ์</Button>
+      </Specimen>
+      <Specimen label="Primary · disabled">
         <Button disabled>เริ่มดูดวงกับ MuMate</Button>
       </Specimen>
-      <Specimen label="Full · loading">
+      <Specimen label="Primary · loading">
         <Button loading>กำลังทำนาย</Button>
       </Specimen>
-      <Specimen label="Small · default">
-        <Button size="small">ดูเพิ่มเติม</Button>
+      <Specimen label="Small · default / disabled">
+        <div className="flex flex-wrap gap-3">
+          <Button size="small">ดูเพิ่มเติม</Button>
+          <Button size="small" disabled>
+            ดูเพิ่มเติม
+          </Button>
+        </div>
       </Specimen>
-      <Specimen label="Small · disabled">
-        <Button size="small" disabled>
-          ดูเพิ่มเติม
-        </Button>
+      <Specimen label="Link (subtle med / small · legal small)">
+        <div className="flex flex-wrap items-center gap-4">
+          <TextLink href="#">เข้าสู่ระบบ</TextLink>
+          <TextLink href="#" size="small">
+            ลืมรหัสผ่าน
+          </TextLink>
+          <TextLink href="#" type="legal" size="small">
+            ข้อกำหนดความเป็นส่วนตัว
+          </TextLink>
+        </div>
       </Specimen>
     </div>
   );
@@ -382,17 +406,34 @@ function CheckboxShowcase() {
 
 function PillTabsShowcase() {
   const [tab, setTab] = useState("love");
+  const [calTab, setCalTab] = useState("year");
   return (
-    <PillTabs
-      ariaLabel="หมวดคำทำนาย"
-      items={[
-        { label: "ความรัก", value: "love" },
-        { label: "การงาน", value: "work" },
-        { label: "การเงิน", value: "money" },
-      ]}
-      value={tab}
-      onChange={setTab}
-    />
+    <div className="flex flex-col gap-6">
+      <Specimen label="Neutral (#EBEBEB track · white-thumb + shadow)">
+        <PillTabs
+          ariaLabel="หมวดคำทำนาย"
+          items={[
+            { label: "ความรัก", value: "love" },
+            { label: "การงาน", value: "work" },
+            { label: "การเงิน", value: "money" },
+          ]}
+          value={tab}
+          onChange={setTab}
+        />
+      </Specimen>
+      <Specimen label="Calendar (white track · sapphire-fill + lime-label selected)">
+        <PillTabs
+          variant="calendar"
+          ariaLabel="โหมดปฏิทิน"
+          items={[
+            { label: "ปฏิทินรายปี", value: "year" },
+            { label: "ปฏิทินเฉพาะฉัน", value: "me" },
+          ]}
+          value={calTab}
+          onChange={setCalTab}
+        />
+      </Specimen>
+    </div>
   );
 }
 
@@ -816,7 +857,7 @@ function V3ComponentLibrary() {
         </p>
 
         <div className="mt-2 divide-y divide-v3-border-card">
-          <V3Group title="Button" subtitle="Pill · UPPERCASE · full + small">
+          <V3Group title="Button" subtitle="5 variants: primary · secondary · tertiary · cta-cyan/sapphire · link (per-variant focus, icon gap 4)">
             <ButtonShowcase />
           </V3Group>
           <V3Group title="Input / Field" subtitle="Pill h52 · default · focus · filled · error">
@@ -828,7 +869,7 @@ function V3ComponentLibrary() {
           <V3Group title="Checkbox" subtitle="24×24 · checked / unchecked / labeled / with description">
             <CheckboxShowcase />
           </V3Group>
-          <V3Group title="Pill Tabs" subtitle="Segmented radiogroup · selected carries the §4 shadow exception">
+          <V3Group title="Pill Tabs" subtitle="Segmented radiogroup · 2 variants: neutral (white-thumb+shadow) · calendar (sapphire-fill + lime-label)">
             <PillTabsShowcase />
           </V3Group>
           <V3Group title="Card" subtitle="Radius 16 · flat · optional 1px hairline">
