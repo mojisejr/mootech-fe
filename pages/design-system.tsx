@@ -495,6 +495,314 @@ function MascotDemo() {
   );
 }
 
+// ---------------------------------------------------------------------------
+// V3 Foundation Tokens — the visible design-system reference for every v3
+// primitive value. Reviewer reads name + hex on each chip. Ghost-white wrapper
+// so flat/white surfaces read (DESIGN §4). Additive to V3ComponentLibrary.
+// ---------------------------------------------------------------------------
+
+// One chip: color/border block + token name + hex (poppins-v3 numerals).
+function Swatch({
+  chipClass,
+  name,
+  hex,
+  chipInner,
+  sampleText,
+  sampleClass,
+}: {
+  chipClass: string;
+  name: string;
+  hex: string;
+  chipInner?: ReactNode;
+  sampleText?: string;
+  sampleClass?: string;
+}) {
+  return (
+    <div className="rounded-card border border-v3-border-card bg-white p-3">
+      <div className={`flex h-14 w-full items-center justify-center rounded-chip ${chipClass}`}>
+        {chipInner}
+      </div>
+      {sampleText && (
+        <p className={`mt-2 font-ibm text-[15px] ${sampleClass ?? ""}`}>{sampleText}</p>
+      )}
+      <p className="mt-2 font-ibm text-[13px] font-semibold text-v3-text-body">{name}</p>
+      <p className="font-poppins-v3 text-[12px] text-v3-text-muted">{hex}</p>
+    </div>
+  );
+}
+
+function TokenGrid({ children }: { children: ReactNode }) {
+  return <div className="grid gap-3 sm:grid-cols-3 lg:grid-cols-4">{children}</div>;
+}
+
+// Grade 10-step semantic scale — full literal class strings (Tailwind can't purge
+// runtime-concatenated names). badgeText dark only on C+ (contrast exception).
+const V3_GRADES = [
+  { letter: "A", label: "Excellent", pct: 95, bg: "bg-v3-grade-a-bg", badge: "bg-v3-grade-a", accent: "text-v3-grade-a", badgeText: "text-white" },
+  { letter: "B+", label: "Very Good", pct: 85, bg: "bg-v3-grade-bplus-bg", badge: "bg-v3-grade-bplus", accent: "text-v3-grade-bplus", badgeText: "text-white" },
+  { letter: "B", label: "Good", pct: 75, bg: "bg-v3-grade-b-bg", badge: "bg-v3-grade-b", accent: "text-v3-grade-b", badgeText: "text-white" },
+  { letter: "B-", label: "Above Avg", pct: 65, bg: "bg-v3-grade-bminus-bg", badge: "bg-v3-grade-bminus", accent: "text-v3-grade-bminus", badgeText: "text-white" },
+  { letter: "C+", label: "Average+", pct: 55, bg: "bg-v3-grade-cplus-bg", badge: "bg-v3-grade-cplus", accent: "text-v3-grade-cplus", badgeText: "text-[#374151]" },
+  { letter: "C", label: "Average", pct: 47, bg: "bg-v3-grade-c-bg", badge: "bg-v3-grade-c", accent: "text-v3-grade-c", badgeText: "text-white" },
+  { letter: "C-", label: "Below Avg", pct: 42, bg: "bg-v3-grade-cminus-bg", badge: "bg-v3-grade-cminus", accent: "text-v3-grade-cminus", badgeText: "text-white" },
+  { letter: "D+", label: "Poor", pct: 37, bg: "bg-v3-grade-dplus-bg", badge: "bg-v3-grade-dplus", accent: "text-v3-grade-dplus", badgeText: "text-white" },
+  { letter: "D", label: "Very Poor", pct: 30, bg: "bg-v3-grade-d-bg", badge: "bg-v3-grade-d", accent: "text-v3-grade-d", badgeText: "text-white" },
+  { letter: "D-", label: "Critical", pct: 15, bg: "bg-v3-grade-dminus-bg", badge: "bg-v3-grade-dminus", accent: "text-v3-grade-dminus", badgeText: "text-white" },
+];
+
+const V3_ELEMENTS = [
+  { th: "ธาตุไม้", icon: "bg-v3-el-wood", text: "text-v3-el-wood-text" },
+  { th: "ธาตุทอง", icon: "bg-v3-el-metal", text: "text-v3-el-metal-text" },
+  { th: "ธาตุไฟ", icon: "bg-v3-el-fire", text: "text-v3-el-fire-text" },
+  { th: "ธาตุดิน", icon: "bg-v3-el-earth", text: "text-v3-el-earth-text" },
+  { th: "ธาตุน้ำ", icon: "bg-v3-el-water", text: "text-v3-el-water-text" },
+];
+
+// Typography ramp — literal class strings, live Thai+Latin line, spec as caption.
+const V3_TYPE_RAMP = [
+  { spec: "Display · 32 · Chonburi · UPPERCASE", cls: "font-chonburi text-[32px] uppercase text-v3-navy", text: "A PORCELAIN SWAN" },
+  { spec: "H1 · 24/32 · bold", cls: "font-ibm text-[24px] leading-8 font-bold text-v3-text-title", text: "ดวงชะตาวันนี้ Heading 1" },
+  { spec: "H2 · 20/28 · bold", cls: "font-ibm text-[20px] leading-7 font-bold text-v3-text-title", text: "ดวงชะตาวันนี้ Heading 2" },
+  { spec: "H3 · 18/24 · bold", cls: "font-ibm text-[18px] leading-6 font-bold text-v3-text-title", text: "ดวงชะตาวันนี้ Heading 3" },
+  { spec: "H4 · 16/24 · bold", cls: "font-ibm text-[16px] leading-6 font-bold text-v3-text-title", text: "ดวงชะตาวันนี้ Heading 4" },
+  { spec: "Body Large · 16/24", cls: "font-ibm text-[16px] leading-6 text-v3-text-body", text: "อ่านง่ายและนุ่มนวล Body Large 123" },
+  { spec: "Body Medium · 15/22 · weight 500", cls: "font-ibm text-[15px] leading-[22px] font-medium text-v3-text-body", text: "อ่านง่ายและนุ่มนวล Body Medium 123" },
+  { spec: "Body Regular · 14/22", cls: "font-ibm text-[14px] leading-[22px] text-v3-text-body", text: "อ่านง่ายและนุ่มนวล Body Regular 123" },
+  { spec: "Label · 14/20 · semibold", cls: "font-ibm text-[14px] leading-5 font-semibold text-v3-text-body", text: "ป้ายกำกับ Label Abc" },
+  { spec: "Label Bold · 14/20 · bold", cls: "font-ibm text-[14px] leading-5 font-bold text-v3-text-body", text: "ป้ายกำกับ Label Bold Abc" },
+  { spec: "Button · 16/24 · bold · UPPERCASE", cls: "font-ibm text-[16px] leading-6 font-bold uppercase text-v3-sapphire", text: "เริ่มดูดวง start now" },
+  { spec: "Button Small · 14/20 · semibold · UPPERCASE", cls: "font-ibm text-[14px] leading-5 font-semibold uppercase text-v3-sapphire", text: "ดูเพิ่มเติม see more" },
+  { spec: "Helper · 12/18", cls: "font-ibm text-[12px] leading-[18px] text-v3-text-muted", text: "ข้อความช่วยเหลือ Helper text 123" },
+  { spec: "Caption · 10", cls: "font-ibm text-[10px] text-v3-text-muted", text: "คำอธิบายเล็ก Caption 123" },
+];
+
+const V3_RADII = [
+  { cls: "rounded-chip", label: "chip · 6" },
+  { cls: "rounded-[8px]", label: "8" },
+  { cls: "rounded-day", label: "day · 11" },
+  { cls: "rounded-method", label: "method · 12" },
+  { cls: "rounded-date", label: "date · 14" },
+  { cls: "rounded-card", label: "card · 16" },
+  { cls: "rounded-feature", label: "feature · 20" },
+  { cls: "rounded-service", label: "service · 24" },
+  { cls: "rounded-sheet", label: "sheet · 28" },
+  { cls: "rounded-screen", label: "screen · 40" },
+  { cls: "rounded-[44px]", label: "44" },
+  { cls: "rounded-[56px]", label: "56" },
+  { cls: "rounded-pill", label: "pill · 100" },
+];
+
+const V3_SHADOWS = [
+  { cls: "shadow-grade-glow", label: "grade-glow" },
+  { cls: "shadow-sheet", label: "sheet" },
+  { cls: "shadow-card-soft", label: "card-soft" },
+  { cls: "shadow-card-faint", label: "card-faint" },
+  { cls: "shadow-cta-cyan", label: "cta-cyan" },
+  { cls: "shadow-cta-sapphire", label: "cta-sapphire" },
+  { cls: "shadow-promo", label: "promo" },
+  { cls: "shadow-tab-selected", label: "tab-selected" },
+  { cls: "shadow-glass-glow", label: "glass-glow" },
+];
+
+const V3_SPACES = [4, 8, 12, 16, 20, 24, 28, 32];
+
+function V3FoundationTokens() {
+  return (
+    <div className="bg-v3-ghost-white" data-testid="design-v3-foundation">
+      <div className="mx-auto w-full max-w-[1120px] px-4 py-8 sm:px-6">
+        <h2 className="font-chonburi text-[28px] leading-9 text-v3-navy">
+          V3 Foundation Tokens
+        </h2>
+        <p className="mt-1 font-ibm text-[14px] leading-[22px] text-v3-text-body">
+          ทุกค่าโทเคนของ MuMate V3 — สี พื้นผิว ตัวอักษร มุมโค้ง เงา ระยะห่าง
+          พร้อมชื่อโทเคนและ hex ให้ตรวจทานได้ทุกค่า (บนพื้น ghost-white)
+        </p>
+
+        <div className="mt-2 divide-y divide-v3-border-card">
+          <V3Group title="Brand / accent" subtitle="สีแบรนด์และ accent หลัก — lime แสดงบนพื้นเข้ม (คอนทราสต์ต่ำบนขาว)">
+            <TokenGrid>
+              <Swatch chipClass="bg-v3-sapphire" name="sapphire" hex="#1455A4" />
+              <Swatch chipClass="bg-v3-sapphire-hover" name="sapphire-hover" hex="#10427F" />
+              <Swatch
+                chipClass="bg-v3-nav-dark"
+                name="lime"
+                hex="#E1FF00"
+                chipInner={<div className="h-8 w-8 rounded-chip bg-v3-lime" />}
+              />
+              <Swatch chipClass="bg-v3-cyan" name="cyan" hex="#1B9AAF" />
+              <Swatch chipClass="bg-v3-pumpkin" name="pumpkin" hex="#FF6800" />
+            </TokenGrid>
+          </V3Group>
+
+          <V3Group title="Surface & text" subtitle="พื้นผิวและสีตัวอักษร — โทเคนตัวอักษรแสดงตัวอย่าง ก ก ABC ในสีจริง">
+            <TokenGrid>
+              <Swatch chipClass="bg-v3-ghost-white border border-v3-border-card" name="ghost-white" hex="#ECF0FD" />
+              <Swatch chipClass="bg-v3-bg-cream border border-v3-border-card" name="bg-cream" hex="#FAF7F4" />
+              <Swatch chipClass="bg-white border border-v3-border-card" name="white (surface)" hex="#FFFFFF" />
+              <Swatch chipClass="bg-v3-navy" name="navy / text-title" hex="#0B305B" sampleText="ก ก ABC" sampleClass="text-v3-navy" />
+              <Swatch chipClass="bg-v3-text-body" name="text-body" hex="#464646" sampleText="ก ก ABC" sampleClass="text-v3-text-body" />
+              <Swatch chipClass="bg-v3-text-body-alt" name="text-body-alt" hex="#4B5563" sampleText="ก ก ABC" sampleClass="text-v3-text-body-alt" />
+              <Swatch chipClass="bg-v3-text-muted" name="text-muted" hex="#71717A" sampleText="ก ก ABC" sampleClass="text-v3-text-muted" />
+              <Swatch chipClass="bg-v3-text-detail" name="text-detail" hex="#888888" sampleText="ก ก ABC" sampleClass="text-v3-text-detail" />
+              <Swatch chipClass="bg-v3-placeholder" name="placeholder" hex="#9CA3AF" sampleText="ก ก ABC" sampleClass="text-v3-placeholder" />
+              <Swatch chipClass="bg-v3-text-filled" name="text-filled" hex="#212121" sampleText="ก ก ABC" sampleClass="text-v3-text-filled" />
+              <Swatch chipClass="bg-v3-text-price" name="text-price" hex="#1F2937" sampleText="ก ก ABC" sampleClass="text-v3-text-price" />
+            </TokenGrid>
+          </V3Group>
+
+          <V3Group title="Semantic & border" subtitle="สถานะและเส้นขอบ — โทเคน border แสดงเป็นชิปขาวที่มีเส้นสีนั้น">
+            <TokenGrid>
+              <Swatch chipClass="bg-v3-error" name="error" hex="#E73E3E" />
+              <Swatch chipClass="bg-v3-error-legacy" name="error-legacy" hex="#C13515" />
+              <Swatch chipClass="bg-v3-focus-border" name="focus-border" hex="#3475E2" />
+              <Swatch chipClass="bg-v3-shade-02" name="shade-02" hex="#222222" />
+              <Swatch chipClass="bg-v3-link-legal" name="link-legal" hex="#004CC4" />
+              <Swatch chipClass="bg-white border-2 border-v3-border-input" name="border-input" hex="#E5E7EB" />
+              <Swatch chipClass="bg-white border-2 border-v3-border-checkout" name="border-checkout" hex="#D1D5DB" />
+              <Swatch chipClass="bg-white border-2 border-v3-border-card" name="border-card" hex="#E9EAEB" />
+              <Swatch chipClass="bg-white border-2 border-v3-border-warm" name="border-warm" hex="#E0DEDB" />
+              <Swatch chipClass="bg-white border-2 border-v3-border-warm-2" name="border-warm-2" hex="#E5E3E0" />
+              <Swatch chipClass="bg-v3-disabled-bg" name="disabled-bg" hex="#DDDDDD" />
+              <Swatch chipClass="bg-white border-2 border-v3-border-dropdown" name="border-dropdown" hex="#B0B0B0" />
+              <Swatch chipClass="bg-white border-2 border-v3-border-checkbox" name="border-checkbox" hex="#C2C2C2" />
+              <Swatch chipClass="bg-v3-tab-track" name="tab-track" hex="#EBEBEB" />
+              <Swatch chipClass="bg-v3-tab-focus border border-v3-border-card" name="tab-focus" hex="#F7F7F7" />
+              <Swatch chipClass="bg-v3-dropdown-label" name="dropdown-label" hex="#717171" />
+            </TokenGrid>
+          </V3Group>
+
+          <V3Group title="Nav / Mate AI" subtitle="แถบเมนูและ Mate AI — พร้อมพิลล์เดโมไล่สีฐาน + lime overlay + gradient text">
+            <TokenGrid>
+              <Swatch chipClass="bg-v3-nav-dark" name="nav-dark" hex="#1A1A1A" />
+              <Swatch chipClass="bg-v3-nav-label-off border border-v3-border-card" name="nav-label-off" hex="#FAF7F4" />
+              <Swatch chipClass="bg-v3-mate-magenta" name="mate-magenta" hex="#E913C5" />
+              <Swatch chipClass="bg-v3-mate-teal" name="mate-teal" hex="#187CAA" />
+              <Swatch chipClass="bg-v3-mate-purple" name="mate-purple" hex="#6F1BAF" />
+            </TokenGrid>
+            <div className="mt-4 flex items-center gap-4 rounded-service bg-[linear-gradient(141deg,#1455A4_3%,#187CAA_50%,#6F1BAF_122%)] p-5">
+              <div className="h-10 w-10 rounded-chip bg-v3-lime" />
+              <span className="font-ibm text-[20px] font-bold text-white">Mate AI FAB</span>
+              <span className="ml-auto rounded-pill bg-white px-4 py-2 font-ibm text-[18px] font-bold">
+                <span className="bg-[linear-gradient(90deg,#1455A4,#E913C5)] bg-clip-text text-transparent">
+                  Mate AI
+                </span>
+              </span>
+            </div>
+            <p className="mt-2 font-ibm text-[12px] leading-[18px] text-v3-text-muted">
+              base: linear-gradient(141deg,#1455A4,#187CAA,#6F1BAF) · lime overlay #E1FF00 · gradient text #1455A4→#E913C5
+            </p>
+          </V3Group>
+
+          <V3Group title="Home pastel tiles" subtitle="โทนพาสเทลของแท็บหน้าหลัก — พื้นผิวอ่อน แสดงเป็นชิปมีเส้นขอบ">
+            <TokenGrid>
+              <Swatch chipClass="bg-v3-pastel-mint border border-v3-border-card" name="pastel-mint" hex="#E0FFC4" />
+              <Swatch chipClass="bg-v3-pastel-sky border border-v3-border-card" name="pastel-sky" hex="#C1E6F8" />
+              <Swatch chipClass="bg-v3-pastel-blue border border-v3-border-card" name="pastel-blue" hex="#C9E4F4" />
+              <Swatch chipClass="bg-v3-pastel-lilac border border-v3-border-card" name="pastel-lilac" hex="#ECD9FB" />
+              <Swatch chipClass="bg-v3-pastel-pink border border-v3-border-card" name="pastel-pink" hex="#FBD9E7" />
+              <Swatch chipClass="bg-v3-grade-yellow border border-v3-border-card" name="grade-yellow" hex="#F1FF75" />
+              <Swatch chipClass="bg-v3-pastel-teal border border-v3-border-card" name="pastel-teal" hex="#91D8D2" />
+              <Swatch chipClass="bg-v3-lemon-chiffon border border-v3-border-card" name="lemon-chiffon" hex="#F9F4F0" />
+              <Swatch chipClass="bg-v3-endeavour-100 border border-v3-border-card" name="endeavour-100" hex="#E3ECFB" />
+            </TokenGrid>
+          </V3Group>
+
+          <V3Group title="Semantic scale — GRADE (10-step)" subtitle="การ์ด bg + พิลล์ badge + %-accent · C+ ใช้ตัวอักษรเข้ม #374151 (ยกเว้นคอนทราสต์)">
+            <div className="grid gap-2 sm:grid-cols-2">
+              {V3_GRADES.map((g) => (
+                <div key={g.letter} className={`flex items-center gap-3 rounded-card p-3 ${g.bg}`}>
+                  <span className="w-8 font-ibm text-[16px] font-bold text-v3-text-title">{g.letter}</span>
+                  <span className={`rounded-chip px-3 py-1 font-ibm text-[13px] font-semibold ${g.badge} ${g.badgeText}`}>
+                    {g.letter}
+                  </span>
+                  <span className="flex-1 font-ibm text-[13px] text-v3-text-body">{g.label}</span>
+                  <span className={`font-poppins-v3 text-[15px] font-bold ${g.accent}`}>{g.pct}%</span>
+                </div>
+              ))}
+            </div>
+          </V3Group>
+
+          <V3Group title="Semantic scale — CALENDAR (3-tier)" subtitle="โทนวันในปฏิทิน 3 ระดับ + วงแหวนมาร์กเกอร์ วันพระ">
+            <TokenGrid>
+              <Swatch chipClass="bg-v3-cal-good-bg" name="cal-good" hex="#0B7A8C" chipInner={<span className="font-ibm text-[14px] font-semibold text-v3-cal-good">≥60% วันดี</span>} />
+              <Swatch chipClass="bg-v3-cal-medium-bg" name="cal-medium" hex="#B47E35" chipInner={<span className="font-ibm text-[14px] font-semibold text-v3-cal-medium">40–59%</span>} />
+              <Swatch chipClass="bg-v3-cal-bad-bg" name="cal-bad" hex="#CD3D2E" chipInner={<span className="font-ibm text-[14px] font-semibold text-v3-cal-bad">&lt;40% ระวัง</span>} />
+              <Swatch chipClass="bg-white border-2 border-v3-cal-marker" name="cal-marker" hex="#9D85DA" chipInner={<span className="font-ibm text-[13px] text-v3-text-body">วันพระ ring</span>} />
+            </TokenGrid>
+          </V3Group>
+
+          <V3Group title="Element palette — 2 sets" subtitle="สว่าง = สีไอคอน/glyph · เข้ม = ชื่อธาตุบนพื้นขาว (WCAG ≥4.5:1)">
+            <div className="grid gap-3 sm:grid-cols-3 lg:grid-cols-5">
+              {V3_ELEMENTS.map((el) => (
+                <div key={el.th} className="rounded-card border border-v3-border-card bg-white p-3">
+                  <div className={`flex h-14 w-full items-center justify-center rounded-chip ${el.icon}`}>
+                    <span className="font-ibm text-[13px] font-semibold text-white">icon</span>
+                  </div>
+                  <p className={`mt-2 font-ibm text-[16px] font-bold ${el.text}`}>{el.th}</p>
+                  <p className="font-poppins-v3 text-[12px] text-v3-text-muted">{el.icon.replace("bg-v3-", "")} / {el.text.replace("text-v3-", "")}</p>
+                </div>
+              ))}
+            </div>
+          </V3Group>
+
+          <V3Group title="Typography ramp" subtitle="ทุกระดับตัวอักษร แสดงเป็นบรรทัดจริง (ไทย+ละติน) พร้อม spec">
+            <div className="flex flex-col gap-5">
+              {V3_TYPE_RAMP.map((row) => (
+                <Specimen key={row.spec} label={row.spec}>
+                  <p className={row.cls}>{row.text}</p>
+                </Specimen>
+              ))}
+            </div>
+            <div className="mt-6 rounded-card border border-v3-border-card bg-white p-4">
+              <p className="font-ibm text-[12px] leading-[18px] text-v3-text-muted">Font families</p>
+              <p className="mt-2 font-ibm text-[16px] text-v3-text-title">IBM Plex Sans Thai — ดวงวันนี้อ่านง่าย Abc 123 (font-ibm · primary)</p>
+              <p className="mt-1 font-poppins-v3 text-[16px] text-v3-text-title">Poppins — Latin buttons Abc 123 (font-poppins-v3)</p>
+              <p className="mt-1 font-sans text-[16px] text-v3-text-title">Inter — Latin nav/numerals 0123456789 (system / font-sans)</p>
+              <p className="mt-1 font-poppins text-[16px] text-v3-text-title">Noto Sans Thai — ดวงวันนี้ my-destiny only (font-poppins → Noto)</p>
+              <p className="mt-1 font-chonburi text-[16px] text-v3-text-title">Chonburi — decorative single-use (font-chonburi)</p>
+            </div>
+          </V3Group>
+
+          <V3Group title="Radius" subtitle="13 ระดับมุมโค้ง — พื้น sapphire">
+            <div className="grid gap-3 sm:grid-cols-3 lg:grid-cols-5">
+              {V3_RADII.map((r) => (
+                <div key={r.label} className="flex flex-col items-center gap-2">
+                  <div className={`h-16 w-16 bg-v3-sapphire ${r.cls}`} />
+                  <span className="font-ibm text-[12px] text-v3-text-muted">{r.label}</span>
+                </div>
+              ))}
+            </div>
+          </V3Group>
+
+          <V3Group title="Elevation" subtitle="เงาที่อนุญาตให้ใช้เท่านั้น — flat คือค่าเริ่มต้น">
+            <div className="grid gap-4 sm:grid-cols-3">
+              {V3_SHADOWS.map((s) => (
+                <div key={s.label} className={`rounded-card bg-white p-5 ${s.cls}`}>
+                  <span className="font-ibm text-[13px] font-semibold text-v3-text-body">{s.label}</span>
+                </div>
+              ))}
+            </div>
+            <p className="mt-3 font-ibm text-[12px] leading-[18px] text-v3-text-muted">
+              flat is default; these are the only sanctioned depth moments (DESIGN v3 §4)
+            </p>
+          </V3Group>
+
+          <V3Group title="Spacing" subtitle="สเกลระยะห่าง 4–32px">
+            <div className="flex flex-col gap-2">
+              {V3_SPACES.map((n) => (
+                <div key={n} className="flex items-center gap-3">
+                  <span className="w-10 font-poppins-v3 text-[12px] text-v3-text-muted">{n}px</span>
+                  <div className="h-4 rounded-chip bg-v3-sapphire" style={{ width: `${n}px` }} />
+                </div>
+              ))}
+            </div>
+          </V3Group>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function V3ComponentLibrary() {
   return (
     <div className="bg-v3-ghost-white" data-testid="design-v3-library">
@@ -703,6 +1011,7 @@ export default function DesignSystemPage() {
           </div>
         </Section>
 
+        <V3FoundationTokens />
         <V3ComponentLibrary />
       </main>
     </>
