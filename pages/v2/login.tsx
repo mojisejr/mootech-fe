@@ -1,11 +1,9 @@
-// MuMate v2 — /v2/login (Slice 1). Team-gated (SSR). Client identity routing via useCurrentUser
-// (cookie-truth, never raw useSession — the login-loop invariant): authed → skip to /v2, loading →
-// splash, anon → show the login buttons. WRAPS next-auth via useV2Login (no rewrite).
+// MuMate v2 — /v2/login (Slice 1). Team-gated (SSR). Client identity + hydration via useV2AuthGate
+// (mount-safe: no SSR mismatch; authed → /v2; login-loop invariant preserved). WRAPS next-auth via
+// useV2Login (no rewrite). Figma "03-register" (route-swap: Figma register = code /login).
 import type { GetServerSideProps } from 'next'
-import { useEffect } from 'react'
-import { useRouter } from 'next/router'
 import { v2RedirectIfUnauthed } from '@/lib/v2/gate'
-import { useCurrentUser } from '@/lib/auth/use-current-user'
+import { useV2AuthGate } from '@/features/auth/hooks/useV2AuthGate'
 import { AuthLoadingGate } from '@/features/v2-shell/components/AuthLoadingGate'
 import { LoginView } from '@/features/auth/components/LoginView'
 import { useV2Login } from '@/features/auth/hooks/useV2Login'
@@ -18,16 +16,10 @@ export const getServerSideProps: GetServerSideProps = async (ctx) => {
 }
 
 export default function V2LoginPage() {
-  const router = useRouter()
-  const { status } = useCurrentUser()
+  const { showLoading } = useV2AuthGate({ redirectWhenAuthed: '/v2' })
   const { loading, onLine, onGoogle } = useV2Login()
 
-  // Already logged in → skip login (mirror pages/login's redirect-if-authed, but stay inside /v2).
-  useEffect(() => {
-    if (status === 'authed') router.replace('/v2')
-  }, [status, router])
-
-  if (status === 'loading' || status === 'authed') return <AuthLoadingGate />
+  if (showLoading) return <AuthLoadingGate />
 
   return (
     <LoginView
