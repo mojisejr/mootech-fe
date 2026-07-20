@@ -10,7 +10,30 @@ import { ChineseHoroscopeCalculate } from '@/constants/api/api-chinese-horoscope
 
 export type Gender = 'MALE' | 'FEMALE'
 
-export function useV2ProfileForm(onSaved: (code: string) => void) {
+// === Register field-contract (the seam) ===
+// Lamun's RegisterView / field components bind to this exact shape. goo owns the state + validation
+// + save; the UI owns how each field is composed and styled.
+export type V2ProfileFields = {
+  name: string; setName: (v: string) => void
+  surname: string; setSurname: (v: string) => void
+  gender: Gender; setGender: (v: Gender) => void
+  birthDay: string; setBirthDay: (v: string) => void // "YYYY-MM-DD" (BirthDayInput onChangeDate)
+  timeHourBirth: string; setTimeHourBirth: (v: string) => void
+  timeMinuteBirth: string; setTimeMinuteBirth: (v: string) => void
+  isRememberTimeBirth: boolean; setIsRememberTimeBirth: (v: boolean) => void
+}
+
+export type V2ProfileFormApi = {
+  userId: string
+  fields: V2ProfileFields
+  canSubmit: boolean // userId && name && birthDay && valid time
+  isTimeValid: boolean
+  submitting: boolean
+  error: string | null
+  onSubmit: () => void // → ChineseHoroscopeCalculate (profile save + chart compute) → onSaved(code)
+}
+
+export function useV2ProfileForm(onSaved: (code: string) => void): V2ProfileFormApi {
   const [cookies] = useCookies([CookieKey.MEMBER_ID, CookieKey.MEMBER_NAME, CookieKey.MEMBER_IMAGE])
   const userId: string = cookies[CookieKey.MEMBER_ID] ?? ''
   const displayImage: string = cookies[CookieKey.MEMBER_IMAGE] ?? ''
