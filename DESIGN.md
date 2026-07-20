@@ -306,9 +306,9 @@ mascot ผสม 2 แกน เพื่อให้ตรงกับ "ธา�
 **Mapping ต่อจอ:**
 | จอ | wrapper | bg |
 |---|---|---|
-| onboarding / splash | `FullBleedScreen` | BG1 (photo) |
-| login (`/v2/login`) | `FullBleedScreen` | BG3 (photo) |
-| register (`/v2/register`) | `FullBleedScreen` | BG3 (photo) หรือ ghost-white |
+| onboarding / splash | `FullBleedScreen` | **BG3** (photo · sunset) `✓ ฟีม lock 2026-07-21` |
+| login (`/v2/login`) | `FullBleedScreen` | **BG1** (photo) `✓ ฟีม lock 2026-07-21` |
+| register (`/v2/register`) | `FullBleedScreen` | BG1 (photo) หรือ ghost-white (verify Figma) |
 | intent-check · pdpa | `FullBleedScreen` | ghost-white/photo (slice 2) |
 | destiny result | `FullBleedScreen` หรือ `AppScreen` (เคาะตอน build) | photo/cream |
 | home · service · calendar · shop | `AppScreen` | ghost-white/white + Menubar |

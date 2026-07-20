@@ -30,7 +30,10 @@ export function FullBleedScreen({
 }) {
   return (
     <div
-      className={cn('relative flex min-h-[100dvh] w-full flex-col overflow-hidden', className)}
+      // min-h-screen (100vh) — reliable full-viewport height. `dvh` measured short (671 on a
+      // 852 viewport) in headless render, leaving a white gap; vh fills correctly. min-h (not
+      // fixed h) so a taller screen (long form) scrolls gracefully instead of clipping.
+      className={cn('relative flex min-h-screen w-full flex-col overflow-hidden', className)}
       style={bgFallback ? { background: bgFallback } : undefined}
     >
       {bgSrc ? (
@@ -50,7 +53,7 @@ export function FullBleedScreen({
       ) : null}
 
       {/* content owns the whole viewport width — NO max-w clamp here by design */}
-      <div className={cn('relative z-10 flex min-h-[100dvh] flex-col', contentClassName)}>
+      <div className={cn('relative z-10 flex min-h-screen flex-col', contentClassName)}>
         {children}
       </div>
     </div>
