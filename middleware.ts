@@ -27,6 +27,13 @@ const WHATIF_PLAYED_COOKIE = 'whatif_played';
 //   form when the cookie is missing/invalid. Fail closed: unconfigured = feature hidden.
 const OPS_COOKIE = 'ops_access';
 
+// MuMate v2 preview gate.
+//   V2_PREVIEW_KEY=xxx -> team-only. Entry is a form submit (passkey) via POST /api/v2/login,
+//   not a `?key=` link — so this guard only checks the cookie/env at the edge. `/v2` itself renders
+//   the gate form (getServerSideProps) when the cookie is missing/invalid. Fail closed:
+//   unconfigured = the whole /v2 preview surface (pages + BFF) is hidden.
+const V2_COOKIE = 'v2_access';
+
 function noStore(res: NextResponse): NextResponse {
   res.headers.set('Cache-Control', 'no-store, must-revalidate');
   return res;
@@ -135,6 +142,34 @@ function guardOps(req: NextRequest): NextResponse | null {
   return noStore(NextResponse.redirect(new URL('/ops', req.url)));
 }
 
+// Returns a response when the request targets the v2 preview surface, otherwise null. Mirrors
+// guardOps: `/api/v2/login` is always reachable when the key is configured (it validates the
+// submitted passkey and is how the cookie gets set). `/v2` itself passes through so its
+// getServerSideProps can render the gate form when unauthenticated. Every OTHER /api/v2/* route is
+// a data endpoint denied here without a valid cookie (defense in depth — each such route should
+// also re-check the cookie itself). Fail closed: no key configured -> whole surface hidden.
+function guardV2(req: NextRequest): NextResponse | null {
+  const { pathname } = req.nextUrl;
+  const isV2 = pathname === '/v2' || pathname.startsWith('/v2/') || pathname.startsWith('/api/v2');
+  if (!isV2) return null;
+
+  const key = process.env.V2_PREVIEW_KEY;
+  if (!key) return noStore(NextResponse.rewrite(new URL('/maintenance', req.url)));
+
+  if (pathname === '/api/v2/login') return noStore(NextResponse.next());
+
+  const authenticated = req.cookies.get(V2_COOKIE)?.value === key;
+  if (authenticated) return noStore(NextResponse.next());
+
+  if (pathname === '/v2') return noStore(NextResponse.next());
+
+  if (pathname.startsWith('/api/v2')) {
+    return noStore(NextResponse.json({ error: { message: 'Not authenticated' } }, { status: 401 }));
+  }
+
+  return noStore(NextResponse.redirect(new URL('/v2', req.url)));
+}
+
 function redirectWhatIfFirstVisit(req: NextRequest): NextResponse | null {
   if (req.nextUrl.pathname !== '/') return null;
 
@@ -164,6 +199,10 @@ export function middleware(req: NextRequest) {
   // Ops dashboard gate — internal-only, independent of maintenance mode.
   const ops = guardOps(req);
   if (ops) return ops;
+
+  // MuMate v2 preview gate — team-only, independent of maintenance mode.
+  const v2 = guardV2(req);
+  if (v2) return v2;
 
   // Maintenance off -> behave normally (normal caching resumes).
   // (While maintenance is on, every gated response below uses the module-level noStore so the
