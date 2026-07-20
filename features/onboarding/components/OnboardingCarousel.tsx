@@ -1,20 +1,19 @@
 import { useState } from 'react'
 import Image from 'next/image'
 import { Button } from '@/components/ui/button'
+import { FullBleedScreen } from '@/features/v2-shell/components/FullBleedScreen'
 import { DotsPager } from './DotsPager'
 
 // OnboardingCarousel — MuMate v2 onboarding (DESIGN.md v3, Figma 588:10335→588:10311→298:476→619:12978).
-// 4 self-contained steps: heading + mascot art + Dots + "ถัดไป". Last step → onComplete().
-// goo mounts this on the /v2 entry and routes onComplete → /v2/login.
-//
-// Placeholders (ฟีม finalises later, not blocking): mascot poses = the package-mascot svg;
-// bg = /images/v2/bg/BG01.png (goo pulls it) over a sky-pink gradient fallback so it renders
-// before the asset lands.
+// 4 self-contained steps, verified @393 vs Figma: **heading on TOP, mascot BELOW**, footer (dots +
+// "ถัดไป") at the bottom — the whole thing fits one viewport (no scroll). Last step → onComplete().
+// Container = FullBleedScreen (owns the viewport, BG03 photo). Mascot = real per-step art
+// (/images/v2/mascot/01-04.png). goo mounts this on /v2 and routes onComplete → /v2/login.
 
 type Step = {
   /** headline lines (rendered stacked, centered) */
   lines: string[]
-  /** true only on step 1 → also shows the MuMate wordmark above the mascot */
+  /** true only on step 1 → shows the MuMate wordmark above the heading */
   withLogo?: boolean
 }
 
@@ -25,13 +24,12 @@ const STEPS: Step[] = [
   { lines: ['เน้นความแม่นยำจากข้อมูลวันเกิดจริง', 'ไม่ใช่คำทำนายทั่วไปแบบราศี'] },
 ]
 
-// TODO(assets): swap for the per-step mascot poses once ฟีม picks them (main-mascot set).
-const MASCOT_PLACEHOLDER = '/images/icons/image_mascot_package.svg'
-
 export function OnboardingCarousel({ onComplete }: { onComplete: () => void }) {
   const [index, setIndex] = useState(0)
   const step = STEPS[index]
   const isLast = index === STEPS.length - 1
+  // real per-step mascot: step 0 → 01.png … step 3 → 04.png
+  const mascotSrc = `/images/v2/mascot/0${index + 1}.png`
 
   function next() {
     if (isLast) {
@@ -42,31 +40,15 @@ export function OnboardingCarousel({ onComplete }: { onComplete: () => void }) {
   }
 
   return (
-    <div
-      className="relative flex min-h-screen flex-col overflow-hidden"
-      // BG01 (goo pulls) over a sky-pink gradient fallback (onboarding = photo bg, §13)
-      style={{
-        background:
-          'linear-gradient(180deg, #EAF2FF 0%, #F7ECF6 55%, #FCEFEA 100%)',
-      }}
+    <FullBleedScreen
+      bgSrc="/images/v2/bg/BG03.png"
+      bgFallback="linear-gradient(180deg, #FBEFE6 0%, #F7E9F0 48%, #DCEBFB 100%)"
+      contentClassName="px-8 pb-10 pt-16"
     >
-      {/* real bg photo — 404-safe: sits over the gradient above until the asset lands */}
-      <Image
-        src="/images/v2/bg/BG01.png"
-        alt=""
-        aria-hidden="true"
-        fill
-        priority
-        className="pointer-events-none select-none object-cover"
-        onError={(e) => {
-          // keep the gradient fallback if BG01 isn't in /public yet
-          ;(e.currentTarget as HTMLImageElement).style.display = 'none'
-        }}
-      />
-
-      <div className="relative z-10 flex flex-1 flex-col px-8 pb-10 pt-16">
-        {/* content — centered */}
-        <div className="flex flex-1 flex-col items-center justify-center gap-8 text-center">
+      {/* fit-viewport: heading top · mascot middle (absorbs) · footer bottom — no scroll */}
+      <div className="flex flex-1 flex-col">
+        {/* TOP — logo (step 1) + heading */}
+        <div className="flex flex-col items-center gap-4 text-center">
           {step.withLogo && (
             <Image
               src="/images/mumate/ic_logo.svg"
@@ -76,15 +58,7 @@ export function OnboardingCarousel({ onComplete }: { onComplete: () => void }) {
               className="h-10 w-auto"
             />
           )}
-          <Image
-            src={MASCOT_PLACEHOLDER}
-            alt=""
-            aria-hidden="true"
-            width={220}
-            height={220}
-            className="h-[220px] w-[220px] object-contain drop-shadow-sm"
-          />
-          <h1 className="font-ibm text-xl font-bold leading-8 text-v3-text-body">
+          <h1 className="font-ibm text-xl font-bold leading-8 text-v3-text-title">
             {step.lines.map((line) => (
               <span key={line} className="block">
                 {line}
@@ -93,15 +67,25 @@ export function OnboardingCarousel({ onComplete }: { onComplete: () => void }) {
           </h1>
         </div>
 
-        {/* footer — dots + next */}
+        {/* MIDDLE — mascot, below the text; flex-1 + min-h-0 so it fits, never forces scroll */}
+        <div className="flex min-h-0 flex-1 items-center justify-center py-6">
+          <Image
+            src={mascotSrc}
+            alt=""
+            aria-hidden="true"
+            width={280}
+            height={280}
+            className="h-full max-h-[300px] w-auto object-contain drop-shadow-sm"
+          />
+        </div>
+
+        {/* BOTTOM — dots + next (accessible name = visible text, WCAG 2.5.3) */}
         <div className="flex flex-col items-center gap-6">
           <DotsPager count={STEPS.length} active={index} />
-          {/* accessible name = visible text (WCAG 2.5.3 Label-in-Name). The button reads
-              "ถัดไป" throughout per Figma; on the last step it advances to /v2/login. */}
           <Button onClick={next}>ถัดไป</Button>
         </div>
       </div>
-    </div>
+    </FullBleedScreen>
   )
 }
 
