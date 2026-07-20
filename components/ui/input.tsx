@@ -73,7 +73,8 @@ export function Field({ label, helper, error, id, className, containerClassName,
           htmlFor={inputId}
           className={cn(
             'mb-2 block font-ibm text-sm font-semibold leading-5',
-            error ? 'text-v3-error' : 'text-v3-text-body',
+            // v3: Field label = #4B5563 (text-body-alt), not #464646 (matches Figma 308-88).
+            error ? 'text-v3-error' : 'text-v3-text-body-alt',
           )}
         >
           {label}
@@ -92,7 +93,8 @@ export function Field({ label, helper, error, id, className, containerClassName,
           id={helperId}
           className={cn(
             'mt-2 font-ibm text-xs leading-[18px]',
-            error ? 'text-v3-error' : 'text-v3-text-muted',
+            // v3: default helper = #9CA3AF (placeholder token), not #71717A (matches Figma 308-88).
+            error ? 'text-v3-error' : 'text-v3-placeholder',
           )}
         >
           {helper}

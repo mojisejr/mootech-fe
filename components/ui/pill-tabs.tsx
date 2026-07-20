@@ -2,6 +2,7 @@ import { useRef, type KeyboardEvent } from 'react'
 import { cn } from '@/lib/utils/cn'
 
 export type PillTabItem = { label: string; value: string }
+export type PillTabsVariant = 'neutral' | 'calendar'
 
 // PillTabs — V3 segmented tab control (DESIGN.md §6 "Tab / Pill Tabs", node 375-10888).
 // Track: bg #EBEBEB (v3-tab-track) · pad 4px · radius 50px.
@@ -17,6 +18,7 @@ export function PillTabs({
   onChange,
   className,
   ariaLabel,
+  variant = 'neutral',
 }: {
   items: PillTabItem[]
   value: string
@@ -24,7 +26,11 @@ export function PillTabs({
   className?: string
   /** Accessible name for the group — applied as aria-label on the radiogroup. */
   ariaLabel?: string
+  /** `neutral` (default, #EBEBEB track + white-thumb, §6) · `calendar` (white track,
+   *  sapphire-fill + lime-label selected, node 375-17085). */
+  variant?: PillTabsVariant
 }) {
+  const isCalendar = variant === 'calendar'
   const buttonRefs = useRef<(HTMLButtonElement | null)[]>([])
 
   // Roving tabindex: the checked radio is the single tab stop (tabindex 0); if the
@@ -62,7 +68,9 @@ export function PillTabs({
       role="radiogroup"
       aria-label={ariaLabel}
       className={cn(
-        'inline-flex items-center gap-1 rounded-[50px] bg-v3-tab-track p-1',
+        'inline-flex items-center gap-1 rounded-[50px] p-1',
+        // track: neutral = #EBEBEB · calendar = white
+        isCalendar ? 'bg-white' : 'bg-v3-tab-track',
         className,
       )}
     >
@@ -82,16 +90,24 @@ export function PillTabs({
             onKeyDown={(event) => handleKeyDown(event, index)}
             className={cn(
               // base segment — transparent border reserves the 2px so focus recolors,
-              // never resizes (no layout shift)
-              'flex-1 rounded-full border-2 border-transparent px-3 py-2 text-center font-poppins-v3 text-sm font-semibold text-v3-shade-02 transition-colors',
-              // focus-visible = §6 focus border (2px #222 / v3-shade-02) on the focused segment
-              'outline-none focus-visible:border-v3-shade-02',
+              // never resizes (no layout shift). NO text color here — set exactly once
+              // per state branch below so two text-* utilities never collide (cn no-dedupe).
+              'flex-1 rounded-full border-2 border-transparent px-3 py-2 text-center font-poppins-v3 text-sm font-semibold transition-colors outline-none',
+              // focus border: neutral = #222 · calendar = sapphire
+              isCalendar
+                ? 'focus-visible:border-v3-sapphire'
+                : 'focus-visible:border-v3-shade-02',
               selected
-                ? // selected — white fill + the §4 shadow exception
-                  'bg-white shadow-[0px_6px_8.5px_rgba(0,0,0,0.08)]'
-                : // unselected — transparent on the track; hover + focus lift to tab-focus
-                  // (§6 "Focus (unselected)" = bg #F7F7F7 AND the 2px border together)
-                  'bg-transparent hover:bg-v3-tab-focus focus-visible:bg-v3-tab-focus',
+                ? isCalendar
+                  ? // calendar selected — sapphire fill + lime label, NO shadow
+                    'bg-v3-sapphire text-v3-lime'
+                  : // neutral selected — white fill + #222 label + §4 shadow exception
+                    'bg-white text-v3-shade-02 shadow-[0px_6px_8.5px_rgba(0,0,0,0.08)]'
+                : isCalendar
+                  ? // calendar unselected — lemon-chiffon fill + sapphire label
+                    'bg-v3-lemon-chiffon text-v3-sapphire hover:brightness-95 focus-visible:brightness-95'
+                  : // neutral unselected — transparent + #222 label; hover/focus lift to tab-focus
+                    'bg-transparent text-v3-shade-02 hover:bg-v3-tab-focus focus-visible:bg-v3-tab-focus',
             )}
           >
             {item.label}
