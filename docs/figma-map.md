@@ -31,11 +31,13 @@
 | **Service** | `333-7244` | active | ✅ (โครง) |
 | **Calendar** | `333-4409` | active | ✅ |
 | **Payment** | `375-20340` | active | ✅ (โครง) |
-| X **Couple's horoscope** | `480-4548` | 🗑️ deprecated (legacy) | ✅ |
-| X **Page 17** (my-destiny เดิม) | `626-2004` | 🗑️ deprecated (legacy) | ✅ |
+| **Couple's Horoscope** | `480-4548` | ✅ **active (ตัวใหม่ — ฟีม 2026-07-20 ยืนยัน ไม่ใช่ legacy)** | ✅ |
+| **my-destiny** (X Page 17) | `626-2004` | ✅ **active (redesign, superset ของ `300-2356`)** | ✅ |
 | Design Backup (Big Page) | `9-3` | 🗄️ backup — ไม่เจาะลึก | note only |
 
-> "Service / Payment" metadata ตื้น (top-level frame เท่านั้น) — จอย่อยยังต้อง `get_design_context` เพิ่มตอนทำจริง.
+> **UPDATE 2026-07-20**: Couple's Horoscope + X Page 17 ไม่ใช่ deprecated แล้ว — ฟีม ยืนยันเป็นของใหม่ในสโคป. spec เต็มดึงแล้ว (Pro clone) → ดู [`DESIGN.md`](../DESIGN.md) §7/§10.
+> **⚠️ my-destiny `626-2004` render ในโลก legacy** (teal-pink glass, Noto Sans Thai) ไม่ใช่ v3 — capture as-is, reskin หรือไม่ = build-time decision (DESIGN.md §12).
+> Spec ทุก section ดึงครบด้วย Pro clone แล้ว (onboarding/Service/Calendar/Payment/Couple's/my-destiny + component ทั้งหมด) → token/component อยู่ใน DESIGN.md v3.
 
 ---
 
@@ -61,6 +63,12 @@ _typo copy: "ธาตดิน" (ควร ธาตุดิน), "ธาต�
 
 **Components ที่ Welcome ใช้:** Primary/Tertiary Buttons · Field-* · Checkbox with text / Checkboxes with labels ·
 Property Type (intent card) · Status Bar · Menu / Menubar · Mascot Mumate2 (`588-12966`) · icons (google/calendar)
+
+**Copy verified (Pro clone 2026-07-20 — แก้จากที่เดาไว้):**
+- splash ปุ่ม = **`ถัดไป`** (ไม่ใช่ "เริ่ม")
+- register (`302-238`) = **`ยินดีต้อนรับสู่ มิวเมท`** / sub `มาร่วมสร้างบันทึกทางใจ และค้นพบความสงบไปกับพวกเรา` — ปุ่ม `ลงทะเบียนด้วย LINE` + `ลงทะเบียนด้วย Google` + `มีบัญชีอยู่แล้ว? เข้าสู่ระบบ`
+- intent (`300-1548`) heading = **`วันนี้คุณอยากดูแลด้านไหน?`** · การ์ด: การเงิน/สุขภาพ/ครอบครัว/พัฒนาตนเอง/ความรัก/การงาน
+- `300-2861` "Welcome/account" = จริงๆ คือจอ **LINE OAuth consent** (ของ LINE เอง) ไม่ใช่ Mumate welcome surface
 
 ---
 
@@ -129,6 +137,52 @@ per-aspect `636-21840`/`636-22276`. ปุ่ม "บันทึกเป็น
 `Profile` `626-2005` (375×4429) + Chart instance `626-3060` ลอย. **ยืนยันว่าเป็น my-destiny/result หน้าเก่า** —
 กว้าง **375px** (baseline iPhone เก่า vs 393px ทั้งไฟล์ใหม่) เป็นสัญญาณ legacy ชัด, สูง 4429px = single-scroll result เดิม.
 โครงในแทบไม่เหลือ (superseded โดยจอ ธาตุ `300-2356` ใน Welcome).
+
+---
+
+## Code Mapping — Welcome/onboarding flow ↔ codebase
+
+> เพิ่ม 2026-07-20 (Lamun) — audit 3 ตัวไล่ codebase จริง (Next.js 14 Pages Router, next-auth v4)
+> เทียบ Figma Welcome canvas `298-475` กับ route ที่ render อยู่จริง. **นี่คือความจริงของ code ตอนนี้ ไม่ใช่ Figma.**
+
+### ⚠️ ชื่อ route สลับกับ Figma — อ่านก่อนแก้จอไหน
+
+ชื่อจอใน Figma **ไม่ตรง** กับชื่อ route ในโค้ด — จำสับได้ง่ายมาก:
+
+| Figma เรียกว่า | แต่ code render ที่ | หมายเหตุ |
+|---|---|---|
+| **03-register** (ปุ่ม LINE+Google login) | **`/login`** (`pages/login/index.tsx`) | จอ "สมัคร" ของ Figma = จอ login ของ code |
+| **04-profile-setup** (avatar + ฟอร์มวันเกิด) | **`/register`** (`pages/register/index.tsx`) | จอ profile ของ Figma = route `/register` |
+| **01-splash** / **Home hub** | **`/`** = calculator (homepage swap) | `/` ไม่ใช่ splash และไม่ใช่ hub — เป็น public calculator |
+| **Welcome/account** (logo) | `/welcome` = ฟอร์มวันเกิด (ไม่ใช่ logo) | branded shell จริงอยู่ที่ `pages/auth/error.tsx` |
+
+### Screen map (สถานะจริง)
+
+| Figma screen | node | Code today | สถานะ | wrap target (keep logic) |
+|---|---|---|---|---|
+| 01-splash | `298-476` | — (`/` = calculator) | 🔴 **ไม่มี route** | สร้างใหม่ หรือ restyle `DitiHero.tsx` |
+| 03-register (login) | `302-238` | `pages/login/index.tsx` | 🟢 มี (teal legacy) | restyle JSX L142-302 · เก็บ `handleLogin`/webview/`ModalGoogleExternal` |
+| Welcome/account | `300-2861` | `pages/welcome` (form) · shell = `auth/error.tsx` | 🟡 mismatch | restyle `auth/error.tsx` glass shell หรือ welcome finish card |
+| LINE consent | — | external (LINE) + `modal-google-external.tsx` | ⚪ external | จอ LINE แต่งไม่ได้ · แต่งได้แค่ modal escort |
+| 04-profile-setup | `302-275` | `pages/register/index.tsx` (+`profile/edit` = filled) | 🟢 มี partial (teal) | restyle in-place · เก็บ state/avatar/`BirthDayInput` |
+| 02-intent-check | `300-1548` | — | 🔴 **ไม่มีเลย** (ไม่มี schema column ด้วย) | net-new build |
+| 04-pdpa consent | `300-1582` | static `privacy/policy.tsx` เท่านั้น | 🔴 **ไม่มี consent gate** | net-new build |
+| destiny result | `300-2356` | `pages/my-destiny/index.tsx` (~1350 บรรทัด) | 🟢 มี (teal legacy) | restyle hero+mascot+`box-chinese-table` · เก็บ data logic |
+| Home hub | `333-6545` | — (`/` = calculator) | 🔴 **ไม่มี** | net-new build |
+| Menubar / bottom-nav | `461:3097`, `469:3670` | — (มีแค่ slide-out `menu.tsx`) | 🔴 **ไม่มีเลย** | สร้างใน `components/ui/` |
+
+### Auth truth (next-auth v4)
+- providers ที่ config: **LINE · Google · Facebook · Twitter · Credentials("dev", dev-only)** (`pages/api/auth/[...nextauth].ts:15-55`) — UI แสดงแค่ **Google + LINE**.
+- nextauth pages: `signIn:/login` · `error:/auth/error`.
+- ลำดับหลัง login: `handleLogin(provider)` → cookie → `signIn(provider, callbackUrl:/auth/after/[provider])` → OAuth → `pages/auth/after/[provider].tsx` (ไม่ set `MEMBER_ID`) → `router.replace('/')` → `/` register round-trip เขียน `MEMBER_ID` → CTA gated by `lib/auth/cta-ready.ts`, routed by `lib/auth/welcome-target.ts` (anon→login · authed+code→my-destiny · else→register).
+- **อย่าแตะ logic**: `[...nextauth].ts`, `auth/after/[provider].tsx`, `lib/auth/*`, `use-current-user.ts`, `handleLogin`/`signIn`/effects.
+- **dead duplicate**: `pages/login-with/index.tsx` = จอ login ซ้ำ แต่ unreachable (`LOGIN_WITH`→`/login`) — อย่า restyle, ลบทิ้งได้.
+
+### 🧩 Personalization resolver — ยังไม่ถูกใช้จริง (สำคัญ)
+- `lib/personalization/` (resolver decision C ที่เราสร้าง PR#71) **ยังไม่มี production screen ไหนใช้** — มีแค่ `design-system.tsx` (showcase) + test.
+- **my-destiny ไม่ได้ใช้ resolver** — ดึง mascot จาก backend ตรงๆ (`resultSummary.mascot.url/.name`) ผ่าน `ChineseHoroscopeGet` (authed) ไม่ใช่ `compute.ts`.
+- resolver อ่านจาก `compute.ts`: `yearOfZodiac` (top-level, มีเสมอ) + `enrichment.dayMasterElement` (**nested, best-effort — timeout 5s → null** → ต้องมี static fallback).
+- → คำถามค้าง: resolver ควรไปเสียบ **จอ public calculator (anon, ใช้ `compute.ts`)** ไม่ใช่ my-destiny (authed มี mascot จาก backend แล้ว). **ต้องเคาะกับ ฟีม.**
 
 ---
 
