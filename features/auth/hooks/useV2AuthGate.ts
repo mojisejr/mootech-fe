@@ -13,6 +13,7 @@
 import { useEffect } from 'react'
 import { useRouter } from 'next/router'
 import { useCurrentUser, type AuthStatus } from '@/lib/auth/use-current-user'
+import { useHasMounted } from '@/lib/hooks/use-has-mounted'
 
 export type V2AuthGateConfig = {
   /** Where to send a settled-authenticated user (e.g. /v2/login → '/v2'). Omit to render authed. */
@@ -31,27 +32,36 @@ export type V2AuthGate = {
 
 export function useV2AuthGate(config: V2AuthGateConfig = {}): V2AuthGate {
   const router = useRouter()
+  const hasMounted = useHasMounted()
   const { status } = useCurrentUser()
   const { redirectWhenAuthed, redirectWhenAnon } = config
 
-  // A redirect is warranted only on a SETTLED status — 'loading' is deliberately excluded so we
-  // never bounce during the self-heal window.
+  // A redirect is warranted only AFTER mount and on a SETTLED status. `!hasMounted` is excluded so
+  // we never redirect before hydration; 'loading' is excluded so we never bounce during the
+  // self-heal window (login-loop invariant).
   const redirecting =
-    (status === 'authed' && Boolean(redirectWhenAuthed)) ||
-    (status === 'anon' && Boolean(redirectWhenAnon))
+    hasMounted &&
+    ((status === 'authed' && Boolean(redirectWhenAuthed)) ||
+      (status === 'anon' && Boolean(redirectWhenAnon)))
 
   useEffect(() => {
+    if (!hasMounted) return // don't redirect until after the first client paint
     if (status === 'authed' && redirectWhenAuthed) {
       router.replace(redirectWhenAuthed)
     } else if (status === 'anon' && redirectWhenAnon) {
       router.replace(redirectWhenAnon)
     }
     // status 'loading' → do nothing; wait for it to settle (login-loop invariant).
-  }, [status, redirectWhenAuthed, redirectWhenAnon, router])
+  }, [hasMounted, status, redirectWhenAuthed, redirectWhenAnon, router])
 
   return {
     status,
     redirecting,
-    showLoading: status === 'loading' || redirecting,
+    // The `!hasMounted` term is the hydration fix (#mootech-fortune-stick-hydration-fix pattern):
+    // `cookie-mumate-id` is invisible to the server, so useCurrentUser resolves 'loading' on the
+    // server but the real status on the first client paint. Holding showLoading=true until mounted
+    // makes the server HTML and the first client render agree (both <AuthLoadingGate/>), then the
+    // real status-based render (carousel/home/form/redirect) takes over post-hydration.
+    showLoading: !hasMounted || status === 'loading' || redirecting,
   }
 }
