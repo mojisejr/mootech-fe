@@ -1,53 +1,9 @@
-// design.contract.ts — MuMate v2 machine-readable design contract (Frame-v2 harness input)
+// design.contract.ts — MuMate v2 machine-readable design contract (per-project data).
 //
-// The SINGLE source the harness reads. Prose/rationale lives in DESIGN.md; the ENFORCEABLE
-// numbers live HERE so every agent + every verify layer reads the same thing (no discipline-in-head).
-// Thin slice: `splash` only — proves the engine end-to-end on one screen. Grows one ScreenContract
-// per screen; the engine never changes when a screen is added.
-//
-// FROZEN tolerances (ฟีม-approved 2026-07-21). Each anchor is tied to a REAL bug that once shipped.
-// `selector` added for the capture engine (additive; does not change any frozen value).
-
-export type Fidelity = 'exact' | 'measured' | 'estimate'
-
-export interface RefSource {
-  kind: 'figma' | 'image' | 'html' | 'pdf'
-  ref: string // figma nodeId | file path
-  authoredAt: { w: number; h: number } // size the reference was drawn at (to convert px→%)
-  fidelity: Fidelity // figma=exact · html=measured · image/pdf=estimate → gate strictness scales
-}
-
-/** One enforceable, size-independent invariant. Exactly one assertion shape is set. */
-export interface Anchor {
-  id: string
-  selector: string // DOM element(s) the invariant measures
-  assert: string
-  computedEquals?: { property: string; value: string } // binary invariant (no tolerance)
-  minPx?: { property: string; px: number }
-  maxViewportPct?: { of: 'width' | 'height'; pct: number }
-  refDeltaPct?: number // element position/size may drift ≤ this % of viewport vs the ref frame
-  severity: 'block' | 'advisory'
-  why: string
-  catches: string // the real shipped bug this guards against
-}
-
-/** A deliberate injection of a known-real bug. The harness MUST fail at `expectFailAt` — proof of teeth. */
-export interface Mutant {
-  id: string
-  inject: string
-  expectFailAt: string // anchor id (or layer) that must go red
-  realBug: string
-}
-
-export interface ScreenContract {
-  screen: string
-  route: string
-  source: RefSource
-  states: string[] // registry the capture harness iterates
-  viewports: number[] // widths to capture
-  anchors: Anchor[]
-  mutants: Mutant[]
-}
+// The SCHEMA (interfaces) now lives in the generic engine (harness/engine/types); this file is pure
+// DATA — the anchors/tolerances/mutants the engine scores against. Prose/rationale lives in
+// DESIGN.md §0. FROZEN tolerances (ฟีม-approved 2026-07-21); each anchor guards a REAL shipped bug.
+import type { ScreenContract } from './harness/engine/types'
 
 // ── SPLASH ────────────────────────────────────────────────────────────────────────────────────
 export const splash: ScreenContract = {
@@ -64,16 +20,16 @@ export const splash: ScreenContract = {
   anchors: [
     {
       id: 'bg-aspect',
-      selector: 'img[src*="BG"]', // full-bleed background photo
+      selector: 'img[src*="BG"]',
       assert: 'background image renders object-fit:cover (never stretched)',
       computedEquals: { property: 'object-fit', value: 'cover' },
       severity: 'block',
-      why: 'stretch destroys the artwork — this is an invariant, not a range; there is no "a little stretched is ok"',
+      why: 'stretch destroys the artwork — an invariant, not a range; there is no "a little stretched is ok"',
       catches: 'object-cover className silently computed to fill → bg aspect 0.800 squished to 0.461',
     },
     {
       id: 'top-inset',
-      selector: 'div.mx-auto.max-w-md', // FullBleedScreen content column
+      selector: 'div.mx-auto.max-w-md',
       assert: 'content column top padding clears the status bar',
       minPx: { property: 'paddingTop', px: 44 },
       severity: 'block',
@@ -95,8 +51,7 @@ export const splash: ScreenContract = {
       assert: 'mascot height ≤ 47% of viewport height',
       maxViewportPct: { of: 'height', pct: 47 },
       severity: 'block',
-      // RATIFIED 2026-07-21 from EXACT Figma geometry (node 588:10354 = 44.7% of 844) + 2% tol,
-      // replacing the earlier eyeball estimate (~40%) that was too tight.
+      // RATIFIED 2026-07-21 from EXACT Figma geometry (node 588:10354 = 44.7% of 844) + 2% tol.
       why: 'Figma exact = 44.7% of viewport height (+2% tol); measured geometry, not an eyeball guess',
       catches: 'mascot exceeding its Figma-intended height band (uncapped max-h → balloon)',
     },
@@ -106,8 +61,7 @@ export const splash: ScreenContract = {
       assert: 'mascot width ≤ 86% of viewport width',
       maxViewportPct: { of: 'width', pct: 86 },
       severity: 'block',
-      // RATIFIED 2026-07-21 from EXACT Figma geometry (node 588:10354 = 82.1% of 375) + 4% tol,
-      // replacing the earlier eyeball estimate (~61%) that wrongly flagged a faithful mascot.
+      // RATIFIED 2026-07-21 from EXACT Figma geometry (node 588:10354 = 82.1% of 375) + 4% tol.
       why: 'Figma exact = 82.1% of viewport width (+4% tol); measured geometry, not an eyeball guess',
       catches: 'mascot exceeding its Figma-intended width band',
     },
@@ -125,30 +79,15 @@ export const splash: ScreenContract = {
       selector: 'img[src*="mascot"]',
       assert: 'each key element within ±5% of its Figma position/size',
       refDeltaPct: 5,
-      severity: 'advisory', // block once masking is proven on the real bg photo (Phase E adapter)
+      severity: 'advisory', // block once L3 semantic-mapping (CP-3) lands
       why: 'element-level delta is robust to font/bg-photo render noise; ±5% ≈ perceptually "same place"',
       catches: 'composition drift (logo/heading/mascot/cta out of place) while tolerating render noise',
     },
   ],
   mutants: [
-    {
-      id: 'mut-objectfit-fill',
-      inject: "force bg <img> object-fit:fill",
-      expectFailAt: 'bg-aspect',
-      realBug: 'the shipped object-cover→fill stretch ฟีม caught on device',
-    },
-    {
-      id: 'mut-no-top-pad',
-      inject: 'force content column padding-top:0',
-      expectFailAt: 'top-inset',
-      realBug: 'pt-10 computed to 0 → logo at top:0',
-    },
-    {
-      id: 'mut-hero-uncapped',
-      inject: 'remove mascot max-height cap',
-      expectFailAt: 'hero-height',
-      realBug: 'max-h-[220px] ignored → mascot 48% of viewport height',
-    },
+    { id: 'mut-objectfit-fill', inject: 'force bg <img> object-fit:fill', expectFailAt: 'bg-aspect', realBug: 'the shipped object-cover→fill stretch ฟีม caught on device' },
+    { id: 'mut-no-top-pad', inject: 'force content column padding-top:0', expectFailAt: 'top-inset', realBug: 'pt-10 computed to 0 → logo at top:0' },
+    { id: 'mut-hero-uncapped', inject: 'remove mascot max-height cap', expectFailAt: 'hero-height', realBug: 'max-h-[220px] ignored → mascot 48% of viewport height' },
   ],
 }
 

@@ -13,6 +13,38 @@
 
 ---
 
+## 0. System-First — how we build & verify UI (methodology)
+
+> The doctrine every screen follows. Crystallized 2026-07-21 (Frame-v2), proven on the splash, codified
+> as the `design-verify` engine. Prose lives here; the **enforceable numbers** live in `design.contract.ts`.
+
+**The unit of work is the SYSTEM, not the screen.** A reference (Figma / HTML / image / PDF) does not tell
+us "how this screen looks" — it gives us **anchors**: size-independent, measurable invariants (aspect,
+containment, safe-area, hero band, tap-target). We extract anchors → lock them in the design-system page
+(the **1000%-verified truth**) → **compose** every screen from that system → **verify**. We never hand-roll
+per-screen pixels; a new value gets promoted into the system (named), never inlined as `max-h-[NNN]`.
+
+**The machine contract** (single source every agent + layer reads — no discipline-in-head):
+- `design.contract.ts` — anchors + frozen tolerances + mutants (DSL); schema in `harness/engine/types`.
+- `design.reference.ts` — reference geometry + `fidelity` stamp (adapter output).
+- Tolerances are grounded in real standards (iOS/WCAG) or **exact** reference geometry — never eyeballed.
+
+**Verify = 4 layers + proof-of-teeth** (`harness/`, engine reused from `oracle-skills/design-verify`):
+1. **L1 source-lint** — no hand-rolled hex / arbitrary classes outside the system.
+2. **L2 computed** — measured *after fonts+images ready*; computed value must equal intent.
+3. **L3 ref-diff** — element boxes vs the reference; tolerance scales with `fidelity` (exact→tight, estimate→advisory).
+4. **L4 runtime** — console / network / image-decode / layout-shift.
+5. **🦷 Mutant suite** — real shipped bugs injected; the gate MUST fail on each. *A gate that can't
+   demonstrate catching a known bug is belief, not verification.*
+
+**Fidelity scales the gate.** Figma = exact (block). Image/PDF = estimate (advisory + human eye). The
+harness always knows — and states — how much its green can be trusted.
+
+**Run:** `V2_PREVIEW_KEY` + dev server, then `npx tsx harness/run.ts` → 4 layers + mutant + evidence bundle.
+The block-anchor gate + teeth proof is the design Hard Gate before a screen is "done"; ฟีม signs **taste**.
+
+---
+
 ## 1. Atmosphere — what MuMate V3 feels like
 
 **Navy + electric-lime + cyan accent. Flat baseline with defined depth moments. Thai-first, mobile (375–393px).** Modern & confident, mystical but crisp — not the soft-glassy teal of v1. The signature beat: **sapphire button + lime label** (high energy, used sparingly); **cyan** carries actions/links; the rest stays calm.

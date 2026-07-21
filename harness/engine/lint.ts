@@ -1,15 +1,7 @@
-// harness/lint.ts — Frame-v2 Layer-1 (static/source conformance). Reads SOURCE, not the browser.
-// Flags hand-rolled values the JIT may silently drop (the max-w-[NNN] / max-h-[NNN] failure family)
-// and raw hex that should be a token. Advisory in the thin slice; tightens to block once tokens cover all.
+// design-verify engine — Layer-1 (static/source conformance). Reads SOURCE, not the browser.
+// Flags hand-rolled values the JIT may silently drop (max-w-[NNN]/max-h-[NNN] family) + raw hex.
 import { readFileSync } from 'node:fs'
-
-export interface LintFinding {
-  file: string
-  line: number
-  kind: 'raw-hex' | 'arbitrary-class'
-  text: string
-  severity: 'block' | 'advisory'
-}
+import type { LintFinding } from './types'
 
 const ARBITRARY =
   /\b(?:max-h|max-w|min-h|min-w|w|h|p[trblxy]?|m[trblxy]?|gap|top|bottom|left|right|inset|leading|text)-\[[^\]]+\]/g
