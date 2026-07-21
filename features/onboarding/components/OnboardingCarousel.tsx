@@ -44,8 +44,11 @@ export function OnboardingCarousel({ onComplete }: { onComplete: () => void }) {
       bgSrc="/images/v2/bg/BG03.png"
       bgFallback="linear-gradient(180deg, #FBEFE6 0%, #F7E9F0 48%, #DCEBFB 100%)"
       bgPosition="center 30%"
-      // responsive vertical rhythm: tighter on short/small screens, roomier on tall
-      contentClassName="px-6 pb-[max(2rem,env(safe-area-inset-bottom))] pt-10 sm:px-8 sm:pt-16"
+      // vertical rhythm: top clears the status bar, bottom clears the home indicator.
+      // NOTE: core spacing classes only — an arbitrary class with commas (e.g.
+      // pb-[max(2rem,env(safe-area-inset-bottom))]) breaks Tailwind's class scanner for the
+      // NEXT class in the string, so the adjacent pt-10 was never generated → padding-top:0.
+      contentClassName="px-6 pt-12 pb-10 sm:px-8 sm:pt-16"
     >
       {/* fit-viewport: heading top · mascot middle (absorbs) · footer bottom — no scroll */}
       <div className="flex flex-1 flex-col gap-4">
@@ -53,11 +56,13 @@ export function OnboardingCarousel({ onComplete }: { onComplete: () => void }) {
         <div className="flex flex-col items-center gap-3 text-center sm:gap-4">
           {step.withLogo && (
             <Image
-              src="/images/mumate/ic_logo.svg"
+              src="/images/v2/logo/splash-logo.png"
               alt="MuMate"
-              width={148}
-              height={40}
-              className="h-8 w-auto sm:h-10"
+              width={311}
+              height={74}
+              // real brand wordmark (teal). Fills the content column width to match Figma node
+              // 588:10346 (w-full of its px-container ≈ 83% of viewport).
+              className="h-auto w-full"
             />
           )}
           <h1 className="text-balance font-ibm text-lg font-bold leading-7 text-v3-text-title sm:text-xl sm:leading-8">
@@ -78,7 +83,11 @@ export function OnboardingCarousel({ onComplete }: { onComplete: () => void }) {
             aria-hidden="true"
             width={300}
             height={300}
-            className="h-full max-h-[220px] w-auto object-contain drop-shadow-sm sm:max-h-[300px]"
+            // hero capped to the Figma band (~45% of viewport height → ~82% width via aspect).
+            // maxHeight via inline style: reliable across viewports, and arbitrary max-h-[Npx]
+            // classes silently failed to apply here (same JIT family as the padding bug).
+            style={{ maxHeight: '44vh' }}
+            className="h-full w-auto object-contain drop-shadow-sm"
           />
         </div>
 

@@ -7,6 +7,10 @@ const config: Config = {
     "./components/**/*.{js,ts,jsx,tsx,mdx}",
     "./app/**/*.{js,ts,jsx,tsx,mdx}",
     "./dev-access/**/*.{js,ts,jsx,tsx,mdx}",
+    // features/ holds the entire v2 codebase. Without this glob, any Tailwind class UNIQUE to a
+    // features/ file is silently never generated (pt-12, max-h-[NNN], max-w-[NNN] all "vanished") —
+    // the root cause of the whole v2 "silent class failure" family. Do not remove.
+    "./features/**/*.{js,ts,jsx,tsx,mdx}",
   ],
   theme: {
     fontFamily: {
