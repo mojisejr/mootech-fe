@@ -48,7 +48,7 @@ export function OnboardingCarousel({ onComplete }: { onComplete: () => void }) {
       // NOTE: core spacing classes only — an arbitrary class with commas (e.g.
       // pb-[max(2rem,env(safe-area-inset-bottom))]) breaks Tailwind's class scanner for the
       // NEXT class in the string, so the adjacent pt-10 was never generated → padding-top:0.
-      contentClassName="px-6 pt-12 pb-10 sm:px-8 sm:pt-16"
+      contentClassName="px-8 pt-12 pb-10 sm:pt-16"
     >
       {/* fit-viewport: heading top · mascot middle (absorbs) · footer bottom — no scroll */}
       <div className="flex flex-1 flex-col gap-4">
