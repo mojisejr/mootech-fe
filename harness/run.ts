@@ -7,6 +7,7 @@ import { splash } from '../design.contract'
 import { splashReference } from '../design.reference'
 import { capture } from './capture'
 import { mutantCss } from './mutants'
+import { states } from './states'
 
 const URL = 'http://localhost:3000/v2'
 const COOKIE = { name: 'v2_access', value: 'lamun-local-dev', domain: 'localhost', path: '/' }
@@ -24,6 +25,7 @@ async function main() {
       'features/onboarding/components/OnboardingCarousel.tsx',
     ],
     mutantCss,
+    states,
     viewport: VP,
     evidenceDir: 'harness/evidence',
     stripViewports: [320, 1280],
