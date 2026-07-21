@@ -1,0 +1,70 @@
+name: design-verify
+# CP-6 · evidence-as-gate. Runs the Frame-v2 UI harness on PRs that touch the v2 splash surface and
+# blocks on: blind mutant (teeth) · block-anchor fail · blocking L3 drift · state break.
+#
+# Unlike the auth e2e (local-only — it needs BE + Supabase, see e2e/README.md), the splash harness is
+# FE-ONLY: `next build && next start` + the v2 preview cookie, no backend. So it CAN run in CI without
+# violating the Browser Truth doctrine. Separate job from `ci.yml` hard-gate — does not change it.
+on:
+  pull_request:
+    paths:
+      - "features/**"
+      - "harness/**"
+      - "design.contract.ts"
+      - "design.reference.ts"
+      - "tailwind.config.ts" # the features/ content-glob gap lived here — the whole silent-class family
+      - "postcss.config.*"
+      - ".github/workflows/design-verify.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: design-verify-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  splash-harness:
+    runs-on: ubuntu-latest
+    env:
+      # Not a secret — the v2 preview gate value; the harness sets the matching v2_access cookie.
+      V2_PREVIEW_KEY: lamun-ci-preview
+      # Build placeholders only (mirrors ci.yml) — NO real secrets in CI.
+      ENVIRONMENT: production
+      HOST: https://example.invalid
+      NEXTAUTH_URL: https://example.invalid
+      OMISE_PUBLIC_KEY: pkey_test_placeholder
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - name: install chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: build
+        run: npm run build
+
+      - name: run splash harness (evidence-as-gate)
+        run: |
+          npx next start -p 3000 &
+          SERVER=$!
+          echo "waiting for :3000 …"
+          for i in $(seq 1 40); do
+            curl -sf -o /dev/null http://localhost:3000/v2 && break
+            sleep 2
+          done
+          HARNESS_HOST=http://localhost:3000 npx tsx harness/run.ts
+          CODE=$?
+          kill "$SERVER" 2>/dev/null || true
+          exit $CODE
+
+      - name: upload evidence bundle
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: design-verify-evidence
+          path: harness/evidence/
+          if-no-files-found: warn
