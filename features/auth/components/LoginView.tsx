@@ -1,13 +1,13 @@
-import Image from 'next/image'
 import { Button } from '@/components/ui/button'
 import { TextLink } from '@/components/ui/link'
+import { FullBleedScreen } from '@/features/v2-shell/components/FullBleedScreen'
 import { LineButton } from './LineButton'
 
 // LoginView — MuMate v2 /v2/login presentational (DESIGN.md v3, Figma "03-register" 302-238).
 // Route-swap: Figma "register" = code /login. Pure UI — goo wires next-auth (signIn line/google)
 // into the callbacks; this never touches the auth machine.
 //
-// bg = /images/v2/bg/BG03.png (goo pulls) over a sunset gradient fallback.
+// Container = FullBleedScreen (container-contract §9.1) · bg = BG01 (ฟีม lock 2026-07-21).
 
 // Minimal inline brand glyphs (placeholder; ฟีม may swap for official assets).
 function LineGlyph() {
@@ -43,23 +43,12 @@ export function LoginView({
   loading?: boolean
 }) {
   return (
-    <div
-      className="relative flex min-h-screen flex-col overflow-hidden"
-      style={{ background: 'linear-gradient(180deg, #FBEFE6 0%, #F7E9F0 50%, #EAF0FB 100%)' }}
+    <FullBleedScreen
+      bgSrc="/images/v2/bg/BG01.png"
+      bgFallback="linear-gradient(180deg, #FBEFE6 0%, #F7E9F0 50%, #EAF0FB 100%)"
+      contentClassName="justify-center px-8"
     >
-      <Image
-        src="/images/v2/bg/BG03.png"
-        alt=""
-        aria-hidden="true"
-        fill
-        priority
-        className="pointer-events-none select-none object-cover"
-        onError={(e) => {
-          ;(e.currentTarget as HTMLImageElement).style.display = 'none'
-        }}
-      />
-
-      <div className="relative z-10 flex flex-1 flex-col justify-center px-8">
+      <div className="flex flex-1 flex-col justify-center">
         <div className="flex flex-col gap-7">
           {/* heading */}
           <div className="flex flex-col gap-2.5 text-center">
@@ -106,7 +95,7 @@ export function LoginView({
           </p>
         </div>
       </div>
-    </div>
+    </FullBleedScreen>
   )
 }
 
