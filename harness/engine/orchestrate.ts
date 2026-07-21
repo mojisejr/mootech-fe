@@ -6,13 +6,16 @@ import type { ScreenContract, RefModel, CaptureFn, Match, StateDef, StateResult,
 import { evalAnchor } from './anchors'
 import { lintSources } from './lint'
 import { refDiff } from './refdiff'
+import { fidelityGate } from './adapters'
 
 export interface OrchestrateResult {
   teethOk: boolean
   blockFailIds: string[]
   blindMutantIds: string[]
-  /** CP-3: reference elements whose L3 delta exceeds tolerance (advisory until CP-6 gates them). */
+  /** CP-3: reference elements whose L3 delta exceeds tolerance. */
   l3FailEls: string[]
+  /** CP-2: is L3 drift blocking for this reference's fidelity? (exact/measured → true, estimate → false). */
+  l3Blocking: boolean
   /** CP-4: states that did not survive clean (block-fail / overflow / console error). */
   stateFailIds: string[]
 }
@@ -54,7 +57,7 @@ export async function orchestrate(opts: {
     const captured: Record<string, Match | undefined> = Object.fromEntries(refProbes.map((p) => [p.id, cap.measurements[p.id]?.[0]]))
     const tol = contract.anchors.find((a) => a.refDeltaPct !== undefined)?.refDeltaPct ?? 5
     l3 = refDiff(reference, captured, VP, tol)
-    report.L3_refdiff = { fidelity: reference.fidelity, tolPct: tol, results: l3 }
+    report.L3_refdiff = { fidelity: reference.fidelity, gate: fidelityGate(reference.fidelity), unconfirmed: reference.unconfirmed ?? false, source: reference.source, tolPct: tol, results: l3 }
   }
   for (const w of opts.stripViewports ?? []) {
     await capture({ viewport: { w, h: VP.h }, probes: anchorProbes, screenshotPath: `${EV}/${contract.screen}-${w}.png` })
@@ -116,7 +119,8 @@ export async function orchestrate(opts: {
   log('\n═══ L2 · computed anchors (measured AFTER assets-ready) ═══')
   anchors.forEach((a) => log('  ' + a.message + (a.pass ? '' : `   [${a.severity}] want ${a.expected}, got ${a.actual}`)))
   if (reference) {
-    log(`\n═══ L3 · ref-diff vs ${reference.fidelity} ref (tol, advisory) ═══`)
+    const gate = fidelityGate(reference.fidelity)
+    log(`\n═══ L3 · ref-diff vs ${reference.fidelity} ref${reference.unconfirmed ? ' (UNCONFIRMED)' : ''} · gate=${gate} ═══`)
     l3.forEach((r) => log(`  ${r.pass ? '✓' : '✗'} ${r.detail}`))
   }
   log('\n═══ L4 · runtime observer ═══')
@@ -131,8 +135,14 @@ export async function orchestrate(opts: {
 
   const teethOk = blindMutants.length === 0
   log(`\n  🦷 teeth: ${teethOk ? 'PROVEN' : 'BLIND — HARNESS FAILED'} (${contract.mutants.length - blindMutants.length}/${contract.mutants.length} caught)`)
+  const l3Gate = reference ? fidelityGate(reference.fidelity) : 'advisory'
+  const l3Blocking = !!reference && l3Gate === 'block' && l3Fails.length > 0
   log(`  📐 ${contract.screen} health: ${blockFails.length === 0 ? '🟢 all block-anchors pass' : `🔴 ${blockFails.length} block-anchor(s) fail`} (${blockFails.map((a) => a.id).join(', ') || 'none'})`)
-  if (reference) log(`  🎯 L3 composition: ${l3Fails.length === 0 ? '🟢 all elements within tol' : `🟡 ${l3Fails.length} advisory drift`} (${l3Fails.map((r) => r.el).join(', ') || 'none'})`)
+  if (reference) {
+    const icon = l3Fails.length === 0 ? '🟢' : l3Gate === 'block' ? '🔴' : '🟡'
+    const label = l3Fails.length === 0 ? 'all elements within tol' : `${l3Fails.length} ${l3Gate === 'block' ? 'BLOCKING' : 'advisory'} drift`
+    log(`  🎯 L3 composition (${reference.fidelity}·gate=${l3Gate}): ${icon} ${label} (${l3Fails.map((r) => r.el).join(', ') || 'none'})`)
+  }
   if (stateResults.length) log(`  🧪 states: ${stateFails.length === 0 ? '🟢 all survive' : `🔴 ${stateFails.length} break`} (${stateFails.map((s) => s.id).join(', ') || 'none'})\n`)
 
   return {
@@ -140,6 +150,7 @@ export async function orchestrate(opts: {
     blockFailIds: blockFails.map((a) => a.id),
     blindMutantIds: blindMutants.map((m) => m.id as string),
     l3FailEls: l3Fails.map((r) => r.el),
+    l3Blocking,
     stateFailIds: stateFails.map((s) => s.id),
   }
 }

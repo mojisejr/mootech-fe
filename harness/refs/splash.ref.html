@@ -1,0 +1,31 @@
+<!doctype html>
+<!--
+  splash.ref.html — an HTML REFERENCE for the splash screen (CP-2 html-adapter demo source).
+  Authored at 375×844 (the Figma frame). Each [data-role] block sits at its Figma absolute box; the
+  project's measureHtml() renders this at 375×844 and reads those boxes → htmlAdapter → RefModel
+  (fidelity: 'measured'). This stands in for a design deliverable that arrives as HTML rather than Figma;
+  the verify pipeline downstream is identical (source-agnostic).
+-->
+<html lang="th">
+  <head>
+    <meta charset="utf-8" />
+    <style>
+      * { margin: 0; box-sizing: border-box; }
+      html, body { width: 375px; height: 844px; }
+      #frame { position: relative; width: 375px; height: 844px; background: linear-gradient(180deg, #FBEFE6 0%, #F7E9F0 48%, #DCEBFB 100%); font-family: system-ui, sans-serif; }
+      [data-role] { position: absolute; display: flex; align-items: center; justify-content: center; color: #0b5; font-weight: 600; }
+      [data-role="logo"]    { left: 32px;  top: 104px; width: 311px; height: 74px;  color: #1aa; font-size: 40px; }
+      [data-role="heading"] { left: 67px;  top: 194px; width: 240px; height: 56px;  color: #123; font-size: 20px; text-align: center; }
+      [data-role="mascot"]  { left: 34px;  top: 266px; width: 308px; height: 377px; background: rgba(0,170,170,.12); border-radius: 24px; color: #1aa; }
+      [data-role="cta"]     { left: 32px;  top: 703px; width: 311px; height: 52px;  background: #1e40af; color: #d9f99d; border-radius: 26px; }
+    </style>
+  </head>
+  <body>
+    <div id="frame">
+      <div data-role="logo">MuMate</div>
+      <div data-role="heading">ความสงบเริ่มต้นที่ใจ</div>
+      <div data-role="mascot">mascot</div>
+      <div data-role="cta">ถัดไป</div>
+    </div>
+  </body>
+</html>

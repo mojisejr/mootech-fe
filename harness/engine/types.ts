@@ -79,6 +79,10 @@ export interface RefModel {
   fidelity: Fidelity
   authoredAt: { w: number; h: number }
   elements: Record<string, RefElement>
+  /** CP-2: how this model was produced (adapter kind + notes) — provenance for the evidence bundle. */
+  source?: RefSource
+  /** CP-2: true when geometry is an estimate awaiting human confirmation (image/pdf); L3 stays advisory. */
+  unconfirmed?: boolean
 }
 
 // ── capture contract (the project's capture fn fulfils this; the engine only consumes it) ────────
