@@ -53,8 +53,10 @@ export function FullBleedScreen({
           fill
           priority
           sizes="100vw"
-          style={{ objectPosition: bgPosition }}
-          className="pointer-events-none select-none object-cover"
+          // objectFit inline (not just the class): next/image + fill can leave the `object-cover`
+          // CLASS computing to the CSS default `fill` → bg stretched. Inline style wins, guaranteed.
+          style={{ objectFit: 'cover', objectPosition: bgPosition }}
+          className="pointer-events-none select-none"
           // keep the fallback background if the asset isn't in /public yet
           onError={(e) => {
             ;(e.currentTarget as HTMLImageElement).style.display = 'none'
