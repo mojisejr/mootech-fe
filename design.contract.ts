@@ -77,9 +77,11 @@ export const splash: ScreenContract = {
     {
       id: 'ref-composition',
       selector: 'img[src*="mascot"]',
-      assert: 'each key element within ±5% of its Figma position/size',
+      assert: 'each key element within ±5% of its Figma role-mapped geometry',
       refDeltaPct: 5,
-      severity: 'advisory', // block once L3 semantic-mapping (CP-3) lands
+      // CP-3 landed: L3 role-map (design.reference.ts) makes this honest — size for marks/heroes,
+      // centre+height for text, position deferred to L2 insets. Stays advisory; CP-6 promotes to CI-block.
+      severity: 'advisory',
       why: 'element-level delta is robust to font/bg-photo render noise; ±5% ≈ perceptually "same place"',
       catches: 'composition drift (logo/heading/mascot/cta out of place) while tolerating render noise',
     },

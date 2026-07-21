@@ -12,12 +12,19 @@ export async function capture(opts: {
   screenshotPath: string
   cookie?: { name: string; value: string; domain: string; path: string }
   injectCss?: string
+  abortPattern?: string // CP-4: abort matching requests → simulate a missing asset (e.g. hero 404)
+  skipAssetsReady?: boolean // CP-4: measure before fonts/images settle → catch FOUT/CLS
   browser?: Browser
 }): Promise<Capture> {
   const own = !opts.browser
   const browser = opts.browser ?? (await chromium.launch())
   const ctx = await browser.newContext({ viewport: { width: opts.viewport.w, height: opts.viewport.h }, deviceScaleFactor: 2 })
   if (opts.cookie) await ctx.addCookies([opts.cookie])
+  // CP-4 missing-asset state: drop every request whose URL contains the pattern (set before navigation)
+  if (opts.abortPattern) {
+    const pat = opts.abortPattern
+    await ctx.route('**/*', (route) => (route.request().url().includes(pat) ? route.abort() : route.continue()))
+  }
   const page = await ctx.newPage()
 
   const consoleErrors: string[] = []
@@ -41,8 +48,11 @@ export async function capture(opts: {
   await page.goto(opts.url, { waitUntil: 'networkidle' })
 
   // ── ASSETS-READY GATE ──────────────────────────────────────────────────────────────────────
-  await page.evaluate(() => (document as unknown as { fonts?: { ready: Promise<unknown> } }).fonts?.ready).catch(() => {})
-  await page.waitForFunction(() => Array.from(document.images).every((i) => i.complete), null, { timeout: 4000 }).catch(() => {})
+  // Skipped in the fonts-not-ready state (CP-4): measure the pre-settle frame to surface FOUT/CLS.
+  if (!opts.skipAssetsReady) {
+    await page.evaluate(() => (document as unknown as { fonts?: { ready: Promise<unknown> } }).fonts?.ready).catch(() => {})
+    await page.waitForFunction(() => Array.from(document.images).every((i) => i.complete), null, { timeout: 4000 }).catch(() => {})
+  }
 
   if (opts.injectCss) {
     await page.addStyleTag({ content: opts.injectCss })
