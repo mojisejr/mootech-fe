@@ -1,16 +1,6 @@
-// harness/anchors.ts — Frame-v2 Layer-2 (computed-invariant assert). Pure functions over a Capture.
-// Failure messages POINT AT THE INVARIANT + the real bug it guards (not just a diff).
-import type { Anchor } from '../design.contract'
-import type { Capture, Match } from './capture'
-
-export interface AnchorResult {
-  id: string
-  pass: boolean
-  severity: 'block' | 'advisory'
-  expected: string
-  actual: string
-  message: string
-}
+// design-verify engine — Layer-2 (computed-invariant assert). Pure over a Capture.
+// Failure messages point at the INVARIANT + the real bug it guards.
+import type { Anchor, AnchorResult, Capture, Match } from './types'
 
 function field(m: Match, prop: string): string {
   if (prop === 'object-fit') return m.objectFit
@@ -24,8 +14,7 @@ export function evalAnchor(a: Anchor, cap: Capture, vp: { w: number; h: number }
   const base = { id: a.id, severity: a.severity }
 
   if (a.refDeltaPct !== undefined) {
-    // advisory placeholder until Figma child geometry is ingested (adapter, Phase E)
-    return { ...base, pass: true, expected: `±${a.refDeltaPct}% vs ref`, actual: 'pending-adapter', message: `~ ${a.id}: ref-diff pending adapter (Phase E) — advisory` }
+    return { ...base, pass: true, expected: `±${a.refDeltaPct}% vs ref`, actual: 'via-L3', message: `~ ${a.id}: handled by L3 element ref-diff` }
   }
   if (matches.length === 0) {
     return { ...base, pass: false, expected: a.assert, actual: 'element not found', message: `✗ ${a.id}: element not found (${a.selector})` }
@@ -34,13 +23,7 @@ export function evalAnchor(a: Anchor, cap: Capture, vp: { w: number; h: number }
   if (a.computedEquals) {
     const actual = field(matches[0], a.computedEquals.property)
     const pass = actual === a.computedEquals.value
-    return {
-      ...base,
-      pass,
-      expected: `${a.computedEquals.property}=${a.computedEquals.value}`,
-      actual,
-      message: pass ? `✓ ${a.id}` : `✗ ${a.id}: ${a.computedEquals.property} is "${actual}", must be "${a.computedEquals.value}" — ${a.catches}`,
-    }
+    return { ...base, pass, expected: `${a.computedEquals.property}=${a.computedEquals.value}`, actual, message: pass ? `✓ ${a.id}` : `✗ ${a.id}: ${a.computedEquals.property} is "${actual}", must be "${a.computedEquals.value}" — ${a.catches}` }
   }
 
   if (a.minPx) {

@@ -1,30 +1,9 @@
-// harness/capture.ts — Frame-v2 CAPTURE (Phase B). Playwright is Lamun's EYE PROOF.
-//
-// Renders a route, waits for the ASSETS-READY gate (fonts + image decode) so computed values are
-// measured on the FINAL pixels (closes the timing gap opilot flagged), then returns computed
-// measurements + a screenshot + runtime observations (Layer-4). Optional injectCss = mutant/state.
+// harness/capture.ts — PROJECT-side capture (Playwright = Lamun's EYE PROOF). Stays in the project
+// because playwright + the dev server + the app live here; the generic engine (harness/engine/)
+// consumes the Capture this returns. Waits for the ASSETS-READY gate so computed values are the
+// final pixels, then returns measurements + screenshot + runtime observations (Layer-4).
 import { chromium, type Browser } from 'playwright'
-
-export interface Probe {
-  id: string
-  selector: string
-}
-export interface Match {
-  objectFit: string
-  paddingTop: string
-  paddingBottom: string
-  w: number
-  h: number
-  top: number
-  left: number
-}
-export interface Capture {
-  viewport: { w: number; h: number }
-  overflowX: boolean
-  measurements: Record<string, Match[]>
-  runtime: { consoleErrors: string[]; failedRequests: string[]; cls: number }
-  screenshot: string
-}
+import type { Probe, Match, Capture } from './engine/types'
 
 export async function capture(opts: {
   url: string
@@ -37,14 +16,10 @@ export async function capture(opts: {
 }): Promise<Capture> {
   const own = !opts.browser
   const browser = opts.browser ?? (await chromium.launch())
-  const ctx = await browser.newContext({
-    viewport: { width: opts.viewport.w, height: opts.viewport.h },
-    deviceScaleFactor: 2,
-  })
+  const ctx = await browser.newContext({ viewport: { width: opts.viewport.w, height: opts.viewport.h }, deviceScaleFactor: 2 })
   if (opts.cookie) await ctx.addCookies([opts.cookie])
   const page = await ctx.newPage()
 
-  // Layer-4 observers
   const consoleErrors: string[] = []
   const failedRequests: string[] = []
   page.on('console', (m) => {
@@ -67,9 +42,7 @@ export async function capture(opts: {
 
   // ── ASSETS-READY GATE ──────────────────────────────────────────────────────────────────────
   await page.evaluate(() => (document as unknown as { fonts?: { ready: Promise<unknown> } }).fonts?.ready).catch(() => {})
-  await page
-    .waitForFunction(() => Array.from(document.images).every((i) => i.complete), null, { timeout: 4000 })
-    .catch(() => {}) // timeout-guarded: intentional 404 states (missing-mascot) never complete
+  await page.waitForFunction(() => Array.from(document.images).every((i) => i.complete), null, { timeout: 4000 }).catch(() => {})
 
   if (opts.injectCss) {
     await page.addStyleTag({ content: opts.injectCss })
@@ -84,34 +57,18 @@ export async function capture(opts: {
       out[p.id] = els.map((el) => {
         const cs = getComputedStyle(el)
         const r = el.getBoundingClientRect()
-        return {
-          objectFit: cs.objectFit,
-          paddingTop: cs.paddingTop,
-          paddingBottom: cs.paddingBottom,
-          w: Math.round(r.width),
-          h: Math.round(r.height),
-          top: Math.round(r.top),
-          left: Math.round(r.left),
-        }
+        return { objectFit: cs.objectFit, paddingTop: cs.paddingTop, paddingBottom: cs.paddingBottom, w: Math.round(r.width), h: Math.round(r.height), top: Math.round(r.top), left: Math.round(r.left) }
       })
     }
     return out
   }, opts.probes)
 
-  const overflowX = await page.evaluate(
-    () => document.scrollingElement!.scrollWidth > window.innerWidth,
-  )
+  const overflowX = await page.evaluate(() => document.scrollingElement!.scrollWidth > window.innerWidth)
   const cls = await page.evaluate(() => (window as unknown as { __cls: number }).__cls || 0)
   await page.screenshot({ path: opts.screenshotPath })
 
   await ctx.close()
   if (own) await browser.close()
 
-  return {
-    viewport: opts.viewport,
-    overflowX,
-    measurements,
-    runtime: { consoleErrors, failedRequests, cls },
-    screenshot: opts.screenshotPath,
-  }
+  return { viewport: opts.viewport, overflowX, measurements, runtime: { consoleErrors, failedRequests, cls }, screenshot: opts.screenshotPath }
 }

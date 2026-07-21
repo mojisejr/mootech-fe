@@ -1,24 +1,10 @@
-// harness/refdiff.ts — Frame-v2 Layer-3 (element-level ref-diff). Now with EXACT Figma geometry.
-// Compares each key element's normalized box (position+size as % of viewport) to the Reference Model.
-// Robust to font/bg-photo pixel noise (element-level, not raw pixel diff). Tolerance scales by fidelity.
-import type { RefModel } from '../design.reference'
-
-export interface CapturedBox {
-  left: number
-  top: number
-  w: number
-  h: number
-}
-export interface RefDiffResult {
-  el: string
-  deltaPct: number
-  pass: boolean
-  detail: string
-}
+// design-verify engine — Layer-3 (element-level ref-diff). Compares each key element's normalized
+// box (position+size as % of viewport) to the Reference Model. Robust to font/bg-photo pixel noise.
+import type { RefModel, RefDiffResult, Match } from './types'
 
 export function refDiff(
   model: RefModel,
-  captured: Record<string, CapturedBox | undefined>,
+  captured: Record<string, Match | undefined>,
   vp: { w: number; h: number },
   tolPct: number,
 ): RefDiffResult[] {
