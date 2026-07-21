@@ -2,22 +2,29 @@ import type { CSSProperties, ReactNode } from 'react'
 import Image from 'next/image'
 import { cn } from '@/lib/utils/cn'
 
-// FullBleedScreen — MuMate v2 container-contract (DESIGN.md §layout).
-// The OTHER half of AppScreen: a screen that OWNS the full viewport — its own photographic
-// background, no bottom Menubar, no max-width column. Onboarding / login / register live here
-// (pre-app, photo bg per DESIGN.md v3 §13).
+// FullBleedScreen — MuMate v2 container-contract (DESIGN.md §9.1 responsive standard).
+// A screen that OWNS the full viewport. Two independent layers (the fix to slice-1's coupling):
+//   • BG = full-bleed at EVERY width (Image fill + object-cover, focal via `bgPosition`).
+//   • CONTENT = a centered column capped at `contentMaxWidth` — comfortable on 320px, and on a
+//     wide/desktop screen the bg stays full-bleed while the content sits centered (ฟีม decision).
+// Responsive by default 320 → 1280+. Onboarding / login / register live here.
 //
-// WHY THIS EXISTS (slice-1 post-mortem): full-bleed screens were mounted inside the app shell's
-// `max-w-md` column, so a `min-h-screen` + `Image fill` background filled a 448px box, not the
-// viewport → squished bg. This typed wrapper makes the container contract structural: use
-// FullBleedScreen and you CANNOT be width-clamped; the bg is handled here, once, correctly.
-// Rule: a page is either <FullBleedScreen> or <AppScreen> — never hand-rolled, never both.
+// WHY: slice-1 removed the content max-w to fix a squished bg — which then let content SPREAD on
+// wide screens (non-responsive). Root cause was coupling bg-width to content-width. Here they're
+// separate: bg fills the viewport; content is a bounded, centered column. Rule: a page is
+// <FullBleedScreen> or <AppScreen> — never hand-rolled, never both.
 export function FullBleedScreen({
   children,
   /** Photographic bg (e.g. /images/v2/bg/BG01.png). 404-safe: falls back to `bgFallback`. */
   bgSrc,
   /** CSS background shown under/instead of the photo (gradient placeholder until the asset lands). */
   bgFallback,
+  /** object-position for the bg photo (focal point when cropped). Default 'center'. */
+  bgPosition = 'center',
+  /** Max width of the centered content column. Default `max-w-md` (448px, mobile-comfortable).
+   *  Use a CORE Tailwind width class (max-w-*) — an arbitrary `max-w-[NNNpx]` in a default
+   *  param value is not reliably extracted by the JIT scanner (it silently resolves to none). */
+  contentMaxWidth = 'max-w-md',
   /** Extra classes on the content column (padding etc.). */
   contentClassName,
   className,
@@ -25,6 +32,8 @@ export function FullBleedScreen({
   children: ReactNode
   bgSrc?: string
   bgFallback?: CSSProperties['background']
+  bgPosition?: string
+  contentMaxWidth?: string
   contentClassName?: string
   className?: string
 }) {
@@ -44,6 +53,7 @@ export function FullBleedScreen({
           fill
           priority
           sizes="100vw"
+          style={{ objectPosition: bgPosition }}
           className="pointer-events-none select-none object-cover"
           // keep the fallback background if the asset isn't in /public yet
           onError={(e) => {
@@ -52,8 +62,14 @@ export function FullBleedScreen({
         />
       ) : null}
 
-      {/* content owns the whole viewport width — NO max-w clamp here by design */}
-      <div className={cn('relative z-10 flex min-h-screen flex-col', contentClassName)}>
+      {/* content = a centered column capped at contentMaxWidth (bg stays full-bleed behind it) */}
+      <div
+        className={cn(
+          'relative z-10 mx-auto flex min-h-screen w-full flex-col',
+          contentMaxWidth,
+          contentClassName,
+        )}
+      >
         {children}
       </div>
     </div>

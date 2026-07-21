@@ -43,24 +43,27 @@ export function OnboardingCarousel({ onComplete }: { onComplete: () => void }) {
     <FullBleedScreen
       bgSrc="/images/v2/bg/BG03.png"
       bgFallback="linear-gradient(180deg, #FBEFE6 0%, #F7E9F0 48%, #DCEBFB 100%)"
-      contentClassName="px-8 pb-10 pt-16"
+      bgPosition="center 30%"
+      // responsive vertical rhythm: tighter on short/small screens, roomier on tall
+      contentClassName="px-6 pb-[max(2rem,env(safe-area-inset-bottom))] pt-10 sm:px-8 sm:pt-16"
     >
       {/* fit-viewport: heading top · mascot middle (absorbs) · footer bottom — no scroll */}
-      <div className="flex flex-1 flex-col">
+      <div className="flex flex-1 flex-col gap-4">
         {/* TOP — logo (step 1) + heading */}
-        <div className="flex flex-col items-center gap-4 text-center">
+        <div className="flex flex-col items-center gap-3 text-center sm:gap-4">
           {step.withLogo && (
             <Image
               src="/images/mumate/ic_logo.svg"
               alt="MuMate"
               width={148}
               height={40}
-              className="h-10 w-auto"
+              className="h-8 w-auto sm:h-10"
             />
           )}
-          <h1 className="font-ibm text-xl font-bold leading-8 text-v3-text-title">
+          <h1 className="text-balance font-ibm text-lg font-bold leading-7 text-v3-text-title sm:text-xl sm:leading-8">
             {step.lines.map((line) => (
-              <span key={line} className="block">
+              // explicit per-line breaks = graceful Thai wrapping (no mid-word auto-break)
+              <span key={line} className="block [word-break:keep-all]">
                 {line}
               </span>
             ))}
@@ -68,19 +71,19 @@ export function OnboardingCarousel({ onComplete }: { onComplete: () => void }) {
         </div>
 
         {/* MIDDLE — mascot, below the text; flex-1 + min-h-0 so it fits, never forces scroll */}
-        <div className="flex min-h-0 flex-1 items-center justify-center py-6">
+        <div className="flex min-h-0 flex-1 items-center justify-center py-2 sm:py-4">
           <Image
             src={mascotSrc}
             alt=""
             aria-hidden="true"
-            width={280}
-            height={280}
-            className="h-full max-h-[300px] w-auto object-contain drop-shadow-sm"
+            width={300}
+            height={300}
+            className="h-full max-h-[220px] w-auto object-contain drop-shadow-sm sm:max-h-[300px]"
           />
         </div>
 
         {/* BOTTOM — dots + next (accessible name = visible text, WCAG 2.5.3) */}
-        <div className="flex flex-col items-center gap-6">
+        <div className="flex flex-col items-center gap-5 sm:gap-6">
           <DotsPager count={STEPS.length} active={index} />
           <Button onClick={next}>ถัดไป</Button>
         </div>

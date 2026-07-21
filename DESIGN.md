@@ -300,7 +300,7 @@ mascot ผสม 2 แกน เพื่อให้ตรงกับ "ธา�
 
 | wrapper | ใช้เมื่อ | ให้อะไร | ห้าม |
 |---|---|---|---|
-| **`<FullBleedScreen>`** | จอ own viewport + photo bg, ไม่มี nav | `min-h-[100dvh]` เต็มจอ + bg (fill + fallback) + content column ไม่ clamp | max-w, AppShell, Menubar |
+| **`<FullBleedScreen>`** | จอ own viewport + photo bg, ไม่มี nav | `min-h-screen` เต็มจอ · **bg full-bleed ทุกความกว้าง** (fill + object-position) · **content = column center capped `contentMaxWidth` (default 448)** — bg-width **แยกจาก** content-width | hand-rolled bg/max-w, AppShell, Menubar |
 | **`<AppScreen>`** | จอในแอป (มี nav) | AppShell (max-w-md + bottom Menubar) | — |
 
 **Mapping ต่อจอ:**
@@ -313,7 +313,19 @@ mascot ผสม 2 แกน เพื่อให้ตรงกับ "ธา�
 | destiny result | `FullBleedScreen` หรือ `AppScreen` (เคาะตอน build) | photo/cream |
 | home · service · calendar · shop | `AppScreen` | ghost-white/white + Menubar |
 
-> Verify gate (§verify-before-PR): design-verify ต้องรันบน **route จริง @393** ไม่ใช่ component แยก — isolated ไม่นับว่า verified. ดู [[design-verify-must-be-integrated-screen]].
+### 9.2 Responsive standard `✓ ฟีม lock 2026-07-21` — **DEFAULT ทุกจอ ไม่ใช่ opt-in**
+**ทุกจอ MuMate = responsive จริง `320 → desktop 1280+` โดย default ต่อจากนี้** — ไม่ใช่ per-screen opt-in. จอไหน "ไม่ support" = **ฟีม บอกเองต่อจอ** (explicit) ไม่ใช่ปล่อยเงียบ.
+- **มือถือ (≤448)**: content เต็มความกว้างสบายตา
+- **desktop / กว้าง**: **bg full-bleed เต็มจอ + content column center (max-w)** — ไม่สแปรด
+- **spacing**: responsive (clamp/relative + `sm:` breakpoints) ไม่ fixed px ที่ไม่ scale
+- **bg**: `object-position` คุม focal ตอน crop (crop ได้ แต่ไม่บีบ)
+- **Thai text**: จัดบรรทัด + `word-break: keep-all` กันตัดคำกลางคำ · responsive size กัน overflow @320
+
+**Ref rule** (จอมี Figma vs ไม่มี):
+- จอที่ Figma มี ref (mobile 393) → **pixel-match @393** + responsive จออื่น
+- จอที่ไม่มี ref (tablet/desktop — Figma มักมีแค่ mobile) → **responsive-by-principle** (design ตามหลัก + eye-check + code multi-viewport · **ไม่ block รอ Figma**)
+
+> **Verify gate v2** (§verify-before-PR): design-verify ต้องเป็น **3-proof** — 👁 **eye** (designer critique: rhythm/wrap/crop/responsive) + ⚙️ **code** (machine @**multi-viewport** `320/360/393/430/768/1280`: ไม่มี h-scroll · content ใน max-w · bg fills · hydration=0) + 📐 **ref** (Figma ที่มี @393 pixel-match). artifact = **viewport strip** + critique + ref-diff. **single-size machine-pass = 'ไม่พัง' ไม่ใช่ 'ดี'.** ดู [[verify-must-include-designer-eye-multi-viewport]] · [[design-verify-must-be-integrated-screen]].
 
 ---
 
