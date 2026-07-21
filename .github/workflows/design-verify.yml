@@ -29,10 +29,13 @@ jobs:
     env:
       # Not a secret — the v2 preview gate value; the harness sets the matching v2_access cookie.
       V2_PREVIEW_KEY: lamun-ci-preview
-      # Build placeholders only (mirrors ci.yml) — NO real secrets in CI.
+      # Build + RUNTIME placeholders only (mirrors ci.yml) — NO real secrets in CI.
       ENVIRONMENT: production
       HOST: https://example.invalid
-      NEXTAUTH_URL: https://example.invalid
+      NEXTAUTH_URL: http://localhost:3000
+      # next start (production) enforces NextAuth's secret at RUNTIME; without it every page
+      # request logs MissingSecretError → console noise that breaks the state gate. Placeholder only.
+      NEXTAUTH_SECRET: ci-placeholder-not-a-real-secret
       OMISE_PUBLIC_KEY: pkey_test_placeholder
     steps:
       - uses: actions/checkout@v4
