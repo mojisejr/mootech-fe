@@ -13,6 +13,7 @@ import { Dropdown } from "@/components/ui/dropdown";
 import { Checkbox } from "@/components/ui/checkbox";
 import { PillTabs } from "@/components/ui/pill-tabs";
 import { ZODIAC_TABLE, buildMascotPaths } from "@/lib/personalization";
+import { cn } from "@/lib/utils/cn";
 
 type TokenSpec = {
   name: string;
@@ -887,6 +888,129 @@ function V3ComponentLibrary() {
   );
 }
 
+// CP-7 · Container primitives — the two full-viewport contracts every screen composes from. They
+// can't render honestly inline (they OWN the viewport), so this catalogues each primitive's contract,
+// the invariants it guarantees, a structure schematic, and WHICH harness gate proves it. The live
+// invariant proof lives in the screen gate (a page IS a FullBleedScreen/AppScreen at full viewport).
+function PrimitiveCard({
+  name,
+  role,
+  guarantees,
+  provenBy,
+  proven,
+  schematic,
+  testid,
+}: {
+  name: string;
+  role: string;
+  guarantees: string[];
+  provenBy: string;
+  proven: boolean;
+  schematic: ReactNode;
+  testid: string;
+}) {
+  return (
+    <div
+      data-testid={testid}
+      className="rounded-card border border-v3-border-card bg-white p-4 sm:p-5"
+    >
+      <div className="flex flex-wrap items-center gap-2">
+        <h3 className="font-prompt text-[18px] font-semibold text-v3-navy">{name}</h3>
+        <span
+          className={cn(
+            "rounded-full px-2.5 py-0.5 font-ibm text-[11px]",
+            proven ? "bg-v3-sapphire text-v3-lime" : "border border-v3-border-input text-v3-text-muted",
+          )}
+        >
+          {proven ? "✓ verified by gate" : "gate pending"}
+        </span>
+      </div>
+      <p className="mt-1 font-ibm text-[13px] leading-5 text-v3-text-body">{role}</p>
+      <div className="mt-3 grid gap-4 sm:grid-cols-[168px_1fr]">
+        <div className="flex items-center justify-center rounded-lg bg-v3-ghost-white p-3">{schematic}</div>
+        <div>
+          <p className="font-ibm text-[12px] font-semibold uppercase tracking-wide text-v3-text-muted">
+            Guarantees
+          </p>
+          <ul className="mt-1 space-y-1">
+            {guarantees.map((g) => (
+              <li key={g} className="font-ibm text-[13px] leading-5 text-v3-text-body">
+                • {g}
+              </li>
+            ))}
+          </ul>
+          <p className="mt-3 font-ibm text-[12px] leading-5 text-v3-text-muted">
+            <span className="font-semibold">Proven by:</span> {provenBy}
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function V3ContainerPrimitives() {
+  return (
+    <div className="bg-v3-ghost-white" data-testid="design-container-primitives">
+      <div className="mx-auto w-full max-w-[1120px] px-4 py-8 sm:px-6">
+        <h2 className="font-chonburi text-[28px] leading-9 text-v3-navy">
+          Container Primitives
+        </h2>
+        <p className="mt-1 font-ibm text-[14px] leading-[22px] text-v3-text-body">
+          พรีมิทีฟระดับหน้าจอ — ทุกหน้าเป็น <code>&lt;FullBleedScreen&gt;</code> หรือ{" "}
+          <code>&lt;AppScreen&gt;</code> ไม่เคยประกอบเอง. คอนแทร็กต์ของคอนเทนเนอร์ + invariant ที่การันตี
+          + gate ที่พิสูจน์ (proof อยู่ที่ screen gate เพราะพรีมิทีฟครองทั้ง viewport)
+        </p>
+
+        <div className="mt-4 grid gap-4 lg:grid-cols-2">
+          <PrimitiveCard
+            testid="primitive-fullbleed"
+            name="FullBleedScreen"
+            proven
+            role="หน้าจอที่ครองทั้ง viewport — พื้นหลังเต็มจอ, เนื้อหาเป็นคอลัมน์กลางที่มีขอบเขต (onboarding / login / register)"
+            guarantees={[
+              "bg object-fit:cover ทุกความกว้าง — ไม่เคยยืด (invariant, ไม่ใช่ช่วง)",
+              "content = centered column capped ที่ contentMaxWidth",
+              "responsive 320 → 1280+ (bg เต็มจอ, content กลางบนจอกว้าง)",
+              "safe-area top/bottom ผ่าน contentClassName",
+            ]}
+            provenBy="splash /v2 screen gate — bg-aspect + top/bottom-inset anchors + teeth (mut-objectfit-fill / mut-no-top-pad / mut-hero-uncapped) ✓"
+            schematic={
+              <div className="relative h-[120px] w-[72px] overflow-hidden rounded-md bg-gradient-to-b from-[#FBEFE6] via-[#F7E9F0] to-[#DCEBFB] ring-1 ring-v3-border-card">
+                <div className="absolute inset-x-[14px] top-2 bottom-2 rounded-sm border border-dashed border-v3-sapphire/50 bg-white/30" />
+                <span className="absolute inset-x-0 bottom-0 text-center font-ibm text-[8px] text-v3-text-muted">
+                  bg + centered col
+                </span>
+              </div>
+            }
+          />
+          <PrimitiveCard
+            testid="primitive-appscreen"
+            name="AppScreen → AppShell"
+            proven={false}
+            role="หน้าจอภายในแอป — คอลัมน์กลาง max-width + Menubar ล่าง (home / service / calendar / shop)"
+            guarantees={[
+              "centered bounded column (max-width)",
+              "bottom Menubar chrome (AppShell)",
+              "safe-area insets — เนื้อหาไม่ชนขอบ",
+              "named contract ที่ระดับหน้า (page อ่านออกทันทีว่าเป็นคอนเทนเนอร์ไหน)",
+            ]}
+            provenBy="pending — slice-2 home-hub screen gate (contract += AppScreen anchors; engine untouched)"
+            schematic={
+              <div className="relative h-[120px] w-[72px] overflow-hidden rounded-md bg-white ring-1 ring-v3-border-card">
+                <div className="absolute inset-x-[10px] top-2 bottom-[22px] rounded-sm border border-dashed border-v3-sapphire/50 bg-v3-ghost-white" />
+                <div className="absolute inset-x-0 bottom-0 h-[18px] bg-v3-nav-dark" />
+                <span className="absolute inset-x-0 bottom-[3px] text-center font-ibm text-[7px] text-v3-lime">
+                  menubar
+                </span>
+              </div>
+            }
+          />
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function DesignSystemPage() {
   return (
     <>
@@ -924,6 +1048,7 @@ export default function DesignSystemPage() {
 
         <V3FoundationTokens />
         <V3ComponentLibrary />
+        <V3ContainerPrimitives />
       </main>
     </>
   );
