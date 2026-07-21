@@ -921,6 +921,136 @@ export default function DesignSystemPage() {
           </div>
         </header>
 
+        <Section title="Token Probes">
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {colorTokens.map((token) => (
+              <TokenSwatch key={token.name} token={token} />
+            ))}
+          </div>
+        </Section>
+
+        <Section title="Typography">
+          <div className="grid gap-4 md:grid-cols-2">
+            <div
+              data-testid="design-type-ibm"
+              className="rounded-[24px] border border-border_gray bg-white p-5 font-ibm shadow-custom"
+            >
+              <p className="text-[13px] text-moumate_gray">
+                IBM Plex Sans Thai
+              </p>
+              <p className="mt-3 text-[24px] font-semibold text-moumate_black">
+                ดวงวันนี้อ่านง่ายและนุ่มนวล
+              </p>
+              <p className="mt-2 text-[15px] leading-7 text-moumate_gray">
+                ตัวอักษรหลักสำหรับฟอร์ม รายละเอียด และพื้นที่ที่ต้องอ่านซ้ำ
+              </p>
+            </div>
+            <div
+              data-testid="design-type-prompt"
+              className="rounded-[24px] border border-border_gray bg-white p-5 font-prompt shadow-custom"
+            >
+              <p className="text-[13px] text-moumate_gray">Prompt</p>
+              <p className="mt-3 text-[24px] font-semibold text-moumate_black">
+                FirstMate FlexiMate Soulmate
+              </p>
+              <p className="mt-2 text-[15px] leading-7 text-moumate_gray">
+                ใช้กับ landing, package, CTA และจังหวะที่ต้องมี brand voice
+              </p>
+            </div>
+          </div>
+        </Section>
+
+        <Section title="Buttons And Pills">
+          <div className="grid gap-4 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+            <SoftCard>
+              <div className="grid gap-3">
+                <PrimaryCTA>เริ่มดูดวงกับ MuMate</PrimaryCTA>
+                <div className="flex flex-wrap gap-2">
+                  <PillCTA>ความรัก</PillCTA>
+                  <PillCTA>การงาน</PillCTA>
+                  <PillCTA>โชคลาภ</PillCTA>
+                </div>
+              </div>
+            </SoftCard>
+            <div className="rounded-[24px] border border-border_gray bg-white p-5 shadow-custom">
+              <h3 className="font-prompt text-[18px] font-semibold">
+                Package Shell
+              </h3>
+              <div className="mt-4 rounded-[20px] border border-moumate_blue bg-moumate_blue_light p-4">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <p className="font-prompt text-[20px] font-semibold text-moumate_blue">
+                      FlexiMate
+                    </p>
+                    <p className="font-ibm text-[14px] text-moumate_gray">
+                      พื้นผิว package แบบนุ่มและอ่านง่าย
+                    </p>
+                  </div>
+                  <span className="rounded-full bg-moumate_blue px-3 py-1 font-prompt text-[12px] text-white">
+                    popular
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </Section>
+
+        <Section title="Surfaces And Inputs">
+          <div className="grid gap-4 md:grid-cols-2">
+            <SoftCard>
+              <div className="rounded-[20px] bg-white/70 p-4">
+                <div className="flex items-center gap-3">
+                  <img
+                    alt=""
+                    aria-hidden="true"
+                    className="h-[56px] w-[56px]"
+                    src="/images/icons/image_mascot_package.svg"
+                  />
+                  <div>
+                    <h3 className="font-prompt text-[18px] font-semibold">
+                      Glass Surface
+                    </h3>
+                    <p className="font-ibm text-[14px] text-moumate_gray">
+                      white alpha, blur, shadow, rounded shape
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </SoftCard>
+            <div className="rounded-[24px] border border-border_gray bg-white p-5 shadow-custom">
+              <FieldSample />
+            </div>
+          </div>
+        </Section>
+
+        <Section title="Skeleton And Chat">
+          <div className="grid gap-4 md:grid-cols-2">
+            <div
+              data-testid="primitive-skeleton-row"
+              className="rounded-[24px] border border-border_gray bg-white p-5 shadow-custom"
+            >
+              <SkeletonRow count={3} />
+            </div>
+            <div className="overflow-hidden rounded-[24px] bg-chat_surface text-white shadow-custom">
+              <div className="bg-gradient-to-r from-chat_header_from to-chat_header_to p-4">
+                <p className="font-prompt text-[18px] font-semibold">
+                  MuMate Chat
+                </p>
+                <p className="font-ibm text-[13px] text-white/85">
+                  chat_surface + chat_header tokens
+                </p>
+              </div>
+              <div className="grid gap-3 p-4 font-ibm text-[14px]">
+                <p className="w-[82%] rounded-[18px] bg-white/15 p-3">
+                  วันนี้เหมาะกับการจัดระบบให้ใจเบาขึ้น
+                </p>
+                <p className="ml-auto w-[68%] rounded-[18px] bg-chat_bubble_user p-3">
+                  แล้วเรื่องงานล่ะ?
+                </p>
+              </div>
+            </div>
+          </div>
+        </Section>
 
         <V3FoundationTokens />
         <V3ComponentLibrary />
