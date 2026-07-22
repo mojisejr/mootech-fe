@@ -1,46 +1,73 @@
-# Ledger entry + proof-of-teeth — v2 auth-gate hydration (webgang v2 rollout step 1, goo)
+# Ledger entry + proof-of-teeth — v2 auth-gate hydration (webgang v2, goo)
 
-Co-located evidence for `e2e/v2-hydration-invariant.spec.ts`. The canonical shared bug-history
-ledger location is a team decision (proposed: `oracle-skills` overlay); this file is the entry +
-run-record for THIS anchor until the shared ledger is frozen (step 2).
+Co-located evidence for `e2e/v2-hydration-invariant.spec.ts`. Canonical shared ledger location is a
+team decision (proposed: `oracle-skills` overlay); this file is the entry + run-record until then.
 
-## bug-history ledger entry (provisional schema v0)
+**Step 2 (widen):** step-1 anchored one page/one state and was penetrated in the adversary round for
+being EARLY. This version closes the holes the **mutant proved real** (not the hole-map's guesses).
+
+## bug-history ledger entry (schema v1)
 
 ```yaml
 - id: v2-authgate-hydration-mismatch
-  invariant: "server-rendered HTML === client first-paint HTML for any useV2AuthGate-gated /v2 page;
-              cookie-mumate-id is identity-truth but invisible to SSR, so the render must be held on
-              a mount-gate until after hydration"
-  injection_recipe: "strip `!hasMounted || ` from useV2AuthGate.showLoading — server renders
-                     AuthLoadingGate (status='loading', cookie unseen), client first paint renders
-                     home (status='authed', cookie seen) → mismatch"
-  bug_class: seam                 # lived BETWEEN goo's hook (runtime) and the page render (มุน visual)
-  gate_should_catch: goo-runtime  # + มุน-visual — seam = 2 owners (schema has only ONE slot: see feedback)
-  reached: team                   # Lamun caught @393 (dev overlay), before ฟี ม
-  triage: verify-hole             # ground-truth existed (console hydration error); my render-only gate missed it
-  commit_hash: 1feafc5            # the FIX commit (mount-gate); bug lived in the pre-fix state
-  schema_version: 0
+  invariant: "server-rendered HTML === client first-paint HTML for EVERY useV2AuthGate-gated /v2 page;
+              cookie-mumate-id is identity-truth but invisible to SSR, so the render must be held on a
+              mount-gate until after hydration"
+  injection_recipe: "strip `!hasMounted || ` from useV2AuthGate.showLoading"
+  mutant_kind: source-patch                     # NOT css-inject — a .ts source mutation (goo schema feedback #3)
+  bug_class: seam
+  gate_should_catch: [goo-runtime, มุน-visual, too-static]   # seam = 2+ owners (list, goo feedback #1)
+  caught_by: มุน-visual                          # actual catch @393; should=goo-runtime → under-fire delta (feedback #4)
+  runtime_context:                              # goo feedback #2 — runtime needs machine-replay context
+    render_phase: hydration
+    trigger_state: "cookie-mumate-id=valid-uuid present, no next-auth session (client authed, server loading)"
+    detection_signal: "console/pageerror matching /hydrat|initial UI does not match|#418|#423/"
+  reached: team                                 # Lamun @393, before ฟีม
+  triage: verify-hole
+  commit_hash: 1feafc5
+  schema_version: 1
 ```
 
-## proof-of-teeth (capability-scoped: runtime hydration class only)
+## Widened traps + proof-of-teeth (capability-scoped: runtime hydration class)
 
-Runtime mutant, history-independent (applied to CURRENT code, not a checkout). Verified by hand this
-build against FE :3000 (`V2_PREVIEW_KEY=lamun-local-dev`, cookies `v2_access` + a valid-uuid
-`cookie-mumate-id`):
+All run this build against FE :3000 (`V2_PREVIEW_KEY=lamun-local-dev`). Fixed code: **7/7 green**.
 
-| step | code state | anchor result |
+### Trap A — console mismatch, ALL gated pages (goo-runtime)
+The gated set is DERIVED from source (pages importing useV2AuthGate = index/login/register). Mutant
+(strip `!hasMounted`) → **3 mismatch sites turn red**, more than step-1's one:
+
+| state | fixed | mutant |
 |---|---|---|
-| 1 | fix in place (`!hasMounted` present) | ✓ PASS (0 hydration signals) |
-| 2 | mutant applied (`!hasMounted` stripped) | ✘ FAIL — `Hydration failed because the initial UI does not match what was rendered on the server` |
-| 3 | reverted | ✓ PASS (hook clean, 0 changed lines) |
+| /v2 [authed] | ✓ | ✘ `Hydration failed…` |
+| /v2/login [authed] | ✓ | ✘ (redirecting is hasMounted-gated → client renders LoginView, server the loading gate) |
+| /v2/register [authed] | ✓ | ✘ `Hydration failed…` |
+| /v2 [anon], /v2/login [anon], /v2/register [anon] | ✓ | ✓ (anon can't diverge — both renders are 'loading' at first paint) |
 
-Step 2 is the **negative control**: it proves the anchor is non-vacuous. A render-only assertion
-(`toBeVisible`) passes in ALL three states — that is exactly the hole Lamun's @393 catch exposed and
-this anchor closes: it asserts on the console/pageerror channel a render assertion is blind to.
+### Trap B — coverage-drift guard (too-static lens)
+The anchor asserts its tested set == the gated set derived from source. Mutant = add
+`useV2AuthGate` import to `pages/v2/calendar.tsx` (currently ungated, 1 of 4 ungated /v2 pages)
+without a STATE_MAP entry → coverage test **FAILS**: `derived-from-source: /v2, /v2/calendar, …` ≠
+anchored. This kills the exact step-1 adversary hole ("a gated page the anchor never visits").
 
-## adversary sign-off
+### Trap C — mount-flash / CLS (มุน-visual lens)
+`window.__cls` (PerformanceObserver layout-shift), budget **0.015**. Measured: baseline ≤0.004,
+mutant **0.027 (/v2)** / **0.031 (/v2/register)** — separates ~4× either side.
+**Honest caveat (mutant decides):** for THIS bug-class the console signal always fires and fires
+first, so in the combined test the console assertion short-circuits before CLS. CLS's *independent*
+value is a **console-silent flash** (e.g. a naive "fix" that moves the auth check into a post-mount
+useEffect+setState — no hydration error, but a visible shift). I have NOT yet produced a mutant that
+trips CLS while the console stays clean, so CLS is **measured + correlated, not independently
+teeth-proven**. → มุน (visual owner) ratifies whether CLS ships **blocking** or **advisory**.
 
-Pending — a different oracle (ตู๋ or มุน) must try to sneak a hydration mismatch PAST this anchor
-(e.g. a mismatch that emits no console signal, or one on a /v2 page the anchor doesn't visit) and
-record what they tried. Per the frame, a new anchor cannot merge as "teeth-proven" on the author's
-word alone.
+## Dropped from the hole-map (mutant DISPROVED it)
+**"ban suppressHydrationWarning"** — tested directly: a `suppressHydrationWarning` wrapper on both
+render branches did NOT silence the mismatch (hydErr stayed 5, CLS stayed 0.027). React only
+suppresses element-level text/attr diffs, never a structural tree mismatch. It guards a non-threat
+for our bug-class, so it is not in the anchor. (Per bong: the mutant decides, not the hole-map.)
+
+## Seam sign-off (3 lenses, each covers what the others miss)
+- **goo-runtime** (console/state, all gated pages) — ✅ built + mutant-proven
+- **too-static** (coverage-drift derived guard) — ✅ built self-deriving in the anchor; **ตู๋ to review** whether the canonical home is here or `verify-architecture.ts`
+- **มุน-visual** (CLS budget) — ✅ measured; **มุน to ratify** blocking-vs-advisory + the 0.015 threshold
+
+Adversary sign-off (another oracle tries to sneak a mismatch past) still required before "teeth-proven".
