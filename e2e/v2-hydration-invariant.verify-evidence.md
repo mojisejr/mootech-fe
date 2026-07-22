@@ -12,8 +12,8 @@ MANDATORY + verify-at-the-consumer. It touches NO product code (only `e2e/`), so
 
 ## proof-of-teeth (capability-scoped — runtime hydration class only)
 - **A. console / all pages (goo-runtime, BLOCKING)** — mutant `strip !hasMounted` → 3 mismatch sites red (/v2, /v2/login, /v2/register [authed]); anon states stay green (can't diverge). Fixed→green, revert→green, hook 0 changed lines. Re-verified after the CLS/coverage edits.
-- **B. gated-page discovery (too-static)** — MOVED to ตู๋'s AST after he penetrated the derived-glob (Phantom Page: shallow readdir + dynamic import). goo consumes his list; Phantom-Page attack → RED is the gate. Co-build in flight (not claimed in this PR).
-- **C. CLS (มุน-visual, ADVISORY)** — mutant CLS 0.027/0.031 vs budget 0.015. Ratified advisory (correlated with A → blocking-now = vacuous). Promotes via `mut-cls-silent-flash` (hydErr===0 AND CLS≥budget). Co-build in flight.
+- **B. gated-page discovery (too-static) → SEAM, WIRED** — after an adversary loop (goo penetrated a shallow-glob then a graph attempt with namespace/alias/transitive vectors), ตู๋ landed complete-by-construction (bans evading forms). Re-attack: all evasion RED, real code green. Wired: this anchor consumes his manifest; phantom RED both sides (static `/v2/settings/profile` → his scanner RED; manifest `/v2/ghost` → goo coverage RED). 7/7 baseline green.
+- **C. CLS (มุน-visual, BLOCKING)** — promoted after `mut-cls-silent-flash` proved independence: neg-control real /v2 (hydErr=0 AND CLS=0.0000), then the mutant fails /v2 on the CLS assertion (CLS 0.0608 ≥ 0.015) while console PASSES (hydErr=0) → CLS catches a console-silent geometry flash. Lamun independently repro'd (0.1776). Scope: geometry-shift only (opacity/same-box → pixel-L3).
 
 ## dropped (mutant disproved)
 `ban suppressHydrationWarning` — a suppress wrapper did NOT silence the structural mismatch (hydErr 5→5, CLS 0.027→0.027). Guards a non-threat for this bug-class. Removed per "mutant decides, not hole-map".
@@ -24,5 +24,13 @@ import) → discovery moves to his AST. **มุน** penetrated the CLS claim (
 console) → downgraded to advisory + a promote-gate. Each hit a lens outside their own. "Teeth-proven"
 lands when the Phantom-Page attack goes red (AST wired) and the silent-flash mutant promotes CLS.
 
-## seam co-sign (SEAM = 2+ owners required)
-- goo-runtime ✅ (built + A proven, BLOCKING) · too-static 🗡️→🔧 (found-hole; discovery→AST, co-build) · มุน-visual 🗡️→🔧 (found-hole; CLS advisory + promote-gate, co-build).
+## seam co-sign (SEAM = 2+ owners required) — ALL THREE CLOSED
+- goo-runtime ✅ (console BLOCKING, mutant-proven)
+- มุน-visual ✅ (CLS BLOCKING, promoted + independently co-signed via mut-cls-silent-flash)
+- too-static ✅ (discovery complete-by-construction, survived goo's re-attack, consumer wired, phantom RED both sides)
+
+Each lens was adversarially penetrated by a DIFFERENT oracle before it hardened (goo→ตู๋'s discovery,
+ตู๋→goo's coverage-glob, มุน→goo's CLS-blocking claim) — the cross-role forcing-function, run-proven,
+not self-certified. PR#93 (ตู๋'s discovery) is already in main; this PR is the runtime half (widened
+anchor + CLS-blocking + manifest consumer), re-verified fresh on post-#93 main. (It supersedes the
+interim that merged as #92 before this work landed — CLS was advisory and coverage was unwired there.)
