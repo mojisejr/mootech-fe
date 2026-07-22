@@ -8,6 +8,7 @@ name: design-verify
 on:
   pull_request:
     paths:
+      - "pages/v2/**"
       - "features/**"
       - "harness/**"
       - "design.contract.ts"
