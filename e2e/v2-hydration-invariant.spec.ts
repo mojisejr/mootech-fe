@@ -28,7 +28,8 @@
 // cross-file relative imports. Local-only: needs FE :3000 with V2_PREVIEW_KEY set.
 // Run: npx playwright test e2e/v2-hydration-invariant.spec.ts
 import { test, expect, type Page } from "@playwright/test";
-import { readFileSync } from "node:fs";
+import { readFileSync, readdirSync } from "node:fs";
+import { join } from "node:path";
 
 const V2_PREVIEW_KEY = process.env.V2_PREVIEW_KEY ?? "lamun-local-dev";
 const V2_COOKIE = "v2_access";
@@ -77,6 +78,27 @@ const STATE_MAP: Record<string, Seed[]> = {
 // coverage test fails (a phantom page his scanner found that the runtime anchor can't drive).
 const GATED_MANIFEST_PATH = "scripts/gated-v2-pages.generated.json";
 export const ANCHORED_GATED_PAGES: string[] = Object.keys(STATE_MAP).sort();
+
+/** EVERY /v2 route file → route path (recursive). Drives the full-route crawl below: the crawl is a
+ * RUNTIME backstop that does not rely on import-discovery, so it catches a page that gates on client
+ * identity WITHOUT useV2AuthGate (inline `useCurrentUser` / raw MEMBER_ID cookie) — the family the
+ * static ban prevents at source; this detects any that slip, at ground-truth (does it actually
+ * hydration-mismatch when authed?). Ungated pages render identically SSR/client → no mismatch → pass. */
+function allV2Routes(): string[] {
+  const out: string[] = [];
+  const walk = (dir: string) => {
+    for (const e of readdirSync(dir, { withFileTypes: true })) {
+      const p = join(dir, e.name);
+      if (e.isDirectory()) walk(p);
+      else if (e.name.endsWith(".tsx")) {
+        const base = p.slice("pages".length).replace(/\\/g, "/").replace(/\.tsx$/, "");
+        out.push(base.endsWith("/index") ? base.slice(0, -"/index".length) : base);
+      }
+    }
+  };
+  walk(join("pages", "v2"));
+  return out.sort();
+}
 
 async function loadAndObserve(
   page: Page,
@@ -129,6 +151,32 @@ test.describe("v2 auth-gate hydration invariant (webgang v2 step 2 — goo runti
       phantom,
       `AST-discovered gated page(s) with no STATE_MAP seed (add them + a seed state):\n` +
         `  discovered (${GATED_MANIFEST_PATH}): ${discovered.join(", ")}\n  anchored: ${anchored.sort().join(", ")}`,
+    ).toEqual([]);
+  });
+
+  // ── Full-route crawl (goo runtime, BLOCKING) — the ground-truth backstop for the inline-identity
+  // family. Coverage above trusts a PROXY (imports useV2AuthGate); a page that gates on client identity
+  // via inline `useCurrentUser` / raw MEMBER_ID cookie has the SAME hydration risk but no such import,
+  // so it evades discovery entirely. This crawls EVERY /v2 route authed and asserts none mismatches —
+  // detection by behaviour, not by import form. Complements ตู๋'s static ban (which prevents the pattern
+  // at source): static prevents, runtime detects any that slip. Ungated pages render identically
+  // SSR/client → clean; only a real inline-gate-without-mount-guard turns this red.
+  // ANCHOR: inline-identity-crawl  (bug-ledger enforced_by target — keep this marker stable)
+  test("full-route crawl: no /v2 route hydration-mismatches when authed (inline-identity backstop)", async ({
+    browser,
+  }) => {
+    const bad: string[] = [];
+    for (const route of allV2Routes()) {
+      const ctx = await browser.newContext({ viewport: { width: 393, height: 852 } });
+      const p = await ctx.newPage();
+      const { hydrationErrors } = await loadAndObserve(p, route, /* authed */ true);
+      if (hydrationErrors.length) bad.push(`${route} — ${hydrationErrors[0]}`);
+      await ctx.close();
+    }
+    expect(
+      bad,
+      `/v2 route(s) hydration-mismatch when authed — likely inline useCurrentUser/MEMBER_ID-cookie ` +
+        `gating without a mount-gate (route reaches auth-behaviour outside useV2AuthGate):\n  ${bad.join("\n  ")}`,
     ).toEqual([]);
   });
 
