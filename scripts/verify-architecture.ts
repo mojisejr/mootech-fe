@@ -177,21 +177,22 @@ export function checkInlineIdentityUsage(sourceFile: ts.SourceFile, filepath: st
   }
 
   function visit(node: ts.Node) {
-    // 1. Ban importing useCurrentUser
+    // 1. Ban importing useCurrentUser or useSession
     if (ts.isImportDeclaration(node)) {
       const moduleSpecifier = node.moduleSpecifier;
       if (ts.isStringLiteral(moduleSpecifier)) {
         const importPath = moduleSpecifier.text;
         let found = false;
 
-        if (importPath.includes('use-current-user') || importPath.includes('useCurrentUser')) {
+        if (importPath.includes('use-current-user') || importPath.includes('useCurrentUser') || importPath.includes('useSession')) {
           found = true;
         }
 
         if (node.importClause && node.importClause.namedBindings) {
           if (ts.isNamedImports(node.importClause.namedBindings)) {
             for (const specifier of node.importClause.namedBindings.elements) {
-              if (specifier.name.text === 'useCurrentUser' || (specifier.propertyName && specifier.propertyName.text === 'useCurrentUser')) {
+              const name = specifier.propertyName ? specifier.propertyName.text : specifier.name.text;
+              if (name === 'useCurrentUser' || name === 'useSession') {
                 found = true;
               }
             }
@@ -202,7 +203,7 @@ export function checkInlineIdentityUsage(sourceFile: ts.SourceFile, filepath: st
           const { line } = sourceFile.getLineAndCharacterOfPosition(node.getStart());
           results.push({
             ruleId: 'ban-inline-identity-import', pass: false, file: filepath, line: line + 1,
-            message: 'Importing useCurrentUser is banned in pages/v2. You must use useV2AuthGate() for identity.'
+            message: 'Importing useCurrentUser or useSession is banned in pages/v2. You must use useV2AuthGate() for identity.'
           });
         }
       }
@@ -227,6 +228,17 @@ export function checkInlineIdentityUsage(sourceFile: ts.SourceFile, filepath: st
         results.push({
           ruleId: 'ban-inline-identity-document-cookie', pass: false, file: filepath, line: line + 1,
           message: 'Reading document.cookie directly is banned in pages/v2. Use useV2AuthGate().'
+        });
+      }
+    }
+
+    // 4. Ban string literal 'cookie-mumate-id'
+    if (ts.isStringLiteral(node) || ts.isNoSubstitutionTemplateLiteral(node)) {
+      if (node.text === 'cookie-mumate-id') {
+        const { line } = sourceFile.getLineAndCharacterOfPosition(node.getStart());
+        results.push({
+          ruleId: 'ban-inline-identity-cookie-literal', pass: false, file: filepath, line: line + 1,
+          message: 'Hardcoding the cookie name cookie-mumate-id is banned in pages/v2. Use useV2AuthGate().'
         });
       }
     }

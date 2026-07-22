@@ -105,6 +105,22 @@ export function Page() {
 }
 `;
 
+const INLINE_IDENTITY_MUTANT_4 = `
+import { useSession } from 'next-auth/react';
+export function Page() {
+  const { data: session } = useSession();
+  return <div>{session?.user?.name}</div>
+}
+`;
+
+const INLINE_IDENTITY_MUTANT_5 = `
+import Cookies from 'js-cookie';
+export function Page() {
+  const id = Cookies.get('cookie-mumate-id');
+  return <div>{id}</div>
+}
+`;
+
 const INLINE_IDENTITY_FIXED = `
 import { useV2AuthGate } from '@/features/auth/hooks/useV2AuthGate';
 export function Page() {
@@ -129,8 +145,10 @@ function assertMutantCaught(mutantCode: string, rulePrefix: string, testName: st
 assertMutantCaught(INLINE_IDENTITY_MUTANT_1, 'ban-inline-identity-import', 'TEST 5 - useCurrentUser');
 assertMutantCaught(INLINE_IDENTITY_MUTANT_2, 'ban-inline-identity-use-cookies', 'TEST 6 - useCookies');
 assertMutantCaught(INLINE_IDENTITY_MUTANT_3, 'ban-inline-identity-document-cookie', 'TEST 7 - document.cookie');
+assertMutantCaught(INLINE_IDENTITY_MUTANT_4, 'ban-inline-identity-import', 'TEST 8 - useSession');
+assertMutantCaught(INLINE_IDENTITY_MUTANT_5, 'ban-inline-identity-cookie-literal', 'TEST 9 - js-cookie with literal');
 
-console.log('\\n[TEST 8] Running on Fixed Code (AuthGate)...');
+console.log(`\n[TEST 10] Running on Fixed Code (AuthGate)...`);
 const inlineFixedResults = scanFile('pages/v2/page.tsx', INLINE_IDENTITY_FIXED);
 const inlineFixedFailures = inlineFixedResults.filter(r => !r.pass && r.ruleId.startsWith('ban-inline-identity'));
 if (inlineFixedFailures.length === 0) {
