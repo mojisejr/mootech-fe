@@ -34,15 +34,27 @@ jobs:
       - name: D2 Auto-Gate (Presence & Architecture)
         run: |
           echo "== Checking for verify-evidence.md =="
-          # Check if any file named *verify-evidence.md exists in the PR diff
           git fetch origin main
-          if ! git diff --name-only origin/main...HEAD | grep -i "verify-evidence\.md"; then
+          EVIDENCE_FILE=$(git diff --name-only origin/main...HEAD | grep -i "verify-evidence\.md" | head -n 1)
+          
+          if [ -z "$EVIDENCE_FILE" ]; then
             echo "❌ ERROR: No verify-evidence.md found in this PR. Please attach evidence to prove your work."
             exit 1
           fi
           
+          echo "== Validating verify-evidence.md content =="
+          if ! grep -iq "## proof-of-teeth" "$EVIDENCE_FILE"; then
+            echo "❌ ERROR: verify-evidence.md is missing the '## proof-of-teeth' section."
+            exit 1
+          fi
+          
+          if ! grep -iq "## adversary sign-off" "$EVIDENCE_FILE"; then
+            echo "❌ ERROR: verify-evidence.md is missing the '## adversary sign-off' section."
+            exit 1
+          fi
+          
           echo "== Running Ledger Integrity Check =="
-          npx tsx scripts/verify-ledger-integrity.ts
+          npx tsx scripts/verify-ledger-integrity.ts harness/bug-ledger.json
           
           echo "== Running Architecture & Discovery Check =="
           npx tsx scripts/verify-architecture.ts
