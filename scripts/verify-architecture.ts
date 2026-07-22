@@ -126,24 +126,67 @@ function getAnchoredGatedPages(rootDir: string): string[] {
   return keys.sort();
 }
 
-export function generateGatedPagesManifest(rootDir: string): RuleResult[] {
-  const pagesDir = path.join(rootDir, 'pages', 'v2');
-  const allFiles = walkDir(pagesDir);
-  const gatedRoutes: Set<string> = new Set();
+function resolveImportPath(rootDir: string, currentFile: string, importPath: string): string | null {
+  let targetPath = '';
+  if (importPath.startsWith('@/')) {
+    targetPath = path.join(rootDir, importPath.replace(/^@\//, ''));
+  } else if (importPath.startsWith('.')) {
+    targetPath = path.join(path.dirname(currentFile), importPath);
+  } else {
+    return null;
+  }
+
+  const extensions = ['.tsx', '.ts', '/index.tsx', '/index.ts'];
+  for (const ext of extensions) {
+    const fullPath = targetPath.endsWith(ext) ? targetPath : targetPath + ext;
+    if (fs.existsSync(fullPath)) return fullPath;
+  }
+  if (fs.existsSync(targetPath)) return targetPath;
+  return null;
+}
+
+function buildDependencyGraph(rootDir: string): { 
+  graph: Map<string, Set<string>>, 
+  gatedNodes: Set<string>,
+  results: RuleResult[] 
+} {
+  const graph = new Map<string, Set<string>>();
+  const gatedNodes = new Set<string>();
   const results: RuleResult[] = [];
+
+  function walk(dir: string, fileList: string[] = []) {
+    if (!fs.existsSync(dir)) return fileList;
+    const files = fs.readdirSync(dir);
+    for (const file of files) {
+      if (file === 'node_modules' || file === '.next' || file === 'dist' || file === 'e2e' || file.startsWith('.') || file === 'public' || file === 'scripts') continue;
+      const filePath = path.join(dir, file);
+      if (fs.statSync(filePath).isDirectory()) {
+        walk(filePath, fileList);
+      } else if (filePath.endsWith('.tsx') || filePath.endsWith('.ts')) {
+        fileList.push(filePath);
+      }
+    }
+    return fileList;
+  }
+
+  const allFiles = walk(rootDir);
 
   for (const file of allFiles) {
     const content = fs.readFileSync(file, 'utf-8');
     const sourceFile = ts.createSourceFile(file, content, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
-    let isGated = false;
-
+    const imports = new Set<string>();
+    
     function visit(node: ts.Node) {
       if (ts.isImportDeclaration(node)) {
-        const importClause = node.importClause;
-        if (importClause && importClause.namedBindings && ts.isNamedImports(importClause.namedBindings)) {
-          for (const specifier of importClause.namedBindings.elements) {
-            if (specifier.name.text === 'useV2AuthGate') {
-              isGated = true;
+        if (node.moduleSpecifier && ts.isStringLiteral(node.moduleSpecifier)) {
+          const importPath = node.moduleSpecifier.text;
+          const resolved = resolveImportPath(rootDir, file, importPath);
+          if (resolved) imports.add(resolved);
+          
+          const importClause = node.importClause;
+          if (importClause && importClause.namedBindings && ts.isNamedImports(importClause.namedBindings)) {
+            for (const specifier of importClause.namedBindings.elements) {
+              if (specifier.name.text === 'useV2AuthGate') gatedNodes.add(file);
             }
           }
         }
@@ -151,12 +194,11 @@ export function generateGatedPagesManifest(rootDir: string): RuleResult[] {
 
       if (ts.isCallExpression(node) && node.expression.kind === ts.SyntaxKind.ImportKeyword) {
         if (node.arguments.length > 0 && ts.isStringLiteral(node.arguments[0])) {
-          const moduleName = node.arguments[0].text;
-          if (moduleName.includes('useV2AuthGate')) {
-            isGated = true;
-          }
+          const importPath = node.arguments[0].text;
+          const resolved = resolveImportPath(rootDir, file, importPath);
+          if (resolved) imports.add(resolved);
+          if (importPath.includes('useV2AuthGate')) gatedNodes.add(file);
         } else if (node.arguments.length > 0) {
-          // Rule: Ban unresolvable dynamic imports
           const { line } = sourceFile.getLineAndCharacterOfPosition(node.getStart());
           results.push({
             ruleId: 'no-unresolvable-dynamic-import',
@@ -168,17 +210,61 @@ export function generateGatedPagesManifest(rootDir: string): RuleResult[] {
         }
       }
 
+      if (ts.isExportDeclaration(node)) {
+        if (node.moduleSpecifier && ts.isStringLiteral(node.moduleSpecifier)) {
+          const importPath = node.moduleSpecifier.text;
+          const resolved = resolveImportPath(rootDir, file, importPath);
+          if (resolved) imports.add(resolved);
+          
+          if (node.exportClause && ts.isNamedExports(node.exportClause)) {
+            for (const specifier of node.exportClause.elements) {
+              if (specifier.name.text === 'useV2AuthGate') gatedNodes.add(file);
+            }
+          }
+        }
+      }
+
       ts.forEachChild(node, visit);
     }
-
     visit(sourceFile);
+    graph.set(file, imports);
+  }
 
-    if (isGated) {
+  return { graph, gatedNodes, results };
+}
+
+function isNodeGated(startNode: string, graph: Map<string, Set<string>>, gatedNodes: Set<string>): boolean {
+  const visited = new Set<string>();
+  const stack = [startNode];
+  
+  while (stack.length > 0) {
+    const node = stack.pop()!;
+    if (gatedNodes.has(node)) return true;
+    
+    if (!visited.has(node)) {
+      visited.add(node);
+      const neighbors = graph.get(node) || new Set();
+      for (const neighbor of neighbors) {
+        stack.push(neighbor);
+      }
+    }
+  }
+  return false;
+}
+
+export function generateGatedPagesManifest(rootDir: string): RuleResult[] {
+  const { graph, gatedNodes, results } = buildDependencyGraph(rootDir);
+  const pagesDir = path.join(rootDir, 'pages', 'v2');
+  const pageFiles = Array.from(graph.keys()).filter(f => f.startsWith(pagesDir));
+  
+  const gatedRoutes: Set<string> = new Set();
+
+  for (const file of pageFiles) {
+    if (isNodeGated(file, graph, gatedNodes)) {
       gatedRoutes.add(filePathToRoute(file));
     }
   }
 
-  // Cross-check against Goo's STATE_MAP
   const anchoredRoutes = getAnchoredGatedPages(rootDir);
   for (const route of Array.from(gatedRoutes)) {
     if (!anchoredRoutes.includes(route)) {
@@ -186,7 +272,7 @@ export function generateGatedPagesManifest(rootDir: string): RuleResult[] {
         ruleId: 'gated-page-not-anchored',
         pass: false,
         file: 'e2e/v2-hydration-invariant.spec.ts',
-        message: `Coverage Drift Detected (Phantom Page): Page '${route}' imports useV2AuthGate but is missing from STATE_MAP in the runtime anchor. Please add it.`
+        message: `Coverage Drift Detected (Phantom Page): Page '${route}' imports useV2AuthGate (directly or transitively) but is missing from STATE_MAP in the runtime anchor. Please add it.`
       });
     }
   }
