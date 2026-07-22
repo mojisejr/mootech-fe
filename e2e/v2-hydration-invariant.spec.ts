@@ -28,6 +28,7 @@
 // cross-file relative imports. Local-only: needs FE :3000 with V2_PREVIEW_KEY set.
 // Run: npx playwright test e2e/v2-hydration-invariant.spec.ts
 import { test, expect, type Page } from "@playwright/test";
+import { readFileSync } from "node:fs";
 
 const V2_PREVIEW_KEY = process.env.V2_PREVIEW_KEY ?? "lamun-local-dev";
 const V2_COOKIE = "v2_access";
@@ -39,16 +40,18 @@ const AUTHED_MEMBER_ID = "11111111-1111-1111-1111-111111111111";
 // React 18 / Next dev emit these on a hydration mismatch; #418/#423 are the prod-minified equivalents.
 const HYDRATION_SIGNAL =
   /hydrat|did not match|does not match|initial UI does not match|Text content|#418|#423/i;
-// mount-flash budget — ADVISORY (Lamun-visual ratified 2026-07-22). Measured this build: baseline CLS
-// ≤ 0.004, mutant CLS ≥ 0.027; 0.015 separates ~4x either side, well under web-vitals "good" (0.1).
-// Scope + status, per the visual-lens owner:
-//   • DEFAULT state only — do NOT apply to injected states (e.g. a font-size injection reflows and
-//     measures CLS ~0.116, a TEST artifact, not app CLS). This anchor only drives default states.
-//   • PER-SCREEN, not universal — re-ratify as screens gain content (robust form: ≤4× baseline, floor 0.015).
-//   • ADVISORY, not blocking — for THIS bug the console signal fires first, so CLS is correlated, not
-//     independent. Blocking now = vacuous (CLS riding console's teeth). It promotes to BLOCKING only
-//     once `mut-cls-silent-flash` proves teeth: a mutant with hydrationErrors===0 AND CLS≥budget
-//     simultaneously (console blind, CLS catches) — co-build w/ Lamun. Until then: measure + report.
+// mount-flash budget — BLOCKING (Lamun-visual co-signed 2026-07-22 via INDEPENDENT repro: her
+// neg-control 0.0000, her geometry-flash 0.1776; goo's /v2 baseline 0.000, /v2 mutant 0.077). 0.015
+// sits between /v2 baseline and mutant with margin, under web-vitals "good" (0.1). Scope + provenance:
+//   • DEFAULT state only — NOT injected states (a font-size injection reflows to CLS ~0.116, a TEST
+//     artifact, not app CLS). This anchor drives only default states.
+//   • PER-SCREEN, not universal — CLS is layout-dependent (goo 0.077 vs Lamun 0.1776 for the same
+//     mutant on different page bodies proves it's not portable). This 0.015 is ratified for /v2 from
+//     /v2-measured baseline/mutant; re-ratify per screen as content grows (robust form: ≤4× baseline, floor 0.015).
+//   • SCOPE of teeth — blocking covers the GEOMETRY-shift console-silent flash (mut-cls-silent-flash:
+//     hydErr===0 AND CLS≥budget, proving CLS independent of the console lens). Opacity/transform/
+//     same-box flashes read CLS 0 (Lamun verified) → those stay for pixel-L3 (Lamun's next). Don't
+//     claim CLS closes all silent flashes — only geometry-shift.
 const CLS_BUDGET = 0.015;
 
 type Seed = { authed: boolean; mismatch: boolean };
@@ -64,12 +67,15 @@ const STATE_MAP: Record<string, Seed[]> = {
   "/v2/register": [{ authed: true, mismatch: true }, { authed: false, mismatch: false }],
 };
 
-// COVERAGE authority = ตู๋'s AST rule (verify-architecture.ts), NOT this file. A first-cut derived-glob
-// lived here and ตู๋ (static lens) adversarially penetrated it: readdirSync is shallow (misses
-// pages/v2/settings/profile.tsx) and a source regex misses `await import(...)` (dynamic). Static
-// analysis is his lens (recursive ESTree traverse of ImportDeclaration + dynamic CallExpression, and
-// fails in milliseconds without a browser), so coverage-drift moved there. This manifest is the set of
-// gated pages this runtime anchor drives — ตู๋'s rule asserts every gated page it finds ∈ this set.
+// COVERAGE authority = ตู๋'s AST rule (verify-architecture.ts). A first-cut derived-glob lived here
+// and ตู๋ (static lens) adversarially penetrated it (shallow readdir; dynamic import). It then went
+// through an adversary loop — goo penetrated a dependency-graph attempt with namespace/alias/transitive
+// forms — and landed on COMPLETE-BY-CONSTRUCTION: ตู๋'s rule BANS every evading form (namespace, alias,
+// transitive wrapper, barrel), so any gated page MUST use a direct named import his scanner catches.
+// It emits the authoritative gated set to scripts/gated-v2-pages.generated.json, which THIS anchor
+// consumes below as the source-of-truth: every discovered route must have a STATE_MAP seed, or the
+// coverage test fails (a phantom page his scanner found that the runtime anchor can't drive).
+const GATED_MANIFEST_PATH = "scripts/gated-v2-pages.generated.json";
 export const ANCHORED_GATED_PAGES: string[] = Object.keys(STATE_MAP).sort();
 
 async function loadAndObserve(
@@ -111,30 +117,41 @@ async function loadAndObserve(
 }
 
 test.describe("v2 auth-gate hydration invariant (webgang v2 step 2 — goo runtime, seam w/ too+มุน)", () => {
-  // Coverage (does every gated page get anchored?) is NOT tested here — it moved to ตู๋'s AST rule
-  // after he penetrated the derived-glob version (nested routes + dynamic import). See ANCHORED_GATED_PAGES.
+  // ── Coverage lens (SEAM: ตู๋ discovers, goo consumes). Read ตู๋'s authoritative manifest (produced
+  // by his complete-by-construction scanner) and assert every discovered gated page has a STATE_MAP
+  // seed. A phantom page his scanner finds but this anchor can't drive → RED. This is the runtime
+  // half of the anti-drift guard; the static half (banning evading import forms) is his.
+  test("coverage: every AST-discovered gated page is anchored (no phantom page)", () => {
+    const discovered: string[] = JSON.parse(readFileSync(GATED_MANIFEST_PATH, "utf8"));
+    const anchored = Object.keys(STATE_MAP);
+    const phantom = discovered.filter((route) => !anchored.includes(route));
+    expect(
+      phantom,
+      `AST-discovered gated page(s) with no STATE_MAP seed (add them + a seed state):\n` +
+        `  discovered (${GATED_MANIFEST_PATH}): ${discovered.join(", ")}\n  anchored: ${anchored.sort().join(", ")}`,
+    ).toEqual([]);
+  });
 
-  // ── Runtime lens (goo, BLOCKING): every gated state hydrates cleanly — zero hydration signal on the
-  // console/pageerror channel. One test per (path, state) for precise failure locality.
-  // ── Visual lens (มุน, ADVISORY): mount-flash CLS is measured + attached, not asserted — promotes to
-  // blocking only once mut-cls-silent-flash proves it independent (see CLS_BUDGET note).
+  // ── Runtime lens (goo, BLOCKING): zero hydration signal on the console/pageerror channel.
+  // ── Visual lens (มุน, BLOCKING for geometry-shift): mount-flash CLS within budget — an INDEPENDENT
+  // signal (mut-cls-silent-flash proved CLS catches a console-silent geometry flash). One test per
+  // (path, state) for precise failure locality.
   for (const [path, seeds] of Object.entries(STATE_MAP)) {
     for (const seed of seeds) {
       const label = `${path} [${seed.authed ? "authed" : "anon"}]${seed.mismatch ? " (mismatch site)" : ""}`;
       test(`hydrates clean: ${label}`, async ({ page }, testInfo) => {
         const { hydrationErrors, cls } = await loadAndObserve(page, path, seed.authed);
-        // BLOCKING — the primary, independently teeth-proven signal.
+        testInfo.annotations.push({ type: "cls", description: `${label}: CLS ${cls.toFixed(4)} (budget ${CLS_BUDGET})` });
+        // Console lens — catches the structural mismatch (blind to a console-silent flash).
         expect(
           hydrationErrors,
           `hydration mismatch at ${label} (mount-gate missing?):\n${hydrationErrors.join("\n---\n")}`,
         ).toHaveLength(0);
-        // ADVISORY — report CLS vs budget; do not fail the run (would be vacuous while correlated).
-        const over = cls >= CLS_BUDGET;
-        testInfo.annotations.push({
-          type: over ? "cls-advisory-over-budget" : "cls-advisory",
-          description: `${label}: CLS ${cls.toFixed(4)} (budget ${CLS_BUDGET}, advisory)`,
-        });
-        if (over) console.log(`⚠️  ADVISORY mount-flash at ${label}: CLS ${cls.toFixed(4)} ≥ ${CLS_BUDGET}`);
+        // Visual lens — catches a geometry-shift flash the console lens misses (see CLS_BUDGET scope).
+        expect(
+          cls,
+          `mount-flash at ${label}: CLS ${cls.toFixed(4)} ≥ budget ${CLS_BUDGET} (geometry-shift silent flash)`,
+        ).toBeLessThan(CLS_BUDGET);
       });
     }
   }
