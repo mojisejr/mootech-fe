@@ -80,4 +80,65 @@ if (fixedFailures2.length === 0) {
   process.exit(1);
 }
 
+console.log('\\n--- Proof of Teeth: AST Rule [ban-inline-identity] ---');
+
+const INLINE_IDENTITY_MUTANT_1 = `
+import { useCurrentUser } from '@/lib/auth/use-current-user';
+export function Page() {
+  const user = useCurrentUser();
+  return <div>{user.name}</div>
+}
+`;
+
+const INLINE_IDENTITY_MUTANT_2 = `
+import { useCookies } from 'react-cookie';
+export function Page() {
+  const [cookies] = useCookies(['cookie-mumate-id']);
+  return <div>{cookies['cookie-mumate-id']}</div>
+}
+`;
+
+const INLINE_IDENTITY_MUTANT_3 = `
+export function Page() {
+  const c = document.cookie;
+  return <div>{c}</div>
+}
+`;
+
+const INLINE_IDENTITY_FIXED = `
+import { useV2AuthGate } from '@/features/auth/hooks/useV2AuthGate';
+export function Page() {
+  return <div>Clean</div>
+}
+`;
+
+function assertMutantCaught(mutantCode: string, rulePrefix: string, testName: string) {
+  console.log(`\n[${testName}] Running on Buggy Mutant...`);
+  // Must pass 'pages/v2/' to trigger the rule
+  const results = scanFile('pages/v2/page.tsx', mutantCode);
+  const failures = results.filter(r => !r.pass && r.ruleId.startsWith(rulePrefix));
+  if (failures.length > 0) {
+    console.log('✅ Mutant caught successfully (Rule works!).');
+    console.log('   Error:', failures[0].message);
+  } else {
+    console.error(`❌ FAILED: Mutant slipped through! Rule ${rulePrefix} is vacuous.`);
+    process.exit(1);
+  }
+}
+
+assertMutantCaught(INLINE_IDENTITY_MUTANT_1, 'ban-inline-identity-import', 'TEST 5 - useCurrentUser');
+assertMutantCaught(INLINE_IDENTITY_MUTANT_2, 'ban-inline-identity-use-cookies', 'TEST 6 - useCookies');
+assertMutantCaught(INLINE_IDENTITY_MUTANT_3, 'ban-inline-identity-document-cookie', 'TEST 7 - document.cookie');
+
+console.log('\\n[TEST 8] Running on Fixed Code (AuthGate)...');
+const inlineFixedResults = scanFile('pages/v2/page.tsx', INLINE_IDENTITY_FIXED);
+const inlineFixedFailures = inlineFixedResults.filter(r => !r.pass && r.ruleId.startsWith('ban-inline-identity'));
+if (inlineFixedFailures.length === 0) {
+  console.log('✅ Fixed code passed successfully (No false positive!).');
+} else {
+  console.error('❌ FAILED: Fixed code threw an error! Rule is too strict.');
+  process.exit(1);
+}
+
 console.log('\\n✅ All Proof of Teeth COMPLETE.');
+
