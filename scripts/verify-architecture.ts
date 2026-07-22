@@ -164,6 +164,93 @@ export function checkAuthGateUsage(sourceFile: ts.SourceFile, filepath: string):
 }
 
 // ---------------------------------------------------------
+// Rule 4: Ban Inline Identity in pages/v2 (Complete-by-construction)
+// Ledger: Inline Identity Gate Evasion
+// ---------------------------------------------------------
+export function checkInlineIdentityUsage(sourceFile: ts.SourceFile, filepath: string): RuleResult[] {
+  const results: RuleResult[] = [];
+  const normalizedPath = filepath.replace(/\\/g, '/');
+  
+  // This rule only applies to pages/v2
+  if (!/(^|\/)pages\/v2\//.test(normalizedPath)) {
+    return results;
+  }
+
+  function visit(node: ts.Node) {
+    // 1. Ban importing useCurrentUser or useSession
+    if (ts.isImportDeclaration(node)) {
+      const moduleSpecifier = node.moduleSpecifier;
+      if (ts.isStringLiteral(moduleSpecifier)) {
+        const importPath = moduleSpecifier.text;
+        let found = false;
+
+        if (importPath.includes('use-current-user') || importPath.includes('useCurrentUser') || importPath.includes('useSession')) {
+          found = true;
+        }
+
+        if (node.importClause && node.importClause.namedBindings) {
+          if (ts.isNamedImports(node.importClause.namedBindings)) {
+            for (const specifier of node.importClause.namedBindings.elements) {
+              const name = specifier.propertyName ? specifier.propertyName.text : specifier.name.text;
+              if (name === 'useCurrentUser' || name === 'useSession') {
+                found = true;
+              }
+            }
+          }
+        }
+
+        if (found) {
+          const { line } = sourceFile.getLineAndCharacterOfPosition(node.getStart());
+          results.push({
+            ruleId: 'ban-inline-identity-import', pass: false, file: filepath, line: line + 1,
+            message: 'Importing useCurrentUser or useSession is banned in pages/v2. You must use useV2AuthGate() for identity.'
+          });
+        }
+      }
+    }
+
+    // 2. Ban useCookies raw calls (specifically trying to read member cookie)
+    if (ts.isCallExpression(node)) {
+      const exprText = node.expression.getText(sourceFile);
+      if (exprText === 'useCookies') {
+        const { line } = sourceFile.getLineAndCharacterOfPosition(node.getStart());
+        results.push({
+          ruleId: 'ban-inline-identity-use-cookies', pass: false, file: filepath, line: line + 1,
+          message: 'Direct useCookies() is banned in pages/v2 to prevent identity hydration leaks. Use useV2AuthGate().'
+        });
+      }
+    }
+
+    // 3. Ban document.cookie
+    if (ts.isPropertyAccessExpression(node)) {
+      if (node.name.text === 'cookie' && node.expression.getText(sourceFile) === 'document') {
+        const { line } = sourceFile.getLineAndCharacterOfPosition(node.getStart());
+        results.push({
+          ruleId: 'ban-inline-identity-document-cookie', pass: false, file: filepath, line: line + 1,
+          message: 'Reading document.cookie directly is banned in pages/v2. Use useV2AuthGate().'
+        });
+      }
+    }
+
+    // 4. Ban string literal 'cookie-mumate-id'
+    if (ts.isStringLiteral(node) || ts.isNoSubstitutionTemplateLiteral(node)) {
+      if (node.text === 'cookie-mumate-id') {
+        const { line } = sourceFile.getLineAndCharacterOfPosition(node.getStart());
+        results.push({
+          ruleId: 'ban-inline-identity-cookie-literal', pass: false, file: filepath, line: line + 1,
+          message: 'Hardcoding the cookie name cookie-mumate-id is banned in pages/v2. Use useV2AuthGate().'
+        });
+      }
+    }
+
+    ts.forEachChild(node, visit);
+  }
+  
+  visit(sourceFile);
+  return results;
+}
+
+// ---------------------------------------------------------
 // Scanner Engine
 // ---------------------------------------------------------
 export function scanFile(filepath: string, content?: string): RuleResult[] {
@@ -174,6 +261,7 @@ export function scanFile(filepath: string, content?: string): RuleResult[] {
   allResults = allResults.concat(checkTailwindJitArbitrary(sourceFile, filepath));
   allResults = allResults.concat(checkSuppressHydrationWarning(sourceFile, filepath));
   allResults = allResults.concat(checkAuthGateUsage(sourceFile, filepath));
+  allResults = allResults.concat(checkInlineIdentityUsage(sourceFile, filepath));
   
   return allResults;
 }
