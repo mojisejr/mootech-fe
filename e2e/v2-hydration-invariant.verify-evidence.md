@@ -26,10 +26,19 @@ FIRED, within the seam: **ตู๋** penetrated the coverage guard (Phantom Pag
 import) → discovery moves to his AST. **มุน** penetrated the CLS claim (vacuous-blocking — CLS rides
 console) → downgraded to advisory + a promote-gate. Each hit a lens outside their own.
 
-**D3 crawl (D) — PENDING adversary:** ตู๋ + มุน to try to sneak a mismatch past the full-route crawl —
-e.g. a page that mismatches only in a state the crawl doesn't drive (anon, or a non-cookie identity
-trigger), or a route the glob misses (a re-export, a route defined outside `pages/v2/**`). Attach what
-was tried. goo does not self-certify the crawl.
+**D3 crawl (D) — adversary FIRED, holes closed:** **มุน** penetrated the crawl (visual lens):
+- **A (regression, fixed):** v1 destructured `{ hydrationErrors }` and threw away the `cls`
+  loadAndObserve already returns → CLS coverage = 0 on every route, silently regressing the CLS lens
+  shipped in #94. A console-silent geometry flash would sneak. Fixed: the crawl now asserts BOTH
+  channels (console + `cls < 0.015`); proven — a silent-flash page → crawl RED on CLS 0.0771 (console
+  silent) in authed AND anon.
+- **B (fixed):** v1 drove only `authed`. Now drives authed + anon (baselines ≤0.0042 / ≤0.0006 —
+  neg-control, budget safe). An anon-only mismatch is now caught.
+- **C (routed → ตู๋):** the glob targets `pages/v2/**`; a route defined elsewhere (rewrite, `src/pages`)
+  or dynamic/catch-all evades. Route discovery is static — ตู๋'s lens.
+- **D (routed → มุน):** even with CLS, the crawl is blind to opacity/transform/same-box flashes (CLS
+  reads 0 on those, Lamun-proven) → pixel-L3 (Lamun's next).
+goo did NOT self-certify — มุน found A/B, each fixed run-proven.
 
 ## seam co-sign (SEAM = 2+ owners required) — ALL THREE CLOSED
 - goo-runtime ✅ (console BLOCKING, mutant-proven)

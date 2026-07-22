@@ -162,21 +162,32 @@ test.describe("v2 auth-gate hydration invariant (webgang v2 step 2 — goo runti
   // at source): static prevents, runtime detects any that slip. Ungated pages render identically
   // SSR/client → clean; only a real inline-gate-without-mount-guard turns this red.
   // ANCHOR: inline-identity-crawl  (bug-ledger enforced_by target — keep this marker stable)
-  test("full-route crawl: no /v2 route hydration-mismatches when authed (inline-identity backstop)", async ({
+  // Checks BOTH channels the anchor blocks on (console + CLS) across BOTH states (authed + anon) —
+  // Lamun's adversary caught v1 discarding the `cls` loadAndObserve already returns (a console-silent
+  // geometry flash would have sneaked on every route, a regression of the CLS lens) AND driving only
+  // authed (an anon-only mismatch would sneak). Budget 0.015 is safe here: every real route measured
+  // ≤0.0042 authed / ≤0.0006 anon (neg-control). Still blind to opacity/same-box flashes (CLS reads 0
+  // on those — Lamun's pixel-L3 closes that) and to routes outside pages/v2/** (→ too-static).
+  test("full-route crawl: no /v2 route hydration-mismatches (console+CLS × authed+anon — inline-identity backstop)", async ({
     browser,
   }) => {
+    test.setTimeout(180_000); // crawls every /v2 route × {authed, anon} — many sequential loads, past the 30s default
     const bad: string[] = [];
     for (const route of allV2Routes()) {
-      const ctx = await browser.newContext({ viewport: { width: 393, height: 852 } });
-      const p = await ctx.newPage();
-      const { hydrationErrors } = await loadAndObserve(p, route, /* authed */ true);
-      if (hydrationErrors.length) bad.push(`${route} — ${hydrationErrors[0]}`);
-      await ctx.close();
+      for (const authed of [true, false]) {
+        const state = authed ? "authed" : "anon";
+        const ctx = await browser.newContext({ viewport: { width: 393, height: 852 } });
+        const p = await ctx.newPage();
+        const { hydrationErrors, cls } = await loadAndObserve(p, route, authed);
+        if (hydrationErrors.length) bad.push(`${route} [${state}] console: ${hydrationErrors[0]}`);
+        if (cls >= CLS_BUDGET) bad.push(`${route} [${state}] mount-flash: CLS ${cls.toFixed(4)} ≥ ${CLS_BUDGET}`);
+        await ctx.close();
+      }
     }
     expect(
       bad,
-      `/v2 route(s) hydration-mismatch when authed — likely inline useCurrentUser/MEMBER_ID-cookie ` +
-        `gating without a mount-gate (route reaches auth-behaviour outside useV2AuthGate):\n  ${bad.join("\n  ")}`,
+      `/v2 route(s) hydration-mismatch — likely inline useCurrentUser/MEMBER_ID-cookie gating without a ` +
+        `mount-gate (route reaches auth-behaviour outside useV2AuthGate):\n  ${bad.join("\n  ")}`,
     ).toEqual([]);
   });
 
