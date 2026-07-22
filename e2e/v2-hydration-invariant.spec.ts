@@ -168,6 +168,10 @@ test.describe("v2 auth-gate hydration invariant (webgang v2 step 2 — goo runti
   // authed (an anon-only mismatch would sneak). Budget 0.015 is safe here: every real route measured
   // ≤0.0042 authed / ≤0.0006 anon (neg-control). Still blind to opacity/same-box flashes (CLS reads 0
   // on those — Lamun's pixel-L3 closes that) and to routes outside pages/v2/** (→ too-static).
+  // HYGIENE (Lamun forward-note): 0.015 is a shared floor, valid only while every route's baseline is
+  // well under it. When adding a route, re-run the baseline sweep; if one legitimately approaches 0.015
+  // (heavy async content), give it its OWN budget — do NOT switch to a dynamic per-run baseline (that
+  // is circular: the flash you're hunting would be baked into the baseline).
   test("full-route crawl: no /v2 route hydration-mismatches (console+CLS × authed+anon — inline-identity backstop)", async ({
     browser,
   }) => {
