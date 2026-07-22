@@ -69,8 +69,118 @@ export function checkSuppressHydrationWarning(sourceFile: ts.SourceFile, filepat
 }
 
 // ---------------------------------------------------------
-// Rule 3: Coverage Drift Discovery (SEAM with Goo)
+// Rule 3: Ban Evading Forms for AuthGate (Complete-by-construction)
 // Ledger: Phantom Page Hole
+// ---------------------------------------------------------
+export function checkAuthGateUsage(sourceFile: ts.SourceFile, filepath: string): RuleResult[] {
+  const results: RuleResult[] = [];
+  const normalizedPath = filepath.replace(/\\/g, '/');
+  const isInsidePagesV2 = normalizedPath.includes('/pages/v2/');
+  
+  function visit(node: ts.Node) {
+    if (ts.isImportDeclaration(node)) {
+      const moduleSpecifier = node.moduleSpecifier;
+      if (ts.isStringLiteral(moduleSpecifier)) {
+        const importPath = moduleSpecifier.text;
+        let foundAuthGate = false;
+        const importClause = node.importClause;
+        
+        if (importClause) {
+          if (importClause.namedBindings && ts.isNamespaceImport(importClause.namedBindings)) {
+            if (importPath.includes('useV2AuthGate')) {
+              foundAuthGate = true;
+              const { line } = sourceFile.getLineAndCharacterOfPosition(node.getStart());
+              results.push({
+                ruleId: 'ban-auth-gate-namespace-import', pass: false, file: filepath, line: line + 1,
+                message: 'Namespace import of useV2AuthGate is banned. Use direct named import.'
+              });
+            }
+          } else if (importClause.namedBindings && ts.isNamedImports(importClause.namedBindings)) {
+            for (const specifier of importClause.namedBindings.elements) {
+              if (specifier.name.text === 'useV2AuthGate' || (specifier.propertyName && specifier.propertyName.text === 'useV2AuthGate')) {
+                foundAuthGate = true;
+                if (specifier.propertyName) {
+                  const { line } = sourceFile.getLineAndCharacterOfPosition(specifier.getStart());
+                  results.push({
+                    ruleId: 'ban-auth-gate-alias', pass: false, file: filepath, line: line + 1,
+                    message: 'Alias import of useV2AuthGate is banned. Use direct named import without alias.'
+                  });
+                }
+              }
+            }
+          }
+        }
+        
+        if (foundAuthGate) {
+          if (!isInsidePagesV2) {
+            const { line } = sourceFile.getLineAndCharacterOfPosition(node.getStart());
+            results.push({
+              ruleId: 'ban-auth-gate-transitive', pass: false, file: filepath, line: line + 1,
+              message: 'Transitive wrapper of useV2AuthGate is banned. It must be imported directly inside pages/v2/.'
+            });
+          }
+          if (!importPath.endsWith('/features/auth/hooks/useV2AuthGate')) {
+            const { line } = sourceFile.getLineAndCharacterOfPosition(node.getStart());
+            results.push({
+              ruleId: 'ban-auth-gate-barrel', pass: false, file: filepath, line: line + 1,
+              message: `Barrel import of useV2AuthGate is banned. Import from exactly '@/features/auth/hooks/useV2AuthGate'.`
+            });
+          }
+        }
+      }
+    }
+
+    if (ts.isCallExpression(node) && node.expression.kind === ts.SyntaxKind.ImportKeyword) {
+      if (node.arguments.length > 0 && ts.isStringLiteral(node.arguments[0])) {
+        const importPath = node.arguments[0].text;
+        if (importPath.includes('useV2AuthGate')) {
+          if (!isInsidePagesV2) {
+            const { line } = sourceFile.getLineAndCharacterOfPosition(node.getStart());
+            results.push({
+              ruleId: 'ban-auth-gate-transitive', pass: false, file: filepath, line: line + 1,
+              message: 'Transitive dynamic import of useV2AuthGate is banned. It must be imported directly inside pages/v2/.'
+            });
+          }
+          if (!importPath.endsWith('/features/auth/hooks/useV2AuthGate')) {
+            const { line } = sourceFile.getLineAndCharacterOfPosition(node.getStart());
+            results.push({
+              ruleId: 'ban-auth-gate-barrel', pass: false, file: filepath, line: line + 1,
+              message: `Barrel dynamic import of useV2AuthGate is banned. Import from exactly '@/features/auth/hooks/useV2AuthGate'.`
+            });
+          }
+        }
+      } else if (node.arguments.length > 0 && isInsidePagesV2) {
+        const { line } = sourceFile.getLineAndCharacterOfPosition(node.getStart());
+        results.push({
+          ruleId: 'no-unresolvable-dynamic-import', pass: false, file: filepath, line: line + 1,
+          message: 'Dynamic import with non-literal argument found in pages/v2. Cannot statically resolve coverage drift. Please use static imports or literal dynamic imports.'
+        });
+      }
+    }
+    ts.forEachChild(node, visit);
+  }
+  visit(sourceFile);
+  return results;
+}
+
+// ---------------------------------------------------------
+// Scanner Engine
+// ---------------------------------------------------------
+export function scanFile(filepath: string, content?: string): RuleResult[] {
+  const code = content !== undefined ? content : fs.readFileSync(filepath, 'utf-8');
+  const sourceFile = ts.createSourceFile(filepath, code, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
+  
+  let allResults: RuleResult[] = [];
+  allResults = allResults.concat(checkTailwindJitArbitrary(sourceFile, filepath));
+  allResults = allResults.concat(checkSuppressHydrationWarning(sourceFile, filepath));
+  allResults = allResults.concat(checkAuthGateUsage(sourceFile, filepath));
+  
+  return allResults;
+}
+
+// ---------------------------------------------------------
+// Project-wide Coverage Discovery
+// ---------------------------------------------------------
 // ---------------------------------------------------------
 function walkDir(dir: string, fileList: string[] = []): string[] {
   if (!fs.existsSync(dir)) return fileList;
@@ -126,141 +236,45 @@ function getAnchoredGatedPages(rootDir: string): string[] {
   return keys.sort();
 }
 
-function resolveImportPath(rootDir: string, currentFile: string, importPath: string): string | null {
-  let targetPath = '';
-  if (importPath.startsWith('@/')) {
-    targetPath = path.join(rootDir, importPath.replace(/^@\//, ''));
-  } else if (importPath.startsWith('.')) {
-    targetPath = path.join(path.dirname(currentFile), importPath);
-  } else {
-    return null;
-  }
-
-  const extensions = ['.tsx', '.ts', '/index.tsx', '/index.ts'];
-  for (const ext of extensions) {
-    const fullPath = targetPath.endsWith(ext) ? targetPath : targetPath + ext;
-    if (fs.existsSync(fullPath)) return fullPath;
-  }
-  if (fs.existsSync(targetPath)) return targetPath;
-  return null;
-}
-
-function buildDependencyGraph(rootDir: string): { 
-  graph: Map<string, Set<string>>, 
-  gatedNodes: Set<string>,
-  results: RuleResult[] 
-} {
-  const graph = new Map<string, Set<string>>();
-  const gatedNodes = new Set<string>();
+export function generateGatedPagesManifest(rootDir: string): RuleResult[] {
+  const pagesDir = path.join(rootDir, 'pages', 'v2');
+  const allFiles = walkDir(pagesDir);
+  const gatedRoutes: Set<string> = new Set();
   const results: RuleResult[] = [];
-
-  function walk(dir: string, fileList: string[] = []) {
-    if (!fs.existsSync(dir)) return fileList;
-    const files = fs.readdirSync(dir);
-    for (const file of files) {
-      if (file === 'node_modules' || file === '.next' || file === 'dist' || file === 'e2e' || file.startsWith('.') || file === 'public' || file === 'scripts') continue;
-      const filePath = path.join(dir, file);
-      if (fs.statSync(filePath).isDirectory()) {
-        walk(filePath, fileList);
-      } else if (filePath.endsWith('.tsx') || filePath.endsWith('.ts')) {
-        fileList.push(filePath);
-      }
-    }
-    return fileList;
-  }
-
-  const allFiles = walk(rootDir);
 
   for (const file of allFiles) {
     const content = fs.readFileSync(file, 'utf-8');
     const sourceFile = ts.createSourceFile(file, content, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
-    const imports = new Set<string>();
     
+    // We already run checkAuthGateUsage in scanFile for all files in the project.
+    // For discovery, we just look for a valid direct named import.
+    let isGated = false;
+
     function visit(node: ts.Node) {
       if (ts.isImportDeclaration(node)) {
         if (node.moduleSpecifier && ts.isStringLiteral(node.moduleSpecifier)) {
-          const importPath = node.moduleSpecifier.text;
-          const resolved = resolveImportPath(rootDir, file, importPath);
-          if (resolved) imports.add(resolved);
-          
           const importClause = node.importClause;
           if (importClause && importClause.namedBindings && ts.isNamedImports(importClause.namedBindings)) {
             for (const specifier of importClause.namedBindings.elements) {
-              if (specifier.name.text === 'useV2AuthGate') gatedNodes.add(file);
+              if (specifier.name.text === 'useV2AuthGate' && !specifier.propertyName) {
+                isGated = true;
+              }
             }
           }
         }
       }
-
       if (ts.isCallExpression(node) && node.expression.kind === ts.SyntaxKind.ImportKeyword) {
         if (node.arguments.length > 0 && ts.isStringLiteral(node.arguments[0])) {
-          const importPath = node.arguments[0].text;
-          const resolved = resolveImportPath(rootDir, file, importPath);
-          if (resolved) imports.add(resolved);
-          if (importPath.includes('useV2AuthGate')) gatedNodes.add(file);
-        } else if (node.arguments.length > 0) {
-          const { line } = sourceFile.getLineAndCharacterOfPosition(node.getStart());
-          results.push({
-            ruleId: 'no-unresolvable-dynamic-import',
-            pass: false,
-            file: file,
-            line: line + 1,
-            message: 'Dynamic import with non-literal argument found. Cannot statically resolve coverage drift. Please use static imports or literal dynamic imports.'
-          });
-        }
-      }
-
-      if (ts.isExportDeclaration(node)) {
-        if (node.moduleSpecifier && ts.isStringLiteral(node.moduleSpecifier)) {
-          const importPath = node.moduleSpecifier.text;
-          const resolved = resolveImportPath(rootDir, file, importPath);
-          if (resolved) imports.add(resolved);
-          
-          if (node.exportClause && ts.isNamedExports(node.exportClause)) {
-            for (const specifier of node.exportClause.elements) {
-              if (specifier.name.text === 'useV2AuthGate') gatedNodes.add(file);
-            }
+          if (node.arguments[0].text.includes('useV2AuthGate')) {
+            isGated = true;
           }
         }
       }
-
       ts.forEachChild(node, visit);
     }
     visit(sourceFile);
-    graph.set(file, imports);
-  }
 
-  return { graph, gatedNodes, results };
-}
-
-function isNodeGated(startNode: string, graph: Map<string, Set<string>>, gatedNodes: Set<string>): boolean {
-  const visited = new Set<string>();
-  const stack = [startNode];
-  
-  while (stack.length > 0) {
-    const node = stack.pop()!;
-    if (gatedNodes.has(node)) return true;
-    
-    if (!visited.has(node)) {
-      visited.add(node);
-      const neighbors = graph.get(node) || new Set();
-      for (const neighbor of neighbors) {
-        stack.push(neighbor);
-      }
-    }
-  }
-  return false;
-}
-
-export function generateGatedPagesManifest(rootDir: string): RuleResult[] {
-  const { graph, gatedNodes, results } = buildDependencyGraph(rootDir);
-  const pagesDir = path.join(rootDir, 'pages', 'v2');
-  const pageFiles = Array.from(graph.keys()).filter(f => f.startsWith(pagesDir));
-  
-  const gatedRoutes: Set<string> = new Set();
-
-  for (const file of pageFiles) {
-    if (isNodeGated(file, graph, gatedNodes)) {
+    if (isGated) {
       gatedRoutes.add(filePathToRoute(file));
     }
   }
@@ -272,7 +286,7 @@ export function generateGatedPagesManifest(rootDir: string): RuleResult[] {
         ruleId: 'gated-page-not-anchored',
         pass: false,
         file: 'e2e/v2-hydration-invariant.spec.ts',
-        message: `Coverage Drift Detected (Phantom Page): Page '${route}' imports useV2AuthGate (directly or transitively) but is missing from STATE_MAP in the runtime anchor. Please add it.`
+        message: `Coverage Drift Detected (Phantom Page): Page '${route}' imports useV2AuthGate but is missing from STATE_MAP in the runtime anchor. Please add it.`
       });
     }
   }
@@ -288,55 +302,39 @@ export function generateGatedPagesManifest(rootDir: string): RuleResult[] {
   return results;
 }
 
-// ---------------------------------------------------------
-// Scanner Engine
-// ---------------------------------------------------------
-export function scanFile(filepath: string, content?: string): RuleResult[] {
-  const code = content !== undefined ? content : fs.readFileSync(filepath, 'utf-8');
-  const sourceFile = ts.createSourceFile(filepath, code, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
-  
-  let allResults: RuleResult[] = [];
-  allResults = allResults.concat(checkTailwindJitArbitrary(sourceFile, filepath));
-  allResults = allResults.concat(checkSuppressHydrationWarning(sourceFile, filepath));
-  
-  return allResults;
-}
-
 if (require.main === module) {
   const rootDir = process.cwd();
-  const filesToScan = process.argv.slice(2);
   let hasErrors = false;
 
-  // 1. Run Coverage Drift Guard (Project-wide SEAM)
+  // 1. Scan ALL source files in the project for rule violations (including checkAuthGateUsage)
+  const allProjectFiles = walkDir(path.join(rootDir, 'pages')).concat(
+    walkDir(path.join(rootDir, 'components')),
+    walkDir(path.join(rootDir, 'features'))
+  );
+  
+  for (const file of allProjectFiles) {
+    const results = scanFile(file);
+    const failures = results.filter(r => !r.pass);
+    if (failures.length > 0) {
+      hasErrors = true;
+      failures.forEach(f => {
+        console.error(`❌ [${f.ruleId}] ${f.file}:${f.line || '?'} - ${f.message}`);
+      });
+    }
+  }
+
+  // 2. Run Coverage Drift Guard (Manifest generation & Cross-check)
   const driftResults = generateGatedPagesManifest(rootDir);
   const driftFailures = driftResults.filter(r => !r.pass);
   if (driftFailures.length > 0) {
     hasErrors = true;
     driftFailures.forEach(f => {
-      console.error(`❌ [${f.ruleId}] ${f.file}:${f.line} - ${f.message}`);
+      console.error(`❌ [${f.ruleId}] ${f.file}:${f.line || '?'} - ${f.message}`);
     });
   }
 
-  // 2. Scan individual files (if provided)
-  if (filesToScan.length > 0) {
-    for (const file of filesToScan) {
-      const fullPath = path.resolve(file);
-      if (fs.existsSync(fullPath)) {
-        const results = scanFile(fullPath);
-        const failures = results.filter(r => !r.pass);
-        
-        if (failures.length > 0) {
-          hasErrors = true;
-          failures.forEach(f => {
-            console.error(`❌ [${f.ruleId}] ${f.file}:${f.line} - ${f.message}`);
-          });
-        }
-      }
-    }
-  }
-
   if (hasErrors) {
-    console.error('\\n🚨 Architecture Verification Failed. Please fix the violations.');
+    console.error('\n🚨 Architecture Verification Failed. Please fix the violations.');
     process.exit(1);
   } else {
     console.log('✅ Architecture Verification Passed.');
