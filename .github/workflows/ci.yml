@@ -13,6 +13,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - uses: actions/setup-node@v4
         with:
           node-version: 20
@@ -28,6 +30,34 @@ jobs:
             echo "== $f"
             npx tsx "$f"
           done
+
+      - name: D2 Auto-Gate (Presence & Architecture)
+        run: |
+          echo "== Checking for verify-evidence.md =="
+          git fetch origin main
+          EVIDENCE_FILE=$(git diff --name-only origin/main...HEAD | grep -i "verify-evidence\.md" | head -n 1)
+          
+          if [ -z "$EVIDENCE_FILE" ]; then
+            echo "❌ ERROR: No verify-evidence.md found in this PR. Please attach evidence to prove your work."
+            exit 1
+          fi
+          
+          echo "== Validating verify-evidence.md content =="
+          if ! grep -iq "## proof-of-teeth" "$EVIDENCE_FILE"; then
+            echo "❌ ERROR: verify-evidence.md is missing the '## proof-of-teeth' section."
+            exit 1
+          fi
+          
+          if ! grep -iq "## adversary sign-off" "$EVIDENCE_FILE"; then
+            echo "❌ ERROR: verify-evidence.md is missing the '## adversary sign-off' section."
+            exit 1
+          fi
+          
+          echo "== Running Ledger Integrity Check =="
+          npx tsx scripts/verify-ledger-integrity.ts harness/bug-ledger.json "$EVIDENCE_FILE"
+          
+          echo "== Running Architecture & Discovery Check =="
+          npx tsx scripts/verify-architecture.ts
 
       - name: build
         run: npm run build
