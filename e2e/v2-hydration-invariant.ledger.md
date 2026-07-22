@@ -43,21 +43,30 @@ The gated set is DERIVED from source (pages importing useV2AuthGate = index/logi
 | /v2/register [authed] | ✓ | ✘ `Hydration failed…` |
 | /v2 [anon], /v2/login [anon], /v2/register [anon] | ✓ | ✓ (anon can't diverge — both renders are 'loading' at first paint) |
 
-### Trap B — coverage-drift guard (too-static lens)
-The anchor asserts its tested set == the gated set derived from source. Mutant = add
-`useV2AuthGate` import to `pages/v2/calendar.tsx` (currently ungated, 1 of 4 ungated /v2 pages)
-without a STATE_MAP entry → coverage test **FAILS**: `derived-from-source: /v2, /v2/calendar, …` ≠
-anchored. This kills the exact step-1 adversary hole ("a gated page the anchor never visits").
+### Trap B — coverage-drift → MOVED to ตู๋'s AST (verify-architecture.ts)
+A first-cut derived-glob coverage guard lived in this anchor. **ตู๋ (static lens) adversarially
+penetrated it — "Phantom Page hole":** `readdirSync` is shallow (a gated `pages/v2/settings/profile.tsx`
+is invisible) and a source regex misses `const { useV2AuthGate } = await import(...)` (dynamic). A
+phantom page slips discovery → never forced into STATE_MAP → the 3 traps never test it = falsely green.
+Discovery is static analysis (his lens, fails in ms without a browser), so it moves to a **recursive
+ESTree walk (ImportDeclaration + dynamic CallExpression)** in verify-architecture.ts. Seam contract:
+ตู๋'s AST produces the authoritative gated-page list → this anchor consumes it as the source-of-truth
+for coverage + all 3 traps. ⚠️ pure-runtime `await import()` may not statically resolve → ตู๋'s rule
+lint-bans an unregisterable dynamic gated import (else discovery becomes a new proxy). This anchor
+exports `ANCHORED_GATED_PAGES` for the cross-check. Proof-of-teeth = ตู๋'s Phantom-Page attack must go
+RED once wired. (Co-build in flight; this PR delegates coverage, does not claim it.)
 
-### Trap C — mount-flash / CLS (มุน-visual lens)
+### Trap C — mount-flash / CLS (มุน-visual lens) → ADVISORY
 `window.__cls` (PerformanceObserver layout-shift), budget **0.015**. Measured: baseline ≤0.004,
-mutant **0.027 (/v2)** / **0.031 (/v2/register)** — separates ~4× either side.
-**Honest caveat (mutant decides):** for THIS bug-class the console signal always fires and fires
-first, so in the combined test the console assertion short-circuits before CLS. CLS's *independent*
-value is a **console-silent flash** (e.g. a naive "fix" that moves the auth check into a post-mount
-useEffect+setState — no hydration error, but a visible shift). I have NOT yet produced a mutant that
-trips CLS while the console stays clean, so CLS is **measured + correlated, not independently
-teeth-proven**. → มุน (visual owner) ratifies whether CLS ships **blocking** or **advisory**.
+mutant **0.027 (/v2)** / **0.031 (/v2/register)**. **Lamun ratified ADVISORY, not blocking:** for THIS
+bug the console signal fires first, so CLS is correlated — shipping it blocking now would be
+*vacuous-blocking* (CLS riding console's teeth). It measures + reports (test annotation), does not fail
+the run. Scope: **default state only** — injected states carry test-artifact CLS (Lamun's long-text
+injection reads 0.116 from a post-load reflow, not app CLS). **Promote-gate:** build `mut-cls-silent-flash`
+— a mutant with `hydrationErrors===0` AND `CLS≥budget` *simultaneously* (SSR===first-paint so console is
+silent, post-mount setState shifts layout). When that mutant turns CLS red while console stays green,
+CLS is proven an independent lens → promote to blocking. Co-build w/ Lamun (goo: hook mutation, Lamun:
+CLS recipe).
 
 ## Dropped from the hole-map (mutant DISPROVED it)
 **"ban suppressHydrationWarning"** — tested directly: a `suppressHydrationWarning` wrapper on both
@@ -65,9 +74,12 @@ render branches did NOT silence the mismatch (hydErr stayed 5, CLS stayed 0.027)
 suppresses element-level text/attr diffs, never a structural tree mismatch. It guards a non-threat
 for our bug-class, so it is not in the anchor. (Per bong: the mutant decides, not the hole-map.)
 
-## Seam sign-off (3 lenses, each covers what the others miss)
-- **goo-runtime** (console/state, all gated pages) — ✅ built + mutant-proven
-- **too-static** (coverage-drift derived guard) — ✅ built self-deriving in the anchor; **ตู๋ to review** whether the canonical home is here or `verify-architecture.ts`
-- **มุน-visual** (CLS budget) — ✅ measured; **มุน to ratify** blocking-vs-advisory + the 0.015 threshold
+## Seam sign-off (3 lenses, each covers what the others miss) — round 1 complete
+- **goo-runtime** (console/state, all gated pages) — ✅ built + mutant-proven (console blocking).
+- **too-static** (gated-page discovery) — 🗡️ **ตู๋ FOUND-HOLE** (Phantom Page: shallow readdir + dynamic
+  import). Discovery moves to his AST; goo consumes the list. Co-build in flight; Phantom attack → RED = the gate.
+- **มุน-visual** (CLS) — 🗡️ **มุน ratified ADVISORY** (blocking-now = vacuous). Promotes via `mut-cls-silent-flash`. Co-build in flight.
 
-Adversary sign-off (another oracle tries to sneak a mismatch past) still required before "teeth-proven".
+The adversary round already fired **within the seam** (ตู๋ + มุน each penetrated a lens outside their
+own) — exactly the cross-role value the frame predicts. "Teeth-proven" lands when the Phantom-Page
+attack goes red (AST discovery wired) and, for CLS, when the silent-flash mutant promotes it.

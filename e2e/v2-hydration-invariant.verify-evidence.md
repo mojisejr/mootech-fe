@@ -11,18 +11,18 @@ MANDATORY + verify-at-the-consumer. It touches NO product code (only `e2e/`), so
 - Gated set derived-from-source = index, login, register (onboarding/calendar/service/shop import-free → ungated).
 
 ## proof-of-teeth (capability-scoped — runtime hydration class only)
-Three traps, each with an independent mutant (source-patch, history-independent):
-- **A. console / all pages** — mutant `strip !hasMounted` → 3 mismatch sites red (/v2, /v2/login, /v2/register [authed]); anon states stay green (can't diverge). Fixed→green, revert→green, hook 0 changed lines.
-- **B. coverage-drift** — mutant `add useV2AuthGate import to calendar.tsx` → coverage test red (`/v2/calendar` derived-not-anchored). Revert→green.
-- **C. CLS** — mutant CLS 0.027/0.031 > budget 0.015. Correlated with A (console short-circuits first); NOT independently proven for a console-silent flash — flagged for มุน to ratify blocking-vs-advisory.
+- **A. console / all pages (goo-runtime, BLOCKING)** — mutant `strip !hasMounted` → 3 mismatch sites red (/v2, /v2/login, /v2/register [authed]); anon states stay green (can't diverge). Fixed→green, revert→green, hook 0 changed lines. Re-verified after the CLS/coverage edits.
+- **B. gated-page discovery (too-static)** — MOVED to ตู๋'s AST after he penetrated the derived-glob (Phantom Page: shallow readdir + dynamic import). goo consumes his list; Phantom-Page attack → RED is the gate. Co-build in flight (not claimed in this PR).
+- **C. CLS (มุน-visual, ADVISORY)** — mutant CLS 0.027/0.031 vs budget 0.015. Ratified advisory (correlated with A → blocking-now = vacuous). Promotes via `mut-cls-silent-flash` (hydErr===0 AND CLS≥budget). Co-build in flight.
 
 ## dropped (mutant disproved)
 `ban suppressHydrationWarning` — a suppress wrapper did NOT silence the structural mismatch (hydErr 5→5, CLS 0.027→0.027). Guards a non-threat for this bug-class. Removed per "mutant decides, not hole-map".
 
 ## adversary sign-off (different oracle — anti-rubber-stamp)
-PENDING. A non-author oracle must try to sneak a mismatch past this widened anchor (a console-silent
-flash that also stays under CLS budget; a gated page added via a path the derived-glob misses, e.g. a
-nested route or a re-export of the hook). Record the attempt + result. Not "teeth-proven" until then.
+FIRED, within the seam: **ตู๋** penetrated the coverage guard (Phantom Page — nested route + dynamic
+import) → discovery moves to his AST. **มุน** penetrated the CLS claim (vacuous-blocking — CLS rides
+console) → downgraded to advisory + a promote-gate. Each hit a lens outside their own. "Teeth-proven"
+lands when the Phantom-Page attack goes red (AST wired) and the silent-flash mutant promotes CLS.
 
 ## seam co-sign (SEAM = 2+ owners required)
-- goo-runtime ✅ (built + A/B proven) · too-static ⏳ (coverage guard — ตู๋ review canonical home) · มุน-visual ⏳ (CLS ratify).
+- goo-runtime ✅ (built + A proven, BLOCKING) · too-static 🗡️→🔧 (found-hole; discovery→AST, co-build) · มุน-visual 🗡️→🔧 (found-hole; CLS advisory + promote-gate, co-build).
