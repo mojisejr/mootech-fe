@@ -11,7 +11,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/router'
 import { useCookies } from 'react-cookie'
 import { CookieKey } from '@/constants/cookie-key'
-import { useV2AuthGate } from './useV2AuthGate'
+import type { AuthStatus } from '@/lib/auth/resolve-auth'
 import { UserGetById } from '@/constants/api/api-user-get'
 import { ChineseHoroscopeGet } from '@/constants/api/api-chinese-horoscope-get'
 import { resolveReturningResult } from '@/lib/auth/returning-result'
@@ -39,9 +39,12 @@ function toComputeSource(chart: unknown): ComputeMascotSource | null {
   }
 }
 
-export function useV2Home(): V2Home {
+// Takes the resolved auth `status` as input (NOT useV2AuthGate) — useV2AuthGate must be imported
+// directly inside pages/v2 (complete-by-construction ban that keeps gated-page discovery complete);
+// wrapping it in a features/ hook is exactly the transitive pattern that ban forbids. The caller
+// (pages/v2/index) imports useV2AuthGate directly and passes status here.
+export function useV2Home(status: AuthStatus): V2Home {
   const router = useRouter()
-  const { status, showLoading: gateLoading } = useV2AuthGate()
   const [cookies] = useCookies([CookieKey.MEMBER_ID, CookieKey.MEMBER_NAME])
   const userId = (cookies[CookieKey.MEMBER_ID] as string) || ''
   const greeting = { name: (cookies[CookieKey.MEMBER_NAME] as string) || '' }
@@ -74,7 +77,8 @@ export function useV2Home(): V2Home {
   }, [status, userId, resolveHome])
 
   return {
-    showLoading: gateLoading || status !== 'authed' || phase !== 'home',
+    // Hold the loading gate until settled to 'home' (resolving chart or redirecting both wait).
+    showLoading: status !== 'authed' || phase !== 'home',
     greeting,
     computeSource,
   }

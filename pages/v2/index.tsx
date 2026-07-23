@@ -7,6 +7,7 @@ import type { GetServerSideProps } from 'next'
 import { useRouter } from 'next/router'
 import { isV2Authenticated } from '@/lib/v2/gate'
 import { useV2AuthGate } from '@/features/auth/hooks/useV2AuthGate'
+import type { AuthStatus } from '@/lib/auth/resolve-auth'
 import { useV2Home } from '@/features/auth/hooks/useV2Home'
 import { useV2Logout } from '@/features/auth/hooks/useV2Logout'
 import { useMascotFromCompute } from '@/lib/personalization/use-mascot'
@@ -39,15 +40,17 @@ function V2Entry() {
   }
 
   // status === 'authed' → hand off to the home router (returning→home / no-chart→register, gap C).
-  return <V2HomeRoute />
+  // Pass status down: useV2AuthGate is imported directly HERE (in pages/v2) per the discovery ban;
+  // useV2Home takes status, it must not wrap useV2AuthGate itself.
+  return <V2HomeRoute status={status} />
 }
 
 // Authed home: goo's useV2Home does the gap-C routing (has-chart→home / no-chart→/v2/register,
 // loop-safe) + yields greeting + compute-source; useV2Logout gives the logout action Lamun's confirm
 // modal calls; useMascotFromCompute → character path (null → 01.png fallback). Lamun's V2HomeScreen is
 // presentational (props only). All hooks are called unconditionally before the loading branch.
-function V2HomeRoute() {
-  const { showLoading, greeting, computeSource } = useV2Home()
+function V2HomeRoute({ status }: { status: AuthStatus }) {
+  const { showLoading, greeting, computeSource } = useV2Home(status)
   const { logout } = useV2Logout()
   const mascotCharacter = useMascotFromCompute(computeSource)?.character ?? '/images/v2/mascot/01.png'
 
