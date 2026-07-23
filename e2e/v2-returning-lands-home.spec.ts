@@ -7,6 +7,7 @@
 // Self-contained (imports only @playwright/test). Stubs the same-origin API routes so NO BE/DB is hit.
 // Local-only: needs FE :3000 with V2_PREVIEW_KEY set. Run: npx playwright test e2e/v2-returning-lands-home.spec.ts
 import { test, expect, type Page, type BrowserContext } from "@playwright/test";
+// ANCHOR: returning-lands-home-anchor  (verify-evidence live target — keep stable)
 
 const V2_PREVIEW_KEY = process.env.V2_PREVIEW_KEY ?? "lamun-local-dev";
 const AUTHED_MEMBER_ID = "11111111-1111-1111-1111-111111111111"; // valid uuid → resolveAuth 'authed'
