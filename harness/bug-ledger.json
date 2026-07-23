@@ -17,6 +17,6 @@
   {
     "id": "pixel-lens-scope-boundaries",
     "description": "ACCEPT-RISK boundaries of persistent-same-position-divergence, mapped run-proven by the goo+too adversary round (not silent — logged per jot-dont-drop). (1) TRANSIENT flicker [goo#1]: a 2-frame diff ALIASES a flash that resolves between the frames (opacity 1->.2->1 @260ms -> 0px BLIND); the core mutant was persistent, not transient -- the owner-blind-to-own-bug-class shape. A2 = burst/temporal sampling. (2) PRE-SETTLE/entrance [too#1]: a flash removed before frame A -> 0px BLIND. A2 = first-paint capture. (3) STATE-specific [goo#2]: one auth state captured (anon) -> an authed-only flash is missed. A2 = route x state. (4) OVER-BLOCK legit motion [goo#4/too#3]: continuous post-settle animation trips the anchor (275611px) -> capability-scoped to STATIC-after-settle routes; animated routes need per-route budget/masking. (5) BELOW-FOLD: viewport capture (fullPage crashes pixelmatch on injection-changed height) -> A2 = scroll/region capture.",
-    "enforced_by": "harness/run-pixel.ts (boundary demos, run-proven)"
+    "enforced_by": "harness/run-pixel.ts#MAPPED BOUNDARIES"
   }
 ]

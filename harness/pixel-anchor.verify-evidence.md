@@ -23,8 +23,22 @@ not a % of screen — the adversary insight). gate_layer = visual/pixel; injecti
 `pixel-proof/04-mutant-diff-caught.png` — red = changed pixels on the mascot/heading/CTA in their
 **original positions**. The neg-control (0px) is what makes the readings trustworthy.
 
-## 🗡️ adversary sign-off — goo (runtime/timing) + too (static), RUN-PROVEN (I do NOT self-certify)
-Both attacked and mapped this lens's boundary precisely. Every case executed (not eyeballed):
+## adversary sign-off
+Cross-oracle, RUN-PROVEN — I do NOT self-certify. Both a runtime lens (goo) and a static lens (too)
+attacked and mapped this lens's boundary precisely; every case was executed, not eyeballed.
+
+- **goo (runtime/timing)** attempted to refute by running mutants against `pixelStability`: transient
+  flicker (#1), state-specific (#2), sub-budget 40×40 (#3), legit-motion over-block (#4). Result:
+  **found holes** on 4 axes → magnitude fixed here, the rest documented as A2/capability-scope.
+- **too (static)** attempted to refute: pre-settle/entrance (#1), sub-budget 10×10 (#2), legit-motion
+  over-block (#3). Result: **found holes** → same reconciliation.
+- **Outcome accepted by both** (run-proven): the `%→absolute-px` magnitude fix is verified (sub-budget
+  now CAUGHT), the claim is cut to *persistent same-position divergence*, and the remaining boundaries
+  are logged (not silent). Neither oracle certified the anchor blindly; the boundary is what they mapped.
+
+ANCHOR: harness/run-pixel.ts#mut-persistent
+
+Detail of every case, executed:
 
 **FIXED (widened, not accepted):**
 - **magnitude / sub-budget** (too#2 10×10 = 0.024%, goo#3 40×40 = 0.403% — both < the old 1% budget) →
