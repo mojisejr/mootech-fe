@@ -51,7 +51,7 @@ jobs:
       - name: build
         run: npm run build
 
-      - name: run splash harness (evidence-as-gate)
+      - name: run splash harness + pixel lens (evidence-as-gate)
         run: |
           npx next start -p 3000 &
           SERVER=$!
@@ -60,10 +60,14 @@ jobs:
             curl -sf -o /dev/null http://localhost:3000/v2 && break
             sleep 2
           done
+          # screen gate (4-layer + mutant) then the pixel lens (visual ground-truth, same server)
           HARNESS_HOST=http://localhost:3000 npx tsx harness/run.ts
           CODE=$?
+          HARNESS_HOST=http://localhost:3000 npx tsx harness/run-pixel.ts
+          PCODE=$?
           kill "$SERVER" 2>/dev/null || true
-          exit $CODE
+          # fail the job if EITHER gate failed
+          [ "$CODE" -eq 0 ] && [ "$PCODE" -eq 0 ]
 
       - name: upload evidence bundle
         if: always()

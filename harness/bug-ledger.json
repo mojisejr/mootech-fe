@@ -8,5 +8,10 @@
     "id": "inline-identity-gate-evasion",
     "description": "A /v2 page that gates on client identity via inline useCurrentUser / raw MEMBER_ID cookie reaches the auth-gate hydration behaviour WITHOUT importing useV2AuthGate, so it evades import-discovery and its mismatch ships untested. Runtime backstop: full-route crawl catches it at ground-truth. Static prevention (ban the primitive in pages/v2) is too-static's complementary half.",
     "enforced_by": "e2e/v2-hydration-invariant.spec.ts#inline-identity-crawl"
+  },
+  {
+    "id": "cls-silent-flash-pixel-blind",
+    "description": "A same-position visual flash: pixels change but layout does NOT move (opacity / transform / same-box content swap). goo-runtime (console+CLS) is blind — no layout-shift to catch, no console signal; too-static (AST) is blind — it is a real render, not a code shape. Only the rendered image is ground-truth. Invariant: after assets-ready a screen must be VISUALLY STABLE. Anchor = two post-assets-ready screenshots of the real route @393 diffed with pixelmatch, budget 1% (floor; per-route re-ratify). gate_layer=visual/pixel; injection_mechanism=css-inject. Teeth-proven: mut-pixel-silent-flash (recolour/dim key elements in place) -> pixel-diff 21.3% RED while CLS 0.0002 (< 0.015 gate) and console clean; neg-control (clean /v2) 0.000% (verify-the-instrument). Closes D1's 3rd lens. Honest scope: catches a flash AFTER visual-settle; a flash during the entrance window is future scope.",
+    "enforced_by": "harness/run-pixel.ts#mut-pixel-silent-flash"
   }
 ]
