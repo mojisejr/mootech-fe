@@ -53,19 +53,40 @@ export function useV2Home(status: AuthStatus): V2Home {
   const doneRef = useRef(false)
 
   const resolveHome = useCallback(async () => {
-    const user = await UserGetById(userId)
-    const { resultCode, isRefreshResult } = resolveReturningResult(user)
-    // No usable chart (never computed, or stale/refresh — refresh-recompute is deferred to a later
-    // slice) → the register/compute path. Settled-authed only, so this is not a login-loop bounce.
-    if (!resultCode || isRefreshResult) {
-      setPhase('redirecting')
-      router.replace('/v2/register')
-      return
+    // State-table (too's adversary — every outcome must resolve, NEVER infinite-load):
+    //   UserGetById  {chart} → home · {no-chart} → register · {error/throw} → home+fallback (NOT
+    //     register — a transient error must not force a returning user to re-setup; NOT stuck-loading)
+    //   ChineseHoroscopeGet {ok} → home+char · {error/null/throw} → home+01.png fallback
+    try {
+      const user = (await UserGetById(userId)) as { error?: unknown; user_id?: string; result_code?: string }
+      // Distinguish API-ERROR from genuine NO-CHART: a valid get-user response ALWAYS carries user_id.
+      // An error (thrown → {error}, or a non-JSON 5xx body) has none — checking only `result_code` here
+      // would treat an error as no-chart and mis-route a RETURNING user to register (too's HOLE 1).
+      if (!user || user.error || !user.user_id) {
+        // Can't determine the chart (API error) → land HOME on the fallback, don't strand, don't register.
+        setComputeSource(null)
+        setPhase('home')
+        return
+      }
+      const { resultCode, isRefreshResult } = resolveReturningResult(user)
+      if (!resultCode || isRefreshResult) {
+        setPhase('redirecting')
+        router.replace('/v2/register')
+        return
+      }
+      let chart: unknown = null
+      try {
+        chart = await ChineseHoroscopeGet(userId, resultCode)
+      } catch {
+        chart = null // chart fetch failed → home on 01.png fallback (has-chart is already confirmed)
+      }
+      setComputeSource(chart && !(chart as { error?: unknown }).error ? toComputeSource(chart) : null)
+      setPhase('home')
+    } catch {
+      // Any unexpected throw → land HOME with the fallback; never leave the gate spinning forever.
+      setComputeSource(null)
+      setPhase('home')
     }
-    // Has a chart → HOME. Fetch it for the per-user mascot; null (fetch fail) still lands home on 01.png.
-    const chart = await ChineseHoroscopeGet(userId, resultCode)
-    setComputeSource(toComputeSource(chart))
-    setPhase('home')
   }, [userId, router])
 
   useEffect(() => {

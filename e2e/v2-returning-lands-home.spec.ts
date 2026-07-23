@@ -67,4 +67,38 @@ test.describe("v2 returning-user lands home (parity gap C — goo logic anchor)"
     await settled(page, "/v2");
     expect(page.url()).toContain("/v2/register");
   });
+
+  // --- ADVERSARY LENS (Too) — found the missing error-state mapping; now asserting the FIXED,
+  //     never-infinite-loading behavior (every outcome resolves to a definite state). ---
+  test("[Too→fixed] HOLE 1: UserGetById error → land HOME on fallback (NOT stuck, NOT mis-routed to register)", async ({ page, context }) => {
+    await seedAuthed(context);
+    await context.route((u) => u.pathname.endsWith("/user"), (route) => route.fulfill({ status: 500, body: "err" }));
+    await settled(page, "/v2");
+    // Resolved: home renders (greeting visible) on the fallback mascot — never a forever-spinner, and a
+    // transient error does NOT force a (possibly returning) user back through register.
+    expect(new URL(page.url()).pathname).toBe("/v2");
+    await expect(page.getByText(/สวัสดี/)).toBeVisible();
+  });
+
+  test("[Too→fixed] HOLE 2: ChineseHoroscopeGet error → land HOME on 01.png fallback (chart confirmed, mascot degrades)", async ({ page, context }) => {
+    await seedAuthed(context);
+    await context.route((u) => u.pathname.endsWith("/user"), (route) => route.fulfill({
+      status: 200, contentType: "application/json",
+      body: JSON.stringify({ user_id: AUTHED_MEMBER_ID, result_code: "RC-ABC", is_refresh: false, dob: "1990-01-01" }),
+    }));
+    await context.route((u) => u.pathname.includes("chinese-horoscope"), (route) => route.fulfill({ status: 500, body: "err" }));
+    await settled(page, "/v2");
+    expect(page.url()).not.toContain("/v2/register");
+    await expect(page.getByText(/สวัสดี/)).toBeVisible(); // home shown, gate lifted (mascot → 01.png)
+  });
+
+  test("[Too→fixed] HOLE 3: no MEMBER_ID cookie → resolveAuth is 'anon' → onboarding carousel (a definite state, NOT stuck-home)", async ({ page, context }) => {
+    await context.addCookies([{ name: "v2_access", value: V2_PREVIEW_KEY, domain: "localhost", path: "/" }]);
+    await settled(page, "/v2");
+    // No valid uuid cookie + no session → 'anon' → V2Entry renders the carousel, not the home-loading
+    // limbo. Home greeting never shows because the home branch is never reached. (A true authed-but-
+    // cookie-lagging race resolves when the cookie syncs, and AuthLoadingGate's 12s escape backstops it.)
+    await expect(page.getByText(/สวัสดี/)).toBeHidden();
+    expect(page.url()).not.toContain("/v2/register");
+  });
 });
