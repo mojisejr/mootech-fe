@@ -5,39 +5,44 @@ Co-located proof for `features/v2-home/components/V2HomeScreen.tsx` + `harness/r
 ## capability → gate
 Composing a long scrolling screen (~1892px) that layers a hero photo over the page background can leave
 a **visible BG seam/break** where the image ends — ฟีม's headline requirement is that the BG is
-CONTINUOUS. No other lens sees this (it renders fine to console/AST; CLS/computed don't measure a hard
+CONTINUOUS. No other lens sees this (renders fine to console/AST; CLS/computed don't measure a hard
 visual seam). Ground-truth = the rendered image.
 
 ## invariant + anchor
 The home BG must be **continuous through the full scroll** — no abrupt colour jump. Anchor: full-page
-screenshot @393, sample the left-margin column (pure page-BG, x=6), assert max adjacent-row ΔRGB ≤ **90**
-(budget; floor). BG01 hero gradient-fades into `bg-cream`, so the only colour change is a smooth gradient.
+screenshot @393, sample the **left BG margin** column (x=6, pure page-BG), assert max colour delta —
+**row-to-row AND skip-8** (so a soft gradient seam can't hide) — ≤ **90** (budget; floor).
 
 ## proof-of-teeth (run-bg-continuity.ts, executed, neg-control-first)
 | case | result |
 |---|---|
-| neg-control (verify-the-instrument) — clean home | **max-seam 10** → continuous, instrument valid |
-| mutant `mut-bg-seam` (inject a hard full-width band) | **max-seam 472** ≥ 90 → 🦷 CAUGHT |
+| neg-control (verify-the-instrument) — clean home | **max-seam 19** ≤ 90 → continuous, instrument valid (no over-block) |
+| hard full-width band | **472** ≥ 90 → 🦷 CAUGHT |
+| too#3 soft/gradient seam (full-width) | **675** ≥ 90 → 🦷 CAUGHT (skip-8, not just adjacent-row) |
 
-Run: `HARNESS_HOST=… npx tsx harness/run-bg-continuity.ts`. The neg-control (10) is what makes the
-reading trustworthy — a continuous BG reads ~0-noise, so the 472 is a real seam, not instrument noise.
-(First mutant injected *behind* the opaque page bg and read 10 — the control-first discipline exposed
-the mis-injection; fixed to a visible in-page band before trusting teeth.)
+The neg-control (19) is what makes the reading trustworthy. (First mutant injected *behind* the opaque
+page bg and read 10 — the control-first discipline exposed the mis-injection before trusting teeth.)
 
-Also verified @393 (both real character + fallback): overflowX=false, 0 console errors, scrollHeight
-stable 1892px (real character vs fallback = no layout shift), safe-area, content clears the fixed nav.
+Also verified @393 (real character + fallback): overflowX=false, 0 console errors, scrollHeight stable
+1892px (real char vs fallback = no layout shift), safe-area, content clears the fixed nav.
 
-ANCHOR: harness/run-bg-continuity.ts#mut-bg-seam
+ANCHOR: harness/run-bg-continuity.ts#BG-CONTINUITY
 
 ## adversary sign-off
-Cross-oracle — I do NOT self-certify. Dispatched to goo (runtime/responsive) + too (static/structure):
-- **goo** — try to sneak a BG break / responsive breakage past the anchor (a seam only at a non-sampled
-  x / a scroll depth the fullPage misses / an overflow at a viewport other than 393).
-- **too** — structural: a section that breaks the column at a different breakpoint / a hard-coded width.
-- **PENDING** their run-proven attempts (attach what was tried, not a ✓). This anchor is not teeth-proven
-  for merge on my say-so.
+Cross-oracle, RUN-PROVEN — I do NOT self-certify. Both goo (runtime/responsive) and too (static)
+attacked and **converged on the same holes** (= real):
+- **too — the critical catch**: my first widen added a right-margin + left-vs-right comparison to catch
+  right/center seams; it **OVER-BLOCKED the clean page** (read 106–164 > 90) because the home has a legit
+  greeting decoration (sparkle) + left/right BG asymmetry. An over-blocking gate is useless →
+  **reverted to left-margin only** (clean back to 19). too's over-block finding is what kept the anchor honest.
+- **goo — run-proven**: single-column sampling misses a seam that doesn't touch the sampled margin
+  (`left:120px right:0` → x=6 reads 10 BLIND while x=200 = 621 visible); + responsive (320/430/tablet)
+  + sub-budget soft seam (fixed here via skip-8).
+- **Outcome**: teeth = the **primary full-width horizontal seam class** (the BG01→cream transition — ฟีม's
+  actual concern) + soft gradients. The rest is **A2, logged** (see below). Neither oracle certified blindly.
 
-## honest scope (scope B — shell-first)
-The anchor samples ONE column (left margin) at @393 — catches a hard horizontal seam there. A seam only
-at a non-sampled x, or a break that appears only at another viewport width, is A2 (multi-column /
-multi-viewport sampling). Feature content is placeholder; layout structure is complete.
+## honest scope (scope B) — A2 boundaries (run-proven, logged, not silent)
+- **side/center-gap seam** (touches no left margin) → A2 = grid/multi-column sampling (right margin can't
+  be used as-is: legit decoration over-blocks it).
+- **responsive** (break only at a non-393 viewport) → A2 = multi-viewport capture.
+The anchor catches the primary class without false-positives; feature content is placeholder, layout complete.
