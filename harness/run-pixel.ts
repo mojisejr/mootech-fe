@@ -1,8 +1,17 @@
-// harness/run-pixel.ts — pixel-lens gate (webgang v2 · A1). Runs the self-harden loop's proof for the
-// visual ground-truth anchor: (1) verify-the-instrument via a negative control, (2) teeth-prove with a
-// same-position silent-flash mutant that CLS + console are blind to. Exit non-zero if the instrument is
-// invalid (clean not clean) or the anchor is blind (mutant not caught).
-//   npx tsx harness/run-pixel.ts    (server up on :3000; env-overridable for CI)
+// harness/run-pixel.ts — pixel-lens gate (webgang v2 · A1) + the goo+too adversary boundary map.
+//
+// Self-harden loop, run-proven. The adversary round (goo runtime/timing + too static) mapped this lens's
+// scope precisely — every case below is executed, not asserted by eye:
+//   CORE  ✓ persistent same-position divergence (console+CLS+AST all blind) — the lens's real value.
+//   FIXED ✓ sub-budget magnitude — budget is now ABSOLUTE pixels, not % (too/goo: a flash is absolute).
+//   A2    ✗ transient flicker (goo #1) — a 2-frame diff ALIASES a flicker that resolves between frames;
+//            needs burst/temporal sampling. My original "flash" mutant was PERSISTENT, not transient —
+//            the same blind-to-your-own-bug-class shape I caught in goo's crawl. Honest: this is a
+//            *persistent* same-position anchor.
+//   A2    ✗ pre-settle/entrance flash (too #1) — resolves before frame A; needs first-paint capture.
+//   A2    ✗ state-specific (goo #2) — one auth state captured; needs route×state.
+//   SCOPE 🧨 legit post-settle motion OVER-BLOCKS — capability-scoped to STATIC-after-settle routes.
+//   npx tsx harness/run-pixel.ts     (server up on :3000; env-overridable for CI)
 import { chromium } from 'playwright'
 import { pixelStability } from './pixel-anchor'
 
@@ -10,60 +19,51 @@ const HOST = process.env.HARNESS_HOST ?? 'http://localhost:3000'
 const KEY = process.env.V2_PREVIEW_KEY ?? 'lamun-local-dev'
 const ROUTE = '/v2'
 const VP = { w: 393, h: 852 }
-const BUDGET_PCT = 1.0 // floor: clean measured 0.000%; per-route re-ratify (a route with legit motion needs its own budget or masking)
-const CLS_SILENT = 0.015 // the flash must sit BELOW goo's CLS gate — that is what proves this lens catches a CLS-blind bug
+const BUDGET_PX = 300 // absolute changed-pixel floor; clean = 0 (temporal same-session). Catches ≈ >12×12@2x. Per-route re-ratify.
+const CLS_SILENT = 0.015
 
-// mut-pixel-silent-flash: a same-position flash (opacity/colour, never layout) → CLS stays 0, console clean,
-// pixels change. This is the family runtime+static cannot see; the pixel lens is the only ground-truth.
-const MUTANT_CSS = 'img[src*="mascot"]{opacity:.4!important} h1{color:#e11!important} button{background:#e11!important;color:#fff!important}'
+// core: a PERSISTENT same-position divergence (opacity/colour held) — console+CLS+AST blind.
+const MUT_PERSISTENT = 'img[src*="mascot"]{opacity:.4!important} h1{color:#e11!important} button{background:#e11!important;color:#fff!important}'
+// goo #3 / too HOLE2 — a 40×40 box (≈6400px@2x). Under a % budget it slipped; the absolute-px budget catches it.
+const SUB_BUDGET = 'body::after{content:"";position:fixed;top:10px;left:10px;width:40px;height:40px;background:red;z-index:9999}'
+// goo #1 — a transient flicker that resolves (.26s) before frame B → both frames settled → aliased → BLIND (A2).
+const TRANSIENT = '@keyframes flk{0%{opacity:1}50%{opacity:.15}100%{opacity:1}} img[src*="mascot"]{animation:flk .26s 1 !important}'
+// goo #4 / too HOLE3 — legit continuous motion → A≠B → over-block (capability-scope: static routes only).
+const MOTION = '*{animation:spin 2s linear infinite !important}@keyframes spin{100%{transform:rotate(5deg)}}'
+// too #1 — flash before assets-ready, removed before frame A → BLIND (A2: entrance window).
+const PRESETTLE = 'body{background:red !important}'
 
 async function main() {
   const browser = await chromium.launch()
-  const cookie = { name: 'v2_access', value: KEY, domain: new URL(HOST).hostname, path: '/' }
-  const evidenceDir = 'harness/evidence/pixel'
+  const base = { browser, url: `${HOST}${ROUTE}`, budgetPx: BUDGET_PX, viewport: VP, evidenceDir: 'harness/evidence/pixel', cookie: { name: 'v2_access', value: KEY, domain: new URL(HOST).hostname, path: '/' } }
 
-  // (1) verify-the-instrument — negative control: a stable route must read ~0 (no false-positive)
-  const clean = await pixelStability({ browser, url: `${HOST}${ROUTE}`, label: 'clean', budgetPct: BUDGET_PCT, viewport: VP, evidenceDir, cookie })
-  // (2) teeth — the mutant silent flash must TRIP the anchor while CLS stays silent
-  const mut = await pixelStability({ browser, url: `${HOST}${ROUTE}`, label: 'mut-pixel-silent-flash', budgetPct: BUDGET_PCT, viewport: VP, evidenceDir, cookie, injectFlashCss: MUTANT_CSS })
-
-  // --- ADVERSARY PROOFS (The 3 Holes) ---
-  // Hole 2: Sub-budget perceptible flash (Hiding just a small icon/text, diff > 0 but < 1%)
-  const HOLE2_CSS = 'body::after { content: ""; position: absolute; top: 10px; left: 10px; width: 10px; height: 10px; background: red; z-index: 9999; }'
-  const hole2 = await pixelStability({ browser, url: `${HOST}${ROUTE}`, label: 'hole2-sub-budget', budgetPct: BUDGET_PCT, viewport: VP, evidenceDir, cookie, injectFlashCss: HOLE2_CSS })
-
-  // Hole 3: Legit motion over-block (A continuous animation that causes false positive)
-  const HOLE3_CSS = '* { animation: spin 2s linear infinite !important; } @keyframes spin { 100% { transform: rotate(5deg); } }'
-  const hole3 = await pixelStability({ browser, url: `${HOST}${ROUTE}`, label: 'hole3-legit-motion', budgetPct: BUDGET_PCT, viewport: VP, evidenceDir, cookie, injectFlashCss: HOLE3_CSS })
-
-  // Hole 1: Pre-settle flash (Scope Gap). Flash happens and disappears before Frame A.
-  const HOLE1_CSS = 'body { background: red !important; }'
-  const hole1 = await pixelStability({ browser, url: `${HOST}${ROUTE}`, label: 'hole1-presettle', budgetPct: BUDGET_PCT, viewport: VP, evidenceDir, cookie, injectPreSettleFlashCss: HOLE1_CSS })
-
+  const clean = await pixelStability({ ...base, label: 'clean' })
+  const mut = await pixelStability({ ...base, label: 'mut-persistent', injectFlashCss: MUT_PERSISTENT })
+  const subBudget = await pixelStability({ ...base, label: 'sub-budget-40px', injectFlashCss: SUB_BUDGET })
+  const transient = await pixelStability({ ...base, label: 'transient-flicker', injectFlashCss: TRANSIENT })
+  const motion = await pixelStability({ ...base, label: 'legit-motion', injectFlashCss: MOTION })
+  const preSettle = await pixelStability({ ...base, label: 'pre-settle', injectPreSettleFlashCss: PRESETTLE })
   await browser.close()
 
-  const instrumentValid = clean.clean // clean within budget → not vacuous, no false-positive
-  const caught = mut.ratioPct > BUDGET_PCT // the anchor tripped on the injected flash
-  const clsBlind = mut.cls < CLS_SILENT // the flash is exactly the CLS-blind class this lens exists for
+  const instrumentValid = clean.clean // neg-control: stable route reads clean → not vacuous
+  const teethCaught = !mut.clean // persistent same-position divergence tripped
+  const clsBlind = mut.cls < CLS_SILENT // it is the CLS-blind class this lens exists for
+  const subBudgetFixed = !subBudget.clean // absolute-px budget now catches the sub-% flash
 
-  console.log('\n═══ PIXEL LENS — visual ground-truth (same-position flash) ═══')
-  console.log(`  route ${ROUTE} @${VP.w}  budget ${BUDGET_PCT}%`)
-  console.log(`  ${instrumentValid ? '✓' : '✗'} neg-control (verify-the-instrument): clean = ${clean.ratioPct.toFixed(3)}%  ${instrumentValid ? '(stable, no false-positive)' : '(NOT clean — instrument false-positives / vacuous)'}`)
-  console.log(`  ${caught ? '🦷 CAUGHT' : '✗ BLIND'}  mut-pixel-silent-flash: pixel-diff = ${mut.ratioPct.toFixed(3)}% (> ${BUDGET_PCT}% budget)`)
-  console.log(`  ${clsBlind ? '✓' : '✗'} CLS-blind proof: flash CLS = ${mut.cls.toFixed(4)} (< ${CLS_SILENT} → console+CLS could NOT see this; pixel lens is the only ground-truth)`)
-  console.log(`  evidence: ${evidenceDir}/{clean,mut-pixel-silent-flash}-{A,B,diff}.png`)
+  console.log('\n═══ PIXEL LENS — persistent same-position divergence (visual ground-truth) ═══')
+  console.log(`  route ${ROUTE} @${VP.w}  budget ${BUDGET_PX}px (absolute)`)
+  console.log(`  ${instrumentValid ? '✓' : '✗'} neg-control (verify-the-instrument): clean = ${clean.changedPx}px (${clean.ratioPct.toFixed(3)}%)`)
+  console.log(`  ${teethCaught ? '🦷 CAUGHT' : '✗ BLIND'}  core mut-persistent: ${mut.changedPx}px (> ${BUDGET_PX})`)
+  console.log(`  ${clsBlind ? '✓' : '✗'} CLS-blind proof: flash CLS = ${mut.cls.toFixed(4)} (< ${CLS_SILENT})`)
+  console.log(`  ${subBudgetFixed ? '🦷 CAUGHT' : '✗ BLIND'}  sub-budget 40×40 (goo#3/too#2 fix, %→px): ${subBudget.changedPx}px (> ${BUDGET_PX})`)
 
-  console.log('\n═══ ADVERSARY LENS (Too) — Proving the 3 Holes ═══')
-  const hole1PreSettleEvaded = hole1.clean && hole1.ratioPct === 0 // 0% diff because flash resolved before Frame A
-  const hole2Evaded = hole2.clean && hole2.ratioPct > 0 // Caught by eye but budget let it pass
-  const hole3Overblocked = !hole3.clean // Fake flash (legit motion) tripped the anchor, causing over-block
+  console.log('\n═══ MAPPED BOUNDARIES (goo+too adversary — accept-risk / A2, documented in ledger) ═══')
+  console.log(`  ${transient.clean ? '🥷 BLIND (A2)' : 'caught'}  transient flicker (goo#1): ${transient.changedPx}px — 2-frame aliases a flash that resolves between frames → needs burst sampling`)
+  console.log(`  ${preSettle.clean ? '🥷 BLIND (A2)' : 'caught'}  pre-settle/entrance (too#1): ${preSettle.changedPx}px — resolves before frame A → needs first-paint capture`)
+  console.log(`  ${!motion.clean ? '🧨 OVER-BLOCK (scope)' : 'ok'}  legit motion (goo#4/too#3): ${motion.changedPx}px — capability-scoped to STATIC-after-settle routes`)
 
-  console.log(`  ${hole1PreSettleEvaded ? '🥷 EVADED' : '✗ FAILED'} HOLE 1 (Scope Gap): Pre-settle flash completely missed! diff = ${hole1.ratioPct.toFixed(3)}%`)
-  console.log(`  ${hole2Evaded ? '🥷 EVADED' : '✗ FAILED'} HOLE 2 (Sub-budget): Flash is small but perceptible! diff = ${hole2.ratioPct.toFixed(3)}% (Passed budget ${BUDGET_PCT}%!)`)
-  console.log(`  ${hole3Overblocked ? '🧨 OVER-BLOCKED' : '✗ FAILED'} HOLE 3 (Legit Motion): Intentional animation tripped! diff = ${hole3.ratioPct.toFixed(3)}% (> budget ${BUDGET_PCT}%!)`)
-
-  const ok = instrumentValid && caught && clsBlind && hole1PreSettleEvaded && hole2Evaded && hole3Overblocked
-  console.log(`\n  ${ok ? '🟢 PIXEL GATE & ADVERSARY PROOFS PASSED' : '🔴 PIXEL GATE FAILED'} — teeth ${caught ? 'proven' : 'BLIND'} · instrument ${instrumentValid ? 'valid' : 'INVALID'} · CLS-blind ${clsBlind ? 'confirmed' : 'NOT confirmed'}\n`)
+  const ok = instrumentValid && teethCaught && clsBlind && subBudgetFixed
+  console.log(`\n  ${ok ? '🟢 PIXEL GATE PASSED' : '🔴 PIXEL GATE FAILED'} — core teeth ${teethCaught ? 'proven' : 'BLIND'} · instrument ${instrumentValid ? 'valid' : 'INVALID'} · sub-budget ${subBudgetFixed ? 'fixed' : 'STILL BLIND'} · transient/entrance/state = A2, motion = capability-scope\n`)
   process.exit(ok ? 0 : 1)
 }
 

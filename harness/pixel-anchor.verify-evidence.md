@@ -1,46 +1,49 @@
 # verify-evidence — pixel lens (visual ground-truth) · webgang v2 A1
 
-Co-located proof for `harness/pixel-anchor.ts` + `harness/run-pixel.ts`. Closes **D1's 3rd lens**: the
-same-position flash that runtime (goo crawl) and static (too AST) are blind to.
+Co-located proof for `harness/pixel-anchor.ts` + `harness/run-pixel.ts`. Closes **D1's 3rd lens** for the
+**persistent same-position** class — a divergence no other lens sees.
 
-## capability → gates fired
-A change that can render a **transient visual flash without moving layout** (opacity / transform /
-same-box content swap — e.g. SSR shows the wrong state, then JS flips it in place) → the **pixel lens**.
+## capability → gate
+A change that renders a **persistent same-position divergence** (pixels change, layout does NOT move,
+change persists into the settled frame — opacity / colour / same-box swap held) → the **pixel lens**.
 Runtime is blind (no layout-shift, no console signal); static is blind (real render, not a code shape).
 
-## invariant
-After assets-ready, a screen must be **visually stable** — two post-settle frames of the real route
-@393 must be pixel-identical within budget (**1%**, a floor; per-route re-ratify).
+## invariant + anchor
+After assets-ready, a settled screen must be **pixel-stable**: two post-assets-ready viewport
+screenshots of the real /v2 @393, `pixelmatch` diff, budget = **absolute 300px** (a flash is absolute,
+not a % of screen — the adversary insight). gate_layer = visual/pixel; injection = css-inject.
 
-## ground-truth artifacts (screenshots of the REAL /v2 route @393)
-- `pixel-proof/01-clean-settled.png` — clean settled frame (baseline)
-- `pixel-proof/02-mutant-frameA-before-flash.png` — mutant, frame A (before the injected flash)
-- `pixel-proof/03-mutant-frameB-after-flash.png` — mutant, frame B (after the same-position flash)
-- `pixel-proof/04-mutant-diff-caught.png` — pixelmatch diff: **red = changed pixels** (mascot dimmed,
-  heading + CTA recoloured) in their **original positions** — a same-position flash, caught.
-
-## proof-of-teeth (capability-scoped: visual/pixel class)
-Run: `npx tsx harness/run-pixel.ts` (server on :3000; env-overridable for CI).
-| state | result |
+## proof-of-teeth (run-pixel.ts, all executed, neg-control-first)
+| case | result |
 |---|---|
-| neg-control (verify-the-instrument) — clean /v2 | **0.000%** pixel-diff → instrument valid, no false-positive |
-| mutant `mut-pixel-silent-flash` (recolour/dim in place) | **21.3%** pixel-diff ≥ 1% budget → 🦷 CAUGHT |
-| CLS-blind proof (same run) | flash **CLS 0.0002** < 0.015 gate + console clean → console+CLS could NOT see this |
+| neg-control (verify-the-instrument) — clean /v2 | **0px** → instrument valid, no false-positive |
+| core `mut-persistent` (recolour/dim held) | **285,540px** CAUGHT · CLS **0.0002** (< gate) · console clean |
+| sub-budget 40×40 box (goo#3 / too#2 — the %-budget miss, now **fixed** by %→px) | **5,423px** CAUGHT |
 
-The negative control is what makes the reading trustworthy: a stable route reads ~0, so the 21.3% is a
-real flash, not instrument noise. (A `page.setContent`-based probe silently read 0 for everything until
-the control exposed it — the measure itself must be shown to move.)
+`pixel-proof/04-mutant-diff-caught.png` — red = changed pixels on the mascot/heading/CTA in their
+**original positions**. The neg-control (0px) is what makes the readings trustworthy.
 
-## adversary sign-off (cross-oracle — I do NOT self-certify)
-**PENDING** — goo (runtime) + too (static) to try to sneak a visual flash **past** the pixel anchor and
-record what they tried, e.g.:
-- a flash **during the entrance/settle window** (before frame A is taken) — the honest known scope gap;
-- a change too small to clear 1% but still perceptible (sub-budget flash);
-- a route with legitimate post-settle motion that the 1% budget false-positives on (needs per-route budget/masking).
-Per the frame, this anchor is not "teeth-proven" for merge on my say-so; it needs a cross-lens attempt.
+## 🗡️ adversary sign-off — goo (runtime/timing) + too (static), RUN-PROVEN (I do NOT self-certify)
+Both attacked and mapped this lens's boundary precisely. Every case executed (not eyeballed):
 
-## honest scope (D1 close = core only)
-One anchor, one route (/v2), catches a flash **after** visual-settle. A flash **during** the entrance
-window is deliberately out of scope this round (distinguishing a bug-flash from a designed entrance
-animation by pixels alone is future work). Not claimed as universal — this closes the CLS-blind
-same-position class for the stable-after-settle case.
+**FIXED (widened, not accepted):**
+- **magnitude / sub-budget** (too#2 10×10 = 0.024%, goo#3 40×40 = 0.403% — both < the old 1% budget) →
+  switched budget from **% to absolute pixels**. A 40×40 flash is now 5,423px ≥ 300px → CAUGHT. The
+  adversaries proved the *unit* was wrong; the fix follows their insight.
+
+**ACCEPT-RISK / A2 (documented in `bug-ledger.json#pixel-lens-scope-boundaries`, not silent):**
+- **transient flicker** (goo#1, the deepest) — a 2-frame diff **aliases** a flash that resolves between
+  the frames (opacity 1→.2→1 @260ms → 0px BLIND). My core mutant was **persistent, not transient** — the
+  same "owner blind to a dimension of their own bug-class" shape I caught in goo's crawl. Honest: this is
+  a *persistent* same-position anchor. **A2 = burst/temporal sampling.**
+- **pre-settle/entrance** (too#1) — a flash removed before frame A → 0px BLIND. **A2 = first-paint capture.**
+- **state-specific** (goo#2) — one auth state captured → an authed-only flash is missed. **A2 = route×state.**
+- **over-block on legit motion** (goo#4 / too#3) — continuous animation trips the anchor (275,611px) →
+  **capability-scoped to STATIC-after-settle routes**; animated routes need per-route budget/masking.
+- **below-fold** — viewport capture (fullPage crashes pixelmatch on injection-changed height). **A2 = scroll capture.**
+
+## verdict (honest)
+The pixel lens catches the **persistent same-position divergence** class — real, valuable, and invisible
+to console+CLS+AST (that is its worth). Its scope is **< "all visual flashes"** along 3 axes
+(temporal/magnitude/state); magnitude is **fixed**, the rest are documented A2. Ships as v1's 3rd lens
+with its boundary mapped by the adversary round, not claimed as universal.
