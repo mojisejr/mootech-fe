@@ -8,5 +8,15 @@
     "id": "inline-identity-gate-evasion",
     "description": "A /v2 page that gates on client identity via inline useCurrentUser / raw MEMBER_ID cookie reaches the auth-gate hydration behaviour WITHOUT importing useV2AuthGate, so it evades import-discovery and its mismatch ships untested. Runtime backstop: full-route crawl catches it at ground-truth. Static prevention (ban the primitive in pages/v2) is too-static's complementary half.",
     "enforced_by": "e2e/v2-hydration-invariant.spec.ts#inline-identity-crawl"
+  },
+  {
+    "id": "persistent-same-position-divergence",
+    "description": "A PERSISTENT same-position divergence: pixels change but layout does NOT move, and the change persists into the settled frame (opacity/colour/same-box swap held). goo-runtime (console+CLS) and too-static (AST) are both blind — no layout-shift, no console signal, not a code shape; only the rendered image is ground-truth. Anchor = two post-assets-ready viewport screenshots of the real route @393, pixelmatch diff, budget ABSOLUTE 300px (a flash is absolute, not a % of screen — goo/too adversary insight; %→px fix). gate_layer=visual/pixel; injection_mechanism=css-inject. Teeth-proven (run-pixel.ts, all executed, neg-control-first): clean 0px; core mut-persistent 285540px CAUGHT while CLS 0.0002 & console clean; sub-budget 40x40 5423px CAUGHT (the %-budget miss goo#3/too#2 exposed, now fixed). Closes D1's 3rd lens for the persistent class.",
+    "enforced_by": "harness/run-pixel.ts#mut-persistent"
+  },
+  {
+    "id": "pixel-lens-scope-boundaries",
+    "description": "ACCEPT-RISK boundaries of persistent-same-position-divergence, mapped run-proven by the goo+too adversary round (not silent — logged per jot-dont-drop). (1) TRANSIENT flicker [goo#1]: a 2-frame diff ALIASES a flash that resolves between the frames (opacity 1->.2->1 @260ms -> 0px BLIND); the core mutant was persistent, not transient -- the owner-blind-to-own-bug-class shape. A2 = burst/temporal sampling. (2) PRE-SETTLE/entrance [too#1]: a flash removed before frame A -> 0px BLIND. A2 = first-paint capture. (3) STATE-specific [goo#2]: one auth state captured (anon) -> an authed-only flash is missed. A2 = route x state. (4) OVER-BLOCK legit motion [goo#4/too#3]: continuous post-settle animation trips the anchor (275611px) -> capability-scoped to STATIC-after-settle routes; animated routes need per-route budget/masking. (5) BELOW-FOLD: viewport capture (fullPage crashes pixelmatch on injection-changed height) -> A2 = scroll/region capture.",
+    "enforced_by": "harness/run-pixel.ts#MAPPED BOUNDARIES"
   }
 ]
