@@ -62,6 +62,14 @@ export function V2HomeScreen({ greeting, mascotCharacter, onLogout }: V2HomeScre
   )
 }
 
+// Greeting mascot with missing-FILE safety: a resolved character path can 404 (asset not yet in repo /
+// on S3) — Next/Image onError swaps to the static hero. This is the frozen "fallback 01.png" intent at
+// the FILE level (goo's null-fallback covers "no compute"; this covers "path resolves but file missing").
+function MascotImg({ src }: { src: string }) {
+  const [current, setCurrent] = useState(src)
+  return <Image src={current} alt="" fill sizes="28px" style={{ objectFit: 'contain' }} onError={() => setCurrent(HERO_FALLBACK)} />
+}
+
 // ── Greeting ──────────────────────────────────────────────────────────────────────────────────────
 function Greeting({ name, mascotCharacter, onAvatarTap }: { name: string; mascotCharacter: string; onAvatarTap: () => void }) {
   return (
@@ -70,7 +78,8 @@ function Greeting({ name, mascotCharacter, onAvatarTap }: { name: string; mascot
         <h1 className="text-2xl font-bold leading-8 text-v3-navy">สวัสดีคุณ{name}</h1>
         <div className="flex items-center gap-1.5">
           <span className="relative h-8 w-7 shrink-0">
-            <Image src={mascotCharacter} alt="" fill sizes="28px" style={{ objectFit: 'contain' }} />
+            {/* missing-file safety (goo caught: characters/ empty → path 404s): fall back to static hero */}
+            <MascotImg src={mascotCharacter} />
           </span>
           {/* element line = feature data (compute) → placeholder copy, real value lands with feature */}
           <p className="truncate text-base font-bold leading-6 text-v3-text-body">ธาตุของคุณ</p>
