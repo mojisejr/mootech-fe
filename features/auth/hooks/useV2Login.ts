@@ -13,7 +13,10 @@ import { useCookies } from 'react-cookie'
 import { CookieKey } from '@/constants/cookie-key'
 import { CONFIG } from '@/constants/config'
 
-const V2_LOGIN_CALLBACK = '/v2/register'
+// Land back on /v2 (NOT /v2/register): /v2's useV2Home now routes returning(has-chart)→home vs
+// new(no-chart)→/v2/register (parity gap C). Sending everyone straight to /v2/register was the bug —
+// a returning user re-did profile setup instead of seeing their home.
+const V2_LOGIN_CALLBACK = '/v2'
 
 // Copied from pages/login (defined inline there, not exported) — LINE's in-app webview UA.
 const isLineInAppBrowser = () =>
