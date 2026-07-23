@@ -18,5 +18,10 @@
     "id": "pixel-lens-scope-boundaries",
     "description": "ACCEPT-RISK boundaries of persistent-same-position-divergence, mapped run-proven by the goo+too adversary round (not silent — logged per jot-dont-drop). (1) TRANSIENT flicker [goo#1]: a 2-frame diff ALIASES a flash that resolves between the frames (opacity 1->.2->1 @260ms -> 0px BLIND); the core mutant was persistent, not transient -- the owner-blind-to-own-bug-class shape. A2 = burst/temporal sampling. (2) PRE-SETTLE/entrance [too#1]: a flash removed before frame A -> 0px BLIND. A2 = first-paint capture. (3) STATE-specific [goo#2]: one auth state captured (anon) -> an authed-only flash is missed. A2 = route x state. (4) OVER-BLOCK legit motion [goo#4/too#3]: continuous post-settle animation trips the anchor (275611px) -> capability-scoped to STATIC-after-settle routes; animated routes need per-route budget/masking. (5) BELOW-FOLD: viewport capture (fullPage crashes pixelmatch on injection-changed height) -> A2 = scroll/region capture.",
     "enforced_by": "harness/run-pixel.ts#MAPPED BOUNDARIES"
+  },
+  {
+    "id": "bg-continuity-seam",
+    "description": "A long scrolling screen that layers a hero photo over the page bg can leave a visible BG SEAM/break where the image ends. console+AST blind (renders fine, not a code shape); CLS/computed do not measure a hard visual seam. Ground-truth = rendered image. Invariant: home BG continuous through the full scroll @393 — no abrupt colour jump. Anchor = full-page screenshot, sample left-margin column (x=6), max adjacent-row dRGB <= 90 (floor). Teeth-proven (run-bg-continuity.ts, neg-control-first): clean max-seam 10 (continuous); mut-bg-seam (hard full-width band) 472 CAUGHT. gate_layer=visual/pixel; injection_mechanism=css-inject. Scope B: one column @393; multi-column/multi-viewport = A2.",
+    "enforced_by": "harness/run-bg-continuity.ts#mut-bg-seam"
   }
 ]

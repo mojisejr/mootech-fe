@@ -9,5 +9,5 @@ export const getServerSideProps: GetServerSideProps = async () => {
 }
 
 export default function V2HomePreview() {
-  return <V2HomeScreen greeting={{ name: 'มิลา' }} mascotCharacter="/images/v2/mascot/01.png" onLogout={() => window.alert('logout()')} />
+  return <V2HomeScreen greeting={{ name: 'มิลา' }} mascotCharacter="/images/v2/characters/01_ชวด-ดิน.png" onLogout={() => window.alert('logout()')} />
 }
