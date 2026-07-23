@@ -18,5 +18,10 @@
     "id": "pixel-lens-scope-boundaries",
     "description": "ACCEPT-RISK boundaries of persistent-same-position-divergence, mapped run-proven by the goo+too adversary round (not silent — logged per jot-dont-drop). (1) TRANSIENT flicker [goo#1]: a 2-frame diff ALIASES a flash that resolves between the frames (opacity 1->.2->1 @260ms -> 0px BLIND); the core mutant was persistent, not transient -- the owner-blind-to-own-bug-class shape. A2 = burst/temporal sampling. (2) PRE-SETTLE/entrance [too#1]: a flash removed before frame A -> 0px BLIND. A2 = first-paint capture. (3) STATE-specific [goo#2]: one auth state captured (anon) -> an authed-only flash is missed. A2 = route x state. (4) OVER-BLOCK legit motion [goo#4/too#3]: continuous post-settle animation trips the anchor (275611px) -> capability-scoped to STATIC-after-settle routes; animated routes need per-route budget/masking. (5) BELOW-FOLD: viewport capture (fullPage crashes pixelmatch on injection-changed height) -> A2 = scroll/region capture.",
     "enforced_by": "harness/run-pixel.ts#MAPPED BOUNDARIES"
+  },
+  {
+    "id": "bg-continuity-seam",
+    "description": "Home BG must be CONTINUOUS through the full scroll (~1892px) — no seam/break where the hero photo ends. console+AST blind; CLS/computed do not measure a hard visual seam. Ground-truth=rendered image. Anchor: full-page screenshot @393, sample the LEFT BG margin (x=6, pure page-BG), max colour delta row-to-row AND skip-8 <= 90. Teeth-proven (run-bg-continuity.ts, neg-control-first): clean 19; hard full-width band 472 CAUGHT; too#3 soft/gradient 675 CAUGHT (skip-8). gate_layer=visual/pixel; injection=css-inject. Reconciled after goo+too run-proven adversary: a right-margin/left-vs-right widen OVER-BLOCKED the clean page (106-164, legit greeting decoration) -> reverted to left-margin (too catch). A2 (logged): side/center-gap seam (touches no left margin) -> grid; responsive non-393 break -> multi-viewport.",
+    "enforced_by": "harness/run-bg-continuity.ts#BG-CONTINUITY"
   }
 ]
