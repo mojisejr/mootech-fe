@@ -14,9 +14,10 @@ import { mkdirSync, writeFileSync } from 'node:fs'
 
 export interface PixelResult {
   label: string
-  ratioPct: number // % of pixels that changed between the two post-settle frames
+  changedPx: number // ABSOLUTE count of changed pixels — a flash is an absolute thing, not a % of screen
+  ratioPct: number // kept for context only
   cls: number // measured alongside — proves a same-position flash is CLS-silent
-  clean: boolean // ratio within budget
+  clean: boolean // changedPx within the absolute budget
 }
 
 async function assetsReady(p: Page) {
@@ -47,6 +48,7 @@ export async function pixelStability(opts: {
   evidenceDir: string
   cookie?: { name: string; value: string; domain: string; path: string }
   injectFlashCss?: string
+  injectPreSettleFlashCss?: string
 }): Promise<PixelResult> {
   const ctx = await opts.browser.newContext({ viewport: { width: opts.viewport.w, height: opts.viewport.h }, deviceScaleFactor: 2 })
   if (opts.cookie) await ctx.addCookies([opts.cookie])
@@ -60,8 +62,24 @@ export async function pixelStability(opts: {
       }
     }).observe({ type: 'layout-shift', buffered: true })
   })
+  
+  if (opts.injectPreSettleFlashCss) {
+    await page.addInitScript((css) => {
+      const style = document.createElement('style');
+      style.id = 'pre-settle-flash';
+      style.textContent = css;
+      document.head.appendChild(style);
+    }, opts.injectPreSettleFlashCss)
+  }
+
   await page.goto(opts.url, { waitUntil: 'networkidle' })
   await assetsReady(page)
+
+  if (opts.injectPreSettleFlashCss) {
+    await page.evaluate(() => {
+      document.getElementById('pre-settle-flash')?.remove();
+    })
+  }
 
   mkdirSync(opts.evidenceDir, { recursive: true })
   const frameA = await page.screenshot()
