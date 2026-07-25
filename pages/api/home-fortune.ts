@@ -73,15 +73,21 @@ export function normalize(fortune: unknown): DailyFortune | null {
   }
 }
 
-// strengthLabel is REQUIRED (bazi is the only source of the strength band; empty/missing → no persona,
-// the ธาตุ line is hidden). elementTh may be '' (degraded) without voiding the persona — the /v2 wire
-// binds the compute/mascot element for the text anyway, so a blank forwarded element is harmless.
+// strengthLabel is REQUIRED (bazi is the only source of the strength band). Missing / non-string /
+// WHITESPACE-ONLY → no persona, the ธาตุ line is hidden. The whitespace case matters: a truthy blank
+// like '   ' would otherwise render as a bare "·" bullet (Forbidden Bare Bullet — too's find), so we
+// .trim() before the truthiness gate and store the trimmed value. This BFF does NOT police the strength
+// VOCABULARY — bazi owns that (its home-persona anchor guards it); FE is a faithful transport so it
+// never reimplements the vocab (that would drift, same reason we never reimplement gradeForPercent).
+// elementTh may be '' (degraded) without voiding the persona — the /v2 wire binds the compute/mascot
+// element for the text anyway, so a blank forwarded element is harmless.
 export function normalizePersona(persona: unknown): HomePersona | null {
   const p = persona as { elementTh?: unknown; strengthLabel?: unknown } | null
-  if (!p || typeof p.strengthLabel !== 'string' || !p.strengthLabel) return null
+  const strengthLabel = typeof p?.strengthLabel === 'string' ? p.strengthLabel.trim() : ''
+  if (!strengthLabel) return null
   return {
-    elementTh: typeof p.elementTh === 'string' ? p.elementTh : '',
-    strengthLabel: p.strengthLabel,
+    elementTh: typeof p?.elementTh === 'string' ? p.elementTh.trim() : '',
+    strengthLabel,
   }
 }
 

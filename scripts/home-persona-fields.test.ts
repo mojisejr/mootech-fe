@@ -20,19 +20,31 @@ function t(name: string, fn: () => void) {
 
 const REQUIRED: (keyof HomePersona)[] = ['elementTh', 'strengthLabel']
 
-t('complete: bazi persona → both fields present, strengthLabel is the REAL engine vocab', () => {
+// NOTE: the strength VOCABULARY (ground-truth "ดิถีแข็ง"/… vs the Figma "แข็งแรง") is bazi's contract,
+// enforced by the bazi anchor home-persona-complete. This BFF is a faithful transport and does NOT
+// police the vocab (reimplementing it here would drift). too's find: a copy-guard on a value the TEST
+// itself fed in ('ดิถีแข็ง') proves nothing — removed. FE's real job is shape + blank-rejection, below.
+t('complete: bazi persona → both fields present + trimmed', () => {
   const p = normalizePersona({ elementTh: 'ไม้', strengthLabel: 'ดิถีแข็ง' })
   assert.ok(p, 'normalizePersona returned null for a complete persona')
   for (const k of REQUIRED) assert.ok(k in p, `MISSING field: ${k}`)
   assert.equal(p.elementTh, 'ไม้')
   assert.equal(p.strengthLabel, 'ดิถีแข็ง')
-  assert.notEqual(p.strengthLabel, 'แข็งแรง') // copy guard: Figma word must never appear
 })
 
-t('strengthLabel REQUIRED: missing → null (line hidden, never a bare "·")', () => {
+t('strengthLabel REQUIRED: missing / non-string / WHITESPACE-only → null (never a bare "·")', () => {
   assert.equal(normalizePersona({ elementTh: 'ไม้' }), null)
   assert.equal(normalizePersona({ elementTh: 'ไม้', strengthLabel: '' }), null)
   assert.equal(normalizePersona({ elementTh: 'ไม้', strengthLabel: 123 }), null)
+  // too's find: a truthy blank ('   ') would sail through !strengthLabel and render " · " (bare bullet).
+  assert.equal(normalizePersona({ elementTh: 'ไม้', strengthLabel: '   ' }), null)
+  assert.equal(normalizePersona({ elementTh: 'ไม้', strengthLabel: '\t\n ' }), null)
+})
+
+t('strengthLabel is trimmed (surrounding whitespace never reaches the UI)', () => {
+  const p = normalizePersona({ elementTh: ' ไม้ ', strengthLabel: '  ดิถีแข็ง  ' })!
+  assert.equal(p.strengthLabel, 'ดิถีแข็ง')
+  assert.equal(p.elementTh, 'ไม้')
 })
 
 t('elementTh may be "" (degraded) without voiding a valid persona', () => {
