@@ -69,6 +69,12 @@ Cross-oracle, RUN-PROVEN — I do NOT self-certify.
      violated my own invariant #3. **Fixed**: an ISO-shaped-but-invalid string → hidden (`''`); only a
      non-ISO (already-formatted) string passes through. Anchor widened (formatter reject set + @baddate DOM).
   goo also verified I did NOT touch ElementLine / element prop (reads `element.elementTh` intact).
+  **goo re-verified the fix (PR#108) run-proven — SIGNED OFF, no new holes**: reject set all `''`
+  (incl. 2026-02-29 non-leap, 01-32, 00); valid unaffected incl. **2028-02-29 leap → "29 กุมภาพันธ์ 2571"**
+  and ISO+time. **Timezone trap** (his intended attack on the `new Date` round-trip): ran TZ=UTC /
+  America/Los_Angeles / Asia/Bangkok → identical, **no skew** — because it uses the `new Date(y, m-1, d)`
+  component-constructor + local getters (no string-parse-UTC-vs-local-read bug). FYI (not a blocker):
+  year <100 rejects (JS maps 0-99 → 1900+) — bazi sends 4-digit years.
 - **base**: merged origin/main (#106 compute-source) — clean, no conflict; too re-ran harness on the merged
   tree (element row present) + I re-verified @393/360/320 post-merge. (บอง corrected his own "must rebase /
   would regress" over-claim — the merge is clean either way; keeping it since it's verified.)
