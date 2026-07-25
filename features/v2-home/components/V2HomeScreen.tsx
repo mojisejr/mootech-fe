@@ -21,6 +21,14 @@ export type DailyFortune = {
   worst: { text: string } // ⚠️ ควรเลี่ยง
 }
 
+// Contract #2 (greeting element line) — goo wires useHomeElement() → this shape; I render it copy-agnostic.
+// strengthLabel is the GROUND-TRUTH bazi vocab (ดิถีแข็ง/อ่อน/สมดุล — ฟีม's call 2026-07-25), NOT Figma's
+// "แข็งแรง". The component renders whatever string arrives — the vocab decision lives at the data layer.
+export type ElementInfo = {
+  elementTh: string | null // ธาตุ e.g. "ไม้" — null = no profile/compute yet
+  strengthLabel: string | null // ดิถี band — null = not computed (render element alone, drop the "·")
+}
+
 export type V2HomeScreenProps = {
   greeting: { name: string }
   /** resolved character path, or the static hero fallback (/images/v2/mascot/01.png) — goo wires it */
@@ -29,11 +37,14 @@ export type V2HomeScreenProps = {
   /** Zone 1 — goo wires useHomeFortune(); null = no data yet (graceful fallback) */
   fortune: DailyFortune | null
   fortuneLoading: boolean
+  /** Contract #2 — goo wires useHomeElement(); both-null = no profile yet (row hidden, graceful) */
+  element: ElementInfo
+  elementLoading: boolean
 }
 
 const HERO_FALLBACK = '/images/v2/mascot/01.png'
 
-export function V2HomeScreen({ greeting, mascotCharacter, onLogout, fortune, fortuneLoading }: V2HomeScreenProps) {
+export function V2HomeScreen({ greeting, mascotCharacter, onLogout, fortune, fortuneLoading, element, elementLoading }: V2HomeScreenProps) {
   const [logoutOpen, setLogoutOpen] = useState(false)
   return (
     // page bg = bg-cream (Figma Lemon Chiffon) — the CONTINUOUS ground the whole scroll sits on
@@ -47,7 +58,7 @@ export function V2HomeScreen({ greeting, mascotCharacter, onLogout, fortune, for
 
       {/* ── content column: 393 primary, centred + capped, safe-area top, clears the fixed nav ── */}
       <div className="relative z-10 mx-auto flex w-full max-w-md flex-col px-4 pb-36 pt-[max(0.75rem,env(safe-area-inset-top))]">
-        <Greeting name={greeting.name} mascotCharacter={mascotCharacter} onAvatarTap={() => setLogoutOpen(true)} />
+        <Greeting name={greeting.name} mascotCharacter={mascotCharacter} onAvatarTap={() => setLogoutOpen(true)} element={element} elementLoading={elementLoading} />
         <ScoreRingCard fortune={fortune} loading={fortuneLoading} />
         <ManifestCard />
         <WhiteMoundDivider />
@@ -85,19 +96,12 @@ function MascotImg({ src }: { src: string }) {
 }
 
 // ── Greeting ──────────────────────────────────────────────────────────────────────────────────────
-function Greeting({ name, mascotCharacter, onAvatarTap }: { name: string; mascotCharacter: string; onAvatarTap: () => void }) {
+function Greeting({ name, mascotCharacter, onAvatarTap, element, elementLoading }: { name: string; mascotCharacter: string; onAvatarTap: () => void; element: ElementInfo; elementLoading: boolean }) {
   return (
     <header className="flex items-start gap-3 py-4">
       <div className="flex min-w-0 flex-1 flex-col gap-2">
         <h1 className="text-2xl font-bold leading-8 text-v3-navy">สวัสดีคุณ{name}</h1>
-        <div className="flex items-center gap-1.5">
-          <span className="relative h-8 w-7 shrink-0">
-            {/* missing-file safety (goo caught: characters/ empty → path 404s): fall back to static hero */}
-            <MascotImg src={mascotCharacter} />
-          </span>
-          {/* element line = feature data (compute) → placeholder copy, real value lands with feature */}
-          <p className="truncate text-base font-bold leading-6 text-v3-text-body">ธาตุของคุณ</p>
-        </div>
+        <ElementLine mascotCharacter={mascotCharacter} element={element} loading={elementLoading} />
       </div>
       {/* notification bell */}
       <button type="button" aria-label="การแจ้งเตือน" className="grid size-10 shrink-0 place-items-center rounded-full bg-v3-cyan text-white">
@@ -108,6 +112,33 @@ function Greeting({ name, mascotCharacter, onAvatarTap }: { name: string; mascot
         {name.trim().charAt(0) || 'F'}
       </button>
     </header>
+  )
+}
+
+// element sub-line under the greeting. Three graceful states (goo: null = no profile/compute yet):
+//   loading  → mascot + skeleton bar (compute in flight)
+//   has data → "ธาตุของคุณคือ {ธาตุ} · {ดิถี}" (drop the "· ดิถี" if strengthLabel is null — partial)
+//   settled + no data → render NOTHING (hide the whole row — no orphan mascot beside empty text)
+// Copy-agnostic: renders whatever strengthLabel string goo emits (ground-truth ดิถี band, ฟีม 2026-07-25).
+function ElementLine({ mascotCharacter, element, loading }: { mascotCharacter: string; element: ElementInfo; loading: boolean }) {
+  if (!loading && !element.elementTh) return null
+  return (
+    <div className="flex items-center gap-1.5">
+      <span className="relative h-8 w-7 shrink-0">
+        {/* missing-file safety (goo caught: characters/ empty → path 404s): fall back to static hero */}
+        <MascotImg src={mascotCharacter} />
+      </span>
+      {loading ? (
+        <div data-testid="element-skeleton" className="h-4 w-36 animate-pulse rounded bg-v3-border-card" />
+      ) : (
+        <p data-testid="element-line" className="truncate text-base font-bold leading-6 text-v3-text-body">
+          ธาตุของคุณคือ {element.elementTh}
+          {/* trim-guard: a whitespace-only band (" ") is truthy but paints an orphan " · " — drop it.
+              goo closes this at the data layer (too's whitespace bare-bullet catch); this is the visual belt. */}
+          {element.strengthLabel?.trim() ? ` · ${element.strengthLabel.trim()}` : ''}
+        </p>
+      )}
+    </div>
   )
 }
 
