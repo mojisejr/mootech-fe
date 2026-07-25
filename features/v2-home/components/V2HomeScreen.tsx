@@ -152,27 +152,34 @@ function ScoreRingCard({ fortune, loading }: { fortune: DailyFortune | null; loa
 function ScoreDonut({ grade, pct, verdict }: { grade: string; pct: number; verdict: DailyFortune['verdict'] }) {
   const r = 40
   const c = 2 * Math.PI * r
+  // clamp ONCE (goo รู1): out-of-range data (pct>100 / <0) must never overflow the arc OR the label — the
+  // ring can't fill past full, and the number the user reads can't say "150%". Same clamp drives both.
+  const p = Math.max(0, Math.min(100, Math.round(pct)))
   return (
     <div className={`relative grid size-[90px] shrink-0 place-items-center ${VERDICT_ARC[verdict]}`}>
       <svg width="90" height="90" viewBox="0 0 90 90" className="absolute -rotate-90">
         <circle cx="45" cy="45" r={r} fill="none" stroke="currentColor" strokeOpacity="0.15" strokeWidth="8" />
-        <circle cx="45" cy="45" r={r} fill="none" stroke="currentColor" strokeWidth="8" strokeLinecap="round" strokeDasharray={c} strokeDashoffset={c * (1 - Math.max(0, Math.min(100, pct)) / 100)} />
+        <circle cx="45" cy="45" r={r} fill="none" stroke="currentColor" strokeWidth="8" strokeLinecap="round" strokeDasharray={c} strokeDashoffset={c * (1 - p / 100)} />
       </svg>
       <div className="relative text-center text-v3-navy">
-        <p className="text-2xl font-bold leading-8">{grade}</p>
-        <p className="text-sm leading-[22px]">{pct}%</p>
+        <p data-testid="fortune-grade" className="text-2xl font-bold leading-8">{grade}</p>
+        <p data-testid="fortune-pct" className="text-sm leading-[22px]">{p}%</p>
       </div>
     </div>
   )
 }
 
 function FortuneChip({ heading, text, tone, icon }: { heading: string; text: string; tone: 'cyan' | 'pumpkin'; icon: string }) {
+  // empty-facet guard (goo รู2): a fortune can arrive with percent but no facets → text = "" (empty, not
+  // null). goo guarantees non-empty at the data layer; this is the visual belt — an empty facet renders a
+  // graceful "—", never a bare icon with nothing beside it (which reads as broken).
+  const body = text.trim() || '—'
   return (
     <div className="min-w-0 flex-1">
       <p className={`text-base font-bold leading-6 ${tone === 'cyan' ? 'text-v3-cyan' : 'text-v3-pumpkin'}`}>{heading}</p>
       <p className="mt-1 flex items-start gap-1 text-sm leading-[22px] text-v3-text-body">
         <span aria-hidden className="shrink-0">{icon}</span>
-        <span className="min-w-0">{text}</span>
+        <span data-testid="fortune-chip" className="min-w-0">{body}</span>
       </p>
     </div>
   )
