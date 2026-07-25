@@ -47,7 +47,17 @@ cross-month) · `long-name` (truncate) · **worst vocab (ดิน · ดิถ�
 ANCHOR: harness/run-zone1-refine.ts#mut-date-iso
 
 ## adversary sign-off
-Cross-oracle, I do NOT self-certify. Requesting too (static + D2 gate) + goo (runtime) run-proven attempts:
-- too — divider style / icon swap that AST-passes but paints wrong; long-name / RTL / empty-name edge.
-- goo — a date the formatter mis-parses (short/invalid ISO, non-ISO) that leaks or blanks.
-- **PENDING** run-proven attempts (attach what was tried). Did NOT touch goo's ElementLine/useHomeFortune.
+Cross-oracle, RUN-PROVEN — I do NOT self-certify.
+- **too (static/AST + completeness + D2 gate) — SIGNED OFF 2026-07-25**, ran on `mootech-fe-wt-refine`,
+  attacked all 5 + D2, none broke through:
+  1. date formatter — confirmed `formatThaiLongDate` returns `''` (no NaN throw) on non-10-char / unparseable
+     ISO, and `… || fortune.date` degrades to the raw string → **zero blank-leak**.
+  2. dashed divider — `getComputedStyle().borderTopStyle === 'dashed'` is a real tooth (AST-pass ≠ paint);
+     mut-divider-solid CAUGHT.
+  3. icons — no ⭐/⚠️ leak (`/[⭐⚠️]/` gate); Figma 333-6585/6596 SVG, tone via currentColor.
+  4. name edges — long-name truncates with overflowX false; **empty/whitespace name → avatar 'F'**
+     (`name.trim().charAt(0) || 'F'`) — an edge I had NOT enumerated (too's catch, holds).
+  5. vocab-clip @320/360 — `at320.clipped === false`, overflowX false, full "ดิถีแข็งเกินไป" preserved.
+  **D2 gate + refine anchor PASS (6/6 + 3 teeth).** Did NOT touch goo's ElementLine/useHomeFortune.
+- **goo (runtime lens)** — requested (date mis-parse / wrap at odd viewport·data); complementary to too's
+  D2 gate, still out. Will reconcile if it surfaces anything.
