@@ -16,6 +16,7 @@ import { UserGetById } from '@/constants/api/api-user-get'
 import { ChineseHoroscopeGet } from '@/constants/api/api-chinese-horoscope-get'
 import { resolveReturningResult } from '@/lib/auth/returning-result'
 import type { ComputeMascotSource } from '@/lib/personalization/mascot'
+import { toComputeSource } from '@/lib/personalization/compute-source'
 
 export type V2Home = {
   /** Render <AuthLoadingGate/> while true (resolving identity, resolving chart, or redirecting). */
@@ -25,19 +26,8 @@ export type V2Home = {
   computeSource: ComputeMascotSource | null
 }
 
-// Map the raw ChineseHoroscopeGet response into the shape resolveMascotFromCompute reads. The raw
-// response has NO `enrichment`; the day-MASTER element is the day heavenly stem (detail.dayAbove =
-// 日干). Passing the response raw would leave the element null → always-fallback, so we lift it here.
-function toComputeSource(chart: unknown): ComputeMascotSource | null {
-  const c = chart as { detail?: { yearBelow?: { constellation?: string; id?: number }; dayAbove?: { element?: string } } }
-  const yb = c?.detail?.yearBelow
-  const dayStemElement = c?.detail?.dayAbove?.element ?? null
-  if (!yb) return null
-  return {
-    detail: { yearBelow: { constellation: yb.constellation ?? null, id: yb.id ?? null } },
-    enrichment: { pillars: { day: { stemElement: dayStemElement } } },
-  }
-}
+// toComputeSource lives in a pure module (React-free) so the { data } envelope unwrap can be anchored
+// without a DOM — see lib/personalization/compute-source.ts + scripts/compute-source.test.ts.
 
 // Takes the resolved auth `status` as input (NOT useV2AuthGate) — useV2AuthGate must be imported
 // directly inside pages/v2 (complete-by-construction ban that keeps gated-page discovery complete);

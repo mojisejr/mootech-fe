@@ -87,12 +87,16 @@ function V2HomeRoute({ status }: { status: AuthStatus }) {
       onLogout={logout}
       fortune={fortune}
       fortuneLoading={fortuneLoading}
-      // ธาตุ line: element ← the SAME compute/mascot source as the character (so text ธาตุ always
-      // matches the mascot shown, and it renders even before bazi #14 deploys); strength band ←
-      // persona (bazi). null band → Lamun's ElementLine drops the "·" (progressive: element now,
-      // band fills in once bazi forwards it). No loading prop: the element is settled by the time
-      // home renders (behind AuthLoadingGate), so a skeleton would be dead — Lamun removed it (A).
-      element={{ elementTh: mascot?.elementTh ?? null, strengthLabel: persona?.strengthLabel ?? null }}
+      // ธาตุ line: element ← the compute/mascot source FIRST (so text ธาตุ matches the character),
+      // then FALL BACK to bazi's persona.elementTh — defense-in-depth after the compute path proved
+      // fragile in prod (the toComputeSource envelope bug hid the element). persona.elementTh is the
+      // same day-master element from a verified-live path, so the row still renders even if the compute
+      // chain is momentarily null. strength band ← persona; null band → Lamun's ElementLine drops the
+      // "·". No loading prop: element is settled by the time home renders (behind AuthLoadingGate).
+      element={{
+        elementTh: mascot?.elementTh ?? persona?.elementTh ?? null,
+        strengthLabel: persona?.strengthLabel ?? null,
+      }}
     />
   )
 }
