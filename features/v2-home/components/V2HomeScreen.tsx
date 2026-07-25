@@ -10,16 +10,30 @@ import Image from 'next/image'
 import Link from 'next/link'
 import { useRouter } from 'next/router'
 
+// Zone 1 daily-fortune (bazi /api/home). goo wires useHomeFortune() → this shape; I compose against it.
+export type DailyFortune = {
+  percent: number // 0–100 → ring fill
+  grade: string // gradeForPercent(percent) — goo
+  verdict: 'good' | 'neutral' | 'caution' // → ring colour (green / yellow / orange)
+  headline: string // summaryHeadline → message
+  date: string // fortune.date
+  best: { text: string } // ⭐ เหมาะกับวันนี้
+  worst: { text: string } // ⚠️ ควรเลี่ยง
+}
+
 export type V2HomeScreenProps = {
   greeting: { name: string }
   /** resolved character path, or the static hero fallback (/images/v2/mascot/01.png) — goo wires it */
   mascotCharacter: string
   onLogout: () => void
+  /** Zone 1 — goo wires useHomeFortune(); null = no data yet (graceful fallback) */
+  fortune: DailyFortune | null
+  fortuneLoading: boolean
 }
 
 const HERO_FALLBACK = '/images/v2/mascot/01.png'
 
-export function V2HomeScreen({ greeting, mascotCharacter, onLogout }: V2HomeScreenProps) {
+export function V2HomeScreen({ greeting, mascotCharacter, onLogout, fortune, fortuneLoading }: V2HomeScreenProps) {
   const [logoutOpen, setLogoutOpen] = useState(false)
   return (
     // page bg = bg-cream (Figma Lemon Chiffon) — the CONTINUOUS ground the whole scroll sits on
@@ -34,7 +48,7 @@ export function V2HomeScreen({ greeting, mascotCharacter, onLogout }: V2HomeScre
       {/* ── content column: 393 primary, centred + capped, safe-area top, clears the fixed nav ── */}
       <div className="relative z-10 mx-auto flex w-full max-w-md flex-col px-4 pb-36 pt-[max(0.75rem,env(safe-area-inset-top))]">
         <Greeting name={greeting.name} mascotCharacter={mascotCharacter} onAvatarTap={() => setLogoutOpen(true)} />
-        <ScoreRingCard />
+        <ScoreRingCard fortune={fortune} loading={fortuneLoading} />
         <ManifestCard />
         <WhiteMoundDivider />
         <ServiceSection
@@ -98,57 +112,90 @@ function Greeting({ name, mascotCharacter, onAvatarTap }: { name: string; mascot
 }
 
 // ── Score-ring card (daily-session) ─────────────────────────────────────────────────────────────
-function ScoreRingCard() {
+// verdict → ring colour. good=green(teal) · neutral=yellow · caution=orange. (Figma's lime donut is
+// replaced by a verdict-coloured arc — the lime bg would hide a lime/neutral arc; verdict must read.)
+const VERDICT_ARC: Record<DailyFortune['verdict'], string> = {
+  good: 'text-v3-cyan',
+  neutral: 'text-v3-lime',
+  caution: 'text-v3-pumpkin',
+}
+
+function ScoreRingCard({ fortune, loading }: { fortune: DailyFortune | null; loading: boolean }) {
   return (
     <section className="mb-8 flex flex-col gap-4 rounded-[28px] bg-gradient-to-b from-white to-v3-cyan/20 p-6 shadow-sm">
-      <div className="flex items-center gap-4">
-        <ScoreDonut grade="C+" pct={75} />
-        <div className="min-w-0 text-lg font-bold leading-6 text-v3-navy">
-          <p>วันนี้ดวงดีมาก</p>
-          <p>เเค่เริ่มก็สำเร็จเเล้ว</p>
-        </div>
-      </div>
-      <hr className="border-v3-border-card" />
-      <div className="flex items-start gap-4 text-base font-bold leading-6">
-        <p className="min-w-0 flex-1 text-v3-navy">วันนี้</p>
-        <Link href="/v2/calendar" className="shrink-0 uppercase text-v3-sapphire underline">เปิดปฏิทินของฉัน</Link>
-      </div>
-      <hr className="border-v3-border-card" />
-      {/* เหมาะ / เลี่ยง — FEATURE lists → empty-state placeholder (scope B) */}
-      <div className="flex items-start gap-4">
-        <PlaceholderList heading="เหมาะกับวันนี้" tone="cyan" />
-        <div className="w-px self-stretch bg-v3-border-card" />
-        <PlaceholderList heading="ควรเลี่ยง" tone="pumpkin" />
-      </div>
+      {loading || !fortune ? (
+        <FortuneSkeleton empty={!loading && !fortune} />
+      ) : (
+        <>
+          <div className="flex items-center gap-4">
+            <ScoreDonut grade={fortune.grade} pct={fortune.percent} verdict={fortune.verdict} />
+            <p className="min-w-0 flex-1 text-lg font-bold leading-6 text-v3-navy">{fortune.headline}</p>
+          </div>
+          <hr className="border-v3-border-card" />
+          <div className="flex items-center gap-4 text-base font-bold leading-6">
+            <p className="min-w-0 flex-1 text-v3-navy">{fortune.date}</p>
+            {/* calendar link kept, NOT wired this zone (ฟีม: skip) */}
+            <Link href="/v2/calendar" className="shrink-0 uppercase text-v3-sapphire underline">เปิดปฏิทินของฉัน</Link>
+          </div>
+          <hr className="border-v3-border-card" />
+          <div className="flex items-stretch gap-4">
+            <FortuneChip heading="เหมาะกับวันนี้" text={fortune.best.text} tone="cyan" icon="⭐" />
+            <div className="w-px self-stretch bg-v3-border-card" />
+            <FortuneChip heading="ควรเลี่ยง" text={fortune.worst.text} tone="pumpkin" icon="⚠️" />
+          </div>
+        </>
+      )}
     </section>
   )
 }
 
-function ScoreDonut({ grade, pct }: { grade: string; pct: number }) {
+function ScoreDonut({ grade, pct, verdict }: { grade: string; pct: number; verdict: DailyFortune['verdict'] }) {
   const r = 40
   const c = 2 * Math.PI * r
+  // clamp ONCE (goo รู1): out-of-range data (pct>100 / <0) must never overflow the arc OR the label — the
+  // ring can't fill past full, and the number the user reads can't say "150%". Same clamp drives both.
+  const p = Math.max(0, Math.min(100, Math.round(pct)))
   return (
-    <div className="grid size-[90px] shrink-0 place-items-center rounded-full bg-v3-lime">
-      <svg width="90" height="90" viewBox="0 0 90 90" className="absolute -rotate-90 text-v3-sapphire">
-        <circle cx="45" cy="45" r={r} fill="none" stroke="white" strokeWidth="6" />
-        <circle cx="45" cy="45" r={r} fill="none" stroke="currentColor" strokeWidth="6" strokeLinecap="round" strokeDasharray={c} strokeDashoffset={c * (1 - pct / 100)} />
+    <div className={`relative grid size-[90px] shrink-0 place-items-center ${VERDICT_ARC[verdict]}`}>
+      <svg width="90" height="90" viewBox="0 0 90 90" className="absolute -rotate-90">
+        <circle cx="45" cy="45" r={r} fill="none" stroke="currentColor" strokeOpacity="0.15" strokeWidth="8" />
+        <circle cx="45" cy="45" r={r} fill="none" stroke="currentColor" strokeWidth="8" strokeLinecap="round" strokeDasharray={c} strokeDashoffset={c * (1 - p / 100)} />
       </svg>
-      <div className="relative text-center text-v3-sapphire">
-        <p className="text-2xl font-bold leading-8">{grade}</p>
-        <p className="text-sm leading-[22px]">{pct}%</p>
+      <div className="relative text-center text-v3-navy">
+        <p data-testid="fortune-grade" className="text-2xl font-bold leading-8">{grade}</p>
+        <p data-testid="fortune-pct" className="text-sm leading-[22px]">{p}%</p>
       </div>
     </div>
   )
 }
 
-function PlaceholderList({ heading, tone }: { heading: string; tone: 'cyan' | 'pumpkin' }) {
+function FortuneChip({ heading, text, tone, icon }: { heading: string; text: string; tone: 'cyan' | 'pumpkin'; icon: string }) {
+  // empty-facet guard (goo รู2): a fortune can arrive with percent but no facets → text = "" (empty, not
+  // null). goo guarantees non-empty at the data layer; this is the visual belt — an empty facet renders a
+  // graceful "—", never a bare icon with nothing beside it (which reads as broken).
+  const body = text.trim() || '—'
   return (
     <div className="min-w-0 flex-1">
       <p className={`text-base font-bold leading-6 ${tone === 'cyan' ? 'text-v3-cyan' : 'text-v3-pumpkin'}`}>{heading}</p>
-      <div className="mt-1 space-y-1.5">
-        <div className="h-3 w-4/5 rounded bg-v3-border-card" />
-        <div className="h-3 w-3/5 rounded bg-v3-border-card" />
+      <p className="mt-1 flex items-start gap-1 text-sm leading-[22px] text-v3-text-body">
+        <span aria-hidden className="shrink-0">{icon}</span>
+        <span data-testid="fortune-chip" className="min-w-0">{body}</span>
+      </p>
+    </div>
+  )
+}
+
+function FortuneSkeleton({ empty }: { empty: boolean }) {
+  return (
+    <div className="animate-pulse">
+      <div className="flex items-center gap-4">
+        <div className="size-[90px] shrink-0 rounded-full bg-v3-border-card" />
+        <div className="min-w-0 flex-1 space-y-2">
+          <div className="h-4 w-4/5 rounded bg-v3-border-card" />
+          <div className="h-4 w-3/5 rounded bg-v3-border-card" />
+        </div>
       </div>
+      {empty && <p className="mt-4 text-center text-sm font-medium text-v3-text-muted">ยังไม่มีข้อมูลดวงวันนี้</p>}
     </div>
   )
 }
