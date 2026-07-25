@@ -53,10 +53,30 @@ function V2Entry() {
 function V2HomeRoute({ status }: { status: AuthStatus }) {
   const { showLoading, greeting, computeSource } = useV2Home(status)
   const { logout } = useV2Logout()
-  const mascotCharacter = useMascotFromCompute(computeSource)?.character ?? '/images/v2/mascot/01.png'
-  // Zone 1 — daily-fortune data seam. Called unconditionally (before the loading branch) so hook order
-  // is stable; graceful by design (no profile / bazi error → fortune=null → ScoreRingCard fallback).
-  const { fortune, loading: fortuneLoading } = useHomeFortune()
+  const mascot = useMascotFromCompute(computeSource)
+  const mascotCharacter = mascot?.character ?? '/images/v2/mascot/01.png'
+  // Zone 1 — daily-fortune + persona data seam. Called unconditionally (before the loading branch) so
+  // hook order is stable; graceful by design (no profile / bazi error → fortune/persona=null → cards
+  // show fallback). ONE BFF call returns both fortune and persona (no extra bazi compute).
+  const { fortune, persona, loading: fortuneLoading } = useHomeFortune()
+
+  // Split-brain guard (too's wire review): the ธาตุ TEXT binds the MASCOT's element (compute, for
+  // visual consistency with the character), while the strength band comes from bazi's persona — two
+  // different compute engines. If bazi's persona.elementTh disagrees with the mascot's, the band would
+  // describe a DIFFERENT element than the text/character shows. We keep the UI consistent with the
+  // mascot (never mislabel the character), but surface the divergence in dev so a compute mismatch is
+  // caught rather than silently shipped. persona.elementTh is forwarded precisely to enable this check.
+  if (
+    process.env.NODE_ENV !== 'production' &&
+    mascot?.elementTh &&
+    persona?.elementTh &&
+    mascot.elementTh !== persona.elementTh
+  ) {
+    // eslint-disable-next-line no-console
+    console.warn(
+      `[home ธาตุ] element split-brain: mascot=${mascot.elementTh} (mootech-be) vs persona=${persona.elementTh} (bazi) — the "${persona.strengthLabel}" band was computed for the persona element, not the one shown`,
+    )
+  }
 
   if (showLoading) return <AuthLoadingGate />
 
@@ -67,6 +87,12 @@ function V2HomeRoute({ status }: { status: AuthStatus }) {
       onLogout={logout}
       fortune={fortune}
       fortuneLoading={fortuneLoading}
+      // ธาตุ line: element ← the SAME compute/mascot source as the character (so text ธาตุ always
+      // matches the mascot shown, and it renders even before bazi #14 deploys); strength band ←
+      // persona (bazi). null band → Lamun's ElementLine drops the "·" (progressive: element now,
+      // band fills in once bazi forwards it). No loading prop: the element is settled by the time
+      // home renders (behind AuthLoadingGate), so a skeleton would be dead — Lamun removed it (A).
+      element={{ elementTh: mascot?.elementTh ?? null, strengthLabel: persona?.strengthLabel ?? null }}
     />
   )
 }

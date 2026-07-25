@@ -2,9 +2,19 @@
 // ?state=good|neutral|caution|loading|empty|overflow|empty-facet — enumerate the Zone-1 state-space.
 // ?mut=hardcode — reproduce too's adversary regression (grade/pct hardcoded, ignoring fortune) so the
 //   fidelity anchor drives clean+mutant from the URL alone (data-binding teeth, no source patch).
+// ?el=full|partial|none|blankband — Contract #2 greeting element line (full = ธาตุ + ดิถี band).
+// no "loading": element comes from settled compute (never loading here — too's dead-skeleton catch).
 import type { GetServerSideProps } from 'next'
 import { useRouter } from 'next/router'
-import { V2HomeScreen, type DailyFortune } from '@/features/v2-home/components/V2HomeScreen'
+import { V2HomeScreen, type DailyFortune, type ElementInfo } from '@/features/v2-home/components/V2HomeScreen'
+
+// ground-truth ดิถี band vocab (ฟีม 2026-07-25), NOT Figma "แข็งแรง".
+const ELEMENTS: Record<string, ElementInfo> = {
+  full: { elementTh: 'ไม้', strengthLabel: 'ดิถีอ่อน' },
+  partial: { elementTh: 'ไม้', strengthLabel: null }, // computed element, no strength band yet
+  none: { elementTh: null, strengthLabel: null }, // no profile/compute → row hidden
+  blankband: { elementTh: 'ไม้', strengthLabel: '   ' }, // too's whitespace catch — must NOT paint " · "
+}
 
 const FORTUNES: Record<string, DailyFortune> = {
   good: { percent: 88, grade: 'A', verdict: 'good', headline: 'วันนี้ดวงดีมาก เเค่เริ่มก็สำเร็จเเล้ว', date: '25 กรกฎาคม 2569', best: { text: 'เริ่มต้นโปรเจกต์ใหม่ ติดต่อเจรจาเรื่องการเงิน' }, worst: { text: 'การตัดสินใจด้วยอารมณ์' } },
@@ -28,5 +38,7 @@ export default function V2HomePreview() {
   let fortune = loading || s === 'empty' ? null : (FORTUNES[s] ?? FORTUNES.good)
   // too's regression: ignore per-state values, hardcode grade/pct → data-binding must be broken.
   if (fortune && q.mut === 'hardcode') fortune = { ...fortune, grade: 'A', percent: 99 }
-  return <V2HomeScreen greeting={{ name: 'มิลา' }} mascotCharacter="/images/v2/characters/01_ชวด-ดิน.png" onLogout={() => window.alert('logout()')} fortune={fortune} fortuneLoading={loading} />
+  const el = (q.el as string) || 'full'
+  const element = ELEMENTS[el] ?? ELEMENTS.full
+  return <V2HomeScreen greeting={{ name: 'มิลา' }} mascotCharacter="/images/v2/characters/01_ชวด-ดิน.png" onLogout={() => window.alert('logout()')} fortune={fortune} fortuneLoading={loading} element={element} />
 }

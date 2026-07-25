@@ -30,6 +30,13 @@ export type DailyFortune = {
   worst: { text: string } // ⚠️ ควรเลี่ยง (facet %ต่ำสุด)
 }
 
+// Home "ธาตุของคุณ" line — day-master element + strength band. bazi /api/home forwards
+// persona:{elementTh, strengthLabel} (route-level, same compute as the fortune → no drift).
+export type HomePersona = {
+  elementTh: string // day-master element, Thai label ("ไม้"/"ไฟ"/"ดิน"/"ทอง"/"น้ำ")
+  strengthLabel: string // strength band — REAL engine vocab ("ดิถีแข็ง"/"ดิถีอ่อน"/…), never "แข็งแรง"
+}
+
 type Facet = { key: string; label: string; percent: number | null; grade: string; isMain: boolean }
 type SummaryItem = { key: string; icon: string; label: string; text: string }
 
@@ -66,10 +73,28 @@ export function normalize(fortune: unknown): DailyFortune | null {
   }
 }
 
+// strengthLabel is REQUIRED (bazi is the only source of the strength band). Missing / non-string /
+// WHITESPACE-ONLY → no persona, the ธาตุ line is hidden. The whitespace case matters: a truthy blank
+// like '   ' would otherwise render as a bare "·" bullet (Forbidden Bare Bullet — too's find), so we
+// .trim() before the truthiness gate and store the trimmed value. This BFF does NOT police the strength
+// VOCABULARY — bazi owns that (its home-persona anchor guards it); FE is a faithful transport so it
+// never reimplements the vocab (that would drift, same reason we never reimplement gradeForPercent).
+// elementTh may be '' (degraded) without voiding the persona — the /v2 wire binds the compute/mascot
+// element for the text anyway, so a blank forwarded element is harmless.
+export function normalizePersona(persona: unknown): HomePersona | null {
+  const p = persona as { elementTh?: unknown; strengthLabel?: unknown } | null
+  const strengthLabel = typeof p?.strengthLabel === 'string' ? p.strengthLabel.trim() : ''
+  if (!strengthLabel) return null
+  return {
+    elementTh: typeof p?.elementTh === 'string' ? p.elementTh.trim() : '',
+    strengthLabel,
+  }
+}
+
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' })
   const { person, anonId } = (req.body ?? {}) as { person?: FeCalcInput; anonId?: string }
-  if (!person) return res.status(200).json({ fortune: null }) // no birth data → graceful skip (card hidden)
+  if (!person) return res.status(200).json({ fortune: null, persona: null }) // no birth data → graceful skip
 
   try {
     const { rawInput } = toBaziInput(person) // reuse the FE→bazi person mapper (birthDate/time/gender/province)
@@ -84,10 +109,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       signal: ac.signal,
     })
     clearTimeout(timer)
-    if (!r.ok) return res.status(200).json({ fortune: null }) // bazi 4xx/5xx → graceful, page holds
-    const data = (await r.json()) as { fortune?: unknown }
-    return res.status(200).json({ fortune: normalize(data.fortune) })
+    if (!r.ok) return res.status(200).json({ fortune: null, persona: null }) // bazi 4xx/5xx → graceful
+    const data = (await r.json()) as { fortune?: unknown; persona?: unknown }
+    return res.status(200).json({ fortune: normalize(data.fortune), persona: normalizePersona(data.persona) })
   } catch {
-    return res.status(200).json({ fortune: null }) // timeout/unreachable → graceful
+    return res.status(200).json({ fortune: null, persona: null }) // timeout/unreachable → graceful
   }
 }

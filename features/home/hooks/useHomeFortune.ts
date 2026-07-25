@@ -13,14 +13,19 @@ import { useCookies } from 'react-cookie'
 import { CookieKey } from '@/constants/cookie-key'
 import { UserGetById } from '@/constants/api/api-user-get'
 import { userRowToFeCalcInput, isBirthProfileComplete, type UserBirthRow } from '@/lib/bazi-bridge/input'
-import type { DailyFortune } from '@/pages/api/home-fortune'
+import type { DailyFortune, HomePersona } from '@/pages/api/home-fortune'
 
-export type { DailyFortune }
+export type { DailyFortune, HomePersona }
 
-export function useHomeFortune(): { fortune: DailyFortune | null; loading: boolean } {
+// One BFF call (/api/home-fortune → bazi /api/home) returns BOTH the daily fortune and the persona
+// (ธาตุ + strength) — bazi derives them from the same compute, so exposing both here keeps it to a
+// single round-trip (no second bazi compute). ScoreRingCard consumes `fortune`; the greeting ธาตุ
+// line consumes `persona.strengthLabel` (element comes from the compute/mascot source at the wire).
+export function useHomeFortune(): { fortune: DailyFortune | null; persona: HomePersona | null; loading: boolean } {
   const [cookies] = useCookies([CookieKey.MEMBER_ID])
   const userId = (cookies[CookieKey.MEMBER_ID] as string) || ''
   const [fortune, setFortune] = useState<DailyFortune | null>(null)
+  const [persona, setPersona] = useState<HomePersona | null>(null)
   const [loading, setLoading] = useState(true)
   const doneRef = useRef(false)
 
@@ -39,10 +44,19 @@ export function useHomeFortune(): { fortune: DailyFortune | null; loading: boole
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ person, anonId: userId }),
         })
-        const data = (r.ok ? await r.json() : { fortune: null }) as { fortune: DailyFortune | null }
-        if (alive) setFortune(data.fortune ?? null)
+        const data = (r.ok ? await r.json() : { fortune: null, persona: null }) as {
+          fortune: DailyFortune | null
+          persona: HomePersona | null
+        }
+        if (alive) {
+          setFortune(data.fortune ?? null)
+          setPersona(data.persona ?? null)
+        }
       } catch {
-        if (alive) setFortune(null)
+        if (alive) {
+          setFortune(null)
+          setPersona(null)
+        }
       } finally {
         if (alive) setLoading(false)
       }
@@ -52,5 +66,5 @@ export function useHomeFortune(): { fortune: DailyFortune | null; loading: boole
     }
   }, [userId])
 
-  return { fortune, loading }
+  return { fortune, persona, loading }
 }
