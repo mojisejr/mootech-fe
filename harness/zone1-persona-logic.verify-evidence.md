@@ -34,6 +34,26 @@ accepting elementTh/strengthLabel/elementLoading) is มุน's #2; the /v2 wir
 strength ← persona) lands with her compose — kept out of here so V2HomeScreen (shared file) isn't touched.
 
 ## adversary sign-off
-PENDING — มุน (visual: the ธาตุ line render + real-vocab copy) + too (static). goo does not self-certify.
+**too (static/AST/completeness) — SIGNED** (2 rounds, goo did not self-certify):
+- whitespace-only strengthLabel `'   '` was truthy → would render a bare "·" (Forbidden Bare Bullet).
+  FIXED: `.trim()` before the gate; teeth proven (revert trim → red). [real bug]
+- FE copy-guard was a tautology (asserted a value the test fed in) — REMOVED; FE is a transport, not a
+  vocab police (an FE allowlist would reimplement bazi's vocab = drift, same reason we never
+  reimplement gradeForPercent). too confirmed this architectural boundary.
+- bazi copy-guard was tautological (local array) → now imports the real OPERATOR_STRENGTH_CLASS_BANDS
+  and asserts the engine config itself; teeth proven (mutate a real band's displayLabel → red).
+- copy-slip (#4): resolved — the strength VOCABULARY is bazi's contract, guarded by the bazi anchor
+  against the real config; FE trusts it (single-source). If belt-and-suspenders is wanted, a denylist
+  of the one Figma word (no drift) is the only non-reimplementing option — ฟีม's call, not added.
+- fortune⟹persona coupling (#1): persona is intentionally null-able (bad score → null, never 500s the
+  home) so a hard invariant would be wrong; the route is DB-coupled (no unit harness) → integration
+  covered by verify-real-path against pdf-dev (valid person → BOTH fortune and persona present).
+
+**Follow-up (noted by too + goo, for the WIRE/combine step — NOT this data PR):** `pages/v2/index.tsx`
+calls `useV2Home` + `useHomeFortune` which each fire `UserGetById(userId)` on mount → 2× per load
+(pre-existing since #102, not introduced by persona). Fix when wiring: hoist a single user fetch that
+feeds routing + fortune + persona.
+
+**มุน (visual)** — pending her greeting compose (ธาตุ line render + real-vocab copy).
 
 ANCHOR: scripts/home-persona-fields.test.ts#home-persona-fields-complete
