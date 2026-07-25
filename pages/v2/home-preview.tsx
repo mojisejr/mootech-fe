@@ -16,14 +16,15 @@ const ELEMENTS: Record<string, ElementInfo> = {
   blankband: { elementTh: 'ไม้', strengthLabel: '   ' }, // too's whitespace catch — must NOT paint " · "
 }
 
+// date = RAW ISO (what bazi /api/home actually returns) → the component formats it to พ.ศ. (#3).
 const FORTUNES: Record<string, DailyFortune> = {
-  good: { percent: 88, grade: 'A', verdict: 'good', headline: 'วันนี้ดวงดีมาก เเค่เริ่มก็สำเร็จเเล้ว', date: '25 กรกฎาคม 2569', best: { text: 'เริ่มต้นโปรเจกต์ใหม่ ติดต่อเจรจาเรื่องการเงิน' }, worst: { text: 'การตัดสินใจด้วยอารมณ์' } },
-  neutral: { percent: 62, grade: 'C+', verdict: 'neutral', headline: 'วันนี้ทรงตัว ค่อยเป็นค่อยไป', date: '25 กรกฎาคม 2569', best: { text: 'งานประจำที่คุ้นเคย' }, worst: { text: 'การเดินทางไกลยามวิกาล' } },
-  caution: { percent: 34, grade: 'D', verdict: 'caution', headline: 'วันนี้ควรระมัดระวังเป็นพิเศษในทุกการตัดสินใจ', date: '25 กรกฎาคม 2569', best: { text: 'พักผ่อน ทำสมาธิ อยู่กับตัวเอง' }, worst: { text: 'เซ็นสัญญา ลงทุนก้อนใหญ่ การเดินทางไกล' } },
+  good: { percent: 88, grade: 'A', verdict: 'good', headline: 'วันนี้ดวงดีมาก เเค่เริ่มก็สำเร็จเเล้ว', date: '2026-06-01', best: { text: 'เริ่มต้นโปรเจกต์ใหม่ ติดต่อเจรจาเรื่องการเงิน' }, worst: { text: 'การตัดสินใจด้วยอารมณ์' } },
+  neutral: { percent: 62, grade: 'C+', verdict: 'neutral', headline: 'วันนี้ทรงตัว ค่อยเป็นค่อยไป', date: '2026-11-15', best: { text: 'งานประจำที่คุ้นเคย' }, worst: { text: 'การเดินทางไกลยามวิกาล' } },
+  caution: { percent: 34, grade: 'D', verdict: 'caution', headline: 'วันนี้ควรระมัดระวังเป็นพิเศษในทุกการตัดสินใจ', date: '2026-02-28', best: { text: 'พักผ่อน ทำสมาธิ อยู่กับตัวเอง' }, worst: { text: 'เซ็นสัญญา ลงทุนก้อนใหญ่ การเดินทางไกล' } },
   // goo รู1 — out-of-range pct (bad data). Component must clamp arc AND label to ≤100.
-  overflow: { percent: 150, grade: 'A+', verdict: 'good', headline: 'ข้อมูลเกินช่วง — ต้อง clamp', date: '25 กรกฎาคม 2569', best: { text: 'ทดสอบ bounds' }, worst: { text: 'ปล่อยให้ล้น' } },
+  overflow: { percent: 150, grade: 'A+', verdict: 'good', headline: 'ข้อมูลเกินช่วง — ต้อง clamp', date: '2026-06-01', best: { text: 'ทดสอบ bounds' }, worst: { text: 'ปล่อยให้ล้น' } },
   // goo รู2 — fortune with percent but empty facets. Chip must render a graceful "—", never a bare icon.
-  'empty-facet': { percent: 70, grade: 'B', verdict: 'neutral', headline: 'มีคะแนนแต่ไม่มีรายละเอียดวันนี้', date: '25 กรกฎาคม 2569', best: { text: '' }, worst: { text: '' } },
+  'empty-facet': { percent: 70, grade: 'B', verdict: 'neutral', headline: 'มีคะแนนแต่ไม่มีรายละเอียดวันนี้', date: '2026-06-01', best: { text: '' }, worst: { text: '' } },
 }
 
 export const getServerSideProps: GetServerSideProps = async () => {
@@ -40,5 +41,7 @@ export default function V2HomePreview() {
   if (fortune && q.mut === 'hardcode') fortune = { ...fortune, grade: 'A', percent: 99 }
   const el = (q.el as string) || 'full'
   const element = ELEMENTS[el] ?? ELEMENTS.full
-  return <V2HomeScreen greeting={{ name: 'มิลา' }} mascotCharacter="/images/v2/characters/01_ชวด-ดิน.png" onLogout={() => window.alert('logout()')} fortune={fortune} fortuneLoading={loading} element={element} />
+  // ?name= — #1 long-name graceful case (h1 truncates, upgrade badge + icons stay put)
+  const name = (q.name as string) || 'มิลา'
+  return <V2HomeScreen greeting={{ name }} mascotCharacter="/images/v2/characters/01_ชวด-ดิน.png" onLogout={() => window.alert('logout()')} fortune={fortune} fortuneLoading={loading} element={element} />
 }

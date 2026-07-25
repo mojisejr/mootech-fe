@@ -9,6 +9,7 @@ import { useState } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
 import { useRouter } from 'next/router'
+import { formatThaiLongDate } from '@/utils/formate-date-thai'
 
 // Zone 1 daily-fortune (bazi /api/home). goo wires useHomeFortune() → this shape; I compose against it.
 export type DailyFortune = {
@@ -99,19 +100,24 @@ function MascotImg({ src }: { src: string }) {
 // ── Greeting ──────────────────────────────────────────────────────────────────────────────────────
 function Greeting({ name, mascotCharacter, onAvatarTap, element }: { name: string; mascotCharacter: string; onAvatarTap: () => void; element: ElementInfo }) {
   return (
-    <header className="flex items-start gap-3 py-4">
-      <div className="flex min-w-0 flex-1 flex-col gap-2">
-        <h1 className="text-2xl font-bold leading-8 text-v3-navy">สวัสดีคุณ{name}</h1>
-        <ElementLine mascotCharacter={mascotCharacter} element={element} />
+    <header className="flex flex-col gap-2 py-4">
+      {/* #1: top row = name (truncates) + อัพเกรด badge + bell + avatar on ONE line. ElementLine (goo's #2)
+          drops BELOW at full width so "ธาตุ · ดิถี" isn't squeezed by the right cluster (Figma layout). */}
+      <div className="flex items-center gap-2">
+        {/* smaller than the old text-2xl + truncate so a long name can't push the right cluster or wrap */}
+        <h1 className="min-w-0 flex-1 truncate text-xl font-bold leading-7 text-v3-navy">สวัสดีคุณ{name}</h1>
+        {/* อัพเกรด badge slot (Figma 477:4543 — navy on lime). Not wired this zone (slot). */}
+        <button type="button" className="shrink-0 rounded-full bg-v3-lime px-3 py-1.5 text-sm font-bold leading-5 text-v3-navy">อัพเกรด</button>
+        {/* notification bell */}
+        <button type="button" aria-label="การแจ้งเตือน" className="grid size-10 shrink-0 place-items-center rounded-full bg-v3-cyan text-white">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 8A6 6 0 1 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" /><path d="M13.7 21a2 2 0 0 1-3.4 0" /></svg>
+        </button>
+        {/* avatar → tap = logout confirm (frozen decision) */}
+        <button type="button" aria-label="โปรไฟล์" onClick={onAvatarTap} className="grid size-10 shrink-0 place-items-center rounded-full bg-v3-sapphire text-sm font-bold text-white">
+          {name.trim().charAt(0) || 'F'}
+        </button>
       </div>
-      {/* notification bell */}
-      <button type="button" aria-label="การแจ้งเตือน" className="grid size-10 shrink-0 place-items-center rounded-full bg-v3-cyan text-white">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 8A6 6 0 1 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" /><path d="M13.7 21a2 2 0 0 1-3.4 0" /></svg>
-      </button>
-      {/* avatar → tap = logout confirm (frozen decision) */}
-      <button type="button" aria-label="โปรไฟล์" onClick={onAvatarTap} className="grid size-10 shrink-0 place-items-center rounded-full bg-v3-sapphire text-sm font-bold text-white">
-        {name.trim().charAt(0) || 'F'}
-      </button>
+      <ElementLine mascotCharacter={mascotCharacter} element={element} />
     </header>
   )
 }
@@ -161,17 +167,20 @@ function ScoreRingCard({ fortune, loading }: { fortune: DailyFortune | null; loa
             <ScoreDonut grade={fortune.grade} pct={fortune.percent} verdict={fortune.verdict} />
             <p className="min-w-0 flex-1 text-lg font-bold leading-6 text-v3-navy">{fortune.headline}</p>
           </div>
-          <hr className="border-v3-border-card" />
+          {/* #4: dashed dividers per Figma (was solid hr) */}
+          <hr className="border-dashed border-v3-border-card" />
           <div className="flex items-center gap-4 text-base font-bold leading-6">
-            <p className="min-w-0 flex-1 text-v3-navy">{fortune.date}</p>
+            {/* #3: API "2026-06-01" → "1 มิถุนายน 2569" (พ.ศ.); fall back to the raw string if malformed */}
+            <p data-testid="fortune-date" className="min-w-0 flex-1 text-v3-navy">{formatThaiLongDate(fortune.date) || fortune.date}</p>
             {/* calendar link kept, NOT wired this zone (ฟีม: skip) */}
-            <Link href="/v2/calendar" className="shrink-0 uppercase text-v3-sapphire underline">เปิดปฏิทินของฉัน</Link>
+            <Link href="/v2/calendar" className="shrink-0 text-v3-sapphire underline">เปิดปฏิทินของฉัน</Link>
           </div>
-          <hr className="border-v3-border-card" />
+          <hr className="border-dashed border-v3-border-card" />
           <div className="flex items-stretch gap-4">
-            <FortuneChip heading="เหมาะกับวันนี้" text={fortune.best.text} tone="cyan" icon="⭐" />
-            <div className="w-px self-stretch bg-v3-border-card" />
-            <FortuneChip heading="ควรเลี่ยง" text={fortune.worst.text} tone="pumpkin" icon="⚠️" />
+            {/* #4: check/x-circle icons (Figma 333-6585/6596), not emoji · vertical dashed divider between chips */}
+            <FortuneChip heading="เหมาะกับวันนี้" text={fortune.best.text} tone="cyan" icon="check" />
+            <div className="self-stretch border-l border-dashed border-v3-border-card" />
+            <FortuneChip heading="ควรเลี่ยง" text={fortune.worst.text} tone="pumpkin" icon="cross" />
           </div>
         </>
       )}
@@ -199,16 +208,30 @@ function ScoreDonut({ grade, pct, verdict }: { grade: string; pct: number; verdi
   )
 }
 
-function FortuneChip({ heading, text, tone, icon }: { heading: string; text: string; tone: 'cyan' | 'pumpkin'; icon: string }) {
+// #4: circle icons per Figma (333-6585 check / 333-6596 x), stroke idiom matching the greeting bell.
+// currentColor → inherits the chip tone (เหมาะ=cyan / เลี่ยง=pumpkin).
+function CheckCircleIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="9" /><path d="m8.5 12 2.4 2.4L15 9" /></svg>
+  )
+}
+function XCircleIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="9" /><path d="m9 9 6 6M15 9l-6 6" /></svg>
+  )
+}
+
+function FortuneChip({ heading, text, tone, icon }: { heading: string; text: string; tone: 'cyan' | 'pumpkin'; icon: 'check' | 'cross' }) {
   // empty-facet guard (goo รู2): a fortune can arrive with percent but no facets → text = "" (empty, not
   // null). goo guarantees non-empty at the data layer; this is the visual belt — an empty facet renders a
   // graceful "—", never a bare icon with nothing beside it (which reads as broken).
   const body = text.trim() || '—'
+  const toneClass = tone === 'cyan' ? 'text-v3-cyan' : 'text-v3-pumpkin'
   return (
     <div className="min-w-0 flex-1">
-      <p className={`text-base font-bold leading-6 ${tone === 'cyan' ? 'text-v3-cyan' : 'text-v3-pumpkin'}`}>{heading}</p>
-      <p className="mt-1 flex items-start gap-1 text-sm leading-[22px] text-v3-text-body">
-        <span aria-hidden className="shrink-0">{icon}</span>
+      <p className={`text-base font-bold leading-6 ${toneClass}`}>{heading}</p>
+      <p className="mt-1 flex items-start gap-1.5 text-sm leading-[22px] text-v3-text-body">
+        <span aria-hidden className={`mt-0.5 shrink-0 ${toneClass}`}>{icon === 'check' ? <CheckCircleIcon /> : <XCircleIcon />}</span>
         <span data-testid="fortune-chip" className="min-w-0">{body}</span>
       </p>
     </div>
