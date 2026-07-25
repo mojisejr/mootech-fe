@@ -34,7 +34,9 @@ fi
 "$PG_DUMP" "$PROD_DATABASE_URL" "${MODE[@]}" --no-owner --no-privileges --no-comments -f "$OUT"
 echo "✅ wrote $OUT"
 
-# 🔎 PROOF POINT (do NOT skip): count bazi-prefixed tables. ~58 → confirms the 1-shared-DB reality.
+# 🔎 PROOF POINT (do NOT skip): count bazi-prefixed tables. ANY > 0 → confirms the 1-shared-DB reality
+# (real dump 2026-07-26 = 44 bazi tables in `public`; the memory's "58" was 48 runtime + 10 authoring,
+# now 44 — the exact number doesn't matter, presence does. 0 = prod is NOT the merged 1-DB → STOP).
 N=$(grep -cE 'CREATE TABLE [^(]*"?bazi' "$OUT" || true)
 echo "→ bazi-prefixed tables in dump: $N"
 if [ "$N" -eq 0 ]; then
