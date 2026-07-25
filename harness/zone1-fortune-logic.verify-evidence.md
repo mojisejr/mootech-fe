@@ -35,4 +35,4 @@ SIGNED (data-side seam). Reciprocal loop closed:
 - too (static) adversary on the field-anchor: still open (hardcode grade=A pct=99 passes a colour-only
   anchor — the data-binding blind). Covered on the render side by μุน's glyph-read fidelity anchor.
 
-ANCHOR: scripts/home-fortune-fields.test.ts#fortune-fields-complete-anchor
+ANCHOR: scripts/home-fortune-fields.test.ts#fortune-fields-complete
