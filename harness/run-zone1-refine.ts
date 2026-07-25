@@ -10,6 +10,7 @@
 //   #1 long-name — a long name truncates (h1 clips) and never causes horizontal overflow. Ground-truth = geometry.
 // npx tsx harness/run-zone1-refine.ts   (dev server up; PORT/HARNESS_HOST env-overridable)
 import { chromium, type Browser, type Page } from 'playwright'
+import { formatThaiLongDate } from '../utils/formate-date-thai'
 
 const HOST = process.env.HARNESS_HOST ?? 'http://localhost:3002'
 const KEY = process.env.V2_PREVIEW_KEY ?? 'lamun-local-dev'
@@ -24,7 +25,7 @@ async function withPage<T>(browser: Browser, query: string, fn: (p: Page) => Pro
   await ctx.addCookies([{ name: 'v2_access', value: KEY, domain: new URL(HOST).hostname, path: '/' }])
   const p = await ctx.newPage()
   await p.goto(`${HOST}/v2/home-preview?${query}`, { waitUntil: 'domcontentloaded' })
-  await p.getByTestId('fortune-date').waitFor()
+  await p.getByTestId('fortune-date').waitFor({ state: 'attached' }) // baddate → date is intentionally EMPTY (no ISO leak) → not "visible"
   await p.waitForTimeout(400)
   const r = await fn(p)
   await ctx.close()
@@ -67,7 +68,17 @@ async function main() {
     !at360.clipped && !at360.overflowX && !at320.clipped && !at320.overflowX &&
     at320.text.includes('ดิถีแข็งเกินไป') // full vocab present, not abbreviated
 
-  const dateOk = isThaiBE(clean.date)
+  // #3 formatter — goo's date-leak catch: out-of-range / impossible / non-ISO dates must NOT format,
+  // and (caller) must not leak a raw ISO. Pure-fn unit check + a DOM no-leak render.
+  const FMT_OK: [string, string][] = [['2026-06-01', '1 มิถุนายน 2569'], ['2026-02-28', '28 กุมภาพันธ์ 2569'], ['2026-12-31', '31 ธันวาคม 2569']]
+  const FMT_REJECT = ['2026-06-31', '2026-06-99', '2026-13-01', '2026-00-10', '2026-02-30', '2026/06/01', '2026-06-1', '2026-6-01', '']
+  const formatterOk = FMT_OK.every(([i, o]) => formatThaiLongDate(i) === o) && FMT_REJECT.every((i) => formatThaiLongDate(i) === '')
+  const badDateNoLeak = await withPage(browser, 'state=baddate', async (p) => {
+    const t = ((await p.getByTestId('fortune-date').textContent()) ?? '').trim()
+    return !/2026-06-31/.test(t) && !/31\s*มิถุนายน/.test(t) // neither raw ISO nor an impossible formatted date
+  })
+
+  const dateOk = isThaiBE(clean.date) && formatterOk && badDateNoLeak
   const dividerOk = clean.dividerStyle === 'dashed'
   const iconOk = clean.svgInCard >= 3 && !clean.emojiInCard
   const longOk = !longName.overflowX && longName.truncated
@@ -100,7 +111,7 @@ async function main() {
   const teeth = (ok: boolean, s: string) => `  ${ok ? '🦷 CAUGHT' : '✗ BLIND'}  ${s}`
   console.log('\n═══ ZONE-1 REFINE anchor (#1/#3/#4) ═══')
   console.log(`  clean: date="${clean.date}" divider=${clean.dividerStyle} svgInCard=${clean.svgInCard} emoji=${clean.emojiInCard}`)
-  console.log(line(dateOk, '#3 date renders พ.ศ. Thai (not raw ISO)'))
+  console.log(line(dateOk, `#3 date พ.ศ. + formatter rejects bad/impossible ISO (goo) + no raw-ISO leak @baddate`))
   console.log(line(dividerOk, '#4 in-card dividers are DASHED (computed border-style)'))
   console.log(line(iconOk, '#4 chip markers are SVG check/x-circle (no ⭐/⚠️ emoji)'))
   console.log(line(longOk, `#1 long name truncates (${longName.truncated}) + no overflowX (${longName.overflowX})`))

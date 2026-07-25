@@ -26,6 +26,8 @@ const FORTUNES: Record<string, DailyFortune> = {
   overflow: { percent: 150, grade: 'A+', verdict: 'good', headline: 'ข้อมูลเกินช่วง — ต้อง clamp', date: '2026-06-01', best: { text: 'ทดสอบ bounds' }, worst: { text: 'ปล่อยให้ล้น' } },
   // goo รู2 — fortune with percent but empty facets. Chip must render a graceful "—", never a bare icon.
   'empty-facet': { percent: 70, grade: 'B', verdict: 'neutral', headline: 'มีคะแนนแต่ไม่มีรายละเอียดวันนี้', date: '2026-06-01', best: { text: '' }, worst: { text: '' } },
+  // goo date-leak catch — impossible ISO (June has 30 days). Must NOT render "31 มิถุนายน" NOR leak the raw ISO.
+  baddate: { percent: 55, grade: 'C', verdict: 'neutral', headline: 'ทดสอบวันที่พัง', date: '2026-06-31', best: { text: 'ก' }, worst: { text: 'ข' } },
 }
 
 export const getServerSideProps: GetServerSideProps = async () => {

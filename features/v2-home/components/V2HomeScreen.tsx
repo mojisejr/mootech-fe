@@ -174,7 +174,9 @@ function ScoreRingCard({ fortune, loading }: { fortune: DailyFortune | null; loa
           <hr className="border-dashed border-v3-border-card" />
           <div className="flex items-center gap-4 text-base font-bold leading-6">
             {/* #3: API "2026-06-01" → "1 มิถุนายน 2569" (พ.ศ.); fall back to the raw string if malformed */}
-            <p data-testid="fortune-date" className="min-w-0 flex-1 text-v3-navy">{formatThaiLongDate(fortune.date) || fortune.date}</p>
+            {/* #3: พ.ศ. for a valid ISO. If formatting fails, NEVER leak a raw ISO (invariant #3): a malformed
+                ISO-shaped string ("2026-13-01") → hide; a non-ISO string (already-formatted) → pass through. */}
+            <p data-testid="fortune-date" className="min-w-0 flex-1 text-v3-navy">{formatThaiLongDate(fortune.date) || (/^\d{4}-\d{2}-\d{2}/.test(fortune.date) ? '' : fortune.date)}</p>
             {/* calendar link kept, NOT wired this zone (ฟีม: skip) */}
             <Link href="/v2/calendar" className="shrink-0 text-v3-sapphire underline">เปิดปฏิทินของฉัน</Link>
           </div>
