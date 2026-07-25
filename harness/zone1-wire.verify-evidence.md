@@ -40,13 +40,12 @@ here to keep the wire low-risk (useV2Home carries too's routing state-table).
   (bind mascot) is correct, but the divergence must not ship silently. ADDRESSED: dev-only console.warn
   in V2HomeRoute when `mascot.elementTh !== persona.elementTh` (persona.elementTh was forwarded precisely
   to enable this cross-check). Long-term: single-source element+mascot from the bazi engine — noted.
-- **#2 elementLoading={false} → dead skeleton (real):** too confirms mascot IS settled before home render
-  (behind AuthLoadingGate) so element never "loads" here → μุน's skeleton branch is unreachable, and the
-  band appearing after the persona fetch is a pop-in. This is a UX/ownership call on μุน's component:
-  keep elementLoading=false (element resilient to bazi latency/outage — element shows regardless; band
-  progressively fills; skeleton is defensive/dead) OR tie elementLoading to fortuneLoading (skeleton
-  reachable + no pop-in, but element hidden ≤12s if bazi is slow/down). Surfaced to μุน to decide — NOT
-  changed here, because gating the element on the band fetch would regress element resilience.
+- **#2 elementLoading={false} → dead skeleton (real): RESOLVED (A).** μุน (visual-lens owner) chose
+  element-resilience: removed the unreachable skeleton branch AND deleted the vacuous `elementLoading`
+  prop entirely (Principle 2 — nothing kept dead-defensive). Wire updated to drop `elementLoading={false}`.
+  `element` stays REQUIRED on the prop → wire-drift is still a tsc RED at /v2 (proven: dropping the
+  element prop → 1 tsc error). Element renders immediately (resilient to bazi latency/outage); band
+  fills in progressively via persona.
 - **#3 dedup double UserGetById as a separate follow-up:** too STRONGLY AGREES (useV2Home holds the
   routing/loop-safe state-table; bundling risks a route regression). Confirmed: separate atomic PR.
 

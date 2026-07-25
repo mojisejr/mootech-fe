@@ -90,10 +90,9 @@ function V2HomeRoute({ status }: { status: AuthStatus }) {
       // ธาตุ line: element ← the SAME compute/mascot source as the character (so text ธาตุ always
       // matches the mascot shown, and it renders even before bazi #14 deploys); strength band ←
       // persona (bazi). null band → Lamun's ElementLine drops the "·" (progressive: element now,
-      // band fills in once bazi forwards it). Element is settled by the time home renders (behind
-      // showLoading), so elementLoading is false — the skeleton stays a defensive state.
+      // band fills in once bazi forwards it). No loading prop: the element is settled by the time
+      // home renders (behind AuthLoadingGate), so a skeleton would be dead — Lamun removed it (A).
       element={{ elementTh: mascot?.elementTh ?? null, strengthLabel: persona?.strengthLabel ?? null }}
-      elementLoading={false}
     />
   )
 }
