@@ -2,7 +2,8 @@
 // ?state=good|neutral|caution|loading|empty|overflow|empty-facet — enumerate the Zone-1 state-space.
 // ?mut=hardcode — reproduce too's adversary regression (grade/pct hardcoded, ignoring fortune) so the
 //   fidelity anchor drives clean+mutant from the URL alone (data-binding teeth, no source patch).
-// ?el=full|partial|loading|none — Contract #2 greeting element line (full = ธาตุ + ดิถี band).
+// ?el=full|partial|none|blankband — Contract #2 greeting element line (full = ธาตุ + ดิถี band).
+// no "loading": element comes from settled compute (never loading here — too's dead-skeleton catch).
 import type { GetServerSideProps } from 'next'
 import { useRouter } from 'next/router'
 import { V2HomeScreen, type DailyFortune, type ElementInfo } from '@/features/v2-home/components/V2HomeScreen'
@@ -38,7 +39,6 @@ export default function V2HomePreview() {
   // too's regression: ignore per-state values, hardcode grade/pct → data-binding must be broken.
   if (fortune && q.mut === 'hardcode') fortune = { ...fortune, grade: 'A', percent: 99 }
   const el = (q.el as string) || 'full'
-  const elementLoading = el === 'loading'
   const element = ELEMENTS[el] ?? ELEMENTS.full
-  return <V2HomeScreen greeting={{ name: 'มิลา' }} mascotCharacter="/images/v2/characters/01_ชวด-ดิน.png" onLogout={() => window.alert('logout()')} fortune={fortune} fortuneLoading={loading} element={element} elementLoading={elementLoading} />
+  return <V2HomeScreen greeting={{ name: 'มิลา' }} mascotCharacter="/images/v2/characters/01_ชวด-ดิน.png" onLogout={() => window.alert('logout()')} fortune={fortune} fortuneLoading={loading} element={element} />
 }
