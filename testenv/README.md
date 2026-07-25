@@ -28,11 +28,17 @@ one local db `mumate_test`. **Proof point in `dump.sh`: it counts bazi-prefixed 
 
 ## Flow
 ```
-1. ฟีม (holds prod cred):   export PROD_DATABASE_URL='postgresql://…?sslmode=require'
-                            ./scripts/dump.sh          # schema-only → dumps/schema.sql  (+ proves bazi tables)
+1. ฟีม (holds prod cred):
+     # type/paste the URL WITHOUT echoing it — keeps the password out of ~/.zsh_history
+     read -rs PROD_DATABASE_URL && export PROD_DATABASE_URL     # 'postgresql://…?sslmode=require'
+     ./scripts/dump.sh          # schema-only → dumps/schema.sql (refuses if dumps/ isn't gitignored; proves bazi tables)
+     unset PROD_DATABASE_URL     # scrub it from the shell when done
 2. anyone:                  ./scripts/stack.sh         # guard → postgres(SSL) → restore → swap .env (safe) → boot cmds
 3. boot the 3 apps (printed by stack.sh), then Playwright → dev-login → /v2 → capture 393/360/320
 ```
+> Never `export PROD_DATABASE_URL='postgres://user:pass@…'` inline — the password lands in shell
+> history. Use `read -rs` (above), and `dumps/`/`.backups/` are gitignored so no prod data or cred
+> can be committed.
 
 ## Safety (fail-closed, structure not intent)
 - `guard.sh` refuses to boot if any DB target matches a prod host (`supabase.*`/`neon.tech`/`render.com`/…),

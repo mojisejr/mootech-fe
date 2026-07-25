@@ -21,6 +21,16 @@ else
   OUT="$HERE/dumps/schema.sql"; MODE=(--schema-only); echo "→ SCHEMA-ONLY dump ($($PG_DUMP --version))"
 fi
 
+# 🛡️ fail-closed: refuse to write a dump unless git actually ignores it (structure, not trust in a
+# .gitignore line existing). full.sql = real customer PII; a committed dump = permanent leak.
+if git -C "$HERE" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+  git -C "$HERE" check-ignore -q "$OUT" || {
+    echo "🛑 REFUSE: '$OUT' is NOT git-ignored → a dump here could leak PII into git history."
+    echo "   Add 'dumps/' + '*.sql' to testenv/.gitignore first, then re-run."
+    exit 1
+  }
+fi
+
 "$PG_DUMP" "$PROD_DATABASE_URL" "${MODE[@]}" --no-owner --no-privileges --no-comments -f "$OUT"
 echo "✅ wrote $OUT"
 

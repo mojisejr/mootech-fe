@@ -3,3 +3,14 @@ certs/
 # a real .env should never live here; only the committable *.env templates in env/ do
 *.env.local
 .env
+
+# prod dumps — NEVER commit. Phase 2 full.sql = REAL customer data across all 135 tables (dob, names,
+# phones). gitleaks won't catch it (it hunts keys/tokens, not birthdates). One `git add .` = PII in
+# git history forever.
+dumps/
+*.sql
+*.sql.gz
+
+# .env backups hold PROD credentials — stack.sh writes them here (out of every app repo, where
+# .env.prod.bak would NOT be gitignored and could be committed).
+.backups/

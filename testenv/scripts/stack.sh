@@ -34,18 +34,21 @@ else
 fi
 
 echo "── 4. swap each app's .env (BACKUP existing → copy template → guard AFTER) ──"
+# Backups go to testenv/.backups/ (gitignored) — NOT ".env.prod.bak" loose in each repo, where it
+# would hold PROD cred and is NOT gitignored in mootech-be/mootech-fe → committable. (goo's adversary find.)
+BK="$HERE/.backups"; mkdir -p "$BK"
 for repo in "${!TARGET[@]}"; do
   IFS=':' read -r tmpl dotfile <<< "${TARGET[$repo]}"
-  dir="$GH/$repo"; dest="$dir/$dotfile"
+  dir="$GH/$repo"; dest="$dir/$dotfile"; bak="$BK/$repo${dotfile//\//_}.prod.bak"
   [ -d "$dir" ] || { echo "   ⚠ $repo not found at $dir — skip"; continue; }
-  # 🛑 the existing dotfile may hold PROD cred — back it up, never blindly clobber
-  if [ -f "$dest" ] && [ ! -f "$dest.prod.bak" ]; then
-    cp "$dest" "$dest.prod.bak"
-    echo "   💾 backed up $repo/$dotfile → $dotfile.prod.bak (restore with: mv $dotfile.prod.bak $dotfile)"
+  # 🛑 the existing dotfile may hold PROD cred — back it up (into gitignored .backups/), never clobber
+  if [ -f "$dest" ] && [ ! -f "$bak" ]; then
+    cp "$dest" "$bak"
+    echo "   💾 backed up $repo/$dotfile → testenv/.backups/ (restore: cp '$bak' '$dest')"
   fi
   cp "$tmpl" "$dest"
   # 🛡️ guard AFTER the copy — the RESULTING dotfile must point local, not prod (บอง's catch)
-  bash "$GUARD" "$dest" || { echo "   🛑 post-copy guard FAILED for $repo — restoring backup"; [ -f "$dest.prod.bak" ] && cp "$dest.prod.bak" "$dest"; exit 1; }
+  bash "$GUARD" "$dest" || { echo "   🛑 post-copy guard FAILED for $repo — restoring backup"; [ -f "$bak" ] && cp "$bak" "$dest"; exit 1; }
   echo "   ✅ $repo/$dotfile ← $(basename "$tmpl") (guarded local)"
 done
 
