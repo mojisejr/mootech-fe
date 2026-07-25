@@ -75,6 +75,9 @@ Cross-oracle, RUN-PROVEN — I do NOT self-certify.
   America/Los_Angeles / Asia/Bangkok → identical, **no skew** — because it uses the `new Date(y, m-1, d)`
   component-constructor + local getters (no string-parse-UTC-vs-local-read bug). FYI (not a blocker):
   year <100 rejects (JS maps 0-99 → 1900+) — bazi sends 4-digit years.
+- **too (static/AST + D2 gate) — SIGNED OFF PR#108**: checked out `fix/home-date-formatter-leak`, ran the
+  harness live (:3002) — Date-round-trip 9/9 reject geometries pass, raw-ISO fallback plugged, @baddate DOM
+  zero-leak proven. **D2 Gate + refine harness 100% PASSED.** Both lenses signed → the date-leak loop is closed.
 - **base**: merged origin/main (#106 compute-source) — clean, no conflict; too re-ran harness on the merged
   tree (element row present) + I re-verified @393/360/320 post-merge. (บอง corrected his own "must rebase /
   would regress" over-claim — the merge is clean either way; keeping it since it's verified.)
