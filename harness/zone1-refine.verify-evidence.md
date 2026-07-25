@@ -35,6 +35,8 @@ vocab wraps to 2 lines instead of clipping — the vocab is a bounded 5-band set
 | `mut-date-iso` (formatter dropped → raw ISO "2026-06-01") | พ.ศ. gate rejects → 🦷 CAUGHT |
 | `mut-divider-solid` (border-dashed dropped → solid) | dashed gate rejects → 🦷 CAUGHT |
 | `mut-overflow-clip` (forced over-long line + truncate @320) | clip-detector bites (verify-the-instrument) → 🦷 CAUGHT |
+| **formatter reject set** (goo's catch: 2026-06-31 · 2026-06-99 · 2026-13-01 · 2026-02-30 · 2026/06/01 · short) | all → `''` (Date round-trip + shape guard), no "99 มิถุนายน" leak ✓ |
+| **@baddate DOM** (date "2026-06-31" → render) | date renders **empty**, NOT raw ISO nor "31 มิถุนายน" → no-leak ✓ |
 
 ## completeness-pass (state-space — viewports × data, overflowX=false each)
 Rendered + verified: `good` (2026-06-01 → 1 มิถุนายน 2569) · `caution` (2026-02-28 → 28 กุมภาพันธ์ 2569,
@@ -59,5 +61,14 @@ Cross-oracle, RUN-PROVEN — I do NOT self-certify.
      (`name.trim().charAt(0) || 'F'`) — an edge I had NOT enumerated (too's catch, holds).
   5. vocab-clip @320/360 — `at320.clipped === false`, overflowX false, full "ดิถีแข็งเกินไป" preserved.
   **D2 gate + refine anchor PASS (6/6 + 3 teeth).** Did NOT touch goo's ElementLine/useHomeFortune.
-- **goo (runtime lens)** — requested (date mis-parse / wrap at odd viewport·data); complementary to too's
-  D2 gate, still out. Will reconcile if it surfaces anything.
+- **goo (runtime lens) — RUN-PROVEN, found 2 real date leaks (fixed)**:
+  1. `formatThaiLongDate` only checked `!day` (0/NaN) → day 32–99 and impossible dates leaked
+     ("2026-06-31" → "31 มิถุนายน 2569"). **Fixed**: strict shape guard + `new Date` round-trip rejects
+     all out-of-range / impossible / non-ISO to `''`.
+  2. caller `… || fortune.date` leaked the RAW ISO when the formatter returned `''` (malformed ISO) —
+     violated my own invariant #3. **Fixed**: an ISO-shaped-but-invalid string → hidden (`''`); only a
+     non-ISO (already-formatted) string passes through. Anchor widened (formatter reject set + @baddate DOM).
+  goo also verified I did NOT touch ElementLine / element prop (reads `element.elementTh` intact).
+- **base**: merged origin/main (#106 compute-source) — clean, no conflict; too re-ran harness on the merged
+  tree (element row present) + I re-verified @393/360/320 post-merge. (บอง corrected his own "must rebase /
+  would regress" over-claim — the merge is clean either way; keeping it since it's verified.)

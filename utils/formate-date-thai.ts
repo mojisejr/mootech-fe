@@ -12,15 +12,18 @@ const getMonthTh = (month: number) => {
 }
 
 // "2026-06-01" → "1 มิถุนายน 2569" — long Thai month + Buddhist era (พ.ศ. = ค.ศ. + 543).
-// Reuses getMonthTh above. Returns '' on malformed input so the caller can fall back to the raw string.
+// Reuses getMonthTh above. Returns '' on ANY malformed/impossible input (caller decides the fallback).
+// STRICT (goo's runtime catch): shape guard + Date round-trip, so out-of-range days and impossible dates
+// — 2026-06-31 (June has 30d), 2026-06-99, 2026-13-01 — all fail the equality check instead of leaking
+// "99 มิถุนายน 2569". new Date(y, m-1, d) rolls invalid dates over, so the components won't match.
 export const formatThaiLongDate = (iso: string): string => {
-  if (!iso || iso.length < 10) return '';
-  const [y, m, d] = iso.slice(0, 10).split('-');
-  const day = parseInt(d, 10); // "01" → 1 (drops the leading zero)
-  const monthTh = getMonthTh(parseInt(m, 10));
-  const yearBe = parseInt(y, 10) + 543;
-  if (!day || !monthTh || Number.isNaN(yearBe)) return '';
-  return `${day} ${monthTh} ${yearBe}`;
+  if (!/^\d{4}-\d{2}-\d{2}/.test(iso)) return ''; // strict ISO date shape (rejects "2026/06/01", short, "1x")
+  const [y, m, d] = iso.slice(0, 10).split('-').map((s) => parseInt(s, 10));
+  const dt = new Date(y, m - 1, d);
+  if (dt.getFullYear() !== y || dt.getMonth() !== m - 1 || dt.getDate() !== d) return '';
+  const monthTh = getMonthTh(m);
+  if (!monthTh) return '';
+  return `${d} ${monthTh} ${y + 543}`;
 };
 
 
