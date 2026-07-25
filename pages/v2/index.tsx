@@ -12,6 +12,7 @@ import { useV2Home } from '@/features/auth/hooks/useV2Home'
 import { useV2Logout } from '@/features/auth/hooks/useV2Logout'
 import { useHomeFortune } from '@/features/home/hooks/useHomeFortune'
 import { useMascotFromCompute } from '@/lib/personalization/use-mascot'
+import { resolveGreetingElementTh } from '@/lib/personalization/compute-source'
 import { AuthLoadingGate } from '@/features/v2-shell/components/AuthLoadingGate'
 import { V2GateForm } from '@/features/v2-shell/components/V2GateForm'
 import { OnboardingCarousel } from '@/features/onboarding/components/OnboardingCarousel'
@@ -94,7 +95,7 @@ function V2HomeRoute({ status }: { status: AuthStatus }) {
       // chain is momentarily null. strength band ← persona; null band → Lamun's ElementLine drops the
       // "·". No loading prop: element is settled by the time home renders (behind AuthLoadingGate).
       element={{
-        elementTh: mascot?.elementTh ?? persona?.elementTh ?? null,
+        elementTh: resolveGreetingElementTh(computeSource, persona?.elementTh),
         strengthLabel: persona?.strengthLabel ?? null,
       }}
     />

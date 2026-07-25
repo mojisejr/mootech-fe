@@ -25,12 +25,18 @@ envelope was invisible to tsc. Reading `chart.detail` on `{ data: {...} }` silen
    persona{elementTh:"ดิน"}). Row still renders if the compute chain is momentarily null.
 
 ## proof-of-teeth
-- **anchor** `scripts/compute-source.test.ts` (compute-source-envelope-unwrap): a REAL `{ data: {detail:
-  {yearBelow, dayAbove:{element:"EARTH"}}} }` chart → toComputeSource → `resolveMascotFromCompute` →
-  `elementTh === "ดิน"` (the exact glyph the greeting renders); flat input still works; missing/null → null.
-- **omission mutant** (drop the `.data` unwrap) → the EARTH→ดิน case goes RED (2 pass); revert → 3 green.
+- **anchor** `scripts/compute-source.test.ts` (compute-source-envelope-unwrap), 6/6:
+  - unwrap: REAL `{ data:{detail:{yearBelow, dayAbove:{element:"EARTH"}}} }` → toComputeSource →
+    `resolveMascotFromCompute` → `elementTh === "ดิน"` (the exact glyph rendered); flat still works; null→null.
+  - **fallback** `resolveGreetingElementTh`: computeSource FULLY null + persona "ดิน" → "ดิน" (the row
+    renders from bazi's INDEPENDENT path even if the compute chain / NEXT_PUBLIC_BACKEND_URL is broken —
+    this is what makes the fix env-independent); compute element PREFERRED over persona; neither → null.
+- **omission mutant** (drop the `.data` unwrap) → the EARTH→ดิน case goes RED (2 pass); revert → green.
 - **data real-path (goo verified live):** POST prod bazi /api/home → persona{elementTh:"ดิน", strengthLabel
   "ดิถีอ่อนเกินไป"}; BFF /api/home-fortune → same. So the fallback source is proven, not assumed.
+- **data-path independence (verified via endpoints):** `person` for the BFF comes from `/api/user`
+  (localApi → Supabase/drizzle), NOT mootech-be → persona resolves without NEXT_PUBLIC_BACKEND_URL, while
+  ChineseHoroscopeGet (compute) DOES need it. So the fallback closes the row regardless of that env var.
 - tsc 0 · build 0 · returning-result 6/6 (useV2Home state-table intact) · persona 5/5 · fortune 9/9.
 
 ## still to confirm (handed to ฟีม — env, can't verify without prod cred)
@@ -39,6 +45,12 @@ has `NEXT_PUBLIC_BACKEND_URL` + `BAZI_BASE_URL=https://bazi-sft-dataset.vercel.a
 renders on prod, the bazi/BFF env is fine and this code fix closes the ธาตุ row.
 
 ## adversary sign-off
-PENDING — too (static: the envelope-unwrap + fallback) + real authed @393 eyeball post-deploy. No self-certify.
+**too (static/AST/completeness) — SIGNED.** Reviewed all 4: (1) `raw?.data ?? raw` complete across
+nested / flat / `{data:null}` (graceful null, no TypeError); (2) fallback is defense-in-depth + the
+split-brain dev-guard still fires on divergence; (3) the anchor is a real EARTH→"ดิน" end-to-end
+translation, not a tautology; (4) the pure extraction leaves useV2Home's Gap-C routing state-table
+intact (returning-result 6/6). Post-sign-off addition: extracted the fallback into
+`resolveGreetingElementTh` + anchored the "compute FULLY null → persona" case too/บอง flagged — same
+behavior too approved, now proven. Still pending: real authed @393 eyeball post-deploy.
 
 ANCHOR: scripts/compute-source.test.ts#compute-source-envelope-unwrap

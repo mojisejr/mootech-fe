@@ -1,4 +1,16 @@
-import type { ComputeMascotSource } from '@/lib/personalization/mascot'
+import { resolveMascotFromCompute, type ComputeMascotSource } from '@/lib/personalization/mascot'
+
+// The greeting ธาตุ element string. Prefer the compute/mascot element (matches the character shown),
+// else fall back to bazi's persona element. CRITICAL: the persona path (/api/user → home-fortune BFF →
+// bazi) is INDEPENDENT of the compute path (ChineseHoroscopeGet → NEXT_PUBLIC_BACKEND_URL), so this
+// fallback renders the row even when the compute chain is FULLY null (e.g. a misconfigured backend
+// URL), not merely when the `.data` envelope was undefined. null only when NEITHER source has it.
+export function resolveGreetingElementTh(
+  computeSource: ComputeMascotSource | null,
+  personaElementTh: string | null | undefined,
+): string | null {
+  return resolveMascotFromCompute(computeSource)?.elementTh ?? personaElementTh ?? null
+}
 
 // Map the raw ChineseHoroscopeGet response into the shape resolveMascotFromCompute reads.
 // SHAPE (verified against my-destiny.tsx, a working consumer that reads `result.data.summary`/`.detail`):
