@@ -10,6 +10,7 @@ import { useV2AuthGate } from '@/features/auth/hooks/useV2AuthGate'
 import type { AuthStatus } from '@/lib/auth/resolve-auth'
 import { useV2Home } from '@/features/auth/hooks/useV2Home'
 import { useV2Logout } from '@/features/auth/hooks/useV2Logout'
+import { useHomeFortune } from '@/features/home/hooks/useHomeFortune'
 import { useMascotFromCompute } from '@/lib/personalization/use-mascot'
 import { AuthLoadingGate } from '@/features/v2-shell/components/AuthLoadingGate'
 import { V2GateForm } from '@/features/v2-shell/components/V2GateForm'
@@ -53,10 +54,21 @@ function V2HomeRoute({ status }: { status: AuthStatus }) {
   const { showLoading, greeting, computeSource } = useV2Home(status)
   const { logout } = useV2Logout()
   const mascotCharacter = useMascotFromCompute(computeSource)?.character ?? '/images/v2/mascot/01.png'
+  // Zone 1 — daily-fortune data seam. Called unconditionally (before the loading branch) so hook order
+  // is stable; graceful by design (no profile / bazi error → fortune=null → ScoreRingCard fallback).
+  const { fortune, loading: fortuneLoading } = useHomeFortune()
 
   if (showLoading) return <AuthLoadingGate />
 
-  return <V2HomeScreen greeting={greeting} mascotCharacter={mascotCharacter} onLogout={logout} />
+  return (
+    <V2HomeScreen
+      greeting={greeting}
+      mascotCharacter={mascotCharacter}
+      onLogout={logout}
+      fortune={fortune}
+      fortuneLoading={fortuneLoading}
+    />
+  )
 }
 
 export default function V2HomePage(props: Props) {

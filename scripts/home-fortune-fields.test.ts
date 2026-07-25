@@ -87,4 +87,16 @@ t('no percent → null (card cannot render without the score; hook shows fallbac
   assert.equal(normalize(null), null)
 })
 
+t('pct-bounds (Lamun รู1, at source): percent >100 → 100, <0 → 0, NaN → null', () => {
+  assert.equal(normalize({ ...complete, percent: 150 })!.percent, 100)
+  assert.equal(normalize({ ...complete, percent: -5 })!.percent, 0)
+  assert.equal(normalize({ ...complete, percent: NaN }), null)
+})
+
+t('empty-facet (Lamun รู2): no summaryItems AND no scorable facets → best/worst text "" (card shows —)', () => {
+  const df = normalize({ ...complete, summaryItems: undefined, facets: [] })!
+  assert.equal(df.best.text, '')
+  assert.equal(df.worst.text, '') // Lamun renders '—' for empty — the data layer reports it honestly, not a fake value
+})
+
 console.log(`\n  ${pass} passed${process.exitCode ? ' · SOME FAILED' : ''}`)

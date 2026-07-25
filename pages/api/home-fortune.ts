@@ -51,10 +51,12 @@ export function normalize(fortune: unknown): DailyFortune | null {
     summaryHeadline?: unknown; date?: unknown; summaryItems?: SummaryItem[]; facets?: Facet[]
   } | null
   // percent is the ground-truth field the card cannot render without — no percent → no card.
-  if (!f || typeof f.percent !== 'number') return null
+  if (!f || typeof f.percent !== 'number' || Number.isNaN(f.percent)) return null
   const { best, worst } = bestWorstText(f)
   return {
-    percent: f.percent,
+    // Clamp to [0,100] at the SOURCE too (defense-in-depth alongside Lamun's ring clamp): bad data
+    // (percent >100 / <0) must never propagate to the arc or the "%" label. NaN already rejected above.
+    percent: Math.max(0, Math.min(100, f.percent)),
     grade: typeof f.grade === 'string' ? f.grade : '',
     verdict: (f.verdict === 'good' || f.verdict === 'caution' ? f.verdict : 'neutral'),
     headline: (typeof f.summaryHeadline === 'string' && f.summaryHeadline) || (typeof f.summary === 'string' ? f.summary : ''),
