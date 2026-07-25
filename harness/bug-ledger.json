@@ -23,5 +23,15 @@
     "id": "bg-continuity-seam",
     "description": "Home BG must be CONTINUOUS through the full scroll (~1892px) — no seam/break where the hero photo ends. console+AST blind; CLS/computed do not measure a hard visual seam. Ground-truth=rendered image. Anchor: full-page screenshot @393, sample the LEFT BG margin (x=6, pure page-BG), max colour delta row-to-row AND skip-8 <= 90. Teeth-proven (run-bg-continuity.ts, neg-control-first): clean 19; hard full-width band 472 CAUGHT; too#3 soft/gradient 675 CAUGHT (skip-8). gate_layer=visual/pixel; injection=css-inject. Reconciled after goo+too run-proven adversary: a right-margin/left-vs-right widen OVER-BLOCKED the clean page (106-164, legit greeting decoration) -> reverted to left-margin (too catch). A2 (logged): side/center-gap seam (touches no left margin) -> grid; responsive non-393 break -> multi-viewport.",
     "enforced_by": "harness/run-bg-continuity.ts#BG-CONTINUITY"
+  },
+  {
+    "id": "verdict-colour-mapping",
+    "description": "Zone-1 score ring colour must reflect the fortune verdict (good=green/teal, neutral=yellow, caution=orange) and the three must be visually DISTINCT. A wired-but-wrong mapping renders fine to console/AST but lies to the user. Ground-truth=arc pixel hue. Anchor: render each verdict @393, sample top-of-arc hue, assert in-band + distinct. Teeth-proven (run-verdict-color.ts): clean good 189 / neutral 67 / caution 24 (in-band, distinct); mut-verdict-collapse (force one colour) all 213 -> not distinct -> CAUGHT. gate_layer=visual/pixel. Scope: verdict->colour @393; multi-viewport=A2, data-side completeness=goo fortune-fields-complete.",
+    "enforced_by": "harness/run-verdict-color.ts#mut-verdict-collapse"
+  },
+  {
+    "id": "fortune-card-fidelity",
+    "description": "Zone-1 daily-fortune card must FAITHFULLY render the fortune, not just colour it. Cross-oracle adversary (2026-07-25, run-proven) proved the bug-class has >1 facet the verdict-colour anchor was blind to: (too) hardcoded grade='A' pct=99 sailed through the colour gate GREEN because colour is blind to DATA-binding; (goo รู1) out-of-range pct=150 overflows the label the colour gate never reads; (goo รู2) empty facets render a bare icon. Fix = clamp pct at the component (arc AND label) + graceful '—' chip fallback + widened anchor that reads the RENDERED text (glyphs the user sees, not source/data-attrs). Teeth-proven (run-fortune-fidelity.ts, neg-control-first): clean good A/88 · neutral C+/62 · caution D/34 (data-bound, distinct); mut=hardcode -> collapse+mismatch CAUGHT; unclamped 150% -> bounds gate rejects >100 CAUGHT; blanked chip -> empty gate rejects zero-length CAUGHT; real overflow clamps to 100%, real empty renders '—'. gate_layer=visual/rendered-text. Cross-lens division (none self-certifies): too=no hardcoded literal (static/AST) · goo=pct in [0,100] + facets non-empty at source (fortune-fields-complete) · me=colour[run-verdict-color] + data-binding/bounds/empty-fallback[here].",
+    "enforced_by": "harness/run-fortune-fidelity.ts#mut=hardcode"
   }
 ]
