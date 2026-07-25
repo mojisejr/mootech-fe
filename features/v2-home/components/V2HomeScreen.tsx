@@ -132,12 +132,15 @@ function Greeting({ name, mascotCharacter, onAvatarTap, element }: { name: strin
 function ElementLine({ mascotCharacter, element }: { mascotCharacter: string; element: ElementInfo }) {
   if (!element.elementTh) return null
   return (
-    <div className="flex items-center gap-1.5">
+    // items-start: mascot stays top-aligned with line 1 when the text wraps to 2 lines on narrow screens.
+    <div className="flex items-start gap-1.5">
       <span className="relative h-8 w-7 shrink-0">
         {/* missing-file safety (goo caught: characters/ empty → path 404s): fall back to static hero */}
         <MascotImg src={mascotCharacter} />
       </span>
-      <p data-testid="element-line" className="truncate text-base font-bold leading-6 text-v3-text-body">
+      {/* The ดิถี band is GROUND-TRUTH bazi vocab (ดิถีแข็งเกินไป ฯลฯ) — must NEVER be clipped to fit (บอง).
+          So WRAP, don't truncate: 1 line at ≥393, wraps to 2 at 360/320. min-w-0 lets it wrap in the flex row. */}
+      <p data-testid="element-line" className="min-w-0 text-base font-bold leading-6 text-v3-text-body">
         ธาตุของคุณคือ {element.elementTh}
         {/* trim-guard: a whitespace-only band (" ") is truthy but paints an orphan " · " — drop it.
             goo closes this at the data layer (too's whitespace bare-bullet catch); this is the visual belt. */}

@@ -14,6 +14,7 @@ const ELEMENTS: Record<string, ElementInfo> = {
   partial: { elementTh: 'ไม้', strengthLabel: null }, // computed element, no strength band yet
   none: { elementTh: null, strengthLabel: null }, // no profile/compute → row hidden
   blankband: { elementTh: 'ไม้', strengthLabel: '   ' }, // too's whitespace catch — must NOT paint " · "
+  worst: { elementTh: 'ดิน', strengthLabel: 'ดิถีแข็งเกินไป' }, // longest ground-truth vocab — must wrap, never clip (@320/360)
 }
 
 // date = RAW ISO (what bazi /api/home actually returns) → the component formats it to พ.ศ. (#3).

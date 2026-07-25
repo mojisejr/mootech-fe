@@ -19,8 +19,8 @@ const LONG_NAME = encodeURIComponent('มิลาวรรณวิไลอล
 // พ.ศ. long-Thai date: "<day> <thai-month> 25xx", and crucially NOT the raw ISO (no "-").
 const isThaiBE = (t: string) => /^\d{1,2}\s[ก-๙]+\s25\d\d$/.test(t.trim()) && !t.includes('-')
 
-async function withPage<T>(browser: Browser, query: string, fn: (p: Page) => Promise<T>): Promise<T> {
-  const ctx = await browser.newContext({ viewport: VP, deviceScaleFactor: 2 })
+async function withPage<T>(browser: Browser, query: string, fn: (p: Page) => Promise<T>, width = VP.width): Promise<T> {
+  const ctx = await browser.newContext({ viewport: { width, height: VP.height }, deviceScaleFactor: 2 })
   await ctx.addCookies([{ name: 'v2_access', value: KEY, domain: new URL(HOST).hostname, path: '/' }])
   const p = await ctx.newPage()
   await p.goto(`${HOST}/v2/home-preview?${query}`, { waitUntil: 'domcontentloaded' })
@@ -29,6 +29,19 @@ async function withPage<T>(browser: Browser, query: string, fn: (p: Page) => Pro
   const r = await fn(p)
   await ctx.close()
   return r
+}
+
+// the ดิถี band is ground-truth bazi vocab — at narrow widths the element line must WRAP, never CLIP it.
+// worst-case = longest band ("ดิถีแข็งเกินไป") + a long name at once.
+async function elementClip(browser: Browser, width: number) {
+  return withPage(browser, `state=good&el=worst&name=${LONG_NAME}`, async (p) => {
+    const el = p.getByTestId('element-line')
+    return {
+      clipped: await el.evaluate((n) => n.scrollWidth > n.clientWidth + 1), // overflow/truncate → clipped
+      overflowX: await p.evaluate(() => document.documentElement.scrollWidth > window.innerWidth),
+      text: ((await el.textContent()) ?? '').trim(),
+    }
+  }, width)
 }
 
 async function main() {
@@ -47,6 +60,13 @@ async function main() {
     truncated: await p.locator('h1').first().evaluate((el) => el.scrollWidth > el.clientWidth + 1),
   }))
 
+  // +1 (บอง): ground-truth ดิถี vocab must never be clipped at the narrowest readable widths.
+  const at360 = await elementClip(browser, 360)
+  const at320 = await elementClip(browser, 320)
+  const narrowOk =
+    !at360.clipped && !at360.overflowX && !at320.clipped && !at320.overflowX &&
+    at320.text.includes('ดิถีแข็งเกินไป') // full vocab present, not abbreviated
+
   const dateOk = isThaiBE(clean.date)
   const dividerOk = clean.dividerStyle === 'dashed'
   const iconOk = clean.svgInCard >= 3 && !clean.emojiInCard
@@ -62,6 +82,17 @@ async function main() {
     await hr.evaluate((el) => { (el as HTMLElement).style.borderTopStyle = 'solid' }) // border-dashed dropped → solid
     return (await hr.evaluate((el) => getComputedStyle(el).borderTopStyle)) !== 'dashed'
   })
+  // +1 teeth (verify-the-instrument): the real vocab fits the full-width layout, so nothing clips — but the
+  // not-clipped GATE must be able to go red. Force an over-long line + truncate → it clips → gate rejects.
+  // (Proves the clip-detector bites; the real worst-case passes above because full-width genuinely fits it.)
+  const truncateCaught = await withPage(browser, `state=good&el=worst&name=${LONG_NAME}`, async (p) => {
+    const el = p.getByTestId('element-line')
+    await el.evaluate((n) => {
+      n.textContent = 'ธาตุของคุณคือ ดิน · ' + 'ดิถีแข็งเกินไป'.repeat(3) // longer than any box → must overflow
+      const s = (n as HTMLElement).style; s.whiteSpace = 'nowrap'; s.overflow = 'hidden'; s.textOverflow = 'ellipsis'
+    })
+    return await el.evaluate((n) => n.scrollWidth > n.clientWidth + 1)
+  }, 320)
 
   await browser.close()
 
@@ -73,11 +104,13 @@ async function main() {
   console.log(line(dividerOk, '#4 in-card dividers are DASHED (computed border-style)'))
   console.log(line(iconOk, '#4 chip markers are SVG check/x-circle (no ⭐/⚠️ emoji)'))
   console.log(line(longOk, `#1 long name truncates (${longName.truncated}) + no overflowX (${longName.overflowX})`))
+  console.log(line(narrowOk, `+1 ธาตุ vocab not clipped @360 (clip=${at360.clipped}) & @320 (clip=${at320.clipped}) — wraps, full "ดิถีแข็งเกินไป"`))
   console.log('  ── teeth ──')
   console.log(teeth(dateCaught, 'mut-date-iso: raw ISO leak → พ.ศ. gate rejects'))
   console.log(teeth(dividerCaught, 'mut-divider-solid: dashed dropped → dashed gate rejects'))
+  console.log(teeth(truncateCaught, 'mut-overflow-clip: forced over-long line + truncate @320 → clip-detector bites'))
 
-  const ok = dateOk && dividerOk && iconOk && longOk && dateCaught && dividerCaught
+  const ok = dateOk && dividerOk && iconOk && longOk && narrowOk && dateCaught && dividerCaught && truncateCaught
   console.log(`\n  ${ok ? '🟢 ZONE-1 REFINE PASSED' : '🔴 FAILED'} — date พ.ศ. + dashed dividers + svg icons + long-name graceful\n`)
   process.exit(ok ? 0 : 1)
 }
