@@ -53,10 +53,12 @@ function V2Entry() {
 function V2HomeRoute({ status }: { status: AuthStatus }) {
   const { showLoading, greeting, computeSource } = useV2Home(status)
   const { logout } = useV2Logout()
-  const mascotCharacter = useMascotFromCompute(computeSource)?.character ?? '/images/v2/mascot/01.png'
-  // Zone 1 — daily-fortune data seam. Called unconditionally (before the loading branch) so hook order
-  // is stable; graceful by design (no profile / bazi error → fortune=null → ScoreRingCard fallback).
-  const { fortune, loading: fortuneLoading } = useHomeFortune()
+  const mascot = useMascotFromCompute(computeSource)
+  const mascotCharacter = mascot?.character ?? '/images/v2/mascot/01.png'
+  // Zone 1 — daily-fortune + persona data seam. Called unconditionally (before the loading branch) so
+  // hook order is stable; graceful by design (no profile / bazi error → fortune/persona=null → cards
+  // show fallback). ONE BFF call returns both fortune and persona (no extra bazi compute).
+  const { fortune, persona, loading: fortuneLoading } = useHomeFortune()
 
   if (showLoading) return <AuthLoadingGate />
 
@@ -67,6 +69,13 @@ function V2HomeRoute({ status }: { status: AuthStatus }) {
       onLogout={logout}
       fortune={fortune}
       fortuneLoading={fortuneLoading}
+      // ธาตุ line: element ← the SAME compute/mascot source as the character (so text ธาตุ always
+      // matches the mascot shown, and it renders even before bazi #14 deploys); strength band ←
+      // persona (bazi). null band → Lamun's ElementLine drops the "·" (progressive: element now,
+      // band fills in once bazi forwards it). Element is settled by the time home renders (behind
+      // showLoading), so elementLoading is false — the skeleton stays a defensive state.
+      element={{ elementTh: mascot?.elementTh ?? null, strengthLabel: persona?.strengthLabel ?? null }}
+      elementLoading={false}
     />
   )
 }
