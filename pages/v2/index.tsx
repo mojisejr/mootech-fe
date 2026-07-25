@@ -60,6 +60,24 @@ function V2HomeRoute({ status }: { status: AuthStatus }) {
   // show fallback). ONE BFF call returns both fortune and persona (no extra bazi compute).
   const { fortune, persona, loading: fortuneLoading } = useHomeFortune()
 
+  // Split-brain guard (too's wire review): the ธาตุ TEXT binds the MASCOT's element (compute, for
+  // visual consistency with the character), while the strength band comes from bazi's persona — two
+  // different compute engines. If bazi's persona.elementTh disagrees with the mascot's, the band would
+  // describe a DIFFERENT element than the text/character shows. We keep the UI consistent with the
+  // mascot (never mislabel the character), but surface the divergence in dev so a compute mismatch is
+  // caught rather than silently shipped. persona.elementTh is forwarded precisely to enable this check.
+  if (
+    process.env.NODE_ENV !== 'production' &&
+    mascot?.elementTh &&
+    persona?.elementTh &&
+    mascot.elementTh !== persona.elementTh
+  ) {
+    // eslint-disable-next-line no-console
+    console.warn(
+      `[home ธาตุ] element split-brain: mascot=${mascot.elementTh} (mootech-be) vs persona=${persona.elementTh} (bazi) — the "${persona.strengthLabel}" band was computed for the persona element, not the one shown`,
+    )
+  }
+
   if (showLoading) return <AuthLoadingGate />
 
   return (
