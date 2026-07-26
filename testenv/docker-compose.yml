@@ -1,0 +1,54 @@
+# mumate test-env — local postgres for the FE + BE + bazi stack. NEVER points at prod.
+# ฟีมยืนยัน 1 shared DB (bazi merged into Supabase; Neon = backup only) → one container, one database.
+#
+# ⚠️ WHY SSL is ON for a LOCAL db (do not remove — future-you will wonder):
+#   ALL THREE apps hard-require an SSL connection to the DB, because prod is Supabase (SSL-only):
+#     - mootech-be   app.module.ts:79        ssl: { rejectUnauthorized: false }   (UNCONDITIONAL, no env toggle)
+#     - mootech-fe   lib/db/index.ts:11      ssl: 'require'
+#     - bazi         src/db/client.ts:28     ssl: 'require'
+#   A stock local postgres does NOT serve SSL → the driver throws "server does not support SSL
+#   connections" → boot crash. Rather than change BE code (out of scope), we make the LOCAL postgres
+#   serve SSL with a SELF-SIGNED cert. `rejectUnauthorized:false` / `ssl:require` accept self-signed,
+#   and this is local-only so a self-signed cert is safe. Cert is generated INSIDE the container at
+#   start (owned by the postgres user → avoids host-uid permission errors) and never committed.
+services:
+  postgres:
+    image: postgres:17
+    container_name: mumate_testenv_pg
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres          # matches be.env DB_USERNAME
+      POSTGRES_PASSWORD: postgres      # local-only, not a real credential
+      POSTGRES_DB: mumate_test         # all 3 apps point here (one shared DB)
+    ports:
+      - "5433:5432"                    # host 5433 → container 5432 (5432 free but reserved for other projects)
+    volumes:
+      # NAMED volume — never anonymous (we just swept 20 orphaned anonymous volumes)
+      - mumate_testenv_pgdata:/var/lib/postgresql/data
+    # Generate a self-signed cert as postgres, then start with ssl=on. openssl ships in the debian
+    # postgres image. ($$ escapes compose interpolation so the shell expands these at runtime.)
+    entrypoint: ["/bin/bash", "-c"]
+    command:
+      - |
+        set -e
+        CDIR=/var/lib/postgresql/certs
+        mkdir -p "$$CDIR"
+        if [ ! -f "$$CDIR/server.key" ]; then
+          openssl req -new -x509 -days 3650 -nodes -subj "/CN=localhost" \
+            -keyout "$$CDIR/server.key" -out "$$CDIR/server.crt" 2>/dev/null
+          chmod 600 "$$CDIR/server.key"
+          chown postgres:postgres "$$CDIR/server.key" "$$CDIR/server.crt"
+        fi
+        exec docker-entrypoint.sh postgres \
+          -c ssl=on \
+          -c ssl_cert_file="$$CDIR/server.crt" \
+          -c ssl_key_file="$$CDIR/server.key"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d mumate_test"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+
+volumes:
+  mumate_testenv_pgdata:
+    name: mumate_testenv_pgdata
