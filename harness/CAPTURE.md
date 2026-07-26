@@ -50,6 +50,17 @@ touched. `name` is display-only (free to override — that's what makes the `lon
 - The whole `harness/captures/` dir is **.gitignored**. Screenshots are binaries (and carry PII-shaped
   layouts even when the data is fake) — they do **not** belong in the repo.
 
+## Images expire — always record the FE build hash
+A screenshot proves "the build serving :3000 looked like this **THEN**" — never "this is how it is **now**".
+If the running FE is behind `main`, a bug that's already fixed will still show in the capture — and reads as
+"it's broken" when it isn't. (Real case: a fortune-card capture looked broken; the FE was 1 merge behind the
+fix — the image was stale, not the code.) Same shape as absence-vs-unchanged: a point-in-time ≠ the present.
+
+So every capture records the **FE commit hash it was taken against**, in the evidence. `capture-route.ts`
+auto-detects and prints it (`🏷️ FE build @capture: <hash> (<worktree>) — N commits BEHIND origin/main`);
+copy that line into the evidence. **Before trusting a capture, confirm the FE build is current with `main`**
+(or the branch under test) — if it's behind, update + restart the FE and re-capture.
+
 ## The three widths — always
 393 (primary) · 360 · 320. Zone 1 shipped a bug that only appeared ≤360 (a ground-truth label truncated).
 A single @393 capture is **not** "verified" — enumerate the width set (completeness-pass).

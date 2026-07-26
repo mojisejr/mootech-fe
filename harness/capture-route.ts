@@ -15,6 +15,7 @@
 import { chromium, type Page } from 'playwright'
 import * as fs from 'fs'
 import * as path from 'path'
+import { execSync } from 'child_process'
 
 const HOST = process.env.CAPTURE_HOST ?? 'http://localhost:3000'
 const ENV_FILE = process.env.CAPTURE_ENV_FILE ?? 'testenv/env/fe.env'
@@ -48,6 +49,24 @@ function arg(name: string, fallback?: string): string | undefined {
 
 // slug a route for a filename: "/v2/calendar" → "v2-calendar", "/v2" → "v2", "/" → "root"
 const slug = (r: string) => r.replace(/^\/+|\/+$/g, '').replace(/\//g, '-') || 'root'
+
+// A capture only proves "the build serving :PORT looked like this THEN". Which build? Best-effort: find the
+// process on the port → its cwd (the serving worktree) → git HEAD. RECORD this in evidence — a stale FE
+// makes a fixed bug look live (บอง's absence-vs-unchanged lesson: an image is a point-in-time, not "now").
+function detectFeBuild(): string {
+  try {
+    const port = new URL(HOST).port || '3000'
+    const pid = execSync(`lsof -ti tcp:${port} -sTCP:LISTEN`, { stdio: ['ignore', 'pipe', 'ignore'] }).toString().trim().split('\n')[0]
+    if (!pid) return 'unknown (not localhost?)'
+    const cwd = execSync(`lsof -a -p ${pid} -d cwd -Fn`, { stdio: ['ignore', 'pipe', 'ignore'] }).toString().split('\n').find((l) => l.startsWith('n'))?.slice(1) ?? ''
+    if (!cwd) return 'unknown (cwd)'
+    const head = execSync(`git -C "${cwd}" rev-parse --short HEAD`, { stdio: ['ignore', 'pipe', 'ignore'] }).toString().trim()
+    const behind = execSync(`git -C "${cwd}" rev-list --count HEAD..origin/main 2>/dev/null || echo ?`, { stdio: ['ignore', 'pipe', 'ignore'] }).toString().trim()
+    return `${head} (${path.basename(cwd)})${behind && behind !== '0' ? ` — ⚠️ ${behind} commits BEHIND origin/main` : ' — up to date w/ origin/main'}`
+  } catch {
+    return 'unknown (record the FE commit manually)'
+  }
+}
 
 async function login(page: Page, passkey: string, userLabel: string) {
   const user = USERS[userLabel]
@@ -102,9 +121,12 @@ async function main() {
   }
   await browser.close()
 
+  const feBuild = detectFeBuild()
   console.log(`\n📸 captured ${route} · user=${userLabel} · ${viewports.join('/')}  →  ${path.relative(process.cwd(), outDir)}/`)
+  console.log(`   🏷️  FE build @capture: ${feBuild}`)
   for (const r of results) console.log(`  ${r.overflowX ? '⚠️ overflowX' : '✓'} @${r.w}  errors=${r.errors}  ${path.basename(r.file)}`)
-  console.log(`\nnext: Read the PNGs to eyeball, record findings in the zone's *.verify-evidence.md,`)
+  console.log(`\n⚠️  RECORD the FE build hash above in evidence — a stale FE makes a fixed bug look live (images expire).`)
+  console.log(`next: Read the PNGs to eyeball, record findings in the zone's *.verify-evidence.md,`)
   console.log(`      and cite this exact command so too/บอง reproduce.\n`)
 }
 
