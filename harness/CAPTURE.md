@@ -90,9 +90,11 @@ and a way to *see*:
    zone's `*.verify-evidence.md` records what the agent saw at each width/user (the completeness-pass) and
    cites the command verbatim: `npx tsx harness/capture-route.ts --route /v2 --user longname`. too/บอง run
    it against the same deterministic test-env → **same pixels**.
-2. **images in the PR — for ฟีม/บอง to SEE** (the whole point of the test-env: they view, not run). **Drag-drop
-   the PNGs into the PR description/comment** (`gh pr comment` / GitHub UI) — GitHub hosts them on its own
-   CDN, **not in git history**. So: visible in the PR, but never a committed binary.
+2. **images in the PR — for ฟีม/บอง to SEE** (the whole point of the test-env: they view, not run).
+   ⚠️ **An agent (and `gh`) CANNOT upload images to a PR** — GitHub image upload is web-UI-only (drag-drop).
+   So: the agent surfaces the PNGs to reviewers **in-session/chat** (the file-send tool), and a **human
+   drag-drops** them into the PR description/comment if the team wants them hosted there (GitHub's CDN, not
+   git history). Don't expect an agent to attach images to the PR itself — it can't.
 3. **never commit the binary** — `harness/captures/` stays gitignored.
 
 Net: reproduce (too) + see (ฟีม/บอง) + clean repo, all at once. (An agent can also surface the PNGs directly
