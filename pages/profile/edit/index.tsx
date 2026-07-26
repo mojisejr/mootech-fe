@@ -694,7 +694,8 @@ export default function ProfileEditPage() {
   
   
       const result = await ChineseHoroscopeCalculate(userId, name, birthDay, time, gender, displayImage, surname, accountName, '')
-      if (result && result.code) {
+      // #167 — result.code is `unknown` (Calculate unverified); narrow to string before setCode (happy path unchanged).
+      if (result && typeof result.code === 'string') {
         setCode(result.code)
       }
     }

@@ -1,9 +1,11 @@
 import { callApi } from '../../utils/fetch'
 import { API } from './endpoint'
 import { REQUEST_USER_CHECK_LINE } from './request-user'
-import { RESPONSE_USER_CHECK_LINE } from './response-user'
+import { UnverifiedApiResult } from './unverified-result'
 
-export const UserCheckLine = async (line_id: string, name: any, picture_url: any, refer_code: any) => {
+// #167 — UserCheckLine calls the live LINE API (#184) and is part of the register/login side-effect flow.
+// We refuse to hit it, so its shape is unverified — honest loose type. (verify: can't — live LINE provider.)
+export const UserCheckLine = async (line_id: string, name: any, picture_url: any, refer_code: any): Promise<UnverifiedApiResult> => {
   try {
     const path_params = {
       line_id: line_id,
@@ -18,7 +20,7 @@ export const UserCheckLine = async (line_id: string, name: any, picture_url: any
       return response
     }
 
-    return response as RESPONSE_USER_CHECK_LINE
+    return response as UnverifiedApiResult
   } catch (error: any) {
     return { error }
   }

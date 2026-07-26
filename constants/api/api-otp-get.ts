@@ -1,11 +1,11 @@
 import { callApi } from '../../utils/fetch'
 import { API } from './endpoint'
-import { REQUEST_CHINESE_HOROSCOPE_GET } from './request-chinese-horoscope'
 import { REQUEST_OTP_GET } from './request-otp'
-import { RESPONSE_CHINESE_HOROSCOPE_GET } from './response-chinese-horoscope'
-import { RESPONSE_OTP_GET } from './response-otp'
+import { UnverifiedApiResult } from './unverified-result'
 
-export const OTPGet = async (tel: string) => {
+// #167 — OTPGet fires a REAL SMS via 8x8 (#184: BE integrations are live). We refuse to hit it, so its
+// shape is unverified — honest loose type (the old RESPONSE_OTP_GET was a guess). (verify: can't — live SMS.)
+export const OTPGet = async (tel: string): Promise<UnverifiedApiResult> => {
   try {
     const path_params = {
       tel: tel,
@@ -17,7 +17,7 @@ export const OTPGet = async (tel: string) => {
       return response
     }
 
-    return response as RESPONSE_OTP_GET
+    return response as UnverifiedApiResult
   } catch (error: any) {
     return { error }
   }

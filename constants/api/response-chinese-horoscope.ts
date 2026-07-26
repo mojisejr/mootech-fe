@@ -1,136 +1,37 @@
+// RESPONSE_CHINESE_HOROSCOPE_GET — the chart inside the `{ data: chart }` envelope returned by
+// GET /api/chinese-horoscope (ChineseHoroscopeGet).
+//
+// #167 — this type is now written from the REAL response VERIFIED LIVE (2026-07-26, GET on the local
+// test-env stack, response.data). The previous hand-written type was a GUESS and deeply wrong: it declared
+// `analytic.habits_behaviors` (a field that DOES NOT EXIST in the response) and omitted 7+ real top-level
+// keys (dobThai, yearOfZodiac, cycleLife, cycleYearLife, power, elementCycle, code, share_profile_url) —
+// exactly the fields pages/my-destiny reads. The blind `as` cast hid that mismatch. We type ONLY what we
+// verified: the 15 real top-level keys; leaf shapes we did not fully inspect are `unknown` (honest — the
+// key exists, its inner shape is unverified) rather than a fabricated deep type (that would be a new lie).
 export interface RESPONSE_CHINESE_HOROSCOPE_GET {
+  // 15 top-level keys, all VERIFIED present in the live response.
   dob: string
   time: string
-  gender: string
   name: string
-  "summary": {
-      "element":  string
-      "power":  string
-      "yearAbove":  string
-      "yearBelow":  string
-      "monthAbove":  string
-      "monthBelow": string
-      "dayAbove":  string
-      "dayBelow":  string
-      "timeAbove":  string,
-      "timeBelow":  string
-  },
-  "detail": {
-      "yearAbove": {
-          "id": number,
-          "chinese_symbol":  string
-          "pronunciation":  string
-          "element":  string
-          "power":  string
-          "direction":  string
-          "color":  string
-      },
-      "yearBelow": {
-          "id": 12,
-          "chinese_symbol": "亥",
-          "pronunciation": "ไห",
-          "element": "WATER",
-          "power": "YIN",
-          "direction": "NORTHWEST",
-          "color": "BLUE",
-          "constellation": "PIG"
-      },
-      "monthAbove": {
-        "id": number,
-        "chinese_symbol":  string
-        "pronunciation":  string
-        "element":  string
-        "power":  string
-        "direction":  string
-        "color":  string
-      },
-      "monthBelow": {
-          "id": number,
-          "chinese_symbol":string
-          "pronunciation":string
-          "element": string
-          "power":string
-          "direction": string
-          "color":string
-          "constellation": string
-      },
-      "dayAbove": {
-        "id": number,
-        "chinese_symbol":  string
-        "pronunciation":  string
-        "element":  string
-        "power":  string
-        "direction":  string
-        "color":  string
-      },
-      "dayBelow": {
-        "id": number,
-        "chinese_symbol":string
-        "pronunciation":string
-        "element": string
-        "power":string
-        "direction": string
-        "color":string
-        "constellation": string
-      },
-      "timeAbove": {
-        "id": number,
-        "chinese_symbol":  string
-        "pronunciation":  string
-        "element":  string
-        "power":  string
-        "direction":  string
-        "color":  string
-      },
-      "timeBelow": {
-        "id": number,
-        "chinese_symbol":string
-        "pronunciation":string
-        "element": string
-        "power":string
-        "direction": string
-        "color":string
-        "constellation": string
-      }
-  },
-  "analytic": {
-        "base": {
-            "element": string;
-            "description": string;
-        },
-        "elemental_characteristics": {
-            "element": string;
-            "level": string;
-            "remark": string;
-            "description": string;
-        },
-        "habits_behaviors": {
-                "element": string;
-                "level": string;
-                "sequence": number;
-                "note": string;
-        }[],
-        "occupations": {
-                "element": string;
-                "level": string;
-                "sequence": number;
-                "note": string;
-        }[],
-        "lucky_colors": {
-                "element": string;
-                "level": string;
-                "sequence": number;
-                "note": string;
-        }[],
-        "sacred_things": {
-                "element": string;
-                "level": string;
-                "sequence": number;
-                "note": string;
-        }[],
-        love: {
-          note_above: string;
-          note_below: string;
-        }
-    }
+  gender: string
+  dobThai: string
+  yearOfZodiac: unknown
+  // summary.element VERIFIED (string, e.g. "EARTH"); other summary members not re-verified → index sig.
+  summary: { element: string; [key: string]: unknown }
+  cycleLife: unknown
+  cycleYearLife: unknown
+  // detail.dayAbove.element is the day-master element toComputeSource reads; deeper detail not re-verified.
+  detail: { dayAbove?: { element?: string; [key: string]: unknown }; [key: string]: unknown }
+  // Real analytic keys (verified live): base · elemental_characteristics · habit · behaviors ·
+  // behaviors_for_share · be_careful · occupations · lucky_colors · sacred_things · love · life ·
+  // prediction_work. There is NO `habits_behaviors`. my-destiny reads analytic.base.description + analytic.life.
+  analytic: {
+    base?: { element?: string; description?: string; [key: string]: unknown }
+    life?: unknown
+    [key: string]: unknown
+  }
+  power: unknown
+  elementCycle: unknown
+  code: string
+  share_profile_url: string
 }
