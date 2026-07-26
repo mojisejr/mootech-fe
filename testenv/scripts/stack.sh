@@ -27,10 +27,24 @@ for i in $(seq 1 24); do
 done
 
 echo "── 3. restore dump (if present) ──"
-if [ -f "$HERE/dumps/schema.sql" ] || [ -f "$HERE/dumps/full.sql" ]; then
-  bash "$HERE/scripts/restore.sh" "$([ -f "$HERE/dumps/full.sql" ] && echo "$HERE/dumps/full.sql" || echo "$HERE/dumps/schema.sql")"
+RESTORED=""
+if [ -f "$HERE/dumps/full.sql" ]; then
+  bash "$HERE/scripts/restore.sh" "$HERE/dumps/full.sql" && RESTORED=full
+elif [ -f "$HERE/dumps/schema.sql" ]; then
+  bash "$HERE/scripts/restore.sh" "$HERE/dumps/schema.sql" && RESTORED=schema
 else
   echo "   ⚠ no dump yet — run dump.sh (ฟีม, holds prod cred) then re-run stack.sh"
+fi
+
+echo "── 3b. anonymize (scrub PII BEFORE any app can read it — safety, not optional) ──"
+# Run always after a restore: harmless on a schema-only DB (UPDATE 0), scrubs real PII on a full DB.
+# 🛑 the DB holds real customer PII between restore and this step — never boot an app until it's done.
+if [ -n "$RESTORED" ]; then
+  /opt/homebrew/Cellar/postgresql@17/17.6/bin/psql \
+    'postgresql://postgres:postgres@localhost:5433/mumate_test?sslmode=require' \
+    -v ON_ERROR_STOP=1 -f "$HERE/scripts/anonymize.sql" >/dev/null \
+    && echo "   ✅ anonymized (dob/time/gender/place kept; names/emails/tel/chat → deterministic fakes)" \
+    || { echo "   🛑 anonymize FAILED — do NOT boot apps (DB still holds real PII)"; exit 1; }
 fi
 
 echo "── 4. swap each app's .env (BACKUP existing → copy template → guard AFTER) ──"

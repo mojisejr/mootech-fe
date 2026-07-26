@@ -14,6 +14,9 @@ DB_KEYS='DATABASE_URL|APP_DATABASE_URL|DB_HOST|PROD_DATABASE_URL'
 fail=0
 check_value() {  # $1 = key, $2 = value
   local k="$1" v="$2" host
+  # strip an inline "# comment" (a trailing comment on a .env value would otherwise make a local host
+  # look non-local → false refuse; dotenv parsers strip it, bash greps don't). Only " #..." (space+#).
+  v=$(printf '%s' "$v" | sed -E 's/[[:space:]]+#.*$//')
   [ -z "$v" ] && return 0
   if printf '%s' "$v" | grep -qiE "$PROD_PATTERNS"; then
     # show the real host: drop everything up to '@' (creds), then everything from the next ':' or '/'
