@@ -31,17 +31,21 @@ clusters + full-bleed bg push the page sideways at narrow widths.
 2. *asset probe not blind* — a deliberately-injected broken `<img>` reads `naturalWidth===0`, proving the
    fidelity probe can actually see a missing asset (a blank card would otherwise pass vacuously).
 
-## real-route capture (capture-route, auto-hash) — FE build `e98a82e` + uncommitted zone3 working-tree
+## real-route capture (capture-route, auto-hash) — FE build `9fc5857` (the committed Zone-3 code commit, clean worktree)
 `CAPTURE_HOST=http://localhost:3008 npx tsx harness/capture-route.ts --route /v2 --user default` — a zone3-worktree
-FE (`/Users/.../mootech-fe-wt-zone3`) booted on :3008 against the test-env BE (:4000/:3100/:5433).
+FE (`/Users/non/ghq/github.com/mojisejr/mootech-fe-wt-zone3`) booted on :3008 against the test-env BE
+(:4000/:3100/:5433). PNGs (team-standard dir): `harness/captures/v2__default__{393,360,320}.png`.
 - **real /v2 · default** @393/360/320 — **0 console errors** each. Zone 1 renders REAL data (มิลา · ธาตุ **ดิน** ·
   score **B+ 70%** · 26 กรกฎาคม 2569 · real เหมาะ/เลี่ยง), Zone 2 = REAL earth mascot card. **Zone 3 renders on the
   real route** with the correct fixed art (คู่รัก: ไฟ-left/ไม้-right + heart · เพื่อนร่วมงาน: 7-mascot huddle · border
   CTA). Real-user data drives Zone 1/2 but **not** Zone 3 (data-invariant by design). Zone 1 + Zone 2 not regressed.
-- **provenance** (Zone-1 lesson: content-proof > hash): the recorded hash is the branch base `e98a82e` because the
-  Zone-3 diff is uncommitted at capture time; the **content-proof** is that ดวงสมพงค์ + the two cards + the 7/2 mascots
-  paint on the real /v2 (they cannot exist on `e98a82e`, whose call-site is the empty gray `ServiceSection`). Re-run
-  post-commit and the hash equals the Zone-3 commit.
+- **provenance** — the capture was re-run on the **committed, clean `9fc5857`** (the commit that introduces the
+  Zone-3 code), so the auto-hash MATCHES the reviewed code — the hash proves the pixels came from that commit, not a
+  dirty tree. (Doc-only edits to THIS evidence file may land in a later commit on top; they touch no
+  `V2HomeScreen`/asset, so the `9fc5857` render stands.) The first capture during build ran pre-commit and recorded
+  the base `e98a82e`; **superseded** by this committed re-capture per บอง's provenance ask — the record is not
+  rewritten, it is strengthened. Content-proof independently holds: ดวงสมพงค์ + the two cards + the 7/2 mascots
+  cannot exist on `e98a82e`, whose call-site is the empty gray `ServiceSection`.
 - ⚠️ **known capture artifact (NOT a Zone-3 bug)**: capture-route uses `fullPage:true`, so the *fixed* bottom nav
   paints at its viewport-top position and lands over the mid-page Zone-3 title. The real layout is proven by the
   nav-hidden section shots. This is บอง's logged blind-spot → the queued capture-route viewport-only shot.
@@ -77,10 +81,12 @@ reading is real evidence, not a vacuous zero. *(Caveat: headless-chromium@4× is
 
 ## adversary sign-off
 Cross-oracle, RUN-PROVEN — I do NOT self-certify (a trap I own is not trusted until a different lens attacks it).
-- **too (static/AST + D2 gate)** — REQUESTED. Attack surface for the visual lens: try to sneak a visual regression
-  past the 4 anchors (a reduced-motion guard that passes tsc but drops one class; a mascot z that beats the title; a
-  radial whose file resolves in dev but 404s under the real asset path; an overflow that only trips at a 4th width).
-  A cracked anchor means my invariant's *scope* was narrower than the bug-class → widen it.
-- **goo (runtime lens)** — REQUESTED; complementary to too's static gate (real-data render + the test-env asset path).
+- **too (static/AST + D2 gate) — SIGNED OFF PR #116** (`[ack:review-116]`). Engaged the specifics, did not
+  rubber-stamp: confirmed the **occlusion** holds (content `z-10` decisively beats mascot `z-[5]`), the **404→hero
+  fallback** is tight, and — in the Subjective-Judgment lens — backed the `@320` **edge-tuck** (2 mascots ~85%
+  visible, 9px crop) as the correct trade-off: it **keeps scale/dimension** rather than shrinking the mascots to a
+  stunted size, and the `-mx-[16px]` cluster proportioning. No anchor cracked.
+- **goo (runtime lens)** — complementary/open: real-data render + the test-env asset path + on-device motion perf
+  (the 4× throttle here is a proxy, not a physical phone). Not a blocker; a widening pass if goo finds a gap.
 - **This section's own completeness-adversary**: the cross-oracle pass IS the state-space enumerator — whatever
-  viewport/variant/region they find I under-sampled → A2, never "covered".
+  viewport/variant/region a lens finds I under-sampled → A2, never "covered".
