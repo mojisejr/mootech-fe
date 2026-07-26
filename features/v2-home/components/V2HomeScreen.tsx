@@ -73,13 +73,7 @@ export function V2HomeScreen({ greeting, mascotCharacter, onLogout, fortune, for
         <Greeting name={greeting.name} mascotCharacter={mascotCharacter} onAvatarTap={() => setLogoutOpen(true)} onBell={() => setNotifOpen(true)} element={element} profile={profile ?? PROFILE_FALLBACK} />
         <ScoreRingCard fortune={fortune} loading={fortuneLoading} />
         <ManifestCard mascotCharacter={mascotCharacter} element={element} />
-        <WhiteMoundDivider />
-        <ServiceSection
-          title="ดวงสมพงค์"
-          subtitle="เช็คความเข้ากันของคุณกับคนพิเศษ ดูดวงคู่ครอง ทั้งความรัก การเงิน สุขภาพ"
-          tiles={['ดูดวงคู่รัก', 'ดูดวงเพื่อนร่วมงาน']}
-        />
-        <WhiteMoundDivider />
+        <SomphongSection />
         <ServiceSection
           title="โหมดเซียน"
           subtitle="ปลดล็อกพลังทำนายขั้นสูง วิเคราะห์ดวงชะตาแบบเจาะลึก ด้วยระบบ AI ระดับเซียน"
@@ -363,6 +357,100 @@ function ManifestMascot({ src }: { src: string }) {
     <div aria-hidden data-testid="manifest-mascot" className="pointer-events-none absolute right-[-5.8%] top-[-22px] z-[1] aspect-[187/217] w-[52%] rotate-[7deg]">
       <Image src={current} alt="" fill sizes="187px" style={{ objectFit: 'contain' }} onError={() => setCurrent(HERO_FALLBACK)} />
     </div>
+  )
+}
+
+// ── Zone 3: ดวงสมพงค์ (mindful-moments-section, Figma 421:826) ──────────────────────────────────────
+// Full-bleed bubble bg + white mounds top/bottom · 2 cards (love=pink / colleague=purple) with mascots
+// FIXED per Figma (NOT the user's chart — unlike Zone 2) + radial circles + a beating heart. Heavy 2s-loop
+// animation (10 mascots) with a prefers-reduced-motion guard. Destinations not wired (ฟีม: UI เป๊ะก่อน).
+const COLLEAGUE_MASCOTS = ['04_เถาะ-ไฟ', '04_เถาะ-ไม้', '05_มะโรง-ดิน', '05_มะโรง-ไม้', '06_มะเส็ง-ทอง', '06_มะเส็ง-ไฟ', '06_มะเส็ง-ดิน']
+const COLLEAGUE_DELAY = [0.05, 0.125, 0.2, 0.275, 0.35, 0.425, 0.5] // staggered appear (~0.075s apart)
+const COLLEAGUE_LIFT = [10, 5, 0, 0, 0, 5, 10] // px: raise outer mascots into a back row → layered huddle (Figma)
+const charSrc = (n: string) => `/images/v2/characters/${n}.png`
+
+function SomphongSection() {
+  return (
+    <section className="relative -mx-4 mb-6 overflow-hidden px-4 py-14">
+      <Image src="/images/v2/zone3/section-bg.jpg" alt="" fill priority sizes="100vw" aria-hidden className="pointer-events-none -z-10 object-cover" />
+      {/* white mound: top (flipped vertical) + bottom — full-bleed, overflowing both edges */}
+      <SomphongMound className="top-0 -scale-y-100" />
+      <SomphongMound className="bottom-0" />
+      <h2 className="text-xl font-bold leading-7 text-[#0B305B]">ดวงสมพงค์</h2>
+      {/* 2 FIXED lines per Figma (was one long flowing string) */}
+      <p className="mt-2 text-sm font-medium leading-5 text-[#464646]">
+        เช็คความเข้ากันของคุณกับคนพิเศษ ดูดวงคู่ครอง
+        <br />
+        ทั้งความรัก การเงิน สุขภาพ เพื่อเสริมดวงคู่ให้แข็งแกร่ง
+      </p>
+      <div className="mt-4 flex gap-2">
+        <SomphongCard title="ดูดวงคู่รัก" bg="#FBD9E7" radial="pink">
+          {/* Figma 421:826: LEFT = ไฟ (พลิกซ้ายขวา, z3-rock-r) · RIGHT = ไม้ (+7°, z3-rock-l) · หัวใจ chest-height ระหว่างคู่ */}
+          <div className="absolute inset-x-1 bottom-1 z-[5] flex items-end justify-center">
+            <Zone3Mascot name="01_ชวด-ไฟ" className="z3-rock-r h-[92px] w-[78px]" />
+            <img src="/images/v2/zone3/icon-somphong-vector.svg" alt="" aria-hidden className="z3-heart mx-[-10px] mb-7 h-6 w-6 shrink-0" />
+            <Zone3Mascot name="01_ชวด-ไม้" className="z3-rock-l h-[92px] w-[78px]" />
+          </div>
+        </SomphongCard>
+        <SomphongCard title="ดูดวงเพื่อนร่วมงาน" bg="#ECD9FB" radial="purple">
+          {/* 7 มาสคอตเป็นกลุ่มแน่น (huddle) เต็มครึ่งล่างการ์ด — outer ยกขึ้นเป็นแถวหลัง (COLLEAGUE_LIFT) */}
+          <div className="absolute inset-x-0 bottom-1 z-[5] flex items-end justify-center">
+            {COLLEAGUE_MASCOTS.map((n, i) => (
+              <Zone3Mascot key={n} name={n} className="z3-pop -mx-[16px] h-[60px] w-[50px]" style={{ animationDelay: `${COLLEAGUE_DELAY[i]}s`, marginBottom: COLLEAGUE_LIFT[i] }} />
+            ))}
+          </div>
+        </SomphongCard>
+      </div>
+      <button type="button" className="mx-auto mt-4 block rounded-full border border-[#1455A4] px-6 py-2 text-sm font-semibold uppercase leading-5 text-[#1455A4]">ดูบริการทั้งหมด</button>
+      <SomphongKeyframes />
+    </section>
+  )
+}
+
+// full-bleed white wave (reuses the WhiteMoundDivider shape), 451px wide overflowing both edges.
+function SomphongMound({ className }: { className: string }) {
+  return (
+    <div aria-hidden className={`pointer-events-none absolute inset-x-0 z-0 h-7 w-[451px] max-w-none -translate-x-[29px] text-v3-bg-cream ${className}`}>
+      <svg viewBox="0 0 451 27" preserveAspectRatio="none" className="h-full w-full" fill="currentColor"><path d="M0 27 V10 Q112 -6 225 8 T451 10 V27 Z" /></svg>
+    </div>
+  )
+}
+
+function SomphongCard({ title, bg, radial, children }: { title: string; bg: string; radial: 'pink' | 'purple'; children: React.ReactNode }) {
+  return (
+    <div className="relative h-[150px] flex-1 overflow-hidden rounded-2xl px-4 py-6" style={{ backgroundColor: bg }}>
+      {/* radial circles behind (real SVG, ฟีม: not CSS) */}
+      <img src={`/images/v2/zone3/radial-group-${radial}.svg`} alt="" aria-hidden className="pointer-events-none absolute -left-[43px] -top-[9px] z-0 w-[262px] max-w-none" />
+      {radial === 'pink' && <img src="/images/v2/zone3/radial-group-pink.svg" alt="" aria-hidden className="pointer-events-none absolute left-[130px] -top-[48px] z-0 w-[150px] max-w-none opacity-80" />}
+      <h3 className="relative z-10 text-base font-bold uppercase leading-6 text-[#0B305B]">{title}</h3>
+      {children}
+    </div>
+  )
+}
+
+// fixed mascot with missing-file safety (404 → hero), for the Zone-3 cards.
+function Zone3Mascot({ name, className, style }: { name: string; className?: string; style?: React.CSSProperties }) {
+  const [broken, setBroken] = useState(false)
+  return <img src={broken ? HERO_FALLBACK : charSrc(name)} alt="" aria-hidden onError={() => setBroken(true)} style={style} className={`pointer-events-none shrink-0 object-contain ${className ?? ''}`} />
+}
+
+function SomphongKeyframes() {
+  return (
+    <style
+      dangerouslySetInnerHTML={{
+        __html: `
+    @keyframes z3-heart{0%{transform:scale(1) translateY(0)}25%{transform:scale(1.2) translateY(-5px)}50%{transform:scale(1) translateY(0)}75%{transform:scale(1.15) translateY(-3px)}100%{transform:scale(1) translateY(0)}}
+    @keyframes z3-rl{0%,100%{transform:rotate(7deg) translate(0,0)}50%{transform:rotate(10deg) translate(5px,-4px)}}
+    @keyframes z3-rr{0%,100%{transform:scaleX(-1) rotate(8.55deg) translate(0,0)}50%{transform:scaleX(-1) rotate(11.55deg) translate(5px,-4px)}}
+    @keyframes z3-pop{0%{opacity:0;transform:scale(.85) translateY(15px)}30%,100%{opacity:1;transform:scale(1) translateY(0)}65%{transform:scale(1) translateY(-4px)}}
+    .z3-heart{animation:z3-heart 2s cubic-bezier(.34,1.56,.64,1) infinite;transform-origin:center;will-change:transform}
+    .z3-rock-l{animation:z3-rl 2s ease-in-out infinite;transform-origin:bottom center;will-change:transform}
+    .z3-rock-r{animation:z3-rr 2s ease-in-out infinite;transform-origin:bottom center;will-change:transform}
+    .z3-pop{animation:z3-pop 2s ease-in-out infinite;will-change:transform,opacity}
+    @media(prefers-reduced-motion:reduce){.z3-heart,.z3-rock-l,.z3-rock-r,.z3-pop{animation:none!important;opacity:1!important;transform:none!important}}
+  `,
+      }}
+    />
   )
 }
 
