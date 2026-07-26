@@ -44,7 +44,9 @@ export default function V2HomePreview() {
   if (fortune && q.mut === 'hardcode') fortune = { ...fortune, grade: 'A', percent: 99 }
   const el = (q.el as string) || 'full'
   const element = ELEMENTS[el] ?? ELEMENTS.full
-  // ?name= — #1 long-name graceful case (h1 truncates, upgrade badge + icons stay put)
+  // ?name= — Structure A: name wraps ≤2 lines, never truncates (fast iteration; final verify = real /v2)
   const name = (q.name as string) || 'มิลา'
-  return <V2HomeScreen greeting={{ name }} mascotCharacter="/images/v2/characters/01_ชวด-ดิน.png" onLogout={() => window.alert('logout()')} fortune={fortune} fortuneLoading={loading} element={element} />
+  // ?pay=paid → no upgrade badge · ?pic=y → avatar image (else letter). goo wires the real profile at /v2.
+  const profile = { pictureUrl: q.pic === 'y' ? '/images/v2/mascot/01.png' : null, showUpgrade: q.pay !== 'paid' }
+  return <V2HomeScreen greeting={{ name }} mascotCharacter="/images/v2/characters/01_ชวด-ดิน.png" onLogout={() => window.alert('logout()')} fortune={fortune} fortuneLoading={loading} element={element} profile={profile} />
 }
