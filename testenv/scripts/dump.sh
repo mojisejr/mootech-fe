@@ -34,7 +34,11 @@ if git -C "$HERE" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
   }
 fi
 
-"$PG_DUMP" "$PROD_DATABASE_URL" ${SCHEMA_FLAG:+"$SCHEMA_FLAG"} --no-owner --no-privileges --no-comments -f "$OUT"
+# --exclude-schema=vault: the supabase_vault extension isn't available in stock pg, so restoring its
+# `COPY vault.secrets` block errors (+ trips pg17's \restrict guard). vault is Supabase-internal, no app
+# table uses it → drop it at dump time so the restore is clean. (Keep auth: 35 public FKs → auth.users.)
+"$PG_DUMP" "$PROD_DATABASE_URL" ${SCHEMA_FLAG:+"$SCHEMA_FLAG"} --exclude-schema=vault \
+  --no-owner --no-privileges --no-comments -f "$OUT"
 echo "✅ wrote $OUT"
 
 # 🔎 PROOF POINT (do NOT skip): count bazi-prefixed tables. ANY > 0 → confirms the 1-shared-DB reality

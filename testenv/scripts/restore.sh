@@ -20,7 +20,11 @@ echo "→ restoring $DUMP → localhost:5433/mumate_test"
 # and FAIL on any other — a blanket "continue on error" would hide a broken restore (false-green). (บอง's catch.)
 "$PSQL" "$LOCAL_URL" -v ON_ERROR_STOP=0 -f "$DUMP" > "$LOG" 2>&1 || true
 
-UNEXPECTED="$(grep -iE 'ERROR:' "$LOG" | grep -viE 'supabase_vault|extension .?supabase_vault' || true)"
+# Tolerated = the supabase_vault cascade ONLY: the extension isn't available in stock pg, so its
+# `COPY vault.secrets` block fails (relation does not exist) and the trailing `\.` then trips the pg17
+# "backslash commands are restricted" guard. All vault-schema, unused by any app table. Everything else
+# must fail. (Belt: dump.sh now --exclude-schema=vault so future dumps don't emit this at all.)
+UNEXPECTED="$(grep -iE 'ERROR:|^error:' "$LOG" | grep -viE 'supabase_vault|vault\.secrets|backslash commands are restricted' || true)"
 if [ -n "$UNEXPECTED" ]; then
   echo "🛑 restore had UNEXPECTED errors (beyond the tolerated supabase_vault) — aborting:"
   echo "$UNEXPECTED" | head -20
