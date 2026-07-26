@@ -47,3 +47,9 @@ next-env.d.ts
 
 # generated harness evidence
 harness/evidence/
+
+# design-review captures — binaries + PII-shaped; reproduce via harness/capture-route.ts, don't commit
+harness/captures/
+
+# test-env secrets (passkey etc.) — never commit
+testenv/env/*.env
