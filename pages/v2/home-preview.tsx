@@ -43,10 +43,14 @@ export default function V2HomePreview() {
   // too's regression: ignore per-state values, hardcode grade/pct → data-binding must be broken.
   if (fortune && q.mut === 'hardcode') fortune = { ...fortune, grade: 'A', percent: 99 }
   const el = (q.el as string) || 'full'
-  const element = ELEMENTS[el] ?? ELEMENTS.full
+  let element = ELEMENTS[el] ?? ELEMENTS.full
+  // ?element=ไม้|ไฟ|ดิน|ทอง|น้ำ|null — Zone 2 card gradient by element (force the 5 elements + no-data case)
+  if (q.element !== undefined) element = { elementTh: q.element === 'null' ? null : (q.element as string), strengthLabel: element.strengthLabel }
   // ?name= — Structure A: name wraps ≤2 lines, never truncates (fast iteration; final verify = real /v2)
   const name = (q.name as string) || 'มิลา'
   // ?pay=paid → no upgrade badge · ?pic=y → avatar image (else letter). goo wires the real profile at /v2.
   const profile = { pictureUrl: q.pic === 'y' ? '/images/v2/mascot/01.png' : null, showUpgrade: q.pay !== 'paid' }
-  return <V2HomeScreen greeting={{ name }} mascotCharacter="/images/v2/characters/01_ชวด-ดิน.png" onLogout={() => window.alert('logout()')} fortune={fortune} fortuneLoading={loading} element={element} profile={profile} />
+  // ?mascot=<path> — Zone 2: force a specific mascot to test occlusion across the 60 shapes (?mascot=404 → broken → hero)
+  const mascotCharacter = q.mascot === '404' ? '/images/v2/characters/__missing__.png' : ((q.mascot as string) || '/images/v2/characters/01_ชวด-ดิน.png')
+  return <V2HomeScreen greeting={{ name }} mascotCharacter={mascotCharacter} onLogout={() => window.alert('logout()')} fortune={fortune} fortuneLoading={loading} element={element} profile={profile} />
 }
