@@ -65,6 +65,14 @@ copy that line into the evidence. **Before trusting a capture, confirm the FE bu
 393 (primary) · 360 · 320. Zone 1 shipped a bug that only appeared ≤360 (a ground-truth label truncated).
 A single @393 capture is **not** "verified" — enumerate the width set (completeness-pass).
 
+## fullPage + a fixed element = a bar floats mid-image (artifact, NOT a bug)
+`capture-route` uses `fullPage` (whole page in one image). Playwright renders a `position: fixed` element
+(e.g. the bottom tab nav) at its **first-viewport** position, so in a tall stitched image it appears
+**mid-content**, not at the bottom — looking like it overlaps a section. It doesn't: in a real 852px viewport
+the nav sits correctly at the bottom with content scrolling under it (confirmed by a viewport-only shot).
+**Do NOT report the mid-image nav bar as an overlap bug.** If you need to check the nav's true placement,
+capture viewport-only (`fullPage: false`) — a separate concern from the full-page content review.
+
 ## Different users
 `--user` switches the logged-in test user so you can capture the cases that break layout:
 - `default` — normal user (dob + gender) → element line + fortune render.
