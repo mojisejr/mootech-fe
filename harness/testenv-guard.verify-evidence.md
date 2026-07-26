@@ -51,6 +51,33 @@ injection). Non-blocking chore for Phase 3 (too): swap the human nicknames in de
 `Dev User N (uuid8)` labels. NOTE: too's approval predated บอง's user_provider find — the anonymize
 completeness fix above lands after it; the guard/structure too reviewed is unchanged + strengthened.
 
+## Phase 3b — .env structural close (option ข) + bash-3.2 runtime fix (goo, ฟีม's pick via บอง)
+The gap บอง flagged: safety depended on *running via stack.sh* (discipline), not structure. Verified 3
+facts first (not guessed): (a) the `~/ghq` clones post-swap already point localhost = already safe; (b)
+the real prod-hit risk is the `opilot` clone — but it's a **different GitHub repo** (`jaroensakyod/mootech-be`)
+in elder **o**'s workspace, so a BE prestart guard (option ก) can't reach it and neutralizing it (option C)
+needs ฟีม's call (charter: we don't touch o's repos); (c) `.env.disabled` is **not gitignored** in any of
+the 3 repos → moving prod cred there would recreate the `.env.prod.bak` leak class. So option ข ships as:
+- **no-secret `.env.disabled` marker** in each repo (breadcrumb only; cred stays in `testenv/.backups/`),
+  kept out of git via each repo's `.git/info/exclude` (no committed change to BE/bazi) + mootech-fe's
+  committed `.gitignore`.
+- **`stack.sh restore`** subcommand + an **EXIT-trap rollback** so an interrupted run never leaves a half
+  state (real `.env` back, markers removed); on success the swap persists so apps can boot.
+- **dangling-marker check** at start: warns (never clobbers) if a prior test-mode wasn't restored; backups
+  are never overwritten once they exist.
+- **bash-3.2 fix (latent bug found via verify-real-path):** `env bash` = 3.2.57 (no newer bash present),
+  but the old `stack.sh` used `declare -A` (unsupported on 3.2 → the swap loop could never run — corroborated
+  by an incomplete `.backups/` and a mis-named bazi backup). Rewrote config as a `|`-delimited here-string.
+
+**proof-of-teeth (sandbox, run live under `env bash` 3.2, neg-control included):** a fake GH tree (3 git
+repos with prod-shaped dotfiles) + stubbed docker/psql + the REAL guard.sh. (1) `up` → all 3 dotfiles →
+local, markers dropped **with no cred**, `.git/info/exclude` updated, all 3 real prod backups preserved,
+guard-after passes. (2) `restore` → all 3 real prod dotfiles back, markers removed. (3) **mid-swap failure**
+(bazi dotfile chmod 000 after fe+be swapped) → EXIT trap ROLLS BACK fe+be to prod, markers gone, exit 1 —
+**no half state**, and the real bazi backup was NOT overwritten with garbage. (4) leftover marker → dangling
+warn fires. All four under bash 3.2.57. NOT claimed: this was NOT re-run against the live `~/ghq` clones
+(they're already in a working local state) — the live run is deferred; the sandbox exercises the identical code.
+
 ANCHOR: testenv/scripts/guard.test.sh#guard-fail-closed
 
 ANCHOR: testenv/scripts/guard.test.sh#guard-fail-closed

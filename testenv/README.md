@@ -35,6 +35,7 @@ one local db `mumate_test`. **Proof point in `dump.sh`: it counts bazi-prefixed 
      unset PROD_DATABASE_URL     # scrub it from the shell when done
 2. anyone:                  ./scripts/stack.sh         # guard → postgres(SSL) → restore → swap .env (safe) → boot cmds
 3. boot the 3 apps (printed by stack.sh), then Playwright → dev-login → /v2 → capture 393/360/320
+4. done testing:            ./scripts/stack.sh restore # put every real .env back from .backups/, drop the markers
 ```
 > Never `export PROD_DATABASE_URL='postgres://user:pass@…'` inline — the password lands in shell
 > history. Use `read -rs` (above), and `dumps/`/`.backups/` are gitignored so no prod data or cred
@@ -44,11 +45,30 @@ one local db `mumate_test`. **Proof point in `dump.sh`: it counts bazi-prefixed 
 - `guard.sh` refuses to boot if any DB target matches a prod host (`supabase.*`/`neon.tech`/`render.com`/…),
   and requires local hosts. Run **before** boot **and after** the .env swap (the swap overwrites the real
   `.env`, which holds prod cred).
-- `stack.sh` **backs up** each app's existing dotfile → `*.prod.bak` before overwriting, and restores it
-  if the post-copy guard fails. Never blindly clobbers a prod-cred `.env`.
-- `env/*.env` are committable — dummy externals only, DB points local. `certs/` + real `.env` are gitignored.
-- Nothing here has a network path to prod. `anonymize.sql` (Phase 2) will scrub names/emails/phones from
-  restored data while keeping dob + birth-time (needed for the fortune compute).
+- `stack.sh` **backs up** each app's real dotfile → `testenv/.backups/<repo><dotfile>.prod.bak` (gitignored)
+  BEFORE overwriting, and **never overwrites an existing backup** — so the prod cred is always recoverable.
+- **`.env.disabled` marker** (dropped in each repo on swap): a **no-secret** breadcrumb so a confused human
+  sees they're in test-mode + how to leave. It holds **no cred** on purpose — writing cred there would
+  recreate the old committable-`*.prod.bak` leak class. Kept out of git via each repo's `.git/info/exclude`
+  (no committed `.gitignore` change needed in the BE/bazi repos).
+- **Interrupted run = no half state:** if `stack.sh` dies mid-swap, an EXIT trap rolls back the swaps it
+  already made (real `.env` back, markers removed). On success the swap persists so the apps can boot.
+- **`restore` is the way back:** `./scripts/stack.sh restore` returns every real `.env` and removes the
+  markers, idempotently.
+- **Runtime:** macOS `/bin/bash` is 3.2 (`env bash` resolves to it — no newer bash present). `stack.sh` is
+  bash-3.2-safe (no `declare -A`, no empty-array-under-`set -u`) and verified end-to-end under it.
+- `env/*.env` are committable — dummy externals only, DB points local. `certs/`, `dumps/`, `.backups/`, and
+  the real `.env` are gitignored. `anonymize.sql` scrubs names/emails/phones from restored data while
+  keeping dob + birth-time (needed for the fortune compute).
+
+## Manual recovery (if a run was killed and `restore` isn't handy)
+Each app's real `.env` is at `testenv/.backups/<repo><dotfile>.prod.bak`. To recover by hand:
+```
+cp testenv/.backups/mootech-be.env.prod.bak            ~/ghq/github.com/mojisejr/mootech-be/.env
+cp testenv/.backups/bazi-sft-dataset.env.local.prod.bak ~/ghq/github.com/mojisejr/bazi-sft-dataset/.env.local
+# then delete the leftover marker(s):  rm <repo>/.env.disabled
+```
+(`mootech-fe` has no backup — its real `.env` was already local, no prod cred to restore.)
 
 ## Files
 ```
@@ -57,5 +77,5 @@ env/fe.env be.env bazi.env   committable dummy env; stack.sh copies → each rep
 scripts/dump.sh      pg17 pg_dump, cred from $PROD_DATABASE_URL (never stored), schema-only, proves bazi tables
 scripts/restore.sh   pg17 psql restore → local
 scripts/guard.sh     fail-closed prod-host refusal (before + after)
-scripts/stack.sh     orchestrate: guard → up → restore → safe .env swap → boot cmds
+scripts/stack.sh     [up|restore] orchestrate: guard → up → restore+anonymize → safe .env swap (marker + EXIT-trap rollback) → boot cmds · bash-3.2-safe
 ```
