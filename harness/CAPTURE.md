@@ -39,6 +39,8 @@ Captures the route at **393 / 360 / 320** (the three widths Zone 1 got burned on
 | `--user <label>` | `default` | `default` · `longname` · `no-dob` (see USERS in the script) |
 | `--viewports 393,360,320` | `393,360,320` | override the width set |
 | `--out <dir>` | `harness/captures` | output dir (gitignored) |
+| `--no-user` | (off) | gate-only login — for dev routes with MOCK props (e.g. /v2/home-preview?element=…); still records the build hash |
+| `--label <name>` | user/preview | filename label (the query string is dropped from the slug) |
 
 Login flow the script runs (confirmed from source): `POST /api/v2/login {passkey}` (team gate → `v2_access`
 cookie) → `/dev-login` **types `user_id` + `name` into the form** (sets `MEMBER_*` + a `dev` session) →

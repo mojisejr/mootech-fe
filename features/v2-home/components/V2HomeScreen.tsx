@@ -72,7 +72,7 @@ export function V2HomeScreen({ greeting, mascotCharacter, onLogout, fortune, for
       <div className="relative z-10 mx-auto flex w-full max-w-md flex-col px-4 pb-36 pt-[max(0.75rem,env(safe-area-inset-top))]">
         <Greeting name={greeting.name} mascotCharacter={mascotCharacter} onAvatarTap={() => setLogoutOpen(true)} onBell={() => setNotifOpen(true)} element={element} profile={profile ?? PROFILE_FALLBACK} />
         <ScoreRingCard fortune={fortune} loading={fortuneLoading} />
-        <ManifestCard />
+        <ManifestCard mascotCharacter={mascotCharacter} element={element} />
         <WhiteMoundDivider />
         <ServiceSection
           title="ดวงสมพงค์"
@@ -319,13 +319,50 @@ function FortuneSkeleton({ empty }: { empty: boolean }) {
   )
 }
 
-// ── Manifest / mascot card ──────────────────────────────────────────────────────────────────────
-function ManifestCard() {
+// ── Manifest / mascot card (Zone 2) ──────────────────────────────────────────────────────────────
+// The card's gradient comes from the USER'S element (ดวง → มาสคอต → ธาตุ → สีพื้น, ฟีม's idea). ไม้ (wood)
+// is EXACT from Figma; the other four are Lamun's PROPOSAL — kept in ONE map so ฟีม can swap without a
+// rebuild. ⚠️ ไฟ/ดิน/ทอง/น้ำ AWAIT ฟีม's decision (see PR) — not final.
+const ELEMENT_GRADIENTS: Record<string, { from: string; to: string }> = {
+  'ไม้': { from: '#91d8d2', to: '#e0ffc4' }, // wood — Figma exact (LOCKED)
+  'ไฟ': { from: '#f6a99f', to: '#ffe6c8' }, // fire — proposal (warm coral → peach)
+  'ดิน': { from: '#e8cd94', to: '#fbf1d2' }, // earth — proposal (golden sand → cream)
+  'ทอง': { from: '#cfd7e1', to: '#f3f6fb' }, // metal — proposal (soft silver → near-white)
+  'น้ำ': { from: '#9cc5f1', to: '#d9edff' }, // water — proposal (sky → pale blue)
+}
+const WOOD_GRADIENT = ELEMENT_GRADIENTS['ไม้'] // default when elementTh is null/unknown — card is never colourless
+
+function ManifestCard({ mascotCharacter, element }: { mascotCharacter: string; element: ElementInfo }) {
+  const g = (element.elementTh && ELEMENT_GRADIENTS[element.elementTh]) || WOOD_GRADIENT
   return (
-    <section className="mb-8 overflow-hidden rounded-[24px] bg-gradient-to-r from-v3-cyan/30 to-v3-lime/20 p-6">
-      <p className="max-w-[64%] text-base font-bold leading-6 text-v3-navy">มานิเฟส สิ่งที่คุณปรารถนา แล้วปล่อยให้จักรวาลนำทาง</p>
-      <button type="button" className="mt-3 rounded-full bg-v3-sapphire px-6 py-2 text-sm font-semibold uppercase leading-5 text-v3-lime">เพิ่มความปรารถนาของคุณ</button>
+    // overflow-hidden clips the overflowing mascot (intended). The mascot scales with the card (w-[48%]) so
+    // the left lane stays proportional at 393/360/320 (a fixed 187px mascot cramped the title to 4 lines @320).
+    <section className="relative mb-8 overflow-hidden rounded-[24px] py-6 pl-6 pr-5" style={{ background: `linear-gradient(to right, ${g.from}, ${g.to})` }}>
+      {/* content — z ABOVE the mascot/coin so the button is always readable + clickable (ฟีม, all 60 mascots) */}
+      <div className="relative z-10 flex flex-col items-start gap-3">
+        {/* title wraps in the LEFT lane (max-w keeps it off the mascot) */}
+        <p className="max-w-[54%] text-base font-bold leading-6 text-[#1f2937]">มานิเฟส สิ่งที่คุณปรารถนา แล้วปล่อยให้จักรวาลนำทาง</p>
+        {/* button: single line, extends under the mascot (Figma ~198px > column) — on top (z-10) so it stays
+            readable. destination not wired this zone (ฟีม). spelling: ปรารถนา (Figma's ปราถนา is a typo). */}
+        <button type="button" className="whitespace-nowrap rounded-full bg-v3-sapphire px-6 py-2 text-sm font-semibold uppercase leading-5 text-v3-lime">เพิ่มความปรารถนาของคุณ</button>
+      </div>
+      {/* mascot from the chart — right-anchored + rotated + overflowing (clipped). pointer-events-none so a
+          tap passes through to the button. onError → hero fallback (like MascotImg). */}
+      <ManifestMascot src={mascotCharacter} />
+      {/* coin — decorative, bottom-right, gentle 2s float. pointer-events-none. reduced-motion → still. */}
+      <Image src="/images/v2/zone2/coin.png" alt="" width={56} height={56} aria-hidden className="zone2-coin pointer-events-none absolute bottom-[-12px] right-[7%] z-[5] size-[56px]" />
+      <style dangerouslySetInnerHTML={{ __html: `@keyframes zone2-coin{0%{transform:rotate(0) scale(1) translateY(0)}25%{transform:rotate(-3deg) scale(1.03) translateY(-3px)}50%{transform:rotate(0) scale(1.05) translateY(-6px)}75%{transform:rotate(3deg) scale(1.03) translateY(-3px)}100%{transform:rotate(0) scale(1) translateY(0)}}.zone2-coin{animation:zone2-coin 2s cubic-bezier(.45,0,.55,1) infinite;transform-origin:center}@media(prefers-reduced-motion:reduce){.zone2-coin{animation:none}}` }} />
     </section>
+  )
+}
+
+// mascot inside the manifest card — same missing-file safety as MascotImg (404 → hero fallback).
+function ManifestMascot({ src }: { src: string }) {
+  const [current, setCurrent] = useState(src)
+  return (
+    <div aria-hidden data-testid="manifest-mascot" className="pointer-events-none absolute right-[-5.8%] top-[-22px] z-[1] aspect-[187/217] w-[52%] rotate-[7deg]">
+      <Image src={current} alt="" fill sizes="187px" style={{ objectFit: 'contain' }} onError={() => setCurrent(HERO_FALLBACK)} />
+    </div>
   )
 }
 
