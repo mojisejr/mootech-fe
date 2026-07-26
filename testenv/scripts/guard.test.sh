@@ -18,6 +18,9 @@ refuse 'postgresql://u:p@mootech-be.onrender.com/db'
 refuse 'postgresql://u:p@x.abc.rds.amazonaws.com:5432/db'
 # a NON-local, non-prod-fingerprinted host must ALSO be refused (fail-closed by default, not open-by-default)
 refuse 'postgresql://u:p@some-random-host.example.com:5432/db'
+# too's adversarial bypass: "localhost" hidden in the PASSWORD of a REMOTE url must NOT pass as local
+refuse 'postgresql://admin:super_secret_localhost:5432_hack@remote-custom-domain.com:5432/db'
+refuse 'postgresql://user:pw@localhost.evil.com:5432/db'   # host that merely STARTS with localhost
 # local — must be allowed
 allow 'postgresql://postgres:postgres@localhost:5433/mumate_test'
 allow 'postgresql://postgres:postgres@127.0.0.1:5433/mumate_test'

@@ -8,7 +8,6 @@
 set -euo pipefail
 
 PROD_PATTERNS='supabase\.com|supabase\.co|neon\.tech|render\.com|\.rds\.amazonaws\.com|pooler\.supabase'
-LOCAL_PATTERNS='@?(localhost|127\.0\.0\.1|host\.docker\.internal)(:|/)|@postgres:'
 DB_KEYS='DATABASE_URL|APP_DATABASE_URL|DB_HOST|PROD_DATABASE_URL'
 
 fail=0
@@ -23,9 +22,15 @@ check_value() {  # $1 = key, $2 = value
     host=$(printf '%s' "$v" | sed -E 's#^.*@##; s#[:/].*$##')
     echo "🛑 REFUSE: $k → PROD host ($host)"; fail=1; return 0
   fi
-  # DB_HOST or a URL must resolve to a local host — fail-closed on anything else
-  if printf '%s' "$k" | grep -qE 'URL$' && ! printf '%s' "$v" | grep -qiE "$LOCAL_PATTERNS"; then
-    echo "🛑 REFUSE: $k is not a local host (expected localhost:5433) — fail-closed"; fail=1
+  # For a URL, extract the ACTUAL host (after the LAST @, before port/path) and require it be local.
+  # A substring match ("localhost" anywhere) would let a password like `super_secret_localhost:5432`
+  # in a remote URL bypass the guard (too's adversarial find). Host-based is not foolable that way.
+  if printf '%s' "$k" | grep -qE 'URL$'; then
+    host=$(printf '%s' "$v" | sed -E 's#^[a-zA-Z]+://##; s#\?.*$##; s#^.*@##; s#[:/].*$##')
+    case "$host" in
+      localhost|127.0.0.1|host.docker.internal|postgres) : ;;  # local — ok
+      *) echo "🛑 REFUSE: $k host '$host' is not local (fail-closed)"; fail=1 ;;
+    esac
   fi
   if [ "$k" = "DB_HOST" ] && ! printf '%s' "$v" | grep -qiE '^(localhost|127\.0\.0\.1|postgres)$'; then
     echo "🛑 REFUSE: DB_HOST=$v is not local"; fail=1

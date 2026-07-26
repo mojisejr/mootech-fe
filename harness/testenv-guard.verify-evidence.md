@@ -29,9 +29,28 @@ The 3 apps BOOTING against the local SSL postgres is NOT yet verified (needs the
 BE's SSL handshake against the self-signed cert, bazi storage-client init, FE NextAuth. Flagged in-file.
 ฟีม runs `dump.sh` (holds prod cred); goo drives the boot after — 🛑 if BE fails with correct env, STOP + report (no BE code change).
 
+## anonymize completeness (บอง's whole-DB verify — the false-green that hid)
+Phase 2 anonymize first "passed" my golden C, but the counter-proof only checked the tables in my OWN
+list → it proved what I did was done, NOT that I did it completely. บอง swept the whole DB and found
+`use_provider` (empty) got the UPDATE while `user_provider` (5385 real OAuth rows: emails, names, JWT
+`id_token`) was never touched — a `to_regclass` guard passed on the empty table, UPDATE 0 rows, silent
+success. Fixes: (1) anonymize `user_provider` (name/email/picture_url/id_token); (2) a **self-verify
+DO-block inside the tx before COMMIT** that sweeps EVERY email column in information_schema and RAISEs
++ rolls back if any non-@test.local address survives — teeth proven (inject 1 real email → "anonymize
+INCOMPLETE: 1 real emails remain", rollback). Re-verified WHOLE-DB: 0 real emails in any column;
+dob invariant still 3988/518/2872. Lesson: verify against the whole DB, never your own list.
+
 ## adversary sign-off
-PENDING — too (🛡️ prove the guard closes: try to trick it into pointing prod; scan env/anonymize for real
-secrets; assess the dev-login.tsx real-user-UUID exposure) + Phase-1 boot run. goo does not self-certify.
-(บอง review already closed 2 leak surfaces; goo's own adversary pass found + closed the 3rd — .env.prod.bak.)
+**too (static/security/AST/D2) — SIGNED** (checked out the branch, ran guard.test.sh 8/8, security scan):
+approved the fail-closed default-deny, the git-check-ignore dump guard, the .backups/ move, atomic
+anonymize (BEGIN/COMMIT + ON_ERROR_STOP), and confirmed dev-login is safe (NODE_ENV gate + anonymized DB).
+too's adversarial find: `LOCAL_PATTERNS='@?...'` allowed "localhost" inside a PASSWORD of a remote URL to
+match as local. FIXED: guard now extracts the real host (after the last @) and requires it be local —
+too's bypass URL is refused; anchor extended to 10 cases (incl `localhost.evil.com` + the password
+injection). Non-blocking chore for Phase 3 (too): swap the human nicknames in dev-login SAMPLE_USERS for
+`Dev User N (uuid8)` labels. NOTE: too's approval predated บอง's user_provider find — the anonymize
+completeness fix above lands after it; the guard/structure too reviewed is unchanged + strengthened.
+
+ANCHOR: testenv/scripts/guard.test.sh#guard-fail-closed
 
 ANCHOR: testenv/scripts/guard.test.sh#guard-fail-closed

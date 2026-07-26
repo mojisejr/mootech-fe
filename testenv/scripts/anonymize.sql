@@ -39,6 +39,14 @@ UPDATE use_provider SET
   name  = 'prov_' || left(user_id, 8),
   email = 'prov_' || left(user_id, 8) || '@test.local';
 
+-- ⚠️ user_provider (NOT use_provider — two near-identical names; use_provider is EMPTY, user_provider
+-- has the real 5385 OAuth rows). id_token = a real OAuth id_token (JWT w/ user claims) → scrub it too.
+UPDATE user_provider SET
+  name        = 'prov_' || left(user_id, 8),
+  email       = 'prov_' || left(user_id, 8) || '@test.local',
+  picture_url = '',
+  id_token    = '';
+
 -- ── calc / matching logs (name only; place_name = birth province → KEEP for compute) ────────────────
 UPDATE log_calculate  SET name = 'calc_' || left(id::text, 8);
 UPDATE log_love_mate  SET name = 'p_' || left(id::text, 8), your_name = 'you_' || left(id::text, 8);
@@ -68,6 +76,29 @@ UPDATE payment SET email = 'pay_' || left(id::text, 8) || '@test.local', note = 
 UPDATE otp     SET tel = '0800000000', message = '(anonymized)' WHERE to_regclass('public.otp') IS NOT NULL;
 UPDATE user_line_mappings SET line_user_id = 'line_' || left(clerk_user_id, 8)
   WHERE to_regclass('public.user_line_mappings') IS NOT NULL;
+
+-- 🛡️ SELF-VERIFY (inside the tx, before COMMIT — so a leak ROLLS BACK, atomic + LOUD, not false-green).
+-- Sweeps EVERY email column in information_schema, not the list above — this is exactly the class of bug
+-- that hid user_provider (a mis-named/empty target UPDATEs 0 rows and "succeeds" silently). If ANY email
+-- column still holds a non-@test.local address, the whole anonymize aborts and rolls back.
+DO $$
+DECLARE r record; leaked int; total int := 0;
+BEGIN
+  FOR r IN
+    select table_name, column_name from information_schema.columns
+    where table_schema='public' and data_type in ('text','character varying') and column_name ~* 'email|mail'
+  LOOP
+    EXECUTE format('select count(*) from %I where %I ~ ''@'' and %I !~ ''@test.local$''',
+                   r.table_name, r.column_name, r.column_name) INTO leaked;
+    IF leaked > 0 THEN
+      RAISE WARNING 'PII LEAK: %.% = % real emails', r.table_name, r.column_name, leaked;
+      total := total + leaked;
+    END IF;
+  END LOOP;
+  IF total > 0 THEN
+    RAISE EXCEPTION 'anonymize INCOMPLETE: % real emails remain across the DB — rolling back', total;
+  END IF;
+END $$;
 
 COMMIT;
 
