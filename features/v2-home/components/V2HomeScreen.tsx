@@ -360,7 +360,7 @@ function ManifestCard({ mascotCharacter, element }: { mascotCharacter: string; e
 function ManifestMascot({ src }: { src: string }) {
   const [current, setCurrent] = useState(src)
   return (
-    <div aria-hidden data-testid="manifest-mascot" className="pointer-events-none absolute right-[-4%] top-[-22px] z-[1] aspect-[187/217] w-[48%] rotate-[7deg]">
+    <div aria-hidden data-testid="manifest-mascot" className="pointer-events-none absolute right-[-5.8%] top-[-22px] z-[1] aspect-[187/217] w-[52%] rotate-[7deg]">
       <Image src={current} alt="" fill sizes="187px" style={{ objectFit: 'contain' }} onError={() => setCurrent(HERO_FALLBACK)} />
     </div>
   )
