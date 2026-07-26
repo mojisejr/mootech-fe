@@ -78,6 +78,18 @@ guard-after passes. (2) `restore` → all 3 real prod dotfiles back, markers rem
 warn fires. All four under bash 3.2.57. NOT claimed: this was NOT re-run against the live `~/ghq` clones
 (they're already in a working local state) — the live run is deferred; the sandbox exercises the identical code.
 
+**adversary sign-off (Phase 3b) — too SIGNED (option-ข + bash-3.2):** verified all angles — (1) the EXIT
+trap: `SWAPPED` is tracked BEFORE guard-after so rollback always fires when `STACK_DONE≠1` (short-circuit,
+guard-fail, or Ctrl+C) → no half state; (2) the `.env.disabled` breadcrumb is cred-free + `.git/info/exclude`
+repo-local (no commit burden); (3) the here-string replaces `declare -A` (fixes the bash-3.2.57 latent bug)
+and the `</dev/null` on the in-loop guard call stops the loop's here-string being siphoned. **Gate before
+merge (goo+บอง agreed, NOT waived):** stack.sh must run one FULL round on the live `~/ghq` clones once,
+in this exact order — **Phase-3 captures done → stop all 3 dev servers FIRST** (Next/Nest watch `.env` and
+would hot-reload onto prod the instant `restore` rewrites it — the one thing today was spent preventing) →
+`restore` → `up` full round → **verify: guard-after passes, 3 apps boot local, AND `pg_stat_activity` shows
+the connection actually on :5433** (boot ≠ connected to the right DB — บอง's production-readiness point) →
+then ฟีม's merge key. Merging a never-fully-run script would be the `--with-data` lesson again.
+
 ANCHOR: testenv/scripts/guard.test.sh#guard-fail-closed
 
 ANCHOR: testenv/scripts/guard.test.sh#guard-fail-closed
