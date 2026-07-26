@@ -8,7 +8,9 @@
 set -euo pipefail
 
 PROD_PATTERNS='supabase\.com|supabase\.co|neon\.tech|render\.com|\.rds\.amazonaws\.com|pooler\.supabase'
-DB_KEYS='DATABASE_URL|APP_DATABASE_URL|DB_HOST|PROD_DATABASE_URL'
+# Keys that must never point at prod. #177: NEXT_PUBLIC_BACKEND_URL too — the .env.local hole pointed the
+# FE at the PROD backend (onrender.com), which reaches the prod DB; scanning only DB_HOST/DATABASE_URL missed it.
+DB_KEYS='DATABASE_URL|APP_DATABASE_URL|DB_HOST|PROD_DATABASE_URL|NEXT_PUBLIC_BACKEND_URL'
 
 fail=0
 check_value() {  # $1 = key, $2 = value
