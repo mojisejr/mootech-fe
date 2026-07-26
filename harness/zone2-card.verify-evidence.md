@@ -40,6 +40,13 @@ ANCHOR: harness/run-zone2-card.ts#mut-button-behind
 - button destination NOT wired (ฟีม). spelling ปรารถนา (Figma's ปราถนา is a typo).
 
 ## adversary sign-off
-Cross-oracle, I do NOT self-certify. Requesting **too** (static + D2) + **goo** (runtime): a mascot shape that
-covers the title despite z-order; an element string the map doesn't cover (→ must fall to wood); the coin
-animation ignoring reduced-motion; the button unreadable on any of the 5 gradients. **PENDING** run-proven.
+Cross-oracle, RUN-PROVEN — I do NOT self-certify.
+- **too (static/AST + D2 gate) — SIGNED OFF PR#114**, attacked all 5 lenses, none broke through:
+  1. occlusion — z-10 button/title > z-5 coin > z-1 mascot holds for all 60 mascots (incl. wide-winged
+     ระกาทอง); z-order beats the pointer-events-none `elementFromPoint` blind spot.
+  2. element fallback — out-of-range / null elementTh → WOOD_GRADIENT, never a colourless card.
+  3. reduced-motion — `@media(prefers-reduced-motion:reduce){.zone2-coin{animation:none}}` verified.
+  4. contrast — slate title (#1f2937) + sapphire button read clearly on all 5 light pastel grounds.
+  5. the 4 colours (ไฟ/ดิน/ทอง/น้ำ) are correctly staged as PENDING ฟีม in the one ELEMENT_GRADIENTS map,
+     no bug-debt. **21/21 tests green.**
+- **goo (runtime lens)** — requested; complementary to too's D2 gate. Colours remain ฟีม's decision.
