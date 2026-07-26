@@ -33,4 +33,21 @@ printf 'NEXT_PUBLIC_BACKEND_URL=http://localhost:4000\n' > "$tmpf"
 if bash "$G" "$tmpf" >/dev/null 2>&1; then echo "  ✓ allowed local NEXT_PUBLIC_BACKEND_URL"; pass=$((pass+1)); else echo "  ✗ REFUSED local NEXT_PUBLIC_BACKEND_URL"; fail=1; fi
 rm -f "$tmpf"
 
+# #184: guard refuses REAL outbound-provider hosts (8x8/LINE/Omise/SendGrid) anywhere in a test-env file,
+# so an accidentally-invoked otp/sms/line/payment call can't reach a live provider. Neutralized `.invalid`
+# hosts must PASS; a comment mentioning a provider must NOT false-refuse. Mutant: drop a PROVIDER_PATTERN
+# (or the whole-file scan) → a real host slips through → the refuse case below flips → RED.
+tmpf="$(mktemp)"
+for real in 'SMS_8X8_HOST=https://sms.8x8.com' 'LINE_HOST=https://api.line.me' 'X=https://api.omise.co/charges' 'Y=https://api.sendgrid.com/v3/mail'; do
+  printf 'DB_HOST=localhost\n%s\n' "$real" > "$tmpf"
+  if bash "$G" "$tmpf" >/dev/null 2>&1; then echo "  ✗ ALLOWED real provider: $real"; fail=1; else echo "  ✓ refused real provider: ${real%%=*}"; pass=$((pass+1)); fi
+done
+# neutralized .invalid hosts must PASS
+printf 'DB_HOST=localhost\nSMS_8X8_HOST=https://sms.8x8.invalid\nLINE_HOST=https://line.invalid\nSUPABASE_PROJECT_URL=https://dummy.supabase.invalid\n' > "$tmpf"
+if bash "$G" "$tmpf" >/dev/null 2>&1; then echo "  ✓ allowed neutralized .invalid provider hosts (#184)"; pass=$((pass+1)); else echo "  ✗ REFUSED neutralized .invalid hosts"; fail=1; fi
+# a COMMENT mentioning a real provider must not false-refuse
+printf 'DB_HOST=localhost\n# do not point SMS_8X8_HOST at sms.8x8.com or LINE at api.line.me\nSMS_8X8_HOST=https://sms.8x8.invalid\n' > "$tmpf"
+if bash "$G" "$tmpf" >/dev/null 2>&1; then echo "  ✓ comment mentioning a provider is ignored (#184)"; pass=$((pass+1)); else echo "  ✗ comment false-refused"; fail=1; fi
+rm -f "$tmpf"
+
 if [ "$fail" -eq 0 ]; then echo "  guard-fail-closed: $pass passed"; else echo "  guard-fail-closed: SOME FAILED"; exit 1; fi
