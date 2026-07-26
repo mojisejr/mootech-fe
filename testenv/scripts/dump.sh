@@ -15,10 +15,13 @@ PG_DUMP=/opt/homebrew/Cellar/postgresql@17/17.6/bin/pg_dump
 HERE="$(cd "$(dirname "$0")/.." && pwd)"
 mkdir -p "$HERE/dumps"
 
+# NOTE: string flag, NOT an array — an empty bash array `MODE=()` + `set -u` is treated as UNBOUND on
+# macOS bash 3.2 (`/bin/bash`), so the --with-data path crashed with "MODE[@]: unbound variable" before
+# it even reached the DB. bash 4+ tolerates it; macOS ships 3.2. (Caught by actually running the path.)
 if [ "${1:-}" = "--with-data" ]; then
-  OUT="$HERE/dumps/full.sql"; MODE=(); echo "→ SCHEMA + DATA dump ($($PG_DUMP --version))"
+  OUT="$HERE/dumps/full.sql"; SCHEMA_FLAG=""; echo "→ SCHEMA + DATA dump ($($PG_DUMP --version))"
 else
-  OUT="$HERE/dumps/schema.sql"; MODE=(--schema-only); echo "→ SCHEMA-ONLY dump ($($PG_DUMP --version))"
+  OUT="$HERE/dumps/schema.sql"; SCHEMA_FLAG="--schema-only"; echo "→ SCHEMA-ONLY dump ($($PG_DUMP --version))"
 fi
 
 # 🛡️ fail-closed: refuse to write a dump unless git actually ignores it (structure, not trust in a
@@ -31,7 +34,7 @@ if git -C "$HERE" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
   }
 fi
 
-"$PG_DUMP" "$PROD_DATABASE_URL" "${MODE[@]}" --no-owner --no-privileges --no-comments -f "$OUT"
+"$PG_DUMP" "$PROD_DATABASE_URL" ${SCHEMA_FLAG:+"$SCHEMA_FLAG"} --no-owner --no-privileges --no-comments -f "$OUT"
 echo "✅ wrote $OUT"
 
 # 🔎 PROOF POINT (do NOT skip): count bazi-prefixed tables. ANY > 0 → confirms the 1-shared-DB reality
