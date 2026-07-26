@@ -42,12 +42,22 @@ export type V2HomeScreenProps = {
    *  No loading flag: element comes from the same settled compute as the mascot (resolved before this
    *  screen mounts), so it is never "loading" here — too caught the skeleton branch as dead in prod. */
   element: ElementInfo
+  /** Header contract — goo wires from UserGetById (one call, #165): the avatar image + whether to show the
+   *  upgrade badge. goo DECIDES the payment rule (is_not_expired) and sends the boolean; the UI never
+   *  computes it. Optional so goo's current /v2 compiles before the wire lands — the pre-wire default is
+   *  "show badge + letter avatar" (a safe fallback, NOT a rule). */
+  profile?: Profile
 }
+
+// header data goo wires (parallel). pictureUrl null / onError → letter avatar; showUpgrade false → badge hidden.
+export type Profile = { pictureUrl: string | null; showUpgrade: boolean }
+const PROFILE_FALLBACK: Profile = { pictureUrl: null, showUpgrade: true }
 
 const HERO_FALLBACK = '/images/v2/mascot/01.png'
 
-export function V2HomeScreen({ greeting, mascotCharacter, onLogout, fortune, fortuneLoading, element }: V2HomeScreenProps) {
+export function V2HomeScreen({ greeting, mascotCharacter, onLogout, fortune, fortuneLoading, element, profile }: V2HomeScreenProps) {
   const [logoutOpen, setLogoutOpen] = useState(false)
+  const [notifOpen, setNotifOpen] = useState(false)
   return (
     // page bg = bg-cream (Figma Lemon Chiffon) — the CONTINUOUS ground the whole scroll sits on
     <div className="relative min-h-screen w-full overflow-x-hidden bg-v3-bg-cream font-ibm">
@@ -60,7 +70,7 @@ export function V2HomeScreen({ greeting, mascotCharacter, onLogout, fortune, for
 
       {/* ── content column: 393 primary, centred + capped, safe-area top, clears the fixed nav ── */}
       <div className="relative z-10 mx-auto flex w-full max-w-md flex-col px-4 pb-36 pt-[max(0.75rem,env(safe-area-inset-top))]">
-        <Greeting name={greeting.name} mascotCharacter={mascotCharacter} onAvatarTap={() => setLogoutOpen(true)} element={element} />
+        <Greeting name={greeting.name} mascotCharacter={mascotCharacter} onAvatarTap={() => setLogoutOpen(true)} onBell={() => setNotifOpen(true)} element={element} profile={profile ?? PROFILE_FALLBACK} />
         <ScoreRingCard fortune={fortune} loading={fortuneLoading} />
         <ManifestCard />
         <WhiteMoundDivider />
@@ -85,6 +95,7 @@ export function V2HomeScreen({ greeting, mascotCharacter, onLogout, fortune, for
 
       <HomeBottomNav />
       {logoutOpen && <LogoutModal onClose={() => setLogoutOpen(false)} onConfirm={onLogout} />}
+      {notifOpen && <NotificationPanel onClose={() => setNotifOpen(false)} />}
     </div>
   )
 }
@@ -97,28 +108,78 @@ function MascotImg({ src }: { src: string }) {
   return <Image src={current} alt="" fill sizes="28px" style={{ objectFit: 'contain' }} onError={() => setCurrent(HERO_FALLBACK)} />
 }
 
-// ── Greeting ──────────────────────────────────────────────────────────────────────────────────────
-function Greeting({ name, mascotCharacter, onAvatarTap, element }: { name: string; mascotCharacter: string; onAvatarTap: () => void; element: ElementInfo }) {
+// ── Greeting (Structure A — ฟีม 2026-07-26) ──────────────────────────────────────────────────────────
+// The name must NEVER truncate (ฟีม). @393 the old single-row layout left only ~84px (6-7 Thai chars) for
+// the name beside the right cluster → guaranteed cut. So: row1 = the "สวัสดีคุณ" LABEL (small, faded — a tag,
+// not a headline) + the tools (badge/bell/avatar, no long text so they never squeeze anyone); row2 = the
+// name at FULL width, bold, wrapping up to 2 lines (never truncated); row3 = the element line (unchanged).
+function Greeting({ name, mascotCharacter, onAvatarTap, onBell, element, profile }: { name: string; mascotCharacter: string; onAvatarTap: () => void; onBell: () => void; element: ElementInfo; profile: Profile }) {
   return (
-    <header className="flex flex-col gap-2 py-4">
-      {/* #1: top row = name (truncates) + อัพเกรด badge + bell + avatar on ONE line. ElementLine (goo's #2)
-          drops BELOW at full width so "ธาตุ · ดิถี" isn't squeezed by the right cluster (Figma layout). */}
+    <header className="flex flex-col gap-1.5 py-4">
+      {/* row1 — label + tools */}
       <div className="flex items-center gap-2">
-        {/* smaller than the old text-2xl + truncate so a long name can't push the right cluster or wrap */}
-        <h1 className="min-w-0 flex-1 truncate text-xl font-bold leading-7 text-v3-navy">สวัสดีคุณ{name}</h1>
-        {/* อัพเกรด badge slot (Figma 477:4543 — navy on lime). Not wired this zone (slot). */}
-        <button type="button" className="shrink-0 rounded-full bg-v3-lime px-3 py-1.5 text-sm font-bold leading-5 text-v3-navy">อัพเกรด</button>
-        {/* notification bell */}
-        <button type="button" aria-label="การแจ้งเตือน" className="grid size-10 shrink-0 place-items-center rounded-full bg-v3-cyan text-white">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 8A6 6 0 1 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" /><path d="M13.7 21a2 2 0 0 1-3.4 0" /></svg>
-        </button>
-        {/* avatar → tap = logout confirm (frozen decision) */}
-        <button type="button" aria-label="โปรไฟล์" onClick={onAvatarTap} className="grid size-10 shrink-0 place-items-center rounded-full bg-v3-sapphire text-sm font-bold text-white">
-          {name.trim().charAt(0) || 'F'}
-        </button>
+        <p className="min-w-0 flex-1 truncate text-sm font-medium leading-5 text-v3-text-muted">สวัสดีคุณ</p>
+        {/* badge: shown ONLY when goo says so (showUpgrade) — the UI never computes the payment rule */}
+        {profile.showUpgrade && (
+          <button type="button" className="shrink-0 rounded-full bg-v3-lime px-3 py-1.5 text-sm font-bold leading-5 text-v3-navy">อัพเกรด</button>
+        )}
+        <BellButton onClick={onBell} />
+        <AvatarButton name={name} pictureUrl={profile.pictureUrl} onClick={onAvatarTap} />
       </div>
+      {/* row2 — the name, full 361px, bold headline. wrap ≤2 lines, NEVER truncate (break-words handles
+          long unbroken Thai so it can't overflow; line-clamp-2 caps height — real names fit well within 2). */}
+      <h1 data-testid="greeting-name" className="line-clamp-2 break-words text-2xl font-bold leading-8 text-v3-navy">{name}</h1>
+      {/* row3 — element line (unchanged) */}
       <ElementLine mascotCharacter={mascotCharacter} element={element} />
     </header>
+  )
+}
+
+// bell with an unread-dot SLOT — off until a notification backend exists (ฟีม: keep the component real so it
+// doesn't break when data lands; a button with no data still gets a real empty state, never a silent tap).
+function BellButton({ onClick, hasUnread = false }: { onClick: () => void; hasUnread?: boolean }) {
+  return (
+    <button type="button" aria-label="การแจ้งเตือน" onClick={onClick} className="relative grid size-10 shrink-0 place-items-center rounded-full bg-v3-cyan text-white">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 8A6 6 0 1 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" /><path d="M13.7 21a2 2 0 0 1-3.4 0" /></svg>
+      {hasUnread && <span aria-hidden data-testid="unread-dot" className="absolute right-1.5 top-1.5 size-2.5 rounded-full bg-v3-pumpkin ring-2 ring-white" />}
+    </button>
+  )
+}
+
+// avatar = profile picture if present, else the first letter on the sapphire ground (ฟีม). onError falls
+// back to the letter too (a picture_url that 404s must not leave a broken image).
+function AvatarButton({ name, pictureUrl, onClick }: { name: string; pictureUrl: string | null; onClick: () => void }) {
+  const [broken, setBroken] = useState(false)
+  const showImg = !!pictureUrl && !broken
+  return (
+    <button type="button" aria-label="โปรไฟล์" onClick={onClick} className="relative grid size-10 shrink-0 place-items-center overflow-hidden rounded-full bg-v3-sapphire text-sm font-bold text-white">
+      {showImg ? (
+        <Image src={pictureUrl as string} alt="" fill sizes="40px" style={{ objectFit: 'cover' }} onError={() => setBroken(true)} />
+      ) : (
+        <span data-testid="avatar-letter">{name.trim().charAt(0) || 'F'}</span>
+      )}
+    </button>
+  )
+}
+
+// notification panel — bottom sheet with a REAL empty state (no backend yet; a chart-user who taps the bell
+// sees this, not silence). When notifications land, fill the list here — the shell doesn't change.
+function NotificationPanel({ onClose }: { onClose: () => void }) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/30" onClick={onClose}>
+      <div className="w-full max-w-md rounded-t-[28px] bg-white p-6 pb-10 font-ibm" onClick={(e) => e.stopPropagation()} role="dialog" aria-label="การแจ้งเตือน">
+        <div className="mb-2 flex items-center justify-between">
+          <h2 className="text-lg font-bold leading-7 text-v3-navy">การแจ้งเตือน</h2>
+          <button type="button" aria-label="ปิด" onClick={onClose} className="grid size-8 place-items-center rounded-full text-v3-text-muted hover:bg-v3-ghost-white">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="m6 6 12 12M18 6 6 18" /></svg>
+          </button>
+        </div>
+        <div className="grid place-items-center gap-3 py-10 text-center">
+          <div className="grid size-14 place-items-center rounded-full bg-v3-ghost-white text-3xl">🔔</div>
+          <p data-testid="notif-empty" className="text-sm font-medium leading-5 text-v3-text-muted">ยังไม่มีการแจ้งเตือน</p>
+        </div>
+      </div>
+    </div>
   )
 }
 
