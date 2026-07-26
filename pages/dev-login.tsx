@@ -8,10 +8,14 @@ import { signIn } from "next-auth/react";
 import { useCookies } from "react-cookie";
 import { CookieKey } from "@/constants/cookie-key";
 
+// ⚠️ TEST-DB users ONLY — these user_ids come from the LOCAL anonymized test DB (testenv/), NOT real
+// people. Names/emails/phones in that DB are already scrubbed (testenv/scripts/anonymize.sql), so these
+// are fake. Forward-fix of the old real-customer UUIDs that used to live here (private repo → no history
+// rewrite; ฟีม's call). Chosen to cover /v2 edge cases. NEVER paste a real prod UUID here.
 const SAMPLE_USERS = [
-  { user_id: "07fb9a8b-8f71-4559-89fe-b5e5a0b62a6f", name: "เกวลิน" },
-  { user_id: "2b247d09-a19a-4a3c-887f-c1f403d23394", name: "สุติมา" },
-  { user_id: "2c0701a7-4ae7-481a-87d9-b7632d94adc0", name: "nisachon" },
+  { user_id: "5c7befb3-ebd3-4740-989e-fd6a1cca9662", name: "Dev · complete profile" }, // dob+time+gender+chart
+  { user_id: "b54b765a-c01b-471f-bf7c-0c2a1a448bdd", name: "Dev · returning w/ fortune" }, // result_code + dob
+  { user_id: "1b48125d-a68c-4682-a318-84f93f79baf9", name: "Dev · no birthdate (fallback)" }, // dob empty
 ];
 
 export default function DevLogin() {
@@ -46,7 +50,7 @@ export default function DevLogin() {
     <div style={{ maxWidth: 520, margin: "40px auto", fontFamily: "sans-serif", padding: 16 }}>
       <h2>🛠️ Dev Login (no OAuth)</h2>
       <p style={{ color: "#666" }}>
-        Local testing only. Logs in as a real Supabase user without OAuth / the old server.
+        Local testing only. Logs in as an ANONYMIZED test-DB user (no OAuth, no prod). testenv only.
       </p>
       <div style={{ margin: "12px 0" }}>
         <label>user_id</label>
@@ -60,7 +64,7 @@ export default function DevLogin() {
         {busy ? "..." : "Dev Login →"}
       </button>
       <div style={{ marginTop: 20 }}>
-        <p style={{ fontWeight: 600 }}>Quick pick (real users w/ reading):</p>
+        <p style={{ fontWeight: 600 }}>Quick pick (anonymized test-DB users):</p>
         {SAMPLE_USERS.map((u) => (
           <button
             key={u.user_id}
