@@ -25,4 +25,12 @@ refuse 'postgresql://user:pw@localhost.evil.com:5432/db'   # host that merely ST
 allow 'postgresql://postgres:postgres@localhost:5433/mumate_test'
 allow 'postgresql://postgres:postgres@127.0.0.1:5433/mumate_test'
 
+# #177: guard now also scans NEXT_PUBLIC_BACKEND_URL (a prod backend URL reaches the prod DB). File-scan.
+tmpf="$(mktemp)"
+printf 'NEXT_PUBLIC_BACKEND_URL=https://mootech-be.onrender.com\n' > "$tmpf"
+if bash "$G" "$tmpf" >/dev/null 2>&1; then echo "  ✗ ALLOWED prod NEXT_PUBLIC_BACKEND_URL"; fail=1; else echo "  ✓ refused prod NEXT_PUBLIC_BACKEND_URL (file scan, #177)"; pass=$((pass+1)); fi
+printf 'NEXT_PUBLIC_BACKEND_URL=http://localhost:4000\n' > "$tmpf"
+if bash "$G" "$tmpf" >/dev/null 2>&1; then echo "  ✓ allowed local NEXT_PUBLIC_BACKEND_URL"; pass=$((pass+1)); else echo "  ✗ REFUSED local NEXT_PUBLIC_BACKEND_URL"; fail=1; fi
+rm -f "$tmpf"
+
 if [ "$fail" -eq 0 ]; then echo "  guard-fail-closed: $pass passed"; else echo "  guard-fail-closed: SOME FAILED"; exit 1; fi
