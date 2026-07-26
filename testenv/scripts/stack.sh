@@ -128,6 +128,10 @@ do_restore() {
   echo "✅ restore done. (docker/DB left running — stop:  docker compose -f testenv/docker-compose.yml down)"
 }
 
+# test hook: `STACK_SOURCE_ONLY=1 source stack.sh` defines the functions and runs NOTHING (for the
+# proof-of-teeth test). The env var is never set on a real invocation, so this line is inert in normal use.
+if [ "${STACK_SOURCE_ONLY:-}" = "1" ]; then return 0 2>/dev/null || exit 0; fi
+
 # ──────────────────────────── subcommand dispatch ────────────────────────────
 case "${1:-up}" in
   restore) do_restore; exit 0 ;;
@@ -189,7 +193,7 @@ if [ -n "$RESTORED" ]; then
     || { echo "   🛑 anonymize FAILED — do NOT boot apps (DB still holds real PII)"; exit 1; }
 fi
 
-echo "── 4. swap each app's env (BACKUP real → shadow others → marker → copy template → guard the ACTIVE set) ──"
+echo "── 4. swap each app's env (BACKUP real → copy template → ignore-first → shadow others → marker → guard the ACTIVE set) ──"
 mkdir -p "$BK"
 while IFS='|' read -r repo tmplrel dotfile fw; do
   [ -n "$repo" ] || continue
@@ -200,10 +204,15 @@ while IFS='|' read -r repo tmplrel dotfile fw; do
     cp "$dest" "$bak"; echo "   💾 backed up $repo/$dotfile → testenv/.backups/$(basename "$bak")"
   fi
   cp "$tmpl" "$dest"
+  # #177 follow-up: write the LOCAL exclude patterns (marker + *$SHADOW_SUFFIX) BEFORE shadowing anything, so a
+  # prod-secret file renamed to *$SHADOW_SUFFIX is born already-git-ignored. Otherwise there is a window
+  # between the rename and the exclude-write where a prod service-role key sits on disk under a
+  # git-commitable name — and if the script dies mid-run (guard fail → exit) and the rollback trap also
+  # fails to un-shadow, that key is exposed to a commit. Ordering it first closes the window to ZERO.
+  ensure_local_ignore "$dir"
   # #177: after placing the local env, neutralize every OTHER .env* the framework loads first (Next only)
   [ "$fw" = "next" ] && shadow_others "$dir" "$repo" "$dotfile"
   write_breadcrumb "$dir" "$bak"
-  ensure_local_ignore "$dir"
   SWAPPED="${SWAPPED}${repo}|${dotfile}"$'\n'   # track BEFORE the guard so a guard-fail also rolls this back
   # 🛡️ guard AFTER: scan the WHOLE ACTIVE env set (#177 — a shadow file we missed would fail-closed here).
   # shellcheck disable=SC2046
