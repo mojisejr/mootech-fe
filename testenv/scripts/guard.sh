@@ -8,6 +8,11 @@
 set -euo pipefail
 
 PROD_PATTERNS='supabase\.com|supabase\.co|neon\.tech|render\.com|\.rds\.amazonaws\.com|pooler\.supabase'
+# #184: REAL outbound-provider hosts must NEVER appear in a test-env file — an accidentally-invoked
+# otp/line/sms/payment call would then hit the LIVE provider (real SMS/charge). The test-env neutralizes
+# these to RFC-2606 `.invalid` (unreachable); this guard is the fail-closed tripwire that refuses the stack
+# if anyone points them back at the real domains. Scanned across the WHOLE file (whole-space, not a key list).
+PROVIDER_PATTERNS='api\.line\.me|8x8\.com|omise\.co|api\.sendgrid\.com|sendgrid\.net'
 # Keys that must never point at prod. #177: NEXT_PUBLIC_BACKEND_URL too — the .env.local hole pointed the
 # FE at the PROD backend (onrender.com), which reaches the prod DB; scanning only DB_HOST/DATABASE_URL missed it.
 DB_KEYS='DATABASE_URL|APP_DATABASE_URL|DB_HOST|PROD_DATABASE_URL|NEXT_PUBLIC_BACKEND_URL'
@@ -48,6 +53,14 @@ else
       printf '%s' "$k" | grep -qE "^($DB_KEYS)$" || continue
       check_value "$k" "$(printf '%s' "$v" | tr -d '"'"'"' ')"
     done < <(grep -E "^($DB_KEYS)=" "$target" || true)
+    # #184: fail-closed tripwire — refuse if any REAL provider host appears (scan values only: drop comment
+    # lines + inline "# ..." so prose mentioning a provider name can't false-refuse).
+    provider_hits=$(grep -vE '^[[:space:]]*#' "$target" | sed -E 's/[[:space:]]+#.*$//' | grep -ioE "$PROVIDER_PATTERNS" | sort -u || true)
+    if [ -n "$provider_hits" ]; then
+      echo "🛑 REFUSE: $target points at a REAL outbound provider host → $(printf '%s' "$provider_hits" | tr '\n' ' ')"
+      echo "   ↳ neutralize to an RFC-2606 .invalid host — the test stack must never reach a live provider."
+      fail=1
+    fi
   done
 fi
 

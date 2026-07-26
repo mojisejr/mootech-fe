@@ -82,7 +82,7 @@ shadow_others() { # $1=dir $2=repo $3=placed_dotfile — #177: move aside every 
     bak="$(bak_path "$repo" "$base")"
     [ -f "$bak" ] || cp "$f" "$bak"
     mv "$f" "$f$SHADOW_SUFFIX"
-    echo "   🌓 neutralized $repo/$base (Next loads it BEFORE .env) → $base$SHADOW_SUFFIX"
+    echo "   🌓 neutralized $repo/$base (moved off the active env set) → $base$SHADOW_SUFFIX"
   done
 }
 
@@ -210,8 +210,15 @@ while IFS='|' read -r repo tmplrel dotfile fw; do
   # git-commitable name — and if the script dies mid-run (guard fail → exit) and the rollback trap also
   # fails to un-shadow, that key is exposed to a commit. Ordering it first closes the window to ZERO.
   ensure_local_ignore "$dir"
-  # #177: after placing the local env, neutralize every OTHER .env* the framework loads first (Next only)
-  [ "$fw" = "next" ] && shadow_others "$dir" "$repo" "$dotfile"
+  # #177 + PR-B(#184): move aside every OTHER .env* — for EVERY app, not just `next`. A next app loads
+  # .env.local BEFORE .env (the original load-order hole). A node/NestJS app (mootech-be) loads ONLY .env,
+  # but its prod .env.dev.local / .env.prod.local / .env.local still sit ACTIVE on disk holding prod DB +
+  # real provider hosts — and the whole-active-set guard (#177/#184) MUST refuse them. Shadowing removes
+  # them from the active set (a real reduction of what's reachable, not a narrower guard) and is
+  # defense-in-depth even for a framework that wouldn't load them. ensure_local_ignore ran ABOVE (#119) so
+  # each shadowed prod-secret file is born already git-ignored — same window-closed guarantee for the BE dir.
+  # ANCHOR: shadow-all-apps-active-set — shadow runs for EVERY app (node incl.), not just next.
+  shadow_others "$dir" "$repo" "$dotfile"
   write_breadcrumb "$dir" "$bak"
   SWAPPED="${SWAPPED}${repo}|${dotfile}"$'\n'   # track BEFORE the guard so a guard-fail also rolls this back
   # 🛡️ guard AFTER: scan the WHOLE ACTIVE env set (#177 — a shadow file we missed would fail-closed here).
