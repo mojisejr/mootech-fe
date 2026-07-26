@@ -4,11 +4,10 @@ certs/
 *.env.local
 .env
 
-# prod dumps — NEVER commit. Phase 2 full.sql = REAL customer data across all 135 tables (dob, names,
+# prod dumps — NEVER commit. Phase 2 full.sql = REAL customer data across all 149 tables (dob, names,
 # phones). gitleaks won't catch it (it hunts keys/tokens, not birthdates). One `git add .` = PII in
-# git history forever.
+# git history forever. Scope to dumps/ only — scripts/anonymize.sql is a committable script, not data.
 dumps/
-*.sql
 *.sql.gz
 
 # .env backups hold PROD credentials — stack.sh writes them here (out of every app repo, where
