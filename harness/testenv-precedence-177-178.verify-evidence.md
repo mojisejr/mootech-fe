@@ -34,6 +34,24 @@ real path only if the backup exists, else "NO backup was made".
 - NOT run against the live ~/ghq clones (μุน is capturing) — the sandbox exercises the identical scripts;
   the live full round is the pre-merge gate for PR-B's window (with #183/#184), not PR-A.
 
+## review round (บอง) — 2 real bugs caught + fixed, then re-verified in sandbox
+- **MIGRATION (บอง's top lens):** the first draft changed bazi's placed dotfile from `.env.local` → `.env`,
+  so `restore` (new) would look for a `.env` backup that an OLDER stack.sh (which backed up `.env.local`)
+  never made → bazi left LOCAL forever. **Fix: keep each app's placed dotfile unchanged** (fe/be→.env,
+  bazi→.env.local), parameterize `shadow_others` to exclude the PLACED file. Verified (Scenario A, sandbox):
+  an OLD-script state (fe .env=local + prod .env.local untouched + backup; bazi .env.local=local + backup) →
+  new `restore` → fe.env AND bazi.env.local both restored to the ORIGINAL prod (backup names match), markers
+  removed. Not left local.
+- **`.env.example` (บอง's lens 1):** the glob `.env*` would have shadowed `.env.example` (a COMMITTED file
+  Next never loads) and guard would false-refuse on its placeholder values. **Fix: `is_committed_template`**
+  excludes `*.example|*.sample|*.template|*.dist` from both shadow + scan. Verified (Scenario B): with a
+  committed `.env.example`, `up` shadows only `.env.local`, leaves `.env.example` untouched, and does not
+  false-refuse.
+- **rollback (lens 2):** verified (Scenario C) — guard fails mid-run after fe was shadowed → the EXIT trap's
+  `restore_one` un-shadows fe's `.env.local` (not stuck shadowed).
+- **bash 3.2 (lens 3):** ran end-to-end under `env bash` 3.2.57; empty-glob `.env*` returns the literal and
+  the `[ -f ]` guard skips it (no silent failure).
+
 ## adversary sign-off
 **Pending ตู๋ (too).** Lens ask: `shadow_others` glob is complete (catches any `.env*` variant, not a list) ·
 `restore` un-shadows every `*.testenv-shadowed` · the honest-marker `test -f` · guard scanning the active set

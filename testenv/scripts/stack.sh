@@ -28,11 +28,12 @@ BREADCRUMB=".env.disabled"
 SHADOW_SUFFIX=".testenv-shadowed"
 
 # repo | template (relative to testenv/) | the dotfile the app loads | framework (next|node)
-#   next apps read `.env.local` etc. BEFORE `.env` (#177) → we place `.env` and shadow the rest.
-#   node (NestJS BE) reads `.env` only.
+#   Each app keeps the SAME placed dotfile as before (fe/be→.env, bazi→.env.local) so `restore` stays
+#   MIGRATION-SAFE: a stack an OLDER stack.sh set up (which backed up that exact dotfile) restores cleanly.
+#   For `next` apps we ALSO shadow every OTHER `.env*` (they load .env.local/.env.development.local FIRST).
 APPS='mootech-fe|env/fe.env|.env|next
 mootech-be|env/be.env|.env|node
-bazi-sft-dataset|env/bazi.env|.env|next'
+bazi-sft-dataset|env/bazi.env|.env.local|next'
 
 bak_path() { # $1=repo $2=filename → canonical backup path in .backups/
   printf '%s/%s%s.prod.bak' "$BK" "$1" "${2//\//_}"
@@ -63,15 +64,21 @@ $backup_line
 EOF
 }
 
-shadow_others() { # $1=dir $2=repo — #177: move aside every .env* EXCEPT the placed .env (Next would load
-                  # .env.local/.env.development.local FIRST). Back up once; the result: .env is the ONLY active env.
-  local dir="$1" repo="$2" f base bak
+# is_committed_template — a `.env*` file Next NEVER loads (committed docs, e.g. .env.example) → must be
+# neither shadowed nor guard-scanned. Next loads .env / .env.local / .env.<mode>[.local] only.
+is_committed_template() { case "$1" in *.example|*.sample|*.template|*.dist) return 0 ;; *) return 1 ;; esac; }
+
+shadow_others() { # $1=dir $2=repo $3=placed_dotfile — #177: move aside every .env* Next loads EXCEPT the
+                  # PLACED dotfile (Next loads .env.local/.env.development.local FIRST). Result: only the
+                  # placed env is active. Excludes the placed file so restore's dotfile↔backup pairing holds.
+  local dir="$1" repo="$2" placed="$3" f base bak
   for f in "$dir"/.env*; do
     [ -f "$f" ] || continue
     base="$(basename "$f")"
-    [ "$base" = ".env" ] && continue
+    [ "$base" = "$placed" ] && continue
     [ "$base" = "$BREADCRUMB" ] && continue
     case "$base" in *"$SHADOW_SUFFIX") continue ;; esac
+    is_committed_template "$base" && continue   # never touch .env.example / .env.sample / … (committed, not loaded)
     bak="$(bak_path "$repo" "$base")"
     [ -f "$bak" ] || cp "$f" "$bak"
     mv "$f" "$f$SHADOW_SUFFIX"
@@ -79,13 +86,15 @@ shadow_others() { # $1=dir $2=repo — #177: move aside every .env* EXCEPT the p
   done
 }
 
-active_envs() { # $1=dir — echo every ACTIVE .env* file (excludes *.testenv-shadowed + the marker)
+active_envs() { # $1=dir — echo every ACTIVE .env* Next loads (excludes *.testenv-shadowed, marker, and
+                # committed templates like .env.example which Next never loads)
   local dir="$1" f base
   for f in "$dir"/.env*; do
     [ -f "$f" ] || continue
     base="$(basename "$f")"
     [ "$base" = "$BREADCRUMB" ] && continue
     case "$base" in *"$SHADOW_SUFFIX") continue ;; esac
+    is_committed_template "$base" && continue
     printf '%s\n' "$f"
   done
 }
@@ -191,8 +200,8 @@ while IFS='|' read -r repo tmplrel dotfile fw; do
     cp "$dest" "$bak"; echo "   💾 backed up $repo/$dotfile → testenv/.backups/$(basename "$bak")"
   fi
   cp "$tmpl" "$dest"
-  # #177: after placing the local .env, neutralize every OTHER .env* the framework loads first
-  [ "$fw" = "next" ] && shadow_others "$dir" "$repo"
+  # #177: after placing the local env, neutralize every OTHER .env* the framework loads first (Next only)
+  [ "$fw" = "next" ] && shadow_others "$dir" "$repo" "$dotfile"
   write_breadcrumb "$dir" "$bak"
   ensure_local_ignore "$dir"
   SWAPPED="${SWAPPED}${repo}|${dotfile}"$'\n'   # track BEFORE the guard so a guard-fail also rolls this back
