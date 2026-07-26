@@ -48,7 +48,7 @@ function arg(name: string, fallback?: string): string | undefined {
 }
 
 // slug a route for a filename: "/v2/calendar" → "v2-calendar", "/v2" → "v2", "/" → "root"
-const slug = (r: string) => r.replace(/^\/+|\/+$/g, '').replace(/\//g, '-') || 'root'
+const slug = (r: string) => r.split('?')[0].replace(/^\/+|\/+$/g, '').replace(/\//g, '-') || 'root' // drop the query
 
 // A capture only proves "the build serving :PORT looked like this THEN". Which build? Best-effort: find the
 // process on the port → its cwd (the serving worktree) → git HEAD. RECORD this in evidence — a stale FE
@@ -68,15 +68,18 @@ function detectFeBuild(): string {
   }
 }
 
-async function login(page: Page, passkey: string, userLabel: string) {
-  const user = USERS[userLabel]
-  if (!user) throw new Error(`unknown --user "${userLabel}" (have: ${Object.keys(USERS).join(', ')})`)
-  if (user.userId.startsWith('TODO_')) throw new Error(`--user "${userLabel}" userId not set yet — awaiting goo's fake-user push (do NOT use the real SAMPLE_USERS)`)
-  // 1. team gate: POST { passkey } → 303 + Set-Cookie v2_access (pages/api/v2/login.ts validates V2_PREVIEW_KEY).
-  //    The Set-Cookie from the 303 lands in this context's jar even though we don't follow the redirect.
+async function login(page: Page, passkey: string, userLabel: string, noUser = false) {
+  // 1. team gate (always): POST { passkey } → 303 + Set-Cookie v2_access (pages/api/v2/login.ts validates
+  //    V2_PREVIEW_KEY). The Set-Cookie from the 303 lands in this context's jar even without following it.
   const res = await page.request.post(`${HOST}/api/v2/login`, { form: { passkey }, maxRedirects: 0 })
   const loc = res.headers()['location'] ?? '' // good key → /v2 ; wrong/unset key → /v2?gate_error=… (both 303)
   if (res.status() !== 303 || loc.includes('gate_error')) throw new Error(`passkey gate rejected (${res.status()} → ${loc || 'no redirect'}) — check ${PASSKEY_VAR} in ${ENV_FILE} + stack up`)
+  // --no-user: gate-only — for dev routes that use MOCK props (e.g. /v2/home-preview?element=…), no identity
+  // is needed, and dev-login/NEXTAUTH may be absent on a minimal-env FE. Still records the build hash.
+  if (noUser) return
+  const user = USERS[userLabel]
+  if (!user) throw new Error(`unknown --user "${userLabel}" (have: ${Object.keys(USERS).join(', ')})`)
+  if (user.userId.startsWith('TODO_')) throw new Error(`--user "${userLabel}" userId not set yet — awaiting goo's fake-user push (do NOT use the real SAMPLE_USERS)`)
   // 2. identity: /dev-login form — type user_id + name, submit (sets MEMBER_* + `dev` session). Driven by
   //    user_id, never the real-name quick-picks. The two inputs are [0]=user_id, [1]=name (dev-login.tsx).
   await page.goto(`${HOST}/dev-login`, { waitUntil: 'networkidle' })
@@ -90,6 +93,8 @@ async function login(page: Page, passkey: string, userLabel: string) {
 async function main() {
   const route = arg('route', '/v2')!
   const userLabel = arg('user', 'default')!
+  const noUser = process.argv.includes('--no-user')
+  const label = arg('label', noUser ? 'preview' : userLabel)! // filename label (query is dropped from slug)
   const viewports = (arg('viewports')?.split(',').map((s) => parseInt(s, 10)) ?? DEFAULT_VIEWPORTS).filter((n) => n > 0)
   const outDir = path.resolve(process.cwd(), arg('out', 'harness/captures')!)
   fs.mkdirSync(outDir, { recursive: true })
@@ -98,7 +103,7 @@ async function main() {
   const browser = await chromium.launch()
   // log in once, reuse the authed session (storageState) across every viewport
   const authCtx = await browser.newContext()
-  await login(await authCtx.newPage(), passkey, userLabel)
+  await login(await authCtx.newPage(), passkey, userLabel, noUser)
   const storageState = await authCtx.storageState()
   await authCtx.close()
 
@@ -114,7 +119,7 @@ async function main() {
     await page.waitForFunction(() => Array.from(document.images).every((i) => i.complete), null, { timeout: 4000 }).catch(() => {})
     await page.waitForTimeout(250)
     const overflowX = await page.evaluate(() => document.scrollingElement!.scrollWidth > window.innerWidth)
-    const file = path.join(outDir, `${slug(route)}__${userLabel}__${w}.png`)
+    const file = path.join(outDir, `${slug(route)}__${label}__${w}.png`)
     await page.screenshot({ path: file, fullPage: true })
     results.push({ file, w, overflowX, errors: errors.length })
     await ctx.close()
