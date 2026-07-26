@@ -120,7 +120,9 @@ export default function LoginPage() {
         
         const resultCalculate = await callApiCalculate(
           user_id, result.dob, result.time, result.gender, result.picture_url, result.account_name, result.name, result.surname, '' )
-          gotoResult(resultCalculate.code)
+          // #167 — callApiCalculate returns null on a Calculate error (unverified endpoint); optional-chain
+          // so a null result no longer crashes on `.code`. gotoResult already no-ops on empty (happy path unchanged).
+          gotoResult(resultCalculate?.code)
       }
     }
     
@@ -137,7 +139,9 @@ export default function LoginPage() {
       setIsLoading(true)
       const result = await ChineseHoroscopeCalculate(userId, name, birthDay, time, gender, picture_url, surname, accountName, familyCode);
       setIsLoading(false)
-      if (result && result.code) {
+      // #167 — result.code is `unknown` (Calculate unverified); narrow to string before setCode (happy
+      // path: real code is a string → unchanged; anything else → return null, same as before).
+      if (result && typeof result.code === 'string') {
         // OK
         setCode(result.code)
         return result;
@@ -327,7 +331,8 @@ const [imageSrc, setImageSrc] = useState<string | null>(null);
 
 
         const result = await callApiCalculate(userId, birthDay, time, gender, displayImage, accountName, name, surname, familyCode)
-        gotoResult(result.code)
+        // #167 — callApiCalculate can return null on error; optional-chain (gotoResult no-ops on empty).
+        gotoResult(result?.code)
     }
 
 

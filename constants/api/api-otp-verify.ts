@@ -1,9 +1,11 @@
 import { callApi } from '../../utils/fetch'
 import { API } from './endpoint'
 import { REQUEST_OTP_VERIFY } from './request-otp'
-import { RESPONSE_OTP_VERIFY } from './response-otp'
+import { UnverifiedApiResult } from './unverified-result'
 
-export const OTPVerify = async (ref_code: string, otp: string) => {
+// #167 — OTPVerify needs a REAL OTP code (from a real SMS) and hits the live 8x8 flow (#184). We refuse to
+// hit it, so its shape is unverified — honest loose type. (verify: can't — needs a real OTP / live provider.)
+export const OTPVerify = async (ref_code: string, otp: string): Promise<UnverifiedApiResult> => {
   try {
     const path_params = {
       otp: otp,
@@ -16,7 +18,7 @@ export const OTPVerify = async (ref_code: string, otp: string) => {
       return response
     }
 
-    return response as RESPONSE_OTP_VERIFY
+    return response as UnverifiedApiResult
   } catch (error: any) {
     return { error }
   }

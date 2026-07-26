@@ -1,15 +1,18 @@
 import { callApi } from '../../utils/fetch'
 import { API } from './endpoint'
 import { REQUEST_COMPATIBILITY_LOVE_GET } from './request-compatibility-love'
-import { RESPONSE_COMPATIBILITY_LOVE_GET } from './response-compatibility-love'
+import { UnverifiedApiResult } from './unverified-result'
 
+// #167 — CompatibilityWork WRITES to the DB (same log/quota family as love), so we do NOT hit it. Honest
+// loose type. Note the OLD cast used RESPONSE_COMPATIBILITY_LOVE_GET (the LOVE type on a WORK response — a
+// copy-paste that the blind `as` hid); moot now, both are unverified. (verify: can't — mutates DB.)
 export const CompatibilityWorkGet = async (
   user_id: string,
   me_name: string, me_dob: string, me_time: string, me_gender: string,
   name: string, dob: string, time: string, gender: string,
   type: string
 
-) => {
+): Promise<UnverifiedApiResult> => {
   try {
     const path_params = {
       user_id: user_id,
@@ -35,7 +38,7 @@ export const CompatibilityWorkGet = async (
       return response
     }
 
-    return response as RESPONSE_COMPATIBILITY_LOVE_GET
+    return response as UnverifiedApiResult
   } catch (error: any) {
     return { error }
   }

@@ -2,15 +2,14 @@ import { callApi } from '../../utils/fetch'
 import { API } from './endpoint'
 import { RESPONSE_CHINESE_HOROSCOPE_GET } from './response-chinese-horoscope'
 
-// The /api/chinese-horoscope route returns the chart ENVELOPED: `{ data: <chart> }`. The old
-// `as RESPONSE_CHINESE_HOROSCOPE_GET` cast erased that `.data` hop from tsc, so reading a flat field
+// GET /api/chinese-horoscope returns the chart ENVELOPED: `{ data: <chart> }`. The old flat
+// `as RESPONSE_CHINESE_HOROSCOPE_GET` cast erased that `.data` hop from tsc, so a flat read
 // (chart.detail / chart.summary.element) silently yielded `undefined` — the v2-home greeting ธาตุ element
-// went missing (#167; toComputeSource now unwraps `.data` as defense). Fix (Zone-1 scope): make the `.data`
-// hop VISIBLE so a flat read (`chart.summary`) no longer type-checks. `data` stays loose here on purpose —
-// tightening the inner shape to RESPONSE_CHINESE_HOROSCOPE_GET is deferred with the other 7 `as RESPONSE_*`
-// sites (it breaks pages/my-destiny, which reads power/analytic.life/share_profile_url not on that type).
-// The Zone-1 consumer (useV2Home → toComputeSource) reads it as `unknown` and unwraps `.data` itself.
-export type ChineseHoroscopeGetResult = { data?: any; error?: unknown }
+// went missing (#167; toComputeSource now unwraps `.data` as defense). Fix: expose the `.data` hop AND type
+// the inner chart from the REAL response verified LIVE (RESPONSE_CHINESE_HOROSCOPE_GET rewritten to the 15
+// real keys — see that file). This is the one #167 site we can hit read-only; the others save/register/SMS
+// so they get loose honest types (can't verify without side effects — #184). my-destiny now reads real fields.
+export type ChineseHoroscopeGetResult = { data?: RESPONSE_CHINESE_HOROSCOPE_GET; error?: unknown }
 
 export const ChineseHoroscopeGet = async (userId: string, code: string): Promise<ChineseHoroscopeGetResult> => {
   try {

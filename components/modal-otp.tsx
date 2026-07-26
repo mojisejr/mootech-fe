@@ -93,7 +93,9 @@ const ModalOTP = ({
 
   const callApiGetOtp = async () => {
     const result = await OTPGet(tel)
-    if (result && result.ref_code) {
+    // #167 — OTPGet is unverified (live SMS, can't hit), so ref_code is `unknown`; narrow at runtime
+    // before using it as a string instead of trusting the old blind cast.
+    if (result && typeof result.ref_code === 'string') {
       setRefCodeInfo(result.ref_code);
       setCounting(60)
     }
