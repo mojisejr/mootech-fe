@@ -18,15 +18,18 @@ import * as path from 'path'
 
 const HOST = process.env.CAPTURE_HOST ?? 'http://localhost:3000'
 const ENV_FILE = process.env.CAPTURE_ENV_FILE ?? 'testenv/env/fe.env'
-const PASSKEY_VAR = process.env.CAPTURE_PASSKEY_VAR ?? 'V2_LOGIN_PASSKEY' // ⟨VERIFY⟩ exact var name in fe.env
+const PASSKEY_VAR = process.env.CAPTURE_PASSKEY_VAR ?? 'V2_PREVIEW_KEY' // confirmed from pages/api/v2/login.ts
 const DEFAULT_VIEWPORTS = [393, 360, 320]
 
-// which real (PII-stripped) test user to drive — the labels the team reuses. `pick` is how capture-route
-// selects that user on /dev-login. ⟨VERIFY⟩ finalise selectors against the real /dev-login page.
-const USERS: Record<string, { pick: (p: Page) => Promise<void>; note: string }> = {
-  default: { note: 'a normal user (dob + gender complete)', pick: async (p) => { await p.getByTestId('dev-login-user').first().click() } },
-  longname: { note: 'longest display name — header/element-line truncation case', pick: async (p) => { await p.getByRole('button', { name: /login/i }).first().click() /* ⟨VERIFY⟩ filter by long name */ } },
-  'no-dob': { note: 'no birth profile — element line hidden / gap-C register redirect', pick: async (p) => { await p.getByTestId('dev-login-user').nth(1).click() /* ⟨VERIFY⟩ pick a no-dob user */ } },
+// /dev-login signs in by TYPING user_id + name into a form (sets MEMBER_ID/MEMBER_NAME cookies + a `dev`
+// next-auth session) — see pages/dev-login.tsx. We drive it BY user_id, NEVER by clicking the real-name
+// quick-picks, so no real PII is ever touched. `name` is the display name (drives header truncation),
+// free to override. ⟨VERIFY⟩ userId: fill from goo's PII-stripped fake-user set once pushed (the current
+// hardcoded SAMPLE_USERS in dev-login.tsx are real customers — do NOT use them).
+const USERS: Record<string, { userId: string; name: string; note: string }> = {
+  default: { userId: 'TODO_FAKE_DEFAULT', name: 'มิลา', note: 'normal user (dob + gender) → fortune + element render' },
+  longname: { userId: 'TODO_FAKE_DEFAULT', name: 'มิลาวรรณวิไลอลงกรณ์ศรีสุวรรณภูมิ', note: 'long display name → header/element truncation (name drives it, any valid userId)' },
+  'no-dob': { userId: 'TODO_FAKE_NO_DOB', name: 'ไร้ดวง', note: 'no birth profile → element line hidden / gap-C register redirect' },
 }
 
 function readPasskey(): string {
@@ -48,14 +51,19 @@ const slug = (r: string) => r.replace(/^\/+|\/+$/g, '').replace(/\//g, '-') || '
 async function login(page: Page, passkey: string, userLabel: string) {
   const user = USERS[userLabel]
   if (!user) throw new Error(`unknown --user "${userLabel}" (have: ${Object.keys(USERS).join(', ')})`)
-  // ⟨VERIFY⟩ 1: passkey gate. บอง: POST /api/v2/login {passkey}. Do it via the UI form if there is one,
-  // else via the API then carry the cookie. Written as API-first (most robust):
-  const res = await page.request.post(`${HOST}/api/v2/login`, { data: { passkey } })
-  if (!res.ok()) throw new Error(`passkey login failed: ${res.status()} (check ${PASSKEY_VAR} + stack up)`)
-  // ⟨VERIFY⟩ 2: dev-login user picker.
+  if (user.userId.startsWith('TODO_')) throw new Error(`--user "${userLabel}" userId not set yet — awaiting goo's fake-user push (do NOT use the real SAMPLE_USERS)`)
+  // 1. team gate: POST { passkey } → 303 + Set-Cookie v2_access (pages/api/v2/login.ts validates V2_PREVIEW_KEY).
+  //    The Set-Cookie from the 303 lands in this context's jar even though we don't follow the redirect.
+  const res = await page.request.post(`${HOST}/api/v2/login`, { form: { passkey }, maxRedirects: 0 })
+  if (res.status() !== 303) throw new Error(`passkey gate failed: ${res.status()} (check ${PASSKEY_VAR} in ${ENV_FILE} + stack up)`)
+  // 2. identity: /dev-login form — type user_id + name, submit (sets MEMBER_* + `dev` session). Driven by
+  //    user_id, never the real-name quick-picks. The two inputs are [0]=user_id, [1]=name (dev-login.tsx).
   await page.goto(`${HOST}/dev-login`, { waitUntil: 'networkidle' })
-  await user.pick(page)
-  await page.waitForLoadState('networkidle')
+  const inputs = page.locator('input')
+  await inputs.nth(0).fill(user.userId)
+  await inputs.nth(1).fill(user.name)
+  await page.getByRole('button', { name: /dev login/i }).click()
+  await page.waitForURL((u) => new URL(u).pathname === '/', { timeout: 10000 }).catch(() => {}) // dev-login reloads to "/"
 }
 
 async function main() {
