@@ -18,6 +18,14 @@ asking ฟีม for screenshots, and no more "capture blocked by creds" (that f
 Passkey = the `V2_PREVIEW_KEY` value in `testenv/env/fe.env` (confirmed from `pages/api/v2/login.ts`) —
 **read at runtime, never hardcoded, never logged, never committed.**
 
+> **Point at the RIGHT fe.env.** The passkey must match the `V2_PREVIEW_KEY` of the FE process actually
+> serving :3000 — different worktrees have different keys. Set `CAPTURE_ENV_FILE=<that worktree>/testenv/env/fe.env`.
+> A wrong key surfaces as `passkey gate rejected (303 → /v2?gate_error=invalid)` (the script checks the
+> redirect Location, not just the 303 — a wrong key also returns 303). Find the serving worktree via
+> `lsof -p $(lsof -ti tcp:3000 -sTCP:LISTEN) -d cwd`.
+
+_Validated live 2026-07-25 against the test-env (:3000 = wt-z1logic): login + /v2 @393/360/320, 0 errors, no PII._
+
 ## One command
 ```bash
 npx tsx harness/capture-route.ts --route /v2 --user default

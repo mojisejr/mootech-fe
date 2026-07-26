@@ -26,10 +26,11 @@ const DEFAULT_VIEWPORTS = [393, 360, 320]
 // quick-picks, so no real PII is ever touched. `name` is the display name (drives header truncation),
 // free to override. ⟨VERIFY⟩ userId: fill from goo's PII-stripped fake-user set once pushed (the current
 // hardcoded SAMPLE_USERS in dev-login.tsx are real customers — do NOT use them).
+// PII-stripped fake test users (goo, PR#109 — verified against the test DB; names/emails all fake).
 const USERS: Record<string, { userId: string; name: string; note: string }> = {
-  default: { userId: 'TODO_FAKE_DEFAULT', name: 'มิลา', note: 'normal user (dob + gender) → fortune + element render' },
-  longname: { userId: 'TODO_FAKE_DEFAULT', name: 'มิลาวรรณวิไลอลงกรณ์ศรีสุวรรณภูมิ', note: 'long display name → header/element truncation (name drives it, any valid userId)' },
-  'no-dob': { userId: 'TODO_FAKE_NO_DOB', name: 'ไร้ดวง', note: 'no birth profile → element line hidden / gap-C register redirect' },
+  default: { userId: '5c7befb3-ebd3-4740-989e-fd6a1cca9662', name: 'มิลา', note: 'profile complete + chart (dob 1980-04-05) → fortune + element render' },
+  longname: { userId: 'b54b765a-c01b-471f-bf7c-0c2a1a448bdd', name: 'มิลาวรรณวิไลอลงกรณ์ศรีสุวรรณภูมิ', note: 'returning + fortune (dob 1989-01-03), long display name → header/element truncation (name drives it)' },
+  'no-dob': { userId: '1b48125d-a68c-4682-a318-84f93f79baf9', name: 'ไร้ดวง', note: 'no dob → isBirthProfileComplete false → element hidden / gap-C fallback' },
 }
 
 function readPasskey(): string {
@@ -55,7 +56,8 @@ async function login(page: Page, passkey: string, userLabel: string) {
   // 1. team gate: POST { passkey } → 303 + Set-Cookie v2_access (pages/api/v2/login.ts validates V2_PREVIEW_KEY).
   //    The Set-Cookie from the 303 lands in this context's jar even though we don't follow the redirect.
   const res = await page.request.post(`${HOST}/api/v2/login`, { form: { passkey }, maxRedirects: 0 })
-  if (res.status() !== 303) throw new Error(`passkey gate failed: ${res.status()} (check ${PASSKEY_VAR} in ${ENV_FILE} + stack up)`)
+  const loc = res.headers()['location'] ?? '' // good key → /v2 ; wrong/unset key → /v2?gate_error=… (both 303)
+  if (res.status() !== 303 || loc.includes('gate_error')) throw new Error(`passkey gate rejected (${res.status()} → ${loc || 'no redirect'}) — check ${PASSKEY_VAR} in ${ENV_FILE} + stack up`)
   // 2. identity: /dev-login form — type user_id + name, submit (sets MEMBER_* + `dev` session). Driven by
   //    user_id, never the real-name quick-picks. The two inputs are [0]=user_id, [1]=name (dev-login.tsx).
   await page.goto(`${HOST}/dev-login`, { waitUntil: 'networkidle' })
