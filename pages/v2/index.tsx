@@ -52,14 +52,17 @@ function V2Entry() {
 // modal calls; useMascotFromCompute → character path (null → 01.png fallback). Lamun's V2HomeScreen is
 // presentational (props only). All hooks are called unconditionally before the loading branch.
 function V2HomeRoute({ status }: { status: AuthStatus }) {
-  const { showLoading, greeting, computeSource } = useV2Home(status)
+  // useV2Home is the SINGLE owner of the /api/user fetch (#165): it yields the routing/greeting/compute
+  // AND the header `profile` + the fetched `user` row, so useHomeFortune reuses that row instead of firing
+  // a second UserGetById.
+  const { showLoading, greeting, computeSource, profile, user } = useV2Home(status)
   const { logout } = useV2Logout()
   const mascot = useMascotFromCompute(computeSource)
   const mascotCharacter = mascot?.character ?? '/images/v2/mascot/01.png'
   // Zone 1 — daily-fortune + persona data seam. Called unconditionally (before the loading branch) so
-  // hook order is stable; graceful by design (no profile / bazi error → fortune/persona=null → cards
-  // show fallback). ONE BFF call returns both fortune and persona (no extra bazi compute).
-  const { fortune, persona, loading: fortuneLoading } = useHomeFortune()
+  // hook order is stable; graceful by design (no user / bazi error → fortune/persona=null → cards show
+  // fallback). Consumes the shared `user` (no second fetch). ONE BFF call returns both fortune and persona.
+  const { fortune, persona, loading: fortuneLoading } = useHomeFortune(user)
 
   // Split-brain guard (too's wire review): the ธาตุ TEXT binds the MASCOT's element (compute, for
   // visual consistency with the character), while the strength band comes from bazi's persona — two
@@ -88,6 +91,9 @@ function V2HomeRoute({ status }: { status: AuthStatus }) {
       onLogout={logout}
       fortune={fortune}
       fortuneLoading={fortuneLoading}
+      // Header seam (กติกา ค): avatar + upgrade-badge inputs from the single user fetch. μุน's
+      // V2HomeScreenProps declares `profile?` (optional, safe default) — this pass compiles once #180 lands.
+      profile={profile}
       // ธาตุ line: element ← the compute/mascot source FIRST (so text ธาตุ matches the character),
       // then FALL BACK to bazi's persona.elementTh — defense-in-depth after the compute path proved
       // fragile in prod (the toComputeSource envelope bug hid the element). persona.elementTh is the

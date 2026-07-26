@@ -27,9 +27,12 @@ const complete = {
   verdict: 'good',
   summary: 'สรุปยาว',
   summaryHeadline: 'วันนี้ดวงดีมาก',
+  // Real bazi shape: KEYED items (best · worst · strength · element · officer), NOT positional. `officer`
+  // sits AFTER `worst` so a positional [last] read would wrongly grab it — this fixture guards that.
   summaryItems: [
-    { key: 'wealth', icon: '⭐', label: 'การเงิน', text: 'เหมาะลงทุน' },
-    { key: 'health', icon: '⚠️', label: 'สุขภาพ', text: 'ระวังพักผ่อน' },
+    { key: 'best', icon: '⭐', label: 'การเงิน', text: 'เหมาะลงทุน' },
+    { key: 'worst', icon: '⚠️', label: 'สุขภาพ', text: 'ระวังพักผ่อน' },
+    { key: 'officer', icon: '📅', label: 'หน้าที่', text: 'ดูแลเอาใจใส่' },
   ],
   facets: [
     { key: 'wealth', label: 'การเงิน', percent: 90, grade: 'A', isMain: true },
@@ -55,10 +58,10 @@ t('fortune-fields-complete: a complete fortune → ALL 7 fields populated (no si
   assert.ok(df.worst.text.length > 0, 'worst.text empty')
 })
 
-t('best ⭐ / worst ⚠️ from summaryItems (rich text, first=best last=worst)', () => {
+t('best ⭐ / worst ⚠️ from summaryItems matched BY KEY (not position — officer is last)', () => {
   const df = normalize(complete)!
-  assert.equal(df.best.text, 'เหมาะลงทุน')
-  assert.equal(df.worst.text, 'ระวังพักผ่อน')
+  assert.equal(df.best.text, 'เหมาะลงทุน') // key==='best'
+  assert.equal(df.worst.text, 'ระวังพักผ่อน') // key==='worst' — NOT the last item 'ดูแลเอาใจใส่' (officer)
 })
 
 t('fallback: no summaryItems → best/worst derived from facets by %-max/%-min', () => {

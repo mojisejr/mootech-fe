@@ -6,11 +6,11 @@
 // design: no person / bazi unreachable / bazi error → { fortune: null } (200) so the hook shows its
 // fallback and the page never breaks — never a 5xx to the browser (same policy as the other bazi BFFs).
 //
-// NOTE (contract gap, verified): bazi /api/home currently returns fortune = {percent, verdict, summary,
-// date, dayGanzhi, facets[]} and DROPS grade + summaryHeadline + summaryItems (buildManVsDay computes
-// them). Until bazi forwards them, we normalize here: headline ← summaryHeadline ?? summary; best/worst
-// ← summaryItems (rich text) else derived from facets by percent; grade ← fortune.grade (bazi is the
-// single source of the ratingJson thresholds — we do NOT reimplement gradeForPercent to avoid drift).
+// NOTE (verified 2026-07-26 against live bazi): bazi /api/home now FORWARDS grade + summaryHeadline +
+// summaryItems (keyed: best · worst · strength · element · officer). We normalize the shape here:
+// headline ← summaryHeadline ?? summary; best/worst ← summaryItems matched BY KEY (never by position)
+// else facets by percent; grade ← fortune.grade (bazi is the single source of the ratingJson thresholds
+// — we do NOT reimplement gradeForPercent to avoid drift). Still graceful: a missing field degrades, never 5xx.
 import type { NextApiRequest, NextApiResponse } from 'next'
 import { toBaziInput, type FeCalcInput } from '@/lib/bazi-bridge/input'
 
@@ -40,16 +40,19 @@ export type HomePersona = {
 type Facet = { key: string; label: string; percent: number | null; grade: string; isMain: boolean }
 type SummaryItem = { key: string; icon: string; label: string; text: string }
 
-function bestWorstText(f: { summaryItems?: SummaryItem[]; facets?: Facet[] }): { best: string; worst: string } {
-  // Prefer bazi's pre-computed summaryItems (rich ⭐/⚠️ text). Fallback: derive from facets by percent.
-  if (Array.isArray(f.summaryItems) && f.summaryItems.length >= 2) {
-    return { best: f.summaryItems[0]?.text ?? '', worst: f.summaryItems[f.summaryItems.length - 1]?.text ?? '' }
-  }
+export function bestWorstText(f: { summaryItems?: SummaryItem[]; facets?: Facet[] }): { best: string; worst: string } {
+  // bazi's summaryItems are KEYED (best · worst · strength · element · officer) — match by `key`, NOT by
+  // position. The old code read summaryItems[0]/[last]: [0]=best happened to be right, but [last] is
+  // 'officer' ("ดูแลเอาใจใส่"), so "ควรเลี่ยง" rendered officer instead of key==='worst'
+  // ("อยู่บ้าน / คุมลูกน้อง / อยู่ในห้อง") — an inverted meaning the user read every day. Per field:
+  // the keyed text first, then fall back to facets-by-percent when a keyed item is absent (schema-safe).
+  const items = Array.isArray(f.summaryItems) ? f.summaryItems : []
+  const byKey = (k: string) => items.find((x) => x?.key === k)?.text ?? ''
   const scored = (f.facets ?? []).filter((x) => x.percent != null)
-  if (!scored.length) return { best: '', worst: '' }
-  const best = scored.reduce((a, c) => ((c.percent ?? 0) > (a.percent ?? 0) ? c : a))
-  const worst = scored.reduce((a, c) => ((c.percent ?? 0) < (a.percent ?? 0) ? c : a))
-  return { best: best.label, worst: worst.label }
+  const facetLabel = (better: (a: Facet, c: Facet) => Facet) => (scored.length ? scored.reduce(better).label : '')
+  const facetBest = facetLabel((a, c) => ((c.percent ?? 0) > (a.percent ?? 0) ? c : a))
+  const facetWorst = facetLabel((a, c) => ((c.percent ?? 0) < (a.percent ?? 0) ? c : a))
+  return { best: byKey('best') || facetBest, worst: byKey('worst') || facetWorst }
 }
 
 export function normalize(fortune: unknown): DailyFortune | null {
