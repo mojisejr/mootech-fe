@@ -8,7 +8,7 @@
 //   UserGetById error / no user_id / incomplete birth profile → fortune=null, loading=false (fallback)
 //   BFF/bazi error / timeout → fortune=null, loading=false (BFF already degrades to {fortune:null})
 //   success → fortune, loading=false
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useCookies } from 'react-cookie'
 import { CookieKey } from '@/constants/cookie-key'
 import { UserGetById } from '@/constants/api/api-user-get'
@@ -27,11 +27,15 @@ export function useHomeFortune(): { fortune: DailyFortune | null; persona: HomeP
   const [fortune, setFortune] = useState<DailyFortune | null>(null)
   const [persona, setPersona] = useState<HomePersona | null>(null)
   const [loading, setLoading] = useState(true)
-  const doneRef = useRef(false)
 
   useEffect(() => {
-    if (!userId || doneRef.current) return // no id yet → effect re-runs when the cookie syncs
-    doneRef.current = true
+    // Idempotent effect (no doneRef latch). React StrictMode (dev) double-invokes: run A fires, its
+    // cleanup sets alive=false, run B fires fresh. Each invocation owns its `alive`; the surviving run
+    // resolves `loading`. A persistent doneRef would let run A win the latch, then its cleanup kills
+    // its own alive → `finally { if (alive) setLoading(false) }` is skipped and the skeleton hangs
+    // forever (the /v2 fortune-card bug). It also blocked re-fetch when userId changed. Prod builds
+    // mount once; /api/home-fortune is an idempotent daily compute, so the dev double-call is harmless.
+    if (!userId) return // no id yet → effect re-runs when the cookie syncs (userId dep)
     let alive = true
     ;(async () => {
       try {
