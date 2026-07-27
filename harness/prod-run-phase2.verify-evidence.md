@@ -1,70 +1,70 @@
 # verify-evidence — prod-run (local-safe-by-default Phase 2) · goo
 
 New tooling only: `testenv/scripts/prod-run.mjs` + `testenv/scripts/prod-probe.mjs` (node built-ins only — run
-without `npm ci`). **No app code touched.** Prod contact was **read-only `select 1`** only; no otp/register/
-payment ever fired; no UPDATE/DELETE; no app booted full; env rest-state untouched; snapshot intact.
+without `npm ci`). **No app code touched.** Prod contact was **one read-only `select 1`** (ฟีม-authorized, now
+capped); no otp/register/payment ever fired; no UPDATE/DELETE; no app booted full; env rest-state untouched.
+
+## Project topology (ฟีม-confirmed 2026-07-27; declared in the vault file headers since 2026-06-19)
+```
+soxsccdlsycaevusndro = PROD (real)          — the two files holding real prod keys: be.env.prod.local + be.env.local
+jgxsjhbdhttfoiyvptvy = DEV (de-prod'd 06-19, now paused → "tenant not found")
+Neon                 = backup DB            — fine to point at (ฟีม); do not probe
+```
+We (goo + บอง) first mis-read jgxsj as "dead prod"; it is **DEV**. The mapping below reflects the corrected truth.
 
 ## what prod-run does
-Injects a REAL prod env blob from `~/.mumate-prod/` into ONE spawned command and vanishes — connecting to prod
-gets the lifetime of a command, not the machine's rest-state (kills the "switch in and forget to switch back"
-trap). Connect-real ≠ fire-real: dangerous-button providers are neutralized by default.
+Injects a REAL prod env blob from `~/.mumate-prod/` into ONE spawned command, then vanishes — connecting to
+prod lasts a *command*, not the machine's rest-state. **No file is ever written to disk** (env lives only in
+the child). **Connect-real ≠ fire-real**: dangerous-button providers neutralized by default; `--with-providers`
+re-arms them behind a second confirmation.
 
-## 🔴 UNVERIFIED app→file mapping (read this — it's guarded, not guessed)
-The 6 vaulted blobs point at **different projects**. Ref `jgxsjhbdhttfoiyvptvy` is a **DEAD tenant** (Supavisor
-"tenant/user not found" — confirmed by BOTH `psql` and the app's own `postgres.js`) yet appears in `be.env`,
-`be.env.dev.local`, `fe.env.local`; only `be.env.prod.local`'s ref `soxsccdlsycaevusndro` authenticates. So
-prod-run's current alias map (`be`→be.env, `fe`→fe.env.local) points at the **dead** ref. It is **left honestly
-unverified — not remapped to a guess** (fix #2, deferred to ฟีม, because the dead ref means we don't yet know
-the true prod file per app; `fe` has no `.prod.local` at all; `bazi`→Neon + carries a 3rd project ref, untested
-by design). The **pre-flight below is what makes the wrong mapping safe** — a mismapped run fails LOUD, not
-silent, so shipping it now is merely inconvenient, never dangerous.
+## app → blob mapping (VERIFIED with ฟีม)
+- `be` → **be.env.prod.local** (PROD / soxsc — ฟีม-confirmed; read-only `select 1` → 1 proven, the one allowed hit).
+- `bazi` → bazi.env.local (Neon backup — fine per ฟีม; not probed).
+- `fe` → **refused outright**: we have NO prod key for fe on disk; `fe.env.local` is the DEV project (jgxsj).
+  prod-run refuses rather than connect to DEV believing it's prod (does NOT substitute the dev blob).
 
-## proof-of-teeth (real machine, neg-control-first, read-only)
-- **pre-flight fail-LOUD (the core of this PR)** `ANCHOR testenv/scripts/prod-run.mjs#preflight-fail-loud`:
-  `prod-run be` AND `prod-run fe` (both mapped to the dead ref) → after confirmation, the read-only pre-flight
-  gets **tenant-not-found** → **REFUSES** with a human why/means/do message and the command **NEVER runs**
-  (`exit 5`; probe printed no `COMMAND-RAN`). This is ตู๋'s lens #5 closed *inside the tool*: a dead/mismapped
-  blob can no longer fail silently deep in the app.
-- **pre-flight pass verdict**: the same check returns `ok` for the LIVE ref (`be.env.prod.local` / `soxsc`) —
-  `psql select 1` → `status 0, out "1"`, the *same* verdict the app's `postgres.js` gives (`ok=1`). So the
-  instrument is not blind: it passes live and refuses dead. (End-to-end pass→spawn against a real app awaits
-  fix #2's mapping; `spawn` itself is exercised by the neg-control runs below, where the command DID run before
-  the pre-flight existed.)
-- **#1 done-condition (env reaches real prod, read-only)**: `select 1 → ok=1` against `soxsc` via the app's
-  real `postgres.js` client — the injected env connects to a real prod DB and reads. (be.env/fe.env.local both
-  reach Supavisor too — it echoes their real project-ref back as "tenant not found" — proving injection lands,
-  the ref is just dead.)
-- **#2 typed confirmation (neg-control)**: wrong word → `not confirmed`, `exit 2`, nothing ran; empty (Enter) →
-  same. Only typing the exact app name proceeds. `--with-providers` demands a SECOND distinct `SEND-REAL`.
-- **#3 providers blocked by default, provable**: default → `prod-probe` DNS verdict `LINE_HOST`/`SMS_8X8_HOST`
-  = **BLOCKED (ENOTFOUND)**, SendGrid/Omise keys = neutralized sentinel; `--with-providers` → **LIVE (resolves)**.
-  Difference shown, not asserted.
-- **#4 build refused**: `prod-run be -- npm run build` → refused (`exit 3`) with a human reason (NEXT_PUBLIC bakes
-  at build; runtime injection would ship wrong browser values and fail silently), before any confirm/run.
-- **#5 zero disk writes**: file census before/after a full run — `~/.mumate-prod` listing sha unchanged,
-  `$TMPDIR` entry count unchanged, `find`-since-marker = none. Env is injected into the child's memory via
-  `spawn({env})`; no temp/backup/marker file exists at any point.
-- **#6 git clean + no value leak**: all 3 repos show only baseline dirt (pre-existing images/breadcrumb), no new
-  files from prod-run; the banner prints only the DB *family* (`supabase.com`), never a raw env value; pre-flight
-  categorizes stderr (tenant-not-found / auth-failed / connect-failed) and never echoes it (it holds the
-  username).
+## proof-of-teeth (real machine, neg-control-first)
+- **fakeable-confirmation hole CLOSED (ตู๋ lens #3 — the bug บอง caught in review):** the typed confirmation now
+  requires a real TTY (`process.stdin.isTTY`). Neg-controls:
+  - `echo be | prod-run be -- …` → **REFUSED** (`exit 6`), command never ran.
+  - `printf 'be\nSEND-REAL\n' | prod-run --with-providers be -- …` (the most dangerous path — auto-arming live
+    SMS/payment) → **REFUSED** (`exit 6`), command never ran.
+  So no pipe/script/CI can auto-confirm prod (or live providers) — only a human at a terminal. In any
+  non-interactive context prod-run refuses before the confirm, before the pre-flight, before any connection.
+- **fe refused (no prod key):** `prod-run fe …` → `exit 4` with a human message (fe.env.local is DEV, not prod;
+  ask ฟีม), before any stdin/connection.
+- **pre-flight fail-LOUD** `ANCHOR testenv/scripts/prod-run.mjs#preflight-fail-loud`: before spawning, a read-only
+  `select 1` verifies the blob reaches a LIVE prod DB; on failure → REFUSE with why/means/do (no env value).
+  Demonstrated earlier against the DEV ref (jgxsj) → `tenant-not-found` → refuse (`exit 5`), command never ran.
+  The `means` line is worded per ฟีม: *"points at DEV (or a paused tenant), NOT prod — DEV is not broken, it's a
+  different place; real prod is soxsc in be.env.prod.local"* — not "stale/gone". Pass verdict `ok` confirmed for
+  the live soxsc ref (psql = same verdict as the app's postgres.js). `be` now maps to the live blob, so a normal
+  `prod-run be` would pass the pre-flight and spawn; **not re-invoked to respect ฟีม's cap on further soxsc hits**
+  (pre-flight sits after the isTTY gate, so automation can't reach a connection anyway).
+- **build refused:** `prod-run be -- npm run build` → `exit 3`, human reason (NEXT_PUBLIC bakes at build; runtime
+  injection would ship wrong browser values and fail silently), before confirm/connection.
+- **providers blocked by default, provable:** default → `prod-probe` DNS verdict LINE/8x8 = **BLOCKED (ENOTFOUND)**,
+  SendGrid/Omise keys neutralized; `--with-providers` → **LIVE (resolves)**. (Verdict shown, not asserted.)
+- **zero disk writes:** file census before/after a full run — `~/.mumate-prod` sha + `$TMPDIR` unchanged, 0 new
+  files, git clean x3. Env injected into the child via `spawn({env})`; no temp/backup/marker exists at any point.
+- **no value leak:** banner prints only the DB *family* (`supabase.com`); pre-flight categorizes stderr and never
+  echoes it (it holds the username); the password is never rendered anywhere.
 
 ## adversary sign-off
 **goo self-adversarial:**
-- *"Would the pre-flight false-refuse a valid prod-run?"* → No — verified the psql instrument returns `ok` for
-  the live `soxsc` ref (agrees with the app's postgres.js). It refuses only on real failure.
-- *"Is psql a hidden hard dependency?"* → No — if psql is absent the pre-flight WARNS + proceeds (unverified),
-  never hard-blocks on a missing tool; the inject+spawn core is node-built-ins only.
-- *"Does the banner/pre-flight leak secrets?"* → Banner prints only the provider *family*; pre-flight prints a
-  category, never the stderr (which carries the username) and never the password.
-- *"Could a `build` slip through?"* → `\bbuild\b` on the joined command errs toward refusing (per ฟีม/บอง:
-  refuse > half-support). A path like `rebuild` won't match (word boundary), a real `next build`/`npm run build`
-  does.
-- Residual/limits (stated, not hidden): the app→file mapping is **unverified** (fix #2, ฟีม); end-to-end
-  pass→spawn against a live-mapped app is not shown here (no app currently maps to a live ref) — proven at the
-  component level instead; `bazi`/Neon + the 3rd project ref were **not** probed (บอง's call — risk-picture goes
-  to ฟีม first).
+- *"Can the confirmation be faked by a pipe / here-string / `< file`?"* → No — `isTTY` gate refuses all
+  non-terminal stdin (both neg-controls proven). This was the live hole; it's closed.
+- *"Does the isTTY gate break legitimate use?"* → A human in an interactive shell has a TTY and proceeds
+  normally. Only automation is refused — by design (per บอง/ฟีม: the dangerous path must not be scriptable).
+- *"Would the pre-flight false-refuse valid prod?"* → No — verified `ok` for the live soxsc ref (agrees with the
+  app's postgres.js). psql absent → warn+proceed, never hard-block on a missing tool.
+- *"Is the mapping a guess?"* → No longer — ฟีม-confirmed (soxsc=prod). fe is refused honestly (no key) rather
+  than pointed at dev.
+- Limits (stated): `bazi`/Neon and the 3rd project ref in bazi's `SUPABASE_URL` were **not** probed (ฟีม's call);
+  end-to-end pass→spawn against `be` is not re-run here to respect the soxsc-connection cap (pre-flight `ok`
+  verdict + spawn are each proven separately).
 
-**Pending ตู๋ (too)** — full runtime review (บอง reviews first, then ตู๋).
+**Pending ตู๋ (too)** — full runtime review (บอง reviews first, then sends ตู๋).
 
 ANCHOR: testenv/scripts/prod-run.mjs#preflight-fail-loud

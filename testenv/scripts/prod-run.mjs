@@ -19,7 +19,18 @@ import { spawn, spawnSync } from 'node:child_process';
 import { createInterface } from 'node:readline';
 
 const VAULT = join(homedir(), '.mumate-prod');
-const APP_BLOB = { fe: 'fe.env.local', be: 'be.env', bazi: 'bazi.env.local' };
+
+// Project topology (declared in the vault file headers since 2026-06-19; ฟีม-confirmed 2026-07-27):
+//   soxsccdlsycaevusndro = PROD (real)  ·  jgxsjhbdhttfoiyvptvy = DEV (de-prod'd 2026-06-19, now paused)  ·  Neon = backup DB
+// The two files holding real PROD keys: be.env.prod.local (soxsc) + be.env.local (SUPABASE_REAL_PRODUCTION_URL +
+// service-role). The other 4 blobs are DEV/backup. So:
+const APP_BLOB = {
+  be: 'be.env.prod.local',   // mootech-be → PROD (soxsc), ฟีม-confirmed. 🛑 ฟีม approval required each use.
+  bazi: 'bazi.env.local',    // bazi → Neon backup DB (ฟีม: pointing here is fine).
+};
+// fe has NO prod blob on disk — fe.env.local is the DEV project (jgxsj), NOT prod. Refuse rather than silently
+// connect to dev believing it's prod. (ฟีม: do not substitute fe.env.local.)
+const NO_PROD_KEY = { fe: true };
 
 // dangerous-button providers neutralized by DEFAULT (connect-real ≠ fire-real).
 // host-based (LINE/8x8) → RFC-2606 .invalid (network-dead, same as #184); key-based providers whose host is
@@ -73,7 +84,12 @@ const withProviders = argv[0] === '--with-providers';
 const rest = withProviders ? argv.slice(1) : argv;
 const app = rest[0];
 const sep = rest.indexOf('--');
-if (!app || !APP_BLOB[app]) die(`first arg must be one of: ${Object.keys(APP_BLOB).join(', ')}`, 2);
+if (NO_PROD_KEY[app]) {
+  die(`no PROD credentials for "${app}" on disk.\n` +
+      `   The only ${app} blob we have is the DEV project (jgxsj), not prod — refusing rather than connecting\n` +
+      `   to DEV believing it is prod. We do NOT have ${app}'s prod key. Ask ฟีม for it; do not substitute the dev blob.`, 4);
+}
+if (!app || !APP_BLOB[app]) die(`first arg must be one of: ${Object.keys(APP_BLOB).join(', ')} (fe = no prod key on disk)`, 2);
 if (sep === -1 || sep === rest.length - 1) die('missing command — usage: prod-run [--with-providers] <app> -- <command...>', 2);
 const cmd = rest.slice(sep + 1);
 
@@ -134,6 +150,16 @@ console.error(`     command    : ${cmd.join(' ')}`);
 console.error('     (env is injected into this one command only · nothing is written to disk)');
 console.error('');
 
+// ── require a REAL terminal — the confirmation must be hand-typed, never piped/automated ──
+// (ตู๋ lens #3: a fakeable confirmation is no gate. `echo be | prod-run …` — and worse
+// `printf 'be\nSEND-REAL\n' | prod-run --with-providers …` — must NOT be able to auto-confirm live SMS/payment.)
+if (!process.stdin.isTTY) {
+  die(`this command must be confirmed by a HUMAN at a real terminal.\n` +
+      `   It refuses a pipe / redirected / automated stdin BY DESIGN — so no script can auto-confirm connecting\n` +
+      `   to prod (or, with --with-providers, firing real SMS/LINE/payment). Run it in an interactive shell and\n` +
+      `   type the confirmation by hand.`, 6);
+}
+
 // ── typed confirmation (never y/Enter — must type the app name) ──
 const rl = createInterface({ input: process.stdin, output: process.stderr });
 const ask = (q) => new Promise((res) => rl.question(q, (a) => res(a)));
@@ -159,13 +185,13 @@ if (pf.cat === 'ok') {
 } else {
   // human 3-part message: why · what it means · what to do  (NO env value)
   const why = {
-    'tenant-not-found': 'the prod database pooler does NOT recognize this app\'s project (tenant/user not found).',
+    'tenant-not-found': 'the database pooler did not recognize this project (tenant/user not found) — it may be responding-as-none / paused.',
     'auth-failed': 'the prod database REJECTED the credentials (authentication failed).',
     'connect-failed': 'could not reach the prod database (network / wrong host / timeout).',
     'bad-url': 'the DATABASE_URL in this blob is not a parseable URL.',
   }[pf.cat] || 'the prod database connection failed.';
   const means = {
-    'tenant-not-found': 'the DB credentials in this blob are almost certainly STALE — they point at a Supabase project that no longer exists.',
+    'tenant-not-found': 'this blob points at DEV (or a paused tenant), NOT prod — DEV is not broken, it is simply a different place. Real prod is soxsc in be.env.prod.local.',
     'auth-failed': 'the user/password in this blob is wrong or has been rotated.',
     'connect-failed': 'the host may be an IP allowlist, a wrong/old endpoint, or the DB is down.',
     'bad-url': 'the blob is malformed.',
