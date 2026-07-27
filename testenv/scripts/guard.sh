@@ -70,9 +70,10 @@ if [ "$fail" -ne 0 ]; then
   # (normal = open the practice field · intentional = prod-run). No env value here — only human guidance.
   cat >&2 <<'TEACH'
 
-🛑 หยุดไว้ก่อน — env นี้ชี้ไปที่ของจริง (production) เครื่องนี้ตั้งใจให้พักที่สนามซ้อมเสมอ
+🛑 หยุดไว้ก่อน — env นี้ชี้ออกนอกเครื่อง (ไม่ใช่สนามซ้อม) · เครื่องนี้ตั้งใจให้พักที่สนามซ้อมเสมอ
+   (guard เห็นแค่ family ของ host — dev หรือ prod กันแน่? เช็คให้ชัด: bash testenv/scripts/stack.sh status)
 
-  ทำไมหยุด : ถ้าปล่อยให้รันด้วย env นี้ แอปจะต่อฐานข้อมูล/บริการจริง — ความผิดพลาดตกที่ผู้ใช้จริง
+  ทำไมหยุด : ถ้าปล่อยให้รันด้วย env นี้ แอปจะต่อฐานข้อมูล/บริการนอกเครื่อง (dev หรือ prod) — กระทบของจริงได้
   ทำยังไงต่อ:
     • ทำงานปกติ (ที่ควรเป็นเกือบทุกครั้ง) → เปิดสนามซ้อม:
         bash testenv/scripts/stack.sh up

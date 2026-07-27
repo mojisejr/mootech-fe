@@ -34,7 +34,10 @@ only: `mode-banner.mjs` (new) + fe `package.json` predev line + `guard.sh` (teac
 - **L2 guard teach** `ANCHOR testenv/scripts/guard.sh#guard-teach-on-refuse`: a prod `DATABASE_URL` (with a real
   password + full pooler host) → prints the why/how/read block with **both paths**, per-key line shows only the
   family (`pooler.supabase`); **leak check = 0** (the password and full host appear nowhere). `guard.test.sh`
-  still **18/18** (exit-code contract unchanged).
+  still **18/18** (exit-code contract unchanged). Review round (บอง): guard sees only the host *family* (like
+  the banner), so it must NOT claim "production" — reworded to lead **"env นี้ชี้ออกนอกเครื่อง (ไม่ใช่สนามซ้อม)"**
+  and point to `stack.sh status` for the dev/prod call (`'production'` appears 0 times). This is the message the
+  team hits when they *slip* — the most-trusted moment — so it says only what it knows.
 - **L3 status** `ANCHOR testenv/scripts/stack.sh#status-read-only`: on the current real state →
   `fe → 🟡 dev`, `be → 🟡 dev`, `bazi → 🟠 Neon (backup)`, `docker → healthy`, `pipe → 🔴 open`, residue counts.
   Classifies from the DB host **and username** (the project ref lives in the username for the DB_* shape —
