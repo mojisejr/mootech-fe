@@ -3,9 +3,11 @@
 // mode-banner — Layer 1 of "3 layers of awareness". Runs as `predev` so EVERY `npm run dev` prints, as its
 // FIRST line before the app boots, which world it is pointing at — read from the REAL env on disk, not a doc
 // or a memory or a marker:
-//   🟢 practice field  — the local test DB. proceed.
-//   🔴 REAL production  — show only the host FAMILY (never an env value). proceed, but loud.
-//   ⚪ unknown          — can't tell which mode → STOP (exit non-zero → npm aborts `dev`). can't-verify ≠ safe.
+//   🟢 practice field   — the local test DB. proceed.
+//   🔴 not the practice field (remote) — show only the host FAMILY (never an env value). Does NOT claim
+//                          prod vs dev — the banner only sees the family; `stack.sh status` reads the project
+//                          ref and makes that call. proceed, but loud.
+//   ⚪ unknown           — can't tell which mode → STOP (exit non-zero → npm aborts `dev`). can't-verify ≠ safe.
 // Reads the CWD's .env* the way Next resolves them for `dev` (development), excluding *.testenv-shadowed /
 // .example / .disabled. Never prints an env value — only a host family + the mode.  🛑 read-only, no side effects.
 import { readFileSync, existsSync } from 'node:fs';
