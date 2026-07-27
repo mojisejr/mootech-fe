@@ -108,7 +108,7 @@ async function main() {
   await authCtx.close()
 
   type Floating = { pos: string; tag: string; cls: string; box: string }
-  const results: { file: string; vpTop: string; vpMid: string | null; w: number; overflowX: boolean; errors: number; floating: Floating[] }[] = []
+  const results: { file: string; vpTop: string; vpBottom: string | null; w: number; overflowX: boolean; errors: number; floating: Floating[] }[] = []
   for (const w of viewports) {
     const ctx = await browser.newContext({ viewport: { width: w, height: 852 }, deviceScaleFactor: 2, storageState })
     const page = await ctx.newPage()
@@ -142,14 +142,17 @@ async function main() {
     const vpTop = file.replace(/\.png$/, '__vp-top.png')
     await page.screenshot({ path: vpTop }) // no fullPage → exactly the viewport (the first screen, cut at 852)
     const dims = await page.evaluate(() => ({ sh: document.scrollingElement!.scrollHeight, ih: window.innerHeight }))
-    let vpMid: string | null = null
-    if (dims.sh > dims.ih * 1.5) { // only when meaningfully taller — else vp-mid would just duplicate vp-top
-      await page.evaluate((y) => window.scrollTo(0, y), Math.round((dims.sh - dims.ih) / 2))
+    let vpBottom: string | null = null
+    // (บอง #123) shoot the second frame whenever the page is TALLER than one screen — no magic threshold.
+    // A page 1.0–1.5× the viewport is still taller than vp-top; skipping it AND printing "same as vp-top" would
+    // be a false-green. Scroll to the very BOTTOM (where a fixed bottom-0 element overlaps the last content).
+    if (dims.sh > dims.ih) {
+      await page.evaluate((y) => window.scrollTo(0, y), dims.sh)
       await page.waitForTimeout(150)
-      vpMid = file.replace(/\.png$/, '__vp-mid.png')
-      await page.screenshot({ path: vpMid })
+      vpBottom = file.replace(/\.png$/, '__vp-bottom.png')
+      await page.screenshot({ path: vpBottom })
     }
-    results.push({ file, vpTop, vpMid, w, overflowX, errors: errors.length, floating })
+    results.push({ file, vpTop, vpBottom, w, overflowX, errors: errors.length, floating })
     await ctx.close()
   }
   await browser.close()
@@ -160,8 +163,8 @@ async function main() {
   for (const r of results) {
     console.log(`  ${r.overflowX ? '⚠️ overflowX' : '✓'} @${r.w}  errors=${r.errors}`)
     console.log(`      full  : ${path.basename(r.file)}`)
-    console.log(`      vp-top: ${path.basename(r.vpTop)}  (first screen, cut at 852)`)
-    console.log(`      vp-mid: ${r.vpMid ? `${path.basename(r.vpMid)}  (page taller than viewport)` : '— (page ≤ viewport → same as vp-top, skipped)'}`)
+    console.log(`      vp-top   : ${path.basename(r.vpTop)}  (first screen, cut at 852)`)
+    console.log(`      vp-bottom: ${r.vpBottom ? `${path.basename(r.vpBottom)}  (bottom screen — where a fixed bottom-0 overlaps the LAST content)` : '— (page fits in one viewport → the whole page IS vp-top; there is no separate bottom screen)'}`)
     // the tool tells you what floats — a reviewer never has to eyeball whether something is fixed/sticky
     console.log(`      fixed/sticky: ${r.floating.length} found${r.floating.length ? '' : ' (none — nothing floats on this route/viewport)'}`)
     for (const f of r.floating) console.log(`         • ${f.pos} <${f.tag} class="${f.cls}"> box=[${f.box}]`)
