@@ -17,12 +17,14 @@ clusters + full-bleed bg push the page sideways at narrow widths.
 | invariant | result |
 |---|---|
 | motion-guard | under `prefers-reduced-motion:reduce` **all 10/10** animated els → `animation-name:none` + `opacity 1` |
+| **rest-transform** (2026-07-28 fix) | under reduce, `z3-rock-l` keeps `rotate(7°)` and `z3-rock-r` keeps `scaleX(-1) rotate(8.55°)` (non-identity, flip preserved) — the rats stay tilted + the left one flipped |
 | occlusion | both card `<h3>` titles **z-10 > mascot cluster z-5** (title readable over any mascot) |
 | asset-fidelity | **14 imgs paint** (naturalWidth>0), broken=[] — bg + 2 radial groups + heart + 9 mascots |
 | graceful | a mascot whose file 404s → **hero fallback `01.png`** (never a broken-image gap) |
 | no-overflow-x | page not scrolling sideways @ **393 · 360 · 320** |
 | `mut-motion-runs` (re-enable animation under reduce, higher-specificity → simulates a dropped @media guard) | motion-guard sees `animation-name≠none` → 🦷 **CAUGHT** |
 | `mut-title-behind` (title z below mascot cluster) | title no longer on top → occlusion gate → 🦷 **CAUGHT** |
+| `mut-rock-rest-none` (re-add the shipped `transform:none` guard on the rocks under reduce) | rats lose their base rotate/flip → rest-transform gate → 🦷 **CAUGHT** |
 
 **verify-the-instrument** (two negative controls, both green):
 1. *motion probe not vacuous* — WITHOUT reduce, the probe reads `animation-name≠none` (the animation really IS
@@ -51,6 +53,22 @@ FE (`/Users/non/ghq/github.com/mojisejr/mootech-fe-wt-zone3`) booted on :3008 ag
   nav-hidden section shots. This is บอง's logged blind-spot → the queued capture-route viewport-only shot.
 
 ANCHOR: harness/run-zone3-somphong.ts#mut-motion-runs
+ANCHOR: harness/run-zone3-somphong.ts#mut-rock-rest-none
+
+## reduced-motion rest-transform fix (2026-07-28 · follow-up to the merged Zone 3)
+**Bug** (shipped in the merged Zone 3, surfaced when goo's harness added a real `reducedMotion` freeze): the
+คู่รัก rats carried their base transform (`z3-rock-l` rotate 7° · `z3-rock-r` `scaleX(-1) rotate 8.55°`) **only
+inside the `@keyframes 0%`**, and the reduced-motion guard forced `transform:none !important`. So under
+`prefers-reduced-motion` the animation stopped AND the base transform was stripped → the two rats stood upright
+and the left (fire) rat **un-flipped** (facing the wrong way). This is what **real reduced-motion users see on
+their phones** — not just a harness artifact. Confirmed: before = `z3-rock-l/r transform: none`; after =
+`rotate(7°)` / `scaleX(-1) rotate(8.55°)` (screenshots: rats upright/wrong-facing → leaning-in/correct).
+**Fix**: move each base transform onto the **class** (`.z3-rock-l{transform:rotate(7deg);…}`), and drop
+`transform:none` from the guard (keep `animation:none;opacity:1`). `z3-heart`/`z3-pop` rest at identity so they
+are unaffected. The anchor is **widened** — `rest-transform` + `mut-rock-rest-none` now guard this bug-class
+(the motion-guard alone checked "animation stopped", never "rests at the correct transform" — the exact gap
+this bug lived in). No other zone is affected; the new `HabitCard` (Zone 4/6 motion) already carries base
+transforms on `.hc-small`/`.hc-frame` with a `transform:none`-free guard.
 
 ## completeness-pass + honest scope (visual-lens clause — enumerated, not spot-checked)
 **Bounded reference** = Figma `421:826` + the contract's declared viewports (393/360/320). **Scaled stakes** =
@@ -86,7 +104,14 @@ Cross-oracle, RUN-PROVEN — I do NOT self-certify (a trap I own is not trusted 
   fallback** is tight, and — in the Subjective-Judgment lens — backed the `@320` **edge-tuck** (2 mascots ~85%
   visible, 9px crop) as the correct trade-off: it **keeps scale/dimension** rather than shrinking the mascots to a
   stunted size, and the `-mx-[16px]` cluster proportioning. No anchor cracked.
-- **goo (runtime lens)** — complementary/open: real-data render + the test-env asset path + on-device motion perf
-  (the 4× throttle here is a proxy, not a physical phone). Not a blocker; a widening pass if goo finds a gap.
+- **goo (runtime lens)** — **surfaced this bug**: goo's harness `reducedMotion` freeze (PR #126) exposed that the
+  merged Zone 3 rats stripped their base transform under reduce. Cross-lens division working as intended — the
+  runtime lens caught what the static motion-guard's scope missed. Fix + widened anchor above.
+- **too (D2) — SIGNED OFF PR #128** (`[ack:review-128]`, on GitHub). tsc clean + confirmed all four under attack:
+  (1) the `rotate(…)` + `scaleX(-1)` values now sit on the `.z3-rock` class, not floating in the keyframe;
+  (2) the reduced-motion guard still stops the animation (`none`) and the rocks rest at their tilt — a GPU/
+  compositor transform, so dropping `transform:none` causes no scroll/CLS regression; (3) `mut-rock-rest-none`
+  fires when the old bug is re-injected — especially the negative-matrix check guaranteeing the flip;
+  (4) `z3-heart`/`z3-pop` carry no base rotation on the class → identity-at-rest, unaffected. No anchor cracked.
 - **This section's own completeness-adversary**: the cross-oracle pass IS the state-space enumerator — whatever
   viewport/variant/region a lens finds I under-sampled → A2, never "covered".
