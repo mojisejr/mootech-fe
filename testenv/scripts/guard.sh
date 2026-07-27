@@ -25,9 +25,9 @@ check_value() {  # $1 = key, $2 = value
   v=$(printf '%s' "$v" | sed -E 's/[[:space:]]+#.*$//')
   [ -z "$v" ] && return 0
   if printf '%s' "$v" | grep -qiE "$PROD_PATTERNS"; then
-    # show the real host: drop everything up to '@' (creds), then everything from the next ':' or '/'
-    host=$(printf '%s' "$v" | sed -E 's#^.*@##; s#[:/].*$##')
-    echo "🛑 REFUSE: $k → PROD host ($host)"; fail=1; return 0
+    # show only the matched FAMILY (e.g. supabase.com), never the full host/creds (no env value leak)
+    fam=$(printf '%s' "$v" | grep -oiE "$PROD_PATTERNS" | head -1)
+    echo "🛑 REFUSE: $k → prod host family ($fam)"; fail=1; return 0
   fi
   # For a URL, extract the ACTUAL host (after the LAST @, before port/path) and require it be local.
   # A substring match ("localhost" anywhere) would let a password like `super_secret_localhost:5432`
@@ -36,11 +36,11 @@ check_value() {  # $1 = key, $2 = value
     host=$(printf '%s' "$v" | sed -E 's#^[a-zA-Z]+://##; s#\?.*$##; s#^.*@##; s#[:/].*$##')
     case "$host" in
       localhost|127.0.0.1|host.docker.internal|postgres) : ;;  # local — ok
-      *) echo "🛑 REFUSE: $k host '$host' is not local (fail-closed)"; fail=1 ;;
+      *) echo "🛑 REFUSE: $k → host is not local (fail-closed)"; fail=1 ;;
     esac
   fi
   if [ "$k" = "DB_HOST" ] && ! printf '%s' "$v" | grep -qiE '^(localhost|127\.0\.0\.1|postgres)$'; then
-    echo "🛑 REFUSE: DB_HOST=$v is not local"; fail=1
+    echo "🛑 REFUSE: DB_HOST → not local"; fail=1
   fi
 }
 
@@ -65,7 +65,21 @@ else
 fi
 
 if [ "$fail" -ne 0 ]; then
-  echo "   ↳ the test stack only talks to localhost:5433. Never point it at prod. Aborting."
+  # ANCHOR: guard-teach-on-refuse
+  # Layer 2 — when the guard stops, it TEACHES (why / how / where to read) and always offers BOTH paths
+  # (normal = open the practice field · intentional = prod-run). No env value here — only human guidance.
+  cat >&2 <<'TEACH'
+
+🛑 หยุดไว้ก่อน — env นี้ชี้ไปที่ของจริง (production) เครื่องนี้ตั้งใจให้พักที่สนามซ้อมเสมอ
+
+  ทำไมหยุด : ถ้าปล่อยให้รันด้วย env นี้ แอปจะต่อฐานข้อมูล/บริการจริง — ความผิดพลาดตกที่ผู้ใช้จริง
+  ทำยังไงต่อ:
+    • ทำงานปกติ (ที่ควรเป็นเกือบทุกครั้ง) → เปิดสนามซ้อม:
+        bash testenv/scripts/stack.sh up
+    • ตั้งใจต่อของจริงจริงๆ (นานๆ ครั้ง) → ใช้ prod-run (ยืนยันด้วยมือ + ท่อขาออกตันโดย default):
+        node testenv/scripts/prod-run.mjs <app> -- <คำสั่ง>
+  อ่านเพิ่ม : mootech-fe/testenv/README.md
+TEACH
   exit 1
 fi
 echo "✅ guard: all DB targets local — safe"

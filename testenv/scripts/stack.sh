@@ -128,6 +128,63 @@ do_restore() {
   echo "✅ restore done. (docker/DB left running — stop:  docker compose -f testenv/docker-compose.yml down)"
 }
 
+# Layer 3 — classify a DB value by WHERE it points (never echo the value; caller prints only the verdict).
+# Topology (ฟีม-confirmed): soxsc = PROD · jgxsj = DEV (paused) · Neon = backup · localhost = practice.
+classify_db() {  # $1 = raw DATABASE_URL/DB_HOST value → prints one of: practice|prod|dev|neon|real-unknown|unknown
+  local v="$1"
+  [ -z "$v" ] && { echo unknown; return; }
+  case "$v" in
+    *localhost*|*127.0.0.1*|*host.docker.internal*) echo practice ;;
+    *soxsccdlsycaevusndro*) echo prod ;;
+    *jgxsjhbdhttfoiyvptvy*) echo dev ;;
+    *neon.tech*) echo neon ;;
+    *supabase.co*|*supabase.com*|*.onrender.com*|*render.com*|*.rds.amazonaws.com*) echo real-unknown ;;
+    *) echo unknown ;;
+  esac
+}
+
+# ANCHOR: status-read-only
+do_status() {  # READ-ONLY: reports where each app points, docker, outbound pipe, residue — from REAL state, not markers
+  echo "── test-env status (read-only · อ่านจากสถานะจริง ไม่ใช่ marker) ──"
+  # 1) where does each app point — from its ACTIVE (non-shadowed) env, not the .env.disabled marker
+  while IFS='|' read -r repo tmplrel dotfile fw; do
+    [ -n "$repo" ] || continue
+    local dir="$GH/$repo" f dbval="" cls badge fam
+    [ -d "$dir" ] || { echo "  • $repo → (ไม่พบโฟลเดอร์)"; continue; }
+    for f in $(active_envs "$dir"); do
+      # concat DB host + username (the project ref lives in the username for the DB_* shape) — never printed
+      dbval=$(grep -hE '^(DATABASE_URL|APP_DATABASE_URL|DB_HOST|DB_USERNAME)=' "$f" 2>/dev/null | cut -d= -f2- | tr '\n' ' ')
+      [ -n "$dbval" ] && break
+    done
+    cls=$(classify_db "$dbval")
+    case "$cls" in
+      practice)     badge="🟢 สนามซ้อม (localhost)" ;;
+      prod)         badge="🔴 ของจริง (PRODUCTION)" ;;
+      dev)          badge="🟡 dev (paused project)" ;;
+      neon)         badge="🟠 Neon (backup DB)" ;;
+      real-unknown) fam=$(printf '%s' "$dbval" | grep -oiE 'supabase\.(com|co)|neon\.tech|[a-z0-9-]*\.onrender\.com|render\.com|rds\.amazonaws\.com' | head -1); badge="🔴 remote ($fam) — project ไม่รู้จัก" ;;
+      *)            badge="⚪ ไม่รู้ (ไม่พบ DB ใน active env)" ;;
+    esac
+    echo "  • $repo → $badge"
+  done <<< "$APPS"
+  # 2) docker DB
+  local dst; dst=$(docker inspect -f '{{.State.Health.Status}}' mumate_testenv_pg 2>/dev/null || true)
+  echo "  • docker DB (mumate_testenv_pg): ${dst:-ไม่ได้รันอยู่}"
+  # 3) outbound pipe (SMS/LINE lives in the BE env) — read the active be env, verdict only
+  local beenv="$GH/mootech-be/.env" pipe
+  if [ -f "$beenv" ]; then
+    if grep -qiE '^(LINE_HOST|SMS_8X8_HOST)=.*\.invalid' "$beenv" 2>/dev/null; then pipe="🟢 ตัน (.invalid — ยิงออกไม่ได้)"
+    elif grep -qiE '^(LINE_HOST|SMS_8X8_HOST)=.*(api\.line\.me|8x8\.com)' "$beenv" 2>/dev/null; then pipe="🔴 เปิด (provider จริง — ยิงออกได้)"
+    else pipe="⚪ ไม่แน่ใจ"; fi
+  else pipe="(ไม่มี be/.env)"; fi
+  echo "  • ท่อขาออก BE (SMS/LINE): $pipe"
+  # 4) leftover residue (shadow files + markers) across the 3 repos
+  local shadows markers
+  shadows=$(ls "$GH"/mootech-fe/*"$SHADOW_SUFFIX" "$GH"/mootech-be/*"$SHADOW_SUFFIX" "$GH"/bazi-sft-dataset/*"$SHADOW_SUFFIX" 2>/dev/null | wc -l | tr -d ' ')
+  markers=0; for r in mootech-fe mootech-be bazi-sft-dataset; do [ -f "$GH/$r/$BREADCRUMB" ] && markers=$((markers+1)); done
+  echo "  • เศษค้าง: shadow=$shadows · marker=$markers $( [ "$shadows" = 0 ] && [ "$markers" = 0 ] && echo '(สะอาด)' || echo '(มี test-mode residue — restore เพื่อเก็บกวาด)')"
+}
+
 # test hook: `STACK_SOURCE_ONLY=1 source stack.sh` defines the functions and runs NOTHING (for the
 # proof-of-teeth test). The env var is never set on a real invocation, so this line is inert in normal use.
 if [ "${STACK_SOURCE_ONLY:-}" = "1" ]; then return 0 2>/dev/null || exit 0; fi
@@ -135,8 +192,9 @@ if [ "${STACK_SOURCE_ONLY:-}" = "1" ]; then return 0 2>/dev/null || exit 0; fi
 # ──────────────────────────── subcommand dispatch ────────────────────────────
 case "${1:-up}" in
   restore) do_restore; exit 0 ;;
+  status) do_status; exit 0 ;;
   up) ;;
-  *) echo "usage: bash scripts/stack.sh [up|restore]"; exit 2 ;;
+  *) echo "usage: bash scripts/stack.sh [up|restore|status]"; exit 2 ;;
 esac
 
 # ──────────────────────────── up: rollback safety ────────────────────────────
