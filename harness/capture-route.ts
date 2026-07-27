@@ -16,6 +16,7 @@ import { chromium, type Page } from 'playwright'
 import * as fs from 'fs'
 import * as path from 'path'
 import { execSync } from 'child_process'
+import { backendUnreachableHint } from './backend-hint'
 
 const HOST = process.env.CAPTURE_HOST ?? 'http://localhost:3000'
 const ENV_FILE = process.env.CAPTURE_ENV_FILE ?? 'testenv/env/fe.env'
@@ -109,11 +110,13 @@ async function main() {
 
   type Floating = { pos: string; tag: string; cls: string; box: string }
   const results: { file: string; vpTop: string; vpBottom: string | null; w: number; overflowX: boolean; errors: number; floating: Floating[] }[] = []
+  const allFailed: string[] = [] // 4xx/5xx responses across all viewports — feeds the BE-unreachable hint
   for (const w of viewports) {
     const ctx = await browser.newContext({ viewport: { width: w, height: 852 }, deviceScaleFactor: 2, storageState })
     const page = await ctx.newPage()
     const errors: string[] = []
     page.on('console', (m) => { if (m.type() === 'error') errors.push(m.text().slice(0, 160)) })
+    page.on('response', (r) => { if (r.status() >= 400) allFailed.push(`${r.status()} ${r.url()}`) })
     await page.goto(`${HOST}${route}`, { waitUntil: 'networkidle' })
     // ASSETS-READY gate (same as capture.ts) → the final pixels, not a mid-load frame
     await page.evaluate(() => (document as unknown as { fonts?: { ready: Promise<unknown> } }).fonts?.ready).catch(() => {})
@@ -169,6 +172,10 @@ async function main() {
     console.log(`      fixed/sticky: ${r.floating.length} found${r.floating.length ? '' : ' (none — nothing floats on this route/viewport)'}`)
     for (const f of r.floating) console.log(`         • ${f.pos} <${f.tag} class="${f.cls}"> box=[${f.box}]`)
   }
+  // If any /api call 502'd, the BE isn't booted — say so, so the fallback + red console error above are not
+  // mistaken for a UI bug (มุน's Zone-4 502). Narrow: only 502-on-/api; a 404/500 from a running BE is left alone.
+  const beHint = backendUnreachableHint(allFailed)
+  if (beHint) console.log(`\n${beHint}`)
   console.log(`\n⚠️  RECORD the FE build hash above in evidence — a stale FE makes a fixed bug look live (images expire).`)
   console.log(`next: Read the PNGs to eyeball, record findings in the zone's *.verify-evidence.md,`)
   console.log(`      and cite this exact command so too/บอง reproduce.\n`)
