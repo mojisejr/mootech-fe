@@ -39,7 +39,7 @@ function diffPixels(a: Buffer, b: Buffer, diffPath?: string): { changedPx: numbe
 }
 
 /**
- * Capture two post-assets-ready fullPage frames of a real route and measure their pixel-diff.
+ * Capture two post-assets-ready VIEWPORT frames of a real route and measure their pixel-diff.
  * `injectFlashCss` (the mutant) is applied AFTER frame A and PERSISTS → a stable app reads ~0, a
  * persistent same-position divergence reads high, CLS stays ~0 (measured, proves it is layout-stable).
  * `injectPreSettleFlashCss` (adversary) is applied BEFORE assets-ready and removed before frame A —
