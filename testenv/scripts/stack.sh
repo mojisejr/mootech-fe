@@ -86,8 +86,10 @@ shadow_others() { # $1=dir $2=repo $3=placed_dotfile — #177: move aside every 
   done
 }
 
-active_envs() { # $1=dir — echo every ACTIVE .env* Next loads (excludes *.testenv-shadowed, marker, and
-                # committed templates like .env.example which Next never loads)
+active_envs() { # $1=dir — echo every ACTIVE .env* the app may load, in GLOB order (excludes *.testenv-shadowed,
+                # marker, and committed templates like .env.example). Order-INDEPENDENT consumers only (e.g.
+                # guard.sh, which fail-closes if ANY file is unsafe). For "which value does the app actually
+                # read" use env_load_order — glob order is NOT the framework's load precedence.
   local dir="$1" f base
   for f in "$dir"/.env*; do
     [ -f "$f" ] || continue
@@ -96,6 +98,33 @@ active_envs() { # $1=dir — echo every ACTIVE .env* Next loads (excludes *.test
     case "$base" in *"$SHADOW_SUFFIX") continue ;; esac
     is_committed_template "$base" && continue
     printf '%s\n' "$f"
+  done
+}
+
+# ANCHOR: status-env-precedence
+# Echo the ACTIVE env files in the order the FRAMEWORK actually loads them (HIGHEST precedence FIRST), so a
+# "first occurrence of a key wins" read yields the value the app REALLY uses. Glob order is the OPPOSITE of what
+# we need: `.env` sorts BEFORE `.env.local` lexicographically, yet Next loads `.env.local` OVER `.env` — so a
+# glob-order read (do_status #192 bug) would report a `.env`=localhost residue as 🟢 practice while the app boots
+# on a `.env.local`=remote = a false-green in the very tool built to kill false-green.
+#   • next: Next.js dev resolution — .env.development.local > .env.local > .env.development > .env
+#     (mirrors mode-banner.mjs FILES; NODE_ENV=development is the mode stack.sh boots apps in).
+#   • node: NestJS/@nestjs/config default reads .env ONLY (no .env.local) — so we consider .env alone. Applying
+#     next's precedence to a node app would misreport a .env.local the runtime never loads.
+# Matched by EXACT base name, so a shadowed (*.testenv-shadowed) / marker (.env.disabled) / template
+# (.env.example) file is excluded by construction (its name is not in the load list).
+env_load_order() { # $1=dir $2=fw → active env files, highest framework-precedence first (one per line)
+  local dir="$1" fw="$2" base f
+  # Positional params (set --) instead of splitting an unquoted string, so the ordering survives regardless of
+  # the caller's IFS/word-split behaviour (bash splits `$order`, zsh would not — this is robust in both).
+  case "$fw" in
+    next) set -- .env.development.local .env.local .env.development .env ;;
+    node) set -- .env ;;
+    *)    set -- .env ;;  # unknown framework → the base file only; never invent a precedence we can't verify
+  esac
+  for base in "$@"; do
+    f="$dir/$base"
+    [ -f "$f" ] && printf '%s\n' "$f"
   done
 }
 
@@ -169,10 +198,12 @@ do_status() {  # READ-ONLY: reports where each app points, docker, outbound pipe
     [ -n "$repo" ] || continue
     local dir="$GH/$repo" f badge
     [ -d "$dir" ] || { echo "  • $repo → (ไม่พบโฟลเดอร์)"; continue; }
-    # Gather each key's value SEPARATELY (first occurrence across active files) — NEVER concat across keys, so
-    # a word from one key can't decide another (บอง #122 bug 2). Precedence = first active file that has it.
+    # Gather each key's value SEPARATELY (first occurrence in FRAMEWORK LOAD ORDER) — NEVER concat across keys,
+    # so a word from one key can't decide another (บอง #122 bug 2). Precedence = env_load_order (the file the
+    # framework actually loads first), NOT glob order — else a `.env` residue would mask the `.env.local` the
+    # app really boots on (#192 false-green). `fw` (next|node) comes from the APPS row.
     local dburl="" appurl="" dbhost="" dbuser="" beurl=""
-    for f in $(active_envs "$dir"); do
+    for f in $(env_load_order "$dir" "$fw"); do
       # `|| true` + if-blocks: grep returns 1 when a key is absent, which under `set -e` would abort the script
       if [ -z "$dburl" ];  then dburl=$(grep -m1 '^DATABASE_URL='          "$f" 2>/dev/null | cut -d= -f2- || true); fi
       if [ -z "$appurl" ]; then appurl=$(grep -m1 '^APP_DATABASE_URL='     "$f" 2>/dev/null | cut -d= -f2- || true); fi
