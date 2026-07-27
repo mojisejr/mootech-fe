@@ -42,13 +42,25 @@ only: `mode-banner.mjs` (new) + fe `package.json` predev line + `guard.sh` (teac
   `fe → 🟡 dev`, `be → 🟡 dev`, `bazi → 🟠 Neon (backup)`, `docker → healthy`, `pipe → 🔴 open`, residue counts.
   Classifies from the DB host **and username** (the project ref lives in the username for the DB_* shape —
   that's why be resolves to dev, not "remote-unknown"). **Read-only proven**: env-file shas + git status
-  unchanged before/after a `status` run. `classify_db` unit: no-DB→unknown, localhost→practice,
-  unrecognized→unknown. **Leak check = 0**. Review round (ตู๋/บอง #122): `status` now also scans
-  `NEXT_PUBLIC_BACKEND_URL` — consistent with banner/guard, so the three tools never disagree about the same
-  reality. DB stays PRIMARY (a backend URL can't mask the DB blast-radius when both exist — verified fe/be
-  still resolve to `dev` via the DB, not the onrender backend); when an app has ONLY a backend URL it now
-  reports `⚪ ไม่มี DB · backend → <mode> (<family>)` instead of falling to "unknown" when info exists
-  (verified: localhost→practice, onrender→remote, supabase→remote).
+  unchanged before/after a `status` run. **Leak check = 0**.
+- **L3 classify hardening (ตู๋ HOLD + บอง — the important one):** the first cut of `classify_db` had a
+  three-part fail-OPEN — `*localhost*` matched anywhere (not just the host), it classified a CONCAT of several
+  keys at once (one key's word deciding another), and it checked practice BEFORE prod — so a prod string that
+  merely *contained* "localhost" (in a password, a decoy host, or a comment) could show 🟢. Redesigned:
+  `classify_one` (a) strips trailing comments, (b) checks remote/ref patterns FIRST (a false match errs to
+  remote, never to green), (c) calls practice ONLY when an EXTRACTED host is EXACTLY local (never substring);
+  and `do_status` now classifies **each connection value separately** (never concats across keys) — if the DB
+  keys disagree it reports **⚠️ ไม่ตรงกัน — คีย์ DB ชี้คนละที่**, never the best-looking one. `NEXT_PUBLIC_BACKEND_URL`
+  is a **fallback only** (no DB key) → `⚪ ไม่มี DB · backend → <mode> (<family>)`, never folded into the DB verdict.
+  Neg-controls (บอง): prod-host + "localhost" in password → **real-unknown, not green**; `localhostsomething.com`
+  → **unknown, not green**; two DB keys pointing different places → **mismatch reported**; DB-primary intact
+  (fe/be→dev via DB, not the onrender backend); real localhost/comment → practice. `set -e` trap fixed
+  (grep-miss no longer aborts the loop). **Leak = 0.**
+- **sibling sweep (บอง — "we fixed startsWith→includes in the banner but didn't check its siblings, like
+  #167/#176"):** re-audited all three tools for the same loose-match / safe-before-dangerous class →
+  **banner** = exact `LOCAL.includes` + single value + extracted host (verified prod+localhost-in-pw → 🔴, not
+  🟢); **guard** = fail-closed, only passes on an exact-local host (verified `localhostsomething.com` and
+  prod+localhost-in-pw both REFUSED); **status** = fixed above. No loose-match fail-open remains in any of the three.
 
 ## adversary sign-off
 **goo self-adversarial:**

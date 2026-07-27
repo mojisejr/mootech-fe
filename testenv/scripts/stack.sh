@@ -130,16 +130,34 @@ do_restore() {
 
 # Layer 3 — classify a DB value by WHERE it points (never echo the value; caller prints only the verdict).
 # Topology (ฟีม-confirmed): soxsc = PROD · jgxsj = DEV (paused) · Neon = backup · localhost = practice.
-classify_db() {  # $1 = raw DATABASE_URL/DB_HOST value → prints one of: practice|prod|dev|neon|real-unknown|unknown
-  local v="$1"
+classify_one() {  # $1 = ONE connection value (a URL, or "host ref") → prints: practice|prod|dev|neon|real-unknown|unknown
+  local v="$1" tok host
+  v=$(printf '%s' "$v" | sed -E 's/[[:space:]]+#.*$//')          # strip trailing "# comment" first
   [ -z "$v" ] && { echo unknown; return; }
-  case "$v" in
-    *localhost*|*127.0.0.1*|*host.docker.internal*) echo practice ;;
-    *soxsccdlsycaevusndro*) echo prod ;;
-    *jgxsjhbdhttfoiyvptvy*) echo dev ;;
-    *neon.tech*) echo neon ;;
-    *supabase.co*|*supabase.com*|*.onrender.com*|*render.com*|*.rds.amazonaws.com*) echo real-unknown ;;
-    *) echo unknown ;;
+  # REMOTE/ref FIRST — so a prod string that merely CONTAINS "localhost" (in a password, a decoy host, or a
+  # comment) can never fall to 🟢 practice. These patterns are specific; a false match errs to remote/dev/prod
+  # (the SAFE direction), never to green. (ตู๋ #122: the old `*localhost*`-first case was a fail-OPEN.)
+  case "$v" in *soxsccdlsycaevusndro*) echo prod; return ;; esac
+  case "$v" in *jgxsjhbdhttfoiyvptvy*) echo dev; return ;; esac
+  case "$v" in *neon.tech*) echo neon; return ;; esac
+  case "$v" in *supabase.co*|*supabase.com*|*.onrender.com*|*render.com*|*.rds.amazonaws.com*) echo real-unknown; return ;; esac
+  # practice ONLY if an EXTRACTED host is EXACTLY local (never a substring match) — same discipline as mode-banner
+  for tok in $v; do
+    host=$(printf '%s' "$tok" | sed -E 's#^[a-zA-Z]+://##; s#\?.*$##; s#^.*@##; s#[:/].*$##')
+    case "$host" in localhost|127.0.0.1|host.docker.internal) echo practice; return ;; esac
+  done
+  echo unknown
+}
+
+render_verdict() {  # $1=verdict $2=value(for family extraction) → "icon label"
+  local cls="$1" v="$2" fam
+  case "$cls" in
+    practice)     echo "🟢 สนามซ้อม (localhost)" ;;
+    prod)         echo "🔴 ของจริง (PRODUCTION)" ;;
+    dev)          echo "🟡 dev (paused project)" ;;
+    neon)         echo "🟠 Neon (backup DB)" ;;
+    real-unknown) fam=$(printf '%s' "$v" | grep -oiE 'supabase\.(com|co)|neon\.tech|[a-z0-9-]*\.onrender\.com|render\.com|rds\.amazonaws\.com' | head -1); echo "🔴 remote ($fam) — project ไม่รู้จัก" ;;
+    *)            echo "⚪ ไม่รู้" ;;
   esac
 }
 
@@ -149,37 +167,37 @@ do_status() {  # READ-ONLY: reports where each app points, docker, outbound pipe
   # 1) where does each app point — from its ACTIVE (non-shadowed) env, not the .env.disabled marker
   while IFS='|' read -r repo tmplrel dotfile fw; do
     [ -n "$repo" ] || continue
-    local dir="$GH/$repo" f dbval="" cls badge fam src="DB"
+    local dir="$GH/$repo" f badge
     [ -d "$dir" ] || { echo "  • $repo → (ไม่พบโฟลเดอร์)"; continue; }
+    # Gather each key's value SEPARATELY (first occurrence across active files) — NEVER concat across keys, so
+    # a word from one key can't decide another (บอง #122 bug 2). Precedence = first active file that has it.
+    local dburl="" appurl="" dbhost="" dbuser="" beurl=""
     for f in $(active_envs "$dir"); do
-      # concat DB host + username (the project ref lives in the username for the DB_* shape) — never printed
-      dbval=$(grep -hE '^(DATABASE_URL|APP_DATABASE_URL|DB_HOST|DB_USERNAME)=' "$f" 2>/dev/null | cut -d= -f2- | tr '\n' ' ')
-      [ -n "$dbval" ] && break
+      # `|| true` + if-blocks: grep returns 1 when a key is absent, which under `set -e` would abort the script
+      if [ -z "$dburl" ];  then dburl=$(grep -m1 '^DATABASE_URL='          "$f" 2>/dev/null | cut -d= -f2- || true); fi
+      if [ -z "$appurl" ]; then appurl=$(grep -m1 '^APP_DATABASE_URL='     "$f" 2>/dev/null | cut -d= -f2- || true); fi
+      if [ -z "$dbhost" ]; then dbhost=$(grep -m1 '^DB_HOST='              "$f" 2>/dev/null | cut -d= -f2- || true); fi
+      if [ -z "$dbuser" ]; then dbuser=$(grep -m1 '^DB_USERNAME='          "$f" 2>/dev/null | cut -d= -f2- || true); fi
+      if [ -z "$beurl" ];  then beurl=$(grep -m1 '^NEXT_PUBLIC_BACKEND_URL=' "$f" 2>/dev/null | cut -d= -f2- || true); fi
     done
-    # fallback (ตู๋/บอง #122): a front-end app may carry NO DB var, only NEXT_PUBLIC_BACKEND_URL — classify by
-    # where the backend points so status reports the SAME reality banner/guard see, not "ไม่รู้" when info exists.
-    # DB stays PRIMARY: a backend URL never masks the DB blast-radius when both are present.
-    if [ -z "$dbval" ]; then
-      for f in $(active_envs "$dir"); do
-        dbval=$(grep -hE '^NEXT_PUBLIC_BACKEND_URL=' "$f" 2>/dev/null | cut -d= -f2- | tr '\n' ' ')
-        [ -n "$dbval" ] && { src="backend"; break; }
-      done
-    fi
-    cls=$(classify_db "$dbval")
-    local icon lbl
-    case "$cls" in
-      practice)     icon="🟢"; lbl="สนามซ้อม (localhost)" ;;
-      prod)         icon="🔴"; lbl="ของจริง (PRODUCTION)" ;;
-      dev)          icon="🟡"; lbl="dev (paused project)" ;;
-      neon)         icon="🟠"; lbl="Neon (backup DB)" ;;
-      real-unknown) fam=$(printf '%s' "$dbval" | grep -oiE 'supabase\.(com|co)|neon\.tech|[a-z0-9-]*\.onrender\.com|render\.com|rds\.amazonaws\.com' | head -1); icon="🔴"; lbl="remote ($fam) — project ไม่รู้จัก" ;;
-      *)            icon="⚪"; lbl="" ;;
-    esac
-    if [ "$src" = backend ]; then
-      # info came from the backend URL, not a DB var — say so plainly (never silently claim it's the DB)
-      [ "$cls" = unknown ] && badge="⚪ ไม่รู้ (ไม่พบทั้ง DB และ backend ใน active env)" || badge="⚪ ไม่มี DB · backend → $icon $lbl"
+    # Classify each DB CONNECTION on its own (host+ref of the SAME connection = one value). Collect DISTINCT
+    # verdicts — if the DB keys disagree, we REPORT the mismatch, never pick the best-looking one.
+    local verds="" vd rep=""
+    for pair in "url:$dburl" "app:$appurl" "hostref:$dbhost $dbuser"; do
+      local kind="${pair%%:*}" val="${pair#*:}"
+      case "$kind" in url) [ -n "$dburl" ] || continue ;; app) [ -n "$appurl" ] || continue ;; hostref) [ -n "$dbhost" ] || continue ;; esac
+      vd=$(classify_one "$val"); rep="$val"
+      case " $verds " in *" $vd "*) : ;; *) verds="${verds:+$verds }$vd" ;; esac
+    done
+    local ndb; ndb=$(printf '%s' "$verds" | wc -w | tr -d ' ')
+    if [ "$ndb" -eq 0 ]; then
+      # no DB key → fall back to the backend URL, reported AS backend (never claimed to be the DB)
+      if [ -n "$beurl" ]; then badge="⚪ ไม่มี DB · backend → $(render_verdict "$(classify_one "$beurl")" "$beurl")"
+      else badge="⚪ ไม่รู้ (ไม่พบทั้ง DB และ backend ใน active env)"; fi
+    elif [ "$ndb" -eq 1 ]; then
+      badge=$(render_verdict "$verds" "$rep")
     else
-      [ "$cls" = unknown ] && badge="⚪ ไม่รู้ (ไม่พบ DB ใน active env)" || badge="$icon $lbl"
+      badge="⚠️ ไม่ตรงกัน — คีย์ DB ชี้คนละที่: [$verds] · เช็ค env ให้ตรงก่อนรัน"
     fi
     echo "  • $repo → $badge"
   done <<< "$APPS"
