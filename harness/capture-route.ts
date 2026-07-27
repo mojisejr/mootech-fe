@@ -107,7 +107,8 @@ async function main() {
   const storageState = await authCtx.storageState()
   await authCtx.close()
 
-  const results: { file: string; w: number; overflowX: boolean; errors: number }[] = []
+  type Floating = { pos: string; tag: string; cls: string; box: string }
+  const results: { file: string; vpTop: string; vpBottom: string | null; w: number; overflowX: boolean; errors: number; floating: Floating[] }[] = []
   for (const w of viewports) {
     const ctx = await browser.newContext({ viewport: { width: w, height: 852 }, deviceScaleFactor: 2, storageState })
     const page = await ctx.newPage()
@@ -120,8 +121,38 @@ async function main() {
     await page.waitForTimeout(250)
     const overflowX = await page.evaluate(() => document.scrollingElement!.scrollWidth > window.innerWidth)
     const file = path.join(outDir, `${slug(route)}__${label}__${w}.png`)
-    await page.screenshot({ path: file, fullPage: true })
-    results.push({ file, w, overflowX, errors: errors.length })
+    await page.screenshot({ path: file, fullPage: true }) // FULL (unchanged — backward-compatible filename)
+
+    // ANCHOR: viewport-shot — fullPage misplaces fixed/sticky; add viewport shots + list what floats.
+    // #185: a fullPage shot renders position:fixed/sticky ONCE at its document position, so header/footer/menu
+    // float to the WRONG place in the tall image and a review can't see what the user actually sees on screen.
+    // Add (a) a viewport-sized shot of the first screen, (b) a mid-scroll viewport shot when the page is taller
+    // than the viewport (where a fixed element keeps floating over content — invisible in fullPage), and
+    // (c) a printed list of every fixed/sticky element so the overlap can't hide from a reviewer's eye.
+    const floating: Floating[] = await page.evaluate(() =>
+      Array.from(document.querySelectorAll('*')).flatMap((el) => {
+        const pos = getComputedStyle(el as Element).position
+        if (pos !== 'fixed' && pos !== 'sticky') return []
+        const r = (el as Element).getBoundingClientRect()
+        return [{ pos, tag: (el as Element).tagName.toLowerCase(), cls: ((el as Element).getAttribute('class') || '').replace(/\s+/g, ' ').slice(0, 60),
+                  box: `${Math.round(r.x)},${Math.round(r.y)} ${Math.round(r.width)}x${Math.round(r.height)}` }]
+      }))
+    await page.evaluate(() => window.scrollTo(0, 0))
+    await page.waitForTimeout(150) // (ตู๋ #123) settle after scroll — symmetric with vp-bottom; guards smooth-scroll/reflow
+    const vpTop = file.replace(/\.png$/, '__vp-top.png')
+    await page.screenshot({ path: vpTop }) // no fullPage → exactly the viewport (the first screen, cut at 852)
+    const dims = await page.evaluate(() => ({ sh: document.scrollingElement!.scrollHeight, ih: window.innerHeight }))
+    let vpBottom: string | null = null
+    // (บอง #123) shoot the second frame whenever the page is TALLER than one screen — no magic threshold.
+    // A page 1.0–1.5× the viewport is still taller than vp-top; skipping it AND printing "same as vp-top" would
+    // be a false-green. Scroll to the very BOTTOM (where a fixed bottom-0 element overlaps the last content).
+    if (dims.sh > dims.ih) {
+      await page.evaluate((y) => window.scrollTo(0, y), dims.sh)
+      await page.waitForTimeout(150)
+      vpBottom = file.replace(/\.png$/, '__vp-bottom.png')
+      await page.screenshot({ path: vpBottom })
+    }
+    results.push({ file, vpTop, vpBottom, w, overflowX, errors: errors.length, floating })
     await ctx.close()
   }
   await browser.close()
@@ -129,7 +160,15 @@ async function main() {
   const feBuild = detectFeBuild()
   console.log(`\n📸 captured ${route} · user=${userLabel} · ${viewports.join('/')}  →  ${path.relative(process.cwd(), outDir)}/`)
   console.log(`   🏷️  FE build @capture: ${feBuild}`)
-  for (const r of results) console.log(`  ${r.overflowX ? '⚠️ overflowX' : '✓'} @${r.w}  errors=${r.errors}  ${path.basename(r.file)}`)
+  for (const r of results) {
+    console.log(`  ${r.overflowX ? '⚠️ overflowX' : '✓'} @${r.w}  errors=${r.errors}`)
+    console.log(`      full  : ${path.basename(r.file)}`)
+    console.log(`      vp-top   : ${path.basename(r.vpTop)}  (first screen, cut at 852)`)
+    console.log(`      vp-bottom: ${r.vpBottom ? `${path.basename(r.vpBottom)}  (bottom screen — where a fixed bottom-0 overlaps the LAST content)` : '— (page fits in one viewport → the whole page IS vp-top; there is no separate bottom screen)'}`)
+    // the tool tells you what floats — a reviewer never has to eyeball whether something is fixed/sticky
+    console.log(`      fixed/sticky: ${r.floating.length} found${r.floating.length ? '' : ' (none — nothing floats on this route/viewport)'}`)
+    for (const f of r.floating) console.log(`         • ${f.pos} <${f.tag} class="${f.cls}"> box=[${f.box}]`)
+  }
   console.log(`\n⚠️  RECORD the FE build hash above in evidence — a stale FE makes a fixed bug look live (images expire).`)
   console.log(`next: Read the PNGs to eyeball, record findings in the zone's *.verify-evidence.md,`)
   console.log(`      and cite this exact command so too/บอง reproduce.\n`)
