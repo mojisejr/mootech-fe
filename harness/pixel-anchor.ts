@@ -15,6 +15,7 @@ import { type Browser, type Page } from 'playwright'
 import pixelmatch from 'pixelmatch'
 import { PNG } from 'pngjs'
 import { mkdirSync, writeFileSync } from 'node:fs'
+import { freezeAnimations } from './freeze-animation'
 
 export interface PixelResult {
   label: string
@@ -81,6 +82,13 @@ export async function pixelStability(opts: {
   await page.goto(opts.url, { waitUntil: 'networkidle' })
   await assetsReady(page)
   if (opts.injectPreSettleFlashCss) await page.evaluate(() => document.getElementById('pre-settle-flash')?.remove())
+
+  // Render in the page's reduced-motion STATIC state BEFORE frame A. Without this a looping animation (มุน's
+  // 2s mascot loops) makes A≠B for a reason unrelated to the persistent divergence this lens hunts — a
+  // guaranteed false-red. reducedMotion is deterministic regardless of load timing (proven: same page frozen
+  // at 3 different loop phases → 0px diff), and it persists, so frame B is the same static image. A genuine
+  // persistent divergence (opacity/colour HELD, not motion) still reads high — that is not an animation.
+  await freezeAnimations(page)
 
   // Viewport (not fullPage): fixed size @393 regardless of injection, so the two frames always match
   // for pixelmatch. Below-the-fold is a documented boundary (A2 = per-region / scroll capture).
