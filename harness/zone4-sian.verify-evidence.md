@@ -35,7 +35,7 @@ would have shipped the water-rooster in the **wrong costume** and passed review.
 **verify-the-instrument**: an injected KNOWN-broken `<img>` reads `naturalWidth===0`, proving the fidelity probe
 can actually see a missing asset (a blank card would otherwise pass vacuously).
 
-## real-route capture (capture-route, full + vp-top + vp-bottom) — FE build `<committed Zone-4 code commit>`
+## real-route capture (capture-route, full + vp-top + vp-bottom) — FE build `d1798c5` (clean worktree = the committed Zone-4 code)
 `CAPTURE_HOST=http://localhost:3009 npx tsx harness/capture-route.ts --route /v2 --user default` — a zone4-worktree
 FE on :3009 against the test-env BE. Shots: `harness/captures/v2__default__{393,360,320}{,__vp-top,__vp-bottom}.png`.
 - **Zone 4 renders on the real /v2** (content-proof: โหมดเซียน + the blue habit-card + water-rooster/leaf mascots +
