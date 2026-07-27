@@ -35,7 +35,9 @@ function effective(key) {                                   // first file (by pr
 function hostOf(v) { if (!v) return null; try { return v.includes('://') ? new URL(v).hostname : v.split('@').pop().split(/[:/]/)[0]; } catch { return null; } }
 function classify(host) {
   if (!host) return { mode: 'unknown', fam: null };
-  if (LOCAL.some((l) => host === l || host.startsWith(l))) return { mode: 'local', fam: 'localhost' };
+  // EXACT match only — `host.startsWith('localhost')` would count `localhostsomething.com` as local (fail-OPEN
+  // in a fail-closed tool). A host that merely looks local but isn't → falls through to unknown → STOP, never green.
+  if (LOCAL.includes(host)) return { mode: 'local', fam: 'localhost' };
   const p = PROD.find((re) => re.test(host));
   if (p) return { mode: 'prod', fam: (host.match(/[a-z0-9-]+\.(supabase\.(com|co)|neon\.tech|onrender\.com|render\.com|rds\.amazonaws\.com)/i) || [])[0]?.replace(/^[a-z0-9-]+\./, '') || 'prod-host' };
   return { mode: 'remote-unknown', fam: null };            // a non-local host we don't recognize → treat as unknown
@@ -50,9 +52,10 @@ if (db.mode === 'local') {
   process.exit(0);
 }
 if (db.mode === 'prod') {
-  // "remote/real" — NOT the practice field. Deliberately does NOT claim "production": a supabase host may be
-  // the prod OR the paused dev project; `stack.sh status` makes the finer dev/prod/neon call. Either way: careful.
-  console.log(`🔴 ${who}ของจริง (remote — ไม่ใช่สนามซ้อม) — DB: ${db.fam} · backend: ${be.mode === 'local' ? 'localhost' : (be.fam || '?')} · ⚠️ ระวัง (เช็คให้ชัด: stack.sh status)`);
+  // Lead with what's CERTAIN: this is NOT the practice field. Deliberately does NOT say "production" — a
+  // supabase host may be prod OR the paused dev project; over-claiming "prod" makes false fear now and dilutes
+  // the word for when it's really prod. `stack.sh status` makes the finer dev/prod/neon call. Either way: careful.
+  console.log(`🔴 ${who}ไม่ใช่สนามซ้อม (remote) — DB: ${db.fam} · backend: ${be.mode === 'local' ? 'localhost' : (be.fam || '?')} · ⚠️ เช็คให้ชัดว่า dev หรือ prod: stack.sh status`);
   process.exit(0);
 }
 // unknown / remote-unknown / no DATABASE_URL → STOP

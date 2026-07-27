@@ -23,6 +23,12 @@ only: `mode-banner.mjs` (new) + fe `package.json` predev line + `guard.sh` (teac
   - ⚪ **neg-control A**: no `DATABASE_URL` → white → **exit 1** + how-to-check.
   - ⚪ **neg-control B**: `DATABASE_URL` at an unrecognized host (`some-random-host.example.org`) → white →
     **exit 1** (does NOT assume safe).
+  - ⚪ **neg-control C (review round — fail-open closed)**: `localhostsomething.com` → **exit 1** (white/STOP),
+    NOT green. Local match is now EXACT (`LOCAL.includes(host)`), not `startsWith` — a host that merely looks
+    local but isn't errs to unknown, never to safe (บอง caught the fail-open in an otherwise fail-closed tool).
+  - lead word (review round): 🔴 now leads with the CERTAIN fact **"ไม่ใช่สนามซ้อม (remote)"**, not "ของจริง"
+    — it never claims "production" (a supabase host may be prod or the paused dev project; over-claiming makes
+    false fear now and dilutes the word for real prod). `stack.sh status` makes the finer dev/prod/neon call.
   - **integration**: `npm run dev` with a white result → predev fails → **`next dev` never starts** (:3000 not
     opened). White genuinely stops dev.
 - **L2 guard teach** `ANCHOR testenv/scripts/guard.sh#guard-teach-on-refuse`: a prod `DATABASE_URL` (with a real
