@@ -149,22 +149,38 @@ do_status() {  # READ-ONLY: reports where each app points, docker, outbound pipe
   # 1) where does each app point — from its ACTIVE (non-shadowed) env, not the .env.disabled marker
   while IFS='|' read -r repo tmplrel dotfile fw; do
     [ -n "$repo" ] || continue
-    local dir="$GH/$repo" f dbval="" cls badge fam
+    local dir="$GH/$repo" f dbval="" cls badge fam src="DB"
     [ -d "$dir" ] || { echo "  • $repo → (ไม่พบโฟลเดอร์)"; continue; }
     for f in $(active_envs "$dir"); do
       # concat DB host + username (the project ref lives in the username for the DB_* shape) — never printed
       dbval=$(grep -hE '^(DATABASE_URL|APP_DATABASE_URL|DB_HOST|DB_USERNAME)=' "$f" 2>/dev/null | cut -d= -f2- | tr '\n' ' ')
       [ -n "$dbval" ] && break
     done
+    # fallback (ตู๋/บอง #122): a front-end app may carry NO DB var, only NEXT_PUBLIC_BACKEND_URL — classify by
+    # where the backend points so status reports the SAME reality banner/guard see, not "ไม่รู้" when info exists.
+    # DB stays PRIMARY: a backend URL never masks the DB blast-radius when both are present.
+    if [ -z "$dbval" ]; then
+      for f in $(active_envs "$dir"); do
+        dbval=$(grep -hE '^NEXT_PUBLIC_BACKEND_URL=' "$f" 2>/dev/null | cut -d= -f2- | tr '\n' ' ')
+        [ -n "$dbval" ] && { src="backend"; break; }
+      done
+    fi
     cls=$(classify_db "$dbval")
+    local icon lbl
     case "$cls" in
-      practice)     badge="🟢 สนามซ้อม (localhost)" ;;
-      prod)         badge="🔴 ของจริง (PRODUCTION)" ;;
-      dev)          badge="🟡 dev (paused project)" ;;
-      neon)         badge="🟠 Neon (backup DB)" ;;
-      real-unknown) fam=$(printf '%s' "$dbval" | grep -oiE 'supabase\.(com|co)|neon\.tech|[a-z0-9-]*\.onrender\.com|render\.com|rds\.amazonaws\.com' | head -1); badge="🔴 remote ($fam) — project ไม่รู้จัก" ;;
-      *)            badge="⚪ ไม่รู้ (ไม่พบ DB ใน active env)" ;;
+      practice)     icon="🟢"; lbl="สนามซ้อม (localhost)" ;;
+      prod)         icon="🔴"; lbl="ของจริง (PRODUCTION)" ;;
+      dev)          icon="🟡"; lbl="dev (paused project)" ;;
+      neon)         icon="🟠"; lbl="Neon (backup DB)" ;;
+      real-unknown) fam=$(printf '%s' "$dbval" | grep -oiE 'supabase\.(com|co)|neon\.tech|[a-z0-9-]*\.onrender\.com|render\.com|rds\.amazonaws\.com' | head -1); icon="🔴"; lbl="remote ($fam) — project ไม่รู้จัก" ;;
+      *)            icon="⚪"; lbl="" ;;
     esac
+    if [ "$src" = backend ]; then
+      # info came from the backend URL, not a DB var — say so plainly (never silently claim it's the DB)
+      [ "$cls" = unknown ] && badge="⚪ ไม่รู้ (ไม่พบทั้ง DB และ backend ใน active env)" || badge="⚪ ไม่มี DB · backend → $icon $lbl"
+    else
+      [ "$cls" = unknown ] && badge="⚪ ไม่รู้ (ไม่พบ DB ใน active env)" || badge="$icon $lbl"
+    fi
     echo "  • $repo → $badge"
   done <<< "$APPS"
   # 2) docker DB

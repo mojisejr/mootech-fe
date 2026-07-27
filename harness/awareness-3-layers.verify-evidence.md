@@ -43,7 +43,12 @@ only: `mode-banner.mjs` (new) + fe `package.json` predev line + `guard.sh` (teac
   Classifies from the DB host **and username** (the project ref lives in the username for the DB_* shape —
   that's why be resolves to dev, not "remote-unknown"). **Read-only proven**: env-file shas + git status
   unchanged before/after a `status` run. `classify_db` unit: no-DB→unknown, localhost→practice,
-  unrecognized→unknown. **Leak check = 0**.
+  unrecognized→unknown. **Leak check = 0**. Review round (ตู๋/บอง #122): `status` now also scans
+  `NEXT_PUBLIC_BACKEND_URL` — consistent with banner/guard, so the three tools never disagree about the same
+  reality. DB stays PRIMARY (a backend URL can't mask the DB blast-radius when both exist — verified fe/be
+  still resolve to `dev` via the DB, not the onrender backend); when an app has ONLY a backend URL it now
+  reports `⚪ ไม่มี DB · backend → <mode> (<family>)` instead of falling to "unknown" when info exists
+  (verified: localhost→practice, onrender→remote, supabase→remote).
 
 ## adversary sign-off
 **goo self-adversarial:**
