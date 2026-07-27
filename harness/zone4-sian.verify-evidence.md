@@ -69,9 +69,11 @@ ANCHOR: harness/run-zone4-sian.ts#mut-asset-missing
 
 ## adversary sign-off
 Cross-oracle, RUN-PROVEN — I do NOT self-certify (a trap I own is not trusted until a different lens attacks it).
-- **too (static/AST + D2 gate + Figma-deviation lens)** — REQUESTED. Attack surface: sneak a visual regression past
-  the anchor (an exported asset that resolves in dev but 404s on the real path; a mascot z that beats the CTA; an
-  overflow that only trips a 4th width; a %-offset that drifts off-design at 393; the book-frame as an image vs the
-  CSS shape I claim). A cracked anchor means my invariant's *scope* was narrower than the bug-class → widen it.
+- **too (static/AST + D2 gate + Figma-deviation lens) — SIGNED OFF PR #125** (`[ack:review-125]`, posted on GitHub).
+  Ran the static gate (tsc compiles clean) and confirmed the three highest-risk claims held under attack: (1) the
+  Phase-0 image-verification + compression (exported the real costume, not a filename guess, → 171 KB); (2) the
+  %-of-card offsets genuinely fix the 360/320 overlap + overflow-x without drifting off-design at 393; (3) the
+  `run-zone4-sian` anchor sharply catches `mut-asset-missing` and hit-tests the CTA-over-mascot occlusion. No anchor
+  cracked; no visual regression got past.
 - **This section's own completeness-adversary**: the cross-oracle pass IS the state-space enumerator — whatever
   viewport/variant/region a lens finds I under-sampled → A2, never "covered".
