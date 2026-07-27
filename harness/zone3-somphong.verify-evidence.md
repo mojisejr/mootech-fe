@@ -107,8 +107,11 @@ Cross-oracle, RUN-PROVEN — I do NOT self-certify (a trap I own is not trusted 
 - **goo (runtime lens)** — **surfaced this bug**: goo's harness `reducedMotion` freeze (PR #126) exposed that the
   merged Zone 3 rats stripped their base transform under reduce. Cross-lens division working as intended — the
   runtime lens caught what the static motion-guard's scope missed. Fix + widened anchor above.
-- **too (D2) — RE-REVIEW REQUESTED for the 2026-07-28 rest-transform fix**: attack surface — is the base transform
-  now on the class (not only the keyframe)? does the guard still stop the animation (no CLS regression)? does
-  `mut-rock-rest-none` genuinely fail without the fix? are `z3-heart`/`z3-pop` truly identity-at-rest (unaffected)?
+- **too (D2) — SIGNED OFF PR #128** (`[ack:review-128]`, on GitHub). tsc clean + confirmed all four under attack:
+  (1) the `rotate(…)` + `scaleX(-1)` values now sit on the `.z3-rock` class, not floating in the keyframe;
+  (2) the reduced-motion guard still stops the animation (`none`) and the rocks rest at their tilt — a GPU/
+  compositor transform, so dropping `transform:none` causes no scroll/CLS regression; (3) `mut-rock-rest-none`
+  fires when the old bug is re-injected — especially the negative-matrix check guaranteeing the flip;
+  (4) `z3-heart`/`z3-pop` carry no base rotation on the class → identity-at-rest, unaffected. No anchor cracked.
 - **This section's own completeness-adversary**: the cross-oracle pass IS the state-space enumerator — whatever
   viewport/variant/region a lens finds I under-sampled → A2, never "covered".
