@@ -138,6 +138,7 @@ async function main() {
                   box: `${Math.round(r.x)},${Math.round(r.y)} ${Math.round(r.width)}x${Math.round(r.height)}` }]
       }))
     await page.evaluate(() => window.scrollTo(0, 0))
+    await page.waitForTimeout(150) // (ตู๋ #123) settle after scroll — symmetric with vp-mid; guards smooth-scroll/reflow
     const vpTop = file.replace(/\.png$/, '__vp-top.png')
     await page.screenshot({ path: vpTop }) // no fullPage → exactly the viewport (the first screen, cut at 852)
     const dims = await page.evaluate(() => ({ sh: document.scrollingElement!.scrollHeight, ih: window.innerHeight }))
