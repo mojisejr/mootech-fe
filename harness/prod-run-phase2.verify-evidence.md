@@ -34,14 +34,22 @@ re-arms them behind a second confirmation.
   non-interactive context prod-run refuses before the confirm, before the pre-flight, before any connection.
 - **fe refused (no prod key):** `prod-run fe …` → `exit 4` with a human message (fe.env.local is DEV, not prod;
   ask ฟีม), before any stdin/connection.
-- **pre-flight fail-LOUD** `ANCHOR testenv/scripts/prod-run.mjs#preflight-fail-loud`: before spawning, a read-only
-  `select 1` verifies the blob reaches a LIVE prod DB; on failure → REFUSE with why/means/do (no env value).
-  Demonstrated earlier against the DEV ref (jgxsj) → `tenant-not-found` → refuse (`exit 5`), command never ran.
-  The `means` line is worded per ฟีม: *"points at DEV (or a paused tenant), NOT prod — DEV is not broken, it's a
-  different place; real prod is soxsc in be.env.prod.local"* — not "stale/gone". Pass verdict `ok` confirmed for
-  the live soxsc ref (psql = same verdict as the app's postgres.js). `be` now maps to the live blob, so a normal
-  `prod-run be` would pass the pre-flight and spawn; **not re-invoked to respect ฟีม's cap on further soxsc hits**
-  (pre-flight sits after the isTTY gate, so automation can't reach a connection anyway).
+- **pre-flight fail-LOUD, with the app's OWN client** `ANCHOR testenv/scripts/prod-run.mjs#preflight-fail-loud`:
+  before spawning, a read-only `select 1` verifies the blob reaches a LIVE prod DB; on failure → REFUSE with
+  why/means/do (no env value). Review round (บอง + ตู๋ converged): the pre-flight now uses the repo's **own
+  `postgres` client** (`import('postgres')`, resolved from mootech-fe's node_modules where this .mjs lives) —
+  the SAME client the app runs (`lib/db`), with the same options (`ssl:'require', prepare:false`). Rationale: a
+  `psql` check could go GREEN while the app breaks on SSL / pooler / prepared-statements = false-green = false
+  safety, the one thing this tool exists to kill. The **`proceeding UNVERIFIED` (psql-not-found) branch is
+  DELETED** — fix-it-away, not a rule: with the app's client there is no "psql missing" case; if `postgres`
+  itself is unresolvable → **REFUSE** (`no-client`), never proceed. And a **15s overall timeout races the whole
+  check** (connect *and* query), because `connect_timeout` alone can't catch a post-connect query hang — a hang
+  → `timeout` category → REFUSE loud, never silent (ตู๋ caught this).
+  Verdicts proven: real Supavisor DEV ref (jgxsj) → `tenant-not-found` → refuse (`exit 5`, command never ran);
+  live soxsc ref → `ok` (both via postgres.js, from the earlier ฟีม-authorized connections — now capped, not
+  re-hit). New mechanism proven on SAFE local targets: `localhost:5433` → `ok`; dead `localhost:59999` →
+  `connect-failed`; race-timeout pattern → fires as `timeout`. The `means` line is worded per ฟีม: *"points at
+  DEV (or a paused tenant), NOT prod — DEV is not broken, it's a different place"* — not "stale/gone".
 - **build refused:** `prod-run be -- npm run build` → `exit 3`, human reason (NEXT_PUBLIC bakes at build; runtime
   injection would ship wrong browser values and fail silently), before confirm/connection.
 - **providers blocked by default, provable:** default → `prod-probe` DNS verdict LINE/8x8 = **BLOCKED (ENOTFOUND)**,

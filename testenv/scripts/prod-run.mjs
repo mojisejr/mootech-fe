@@ -15,7 +15,7 @@
 import { readFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
-import { spawn, spawnSync } from 'node:child_process';
+import { spawn } from 'node:child_process';
 import { createInterface } from 'node:readline';
 
 const VAULT = join(homedir(), '.mumate-prod');
@@ -46,36 +46,43 @@ const NEUTRALIZE = {
 
 const die = (msg, code = 1) => { console.error(`\n🛑 prod-run: ${msg}\n`); process.exit(code); };
 
-const PSQL = ['psql', '/opt/homebrew/Cellar/postgresql@17/17.6/bin/psql', '/opt/homebrew/bin/psql', '/usr/local/bin/psql'];
-
-// PRE-FLIGHT (fix #1): before running the real command, verify the injected creds actually reach a live prod
-// DB with a READ-ONLY `select 1`. This is correct NO MATTER WHICH blob an app maps to — if the app→file map
-// is wrong (it is currently UNVERIFIED — see #2/PR), the run fails LOUD here instead of silently deep inside
-// the app (ตู๋'s lens #5). Uses psql (no npm dep); if psql is absent the check is skipped with a warning.
-// Never prints an env value — only a category verdict.
-// ANCHOR: preflight-fail-loud — dead/unreachable prod DB → refuse before spawn (fail loud, not silent).
-function preflightDb(env) {
-  let pg;
+// PRE-FLIGHT (fix #1): before running the real command, verify the injected creds actually reach a live prod DB
+// with a READ-ONLY `select 1`. On failure → REFUSE (never proceed unverified) so a wrong/dev blob fails LOUD
+// here instead of silently deep inside the app (ตู๋'s lens #5). Uses the repo's OWN `postgres` client — the
+// SAME client the app runs (lib/db) — so the check can't go green while the app breaks on SSL/pooler/prepared
+// statements (a psql check could diverge = false green = false safety). This .mjs lives in mootech-fe, which
+// has `postgres` as a dependency, so `import('postgres')` resolves from its own node_modules regardless of the
+// target app or cwd. If the client isn't installed → REFUSE (do NOT run unverified). Never prints an env value.
+// ANCHOR: preflight-fail-loud — dead/unreachable/unverifiable prod DB → refuse before spawn (fail loud, not silent).
+async function preflightDb(env) {
+  const opts = { prepare: false, ssl: 'require', max: 1, idle_timeout: 3, connect_timeout: 10 };  // mirror lib/db
   const url = env.DATABASE_URL || env.APP_DATABASE_URL;
-  if (url) {
-    try { const u = new URL(url); pg = { PGHOST: u.hostname, PGPORT: u.port || '5432', PGUSER: decodeURIComponent(u.username), PGPASSWORD: decodeURIComponent(u.password), PGDATABASE: u.pathname.replace(/^\//, '') || 'postgres' }; }
-    catch { return { cat: 'bad-url' }; }
-  } else if (env.DB_HOST) {
-    pg = { PGHOST: env.DB_HOST, PGPORT: env.DB_PORT || '5432', PGUSER: env.DB_USERNAME || 'postgres', PGPASSWORD: env.DB_PASSWORD || '', PGDATABASE: env.DB_DATABASE || 'postgres' };
-  } else {
-    return { cat: 'no-db-var' };
-  }
-  const childEnv = { ...process.env, ...pg, PGSSLMODE: 'require', PGCONNECT_TIMEOUT: '12' };
-  for (const p of PSQL) {
-    const r = spawnSync(p, ['-w', '-tAc', 'select 1'], { env: childEnv, encoding: 'utf8' });
-    if (r.error && r.error.code === 'ENOENT') continue;              // try next psql path
-    if (r.status === 0 && (r.stdout || '').trim() === '1') return { cat: 'ok' };
-    const s = (r.stderr || '').toLowerCase();                        // categorize ONLY — never echo (holds the username)
-    if (/tenant.*not found|user.*not found/.test(s)) return { cat: 'tenant-not-found' };
-    if (/password authentication failed|authentication failed/.test(s)) return { cat: 'auth-failed' };
+  let conn;
+  if (url) conn = [url, opts];
+  else if (env.DB_HOST) conn = [{ host: env.DB_HOST, port: +(env.DB_PORT || 5432), username: env.DB_USERNAME || 'postgres', password: env.DB_PASSWORD || '', database: env.DB_DATABASE || 'postgres', ...opts }];
+  else return { cat: 'no-db-var' };
+
+  let postgres;
+  try { postgres = (await import('postgres')).default; }
+  catch { return { cat: 'no-client' }; }
+
+  let sql;
+  try { sql = postgres(...conn); } catch { return { cat: 'bad-url' }; }
+  // overall timeout covering the WHOLE check (connect AND query response) — connect_timeout alone can't catch a
+  // post-connect query hang; that would leave the pre-flight hanging forever = another silent-fail (ตู๋ caught).
+  let timer;
+  const timeout = new Promise((_, rej) => { timer = setTimeout(() => rej(Object.assign(new Error('preflight timed out'), { code: 'PREFLIGHT_TIMEOUT' })), 15000); });
+  try {
+    const r = await Promise.race([sql`select 1 as ok`, timeout]);
+    return (r && r[0] && Number(r[0].ok) === 1) ? { cat: 'ok' } : { cat: 'connect-failed' };
+  } catch (e) {
+    const m = ((e && e.message) || '').toLowerCase();               // categorize ONLY — never surface (may hold host/user)
+    const code = (e && e.code) || '';
+    if (code === 'PREFLIGHT_TIMEOUT') return { cat: 'timeout' };
+    if (/tenant.*not found|user.*not found/.test(m)) return { cat: 'tenant-not-found' };
+    if (code === '28P01' || /password authentication|authentication failed/.test(m)) return { cat: 'auth-failed' };
     return { cat: 'connect-failed' };
-  }
-  return { cat: 'no-psql' };
+  } finally { clearTimeout(timer); try { await sql?.end({ timeout: 3 }); } catch { /* ignore */ } }
 }
 
 // ── parse args ────────────────────────────────────────────────────────────────
@@ -173,34 +180,35 @@ if (withProviders) {
 }
 rl.close();
 
-// ── pre-flight the DB (fix #1) — fail LOUD, never silent ──
-console.error('  ⏳ pre-flight: verifying this blob reaches a live prod DB (read-only select 1)…');
-const pf = preflightDb(parsed);
+// ── pre-flight the DB (fix #1) — fail LOUD, never silent, never proceed-unverified ──
+console.error('  ⏳ pre-flight: verifying this blob reaches a live prod DB (read-only select 1, ≤15s)…');
+const pf = await preflightDb(parsed);
 if (pf.cat === 'ok') {
   console.error('  ✅ pre-flight: prod DB reachable — proceeding.\n');
 } else if (pf.cat === 'no-db-var') {
-  console.error('  ⚠️  pre-flight: this blob has no DATABASE_URL/DB_HOST — skipping DB check (nothing to verify).\n');
-} else if (pf.cat === 'no-psql') {
-  console.error('  ⚠️  pre-flight: psql not found — cannot verify the prod DB; proceeding UNVERIFIED (install psql to enable the check).\n');
+  console.error('  ⚠️  pre-flight: this blob has no DATABASE_URL/DB_HOST — no DB to verify; proceeding.\n');
 } else {
-  // human 3-part message: why · what it means · what to do  (NO env value)
+  // every remaining category REFUSES — we never run a command we could not verify. (no env value printed)
   const why = {
     'tenant-not-found': 'the database pooler did not recognize this project (tenant/user not found) — it may be responding-as-none / paused.',
     'auth-failed': 'the prod database REJECTED the credentials (authentication failed).',
-    'connect-failed': 'could not reach the prod database (network / wrong host / timeout).',
+    'connect-failed': 'could not reach the prod database (network / wrong host / refused).',
+    'timeout': 'the prod database accepted the connection but did not answer the read-only check within 15s.',
+    'no-client': 'the `postgres` client is not installed here, so the DB could not be verified.',
     'bad-url': 'the DATABASE_URL in this blob is not a parseable URL.',
   }[pf.cat] || 'the prod database connection failed.';
   const means = {
     'tenant-not-found': 'this blob points at DEV (or a paused tenant), NOT prod — DEV is not broken, it is simply a different place. Real prod is soxsc in be.env.prod.local.',
     'auth-failed': 'the user/password in this blob is wrong or has been rotated.',
-    'connect-failed': 'the host may be an IP allowlist, a wrong/old endpoint, or the DB is down.',
+    'connect-failed': 'the host may be behind an IP allowlist, a wrong/old endpoint, or the DB is down.',
+    'timeout': 'the endpoint may be a paused/overloaded pooler — hanging, not answering. We refuse rather than hang or run blind.',
+    'no-client': 'run `npm ci` in mootech-fe so prod-run can verify with the same client the app uses.',
     'bad-url': 'the blob is malformed.',
   }[pf.cat] || 'these credentials may be stale or wrong.';
-  die(`pre-flight FAILED — NOT running the command (this is by design: fail loud, not silent).\n` +
+  die(`pre-flight FAILED (${pf.cat}) — NOT running the command (by design: fail loud, never run unverified).\n` +
       `   why  : ${why}\n` +
       `   means: ${means}\n` +
-      `   do   : do NOT guess another blob. Ask ฟีม which file holds the CURRENT prod creds for "${app}".\n` +
-      `          (prod-run's app→file mapping is still UNVERIFIED — the ref may be dead; see the PR.)`, 5);
+      `   do   : do NOT guess another blob. Ask ฟีม which file holds the CURRENT prod creds for "${app}".`, 5);
 }
 
 // ── run: inject into the child's env ONLY (no temp file) ──
