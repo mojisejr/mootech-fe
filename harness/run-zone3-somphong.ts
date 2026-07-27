@@ -61,6 +61,21 @@ async function main() {
     }, ANIM_SEL),
   )
 
+  // ── rest-transform: stopping the animation is NOT enough — under reduce each element must still SIT at its
+  //    base transform. z3-rock-l = rotate(7deg) · z3-rock-r = scaleX(-1) rotate(8.55deg). If the base lives ONLY
+  //    in the keyframe (not the class) and the guard forces transform:none, the คู่รัก rats un-tilt + the left one
+  //    un-flips (faces the wrong way) under reduced-motion — a bug real reduced-motion USERS see, not just the
+  //    harness (goo/บอง 2026-07-28). This check is the widened scope the motion-guard alone missed. ──
+  const IDENT = 'matrix(1, 0, 0, 1, 0, 0)'
+  const restTransform = await withSection(browser, true, (sec) =>
+    sec.evaluate((_el, ident) => {
+      const l = getComputedStyle(document.querySelector('.z3-rock-l')!).transform
+      const r = getComputedStyle(document.querySelector('.z3-rock-r')!).transform
+      return { lOk: l !== 'none' && l !== ident, rOk: r !== 'none' && r !== ident && r.startsWith('matrix(-') }
+    }, IDENT),
+  )
+  const restTransformOk = restTransform.lOk && restTransform.rOk
+
   // ── teeth: mut-motion-runs — re-enable animation under reduce (simulate a dropped @media guard) →
   //    the animated els are no longer at animation-name:none → the motion-guard gate must REJECT. ──
   const motionCaught = await withSection(browser, true, (sec, p) =>
@@ -72,6 +87,18 @@ async function main() {
         const stillStopped = els.every((e) => getComputedStyle(e).animationName === 'none')
         return !stillStopped // guard would now pass an animating page → caught
       }, ANIM_SEL),
+    ),
+  )
+
+  // ── teeth: mut-rock-rest-none — re-add the shipped bug (transform:none on the rocks under reduce) → they
+  //    lose their base rotate/flip → the rest-transform gate must REJECT. ──
+  const restCaught = await withSection(browser, true, (sec, p) =>
+    p.addStyleTag({ content: `@media(prefers-reduced-motion:reduce){section .z3-rock-l,section .z3-rock-r{transform:none!important}}` }).then(() =>
+      sec.evaluate(() => {
+        const l = getComputedStyle(document.querySelector('.z3-rock-l')!).transform
+        const r = getComputedStyle(document.querySelector('.z3-rock-r')!).transform
+        return l === 'none' || r === 'none' // base lost → caught
+      }),
     ),
   )
 
@@ -152,6 +179,7 @@ async function main() {
   console.log('\n═══ ZONE-3 SOMPHONG anchor ═══')
   console.log(line(motionStoppedOk, `reduced-motion: all ${motion.count}/10 animated els → animation:none + opacity 1`))
   console.log(line(probeCanRead, 'verify-instrument: WITHOUT reduce the animation IS running (probe reads motion, not vacuous)'))
+  console.log(line(restTransformOk, `rest-transform: under reduce z3-rock-l/r keep their base rotate/flip (not none/identity)  [l:${restTransform.lOk ? '✓' : '✗'} r:${restTransform.rOk ? '✓' : '✗'}]`))
   console.log(line(occlusionOk, `occlusion: both card titles z > mascot cluster z  [${occlusion.map((b) => (b ? '✓' : '✗')).join(' ')}]`))
   console.log(line(assetsOk, `asset-fidelity: ${assets.total} imgs paint, broken=[${assets.broken.join(', ')}]`))
   console.log(line(assetProbeReadsBroken, 'verify-instrument: naturalWidth probe reads a known-broken img as 0'))
@@ -160,8 +188,9 @@ async function main() {
   console.log('  ── teeth ──')
   console.log(`  ${motionCaught ? '🦷 CAUGHT' : '✗ BLIND'}  mut-motion-runs: re-enable animation under reduce → motion-guard rejects`)
   console.log(`  ${occlusionCaught ? '🦷 CAUGHT' : '✗ BLIND'}  mut-title-behind: title z below mascot → occlusion gate rejects`)
+  console.log(`  ${restCaught ? '🦷 CAUGHT' : '✗ BLIND'}  mut-rock-rest-none: transform:none guard → rats un-tilt/un-flip → rest-transform gate rejects`)
 
-  const ok = motionStoppedOk && probeCanRead && occlusionOk && assetsOk && assetProbeReadsBroken && graceful && noOverflowOk && motionCaught && occlusionCaught
+  const ok = motionStoppedOk && probeCanRead && restTransformOk && occlusionOk && assetsOk && assetProbeReadsBroken && graceful && noOverflowOk && motionCaught && occlusionCaught && restCaught
   console.log(`\n  ${ok ? '🟢 ZONE-3 SOMPHONG PASSED' : '🔴 FAILED'} — motion-guard · occlusion · asset-fidelity · no-overflow-x (+ teeth)\n`)
   process.exit(ok ? 0 : 1)
 }

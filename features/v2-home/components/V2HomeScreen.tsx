@@ -440,10 +440,13 @@ function SomphongKeyframes() {
     @keyframes z3-rr{0%,100%{transform:scaleX(-1) rotate(8.55deg) translate(0,0)}50%{transform:scaleX(-1) rotate(11.55deg) translate(5px,-4px)}}
     @keyframes z3-pop{0%{opacity:0;transform:scale(.85) translateY(15px)}30%,100%{opacity:1;transform:scale(1) translateY(0)}65%{transform:scale(1) translateY(-4px)}}
     .z3-heart{animation:z3-heart 2s cubic-bezier(.34,1.56,.64,1) infinite;transform-origin:center;will-change:transform}
-    .z3-rock-l{animation:z3-rl 2s ease-in-out infinite;transform-origin:bottom center;will-change:transform}
-    .z3-rock-r{animation:z3-rr 2s ease-in-out infinite;transform-origin:bottom center;will-change:transform}
+    .z3-rock-l{transform:rotate(7deg);animation:z3-rl 2s ease-in-out infinite;transform-origin:bottom center;will-change:transform}
+    .z3-rock-r{transform:scaleX(-1) rotate(8.55deg);animation:z3-rr 2s ease-in-out infinite;transform-origin:bottom center;will-change:transform}
     .z3-pop{animation:z3-pop 2s ease-in-out infinite;will-change:transform,opacity}
-    @media(prefers-reduced-motion:reduce){.z3-heart,.z3-rock-l,.z3-rock-r,.z3-pop{animation:none!important;opacity:1!important;transform:none!important}}
+    /* reduced-motion: stop the animation but KEEP each element's base transform (on the class, not only the
+       keyframe) — z3-rock-l/r carry rotate/flip, so a blanket transform:none un-tilts + un-flips the rats.
+       z3-heart/z3-pop rest at identity, so dropping transform:none is safe for them. */
+    @media(prefers-reduced-motion:reduce){.z3-heart,.z3-rock-l,.z3-rock-r,.z3-pop{animation:none!important;opacity:1!important}}
   `,
       }}
     />
