@@ -13,6 +13,7 @@ import { formatThaiLongDate } from '@/utils/formate-date-thai'
 import { HabitCard } from './sections/HabitCard'
 import { PajeuSection } from './sections/PajeuSection'
 import { SinseSection } from './sections/SinseSection'
+import { CalendarMenu } from './CalendarMenu'
 
 // Zone 1 daily-fortune (bazi /api/home). goo wires useHomeFortune() → this shape; I compose against it.
 export type DailyFortune = {
@@ -82,7 +83,7 @@ export function V2HomeScreen({ greeting, mascotCharacter, onLogout, fortune, for
         <PajeuSection />
       </div>
 
-      <HomeBottomNav />
+      <CalendarMenu state="default" />
       {logoutOpen && <LogoutModal onClose={() => setLogoutOpen(false)} onConfirm={onLogout} />}
       {notifOpen && <NotificationPanel onClose={() => setNotifOpen(false)} />}
     </div>
@@ -522,38 +523,9 @@ function WhiteMoundDivider() {
   )
 }
 
-// ── Bottom nav (sticky tab bar + Mate-AI navbar w/ hero mascot) ───────────────────────────────────
-const TABS = [
-  { href: '/v2', label: 'หน้าหลัก' },
-  { href: '/v2/service', label: 'บริการ' },
-  { href: '/v2/calendar', label: 'ปฏิทิน' },
-  { href: '/v2/shop', label: 'ร้านค้า' },
-]
-
-function HomeBottomNav() {
-  const { pathname } = useRouter()
-  return (
-    <nav className="fixed inset-x-0 bottom-0 z-30 flex justify-center gap-3.5 px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-2">
-      <div className="flex h-[70px] items-center justify-center gap-2 rounded-2xl border-4 border-[rgba(216,143,169,0.4)] bg-v3-nav-dark p-2 backdrop-blur">
-        {TABS.map((t) => {
-          const active = t.href === '/v2' ? pathname === '/v2' : pathname.startsWith(t.href)
-          return (
-            <Link key={t.href} href={t.href} className={`grid w-[58px] place-items-center rounded-2xl py-2 text-sm font-semibold leading-5 ${active ? 'bg-v3-sapphire text-v3-lime' : 'text-v3-nav-label-off'}`}>
-              {t.label}
-            </Link>
-          )
-        })}
-      </div>
-      {/* Mate-AI navbar — hero mascot (01.png), lime label */}
-      <Link href="/v2/service" aria-label="Mate AI" className="relative flex h-[70px] w-[74px] items-center justify-center overflow-visible rounded-2xl border-4 border-[rgba(216,143,169,0.4)] bg-gradient-to-r from-v3-mate-teal to-v3-mate-purple backdrop-blur">
-        <span className="absolute -top-1 left-1/2 -translate-x-1/2 rounded-t-[18px] bg-v3-lime px-4 text-sm font-black leading-5 text-v3-sapphire">Mate AI</span>
-        <span className="absolute -bottom-2 left-1/2 h-[92px] w-[75px] -translate-x-1/2">
-          <Image src="/images/v2/mascot/01-nav.png" alt="" fill sizes="75px" style={{ objectFit: 'contain', objectPosition: 'bottom' }} />
-        </span>
-      </Link>
-    </nav>
-  )
-}
+// (Bottom nav extracted 2026-07-28 → features/v2-home/components/CalendarMenu.tsx — a shared multi-state menu
+//  used by home + the calendar flow. Home renders <CalendarMenu state="default" />. Git history preserves the
+//  inline HomeBottomNav.)
 
 // ── Logout confirm modal (provisional per frozen) ────────────────────────────────────────────────
 function LogoutModal({ onClose, onConfirm }: { onClose: () => void; onConfirm: () => void }) {
