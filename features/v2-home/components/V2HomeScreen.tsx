@@ -11,6 +11,7 @@ import Link from 'next/link'
 import { useRouter } from 'next/router'
 import { formatThaiLongDate } from '@/utils/formate-date-thai'
 import { HabitCard } from './sections/HabitCard'
+import { PajeuSection } from './sections/PajeuSection'
 
 // Zone 1 daily-fortune (bazi /api/home). goo wires useHomeFortune() → this shape; I compose against it.
 export type DailyFortune = {
@@ -77,11 +78,7 @@ export function V2HomeScreen({ greeting, mascotCharacter, onLogout, fortune, for
         <SomphongSection />
         <SianSection />
         <SinseCard />
-        <ServiceSection
-          title="เรียนปาจื่อ"
-          subtitle="ปลดล็อกพลังทำนายขั้นสูง วิเคราะห์ดวงชะตาแบบเจาะลึก รู้ก่อน เตรียมพร้อมก่อน"
-          tiles={[]}
-        />
+        <PajeuSection />
       </div>
 
       <HomeBottomNav />
@@ -511,6 +508,9 @@ function SianSection() {
 }
 
 // ── Service section frame (header + placeholder tiles + CTA) ──────────────────────────────────────
+// SUPERSEDED (มุน 2026-07-28): this generic empty-placeholder frame was the stand-in for Zones 4 & 6 before
+// they were built. Both now render real sections (SianSection · PajeuSection), so ServiceSection is currently
+// unused. Kept (not deleted) pending ฟีม/บอง's call on removal (Rule 1 — supersede, don't silently strip).
 function ServiceSection({ title, subtitle, tiles }: { title: string; subtitle: string; tiles: string[] }) {
   return (
     <section className="mb-6 flex flex-col items-center gap-4">
