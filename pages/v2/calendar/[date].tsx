@@ -20,6 +20,10 @@ import { CompatList } from '@/features/v2-calendar/components/day-detail/CompatL
 import { PredictionCards } from '@/features/v2-calendar/components/day-detail/PredictionCards'
 import { LuckyColors } from '@/features/v2-calendar/components/day-detail/LuckyColors'
 import { YamTimes } from '@/features/v2-calendar/components/day-detail/YamTimes'
+import { MyChart } from '@/features/v2-calendar/components/day-detail/MyChart'
+import { Dithi } from '@/features/v2-calendar/components/day-detail/Dithi'
+import { EightGates } from '@/features/v2-calendar/components/day-detail/EightGates'
+import { EightDeities } from '@/features/v2-calendar/components/day-detail/EightDeities'
 
 export const getServerSideProps: GetServerSideProps = async (ctx) => {
   ctx.res.setHeader('Cache-Control', 'no-store, must-revalidate')
@@ -32,9 +36,9 @@ export default function V2CalendarDayPage() {
   const router = useRouter()
   const date = typeof router.query.date === 'string' ? router.query.date : ''
   const { detail } = useDayDetail(date)
-  // 3a interim: default OFF so the page renders the normal frame (8194) it actually builds. 3b restores
-  // ฟีม's default-ON and adds the advanced-only sections the toggle reveals.
-  const { advanced, toggle } = useAdvancedMode(false)
+  // ฟีม: โหมดแอดวานซ์เปิดเป็นค่าเริ่มต้น (goo's useAdvancedMode default ON). Toggling OFF hides the 4
+  // advanced-only sections (§5/§9/§12/§13) → the exact 3a normal frame (634:8194); toggling ON brings them back.
+  const { advanced, toggle } = useAdvancedMode()
   const reminders = useReminders()
   const content = getDayFortuneContent(date)
 
@@ -67,10 +71,17 @@ export default function V2CalendarDayPage() {
         <DayStrip date={date} />
         <DayScoreCard detail={detail} content={content} />
         <AdvancedToggle on={advanced} onToggle={toggle} />
+        {/* §5 [advanced] — ดวงของฉัน (binds goo's detail.pillars) */}
+        {advanced && <MyChart pillars={detail.pillars} />}
         <CompatList areas={content.compatAreas} insight={content.insight} />
         <PredictionCards areas={content.compatAreas} />
+        {/* §9 [advanced] — ดิถีวันนี้ · สะสม */}
+        {advanced && <Dithi items={content.dithi} />}
         <LuckyColors colors={content.luckyColors} deity={content.dayDeity} />
         <YamTimes yams={detail.yams} onAdd={addYam} />
+        {/* §12/§13 [advanced] — 8 ประตู · 8 เทพ */}
+        {advanced && <EightGates gates={content.gates} />}
+        {advanced && <EightDeities deities={content.deities} />}
       </div>
     </CalendarShell>
   )

@@ -11,7 +11,7 @@
 // VALUES are ILLUSTRATIVE + Figma-frozen (verbatim copy read from the reference; lucky-colour hexes SAMPLED
 // from the Figma pixels, NOT eyeballed — they are content, not a UI token, so they do not enter DESIGN.md).
 // Deterministic + date-independent for now (like goo's mockDayDetail summary), so it is hydration-safe.
-import type { Grade } from '../../types'
+import type { Grade, DayCellTier } from '../../types'
 
 /** One row of "ความเข้ากัน 5 ด้าน" (§6) / "คำทำนายรายด้าน" (§8) — a life-area score + its advice. */
 export interface CompatArea {
@@ -25,6 +25,37 @@ export interface CompatArea {
   isStrength?: boolean
   /** คำแนะนำ 3 บรรทัด (§8 card body) — bg tinted by grade. */
   advice: string[]
+}
+
+/** §9 ดิถีวันนี้ · สะสม — one colored-dot bullet (tone drives the dot color, from DAY_CELL_COLORS). */
+export interface DithiBullet {
+  text: string
+  /** 'good' = mongkol dot · 'bad' = แตกหัก red dot (colors reuse DESIGN.md day-cell tier text). */
+  tone: 'good' | 'bad'
+}
+
+/** §12 8 ประตู 八門 — one cell of the 3×3 direction grid. */
+export interface EightGate {
+  /** compass label (NW·N·NE·W·ทิศ W·E·SW·S·SE). */
+  dir: string
+  /** 門 glyph (驚·開·休·死·財·生·景·杜·傷). */
+  char: string
+  /** Thai meaning (กลัว·เปิด·พักผ่อน·ตาย·โชคลาภ·เกิด·เสน่ห์·อุดตัน·บาดเจ็บ). */
+  thai: string
+  /** auspiciousness → cell tint reuses DESIGN.md §CALENDAR day-cell tiers (good/medium/bad). NO new hex. */
+  tier: DayCellTier
+  /** the day's own direction (財 · ทิศ W) — sapphire-filled highlight (SELECTED), not a tier tint. */
+  highlight?: boolean
+}
+
+/** §13 8 เทพ 八神 · คีย์เวิร์ด — one deity row. */
+export interface EightDeity {
+  /** 神 glyph (天·符·蛇·陰·合·陳·雀·地). */
+  char: string
+  /** Thai name (เทียน·ฟู้·เสอ·อิน·เหอ·เฉิน·เชวี่ย·ตี้). */
+  name: string
+  /** keyword phrases shown "·"-joined. */
+  keywords: string[]
 }
 
 /** The day-detail content NOT in goo's DayDetail (see TODO header). Figma-frozen. */
@@ -41,6 +72,12 @@ export interface DayFortuneContent {
   luckyColors: string[]
   /** §10 — เทพประจำวัน. */
   dayDeity: string
+  /** §9 [advanced] — ดิถีวันนี้ · สะสม bullets. */
+  dithi: DithiBullet[]
+  /** §12 [advanced] — 8 ประตู 八門 (9 cells, row-major NW→SE). */
+  gates: EightGate[]
+  /** §13 [advanced] — 8 เทพ 八神 keywords. */
+  deities: EightDeity[]
 }
 
 // Figma 634:8194 §6/§7/§8/§10 — verbatim copy. Colours sampled from the reference pixels.
@@ -92,6 +129,36 @@ const FROZEN: DayFortuneContent = {
   insight: 'วันนี้พลังแรงสุดตอนอยู่กับ “คนใกล้ตัว” (68%) — เลี่ยงงานที่ต้องออกไปเจอคนแปลกหน้า (45%)',
   luckyColors: ['#FFFCE1', '#FCFF7C', '#ECE79C', '#888888', '#DEDEDE'],
   dayDeity: 'พระกษิติครรภ์',
+  // §9 — dot tone reuses DAY_CELL_COLORS (good=teal · bad=red); no new hex.
+  dithi: [
+    { text: 'สะสม', tone: 'good' },
+    { text: 'ลาภผล โชคลาภ ตำแหน่งดี', tone: 'good' },
+    { text: 'แตกหัก', tone: 'bad' },
+  ],
+  // §12 — row-major NW→SE. tiers read from Figma pixel tints (≈ DESIGN.md day-cell good/medium/bad); the
+  // day's direction 財/ทิศ W is the sapphire highlight. Every colour is a DESIGN.md token — no new hex.
+  gates: [
+    { dir: 'NW', char: '驚', thai: 'กลัว', tier: 'bad' },
+    { dir: 'N', char: '開', thai: 'เปิด', tier: 'good' },
+    { dir: 'NE', char: '休', thai: 'พักผ่อน', tier: 'good' },
+    { dir: 'W', char: '死', thai: 'ตาย', tier: 'bad' },
+    { dir: 'ทิศ W', char: '財', thai: 'โชคลาภ', tier: 'good', highlight: true },
+    { dir: 'E', char: '生', thai: 'เกิด', tier: 'good' },
+    { dir: 'SW', char: '景', thai: 'เสน่ห์', tier: 'medium' },
+    { dir: 'S', char: '杜', thai: 'อุดตัน', tier: 'bad' },
+    { dir: 'SE', char: '傷', thai: 'บาดเจ็บ', tier: 'bad' },
+  ],
+  // §13 — 8 神 keywords.
+  deities: [
+    { char: '天', name: 'เทียน', keywords: ['วิสัยทัศน์', 'ดำเนินการตามแผน', 'สร้างเครือข่ายใหม่'] },
+    { char: '符', name: 'ฟู้', keywords: ['เพิ่มขวัญกำลังใจ', 'ประสบความสำเร็จ', 'ฝันเป็นจริง'] },
+    { char: '蛇', name: 'เสอ', keywords: ['เหนือธรรมชาติ', 'จัดฉาก', 'สร้างเสน่ห์', 'เวทมนตร์'] },
+    { char: '陰', name: 'อิน', keywords: ['กลอุบาย', 'เคล็ดลับ', 'ความในใจ', 'ข้อมูลสำคัญ'] },
+    { char: '合', name: 'เหอ', keywords: ['เยียวยา', 'เครือข่าย', 'ปรองดอง', 'ทำงานร่วมกัน'] },
+    { char: '陳', name: 'เฉิน', keywords: ['ลิขสิทธิ์', 'ฟ้องร้องคดีความ', 'ทวงหนี้'] },
+    { char: '雀', name: 'เชวี่ย', keywords: ['โฆษณา', 'การตลาด', 'เจรจา', 'โน้มน้าว'] },
+    { char: '地', name: 'ตี้', keywords: ['วางโครงสร้าง', 'มั่นคงในธุรกิจ', 'ลงทุนเน้นคุณค่า'] },
+  ],
 }
 
 /**
