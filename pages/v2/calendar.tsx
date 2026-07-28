@@ -1,12 +1,15 @@
 // MuMate v2 — ปฏิทินดวง month view (Figma 375:16710). Behind the v2 gate (middleware + this SSR re-check).
 // Phase 2 (Lamun · designed UI): the grade grid + legend + score card replace goo's Phase-0 scaffold; goo's
 // hooks/routing (useCalendarMonth · dayCellTier · /v2/calendar/[date]) are unchanged. NO network (mock hooks).
+// Phase 3a nav-seam: renders inside CalendarShell (shared CalendarMenu, state default) instead of AppShell,
+// so the bottom bar matches /v2/calendar/[date]'s — consistent across the calendar flow (AppShell/Menubar
+// untouched → /v2/service, /v2/shop unaffected).
 import type { GetServerSideProps } from 'next'
 import Link from 'next/link'
 import { useRouter } from 'next/router'
 import { v2RedirectIfUnauthed } from '@/lib/v2/gate'
-import { AppShell } from '@/features/v2-shell/components/AppShell'
-import { useCalendarMonth, dayCellTier, type CalendarDay } from '@/features/v2-calendar'
+import { CalendarShell } from '@/features/v2-calendar/components/CalendarShell'
+import { useCalendarMonth, dayCellTier, CalendarMenuState, type CalendarDay } from '@/features/v2-calendar'
 import { DAY_CELL_COLORS, SELECTED, CALENDAR_MARKER, GRADE_COLORS } from '@/features/v2-calendar/components/grade-colors'
 
 const THAI_MONTHS = ['มกราคม', 'กุมภาพันธ์', 'มีนาคม', 'เมษายน', 'พฤษภาคม', 'มิถุนายน', 'กรกฎาคม', 'สิงหาคม', 'กันยายน', 'ตุลาคม', 'พฤศจิกายน', 'ธันวาคม']
@@ -82,8 +85,8 @@ export default function V2CalendarPage() {
   const cardDay = month.days.find((d) => d.date === todayISO) ?? month.days[13] ?? month.days[0]
 
   return (
-    <AppShell title="ปฏิทินดวง">
-      <div className="flex flex-col gap-4">
+    <CalendarShell title="ปฏิทินดวง" menuState={CalendarMenuState.Normal}>
+      <div className="flex flex-col gap-4 px-4 pt-6">
         {/* month selector row (Figma: วันนี้ · เดือน · ปี พ.ศ.) — driven by goo's cursor */}
         <div className="flex items-center gap-2">
           <button type="button" onClick={goToday} className="rounded-full bg-v3-sapphire px-4 py-1.5 text-sm font-semibold text-white">วันนี้</button>
@@ -125,6 +128,6 @@ export default function V2CalendarPage() {
           ดูรายละเอียดวันนี้
         </button>
       </div>
-    </AppShell>
+    </CalendarShell>
   )
 }

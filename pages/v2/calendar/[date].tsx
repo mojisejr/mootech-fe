@@ -1,23 +1,25 @@
-// MuMate v2 — ปฏิทิน · รายละเอียดวัน (screens 2/3/5). Behind the v2 gate.
+// MuMate v2 — ปฏิทิน · รายละเอียดวัน (screen 2 · Figma 634:8194 ธรรมดา). Behind the v2 gate.
 //
-// PHASE 0 (goo · routing + state, NO designed UI, NO network): mounts useDayDetail + useAdvancedMode +
-// useReminderDraft (save-flow) + useReminders and wires them in a THIN scaffold, so the state behaviour
-// the done-conditions ask for is real and testable: advanced toggle works 2-way, the save sheet drives
-// the save-flow machine (draft→saved), and the day's menu-state derives from whether a reminder exists.
-// Lamun's Phase 3/4/5 replace the scaffold body with the Figma screens; hooks/routing here do not change.
+// Phase 3a (Lamun · designed UI): the scaffold body is replaced by the real 10-section normal-mode screen
+// (§1 header · §2 date strip · §3 score card · §4 toggle · §6 ความเข้ากัน · §7 insight · §8 คำทำนายรายด้าน ·
+// §10 ทิศ สีมงคล · §11 เวลามงคล · §14 floating menu). goo's hooks/routing are UNCHANGED — the page only reads
+// them. Advanced-only sections (§5 ดวงของฉัน · §9 ดิถี · §12 8ประตู · §13 8เทพ) + toggle-ON land in 3b (634:8752).
+// Data: grade/percent/ganzhi/summary/yams come from goo's DayDetail; the life-area / lucky-colour / deity
+// content is Figma-frozen in day-detail/content.ts (TODO there: folds into goo's adapter at API-time). 0 network.
 import type { GetServerSideProps } from 'next'
 import { useRouter } from 'next/router'
 import { v2RedirectIfUnauthed } from '@/lib/v2/gate'
-import { AppShell } from '@/features/v2-shell/components/AppShell'
-import {
-  useDayDetail,
-  useAdvancedMode,
-  useReminderDraft,
-  useReminders,
-  menuStateForDay,
-  MENU_STATE_LABEL,
-  type Reminder,
-} from '@/features/v2-calendar'
+import { useDayDetail, useAdvancedMode, useReminders, menuStateForDay, type Reminder, type YamSlot } from '@/features/v2-calendar'
+import { CalendarShell } from '@/features/v2-calendar/components/CalendarShell'
+import { getDayFortuneContent } from '@/features/v2-calendar/components/day-detail/content'
+import { DayHeader } from '@/features/v2-calendar/components/day-detail/DayHeader'
+import { DayStrip } from '@/features/v2-calendar/components/day-detail/DayStrip'
+import { DayScoreCard } from '@/features/v2-calendar/components/day-detail/DayScoreCard'
+import { AdvancedToggle } from '@/features/v2-calendar/components/day-detail/AdvancedToggle'
+import { CompatList } from '@/features/v2-calendar/components/day-detail/CompatList'
+import { PredictionCards } from '@/features/v2-calendar/components/day-detail/PredictionCards'
+import { LuckyColors } from '@/features/v2-calendar/components/day-detail/LuckyColors'
+import { YamTimes } from '@/features/v2-calendar/components/day-detail/YamTimes'
 
 export const getServerSideProps: GetServerSideProps = async (ctx) => {
   ctx.res.setHeader('Cache-Control', 'no-store, must-revalidate')
@@ -30,110 +32,46 @@ export default function V2CalendarDayPage() {
   const router = useRouter()
   const date = typeof router.query.date === 'string' ? router.query.date : ''
   const { detail } = useDayDetail(date)
-  const { advanced, toggle } = useAdvancedMode()
-  const draft = useReminderDraft()
+  // 3a interim: default OFF so the page renders the normal frame (8194) it actually builds. 3b restores
+  // ฟีม's default-ON and adds the advanced-only sections the toggle reveals.
+  const { advanced, toggle } = useAdvancedMode(false)
   const reminders = useReminders()
+  const content = getDayFortuneContent(date)
 
-  // The day's menu-state (goo drives): บันทึกแล้ว (3) if this date already has a reminder, else มีปุ่มหลัก (2).
-  // While the save sheet is open, the sheet's own FormMode (4, no Mate AI) wins.
-  const dayMenuState =
-    draft.state === 'editing' || draft.state === 'saving' ? draft.menuState : menuStateForDay(reminders.hasReminderFor(date))
-
-  const onSave = () => {
-    // build one Reminder per selected ยาม, then commit the machine + grow the list (de-duped).
-    const rows: Reminder[] = draft.draft.selectedYamIds.map((yamId) => {
-      const yam = detail.yams.find((y) => y.id === yamId)
-      return {
-        id: `${date}-${yamId}`,
-        date,
-        yamId,
-        yamLabel: yam?.label ?? yamId,
-        window: yam?.window ?? '',
-        destinations: draft.draft.destinations,
-        group: 'upcoming',
-      }
-    })
-    draft.commit()
-    if (rows.length) reminders.add(rows)
+  // per-ยาม quick-add (goo's client-truth list; de-duped in the hook) — makes the CTA + §11 buttons real.
+  const addYam = (yam: YamSlot) => {
+    const r: Reminder = {
+      id: `${date}-${yam.id}`,
+      date,
+      yamId: yam.id,
+      yamLabel: yam.label,
+      window: yam.window,
+      destinations: ['mumate'],
+      group: 'upcoming',
+    }
+    reminders.add([r])
   }
 
+  const saved = reminders.hasReminderFor(date)
+  const menuState = menuStateForDay(saved) // PrimaryAction(2) → primary-cta · Saved(3) → saved
+
   return (
-    <AppShell title={`วันที่ ${detail.day}`}>
-      <section data-testid="calendar-day" className="rounded-2xl bg-white p-4 shadow-sm">
-        <p className="mb-2 text-xs text-neutral-400">Phase 0 scaffold — state จริง, UI มาใน Phase ถัดไป (Lamun).</p>
-        <p className="text-xs text-neutral-400">menu-state: {MENU_STATE_LABEL[dayMenuState]}</p>
-
-        <h1 className="mt-1 font-semibold text-v3-sapphire">
-          {detail.day} · {detail.ganzhi} · {detail.percent}% · {detail.grade}
-        </h1>
-        <p className="mt-1 text-sm text-neutral-700">{detail.summary}</p>
-
-        <button type="button" onClick={toggle} className="mt-3 text-xs text-v3-sapphire underline">
-          โหมดแอดวานซ์: {advanced ? 'เปิด' : 'ปิด'}
-        </button>
-
-        {advanced && (
-          <div data-testid="advanced-pillars" className="mt-2 flex gap-4 text-xs">
-            {detail.pillars?.map((p) => (
-              <div key={p.kind}>
-                <div className="font-semibold">{p.label}</div>
-                <div>{p.cells.join(' / ')}</div>
-              </div>
-            ))}
-          </div>
-        )}
-
-        {/* ── save sheet (screen 5) — minimal scaffold of the draft machine ── */}
-        <div className="mt-4 border-t pt-3">
-          {draft.state === 'idle' && (
-            <button
-              type="button"
-              onClick={() => draft.open(date)}
-              className="text-sm text-v3-sapphire underline"
-            >
-              เพิ่มลงปฏิทิน เพื่อแจ้งเตือน
-            </button>
-          )}
-
-          {(draft.state === 'editing' || draft.state === 'saving') && (
-            <div data-testid="save-sheet">
-              <p className="text-xs font-semibold">เลือกยาม</p>
-              {detail.yams.map((y) => (
-                <label key={y.id} className="block text-xs">
-                  <input
-                    type="checkbox"
-                    checked={draft.draft.selectedYamIds.includes(y.id)}
-                    onChange={() => draft.toggleYam(y.id)}
-                  />{' '}
-                  {y.label} · {y.window}
-                </label>
-              ))}
-              <div className="mt-2 flex gap-2">
-                <button
-                  type="button"
-                  disabled={!draft.canCommit}
-                  onClick={onSave}
-                  className="text-sm text-v3-sapphire underline disabled:text-neutral-300"
-                >
-                  บันทึก
-                </button>
-                <button type="button" onClick={draft.cancel} className="text-sm text-neutral-500 underline">
-                  ยกเลิก
-                </button>
-              </div>
-            </div>
-          )}
-
-          {draft.state === 'saved' && (
-            <div data-testid="saved">
-              <p className="text-sm text-green-700">✓ คุณบันทึกลงปฏิทินแล้ว</p>
-              <button type="button" onClick={draft.dismiss} className="text-xs text-neutral-500 underline">
-                ปิด
-              </button>
-            </div>
-          )}
-        </div>
-      </section>
-    </AppShell>
+    <CalendarShell
+      title="รายละเอียดวัน"
+      menuState={menuState}
+      ctaLabel={saved ? 'คุณบันทึกลงปฏิทินแล้ว' : 'เพิ่มลงปฏิทิน เพื่อแจ้งเตือน'}
+      onCta={() => detail.yams[0] && addYam(detail.yams[0])}
+    >
+      <DayHeader />
+      <div className="flex flex-col gap-4 px-4 pt-3">
+        <DayStrip date={date} />
+        <DayScoreCard detail={detail} content={content} />
+        <AdvancedToggle on={advanced} onToggle={toggle} />
+        <CompatList areas={content.compatAreas} insight={content.insight} />
+        <PredictionCards areas={content.compatAreas} />
+        <LuckyColors colors={content.luckyColors} deity={content.dayDeity} />
+        <YamTimes yams={detail.yams} onAdd={addYam} />
+      </div>
+    </CalendarShell>
   )
 }
