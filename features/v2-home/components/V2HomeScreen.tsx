@@ -10,6 +10,7 @@ import Image from 'next/image'
 import Link from 'next/link'
 import { useRouter } from 'next/router'
 import { formatThaiLongDate } from '@/utils/formate-date-thai'
+import { HabitCard } from './sections/HabitCard'
 
 // Zone 1 daily-fortune (bazi /api/home). goo wires useHomeFortune() → this shape; I compose against it.
 export type DailyFortune = {
@@ -454,7 +455,8 @@ function SomphongKeyframes() {
 }
 
 // ── Zone 4 — โหมดเซียน (mindful-moments-section · Figma 333:6885) ──────────────────────────────────
-// UI only, STATIC this round (motion = follow-up PR, บอง 2026-07-27). Replaces the empty ServiceSection.
+// The blue habit-card is the shared <HabitCard/> (with the 3-piece cohort motion); this section adds the
+// header, the 3 property cards, and the tertiary CTA around it.
 const SIAN_CARDS: { icon: string; lines: string[] }[] = [
   { icon: 'icon-oracle', lines: ['เสี่ยงไพ่', 'ออราเคิล', 'เคี้ยงคุง'] },
   { icon: 'icon-spirit', lines: ['เสี่ยงไพ่', 'จิตวิญญาณ', 'แดนสวรรค์'] },
@@ -473,44 +475,18 @@ function SianSection() {
           รู้ก่อน เตรียมพร้อมก่อน ด้วยระบบ AI ระดับเซียน
         </p>
       </div>
-      {/* habit-card (big blue) — Figma 333:6889 · mascots exported, book-frame is CSS */}
-      <div
-        className="relative flex w-full items-center gap-6 overflow-hidden rounded-[24px] py-6 pl-10 pr-6"
-        style={{ backgroundImage: 'linear-gradient(130.11deg, #B0CFFD 16.95%, #C6EEF2 81.1%)' }}
-      >
-        {/* big mascot (water-rooster hero) — bottom-left, clipped to the card. left is %-of-card (−55/361)
-            so it scales with width; exact -55px @393, stays bottom-left at 360/320 */}
-        <div className="pointer-events-none absolute bottom-[-42.56px] left-[-15.24%] flex h-[173.79px] w-[149.41px] items-center justify-center">
-          <div className="-scale-y-100 rotate-[171.79deg]">
-            <div className="relative h-[157.08px] w-[128.29px] overflow-hidden">
-              <img src="/images/v2/zone4/mascot-sian.png" alt="" aria-hidden className="absolute left-[-1.3%] top-[-3.89%] h-[113.07%] w-[100.05%] max-w-none" />
-            </div>
-          </div>
-        </div>
-        {/* small mascot (wood/leaf sprite) — top, over the book's top-right. left is %-of-card (123/361)
-            so it tracks the book instead of colliding with the wrapping title at 360/320 */}
-        <div className="pointer-events-none absolute bottom-[136.58px] left-[34.07%] z-[2] flex h-[57.65px] w-[54.04px] items-center justify-center">
-          <div className="-scale-y-100 rotate-[-151.22deg]">
-            <img src="/images/v2/zone4/mascot-leaf.png" alt="" aria-hidden className="h-[45.69px] w-[36.55px] max-w-none object-cover" />
-          </div>
-        </div>
-        {/* Group 5 — white book cover (CSS shape, not an image), slight tilt + shadow */}
-        <div className="z-[1] shrink-0 rotate-[-9.15deg]">
-          <div className="h-[142.46px] w-[97.94px] rounded-md bg-v3-lemon-chiffon shadow-[0_6px_16px_rgba(11,48,91,0.12)]" />
-        </div>
-        {/* text column */}
-        <div className="z-[1] flex min-w-px flex-1 flex-col items-start gap-2">
-          <p className="text-base font-bold leading-6 text-v3-navy">หนังสือเล่มเดียวในโลก</p>
-          <p className="text-sm font-medium leading-5 text-v3-text-body">
+      {/* habit-card (big blue) — shared component, now with the 3-piece cohort motion (Zone 4 + Zone 6) */}
+      <HabitCard
+        title="หนังสือเล่มเดียวในโลก"
+        desc={
+          <>
             วิเคราะห์ดวงชะตาเชิงลึก
             <br />
             รวบรวมเป็นหนังสือส่วนตัว
-          </p>
-          <button type="button" className="rounded-full bg-v3-sapphire px-6 py-2 text-sm font-semibold uppercase leading-5 text-v3-lime">
-            ซื้อเลย
-          </button>
-        </div>
-      </div>
+          </>
+        }
+        cta={{ variant: 'primary', label: 'ซื้อเลย' }}
+      />
       {/* 3 property cards (pastel-blue) */}
       <div className="flex w-full gap-2">
         {SIAN_CARDS.map((c) => (
