@@ -11,6 +11,8 @@ import Link from 'next/link'
 import { useRouter } from 'next/router'
 import { formatThaiLongDate } from '@/utils/formate-date-thai'
 import { HabitCard } from './sections/HabitCard'
+import { PajeuSection } from './sections/PajeuSection'
+import { SinseSection } from './sections/SinseSection'
 
 // Zone 1 daily-fortune (bazi /api/home). goo wires useHomeFortune() → this shape; I compose against it.
 export type DailyFortune = {
@@ -76,12 +78,8 @@ export function V2HomeScreen({ greeting, mascotCharacter, onLogout, fortune, for
         <ManifestCard mascotCharacter={mascotCharacter} element={element} />
         <SomphongSection />
         <SianSection />
-        <SinseCard />
-        <ServiceSection
-          title="เรียนปาจื่อ"
-          subtitle="ปลดล็อกพลังทำนายขั้นสูง วิเคราะห์ดวงชะตาแบบเจาะลึก รู้ก่อน เตรียมพร้อมก่อน"
-          tiles={[]}
-        />
+        <SinseSection />
+        <PajeuSection />
       </div>
 
       <HomeBottomNav />
@@ -510,41 +508,8 @@ function SianSection() {
   )
 }
 
-// ── Service section frame (header + placeholder tiles + CTA) ──────────────────────────────────────
-function ServiceSection({ title, subtitle, tiles }: { title: string; subtitle: string; tiles: string[] }) {
-  return (
-    <section className="mb-6 flex flex-col items-center gap-4">
-      <div className="w-full">
-        <h2 className="text-xl font-bold leading-7 text-v3-navy">{title}</h2>
-        <p className="mt-1 text-sm font-medium leading-5 text-v3-text-body">{subtitle}</p>
-      </div>
-      {tiles.length > 0 ? (
-        <div className="flex w-full gap-2">
-          {tiles.map((t) => (
-            <div key={t} className="flex min-h-[120px] flex-1 items-end rounded-2xl bg-v3-ghost-white p-4">
-              <p className="text-sm font-bold uppercase leading-5 text-v3-navy">{t}</p>
-            </div>
-          ))}
-        </div>
-      ) : (
-        // empty-state placeholder (scope B — feature deferred)
-        <div className="grid min-h-[120px] w-full place-items-center rounded-2xl bg-v3-ghost-white text-sm text-v3-text-muted">เร็วๆ นี้</div>
-      )}
-      <button type="button" className="rounded-full border border-v3-sapphire px-6 py-2 text-sm font-semibold uppercase leading-5 text-v3-sapphire">ดูบริการทั้งหมด</button>
-    </section>
-  )
-}
-
-// ── Sinse (ซินเเส) sapphire card ─────────────────────────────────────────────────────────────────
-function SinseCard() {
-  return (
-    <section className="mb-6 overflow-hidden rounded-[24px] bg-v3-sapphire p-6">
-      <p className="max-w-[64%] text-base font-bold leading-6 text-white">ดูดวงส่วนตัว กับซินเเส</p>
-      <p className="mt-2 max-w-[64%] text-sm font-medium leading-5 text-white/90">วิเคราะห์ดวงชะตาเชิงลึก รวบรวมเป็นหนังสือส่วนตัว</p>
-      <button type="button" className="mt-3 rounded-full bg-v3-lime px-6 py-2 text-sm font-semibold uppercase leading-5 text-v3-sapphire">ทักซินเเสเพื่อจอง</button>
-    </section>
-  )
-}
+// (ServiceSection + SinseCard removed 2026-07-28 — Zones 4/5/6 now render real sections SianSection ·
+//  SinseSection · PajeuSection; the two empty-placeholder frames were dead. Git history preserves them.)
 
 // ── White-mound wave divider (rebuilt as SVG — Figma "White Mound") ──────────────────────────────
 function WhiteMoundDivider() {
