@@ -60,13 +60,31 @@ export interface CalendarMonth {
 // Day detail (screens 2/3 · nodes 634:8194 ธรรมดา · 634:8752 แอดวานซ์)
 // ─────────────────────────────────────────────────────────────────────────────
 
-/** One of the 4 pillars in advanced mode (บล็อก 4 เสา: MAN · DAY ...). */
+/**
+ * One เสา (column) of a 八字 chart — the DATA a pillar always carries, independent of how a screen draws it.
+ * Each 柱 has a 天干 (heavenly stem, top glyph), a 地支 (earthly branch, bottom glyph), and the 五行 (ธาตุ)
+ * of that stem. Figma 634:8752 draws the DAY block as 3 layers (stem / branch / ธาตุ); the MAN block draws
+ * only the stem glyph — but that is PRESENTATION. The bazi backend sends stem+branch+element for BOTH blocks
+ * (four-pillar 八字 is fully populated on both the natal chart and the day chart), so the shape is shared and
+ * the UI picks how many layers to render per `kind`. Keeping cells as `string[]` (the old single-glyph form)
+ * would drop 2 of 3 layers and force a contract-rewrite at API-time.
+ */
+export interface PillarCell {
+  /** 天干 heavenly stem — the top glyph (e.g. "甲"). */
+  stem: string
+  /** 地支 earthly branch — the bottom glyph (e.g. "子"). */
+  branch: string
+  /** 五行 ธาตุof this pillar's stem (ไม้ / ไฟ / ดิน / ทอง / น้ำ). */
+  element: string
+}
+
+/** One of the pillar blocks in advanced mode (บล็อก 4 เสา: MAN · DAY ...). */
 export interface PillarColumn {
   /** heading key — 'man' = เจ้าของดวง · 'day' = วันนี้. */
   kind: 'man' | 'day'
   label: string
-  /** the 4 stems/branches shown top→bottom (ปี/เดือน/วัน/ยาม). */
-  cells: string[]
+  /** the 4 เสา ปี/เดือน/วัน/ยาม — each a full stem/branch/element (MAN draws 1 layer, DAY draws 3). */
+  cells: PillarCell[]
 }
 
 /** A ยาม window (5 per day) — the checkbox rows in the save sheet + the advanced timeline. */

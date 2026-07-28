@@ -10,6 +10,7 @@ import type {
   CalendarMonth,
   DayDetail,
   Grade,
+  PillarCell,
   Reminder,
   ReminderList,
   YamSlot,
@@ -26,6 +27,19 @@ const STEMS = ['甲', '乙', '丙', '丁', '戊', '己', '庚', '辛', '壬', '�
 const BRANCHES = ['子', '丑', '寅', '卯', '辰', '巳', '午', '未', '申', '酉', '戌', '亥']
 function ganzhiFor(index: number): string {
   return STEMS[index % 10] + BRANCHES[index % 12]
+}
+
+// 五行 (ธาตุ) of each 天干 — the illustrative pillar cells derive `element` from `stem` so a fixture cell is
+// never internally inconsistent (a mut that mislabels element is caught by the shape test). Real element
+// arrives from bazi at API-time; this map only keeps the MOCK coherent (like illustrativeGrade for grade).
+const STEM_ELEMENT: Record<string, string> = {
+  甲: 'ไม้', 乙: 'ไม้', 丙: 'ไฟ', 丁: 'ไฟ', 戊: 'ดิน',
+  己: 'ดิน', 庚: 'ทอง', 辛: 'ทอง', 壬: 'น้ำ', 癸: 'น้ำ',
+}
+
+/** Build one illustrative 八字 pillar cell — element is derived from the stem so it can never contradict it. */
+function pillarCell(stem: string, branch: string): PillarCell {
+  return { stem, branch, element: STEM_ELEMENT[stem] ?? 'ดิน' }
 }
 
 // Deterministic percent spread (no Math.random — stable across renders/SSR). A gentle wave 30..92.
@@ -99,8 +113,24 @@ export function mockDayDetail(date: string): DayDetail {
     avoid: ['ตัดสินใจเรื่องใหญ่คนเดียว', 'เดินทางไกลช่วงค่ำ'],
     yams: mockYams(found.grade),
     pillars: [
-      { kind: 'man', label: 'MAN · เจ้าของดวง', cells: ['庚', '午', found.ganzhi[0] ?? '甲', '寅'] },
-      { kind: 'day', label: 'DAY · วันนี้', cells: [found.ganzhi[0] ?? '甲', found.ganzhi[1] ?? '子', '丙', '子'] },
+      {
+        kind: 'man',
+        label: 'MAN · เจ้าของดวง',
+        // natal 4 เสา (fixed) — ปี/เดือน/วัน/ยาม. Illustrative; MAN block draws only the stem glyph in Figma
+        // but the data is full stem/branch/element so DAY and API-time share one shape.
+        cells: [pillarCell('庚', '午'), pillarCell('戊', '寅'), pillarCell('甲', '子'), pillarCell('丙', '寅')],
+      },
+      {
+        kind: 'day',
+        label: 'DAY · วันนี้',
+        // the day's 4 เสา — the วัน pillar uses the day's real ganzhi glyphs; the rest are illustrative.
+        cells: [
+          pillarCell('壬', '辰'),
+          pillarCell('丁', '未'),
+          pillarCell(found.ganzhi[0] ?? '甲', found.ganzhi[1] ?? '子'),
+          pillarCell('丙', '子'),
+        ],
+      },
     ],
   }
 }
