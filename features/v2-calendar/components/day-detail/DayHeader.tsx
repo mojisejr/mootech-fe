@@ -1,5 +1,6 @@
-// §1 — top header: back → month view, title "รายละเอียดวัน", the Mate AI bell, and the avatar. Light-blue
-// glow top-right (Figma). Presentational chrome; the back link is the only interaction (routing untouched).
+// §1 — top header: back → month view, title "รายละเอียดวัน", the notification bell, and the avatar. Light-blue
+// glow top-right (Figma). Phase 7 A1: the bell is the ENTRY-POINT to the notifications list (was a static
+// Mate AI glyph → now links to /v2/calendar/notifications; Mate AI lives in the bottom CalendarMenu).
 import Link from 'next/link'
 
 export function DayHeader() {
@@ -15,7 +16,7 @@ export function DayHeader() {
       </Link>
       <h1 className="flex-1 text-xl font-extrabold text-v3-navy">รายละเอียดวัน</h1>
 
-      <Link href="/v2/service" aria-label="Mate AI" className="grid size-10 place-items-center rounded-full bg-gradient-to-br from-v3-mate-teal to-v3-mate-purple">
+      <Link href="/v2/calendar/notifications" aria-label="การแจ้งเตือน" data-testid="header-notif-bell" className="grid size-10 place-items-center rounded-full bg-gradient-to-br from-v3-mate-teal to-v3-mate-purple">
         <svg viewBox="0 0 24 24" className="size-6 text-v3-lime" fill="none" aria-hidden>
           <path d="M12 3.5a5 5 0 0 1 5 5v3l1.4 2.4a1 1 0 0 1-.86 1.5H6.46a1 1 0 0 1-.86-1.5L7 11.5v-3a5 5 0 0 1 5-5Z" stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round" />
           <path d="M10 18a2 2 0 0 0 4 0" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
