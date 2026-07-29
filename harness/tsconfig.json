@@ -1,0 +1,7 @@
+{
+  "//": "Harness-local tsconfig, auto-discovered by tsx when running harness/run-*.ts. The root tsconfig uses jsx:preserve (Next transforms JSX itself); but an anchor that renders a component in NODE (e.g. renderToStaticMarkup(ServiceImageSlot) in run-service-hub.ts to prove the image slot accepts src) needs the AUTOMATIC runtime so the component's JSX compiles without a global React. Inert for the root `tsc --noEmit` gate (which reads ../tsconfig.json).",
+  "extends": "../tsconfig.json",
+  "compilerOptions": {
+    "jsx": "react-jsx"
+  }
+}
