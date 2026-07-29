@@ -48,7 +48,7 @@ Before (clean `a2d7e79`) vs after (this branch), @393, `pixelmatch`:
 
 ## adversary sign-off
 Cross-oracle, RUN-PROVEN — I do **not** self-certify.
-- **ตู๋ — ⏳ PENDING**. Points to attack: (1) did home (shipped) move even 1px? — before/after diff: header 0-diff, the 738 lower-page px are live fortune/mascot (y≥1506), and `run-header-structure` still green; (2) did any bell lose its behaviour? — `mut-ignore-href` bites (calendar+service stop navigating); component-level asserts button-vs-link per call; (3) did the skins collapse? — `mut-ignore-variant` bites (mate skin wrong); (4) is the service avatar→logout real? — clicked it, the confirm dialog opens; (5) is the typo change intentional? — yes, ฟีม-ordered divergence from Figma, recorded in `services.ts` + here.
+- **ตู๋ — ✅ SIGNED-OFF (c1a3b11)**. Points to attack: (1) did home (shipped) move even 1px? — before/after diff: header 0-diff, the 738 lower-page px are live fortune/mascot (y≥1506), and `run-header-structure` still green; (2) did any bell lose its behaviour? — `mut-ignore-href` bites (calendar+service stop navigating); component-level asserts button-vs-link per call; (3) did the skins collapse? — `mut-ignore-variant` bites (mate skin wrong); (4) is the service avatar→logout real? — clicked it, the confirm dialog opens; (5) is the typo change intentional? — yes, ฟีม-ordered divergence from Figma, recorded in `services.ts` + here.
 - **goo** — consumes `useV2Logout` (his action hook) on the service page; no hook/contract changed, only called.
 
 ## flags → ฟีม (the ONE open decision I did NOT make)
