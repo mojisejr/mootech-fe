@@ -27,10 +27,18 @@ export function CompatibilityScreen({ config }: { config: CompatibilityConfig })
         <span data-testid="compat-person1-time">{c.person1?.time ?? ''}</span>
       </section>
 
-      {/* row 2 — เลือกเพื่อน/คู่รัก (μุน wires her wrapped v1 modal → c.selectFriend) */}
+      {/* row 2 — เลือกเพื่อน/คู่รัก (μุน wires her wrapped v1 modal → c.selectFriend). Name+picture appear
+          instantly; dob/time enrich from the friend detail (loadingPerson2 skeletons the birthdate line). */}
       <section data-testid="compat-person2">
         {c.person2 ? (
-          <span data-testid="compat-person2-name">{c.person2.name}</span>
+          <>
+            <span data-testid="compat-person2-name">{c.person2.name}</span>
+            {c.loadingPerson2 ? (
+              <span data-testid="compat-person2-dob-loading">…</span>
+            ) : (
+              <span data-testid="compat-person2-dob">{c.person2.dob}</span>
+            )}
+          </>
         ) : (
           <span data-testid="compat-person2-empty">เลือกเพื่อน / คู่รัก</span>
         )}

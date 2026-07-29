@@ -17,6 +17,49 @@ export const COMPAT_FRIEND_DEFAULTS = {
   gender: 'MALE' as const,
 }
 
+// One person row the screen renders (both "คุณ" and the chosen friend share this shape).
+export type CompatPerson = {
+  /** current user's id for person1; friend_id for person2 (the value the result slice passes to calculate) */
+  id: string
+  name: string
+  /** 'YYYY-MM-DD' | '' */
+  dob: string
+  /** 'HH:mm' | '' (empty when birth time is not remembered / not yet enriched) */
+  time: string
+  /** picture URL, '' when none */
+  imageProfile: string
+}
+
+// 🔶 SEAM GAP CLOSED (μุน's flag): v1 modal-select-freind's onClickMatching gives only
+// (id, name, surname, picture_url, is_disable) — NO dob/time. But Figma row-2 (636:18451) shows the friend's
+// birthdate + time. μุน can't touch the v1 modal (iron rule) and won't add a fetch (goo's seam). So goo owns
+// the enrichment: μุน passes the fields the modal DOES give (below), the hook fills dob/time by reading the
+// v1 friend-DETAIL (MemberWithFriendGetDetailApi — a member-with-friend READ, NOT a matching path, so
+// done-cond #6 stays clean; a GET, so done-cond #9 (no side effects) stays clean).
+export type SelectFriendInput = {
+  id: string
+  name: string
+  surname?: string
+  picture_url?: string
+}
+
+// The instant person2 (name + picture) shown the moment a friend is picked — dob/time blank until the detail
+// enriches them. PURE.
+export function friendInputToPerson(input: SelectFriendInput): CompatPerson {
+  return { id: input.id, name: input.name, dob: '', time: '', imageProfile: input.picture_url ?? '' }
+}
+
+// The v1 friend-detail record — only the two fields the row-2 display needs are typed. Keys are 'dob'/'time',
+// matching the write-side (MemberWithFriendUpdateProfileApi / Create) and UserBirthRow.
+export type FriendDetail = { error?: unknown; dob?: string | null; time?: string | null }
+
+// Merge the enriched dob/time onto the instant person2. PURE + defensive: on error / missing keys it KEEPS the
+// name+picture person (no strand, no fabricated dob/time) — done-cond #3 discipline applied to person2 too.
+export function applyFriendDetail(base: CompatPerson, detail: FriendDetail | null): CompatPerson {
+  if (!detail || detail.error) return base
+  return { ...base, dob: detail.dob || base.dob, time: detail.time || base.time }
+}
+
 // The fields the Figma add-friend form actually collects.
 export type NewFriendForm = {
   name: string

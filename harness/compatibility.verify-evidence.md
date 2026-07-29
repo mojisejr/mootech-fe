@@ -25,7 +25,7 @@ CAPTURE_HOST=http://localhost:3013 npx tsx harness/run-compatibility.ts   # ✓ 
 ```
 
 ## proof-of-teeth
-### A. Pure gate + gap-fill (scripts/compatibility.test.ts → ✅ 7/7, mutant-proven)
+### A. Pure gate + gap-fill + person2 enrichment (scripts/compatibility.test.ts → ✅ 11/11, mutant-proven)
 | invariant | result |
 |---|---|
 | love → title "ดูดวงคู่รัก" + **matching_type LOVE** (the VALUE, done-cond #2) | ✓ |
@@ -35,12 +35,25 @@ CAPTURE_HOST=http://localhost:3013 npx tsx harness/run-compatibility.ts   # ✓ 
 | COMPATIBILITY_KINDS === [love, colleague] (BOSS/EMPLOYEE removed per ฟีม) | ✓ |
 | buildCreateFriendArgs → v1 8-arg signature exactly | ✓ |
 | the 2 GAP fields carry DOCUMENTED defaults in the RIGHT positions (surname '' @3, gender 'MALE' @5) | ✓ |
+| **person2 enrichment** (μุน's flag): friendInputToPerson maps modal fields (id/name/picture) → instant person2, **dob/time BLANK** (not fabricated) | ✓ |
+| applyFriendDetail fills dob/time from the friend detail; **error/null/missing keys → KEEP name+picture** (no strand, no fabricated dob/time) | ✓ |
 | 🦷 **mut-A** drop allow-list guard (`CONFIG[raw]`) → `'constructor'` returns a truthy prototype member | **unknown-kinds test FAILS → CAUGHT** |
 | 🦷 **mut-B** swap surname↔gender positions | **both gap-position tests FAIL → CAUGHT** |
 | 🦷 **mut-C** mislabel love→FRIEND | **love + different-types tests FAIL → CAUGHT** |
+| 🦷 **mut-D** applyFriendDetail drops the `\|\| base` fallback → missing keys set `undefined` (fabricated) | **no-strand test FAILS → CAUGHT** |
 
-All three mutants were RUN (not reasoned): each turned the suite red on exactly the asserts that own that behaviour,
-then the files were restored and the suite re-confirmed green (7/7). The teeth are not vacuous.
+All four mutants were RUN (not reasoned): each turned the suite red on exactly the asserts that own that behaviour,
+then the files were restored and the suite re-confirmed green (11/11). The teeth are not vacuous.
+
+**person2 seam gap (μุน caught, goo owns the fix):** v1's `onClickMatching` gives only (id, name, surname,
+picture_url, is_disable) — no dob/time — but Figma row-2 shows the friend's birthdate. μุน can't touch the v1 modal
+(iron rule) and won't add a fetch (goo's seam). Resolution: `selectFriend` now takes `SelectFriendInput` (the fields
+the modal DOES give); the hook shows name+picture instantly, then enriches dob/time by reading
+`MemberWithFriendGetDetailApi(friend_id)` — a **member-with-friend READ** (NOT a matching/api-user-matching path, so
+done-cond #6 stays clean; a GET, so done-cond #9 stays clean). Race-guarded (rapid re-select A→B never lets A's slow
+detail overwrite B; token + id check). The dob/time key names ('dob'/'time') match the write-side
+(MemberWithFriendUpdateProfileApi/Create) + UserBirthRow; the happy-path real dob/time render is verified in μุน's
+stack PR (needs BE), the no-strand-on-error branch is proven here.
 
 ### B. Real-route ship-path (harness/run-compatibility.ts → ✅ 9/9, FE-only, no BE)
 | invariant | result |
@@ -87,8 +100,14 @@ path shipped in `useV2Home` (#165). Screenshots captured here (skeleton): `harne
 ## adversary sign-off
 Cross-oracle, RUN-PROVEN — I do **not** self-certify (charter: ฟันอยู่ในมือ oracle อื่น). Seal must be posted on
 GitHub + anchored to a commit (บอง's lesson), not just written here.
-- **ตู๋ — ✅ SIGNED-OFF (e38b41a)** — posted on GitHub (PR #148 comment, commit-anchored; verifiable via
-  `gh pr view 148`), NOT written by me here. Points ตู๋ attacked + verdict:
+- **ตู๋ — ✅ SIGNED-OFF (e38b41a)** for the original contract (kind-gate + gap-fill + person1) — posted on GitHub
+  (PR #148 comment, commit-anchored; verifiable via `gh pr view 148`), NOT written by me here.
+  **⏳ person2-enrichment delta (added after e38b41a on μุน's flag) — PENDING ตู๋ re-review** (head moved →
+  ตรวจซ้ำ). New surface to attack: (6) does the friend-detail enrichment fabricate dob/time or strand on error? —
+  mut-D + the applyFriendDetail no-strand test; (7) does a rapid re-select let a stale detail overwrite the newer
+  friend? — the selectTokenRef race-guard; (8) is the detail fetch a forbidden path? — no, member-with-friend GET,
+  done-cond #6/#9 clean.
+  Original points ตู๋ attacked + verdict:
   (1) is v1 REALLY untouched? — **Yes**, `git diff` = 0 files in `pages/matching/**` + `constants/api/api-user-matching-*`;
   (2) do the 2 kinds send the RIGHT different types at the VALUE? — **Yes**, useCompatibility derives LOVE/FRIEND, test
   asserts values directly; (3) can an unknown/prototype kind render instead of redirect? — **No**, getServerSideProps
