@@ -7,6 +7,7 @@
 // Data: grade/percent/ganzhi/summary/yams come from goo's DayDetail; the life-area / lucky-colour / deity
 // content is Figma-frozen in day-detail/content.ts (TODO there: folds into goo's adapter at API-time). 0 network.
 import type { GetServerSideProps } from 'next'
+import Link from 'next/link'
 import { useRouter } from 'next/router'
 import { v2RedirectIfUnauthed } from '@/lib/v2/gate'
 import { useDayDetail, useAdvancedMode, useReminders, useReminderDraft, menuStateForDay, type Reminder, type YamSlot } from '@/features/v2-calendar'
@@ -81,6 +82,12 @@ export default function V2CalendarDayPage() {
       <div className="flex flex-col gap-4 px-4 pt-3">
         <DayStrip date={date} />
         <DayScoreCard detail={detail} content={content} />
+        {/* Phase 7 A2 — after a save, the entry-point to the full list, in view while the user is paying attention */}
+        {saved && (
+          <Link href="/v2/calendar/notifications" data-testid="view-all-reminders" className="flex items-center justify-center gap-2 rounded-2xl border border-v3-sapphire/25 bg-v3-sapphire/[0.06] py-3 text-sm font-bold text-v3-sapphire">
+            ✓ บันทึกแล้ว · ดูรายการทั้งหมด →
+          </Link>
+        )}
         <AdvancedToggle on={advanced} onToggle={toggle} />
         {/* §5 [advanced] — ดวงของฉัน (binds goo's detail.pillars) */}
         {advanced && <MyChart pillars={detail.pillars} />}
