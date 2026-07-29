@@ -1,0 +1,54 @@
+#!/usr/bin/env bash
+# pre-push guard — refuse an ACCIDENTAL push straight to this repo's protected (default) branch.
+#
+# The protected branch is READ FROM GIT, never hardcoded: mootech-fe → main, bazi → pdf-dev, etc.
+# (from the remote's HEAD symref). So the same hook is correct in every repo.
+#
+# HONEST SCOPE: this catches "เผลอ push main". It is NOT a hard block — `git push --no-verify` skips every
+# hook. It is the "ดัก" layer, not "บังคับ" (we have no enforced layer; GitHub Pro was declined). The PR/merge
+# rules still matter precisely because this can be bypassed.
+#
+# git invokes: pre-push <remote-name> <remote-url>, with stdin lines:
+#   <local ref> SP <local oid> SP <remote ref> SP <remote oid> LF
+set -euo pipefail
+
+remote="${1:-origin}"
+
+# protected branch = the remote's default branch, from git (not hardcoded).
+protected="$(git symbolic-ref --quiet --short "refs/remotes/${remote}/HEAD" 2>/dev/null | sed "s#^${remote}/##" || true)"
+if [ -z "${protected}" ]; then
+  # detection failed → FAIL OPEN (a ดัก must not block legit work when it can't tell) with a hint.
+  echo "pre-push: cannot determine ${remote}'s default branch (is ${remote}/HEAD set?) — guard skipped." >&2
+  exit 0
+fi
+
+blocked=0
+while read -r _localref _localoid remoteref _remoteoid; do
+  [ -z "${remoteref:-}" ] && continue
+  branch="${remoteref#refs/heads/}"
+  if [ "${branch}" = "${protected}" ]; then
+    blocked=1
+  fi
+done
+
+if [ "${blocked}" -eq 1 ]; then
+  cat >&2 <<MSG
+
+  ✋ pre-push blocked: you are pushing directly to '${protected}' (this repo's protected branch).
+
+  Why this is blocked:
+    • direct pushes to '${protected}' skip ci / design-verify / secret-scan (all are on: pull_request)
+    • merge is ฟีม's decision — even a one-line doc/ledger change goes through a PR
+
+  Do this instead:
+    git switch -c feat/your-change            # put your commit(s) on a branch
+    git push -u ${remote} feat/your-change    # push the branch (this is allowed)
+    gh pr create                              # open a PR → CI runs → ฟีม merges
+
+  (This is a guard, not a wall: 'git push --no-verify' bypasses it. Follow the PR rule anyway.)
+
+MSG
+  exit 1
+fi
+
+exit 0
