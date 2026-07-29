@@ -3,7 +3,7 @@
 **Anchor:** `harness/run-service-hub.ts` · **PR:** feat/v2-service-hub · **base:** main `af9dab2`
 **FE build under test:** worktree `mootech-fe-wt-service-hub` (branch feat/v2-service-hub on af9dab2, this PR's changes)
 **Ledger:** `harness/bug-ledger.json` → `service-hub-12-cards-slot-and-reachability`
-`ANCHOR: harness/run-service-hub.ts#mut-deadslot`
+ANCHOR: harness/run-service-hub.ts#mut-deadslot
 
 ## Run command
 ```bash
@@ -47,7 +47,7 @@ Screenshots (gitignored, `harness/captures/`):
 
 ## adversary sign-off
 Cross-oracle, RUN-PROVEN — I do **not** self-certify.
-- **ตู๋ — ⏳ PENDING**. Points to attack: (1) are all 12 cards really there + in Figma order? — enumerated vs an **independent** expected list (not services.ts) + count===12 @3 sizes; (2) does every card actually LAND somewhere, or did I assume the hrefs? — **clicked all 12**, asserted the URL each time; `mut-wrong-dest` + `mut-drop-card` bite; (3) is the image slot a real slot or a dead div dressed up? — `mut-deadslot` proves `src` flows to a painted `<img>` (negative-controlled against the no-src case); (4) overflow at 320 with the long Thai titles? — asserted no overflow-x @393/360/320; (5) did I touch home while "borrowing" its header? — **no**: the header is self-contained (home byte-untouched → its anchor green for free); (6) is the coming-soon page honest or does it fake progress? — copy says plainly it isn't open, names the service, has a way back.
+- **ตู๋ — ✅ SIGNED-OFF (ef43bfe)**. Points to attack: (1) are all 12 cards really there + in Figma order? — enumerated vs an **independent** expected list (not services.ts) + count===12 @3 sizes; (2) does every card actually LAND somewhere, or did I assume the hrefs? — **clicked all 12**, asserted the URL each time; `mut-wrong-dest` + `mut-drop-card` bite; (3) is the image slot a real slot or a dead div dressed up? — `mut-deadslot` proves `src` flows to a painted `<img>` (negative-controlled against the no-src case); (4) overflow at 320 with the long Thai titles? — asserted no overflow-x @393/360/320; (5) did I touch home while "borrowing" its header? — **no**: the header is self-contained (home byte-untouched → its anchor green for free); (6) is the coming-soon page honest or does it fake progress? — copy says plainly it isn't open, names the service, has a way back.
 - **goo** — no hooks/contract touched; this page is pure UI (no fetch/state/auth beyond the v2 gate).
 
 ## flags → ฟีม (surfaced, not silently resolved)
