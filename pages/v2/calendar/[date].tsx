@@ -9,7 +9,7 @@
 import type { GetServerSideProps } from 'next'
 import { useRouter } from 'next/router'
 import { v2RedirectIfUnauthed } from '@/lib/v2/gate'
-import { useDayDetail, useAdvancedMode, useReminders, menuStateForDay, type Reminder, type YamSlot } from '@/features/v2-calendar'
+import { useDayDetail, useAdvancedMode, useReminders, useReminderDraft, menuStateForDay, type Reminder, type YamSlot } from '@/features/v2-calendar'
 import { CalendarShell } from '@/features/v2-calendar/components/CalendarShell'
 import { getDayFortuneContent } from '@/features/v2-calendar/components/day-detail/content'
 import { DayHeader } from '@/features/v2-calendar/components/day-detail/DayHeader'
@@ -24,6 +24,7 @@ import { MyChart } from '@/features/v2-calendar/components/day-detail/MyChart'
 import { Dithi } from '@/features/v2-calendar/components/day-detail/Dithi'
 import { EightGates } from '@/features/v2-calendar/components/day-detail/EightGates'
 import { EightDeities } from '@/features/v2-calendar/components/day-detail/EightDeities'
+import { SaveSheet } from '@/features/v2-calendar/components/day-detail/SaveSheet'
 
 export const getServerSideProps: GetServerSideProps = async (ctx) => {
   ctx.res.setHeader('Cache-Control', 'no-store, must-revalidate')
@@ -40,33 +41,43 @@ export default function V2CalendarDayPage() {
   // advanced-only sections (§5/§9/§12/§13) → the exact 3a normal frame (634:8194); toggling ON brings them back.
   const { advanced, toggle } = useAdvancedMode()
   const reminders = useReminders()
+  const draft = useReminderDraft() // goo's save-flow machine — the page MASKS it, adds no state of its own
   const content = getDayFortuneContent(date)
 
-  // per-ยาม quick-add (goo's client-truth list; de-duped in the hook) — makes the CTA + §11 buttons real.
+  // per-ยาม quick-add (§11 buttons) — goo's client-truth list, de-duped in the hook.
   const addYam = (yam: YamSlot) => {
-    const r: Reminder = {
-      id: `${date}-${yam.id}`,
-      date,
-      yamId: yam.id,
-      yamLabel: yam.label,
-      window: yam.window,
-      destinations: ['mumate'],
-      group: 'upcoming',
-    }
+    const r: Reminder = { id: `${date}-${yam.id}`, date, yamId: yam.id, yamLabel: yam.label, window: yam.window, destinations: ['mumate'], group: 'upcoming' }
     reminders.add([r])
   }
 
+  // save-sheet commit (goo's scaffold pattern): build one Reminder per ticked ยาม, drive the machine, grow the
+  // de-duped list. The no-op guard is goo's — commit is a NO-OP once `saving` (latch) and reminders.add de-dupes
+  // by id — so spamming บันทึก yields exactly one row per ยาม, never duplicates.
+  const onSheetSave = () => {
+    const rows: Reminder[] = draft.draft.selectedYamIds.map((yamId) => {
+      const yam = detail.yams.find((y) => y.id === yamId)
+      return { id: `${date}-${yamId}`, date, yamId, yamLabel: yam?.label ?? yamId, window: yam?.window ?? '', destinations: draft.draft.destinations, group: 'upcoming' as const }
+    })
+    draft.commit()
+    if (rows.length) reminders.add(rows)
+  }
+
   const saved = reminders.hasReminderFor(date)
-  const menuState = menuStateForDay(saved) // PrimaryAction(2) → primary-cta · Saved(3) → saved
+  // observable count of THIS date's reminders — lets the anchor prove list-+1 / cancel-no-add / no-op-single-row.
+  const dateReminderCount = [...reminders.list.upcoming, ...reminders.list.past].filter((r) => r.date === date).length
+  const sheetOpen = draft.state === 'editing' || draft.state === 'saving'
+  // while the sheet is open the menu is FormMode(4, no Mate AI); else derived from data (Saved 3 / PrimaryAction 2).
+  const menuState = sheetOpen ? draft.menuState : menuStateForDay(saved)
 
   return (
     <CalendarShell
       title="รายละเอียดวัน"
       menuState={menuState}
       ctaLabel={saved ? 'คุณบันทึกลงปฏิทินแล้ว' : 'เพิ่มลงปฏิทิน เพื่อแจ้งเตือน'}
-      onCta={() => detail.yams[0] && addYam(detail.yams[0])}
+      onCta={() => draft.open(date)}
     >
       <DayHeader />
+      <span data-testid="reminder-count" className="sr-only">{dateReminderCount}</span>
       <div className="flex flex-col gap-4 px-4 pt-3">
         <DayStrip date={date} />
         <DayScoreCard detail={detail} content={content} />
@@ -83,6 +94,8 @@ export default function V2CalendarDayPage() {
         {advanced && <EightGates gates={content.gates} />}
         {advanced && <EightDeities deities={content.deities} />}
       </div>
+      {/* screen 5 — save sheet, shown only while the machine is editing/saving (375:13316) */}
+      {sheetOpen && <SaveSheet date={date} yams={detail.yams} draft={draft} onSave={onSheetSave} />}
     </CalendarShell>
   )
 }
