@@ -14,6 +14,9 @@ import { HabitCard } from './sections/HabitCard'
 import { PajeuSection } from './sections/PajeuSection'
 import { SinseSection } from './sections/SinseSection'
 import { CalendarMenu } from './CalendarMenu'
+import { TopBarBell } from '@/features/v2-shell/components/TopBarBell'
+import { TopBarAvatar } from '@/features/v2-shell/components/TopBarAvatar'
+import { LogoutModal } from '@/features/v2-shell/components/LogoutModal'
 
 // Zone 1 daily-fortune (bazi /api/home). goo wires useHomeFortune() → this shape; I compose against it.
 export type DailyFortune = {
@@ -113,8 +116,8 @@ function Greeting({ name, mascotCharacter, onAvatarTap, onBell, element, profile
         {profile.showUpgrade && (
           <button type="button" className="shrink-0 rounded-full bg-v3-lime px-3 py-1.5 text-sm font-bold leading-5 text-v3-navy">อัพเกรด</button>
         )}
-        <BellButton onClick={onBell} />
-        <AvatarButton name={name} pictureUrl={profile.pictureUrl} onClick={onAvatarTap} />
+        <TopBarBell variant="solid" onClick={onBell} />
+        <TopBarAvatar variant="sapphire" name={name} pictureUrl={profile.pictureUrl} onClick={onAvatarTap} />
       </div>
       {/* row2 — the name, full 361px, bold headline. wrap ≤2 lines, NEVER truncate (break-words handles
           long unbroken Thai so it can't overflow; line-clamp-2 caps height — real names fit well within 2). */}
@@ -122,33 +125,6 @@ function Greeting({ name, mascotCharacter, onAvatarTap, onBell, element, profile
       {/* row3 — element line (unchanged) */}
       <ElementLine mascotCharacter={mascotCharacter} element={element} />
     </header>
-  )
-}
-
-// bell with an unread-dot SLOT — off until a notification backend exists (ฟีม: keep the component real so it
-// doesn't break when data lands; a button with no data still gets a real empty state, never a silent tap).
-function BellButton({ onClick, hasUnread = false }: { onClick: () => void; hasUnread?: boolean }) {
-  return (
-    <button type="button" aria-label="การแจ้งเตือน" onClick={onClick} className="relative grid size-10 shrink-0 place-items-center rounded-full bg-v3-cyan text-white">
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 8A6 6 0 1 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" /><path d="M13.7 21a2 2 0 0 1-3.4 0" /></svg>
-      {hasUnread && <span aria-hidden data-testid="unread-dot" className="absolute right-1.5 top-1.5 size-2.5 rounded-full bg-v3-pumpkin ring-2 ring-white" />}
-    </button>
-  )
-}
-
-// avatar = profile picture if present, else the first letter on the sapphire ground (ฟีม). onError falls
-// back to the letter too (a picture_url that 404s must not leave a broken image).
-function AvatarButton({ name, pictureUrl, onClick }: { name: string; pictureUrl: string | null; onClick: () => void }) {
-  const [broken, setBroken] = useState(false)
-  const showImg = !!pictureUrl && !broken
-  return (
-    <button type="button" aria-label="โปรไฟล์" onClick={onClick} className="relative grid size-10 shrink-0 place-items-center overflow-hidden rounded-full bg-v3-sapphire text-sm font-bold text-white">
-      {showImg ? (
-        <Image src={pictureUrl as string} alt="" fill sizes="40px" style={{ objectFit: 'cover' }} onError={() => setBroken(true)} />
-      ) : (
-        <span data-testid="avatar-letter">{name.trim().charAt(0) || 'F'}</span>
-      )}
-    </button>
   )
 }
 
@@ -528,19 +504,4 @@ function WhiteMoundDivider() {
 //  inline HomeBottomNav.)
 
 // ── Logout confirm modal (provisional per frozen) ────────────────────────────────────────────────
-function LogoutModal({ onClose, onConfirm }: { onClose: () => void; onConfirm: () => void }) {
-  return (
-    <div className="fixed inset-0 z-50 grid place-items-center p-6" role="dialog" aria-modal="true" aria-label="ยืนยันออกจากระบบ">
-      <button type="button" aria-label="ปิด" onClick={onClose} className="absolute inset-0 bg-black/40" />
-      <div className="relative w-full max-w-xs rounded-3xl bg-white p-6 text-center shadow-xl">
-        <p className="text-lg font-bold leading-7 text-v3-navy">ออกจากระบบหรือเปล่า?</p>
-        <div className="mt-5 flex gap-3">
-          <button type="button" onClick={onClose} className="flex-1 rounded-full border border-v3-sapphire px-4 py-2.5 text-sm font-semibold text-v3-sapphire">ยกเลิก</button>
-          <button type="button" onClick={onConfirm} className="flex-1 rounded-full bg-v3-sapphire px-4 py-2.5 text-sm font-semibold text-v3-lime">ออกจากระบบ</button>
-        </div>
-      </div>
-    </div>
-  )
-}
-
 export default V2HomeScreen
