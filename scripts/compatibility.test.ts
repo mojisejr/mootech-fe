@@ -60,23 +60,35 @@ t('COMPATIBILITY_KINDS is exactly [love, colleague] (BOSS/EMPLOYEE removed — �
   assert.deepEqual([...COMPATIBILITY_KINDS], ['love', 'colleague'])
 })
 
-// ── create-friend gap-fill — done-condition #13: the two fields absent from the Figma form ──
-const FORM: NewFriendForm = { name: 'โปเตโต้', birthDay: '1992-08-01', time: '05:30', isRememberTime: true, imageProfile: 'https://x/p.png' }
+// ── create-friend arg-mapping — done-condition #13 (REFRAME 3): gender = the user's CHOICE; surname still gap ──
+// FORM uses FEMALE so a hardcode-MALE mutant is actually catchable (a MALE fixture would hide it).
+const FORM: NewFriendForm = { name: 'โปเตโต้', birthDay: '1992-08-01', time: '05:30', isRememberTime: true, imageProfile: 'https://x/p.png', gender: 'FEMALE' }
 
-t('buildCreateFriendArgs maps form → v1 positional signature exactly', () => {
+t('buildCreateFriendArgs maps form → v1 positional signature exactly (gender = the chosen value)', () => {
   const args = buildCreateFriendArgs('user-123', FORM)
   // v1: (user_id, dob, name, surname, time, gender, is_remember_time, picture_url)
-  assert.deepEqual(args, ['user-123', '1992-08-01', 'โปเตโต้', '', '05:30', 'MALE', true, 'https://x/p.png'])
+  assert.deepEqual(args, ['user-123', '1992-08-01', 'โปเตโต้', '', '05:30', 'FEMALE', true, 'https://x/p.png'])
 })
 
-t('the two GAP fields carry the DOCUMENTED defaults in the RIGHT positions', () => {
+t('surname is the DOCUMENTED gap (still absent from the form) → "" at index 3', () => {
   const args = buildCreateFriendArgs('u', FORM)
-  assert.equal(args[3], COMPAT_FRIEND_DEFAULTS.surname, 'index 3 must be surname default')
+  assert.equal(args[3], COMPAT_FRIEND_DEFAULTS.surname, 'index 3 must be the surname default')
   assert.equal(args[3], '', 'surname default is empty string')
-  assert.equal(args[5], COMPAT_FRIEND_DEFAULTS.gender, 'index 5 must be gender default')
-  assert.equal(args[5], 'MALE', 'gender default is MALE (v1 modal-add-freind default)')
-  // a surname↔gender swap (mut) puts 'MALE' at 3 / '' at 5 → both asserts above fail
-  assert.notEqual(args[3], args[5], 'surname and gender defaults must not be identical (guards a swap)')
+})
+
+// ANCHOR: scripts/compatibility.test.ts#gender-required-no-silent-fallback
+// REFRAME 3 core: the SELECTED gender reaches index 5 — both directions (mut hardcoding MALE dies on FEMALE).
+t('the user-chosen gender flows to index 5 (MALE→MALE, FEMALE→FEMALE)', () => {
+  assert.equal(buildCreateFriendArgs('u', { ...FORM, gender: 'MALE' })[5], 'MALE')
+  assert.equal(buildCreateFriendArgs('u', { ...FORM, gender: 'FEMALE' })[5], 'FEMALE')
+})
+
+// 🔴 บอง's guard: if the form fails to send a gender, it must NOT silently become MALE (the exact bug REFRAME 3
+// fixes). A reintroduced `form.gender || COMPAT_FRIEND_DEFAULTS.gender` turns '' → 'MALE' → this test goes RED.
+t('an absent/empty gender does NOT silently fall back to MALE', () => {
+  const args = buildCreateFriendArgs('u', { ...FORM, gender: '' as unknown as NewFriendForm['gender'] })
+  assert.notEqual(args[5], 'MALE', 'empty gender must NOT become MALE (silent fallback = the bug we fixed)')
+  assert.equal(args[5], '', 'the empty value flows as-is (loud), never coerced to a default')
 })
 
 // ── person2 enrichment seam (μุน's flag) — modal gives no dob/time; goo enriches from the friend detail ──

@@ -7,11 +7,13 @@
 
 // 🔶 THE DOCUMENTED GAP (done-condition #13). v1's create takes 8 positional args including `surname` and
 // `gender`; the Figma add-friend form (636:18533) has NEITHER field. FROZEN plan ruling: Figma is the source
-// of truth, send documented defaults, DO NOT go silent. So Slice 1 sends:
-//   surname = ''       (empty — the form collects no surname)
-//   gender  = 'MALE'   (v1's OWN default in modal-add-freind.tsx line 93; NOT a fabricated value)
-// Both are recorded in harness/compatibility.verify-evidence.md. When the form gains the fields (or ฟีม rules
-// on a default gender), change these two constants — every call already flows through here.
+// of truth, send documented defaults, DO NOT go silent.
+//   surname = ''       (empty — the form STILL collects no surname; documented gap-fill, used below)
+//   gender  = 'MALE'   RETAINED for the record (บอง/ฟีม: เก็บไว้ได้ ไม่ต้องลบ) — but as of REFRAME 3 it is
+//     NO LONGER a runtime fallback. gender now comes from the user's choice (NewFriendForm.gender). It must
+//     NEVER flow into the args by default: `form.gender || COMPAT_FRIEND_DEFAULTS.gender` would silently make
+//     an unchosen gender 'MALE' — the EXACT bug REFRAME 3 fixes (the problem was "ผู้ใช้เลือกไม่ได้", not "the
+//     default is wrong"). A tooth (scripts/compatibility.test.ts) goes RED if this silent-MALE path returns.
 export const COMPAT_FRIEND_DEFAULTS = {
   surname: '',
   gender: 'MALE' as const,
@@ -60,6 +62,10 @@ export function applyFriendDetail(base: CompatPerson, detail: FriendDetail | nul
   return { ...base, dob: detail.dob || base.dob, time: detail.time || base.time }
 }
 
+// The user's chosen gender. v1 uses these exact uppercase strings (modal-add-freind.tsx). A closed union so
+// '' / undefined are NOT representable — a form that fails to provide it is a tsc error, not a silent default.
+export type Gender = 'MALE' | 'FEMALE'
+
 // The fields the Figma add-friend form actually collects.
 export type NewFriendForm = {
   name: string
@@ -70,6 +76,10 @@ export type NewFriendForm = {
   isRememberTime: boolean
   /** uploaded picture URL, '' when none */
   imageProfile: string
+  /** REFRAME 3 (ฟีม): the user's chosen gender — a real bazi calc input, so locking it = permanently wrong
+   *  compute. REQUIRED (union, no '' / undefined). μุน's V3 form pre-selects MALE VISIBLY (v1-style highlight,
+   *  user sees + can change) so a value is ALWAYS sent; the default is seen, not hidden behind a fallback. */
+  gender: Gender
 }
 
 // The exact positional argument tuple for v1's
@@ -93,9 +103,9 @@ export function buildCreateFriendArgs(userId: string, form: NewFriendForm): Crea
     userId,
     form.birthDay,
     form.name,
-    COMPAT_FRIEND_DEFAULTS.surname, // gap: form has no surname → documented ''
+    COMPAT_FRIEND_DEFAULTS.surname, // gap: form STILL has no surname → documented ''
     form.time,
-    COMPAT_FRIEND_DEFAULTS.gender, // gap: form has no gender → documented 'MALE' (v1's own default)
+    form.gender, // REFRAME 3: the user's CHOSEN gender — NO `|| default` (silent MALE = the bug we fixed)
     form.isRememberTime,
     form.imageProfile,
   ]
