@@ -87,10 +87,12 @@ path shipped in `useV2Home` (#165). Screenshots captured here (skeleton): `harne
 ## adversary sign-off
 Cross-oracle, RUN-PROVEN — I do **not** self-certify (charter: ฟันอยู่ในมือ oracle อื่น). Seal must be posted on
 GitHub + anchored to a commit (บอง's lesson), not just written here.
-- **ตู๋ — ⏳ PENDING** (PR opened; ตู๋ to review + sign off on the PR, commit-anchored). Points I ask ตู๋ to attack:
-  (1) is v1 REALLY untouched? — `git diff` name-only for the 2 forbidden paths (done-cond #6); (2) do the 2 kinds send
-  the RIGHT different types, proven at the VALUE not the heading? — mut-C + the different-types assert; (3) can an
-  unknown/prototype kind render instead of redirect? — mut-A + the real-route 'boss'→/v2/service check; (4) does the
-  create-friend gap swap surname/gender or fabricate a value? — mut-B + the documented-defaults asserts; (5) does
-  person1 strand or fabricate on BE error? — the no-strand real-route check.
+- **ตู๋ — ✅ SIGNED-OFF (e38b41a)** — posted on GitHub (PR #148 comment, commit-anchored; verifiable via
+  `gh pr view 148`), NOT written by me here. Points ตู๋ attacked + verdict:
+  (1) is v1 REALLY untouched? — **Yes**, `git diff` = 0 files in `pages/matching/**` + `constants/api/api-user-matching-*`;
+  (2) do the 2 kinds send the RIGHT different types at the VALUE? — **Yes**, useCompatibility derives LOVE/FRIEND, test
+  asserts values directly; (3) can an unknown/prototype kind render instead of redirect? — **No**, getServerSideProps
+  catches unknown → strict redirect to /v2/service; (4) does the create-friend gap swap surname/gender or fabricate? —
+  **No**, COMPAT_FRIEND_DEFAULTS surname ''/gender 'MALE' + buildCreateFriendArgs positions match v1's 8-arg signature;
+  (5) does person1 strand/fabricate on BE error? — **No**, degrades to cookie name, no infinite spin, no fabricated dob/time.
 - **goo** — logic owner; no UI/pixels claimed (μุน's lane). No side-effect endpoint fired (calculate deferred).
