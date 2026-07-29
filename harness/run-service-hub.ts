@@ -38,7 +38,7 @@ const EXPECT: { id: string; titleFragment: string; dest: string }[] = [
   { id: 'oracle-kiang', titleFragment: 'เสี่ยงไพ่ออราเคิลเคี้ยงคุง', dest: '/v2/service/coming-soon?service=' },
   { id: 'spirit-heaven', titleFragment: 'เสี่ยงไพ่จิตวิญญาณแดนสวรรค์', dest: '/v2/service/coming-soon?service=' },
   { id: 'sian', titleFragment: 'เสี่ยงเซียนเสี่ยงทาย', dest: '/v2/service/coming-soon?service=' },
-  { id: 'sinsae', titleFragment: 'กับซินเเส', dest: '/v2/service/coming-soon?service=' },
+  { id: 'sinsae', titleFragment: 'กับซินแส', dest: '/v2/service/coming-soon?service=' },
   { id: 'manifest', titleFragment: 'มานิเฟส', dest: '/v2/service/coming-soon?service=' },
   { id: 'calendar', titleFragment: 'ปฏิทิน', dest: '/v2/calendar' },
   { id: 'healing-circles', titleFragment: 'Healing Circles', dest: '/v2/service/coming-soon?service=' },

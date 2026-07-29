@@ -1,11 +1,12 @@
 // features/v2-service/services.ts — the 12 service-hub cards, TEXT FROZEN FROM FIGMA node 333:7519
 // (file hEOnE9S6wLkMhb0Iy2Fe6T), read via get_design_context — NOT from บอง's screenshot inventory.
 // Where the two diverged, Figma wins (dispatch rule): #4 "เคี้ยงคุง" (ไม้โท, บอง had เคี่ยงคุง), #5 tail
-// "แดนสวรรค์" (was menu-obscured in บอง's shot), #7 "ซินเเส" (Figma spells it สระเอ-เอ — see FLAG below).
+// "แดนสวรรค์" (was menu-obscured in บอง's shot).
 //
-// FLAG → ฟีม/บอง (design-contract, not silently "fixed"): card 7 reads "ซินเเส" in Figma (double สระเอ),
-// almost certainly a Figma typo for "ซินแส" (สระแอ). Reproduced VERBATIM per done-condition #2 ("ข้อความ
-// ทุกใบมาจาก Figma จริง"); surfacing rather than auto-correcting. Fix the Figma text → this file follows.
+// #7 "ซินแส" — DELIBERATE divergence from Figma, by ฟีม's explicit call (2026-07-29). Figma spells it
+// "ซินเเส" (double สระเอ); I flagged it as a suspected typo, ฟีม confirmed the correct word is "ซินแส"
+// (สระแอ) and ordered it fixed here. So this ONE card intentionally does NOT match Figma text — it matches
+// ฟีม's ruling. (The Figma source should be corrected too; until then this is the source of truth.)
 //
 // This is a PRESENTATIONAL catalog: no fetch, no state, no auth. Ordering is Figma top→bottom (which
 // matches บอง's down-each-column reading 1..6 then 7..12).
@@ -38,7 +39,7 @@ export const SERVICES: ServiceCardData[] = [
   { id: 'oracle-kiang', title: 'เสี่ยงไพ่ออราเคิลเคี้ยงคุง', desc: DESC_FORTUNE, href: comingSoonHref('เสี่ยงไพ่ออราเคิลเคี้ยงคุง') },
   { id: 'spirit-heaven', title: 'เสี่ยงไพ่จิตวิญญาณแดนสวรรค์', desc: DESC_FORTUNE, href: comingSoonHref('เสี่ยงไพ่จิตวิญญาณแดนสวรรค์') },
   { id: 'sian', title: 'เสี่ยงเซียนเสี่ยงทาย', desc: DESC_FORTUNE, href: comingSoonHref('เสี่ยงเซียนเสี่ยงทาย') },
-  { id: 'sinsae', title: 'ดูดวงส่วนตัว กับซินเเส', desc: DESC_FORTUNE, href: comingSoonHref('ดูดวงส่วนตัว กับซินเเส') },
+  { id: 'sinsae', title: 'ดูดวงส่วนตัว กับซินแส', desc: DESC_FORTUNE, href: comingSoonHref('ดูดวงส่วนตัว กับซินแส') },
   { id: 'manifest', title: 'มานิเฟส', desc: DESC_FORTUNE, href: comingSoonHref('มานิเฟส') },
   { id: 'calendar', title: 'ปฏิทิน', desc: DESC_CALENDAR, href: '/v2/calendar' },
   { id: 'healing-circles', title: 'Healing Circles', desc: DESC_CALENDAR, href: comingSoonHref('Healing Circles') },

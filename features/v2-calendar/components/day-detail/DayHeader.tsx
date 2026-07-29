@@ -1,7 +1,11 @@
 // §1 — top header: back → month view, title "รายละเอียดวัน", the notification bell, and the avatar. Light-blue
-// glow top-right (Figma). Phase 7 A1: the bell is the ENTRY-POINT to the notifications list (was a static
-// Mate AI glyph → now links to /v2/calendar/notifications; Mate AI lives in the bottom CalendarMenu).
+// glow top-right (Figma). The bell is the ENTRY-POINT to the notifications list (→ /v2/calendar/notifications;
+// Mate AI lives in the bottom CalendarMenu). Bell + avatar now render via the SHARED TopBar* components
+// (ฟีม: one bell/avatar reused everywhere) — the 'mate' skin reproduces this header's EXACT pixels; behaviour
+// (bell = href → notifications, avatar = decorative) is unchanged.
 import Link from 'next/link'
+import { TopBarBell } from '@/features/v2-shell/components/TopBarBell'
+import { TopBarAvatar } from '@/features/v2-shell/components/TopBarAvatar'
 
 export function DayHeader() {
   return (
@@ -16,14 +20,8 @@ export function DayHeader() {
       </Link>
       <h1 className="flex-1 text-xl font-extrabold text-v3-navy">รายละเอียดวัน</h1>
 
-      <Link href="/v2/calendar/notifications" aria-label="การแจ้งเตือน" data-testid="header-notif-bell" className="grid size-10 place-items-center rounded-full bg-gradient-to-br from-v3-mate-teal to-v3-mate-purple">
-        <svg viewBox="0 0 24 24" className="size-6 text-v3-lime" fill="none" aria-hidden>
-          <path d="M12 3.5a5 5 0 0 1 5 5v3l1.4 2.4a1 1 0 0 1-.86 1.5H6.46a1 1 0 0 1-.86-1.5L7 11.5v-3a5 5 0 0 1 5-5Z" stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round" />
-          <path d="M10 18a2 2 0 0 0 4 0" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
-        </svg>
-      </Link>
-
-      <span aria-hidden className="size-10 shrink-0 rounded-full bg-gradient-to-br from-v3-pastel-blue to-v3-mate-purple ring-2 ring-white" />
+      <TopBarBell variant="mate" href="/v2/calendar/notifications" testId="header-notif-bell" />
+      <TopBarAvatar variant="mate" />
     </header>
   )
 }
