@@ -21,17 +21,22 @@ ANCHOR: scripts/pre-push-guard.test.ts#pre-push-protected-branch
 
 ## proof-of-teeth
 
-`npx tsx scripts/pre-push-guard.test.ts` → **6/6 pass**. The test runs the **real shell hook** via `execSync`
-with simulated git stdin (no logic duplicated in TS), so it is ground-truth for a real push:
+`npx tsx scripts/pre-push-guard.test.ts` → **8/8 pass**. The test runs the **real shell hook** via `execSync`
+against **hermetic sandbox repos** it builds itself (each with a controlled `origin/HEAD`), so it does NOT depend
+on the ambient checkout's refs — deterministic in every environment including CI. (First version read the ambient
+`refs/remotes/origin/HEAD`, which CI's checkout doesn't set → it crashed; the hermetic rewrite is the fix — a
+[verify-real-path] miss: green locally where origin/HEAD was set, red on the ship path where it isn't.)
 
-| case (stdin remote-ref) | expected | result |
+| case (sandbox · stdin remote-ref) | expected | result |
 |---|---|---|
-| `refs/heads/main` (the protected branch) | blocked | exit **1** ✓ (done-condition 1) |
-| `refs/heads/feat/x` | allowed | exit **0** ✓ (done-condition 2) |
-| protected mixed with an allowed ref in one push | blocked | exit **1** ✓ |
-| delete protected branch (0-oid) | blocked | exit **1** ✓ |
-| empty push (no refs) | allowed | exit **0** ✓ |
-| `feat/main-ish` (name merely contains "main") | allowed | exit **0** ✓ (exact match only) |
+| protected=main · `refs/heads/main` | blocked | exit **1** ✓ (done-condition 1) |
+| protected=main · `refs/heads/feat/x` | allowed | exit **0** ✓ (done-condition 2) |
+| protected=main · protected mixed with an allowed ref in one push | blocked | exit **1** ✓ |
+| protected=main · delete protected branch (0-oid) | blocked | exit **1** ✓ |
+| protected=main · empty push (no refs) | allowed | exit **0** ✓ |
+| protected=main · `feat/main-ish` (name merely contains "main") | allowed | exit **0** ✓ (exact match only) |
+| protected=**pdf-dev** (bazi-style) · push `pdf-dev` blocked, push `main` **allowed** | per-repo | exit 1 / 0 ✓ (read from git, not hardcoded) |
+| **no origin/HEAD** · push main | fail-OPEN | exit **0** ✓ (a ดัก must not block when it can't tell) |
 
 Real block message shown run-proven (names the protected branch, gives the branch→push→PR recipe, states the
 `--no-verify` caveat).
