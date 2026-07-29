@@ -102,11 +102,10 @@ Cross-oracle, RUN-PROVEN — I do **not** self-certify (charter: ฟันอย
 GitHub + anchored to a commit (บอง's lesson), not just written here.
 - **ตู๋ — ✅ SIGNED-OFF (e38b41a)** for the original contract (kind-gate + gap-fill + person1) — posted on GitHub
   (PR #148 comment, commit-anchored; verifiable via `gh pr view 148`), NOT written by me here.
-  **⏳ person2-enrichment delta (added after e38b41a on μุน's flag) — PENDING ตู๋ re-review** (head moved →
-  ตรวจซ้ำ). New surface to attack: (6) does the friend-detail enrichment fabricate dob/time or strand on error? —
-  mut-D + the applyFriendDetail no-strand test; (7) does a rapid re-select let a stale detail overwrite the newer
-  friend? — the selectTokenRef race-guard; (8) is the detail fetch a forbidden path? — no, member-with-friend GET,
-  done-cond #6/#9 clean.
+  **✅ person2-enrichment delta SIGNED-OFF (c150f4d)** — ตู๋ re-reviewed, posted on GitHub (commit-anchored),
+  verdict: (6) enrichment does NOT fabricate/strand — applyFriendDetail falls back to the instant person2 on
+  error/missing keys; (7) rapid re-select guarded — selectTokenRef applies only the latest selection's detail;
+  (8) NOT a forbidden path — MemberWithFriendGetDetailApi is a member-with-friend GET, #6/#9 preserved.
   Original points ตู๋ attacked + verdict:
   (1) is v1 REALLY untouched? — **Yes**, `git diff` = 0 files in `pages/matching/**` + `constants/api/api-user-matching-*`;
   (2) do the 2 kinds send the RIGHT different types at the VALUE? — **Yes**, useCompatibility derives LOVE/FRIEND, test
