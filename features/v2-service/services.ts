@@ -33,8 +33,9 @@ const DESC_PLAN = ['วางแผนชีวิตตามจังหวะ
 export const comingSoonHref = (title: string): string => `/v2/service/coming-soon?service=${encodeURIComponent(title)}`
 
 export const SERVICES: ServiceCardData[] = [
-  { id: 'couple', title: 'ดูดวงคู่รัก', desc: DESC_FORTUNE, href: comingSoonHref('ดูดวงคู่รัก') },
-  { id: 'coworker', title: 'ดูดวงเพื่อนร่วมงาน', desc: DESC_FORTUNE, href: comingSoonHref('ดูดวงเพื่อนร่วมงาน') },
+  // ดวงสมพงศ์ Slice 1: these two now enter the real compatibility flow (was comingSoonHref).
+  { id: 'couple', title: 'ดูดวงคู่รัก', desc: DESC_FORTUNE, href: '/v2/service/compatibility/love' },
+  { id: 'coworker', title: 'ดูดวงเพื่อนร่วมงาน', desc: DESC_FORTUNE, href: '/v2/service/compatibility/colleague' },
   { id: 'one-book', title: 'หนังสือเล่มเดียวในโลก', desc: DESC_FORTUNE, href: comingSoonHref('หนังสือเล่มเดียวในโลก') },
   { id: 'oracle-kiang', title: 'เสี่ยงไพ่ออราเคิลเคี้ยงคุง', desc: DESC_FORTUNE, href: comingSoonHref('เสี่ยงไพ่ออราเคิลเคี้ยงคุง') },
   { id: 'spirit-heaven', title: 'เสี่ยงไพ่จิตวิญญาณแดนสวรรค์', desc: DESC_FORTUNE, href: comingSoonHref('เสี่ยงไพ่จิตวิญญาณแดนสวรรค์') },
