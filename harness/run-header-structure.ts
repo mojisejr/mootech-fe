@@ -5,7 +5,7 @@
 //   name   — a long name WRAPS (≤2 lines) and is never single-line-clipped; @320 no horizontal overflow.
 //   badge  — the upgrade badge shows ONLY when profile.showUpgrade (goo's boolean); hidden when paid.
 //   avatar — profile.pictureUrl → image; absent → the first-letter fallback.
-//   bell   — tapping the bell opens a panel with a REAL empty state ("ยังไม่มีการแจ้งเตือน"), not silence.
+//   bell   — links to the FULL /v2/calendar/notifications page (ฟีม 2026-07-29: modal parked, full page is the design).
 // Runs against the deterministic home-preview (the anchor gate); the human artifact is the real /v2 capture.
 //   npx tsx harness/run-header-structure.ts   (dev server up; HARNESS_HOST/PORT env-overridable)
 import { chromium, type Browser, type Page } from 'playwright'
@@ -60,13 +60,13 @@ async function main() {
   const avImg = await withPage(browser, 'state=good&pic=y', (p) => p.getByTestId('avatar-letter').count())
   const avatarOk = avLetter === 1 && avImg === 0
 
-  // ── bell → panel with a real empty state ──
-  const bellText = await withPage(browser, 'state=good', async (p) => {
-    await p.getByLabel('การแจ้งเตือน').click()
-    await p.getByTestId('notif-empty').waitFor()
-    return ((await p.getByTestId('notif-empty').textContent()) ?? '').trim()
+  // ── bell → the FULL notifications page (ฟีม 2026-07-29: modal PARKED, full page is the designed screen;
+  //     home bell was a <button> opening NotificationPanel, now a shared-TopBarBell <a> → the page) ──
+  const bell = await withPage(browser, 'state=good', async (p) => {
+    const el = p.getByLabel('การแจ้งเตือน')
+    return { tag: await el.evaluate((e) => e.tagName.toLowerCase()), href: await el.getAttribute('href') }
   })
-  const bellOk = bellText === 'ยังไม่มีการแจ้งเตือน'
+  const bellOk = bell.tag === 'a' && bell.href === '/v2/calendar/notifications'
 
   // ── teeth: re-add a single-line truncate to the name → the long name clips → the no-clip gate rejects ──
   const truncateCaught = await withPage(browser, `state=good&name=${LONG}`, async (p) => {
@@ -83,12 +83,12 @@ async function main() {
   console.log(line(nameOk, 'name wraps ≤2 lines, full text, NOT truncated, no overflowX @320 (THE fix)'))
   console.log(line(badgeOk, `badge shows on default (${badgeDefault}) + hidden when paid (${badgePaid})`))
   console.log(line(avatarOk, `avatar letter without pictureUrl (${avLetter}) + image with it (letter gone: ${avImg})`))
-  console.log(line(bellOk, `bell → panel empty state "${bellText}"`))
+  console.log(line(bellOk, `bell → full page: <${bell.tag}> href=${bell.href}`))
   console.log('  ── teeth ──')
   console.log(teeth(truncateCaught, 'mut-name-truncate: re-add single-line truncate @320 → long name clips'))
 
   const ok = nameOk && badgeOk && avatarOk && bellOk && truncateCaught
-  console.log(`\n  ${ok ? '🟢 STRUCTURE-A PASSED' : '🔴 FAILED'} — name never truncates · badge toggle · avatar fallback · bell empty state\n`)
+  console.log(`\n  ${ok ? '🟢 STRUCTURE-A PASSED' : '🔴 FAILED'} — name never truncates · badge toggle · avatar fallback · bell → full page\n`)
   process.exit(ok ? 0 : 1)
 }
 

@@ -10,7 +10,7 @@
 //   2. SKIN per variant — 'solid' (home/service: cyan ground, glyph-A, unread-dot slot) vs 'mate' (calendar:
 //      mate-gradient, lime glyph-B). Each reproduces its page's CURRENT pixels (verified byte-identical by the
 //      before/after screenshot diff in the evidence: home header 0-diff, calendar 0-diff).
-//   3. PER-PAGE BEHAVIOUR (in-browser) — home bell = a BUTTON (in-page panel, unchanged); calendar bell = a
+//   3. PER-PAGE BEHAVIOUR (in-browser) — home bell = a LINK → notifications (ก้อน 0: modal parked); calendar bell = a
 //      LINK → /v2/calendar/notifications (unchanged); service bell = a LINK → notifications, service avatar =
 //      a BUTTON that opens the logout confirm (ฟีม's new default).
 //
@@ -75,7 +75,9 @@ async function main() {
     await p.getByTestId('greeting-name').waitFor()
     const bell = p.locator('header [aria-label="การแจ้งเตือน"]')
     const tag = await bell.evaluate((el) => el.tagName.toLowerCase()).catch(() => 'missing')
-    check('home bell is a <button> (in-page action, unchanged)', tag === 'button', `got <${tag}>`)
+    const href = await bell.getAttribute('href').catch(() => null)
+    // ก้อน 0 (ฟีม 2026-07-29): home bell now links to the full page (modal parked), like calendar/service.
+    check('home bell is a <a> → /v2/calendar/notifications (full page)', tag === 'a' && href === '/v2/calendar/notifications', `<${tag}> href=${href}`)
     await ctx.close()
   }
 

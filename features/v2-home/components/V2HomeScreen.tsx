@@ -64,7 +64,6 @@ const HERO_FALLBACK = '/images/v2/mascot/01.png'
 
 export function V2HomeScreen({ greeting, mascotCharacter, onLogout, fortune, fortuneLoading, element, profile }: V2HomeScreenProps) {
   const [logoutOpen, setLogoutOpen] = useState(false)
-  const [notifOpen, setNotifOpen] = useState(false)
   return (
     // page bg = bg-cream (Figma Lemon Chiffon) — the CONTINUOUS ground the whole scroll sits on
     <div className="relative min-h-screen w-full overflow-x-hidden bg-v3-bg-cream font-ibm">
@@ -77,7 +76,7 @@ export function V2HomeScreen({ greeting, mascotCharacter, onLogout, fortune, for
 
       {/* ── content column: 393 primary, centred + capped, safe-area top, clears the fixed nav ── */}
       <div className="relative z-10 mx-auto flex w-full max-w-md flex-col px-4 pb-36 pt-[max(0.75rem,env(safe-area-inset-top))]">
-        <Greeting name={greeting.name} mascotCharacter={mascotCharacter} onAvatarTap={() => setLogoutOpen(true)} onBell={() => setNotifOpen(true)} element={element} profile={profile ?? PROFILE_FALLBACK} />
+        <Greeting name={greeting.name} mascotCharacter={mascotCharacter} onAvatarTap={() => setLogoutOpen(true)} element={element} profile={profile ?? PROFILE_FALLBACK} />
         <ScoreRingCard fortune={fortune} loading={fortuneLoading} />
         <ManifestCard mascotCharacter={mascotCharacter} element={element} />
         <SomphongSection />
@@ -88,7 +87,6 @@ export function V2HomeScreen({ greeting, mascotCharacter, onLogout, fortune, for
 
       <CalendarMenu state="default" />
       {logoutOpen && <LogoutModal onClose={() => setLogoutOpen(false)} onConfirm={onLogout} />}
-      {notifOpen && <NotificationPanel onClose={() => setNotifOpen(false)} />}
     </div>
   )
 }
@@ -106,7 +104,7 @@ function MascotImg({ src }: { src: string }) {
 // the name beside the right cluster → guaranteed cut. So: row1 = the "สวัสดีคุณ" LABEL (small, faded — a tag,
 // not a headline) + the tools (badge/bell/avatar, no long text so they never squeeze anyone); row2 = the
 // name at FULL width, bold, wrapping up to 2 lines (never truncated); row3 = the element line (unchanged).
-function Greeting({ name, mascotCharacter, onAvatarTap, onBell, element, profile }: { name: string; mascotCharacter: string; onAvatarTap: () => void; onBell: () => void; element: ElementInfo; profile: Profile }) {
+function Greeting({ name, mascotCharacter, onAvatarTap, element, profile }: { name: string; mascotCharacter: string; onAvatarTap: () => void; element: ElementInfo; profile: Profile }) {
   return (
     <header className="flex flex-col gap-1.5 py-4">
       {/* row1 — label + tools */}
@@ -116,7 +114,10 @@ function Greeting({ name, mascotCharacter, onAvatarTap, onBell, element, profile
         {profile.showUpgrade && (
           <button type="button" className="shrink-0 rounded-full bg-v3-lime px-3 py-1.5 text-sm font-bold leading-5 text-v3-navy">อัพเกรด</button>
         )}
-        <TopBarBell variant="solid" onClick={onBell} />
+        {/* bell → the FULL notifications page (ฟีม: "หน้าเต็มคือหน้าที่ design มา" — modal parked, see
+            NotificationPanel below). Shared TopBarBell: href renders the same-pixel <a> in place of the
+            <button> — home's header does NOT move. */}
+        <TopBarBell variant="solid" href="/v2/calendar/notifications" />
         <TopBarAvatar variant="sapphire" name={name} pictureUrl={profile.pictureUrl} onClick={onAvatarTap} />
       </div>
       {/* row2 — the name, full 361px, bold headline. wrap ≤2 lines, NEVER truncate (break-words handles
@@ -128,8 +129,10 @@ function Greeting({ name, mascotCharacter, onAvatarTap, onBell, element, profile
   )
 }
 
-// notification panel — bottom sheet with a REAL empty state (no backend yet; a chart-user who taps the bell
-// sees this, not silence). When notifications land, fill the list here — the shell doesn't change.
+// notification panel — bottom sheet with a REAL empty state. PARKED, not deleted (Rule 1 · ฟีม 2026-07-29:
+// "เอาหน้าเต็ม แล้วเอา modal เก็บไว้ก่อน เพราะหน้าเต็มคือหน้าที่ design มา"). The home bell now links to the
+// full /v2/calendar/notifications page instead of opening this; kept here so re-instating the modal is a
+// one-line re-wire, never a rebuild. (tsc does not enforce noUnusedLocals, so a parked local is clean.)
 function NotificationPanel({ onClose }: { onClose: () => void }) {
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/30" onClick={onClose}>
