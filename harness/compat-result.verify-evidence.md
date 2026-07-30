@@ -35,8 +35,18 @@ npm run build                                           # ✓ (route /api/bazi/m
   the 2A route response + the 2B mapper. The parser is unit-proven to extract them from the stored JSON string.
 - **day-ganzhi for mascots** comes from `persons.{a,b}.dayGanzhi` (2A profile field) — present, non-fabricated.
 
+## Carry-through: header birthDate/time (บอง's ruling — no BE/bazi change)
+Figma header (636:18819) shows each person's **birthdate + time**. Verified the seam does NOT carry it
+(get-detail returns user/friend as `{name,surname,picture}` — dob/time dropped; bazi persons are ganzhi;
+v1 never rendered a date). บอง's fix (opened `compatibility-api.ts` himself): Slice 1's **CompatPerson already
+holds dob/time** (SEAM GAP CLOSED via the friend-detail enrichment), so the birth data is on the client at
+calculate time — **carry it, don't re-fetch, don't make the engine echo it**. `calculateCompatibility(person1,
+person2, type)` stashes the pair (sessionStorage, keyed by matchingId); `useCompatibilityResult` reads it back
+and `applyCarriedBirth` merges `birthDate`/`time` onto `persons.a/b`. Opening the result directly (parked "ล่าสุด"
+flow, out of scope) → no stash → birthDate/time stay **undefined** → the header hides the line (rule 4).
+
 ## proof-of-teeth
-### Pure parse seam (scripts/compatibility-result.test.ts → ✅ 9/9, mutant-proven)
+### Pure parse seam + carry (scripts/compatibility-result.test.ts → ✅ 13/13, mutant-proven)
 | invariant | result |
 |---|---|
 | parses overall / persons / elementInteraction (+ fourPillars.element, timeKnown) from the get-detail JSON **string** | ✓ |
@@ -47,8 +57,11 @@ npm run build                                           # ✓ (route /api/bazi/m
 | malformed JSON string → **null** (no throw) | ✓ |
 | legacy result with no `pairMatch` (non-bazi engine) → **null** (hook shows fallback, not a blank rich screen) | ✓ |
 | `mascotGanzhiPair` extracts both dayGanzhi; absent / whitespace-only → **undefined** (no fabricated ganzhi) | ✓ |
+| **carry** applyCarriedBirth merges dob/time onto persons position-aligned; pairMatch fields (dayGanzhi) survive | ✓ |
+| **carry** empty / whitespace carried dob·time → **undefined** (rule 4: hide, not blank); no-carry → unchanged | ✓ |
 | 🦷 **mut-A** `dimensions: pm.dimensions ?? []` (default the absent case) | **absent-dimensions test FAILS → CAUGHT** |
 | 🦷 **mut-B** no-pairMatch returns a blank `{persons:{}}` instead of null | **legacy→null test FAILS → CAUGHT** |
+| 🦷 **mut-C** carry leaks raw dob/time (drop `.trim() \|\| undefined`) → '' reaches the header | **rule-4 test FAILS → CAUGHT** |
 
 Both mutants were RUN (not reasoned): each turned the suite red on exactly the assert that owns that behaviour, then
 `compatibility-result.ts` was restored and the suite re-confirmed green (9/9). The teeth are not vacuous.
@@ -85,10 +98,12 @@ the hour pillar. `mascotA/mascotB` may be `undefined` (no ganzhi / not fetched) 
 ## adversary sign-off
 Cross-oracle, RUN-PROVEN — I do **not** self-certify (charter: ฟันอยู่ในมือ oracle อื่น). Seal must be posted on
 GitHub + anchored to a commit, not written here.
-- **ตู๋ — ⏳ PENDING** (this PR opened; `maw hey too` sent). Attack surface to probe: (1) does an absent field leak a
-  default '' / 0 / [] that makes the screen render a fake block? (2) is `dimensions` ever reordered/padded? (3) does a
-  malformed / legacy result throw or strand instead of resolving null? (4) is any forbidden path touched? (5) does the
-  mascot proxy ever throw at the user instead of `{mascot:null}`?
+- **ตู๋ — ✅ SIGNED-OFF (c726159)** for the original parse seam (5 attack points closed — posted on GitHub PR #152,
+  commit-anchored, verified via `gh pr view 152`, NOT written by me here). **⏳ carry-through delta PENDING re-seal**:
+  this commit adds `applyCarriedBirth` + the sessionStorage carry + `calculateCompatibility(person1,person2)` — HEAD
+  moved, so the seal floats. Delta to re-probe: (6) does empty/whitespace carried dob·time leak '' to the header
+  instead of undefined? (7) is the carry position-aligned (a↔a) or can it cross persons? (8) direct-link/no-carry →
+  does it strand or show a blank date instead of hiding the line?
 - **goo** — data/seam owner; no UI/pixels claimed (μุน's 2E). `calculateCompatibility` has a side effect (creates a log
   + consumes quota) — the button's client state machine (fire-once, error-keeps-user-on-input) is μุน's 2E lane, flagged
   in the hook's doc.

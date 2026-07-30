@@ -12,6 +12,7 @@
 import assert from 'node:assert/strict'
 import {
   parseCompatibilityResult,
+  applyCarriedBirth,
   mascotGanzhiPair,
   type CompatibilityResult,
 } from '../features/v2-service/compatibility-result'
@@ -103,6 +104,38 @@ t('mascotGanzhiPair → undefined for absent / empty ganzhi (no fabricated ganzh
   assert.deepEqual(mascotGanzhiPair(null), { a: undefined, b: undefined })
   const oneEmpty = { result: JSON.stringify({ pairMatch: { persons: { a: { dayGanzhi: '甲子' }, b: { dayGanzhi: '  ' } } } }) }
   assert.deepEqual(mascotGanzhiPair(parseCompatibilityResult(oneEmpty)), { a: '甲子', b: undefined })
+})
+
+// ── carry-through: birthDate/time carried from the form onto the header (no re-fetch) ──
+t('applyCarriedBirth merges dob/time onto persons (position-aligned a↔a, b↔b)', () => {
+  const r = parseCompatibilityResult(getDetailResponse) as CompatibilityResult
+  const merged = applyCarriedBirth(r, {
+    a: { name: 'เอ', dob: '1994-06-14', time: '09:30' },
+    b: { name: 'บี', dob: '1992-08-01', time: '05:30' },
+  }) as CompatibilityResult
+  assert.equal(merged.persons.a?.birthDate, '1994-06-14')
+  assert.equal(merged.persons.a?.time, '09:30')
+  assert.equal(merged.persons.b?.birthDate, '1992-08-01')
+  // pairMatch fields survive the merge (dayGanzhi still there)
+  assert.equal(merged.persons.a?.dayGanzhi, '己巳')
+})
+
+t('carried empty / whitespace dob·time → undefined (rule 4: hide the line, not blank)', () => {
+  const r = parseCompatibilityResult(getDetailResponse) as CompatibilityResult
+  const merged = applyCarriedBirth(r, { a: { name: 'เอ', dob: '1994-06-14', time: '' }, b: { dob: '   ', time: '  ' } }) as CompatibilityResult
+  assert.equal(merged.persons.a?.time, undefined) // unknown birth time → "—", not ''
+  assert.equal(merged.persons.b?.birthDate, undefined) // whitespace → undefined, not a blank line
+})
+
+t('no carry (direct-link / parked flow) → persons unchanged, birthDate undefined', () => {
+  const r = parseCompatibilityResult(getDetailResponse) as CompatibilityResult
+  const merged = applyCarriedBirth(r, null) as CompatibilityResult
+  assert.equal(merged.persons.a?.birthDate, undefined)
+  assert.equal(merged.persons.a?.dayGanzhi, '己巳') // rich data intact
+})
+
+t('applyCarriedBirth on a null result stays null (no crash)', () => {
+  assert.equal(applyCarriedBirth(null, { a: { dob: '1994-06-14' } }), null)
 })
 
 console.log(`\ncompatibility-result: ${pass} passed`)

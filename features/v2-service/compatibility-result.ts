@@ -35,7 +35,19 @@ export type CompatResultPerson = {
   /** false → the hour was unknown; the screen shows "—" for the hour pillar (never a fake value). */
   timeKnown?: boolean
   fourPillars?: CompatFourPillars
+  /**
+   * Header birthdate line (Figma 636:18819). CARRIED from the form's CompatPerson at calculate time
+   * (NOT re-fetched, NOT echoed by the engine) — the raw values, the screen formats to พ.ศ./Thai.
+   * `undefined` when the result was opened directly without the form (parked "ล่าสุด" flow) → the screen
+   * hides the birthdate line rather than showing a blank/fake value (rule 4).
+   */
+  birthDate?: string // YYYY-MM-DD
+  time?: string // HH:mm — undefined when the birth time is unknown (→ show "—")
 }
+
+/** The birth fields carried forward from the calculate step (a slim slice of Slice 1's CompatPerson). */
+export type CarriedBirth = { name?: string; dob?: string; time?: string }
+export type CarriedPersons = { a?: CarriedBirth; b?: CarriedBirth }
 
 export type CompatOverall = {
   percent?: number | null
@@ -136,5 +148,41 @@ export function mascotGanzhiPair(
   return {
     a: a && a.trim() ? a.trim() : undefined,
     b: b && b.trim() ? b.trim() : undefined,
+  }
+}
+
+/**
+ * Merge the birthDate/time CARRIED from the form onto the result persons (the header line).
+ * PURE. '' / whitespace → undefined (rule 4: hide the line, never show a blank/fake). No carry
+ * (direct-link / parked "ล่าสุด" flow) → persons unchanged (birthDate/time stay undefined).
+ * Position-aligned: carried.a ↔ persons.a (the user), carried.b ↔ persons.b (the friend) — the same
+ * order calculateCompatibility sends (userId→personA, friendId→personB).
+ */
+export function applyCarriedBirth(
+  result: CompatibilityResult | null,
+  carried: CarriedPersons | null | undefined,
+): CompatibilityResult | null {
+  if (!result || !carried) return result
+  const merge = (
+    p: CompatResultPerson | undefined,
+    c: CarriedBirth | undefined,
+  ): CompatResultPerson | undefined => {
+    if (!p && !c) return p
+    const birthDate = c?.dob?.trim() || undefined
+    const time = c?.time?.trim() || undefined
+    const name = c?.name?.trim() || undefined
+    return {
+      ...(p ?? {}),
+      displayName: p?.displayName ?? name,
+      birthDate,
+      time,
+    }
+  }
+  return {
+    ...result,
+    persons: {
+      a: merge(result.persons.a, carried.a),
+      b: merge(result.persons.b, carried.b),
+    },
   }
 }
