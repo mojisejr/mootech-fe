@@ -112,19 +112,33 @@ export function CompatibilityScreen({ config }: { config: CompatibilityConfig })
     setCalculating(true)
     setCalcError(false)
     const res = await calculateCompatibility(c.person1, c.person2, c.matchingType)
-    if (res.ok) {
-      // leaving this screen — keep the latch closed so nothing can re-fire during the navigate
-      router.push(`/v2/service/compatibility/result/${res.matchingId}`)
-    } else {
+    if (!res.ok) {
+      firingRef.current = false
+      setCalculating(false)
+      setCalcError(true)
+      return
+    }
+    // The quota was ALREADY spent (calc succeeded). router.push returns a Promise; if the navigation is
+    // rejected (a thrown getServerSideProps on the result route) OR cancelled (resolves false), an
+    // un-awaited push would leave calculating=true + the latch closed → the user is stranded on the loader
+    // FOREVER (ตู๋'s reported symptom; the real cause is here, not a calc throw — calc is fully try/caught).
+    // So await it and, on any non-success, release the latch and fall back to the form with the error (D34).
+    try {
+      const navigated = await router.push(`/v2/service/compatibility/result/${res.matchingId}`)
+      if (!navigated) throw new Error('navigation-prevented')
+      // navigated OK → this screen is unmounting; keep the latch closed so nothing re-fires mid-navigate.
+    } catch {
       firingRef.current = false
       setCalculating(false)
       setCalcError(true)
     }
   }
 
-  // 2F/D30+D32: while the calc is in flight, replace the whole form with the SAME loader (SAME copy, D35)
-  // the result screen uses. Client-nav to the result page keeps this loader painted until the result
-  // mounts its own identical loader → one continuous wait, no white flash between the two screens.
+  // 2F/D30+D32: while the calc is in flight, replace the whole form with the SAME loader + SAME copy (D35)
+  // the result screen uses. Next's client-nav keeps this page mounted until the result route's data
+  // resolves, then swaps to the result — which mounts already-loading with the identical loader. Same
+  // component + copy means no content/copy swap across the two phases (the frame-level rAF trace in
+  // run-compat-2f.ts checks role=status is present every frame across the handoff).
   if (calculating) {
     return <LoadingScreen title={COMPAT_CALC_LOADING.title} subtitle={COMPAT_CALC_LOADING.subtitle} />
   }

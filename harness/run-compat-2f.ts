@@ -106,7 +106,10 @@ async function main() {
       await seed(ctx)
       const page = await ctx.newPage()
       const errs: string[] = []
-      page.on('console', (m) => { if (m.type() === 'error') errs.push(m.text()) })
+      const warns: string[] = []
+      // design-verify.yml gates on CONSOLE NOISE, so a "harmless" warning can redden the harness — capture
+      // warnings too (esp. a React setState-after-unmount if the success path ever touched state; it must not).
+      page.on('console', (m) => { if (m.type() === 'error') errs.push(m.text()); if (m.type() === 'warning') warns.push(m.text()) })
       const counter = { n: 0 }
       await wire(page, { calcDelayMs: 900, calcResult: 'ok', counter })
       await reachEnabledForm(page)
@@ -125,6 +128,19 @@ async function main() {
       const btnBg = await page.$eval('[data-testid="compat-view-result"]', (el) => getComputedStyle(el as HTMLElement).backgroundColor)
       check('button PAINTS enabled (sapphire, not gray) when both people set', btnBg === SAPPHIRE, btnBg)
       await page.screenshot({ path: path.join(SHOT_DIR, 'compat-2f-1-form-ready.png') })
+
+      // D32 continuity — a still screenshot CANNOT prove the absence of a transient white frame across the
+      // form→result nav (it can't catch the sub-second handoff; ตู๋ was right, I was overclaiming). Instead
+      // record role=status presence every animation frame: client-nav is SAME-DOCUMENT, so this rAF loop
+      // survives the route swap and gives a frame-level trace of the handoff.
+      // string-eval (NOT an arrow fn) so tsx/esbuild's keepNames helper isn't injected into the page context
+      await page.evaluate(`
+        window.__frames = [];
+        (function loop(){
+          window.__frames.push(document.querySelectorAll('[role="status"]').length);
+          window.__raf = requestAnimationFrame(loop);
+        })();
+      `)
 
       // D33: the strongest fire-once test — dispatch 5 real DOM clicks in ONE synchronous tick, before React
       // can re-render. A `calculating` state var alone would let the 2nd–5th clicks re-enter onViewResult with
@@ -150,7 +166,19 @@ async function main() {
       await page.locator('[data-testid="compat-result-screen"][data-state="ready"]').waitFor({ timeout: 12000 })
       check('D33 calc fired EXACTLY once on rapid multi-tap', counter.n === 1, `count=${counter.n}`)
       await page.screenshot({ path: path.join(SHOT_DIR, 'compat-2f-3-result.png') })
-      check('console errors = 0', errs.length === 0, errs.join(' | '))
+
+      // D32 frame-level continuity: stop the recorder; within the loader-active span (first loader frame →
+      // last loader frame, i.e. the whole form-loader→handoff→result-loader window) there must be NO frame
+      // with zero role=status — a 0 sandwiched between 1s is exactly a blank flash. CAVEAT (stated in
+      // evidence): rAF ~60fps → this bounds a flash to < ~16ms; a sub-frame blank is below this and below
+      // human perception, so this OBSERVES continuity at frame granularity — it does not prove zero-flash absolutely.
+      const frames = (await page.evaluate(`(function(){ cancelAnimationFrame(window.__raf); return window.__frames; })()`)) as number[]
+      const firstOne = frames.findIndex((n) => n >= 1)
+      const lastOne = frames.length - 1 - [...frames].reverse().findIndex((n) => n >= 1)
+      const gapZeros = firstOne >= 0 ? frames.slice(firstOne, lastOne + 1).filter((n) => n === 0).length : -1
+      check('D32 no blank frame between form-loader & result (rAF trace)', gapZeros === 0, `frames=${frames.length} loaderSpan=[${firstOne}..${lastOne}] blankFrames=${gapZeros}`)
+
+      check('console errors + warnings = 0 (design-verify noise gate)', errs.length === 0 && warns.length === 0, [...errs.map((e) => 'E:' + e), ...warns.map((w) => 'W:' + w)].join(' | '))
       await ctx.close()
     }
 
@@ -186,6 +214,33 @@ async function main() {
       const loaderGone = (await page.locator('[role="status"]').count()) === 0
       check('D34 error → back on the FORM (compat-screen visible)', backOnForm)
       check('D34 error → NOT stranded on the loader', loaderGone)
+      await ctx.close()
+    }
+
+    // ---- 4) D34b (ตู๋ catch — the REAL hole): calc OK (quota spent) but router.push FAILS → recover ----------
+    // An un-awaited push, if rejected (route cancelled / thrown gSSP) or resolving false (nav prevented),
+    // would leave calculating=true + the latch closed → the user is stranded on the loader forever. The fix
+    // awaits push in try/catch and treats reject OR !navigated as failure → release + back to form + error.
+    // A network-mock can't force this in Next dev (it hard-falls-back on data/chunk errors), so we override
+    // push on Next's SINGLETON router (window.next.router — the same instance useRouter() returns) to fail
+    // deterministically WITHOUT navigating away, so the "recover on the form" behaviour is observable.
+    // (This is also the tooth for the hole: revert the await+catch and the rejected push strands the loader.)
+    for (const c of [
+      { name: 'reject', stub: `(function(){ window.next.router.push = function(){ return Promise.reject(new Error('forced-reject')) } })()` },
+      { name: 'false', stub: `(function(){ window.next.router.push = function(){ return Promise.resolve(false) } })()` },
+    ]) {
+      const ctx = await browser.newContext({ viewport: { width: 393, height: 852 }, deviceScaleFactor: 2, reducedMotion: 'reduce' })
+      await seed(ctx)
+      const page = await ctx.newPage()
+      await wire(page, { calcDelayMs: 30, calcResult: 'ok' })
+      await reachEnabledForm(page)
+      await page.evaluate(c.stub)                                    // make the upcoming push fail
+      await page.$eval('[data-testid="compat-view-result"]', (el) => (el as HTMLElement).click())
+      await page.locator('[data-testid="compat-result-error"]').waitFor({ timeout: 6000 }) // hangs here if stranded
+      const backOnForm2 = (await page.locator('[data-testid="compat-screen"]').count()) === 1
+      const loaderGone2 = (await page.locator('[role="status"]').count()) === 0
+      const canRetry = (await page.locator('[data-testid="compat-view-result"]:not([disabled])').count()) === 1
+      check(`D34b push ${c.name} → back on FORM, loader released, retry possible (not stranded)`, backOnForm2 && loaderGone2 && canRetry, `form=${backOnForm2} loaderGone=${loaderGone2} retry=${canRetry}`)
       await ctx.close()
     }
   } finally {
