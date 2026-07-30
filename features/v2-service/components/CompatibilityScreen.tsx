@@ -12,12 +12,14 @@
 import { useState } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
+import { useRouter } from 'next/router'
 import { Menubar } from '@/features/v2-shell/components/Menubar'
 import { TopBarBell } from '@/features/v2-shell/components/TopBarBell'
 import { TopBarAvatar } from '@/features/v2-shell/components/TopBarAvatar'
 import { LogoutModal } from '@/features/v2-shell/components/LogoutModal'
 import { useV2Logout } from '@/features/auth/hooks/useV2Logout'
 import { useCompatibility, type CompatPerson } from '../hooks/useCompatibility'
+import { calculateCompatibility } from '../hooks/useCompatibilityResult'
 import type { CompatibilityConfig } from '../compatibility'
 import { formatCompatBirth } from './compat-format'
 import { CompatSelectFriendModal } from './CompatSelectFriendModal'
@@ -88,6 +90,26 @@ export function CompatibilityScreen({ config }: { config: CompatibilityConfig })
   const [selectOpen, setSelectOpen] = useState(false)
   const [addOpen, setAddOpen] = useState(false)
   const [comingSoon, setComingSoon] = useState<string | null>(null)
+  const router = useRouter()
+  const [calculating, setCalculating] = useState(false)
+  const [calcError, setCalcError] = useState(false)
+
+  // The view-result flow (μุน's lane per goo's 2C note): calculateCompatibility has a SIDE-EFFECT
+  // (creates a log row + consumes the user's matching quota), so it must fire ONCE. Guard double-tap and
+  // in-flight; on success navigate to the result route with the returned id; on error KEEP the user on
+  // this screen and surface it (never navigate to a blank result).
+  async function onViewResult() {
+    if (!c.canViewResult || calculating || !c.person1 || !c.person2) return
+    setCalculating(true)
+    setCalcError(false)
+    const res = await calculateCompatibility(c.person1, c.person2, c.matchingType)
+    if (res.ok) {
+      router.push(`/v2/service/compatibility/result/${res.matchingId}`)
+    } else {
+      setCalculating(false)
+      setCalcError(true)
+    }
+  }
 
   return (
     <div data-testid="compat-screen" data-matching-type={c.matchingType} className="relative min-h-screen w-full overflow-x-hidden bg-v3-bg-cream font-ibm">
@@ -125,24 +147,29 @@ export function CompatibilityScreen({ config }: { config: CompatibilityConfig })
           {/* row 2 — เลือกเพื่อน/คู่รัก → wrapped v1 modal; filled → name+picture now, dob enriches (skeleton) */}
           <ProfileRow person={c.person2} loadingDob={c.loadingPerson2} onEdit={() => setSelectOpen(true)} onPick={() => setSelectOpen(true)} testId="compat-person2" emptyLabel="เลือกเพื่อน / คู่รัก" />
 
-          {/* button — gray until BOTH people (done-cond #5). Slice 1: result flow not built → honest placeholder */}
+          {/* button — gray until BOTH people (done-cond #5). Slice 2E: fires the (side-effecting) calc ONCE,
+              then navigates to the result route. Disabled while calculating so it can't double-fire. */}
           <button
             type="button"
             data-testid="compat-view-result"
-            disabled={!c.canViewResult}
-            aria-disabled={!c.canViewResult}
-            onClick={() => c.canViewResult && setComingSoon('ผลลัพธ์ดูดวงสมพงศ์')}
+            disabled={!c.canViewResult || calculating}
+            aria-disabled={!c.canViewResult || calculating}
+            aria-busy={calculating}
+            onClick={onViewResult}
             className={[
               'w-full rounded-[100px] py-3.5 text-center font-poppins-v3 text-[16px] font-semibold text-white transition-colors',
-              c.canViewResult ? 'bg-v3-sapphire' : 'cursor-not-allowed bg-v3-disabled-bg',
+              c.canViewResult && !calculating ? 'bg-v3-sapphire' : 'cursor-not-allowed bg-v3-disabled-bg',
             ].join(' ')}
           >
-            ดูผลลัพธ์เลย
+            {calculating ? 'กำลังคำนวณ…' : 'ดูผลลัพธ์เลย'}
           </button>
 
-          {/* honest placeholder for the result slice (done-cond #8) — hidden by default, surfaced when tapping
-              the enabled button; kept in the DOM for goo's contract anchor. */}
-          <p data-testid="compat-result-placeholder" className="sr-only">ผลลัพธ์กำลังมา เร็วๆ นี้</p>
+          {/* calc error → stay on this screen (done-cond: no navigate to a blank result), surface honestly */}
+          {calcError ? (
+            <p role="alert" data-testid="compat-result-error" className="text-center text-[14px] font-medium text-v3-error">
+              คำนวณไม่สำเร็จ ลองอีกครั้ง
+            </p>
+          ) : null}
 
           {/* "ดูดวงสมพงศ์ล่าสุด" — ฟีม: พักไว้ = placeholder ("เรากำลังจะทำอันใหม่"), honest not-open */}
           <button type="button" onClick={() => setComingSoon('ดูดวงสมพงศ์ล่าสุด')} className="mt-1 text-[16px] font-normal leading-6 text-v3-cyan underline">

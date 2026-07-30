@@ -3,6 +3,7 @@
 // DayDetail; the extra chips + วันพระ copy come from the Figma-frozen content module (see content.ts TODO).
 import type { DayDetail } from '../../types'
 import type { DayFortuneContent } from './content'
+import { ScoreRing } from './ScoreRing'
 
 const THAI_DOW_FULL = ['อาทิตย์', 'จันทร์', 'อังคาร', 'พุธ', 'พฤหัสบดี', 'ศุกร์', 'เสาร์']
 const THAI_MONTHS = ['มกราคม', 'กุมภาพันธ์', 'มีนาคม', 'เมษายน', 'พฤษภาคม', 'มิถุนายน', 'กรกฎาคม', 'สิงหาคม', 'กันยายน', 'ตุลาคม', 'พฤศจิกายน', 'ธันวาคม']
@@ -15,25 +16,8 @@ function thaiDate(iso: string): string {
   return `${dow}ที่ ${d} ${THAI_MONTHS[m - 1]} ${y + 543}`
 }
 
-// The lime-progress / navy-track hero ring with a lime inner disc + navy grade + %.
-function ScoreRing({ grade, percent }: { grade: string; percent: number }) {
-  const R = 46
-  const C = 2 * Math.PI * R
-  const pct = Math.max(0, Math.min(100, percent))
-  return (
-    <div className="relative grid size-[132px] place-items-center">
-      <svg viewBox="0 0 120 120" className="size-[132px] -rotate-90">
-        <circle cx="60" cy="60" r={R} fill="none" stroke="#1B3A6B" strokeWidth="11" />
-        <circle cx="60" cy="60" r={R} fill="none" stroke="#E1FF00" strokeWidth="11" strokeLinecap="round" strokeDasharray={C} strokeDashoffset={C * (1 - pct / 100)} />
-        <circle cx="60" cy="60" r="30" fill="#E1FF00" />
-      </svg>
-      <span className="absolute flex flex-col items-center leading-none">
-        <span className="text-[34px] font-extrabold text-v3-navy">{grade}</span>
-        <span className="mt-0.5 text-sm font-bold text-v3-navy">{percent}%</span>
-      </span>
-    </div>
-  )
-}
+// ScoreRing (the lime-progress / navy-track hero ring) is now a shared primitive in ./ScoreRing —
+// reused by the compatibility result score card (ดวงสมพงศ์ 2E) instead of duplicated. Markup unchanged.
 
 export function DayScoreCard({ detail, content }: { detail: DayDetail; content: DayFortuneContent }) {
   return (
