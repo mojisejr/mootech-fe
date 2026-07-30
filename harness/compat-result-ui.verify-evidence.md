@@ -38,9 +38,15 @@ The get-detail endpoint (`/user-matching/detail`) is route-mocked → **no BE, n
 **verify-the-instrument (negative control):** baseline reads clean; the mutant trips **only** `#hide-absent` — the birth-SHOWS check + D17/D20/score/overview/fallback all stay green — so the tooth is isolated to the exact rule-4 invariant.
 
 ## REUSE (D24/D25 — borrow, no code dup)
-- **ScoreRing** — extracted from `DayScoreCard` to `day-detail/ScoreRing.tsx` (byte-identical markup → the calendar score is unchanged), reused by the compat score card. No new hex (D25).
+- **ScoreRing** — extracted from `DayScoreCard` to `day-detail/ScoreRing.tsx`, reused by the compat score card. No new hex (D25).
 - **SectionCard** — reused as-is for ภาพรวม.
 - **LoadingScreen** — the 2D component, for D17.
+
+## 🔬 Shipped-code surgery proof (ScoreRing extraction — PIXELS, not tsc)
+`DayScoreCard.tsx` is a **shipped** component (the calendar รายละเอียดวัน page — ฟีม has live customers on it). Extracting `ScoreRing` edits it, and the Slice-1 lesson is: **a same-looking diff has fooled us before** (import path / CSS order / tree-shake) → surgery on shipped code must be proven with **rendered pixels**, not `tsc`/eyeballed diff.
+- Rendered the calendar day-score card @393 BEFORE (origin/main's inline `ScoreRing`) and AFTER (the extracted primitive), same fixture, `reducedMotion`.
+- `pixelmatch` (threshold 0.1): **changed pixels 0 / 464968 = 0.0000% → PIXEL-IDENTICAL.** The two PNGs are even byte-identical (204554 B each).
+- Artifacts: `harness/pixel-proof/dayscore-before-393.png` · `…-after-393.png` (+ all-black diff). The extraction did not move the calendar score card by one pixel. *(บอง review-catch 2026-07-30 — a correct one; my PR proved the two NEW surfaces but not the surgery on the shipped one.)*
 
 ## fire-once button (μุน's lane)
 The state-machine (guard double-tap · loading · error-stays-on-picker · navigate-only-on-ok) is logic-complete + tsc-typed. Its full browser fire-once proof needs the picker mounted with two people (the run-compat-ui setup) and **rides with 2E-2** (which mounts the picker + dimensions). Flagged, not silently skipped.
