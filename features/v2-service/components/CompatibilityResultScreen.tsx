@@ -16,6 +16,7 @@ import { LoadingScreen } from '@/features/v2-shell/components/LoadingScreen'
 import { useCompatibilityResult } from '../hooks/useCompatibilityResult'
 import type { CompatResultPerson } from '../compatibility-result'
 import { formatCompatBirth } from './compat-format'
+import { COMPAT_CALC_LOADING } from './compat-loading-copy'
 
 function BackChevron() {
   return (
@@ -55,9 +56,11 @@ function Hearts({ n }: { n: number }) {
 export function CompatibilityResultScreen({ matchingId }: { matchingId: string }) {
   const r = useCompatibilityResult(matchingId)
 
-  // D17 — the real "รอผลคำนวณ" wait: the reusable LoadingScreen (Slice 2D) mounted on the result read.
+  // D17/2F — the second half of the wait: the SAME loader with the SAME copy the form showed (D32/D35),
+  // so navigating form → result is one continuous screen. The heavy calc already ran on the form; this
+  // covers the (fast) read-back of the finished result.
   if (r.loading) {
-    return <LoadingScreen title="กำลังคำนวณดวงสมพงศ์" subtitle="กรุณาอย่าปิดหน้านี้ ระบบกำลังประมวลผล" />
+    return <LoadingScreen title={COMPAT_CALC_LOADING.title} subtitle={COMPAT_CALC_LOADING.subtitle} />
   }
 
   // no result / parse failure → honest fallback (never a spinner, never fabricated data)

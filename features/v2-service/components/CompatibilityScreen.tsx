@@ -9,7 +9,7 @@
 //  • person1 "แก้ไข" (edit your own birth info) is in the Figma but NOT in Slice 1's real-work list (select +
 //    create only; no self-edit API is wired). Rendered per Figma; wired to a placeholder "เร็วๆ นี้" sheet so
 //    it is honest (never a dead-silent button), pending บอง's call on where self-edit lands.
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
 import { useRouter } from 'next/router'
@@ -17,11 +17,13 @@ import { Menubar } from '@/features/v2-shell/components/Menubar'
 import { TopBarBell } from '@/features/v2-shell/components/TopBarBell'
 import { TopBarAvatar } from '@/features/v2-shell/components/TopBarAvatar'
 import { LogoutModal } from '@/features/v2-shell/components/LogoutModal'
+import { LoadingScreen } from '@/features/v2-shell/components/LoadingScreen'
 import { useV2Logout } from '@/features/auth/hooks/useV2Logout'
 import { useCompatibility, type CompatPerson } from '../hooks/useCompatibility'
 import { calculateCompatibility } from '../hooks/useCompatibilityResult'
 import type { CompatibilityConfig } from '../compatibility'
 import { formatCompatBirth } from './compat-format'
+import { COMPAT_CALC_LOADING } from './compat-loading-copy'
 import { CompatSelectFriendModal } from './CompatSelectFriendModal'
 import { AddFriendSheet } from './AddFriendSheet'
 import { ComingSoonSheet } from './ComingSoonSheet'
@@ -93,22 +95,38 @@ export function CompatibilityScreen({ config }: { config: CompatibilityConfig })
   const router = useRouter()
   const [calculating, setCalculating] = useState(false)
   const [calcError, setCalcError] = useState(false)
+  // Fire-once latch. calculateCompatibility has NO in-flight guard of its own (it consumes the user's
+  // matching quota + writes a log row), and the hook's comment hands that guard to THIS state machine.
+  // A `calculating` state var alone is racy: a synchronous double-tap re-enters onViewResult before the
+  // re-render, so its closure still sees calculating=false and fires twice. A ref latches in the SAME
+  // tick → the second tap short-circuits. (D33: still fired from here, once — the call site is unchanged.)
+  const firingRef = useRef(false)
 
-  // The view-result flow (μุน's lane per goo's 2C note): calculateCompatibility has a SIDE-EFFECT
-  // (creates a log row + consumes the user's matching quota), so it must fire ONCE. Guard double-tap and
-  // in-flight; on success navigate to the result route with the returned id; on error KEEP the user on
-  // this screen and surface it (never navigate to a blank result).
+  // The view-result flow (μุน's lane per goo's 2C note): fire the side-effecting calc ONCE, then cover the
+  // whole form with the loader (2F/D30) so the wait shows here — where the heavy work actually is — instead
+  // of behind the button. On success navigate to the result route; on error KEEP the user on this screen,
+  // release the latch, and surface it (D34 — never strand on the loader, never navigate to a blank result).
   async function onViewResult() {
-    if (!c.canViewResult || calculating || !c.person1 || !c.person2) return
+    if (!c.canViewResult || firingRef.current || !c.person1 || !c.person2) return
+    firingRef.current = true
     setCalculating(true)
     setCalcError(false)
     const res = await calculateCompatibility(c.person1, c.person2, c.matchingType)
     if (res.ok) {
+      // leaving this screen — keep the latch closed so nothing can re-fire during the navigate
       router.push(`/v2/service/compatibility/result/${res.matchingId}`)
     } else {
+      firingRef.current = false
       setCalculating(false)
       setCalcError(true)
     }
+  }
+
+  // 2F/D30+D32: while the calc is in flight, replace the whole form with the SAME loader (SAME copy, D35)
+  // the result screen uses. Client-nav to the result page keeps this loader painted until the result
+  // mounts its own identical loader → one continuous wait, no white flash between the two screens.
+  if (calculating) {
+    return <LoadingScreen title={COMPAT_CALC_LOADING.title} subtitle={COMPAT_CALC_LOADING.subtitle} />
   }
 
   return (
@@ -147,21 +165,21 @@ export function CompatibilityScreen({ config }: { config: CompatibilityConfig })
           {/* row 2 — เลือกเพื่อน/คู่รัก → wrapped v1 modal; filled → name+picture now, dob enriches (skeleton) */}
           <ProfileRow person={c.person2} loadingDob={c.loadingPerson2} onEdit={() => setSelectOpen(true)} onPick={() => setSelectOpen(true)} testId="compat-person2" emptyLabel="เลือกเพื่อน / คู่รัก" />
 
-          {/* button — gray until BOTH people (done-cond #5). Slice 2E: fires the (side-effecting) calc ONCE,
-              then navigates to the result route. Disabled while calculating so it can't double-fire. */}
+          {/* button — gray until BOTH people (done-cond #5). Fires the (side-effecting) calc ONCE (guarded by
+              firingRef), then the whole form swaps to the loader. 2F/D31: the button no longer carries a
+              loading state — the wait lives on the full-screen loader, never on this label. */}
           <button
             type="button"
             data-testid="compat-view-result"
-            disabled={!c.canViewResult || calculating}
-            aria-disabled={!c.canViewResult || calculating}
-            aria-busy={calculating}
+            disabled={!c.canViewResult}
+            aria-disabled={!c.canViewResult}
             onClick={onViewResult}
             className={[
               'w-full rounded-[100px] py-3.5 text-center font-poppins-v3 text-[16px] font-semibold text-white transition-colors',
-              c.canViewResult && !calculating ? 'bg-v3-sapphire' : 'cursor-not-allowed bg-v3-disabled-bg',
+              c.canViewResult ? 'bg-v3-sapphire' : 'cursor-not-allowed bg-v3-disabled-bg',
             ].join(' ')}
           >
-            {calculating ? 'กำลังคำนวณ…' : 'ดูผลลัพธ์เลย'}
+            ดูผลลัพธ์เลย
           </button>
 
           {/* calc error → stay on this screen (done-cond: no navigate to a blank result), surface honestly */}
