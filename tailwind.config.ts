@@ -206,6 +206,10 @@ const config: Config = {
       },
       animation: {
         'gradient-shift': 'gradientShift 6s ease infinite',
+        // LoadingScreen (2D): gentle mascot bob + sparkle twinkle. Used via `motion-safe:` only —
+        // prefers-reduced-motion falls back to the static resting pose (translateY(0) / full opacity).
+        'mascot-float': 'mascotFloat 2.8s ease-in-out infinite',
+        'sparkle-twinkle': 'sparkleTwinkle 2s ease-in-out infinite',
       },
       keyframes: {
         gradientShift: {
@@ -215,6 +219,14 @@ const config: Config = {
           '50%': {
             backgroundPosition: '100% 50%',
           },
+        },
+        mascotFloat: {
+          '0%, 100%': { transform: 'translateY(0)' },
+          '50%': { transform: 'translateY(-8px)' },
+        },
+        sparkleTwinkle: {
+          '0%, 100%': { opacity: '0.55', transform: 'scale(0.85)' },
+          '50%': { opacity: '1', transform: 'scale(1.1)' },
         },
       },
       backgroundSize: {
