@@ -26,13 +26,12 @@ t('all 13 grades map to a defined tier', () => {
   }
 })
 
-// (2) THE ANTI-TRAP INVARIANT (holds regardless of where ฟีม sets the "strong" threshold):
-//     tone is CONSISTENT within a leading letter — A+/A/A- identical, B+/B/B- identical, etc.
-//     A grade of A- must never get a different badge from A just because of the minus.
-t('tone is consistent within each leading letter (A+ == A == A-, …)', () => {
-  const byLetter: Record<string, string[]> = {}
-  for (const g of ALL_13) (byLetter[g.charAt(0)] ??= []).push(g)
-  for (const [letter, grades] of Object.entries(byLetter)) {
+// (2) THE ANTI-TRAP INVARIANT — tone is CONSISTENT within a leading letter for A, C, D. (B is DELIBERATELY
+//     split by ฟีม's threshold: B+ strong, B/B- none — so B is excluded here and pinned explicitly in (3b).)
+//     For A/C/D, a +/- variant must never get a different badge just because of the sign.
+t('tone is consistent within the A, C, D letters (A+ == A == A-, etc.)', () => {
+  for (const letter of ['A', 'C', 'D']) {
+    const grades = ALL_13.filter((g) => g.charAt(0) === letter)
     const tones = grades.map((g) => String(deriveTone(g)))
     assert.equal(new Set(tones).size, 1, `letter ${letter}: ${grades.join('/')} → ${tones.join(',')} (must be identical)`)
   }
@@ -46,6 +45,13 @@ t('A+ and A- get a badge (NOT null) — the exact silent bug', () => {
   assert.equal(deriveTone('A-'), aTone, 'A- must match A')
 })
 
+// (3b) THE B-FAMILY SPLIT (ฟีม's threshold makes B non-uniform) — pinned so no one "fixes" it back to uniform.
+t('B family splits: B+ → strong, B and B- → null (ฟีม threshold, intentional)', () => {
+  assert.equal(deriveTone('B+'), 'strong', 'B+ is a strength')
+  assert.equal(deriveTone('B'), null, 'B is NOT a strength (≈ mid) — no badge')
+  assert.equal(deriveTone('B-'), null, 'B- (≈55%) is NOT a strength — no badge')
+})
+
 // (4) bar-tier colour buckets read from Figma 636:18819 (A/B green · C+ lime · C/C- orange · D/F red)
 t('bar tiers per Figma: A*/B*=good, C+=fair, C/C-=weak, D*/F=poor', () => {
   const expect: Record<string, GradeTier> = {
@@ -56,12 +62,11 @@ t('bar tiers per Figma: A*/B*=good, C+=fair, C/C-=weak, D*/F=poor', () => {
   for (const g of ALL_13) assert.equal(gradeTier(g), expect[g], `${g}`)
 })
 
-// (5) PROVISIONAL — the concrete strong/watch mapping while ฟีม's exact cutoff is pending.
-//     ⚠️ When ฟีม sets where "จุดแข็ง" begins, update deriveTone AND this block together. The invariants
-//     in (2)+(3) are the permanent guards; this one documents today's behaviour.
-t('[provisional, pending ฟีม] good→strong, poor→watch, fair/weak→null', () => {
+// (5) The concrete strong/watch mapping — ฟีม-ruled 2026-07-31 (no longer provisional).
+//     strong = all A + B+ · watch = all D + F · none = all C, B, B-.
+t('ฟีม mapping: A*+B+ → strong, D*+F → watch, C*/B/B- → null', () => {
   const expect: Record<string, DimTone> = {
-    'A+': 'strong', 'A': 'strong', 'A-': 'strong', 'B+': 'strong', 'B': 'strong', 'B-': 'strong',
+    'A+': 'strong', 'A': 'strong', 'A-': 'strong', 'B+': 'strong', 'B': null, 'B-': null,
     'C+': null, 'C': null, 'C-': null,
     'D+': 'watch', 'D': 'watch', 'D-': 'watch', 'F': 'watch',
   }

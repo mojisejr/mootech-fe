@@ -25,17 +25,23 @@ export const TIER_COLOR: Record<GradeTier, string> = {
   poor: '#C0392B', // deep red (the D- pill)
 }
 
-// The tone badge in Figma appears only on the extremes (A→"จุดแข็ง", D/F→"ต้องดูแล"); mid grades show none.
-// ⚠️ CONTRACT NOTE: CompatDimension has NO `tone` field. This is a UI-DERIVED encoding of the grade the
-// engine already returned — NOT fabricated data. If webgang wants tone to be authoritative (engine-decided),
-// goo adds `tone: 'strong'|'watch'` to the contract and the card should prefer that over this derivation.
+// ⚠️ CONTRACT NOTE: CompatDimension has NO `tone` field (confirmed by บอง against the engine — manvsday.ts
+// computes the star/warn at display time too, nothing is stored). This is a UI encoding of the grade the
+// engine already returned — NOT fabricated data.
+// THRESHOLD (ฟีม-ruled 2026-07-31, customer-facing wording for a relationship): "จุดแข็ง" = ALL A (A+/A/A-)
+// PLUS B+ only; "ต้องดูแล" = ALL D (D+/D/D-) PLUS F; everything else — all C AND B AND B- — shows NO badge.
+// Reason: B- ≈ 55%, and calling that a "strength" for a love reading overclaims. NOTE this makes B+ ≠ B, so
+// tone is NOT uniform within the B letter (it IS within A, C, D) — the test encodes that split explicitly.
+// Keyed off the grade DIRECTLY (not gradeTier): B/B- are green-tier for the BAR but earn no badge.
 export type DimTone = 'strong' | 'watch' | null
 
 export function deriveTone(grade?: string | null): DimTone {
-  const tier = gradeTier(grade)
-  if (tier === 'good') return 'strong'
-  if (tier === 'poor') return 'watch'
-  return null // fair / weak → no badge, matching the Figma
+  const g = (grade ?? '').trim().toUpperCase()
+  if (!g) return null
+  const letter = g.charAt(0)
+  if (letter === 'A' || g === 'B+') return 'strong' // all A + B+ only
+  if (letter === 'D' || g === 'F') return 'watch' // all D + F
+  return null // C+, C, C-, B, B- → no badge
 }
 
 export const TONE_TEXT: Record<'strong' | 'watch', string> = {
