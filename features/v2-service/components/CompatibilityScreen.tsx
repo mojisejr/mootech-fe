@@ -203,8 +203,8 @@ export function CompatibilityScreen({ config }: { config: CompatibilityConfig })
             </p>
           ) : null}
 
-          {/* "ดูดวงสมพงศ์ล่าสุด" — ฟีม: พักไว้ = placeholder ("เรากำลังจะทำอันใหม่"), honest not-open */}
-          <button type="button" onClick={() => setComingSoon('ดูดวงสมพงศ์ล่าสุด')} className="mt-1 text-[16px] font-normal leading-6 text-v3-cyan underline">
+          {/* "ดูดวงสมพงศ์ล่าสุด" — 2G/D38: was a ComingSoon placeholder; now opens the history list. */}
+          <button type="button" onClick={() => router.push('/v2/service/compatibility/recent')} className="mt-1 text-[16px] font-normal leading-6 text-v3-cyan underline">
             ดูดวงสมพงศ์ล่าสุด
           </button>
         </div>
