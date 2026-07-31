@@ -1,14 +1,13 @@
-// features/v2-service/components/CompatibilityResultScreen.tsx — ดวงสมพงศ์ Slice 2E-1 (Figma 636:18819).
-// COMPOSES goo's useCompatibilityResult (the result seam). Slice 2E-1 = the REACHABLE SPINE + top of the
-// result: D17 loader while the calc is read, an honest fallback when there is no result, then the header
-// (D20), the score card, and the ภาพรวม text. The rest of the frame — รายด้าน (D22) · สี่เสา+ธาตุ · รายคน
-// (D21) · มาสคอต · แท็บ · D26 3-case shots — is Slice 2E-2 (marked below).
+// features/v2-service/components/CompatibilityResultScreen.tsx — ดวงสมพงศ์ Slice 2E (Figma 636:18819).
+// 2E-1 shipped the REACHABLE SPINE (loader · fallback · header D20 · score · ภาพรวม). 2E-2 wires the rest:
+// รายมิติ (D22) · ธาตุ & เสา (D45 ปฏิกิริยาธาตุ + D44 สี่เสา) · รายคน (D21 + D46 มาสคอต) · the D47 pill tabs.
 //
-// D20: the header title is "ผลดวงสมพงศ์" — NOT "รายละเอียดวัน" (that string is a Figma copy-paste from the
-//      calendar day screen). D25: grade/score colours come from the shared ScoreRing primitive, no new hex.
-// Rule 4 (ไม่มีข้อมูล = ไม่แสดง): every field is optional; an absent field HIDES its line/block — never a
-//      fabricated 0/''/placeholder. The birthdate line is hidden when birthDate is absent (direct-link /
-//      parked "ล่าสุด" flow), which is also the ฟีม-declared out-of-scope case.
+// Rule 4 (ไม่มีข้อมูล = ไม่แสดง): every field optional; an absent field/section HIDES — never a fabricated block.
+// D47 (ฟีม: "มีก็เอา ไม่มีก็ไม่เอา"): a tab appears ONLY when its section has data — never an empty tab to make 4.
+// GOLDEN RULE 6: the SPINE (header/person cards/score/ภาพรวม) is kept byte-identical to the shipped 2E-1, and
+//   the tabs render null when < 2 sections have data — so the "only-overall" state is pixel-identical to main
+//   (proven in compat-2e2.verify-evidence.md); the new sections are purely additive.
+import { useState } from 'react'
 import Link from 'next/link'
 import { SectionCard } from '@/features/v2-calendar/components/day-detail/SectionCard'
 import { ScoreRing } from '@/features/v2-calendar/components/day-detail/ScoreRing'
@@ -17,6 +16,12 @@ import { useCompatibilityResult } from '../hooks/useCompatibilityResult'
 import type { CompatResultPerson } from '../compatibility-result'
 import { formatCompatBirth } from './compat-format'
 import { COMPAT_CALC_LOADING } from './compat-loading-copy'
+import { CompatResultTabs, type CompatTab } from './CompatResultTabs'
+import { CompatDimensionCard } from './CompatDimensionCard'
+import { CompatElementInteractionCard } from './CompatElementInteractionCard'
+import { CompatFourPillarsTable } from './CompatFourPillarsTable'
+import { CompatPersonDetail } from './CompatPersonDetail'
+import { CompatMascotCard } from './CompatMascotCard'
 
 function BackChevron() {
   return (
@@ -53,8 +58,13 @@ function Hearts({ n }: { n: number }) {
   )
 }
 
+function personHasDetail(p?: CompatResultPerson): boolean {
+  return !!(p && (p.dayGanzhi || p.stageTh || p.elementTh || (p.nisai && p.nisai.length)))
+}
+
 export function CompatibilityResultScreen({ matchingId }: { matchingId: string }) {
   const r = useCompatibilityResult(matchingId)
+  const [activeTab, setActiveTab] = useState('overview')
 
   // D17/2F — the second half of the wait: the SAME loader with the SAME copy the form showed (D32/D35),
   // so navigating form → result is one continuous screen. The heavy calc already ran on the form; this
@@ -75,6 +85,27 @@ export function CompatibilityResultScreen({ matchingId }: { matchingId: string }
   }
 
   const { overall, persons } = r.result
+  const dims = r.result.dimensions ?? []
+  const ei = r.result.elementInteraction
+  const { mascotA, mascotB } = r
+
+  // D47 — which sections actually have data → which tabs to show (never an empty tab)
+  const hasOverview = !!(overall && (overall.ratingText || overall.grade != null || overall.percent != null))
+  const hasDims = dims.length > 0
+  const hasElement = !!(ei && (ei.summaryTh || ei.aElementTh || ei.bElementTh)) || !!(persons?.a?.fourPillars || persons?.b?.fourPillars)
+  const hasPeople = personHasDetail(persons?.a) || personHasDetail(persons?.b) || !!mascotA || !!mascotB
+  const tabs: CompatTab[] = [
+    hasOverview ? { key: 'overview', label: 'ภาพรวม' } : null,
+    hasDims ? { key: 'dims', label: 'รายมิติ' } : null,
+    hasElement ? { key: 'element', label: 'ธาตุ & เสา' } : null,
+    hasPeople ? { key: 'people', label: 'รายคน' } : null,
+  ].filter((t): t is CompatTab => t !== null)
+
+  const onTab = (key: string) => {
+    setActiveTab(key)
+    if (key === 'overview') { if (typeof window !== 'undefined') window.scrollTo({ top: 0, behavior: 'smooth' }); return }
+    document.getElementById(`compat-sec-${key}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }
 
   return (
     <div data-testid="compat-result-screen" data-state="ready" className="relative min-h-screen w-full overflow-x-hidden bg-v3-bg-cream font-ibm">
@@ -90,6 +121,14 @@ export function CompatibilityResultScreen({ matchingId }: { matchingId: string }
           <HeaderPerson person={persons?.a} roleLabel="ตัวเรา" testId="compat-result-person-a" />
           <HeaderPerson person={persons?.b} roleLabel="เขา" testId="compat-result-person-b" />
         </div>
+
+        {/* D47 tabs — render ONLY when ≥2 sections have data (null in the minimal state → spine identical to main).
+            sticky so they stay usable while scrolling. Additive: absent in the golden-rule-6 pixel-proof state. */}
+        {tabs.length >= 2 ? (
+          <div className="sticky top-0 z-20 -mx-4 bg-v3-bg-cream/95 px-4 py-2 backdrop-blur-sm">
+            <CompatResultTabs tabs={tabs} active={activeTab} onSelect={onTab} />
+          </div>
+        ) : null}
 
         {/* score card — reuses the shared ScoreRing (D24/D25); grade/percent/hearts/emoji from overall (rule 4: hide absent) */}
         {overall && (overall.grade != null || overall.percent != null || overall.hearts != null || overall.emoji != null) ? (
@@ -114,7 +153,37 @@ export function CompatibilityResultScreen({ matchingId }: { matchingId: string }
           </SectionCard>
         ) : null}
 
-        {/* ── Slice 2E-2 continues here: รายด้าน (D22) · สี่เสา+ธาตุ · รายคน (D21) · มาสคอต · แท็บ · D26 3-case shots ── */}
+        {/* ── 2E-2 sections (additive; each renders only with data — rule 4 + D47) ── */}
+        {/* รายมิติ (D22) — dimensions VERBATIM (love 5 / colleague 4, no default); isMain emphasised, tone derived */}
+        {hasDims ? (
+          <section id="compat-sec-dims" data-testid="compat-sec-dims" className="flex scroll-mt-16 flex-col gap-3">
+            <h2 className="text-[16px] font-bold text-v3-navy">ความเข้ากัน {dims.length} ด้าน</h2>
+            {dims.map((d, i) => <CompatDimensionCard key={d.key ?? i} dimension={d} />)}
+          </section>
+        ) : null}
+
+        {/* ธาตุ & เสา (D45 ปฏิกิริยาธาตุ + D44 สี่เสา; D23: timeKnown=false → ยาม "—") */}
+        {hasElement ? (
+          <section id="compat-sec-element" data-testid="compat-sec-element" className="flex scroll-mt-16 flex-col gap-3">
+            <CompatElementInteractionCard interaction={ei} />
+            <CompatFourPillarsTable person={persons?.a} roleLabel="ตัวเรา" />
+            <CompatFourPillarsTable person={persons?.b} roleLabel="เขา" />
+          </section>
+        ) : null}
+
+        {/* รายคน (D21 per-person + D46 มาสคอต; null mascot → hidden card) */}
+        {hasPeople ? (
+          <section id="compat-sec-people" data-testid="compat-sec-people" className="flex scroll-mt-16 flex-col gap-3">
+            {(mascotA || mascotB) ? (
+              <div className="flex gap-3">
+                <div className="flex-1"><CompatMascotCard mascot={mascotA} roleLabel="ตัวเรา" /></div>
+                <div className="flex-1"><CompatMascotCard mascot={mascotB} roleLabel="เขา" /></div>
+              </div>
+            ) : null}
+            <CompatPersonDetail person={persons?.a} roleLabel="ตัวเรา" />
+            <CompatPersonDetail person={persons?.b} roleLabel="เขา" />
+          </section>
+        ) : null}
       </div>
     </div>
   )
