@@ -43,10 +43,16 @@ export type CompatResultPerson = {
    */
   birthDate?: string // YYYY-MM-DD
   time?: string // HH:mm — undefined when the birth time is unknown (→ show "—")
+  /**
+   * 3C hero: the person's real photo, CARRIED from the form's CompatPerson.imageProfile through the same
+   * sessionStorage pipe as birthDate (goo's seam, extended with ฟีม's OK). Opened from history (no pipe) →
+   * undefined → the hero shows the mascot alone, no fabricated photo (rule 4, same as the birthdate line).
+   */
+  imageProfile?: string
 }
 
 /** The birth fields carried forward from the calculate step (a slim slice of Slice 1's CompatPerson). */
-export type CarriedBirth = { name?: string; dob?: string; time?: string }
+export type CarriedBirth = { name?: string; dob?: string; time?: string; imageProfile?: string }
 export type CarriedPersons = { a?: CarriedBirth; b?: CarriedBirth }
 
 export type CompatOverall = {
@@ -171,11 +177,13 @@ export function applyCarriedBirth(
     const birthDate = c?.dob?.trim() || undefined
     const time = c?.time?.trim() || undefined
     const name = c?.name?.trim() || undefined
+    const imageProfile = c?.imageProfile?.trim() || undefined // 3C: carried the form photo for the hero
     return {
       ...(p ?? {}),
       displayName: p?.displayName ?? name,
       birthDate,
       time,
+      imageProfile,
     }
   }
   return {

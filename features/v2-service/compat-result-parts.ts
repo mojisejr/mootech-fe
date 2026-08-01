@@ -59,6 +59,22 @@ export function pctWidth(percent?: number | null): number {
 // The contract only carries the Thai element name (elementTh), so this is a fixed TRANSLATION (น้ำ↔水 is a
 // fact, not fabricated data). An unrecognised string → { hanzi: '', ... neutral } → the card shows the Thai
 // text alone (never a wrong char). Keys cover the common Thai spellings the engine emits.
+// 3C hero highlights (gap #2) — the blue-frame summary shows the strongest + weakest dimension with its %.
+// DERIVED from the dimensions the engine already returned (best = max %, worst = min %), not a new field and
+// not fabricated: it just re-surfaces existing numbers. The Figma's lead sentence ("คู่นี้ไม่ได้ราบรื่น…") has
+// NO contract source, so it is OMITTED (rule 4) — flagged for ฟีม/goo. No dimensions → {} → the summary hides.
+import type { CompatDimension } from './compatibility-result'
+export type DimHighlight = { label: string; percent: number }
+export function deriveHeroHighlights(dims?: CompatDimension[]): { best?: DimHighlight; worst?: DimHighlight } {
+  const usable: DimHighlight[] = (dims ?? [])
+    .filter((d) => d.percent != null && (d.label || d.pairingLabel))
+    .map((d) => ({ label: (d.label ?? d.pairingLabel ?? '').trim(), percent: d.percent as number }))
+  if (usable.length === 0) return {}
+  const best = usable.reduce((a, b) => (b.percent > a.percent ? b : a))
+  const worst = usable.reduce((a, b) => (b.percent < a.percent ? b : a))
+  return { best, worst: worst.label === best.label ? undefined : worst } // single dim → no distinct "worst"
+}
+
 export type WuXing = { hanzi: string; bg: string; fg: string }
 const NEUTRAL: WuXing = { hanzi: '', bg: '#EEF1F4', fg: '#464646' }
 const WUXING: Record<string, WuXing> = {
