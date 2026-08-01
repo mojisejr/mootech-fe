@@ -59,9 +59,27 @@ CAPTURE_HOST=http://localhost:3028 npx tsx harness/run-compat-3c.ts     # 16/16
 | sections still render below (dims/element/people) · console 0 | ✓ |
 | 🦷 `mut-fake-photo` (render a photo when imageProfile absent) | **HISTORY rule-4 photo check → CAUGHT** |
 
-## 🚩 flagged (my spec's gaps — proceeded on defaults per ฟีม "go A + reference your spec"; confirm at PR)
+## ✅ RESOLVED — ฟีม decision (2026-08-02)
+- **hearts + emoji CUT** (2E-1's gradient score card rendered them; the Figma hero has no place for them).
+  ฟีม ruled: **match the Figma first → keep them cut.** Recorded as a DECISION, not a silent drop — this is
+  the important one because it is a **SHIPPED element being removed** (the same bug-class as the Slice-1 gender
+  field: something that already rendered quietly disappearing). It was flagged, escalated to ฟีม by บอง, and
+  ruled — not dropped blind.
+
+### 🔎 shipped-removal audit (what the 2E-1 result screen rendered that the 3C hero does NOT)
+Enumerated the old `CompatibilityResultScreen` render vs the new hero, so nothing vanishes unflagged:
+| old (main) rendered | 3C hero | verdict |
+|---|---|---|
+| header chip: name + birthdate | hero: name + birthdate | PRESERVED (moved) |
+| score card: ScoreRing + gradeLabel | hero: ScoreRing + gradeLabel | PRESERVED |
+| score card: **hearts + emoji** | — | **REMOVED — ฟีม-ruled (above)** |
+| name-absent fallback "—" | roleLabel "คุณ"/"เขา" | changed fallback (role label, not a fabricated name) — minor, noted |
+| white ภาพรวม · dims · element · people | unchanged (same components) | PRESERVED |
+| CompatMascotCard (white cards, รายคน) | hero mascot illustration | MOVED (now unused component — kept, not deleted) |
+**Only hearts + emoji is a true shipped-removal; everything else is preserved or moved. No other silent drop.**
+
+## 🚩 still open — the OTHER flags (these are NEW things never shipped, a different class from the above)
 - **highlights lead sentence** (Figma "คู่นี้ไม่ได้ราบรื่น…") — no contract field → **omitted** (rule 4); only the derivable best/worst shown.
-- **hearts/emoji** (2E-1 had them) — no place in the Figma hero → **omitted**; confirm if they belong elsewhere.
 - **corner element sprites** — decorative, no assets → **omitted** pending assets.
 - **name label** = `displayName` (real data). Figma shows "โปเตโต้" for the friend which may be a mascot name — confirm if ฟีม wants `mascot.nameTh` instead.
 
