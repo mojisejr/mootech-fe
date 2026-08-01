@@ -37,8 +37,8 @@ export function rememberCompatPersons(matchingId: string, a: CompatPerson, b: Co
   if (typeof window === 'undefined' || !matchingId) return
   try {
     const carried: CarriedPersons = {
-      a: { name: a?.name, dob: a?.dob, time: a?.time },
-      b: { name: b?.name, dob: b?.dob, time: b?.time },
+      a: { name: a?.name, dob: a?.dob, time: a?.time, imageProfile: a?.imageProfile }, // 3C: + photo for the hero
+      b: { name: b?.name, dob: b?.dob, time: b?.time, imageProfile: b?.imageProfile },
     }
     window.sessionStorage.setItem(CARRY_PREFIX + matchingId, JSON.stringify(carried))
   } catch {

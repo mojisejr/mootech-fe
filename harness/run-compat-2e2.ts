@@ -113,7 +113,7 @@ async function main() {
       check('D45 ปฏิกิริยาธาตุ renders', (await page.locator('[data-testid="compat-element-interaction"]').count()) === 1)
       check('D44 สี่เสา renders for both persons', (await page.locator('[data-testid="compat-fourpillars"]').count()) === 2)
       check('D21 รายคน renders for both persons', (await page.locator('[data-testid="compat-person-detail"]').count()) === 2)
-      check('D46 มาสคอต card renders', (await page.locator('[data-testid="compat-mascot-card"]').count()) >= 1)
+      check('D46 mascot moved into the hero (3C)', (await page.locator('[data-testid="compat-result-hero"]').count()) === 1)
       // tab click scrolls → the section is in view (data-active updates)
       await page.locator('[data-testid="compat-tab-people"]').click()
       const active = await page.locator('[data-testid="compat-tab-people"]').getAttribute('data-active')
@@ -151,7 +151,7 @@ async function main() {
       check('minimal: NO รายมิติ section', (await page.locator('[data-testid="compat-sec-dims"]').count()) === 0)
       check('minimal: NO ธาตุ&เสา section', (await page.locator('[data-testid="compat-sec-element"]').count()) === 0)
       check('minimal: NO รายคน section', (await page.locator('[data-testid="compat-sec-people"]').count()) === 0)
-      check('minimal: spine still present (score + ภาพรวม)', (await page.locator('[data-testid="compat-result-score"]').count()) === 1 && (await page.locator('[data-testid="compat-result-overview"]').count()) === 1)
+      check('minimal: hero (with score) + ภาพรวม present', (await page.locator('[data-testid="compat-result-hero"]').count()) === 1 && (await page.locator('[data-testid="compat-result-overview"]').count()) === 1)
       await ctx.close()
     }
   } finally {
