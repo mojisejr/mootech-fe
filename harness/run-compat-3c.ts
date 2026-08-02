@@ -121,10 +121,14 @@ async function main() {
       await ctx.close()
     }
 
-    // ---- 4) HISTORY (no carry): photo + birthdate HIDDEN (rule 4), name still shows ---------------------
+    // ---- 4) HISTORY (no carry): NO fabricated real photo + NO birthdate (rule 4), name still shows.
+    //         The avatar slot is NOT empty though — a Mumate-logo FALLBACK fills it (ฟีม 2026-08-03). That is a
+    //         branded placeholder, NOT fabricated user data, so rule 4 (don't invent a real photo) still holds:
+    //         `-photo` stays absent (mut-fake-photo still trips on it); `-avatar-fallback` is the legit stand-in.
     {
       const { ctx, page } = await load(browser, detailBody({ dims: LOVE_DIMS, carry: false }), 'HISTORY')
-      check('rule-4: NO photo when opened from history (no carry)', (await page.locator('[data-testid="compat-result-person-a-photo"]').count()) === 0)
+      check('rule-4: NO fabricated real photo when opened from history (no carry)', (await page.locator('[data-testid="compat-result-person-a-photo"]').count()) === 0)
+      check('avatar fallback SHOWS when no photo (ฟีม 2026-08-03 — branded, not fabricated)', (await page.locator('[data-testid="compat-result-person-a-avatar-fallback"]').count()) === 1)
       check('rule-4: NO birthdate when no carry', (await page.locator('[data-testid="compat-result-person-a-birth"]').count()) === 0)
       check('name STILL shows (always-present label)', (await page.locator('[data-testid="compat-result-person-a-name"]').count()) === 1)
       await ctx.close()

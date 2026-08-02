@@ -35,12 +35,20 @@ function HeroPerson({ person, mascot, roleLabel, testId }: {
           <Image src={img} alt={name || roleLabel} fill sizes="180px" style={{ objectFit: 'cover' }} />
         </span>
       ) : null}
-      {/* real photo circle — overlaps the mascot card's bottom when both exist; standalone otherwise */}
-      {photo ? (
-        <span data-testid={`${testId}-photo`} className={`relative grid size-14 place-items-center overflow-hidden rounded-full ring-2 ring-v3-lime ${img ? '-mt-7' : 'mt-1'}`}>
+      {/* avatar circle — the real photo if the form carried one; otherwise a Mumate-logo fallback so the slot
+          is never empty (ฟีม 2026-08-03: teal-fill brand mark). Overlaps the mascot card's bottom when a mascot
+          exists; standalone otherwise. */}
+      <span
+        data-testid={photo ? `${testId}-photo` : `${testId}-avatar-fallback`}
+        className={`relative grid size-14 place-items-center overflow-hidden rounded-full ring-2 ring-v3-lime ${img ? '-mt-7' : 'mt-1'}`}
+      >
+        {photo ? (
           <Image src={photo} alt="" fill sizes="56px" style={{ objectFit: 'cover' }} />
-        </span>
-      ) : null}
+        ) : (
+          // eslint-disable-next-line @next/next/no-img-element -- local brand SVG (embedded raster); object-cover fills the teal edge-to-edge inside the ring
+          <img src="/images/mumate/ic_logo_app.svg" alt="" className="size-full object-cover" />
+        )}
+      </span>
       <span data-testid={`${testId}-name`} className="mt-1 truncate text-[16px] font-bold text-white">{name || roleLabel}</span>
       {birth ? <span data-testid={`${testId}-birth`} className="text-[12px] font-normal text-white/80">{birth}</span> : null}
     </div>
@@ -59,8 +67,8 @@ export function CompatResultHero({ overall, persons, dimensions, mascotA, mascot
   const { best, worst } = deriveHeroHighlights(dimensions)
 
   return (
-    <section data-testid="compat-result-hero" className="flex flex-col items-center gap-4 rounded-[24px] bg-v3-navy px-5 py-6 text-center">
-      {hasScore ? <ScoreRing grade={overall!.grade!} percent={overall!.percent!} /> : null}
+    <section data-testid="compat-result-hero" className="flex flex-col items-center gap-4 rounded-[24px] bg-v3-sapphire px-5 py-6 text-center">
+      {hasScore ? <ScoreRing grade={overall!.grade!} percent={overall!.percent!} onDark /> : null}
       {tagline ? <p data-testid="compat-hero-tagline" className="text-[22px] font-bold leading-8 text-white">{tagline}</p> : null}
       {/* derived highlights — strongest + weakest dimension (rule 4: hidden when no dimensions) */}
       {best ? (
