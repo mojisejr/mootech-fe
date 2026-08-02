@@ -57,10 +57,10 @@ on a fabricated *real* photo (the rule-4 tooth is intact), while the fallback is
 A branded placeholder ≠ inventing user data.
 
 ## Pixel proof @393 (real route · real chain fe proxy → bazi prod → prod scenic image)
-- `after2-compat.png` — full result: **sapphire card + open donut (lime A / white 82% / #083C7B track) +
+- `harness/pixel-proof/compat-donut-avatar-after.png` — full result: **sapphire card + open donut (lime A / white 82% / #083C7B track) +
   teal-fill fallback avatars + scenic mascot cards**.
-- `after-vs-figma.png` — our hero beside Figma 636:19061 → card colour, donut treatment, cards, avatars match.
-- `ring-3surfaces.png` — the shared ring BEFORE (lime disc) vs AFTER (open) on **navy / calendar-pastel /
+- `harness/pixel-proof/compat-donut-avatar-vs-figma.png` — our hero beside Figma 636:19061 → card colour, donut treatment, cards, avatars match.
+- `harness/pixel-proof/compat-donut-ring-3surfaces.png` — the shared ring BEFORE (lime disc) vs AFTER (open) on **navy / calendar-pastel /
   home-white-cyan**: light-bg text stays navy & legible (the negative-control for the shared change).
 - `donut-compare.png` — the original coin vs Figma's open ring (the "ยังไม่สวย" root).
 
@@ -77,7 +77,7 @@ A branded placeholder ≠ inventing user data.
 ## adversary sign-off
 Cross-oracle, RUN-PROVEN — I do **not** self-certify.
 - **ตู๋ — ⏳ PENDING.** Attack points: (1) shared-ScoreRing — does the calendar/home ring stay LEGIBLE on
-  light bg? white-% regression? → `ring-3surfaces.png` shows navy text on both light surfaces (onDark default
+  light bg? white-% regression? → `harness/pixel-proof/compat-donut-ring-3surfaces.png` shows navy text on both light surfaces (onDark default
   false). (2) is the fallback fabricating user data? → no: distinct `-avatar-fallback` testid, `-photo` still
   absent, `mut-fake-photo` still bites. (3) colour "เป๊ะ"? → sampled hex recorded (#1455A4 / #083C7B), not
   eyeballed. (4) forbidden paths? → 0 files. (5) golden rule 6 — the shared ScoreRing edit is INTENTIONAL and
