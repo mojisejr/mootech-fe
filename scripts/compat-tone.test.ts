@@ -8,7 +8,7 @@
 //
 // ANCHOR: scripts/compat-tone.test.ts#compat-tone-13-levels
 import assert from 'node:assert/strict'
-import { gradeTier, deriveTone, type GradeTier, type DimTone } from '../features/v2-service/compat-result-parts'
+import { gradeTier, deriveTone, TIER_COLOR, type GradeTier, type DimTone } from '../features/v2-service/compat-result-parts'
 
 let pass = 0
 function t(name: string, fn: () => void) {
@@ -22,7 +22,7 @@ const ALL_13 = ['F', 'D-', 'D', 'D+', 'C-', 'C', 'C+', 'B-', 'B', 'B+', 'A-', 'A
 t('all 13 grades map to a defined tier', () => {
   for (const g of ALL_13) {
     const tier = gradeTier(g)
-    assert.ok(['good', 'fair', 'weak', 'poor'].includes(tier), `${g} → ${tier}`)
+    assert.ok(['best', 'good', 'fair', 'weak', 'poor'].includes(tier), `${g} → ${tier}`)
   }
 })
 
@@ -52,14 +52,22 @@ t('B family splits: B+ → strong, B and B- → null (ฟีม threshold, inten
   assert.equal(deriveTone('B-'), null, 'B- (≈55%) is NOT a strength — no badge')
 })
 
-// (4) bar-tier colour buckets read from Figma 636:18819 (A/B green · C+ lime · C/C- orange · D/F red)
-t('bar tiers per Figma: A*/B*=good, C+=fair, C/C-=weak, D*/F=poor', () => {
+// (4) bar-tier colour buckets RE-SAMPLED from Figma 636:19532 (Zone 2, 2026-08-03). The node draws FIVE
+//     steps, so A separated from B (deep green vs green). ฟีม ruled plain "C" joins C- on orange.
+//     A* = best · B* = good · C+ = fair · C/C- = weak · D*/F = poor.
+t('bar tiers per Figma Zone 2: A*=best, B*=good, C+=fair, C/C-=weak, D*/F=poor', () => {
   const expect: Record<string, GradeTier> = {
-    'A+': 'good', 'A': 'good', 'A-': 'good', 'B+': 'good', 'B': 'good', 'B-': 'good',
+    'A+': 'best', 'A': 'best', 'A-': 'best', 'B+': 'good', 'B': 'good', 'B-': 'good',
     'C+': 'fair', 'C': 'weak', 'C-': 'weak',
     'D+': 'poor', 'D': 'poor', 'D-': 'poor', 'F': 'poor',
   }
   for (const g of ALL_13) assert.equal(gradeTier(g), expect[g], `${g}`)
+})
+
+// (4b) the A/B split is the NEW invariant — a regression that re-merges them into one green trips here.
+t('A and B are DIFFERENT tiers + different colours (Figma draws two greens)', () => {
+  assert.notEqual(gradeTier('A'), gradeTier('B'), 'A and B must not share a tier')
+  assert.notEqual(TIER_COLOR[gradeTier('A')], TIER_COLOR[gradeTier('B')], 'A and B must not share a colour')
 })
 
 // (5) The concrete strong/watch mapping — ฟีม-ruled 2026-07-31 (no longer provisional).
