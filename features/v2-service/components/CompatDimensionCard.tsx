@@ -7,12 +7,13 @@
 // 2F+2G merge). `tone` is optional: pass the engine's tone when the contract gains one; otherwise it derives
 // from grade (a UI encoding — see compat-result-parts.ts). sising (เสือขาว) rides on the dimension per contract.
 import type { CompatDimension } from '../compatibility-result'
-import { gradeTier, TIER_COLOR, deriveTone, TONE_TEXT, pctWidth, type DimTone } from '../compat-result-parts'
+import { gradeTier, TIER_COLOR, TIER_SOFT, TIER_INK, deriveTone, TONE_TEXT, pctWidth, type DimTone } from '../compat-result-parts'
 
 function HeartIcon() {
+  // Figma 636:19532-sampled: pale-blue tile #EAF0FA, orange heart #FF6800.
   return (
-    <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-v3-ghost-white">
-      <svg viewBox="0 0 24 24" className="size-6" fill="#FF6B4A" aria-hidden>
+    <span className="grid size-10 shrink-0 place-items-center rounded-xl" style={{ backgroundColor: '#EAF0FA' }}>
+      <svg viewBox="0 0 24 24" className="size-6" fill="#FF6800" aria-hidden>
         <path d="M12 21s-7-4.4-9.3-8.7C1.1 9.1 2.7 6 5.9 6c1.9 0 3.2 1.1 4.1 2.3C10.9 7.1 12.2 6 14.1 6c3.2 0 4.8 3.1 3.2 6.3C19 16.6 12 21 12 21Z" />
       </svg>
     </span>
@@ -35,7 +36,7 @@ export function CompatDimensionCard({ dimension, tone: toneProp }: { dimension: 
     <section
       data-testid="compat-dim-card"
       data-main={dimension.isMain ? 'true' : undefined}
-      className={`flex flex-col gap-3 rounded-2xl bg-white p-4 ${dimension.isMain ? 'ring-2 ring-v3-sapphire/40' : ''}`}
+      className={`flex flex-col gap-3 ${dimension.isMain ? 'rounded-2xl p-3 ring-2 ring-v3-sapphire/40' : ''}`}
     >
       <div className="flex items-start gap-3">
         <HeartIcon />
@@ -55,18 +56,20 @@ export function CompatDimensionCard({ dimension, tone: toneProp }: { dimension: 
           {hasPercent ? (
             <div className="flex items-center gap-2">
               <span className="h-2 flex-1 overflow-hidden rounded-full bg-v3-ghost-white">
-                <span className="block h-full rounded-full" style={{ width: `${pctWidth(dimension.percent)}%`, backgroundColor: color }} />
+                <span data-testid="compat-dim-bar" className="block h-full rounded-full" style={{ width: `${pctWidth(dimension.percent)}%`, backgroundColor: color }} />
               </span>
               <span className="shrink-0 text-[13px] font-bold text-v3-text-body" style={{ color }}>{dimension.percent}%</span>
               {dimension.grade ? (
-                <span data-testid="compat-dim-grade" className="grid size-8 shrink-0 place-items-center rounded-full text-[13px] font-extrabold text-white" style={{ backgroundColor: color }}>{dimension.grade}</span>
+                <span data-testid="compat-dim-grade" className="grid size-8 shrink-0 place-items-center rounded-full text-[13px] font-extrabold" style={{ backgroundColor: color, color: TIER_INK[tier] }}>{dimension.grade}</span>
               ) : null}
             </div>
           ) : null}
         </div>
       </div>
+      {/* the rationale box is tinted by the dimension's GRADE (Figma 636:19532 draws a soft pair for every
+          step of the ramp) — not a flat grey with one pink exception as before. */}
       {rating ? (
-        <p data-testid="compat-dim-rating" className="whitespace-pre-line rounded-xl px-4 py-3 text-[14px] leading-[22px] text-v3-text-body" style={{ backgroundColor: tone === 'watch' ? '#FDECEA' : '#F4F6F8' }}>{rating}</p>
+        <p data-testid="compat-dim-rating" className="whitespace-pre-line rounded-xl px-4 py-3 text-[14px] leading-[22px] text-v3-text-body" style={{ backgroundColor: TIER_SOFT[tier] }}>{rating}</p>
       ) : null}
       {sising && (sising.nameTh || sising.summary) ? (
         <div data-testid="compat-dim-sising" className="flex items-start gap-2 rounded-xl bg-v3-ghost-white px-3 py-2.5">
