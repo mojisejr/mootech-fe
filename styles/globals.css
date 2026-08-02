@@ -92,3 +92,22 @@
   .no-scrollbar::-webkit-scrollbar { display: none; }
 }
 
+
+/* ดวงสมพงศ์ hero — floating corner element sprites (Figma 636:19061 · motion via get_motion_context).
+   Each sprite carries its own base rotation in --sprite-rot; the base transform lives OUTSIDE the keyframe
+   so removing the animation (reduced-motion) falls back to the exact static base, never a snap to 0deg. */
+@keyframes compat-sprite-float {
+  0%   { transform: translateY(0)    scale(1)    rotate(var(--sprite-rot, 0deg)); }
+  35%  { transform: translateY(-5px) scale(1.02) rotate(calc(var(--sprite-rot, 0deg) - 2deg)); }
+  50%  { transform: translateY(-7px) scale(1.03) rotate(var(--sprite-rot, 0deg)); }
+  70%  { transform: translateY(-4px) scale(1.02) rotate(calc(var(--sprite-rot, 0deg) + 2deg)); }
+  100% { transform: translateY(0)    scale(1)    rotate(var(--sprite-rot, 0deg)); }
+}
+.compat-sprite {
+  transform: rotate(var(--sprite-rot, 0deg));
+  animation: compat-sprite-float 2s cubic-bezier(0.45, 0, 0.55, 1) infinite;
+  will-change: transform;
+}
+@media (prefers-reduced-motion: reduce) {
+  .compat-sprite { animation: none; }
+}

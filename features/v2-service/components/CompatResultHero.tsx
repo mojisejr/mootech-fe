@@ -16,6 +16,18 @@ import type { CompatOverall, CompatResultPerson, CompatMascot, CompatDimension }
 import { deriveHeroHighlights } from '../compat-result-parts'
 import { formatCompatBirth } from './compat-format'
 
+// Corner element sprites (Figma 636:19061). left/top/w are the Figma display coords in its 361-wide frame
+// (≈ the hero's inner width at @393) → left as % of that frame; `r` = the sprite's base rotation from the
+// motion spec; `delay` staggers the shared 2s float so they don't bob in lock-step.
+const HERO_SPRITES = [
+  { src: 'sprite-fire.png', left: '6.8%', top: 12, w: 58, r: 10.24, delay: 0 },
+  { src: 'sprite-earth.png', left: '-4%', top: 63, w: 36, r: 5.09, delay: -700 },
+  { src: 'sprite-water.png', left: '9.4%', top: 85, w: 19, r: -13.79, delay: -300 },
+  { src: 'sprite-metal.png', left: '3.6%', top: 103, w: 24, r: -13.79, delay: -1100 },
+  { src: 'sprite-wood.png', left: '1.3%', top: 141, w: 25, r: 10.24, delay: -500 },
+  { src: 'sprite-wood-lg.png', left: '87%', top: 105, w: 63, r: -10.65, delay: -900 },
+] as const
+
 // one person: the mascot illustration (if any), the real photo circle overlaid (if any), name, birthdate.
 function HeroPerson({ person, mascot, roleLabel, testId }: {
   person?: CompatResultPerson
@@ -67,20 +79,37 @@ export function CompatResultHero({ overall, persons, dimensions, mascotA, mascot
   const { best, worst } = deriveHeroHighlights(dimensions)
 
   return (
-    <section data-testid="compat-result-hero" className="flex flex-col items-center gap-4 rounded-[24px] bg-v3-sapphire px-5 py-6 text-center">
-      {hasScore ? <ScoreRing grade={overall!.grade!} percent={overall!.percent!} onDark /> : null}
-      {tagline ? <p data-testid="compat-hero-tagline" className="text-[22px] font-bold leading-8 text-white">{tagline}</p> : null}
-      {/* derived highlights — strongest + weakest dimension (rule 4: hidden when no dimensions) */}
-      {best ? (
-        <div data-testid="compat-hero-highlights" className="flex flex-col gap-1 text-[14px] leading-6 text-white/85">
-          <span>จุดแข็งอยู่ที่ <b className="font-bold text-white">{best.label}</b> ({best.percent}%)</span>
-          {worst ? <span>จุดที่ต้องดูแลคือ <b className="font-bold text-white">{worst.label}</b> ({worst.percent}%)</span> : null}
+    <section data-testid="compat-result-hero" className="relative overflow-hidden rounded-[24px] bg-v3-sapphire px-5 py-6 text-center">
+      {/* decorative floating element sprites (Figma 636:19061) — behind the content, no interaction, clipped by
+          the frame. Rule 4 doesn't apply: these are FIXED decoration, not user data. */}
+      <div data-testid="compat-hero-sprites" aria-hidden className="pointer-events-none absolute inset-0 z-0 overflow-hidden">
+        {HERO_SPRITES.map((s) => (
+          <img
+            key={s.src}
+            data-testid="compat-hero-sprite"
+            src={`/images/v2/compat/${s.src}`}
+            alt=""
+            className="compat-sprite absolute"
+            style={{ left: s.left, top: s.top, width: s.w, ['--sprite-rot' as string]: `${s.r}deg`, animationDelay: `${s.delay}ms` }}
+          />
+        ))}
+      </div>
+      {/* content — above the sprites */}
+      <div className="relative z-10 flex flex-col items-center gap-4">
+        {hasScore ? <ScoreRing grade={overall!.grade!} percent={overall!.percent!} onDark /> : null}
+        {tagline ? <p data-testid="compat-hero-tagline" className="text-[22px] font-bold leading-8 text-white">{tagline}</p> : null}
+        {/* derived highlights — strongest + weakest dimension (rule 4: hidden when no dimensions) */}
+        {best ? (
+          <div data-testid="compat-hero-highlights" className="flex flex-col gap-1 text-[14px] leading-6 text-white/85">
+            <span>จุดแข็งอยู่ที่ <b className="font-bold text-white">{best.label}</b> ({best.percent}%)</span>
+            {worst ? <span>จุดที่ต้องดูแลคือ <b className="font-bold text-white">{worst.label}</b> ({worst.percent}%)</span> : null}
+          </div>
+        ) : null}
+        {/* the two people as mascot cards */}
+        <div className="mt-1 flex w-full items-start gap-3">
+          <HeroPerson person={persons?.a} mascot={mascotA} roleLabel="คุณ" testId="compat-result-person-a" />
+          <HeroPerson person={persons?.b} mascot={mascotB} roleLabel="เขา" testId="compat-result-person-b" />
         </div>
-      ) : null}
-      {/* the two people as mascot cards */}
-      <div className="mt-1 flex w-full items-start gap-3">
-        <HeroPerson person={persons?.a} mascot={mascotA} roleLabel="คุณ" testId="compat-result-person-a" />
-        <HeroPerson person={persons?.b} mascot={mascotB} roleLabel="เขา" testId="compat-result-person-b" />
       </div>
     </section>
   )
