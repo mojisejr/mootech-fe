@@ -3,8 +3,9 @@
 // (นิสัย/traits). Contract CompatResultPerson { dayGanzhi, elementTh, stageTh, nisai[] }. Rule 4: no stage/
 // element AND no nisai → render null; an absent line hides.
 import type { CompatResultPerson } from '../compatibility-result'
+import { SIDE_TINT, type SideKey } from '../compat-result-parts'
 
-export function CompatPersonDetail({ person, roleLabel }: { person?: CompatResultPerson; roleLabel: string }) {
+export function CompatPersonDetail({ person, roleLabel, side = 'self' }: { person?: CompatResultPerson; roleLabel: string; side?: SideKey }) {
   const stage = (person?.stageTh ?? '').trim()
   const element = (person?.elementTh ?? '').trim()
   const dayStem = (person?.dayGanzhi ?? '').trim().charAt(0)
@@ -13,7 +14,12 @@ export function CompatPersonDetail({ person, roleLabel }: { person?: CompatResul
   if (!subtitle && !element && traits.length === 0) return null
 
   return (
-    <section data-testid="compat-person-detail" className="flex flex-col gap-3 rounded-2xl bg-white p-4">
+    <section
+      data-testid="compat-person-detail"
+      data-side={side}
+      className="flex flex-col gap-3 rounded-2xl p-4"
+      style={{ backgroundColor: SIDE_TINT[side] }}
+    >
       <p className="text-[15px] font-bold text-v3-navy">{roleLabel}</p>
       {subtitle || element ? (
         <p className="text-[13px] text-v3-text-body">
