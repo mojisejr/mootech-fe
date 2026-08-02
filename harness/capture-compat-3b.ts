@@ -1,9 +1,13 @@
-// harness/capture-compat-3b.ts — 3B full-chain @393: the compat result screen, mascots resolved
-// through the REAL fe proxy (pages/api/bazi/mascot) → a local bazi stub that returns imageUrlV2 =
-// the REAL prod public URL (…/mootech-v2/mascot/01_wood.png). Proves storage→endpoint→proxy→screen.
-//   shows  : persons 甲子 + 丙子 (both have imageUrlV2) → two v2 mascots render in μุน's hero.
-//   hidden : person b 乙丑 has NO imageUrlV2 → the proxy returns { mascot: null } → card hides clean.
-// Boot fe with BAZI_BASE_URL=<stub> + V2_PREVIEW_KEY, then:
+// harness/capture-compat-3b.ts — 3B @393: the compat result screen, mascots resolved through the
+// REAL fe proxy (pages/api/bazi/mascot). Point the fe's BAZI_BASE_URL at the REAL bazi prod
+// (https://bazi-sft-dataset.vercel.app) → the ENTIRE chain is real: bazi prod endpoint (returns
+// imageUrlV2) → prod storage image (…/mootech-v2/mascot/*.png) → proxy → screen. Only get-detail is
+// intercepted (that flow needs the BE/matching side, out of scope here).
+//   shows  : persons 甲子 + 丙子 → two v2 mascots render in μุน's hero.
+//   hidden : person b = an UNKNOWN ganzhi (甲甲) → bazi prod 404 → proxy { mascot: null } → card hides clean.
+// (The subtler "has-a-row-but-no-imageUrlV2 → hide, no legacy fallback" branch is unit-tested +
+//  mutant-proven in scripts/compat-mascot-proxy.test.ts; real prod has no such row — all 60 carry v2.)
+// Boot fe with BAZI_BASE_URL=https://bazi-sft-dataset.vercel.app + V2_PREVIEW_KEY, then:
 //   CAPTURE_HOST=http://localhost:3097 npx tsx harness/capture-compat-3b.ts shows  out/shows.png
 //   CAPTURE_HOST=http://localhost:3097 npx tsx harness/capture-compat-3b.ts hidden out/hidden.png
 import { chromium } from 'playwright'
@@ -51,7 +55,7 @@ function body(aGanzhi: string, bGanzhi: string) {
 
 ;(async () => {
   const aGanzhi = '甲子'
-  const bGanzhi = scenario === 'shows' ? '丙子' : '乙丑' // hidden: b has no imageUrlV2
+  const bGanzhi = scenario === 'shows' ? '丙子' : '甲甲' // hidden: b is an unknown ganzhi → bazi 404 → hide
   const browser = await chromium.launch()
   const ctx = await browser.newContext({
     viewport: { width: 393, height: 852 },
