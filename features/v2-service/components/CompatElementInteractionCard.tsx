@@ -30,8 +30,8 @@ export function CompatElementInteractionCard({ interaction }: { interaction?: Co
   if (!hasElements && !summary) return null
 
   return (
-    <section data-testid="compat-element-interaction" className="flex flex-col gap-4 rounded-2xl bg-white p-4">
-      <p className="text-[14px] font-bold text-v3-navy">ปฏิกิริยาธาตุ</p>
+    <section data-testid="compat-element-interaction" className="flex flex-col gap-4">
+      <p className="text-[16px] font-bold text-v3-navy">ปฏิกิริยาธาตุ</p>
       {hasElements ? (
         <div className="flex items-center justify-between gap-2">
           <ElementChip elementTh={i?.aElementTh} roleLabel="ตัวเรา" />
