@@ -102,28 +102,43 @@ export function CompatibilityResultScreen({ matchingId }: { matchingId: string }
           </SectionCard>
         ) : null}
 
-        {/* รายมิติ (D22) */}
+        {/* รายมิติ (D22) — Zone 2: ONE SectionCard holds all the dimension ROWS (Figma 636:19532); the rows
+            are no longer individual white cards (that read as a card inside a card). */}
         {hasDims ? (
-          <section id="compat-sec-dims" data-testid="compat-sec-dims" className="flex scroll-mt-16 flex-col gap-3">
-            <h2 className="text-[16px] font-bold text-v3-navy">ความเข้ากัน {dims.length} ด้าน</h2>
-            {dims.map((d, i) => <CompatDimensionCard key={d.key ?? i} dimension={d} />)}
+          <section id="compat-sec-dims" data-testid="compat-sec-dims" className="scroll-mt-16">
+            <SectionCard title={`ความเข้ากัน ${dims.length} ด้าน`} info>
+              <div className="flex flex-col gap-5">
+                {dims.map((d, i) => <CompatDimensionCard key={d.key ?? i} dimension={d} />)}
+              </div>
+            </SectionCard>
           </section>
         ) : null}
 
-        {/* ธาตุ & เสา (D45 + D44; D23: timeKnown=false → ยาม "—") */}
+        {/* ธาตุ & เสา (D45 + D44; D23: timeKnown=false → ยาม "—") — Zone 3: one SectionCard; the two pillar
+            panels carry the side tint (ตัวเรา #ECF0FC / เขา #F9F4F0, Figma 636:22150). */}
         {hasElement ? (
-          <section id="compat-sec-element" data-testid="compat-sec-element" className="flex scroll-mt-16 flex-col gap-3">
-            <CompatElementInteractionCard interaction={ei} />
-            <CompatFourPillarsTable person={persons?.a} roleLabel="ตัวเรา" />
-            <CompatFourPillarsTable person={persons?.b} roleLabel="เขา" />
+          <section id="compat-sec-element" data-testid="compat-sec-element" className="scroll-mt-16">
+            <SectionCard title="เทียบสี่เสาของทั้งสองฝ่าย">
+              <div className="flex flex-col gap-4">
+                <CompatElementInteractionCard interaction={ei} />
+                <CompatFourPillarsTable person={persons?.a} roleLabel="ตัวเรา" side="self" />
+                <CompatFourPillarsTable person={persons?.b} roleLabel="เขา" side="other" />
+              </div>
+            </SectionCard>
           </section>
         ) : null}
 
-        {/* รายคน (D21 per-person; มาสคอต moved to the hero) */}
+        {/* รายคน (D21 per-person; มาสคอต moved to the hero) — Zone 4. NOTE: Figma 636:22328's header text
+            reads "เทียบสี่เสาของทั้งสองฝ่าย", identical to Zone 3, while its content is per-person — a
+            copy-paste artifact in the file. ฟีม ruled 2026-08-03: use "รายคน" (matches the tab). */}
         {hasPeople ? (
-          <section id="compat-sec-people" data-testid="compat-sec-people" className="flex scroll-mt-16 flex-col gap-3">
-            <CompatPersonDetail person={persons?.a} roleLabel="ตัวเรา" />
-            <CompatPersonDetail person={persons?.b} roleLabel="เขา" />
+          <section id="compat-sec-people" data-testid="compat-sec-people" className="scroll-mt-16">
+            <SectionCard title="รายคน">
+              <div className="flex flex-col gap-4">
+                <CompatPersonDetail person={persons?.a} roleLabel="ตัวเรา" side="self" />
+                <CompatPersonDetail person={persons?.b} roleLabel="เขา" side="other" />
+              </div>
+            </SectionCard>
           </section>
         ) : null}
       </div>
