@@ -1,9 +1,16 @@
 // MuMate v2 — bottom Menubar (app-shell scaffold, Phase 0). Spec: DESIGN.md v3 §Menubar — dark
 // #1A1A1A floating pill, pink border, 4 tabs (หน้าหลัก/บริการ/ปฏิทิน/ร้านค้า), Inter SemiBold 14,
-// active = sapphire #1455A4 fill + lime #E1FF00 label. This is the SHELL only (nav + active state);
-// exact-token polish / the Mate AI FAB come with Lamun's universal-components PR.
+// active = sapphire #1455A4 fill + lime #E1FF00 label.
+//
+// 2026-08-03 (ฟีม "Mate AI ทุกหน้า"): this nav was the ONLY one without the Mate AI button — the five screens
+// that use it (service hub · coming-soon · compat form · compat recent · shop) were missing it while home and
+// the calendar flow had it. It now renders the SHARED MateAIButton, so both navs show the same button from one
+// source. Adding it widens the bar (~244 → ~332), so the tab pill was also made SHRINKABLE (min-w-0 flex-1,
+// like CalendarMenu's CTA slot) — otherwise the extra 88px would clip on a 320-wide screen. The whole bar is
+// capped at the 393 content width and centred, and carries the safe-area inset it previously lacked.
 import Link from 'next/link'
 import { useRouter } from 'next/router'
+import { MateAIButton } from './MateAIButton'
 import type { ReactNode } from 'react'
 
 type Tab = { href: string; label: string; icon: ReactNode }
@@ -52,18 +59,18 @@ export function Menubar() {
   return (
     <nav
       aria-label="เมนูหลัก"
-      className="fixed bottom-4 left-1/2 z-40 -translate-x-1/2 rounded-2xl border-[5px] border-[rgba(216,143,169,0.4)] bg-[#1A1A1A] p-2 shadow-lg backdrop-blur"
+      className="fixed inset-x-0 bottom-0 z-40 mx-auto flex max-w-md items-center gap-3.5 px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-2"
     >
-      <ul className="flex items-stretch gap-1">
+      <ul className="flex min-w-0 flex-1 items-stretch gap-1 rounded-2xl border-[5px] border-[rgba(216,143,169,0.4)] bg-[#1A1A1A] p-2 shadow-lg backdrop-blur max-[383px]:gap-0.5 max-[383px]:p-1">
         {TABS.map((tab) => {
           const active = isActive(pathname, tab.href)
           return (
-            <li key={tab.href}>
+            <li key={tab.href} className="min-w-0 flex-1">
               <Link
                 href={tab.href}
                 aria-current={active ? 'page' : undefined}
                 className={[
-                  'flex w-[58px] flex-col items-center gap-1 rounded-xl py-2 font-poppins-v3 text-[14px] font-semibold leading-5 transition-colors',
+                  'flex flex-col items-center gap-1 whitespace-nowrap rounded-xl px-1 py-2 font-poppins-v3 text-[14px] font-semibold leading-5 transition-colors max-[383px]:px-0 max-[383px]:text-[12px] max-[339px]:text-[11px]',
                   active
                     ? 'bg-v3-sapphire text-v3-lime'
                     : 'text-v3-nav-label-off hover:bg-[#0B305B]',
@@ -76,6 +83,7 @@ export function Menubar() {
           )
         })}
       </ul>
+      <MateAIButton />
     </nav>
   )
 }
