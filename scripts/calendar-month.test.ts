@@ -9,6 +9,7 @@
 import assert from 'node:assert'
 import {
   almanacWanPhraDays,
+  fortuneCacheKey,
   isWanPhraDay,
   mergeCalendarMonth,
   parseMonth,
@@ -85,6 +86,16 @@ ok('almanacWanPhraDays maps date→{date,dayOfMonth,wanPhra}', (() => {
   const d13 = free.find((x) => x.date === '2026-08-13')
   return d12?.dayOfMonth === 12 && d12?.wanPhra === false && d13?.wanPhra === true
     && JSON.stringify(Object.keys(free[0]).sort()) === JSON.stringify(['date', 'dayOfMonth', 'wanPhra'])
+})())
+
+// ── fortuneCacheKey — must include the birth signature, not userId+month alone (μุน's dob-staleness) ──
+const dobA = { birthDate: '1990-01-15', birthTime: '08:30', gender: 'male', province: 'Bangkok' }
+const dobB = { birthDate: '1991-02-20', birthTime: '08:30', gender: 'male', province: 'Bangkok' } // edited dob
+ok('cacheKey stable for same (user, birth, month)', fortuneCacheKey('u1', dobA, '2026-08') === fortuneCacheKey('u1', dobA, '2026-08'))
+ok('cacheKey CHANGES when dob changes (no stale)', fortuneCacheKey('u1', dobA, '2026-08') !== fortuneCacheKey('u1', dobB, '2026-08'))
+ok('cacheKey differs per user and per month', (() => {
+  return fortuneCacheKey('u1', dobA, '2026-08') !== fortuneCacheKey('u2', dobA, '2026-08')
+    && fortuneCacheKey('u1', dobA, '2026-08') !== fortuneCacheKey('u1', dobA, '2026-09')
 })())
 
 console.log(`✅ calendar-month.test.ts — ${pass} assertions passed`)

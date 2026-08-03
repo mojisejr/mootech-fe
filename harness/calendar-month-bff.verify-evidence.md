@@ -22,10 +22,15 @@ Mutants (cp-snapshot → mutate → run → restore), each must turn the suite R
 |---|---|---|
 | any-special-day | `isWanPhraDay` → `specialDays.length > 0` | 🔴 RED — `FAIL: government holiday is NOT วันพระ` (2026-08-12 Mother's Day flagged) |
 | index-join | `mergeCalendarMonth` joins wanPhra by array index not by date | 🔴 RED — `FAIL: merge joins wanPhra BY DATE not index` |
-| (restore) | — | 🟢 `18 assertions passed` |
+| (restore) | — | 🟢 `21 assertions passed` |
 
-Neg-control (instrument not vacuous): 18 assertions pass on the real code, incl. `festival+religious`
+Neg-control (instrument not vacuous): 21 assertions pass on the real code, incl. `festival+religious`
 (2026-08-27, วันพระ hidden behind สารทจีน) = true and `festival-only` = false.
+
+**Cache-key correctness (μุน's dob-staleness catch, closed here):** the per-(user,month) cache is keyed on
+a BIRTH SIGNATURE (`fortuneCacheKey(userId, rawInput, month)`), not userId+month alone — the fortune is a
+function of the birth input, so a changed dob yields a different key (no "แก้วันเกิดแล้วปฏิทินไม่เปลี่ยน").
+Asserted: same inputs → same key; changed dob → different key; differs per user and per month.
 
 ANCHOR: scripts/calendar-month.test.ts#calendar-month-wanphra-category
 

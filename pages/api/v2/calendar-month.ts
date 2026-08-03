@@ -18,6 +18,7 @@ import {
   fetchAlmanacDays,
   fetchFortuneDays,
   fortuneCacheGet,
+  fortuneCacheKey,
   fortuneCacheSet,
   mergeCalendarMonth,
   parseMonth,
@@ -42,22 +43,28 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
   if (isFree) return res.status(200).json({ allowed: false, year: parsed.year, month: parsed.month, days: [] })
 
-  // ── cache per (user, month): a user's month fortune is deterministic → serve instantly on re-view. ──
-  const cached = fortuneCacheGet(userId, month as string)
-  if (cached) return res.status(200).json({ allowed: true, year: parsed.year, month: parsed.month, days: cached })
-
-  // ── PAID miss: fortune + วันพระ in PARALLEL (total ≈ max, not sum). Graceful on any miss. ──
+  // ── PAID: fortune + วันพระ in PARALLEL (total ≈ max, not sum). Graceful on any miss. ──
   const ac = new AbortController()
   const timer = setTimeout(() => ac.abort(), BAZI_TIMEOUT_MS)
   try {
-    const { rawInput } = toBaziInput(person)
+    const { rawInput } = toBaziInput(person) // the true determinant of the fortune → also the cache key
+
+    // ── cache keyed on (user, birth-signature, month): a user's month fortune is deterministic in the
+    // birth input → serve instantly on re-view / prefetch; a changed dob yields a different key (no stale).
+    const cacheKey = fortuneCacheKey(userId, rawInput, month as string)
+    const cached = fortuneCacheGet(cacheKey)
+    if (cached) {
+      clearTimeout(timer)
+      return res.status(200).json({ allowed: true, year: parsed.year, month: parsed.month, days: cached })
+    }
+
     const [fortune, almanac] = await Promise.all([
       fetchFortuneDays(rawInput, month as string, ac.signal),
       fetchAlmanacDays(parsed.yearBE, parsed.month, ac.signal).catch(() => [] as AlmanacDay[]),
     ])
     clearTimeout(timer)
     const days = mergeCalendarMonth(fortune, almanac)
-    if (days.length > 0) fortuneCacheSet(userId, month as string, days) // only cache a real result
+    if (days.length > 0) fortuneCacheSet(cacheKey, days) // only cache a real result
     return res.status(200).json({
       allowed: true,
       year: parsed.year,

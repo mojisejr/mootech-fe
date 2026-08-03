@@ -128,18 +128,26 @@ export async function fetchFortuneDays(rawInput: unknown, month: string, signal?
   return Array.isArray(data.days) ? (data.days as MvdDay[]) : []
 }
 
-// ── paid fortune cache per (user, month): deterministic (birth data + date) → gd switching months back
-// and forth never re-pays the 6.8s. Bounded. Keyed by userId+month (a user's birth data is fixed). ──
+// ── paid fortune cache: deterministic in (birth data + month) → paging months back and forth never
+// re-pays the 6.8s. The key includes a BIRTH SIGNATURE, not userId+month alone: the fortune is a function
+// of the birth input, so if a user ever edits their dob the key MUST change or the calendar would show
+// stale days ("แก้วันเกิดแล้วปฏิทินไม่เปลี่ยน" — μุน's catch; the fix belongs in THIS key, not a UI refresh).
+// Keyed on rawInput (exactly what is sent to bazi = the true determinant) so it is correct-by-construction.
 const fortuneCache = new Map<string, CalendarDay[]>()
 const FORTUNE_CACHE_MAX = 256
 
-export function fortuneCacheGet(userId: string, month: string): CalendarDay[] | undefined {
-  return fortuneCache.get(`${userId}:${month}`)
+/** cache key = userId + a stable signature of the birth input + month (all determinants of the fortune). */
+export function fortuneCacheKey(userId: string, rawInput: unknown, month: string): string {
+  return `${userId}:${JSON.stringify(rawInput)}:${month}`
 }
 
-export function fortuneCacheSet(userId: string, month: string, days: CalendarDay[]): void {
+export function fortuneCacheGet(key: string): CalendarDay[] | undefined {
+  return fortuneCache.get(key)
+}
+
+export function fortuneCacheSet(key: string, days: CalendarDay[]): void {
   if (fortuneCache.size >= FORTUNE_CACHE_MAX) fortuneCache.clear()
-  fortuneCache.set(`${userId}:${month}`, days)
+  fortuneCache.set(key, days)
 }
 
 export function _clearFortuneCache(): void {
