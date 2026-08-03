@@ -15,6 +15,7 @@ import { PajeuSection } from './sections/PajeuSection'
 import { SinseSection } from './sections/SinseSection'
 import { CalendarMenu } from './CalendarMenu'
 import { HeaderTools } from '@/features/v2-shell/components/AppHeader'
+import { DailyFortuneCard } from '@/features/v2-shell/components/DailyFortuneCard'
 import { LogoutModal } from '@/features/v2-shell/components/LogoutModal'
 
 // Zone 1 daily-fortune (bazi /api/home). goo wires useHomeFortune() → this shape; I compose against it.
@@ -187,96 +188,7 @@ function ElementLine({ mascotCharacter, element }: { mascotCharacter: string; el
 // ── Score-ring card (daily-session) ─────────────────────────────────────────────────────────────
 // verdict → ring colour. good=green(teal) · neutral=yellow · caution=orange. (Figma's lime donut is
 // replaced by a verdict-coloured arc — the lime bg would hide a lime/neutral arc; verdict must read.)
-const VERDICT_ARC: Record<DailyFortune['verdict'], string> = {
-  good: 'text-v3-cyan',
-  neutral: 'text-v3-lime',
-  caution: 'text-v3-pumpkin',
-}
-
-function ScoreRingCard({ fortune, loading }: { fortune: DailyFortune | null; loading: boolean }) {
-  return (
-    <section className="mb-8 flex flex-col gap-4 rounded-[28px] bg-gradient-to-b from-white to-v3-cyan/20 p-6 shadow-sm">
-      {loading || !fortune ? (
-        <FortuneSkeleton empty={!loading && !fortune} />
-      ) : (
-        <>
-          <div className="flex items-center gap-4">
-            <ScoreDonut grade={fortune.grade} pct={fortune.percent} verdict={fortune.verdict} />
-            <p className="min-w-0 flex-1 text-lg font-bold leading-6 text-v3-navy">{fortune.headline}</p>
-          </div>
-          {/* #4: dashed dividers per Figma (was solid hr) */}
-          <hr className="border-dashed border-v3-border-card" />
-          <div className="flex items-center gap-4 text-base font-bold leading-6">
-            {/* #3: API "2026-06-01" → "1 มิถุนายน 2569" (พ.ศ.); fall back to the raw string if malformed */}
-            {/* #3: พ.ศ. for a valid ISO. If formatting fails, NEVER leak a raw ISO (invariant #3): a malformed
-                ISO-shaped string ("2026-13-01") → hide; a non-ISO string (already-formatted) → pass through. */}
-            <p data-testid="fortune-date" className="min-w-0 flex-1 text-v3-navy">{formatThaiLongDate(fortune.date) || (/^\d{4}-\d{2}-\d{2}/.test(fortune.date) ? '' : fortune.date)}</p>
-            {/* calendar link kept, NOT wired this zone (ฟีม: skip) */}
-            <Link href="/v2/calendar" className="shrink-0 text-v3-sapphire underline">เปิดปฏิทินของฉัน</Link>
-          </div>
-          <hr className="border-dashed border-v3-border-card" />
-          <div className="flex items-stretch gap-4">
-            {/* #4: check/x-circle icons (Figma 333-6585/6596), not emoji · vertical dashed divider between chips */}
-            <FortuneChip heading="เหมาะกับวันนี้" text={fortune.best.text} tone="cyan" icon="check" />
-            <div className="self-stretch border-l border-dashed border-v3-border-card" />
-            <FortuneChip heading="ควรเลี่ยง" text={fortune.worst.text} tone="pumpkin" icon="cross" />
-          </div>
-        </>
-      )}
-    </section>
-  )
-}
-
-function ScoreDonut({ grade, pct, verdict }: { grade: string; pct: number; verdict: DailyFortune['verdict'] }) {
-  const r = 40
-  const c = 2 * Math.PI * r
-  // clamp ONCE (goo รู1): out-of-range data (pct>100 / <0) must never overflow the arc OR the label — the
-  // ring can't fill past full, and the number the user reads can't say "150%". Same clamp drives both.
-  const p = Math.max(0, Math.min(100, Math.round(pct)))
-  return (
-    <div className={`relative grid size-[90px] shrink-0 place-items-center ${VERDICT_ARC[verdict]}`}>
-      <svg width="90" height="90" viewBox="0 0 90 90" className="absolute -rotate-90">
-        <circle cx="45" cy="45" r={r} fill="none" stroke="currentColor" strokeOpacity="0.15" strokeWidth="8" />
-        <circle cx="45" cy="45" r={r} fill="none" stroke="currentColor" strokeWidth="8" strokeLinecap="round" strokeDasharray={c} strokeDashoffset={c * (1 - p / 100)} />
-      </svg>
-      <div className="relative text-center text-v3-navy">
-        <p data-testid="fortune-grade" className="text-2xl font-bold leading-8">{grade}</p>
-        <p data-testid="fortune-pct" className="text-sm leading-[22px]">{p}%</p>
-      </div>
-    </div>
-  )
-}
-
-// #4: circle icons per Figma (333-6585 check / 333-6596 x), stroke idiom matching the greeting bell.
-// currentColor → inherits the chip tone (เหมาะ=cyan / เลี่ยง=pumpkin).
-function CheckCircleIcon() {
-  return (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="9" /><path d="m8.5 12 2.4 2.4L15 9" /></svg>
-  )
-}
-function XCircleIcon() {
-  return (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="9" /><path d="m9 9 6 6M15 9l-6 6" /></svg>
-  )
-}
-
-function FortuneChip({ heading, text, tone, icon }: { heading: string; text: string; tone: 'cyan' | 'pumpkin'; icon: 'check' | 'cross' }) {
-  // empty-facet guard (goo รู2): a fortune can arrive with percent but no facets → text = "" (empty, not
-  // null). goo guarantees non-empty at the data layer; this is the visual belt — an empty facet renders a
-  // graceful "—", never a bare icon with nothing beside it (which reads as broken).
-  const body = text.trim() || '—'
-  const toneClass = tone === 'cyan' ? 'text-v3-cyan' : 'text-v3-pumpkin'
-  return (
-    <div className="min-w-0 flex-1">
-      <p className={`text-base font-bold leading-6 ${toneClass}`}>{heading}</p>
-      <p className="mt-1 flex items-start gap-1.5 text-sm leading-[22px] text-v3-text-body">
-        <span aria-hidden className={`mt-0.5 shrink-0 ${toneClass}`}>{icon === 'check' ? <CheckCircleIcon /> : <XCircleIcon />}</span>
-        <span data-testid="fortune-chip" className="min-w-0">{body}</span>
-      </p>
-    </div>
-  )
-}
-
+// (VERDICT_ARC moved into the shared <DailyFortuneCard/> with the donut it colours — one place, not two.)
 function FortuneSkeleton({ empty }: { empty: boolean }) {
   return (
     <div className="animate-pulse">
@@ -289,6 +201,33 @@ function FortuneSkeleton({ empty }: { empty: boolean }) {
       </div>
       {empty && <p className="mt-4 text-center text-sm font-medium text-v3-text-muted">ยังไม่มีข้อมูลดวงวันนี้</p>}
     </div>
+  )
+}
+
+function ScoreRingCard({ fortune, loading }: { fortune: DailyFortune | null; loading: boolean }) {
+  if (loading || !fortune) {
+    return (
+      <section className="mb-8 flex flex-col gap-4 rounded-[28px] bg-gradient-to-b from-white to-v3-cyan/20 p-6 shadow-sm">
+        <FortuneSkeleton empty={!loading && !fortune} />
+      </section>
+    )
+  }
+  // The card body is now the SHARED <DailyFortuneCard/> (variant 'home' reproduces this screen's exact
+  // render — same ground, same verdict-coloured arc, same one-line columns, same "เปิดปฏิทินของฉัน" link).
+  // ปฏิทินดวง renders the same component with Figma's calendar variant, so the two screens can no longer
+  // drift the way home's card and the calendar's little local card already had.
+  return (
+    <DailyFortuneCard
+      variant="home"
+      ring={{ grade: fortune.grade, percent: fortune.percent, verdict: fortune.verdict }}
+      headline={fortune.headline}
+      // #3: API "2026-06-01" → "1 มิถุนายน 2569" (พ.ศ.). If formatting fails, NEVER leak a raw ISO: a
+      // malformed ISO-shaped string → hide; a non-ISO string (already formatted) → pass through.
+      dateLine={formatThaiLongDate(fortune.date) || (/^\d{4}-\d{2}-\d{2}/.test(fortune.date) ? '' : fortune.date)}
+      dateAside={<Link href="/v2/calendar" className="shrink-0 text-v3-sapphire underline">เปิดปฏิทินของฉัน</Link>}
+      suitable={[fortune.best.text]}
+      avoid={[fortune.worst.text]}
+    />
   )
 }
 
