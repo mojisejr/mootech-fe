@@ -9,6 +9,7 @@ import Link from 'next/link'
 import { useRouter } from 'next/router'
 import { v2RedirectIfUnauthed } from '@/lib/v2/gate'
 import { CalendarShell } from '@/features/v2-calendar/components/CalendarShell'
+import { AppHeader } from '@/features/v2-shell/components/AppHeader'
 import { useCalendarMonth, dayCellTier, CalendarMenuState, type CalendarDay } from '@/features/v2-calendar'
 import { DAY_CELL_COLORS, SELECTED, CALENDAR_MARKER, GRADE_COLORS } from '@/features/v2-calendar/components/grade-colors'
 
@@ -86,7 +87,12 @@ export default function V2CalendarPage() {
 
   return (
     <CalendarShell title="ปฏิทินดวง" menuState={CalendarMenuState.Normal}>
-      <div className="flex flex-col gap-4 px-4 pt-6">
+      {/* THE HEADER THIS PAGE NEVER HAD (Figma 368:9807). Not a drifted header — a missing one: before this
+          the month view rendered no title, no bell and no avatar at all, so the only way off the page was the
+          bottom nav. Copy is Figma's. The อัพเกรด pill is deliberately absent until the tier reaches the shell
+          (PR4 / Zone 4) — an upsell shown to someone who already paid is the expensive mistake here. */}
+      <AppHeader title="ปฏิทินดวง" subtitle="ฤกษ์ดี วันมงคล ดิถีจีนรายวัน" className="items-start px-4 pb-2 pt-4" />
+      <div className="flex flex-col gap-4 px-4 pt-2">
         {/* month selector row (Figma: วันนี้ · เดือน · ปี พ.ศ.) — driven by goo's cursor */}
         <div className="flex items-center gap-2">
           <button type="button" onClick={goToday} className="rounded-full bg-v3-sapphire px-4 py-1.5 text-sm font-semibold text-white">วันนี้</button>
