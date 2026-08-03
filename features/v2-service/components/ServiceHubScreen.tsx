@@ -12,6 +12,7 @@ import Image from 'next/image'
 import { Menubar } from '@/features/v2-shell/components/Menubar'
 import { LogoutModal } from '@/features/v2-shell/components/LogoutModal'
 import { useV2Logout } from '@/features/auth/hooks/useV2Logout'
+import { useClientTier } from '@/features/v2-shell/hooks/useClientTier'
 import { SERVICES } from '../services'
 import { ServiceHeader } from './ServiceHeader'
 import { ServiceCard } from './ServiceCard'
@@ -20,6 +21,12 @@ export function ServiceHubScreen() {
   // avatar → logout menu (same as home). useV2Logout is goo's action hook; Lamun owns the confirm UI.
   const [logoutOpen, setLogoutOpen] = useState(false)
   const { logout } = useV2Logout()
+  // Zone 4 — this screen shipped with the อัพเกรด pill hardcoded on, because it had no tier to read. It
+  // does now. NOTE this one is an inference, flagged as such: Figma has a free/paid pair for the two
+  // calendar screens and both say "paid has no pill", but there is no paid frame for บริการทั้งหมด. The
+  // rule is applied because showing "อัพเกรด" to someone who already upgraded is a real annoyance, not
+  // because a drawing says so — if ฟีม wants it always-on here, it is a one-word change.
+  const { isPaid } = useClientTier()
 
   return (
     <div className="relative min-h-screen w-full overflow-x-hidden bg-v3-bg-cream font-ibm">
@@ -35,7 +42,7 @@ export function ServiceHubScreen() {
 
       {/* content column: 393 primary, centred + capped, clears the fixed Menubar */}
       <div className="relative z-10 mx-auto flex w-full max-w-md flex-col px-4 pb-36 pt-[max(0.75rem,env(safe-area-inset-top))]">
-        <ServiceHeader onAvatar={() => setLogoutOpen(true)} />
+        <ServiceHeader onAvatar={() => setLogoutOpen(true)} showUpgrade={isPaid === false} />
         <div data-testid="service-hub-list" className="flex flex-col gap-2">
           {SERVICES.map((s) => (
             <ServiceCard key={s.id} data={s} />

@@ -13,10 +13,13 @@
 // as-is; #C9E4F4 IS the v3-pastel-blue token value.
 import { AppHeader } from '@/features/v2-shell/components/AppHeader'
 
-export function DayHeader() {
+// `showUpgrade` is a pass-through, deliberately with no default: AppHeader's contract is that only an
+// explicit `true` renders the pill, so an unknown tier keeps it hidden rather than showing an upsell to
+// someone who may already have paid. Figma Free-2 375:11286 has the pill; Paid-2 634:8194 does not.
+export function DayHeader({ showUpgrade }: { showUpgrade?: boolean }) {
   return (
     <div style={{ background: 'linear-gradient(105deg, #FFFFFF 40%, #C9E4F4 100%)' }} className="rounded-b-[20px]">
-      <AppHeader testId="day-header" title="รายละเอียดวัน" backHref="/v2/calendar" className="items-center px-4 pb-3 pt-2" />
+      <AppHeader testId="day-header" title="รายละเอียดวัน" backHref="/v2/calendar" showUpgrade={showUpgrade} className="items-center px-4 pb-3 pt-2" />
     </div>
   )
 }

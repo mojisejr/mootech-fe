@@ -27,7 +27,7 @@ function PredictionCard({ area }: { area: CompatArea }) {
 
 export function PredictionCards({ areas }: { areas: CompatArea[] }) {
   return (
-    <SectionCard title="คำทำนายรายด้าน">
+    <SectionCard title="คำทำนายรายด้าน" testId="day-prediction-cards">
       <div className="flex flex-col gap-3">
         {areas.map((a) => (
           <PredictionCard key={a.label} area={a} />

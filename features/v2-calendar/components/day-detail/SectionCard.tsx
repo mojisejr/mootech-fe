@@ -19,16 +19,20 @@ export function SectionCard({
   title,
   info = false,
   defaultOpen = true,
+  testId,
   children,
 }: {
   title: string
   info?: boolean
   defaultOpen?: boolean
+  /** stable handle for the tier-gate anchor — a paid-only section has to be provably ABSENT for a free
+   *  member, and "absent" needs something to look for that is not the Thai heading text. */
+  testId?: string
   children: ReactNode
 }) {
   const [open, setOpen] = useState(defaultOpen)
   return (
-    <section className="rounded-[20px] bg-white px-4 py-5 shadow-[0_4px_14px_rgba(26,38,77,0.06)]">
+    <section data-testid={testId} className="rounded-[20px] bg-white px-4 py-5 shadow-[0_4px_14px_rgba(26,38,77,0.06)]">
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}

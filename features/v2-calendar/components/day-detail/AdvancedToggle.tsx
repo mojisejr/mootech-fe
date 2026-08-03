@@ -5,6 +5,7 @@ export function AdvancedToggle({ on, onToggle }: { on: boolean; onToggle: () => 
   return (
     <button
       type="button"
+      data-testid="day-advanced-toggle"
       role="switch"
       aria-checked={on}
       onClick={onToggle}

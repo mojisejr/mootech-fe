@@ -3,18 +3,18 @@
 // Now a two-line adapter over the shared <AppHeader/> (ฟีม 2026-08-03: "แต่ละหน้าควรจะปรับให้มี convention
 // ยังไง แยกเป็น shared component มั๊ย"). It keeps its own name so the screen's import does not move.
 //
-// The อัพเกรด pill: this page has always shown it unconditionally, and it still does — the page has no tier
-// on hand, and quietly DROPPING it here would be a silent behaviour change smuggled inside a refactor.
-// Wiring the real tier through the shell (so it hides for paid members) is PR4 / Zone 4, where ฟีม's free-vs-
-// paid split is the subject rather than a side effect.
+// The อัพเกรด pill used to be hardcoded on here, because this page had no tier to read. Zone 4 gives it
+// one (ServiceHubScreen → useV2Tier), so the flag is now a required prop rather than a constant. It is
+// deliberately NOT optional: a caller that forgets it would silently hide the pill from free members, and
+// the whole point of this arc is that the free→paid path stops depending on what somebody remembered.
 import { AppHeader } from '@/features/v2-shell/components/AppHeader'
 
-export function ServiceHeader({ onAvatar }: { onAvatar: () => void }) {
+export function ServiceHeader({ onAvatar, showUpgrade }: { onAvatar: () => void; showUpgrade: boolean }) {
   return (
     <AppHeader
       testId="service-header"
       title="บริการทั้งหมด"
-      showUpgrade
+      showUpgrade={showUpgrade}
       onAvatar={onAvatar}
       className="items-center py-4"
     />
