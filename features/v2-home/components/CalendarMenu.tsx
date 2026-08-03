@@ -1,6 +1,6 @@
-import Image from 'next/image'
 import Link from 'next/link'
 import { useRouter } from 'next/router'
+import { MateAIButton } from '@/features/v2-shell/components/MateAIButton'
 
 // Shared bottom menu (Figma menu `461:3224`) — extracted from HomeBottomNav so home + the calendar flow use ONE
 // component with multiple STATES. PRESENTATIONAL: it renders the state it is TOLD to; goo owns which screen shows
@@ -23,29 +23,6 @@ const TABS = [
   { href: '/v2/calendar', label: 'ปฏิทิน' },
   { href: '/v2/shop', label: 'ร้านค้า' },
 ]
-
-// The Mate AI button — SHARED by states 1/2/3. A1 fix (ฟีม ก · อยู่ในปุ่ม): the mascot (Figma 75×92 at y=9 in a
-// 70-tall Navbar) is CLIPPED to the button so its head sits inside and the bottom 31px is cut — matching Figma.
-// The clip lives on a wrapper AROUND THE MASCOT ONLY (not the button) so the "Mate AI" label tab still pokes above
-// (the button keeps overflow-visible). Button height stays 70 → nav total ≈ 94px → the home nav-clearance (74px)
-// is untouched (ตู๋'s constraint).
-function MateAIButton() {
-  return (
-    <Link href="/v2/service" aria-label="Mate AI" className="relative flex h-[70px] w-[74px] shrink-0 items-center justify-center overflow-visible rounded-2xl border-4 border-[rgba(216,143,169,0.4)] bg-gradient-to-r from-v3-mate-teal to-v3-mate-purple backdrop-blur">
-      {/* label sits ON TOP of the mascot head (z-2, matching Figma) and stays 1-line (whitespace-nowrap) — the
-          Figma label frame is 102px wide, poking beyond the 74px button, which overflow-visible allows. Without
-          nowrap, left-1/2 constrains the shrink-to-fit width to ~37px and "Mate AI" wraps to 2 lines (a latent bug
-          that was hidden behind the previously-overflowing mascot; clipping the mascot exposed it). */}
-      <span className="absolute -top-1 left-1/2 z-[2] -translate-x-1/2 whitespace-nowrap rounded-t-[18px] bg-v3-lime px-4 text-sm font-black leading-5 text-v3-sapphire">Mate AI</span>
-      {/* clip container = the button's own rounded bounds; the mascot is head-aligned (top-[9px]) so the bottom 31px clips */}
-      <span className="pointer-events-none absolute inset-0 z-[1] overflow-hidden rounded-[10px]">
-        <span className="absolute left-1/2 top-[9px] h-[92px] w-[75px] -translate-x-1/2">
-          <Image src="/images/v2/mascot/01-nav.png" alt="" fill sizes="75px" style={{ objectFit: 'contain', objectPosition: 'top' }} />
-        </span>
-      </span>
-    </Link>
-  )
-}
 
 const NAV = 'fixed inset-x-0 bottom-0 z-30 flex justify-center px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-2'
 
@@ -71,11 +48,11 @@ export function CalendarMenu({ state = 'default', ctaLabel, onCta }: {
   return (
     <nav className={`${NAV} gap-3.5`}>
       {state === 'default' ? (
-        <div className="flex h-[70px] items-center justify-center gap-2 rounded-2xl border-4 border-[rgba(216,143,169,0.4)] bg-v3-nav-dark p-2 backdrop-blur">
+        <div className="flex h-[70px] min-w-0 flex-1 items-center justify-center gap-1 rounded-2xl border-4 border-[rgba(216,143,169,0.4)] bg-v3-nav-dark p-2 backdrop-blur max-[383px]:gap-0.5 max-[383px]:p-1">
           {TABS.map((t) => {
             const active = t.href === '/v2' ? pathname === '/v2' : pathname.startsWith(t.href)
             return (
-              <Link key={t.href} href={t.href} className={`grid w-[58px] place-items-center rounded-2xl py-2 text-sm font-semibold leading-5 ${active ? 'bg-v3-sapphire text-v3-lime' : 'text-v3-nav-label-off'}`}>
+              <Link key={t.href} href={t.href} className={`grid min-w-0 flex-1 place-items-center whitespace-nowrap rounded-2xl px-1 py-2 text-sm font-semibold leading-5 max-[383px]:px-0 max-[383px]:text-[12px] max-[339px]:text-[11px] ${active ? 'bg-v3-sapphire text-v3-lime' : 'text-v3-nav-label-off'}`}>
                 {t.label}
               </Link>
             )
