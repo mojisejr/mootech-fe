@@ -12,7 +12,7 @@ function ElementChip({ elementTh, roleLabel }: { elementTh?: string | null; role
   const th = (elementTh ?? '').trim()
   return (
     <div className="flex flex-col items-center gap-1">
-      <span className="grid size-16 place-items-center rounded-2xl text-[26px] font-bold" style={{ backgroundColor: wx.bg, color: wx.fg }}>
+      <span data-testid="compat-element-chip" className="grid size-16 place-items-center rounded-2xl text-[26px] font-bold" style={{ backgroundColor: wx.bg, color: wx.fg }}>
         {wx.hanzi || th.charAt(0) || '—'}
       </span>
       <span className="text-[13px] font-bold text-v3-navy">{roleLabel}</span>
