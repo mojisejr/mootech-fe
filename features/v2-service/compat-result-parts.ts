@@ -102,19 +102,46 @@ export function deriveHeroHighlights(dims?: CompatDimension[]): { best?: DimHigh
   return { best, worst: worst.label === best.label ? undefined : worst } // single dim → no distinct "worst"
 }
 
+// ELEMENT CHIP PALETTE — one SYSTEM, not five hand-picked pairs.
+//
+// Figma 636:22150 renders only the 水/土 pair, so those two glyph colours are sampled straight from the node.
+// Measuring them revealed the rule the tile follows:
+//
+//     tile bg  =  the glyph colour composited over WHITE at 16.2% opacity
+//
+// It holds on BOTH sampled elements across ALL SIX channels (น้ำ 0.162/0.165/0.160 · ดิน 0.157/0.165/0.162),
+// and re-deriving from the rule reproduces the sampled bg EXACTLY (#E2ECFB, #F7EFE2). So the tile is not a
+// free choice — only the glyph colour is. `elementTint()` below is that rule, and `run-compat-zones.ts`
+// asserts every element obeys it (tooth: mut-element-tint-drift).
+//
+// ไม้ / ไฟ / ทอง have NO node in the Figma file to sample (searched: no design-system component, the chip is
+// a plain frame not an instance, its fills bind no variable, and the "ธาตุของคุณ" screen 300-2356 uses a
+// different small-icon treatment). ฟีม ruled 2026-08-03: take the hue family of the documented element
+// palette but tune saturation/lightness to sit with the two real chips, and darken ไม้ a step —
+// chosen from a rendered 5-step comparison, not by eye-balling a hex.
+const TINT_ALPHA = 0.162
+
+/** the tile background for a glyph colour — the glyph over white at TINT_ALPHA (the Figma-proven rule). */
+export function elementTint(fg: string): string {
+  const s = fg.replace('#', '')
+  const ch = [0, 2, 4].map((i) => parseInt(s.slice(i, i + 2), 16))
+  return '#' + ch.map((v) => Math.round(v * TINT_ALPHA + 255 * (1 - TINT_ALPHA)).toString(16).padStart(2, '0').toUpperCase()).join('')
+}
+
 export type WuXing = { hanzi: string; bg: string; fg: string }
 const NEUTRAL: WuXing = { hanzi: '', bg: '#EEF1F4', fg: '#464646' }
-const WUXING: Record<string, WuXing> = {
-  'ไม้': { hanzi: '木', bg: '#E4F4E4', fg: '#2E7D32' },
-  'ไฟ': { hanzi: '火', bg: '#FDE4E1', fg: '#C0392B' },
-  'ดิน': { hanzi: '土', bg: '#F7EFE2', fg: '#CC9E4C' }, // Figma-sampled (636:22150)
-  'ทอง': { hanzi: '金', bg: '#F3F0E4', fg: '#9A8A55' },
-  'โลหะ': { hanzi: '金', bg: '#F3F0E4', fg: '#9A8A55' },
-  // ⚠️ SAMPLED vs UNSAMPLED: Figma 636:22150 only shows the 水/土 pair, so ONLY those two are Figma-exact.
-  // ไม้ / ไฟ / ทอง keep their original values — they are NOT verified against a node (logged as A2, not
-  // silently "matched"). Re-sample them when a node that renders those elements exists.
-  'น้ำ': { hanzi: '水', bg: '#E2ECFB', fg: '#4C8CE6' }, // Figma-sampled (636:22150)
+// glyph colours: น้ำ/ดิน = Figma-sampled (636:22150) · ไม้/ไฟ/ทอง = ฟีม-ruled 2026-08-03. Tiles all derived.
+const GLYPH: Record<string, { hanzi: string; fg: string }> = {
+  'ไม้': { hanzi: '木', fg: '#4CBD32' },
+  'ไฟ': { hanzi: '火', fg: '#D94C4C' },
+  'ดิน': { hanzi: '土', fg: '#CC9E4C' }, // Figma-sampled
+  'ทอง': { hanzi: '金', fg: '#D9B84C' },
+  'โลหะ': { hanzi: '金', fg: '#D9B84C' },
+  'น้ำ': { hanzi: '水', fg: '#4C8CE6' }, // Figma-sampled
 }
+const WUXING: Record<string, WuXing> = Object.fromEntries(
+  Object.entries(GLYPH).map(([k, v]) => [k, { hanzi: v.hanzi, bg: elementTint(v.fg), fg: v.fg }]),
+)
 export function wuxing(elementTh?: string | null): WuXing {
   const k = (elementTh ?? '').trim()
   return WUXING[k] ?? NEUTRAL

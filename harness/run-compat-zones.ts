@@ -9,6 +9,9 @@
 //   Z2 DIMS  — the rows live inside ONE section card: a row must NOT paint its own card background (the
 //              "card inside a card" regression). The grade pill colour ALWAYS equals its bar colour, and the
 //              rationale box carries the grade's soft tint (5-step ramp, A≠B).
+//   ELEMENTS — the 5 wuxing chips: the tile is NOT free — it is the glyph colour over white at 16.2% (a rule
+//              measured off the two Figma-sampled chips and true on all 6 channels). Only TWO chips render per
+//              screen, so all five are ENUMERATED by driving different pairs through the real route.
 //   Z3/Z4    — side tint system: ตัวเรา #ECF0FC vs เขา #F9F4F0, on both the pillar panels and the person cards.
 //              Inner pillar cells stay white. D23 (ยาม "—" when timeKnown=false) must still hold.
 //
@@ -17,6 +20,7 @@
 //   • mut-nested-card        — give a dimension row a white card bg → Z2 nested-card check trips.
 //   • mut-tint-swap          — swap the self/other tints → Z3/Z4 side-tint check trips.
 //   • mut-grade-colour-drift — pill colour ≠ bar colour → Z2 colour-agreement check trips.
+//   • mut-element-tint-drift  — an element tile hand-edited off the 16.2% rule → element tint check trips.
 //
 // Run (dev up :3100 with env):  CAPTURE_HOST=http://localhost:3100 npx tsx harness/run-compat-zones.ts
 import { chromium, type Browser, type Page } from 'playwright'
@@ -51,15 +55,15 @@ const DIMS = [
   { key: 'body', label: 'ความใกล้ชิด / เสน่หาทางกาย', percent: 15, grade: 'D-', ratingText: 'แรงดึงดูดไม่ได้มาเอง' },
 ]
 
-function detailBody() {
+function detailBody(el?: { aElementTh: string; bElementTh: string }) {
   const overall = { percent: 57, grade: 'C+', gradeLabel: 'ต้องปรับรับเข้าหากัน', ratingText: 'เป็นคนรักที่มีบทบาทหน้าที่สำคัญ' }
   const pil = (y: string[], m: string[], d: string[], h: string[]) => ({ year: { stem: y[0], branch: y[1], element: y[2] }, month: { stem: m[0], branch: m[1], element: m[2] }, day: { stem: d[0], branch: d[1], element: d[2] }, hour: { stem: h[0], branch: h[1], element: h[2] } })
-  const a = { displayName: 'มิลา', dayGanzhi: '壬午', elementTh: 'น้ำ', stageTh: 'หยางน้ำ', nisai: ['ปรับตัวเก่ง'], timeKnown: true, fourPillars: pil(['壬', '申', 'น้ำ'], ['甲', '戌', 'ไม้'], ['庚', '戌', 'ทอง'], ['壬', '戌', 'น้ำ']) }
-  const b = { displayName: 'โปเตโต้', dayGanzhi: '癸酉', elementTh: 'ดิน', stageTh: 'หยางดิน', nisai: ['มั่นคง'], timeKnown: false, fourPillars: pil(['丙', '午', 'ไฟ'], ['乙', '未', 'ไม้'], ['己', '丑', 'ดิน'], ['', '', '']) }
-  return JSON.stringify({ result: JSON.stringify({ pairMatch: { overall, dimensions: DIMS, persons: { a, b }, elementInteraction: { aElementTh: 'น้ำ', bElementTh: 'ดิน', summaryTh: 'ต้องปรับตัว', aToB: { labelTh: 'ดินข่มน้ำ', relation: 'พิฆาต' } } } }) })
+  const a = { displayName: 'มิลา', dayGanzhi: '壬午', elementTh: el?.aElementTh ?? 'น้ำ', stageTh: 'หยางน้ำ', nisai: ['ปรับตัวเก่ง'], timeKnown: true, fourPillars: pil(['壬', '申', 'น้ำ'], ['甲', '戌', 'ไม้'], ['庚', '戌', 'ทอง'], ['壬', '戌', 'น้ำ']) }
+  const b = { displayName: 'โปเตโต้', dayGanzhi: '癸酉', elementTh: el?.bElementTh ?? 'ดิน', stageTh: 'หยางดิน', nisai: ['มั่นคง'], timeKnown: false, fourPillars: pil(['丙', '午', 'ไฟ'], ['乙', '未', 'ไม้'], ['己', '丑', 'ดิน'], ['', '', '']) }
+  return JSON.stringify({ result: JSON.stringify({ pairMatch: { overall, dimensions: DIMS, persons: { a, b }, elementInteraction: { aElementTh: el?.aElementTh ?? 'น้ำ', bElementTh: el?.bElementTh ?? 'ดิน', summaryTh: 'ต้องปรับตัว', aToB: { labelTh: 'ดินข่มน้ำ', relation: 'พิฆาต' } } } }) })
 }
 
-async function open(browser: Browser, width = 393) {
+async function open(browser: Browser, width = 393, el?: { aElementTh: string; bElementTh: string }) {
   const ctx = await browser.newContext({ viewport: { width, height: 852 }, deviceScaleFactor: 2, reducedMotion: 'reduce' })
   await ctx.addCookies([
     { name: 'v2_access', value: readPasskey(), domain: new URL(HOST).hostname, path: '/' },
@@ -67,7 +71,7 @@ async function open(browser: Browser, width = 393) {
     { name: 'cookie-mumate-name', value: 'มิลา', domain: new URL(HOST).hostname, path: '/' },
   ])
   const page = await ctx.newPage()
-  await page.route((u) => u.pathname.endsWith('/user-matching/detail'), (r) => r.fulfill({ status: 200, contentType: 'application/json', body: detailBody() }))
+  await page.route((u) => u.pathname.endsWith('/user-matching/detail'), (r) => r.fulfill({ status: 200, contentType: 'application/json', body: detailBody(el) }))
   await page.route((u) => u.pathname.includes('/api/bazi/mascot/'), (r) => r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ mascot: null }) }))
   await page.goto(`${HOST}/v2/service/compatibility/result/ZONES`, { waitUntil: 'commit' })
   await page.locator('[data-testid="compat-result-screen"][data-state="ready"]').waitFor({ timeout: 20000 })
@@ -77,6 +81,15 @@ async function open(browser: Browser, width = 393) {
 }
 
 const bg = (p: Page, sel: string) => p.evaluate((s) => { const e = document.querySelector(s); return e ? getComputedStyle(e).backgroundColor : 'NONE' }, sel)
+
+// the element-chip rule: tile = glyph over WHITE at 16.2%. Parses the two computed rgb() strings and checks
+// every channel lands within ±2/255 of the composite (rounding + the browser's own rgb rounding).
+const rgb = (s: string) => (s.match(/\d+/g) ?? []).slice(0, 3).map(Number)
+function obeysTint(fg: string, bgc: string): boolean {
+  const f = rgb(fg), b = rgb(bgc)
+  if (f.length !== 3 || b.length !== 3) return false
+  return f.every((v, i) => Math.abs(Math.round(v * 0.162 + 255 * (1 - 0.162)) - b[i]) <= 2)
+}
 const noPageOverflow = (p: Page) => p.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1)
 
 ;(async () => {
@@ -115,6 +128,11 @@ const noPageOverflow = (p: Page) => p.evaluate(() => document.documentElement.sc
         pil.length === 2 && pil[0].side === 'self' && pil[0].bg === TINT_SELF && pil[1].side === 'other' && pil[1].bg === TINT_OTHER,
         pil.map((p) => `${p.side}=${p.bg}`).join(' '))
       check('Z3 inner pillar cells stay white', (await bg(page, '[data-testid="compat-pillar-ปี"]')) === 'rgb(255, 255, 255)')
+      // element chip: the tile must be the GLYPH colour over white at 16.2% — the Figma-proven rule, checked
+      // on whatever pair this fixture renders (the all-5 sweep runs in its own block below).
+      const chipPair = await page.evaluate(() => Array.from(document.querySelectorAll('[data-testid="compat-element-chip"]')).map((e) => { const s = getComputedStyle(e); return { bg: s.backgroundColor, fg: s.color, hz: e.textContent?.trim() } }))
+      check('Z3 element chips render (a pair)', chipPair.length === 2, chipPair.map((c) => c.hz).join('/'))
+      check('Z3 chip tile obeys the 16.2% tint rule', chipPair.every((c) => obeysTint(c.fg, c.bg)), chipPair.map((c) => `${c.hz} ${c.fg}→${c.bg}`).join(' '))
       check('Z3 D23 ยาม "—" still shown when timeKnown=false', (await page.locator('[data-testid="compat-pillar-hour-unknown"]').count()) === 1)
 
       // ═══ ZONE 4 · รายคน ═════════════════════════════════════════════════════════════════════════
@@ -137,6 +155,39 @@ const noPageOverflow = (p: Page) => p.evaluate(() => document.documentElement.sc
       await page.addStyleTag({ content: '[data-testid="compat-dim-bar"]{background-color:#000 !important}' })
       check('🦷 mut-grade-colour-drift → bar colour leaves the pill → CAUGHT',
         (await page.evaluate(() => { const r = document.querySelector('[data-testid="compat-dim-card"]')!; return getComputedStyle(r.querySelector('[data-testid="compat-dim-grade"]')!).backgroundColor !== getComputedStyle(r.querySelector('[data-testid="compat-dim-bar"]')!).backgroundColor })))
+      await ctx.close()
+    }
+
+    // ═══ ELEMENT PALETTE · all 5 (ฟีม 2026-08-03) ══════════════════════════════════════════════════
+    // The screen only ever renders TWO chips at a time, so a per-render check can never see all five —
+    // the state-space has to be ENUMERATED by driving each pair through the real screen. Only น้ำ/ดิน are
+    // Figma-sampled; the other three are ฟีม-ruled, and ALL five must obey the 16.2% tile rule.
+    {
+      const EXPECT: Record<string, string> = {
+        'ไม้': 'rgb(76, 189, 50)', 'ไฟ': 'rgb(217, 76, 76)', 'ดิน': 'rgb(204, 158, 76)',
+        'ทอง': 'rgb(217, 184, 76)', 'น้ำ': 'rgb(76, 140, 230)',
+      }
+      const seen = new Set<string>()
+      for (const [a, b] of [['ไม้', 'ไฟ'], ['ทอง', 'น้ำ'], ['ดิน', 'ไม้']] as const) {
+        const { ctx, page } = await open(browser, 393, { aElementTh: a, bElementTh: b })
+        const chips = await page.evaluate(() => Array.from(document.querySelectorAll('[data-testid="compat-element-chip"]')).map((e) => { const s = getComputedStyle(e); return { bg: s.backgroundColor, fg: s.color, hz: e.textContent?.trim() } }))
+        const pair: string[] = [a, b]
+        for (let i = 0; i < pair.length; i++) {
+          const el = pair[i]
+          const c = chips[i]
+          check(`element ${el}: glyph colour is the ruled value`, c?.fg === EXPECT[el], `${c?.hz} ${c?.fg}`)
+          check(`element ${el}: tile obeys the 16.2% rule`, obeysTint(c?.fg ?? '', c?.bg ?? ''), `${c?.fg} → ${c?.bg}`)
+          seen.add(el)
+        }
+        await ctx.close()
+      }
+      check('all 5 elements enumerated (not spot-checked on one pair)', seen.size === 5, Array.from(seen).join('/'))
+
+      // 🦷 tooth — a tile that drifts off the rule (hand-edited hex) must trip the tint check
+      const { ctx, page } = await open(browser, 393, { aElementTh: 'ไม้', bElementTh: 'ไฟ' })
+      await page.addStyleTag({ content: '[data-testid="compat-element-chip"]{background-color:#CCCCCC !important}' })
+      const drifted = await page.evaluate(() => { const e = document.querySelector('[data-testid="compat-element-chip"]')!; const s = getComputedStyle(e); return { bg: s.backgroundColor, fg: s.color } })
+      check('🦷 mut-element-tint-drift → tile off the rule → CAUGHT', !obeysTint(drifted.fg, drifted.bg), `${drifted.fg} → ${drifted.bg}`)
       await ctx.close()
     }
 
