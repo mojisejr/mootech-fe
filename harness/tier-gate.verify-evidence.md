@@ -1,6 +1,6 @@
 # EYE PROOF — Zone 4: ประตู free/paid (คนไม่จ่ายเงินเห็นของ paid ครบทุกอย่างมาตลอด)
 
-**Anchor:** `harness/run-tier-gate.ts` (54/54)
+**Anchor:** `harness/run-tier-gate.ts` (60/60)
 **PR:** feat/v2-tier-gate · base = main (`5ecadcc`)
 **Ledger:** `harness/bug-ledger.json` → `tier-gate`
 **Plan:** ❄️ FROZEN — `lamun-oracle/ψ/plans/2026-08-04_FROZEN-zone4-tier-gate.md`
@@ -100,7 +100,7 @@ CAPTURE_HOST=http://localhost:3099 npx tsx harness/run-tier-gate.ts        # 54/
 CAPTURE_HOST=http://localhost:3099 OUT=/tmp/shots npx tsx harness/capture-tier-gate.ts
 ```
 
-## proof-of-teeth (`run-tier-gate.ts` → ✅ 54/54)
+## proof-of-teeth (`run-tier-gate.ts` → ✅ 60/60)
 
 ฟันทุกซี่ต้องกัดจริงก่อนถึงจะเชื่อด่าน — รันจริงทุกตัว ไม่ใช่เขียนไว้เฉยๆ
 
@@ -113,6 +113,7 @@ CAPTURE_HOST=http://localhost:3099 OUT=/tmp/shots npx tsx harness/capture-tier-g
 | `mut-borrowed-motion` | ให้เหรียญใช้ `.v3-float` แทน `.v3-float-wide` | ✅ `MOTION-TRACK` แดง (`compat-sprite-float`) |
 | `mut-ssr-free` | ใช้ `useV2Tier` ตรงๆ แทน wrapper | ✅ `SSR-NEUTRAL` แดงทั้ง 3 ตัว |
 | `mut-buried-sprites` | ย้ายสไปรท์ชั้นหน้าไปหลังเนื้อหา (z-20 → z-0) | ✅ `PAINT-ORDER` แดง (`1/923` จาก `748/923`) |
+| `mut-ssr-paid-leak` 🆕 | เรนเดอร์ `CompatList` แบบไม่มีเงื่อนไข แล้วอ่าน **ไบต์บนสายของหน้ารายวัน** | ✅ `SSR-NEUTRAL · day · day-compat-list` แดง |
 
 ## 🔧 ซ่อมเครื่องมือ 3 รอบ — ฟันที่ไม่กัด แปลว่าด่านเปราะ ไม่ใช่บั๊กไม่มีจริง
 
@@ -171,6 +172,27 @@ worktree แยก · branch จาก `origin/main` · ไม่ push main · �
 `computeTier` จะตอบ null ตามที่ตั้งใจจริงไหม (ง) StrictMode double-mount + เปลี่ยน userId กลางคัน
 (จ) กด back/forward ระหว่าง tier ยังไม่ resolve
 
+### 🔓 goo แหกด่านได้จริง 1 จุด — ขยายขอบเขตแล้ว (2026-08-04)
+
+เขาชี้ว่า `ssrNeutral()` **curl แค่หน้าเดือน** ทั้งที่ของ paid ทั้งหมด (`ความเข้ากัน` · `คำทำนายรายด้าน` ·
+`8 ประตู` · `8 เทพ`) อยู่ที่ **หน้ารายวัน** ซึ่ง**ไม่เคยถูกอ่านบนสายเลย**
+วันนี้ปลอดภัยเพราะประตูตัดของ paid ออกจาก tree จริง — แต่ "ปลอดภัยเพราะกลไกอื่นบังเอิญกันไว้" ไม่ใช่ invariant
+ถ้าวันหลัง SSR ของหน้านั้น regress **ของ paid จะทะลุให้ free โดยที่ไฟล์นี้ยังเขียว**
+
+⇒ ขยาย `SSR-NEUTRAL` ให้ curl หน้ารายวันด้วย และยืนยันว่า `PAID_SECTIONS` ทั้ง 3 + upsell + pill **ไม่อยู่บนสาย**
+⇒ เพิ่มฟัน `mut-ssr-paid-leak` พิสูจน์ว่ามันกัดจริง (54 → **60 checks**)
+**รอยแตกแปลว่าขอบเขตของ invariant ผมแคบกว่า bug-class — ขยาย ไม่ใช่ทิ้ง**
+
+คำตอบของเขาต่อข้อ (ค): รันจริงแล้ว `computeTier` ทน — body เป็น HTML / ไม่มี `user_id` → `errored` → `null` ·
+string ที่ truthy ไม่ทำให้กลายเป็น paid · **หักไม่ได้**
+(ง)(จ) เขาบอกตรงว่า **reason จากโค้ด ไม่ได้รันบนเบราว์เซอร์** ⇒ ยังเปิดอยู่ ไม่นับเป็นผ่าน
+
+เรื่อง seam: เขาตัดสิน **ย้าย guard เข้า `useV2Tier`** (safe-by-default) แต่ **ไม่ churn ใบนี้** —
+รับเป็น follow-up ของเขาเอง พร้อม re-home `mut-ssr-free` (พอ seam ปลอดภัยแล้วฟันซี่นั้นจะไม่กัดที่เดิม)
+และรับ GSSP เป็น 2 ชั้น: **floor** = mount-gate ใน seam (กัน leak ทุกหน้า) · **ceiling** = resolve tier ใน GSSP (CLS = 0)
+
 **สิ่งที่ผมพยายามหักล้างเองแล้วไม่สำเร็จ**: ฟัน 7 ซี่กัดครบ · negative control ของทั้ง CLS probe และ PAINT-ORDER
 probe ผ่าน (probe ที่ยืนยันความผิดของตัวเองไม่ได้ = ตัวเลขไม่มีความหมาย) · เทียบภาพเรนเดอร์กับ Figma ทั้ง 2 ใบ
 **สิ่งที่ผมยังไม่ได้ลอง**: breakpoint อื่น · Safari · ข้อมูลจริงจาก BE · long-text/ชื่อยาว
+**สิ่งที่ยังไม่มีใครลอง** (goo บอกตรงว่าไม่ได้รัน): StrictMode double-mount + เปลี่ยน userId กลางคัน ·
+back/forward ระหว่าง tier ยังไม่ resolve ⇒ **A2 ไม่ใช่ผ่าน**

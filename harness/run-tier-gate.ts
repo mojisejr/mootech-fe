@@ -399,14 +399,33 @@ async function clsBudget(browser: Browser) {
 // member's HTML arrived with calendar-promo and the อัพเกรด pill already in it, and React threw a
 // hydration mismatch on top. Playwright could not see it because by the time it looked, the client had
 // re-rendered. Different ground truth, different instrument.
-async function ssrNeutral() {
-  const res = await fetch(`${HOST}${MONTH}`, {
+//
+// SCOPE WIDENED after goo's adversary pass (2026-08-04): the first version curled only the month screen —
+// the one screen where the worst thing on the wire is an advert. The screen that actually carries the paid
+// content (`/v2/calendar/[date]`: ความเข้ากัน · คำทำนายรายด้าน · 8 ประตู · 8 เทพ) was never read on the
+// wire at all. It happens to be safe today because the gate keeps those sections out of the tree entirely,
+// but "safe today by luck of another mechanism" is not an invariant: an SSR regression on that page would
+// hand paid sections to free members with this file still green. His crack, my scope — widened, not waived.
+async function ssrHtml(route: string) {
+  const res = await fetch(`${HOST}${route}`, {
     headers: { cookie: `v2_access=${readPasskey()}; cookie-mumate-id=${USER_ID}; cookie-mumate-name=x` },
   })
-  const html = await res.text()
-  check('SSR-NEUTRAL · server ships no promo', !html.includes('data-testid="calendar-promo"'))
-  check('SSR-NEUTRAL · server ships no อัพเกรด pill', !html.includes('data-testid="header-upgrade"'))
-  check('SSR-NEUTRAL · server ships the undetermined state instead', html.includes('data-testid="calendar-tier-pending"'))
+  return res.text()
+}
+
+async function ssrNeutral() {
+  const html = await ssrHtml(MONTH)
+  check('SSR-NEUTRAL · month · server ships no promo', !html.includes('data-testid="calendar-promo"'))
+  check('SSR-NEUTRAL · month · server ships no อัพเกรด pill', !html.includes('data-testid="header-upgrade"'))
+  check('SSR-NEUTRAL · month · server ships the undetermined state instead', html.includes('data-testid="calendar-tier-pending"'))
+
+  const day = await ssrHtml(DAY)
+  for (const t of PAID_SECTIONS) {
+    check(`SSR-NEUTRAL · day · paid section not on the wire: ${t}`, !day.includes(`data-testid="${t}"`))
+  }
+  check('SSR-NEUTRAL · day · server ships no upsell', !day.includes('data-testid="calendar-upsell"'))
+  check('SSR-NEUTRAL · day · server ships no อัพเกรด pill', !day.includes('data-testid="header-upgrade"'))
+  check('SSR-NEUTRAL · day · server ships the undetermined state instead', day.includes('data-testid="day-tier-pending"'))
 }
 
 async function main() {
