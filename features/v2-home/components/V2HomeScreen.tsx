@@ -14,8 +14,7 @@ import { HabitCard } from './sections/HabitCard'
 import { PajeuSection } from './sections/PajeuSection'
 import { SinseSection } from './sections/SinseSection'
 import { CalendarMenu } from './CalendarMenu'
-import { TopBarBell } from '@/features/v2-shell/components/TopBarBell'
-import { TopBarAvatar } from '@/features/v2-shell/components/TopBarAvatar'
+import { HeaderTools } from '@/features/v2-shell/components/AppHeader'
 import { LogoutModal } from '@/features/v2-shell/components/LogoutModal'
 
 // Zone 1 daily-fortune (bazi /api/home). goo wires useHomeFortune() → this shape; I compose against it.
@@ -106,24 +105,29 @@ function MascotImg({ src }: { src: string }) {
 // name at FULL width, bold, wrapping up to 2 lines (never truncated); row3 = the element line (unchanged).
 function Greeting({ name, mascotCharacter, onAvatarTap, element, profile }: { name: string; mascotCharacter: string; onAvatarTap: () => void; element: ElementInfo; profile: Profile }) {
   return (
-    <header className="flex flex-col gap-1.5 py-4">
-      {/* row1 — label + tools */}
+    // Home composes the shared right cluster DIRECTLY (<HeaderTools/>) instead of <AppHeader/>'s row.
+    // Reason, found by looking at the render rather than the diff: AppHeader lays title and tools side by
+    // side, so dropping Structure A into its `left` slot narrowed the whole column and the element line
+    // started wrapping onto two lines. Structure A exists precisely so the NAME owns the full width
+    // (ฟีม 2026-07-26 — a real name must never truncate); a shared header that quietly costs 96px of that
+    // width defeats it. The genuinely shared thing is the CLUSTER, which is what this uses.
+    //
+    // The pill also changes skin here: it was lime + navy + rounded-full, Figma (636:12792) is grade-yellow +
+    // cyan + r8 with a cyan glow. Same rule (`profile.showUpgrade` from goo — the UI still never computes the
+    // payment rule), correct pixels.
+    <header data-testid="home-header" className="flex flex-col gap-1.5 py-4 font-ibm">
       <div className="flex items-center gap-2">
         <p className="min-w-0 flex-1 truncate text-sm font-medium leading-5 text-v3-text-muted">สวัสดีคุณ</p>
-        {/* badge: shown ONLY when goo says so (showUpgrade) — the UI never computes the payment rule */}
-        {profile.showUpgrade && (
-          <button type="button" className="shrink-0 rounded-full bg-v3-lime px-3 py-1.5 text-sm font-bold leading-5 text-v3-navy">อัพเกรด</button>
-        )}
-        {/* bell → the FULL notifications page (ฟีม: "หน้าเต็มคือหน้าที่ design มา" — modal parked, see
-            NotificationPanel below). Shared TopBarBell: href renders the same-pixel <a> in place of the
-            <button> — home's header does NOT move. */}
-        <TopBarBell variant="solid" href="/v2/calendar/notifications" />
-        <TopBarAvatar variant="sapphire" name={name} pictureUrl={profile.pictureUrl} onClick={onAvatarTap} />
+        <HeaderTools
+          showUpgrade={profile.showUpgrade}
+          avatarName={name}
+          avatarPictureUrl={profile.pictureUrl}
+          onAvatar={onAvatarTap}
+        />
       </div>
-      {/* row2 — the name, full 361px, bold headline. wrap ≤2 lines, NEVER truncate (break-words handles
-          long unbroken Thai so it can't overflow; line-clamp-2 caps height — real names fit well within 2). */}
+      {/* the name at FULL width, wrapping ≤2 lines — break-words handles long unbroken Thai so it can never
+          overflow, line-clamp-2 caps the height. */}
       <h1 data-testid="greeting-name" className="line-clamp-2 break-words text-2xl font-bold leading-8 text-v3-navy">{name}</h1>
-      {/* row3 — element line (unchanged) */}
       <ElementLine mascotCharacter={mascotCharacter} element={element} />
     </header>
   )

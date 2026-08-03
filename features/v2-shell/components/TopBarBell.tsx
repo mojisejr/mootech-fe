@@ -11,6 +11,11 @@
 //     (calendar: mate-gradient ground, lime glyph). The skins are DIFFERENT today (that's the reality บอง
 //     found — 3 pages, not 1 look); each variant reproduces its page's CURRENT pixels EXACTLY so nothing
 //     shifts. When ฟีม picks ONE unified look, delete the other variant (or flip the default) — one edit.
+//
+// ⚠️ 2026-08-03 — the 'mate' variant is NO LONGER USED anywhere. ฟีม answered the "which look wins" question
+// directly ("กระดิ่ง + avatar รวมเป็นแบบเดียวทั้ง app มันควรจะเป็นแบบนั้น"), so the calendar flow now renders
+// the same solid/sapphire skin as home and service. Kept, not deleted (Rule 1): it is the record of what the
+// calendar screens looked like before the unification, and re-instating it is a one-word prop change.
 import Link from 'next/link'
 import type { ReactNode } from 'react'
 

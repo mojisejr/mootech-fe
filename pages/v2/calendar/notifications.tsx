@@ -8,6 +8,7 @@
 import type { GetServerSideProps } from 'next'
 import Link from 'next/link'
 import { v2RedirectIfUnauthed } from '@/lib/v2/gate'
+import { AppHeader } from '@/features/v2-shell/components/AppHeader'
 import { CalendarShell } from '@/features/v2-calendar/components/CalendarShell'
 import { SectionCard } from '@/features/v2-calendar/components/day-detail/SectionCard'
 import { useReminders, CalendarMenuState, type Reminder, type ReminderDestination } from '@/features/v2-calendar'
@@ -77,17 +78,13 @@ export default function V2CalendarNotificationsPage() {
 
   return (
     <CalendarShell title="การแจ้งเตือน" menuState={CalendarMenuState.Saved}>
-      {/* top bar (DayHeader pattern).
-          ANCHOR: inline-gradient — bug-ledger#inline-hex-gradient-tech-debt (ตู๋ · D2): this multi-stop
-          linear-gradient uses inline hex (#FFFFFF, #C9E4F4) instead of DESIGN.md tokens (Tailwind can't express
-          the multi-stop cleanly). Visually on-brand + verified, but logged as intentional debt to refactor into
-          a token/utility later. #C9E4F4 IS the v3-pastel-blue token value; #FFFFFF is white. */}
-      <header className="flex items-center gap-3 rounded-b-[20px] px-4 pb-3 pt-2" style={{ background: 'linear-gradient(105deg, #FFFFFF 40%, #C9E4F4 100%)' }}>
-        <Link href="/v2/calendar" aria-label="ย้อนกลับ" className="grid size-9 place-items-center rounded-full text-v3-navy">
-          <svg viewBox="0 0 20 20" className="size-6" fill="none" aria-hidden><path d="M12.5 5 7.5 10l5 5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /></svg>
-        </Link>
-        <h1 className="flex-1 text-xl font-extrabold text-v3-navy">การแจ้งเตือนทั้งหมด</h1>
-      </header>
+      {/* top bar — the shared <AppHeader/> (ฟีม 2026-08-03: one header convention). The gradient strip is
+          this flow's chrome and is unchanged.
+          ANCHOR: inline-gradient — bug-ledger#inline-hex-gradient-tech-debt (ตู๋ · D2): multi-stop hex
+          gradient kept as-is; #C9E4F4 IS the v3-pastel-blue token value. */}
+      <div style={{ background: 'linear-gradient(105deg, #FFFFFF 40%, #C9E4F4 100%)' }} className="rounded-b-[20px]">
+        <AppHeader testId="notifications-header" title="การแจ้งเตือนทั้งหมด" backHref="/v2/calendar" className="items-center px-4 pb-3 pt-2" />
+      </div>
 
       <div className="flex flex-col gap-4 px-4 pt-4">
         {/* summary — hidden in the empty state (แบบ ก stays clean; no "0 ยาม" above "ยังไม่มีการแจ้งเตือน") */}
