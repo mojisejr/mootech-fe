@@ -26,6 +26,8 @@ import { Dithi } from '@/features/v2-calendar/components/day-detail/Dithi'
 import { EightGates } from '@/features/v2-calendar/components/day-detail/EightGates'
 import { EightDeities } from '@/features/v2-calendar/components/day-detail/EightDeities'
 import { SaveSheet } from '@/features/v2-calendar/components/day-detail/SaveSheet'
+import { PersonalCalendarUpsell } from '@/features/v2-calendar/components/upsell/PersonalCalendarUpsell'
+import { useClientTier } from '@/features/v2-shell/hooks/useClientTier'
 
 export const getServerSideProps: GetServerSideProps = async (ctx) => {
   ctx.res.setHeader('Cache-Control', 'no-store, must-revalidate')
@@ -41,6 +43,17 @@ export default function V2CalendarDayPage() {
   // ฟีม: โหมดแอดวานซ์เปิดเป็นค่าเริ่มต้น (goo's useAdvancedMode default ON). Toggling OFF hides the 4
   // advanced-only sections (§5/§9/§12/§13) → the exact 3a normal frame (634:8194); toggling ON brings them back.
   const { advanced, toggle } = useAdvancedMode()
+  // Zone 4 — the gate. Until this shipped, this screen had no tier logic at all: every section Figma marks
+  // paid (ความเข้ากัน 5 ด้าน · คำทำนายรายด้าน · โหมดแอดวานซ์ and the four advanced-only sections behind it)
+  // rendered for everyone, including members who never paid.
+  //
+  // THREE states, not two. `isPaid === null` means the tier is not determined (in flight, or the user fetch
+  // failed) and there is no safe default: assume free and a paying member loses what they bought; assume
+  // paid and the leak stays open. So neither branch renders — the screen shows the part every tier gets
+  // (score card · ทิศ สีมงคล · เวลามงคล) and fills in once the answer is real.
+  const { isPaid } = useClientTier()
+  const paid = isPaid === true
+  const free = isPaid === false
   const reminders = useReminders()
   const draft = useReminderDraft() // goo's save-flow machine — the page MASKS it, adds no state of its own
   const content = getDayFortuneContent(date)
@@ -77,9 +90,19 @@ export default function V2CalendarDayPage() {
       ctaLabel={saved ? 'คุณบันทึกลงปฏิทินแล้ว' : 'เพิ่มลงปฏิทิน เพื่อแจ้งเตือน'}
       onCta={() => draft.open(date)}
     >
-      <DayHeader />
+      <DayHeader showUpgrade={free} />
       <span data-testid="reminder-count" className="sr-only">{dateReminderCount}</span>
-      <div className="flex flex-col gap-4 px-4 pt-3">
+      {/* Same layout decision as the month screen, and the case for it is stronger here: the two branches
+          differ by three whole sections, so whichever one paints first, the other's arrival would drag
+          everything under it. The body waits for the tier and then paints once, in its final position —
+          a shift needs something already painted to move. Spinner is out of flow, so it shifts nothing. */}
+      {isPaid === null && (
+        <div data-testid="day-tier-pending" aria-live="polite" className="pointer-events-none absolute inset-x-0 top-1/3 grid place-items-center">
+          <span className="size-8 animate-spin rounded-full border-[3px] border-v3-sapphire/20 border-t-v3-sapphire" />
+          <span className="sr-only">กำลังโหลดรายละเอียดวัน</span>
+        </div>
+      )}
+      <div className={`flex flex-col gap-4 px-4 pt-3 ${isPaid === null ? 'hidden' : ''}`}>
         <DayStrip date={date} />
         <DayScoreCard detail={detail} content={content} />
         {/* Phase 7 A2 — after a save, the entry-point to the full list, in view while the user is paying attention */}
@@ -88,18 +111,22 @@ export default function V2CalendarDayPage() {
             ✓ บันทึกแล้ว · ดูรายการทั้งหมด →
           </Link>
         )}
-        <AdvancedToggle on={advanced} onToggle={toggle} />
+        {paid && <AdvancedToggle on={advanced} onToggle={toggle} />}
         {/* §5 [advanced] — ดวงของฉัน (binds goo's detail.pillars) */}
-        {advanced && <MyChart pillars={detail.pillars} />}
-        <CompatList areas={content.compatAreas} insight={content.insight} />
-        <PredictionCards areas={content.compatAreas} />
+        {paid && advanced && <MyChart pillars={detail.pillars} />}
+        {/* Figma Free-2 375:11286 puts the upsell exactly here — after the score card, before ทิศ สีมงคล —
+            standing in for the three sections below it. The percent is the SAME one the ring shows. */}
+        {free && <PersonalCalendarUpsell percent={detail.percent} />}
+        {paid && <CompatList areas={content.compatAreas} insight={content.insight} />}
+        {paid && <PredictionCards areas={content.compatAreas} />}
         {/* §9 [advanced] — ดิถีวันนี้ · สะสม */}
-        {advanced && <Dithi items={content.dithi} />}
+        {paid && advanced && <Dithi items={content.dithi} />}
+        {/* every tier gets these two — Free-2 draws them in full */}
         <LuckyColors colors={content.luckyColors} deity={content.dayDeity} />
         <YamTimes yams={detail.yams} onAdd={addYam} />
         {/* §12/§13 [advanced] — 8 ประตู · 8 เทพ */}
-        {advanced && <EightGates gates={content.gates} />}
-        {advanced && <EightDeities deities={content.deities} />}
+        {paid && advanced && <EightGates gates={content.gates} />}
+        {paid && advanced && <EightDeities deities={content.deities} />}
       </div>
       {/* screen 5 — save sheet, shown only while the machine is editing/saving (375:13316) */}
       {sheetOpen && <SaveSheet date={date} yams={detail.yams} draft={draft} onSave={onSheetSave} />}

@@ -114,7 +114,27 @@
   animation: compat-sprite-float 2s cubic-bezier(0.45, 0, 0.55, 1) infinite;
   will-change: transform;
 }
+
+/* The SECOND float. get_motion_context on the month-promo coin (375:11210) returns a different track from
+   the one above — wider swing, bigger pulse, and a symmetric 4-point rotation instead of the 35/70 pair:
+       y [0,-6,0] · scale [1,1.05,1] · rotate [0,-3,0,3,0] · 2s · cubic-bezier(.45,0,.55,1) · infinite
+   Close enough to eyeball as "the same float", different enough that reusing the one above would be an
+   invented motion value — the exact class of drift ฟีม caught on 2026-08-03. Same --sprite-rot contract. */
+@keyframes v3-float-wide {
+  0%   { transform: translateY(0)    scale(1)    rotate(var(--sprite-rot, 0deg)); }
+  25%  { transform: translateY(-3px) scale(1.03) rotate(calc(var(--sprite-rot, 0deg) - 3deg)); }
+  50%  { transform: translateY(-6px) scale(1.05) rotate(var(--sprite-rot, 0deg)); }
+  75%  { transform: translateY(-3px) scale(1.03) rotate(calc(var(--sprite-rot, 0deg) + 3deg)); }
+  100% { transform: translateY(0)    scale(1)    rotate(var(--sprite-rot, 0deg)); }
+}
+.v3-float-wide {
+  transform: rotate(var(--sprite-rot, 0deg));
+  animation: v3-float-wide 2s cubic-bezier(0.45, 0, 0.55, 1) infinite;
+  will-change: transform;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .v3-float,
+  .v3-float-wide,
   .compat-sprite { animation: none; }
 }

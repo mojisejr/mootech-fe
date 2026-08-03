@@ -40,6 +40,11 @@ const config: Config = {
           'text-title': '#0B305B',      // alias of navy — matches DESIGN token name
           'text-body': '#464646',       // body / label
           'text-muted': '#71717A',      // secondary list-item
+          // Figma calls #94A3B8 "Text/Muted" too, but that name is already taken above by #71717A and is
+          // in use across v2. Renaming it here rather than overwriting: a token swap would repaint every
+          // screen that already reads text-muted, silently. Used as the FILL of the free comparison tile
+          // on the day-detail upsell (375:13131).
+          'slate-muted': '#94A3B8',
           'placeholder': '#9CA3AF',     // input placeholder
           'text-filled': '#212121',     // filled input value
           // Semantic & border

@@ -48,7 +48,7 @@ function CompatRow({ area }: { area: CompatArea }) {
 
 export function CompatList({ areas, insight }: { areas: CompatArea[]; insight: string }) {
   return (
-    <SectionCard title="ความเข้ากัน 5 ด้าน" info>
+    <SectionCard title="ความเข้ากัน 5 ด้าน" info testId="day-compat-list">
       <div className="flex flex-col gap-4">
         {areas.map((a) => (
           <CompatRow key={a.label} area={a} />

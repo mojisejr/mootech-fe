@@ -390,5 +390,22 @@
     "date": "2026-08-03",
     "owner": "lamun",
     "pr": "feat/v2-daily-card"
+  },
+  {
+    "id": "tier-gate",
+    "description": "มุน 2026-08-04 (ฟีม Zone 4, Figma Free-1 368:9750 / Free-2 375:11286 / Paid-1 375:16710 / Paid-2 634:8194): /v2/calendar/[date] ชิปมาโดยไม่มี logic tier เลยสักบรรทัด ⇒ คนที่ยังไม่จ่ายเงินเห็นของ paid ครบทุกอย่าง (ความเข้ากัน 5 ด้าน · คำทำนายรายด้าน · โหมดแอดวานซ์ + 4 section หลัง toggle). ปิดด้วย useV2Tier ของ goo (#169 ที่ merged แล้วแต่ยังไม่มี caller) โดยประตูมี 3 สถานะไม่ใช่ 2 — isPaid===null คือ 'ยังไม่รู้' และเดาผิดได้ทั้งสองทาง (เดา free คนจ่ายเงินโดนซ่อนของที่ซื้อ / เดา paid รูไม่ได้ปิด) จึงไม่เรนเดอร์ทั้งสองฝั่ง. ระหว่างทางเจอบั๊กที่ด่าน DOM ทั้งชุดมองไม่เห็น: หน้าเหล่านี้เป็น SSR และ useCookies ไม่มีคุกกี้ฝั่ง server ⇒ computeTier ตอบ 'ไม่มีบัญชี = ไม่ได้จ่าย' ⇒ server ส่ง HTML ที่มีการ์ดขายของไปให้คนจ่ายเงิน (พิสูจน์ด้วย curl) + hydration mismatch — เห็นจาก screenshot เท่านั้น, แก้ที่ useClientTier ของฝั่ง UI ไม่แตะ hook ของ goo.",
+    "anchor": "harness/run-tier-gate.ts",
+    "teeth": [
+      "mut-paid-leak",
+      "mut-upsell-on-paid",
+      "mut-null-as-free",
+      "mut-two-numbers",
+      "mut-borrowed-motion",
+      "mut-ssr-free",
+      "mut-buried-sprites"
+    ],
+    "date": "2026-08-04",
+    "owner": "lamun",
+    "pr": 171
   }
 ]
