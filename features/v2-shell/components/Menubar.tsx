@@ -81,8 +81,11 @@ export function Menubar({ state = 'default', ctaLabel, onCta }: {
 
   return (
     <nav aria-label="เมนูหลัก" className={NAV}>
+      {/* border/blur below are Figma's Menubar values (461:3303 → 469:3654: border 5px rgba(216,143,169,.4),
+          backdrop-blur 6.8px) — the same pair the Mate AI tile carries, so the two halves of the bar can never
+          drift apart again. Was border-4 + the default blur. */}
       {state === 'default' ? (
-        <ul className="flex h-[70px] min-w-0 flex-1 items-stretch gap-1 rounded-2xl border-4 border-[rgba(216,143,169,0.4)] bg-v3-nav-dark p-2 backdrop-blur max-[383px]:gap-0.5 max-[383px]:p-1">
+        <ul className="flex h-[70px] min-w-0 flex-1 items-stretch gap-1 rounded-2xl border-[5px] border-[rgba(216,143,169,0.4)] bg-v3-nav-dark bg-clip-padding p-2 backdrop-blur-[6.8px] max-[383px]:gap-0.5 max-[383px]:p-1">
           {TABS.map((tab) => {
             const active = isActive(pathname, tab.href)
             return (

@@ -35,7 +35,12 @@ const HOST = process.env.CAPTURE_HOST ?? 'http://localhost:3104'
 const USER_ID = '5c7befb3-ebd3-4740-989e-fd6a1cca9662'
 const WIDTHS = [430, 414, 393, 384, 375, 360, 344, 320]
 const LIME = 'rgb(225, 255, 0)'
-const PINK_BORDER = 'rgb(237, 204, 215)'
+// The border was pinned to the OPAQUE #EDCCD7 here. `get_design_context` on 461:3303 (2026-08-03) says the
+// node's stroke is rgba(216,143,169,.4) — and #EDCCD7 is simply what that 40% pink composites to over the cream
+// page, i.e. someone sampled the rendered pixel and hard-coded it. Pinning the composite made the anchor green
+// on a value that could not survive a different background. It now pins the DECLARED colour, and
+// run-mateai-button.ts owns the complementary check that it still RENDERS pink (bg-clip-padding).
+const PINK_BORDER = 'rgba(216, 143, 169, 0.4)'
 
 function readPasskey(): string {
   const line = fs.readFileSync(path.resolve(process.cwd(), 'testenv/env/fe.env'), 'utf-8')
@@ -173,7 +178,9 @@ async function openRoute(browser: Browser, width: number, route: string) {
         const a = document.querySelector('[data-testid="nav-mate-ai"]') as HTMLElement | null
         if (!a) return null
         const cs = getComputedStyle(a)
-        const lbl = a.querySelector('span span') as HTMLElement | null
+        // was `span span` — a positional selector that silently retargeted to the mascot wrapper when the
+        // button's child order changed. Address the label by its testid instead.
+        const lbl = a.querySelector('[data-testid="nav-mate-ai-label"] span') as HTMLElement | null
         if (!lbl) return null
         const ls = getComputedStyle(lbl)
         const r = lbl.getBoundingClientRect()
@@ -183,7 +190,7 @@ async function openRoute(browser: Browser, width: number, route: string) {
       })
       check('Mate AI fill is LIME (not a gradient — the shipped version had these inverted)',
         skin?.fill === LIME && skin?.fillImg === 'none', `${skin?.fill} / ${skin?.fillImg}`)
-      check('Mate AI border = #EDCCD7', skin?.border === PINK_BORDER, skin?.border)
+      check('Mate AI border = rgba(216,143,169,.4) (Figma stroke, not its composite)', skin?.border === PINK_BORDER, skin?.border)
       check('Mate AI label is GRADIENT text (transparent ink + clip:text + a real gradient + non-zero box)',
         skin?.lblColor === 'rgba(0, 0, 0, 0)' && skin?.clip === 'text' && !!skin?.lblImg?.includes('linear-gradient') && (skin?.w ?? 0) > 0 && (skin?.h ?? 0) > 0,
         `${skin?.clip} ${skin?.w}x${skin?.h}`)
