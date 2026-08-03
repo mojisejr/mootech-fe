@@ -77,12 +77,26 @@ async function main() {
       const [selFill, markerHex] = args as [string, string]
       const cells = Array.from(g.querySelectorAll('a[aria-label^="วันที่"]')) as HTMLElement[]
       const selected = cells.filter((c) => getComputedStyle(c).backgroundColor === selFill).length
-      // วันพระ ring is an inset box-shadow using #9D85DA (rgb 157,133,218).
-      const ring = cells.filter((c) => getComputedStyle(c).boxShadow.includes('157, 133, 218')).length
-      return { selected, ring, markerHex }
+      // วันพระ marker — read it wherever it is PAINTED, not where it used to be authored. It was an inset
+      // box-shadow; Figma (368:9832) draws a real 1.6px #9D85DA border, so the cell now carries a border.
+      // An anchor pinned to the old mechanism reports "0 markers" for a screen that is showing them, which is
+      // a false alarm — the expensive kind, because it teaches you to ignore the anchor.
+      const ring = cells.filter((c) => {
+        const cs = getComputedStyle(c)
+        return cs.boxShadow.includes('157, 133, 218') || cs.borderTopColor.includes('157, 133, 218')
+      }).length
+      // is TODAY even in this grid? The mock month is a fixed constant (กรกฎาคม 2026), so "a cell is
+      // sapphire" is only true while the wall clock happens to fall inside it. Asserting selected >= 1
+      // unconditionally made this a TIME BOMB: green the week it was written, red every day after the mock
+      // month passed — and it has been red for exactly that reason, not because anything regressed.
+      const todayISO = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Bangkok' }).format(new Date())
+      const todayInView = !!g.querySelector(`a[href="/v2/calendar/${todayISO}"]`)
+      return { selected, ring, markerHex, todayInView }
     }, [hexToRgb(SELECTED.fill), CALENDAR_MARKER]),
   )
-  const markerOk = markers.selected >= 1 && markers.ring >= 1
+  // today-in-view → exactly one sapphire cell; today NOT in view → none, and that is correct, not a failure.
+  const selectedOk = markers.todayInView ? markers.selected === 1 : markers.selected === 0
+  const markerOk = selectedOk && markers.ring >= 1
 
   // ── no-overflow-x ──
   const overflow: Record<number, boolean> = {}
@@ -105,7 +119,7 @@ async function main() {
   console.log('\n═══ CALENDAR-MONTH anchor ═══')
   console.log(line(noApp, `no-app-fetch (done-cond 8): 0 app-fetch → console-0 without BE  [${appFetches.length ? appFetches.join(', ') : 'none'}]`))
   console.log(line(tierOk, `tier-fidelity: ${tiers.ok}/${tiers.total} cells match DESIGN.md tint  [misses: ${tiers.misses.join(' · ') || 'none'}]`))
-  console.log(line(markerOk, `selected+marker: ${markers.selected} sapphire-selected · ${markers.ring} วันพระ ring (#9D85DA)`))
+  console.log(line(markerOk, `selected+marker: ${markers.selected} sapphire-selected (today${markers.todayInView ? '' : ' NOT'} in view) · ${markers.ring} วันพระ ring (#9D85DA)`))
   console.log(line(noOverflowOk, `no-overflow-x @ 393/360/320  [${Object.entries(overflow).map(([w, o]) => `${w}:${o ? 'OVERFLOW' : 'ok'}`).join(' ')}]`))
   console.log('  ── teeth ──')
   console.log(`  ${tierCaught ? '🦷 CAUGHT' : '✗ BLIND'}  mut-hardcode-tier: an off-DESIGN cell color → tier-fidelity gate rejects`)

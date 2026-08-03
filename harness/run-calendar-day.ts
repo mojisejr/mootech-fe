@@ -138,9 +138,20 @@ async function main() {
   const missing = Object.entries(present).filter(([, v]) => !v).map(([k]) => k)
   check('all 10 sections present (§1·2·3·4·6·7·8·10·11·14)', missing.length === 0, missing.length ? `missing: ${missing.join(', ')}` : '10/10')
 
-  // 5 — off-screen-motion battery rule: 0 running animations on the long frame
-  const anims = await page.evaluate(() => (document.getAnimations ? document.getAnimations().length : -1))
-  check('0 running animations (nothing drains off-screen)', anims === 0, `getAnimations()=${anims}`)
+  // 5 — off-screen-motion battery rule. The rule's intent is that CONTENT does not animate while it sits
+  // off-screen in this very long frame. Since #166 the bottom nav's Mate AI mascot floats on every page —
+  // that is Figma's own motion track, it is always on-screen (position: fixed), and it stops under
+  // prefers-reduced-motion (run-mateai-button.ts owns that). So the count is taken EXCLUDING the nav:
+  // keeping the old literal "=== 0" would have made this anchor red for a deliberate, verified design
+  // element, and a red anchor nobody believes is worse than no anchor.
+  const anims = await page.evaluate(() => {
+    if (!document.getAnimations) return -1
+    return document.getAnimations().filter((a) => {
+      const el = (a as unknown as { effect?: { target?: Element | null } }).effect?.target ?? null
+      return !(el && el.closest('nav'))
+    }).length
+  })
+  check('0 running animations outside the fixed nav (nothing drains off-screen)', anims === 0, `getAnimations()=${anims}`)
 
   await browser.close()
   console.log(`\n${failed === 0 ? '✅ PASS' : `❌ FAIL (${failed})`}`)

@@ -1,20 +1,16 @@
-// MuMate v2 — ปฏิทินดวง month view (Figma 375:16710). Behind the v2 gate (middleware + this SSR re-check).
-// Phase 2 (Lamun · designed UI): the grade grid + legend + score card replace goo's Phase-0 scaffold; goo's
-// hooks/routing (useCalendarMonth · dayCellTier · /v2/calendar/[date]) are unchanged. NO network (mock hooks).
-// Phase 3a nav-seam: renders inside CalendarShell (shared CalendarMenu, state default) instead of AppShell,
-// so the bottom bar matches /v2/calendar/[date]'s — consistent across the calendar flow (AppShell/Menubar
-// untouched → /v2/service, /v2/shop unaffected).
+// MuMate v2 — ปฏิทินดวง month view (Figma Free-1 368:9750 / Paid-1 375:16710). Behind the v2 gate.
+// Phase 3b (Lamun · Figma fidelity): the selector row and the grid are now components built from
+// `get_design_context` — <DateSelector/> (ฟีม's SVG export) and <MonthGrid/> (368:9832). goo's hooks and
+// routing (useCalendarMonth · dayCellTier · /v2/calendar/[date]) are untouched; NO network (mock hooks).
 import type { GetServerSideProps } from 'next'
-import Link from 'next/link'
 import { useRouter } from 'next/router'
 import { v2RedirectIfUnauthed } from '@/lib/v2/gate'
 import { CalendarShell } from '@/features/v2-calendar/components/CalendarShell'
 import { AppHeader } from '@/features/v2-shell/components/AppHeader'
-import { useCalendarMonth, dayCellTier, CalendarMenuState, type CalendarDay } from '@/features/v2-calendar'
-import { DAY_CELL_COLORS, SELECTED, CALENDAR_MARKER, GRADE_COLORS } from '@/features/v2-calendar/components/grade-colors'
-
-const THAI_MONTHS = ['มกราคม', 'กุมภาพันธ์', 'มีนาคม', 'เมษายน', 'พฤษภาคม', 'มิถุนายน', 'กรกฎาคม', 'สิงหาคม', 'กันยายน', 'ตุลาคม', 'พฤศจิกายน', 'ธันวาคม']
-const THAI_DOW = ['อา', 'จ', 'อ', 'พ', 'พฤ', 'ศ', 'ส']
+import { DateSelector } from '@/features/v2-calendar/components/DateSelector'
+import { MonthGrid } from '@/features/v2-calendar/components/MonthGrid'
+import { useCalendarMonth, CalendarMenuState, type CalendarDay } from '@/features/v2-calendar'
+import { GRADE_COLORS } from '@/features/v2-calendar/components/grade-colors'
 
 export const getServerSideProps: GetServerSideProps = async (ctx) => {
   ctx.res.setHeader('Cache-Control', 'no-store, must-revalidate')
@@ -23,38 +19,11 @@ export const getServerSideProps: GetServerSideProps = async (ctx) => {
   return { props: {} }
 }
 
-// One day tile — tier-tinted (DESIGN.md), grade + day + %, or sapphire-filled when selected. วันพระ = #9D85DA ring.
-function DayCell({ cell, selected }: { cell: CalendarDay; selected: boolean }) {
-  const tier = DAY_CELL_COLORS[dayCellTier(cell.percent)]
-  const style = selected
-    ? { backgroundColor: SELECTED.fill, color: SELECTED.text, boxShadow: undefined as string | undefined }
-    : { backgroundColor: tier.tint, color: tier.text, boxShadow: cell.isBuddhistDay ? `inset 0 0 0 1.5px ${CALENDAR_MARKER}` : undefined }
-  return (
-    <Link
-      href={`/v2/calendar/${cell.date}`}
-      aria-label={`วันที่ ${cell.day} เกรด ${cell.grade} ${cell.percent}%`}
-      className="flex aspect-square flex-col items-center justify-center rounded-[10px] leading-none"
-      style={style}
-    >
-      <span className="flex w-full items-baseline justify-between px-1.5 pt-1 text-[13px] font-bold">
-        <span>{cell.day}</span>
-        <span className="text-[10px] font-semibold">{cell.grade}</span>
-      </span>
-      <span className="pb-1 text-[11px] font-medium">{cell.percent}%</span>
-    </Link>
-  )
-}
-
-function LegendDot({ color, label }: { color: string; label: string }) {
-  return (
-    <span className="flex items-center gap-1 text-[11px] text-v3-text-body">
-      <span className="size-2.5 rounded-full" style={{ backgroundColor: color }} />
-      {label}
-    </span>
-  )
-}
-
-// The score-ring summary card for the selected day (Figma: donut ring + grade + headline + date).
+// The score-ring summary for the selected day. STILL the small local card, deliberately: Figma's real one
+// (375:11100 `daily-session-card`) is a superset of home's <ScoreRingCard/> — same 90px ring, plus a 干支
+// chip, a วันพระ row, two lines per column and a CTA. Extracting that one card so home and the calendar
+// share it MOVES HOME'S PIXELS, so it rides with the tier work in the next PR instead of hiding inside a
+// grid refactor. Written down so this reads as a deferral, not an oversight.
 function ScoreCard({ day }: { day: CalendarDay }) {
   const c = GRADE_COLORS[day.grade]
   const R = 26, C = 2 * Math.PI * R
@@ -85,47 +54,26 @@ export default function V2CalendarPage() {
   // selected/summary day = today if it's in view (fenced: null until mount), else the month's reference day.
   const cardDay = month.days.find((d) => d.date === todayISO) ?? month.days[13] ?? month.days[0]
 
+  // Jump to an arbitrary month by STEPPING goo's cursor, so his hook keeps the exact signature it shipped
+  // with (goPrev/goNext/goToday) — the seam stays his. React batches the functional updates, so N calls
+  // land as a single render.
+  const goTo = (y: number, m: number) => {
+    const delta = (y - year) * 12 + (m - monthIndex)
+    const step = delta > 0 ? goNext : goPrev
+    for (let i = 0; i < Math.abs(delta); i++) step()
+  }
+
   return (
     <CalendarShell title="ปฏิทินดวง" menuState={CalendarMenuState.Normal}>
-      {/* THE HEADER THIS PAGE NEVER HAD (Figma 368:9807). Not a drifted header — a missing one: before this
-          the month view rendered no title, no bell and no avatar at all, so the only way off the page was the
-          bottom nav. Copy is Figma's. The อัพเกรด pill is deliberately absent until the tier reaches the shell
-          (PR4 / Zone 4) — an upsell shown to someone who already paid is the expensive mistake here. */}
       <AppHeader title="ปฏิทินดวง" subtitle="ฤกษ์ดี วันมงคล ดิถีจีนรายวัน" className="items-start px-4 pb-2 pt-4" />
+
       <div className="flex flex-col gap-4 px-4 pt-2">
-        {/* month selector row (Figma: วันนี้ · เดือน · ปี พ.ศ.) — driven by goo's cursor */}
-        <div className="flex items-center gap-2">
-          <button type="button" onClick={goToday} className="rounded-full bg-v3-sapphire px-4 py-1.5 text-sm font-semibold text-white">วันนี้</button>
-          <button type="button" onClick={goPrev} aria-label="เดือนก่อน" className="grid size-8 place-items-center rounded-full bg-white text-v3-sapphire shadow-sm">‹</button>
-          <span className="flex-1 text-center text-sm font-semibold text-v3-navy">{THAI_MONTHS[monthIndex - 1]} · {year + 543}</span>
-          <button type="button" onClick={goNext} aria-label="เดือนถัดไป" className="grid size-8 place-items-center rounded-full bg-white text-v3-sapphire shadow-sm">›</button>
-        </div>
+        <DateSelector year={year} monthIndex={monthIndex} onToday={goToday} onPick={goTo} />
 
-        {/* grade grid */}
-        <div className="rounded-2xl bg-white p-3 shadow-[0_4px_14px_rgba(26,38,77,0.06)]">
-          <div className="mb-1 grid grid-cols-7 gap-1 text-center text-[11px] font-semibold text-v3-text-body/70">
-            {THAI_DOW.map((d, i) => <span key={i}>{d}</span>)}
-          </div>
-          <div data-testid="calendar-grid" className="grid grid-cols-7 gap-1">
-            {month.weeks.flat().map((cell, i) =>
-              cell.isPadding
-                ? <span key={i} aria-hidden />
-                : <DayCell key={cell.date} cell={cell} selected={cell.date === (todayISO ?? '')} />,
-            )}
-          </div>
-          {/* legend (Figma: ≥60 · 40-59 · <40 · วันนี้) */}
-          <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1">
-            <LegendDot color={DAY_CELL_COLORS.good.text} label="≥60% ดี" />
-            <LegendDot color={DAY_CELL_COLORS.medium.text} label="40–59%" />
-            <LegendDot color={DAY_CELL_COLORS.bad.text} label="<40% น้อย" />
-            <LegendDot color={SELECTED.fill} label="วันนี้" />
-          </div>
-        </div>
+        <MonthGrid weeks={month.weeks} todayISO={todayISO} />
 
-        {/* selected-day score card */}
         <ScoreCard day={cardDay} />
 
-        {/* CTA → day detail (Phase 3) */}
         <button
           type="button"
           onClick={() => router.push(`/v2/calendar/${cardDay.date}`)}
