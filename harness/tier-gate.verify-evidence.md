@@ -96,7 +96,7 @@ tier มาหลัง first paint เสมอ (client fetch) ⇒ ทดสอ
 
 ```bash
 set -a; . testenv/env/fe.env; set +a; ./node_modules/.bin/next dev -p 3099
-CAPTURE_HOST=http://localhost:3099 npx tsx harness/run-tier-gate.ts        # 54/54
+CAPTURE_HOST=http://localhost:3099 npx tsx harness/run-tier-gate.ts        # 60/60
 CAPTURE_HOST=http://localhost:3099 OUT=/tmp/shots npx tsx harness/capture-tier-gate.ts
 ```
 
