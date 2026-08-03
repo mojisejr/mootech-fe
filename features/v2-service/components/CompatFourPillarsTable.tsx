@@ -3,6 +3,7 @@
 // element (ธาตุ) label beneath. D23/D44: timeKnown === false → the ยาม (hour) column shows "—" for all three
 // (never invented). Rule 4: no fourPillars → render null.
 import type { CompatResultPerson, CompatPillar } from '../compatibility-result'
+import { SIDE_TINT, type SideKey } from '../compat-result-parts'
 
 const UNKNOWN = '—'
 
@@ -11,7 +12,7 @@ function Column({ head, pillar, unknown }: { head: string; pillar?: CompatPillar
   const branch = unknown ? UNKNOWN : (pillar?.branch ?? UNKNOWN)
   const element = unknown ? UNKNOWN : (pillar?.element ?? '')
   return (
-    <div data-testid={`compat-pillar-${head}`} className="flex flex-1 flex-col items-center gap-1 rounded-xl bg-v3-ghost-white px-1 py-3">
+    <div data-testid={`compat-pillar-${head}`} className="flex flex-1 flex-col items-center gap-1 rounded-xl bg-white px-1 py-3">
       <span className="text-[11px] font-medium text-v3-text-muted">{head}</span>
       <span className="text-[22px] font-bold leading-7 text-v3-navy">{stem}</span>
       <span className="text-[22px] font-bold leading-7 text-v3-navy">{branch}</span>
@@ -20,13 +21,18 @@ function Column({ head, pillar, unknown }: { head: string; pillar?: CompatPillar
   )
 }
 
-export function CompatFourPillarsTable({ person, roleLabel }: { person?: CompatResultPerson; roleLabel: string }) {
+export function CompatFourPillarsTable({ person, roleLabel, side = 'self' }: { person?: CompatResultPerson; roleLabel: string; side?: SideKey }) {
   const fp = person?.fourPillars
   if (!fp) return null
   const hourUnknown = person?.timeKnown === false
   const dayGanzhi = (person?.dayGanzhi ?? '').trim()
   return (
-    <section data-testid="compat-fourpillars" className="flex flex-col gap-3 rounded-2xl bg-white p-4">
+    <section
+      data-testid="compat-fourpillars"
+      data-side={side}
+      className="flex flex-col gap-3 rounded-2xl p-4"
+      style={{ backgroundColor: SIDE_TINT[side] }}
+    >
       <p className="text-[14px] font-bold text-v3-navy">
         {roleLabel}{dayGanzhi ? <span className="font-normal text-v3-text-body"> · หลักวัน {dayGanzhi}</span> : null}
       </p>
