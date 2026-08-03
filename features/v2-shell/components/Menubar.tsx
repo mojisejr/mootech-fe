@@ -1,89 +1,121 @@
-// MuMate v2 — bottom Menubar (app-shell scaffold, Phase 0). Spec: DESIGN.md v3 §Menubar — dark
-// #1A1A1A floating pill, pink border, 4 tabs (หน้าหลัก/บริการ/ปฏิทิน/ร้านค้า), Inter SemiBold 14,
-// active = sapphire #1455A4 fill + lime #E1FF00 label.
+// MuMate v2 — THE bottom menu. One component, four states, every screen (Figma menu 461:3224).
 //
-// 2026-08-03 (ฟีม "Mate AI ทุกหน้า"): this nav was the ONLY one without the Mate AI button — the five screens
-// that use it (service hub · coming-soon · compat form · compat recent · shop) were missing it while home and
-// the calendar flow had it. It now renders the SHARED MateAIButton, so both navs show the same button from one
-// source. Adding it widens the bar (~244 → ~332), so the tab pill was also made SHRINKABLE (min-w-0 flex-1,
-// like CalendarMenu's CTA slot) — otherwise the extra 88px would clip on a 320-wide screen. The whole bar is
-// capped at the 393 content width and centred, and carries the safe-area inset it previously lacked.
+// PR2 of the nav clean-up (ฟีม 2026-08-03, ทาง ก). Before this there were TWO "shared" bottom navs that had
+// drifted apart — v2-shell/Menubar (icons, no Mate AI, 1 state) on the service screens, and v2-home/CalendarMenu
+// (Mate AI, NO icons, 4 states) on home + the calendar flow — so the menu genuinely looked different depending
+// on where you were, and NEITHER matched Figma. PR1 (#163) fixed the symptoms and gave them a shared Mate AI
+// button; this file is now the single implementation, and CalendarMenu re-exports it so goo's menu-state
+// contract and CalendarShell keep working untouched.
+//
+// STATES (contract owned by goo in features/v2-calendar/menu-state.ts — Figma-verified there, not re-derived):
+//   default     4 tabs + Mate AI              — home · calendar month
+//   primary-cta CTA button + Mate AI          — day detail, unsaved
+//   saved       "✓ …" button + Mate AI        — day detail, saved
+//   form        full-width button, NO Mate AI — the save sheet (Figma has no bottom menu there)
+//
+// ICONS are the real Figma glyphs (exported from the Menubar instance 469:3671) and paint with currentColor,
+// so active (lime on sapphire) and inactive (muted) come from one class instead of two icon sets. Home was
+// text-only before — gaining the icon row is the INTENDED Figma-fidelity change of this PR.
+//
+// WIDTH: tabs are min-w-0 flex-1 and the type steps down (14 → 12 <384 → 11 <340) so no label is ever cut and
+// the bar never overflows a narrow screen — the fixed-layer clipping class that run-nav-consistency.ts owns.
 import Link from 'next/link'
 import { useRouter } from 'next/router'
-import { MateAIButton } from './MateAIButton'
 import type { ReactNode } from 'react'
+import { MateAIButton } from './MateAIButton'
 
-type Tab = { href: string; label: string; icon: ReactNode }
+export type MenubarState = 'default' | 'primary-cta' | 'saved' | 'form'
 
-// Minimal inline 16px icons — kept local so the shell has no icon-lib dependency; swappable for the
-// design-system icon set later.
-const iconProps = { width: 16, height: 16, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 2, strokeLinecap: 'round' as const, strokeLinejoin: 'round' as const }
+const ICON = 'h-4 w-4 shrink-0'
+const IconHome = () => (
+  <svg viewBox="0 0 14.3333 15.0094" className={ICON} fill="currentColor" aria-hidden>
+    <path fillRule="evenodd" clipRule="evenodd" d="M8.81267 0.618337C7.8702 -0.206112 6.46313 -0.206113 5.52066 0.618337L1.08173 4.50134C0.39432 5.10266 0 5.97151 0 6.88478V12.5094C0 13.8902 1.11929 15.0094 2.5 15.0094H11.8333C13.2141 15.0094 14.3333 13.8902 14.3333 12.5094V6.88478C14.3333 5.97151 13.939 5.10266 13.2516 4.50135L8.81267 0.618337ZM4.60777 9.05931C4.48921 8.80991 4.19092 8.70384 3.94153 8.82238C3.69213 8.94098 3.58607 9.23924 3.70464 9.48864C4.01596 10.1435 4.50663 10.6966 5.11969 11.0838C5.73275 11.471 6.44307 11.6764 7.16813 11.6761C7.89327 11.6758 8.6034 11.4699 9.21613 11.0822C9.82887 10.6946 10.3191 10.141 10.6299 9.48598C10.7483 9.23644 10.642 8.93824 10.3925 8.81991C10.1431 8.70151 9.84487 8.80778 9.72647 9.05731C9.49673 9.54151 9.1344 9.95064 8.68147 10.2372C8.2286 10.5237 7.70367 10.6759 7.16773 10.6761C6.6318 10.6763 6.1068 10.5245 5.65368 10.2383C5.20055 9.95218 4.83788 9.54331 4.60777 9.05931Z" />
+  </svg>
+)
+const IconService = () => (
+  <svg viewBox="0 0 16 16" className={ICON} fill="currentColor" aria-hidden>
+    <path d="M13.9872 2.01389C13.4072 1.43389 12.5872 1.20723 11.7939 1.40723L5.26056 3.04056C4.16056 3.31389 3.31389 4.16723 3.04056 5.26056L1.40723 11.8005C1.20723 12.5939 1.43389 13.4139 2.01389 13.9939C2.45389 14.4272 3.03389 14.6672 3.63389 14.6672C3.82056 14.6672 4.01389 14.6472 4.20056 14.5939L10.7405 12.9605C11.8339 12.6872 12.6872 11.8405 12.9605 10.7405L14.5939 4.20056C14.7939 3.40723 14.5672 2.58723 13.9872 2.01389ZM8.00053 10.5872C6.57389 10.5872 5.41389 9.4272 5.41389 8.00053C5.41389 6.57389 6.57389 5.41389 8.00053 5.41389C9.4272 5.41389 10.5872 6.57389 10.5872 8.00053C10.5872 9.4272 9.4272 10.5872 8.00053 10.5872Z" />
+  </svg>
+)
+const IconCalendar = () => (
+  <svg viewBox="0 0 18 20" className={ICON} fill="currentColor" aria-hidden>
+    <path d="M18 18V4C18 2.897 17.103 2 16 2H14V0H12V2H6V0H4V2H2C0.897 2 0 2.897 0 4V18C0 19.103 0.897 20 2 20H16C17.103 20 18 19.103 18 18ZM6 16H4V14H6V16ZM6 12H4V10H6V12ZM10 16H8V14H10V16ZM10 12H8V10H10V12ZM14 16H12V14H14V16ZM14 12H12V10H14V12ZM16 7H2V5H16V7Z" />
+  </svg>
+)
+const IconShop = () => (
+  <svg viewBox="0 0 21.6 19.2" className={ICON} fill="currentColor" aria-hidden>
+    <path d="M6.1476 6.3L7.0968 0H2.16L0.0972 5.4C0.0332 5.592 0.0008 5.792 0 6C0 7.3248 1.38 8.4 3.0852 8.4C4.6572 8.4 5.9568 7.4832 6.1476 6.3ZM10.8 8.4C12.504 8.4 13.8852 7.3248 13.8852 6C13.8844 5.9504 13.8824 5.902 13.8792 5.8548L13.2684 0H8.3316L7.7196 5.85L7.7148 6C7.7148 7.3248 9.096 8.4 10.8 8.4ZM16.8 9.6552V14.4H4.8V9.6624C4.2744 9.852 3.696 9.96 3.0852 9.96C2.8512 9.96 2.6244 9.9324 2.4 9.9012V17.52C2.4 18.444 3.1548 19.2 4.0776 19.2H17.52C18.444 19.2 19.2 18.4428 19.2 17.52V9.9024C18.9733 9.93836 18.7443 9.95801 18.5148 9.9612C17.9298 9.9595 17.3495 9.85595 16.8 9.6552ZM21.504 5.4L19.4388 0H14.5032L15.4512 6.2904C15.636 7.4784 16.9356 8.4 18.5148 8.4C20.2188 8.4 21.6 7.3248 21.6 6C21.5992 5.792 21.5672 5.592 21.504 5.4Z" />
+  </svg>
+)
 
-const TABS: Tab[] = [
-  {
-    href: '/v2',
-    label: 'หน้าหลัก',
-    icon: (
-      <svg {...iconProps}><path d="M3 9.5 12 3l9 6.5" /><path d="M5 10v10h14V10" /></svg>
-    ),
-  },
-  {
-    href: '/v2/service',
-    label: 'บริการ',
-    icon: (
-      <svg {...iconProps}><rect x="3" y="3" width="7" height="7" rx="1" /><rect x="14" y="3" width="7" height="7" rx="1" /><rect x="3" y="14" width="7" height="7" rx="1" /><rect x="14" y="14" width="7" height="7" rx="1" /></svg>
-    ),
-  },
-  {
-    href: '/v2/calendar',
-    label: 'ปฏิทิน',
-    icon: (
-      <svg {...iconProps}><rect x="3" y="4" width="18" height="17" rx="2" /><path d="M3 9h18M8 2v4M16 2v4" /></svg>
-    ),
-  },
-  {
-    href: '/v2/shop',
-    label: 'ร้านค้า',
-    icon: (
-      <svg {...iconProps}><path d="M4 4h16l-1.5 5H5.5L4 4Z" /><path d="M5.5 9 6 20h12l.5-11" /></svg>
-    ),
-  },
+const TABS: { href: string; label: string; icon: ReactNode }[] = [
+  { href: '/v2', label: 'หน้าหลัก', icon: <IconHome /> },
+  { href: '/v2/service', label: 'บริการ', icon: <IconService /> },
+  { href: '/v2/calendar', label: 'ปฏิทิน', icon: <IconCalendar /> },
+  { href: '/v2/shop', label: 'ร้านค้า', icon: <IconShop /> },
 ]
 
 function isActive(pathname: string, href: string): boolean {
   return href === '/v2' ? pathname === '/v2' : pathname === href || pathname.startsWith(`${href}/`)
 }
 
-export function Menubar() {
+const NAV = 'fixed inset-x-0 bottom-0 z-40 mx-auto flex max-w-md items-center gap-3.5 px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-2'
+
+export function Menubar({ state = 'default', ctaLabel, onCta }: {
+  state?: MenubarState
+  ctaLabel?: string
+  onCta?: () => void
+}) {
   const { pathname } = useRouter()
+
+  // state 4 — the save sheet: one full-width button, and deliberately NO Mate AI (Figma).
+  if (state === 'form') {
+    return (
+      <nav aria-label="เมนูหลัก" className={NAV}>
+        <button type="button" onClick={onCta} className="h-[70px] w-full rounded-2xl bg-v3-sapphire text-base font-bold leading-6 text-white">
+          {ctaLabel ?? 'บันทึก'}
+        </button>
+      </nav>
+    )
+  }
+
   return (
-    <nav
-      aria-label="เมนูหลัก"
-      className="fixed inset-x-0 bottom-0 z-40 mx-auto flex max-w-md items-center gap-3.5 px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-2"
-    >
-      <ul className="flex min-w-0 flex-1 items-stretch gap-1 rounded-2xl border-[5px] border-[rgba(216,143,169,0.4)] bg-[#1A1A1A] p-2 shadow-lg backdrop-blur max-[383px]:gap-0.5 max-[383px]:p-1">
-        {TABS.map((tab) => {
-          const active = isActive(pathname, tab.href)
-          return (
-            <li key={tab.href} className="min-w-0 flex-1">
-              <Link
-                href={tab.href}
-                aria-current={active ? 'page' : undefined}
-                className={[
-                  'flex flex-col items-center gap-1 whitespace-nowrap rounded-xl px-1 py-2 font-poppins-v3 text-[14px] font-semibold leading-5 transition-colors max-[383px]:px-0 max-[383px]:text-[12px] max-[339px]:text-[11px]',
-                  active
-                    ? 'bg-v3-sapphire text-v3-lime'
-                    : 'text-v3-nav-label-off hover:bg-[#0B305B]',
-                ].join(' ')}
-              >
-                <span aria-hidden="true">{tab.icon}</span>
-                <span>{tab.label}</span>
-              </Link>
-            </li>
-          )
-        })}
-      </ul>
+    <nav aria-label="เมนูหลัก" className={NAV}>
+      {state === 'default' ? (
+        <ul className="flex h-[70px] min-w-0 flex-1 items-stretch gap-1 rounded-2xl border-4 border-[rgba(216,143,169,0.4)] bg-v3-nav-dark p-2 backdrop-blur max-[383px]:gap-0.5 max-[383px]:p-1">
+          {TABS.map((tab) => {
+            const active = isActive(pathname, tab.href)
+            return (
+              <li key={tab.href} className="min-w-0 flex-1">
+                <Link
+                  href={tab.href}
+                  aria-current={active ? 'page' : undefined}
+                  className={[
+                    'flex h-full flex-col items-center justify-center gap-1 whitespace-nowrap rounded-2xl px-1 text-[14px] font-semibold leading-5 transition-colors max-[383px]:px-0 max-[383px]:text-[12px] max-[339px]:text-[11px]',
+                    active ? 'bg-v3-sapphire text-v3-lime' : 'text-v3-nav-label-off',
+                  ].join(' ')}
+                >
+                  <span aria-hidden>{tab.icon}</span>
+                  <span>{tab.label}</span>
+                </Link>
+              </li>
+            )
+          })}
+        </ul>
+      ) : (
+        // states 2/3 — a sapphire CTA filling the left slot. The label NEVER truncates: it shrinks and wraps
+        // (up to 2 balanced lines) so "เพื่อแจ้งเตือน" stays whole even at 320.
+        <button
+          type="button"
+          onClick={onCta}
+          className="flex h-[70px] min-w-0 flex-1 items-center justify-center rounded-2xl bg-v3-sapphire px-4 text-center text-sm font-bold leading-tight text-white [text-wrap:balance]"
+        >
+          {state === 'saved' ? `✓ ${ctaLabel ?? 'คุณบันทึกลงปฏิทินแล้ว'}` : (ctaLabel ?? 'เพิ่มลงปฏิทิน เพื่อแจ้งเตือน')}
+        </button>
+      )}
       <MateAIButton />
     </nav>
   )
 }
+
+export default Menubar
