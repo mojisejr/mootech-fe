@@ -6,6 +6,16 @@
 // Idempotent effect (same discipline as useV2Home / #176): NO doneRef latch — StrictMode double-invokes,
 // each run owns its `alive`, the surviving run resolves. NO routing here by design.
 //
+// SSR-SAFE BY DEFAULT (μุน found this on #171, moved into the seam here): an empty `userId` on the SERVER
+// does NOT mean "no account" — it means "the cookie is unreadable in THIS render context" (react-cookie
+// has no jar during SSR). Those are two different meanings crammed into one value. computeTier is right to
+// read empty-userId as known-free (a pure function cannot know the difference), so the fix belongs HERE,
+// not in the reducer: the tier is trusted only once the component has MOUNTED on the client, where the
+// cookie actually exists. Before mount (SSR + the first client pass) it reads `null` — the "not determined"
+// state the gate already handles by rendering NEITHER branch, so server and client-first render an
+// identical tree (no hydration mismatch) and no page can ship a paid member the free/upsell branch.
+// Guarding here (not in a per-page wrapper) means the next SSR consumer cannot silently re-step the leak.
+//
 // Home note: home already fetches the user via useV2Home and exposes `profile.showUpgrade` (= !isPaid) —
 // derive isPaid from that there instead of calling this hook, so home keeps its SINGLE UserGetById (#165).
 // useV2Tier is for the pages that do NOT already fetch the user.
@@ -25,6 +35,10 @@ export function useV2Tier(): V2Tier {
     errored: false,
     user: null,
   })
+  // SSR-safe gate: false on the server + the first client render, true after the mount effect. Until then
+  // the tier reads `null` (see the header) so no branch commits before the cookie is actually readable.
+  const [mounted, setMounted] = useState(false)
+  useEffect(() => setMounted(true), [])
   // keep the reducer output stable across a StrictMode remount by resetting on userId change only
   const lastUserId = useRef<string | null>(null)
 
@@ -55,5 +69,7 @@ export function useV2Tier(): V2Tier {
     }
   }, [userId])
 
+  // Before mount → null (not determined) so SSR and the first client pass agree; after mount → the reducer.
+  if (!mounted) return { isPaid: null, loading: true }
   return computeTier({ userId, done: state.done, errored: state.errored, user: state.user })
 }

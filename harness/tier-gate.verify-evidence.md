@@ -111,7 +111,7 @@ CAPTURE_HOST=http://localhost:3099 OUT=/tmp/shots npx tsx harness/capture-tier-g
 | `mut-null-as-free` | `isPaid !== true` แทน `=== false` | ✅ `GATE-UNKNOWN · errored/slow · no upsell / no pill` แดง 4 ตัว |
 | `mut-two-numbers` | ฮาร์ดโค้ด 75 ในช่องซ้าย | ✅ `ONE-NUMBER` แดงทั้งคู่ (`tile=75 sentence=71`) |
 | `mut-borrowed-motion` | ให้เหรียญใช้ `.v3-float` แทน `.v3-float-wide` | ✅ `MOTION-TRACK` แดง (`compat-sprite-float`) |
-| `mut-ssr-free` | ใช้ `useV2Tier` ตรงๆ แทน wrapper | ✅ `SSR-NEUTRAL` แดงทั้ง 3 ตัว |
+| `mut-ssr-seam` (re-homed จาก `mut-ssr-free`) | ถอด mount-gate **ใน useV2Tier** ออก (guard ย้ายเข้า seam แล้ว — goo follow-up) → SSR commit tier | ✅ `SSR-NEUTRAL` แดง — เฝ้า *ต้นเหตุ* (คู่กับ `mut-ssr-paid-leak` ที่เฝ้า *ผลลัพธ์*). พิสูจน์ใน [[v2-tier-ssr-seam.verify-evidence]] |
 | `mut-buried-sprites` | ย้ายสไปรท์ชั้นหน้าไปหลังเนื้อหา (z-20 → z-0) | ✅ `PAINT-ORDER` แดง (`1/923` จาก `748/923`) |
 | `mut-ssr-paid-leak` 🆕 | เรนเดอร์ `CompatList` แบบไม่มีเงื่อนไข แล้วอ่าน **ไบต์บนสายของหน้ารายวัน** | ✅ `SSR-NEUTRAL · day · day-compat-list` แดง |
 
