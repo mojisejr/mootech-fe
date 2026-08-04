@@ -11,11 +11,16 @@
 //   H-SCROLL     — the page scrolls sideways. The single worst mobile-layout failure: it makes the whole
 //                  screen feel broken and it is invisible at the width you designed at.
 //   ESCAPE       — a specific element's box extends past the viewport edge. Named, so the fix is one place.
-//   ABS-DRIFT    — decorations positioned by absolute Figma coordinates. THE suspected bug-class here: the
-//                  new promo/upsell cards place mascots at fixed px offsets taken from a 393-wide frame, so
-//                  a wider card leaves them behind (this is exactly how the Mate AI button broke — ฟีม
-//                  caught that one by eye, and it shipped because nothing measured it).
+//   DRIFT        — how far a decoration hangs OUT of its own card, compared against the same number at the
+//                  design width. Designed overhang is constant; overhang that GROWS on a narrower screen
+//                  means a Figma coordinate was pasted in as a layout rule (exactly how the Mate AI button
+//                  broke — ฟีม caught that by eye, and it shipped because nothing measured it).
 //   TAP-TARGET   — an interactive control narrower than 32px, i.e. collapsed by the narrow viewport.
+//
+// TEETH:
+//   • mut-figma-coord — put the metal sprite back on the raw Figma coordinate (`anchor: 'left', x: 327.528`
+//     in PersonalCalendarUpsell.tsx, i.e. the state this file was written to catch) → DRIFT trips on
+//     day-free with `metal@320: หลุดกรอบ 0→61px` and `@360: 0→21px`. Verified biting, not just written down.
 //
 // Run (dev up :3099 with env):  CAPTURE_HOST=http://localhost:3099 npx tsx harness/run-breakpoint-sweep.ts
 //   add SHOTS=/tmp/bp to also write a PNG per screen per width for eyeballing.
@@ -109,12 +114,6 @@ async function sweep(browser: Browser, s: Screen, width: number) {
         escapes.push({ id: label, right: Math.round(r.right), left: Math.round(r.left) })
       }
 
-      // ABS-DRIFT sample. The FIRST version of this check asked `computedStyle.right === 'auto'` to spot a
-      // left-anchored decoration — and returned 0 for every screen at every width, including the card that
-      // was demonstrably broken. Chrome resolves `right` to a used length even when the author only set
-      // `left`, so the condition could never be true: a probe that reads clean for everything reads clean
-      // for a real bug too. Now it just records WHERE each decoration sits relative to its own card, and
-      // main() compares those numbers ACROSS widths — drift is a change, so it takes two measurements.
       // OVERHANG, not anchor. Two earlier formulations of this check failed, in opposite directions:
       //   1. "is `computed.right` auto?" — Chrome resolves both edges to used lengths, so it matched
       //      nothing and reported every screen clean, including the card that was demonstrably broken.
