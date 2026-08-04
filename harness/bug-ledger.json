@@ -412,5 +412,16 @@
     "id": "v2-tier-ssr-seam",
     "description": "goo 2026-08-04 (follow-up ต่อ μุน #171/#172): ย้าย SSR mount-gate จาก per-page wrapper useClientTier เข้า useV2Tier เอง → seam SSR-safe by default, consumer SSR คนถัดไปเหยียบ leak ซ้ำไม่ได้. ROOT (μุน วัด): server ไม่มี cookie jar → userId='' → computeTier ตอบ KNOWN-FREE ทุกคน → paid member ได้ promo/upsell ใน SSR HTML + hydration mismatch. computeTier ถูก (pure fn แยก 'ไม่มีบัญชี' จาก 'อ่าน cookie ไม่ได้ที่นี่' ไม่ได้) → fix ที่ seam ไม่ใช่ reducer: useV2Tier คืน null จน mounted (SSR + first client pass) แล้วค่อย computeTier. useClientTier ลดเหลือ re-export (mount-gate ซ้ำซ้อน). computeTier/isPaidMember ไม่แตะ. TOOTH re-homed mut-ssr-free→mut-ssr-seam: เฝ้า CAUSE (ถอด mount-gate ใน useV2Tier → SSR commit tier → SSR-NEUTRAL แดง) คู่กับ μุน mut-ssr-paid-leak ที่เฝ้า EFFECT (paid bytes บนสายหน้ารายวัน, ไม่แตะ). mut-ssr-free moot เพราะ direct useV2Tier ปลอดภัยแล้ว. VERIFIED local: tsc0, build, computeTier unit 16/16 (unchanged), diff 2 production files. NOT run by me: run-tier-gate.ts (local MAINTENANCE_MODE middleware บล็อก SSR boot) → mut-ssr-seam bites + 60/60 green บน branch นี้ = μุน verify (harness owner + adversary contract: ไม่ self-certify tooth ตัวเอง). mount-gate behaviourally identical กับ useClientTier ที่ μุน พิสูจน์แล้วบน main.",
     "enforced_by": "harness/run-tier-gate.ts#mut-ssr-seam"
+  },
+  {
+    "id": "figma-coord-as-layout-rule",
+    "description": "มุน 2026-08-04 (ฟีม: 'อะไรแก้ง่ายไวสุดแต่กระทบทั้งระบบมากสุด'): ทั้ง arc v2 (6 PR / 8 จอ) เรนเดอร์ดูที่ 393px อย่างเดียวมาตลอด — สแกน 320/360/393/430/768 ครั้งแรกแล้วเจอว่าการ์ด upsell (375:13285) วางมาสคอต 6 ตัวด้วยพิกัด left ที่ copy จาก Figma frame กว้าง 361 ตรงๆ ⇒ ของประดับเกาะขอบซ้ายขณะที่การ์ดเป็น fluid ⇒ ที่ 320px มาสคอตมุมขวาบน 5 ใน 6 ตัวหลุดออกนอกการ์ดถูก clip หายหมด (metal หลุด 61px) และที่ 430+ หนีเข้ากลางทิ้งมุมขวาว่าง. bug-class เดียวกับปุ่ม Mate AI (#166) เป๊ะ — พิกัด Figma ถูกใช้เป็นกฎ layout. การ์ด promo หน้าเดือนรอดเพราะ ฟีม สั่งขยาย 345→361 เลยถูกบังคับให้คิดเรื่องขอบขวา ส่วน upsell กว้าง 361 พอดีเลยไม่มีอะไรบังคับ ⇒ บทเรียนไม่ข้ามการ์ดเองแม้อยู่ใน PR เดียวกัน. FIX: ของประดับประกาศ 'ขอบที่มันสังกัด' แทนพิกัด — กลุ่มมุมขวา anchor ขวา, ไฟ anchor ซ้าย (เกาะปลายปุ่ม). PROOF: pixel-diff ที่ 393 = 0/443308 (เปลี่ยนแค่ความกว้างอื่น). ANCHOR REPAIRED 3 รอบ: (1) ถาม computed right==='auto' → Chrome resolve เป็น px เสมอ → อ่าน 0 ให้ทุกจอรวมทั้งจอที่พังจริง (2) เชื่อขอบที่ผู้เขียนประกาศ → flag ของที่ถูก แล้วพอสอนให้เชื่อ declaration ก็ตาบอดต่อบั๊กที่มันเกิดมาเพื่อจับ = แลก false-positive เป็น false-negative ซึ่งแย่กว่า (3) วัด 'ระยะที่ล้นออกนอกการ์ด' แล้วเทียบกับ 393 — overhang ที่ตั้งใจจะคงที่ ที่พังจะโตขึ้นเมื่อจอแคบลง.",
+    "anchor": "harness/run-breakpoint-sweep.ts",
+    "teeth": [
+      "mut-figma-coord"
+    ],
+    "date": "2026-08-04",
+    "owner": "lamun",
+    "pr": "TBD"
   }
 ]
