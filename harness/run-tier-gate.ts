@@ -40,9 +40,12 @@
 //                          flash on every slow load — the bug the eye cannot catch at speed).
 //   • mut-two-numbers    — hardcode 75 in the tile → ONE-NUMBER trips.
 //   • mut-borrowed-motion— give the coin `.v3-float` → MOTION-TRACK trips.
-//   • mut-ssr-free       — read useV2Tier directly instead of the mount-guarded wrapper → SSR-NEUTRAL trips
-//                          (the server starts answering "free" for everyone again — the bug that shipped
-//                          in the first draft of this PR and that every DOM check above missed).
+//   • mut-ssr-seam       — #mut-ssr-seam · remove the mount-gate INSIDE useV2Tier (return computeTier on
+//                          the server pass too) → SSR-NEUTRAL trips. RE-HOMED from mut-ssr-free: the SSR
+//                          guard moved out of the useClientTier wrapper into the seam (goo follow-up), so
+//                          the tooth now mutates the CAUSE (the seam's mount-gate) instead of the wrapper.
+//                          Pairs with mut-ssr-paid-leak, which watches the EFFECT (paid bytes on the wire);
+//                          this one watches the CAUSE (the seam committing a tier during SSR).
 //
 // Run (dev up :3099 with env):  CAPTURE_HOST=http://localhost:3099 npx tsx harness/run-tier-gate.ts
 import { chromium, type Browser, type BrowserContext, type Page } from 'playwright'
