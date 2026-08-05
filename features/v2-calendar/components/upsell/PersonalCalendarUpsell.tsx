@@ -12,6 +12,7 @@
 // navigate to. Same call as the อัพเกรด pill in AppHeader — a control that looks pressable and does nothing
 // is worse than one that never invited the press. Logged as A2; turning it into a Link is a one-line change.
 import Image from 'next/image'
+import { percentText } from '../percent-display'
 
 // Figma places six decorations on the card. Positions here are the LEAF box (Figma reports the bounding box
 // of the already-rotated leaf, so the leaf's own left/top is derived from the centre), and the rotation is
@@ -83,7 +84,7 @@ export function PersonalCalendarUpsell({ percent, testId = 'calendar-upsell' }: 
           ไม่ใช่ทุกวัน จะเป็นวันของคุณ
         </p>
         <div className="w-full text-center text-[12px] font-normal leading-[18px] text-white">
-          <p>วันที่ {percent}% นี้ คือค่าเฉลี่ยของ “ทุกคน”</p>
+          <p>วันที่ {percentText(percent)}% นี้ คือค่าเฉลี่ยของ “ทุกคน”</p>
           <p>แต่ดวงคุณอาจอ่านวันนี้ได้อีกแบบ</p>
           <p>เช็กจากปาจื้อของคุณเอง</p>
         </div>
@@ -91,7 +92,7 @@ export function PersonalCalendarUpsell({ percent, testId = 'calendar-upsell' }: 
         <div className="flex w-full gap-2">
           <div data-testid="calendar-upsell-tile-free" className="flex flex-1 flex-col gap-0.5 overflow-hidden rounded-[14px] bg-v3-slate-muted px-3 py-2.5 text-white">
             <p className="text-[11px] font-normal">ปฏิทินกลาง (ฟรี)</p>
-            <p className="text-[17px] font-bold">{percent}%</p>
+            <p className="text-[17px] font-bold">{percentText(percent)}%</p>
             <p className="text-[11px] font-normal">กำลังดิถีของวัน</p>
           </div>
           <div data-testid="calendar-upsell-tile-mine" className="flex flex-1 flex-col gap-0.5 overflow-hidden rounded-[14px] bg-v3-lemon-chiffon px-3 py-2.5">

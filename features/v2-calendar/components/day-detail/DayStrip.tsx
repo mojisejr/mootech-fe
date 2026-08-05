@@ -5,6 +5,7 @@
 import Link from 'next/link'
 import { generateMonthDays, dayCellTier, type CalendarDay } from '../../'
 import { DAY_CELL_COLORS, SELECTED } from '../grade-colors'
+import { percentText } from '../percent-display'
 
 // The 5-card window centred on `date` (clamped to the month edges — mock month is deterministic).
 function windowAround(date: string): { days: CalendarDay[]; prev?: string; next?: string } {
@@ -43,13 +44,13 @@ function DayCard({ cell, selected }: { cell: CalendarDay; selected: boolean }) {
   return (
     <Link
       href={`/v2/calendar/${cell.date}`}
-      aria-label={`วันที่ ${cell.day} ${cell.percent}%`}
+      aria-label={`วันที่ ${cell.day} ${percentText(cell.percent)}%`}
       className="flex min-w-0 flex-1 flex-col items-center gap-0.5 rounded-2xl px-1 py-2 leading-none"
       style={style}
     >
       <span className="text-lg font-extrabold">{cell.day}</span>
       <span className="text-[11px] font-medium opacity-90">{cell.ganzhi}</span>
-      <span className="text-xs font-bold" style={{ color: selected ? SELECTED.text : tint.text }}>{cell.percent}%</span>
+      <span className="text-xs font-bold" style={{ color: selected ? SELECTED.text : tint.text }}>{percentText(cell.percent)}%</span>
     </Link>
   )
 }

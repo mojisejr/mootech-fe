@@ -5,6 +5,7 @@ import type { CompatArea } from './content'
 import { GradeBadge } from './GradeBadge'
 import { SectionCard } from './SectionCard'
 import { gradeColors } from '../grade-colors'
+import { percentText } from '../percent-display'
 
 function PredictionCard({ area }: { area: CompatArea }) {
   const c = gradeColors(area.grade)
@@ -13,7 +14,7 @@ function PredictionCard({ area }: { area: CompatArea }) {
     <div className="rounded-2xl px-3 py-2.5" style={{ backgroundColor: c.bg }}>
       <div className="flex items-center gap-2">
         <p className="min-w-0 flex-1 text-sm font-bold text-v3-navy">{area.label}</p>
-        <span className="text-sm font-bold" style={{ color: pctColor }}>{area.percent}%</span>
+        <span className="text-sm font-bold" style={{ color: pctColor }}>{percentText(area.percent)}%</span>
         <GradeBadge grade={area.grade} className="!min-w-[40px] !py-0.5 text-sm" />
       </div>
       <ul className="mt-1.5 space-y-0.5">
