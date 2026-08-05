@@ -52,6 +52,7 @@ import { chromium, type Browser, type BrowserContext, type Page } from 'playwrig
 import { PNG } from 'pngjs'
 import * as fs from 'fs'
 import * as path from 'path'
+import { readPct } from './tier-percent'
 
 const HOST = process.env.CAPTURE_HOST ?? 'http://localhost:3099'
 const DAY = '/v2/calendar/2026-07-14'
@@ -184,10 +185,11 @@ async function upsellDetail(browser: Browser) {
   const tileText = (await page.locator('[data-testid="calendar-upsell-tile-free"] p').nth(1).innerText()).trim()
   const sentence = (await page.locator('[data-testid="calendar-upsell"] p').filter({ hasText: 'ค่าเฉลี่ยของ' }).first().innerText()).trim()
   const ringText = (await page.locator('[data-testid="day-score"]').first().innerText()).trim()
-  const tilePct = tileText.match(/(\d+)%/)?.[1] ?? ''
-  const sentencePct = sentence.match(/(\d+)%/)?.[1] ?? ''
-  check('ONE-NUMBER · tile % == sentence %', tilePct !== '' && tilePct === sentencePct, `tile=${tilePct} sentence=${sentencePct}`)
-  check('ONE-NUMBER · that % is the ring % too', ringText.includes(`${tilePct}%`), `ring text contains ${tilePct}%`)
+  const tilePct = readPct(tileText)
+  const sentencePct = readPct(sentence)
+  const ringPct = readPct(ringText)
+  check('ONE-NUMBER · tile % == sentence %', tilePct !== null && tilePct === sentencePct, `tile=${tilePct} sentence=${sentencePct}`)
+  check('ONE-NUMBER · that % is the ring % too', tilePct !== null && ringPct === tilePct, `ring=${ringPct} tile=${tilePct}`)
 
   // PAINT — read the pixels' own report, not the class list.
   check('PAINT · upsell ground is sapphire', (await bgOf(page, 'calendar-upsell')) === SAPPHIRE, await bgOf(page, 'calendar-upsell'))
