@@ -23,7 +23,7 @@ export const getServerSideProps: GetServerSideProps = async (ctx) => {
 }
 
 export default function V2CalendarPage() {
-  const { month, year, monthIndex, todayISO, goPrev, goNext, goToday } = useCalendarMonth()
+  const { month, loading, year, monthIndex, todayISO, selectedDate, selectDay, goPrev, goNext, goToday } = useCalendarMonth()
   const router = useRouter()
   // Zone 4 — the paid rule lives once in goo's lib/v2/tier.ts; this page only reads the verdict.
   // `null` = not determined yet, and it is wrong to guess in EITHER direction, so both the pill and the
@@ -80,7 +80,7 @@ export default function V2CalendarPage() {
 
         <DateSelector year={year} monthIndex={monthIndex} onToday={goToday} onPick={goTo} />
 
-        <MonthGrid weeks={month.weeks} todayISO={todayISO} />
+        <MonthGrid weeks={month.weeks} selectedDate={selectedDate} onSelect={selectDay} />
 
         {/* Figma 375:11100 — the card and its CTA are ONE card; the CTA was a separate button below it. */}
         {/* goo · G-2 minimal compile-guard (NOT a designed loading state — M-B/M-D own the real one): the

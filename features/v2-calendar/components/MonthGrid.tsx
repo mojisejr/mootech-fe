@@ -17,7 +17,6 @@
 // SELECTED + วันพระ COMPOSE. Figma's day-14 cell (368:9929) carries the sapphire fill AND the #9D85DA
 // border at the same time, so "today" must not erase the วันพระ marker — they are different facts about the
 // same day. The shipped version treated them as exclusive.
-import Link from 'next/link'
 import { dayCellTier, type CalendarDay } from '@/features/v2-calendar'
 import { DAY_CELL_COLORS, CALENDAR_MARKER } from './grade-colors'
 import { dayCellStyle } from './day-cell-style'
@@ -34,18 +33,36 @@ const LEGEND: { label: string; bg: string; border?: string }[] = [
   { label: 'วันพระ', bg: '#FFFFFF', border: CALENDAR_MARKER },
 ]
 
-function DayCell({ cell, selected }: { cell: CalendarDay; selected: boolean }) {
+function DayCell({ cell, selected, onSelect }: { cell: CalendarDay; selected: boolean; onSelect: (date: string) => void }) {
   // selection is a MODE — every colour moves together. See day-cell-style.ts for why this is one
   // call and not four ternaries (it is the invariant DESIGN.md §GRADE rests on, and it had no live guard).
   const style = dayCellStyle(dayCellTier(cell.percent), selected)
   return (
-    <Link
-      href={`/v2/calendar/${cell.date}`}
-      aria-label={`วันที่ ${cell.day} ${cell.ganzhi} ${percentText(cell.percent)}%${cell.isBuddhistDay ? ' วันพระ' : ''}`}
+    <button
+      type="button"
+      onClick={() => onSelect(cell.date)}
+      // WAS a <Link> to /v2/calendar/[date]. ฟีม ruled that tapping a day moves the highlight and swaps the
+      // card underneath — it does not leave the screen; the card's own button is the only way into the day
+      // page. A control that navigates is a link; one that changes state on this page is a button, and
+      // shipping a <Link> that no longer navigates would lie to everyone reading the markup.
+      //
+      // WHAT THE CHANGE COSTS, stated because it is a real loss and not a detail: a link could be
+      // right-clicked, middle-clicked, opened in a new tab, copied. A button cannot. That is acceptable
+      // ONLY because tapping no longer goes anywhere — there is no destination to open in a new tab.
+      //
+      // aria-current="date" is the standard token for "this is the chosen date among these", so a screen
+      // reader announces the selection instead of the user having to infer it from a colour they may not
+      // see. The label states the state in words for the same reason.
+      aria-current={selected ? 'date' : undefined}
+      // the spoken label is a percent RENDER POINT too — it goes through percentText, the one rounding site
+      // (#188). A raw number here would read "57.0000001 เปอร์เซ็นต์" to a screen reader while the eye sees 57.
+      aria-label={`วันที่ ${cell.day} ${cell.ganzhi} ${percentText(cell.percent)}%${cell.isBuddhistDay ? ' วันพระ' : ''}${selected ? ' (เลือกอยู่)' : ''}`}
       data-testid="calendar-day"
+      // the date as data, not parsed back out of an href — anchors key on this now that there is no href
+      data-date={cell.date}
       data-selected={selected ? 'true' : undefined}
       data-wanphra={cell.isBuddhistDay ? 'true' : undefined}
-      className="flex min-w-0 flex-1 flex-col items-center justify-center gap-px rounded-[11px] py-[3px] leading-none"
+      className="flex min-w-0 flex-1 flex-col items-center justify-center gap-px rounded-[11px] py-[3px] leading-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-v3-focus-border"
       style={{
         backgroundColor: style.bg,
         // วันพระ survives selection — two independent facts, two independent marks (Figma 368:9929)
@@ -58,11 +75,11 @@ function DayCell({ cell, selected }: { cell: CalendarDay; selected: boolean }) {
       </span>
       {/* colour from the selection MODE (day-cell-style), number through the ONE rounding site (percent-display) */}
       <span className="text-[12px] font-bold" style={{ color: style.pctText }}>{percentText(cell.percent)}%</span>
-    </Link>
+    </button>
   )
 }
 
-export function MonthGrid({ weeks, todayISO }: { weeks: CalendarDay[][]; todayISO: string | null }) {
+export function MonthGrid({ weeks, selectedDate, onSelect }: { weeks: CalendarDay[][]; selectedDate: string | null; onSelect: (date: string) => void }) {
   return (
     <section data-testid="calendar-grid-card" className="flex flex-col gap-[14px] overflow-hidden rounded-[20px] bg-white p-4 shadow-[0_4px_14px_rgba(26,38,77,0.06)]">
       <div className="flex w-full">
@@ -77,7 +94,7 @@ export function MonthGrid({ weeks, todayISO }: { weeks: CalendarDay[][]; todayIS
             {week.map((cell, ci) =>
               cell.isPadding
                 ? <span key={`${wi}-${ci}`} aria-hidden className="min-w-0 flex-1" />
-                : <DayCell key={cell.date} cell={cell} selected={cell.date === (todayISO ?? '')} />,
+                : <DayCell key={cell.date} cell={cell} selected={cell.date === selectedDate} onSelect={onSelect} />,
             )}
           </div>
         ))}
