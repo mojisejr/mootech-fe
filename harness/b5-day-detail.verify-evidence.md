@@ -26,5 +26,10 @@ ANCHOR: scripts/day-detail.test.ts#b5-day-detail-traces
 ## adversary sign-off
 Cross-oracle (ตู๋ static + curl): (ก) มี field ไหนท่อแต่งเองไหม — 16 field trace-to-raw ทดสอบครบ (ถ้า mapper แต่งค่า → แดง) (ข) gates เดาระดับดี/ร้ายไหม — ไม่ (raw, assert `!('level' in gates[0])`) (ค) colors แปลง hex ไหม — ไม่ (assert `!/^#/`) (ง) null ที่ไม่ตั้งใจ — grade/percent guard, field ว่างเป็น '' ไม่ใช่ null (จ) 2 upstream ยิงจริงไหม — probe: man-vs-day + almanac ทั้งคู่. **⚠️ curl ผ่าน server จริง end-to-end รอ #18 deploy (grade) + dual-server** → พิสูจน์ด้วย real captured shapes (2375KB→7KB) + handler probe (cache/gate) + man-vs-day/almanac real-curl.
 
+## แก้ตาม ตู๋/มุน (#178)
+- **F1** (ตู๋): grade (top-level + compatAreas[]) เรียก `parseApiGrade` (จาก B-3) แทน `typeof` — validate 13, null→null, นอกลิสต์ throw (loud).
+- **suitable/avoid → string[]** (μุน): จอทำ `.slice().map()` → string เดี่ยว = TypeError. adapter split ข้อความ /-delimited เป็น list (verify payload จริง: / เป็นตัวคั่นล้วนทุกเคส), ว่าง→[] (Column empty-guard). +assert survive .slice().map().
+- rebased stack (178 บน 177), ledger union-by-id (total 80).
+
 ## evidence limits
 size 7.0KB วัดจาก man-vs-day+almanac **ที่ curl จริง** (person 1990-05-15/2026-08-05). handler probe = real handler + stubbed upstream. ไม่แตะ `features/` · `pages/*.tsx` (git diff).

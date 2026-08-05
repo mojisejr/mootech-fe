@@ -5,6 +5,7 @@
 // TWO upstreams: man-vs-day(day) embeds only 9 almanac keys; deity · spirits(8เทพ) · thaiLunar(วันพระ) ·
 // dayPillar/monthPillar/yearPillar(ธาตุ) come from a SECOND almanac fetch (the rich month day-object). Bong's
 // field map is followed exactly.
+import { parseApiGrade } from '@/lib/v2/api-grade'
 
 export type DayDetailArea = { key: string; label: string; percent: number | null; grade: string | null; isStrength: boolean }
 export type DayDetailPillar = { stem: string; branch: string; ganzhi: string; element: string }
@@ -72,7 +73,7 @@ export function mapDayDetail(mvd: unknown, almanacDay: unknown): DayDetail {
     date: str(m.date),
     dayGanzhi: str(m.dayGanzhi),
     overallPercent: num(m.overallPercent),
-    grade: typeof m.grade === 'string' ? m.grade : null,
+    grade: parseApiGrade(m.grade), // F1 (ตู๋ #178): validate 13, null→null, นอกลิสต์ throw (loud)
     verdict: str(m.verdict),
     summary: str(m.summaryHeadline) || str(m.summary),
     suitable: splitList(byKey(summaryItems, 'best')),
@@ -84,7 +85,7 @@ export function mapDayDetail(mvd: unknown, almanacDay: unknown): DayDetail {
         key: str(fa.key),
         label: str(fa.label),
         percent: num(fa.percent),
-        grade: typeof fa.grade === 'string' ? fa.grade : null,
+        grade: parseApiGrade(fa.grade),
         isStrength: fa.isMain === true,
       }
     }),
