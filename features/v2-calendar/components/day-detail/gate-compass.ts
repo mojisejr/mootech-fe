@@ -59,12 +59,18 @@ export const DIR_CELL: Record<Direction, Cell> = {
 }
 
 /**
- * Thai compass names, because the wire has been seen using them: features/v2-calendar/fixtures.ts sends
- * 'ทิศตะวันออก' / 'ทิศตะวันออกเฉียงเหนือ', while the note I wrote from a live man-vs-day payload recorded
- * them as 'ทิศ S' — which was MY shorthand in that note, so it does not settle which spelling the real
- * backend uses. Rather than pick one and hope, both are read. This is the mock-data trap in the open: an
- * anchor written against a fixture encodes the FIXTURE's vocabulary, and the day real data arrives with a
- * different one, every gate quietly lands nowhere.
+ * SETTLED FROM THE SOURCE DATA (มุน 2026-08-06, บอง asked for the raw values rather than my paraphrase):
+ * bazi-testenv/src/lib/bazi/data/almanac/day-month-table.json stores gate rows as [glyph, direction] pairs
+ * and the direction is a SHORT COMPASS CODE —
+ *     [["開","NE"],["休","E"],["生","SE"],["傷","S"],["杜","SW"],["景","W"],["死","NW"],["驚","N"]]
+ * Across all 212 rows in that table: 209 carry exactly the 8 codes, 8 distinct, ZERO rows repeat a
+ * direction. (The other 3 hold 八神 keywords where directions should be — a known column-shift the engine
+ * already guards at almanac-engine.ts:356 by falling back to day-pillar-table.)
+ *
+ * So the real wire speaks short codes. Thai phrases are read too, because features/v2-calendar/fixtures.ts
+ * sends 'ทิศตะวันออกเฉียงเหนือ' — the FIXTURE disagrees with the backend it stands in for. That is the
+ * mock-data trap in the open: a parser written against either vocabulary alone would silently place nothing
+ * the day it met the other one. Both are read; anything else is refused and surfaced.
  *
  * Longest-first matters: 'ตะวันออกเฉียงเหนือ' contains 'ตะวันออก', so a prefix match would read NE as E.
  * Exact keys avoid that entirely.
