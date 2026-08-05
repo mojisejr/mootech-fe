@@ -36,8 +36,11 @@ export interface CalendarDay {
   ganzhi: string
   /** คะแนนดวงวัน 0-100. */
   percent: number
-  /** เกรด 10 ระดับ (carried explicitly; not computed from percent — see grade.ts). */
-  grade: Grade
+  // NOTE — no `grade` here on purpose. The month grid colours cells by dayCellTier(percent), never by a
+  // letter grade (grep-verified: MonthGrid/DateSelector don't read it). bazi's day grade is 13-level and
+  // the UI `Grade` is 10-level; carrying it on this UNUSED grid field forced a lossy projection (G-0a/G-0b).
+  // G-0c removed it (บอง 2026-08-05: "delete, don't widen"). The grade the CARD/detail renders lives on
+  // DayDetail.grade (its own path + M-C's 13-level colour work) — not on a grid cell.
   /** วันพระ (ไทย/จีน) — drives the #9D85DA ring marker. */
   isBuddhistDay?: boolean
   /** true when this cell is NOT part of the displayed month (leading/trailing padding). */
