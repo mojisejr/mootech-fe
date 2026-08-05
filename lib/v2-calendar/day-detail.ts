@@ -20,8 +20,8 @@ export type DayDetail = {
   grade: string | null // bazi pass-through (ApiGrade|null), never re-derived
   verdict: string
   summary: string // summaryHeadline
-  suitable: string // summaryItems key=best
-  avoid: string // summaryItems key=worst
+  suitable: string[] // summaryItems key=best — a LIST (the UI does .slice().map(); a bare string crashes it)
+  avoid: string[] // summaryItems key=worst — a LIST
   insight: string // elementRelation.summaryTh
   compatAreas: DayDetailArea[] // facets[]
   advice: string[] // the main facet's lines[].text
@@ -41,6 +41,13 @@ const num = (v: unknown): number | null => (typeof v === 'number' && !Number.isN
 const arr = (v: unknown): unknown[] => (Array.isArray(v) ? v : [])
 const byKey = (items: unknown[], key: string): string =>
   str((items.find((x) => (x as { key?: unknown }).key === key) as { text?: unknown } | undefined)?.text)
+
+// The summaryItems best/worst text is a "/"-delimited list of activities ("อยู่กับเพื่อน / พี่น้อง / คู่ครอง").
+// The UI (calendar.tsx → DailyFortuneCard Column) does .slice(0,2).map() — it needs an ARRAY. So the ADAPTER
+// splits it into the list, not the screen. Empty text → [] (Column has its own empty-guard). Never a bare
+// string: `"…".slice(0,2)` = first two CHARS, then .map() → TypeError on render.
+const splitList = (text: string): string[] =>
+  text.split(/\s*\/\s*/).map((s) => s.trim()).filter((s) => s !== '')
 
 function pillar(v: unknown): DayDetailPillar | null {
   const p = v as { stem?: unknown; branch?: unknown; ganzhi?: unknown; element?: unknown } | null
@@ -68,8 +75,8 @@ export function mapDayDetail(mvd: unknown, almanacDay: unknown): DayDetail {
     grade: typeof m.grade === 'string' ? m.grade : null,
     verdict: str(m.verdict),
     summary: str(m.summaryHeadline) || str(m.summary),
-    suitable: byKey(summaryItems, 'best'),
-    avoid: byKey(summaryItems, 'worst'),
+    suitable: splitList(byKey(summaryItems, 'best')),
+    avoid: splitList(byKey(summaryItems, 'worst')),
     insight: str(er.summaryTh),
     compatAreas: facets.map((f) => {
       const fa = f as { key?: unknown; label?: unknown; percent?: unknown; grade?: unknown; isMain?: unknown }
