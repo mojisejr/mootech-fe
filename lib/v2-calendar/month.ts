@@ -6,6 +6,8 @@
 // LATENCY (curl'd live 2026-08-03, bazi-sft-dataset.vercel.app): man-vs-day month 6.8s cold/3.7s warm/
 // 2.2MB (we strip to 5 fields/day → ~2KB to browser); almanac month 3.5s/141KB (deterministic per month
 // → cached in-process). Callers run the two upstreams in PARALLEL and cache per (user,month).
+import { parseApiGrade } from '@/lib/v2/api-grade'
+
 export const BAZI_BASE = process.env.BAZI_BASE_URL || 'http://localhost:3000'
 if (/bazichart\.mumate\.co/i.test(BAZI_BASE)) {
   throw new Error(`[GUARDRAIL] BAZI_BASE_URL points at old prod (${BAZI_BASE}).`)
@@ -90,9 +92,10 @@ export function mergeCalendarMonth(mvdDays: unknown, almanacDays: unknown): Cale
         dayOfMonth: typeof d.dayOfMonth === 'number' ? d.dayOfMonth : Number(date.slice(8, 10)),
         dayGanzhi: typeof d.dayGanzhi === 'string' ? d.dayGanzhi : '',
         overallPercent: pct == null ? null : Math.max(0, Math.min(100, pct)),
-        // grade = bazi's letter (PR-1 #18: man-vs-day now returns it per day). Pass-through — bazi is the
-        // single source of the rating-scale; the BFF never re-derives it. null = คิดไม่ได้ (not "-").
-        grade: typeof d.grade === 'string' ? d.grade : null,
+        // grade = bazi's letter (PR-1 #18: man-vs-day returns it per day). Pass-through — bazi is the single
+        // source of the rating-scale; the BFF never re-derives it. parseApiGrade VALIDATES against the 13
+        // (B-3): null = คิดไม่ได้ (not "-"); anything outside the 13 THROWS (loud, never a silent bad grade).
+        grade: parseApiGrade(d.grade),
         wanPhra: wanPhra.get(date) ?? false,
       }
     })

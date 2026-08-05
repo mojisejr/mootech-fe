@@ -12,8 +12,7 @@
 // (upstream man-vs-day) — flagged to product; not blocking this phase.
 import type { NextApiRequest, NextApiResponse } from 'next'
 import { toBaziInput, type FeCalcInput } from '@/lib/bazi-bridge/input'
-// NOTE: resolveMembership import removed while the gate is TEMPORARILY open (see the GATE-OPEN block in the
-// handler). Restore `import { resolveMembership } from '@/lib/usage'` when re-closing the membership gate.
+import { resolveMembership } from '@/lib/usage'
 import {
   BAZI_TIMEOUT_MS,
   fetchAlmanacDays,
@@ -35,15 +34,20 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   if (!person) return res.status(400).json({ error: 'person (birth data) is required.' })
   if (!userId) return res.status(200).json({ allowed: false, year: parsed.year, month: parsed.month, days: [] })
 
-  // ── 🔓 TEMPORARY GATE-OPEN (ฟีม 2026-08-05, Track B-4) ──────────────────────────────────────────────
-  // ยังไม่เปิดขายจริง → เปิด personalised month ให้ "ทั้ง free และ paid" ชั่วคราว เพื่อเดินหน้าต่อได้.
-  // ❗❗ นี่คือหนี้ — ก่อนวันเปิดขาย ต้องกลับมา "ปิด" ด่านสมาชิกคืน โดยคืน import resolveMembership แล้ว
-  //    เปิด comment 6 บรรทัดนี้ (ตำแหน่งเดิม):
-  //      let isFree = true
-  //      try { ;({ isFree } = await resolveMembership(userId)) }
-  //      catch { isFree = true } // fail-closed
-  //      if (isFree) return res.status(200).json({ allowed: false, year: parsed.year, month: parsed.month, days: [] })
-  //    ห้ามลบ comment นี้ทิ้งจนกว่าจะปิดด่านคืน. (resolveMembership ถูกถอด import ชั่วคราวเพื่อไม่ให้เป็น dead import)
+  // ── 🔓 MEMBERSHIP GATE — TEMPORARILY OPEN (ฟีม 2026-08-05, Track B-4) ───────────────────────────────
+  // ยังไม่เปิดขายจริง → เปิด personalised month ให้ "ทั้ง free และ paid" ชั่วคราว. ❗ หนี้: วันเปิดขาย
+  // แค่พลิก GATE_OPEN = false ด่านสมาชิกก็กลับมาทันที. โค้ดด่านเดิมยังอยู่ครบใต้ `if (!GATE_OPEN)` — TypeScript
+  // ยัง type-check มันอยู่ (ไม่ใช่ dead comment ที่เน่าเงียบ), resolveMembership ยัง import อยู่. ห้ามลบทิ้ง.
+  const GATE_OPEN = true // TEMPORARY (ฟีม 2026-08-05) — flip to false ก่อนวันเปิดขายเพื่อปิดด่านสมาชิกคืน
+  if (!GATE_OPEN) {
+    let isFree = true
+    try {
+      ;({ isFree } = await resolveMembership(userId))
+    } catch {
+      isFree = true // can't confirm membership → treat as free (fail-closed)
+    }
+    if (isFree) return res.status(200).json({ allowed: false, year: parsed.year, month: parsed.month, days: [] })
+  }
   // ────────────────────────────────────────────────────────────────────────────────────────────────
 
   // ── PAID: fortune + วันพระ in PARALLEL (total ≈ max, not sum). Graceful on any miss. ──

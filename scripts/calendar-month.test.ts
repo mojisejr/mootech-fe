@@ -73,7 +73,11 @@ ok('grade passes through from bazi (B-4): 08-01 B · 08-13 C- · 08-27 A+', (() 
   return g('2026-08-01') === 'B' && g('2026-08-13') === 'C-' && g('2026-08-27') === 'A+'
 })())
 ok('grade null passes through (คิดไม่ได้, not "-"): 08-28', merged.find((x) => x.date === '2026-08-28')?.grade === null)
-ok('grade absent/non-string → null (guard)', mergeCalendarMonth([{ date: '2026-08-09', overallPercent: 50 }], []).at(0)?.grade === null)
+ok('grade absent → null (parseApiGrade: undefined → null)', mergeCalendarMonth([{ date: '2026-08-09', overallPercent: 50 }], []).at(0)?.grade === null)
+// F1 (ตู๋ #177): parseApiGrade VALIDATES — a grade outside the 13 THROWS (loud), never silently passed
+ok('F1: an invalid grade THROWS (not silently null)', (() => {
+  try { mergeCalendarMonth([{ date: '2026-08-09', overallPercent: 50, grade: 'Z' }], []); return false } catch { return true }
+})())
 ok('merge joins wanPhra BY DATE not index', (() => {
   const d13 = merged.find((x) => x.date === '2026-08-13')
   const d1 = merged.find((x) => x.date === '2026-08-01')

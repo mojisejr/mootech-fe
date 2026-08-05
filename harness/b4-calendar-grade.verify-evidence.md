@@ -25,5 +25,9 @@ ANCHOR: scripts/calendar-month.test.ts#b4-grade-passthrough
 ## adversary sign-off
 Cross-oracle (ตู๋ static + curl): (ก) ท่อ re-derive grade เองไหม — ไม่ (pass-through `typeof d.grade==='string'?d.grade:null`, bazi single source) (ข) ด่านเปิดถาวรหลุดไหม — คอมเมนต์หนี้ + โค้ดคืนครบ, ฟีม-ruled ชั่วคราว (ค) grade null vs "-" — null. **⚠️ curl ผ่าน server จริง end-to-end ต้องรอ #18 deploy (bazi prod ยังไม่มี grade)** → พิสูจน์ด้วย handler probe + man-vs-day grade real-curl #18. จอไม่เปลี่ยน (ยังกิน mock).
 
+## แก้ตาม ตู๋ (#177)
+- **F1**: `mergeCalendarMonth` เรียก `parseApiGrade(d.grade)` (import จาก B-3/#176) แทน `typeof` — validate 13 ระดับ, null→null, นอกลิสต์ **THROW** (loud). +assert `grade 'Z' → throws`.
+- **F3**: คืน `import resolveMembership` + โค้ดด่านเดิม คุมด้วย `const GATE_OPEN = true` ห่อ `if (!GATE_OPEN)` → TS ยัง type-check โค้ดด่าน (ไม่ใช่ dead comment), วันเปิดขายพลิก false. tsc0 · 25 assert.
+
 ## evidence limits
 handler probe = real handler + stubbed upstream (deployed bazi ยังไม่มี grade จน #18 ship). man-vs-day grade เอง = real-curl ใน #18. ไม่แตะ `features/` · `pages/*.tsx` (git diff).
