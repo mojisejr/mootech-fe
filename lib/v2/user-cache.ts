@@ -33,6 +33,12 @@ const inflight = new Map<string, Promise<unknown>>()
 /**
  * Fetch the user row for `userId`, de-duplicated across CONCURRENT callers only.
  * `fetcher` is supplied by the caller (useV2User → UserGetById; tests → a call-counting stub).
+ *
+ * ⚠️ INVARIANT — the in-flight key is `userId` ALONE, not (userId, fetcher). Do NOT call this with a
+ * DIFFERENT fetcher for the SAME userId while one is in flight: the second caller would silently receive
+ * the FIRST fetcher's result. In production there is exactly one caller (useV2User, always UserGetById —
+ * grep-verified), so this cannot happen today; the fetcher param exists only to make the module testable.
+ * If a second real caller ever needs a different fetcher for the same user, key by (userId, fetcher-id) then.
  */
 export function getUser(userId: string, fetcher: UserFetcher): Promise<unknown> {
   const pending = inflight.get(userId)
