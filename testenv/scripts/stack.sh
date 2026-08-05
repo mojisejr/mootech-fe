@@ -357,7 +357,12 @@ cat <<EOF
 ── 5. boot the 3 apps (each in its own terminal) ──
   FE    : (cd $GH/mootech-fe && npm run dev)                 # :3000
   BE    : (cd $GH/mootech-be && PORT=4000 npm run start:dev) # :4000
-  bazi  : (cd $GH/bazi-sft-dataset && npm run dev -- -p 3100) # :3100
+  # bazi runs from a pdf-dev WORKTREE, NOT the main clone (goo 2026-08-05):
+  #   (a) man-vs-day's grade enrichment (PR-18/19) lives on pdf-dev, not main — main's route returns no grade
+  #   (b) the main clone's HEAD belongs to another agent's work; flipping it would pull the rug (our rule:
+  #       never checkout in a worktree someone else may be using). Reversible: git -C $GH/bazi-sft-dataset
+  #       worktree remove $GH/bazi-testenv. Create once: worktree add $GH/bazi-testenv pdf-dev && npm install.
+  bazi  : (cd $GH/bazi-testenv && npm run dev -- -p 3100)     # :3100  (pdf-dev worktree — see note above)
   DB    : localhost:5433  (mumate_test, SSL self-signed)
 
 🛡️ never point any of these at prod — guard.sh refuses prod hosts (before + after the swap, whole env set).

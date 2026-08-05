@@ -1,0 +1,8 @@
+{
+  "id": "g0c-calendar-real-pipe",
+  "description": "v2 ปฏิทิน G-0c (goo): useCalendarMonth now consumes the real /api/v2/calendar-month pipe. Two hooks on the page (useV2Tier + useCalendarMonth) both need the user row — firing UserGetById twice repeats #165. The identity fetch is de-duplicated in-flight ONLY (lib/v2/user-cache): concurrent callers share one promise, the entry drops on settle, so nothing persists — a paid user who just paid is never stuck on a stale free gate, and a change of userId NEVER serves the previous person's row (cross-user data leak). Failure is never cached (retryable); logout clears it.",
+  "enforced_by": "scripts/user-cache.test.ts#g0c-user-cache-dedup",
+  "date": "2026-08-05",
+  "owner": "goo",
+  "pr": 186
+}
