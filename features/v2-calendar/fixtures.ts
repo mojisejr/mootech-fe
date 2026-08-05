@@ -99,9 +99,18 @@ function mockYams(seedGrade: Grade): YamSlot[] {
   return YAM_DEFS.map((y, i) => ({ ...y, grade: GRADES[Math.min(9, (base + i) % 10)] }))
 }
 
-/** Day-detail for any date in the mock month; falls back to day 14 for out-of-range (illustrative). */
+/**
+ * Day-detail for ANY date — generated from the REQUESTED date's own month, so selecting 2026-08-05 returns
+ * 2026-08-05. It must never borrow another day's identity: the old `?? MOCK_DAYS[13]` fell back to July 14
+ * (MOCK_DAYS is the fixed July fixture) and returned `date: <July-14>`, so an August selection would print
+ * "14 กรกฎาคม" silently (บอง's second-day-14 catch 2026-08-05). A malformed/empty date keeps the requested
+ * date with neutral illustrative fields — never a different day. (Real day-detail arrives at G-4 wiring.)
+ */
 export function mockDayDetail(date: string): DayDetail {
-  const found = MOCK_DAYS.find((d) => d.date === date) ?? MOCK_DAYS[13]
+  const [gy, gm] = date.split('-').map(Number)
+  const genDay =
+    Number.isFinite(gy) && Number.isFinite(gm) ? generateMonthDays(gy, gm).find((d) => d.date === date) : undefined
+  const found: CalendarDay = genDay ?? { date, day: Number(date.slice(8, 10)) || 0, ganzhi: '', percent: 0, grade: 'C' }
   return {
     date: found.date,
     day: found.day,

@@ -29,11 +29,13 @@ export default function V2CalendarPage() {
   // `null` = not determined yet, and it is wrong to guess in EITHER direction, so both the pill and the
   // promo stay away until the tier is actually known. See the note on the promo below.
   const { isPaid } = useClientTier()
-  // selected/summary day = today if it's in view (fenced: null until mount), else the month's reference day.
-  const cardDay = month.days.find((d) => d.date === todayISO) ?? month.days[13] ?? month.days[0]
+  // selected/summary day = today if it's in view (fenced: null until mount), else the month's first day.
+  // (goo G-0b: `month` is now CalendarMonth|null and the silent "day 14" fallback [month.days[13]] is gone.
+  // Binding the card to the hook's selectedDate is μุน's M-B — this is only the minimal compile-fix.)
+  const cardDay = month ? (month.days.find((d) => d.date === todayISO) ?? month.days[0] ?? null) : null
   // the same payload the day-detail screen binds to — headline + the two facet lists live there, so the
   // card shows real copy instead of the hardcoded sentence the little local card carried.
-  const { detail } = useDayDetail(cardDay.date)
+  const { detail } = useDayDetail(cardDay?.date ?? '')
 
   // Jump to an arbitrary month by STEPPING goo's cursor, so his hook keeps the exact signature it shipped
   // with (goPrev/goNext/goToday) — the seam stays his. React batches the functional updates, so N calls
@@ -43,6 +45,11 @@ export default function V2CalendarPage() {
     const step = delta > 0 ? goNext : goPrev
     for (let i = 0; i < Math.abs(delta); i++) step()
   }
+
+  // goo G-0b — minimal compile guard: no month yet (server + first paint, before the cursor resolves the
+  // current month post-mount) → render nothing. The real loading/skeleton screen is μุน's (M-A/M-B); this
+  // is deliberately bare, not a designed loading state.
+  if (!month || !cardDay) return null
 
   return (
     <CalendarShell title="ปฏิทินดวง" menuState={CalendarMenuState.Normal}>
