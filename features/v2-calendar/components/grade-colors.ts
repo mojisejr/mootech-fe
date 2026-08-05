@@ -1,23 +1,30 @@
 // MuMate v2 — ปฏิทินดวง · the SHARED grade + day-cell color system (Lamun · DESIGN.md is the single source).
 //
-// goo's grade.ts owns the LOGIC (the 10-grade order, dayCellTier thresholds). This file owns the COLORS — one
+// goo's grade.ts owns the LOGIC (grade order, dayCellTier thresholds). This file owns the COLORS — one
 // place, so the ring · badge · %-bar · calendar cell never hardcode a hex apart from here (frame done-condition
-// 6: "ระบบเกรด 10 ระดับ = component ตัวเดียว ไม่มี hardcode สีกระจาย"). Every value below is copied verbatim from
+// 6: "ระบบเกรด = component ตัวเดียว ไม่มี hardcode สีกระจาย" — now 13 levels via 5 zones). Every value below is copied verbatim from
 // mootech-fe/DESIGN.md — NOT eyeballed from Figma. If a needed color isn't here, add it to DESIGN.md first (ฟีม A3).
-import type { Grade, DayCellTier } from '../types'
+import type { DayCellTier } from '../types'
+import { gradeTier, TIER_COLOR, TIER_SOFT, TIER_INK } from '@/lib/v2/grade-scale'
 
-/** DESIGN.md §GRADE (10-step) — card bg + accent/badge. NOTE the C+ badge-text contrast exception (#374151). */
-export const GRADE_COLORS: Record<Grade, { bg: string; accent: string; badgeText: string }> = {
-  A: { bg: '#E8F5E9', accent: '#2E7D32', badgeText: '#2E7D32' },
-  'B+': { bg: '#EDF7ED', accent: '#43A047', badgeText: '#43A047' },
-  B: { bg: '#F0F8F0', accent: '#66BB6A', badgeText: '#66BB6A' },
-  'B-': { bg: '#F1F8E8', accent: '#8BC34A', badgeText: '#8BC34A' },
-  'C+': { bg: '#F9FBE7', accent: '#CDDC39', badgeText: '#374151' }, // ⚠️ dark text (contrast exception — DESIGN.md)
-  C: { bg: '#FFF3E0', accent: '#FFA726', badgeText: '#FFA726' },
-  'C-': { bg: '#FFF0E1', accent: '#F57C00', badgeText: '#F57C00' },
-  'D+': { bg: '#FBE9E7', accent: '#E64A19', badgeText: '#E64A19' },
-  D: { bg: '#FFEBEE', accent: '#D32F2F', badgeText: '#D32F2F' },
-  'D-': { bg: '#FCE4EC', accent: '#B71C1C', badgeText: '#B71C1C' },
+/**
+ * DESIGN.md §GRADE — the grade's card bg + accent + badge ink, for ANY of the 13 wire levels.
+ *
+ * REPLACED the 10-entry `Record<Grade, …>` ramp (มุน · M-C 2026-08-05). That ramp painted ten distinct
+ * colours, but measured with ΔE2000 only about five of them were separable — 3/9 adjacent pairs sat under
+ * ΔE 10 for normal vision, 6/9 under deuteranopia, and B-→C+ read ΔE 2.9 to a protanope, which is the
+ * same colour. Adding A+/A-/F to it would have made a legible-looking scale that is not legible.
+ *
+ * So the colour now speaks FIVE zones (lib/v2/grade-scale.ts, shared with ดวงสมพงศ์, sampled from Figma
+ * 636:19532) and the grade LETTER carries all 13 levels — and the letter is always printed right there by
+ * GradeBadge. Net: the user gets 13 levels of resolution instead of 10, and the colour half stops lying.
+ *
+ * Takes a plain grade string because the wire owns the level list (lib/v2/api-grade.ts); an unknown grade
+ * degrades to the `poor` zone rather than throwing inside a render.
+ */
+export function gradeColors(grade?: string | null): { bg: string; accent: string; badgeText: string } {
+  const tier = gradeTier(grade)
+  return { bg: TIER_SOFT[tier], accent: TIER_COLOR[tier], badgeText: TIER_INK[tier] }
 }
 
 /** DESIGN.md §CALENDAR day-cell (3-tier) — cell tint + %-text. goo's dayCellTier(percent) picks the tier. */
