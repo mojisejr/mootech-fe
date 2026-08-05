@@ -29,14 +29,22 @@ ok('new reader reads "0.57%" as 0.57 (the real fraction, not 57)', readPct('0.57
 console.log('\n— ONE-NUMBER invariant: clean GREEN, both mutants RED —')
 const clean = onePercentAgree('57.3%', '57.3%', '57.3%')
 const mutDecimal = onePercentAgree('57.3%', '57.3%', '57%') // tile 57.3, ring 57 — a rounding split
-const mutFraction = onePercentAgree('0.57%', '0.57%', '57%') // tile 0.57 (scale leaked), ring 57 (correct)
-console.log(`  CLEAN               57.3 / 57.3 / 57.3 → agree=${clean}   → ${clean ? 'GREEN ✓' : 'RED'}`)
-console.log(`  mut-decimal-percent 57.3 / 57.3 / 57   → agree=${mutDecimal}  → ${mutDecimal ? 'GREEN' : 'RED (caught) ✓'}`)
-console.log(`  mut-fraction-scale  0.57 / 0.57 / 57   → agree=${mutFraction}  → ${mutFraction ? 'GREEN' : 'RED (caught) ✓'}`)
+const mutDivergence = onePercentAgree('0.57%', '0.57%', '57%') // two sources DISAGREE (0.57 vs 57)
+console.log(`  CLEAN                 57.3 / 57.3 / 57.3 → agree=${clean}   → ${clean ? 'GREEN ✓' : 'RED'}`)
+console.log(`  mut-decimal-percent   57.3 / 57.3 / 57   → agree=${mutDecimal}  → ${mutDecimal ? 'GREEN' : 'RED (caught) ✓'}`)
+console.log(`  mut-percent-divergence 0.57 / 0.57 / 57  → agree=${mutDivergence}  → ${mutDivergence ? 'GREEN' : 'RED (caught) ✓'}`)
 ok('CLEAN → gate GREEN (agree)', clean === true)
-ok('mut-decimal-percent → gate RED (disagree)', mutDecimal === false)
-ok('mut-fraction-scale → gate RED (disagree)', mutFraction === false)
-// and the fraction mutant would have PASSED the old string compare (both "0.57%" → old "57" === "57")
-ok('proof: old string compare would have PASSED mut-fraction-scale', oldRead('0.57%') === oldRead('0.57%') && oldRead('0.57%') === '57')
+ok('mut-decimal-percent → gate RED (disagree, decimal read correctly)', mutDecimal === false)
+ok('mut-percent-divergence → gate RED (the three disagree)', mutDivergence === false)
+// and the divergence mutant would have PASSED the old string compare (both "0.57%" → old "57" === "57")
+ok('proof: old string compare would have PASSED this (0.57%→"57")', oldRead('0.57%') === '57')
+
+// ⚠️ HONEST LIMIT (μุน #175) — ONE-NUMBER is a "do-they-AGREE" invariant. A fraction-scale leak at the
+// SOURCE shows up in all three at once (the real UI binds one detail.percent), so they still AGREE and the
+// gate STAYS GREEN. This is NOT caught here — it needs a separate PERCENT-SCALE invariant (A2). Asserted so
+// nobody mistakes this tooth for a scale-leak guard.
+const leakConsistent = onePercentAgree('0.57%', '0.57%', '0.57%') // all three leaked the same way
+console.log(`  A2 · consistent scale leak 0.57 / 0.57 / 0.57 → agree=${leakConsistent} → ${leakConsistent ? '🥷 GREEN (NOT caught — needs PERCENT-SCALE)' : 'RED'}`)
+ok('A2: a consistently-leaked scale still AGREES → GREEN (uncaught by ONE-NUMBER, by construction)', leakConsistent === true)
 
 console.log(`\n✅ tier-percent.test.ts — ${pass} assertions passed`)
