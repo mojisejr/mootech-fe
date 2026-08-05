@@ -20,6 +20,7 @@
 import Link from 'next/link'
 import { dayCellTier, type CalendarDay } from '@/features/v2-calendar'
 import { DAY_CELL_COLORS, SELECTED, CALENDAR_MARKER } from './grade-colors'
+import { percentText } from './percent-display'
 
 const THAI_DOW = ['อา', 'จ', 'อ', 'พ', 'พฤ', 'ศ', 'ส']
 
@@ -37,7 +38,7 @@ function DayCell({ cell, selected }: { cell: CalendarDay; selected: boolean }) {
   return (
     <Link
       href={`/v2/calendar/${cell.date}`}
-      aria-label={`วันที่ ${cell.day} ${cell.ganzhi} ${cell.percent}%${cell.isBuddhistDay ? ' วันพระ' : ''}`}
+      aria-label={`วันที่ ${cell.day} ${cell.ganzhi} ${percentText(cell.percent)}%${cell.isBuddhistDay ? ' วันพระ' : ''}`}
       data-testid="calendar-day"
       data-selected={selected ? 'true' : undefined}
       data-wanphra={cell.isBuddhistDay ? 'true' : undefined}
@@ -52,7 +53,7 @@ function DayCell({ cell, selected }: { cell: CalendarDay; selected: boolean }) {
         <span className="text-[13px] font-bold" style={{ color: selected ? SELECTED.text : '#0B305B' }}>{cell.day}</span>
         <span data-testid="calendar-ganzhi" className="text-[8px] font-normal" style={{ color: selected ? SELECTED.text : '#1455A4' }}>{cell.ganzhi}</span>
       </span>
-      <span className="text-[12px] font-bold" style={{ color: selected ? SELECTED.text : tier.text }}>{cell.percent}%</span>
+      <span className="text-[12px] font-bold" style={{ color: selected ? SELECTED.text : tier.text }}>{percentText(cell.percent)}%</span>
     </Link>
   )
 }

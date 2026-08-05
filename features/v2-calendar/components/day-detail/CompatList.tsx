@@ -7,6 +7,7 @@ import type { CompatArea } from './content'
 import { GradeBadge } from './GradeBadge'
 import { SectionCard } from './SectionCard'
 import { gradeColors } from '../grade-colors'
+import { percentText } from '../percent-display'
 
 function HeartIcon() {
   return (
@@ -40,7 +41,7 @@ function CompatRow({ area }: { area: CompatArea }) {
           <span className="h-2 flex-1 overflow-hidden rounded-full bg-[#EDEFF2]">
             <span className="block h-full rounded-full" style={{ width: `${area.percent}%`, backgroundColor: accent }} />
           </span>
-          <span className="w-9 shrink-0 text-right text-xs font-bold text-v3-text-body">{area.percent}%</span>
+          <span className="w-9 shrink-0 text-right text-xs font-bold text-v3-text-body">{percentText(area.percent)}%</span>
           <GradeBadge grade={area.grade} className="!min-w-[40px] !py-0.5 text-sm" />
         </div>
       </div>

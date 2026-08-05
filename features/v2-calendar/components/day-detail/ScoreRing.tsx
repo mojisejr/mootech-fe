@@ -1,3 +1,4 @@
+import { percentText } from '../percent-display'
 // ScoreRing — the v3 hero score ring (lime progress over a navy track). Figma 636:19230 (ดวงสมพงศ์ hero) is
 // an OPEN ring: no filled centre disc — the grade + % float over whatever the ring sits on. `onDark` picks the
 // text treatment: on a dark card (compat hero) → lime grade + white %; on a light card (calendar/home, pastel
@@ -16,7 +17,7 @@ export function ScoreRing({ grade, percent, onDark = false }: { grade: string; p
       </svg>
       <span className="absolute flex flex-col items-center leading-none">
         <span className={`text-[34px] font-extrabold ${onDark ? 'text-v3-lime' : 'text-v3-navy'}`}>{grade}</span>
-        <span className={`mt-0.5 text-sm font-bold ${onDark ? 'text-white' : 'text-v3-navy'}`}>{percent}%</span>
+        <span className={`mt-0.5 text-sm font-bold ${onDark ? 'text-white' : 'text-v3-navy'}`}>{percentText(percent)}%</span>
       </span>
     </div>
   )
