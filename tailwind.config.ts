@@ -36,6 +36,11 @@ const config: Config = {
           'cyan': '#1B9AAF',            // secondary/legacy tie-in
           // Surface & text
           'ghost-white': '#ECF0FD',     // page bg + tile-icon chip
+          // The exact flat ground the service-card artwork is painted on (sampled off all 11 delivered
+          // PNGs: identical #FBF6FA, deviation 0 across the whole copy zone). The card paints THIS so the
+          // strip left over when a card grows taller than the art's aspect is seamless — same colour, no
+          // visible seam. Do not "round" it to another near-white: the seam is what it is protecting.
+          'art-canvas': '#FBF6FA',
           'navy': '#0B305B',            // screen headings (Oxford Navy)
           'text-title': '#0B305B',      // alias of navy — matches DESIGN token name
           'text-body': '#464646',       // body / label

@@ -13,7 +13,7 @@ import { Menubar } from '@/features/v2-shell/components/Menubar'
 import { LogoutModal } from '@/features/v2-shell/components/LogoutModal'
 import { useV2Logout } from '@/features/auth/hooks/useV2Logout'
 import { useClientTier } from '@/features/v2-shell/hooks/useClientTier'
-import { SERVICES } from '../services'
+import { VISIBLE_SERVICES } from '../services'
 import { ServiceHeader } from './ServiceHeader'
 import { ServiceCard } from './ServiceCard'
 
@@ -44,8 +44,11 @@ export function ServiceHubScreen() {
       <div className="relative z-10 mx-auto flex w-full max-w-md flex-col px-4 pb-36 pt-[max(0.75rem,env(safe-area-inset-top))]">
         <ServiceHeader onAvatar={() => setLogoutOpen(true)} showUpgrade={isPaid === false} />
         <div data-testid="service-hub-list" className="flex flex-col gap-2">
-          {SERVICES.map((s) => (
-            <ServiceCard key={s.id} data={s} />
+          {/* VISIBLE_SERVICES, not SERVICES: Healing Circles has no delivered art and is hidden until it
+              does (ฟีม 2026-08-05). The catalog row still exists — see services.ts. The first two cards
+              are above the fold on every phone, so their art loads eagerly and the other nine defer. */}
+          {VISIBLE_SERVICES.map((s, i) => (
+            <ServiceCard key={s.id} data={s} eagerArt={i < 2} />
           ))}
         </div>
       </div>
