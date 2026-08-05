@@ -8,9 +8,11 @@
 //
 // Two boards are captured on purpose:
 //   complete — the 8 distinct compass directions a real man-vs-day payload sends
-//   partial  — the fixture's own gates, which repeat ทิศตะวันออก and so CANNOT fill a compass. That is not
-//              a hypothetical: features/v2-calendar/fixtures.ts ships it today, and the screen has to show
-//              the gap rather than a board that is quietly missing a cell.
+//   partial  — a board that CANNOT be filled, because two gates claim the same direction. This was
+//              features/v2-calendar/fixtures.ts verbatim until this PR repaired it; the payload is kept
+//              exactly as it was so the screen's behaviour on a broken board stays photographed. The
+//              backend's own table has no such row (209/209 are 8-distinct), but the screen must not
+//              quietly show seven squares if one ever arrives.
 //
 //   npx tsx --tsconfig harness/tsconfig.json harness/capture-daydetail-md.ts   (dev server up)
 import { chromium, type Browser } from 'playwright'
@@ -41,7 +43,7 @@ const GATES_COMPLETE = [
   { name: '杜', direction: 'N', meaning: 'อุดตัน' }, { name: '景', direction: 'NE', meaning: 'เสน่ห์' },
   { name: '死', direction: 'E', meaning: 'ตาย' }, { name: '驚', direction: 'SE', meaning: 'กลัว' },
 ]
-// straight out of features/v2-calendar/fixtures.ts — ทิศตะวันออก appears twice
+// what fixtures.ts shipped before this PR — ทิศตะวันออก twice, ทิศตะวันตกเฉียงเหนือ missing entirely
 const GATES_PARTIAL = [
   { name: '開', direction: 'ทิศตะวันออก', meaning: 'เปิดโอกาส เริ่มต้น' },
   { name: '休', direction: 'ทิศเหนือ', meaning: 'พักผ่อน สงบ' },
