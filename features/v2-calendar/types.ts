@@ -105,6 +105,41 @@ export interface YamSlot {
 }
 
 /** Full day-detail payload (screens 2/3). Advanced-only fields are optional. */
+// ครึ่งล่าง sub-shapes (G-4). Defined HERE (the feature contract) — self-contained, matching the lib
+// pipe's shapes (lib/v2-calendar/day-detail); the G-2 adapter maps lib → these. RAW discipline: gates carry
+// NO good/bad level and colors stay Thai names (ตำราไม่มีเกณฑ์ = แปลง=แต่งตำรา; μุน decides display).
+/** ความเข้ากันรายด้าน — one facet (percent/grade nullable = คิดไม่ได้; grade raw, never re-derived). */
+export interface DayDetailArea {
+  key: string
+  label: string
+  percent: number | null
+  grade: string | null
+  /** ⭐ จุดแข็ง — the main facet (isMain). */
+  isStrength: boolean
+}
+/** 八神 — one of the 8 spirits + its keywords. */
+export interface DayDetailSpirit {
+  name: string
+  keywords: string[]
+}
+/** 8 ประตู — ชื่อ+ทิศ+ความหมาย ดิบ (❌ no good/bad level — ตำราไม่มี). */
+export interface DayDetailGate {
+  name: string
+  direction: string
+  meaning: string
+}
+/** สีมงคล — ธาตุ → ชื่อสีไทย ดิบ (❌ no hex; งานดีไซน์ μุน). */
+export interface DayDetailColor {
+  element: string
+  colors: string
+}
+/** ดิถี — ข้อความล้วน (❌ ไม่แปลงเป็นโทนดี/ร้าย — การตีความ ไม่ใช่ข้อมูล). */
+export interface DayDetailDithi {
+  officer: string
+  officerDesc: string
+  jianchu: string
+}
+
 export interface DayDetail {
   date: string
   day: number
@@ -120,6 +155,28 @@ export interface DayDetail {
   yams: YamSlot[]
   /** advanced-mode pillars (บล็อก 4 เสา) — present but hidden when the toggle is off. */
   pillars?: PillarColumn[]
+
+  // ── ครึ่งล่าง (G-4) — เปิดฟิลด์หน้ารายละเอียดวัน ให้ μุน's M-D ย้าย content.ts → detail.* ──
+  // กอง 1 (ย้ายตรงๆ — ท่อ day-detail (B-5) มีให้ครบ; sub-types reused from lib/v2-calendar/day-detail):
+  /** ความเข้ากันรายด้าน — facets[] (isMain→isStrength). */
+  compatAreas: DayDetailArea[]
+  /** คำแนะนำของด้านหลัก — facets[].lines[].text (3 บรรทัด). */
+  advice: string[]
+  /** 💡 บรรทัดสรุปปฏิกิริยาธาตุ — elementRelation.summaryTh. */
+  insight: string
+  /** เทพประจำวัน — almanac.deity. */
+  dayDeity: string
+  /** 8 เทพ 八神 + คีย์เวิร์ด — almanac.spirits[]. */
+  spirits: DayDetailSpirit[]
+  /** แถววันพระ (ค่ำ/เดือน) — almanac.thaiLunar. */
+  wanPhra: { isWanPhra: boolean; label: string }
+  // กอง 2 (ส่งดิบ — ❌ ห้ามแปลง/ตีความ; ตำราไม่มีเกณฑ์ = แปลง=แต่งตำรา; μุน ตัดสินการแสดงผล):
+  /** สีมงคล — ชื่อสีไทย ❌ ไม่แปลงเป็นรหัสสี (งานดีไซน์ μุน). */
+  luckyColors: DayDetailColor[]
+  /** 8 ประตู — ชื่อ+ทิศ+ความหมาย ❌ ไม่ใส่ระดับดี/ร้าย (ตำราไม่มี). */
+  gates: DayDetailGate[]
+  /** ดิถี — officer + คำอธิบาย + jianchu เป็นข้อความ ❌ ไม่แปลงเป็นโทนดี/ร้าย. */
+  dithi: DayDetailDithi
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

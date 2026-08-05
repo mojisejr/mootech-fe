@@ -144,6 +144,50 @@ export function mockDayDetail(date: string): DayDetail {
         ],
       },
     ],
+    // ── ครึ่งล่าง (G-4) — illustrative. Real values arrive from the day-detail pipe (mapDayDetail). กอง 1: ──
+    compatAreas: [
+      { key: 'home', label: 'ในบ้าน', percent: 68, grade: 'B', isStrength: true },
+      { key: 'companions', label: 'มิตรสหาย', percent: 55, grade: 'C+', isStrength: false },
+      { key: 'workplace', label: 'ที่ทำงาน', percent: 72, grade: 'B', isStrength: false },
+      { key: 'outside', label: 'นอกบ้าน', percent: 48, grade: 'C', isStrength: false },
+    ],
+    advice: [
+      'เริ่มงานใหม่ช่วงเช้าได้ผลดี',
+      'ปรึกษาผู้ใหญ่ก่อนตัดสินใจเรื่องเงิน',
+      'เลี่ยงการต่อรองสำคัญช่วงค่ำ',
+    ],
+    insight: 'ธาตุของวันส่งเสริมธาตุเจ้าของดวง เอื้อต่อการเริ่มต้นและการร่วมมือ',
+    dayDeity: 'เทพเจ้าฟ้าประทาน',
+    spirits: [
+      { name: 'เทพมงคล', keywords: ['ลาภผล', 'ทรัพย์สิน'] },
+      { name: 'เทพก้าวหน้า', keywords: ['เลื่อนขั้น', 'รุ่งเรือง'] },
+      { name: 'เทพเมตตา', keywords: ['ผู้ใหญ่เอ็นดู'] },
+      { name: 'เทพเจรจา', keywords: ['พบมิตร', 'สำเร็จ'] },
+      { name: 'เทพวิชา', keywords: ['เรียนรู้', 'สอบผ่าน'] },
+      { name: 'เทพสุขภาพ', keywords: ['พักผ่อน', 'ฟื้นตัว'] },
+      { name: 'เทพระวัง', keywords: ['อุปสรรค'] },
+      { name: 'เทพแตกหัก', keywords: ['ขัดแย้ง', 'เดียวดาย'] },
+    ],
+    wanPhra: {
+      isWanPhra: found.isBuddhistDay ?? false,
+      label: found.isBuddhistDay ? 'วันพระ · ขึ้น ๘ ค่ำ เดือน ๙' : '',
+    },
+    // กอง 2 — ดิบ (❌ ไม่แปลง): สีไทย · ประตูไม่มีระดับ · ดิถีข้อความ
+    luckyColors: [
+      { element: 'ไม้', colors: 'เขียว' },
+      { element: 'น้ำ', colors: 'ฟ้า น้ำเงิน ดำ' },
+    ],
+    gates: [
+      { name: '開', direction: 'ทิศตะวันออก', meaning: 'เปิดโอกาส เริ่มต้น' },
+      { name: '休', direction: 'ทิศเหนือ', meaning: 'พักผ่อน สงบ' },
+      { name: '生', direction: 'ทิศตะวันออกเฉียงเหนือ', meaning: 'เติบโต งอกงาม' },
+      { name: '傷', direction: 'ทิศตะวันออก', meaning: 'บาดเจ็บ ระวังของมีคม' },
+      { name: '杜', direction: 'ทิศตะวันออกเฉียงใต้', meaning: 'ปิดกั้น อุดตัน' },
+      { name: '景', direction: 'ทิศใต้', meaning: 'แสงสว่าง ชื่อเสียง' },
+      { name: '死', direction: 'ทิศตะวันตกเฉียงใต้', meaning: 'จบสิ้น หยุดนิ่ง' },
+      { name: '驚', direction: 'ทิศตะวันตก', meaning: 'ตื่นตระหนก เรื่องไม่คาดฝัน' },
+    ],
+    dithi: { officer: 'สะสาง', officerDesc: 'อับโชค เสียหาย เดียวดาย ทุกข์โศก', jianchu: '除 · ปัดกวาดสิ่งเก่า' },
   }
 }
 
