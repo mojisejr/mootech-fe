@@ -9,6 +9,8 @@ import { CalendarShell } from '@/features/v2-calendar/components/CalendarShell'
 import { AppHeader } from '@/features/v2-shell/components/AppHeader'
 import { DateSelector } from '@/features/v2-calendar/components/DateSelector'
 import { MonthGrid } from '@/features/v2-calendar/components/MonthGrid'
+import { CalendarSkeleton } from '@/features/v2-calendar/components/CalendarSkeleton'
+import { calendarViewState } from '@/features/v2-calendar/components/calendar-view-state'
 import { DailyFortuneCard } from '@/features/v2-shell/components/DailyFortuneCard'
 import { PersonalCalendarPromo } from '@/features/v2-calendar/components/upsell/PersonalCalendarPromo'
 import { useCalendarMonth, useDayDetail, CalendarMenuState } from '@/features/v2-calendar'
@@ -23,16 +25,17 @@ export const getServerSideProps: GetServerSideProps = async (ctx) => {
 }
 
 export default function V2CalendarPage() {
-  const { month, year, monthIndex, todayISO, goPrev, goNext, goToday } = useCalendarMonth()
+  const { month, loading, year, monthIndex, todayISO, selectedDate, selectDay, goPrev, goNext, goToday } = useCalendarMonth()
   const router = useRouter()
   // Zone 4 — the paid rule lives once in goo's lib/v2/tier.ts; this page only reads the verdict.
   // `null` = not determined yet, and it is wrong to guess in EITHER direction, so both the pill and the
   // promo stay away until the tier is actually known. See the note on the promo below.
   const { isPaid } = useClientTier()
-  // selected/summary day = today if it's in view (fenced: null until mount), else the month's first day.
-  // (goo G-0b: `month` is now CalendarMonth|null and the silent "day 14" fallback [month.days[13]] is gone.
-  // Binding the card to the hook's selectedDate is μุน's M-B — this is only the minimal compile-fix.)
-  const cardDay = month ? (month.days.find((d) => d.date === todayISO) ?? month.days[0] ?? null) : null
+  // M-B — the card follows the SELECTED day, not today. goo's hook already owns the rule (selection.ts:
+  // today if today is in view, else day 1, re-applied on month change), so this is a one-word change from
+  // `todayISO` to `selectedDate` and NOT a second copy of the rule. Before this, tapping a day moved the
+  // grid highlight while the card underneath kept describing today — one widget, two answers.
+  const cardDay = month ? (month.days.find((d) => d.date === selectedDate) ?? month.days[0] ?? null) : null
   // the same payload the day-detail screen binds to — headline + the two facet lists live there, so the
   // card shows real copy instead of the hardcoded sentence the little local card carried.
   const { detail } = useDayDetail(cardDay?.date ?? '')
@@ -46,10 +49,12 @@ export default function V2CalendarPage() {
     for (let i = 0; i < Math.abs(delta); i++) step()
   }
 
-  // goo G-0b — minimal compile guard: no month yet (server + first paint, before the cursor resolves the
-  // current month post-mount) → render nothing. The real loading/skeleton screen is μุน's (M-A/M-B); this
-  // is deliberately bare, not a designed loading state.
-  if (!month || !cardDay) return null
+  // M-A — the real body state, replacing goo's G-0b `return null` compile guard.
+  //
+  // `cardDay ? month : null` is not a trick: a month that yielded no usable day cannot paint the card, so
+  // for THIS screen it is the same as having no month. Folding it in here keeps the rule total (and unit-
+  // testable) instead of leaving a second, untested `|| !cardDay` guard next to it.
+  const viewState = calendarViewState({ month: cardDay ? month : null, loading })
 
   return (
     <CalendarShell title="ปฏิทินดวง" menuState={CalendarMenuState.Normal}>
@@ -72,15 +77,28 @@ export default function V2CalendarPage() {
         </div>
       )}
 
-      <div className={`flex flex-col gap-4 px-4 pt-2 ${isPaid === null ? 'hidden' : ''}`}>
+      {/* ONE container for every post-tier state. The skeleton and the ready column share this box on
+          purpose: anything rendered here (the free-tier promo) is identical in both, so the month landing
+          cannot push the page down. Keeping them in separate wrappers is what made the first version shift
+          — the promo appeared only in the ready branch. */}
+      {isPaid !== null && (
+      <div className="flex flex-col gap-4 px-4 pt-2">
         {/* Figma Free-1 368:9750 places this between the header and the selector; Paid-1 375:16710 has no
             such card. KNOWN-free only — see the layout note above for why the undetermined tier withholds
-            the whole column rather than this one card. */}
+            the whole column rather than this one card. It does NOT depend on the month, so it paints in
+            both states rather than being stood in for by a grey block. */}
         {isPaid === false && <PersonalCalendarPromo />}
 
+        {/* M-A — the body is a skeleton until a month is in hand. Rendered, not merely hidden, when ready:
+            the card below dereferences `cardDay` on every prop, so a `hidden` column would still evaluate
+            them and crash on the very states the skeleton exists for. */}
+        {viewState !== 'ready' && <CalendarSkeleton state={viewState} />}
+
+        {viewState === 'ready' && month && cardDay && (
+        <>
         <DateSelector year={year} monthIndex={monthIndex} onToday={goToday} onPick={goTo} />
 
-        <MonthGrid weeks={month.weeks} todayISO={todayISO} />
+        <MonthGrid weeks={month.weeks} selectedDate={selectedDate} onSelect={selectDay} />
 
         {/* Figma 375:11100 — the card and its CTA are ONE card; the CTA was a separate button below it. */}
         {/* goo · G-2 minimal compile-guard (NOT a designed loading state — M-B/M-D own the real one): the
@@ -103,11 +121,17 @@ export default function V2CalendarPage() {
               onClick={() => router.push(`/v2/calendar/${cardDay.date}`)}
               className="w-full rounded-full bg-v3-sapphire py-[14px] text-[16px] font-bold uppercase leading-6 text-v3-lime"
             >
-              ดูรายละเอียดวันนี้
+              {/* the label has to follow the selection too. Left as "วันนี้" it becomes a quiet lie the
+                  moment a user taps any other day — the card would describe the 20th under a button
+                  promising today's detail, and the page it opens is the 20th. */}
+              {cardDay.date === todayISO ? 'ดูรายละเอียดวันนี้' : `ดูรายละเอียดวันที่ ${cardDay.day}`}
             </button>
           }
         />
+        </>
+        )}
       </div>
+      )}
     </CalendarShell>
   )
 }

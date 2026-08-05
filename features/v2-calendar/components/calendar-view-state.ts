@@ -1,0 +1,53 @@
+// features/v2-calendar/components/calendar-view-state.ts — "which of the three screens does the calendar
+// body show right now": the skeleton, the nothing-to-show notice, or the real thing.
+//
+// WHY THIS IS A FUNCTION AND NOT A TERNARY IN THE PAGE. goo's useCalendarMonth (the seam บอง locked
+// 2026-08-05) resolves EVERY branch, and three of them settle with no month at all:
+//
+//     anon                    → { month: null, loading: false }
+//     user row errored        → { month: null, loading: false }
+//     birth profile incomplete→ { month: null, loading: false }
+//     cursor / fetch in flight→ { month: null, loading: true  }
+//
+// So `!month` is NOT "still loading". Reading it as one — which the obvious `if (!month) return <Skeleton/>`
+// does — ships a skeleton that pulses forever for anyone without a birth date. That is the exact bug ตู๋
+// caught on the home screen (see pages/v2/home-preview.tsx: "no loading: element comes from settled
+// compute — too's dead-skeleton catch"), and it is strictly WORSE than the `return null` it replaces:
+// a blank screen reads as broken, a permanent skeleton reads as "any second now" and the user waits.
+//
+// Putting the rule here means CI can prove that "settled" and "skeleton" can never be the same state
+// (scripts/calendar-view-state.test.ts). A ternary in JSX could only ever be checked by opening a browser
+// with a birth-date-less account, which nobody will do again after the day this is written.
+//
+// ⚠️ KNOWN GAP, stated rather than papered over: the three settled-empty causes are INDISTINGUISHABLE at
+// this seam — they are all `{month: null, loading: false}`. So `unavailable` can say that the calendar has
+// nothing to show, but not WHY, and writing "กรุณากรอกวันเกิด" here would be asserting a cause this layer
+// cannot see. Widening the seam with a `reason` is goo's lane; raised to บอง, not smuggled in.
+
+/** The three screens the calendar body can be in. There is no fourth — see the test's TOTAL assertion. */
+export type CalendarViewState =
+  /** the month is on its way — pulse, reserve the space, promise nothing */
+  | 'loading'
+  /** settled, and there is no month to draw. NOT a skeleton: nothing more is coming on its own */
+  | 'unavailable'
+  /** a real month is in hand */
+  | 'ready'
+
+/** The minimum of goo's seam this rule needs. Deliberately structural, so the test needs no CalendarMonth. */
+export type CalendarViewInput = {
+  /** goo's `month` — null until it resolves, and null forever in the three settled-empty branches */
+  month: unknown | null
+  /** goo's `loading` */
+  loading: boolean
+}
+
+/**
+ * `month` is checked FIRST, on purpose. goo clears the old month before every fetch, so
+ * `{month: <something>, loading: true}` does not arise today — but if a later refetch ever keeps the old
+ * month while loading, this order shows the real (if stale) month instead of blanking a painted screen
+ * back to a skeleton. Data already on screen must not be replaced by a placeholder for it.
+ */
+export function calendarViewState({ month, loading }: CalendarViewInput): CalendarViewState {
+  if (month) return 'ready'
+  return loading ? 'loading' : 'unavailable'
+}

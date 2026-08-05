@@ -82,10 +82,38 @@ async function main() {
   // 1 month
   await page.goto(`${HOST}/v2/calendar`, { waitUntil: 'networkidle' }); await page.waitForTimeout(300)
   check('month → menu state 1 (default tabs)', (await menuState(page)) === 1)
-  // → click a day cell (day 15, no mock reminder → unsaved path)
-  await page.locator('a[href="/v2/calendar/2026-07-15"]').first().click()
+  // → M-A CHANGED THIS ROUTE, so the check changed with it — not just the selector.
+  //
+  // A day cell used to be <a href="/v2/calendar/{date}"> and tapping it left the screen. ฟีม ruled that
+  // tapping a day now moves the highlight and swaps the card underneath, and the CARD's button is the only
+  // way into the day page. Repointing the old selector at a <button> would have kept a green check on a
+  // route that no longer exists; what this asserts instead is the route that does.
+  //
+  // The date is READ FROM THE GRID rather than hardcoded (it was '2026-07-15', which stopped existing the
+  // day the month became real and personalised — a hardcoded date in a live-data anchor is a timer set to
+  // go off later).
+  const cells = page.locator('[data-testid="calendar-day"]')
+  const cellCount = await cells.count()
+  check('month: the grid actually rendered cells (else every check below is vacuous)', cellCount > 0, `${cellCount} cells`)
+  // pick a day that is NOT already selected — otherwise "the CTA stopped saying วันนี้" would be asserted
+  // against the day it already said วันนี้ for, and the check would pass or fail on the calendar date the
+  // anchor happens to run on. Chosen by state, never by index.
+  const target = page.locator('[data-testid="calendar-day"]:not([data-selected="true"])').first()
+  const targetDate = await target.getAttribute('data-date')
+  const urlBefore = page.url()
+  await target.click()
   await page.waitForTimeout(400)
-  check('month→day: day cell is a real link (reached day-detail)', page.url().includes('/2026-07-15'))
+  // TOOTH — if anyone puts a <Link> back, this is what catches it: the tap must NOT navigate.
+  check('month: tapping a day does NOT navigate (it selects)', page.url() === urlBefore, `${urlBefore} → ${page.url()}`)
+  check('month: tapping a day moves the selection to it', (await target.getAttribute('data-selected')) === 'true', `date=${targetDate}`)
+  check('month: exactly one day is selected at a time', (await page.locator('[data-testid="calendar-day"][data-selected="true"]').count()) === 1)
+  // M-B — the card followed the tap. If it still described today, the CTA would open the wrong day.
+  const ctaName = await page.locator('[data-testid="calendar-daily-card"] button').last().textContent()
+  check('month: the card CTA follows the selected day (not "วันนี้")', !!ctaName && !ctaName.includes('วันนี้'), `cta="${ctaName?.trim()}"`)
+  // REACHABILITY — the day screen must still be reachable, now via the card's button.
+  await page.locator('[data-testid="calendar-daily-card"] button').last().click()
+  await page.waitForTimeout(400)
+  check('month→day: the card CTA reaches the SELECTED day-detail', page.url().includes(`/${targetDate}`), `${page.url()} want /${targetDate}`)
   // 2 day-detail (unsaved)
   check('day (unsaved) → menu state 2 (primary-cta)', (await menuState(page)) === 2)
   check('day: header bell → notifications (entry-point A1 exists)', (await page.locator('[data-testid="header-notif-bell"][href="/v2/calendar/notifications"]').count()) === 1)

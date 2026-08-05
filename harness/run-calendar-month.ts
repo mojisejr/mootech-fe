@@ -108,7 +108,7 @@ async function main() {
   const tiers = await withCal(browser, 393, (grid) =>
     grid.evaluate((g, args) => {
       const [tints, selFill] = args as [Record<string, string>, string]
-      const cells = Array.from(g.querySelectorAll('a[aria-label^="วันที่"]')) as HTMLElement[]
+      const cells = Array.from(g.querySelectorAll('[data-testid="calendar-day"]')) as HTMLElement[]
       let ok = 0, bad = 0
       const misses: string[] = []
       for (const c of cells) {
@@ -127,10 +127,12 @@ async function main() {
   const tierOk = tiers.total >= 28 && tiers.bad === 0
 
   // ── selected + วันพระ marker ──
+  // NOTE the cells are <button data-testid="calendar-day"> as of M-A. They used to be <a href=…>; the
+  // selectors below moved off the anchor tag and off href onto the testid + data-date for that reason.
   const markers = await withCal(browser, 393, (grid) =>
     grid.evaluate((g, args) => {
       const [selFill, markerHex] = args as [string, string]
-      const cells = Array.from(g.querySelectorAll('a[aria-label^="วันที่"]')) as HTMLElement[]
+      const cells = Array.from(g.querySelectorAll('[data-testid="calendar-day"]')) as HTMLElement[]
       const selected = cells.filter((c) => getComputedStyle(c).backgroundColor === selFill).length
       // วันพระ marker — read it wherever it is PAINTED, not where it used to be authored. It was an inset
       // box-shadow; Figma (368:9832) draws a real 1.6px #9D85DA border, so the cell now carries a border.
@@ -145,7 +147,10 @@ async function main() {
       // unconditionally made this a TIME BOMB: green the week it was written, red every day after the mock
       // month passed — and it has been red for exactly that reason, not because anything regressed.
       const todayISO = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Bangkok' }).format(new Date())
-      const todayInView = !!g.querySelector(`a[href="/v2/calendar/${todayISO}"]`)
+      // keyed on data-date, not href: the cell is a <button> now (ฟีม — tapping a day selects it and swaps
+      // the card, it does not navigate), so there is no href left to match on. data-date exists precisely
+      // so an anchor never has to parse the identity of a cell back out of a URL.
+      const todayInView = !!g.querySelector(`[data-date="${todayISO}"]`)
       return { selected, ring, markerHex, todayInView }
     }, [hexToRgb(SELECTED.fill), CALENDAR_MARKER]),
   )
@@ -161,7 +166,7 @@ async function main() {
   // ── teeth: mut-hardcode-tier — repaint a cell with an off-DESIGN color → tier-fidelity must REJECT ──
   const tierCaught = await withCal(browser, 393, (grid) =>
     grid.evaluate((g, tints: Record<string, string>) => {
-      const c = g.querySelector('a[aria-label^="วันที่"]') as HTMLElement
+      const c = g.querySelector('[data-testid="calendar-day"]') as HTMLElement
       c.style.backgroundColor = '#123456' // not any DESIGN tier tint
       const bg = getComputedStyle(c).backgroundColor
       return bg !== tints.good && bg !== tints.medium && bg !== tints.bad // off-palette → gate would reject → caught
