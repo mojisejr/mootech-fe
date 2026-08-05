@@ -19,7 +19,8 @@
 // same day. The shipped version treated them as exclusive.
 import Link from 'next/link'
 import { dayCellTier, type CalendarDay } from '@/features/v2-calendar'
-import { DAY_CELL_COLORS, SELECTED, CALENDAR_MARKER } from './grade-colors'
+import { DAY_CELL_COLORS, CALENDAR_MARKER } from './grade-colors'
+import { dayCellStyle } from './day-cell-style'
 import { percentText } from './percent-display'
 
 const THAI_DOW = ['อา', 'จ', 'อ', 'พ', 'พฤ', 'ศ', 'ส']
@@ -34,7 +35,9 @@ const LEGEND: { label: string; bg: string; border?: string }[] = [
 ]
 
 function DayCell({ cell, selected }: { cell: CalendarDay; selected: boolean }) {
-  const tier = DAY_CELL_COLORS[dayCellTier(cell.percent)]
+  // selection is a MODE — every colour moves together. See day-cell-style.ts for why this is one
+  // call and not four ternaries (it is the invariant DESIGN.md §GRADE rests on, and it had no live guard).
+  const style = dayCellStyle(dayCellTier(cell.percent), selected)
   return (
     <Link
       href={`/v2/calendar/${cell.date}`}
@@ -44,16 +47,17 @@ function DayCell({ cell, selected }: { cell: CalendarDay; selected: boolean }) {
       data-wanphra={cell.isBuddhistDay ? 'true' : undefined}
       className="flex min-w-0 flex-1 flex-col items-center justify-center gap-px rounded-[11px] py-[3px] leading-none"
       style={{
-        backgroundColor: selected ? SELECTED.fill : tier.tint,
+        backgroundColor: style.bg,
         // วันพระ survives selection — two independent facts, two independent marks (Figma 368:9929)
         border: cell.isBuddhistDay ? `1.6px solid ${CALENDAR_MARKER}` : '1.6px solid transparent',
       }}
     >
       <span className="flex items-center gap-[2px]">
-        <span className="text-[13px] font-bold" style={{ color: selected ? SELECTED.text : '#0B305B' }}>{cell.day}</span>
-        <span data-testid="calendar-ganzhi" className="text-[8px] font-normal" style={{ color: selected ? SELECTED.text : '#1455A4' }}>{cell.ganzhi}</span>
+        <span className="text-[13px] font-bold" style={{ color: style.dayText }}>{cell.day}</span>
+        <span data-testid="calendar-ganzhi" className="text-[8px] font-normal" style={{ color: style.ganzhiText }}>{cell.ganzhi}</span>
       </span>
-      <span className="text-[12px] font-bold" style={{ color: selected ? SELECTED.text : tier.text }}>{percentText(cell.percent)}%</span>
+      {/* colour from the selection MODE (day-cell-style), number through the ONE rounding site (percent-display) */}
+      <span className="text-[12px] font-bold" style={{ color: style.pctText }}>{percentText(cell.percent)}%</span>
     </Link>
   )
 }
