@@ -2,7 +2,7 @@
 // The rendered pixels/computed-styles are the ground-truth, not the className. Proves, on the REAL route
 // with NO backend:
 //   1. 0 app-fetch (goo's shared trackAppFetches — request-level; a call to a downed BE is still caught)
-//   2. GRADE badge fidelity — every [data-grade] badge's COMPUTED bg == GRADE_COLORS[grade].accent, text
+//   2. GRADE badge fidelity — every [data-grade] badge's COMPUTED bg == gradeColors(grade).accent, text
 //      is white EXCEPT the C+ contrast exception which MUST be #374151 (rgb 55,65,81) — DESIGN.md
 //   3. no horizontal overflow (scrollWidth <= clientWidth) — the long frame must not leak sideways
 //   4. all 10 normal-mode sections present (§1 header · §2 strip · §3 score · §4 toggle · §6 · §8 · §10 · §11 · §14)
@@ -16,7 +16,7 @@ import { chromium, type Page } from 'playwright'
 import * as fs from 'fs'
 import * as path from 'path'
 import { trackAppFetches } from './assert-no-app-fetch'
-import { GRADE_COLORS } from '../features/v2-calendar/components/grade-colors'
+import { gradeColors } from '../features/v2-calendar/components/grade-colors'
 
 const HOST = process.env.CAPTURE_HOST ?? 'http://localhost:3011'
 const ROUTE = '/v2/calendar/2026-07-14' // full-data day (all grades + reminders present)
@@ -79,15 +79,18 @@ async function main() {
   check('grade badges present', badges.length >= 8, `count=${badges.length}`)
   let bgOk = true, cplusOk = true, otherTextOk = true
   for (const b of badges) {
-    const expectBg = hexToRgb(GRADE_COLORS[b.grade as keyof typeof GRADE_COLORS]?.accent ?? '#000000')
+    const expectBg = hexToRgb(gradeColors(b.grade).accent)
     if (b.bg !== expectBg) { bgOk = false; console.log(`     bg mismatch ${b.grade}: got ${b.bg}, want ${expectBg}`) }
+    // the dark-ink exception belongs to the ZONE, not to the letter: C+ is the only grade in the `fair`
+    // zone today, but asking gradeColors() keeps this true if another level ever joins that zone.
+    const wantInk = hexToRgb(gradeColors(b.grade).badgeText)
     if (b.grade === 'C+') {
-      if (b.color !== 'rgb(55, 65, 81)') { cplusOk = false; console.log(`     C+ text got ${b.color}, want rgb(55, 65, 81)`) }
-    } else if (b.color !== 'rgb(255, 255, 255)') {
-      otherTextOk = false; console.log(`     ${b.grade} text got ${b.color}, want white`)
+      if (b.color !== wantInk) { cplusOk = false; console.log(`     C+ text got ${b.color}, want ${wantInk}`) }
+    } else if (b.color !== wantInk) {
+      otherTextOk = false; console.log(`     ${b.grade} text got ${b.color}, want ${wantInk}`)
     }
   }
-  check('badge bg == GRADE_COLORS accent (all grades)', bgOk)
+  check('badge bg == gradeColors(grade).accent (all grades)', bgOk)
   check('C+ badge text == #374151 (DESIGN.md contrast exception)', cplusOk)
   check('non-C+ badge text == white', otherTextOk)
 

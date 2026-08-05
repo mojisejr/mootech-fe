@@ -13,7 +13,9 @@
 //     guessed backend schema. At API-time an adapter maps backend→these shapes; hooks/UI stay put.
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Grade — the 10-step scale shared by ring / badge / %-bar / calendar cell (DESIGN.md §GRADE).
+// Grade — the ORIGINAL 10-step UI union. Still used by ดวงสมพงศ์ (features/v2-service). The calendar no
+// longer keys colours off it: the wire speaks 13 levels and colour now speaks 5 zones (lib/v2/grade-scale.ts,
+// มุน M-C 2026-08-05), so nothing here had to widen. COMMENT-ONLY edit — the union below is untouched.
 // The LABELS are ground-truth (DESIGN.md). The grade→% mapping is bazi's ground-truth and is NOT
 // invented here (see grade.ts) — a day fixture carries its grade EXPLICITLY.
 // ─────────────────────────────────────────────────────────────────────────────

@@ -3,49 +3,17 @@
 // table, and the (future) wiring all agree. Semantic colours are INLINE hex (a grade scale is semantic, not
 // the accent) — kept out of Tailwind arbitrary-value classes on purpose (verify-architecture bans those).
 //
-// Grade scale RE-SAMPLED from Figma 636:19532 (Zone 2 · 2026-08-03): the node draws FIVE distinct steps, so
-// A and B are no longer one bucket — A is a deeper green than B. ฟีม ruled plain "C" joins C- on orange.
-//   A± → deep green · B± → green · C+ → yellow-lime · C / C- → orange · D± / F → deep red.
-
-export type GradeTier = 'best' | 'good' | 'fair' | 'weak' | 'poor'
-
-export function gradeTier(grade?: string | null): GradeTier {
-  const g = (grade ?? '').trim().toUpperCase()
-  if (!g) return 'weak'
-  const letter = g.charAt(0)
-  if (letter === 'A') return 'best'
-  if (letter === 'B') return 'good'
-  if (g === 'C+') return 'fair'
-  if (letter === 'C') return 'weak' // C and C- (ฟีม 2026-08-03: plain C is orange)
-  return 'poor' // D / E / F and below
-}
-
-// bar fill + grade-pill background per tier — every value sampled from the Figma node, not eyeballed.
-export const TIER_COLOR: Record<GradeTier, string> = {
-  best: '#2E7D32', // deep green (A)
-  good: '#66BB6A', // green (B)
-  fair: '#CDDC39', // yellow-lime (C+)
-  weak: '#F57C00', // orange (C / C-)
-  poor: '#B71C1C', // deep red (D / F)
-}
-
-// the tinted rationale box under each dimension row — the soft pair of TIER_COLOR (Figma-sampled).
-export const TIER_SOFT: Record<GradeTier, string> = {
-  best: '#E8F5E9',
-  good: '#F0F8F0',
-  fair: '#F9FBE7',
-  weak: '#FFF0E1',
-  poor: '#FCE4EC',
-}
-
-// text colour ON a grade pill: the yellow-lime C+ pill needs dark ink to stay readable (Figma uses #374151).
-export const TIER_INK: Record<GradeTier, string> = {
-  best: '#FFFFFF',
-  good: '#FFFFFF',
-  fair: '#374151',
-  weak: '#FFFFFF',
-  poor: '#FFFFFF',
-}
+// Grade scale MOVED to lib/v2/grade-scale.ts (มุน · M-C 2026-08-05). It was first sampled here from Figma
+// 636:19532 (Zone 2 · 2026-08-03) — five distinct steps, ฟีม ruled plain "C" joins C- on orange — and the
+// calendar now needs the same scale for the 13 wire levels. Rather than hold five hexes in two features
+// and let them drift, the scale lives in one place and both import it. Re-exported here so the six
+// components in this feature keep importing from the file they always have.
+//
+// The measurement behind "five, not thirteen" is in lib/v2/grade-scale.ts. Short version: this ramp only
+// carries ~5 steps that every viewer can separate, and the grade LETTER carries the precision.
+export type { GradeTier } from '@/lib/v2/grade-scale'
+export { gradeTier, TIER_COLOR, TIER_SOFT, TIER_INK } from '@/lib/v2/grade-scale'
+import { gradeTier } from '@/lib/v2/grade-scale'
 
 // SIDE TINT — the self/other panel palette shared by ธาตุ&เสา (Zone 3) and รายคน (Zone 4), and the same
 // #ECF0FC that backs the Zone 1 pill-tab container. One system, sampled once.

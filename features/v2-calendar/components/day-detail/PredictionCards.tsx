@@ -4,10 +4,10 @@
 import type { CompatArea } from './content'
 import { GradeBadge } from './GradeBadge'
 import { SectionCard } from './SectionCard'
-import { GRADE_COLORS } from '../grade-colors'
+import { gradeColors } from '../grade-colors'
 
 function PredictionCard({ area }: { area: CompatArea }) {
-  const c = GRADE_COLORS[area.grade]
+  const c = gradeColors(area.grade)
   const pctColor = c.badgeText === '#374151' ? '#374151' : c.accent
   return (
     <div className="rounded-2xl px-3 py-2.5" style={{ backgroundColor: c.bg }}>

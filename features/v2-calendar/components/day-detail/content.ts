@@ -19,7 +19,7 @@ export interface CompatArea {
   label: string
   /** คะแนนความเข้ากัน 0-100 (drives the %-bar width + the number). */
   percent: number
-  /** เกรด 10 ระดับ — tone of the bar / badge (shared GRADE_COLORS). */
+  /** เกรดจากสาย — 13 ระดับ (lib/v2/api-grade.ts). สีมาจาก 5 โซน ตัวอักษรแบกความละเอียด ดู grade-colors.ts */
   grade: Grade
   /** ⭐ จุดแข็ง — the day's strongest area (the pill in §6). */
   isStrength?: boolean

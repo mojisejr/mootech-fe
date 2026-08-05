@@ -1,10 +1,12 @@
 // §6 "ความเข้ากัน 5 ด้าน" + §7 insight box. Each row: ♥ icon + area name + a grade-accent %-bar + % +
 // GradeBadge (+ ⭐จุดแข็ง on the day's strongest area). The bar fill colour IS the grade accent (shared
-// GRADE_COLORS) — A dark-green … C- orange — so the bar can't disagree with the badge. §7 is the 💡 line.
+// the shared 5-zone scale) — A± deep-green … D±/F deep-red — so the bar can't disagree with the badge.
+// §7 is the 💡 line. NOTE the bar is the one place a zone colour appears without the letter ON it; the
+// GradeBadge carrying that letter sits on the same row, which is why the zone alone is enough here.
 import type { CompatArea } from './content'
 import { GradeBadge } from './GradeBadge'
 import { SectionCard } from './SectionCard'
-import { GRADE_COLORS } from '../grade-colors'
+import { gradeColors } from '../grade-colors'
 
 function HeartIcon() {
   return (
@@ -25,7 +27,7 @@ function StrengthPill() {
 }
 
 function CompatRow({ area }: { area: CompatArea }) {
-  const accent = GRADE_COLORS[area.grade].accent
+  const accent = gradeColors(area.grade).accent
   return (
     <div className="flex items-center gap-3">
       <HeartIcon />
