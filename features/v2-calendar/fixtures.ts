@@ -70,7 +70,6 @@ export function generateMonthDays(year: number, month: number): CalendarDay[] {
       day,
       ganzhi: ganzhiFor(cycleSeed + i),
       percent,
-      grade: illustrativeGrade(percent),
       isBuddhistDay: day === 10 || day === 24, // 2 mock วันพระ → exercise the #9D85DA ring marker
     }
   })
@@ -110,17 +109,21 @@ export function mockDayDetail(date: string): DayDetail {
   const [gy, gm] = date.split('-').map(Number)
   const genDay =
     Number.isFinite(gy) && Number.isFinite(gm) ? generateMonthDays(gy, gm).find((d) => d.date === date) : undefined
-  const found: CalendarDay = genDay ?? { date, day: Number(date.slice(8, 10)) || 0, ganzhi: '', percent: 0, grade: 'C' }
+  const found: CalendarDay = genDay ?? { date, day: Number(date.slice(8, 10)) || 0, ganzhi: '', percent: 0 }
+  // DayDetail keeps its own `grade` (the card ring — a 10-level UI Grade). Since the grid cell no longer
+  // carries grade (G-0c), derive the mock's illustrative grade from percent here (mock-only bucketer; the
+  // real grade arrives from bazi at G-4). This is NOT the grid's colour source (that is dayCellTier).
+  const grade = illustrativeGrade(found.percent)
   return {
     date: found.date,
     day: found.day,
     ganzhi: found.ganzhi,
     percent: found.percent,
-    grade: found.grade,
+    grade,
     summary: 'วันนี้เหมาะแก่การเริ่มต้นสิ่งใหม่ ทำงานร่วมกับผู้อื่นได้ราบรื่น',
     suitable: ['ไปที่ทำงาน / สถานศึกษา', 'พบปะเจรจา', 'เริ่มโครงการ'],
     avoid: ['ตัดสินใจเรื่องใหญ่คนเดียว', 'เดินทางไกลช่วงค่ำ'],
-    yams: mockYams(found.grade),
+    yams: mockYams(grade),
     pillars: [
       {
         kind: 'man',

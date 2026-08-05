@@ -7,10 +7,9 @@
 //  1. SCORELESS-DAY FABRICATION — the BFF returns overallPercent:null when bazi can't compute a day. The
 //     grid renders percent as a number; mapping null→0 would paint a real "0%" on an unknown day. The
 //     adapter must DROP such days (→ empty grid slot), never invent a score.
-//  2. GRADE 13→10 on a VESTIGIAL field — bazi grades are 13-level (A+/A-/F); the shared UI Grade is
-//     10-level and the grid NEVER renders grade (dayCellTier(percent) does the colour). The type can't be
-//     widened (ripples to non-lane fixtures.ts), so the adapter projects the 3 orphans to nearest — flagged
-//     to บอง, not silent — and the authoritative displayed grade stays DayDetail.grade (M-C's 13-level job).
+//  2. GRADE DROPPED (G-0c) — the BFF day carries a 13-level bazi grade, but the grid never renders grade
+//     (dayCellTier(percent) does the colour) and the feature CalendarDay no longer HAS a grade field. The
+//     adapter must simply drop it — no projection, no field. (The grade a user sees is DayDetail.grade.)
 //  3. SELECTION never empty — a month must always resolve a selected day (today-in-view → today, else
 //     day 1). The old silent "day 14" (month.days[13]) fallback is gone.
 import assert from 'node:assert'
@@ -36,22 +35,19 @@ const apiDay = (over: Partial<ApiCalendarDay> = {}): ApiCalendarDay => ({
   ...over,
 })
 
-// ── adapter: field map ──
+// ── adapter: field map (no grade on the cell) ──
 ok('apiDayToFeatureDay maps every field', (() => {
   const c = apiDayToFeatureDay(apiDay({ wanPhra: true }))
   return !!c && c.date === '2026-08-05' && c.day === 5 && c.ganzhi === '甲子'
-    && c.percent === 73 && c.grade === 'B+' && c.isBuddhistDay === true
+    && c.percent === 73 && c.isBuddhistDay === true
 })())
+// grade is DROPPED — the feature cell has no such field (compile-enforced) and the raw bazi grade is ignored.
+ok('adapter does not put grade on the cell', !('grade' in (apiDayToFeatureDay(apiDay({ grade: 'A+' })) as object)))
 
 // ── adapter: scoreless day (bug-class 1) — null percent DROPS, never fabricates 0 ──
 ok('null overallPercent → null (not a 0% cell)', apiDayToFeatureDay(apiDay({ overallPercent: null })) === null)
-
-// ── adapter: grade projection (bug-class 2) — 10-level identity, orphans mapped, null day dropped ──
-ok('10-level grade passes identity (B+)', apiDayToFeatureDay(apiDay({ grade: 'B+' }))?.grade === 'B+')
-ok('13-level orphan A+ projects to 10-level top A', apiDayToFeatureDay(apiDay({ grade: 'A+' }))?.grade === 'A')
-ok('13-level orphan A- projects to 10-level A', apiDayToFeatureDay(apiDay({ grade: 'A-' }))?.grade === 'A')
-ok('13-level orphan F projects to 10-level bottom D-', apiDayToFeatureDay(apiDay({ grade: 'F' }))?.grade === 'D-')
-ok('null grade day dropped (incomplete, not a fabricated cell)', apiDayToFeatureDay(apiDay({ grade: null, overallPercent: 50 })) === null)
+// a null grade with a real percent is STILL a valid scored cell now (grade is gone; only percent gates it)
+ok('null grade + real percent → kept (grade no longer gates the cell)', apiDayToFeatureDay(apiDay({ grade: null, overallPercent: 50 }))?.percent === 50)
 
 // ── adapter: month assembly drops scoreless days, keeps scored ──
 const assembled = assembleFeatureMonth(2026, 8, [
