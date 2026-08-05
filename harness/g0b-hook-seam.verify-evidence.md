@@ -36,18 +36,36 @@ the #181 adapter+fetch and deletes the now-orphan `CalendarDay.grade`.
 Plus the selection rule (`#181` — today-in-view→today else day-1, kills the old `days[13]`) is now the
 hook's actual selection source. `tsc --noEmit` exit 0 · all 60 `scripts/*.test.ts` green · `verify-architecture` pass.
 
-## ⚠️ Evidence limit (honest — not "looks done")
+## Runtime verification — the done-condition, in a real browser (บอง asked; claim ⇒ raw proof)
 
-- **Verified**: the SELECTION and DAY-DETAIL logic (unit tests above), the type/compile contract (tsc), and
-  hydration safety **by construction** — server and first client paint both hit the `!month` early-return,
-  emitting identical empty HTML, so there is no mismatch to hydrate (the same fenced pattern as `todayISO`,
-  already proven on this app).
-- **NOT run in a real browser here**: the end-to-end done-condition (open → current month painted, today
-  highlighted, card = today, no console hydration error) needs the v2 auth gate + a running build, and the
-  calendar page is **outside the CI pixel harness** (`design.contract`/`run.ts` cover the splash surface;
-  `run-calendar-*.ts` are standalone, not wired to any workflow — grep-verified). So design-verify will NOT
-  exercise this behaviour. A browser pass is the natural next check — I can run it, or it is covered when
-  μุน renders M-A/M-B. Flagged so this is not mistaken for a runtime-verified claim.
+ฟีม's done-condition is eye-visible and tsc/unit tests cannot prove it, so it was run on the ship path with
+my Phase-3 team tool (no new tooling):
+
+```
+# FE (this branch) on :3000, then:
+CAPTURE_HOST=http://localhost:3000 npx tsx harness/capture-route.ts --route /v2/calendar --no-user --viewports 393
+```
+
+- **FE build @capture: `e1d08fe` (mootech-fe-wt-wave1)** = this PR's HEAD (evidence records its code version).
+- Gate-only (`--no-user`): anon → `isPaid:false` (computeTier §"no account") → the calendar body renders with
+  the mock month. No BE/pg needed (anon `useV2Tier` does not fetch).
+
+Screenshot `harness/captures/v2-calendar__preview__393.png` (gitignored — reproduce with the command above)
+shows, on first open:
+
+| Done-condition (ฟีม) | Observed @393 |
+|---|---|
+| open → **current month** | header `เดือน สิงหาคม · ปี (พ.ศ.) 2569` (= August 2026) ✅ |
+| highlight → **today** | grid cell **`5`** carries the selected fill (`#1455A4`, white text), unique in the grid ✅ |
+| card → **today** | dateLine **`วันนี้ · 5 สิงหาคม 2569`**, ring `B- 71%` + ganzhi `戊子` — both match grid day-5 (`5 戊子 71%`) ✅ |
+| no hydration mismatch | capture-route reports **`errors=0`** (console errors incl. hydration) ✅ |
+
+The card date `5 สิงหาคม` follows the SELECTED day (today), not the old fixed July-14 — both day-14 fallbacks
+are dead in the running app. (mock วันพระ rings on 10/24 render too, matching fixtures.)
+
+**Still verified only by construction**, not this capture: nothing — the above IS the browser pass. What is
+still MOCK (not this PR) is the NUMBERS (71%, ganzhi) — real bazi arrives at G-0c. Known layout nit visible
+in the full-page shot: the fixed bottom-nav overlaps the card's dateLine (a μุน layout concern, not this seam).
 
 ## adversary sign-off
 
