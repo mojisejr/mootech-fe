@@ -16,9 +16,21 @@ import { useCookies } from 'react-cookie'
 import { CookieKey } from '@/constants/cookie-key'
 import { UserGetById } from '@/constants/api/api-user-get'
 import { getUser } from '@/lib/v2/user-cache'
-import type { TierSource } from '@/lib/v2/tier'
+import type { UserBirthRow } from '@/lib/bazi-bridge/input'
 
-type UserRow = TierSource & { user_id?: string; error?: unknown }
+/**
+ * The fetched /api/user row — the SUPERSET both consumers narrow from: useV2Tier reads `payment` (via
+ * computeTier), useCalendarMonth reads the birth fields (via userRowToFeCalcInput). The birth fields are
+ * GENUINELY nullable — a user who has not completed their profile has no dob (the real "no-dob" account) —
+ * so the optionality mirrors real data and is guarded by isBirthProfileComplete; it is NOT a loose "maybe
+ * missing" on always-present data. `payment` is likewise absent for a free user. computeTier only ever reads
+ * `payment`, so widening the row here cannot change isPaid for any of the 4 consumers (proven: v2-tier.test).
+ */
+export type V2UserRow = UserBirthRow & {
+  payment?: { is_not_expired?: boolean | null } | null
+  user_id?: string
+  error?: unknown
+}
 
 export interface V2User {
   /** '' when no MEMBER_ID cookie is readable (anon, or SSR/first-paint before mount). */
@@ -28,13 +40,13 @@ export interface V2User {
   /** settled but no usable row (error shape / missing user_id / threw) — NEVER guessed as a valid row. */
   errored: boolean
   /** the resolved user row, or null (loading / no account / errored). */
-  user: TierSource
+  user: V2UserRow | null
 }
 
 export function useV2User(): V2User {
   const [cookies] = useCookies([CookieKey.MEMBER_ID])
   const userId = (cookies[CookieKey.MEMBER_ID] as string) || ''
-  const [state, setState] = useState<{ done: boolean; errored: boolean; user: TierSource }>({
+  const [state, setState] = useState<{ done: boolean; errored: boolean; user: V2UserRow | null }>({
     done: false,
     errored: false,
     user: null,
@@ -57,7 +69,7 @@ export function useV2User(): V2User {
     getUser(userId, UserGetById)
       .then((u) => {
         if (!alive) return // unmounted / identity changed mid-flight → drop (covers logout-clears-cookie)
-        const row = u as UserRow | null
+        const row = u as V2UserRow | null
         if (!row || row.error || !row.user_id) {
           setState({ done: true, errored: true, user: null }) // could-not-determine — never a guessed free
           return

@@ -13,15 +13,23 @@
 // month CLIENT-SIDE post-mount — the SAME fence as todayISO — is why `month` is nullable: server + first
 // client paint both see `null` (no clock-straddle hydration mismatch), then the effect sets today's month.
 // This also matches G-0c's reality: a PERSONALISED month is fetched client-side (needs auth) and can never
-// be SSR'd, so "null on first paint" is the truth either way. Done-condition (open → CURRENT month, today
-// highlighted, card = today) is therefore met already at this mock stage — mockCalendarMonth generates any
-// month deterministically. G-0c swaps mockCalendarMonth → the API adapter and deletes CalendarDay.grade.
+// be SSR'd, so "null on first paint" is the truth either way.
+//
+// G-0c: the month now comes from the REAL pipe — /api/v2/calendar-month (BFF → bazi man-vs-day + almanac),
+// adapted by assembleFeatureMonth. Identity (userId + birth `person`) comes from useV2User (the shared,
+// de-duplicated /api/user fetch — no second UserGetById on the page, #165). The state machine below RESOLVES
+// every branch (cursor / anon / user-loading / user-error / no-birth-profile / fetching / month) so the seam
+// is never a stuck skeleton, and a month change clears the old month FIRST (no stale from the previous month).
 import { useEffect, useMemo, useState } from 'react'
 import { useHasMounted } from '@/lib/hooks/use-has-mounted'
+import { useV2User } from '@/features/auth/hooks/useV2User'
+import { isBirthProfileComplete, userRowToFeCalcInput } from '@/lib/bazi-bridge/input'
 import type { CalendarMonth } from '../types'
-import { mockCalendarMonth, MOCK_YEAR, MOCK_MONTH } from '../fixtures'
+import { MOCK_YEAR, MOCK_MONTH } from '../fixtures'
 import { bangkokTodayISO, bangkokToday } from '../today'
 import { defaultSelectedDate, isSelectableDate } from './selection'
+import { assembleFeatureMonth } from './month-adapter'
+import { fetchCalendarMonth } from './fetch-month'
 
 type Cursor = { year: number; month: number }
 
@@ -62,13 +70,45 @@ export function useCalendarMonth(): UseCalendarMonth {
     setCursor((c) => c ?? { year: t.year, month: t.month }) // set once; nav changes are preserved
   }, [])
 
-  // G-0b: still the mock (but for the RESOLVED month, incl. the current one). G-0c: the adapter's fetched
-  // month, which CAN be null / loading true while the fetch is in flight.
-  const month: CalendarMonth | null = useMemo(
-    () => (cursor ? mockCalendarMonth(cursor.year, cursor.month) : null),
-    [cursor],
+  // Identity: the page-shared, de-duplicated /api/user fetch (no 2nd UserGetById — #165). Birth `person` is
+  // built only from a COMPLETE profile (dob + gender) — never guessed; a no-dob account yields no month.
+  const { userId, user, done, errored } = useV2User()
+  const person = useMemo(
+    () => (user && isBirthProfileComplete(user) ? userRowToFeCalcInput(user) : null),
+    [user],
   )
-  const loading = cursor === null
+
+  // The fetched month + loading. State machine (each branch resolves — no stuck skeleton):
+  //   no cursor (pre-mount)         → null, loading (cursor resolving)
+  //   no account (anon)             → null, settled (personalised month needs an identity)
+  //   user still fetching           → null, loading
+  //   user errored / no birth data  → null, settled (nothing to compute)
+  //   fetching the month            → null, loading (old month cleared FIRST → never stale)
+  //   month arrived                 → the assembled month, settled
+  const [monthState, setMonthState] = useState<{ month: CalendarMonth | null; loading: boolean }>({
+    month: null,
+    loading: true,
+  })
+  const { month, loading } = monthState
+
+  useEffect(() => {
+    if (!cursor) return setMonthState({ month: null, loading: true }) // cursor resolving (fenced pre-mount)
+    if (!userId) return setMonthState({ month: null, loading: false }) // anon → no personalised month
+    if (!done) return setMonthState({ month: null, loading: true }) // user row still in flight
+    if (errored || !user) return setMonthState({ month: null, loading: false }) // could not get the user row
+    if (!person) return setMonthState({ month: null, loading: false }) // profile incomplete → nothing to compute
+
+    let alive = true
+    setMonthState({ month: null, loading: true }) // clear the previous month BEFORE the fetch → never stale
+    fetchCalendarMonth(person, userId, cursor.year, cursor.month).then((resp) => {
+      if (!alive) return // month changed / unmounted mid-flight → drop this (stale) response
+      setMonthState({ month: assembleFeatureMonth(cursor.year, cursor.month, resp.days), loading: false })
+    })
+    return () => {
+      alive = false
+    }
+    // person is memoized (stable per user), so within a mount this fires only on cursor / identity change.
+  }, [cursor, userId, done, errored, person])
 
   // Only expose today AFTER mount — the fence. Before mount both server and client see null.
   const todayISO = hasMounted ? bangkokTodayISO() : null
