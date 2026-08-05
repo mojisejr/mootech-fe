@@ -38,11 +38,15 @@ export interface CalendarDay {
   ganzhi: string
   /** คะแนนดวงวัน 0-100. */
   percent: number
-  // NOTE — no `grade` here on purpose. The month grid colours cells by dayCellTier(percent), never by a
-  // letter grade (grep-verified: MonthGrid/DateSelector don't read it). bazi's day grade is 13-level and
-  // the UI `Grade` is 10-level; carrying it on this UNUSED grid field forced a lossy projection (G-0a/G-0b).
-  // G-0c removed it (บอง 2026-08-05: "delete, don't widen"). The grade the CARD/detail renders lives on
-  // DayDetail.grade (its own path + M-C's 13-level colour work) — not on a grid cell.
+  /**
+   * bazi's letter grade — 13-level RAW string, never re-derived/projected. Back on the cell (บอง 2026-08-05,
+   * G-2, option b): the MonthGrid still doesn't render it, but the CARD RING needs its grade INSTANT
+   * (จังหวะ 1) from the month cell — so the ring shows a grade the moment a day is picked, not only after
+   * the day-detail fetch (จังหวะ 2). NON-nullable on purpose: the adapter DROPS any day whose grade is null
+   * (month-adapter — same as null-percent), so a cell that reaches this layer ALWAYS has a grade; declaring
+   * it `string` reflects that post-drop truth instead of forcing every caller to null-check.
+   */
+  grade: string
   /** วันพระ (ไทย/จีน) — drives the #9D85DA ring marker. */
   isBuddhistDay?: boolean
   /** true when this cell is NOT part of the displayed month (leading/trailing padding). */
@@ -100,17 +104,57 @@ export interface YamSlot {
   label: string
   /** ช่วงเวลา `HH:MM-HH:MM`. */
   window: string
-  /** grade of this ยาม (tone of the row). */
-  grade: Grade
+  // NOTE — no `grade`/tone here. bazi's luckyHours engine emits only {code, range, branch, god, meaning}
+  // (almanac-engine.ts luckyHoursByDayBranch): the `good`/`score` are used to FILTER (only good hours) then
+  // DISCARDED, so every emitted yam is uniformly "good" with NO per-yam quality. The old grade came from
+  // mockYams (fabricated). Cut it (บอง 2026-08-05) — same family as 財 / 8-gate levels: ตำราไม่มีเกณฑ์ =
+  // ใส่ = แต่งตำรา. How to show yams without a tone is μุน's display call.
 }
 
 /** Full day-detail payload (screens 2/3). Advanced-only fields are optional. */
+// ครึ่งล่าง sub-shapes (G-4). Defined HERE (the feature contract) — self-contained, matching the lib
+// pipe's shapes (lib/v2-calendar/day-detail); the G-2 adapter maps lib → these. RAW discipline: gates carry
+// NO good/bad level and colors stay Thai names (ตำราไม่มีเกณฑ์ = แปลง=แต่งตำรา; μุน decides display).
+/** ความเข้ากันรายด้าน — one facet (percent/grade nullable = คิดไม่ได้; grade raw, never re-derived). */
+export interface DayDetailArea {
+  key: string
+  label: string
+  percent: number | null
+  grade: string | null
+  /** ⭐ จุดแข็ง — the main facet (isMain). */
+  isStrength: boolean
+}
+/** 八神 — one of the 8 spirits + its keywords. */
+export interface DayDetailSpirit {
+  name: string
+  keywords: string[]
+}
+/** 8 ประตู — ชื่อ+ทิศ+ความหมาย ดิบ (❌ no good/bad level — ตำราไม่มี). */
+export interface DayDetailGate {
+  name: string
+  direction: string
+  meaning: string
+}
+/** สีมงคล — ธาตุ → ชื่อสีไทย ดิบ (❌ no hex; งานดีไซน์ μุน). */
+export interface DayDetailColor {
+  element: string
+  colors: string
+}
+/** ดิถี — ข้อความล้วน (❌ ไม่แปลงเป็นโทนดี/ร้าย — การตีความ ไม่ใช่ข้อมูล). */
+export interface DayDetailDithi {
+  officer: string
+  officerDesc: string
+  jianchu: string
+}
+
 export interface DayDetail {
   date: string
   day: number
   ganzhi: string
   percent: number
-  grade: Grade
+  /** bazi's letter grade — 13-level RAW string (card ring; M-C's gradeColors/gradeTier colours it). NON-null:
+   * the day-detail adapter maps a real, computed day (grade tracks percent) → always present. */
+  grade: string
   /** headline สรุปดวงวัน. */
   summary: string
   /** เหมาะกับวันนี้ / ควรเลี่ยง. */
@@ -120,6 +164,34 @@ export interface DayDetail {
   yams: YamSlot[]
   /** advanced-mode pillars (บล็อก 4 เสา) — present but hidden when the toggle is off. */
   pillars?: PillarColumn[]
+
+  // ── ครึ่งล่าง (G-4) — เปิดฟิลด์หน้ารายละเอียดวัน ให้ μุน's M-D ย้าย content.ts → detail.* ──
+  // กอง 1 (ย้ายตรงๆ — ท่อ day-detail (B-5) มีให้ครบ; sub-types reused from lib/v2-calendar/day-detail):
+  /** ความเข้ากันรายด้าน — facets[] (isMain→isStrength). */
+  compatAreas: DayDetailArea[]
+  /** คำแนะนำของด้านหลัก — facets[].lines[].text (3 บรรทัด). */
+  advice: string[]
+  /** 💡 บรรทัดสรุปปฏิกิริยาธาตุ — elementRelation.summaryTh. */
+  insight: string
+  /** เทพประจำวัน — almanac.deity. */
+  dayDeity: string
+  /** 8 เทพ 八神 + คีย์เวิร์ด — almanac.spirits[]. */
+  spirits: DayDetailSpirit[]
+  /** แถววันพระ (ค่ำ/เดือน) — almanac.thaiLunar. */
+  wanPhra: { isWanPhra: boolean; label: string }
+  // กอง 2 (ส่งดิบ — ❌ ห้ามแปลง/ตีความ; ตำราไม่มีเกณฑ์ = แปลง=แต่งตำรา; μุน ตัดสินการแสดงผล):
+  /** สีมงคล — ชื่อสีไทย ❌ ไม่แปลงเป็นรหัสสี (งานดีไซน์ μุน). */
+  luckyColors: DayDetailColor[]
+  /** 8 ประตู — ชื่อ+ทิศ+ความหมาย ❌ ไม่ใส่ระดับดี/ร้าย (ตำราไม่มี). */
+  gates: DayDetailGate[]
+  /** ดิถี — officer + คำอธิบาย + jianchu เป็นข้อความ ❌ ไม่แปลงเป็นโทนดี/ร้าย. */
+  dithi: DayDetailDithi
+  /**
+   * ทิศมงคล (G-3) — RAW จาก man-vs-day (lucky_dir almanac column, ข้อมูลตำรา ตรงๆ ไม่ใช่จัดอันดับ 8 ประตู).
+   * เป็น chip คู่กับ dithi.officer. ❌ อย่าแปลงเป็นทิศย่อ/องศา/ไอคอน (งานมุน). chip 財 ถูก **ตัดทิ้ง** — ตำรา
+   * bazi (8 ประตู 開休生傷杜景死驚) ไม่มี 財 (คำสั่งฟีม; ตัดโดยตั้งใจ ไม่ใช่ลืม).
+   */
+  luckyDirection: string
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

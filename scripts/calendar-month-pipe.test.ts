@@ -7,9 +7,9 @@
 //  1. SCORELESS-DAY FABRICATION — the BFF returns overallPercent:null when bazi can't compute a day. The
 //     grid renders percent as a number; mapping null→0 would paint a real "0%" on an unknown day. The
 //     adapter must DROP such days (→ empty grid slot), never invent a score.
-//  2. GRADE DROPPED (G-0c) — the BFF day carries a 13-level bazi grade, but the grid never renders grade
-//     (dayCellTier(percent) does the colour) and the feature CalendarDay no longer HAS a grade field. The
-//     adapter must simply drop it — no projection, no field. (The grade a user sees is DayDetail.grade.)
+//  2. GRADE carried RAW (G-2) — grade is BACK on the cell (13-level string) so the card ring gets it INSTANT
+//     from the month cell (จังหวะ 1). Carried raw, never projected; a day with a null grade is DROPPED (an
+//     incomplete day is not a real cell — same as null percent), so a survivor's grade is always non-null.
 //  3. SELECTION never empty — a month must always resolve a selected day (today-in-view → today, else
 //     day 1). The old silent "day 14" (month.days[13]) fallback is gone.
 import assert from 'node:assert'
@@ -41,13 +41,14 @@ ok('apiDayToFeatureDay maps every field', (() => {
   return !!c && c.date === '2026-08-05' && c.day === 5 && c.ganzhi === '甲子'
     && c.percent === 73 && c.isBuddhistDay === true
 })())
-// grade is DROPPED — the feature cell has no such field (compile-enforced) and the raw bazi grade is ignored.
-ok('adapter does not put grade on the cell', !('grade' in (apiDayToFeatureDay(apiDay({ grade: 'A+' })) as object)))
+// grade is carried RAW (13-level string) — the card ring reads it (จังหวะ-1); no projection to 10-level.
+ok('adapter carries grade raw (13-level)', apiDayToFeatureDay(apiDay({ grade: 'A+' }))?.grade === 'A+')
+ok('adapter carries grade F raw', apiDayToFeatureDay(apiDay({ grade: 'F' }))?.grade === 'F')
 
 // ── adapter: scoreless day (bug-class 1) — null percent DROPS, never fabricates 0 ──
 ok('null overallPercent → null (not a 0% cell)', apiDayToFeatureDay(apiDay({ overallPercent: null })) === null)
-// a null grade with a real percent is STILL a valid scored cell now (grade is gone; only percent gates it)
-ok('null grade + real percent → kept (grade no longer gates the cell)', apiDayToFeatureDay(apiDay({ grade: null, overallPercent: 50 }))?.percent === 50)
+// a null grade → DROPPED (incomplete day; keeps CalendarDay.grade honestly non-null for every survivor)
+ok('null grade → dropped (grade back on the cell, non-null)', apiDayToFeatureDay(apiDay({ grade: null, overallPercent: 50 })) === null)
 
 // ── adapter: month assembly drops scoreless days, keeps scored ──
 const assembled = assembleFeatureMonth(2026, 8, [

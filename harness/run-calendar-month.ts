@@ -27,12 +27,57 @@ function gateKey(): string {
 const KEY = gateKey()
 const hexToRgb = (h: string) => { const n = parseInt(h.slice(1), 16); return `rgb(${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255})` }
 
+// ── CI FIXTURE (goo 2026-08-05) — this page is now REAL-PIPE (#186): the browser POSTs /api/v2/calendar-month
+// to a same-origin BFF that proxies bazi. #185 wired this gate while the page was still a MOCK (grid drew with
+// no BE); once #186 landed, a no-BE CI run yields month=null → the card guard returns null → NO grid → the gate
+// timed out. Fix: STUB that ONE browser call with a deterministic month (route interception — the same tool goo
+// used for the G-2 throttle) so the gate tests what it OWNS (tint · selected · วันพระ · overflow), NOT "is the
+// backend alive" (not its job). CURRENT Bangkok month → TODAY is in view (the sapphire-selected check stays
+// real); all three tiers + a few วันพระ days → every pixel check has something to bite on.
+// The real-pipe grid only fetches the month AFTER identity resolves: MEMBER_ID cookie → userId → /api/user
+// (a birth row → person) → THEN /api/v2/calendar-month. So the gate needs a stub identity too. dob+gender
+// non-empty ⇒ isBirthProfileComplete ⇒ person ⇒ the month fetch fires. This is plumbing to REACH the grid;
+// the gate's teeth are the pixel checks on the fixture month below, not this identity.
+const FIXTURE_USER_ID = 'harness-cal-user'
+const FIXTURE_USER = { user_id: FIXTURE_USER_ID, name: 'ทดสอบ ปฏิทิน', dob: '1990-06-15', gender: 'MALE', place_name: 'กรุงเทพมหานคร', is_remember_time: false }
+const isPath = (url: string, path: string) => { try { return new URL(url).pathname === path } catch { return false } }
+function buildFixtureMonth() {
+  const todayISO = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Bangkok' }).format(new Date())
+  const [y, m] = todayISO.split('-').map(Number)
+  const daysInMonth = new Date(y, m, 0).getDate() // m is 1-based → day-0 of next = last day of m
+  const GANZHI = ['甲子', '乙丑', '丙寅', '丁卯', '戊辰', '己巳', '庚午', '辛未', '壬申', '癸酉', '甲戌', '乙亥']
+  const days = Array.from({ length: daysInMonth }, (_, i) => {
+    const d = i + 1
+    const overallPercent = d % 3 === 0 ? 72 : d % 3 === 1 ? 48 : 30 // good(≥60) · medium(40-59) · bad(<40)
+    return {
+      date: `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`,
+      dayOfMonth: d,
+      dayGanzhi: GANZHI[(d - 1) % GANZHI.length],
+      overallPercent,
+      grade: overallPercent >= 60 ? 'A' : overallPercent >= 40 ? 'C' : 'F',
+      wanPhra: d === 8 || d === 15 || d === 23,
+    }
+  })
+  return { allowed: true, year: y, month: m, days }
+}
+const FIXTURE_MONTH = buildFixtureMonth()
+
 async function withCal<T>(browser: Browser, width: number, fn: (grid: Locator, p: Page, tracker: ReturnType<typeof trackAppFetches>) => Promise<T>): Promise<T> {
   const ctx = await browser.newContext({ viewport: { width, height: 852 }, deviceScaleFactor: 2, reducedMotion: 'reduce' })
-  await ctx.addCookies([{ name: 'v2_access', value: KEY, domain: new URL(HOST).hostname, path: '/' }])
+  await ctx.addCookies([
+    { name: 'v2_access', value: KEY, domain: new URL(HOST).hostname, path: '/' },
+    { name: 'cookie-mumate-id', value: FIXTURE_USER_ID, domain: new URL(HOST).hostname, path: '/' }, // identity → the month fetch fires
+  ])
   const p = await ctx.newPage()
   await p.addInitScript(() => { const g = globalThis as unknown as { __name?: unknown }; if (!g.__name) g.__name = (f: unknown) => f })
   const tracker = trackAppFetches(p) // attach BEFORE goto (request-level)
+  // STUB the two same-origin BFF calls the real-pipe grid needs — identity row (dob+gender → person) and the
+  // month — both deterministic, no BE. The card's /api/v2/day-detail is left to fail gracefully; the GRID (all
+  // this gate owns) comes entirely from these stubs. (route interception — the same tool as goo's G-2 throttle.)
+  await p.route((url) => isPath(url.toString(), '/api/user'), (route) =>
+    route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(FIXTURE_USER) }))
+  await p.route((url) => isPath(url.toString(), '/api/v2/calendar-month'), (route) =>
+    route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(FIXTURE_MONTH) }))
   await p.goto(`${HOST}/v2/calendar`, { waitUntil: 'networkidle' })
   const grid = p.locator('[data-testid="calendar-grid"]').first()
   await grid.waitFor(); await p.waitForTimeout(400)
@@ -44,9 +89,19 @@ async function withCal<T>(browser: Browser, width: number, fn: (grid: Locator, p
 async function main() {
   const browser = await chromium.launch()
 
-  // ── no-app-fetch (done-condition 8) ──
+  // ── real-pipe discipline (REPLACES the obsolete "0 app-fetch": #186 made this page fetch the BFF, so 0 is
+  //    impossible now). TWO honest checks, both BE-independent, both biting:
+  //    (a) BFF-exercised — the browser DID request /api/v2/calendar-month ⇒ the grid came from the real data
+  //        path we stubbed, NOT a silent mock fallback (kills a vacuous "grid drew from nothing" pass).
+  //    (b) no-direct-backend — the browser hit NO :4000/:3100 directly; it goes only through the same-origin BFF. ──
   let appFetches: string[] = []
-  const noApp = await withCal(browser, 393, async (_grid, _p, tracker) => { appFetches = tracker.appFetches.slice(); return tracker.appFetches.length === 0 })
+  const pipe = await withCal(browser, 393, async (_grid, _p, tracker) => {
+    appFetches = tracker.appFetches.slice()
+    const bffCalled = appFetches.some((f) => f.includes('/api/v2/calendar-month'))
+    const directBackend = appFetches.filter((f) => f.includes(':4000') || f.includes(':3100'))
+    return { bffCalled, directBackend }
+  })
+  const pipeOk = pipe.bffCalled && pipe.directBackend.length === 0
 
   // ── tier-fidelity: every cell's bg = DESIGN.md tier tint for its percent (or the selected sapphire) ──
   const goodTint = hexToRgb(DAY_CELL_COLORS.good.tint), medTint = hexToRgb(DAY_CELL_COLORS.medium.tint), badTint = hexToRgb(DAY_CELL_COLORS.bad.tint)
@@ -117,15 +172,15 @@ async function main() {
 
   const line = (ok: boolean, s: string) => `  ${ok ? '✓' : '✗'} ${s}`
   console.log('\n═══ CALENDAR-MONTH anchor ═══')
-  console.log(line(noApp, `no-app-fetch (done-cond 8): 0 app-fetch → console-0 without BE  [${appFetches.length ? appFetches.join(', ') : 'none'}]`))
+  console.log(line(pipeOk, `real-pipe discipline: BFF /calendar-month ${pipe.bffCalled ? 'called (stubbed)' : 'NOT called ✗'} · direct BE/bazi: ${pipe.directBackend.length ? pipe.directBackend.join(', ') : 'none'}  [all: ${appFetches.length ? appFetches.join(', ') : 'none'}]`))
   console.log(line(tierOk, `tier-fidelity: ${tiers.ok}/${tiers.total} cells match DESIGN.md tint  [misses: ${tiers.misses.join(' · ') || 'none'}]`))
   console.log(line(markerOk, `selected+marker: ${markers.selected} sapphire-selected (today${markers.todayInView ? '' : ' NOT'} in view) · ${markers.ring} วันพระ ring (#9D85DA)`))
   console.log(line(noOverflowOk, `no-overflow-x @ 393/360/320  [${Object.entries(overflow).map(([w, o]) => `${w}:${o ? 'OVERFLOW' : 'ok'}`).join(' ')}]`))
   console.log('  ── teeth ──')
   console.log(`  ${tierCaught ? '🦷 CAUGHT' : '✗ BLIND'}  mut-hardcode-tier: an off-DESIGN cell color → tier-fidelity gate rejects`)
 
-  const ok = noApp && tierOk && markerOk && noOverflowOk && tierCaught
-  console.log(`\n  ${ok ? '🟢 CALENDAR-MONTH PASSED' : '🔴 FAILED'} — no-app-fetch · tier-fidelity · selected+marker · no-overflow-x (+ teeth)\n`)
+  const ok = pipeOk && tierOk && markerOk && noOverflowOk && tierCaught
+  console.log(`\n  ${ok ? '🟢 CALENDAR-MONTH PASSED' : '🔴 FAILED'} — real-pipe discipline · tier-fidelity · selected+marker · no-overflow-x (+ teeth)\n`)
   process.exit(ok ? 0 : 1)
 }
 

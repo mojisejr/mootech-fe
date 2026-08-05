@@ -1,0 +1,8 @@
+{
+  "id": "g4-g3-g2-daydetail",
+  "description": "v2 ปฏิทิน G-4/G-3/G-2 (goo): expose day-detail bottom-half fields (กอง-1 direct + กอง-2 RAW — colors Thai names, gates no level, dithi text; ตำราไม่มีเกณฑ์ = แปลง=แต่งตำรา), chips = officer + luckyDirection (raw lucky_dir, NOT a ranking of the 8 gates) with 財 cut (8 gates have no 財), the day-detail client fetch (fetchDayDetail — TOTAL: always resolves, detail null + degraded on any failure), grade back on CalendarDay (ring จังหวะ-1 from month cell) + yams.grade cut, and the async useDayDetail hook: ANTI-LATCH (per-effect alive-guard, NO doneRef — the #97/#175 trap) + resolved day-detail cache (deterministic in user+birth+date; key prefixes userId = no cross-user leak; failure never cached) + prefetch-today. Browser-proven on the real ship path (ring-first-frame, 3 distinct sets w/ timing, slow-response dropped). Cross-user isolation enforced by scripts/day-detail-cache.test.ts#g2-day-detail-cache.",
+  "enforced_by": "scripts/day-detail-fetch.test.ts#g2-day-detail-fetch-total",
+  "date": "2026-08-05",
+  "owner": "goo",
+  "pr": 187
+}

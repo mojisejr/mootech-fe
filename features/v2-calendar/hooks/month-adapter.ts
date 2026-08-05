@@ -23,12 +23,15 @@ import { buildMonthGrid } from '../month-grid'
  * fabricating a 0 — returning null lets buildMonthGrid render it as an empty (padding-like) slot instead.
  */
 export function apiDayToFeatureDay(d: ApiCalendarDay): CalendarDay | null {
-  if (d.overallPercent == null) return null
+  // Drop a day with no score OR no grade — an incomplete day is not a real cell. Grade tracks percent, so
+  // these usually coincide; dropping both keeps `CalendarDay.grade` honestly non-null for every survivor.
+  if (d.overallPercent == null || d.grade == null) return null
   return {
     date: d.date,
     day: d.dayOfMonth,
     ganzhi: d.dayGanzhi,
     percent: d.overallPercent,
+    grade: d.grade, // G-2: carry bazi's 13-level grade RAW (string|null) — the ring reads it (จังหวะ-1). No projection.
     isBuddhistDay: d.wanPhra,
   }
 }

@@ -70,6 +70,8 @@ export function generateMonthDays(year: number, month: number): CalendarDay[] {
       day,
       ganzhi: ganzhiFor(cycleSeed + i),
       percent,
+      grade: illustrativeGrade(percent), // G-2: grade back on the cell (for the ring's จังหวะ-1). Mock uses a
+      // 10-level Grade (a subset of the 13-level string) — the real 13-level arrives from bazi at wiring.
       isBuddhistDay: day === 10 || day === 24, // 2 mock วันพระ → exercise the #9D85DA ring marker
     }
   })
@@ -85,7 +87,7 @@ export function mockCalendarMonth(year: number = MOCK_YEAR, month: number = MOCK
 }
 
 // ── ยาม (5 windows/day) — shared by the advanced timeline and the save sheet. ─────────────────────
-const YAM_DEFS: Array<Omit<YamSlot, 'grade'>> = [
+const YAM_DEFS: YamSlot[] = [
   { id: 'y1', label: 'ยามมงคล มีลาภผล ทรัพย์สิน', window: '09:00-10:59' },
   { id: 'y2', label: 'ยามก้าวหน้ารุ่งเรือง', window: '19:00-20:59' },
   { id: 'y3', label: 'ยามฟ้าประทาน เทพเจ้าคุ้มครอง', window: '05:00-06:59' },
@@ -93,9 +95,9 @@ const YAM_DEFS: Array<Omit<YamSlot, 'grade'>> = [
   { id: 'y5', label: 'ยามพักผ่อน สงบใจ', window: '23:00-00:59' },
 ]
 
-function mockYams(seedGrade: Grade): YamSlot[] {
-  const base = GRADES.indexOf(seedGrade)
-  return YAM_DEFS.map((y, i) => ({ ...y, grade: GRADES[Math.min(9, (base + i) % 10)] }))
+// Yams carry NO grade/tone (cut G-2 — bazi's luckyHours emits none). Just the defs, fresh copies.
+function mockYams(): YamSlot[] {
+  return YAM_DEFS.map((y) => ({ ...y }))
 }
 
 /**
@@ -109,7 +111,7 @@ export function mockDayDetail(date: string): DayDetail {
   const [gy, gm] = date.split('-').map(Number)
   const genDay =
     Number.isFinite(gy) && Number.isFinite(gm) ? generateMonthDays(gy, gm).find((d) => d.date === date) : undefined
-  const found: CalendarDay = genDay ?? { date, day: Number(date.slice(8, 10)) || 0, ganzhi: '', percent: 0 }
+  const found: CalendarDay = genDay ?? { date, day: Number(date.slice(8, 10)) || 0, ganzhi: '', percent: 0, grade: '' }
   // DayDetail keeps its own `grade` (the card ring — a 10-level UI Grade). Since the grid cell no longer
   // carries grade (G-0c), derive the mock's illustrative grade from percent here (mock-only bucketer; the
   // real grade arrives from bazi at G-4). This is NOT the grid's colour source (that is dayCellTier).
@@ -123,7 +125,7 @@ export function mockDayDetail(date: string): DayDetail {
     summary: 'วันนี้เหมาะแก่การเริ่มต้นสิ่งใหม่ ทำงานร่วมกับผู้อื่นได้ราบรื่น',
     suitable: ['ไปที่ทำงาน / สถานศึกษา', 'พบปะเจรจา', 'เริ่มโครงการ'],
     avoid: ['ตัดสินใจเรื่องใหญ่คนเดียว', 'เดินทางไกลช่วงค่ำ'],
-    yams: mockYams(grade),
+    yams: mockYams(),
     pillars: [
       {
         kind: 'man',
@@ -144,6 +146,51 @@ export function mockDayDetail(date: string): DayDetail {
         ],
       },
     ],
+    // ── ครึ่งล่าง (G-4) — illustrative. Real values arrive from the day-detail pipe (mapDayDetail). กอง 1: ──
+    compatAreas: [
+      { key: 'home', label: 'ในบ้าน', percent: 68, grade: 'B', isStrength: true },
+      { key: 'companions', label: 'มิตรสหาย', percent: 55, grade: 'C+', isStrength: false },
+      { key: 'workplace', label: 'ที่ทำงาน', percent: 72, grade: 'B', isStrength: false },
+      { key: 'outside', label: 'นอกบ้าน', percent: 48, grade: 'C', isStrength: false },
+    ],
+    advice: [
+      'เริ่มงานใหม่ช่วงเช้าได้ผลดี',
+      'ปรึกษาผู้ใหญ่ก่อนตัดสินใจเรื่องเงิน',
+      'เลี่ยงการต่อรองสำคัญช่วงค่ำ',
+    ],
+    insight: 'ธาตุของวันส่งเสริมธาตุเจ้าของดวง เอื้อต่อการเริ่มต้นและการร่วมมือ',
+    dayDeity: 'เทพเจ้าฟ้าประทาน',
+    spirits: [
+      { name: 'เทพมงคล', keywords: ['ลาภผล', 'ทรัพย์สิน'] },
+      { name: 'เทพก้าวหน้า', keywords: ['เลื่อนขั้น', 'รุ่งเรือง'] },
+      { name: 'เทพเมตตา', keywords: ['ผู้ใหญ่เอ็นดู'] },
+      { name: 'เทพเจรจา', keywords: ['พบมิตร', 'สำเร็จ'] },
+      { name: 'เทพวิชา', keywords: ['เรียนรู้', 'สอบผ่าน'] },
+      { name: 'เทพสุขภาพ', keywords: ['พักผ่อน', 'ฟื้นตัว'] },
+      { name: 'เทพระวัง', keywords: ['อุปสรรค'] },
+      { name: 'เทพแตกหัก', keywords: ['ขัดแย้ง', 'เดียวดาย'] },
+    ],
+    wanPhra: {
+      isWanPhra: found.isBuddhistDay ?? false,
+      label: found.isBuddhistDay ? 'วันพระ · ขึ้น ๘ ค่ำ เดือน ๙' : '',
+    },
+    // กอง 2 — ดิบ (❌ ไม่แปลง): สีไทย · ประตูไม่มีระดับ · ดิถีข้อความ
+    luckyColors: [
+      { element: 'ไม้', colors: 'เขียว' },
+      { element: 'น้ำ', colors: 'ฟ้า น้ำเงิน ดำ' },
+    ],
+    gates: [
+      { name: '開', direction: 'ทิศตะวันออก', meaning: 'เปิดโอกาส เริ่มต้น' },
+      { name: '休', direction: 'ทิศเหนือ', meaning: 'พักผ่อน สงบ' },
+      { name: '生', direction: 'ทิศตะวันออกเฉียงเหนือ', meaning: 'เติบโต งอกงาม' },
+      { name: '傷', direction: 'ทิศตะวันออก', meaning: 'บาดเจ็บ ระวังของมีคม' },
+      { name: '杜', direction: 'ทิศตะวันออกเฉียงใต้', meaning: 'ปิดกั้น อุดตัน' },
+      { name: '景', direction: 'ทิศใต้', meaning: 'แสงสว่าง ชื่อเสียง' },
+      { name: '死', direction: 'ทิศตะวันตกเฉียงใต้', meaning: 'จบสิ้น หยุดนิ่ง' },
+      { name: '驚', direction: 'ทิศตะวันตก', meaning: 'ตื่นตระหนก เรื่องไม่คาดฝัน' },
+    ],
+    dithi: { officer: 'สะสาง', officerDesc: 'อับโชค เสียหาย เดียวดาย ทุกข์โศก', jianchu: '除 · ปัดกวาดสิ่งเก่า' },
+    luckyDirection: 'ทิศตะวันออกเฉียงใต้', // G-3 chip (raw ตำรา); chip 財 ตัดทิ้ง (8 ประตูไม่มี 財)
   }
 }
 
