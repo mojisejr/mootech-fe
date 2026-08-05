@@ -6,6 +6,7 @@ import { useCallback } from 'react'
 import { useCookies } from 'react-cookie'
 import { signOut } from 'next-auth/react'
 import { CookieKey } from '@/constants/cookie-key'
+import { clearUserCache } from '@/lib/v2/user-cache'
 
 // Every cookie that carries identity/display — MEMBER_ID is identity-truth, the rest are satellites.
 // LOGIN_PROVIDER must go too, else a stale `=DEV` marker would make the self-heal skip re-registration.
@@ -27,6 +28,9 @@ export function useV2Logout(): V2Logout {
     // Clear identity FIRST (path '/' — the same scope they were written with) so that even if the
     // signOut redirect is slow, useCurrentUser already resolves 'anon' and no gated page renders authed.
     for (const name of IDENTITY_COOKIES) removeCookie(name, { path: '/' })
+    // Abandon any in-flight /api/user fetch for the old identity (useV2User dedup cache) so the next login
+    // on this machine starts clean — a late-resolving old fetch cannot feed the next person's session.
+    clearUserCache()
     // signOut settles the next-auth session; land back on the /v2 preview entry, not the legacy "/".
     signOut({ callbackUrl: '/v2' })
   }, [removeCookie])
