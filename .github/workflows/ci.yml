@@ -54,7 +54,7 @@ jobs:
           fi
           
           echo "== Running Ledger Integrity Check =="
-          npx tsx scripts/verify-ledger-integrity.ts harness/bug-ledger.json "$EVIDENCE_FILE"
+          npx tsx scripts/verify-ledger-integrity.ts harness/bug-ledger/ "$EVIDENCE_FILE"
           
           echo "== Running Architecture & Discovery Check =="
           npx tsx scripts/verify-architecture.ts

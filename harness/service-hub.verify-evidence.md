@@ -1,7 +1,7 @@
 # EYE PROOF — service hub (บริการทั้งหมด, Figma 333:7519)
 
 **Anchor:** `harness/run-service-hub.ts` · **PR:** feat/v2-service-card-art · **base:** main `53f1d51`
-**Ledger:** `harness/bug-ledger.json` → `placeholder-geometry-is-not-an-art-contract`
+**Ledger:** `harness/bug-ledger/` → `placeholder-geometry-is-not-an-art-contract`
 **Run:** `CAPTURE_HOST=http://localhost:3101 npx tsx harness/run-service-hub.ts`
 **Result:** **184 ✓ / 0 ✗** (รันซ้ำ 2 รอบติด ได้เท่ากัน) · `tsc --noEmit` clean
 

@@ -1,0 +1,5 @@
+{
+  "id": "compat-tone-13-levels",
+  "description": "มุน 2026-07-31 (2E-2 grade→tone teeth, CI-executed — the browser anchor does not run in CI). The engine grade is 13 levels with +/- (F,D-,D,D+,C-,C,C+,B-,B,B+,A-,A,A+ — src/lib/bazi/data/pair/rating-scale.json), NOT 5. The silent bug this guards: an exact grade===A comparison drops A+ and A- (the best scores) to no-badge (บอง-caught). scripts/compat-tone.test.ts walks all 13: every grade maps to a tier; tone is CONSISTENT within the A/C/D letters (A+==A==A-, the anti-trap); A+/A- get A/B+ badge not null; the B-family split is PINNED (B+ strong, B/B- null — ฟีม threshold, intentional non-uniformity); bar tiers per Figma (A*/B* green, C+ lime, C/C- orange, D*/F red); the concrete ฟีม mapping. Tooth: reverting letter===A to exact g===A trips checks 2/3/5. gate_layer=pure/13-level-grade-tone+anti-trap+B-split.",
+  "enforced_by": "scripts/compat-tone.test.ts#compat-tone-13-levels"
+}

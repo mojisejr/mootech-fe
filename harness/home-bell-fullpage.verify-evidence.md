@@ -2,7 +2,7 @@
 
 **PR:** feat/v2-compat-slice1 (ก้อน 0 of ดวงสมพงศ์ Slice 1) · **base:** main `33ec503`
 **Anchors:** `harness/run-header-structure.ts` (home) + `harness/run-shared-topbar.ts`
-**Ledger:** `harness/bug-ledger.json` → `home-bell-fullpage-not-modal`
+**Ledger:** `harness/bug-ledger/` → `home-bell-fullpage-not-modal`
 
 ANCHOR: harness/run-shared-topbar.ts#mut-ignore-href
 

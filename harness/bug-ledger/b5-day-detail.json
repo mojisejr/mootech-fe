@@ -1,0 +1,5 @@
+{
+  "id": "b5-day-detail",
+  "description": "goo 2026-08-05 Track B-5: day-detail BFF ใหม่ (pages/api/v2/day-detail.ts + lib/v2-calendar/day-detail.ts mapper). ยิง man-vs-day(day)+almanac ขนาน (man-vs-day ฝัง almanac แค่ 9 คีย์ → ต้องยิง almanac ด้วยสำหรับ deity/spirits8/thaiLunar/pillars). ตัด 2.3MB→7KB(<50KB) เฉพาะที่จอใช้ ตาม field-map บอง ทุก field ชี้กลับ raw ไม่แต่งเอง (gates raw ไม่มี level, colors ไทยดิบไม่มี hex). cache ต่อ(user,birth-sig,date) 2nd call 0ms ไม่ยิง upstream ซ้ำ. gate open (ฟีม Track B). teeth: mapper แต่งค่า → 16 trace-assert แดง. curl e2e รอ #18 deploy. ไม่แตะ features/pages.tsx",
+  "enforced_by": "scripts/day-detail.test.ts#b5-day-detail-traces"
+}

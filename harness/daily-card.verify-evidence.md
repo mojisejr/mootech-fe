@@ -2,7 +2,7 @@
 
 **Anchor:** `harness/run-daily-card.ts` (12/12)
 **PR:** feat/v2-daily-card · base = main (`3d46424`)
-**Ledger:** `harness/bug-ledger.json` → `daily-fortune-card`
+**Ledger:** `harness/bug-ledger/` → `daily-fortune-card`
 **Plan:** ❄️ FROZEN FINAL — `lamun-oracle/ψ/plans/2026-08-03_FROZEN-calendar-arc-zones-1-3.md` (Zone 3.3)
 
 ANCHOR: harness/run-daily-card.ts#mut-home-gradient-on-calendar

@@ -2,7 +2,7 @@
 
 **Anchor:** `harness/run-compat-zones.ts` (24/24, 4 teeth) + `scripts/compat-tone.test.ts` (13 เกรด, 7/7)
 **PR:** feat/v2-compat-zones-1-4 · base = main (`d4c0f7c`)
-**Ledger:** `harness/bug-ledger.json` → `compat-result-zones-1-4`
+**Ledger:** `harness/bug-ledger/` → `compat-result-zones-1-4`
 **Plan:** ❄️ FROZEN v2 — `lamun-oracle/ψ/plans/2026-08-03_FROZEN-compat-result-zones-1-4.md`
 
 ANCHOR: harness/run-compat-zones.ts#mut-nested-card

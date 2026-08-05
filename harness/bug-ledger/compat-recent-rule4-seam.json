@@ -1,0 +1,5 @@
+{
+  "id": "compat-recent-rule4-seam",
+  "description": "มุน 2026-07-31 (ก้อน 2G pure-logic teeth, CI-executed — the browser anchor run-compat-2g.ts does NOT run in CI, so the rule-4/D43 decisions are also guarded here). scripts/compat-recent.test.ts asserts: matchTypeLabel labels ONLY LOVE→\"คู่รัก\" + FRIEND→\"เพื่อนร่วมงาน\" and returns undefined for legacy BOSS/EMPLOYEE + unknown (chip hidden, D43, no throw); recentCardTitle → \"คุณ & <name>\" when present, \"คุณ\" when absent/whitespace (NEVER v1 fabricated \"เพื่อน\", D40 rule-4); parseRecentMatches → array yields items minus id-less malformed rows, non-array/{error}/null → ok:false fallback (never a fabricated list). 12/12. gate_layer=pure/recent-rule4+legacy-type-label+parse-fallback.",
+  "enforced_by": "scripts/compat-recent.test.ts#compat-recent-rule4-seam"
+}

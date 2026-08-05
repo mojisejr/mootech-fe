@@ -2,7 +2,7 @@
 
 **Anchor:** `harness/run-calendar-fidelity.ts` (17/17)
 **PR:** feat/v2-calendar-fidelity · base = main (`b29f7c5`)
-**Ledger:** `harness/bug-ledger.json` → `calendar-fidelity`
+**Ledger:** `harness/bug-ledger/` → `calendar-fidelity`
 **Plan:** ❄️ FROZEN FINAL — `lamun-oracle/ψ/plans/2026-08-03_FROZEN-calendar-arc-zones-1-3.md` (Zone 3.1 + 3.2)
 
 ANCHOR: harness/run-calendar-fidelity.ts#mut-grade-letter-back

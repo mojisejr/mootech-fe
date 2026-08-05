@@ -2,7 +2,7 @@
 
 **Anchor:** `harness/run-loading-screen.ts`
 **PR:** feat/v2-compat-slice2-loading · **base:** main `60a4aca` (after Slice 1 #145–#150)
-**Ledger:** `harness/bug-ledger.json` → `loading-screen-2d-reusable`
+**Ledger:** `harness/bug-ledger/` → `loading-screen-2d-reusable`
 
 ANCHOR: harness/run-loading-screen.ts#mut-payment-leak
 

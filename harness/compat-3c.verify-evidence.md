@@ -2,7 +2,7 @@
 
 **Anchor:** `harness/run-compat-3c.ts` (+ `run-compat-2e2.ts` still covers the sections/D23/tone)
 **PR:** feat/v2-compat-3c-hero · base = main (`7d8d41d`)
-**Ledger:** `harness/bug-ledger.json` → `compat-3c-hero`
+**Ledger:** `harness/bug-ledger/` → `compat-3c-hero`
 
 ANCHOR: harness/run-compat-3c.ts#mut-fake-photo
 

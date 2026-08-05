@@ -61,7 +61,7 @@ Self-adversary (edges tried before hand-off — ตู๋ reviews independently)
 
 ## Merge-order note (append-only ledger — the 2026-07-29 trap class)
 
-Both PR-1 (#142) and this PR append a new entry to the **end of `harness/bug-ledger.json`**, so whichever merges
+Both PR-1 (#142) and this PR append a new entry to the **end of the ledger** (historically a single array file, which B-2 later split per-entry into `harness/bug-ledger/<id>.json` to end exactly this conflict class), so whichever merges
 second will conflict there. **Keep BOTH entries — do not pick a side** (`main-guard-tripwire-provenance` AND
 `pre-push-main-guard-protected-branch`); a side-pick silently drops one while CI stays green. Suggested order:
 **#142 first, then this**; on rebase, take both ledger entries and re-run `verify-ledger-integrity` — entry count

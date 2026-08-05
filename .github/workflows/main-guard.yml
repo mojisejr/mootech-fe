@@ -29,7 +29,9 @@ jobs:
       - name: ledger integrity
         # The path arg is REQUIRED — running it bare prints usage and exits 1 (verified: no silent pass). We pass
         # the explicit path so a green here means the ledger's every enforced_by anchor actually resolves.
-        run: npx tsx scripts/verify-ledger-integrity.ts harness/bug-ledger.json
+        # Ledger is now a directory of per-entry files (harness/bug-ledger/<id>.json); an empty dir also fails (no
+        # silent green). Split in B-2 so two PRs adding different entries never conflict on one array file.
+        run: npx tsx scripts/verify-ledger-integrity.ts harness/bug-ledger/
 
   provenance: # job B — HEAD on main must be a GitHub PR-merge commit, not a direct push
     runs-on: ubuntu-latest

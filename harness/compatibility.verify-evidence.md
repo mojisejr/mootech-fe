@@ -2,7 +2,7 @@
 
 **Anchor:** `scripts/compatibility.test.ts` (pure, CI) + `harness/run-compatibility.ts` (real route, FE-only)
 **PR:** feat/v2-compatibility-slice1-logic · **base:** main `33ec503`
-**Ledger:** `harness/bug-ledger.json` → `compatibility-slice1-kind-gate-and-createfriend-gap`
+**Ledger:** `harness/bug-ledger/` → `compatibility-slice1-kind-gate-and-createfriend-gap`
 ANCHOR: scripts/compatibility.test.ts#compatibility-kind-gate-and-createfriend-gap
 
 ## What this PR is (and is not)
@@ -17,7 +17,7 @@ create-friend arg map), `hooks/useCompatibility.ts` (person state + v1 wrap), `p
 ```bash
 npx tsc --noEmit                                        # ✓
 for f in scripts/*.test.ts; do npx tsx "$f"; done       # ✓ incl. scripts/compatibility.test.ts (7/7)
-npx tsx scripts/verify-ledger-integrity.ts harness/bug-ledger.json harness/compatibility.verify-evidence.md  # ✓
+npx tsx scripts/verify-ledger-integrity.ts harness/bug-ledger/ harness/compatibility.verify-evidence.md  # ✓
 npx tsx scripts/verify-architecture.ts                  # ✓
 npm run build                                           # ✓ (route /v2/service/compatibility/[kind] present)
 # real-route eye-proof (FE dev on :3013 with V2_PREVIEW_KEY):

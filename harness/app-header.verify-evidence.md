@@ -2,7 +2,7 @@
 
 **Anchor:** `harness/run-app-header.ts` (51/51)
 **PR:** feat/v2-app-header · base = main (`4a6599b`)
-**Ledger:** `harness/bug-ledger.json` → `app-header`
+**Ledger:** `harness/bug-ledger/` → `app-header`
 **Plan:** ❄️ FROZEN FINAL — `lamun-oracle/ψ/plans/2026-08-03_FROZEN-calendar-arc-zones-1-3.md` (Zone 2)
 
 ANCHOR: harness/run-app-header.ts#mut-header-missing

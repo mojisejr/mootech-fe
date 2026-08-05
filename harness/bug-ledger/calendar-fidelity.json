@@ -1,0 +1,13 @@
+{
+  "id": "calendar-fidelity",
+  "description": "มุน 2026-08-03 (ฟีม, Figma 368:9832 + ฟีม's selector SVG): the ปฏิทินดวง month view. THE BUG-CLASS THIS ANCHOR OWNS — THE RIGHT-SHAPED WRONG THING IN A SLOT: the shipped grid rendered the GRADE LETTER in the exact position Figma draws the 干支, and never rendered the 干支 at all, even though CalendarDay.ganzhi has existed since goo's Phase 0 and Figma's grid shows no grade letter anywhere. A check that asks 'does the cell look right' passes, because something IS in the slot; only asking 'is the thing in that slot a 2-char CJK ganzhi' catches it. Second class: TWO FACTS ABOUT ONE DAY TREATED AS EXCLUSIVE — Figma's day-14 cell (368:9929) carries the sapphire selected fill AND the #9D85DA วันพระ border simultaneously; the old code let selection erase the marker, so a user opening the calendar exactly on a วันพระ could not see that it was one. Colours needed no change at all: everything the node returned already matched DAY_CELL_COLORS/CALENDAR_MARKER — the system was right, the markup had drifted. Also replaces the one-month-at-a-time ‹ › stepper (no way to change year at all) with ฟีม's 3-card selector; sheets rather than <select> because iOS renders a native picker in Gregorian years on a Buddhist-era screen. INSTRUMENT REPAIRS shipped with it: run-calendar-month asserted 'selected >= 1' against a FIXED mock month — a time bomb that went red the day the wall clock left กรกฎาคม 2026 (now: exactly 1 if today is in view, 0 if not — stricter, not looser) and it read the วันพระ marker from boxShadow, the old mechanism, rather than from wherever it is painted; run-calendar-day's '0 running animations' rule went red because #166 (mine) made the nav mascot float on every page, so the count now excludes the fixed nav whose motion is Figma's own and is reduced-motion-guarded.",
+  "anchor": "harness/run-calendar-fidelity.ts",
+  "teeth": [
+    "mut-grade-letter-back",
+    "mut-tier-swap",
+    "mut-wanphra-erased"
+  ],
+  "date": "2026-08-03",
+  "owner": "lamun",
+  "pr": "feat/v2-calendar-fidelity"
+}

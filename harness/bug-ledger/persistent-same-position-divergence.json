@@ -1,0 +1,5 @@
+{
+  "id": "persistent-same-position-divergence",
+  "description": "A PERSISTENT same-position divergence: pixels change but layout does NOT move, and the change persists into the settled frame (opacity/colour/same-box swap held). goo-runtime (console+CLS) and too-static (AST) are both blind — no layout-shift, no console signal, not a code shape; only the rendered image is ground-truth. Anchor = two post-assets-ready viewport screenshots of the real route @393, pixelmatch diff, budget ABSOLUTE 300px (a flash is absolute, not a % of screen — goo/too adversary insight; %→px fix). gate_layer=visual/pixel; injection_mechanism=css-inject. Teeth-proven (run-pixel.ts, all executed, neg-control-first): clean 0px; core mut-persistent 285540px CAUGHT while CLS 0.0002 & console clean; sub-budget 40x40 5423px CAUGHT (the %-budget miss goo#3/too#2 exposed, now fixed). Closes D1's 3rd lens for the persistent class.",
+  "enforced_by": "harness/run-pixel.ts#mut-persistent"
+}
