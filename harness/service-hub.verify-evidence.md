@@ -1,55 +1,113 @@
 # EYE PROOF — service hub (บริการทั้งหมด, Figma 333:7519)
 
-**Anchor:** `harness/run-service-hub.ts` · **PR:** feat/v2-service-hub · **base:** main `af9dab2`
-**FE build under test:** worktree `mootech-fe-wt-service-hub` (branch feat/v2-service-hub on af9dab2, this PR's changes)
-**Ledger:** `harness/bug-ledger.json` → `service-hub-12-cards-slot-and-reachability`
-ANCHOR: harness/run-service-hub.ts#mut-deadslot
+**Anchor:** `harness/run-service-hub.ts` · **PR:** feat/v2-service-card-art · **base:** main `53f1d51`
+**Ledger:** `harness/bug-ledger.json` → `placeholder-geometry-is-not-an-art-contract`
+**Run:** `CAPTURE_HOST=http://localhost:3101 npx tsx harness/run-service-hub.ts`
+**Result:** **184 ✓ / 0 ✗** (รันซ้ำ 2 รอบติด ได้เท่ากัน) · `tsc --noEmit` clean
 
-## Run command
-```bash
-# FE up on :3011 in the worktree:  V2_PREVIEW_KEY=<from testenv/env/fe.env> next dev -p 3011
-# the anchor renders a component in node (renderToStaticMarkup) → needs the automatic JSX runtime,
-# so pass the harness tsconfig (root tsconfig is jsx:preserve):
-CAPTURE_HOST=http://localhost:3011 npx tsx --tsconfig harness/tsconfig.json harness/run-service-hub.ts
-# screenshots (route-truth, 3 sizes):
-CAPTURE_HOST=http://localhost:3011 npx tsx harness/capture-route.ts --route /v2/service --user default --viewports 393,360,320
-CAPTURE_HOST=http://localhost:3011 npx tsx harness/capture-route.ts --route "/v2/service/coming-soon?service=มานิเฟส" --user default --viewports 393,320
-```
+> **flake ที่รู้ตัว**: ถ้ารันทันทีหลังแก้ไฟล์ dev server อาจยัง compile ไม่เสร็จ แล้วได้ FAIL ปลอม 1–3 จุด · เจอตอนสลับ mutant ไปมา · รอ recompile แล้วรันใหม่ ได้ 184/0 ทุกครั้ง
 
-## proof-of-teeth (run-service-hub.ts → ✅ PASSED, 0 failed)
-| invariant | result |
+ANCHOR: harness/run-service-hub.ts#mut-px-gutter
+
+> รอบก่อนหน้านี้ต้องใส่ `--tsconfig harness/tsconfig.json` เพราะด่านเรนเดอร์ component ผ่าน react-dom
+> ตอนนี้ไม่ต้องแล้ว — ศิลป์**เห็นได้จริง** ground truth เลยเป็นหน้าที่เรนเดอร์ ไม่ใช่สตริงจาก server
+
+---
+
+## สิ่งที่ ฟีม ถาม แล้ววัดได้จริง
+
+> *"ผมดูแล้วไม่น่าจะเป็นภาพแค่ในช่องสีเทาแต่เป็น card ทั้งใบ"*
+
+**ถูกต้อง** — วัด ไม่ใช่กะ:
+
+| หลักฐาน | ค่า |
 |---|---|
-| **image slot ACCEPTS src** (done-cond #4) | `src="/probe.png"` → paints `<img src="/probe.png">` (#1a ✓); no src → gray placeholder, **NO `<img>`** (#1b ✓) — a **negative-control pair** |
-| exactly **12 cards** @ **393 · 360 · 320** | ✓ each size · **no overflow-x** @ all 3 |
-| **12 enumerated vs an INDEPENDENT list** (not services.ts) | href + title match, Figma order — a wrong data edit is CAUGHT, not echoed |
-| **reachability — click-walk ALL 12** | 8 → coming-soon `?service=<name>` · ปฏิทิน → /v2/calendar · ร้านค้าของเรา → /v2/shop · Healing Circles/สาคร-map → coming-soon — every card LANDS |
-| **บริการ tab active** | `nav a[href="/v2/service"][aria-current=page]` present, labelled บริการ |
-| coming-soon | **NAMES the tapped service** · way back → /v2/service · บริการ tab still active |
-| 0 app-fetch + 0 console | across the whole walk |
-| 🦷 `mut-deadslot` (slot ignores `src`: `src ?`→`false ?`) | **#1a fails** (no `<img>` when src given) while **#1b stays ✓** → CAUGHT, and proves #1a is not vacuously green |
-| 🦷 `mut-drop-card` (remove `manifest` from services.ts) | exactly-12 → **found 11** + `service-card-manifest` locator timeout → CAUGHT |
-| 🦷 `mut-wrong-dest` (calendar card → coming-soon) | card 9 href ✗ + **click 9 lands `/v2/service/coming-soon?service=ปฏิทิน`** → CAUGHT |
+| ขนาดทุกไฟล์ | `1128×463` = **3.125× ของการ์ด `361×148` เป๊ะ** (2.436 vs 2.439) |
+| ช่องเทาของ Figma | `122×90` = **1.355** — คนละเรื่อง |
+| ศิลป์ทะลุขอบ | บน 28 · ล่าง 66 · ขวา 64 · **เข้าไปในมุมโค้ง TR/BR** ⇒ full-bleed โดยตั้งใจ |
+| โซนข้อความ | **dev = 0** ทั้ง 11 ไฟล์ · พื้น `#FBF6FA` เรียบเท่ากันหมด |
 
-**verify-instrument:** the slot proof is a matched pair (one MUST have `<img>`, the other MUST NOT); mut-deadslot confirmed #1a moves independently of #1b, so the green is real, not vacuous.
+---
 
-## completeness (4 axes enumerated, not spot-checked)
-1. **Spatial** — full-page @393 eyeballed: header, all 12 cards incl. the right image-slot column, menubar. `captures/v2-service__default__393.png`.
-2. **State-space** — @393 (primary) + @360 + @320 (no overflow); coming-soon state @393 + @320; menu-active state. No data-variants (static catalog); no empty/error/loading (no data).
-3. **Reference parity** — 12 cards vs Figma `get_design_context` 12; header (title + อัพเกรด + bell + avatar) matches the frame.
-4. **Reachability** — inbound: Menubar บริการ tab → /v2/service (pre-existing, verified). Outbound: all 12 click-walked; the 10 new coming-soon links each NAME the service; coming-soon has a way back. No orphan created.
+## ทำไม `object-contain` ไม่ใช่ `object-cover`
 
-## real-route artifact @393 (+ overflow @320) + coming-soon
-Screenshots (gitignored, `harness/captures/`):
-- `v2-service__default__{393,360,320}.png` (+ vp-top/vp-bottom)
-- `v2-service-coming-soon__default__{393,320}.png`
+แผนแรกของผม freeze ไว้ว่า `object-cover object-right`. **วัดก่อนเขียนแล้วพบว่ามันพังทุกความกว้าง** — การ์ดไม่ได้สูง 148 คงที่ (ข้อความไทยยาวดันเป็น **148–292px อยู่แล้วบน main** ก่อนใบนี้):
 
-`tsc --noEmit` ✓ · **prod `next build`** ✓ (both routes present: `/v2/service`, `/v2/service/coming-soon`) · **ledger integrity PASS** (46 entries).
+| การ์ด | cover ขยายภาพเป็น | มาสคอตกว้าง | ผล |
+|---|---|---|---|
+| @320 288×248 | 604px | **298px** | ≥ ความกว้างการ์ด ⇒ ศิลป์ทับข้อความ |
+| @393 361×228 | 555px | **274px** | ทับเหมือนกัน |
+
+`contain` ยึดล่าง + พื้นการ์ด `#FBF6FA` (สีเดียวกับพื้นไฟล์เป๊ะ) ⇒ **ไร้รอยต่อ** และที่ความกว้างออกแบบพอดี: `361 / 2.436 = 148.2`
+
+## ระยะห่างเป็น % ไม่ใช่ px
+
+ศิลป์เริ่มที่ **50.7% – 56.6%** ของความกว้างการ์ด · แคบสุด = `05_เสี่ยงไพ่จิตวิญญาณแดนสวรรค์` ซึ่ง**เป็นใบที่ชื่อยาวที่สุดด้วย**
+`w-[47%]` ⇒ ช่องว่างจริง **9–33px** ทุกความกว้าง วัดจากพิกเซล
+
+---
+
+## proof-of-teeth
+
+รันจริงทีละซี่ ดูมันกัด แล้วคืนค่า
+
+| ฟัน | เปลี่ยนอะไร | ผลจริงที่สังเกตได้ |
+|---|---|---|
+| `mut-px-gutter` | `w-[47%]` → `w-[159px]` (ค่าที่วัดจาก 393) | **TEXT-CLEAR ล้ม 21 จุด** ที่ 320/360 · `copy→183px · art@163px · gap -20px` |
+| `mut-art-squish` | `object-contain` → `object-fill` | **ART-INTACT ล้ม 38 จุด** · ink `0.691` vs source `1.101` = **บิด 37–44%** |
+| `mut-flat-card` | ถอด `shadow-card-soft` | **CARD-EDGE ล้ม** · `under 247.00 vs page 247.00` เท่ากันเป๊ะ การ์ดละลายไปกับพื้น |
+| `mut-drop-card` | ลบ `shop` ออกจาก `services.ts` | **NO-ORPHAN ล้ม** · `found 10` |
+| `mut-orphan-shown` | `VISIBLE_SERVICES` → `SERVICES` | **NO-ORPHAN ล้ม 2 ทาง** · `found 12` + `healing-circles` โผล่ |
+| `mut-broken-src` | ชี้ไฟล์ที่ไม่มีอยู่ | **ART-PRESENT ล้ม** · `natural 0×0` |
+
+> `mut-broken-src` ผมเขียนคาดไว้ว่า TEXT-CLEAR จะยังเขียว — **รันจริงแล้วมันล้มด้วย** · บันทึกตามที่เห็น ไม่ใช่ตามที่เดา
+
+---
+
+## verify-the-instrument — probe ตัวนี้ผมซ่อม 4 รอบ
+
+ทุกรอบมันรายงาน **"ศิลป์อยู่ที่ x=0"** ให้ทุกใบ ซึ่งเป็นตัวเลขที่ผิดแบบดูน่าเชื่อ:
+
+1. **ไม่อ่าน alpha** — pixel โปร่งใสที่มุมโค้งอ่านเป็น `rgb(0,0,0)` = "ไม่ใช่พื้น" มากที่สุดเท่าที่เป็นได้
+2. **ไม่ตัดส่วนโค้งมุม** — พื้นหน้า+เงาลอดผ่านมุมอ่านได้ `rgb(239,237,235)` = **dev 14–16 เฉียด TOL 12 ไปนิดเดียว** ⇒ ตัดเฉพาะ**ส่วนโค้ง** ไม่ใช่ตัดเป็นแถบ เพราะแถบที่ลึกพอจะพ้นมุมล่างจะกลืนขอบบนของศิลป์ ซึ่งเป็นฐานของ ART-INTACT ทั้งอัน
+3. **Menubar (fixed) ถูกถ่ายติด** — `element.screenshot()` ถ่าย**พื้นที่**ที่ element ครองอยู่ ไม่ใช่ **paint ของ element** · แถบดำของ nav พาดเต็มความกว้างพอดีที่ x=0 · **โผล่ซ้ำอีกครั้ง**ตอนวัดเงา (อ่านได้ `26.0`)
+4. **ART-INTACT วัดผิดสิ่ง** — เดิมวัด "แถบภาพสูงเท่าไหร่" ซึ่งอ่านสั้นไปถึง 5px บนไฟล์ที่ศิลป์ไม่ชนขอบบนของตัวเอง · **ตัวเลขที่ขยับด้วยเหตุที่ไม่เกี่ยวกับการบิดเบี้ยว ไม่ใช่ invariant** ⇒ เปลี่ยนเป็นเทียบ ink-bbox ที่เรนเดอร์ กับ ink-bbox ของไฟล์ที่ `<img>` ชี้อยู่จริง = scale-free
+
+**negative control อยู่ในตัว run**: ถ้า probe มองไม่เห็นศิลป์เลย มัน **abort** ไม่ใช่รายงานผ่าน
+
+---
+
+## baseline ของด่านเดิม — และคำแก้ของผมเอง
+
+`✓ เห็นแล้ว` รันด่านเดิมบน main ด้วย flag ที่เอกสารบอก: **`❌ FAIL (5)`**
+`✗ couple/coworker: href → coming-soon` · `✗ click → landed /v2/service/compatibility/colleague`
+
+⇒ `services.ts` ย้าย 2 ใบนี้ไป compatibility ตั้งแต่ `40332b4` (2026-07-29) แต่ `EXPECT` ไม่ตามไป
+⇒ **ด่านทำงานอยู่ และแดงมาเป็นสัปดาห์ โดยไม่มีใครรัน** — `harness/*` ไม่อยู่ใน CI gate (CI รันแค่ `scripts/*.test.ts`)
+⇒ **ช่องโหว่จริงคือตรงนี้ และแก้ด้วยโค้ดไม่ได้**
+
+> **แก้คำพูดตัวเอง**: รอบแรกผมรันโดย**ไม่ใส่** `--tsconfig harness/tsconfig.json` เจอ `React is not defined` แล้วสรุปว่า *"ด่านตายมาตั้งแต่ ก.ค."* — **ผิด** flag นั้นเขียนไว้ใน evidence doc เดิมอยู่แล้ว เป็นความผิดคนรัน ไม่ใช่ด่านพัง
+> เขียนทิ้งไว้เพราะ *"ด่านไม่เคยทำงาน"* เป็นเรื่องที่สบายใจกว่า *"ด่านทำงานอยู่แต่ไม่มีใครดู"* — **และผมคว้าอันที่สบายใจกว่าก่อน**
+
+**สองอย่างที่แก้ระหว่างซ่อม**:
+- `login()` ตั้งแค่ passkey ⇒ `/v2/service` เด้งไป `/v2` ⇒ ทั้ง run วัดหน้าว่าง · เพิ่ม cookie ผู้ใช้ + `gotoHub()` ที่ **abort ถ้าโดนเด้ง** (ไม่งั้นเช็ค "healing-circles absent" จะเขียวเพราะไม่มีอะไรเรนเดอร์เลย)
+- `0 app-fetch` **ค้าง ไม่ใช่โค้ดพัง** — Zone 4 (#171) ทำให้ pill อัพเกรดอ่าน tier จริง ⇒ เปลี่ยนเป็นข้อความที่คมกว่า: **สิ่งเดียวที่จอนี้ขอจากแอปได้คือ tier อย่างอื่นยังเป็น finding**
+
+---
 
 ## adversary sign-off
-Cross-oracle, RUN-PROVEN — I do **not** self-certify.
-- **ตู๋ — ✅ SIGNED-OFF (ef43bfe)**. Points to attack: (1) are all 12 cards really there + in Figma order? — enumerated vs an **independent** expected list (not services.ts) + count===12 @3 sizes; (2) does every card actually LAND somewhere, or did I assume the hrefs? — **clicked all 12**, asserted the URL each time; `mut-wrong-dest` + `mut-drop-card` bite; (3) is the image slot a real slot or a dead div dressed up? — `mut-deadslot` proves `src` flows to a painted `<img>` (negative-controlled against the no-src case); (4) overflow at 320 with the long Thai titles? — asserted no overflow-x @393/360/320; (5) did I touch home while "borrowing" its header? — **no**: the header is self-contained (home byte-untouched → its anchor green for free); (6) is the coming-soon page honest or does it fake progress? — copy says plainly it isn't open, names the service, has a way back.
-- **goo** — no hooks/contract touched; this page is pure UI (no fetch/state/auth beyond the v2 gate).
 
-## flags → ฟีม (surfaced, not silently resolved)
-1. **Card 7 text** — Figma reads **"ซินเเส"** (double สระเอ), reproduced verbatim; almost certainly a Figma typo for "ซินแส". Fix the Figma text → `services.ts` follows.
-2. **Header tools** — อัพเกรด / bell / avatar are **decorative** this PR (no state on this page). Should the bell link to the existing `/v2/calendar/notifications` screen? (Product call — surfaced per reachability discipline, not silently wired.)
+**ยังไม่มี** — ขอ **ตู๋ (static)** และ **goo (runtime)** ลองแหก 3 ทางนี้:
+
+1. **ลอบให้ข้อความทับศิลป์โดยที่ TEXT-CLEAR ยังเขียว** — เช่นข้อความยาวจนการ์ดสูงมาก แล้วมีอะไรไปโผล่ในโซนที่ probe ไม่ได้ถ่าย
+2. **บิดศิลป์โดยที่ ink-bbox ยังได้สัดส่วนเดิม** — `object-position` ที่ crop จนหมึกบังเอิญเหลือรูปทรงเดิม? หมุน?
+3. **ทำให้การ์ดไม่มีขอบโดยที่ CARD-EDGE ยังเขียว** — เงาที่ paint แต่จางจนคนมองไม่เห็น (ผมวัดแค่ "เข้มกว่า 1.5") หรือเงาที่ paint เฉพาะใบสุดท้ายที่ผมสุ่มวัด
+
+**สิ่งที่ผมรู้ว่ายังไม่ครอบ (A2 ไม่ใช่ผ่าน)**:
+- ⚪ **Safari/WebKit ยังไม่เคยดู** — `object-contain` + `object-position` ใน WebKit ยังไม่ได้ยืนยัน
+- ⚪ **วัดแค่ 320/360/393/430** — 768+ ยังไม่ได้ดู (การ์ดเตี้ยลงจนศิลป์อาจล้นสูง)
+- ⚪ **ข้อความยาวผิดปกติ / ชื่อบริการใหม่** ยังไม่ได้ลอง
+- ⚪ **น้ำหนักหน้า 2.89 MB** (11 PNG × ~270KB) — บรรเทาด้วย `lazy` แล้ว (2 ใบแรก eager) แต่ยังไม่ได้บีบไฟล์ · ไม่มี `cwebp`/`sharp` ในเครื่อง · `png@800` ลดได้ 42% · **ของ ฟีม เคาะ ไม่ใช่ผม**
+- ⚪ **ลิงก์ "ดูดวงเลย" contrast 3.13 < AA 4.5** — **ของเดิมทั้งระบบ** (บนพื้นเก่า `#ECF0FD` แย่กว่า = 2.93) ต้องแก้ที่ token ไม่ใช่ที่การ์ดใบเดียว
+- ⚪ **`Healing Circles` ถูกซ่อน = ไปไม่ถึง** (แกนที่ 4 reachability) — ตั้งใจ ตาม ฟีม สั่ง รอศิลป์
+- 🔴 **`harness/*` ไม่อยู่ใน CI** ⇒ ด่านแดงไม่มีใครรู้ · เรื่องนี้ใหญ่กว่าใบนี้ ต้อง ฟีม เคาะ
