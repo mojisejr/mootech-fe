@@ -39,6 +39,7 @@ export function isApiGrade(x: unknown): x is ApiGrade {
  * downstream where it would render as an empty cell nobody notices.
  */
 export function parseApiGrade(x: unknown): ApiGrade | null {
+  // #b3-apigrade-loud — unknown grade THROWS, never silently passes
   if (x === null || x === undefined) return null;
   if (isApiGrade(x)) return x;
   throw new Error(
