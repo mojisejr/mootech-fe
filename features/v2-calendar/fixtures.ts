@@ -179,18 +179,27 @@ export function mockDayDetail(date: string): DayDetail {
       { element: 'ไม้', colors: 'เขียว' },
       { element: 'น้ำ', colors: 'ฟ้า น้ำเงิน ดำ' },
     ],
+    // REAL row from bazi's own almanac table, not typed by hand (มุน 2026-08-06, ตู๋'s catch):
+    // bazi-testenv/src/lib/bazi/data/almanac/day-month-table.json stores [glyph, direction] pairs and the
+    // direction is a SHORT COMPASS CODE. The previous fixture used Thai phrases AND repeated ทิศตะวันออก
+    // while dropping ทิศตะวันตกเฉียงเหนือ entirely — 8 gates over 7 directions, which cannot fill a compass:
+    // one gate lands on another, one square stays empty, silently. A fixture that disagrees with the
+    // backend it stands in for makes every test that runs on it prove the wrong thing.
+    // Meanings are gate-legend.json verbatim, for the same reason.
     gates: [
-      { name: '開', direction: 'ทิศตะวันออก', meaning: 'เปิดโอกาส เริ่มต้น' },
-      { name: '休', direction: 'ทิศเหนือ', meaning: 'พักผ่อน สงบ' },
-      { name: '生', direction: 'ทิศตะวันออกเฉียงเหนือ', meaning: 'เติบโต งอกงาม' },
-      { name: '傷', direction: 'ทิศตะวันออก', meaning: 'บาดเจ็บ ระวังของมีคม' },
-      { name: '杜', direction: 'ทิศตะวันออกเฉียงใต้', meaning: 'ปิดกั้น อุดตัน' },
-      { name: '景', direction: 'ทิศใต้', meaning: 'แสงสว่าง ชื่อเสียง' },
-      { name: '死', direction: 'ทิศตะวันตกเฉียงใต้', meaning: 'จบสิ้น หยุดนิ่ง' },
-      { name: '驚', direction: 'ทิศตะวันตก', meaning: 'ตื่นตระหนก เรื่องไม่คาดฝัน' },
+      { name: '開', direction: 'NE', meaning: 'เปิด' },
+      { name: '休', direction: 'E', meaning: 'พักผ่อน' },
+      { name: '生', direction: 'SE', meaning: 'เกิด' },
+      { name: '傷', direction: 'S', meaning: 'บาดเจ็บ' },
+      { name: '杜', direction: 'SW', meaning: 'อุดตัน' },
+      { name: '景', direction: 'W', meaning: 'เสน่ห์' },
+      { name: '死', direction: 'NW', meaning: 'ตาย' },
+      { name: '驚', direction: 'N', meaning: 'กลัว' },
     ],
     dithi: { officer: 'สะสาง', officerDesc: 'อับโชค เสียหาย เดียวดาย ทุกข์โศก', jianchu: '除 · ปัดกวาดสิ่งเก่า' },
-    luckyDirection: 'ทิศตะวันออกเฉียงใต้', // G-3 chip (raw ตำรา); chip 財 ตัดทิ้ง (8 ประตูไม่มี 財)
+    // lucky_dir is its OWN vocabulary — 'ทิศ ' + short code (real values in the almanac data are
+    // ทิศ N · ทิศ S · ทิศ E · ทิศ W · ทิศ SE). Different shape from gates[].direction; both are read.
+    luckyDirection: 'ทิศ SE', // G-3 chip (raw ตำรา); chip 財 ตัดทิ้ง (8 ประตูไม่มี 財)
   }
 }
 
