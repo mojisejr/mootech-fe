@@ -2,7 +2,7 @@
 
 **Anchor:** `harness/run-nav-consistency.ts` (22/22, 3 teeth)
 **PR:** feat/v2-nav-consistency · base = main (`08e1908`)
-**Ledger:** `harness/bug-ledger.json` → `nav-consistency`
+**Ledger:** `harness/bug-ledger/` → `nav-consistency`
 **Plan:** ❄️ FROZEN v3 — `lamun-oracle/ψ/plans/2026-08-03_FROZEN-menu-consistency.md`
 
 ANCHOR: harness/run-nav-consistency.ts#mut-mate-on-form

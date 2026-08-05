@@ -2,7 +2,7 @@
 
 **Anchor:** `harness/run-tier-gate.ts` (60/60)
 **PR:** feat/v2-tier-gate · base = main (`5ecadcc`)
-**Ledger:** `harness/bug-ledger.json` → `tier-gate`
+**Ledger:** `harness/bug-ledger/` → `tier-gate`
 **Plan:** ❄️ FROZEN — `lamun-oracle/ψ/plans/2026-08-04_FROZEN-zone4-tier-gate.md`
 
 ANCHOR: harness/run-tier-gate.ts#mut-paid-leak
@@ -159,7 +159,7 @@ home ยังใช้ `profile.showUpgrade` ของเดิม ⇒ ไม�
 ## 🔴 rule compliance
 
 worktree แยก · branch จาก `origin/main` · ไม่ push main · ไม่ self-merge · ไม่แตะ prod · ไม่มี secret ในโค้ด/ไฟล์นี้
-`bug-ledger.json` แก้ผ่าน PR นี้ (ไม่ push ตรง)
+`bug-ledger/` แก้ผ่าน PR นี้ (ไม่ push ตรง)
 
 ## adversary sign-off
 

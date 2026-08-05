@@ -2,7 +2,7 @@
 
 **Anchors:** `harness/run-compat-2g.ts` (visual, browser) + `scripts/compat-recent.test.ts` (pure rule-4/D43, CI-executed)
 **PR:** feat/v2-compat-2g-recent · base = main · **stacks conceptually after 2F (#154)** — merge order 2F → 2G (บอง-locked)
-**Ledger:** `harness/bug-ledger.json` → `compat-2g-recent-list` + `compat-recent-rule4-seam`
+**Ledger:** `harness/bug-ledger/` → `compat-2g-recent-list` + `compat-recent-rule4-seam`
 
 ANCHOR: harness/run-compat-2g.ts#mut-fake-friend-name
 ANCHOR: scripts/compat-recent.test.ts#compat-recent-rule4-seam
@@ -61,4 +61,4 @@ First run: the card click was intercepted by a `<nextjs-portal>` (the **dev erro
 ## adversary sign-off
 Cross-oracle, RUN-PROVEN — I do **not** self-certify.
 - **ตู๋ — ⏳ PENDING.** Points to attack: (1) does a card re-CALCULATE (second quota hit) like v1? — no, `router.push` to the existing result, no calculate call. (2) rule-4 — any fabricated name/avatar/type? — `mut-fake-friend-name` bites; BOSS chip hidden; missing name → "คุณ"; missing pic → initial letter. (3) D43 — does a legacy type crash the list? — 4/4 render, BOSS chip hidden. (4) infinite spinner on empty/error/no-userId? — state-table resolves all three. (5) forbidden paths? — 0 files in pages/matching + api-user-matching (button = 1-line onClick). (6) hydration / identity read? — `useCompatibilityRecent` reads userId via `useCookies([MEMBER_ID])` **exactly like the merged sibling `useCompatibility`** (the architecture guard bans `useCookies` only *inside* `pages/v2/` files, not feature hooks; verify-architecture ✓). The hydration mismatch was from branching the *initial* state on userId — fixed with `loading=true` (matching `useCompatibility`'s `loadingPerson1=true`), console-errors=0 proven. If webgang wants feature hooks moved to `useV2AuthGate`/`useCurrentUser` for identity, that's a broader sweep touching `useCompatibility` too — flagged, not silently diverged.
-- **บอง** — locked merge order 2F→2G + the rebase-not-hand-resolve rule for the shared `CompatibilityScreen.tsx` + `bug-ledger.json`.
+- **บอง** — locked merge order 2F→2G + the rebase-not-hand-resolve rule for the shared `CompatibilityScreen.tsx` + `bug-ledger/`.

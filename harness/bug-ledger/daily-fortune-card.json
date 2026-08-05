@@ -1,0 +1,13 @@
+{
+  "id": "daily-fortune-card",
+  "description": "มุน 2026-08-03 (ฟีม, Figma 375:11100): the ดวงวันนี้ card, now shared by home and ปฏิทินดวง. Figma's calendar card is a SUPERSET of home's (same 90px ring, same headline, same two columns; plus a 干支 chip, a วันพระ row, two lines per column and a CTA inside the card), so the two screens share one component with two variants instead of the calendar keeping a second, smaller, hand-written card. THE BUG-CLASS THIS ANCHOR OWNS — A SHARED COMPONENT DRAGGING ONE SCREEN'S LOOK ONTO THE OTHER: assertions run in BOTH directions (home must keep its gradient ground and must NOT gain the 干支 chip; the calendar must be white and must NOT inherit home's gradient), because a shared card fails in either direction and a one-sided check only sees half of it. Extraction proof is a pixel-diff of home before vs after: 0 of 597360 px — tsc-green is not evidence that a shipped component still renders the same (ScoreRing lesson). Content fix riding along: the old local card hard-coded the sentence 'วันดวงดีมาก แค่เริ่มก็สำเร็จแล้ว' for every day, so a 21% day still congratulated the user; it now binds detail.summary.",
+  "anchor": "harness/run-daily-card.ts",
+  "teeth": [
+    "mut-home-gradient-on-calendar",
+    "mut-ring-not-lime",
+    "mut-cta-outside"
+  ],
+  "date": "2026-08-03",
+  "owner": "lamun",
+  "pr": "feat/v2-daily-card"
+}

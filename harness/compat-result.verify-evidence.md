@@ -2,7 +2,7 @@
 
 **Anchor:** `scripts/compatibility-result.test.ts` (pure parse seam, CI)
 **PR:** feat/compat-slice2-fe-result-hook · **base:** main `60a4aca`
-**Ledger:** `harness/bug-ledger.json` → `compat-slice2-result-parse-seam`
+**Ledger:** `harness/bug-ledger/` → `compat-slice2-result-parse-seam`
 ANCHOR: scripts/compatibility-result.test.ts#compatibility-result-parse-seam
 
 ## What this PR is (and is not)
@@ -22,7 +22,7 @@ Depends on **Slice 2B** (PR #14): the BE stores the whole pair-match blob as a J
 ```bash
 npx tsc --noEmit                                        # ✓
 for f in scripts/*.test.ts; do npx tsx "$f"; done       # ✓ incl. scripts/compatibility-result.test.ts (9/9)
-npx tsx scripts/verify-ledger-integrity.ts harness/bug-ledger.json harness/compat-result.verify-evidence.md  # ✓ (bare, exit 0)
+npx tsx scripts/verify-ledger-integrity.ts harness/bug-ledger/ harness/compat-result.verify-evidence.md  # ✓ (bare, exit 0)
 npx tsx scripts/verify-architecture.ts                  # ✓
 npm run build                                           # ✓ (route /api/bazi/mascot/[ganzhi] present)
 ```

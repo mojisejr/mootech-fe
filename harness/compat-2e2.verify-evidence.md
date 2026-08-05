@@ -2,7 +2,7 @@
 
 **Anchors:** `harness/run-compat-2e2.ts` (visual) + `scripts/compat-tone.test.ts` (grade→tone, CI-executed)
 **PR:** feat/v2-compat-2e2-result-parts · base = main (`c1d61b6`, after 2F+2G merged)
-**Ledger:** `harness/bug-ledger.json` → `compat-2e2-result` + `compat-tone-13-levels`
+**Ledger:** `harness/bug-ledger/` → `compat-2e2-result` + `compat-tone-13-levels`
 
 ANCHOR: harness/run-compat-2e2.ts#mut-hour-fake
 ANCHOR: scripts/compat-tone.test.ts#compat-tone-13-levels

@@ -2,7 +2,7 @@
 
 **Anchor:** `harness/run-nav-consistency.ts` (22/22 — ตัวเดิมจาก #163 ยังเขียวหลังรวม)
 **PR:** feat/v2-nav-unify · base = main (`8320ed1`)
-**Ledger:** `harness/bug-ledger.json` → `nav-consistency` (ต่อท้าย PR2)
+**Ledger:** `harness/bug-ledger/` → `nav-consistency` (ต่อท้าย PR2)
 **Plan:** ❄️ FROZEN v3 — `lamun-oracle/ψ/plans/2026-08-03_FROZEN-menu-consistency.md` (ทาง ก: PR1 แก้อาการ → PR2 ปิดราก)
 
 ANCHOR: harness/run-nav-consistency.ts#mut-mate-on-form

@@ -2,7 +2,7 @@
 
 **Anchor:** `harness/run-breakpoint-sweep.ts` (96/96)
 **PR:** fix/v2-upsell-anchor · base = main (`d19966b`)
-**Ledger:** `harness/bug-ledger.json` → `figma-coord-as-layout-rule`
+**Ledger:** `harness/bug-ledger/` → `figma-coord-as-layout-rule`
 
 ANCHOR: harness/run-breakpoint-sweep.ts#mut-figma-coord
 

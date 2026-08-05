@@ -2,7 +2,7 @@
 
 **Anchor:** `harness/run-mateai-button.ts` (27/27)
 **PR:** feat/v2-nav-mateai · base = main (`4a6599b`)
-**Ledger:** `harness/bug-ledger.json` → `mateai-containment`
+**Ledger:** `harness/bug-ledger/` → `mateai-containment`
 **Plan:** ❄️ FROZEN FINAL — `lamun-oracle/ψ/plans/2026-08-03_FROZEN-calendar-arc-zones-1-3.md` (Zone 1)
 
 ANCHOR: harness/run-mateai-button.ts#mut-mateai-overflow

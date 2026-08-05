@@ -2,7 +2,7 @@
 
 **Anchor:** `harness/run-compat-result.ts` (+ goo's `scripts/compatibility-result.test.ts` for the parse seam)
 **PR:** feat/v2-compat-slice2-result · **stacks on** #151 (2D LoadingScreen) + #152 (2C hook) — merge after both
-**Ledger:** `harness/bug-ledger.json` → `compat-result-2e1-spine`
+**Ledger:** `harness/bug-ledger/` → `compat-result-2e1-spine`
 
 ANCHOR: harness/run-compat-result.ts#mut-birth-fake
 

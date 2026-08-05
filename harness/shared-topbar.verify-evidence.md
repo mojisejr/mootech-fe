@@ -2,7 +2,7 @@
 
 **Anchor:** `harness/run-shared-topbar.ts` · **PR:** feat/v2-shared-topbar · **base:** main `a2d7e79`
 **FE build under test:** worktree `mootech-fe-wt-shared-topbar` (branch feat/v2-shared-topbar on a2d7e79)
-**Ledger:** `harness/bug-ledger.json` → `shared-topbar-extract-no-consumer-drift`
+**Ledger:** `harness/bug-ledger/` → `shared-topbar-extract-no-consumer-drift`
 
 ANCHOR: harness/run-shared-topbar.ts#mut-ignore-href
 

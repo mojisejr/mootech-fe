@@ -1,0 +1,5 @@
+{
+  "id": "b4-calendar-grade",
+  "description": "goo 2026-08-05 Track B-4: calendar-month BFF ส่ง grade ต่อวัน (pass-through จาก man-vs-day #18, ท่อไม่ re-derive, null=คิดไม่ได้ ไม่ใช่ -) + ปลดด่านสมาชิกชั่วคราว (ฟีมสั่ง ยังไม่เปิดขาย เปิด free+paid, คอมเมนต์หนี้+โค้ดคืนครบ). teeth: merge ไม่ map grade → 4 assert แดง. handler probe รันจริง: free user ได้ data(ด่านเปิด) + 6-field incl grade B/A/C- ตรง man-vs-day. curl e2e รอ #18 deploy. ไม่แตะ features/pages.tsx",
+  "enforced_by": "scripts/calendar-month.test.ts#b4-grade-passthrough"
+}

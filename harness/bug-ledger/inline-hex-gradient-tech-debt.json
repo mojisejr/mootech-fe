@@ -1,0 +1,5 @@
+{
+  "id": "inline-hex-gradient-tech-debt",
+  "description": "Calendar Phase 6 Notifications: Inline linear-gradient hex values (#FFFFFF, #C9E4F4) were used instead of DESIGN.md tokens due to Tailwind class limitations with multi-stop gradients. While mathematically correct and visually on-brand (verified by D2), this breaks the single source of truth and will fail to update if the token changes. Logged as intentional technical debt to be refactored into a proper utility/token in a future cleanup arc.",
+  "enforced_by": "pages/v2/calendar/notifications.tsx#inline-gradient"
+}

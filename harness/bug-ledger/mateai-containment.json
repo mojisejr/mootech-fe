@@ -1,0 +1,13 @@
+{
+  "id": "mateai-containment",
+  "description": "มุน 2026-08-03 (ฟีม, Figma 461:3303 → Navbar 461:3020): the Mate AI tile in the bottom menu. SYMPTOM ฟีม saw: 'คำว่า Mate AI ทำให้ BG ทะลุกรอบออกมา'. ROOT: the tile is overflow-clip IN THE DESIGN and the code shipped it overflow-visible, so the label — which carried its own lime slab at px-4, i.e. 87px wide on a 74px tile — escaped SIDEWAYS past the border. THE BUG-CLASS THIS ANCHOR OWNS — CONTENT PAINTING OUTSIDE ITS OWN TILE: a computed `overflow: hidden` is only a PROXY for that; the floor is the pixels, so containment is read from a RING of screen on all four sides of the tile, sampled at four phases of the 2s float (a 1-frame check cannot see a bug that only exists at the top of the arc). Second class it owns: A COMPUTED COLOUR THAT IS NOT THE RENDERED COLOUR — the 40%-pink stroke is correct per the node, but CSS paints the background under the border by default, so lime-under-pink composites to olive; the anchor therefore also samples the border pixel and requires r > g. Related drift closed here: the label gradient was hand-typed (#294DA7 → #D036A9) while the correct tokens (v3-sapphire → v3-mate-magenta) already existed in tailwind.config.ts. INSTRUMENT NOTE: the first cut of this anchor sampled only above/below and its own tooth walked straight past it — same family as mut-nav-fixed-width in #163 (measuring the wrong axis).",
+  "anchor": "harness/run-mateai-button.ts",
+  "teeth": [
+    "mut-mateai-overflow",
+    "mut-gradient-drift",
+    "mut-motion-runs-under-reduce"
+  ],
+  "date": "2026-08-03",
+  "owner": "lamun",
+  "pr": "feat/v2-nav-mateai"
+}

@@ -13,7 +13,7 @@ ANCHOR: scripts/main-guard.test.ts#pr-merge-provenance
 1. **`verify-ledger-integrity` needs the path arg.** Measured on this repo: bare `npx tsx scripts/verify-ledger-integrity.ts`
    → prints usage and **exits 1** (not 0). *(บอง's brief said exit 0 = silent pass; the current script exits 1 —
    a forgotten path is a false-FAIL, not a false-pass. Either way job A passes the explicit path
-   `harness/bug-ledger.json`, so green means every anchor actually resolved.)*
+   `harness/bug-ledger/`, so green means every anchor actually resolved.)*
 2. **Not a required check.** `main-guard.yml` is never added to branch protection — it observes `main` after it
    moves; making it required would block unrelated PRs.
 3. **job B separates PR-merge from direct commit.** `isPrMergeCommit(subject, parentCount)` requires **both** 2+
@@ -30,7 +30,7 @@ Run-proven (the exact commands each job runs, green + red):
 
 | job | case | command | result |
 |---|---|---|---|
-| A | clean ledger | `verify-ledger-integrity.ts harness/bug-ledger.json` | exit **0** (green) |
+| A | clean ledger | `verify-ledger-integrity.ts harness/bug-ledger/` | exit **0** (green) |
 | A | **dead anchor** (temp entry `enforced_by` → nonexistent anchor — the exact 2026-07-29 bug-class) | same | exit **1 = RED** → reverted → exit 0 |
 | A | tsc | `tsc --noEmit` | exit 0 (green) |
 | B | real merge HEAD `a907c12` ("Merge pull request #141 …", 2 parents) | `assert-main-provenance.ts` | exit **0** (green) |

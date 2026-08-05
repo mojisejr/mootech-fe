@@ -2,7 +2,7 @@
 
 **Anchor:** `harness/run-compat-2f.ts`
 **PR:** feat/v2-compat-2f-loading-on-form · base = main (2F is the small first ticket — ฟีมเจ็บอยู่)
-**Ledger:** `harness/bug-ledger.json` → `compat-2f-loader-on-form`
+**Ledger:** `harness/bug-ledger/` → `compat-2f-loader-on-form`
 
 ANCHOR: harness/run-compat-2f.ts#mut-loader-on-result-only
 

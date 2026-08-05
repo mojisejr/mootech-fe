@@ -1,7 +1,7 @@
 # EYE PROOF — ดวงสมพงศ์ REFRAME 3: gender is the user's CHOICE, no silent fallback (goo logic)
 
 **Anchor:** `scripts/compatibility.test.ts` · **PR:** feat/v2-compat-gender · **base:** main `2a05c0d` (post-#148)
-**Ledger:** `harness/bug-ledger.json` → `compat-gender-required-no-silent-fallback`
+**Ledger:** `harness/bug-ledger/` → `compat-gender-required-no-silent-fallback`
 ANCHOR: scripts/compatibility.test.ts#gender-required-no-silent-fallback
 
 ## What this PR is
@@ -25,7 +25,7 @@ passes the chosen value; this PR makes the contract accept + carry it. **v1 UNCH
 ```bash
 npx tsc --noEmit                                        # ✓
 for f in scripts/*.test.ts; do npx tsx "$f"; done       # ✓ incl. scripts/compatibility.test.ts (13/13)
-npx tsx scripts/verify-ledger-integrity.ts harness/bug-ledger.json harness/compat-gender.verify-evidence.md  # ✓
+npx tsx scripts/verify-ledger-integrity.ts harness/bug-ledger/ harness/compat-gender.verify-evidence.md  # ✓
 npx tsx scripts/verify-architecture.ts                  # ✓
 npm run build                                           # ✓
 ```

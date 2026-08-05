@@ -1,9 +1,47 @@
 import * as fs from 'fs';
 import * as path from 'path';
 
+/**
+ * Load ledger entries from EITHER a directory of per-entry files
+ * (harness/bug-ledger/<id>.json — the source of truth since B-2, split so two
+ * PRs adding different entries never touch the same file) OR a single-file
+ * array (kept for the unit fixture in verify-ledger-integrity.test.ts).
+ *
+ * Loud on every failure — never returns a silently-empty list:
+ *  - missing path            → statSync throws (non-zero exit)
+ *  - a malformed entry file  → JSON.parse throws, tagged with the filename
+ * The empty-list case is caught by verifyLedger below (returns false), so a
+ * mis-resolved directory can NEVER pass the gate with zero checks.
+ */
+export function loadLedgerEntries(ledgerPath: string): any[] {
+  const stat = fs.statSync(ledgerPath); // throws loudly if the path is missing
+  if (stat.isDirectory()) {
+    const files = fs
+      .readdirSync(ledgerPath)
+      .filter((f) => f.endsWith('.json'))
+      .sort();
+    return files.map((f) => {
+      const p = path.join(ledgerPath, f);
+      try {
+        return JSON.parse(fs.readFileSync(p, 'utf-8'));
+      } catch (e) {
+        throw new Error(`Malformed ledger entry ${f}: ${(e as Error).message}`);
+      }
+    });
+  }
+  return JSON.parse(fs.readFileSync(ledgerPath, 'utf-8'));
+}
+
 export function verifyLedger(ledgerPath: string, rootDir: string): boolean {
-  const data = JSON.parse(fs.readFileSync(ledgerPath, 'utf-8'));
+  const data = loadLedgerEntries(ledgerPath);
   let allLive = true;
+
+  // No-silent-green guard: an empty ledger (e.g. a directory that resolved to
+  // zero entry files) must FAIL, not vacuously pass with nothing checked.
+  if (data.length === 0) {
+    console.error(`❌ [Ledger] No entries found at ${ledgerPath} — refusing to pass a zero-check ledger.`);
+    return false;
+  }
 
   for (const entry of data) {
     if (entry.enforced_by) {
@@ -76,15 +114,22 @@ if (require.main === module) {
   const rootDir = process.cwd();
   
   if (!ledgerPath) {
-    console.error('Usage: bun scripts/verify-ledger-integrity.ts <path-to-ledger.json> [path-to-evidence.md]');
+    console.error('Usage: bun scripts/verify-ledger-integrity.ts <path-to-ledger-dir-or-json> [path-to-evidence.md]');
     process.exit(1);
   }
 
-  let success = verifyLedger(path.resolve(rootDir, ledgerPath), rootDir);
-  
-  if (evidencePath) {
-    const evSuccess = verifyEvidence(path.resolve(rootDir, evidencePath), rootDir);
-    success = success && evSuccess;
+  let success: boolean;
+  try {
+    success = verifyLedger(path.resolve(rootDir, ledgerPath), rootDir);
+
+    if (evidencePath) {
+      const evSuccess = verifyEvidence(path.resolve(rootDir, evidencePath), rootDir);
+      success = success && evSuccess;
+    }
+  } catch (e) {
+    // Missing path / malformed entry file — fail LOUD, never silent-green.
+    console.error(`🚨 Integrity Check ERROR: ${(e as Error).message}`);
+    process.exit(1);
   }
 
   if (!success) {

@@ -2,7 +2,7 @@
 
 **Anchor:** `harness/run-compat-sprites.ts` (asset-fidelity + decoration + motion, 2 teeth)
 **PR:** feat/v2-compat-hero-sprites · base = main (`2e60b8f`)
-**Ledger:** `harness/bug-ledger.json` → `compat-hero-sprites`
+**Ledger:** `harness/bug-ledger/` → `compat-hero-sprites`
 
 ANCHOR: harness/run-compat-sprites.ts#mut-motion-runs-under-reduce
 

@@ -2,7 +2,7 @@
 
 **Anchor:** `harness/run-compat-zones.ts` (42/42, 5 teeth)
 **PR:** feat/v2-compat-element-palette · base = main (`8d24b02`)
-**Ledger:** `harness/bug-ledger.json` → `compat-element-palette` (+ ปรับ `compat-result-zones-1-4` ที่เคย log A2 ไว้)
+**Ledger:** `harness/bug-ledger/` → `compat-element-palette` (+ ปรับ `compat-result-zones-1-4` ที่เคย log A2 ไว้)
 **Plan:** ❄️ FROZEN — `lamun-oracle/ψ/plans/2026-08-03_FROZEN-element-chip-palette.md`
 
 ANCHOR: harness/run-compat-zones.ts#mut-element-tint-drift

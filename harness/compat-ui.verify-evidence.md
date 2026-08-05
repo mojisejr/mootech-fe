@@ -2,7 +2,7 @@
 
 **Anchor:** `harness/run-compat-ui.ts` (+ goo's `harness/run-compatibility.ts` for the contract)
 **PR:** feat/v2-compat-slice1-ui · **base:** main `a0c3907` (after #147 ก้อน0 + #148 logic + #149 gender)
-**Ledger:** `harness/bug-ledger.json` → `compat-ui-v3-gender-and-states`
+**Ledger:** `harness/bug-ledger/` → `compat-ui-v3-gender-and-states`
 
 ANCHOR: harness/run-compat-ui.ts#mut-silent-male
 

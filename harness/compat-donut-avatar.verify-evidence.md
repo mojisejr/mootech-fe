@@ -2,7 +2,7 @@
 
 **Anchor:** `harness/run-compat-3c.ts` (hero invariants + the fallback assertion + `mut-fake-photo` tooth)
 **PR:** feat/v2-compat-donut-avatar-fallback · base = main (`2abe6fe`)
-**Ledger:** `harness/bug-ledger.json` → `compat-donut-avatar`
+**Ledger:** `harness/bug-ledger/` → `compat-donut-avatar`
 
 ANCHOR: harness/run-compat-3c.ts#avatar-fallback
 

@@ -45,7 +45,7 @@ Detail of every case, executed:
   switched budget from **% to absolute pixels**. A 40×40 flash is now 5,423px ≥ 300px → CAUGHT. The
   adversaries proved the *unit* was wrong; the fix follows their insight.
 
-**ACCEPT-RISK / A2 (documented in `bug-ledger.json#pixel-lens-scope-boundaries`, not silent):**
+**ACCEPT-RISK / A2 (documented in `bug-ledger/pixel-lens-scope-boundaries.json`, not silent):**
 - **transient flicker** (goo#1, the deepest) — a 2-frame diff **aliases** a flash that resolves between
   the frames (opacity 1→.2→1 @260ms → 0px BLIND). My core mutant was **persistent, not transient** — the
   same "owner blind to a dimension of their own bug-class" shape I caught in goo's crawl. Honest: this is
