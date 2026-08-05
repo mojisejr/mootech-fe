@@ -22,6 +22,20 @@
 // with what a compass MEANS (scripts/gate-compass.test.ts). A bijection check is not enough — the inverted
 // table is also a bijection.
 //
+// ⭐ WHY INDEX-BASED PLACEMENT IS A TRAP AND NOT MERELY A RISK (ตู๋ asked the right question; the answer is
+// in bazi's own table, 209 well-formed rows in day-month-table.json):
+//
+//     GLYPH order      — ONE distinct order across all 209 rows: 開 休 生 傷 杜 景 死 驚
+//     DIRECTION order  — EIGHT distinct orders: the same eight points, rotated
+//
+// The array IS always sorted — by the classical gate SEQUENCE, not by direction. So `gates[i] → cell[i]`
+// produces a board where each glyph sits at a fixed square forever and the compass never turns: correct on
+// the one rotation that happens to match, wrong on the other seven. And the caption moves with the glyph,
+// so it looks right every single day.
+//
+// It also explains the 180° I measured between Figma and a live payload: those two days were four rotations
+// apart, and four of eight is a half-turn. Not a mysterious mirror — one step of a wheel that turns daily.
+//
 // NOT DONE, ON PURPOSE, WITH THE CONDITION TO REVISIT (บอง 2026-08-06, after ฟีม flagged that we were
 // writing 1.7× more harness than product):
 //   • DOM-layer check (assert the glyph inside [data-dir=NW] is the NW gate) — mostly redundant now that
