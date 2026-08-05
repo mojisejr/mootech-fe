@@ -49,10 +49,10 @@ ok('empty / non-array → false', isWanPhraDay([]) === false && isWanPhraDay(und
 
 // ── mergeCalendarMonth — join BY DATE, strip, clamp ──
 const MVD = [
-  { date: '2026-08-01', dayOfMonth: 1, dayGanzhi: '丁未', overallPercent: 61.66, dayStrength: 0.48, junk: 'x' },
-  { date: '2026-08-13', dayOfMonth: 13, dayGanzhi: '己未', overallPercent: 40, dayStrength: 0.5 },
-  { date: '2026-08-27', dayOfMonth: 27, dayGanzhi: '癸酉', overallPercent: 150, dayStrength: 0.6 }, // >100 → clamp
-  { date: '2026-08-28', dayOfMonth: 28, dayGanzhi: '甲戌', overallPercent: null, dayStrength: 0.6 }, // null passes through
+  { date: '2026-08-01', dayOfMonth: 1, dayGanzhi: '丁未', overallPercent: 61.66, grade: 'B', dayStrength: 0.48, junk: 'x' },
+  { date: '2026-08-13', dayOfMonth: 13, dayGanzhi: '己未', overallPercent: 40, grade: 'C-', dayStrength: 0.5 },
+  { date: '2026-08-27', dayOfMonth: 27, dayGanzhi: '癸酉', overallPercent: 150, grade: 'A+', dayStrength: 0.6 }, // >100 → clamp
+  { date: '2026-08-28', dayOfMonth: 28, dayGanzhi: '甲戌', overallPercent: null, grade: null, dayStrength: 0.6 }, // null passes through
 ]
 const ALMANAC = [
   { date: '2026-08-01', specialDays: [] },
@@ -63,9 +63,20 @@ const ALMANAC = [
 const merged = mergeCalendarMonth(MVD, ALMANAC)
 
 ok('merge keeps only mvd days (4, not 5)', merged.length === 4)
-ok('merge strips heavy/junk fields to 5 keys', (() => {
+ok('merge strips heavy/junk fields to 6 keys (incl grade)', (() => {
   const keys = Object.keys(merged[0]).sort()
-  return JSON.stringify(keys) === JSON.stringify(['date', 'dayGanzhi', 'dayOfMonth', 'overallPercent', 'wanPhra'])
+  return JSON.stringify(keys) === JSON.stringify(['date', 'dayGanzhi', 'dayOfMonth', 'grade', 'overallPercent', 'wanPhra'])
+})())
+// #b4-grade-passthrough
+ok('grade passes through from bazi (B-4): 08-01 B · 08-13 C- · 08-27 A+', (() => {
+  const g = (d: string) => merged.find((x) => x.date === d)?.grade
+  return g('2026-08-01') === 'B' && g('2026-08-13') === 'C-' && g('2026-08-27') === 'A+'
+})())
+ok('grade null passes through (คิดไม่ได้, not "-"): 08-28', merged.find((x) => x.date === '2026-08-28')?.grade === null)
+ok('grade absent → null (parseApiGrade: undefined → null)', mergeCalendarMonth([{ date: '2026-08-09', overallPercent: 50 }], []).at(0)?.grade === null)
+// F1 (ตู๋ #177): parseApiGrade VALIDATES — a grade outside the 13 THROWS (loud), never silently passed
+ok('F1: an invalid grade THROWS (not silently null)', (() => {
+  try { mergeCalendarMonth([{ date: '2026-08-09', overallPercent: 50, grade: 'Z' }], []); return false } catch { return true }
 })())
 ok('merge joins wanPhra BY DATE not index', (() => {
   const d13 = merged.find((x) => x.date === '2026-08-13')

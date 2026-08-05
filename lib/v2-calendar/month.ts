@@ -6,6 +6,8 @@
 // LATENCY (curl'd live 2026-08-03, bazi-sft-dataset.vercel.app): man-vs-day month 6.8s cold/3.7s warm/
 // 2.2MB (we strip to 5 fields/day → ~2KB to browser); almanac month 3.5s/141KB (deterministic per month
 // → cached in-process). Callers run the two upstreams in PARALLEL and cache per (user,month).
+import { parseApiGrade } from '@/lib/v2/api-grade'
+
 export const BAZI_BASE = process.env.BAZI_BASE_URL || 'http://localhost:3000'
 if (/bazichart\.mumate\.co/i.test(BAZI_BASE)) {
   throw new Error(`[GUARDRAIL] BAZI_BASE_URL points at old prod (${BAZI_BASE}).`)
@@ -23,11 +25,12 @@ export type CalendarDay = {
   dayOfMonth: number // 1–31
   dayGanzhi: string // 干支 of the day pillar (personalised route only; '' on the free almanac route)
   overallPercent: number | null // 0–100 personalised; UI derives colour via dayCellTier(percent)
+  grade: string | null // bazi's letter grade for overallPercent (ApiGrade | null); pass-through, never re-derived
   wanPhra: boolean // วันพระ (bazi almanac, religious categories only)
 }
 
 export type AlmanacDay = { date?: unknown; specialDays?: unknown }
-export type MvdDay = { date?: unknown; dayOfMonth?: unknown; dayGanzhi?: unknown; overallPercent?: unknown }
+export type MvdDay = { date?: unknown; dayOfMonth?: unknown; dayGanzhi?: unknown; overallPercent?: unknown; grade?: unknown }
 
 /** "YYYY-MM" → {year, month, yearBE(=+543)}; rejects bad shape / month out of range. */
 export function parseMonth(input: unknown): { year: number; month: number; yearBE: number } | null {
@@ -89,6 +92,10 @@ export function mergeCalendarMonth(mvdDays: unknown, almanacDays: unknown): Cale
         dayOfMonth: typeof d.dayOfMonth === 'number' ? d.dayOfMonth : Number(date.slice(8, 10)),
         dayGanzhi: typeof d.dayGanzhi === 'string' ? d.dayGanzhi : '',
         overallPercent: pct == null ? null : Math.max(0, Math.min(100, pct)),
+        // grade = bazi's letter (PR-1 #18: man-vs-day returns it per day). Pass-through — bazi is the single
+        // source of the rating-scale; the BFF never re-derives it. parseApiGrade VALIDATES against the 13
+        // (B-3): null = คิดไม่ได้ (not "-"); anything outside the 13 THROWS (loud, never a silent bad grade).
+        grade: parseApiGrade(d.grade),
         wanPhra: wanPhra.get(date) ?? false,
       }
     })

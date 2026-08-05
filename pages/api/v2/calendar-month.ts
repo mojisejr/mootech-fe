@@ -34,14 +34,21 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   if (!person) return res.status(400).json({ error: 'person (birth data) is required.' })
   if (!userId) return res.status(200).json({ allowed: false, year: parsed.year, month: parsed.month, days: [] })
 
-  // ── PAID GATE (server-side): free/expired → no bazi call at all. ──
-  let isFree = true
-  try {
-    ;({ isFree } = await resolveMembership(userId))
-  } catch {
-    isFree = true // can't confirm membership → treat as free (fail-closed: don't spend the paid engine)
+  // ── 🔓 MEMBERSHIP GATE — TEMPORARILY OPEN (ฟีม 2026-08-05, Track B-4) ───────────────────────────────
+  // ยังไม่เปิดขายจริง → เปิด personalised month ให้ "ทั้ง free และ paid" ชั่วคราว. ❗ หนี้: วันเปิดขาย
+  // แค่พลิก GATE_OPEN = false ด่านสมาชิกก็กลับมาทันที. โค้ดด่านเดิมยังอยู่ครบใต้ `if (!GATE_OPEN)` — TypeScript
+  // ยัง type-check มันอยู่ (ไม่ใช่ dead comment ที่เน่าเงียบ), resolveMembership ยัง import อยู่. ห้ามลบทิ้ง.
+  const GATE_OPEN = true // TEMPORARY (ฟีม 2026-08-05) — flip to false ก่อนวันเปิดขายเพื่อปิดด่านสมาชิกคืน
+  if (!GATE_OPEN) {
+    let isFree = true
+    try {
+      ;({ isFree } = await resolveMembership(userId))
+    } catch {
+      isFree = true // can't confirm membership → treat as free (fail-closed)
+    }
+    if (isFree) return res.status(200).json({ allowed: false, year: parsed.year, month: parsed.month, days: [] })
   }
-  if (isFree) return res.status(200).json({ allowed: false, year: parsed.year, month: parsed.month, days: [] })
+  // ────────────────────────────────────────────────────────────────────────────────────────────────
 
   // ── PAID: fortune + วันพระ in PARALLEL (total ≈ max, not sum). Graceful on any miss. ──
   const ac = new AbortController()
