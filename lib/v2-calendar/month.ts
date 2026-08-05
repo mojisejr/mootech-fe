@@ -23,11 +23,12 @@ export type CalendarDay = {
   dayOfMonth: number // 1–31
   dayGanzhi: string // 干支 of the day pillar (personalised route only; '' on the free almanac route)
   overallPercent: number | null // 0–100 personalised; UI derives colour via dayCellTier(percent)
+  grade: string | null // bazi's letter grade for overallPercent (ApiGrade | null); pass-through, never re-derived
   wanPhra: boolean // วันพระ (bazi almanac, religious categories only)
 }
 
 export type AlmanacDay = { date?: unknown; specialDays?: unknown }
-export type MvdDay = { date?: unknown; dayOfMonth?: unknown; dayGanzhi?: unknown; overallPercent?: unknown }
+export type MvdDay = { date?: unknown; dayOfMonth?: unknown; dayGanzhi?: unknown; overallPercent?: unknown; grade?: unknown }
 
 /** "YYYY-MM" → {year, month, yearBE(=+543)}; rejects bad shape / month out of range. */
 export function parseMonth(input: unknown): { year: number; month: number; yearBE: number } | null {
@@ -89,6 +90,9 @@ export function mergeCalendarMonth(mvdDays: unknown, almanacDays: unknown): Cale
         dayOfMonth: typeof d.dayOfMonth === 'number' ? d.dayOfMonth : Number(date.slice(8, 10)),
         dayGanzhi: typeof d.dayGanzhi === 'string' ? d.dayGanzhi : '',
         overallPercent: pct == null ? null : Math.max(0, Math.min(100, pct)),
+        // grade = bazi's letter (PR-1 #18: man-vs-day now returns it per day). Pass-through — bazi is the
+        // single source of the rating-scale; the BFF never re-derives it. null = คิดไม่ได้ (not "-").
+        grade: typeof d.grade === 'string' ? d.grade : null,
         wanPhra: wanPhra.get(date) ?? false,
       }
     })

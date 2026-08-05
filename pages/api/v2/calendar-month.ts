@@ -12,7 +12,8 @@
 // (upstream man-vs-day) — flagged to product; not blocking this phase.
 import type { NextApiRequest, NextApiResponse } from 'next'
 import { toBaziInput, type FeCalcInput } from '@/lib/bazi-bridge/input'
-import { resolveMembership } from '@/lib/usage'
+// NOTE: resolveMembership import removed while the gate is TEMPORARILY open (see the GATE-OPEN block in the
+// handler). Restore `import { resolveMembership } from '@/lib/usage'` when re-closing the membership gate.
 import {
   BAZI_TIMEOUT_MS,
   fetchAlmanacDays,
@@ -34,14 +35,16 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   if (!person) return res.status(400).json({ error: 'person (birth data) is required.' })
   if (!userId) return res.status(200).json({ allowed: false, year: parsed.year, month: parsed.month, days: [] })
 
-  // ── PAID GATE (server-side): free/expired → no bazi call at all. ──
-  let isFree = true
-  try {
-    ;({ isFree } = await resolveMembership(userId))
-  } catch {
-    isFree = true // can't confirm membership → treat as free (fail-closed: don't spend the paid engine)
-  }
-  if (isFree) return res.status(200).json({ allowed: false, year: parsed.year, month: parsed.month, days: [] })
+  // ── 🔓 TEMPORARY GATE-OPEN (ฟีม 2026-08-05, Track B-4) ──────────────────────────────────────────────
+  // ยังไม่เปิดขายจริง → เปิด personalised month ให้ "ทั้ง free และ paid" ชั่วคราว เพื่อเดินหน้าต่อได้.
+  // ❗❗ นี่คือหนี้ — ก่อนวันเปิดขาย ต้องกลับมา "ปิด" ด่านสมาชิกคืน โดยคืน import resolveMembership แล้ว
+  //    เปิด comment 6 บรรทัดนี้ (ตำแหน่งเดิม):
+  //      let isFree = true
+  //      try { ;({ isFree } = await resolveMembership(userId)) }
+  //      catch { isFree = true } // fail-closed
+  //      if (isFree) return res.status(200).json({ allowed: false, year: parsed.year, month: parsed.month, days: [] })
+  //    ห้ามลบ comment นี้ทิ้งจนกว่าจะปิดด่านคืน. (resolveMembership ถูกถอด import ชั่วคราวเพื่อไม่ให้เป็น dead import)
+  // ────────────────────────────────────────────────────────────────────────────────────────────────
 
   // ── PAID: fortune + วันพระ in PARALLEL (total ≈ max, not sum). Graceful on any miss. ──
   const ac = new AbortController()

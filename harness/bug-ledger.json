@@ -449,5 +449,10 @@
     "id": "b1-tier-decimal",
     "description": "goo 2026-08-05 Track B-1: ONE-NUMBER ในด่าน tier-gate (เครื่องมือมุน) อ่าน % เป็นทศนิยม+เทียบตัวเลข. regex เดิม /(\\d+)%/ อ่านจำนวนเต็มก่อน % → 0.57%→57 (fraction-scale หลุด ตรง ring 57% → ด่านเขียวรับรองบั๊ก). แยก reader เป็น harness/tier-percent.ts (readPct decimal-aware + onePercentAgree numeric), ONE-NUMBER 2 assertion ความหมายเดิม, check count 51→51. teeth: mut-decimal-percent(57.3 vs 57)→RED, mut-percent-divergence(0.57 vs 57 = divergence)→RED, clean GREEN; full harness all-passed. cross-oracle: มุนรัน harness เต็มยืนยัน. ไม่แตะ features/pages.tsx/DESIGN.md [μุน #175: ONE-NUMBER=agreement invariant จับ scale-leak สม่ำเสมอไม่ได้ (0.57/0.57/0.57 เขียว) → A2 PERCENT-SCALE; แก้ถ้อยคำ+rename tooth ให้ตรง bug-class ที่กัดจริง]",
     "enforced_by": "harness/tier-percent.ts#b1-percent-divergence"
+  },
+  {
+    "id": "b4-calendar-grade",
+    "description": "goo 2026-08-05 Track B-4: calendar-month BFF ส่ง grade ต่อวัน (pass-through จาก man-vs-day #18, ท่อไม่ re-derive, null=คิดไม่ได้ ไม่ใช่ -) + ปลดด่านสมาชิกชั่วคราว (ฟีมสั่ง ยังไม่เปิดขาย เปิด free+paid, คอมเมนต์หนี้+โค้ดคืนครบ). teeth: merge ไม่ map grade → 4 assert แดง. handler probe รันจริง: free user ได้ data(ด่านเปิด) + 6-field incl grade B/A/C- ตรง man-vs-day. curl e2e รอ #18 deploy. ไม่แตะ features/pages.tsx",
+    "enforced_by": "scripts/calendar-month.test.ts#b4-grade-passthrough"
   }
 ]
