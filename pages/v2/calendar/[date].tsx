@@ -69,7 +69,7 @@ export default function V2CalendarDayPage() {
   // by id — so spamming บันทึก yields exactly one row per ยาม, never duplicates.
   const onSheetSave = () => {
     const rows: Reminder[] = draft.draft.selectedYamIds.map((yamId) => {
-      const yam = detail.yams.find((y) => y.id === yamId)
+      const yam = detail?.yams.find((y) => y.id === yamId) // onSheetSave only fires past the render guard (detail set); ?. is for the earlier-closure narrowing
       return { id: `${date}-${yamId}`, date, yamId, yamLabel: yam?.label ?? yamId, window: yam?.window ?? '', destinations: draft.draft.destinations, group: 'upcoming' as const }
     })
     draft.commit()
@@ -82,6 +82,21 @@ export default function V2CalendarDayPage() {
   const sheetOpen = draft.state === 'editing' || draft.state === 'saving'
   // while the sheet is open the menu is FormMode(4, no Mate AI); else derived from data (Saved 3 / PrimaryAction 2).
   const menuState = sheetOpen ? draft.menuState : menuStateForDay(saved)
+
+  // goo · G-2 minimal compile-guard — NOT a designed loading state (that's มุน's M-D). useDayDetail now
+  // fetches async, so `detail` is null while it loads; every section below binds it (yams/pillars/percent).
+  // Early-return a bare spinner shell so the page compiles and isn't blank. No layout, no skeleton, no
+  // copy — M-D replaces this. Mirrors the existing isPaid===null spinner. (After all hooks — no hook-order break.)
+  if (!detail) {
+    return (
+      <CalendarShell title="รายละเอียดวัน" menuState={menuState} ctaLabel="" onCta={() => {}}>
+        <div data-testid="day-detail-pending" aria-live="polite" className="pointer-events-none absolute inset-x-0 top-1/3 grid place-items-center">
+          <span className="size-8 animate-spin rounded-full border-[3px] border-v3-sapphire/20 border-t-v3-sapphire" />
+          <span className="sr-only">กำลังโหลดรายละเอียดวัน</span>
+        </div>
+      </CalendarShell>
+    )
+  }
 
   return (
     <CalendarShell

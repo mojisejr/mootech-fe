@@ -83,16 +83,20 @@ export default function V2CalendarPage() {
         <MonthGrid weeks={month.weeks} todayISO={todayISO} />
 
         {/* Figma 375:11100 — the card and its CTA are ONE card; the CTA was a separate button below it. */}
+        {/* goo · G-2 minimal compile-guard (NOT a designed loading state — M-B/M-D own the real one): the
+            day-detail fetch is async so `detail` is null while it loads. The RING falls back to the month
+            cell (cardDay) so grade/% are correct from the FIRST frame (จังหวะ-1, never blank); the TEXT
+            (headline/suitable/avoid) is simply empty until the fetch lands (จังหวะ-2). No layout here. */}
         <DailyFortuneCard
           variant="calendar"
           testId="calendar-daily-card"
-          ring={{ grade: detail.grade, percent: detail.percent }}
-          headline={detail.summary}
+          ring={{ grade: detail?.grade ?? cardDay.grade, percent: detail?.percent ?? cardDay.percent }}
+          headline={detail?.summary ?? ''}
           dateLine={`${cardDay.date === todayISO ? 'วันนี้ · ' : ''}${formatThaiLongDate(cardDay.date) || `วันที่ ${cardDay.day}`}`}
-          ganzhi={detail.ganzhi}
+          ganzhi={detail?.ganzhi ?? cardDay.ganzhi}
           wanPhra={cardDay.isBuddhistDay}
-          suitable={detail.suitable.slice(0, 2)}
-          avoid={detail.avoid.slice(0, 2)}
+          suitable={detail?.suitable.slice(0, 2) ?? []}
+          avoid={detail?.avoid.slice(0, 2) ?? []}
           footer={
             <button
               type="button"

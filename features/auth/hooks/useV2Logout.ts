@@ -7,6 +7,7 @@ import { useCookies } from 'react-cookie'
 import { signOut } from 'next-auth/react'
 import { CookieKey } from '@/constants/cookie-key'
 import { clearUserCache } from '@/lib/v2/user-cache'
+import { clearDayDetailCache } from '@/features/v2-calendar/hooks/day-detail-cache'
 
 // Every cookie that carries identity/display — MEMBER_ID is identity-truth, the rest are satellites.
 // LOGIN_PROVIDER must go too, else a stale `=DEV` marker would make the self-heal skip re-registration.
@@ -31,6 +32,7 @@ export function useV2Logout(): V2Logout {
     // Abandon any in-flight /api/user fetch for the old identity (useV2User dedup cache) so the next login
     // on this machine starts clean — a late-resolving old fetch cannot feed the next person's session.
     clearUserCache()
+    clearDayDetailCache() // drop the previous identity's cached days too (deterministic cache, but per-person)
     // signOut settles the next-auth session; land back on the /v2 preview entry, not the legacy "/".
     signOut({ callbackUrl: '/v2' })
   }, [removeCookie])
