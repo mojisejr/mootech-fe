@@ -3,6 +3,8 @@
 **PR**: #185 · **branch**: `chore/ci-calendar-month-gate` · **author**: บอง (coordinator)
 **แตะไฟล์เดียว**: `.github/workflows/design-verify.yml`
 
+ANCHOR: harness/run-calendar-month.ts#mut-hardcode-tier
+
 ---
 
 ## ปัญหา — พิสูจน์ด้วย grep ไม่ใช่ความรู้สึก
