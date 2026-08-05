@@ -28,6 +28,8 @@ export type DayDetail = {
   advice: string[] // the main facet's lines[].text
   yams: DayDetailYam[] // almanac.luckyHours
   dithi: { officer: string; officerDesc: string; jianchu: string } // officer + officerDesc + jianchu
+  luckyDirection: string // ทิศมงคล — RAW from man-vs-day (lucky_dir almanac column, real ตำรา data, NOT a
+  // ranking of the 8 gates). A chip alongside dithi.officer; the 財 chip is cut (bazi's 8 gates have no 財).
   dayDeity: string // almanac.deity  ①
   spirits: DayDetailSpirit[] // almanac.spirits (8 เทพ)  ①
   wanPhra: { isWanPhra: boolean; label: string } // almanac.thaiLunar  ①
@@ -97,6 +99,7 @@ export function mapDayDetail(mvd: unknown, almanacDay: unknown): DayDetail {
       return { id: str(yy.code), window: str(yy.range), label: [str(yy.god), str(yy.meaning)].filter(Boolean).join(' · ') }
     }),
     dithi: { officer: str(a.officer), officerDesc: str(a.officerDesc), jianchu: [str(jc.name), str(jc.meaning)].filter(Boolean).join(' · ') },
+    luckyDirection: str(m.luckyDirection), // ทิศมงคล ดิบ (man-vs-day day, lucky_dir) — ❌ ไม่แปลงเป็นทิศย่อ/องศา/ไอคอน (งานมุน)
     dayDeity: str(a.deity),
     spirits: arr(a.spirits).map((s) => {
       const ss = s as { name?: unknown; keywords?: unknown }

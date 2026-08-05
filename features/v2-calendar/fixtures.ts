@@ -188,6 +188,7 @@ export function mockDayDetail(date: string): DayDetail {
       { name: '驚', direction: 'ทิศตะวันตก', meaning: 'ตื่นตระหนก เรื่องไม่คาดฝัน' },
     ],
     dithi: { officer: 'สะสาง', officerDesc: 'อับโชค เสียหาย เดียวดาย ทุกข์โศก', jianchu: '除 · ปัดกวาดสิ่งเก่า' },
+    luckyDirection: 'ทิศตะวันออกเฉียงใต้', // G-3 chip (raw ตำรา); chip 財 ตัดทิ้ง (8 ประตูไม่มี 財)
   }
 }
 
