@@ -70,6 +70,8 @@ export function generateMonthDays(year: number, month: number): CalendarDay[] {
       day,
       ganzhi: ganzhiFor(cycleSeed + i),
       percent,
+      grade: illustrativeGrade(percent), // G-2: grade back on the cell (for the ring's จังหวะ-1). Mock uses a
+      // 10-level Grade (a subset of the 13-level string) — the real 13-level arrives from bazi at wiring.
       isBuddhistDay: day === 10 || day === 24, // 2 mock วันพระ → exercise the #9D85DA ring marker
     }
   })
@@ -85,7 +87,7 @@ export function mockCalendarMonth(year: number = MOCK_YEAR, month: number = MOCK
 }
 
 // ── ยาม (5 windows/day) — shared by the advanced timeline and the save sheet. ─────────────────────
-const YAM_DEFS: Array<Omit<YamSlot, 'grade'>> = [
+const YAM_DEFS: YamSlot[] = [
   { id: 'y1', label: 'ยามมงคล มีลาภผล ทรัพย์สิน', window: '09:00-10:59' },
   { id: 'y2', label: 'ยามก้าวหน้ารุ่งเรือง', window: '19:00-20:59' },
   { id: 'y3', label: 'ยามฟ้าประทาน เทพเจ้าคุ้มครอง', window: '05:00-06:59' },
@@ -93,9 +95,9 @@ const YAM_DEFS: Array<Omit<YamSlot, 'grade'>> = [
   { id: 'y5', label: 'ยามพักผ่อน สงบใจ', window: '23:00-00:59' },
 ]
 
-function mockYams(seedGrade: Grade): YamSlot[] {
-  const base = GRADES.indexOf(seedGrade)
-  return YAM_DEFS.map((y, i) => ({ ...y, grade: GRADES[Math.min(9, (base + i) % 10)] }))
+// Yams carry NO grade/tone (cut G-2 — bazi's luckyHours emits none). Just the defs, fresh copies.
+function mockYams(): YamSlot[] {
+  return YAM_DEFS.map((y) => ({ ...y }))
 }
 
 /**
@@ -109,7 +111,7 @@ export function mockDayDetail(date: string): DayDetail {
   const [gy, gm] = date.split('-').map(Number)
   const genDay =
     Number.isFinite(gy) && Number.isFinite(gm) ? generateMonthDays(gy, gm).find((d) => d.date === date) : undefined
-  const found: CalendarDay = genDay ?? { date, day: Number(date.slice(8, 10)) || 0, ganzhi: '', percent: 0 }
+  const found: CalendarDay = genDay ?? { date, day: Number(date.slice(8, 10)) || 0, ganzhi: '', percent: 0, grade: '' }
   // DayDetail keeps its own `grade` (the card ring — a 10-level UI Grade). Since the grid cell no longer
   // carries grade (G-0c), derive the mock's illustrative grade from percent here (mock-only bucketer; the
   // real grade arrives from bazi at G-4). This is NOT the grid's colour source (that is dayCellTier).
@@ -123,7 +125,7 @@ export function mockDayDetail(date: string): DayDetail {
     summary: 'วันนี้เหมาะแก่การเริ่มต้นสิ่งใหม่ ทำงานร่วมกับผู้อื่นได้ราบรื่น',
     suitable: ['ไปที่ทำงาน / สถานศึกษา', 'พบปะเจรจา', 'เริ่มโครงการ'],
     avoid: ['ตัดสินใจเรื่องใหญ่คนเดียว', 'เดินทางไกลช่วงค่ำ'],
-    yams: mockYams(grade),
+    yams: mockYams(),
     pillars: [
       {
         kind: 'man',

@@ -56,6 +56,7 @@ function paddingCell(year: number, month: number, dayOffset: number): CalendarDa
     day: dayOffset,
     ganzhi: '',
     percent: 0,
+    grade: '', // padding cell — never rendered (isPadding); empty placeholder to satisfy the non-null type
     isPadding: true,
   }
 }
