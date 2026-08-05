@@ -1,24 +1,61 @@
-// §2 — the horizontal date strip: ← / → to the prev/next day + 5 day cards (เลขวัน + ganzhi + %). The
-// selected day is sapphire-filled (SELECTED); others carry the day-cell tier %-text (DESIGN.md). Neighbours
-// come from goo's deterministic generateMonthDays (hydration-safe) — no network. ← → and the cards are real
-// route links (/v2/calendar/[date]); routing itself is goo's and unchanged.
+// §2 — the horizontal date strip: ← / → to the prev/next day + 5 day cards. A DATE PICKER, nothing more.
+//
+// M-D (มุน 2026-08-06, บอง's catch via goo): this strip used to print a % and a 干支 on every card, and
+// tint the card by the tier that % fell into — all of it from `generateMonthDays`, the deterministic
+// FIXTURE generator (a sine wave). It sat directly above the score ring, which shows the REAL number for
+// the same day. Two numbers for one day on one screen, disagreeing: exactly the ONE-NUMBER rule ฟีม set.
+// The content team is about to write real copy against this screen, so a fabricated number here would get
+// quoted as if it meant something.
+//
+// Cut, not connected: wiring five real day-scores costs a fetch per neighbour (goo priced it at 2–2.5h) and
+// does not fit this pass. What ships is a strip that only claims what it knows — WHICH DAY each card is.
+//
+// The TINT went with the numbers, and that is the part worth saying out loud: the brief was "cut the fake %
+// and 干支", but the background colour was ALSO derived from that fake percent, so leaving it would have
+// kept the screen saying "this day is good / this day is bad" in colour after the numbers were gone —
+// quieter, and just as false.
+//
+// The weekday is new and is not invented: it is a property of the date itself. Without it the cards were a
+// row of bare numerals, which reads as a broken component rather than a deliberate picker.
+//
+// Neighbours are computed from the date directly instead of through generateMonthDays, so this file no
+// longer imports the fixture generator at all — the fake data cannot come back by accident.
 import Link from 'next/link'
-import { generateMonthDays, dayCellTier, type CalendarDay } from '../../'
-import { DAY_CELL_COLORS, SELECTED } from '../grade-colors'
-import { percentText } from '../percent-display'
+import { SELECTED } from '../grade-colors'
 
-// The 5-card window centred on `date` (clamped to the month edges — mock month is deterministic).
-function windowAround(date: string): { days: CalendarDay[]; prev?: string; next?: string } {
-  const [y, m] = date.split('-').map(Number)
-  const month = generateMonthDays(y, m)
-  const idx = month.findIndex((d) => d.date === date)
-  if (idx < 0) return { days: month.slice(0, 5) }
-  const start = Math.max(0, Math.min(idx - 2, month.length - 5))
-  return {
-    days: month.slice(start, start + 5),
-    prev: month[idx - 1]?.date,
-    next: month[idx + 1]?.date,
+const THAI_DOW = ['อา', 'จ', 'อ', 'พ', 'พฤ', 'ศ', 'ส']
+
+/** ISO date shifted by `delta` days, staying inside the same calendar month (the strip does not cross months). */
+function shift(date: string, delta: number): string | undefined {
+  const [y, m, d] = date.split('-').map(Number)
+  if (!y || !m || !d) return undefined
+  const next = new Date(Date.UTC(y, m - 1, d + delta))
+  if (next.getUTCFullYear() !== y || next.getUTCMonth() !== m - 1) return undefined // off the month's edge
+  return `${y}-${String(m).padStart(2, '0')}-${String(next.getUTCDate()).padStart(2, '0')}`
+}
+
+/** the 5-card window centred on `date`, clamped so it never runs off the month. */
+function windowAround(date: string): { days: string[]; prev?: string; next?: string } {
+  const days: string[] = []
+  for (let offset = -2; offset <= 2; offset++) {
+    const iso = shift(date, offset)
+    if (iso) days.push(iso)
   }
+  // clamped at an edge → back-fill forward/backward so the row keeps its five slots and does not resize
+  for (let offset = 3; days.length < 5 && offset <= 6; offset++) {
+    const fwd = shift(date, offset)
+    if (fwd && !days.includes(fwd)) days.push(fwd)
+  }
+  for (let offset = -3; days.length < 5 && offset >= -6; offset--) {
+    const back = shift(date, offset)
+    if (back && !days.includes(back)) days.unshift(back)
+  }
+  return { days: days.sort(), prev: shift(date, -1), next: shift(date, 1) }
+}
+
+function dayOfWeek(iso: string): string {
+  const [y, m, d] = iso.split('-').map(Number)
+  return THAI_DOW[new Date(Date.UTC(y, m - 1, d)).getUTCDay()] ?? ''
 }
 
 function ArrowButton({ href, dir, label }: { href?: string; dir: 'l' | 'r'; label: string }) {
@@ -36,21 +73,21 @@ function ArrowButton({ href, dir, label }: { href?: string; dir: 'l' | 'r'; labe
   )
 }
 
-function DayCard({ cell, selected }: { cell: CalendarDay; selected: boolean }) {
-  const tint = DAY_CELL_COLORS[dayCellTier(cell.percent)]
-  const style = selected
-    ? { backgroundColor: SELECTED.fill, color: SELECTED.text }
-    : { backgroundColor: '#F4F7FB', color: '#0B305B' }
+function DayCard({ iso, selected }: { iso: string; selected: boolean }) {
+  const day = Number(iso.slice(8))
   return (
     <Link
-      href={`/v2/calendar/${cell.date}`}
-      aria-label={`วันที่ ${cell.day} ${percentText(cell.percent)}%`}
+      href={`/v2/calendar/${iso}`}
+      data-testid="day-strip-card"
+      data-date={iso}
+      aria-current={selected ? 'date' : undefined}
+      aria-label={`วันที่ ${day}${selected ? ' (กำลังดูอยู่)' : ''}`}
       className="flex min-w-0 flex-1 flex-col items-center gap-0.5 rounded-2xl px-1 py-2 leading-none"
-      style={style}
+      // the ONLY thing colour says here is "this is the day you are looking at" — never a quality
+      style={selected ? { backgroundColor: SELECTED.fill, color: SELECTED.text } : { backgroundColor: '#F4F7FB', color: '#0B305B' }}
     >
-      <span className="text-lg font-extrabold">{cell.day}</span>
-      <span className="text-[11px] font-medium opacity-90">{cell.ganzhi}</span>
-      <span className="text-xs font-bold" style={{ color: selected ? SELECTED.text : tint.text }}>{percentText(cell.percent)}%</span>
+      <span className="text-[11px] font-medium opacity-70">{dayOfWeek(iso)}</span>
+      <span className="text-lg font-extrabold">{day}</span>
     </Link>
   )
 }
@@ -61,8 +98,8 @@ export function DayStrip({ date }: { date: string }) {
     <div data-testid="day-strip" className="flex items-center gap-2">
       <ArrowButton href={prev} dir="l" label="วันก่อนหน้า" />
       <div className="flex flex-1 items-stretch gap-1.5">
-        {days.map((d) => (
-          <DayCard key={d.date} cell={d} selected={d.date === date} />
+        {days.map((iso) => (
+          <DayCard key={iso} iso={iso} selected={iso === date} />
         ))}
       </div>
       <ArrowButton href={next} dir="r" label="วันถัดไป" />
