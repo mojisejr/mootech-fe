@@ -51,7 +51,7 @@ jobs:
       - name: build
         run: npm run build
 
-      - name: run splash harness + pixel lens (evidence-as-gate)
+      - name: run splash harness + pixel lens + calendar-month anchor (evidence-as-gate)
         run: |
           npx next start -p 3000 &
           SERVER=$!
@@ -65,9 +65,20 @@ jobs:
           CODE=$?
           HARNESS_HOST=http://localhost:3000 npx tsx harness/run-pixel.ts
           PCODE=$?
+          # ปฏิทินดวง month anchor (บอง 2026-08-05): this file EXISTED for weeks with NOTHING running it —
+          # not run.ts, not an npm script, not a workflow. "the calendar has a browser gate" therefore meant
+          # "the calendar has no gate" (the #179 shape). μุน ran all three calendar anchors against main
+          # fd41e02 to get real numbers before wiring: month PASSED (tier-fidelity 31/31 · exactly 1 sapphire
+          # selected cell · 2 วันพระ rings · no-overflow at 320/360/393 · mutant mut-hardcode-tier CAUGHT),
+          # so it can be wired NOW without blocking anyone. run-calendar-day and run-calendar-fidelity are
+          # RED — for a KNOWN reason (they never sign in as a PAID user, so the tier gate hides the content
+          # they assert on) — and are being repaired in their own PR; they are deliberately NOT wired here
+          # yet. Wiring only the green one is the point: a gate you cannot run is not a gate.
+          HARNESS_HOST=http://localhost:3000 npx tsx harness/run-calendar-month.ts
+          MCODE=$?
           kill "$SERVER" 2>/dev/null || true
-          # fail the job if EITHER gate failed
-          [ "$CODE" -eq 0 ] && [ "$PCODE" -eq 0 ]
+          # fail the job if ANY gate failed
+          [ "$CODE" -eq 0 ] && [ "$PCODE" -eq 0 ] && [ "$MCODE" -eq 0 ]
 
       - name: upload evidence bundle
         if: always()
