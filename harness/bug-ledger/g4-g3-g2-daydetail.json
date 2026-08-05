@@ -1,0 +1,8 @@
+{
+  "id": "g4-g3-g2-daydetail",
+  "description": "v2 ปฏิทิน G-4/G-3/G-2-foundation (goo): expose day-detail bottom-half fields (กอง-1 direct + กอง-2 RAW — colors Thai names, gates no level, dithi text; ตำราไม่มีเกณฑ์ = แปลง=แต่งตำรา), chips = officer + luckyDirection (raw lucky_dir, NOT a ranking of the 8 gates) with 財 cut (8 gates have no 財), and the day-detail client fetch (fetchDayDetail — TOTAL: always resolves, detail null + degraded on any failure, never throws to the anti-latch hook).",
+  "enforced_by": "scripts/day-detail-fetch.test.ts#g2-day-detail-fetch-total",
+  "date": "2026-08-05",
+  "owner": "goo",
+  "pr": 187
+}
