@@ -55,10 +55,16 @@ async function main() {
   const badgePaid = await withPage(browser, 'state=good&pay=paid', (p) => p.getByText('อัพเกรด').count())
   const badgeOk = badgeDefault === 1 && badgePaid === 0
 
-  // ── avatar: no pictureUrl → letter; pictureUrl → image (letter gone) ──
-  const avLetter = await withPage(browser, 'state=good', (p) => p.getByTestId('avatar-letter').count())
-  const avImg = await withPage(browser, 'state=good&pic=y', (p) => p.getByTestId('avatar-letter').count())
-  const avatarOk = avLetter === 1 && avImg === 0
+  // ── avatar: no pictureUrl → MASCOT; pictureUrl → the photo (mascot gone) ──
+  // WAS "no pictureUrl → letter". ฟีม 2026-08-06 (ทาง ข) deleted the initial: it is what rendered a literal
+  // "F" on every screen that never passed a name. Same question, new fallback.
+  // ⚠️ UNVERIFIED EDIT, said plainly: this file cannot run right now — it times out waiting for
+  // `greeting-name` on home-preview, and it does so on a CLEAN branch too, so the breakage predates this
+  // change and repairing it is not this PR's job. The edit is mechanical and mirrors the identical change in
+  // run-shared-topbar.ts, which DOES run and passes. Do not read it as tested.
+  const avMascot = await withPage(browser, 'state=good', (p) => p.getByTestId('avatar-mascot').count())
+  const avPhoto = await withPage(browser, 'state=good&pic=y', (p) => p.getByTestId('avatar-mascot').count())
+  const avatarOk = avMascot === 1 && avPhoto === 0
 
   // ── bell → the FULL notifications page (ฟีม 2026-07-29: modal PARKED, full page is the designed screen;
   //     home bell was a <button> opening NotificationPanel, now a shared-TopBarBell <a> → the page) ──
@@ -82,7 +88,7 @@ async function main() {
   console.log(`  name @320 (long): lines=${long320.g.lines} hClipped=${long320.g.hClipped} vClamped=${long320.g.vClamped} overflowX=${long320.overflowX} fullText=${long320.g.text === decoded}`)
   console.log(line(nameOk, 'name wraps ≤2 lines, full text, NOT truncated, no overflowX @320 (THE fix)'))
   console.log(line(badgeOk, `badge shows on default (${badgeDefault}) + hidden when paid (${badgePaid})`))
-  console.log(line(avatarOk, `avatar letter without pictureUrl (${avLetter}) + image with it (letter gone: ${avImg})`))
+  console.log(line(avatarOk, `avatar letter without pictureUrl (${avMascot}) + image with it (letter gone: ${avPhoto})`))
   console.log(line(bellOk, `bell → full page: <${bell.tag}> href=${bell.href}`))
   console.log('  ── teeth ──')
   console.log(teeth(truncateCaught, 'mut-name-truncate: re-add single-line truncate @320 → long name clips'))

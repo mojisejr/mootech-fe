@@ -1,0 +1,57 @@
+# avatar เลิกโชว์ "F" — รูปจริง → มาสคอต (ทาง ข ของฟีม)
+
+**มุน 2026-08-06** · branch `fix/avatar-mascot-fallback` (ต่อจาก goo `504497f`) · base `bcfadcf`
+
+## ภาพ route จริง @393 ก่อน/หลัง
+`harness/out/av-before-*.png` · `av-after-*.png` — 5 หน้า + 2 สถานะรูป
+
+## ผลดิบ — **บั๊กอยู่ในภาพ "ก่อน" ชัดๆ**
+```
+                 ก่อน                       หลัง
+home-preview     letter "ม"                 มาสคอต painted
+calendar         letter "F"   🔴            มาสคอต painted
+day              letter "F"   🔴            มาสคอต painted
+notifications    letter "F"   🔴            มาสคอต painted
+service          letter "F"   🔴            มาสคอต painted
+photo-ok         รูปจริง 01.png              รูปจริง 01.png      ← home ไม่ regress
+photo-404        letter 🔴                  มาสคอต painted      ← 404 ตกมาที่มาสคอต ไม่ใช่รูปแตก
+```
+**❌ ไม่มี "F" เหลือที่ไหนเลย ทุกสถานะ** · `avatar-letter` ถูกลบทั้ง testid และตัวอักษร
+
+## 🔴 การยิงเน็ตเพิ่ม = 0
+`01-nav.png` (63 KB) **ถูกโหลดอยู่แล้วโดย `MateAIButton`** ⇒ ไม่มีคำขอใหม่เกิดขึ้นเพราะ avatar
+เลือก `01-nav` ไม่ใช่ `01.png` เพราะ **มันคืออาร์ตเดียวกันคนละความละเอียด** — `01.png` = 1.4 MB (22 เท่า) สำหรับวงกลม 40px ที่มองไม่เห็นความต่าง
+
+## proof-of-teeth
+**ไม่เพิ่มด่านใหม่** ตามคำสั่งฟีม · แต่ 2 ด่านเดิมยึด `avatar-letter` อยู่ ⇒ **retarget ไม่ใช่ลบ**
+
+| ด่าน | เดิมถาม | ตอนนี้ถาม | สถานะ |
+|---|---|---|---|
+| `run-shared-topbar` #3 | "fallback เป็น **ตัวอักษร**" | "fallback เป็น**มาสคอต** และ**ไม่มีตัวอักษร**" | ✅ รันแล้วผ่าน |
+| `run-header-structure` | "ไม่มีรูป → letter 1 ตัว" | "ไม่มีรูป → มาสคอต 1 ตัว" | ⚠️ **แก้แล้วแต่รันไม่ได้** (ดูข้อ 3) |
+
+🔴 **และด่าน `run-shared-topbar` จับบั๊กจริงของผมได้ 1 ตัว** — ดูข้อ 1
+
+ANCHOR: harness/capture-coming-soon.ts#coming-soon-toast
+
+## adversary sign-off
+
+1. **🔴 ผมทำ SSR พังเอง และด่านเก่าเป็นคนจับ** — `useMemberIdentity()` เรียก `useCookies` ⇒ **โยน `Missing <CookiesProvider>`** เมื่อ `TopBarAvatar` ถูกเรนเดอร์เดี่ยวๆ ผ่าน `renderToStaticMarkup`
+   **พิสูจน์ว่าเป็นของผม**: stash แล้วรันบนกิ่งสะอาด ⇒ **ด่านนี้เขียว** ⇒ **ผมทำพัง ไม่ใช่ของเดิม**
+   ⇒ แก้โดยให้การเรนเดอร์เดี่ยว**ห่อ `CookiesProvider` เหมือนที่ `_app.tsx` ห่อทุกหน้า** — ทำให้ฮาร์เนสเหมือน production ไม่ใช่ทดสอบสภาพที่ผู้ใช้ไม่มีวันเจอ
+   ⚠️ **ข้อจำกัดที่ตามมา ผมบอกเอง**: `TopBarAvatar` **ต้องมี `CookiesProvider` ถึงจะเรนเดอร์ได้** ทุกหน้าใน app มีอยู่แล้ว (`_app.tsx` ห่อ `<Component>`) แต่การเรนเดอร์นอก app จะ throw · `react-cookie` ❌ ไม่ export `CookiesContext` ⇒ ทำ graceful degrade ไม่ได้สะอาดโดยไม่รื้อ hook ของ goo ⇒ **จดเป็นหนี้ ไม่รื้อท้ายวัน**
+
+2. **🔴 ค่าครอบที่วัดนอก component ใช้ไม่ได้ตรงๆ** — prototype ให้ `-30%` แต่ในของจริง `absolute` ไม่มี `top/left` ⇒ ยึดตำแหน่ง static ในพาเรนต์ที่ `place-items-center` ⇒ **หัวโดนตัด**
+   ⇒ ปัก `left-0 top-0` แล้ว**วัดใหม่ในของจริง**: ลอง −30 / −18 / −12 **ดูทั้งสามที่ขนาดจริง** ⇒ −18 ได้ตา ปาก และหมวกครบ
+   ⇒ **ค่าที่วัดในกล่องทดลอง ไม่ใช่ค่าที่ใช้ได้ในกล่องจริง** — ต้องวัดซ้ำที่ปลายทางเสมอ
+
+3. **`run-header-structure` แก้แล้วแต่รันไม่ได้ — และผมไม่อ้างว่าทดสอบแล้ว**
+   มัน timeout ที่ `greeting-name` **ทั้งบนกิ่งผมและกิ่งสะอาด** ⇒ **พังอยู่ก่อน ไม่ใช่รัศมีระเบิดผม** ⇒ ไม่ซ่อมในใบนี้
+   ⇒ แก้ assertion แบบกลไกให้ตรงกับตัวที่รันได้ (`run-shared-topbar`) + **เขียนกำกับในไฟล์ว่ายังไม่ได้ทดสอบ**
+
+4. **ถอน `enforced_by` 3 entry** (บองสั่ง) — `greeting-name-truncation` · `home-bell-fullpage-not-modal` · `shared-topbar-extract-no-consumer-drift`
+   ⇒ ต่อ CI หรือถอนคำโฆษณา **เลือกอย่างใดอย่างหนึ่ง** · ใบนี้ไม่ต่อ CI (ยกไปก้อนจัดบ้านด่าน) ⇒ **ถอน**
+
+5. **`avatar-static` คงไว้ตามที่รับปาก** — `capture-coming-soon` **อยู่ใน CI** ⇒ ถ้าหายคือ CI แดง ⇒ **รันแล้ว 22/22 ผ่าน**
+
+6. **ยังไม่ครอบ (A2)** — ทดสอบผ่าน `home-preview` ไม่ใช่ `/v2` ตัวจริง (ต้องมี session) · ไม่ได้ทดสอบ cookie จริงจาก LINE/Google login (ใช้ prop + 404 แทน) · ไม่ได้วัด CLS เป็นตัวเลข
