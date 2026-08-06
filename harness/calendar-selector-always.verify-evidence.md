@@ -109,9 +109,20 @@ AFTER    200 เฟรม · แถบ หายไป  0 เฟรม
 > *ขั้นที่ตัดสินคุณภาพ* ล้ม ⇒ **ต้องอ่าน `gh run list --branch` ว่ามี run ไหม แล้วอ่าน log ว่าขั้นไหนแดง**
 >
 > ⇒ ผลด่านทุกบรรทัดข้างล่างคือ 🖐️ **รันมือ บน production build + `npx next start` :3142** — ยังคงเป็นแบบนั้น
-> ⇒ **6 assertion ที่ผมเติม ยังไม่เคยรันใน CI ตอนที่เขียนบรรทัดนี้** (คอมมิตนี้สร้าง SHA ใหม่เพื่อให้ด่านได้วิ่ง
->    เป็นครั้งแรก — #194 ไม่มี check-suite ที่ `6ab5d26` เพราะตอน push อยู่ในช่วงโควตาตัน และการปิด-เปิด PR
->    ไม่สร้างย้อนหลังให้)
+> ⇒ **6 assertion ที่ผมเติม ยังไม่เคยรันใน CI ตอนที่เขียนบรรทัดนี้**
+>
+> 📌 **SHA ใหม่อย่างเดียวไม่พอ — ผมเดาผิด และวัดแล้วเห็น** คอมมิตก่อนหน้า (`e710b7a`) push ขึ้นไปหลังล้าง
+> artifact แล้ว โดยคิดว่าจะได้ด่านทันที ผลจริงจาก `gh api .../commits/<sha>/check-suites`:
+> ```
+> e710b7a (#194)  total=5   vercel · payload-cms · netlify · cursor · expo   ❌ ไม่มี github-actions เลย
+> f673782 (#195)  total=8   ...เหมือนกัน + github-actions × 2                ✅
+> ```
+> ⇒ ไม่ใช่เรื่อง path filter (ทั้ง 3 workflow เป็น `on: pull_request` ล้วน · `design-verify` มี
+> `paths: harness/**` ซึ่งไฟล์นี้เข้าเงื่อนไข) และไม่ใช่ PR ปิดอยู่ (state=OPEN, ไม่ใช่ draft)
+> ⇒ ตอน push นั้น PR อ่านค่าได้ `mergeable=UNKNOWN` — GitHub ยังคำนวณ merge commit ไม่เสร็จ และ
+> workflow แบบ `pull_request` เช็คเอาต์ `refs/pull/N/merge` จึงเริ่มไม่ได้ · ตอนนี้เป็น `MERGEABLE/CLEAN` แล้ว
+> ⇒ **"push แล้วต้องได้ด่าน" เป็นสมมติฐาน ไม่ใช่ข้อเท็จจริง** — ยืนยันด้วย `check-suites` ว่ามี
+> `github-actions` จริงไหม อย่าอ่านจากการที่ Vercel เด้ง (Vercel มาจาก integration คนละทางกับ Actions)
 
 ```
 run.ts               exit=0   🟢 GATE PASSED
