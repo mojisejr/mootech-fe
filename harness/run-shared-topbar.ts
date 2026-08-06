@@ -24,10 +24,15 @@
 import { chromium, type Page, type BrowserContext } from 'playwright'
 import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
+import { CookiesProvider } from 'react-cookie'
 import * as fs from 'fs'
 import * as path from 'path'
 import { TopBarBell } from '../features/v2-shell/components/TopBarBell'
 import { TopBarAvatar } from '../features/v2-shell/components/TopBarAvatar'
+// TopBarAvatar reads the login cookies now (ทาง ข: real photo → mascot, no letter), so an isolated render
+// has to mount the same provider the app mounts in pages/_app.tsx. Without it react-cookie throws and this
+// gate CRASHED rather than failing — which is how it reported nothing at all. Wrapping here makes the
+// isolated render match production instead of testing an environment no user is ever in.
 
 const HOST = process.env.CAPTURE_HOST ?? 'http://localhost:3012'
 function readPasskey(): string {
@@ -53,14 +58,20 @@ async function main() {
   const bellSolidUnread = renderToStaticMarkup(createElement(TopBarBell, { variant: 'solid', onClick: noop, hasUnread: true }))
   const bellSolidHref = renderToStaticMarkup(createElement(TopBarBell, { variant: 'solid', href: '/x' }))
   const bellMateHref = renderToStaticMarkup(createElement(TopBarBell, { variant: 'mate', href: '/n' }))
-  const avSapphire = renderToStaticMarkup(createElement(TopBarAvatar, { variant: 'sapphire', name: 'มิลา', onClick: noop }))
-  const avMate = renderToStaticMarkup(createElement(TopBarAvatar, { variant: 'mate' }))
+  const avSapphire = renderToStaticMarkup(createElement(CookiesProvider, null, createElement(TopBarAvatar, { variant: 'sapphire', name: 'มิลา', onClick: noop })))
+  const avMate = renderToStaticMarkup(createElement(CookiesProvider, null, createElement(TopBarAvatar, { variant: 'mate' })))
 
   check('#1a bell solid+onClick → <button>, cyan skin, glyph-A, no unread', bellSolidBtn.includes('<button') && bellSolidBtn.includes('bg-v3-cyan') && bellSolidBtn.includes('M18 8A6') && !bellSolidBtn.includes('unread-dot'))
   check('#1a+ bell solid+hasUnread → unread-dot present', bellSolidUnread.includes('unread-dot'))
   check('#1b bell solid+href → <a> (Link), href="/x", NOT a <button>', bellSolidHref.includes('<a') && bellSolidHref.includes('href="/x"') && !bellSolidHref.includes('<button'))
   check('#2-mate bell mate+href → gradient skin, lime, glyph-B, <a>', bellMateHref.includes('from-v3-mate-teal') && bellMateHref.includes('text-v3-lime') && bellMateHref.includes('M12 3.5a5') && bellMateHref.includes('<a'))
-  check('#3 avatar sapphire → <button>, sapphire, letter fallback', avSapphire.includes('<button') && avSapphire.includes('bg-v3-sapphire') && avSapphire.includes('avatar-letter'))
+  // WAS "letter fallback" and asserted the literal string 'avatar-letter'. ฟีม 2026-08-06 (ทาง ข) deleted
+  // the initial — it is what produced the "F" on every screen that never passed a name. The question this
+  // check exists to ask is unchanged (does the shared avatar render its own fallback, in the right skin,
+  // as the right element?); only the fallback changed from a glyph to the mascot.
+  check('#3 avatar sapphire → <button>, sapphire, mascot fallback (no letter)',
+    avSapphire.includes('<button') && avSapphire.includes('bg-v3-sapphire')
+    && avSapphire.includes('avatar-mascot') && !avSapphire.includes('avatar-letter'))
   check('#4 avatar mate → decorative <span aria-hidden>, gradient, NOT a <button>', avMate.includes('<span') && avMate.includes('aria-hidden') && avMate.includes('from-v3-pastel-blue') && !avMate.includes('<button'))
 
   const browser = await chromium.launch()
