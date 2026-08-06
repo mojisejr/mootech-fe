@@ -77,38 +77,20 @@ export const DIR_CELL: Record<Direction, Cell> = {
  * bazi-testenv/src/lib/bazi/data/almanac/day-month-table.json stores gate rows as [glyph, direction] pairs
  * and the direction is a SHORT COMPASS CODE —
  *     [["開","NE"],["休","E"],["生","SE"],["傷","S"],["杜","SW"],["景","W"],["死","NW"],["驚","N"]]
- * Across all 212 rows in that table: 209 carry exactly the 8 codes, 8 distinct, ZERO rows repeat a
- * direction. (The other 3 hold 八神 keywords where directions should be — a known column-shift the engine
- * already guards at almanac-engine.ts:356 by falling back to day-pillar-table.)
+ * Across all 212 rows: 209 carry exactly the 8 codes, 8 distinct, ZERO rows repeat a direction. (The other
+ * 3 hold 八神 keywords where directions should be — a column-shift the engine already guards at
+ * almanac-engine.ts:356.) `lucky_dir` is its own shape: 'ทิศ ' + the same short code ('ทิศ SE', 'ทิศ N').
  *
- * So the real wire speaks short codes. Thai phrases are read too, because features/v2-calendar/fixtures.ts
- * sends 'ทิศตะวันออกเฉียงเหนือ' — the FIXTURE disagrees with the backend it stands in for. That is the
- * mock-data trap in the open: a parser written against either vocabulary alone would silently place nothing
- * the day it met the other one. Both are read; anything else is refused and surfaced.
- *
- * Longest-first matters: 'ตะวันออกเฉียงเหนือ' contains 'ตะวันออก', so a prefix match would read NE as E.
- * Exact keys avoid that entirely.
- */
-const THAI_DIRECTION: Record<string, Direction> = {
-  เหนือ: 'N',
-  ใต้: 'S',
-  ตะวันออก: 'E',
-  ตะวันตก: 'W',
-  ตะวันออกเฉียงเหนือ: 'NE',
-  ตะวันออกเฉียงใต้: 'SE',
-  ตะวันตกเฉียงเหนือ: 'NW',
-  ตะวันตกเฉียงใต้: 'SW',
-}
-
-/**
- * Read a wire direction in either vocabulary, and REFUSE everything else instead of guessing — an
- * unrecognised direction must become a visible gap, never a gate quietly placed somewhere plausible.
+ * TWO FORMS ARE ACCEPTED, AND ONLY TWO — because only two have a real producer. An earlier version also
+ * read full Thai phrases ('ทิศตะวันออกเฉียงเหนือ'), which appear in exactly three places in this repo and
+ * all three are FAKE (the fixture and two tests, now repaired). ตู๋'s objection is the same family we spent
+ * the day killing: a parser branch with no producer does not add tolerance, it converts a LOUD failure into
+ * a SILENT pass, so bad fake data sails through and nothing ever tells us the branch is dead.
  */
 export function normalizeDirection(raw: string | null | undefined): Direction | null {
   if (typeof raw !== 'string') return null
-  const s = raw.trim().replace(/^ทิศ\s*/, '').replace(/\s+/g, '')
-  if (THAI_DIRECTION[s]) return THAI_DIRECTION[s]
-  const up = s.toUpperCase()
+  // strips the 'ทิศ ' that lucky_dir carries; gates[].direction has no prefix. Nothing else is tolerated.
+  const up = raw.trim().replace(/^ทิศ\s*/, '').replace(/\s+/g, '').toUpperCase()
   return (DIRECTIONS as readonly string[]).includes(up) ? (up as Direction) : null
 }
 

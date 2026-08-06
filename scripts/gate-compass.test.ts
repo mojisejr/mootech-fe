@@ -119,20 +119,17 @@ console.log('\n— direction parsing: forgiving about spelling, strict about mea
 ok('"NW" reads as NW', normalizeDirection('NW') === 'NW')
 ok('"ทิศ NW" reads as NW (the wire has used this prefix)', normalizeDirection('ทิศ NW') === 'NW')
 ok('" nw " reads as NW', normalizeDirection(' nw ') === 'NW')
-// the Thai vocabulary the FIXTURE actually uses. Without these, a real payload spelled this way would put
-// every gate in `unplaced` and the board would be empty — the mock-data trap, asserted rather than assumed.
-ok('"ทิศเหนือ" reads as N', normalizeDirection('ทิศเหนือ') === 'N')
-ok('"ทิศใต้" reads as S', normalizeDirection('ทิศใต้') === 'S')
-ok('"ทิศตะวันออก" reads as E', normalizeDirection('ทิศตะวันออก') === 'E')
-ok('"ทิศตะวันตก" reads as W', normalizeDirection('ทิศตะวันตก') === 'W')
-// the four compound points are the ones a prefix match gets WRONG — NE would read as E
-ok('"ทิศตะวันออกเฉียงเหนือ" reads as NE, not E', normalizeDirection('ทิศตะวันออกเฉียงเหนือ') === 'NE')
-ok('"ทิศตะวันออกเฉียงใต้" reads as SE, not E', normalizeDirection('ทิศตะวันออกเฉียงใต้') === 'SE')
-ok('"ทิศตะวันตกเฉียงเหนือ" reads as NW, not W', normalizeDirection('ทิศตะวันตกเฉียงเหนือ') === 'NW')
-ok('"ทิศตะวันตกเฉียงใต้" reads as SW, not W', normalizeDirection('ทิศตะวันตกเฉียงใต้') === 'SW')
-// every Thai name maps to a DIFFERENT point — a table that collapsed two of them would still "work"
-ok('the 8 Thai names map to 8 distinct points',
-  new Set(['ทิศเหนือ', 'ทิศใต้', 'ทิศตะวันออก', 'ทิศตะวันตก', 'ทิศตะวันออกเฉียงเหนือ', 'ทิศตะวันออกเฉียงใต้', 'ทิศตะวันตกเฉียงเหนือ', 'ทิศตะวันตกเฉียงใต้'].map((t) => normalizeDirection(t))).size === 8)
+// The wire has exactly TWO producers, so exactly two forms are accepted:
+//   gates[].direction  → 'NE'        (bare short code)
+//   luckyDirection     → 'ทิศ SE'    (same code, 'ทิศ ' prefix)
+ok('"ทิศ SE" reads as SE (lucky_dir\'s shape)', normalizeDirection('ทิศ SE') === 'SE')
+ok('"ทิศ N" reads as N', normalizeDirection('ทิศ N') === 'N')
+// Full Thai phrases are REFUSED on purpose. They exist in this repo only as fake fixture/test values, and
+// a parser branch with no producer turns a loud failure into a silent pass — ตู๋ 2026-08-06. If the backend
+// ever starts emitting them, these assertions are what forces the change to be made deliberately.
+for (const thaiLong of ['ทิศตะวันออก', 'ทิศเหนือ', 'ทิศตะวันออกเฉียงเหนือ', 'ทิศตะวันตกเฉียงใต้']) {
+  ok(`"${thaiLong}" is REFUSED (no real producer emits it)`, normalizeDirection(thaiLong) === null)
+}
 for (const junk of ['', 'C', 'CENTRE', 'NNW', '財', 'up', null, undefined]) {
   ok(`${JSON.stringify(junk)} is refused rather than guessed`, normalizeDirection(junk as string) === null)
 }

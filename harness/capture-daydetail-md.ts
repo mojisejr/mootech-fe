@@ -8,11 +8,9 @@
 //
 // Two boards are captured on purpose:
 //   complete — the 8 distinct compass directions a real man-vs-day payload sends
-//   partial  — a board that CANNOT be filled, because two gates claim the same direction. This was
-//              features/v2-calendar/fixtures.ts verbatim until this PR repaired it; the payload is kept
-//              exactly as it was so the screen's behaviour on a broken board stays photographed. The
-//              backend's own table has no such row (209/209 are 8-distinct), but the screen must not
-//              quietly show seven squares if one ever arrives.
+//   partial  — a board that CANNOT be filled, because two gates claim the same direction. The backend's
+//              own table has no such row (209/209 are 8-distinct), but fixtures.ts shipped one until this
+//              PR, so the screen must not quietly show seven squares if one ever arrives.
 //
 //   npx tsx --tsconfig harness/tsconfig.json harness/capture-daydetail-md.ts   (dev server up)
 import { chromium, type Browser } from 'playwright'
@@ -43,16 +41,18 @@ const GATES_COMPLETE = [
   { name: '杜', direction: 'N', meaning: 'อุดตัน' }, { name: '景', direction: 'NE', meaning: 'เสน่ห์' },
   { name: '死', direction: 'E', meaning: 'ตาย' }, { name: '驚', direction: 'SE', meaning: 'กลัว' },
 ]
-// what fixtures.ts shipped before this PR — ทิศตะวันออก twice, ทิศตะวันตกเฉียงเหนือ missing entirely
+// a board that CANNOT be filled: 死 repeats 開's direction and NW is therefore absent. Uses the REAL
+// vocabulary (short codes) — the earlier version used full Thai phrases, which the parser no longer reads
+// at all, so it would have proved "8 unreadable" rather than "two gates fought over one square".
 const GATES_PARTIAL = [
-  { name: '開', direction: 'ทิศตะวันออก', meaning: 'เปิดโอกาส เริ่มต้น' },
-  { name: '休', direction: 'ทิศเหนือ', meaning: 'พักผ่อน สงบ' },
-  { name: '生', direction: 'ทิศตะวันออกเฉียงเหนือ', meaning: 'เติบโต งอกงาม' },
-  { name: '傷', direction: 'ทิศตะวันออก', meaning: 'บาดเจ็บ ระวังของมีคม' },
-  { name: '杜', direction: 'ทิศตะวันออกเฉียงใต้', meaning: 'ปิดกั้น อุดตัน' },
-  { name: '景', direction: 'ทิศใต้', meaning: 'แสงสว่าง ชื่อเสียง' },
-  { name: '死', direction: 'ทิศตะวันตกเฉียงใต้', meaning: 'จบสิ้น หยุดนิ่ง' },
-  { name: '驚', direction: 'ทิศตะวันตก', meaning: 'ตื่นตระหนก เรื่องไม่คาดฝัน' },
+  { name: '開', direction: 'NE', meaning: 'เปิด' },
+  { name: '休', direction: 'E', meaning: 'พักผ่อน' },
+  { name: '生', direction: 'SE', meaning: 'เกิด' },
+  { name: '傷', direction: 'S', meaning: 'บาดเจ็บ' },
+  { name: '杜', direction: 'SW', meaning: 'อุดตัน' },
+  { name: '景', direction: 'W', meaning: 'เสน่ห์' },
+  { name: '死', direction: 'NE', meaning: 'ตาย' },
+  { name: '驚', direction: 'N', meaning: 'กลัว' },
 ]
 
 function libDetail(date: string, gates: typeof GATES_COMPLETE) {
