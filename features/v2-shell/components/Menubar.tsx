@@ -108,12 +108,25 @@ export function Menubar({ state = 'default', ctaLabel, onCta }: {
       ) : (
         // states 2/3 — a sapphire CTA filling the left slot. The label NEVER truncates: it shrinks and wraps
         // (up to 2 balanced lines) so "เพื่อแจ้งเตือน" stays whole even at 320.
+        // `??` does not catch '' — and the day-detail loading screen passes exactly that with a no-op
+        // handler, so the screen showed a full-width sapphire pill with NO LABEL that ate every tap. Not a
+        // "coming soon" case: the action is real and merely not ready for a few hundred ms, so it says so
+        // and refuses the press instead of pretending to accept it. (ฟีม 2026-08-06, one of the five.)
+        //
+        // '' and undefined mean DIFFERENT things and the first version of this conflated them: `!ctaLabel`
+        // also caught undefined, which is how /v2/calendar/notifications (state 'saved', no label passed)
+        // would have lost "✓ คุณบันทึกลงปฏิทินแล้ว" and shown a disabled "กำลังโหลด…" instead. Explicit ''
+        // is the loading signal; absent still means "use the default for this state".
         <button
           type="button"
           onClick={onCta}
-          className="flex h-[70px] min-w-0 flex-1 items-center justify-center rounded-2xl bg-v3-sapphire px-4 text-center text-sm font-bold leading-tight text-white [text-wrap:balance]"
+          disabled={ctaLabel === ''}
+          aria-busy={ctaLabel === '' || undefined}
+          className="flex h-[70px] min-w-0 flex-1 items-center justify-center rounded-2xl bg-v3-sapphire px-4 text-center text-sm font-bold leading-tight text-white [text-wrap:balance] disabled:opacity-60"
         >
-          {state === 'saved' ? `✓ ${ctaLabel ?? 'คุณบันทึกลงปฏิทินแล้ว'}` : (ctaLabel ?? 'เพิ่มลงปฏิทิน เพื่อแจ้งเตือน')}
+          {ctaLabel === ''
+            ? 'กำลังโหลด…'
+            : state === 'saved' ? `✓ ${ctaLabel ?? 'คุณบันทึกลงปฏิทินแล้ว'}` : (ctaLabel ?? 'เพิ่มลงปฏิทิน เพื่อแจ้งเตือน')}
         </button>
       )}
       <MateAIButton />

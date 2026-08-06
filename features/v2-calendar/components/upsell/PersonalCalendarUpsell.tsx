@@ -12,6 +12,7 @@
 // navigate to. Same call as the อัพเกรด pill in AppHeader — a control that looks pressable and does nothing
 // is worse than one that never invited the press. Logged as A2; turning it into a Link is a one-line change.
 import Image from 'next/image'
+import { ComingSoonAction } from '@/features/v2-shell/components/ComingSoon'
 import { percentText } from '../percent-display'
 
 // Figma places six decorations on the card. Positions here are the LEAF box (Figma reports the bounding box
@@ -102,9 +103,16 @@ export function PersonalCalendarUpsell({ percent, testId = 'calendar-upsell' }: 
           </div>
         </div>
 
-        <span data-testid="calendar-upsell-cta" className="flex items-center justify-center rounded-full bg-v3-lime px-6 py-2 text-[14px] font-semibold uppercase leading-5 text-v3-sapphire">
+        {/* ฟีม 2026-08-06 — the riskiest of the five: a full-width lime pill under a price line reads as
+            "pay here", so a silent tap reads as a broken checkout, not as an unbuilt feature. */}
+        <ComingSoonAction
+          testId="calendar-upsell-cta"
+          label="เปิดการใช้งานปฏิทินเฉพาะฉัน"
+          message="ระบบสมาชิกกำลังจะมา เร็วๆ นี้"
+          className="flex items-center justify-center rounded-full bg-v3-lime px-6 py-2 text-[14px] font-semibold uppercase leading-5 text-v3-sapphire"
+        >
           เปิดการใช้งานปฏิทินเฉพาะฉัน
-        </span>
+        </ComingSoonAction>
 
         <p className="w-full text-center text-[14px] font-normal leading-[22px] text-white">เริ่มต้น ฿99/เดือน · ยกเลิกได้ทุกเมื่อ</p>
       </div>
