@@ -7,7 +7,7 @@
 
 ## ผลดิบ
 ```
-harness/capture-coming-soon.ts   ✅ 14 passed, 0 failed
+harness/capture-coming-soon.ts   ✅ 17 passed, 0 failed  (บน production build ไม่มี backend)
   อัพเกรด pill : <button> · ตอบ "ระบบสมาชิกกำลังจะมา เร็วๆ นี้" · หายเอง
   avatar       : <button> · ตอบ "โปรไฟล์กำลังจะมา เร็วๆ นี้"    · หายเอง
   upsell CTA   : <button> · ตอบ "ระบบสมาชิกกำลังจะมา เร็วๆ นี้" · หายเอง
@@ -21,6 +21,18 @@ tsc ✅  ·  scripts ทั้งหมด ✅  ·  CI-parity build ✅ exit 0  
 
 ANCHOR: harness/capture-coming-soon.ts#coming-soon-toast
 
+## ✅ ต่อ `capture-coming-soon` เข้า CI (บองสั่ง — ledger เขียน LIVE ให้แล้ว)
+**พิสูจน์ CI-parity ก่อนสัญญา**: `npm run build` (env สะอาด · `V2_PREVIEW_KEY=lamun-ci-preview`) → `next start -p 3109` → **17/17 เขียว ไม่มี backend**
+
+## 🦷 negative-control ของเช็ค "toast ตัวเดียว"
+ถอด dedupe ออกแล้วรันบน production build:
+```
+✗ อัพเกรด pill  · 2 in the DOM
+✗ avatar        · 2 in the DOM
+✗ upsell CTA    · 3 in the DOM     ← หน้า day-detail มี 3 action
+```
+⇒ **เช็คนี้กัดจริง ไม่ใช่เช็คที่ผ่านเปล่า**
+
 ## adversary sign-off
 
 1. **🔴 เกือบพัง `notifications` ด้วยมือตัวเอง** — เขียน loading state เป็น `!ctaLabel` ซึ่ง**กิน `undefined` ด้วย**
@@ -29,4 +41,8 @@ ANCHOR: harness/capture-coming-soon.ts#coming-soon-toast
    *(ตระกูลเดียวกับที่ตู๋ทักในใบ 2: เงื่อนไขที่ "ดูใจกว้าง" แล้วกลืนเคสอื่นไปเงียบๆ)*
 2. **ปุ่มโหลดไม่ใช่เคส "เร็วๆ นี้"** — action มีจริง แค่ยังไม่พร้อมไม่กี่ร้อยมิลลิวินาที ⇒ **บอกตรงๆ แล้ว disabled** ไม่ใช่แกล้งรับการกด
 3. **จุดที่ 5 ตรวจแล้วไม่แตะ** — ลูกศร DayStrip ขอบเดือนเป็น `aria-hidden` + opacity 40% อยู่แล้ว = **disabled ที่ซื่อสัตย์ ไม่ใช่ปุ่มตาย**
-4. **ยังไม่ครอบ (A2)** — ไม่ได้ไล่ทั้งแอป ครอบเฉพาะ 5 จุดที่ฟีมระบุ · หน้า service/home อาจมีทรงเดียวกันอีก **ไม่อ้างว่าครอบ**
+4. **🔴 แก้สาขาเดียวของคอมโพเนนต์ที่ตัวเองแก้อยู่** — `Menubar` มีปุ่ม **2 สาขา** ผมแก้แค่สาขา primary
+   ตู๋**ไล่ทางเข้าจนเจอ ไม่ได้เดา**: เปิดวัน → เปิด save sheet → ย้ายวันขณะ sheet เปิด ⇒ **เสีย sheet แล้วได้ปุ่มน้ำเงิน 361px ตัวอักษรว่าง มาแทน ในจังหวะเดียว**
+   ⇒ แก้สาขา `form` ด้วยกฎเดียวกันแล้ว · **บทเรียน: แก้บั๊กในคอมโพเนนต์ ต้องไล่ทุกสาขา ไม่ใช่สาขาที่ตัวเองเดินผ่าน**
+   ⚠️ **เส้นทางของตู๋ยังไม่ได้ครอบด้วย capture** (ต้องเปิด sheet + ย้ายวันกลางคัน) — แก้ตามเหตุผล ไม่ได้พิสูจน์ด้วยการรัน **ไม่อ้างเกินจริง**
+5. **ยังไม่ครอบ (A2)** — ครอบเฉพาะ 5 จุดที่ฟีมระบุ · หน้า service/home อาจมีทรงเดียวกันอีก **ไม่ได้ไล่ทั้งแอป**

@@ -78,19 +78,30 @@ jobs:
           MCODE=$?
           # M-A/M-B select + body states (ตู๋ 2026-08-06): #189 shipped a ledger entry whose enforced_by
           # pointed at this file while NOTHING ran it — the ledger was promising a guard that did not exist,
-          # the same shape บอง hit in #185. Wired here rather than in its own PR so THIS run proves it green
-          # before merge. It is backend-independent by construction: every call it needs (/api/user,
-          # /api/v2/calendar-month) is stubbed via Playwright route interception, so a CI box with no bazi
-          # behind it exercises exactly what the anchor owns.
-          # run-calendar-flow.ts is deliberately NOT wired next to it: run against a dev server with no
-          # backend it goes RED at "the grid actually rendered cells — 0 cells", because the month view has
-          # been real-pipe since #186 and that anchor stubs nothing. That is the condition บอง named, so it
-          # is reported rather than forced; no ledger entry claims it, so nothing is lying meanwhile.
+          # the same shape บอง hit in #185. It is backend-independent by construction: every call it needs
+          # (/api/user, /api/v2/calendar-month) is stubbed via Playwright route interception, so a CI box
+          # with no bazi behind it exercises exactly what the anchor owns.
+          # run-calendar-flow.ts is deliberately NOT wired next to it: run against a server with no backend
+          # it goes RED at "the grid actually rendered cells — 0 cells", because the month view has been
+          # real-pipe since #186 and that anchor stubs nothing. Reported rather than forced; no ledger entry
+          # claims it, so nothing is lying meanwhile.
           HARNESS_HOST=http://localhost:3000 npx tsx harness/run-calendar-select.ts
           SCODE=$?
+          # coming-soon controls (บอง 2026-08-06): its ledger entry names harness/capture-coming-soon.ts as
+          # enforced_by — the third ledger in one day promising a guard nothing ran. Wired instead of
+          # un-promised because it is genuinely ready: backend-independent, and it already exits non-zero on
+          # failure. A screenshot cannot show whether a tap PRODUCES anything, which is the one thing it checks.
+          HARNESS_HOST=http://localhost:3000 npx tsx harness/capture-coming-soon.ts
+          CSCODE=$?
           kill "$SERVER" 2>/dev/null || true
-          # fail the job if ANY gate failed
-          [ "$CODE" -eq 0 ] && [ "$PCODE" -eq 0 ] && [ "$MCODE" -eq 0 ] && [ "$SCODE" -eq 0 ]
+          # Fail the job if ANY gate failed. ⚠️ #190 and #191 each extended THIS line and conflicted here.
+          # Taking one side is the fastest way through the conflict and is the bug: the dropped anchor still
+          # runs and still prints, but its exit code is discarded — a gate that looks like it bites and does
+          # not. The failure would have entered through the MERGE, not through anyone's code, and nothing we
+          # own watches that path. Team rule from it (บอง 2026-08-06): a conflict in a file carrying a
+          # pass/fail condition is resolved by reading both sides and UNIONING them, never by picking — and
+          # never in the GitHub web UI, whose result never passes through CI before it becomes the merge commit.
+          [ "$CODE" -eq 0 ] && [ "$PCODE" -eq 0 ] && [ "$MCODE" -eq 0 ] && [ "$SCODE" -eq 0 ] && [ "$CSCODE" -eq 0 ]
 
       - name: upload evidence bundle
         if: always()

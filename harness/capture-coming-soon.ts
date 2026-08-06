@@ -72,6 +72,9 @@ async function tapAndRead(page: Page, sel: string, label: string, shot?: string)
   const shown = await toast.count()
   const text = shown ? (await toast.first().textContent())?.trim() : ''
   check(`${label} answers when tapped`, shown > 0 && !!text, `"${text}"`)
+  // EXACTLY one. Two notices at identical fixed coordinates look like one to the eye and read the sentence
+  // twice to a screen reader — which is the failure this component was written to avoid (ตู๋ 2026-08-06).
+  check(`${label} produces exactly ONE notice, not one per action on the page`, shown === 1, `${shown} in the DOM`)
   if (shot) await page.screenshot({ path: `harness/out/${shot}.png` })
   // and the answer must GO AWAY on its own — a notice that sticks becomes furniture
   await page.waitForTimeout(2400)

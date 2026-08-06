@@ -14,6 +14,13 @@
 // change in every one of them, which is a lot of blast radius for a toast. Instead the toast subscribes to a
 // module-level store, and each <ComingSoonAction/> renders it, so mounting is automatic wherever an action
 // exists. The store keeps only the LATEST message so two quick taps cannot stack two toasts.
+//
+// ONE TOAST PER DOCUMENT, not one per action (ตู๋ 2026-08-06). The month screen has two actions — the
+// อัพเกรด pill and the avatar — so every action rendering its own notice meant a single tap produced TWO,
+// stacked at identical fixed coordinates. Sighted users see one and notice nothing; a screen reader reads
+// the sentence twice. That directly contradicts the reason this component exists, written six lines above:
+// a response only sighted users receive would be half the fix. So the first mounted toast CLAIMS the slot
+// and the rest render nothing; when it unmounts the claim is released and the next mount takes it.
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 
 type Listener = (msg: string | null) => void
@@ -40,15 +47,22 @@ const VISIBLE_MS = 2200
  * The notice itself. Fixed above the bottom menu, out of flow, so it cannot shift anything on the page —
  * the same reasoning as the tier spinner on the calendar screens.
  */
+let slotTaken = false
+
 function ComingSoonToast() {
   const [msg, setMsg] = useState<string | null>(current)
+  const [owns, setOwns] = useState(false)
   useEffect(() => {
+    if (slotTaken) return // another instance is already the one on screen
+    slotTaken = true
+    setOwns(true)
     listeners.add(setMsg)
     return () => {
       listeners.delete(setMsg)
+      slotTaken = false
     }
   }, [])
-  if (!msg) return null
+  if (!owns || !msg) return null
   return (
     <div
       data-testid="coming-soon-toast"

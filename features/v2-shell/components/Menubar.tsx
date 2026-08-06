@@ -69,11 +69,23 @@ export function Menubar({ state = 'default', ctaLabel, onCta }: {
   const { pathname } = useRouter()
 
   // state 4 — the save sheet: one full-width button, and deliberately NO Mate AI (Figma).
+  //
+  // Same '' vs undefined rule as the primary CTA below, and this branch needed it just as much — ตู๋ walked
+  // the route rather than guessing: open a day, open the save sheet, then move to a day that has not
+  // answered yet. The sheet disappears AND the user is left holding a 361px-wide sapphire button with no
+  // label that accepts taps and does nothing. Losing the sheet and gaining a dead control in one beat.
   if (state === 'form') {
+    const loading = ctaLabel === ''
     return (
       <nav aria-label="เมนูหลัก" className={NAV}>
-        <button type="button" onClick={onCta} className="h-[70px] w-full rounded-2xl bg-v3-sapphire text-base font-bold leading-6 text-white">
-          {ctaLabel ?? 'บันทึก'}
+        <button
+          type="button"
+          onClick={onCta}
+          disabled={loading}
+          aria-busy={loading || undefined}
+          className="h-[70px] w-full rounded-2xl bg-v3-sapphire text-base font-bold leading-6 text-white disabled:opacity-60"
+        >
+          {loading ? 'กำลังโหลด…' : (ctaLabel ?? 'บันทึก')}
         </button>
       </nav>
     )
