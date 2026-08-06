@@ -398,6 +398,12 @@ function SianSection() {
       </div>
       {/* habit-card (big blue) — shared component, now with the 3-piece cohort motion (Zone 4 + Zone 6) */}
       <HabitCard
+        // 112x120.8 keeps roughly the visual weight of the 97.94x142.46 rectangle it replaces (same area at
+        // the artwork's own 536:578 ratio) — a near-square book at the old WIDTH would have read as smaller.
+        art={{ src: '/images/v2/home/%E0%B8%A0%E0%B8%B2%E0%B8%9E%E0%B8%AB%E0%B8%99%E0%B8%B1%E0%B8%87%E0%B8%AA%E0%B8%B7%E0%B8%AD.webp', w: 112, h: 120.8 }}
+        // the card's mascots stay: the 水 printed on the cover is visibly smaller than the card's own, so the
+        // two read as foreground and background (ฟีม's call after seeing the real route).
+        smallMascotAt={{ xPct: 56, yPct: -14 }}
         title="หนังสือเล่มเดียวในโลก"
         desc={
           <>

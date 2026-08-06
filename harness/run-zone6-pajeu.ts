@@ -76,7 +76,12 @@ async function main() {
   )
   const title2LineOk = title.found && title.lines === 2
 
-  // ── asset-fidelity: both mascots paint here too (naturalWidth>0) ──
+  // ── asset-fidelity: every image in the section paints (naturalWidth>0) ──
+  // WAS "both mascots paint here too" and expected 2. ฟีม 2026-08-06 removed this card's mascots entirely
+  // (its artwork already carries a 水 at the same weight, so the pair read as one picture pasted twice) —
+  // so the count changed by DECISION, not by breakage. The bug-class is unchanged and still worth guarding:
+  // an asset that silently 404s paints nothing and no test notices. Asserted as "at least one, none broken"
+  // rather than a number that encodes a composition someone is allowed to change.
   const assets = await withSection(browser, false, (sec) =>
     sec.evaluate((s) => {
       const imgs = Array.from(s.querySelectorAll('img')) as HTMLImageElement[]
@@ -84,17 +89,20 @@ async function main() {
       return { total: imgs.length, broken }
     }),
   )
-  const assetsOk = assets.broken.length === 0 && assets.total >= 2 // mascot-sian + mascot-leaf
+  const assetsOk = assets.broken.length === 0 && assets.total >= 1 // ≥1 and none broken — the count is a composition choice, the 404 is the bug
 
-  // ── motion-in-context: the shared cohort motion ACTUALLY attaches in THIS section (reuse is live) ──
+  // ── motion-in-context: the section's motion ACTUALLY attaches here (the reuse is live, not decorative) ──
+  // WAS the 3-piece cohort. With the mascots gone this card animates ONE element — the artwork's float
+  // (.hc-float, which replaced .hc-frame's tilt because both illustrations arrive with their own angle).
+  // Checking "every animated element present in this section is running" keeps the original question —
+  // is the shared motion alive HERE — without hard-coding how many pieces the composition happens to have.
   const motion = await withSection(browser, false, (sec) =>
-    sec.evaluate((s) => ['.hc-big', '.hc-small', '.hc-frame'].map((cls) => {
-      const el = s.querySelector(cls) as HTMLElement | null
-      const a = el ? el.getAnimations()[0] : null
-      return el ? (a ? a.playState === 'running' : false) : false
-    })),
+    sec.evaluate((s) => {
+      const els = Array.from(s.querySelectorAll('.hc-big, .hc-small, .hc-frame, .hc-float')) as HTMLElement[]
+      return els.map((el) => { const a = el.getAnimations()[0]; return a ? a.playState === 'running' : false })
+    }),
   )
-  const motionOk = motion.length === 3 && motion.every(Boolean)
+  const motionOk = motion.length >= 1 && motion.every(Boolean) // whatever animates here must actually be running
 
   // ── no-overflow-x at the three burned widths ──
   const overflow: Record<number, boolean> = {}
@@ -132,7 +140,7 @@ async function main() {
   console.log(line(noCardRowOk, `no-3-card-row: 0 pastel-blue cards in section (Zone 4 has 3)  [found=${cardRow}]`))
   console.log(line(title2LineOk, `title-2-line: card title wraps to 2 lines  [lines=${title.lines}]`))
   console.log(line(assetsOk, `asset-fidelity: ${assets.total} imgs paint, broken=[${assets.broken.join(', ')}]`))
-  console.log(line(motionOk, `motion-in-context: shared cohort attaches here  [big/small/frame=${motion.map((b) => (b ? '✓' : '✗')).join('')}]`))
+  console.log(line(motionOk, `motion-in-context: ${motion.length} animated element(s) running here  [${motion.map((b) => (b ? '✓' : '✗')).join('')}]`))
   console.log(line(noOverflowOk, `no-overflow-x @ 393/360/320  [${Object.entries(overflow).map(([w, o]) => `${w}:${o ? 'OVERFLOW' : 'ok'}`).join(' ')}]`))
   console.log('  ── teeth ──')
   console.log(`  ${ctaCaught ? '🦷 CAUGHT' : '✗ BLIND'}  mut-cta-filled: border removed + filled → cta-variant gate rejects`)
