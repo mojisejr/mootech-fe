@@ -36,15 +36,29 @@
 // It also explains the 180° I measured between Figma and a live payload: those two days were four rotations
 // apart, and four of eight is a half-turn. Not a mysterious mirror — one step of a wheel that turns daily.
 //
-// NOT DONE, ON PURPOSE, WITH THE CONDITION TO REVISIT (บอง 2026-08-06, after ฟีม flagged that we were
-// writing 1.7× more harness than product):
-//   • DOM-layer check (assert the glyph inside [data-dir=NW] is the NW gate) — mostly redundant now that
-//     position comes from DIR_CELL rather than source order.
+// ⚠️ WHAT IS STILL UNGUARDED, STATED PLAINLY (ตู๋ demonstrated it 2026-08-06 — do not read the green ticks
+// as coverage):
+//
+//     DELETE the two `gridRow` / `gridColumn` lines from EightGates.tsx and the board is wrong on 7 days in
+//     8 — while tsc passes, all 55 assertions here pass, every scripts test passes, and the capture log is
+//     identical to the character.
+//
+// Because this file's test reads the TABLE and the component reads the TABLE, and NOTHING checks that the
+// component still applies it. The table being correct is not the same claim as the board being correct, and
+// only the second one is what a user sees. My earlier note said "revisit if anyone touches the CSS of this
+// grid" — that was watching the wrong door: the failure path is deleting a prop in the TSX, and CSS never
+// enters it.
+//
+// NOT DONE, ON PURPOSE (บอง 2026-08-06, after ฟีม flagged that we were writing 1.7× more harness than
+// product — a deadline call, not a judgement that these are unnecessary):
+//   • DOM-layer check — render EightGates and assert the glyph inside [data-dir="NW"] sits at the NW grid
+//     coordinates. THIS is the layer that closes the hole above, and it is the cheap one.
 //   • Browser geometry check (each cell's bbox centre falls in the octant its direction names) + its
-//     mut-rtl-flip tooth — this is the only layer that would catch a CSS inversion (`direction: rtl`,
-//     `rotate(180deg)`, `order`). Nobody is adding rtl, and it has never happened here.
-//   REVISIT IF: anyone touches the CSS of this grid (writing mode, direction, order, grid-auto-flow), or a
-//   wrong-direction bug reaches a real screen. Then the geometry layer is the one to add, not more of A/B.
+//     mut-rtl-flip tooth — catches a CSS inversion (`direction: rtl`, `rotate(180deg)`, `order`), which has
+//     never happened here.
+//   REVISIT IF: anyone edits EightGates.tsx's cell placement AT ALL (the style props, the element, the
+//   grid container), or touches this grid's CSS, or a wrong-direction bug reaches a real screen. The
+//   DOM layer is the one to add first — it is what would have caught ตู๋'s two-line deletion.
 import type { DayDetailGate } from '../../types'
 
 /** The 8 compass points, in the order a reader scans the board (row-major from the top-left). */
