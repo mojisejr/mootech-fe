@@ -12,6 +12,7 @@
 // directly ("กระดิ่ง + avatar รวมเป็นแบบเดียวทั้ง app มันควรจะเป็นแบบนั้น"), so the calendar flow now renders
 // the same solid/sapphire skin as home and service. Kept, not deleted (Rule 1): it is the record of what the
 // calendar screens looked like before the unification, and re-instating it is a one-word prop change.
+import { ComingSoonAction } from './ComingSoon'
 import Image from 'next/image'
 import Link from 'next/link'
 import { useState } from 'react'
@@ -42,7 +43,16 @@ function SapphireAvatar({ name = '', pictureUrl = null, onClick, href, label = '
   // No href AND no onClick → the page has no avatar action yet (the calendar flow). ฟีม's ruling is that the
   // avatar must LOOK the same everywhere; it does not say every page must invent a menu. Render the identical
   // tile as a <span> rather than a <button> that swallows the tap — same pixels, no lie.
-  if (!onClick) return <span data-testid="avatar-static" className={cls}>{inner}</span>
+  // WAS a silent <span> (ฟีม's earlier ruling: no dead <button> that swallows the tap). ฟีม 2026-08-06
+  // superseded it — silence is honest to the markup but on a phone it is indistinguishable from broken.
+  // Same pixels, but the tap now gets an answer.
+  if (!onClick) {
+    return (
+      <ComingSoonAction testId="avatar-static" label={label} message="โปรไฟล์กำลังจะมา เร็วๆ นี้" className={cls}>
+        {inner}
+      </ComingSoonAction>
+    )
+  }
   return <button type="button" aria-label={label} onClick={onClick} className={cls}>{inner}</button>
 }
 
