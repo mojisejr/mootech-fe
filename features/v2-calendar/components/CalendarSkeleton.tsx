@@ -58,13 +58,12 @@ export function CalendarSkeleton({ state }: { state: 'loading' | 'unavailable' }
           contradicting message. A settled screen with nothing to show says so and stops drawing furniture. */}
       {loading && (
       <div className="flex flex-col gap-4 animate-pulse">
-        {/* selector bar — the real one shows a month, and showing the WRONG month (the cursor falls back to
-            the fixture constants before it resolves) would be worse than showing none */}
-        <div className="flex items-center gap-2">
-          <span className={`h-[46px] flex-1 ${BLOCK}`} />
-          <span className={`h-[46px] flex-1 ${BLOCK}`} />
-          <span className={`h-[46px] flex-1 ${BLOCK}`} />
-        </div>
+        {/* NO selector bar here any more (selector-always, 2026-08-07). It used to draw one — three 46px
+            grey blocks — because the real row was locked inside the page's ready branch and the cursor
+            could only offer a fixture month. The real row now renders in every state, above this component,
+            so a placeholder for it would stack a second bar under the first. It was also 46px against the
+            real row's 62px, i.e. the month landing swapped one for the other and moved everything below it
+            by 16px — a shift that existed only because the stand-in was hand-sized. */}
 
         {/* grid card — same padding/gaps as MonthGrid's section, six rows reserved (the maximum a month
             occupies) because the real count is not knowable until the month lands */}

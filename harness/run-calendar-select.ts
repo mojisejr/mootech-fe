@@ -124,6 +124,21 @@ async function main() {
     const anims = await page.$eval('[data-testid="calendar-skeleton"] .animate-pulse', (el) => el.getAnimations().length)
     await page.screenshot({ path: 'harness/out/calendar-state-loading-393.png' })
     check('the loading skeleton pulses (the animation is the claim work is in flight)', anims > 0, `${anims} animations`)
+    // selector-always (2026-08-07) — added to THIS anchor rather than a new one, because it already opens
+    // exactly the states the claim is about. The row used to live inside the page's `ready` branch, so it
+    // vanished while the month was in flight, taking วันนี้/เดือน/ปี with it: measured on main a4560da as
+    // absent in 5 of 6 states and gone for ~865ms on every month change.
+    check('the SELECTOR is still on screen while the month loads', (await page.locator('[data-testid="date-selector"]').count()) === 1)
+    check('and it is the real row, not a grey stand-in', (await page.locator('[data-testid="date-selector"] > button').count()) === 3)
+    // The skeleton used to draw a 46px placeholder bar of its own. It has no testid, so counting selectors
+    // cannot see it — the thing that CAN is the geometry: a leftover bar would sit between the real row and
+    // the grid card and blow the container's single 16px gap apart. Asserting the gap, not the absence.
+    const gap = await page.evaluate(() => {
+      const sel = document.querySelector('[data-testid="date-selector"]')?.getBoundingClientRect()
+      const sk = document.querySelector('[data-testid="calendar-skeleton"]')?.getBoundingClientRect()
+      return sel && sk ? Math.round(sk.top - sel.bottom) : NaN
+    })
+    check('no stand-in bar left stacked under the real one (gap is one container gap)', gap >= 0 && gap <= 20, `gap=${gap}px`)
     // 2 · SKELETON-RESOLVES — and it must END
     await page.locator('[data-testid="calendar-grid"]').waitFor({ timeout: 15000 })
     check('the skeleton is gone once the month lands', (await page.locator('[data-testid="calendar-skeleton"]').count()) === 0)
@@ -145,6 +160,17 @@ async function main() {
     const msg = await page.locator('[data-testid="calendar-unavailable"]').textContent()
     await page.screenshot({ path: 'harness/out/calendar-state-unavailable-393.png' })
     check('it says something rather than showing a silent placeholder', !!msg && msg.trim().length > 10, `"${msg?.trim().slice(0, 40)}…"`)
+    // selector-always — the settled-empty screen is the one a user cannot leave without this row: there is
+    // no month, so there is nothing else on the page to press.
+    const sel = page.locator('[data-testid="date-selector"]')
+    const selHere = (await sel.count()) === 1
+    check('the SELECTOR survives the settled-empty screen', selHere)
+    // Guarded on `selHere`: unguarded, getAttribute/isEnabled on an absent node THROW, and the anchor dies
+    // mid-run instead of reporting — proven live against mut-selector-hidden, which crashed here and
+    // swallowed the two checks below. A gate that crashes reports nothing at all; it must go red and finish.
+    check('its cursor is real, not "unknown"', selHere && (await sel.getAttribute('data-cursor')) === 'known', selHere ? String(await sel.getAttribute('data-cursor')) : 'no selector')
+    // the escape hatch has to be PRESSABLE, not merely painted — #191's bug class
+    check('วันนี้ is enabled here (the way out of a monthless screen)', selHere && (await page.locator('[data-testid="date-today"]').isEnabled()), selHere ? '' : 'no selector')
     await close()
   }
 

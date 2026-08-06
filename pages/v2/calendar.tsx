@@ -44,6 +44,7 @@ export default function V2CalendarPage() {
   // with (goPrev/goNext/goToday) — the seam stays his. React batches the functional updates, so N calls
   // land as a single render.
   const goTo = (y: number, m: number) => {
+    if (year === null || monthIndex === null) return // no cursor to step from (pre-mount); the row is disabled then
     const delta = (y - year) * 12 + (m - monthIndex)
     const step = delta > 0 ? goNext : goPrev
     for (let i = 0; i < Math.abs(delta); i++) step()
@@ -89,6 +90,15 @@ export default function V2CalendarPage() {
             both states rather than being stood in for by a grey block. */}
         {isPaid === false && <PersonalCalendarPromo />}
 
+        {/* selector-always (2026-08-07) — OUTSIDE the ready branch, and that position is the whole PR.
+            It used to live inside it, so the row of controls disappeared exactly when it was the only way
+            out: month in flight, month 500, account with no birth date. Measured on main a4560da before
+            the move — present in 1 of 6 states, and absent for 53 straight frames (~865ms, as long as the
+            fetch takes) on an ordinary month change. It survives here because it binds to goo's CURSOR
+            (year/monthIndex/goToday), which is real in every state, and never to `month`.
+            Order is unchanged: promo · selector · body — so the skeleton→ready swap below cannot move it. */}
+        <DateSelector year={year} monthIndex={monthIndex} onToday={goToday} onPick={goTo} />
+
         {/* M-A — the body is a skeleton until a month is in hand. Rendered, not merely hidden, when ready:
             the card below dereferences `cardDay` on every prop, so a `hidden` column would still evaluate
             them and crash on the very states the skeleton exists for. */}
@@ -96,8 +106,6 @@ export default function V2CalendarPage() {
 
         {viewState === 'ready' && month && cardDay && (
         <>
-        <DateSelector year={year} monthIndex={monthIndex} onToday={goToday} onPick={goTo} />
-
         <MonthGrid weeks={month.weeks} selectedDate={selectedDate} onSelect={selectDay} />
 
         {/* Figma 375:11100 — the card and its CTA are ONE card; the CTA was a separate button below it. */}
