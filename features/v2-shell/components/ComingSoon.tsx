@@ -47,19 +47,24 @@ const VISIBLE_MS = 2200
  * The notice itself. Fixed above the bottom menu, out of flow, so it cannot shift anything on the page —
  * the same reasoning as the tier spinner on the calendar screens.
  */
-let slotTaken = false
+// The claim is an ordered list rather than a boolean, so it can be HANDED OVER. ตู๋ 2026-08-06: with a
+// boolean, the owner unmounting released the flag but every survivor kept `owns === false` forever (deps
+// are []), leaving no toast at all. It was safe only because of the order things happen to mount in — safe
+// by accident is the shape we spent the day removing.
+const mounted: Array<(owns: boolean) => void> = []
+const elect = () => mounted.forEach((set, i) => set(i === 0))
 
 function ComingSoonToast() {
   const [msg, setMsg] = useState<string | null>(current)
   const [owns, setOwns] = useState(false)
   useEffect(() => {
-    if (slotTaken) return // another instance is already the one on screen
-    slotTaken = true
-    setOwns(true)
-    listeners.add(setMsg)
+    listeners.add(setMsg) // every instance listens; non-owners simply render nothing
+    mounted.push(setOwns)
+    elect()
     return () => {
       listeners.delete(setMsg)
-      slotTaken = false
+      mounted.splice(mounted.indexOf(setOwns), 1)
+      elect() // the next one in line takes over instead of the notice disappearing for good
     }
   }, [])
   if (!owns || !msg) return null
