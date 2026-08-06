@@ -7,7 +7,15 @@
 //   loading: boolean              — true while the month is not yet available.
 //   selectedDate: string | null   — the day the card follows (null before the rule resolves it post-mount).
 //   selectDay(date)               — user picks a day (grid cell → button, μุน's M-A).
-//   year · monthIndex · todayISO · goPrev · goNext · goToday — unchanged.
+//   year · monthIndex : number | null — the cursor's year/month, or `null` before the cursor resolves
+//                                    (pre-mount). NEVER a made-up month: the old `?? MOCK_YEAR/MOCK_MONTH`
+//                                    fallback (กรกฎาคม 2569) leaked as a real default (#208) — killed here so a
+//                                    not-yet-known cursor reads honestly as null. Post-mount the cursor is ALWAYS
+//                                    set (Bangkok-today or a nav), so month/year are real in EVERY data state —
+//                                    loading · fetch-failed · anon · no-birth — which is what lets μุน keep the
+//                                    [today][month][year] selector on screen always (the user's escape when a
+//                                    month fails). (seam revised with บอง 2026-08-07 — selector-always)
+//   todayISO · goPrev · goNext · goToday — unchanged (nav moves the cursor, so it works with month = null).
 //
 // CURSOR = null until mount, then Bangkok-TODAY's month (บอง's catch 2026-08-05). Resolving the current
 // month CLIENT-SIDE post-mount — the SAME fence as todayISO — is why `month` is nullable: server + first
@@ -25,7 +33,6 @@ import { useHasMounted } from '@/lib/hooks/use-has-mounted'
 import { useV2User } from '@/features/auth/hooks/useV2User'
 import { isBirthProfileComplete, userRowToFeCalcInput } from '@/lib/bazi-bridge/input'
 import type { CalendarMonth } from '../types'
-import { MOCK_YEAR, MOCK_MONTH } from '../fixtures'
 import { bangkokTodayISO, bangkokToday } from '../today'
 import { defaultSelectedDate, isSelectableDate } from './selection'
 import { assembleFeatureMonth } from './month-adapter'
@@ -38,9 +45,14 @@ export interface UseCalendarMonth {
   month: CalendarMonth | null
   /** true while the month is not yet available (before the cursor resolves; a real fetch later). */
   loading: boolean
-  /** Cursor position (falls back to the reference constant before the cursor resolves — unused then). */
-  year: number
-  monthIndex: number // 1-12
+  /**
+   * The cursor's year / month — `null` ONLY before the cursor resolves (pre-mount / SSR / first paint), so the
+   * consumer shows a neutral label until then and NEVER a made-up month (was `?? MOCK_YEAR/MOCK_MONTH` = July
+   * 2569, which leaked as a real default #208). Post-mount the cursor is always set, so these are real in EVERY
+   * data state — loading · fetch-failed · anon · no-birth — letting the [today][month][year] selector stay put.
+   */
+  year: number | null
+  monthIndex: number | null // 1-12
   /**
    * Today's ISO date (Asia/Bangkok) — `null` on the server render AND the first client paint
    * (hydration-fenced), then the real date after mount. Bind the "today" ring to this so the server
@@ -138,8 +150,8 @@ export function useCalendarMonth(): UseCalendarMonth {
   return {
     month,
     loading,
-    year: cursor?.year ?? MOCK_YEAR,
-    monthIndex: cursor?.month ?? MOCK_MONTH,
+    year: cursor?.year ?? null, // null = cursor not resolved yet (pre-mount); NEVER a made-up month (#208)
+    monthIndex: cursor?.month ?? null,
     todayISO,
     selectedDate,
     selectDay,
