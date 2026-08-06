@@ -15,8 +15,9 @@
 // in-app navigation remounts the subtree. So we gate the cookie behind a `mounted` flag: return the SSR-safe
 // value (null → mascot) on the server AND on the hydration pass so they MATCH (no mismatch), then flip after
 // mount to the real photo. Fresh load now UPGRADES mascot → photo one tick after hydration instead of being
-// stuck on the mascot. Cost accepted (ฟีม): users with a photo see a one-time mascot→photo swap on first load;
-// this hook is the floor that makes the photo appear at all — an optional per-page SSR prop (ทาง ข) can remove
+// stuck on the mascot. KNOWN trade-off (NOT yet accepted by ฟีม — ฟีม will see the swap on real screens first,
+// then decide whether to ALSO do ทาง ข): users with a photo see a one-time mascot→photo swap on first load.
+// This hook is the floor that makes the photo appear at all; the optional per-page SSR prop (ทาง ข) can remove
 // the swap later without changing this contract.
 import { useEffect, useMemo, useState } from 'react'
 import { useCookies } from 'react-cookie'
