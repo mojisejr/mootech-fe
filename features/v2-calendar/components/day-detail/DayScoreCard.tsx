@@ -34,7 +34,25 @@ export function DayScoreCard({ detail }: { detail: DayDetail }) {
     <div
       data-testid="day-score"
       className="flex flex-col items-center rounded-[20px] px-5 py-6 text-center"
-      style={{ background: 'linear-gradient(150deg, #E8F1FC 0%, #CBC8FC 48%, #FCE3FA 100%)' }}
+      style={{
+        // The background was a hand-written 3-stop linear-gradient standing in for a design nobody had
+        // opened. ฟีม: "bg ไม่เหมือน คุนน่าจะ mock มา". Reading 634:8260 with get_design_context settles
+        // what it actually is: the card carries a near-white base fill AND a raster IMAGE fill on top —
+        // sky-blue with clouds at the top-left, lavender→pink at the bottom-right, white cloud waves along
+        // the bottom, and two four-point sparkles. None of that is expressible as a gradient, which is why
+        // the gradient could only ever be "sort of like it". So it ships as the artwork it is.
+        //
+        // The source is 1122×1402 PNG / 1.26 MB. `images.unoptimized` is on, so nothing downstream will
+        // compress it — WebP q80 at full source resolution is 10.7 KB (−99.2%), measured, not assumed.
+        //
+        // COVER, not stretch: the art is portrait (0.80) and the card is landscape (~1.18), so cover crops
+        // the top clouds and bottom waves and shows the middle band — which is exactly what Figma's own
+        // `object-cover` render shows, sparkles included.
+        backgroundColor: '#F2E9FB', // the crop's mean — so a slow image never flashes white under the text
+        backgroundImage: "url('/images/v2/calendar/day-score-bg.webp')",
+        backgroundSize: 'cover',
+        backgroundPosition: 'center',
+      }}
     >
       <ScoreRing grade={detail.grade} percent={detail.percent} />
 

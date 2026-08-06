@@ -8,18 +8,33 @@
 // (AppHeader renders a <span>, not a dead button). Giving the calendar flow the real picture + a menu is a
 // data wiring job, logged as A2 — not something to fake with a placeholder that looks tappable.
 //
-// The light-blue gradient strip is this screen's own chrome and is preserved verbatim.
-// ANCHOR: inline-gradient — bug-ledger#inline-hex-gradient-tech-debt (ตู๋ · D2): multi-stop hex gradient kept
-// as-is; #C9E4F4 IS the v3-pastel-blue token value.
+// ฟีม 2026-08-07: "เอา header เหมือนปฏิทินดวงเลย" — so the light-blue gradient strip and its 20px bottom
+// corners are gone. It was this one screen's private chrome: every other v2 page (home · service · ปฏิทินดวง)
+// puts <AppHeader/> straight on the page background, and a child screen announcing itself with a different
+// coloured lid reads as a different app, not as a deeper level of the same one.
+// The ledger entry `inline-hex-gradient-tech-debt` is NOT retired by this — checked, not assumed. Its
+// `enforced_by` is pages/v2/calendar/notifications.tsx#inline-gradient, which still carries the identical
+// gradient; this file only carried a COPY of that ANCHOR comment. One of the two sites is gone, the debt
+// is not. (Reading the ledger entry is what caught it: the tidy claim "this closes the debt" was wrong.)
+//
+// What deliberately did NOT change: the back chevron (this is a child screen and must return to the month),
+// and the bell + avatar cluster, which ฟีม locked as identical app-wide on 2026-08-03.
 import { AppHeader } from '@/features/v2-shell/components/AppHeader'
 
 // `showUpgrade` is a pass-through, deliberately with no default: AppHeader's contract is that only an
 // explicit `true` renders the pill, so an unknown tier keeps it hidden rather than showing an upsell to
 // someone who may already have paid. Figma Free-2 375:11286 has the pill; Paid-2 634:8194 does not.
 export function DayHeader({ showUpgrade }: { showUpgrade?: boolean }) {
+  // No subtitle, and that is a decision rather than an omission (บอง left it to me). ปฏิทินดวง's subtitle
+  // ("ฤกษ์ดี วันมงคล ดิถีจีนรายวัน") frames a whole section. This screen is about ONE day, and that day is
+  // already stated in full 145px below — "วันนี้ · อังคารที่ 14 กรกฎาคม 2569" — bigger, next to the ring it
+  // belongs to. Repeating it in the header prints the same fact twice in one screenful, in the weaker of the
+  // two places; anything else there would be filler. One line to add back if ฟีม disagrees.
+  //
+  // `items-center` (not ปฏิทินดวง's `items-start`): that page top-aligns a two-line title block against the
+  // 40px tools. Here the left is a single line beside a 36px chevron, so centring is what keeps the chevron,
+  // the title and the bell on one optical line. Same padding as ปฏิทินดวง otherwise.
   return (
-    <div style={{ background: 'linear-gradient(105deg, #FFFFFF 40%, #C9E4F4 100%)' }} className="rounded-b-[20px]">
-      <AppHeader testId="day-header" title="รายละเอียดวัน" backHref="/v2/calendar" showUpgrade={showUpgrade} className="items-center px-4 pb-3 pt-2" />
-    </div>
+    <AppHeader testId="day-header" title="รายละเอียดวัน" backHref="/v2/calendar" showUpgrade={showUpgrade} className="items-center px-4 pb-2 pt-4" />
   )
 }
