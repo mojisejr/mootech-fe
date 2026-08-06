@@ -53,7 +53,12 @@ async function withSection<T>(
 }
 
 // the 3 cohort classes on the shared HabitCard.
-const COHORT = ['.hc-big', '.hc-small', '.hc-frame']
+// The slot's animated class depends on what fills it: '.hc-frame' tilts the CSS rectangle, '.hc-float'
+// only floats the artwork that replaced it (ฟีม 2026-08-06 — both illustrations arrive with their own
+// angle, so tilting them again reads as dropped-in). Zone 4 has artwork now, so the third member is
+// .hc-float; the check is "the slot animates", not "the slot is a rectangle".
+const SLOT = '.hc-frame, .hc-float'
+const COHORT = ['.hc-big', '.hc-small', SLOT]
 
 async function main() {
   const browser = await chromium.launch()
@@ -92,21 +97,29 @@ async function main() {
   const reducedEmptyOk = reduced.every((e) => e.len === 0)
 
   // ── rest-transform (#128 lesson, now on the SHARED card): stopping the animation is not enough — the elements
-  //    whose base flip/rotate lives on their own class (.hc-small, .hc-frame) must STILL sit at that base under
-  //    reduce (not identity). .hc-big is different BY DESIGN — its wrapper rests at identity and the flip/rotate
-  //    lives on an inner static child, so we assert THAT child keeps the orientation instead. ──
+  //    whose base flip/rotate lives on their own class must STILL sit at that base under reduce (not identity).
+  //    .hc-big is different BY DESIGN — its wrapper rests at identity and the flip/rotate lives on an inner
+  //    static child, so we assert THAT child keeps the orientation instead.
+  //    THE SLOT is now conditional (มุน 2026-08-06): .hc-frame tilts the CSS rectangle and must keep −9.154°
+  //    under reduce, but the artwork that replaced it uses .hc-float, whose correct rest state IS identity —
+  //    ฟีม's call, because both illustrations arrive with their own angle. Asserting "the slot keeps a base
+  //    transform" would now be asserting a design that was deliberately changed, so the check asks the right
+  //    question per element: a tilt-carrier must keep its tilt, a float-only element must rest flat. ──
   const rest = await withSection(browser, true, (sec) =>
     sec.evaluate((s, ident: string) => {
       const smallEl = s.querySelector('.hc-small')
-      const frameEl = s.querySelector('.hc-frame')
+      const frameEl = s.querySelector('.hc-frame') // absent when the slot holds artwork (.hc-float)
+      const floatEl = s.querySelector('.hc-float')
       const bigChildEl = s.querySelector('.hc-big > div') // the -scale-y-100 rotate static child
       const small = smallEl ? getComputedStyle(smallEl).transform : 'MISSING'
-      const frame = frameEl ? getComputedStyle(frameEl).transform : 'MISSING'
+      const frame = frameEl ? getComputedStyle(frameEl).transform : (floatEl ? getComputedStyle(floatEl).transform : 'MISSING')
       const bigChild = bigChildEl ? getComputedStyle(bigChildEl).transform : 'MISSING'
       return {
         small, frame, bigChild,
         smallOk: small !== 'none' && small !== ident && small !== 'MISSING' && small.startsWith('matrix('),
-        frameOk: frame !== 'none' && frame !== ident && frame !== 'MISSING',
+        frameOk: frameEl
+          ? frame !== 'none' && frame !== ident && frame.startsWith('matrix(')   // a tilt-carrier keeps its tilt
+          : !!floatEl && (frame === 'none' || frame === ident),                   // a float-only slot rests flat
         bigChildOk: bigChild !== 'none' && bigChild !== ident && bigChild !== 'MISSING',
       }
     }, IDENT),
@@ -174,11 +187,15 @@ async function main() {
   // mut-reduce-kills-transform: re-introduce the #128 bug on the SHARED card — force transform:none on the
   // base-carrying classes under reduce → they lose their flip/tilt → the rest-transform gate must REJECT.
   const restCaught = await withSection(browser, true, (sec, p) =>
-    p.addStyleTag({ content: `@media(prefers-reduced-motion:reduce){section .hc-small,section .hc-frame{transform:none!important}}` }).then(() =>
+    p.addStyleTag({ content: `@media(prefers-reduced-motion:reduce){section .hc-small,section .hc-frame,section .hc-float{transform:none!important}}` }).then(() =>
       sec.evaluate(() => {
-        const s = getComputedStyle(document.querySelector('.hc-small')!).transform
-        const f = getComputedStyle(document.querySelector('.hc-frame')!).transform
-        return s === 'none' || f === 'none' // base lost → caught
+        // `querySelector('.hc-frame')!` THREW here the moment Zone 4 got artwork — the probe crashed instead
+        // of failing, which is the worst way for a gate to break: it reports nothing rather than red.
+        // Only elements that actually CARRY a base transform can lose one, and .hc-float carries none by
+        // design (the artwork is not tilted), so the check reads whichever base-carrying elements exist.
+        const carriers = Array.from(document.querySelectorAll('.hc-small, .hc-frame')) as HTMLElement[]
+        if (!carriers.length) return false // nothing to lose ⇒ the mutant proves nothing ⇒ not "caught"
+        return carriers.some((el) => getComputedStyle(el).transform === 'none') // base lost → caught
       }),
     ),
   )
@@ -186,7 +203,7 @@ async function main() {
   // mut-desync: force one element to a different duration WITHOUT reduce → the cohort-sync gate must REJECT
   // (durations set gains a second value).
   const syncCaught = await withSection(browser, false, (sec, p) =>
-    p.addStyleTag({ content: `section .hc-frame{animation-duration:1.5s!important}` }).then(() =>
+    p.addStyleTag({ content: `section .hc-frame,section .hc-float{animation-duration:1.5s!important}` }).then(() =>
       sec.evaluate((s, sel) => {
         const durs = new Set(sel.map((cls) => {
           const el = s.querySelector(cls) as HTMLElement | null

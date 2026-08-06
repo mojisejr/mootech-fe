@@ -20,6 +20,14 @@ export function PajeuSection() {
       </div>
       {/* habit-card (Figma 375:14151) — shared component; title is 2 lines, CTA is tertiary. No 3-card row. */}
       <HabitCard
+        // landscape 569:436. 134px looked right in isolation and cost the CTA its single line — "ดูรายละเอียด
+        // เพิ่มเติม" wrapped, which the BEFORE shot proves it did not. 112 gives the copy back the 175px it
+        // had. The card drops its 40px left inset (no mascot overhangs it now), which is what pays for the
+        // landscape width without taking it from the text.
+        art={{ src: '/images/v2/home/%E0%B9%80%E0%B8%A3%E0%B8%B5%E0%B8%A2%E0%B8%99%E0%B8%9B%E0%B8%B2%E0%B8%88%E0%B8%B7%E0%B9%88%E0%B8%AD.webp', w: 112, h: 85.8 }}
+        // its 水 is full-body, centre-frame and nearly the same size as the card's own, which reads as the
+        // same picture pasted twice rather than as a composition (ฟีม, from the real route).
+        showMascots={false}
         title={
           <>
             เรียนปาจื่อออนไลน์
