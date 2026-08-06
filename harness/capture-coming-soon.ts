@@ -135,6 +135,76 @@ async function main() {
     await close()
   }
 
+  // ── ตู๋'s route, reproduced rather than reasoned about ──────────────────────────────────────────────
+  // He walked it and I did not: open a day, open the save sheet, then move to a day that has not answered
+  // yet. The sheet unmounts (its detail is gone) while the draft is still 'editing', so menuState stays
+  // 'form' and the [date] loading branch passes ctaLabel="" into the OTHER button branch — a 361px sapphire
+  // pill with no label that accepts taps and does nothing. I flagged in the evidence that the fix was
+  // reasoned and not run; this is that gap closed.
+  // ⚠️ HONEST LABEL: this reaches the PRIMARY branch, not the form branch. See the note at the end of the
+  // block — the checks below are real for the path they walk and prove NOTHING about ตู๋'s.
+  console.log('\n— back-navigation while a sheet is open (NOT ตู๋\'s route — see note) —')
+  {
+    const { page, close } = await open(browser)
+    const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Bangkok' }).format(new Date())
+    const [y, m, d] = today.split('-').map(Number)
+    const other = `${y}-${String(m).padStart(2, '0')}-${String(d === 1 ? 2 : d - 1).padStart(2, '0')}`
+    const detailFor = (date: string) => ({ detail: {
+      date, dayGanzhi: '己丑', overallPercent: 72, grade: 'B', verdict: 'good', summary: 'วันนี้ดวงดีมาก',
+      suitable: ['เจรจา'], avoid: ['เดินทางไกล'], insight: '', compatAreas: [], advice: [],
+      yams: [{ id: 'y1', label: 'ยามมงคล', window: '09:00-10:59' }],
+      dithi: { officer: '', officerDesc: '', jianchu: '' }, luckyDirection: '', dayDeity: '', spirits: [],
+      wanPhra: { isWanPhra: false, label: '' }, dayPillars: { day: null, month: null, year: null },
+      ownerPillars: {}, gates: [], colors: [],
+    } })
+    // today answers at once; the OTHER day hangs — that is the whole point of the route
+    await page.route((u) => isPath(u.toString(), '/api/v2/day-detail'), async (r) => {
+      const body = JSON.parse(r.request().postData() || '{}') as { date?: string }
+      if (body.date === other) await new Promise((res) => setTimeout(res, 6000))
+      await r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(detailFor(body.date ?? today)) })
+    })
+    // land on the SLOW day first so that going back lands on a page whose detail must be fetched again
+    await page.goto(`${HOST}/v2/calendar/${other}`, { waitUntil: 'domcontentloaded' })
+    await page.waitForTimeout(7000) // let the slow one settle so the forward step is clean
+    await page.goto(`${HOST}/v2/calendar/${today}`, { waitUntil: 'networkidle' })
+    await page.locator('[data-testid="day-score"]').waitFor({ timeout: 20000 })
+
+    // 1 · open the save sheet from the bottom CTA
+    await page.locator('nav button', { hasText: 'เพิ่มลงปฏิทิน' }).first().click()
+    await page.waitForTimeout(400)
+    const sheetOpen = await page.locator('[data-testid="save-sheet"]').count()
+    check('INSTRUMENT: the save sheet opened (else the route is not being walked)', sheetOpen === 1, `${sheetOpen}`)
+
+    // 2 · move to the day that will not answer.
+    // NOT by clicking the strip: the sheet's backdrop (data-testid="sheet-backdrop", inset-0) sits over it
+    // and swallows the pointer, so that path is genuinely unreachable while the sheet is open — worth
+    // recording, because it is the path I assumed ตู๋ used. What IS reachable is the phone's back button,
+    // which no backdrop can intercept: arrive at the other day first, step forward, open the sheet, go back.
+    const link = page.locator(`a[href="/v2/calendar/${other}"]`).first()
+    const reachable = await link.count()
+    check('INSTRUMENT: the other day is reachable from the strip', reachable > 0, `${reachable}`)
+    if (sheetOpen === 1 && reachable > 0) {
+      await page.goBack()
+      await page.waitForTimeout(900)
+      const blank = page.locator('nav button', { hasText: /^\s*$/ })
+      check('no blank full-width pill is left behind', (await blank.count()) === 0, `${await blank.count()} blank`)
+      const cta = page.locator('nav button', { hasText: 'กำลังโหลด' })
+      const shown = await cta.count()
+      check('the CTA says กำลังโหลด instead of showing no label', shown === 1, `${shown}`)
+      if (shown === 1) check('and it refuses the press', await cta.first().isDisabled())
+      // ⚠️ WHAT THIS DOES NOT PROVE, verified rather than assumed: I mutated the form branch (`loading =
+      // false`, mutation confirmed present in the file before running) and this block stayed 22/22 GREEN.
+      // So it never enters that branch. Going back REMOUNTS the page, useReminderDraft starts fresh, the
+      // state is no longer 'form', and what is measured here is the PRIMARY branch — already covered above.
+      // ตู๋'s route needs the draft to survive the date change, which means in-page navigation, which the
+      // sheet's own backdrop (inset-0, over the strip and the arrows) blocks for a pointer. I could not
+      // reach it and will not leave a check that cannot fail standing in for one that can. Asked ตู๋ for
+      // his exact steps; the form-branch fix is currently REASONED, not run.
+      await page.screenshot({ path: 'harness/out/coming-soon-sheet-route-393.png' })
+    }
+    await close()
+  }
+
   console.log(`\n${fail === 0 ? '✅' : '❌'} capture-coming-soon — ${pass} passed, ${fail} failed`)
   await browser.close()
   process.exit(fail === 0 ? 0 : 1)
