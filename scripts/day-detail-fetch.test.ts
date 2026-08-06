@@ -22,10 +22,10 @@ async function run() {
   let body: Record<string, unknown> = {}
   globalThis.fetch = (async (_url: string, init: { body: string }) => {
     body = JSON.parse(init.body)
-    return { ok: true, json: async () => ({ detail: { date: '2026-08-05', luckyDirection: 'ทิศตะวันออก' }, cached: false }) }
+    return { ok: true, json: async () => ({ detail: { date: '2026-08-05', luckyDirection: 'ทิศ E' }, cached: false }) }
   }) as unknown as typeof fetch
   const okRes = await fetchDayDetail(person, 'user-1', '2026-08-05')
-  ok('success parses detail', okRes.detail?.date === '2026-08-05' && okRes.detail?.luckyDirection === 'ทิศตะวันออก')
+  ok('success parses detail', okRes.detail?.date === '2026-08-05' && okRes.detail?.luckyDirection === 'ทิศ E')
   ok('sends person+userId+date in body', body.userId === 'user-1' && body.date === '2026-08-05' && !!body.person)
 
   // cached passthrough

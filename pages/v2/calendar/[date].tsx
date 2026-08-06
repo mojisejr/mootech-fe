@@ -5,14 +5,18 @@
 // §10 ทิศ สีมงคล · §11 เวลามงคล · §14 floating menu). goo's hooks/routing are UNCHANGED — the page only reads
 // them. Advanced-only sections (§5 ดวงของฉัน · §9 ดิถี · §12 8ประตู · §13 8เทพ) + toggle-ON land in 3b (634:8752).
 // Data: grade/percent/ganzhi/summary/yams come from goo's DayDetail; the life-area / lucky-colour / deity
-// content is Figma-frozen in day-detail/content.ts (TODO there: folds into goo's adapter at API-time). 0 network.
+// M-D (มุน 2026-08-06): every section below reads goo's real `detail`. The Figma-frozen content module
+// (day-detail/content.ts) is DELETED — ตู๋'s review call, and the reasoning is worth keeping: a superseded
+// module full of Figma-sampled values is not neutral history, it is a set of plausible constants sitting
+// one import away. The gate positions in particular were 14 July's fortune, so a future "just reuse the
+// frozen list" would ship an inverted compass. History lives in git (last touched 9cf9bdf) and the
+// per-decision reasons live in the ledger entry + each component's header.
 import type { GetServerSideProps } from 'next'
 import Link from 'next/link'
 import { useRouter } from 'next/router'
 import { v2RedirectIfUnauthed } from '@/lib/v2/gate'
 import { useDayDetail, useAdvancedMode, useReminders, useReminderDraft, menuStateForDay, type Reminder, type YamSlot } from '@/features/v2-calendar'
 import { CalendarShell } from '@/features/v2-calendar/components/CalendarShell'
-import { getDayFortuneContent } from '@/features/v2-calendar/components/day-detail/content'
 import { DayHeader } from '@/features/v2-calendar/components/day-detail/DayHeader'
 import { DayStrip } from '@/features/v2-calendar/components/day-detail/DayStrip'
 import { DayScoreCard } from '@/features/v2-calendar/components/day-detail/DayScoreCard'
@@ -56,7 +60,6 @@ export default function V2CalendarDayPage() {
   const free = isPaid === false
   const reminders = useReminders()
   const draft = useReminderDraft() // goo's save-flow machine — the page MASKS it, adds no state of its own
-  const content = getDayFortuneContent(date)
 
   // per-ยาม quick-add (§11 buttons) — goo's client-truth list, de-duped in the hook.
   const addYam = (yam: YamSlot) => {
@@ -119,7 +122,7 @@ export default function V2CalendarDayPage() {
       )}
       <div className={`flex flex-col gap-4 px-4 pt-3 ${isPaid === null ? 'hidden' : ''}`}>
         <DayStrip date={date} />
-        <DayScoreCard detail={detail} content={content} />
+        <DayScoreCard detail={detail} />
         {/* Phase 7 A2 — after a save, the entry-point to the full list, in view while the user is paying attention */}
         {saved && (
           <Link href="/v2/calendar/notifications" data-testid="view-all-reminders" className="flex items-center justify-center gap-2 rounded-2xl border border-v3-sapphire/25 bg-v3-sapphire/[0.06] py-3 text-sm font-bold text-v3-sapphire">
@@ -132,16 +135,16 @@ export default function V2CalendarDayPage() {
         {/* Figma Free-2 375:11286 puts the upsell exactly here — after the score card, before ทิศ สีมงคล —
             standing in for the three sections below it. The percent is the SAME one the ring shows. */}
         {free && <PersonalCalendarUpsell percent={detail.percent} />}
-        {paid && <CompatList areas={content.compatAreas} insight={content.insight} />}
-        {paid && <PredictionCards areas={content.compatAreas} />}
+        {paid && <CompatList areas={detail.compatAreas} insight={detail.insight} />}
+        {paid && <PredictionCards areas={detail.compatAreas} advice={detail.advice} />}
         {/* §9 [advanced] — ดิถีวันนี้ · สะสม */}
-        {paid && advanced && <Dithi items={content.dithi} />}
+        {paid && advanced && <Dithi dithi={detail.dithi} />}
         {/* every tier gets these two — Free-2 draws them in full */}
-        <LuckyColors colors={content.luckyColors} deity={content.dayDeity} />
+        <LuckyColors colors={detail.luckyColors} deity={detail.dayDeity} />
         <YamTimes yams={detail.yams} onAdd={addYam} />
         {/* §12/§13 [advanced] — 8 ประตู · 8 เทพ */}
-        {paid && advanced && <EightGates gates={content.gates} />}
-        {paid && advanced && <EightDeities deities={content.deities} />}
+        {paid && advanced && <EightGates gates={detail.gates} luckyDirection={detail.luckyDirection} />}
+        {paid && advanced && <EightDeities deities={detail.spirits} />}
       </div>
       {/* screen 5 — save sheet, shown only while the machine is editing/saving (375:13316) */}
       {sheetOpen && <SaveSheet date={date} yams={detail.yams} draft={draft} onSave={onSheetSave} />}

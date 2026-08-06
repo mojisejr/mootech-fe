@@ -3,7 +3,7 @@
 // the shared 5-zone scale) — A± deep-green … D±/F deep-red — so the bar can't disagree with the badge.
 // §7 is the 💡 line. NOTE the bar is the one place a zone colour appears without the letter ON it; the
 // GradeBadge carrying that letter sits on the same row, which is why the zone alone is enough here.
-import type { CompatArea } from './content'
+import type { DayDetailArea } from '../../types'
 import { GradeBadge } from './GradeBadge'
 import { SectionCard } from './SectionCard'
 import { gradeColors } from '../grade-colors'
@@ -27,7 +27,7 @@ function StrengthPill() {
   )
 }
 
-function CompatRow({ area }: { area: CompatArea }) {
+function CompatRow({ area }: { area: DayDetailArea }) {
   const accent = gradeColors(area.grade).accent
   return (
     <div className="flex items-center gap-3">
@@ -39,17 +39,17 @@ function CompatRow({ area }: { area: CompatArea }) {
         </div>
         <div className="mt-1.5 flex items-center gap-2">
           <span className="h-2 flex-1 overflow-hidden rounded-full bg-[#EDEFF2]">
-            <span className="block h-full rounded-full" style={{ width: `${area.percent}%`, backgroundColor: accent }} />
+            <span className="block h-full rounded-full" style={{ width: typeof area.percent === 'number' ? `${Math.max(0, Math.min(100, area.percent))}%` : '0%', backgroundColor: accent }} />
           </span>
           <span className="w-9 shrink-0 text-right text-xs font-bold text-v3-text-body">{percentText(area.percent)}%</span>
-          <GradeBadge grade={area.grade} className="!min-w-[40px] !py-0.5 text-sm" />
+          <GradeBadge grade={area.grade ?? '—'} className="!min-w-[40px] !py-0.5 text-sm" />
         </div>
       </div>
     </div>
   )
 }
 
-export function CompatList({ areas, insight }: { areas: CompatArea[]; insight: string }) {
+export function CompatList({ areas, insight }: { areas: DayDetailArea[]; insight: string }) {
   return (
     <SectionCard title="ความเข้ากัน 5 ด้าน" info testId="day-compat-list">
       <div className="flex flex-col gap-4">
