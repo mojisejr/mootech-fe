@@ -6,7 +6,7 @@
 |---|---|
 | BEFORE | `main a4560da` · `next dev` :3141 |
 | AFTER | `lamun/selector-always` (goo `6ddab14` + ใบนี้) · `next dev` :3142 |
-| ด่าน CI | **production build + `npx next start` :3142** (เหมือน CI จริง ไม่ใช่ dev) |
+| ด่าน | 🖐️ **รันมือทั้งหมด** บน production build + `npx next start` :3142 (เลียนแบบ CI) — **CI เองไม่ได้รันบนใบนี้ ดูหมายเหตุใน proof-of-teeth** |
 | จอ | 393×852 · dSF 2 · **context ใหม่ทุกสภาพ (cold load ต่อหน้า)** |
 | API | stub ทั้งหมด (`/api/user`, `/api/v2/calendar-month`) — ไม่มี backend จริง |
 | tier | มาจาก `/api/user` ไม่ใช่ `/api/tier` — วัดทั้ง free และ paid |
@@ -91,7 +91,12 @@ AFTER    200 เฟรม · แถบ หายไป  0 เฟรม
 ⚠️ **รอบแรกมิวแทนต์ทำให้ด่าน crash ไม่ใช่แดง** — `getAttribute`/`isEnabled` บน node ที่ไม่มี = throw ⇒ กลืน check ที่เหลือ
 **ด่านที่ crash รายงานอะไรไม่ได้เลย** ⇒ ใส่ guard แล้ววัดซ้ำจนมันแดงครบ 6 แล้ววิ่งจนจบ
 
-**ด่านทั้ง 5 ที่ CI รัน (production build + `next start` :3142)**
+**ด่านทั้ง 5 ที่ CI *ควรจะ* รัน — ผลข้างล่างคือ 🖐️ ผมรันมือเอง ไม่ใช่ CI**
+
+> 🔴 **CI ไม่ได้รันบนใบนี้เลย** — ตรวจเอง 2026-08-07: `gh pr checks 194` เห็นแค่ Vercel · `gh run list --branch feat/calendar-selector-always` = **ว่างเปล่า** · run ล่าสุดทั้ง repo คือ `2026-08-06T11:43Z` (ตอน #193 merge) ⇒ **ไม่มี workflow วิ่งเลยทั้ง repo ตั้งแต่นั้น** (goo push 6ddab14 ก็ไม่มี)
+> ⚠️ `gh pr checks` ตอบว่า **"ด่านที่รันน่ะผ่านไหม"** ไม่ใช่ **"ด่านรันครบไหม"** ⇒ ป้ายเขียวบนใบที่ไม่มียาม (บองจับได้ ผมยืนยันเอง)
+> ⇒ ทุกบรรทัดข้างล่าง = **รันมือ บนเครื่องผม บน production build + `npx next start` :3142** ❌ ไม่ใช่หลักฐานว่า CI เขียว
+> ⇒ **6 assertion ที่ผมเติมยังไม่เคยรันใน CI สักครั้ง** — มันแดงตอนเจอมิวแทนต์บนเครื่องผมเท่านั้น
 
 ```
 run.ts               exit=0   🟢 GATE PASSED
