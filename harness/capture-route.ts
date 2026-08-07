@@ -176,8 +176,8 @@ async function main() {
   // mistaken for a UI bug (มุน's Zone-4 502). Narrow: only 502-on-/api; a 404/500 from a running BE is left alone.
   const beHint = backendUnreachableHint(allFailed)
   if (beHint) console.log(`\n${beHint}`)
-  console.log(`\n⚠️  RECORD the FE build hash above in evidence — a stale FE makes a fixed bug look live (images expire).`)
-  console.log(`next: Read the PNGs to eyeball, record findings in the zone's *.verify-evidence.md,`)
+  console.log(`\n⚠️  RECORD the FE build hash above in the PR body — a stale FE makes a fixed bug look live (images expire).`)
+  console.log(`next: Read the PNGs to eyeball, record findings in the PR body,`)
   console.log(`      and cite this exact command so too/บอง reproduce.\n`)
 }
 
