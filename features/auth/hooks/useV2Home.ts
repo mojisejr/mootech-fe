@@ -48,7 +48,7 @@ export type V2Home = {
   /** Render <AuthLoadingGate/> while true (resolving identity, resolving chart, or redirecting). */
   showLoading: boolean
   greeting: { name: string }
-  /** For Lamun's `useMascotFromCompute(computeSource)?.character ?? '/images/v2/mascot/01.png'`. */
+  /** For Lamun's `useMascotFromCompute(computeSource)?.character ?? '/images/v2/mascot/01.webp'`. */
   computeSource: ComputeMascotSource | null
   /** Avatar + upgrade-badge inputs for the header (derived from the single user fetch). */
   profile: HomeProfile

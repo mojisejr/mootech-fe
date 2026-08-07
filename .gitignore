@@ -51,5 +51,10 @@ harness/evidence/
 # design-review captures — binaries + PII-shaped; reproduce via harness/capture-route.ts, don't commit
 harness/captures/
 
+# raw image sources — ฟีม drops originals here; `npm run assets:optimize` writes the committed .webp to public/
+# ignore the raw images themselves, but KEEP the README so the dir + how-to is tracked
+assets-src/*
+!assets-src/README.md
+
 # test-env secrets (passkey etc.) — never commit
 testenv/env/*.env
