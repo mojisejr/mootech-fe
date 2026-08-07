@@ -5,7 +5,7 @@
 // layout-shift, no console signal); too-static (AST) is blind (a real render, not a code shape). The
 // only ground-truth is the rendered image: two post-assets-ready screenshots of the real route, diffed.
 //
-// SCOPE (mapped by the goo+too adversary round — see verify-evidence):
+// SCOPE (mapped by the goo+too adversary round):
 //   ✓ catches: persistent same-position divergence (a wrong state that STAYS until corrected)
 //   ✗ ALIASES: a TRANSIENT flicker that resolves between the two frames (goo #1) → A2 = burst sampling
 //   ✗ blind:   sub-threshold micro-change (fixed here: absolute-px budget, not %), off-viewport,
