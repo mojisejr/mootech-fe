@@ -12,10 +12,9 @@
 // corners are gone. It was this one screen's private chrome: every other v2 page (home · service · ปฏิทินดวง)
 // puts <AppHeader/> straight on the page background, and a child screen announcing itself with a different
 // coloured lid reads as a different app, not as a deeper level of the same one.
-// The ledger entry `inline-hex-gradient-tech-debt` is NOT retired by this — checked, not assumed. Its
-// `enforced_by` is pages/v2/calendar/notifications.tsx#inline-gradient, which still carries the identical
-// gradient; this file only carried a COPY of that ANCHOR comment. One of the two sites is gone, the debt
-// is not. (Reading the ledger entry is what caught it: the tidy claim "this closes the debt" was wrong.)
+// Dropping the strip HERE does not close the light-blue-gradient debt — the notifications screen still
+// carries the identical inline gradient. This screen only ever held a copy of that chrome; one of the two
+// sites is gone, the debt is not. Don't read "this closes the gradient debt" into this change.
 //
 // What deliberately did NOT change: the back chevron (this is a child screen and must return to the month),
 // and the bell + avatar cluster, which ฟีม locked as identical app-wide on 2026-08-03.
