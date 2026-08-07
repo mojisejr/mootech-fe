@@ -32,30 +32,48 @@ jobs:
           done
 
       - name: D2 Auto-Gate (Presence & Architecture)
+        env:
+          PR_BODY: ${{ github.event.pull_request.body }}
         run: |
           echo "== Checking for verify-evidence.md =="
           git fetch origin main
-          EVIDENCE_FILE=$(git diff --name-only origin/main...HEAD | grep -i "verify-evidence\.md" | head -n 1)
-          
-          if [ -z "$EVIDENCE_FILE" ]; then
-            echo "❌ ERROR: No verify-evidence.md found in this PR. Please attach evidence to prove your work."
-            exit 1
+          CHANGED=$(git diff --name-only origin/main...HEAD)
+          EVIDENCE_FILE=$(echo "$CHANGED" | grep -i "verify-evidence\.md" | head -n 1)
+
+          if [ -n "$EVIDENCE_FILE" ]; then
+            # NORMAL PATH — evidence present → validate it. Works for ANY PR (a workflow-only PR MAY still
+            # attach full evidence and pass here; that is what this very PR does — it does not use the exemption).
+            echo "== Validating verify-evidence.md content =="
+            if ! grep -iq "## proof-of-teeth" "$EVIDENCE_FILE"; then
+              echo "❌ ERROR: verify-evidence.md is missing the '## proof-of-teeth' section."; exit 1
+            fi
+            if ! grep -iq "## adversary sign-off" "$EVIDENCE_FILE"; then
+              echo "❌ ERROR: verify-evidence.md is missing the '## adversary sign-off' section."; exit 1
+            fi
+            echo "== Running Ledger Integrity Check =="
+            npx tsx scripts/verify-ledger-integrity.ts harness/bug-ledger/ "$EVIDENCE_FILE"
+          else
+            # NARROW EXEMPTION — a change that touches ONLY .github/workflows/** has no screen to photograph.
+            # It is exempt from the evidence FILE, but NOT from speaking: the PR body must carry a
+            # '## why-no-evidence' section. Two guards keep this from becoming a hole:
+            #   (a) any file outside .github/workflows/ → not exempt (attach evidence)
+            #   (b) DELETING a workflow file → NEVER exempt: removing a gate is the highest-stakes change and
+            #       must carry full evidence, else a PR that rips out a gate would pass free.
+            echo "== No verify-evidence.md — checking the narrow workflow-config-only exemption =="
+            NON_WF=$(echo "$CHANGED" | grep -v '^\.github/workflows/' | grep -c . || true)
+            DELETED_WF=$(git diff --name-only --diff-filter=D origin/main...HEAD | grep -c '^\.github/workflows/' || true)
+            if [ "$NON_WF" -ne 0 ]; then
+              echo "❌ ERROR: No verify-evidence.md, and this PR changes $NON_WF file(s) outside .github/workflows/. Attach evidence."; exit 1
+            fi
+            if [ "$DELETED_WF" -ne 0 ]; then
+              echo "❌ ERROR: This PR DELETES $DELETED_WF workflow file(s). Removing a gate requires a full verify-evidence.md, not the config-only exemption."; exit 1
+            fi
+            if ! printf '%s' "$PR_BODY" | grep -iq '## why-no-evidence'; then
+              echo "❌ ERROR: workflow-config-only PR must include a '## why-no-evidence' section in the PR body (what changed · why nothing to photograph · what still bites)."; exit 1
+            fi
+            echo "✅ workflow-config-only change; '## why-no-evidence' present in PR body. Exempt from the evidence FILE — NOT from speaking."
           fi
-          
-          echo "== Validating verify-evidence.md content =="
-          if ! grep -iq "## proof-of-teeth" "$EVIDENCE_FILE"; then
-            echo "❌ ERROR: verify-evidence.md is missing the '## proof-of-teeth' section."
-            exit 1
-          fi
-          
-          if ! grep -iq "## adversary sign-off" "$EVIDENCE_FILE"; then
-            echo "❌ ERROR: verify-evidence.md is missing the '## adversary sign-off' section."
-            exit 1
-          fi
-          
-          echo "== Running Ledger Integrity Check =="
-          npx tsx scripts/verify-ledger-integrity.ts harness/bug-ledger/ "$EVIDENCE_FILE"
-          
+
           echo "== Running Architecture & Discovery Check =="
           npx tsx scripts/verify-architecture.ts
 
