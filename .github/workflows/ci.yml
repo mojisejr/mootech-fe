@@ -5,10 +5,9 @@ name: ci
 #
 # Phase 1 (goo, 2026-08-07): the D2 evidence-gate is REMOVED — no PR is required to attach a
 # *.verify-evidence.md or a '## why-no-evidence' section anymore. What was load-bearing INSIDE that
-# step is kept as its own gate: `verify-architecture` (BUG-001 tailwind JIT) and `verify-ledger-integrity`
-# (pre-merge — ตู๋ F1) are now first-class steps, and a lean `workflow-integrity` guard goes RED only when a
-# workflow file is deleted/renamed. Bug-catching gates (tsc · scripts/*.test.ts · verify-architecture ·
-# ledger-integrity · build · workflow-integrity) are unchanged in force.
+# step is kept as its own gate: `verify-architecture` (BUG-001 tailwind JIT) is now a first-class step, and a
+# lean `workflow-integrity` guard goes RED only when a workflow file is deleted/renamed. Bug-catching gates
+# (tsc · scripts/*.test.ts · verify-architecture · build · workflow-integrity) are unchanged in force.
 on:
   pull_request:
 
@@ -45,16 +44,6 @@ jobs:
         # evidence. It catches real bugs (BUG-001 tailwind JIT arbitrary default props), so it stays a
         # first-class gate now that D2 is gone.
         run: npx tsx scripts/verify-architecture.ts
-
-      - name: ledger integrity (pre-merge)
-        # ⏳ SUNSET IN PHASE 2 — remove this step when bug-ledger is torn out (ตู๋ F1 · บอง, #200).
-        # The old D2 step ran this on every PR (pre-merge). Removing D2 left it ONLY in main-guard.yml,
-        # which runs `on: push:main` and is NOT a required check — so a dead ledger anchor could merge and
-        # only go red AFTER deploy. ตู๋ proved that gap real (killed an anchor in the live ledger → main-guard
-        # FAILED, but nothing blocked the merge). The unit test uses a temp-dir fixture and does NOT stand in
-        # for running it on the real ledger. So it runs here, pre-merge, on the real harness/bug-ledger/.
-        # This is NOT the evidence gate — no verify-evidence, no PR-body ceremony — just anchor resolution.
-        run: npx tsx scripts/verify-ledger-integrity.ts harness/bug-ledger/
 
       - name: workflow-integrity guard (a workflow file deleted/renamed must be deliberate)
         # RED when this PR deletes or RENAMES any .github/workflows/*.yml, UNLESS the PR body carries an

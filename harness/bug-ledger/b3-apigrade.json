@@ -1,5 +1,0 @@
-{
-  "id": "b3-apigrade",
-  "description": "goo 2026-08-05 Track B-3: ApiGrade สัญญาเกรดฝั่งท่อ lib/v2/api-grade.ts แยกจาก UI Grade ของมุน (Record<Grade,..> ขยายเมื่อไหร่ build แดง). 13 ระดับตรง rating-scale bazi (F..A+), parseApiGrade: 1ใน13 หรือ null(คิดไม่ได้ PR-1)ผ่าน, ค่านอกลิสต์(รวม - sentinel/ตัวเลข/whitespace) THROW ดังๆ ไม่เงียบผ่าน. teeth: เปลี่ยน throw→return silent = 14 assert แดง. ไม่แตะ features/",
-  "enforced_by": "lib/v2/api-grade.ts#b3-apigrade-loud"
-}

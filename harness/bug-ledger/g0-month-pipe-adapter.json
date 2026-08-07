@@ -1,8 +1,0 @@
-{
-  "id": "g0-month-pipe-adapter",
-  "description": "v2 ปฏิทิน month pipe (goo · G-0a+G-1 pure): the BFF returns overallPercent:null for a day bazi can't score, and 13-level grades (A+/A-/F) the 10-level UI Grade can't hold. The adapter must DROP a scoreless day (never paint a fabricated 0%) and must not silently squash grade on the displayed path; the selection rule must always resolve a day (today-in-view else day-1), killing the old silent month.days[13] fallback.",
-  "enforced_by": "scripts/calendar-month-pipe.test.ts#g0-month-pipe-adapter",
-  "date": "2026-08-05",
-  "owner": "goo",
-  "pr": 181
-}

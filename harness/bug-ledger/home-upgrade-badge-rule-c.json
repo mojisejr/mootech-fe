@@ -1,5 +1,0 @@
-{
-  "id": "home-upgrade-badge-rule-c",
-  "description": "The v2 home upgrade badge (กติกา ค, ฟีมเคาะ) must HIDE only for a paid member whose plan is still valid (payment.is_not_expired === true); free / expired / no-payment-row / no-user-yet all SHOW it — identical to v1 header-v2.tsx so the two versions never disagree about paid status. showUpgrade uses STRICT === true (not truthy) so a stray non-boolean can't silently hide the badge from a non-paid user. Derived in a pure module (lib/home/profile.ts) from the SINGLE user fetch (goo→μุน seam; μุน renders the optional profile prop). gate_layer=data/pure. Teeth (home-profile.test.ts, incl. the strict-===true neg-control): 7/7.",
-  "enforced_by": "scripts/home-profile.test.ts#show-upgrade-rule-c"
-}
