@@ -108,7 +108,7 @@ BEGIN
 END $$;
 
 -- ANCHOR: anonymize-picture-placeholder — the 5 user-facing picture columns must be 100% the LOCAL
--- placeholder after anonymize (proof-of-teeth: harness/testenv-harden-183-184.verify-evidence.md).
+-- placeholder after anonymize (proof-of-teeth: the SELF-VERIFY guard below rolls the tx back on any leak).
 -- 🛡️ SELF-VERIFY #183 (picture URLs — inside the tx, before COMMIT: a leak ROLLS BACK, atomic + LOUD).
 -- Every user-facing picture column MUST be 100% the LOCAL placeholder — never an external URL, never left
 -- as-is. This guards the EXACT failure that let member_with_friend.picture_url keep 213 real http URLs: an

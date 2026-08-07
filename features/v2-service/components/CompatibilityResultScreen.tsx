@@ -2,7 +2,7 @@
 // 3C (scope A, ฟีม 2026-08-02): the TOP is rebuilt into one BLUE HERO (CompatResultHero) — ScoreRing +
 // tagline + derived highlights + the two people as mascot cards (mascot art · real photo · name · birthdate).
 // This REPLACES the 2E-1 header chips + the separate gradient score card, and the mascots move OUT of the
-// รายคน section into the hero. INTENTIONAL spine rebuild (documented in compat-3c.verify-evidence.md);
+// รายคน section into the hero. INTENTIONAL spine rebuild (ฟีม 3C, scope A — see line above);
 // golden-rule-6 covers the section cards below, whose component files are untouched.
 //
 // Unchanged below the hero: tabs (D47) · ภาพรวม (overall.ratingText) · รายมิติ (D22) · ธาตุ&เสา (D45+D44) ·

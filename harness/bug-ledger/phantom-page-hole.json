@@ -1,5 +1,0 @@
-{
-  "id": "phantom-page-hole",
-  "description": "Pages that use useV2AuthGate transitively or via aliasing evaded static detection.",
-  "enforced_by": "scripts/verify-architecture.ts#Phantom Page Hole"
-}

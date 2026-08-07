@@ -161,7 +161,7 @@ test.describe("v2 auth-gate hydration invariant (webgang v2 step 2 — goo runti
   // detection by behaviour, not by import form. Complements ตู๋'s static ban (which prevents the pattern
   // at source): static prevents, runtime detects any that slip. Ungated pages render identically
   // SSR/client → clean; only a real inline-gate-without-mount-guard turns this red.
-  // ANCHOR: inline-identity-crawl  (bug-ledger enforced_by target — keep this marker stable)
+  // ANCHOR: inline-identity-crawl
   // Checks BOTH channels the anchor blocks on (console + CLS) across BOTH states (authed + anon) —
   // Lamun's adversary caught v1 discarding the `cls` loadAndObserve already returns (a console-silent
   // geometry flash would have sneaked on every route, a regression of the CLS lens) AND driving only

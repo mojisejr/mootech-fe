@@ -88,10 +88,10 @@ Add a new case = add an entry to the `USERS` map in `capture-route.ts` (label + 
 Screenshots are gitignored, so the PR never **commits** the PNGs. But review needs both a way to *reproduce*
 and a way to *see*:
 
-1. **evidence.md + exact command** — for too (a reviewer reproduces, doesn't trust a pasted image). The
-   zone's `*.verify-evidence.md` records what the agent saw at each width/user (the completeness-pass) and
-   cites the command verbatim: `npx tsx harness/capture-route.ts --route /v2 --user longname`. too/บอง run
-   it against the same deterministic test-env → **same pixels**.
+1. **PR body + exact command** — for too (a reviewer reproduces, doesn't trust a pasted image). The PR
+   description records what the agent saw at each width/user (the completeness-pass) and cites the command
+   verbatim: `npx tsx harness/capture-route.ts --route /v2 --user longname`. too/บอง run it against the
+   same deterministic test-env → **same pixels**.
 2. **images in the PR — for ฟีม/บอง to SEE** (the whole point of the test-env: they view, not run).
    ⚠️ **An agent (and `gh`) CANNOT upload images to a PR** — GitHub image upload is web-UI-only (drag-drop).
    So: the agent surfaces the PNGs to reviewers **in-session/chat** (the file-send tool), and a **human

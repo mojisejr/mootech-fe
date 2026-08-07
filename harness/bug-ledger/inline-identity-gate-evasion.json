@@ -1,5 +1,0 @@
-{
-  "id": "inline-identity-gate-evasion",
-  "description": "A /v2 page that gates on client identity via inline useCurrentUser / raw MEMBER_ID cookie reaches the auth-gate hydration behaviour WITHOUT importing useV2AuthGate, so it evades import-discovery and its mismatch ships untested. Runtime backstop: full-route crawl catches it at ground-truth. Static prevention (ban the primitive in pages/v2) is too-static's complementary half.",
-  "enforced_by": "e2e/v2-hydration-invariant.spec.ts#inline-identity-crawl"
-}

@@ -1,7 +1,7 @@
 name: main-guard
 # TRIPWIRE on direct pushes to main. The 3 existing workflows (ci · design-verify · secret-scan) all trigger on
 # `pull_request` only, so a direct push to main runs NOTHING — on 2026-07-29 main sat red ~20 min unnoticed.
-# This runs whenever main MOVES and goes red loudly if (A) main fails tsc / ledger integrity, or (B) main was
+# This runs whenever main MOVES and goes red loudly if (A) main fails tsc, or (B) main was
 # moved by a direct push instead of a PR merge.
 #
 # NOT a required status check — it observes main after the fact; making it required would block unrelated PRs.
@@ -13,7 +13,7 @@ permissions:
   contents: read
 
 jobs:
-  integrity: # job A — main must always pass tsc + a REAL ledger-integrity check (with the path arg)
+  integrity: # job A — main must always pass tsc
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -26,12 +26,6 @@ jobs:
       - run: npm ci
       - name: typecheck (tsc --noEmit)
         run: npx tsc --noEmit
-      - name: ledger integrity
-        # The path arg is REQUIRED — running it bare prints usage and exits 1 (verified: no silent pass). We pass
-        # the explicit path so a green here means the ledger's every enforced_by anchor actually resolves.
-        # Ledger is now a directory of per-entry files (harness/bug-ledger/<id>.json); an empty dir also fails (no
-        # silent green). Split in B-2 so two PRs adding different entries never conflict on one array file.
-        run: npx tsx scripts/verify-ledger-integrity.ts harness/bug-ledger/
 
   provenance: # job B — HEAD on main must be a GitHub PR-merge commit, not a direct push
     runs-on: ubuntu-latest

@@ -1,8 +1,0 @@
-{
-  "id": "g0b-day-detail-requested-date",
-  "description": "v2 ปฏิทิน G-0b (goo): once the calendar cursor resolves the CURRENT month (not the fixed July mock), the card and day-detail must show the SELECTED day. mockDayDetail used to fall back to MOCK_DAYS[13] (July 14) for any date outside July and RETURN that day's date — so an August selection silently printed '14 กรกฎาคม' (wrong day, no error). The returned date must always equal the requested date; and killing month.days[13] in the page is not enough — MOCK_DAYS[13] in fixtures is a separate second 'day 14'.",
-  "enforced_by": "scripts/mock-day-detail.test.ts#g0b-day-detail-requested-date",
-  "date": "2026-08-05",
-  "owner": "goo",
-  "pr": 182
-}

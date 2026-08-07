@@ -77,6 +77,5 @@ add a CI-executed `scripts/*.test.ts`; do not trust the prose as protection.
 ## To revive any of these
 1. Move it back to `harness/` and fix its relative imports (`../` → `./`).
 2. **Wire it into a workflow** (`.github/workflows/design-verify.yml`) and prove it green locally first.
-3. ONLY THEN re-add its `enforced_by` to the matching `harness/bug-ledger/*.json` entry. The old value
-   is preserved there as a `WAS:` note in the description — connect it or leave the claim withdrawn,
-   never leave a claim standing without a runner.
+3. That's the whole revival — there is no ledger to register it with anymore (the ledger was torn out
+   2026-08-07, PR #201). A running gate IS the claim now; never leave a gate advertised without a runner.
