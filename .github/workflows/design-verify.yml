@@ -107,8 +107,18 @@ jobs:
           # never in the GitHub web UI, whose result never passes through CI before it becomes the merge commit.
           [ "$CODE" -eq 0 ] && [ "$PCODE" -eq 0 ] && [ "$MCODE" -eq 0 ] && [ "$SCODE" -eq 0 ] && [ "$CSCODE" -eq 0 ]
 
+      # Evidence is only ever looked at when the gate is RED. `if: always()` uploaded 18.7 MB on EVERY push
+      # (green included) — the sole reason artifact storage hit 3,561 MB on a 500 MB ceiling. `if: failure()`
+      # uploads ONLY when a prior step failed (i.e. the gate above went red) → green pushes store nothing;
+      # a red gate still ships the full bundle, unchanged.
+      #   🔴 upload-fail must NOT swallow gate-fail (the family we've been killing all week): this holds by
+      #   construction here — (a) on a GREEN run this step never runs, so it can never redden a passing gate;
+      #   (b) on a RED run the gate is ALREADY its own failed, named step ("run splash harness …") — this
+      #   upload is a separate downstream step, so if it also fails the two ring as two distinct red steps,
+      #   and the gate's failure is never masked. Read the STEP NAME in the log, not the quota badge (GitHub
+      #   recomputes the storage-quota flag every 6–12 h, so THIS run may still show red for quota, not gate).
       - name: upload evidence bundle
-        if: always()
+        if: failure()
         uses: actions/upload-artifact@v4
         with:
           name: design-verify-evidence
