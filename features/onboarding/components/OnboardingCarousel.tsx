@@ -8,7 +8,7 @@ import { DotsPager } from './DotsPager'
 // 4 self-contained steps, verified @393 vs Figma: **heading on TOP, mascot BELOW**, footer (dots +
 // "ถัดไป") at the bottom — the whole thing fits one viewport (no scroll). Last step → onComplete().
 // Container = FullBleedScreen (owns the viewport, BG03 photo). Mascot = real per-step art
-// (/images/v2/mascot/01-04.png). goo mounts this on /v2 and routes onComplete → /v2/login.
+// (/images/v2/mascot/01-04.webp). goo mounts this on /v2 and routes onComplete → /v2/login.
 
 type Step = {
   /** headline lines (rendered stacked, centered) */
@@ -29,7 +29,7 @@ export function OnboardingCarousel({ onComplete }: { onComplete: () => void }) {
   const step = STEPS[index]
   const isLast = index === STEPS.length - 1
   // real per-step mascot: step 0 → 01.png … step 3 → 04.png
-  const mascotSrc = `/images/v2/mascot/0${index + 1}.png`
+  const mascotSrc = `/images/v2/mascot/0${index + 1}.webp`
 
   function next() {
     if (isLast) {

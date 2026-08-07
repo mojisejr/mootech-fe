@@ -49,7 +49,7 @@ export default function V2HomePreview() {
   // ?name= — Structure A: name wraps ≤2 lines, never truncates (fast iteration; final verify = real /v2)
   const name = (q.name as string) || 'มิลา'
   // ?pay=paid → no upgrade badge · ?pic=y → avatar image (else letter). goo wires the real profile at /v2.
-  const profile = { pictureUrl: q.pic === 'y' ? '/images/v2/mascot/01.png' : null, showUpgrade: q.pay !== 'paid' }
+  const profile = { pictureUrl: q.pic === 'y' ? '/images/v2/mascot/01.webp' : null, showUpgrade: q.pay !== 'paid' }
   // ?mascot=<path> — Zone 2: force a specific mascot to test occlusion across the 60 shapes (?mascot=404 → broken → hero)
   const mascotCharacter = q.mascot === '404' ? '/images/v2/characters/__missing__.png' : ((q.mascot as string) || '/images/v2/characters/01_ชวด-ดิน.png')
   return <V2HomeScreen greeting={{ name }} mascotCharacter={mascotCharacter} onLogout={() => window.alert('logout()')} fortune={fortune} fortuneLoading={loading} element={element} profile={profile} />

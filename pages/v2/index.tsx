@@ -58,7 +58,7 @@ function V2HomeRoute({ status }: { status: AuthStatus }) {
   const { showLoading, greeting, computeSource, profile, user } = useV2Home(status)
   const { logout } = useV2Logout()
   const mascot = useMascotFromCompute(computeSource)
-  const mascotCharacter = mascot?.character ?? '/images/v2/mascot/01.png'
+  const mascotCharacter = mascot?.character ?? '/images/v2/mascot/01.webp'
   // Zone 1 — daily-fortune + persona data seam. Called unconditionally (before the loading branch) so
   // hook order is stable; graceful by design (no user / bazi error → fortune/persona=null → cards show
   // fallback). Consumes the shared `user` (no second fetch). ONE BFF call returns both fortune and persona.

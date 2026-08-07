@@ -39,7 +39,7 @@ export type ElementInfo = {
 
 export type V2HomeScreenProps = {
   greeting: { name: string }
-  /** resolved character path, or the static hero fallback (/images/v2/mascot/01.png) — goo wires it */
+  /** resolved character path, or the static hero fallback (/images/v2/mascot/01.webp) — goo wires it */
   mascotCharacter: string
   onLogout: () => void
   /** Zone 1 — goo wires useHomeFortune(); null = no data yet (graceful fallback) */
@@ -60,7 +60,7 @@ export type V2HomeScreenProps = {
 export type Profile = { pictureUrl: string | null; showUpgrade: boolean }
 const PROFILE_FALLBACK: Profile = { pictureUrl: null, showUpgrade: true }
 
-const HERO_FALLBACK = '/images/v2/mascot/01.png'
+const HERO_FALLBACK = '/images/v2/mascot/01.webp'
 
 export function V2HomeScreen({ greeting, mascotCharacter, onLogout, fortune, fortuneLoading, element, profile }: V2HomeScreenProps) {
   const [logoutOpen, setLogoutOpen] = useState(false)

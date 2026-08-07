@@ -8,7 +8,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "test:e2e:auth": "playwright test e2e/auth-loop.spec.ts"
+    "test:e2e:auth": "playwright test e2e/auth-loop.spec.ts",
+    "assets:optimize": "tsx scripts/optimize-assets.ts"
   },
   "dependencies": {
     "@line/liff": "^2.27.0",
@@ -41,6 +42,7 @@
     "pixelmatch": "^7.2.0",
     "pngjs": "^7.0.0",
     "postcss": "^8",
+    "sharp": "^0.35.3",
     "tailwindcss": "^3.4.1",
     "typescript": "^5"
   }
