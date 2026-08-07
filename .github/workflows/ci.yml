@@ -2,6 +2,13 @@ name: ci
 # Hard Gate on every PR — runs BEFORE merge (merge into main = production deploy).
 # See MUMATE-GITHUB-FLOW.md §7. Note: `next lint` is NOT used (eslint not installed);
 # tsc --noEmit is the static gate.
+#
+# Phase 1 (goo, 2026-08-07): the D2 evidence-gate is REMOVED — no PR is required to attach a
+# *.verify-evidence.md or a '## why-no-evidence' section anymore. What was load-bearing INSIDE that
+# step is kept as its own gate: `verify-architecture` (BUG-001 tailwind JIT) and `verify-ledger-integrity`
+# (pre-merge — ตู๋ F1) are now first-class steps, and a lean `workflow-integrity` guard goes RED only when a
+# workflow file is deleted/renamed. Bug-catching gates (tsc · scripts/*.test.ts · verify-architecture ·
+# ledger-integrity · build · workflow-integrity) are unchanged in force.
 on:
   pull_request:
 
@@ -15,6 +22,8 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
+      - name: record CI start time
+        run: echo "CI_START=$(date +%s)" >> "$GITHUB_ENV"
       - uses: actions/setup-node@v4
         with:
           node-version: 20
@@ -31,56 +40,33 @@ jobs:
             npx tsx "$f"
           done
 
-      - name: D2 Auto-Gate (Presence & Architecture)
+      - name: architecture & discovery check
+        # Was folded into the old D2 step but ran OUTSIDE its if/else — i.e. on every PR regardless of
+        # evidence. It catches real bugs (BUG-001 tailwind JIT arbitrary default props), so it stays a
+        # first-class gate now that D2 is gone.
+        run: npx tsx scripts/verify-architecture.ts
+
+      - name: ledger integrity (pre-merge)
+        # ⏳ SUNSET IN PHASE 2 — remove this step when bug-ledger is torn out (ตู๋ F1 · บอง, #200).
+        # The old D2 step ran this on every PR (pre-merge). Removing D2 left it ONLY in main-guard.yml,
+        # which runs `on: push:main` and is NOT a required check — so a dead ledger anchor could merge and
+        # only go red AFTER deploy. ตู๋ proved that gap real (killed an anchor in the live ledger → main-guard
+        # FAILED, but nothing blocked the merge). The unit test uses a temp-dir fixture and does NOT stand in
+        # for running it on the real ledger. So it runs here, pre-merge, on the real harness/bug-ledger/.
+        # This is NOT the evidence gate — no verify-evidence, no PR-body ceremony — just anchor resolution.
+        run: npx tsx scripts/verify-ledger-integrity.ts harness/bug-ledger/
+
+      - name: workflow-integrity guard (a workflow file deleted/renamed must be deliberate)
+        # RED when this PR deletes or RENAMES any .github/workflows/*.yml, UNLESS the PR body carries an
+        # '## intentional-workflow-change' heading. Silent for every PR that does not touch workflows.
+        # SCOPE (ตู๋ F2): guards the FILE existing, NOT the gate keeping its teeth — a PR can still neuter a
+        # gate in place (gut steps · flip `on:` · `if: false` · `|| true`) and stay green. Named accordingly
+        # so no one over-trusts it. Teeth proven in scripts/guard-workflow-integrity.test.ts (`tests` step).
         env:
           PR_BODY: ${{ github.event.pull_request.body }}
         run: |
-          echo "== Checking for verify-evidence.md =="
           git fetch origin main
-          # --no-renames is LOAD-BEARING (ตู๋ #199): git sees `git mv a b` as a RENAME (one entry, the
-          # DEST path) — so a rename would show 0 files outside workflows AND 0 deletions, slipping BOTH
-          # guards below. --no-renames splits every rename into a DELETE(old)+ADD(new), so:
-          #   git mv ci.yml → ci.yml.disabled  → old ci.yml shows as a DELETED workflow (guard b catches it)
-          #   git mv features/x.ts → workflows/x.ts → old features/x.ts shows outside workflows (guard a)
-          CHANGED=$(git diff --name-only --no-renames origin/main...HEAD)
-          EVIDENCE_FILE=$(echo "$CHANGED" | grep -i "verify-evidence\.md" | head -n 1)
-
-          if [ -n "$EVIDENCE_FILE" ]; then
-            # NORMAL PATH — evidence present → validate it. Works for ANY PR (a workflow-only PR MAY still
-            # attach full evidence and pass here; that is what this very PR does — it does not use the exemption).
-            echo "== Validating verify-evidence.md content =="
-            if ! grep -iq "## proof-of-teeth" "$EVIDENCE_FILE"; then
-              echo "❌ ERROR: verify-evidence.md is missing the '## proof-of-teeth' section."; exit 1
-            fi
-            if ! grep -iq "## adversary sign-off" "$EVIDENCE_FILE"; then
-              echo "❌ ERROR: verify-evidence.md is missing the '## adversary sign-off' section."; exit 1
-            fi
-            echo "== Running Ledger Integrity Check =="
-            npx tsx scripts/verify-ledger-integrity.ts harness/bug-ledger/ "$EVIDENCE_FILE"
-          else
-            # NARROW EXEMPTION — a change that touches ONLY .github/workflows/** has no screen to photograph.
-            # It is exempt from the evidence FILE, but NOT from speaking: the PR body must carry a
-            # '## why-no-evidence' section. Two guards keep this from becoming a hole:
-            #   (a) any file outside .github/workflows/ → not exempt (attach evidence)
-            #   (b) DELETING a workflow file → NEVER exempt: removing a gate is the highest-stakes change and
-            #       must carry full evidence, else a PR that rips out a gate would pass free.
-            echo "== No verify-evidence.md — checking the narrow workflow-config-only exemption =="
-            NON_WF=$(echo "$CHANGED" | grep -v '^\.github/workflows/' | grep -c . || true)
-            DELETED_WF=$(git diff --name-only --diff-filter=D --no-renames origin/main...HEAD | grep -c '^\.github/workflows/' || true)
-            if [ "$NON_WF" -ne 0 ]; then
-              echo "❌ ERROR: No verify-evidence.md, and this PR changes $NON_WF file(s) outside .github/workflows/. Attach evidence."; exit 1
-            fi
-            if [ "$DELETED_WF" -ne 0 ]; then
-              echo "❌ ERROR: This PR DELETES $DELETED_WF workflow file(s). Removing a gate requires a full verify-evidence.md, not the config-only exemption."; exit 1
-            fi
-            if ! printf '%s' "$PR_BODY" | grep -iq '## why-no-evidence'; then
-              echo "❌ ERROR: workflow-config-only PR must include a '## why-no-evidence' section in the PR body (what changed · why nothing to photograph · what still bites)."; exit 1
-            fi
-            echo "✅ workflow-config-only change; '## why-no-evidence' present in PR body. Exempt from the evidence FILE — NOT from speaking."
-          fi
-
-          echo "== Running Architecture & Discovery Check =="
-          npx tsx scripts/verify-architecture.ts
+          BASE_REF=origin/main npx tsx scripts/guard-workflow-integrity.ts
 
       - name: build
         run: npm run build
@@ -91,3 +77,15 @@ jobs:
           HOST: https://example.invalid
           NEXTAUTH_URL: https://example.invalid
           OMISE_PUBLIC_KEY: pkey_test_placeholder
+
+      - name: CI duration (warn over 5 min — never fails the build)
+        if: always()
+        run: |
+          END=$(date +%s)
+          START="${CI_START:-$END}"
+          ELAPSED=$(( END - START ))
+          MIN=$(( ELAPSED / 60 )); SEC=$(( ELAPSED % 60 ))
+          echo "⏱️  CI took ${MIN}m ${SEC}s (${ELAPSED}s)"
+          if [ "$ELAPSED" -gt 300 ]; then
+            echo "::warning::CI exceeded 5 min (${MIN}m ${SEC}s) — consider trimming the gate."
+          fi

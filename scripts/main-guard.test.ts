@@ -1,8 +1,7 @@
 // main-guard tripwire — provenance predicate teeth. The bug-class: a direct push to main (which bypasses
 // ci/design-verify/secret-scan) slips by because the guard can't tell a PR-merge commit from a direct push.
 // isPrMergeCommit is the single source of that decision (job B's YAML calls the same script), so its teeth
-// live here. (Job A = tsc + verify-ledger-integrity, which have their own tests; the dead-anchor RED path is
-// proven in harness/main-guard.verify-evidence.md by mutation.)
+// live here. (Job A = tsc + verify-ledger-integrity, which have their own tests.)
 // Run: npx tsx scripts/main-guard.test.ts
 //
 // ANCHOR: scripts/main-guard.test.ts#pr-merge-provenance
