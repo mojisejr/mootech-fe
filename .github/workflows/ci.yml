@@ -37,7 +37,12 @@ jobs:
         run: |
           echo "== Checking for verify-evidence.md =="
           git fetch origin main
-          CHANGED=$(git diff --name-only origin/main...HEAD)
+          # --no-renames is LOAD-BEARING (ตู๋ #199): git sees `git mv a b` as a RENAME (one entry, the
+          # DEST path) — so a rename would show 0 files outside workflows AND 0 deletions, slipping BOTH
+          # guards below. --no-renames splits every rename into a DELETE(old)+ADD(new), so:
+          #   git mv ci.yml → ci.yml.disabled  → old ci.yml shows as a DELETED workflow (guard b catches it)
+          #   git mv features/x.ts → workflows/x.ts → old features/x.ts shows outside workflows (guard a)
+          CHANGED=$(git diff --name-only --no-renames origin/main...HEAD)
           EVIDENCE_FILE=$(echo "$CHANGED" | grep -i "verify-evidence\.md" | head -n 1)
 
           if [ -n "$EVIDENCE_FILE" ]; then
@@ -61,7 +66,7 @@ jobs:
             #       must carry full evidence, else a PR that rips out a gate would pass free.
             echo "== No verify-evidence.md — checking the narrow workflow-config-only exemption =="
             NON_WF=$(echo "$CHANGED" | grep -v '^\.github/workflows/' | grep -c . || true)
-            DELETED_WF=$(git diff --name-only --diff-filter=D origin/main...HEAD | grep -c '^\.github/workflows/' || true)
+            DELETED_WF=$(git diff --name-only --diff-filter=D --no-renames origin/main...HEAD | grep -c '^\.github/workflows/' || true)
             if [ "$NON_WF" -ne 0 ]; then
               echo "❌ ERROR: No verify-evidence.md, and this PR changes $NON_WF file(s) outside .github/workflows/. Attach evidence."; exit 1
             fi
