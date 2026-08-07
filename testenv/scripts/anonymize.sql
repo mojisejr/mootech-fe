@@ -24,8 +24,8 @@ UPDATE "user" SET
   -- #183: replace (not wipe) user-facing image URLs with a LOCAL placeholder — '' left the v2 avatar
   -- broken/empty; a LOCAL path (served by the FE from public/) renders the mascot without leaking the
   -- real photo and without any external fetch. NEVER an external/CDN URL.
-  picture_url           = '/images/v2/mascot/01.png',
-  share_img_profile_url = '/images/v2/mascot/01.png';
+  picture_url           = '/images/v2/mascot/01.webp',
+  share_img_profile_url = '/images/v2/mascot/01.webp';
 
 UPDATE dashboard_users SET
   name  = 'dash_' || left(id::text, 8),
@@ -41,14 +41,14 @@ UPDATE employee SET username = 'emp_' || left(id::text, 8);
 UPDATE use_provider SET
   name        = 'prov_' || left(user_id, 8),
   email       = 'prov_' || left(user_id, 8) || '@test.local',
-  picture_url = '/images/v2/mascot/01.png';  -- #183 (use_provider is empty today, but set for completeness)
+  picture_url = '/images/v2/mascot/01.webp';  -- #183 (use_provider is empty today, but set for completeness)
 
 -- ⚠️ user_provider (NOT use_provider — two near-identical names; use_provider is EMPTY, user_provider
 -- has the real 5385 OAuth rows). id_token = a real OAuth id_token (JWT w/ user claims) → scrub it too.
 UPDATE user_provider SET
   name        = 'prov_' || left(user_id, 8),
   email       = 'prov_' || left(user_id, 8) || '@test.local',
-  picture_url = '/images/v2/mascot/01.png',  -- #183 local placeholder (was '')
+  picture_url = '/images/v2/mascot/01.webp',  -- #183 local placeholder (was '')
   id_token    = '';
 
 -- ── calc / matching logs (name only; place_name = birth province → KEEP for compute) ────────────────
@@ -59,7 +59,7 @@ UPDATE log_work_vibe  SET name = 'p_' || left(id::text, 8), your_name = 'you_' |
 -- #183: member_with_friend.picture_url held 213 REAL external http URLs (a whole class the old script
 -- missed) → local placeholder, not wiped.
 UPDATE member_with_friend SET name = 'p_' || left(id::text, 8), surname = 'sn_' || left(id::text, 8),
-                               picture_url = '/images/v2/mascot/01.png';
+                               picture_url = '/images/v2/mascot/01.webp';
 
 -- ── chat / alerts / journal — REAL user text content ────────────────────────────────────────────────
 UPDATE bazi_chat_histories SET line_user_id = 'line_' || left(id::text, 8),
@@ -117,7 +117,7 @@ END $$;
 -- 100% empty = the UPDATE never fired), the whole anonymize aborts and rolls back.
 DO $$
 DECLARE
-  ph  text := '/images/v2/mascot/01.png';
+  ph  text := '/images/v2/mascot/01.webp';
   cols text[] := ARRAY['user.picture_url','user.share_img_profile_url','user_provider.picture_url',
                        'use_provider.picture_url','member_with_friend.picture_url'];
   spec text; tbl text; col text; tot int; okc int; ext int; bad int := 0;
