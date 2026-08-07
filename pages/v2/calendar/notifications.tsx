@@ -80,8 +80,8 @@ export default function V2CalendarNotificationsPage() {
     <CalendarShell title="การแจ้งเตือน" menuState={CalendarMenuState.Saved}>
       {/* top bar — the shared <AppHeader/> (ฟีม 2026-08-03: one header convention). The gradient strip is
           this flow's chrome and is unchanged.
-          ANCHOR: inline-gradient — bug-ledger#inline-hex-gradient-tech-debt (ตู๋ · D2): multi-stop hex
-          gradient kept as-is; #C9E4F4 IS the v3-pastel-blue token value. */}
+          The multi-stop hex gradient is kept as-is; #C9E4F4 IS the v3-pastel-blue token value — do not
+          "fix" it to a token. */}
       <div style={{ background: 'linear-gradient(105deg, #FFFFFF 40%, #C9E4F4 100%)' }} className="rounded-b-[20px]">
         <AppHeader testId="notifications-header" title="การแจ้งเตือนทั้งหมด" backHref="/v2/calendar" className="items-center px-4 pb-3 pt-2" />
       </div>
