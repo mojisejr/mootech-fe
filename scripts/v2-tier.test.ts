@@ -8,11 +8,12 @@
 // So computeTier must return `null` (not false) while loading AND on a fetch error, and must NEVER report
 // isPaid=true without a strict `payment.is_not_expired === true`.
 //
-// SECOND bug-class (issue #213): the dev-only URL tier override must DIE on production and must never turn a
-// `null` (unknown) tier into a known value. The prod-death is the control — the closing criterion is a
-// call-site mutant: delete the `process.env.NODE_ENV !== 'production'` guard in useV2Tier → the production
-// hook test below goes RED. (resolveTierOverride is a pure param parser; prod-death lives at the caller so a
-// prod build can dead-code-eliminate the whole branch — see useV2Tier.)
+// SECOND bug-class (issue #213 → #225): the URL tier override must only act for a request that passed the
+// v2 team gate, and must never turn a `null` (unknown) tier into a known value. #225 replaced the old
+// `NODE_ENV !== 'production'` guard with a server-verified `teamPreview` flag (so it works on prod for team
+// members). The closing criterion is a call-site mutant: delete the `if (teamPreview)` guard in useV2Tier →
+// case ② below (flag FALSE + ?tier=paid must not move) goes RED. That the PAGES actually send the flag is a
+// separate call-site concern, proven against the real getServerSideProps in scripts/tier-prod-pages.test.tsx.
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { renderHook } from '@testing-library/react'
 import { computeTier, isPaidMember } from '../lib/v2/tier' // #v2-tier-gate-both-directions
@@ -79,38 +80,39 @@ type UserState = { userId: string; done: boolean; errored: boolean; user: unknow
 const ANON: UserState = { userId: '', done: false, errored: false, user: null } // → computeTier KNOWN free
 const LOADING: UserState = { userId: 'u1', done: false, errored: false, user: null } // → computeTier null
 
-function renderTier(opts: { tier?: string | string[]; env: string; user?: UserState }) {
+// The override is now gated by the `teamPreview` flag (issue #225), NOT NODE_ENV — so the tests pass the
+// flag directly, exactly the way a real page threads getServerSideProps' verdict into the hook.
+function renderTier(opts: { tier?: string | string[]; teamPreview: boolean; user?: UserState }) {
   vi.mocked(useV2User).mockReturnValue(opts.user ?? ANON)
   vi.mocked(useRouter).mockReturnValue({ query: opts.tier === undefined ? {} : { tier: opts.tier } } as unknown as ReturnType<typeof useRouter>)
-  vi.stubEnv('NODE_ENV', opts.env)
-  return renderHook(() => useV2Tier()).result.current
+  return renderHook(() => useV2Tier(opts.teamPreview)).result.current
 }
 
-describe('useV2Tier — override wired through the seam', () => {
+describe('useV2Tier — override wired through the seam (gated by teamPreview, #225)', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    vi.unstubAllEnvs()
   })
 
-  it('① dev + ?tier=paid + anon(free) → isPaid=true (override reaches the seam)', () => {
-    expect(renderTier({ tier: 'paid', env: 'development', user: ANON }).isPaid).toBe(true)
+  it('① team + ?tier=paid + anon(free) → isPaid=true (override reaches the seam on prod too)', () => {
+    expect(renderTier({ tier: 'paid', teamPreview: true, user: ANON }).isPaid).toBe(true)
   })
-  it('dev + ?tier=free while base is paid → isPaid=false', () => {
+  it('team + ?tier=free while base is paid → isPaid=false', () => {
     const paidUser: UserState = { userId: 'u1', done: true, errored: false, user: { payment: { is_not_expired: true } } }
-    expect(renderTier({ tier: 'free', env: 'development', user: paidUser }).isPaid).toBe(false)
+    expect(renderTier({ tier: 'free', teamPreview: true, user: paidUser }).isPaid).toBe(false)
   })
-  // ② prod-leak control at the seam level (review focus): param present but production → unchanged.
-  it('② production + ?tier=paid + anon(free) → isPaid stays false (no leak)', () => {
-    expect(renderTier({ tier: 'paid', env: 'production', user: ANON }).isPaid).toBe(false)
+  // ② the guard case (replaces #213's prod-leak case): flag FALSE ⇒ ?tier= is inert, regardless of env.
+  // 🔴 Closing-criterion mutant: remove `if (teamPreview)` in useV2Tier → this goes RED.
+  it('② NOT team (flag false) + ?tier=paid + anon(free) → isPaid stays false (no override without the gate)', () => {
+    expect(renderTier({ tier: 'paid', teamPreview: false, user: ANON }).isPaid).toBe(false)
   })
-  it('③ dev + no param + anon → unchanged (isPaid=false)', () => {
-    expect(renderTier({ env: 'development', user: ANON }).isPaid).toBe(false)
+  it('③ team + no param + anon → unchanged (isPaid=false)', () => {
+    expect(renderTier({ teamPreview: true, user: ANON }).isPaid).toBe(false)
   })
   // 🔴 override must NOT manufacture certainty: a loading/unknown tier stays null even with ?tier=paid.
-  it('🔴 dev + ?tier=paid while tier is loading(null) → stays null (no fabricated certainty)', () => {
-    expect(renderTier({ tier: 'paid', env: 'development', user: LOADING }).isPaid).toBe(null)
+  it('🔴 team + ?tier=paid while tier is loading(null) → stays null (no fabricated certainty)', () => {
+    expect(renderTier({ tier: 'paid', teamPreview: true, user: LOADING }).isPaid).toBe(null)
   })
-  it('④ dev + junk ?tier=lol + anon → unchanged (isPaid=false), no throw', () => {
-    expect(renderTier({ tier: 'lol', env: 'development', user: ANON }).isPaid).toBe(false)
+  it('④ team + junk ?tier=lol + anon → unchanged (isPaid=false), no throw', () => {
+    expect(renderTier({ tier: 'lol', teamPreview: true, user: ANON }).isPaid).toBe(false)
   })
 })

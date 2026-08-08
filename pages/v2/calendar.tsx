@@ -4,7 +4,7 @@
 // routing (useCalendarMonth · dayCellTier · /v2/calendar/[date]) are untouched; NO network (mock hooks).
 import type { GetServerSideProps } from 'next'
 import { useRouter } from 'next/router'
-import { v2RedirectIfUnauthed } from '@/lib/v2/gate'
+import { v2RedirectIfUnauthed, isV2TeamPreview } from '@/lib/v2/gate'
 import { CalendarShell } from '@/features/v2-calendar/components/CalendarShell'
 import { AppHeader } from '@/features/v2-shell/components/AppHeader'
 import { DateSelector } from '@/features/v2-calendar/components/DateSelector'
@@ -17,20 +17,21 @@ import { useCalendarMonth, useDayDetail, CalendarMenuState } from '@/features/v2
 import { useClientTier } from '@/features/v2-shell/hooks/useClientTier'
 import { formatThaiLongDate } from '@/utils/formate-date-thai'
 
-export const getServerSideProps: GetServerSideProps = async (ctx) => {
+export const getServerSideProps: GetServerSideProps<{ teamPreview: boolean }> = async (ctx) => {
   ctx.res.setHeader('Cache-Control', 'no-store, must-revalidate')
   const redirect = v2RedirectIfUnauthed(ctx.req)
   if (redirect) return redirect
-  return { props: {} }
+  // Past the gate ⇒ team member — relay so the client-side ?tier= override can key off it (issue #225).
+  return { props: { teamPreview: isV2TeamPreview(ctx.req) } }
 }
 
-export default function V2CalendarPage() {
+export default function V2CalendarPage({ teamPreview }: { teamPreview: boolean }) {
   const { month, loading, year, monthIndex, todayISO, selectedDate, selectDay, goPrev, goNext, goToday } = useCalendarMonth()
   const router = useRouter()
   // Zone 4 — the paid rule lives once in goo's lib/v2/tier.ts; this page only reads the verdict.
   // `null` = not determined yet, and it is wrong to guess in EITHER direction, so both the pill and the
   // promo stay away until the tier is actually known. See the note on the promo below.
-  const { isPaid } = useClientTier()
+  const { isPaid } = useClientTier(teamPreview)
   // M-B — the card follows the SELECTED day, not today. goo's hook already owns the rule (selection.ts:
   // today if today is in view, else day 1, re-applied on month change), so this is a one-word change from
   // `todayISO` to `selectedDate` and NOT a second copy of the rule. Before this, tapping a day moved the

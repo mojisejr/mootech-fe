@@ -25,7 +25,13 @@ import { useV2User } from './useV2User'
 import { computeTier, type V2Tier } from '@/lib/v2/tier'
 import { resolveTierOverride } from '@/lib/v2/tier-override'
 
-export function useV2Tier(): V2Tier {
+// `teamPreview` (issue #225): may this render honour a `?tier=` override? It is the v2 gate verdict for
+// THIS request — the page's getServerSideProps computes it from the httpOnly v2_access cookie (via
+// isV2TeamPreview) and drills it down, because the cookie is unreadable by client JS. It replaces the
+// #213 `NODE_ENV !== 'production'` guard so the override works on prod for anyone past the team passkey,
+// while a non-team visitor (flag false — the default) is never affected. Default false = fail-safe: a
+// caller that forgets to thread the flag gets NO override, not an accidental leak.
+export function useV2Tier(teamPreview = false): V2Tier {
   // Single, page-shared /api/user fetch (dedup in useV2User). Same reducer inputs as before the extraction.
   const { userId, done, errored, user } = useV2User()
   const router = useRouter()
@@ -41,12 +47,13 @@ export function useV2Tier(): V2Tier {
   if (!mounted) return { isPaid: null, loading: true }
   const base = computeTier({ userId, done, errored, user })
 
-  // DEV-only URL override (issue #213): view a page as free/paid from `?tier=`. The NODE_ENV guard is the
-  // control — in a prod BUILD `process.env.NODE_ENV` inlines to 'production', this condition folds to false,
-  // and the whole branch (param read + override) is dead-code-eliminated from the client bundle, so it
-  // cannot leak. Mirrors pages/v2/home-preview.tsx:35. 🔴 Closing-criterion mutant: delete this guard → the
-  // production test in scripts/v2-tier.test.ts goes RED.
-  if (process.env.NODE_ENV !== 'production') {
+  // Team-preview URL override (issue #225, was #213): view a page as free/paid from `?tier=`. Gated by the
+  // server-verified `teamPreview` flag instead of NODE_ENV, so it ships in the prod bundle and works there —
+  // but only for a request that carried a valid v2_access cookie (isV2TeamPreview in getServerSideProps).
+  // 🔴 Closing-criterion mutant: delete this `if (teamPreview)` guard → case ② in scripts/v2-tier.test.ts
+  // (flag false + ?tier=paid must not move) goes RED. The page-wiring twin (that a page actually SENDS the
+  // flag) is proven separately in scripts/tier-prod-pages.test.tsx.
+  if (teamPreview) {
     const override = resolveTierOverride(router.query.tier)
     // no/junk param → leave base untouched. 🔴 And never manufacture certainty: a null (loading/error) tier
     // stays null — the override only flips a KNOWN true/false, the very thing a previewer wants to swap.

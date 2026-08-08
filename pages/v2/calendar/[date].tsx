@@ -14,7 +14,7 @@
 import type { GetServerSideProps } from 'next'
 import Link from 'next/link'
 import { useRouter } from 'next/router'
-import { v2RedirectIfUnauthed } from '@/lib/v2/gate'
+import { v2RedirectIfUnauthed, isV2TeamPreview } from '@/lib/v2/gate'
 import { useDayDetail, useAdvancedMode, useReminders, useReminderDraft, menuStateForDay, type Reminder, type YamSlot } from '@/features/v2-calendar'
 import { CalendarShell } from '@/features/v2-calendar/components/CalendarShell'
 import { DayHeader } from '@/features/v2-calendar/components/day-detail/DayHeader'
@@ -33,14 +33,15 @@ import { SaveSheet } from '@/features/v2-calendar/components/day-detail/SaveShee
 import { PersonalCalendarUpsell } from '@/features/v2-calendar/components/upsell/PersonalCalendarUpsell'
 import { useClientTier } from '@/features/v2-shell/hooks/useClientTier'
 
-export const getServerSideProps: GetServerSideProps = async (ctx) => {
+export const getServerSideProps: GetServerSideProps<{ teamPreview: boolean }> = async (ctx) => {
   ctx.res.setHeader('Cache-Control', 'no-store, must-revalidate')
   const redirect = v2RedirectIfUnauthed(ctx.req)
   if (redirect) return redirect
-  return { props: {} }
+  // Past the gate ⇒ team member — relay so the client-side ?tier= override can key off it (issue #225).
+  return { props: { teamPreview: isV2TeamPreview(ctx.req) } }
 }
 
-export default function V2CalendarDayPage() {
+export default function V2CalendarDayPage({ teamPreview }: { teamPreview: boolean }) {
   const router = useRouter()
   const date = typeof router.query.date === 'string' ? router.query.date : ''
   const { detail } = useDayDetail(date)
@@ -55,7 +56,7 @@ export default function V2CalendarDayPage() {
   // failed) and there is no safe default: assume free and a paying member loses what they bought; assume
   // paid and the leak stays open. So neither branch renders — the screen shows the part every tier gets
   // (score card · ทิศ สีมงคล · เวลามงคล) and fills in once the answer is real.
-  const { isPaid } = useClientTier()
+  const { isPaid } = useClientTier(teamPreview)
   const paid = isPaid === true
   const free = isPaid === false
   const reminders = useReminders()
