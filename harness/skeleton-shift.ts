@@ -38,9 +38,15 @@ async function measure(url: string, width: number) {
   const browser = await chromium.launch()
   const ctx = await browser.newContext({ viewport: { width, height: 852 }, deviceScaleFactor: 1 })
   const page = await ctx.newPage()
-  const key = fs.readFileSync(path.resolve(process.cwd(), ENV_FILE), 'utf-8')
-    .split('\n').find((l) => l.trim().startsWith('V2_PREVIEW_KEY='))!
-    .split('=')[1].trim().replace(/^["']|["']$/g, '')
+  // env first (CI), file second (local) — same reason as first-frame-v2.readPasskey. The parentheses
+  // matter: without them the file-parsing chain binds to the whole `||` expression and runs against the
+  // ENV STRING, which has no "V2_PREVIEW_KEY=" line, so the `!` hits undefined and the harness dies in CI
+  // only — the exact class of break that hides until the one environment you added it for.
+  const key = process.env.V2_PREVIEW_KEY || (
+    fs.readFileSync(path.resolve(process.cwd(), ENV_FILE), 'utf-8')
+      .split('\n').find((l) => l.trim().startsWith('V2_PREVIEW_KEY='))!
+      .split('=').slice(1).join('=').trim().replace(/^["']|["']$/g, '')
+  )
   // A rejected gate still returns 303 — check WHERE it points, or an unauthenticated run sails on and
   // measures the passkey form instead of the page (that is how this script first reported "0px shift":
   // both renders were the gate form, both had zero landmarks, and zero-of-zero printed as a pass).

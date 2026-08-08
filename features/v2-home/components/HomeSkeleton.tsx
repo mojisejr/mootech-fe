@@ -7,10 +7,24 @@
 // <AuthLoadingGate/> → <ScreenLoading/> = `fixed inset-0 bg-white` + a spinner, over the whole screen,
 // menubar included.
 //
-// harness/first-frame-v2.ts recorded it off the compositor at ce31e57 (soft nav from /v2/service, 393×852):
+// harness/first-frame-v2.ts recorded it off the compositor at ce31e57 (soft nav from /v2/service, 393×852).
+// The finding was DIRECTIONAL and it is the only part worth quoting here:
 //
-//   as shipped                          16 frames with no menubar, 16 frames ≥97% white  (~265ms)
-//   with the data gate (line 98) cut     1 frame,                   1 frame              (99.7% white)
+//   as shipped                         white frames with no menubar:  > 0
+//   with the data gate (line 98) cut   white frames with no menubar:  > 0, fewer
+//   with this component at the fence   white frames with no menubar:  0
+//
+// The raw frame COUNTS that used to sit on these lines are gone on purpose. μุน measured 16 and ตู๋
+// measured 9 for the same row, same code, same "backend down" — and the cause is not either machine.
+// This gate lasts exactly as long as /api/user takes to resolve-or-fail, /api/user talks to postgres,
+// and with postgres down that call is wildly non-deterministic: five consecutive calls on ONE machine
+// took 0.43s / 0.01s / 0.41s / 1.57s / 5.49s, and a later run measured 11.9s. A count sampled from that
+// is a measurement of a driver's failure timing, not of this component.
+//
+// So: compare 0 vs >0, WITHIN one run, on one machine. Never quote a frame count across machines or days.
+// (This applies to timing-shaped numbers only. The 18px/64px layout-shift figures elsewhere in this PR
+// series are a different kind of number — line-count × line-height — and they reproduced exactly on two
+// machines. Do not "correct" those the way this one needed correcting.)
 //
 // The card originally called that residual frame "ไม่ใช่ของที่ผู้ใช้เจอ" and said not to test it. The
 // screencast disagreed with the reading, so the fix is the one that keeps BOTH true: the fence stays
