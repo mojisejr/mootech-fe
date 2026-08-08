@@ -55,6 +55,7 @@ export default defineConfig({
       'scripts/logout-clears-caches.test.ts',
       'scripts/v2-tier.test.ts', // #214 — must survive this merge
       'scripts/first-run-screens.test.tsx', // #218
+      'scripts/preview-gate.test.tsx', // #220 — .tsx so ci.yml's `*.test.ts` tsx lane never sees it (no skip-list edit, no #212 sync)
     ],
   },
   resolve: {

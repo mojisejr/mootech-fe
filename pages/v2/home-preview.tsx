@@ -1,4 +1,6 @@
-// DEV-ONLY preview of V2HomeScreen (verify @393 + anchor target). notFound in prod. Real mount = goo /v2.
+// Preview of V2HomeScreen (verify @393 + anchor target). Real mount = goo /v2. Visibility owned by the
+// v2 preview gate (V2_PREVIEW_KEY cookie), NOT NODE_ENV — same guard as the real /v2 pages so it opens
+// on prod after the passkey instead of 404 (issue #220).
 // ?state=good|neutral|caution|loading|empty|overflow|empty-facet — enumerate the Zone-1 state-space.
 // ?mut=hardcode — reproduce too's adversary regression (grade/pct hardcoded, ignoring fortune) so the
 //   fidelity anchor drives clean+mutant from the URL alone (data-binding teeth, no source patch).
@@ -6,6 +8,7 @@
 // no "loading": element comes from settled compute (never loading here — too's dead-skeleton catch).
 import type { GetServerSideProps } from 'next'
 import { useRouter } from 'next/router'
+import { v2RedirectIfUnauthed } from '@/lib/v2/gate'
 import { V2HomeScreen, type DailyFortune, type ElementInfo } from '@/features/v2-home/components/V2HomeScreen'
 import { HomeSkeleton } from '@/features/v2-home/components/HomeSkeleton'
 
@@ -31,8 +34,9 @@ const FORTUNES: Record<string, DailyFortune> = {
   baddate: { percent: 55, grade: 'C', verdict: 'neutral', headline: 'ทดสอบวันที่พัง', date: '2026-06-31', best: { text: 'ก' }, worst: { text: 'ข' } },
 }
 
-export const getServerSideProps: GetServerSideProps = async () => {
-  if (process.env.NODE_ENV === 'production') return { notFound: true }
+export const getServerSideProps: GetServerSideProps = async (ctx) => {
+  const redirect = v2RedirectIfUnauthed(ctx.req)
+  if (redirect) return redirect
   return { props: {} }
 }
 
