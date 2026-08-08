@@ -45,7 +45,17 @@ export default defineConfig({
   plugins: [jsxAutomatic],
   test: {
     environment: 'jsdom',
-    include: ['scripts/logout-clears-caches.test.ts', 'scripts/first-run-screens.test.tsx'],
+    // ⚠️ UNION, never "pick a side". This list is a pass/fail condition: #214 and #218 each appended
+    // one spec to the same line from the same base, so the fastest resolution (keep one branch's
+    // line) SILENTLY DELETES the other spec — and ci.yml's tsx lane already skips both by name
+    // ("vitest owns them"), so the dropped one would run in NEITHER lane and CI would stay green.
+    // Same shape as the merge-conflict rule already written into design-verify.yml. Debt #212 is
+    // that this list and ci.yml's skip list are two hand-synced copies of the same fact.
+    include: [
+      'scripts/logout-clears-caches.test.ts',
+      'scripts/v2-tier.test.ts', // #214 — must survive this merge
+      'scripts/first-run-screens.test.tsx', // #218
+    ],
   },
   resolve: {
     alias: { '@': rootDir },
