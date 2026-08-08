@@ -104,15 +104,19 @@ export function V2HomeScreen({ greeting, mascotCharacter, onLogout, fortune, for
       {/* ── content column: 393 primary, centred + capped, safe-area top, clears the fixed nav ── */}
       <div className="relative z-10 mx-auto flex w-full max-w-md flex-col px-4 pb-36 pt-[max(0.75rem,env(safe-area-inset-top))]">
         <Greeting name={greeting.name} mascotCharacter={mascotCharacter} onAvatarTap={() => setLogoutOpen(true)} element={element} profile={profile ?? PROFILE_FALLBACK} loading={loading} />
-        {/* Zone 1 waits on the user row BEFORE its own fetch can even start, so `fortuneLoading` alone is
-            false during that first stretch — and with no fortune yet the card fell through to its empty
-            state and said "ยังไม่มีข้อมูลดวงวันนี้" while the request was still in flight. Caught by eye at
-            320 in the DoD-5 strip, not by the machine leg: every column there was green, because a
-            confidently wrong SENTENCE is not a layout defect. It is the same class as the mascot fallback
-            and worse in kind — a stand-in image only looks like data, this one asserts an absence that
-            isn't true yet. So the card is loading whenever EITHER its own fetch is running or the row it
-            depends on has not landed; "no fortune today" is reserved for when we actually know that. */}
-        <ScoreRingCard fortune={fortune} loading={fortuneLoading || loading.profile} />
+        {/* `fortuneLoading` is the WHOLE truth for this card, and that is a deliberate arrangement.
+            It briefly wasn't: while the user row was in flight the hook reported loading=false with no
+            fortune, so the card fell through to its empty state and announced "ยังไม่มีข้อมูลดวงวันนี้"
+            over a request that had not finished. (Caught by eye at 320 in the DoD-5 strip, not by the
+            machine leg — every column there was green, because a confidently wrong SENTENCE is not a
+            layout defect.) I first patched it HERE, by or-ing in loading.profile. goo then fixed it at the
+            source, where `user: null` stops being ambiguous between "still coming" and "errored".
+            My patch is gone rather than kept as a harmless belt, and that is the point: with two places
+            enforcing one rule, a regression in the hook would have been absorbed here and the gate would
+            have stayed green while the source rule rotted. Verified as an arrangement, not assumed —
+            removing this belt keeps the gate silent ✓, and removing goo's guard with the belt already
+            gone turns it CLAIMED ✗. One owner for the rule, one tooth watching it. */}
+        <ScoreRingCard fortune={fortune} loading={fortuneLoading} />
         <ManifestCard mascotCharacter={mascotCharacter} element={element} loading={loading.mascot} />
         <SomphongSection />
         <SianSection />
