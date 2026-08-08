@@ -1,6 +1,8 @@
-// DEV-ONLY preview of the three post-first-login screens (issue #215). notFound in prod.
-// Nothing is mounted into a real flow yet: first-login detection and routing are ใบ 3, so this page
-// is the ONLY way in — no login, no user, no backend.
+// Preview of the three post-first-login screens (issue #215). Visibility is owned by the v2 preview
+// gate (V2_PREVIEW_KEY cookie), NOT by NODE_ENV — same guard as the 10 real /v2 pages, so ฟี/ตู๋ can
+// open it on a Vercel/prod deploy after the passkey instead of being 404'd (issue #220). Nothing is
+// mounted into a real flow yet: first-login detection and routing are ใบ 3, so this page is the ONLY
+// way in — no login, no user, no backend.
 //
 //   ?step=intent|pdpa|element   which screen (default: intent)
 //   ?goal=finance|health|family|growth|love|work|none   intent-check selection
@@ -13,12 +15,14 @@
 import { useState } from 'react'
 import type { GetServerSideProps } from 'next'
 import { useRouter } from 'next/router'
+import { v2RedirectIfUnauthed } from '@/lib/v2/gate'
 import { ElementResultScreen } from '@/features/v2-first-run/components/ElementResultScreen'
 import { IntentCheckScreen, type GoalId } from '@/features/v2-first-run/components/IntentCheckScreen'
 import { PdpaConsentScreen } from '@/features/v2-first-run/components/PdpaConsentScreen'
 
-export const getServerSideProps: GetServerSideProps = async () => {
-  if (process.env.NODE_ENV === 'production') return { notFound: true }
+export const getServerSideProps: GetServerSideProps = async (ctx) => {
+  const redirect = v2RedirectIfUnauthed(ctx.req)
+  if (redirect) return redirect
   return { props: {} }
 }
 
