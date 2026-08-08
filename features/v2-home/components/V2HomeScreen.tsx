@@ -1,7 +1,7 @@
 // features/v2-home/components/V2HomeScreen.tsx — MuMate v2 logged-in HOME (slice-2, scope B: shell-first).
 //
 // PRESENTATIONAL — takes { greeting, mascotCharacter, onLogout } as props so goo's /v2 index wires the
-// hooks (useV2Home / useV2Logout / useMascotFromCompute → 01.png fallback) with zero file conflict.
+// hooks (useV2Home / useV2Logout / useMascotFromCompute → 01.webp fallback) with zero file conflict.
 // Layout = EVERY section per Figma node 333-6545 (won't be re-torn later); FEATURE content is
 // placeholder/empty-state (scope B). Key invariants: BG CONTINUOUS through the full scroll (no seam),
 // responsive @393 + no breakage / safe-area / long scroll.
@@ -92,7 +92,7 @@ export function V2HomeScreen({ greeting, mascotCharacter, onLogout, fortune, for
 }
 
 // Greeting mascot with missing-FILE safety: a resolved character path can 404 (asset not yet in repo /
-// on S3) — Next/Image onError swaps to the static hero. This is the frozen "fallback 01.png" intent at
+// on S3) — Next/Image onError swaps to the static hero. This is the frozen "fallback 01.webp" intent at
 // the FILE level (goo's null-fallback covers "no compute"; this covers "path resolves but file missing").
 function MascotImg({ src }: { src: string }) {
   const [current, setCurrent] = useState(src)
@@ -285,7 +285,7 @@ function ManifestMascot({ src }: { src: string }) {
 const COLLEAGUE_MASCOTS = ['04_เถาะ-ไฟ', '04_เถาะ-ไม้', '05_มะโรง-ดิน', '05_มะโรง-ไม้', '06_มะเส็ง-ทอง', '06_มะเส็ง-ไฟ', '06_มะเส็ง-ดิน']
 const COLLEAGUE_DELAY = [0.05, 0.125, 0.2, 0.275, 0.35, 0.425, 0.5] // staggered appear (~0.075s apart)
 const COLLEAGUE_LIFT = [10, 5, 0, 0, 0, 5, 10] // px: raise outer mascots into a back row → layered huddle (Figma)
-const charSrc = (n: string) => `/images/v2/characters/${n}.png`
+const charSrc = (n: string) => `/images/v2/characters/${n}.webp`
 
 function SomphongSection() {
   return (

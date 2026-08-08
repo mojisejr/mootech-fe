@@ -472,7 +472,7 @@ const NAKKASAT_OPTIONS = ZODIAC_TABLE.map((z) => ({
 }));
 
 // Interactive personalization demo — two axes (นักษัตร × ธาตุ) resolve via the
-// PURE builder (no live API), then render the no-bg character .png + with-bg card
+// PURE builder (no live API), then render the no-bg character .webp + with-bg card
 // .jpg through next/image. 12 × 5 = 60 assets always resolve to a real file.
 function MascotDemo() {
   const [animal, setAnimal] = useState("กุน");
@@ -511,7 +511,7 @@ function MascotDemo() {
 
       {mascot && (
         <div className="grid gap-6 sm:grid-cols-2">
-          <Specimen label="Character · no-bg .png">
+          <Specimen label="Character · no-bg .webp">
             <div className="flex justify-center rounded-card bg-v3-ghost-white p-4">
               <Image
                 src={mascot.character}
@@ -878,7 +878,7 @@ function V3ComponentLibrary() {
           </V3Group>
           <V3Group
             title="Personalization / Mascot"
-            subtitle="นักษัตร × ธาตุ → ตัวละคร (no-bg .png) + การ์ด (with-bg .jpg) ผ่าน pure builder"
+            subtitle="นักษัตร × ธาตุ → ตัวละคร (no-bg .webp) + การ์ด (with-bg .jpg) ผ่าน pure builder"
           >
             <MascotDemo />
           </V3Group>
