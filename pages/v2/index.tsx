@@ -55,7 +55,7 @@ function V2HomeRoute({ status }: { status: AuthStatus }) {
   // useV2Home is the SINGLE owner of the /api/user fetch (#165): it yields the routing/greeting/compute
   // AND the header `profile` + the fetched `user` row, so useHomeFortune reuses that row instead of firing
   // a second UserGetById.
-  const { showLoading, greeting, computeSource, profile, user } = useV2Home(status)
+  const { redirecting, greeting, computeSource, profile, user, loading } = useV2Home(status)
   const { logout } = useV2Logout()
   const mascot = useMascotFromCompute(computeSource)
   const mascotCharacter = mascot?.character ?? '/images/v2/mascot/01.webp'
@@ -82,7 +82,11 @@ function V2HomeRoute({ status }: { status: AuthStatus }) {
     )
   }
 
-  if (showLoading) return <AuthLoadingGate />
+  // Gate ONLY on an active redirect (no-chart user → /v2/register): render nothing home-shaped while that
+  // route change is in flight so home does not flash. The data-loading wait is GONE — a settled-authed
+  // user renders the home shell immediately (menubar/header present from frame 1), and `loading` tells
+  // Lamun's screen which zones are still grey. This is the P1 fix: no full-screen white gate on data load.
+  if (redirecting) return <AuthLoadingGate />
 
   return (
     <V2HomeScreen
@@ -91,6 +95,9 @@ function V2HomeRoute({ status }: { status: AuthStatus }) {
       onLogout={logout}
       fortune={fortune}
       fortuneLoading={fortuneLoading}
+      // Per-zone loading (goo → Lamun seam): true = data not in → grey block for that zone (❌ not the
+      // 01.webp fallback). profile un-greys when the user row lands; mascot waits for the chart.
+      loading={loading}
       // Header seam (กติกา ค): avatar + upgrade-badge inputs from the single user fetch. μุน's
       // V2HomeScreenProps declares `profile?` (optional, safe default) — this pass compiles once #180 lands.
       profile={profile}

@@ -55,7 +55,16 @@ export type V2HomeScreenProps = {
    *  computes it. Optional so goo's current /v2 compiles before the wire lands — the pre-wire default is
    *  "show badge + letter avatar" (a safe fallback, NOT a rule). */
   profile?: Profile
+  /** Per-zone data-loading flags — goo wires from useV2Home. `true` = that zone's data is not in yet →
+   *  draw a GREY BLOCK, ❌ NOT the 01.webp mascot fallback (ฟีม: one clean reveal, no fallback-then-swap
+   *  flicker). `profile` un-greys when the user row lands; `mascot` (+ ธาตุ) waits for the chart — they
+   *  resolve at different times, hence two flags. Optional + defaults to "nothing loading" so the dev
+   *  preview and any pre-wire pass compile; absent → show the data. */
+  loading?: HomeScreenLoading
 }
+
+// grey-block flags goo wires (parallel). Absent/false → the zone shows its resolved data (or safe fallback).
+export type HomeScreenLoading = { profile: boolean; mascot: boolean }
 
 // header data goo wires (parallel). pictureUrl null / onError → letter avatar; showUpgrade false → badge hidden.
 export type Profile = { pictureUrl: string | null; showUpgrade: boolean }
