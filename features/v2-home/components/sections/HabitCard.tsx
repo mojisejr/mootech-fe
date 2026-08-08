@@ -1,4 +1,5 @@
 import React from 'react'
+import Link from 'next/link'
 
 // Shared big-blue habit-card. Figma 333:6889 (Zone 4 โหมดเซียน) === 375:14151 (Zone 6 เรียนปาจื่อ) — the card
 // is pixel-identical between the two; only the title lines + CTA variant differ (props). The gradient, both
@@ -21,7 +22,11 @@ import React from 'react'
 // transform-ONLY (no margin/top → no CLS · ตู๋). Under prefers-reduced-motion every element is at its static
 // rest (pixel-identical to the pre-motion card) — the base transforms live on the classes, not only the keyframes.
 
-export type HabitCardCta = { variant: 'primary' | 'tertiary'; label: string }
+/** `href` is REQUIRED, and that is the point: this card is rendered by Zone 4 (หนังสือเล่มเดียวในโลก) and
+ *  Zone 6 (เรียนปาจื่อ) alike. A destination baked into the card would send both zones to the same place
+ *  and nothing would report it — the two CTAs look right either way. Making it a prop means the card
+ *  cannot have an opinion about where its owner is going. */
+export type HabitCardCta = { variant: 'primary' | 'tertiary'; label: string; href: string }
 
 /** the illustration in the frame slot. `w`/`h` are the painted size — measured per card, not shared. */
 export type HabitCardArt = { src: string; w: number; h: number; alt?: string }
@@ -118,10 +123,15 @@ export function HabitCard({ title, desc, cta, animate = true, art, showMascots =
       <div className="z-[1] flex min-w-px flex-1 flex-col items-start gap-2">
         <div className="text-base font-bold leading-6 text-v3-navy">{title}</div>
         <div className="text-sm font-medium leading-5 text-v3-text-body">{desc}</div>
+        {/* was <button>: same classes + `inline-block text-center`, because an <a> is inline (loses the
+            padded box) AND does not inherit the UA's `text-align:center` for buttons. Without text-center
+            this is invisible at 393 — the label fits one line — and wrong at 360/320, where
+            "ดูรายละเอียดเพิ่มเติม" wraps to two and goes ragged-left inside a centred pill. The 393-only
+            diff said 0; the viewport set is what caught it. */}
         {cta.variant === 'primary' ? (
-          <button type="button" className="rounded-full bg-v3-sapphire px-6 py-2 text-sm font-semibold uppercase leading-5 text-v3-lime">{cta.label}</button>
+          <Link href={cta.href} className="inline-block rounded-full bg-v3-sapphire px-6 py-2 text-center text-sm font-semibold uppercase leading-5 text-v3-lime">{cta.label}</Link>
         ) : (
-          <button type="button" className="rounded-full border border-v3-sapphire px-6 py-2 text-sm font-semibold uppercase leading-5 text-v3-sapphire">{cta.label}</button>
+          <Link href={cta.href} className="inline-block rounded-full border border-v3-sapphire px-6 py-2 text-center text-sm font-semibold uppercase leading-5 text-v3-sapphire">{cta.label}</Link>
         )}
       </div>
       {animate && <HabitCardMotion />}

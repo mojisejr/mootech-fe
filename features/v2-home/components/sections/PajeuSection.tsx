@@ -1,5 +1,6 @@
 import React from 'react'
 import { HabitCard } from './HabitCard'
+import { comingSoonHrefById } from '@/features/v2-service/services'
 
 // ── Zone 6 — เรียนปาจื่อ (mindful-moments-section · Figma 375:14147) ──────────────────────────────────
 // Reuses the shared <HabitCard/> (Figma 375:14151 === Zone 4's 333:6889 — pixel-identical card, motion and all).
@@ -42,7 +43,7 @@ export function PajeuSection() {
             รวบรวมเป็นหนังสือส่วนตัว
           </>
         }
-        cta={{ variant: 'tertiary', label: 'ดูรายละเอียดเพิ่มเติม' }}
+        cta={{ variant: 'tertiary', label: 'ดูรายละเอียดเพิ่มเติม', href: comingSoonHrefById('pajeu') }}
       />
     </section>
   )

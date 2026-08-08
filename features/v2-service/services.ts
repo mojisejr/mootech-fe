@@ -14,6 +14,7 @@
 export type ServiceCardData = {
   /** stable slug — anchor keys + future image-slot wiring */
   id: string
+  /* (the callable-by-id surface narrows this to a union below — see ServiceId) */
   /** card heading — navy bold 18/24, verbatim Figma */
   title: string
   /** body lines — 1 or 2 per Figma (medium 14/20); each entry = one <p> */
@@ -42,7 +43,7 @@ const DESC_PLAN = ['วางแผนชีวิตตามจังหวะ
 /** the shared "เร็วๆ นี้" destination, carrying the service name so that page names what the user tapped */
 export const comingSoonHref = (title: string): string => `/v2/service/coming-soon?service=${encodeURIComponent(title)}`
 
-export const SERVICES: ServiceCardData[] = [
+export const SERVICES = [
   // ดวงสมพงศ์ Slice 1: these two now enter the real compatibility flow (was comingSoonHref).
   { id: 'couple', title: 'ดูดวงคู่รัก', desc: DESC_FORTUNE, href: '/v2/service/compatibility/love', image: ART('01_ดูดวงคู่รัก.png') },
   { id: 'coworker', title: 'ดูดวงเพื่อนร่วมงาน', desc: DESC_FORTUNE, href: '/v2/service/compatibility/colleague', image: ART('02_ดูดวงเพื่อนร่วมงาน.png') },
@@ -57,8 +58,31 @@ export const SERVICES: ServiceCardData[] = [
   { id: 'healing-circles', title: 'Healing Circles', desc: DESC_CALENDAR, href: comingSoonHref('Healing Circles'), hiddenUntilArt: true },
   { id: 'sacred-map', title: 'แผนที่ศักดิ์สิทธิ์', desc: DESC_PLAN, href: comingSoonHref('แผนที่ศักดิ์สิทธิ์'), image: ART('10_แผนที่ศักดิ์สิทธิ์.png') },
   { id: 'shop', title: 'ร้านค้าของเรา', desc: DESC_PLAN, href: '/v2/shop', image: ART('11_ร้านค้าของเรา.png') },
-]
+  // #13, added 2026-08-08 — NOT from the Figma 12. The home screen (Zone 6) has been selling this since
+  // #157, but it existed nowhere in the catalog, so its CTA had no name to send anywhere. Hidden for the
+  // same reason as Healing Circles: the card art is 1128×463 full-card, and the only ปาจื่อ image we have
+  // is the 569×436 illustration inside the blue home card — a different spec, not a substitute.
+  { id: 'pajeu', title: 'เรียนปาจื่อออนไลน์', desc: DESC_FORTUNE, href: comingSoonHref('เรียนปาจื่อออนไลน์'), hiddenUntilArt: true },
+] as const satisfies readonly ServiceCardData[]
+
+/** Every id that exists, derived from the catalog itself — not a second list to keep in sync.
+ *  This is what makes a mistyped id a COMPILE error. The first version of this helper took a `string`
+ *  and threw on a miss, which sounded safe and was not: the throw runs during render, so a typo would
+ *  have taken out the whole home screen (white page) while tsc stayed green the entire way — strictly
+ *  worse than the wrong-link bug it was meant to prevent (บอง caught this). */
+export type ServiceId = (typeof SERVICES)[number]['id']
+
+/** Coming-soon destination BY ID. The home screen must send the exact catalog title, but its own copy is
+ *  broken into display lines (`['เสี่ยงไพ่','ออราเคิล','เคี้ยงคุง']`) — joining those back together is how
+ *  a stray space ends up in the URL and the page greets the user with the wrong name. So callers pass an
+ *  id and the title is read from the catalog: the home screen holds no service-name string at all, and a
+ *  renamed service follows automatically.
+ *  Built once as a total map over ServiceId, so there is no lookup that can miss and therefore no
+ *  runtime failure mode to choose a behaviour for. */
+const COMING_SOON_BY_ID = Object.fromEntries(SERVICES.map((s) => [s.id, comingSoonHref(s.title)])) as Record<ServiceId, string>
+
+export const comingSoonHrefById = (id: ServiceId): string => COMING_SOON_BY_ID[id]
 
 /** what the hub actually renders. Kept as a derived list so `SERVICES` stays the full catalog — the
  *  hidden row is still inspectable, and un-hiding it is deleting one field, not re-typing a service. */
-export const VISIBLE_SERVICES: ServiceCardData[] = SERVICES.filter((s) => !s.hiddenUntilArt)
+export const VISIBLE_SERVICES: readonly ServiceCardData[] = (SERVICES as readonly ServiceCardData[]).filter((s) => !s.hiddenUntilArt)

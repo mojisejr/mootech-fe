@@ -14,6 +14,7 @@ import { HabitCard } from './sections/HabitCard'
 import { PajeuSection } from './sections/PajeuSection'
 import { SinseSection } from './sections/SinseSection'
 import { CalendarMenu } from './CalendarMenu'
+import { comingSoonHrefById, type ServiceId } from '@/features/v2-service/services'
 import { HeaderTools } from '@/features/v2-shell/components/AppHeader'
 import { DailyFortuneCard } from '@/features/v2-shell/components/DailyFortuneCard'
 import { LogoutModal } from '@/features/v2-shell/components/LogoutModal'
@@ -255,8 +256,10 @@ function ManifestCard({ mascotCharacter, element }: { mascotCharacter: string; e
         {/* title wraps in the LEFT lane (max-w keeps it off the mascot) */}
         <p className="max-w-[54%] text-base font-bold leading-6 text-[#1f2937]">มานิเฟส สิ่งที่คุณปรารถนา แล้วปล่อยให้จักรวาลนำทาง</p>
         {/* button: single line, extends under the mascot (Figma ~198px > column) — on top (z-10) so it stays
-            readable. destination not wired this zone (ฟีม). spelling: ปรารถนา (Figma's ปราถนา is a typo). */}
-        <button type="button" className="whitespace-nowrap rounded-full bg-v3-sapphire px-6 py-2 text-sm font-semibold uppercase leading-5 text-v3-lime">เพิ่มความปรารถนาของคุณ</button>
+            readable. spelling: ปรารถนา (Figma's ปราถนา is a typo).
+            A1: now goes to the shared เร็วๆ นี้ page as มานิเฟส — the service exists in the catalog, the
+            feature does not, so the honest destination is the one that says so by name. */}
+        <Link href={comingSoonHrefById('manifest')} className="inline-block whitespace-nowrap rounded-full bg-v3-sapphire px-6 py-2 text-center text-sm font-semibold uppercase leading-5 text-v3-lime">เพิ่มความปรารถนาของคุณ</Link>
       </div>
       {/* mascot from the chart — right-anchored + rotated + overflowing (clipped). pointer-events-none so a
           tap passes through to the button. onError → hero fallback (like MascotImg). */}
@@ -302,7 +305,7 @@ function SomphongSection() {
         ทั้งความรัก การเงิน สุขภาพ เพื่อเสริมดวงคู่ให้แข็งแกร่ง
       </p>
       <div className="mt-4 flex gap-2">
-        <SomphongCard title="ดูดวงคู่รัก" bg="#FBD9E7" radial="pink">
+        <SomphongCard title="ดูดวงคู่รัก" bg="#FBD9E7" radial="pink" href="/v2/service/compatibility/love">
           {/* Figma 421:826: LEFT = ไฟ (พลิกซ้ายขวา, z3-rock-r) · RIGHT = ไม้ (+7°, z3-rock-l) · หัวใจ chest-height ระหว่างคู่ */}
           <div className="absolute inset-x-1 bottom-1 z-[5] flex items-end justify-center">
             <Zone3Mascot name="01_ชวด-ไฟ" className="z3-rock-r h-[92px] w-[78px]" />
@@ -310,7 +313,7 @@ function SomphongSection() {
             <Zone3Mascot name="01_ชวด-ไม้" className="z3-rock-l h-[92px] w-[78px]" />
           </div>
         </SomphongCard>
-        <SomphongCard title="ดูดวงเพื่อนร่วมงาน" bg="#ECD9FB" radial="purple">
+        <SomphongCard title="ดูดวงเพื่อนร่วมงาน" bg="#ECD9FB" radial="purple" href="/v2/service/compatibility/colleague">
           {/* 7 มาสคอตเป็นกลุ่มแน่น (huddle) เต็มครึ่งล่างการ์ด — outer ยกขึ้นเป็นแถวหลัง (COLLEAGUE_LIFT) */}
           <div className="absolute inset-x-0 bottom-1 z-[5] flex items-end justify-center">
             {COLLEAGUE_MASCOTS.map((n, i) => (
@@ -319,7 +322,7 @@ function SomphongSection() {
           </div>
         </SomphongCard>
       </div>
-      <button type="button" className="mx-auto mt-4 block rounded-full border border-[#1455A4] px-6 py-2 text-sm font-semibold uppercase leading-5 text-[#1455A4]">ดูบริการทั้งหมด</button>
+      <Link href="/v2/service" className="mx-auto mt-4 block w-fit rounded-full border border-[#1455A4] px-6 py-2 text-center text-sm font-semibold uppercase leading-5 text-[#1455A4]">ดูบริการทั้งหมด</Link>
       <SomphongKeyframes />
     </section>
   )
@@ -334,15 +337,18 @@ function SomphongMound({ className }: { className: string }) {
   )
 }
 
-function SomphongCard({ title, bg, radial, children }: { title: string; bg: string; radial: 'pink' | 'purple'; children: React.ReactNode }) {
+// A2/A3: the whole card is the tap target (it always looked like one). `href` is a prop, not a constant,
+// because the two cards differ ONLY by it — a card that knew its own destination would make the pair
+// indistinguishable in the place where they actually differ.
+function SomphongCard({ title, bg, radial, href, children }: { title: string; bg: string; radial: 'pink' | 'purple'; href: string; children: React.ReactNode }) {
   return (
-    <div className="relative h-[150px] flex-1 overflow-hidden rounded-2xl px-4 py-6" style={{ backgroundColor: bg }}>
+    <Link href={href} className="relative block h-[150px] flex-1 overflow-hidden rounded-2xl px-4 py-6" style={{ backgroundColor: bg }}>
       {/* radial circles behind (real SVG, ฟีม: not CSS) */}
       <img src={`/images/v2/zone3/radial-group-${radial}.svg`} alt="" aria-hidden className="pointer-events-none absolute -left-[43px] -top-[9px] z-0 w-[262px] max-w-none" />
       {radial === 'pink' && <img src="/images/v2/zone3/radial-group-pink.svg" alt="" aria-hidden className="pointer-events-none absolute left-[130px] -top-[48px] z-0 w-[150px] max-w-none opacity-80" />}
       <h3 className="relative z-10 text-base font-bold uppercase leading-6 text-[#0B305B]">{title}</h3>
       {children}
-    </div>
+    </Link>
   )
 }
 
@@ -378,10 +384,13 @@ function SomphongKeyframes() {
 // ── Zone 4 — โหมดเซียน (mindful-moments-section · Figma 333:6885) ──────────────────────────────────
 // The blue habit-card is the shared <HabitCard/> (with the 3-piece cohort motion); this section adds the
 // header, the 3 property cards, and the tertiary CTA around it.
-const SIAN_CARDS: { icon: string; lines: string[] }[] = [
-  { icon: 'icon-oracle', lines: ['เสี่ยงไพ่', 'ออราเคิล', 'เคี้ยงคุง'] },
-  { icon: 'icon-spirit', lines: ['เสี่ยงไพ่', 'จิตวิญญาณ', 'แดนสวรรค์'] },
-  { icon: 'icon-sian', lines: ['เสี่ยงเซียน', 'เสี่ยงทาย'] },
+// `lines` is DISPLAY copy, broken to fit a narrow card — it is not the service name and must never be
+// joined back into one ("เสี่ยงไพ่ออราเคิลเคี้ยงคุง" has no space where the line break is). `serviceId`
+// is what travels; the title comes from the catalog. See comingSoonHrefById.
+const SIAN_CARDS: { icon: string; lines: string[]; serviceId: ServiceId }[] = [
+  { icon: 'icon-oracle', lines: ['เสี่ยงไพ่', 'ออราเคิล', 'เคี้ยงคุง'], serviceId: 'oracle-kiang' },
+  { icon: 'icon-spirit', lines: ['เสี่ยงไพ่', 'จิตวิญญาณ', 'แดนสวรรค์'], serviceId: 'spirit-heaven' },
+  { icon: 'icon-sian', lines: ['เสี่ยงเซียน', 'เสี่ยงทาย'], serviceId: 'sian' },
 ]
 
 function SianSection() {
@@ -412,12 +421,12 @@ function SianSection() {
             รวบรวมเป็นหนังสือส่วนตัว
           </>
         }
-        cta={{ variant: 'primary', label: 'ซื้อเลย' }}
+        cta={{ variant: 'primary', label: 'ซื้อเลย', href: comingSoonHrefById('one-book') }}
       />
       {/* 3 property cards (pastel-blue) */}
       <div className="flex w-full gap-2">
         {SIAN_CARDS.map((c) => (
-          <div key={c.icon} className="flex flex-1 self-stretch rounded-2xl bg-v3-pastel-blue p-4">
+          <Link key={c.icon} href={comingSoonHrefById(c.serviceId)} className="flex flex-1 self-stretch rounded-2xl bg-v3-pastel-blue p-4">
             <div className="flex flex-1 flex-col justify-start gap-2">
               <img src={`/images/v2/zone4/${c.icon}.svg`} alt="" aria-hidden className="size-8" />
               <p className="text-sm font-semibold uppercase leading-5 text-v3-navy">
@@ -426,13 +435,12 @@ function SianSection() {
                 ))}
               </p>
             </div>
-          </div>
+          </Link>
         ))}
       </div>
-      {/* tertiary CTA — not linked yet (ฟีม) but clickable, no error */}
-      <button type="button" className="mx-auto rounded-full border border-v3-sapphire px-6 py-2 text-sm font-semibold uppercase leading-5 text-v3-sapphire">
+      <Link href="/v2/service" className="mx-auto block w-fit rounded-full border border-v3-sapphire px-6 py-2 text-center text-sm font-semibold uppercase leading-5 text-v3-sapphire">
         ดูบริการทั้งหมด
-      </button>
+      </Link>
     </section>
   )
 }
