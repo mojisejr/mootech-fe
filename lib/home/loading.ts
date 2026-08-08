@@ -19,8 +19,9 @@ export type HomeLoading = { profile: boolean; mascot: boolean }
 // depend on it. avatar/upgrade come from the LIVE user row only; showing a cached "not paid" badge to a user
 // who just paid is the money bug (P3 DoD#3). So `profile` is a pure function of (phase, hasUser), full stop —
 // scripts/home-loading.test.ts pins that independence (a mutant that leaks `mascotReady` into `profile` → RED).
-// NOTE: `mascotReady` defaults false and is DORMANT until P3 wires the chart cache into useV2Home (after P4);
-// today's 2-arg caller is unchanged (mascotReady=false → mascot = phase==='resolving', exactly as before).
+// `mascotReady` is now LIVE: useV2Home peeks the in-memory chart cache on remount and passes true when a
+// cached chart is available, so a tab-switch return un-greys the mascot instantly. It still defaults false,
+// so any remaining 2-arg caller behaves exactly as before (mascot = phase==='resolving').
 export function deriveHomeLoading(phase: HomePhase, hasUser: boolean, mascotReady = false): HomeLoading {
   return {
     profile: phase === 'resolving' && !hasUser, // ⊥ mascotReady — avatar/upgrade are live-row-only (money bug)
