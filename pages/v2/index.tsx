@@ -49,7 +49,7 @@ function V2Entry() {
 
 // Authed home: goo's useV2Home does the gap-C routing (has-chart→home / no-chart→/v2/register,
 // loop-safe) + yields greeting + compute-source; useV2Logout gives the logout action Lamun's confirm
-// modal calls; useMascotFromCompute → character path (null → 01.png fallback). Lamun's V2HomeScreen is
+// modal calls; useMascotFromCompute → character path (null → 01.webp fallback). Lamun's V2HomeScreen is
 // presentational (props only). All hooks are called unconditionally before the loading branch.
 function V2HomeRoute({ status }: { status: AuthStatus }) {
   // useV2Home is the SINGLE owner of the /api/user fetch (#165): it yields the routing/greeting/compute

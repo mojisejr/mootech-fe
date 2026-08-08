@@ -52,6 +52,9 @@ const SLOTS = [
   { key: 'zone3-love-r', sel: 'img.z3-rock-r', driven: false }, // V2HomeScreen:308 · 01_ชวด-ไฟ
   { key: 'zone3-love-l', sel: 'img.z3-rock-l', driven: false }, // V2HomeScreen:310 · 01_ชวด-ไม้
   { key: 'zone3-huddle', sel: 'img.z3-pop', driven: false }, // V2HomeScreen:317 · COLLEAGUE_MASCOTS x7
+  // PersonalCalendarPromo:33 — /v2/calendar, free tier only. The coin sibling carries a data-testid, the
+  // character wrapper does not; that is what separates them without matching on the src we are checking.
+  { key: 'calendar-promo', sel: '[data-testid="calendar-promo"] div[aria-hidden]:not([data-testid]) img', driven: false },
 ] as const
 
 function readPasskey(): string {
@@ -75,6 +78,27 @@ function readCharacterNames(dir: string): string[] {
     .filter((f) => /\.(png|webp)$/i.test(f))
     .map((f) => f.replace(/\.(png|webp)$/i, ''))
     .sort()
+}
+
+// PII-stripped fake test users — SOURCE OF TRUTH is harness/capture-route.ts USERS (kept in sync by hand;
+// that file runs main() on import, so it cannot be imported for the constant).
+const USERS: Record<string, { userId: string; name: string }> = {
+  default: { userId: '5c7befb3-ebd3-4740-989e-fd6a1cca9662', name: 'มิลา' },
+  longname: { userId: 'b54b765a-c01b-471f-bf7c-0c2a1a448bdd', name: 'มิลาวรรณวิไลอลงกรณ์ศรีสุวรรณภูมิ' },
+  'no-dob': { userId: '1b48125d-a68c-4682-a318-84f93f79baf9', name: 'ไร้ดวง' },
+}
+
+// gate + /dev-login, same flow as capture-route.ts (driven by user_id, never the real-name quick-picks)
+async function login(page: Page) {
+  await gate(page)
+  const u = USERS[arg('user', 'default')!]
+  if (!u) throw new Error(`unknown --user ${arg('user')}`)
+  await page.goto(`${HOST}/dev-login`, { waitUntil: 'networkidle' })
+  const inputs = page.locator('input')
+  await inputs.nth(0).fill(u.userId)
+  await inputs.nth(1).fill(u.name)
+  await page.getByRole('button', { name: /dev login/i }).click()
+  await page.waitForURL((x) => new URL(x).pathname === '/', { timeout: 10000 }).catch(() => {})
 }
 
 async function gate(page: Page) {
@@ -295,6 +319,35 @@ async function main() {
       if (bad.length) console.log(`- network >=400: ${JSON.stringify(bad)} ❌`)
       else console.log(`- network >=400: 0 ✓ (character requests seen: ${seen.filter((s) => s.url.includes(CHAR_DIR)).length})`)
       if (fixed.length !== 9 || distinct !== fixed.length || fixed.some((p) => p.isFallback) || bad.length) process.exitCode = 1
+      return
+    }
+
+    if (MODE === 'authed') {
+      // The real route. /v2/home-preview builds `mascotCharacter` itself from the query, so it never
+      // touches pages/v2/index.tsx:61 `mascot?.character ?? '/images/v2/mascot/01.webp'` — a second
+      // silent-fallback layer that sits BEFORE onError and swallows a null resolver with no error at all.
+      // Only an authed load can say whether a real user gets a character or the hero.
+      const route = arg('route', '/v2')!
+      SAVE_CROPS = CROP_LABEL
+      await login(page)
+      const { probes, bad, seen } = await load(page, `${HOST}${route}`, null)
+      const chars = probes.filter((p) => p.currentSrc.includes(CHAR_DIR) || p.isFallback)
+      console.log(`## ${route} (authed · user=${arg('user', 'default')})`)
+      console.log('| slot | # | src ที่ขึ้นจริง | เป็น hero fallback? | CSS w×h |')
+      console.log('|---|---|---|---|---|')
+      probes.forEach((p) => console.log(`| ${p.slot} | ${p.index} | ${decodeURIComponent(p.currentSrc).split('/').pop()} | ${p.isFallback ? '❌ ใช่' : 'ไม่'} | ${p.box.w.toFixed(0)}×${p.box.h.toFixed(0)} |`))
+      const swapped = probes.filter((p) => p.isFallback)
+      const stillPng = probes.filter((p) => p.currentSrc.includes(CHAR_DIR) && p.currentSrc.endsWith('.png'))
+      console.log(`\n- สล็อตที่เจอ: **${probes.length}** (ตัวละคร ${chars.length})`)
+      console.log(`- ขึ้นเป็น hero แทนตัวละคร: **${swapped.length}** ${swapped.length ? '❌ ชั้น null-coalescing หรือ onError ทำงาน' : '✓ ทุกช่องได้ตัวละครจริง'}`)
+      console.log(`- ยังขอ .png อยู่: **${stillPng.length}** ${stillPng.length ? '❌' : '✓'}`)
+      console.log(`- network >=400 บน characters/mascot: **${bad.length}** ${bad.length ? '❌ ' + JSON.stringify(bad) : `✓ (ยิงจริง ${seen.length} ครั้ง)`}`)
+      // "0 ปัญหา" over 0 slots is not a pass — the route has to actually paint the thing being checked.
+      const wantPromo = route.includes('/calendar')
+      const gotPromo = probes.some((p) => p.slot === 'calendar-promo')
+      if (wantPromo) console.log(`- PersonalCalendarPromo อยู่บนจอ: ${gotPromo ? '✓' : '❌ ไม่พบ (บัญชีนี้อาจเป็น paid → การ์ดไม่ขึ้น ⇒ ยังไม่ได้ตรวจ ไม่ใช่ผ่าน)'}`)
+      if (!probes.length || (wantPromo && !gotPromo)) process.exitCode = 1
+      if (swapped.length || stillPng.length || bad.length) process.exitCode = 1
       return
     }
 
