@@ -139,6 +139,15 @@ jobs:
           # produce a gate that either 404s or measures the skeleton against itself and reports 0px — a
           # pass earned by having nothing to compare. It stays a local command until it has a real
           # fixture; the P4 PR body carries its numbers, measured by hand, labelled as hand-run.
+          #
+          # ⚠️ NOT WIRED either, same reason, stated rather than omitted: harness/verify-first-run.ts
+          # (มุน · #215). It drives /v2/first-run-preview, and issue #215 ships the three first-run
+          # screens with NO routing on purpose (first-login detection is ใบ 3) — so a preview page is
+          # the only surface they have, and preview pages `notFound` under `next start`. Wiring it here
+          # would gate on a 404. It is a local command (`npx tsx harness/verify-first-run.ts`, needs
+          # V2_PREVIEW_KEY on both the server and the harness) whose numbers are in the #215 PR body,
+          # labelled as hand-run, together with its two negative controls. When ใบ 3 mounts these
+          # screens on a real route, point HARNESS_PATH at it and hang it in this list.
           kill "$SERVER" 2>/dev/null || true
           # Fail the job if ANY gate failed. ⚠️ #190 and #191 each extended THIS line and conflicted here.
           # Taking one side is the fastest way through the conflict and is the bug: the dropped anchor still

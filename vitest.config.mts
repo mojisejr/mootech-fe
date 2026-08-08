@@ -1,4 +1,5 @@
 import { defineConfig } from 'vitest/config'
+import { transform } from 'esbuild'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -10,11 +11,41 @@ const rootDir = path.dirname(fileURLToPath(import.meta.url))
 //     node:assert scripts that still run under `tsx` in ci.yml (issue #210: don't move them — they
 //     migrate opportunistically). A directory glob would wrongly try to run those as vitest suites,
 //     so new vitest specs are added to this list one by one as they convert.
+//     (A `.test.tsx` spec is invisible to that ci.yml lane by extension — it globs `*.test.ts`.)
 //   • alias '@' → repo root, mirroring tsconfig.json paths ("@/*": ["./*"]).
+
+// JSX (issue #215). tsconfig.json sets jsx: "preserve" because Next compiles JSX itself — and vite
+// honours the file's tsconfig, so the first spec that RENDERS a component died with "content
+// contains invalid JS syntax" pointing at a perfectly good <Component />. Neither `esbuild.jsx` nor
+// `esbuild.tsconfigRaw` overrides it: the discovered tsconfig wins for .ts/.tsx.
+// So the transform is done explicitly, `enforce: 'pre'` (before vite's own esbuild and before
+// import-analysis). tsconfig.json is left alone — it belongs to the Next build and must keep
+// preserve. The alternative was adding @vitejs/plugin-react as a devDependency for one config line;
+// this keeps the dependency list unchanged. esbuild is vite's own transitive dep, and if it ever
+// stopped resolving here the failure is LOUD (config fails to load) rather than a silently skipped
+// transform — swap in the plugin at that point.
+const jsxAutomatic = {
+  name: 'first-run-jsx-automatic',
+  enforce: 'pre' as const,
+  async transform(code: string, id: string) {
+    const file = id.split('?')[0]
+    if (!file.endsWith('.tsx') || file.includes('node_modules')) return null
+    const out = await transform(code, {
+      loader: 'tsx',
+      jsx: 'automatic',
+      sourcefile: file,
+      sourcemap: true,
+      target: 'es2020',
+    })
+    return { code: out.code, map: out.map }
+  },
+}
+
 export default defineConfig({
+  plugins: [jsxAutomatic],
   test: {
     environment: 'jsdom',
-    include: ['scripts/logout-clears-caches.test.ts'],
+    include: ['scripts/logout-clears-caches.test.ts', 'scripts/first-run-screens.test.tsx'],
   },
   resolve: {
     alias: { '@': rootDir },
