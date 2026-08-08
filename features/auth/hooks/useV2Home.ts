@@ -30,6 +30,7 @@ import type { ComputeMascotSource } from '@/lib/personalization/mascot'
 import { toComputeSource } from '@/lib/personalization/compute-source'
 import { deriveHomeProfile, type HomeProfile } from '@/lib/home/profile'
 import { deriveHomeLoading, type HomeLoading } from '@/lib/home/loading'
+import { peekChart, isChartFresh, setChart } from './chart-cache'
 
 export type { HomeProfile, HomeLoading }
 
@@ -74,10 +75,22 @@ export function useV2Home(status: AuthStatus): V2Home {
   const [phase, setPhase] = useState<'resolving' | 'home' | 'redirecting'>('resolving')
   const [computeSource, setComputeSource] = useState<ComputeMascotSource | null>(null)
   const [user, setUser] = useState<HomeUser | null>(null)
+  // P3 (DoD#1): a cached chart lets the MASCOT un-grey INSTANTLY on remount (tab-switch back to home),
+  // before UserGetById returns — while `profile` (avatar + upgrade badge) still waits for the LIVE row
+  // (money-bug boundary, DoD#3, enforced in deriveHomeLoading — mascotReady never touches `profile`).
+  const [mascotReady, setMascotReady] = useState(false)
 
   useEffect(() => {
     if (status !== 'authed' || !userId) return
     let alive = true
+    // Instant mascot from the in-memory chart cache (DoD#1): show the cached chart the moment we remount,
+    // before the UserGetById round-trip. Freshness is validated below once the live row's resultCode is
+    // known — a match keeps it (no refetch), a mismatch (dob edited → new result_code) refetches + overwrites.
+    const cached = peekChart(userId)
+    if (cached) {
+      setComputeSource(cached.chart)
+      setMascotReady(true)
+    }
     ;(async () => {
       // State-table (too's adversary — every outcome must resolve, NEVER infinite-load):
       //   UserGetById {chart} → home · {no-chart} → register · {error/throw} → home+fallback (NOT register:
@@ -92,6 +105,7 @@ export function useV2Home(status: AuthStatus): V2Home {
         if (!u || u.error || !u.user_id) {
           setUser(null)
           setComputeSource(null)
+          setMascotReady(false) // API error → drop any instant-cached mascot, fall back to 01.png (safe)
           setPhase('home') // can't determine chart (API error) → land HOME on fallback, don't strand, don't register
           return
         }
@@ -102,6 +116,14 @@ export function useV2Home(status: AuthStatus): V2Home {
           routerRef.current.replace('/v2/register')
           return
         }
+        // Self-heal (DoD#2): the cached chart is correct ONLY if its resultCode matches the LIVE row's. A
+        // match → the instant mascot IS fresh → skip ChineseHoroscopeGet entirely (revisit costs 0 fetch —
+        // the P3 wiring invariant, proven live in harness/run-home-chart-cache.ts). A mismatch (dob edited →
+        // BE minted a new result_code, verified live testenv jvfQl2haFj2F→KBhQL58FQw8S) → refetch + overwrite.
+        if (isChartFresh(userId, resultCode)) {
+          setPhase('home')
+          return
+        }
         let chart: unknown = null
         try {
           chart = await ChineseHoroscopeGet(userId, resultCode)
@@ -109,13 +131,21 @@ export function useV2Home(status: AuthStatus): V2Home {
           chart = null // chart fetch failed → home on 01.png fallback (has-chart is already confirmed)
         }
         if (!alive) return
-        setComputeSource(chart && !(chart as { error?: unknown }).error ? toComputeSource(chart) : null)
+        const compute = chart && !(chart as { error?: unknown }).error ? toComputeSource(chart) : null
+        setComputeSource(compute)
+        if (compute) {
+          setChart(userId, resultCode, compute) // cache for the next remount's instant mascot (memory-only)
+          setMascotReady(true)
+        } else {
+          setMascotReady(false) // chart null → 01.png fallback, and no stale cache to show next time
+        }
         setPhase('home')
       } catch {
         if (alive) {
           // Any unexpected throw → land HOME with the fallback; never leave the gate spinning forever.
           setUser(null)
           setComputeSource(null)
+          setMascotReady(false)
           setPhase('home')
         }
       }
@@ -130,9 +160,10 @@ export function useV2Home(status: AuthStatus): V2Home {
     // home data resolves ('resolving' now renders the screen with grey zones, so there is no white gate).
     redirecting: status !== 'authed' || phase === 'redirecting',
     greeting,
-    // Progressive reveal: profile un-greys when the user row lands; mascot waits for the chart. On an API
-    // error we settle to 'home' with no user/compute → both false → safe fallbacks show, never stuck grey.
-    loading: deriveHomeLoading(phase, user !== null),
+    // Progressive reveal: profile un-greys when the user row lands; mascot un-greys the moment a cached
+    // chart is available (mascotReady) OR the fetch lands. On an API error we settle to 'home' with no
+    // user/compute → both false → safe fallbacks show, never stuck grey.
+    loading: deriveHomeLoading(phase, user !== null, mascotReady),
     computeSource,
     profile: deriveHomeProfile(user),
     user,
