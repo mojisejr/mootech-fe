@@ -351,7 +351,8 @@ mascot ผสม 2 แกน เพื่อให้ตรงกับ "ธา�
 
 ### Resolver — สร้างแล้ว PR#71 (`lib/personalization/`, 20 tests) `✓`
 `buildMascotPaths(animal, element)` → `NN_นักษัตร-ธาตุ` → `characters/*.webp` (no bg) / `cards/*.jpg` (bg).
-⚠️ resolver **ยังไม่มี production screen ใช้** — มีแค่ showcase + test. my-destiny ดึง mascot จาก **backend** (`resultSummary.mascot.url`) ไม่ผ่าน resolver → build-time: ตัดสินว่า resolver ไปเสียบจอไหน (public calculator ที่ใช้ `compute.ts`?) หรือพึ่ง BE (§14).
+⚠️ ~~resolver **ยังไม่มี production screen ใช้** — มีแค่ showcase + test~~ (เคยจริง verified 2026-07-20; **หมดอายุ**).
+   **แก้ 2026-08-08 (asset P2):** resolver อยู่ production `/v2` จริงแล้ว — `pages/v2/index.tsx:60` `useMascotFromCompute(computeSource)` → `mascot.character` → `V2HomeScreen` (ElementLine:174 · ManifestCard:263 · Greeting avatar). ต่างจาก my-destiny ที่ยังดึง mascot art จาก **backend** (`resultSummary.mascot.url`, คนละ asset family — S3/CDN). Resolver characters = local static, render-only, **ไม่ persist ลง DB**.
 ⚠️ `enrichment.dayMasterElement` = **best-effort** (timeout 5s → null) → ต้องมี static fallback.
 
 ### ⚠️ Assets architecture (verified codebase 2026-07-20) — สำคัญ
