@@ -67,7 +67,11 @@ function V2HomeRoute({ status }: { status: AuthStatus }) {
   // Zone 1 — daily-fortune + persona data seam. Called unconditionally (before the loading branch) so
   // hook order is stable; graceful by design (no user / bazi error → fortune/persona=null → cards show
   // fallback). Consumes the shared `user` (no second fetch). ONE BFF call returns both fortune and persona.
-  const { fortune, persona, loading: fortuneLoading } = useHomeFortune(user)
+  // Pass the user-loading signal (loading.profile = user row in flight) so the fortune card holds its
+  // skeleton while the row is still coming instead of flashing "no fortune today" (μุน's catch). This is
+  // the SOURCE fix — the hook now reports loading honestly on its own, so the screen no longer has to
+  // compose `fortuneLoading || loading.profile` as a belt.
+  const { fortune, persona, loading: fortuneLoading } = useHomeFortune(user, loading.profile)
 
   // Split-brain guard (too's wire review): the ธาตุ TEXT binds the MASCOT's element (compute, for
   // visual consistency with the character), while the strength band comes from bazi's persona — two
