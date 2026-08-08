@@ -3,9 +3,15 @@
 // that line — any of them could be deleted and every existing suite (which tests each cache module in
 // isolation) would stay green. This is the missing gate.
 //
-// MUTANT CONTRACT (ตู๋ review focus #1): delete ONE clearX() call from the hook → EXACTLY ONE test below
-// goes RED, and only that one. That is why each call site gets its own `it` with its own single assertion —
-// a single combined test would still bite, but wouldn't localize which call site regressed.
+// MUTANT CONTRACT (ตู๋ review focus #1): delete ONE clearX() call from the hook → TWO tests go RED — that
+// call site's own `it` AND the all-four guard (the last `it`) — and no others. The per-`it` split is what
+// LOCALIZES which call site regressed; the guard alone would bite but not say which.
+//
+// A SECOND mutant class is covered: moving a clearX() out of logout() into a mount-time
+// `useEffect(() => clearX(), [])` keeps a naive "was it ever called?" count green even though logout no
+// longer clears anything. So runLogout() first asserts NOTHING is cleared BEFORE logout() runs — renderHook
+// flushes effects inside act(), so a mount-time clear fires there and trips the guard. That is what makes
+// the assertions below mean "logout is the caller", not merely "called at some point during the test".
 //
 // We mock the 4 cache modules (spies), plus react-cookie + next-auth/react (so logout() runs to completion
 // without a real cookie jar or a real signOut redirect). The hook itself is the real code under test.
@@ -33,6 +39,13 @@ import { clearChartCache } from '@/features/auth/hooks/chart-cache'
 
 function runLogout() {
   const { result } = renderHook(() => useV2Logout())
+  // Caches must be dropped BY logout(), not just at some point in the component's life. renderHook flushes
+  // effects inside act(), so if a clearX() were moved into a mount-time useEffect it would already have run
+  // here — these four assertions catch that and keep the post-logout counts meaningful ("logout is caller").
+  expect(clearUserCache).not.toHaveBeenCalled()
+  expect(clearDayDetailCache).not.toHaveBeenCalled()
+  expect(clearMonthCache).not.toHaveBeenCalled()
+  expect(clearChartCache).not.toHaveBeenCalled()
   act(() => {
     result.current.logout()
   })
