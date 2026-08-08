@@ -14,7 +14,7 @@ const rootDir = path.dirname(fileURLToPath(import.meta.url))
 export default defineConfig({
   test: {
     environment: 'jsdom',
-    include: ['scripts/logout-clears-caches.test.ts'],
+    include: ['scripts/logout-clears-caches.test.ts', 'scripts/v2-tier.test.ts'],
   },
   resolve: {
     alias: { '@': rootDir },

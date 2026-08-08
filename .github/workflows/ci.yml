@@ -44,9 +44,13 @@ jobs:
           if ! npm test; then failed=1; echo "::error::vitest suite failed"; fi
           # lane 2 — legacy node:assert scripts still on tsx (issue #210: not migrated; convert
           # opportunistically). Skip specs owned by vitest — they import from 'vitest' and would throw
-          # under tsx. Keep this skip list in sync with vitest.config.mts `include`.
+          # under tsx. This skip list MUST stay in sync with vitest.config.mts `include` (tracked debt #212:
+          # a spec listed in NEITHER place runs nowhere — a silent gap; one listed in BOTH double-runs and
+          # fails loudly under tsx, which is the safe direction).
           for f in scripts/*.test.ts; do
-            [ "$f" = "scripts/logout-clears-caches.test.ts" ] && continue
+            case "$f" in
+              scripts/logout-clears-caches.test.ts|scripts/v2-tier.test.ts) continue ;;
+            esac
             echo "== $f"
             if ! npx tsx "$f"; then failed=1; echo "::error file=$f::tsx test failed"; fi
           done
