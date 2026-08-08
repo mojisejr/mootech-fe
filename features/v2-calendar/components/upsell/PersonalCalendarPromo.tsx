@@ -30,7 +30,7 @@ export function PersonalCalendarPromo({ testId = 'calendar-promo' }: { testId?: 
       <div aria-hidden className="pointer-events-none absolute right-[-28.424px] top-[-41px] flex h-[216.857px] w-[187.424px] items-center justify-center">
         <div className="rotate-[7.08deg]">
           <div className="relative h-[198.12px] w-[164.253px] overflow-hidden rounded-3xl">
-            <Image src="/images/v2/characters/01_ชวด-ไม้.png" alt="" width={184} height={252} className="absolute left-[-5.5%] top-[-7.41%] h-[128.68%] w-[112.03%] max-w-none" />
+            <Image src="/images/v2/characters/01_ชวด-ไม้.webp" alt="" width={184} height={252} className="absolute left-[-5.5%] top-[-7.41%] h-[128.68%] w-[112.03%] max-w-none" />
           </div>
         </div>
       </div>
