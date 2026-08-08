@@ -17,7 +17,7 @@ import { CalendarMenu } from './CalendarMenu'
 import { comingSoonHrefById, type ServiceId } from '@/features/v2-service/services'
 import { HeaderTools } from '@/features/v2-shell/components/AppHeader'
 import { TopBarBell } from '@/features/v2-shell/components/TopBarBell'
-import { DailyFortuneCard } from '@/features/v2-shell/components/DailyFortuneCard'
+import { DailyFortuneCard, HOME_FACET_RESERVE, HOME_DATEROW_RESERVE } from '@/features/v2-shell/components/DailyFortuneCard'
 import { LogoutModal } from '@/features/v2-shell/components/LogoutModal'
 
 // Zone 1 daily-fortune (bazi /api/home). goo wires useHomeFortune() → this shape; I compose against it.
@@ -302,23 +302,30 @@ function FortuneSkeleton({ empty }: { empty: boolean }) {
       </div>
       <hr className="border-dashed border-v3-border-card" />
       {/* date row — real: `flex items-center gap-4 text-base leading-6` (date + "เปิดปฏิทินของฉัน") */}
-      <div className="flex items-center gap-4">
+      <div className={`flex items-center gap-4 ${HOME_DATEROW_RESERVE}`}>
         <SkeletonBar className="h-6 min-w-0 flex-1" />
         <SkeletonBar className="h-6 w-[124px] shrink-0" />
       </div>
       <hr className="border-dashed border-v3-border-card" />
       {/* two facet columns — real: heading leading-6, then a line at mt-1 leading-[22px], divider between */}
       <div className="flex items-stretch gap-4">
-        <div className="min-w-0 flex-1 space-y-1">
+        {/* the facet columns wear the CARD'S OWN reserve class (HOME_FACET_RESERVE), not a copy of its
+            pixel value. Heights that must agree should be the same string in one place — a hand-copied
+            66px here is a value that stays right until the day someone tunes the card and not this. */}
+        <div className="min-w-0 flex-1">
           <SkeletonBar className="h-6 w-24" />
-          <SkeletonBar className="h-[22px] w-full" />
-          <SkeletonBar className="h-[22px] w-4/5" />
+          <div className={`mt-1 space-y-1 ${HOME_FACET_RESERVE}`}>
+            <SkeletonBar className="h-[22px] w-full" />
+            <SkeletonBar className="h-[22px] w-4/5" />
+          </div>
         </div>
         <div className="self-stretch border-l border-dashed border-v3-border-card" />
-        <div className="min-w-0 flex-1 space-y-1">
+        <div className="min-w-0 flex-1">
           <SkeletonBar className="h-6 w-20" />
-          <SkeletonBar className="h-[22px] w-full" />
-          <SkeletonBar className="h-[22px] w-3/5" />
+          <div className={`mt-1 space-y-1 ${HOME_FACET_RESERVE}`}>
+            <SkeletonBar className="h-[22px] w-full" />
+            <SkeletonBar className="h-[22px] w-3/5" />
+          </div>
         </div>
       </div>
       {empty && <p className="mt-4 text-center text-sm font-medium text-v3-text-muted">ยังไม่มีข้อมูลดวงวันนี้</p>}

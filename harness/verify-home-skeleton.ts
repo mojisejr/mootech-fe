@@ -42,12 +42,18 @@ type Row = {
 async function main() {
   const widths = arg('widths', '320,360,393,430,768,1280').split(',').map(Number)
   const hold = Number(arg('hold', '6000'))
-  const outDir = path.resolve(process.cwd(), arg('out', 'harness/out/p1-verify'))
+  const outDir = path.resolve(process.cwd(), arg('out', 'harness/out/_frames/p1-verify'))
   fs.mkdirSync(outDir, { recursive: true })
 
-  const key = fs.readFileSync(path.resolve(process.cwd(), ENV_FILE), 'utf-8')
-    .split('\n').find((l) => l.trim().startsWith('V2_PREVIEW_KEY='))!
-    .split('=').slice(1).join('=').trim().replace(/^["']|["']$/g, '')
+  // env first (CI), file second (local) — same reason as first-frame-v2.readPasskey. The parentheses
+  // matter: without them the file-parsing chain binds to the whole `||` expression and runs against the
+  // ENV STRING, which has no "V2_PREVIEW_KEY=" line, so the `!` hits undefined and the harness dies in CI
+  // only — the exact class of break that hides until the one environment you added it for.
+  const key = process.env.V2_PREVIEW_KEY || (
+    fs.readFileSync(path.resolve(process.cwd(), ENV_FILE), 'utf-8')
+      .split('\n').find((l) => l.trim().startsWith('V2_PREVIEW_KEY='))!
+      .split('=').slice(1).join('=').trim().replace(/^["']|["']$/g, '')
+  )
 
   const browser = await chromium.launch()
   const rows: Row[] = []
