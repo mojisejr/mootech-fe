@@ -355,10 +355,10 @@ mascot ผสม 2 แกน เพื่อให้ตรงกับ "ธา�
    **แก้ 2026-08-08 (asset P2):** resolver อยู่ production `/v2` จริงแล้ว — `pages/v2/index.tsx:60` `useMascotFromCompute(computeSource)` → `mascot.character` → `V2HomeScreen` (ElementLine:174 · ManifestCard:263 · Greeting avatar). ต่างจาก my-destiny ที่ยังดึง mascot art จาก **backend** (`resultSummary.mascot.url`, คนละ asset family — S3/CDN). Resolver characters = local static, render-only, **ไม่ persist ลง DB**.
 ⚠️ `enrichment.dayMasterElement` = **best-effort** (timeout 5s → null) → ต้องมี static fallback.
 
-### ⚠️ Assets architecture (verified codebase 2026-07-20) — สำคัญ
-- **mascot/card art (dynamic personalization)** = **cloud S3/CDN → BE ส่ง url** (`next.config` domains: `s3-ps-cdn...amazonaws.com`, `cdn.phoenix-stark.com`; `resultSummary.mascot.url`). **ไม่ใช่ commit เข้า repo.** → V3 art 60+60 ต้องอัป S3 + BE swap url (งาน goo/BE, §14).
+### ⚠️ Assets architecture (verified codebase 2026-07-20) — สำคัญ  ⚠️ **บางข้อหมดอายุ 2026-07-23 — ดู strikethrough ด้านล่าง**
+- **mascot/card art (dynamic personalization)** = **cloud S3/CDN → BE ส่ง url** (`next.config` domains: `s3-ps-cdn...amazonaws.com`, `cdn.phoenix-stark.com`; `resultSummary.mascot.url`). ~~**ไม่ใช่ commit เข้า repo.**~~ (**หมดอายุ 2026-07-23 `fcdd3a0`** "restore V3 personalization art 60 characters + 60 cards" → V3 art **ถูก commit เข้า repo แล้ว** ตั้งแต่นั้น) → V3 art 60+60 ต้องอัป S3 + BE swap url (งาน goo/BE, §14).
 - **bg (BG0–BG4) + icons + UI chrome** = static local `/public/images/` (repo). bg เลือกต่อจอตอน build (ฟีม บอก BGn).
-- `/public/images` local = 16M/181 = static chrome only.
+- ~~`/public/images` local = 16M/181 = static chrome only.~~ **แก้ 2026-08-08 (asset P2):** ของจริง @`415357b` = **345 ไฟล์ 75.5 MB** (เฉพาะ characters+cards = **120 ไฟล์ 53.1 MB** — art committed จริง ไม่ใช่ chrome-only). PR นี้แปลง characters→webp ⇒ public/images = 37.1 MB; cards 11.4 MB ยังเป็นก้อนถัดไป (วัดด้วย `git ls-tree` ไม่ใช่ du).
 
 ---
 
