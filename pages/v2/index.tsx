@@ -14,6 +14,7 @@ import { useHomeFortune } from '@/features/home/hooks/useHomeFortune'
 import { useMascotFromCompute } from '@/lib/personalization/use-mascot'
 import { resolveGreetingElementTh } from '@/lib/personalization/compute-source'
 import { AuthLoadingGate } from '@/features/v2-shell/components/AuthLoadingGate'
+import { HomeSkeleton } from '@/features/v2-home/components/HomeSkeleton'
 import { V2GateForm } from '@/features/v2-shell/components/V2GateForm'
 import { OnboardingCarousel } from '@/features/onboarding/components/OnboardingCarousel'
 import { V2HomeScreen } from '@/features/v2-home/components/V2HomeScreen'
@@ -35,7 +36,11 @@ function V2Entry() {
   const router = useRouter()
   const { status, showLoading } = useV2AuthGate()
 
-  if (showLoading) return <AuthLoadingGate />
+  // Pre-mount hydration fence (useHasMounted → useEffect → setState after paint, so this frame ALWAYS
+  // reaches the user at least once — μุน measured it). Gate LOGIC unchanged (บอง 🔒 — do not touch
+  // useHasMounted / no useLayoutEffect); only WHAT it renders changes: HomeSkeleton (menu+header+grey
+  // zones) instead of the white AuthLoadingGate → that last frame is no longer blank (P1: 0 white frames).
+  if (showLoading) return <HomeSkeleton />
 
   if (status === 'anon') {
     return <OnboardingCarousel onComplete={() => router.push('/v2/login')} />
