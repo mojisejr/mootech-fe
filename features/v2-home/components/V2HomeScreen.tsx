@@ -104,7 +104,15 @@ export function V2HomeScreen({ greeting, mascotCharacter, onLogout, fortune, for
       {/* ── content column: 393 primary, centred + capped, safe-area top, clears the fixed nav ── */}
       <div className="relative z-10 mx-auto flex w-full max-w-md flex-col px-4 pb-36 pt-[max(0.75rem,env(safe-area-inset-top))]">
         <Greeting name={greeting.name} mascotCharacter={mascotCharacter} onAvatarTap={() => setLogoutOpen(true)} element={element} profile={profile ?? PROFILE_FALLBACK} loading={loading} />
-        <ScoreRingCard fortune={fortune} loading={fortuneLoading} />
+        {/* Zone 1 waits on the user row BEFORE its own fetch can even start, so `fortuneLoading` alone is
+            false during that first stretch — and with no fortune yet the card fell through to its empty
+            state and said "ยังไม่มีข้อมูลดวงวันนี้" while the request was still in flight. Caught by eye at
+            320 in the DoD-5 strip, not by the machine leg: every column there was green, because a
+            confidently wrong SENTENCE is not a layout defect. It is the same class as the mascot fallback
+            and worse in kind — a stand-in image only looks like data, this one asserts an absence that
+            isn't true yet. So the card is loading whenever EITHER its own fetch is running or the row it
+            depends on has not landed; "no fortune today" is reserved for when we actually know that. */}
+        <ScoreRingCard fortune={fortune} loading={fortuneLoading || loading.profile} />
         <ManifestCard mascotCharacter={mascotCharacter} element={element} loading={loading.mascot} />
         <SomphongSection />
         <SianSection />

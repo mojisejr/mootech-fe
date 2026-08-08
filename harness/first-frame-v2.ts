@@ -153,7 +153,10 @@ async function main() {
 
   const t0 = Date.now()
   if (hard) {
-    await page.goto(`${HOST}/v2`, { waitUntil: 'commit' })
+    // --route lets the hard-load case be pointed at a page with NO auth gate at all (e.g. /v2/service).
+    // That is the control for the blank frame a hard navigation shows: if an ungated page blanks too, the
+    // frame belongs to the browser's document swap, not to anything this PR renders.
+    await page.goto(`${HOST}${arg('route', '/v2')}`, { waitUntil: 'commit' })
   } else {
     await page.getByRole('link', { name: 'หน้าหลัก' }).click()
   }
