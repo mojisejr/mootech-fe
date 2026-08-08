@@ -58,17 +58,15 @@ async function newHome(browser: Browser): Promise<{ page: Page; chartCount: () =
   let liveResultCode = RESULT_CODE // mutable so a scenario can simulate a dob edit (BE mints a new code)
   const ctx = await browser.newContext({ viewport: { width: 393, height: 852 }, deviceScaleFactor: 2, reducedMotion: 'reduce' })
   const host = new URL(HOST).hostname
-  const page = await ctx.newPage()
-  // POST the gate login so a WRONG key fails LOUD here (borrowed from verify-home-skeleton.ts:64) instead
-  // of silently rejecting at the SSR gate → the whole run then dies as a mysterious home-header Timeout that
-  // never says "gate". This also sets the httpOnly v2_access cookie in the context (no manual cookie needed).
-  const gate = await page.request.post(`${HOST}/api/v2/login`, { form: { passkey: KEY }, maxRedirects: 0 })
-  if (gate.status() !== 303 || (gate.headers()['location'] ?? '').includes('gate_error'))
-    throw new Error(`gate rejected (${gate.status()}) — check V2_PREVIEW_KEY vs the FE serving ${HOST}`)
+  // v2 preview gate cookie + identity — set directly, same as run-calendar-month.ts. On CI the gate key
+  // comes from the job env (V2_PREVIEW_KEY, design-verify.yml:32) which gateKey() reads before any file,
+  // so cookie and server agree.
   await ctx.addCookies([
+    { name: 'v2_access', value: KEY, domain: host, path: '/' },
     { name: 'cookie-mumate-id', value: USER_ID, domain: host, path: '/' },
     { name: 'cookie-mumate-name', value: 'ทดสอบ ชาร์ต', domain: host, path: '/' },
   ])
+  const page = await ctx.newPage()
   await page.addInitScript(() => { const g = globalThis as unknown as { __name?: unknown }; if (!g.__name) g.__name = (f: unknown) => f })
   // COUNT the chart fetch at the REQUEST level (fires even if upstream is down — the ground truth of "did
   // the page try to fetch the chart"), BEFORE any navigation so the very first mount is captured.
