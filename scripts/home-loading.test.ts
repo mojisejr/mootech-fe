@@ -46,4 +46,29 @@ t('redirecting → both false (screen not rendered anyway)', () => {
   assert.deepEqual(deriveHomeLoading('redirecting', true), { profile: false, mascot: false })
 })
 
+// ── 🔴 DoD#3 MONEY-BUG GUARD (P3): the chart cache (mascotReady) may un-grey the MASCOT instantly, but must
+//    NEVER un-grey the PROFILE (avatar + upgrade badge) — those are live-row-only. A cached "not paid" badge
+//    shown to a user who just paid is the money bug. `profile` must be ⊥ mascotReady. These bite before the
+//    cache is even wired (บอง: place the gate + prove it bites BEFORE building what sits under it). ──
+t('DoD#1: cached chart (mascotReady) while row in flight → MASCOT un-greys instantly', () => {
+  // resolving, no user yet, but the chart is cached → mascot shows now (that is the whole point of P3)
+  assert.equal(deriveHomeLoading('resolving', false, true).mascot, false)
+})
+t('🔴 DoD#3: cached chart must NOT un-grey PROFILE — avatar/upgrade stay grey until the LIVE row lands', () => {
+  // the money-bug boundary: mascotReady=true un-greys mascot, but profile MUST remain grey while row absent.
+  // A mutant that leaks mascotReady into profile (profile un-greys from cache) turns THIS red.
+  assert.deepEqual(deriveHomeLoading('resolving', false, true), { profile: true, mascot: false })
+})
+t('🔴 DoD#3: profile is a pure function of (phase,hasUser) — identical for BOTH mascotReady values', () => {
+  for (const phase of ['resolving', 'home', 'redirecting'] as const) {
+    for (const hasUser of [false, true]) {
+      assert.equal(
+        deriveHomeLoading(phase, hasUser, false).profile,
+        deriveHomeLoading(phase, hasUser, true).profile,
+        `profile must not depend on mascotReady (phase=${phase} hasUser=${hasUser})`,
+      )
+    }
+  }
+})
+
 console.log(`\n${pass} passed`)

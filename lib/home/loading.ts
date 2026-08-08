@@ -13,9 +13,17 @@ export type HomeLoading = { profile: boolean; mascot: boolean }
 // On an API error the hook settles to 'home' with no user / no compute → BOTH flags false → the safe
 // fallbacks show (letter avatar / 01.webp), never an infinite grey block. During 'redirecting' the screen
 // is not rendered at all (the caller holds the frame), so the flags there are moot.
-export function deriveHomeLoading(phase: HomePhase, hasUser: boolean): HomeLoading {
+//
+// 🔴 MONEY-BUG BOUNDARY (P3): `mascotReady` lets the mascot un-grey INSTANTLY from the in-memory chart cache
+// (DoD#1) even while the user row is still in flight — but `profile` (avatar + the upgrade badge) MUST NEVER
+// depend on it. avatar/upgrade come from the LIVE user row only; showing a cached "not paid" badge to a user
+// who just paid is the money bug (P3 DoD#3). So `profile` is a pure function of (phase, hasUser), full stop —
+// scripts/home-loading.test.ts pins that independence (a mutant that leaks `mascotReady` into `profile` → RED).
+// NOTE: `mascotReady` defaults false and is DORMANT until P3 wires the chart cache into useV2Home (after P4);
+// today's 2-arg caller is unchanged (mascotReady=false → mascot = phase==='resolving', exactly as before).
+export function deriveHomeLoading(phase: HomePhase, hasUser: boolean, mascotReady = false): HomeLoading {
   return {
-    profile: phase === 'resolving' && !hasUser,
-    mascot: phase === 'resolving',
+    profile: phase === 'resolving' && !hasUser, // ⊥ mascotReady — avatar/upgrade are live-row-only (money bug)
+    mascot: phase === 'resolving' && !mascotReady, // cached chart → show instantly, don't wait the fetch (DoD#1)
   }
 }
