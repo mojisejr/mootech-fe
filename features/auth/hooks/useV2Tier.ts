@@ -20,18 +20,37 @@
 // Home note: home already fetches the user via useV2Home and derives isPaid from `profile.showUpgrade` —
 // it does NOT call this hook, keeping home's single UserGetById (#165). useV2Tier is for the other pages.
 import { useEffect, useState } from 'react'
+import { useRouter } from 'next/router'
 import { useV2User } from './useV2User'
 import { computeTier, type V2Tier } from '@/lib/v2/tier'
+import { resolveTierOverride } from '@/lib/v2/tier-override'
 
 export function useV2Tier(): V2Tier {
   // Single, page-shared /api/user fetch (dedup in useV2User). Same reducer inputs as before the extraction.
   const { userId, done, errored, user } = useV2User()
+  const router = useRouter()
 
   // SSR-safe gate: false on the server + the first client render, true after the mount effect. Until then
   // the tier reads `null` (see the header) so no branch commits before the cookie is actually readable.
   const [mounted, setMounted] = useState(false)
   useEffect(() => setMounted(true), [])
 
+  // Pre-mount stays `null` (SSR-safe): the override is read only AFTER mount, so a `?tier=` param can never
+  // change the server/first-client render — no hydration mismatch, and the "null must stay null" line below
+  // is never reached before we even have a determined tier.
   if (!mounted) return { isPaid: null, loading: true }
-  return computeTier({ userId, done, errored, user })
+  const base = computeTier({ userId, done, errored, user })
+
+  // DEV-only URL override (issue #213): view a page as free/paid from `?tier=`. The NODE_ENV guard is the
+  // control — in a prod BUILD `process.env.NODE_ENV` inlines to 'production', this condition folds to false,
+  // and the whole branch (param read + override) is dead-code-eliminated from the client bundle, so it
+  // cannot leak. Mirrors pages/v2/home-preview.tsx:35. 🔴 Closing-criterion mutant: delete this guard → the
+  // production test in scripts/v2-tier.test.ts goes RED.
+  if (process.env.NODE_ENV !== 'production') {
+    const override = resolveTierOverride(router.query.tier)
+    // no/junk param → leave base untouched. 🔴 And never manufacture certainty: a null (loading/error) tier
+    // stays null — the override only flips a KNOWN true/false, the very thing a previewer wants to swap.
+    if (override !== null && base.isPaid !== null) return { ...base, isPaid: override }
+  }
+  return base
 }
