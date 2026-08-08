@@ -16,6 +16,7 @@ import { SinseSection } from './sections/SinseSection'
 import { CalendarMenu } from './CalendarMenu'
 import { comingSoonHrefById, type ServiceId } from '@/features/v2-service/services'
 import { HeaderTools } from '@/features/v2-shell/components/AppHeader'
+import { TopBarBell } from '@/features/v2-shell/components/TopBarBell'
 import { DailyFortuneCard } from '@/features/v2-shell/components/DailyFortuneCard'
 import { LogoutModal } from '@/features/v2-shell/components/LogoutModal'
 
@@ -55,6 +56,31 @@ export type V2HomeScreenProps = {
    *  computes it. Optional so goo's current /v2 compiles before the wire lands — the pre-wire default is
    *  "show badge + letter avatar" (a safe fallback, NOT a rule). */
   profile?: Profile
+  /** Per-zone data-loading flags — goo wires from useV2Home. `true` = that zone's data is not in yet →
+   *  draw a GREY BLOCK, ❌ NOT the 01.webp mascot fallback (ฟีม: one clean reveal, no fallback-then-swap
+   *  flicker). `profile` un-greys when the user row lands; `mascot` (+ ธาตุ) waits for the chart — they
+   *  resolve at different times, hence two flags.
+   *
+   *  REQUIRED, and deliberately so (μุน, against goo's `loading?`). An optional loading flag fails in the
+   *  one direction that costs us: a caller that forgets it renders the FALLBACK-THEN-SWAP flicker ฟีม
+   *  rejected, and nothing goes red — a silent pass. Required makes "forgot to wire it" a compile error
+   *  instead of a shipped flicker. It costs one line at each of the two call sites (/v2 and the preview),
+   *  which is the entire price of that guarantee. */
+  loading: HomeScreenLoading
+}
+
+// grey-block flags goo wires (parallel). false → the zone shows its resolved data (or safe fallback).
+export type HomeScreenLoading = { profile: boolean; mascot: boolean }
+
+// ── the grey block ────────────────────────────────────────────────────────────────────────────────
+// ONE primitive for every "this zone's data is not in yet" hole, so a skeleton can never drift into
+// looking like content. Same ground + same pulse as FortuneSkeleton (which shipped first and is the model
+// the card points at) — a screen with two different greys reads as two different states.
+//
+// It is a BLOCK, never a stand-in that resembles the real thing: ฟีม chose one clean reveal over
+// fallback-then-swap, and the way a fallback sneaks back in is by looking plausible. Grey cannot.
+function Skeleton({ className }: { className: string }) {
+  return <span aria-hidden className={`block animate-pulse bg-v3-border-card ${className}`} />
 }
 
 // header data goo wires (parallel). pictureUrl null / onError → letter avatar; showUpgrade false → badge hidden.
@@ -63,7 +89,7 @@ const PROFILE_FALLBACK: Profile = { pictureUrl: null, showUpgrade: true }
 
 const HERO_FALLBACK = '/images/v2/mascot/01.webp'
 
-export function V2HomeScreen({ greeting, mascotCharacter, onLogout, fortune, fortuneLoading, element, profile }: V2HomeScreenProps) {
+export function V2HomeScreen({ greeting, mascotCharacter, onLogout, fortune, fortuneLoading, element, profile, loading }: V2HomeScreenProps) {
   const [logoutOpen, setLogoutOpen] = useState(false)
   return (
     // page bg = bg-cream (Figma Lemon Chiffon) — the CONTINUOUS ground the whole scroll sits on
@@ -77,9 +103,21 @@ export function V2HomeScreen({ greeting, mascotCharacter, onLogout, fortune, for
 
       {/* ── content column: 393 primary, centred + capped, safe-area top, clears the fixed nav ── */}
       <div className="relative z-10 mx-auto flex w-full max-w-md flex-col px-4 pb-36 pt-[max(0.75rem,env(safe-area-inset-top))]">
-        <Greeting name={greeting.name} mascotCharacter={mascotCharacter} onAvatarTap={() => setLogoutOpen(true)} element={element} profile={profile ?? PROFILE_FALLBACK} />
+        <Greeting name={greeting.name} mascotCharacter={mascotCharacter} onAvatarTap={() => setLogoutOpen(true)} element={element} profile={profile ?? PROFILE_FALLBACK} loading={loading} />
+        {/* `fortuneLoading` is the WHOLE truth for this card, and that is a deliberate arrangement.
+            It briefly wasn't: while the user row was in flight the hook reported loading=false with no
+            fortune, so the card fell through to its empty state and announced "ยังไม่มีข้อมูลดวงวันนี้"
+            over a request that had not finished. (Caught by eye at 320 in the DoD-5 strip, not by the
+            machine leg — every column there was green, because a confidently wrong SENTENCE is not a
+            layout defect.) I first patched it HERE, by or-ing in loading.profile. goo then fixed it at the
+            source, where `user: null` stops being ambiguous between "still coming" and "errored".
+            My patch is gone rather than kept as a harmless belt, and that is the point: with two places
+            enforcing one rule, a regression in the hook would have been absorbed here and the gate would
+            have stayed green while the source rule rotted. Verified as an arrangement, not assumed —
+            removing this belt keeps the gate silent ✓, and removing goo's guard with the belt already
+            gone turns it CLAIMED ✗. One owner for the rule, one tooth watching it. */}
         <ScoreRingCard fortune={fortune} loading={fortuneLoading} />
-        <ManifestCard mascotCharacter={mascotCharacter} element={element} />
+        <ManifestCard mascotCharacter={mascotCharacter} element={element} loading={loading.mascot} />
         <SomphongSection />
         <SianSection />
         <SinseSection />
@@ -105,7 +143,7 @@ function MascotImg({ src }: { src: string }) {
 // the name beside the right cluster → guaranteed cut. So: row1 = the "สวัสดีคุณ" LABEL (small, faded — a tag,
 // not a headline) + the tools (badge/bell/avatar, no long text so they never squeeze anyone); row2 = the
 // name at FULL width, bold, wrapping up to 2 lines (never truncated); row3 = the element line (unchanged).
-function Greeting({ name, mascotCharacter, onAvatarTap, element, profile }: { name: string; mascotCharacter: string; onAvatarTap: () => void; element: ElementInfo; profile: Profile }) {
+function Greeting({ name, mascotCharacter, onAvatarTap, element, profile, loading }: { name: string; mascotCharacter: string; onAvatarTap: () => void; element: ElementInfo; profile: Profile; loading: HomeScreenLoading }) {
   return (
     // Home composes the shared right cluster DIRECTLY (<HeaderTools/>) instead of <AppHeader/>'s row.
     // Reason, found by looking at the render rather than the diff: AppHeader lays title and tools side by
@@ -120,18 +158,49 @@ function Greeting({ name, mascotCharacter, onAvatarTap, element, profile }: { na
     <header data-testid="home-header" className="flex flex-col gap-1.5 py-4 font-ibm">
       <div className="flex items-center gap-2">
         <p className="min-w-0 flex-1 truncate text-sm font-medium leading-5 text-v3-text-muted">สวัสดีคุณ</p>
-        <HeaderTools
-          showUpgrade={profile.showUpgrade}
-          avatarName={name}
-          avatarPictureUrl={profile.pictureUrl}
-          onAvatar={onAvatarTap}
-        />
+        {loading.profile ? <HeaderToolsSkeleton /> : (
+          <HeaderTools
+            showUpgrade={profile.showUpgrade}
+            avatarName={name}
+            avatarPictureUrl={profile.pictureUrl}
+            onAvatar={onAvatarTap}
+          />
+        )}
       </div>
       {/* the name at FULL width, wrapping ≤2 lines — break-words handles long unbroken Thai so it can never
-          overflow, line-clamp-2 caps the height. */}
-      <h1 data-testid="greeting-name" className="line-clamp-2 break-words text-2xl font-bold leading-8 text-v3-navy">{name}</h1>
-      <ElementLine mascotCharacter={mascotCharacter} element={element} />
+          overflow, line-clamp-2 caps the height.
+          An EMPTY name renders a grey bar, not an empty h1: the pre-mount frame (<HomeSkeleton/>) cannot
+          read the cookie, and a zero-height heading there would collapse the header and move everything
+          below it on the very next frame — the layout jump this whole card exists to remove. */}
+      {name
+        ? <h1 data-testid="greeting-name" className="line-clamp-2 break-words text-2xl font-bold leading-8 text-v3-navy">{name}</h1>
+        : <Skeleton className="my-1 h-6 w-40 rounded" />}
+      <ElementLine mascotCharacter={mascotCharacter} element={element} loading={loading.mascot} />
     </header>
+  )
+}
+
+// The right cluster while the user row is still in flight (loading.profile).
+//
+// 🔴 THE SAME TRAP AS THE MASCOT, ON A SECOND SURFACE — and the card only named the first one.
+// <TopBarAvatar/> falls through to `01-nav.png` (the mascot) whenever there is no picture_url, so the
+// un-skeletoned header does exactly what DoD 3 forbids: it shows a plausible stand-in and then swaps to
+// the real photo. Greying the avatar closes it in the same move as the mascot, from the same flag.
+//
+// The BELL stays real: it is a static control, not user data, and it is the one thing in this row that is
+// already true at frame 1. Skeletoning it would grey out something we know.
+//
+// The upgrade pill reserves its 84×32 as a grey block. That is a deliberate trade: a PAID member's row
+// then loses the pill when the row lands (the label to its left widens; nothing moves vertically), which
+// costs one horizontal reflow. The alternative — render nothing and let the pill appear for the majority
+// who are unpaid — pays that same reflow for MORE people, and leaves a hole where DoD 3 asks for a block.
+function HeaderToolsSkeleton() {
+  return (
+    <div data-testid="header-tools-skeleton" className="flex shrink-0 items-center gap-2">
+      <Skeleton className="h-8 w-[84px] rounded-lg" />
+      <TopBarBell variant="solid" href="/v2/calendar/notifications" />
+      <Skeleton className="size-10 rounded-full" />
+    </div>
   )
 }
 
@@ -165,7 +234,19 @@ function NotificationPanel({ onClose }: { onClose: () => void }) {
 //   no data  → render NOTHING (hide the whole row — no orphan mascot beside empty text)
 // The ดิถี band (persona/bazi) enhances IN later (or never, graceful) — element must NOT wait on bazi
 // liveness (decision A w/ goo 2026-07-25). Copy-agnostic: renders whatever string goo emits (ground-truth ดิถี).
-function ElementLine({ mascotCharacter, element }: { mascotCharacter: string; element: ElementInfo }) {
+function ElementLine({ mascotCharacter, element, loading }: { mascotCharacter: string; element: ElementInfo; loading: boolean }) {
+  // Loading is checked BEFORE the null-element branch on purpose. Both states have no element to show, but
+  // they are different sentences: "ยังไม่มา" (a grey block, the row holds its place) vs "ไม่มี" (the row is
+  // hidden entirely, the old behaviour). Collapsing them would make the row appear out of nowhere the
+  // moment the chart lands — the same reveal-by-surprise the grey block exists to prevent.
+  if (loading) {
+    return (
+      <div data-testid="element-line-skeleton" className="flex items-start gap-1.5">
+        <Skeleton className="h-8 w-7 shrink-0 rounded" />
+        <Skeleton className="mt-1 h-4 w-48 max-w-full rounded" />
+      </div>
+    )
+  }
   if (!element.elementTh) return null
   return (
     // items-start: mascot stays top-aligned with line 1 when the text wraps to 2 lines on narrow screens.
@@ -190,14 +271,54 @@ function ElementLine({ mascotCharacter, element }: { mascotCharacter: string; el
 // verdict → ring colour. good=green(teal) · neutral=yellow · caution=orange. (Figma's lime donut is
 // replaced by a verdict-coloured arc — the lime bg would hide a lime/neutral arc; verdict must read.)
 // (VERDICT_ARC moved into the shared <DailyFortuneCard/> with the donut it colours — one place, not two.)
+// The Zone-1 skeleton MIRRORS <DailyFortuneCard variant="home"/> row for row — donut + headline, dashed
+// rule, date row, dashed rule, two facet columns — using that card's own wrappers and line-heights.
+//
+// It did not, before this card. It drew the donut and two short bars and stopped, so the loading card
+// stood 184px shorter than the loaded one and EVERY landmark below it — the manifest CTA, both ดวงสมพงค์
+// cards, โหมดเซียน — slid down 184px the instant the fortune arrived (measured: harness/skeleton-shift.ts
+// @393). Nobody had seen it, because until this PR home never showed this skeleton: the full-screen white
+// gate covered the whole wait, and the short skeleton only ever flashed behind it. Removing the gate is
+// what put it on the main path — so it is this PR's to fix, even though the code predates it.
+//
+// Row-for-row, not a magic height: the real card's text is variable-length (a 1-line or 2-line headline, a
+// 1–3 line facet), so no fixed number could be right for every fortune. Mirroring its STRUCTURE means the
+// two heights track each other when either changes, instead of agreeing once and drifting apart at the
+// next edit. The residual on the standard fortune is measured and reported in the PR, not rounded to zero.
+function SkeletonBar({ className }: { className: string }) {
+  return <span className={`block rounded bg-v3-border-card ${className}`} />
+}
+
 function FortuneSkeleton({ empty }: { empty: boolean }) {
   return (
-    <div className="animate-pulse">
+    <div className="flex animate-pulse flex-col gap-4" data-testid="zone1-skeleton-body">
+      {/* donut + headline — the real row is `flex items-center gap-4`, headline text-lg/leading-6 ×2 lines */}
       <div className="flex items-center gap-4">
-        <div className="size-[90px] shrink-0 rounded-full bg-v3-border-card" />
+        <span className="block size-[90px] shrink-0 rounded-full bg-v3-border-card" />
         <div className="min-w-0 flex-1 space-y-2">
-          <div className="h-4 w-4/5 rounded bg-v3-border-card" />
-          <div className="h-4 w-3/5 rounded bg-v3-border-card" />
+          <SkeletonBar className="h-6 w-full" />
+          <SkeletonBar className="h-6 w-3/5" />
+        </div>
+      </div>
+      <hr className="border-dashed border-v3-border-card" />
+      {/* date row — real: `flex items-center gap-4 text-base leading-6` (date + "เปิดปฏิทินของฉัน") */}
+      <div className="flex items-center gap-4">
+        <SkeletonBar className="h-6 min-w-0 flex-1" />
+        <SkeletonBar className="h-6 w-[124px] shrink-0" />
+      </div>
+      <hr className="border-dashed border-v3-border-card" />
+      {/* two facet columns — real: heading leading-6, then a line at mt-1 leading-[22px], divider between */}
+      <div className="flex items-stretch gap-4">
+        <div className="min-w-0 flex-1 space-y-1">
+          <SkeletonBar className="h-6 w-24" />
+          <SkeletonBar className="h-[22px] w-full" />
+          <SkeletonBar className="h-[22px] w-4/5" />
+        </div>
+        <div className="self-stretch border-l border-dashed border-v3-border-card" />
+        <div className="min-w-0 flex-1 space-y-1">
+          <SkeletonBar className="h-6 w-20" />
+          <SkeletonBar className="h-[22px] w-full" />
+          <SkeletonBar className="h-[22px] w-3/5" />
         </div>
       </div>
       {empty && <p className="mt-4 text-center text-sm font-medium text-v3-text-muted">ยังไม่มีข้อมูลดวงวันนี้</p>}
@@ -208,7 +329,7 @@ function FortuneSkeleton({ empty }: { empty: boolean }) {
 function ScoreRingCard({ fortune, loading }: { fortune: DailyFortune | null; loading: boolean }) {
   if (loading || !fortune) {
     return (
-      <section className="mb-8 flex flex-col gap-4 rounded-[28px] bg-gradient-to-b from-white to-v3-cyan/20 p-6 shadow-sm">
+      <section data-testid="zone1-skeleton" className="mb-8 flex flex-col gap-4 rounded-[28px] bg-gradient-to-b from-white to-v3-cyan/20 p-6 shadow-sm">
         <FortuneSkeleton empty={!loading && !fortune} />
       </section>
     )
@@ -244,9 +365,15 @@ const ELEMENT_GRADIENTS: Record<string, { from: string; to: string }> = {
   'น้ำ': { from: '#9cc5f1', to: '#d9edff' }, // water — proposal (sky → pale blue)
 }
 const WOOD_GRADIENT = ELEMENT_GRADIENTS['ไม้'] // default when elementTh is null/unknown — card is never colourless
+// While the chart is still in flight the card must not wear an ELEMENT colour. WOOD is the settled-but-
+// unknown default; using it during loading would paint a specific person's element (green) and then
+// re-paint it (e.g. fire) the instant the chart lands — a whole-card colour flip, which is DoD 3's
+// fallback-then-swap at the largest scale on the screen. Neutral grey cannot be mistaken for an element,
+// so the single reveal stays single.
+const LOADING_GRADIENT = { from: '#EDEEEF', to: '#F7F8F8' }
 
-function ManifestCard({ mascotCharacter, element }: { mascotCharacter: string; element: ElementInfo }) {
-  const g = (element.elementTh && ELEMENT_GRADIENTS[element.elementTh]) || WOOD_GRADIENT
+function ManifestCard({ mascotCharacter, element, loading }: { mascotCharacter: string; element: ElementInfo; loading: boolean }) {
+  const g = loading ? LOADING_GRADIENT : (element.elementTh && ELEMENT_GRADIENTS[element.elementTh]) || WOOD_GRADIENT
   return (
     // overflow-hidden clips the overflowing mascot (intended). The mascot scales with the card (w-[48%]) so
     // the left lane stays proportional at 393/360/320 (a fixed 187px mascot cramped the title to 4 lines @320).
@@ -262,8 +389,11 @@ function ManifestCard({ mascotCharacter, element }: { mascotCharacter: string; e
         <Link href={comingSoonHrefById('manifest')} className="inline-block whitespace-nowrap rounded-full bg-v3-sapphire px-6 py-2 text-center text-sm font-semibold uppercase leading-5 text-v3-lime">เพิ่มความปรารถนาของคุณ</Link>
       </div>
       {/* mascot from the chart — right-anchored + rotated + overflowing (clipped). pointer-events-none so a
-          tap passes through to the button. onError → hero fallback (like MascotImg). */}
-      <ManifestMascot src={mascotCharacter} />
+          tap passes through to the button. onError → hero fallback (like MascotImg).
+          Loading → the SAME box as a grey block, so the mascot arrives once, in place, at final size. */}
+      {loading
+        ? <div aria-hidden data-testid="manifest-mascot-skeleton" className="pointer-events-none absolute right-[-5.8%] top-[-22px] z-[1] aspect-[187/217] w-[52%] rotate-[7deg] animate-pulse rounded-2xl bg-black/5" />
+        : <ManifestMascot src={mascotCharacter} />}
       {/* coin — decorative, bottom-right, gentle 2s float. pointer-events-none. reduced-motion → still. */}
       <Image src="/images/v2/zone2/coin.png" alt="" width={56} height={56} aria-hidden className="zone2-coin pointer-events-none absolute bottom-[-12px] right-[7%] z-[5] size-[56px]" />
       <style dangerouslySetInnerHTML={{ __html: `@keyframes zone2-coin{0%{transform:rotate(0) scale(1) translateY(0)}25%{transform:rotate(-3deg) scale(1.03) translateY(-3px)}50%{transform:rotate(0) scale(1.05) translateY(-6px)}75%{transform:rotate(3deg) scale(1.03) translateY(-3px)}100%{transform:rotate(0) scale(1) translateY(0)}}.zone2-coin{animation:zone2-coin 2s cubic-bezier(.45,0,.55,1) infinite;transform-origin:center}@media(prefers-reduced-motion:reduce){.zone2-coin{animation:none}}` }} />

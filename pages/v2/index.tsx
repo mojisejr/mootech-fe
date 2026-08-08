@@ -14,6 +14,7 @@ import { useHomeFortune } from '@/features/home/hooks/useHomeFortune'
 import { useMascotFromCompute } from '@/lib/personalization/use-mascot'
 import { resolveGreetingElementTh } from '@/lib/personalization/compute-source'
 import { AuthLoadingGate } from '@/features/v2-shell/components/AuthLoadingGate'
+import { HomeSkeleton } from '@/features/v2-home/components/HomeSkeleton'
 import { V2GateForm } from '@/features/v2-shell/components/V2GateForm'
 import { OnboardingCarousel } from '@/features/onboarding/components/OnboardingCarousel'
 import { V2HomeScreen } from '@/features/v2-home/components/V2HomeScreen'
@@ -35,7 +36,11 @@ function V2Entry() {
   const router = useRouter()
   const { status, showLoading } = useV2AuthGate()
 
-  if (showLoading) return <AuthLoadingGate />
+  // Pre-mount hydration fence (useHasMounted → useEffect → setState after paint, so this frame ALWAYS
+  // reaches the user at least once — μุน measured it). Gate LOGIC unchanged (บอง 🔒 — do not touch
+  // useHasMounted / no useLayoutEffect); only WHAT it renders changes: HomeSkeleton (menu+header+grey
+  // zones) instead of the white AuthLoadingGate → that last frame is no longer blank (P1: 0 white frames).
+  if (showLoading) return <HomeSkeleton />
 
   if (status === 'anon') {
     return <OnboardingCarousel onComplete={() => router.push('/v2/login')} />
@@ -55,14 +60,18 @@ function V2HomeRoute({ status }: { status: AuthStatus }) {
   // useV2Home is the SINGLE owner of the /api/user fetch (#165): it yields the routing/greeting/compute
   // AND the header `profile` + the fetched `user` row, so useHomeFortune reuses that row instead of firing
   // a second UserGetById.
-  const { showLoading, greeting, computeSource, profile, user } = useV2Home(status)
+  const { redirecting, greeting, computeSource, profile, user, loading } = useV2Home(status)
   const { logout } = useV2Logout()
   const mascot = useMascotFromCompute(computeSource)
   const mascotCharacter = mascot?.character ?? '/images/v2/mascot/01.webp'
   // Zone 1 — daily-fortune + persona data seam. Called unconditionally (before the loading branch) so
   // hook order is stable; graceful by design (no user / bazi error → fortune/persona=null → cards show
   // fallback). Consumes the shared `user` (no second fetch). ONE BFF call returns both fortune and persona.
-  const { fortune, persona, loading: fortuneLoading } = useHomeFortune(user)
+  // Pass the user-loading signal (loading.profile = user row in flight) so the fortune card holds its
+  // skeleton while the row is still coming instead of flashing "no fortune today" (μุน's catch). This is
+  // the SOURCE fix — the hook now reports loading honestly on its own, so the screen no longer has to
+  // compose `fortuneLoading || loading.profile` as a belt.
+  const { fortune, persona, loading: fortuneLoading } = useHomeFortune(user, loading.profile)
 
   // Split-brain guard (too's wire review): the ธาตุ TEXT binds the MASCOT's element (compute, for
   // visual consistency with the character), while the strength band comes from bazi's persona — two
@@ -82,7 +91,11 @@ function V2HomeRoute({ status }: { status: AuthStatus }) {
     )
   }
 
-  if (showLoading) return <AuthLoadingGate />
+  // Gate ONLY on an active redirect (no-chart user → /v2/register): render nothing home-shaped while that
+  // route change is in flight so home does not flash. The data-loading wait is GONE — a settled-authed
+  // user renders the home shell immediately (menubar/header present from frame 1), and `loading` tells
+  // Lamun's screen which zones are still grey. This is the P1 fix: no full-screen white gate on data load.
+  if (redirecting) return <AuthLoadingGate />
 
   return (
     <V2HomeScreen
@@ -91,6 +104,9 @@ function V2HomeRoute({ status }: { status: AuthStatus }) {
       onLogout={logout}
       fortune={fortune}
       fortuneLoading={fortuneLoading}
+      // Per-zone loading (goo → Lamun seam): true = data not in → grey block for that zone (❌ not the
+      // 01.webp fallback). profile un-greys when the user row lands; mascot waits for the chart.
+      loading={loading}
       // Header seam (กติกา ค): avatar + upgrade-badge inputs from the single user fetch. μุน's
       // V2HomeScreenProps declares `profile?` (optional, safe default) — this pass compiles once #180 lands.
       profile={profile}

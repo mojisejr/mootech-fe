@@ -7,6 +7,7 @@
 import type { GetServerSideProps } from 'next'
 import { useRouter } from 'next/router'
 import { V2HomeScreen, type DailyFortune, type ElementInfo } from '@/features/v2-home/components/V2HomeScreen'
+import { HomeSkeleton } from '@/features/v2-home/components/HomeSkeleton'
 
 // ground-truth ดิถี band vocab (ฟีม 2026-07-25), NOT Figma "แข็งแรง".
 const ELEMENTS: Record<string, ElementInfo> = {
@@ -37,6 +38,10 @@ export const getServerSideProps: GetServerSideProps = async () => {
 
 export default function V2HomePreview() {
   const q = useRouter().query
+  // ?skeleton=1 — render the REAL <HomeSkeleton/>, the component /v2 paints on its pre-mount frame. Not a
+  // reconstruction of it from the flags below: a design-verify pass has to shoot the thing that ships, or
+  // it is certifying a copy that can drift from the original the moment either side is edited.
+  if (q.skeleton === '1') return <HomeSkeleton />
   const s = (q.state as string) || 'good'
   const loading = s === 'loading'
   let fortune = loading || s === 'empty' ? null : (FORTUNES[s] ?? FORTUNES.good)
@@ -52,5 +57,11 @@ export default function V2HomePreview() {
   const profile = { pictureUrl: q.pic === 'y' ? '/images/v2/mascot/01.webp' : null, showUpgrade: q.pay !== 'paid' }
   // ?mascot=<path> — Zone 2: force a specific mascot to test occlusion across the 60 shapes (?mascot=404 → broken → hero)
   const mascotCharacter = q.mascot === '404' ? '/images/v2/characters/__missing__.png' : ((q.mascot as string) || '/images/v2/characters/01_ชวด-ดิน.webp')
-  return <V2HomeScreen greeting={{ name }} mascotCharacter={mascotCharacter} onLogout={() => window.alert('logout()')} fortune={fortune} fortuneLoading={loading} element={element} profile={profile} />
+  // ?zones=profile,mascot — the per-zone grey blocks (P1). `?zones=all` = the pre-mount frame, i.e. exactly
+  // what <HomeSkeleton/> renders; `?state=loading` also greys Zone 1 via fortuneLoading. Driving these from
+  // the URL is what lets the design-verify pass shoot loading and loaded from the SAME build with no source
+  // patch — the mid-flight states are otherwise unreachable without a slow network.
+  const zones = ((q.zones as string) ?? '').split(',').filter(Boolean)
+  const zoneLoading = { profile: zones.includes('profile') || zones.includes('all'), mascot: zones.includes('mascot') || zones.includes('all') }
+  return <V2HomeScreen greeting={{ name }} mascotCharacter={mascotCharacter} onLogout={() => window.alert('logout()')} fortune={fortune} fortuneLoading={loading} element={element} profile={profile} loading={zoneLoading} />
 }

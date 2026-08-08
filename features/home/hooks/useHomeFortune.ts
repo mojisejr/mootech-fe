@@ -4,10 +4,17 @@
 // (/api/home-fortune → bazi /api/home). grade = gradeForPercent from bazi (single-sourced).
 //
 // State-table (completeness-pass — every outcome RESOLVES, never a stuck skeleton):
-//   no user yet → loading=true (wait; effect re-runs when useV2Home resolves the user)
+//   user row STILL IN FLIGHT (userLoading) → loading=true (wait; keep the skeleton, do NOT announce
+//     "no fortune today" while the row is still coming — μุน caught the card flashing the empty state)
 //   no user_id / error / incomplete birth profile → fortune=null, loading=false (fallback)
 //   BFF/bazi error / timeout → fortune=null, loading=false (BFF already degrades to {fortune:null})
 //   success → fortune, loading=false
+//
+// ⚠️ `user: null` is AMBIGUOUS on its own — it means BOTH "still loading" AND "fetch errored" (useV2Home
+// keeps `user=null` on a UserGetById error). So the caller passes `userLoading` (useV2Home's loading.profile
+// = phase 'resolving' && user null) to disambiguate: true → still loading (skeleton); false + null user →
+// settled-with-no-row (empty state). Without it the hook cannot tell a wait from a failure and would either
+// flash the empty state during load (the old bug) or hang forever on error.
 import { useEffect, useState } from 'react'
 import { userRowToFeCalcInput, isBirthProfileComplete } from '@/lib/bazi-bridge/input'
 import type { HomeUser } from '@/features/auth/hooks/useV2Home'
@@ -19,12 +26,18 @@ export type { DailyFortune, HomePersona }
 // (ธาตุ + strength) — bazi derives them from the same compute, so exposing both here keeps it to a
 // single round-trip (no second bazi compute). ScoreRingCard consumes `fortune`; the greeting ธาตุ
 // line consumes `persona.strengthLabel` (element comes from the compute/mascot source at the wire).
-export function useHomeFortune(user: HomeUser | null): { fortune: DailyFortune | null; persona: HomePersona | null; loading: boolean } {
+export function useHomeFortune(user: HomeUser | null, userLoading: boolean): { fortune: DailyFortune | null; persona: HomePersona | null; loading: boolean } {
   const [fortune, setFortune] = useState<DailyFortune | null>(null)
   const [persona, setPersona] = useState<HomePersona | null>(null)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
+    // The user row is still coming (not yet an error) → hold the skeleton; don't fall through to the
+    // "no data" branch and paint the empty state over a request that hasn't finished (μุน's catch).
+    if (userLoading) {
+      setLoading(true)
+      return
+    }
     // Idempotent effect (no doneRef latch). React StrictMode (dev) double-invokes: run A fires, its
     // cleanup sets alive=false, run B fires fresh. Each invocation owns its `alive`; the surviving run
     // resolves `loading`. A persistent doneRef would let run A win the latch, then its cleanup kills its
@@ -68,7 +81,7 @@ export function useHomeFortune(user: HomeUser | null): { fortune: DailyFortune |
     return () => {
       alive = false
     }
-  }, [user])
+  }, [user, userLoading])
 
   return { fortune, persona, loading }
 }

@@ -29,8 +29,9 @@ import type { UserBirthRow } from '@/lib/bazi-bridge/input'
 import type { ComputeMascotSource } from '@/lib/personalization/mascot'
 import { toComputeSource } from '@/lib/personalization/compute-source'
 import { deriveHomeProfile, type HomeProfile } from '@/lib/home/profile'
+import { deriveHomeLoading, type HomeLoading } from '@/lib/home/loading'
 
-export type { HomeProfile }
+export type { HomeProfile, HomeLoading }
 
 // The home user row from UserGetById (/api/user): birth profile (for the fortune) + routing + header fields.
 export type HomeUser = UserBirthRow & {
@@ -45,9 +46,14 @@ export type HomeUser = UserBirthRow & {
 // unit-testable; deriveHomeProfile matches v1 header-v2.tsx exactly.
 
 export type V2Home = {
-  /** Render <AuthLoadingGate/> while true (resolving identity, resolving chart, or redirecting). */
-  showLoading: boolean
+  /** Hold the frame (render <AuthLoadingGate/>) ONLY while identity is unsettled or we are actively
+   *  redirecting a no-chart user to /v2/register — so home never FLASHES before that route change. The old
+   *  data-loading wait is GONE: home is a terminal render the moment identity settles, and each zone fills
+   *  in via `loading` below (no more full-screen white gate while the two home requests resolve). */
+  redirecting: boolean
   greeting: { name: string }
+  /** Per-zone data-loading flags for Lamun's screen (grey block until each zone's own data lands). */
+  loading: HomeLoading
   /** For Lamun's `useMascotFromCompute(computeSource)?.character ?? '/images/v2/mascot/01.webp'`. */
   computeSource: ComputeMascotSource | null
   /** Avatar + upgrade-badge inputs for the header (derived from the single user fetch). */
@@ -120,9 +126,13 @@ export function useV2Home(status: AuthStatus): V2Home {
   }, [status, userId])
 
   return {
-    // Hold the loading gate until settled to 'home' (resolving chart or redirecting both wait).
-    showLoading: status !== 'authed' || phase !== 'home',
+    // Gate ONLY when identity is unsettled or we are routing a no-chart user to register — NOT while the
+    // home data resolves ('resolving' now renders the screen with grey zones, so there is no white gate).
+    redirecting: status !== 'authed' || phase === 'redirecting',
     greeting,
+    // Progressive reveal: profile un-greys when the user row lands; mascot waits for the chart. On an API
+    // error we settle to 'home' with no user/compute → both false → safe fallbacks show, never stuck grey.
+    loading: deriveHomeLoading(phase, user !== null),
     computeSource,
     profile: deriveHomeProfile(user),
     user,

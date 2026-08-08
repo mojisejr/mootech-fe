@@ -58,3 +58,11 @@ assets-src/*
 
 # test-env secrets (passkey etc.) — never commit
 testenv/env/*.env
+
+# first-frame / shift evidence — a screencast run writes hundreds of PNGs (~350MB per run). The NUMBERS
+# are the evidence and they live in the PR body; the frames are reproducible with the command beside them.
+# (harness/out itself still tracks the small curated shots earlier PRs committed.)
+harness/out/first-frame/
+harness/out/ff-*/
+harness/out/p1/
+harness/out/p1-verify/
