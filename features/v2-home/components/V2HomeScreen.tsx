@@ -259,7 +259,7 @@ function ManifestCard({ mascotCharacter, element }: { mascotCharacter: string; e
             readable. spelling: ปรารถนา (Figma's ปราถนา is a typo).
             A1: now goes to the shared เร็วๆ นี้ page as มานิเฟส — the service exists in the catalog, the
             feature does not, so the honest destination is the one that says so by name. */}
-        <Link href={comingSoonHrefById('manifest')} className="inline-block whitespace-nowrap rounded-full bg-v3-sapphire px-6 py-2 text-sm font-semibold uppercase leading-5 text-v3-lime">เพิ่มความปรารถนาของคุณ</Link>
+        <Link href={comingSoonHrefById('manifest')} className="inline-block whitespace-nowrap rounded-full bg-v3-sapphire px-6 py-2 text-center text-sm font-semibold uppercase leading-5 text-v3-lime">เพิ่มความปรารถนาของคุณ</Link>
       </div>
       {/* mascot from the chart — right-anchored + rotated + overflowing (clipped). pointer-events-none so a
           tap passes through to the button. onError → hero fallback (like MascotImg). */}
