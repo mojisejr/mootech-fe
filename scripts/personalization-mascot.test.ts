@@ -113,7 +113,7 @@ function main() {
     assert.ok(m)
     assert.equal(m!.order, '12')
     assert.equal(m!.filename, '12_กุน-ไม้')
-    assert.equal(m!.character, '/images/v2/characters/12_กุน-ไม้.png')
+    assert.equal(m!.character, '/images/v2/characters/12_กุน-ไม้.webp')
     assert.equal(m!.card, '/images/v2/cards/12_กุน-ไม้.jpg')
     assert.equal(m!.elementEn, 'WOOD')
     assert.equal(m!.elementLabelTh, 'ธาตุไม้')
@@ -121,7 +121,7 @@ function main() {
 
   t('resolveMascot: hybrid axes (English animal + polarity element)', () => {
     const m = resolveMascot('PIG', 'ไม้หยิน')
-    assert.equal(m!.character, '/images/v2/characters/12_กุน-ไม้.png')
+    assert.equal(m!.character, '/images/v2/characters/12_กุน-ไม้.webp')
     assert.equal(m!.card, '/images/v2/cards/12_กุน-ไม้.jpg')
   })
 
@@ -157,7 +157,7 @@ function main() {
     }
     const m = resolveMascotFromCompute(data)
     assert.ok(m)
-    assert.equal(m!.character, '/images/v2/characters/12_กุน-ไม้.png')
+    assert.equal(m!.character, '/images/v2/characters/12_กุน-ไม้.webp')
     assert.equal(m!.animalTh, 'กุน')
     assert.equal(m!.elementTh, 'ไม้')
   })
@@ -176,7 +176,7 @@ function main() {
       for (const el of elements) {
         const m = buildMascotPaths(z.th, el)
         assert.ok(m, `${z.th}-${el} should resolve`)
-        assert.equal(m!.character, `/images/v2/characters/${z.order}_${z.th}-${el}.png`)
+        assert.equal(m!.character, `/images/v2/characters/${z.order}_${z.th}-${el}.webp`)
         assert.equal(m!.card, `/images/v2/cards/${z.order}_${z.th}-${el}.jpg`)
         n++
       }

@@ -350,7 +350,7 @@ mascot ผสม 2 แกน เพื่อให้ตรงกับ "ธา�
 - ❌ ไม่ใช้ year element (mascot จะไม่ตรง headline)
 
 ### Resolver — สร้างแล้ว PR#71 (`lib/personalization/`, 20 tests) `✓`
-`buildMascotPaths(animal, element)` → `NN_นักษัตร-ธาตุ` → `characters/*.png` (no bg) / `cards/*.jpg` (bg).
+`buildMascotPaths(animal, element)` → `NN_นักษัตร-ธาตุ` → `characters/*.webp` (no bg) / `cards/*.jpg` (bg).
 ⚠️ resolver **ยังไม่มี production screen ใช้** — มีแค่ showcase + test. my-destiny ดึง mascot จาก **backend** (`resultSummary.mascot.url`) ไม่ผ่าน resolver → build-time: ตัดสินว่า resolver ไปเสียบจอไหน (public calculator ที่ใช้ `compute.ts`?) หรือพึ่ง BE (§14).
 ⚠️ `enrichment.dayMasterElement` = **best-effort** (timeout 5s → null) → ต้องมี static fallback.
 

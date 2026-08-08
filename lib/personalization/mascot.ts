@@ -5,7 +5,7 @@
 //
 // Filename convention (verified against `ls public/images/v2/characters` — 60 files, no misses):
 //   `${order}_${นักษัตร}-${ธาตุ}`   e.g. "12_กุน-ไม้"
-//   → character: /images/v2/characters/12_กุน-ไม้.png   (transparent, no bg)
+//   → character: /images/v2/characters/12_กุน-ไม้.webp  (transparent, no bg)
 //   → card:      /images/v2/cards/12_กุน-ไม้.jpg         (with bg)
 
 import {
@@ -20,7 +20,7 @@ const CHARACTERS_DIR = '/images/v2/characters'
 const CARDS_DIR = '/images/v2/cards'
 
 export type MascotPaths = {
-  /** transparent PNG, no background — /images/v2/characters/NN_นักษัตร-ธาตุ.png */
+  /** transparent WEBP, no background — /images/v2/characters/NN_นักษัตร-ธาตุ.webp */
   character: string
   /** JPG with background artwork — /images/v2/cards/NN_นักษัตร-ธาตุ.jpg */
   card: string
@@ -54,7 +54,7 @@ export function buildMascotPaths(nakkasatTh: string, elementTh: string): MascotR
     elementEn: el.en,
     elementLabelTh: el.labelTh,
     elementLabelEn: el.labelEn,
-    character: `${CHARACTERS_DIR}/${filename}.png`,
+    character: `${CHARACTERS_DIR}/${filename}.webp`,
     card: `${CARDS_DIR}/${filename}.jpg`,
   }
 }
