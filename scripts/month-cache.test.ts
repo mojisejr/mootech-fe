@@ -13,6 +13,7 @@ import {
   setMonth,
   clearMonthCache,
   isCacheableMonth,
+  MONTH_CACHE_MAX,
   _monthCacheMemSize,
 } from '../features/v2-calendar/hooks/month-cache'
 
@@ -86,8 +87,8 @@ t('reopen app: value only in localStorage → peek reads it AND promotes to memo
   installLS(ls)
   clearMonthCache() // memory empty
   const k = monthKey('u1', SIG1, monthYM(2026, 8))
-  // simulate a prior session having persisted it (write straight to LS under the versioned prefix)
-  ls.setItem('mumate:cal:v1:' + k, JSON.stringify(DAYS_A))
+  // simulate a prior session having persisted it (write straight to LS under the versioned prefix + shape)
+  ls.setItem('mumate:cal:v1:' + k, JSON.stringify({ t: 1, d: DAYS_A }))
   assert.equal(_monthCacheMemSize(), 0, 'precondition: memory empty')
   assert.deepEqual(peekMonth(k), DAYS_A, 'reads from localStorage')
   assert.equal(_monthCacheMemSize(), 1, 'promoted into memory (next read is parse-free)')
@@ -174,7 +175,7 @@ t('corrupt localStorage JSON → miss + evicts the bad key', () => {
   assert.equal(peekMonth(k), undefined, 'corrupt → miss')
   assert.equal(ls.getItem('mumate:cal:v1:' + k), null, 'bad key evicted')
 })
-t('wrong-shape persisted value (not an array) → miss + evict', () => {
+t('wrong-shape persisted value (no `d` array) → miss + evict', () => {
   const ls = makeFakeLS()
   installLS(ls)
   clearMonthCache()
@@ -182,6 +183,41 @@ t('wrong-shape persisted value (not an array) → miss + evict', () => {
   ls.setItem('mumate:cal:v1:' + k, JSON.stringify({ nope: true }))
   assert.equal(peekMonth(k), undefined)
   assert.equal(ls.getItem('mumate:cal:v1:' + k), null)
+})
+t('legacy array-shape entry (pre-{t,d}) → miss + evict (graceful migration, no crash)', () => {
+  const ls = makeFakeLS()
+  installLS(ls)
+  clearMonthCache()
+  const k = monthKey('u1', SIG1, monthYM(2026, 8))
+  ls.setItem('mumate:cal:v1:' + k, JSON.stringify(DAYS_A)) // the shape a Vercel-preview visitor may hold
+  assert.equal(peekMonth(k), undefined, 'old array shape not mis-read')
+  assert.equal(ls.getItem('mumate:cal:v1:' + k), null, 'evicted → next view re-fetches')
+})
+
+// ── BOUNDED: never grows without limit (บอง's catch — silent DoD-#3 death when unbounded) ──
+t(`localStorage capped at MONTH_CACHE_MAX (=${MONTH_CACHE_MAX}) — oldest-written evicted, newest kept`, () => {
+  const ls = makeFakeLS()
+  installLS(ls)
+  clearMonthCache()
+  // write MAX+5 distinct months with strictly increasing write-time
+  const N = MONTH_CACHE_MAX + 5
+  for (let i = 0; i < N; i++) {
+    setMonth(monthKey('u1', SIG1, `2020-${String(i + 1).padStart(2, '0')}`), DAYS_A, 1000 + i)
+  }
+  let ours = 0
+  for (let i = 0; i < ls.length; i++) if ((ls.key(i) ?? '').startsWith('mumate:cal:v1:')) ours++
+  assert.equal(ours, MONTH_CACHE_MAX, 'localStorage bounded at the cap')
+  // the 5 oldest (i=0..4, t=1000..1004) evicted; the newest present
+  assert.equal(peekMonth(monthKey('u1', SIG1, '2020-01')), undefined, 'oldest evicted')
+  assert.deepEqual(peekMonth(monthKey('u1', SIG1, `2020-${String(N).padStart(2, '0')}`)), DAYS_A, 'newest kept')
+})
+t('memory layer also capped (does not grow unbounded within a session)', () => {
+  installLS(makeFakeLS())
+  clearMonthCache()
+  for (let i = 0; i < MONTH_CACHE_MAX + 10; i++) {
+    setMonth(monthKey('u1', SIG1, `2019-${String(i + 1).padStart(2, '0')}`), DAYS_A, 2000 + i)
+  }
+  assert.equal(_monthCacheMemSize(), MONTH_CACHE_MAX, 'memory bounded at the cap')
 })
 
 console.log(`\n${pass} passed`)

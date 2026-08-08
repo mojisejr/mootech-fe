@@ -24,12 +24,27 @@
 // disabled localStorage silently degrades to memory-only; the app keeps working, just slower next time (DoD
 // #7). The value is versioned (LS_WRITE_PREFIX) so a future shape change invalidates old entries instead of
 // mis-rendering a previous deploy's JSON.
+//
+// ❗ BOUNDED — MONTH_CACHE_MAX caps BOTH layers with oldest-first eviction (บอง's catch: an UNBOUNDED cache
+// never crashes, but once localStorage fills, setMonth silently no-ops FOREVER → new months stop persisting
+// → DoD #3 dies with no signal). Numbers: a stored month ≈ 3.4 KB (measured — 31 days + key). The server's
+// fortuneCache caps at 256; the browser has ~5 MB SHARED with other features (what-if, compat), so we cap
+// FAR lower: 24 months ≈ 80 KB ≈ 1.5% of quota. There is no silent-death mode left — we never fill from our
+// own growth, and we stay a good localStorage citizen. Each entry carries its write time so eviction is by
+// oldest-written (a rarely-touched stale month goes first; re-fetching it later is the cheap, correct cost).
 import type { CalendarDay as ApiCalendarDay } from '@/lib/v2-calendar/month'
 
 // The cached payload is the RAW day array (exactly what the BFF returns / the server fortuneCache stores),
 // NOT the assembled feature month — the caller re-runs assembleFeatureMonth on read, so a change to the
 // assemble logic in a later deploy applies to cached data too, and the shape guard stays trivial (an array).
 type MonthDays = ApiCalendarDay[]
+// Persisted shape: `t` (write-time ms, for oldest-first eviction) + `d` (the raw days). `t` is the FIRST
+// field so eviction can read it with a cheap prefix match, never a full parse of the big `d` array.
+type StoredMonth = { t: number; d: MonthDays }
+
+// ~24 months ≈ 80 KB ≈ 1.5% of a ~5 MB localStorage shared with other features. Generous for real browsing
+// (2 years of DISTINCT viewed months); the oldest beyond this is evicted and simply re-fetched if revisited.
+export const MONTH_CACHE_MAX = 24
 
 const MEM = new Map<string, MonthDays>()
 
@@ -70,13 +85,14 @@ export function peekMonth(key: string): MonthDays | undefined {
   const raw = safeGet(LS_WRITE_PREFIX + key)
   if (raw === null) return undefined
   try {
-    const parsed: unknown = JSON.parse(raw)
-    if (!Array.isArray(parsed)) {
+    const parsed = JSON.parse(raw) as Partial<StoredMonth>
+    if (!parsed || !Array.isArray(parsed.d)) {
       safeRemove(LS_WRITE_PREFIX + key) // wrong shape (old version / tampered) → miss + evict
       return undefined
     }
-    const days = parsed as MonthDays
+    const days = parsed.d
     MEM.set(key, days) // promote to ชั้น 1 so the next read is parse-free
+    capMem()
     return days
   } catch {
     safeRemove(LS_WRITE_PREFIX + key) // corrupt JSON → miss + evict
@@ -84,10 +100,47 @@ export function peekMonth(key: string): MonthDays | undefined {
   }
 }
 
-/** Store a real month in BOTH layers. Best-effort localStorage: quota/disabled → memory-only, never throws. */
-export function setMonth(key: string, days: MonthDays): void {
+/** Store a real month in BOTH layers, bounded (oldest-first eviction). Best-effort localStorage: quota/
+ *  disabled → memory-only, never throws. `now` is injectable for deterministic tests (default = wall clock). */
+export function setMonth(key: string, days: MonthDays, now: number = Date.now()): void {
   MEM.set(key, days)
-  safeSet(LS_WRITE_PREFIX + key, JSON.stringify(days))
+  capMem()
+  const stored: StoredMonth = { t: now, d: days }
+  safeSet(LS_WRITE_PREFIX + key, JSON.stringify(stored))
+  capLs()
+}
+
+// ── bounded eviction ──────────────────────────────────────────────────────────────────────────────────
+// Keep the Map (insertion-ordered) at ≤ MONTH_CACHE_MAX — drop the oldest-inserted first.
+function capMem(): void {
+  while (MEM.size > MONTH_CACHE_MAX) {
+    const oldest = MEM.keys().next().value
+    if (oldest === undefined) break
+    MEM.delete(oldest)
+  }
+}
+
+// Keep our localStorage entries at ≤ MONTH_CACHE_MAX — evict the oldest-WRITTEN first. Reads `t` from the
+// leading `{"t":<ms>` prefix (no full parse of the big `d` array); a value that does not match is treated as
+// oldest (t=0) so a legacy/garbage entry is the first to go.
+function capLs(): void {
+  const ls = getLS()
+  if (!ls) return
+  try {
+    const entries: { key: string; t: number }[] = []
+    for (let i = 0; i < ls.length; i++) {
+      const k = ls.key(i)
+      if (!k || !k.startsWith(LS_WRITE_PREFIX)) continue
+      const raw = ls.getItem(k) ?? ''
+      const m = raw.match(/^\{"t":(\d+)/)
+      entries.push({ key: k, t: m ? Number(m[1]) : 0 })
+    }
+    if (entries.length <= MONTH_CACHE_MAX) return
+    entries.sort((a, b) => a.t - b.t) // oldest first
+    for (const e of entries.slice(0, entries.length - MONTH_CACHE_MAX)) ls.removeItem(e.key)
+  } catch {
+    // a throwing localStorage → nothing to cap; memory is already bounded
+  }
 }
 
 /** Logout hygiene — drop the whole month cache (memory + every mumate:cal:* key, any version) so the next
