@@ -91,6 +91,20 @@ jobs:
           # it can run. See harness/archive/README.md.
           HARNESS_HOST=http://localhost:3000 npx tsx harness/run-calendar-select.ts
           SCODE=$?
+          # ── P3 home chart-cache WIRING gate (goo · PR #208, F1) ─────────────────────────────────────
+          # Same shape + precedent as run-calendar-month above: prove a CLIENT cache is actually CONSULTED
+          # on the ship path (a class the pure-module tests cannot see — the P2 F1 that ตู๋ flagged). Counts
+          # GET /api/chinese-horoscope across a client-side tab-switch; backend-independent by construction
+          # (identity row + chart + home-fortune all stubbed via route interception, same as the calendar
+          # anchor). Teeth proven: ตู๋ fired 3 mutants each RED on a different line (neuter peek · drop
+          # setChart · isChartFresh→!!c). Its own positive control (full reload MUST re-fetch) proves the
+          # counter is live, so a green here is a green that could have been red.
+          # 🔴 PLACED BEFORE capture-coming-soon.ts ON PURPOSE (ตู๋ 2026-08-08): GH runs `bash -e`, so the
+          # FIRST harness that fails/times-out kills the whole step and every harness after it never runs —
+          # capture-coming-soon has timed out at 30s in a real run (31136373508), which would silently drop
+          # this gate if it sat behind it. Earlier = this gate is seen before a downstream flake can mask it.
+          HARNESS_HOST=http://localhost:3000 npx tsx harness/run-home-chart-cache.ts
+          CCCODE=$?
           # coming-soon controls (บอง 2026-08-06): its ledger entry names harness/capture-coming-soon.ts as
           # enforced_by — the third ledger in one day promising a guard nothing ran. Wired instead of
           # un-promised because it is genuinely ready: backend-independent, and it already exits non-zero on
@@ -133,7 +147,7 @@ jobs:
           # own watches that path. Team rule from it (บอง 2026-08-06): a conflict in a file carrying a
           # pass/fail condition is resolved by reading both sides and UNIONING them, never by picking — and
           # never in the GitHub web UI, whose result never passes through CI before it becomes the merge commit.
-          [ "$CODE" -eq 0 ] && [ "$PCODE" -eq 0 ] && [ "$MCODE" -eq 0 ] && [ "$SCODE" -eq 0 ] && [ "$CSCODE" -eq 0 ] && [ "$HSCODE" -eq 0 ] && [ "$FFCODE" -eq 0 ]
+          [ "$CODE" -eq 0 ] && [ "$PCODE" -eq 0 ] && [ "$MCODE" -eq 0 ] && [ "$SCODE" -eq 0 ] && [ "$CSCODE" -eq 0 ] && [ "$HSCODE" -eq 0 ] && [ "$FFCODE" -eq 0 ] && [ "$CCCODE" -eq 0 ]
 
       # Evidence is only ever looked at when the gate is RED. `if: always()` uploaded 18.7 MB on EVERY push
       # (green included) — the sole reason artifact storage hit 3,561 MB on a 500 MB ceiling. `if: failure()`
