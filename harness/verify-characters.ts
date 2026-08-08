@@ -289,7 +289,7 @@ async function main() {
         process.stdout.write(why ? 'x' : '.')
       }
       console.log('\n')
-      const dupes = [...sigIndex.entries()].filter(([, ns]) => ns.length > 1)
+      const dupes = Array.from(sigIndex.entries()).filter(([, ns]) => ns.length > 1)
       const failed = rows.filter((r) => !r.ok)
       console.log(`## sweep ${names.length} characters (.${EXT})`)
       console.log(`- ผ่าน: **${rows.length - failed.length}/${rows.length}**`)
@@ -444,7 +444,7 @@ async function main() {
         }
       }
       console.log('\n')
-      const dupes = [...sigIndex.entries()].filter(([, v]) => v.length > 1)
+      const dupes = Array.from(sigIndex.entries()).filter(([, v]) => v.length > 1)
       console.log(`## resolver sweep · ${animals.length} นักษัตร × ${elements.length} ธาตุ = ${n} (ผ่าน buildMascotPaths จริง)`)
       console.log(`- ผ่าน: **${n - fails.length}/${n}**`)
       console.log(`- ภาพซ้ำกัน: **${dupes.length}** ${dupes.length ? JSON.stringify(dupes) : '✓'}`)
@@ -490,7 +490,7 @@ async function diffMode() {
       process.exitCode = 1
       continue
     }
-    const n = pixelmatch(a.data, b.data, null, a.width, a.height, { threshold: 0.1 })
+    const n = pixelmatch(a.data, b.data, undefined, a.width, a.height, { threshold: 0.1 })
     const pct = (n / (a.width * a.height)) * 100
     worst = Math.max(worst, pct)
     const verdict = pct === 0 ? 'เหมือนกันทุกพิกเซล' : pct < 5 ? 'ภาพเดิม ต่างระดับ codec' : '⚠️ ต่างเยอะ — ต้องเปิดดูด้วยตา'
