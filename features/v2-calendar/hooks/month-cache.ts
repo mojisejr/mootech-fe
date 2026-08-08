@@ -9,11 +9,19 @@
 //
 // ❗ WHY a PERSISTED cache is safe here — the SAME rule day-detail-cache.ts states, applied to the month:
 // a month's fortune is DETERMINISTIC in (userId, birth-signature, YYYY-MM) — bazi computes the same days for
-// a fixed month+birth forever, so a stored result can never go stale. The key includes the birth signature
-// (JSON.stringify(person) — identical determinant to the BFF's fortuneCacheKey), so editing dob yields a NEW
-// key → the old month is never read again (แก้วันเกิด → ปฏิทินเปลี่ยนตาม, DoD #5). The user ROW is a
+// a fixed month+birth forever, so a stored result can never go stale. The key includes a HASH of the birth
+// signature (JSON.stringify(person)) — the SAME determinant as the BFF's fortuneCacheKey, but hashed because
+// (unlike fortuneCacheKey, which lives in server RAM) THIS key is written to the user's disk and must carry
+// no plaintext PII (see hashSig / ตู๋ F4). Editing dob → new signature → new hash → new key → the old month
+// is never read again (แก้วันเกิด → ปฏิทินเปลี่ยนตาม, DoD #5). The user ROW is a
 // DIFFERENT rule — NOT deterministic (a payment flips isPaid) → it is in-flight-ONLY (lib/v2/user-cache.ts),
 // a money bug if persisted. This module deliberately walks BESIDE user-cache.ts, never touches it.
+//
+// 🟡 DEBT (ตู๋ F5, tied to SALES-LAUNCH day — not this round): the key carries NO membership dimension, and
+// this cache sits IN FRONT of the paywall gate. Today the month fortune is deterministic and ungated, so a
+// cached month is content-correct regardless of the gate. But the day GATE_OPEN flips (paid calendar), any
+// invariant elsewhere that assumes "the calendar is gate-first, no client cache in front" becomes false —
+// revisit this key's membership dimension THEN, before launch, not after.
 //
 // ❗ FAILURE IS NEVER CACHED — isCacheableMonth() gates the write: a degraded/empty/gated response (upstream
 // timeout, no identity) is transient, and a persisted empty month would freeze that failure forever. Only a
@@ -29,9 +37,12 @@
 // never crashes, but once localStorage fills, setMonth silently no-ops FOREVER → new months stop persisting
 // → DoD #3 dies with no signal). Numbers: a stored month ≈ 3.4 KB (measured — 31 days + key). The server's
 // fortuneCache caps at 256; the browser has ~5 MB SHARED with other features (what-if, compat), so we cap
-// FAR lower: 24 months ≈ 80 KB ≈ 1.5% of quota. There is no silent-death mode left — we never fill from our
-// own growth, and we stay a good localStorage citizen. Each entry carries its write time so eviction is by
-// oldest-written (a rarely-touched stale month goes first; re-fetching it later is the cheap, correct cost).
+// FAR lower: 24 months ≈ 80 KB ≈ 1.5% of quota. We can no longer CAUSE quota exhaustion from our own growth,
+// and on a quota error we evict OUR OWN oldest and retry once (safeSet — same discipline as the server's
+// clear-on-full fortuneCacheSet). But we can still be a silent VICTIM: if ANOTHER feature has exhausted the
+// shared ~5 MB, our retry also fails and this month simply isn't persisted (memory-only this session) — ตู๋
+// F3 measured exactly this. That is an honest limit, NOT "no silent-death mode left". Each entry carries its
+// write time so eviction is oldest-first (a stale month goes first; re-fetching it later is the cheap cost).
 import type { CalendarDay as ApiCalendarDay } from '@/lib/v2-calendar/month'
 
 // The cached payload is the RAW day array (exactly what the BFF returns / the server fortuneCache stores),
@@ -59,15 +70,42 @@ export function monthYM(year: number, month: number): string {
   return `${year}-${String(month).padStart(2, '0')}`
 }
 
-/** Cache key — the fortune's determinants: userId + birth signature + month. Matches fortuneCacheKey. */
+// De-identify the birth signature BEFORE it becomes a key. `person` carries name + dob + birthplace (PII);
+// the server's fortuneCacheKey embeds the same determinant but lives in RAM — THIS key is written to the
+// user's localStorage in PLAINTEXT, in up to MONTH_CACHE_MAX copies, readable by any script on the origin
+// (ตู๋ F4). A stable hash keeps the determinant (same person → same key; dob edit → different sig → different
+// hash → new key → DoD #5) while storing no readable name/dob. Sync (cyrb53) so monthKey stays synchronous
+// for the same-tick peek — crypto.subtle is async and would break it. Note: the hash DE-IDENTIFIES (no
+// plaintext leak); it is not a cryptographic guarantee against a targeted brute-force of the low-entropy dob
+// space — which is out of scope here (the threat is readable PII on disk, closed).
+function hashSig(sig: string): string {
+  let h1 = 0xdeadbeef
+  let h2 = 0x41c6ce57
+  for (let i = 0; i < sig.length; i++) {
+    const ch = sig.charCodeAt(i)
+    h1 = Math.imul(h1 ^ ch, 2654435761)
+    h2 = Math.imul(h2 ^ ch, 1597334677)
+  }
+  h1 = Math.imul(h1 ^ (h1 >>> 16), 2246822507) ^ Math.imul(h2 ^ (h2 >>> 13), 3266489909)
+  h2 = Math.imul(h2 ^ (h2 >>> 16), 2246822507) ^ Math.imul(h1 ^ (h1 >>> 13), 3266489909)
+  return (4294967296 * (2097151 & h2) + (h1 >>> 0)).toString(36)
+}
+
+/** Cache key — the fortune's determinants: userId + a HASH of the birth signature + month. The signature is
+ *  hashed so no plaintext PII (name/dob/birthplace) is written to disk (ตู๋ F4). */
 export function monthKey(userId: string, birthSig: string, ym: string): string {
-  return `${userId}:${birthSig}:${ym}`
+  return `${userId}:${hashSig(birthSig)}:${ym}`
 }
 
 /**
  * Only a REAL month is cacheable — a failure must never be persisted (it would freeze forever). allowed:false
  * = gated/no-identity; degraded = upstream unreachable; empty days = nothing computed. Pure so it is unit-
  * testable and the "never cache a failure" invariant lives in one named place, not inline in the hook.
+ *
+ * 🟡 DEBT (ตู๋ F6, observation — not fixed this round): a NON-degraded but PARTIAL month (e.g. 12 of 31 days,
+ * if upstream ever returns partial without the degraded flag) passes `length > 0` and would be cached as a
+ * permanent short month. A real month always has ≥ 28 days, so the fix-when-we-address-it is a `>= 28`
+ * completeness gate here — left out now to keep this PR to the three blockers.
  */
 export function isCacheableMonth(resp: { allowed?: boolean; degraded?: boolean; days?: unknown }): boolean {
   return resp.allowed === true && !resp.degraded && Array.isArray(resp.days) && resp.days.length > 0
@@ -120,24 +158,29 @@ function capMem(): void {
   }
 }
 
-// Keep our localStorage entries at ≤ MONTH_CACHE_MAX — evict the oldest-WRITTEN first. Reads `t` from the
-// leading `{"t":<ms>` prefix (no full parse of the big `d` array); a value that does not match is treated as
-// oldest (t=0) so a legacy/garbage entry is the first to go.
+// Evict our localStorage entries down to `keep`, oldest-WRITTEN first. Reads `t` from the leading
+// `{"t":<ms>` prefix (no full parse of the big `d` array); a value that does not match is treated as oldest
+// (t=0) so a legacy/garbage entry is the first to go. Caller wraps in try/catch (localStorage can throw).
+function evictLsTo(ls: Storage, keep: number): void {
+  const entries: { key: string; t: number }[] = []
+  for (let i = 0; i < ls.length; i++) {
+    const k = ls.key(i)
+    if (!k || !k.startsWith(LS_WRITE_PREFIX)) continue
+    const raw = ls.getItem(k) ?? ''
+    const m = raw.match(/^\{"t":(\d+)/)
+    entries.push({ key: k, t: m ? Number(m[1]) : 0 })
+  }
+  if (entries.length <= keep) return
+  entries.sort((a, b) => a.t - b.t) // oldest first
+  for (const e of entries.slice(0, entries.length - keep)) ls.removeItem(e.key)
+}
+
+// Keep our localStorage entries at ≤ MONTH_CACHE_MAX (the normal per-write cap).
 function capLs(): void {
   const ls = getLS()
   if (!ls) return
   try {
-    const entries: { key: string; t: number }[] = []
-    for (let i = 0; i < ls.length; i++) {
-      const k = ls.key(i)
-      if (!k || !k.startsWith(LS_WRITE_PREFIX)) continue
-      const raw = ls.getItem(k) ?? ''
-      const m = raw.match(/^\{"t":(\d+)/)
-      entries.push({ key: k, t: m ? Number(m[1]) : 0 })
-    }
-    if (entries.length <= MONTH_CACHE_MAX) return
-    entries.sort((a, b) => a.t - b.t) // oldest first
-    for (const e of entries.slice(0, entries.length - MONTH_CACHE_MAX)) ls.removeItem(e.key)
+    evictLsTo(ls, MONTH_CACHE_MAX)
   } catch {
     // a throwing localStorage → nothing to cap; memory is already bounded
   }
@@ -184,7 +227,16 @@ function safeSet(k: string, v: string): void {
   try {
     ls.setItem(k, v)
   } catch {
-    // quota exceeded / disabled → skip persistence; memory layer still serves this session (DoD #7)
+    // Quota exceeded (ours OR another feature's) → make room from OUR OWN budget and retry ONCE (ตู๋ F3;
+    // same discipline as the server's clear-on-full fortuneCacheSet). Halve our footprint, then retry. If it
+    // STILL fails, another feature has exhausted the shared quota → memory-only this session (victim, not
+    // cause) — honest degradation, never a throw (DoD #7).
+    try {
+      evictLsTo(ls, Math.floor(MONTH_CACHE_MAX / 2))
+      ls.setItem(k, v)
+    } catch {
+      // still no room, or localStorage is disabled/broken → memory layer still serves this session
+    }
   }
 }
 

@@ -53,6 +53,19 @@ const DAYS_B = [{ date: '2026-09-01', grade: 'B' }] as unknown as never[]
 const SIG1 = JSON.stringify({ dob: '1990-01-01', gender: 'M' })
 const SIG2 = JSON.stringify({ dob: '1991-02-02', gender: 'M' }) // edited dob → different signature
 
+// ── F4: no plaintext PII (name/dob/birthplace) in the on-disk key — the signature is hashed ──
+t('monthKey hashes the birth signature — no plaintext name/dob/birthplace on disk', () => {
+  const pii = JSON.stringify({ name: 'สมชาย ใจดี', dob: '1990-05-12', gender: 'MALE', place_name: 'กรุงเทพมหานคร' })
+  const k = monthKey('uid-123', pii, monthYM(2026, 8))
+  assert.ok(!k.includes('สมชาย'), 'name must not appear in the key')
+  assert.ok(!k.includes('1990-05-12'), 'dob must not appear in the key')
+  assert.ok(!k.includes('กรุงเทพมหานคร'), 'birthplace must not appear in the key')
+  // still deterministic + still discriminates dob (DoD #5): same sig → same key, changed sig → different key
+  assert.equal(k, monthKey('uid-123', pii, monthYM(2026, 8)), 'same person → same key (deterministic)')
+  const pii2 = JSON.stringify({ name: 'สมชาย ใจดี', dob: '1991-06-13', gender: 'MALE', place_name: 'กรุงเทพมหานคร' })
+  assert.notEqual(monthKey('uid-123', pii2, monthYM(2026, 8)), k, 'changed dob → different key')
+})
+
 // ── isCacheableMonth: a FAILURE must never be persisted ──
 t('isCacheableMonth: real allowed month with days → true', () => {
   assert.equal(isCacheableMonth({ allowed: true, degraded: false, days: [{}] }), true)
@@ -220,4 +233,62 @@ t('memory layer also capped (does not grow unbounded within a session)', () => {
   assert.equal(_monthCacheMemSize(), MONTH_CACHE_MAX, 'memory bounded at the cap')
 })
 
+// ── F3: quota — evict OUR OWN + retry; honest victim path (never crash, never silent-death from our growth) ──
+// count-limited fake: setItem of a NEW key throws QuotaExceededError once at capacity (updating existing ok).
+function makeQuotaLS(limit: number): Storage {
+  const m = new Map<string, string>()
+  return {
+    get length() {
+      return m.size
+    },
+    clear: () => m.clear(),
+    getItem: (k: string) => (m.has(k) ? (m.get(k) as string) : null),
+    setItem: (k: string, v: string) => {
+      if (!m.has(k) && m.size >= limit) {
+        const e = new Error('QuotaExceededError') as Error & { name: string }
+        e.name = 'QuotaExceededError'
+        throw e
+      }
+      m.set(k, String(v))
+    },
+    removeItem: (k: string) => void m.delete(k),
+    key: (i: number) => Array.from(m.keys())[i] ?? null,
+  } as Storage
+}
+
+t('quota from OUR OWN growth → evict oldest + retry → newest persists, never throws (F3)', () => {
+  const ls = makeQuotaLS(15) // localStorage that refuses a new key past 15 entries
+  installLS(ls)
+  clearMonthCache()
+  // write well past the quota limit; each over-limit write must evict our oldest and retry, not no-op
+  let threw = false
+  try {
+    for (let i = 0; i < 40; i++) setMonth(monthKey('u1', SIG1, `2020-${String(i + 1).padStart(2, '0')}`), DAYS_A, 5000 + i)
+  } catch {
+    threw = true
+  }
+  assert.equal(threw, false, 'setMonth never throws under quota')
+  // the MOST RECENT month is persisted ON DISK (not silently dropped) — read the fake LS directly
+  const raw = ls.getItem('mumate:cal:v1:' + monthKey('u1', SIG1, '2020-40'))
+  assert.ok(raw, 'newest month persisted to localStorage despite quota')
+  assert.deepEqual((JSON.parse(raw as string) as { d: unknown }).d, DAYS_A, 'and it is the right data')
+  let ours = 0
+  for (let i = 0; i < ls.length; i++) if ((ls.key(i) ?? '').startsWith('mumate:cal:v1:')) ours++
+  assert.ok(ours <= 15, `our LS entries stay bounded under quota (${ours} ≤ 15)`)
+})
+
+t('quota from ANOTHER feature (our entries cannot free it) → memory-only, no crash (F3 honest victim)', () => {
+  const ls = makeQuotaLS(5)
+  installLS(ls)
+  clearMonthCache()
+  for (let i = 0; i < 5; i++) ls.setItem(`other-feature:${i}`, 'x') // a foreign feature fills the quota
+  const k = monthKey('u1', SIG1, monthYM(2026, 8))
+  assert.doesNotThrow(() => setMonth(k, DAYS_A, 9000)) // we evict our own (none) → retry fails → swallow
+  assert.deepEqual(peekMonth(k), DAYS_A, 'served from MEMORY (LS write lost — victim, not cause)')
+  let foreign = 0
+  for (let i = 0; i < ls.length; i++) if ((ls.key(i) ?? '').startsWith('other-feature:')) foreign++
+  assert.equal(foreign, 5, "another feature's entries left untouched")
+})
+
 console.log(`\n${pass} passed`)
+
