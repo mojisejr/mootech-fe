@@ -50,9 +50,23 @@ describe('lib/v2/gate — isV2Authenticated / v2RedirectIfUnauthed', () => {
     vi.stubEnv('V2_PREVIEW_KEY', KEY)
     expect(isV2Authenticated({ cookies: {} })).toBe(false)
   })
-  it('fail-closed: V2_PREVIEW_KEY unset → false even WITH a cookie', () => {
-    vi.stubEnv('V2_PREVIEW_KEY', '')
+  // 🔴 fail-closed TEETH (ตู๋ #224): V2_PREVIEW_KEY must be truly UNSET (undefined), not '' — with an
+  // empty string the strict `cookie === ''` already returns false, so removing `if (!key)` in gate.ts
+  // stays green (no teeth). The case the guard actually protects is UNSET + NO cookie: both sides are
+  // `undefined`, so `req.cookies?.[V2_COOKIE] === key` is `undefined === undefined` → true → an
+  // UNCONFIGURED preview would authenticate everyone. Mutant: delete `if (!key) return false` → RED.
+  it('fail-closed TEETH: V2_PREVIEW_KEY unset + NO cookie → false (removing `if (!key)` → undefined===undefined, RED)', () => {
+    vi.stubEnv('V2_PREVIEW_KEY', undefined)
+    expect(isV2Authenticated({ cookies: {} })).toBe(false)
+  })
+  it('fail-closed: V2_PREVIEW_KEY unset → false even WITH a cookie (a stale cookie must not survive de-config)', () => {
+    vi.stubEnv('V2_PREVIEW_KEY', undefined)
     expect(isV2Authenticated({ cookies: { [V2_COOKIE]: KEY } })).toBe(false)
+  })
+  // and the page-level consequence of the same hole: unconfigured + no cookie must REDIRECT, not render.
+  it('fail-closed TEETH (page): key unset + no cookie → redirect (not null)', () => {
+    vi.stubEnv('V2_PREVIEW_KEY', undefined)
+    expect(v2RedirectIfUnauthed({ cookies: {} })).toEqual(REDIRECT_TO_GATE)
   })
   it('v2RedirectIfUnauthed: authed → null (no redirect)', () => {
     vi.stubEnv('V2_PREVIEW_KEY', KEY)
