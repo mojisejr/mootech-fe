@@ -33,11 +33,24 @@ jobs:
         run: npx tsc --noEmit
 
       - name: tests
+        # Two lanes (issue #210): vitest for migrated specs, tsx for the legacy node:assert scripts.
+        # Both lanes AGGREGATE — every file runs even if an earlier one is red, so a PR that breaks two
+        # test files shows BOTH reds in one CI run. The old `for … + bash -e` killed the loop at the first
+        # red, hiding every failure after it (issue #210 DoD: two files red → see both). `failed` is set on
+        # any red and the step exits non-zero at the very end.
         run: |
+          failed=0
+          # lane 1 — vitest (real framework; see vitest.config.mts include list)
+          if ! npm test; then failed=1; echo "::error::vitest suite failed"; fi
+          # lane 2 — legacy node:assert scripts still on tsx (issue #210: not migrated; convert
+          # opportunistically). Skip specs owned by vitest — they import from 'vitest' and would throw
+          # under tsx. Keep this skip list in sync with vitest.config.mts `include`.
           for f in scripts/*.test.ts; do
+            [ "$f" = "scripts/logout-clears-caches.test.ts" ] && continue
             echo "== $f"
-            npx tsx "$f"
+            if ! npx tsx "$f"; then failed=1; echo "::error file=$f::tsx test failed"; fi
           done
+          [ "$failed" -eq 0 ]
 
       - name: architecture & discovery check
         # Was folded into the old D2 step but ran OUTSIDE its if/else — i.e. on every PR regardless of
