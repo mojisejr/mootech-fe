@@ -8,6 +8,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
+    "test": "vitest run",
     "test:e2e:auth": "playwright test e2e/auth-loop.spec.ts",
     "assets:optimize": "tsx scripts/optimize-assets.ts"
   },
@@ -32,6 +33,8 @@
   },
   "devDependencies": {
     "@playwright/test": "^1.61.0",
+    "@testing-library/dom": "^10.4.1",
+    "@testing-library/react": "^16.3.2",
     "@types/file-saver": "^2.0.7",
     "@types/node": "^20",
     "@types/pngjs": "^6.0.5",
@@ -39,11 +42,13 @@
     "@types/react-dom": "^18",
     "@types/tailwindcss": "^3.1.0",
     "drizzle-kit": "^0.31.10",
+    "jsdom": "^29.1.1",
     "pixelmatch": "^7.2.0",
     "pngjs": "^7.0.0",
     "postcss": "^8",
     "sharp": "^0.35.3",
     "tailwindcss": "^3.4.1",
-    "typescript": "^5"
+    "typescript": "^5",
+    "vitest": "^4.1.10"
   }
 }
