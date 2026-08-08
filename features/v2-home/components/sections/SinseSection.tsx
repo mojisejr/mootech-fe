@@ -1,4 +1,6 @@
 import React from 'react'
+import Link from 'next/link'
+import { comingSoonHrefById } from '@/features/v2-service/services'
 
 // ── Zone 5 — ทักซินแส / section-mascot (Figma 333:6989) ───────────────────────────────────────────────
 // A FULL-BLEED sapphire banner (393-wide in Figma, so it breaks out of the page's px-4 with -mx-4): a left text
@@ -13,15 +15,22 @@ export function SinseSection() {
       <div className="relative h-[196px]">
         {/* text block — Figma frame at (24,40), 217 wide */}
         <div className="absolute left-6 top-10 z-10 flex w-[217px] flex-col gap-2">
-          <p className="text-base font-bold leading-6 text-white">ดูดวงส่วนตัว กับซินเเส</p>
+          <p className="text-base font-bold leading-6 text-white">ดูดวงส่วนตัว กับซินแส</p>
           <p className="text-sm font-medium leading-5 text-white/90">
             วิเคราะห์ดวงชะตาเชิงลึก
             <br />
             รวบรวมเป็นหนังสือส่วนตัว
           </p>
-          <button type="button" className="mt-1 w-[148px] rounded-full bg-v3-lime px-6 py-2 text-sm font-semibold uppercase leading-5 text-v3-sapphire">
-            ทักซินเเสเพื่อจอง
-          </button>
+          {/* A10/A12: <button> → <Link> (inline-block keeps the 148px box an <a> would otherwise drop), and
+              the spelling follows ฟีม's 2026-07-29 ruling — ซินแส (สระแอ), which is what the catalog and the
+              ~30 other places in the repo already say. This button is about to hand the user to a service
+              whose card is spelled the other way; two spellings across one tap is the reason it matters. */}
+          <Link
+            href={comingSoonHrefById('sinsae')}
+            className="mt-1 inline-block w-[148px] rounded-full bg-v3-lime px-6 py-2 text-center text-sm font-semibold uppercase leading-5 text-v3-sapphire"
+          >
+            ทักซินแสเพื่อจอง
+          </Link>
         </div>
 
         {/* big mascot (water-owl) — Figma 239×278 at (208.9,−23.2): overflows top + right, clipped by the card.

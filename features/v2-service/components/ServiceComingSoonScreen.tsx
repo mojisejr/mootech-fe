@@ -16,10 +16,20 @@ function BackIcon() {
   )
 }
 
-export function ServiceComingSoonScreen() {
+/** B3: the page can now be told what it is showing instead of only reading `?service=`, because /v2/shop
+ *  has to render this screen AT ITS OWN URL — a redirect to /v2/service/coming-soon would move the active
+ *  tab from ร้านค้า to บริการ under the user's finger.
+ *  `back` exists for the same reason one click later: the hardcoded "กลับไปหน้าบริการ" is right when the
+ *  user came from the service hub and is a tab-jump when they came from the shop tab.
+ *  Both default to exactly the previous behaviour, so the 7 existing `?service=` routes are untouched. */
+export function ServiceComingSoonScreen({ serviceName: serviceNameProp, back }: {
+  serviceName?: string
+  back?: { href: string; label: string }
+} = {}) {
   const { query } = useRouter()
   const raw = query.service
-  const serviceName = (Array.isArray(raw) ? raw[0] : raw)?.trim() || 'บริการนี้'
+  const serviceName = serviceNameProp?.trim() || (Array.isArray(raw) ? raw[0] : raw)?.trim() || 'บริการนี้'
+  const backTo = back ?? { href: '/v2/service', label: 'กลับไปหน้าบริการ' }
 
   return (
     <div className="relative flex min-h-screen w-full flex-col overflow-x-hidden bg-v3-bg-cream font-ibm">
@@ -30,12 +40,12 @@ export function ServiceComingSoonScreen() {
       <div className="relative z-10 mx-auto flex w-full max-w-md flex-1 flex-col px-4 pb-36 pt-[max(0.75rem,env(safe-area-inset-top))]">
         <div className="py-4">
           <Link
-            href="/v2/service"
+            href={backTo.href}
             data-testid="coming-soon-back"
             className="inline-flex items-center gap-1 text-[14px] font-medium leading-5 text-v3-cyan focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-v3-focus-border"
           >
             <BackIcon />
-            กลับไปหน้าบริการ
+            {backTo.label}
           </Link>
         </div>
 
