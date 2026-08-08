@@ -97,6 +97,23 @@ function XCircleIcon() {
   return <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="9" /><path d="m9 9 6 6M15 9l-6 6" /></svg>
 }
 
+// The reserved height of home's facet row, exported so the Zone-1 SKELETON can wear the exact same class
+// instead of a hand-copied pixel value. The two heights have to agree at every width or the reveal moves
+// the page, and the only way to guarantee that is to make them the same string.
+//
+// It is responsive because the line count is: the same sentence wraps to more lines on a narrower screen.
+// Measured over 60 real testenv fortunes rendered in this element — @320 3 lines, @360 a mix of 2 and 3,
+// @393 2 — plus the longer shipped preview fixture, which reaches 4 lines at 320. So 320 reserves four
+// lines (88px) and everything above reserves three (66px), which covers both the observed maximum and the
+// fixture the design gate renders.
+export const HOME_FACET_RESERVE = 'min-h-[88px] min-[360px]:min-h-[66px]'
+
+// Same idea for the date row (date text + "เปิดปฏิทินของฉัน" on one line). At 320 the pair does not fit
+// side by side and wraps to two lines; from 360 up it stays on one. That was the last 24px of the P4
+// shift after the facet reserve landed — the skeleton drew a single 24px bar for a row the real card
+// renders at 48px on the narrowest screen.
+export const HOME_DATEROW_RESERVE = 'min-h-[48px] min-[360px]:min-h-6'
+
 // The two variants place the icon DIFFERENTLY, and that is not cosmetic drift to be tidied away:
 //   home     — heading alone, then the body line with the icon leading it (home's shipped markup)
 //   calendar — icon + heading on one row (Figma 375:11124), then the lines underneath
@@ -111,7 +128,20 @@ function Column({ heading, lines, tone, icon, home }: { heading: string; lines: 
     return (
       <div className="min-w-0 flex-1">
         <p className={`text-base font-bold leading-6 ${toneClass}`}>{heading}</p>
-        <p className="mt-1 flex items-start gap-1.5 text-sm leading-[22px] text-v3-text-body">
+        {/* RESERVE 3 LINES (home only — the calendar variant below is untouched).
+            The Zone-1 skeleton is a fixed height while this text is not, so every fortune whose facet
+            wrapped to a different line count moved the whole page under the user's thumb at the moment
+            the data arrived: measured +18px at 393/360 and +64px at 320, and −4px (a jump UPWARD) for
+            short ones. Reserving the row makes the card's height independent of the text, which is the
+            only thing that can hold BOTH directions at once.
+            Why three: measured, not picked. 60 real fortunes from the testenv stack, rendered in this
+            element at each width — @320 all 3 lines, @360 a mix of 2 and 3, @393 all 2. Three is the
+            observed maximum, and the @360 mix is the proof a reserve was needed rather than a taller
+            skeleton: at one width the same component legitimately renders two different heights.
+            min-h, never line-clamp: a longer future fortune must GROW rather than be cut. That reopens
+            the shift for that fortune, which is the honest trade — losing a line of someone's reading is
+            worse than a jump, and the harness will show it if the text ever outgrows the reserve. */}
+        <p className={`mt-1 flex items-start gap-1.5 text-sm leading-[22px] text-v3-text-body ${HOME_FACET_RESERVE}`}>
           <span className="mt-0.5 shrink-0">{glyph}</span>
           <span data-testid="fortune-chip" className="min-w-0">{list.join(' ')}</span>
         </p>
@@ -151,7 +181,7 @@ export function DailyFortuneCard(p: DailyFortuneCardProps) {
       <hr className="border-dashed border-v3-border-card" />
 
       {home ? (
-        <div className="flex items-center gap-4 text-base font-bold leading-6">
+        <div className={`flex items-center gap-4 text-base font-bold leading-6 ${HOME_DATEROW_RESERVE}`}>
           <p data-testid="fortune-date" className="min-w-0 flex-1 text-v3-navy">{p.dateLine}</p>
           {p.dateAside}
         </div>
