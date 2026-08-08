@@ -91,6 +91,7 @@ type Probe = {
   isFallback: boolean
   natural: [number, number]
   box: { w: number; h: number } // CSS px
+  boxAbs: { x: number; y: number } // page-absolute origin — crops key off this, never a guessed coordinate
   sig: string // pixel signature of the painted box
 }
 
@@ -136,7 +137,7 @@ async function probe(page: Page, requested: string | null): Promise<Probe[]> {
       if (SAVE_CROPS) fs.writeFileSync(path.resolve(process.cwd(), OUT, `${SAVE_CROPS}__${r.slot}-${r.index}.png`), buf)
     }
     const cur = unwrap(r.currentSrc)
-    probes.push({ slot: r.slot, index: r.index, requested, currentSrc: cur, isFallback: cur === HERO_FALLBACK, natural: [r.nw, r.nh], box: { w: r.w, h: r.h }, sig })
+    probes.push({ slot: r.slot, index: r.index, requested, currentSrc: cur, isFallback: cur === HERO_FALLBACK, natural: [r.nw, r.nh], box: { w: r.w, h: r.h }, boxAbs: { x: r.x, y: r.y }, sig })
   }
   return probes
 }
@@ -242,6 +243,15 @@ async function main() {
         const net = bad.filter((b) => b.url === p)
         const manifest = driven.find((x) => x.slot === 'manifest')
         const sig = manifest?.sig ?? 'none'
+        // --crops in sweep mode writes ONE crop per character (the manifest slot — biggest, most detail),
+        // named by the character. Run it on both sides and `--mode diff` compares the 60 by NAME. That is
+        // the only check that catches two files whose CONTENTS were swapped between names: every
+        // same-format check stays green, because each file is individually fine and every signature is
+        // still distinct. The picture for a given name is the thing that must not change.
+        if (CROP_LABEL && manifest) {
+          const crop = await page.screenshot({ fullPage: true, clip: { x: manifest.boxAbs.x, y: manifest.boxAbs.y, width: manifest.box.w, height: manifest.box.h } })
+          fs.writeFileSync(path.resolve(process.cwd(), OUT, `char__${name}.png`), crop)
+        }
         sigIndex.set(sig, [...(sigIndex.get(sig) ?? []), name])
         const why = [
           wrong.length ? `src≠asked (${wrong.map((w) => `${w.slot}→${w.currentSrc.split('/').pop()}`).join(',')})` : '',
@@ -406,14 +416,15 @@ async function diffMode() {
   const { PNG } = await import('pngjs')
   const beforeDir = path.resolve(process.cwd(), arg('before', 'harness/captures/p2-before')!)
   const afterDir = path.resolve(process.cwd(), arg('after', 'harness/captures/p2-after')!)
-  const files = fs.readdirSync(beforeDir).filter((f) => f.startsWith('before__') && f.endsWith('.png'))
-  if (!files.length) throw new Error(`no before__*.png crops in ${beforeDir} — nothing to compare (an empty diff is not a clean diff)`)
+  // two shapes of pair: per-slot (before__x ↔ after__x) and per-character (char__<name> ↔ char__<name>)
+  const files = fs.readdirSync(beforeDir).filter((f) => f.endsWith('.png') && (f.startsWith('before__') || f.startsWith('char__')))
+  if (!files.length) throw new Error(`no before__*.png / char__*.png crops in ${beforeDir} — nothing to compare (an empty diff is not a clean diff)`)
   console.log(`# pixel diff · ${files.length} slots · ${beforeDir} → ${afterDir}`)
   console.log('| slot | ขนาด | px ต่าง | % | อ่านว่า |')
   console.log('|---|---|---|---|---|')
   let worst = 0
   for (const f of files) {
-    const aPath = path.join(afterDir, f.replace('before__', 'after__'))
+    const aPath = path.join(afterDir, f.startsWith('before__') ? f.replace('before__', 'after__') : f)
     if (!fs.existsSync(aPath)) {
       console.log(`| ${f} | — | — | — | ❌ ไม่มีคู่หลัง |`)
       process.exitCode = 1
