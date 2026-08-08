@@ -37,6 +37,7 @@ import { bangkokTodayISO, bangkokToday } from '../today'
 import { defaultSelectedDate, isSelectableDate } from './selection'
 import { assembleFeatureMonth } from './month-adapter'
 import { fetchCalendarMonth } from './fetch-month'
+import { monthKey, monthYM, peekMonth, setMonth, isCacheableMonth } from './month-cache'
 
 type Cursor = { year: number; month: number }
 
@@ -110,10 +111,26 @@ export function useCalendarMonth(): UseCalendarMonth {
     if (errored || !user) return setMonthState({ month: null, loading: false }) // could not get the user row
     if (!person) return setMonthState({ month: null, loading: false }) // profile incomplete → nothing to compute
 
+    // ── 2-layer client cache (P2) ──────────────────────────────────────────────────────────────────
+    // SYNC peek BEFORE any `loading:true`: a cached month (memory or localStorage) renders in THIS SAME
+    // tick → no skeleton แว้บ (DoD #1/#2/#3) and NO fetch fires → the POST goes from 3 to 1 (DoD #4). Doing
+    // the peek before setMonthState is the whole trick — clearing to loading:true first would flash the
+    // skeleton even on a hit. Key determinants = the BFF's exactly (userId + birth signature + YYYY-MM), so
+    // editing dob makes `person` (and the signature) change → a fresh key → a miss → refetch (DoD #5).
+    const key = monthKey(userId, JSON.stringify(person), monthYM(cursor.year, cursor.month))
+    const cachedDays = peekMonth(key)
+    if (cachedDays) {
+      setMonthState({ month: assembleFeatureMonth(cursor.year, cursor.month, cachedDays), loading: false })
+      return // instant, no fetch
+    }
+
     let alive = true
-    setMonthState({ month: null, loading: true }) // clear the previous month BEFORE the fetch → never stale
+    setMonthState({ month: null, loading: true }) // MISS → clear the previous month BEFORE the fetch → never stale
     fetchCalendarMonth(person, userId, cursor.year, cursor.month).then((resp) => {
       if (!alive) return // month changed / unmounted mid-flight → drop this (stale) response
+      // Cache only a REAL month — a degraded/empty/gated response is transient and must never be persisted
+      // (a frozen empty month = a failure cached forever). Store the RAW days; assemble is re-run on read.
+      if (isCacheableMonth(resp)) setMonth(key, resp.days)
       setMonthState({ month: assembleFeatureMonth(cursor.year, cursor.month, resp.days), loading: false })
     })
     return () => {

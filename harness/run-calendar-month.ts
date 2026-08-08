@@ -41,9 +41,15 @@ const hexToRgb = (h: string) => { const n = parseInt(h.slice(1), 16); return `rg
 const FIXTURE_USER_ID = 'harness-cal-user'
 const FIXTURE_USER = { user_id: FIXTURE_USER_ID, name: 'ทดสอบ ปฏิทิน', dob: '1990-06-15', gender: 'MALE', place_name: 'กรุงเทพมหานคร', is_remember_time: false }
 const isPath = (url: string, path: string) => { try { return new URL(url).pathname === path } catch { return false } }
-function buildFixtureMonth() {
-  const todayISO = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Bangkok' }).format(new Date())
-  const [y, m] = todayISO.split('-').map(Number)
+function buildFixtureMonth(ym?: string) {
+  let y: number, m: number
+  if (ym && /^\d{4}-\d{2}$/.test(ym)) {
+    const [yy, mm] = ym.split('-').map(Number)
+    y = yy; m = mm
+  } else {
+    const todayISO = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Bangkok' }).format(new Date())
+    ;[y, m] = todayISO.split('-').map(Number)
+  }
   const daysInMonth = new Date(y, m, 0).getDate() // m is 1-based → day-0 of next = last day of m
   const GANZHI = ['甲子', '乙丑', '丙寅', '丁卯', '戊辰', '己巳', '庚午', '辛未', '壬申', '癸酉', '甲戌', '乙亥']
   const days = Array.from({ length: daysInMonth }, (_, i) => {
@@ -60,7 +66,6 @@ function buildFixtureMonth() {
   })
   return { allowed: true, year: y, month: m, days }
 }
-const FIXTURE_MONTH = buildFixtureMonth()
 
 async function withCal<T>(browser: Browser, width: number, fn: (grid: Locator, p: Page, tracker: ReturnType<typeof trackAppFetches>) => Promise<T>): Promise<T> {
   const ctx = await browser.newContext({ viewport: { width, height: 852 }, deviceScaleFactor: 2, reducedMotion: 'reduce' })
@@ -76,8 +81,13 @@ async function withCal<T>(browser: Browser, width: number, fn: (grid: Locator, p
   // this gate owns) comes entirely from these stubs. (route interception — the same tool as goo's G-2 throttle.)
   await p.route((url) => isPath(url.toString(), '/api/user'), (route) =>
     route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(FIXTURE_USER) }))
-  await p.route((url) => isPath(url.toString(), '/api/v2/calendar-month'), (route) =>
-    route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(FIXTURE_MONTH) }))
+  // month-aware stub: return a fixture for the REQUESTED month (so paging shows a real grid per month, and
+  // the cache-discipline check below caches per distinct month-key exactly as production does).
+  await p.route((url) => isPath(url.toString(), '/api/v2/calendar-month'), (route) => {
+    let ym: string | undefined
+    try { ym = (JSON.parse(route.request().postData() || '{}') as { month?: string }).month } catch {}
+    return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(buildFixtureMonth(ym)) })
+  })
   await p.goto(`${HOST}/v2/calendar`, { waitUntil: 'networkidle' })
   const grid = p.locator('[data-testid="calendar-grid"]').first()
   await grid.waitFor(); await p.waitForTimeout(400)
@@ -102,6 +112,31 @@ async function main() {
     return { bffCalled, directBackend }
   })
   const pipeOk = pipe.bffCalled && pipe.directBackend.length === 0
+
+  // ── cache-discipline (F1 + DoD #4) — the 2-layer month cache lives in useCalendarMonth.ts (peek-before-
+  //    loading + cache-hit-returns-without-fetch). The pure-module tests can't see that WIRING, so prove it
+  //    on the REAL ship path: count the browser's POST /api/v2/calendar-month across leave→return.
+  //      cold   = fetches to first paint the current month
+  //      leave  = pick a DIFFERENT month → a new key → MUST fetch (afterLeave > cold)
+  //      return = jump back to the current month (date-today) → it is CACHED → MUST NOT fetch (Δ = 0)
+  //    A revisit that re-fetches (Δ>0) means the cache is not consulted on the ship path → RED. This is the
+  //    single assertion that closes both F1 (wiring proven live) and DoD #4 (a revisited month costs 0 POST). ──
+  const cache = await withCal(browser, 393, async (_grid, p, tracker) => {
+    const countMonth = () => tracker.appFetches.filter((f) => f.includes('/api/v2/calendar-month')).length
+    await p.waitForTimeout(600)
+    const cold = countMonth()
+    await p.locator('[data-testid="date-month"]').click()
+    await p.locator('[data-testid="date-sheet"]').waitFor()
+    await p.locator('[data-testid="date-sheet"] button:not([data-current])').first().click()
+    await p.waitForTimeout(800)
+    const afterLeave = countMonth()
+    await p.locator('[data-testid="date-today"]').click()
+    await p.waitForTimeout(800)
+    const afterReturn = countMonth()
+    return { cold, afterLeave, afterReturn }
+  })
+  const revisitDelta = cache.afterReturn - cache.afterLeave
+  const cacheOk = revisitDelta === 0 && cache.afterLeave > cache.cold
 
   // ── tier-fidelity: every cell's bg = DESIGN.md tier tint for its percent (or the selected sapphire) ──
   const goodTint = hexToRgb(DAY_CELL_COLORS.good.tint), medTint = hexToRgb(DAY_CELL_COLORS.medium.tint), badTint = hexToRgb(DAY_CELL_COLORS.bad.tint)
@@ -178,13 +213,14 @@ async function main() {
   const line = (ok: boolean, s: string) => `  ${ok ? '✓' : '✗'} ${s}`
   console.log('\n═══ CALENDAR-MONTH anchor ═══')
   console.log(line(pipeOk, `real-pipe discipline: BFF /calendar-month ${pipe.bffCalled ? 'called (stubbed)' : 'NOT called ✗'} · direct BE/bazi: ${pipe.directBackend.length ? pipe.directBackend.join(', ') : 'none'}  [all: ${appFetches.length ? appFetches.join(', ') : 'none'}]`))
+  console.log(line(cacheOk, `cache-discipline (F1+DoD#4): cold=${cache.cold} POST · leave(new month)=+${cache.afterLeave - cache.cold} · return(cached)=+${revisitDelta}  ⇒ revisit costs ${revisitDelta} POST ${revisitDelta === 0 ? '(cached ✓)' : '(RE-FETCHED ✗)'}`))
   console.log(line(tierOk, `tier-fidelity: ${tiers.ok}/${tiers.total} cells match DESIGN.md tint  [misses: ${tiers.misses.join(' · ') || 'none'}]`))
   console.log(line(markerOk, `selected+marker: ${markers.selected} sapphire-selected (today${markers.todayInView ? '' : ' NOT'} in view) · ${markers.ring} วันพระ ring (#9D85DA)`))
   console.log(line(noOverflowOk, `no-overflow-x @ 393/360/320  [${Object.entries(overflow).map(([w, o]) => `${w}:${o ? 'OVERFLOW' : 'ok'}`).join(' ')}]`))
   console.log('  ── teeth ──')
   console.log(`  ${tierCaught ? '🦷 CAUGHT' : '✗ BLIND'}  mut-hardcode-tier: an off-DESIGN cell color → tier-fidelity gate rejects`)
 
-  const ok = pipeOk && tierOk && markerOk && noOverflowOk && tierCaught
+  const ok = pipeOk && cacheOk && tierOk && markerOk && noOverflowOk && tierCaught
   console.log(`\n  ${ok ? '🟢 CALENDAR-MONTH PASSED' : '🔴 FAILED'} — real-pipe discipline · tier-fidelity · selected+marker · no-overflow-x (+ teeth)\n`)
   process.exit(ok ? 0 : 1)
 }
