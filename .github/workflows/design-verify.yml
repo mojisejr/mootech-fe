@@ -97,6 +97,34 @@ jobs:
           # failure. A screenshot cannot show whether a tap PRODUCES anything, which is the one thing it checks.
           HARNESS_HOST=http://localhost:3000 npx tsx harness/capture-coming-soon.ts
           CSCODE=$?
+          # ── P1 home-skeleton gates (μุน · P4 items 6+9) ─────────────────────────────────────────────
+          # These two shipped in #206 with NOTHING running them — the same shape this file already carries
+          # three notes about. A whole day of decisions rested on first-frame-v2's numbers; a tool nobody
+          # runs is a tool that rots quietly and is then cited after it has stopped working.
+          #
+          # Both are backend-independent by construction (gate cookie + a uuid MEMBER_ID; /api/user is
+          # expected to fail here and the hook's state table resolves to home+fallback), which is why ตู๋
+          # nominated verify-home-skeleton as the first to hang: it has proven teeth (mutant C) and needs
+          # no environment work.
+          #
+          # 🔴 WIDTHS ARE PINNED, never left to the script default. DoD 2 of the P4 card requires all six,
+          # and the default is only 393,360,320 — hanging it bare would gate on half the set while reading
+          # like full coverage.
+          HARNESS_HOST=http://localhost:3000 npx tsx harness/verify-home-skeleton.ts --widths 320,360,393,430,768,1280
+          HSCODE=$?
+          # first-frame asserts DIRECTION only (0 vs >0), which is all its exit code encodes. Its frame
+          # COUNTS are not portable across machines — see the header of features/v2-home/components/
+          # HomeSkeleton.tsx for why (the gate's duration is the failure latency of a dead DB connection,
+          # which varied 0.01s–11.9s on one machine). Never gate on a count here.
+          HARNESS_HOST=http://localhost:3000 npx tsx harness/first-frame-v2.ts
+          FFCODE=$?
+          # ⚠️ NOT WIRED, and stated out loud rather than silently omitted: harness/skeleton-shift.ts.
+          # It compares the loading render against the LOADED one, and it drives /v2/home-preview, a
+          # dev-only route that returns notFound under `next start`. Both halves fail here: no preview
+          # route, and no database to produce a real fortune for the loaded side. Wiring it anyway would
+          # produce a gate that either 404s or measures the skeleton against itself and reports 0px — a
+          # pass earned by having nothing to compare. It stays a local command until it has a real
+          # fixture; the P4 PR body carries its numbers, measured by hand, labelled as hand-run.
           kill "$SERVER" 2>/dev/null || true
           # Fail the job if ANY gate failed. ⚠️ #190 and #191 each extended THIS line and conflicted here.
           # Taking one side is the fastest way through the conflict and is the bug: the dropped anchor still
@@ -105,7 +133,7 @@ jobs:
           # own watches that path. Team rule from it (บอง 2026-08-06): a conflict in a file carrying a
           # pass/fail condition is resolved by reading both sides and UNIONING them, never by picking — and
           # never in the GitHub web UI, whose result never passes through CI before it becomes the merge commit.
-          [ "$CODE" -eq 0 ] && [ "$PCODE" -eq 0 ] && [ "$MCODE" -eq 0 ] && [ "$SCODE" -eq 0 ] && [ "$CSCODE" -eq 0 ]
+          [ "$CODE" -eq 0 ] && [ "$PCODE" -eq 0 ] && [ "$MCODE" -eq 0 ] && [ "$SCODE" -eq 0 ] && [ "$CSCODE" -eq 0 ] && [ "$HSCODE" -eq 0 ] && [ "$FFCODE" -eq 0 ]
 
       # Evidence is only ever looked at when the gate is RED. `if: always()` uploaded 18.7 MB on EVERY push
       # (green included) — the sole reason artifact storage hit 3,561 MB on a 500 MB ceiling. `if: failure()`
