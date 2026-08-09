@@ -41,6 +41,8 @@ export type HomeUser = UserBirthRow & {
   result_code?: string
   picture_url?: string | null
   payment?: { is_not_expired?: boolean | null } | null
+  // v2 first-run gate (#233): null on the settled row = user has never finished onboarding.
+  onboarded_at?: string | null
 }
 
 // Header profile (goo → μุน seam, กติกา ค) lives in a pure module (lib/home/profile) so the rule is
@@ -114,6 +116,17 @@ export function useV2Home(status: AuthStatus): V2Home {
         if (!resultCode || isRefreshResult) {
           setPhase('redirecting')
           routerRef.current.replace('/v2/register')
+          return
+        }
+        // Onboarding gate (#233): a user WITH a chart who has never finished v2 first-run
+        // (onboarded_at null on the SETTLED row) is routed to /v2/first-run. Read from the same
+        // UserGetById row (no extra request, #165), and ONLY here — after the error guard
+        // (u.user_id present) and the no-chart guard — so a null/loading row is NEVER misread as
+        // "not onboarded" (the #215/gap-C loop class: a transient null must not force a redirect).
+        // Loop-safe: first-run's save sets onboarded_at → next home run passes this and lands home.
+        if (!u.onboarded_at) {
+          setPhase('redirecting')
+          routerRef.current.replace('/v2/first-run')
           return
         }
         // Self-heal (DoD#2): the cached chart is correct ONLY if its resultCode matches the LIVE row's. A
