@@ -29,6 +29,19 @@ export function v2RedirectIfUnauthed(
   return { redirect: { destination: '/v2', permanent: false } }
 }
 
+// getServerSideProps helper (issue #225): is this request an authenticated team-preview session? Same
+// check as isV2Authenticated, named for its caller — a page hands the result down as the `teamPreview`
+// prop so the client-side `?tier=` override (features/auth/hooks/useV2Tier) can key off the GATE, not
+// NODE_ENV, and therefore work on prod. Server-authoritative: the flag comes from the httpOnly v2_access
+// cookie which client JS cannot read or forge. And it self-destructs at launch — remove V2_PREVIEW_KEY
+// and isV2Authenticated → false → the page's v2RedirectIfUnauthed redirects before render, so no request
+// ever reaches the hook with teamPreview=true. Nothing to remember to strip.
+export function isV2TeamPreview(
+  req: NextApiRequest | { cookies: Partial<Record<string, string>> },
+): boolean {
+  return isV2Authenticated(req)
+}
+
 export function v2CookieHeader(key: string): string {
   const parts = [
     `${V2_COOKIE}=${key}`,

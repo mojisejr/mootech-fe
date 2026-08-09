@@ -56,6 +56,7 @@ export default defineConfig({
       'scripts/v2-tier.test.ts', // #214 — must survive this merge
       'scripts/first-run-screens.test.tsx', // #218
       'scripts/preview-gate.test.tsx', // #220 — .tsx so ci.yml's `*.test.ts` tsx lane never sees it (no skip-list edit, no #212 sync)
+      'scripts/tier-prod-pages.test.tsx', // #225 — page-wiring teeth; .tsx (same reason: invisible to ci.yml tsx lane)
     ],
   },
   resolve: {

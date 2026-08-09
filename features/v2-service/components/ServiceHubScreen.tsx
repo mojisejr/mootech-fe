@@ -17,7 +17,9 @@ import { VISIBLE_SERVICES } from '../services'
 import { ServiceHeader } from './ServiceHeader'
 import { ServiceCard } from './ServiceCard'
 
-export function ServiceHubScreen() {
+// teamPreview (issue #225): drilled one level from pages/v2/service.tsx's getServerSideProps so the ?tier=
+// override can key off the v2 gate on prod. Default false = free behaviour if ever rendered without it.
+export function ServiceHubScreen({ teamPreview = false }: { teamPreview?: boolean }) {
   // avatar → logout menu (same as home). useV2Logout is goo's action hook; Lamun owns the confirm UI.
   const [logoutOpen, setLogoutOpen] = useState(false)
   const { logout } = useV2Logout()
@@ -26,7 +28,7 @@ export function ServiceHubScreen() {
   // calendar screens and both say "paid has no pill", but there is no paid frame for บริการทั้งหมด. The
   // rule is applied because showing "อัพเกรด" to someone who already upgraded is a real annoyance, not
   // because a drawing says so — if ฟีม wants it always-on here, it is a one-word change.
-  const { isPaid } = useClientTier()
+  const { isPaid } = useClientTier(teamPreview)
 
   return (
     <div className="relative min-h-screen w-full overflow-x-hidden bg-v3-bg-cream font-ibm">
