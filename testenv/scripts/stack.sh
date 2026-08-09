@@ -245,7 +245,11 @@ do_status() {  # READ-ONLY: reports where each app points, docker, outbound pipe
   echo "  • ท่อขาออก BE (SMS/LINE): $pipe"
   # 4) leftover residue (shadow files + markers) across the 3 repos
   local shadows markers
-  shadows=$(ls "$GH"/mootech-fe/*"$SHADOW_SUFFIX" "$GH"/mootech-be/*"$SHADOW_SUFFIX" "$GH"/bazi-sft-dataset/*"$SHADOW_SUFFIX" 2>/dev/null | wc -l | tr -d ' ')
+  # `ls A B C | wc -l` ตายใต้ set -euo pipefail เมื่อ "ไม่มีไฟล์เลย" (ls คืน non-zero → pipefail → set -e)
+  # ⇒ บรรทัด "เศษค้าง" ข้างล่างเคยพิมพ์ไม่ออก *เฉพาะตอนสะอาด* และ status ออก exit 1 ทั้งที่ทุกอย่างปกติ
+  # (พบตอน #231 Phase 1 · repro: `set -euo pipefail; s=$(ls /nope/* 2>/dev/null | wc -l)` → exit 1)
+  # `|| true` วางที่ท้าย command substitution จึงกลืนเฉพาะสถานะ ไม่กลืนตัวเลขที่นับได้
+  shadows=$(ls "$GH"/mootech-fe/*"$SHADOW_SUFFIX" "$GH"/mootech-be/*"$SHADOW_SUFFIX" "$GH"/bazi-sft-dataset/*"$SHADOW_SUFFIX" 2>/dev/null | wc -l | tr -d ' ' || true)
   markers=0; for r in mootech-fe mootech-be bazi-sft-dataset; do [ -f "$GH/$r/$BREADCRUMB" ] && markers=$((markers+1)); done
   echo "  • เศษค้าง: shadow=$shadows · marker=$markers $( [ "$shadows" = 0 ] && [ "$markers" = 0 ] && echo '(สะอาด)' || echo '(มี test-mode residue — restore เพื่อเก็บกวาด)')"
 }
@@ -299,10 +303,17 @@ done
 
 echo "── 3. restore dump (if present) ──"
 RESTORED=""
+# 🛡️ fail-CLOSED (พบตอน #231 Phase 1): เดิมเขียน `restore.sh … && RESTORED=full` ซึ่งวาง restore ไว้ใน
+# เงื่อนไข ⇒ set -e ไม่สะดุด ⇒ restore ล้ม แต่ stack เดินต่อไป swap env แล้วพิมพ์ "พร้อมบูต" ตามปกติ
+# ผลจริงที่เกิด: volume เก่าค้างจาก 2026-07-26 → ทุก CREATE ชน "already exists" → restore abort →
+# anonymize ถูกข้าม → คนบูตแอปขึ้นมาเจอข้อมูลเก่า 2 สัปดาห์ โดยไม่มีสัญญาณใดบอก
+# ⇒ restore ล้ม = หยุดทันที ห้ามแตะ env ของ repo ใดๆ (env ยังไม่ถูก swap ณ จุดนี้ = ไม่มีอะไรต้องม้วนกลับ)
 if [ -f "$HERE/dumps/full.sql" ]; then
-  bash "$HERE/scripts/restore.sh" "$HERE/dumps/full.sql" && RESTORED=full
+  bash "$HERE/scripts/restore.sh" "$HERE/dumps/full.sql" || exit 1
+  RESTORED=full
 elif [ -f "$HERE/dumps/schema.sql" ]; then
-  bash "$HERE/scripts/restore.sh" "$HERE/dumps/schema.sql" && RESTORED=schema
+  bash "$HERE/scripts/restore.sh" "$HERE/dumps/schema.sql" || exit 1
+  RESTORED=schema
 else
   echo "   ⚠ no dump yet — run dump.sh (ฟีม, holds prod cred) then re-run stack.sh"
 fi

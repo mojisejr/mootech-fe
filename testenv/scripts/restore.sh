@@ -14,6 +14,18 @@ DUMP="${1:-$HERE/dumps/schema.sql}"
 LOCAL_URL='postgresql://postgres:postgres@localhost:5433/mumate_test?sslmode=require'
 LOG="$(mktemp)"
 
+# 🧹 ล้างก่อนเสมอ — restore ต้อง idempotent (พบตอน #231 Phase 1)
+# ปัญหาจริง: docker ใช้ named volume ⇒ ข้อมูลรอบก่อนอยู่ข้ามการ `up` ⇒ ยัด dump ใหม่ทับ = ทุก CREATE ชน
+# "already exists" ⇒ restore abort ⇒ DB ยังเป็นของเก่า (ครั้งนั้นเก่า 2 สัปดาห์) โดยหน้าจอไม่ได้บอก
+# ⇒ ตัดปัญหาที่ราก: drop+create ฐานใหม่ก่อนโหลดทุกครั้ง · ตัด connection ค้างก่อน ไม่งั้น DROP ล้ม
+ADMIN_URL='postgresql://postgres:postgres@localhost:5433/postgres?sslmode=require'
+echo "→ ล้างฐานเดิมก่อน (idempotent restore)"
+"$PSQL" "$ADMIN_URL" -v ON_ERROR_STOP=1 -q \
+  -c "SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname='mumate_test' AND pid<>pg_backend_pid()" \
+  -c "DROP DATABASE IF EXISTS mumate_test" \
+  -c "CREATE DATABASE mumate_test" >/dev/null \
+  || { echo "🛑 drop/create mumate_test ล้มเหลว — ไม่ restore ต่อ"; exit 1; }
+
 echo "→ restoring $DUMP → localhost:5433/mumate_test"
 # ON_ERROR_STOP=0 so we continue past the ONE known-safe error: `CREATE EXTENSION supabase_vault`
 # (not available in stock postgres; no public table uses vault). We then ALLOWLIST exactly that error
