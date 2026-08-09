@@ -68,6 +68,34 @@ EOF
 # neither shadowed nor guard-scanned. Next loads .env / .env.local / .env.<mode>[.local] only.
 is_committed_template() { case "$1" in *.example|*.sample|*.template|*.dist) return 0 ;; *) return 1 ;; esac; }
 
+# inject_oauth (#231 Phase 3) — เติมคีย์ OAuth จริงลง .env ที่เพิ่งวาง เพื่อให้ "สมัครใหม่ด้วยปุ่ม LINE/Google"
+# เดินได้เส้นจริงบน local (/v2/login มีแค่ปุ่ม OAuth — ไม่มี email/password ให้กรอก)
+#
+# 🔴 ทำไมต้อง inject ตอน runtime แทนที่จะใส่ใน env/fe.env
+#    env/fe.env เป็นไฟล์ที่ COMMIT เข้า git ⇒ คีย์จริงลงไปที่นั่น = ความลับหลุดถาวร
+#    ปลายทาง (<repo>/.env) ถูก .gitignore ⇒ คีย์อยู่แค่บนดิสก์เครื่องนี้ ไม่มีทางถูก commit
+#
+# ⛔ ALLOWLIST เท่านั้น — ดึงแค่คีย์ผู้ให้บริการ OAuth · ห้ามลาก DATABASE_URL / SUPABASE_* / NEXTAUTH_URL
+#    ติดมาเด็ดขาด ไม่งั้นแอปจะเด้งกลับไปชี้ prod แล้ว guard ที่รันทีหลังจะจับได้ (fail-closed) แต่เราต้อง
+#    ไม่พึ่ง guard เป็นด่านเดียว — คัดตั้งแต่ต้นทาง
+# ไม่มี blob = ไม่ล้ม แค่บอกว่าปุ่ม OAuth จะกดไม่ได้ แล้วให้ใช้ /dev-login แทน (ทางเลือกสำรองใน #229)
+OAUTH_BLOB="$HOME/.mumate-prod/fe.env.local"
+OAUTH_KEYS='LINE_CLIENT_ID LINE_CLIENT_SECRET GOOGLE_CLIENT_ID GOOGLE_CLIENT_SECRET'
+inject_oauth() { # $1=dest .env ที่เพิ่งวาง
+  local dest="$1" k line n=0
+  if [ ! -f "$OAUTH_BLOB" ]; then
+    echo "   ⚠ ไม่มี $OAUTH_BLOB → ปุ่ม LINE/Google บน /v2/login จะกดไม่ได้ (ใช้ /dev-login แทน)"
+    return 0
+  fi
+  printf '\n# --- OAuth (เติมโดย stack.sh จาก ~/.mumate-prod · ไม่เคยอยู่ในไฟล์ที่ commit) ---\n' >> "$dest"
+  for k in $OAUTH_KEYS; do
+    line=$(grep -E "^$k=" "$OAUTH_BLOB" | head -1 || true)
+    [ -n "$line" ] || continue
+    printf '%s\n' "$line" >> "$dest"; n=$((n+1))
+  done
+  echo "   🔑 เติมคีย์ OAuth $n ตัวลง .env (ไม่แสดงค่า · ไฟล์นี้ถูก gitignore)"
+}
+
 shadow_others() { # $1=dir $2=repo $3=placed_dotfile — #177: move aside every .env* Next loads EXCEPT the
                   # PLACED dotfile (Next loads .env.local/.env.development.local FIRST). Result: only the
                   # placed env is active. Excludes the placed file so restore's dotfile↔backup pairing holds.
@@ -338,6 +366,9 @@ while IFS='|' read -r repo tmplrel dotfile fw; do
     cp "$dest" "$bak"; echo "   💾 backed up $repo/$dotfile → testenv/.backups/$(basename "$bak")"
   fi
   cp "$tmpl" "$dest"
+  # #231 Phase 3: เฉพาะ fe — เติมคีย์ OAuth จริงจาก ~/.mumate-prod (allowlist) ให้ปุ่ม LINE/Google ใช้ได้
+  # วางไว้ก่อน guard ด้านล่างโดยตั้งใจ: guard จะได้สแกนไฟล์ "หลังเติม" ⇒ ถ้าเผลอลาก DB คีย์ติดมา guard จับได้
+  [ "$repo" = "mootech-fe" ] && inject_oauth "$dest"
   # #177 follow-up: write the LOCAL exclude patterns (marker + *$SHADOW_SUFFIX) BEFORE shadowing anything, so a
   # prod-secret file renamed to *$SHADOW_SUFFIX is born already-git-ignored. Otherwise there is a window
   # between the rename and the exclude-write where a prod service-role key sits on disk under a
