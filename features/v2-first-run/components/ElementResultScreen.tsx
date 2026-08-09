@@ -92,13 +92,36 @@ export type ElementCycleRow = {
   supporter: string
 }
 
-/** What the caller (goo's selector, #233) hands in. `cycle: null` = no row for this user. */
+/**
+ * Four states, because `T | null` was three different situations wearing the same face:
+ * "we are still asking", "there is genuinely nothing", and "we could not find out". The screen has
+ * to say something different for each — a user whose call TIMED OUT was being told their profile was
+ * incomplete, which is a lie about the cause and sends them to fix the wrong thing (#233 reframe).
+ *
+ * `unavailable` is a real answer: no gender ⇒ no element_cycle row ⇒ the block cannot exist yet.
+ * `error` is the absence of an answer. Never collapse the two again.
+ */
+export type AsyncState<T> =
+  | { status: 'loading' }
+  | { status: 'ready'; data: T }
+  | { status: 'unavailable' }
+  | { status: 'error' }
+
+/** What the caller (goo's selector, #233) hands in. */
 export type ElementResultSource = {
   /** The whole MascotResult — `card` is the (นักษัตร, ธาตุ) artwork path, which the element alone cannot build. */
   mascot: Pick<MascotResult, 'card' | 'elementTh' | 'elementLabelTh' | 'elementEn'>
-  cycle: ElementCycleRow | null
-  /** Per-person reading. Optional so a caller that has not wired the API yet still type-checks. */
-  summary?: ElementSummary | null
+  /**
+   * DB `element_cycle`. Expected to arrive with the page — it is one indexed query, and the reframe
+   * ruling is that art + ธาตุ + facets paint immediately. `loading` is still handled rather than
+   * assumed away: an assumption about latency is not a guarantee about it.
+   */
+  cycle: AsyncState<ElementCycleRow>
+  /**
+   * POST /api/bazi/element-summary. This one IS slow — worst case ~10s measured on the bazi side, so
+   * it is prefetched at register and this screen may well meet it mid-flight.
+   */
+  summary: AsyncState<ElementSummary>
 }
 
 /**
@@ -193,6 +216,16 @@ const ADVICE_ICON: Record<string, ComponentType<SVGProps<SVGSVGElement>>> = {
   health: Activity,
 }
 
+/**
+ * Grey bar placeholder. `motion-safe:` rather than a bare `animate-pulse` (which is what
+ * CalendarSkeleton uses): a reader who asked the OS for less motion should not get a pulsing block,
+ * and it also makes the loading state photographable — a screenshot of an animation lands wherever
+ * the playhead happened to be, so the design-verify shot of this state would never be twice the same.
+ */
+function Bar({ className = '' }: { className?: string }) {
+  return <div className={`motion-safe:animate-pulse rounded bg-v3-ghost-white ${className}`} />
+}
+
 /** 20px ghost-white chip + 12px cyan glyph — the bullet used by both list cards. */
 function BulletRow({
   Icon,
@@ -227,25 +260,40 @@ export function ElementResultScreen({
   onGoHome?: () => void
 }) {
   const { mascot, cycle, summary } = source
-  const facets = buildFacets(cycle)
+  const row = cycle.status === 'ready' ? cycle.data : null
+  const facets = buildFacets(row)
+  // A row that arrived but could not be read is not the same as no row: the data is there and it is
+  // wrong, which is our problem to fix, not the user's profile to complete.
+  const facetState: AsyncState<unknown>['status'] =
+    cycle.status === 'ready' && !facets ? 'error' : cycle.status
 
   // The service reading wins. Falling back the other way round would mean a person whose API call
   // succeeded still reads the generic ธาตุไม้ paragraph.
   const local = isElementKey(mascot.elementEn) ? ELEMENT_COPY[mascot.elementEn] : undefined
-  const copy: ElementCopy | undefined = summary
-    ? {
-        intro: summary.tagline,
-        traits: summary.traits,
-        advice: summary.advice,
-      }
-    : local
+  const copy: ElementCopy | undefined =
+    summary.status === 'ready'
+      ? {
+          intro: summary.data.tagline,
+          traits: summary.data.traits,
+          advice: summary.data.advice,
+        }
+      : // `unavailable` = nothing was ever going to come (not wired / none for this element), so the
+        // interim ธาตุไม้ copy may stand in. `error` may NOT: substituting generic words for a failed
+        // personal reading presents a fallback as the user's own result.
+        summary.status === 'unavailable'
+        ? local
+        : undefined
 
   // Two services can name the element, and only one of them may be believed: `mascot` is what the
   // home greeting uses, so reading the other here is how the same user gets told two different
   // elements on two consecutive screens. Disagreement is a real signal — say so, do not paper over it.
-  if (summary?.elementTh && summary.elementTh !== mascot.elementTh) {
+  if (
+    summary.status === 'ready' &&
+    summary.data.elementTh &&
+    summary.data.elementTh !== mascot.elementTh
+  ) {
     console.warn(
-      `[element-result] element mismatch: mascot="${mascot.elementTh}" summary="${summary.elementTh}" — rendering mascot`,
+      `[element-result] element mismatch: mascot="${mascot.elementTh}" summary="${summary.data.elementTh}" — rendering mascot`,
     )
   }
 
@@ -269,6 +317,11 @@ export function ElementResultScreen({
         </h1>
         {copy ? (
           <p className="font-ibm text-base leading-6 text-v3-text-body">{copy.intro}</p>
+        ) : summary.status === 'loading' ? (
+          <div className="flex flex-col items-center gap-2" data-testid="intro-loading" aria-busy>
+            <Bar className="h-4 w-full" />
+            <Bar className="h-4 w-4/5" />
+          </div>
         ) : null}
       </div>
 
@@ -297,7 +350,7 @@ export function ElementResultScreen({
               moment the reader needs to know what they are missing. Caught by looking at the render,
               not by any number in the harness table — every count was already green. */}
           <h2 className="font-ibm text-base font-bold leading-6 text-v3-text-title">
-            {facets ? polarityTitle(mascot.elementLabelTh, cycle?.power) : 'ธาตุที่ส่งผลในแต่ละด้าน'}
+            {facets ? polarityTitle(mascot.elementLabelTh, row?.power) : 'ธาตุที่ส่งผลในแต่ละด้าน'}
           </h2>
           {facets ? (
             <>
@@ -330,6 +383,25 @@ export function ElementResultScreen({
                 })}
               </dl>
             </>
+          ) : facetState === 'loading' ? (
+            <div className="mt-3 flex flex-col gap-3" data-testid="facet-loading" aria-busy>
+              {[0, 1, 2, 3, 4, 5].map((i) => (
+                <div key={i} className="flex items-center gap-2 border-t border-v3-border-card py-3">
+                  <Bar className="h-4 flex-1" />
+                  <Bar className="h-4 w-20 shrink-0" />
+                </div>
+              ))}
+            </div>
+          ) : facetState === 'error' ? (
+            // NOT "your profile is incomplete". Nothing is missing from the user's side — we failed
+            // to read it. Telling them to complete a profile that is already complete sends them off
+            // to fix the wrong thing, and hides a fault of ours behind their supposed mistake.
+            <p
+              data-testid="facet-error"
+              className="mt-3 font-ibm text-sm leading-[22px] text-v3-text-muted"
+            >
+              ตอนนี้ดึงข้อมูลธาตุรายด้านไม่สำเร็จ ไม่ใช่เพราะข้อมูลของคุณขาด ลองเปิดหน้านี้ใหม่อีกครั้งได้เลย
+            </p>
           ) : (
             // Says WHY, and says nothing about which value is missing — the cause may be a null
             // gender or a lookup miss, and naming a guess here is how the guess gets believed.
@@ -342,6 +414,38 @@ export function ElementResultScreen({
             </p>
           )}
         </section>
+
+        {/* Loading and error for the reading live here, once, rather than on each of the two cards:
+            they come from ONE call, so two spinners or two error notes would tell the reader there
+            were two failures. `unavailable` stays silent — there is nothing to wait for and nothing
+            went wrong; the blocks simply do not apply. */}
+        {summary.status === 'loading' && !copy ? (
+          <section
+            className="flex flex-col gap-4 rounded-2xl bg-white p-4"
+            data-testid="summary-loading"
+            aria-busy
+            aria-live="polite"
+          >
+            <Bar className="h-5 w-40" />
+            <div className="flex flex-col gap-3">
+              <Bar className="h-4 w-full" />
+              <Bar className="h-4 w-11/12" />
+              <Bar className="h-4 w-3/4" />
+            </div>
+          </section>
+        ) : null}
+
+        {summary.status === 'error' ? (
+          <section
+            className="rounded-2xl bg-white p-4"
+            data-testid="summary-error"
+            aria-live="polite"
+          >
+            <p className="font-ibm text-sm leading-[22px] text-v3-text-muted">
+              โหลดคำอ่านของคุณไม่สำเร็จ ธาตุและภาพด้านบนถูกต้องแล้ว ลองเปิดหน้านี้ใหม่เพื่อดูคำอ่าน
+            </p>
+          </section>
+        ) : null}
 
         {copy ? (
           <section className="flex flex-col gap-4 rounded-2xl bg-white p-4">

@@ -55,6 +55,10 @@ type Shot = {
   widths?: number[]
   /** Expect the six-facet block to be present (true) / absent (false). undefined = do not check. */
   facets?: boolean
+  /** Exact facet block expected on screen: rows | loading | error | unavailable. */
+  facetState?: string
+  /** Exact reading block expected: loading | error | none. */
+  summaryState?: string
 }
 
 const SHOTS: Shot[] = [
@@ -90,6 +94,14 @@ const SHOTS: Shot[] = [
     dot: 2,
     facets: false,
   },
+
+  // The four states the #233 reframe split apart. These are shot because "the API failed" and "your
+  // profile is incomplete" were the SAME screen until today, and nobody caught it by reading code —
+  // it needed someone to look at what the failure actually says to a person.
+  { id: '05-st-cycle-loading', query: '?step=element&element=wood&cycle=loading', dot: 2, widths: [393], facetState: 'loading' },
+  { id: '05-st-cycle-error', query: '?step=element&element=wood&cycle=error', dot: 2, widths: [393], facetState: 'error' },
+  { id: '05-st-summary-loading', query: '?step=element&element=wood&summary=loading', dot: 2, widths: [393], summaryState: 'loading' },
+  { id: '05-st-summary-error', query: '?step=element&element=wood&summary=error', dot: 2, widths: [393], summaryState: 'error' },
 ]
 
 type Row = {
@@ -101,6 +113,9 @@ type Row = {
   dots: number
   activeDot: number
   gateDisabled: boolean | null
+  facetState: string
+  summaryState: string
+  blamesProfile: boolean
   facetRows: number
   facetNote: boolean
   tiles: number
@@ -162,7 +177,27 @@ async function measure(page: Page) {
     const facetList = document.querySelector('[data-testid="facet-list"]')
     const facetRows = facetList ? facetList.children.length : 0
     const facetNote = document.querySelector('[data-testid="facet-unavailable"]') !== null
+    // WHICH block is on screen, read from the DOM. Recorded as one value so "loading" and
+    // "unavailable" can never both be true and still look like a pass.
+    const present = [
+      facetList ? 'rows' : '',
+      document.querySelector('[data-testid="facet-loading"]') ? 'loading' : '',
+      document.querySelector('[data-testid="facet-error"]') ? 'error' : '',
+      facetNote ? 'unavailable' : '',
+    ].filter(Boolean)
+    const facetState = present.length === 1 ? present[0] : `AMBIGUOUS(${present.join('+') || 'none'})`
+    const summaryPresent = [
+      document.querySelector('[data-testid="summary-loading"]') ? 'loading' : '',
+      document.querySelector('[data-testid="summary-error"]') ? 'error' : '',
+    ].filter(Boolean)
+    const summaryState = summaryPresent.length > 1 ? `AMBIGUOUS(${summaryPresent.join('+')})` : (summaryPresent[0] ?? 'none')
+    // A user must never be told the cause is their profile when the cause was a failure.
+    const bodyText = document.body.textContent ?? ''
+    const blamesProfile = bodyText.includes('ข้อมูลโปรไฟล์ของคุณยังไม่ครบ')
     return {
+      facetState,
+      summaryState,
+      blamesProfile,
       facetRows,
       facetNote,
       docH: doc.scrollHeight,
@@ -205,7 +240,15 @@ async function main() {
       continue
     }
     for (const w of shotWidths) {
-      const ctx = await browser.newContext({ viewport: { width: w, height: 852 }, deviceScaleFactor: 2 })
+      // reducedMotion: the skeletons are `motion-safe:animate-pulse`, so asking for reduced motion
+      // REMOVES the animation rather than freezing it mid-playhead. A paused animation screenshots
+      // differently every run; a removed one is the same picture every time. Recorded in conditions
+      // because it is part of the measurement, not a detail of how it was taken.
+      const ctx = await browser.newContext({
+        viewport: { width: w, height: 852 },
+        deviceScaleFactor: 2,
+        reducedMotion: 'reduce',
+      })
       if (V2_KEY) {
         const u = new URL(HOST)
         await ctx.addCookies([{ name: 'v2_access', value: V2_KEY, domain: u.hostname, path: '/' }])
@@ -264,6 +307,13 @@ async function main() {
         if (m.facetRows !== 6) failures.push(`${where}: ${m.facetRows} facet rows, expected 6`)
         if (m.facetNote) failures.push(`${where}: facet rows AND the "no data" note are both showing`)
       }
+      if (shot.facetState && m.facetState !== shot.facetState)
+        failures.push(`${where}: facet block is "${m.facetState}", expected "${shot.facetState}"`)
+      if (shot.summaryState && m.summaryState !== shot.summaryState)
+        failures.push(`${where}: reading block is "${m.summaryState}", expected "${shot.summaryState}"`)
+      // the reframe's actual bug: a failure that reads as the user's fault
+      if ((shot.facetState === 'error' || shot.summaryState === 'error') && m.blamesProfile)
+        failures.push(`${where}: an ERROR state tells the user their profile is incomplete`)
       if (shot.facets === false) {
         // absence has to be asserted as absence AND as a stated reason — a blank space where a
         // block used to be is indistinguishable from a block that failed to render
@@ -285,7 +335,7 @@ async function main() {
     for (const s of skipped) console.log(`    · ${s}`)
   }
 
-  const conditions = { host: HOST, path: BASE, sha, control: control || 'none', widths, skipped }
+  const conditions = { host: HOST, path: BASE, sha, control: control || 'none', widths, skipped, reducedMotion: 'reduce' }
   fs.writeFileSync(
     path.join(outDir, 'result.json'),
     JSON.stringify({ conditions, rows, failures }, null, 2),

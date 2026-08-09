@@ -13,9 +13,14 @@
 //   ?gender=male|female         swaps the cycle row (WOOD only — see below). Proves the row, and
 //                               therefore the คู่ครอง facet, is different per gender.
 //   ?cycle=none                 force cycle=null → the "profile incomplete" state, no facet block
-//   ?summary=real               render the VERBATIM body of /api/bazi/element-summary (#233) instead
-//                               of the interim ธาตุไม้ copy — the real strings are much longer than
-//                               the ones the Figma frame was drawn with
+//   ?summary=real|loading|error|unavailable   the reading's four states. `real` = the VERBATIM body of
+//                               /api/bazi/element-summary (#233); its strings are much longer than
+//                               the ones the Figma frame was drawn with. Default: unavailable.
+//   ?cycle=ready|loading|error|unavailable    the facet row's four states (`none` = unavailable, kept
+//                               working because links in the issue thread use it)
+//
+// loading and error are URL states on purpose: design-verify has to photograph them, and a state you
+// can only reach by breaking the network is a state nobody ever looks at.
 //
 // The two PDPA frames are one screen in two states, so they are one URL knob, not two routes —
 // which is what lets a design-verify pass shoot both from the same build with no source patch.
@@ -25,6 +30,7 @@ import { useRouter } from 'next/router'
 import { v2RedirectIfUnauthed } from '@/lib/v2/gate'
 import {
   ElementResultScreen,
+  type AsyncState,
   type ElementCycleRow,
   type ElementResultSource,
 } from '@/features/v2-first-run/components/ElementResultScreen'
@@ -100,18 +106,31 @@ const ELEMENT_TH: Record<string, string> = {
 
 // Paths are BUILT, never typed: buildMascotPaths owns the (นักษัตร, ธาตุ) filename convention, so a
 // preview that hand-wrote them could drift from the 60 real files without anything failing.
+type StateParam = 'ready' | 'loading' | 'error' | 'unavailable'
+
+const asState = <T,>(want: StateParam, data: T | null): AsyncState<T> => {
+  if (want === 'loading') return { status: 'loading' }
+  if (want === 'error') return { status: 'error' }
+  if (want === 'unavailable' || data === null) return { status: 'unavailable' }
+  return { status: 'ready', data }
+}
+
 function previewSource(
   elementParam: string,
   gender: string,
-  noCycle: boolean,
-  withSummary: boolean,
+  cycleWant: StateParam,
+  summaryWant: StateParam,
 ): ElementResultSource | null {
   const th = ELEMENT_TH[elementParam] ?? ELEMENT_TH.wood
   const mascot = buildMascotPaths('ชวด', th)
   if (!mascot) return null
-  const cycle =
-    noCycle || elementParam !== 'wood' ? null : WOOD_YANG[gender === 'female' ? 'female' : 'male']
-  return { mascot, cycle, summary: withSummary ? REAL_SUMMARY : null }
+  // Only WOOD has a real row on hand (goo's dump). The rest are `unavailable` rather than invented.
+  const row = elementParam === 'wood' ? WOOD_YANG[gender === 'female' ? 'female' : 'male'] : null
+  return {
+    mascot,
+    cycle: asState(cycleWant, row),
+    summary: asState(summaryWant, summaryWant === 'ready' ? REAL_SUMMARY : null),
+  }
 }
 
 export const getServerSideProps: GetServerSideProps = async (ctx) => {
@@ -140,11 +159,18 @@ export default function V2FirstRunPreview() {
   }
 
   if (step === 'element') {
+    // `?cycle=none` is kept working as a spelling of `unavailable` — the design-verify runs and the
+    // links already in the issue thread use it, and silently changing a URL knob breaks a bookmark
+    // that someone will believe is still showing what it used to.
+    const cycleWant: StateParam =
+      q.cycle === 'none' ? 'unavailable' : ((q.cycle as StateParam) || 'ready')
+    const summaryWant: StateParam =
+      q.summary === 'real' ? 'ready' : ((q.summary as StateParam) || 'unavailable')
     const source = previewSource(
       ((q.element as string) || 'wood').toLowerCase(),
       ((q.gender as string) || 'male').toLowerCase(),
-      q.cycle === 'none',
-      q.summary === 'real',
+      cycleWant,
+      summaryWant,
     )
     // buildMascotPaths returns null on an unknown นักษัตร/ธาตุ. Say so instead of rendering a screen
     // with a broken image — a preview that fails quietly is worse than no preview.

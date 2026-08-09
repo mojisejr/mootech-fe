@@ -161,7 +161,11 @@ const ROW_FEMALE: ElementCycleRow = { ...ROW_MALE, spouse: 'METAL' }
 function sourceFor(elementTh: string, cycle: ElementCycleRow | null): ElementResultSource {
   const mascot = buildMascotPaths('ชวด', elementTh)
   if (!mascot) throw new Error(`fixture is wrong, not the component: no mascot for ${elementTh}`)
-  return { mascot, cycle }
+  return {
+    mascot,
+    cycle: cycle ? { status: 'ready', data: cycle } : { status: 'unavailable' },
+    summary: { status: 'unavailable' },
+  }
 }
 
 /** Every string the app could render for a gender. Assert against the WHOLE screen, not a prop. */
@@ -266,9 +270,12 @@ describe('05-element — facets come from the row, never from a guess', () => {
         source={{
           ...sourceFor('ไม้', ROW_MALE),
           summary: {
+            status: 'ready',
+            data: {
             tagline: 'คำเปิดเฉพาะบุคคลจาก bazi',
             traits: ['ลักษณะเฉพาะบุคคล ก'],
             advice: [{ key: 'talent', label: 'การใช้จุดแข็ง', text: 'คำแนะนำเฉพาะบุคคล ก' }],
+            },
           },
         }}
       />,
@@ -285,7 +292,7 @@ describe('05-element — facets come from the row, never from a guess', () => {
   })
 
   it('keeps art and facets when the reading is missing — a dead API is not a dead screen', () => {
-    render(<ElementResultScreen source={{ ...sourceFor('ไม้', ROW_MALE), summary: null }} />)
+    render(<ElementResultScreen source={{ ...sourceFor('ไม้', ROW_MALE), summary: { status: 'unavailable' } }} />)
 
     expect(screen.getByTestId('facet-list').children).toHaveLength(6)
     expect(document.querySelector('img')).toBeTruthy()
@@ -304,17 +311,93 @@ describe('05-element — facets come from the row, never from a guess', () => {
     // did. (It did exactly that on the first draft of this test.)
     const glyphs = (nodes: Element[]) => nodes.map((li) => li.querySelector('svg')?.innerHTML ?? '')
 
-    render(<ElementResultScreen source={{ ...sourceFor('ไม้', ROW_MALE), summary: { tagline: 't', traits: [], advice } }} />)
+    render(<ElementResultScreen source={{ ...sourceFor('ไม้', ROW_MALE), summary: { status: 'ready', data: { tagline: 't', traits: [], advice } } }} />)
     const forward = glyphs(Array.from(document.querySelectorAll('li')))
     cleanup()
 
-    render(<ElementResultScreen source={{ ...sourceFor('ไม้', ROW_MALE), summary: { tagline: 't', traits: [], advice: [...advice].reverse() } }} />)
+    render(<ElementResultScreen source={{ ...sourceFor('ไม้', ROW_MALE), summary: { status: 'ready', data: { tagline: 't', traits: [], advice: [...advice].reverse() } } }} />)
     const reversed = glyphs(Array.from(document.querySelectorAll('li')))
 
     // control FIRST: if the two glyphs are indistinguishable, everything below is equal-to-equal
     expect(forward).toHaveLength(2)
     expect(forward[0]).not.toBe(forward[1])
     expect(reversed).toEqual([...forward].reverse())
+  })
+
+  // ── the error/empty split (#233 reframe) ──────────────────────────────────
+  // A timeout was being reported to the user as "your profile is incomplete". That is not a wording
+  // nit: it names the WRONG PARTY. The reader goes off to fix a profile that is already complete,
+  // and our fault is filed under their mistake. These four tests exist so the two states can never
+  // quietly merge back into one `| null`.
+  const INCOMPLETE = /ข้อมูลโปรไฟล์ของคุณยังไม่ครบ/
+
+  it('says "could not load", not "your profile is incomplete", when the row errored', () => {
+    render(
+      <ElementResultScreen
+        source={{ ...sourceFor('ไม้', null), cycle: { status: 'error' } }}
+      />,
+    )
+    expect(screen.getByTestId('facet-error')).toBeTruthy()
+    expect(screen.queryByTestId('facet-unavailable')).toBeNull()
+    expect(document.body.textContent ?? '').not.toMatch(INCOMPLETE)
+  })
+
+  it('treats a row that arrived unreadable as our error, not the user\'s missing profile', () => {
+    render(
+      <ElementResultScreen
+        source={{
+          ...sourceFor('ไม้', null),
+          cycle: { status: 'ready', data: { ...ROW_MALE, fortune: 'PLASTIC' } },
+        }}
+      />,
+    )
+    expect(screen.getByTestId('facet-error')).toBeTruthy()
+    expect(screen.queryByTestId('facet-list')).toBeNull()
+    expect(document.body.textContent ?? '').not.toMatch(INCOMPLETE)
+  })
+
+  it('shows a skeleton while the row is in flight — not the empty-state text', () => {
+    render(<ElementResultScreen source={{ ...sourceFor('ไม้', null), cycle: { status: 'loading' } }} />)
+
+    expect(screen.getByTestId('facet-loading')).toBeTruthy()
+    expect(screen.queryByTestId('facet-list')).toBeNull()
+    expect(screen.queryByTestId('facet-unavailable')).toBeNull()
+    expect(screen.queryByTestId('facet-error')).toBeNull()
+  })
+
+  it('does not pass the generic ธาตุไม้ copy off as a failed personal reading', () => {
+    render(
+      <ElementResultScreen source={{ ...sourceFor('ไม้', ROW_MALE), summary: { status: 'error' } }} />,
+    )
+    expect(screen.getByTestId('summary-error')).toBeTruthy()
+    // the interim WOOD paragraph must NOT stand in — that would show a fallback as the user's result
+    expect(document.body.textContent ?? '').not.toMatch(/สัญลักษณ์แห่งความเจริญรุ่งเรือง/)
+    // ...and the parts that DID load stay on screen
+    expect(screen.getByTestId('facet-list').children).toHaveLength(6)
+  })
+
+  it('skeletons only the reading, never the whole page', () => {
+    render(
+      <ElementResultScreen source={{ ...sourceFor('ไม้', ROW_MALE), summary: { status: 'loading' } }} />,
+    )
+    expect(screen.getByTestId('summary-loading')).toBeTruthy()
+    // art, heading and facets are ready and must already be painted — the ruling on #233 is that a
+    // full-page loader hides two thirds of a screen that is finished
+    expect(document.querySelector('img')).toBeTruthy()
+    expect(screen.getByTestId('facet-list').children).toHaveLength(6)
+    expect(screen.queryByTestId('summary-error')).toBeNull()
+  })
+
+  it('still shows the interim copy when the reading was never coming', () => {
+    render(
+      <ElementResultScreen
+        source={{ ...sourceFor('ไม้', ROW_MALE), summary: { status: 'unavailable' } }}
+      />,
+    )
+    // unavailable is not a failure: nothing is in flight and nothing broke
+    expect(screen.queryByTestId('summary-loading')).toBeNull()
+    expect(screen.queryByTestId('summary-error')).toBeNull()
+    expect(document.body.textContent ?? '').toMatch(/สัญลักษณ์แห่งความเจริญรุ่งเรือง/)
   })
 
   it('shows the card art for (นักษัตร, ธาตุ), not for the element alone', () => {
