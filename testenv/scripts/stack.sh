@@ -76,8 +76,16 @@ is_committed_template() { case "$1" in *.example|*.sample|*.template|*.dist) ret
 #    ปลายทาง (<repo>/.env) ถูก .gitignore ⇒ คีย์อยู่แค่บนดิสก์เครื่องนี้ ไม่มีทางถูก commit
 #
 # ⛔ ALLOWLIST เท่านั้น — ดึงแค่คีย์ผู้ให้บริการ OAuth · ห้ามลาก DATABASE_URL / SUPABASE_* / NEXTAUTH_URL
-#    ติดมาเด็ดขาด ไม่งั้นแอปจะเด้งกลับไปชี้ prod แล้ว guard ที่รันทีหลังจะจับได้ (fail-closed) แต่เราต้อง
-#    ไม่พึ่ง guard เป็นด่านเดียว — คัดตั้งแต่ต้นทาง
+#    ติดมาเด็ดขาด ไม่งั้นแอปจะเด้งกลับไปชี้ prod
+#
+# 🔴 เคยเขียนตรงนี้ว่า "guard ที่รันทีหลังจะจับได้" — **ไม่จริงตอนที่เขียน** (ตู๋ยิงมิวแทนต์เจอตอนรีวิว #232):
+#    guard เฝ้าแค่ DATABASE_URL/DB_HOST/BACKEND_URL ⇒ SUPABASE_*/NEXTAUTH_URL ที่ชี้ prod **ผ่านเขียว**
+#    ⇒ allowlist บรรทัดล่างนี้เคยเป็นด่านเดียวจริง ๆ โดยที่คอมเมนต์บอกว่ามีสองด่าน
+#    แก้ที่รากแล้ว: guard.sh รับ 3 คีย์นั้นเข้า DB_KEYS/SECRETLIKE_KEYS · เคสเฝ้าอยู่ใน guard.test.sh
+#    ⇒ วันนี้เป็นสองด่านจริง และมีเทสต์เฝ้าทั้งคู่:
+#       scripts/inject-oauth.test.sh  เฝ้า allowlist + call site + ลำดับ (inject ต้องมาก่อน guard)
+#       scripts/guard.test.sh         เฝ้าว่า guard ยังจับ 3 คีย์นั้นได้
+#    บทเรียนที่เสียไปกับเรื่องนี้: **อย่าเขียนคอมเมนต์ว่ามีด่านสำรอง จนกว่าจะยิงมิวแทนต์ใส่ด่านนั้นเอง**
 # ไม่มี blob = ไม่ล้ม แค่บอกว่าปุ่ม OAuth จะกดไม่ได้ แล้วให้ใช้ /dev-login แทน (ทางเลือกสำรองใน #229)
 OAUTH_BLOB="$HOME/.mumate-prod/fe.env.local"
 OAUTH_KEYS='LINE_CLIENT_ID LINE_CLIENT_SECRET GOOGLE_CLIENT_ID GOOGLE_CLIENT_SECRET'

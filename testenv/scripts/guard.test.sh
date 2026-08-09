@@ -48,6 +48,22 @@ if bash "$G" "$tmpf" >/dev/null 2>&1; then echo "  ✓ allowed neutralized .inva
 # a COMMENT mentioning a real provider must not false-refuse
 printf 'DB_HOST=localhost\n# do not point SMS_8X8_HOST at sms.8x8.com or LINE at api.line.me\nSMS_8X8_HOST=https://sms.8x8.invalid\n' > "$tmpf"
 if bash "$G" "$tmpf" >/dev/null 2>&1; then echo "  ✓ comment mentioning a provider is ignored (#184)"; pass=$((pass+1)); else echo "  ✗ comment false-refused"; fail=1; fi
+
+# #231/ตู๋ — 3 คีย์ที่เคย "ผ่านเขียว" ทั้งที่ชี้ prod เต็ม ๆ (guard เฝ้าแค่ DATABASE_URL/DB_HOST)
+# คอมเมนต์ใน stack.sh อ้าง guard เป็นด่านสำรองสำหรับคีย์พวกนี้ ⇒ คำอ้างนั้นเคยไม่จริง เคสข้างล่างคือคนเฝ้ามัน
+# มิวแทนต์: ถอดคีย์ใดคีย์หนึ่งออกจาก DB_KEYS/SECRETLIKE_KEYS ใน guard.sh → เคสนั้นแดง
+refuse_file() { printf 'DB_HOST=localhost\n%s\n' "$2" > "$tmpf"
+  if bash "$G" "$tmpf" >/dev/null 2>&1; then echo "  ✗ ALLOWED prod: $1"; fail=1; else echo "  ✓ refused: $1"; pass=$((pass+1)); fi; }
+allow_file()  { printf 'DB_HOST=localhost\n%s\n' "$2" > "$tmpf"
+  if bash "$G" "$tmpf" >/dev/null 2>&1; then echo "  ✓ allowed: $1"; pass=$((pass+1)); else echo "  ✗ REFUSED valid: $1"; fail=1; fi; }
+
+refuse_file 'SUPABASE_PROJECT_URL → prod'      'SUPABASE_PROJECT_URL=https://soxsccdlsycaevusndro.supabase.co'
+refuse_file 'SUPABASE_SERVICE_ROLE_KEY = JWT จริง' 'SUPABASE_SERVICE_ROLE_KEY=eyJhbGciOiJIUzI1NiJ9.real.sig'
+refuse_file 'NEXTAUTH_URL → โดเมนจริง'          'NEXTAUTH_URL=https://mumate.com'
+refuse_file 'NEXT_PUBLIC_SUPABASE_URL → prod'   'NEXT_PUBLIC_SUPABASE_URL=https://sox.supabase.co'
+# ค่าที่สนามซ้อมใช้จริง ต้องไม่ถูกปฏิเสธ — ไม่งั้น guard ที่แข็งขึ้นจะทำให้ stack บูตไม่ขึ้นเลย
+allow_file  'NEXTAUTH_URL = localhost'          'NEXTAUTH_URL=http://localhost:3000'
+allow_file  'SERVICE_ROLE_KEY = ค่า dummy'      'SUPABASE_SERVICE_ROLE_KEY=dummy-service-role-key'
 rm -f "$tmpf"
 
 if [ "$fail" -eq 0 ]; then echo "  guard-fail-closed: $pass passed"; else echo "  guard-fail-closed: SOME FAILED"; exit 1; fi
