@@ -13,6 +13,9 @@
 //   ?gender=male|female         swaps the cycle row (WOOD only — see below). Proves the row, and
 //                               therefore the คู่ครอง facet, is different per gender.
 //   ?cycle=none                 force cycle=null → the "profile incomplete" state, no facet block
+//   ?summary=real               render the VERBATIM body of /api/bazi/element-summary (#233) instead
+//                               of the interim ธาตุไม้ copy — the real strings are much longer than
+//                               the ones the Figma frame was drawn with
 //
 // The two PDPA frames are one screen in two states, so they are one URL knob, not two routes —
 // which is what lets a design-verify pass shoot both from the same build with no source patch.
@@ -61,6 +64,32 @@ const WOOD_YANG: Record<'male' | 'female', ElementCycleRow> = {
   },
 }
 
+// The real body of POST /api/bazi/element-summary, pasted from goo's live call on #233
+// (birthDate 1995-08-15 08:30 male → ธาตุดิน). Kept verbatim, long strings and all: the point of
+// having it here is to see what the SERVICE says on the screen, not what the Figma frame wished for.
+// Figma drew three short one-line traits; the service returns two long paragraphs and puts a label
+// on each advice item. Those are different layout problems.
+const REAL_SUMMARY = {
+  elementTh: 'ดิน',
+  tagline: 'สัญลักษณ์แห่งความมั่นคงและความน่าเชื่อถือ คุณคือรากฐานที่ผู้คนพึ่งพิงได้',
+  traits: [
+    'เป็นคนจงรักภักดี ซื่อสัตย์ รอบคอบ น่าเชื่อถือ รักษาคำพูด ใจกว้าง พึ่งพาได้ หนักแน่นและมั่นคงในความคิด',
+    'รักอิสระ มักทำงานคนเดียว ไม่ชอบพึ่งพาผู้อื่น เงียบขรึมแต่ลงมืออย่างแม่นยำ',
+  ],
+  advice: [
+    {
+      key: 'talent',
+      label: 'การใช้จุดแข็ง',
+      text: 'ใช้พรสวรรค์กับงานที่ต้องความน่าเชื่อถือ บริหารทรัพย์สิน หรืองานที่ต้องดูแลคนอื่นในระยะยาว',
+    },
+    {
+      key: 'health',
+      label: 'การดูแลตัวเอง',
+      text: 'ดูแลม้าม/กระเพาะ/ระบบย่อยอาหาร — กินเป็นเวลา เคี้ยวช้า และเลี่ยงอาหารเย็นจัด',
+    },
+  ],
+}
+
 const ELEMENT_TH: Record<string, string> = {
   wood: 'ไม้',
   metal: 'ทอง',
@@ -71,13 +100,18 @@ const ELEMENT_TH: Record<string, string> = {
 
 // Paths are BUILT, never typed: buildMascotPaths owns the (นักษัตร, ธาตุ) filename convention, so a
 // preview that hand-wrote them could drift from the 60 real files without anything failing.
-function previewSource(elementParam: string, gender: string, noCycle: boolean): ElementResultSource | null {
+function previewSource(
+  elementParam: string,
+  gender: string,
+  noCycle: boolean,
+  withSummary: boolean,
+): ElementResultSource | null {
   const th = ELEMENT_TH[elementParam] ?? ELEMENT_TH.wood
   const mascot = buildMascotPaths('ชวด', th)
   if (!mascot) return null
   const cycle =
     noCycle || elementParam !== 'wood' ? null : WOOD_YANG[gender === 'female' ? 'female' : 'male']
-  return { mascot, cycle }
+  return { mascot, cycle, summary: withSummary ? REAL_SUMMARY : null }
 }
 
 export const getServerSideProps: GetServerSideProps = async (ctx) => {
@@ -110,6 +144,7 @@ export default function V2FirstRunPreview() {
       ((q.element as string) || 'wood').toLowerCase(),
       ((q.gender as string) || 'male').toLowerCase(),
       q.cycle === 'none',
+      q.summary === 'real',
     )
     // buildMascotPaths returns null on an unknown นักษัตร/ธาตุ. Say so instead of rendering a screen
     // with a broken image — a preview that fails quietly is worse than no preview.

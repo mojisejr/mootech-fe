@@ -81,6 +81,15 @@ const SHOTS: Shot[] = [
   { id: '05-el-water', query: '?step=element&element=water', dot: 2, widths: [393], facets: false },
   // the state a real user with no gender lands on — the one the whole seam argument was about
   { id: '05-el-no-cycle', query: '?step=element&element=wood&cycle=none', dot: 2, widths: [393], facets: false },
+  // the REAL service copy (#233): two long paragraphs where the frame drew three one-liners, plus a
+  // label on each advice item. Shot at every width because THIS one is a text-length problem, and
+  // text length is exactly what changes with the column width.
+  {
+    id: '05-el-real-summary',
+    query: '?step=element&element=earth&summary=real',
+    dot: 2,
+    facets: false,
+  },
 ]
 
 type Row = {

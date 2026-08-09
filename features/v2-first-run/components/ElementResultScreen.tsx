@@ -1,4 +1,4 @@
-import type { ComponentType, SVGProps } from 'react'
+import type { ComponentType, ReactNode, SVGProps } from 'react'
 import Image from 'next/image'
 import { Activity, Check, Leaf } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -121,7 +121,8 @@ export type ElementSummary = {
   elementTh?: string
 }
 
-export type ElementCopy = { intro: string; traits: string[]; advice: string[] }
+export type AdviceItem = { key?: string; label?: string; text: string }
+export type ElementCopy = { intro: string; traits: string[]; advice: AdviceItem[] }
 
 // INTERIM, and scheduled for deletion (#237). This is the ธาตุไม้ copy transcribed off the Figma
 // frame in #215 — it predates the discovery that /api/bazi/element-summary already returns a better,
@@ -141,8 +142,8 @@ export const ELEMENT_COPY: Partial<Record<ElementKey, ElementCopy>> = {
       'มีความเป็นผู้นำและพร้อมจะเติบโตอยู่เสมอ',
     ],
     advice: [
-      'รักษาสมดุลพลังงานด้วยการใช้เวลาท่ามกลางธรรมชาติบ่อยๆ',
-      'ออกกำลังกายเบาๆ อย่างสม่ำเสมอเพื่อช่วยให้ลมปราณไหลเวียน',
+      { text: 'รักษาสมดุลพลังงานด้วยการใช้เวลาท่ามกลางธรรมชาติบ่อยๆ' },
+      { text: 'ออกกำลังกายเบาๆ อย่างสม่ำเสมอเพื่อช่วยให้ลมปราณไหลเวียน' },
     ],
   },
 }
@@ -183,13 +184,22 @@ export function polarityTitle(elementLabelTh: string, power: string | null | und
   return `${elementLabelTh}${suffix}`
 }
 
+// The service tags each advice item with a `key` ('talent' | 'health'). Picking the glyph off the
+// ARRAY POSITION instead would silently swap the meanings the day the service returns them in the
+// other order — an index standing in for an identity, which is how the 8-gate compass went wrong in
+// #190. Unknown keys fall back to the neutral glyph rather than to "whatever is at slot 0".
+const ADVICE_ICON: Record<string, ComponentType<SVGProps<SVGSVGElement>>> = {
+  talent: Leaf,
+  health: Activity,
+}
+
 /** 20px ghost-white chip + 12px cyan glyph — the bullet used by both list cards. */
 function BulletRow({
   Icon,
   children,
 }: {
   Icon: ComponentType<SVGProps<SVGSVGElement>>
-  children: string
+  children: ReactNode
 }) {
   return (
     <li className="flex items-start gap-3">
@@ -226,7 +236,7 @@ export function ElementResultScreen({
     ? {
         intro: summary.tagline,
         traits: summary.traits,
-        advice: summary.advice.map((a) => a.text),
+        advice: summary.advice,
       }
     : local
 
@@ -355,8 +365,14 @@ export function ElementResultScreen({
             </h2>
             <ul className="flex flex-col gap-3">
               {copy.advice.map((a, i) => (
-                <BulletRow key={a} Icon={i === 0 ? Leaf : Activity}>
-                  {a}
+                <BulletRow key={a.key ?? a.text} Icon={(a.key && ADVICE_ICON[a.key]) || Activity}>
+                  {/* The service names each piece of advice ("การใช้จุดแข็ง" / "การดูแลตัวเอง").
+                      Dropping the label — which the first cut of this did — turns two differently
+                      purposed items into two indistinguishable paragraphs, and throws away content
+                      the API went to the trouble of structuring. The Figma frame has no label
+                      because the frame predates the service. */}
+                  {a.label ? <strong className="font-semibold">{a.label}: </strong> : null}
+                  {a.text}
                 </BulletRow>
               ))}
             </ul>

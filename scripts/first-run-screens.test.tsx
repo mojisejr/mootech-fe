@@ -126,8 +126,13 @@ describe('02-intent-check — goal selection', () => {
 //       Guessing shows one person's chart to another and nothing else in the app would object.
 //
 //   M2  swap 'work' and 'career' in FACETS back to the order the Figma frame draws
-//       → "maps every column to its own row" goes RED.
+//       → "maps every column to its own row" goes RED.  (verified: 1 red / 13 green)
 //       The frame and the table disagree; the table is the product.
+//
+//   M3  pick the advice glyph by index again — `Icon={i === 0 ? Leaf : Activity}`
+//       → "picks the advice glyph by key" goes RED.  (verified: 1 red / 18 green)
+//       That test carries its own control (`forward[0] !== forward[1]`) because its first draft
+//       compared the svg CLASS, which is identical for both glyphs: equal-to-equal, green forever.
 //
 // The rendered-DOM rule from the header applies here too: these read textContent and node counts,
 // not the props handed in. A test that asserts on `source.cycle` would pass even if the screen threw
@@ -263,7 +268,7 @@ describe('05-element — facets come from the row, never from a guess', () => {
           summary: {
             tagline: 'คำเปิดเฉพาะบุคคลจาก bazi',
             traits: ['ลักษณะเฉพาะบุคคล ก'],
-            advice: [{ key: 'a', label: 'ล', text: 'คำแนะนำเฉพาะบุคคล ก' }],
+            advice: [{ key: 'talent', label: 'การใช้จุดแข็ง', text: 'คำแนะนำเฉพาะบุคคล ก' }],
           },
         }}
       />,
@@ -273,6 +278,8 @@ describe('05-element — facets come from the row, never from a guess', () => {
     expect(text).toContain('คำเปิดเฉพาะบุคคลจาก bazi')
     expect(text).toContain('ลักษณะเฉพาะบุคคล ก')
     expect(text).toContain('คำแนะนำเฉพาะบุคคล ก')
+    // the service LABELS each advice item; dropping it would leave two identical-looking paragraphs
+    expect(text).toContain('การใช้จุดแข็ง')
     // and the ธาตุไม้ paragraph must be gone, not merely pushed further down the page
     expect(text).not.toMatch(/สัญลักษณ์แห่งความเจริญรุ่งเรือง/)
   })
@@ -283,6 +290,31 @@ describe('05-element — facets come from the row, never from a guess', () => {
     expect(screen.getByTestId('facet-list').children).toHaveLength(6)
     expect(document.querySelector('img')).toBeTruthy()
     expect(screen.getByRole('heading', { level: 1 }).textContent).toMatch(/ธาตุของคุณคือ ไม้/)
+  })
+
+  // An index standing in for an identity is how #190's compass shipped wrong. Reversing the array
+  // must reverse the glyphs with it, not leave them pinned to slot 0 and slot 1.
+  it('picks the advice glyph by key, not by array position', () => {
+    const advice = [
+      { key: 'talent', label: 'จุดแข็ง', text: 'ก' },
+      { key: 'health', label: 'สุขภาพ', text: 'ข' },
+    ]
+    // The SVG PATHS, not the class — Leaf and Activity are handed the same className here, so a
+    // class-based comparison would have been equal-to-equal and passed no matter what the component
+    // did. (It did exactly that on the first draft of this test.)
+    const glyphs = (nodes: Element[]) => nodes.map((li) => li.querySelector('svg')?.innerHTML ?? '')
+
+    render(<ElementResultScreen source={{ ...sourceFor('ไม้', ROW_MALE), summary: { tagline: 't', traits: [], advice } }} />)
+    const forward = glyphs(Array.from(document.querySelectorAll('li')))
+    cleanup()
+
+    render(<ElementResultScreen source={{ ...sourceFor('ไม้', ROW_MALE), summary: { tagline: 't', traits: [], advice: [...advice].reverse() } }} />)
+    const reversed = glyphs(Array.from(document.querySelectorAll('li')))
+
+    // control FIRST: if the two glyphs are indistinguishable, everything below is equal-to-equal
+    expect(forward).toHaveLength(2)
+    expect(forward[0]).not.toBe(forward[1])
+    expect(reversed).toEqual([...forward].reverse())
   })
 
   it('shows the card art for (นักษัตร, ธาตุ), not for the element alone', () => {
