@@ -57,8 +57,12 @@ check_value() {  # $1 = key, $2 = value
   # #231/ตู๋: คีย์ที่ไม่มี host ให้ตรวจ — ตรวจที่รูปร่างของค่าแทน
   # JWT จริงของ Supabase ขึ้นต้น `eyJ` (base64 ของ '{"') · ค่า dummy ในสนามซ้อมไม่ใช่
   # ⇒ กฎนี้ปฏิเสธ "ของจริง" ได้โดยไม่ต้องรู้ว่าค่าที่ถูกต้องคืออะไร และไม่พิมพ์ค่าออกมา
-  if printf '%s' "$k" | grep -qE "^($SECRETLIKE_KEYS)$" && printf '%s' "$v" | grep -qE '^eyJ'; then
-    echo "🛑 REFUSE: $k → ดูเหมือน JWT ของจริง (ขึ้นต้น eyJ) — สนามซ้อมต้องใช้ค่า dummy เท่านั้น"; fail=1
+  # รูปแบบคีย์จริงของ Supabase ที่ต้องปฏิเสธ — ครอบทั้งของเก่าและของใหม่ (ตู๋ verify #232: ^eyJ เฝ้าแค่ของเก่า)
+  #   eyJ…              JWT รุ่นเดิม (base64 ของ '{"')
+  #   sb_secret_…       service-role รุ่นใหม่ (2025+) — อำนาจเท่า service-role เดิม
+  #   sb_publishable_…  anon รุ่นใหม่ — อำนาจน้อยกว่า แต่ยังผูกกับโปรเจกต์จริง ⇒ ไม่ควรอยู่ในสนามซ้อม
+  if printf '%s' "$k" | grep -qE "^($SECRETLIKE_KEYS)$" && printf '%s' "$v" | grep -qE '^(eyJ|sb_secret_|sb_publishable_)'; then
+    echo "🛑 REFUSE: $k → ดูเหมือนคีย์ Supabase ของจริง — สนามซ้อมต้องใช้ค่า dummy เท่านั้น"; fail=1
   fi
 }
 

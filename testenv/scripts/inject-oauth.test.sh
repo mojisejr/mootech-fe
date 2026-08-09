@@ -38,6 +38,12 @@ printf 'DATABASE_URL=postgresql://postgres:postgres@localhost:5433/mumate_test\n
 
 # shellcheck disable=SC1090
 STACK_SOURCE_ONLY=1 . "$STACK" 2>/dev/null
+# 🔴 stack.sh:21 ตั้ง `set -euo pipefail` ไว้ที่หัวไฟล์ · การ `. stack.sh` ลาก errexit เข้ามาในเชลล์ของเทสต์ด้วย
+# ⇒ เคสไหนที่ประเมินเป็น false (เช่น grep ไม่เจอ call site) จะ **ฆ่าสคริปต์ทิ้งก่อนพิมพ์ ✗**
+#    ผลคือแดงจริง (exit 1) แต่ไม่มีบรรทัดบอกว่าตกเคสไหน — ตู๋เจอตอน verify #232
+# ⇒ นี่คือบั๊กตระกูลเดียวกับที่ PR นี้เพิ่งแก้ใน stack.sh (pipefail ทำให้ status ตายก่อนพิมพ์บรรทัดสุดท้าย)
+#    ผมแก้ที่ต้นทางแล้วสร้างซ้ำในไฟล์เทสต์ที่เขียนใหม่เอง ⇒ ปิดที่นี่ด้วย set +e
+set +e
 if ! declare -f inject_oauth >/dev/null 2>&1; then
   echo "  ✗ source stack.sh แล้วไม่เจอ inject_oauth — เทสต์นี้เฝ้าอะไรไม่ได้เลย"; exit 1
 fi

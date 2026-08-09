@@ -23,7 +23,10 @@ if [ -z "${PROD_DATABASE_URL:-}" ]; then
       *soxsccdlsycaevusndro*) : ;;
       *) echo "🛑 $BLOB ไม่ได้ชี้ prod ref ที่คาดไว้ — ไม่ dump ต่อ (ตั้ง PROD_DATABASE_URL เองถ้าตั้งใจ)"; exit 3 ;;
     esac
-    _enc() { python3 -c 'import sys,urllib.parse;print(urllib.parse.quote(sys.argv[1],safe=""))' "$1"; }
+    # รับค่าทาง stdin ไม่ใช่ argv (ตู๋ verify #232): argv ของทุก process อ่านได้จาก `ps` โดยผู้ใช้อื่นบนเครื่อง
+    # ⇒ ส่งรหัสผ่าน prod เป็น argv = เปิดหน้าต่างให้มันถูกเห็นตลอดช่วงที่ python ทำงาน
+    # stdin ไม่ปรากฏใน ps · rstrip('\n') เพราะ here-string ของ bash เติม newline ท้ายเสมอ
+    _enc() { printf '%s' "$1" | python3 -c 'import sys,urllib.parse;print(urllib.parse.quote(sys.stdin.read(),safe=""))'; }
     PROD_DATABASE_URL="postgresql://$(_enc "$_U"):$(_enc "$_W")@${_H}:${_P}/${_D}?sslmode=require"
     echo "🎯 cred จาก ~/.mumate-prod (prod soxsccdlsycaevusndro · host=$_H port=$_P) — ไม่แสดงรหัสผ่าน"
     unset _H _P _D _U _W

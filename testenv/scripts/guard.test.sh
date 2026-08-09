@@ -64,6 +64,9 @@ refuse_file 'NEXT_PUBLIC_SUPABASE_URL → prod'   'NEXT_PUBLIC_SUPABASE_URL=http
 # ค่าที่สนามซ้อมใช้จริง ต้องไม่ถูกปฏิเสธ — ไม่งั้น guard ที่แข็งขึ้นจะทำให้ stack บูตไม่ขึ้นเลย
 allow_file  'NEXTAUTH_URL = localhost'          'NEXTAUTH_URL=http://localhost:3000'
 allow_file  'SERVICE_ROLE_KEY = ค่า dummy'      'SUPABASE_SERVICE_ROLE_KEY=dummy-service-role-key'
+# ตู๋ verify #232: กฎเดิมจับแค่ JWT รุ่นเก่า (^eyJ) — คีย์ Supabase รุ่นใหม่ (2025+) ผ่านเขียวทั้งคู่
+refuse_file 'service-role รุ่นใหม่ sb_secret_'  'SUPABASE_SERVICE_ROLE_KEY=sb_secret_AbCdEf123456'
+refuse_file 'anon รุ่นใหม่ sb_publishable_'     'SUPABASE_ANON_KEY=sb_publishable_AbCdEf123456'
 rm -f "$tmpf"
 
 if [ "$fail" -eq 0 ]; then echo "  guard-fail-closed: $pass passed"; else echo "  guard-fail-closed: SOME FAILED"; exit 1; fi
