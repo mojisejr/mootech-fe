@@ -109,3 +109,185 @@ describe('02-intent-check — goal selection', () => {
     expect(checkedTiles()).toHaveLength(1)
   })
 })
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 05-element — the facet block and the copy gate (issue #233 Phase 3)
+//
+// MUTANT CONTRACT (both must be verified by GREPPING the file after patching it — a runner that
+// prints "applied" is not evidence it landed; that misreport cost an hour on #215):
+//
+//   M1  in buildFacets(), replace `if (!cycle) return null` with a default row
+//       → "hides the whole facet block" + "never prints a gender-derived value" go RED.
+//       (verified 2026-08-09 @fbee798: 2 failed / 14 passed. The FIRST draft of the second test only
+//       looked for the words ชาย/หญิง and stayed green under this mutant — an anchor named for a
+//       class it did not guard. It was widened, not dropped.)
+//       This is the `gender ?? 'MALE'` family: user.gender is nullable, element_cycle.gender is a
+//       notNull key, and the real table gives WOOD/YANG/MALE spouse=EARTH vs FEMALE spouse=METAL.
+//       Guessing shows one person's chart to another and nothing else in the app would object.
+//
+//   M2  swap 'work' and 'career' in FACETS back to the order the Figma frame draws
+//       → "maps every column to its own row" goes RED.
+//       The frame and the table disagree; the table is the product.
+//
+// The rendered-DOM rule from the header applies here too: these read textContent and node counts,
+// not the props handed in. A test that asserts on `source.cycle` would pass even if the screen threw
+// the row away.
+import {
+  ElementResultScreen,
+  buildFacets,
+  polarityTitle,
+  type ElementCycleRow,
+  type ElementResultSource,
+} from '@/features/v2-first-run/components/ElementResultScreen'
+import { buildMascotPaths } from '@/lib/personalization/mascot'
+
+// Transcribed from the real element_cycle table (goo's dump, #233). spouse is the column that moves.
+const ROW_MALE: ElementCycleRow = {
+  power: 'YANG',
+  friend: 'WOOD',
+  work: 'FIRE',
+  career: 'METAL',
+  fortune: 'EARTH',
+  spouse: 'EARTH',
+  supporter: 'WATER',
+}
+const ROW_FEMALE: ElementCycleRow = { ...ROW_MALE, spouse: 'METAL' }
+
+function sourceFor(elementTh: string, cycle: ElementCycleRow | null): ElementResultSource {
+  const mascot = buildMascotPaths('ชวด', elementTh)
+  if (!mascot) throw new Error(`fixture is wrong, not the component: no mascot for ${elementTh}`)
+  return { mascot, cycle }
+}
+
+/** Every string the app could render for a gender. Assert against the WHOLE screen, not a prop. */
+const GENDER_WORDS = /ชาย|หญิง|MALE|FEMALE/i
+
+describe('05-element — facets come from the row, never from a guess', () => {
+  it('maps every column to its own row, in the order v1 renders them', () => {
+    expect(buildFacets(ROW_MALE)).toEqual([
+      { label: 'เพื่อน/พี่น้อง/หุ้นส่วน', element: 'WOOD' },
+      { label: 'เรียน/ทำงาน/ลงทุน', element: 'FIRE' },
+      { label: 'หน้าที่การงาน', element: 'METAL' },
+      { label: 'โชคลาภ', element: 'EARTH' },
+      { label: 'คู่ครอง', element: 'EARTH' },
+      { label: 'ผู้สนับสนุน/ส่งเสริม', element: 'WATER' },
+    ])
+  })
+
+  it('returns nothing at all when one column is unreadable — five of six is a silent drop', () => {
+    expect(buildFacets({ ...ROW_MALE, fortune: 'PLASTIC' })).toBeNull()
+    expect(buildFacets({ ...ROW_MALE, spouse: '' })).toBeNull()
+  })
+
+  it('states the polarity only when the row carries one', () => {
+    expect(polarityTitle('ธาตุไม้', 'YIN')).toBe('ธาตุไม้หยิน')
+    expect(polarityTitle('ธาตุไม้', 'YANG')).toBe('ธาตุไม้หยาง')
+    expect(polarityTitle('ธาตุไม้', null)).toBe('ธาตุไม้')
+    expect(polarityTitle('ธาตุไม้', 'STRONG')).toBe('ธาตุไม้')
+  })
+
+  it('hides the whole facet block when there is no row, and says why', () => {
+    render(<ElementResultScreen source={sourceFor('ไม้', null)} />)
+
+    expect(screen.queryByTestId('facet-list')).toBeNull()
+    expect(screen.getByTestId('facet-unavailable').textContent).toMatch(/ข้อมูลโปรไฟล์ของคุณยังไม่ครบ/)
+    // the heading above it is still correct — that is exactly why borrowed values would be believed
+    expect(screen.getByRole('heading', { level: 1 }).textContent).toMatch(/ธาตุของคุณคือ ไม้/)
+  })
+
+  // Named for what it actually guards. The first version of this test only looked for the WORDS
+  // ชาย/หญิง/MALE/FEMALE — and a guessed row does not contain them, it contains element names. It
+  // stayed GREEN under mutant M1 while the bug it was named for was live. What leaks a guessed
+  // gender is the VALUES: คู่ครอง is EARTH for MALE and METAL for FEMALE, so any facet content at
+  // all, when there is no row, is a gender that was invented somewhere upstream.
+  it('never prints a gender-derived value when the row is missing', () => {
+    render(<ElementResultScreen source={sourceFor('ไม้', null)} />)
+    const text = document.body.textContent ?? ''
+
+    for (const label of ['เพื่อน/พี่น้อง/หุ้นส่วน', 'โชคลาภ', 'คู่ครอง', 'ผู้สนับสนุน/ส่งเสริม']) {
+      expect(text).not.toContain(label)
+    }
+    expect(text).not.toMatch(GENDER_WORDS)
+  })
+
+  it('renders the row it was handed — the คู่ครอง facet moves with it', () => {
+    render(<ElementResultScreen source={sourceFor('ไม้', ROW_MALE)} />)
+    const male = screen.getByText('คู่ครอง').closest('div')?.textContent ?? ''
+    cleanup()
+
+    render(<ElementResultScreen source={sourceFor('ไม้', ROW_FEMALE)} />)
+    const female = screen.getByText('คู่ครอง').closest('div')?.textContent ?? ''
+
+    expect(male).toMatch(/ธาตุดิน/)
+    expect(female).toMatch(/ธาตุทอง/)
+    expect(male).not.toBe(female) // the two rows must not collapse into one rendering
+  })
+
+  it('drops the authored-copy blocks for an element nobody has written yet (#237)', () => {
+    render(<ElementResultScreen source={sourceFor('ทอง', ROW_MALE)} />)
+
+    expect(screen.queryByText('ลักษณะเด่นของคุณ')).toBeNull()
+    expect(screen.queryByText('คำแนะนำเบื้องต้น')).toBeNull()
+    // ...while everything that IS real still renders
+    expect(screen.getByRole('heading', { level: 1 }).textContent).toMatch(/ธาตุของคุณคือ ทอง/)
+    expect(screen.getByTestId('facet-list')).toBeTruthy()
+    // and no ธาตุไม้ copy leaked in to fill the hole
+    expect(document.body.textContent ?? '').not.toMatch(/สัญลักษณ์แห่งความเจริญรุ่งเรือง/)
+  })
+
+  // Found by opening the PNG, not by a count: with no row the block's heading collapsed to
+  // "ธาตุทอง" sitting right under the h1 "ธาตุของคุณคือ ทอง". Every harness number was green.
+  it('names the block instead of echoing the h1 when there is no row', () => {
+    render(<ElementResultScreen source={sourceFor('ทอง', null)} />)
+    const h2s = screen.getAllByRole('heading', { level: 2 }).map((h) => h.textContent ?? '')
+
+    expect(h2s).toContain('ธาตุที่ส่งผลในแต่ละด้าน')
+    expect(h2s).not.toContain('ธาตุทอง')
+  })
+
+  it('still states the polarity when the row carries one', () => {
+    render(<ElementResultScreen source={sourceFor('ไม้', ROW_MALE)} />)
+    expect(screen.getAllByRole('heading', { level: 2 }).map((h) => h.textContent)).toContain(
+      'ธาตุไม้หยาง',
+    )
+  })
+
+  // The API reading is per-person (60 ดิถี); the local constant is per-element and on its way out
+  // (#237). If precedence ever inverted, a user whose call SUCCEEDED would still read the generic
+  // paragraph — and every count on this screen would stay green while it happened.
+  it('prefers the service reading over the local copy', () => {
+    render(
+      <ElementResultScreen
+        source={{
+          ...sourceFor('ไม้', ROW_MALE),
+          summary: {
+            tagline: 'คำเปิดเฉพาะบุคคลจาก bazi',
+            traits: ['ลักษณะเฉพาะบุคคล ก'],
+            advice: [{ key: 'a', label: 'ล', text: 'คำแนะนำเฉพาะบุคคล ก' }],
+          },
+        }}
+      />,
+    )
+    const text = document.body.textContent ?? ''
+
+    expect(text).toContain('คำเปิดเฉพาะบุคคลจาก bazi')
+    expect(text).toContain('ลักษณะเฉพาะบุคคล ก')
+    expect(text).toContain('คำแนะนำเฉพาะบุคคล ก')
+    // and the ธาตุไม้ paragraph must be gone, not merely pushed further down the page
+    expect(text).not.toMatch(/สัญลักษณ์แห่งความเจริญรุ่งเรือง/)
+  })
+
+  it('keeps art and facets when the reading is missing — a dead API is not a dead screen', () => {
+    render(<ElementResultScreen source={{ ...sourceFor('ไม้', ROW_MALE), summary: null }} />)
+
+    expect(screen.getByTestId('facet-list').children).toHaveLength(6)
+    expect(document.querySelector('img')).toBeTruthy()
+    expect(screen.getByRole('heading', { level: 1 }).textContent).toMatch(/ธาตุของคุณคือ ไม้/)
+  })
+
+  it('shows the card art for (นักษัตร, ธาตุ), not for the element alone', () => {
+    render(<ElementResultScreen source={sourceFor('ไฟ', ROW_MALE)} />)
+    const src = (document.querySelector('img') as HTMLImageElement | null)?.getAttribute('src') ?? ''
+    expect(decodeURIComponent(src)).toMatch(/01_ชวด-ไฟ\.jpg/)
+  })
+})

@@ -9,6 +9,10 @@
 //                               (default: health — the state Figma 300:1548 draws)
 //   ?consent=1                  pdpa starts ticked → button ACTIVE (Figma 300:2137)
 //                               omitted → unticked → button DISABLED (Figma 300:1582)
+//   ?element=wood|metal|fire|earth|water   which element the result screen shows (default: wood)
+//   ?gender=male|female         swaps the cycle row (WOOD only — see below). Proves the row, and
+//                               therefore the คู่ครอง facet, is different per gender.
+//   ?cycle=none                 force cycle=null → the "profile incomplete" state, no facet block
 //
 // The two PDPA frames are one screen in two states, so they are one URL knob, not two routes —
 // which is what lets a design-verify pass shoot both from the same build with no source patch.
@@ -16,9 +20,65 @@ import { useState } from 'react'
 import type { GetServerSideProps } from 'next'
 import { useRouter } from 'next/router'
 import { v2RedirectIfUnauthed } from '@/lib/v2/gate'
-import { ElementResultScreen } from '@/features/v2-first-run/components/ElementResultScreen'
+import {
+  ElementResultScreen,
+  type ElementCycleRow,
+  type ElementResultSource,
+} from '@/features/v2-first-run/components/ElementResultScreen'
 import { IntentCheckScreen, type GoalId } from '@/features/v2-first-run/components/IntentCheckScreen'
 import { PdpaConsentScreen } from '@/features/v2-first-run/components/PdpaConsentScreen'
+import { buildMascotPaths } from '@/lib/personalization/mascot'
+
+// The two rows below are TRANSCRIBED VERBATIM from the real `element_cycle` table (goo's dump on
+// #233, read off สนาม :5433 which restores the prod DB). They are the only rows we have on hand.
+//
+// 🔴 They also disagree with the Figma frame this screen was built from: the frame draws
+//    work=METAL / career=FIRE, the table says work=FIRE / career=METAL. The table wins — reported
+//    on #233. Do not "fix" these back to match the picture.
+//
+// The other four elements have real rows in the table too, they were just not in the dump; until
+// they are, this preview shows them with cycle=null, which is the honest thing to draw rather than a
+// derived table that would look authoritative. What IS proven for all five here: heading, card art,
+// element glyph/colour, and whether the authored-copy blocks appear (#237).
+const WOOD_YANG: Record<'male' | 'female', ElementCycleRow> = {
+  male: {
+    power: 'YANG',
+    friend: 'WOOD',
+    work: 'FIRE',
+    career: 'METAL',
+    fortune: 'EARTH',
+    spouse: 'EARTH',
+    supporter: 'WATER',
+  },
+  female: {
+    power: 'YANG',
+    friend: 'WOOD',
+    work: 'FIRE',
+    career: 'METAL',
+    fortune: 'EARTH',
+    spouse: 'METAL', // ← the one column gender changes. This is why a null gender may not be guessed.
+    supporter: 'WATER',
+  },
+}
+
+const ELEMENT_TH: Record<string, string> = {
+  wood: 'ไม้',
+  metal: 'ทอง',
+  fire: 'ไฟ',
+  earth: 'ดิน',
+  water: 'น้ำ',
+}
+
+// Paths are BUILT, never typed: buildMascotPaths owns the (นักษัตร, ธาตุ) filename convention, so a
+// preview that hand-wrote them could drift from the 60 real files without anything failing.
+function previewSource(elementParam: string, gender: string, noCycle: boolean): ElementResultSource | null {
+  const th = ELEMENT_TH[elementParam] ?? ELEMENT_TH.wood
+  const mascot = buildMascotPaths('ชวด', th)
+  if (!mascot) return null
+  const cycle =
+    noCycle || elementParam !== 'wood' ? null : WOOD_YANG[gender === 'female' ? 'female' : 'male']
+  return { mascot, cycle }
+}
 
 export const getServerSideProps: GetServerSideProps = async (ctx) => {
   const redirect = v2RedirectIfUnauthed(ctx.req)
@@ -46,8 +106,17 @@ export default function V2FirstRunPreview() {
   }
 
   if (step === 'element') {
+    const source = previewSource(
+      ((q.element as string) || 'wood').toLowerCase(),
+      ((q.gender as string) || 'male').toLowerCase(),
+      q.cycle === 'none',
+    )
+    // buildMascotPaths returns null on an unknown นักษัตร/ธาตุ. Say so instead of rendering a screen
+    // with a broken image — a preview that fails quietly is worse than no preview.
+    if (!source) return <p style={{ padding: 24 }}>unknown element: {String(q.element)}</p>
     return (
       <ElementResultScreen
+        source={source}
         onBack={() => undefined}
         onReadFull={() => window.alert('readFull()')}
         onGoHome={() => window.alert('goHome()')}

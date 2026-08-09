@@ -51,6 +51,10 @@ type Shot = {
   /** undefined = screen has no gated button */
   gateDisabled?: boolean
   tiles?: number
+  /** Restrict this shot to a subset of the run's widths. Used by the #233 element sweep — see below. */
+  widths?: number[]
+  /** Expect the six-facet block to be present (true) / absent (false). undefined = do not check. */
+  facets?: boolean
 }
 
 const SHOTS: Shot[] = [
@@ -58,7 +62,25 @@ const SHOTS: Shot[] = [
   { id: '02-intent-empty', query: '?step=intent&goal=none', dot: 0, tiles: 6 },
   { id: '04-pdpa-unticked', query: '?step=pdpa', dot: 1, gateDisabled: true },
   { id: '04-pdpa-ticked', query: '?step=pdpa&consent=1', dot: 1, gateDisabled: false },
-  { id: '05-element', query: '?step=element', dot: 2 },
+  { id: '05-element', query: '?step=element', dot: 2, facets: true },
+
+  // #233 element sweep. Until this existed, ธาตุไม้ was the ONLY element anyone had ever seen
+  // rendered — four of five screens had never been looked at, by anyone, at any width. Being
+  // unlooked-at is not the same as being fine, and nothing in the suite would have said so.
+  //
+  // 393 ONLY, on purpose, and stated rather than quietly capped: what changes between elements is
+  // the glyph, its colour, the card artwork and whether the authored-copy blocks appear (#237) —
+  // none of which is width-dependent. The width-dependent behaviour of this screen is already
+  // measured four ways by `05-element` above. If an element ever gets its own layout, it needs its
+  // own full-width row here.
+  { id: '05-el-wood-male', query: '?step=element&element=wood&gender=male', dot: 2, widths: [393], facets: true },
+  { id: '05-el-wood-female', query: '?step=element&element=wood&gender=female', dot: 2, widths: [393], facets: true },
+  { id: '05-el-metal', query: '?step=element&element=metal', dot: 2, widths: [393], facets: false },
+  { id: '05-el-fire', query: '?step=element&element=fire', dot: 2, widths: [393], facets: false },
+  { id: '05-el-earth', query: '?step=element&element=earth', dot: 2, widths: [393], facets: false },
+  { id: '05-el-water', query: '?step=element&element=water', dot: 2, widths: [393], facets: false },
+  // the state a real user with no gender lands on — the one the whole seam argument was about
+  { id: '05-el-no-cycle', query: '?step=element&element=wood&cycle=none', dot: 2, widths: [393], facets: false },
 ]
 
 type Row = {
@@ -70,6 +92,8 @@ type Row = {
   dots: number
   activeDot: number
   gateDisabled: boolean | null
+  facetRows: number
+  facetNote: boolean
   tiles: number
   minTap: number
   consoleErrors: number
@@ -123,7 +147,15 @@ async function measure(page: Page) {
     const buttons = Array.from(document.querySelectorAll('button'))
     const last = buttons[buttons.length - 1]
     const lastBottom = last ? last.getBoundingClientRect().bottom + window.scrollY : 0
+
+    // The six-facet block, counted from the DOM. Counting ROWS (not "is the <dl> there") is what
+    // makes a half-drawn table fail: a five-row render is the silent-drop this screen refuses to do.
+    const facetList = document.querySelector('[data-testid="facet-list"]')
+    const facetRows = facetList ? facetList.children.length : 0
+    const facetNote = document.querySelector('[data-testid="facet-unavailable"]') !== null
     return {
+      facetRows,
+      facetNote,
       docH: doc.scrollHeight,
       hScroll: doc.scrollWidth > doc.clientWidth + 1,
       bottomReachable: last ? lastBottom <= doc.scrollHeight + 1 : false,
@@ -152,9 +184,18 @@ async function main() {
   const browser = await chromium.launch()
   const rows: Row[] = []
   const failures: string[] = []
+  const skipped: string[] = []
 
   for (const shot of SHOTS) {
-    for (const w of widths) {
+    // A shot may pin itself to a subset (the #233 element sweep runs at 393 only). Intersecting
+    // rather than overriding keeps `--widths 320` honest: it must not resurrect a width the shot
+    // opted out of, and it must not silently run zero shots either — that is reported below.
+    const shotWidths = shot.widths ? widths.filter((w) => shot.widths!.includes(w)) : widths
+    if (shotWidths.length === 0) {
+      skipped.push(`${shot.id} (pinned to ${shot.widths!.join('/')}, none in this run)`)
+      continue
+    }
+    for (const w of shotWidths) {
       const ctx = await browser.newContext({ viewport: { width: w, height: 852 }, deviceScaleFactor: 2 })
       if (V2_KEY) {
         const u = new URL(HOST)
@@ -188,6 +229,15 @@ async function main() {
         })
       }
 
+      if (control === 'facets') {
+        // NEGATIVE CONTROL for the facet check: rip one row out of the table. If facetRows still
+        // reads 6, the check is counting something other than the rows on screen.
+        await page.evaluate(() => {
+          const l = document.querySelector('[data-testid="facet-list"]')
+          if (l && l.firstElementChild) l.removeChild(l.firstElementChild)
+        })
+      }
+
       const m = await measure(page)
       rows.push({ shot: shot.id, w, consoleErrors, ...m })
 
@@ -201,6 +251,16 @@ async function main() {
       if (shot.tiles !== undefined && m.tiles !== shot.tiles)
         failures.push(`${where}: ${m.tiles} goal tiles, expected ${shot.tiles}`)
       if (m.tiles > 0 && m.minTap < 44) failures.push(`${where}: smallest tile ${m.minTap}px < 44`)
+      if (shot.facets === true) {
+        if (m.facetRows !== 6) failures.push(`${where}: ${m.facetRows} facet rows, expected 6`)
+        if (m.facetNote) failures.push(`${where}: facet rows AND the "no data" note are both showing`)
+      }
+      if (shot.facets === false) {
+        // absence has to be asserted as absence AND as a stated reason — a blank space where a
+        // block used to be is indistinguishable from a block that failed to render
+        if (m.facetRows !== 0) failures.push(`${where}: ${m.facetRows} facet rows, expected none`)
+        if (!m.facetNote) failures.push(`${where}: no facet rows and no reason shown either`)
+      }
       if (consoleErrors > 0) failures.push(`${where}: ${consoleErrors} console error(s)`)
 
       await page.screenshot({ path: path.join(outDir, `${shot.id}-${w}.png`), fullPage: true })
@@ -209,7 +269,14 @@ async function main() {
   }
   await browser.close()
 
-  const conditions = { host: HOST, path: BASE, sha, control: control || 'none', widths }
+  if (skipped.length) {
+    // Say what was NOT measured. A gate that quietly runs fewer shots than it lists reads as
+    // "all green" when it is really "green over whatever happened to run".
+    console.log(`\n  skipped ${skipped.length} shot(s) — not measured, not passed:`)
+    for (const s of skipped) console.log(`    · ${s}`)
+  }
+
+  const conditions = { host: HOST, path: BASE, sha, control: control || 'none', widths, skipped }
   fs.writeFileSync(
     path.join(outDir, 'result.json'),
     JSON.stringify({ conditions, rows, failures }, null, 2),
