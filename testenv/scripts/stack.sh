@@ -68,6 +68,42 @@ EOF
 # neither shadowed nor guard-scanned. Next loads .env / .env.local / .env.<mode>[.local] only.
 is_committed_template() { case "$1" in *.example|*.sample|*.template|*.dist) return 0 ;; *) return 1 ;; esac; }
 
+# inject_oauth (#231 Phase 3) — เติมคีย์ OAuth จริงลง .env ที่เพิ่งวาง เพื่อให้ "สมัครใหม่ด้วยปุ่ม LINE/Google"
+# เดินได้เส้นจริงบน local (/v2/login มีแค่ปุ่ม OAuth — ไม่มี email/password ให้กรอก)
+#
+# 🔴 ทำไมต้อง inject ตอน runtime แทนที่จะใส่ใน env/fe.env
+#    env/fe.env เป็นไฟล์ที่ COMMIT เข้า git ⇒ คีย์จริงลงไปที่นั่น = ความลับหลุดถาวร
+#    ปลายทาง (<repo>/.env) ถูก .gitignore ⇒ คีย์อยู่แค่บนดิสก์เครื่องนี้ ไม่มีทางถูก commit
+#
+# ⛔ ALLOWLIST เท่านั้น — ดึงแค่คีย์ผู้ให้บริการ OAuth · ห้ามลาก DATABASE_URL / SUPABASE_* / NEXTAUTH_URL
+#    ติดมาเด็ดขาด ไม่งั้นแอปจะเด้งกลับไปชี้ prod
+#
+# 🔴 เคยเขียนตรงนี้ว่า "guard ที่รันทีหลังจะจับได้" — **ไม่จริงตอนที่เขียน** (ตู๋ยิงมิวแทนต์เจอตอนรีวิว #232):
+#    guard เฝ้าแค่ DATABASE_URL/DB_HOST/BACKEND_URL ⇒ SUPABASE_*/NEXTAUTH_URL ที่ชี้ prod **ผ่านเขียว**
+#    ⇒ allowlist บรรทัดล่างนี้เคยเป็นด่านเดียวจริง ๆ โดยที่คอมเมนต์บอกว่ามีสองด่าน
+#    แก้ที่รากแล้ว: guard.sh รับ 3 คีย์นั้นเข้า DB_KEYS/SECRETLIKE_KEYS · เคสเฝ้าอยู่ใน guard.test.sh
+#    ⇒ วันนี้เป็นสองด่านจริง และมีเทสต์เฝ้าทั้งคู่:
+#       scripts/inject-oauth.test.sh  เฝ้า allowlist + call site + ลำดับ (inject ต้องมาก่อน guard)
+#       scripts/guard.test.sh         เฝ้าว่า guard ยังจับ 3 คีย์นั้นได้
+#    บทเรียนที่เสียไปกับเรื่องนี้: **อย่าเขียนคอมเมนต์ว่ามีด่านสำรอง จนกว่าจะยิงมิวแทนต์ใส่ด่านนั้นเอง**
+# ไม่มี blob = ไม่ล้ม แค่บอกว่าปุ่ม OAuth จะกดไม่ได้ แล้วให้ใช้ /dev-login แทน (ทางเลือกสำรองใน #229)
+OAUTH_BLOB="$HOME/.mumate-prod/fe.env.local"
+OAUTH_KEYS='LINE_CLIENT_ID LINE_CLIENT_SECRET GOOGLE_CLIENT_ID GOOGLE_CLIENT_SECRET'
+inject_oauth() { # $1=dest .env ที่เพิ่งวาง
+  local dest="$1" k line n=0
+  if [ ! -f "$OAUTH_BLOB" ]; then
+    echo "   ⚠ ไม่มี $OAUTH_BLOB → ปุ่ม LINE/Google บน /v2/login จะกดไม่ได้ (ใช้ /dev-login แทน)"
+    return 0
+  fi
+  printf '\n# --- OAuth (เติมโดย stack.sh จาก ~/.mumate-prod · ไม่เคยอยู่ในไฟล์ที่ commit) ---\n' >> "$dest"
+  for k in $OAUTH_KEYS; do
+    line=$(grep -E "^$k=" "$OAUTH_BLOB" | head -1 || true)
+    [ -n "$line" ] || continue
+    printf '%s\n' "$line" >> "$dest"; n=$((n+1))
+  done
+  echo "   🔑 เติมคีย์ OAuth $n ตัวลง .env (ไม่แสดงค่า · ไฟล์นี้ถูก gitignore)"
+}
+
 shadow_others() { # $1=dir $2=repo $3=placed_dotfile — #177: move aside every .env* Next loads EXCEPT the
                   # PLACED dotfile (Next loads .env.local/.env.development.local FIRST). Result: only the
                   # placed env is active. Excludes the placed file so restore's dotfile↔backup pairing holds.
@@ -235,17 +271,47 @@ do_status() {  # READ-ONLY: reports where each app points, docker, outbound pipe
   # 2) docker DB
   local dst; dst=$(docker inspect -f '{{.State.Health.Status}}' mumate_testenv_pg 2>/dev/null || true)
   echo "  • docker DB (mumate_testenv_pg): ${dst:-ไม่ได้รันอยู่}"
+  # line-stub (#231) — ไม่ได้รัน = สมัครด้วย LINE จะเด้งกลับ onboarding แบบไม่มีอะไรบอกสาเหตุ ⇒ ต้องเห็นตรงนี้
+  if lsof -ti tcp:"${LINE_STUB_PORT:-3200}" -sTCP:LISTEN >/dev/null 2>&1; then
+    echo "  • line-stub (:${LINE_STUB_PORT:-3200}): 🟢 รันอยู่"
+  else
+    echo "  • line-stub (:${LINE_STUB_PORT:-3200}): 🔴 ไม่ได้รัน — สมัครด้วย LINE จะเด้งกลับ (แก้: stack.sh up)"
+  fi
+  # อายุของ dump — ของเก่าไม่ได้พังทันที แต่ยิ่งเก่ายิ่งห่างจาก schema/ข้อมูล prod วันนี้
+  # ⇒ บอกอายุเป็นตัวเลข ไม่ตัดสินแทนคน (ไม่มีเส้น "หมดอายุ" ที่ถูกต้องสำหรับทุกงาน)
+  if [ -f "$HERE/dumps/full.sql" ]; then
+    local days; days=$(( ( $(date +%s) - $(stat -f %m "$HERE/dumps/full.sql" 2>/dev/null || echo 0) ) / 86400 ))
+    echo "  • dump ที่ใช้อยู่: full.sql อายุ $days วัน $( [ "$days" -ge 14 ] && echo '(เก่าแล้ว — พิจารณา dump.sh --with-data ใหม่)' || echo '' )"
+  else
+    echo "  • dump ที่ใช้อยู่: ❌ ไม่มี — stack.sh up จะหยุดที่ขั้น restore"
+  fi
   # 3) outbound pipe (SMS/LINE lives in the BE env) — read the active be env, verdict only
   local beenv="$GH/mootech-be/.env" pipe
   if [ -f "$beenv" ]; then
-    if grep -qiE '^(LINE_HOST|SMS_8X8_HOST)=.*\.invalid' "$beenv" 2>/dev/null; then pipe="🟢 ตัน (.invalid — ยิงออกไม่ได้)"
-    elif grep -qiE '^(LINE_HOST|SMS_8X8_HOST)=.*(api\.line\.me|8x8\.com)' "$beenv" 2>/dev/null; then pipe="🔴 เปิด (provider จริง — ยิงออกได้)"
-    else pipe="⚪ ไม่แน่ใจ"; fi
+    # ตรวจ LINE กับ SMS แยกกัน (#231): เดิมรวมเป็น grep เดียว ⇒ ถ้าตัวหนึ่งตันอีกตัวเปิด จะรายงานว่า
+    # "ตัน" ทั้งคู่เพราะ pattern แรก match ได้จากตัวที่ตัน — ครึ่งเดียวที่เปิดอยู่หายไปจากสายตา
+    local lh sh
+    lh=$(grep -iE '^LINE_HOST=' "$beenv" 2>/dev/null | head -1)
+    sh=$(grep -iE '^SMS_8X8_HOST=' "$beenv" 2>/dev/null | head -1)
+    verdict_host() { # $1=บรรทัด env → คำตัดสินของท่อนั้น
+      case "$1" in
+        *.invalid*)                      echo "🟢 ตัน" ;;
+        *localhost*|*127.0.0.1*)         echo "🟢 stub ในเครื่อง" ;;   # #231: line-stub ปฏิเสธ /message/* เสมอ
+        *api.line.me*|*8x8.com*)         echo "🔴 provider จริง" ;;
+        '')                              echo "(ไม่ตั้ง)" ;;
+        *)                               echo "⚪ ไม่รู้จัก" ;;
+      esac
+    }
+    pipe="LINE=$(verdict_host "$lh") · SMS=$(verdict_host "$sh")"
   else pipe="(ไม่มี be/.env)"; fi
   echo "  • ท่อขาออก BE (SMS/LINE): $pipe"
   # 4) leftover residue (shadow files + markers) across the 3 repos
   local shadows markers
-  shadows=$(ls "$GH"/mootech-fe/*"$SHADOW_SUFFIX" "$GH"/mootech-be/*"$SHADOW_SUFFIX" "$GH"/bazi-sft-dataset/*"$SHADOW_SUFFIX" 2>/dev/null | wc -l | tr -d ' ')
+  # `ls A B C | wc -l` ตายใต้ set -euo pipefail เมื่อ "ไม่มีไฟล์เลย" (ls คืน non-zero → pipefail → set -e)
+  # ⇒ บรรทัด "เศษค้าง" ข้างล่างเคยพิมพ์ไม่ออก *เฉพาะตอนสะอาด* และ status ออก exit 1 ทั้งที่ทุกอย่างปกติ
+  # (พบตอน #231 Phase 1 · repro: `set -euo pipefail; s=$(ls /nope/* 2>/dev/null | wc -l)` → exit 1)
+  # `|| true` วางที่ท้าย command substitution จึงกลืนเฉพาะสถานะ ไม่กลืนตัวเลขที่นับได้
+  shadows=$(ls "$GH"/mootech-fe/*"$SHADOW_SUFFIX" "$GH"/mootech-be/*"$SHADOW_SUFFIX" "$GH"/bazi-sft-dataset/*"$SHADOW_SUFFIX" 2>/dev/null | wc -l | tr -d ' ' || true)
   markers=0; for r in mootech-fe mootech-be bazi-sft-dataset; do [ -f "$GH/$r/$BREADCRUMB" ] && markers=$((markers+1)); done
   echo "  • เศษค้าง: shadow=$shadows · marker=$markers $( [ "$shadows" = 0 ] && [ "$markers" = 0 ] && echo '(สะอาด)' || echo '(มี test-mode residue — restore เพื่อเก็บกวาด)')"
 }
@@ -299,10 +365,17 @@ done
 
 echo "── 3. restore dump (if present) ──"
 RESTORED=""
+# 🛡️ fail-CLOSED (พบตอน #231 Phase 1): เดิมเขียน `restore.sh … && RESTORED=full` ซึ่งวาง restore ไว้ใน
+# เงื่อนไข ⇒ set -e ไม่สะดุด ⇒ restore ล้ม แต่ stack เดินต่อไป swap env แล้วพิมพ์ "พร้อมบูต" ตามปกติ
+# ผลจริงที่เกิด: volume เก่าค้างจาก 2026-07-26 → ทุก CREATE ชน "already exists" → restore abort →
+# anonymize ถูกข้าม → คนบูตแอปขึ้นมาเจอข้อมูลเก่า 2 สัปดาห์ โดยไม่มีสัญญาณใดบอก
+# ⇒ restore ล้ม = หยุดทันที ห้ามแตะ env ของ repo ใดๆ (env ยังไม่ถูก swap ณ จุดนี้ = ไม่มีอะไรต้องม้วนกลับ)
 if [ -f "$HERE/dumps/full.sql" ]; then
-  bash "$HERE/scripts/restore.sh" "$HERE/dumps/full.sql" && RESTORED=full
+  bash "$HERE/scripts/restore.sh" "$HERE/dumps/full.sql" || exit 1
+  RESTORED=full
 elif [ -f "$HERE/dumps/schema.sql" ]; then
-  bash "$HERE/scripts/restore.sh" "$HERE/dumps/schema.sql" && RESTORED=schema
+  bash "$HERE/scripts/restore.sh" "$HERE/dumps/schema.sql" || exit 1
+  RESTORED=schema
 else
   echo "   ⚠ no dump yet — run dump.sh (ฟีม, holds prod cred) then re-run stack.sh"
 fi
@@ -327,6 +400,9 @@ while IFS='|' read -r repo tmplrel dotfile fw; do
     cp "$dest" "$bak"; echo "   💾 backed up $repo/$dotfile → testenv/.backups/$(basename "$bak")"
   fi
   cp "$tmpl" "$dest"
+  # #231 Phase 3: เฉพาะ fe — เติมคีย์ OAuth จริงจาก ~/.mumate-prod (allowlist) ให้ปุ่ม LINE/Google ใช้ได้
+  # วางไว้ก่อน guard ด้านล่างโดยตั้งใจ: guard จะได้สแกนไฟล์ "หลังเติม" ⇒ ถ้าเผลอลาก DB คีย์ติดมา guard จับได้
+  [ "$repo" = "mootech-fe" ] && inject_oauth "$dest"
   # #177 follow-up: write the LOCAL exclude patterns (marker + *$SHADOW_SUFFIX) BEFORE shadowing anything, so a
   # prod-secret file renamed to *$SHADOW_SUFFIX is born already-git-ignored. Otherwise there is a window
   # between the rename and the exclude-write where a prod service-role key sits on disk under a
@@ -352,9 +428,30 @@ done <<< "$APPS"
 
 STACK_DONE=1   # success — KEEP the swap so the apps can boot; the rollback trap now no-ops
 
+# ── 5. line-stub — ตัวแทน LINE ที่ BE ต้องใช้ตอนสมัคร (#231) ──
+# ทำไม stack.sh ต้องบูตให้เอง ไม่ปล่อยเป็นคำสั่งให้คนไปรันเอง:
+#   be.env ชี้ LINE_HOST=http://localhost:3200 ⇒ ถ้าไม่มีใครรัน stub การสมัครจะพังแบบ *เงียบและงง* —
+#   ผู้ใช้เห็นแค่ "เข้า home แป๊บนึงแล้วเด้งกลับ onboarding" ไม่มีอะไรบอกว่าเพราะ stub ไม่ได้รัน
+#   (ฟีมเจออาการนี้จริงตอน LINE_HOST=.invalid — เสียเวลาไล่ 3 ชั้น log กว่าจะเจอ)
+# ⇒ ผูกอายุ stub ไว้กับ stack: `up` บูตให้ · ตัวเดิมที่ค้างอยู่ถูก kill ก่อน (idempotent) · `status` รายงาน
+STUB_PORT="${LINE_STUB_PORT:-3200}"
+STUB_LOG="$HERE/.line-stub.log"
+if lsof -ti tcp:"$STUB_PORT" -sTCP:LISTEN >/dev/null 2>&1; then
+  kill $(lsof -ti tcp:"$STUB_PORT" -sTCP:LISTEN) 2>/dev/null || true
+  sleep 1
+fi
+nohup node "$HERE/scripts/line-stub.mjs" > "$STUB_LOG" 2>&1 &
+sleep 1
+if lsof -ti tcp:"$STUB_PORT" -sTCP:LISTEN >/dev/null 2>&1; then
+  echo "── 5. line-stub ── ✅ ฟังอยู่ที่ :$STUB_PORT (log: testenv/.line-stub.log)"
+else
+  echo "── 5. line-stub ── 🛑 บูตไม่ขึ้นที่ :$STUB_PORT — การสมัครด้วย LINE จะเด้งกลับ onboarding"
+  echo "     ดู $STUB_LOG · รันเองด้วย: node testenv/scripts/line-stub.mjs"
+fi
+
 cat <<EOF
 
-── 5. boot the 3 apps (each in its own terminal) ──
+── 6. boot the 3 apps (each in its own terminal) ──
   FE    : (cd $GH/mootech-fe && npm run dev)                 # :3000
   BE    : (cd $GH/mootech-be && PORT=4000 npm run start:dev) # :4000
   # bazi runs from a pdf-dev WORKTREE, NOT the main clone (goo 2026-08-05):

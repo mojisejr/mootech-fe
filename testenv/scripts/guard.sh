@@ -15,7 +15,15 @@ PROD_PATTERNS='supabase\.com|supabase\.co|neon\.tech|render\.com|\.rds\.amazonaw
 PROVIDER_PATTERNS='api\.line\.me|8x8\.com|omise\.co|api\.sendgrid\.com|sendgrid\.net'
 # Keys that must never point at prod. #177: NEXT_PUBLIC_BACKEND_URL too — the .env.local hole pointed the
 # FE at the PROD backend (onrender.com), which reaches the prod DB; scanning only DB_HOST/DATABASE_URL missed it.
-DB_KEYS='DATABASE_URL|APP_DATABASE_URL|DB_HOST|PROD_DATABASE_URL|NEXT_PUBLIC_BACKEND_URL'
+# #231/ตู๋: เดิมรายการนี้ไม่มี SUPABASE_*/NEXTAUTH_URL ⇒ ยัดค่า prod ลงคีย์พวกนั้น guard **ผ่านเขียว**
+# (ตู๋ยิงมิวแทนต์เจอ · บองยืนยันซ้ำเอง: 3 ใน 5 คีย์ที่คอมเมนต์ stack.sh เอ่ยชื่อเอง หลุดหมด)
+#   SUPABASE_PROJECT_URL     = ทางเข้า REST/Storage ของโปรเจกต์ → ชี้ prod = แตะข้อมูลจริงได้โดยไม่ผ่าน DATABASE_URL
+#   SUPABASE_SERVICE_ROLE_KEY = คีย์ข้าม RLS ทั้งฐาน — อันตรายที่สุดในไฟล์ และไม่มี host ให้ตรวจ (ดู SECRETLIKE)
+#   NEXTAUTH_URL              = ปลายทาง OAuth callback → ชี้ domain จริง = ดึง session ของผู้ใช้จริงเข้าเครื่องนี้
+DB_KEYS='DATABASE_URL|APP_DATABASE_URL|DB_HOST|PROD_DATABASE_URL|NEXT_PUBLIC_BACKEND_URL|SUPABASE_PROJECT_URL|SUPABASE_URL|NEXT_PUBLIC_SUPABASE_URL|NEXTAUTH_URL'
+# คีย์ที่ "ค่าเองคืออำนาจ" — ไม่มี host ให้ตรวจ จึงตรวจที่รูปร่างแทน: service-role/anon ของ Supabase เป็น JWT
+# ขึ้นต้น `eyJ` เสมอ · ค่า dummy ในสนามซ้อมไม่ใช่ JWT ⇒ กฎนี้แยกของจริงออกจากของปลอมได้โดยไม่ต้องรู้ค่า
+SECRETLIKE_KEYS='SUPABASE_SERVICE_ROLE_KEY|SUPABASE_ANON_KEY|SUPABASE_REAL_PRODUCTION_SERVICE_ROLE_KEY'
 
 fail=0
 check_value() {  # $1 = key, $2 = value
@@ -36,11 +44,25 @@ check_value() {  # $1 = key, $2 = value
     host=$(printf '%s' "$v" | sed -E 's#^[a-zA-Z]+://##; s#\?.*$##; s#^.*@##; s#[:/].*$##')
     case "$host" in
       localhost|127.0.0.1|host.docker.internal|postgres) : ;;  # local — ok
+      # *.invalid = RFC-2606 ที่ resolve ไม่ได้ทั้งอินเทอร์เน็ต — สนามซ้อมใช้เป็น "ท่อตัน" มาตรฐานอยู่แล้ว
+      # (env/be.env: SUPABASE_PROJECT_URL=https://dummy.supabase.invalid) ⇒ ปลอดภัยพอ ๆ กับ local
+      # ต้องอยู่ตรงนี้ ไม่งั้นการเพิ่ม SUPABASE_PROJECT_URL เข้า DB_KEYS จะทำให้สนามซ้อมบูตไม่ขึ้นทันที
+      *.invalid) : ;;
       *) echo "🛑 REFUSE: $k → host is not local (fail-closed)"; fail=1 ;;
     esac
   fi
   if [ "$k" = "DB_HOST" ] && ! printf '%s' "$v" | grep -qiE '^(localhost|127\.0\.0\.1|postgres)$'; then
     echo "🛑 REFUSE: DB_HOST → not local"; fail=1
+  fi
+  # #231/ตู๋: คีย์ที่ไม่มี host ให้ตรวจ — ตรวจที่รูปร่างของค่าแทน
+  # JWT จริงของ Supabase ขึ้นต้น `eyJ` (base64 ของ '{"') · ค่า dummy ในสนามซ้อมไม่ใช่
+  # ⇒ กฎนี้ปฏิเสธ "ของจริง" ได้โดยไม่ต้องรู้ว่าค่าที่ถูกต้องคืออะไร และไม่พิมพ์ค่าออกมา
+  # รูปแบบคีย์จริงของ Supabase ที่ต้องปฏิเสธ — ครอบทั้งของเก่าและของใหม่ (ตู๋ verify #232: ^eyJ เฝ้าแค่ของเก่า)
+  #   eyJ…              JWT รุ่นเดิม (base64 ของ '{"')
+  #   sb_secret_…       service-role รุ่นใหม่ (2025+) — อำนาจเท่า service-role เดิม
+  #   sb_publishable_…  anon รุ่นใหม่ — อำนาจน้อยกว่า แต่ยังผูกกับโปรเจกต์จริง ⇒ ไม่ควรอยู่ในสนามซ้อม
+  if printf '%s' "$k" | grep -qE "^($SECRETLIKE_KEYS)$" && printf '%s' "$v" | grep -qE '^(eyJ|sb_secret_|sb_publishable_)'; then
+    echo "🛑 REFUSE: $k → ดูเหมือนคีย์ Supabase ของจริง — สนามซ้อมต้องใช้ค่า dummy เท่านั้น"; fail=1
   fi
 }
 
@@ -49,10 +71,13 @@ if [ "${1:-}" = "--check-string" ]; then
 else
   for target in "$@"; do
     [ -f "$target" ] || { echo "  (skip missing $target)"; continue; }
+    # กรองด้วยรายการรวม — ถ้าใช้แค่ DB_KEYS กฎ SECRETLIKE ใน check_value จะกลายเป็นโค้ดตายทันที
+    # (เขียนกฎไว้แต่ไม่มีบรรทัดไหนเดินไปถึง = ตระกูลเดียวกับ "anchor ที่ไม่มีอะไรเรียก" ใน #217)
+    SCAN_KEYS="$DB_KEYS|$SECRETLIKE_KEYS"
     while IFS='=' read -r k v; do
-      printf '%s' "$k" | grep -qE "^($DB_KEYS)$" || continue
+      printf '%s' "$k" | grep -qE "^($SCAN_KEYS)$" || continue
       check_value "$k" "$(printf '%s' "$v" | tr -d '"'"'"' ')"
-    done < <(grep -E "^($DB_KEYS)=" "$target" || true)
+    done < <(grep -E "^($SCAN_KEYS)=" "$target" || true)
     # #184: fail-closed tripwire — refuse if any REAL provider host appears (scan values only: drop comment
     # lines + inline "# ..." so prose mentioning a provider name can't false-refuse).
     provider_hits=$(grep -vE '^[[:space:]]*#' "$target" | sed -E 's/[[:space:]]+#.*$//' | grep -ioE "$PROVIDER_PATTERNS" | sort -u || true)

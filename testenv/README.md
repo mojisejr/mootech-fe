@@ -17,23 +17,65 @@ Lives in `mootech-fe/testenv/` (next to `harness/`, the verify-tooling home).
 | mootech-be | **4000** | `PORT=4000 npm run start:dev` (default is 3000 → collides with FE, so forced) |
 | bazi | **3100** | `npm run dev -- -p 3100` |
 | postgres | **5433** | docker, SSL self-signed, db `mumate_test` |
+| line-stub | **3200** | booted BY `stack.sh up` — do not start it by hand (see *Signing up on the arena*) |
 
 ## The everyday loop
 ```
-# ── one-time, ฟีม only (holds prod cred): dump the prod SCHEMA (no rows leave without the anonymize step) ──
-read -rs PROD_DATABASE_URL && export PROD_DATABASE_URL   # 'postgresql://…?sslmode=require' — read -rs keeps it out of ~/.zsh_history
-./scripts/dump.sh              # schema-only → dumps/schema.sql (proves bazi tables = the 1-DB check). --with-data → dumps/full.sql (real PII)
-unset PROD_DATABASE_URL
+# ── refresh the data (anyone — cred is read from ~/.mumate-prod at run time, never stored) ──
+bash scripts/dump.sh --with-data   # → dumps/full.sql (REAL PII until anonymize runs) · omit the flag for schema only
+                                   # set PROD_DATABASE_URL yourself to override the vault blob
 
-# ── anyone, every session ──
-bash scripts/stack.sh up       # guard → docker pg(SSL) → restore(full.sql if present, else schema.sql)+anonymize → shadow each app's real .env to a LOCAL one → prints boot cmds
-# boot the 3 apps it prints. On `npm run dev`, fe prints a mode banner FIRST (Awareness). Then: Playwright/harness → dev-login → /v2 → capture (Capture tooling).
-bash scripts/stack.sh status   # READ-ONLY: where each app points · docker health · outbound pipe blocked? · leftover residue
-bash scripts/stack.sh restore  # leave test-mode: every real .env back, markers dropped, shadowed files un-shadowed (idempotent)
+# ── every session ──
+bash scripts/stack.sh up       # guard → docker pg(SSL) → DROP+CREATE db → restore → anonymize → swap each app's
+                               #   .env to a LOCAL one (+ inject OAuth keys) → boot line-stub → print boot cmds
+# boot the 3 apps it prints. On `npm run dev`, fe prints a mode banner FIRST (Awareness).
+bash scripts/stack.sh status   # READ-ONLY: where each app points · docker · line-stub · dump age · pipes · residue
+bash scripts/reset-user.sh     # who signed up on this arena (add --yes to delete them → sign up fresh again)
+bash scripts/stack.sh restore  # leave test-mode: every real .env back, markers dropped, files un-shadowed
 ```
-> Never `export PROD_DATABASE_URL='postgres://user:pass@…'` inline — the password lands in shell history. Use
-> `read -rs` (above). `dumps/`, `.backups/`, `certs/`, and each real `.env` are gitignored, so no prod data or
-> cred can be committed.
+> `dumps/`, `.backups/`, `certs/`, `.line-stub.log`, and each real `.env` are gitignored — no prod data or cred
+> can be committed. If you pass `PROD_DATABASE_URL` by hand, use `read -rs` so it stays out of shell history.
+
+**`stack.sh up` is idempotent and safe to re-run.** It drops and recreates `mumate_test` before loading, so a
+stale docker volume can never survive underneath a fresh dump. If the restore fails, the run **stops there** —
+no env is swapped, nothing is left half-done. (Both were real bugs, found the first time the arena was used for
+real: the volume from a previous run made every `CREATE` fail with "already exists", the restore aborted
+correctly, and the stack then walked on to print "ready to boot" anyway — serving data that was two weeks old.)
+
+## Signing up on the arena — what is real and what is not
+
+`/v2/login` only offers LINE and Google (no email/password), so "sign up as a brand-new user" needs the real
+OAuth round trip. Two things make that work locally:
+
+- **OAuth keys** are injected into `<repo>/.env` by `stack.sh up`, read from `~/.mumate-prod/fe.env.local`
+  (allowlist: `LINE_*`/`GOOGLE_CLIENT_*` only). They are **never** written into `env/fe.env`, which is committed.
+  `NEXTAUTH_URL` is `http://localhost:3000` and that redirect URI is already registered with the providers, so
+  the LINE/Google consent screen really opens and really calls back.
+- **`line-stub.mjs` (:3200)** stands in for the LINE Messaging API. `mootech-be` calls
+  `GET {LINE_HOST}/profile/{userId}` to verify identity before creating a user — and the same host is used by
+  `POST /message/multicast`, which `cronjob.service.ts` fires automatically at **06:00 and 09:00** Asia/Bangkok.
+  So the stub answers `/profile/*` and **refuses `/message/*` with 403, always**. Pointing `LINE_HOST` at the
+  real `api.line.me` would leave only one thing standing between a cron tick and real customers: the fact that
+  `user_provider.id_token` happens to be empty after anonymize. That is *data* — it disappears the day someone
+  seeds new rows. The stub refuses *structurally*.
+
+Consequences worth knowing before you trust a result:
+
+| | |
+|---|---|
+| display name / picture from LINE | **stub values**, not the real profile (`ผู้ใช้สนามซ้อม …`) |
+| every user restored from prod | **cannot log back in via OAuth** — `anonymize` blanks `user_provider.id_token`, so the BE never matches them and creates a new user instead. Use `/dev-login` to test a returning user. |
+| a user who signs up here | gets a real `id_token` → that is exactly how `reset-user.sh` tells arena users apart from restored ones |
+
+## Starting over as a new user
+```
+bash scripts/reset-user.sh          # lists who signed up here (id_token <> '') — deletes nothing
+bash scripts/reset-user.sh --yes    # deletes them across every table that has a user_id column
+```
+Then clear localhost cookies (or use a private window) and sign up again. The delete is scoped by
+`user_provider.id_token <> ''`, and every restored row has it blank — so this **cannot touch prod-derived data**
+even if it is run at the wrong moment. Target tables are discovered from `information_schema` at run time, so a
+new table with a `user_id` column is swept without editing the script.
 
 ## Awareness — the tools say where you are
 Safety here is **structural, not memory**. Three layers, each reading the REAL env on disk (never a doc/marker):
@@ -127,9 +169,14 @@ cp testenv/.backups/bazi-sft-dataset.env.local.prod.bak ~/ghq/github.com/mojisej
 ```
 docker-compose.yml            postgres:17 · 5433 · named volume · SSL self-signed (generated at start)
 env/fe.env be.env bazi.env    committable dummy env; stack.sh copies → each repo's real dotfile
-scripts/dump.sh               pg17 pg_dump, cred from $PROD_DATABASE_URL (never stored); schema-only default, --with-data for rows; proves bazi tables
-scripts/restore.sh            pg17 psql restore of a dump → local pg
+                              NEVER put a real secret here — it is committed. OAuth keys are injected at run time.
+scripts/dump.sh               pg17 pg_dump; cred from ~/.mumate-prod (or $PROD_DATABASE_URL), never stored;
+                              schema-only default, --with-data for rows; verifies the target is the prod ref; proves bazi tables
+scripts/restore.sh            pg17 psql restore of a dump → local pg; DROPs + CREATEs the db first (idempotent)
 scripts/anonymize.sql         scrub names/emails/phones from restored data (keep dob + birth-time)
+scripts/line-stub.mjs         stand-in LINE API on :3200 — GET /profile/* → 200 · POST /message/* → 403 always
+                              booted by stack.sh up; without it, LINE sign-up bounces back to onboarding with no clue why
+scripts/reset-user.sh         list/delete users who signed up on the arena (id_token <> ''); prod-derived rows are unreachable by it
 scripts/guard.sh              fail-closed prod-host refusal, scans the whole active env set (before + after)
 scripts/stack.sh              [up|restore|status] — orchestrate boot / leave / read-only status · shadowing + EXIT-trap rollback · bash-3.2-safe
 scripts/mode-banner.mjs       fe predev banner: 🟢 practice / 🔴 remote / ⚪ unknown→STOP (reads the real env)

@@ -10,7 +10,29 @@ set -euo pipefail
 # 🛑 pg17 tools — `which pg_dump` here is 14.19 (too old for a pg17 server). Pin the pg17 binary.
 PG_DUMP=/opt/homebrew/Cellar/postgresql@17/17.6/bin/pg_dump
 [ -x "$PG_DUMP" ] || { echo "❌ pg17 pg_dump not at $PG_DUMP"; exit 1; }
-: "${PROD_DATABASE_URL:?export PROD_DATABASE_URL first (not stored anywhere)}"
+# cred: ใช้ $PROD_DATABASE_URL ถ้าตั้งมา · ไม่งั้นประกอบเองจาก ~/.mumate-prod/be.env.prod.local (#231)
+# เดิมบังคับให้คนพิมพ์ URL เอง ⇒ ต้องมีมนุษย์ที่ถือ cred มานั่งทำทุกครั้ง และ URL มีโอกาสตกไปอยู่ใน
+# shell history · ตอนนี้ blob อยู่ในเครื่องแล้ว (goo วางไว้ 2026-07-27) ⇒ อ่านตอนรัน ไม่เขียนลงดิสก์
+# ⛔ ยืนยันเป้าก่อนเสมอ: DB_USERNAME ต้องเป็น prod ref ที่คาดไว้ ไม่งั้นหยุด — กัน blob ที่ชี้ผิดที่
+if [ -z "${PROD_DATABASE_URL:-}" ]; then
+  BLOB="$HOME/.mumate-prod/be.env.prod.local"
+  if [ -f "$BLOB" ]; then
+    _v() { grep -E "^$1=" "$BLOB" | head -1 | cut -d= -f2- | sed -E 's/^"//; s/"$//'; }
+    _H=$(_v DB_HOST); _P=$(_v DB_PORT); _D=$(_v DB_DATABASE); _U=$(_v DB_USERNAME); _W=$(_v DB_PASSWORD)
+    case "$_U" in
+      *soxsccdlsycaevusndro*) : ;;
+      *) echo "🛑 $BLOB ไม่ได้ชี้ prod ref ที่คาดไว้ — ไม่ dump ต่อ (ตั้ง PROD_DATABASE_URL เองถ้าตั้งใจ)"; exit 3 ;;
+    esac
+    # รับค่าทาง stdin ไม่ใช่ argv (ตู๋ verify #232): argv ของทุก process อ่านได้จาก `ps` โดยผู้ใช้อื่นบนเครื่อง
+    # ⇒ ส่งรหัสผ่าน prod เป็น argv = เปิดหน้าต่างให้มันถูกเห็นตลอดช่วงที่ python ทำงาน
+    # stdin ไม่ปรากฏใน ps · rstrip('\n') เพราะ here-string ของ bash เติม newline ท้ายเสมอ
+    _enc() { printf '%s' "$1" | python3 -c 'import sys,urllib.parse;print(urllib.parse.quote(sys.stdin.read(),safe=""))'; }
+    PROD_DATABASE_URL="postgresql://$(_enc "$_U"):$(_enc "$_W")@${_H}:${_P}/${_D}?sslmode=require"
+    echo "🎯 cred จาก ~/.mumate-prod (prod soxsccdlsycaevusndro · host=$_H port=$_P) — ไม่แสดงรหัสผ่าน"
+    unset _H _P _D _U _W
+  fi
+fi
+: "${PROD_DATABASE_URL:?ไม่มี ~/.mumate-prod/be.env.prod.local และไม่ได้ตั้ง PROD_DATABASE_URL — อย่างใดอย่างหนึ่งต้องมี}"
 
 HERE="$(cd "$(dirname "$0")/.." && pwd)"
 mkdir -p "$HERE/dumps"
