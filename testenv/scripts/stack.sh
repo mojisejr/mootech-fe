@@ -266,9 +266,21 @@ do_status() {  # READ-ONLY: reports where each app points, docker, outbound pipe
   # 3) outbound pipe (SMS/LINE lives in the BE env) — read the active be env, verdict only
   local beenv="$GH/mootech-be/.env" pipe
   if [ -f "$beenv" ]; then
-    if grep -qiE '^(LINE_HOST|SMS_8X8_HOST)=.*\.invalid' "$beenv" 2>/dev/null; then pipe="🟢 ตัน (.invalid — ยิงออกไม่ได้)"
-    elif grep -qiE '^(LINE_HOST|SMS_8X8_HOST)=.*(api\.line\.me|8x8\.com)' "$beenv" 2>/dev/null; then pipe="🔴 เปิด (provider จริง — ยิงออกได้)"
-    else pipe="⚪ ไม่แน่ใจ"; fi
+    # ตรวจ LINE กับ SMS แยกกัน (#231): เดิมรวมเป็น grep เดียว ⇒ ถ้าตัวหนึ่งตันอีกตัวเปิด จะรายงานว่า
+    # "ตัน" ทั้งคู่เพราะ pattern แรก match ได้จากตัวที่ตัน — ครึ่งเดียวที่เปิดอยู่หายไปจากสายตา
+    local lh sh
+    lh=$(grep -iE '^LINE_HOST=' "$beenv" 2>/dev/null | head -1)
+    sh=$(grep -iE '^SMS_8X8_HOST=' "$beenv" 2>/dev/null | head -1)
+    verdict_host() { # $1=บรรทัด env → คำตัดสินของท่อนั้น
+      case "$1" in
+        *.invalid*)                      echo "🟢 ตัน" ;;
+        *localhost*|*127.0.0.1*)         echo "🟢 stub ในเครื่อง" ;;   # #231: line-stub ปฏิเสธ /message/* เสมอ
+        *api.line.me*|*8x8.com*)         echo "🔴 provider จริง" ;;
+        '')                              echo "(ไม่ตั้ง)" ;;
+        *)                               echo "⚪ ไม่รู้จัก" ;;
+      esac
+    }
+    pipe="LINE=$(verdict_host "$lh") · SMS=$(verdict_host "$sh")"
   else pipe="(ไม่มี be/.env)"; fi
   echo "  • ท่อขาออก BE (SMS/LINE): $pipe"
   # 4) leftover residue (shadow files + markers) across the 3 repos
