@@ -263,6 +263,20 @@ do_status() {  # READ-ONLY: reports where each app points, docker, outbound pipe
   # 2) docker DB
   local dst; dst=$(docker inspect -f '{{.State.Health.Status}}' mumate_testenv_pg 2>/dev/null || true)
   echo "  • docker DB (mumate_testenv_pg): ${dst:-ไม่ได้รันอยู่}"
+  # line-stub (#231) — ไม่ได้รัน = สมัครด้วย LINE จะเด้งกลับ onboarding แบบไม่มีอะไรบอกสาเหตุ ⇒ ต้องเห็นตรงนี้
+  if lsof -ti tcp:"${LINE_STUB_PORT:-3200}" -sTCP:LISTEN >/dev/null 2>&1; then
+    echo "  • line-stub (:${LINE_STUB_PORT:-3200}): 🟢 รันอยู่"
+  else
+    echo "  • line-stub (:${LINE_STUB_PORT:-3200}): 🔴 ไม่ได้รัน — สมัครด้วย LINE จะเด้งกลับ (แก้: stack.sh up)"
+  fi
+  # อายุของ dump — ของเก่าไม่ได้พังทันที แต่ยิ่งเก่ายิ่งห่างจาก schema/ข้อมูล prod วันนี้
+  # ⇒ บอกอายุเป็นตัวเลข ไม่ตัดสินแทนคน (ไม่มีเส้น "หมดอายุ" ที่ถูกต้องสำหรับทุกงาน)
+  if [ -f "$HERE/dumps/full.sql" ]; then
+    local days; days=$(( ( $(date +%s) - $(stat -f %m "$HERE/dumps/full.sql" 2>/dev/null || echo 0) ) / 86400 ))
+    echo "  • dump ที่ใช้อยู่: full.sql อายุ $days วัน $( [ "$days" -ge 14 ] && echo '(เก่าแล้ว — พิจารณา dump.sh --with-data ใหม่)' || echo '' )"
+  else
+    echo "  • dump ที่ใช้อยู่: ❌ ไม่มี — stack.sh up จะหยุดที่ขั้น restore"
+  fi
   # 3) outbound pipe (SMS/LINE lives in the BE env) — read the active be env, verdict only
   local beenv="$GH/mootech-be/.env" pipe
   if [ -f "$beenv" ]; then
@@ -406,9 +420,30 @@ done <<< "$APPS"
 
 STACK_DONE=1   # success — KEEP the swap so the apps can boot; the rollback trap now no-ops
 
+# ── 5. line-stub — ตัวแทน LINE ที่ BE ต้องใช้ตอนสมัคร (#231) ──
+# ทำไม stack.sh ต้องบูตให้เอง ไม่ปล่อยเป็นคำสั่งให้คนไปรันเอง:
+#   be.env ชี้ LINE_HOST=http://localhost:3200 ⇒ ถ้าไม่มีใครรัน stub การสมัครจะพังแบบ *เงียบและงง* —
+#   ผู้ใช้เห็นแค่ "เข้า home แป๊บนึงแล้วเด้งกลับ onboarding" ไม่มีอะไรบอกว่าเพราะ stub ไม่ได้รัน
+#   (ฟีมเจออาการนี้จริงตอน LINE_HOST=.invalid — เสียเวลาไล่ 3 ชั้น log กว่าจะเจอ)
+# ⇒ ผูกอายุ stub ไว้กับ stack: `up` บูตให้ · ตัวเดิมที่ค้างอยู่ถูก kill ก่อน (idempotent) · `status` รายงาน
+STUB_PORT="${LINE_STUB_PORT:-3200}"
+STUB_LOG="$HERE/.line-stub.log"
+if lsof -ti tcp:"$STUB_PORT" -sTCP:LISTEN >/dev/null 2>&1; then
+  kill $(lsof -ti tcp:"$STUB_PORT" -sTCP:LISTEN) 2>/dev/null || true
+  sleep 1
+fi
+nohup node "$HERE/scripts/line-stub.mjs" > "$STUB_LOG" 2>&1 &
+sleep 1
+if lsof -ti tcp:"$STUB_PORT" -sTCP:LISTEN >/dev/null 2>&1; then
+  echo "── 5. line-stub ── ✅ ฟังอยู่ที่ :$STUB_PORT (log: testenv/.line-stub.log)"
+else
+  echo "── 5. line-stub ── 🛑 บูตไม่ขึ้นที่ :$STUB_PORT — การสมัครด้วย LINE จะเด้งกลับ onboarding"
+  echo "     ดู $STUB_LOG · รันเองด้วย: node testenv/scripts/line-stub.mjs"
+fi
+
 cat <<EOF
 
-── 5. boot the 3 apps (each in its own terminal) ──
+── 6. boot the 3 apps (each in its own terminal) ──
   FE    : (cd $GH/mootech-fe && npm run dev)                 # :3000
   BE    : (cd $GH/mootech-be && PORT=4000 npm run start:dev) # :4000
   # bazi runs from a pdf-dev WORKTREE, NOT the main clone (goo 2026-08-05):

@@ -13,3 +13,7 @@ dumps/
 # .env backups hold PROD credentials — stack.sh writes them here (out of every app repo, where
 # .env.prod.bak would NOT be gitignored and could be committed).
 .backups/
+
+# log ของ line-stub (stack.sh up เขียนไว้) — เป็นของชั่วคราวประจำเครื่อง ไม่ใช่ของโปรเจกต์
+# ข้างในมี LINE userId ของคนที่ล็อกอินบนสนาม ⇒ ไม่ควรขึ้น git แม้จะไม่ใช่ความลับระดับคีย์
+.line-stub.log
