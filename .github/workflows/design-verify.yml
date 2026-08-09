@@ -175,3 +175,8 @@ jobs:
           name: design-verify-evidence
           path: harness/evidence/
           if-no-files-found: warn
+          # Evidence is for reviewing THIS PR, not for archaeology. Default is 90 days, and each bundle
+          # is ~18 MB — five failed runs alone filled 72 MB of a 0.5 GB monthly Actions-storage quota
+          # (hit 2026-08-09; it then reddens every artifact upload account-wide, in every repo).
+          # 7 days outlives any review round while keeping the quota from being spent on old failures.
+          retention-days: 7
