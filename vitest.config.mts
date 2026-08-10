@@ -58,6 +58,7 @@ export default defineConfig({
       'scripts/first-run-feedback.test.tsx', // #240 — save feedback + element dead-end (.tsx, vitest)
       'scripts/preview-gate.test.tsx', // #220 — .tsx so ci.yml's `*.test.ts` tsx lane never sees it (no skip-list edit, no #212 sync)
       'scripts/tier-prod-pages.test.tsx', // #225 — page-wiring teeth; .tsx (same reason: invisible to ci.yml tsx lane)
+      'scripts/consent-header.test.tsx', // #16 companion — BFF sends x-consent-secret; .tsx (invisible to ci.yml tsx lane)
     ],
   },
   resolve: {
