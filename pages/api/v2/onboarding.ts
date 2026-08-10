@@ -5,10 +5,12 @@
 // Two things this BFF owns that mirror the BE guard (mootech-be#16):
 //   • goal is validated to be one of the SIX first-run goals before it can reach the DB.
 //   • policy_version is server-owned — never read from the client body.
-// This route is also the ONLY authorized caller of BE POST /consent: it carries the BFF↔BE shared
-// secret `x-consent-secret` (mootech-be#16, fail-closed there). Without this header the BE rejects the
-// call with 401, so a consent row can never be forged by a direct request. Same pattern as the AI wallet
-// (lib/credit/wallet-client.ts sends x-ai-secret). Server-side only — CONSENT_SECRET is never NEXT_PUBLIC_.
+// This route carries the BFF↔BE shared secret `x-consent-secret` (mootech-be#16, fail-closed there):
+// without the header the BE rejects the call with 401, so a request from OUTSIDE (a direct curl with no
+// secret) cannot reach /consent. It does NOT prove the end user's identity — this route still passes
+// user_id from the request body, so a bogus user_id from an authorized caller is not stopped here (that
+// identity half is tracked in mootech-fe#252). Same pattern as the AI wallet (lib/credit/wallet-client.ts
+// sends x-ai-secret). Server-side only — CONSENT_SECRET is never NEXT_PUBLIC_.
 import type { NextApiRequest, NextApiResponse } from 'next'
 import { PDPA_POLICY_VERSION } from '@/constants/pdpa'
 
