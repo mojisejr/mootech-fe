@@ -93,7 +93,12 @@ export function TeamPreviewResetBadge({
         type="button"
         data-testid="team-reset-open"
         onClick={() => setPhase({ name: 'confirm' })}
-        className="fixed right-3 bottom-[calc(6rem+env(safe-area-inset-bottom))] z-50 rounded border-2 border-dashed border-amber-400 bg-black/85 px-2.5 py-1.5 font-mono text-[11px] font-bold leading-tight text-amber-300 shadow-lg"
+        // min-h-[44px]: this is a real <button>, so design.contract.ts's `tap-target` anchor
+        // (selector `button, a[href]`, min(width,height) ≥ 44px, WCAG 2.5.5) applies to it exactly
+        // as it does to a product control. It shipped at 41px and the CI gate caught it on PR #254
+        // — "temporary" buys a foreign LOOK, never a smaller touch target, and this one sits a
+        // thumb's width above the primary CTA where a mis-tap lands on something that writes to prod.
+        className="fixed right-3 bottom-[calc(6rem+env(safe-area-inset-bottom))] z-50 flex min-h-[44px] flex-col justify-center rounded border-2 border-dashed border-amber-400 bg-black/85 px-2.5 py-1.5 font-mono text-[11px] font-bold leading-tight text-amber-300 shadow-lg"
       >
         🔧 รีเซ็ต first-run
         <span className="block text-[9px] font-normal text-amber-200/80">ชั่วคราว · #249</span>
@@ -151,7 +156,7 @@ export function TeamPreviewResetBadge({
             data-testid="team-reset-cancel"
             disabled={busy}
             onClick={() => setPhase({ name: 'idle' })}
-            className="flex-1 rounded border border-amber-400/60 px-3 py-2 text-xs font-bold text-amber-200 disabled:opacity-50"
+            className="min-h-[44px] flex-1 rounded border border-amber-400/60 px-3 py-2 text-xs font-bold text-amber-200 disabled:opacity-50"
           >
             ปิด
           </button>
@@ -160,7 +165,7 @@ export function TeamPreviewResetBadge({
             data-testid="team-reset-confirm"
             disabled={busy}
             onClick={run}
-            className="flex-1 rounded bg-amber-400 px-3 py-2 text-xs font-bold text-black disabled:opacity-50"
+            className="min-h-[44px] flex-1 rounded bg-amber-400 px-3 py-2 text-xs font-bold text-black disabled:opacity-50"
           >
             {phase.name === 'error' ? 'ลองใหม่' : 'ยืนยันรีเซ็ต'}
           </button>
