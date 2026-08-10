@@ -32,6 +32,11 @@ import { getSummary } from './summary-cache'
 //   ready        — mascot resolved (source is non-null); cycle/summary stream via their own AsyncState
 //   unavailable  — finished with nothing (no user row / no chart / no mascot / fetch failed) → the route
 //                  shows a way OUT (home button), never a permanent spinner.
+// How long the screen waits for the identity cookie before deciding it will never come. Long enough
+// that a normal first render never sees it, short enough that a genuinely logged-out visitor is not
+// stranded on a spinner. Exported so the spec pins the behaviour instead of sleeping for a magic number.
+export const IDENTITY_GRACE_MS = 1500
+
 export function useFirstRunSource(): {
   source: ElementResultSource | null
   status: 'loading' | 'ready' | 'unavailable'
@@ -45,9 +50,20 @@ export function useFirstRunSource(): {
 
   useEffect(() => {
     if (!userId) {
-      setStatus('unavailable') // no identity → cannot compute; give the route a terminal state, not a spinner
-      return
+      // 🔴 "not known YET" ≠ "not there" (ฟีม hit this by hand on 2026-08-10: the first walk after a
+      // reset showed the dead-end card, the second was fine). The MEMBER_ID cookie is not always
+      // readable on the first client render, and flipping straight to a terminal state made the screen
+      // offer a way OUT of something that was still loading — the same misread useV2Home.ts:127 guards
+      // against by name (#215/gap-C). Hold the loading frame instead…
+      const t = setTimeout(() => setStatus('unavailable'), IDENTITY_GRACE_MS)
+      // …but NOT forever: if the cookie genuinely never arrives we must still land somewhere with an
+      // exit, never a permanent spinner (#240's rule). Both failure modes are pinned in
+      // scripts/first-run-source-hook.test.tsx.
+      return () => clearTimeout(t)
     }
+    // Identity arrived — possibly AFTER the grace above already gave up. Ask again from a clean slate,
+    // otherwise a stale 'unavailable' would sit on screen for the whole fetch.
+    setStatus('loading')
     let alive = true
     ;(async () => {
       try {
