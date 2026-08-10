@@ -53,6 +53,11 @@ jobs:
 
       - name: run splash harness + pixel lens + calendar-month anchor (evidence-as-gate)
         run: |
+          # Mirror everything this step prints into a file WITHOUT touching any exit code. A pipe
+          # (`cmd | tee`) would make the pipeline report tee's status instead of the harness's — that
+          # is the "upload-fail swallows gate-fail" family, and it would turn a red gate green. Process
+          # substitution keeps each command's own status intact; only the destination of the output moves.
+          exec > >(tee -a "$RUNNER_TEMP/design-verify.log") 2>&1
           npx next start -p 3000 &
           SERVER=$!
           echo "waiting for :3000 …"
@@ -157,6 +162,55 @@ jobs:
           # pass/fail condition is resolved by reading both sides and UNIONING them, never by picking — and
           # never in the GitHub web UI, whose result never passes through CI before it becomes the merge commit.
           [ "$CODE" -eq 0 ] && [ "$PCODE" -eq 0 ] && [ "$MCODE" -eq 0 ] && [ "$SCODE" -eq 0 ] && [ "$CSCODE" -eq 0 ] && [ "$HSCODE" -eq 0 ] && [ "$FFCODE" -eq 0 ] && [ "$CCCODE" -eq 0 ]
+
+      # Why a summary at all: on 2026-08-09 three of us read the SAME red run and all three concluded
+      # "the artifact quota broke CI". The real cause was a TimeoutError four lines above it, and the
+      # quota line only existed because the upload step below runs `if: failure()` — i.e. it is a
+      # CONSEQUENCE of the red, printed after it, and louder than it. A day went into the wrong fix.
+      # So this prints the FIRST failure, not the last line, on the run page where the red badge points.
+      #
+      # It cannot itself fail the job: every command is guarded. That is not the swallow-pattern — this
+      # step decides nothing, it only reports, and a reporter that adds a second red would recreate
+      # exactly the two-errors-one-cause confusion it exists to remove.
+      - name: failure summary (no artifacts, no permissions)
+        if: failure()
+        run: |
+          LOG="$RUNNER_TEMP/design-verify.log"
+          {
+            echo "## 🔴 design-verify failed"
+            echo
+            echo "**Read this first — the first failure, not the loudest line.**"
+            echo
+            if [ -f "$LOG" ]; then
+              echo '### First failing gate'
+              echo '```'
+              # The harnesses print '✗ ' for a failed assertion; a crash shows up as Error/Timeout.
+              grep -nE '^\s*✗|Error:|TimeoutError|Process completed with exit code' "$LOG" | head -12 || echo '(no ✗/Error line found — see the full log)'
+              echo '```'
+              echo '### Last 30 lines'
+              echo '```'
+              tail -30 "$LOG"
+              echo '```'
+            else
+              echo '_no log captured — the step failed before the harness ran (build? server start?)_'
+            fi
+            echo '### Conditions'
+            echo '```'
+            echo "sha        ${GITHUB_SHA}"
+            echo "server     next start :3000 (production build, FE-only, no backend)"
+            echo "runner     ${RUNNER_OS}"
+            echo '```'
+            echo '### Reproduce locally'
+            echo '```bash'
+            echo "git fetch origin && git checkout ${GITHUB_SHA}"
+            echo 'npm ci && npx playwright install chromium'
+            echo 'V2_PREVIEW_KEY=lamun-ci-preview npm run build && npx next start -p 3000 &'
+            echo 'V2_PREVIEW_KEY=lamun-ci-preview HARNESS_HOST=http://localhost:3000 npx tsx harness/run.ts'
+            echo '```'
+            echo '> ⚠️ If an "Artifact storage quota" error appears below the gate failure: it is a'
+            echo '> CONSEQUENCE, not the cause. The upload step runs `if: failure()`, so it only ever'
+            echo '> runs on an already-red run and can never turn a green run red.'
+          } >> "$GITHUB_STEP_SUMMARY" 2>/dev/null || true
 
       # Evidence is only ever looked at when the gate is RED. `if: always()` uploaded 18.7 MB on EVERY push
       # (green included) — the sole reason artifact storage hit 3,561 MB on a 500 MB ceiling. `if: failure()`
