@@ -26,28 +26,43 @@ import { getSummary } from './summary-cache'
 
 // Assembles ElementResultSource. `source` is null until the mascot resolves (the route holds a frame);
 // cycle is ready with the chart; summary streams in and starts `loading`.
-export function useFirstRunSource(): { source: ElementResultSource | null } {
+// `status` is the OUTER discipline (μุน, #240): `source | null` alone conflated "still asking" with
+// "asked, nothing" — a null source froze the route on the loading frame forever. status splits them:
+//   loading      — the fetch is in flight
+//   ready        — mascot resolved (source is non-null); cycle/summary stream via their own AsyncState
+//   unavailable  — finished with nothing (no user row / no chart / no mascot / fetch failed) → the route
+//                  shows a way OUT (home button), never a permanent spinner.
+export function useFirstRunSource(): {
+  source: ElementResultSource | null
+  status: 'loading' | 'ready' | 'unavailable'
+} {
   const [cookies] = useCookies([CookieKey.MEMBER_ID])
   const userId = (cookies[CookieKey.MEMBER_ID] as string) || ''
   const [mascot, setMascot] = useState<MascotResult | null>(null)
   const [cycle, setCycle] = useState<AsyncState<ElementCycleRow>>({ status: 'loading' })
   const [summary, setSummary] = useState<AsyncState<ElementSummary>>({ status: 'loading' })
+  const [status, setStatus] = useState<'loading' | 'ready' | 'unavailable'>('loading')
 
   useEffect(() => {
-    if (!userId) return
+    if (!userId) {
+      setStatus('unavailable') // no identity → cannot compute; give the route a terminal state, not a spinner
+      return
+    }
     let alive = true
     ;(async () => {
       try {
         const u = await UserGetById(userId)
         if (!alive) return
-        if (!u || u.error || !u.user_id) return // no user row → leave source null (route shows fallback)
+        if (!u || u.error || !u.user_id) return setStatus('unavailable') // no user row
         const { resultCode, isRefreshResult } = resolveReturningResult(u)
-        if (!resultCode || isRefreshResult) return // no computed chart yet → nothing to show
+        if (!resultCode || isRefreshResult) return setStatus('unavailable') // no computed chart yet
         const chart = await ChineseHoroscopeGet(userId, resultCode)
         if (!alive) return
         const data = ((chart as { data?: unknown })?.data ?? chart) as Record<string, unknown>
-        setMascot(resolveMascotFromCompute(toComputeSource(chart)))
+        const m = resolveMascotFromCompute(toComputeSource(chart))
+        setMascot(m)
         setCycle(cycleFromChart(data?.elementCycle))
+        setStatus(m ? 'ready' : 'unavailable') // no mascot resolved → nothing to draw → terminal
         const person = {
           birthDate: String(data?.dob ?? ''),
           birthTime: data?.time ? String(data.time) : undefined,
@@ -56,7 +71,7 @@ export function useFirstRunSource(): { source: ElementResultSource | null } {
         const s = await getSummary(userId, person) // reuses the register-time prefetch (C3) if present
         if (alive) setSummary(s)
       } catch {
-        // network/parse failure → leave mascot null; the route renders its fallback, never throws
+        if (alive) setStatus('unavailable') // network/parse failure → terminal, never a permanent spinner
       }
     })()
     return () => {
@@ -64,5 +79,5 @@ export function useFirstRunSource(): { source: ElementResultSource | null } {
     }
   }, [userId])
 
-  return { source: mascot ? { mascot, cycle, summary } : null }
+  return { source: mascot ? { mascot, cycle, summary } : null, status }
 }

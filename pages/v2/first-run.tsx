@@ -16,9 +16,13 @@ import { useState } from 'react'
 import type { GetServerSideProps } from 'next'
 import { useRouter } from 'next/router'
 import { v2RedirectIfUnauthed } from '@/lib/v2/gate'
-import { ElementResultScreen } from '@/features/v2-first-run/components/ElementResultScreen'
+import {
+  ElementResultScreen,
+  type ElementResultSource,
+} from '@/features/v2-first-run/components/ElementResultScreen'
 import { IntentCheckScreen, type GoalId } from '@/features/v2-first-run/components/IntentCheckScreen'
 import { PdpaConsentScreen } from '@/features/v2-first-run/components/PdpaConsentScreen'
+import { Button } from '@/components/ui/button'
 import { useFirstRunSource } from '@/features/v2-first-run/hooks/useFirstRunSource'
 import { useSaveOnboarding } from '@/features/v2-first-run/hooks/useSaveOnboarding'
 
@@ -34,7 +38,7 @@ type Step = 'intent' | 'pdpa' | 'element'
 
 export default function V2FirstRun() {
   const router = useRouter()
-  const { source } = useFirstRunSource()
+  const { source, status } = useFirstRunSource()
   const { save, state: saveState } = useSaveOnboarding()
   const [step, setStep] = useState<Step>('intent')
   const [goal, setGoal] = useState<GoalId | null>(null)
@@ -57,26 +61,18 @@ export default function V2FirstRun() {
         onConsentChange={setConsent}
         onBack={() => setStep('intent')}
         onAccept={acceptAndSave}
+        saving={saveState === 'saving'}
+        error={saveState === 'error'}
       />
     )
   }
 
   if (step === 'element') {
-    // Hold a minimal frame while the chart (mascot + cycle) resolves rather than drawing a fake element.
-    // Once source exists the screen renders immediately with mascot + cycle; the slow summary streams in
-    // via its own AsyncState (skeleton on that block only), so the page never blocks on the ~10s reading.
-    if (!source) {
-      return (
-        <main className="flex min-h-dvh items-center justify-center p-8 text-center font-ibm text-v3-text-body">
-          กำลังเตรียมผลธาตุของคุณ…
-        </main>
-      )
-    }
     return (
-      <ElementResultScreen
+      <FirstRunElementView
+        status={status}
         source={source}
         onBack={() => setStep('pdpa')}
-        onReadFull={goHome}
         onGoHome={goHome}
       />
     )
@@ -89,5 +85,42 @@ export default function V2FirstRun() {
       // advance only once a goal is chosen — the intent screen is a required 1-of-6 choice.
       onNext={() => goal && setStep('pdpa')}
     />
+  )
+}
+
+// The element step, as its own view so the three-state behaviour is unit-testable at the call site (#240):
+//   loading      → a frame while the chart fetches
+//   ready(source)→ the real screen (mascot + cycle now; the slow summary streams via its own AsyncState)
+//   unavailable  → a reason + a way OUT (never a permanent spinner — μุน's #240 ask)
+export function FirstRunElementView({
+  status,
+  source,
+  onBack,
+  onGoHome,
+}: {
+  status: 'loading' | 'ready' | 'unavailable'
+  source: ElementResultSource | null
+  onBack?: () => void
+  onGoHome: () => void
+}) {
+  if (status === 'loading') {
+    return (
+      <main className="flex min-h-dvh items-center justify-center p-8 text-center font-ibm text-v3-text-body">
+        กำลังเตรียมผลธาตุของคุณ…
+      </main>
+    )
+  }
+  if (status === 'unavailable' || !source) {
+    return (
+      <main className="flex min-h-dvh flex-col items-center justify-center gap-6 p-8 text-center">
+        <p className="max-w-[280px] font-ibm text-base leading-6 text-v3-text-body">
+          ยังแสดงผลธาตุของคุณไม่ได้ตอนนี้ ลองเข้าหน้าหลักแล้วกลับมาใหม่อีกครั้ง
+        </p>
+        <Button onClick={onGoHome}>เข้าสู่หน้าหลัก</Button>
+      </main>
+    )
+  }
+  return (
+    <ElementResultScreen source={source} onBack={onBack} onReadFull={onGoHome} onGoHome={onGoHome} />
   )
 }
