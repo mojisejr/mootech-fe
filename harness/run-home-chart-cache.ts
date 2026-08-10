@@ -49,6 +49,13 @@ const userRow = (resultCode: string) => ({
   user_id: USER_ID, result_code: resultCode, is_refresh: false,
   name: 'ทดสอบ ชาร์ต', dob: '1990-06-15', gender: 'MALE', place_name: 'กรุงเทพมหานคร',
   is_remember_time: false, picture_url: null, payment: { is_not_expired: true },
+  // A RETURNING user has finished first-run — so the row carries onboarded_at (#233). Without it
+  // useV2Home's gate reads `!u.onboarded_at` as "never onboarded" and replaces the route with
+  // /v2/first-run, and this harness then waits 15s for a home that was navigated away from.
+  // The MOCK was the stale thing here, not the gate: a real returning user has this column after
+  // the #233 migration. Fixing the fixture is the repair; widening the gate to tolerate a missing
+  // field would have made a real bug (an un-migrated row) look like a healthy one.
+  onboarded_at: '2026-01-01T00:00:00.000Z',
 })
 // Minimal chart envelope { data: <chart> } — toComputeSource reads detail.yearBelow + detail.dayAbove.element,
 // so the greeting ธาตุ row (element-line) renders (proving the mascot un-greyed with real data, not fallback).
@@ -86,12 +93,32 @@ async function newHome(browser: Browser): Promise<{ page: Page; chartCount: () =
 // element-line present (not its skeleton) == the mascot ธาตุ row is showing real data (un-greyed).
 const mascotShown = (page: Page) => page.locator('[data-testid="element-line"]').count().then((n) => n > 0)
 
+/**
+ * Name the failure instead of timing out into one. A route guard that sends us somewhere else makes
+ * every later locator wait its full 15s and then report "home-header not visible", which reads as a
+ * rendering bug on a page we are not even on. Ask WHERE WE ARE first: the answer is one line and it
+ * points at the redirect. (This is how the #233 onboarding gate first showed up here — as a 15s
+ * timeout that said nothing about a redirect.)
+ */
+async function assertOnHome(page: Page, when: string) {
+  const path = await page.evaluate(() => location.pathname)
+  if (path !== '/v2') {
+    throw new Error(
+      `${when}: expected to be on /v2 but the app navigated to "${path}". ` +
+        `A route guard moved us — check the user fixture against what the guard reads ` +
+        `(useV2Home's onboarding gate reads onboarded_at; a fixture without it is treated as ` +
+        `"never onboarded").`,
+    )
+  }
+}
+
 async function main() {
   const browser = await chromium.launch()
   const { page, chartCount, setResultCode } = await newHome(browser)
 
   // ── cold: first home mount ──
   await page.goto(`${HOST}/v2`, { waitUntil: 'networkidle' })
+  await assertOnHome(page, 'cold mount')
   await page.locator('[data-testid="home-header"]').waitFor({ timeout: 15000 })
   await page.locator('[data-testid="element-line"]').waitFor({ timeout: 15000 }) // chart landed → mascot shows
   await page.waitForTimeout(400)
