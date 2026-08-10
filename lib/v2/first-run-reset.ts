@@ -49,3 +49,34 @@ export function resolveResetIdentity(input: ResetIdentityInput): ResetIdentity {
   }
   return { ok: true, providerId, provider }
 }
+
+export type ResolvedUser =
+  | { ok: true; userId: string }
+  | { ok: false; status: 404 | 409; error: string }
+
+/**
+ * Turn the rows matched for one provider account into the ONE user we may touch — or a refusal.
+ *
+ * 🔴 Why this is not just `rows[0]` (ตู๋, #254 B2): the lookup matches provider case-INsensitively,
+ * the app's own dedupe (mootech-be user-provider.service.ts:32) matches case-SENSITIVELY, and nothing
+ * enforces uniqueness on (id_token, provider) at the DB level. So two rows for one human CAN exist,
+ * and picking "the first row" means picking whichever row the planner returned — which changes after
+ * writes or vacuum. On an endpoint that DELETEs, an ambiguous answer must become a refusal, not a
+ * coin flip. Same rows for the same user (a plain duplicate) is fine — it is one user_id.
+ */
+export function resolveUserFromRows(rows: Array<{ user_id?: unknown }>): ResolvedUser {
+  const distinct = Array.from(
+    new Set(
+      rows
+        .map((r) => (typeof r?.user_id === 'string' ? r.user_id.trim() : ''))
+        .filter((id) => id !== ''),
+    ),
+  )
+  if (distinct.length === 0) {
+    return { ok: false, status: 404, error: 'no account for this login yet' }
+  }
+  if (distinct.length > 1) {
+    return { ok: false, status: 409, error: 'identity is ambiguous — not resetting' }
+  }
+  return { ok: true, userId: distinct[0] }
+}

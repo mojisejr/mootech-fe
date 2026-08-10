@@ -11,7 +11,7 @@
 // M1 is the whole reason lib/v2/first-run-reset.ts exists as a separate pure module: `resolveResetIdentity`
 // has NO input field a client can populate, so M1 cannot even be expressed without editing its type.
 import { describe, expect, it } from 'vitest'
-import { resolveResetIdentity } from '@/lib/v2/first-run-reset'
+import { resolveResetIdentity, resolveUserFromRows } from '@/lib/v2/first-run-reset'
 
 const SIGNED = { providerId: 'U1234567890abcdef', provider: 'line' }
 
@@ -64,5 +64,58 @@ describe('M1 — the shape itself forbids a caller-named subject', () => {
     expect(r.ok).toBe(true)
     if (r.ok) expect(r.providerId).toBe(SIGNED.providerId)
     expect(Object.values(r)).not.toContain('someone-elses-user-id')
+  })
+})
+
+// ── B2 (ตู๋, #254) — which row may we DELETE for? ─────────────────────────────────────────────
+// The lookup matches provider case-INsensitively while the app's own dedupe matches case-SENSITIVELY
+// (mootech-be user-provider.service.ts:32) and nothing enforces uniqueness on (id_token, provider).
+// So two rows for one human CAN exist. The old code took `LIMIT 1` with no ORDER BY = "whichever row
+// the planner returns first", which changes after writes/vacuum ⇒ a chance to wipe the wrong person.
+//
+// 🔴 MUTANT CONTRACT — each must go RED alone:
+//   B2a  go back to "just take the first row" (drop the >1 refusal)
+//   B2b  treat "no rows" as success
+//   B2c  dedupe by ROW instead of by user_id (two identical rows would then read as ambiguous and
+//        start refusing a perfectly normal duplicate — a false 409 is a broken button)
+describe('B2 — an ambiguous identity must refuse, not guess', () => {
+  it('one row ⇒ that user', () => {
+    const r = resolveUserFromRows([{ user_id: 'u-1' }])
+    expect(r.ok).toBe(true)
+    if (r.ok) expect(r.userId).toBe('u-1')
+  })
+
+  it('B2c — duplicate rows for the SAME user are not ambiguous (still one user_id)', () => {
+    const r = resolveUserFromRows([{ user_id: 'u-1' }, { user_id: 'u-1' }, { user_id: 'u-1' }])
+    expect(r.ok).toBe(true)
+    if (r.ok) expect(r.userId).toBe('u-1')
+  })
+
+  it('🔴 B2a — two DIFFERENT users ⇒ 409, and no user is chosen', () => {
+    const r = resolveUserFromRows([{ user_id: 'u-1' }, { user_id: 'u-2' }])
+    expect(r.ok).toBe(false)
+    if (!r.ok) expect(r.status).toBe(409)
+    expect(JSON.stringify(r)).not.toContain('u-1')
+    expect(JSON.stringify(r)).not.toContain('u-2')
+  })
+
+  it('🔴 B2b — no rows ⇒ 404, never a silent success', () => {
+    const r = resolveUserFromRows([])
+    expect(r.ok).toBe(false)
+    if (!r.ok) expect(r.status).toBe(404)
+  })
+
+  it('blank / non-string user_id is not an identity', () => {
+    for (const rows of [[{ user_id: '' }], [{ user_id: '   ' }], [{ user_id: null }], [{}]]) {
+      const r = resolveUserFromRows(rows as Array<{ user_id?: unknown }>)
+      expect(r.ok).toBe(false)
+      if (!r.ok) expect(r.status).toBe(404)
+    }
+  })
+
+  it('one real user + junk rows ⇒ still that user (junk is not a second identity)', () => {
+    const r = resolveUserFromRows([{ user_id: '' }, { user_id: 'u-9' }, {}])
+    expect(r.ok).toBe(true)
+    if (r.ok) expect(r.userId).toBe('u-9')
   })
 })
