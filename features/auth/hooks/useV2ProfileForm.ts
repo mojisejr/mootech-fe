@@ -7,6 +7,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { useCookies } from 'react-cookie'
 import { CookieKey } from '@/constants/cookie-key'
 import { ChineseHoroscopeCalculate } from '@/constants/api/api-chinese-horoscope'
+import { profileCanSubmit } from './profile-can-submit'
 
 export type Gender = 'MALE' | 'FEMALE'
 
@@ -16,7 +17,7 @@ export type Gender = 'MALE' | 'FEMALE'
 export type V2ProfileFields = {
   name: string; setName: (v: string) => void
   surname: string; setSurname: (v: string) => void
-  gender: Gender; setGender: (v: Gender) => void
+  gender: Gender | null; setGender: (v: Gender) => void // null = not chosen yet (required, no default)
   birthDay: string; setBirthDay: (v: string) => void // "YYYY-MM-DD" (BirthDayInput onChangeDate)
   timeHourBirth: string; setTimeHourBirth: (v: string) => void
   timeMinuteBirth: string; setTimeMinuteBirth: (v: string) => void
@@ -41,7 +42,8 @@ export function useV2ProfileForm(onSaved: (code: string) => void): V2ProfileForm
   // Prefill the account name from the OAuth profile (set by the self-heal / register-login).
   const [name, setName] = useState<string>(cookies[CookieKey.MEMBER_NAME] ?? '')
   const [surname, setSurname] = useState<string>('')
-  const [gender, setGender] = useState<Gender>('MALE')
+  // No default: gender must be actively chosen (Phase B). A defaulted 'MALE' would submit silently.
+  const [gender, setGender] = useState<Gender | null>(null)
   const [birthDay, setBirthDay] = useState<string>('')
   const [timeHourBirth, setTimeHourBirth] = useState<string>('')
   const [timeMinuteBirth, setTimeMinuteBirth] = useState<string>('')
@@ -68,8 +70,8 @@ export function useV2ProfileForm(onSaved: (code: string) => void): V2ProfileForm
   }, [isRememberTimeBirth, timeHourBirth, timeMinuteBirth])
 
   const canSubmit = useMemo(
-    () => Boolean(userId && name.trim() && birthDay) && isTimeValid,
-    [userId, name, birthDay, isTimeValid],
+    () => profileCanSubmit({ userId, name, birthDay, gender, isTimeValid }),
+    [userId, name, birthDay, gender, isTimeValid],
   )
 
   // Copied verbatim from pages/register onSubmit — zero-pad hour/min, blank when time unknown.
@@ -83,7 +85,7 @@ export function useV2ProfileForm(onSaved: (code: string) => void): V2ProfileForm
   }
 
   const onSubmit = async () => {
-    if (!canSubmit || submitting) return
+    if (!canSubmit || submitting || !gender) return // !gender is guaranteed by canSubmit; also narrows the type
     setSubmitting(true)
     setError(null)
     try {
