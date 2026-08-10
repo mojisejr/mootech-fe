@@ -20,6 +20,7 @@ import { ElementResultScreen } from '@/features/v2-first-run/components/ElementR
 import { IntentCheckScreen, type GoalId } from '@/features/v2-first-run/components/IntentCheckScreen'
 import { PdpaConsentScreen } from '@/features/v2-first-run/components/PdpaConsentScreen'
 import { useFirstRunMascot } from '@/features/v2-first-run/hooks/useFirstRunMascot'
+import { useSaveOnboarding } from '@/features/v2-first-run/hooks/useSaveOnboarding'
 
 const HOME = '/v2'
 
@@ -34,11 +35,20 @@ type Step = 'intent' | 'pdpa' | 'element'
 export default function V2FirstRun() {
   const router = useRouter()
   const { mascot } = useFirstRunMascot()
+  const { save, state: saveState } = useSaveOnboarding()
   const [step, setStep] = useState<Step>('intent')
   const [goal, setGoal] = useState<GoalId | null>(null)
   const [consent, setConsent] = useState(false)
 
   const goHome = () => router.replace(HOME)
+
+  // Save goal + PDPA consent (stamps onboarded_at) THEN advance — only on a real success, so a failed
+  // save never leaves a user "onboarded" in the UI but not the DB (which would loop them next visit).
+  const acceptAndSave = async () => {
+    if (!goal || saveState === 'saving') return // goal is guaranteed by the intent gate; guard re-entry
+    if (await save(goal)) setStep('element')
+    // on failure saveState becomes 'error' and we stay on pdpa so the user can retry (no silent advance).
+  }
 
   if (step === 'pdpa') {
     return (
@@ -46,8 +56,7 @@ export default function V2FirstRun() {
         consent={consent}
         onConsentChange={setConsent}
         onBack={() => setStep('intent')}
-        // PHASE C: replace with the save-hook (POST /consent → onboarded_at) before advancing.
-        onAccept={() => setStep('element')}
+        onAccept={acceptAndSave}
       />
     )
   }
