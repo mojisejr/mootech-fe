@@ -19,7 +19,7 @@ import { v2RedirectIfUnauthed } from '@/lib/v2/gate'
 import { ElementResultScreen } from '@/features/v2-first-run/components/ElementResultScreen'
 import { IntentCheckScreen, type GoalId } from '@/features/v2-first-run/components/IntentCheckScreen'
 import { PdpaConsentScreen } from '@/features/v2-first-run/components/PdpaConsentScreen'
-import { useFirstRunMascot } from '@/features/v2-first-run/hooks/useFirstRunMascot'
+import { useFirstRunSource } from '@/features/v2-first-run/hooks/useFirstRunSource'
 import { useSaveOnboarding } from '@/features/v2-first-run/hooks/useSaveOnboarding'
 
 const HOME = '/v2'
@@ -34,7 +34,7 @@ type Step = 'intent' | 'pdpa' | 'element'
 
 export default function V2FirstRun() {
   const router = useRouter()
-  const { mascot } = useFirstRunMascot()
+  const { source } = useFirstRunSource()
   const { save, state: saveState } = useSaveOnboarding()
   const [step, setStep] = useState<Step>('intent')
   const [goal, setGoal] = useState<GoalId | null>(null)
@@ -62,9 +62,10 @@ export default function V2FirstRun() {
   }
 
   if (step === 'element') {
-    // Hold a minimal frame while the chart resolves rather than drawing a fake element. In practice the
-    // fetch (kicked off on mount) has resolved by the time the user finishes intent + pdpa.
-    if (!mascot) {
+    // Hold a minimal frame while the chart (mascot + cycle) resolves rather than drawing a fake element.
+    // Once source exists the screen renders immediately with mascot + cycle; the slow summary streams in
+    // via its own AsyncState (skeleton on that block only), so the page never blocks on the ~10s reading.
+    if (!source) {
       return (
         <main className="flex min-h-dvh items-center justify-center p-8 text-center font-ibm text-v3-text-body">
           กำลังเตรียมผลธาตุของคุณ…
@@ -73,7 +74,7 @@ export default function V2FirstRun() {
     }
     return (
       <ElementResultScreen
-        source={{ mascot, cycle: { status: 'loading' }, summary: { status: 'loading' } }}
+        source={source}
         onBack={() => setStep('pdpa')}
         onReadFull={goHome}
         onGoHome={goHome}
