@@ -3,11 +3,18 @@ import { signOut } from "next-auth/react";
 // Escape hatch shown when identity fails to resolve within the timeout on a
 // deep-link / LINE entry (#mumate-my-destiny-mountgate-hang, Fix B″). Instead of
 // leaving the user on an infinite <ScreenLoading/> spinner, give them an explicit
-// way out: re-login. signOut -> /login, where the Google-external escort (Fix A)
+// way out: re-login. signOut -> callbackUrl, where the Google-external escort (Fix A)
 // takes over if they are still inside the LINE in-app browser.
-export default function ScreenIdentityStuck() {
+//
+// callbackUrl defaults to '/login' (v1, my-destiny — unchanged). v2 pages pass '/v2' so a re-login
+// re-enters the v2 flow instead of the v1 login (#246).
+export default function ScreenIdentityStuck({
+  callbackUrl = "/login",
+}: {
+  callbackUrl?: string;
+} = {}) {
   const handleRelogin = () => {
-    signOut({ callbackUrl: "/login" });
+    signOut({ callbackUrl });
   };
 
   return (

@@ -14,12 +14,22 @@ import { useEffect } from 'react'
 import { useRouter } from 'next/router'
 import { useCurrentUser, type AuthStatus } from '@/lib/auth/use-current-user'
 import { useHasMounted } from '@/lib/hooks/use-has-mounted'
+import { useLoadingTimeout } from '@/lib/hooks/use-loading-timeout'
+
+// Identity-limbo escape (#246): a session that is authenticated but has no valid MEMBER_ID resolves to
+// 'loading' FOREVER (resolveAuth, login-loop invariant) — the global self-heal is the only recovery and it
+// can fail with no retry. Without an exit the user stares at a skeleton that never releases. After this many
+// ms of continuous post-mount limbo we surface <ScreenIdentityStuck/> (re-login), the SAME mechanism
+// my-destiny uses (useLoadingTimeout, 8s = self-heal 3s delay + network buffer).
+const DEFAULT_ESCAPE_AFTER_MS = 8000
 
 export type V2AuthGateConfig = {
   /** Where to send a settled-authenticated user (e.g. /v2/login → '/v2'). Omit to render authed. */
   redirectWhenAuthed?: string
   /** Where to send a settled-anonymous user (e.g. /v2/register → '/v2'). Omit to render anon. */
   redirectWhenAnon?: string
+  /** ms of continuous post-mount identity-limbo before `identityStuck` flips true. Default 8000 (#246). */
+  escapeAfterMs?: number
 }
 
 export type V2AuthGate = {
@@ -28,13 +38,20 @@ export type V2AuthGate = {
   redirecting: boolean
   /** Render <AuthLoadingGate/> when true (still resolving, OR a redirect is in flight). */
   showLoading: boolean
+  /** #246 — identity stuck in limbo past escapeAfterMs. Render <ScreenIdentityStuck/> (re-login) when true. */
+  identityStuck: boolean
 }
 
 export function useV2AuthGate(config: V2AuthGateConfig = {}): V2AuthGate {
   const router = useRouter()
   const hasMounted = useHasMounted()
   const { status } = useCurrentUser()
-  const { redirectWhenAuthed, redirectWhenAnon } = config
+  const { redirectWhenAuthed, redirectWhenAnon, escapeAfterMs = DEFAULT_ESCAPE_AFTER_MS } = config
+
+  // #246 escape hatch. Only GENUINE post-mount limbo counts: `hasMounted && status === 'loading'` excludes
+  // the pre-mount splash (status is 'loading' pre-hydration but flips within a tick) and a redirect-in-flight
+  // (status is then 'authed'/'anon', not 'loading'). useLoadingTimeout resets the moment limbo clears.
+  const identityStuck = useLoadingTimeout(hasMounted && status === 'loading', escapeAfterMs)
 
   // A redirect is warranted only AFTER mount and on a SETTLED status. `!hasMounted` is excluded so
   // we never redirect before hydration; 'loading' is excluded so we never bounce during the
@@ -63,5 +80,6 @@ export function useV2AuthGate(config: V2AuthGateConfig = {}): V2AuthGate {
     // makes the server HTML and the first client render agree (both <AuthLoadingGate/>), then the
     // real status-based render (carousel/home/form/redirect) takes over post-hydration.
     showLoading: !hasMounted || status === 'loading' || redirecting,
+    identityStuck,
   }
 }

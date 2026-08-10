@@ -22,6 +22,7 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/router'
 import { useV2User } from './useV2User'
+import { useCurrentUser } from '@/lib/auth/use-current-user'
 import { computeTier, type V2Tier } from '@/lib/v2/tier'
 import { resolveTierOverride } from '@/lib/v2/tier-override'
 
@@ -34,6 +35,9 @@ import { resolveTierOverride } from '@/lib/v2/tier-override'
 export function useV2Tier(teamPreview = false): V2Tier {
   // Single, page-shared /api/user fetch (dedup in useV2User). Same reducer inputs as before the extraction.
   const { userId, done, errored, user } = useV2User()
+  // resolveAuth verdict — distinguishes true anon from identity-limbo (#246). Without it computeTier saw
+  // only userId='' for BOTH and answered KNOWN-free, showing a paying user in limbo the upsell.
+  const { status } = useCurrentUser()
   const router = useRouter()
 
   // SSR-safe gate: false on the server + the first client render, true after the mount effect. Until then
@@ -45,7 +49,7 @@ export function useV2Tier(teamPreview = false): V2Tier {
   // change the server/first-client render — no hydration mismatch, and the "null must stay null" line below
   // is never reached before we even have a determined tier.
   if (!mounted) return { isPaid: null, loading: true }
-  const base = computeTier({ userId, done, errored, user })
+  const base = computeTier({ status, userId, done, errored, user })
 
   // Team-preview URL override (issue #225, was #213): view a page as free/paid from `?tier=`. Gated by the
   // server-verified `teamPreview` flag instead of NODE_ENV, so it ships in the prod bundle and works there —
