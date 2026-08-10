@@ -42,22 +42,36 @@ export function PdpaConsentScreen({
   onConsentChange,
   onBack,
   onAccept,
+  saving = false,
+  error = false,
 }: {
   consent: boolean
   onConsentChange: (next: boolean) => void
   onBack?: () => void
   onAccept?: () => void
+  /** the caller is saving consent — button shows progress + locks to stop a double-submit (#233). */
+  saving?: boolean
+  /** the save failed — show a retriable message; the button stays usable (do NOT disable on error). */
+  error?: boolean
 }) {
   return (
     <FirstRunScreen
       step={1}
       onBack={onBack}
       footer={
-        // THE gate. `disabled={!consent}` is the whole point of this screen — strip it and
-        // scripts/first-run-screens.test.tsx must go red (issue #215 close condition).
-        <Button onClick={onAccept} disabled={!consent}>
-          ยอมรับและดำเนินการต่อ
-        </Button>
+        <div className="flex flex-col gap-2">
+          {/* THE gate. `disabled={!consent}` is the whole point of this screen — strip it and
+              scripts/first-run-screens.test.tsx must go red (issue #215 close condition). `|| saving`
+              only ADDS a lock while the save is in flight; consent=false still disables as before. */}
+          <Button onClick={onAccept} disabled={!consent || saving}>
+            {saving ? 'กำลังบันทึก…' : 'ยอมรับและดำเนินการต่อ'}
+          </Button>
+          {error ? (
+            <p className="text-center font-ibm text-sm leading-5 text-v3-error" role="alert">
+              บันทึกไม่สำเร็จ ลองใหม่อีกครั้ง
+            </p>
+          ) : null}
+        </div>
       }
       contentClassName="gap-8 px-6 py-8"
     >

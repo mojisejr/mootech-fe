@@ -57,7 +57,7 @@ export default function V2RegisterPage() {
             { label: 'ชาย', value: 'MALE' },
             { label: 'หญิง', value: 'FEMALE' },
           ]}
-          value={f.gender}
+          value={f.gender ?? ''}
           onChange={(v) => f.setGender(v as 'MALE' | 'FEMALE')}
         />
       </div>

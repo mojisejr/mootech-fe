@@ -897,6 +897,12 @@ export const user = pgTable("user", {
 	isRefresh: boolean("is_refresh").notNull(),
 	shareImgProfileUrl: text("share_img_profile_url").notNull(),
 	accountName: text("account_name"),
+	// v2 first-run onboarding (#233) — added to the DB by migrations/2026-08-09_onboarding-consent.sql.
+	// Nullable: NULL = user has not finished v2 first-run. NB: GET /user (pages/api/user.ts) uses raw
+	// `SELECT *`, so it already returns these as snake_case keys regardless of this schema; these entries
+	// keep the Drizzle typed schema honest for any typed query.
+	onboardedAt: text("onboarded_at"),
+	onboardingGoal: text("onboarding_goal"),
 });
 
 export const userFriendGetFriend = pgTable("user_friend_get_friend", {
