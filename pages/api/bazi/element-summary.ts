@@ -35,12 +35,20 @@ export type ElementSummary = {
   advice: { key: string; label: string; text: string }[]
 }
 
-/** PURE — a bazi response is usable only if it is an object without an `error` and with a tagline OR traits OR
- *  advice to show. Anything else → null so the block hides. Keeps the "no data = no show" rule unit-testable. */
-export function summaryFromBaziResponse(data: unknown): { summary: ElementSummary | null } {
-  if (!data || typeof data !== 'object') return { summary: null }
+// The proxy result. `reason` distinguishes the two null cases the selector must render DIFFERENTLY
+// (#233, ตู๋): collapsing them to a bare `null` made a timed-out reading look like an empty profile —
+// a lie about the cause. `unavailable` = we asked and there is genuinely nothing (or we cannot ask yet);
+// `error` = we could not find out (transient — a retry might succeed). Never substitute interim copy for `error`.
+export type ElementSummaryResult =
+  | { summary: ElementSummary }
+  | { summary: null; reason: 'unavailable' | 'error' }
+
+/** PURE — map a bazi 200 body to the result. A signalled/garbled body → `error` (couldn't get it);
+ *  a clean body with nothing to show → `unavailable` (asked, genuinely empty). Unit-testable. */
+export function summaryFromBaziResponse(data: unknown): ElementSummaryResult {
+  if (!data || typeof data !== 'object') return { summary: null, reason: 'error' } // non-JSON/garbage
   const d = data as Record<string, unknown>
-  if (d.error) return { summary: null }
+  if (d.error) return { summary: null, reason: 'error' } // bazi signalled a failure in the body
   const tagline = typeof d.tagline === 'string' ? d.tagline : null
   const traits = Array.isArray(d.traits) ? (d.traits.filter((t) => typeof t === 'string') as string[]) : []
   const advice = Array.isArray(d.advice)
@@ -48,7 +56,7 @@ export function summaryFromBaziResponse(data: unknown): { summary: ElementSummar
         (a) => a && typeof a === 'object' && typeof (a as { text?: unknown }).text === 'string',
       ) as ElementSummary['advice'])
     : []
-  if (!tagline && traits.length === 0 && advice.length === 0) return { summary: null } // nothing to show → hide
+  if (!tagline && traits.length === 0 && advice.length === 0) return { summary: null, reason: 'unavailable' }
   return {
     summary: {
       dayMaster: typeof d.dayMaster === 'string' ? d.dayMaster : '',
@@ -65,9 +73,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' })
 
   const person = (req.body?.person ?? null) as ElementSummaryPerson | null
-  // birthDate is the one field bazi cannot default — no dob, nothing to compute → hide the block.
+  // No usable birthDate → we cannot even ask. That is `unavailable` (a missing prerequisite), NOT `error`.
   if (!person || typeof person.birthDate !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(person.birthDate)) {
-    return res.status(200).json({ summary: null })
+    return res.status(200).json({ summary: null, reason: 'unavailable' } satisfies ElementSummaryResult)
   }
 
   try {
@@ -80,10 +88,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       signal: ac.signal,
     })
     clearTimeout(timer)
-    if (!r.ok) return res.status(200).json({ summary: null }) // 4xx (bad input) / 5xx → hide block
-    const data = (await r.json()) as unknown
+    // 4xx/5xx = we could not find out (contract/backend failure) → `error`, never a "nothing here" lie.
+    if (!r.ok) return res.status(200).json({ summary: null, reason: 'error' } satisfies ElementSummaryResult)
+    const data = (await r.json()) as unknown // a parse throw lands in catch below → also `error`
     return res.status(200).json(summaryFromBaziResponse(data))
   } catch {
-    return res.status(200).json({ summary: null }) // timeout / unreachable → hide block, never throw at the user
+    // timeout / unreachable / parse failure → `error` (transient; a retry might succeed). Never throw at the user.
+    return res.status(200).json({ summary: null, reason: 'error' } satisfies ElementSummaryResult)
   }
 }
