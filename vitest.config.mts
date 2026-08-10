@@ -57,6 +57,7 @@ export default defineConfig({
       'scripts/first-run-screens.test.tsx', // #218
       'scripts/first-run-feedback.test.tsx', // #240 — save feedback + element dead-end (.tsx, vitest)
       'scripts/first-run-reset.test.tsx', // #249 — TEMPORARY, removed together with the route by #248
+      'scripts/first-run-reset-ui.test.tsx', // #249 — TEMPORARY, the UI half; removed by #248 too
       'scripts/preview-gate.test.tsx', // #220 — .tsx so ci.yml's `*.test.ts` tsx lane never sees it (no skip-list edit, no #212 sync)
       'scripts/tier-prod-pages.test.tsx', // #225 — page-wiring teeth; .tsx (same reason: invisible to ci.yml tsx lane)
     ],
