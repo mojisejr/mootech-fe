@@ -31,6 +31,7 @@ import { toComputeSource } from '@/lib/personalization/compute-source'
 import { deriveHomeProfile, type HomeProfile } from '@/lib/home/profile'
 import { deriveHomeLoading, type HomeLoading } from '@/lib/home/loading'
 import { peekChart, isChartFresh, setChart } from './chart-cache'
+import { needsFirstRun } from '@/lib/home/first-run-gate'
 
 export type { HomeProfile, HomeLoading }
 
@@ -124,7 +125,7 @@ export function useV2Home(status: AuthStatus): V2Home {
         // (u.user_id present) and the no-chart guard — so a null/loading row is NEVER misread as
         // "not onboarded" (the #215/gap-C loop class: a transient null must not force a redirect).
         // Loop-safe: first-run's save sets onboarded_at → next home run passes this and lands home.
-        if (!u.onboarded_at) {
+        if (needsFirstRun(u)) {
           setPhase('redirecting')
           routerRef.current.replace('/v2/first-run')
           return

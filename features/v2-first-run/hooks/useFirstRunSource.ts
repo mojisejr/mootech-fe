@@ -12,7 +12,8 @@ import type {
   AsyncState,
   ElementSummary,
 } from '@/features/v2-first-run/components/ElementResultScreen'
-import { cycleFromChart, summaryStateFromResponse, toBaziGender } from './first-run-source-map'
+import { cycleFromChart, toBaziGender } from './first-run-source-map'
+import { getSummary } from './summary-cache'
 
 // The first-run element screen needs three things (#233). Two are FREE and immediate — they ride the
 // chart the user already computed at register (ChineseHoroscopeGet):
@@ -21,25 +22,7 @@ import { cycleFromChart, summaryStateFromResponse, toBaziGender } from './first-
 //               gender). No second query. `null` (e.g. gender missing ⇒ no join) → `unavailable`.
 // One is SLOW (~10s): the per-person reading from POST /api/bazi/element-summary, fetched here (C3 will
 // prefetch it at register so it is usually ready by the time the user finishes intent + pdpa).
-// The pure mappers live in first-run-source-map.ts so they are unit-testable without React.
-
-async function fetchSummary(person: {
-  birthDate: string
-  birthTime?: string
-  gender: 'male' | 'female' | 'unspecified'
-}): Promise<AsyncState<ElementSummary>> {
-  try {
-    const r = await fetch('/api/bazi/element-summary', {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ person }),
-    })
-    const body = await r.json().catch(() => null)
-    return summaryStateFromResponse(r.ok, body)
-  } catch {
-    return { status: 'error' } // timeout / network / abort → error, never a silent "nothing here"
-  }
-}
+// The pure mappers live in first-run-source-map.ts; the summary fetch + prefetch cache in summary-cache.ts.
 
 // Assembles ElementResultSource. `source` is null until the mascot resolves (the route holds a frame);
 // cycle is ready with the chart; summary streams in and starts `loading`.
@@ -70,7 +53,7 @@ export function useFirstRunSource(): { source: ElementResultSource | null } {
           birthTime: data?.time ? String(data.time) : undefined,
           gender: toBaziGender(data?.gender),
         }
-        const s = await fetchSummary(person)
+        const s = await getSummary(userId, person) // reuses the register-time prefetch (C3) if present
         if (alive) setSummary(s)
       } catch {
         // network/parse failure → leave mascot null; the route renders its fallback, never throws

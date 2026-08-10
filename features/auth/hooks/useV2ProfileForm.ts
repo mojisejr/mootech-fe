@@ -8,6 +8,8 @@ import { useCookies } from 'react-cookie'
 import { CookieKey } from '@/constants/cookie-key'
 import { ChineseHoroscopeCalculate } from '@/constants/api/api-chinese-horoscope'
 import { profileCanSubmit } from './profile-can-submit'
+import { prefetchSummary } from '@/features/v2-first-run/hooks/summary-cache'
+import { toBaziGender } from '@/features/v2-first-run/hooks/first-run-source-map'
 
 export type Gender = 'MALE' | 'FEMALE'
 
@@ -103,6 +105,9 @@ export function useV2ProfileForm(onSaved: (code: string) => void): V2ProfileForm
         '', // family_code — not collected in slice 1
       )
       if (result?.code) {
+        // C3: kick the slow (~10s) first-run reading off NOW, while the user walks intent + pdpa, so the
+        // element screen's reading block is usually ready by the time they arrive (memory-only cache).
+        prefetchSummary(userId, { birthDate: birthDay, birthTime: time, gender: toBaziGender(gender) })
         onSaved(result.code)
       } else {
         setError('บันทึกไม่สำเร็จ ลองใหม่อีกครั้ง')
