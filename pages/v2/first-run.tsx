@@ -1,23 +1,25 @@
-// MuMate v2 — /v2/first-run REAL route (#233 Phase A). Before this existed, useV2Home's onboarded-gate
-// redirected new users here (useV2Home.ts) and they hit a 404. This page holds the 3-screen first-run
-// flow (intent → pdpa → element) for a logged-in, chart-having user who has not finished onboarding.
+// MuMate v2 — /v2/first-run REAL route (#233). Before this existed, useV2Home's onboarded-gate
+// redirected new users here and they hit a 404. This page holds the 3-screen first-run flow
+// (intent → pdpa → element) for a logged-in, chart-having user who has not finished onboarding.
 //
 // Team-gated exactly like the other /v2 pages (SSR passkey) — NOT NODE_ENV — so it is reachable on a
 // Vercel/prod deploy behind the V2_PREVIEW_KEY, same as first-run-preview.tsx.
 //
-// PHASE A scope = the route exists and the 3 screens navigate (kills the 404). Two seams are filled in
-// Phase C and are marked `PHASE C` below:
-//   1. onAccept → POST /consent (save goal + consent, stamp onboarded_at) instead of just advancing.
-//   2. ElementResultScreen `result` → the real per-user source (mascot + element_cycle + summary),
-//      owned with มุน. Until then it renders WOOD_FIXTURE as an explicit placeholder (NOT a silent
-//      default) so the screen is visibly a stand-in, and the swap is one prop.
+// Element screen `source` (μุน's ElementResultSource, #238): the MASCOT (card art + element) is the
+// free, immediate half — resolved from the same compute home uses (useFirstRunMascot), so the two
+// screens never disagree. `cycle` (element_cycle facets) and `summary` (bazi reading) are PHASE C:
+// they start `loading` here — "not asked yet", NOT `unavailable`.
+//
+// PHASE C seam: onAccept currently just advances; it will POST /consent (save goal + consent, stamp
+// onboarded_at) so the returning user lands home instead of first-run.
 import { useState } from 'react'
 import type { GetServerSideProps } from 'next'
 import { useRouter } from 'next/router'
 import { v2RedirectIfUnauthed } from '@/lib/v2/gate'
-import { ElementResultScreen, WOOD_FIXTURE } from '@/features/v2-first-run/components/ElementResultScreen'
+import { ElementResultScreen } from '@/features/v2-first-run/components/ElementResultScreen'
 import { IntentCheckScreen, type GoalId } from '@/features/v2-first-run/components/IntentCheckScreen'
 import { PdpaConsentScreen } from '@/features/v2-first-run/components/PdpaConsentScreen'
+import { useFirstRunMascot } from '@/features/v2-first-run/hooks/useFirstRunMascot'
 
 const HOME = '/v2'
 
@@ -31,6 +33,7 @@ type Step = 'intent' | 'pdpa' | 'element'
 
 export default function V2FirstRun() {
   const router = useRouter()
+  const { mascot } = useFirstRunMascot()
   const [step, setStep] = useState<Step>('intent')
   const [goal, setGoal] = useState<GoalId | null>(null)
   const [consent, setConsent] = useState(false)
@@ -50,10 +53,18 @@ export default function V2FirstRun() {
   }
 
   if (step === 'element') {
+    // Hold a minimal frame while the chart resolves rather than drawing a fake element. In practice the
+    // fetch (kicked off on mount) has resolved by the time the user finishes intent + pdpa.
+    if (!mascot) {
+      return (
+        <main className="flex min-h-dvh items-center justify-center p-8 text-center font-ibm text-v3-text-body">
+          กำลังเตรียมผลธาตุของคุณ…
+        </main>
+      )
+    }
     return (
       <ElementResultScreen
-        // PHASE C: swap WOOD_FIXTURE for the real ElementResultSource (mascot + cycle + summary).
-        result={WOOD_FIXTURE}
+        source={{ mascot, cycle: { status: 'loading' }, summary: { status: 'loading' } }}
         onBack={() => setStep('pdpa')}
         onReadFull={goHome}
         onGoHome={goHome}
