@@ -62,6 +62,7 @@ export default defineConfig({
       'scripts/preview-gate.test.tsx', // #220 — .tsx so ci.yml's `*.test.ts` tsx lane never sees it (no skip-list edit, no #212 sync)
       'scripts/tier-prod-pages.test.tsx', // #225 — page-wiring teeth; .tsx (same reason: invisible to ci.yml tsx lane)
       'scripts/consent-header.test.tsx', // #16 companion — BFF sends x-consent-secret; .tsx (invisible to ci.yml tsx lane)
+      'scripts/v2-auth-gate-escape.test.tsx', // #246 — identity-limbo escape hatch; .tsx (vitest-only, no #212 sync)
     ],
   },
   resolve: {

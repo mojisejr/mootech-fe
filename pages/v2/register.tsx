@@ -9,6 +9,7 @@ import { useRouter } from 'next/router'
 import { v2RedirectIfUnauthed } from '@/lib/v2/gate'
 import { useV2AuthGate } from '@/features/auth/hooks/useV2AuthGate'
 import { AuthLoadingGate } from '@/features/v2-shell/components/AuthLoadingGate'
+import ScreenIdentityStuck from '@/components/screen-identity-stuck'
 import BirthDayInput from '@/components/birthday-input'
 import { RegisterView } from '@/features/auth/components/RegisterView'
 import { useV2ProfileForm } from '@/features/auth/hooks/useV2ProfileForm'
@@ -25,10 +26,12 @@ export const getServerSideProps: GetServerSideProps = async (ctx) => {
 
 export default function V2RegisterPage() {
   const router = useRouter()
-  const { status, showLoading } = useV2AuthGate({ redirectWhenAnon: '/v2' })
+  const { status, showLoading, identityStuck } = useV2AuthGate({ redirectWhenAnon: '/v2' })
   // Slice 1 endpoint: after save → /v2 home (slice 2 wires the destiny result).
   const form = useV2ProfileForm(() => router.replace('/v2'))
 
+  // #246 — authed-but-no-MEMBER_ID limbo would spin AuthLoadingGate forever here too. Offer re-login.
+  if (identityStuck) return <ScreenIdentityStuck callbackUrl="/v2" />
   if (showLoading || status !== 'authed') return <AuthLoadingGate />
 
   const f = form.fields

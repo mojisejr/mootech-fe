@@ -25,7 +25,9 @@ export default defineConfig({
   retries: 0,
   reporter: "list",
   use: {
-    baseURL: "http://localhost:3000",
+    // Default :3000 (the doctrine port); override with E2E_BASE_URL to run against a
+    // branch dev server on another port without touching a shared :3000 (#246).
+    baseURL: process.env.E2E_BASE_URL ?? "http://localhost:3000",
     screenshot: "only-on-failure",
     trace: "on-first-retry",
   },

@@ -14,6 +14,7 @@ import { useHomeFortune } from '@/features/home/hooks/useHomeFortune'
 import { useMascotFromCompute } from '@/lib/personalization/use-mascot'
 import { resolveGreetingElementTh } from '@/lib/personalization/compute-source'
 import { AuthLoadingGate } from '@/features/v2-shell/components/AuthLoadingGate'
+import ScreenIdentityStuck from '@/components/screen-identity-stuck'
 import { HomeSkeleton } from '@/features/v2-home/components/HomeSkeleton'
 import { V2GateForm } from '@/features/v2-shell/components/V2GateForm'
 import { OnboardingCarousel } from '@/features/onboarding/components/OnboardingCarousel'
@@ -36,7 +37,12 @@ export const getServerSideProps: GetServerSideProps<Props> = async (ctx) => {
 
 function V2Entry() {
   const router = useRouter()
-  const { status, showLoading } = useV2AuthGate()
+  const { status, showLoading, identityStuck } = useV2AuthGate()
+
+  // #246 — identity limbo (authed session, no MEMBER_ID) never leaves 'loading'; the skeleton would spin
+  // forever. After the timeout, offer re-login instead of an infinite skeleton. Checked BEFORE showLoading
+  // so the escape wins once limbo is stuck. 🔴 remove this and e2e/self-heal + the hook test go RED.
+  if (identityStuck) return <ScreenIdentityStuck callbackUrl="/v2" />
 
   // Pre-mount hydration fence (useHasMounted → useEffect → setState after paint, so this frame ALWAYS
   // reaches the user at least once — μุน measured it). Gate LOGIC unchanged (บอง 🔒 — do not touch

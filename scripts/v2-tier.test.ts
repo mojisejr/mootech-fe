@@ -35,27 +35,37 @@ describe('computeTier — free/paid state-table', () => {
   const PAID = { payment: { is_not_expired: true } }
   const FREE = { payment: { is_not_expired: false } }
 
-  it('no account → KNOWN free (isPaid=false, not loading)', () => {
-    expect(computeTier({ userId: '', done: false, errored: false, user: null })).toEqual({ isPaid: false, loading: false })
+  it('anon (no session, no cookie) → KNOWN free (isPaid=false, not loading)', () => {
+    expect(computeTier({ status: 'anon', userId: '', done: false, errored: false, user: null })).toEqual({ isPaid: false, loading: false })
   })
-  it('loading → isPaid=null (NOT false — no free flash), loading=true', () => {
-    expect(computeTier({ userId: 'u1', done: false, errored: false, user: null })).toEqual({ isPaid: null, loading: true })
+  // #246 — identity limbo (authed session, MEMBER_ID not resolved) is NOT anon. It may be a paying member,
+  // so it must read null (unknown, do not gate) — never KNOWN-free (that is the paid-user-sees-upsell bug).
+  // 🔴 Closing-criterion mutant: change the `status === 'loading'` branch back to `{ isPaid: false }` → RED.
+  it('🔴 limbo (status loading, empty userId) → isPaid=null (NOT false — a paid user must not see the upsell)', () => {
+    expect(computeTier({ status: 'loading', userId: '', done: false, errored: false, user: null })).toEqual({ isPaid: null, loading: true })
   })
-  it('fetch error → isPaid=null (NOT false — do not hide paid content)', () => {
-    expect(computeTier({ userId: 'u1', done: true, errored: true, user: null })).toEqual({ isPaid: null, loading: false })
+  it('limbo is NEVER false (forbidden direction — the #246 regression)', () => {
+    expect(computeTier({ status: 'loading', userId: '', done: false, errored: false, user: null }).isPaid).not.toBe(false)
   })
-  it('settled but no user row → isPaid=null (unknown)', () => {
-    expect(computeTier({ userId: 'u1', done: true, errored: false, user: null })).toEqual({ isPaid: null, loading: false })
+  it('authed + fetch in flight → isPaid=null (NOT false — no free flash), loading=true', () => {
+    expect(computeTier({ status: 'authed', userId: 'u1', done: false, errored: false, user: null })).toEqual({ isPaid: null, loading: true })
   })
-  it('resolved paid → isPaid=true', () => {
-    expect(computeTier({ userId: 'u1', done: true, errored: false, user: PAID })).toEqual({ isPaid: true, loading: false })
+  it('authed + fetch error → isPaid=null (NOT false — do not hide paid content)', () => {
+    expect(computeTier({ status: 'authed', userId: 'u1', done: true, errored: true, user: null })).toEqual({ isPaid: null, loading: false })
   })
-  it('resolved free → isPaid=false', () => {
-    expect(computeTier({ userId: 'u1', done: true, errored: false, user: FREE })).toEqual({ isPaid: false, loading: false })
+  it('authed + settled but no user row → isPaid=null (unknown)', () => {
+    expect(computeTier({ status: 'authed', userId: 'u1', done: true, errored: false, user: null })).toEqual({ isPaid: null, loading: false })
   })
-  it('NEVER false while loading / on error (the two forbidden directions)', () => {
-    expect(computeTier({ userId: 'u1', done: false, errored: false, user: null }).isPaid).not.toBe(false)
-    expect(computeTier({ userId: 'u1', done: true, errored: true, user: null }).isPaid).not.toBe(false)
+  it('authed + resolved paid → isPaid=true', () => {
+    expect(computeTier({ status: 'authed', userId: 'u1', done: true, errored: false, user: PAID })).toEqual({ isPaid: true, loading: false })
+  })
+  it('authed + resolved free → isPaid=false', () => {
+    expect(computeTier({ status: 'authed', userId: 'u1', done: true, errored: false, user: FREE })).toEqual({ isPaid: false, loading: false })
+  })
+  it('NEVER false while loading / on error / in limbo (the forbidden directions)', () => {
+    expect(computeTier({ status: 'authed', userId: 'u1', done: false, errored: false, user: null }).isPaid).not.toBe(false)
+    expect(computeTier({ status: 'authed', userId: 'u1', done: true, errored: true, user: null }).isPaid).not.toBe(false)
+    expect(computeTier({ status: 'loading', userId: '', done: false, errored: false, user: null }).isPaid).not.toBe(false)
   })
 })
 
@@ -69,21 +79,28 @@ describe('resolveTierOverride — param parser', () => {
   it('empty string → null', () => expect(resolveTierOverride('')).toBe(null))
 })
 
-// ── useV2Tier — the override flows through the REAL seam (mock only the fetch + router) ──
+// ── useV2Tier — the override flows through the REAL seam (mock the fetch + auth verdict + router) ──
 vi.mock('../features/auth/hooks/useV2User', () => ({ useV2User: vi.fn() }))
+vi.mock('../lib/auth/use-current-user', () => ({ useCurrentUser: vi.fn() }))
 vi.mock('next/router', () => ({ useRouter: vi.fn() }))
 import { useV2Tier } from '../features/auth/hooks/useV2Tier'
 import { useV2User } from '../features/auth/hooks/useV2User'
+import { useCurrentUser } from '../lib/auth/use-current-user'
 import { useRouter } from 'next/router'
+import type { AuthStatus } from '../lib/auth/resolve-auth'
 
-type UserState = { userId: string; done: boolean; errored: boolean; user: unknown }
-const ANON: UserState = { userId: '', done: false, errored: false, user: null } // → computeTier KNOWN free
-const LOADING: UserState = { userId: 'u1', done: false, errored: false, user: null } // → computeTier null
+// status = resolveAuth verdict (drives anon-vs-limbo, #246); the rest = the /api/user fetch state.
+type UserState = { status: AuthStatus; userId: string; done: boolean; errored: boolean; user: unknown }
+const ANON: UserState = { status: 'anon', userId: '', done: false, errored: false, user: null } // → KNOWN free
+const LOADING: UserState = { status: 'authed', userId: 'u1', done: false, errored: false, user: null } // authed, fetch in flight → null
+const LIMBO: UserState = { status: 'loading', userId: '', done: false, errored: false, user: null } // #246 authed session, no MEMBER_ID → null (NOT free)
 
 // The override is now gated by the `teamPreview` flag (issue #225), NOT NODE_ENV — so the tests pass the
 // flag directly, exactly the way a real page threads getServerSideProps' verdict into the hook.
 function renderTier(opts: { tier?: string | string[]; teamPreview: boolean; user?: UserState }) {
-  vi.mocked(useV2User).mockReturnValue(opts.user ?? ANON)
+  const u = opts.user ?? ANON
+  vi.mocked(useV2User).mockReturnValue({ userId: u.userId, done: u.done, errored: u.errored, user: u.user } as ReturnType<typeof useV2User>)
+  vi.mocked(useCurrentUser).mockReturnValue({ userId: u.userId, status: u.status } as ReturnType<typeof useCurrentUser>)
   vi.mocked(useRouter).mockReturnValue({ query: opts.tier === undefined ? {} : { tier: opts.tier } } as unknown as ReturnType<typeof useRouter>)
   return renderHook(() => useV2Tier(opts.teamPreview)).result.current
 }
@@ -114,5 +131,11 @@ describe('useV2Tier — override wired through the seam (gated by teamPreview, #
   })
   it('④ team + junk ?tier=lol + anon → unchanged (isPaid=false), no throw', () => {
     expect(renderTier({ tier: 'lol', teamPreview: true, user: ANON }).isPaid).toBe(false)
+  })
+  // #246 — identity limbo through the real seam: authed session but no MEMBER_ID. Must read null (unknown,
+  // do not gate) so a paying member is never shown the upsell / gated. 🔴 revert computeTier's limbo branch
+  // to `{ isPaid: false }` → this goes RED (the exact prod regression this ใบ fixes).
+  it('🔴 #246 limbo (authed session, no MEMBER_ID) → isPaid=null, NOT free', () => {
+    expect(renderTier({ teamPreview: false, user: LIMBO }).isPaid).toBe(null)
   })
 })

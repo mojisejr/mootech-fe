@@ -5,6 +5,7 @@ import type { GetServerSideProps } from 'next'
 import { v2RedirectIfUnauthed } from '@/lib/v2/gate'
 import { useV2AuthGate } from '@/features/auth/hooks/useV2AuthGate'
 import { AuthLoadingGate } from '@/features/v2-shell/components/AuthLoadingGate'
+import ScreenIdentityStuck from '@/components/screen-identity-stuck'
 import { LoginView } from '@/features/auth/components/LoginView'
 import { useV2Login } from '@/features/auth/hooks/useV2Login'
 
@@ -16,9 +17,11 @@ export const getServerSideProps: GetServerSideProps = async (ctx) => {
 }
 
 export default function V2LoginPage() {
-  const { showLoading } = useV2AuthGate({ redirectWhenAuthed: '/v2' })
+  const { showLoading, identityStuck } = useV2AuthGate({ redirectWhenAuthed: '/v2' })
   const { loading, onLine, onGoogle } = useV2Login()
 
+  // #246 — authed-but-no-MEMBER_ID limbo would spin AuthLoadingGate forever here too. Offer re-login.
+  if (identityStuck) return <ScreenIdentityStuck callbackUrl="/v2" />
   if (showLoading) return <AuthLoadingGate />
 
   return (
