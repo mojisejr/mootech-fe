@@ -56,6 +56,9 @@ export default defineConfig({
       'scripts/v2-tier.test.ts', // #214 — must survive this merge
       'scripts/first-run-screens.test.tsx', // #218
       'scripts/first-run-feedback.test.tsx', // #240 — save feedback + element dead-end (.tsx, vitest)
+      'scripts/first-run-reset.test.tsx', // #249 — TEMPORARY, removed together with the route by #248
+      'scripts/first-run-reset-ui.test.tsx', // #249 — TEMPORARY, the UI half; removed by #248 too
+      'scripts/first-run-source-hook.test.tsx', // #244 — teeth on the hook that DECIDES the status
       'scripts/preview-gate.test.tsx', // #220 — .tsx so ci.yml's `*.test.ts` tsx lane never sees it (no skip-list edit, no #212 sync)
       'scripts/tier-prod-pages.test.tsx', // #225 — page-wiring teeth; .tsx (same reason: invisible to ci.yml tsx lane)
       'scripts/consent-header.test.tsx', // #16 companion — BFF sends x-consent-secret; .tsx (invisible to ci.yml tsx lane)

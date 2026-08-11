@@ -18,6 +18,8 @@ import { HomeSkeleton } from '@/features/v2-home/components/HomeSkeleton'
 import { V2GateForm } from '@/features/v2-shell/components/V2GateForm'
 import { OnboardingCarousel } from '@/features/onboarding/components/OnboardingCarousel'
 import { V2HomeScreen } from '@/features/v2-home/components/V2HomeScreen'
+// 🔴 TEMPORARY (#249) — #248 removes this import and its one <TeamPreviewResetBadge /> below.
+import { TeamPreviewResetBadge } from '@/features/v2-team-preview/TeamPreviewResetBadge'
 
 type Props =
   | { teamAuthed: false; gateError: string | null }
@@ -128,5 +130,14 @@ export default function V2HomePage(props: Props) {
   if (!props.teamAuthed) {
     return <V2GateForm gateError={props.gateError} />
   }
-  return <V2Entry />
+  // 🔴 TEMPORARY (#249): the team's reset control is mounted HERE, inside the `teamAuthed` branch,
+  // so it exists only for a request the SERVER already verified against V2_PREVIEW_KEY — it is not
+  // conditional on anything the client could flip. /v2 is also the one screen the team always comes
+  // back to, so the control is findable without anyone being told a URL. #248 deletes these lines.
+  return (
+    <>
+      <V2Entry />
+      <TeamPreviewResetBadge />
+    </>
+  )
 }
