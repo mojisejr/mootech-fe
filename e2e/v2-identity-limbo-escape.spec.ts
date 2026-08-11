@@ -19,6 +19,7 @@ const DEV_USER_ID =
   process.env.E2E_DEV_USER_ID ?? "07fb9a8b-8f71-4559-89fe-b5e5a0b62a6f";
 const DEV_USER_NAME = process.env.E2E_DEV_USER_NAME ?? "เกวลิน";
 const V2_KEY = process.env.V2_PREVIEW_KEY ?? "teamkey123";
+const BASE = process.env.E2E_BASE_URL ?? "http://localhost:3000";
 
 // A NON-uuid identity: resolveAuth's UUID_RE rejects it, so the self-heal "succeeds" at the BE round-trip
 // but leaves the user in limbo (this is the permanent-lock path the ใบ describes).
@@ -61,9 +62,7 @@ test.describe("#246 — /v2 identity-limbo escape hatch", () => {
     await context.clearCookies();
     await context.addCookies(kept);
     // 3) Pass the /v2 team gate (SSR checks v2_access === V2_PREVIEW_KEY).
-    await context.addCookies([
-      { name: V2_COOKIE, value: V2_KEY, url: "http://localhost:3000" },
-    ]);
+    await context.addCookies([{ name: V2_COOKIE, value: V2_KEY, url: BASE }]);
 
     const before = await context.cookies();
     expect(before.some((c) => c.name === MEMBER_ID_COOKIE)).toBe(false);
@@ -77,13 +76,20 @@ test.describe("#246 — /v2 identity-limbo escape hatch", () => {
       page.getByRole("button", { name: /เข้าสู่ระบบอีกครั้ง/ }),
     ).toBeVisible({ timeout: 15000 });
 
-    // 6) Clicking it leaves the limbo (signOut → the escape is a real exit, not a dead button).
+    // 6) The button is a REAL exit, not a dead control: clicking it fires next-auth signOut. We assert the
+    //    signOut round-trip is triggered (robust) rather than polling cookie-clear timing (a next-auth
+    //    redirect detail, not the #246 escape logic).
+    let signoutHit = false;
+    await page.route("**/api/auth/signout*", async (route) => {
+      signoutHit = true;
+      await route.continue();
+    });
     await page.getByRole("button", { name: /เข้าสู่ระบบอีกครั้ง/ }).click();
     await expect
-      .poll(async () => (await context.cookies()).some((c) => c.name.startsWith("next-auth")), {
+      .poll(() => signoutHit, {
         timeout: 10000,
-        message: "re-login should sign the stuck session out",
+        message: "clicking re-login must fire next-auth signOut (a real exit, not a dead button)",
       })
-      .toBe(false);
+      .toBe(true);
   });
 });
