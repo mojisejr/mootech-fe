@@ -7,9 +7,9 @@ import type { NextApiRequest, NextApiResponse } from 'next'
 import { eq, asc } from 'drizzle-orm'
 import { db } from '@/lib/db'
 import { memberWithFriend, user } from '@/lib/db/schema'
-import { checkMemberWithFriendUsage, AI_CODE } from '@/lib/usage'
+import { checkMemberWithFriendUsage, AI_CODE, FREE_FRIEND_LIMIT } from '@/lib/usage'
 
-const FREE_LIMIT = 20 // NestJS getLimit(true) — เพดานชั่วคราวก่อน launch (ฟีมเคาะ 2026-08-13, #262): 1 → 20
+const FREE_LIMIT = FREE_FRIEND_LIMIT // free friend ceiling (#262: 1 → 20); single source in usage-core
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== 'GET') return res.status(405).json({ error: 'Method not allowed' })

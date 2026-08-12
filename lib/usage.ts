@@ -11,6 +11,7 @@ import {
   AI_MSG,
   classifyMembership,
   evaluateUsage,
+  FREE_FRIEND_LIMIT,
   type MembershipReason,
   type UsageResult,
 } from './usage-core'
@@ -54,8 +55,8 @@ export async function checkMemberWithFriendUsage(userId: string, count: number, 
     reason: m.reason,
     isFree: m.isFree,
     count,
-    // เพดานเพื่อนชั่วคราวก่อน launch (ฟีมเคาะ 2026-08-13, #262): free 1 → 20
-    limitFree: 20,
+    // เพดานเพื่อนชั่วคราวก่อน launch (#262): free 1 → 20. Single source = FREE_FRIEND_LIMIT (usage-core).
+    limitFree: FREE_FRIEND_LIMIT,
     limitMember: 20,
     limitMode: 'all',
     reflectMembershipCode: false,

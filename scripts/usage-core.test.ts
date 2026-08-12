@@ -10,6 +10,7 @@ import {
   evaluateUsage,
   dayWindow,
   monthWindow,
+  FREE_FRIEND_LIMIT,
 } from '../lib/usage-core'
 
 let pass = 0
@@ -60,6 +61,11 @@ t('classify MEMBER valid (future) -> paid/MEMBER', () =>
     isFree: false,
     reason: 'MEMBER',
   }))
+
+// ── FREE_FRIEND_LIMIT: single source for the pre-launch friend ceiling (#262) ──
+// The three friend sites (lib/usage.ts, pages/api/member-with-friend, pages/api/user.ts) all reference
+// this. Revert here → all three follow → the real-path specs below + this assertion go red.
+t('FREE_FRIEND_LIMIT === 20 (pre-launch)', () => assert.equal(FREE_FRIEND_LIMIT, 20))
 
 // ── evaluateUsage: chinese-calendar (reflect membership, no count limit) ──
 const cc = (reason: any, isFree: boolean) =>
