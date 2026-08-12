@@ -63,6 +63,7 @@ export default defineConfig({
       'scripts/tier-prod-pages.test.tsx', // #225 — page-wiring teeth; .tsx (same reason: invisible to ci.yml tsx lane)
       'scripts/consent-header.test.tsx', // #16 companion — BFF sends x-consent-secret; .tsx (invisible to ci.yml tsx lane)
       'scripts/v2-auth-gate-escape.test.tsx', // #246 — identity-limbo escape hatch; .tsx (vitest-only, no #212 sync)
+      'scripts/member-with-friend-limit.test.tsx', // #262 — real free friend limit 1→20; .tsx (invisible to ci.yml tsx lane)
     ],
   },
   resolve: {

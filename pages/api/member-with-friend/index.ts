@@ -1,7 +1,7 @@
 // MIGRATED from NestJS GET /member-with-friend  (Phase 1 backfill, #mootech-fullstack-supabase-fold)
 // Read list -> Supabase via Drizzle. Parity target: MemberWithFriendService.getMemberWithFriend.
 // Usage gate via the Phase 2 helper: NestJS counts the user's member_with_friend rows (== rows.length)
-// and limits free=1/member=20; if over limit, isRunAi=false and rows past index getLimit(true)=1 are
+// and limits free=20/member=20; if over limit, isRunAi=false and rows past index getLimit(true)=20 are
 // flagged is_disable. Member friends (member_id != '') resolve their profile from the `user` table.
 import type { NextApiRequest, NextApiResponse } from 'next'
 import { eq, asc } from 'drizzle-orm'
@@ -9,7 +9,7 @@ import { db } from '@/lib/db'
 import { memberWithFriend, user } from '@/lib/db/schema'
 import { checkMemberWithFriendUsage, AI_CODE } from '@/lib/usage'
 
-const FREE_LIMIT = 1 // NestJS getLimit(true)
+const FREE_LIMIT = 20 // NestJS getLimit(true) — เพดานชั่วคราวก่อน launch (ฟีมเคาะ 2026-08-13, #262): 1 → 20
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== 'GET') return res.status(405).json({ error: 'Method not allowed' })
