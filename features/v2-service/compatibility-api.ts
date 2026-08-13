@@ -110,3 +110,86 @@ export function buildCreateFriendArgs(userId: string, form: NewFriendForm): Crea
     form.imageProfile,
   ]
 }
+
+// --- Phase 4 (#266): EDIT an existing friend ------------------------------------------------------
+// The v1 friend-detail record as the detail route returns it (snake_case), typed for the fields the edit
+// form prefills. Keys mirror pages/api/member-with-friend/detail.ts.
+export type FriendEditDetail = {
+  error?: unknown
+  name?: string | null
+  surname?: string | null
+  dob?: string | null
+  time?: string | null
+  gender?: string | null
+  is_remember_time?: boolean | null
+}
+
+// The edit form's fields. Unlike NewFriendForm this carries `surname` (the friend may already have one —
+// create left it '' but a member-linked friend has a real surname; we must not drop it on save) and no
+// imageProfile (picture is a SEPARATE endpoint, MemberWithFriendUpdateApi — out of scope here).
+export type EditFriendForm = {
+  name: string
+  surname: string
+  /** 'YYYY-MM-DD' */
+  birthDay: string
+  /** 'HH:mm' — '' when time not remembered */
+  time: string
+  isRememberTime: boolean
+  gender: Gender
+}
+
+// Prefill the edit form from the friend's existing detail. PURE + defensive: missing/legacy fields fall
+// back to safe blanks so the form opens (never strands), and the user can fill them. gender: a legacy
+// friend may have null gender — prefill FEMALE only if explicitly 'FEMALE', else MALE (a VISIBLE default
+// the user can change, same discipline as the create form's visible MALE pre-select — not a hidden fallback).
+export function friendDetailToEditForm(detail: FriendEditDetail | null): EditFriendForm {
+  return {
+    name: detail?.name || '',
+    surname: detail?.surname || '',
+    birthDay: detail?.dob || '',
+    time: detail?.time || '', // empty when the friend was added without a birth time → user can fill it in
+    isRememberTime: !!detail?.is_remember_time,
+    gender: detail?.gender === 'FEMALE' ? 'FEMALE' : 'MALE',
+  }
+}
+
+// The exact positional tuple for v1's
+// MemberWithFriendUpdateProfileApi(friend_id, dob, name, surname, time, gender, is_remember_time).
+// ⚠️ DIFFERENT order from create (no picture; friend_id first). A surname↔name or gender↔time swap is
+// silent data-corruption tsc can't see (all string) — buildEditFriendArgs pins the positions, unit-tested.
+export type EditFriendArgs = [
+  friendId: string,
+  dob: string,
+  name: string,
+  surname: string,
+  time: string,
+  gender: string,
+  isRememberTime: boolean,
+]
+
+export function buildEditFriendArgs(friendId: string, form: EditFriendForm): EditFriendArgs {
+  return [friendId, form.birthDay, form.name, form.surname, form.time, form.gender, form.isRememberTime]
+}
+
+// The edit outcome, carrying a `reason` on failure in the SAME vocabulary #263 gave the whole line
+// ('quota' can't happen for an edit — realistic failures are 'system'/'network'). Type-only imports below
+// are erased at runtime, so this module stays pure/node-testable (no axios, no getConfig).
+import type { ApiResult } from '@/utils/fetch'
+import type { CompatCalcErrorReason } from './hooks/useCompatibilityResult'
+
+export type UpdateFriendResult =
+  | { ok: true }
+  | { ok: false; reason: CompatCalcErrorReason; error?: unknown }
+
+// PURE classification of the status-aware update result → a reason μุน can turn into copy. Kept out of the
+// hook so it unit-tests without React: network (no response) → 'network'; any error status → 'system';
+// a 2xx that still echoes an {error} body (legacy BE shape) → 'system'; clean 2xx → ok.
+export function mapUpdateFriendResult(res: ApiResult): UpdateFriendResult {
+  if (res.ok) {
+    const data = res.data as { error?: unknown } | null
+    if (data?.error) return { ok: false, reason: 'system', error: data.error }
+    return { ok: true }
+  }
+  if (res.kind === 'network') return { ok: false, reason: 'network', error: res.error }
+  return { ok: false, reason: 'system', error: res.data } // any error status → system (no quota on edit)
+}
