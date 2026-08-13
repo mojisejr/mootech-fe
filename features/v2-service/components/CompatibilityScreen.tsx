@@ -21,6 +21,8 @@ import { LoadingScreen } from '@/features/v2-shell/components/LoadingScreen'
 import { useV2Logout } from '@/features/auth/hooks/useV2Logout'
 import { useCookies } from 'react-cookie'
 import { CookieKey } from '@/constants/cookie-key'
+import { MemberWithFriendGetDetailApi } from '@/constants/api/api-member-with-friend-get-detail'
+import { friendDetailToEditForm, type EditFriendForm, type FriendEditDetail } from '../compatibility-api'
 import { useCompatibility, type CompatPerson } from '../hooks/useCompatibility'
 import { useQuota } from '../hooks/useQuota'
 import { useCalcCooldown } from '../hooks/useCalcCooldown'
@@ -51,11 +53,16 @@ function Sparkles() {
 }
 
 // one profile row — Figma 636:18668 (filled) / 636:17787 (empty). `variant` picks the surface + empty CTA.
-function ProfileRow({ person, loadingDob, onEdit, onPick, testId, emptyLabel }: {
+function ProfileRow({ person, loadingDob, onEdit, onPick, onChangePerson, editBusy, testId, emptyLabel }: {
   person: CompatPerson | null
   loadingDob?: boolean
   onEdit: () => void
   onPick?: () => void
+  /** #266 — when present the row shows TWO actions, because it HAS two: pick a different person, and
+   *  change this person's data. Absent (row 1) keeps the single control it always had. */
+  onChangePerson?: () => void
+  /** the friend's data is being read before the edit sheet can open — the control says so itself (#265) */
+  editBusy?: boolean
   testId: 'compat-person1' | 'compat-person2'
   emptyLabel?: string
 }) {
@@ -72,7 +79,11 @@ function ProfileRow({ person, loadingDob, onEdit, onPick, testId, emptyLabel }: 
   }
   const isP1 = testId === 'compat-person1'
   return (
-    <section data-testid={testId} className="flex w-full items-center gap-3 overflow-hidden rounded-[56px] bg-v3-ghost-white py-3 pl-3 pr-6">
+    // #266 — two actions need the horizontal room the single one did not: measured at 393, the friend's
+    // birthdate was being pushed onto a second line and breaking after the "·", leaving the separator
+    // dangling. Right padding drops to 8px only on the two-action row; the buttons' own inset supplies the
+    // visual gutter, and rows with one action keep the original 24px.
+    <section data-testid={testId} className={`flex w-full items-center overflow-hidden rounded-[56px] bg-v3-ghost-white py-3 pl-3 ${onChangePerson ? 'gap-2 pr-2' : 'gap-3 pr-6'}`}>
       <span className="relative grid size-10 shrink-0 place-items-center overflow-hidden rounded-full bg-v3-sapphire text-sm font-bold text-white">
         {person.imageProfile
           ? <Image src={person.imageProfile} alt="" fill sizes="40px" style={{ objectFit: 'cover' }} />
@@ -85,7 +96,31 @@ function ProfileRow({ person, loadingDob, onEdit, onPick, testId, emptyLabel }: 
           : <p data-testid={isP1 ? 'compat-person1-dob' : 'compat-person2-dob'} className="text-[14px] font-normal leading-[22px]">{formatCompatBirth(person.dob, person.time)}</p>}
         {isP1 && <span data-testid="compat-person1-time" className="sr-only">{person.time}</span>}
       </div>
-      <button type="button" onClick={onEdit} className="shrink-0 text-[14px] font-bold leading-5 text-v3-sapphire">แก้ไข</button>
+      {/* #266 — the label now matches what the control does. "แก้ไข" on this row used to open the
+          pick-someone-else modal: the screen said one thing and did another, which is the same class of
+          defect #263 removed from the message below. Two actions, two labels, two testids.
+          min-w/min-h 44: two small text targets side by side is exactly where #249's 41px tap-target
+          failure came from — measured at 393 and 320, not eyeballed. */}
+      <div className="flex shrink-0 items-center">
+        {onChangePerson && (
+          <button
+            type="button" onClick={onChangePerson} data-testid={`${testId}-change`}
+            className="grid min-h-[44px] min-w-[44px] place-items-center text-[14px] font-bold leading-5 text-v3-text-muted"
+          >
+            เปลี่ยน
+          </button>
+        )}
+        <button
+          type="button" onClick={onEdit} disabled={editBusy} aria-disabled={editBusy}
+          data-testid={`${testId}-edit`}
+          className={[
+            'grid min-h-[44px] min-w-[44px] place-items-center text-[14px] font-bold leading-5',
+            editBusy ? 'cursor-not-allowed text-v3-text-muted' : 'text-v3-sapphire',
+          ].join(' ')}
+        >
+          {editBusy ? 'กำลังโหลด…' : 'แก้ไข'}
+        </button>
+      </div>
     </section>
   )
 }
@@ -139,6 +174,30 @@ export function CompatibilityScreen({ config }: { config: CompatibilityConfig })
   const [logoutOpen, setLogoutOpen] = useState(false)
   const [selectOpen, setSelectOpen] = useState(false)
   const [addOpen, setAddOpen] = useState(false)
+  // #266 — the edit flow, as three states rather than one boolean, because "loading the friend's data"
+  // and "we could not load it" are NOT the same as "the sheet is open".
+  //   🔴 The sheet is opened ONLY once real values are in hand. Opening it on a failed read would put an
+  //   EMPTY form in front of the user, and saving that would overwrite the friend's real name/dob/surname
+  //   with blanks — the same silent-erase class as the surname gap goo closed in the seam.
+  const [editForm, setEditForm] = useState<EditFriendForm | null>(null)
+  const [editLoading, setEditLoading] = useState(false)
+  const [editLoadFailed, setEditLoadFailed] = useState(false)
+
+  async function openEditFriend() {
+    const friendId = c.person2?.id
+    if (!friendId || editLoading) return
+    setEditLoading(true)
+    setEditLoadFailed(false)
+    try {
+      const detail = (await MemberWithFriendGetDetailApi(friendId)) as FriendEditDetail | null
+      if (!detail || detail.error) throw new Error('detail-unavailable')
+      setEditForm(friendDetailToEditForm(detail))
+    } catch {
+      setEditLoadFailed(true) // say it on the screen; never open a blank form (see above)
+    } finally {
+      setEditLoading(false)
+    }
+  }
   const [comingSoon, setComingSoon] = useState<string | null>(null)
   const router = useRouter()
   // #264 — identity straight from the cookie rather than waiting on person1's fetch: the two requests are
@@ -247,7 +306,26 @@ export function CompatibilityScreen({ config }: { config: CompatibilityConfig })
             : <ProfileRow person={c.person1} onEdit={() => setComingSoon('แก้ไขข้อมูลของคุณ')} testId="compat-person1" />}
 
           {/* row 2 — เลือกเพื่อน/คู่รัก → wrapped v1 modal; filled → name+picture now, dob enriches (skeleton) */}
-          <ProfileRow person={c.person2} loadingDob={c.loadingPerson2} onEdit={() => setSelectOpen(true)} onPick={() => setSelectOpen(true)} testId="compat-person2" emptyLabel="เลือกเพื่อน / คู่รัก" />
+          <ProfileRow
+            person={c.person2}
+            loadingDob={c.loadingPerson2}
+            onEdit={openEditFriend}                 // #266 — now really edits THIS friend
+            onChangePerson={() => setSelectOpen(true)} // …and the old behaviour keeps its own, honest label
+            onPick={() => setSelectOpen(true)}
+            editBusy={editLoading}
+            testId="compat-person2"
+            emptyLabel="เลือกเพื่อน / คู่รัก"
+          />
+
+          {/* #266 — could not read the friend's current data. Said out loud instead of opening an empty
+              form: an empty form looks like the friend HAS no data, and saving it would erase what is
+              there. Red + alert per the tone rule from #263 — this one really is broken. */}
+          {editLoadFailed && (
+            <p role="alert" data-testid="compat-edit-load-error" className="text-center text-[14px] font-medium text-v3-error">
+              <span className="block font-bold">เปิดข้อมูลเพื่อนไม่ได้</span>
+              <span className="block font-normal">ยังไม่ได้แก้อะไร ลองกดแก้ไขอีกครั้ง</span>
+            </p>
+          )}
 
           {/* button — gray until BOTH people (done-cond #5). Fires the (side-effecting) calc ONCE (guarded by
               firingRef), then the whole form swaps to the loader. 2F/D31: the button no longer carries a
@@ -323,6 +401,29 @@ export function CompatibilityScreen({ config }: { config: CompatibilityConfig })
           friendQuota={quota.friend}
         />
       )}
+      {/* #266 — same sheet, edit mode: identical fields, so a second screen would only be a copy of the
+          date/gender/time controls waiting to drift out of step with this one. */}
+      {editForm && c.person2 && (
+        <AddFriendSheet
+          onClose={() => setEditForm(null)}
+          edit={{
+            initial: editForm,
+            onSave: async (form) => {
+              const res = await c.updateFriendProfile(c.person2!.id, form)
+              if (res.ok) {
+                // Re-read the friend so the ROW stops showing the old birthdate. The calculation itself
+                // would already be right (BE reads the friend fresh by id) — which is exactly why this
+                // matters: without it the screen would state one birthdate and the result would be
+                // computed from another, and only the screen is visible.
+                c.selectFriend({ id: c.person2!.id, name: form.name, surname: form.surname })
+                setEditForm(null)
+              }
+              return res
+            },
+          }}
+        />
+      )}
+
       {addOpen && (
         <AddFriendSheet
           onClose={() => setAddOpen(false)}

@@ -71,6 +71,7 @@ export default defineConfig({
       'scripts/quota-route.test.tsx', // #264 — /api/quota both-quota remaining + wiring; .tsx
       'scripts/quota-indicator-ui.test.tsx', // #264 — the UI half: what is shown when there IS no number; .tsx
       'scripts/calc-cooldown.test.tsx', // #265 — cooldown state machine; every guarantee lives in THIS lane; .tsx
+      'scripts/edit-friend-ui.test.tsx', // #266 — edit-friend UI; refuses to open a blank form; .tsx
     ],
   },
   resolve: {
