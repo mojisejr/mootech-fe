@@ -13,7 +13,11 @@ import {
   COMPAT_FRIEND_DEFAULTS,
   friendInputToPerson,
   applyFriendDetail,
+  friendDetailToEditForm,
+  buildEditFriendArgs,
+  mapUpdateFriendResult,
   type NewFriendForm,
+  type EditFriendForm,
 } from '../features/v2-service/compatibility-api'
 
 let pass = 0
@@ -116,5 +120,43 @@ t('applyFriendDetail: error / null / missing keys → KEEP base (no strand, no f
   assert.deepEqual(applyFriendDetail(base, {}), base) // missing dob/time keys → stays '' (mut that drops the ||base fallback would set undefined here)
   assert.equal(applyFriendDetail(base, {}).dob, '', 'dob must remain "" when detail lacks it, never undefined')
 })
+
+// ── #266 edit-friend seam (prefill · positional args · failure reason) ────────────────────────────
+t('friendDetailToEditForm: prefill ALL fields from detail (snake_case → form)', () => {
+  assert.deepEqual(
+    friendDetailToEditForm({
+      name: 'สมชาย', surname: 'ใจดี', dob: '1990-05-01', time: '08:30',
+      gender: 'FEMALE', is_remember_time: true,
+    }),
+    { name: 'สมชาย', surname: 'ใจดี', birthDay: '1990-05-01', time: '08:30', isRememberTime: true, gender: 'FEMALE' },
+  )
+})
+t('friendDetailToEditForm: friend added without birth time → time "" (user can fill it in)', () => {
+  const f = friendDetailToEditForm({ name: 'ก', dob: '2000-01-01', time: '', is_remember_time: false })
+  assert.equal(f.time, '')
+  assert.equal(f.isRememberTime, false)
+})
+t('friendDetailToEditForm: null / legacy-null gender → MALE (visible default, never undefined)', () => {
+  assert.deepEqual(friendDetailToEditForm(null), { name: '', surname: '', birthDay: '', time: '', isRememberTime: false, gender: 'MALE' })
+  assert.equal(friendDetailToEditForm({ gender: null }).gender, 'MALE')
+  assert.equal(friendDetailToEditForm({ gender: 'FEMALE' }).gender, 'FEMALE')
+})
+const editForm: EditFriendForm = { name: 'N', surname: 'S', birthDay: '1988-12-31', time: '23:59', isRememberTime: true, gender: 'FEMALE' }
+t('buildEditFriendArgs: positions match MemberWithFriendUpdateProfileApi(friend_id,dob,name,surname,time,gender,is_remember_time)', () => {
+  assert.deepEqual(buildEditFriendArgs('friend-1', editForm), ['friend-1', '1988-12-31', 'N', 'S', '23:59', 'FEMALE', true])
+})
+t('buildEditFriendArgs: surname and name are NOT swapped (silent string corruption guard)', () => {
+  const args = buildEditFriendArgs('f', editForm)
+  assert.equal(args[2], 'N', 'index 2 must be name')
+  assert.equal(args[3], 'S', 'index 3 must be surname')
+})
+t('mapUpdateFriendResult: clean 2xx → ok', () =>
+  assert.deepEqual(mapUpdateFriendResult({ ok: true, status: 200, data: {} }), { ok: true }))
+t('mapUpdateFriendResult: 2xx echoing {error} body → system (not a false ok)', () =>
+  assert.deepEqual(mapUpdateFriendResult({ ok: true, status: 200, data: { error: 'boom' } }), { ok: false, reason: 'system', error: 'boom' }))
+t('mapUpdateFriendResult: http error status → system', () =>
+  assert.equal((mapUpdateFriendResult({ ok: false, kind: 'http', status: 500, data: {} }) as any).reason, 'system'))
+t('mapUpdateFriendResult: no response → network (distinct reason, not one blob)', () =>
+  assert.equal((mapUpdateFriendResult({ ok: false, kind: 'network', error: new Error('x') }) as any).reason, 'network'))
 
 console.log(`\n${process.exitCode ? '❌ compatibility FAIL' : `✅ compatibility PASS (${pass})`}`)

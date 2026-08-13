@@ -16,15 +16,20 @@ import { CookieKey } from '@/constants/cookie-key'
 import { UserGetById } from '@/constants/api/api-user-get'
 import { MemberWithFriendCreateApi } from '@/constants/api/api-member-with-friend-create'
 import { MemberWithFriendGetDetailApi } from '@/constants/api/api-member-with-friend-get-detail'
+import { MemberWithFriendUpdateProfileWithStatusApi } from '@/constants/api/api-member-with-friend-update-profile'
 import type { CompatibilityConfig, CompatibilityKind, MatchingType } from '../compatibility'
 import {
   buildCreateFriendArgs,
+  buildEditFriendArgs,
+  mapUpdateFriendResult,
   friendInputToPerson,
   applyFriendDetail,
   type CompatPerson,
   type SelectFriendInput,
   type FriendDetail,
   type NewFriendForm,
+  type EditFriendForm,
+  type UpdateFriendResult,
 } from '../compatibility-api'
 
 export type { CompatPerson, SelectFriendInput }
@@ -32,6 +37,9 @@ export type { CompatPerson, SelectFriendInput }
 export type CreateFriendResult =
   | { ok: true; friend: unknown }
   | { ok: false; error: unknown }
+
+// UpdateFriendResult + the failure classification live in compatibility-api (pure, unit-tested).
+export type { UpdateFriendResult }
 
 export type UseCompatibility = {
   kind: CompatibilityKind
@@ -53,6 +61,10 @@ export type UseCompatibility = {
   clearFriend: () => void
   /** wraps v1 create-friend (surname/gender gap-filled + documented in compatibility-api) */
   createFriend: (form: NewFriendForm) => Promise<CreateFriendResult>
+  /** wraps v1 update-profile with STATUS (#266): edit an existing friend, returning a reason on failure.
+   *  On ok the caller MUST re-read the friend (selectFriend again) so person2 reflects the new data before
+   *  the next calc — the detail is a fresh GET (no cache), so a re-select fully refreshes it. */
+  updateFriendProfile: (friendId: string, form: EditFriendForm) => Promise<UpdateFriendResult>
 }
 
 // The current-user row from UserGetById (/api/user). Only the fields Slice 1 reads are typed.
@@ -154,6 +166,17 @@ export function useCompatibility(config: CompatibilityConfig): UseCompatibility 
     [userId],
   )
 
+  // Edit an existing friend's profile (#266). Status-aware so a failed save says WHY, not one blob. The
+  // v1 call is made HERE (client) from the tested positional builder; the pure adapter stays node-testable.
+  const updateFriendProfile = useCallback(
+    async (friendId: string, form: EditFriendForm): Promise<UpdateFriendResult> => {
+      if (!friendId) return { ok: false, reason: 'system', error: 'no-friend-id' }
+      const res = await MemberWithFriendUpdateProfileWithStatusApi(...buildEditFriendArgs(friendId, form))
+      return mapUpdateFriendResult(res)
+    },
+    [],
+  )
+
   return {
     kind: config.kind,
     title: config.title,
@@ -166,5 +189,6 @@ export function useCompatibility(config: CompatibilityConfig): UseCompatibility 
     selectFriend,
     clearFriend,
     createFriend,
+    updateFriendProfile,
   }
 }
