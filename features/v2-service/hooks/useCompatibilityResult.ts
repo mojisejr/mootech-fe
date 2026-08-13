@@ -10,7 +10,7 @@
 //   mascots: fetched once dayGanzhi is known; a missing ganzhi or a 404 → undefined/null (the
 //     screen hides that card — rule 4). Re-fetch is race-guarded by an alive flag.
 import { useEffect, useState } from 'react'
-import { UserMatchingCalculateApi } from '@/constants/api/api-user-matching-calculate'
+import { UserMatchingCalculateWithStatusApi } from '@/constants/api/api-user-matching-calculate'
 import { UserMatchingGetDetailApi } from '@/constants/api/api-user-matching-get-detail'
 import {
   parseCompatibilityResult,
@@ -161,10 +161,21 @@ export function useCompatibilityResult(matchingId: string): UseCompatibilityResu
 // birthDate/time so the result screen's header can show them without a re-fetch. Wrapped here so
 // μุน's view-result button just awaits a typed result and navigates. ⚠️ μุน owns the button's client
 // state machine (guard double-tap so it fires ONCE, show loading, on error keep the user on the input
-// screen — do NOT navigate). A genuine membership/limit gate returns NO matching_id (not an exception).
+// screen — do NOT navigate).
+//
+// #263 — WHY it failed, not just THAT it failed. The old code collapsed three very different failures
+// (410 quota gate · 5xx server down · no-response network) into one `{ok:false}` blob, so the screen
+// showed "คำนวณไม่สำเร็จ ลองอีกครั้ง" for all — which wrongly invites a retry that burns more quota.
+// Now the failure carries a `reason` so μุน can write distinct copy. The RAW BE message is NOT surfaced
+// (AI_CODE_RESPONSE_MESSAGE.OUT_OF_LIMIT still says "ต่อวัน" and predates the 100/ปี ceiling — it lies);
+// we emit a reason CODE and let the UI own the words.
+export type CompatCalcErrorReason =
+  | 'quota' // 410 GONE — free ceiling reached
+  | 'system' // 5xx (or any other error status / malformed success) — server-side, not the user's fault
+  | 'network' // no HTTP response — offline / timeout / CORS
 export type CalculateCompatibilityResult =
   | { ok: true; matchingId: string }
-  | { ok: false; error: unknown }
+  | { ok: false; reason: CompatCalcErrorReason; error?: unknown }
 
 export async function calculateCompatibility(
   person1: CompatPerson,
@@ -173,17 +184,24 @@ export async function calculateCompatibility(
 ): Promise<CalculateCompatibilityResult> {
   const userId = person1?.id
   const friendId = person2?.id
-  if (!userId || !friendId) return { ok: false, error: 'missing-person' }
-  try {
-    const res = (await UserMatchingCalculateApi(userId, friendId, matchingType)) as
-      | { matching_id?: string; error?: unknown }
-      | null
-    if (!res || res.error || !res.matching_id) {
-      return { ok: false, error: res?.error ?? 'no-matching-id' } // membership/limit gate → no id
+  // Missing a person is a caller/precondition bug, not a server failure — bucket as system (μุน's
+  // generic copy) since the button is gated on both people existing, so this path is not user-reachable.
+  if (!userId || !friendId) return { ok: false, reason: 'system', error: 'missing-person' }
+
+  const res = await UserMatchingCalculateWithStatusApi(userId, friendId, matchingType)
+
+  if (res.ok) {
+    const data = res.data as { matching_id?: string } | null
+    if (data?.matching_id) {
+      rememberCompatPersons(data.matching_id, person1, person2) // carry birthDate/time → result header
+      return { ok: true, matchingId: data.matching_id }
     }
-    rememberCompatPersons(res.matching_id, person1, person2) // carry birthDate/time → result header
-    return { ok: true, matchingId: res.matching_id }
-  } catch (error) {
-    return { ok: false, error }
+    // 2xx but no matching_id = BE contract violation; user can't fix it → system.
+    return { ok: false, reason: 'system', error: 'no-matching-id' }
   }
+
+  if (res.kind === 'network') return { ok: false, reason: 'network', error: res.error }
+  // http error status
+  if (res.status === 410) return { ok: false, reason: 'quota', error: res.data }
+  return { ok: false, reason: 'system', error: res.data } // 5xx and any other error status
 }
