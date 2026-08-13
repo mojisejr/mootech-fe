@@ -22,7 +22,7 @@
 //   U4  quota tone 'blocked' → 'retry'                         → tone/role case RED
 //   U5  navigate on !res.ok (drop the early return)            → every "อยู่หน้าเดิม" case RED
 //   U6  render a single shared string again                    → the all-different case RED
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, render, screen, waitFor } from '@testing-library/react'
 
 // vi.hoisted: the mock factories below are lifted above the imports, so the spies they close over must
@@ -66,6 +66,14 @@ const PERSON2 = { id: 'f-1', name: 'เพื่อน', dob: '1992-02-02', time
 
 const CONFIG = { matchingType: 'LOVE', title: 'เช็คความสมพงศ์', tagline: 'ด้านความรัก' } as never
 
+// #265 — the calc cooldown persists in localStorage on purpose (it must survive navigating away and
+// back). Within one spec file jsdom keeps that storage between tests, so without this the FIRST test to
+// press the button leaves every later one facing a disabled control and timing out on a click that never
+// lands. Clearing here keeps each case starting from "has not calculated yet", which is what they assert.
+beforeEach(() => {
+  window.localStorage.clear()
+})
+
 afterEach(() => {
   cleanup()
   vi.clearAllMocks()
@@ -73,6 +81,11 @@ afterEach(() => {
 
 /** Render the screen with both people chosen (button live), then tap "ดูผลลัพธ์เลย". */
 async function tapViewResult() {
+  // #265 — several cases below press the button more than once INSIDE one test (once per cause), and the
+  // cooldown deliberately outlives a remount. Each press here stands for a separate session, so the
+  // stored deadline is cleared per press; without it, everything after the first press meets a disabled
+  // button and the case fails for a reason it is not about.
+  window.localStorage.clear()
   useCompatibility.mockReturnValue({
     person1: PERSON1,
     person2: PERSON2,

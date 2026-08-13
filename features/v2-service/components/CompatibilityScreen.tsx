@@ -23,6 +23,7 @@ import { useCookies } from 'react-cookie'
 import { CookieKey } from '@/constants/cookie-key'
 import { useCompatibility, type CompatPerson } from '../hooks/useCompatibility'
 import { useQuota } from '../hooks/useQuota'
+import { useCalcCooldown } from '../hooks/useCalcCooldown'
 import { QuotaLine } from './QuotaLine'
 import { calculateCompatibility, type CompatCalcErrorReason } from '../hooks/useCompatibilityResult'
 import type { CompatibilityConfig } from '../compatibility'
@@ -143,7 +144,10 @@ export function CompatibilityScreen({ config }: { config: CompatibilityConfig })
   // #264 — identity straight from the cookie rather than waiting on person1's fetch: the two requests are
   // independent, and the indicator has no reason to arrive later than it has to.
   const [cookies] = useCookies([CookieKey.MEMBER_ID])
-  const quota = useQuota((cookies[CookieKey.MEMBER_ID] as string) || '')
+  const userId = (cookies[CookieKey.MEMBER_ID] as string) || ''
+  const quota = useQuota(userId)
+  // #265 — one minute between calculations, from the button that spends the quota.
+  const cooldown = useCalcCooldown(userId)
   const [calculating, setCalculating] = useState(false)
   // #263: was a boolean ("did it fail?"). Now it carries WHICH failure, because that is what decides the
   // words. null = no failure showing.
@@ -161,7 +165,19 @@ export function CompatibilityScreen({ config }: { config: CompatibilityConfig })
   // release the latch, and surface it (D34 — never strand on the loader, never navigate to a blank result).
   async function onViewResult() {
     if (!c.canViewResult || firingRef.current || !c.person1 || !c.person2) return
+    // #265 — checked HERE as well as on the button's `disabled`, because `disabled` is a RENDERING of the
+    // state, not the state. Today this line is unreachable from the button (React filters clicks on a
+    // disabled control using its own props, so nothing in the DOM can get past it) and no test kills a
+    // mutant that deletes it — said plainly in scripts/calc-cooldown.test.tsx rather than left to look
+    // covered. It is here for the second caller: an Enter key, a retry link inside the #263 message, a
+    // div styled as a button. Whoever adds that caller inherits this guard, and owes it a test.
+    if (cooldown.active) return
     firingRef.current = true
+    // Start the minute at the PRESS, not at the answer (done-cond). Two consequences, both wanted: a
+    // calculation that FAILS still cools down — otherwise the quota-exhausted user, whom the copy tells
+    // to wait, is the one person free to hammer the button — and the countdown is already running while
+    // the loader is up, so it does not appear to start over when the loader lifts.
+    cooldown.start()
     setCalculating(true)
     setCalcError(null)
     const res = await calculateCompatibility(c.person1, c.person2, c.matchingType)
@@ -236,18 +252,30 @@ export function CompatibilityScreen({ config }: { config: CompatibilityConfig })
           {/* button — gray until BOTH people (done-cond #5). Fires the (side-effecting) calc ONCE (guarded by
               firingRef), then the whole form swaps to the loader. 2F/D31: the button no longer carries a
               loading state — the wait lives on the full-screen loader, never on this label. */}
+          {/* #265 — during the cooldown the button carries its OWN reason and its own remaining time.
+              A greyed-out control that will not say why is the same defect #263 removed one line below
+              it: the screen knows something the person does not. Putting the countdown IN the label
+              costs no layout, so it cannot fight the #264 indicator or the #263 message for the space
+              under this button — both of those keep saying their own thing at the same time. */}
           <button
             type="button"
             data-testid="compat-view-result"
-            disabled={!c.canViewResult}
-            aria-disabled={!c.canViewResult}
+            disabled={!c.canViewResult || cooldown.active}
+            aria-disabled={!c.canViewResult || cooldown.active}
             onClick={onViewResult}
             className={[
-              'w-full rounded-[100px] py-3.5 text-center font-poppins-v3 text-[16px] font-semibold text-white transition-colors',
-              c.canViewResult ? 'bg-v3-sapphire' : 'cursor-not-allowed bg-v3-disabled-bg',
+              'w-full rounded-[100px] py-3.5 text-center font-poppins-v3 text-[16px] font-semibold transition-colors',
+              c.canViewResult && !cooldown.active ? 'bg-v3-sapphire text-white' : 'cursor-not-allowed bg-v3-disabled-bg',
+              // The label only became load-bearing during the cooldown — it is the "why" and the "how much
+              // longer". White on the #DDDDDD disabled fill measures ~1.4:1, so it was decoration you could
+              // squint at; as information it has to be readable. v3-text-body on that fill is ~6.3:1.
+              // (The other disabled state, "no friend chosen yet", keeps the old white — its label carries
+              // nothing the user needs to read. That low contrast predates this ticket; reported, not
+              // changed here, because it is a different reason for a different screen state.)
+              cooldown.active ? 'text-v3-text-body' : !c.canViewResult ? 'text-white' : '',
             ].join(' ')}
           >
-            ดูผลลัพธ์เลย
+            {cooldown.active ? `รออีก ${cooldown.secondsLeft} วินาที` : 'ดูผลลัพธ์เลย'}
           </button>
 
           {/* #264 — how many calculations are left, right where the decision is made (this is a fact about
