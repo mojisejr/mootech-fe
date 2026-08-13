@@ -4,15 +4,19 @@
 // take the already-computed count as input, because each endpoint counts a different log table
 // (member_with_friend / fortune_telling_log / heavenly_spirit_card_log) — use dayWindow/monthWindow
 // from usage-core to build that count's BETWEEN range where the NestJS variant used one.
-import { eq } from 'drizzle-orm'
+import { and, eq, gte, lte, sql } from 'drizzle-orm'
 import { db } from '@/lib/db'
-import { memberPayment } from '@/lib/db/schema'
+import { memberPayment, userMatching, memberWithFriend } from '@/lib/db/schema'
 import {
   AI_MSG,
   classifyMembership,
   evaluateUsage,
+  quotaRemaining,
+  yearWindow,
   FREE_FRIEND_LIMIT,
+  FREE_MATCHING_LIMIT,
   type MembershipReason,
+  type QuotaRemaining,
   type UsageResult,
 } from './usage-core'
 
@@ -92,4 +96,31 @@ export async function checkHeavenlySpiritUsage(userId: string, count: number, no
     limitMode: 'all',
     reflectMembershipCode: false,
   })
+}
+
+// --- Phase 2 quota indicators (#264): remaining-quota reads for the pre-click indicator ------------
+// These report the REMAINDER (not a pass/fail code) using the SAME count windows the server gates on, so
+// the number on screen matches what the server would decide. The two quotas count different tables and
+// use different windows — matching = user_matching in the current calendar year (BE trap: yearWindow must
+// match matching.service.ts exactly); friend = member_with_friend lifetime (BE counts all rows, no window).
+
+// ดูดวงสมพงศ์: free = FREE_MATCHING_LIMIT per year; members are uncapped (BE only limits free) → unlimited.
+export async function checkMatchingQuota(userId: string, now: Date = new Date()): Promise<QuotaRemaining> {
+  const m = await resolveMembership(userId, now)
+  const { start, end } = yearWindow(now)
+  const [row] = await db
+    .select({ n: sql<number>`count(*)::int` })
+    .from(userMatching)
+    .where(and(eq(userMatching.userId, userId), gte(userMatching.createAt, start), lte(userMatching.createAt, end)))
+  return quotaRemaining({ isFree: m.isFree, used: row?.n ?? 0, limitFree: FREE_MATCHING_LIMIT, limitMember: null })
+}
+
+// เพิ่มเพื่อน: free and member both capped at FREE_FRIEND_LIMIT (#262); count is the user's lifetime rows.
+export async function checkFriendQuota(userId: string, now: Date = new Date()): Promise<QuotaRemaining> {
+  const m = await resolveMembership(userId, now)
+  const [row] = await db
+    .select({ n: sql<number>`count(*)::int` })
+    .from(memberWithFriend)
+    .where(eq(memberWithFriend.userId, userId))
+  return quotaRemaining({ isFree: m.isFree, used: row?.n ?? 0, limitFree: FREE_FRIEND_LIMIT, limitMember: FREE_FRIEND_LIMIT })
 }

@@ -27,9 +27,38 @@ export const MEMBER_PLAN = 'MEMBER'
 // ceiling (20) is a SEPARATE literal at each site and is NOT this constant (it does not roll back with free).
 export const FREE_FRIEND_LIMIT = 20
 
+// Free ceiling for ดูดวงสมพงศ์ (matching), per YEAR. ⚠️ CROSS-REPO DUPLICATE of the BE source of truth
+// mootech-be src/constants/matching-limit.ts MATCHING_LIMIT.FREE (100). #264 forbids touching BE, but the
+// quota indicator MUST show a number, so FE mirrors it here. If BE's ceiling changes, THIS must change too
+// or the indicator will lie ("เหลือ X" while the server refuses). Members are UNLIMITED for matching (BE
+// only counts+limits free users), so there is no member constant here.
+export const FREE_MATCHING_LIMIT = 100
+
 export type MembershipReason = 'NO_PLAN' | 'EXPIRED' | 'MEMBER'
 export type UsageResult = { code: number; message: string; is_free: boolean }
 export type LimitMode = 'none' | 'free-only' | 'all'
+
+// Remaining-quota view for the Phase 2 indicator (#264). `unlimited` covers members on a quota BE never
+// caps (matching); otherwise remaining is clamped at 0 (never negative — a user over an old ceiling shows
+// 0 left, not a negative). used is carried for "used X / Y" style UI.
+export type QuotaRemaining =
+  | { unlimited: true; used: number }
+  | { unlimited: false; limit: number; used: number; remaining: number }
+
+// Pure decision: given membership + how many were used, how many are left. limitMember === null means
+// members are not capped for this quota (→ unlimited). Mirrors the BE gate's shape (free vs member limit)
+// but reports the REMAINDER instead of a pass/fail code, so the number on screen matches what the server
+// would decide with the same count.
+export function quotaRemaining(p: {
+  isFree: boolean
+  used: number
+  limitFree: number
+  limitMember: number | null
+}): QuotaRemaining {
+  const limit = p.isFree ? p.limitFree : p.limitMember
+  if (limit === null) return { unlimited: true, used: p.used }
+  return { unlimited: false, limit, used: p.used, remaining: Math.max(0, limit - p.used) }
+}
 
 // Civil 'YYYY-MM-DD' for a Date in Asia/Bangkok (NestJS MomentService is Bangkok-time).
 export function bkkDateStr(now: Date = new Date()): string {
@@ -118,4 +147,15 @@ export function monthWindow(now: Date = new Date()): { start: string; end: strin
   const [y, m] = ym.split('-').map(Number)
   const lastDay = new Date(Date.UTC(y, m, 0)).getUTCDate() // day 0 of next month = last of this
   return { start: `${ym}-01 00:00:00`, end: `${ym}-${String(lastDay).padStart(2, '0')} 23:59:59` }
+}
+
+// Calendar-YEAR window, byte-for-byte what BE compares against (#264 trap). Mirrors
+// mootech-be src/matching/matching.service.ts:71-84:
+//   moment().startOf('year').format('YYYY-MM-DD 00:00:00')  ..  endOf('year').format('...23:59:59')
+// in Asia/Bangkok, string-compared via Between() (inclusive both ends). startOf('year') is always Jan 1
+// and endOf('year') Dec 31, so only the Bangkok YEAR matters — bkkDateStr gives the Bangkok civil date,
+// so its year is correct even for a UTC instant that falls on the other side of the Bangkok year boundary.
+export function yearWindow(now: Date = new Date()): { start: string; end: string } {
+  const y = bkkDateStr(now).slice(0, 4) // YYYY in Asia/Bangkok
+  return { start: `${y}-01-01 00:00:00`, end: `${y}-12-31 23:59:59` }
 }

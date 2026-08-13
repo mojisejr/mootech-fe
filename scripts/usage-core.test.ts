@@ -10,7 +10,10 @@ import {
   evaluateUsage,
   dayWindow,
   monthWindow,
+  yearWindow,
+  quotaRemaining,
   FREE_FRIEND_LIMIT,
+  FREE_MATCHING_LIMIT,
 } from '../lib/usage-core'
 
 let pass = 0
@@ -123,6 +126,46 @@ t('monthWindow (leap February)', () =>
   assert.deepEqual(monthWindow(new Date('2024-02-10T05:00:00Z')), {
     start: '2024-02-01 00:00:00',
     end: '2024-02-29 23:59:59',
+  }))
+
+// ── yearWindow (#264 trap): must equal BE matching.service.ts startOf/endOf year, Bangkok, string ──
+t('yearWindow mid-year -> Jan 1 .. Dec 31 (same year)', () =>
+  assert.deepEqual(yearWindow(NOW), { start: '2026-01-01 00:00:00', end: '2026-12-31 23:59:59' }))
+// Bangkok is UTC+7: an instant late on Dec 31 UTC is already NEXT YEAR in Bangkok. A naive UTC
+// getFullYear() would bucket this into 2026 and the count would silently miss/overcount → indicator lies.
+t('yearWindow Bangkok year boundary (Dec 31 18:00Z = next year in BKK)', () =>
+  assert.deepEqual(yearWindow(new Date('2026-12-31T18:00:00Z')), {
+    start: '2027-01-01 00:00:00',
+    end: '2027-12-31 23:59:59',
+  }))
+t('yearWindow just-before boundary stays this year (Dec 31 10:00Z = 17:00 BKK)', () =>
+  assert.deepEqual(yearWindow(new Date('2026-12-31T10:00:00Z')), {
+    start: '2026-01-01 00:00:00',
+    end: '2026-12-31 23:59:59',
+  }))
+
+// ── quotaRemaining (#264): remaining = clamp0(limit - used); member=null → unlimited ──
+t('FREE_MATCHING_LIMIT === 100 (mirrors BE MATCHING_LIMIT.FREE)', () =>
+  assert.equal(FREE_MATCHING_LIMIT, 100))
+t('matching free used 3 -> remaining 97', () =>
+  assert.deepEqual(quotaRemaining({ isFree: true, used: 3, limitFree: 100, limitMember: null }), {
+    unlimited: false, limit: 100, used: 3, remaining: 97,
+  }))
+t('matching member -> unlimited (BE never caps members)', () =>
+  assert.deepEqual(quotaRemaining({ isFree: false, used: 999, limitFree: 100, limitMember: null }), {
+    unlimited: true, used: 999,
+  }))
+t('used at limit -> remaining 0', () =>
+  assert.deepEqual(quotaRemaining({ isFree: true, used: 100, limitFree: 100, limitMember: null }).remaining, 0))
+t('used OVER old ceiling -> remaining 0, never negative', () =>
+  assert.deepEqual(quotaRemaining({ isFree: true, used: 105, limitFree: 100, limitMember: null }).remaining, 0))
+t('friend free used 19 (limit 20) -> remaining 1', () =>
+  assert.deepEqual(quotaRemaining({ isFree: true, used: 19, limitFree: 20, limitMember: 20 }), {
+    unlimited: false, limit: 20, used: 19, remaining: 1,
+  }))
+t('friend member used 5 (limit 20) -> remaining 15 (member NOT unlimited for friend)', () =>
+  assert.deepEqual(quotaRemaining({ isFree: false, used: 5, limitFree: 20, limitMember: 20 }), {
+    unlimited: false, limit: 20, used: 5, remaining: 15,
   }))
 
 if (!process.exitCode) console.log(`✓ all ${pass} usage-core assertions passed`)
