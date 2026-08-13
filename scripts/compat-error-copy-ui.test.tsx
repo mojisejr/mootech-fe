@@ -49,6 +49,13 @@ vi.mock('@/features/v2-shell/components/Menubar', () => ({ Menubar: () => null }
 vi.mock('@/features/v2-shell/components/TopBarBell', () => ({ TopBarBell: () => null }))
 vi.mock('@/features/v2-shell/components/TopBarAvatar', () => ({ TopBarAvatar: () => null }))
 vi.mock('@/features/v2-shell/components/LoadingScreen', () => ({ LoadingScreen: () => <div data-testid="loading" /> }))
+// #264 added a cookie read to this screen (the identity the quota indicator asks about). In the app the
+// provider comes from _app; under vitest the bare hook throws "Missing <CookiesProvider>", which would
+// take THIS spec down for a reason that has nothing to do with the copy it guards.
+vi.mock('react-cookie', () => ({ useCookies: () => [{ 'cookie-mumate-id': 'u-1' }] }))
+// …and with an identity present the screen now fetches /api/quota on mount. Stubbed as unavailable so no
+// indicator renders and the copy assertions below see exactly what they saw before #264.
+vi.stubGlobal('fetch', vi.fn(() => Promise.resolve({ ok: false, status: 500, json: async () => ({}) })))
 
 vi.mock('@/features/v2-service/hooks/useCompatibility', () => ({ useCompatibility: () => useCompatibility() }))
 

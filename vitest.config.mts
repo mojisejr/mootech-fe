@@ -68,6 +68,8 @@ export default defineConfig({
       'scripts/call-api-with-status.test.tsx', // #263 — status-aware fetch path + callApi-unchanged guard; .tsx
       'scripts/compat-calc-error-reasons.test.tsx', // #263 — calculateCompatibility failure-reason classification; .tsx
       'scripts/compat-error-copy-ui.test.tsx', // #263 — the UI half: four causes → four different sentences; .tsx
+      'scripts/quota-route.test.tsx', // #264 — /api/quota both-quota remaining + wiring; .tsx
+      'scripts/quota-indicator-ui.test.tsx', // #264 — the UI half: what is shown when there IS no number; .tsx
     ],
   },
   resolve: {

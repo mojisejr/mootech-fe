@@ -13,14 +13,19 @@ import { useCookies } from 'react-cookie'
 import { CookieKey } from '@/constants/cookie-key'
 import { MemberWithFriendGetApi } from '@/constants/api/api-member-with-friend-get'
 import type { SelectFriendInput } from '../hooks/useCompatibility'
+import type { QuotaView } from '../hooks/useQuota'
+import { QuotaLine } from './QuotaLine'
 
 // only the fields the list renders + maps (matches v1's item usage: id/name/surname/picture_url/is_disable).
 type FriendItem = { id: string; name: string; surname?: string; picture_url?: string | null; is_disable?: boolean }
 
-export function CompatSelectFriendModal({ onClose, onSelect, onAddNew }: {
+export function CompatSelectFriendModal({ onClose, onSelect, onAddNew, friendQuota }: {
   onClose: () => void
   onSelect: (input: SelectFriendInput) => void
   onAddNew: () => void
+  /** #264 — how many more friends may be added. Passed in (not fetched here) so both indicators on this
+   *  screen come from one read and cannot disagree. */
+  friendQuota: QuotaView
 }) {
   const [cookies] = useCookies([CookieKey.MEMBER_ID])
   const userId = (cookies[CookieKey.MEMBER_ID] as string) || ''
@@ -56,6 +61,10 @@ export function CompatSelectFriendModal({ onClose, onSelect, onAddNew }: {
           </span>
           <span className="text-[16px] font-bold uppercase leading-6 text-v3-sapphire">เพิ่มเพื่อนใหม่</span>
         </button>
+
+        {/* #264 — directly under the action it constrains, so it is read BEFORE the form is filled in
+            rather than after the effort is spent. Same quiet treatment as the calculation counter. */}
+        <QuotaLine quota={friendQuota} label={(n) => `เพิ่มได้อีก ${n} คน`} testId="compat-quota-friend" />
 
         {/* the friend LIST (ฟีม-ordered addition — not in Figma) */}
         <div className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto" data-testid="compat-friend-list">

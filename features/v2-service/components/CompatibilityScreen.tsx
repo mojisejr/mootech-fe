@@ -19,7 +19,11 @@ import { TopBarAvatar } from '@/features/v2-shell/components/TopBarAvatar'
 import { LogoutModal } from '@/features/v2-shell/components/LogoutModal'
 import { LoadingScreen } from '@/features/v2-shell/components/LoadingScreen'
 import { useV2Logout } from '@/features/auth/hooks/useV2Logout'
+import { useCookies } from 'react-cookie'
+import { CookieKey } from '@/constants/cookie-key'
 import { useCompatibility, type CompatPerson } from '../hooks/useCompatibility'
+import { useQuota } from '../hooks/useQuota'
+import { QuotaLine } from './QuotaLine'
 import { calculateCompatibility, type CompatCalcErrorReason } from '../hooks/useCompatibilityResult'
 import type { CompatibilityConfig } from '../compatibility'
 import { formatCompatBirth } from './compat-format'
@@ -136,6 +140,10 @@ export function CompatibilityScreen({ config }: { config: CompatibilityConfig })
   const [addOpen, setAddOpen] = useState(false)
   const [comingSoon, setComingSoon] = useState<string | null>(null)
   const router = useRouter()
+  // #264 — identity straight from the cookie rather than waiting on person1's fetch: the two requests are
+  // independent, and the indicator has no reason to arrive later than it has to.
+  const [cookies] = useCookies([CookieKey.MEMBER_ID])
+  const quota = useQuota((cookies[CookieKey.MEMBER_ID] as string) || '')
   const [calculating, setCalculating] = useState(false)
   // #263: was a boolean ("did it fail?"). Now it carries WHICH failure, because that is what decides the
   // words. null = no failure showing.
@@ -242,6 +250,12 @@ export function CompatibilityScreen({ config }: { config: CompatibilityConfig })
             ดูผลลัพธ์เลย
           </button>
 
+          {/* #264 — how many calculations are left, right where the decision is made (this is a fact about
+              what THAT button does; the header is identity/nav and the person rows are about WHO).
+              Hidden once the quota-exhausted message is up: "เหลือ 0 ครั้ง" directly above "ใช้สิทธิ์ครบแล้ว"
+              is the same sentence twice. Every other cause keeps it — a 5xx says nothing about the count. */}
+          {calcError === 'quota' ? null : <QuotaLine quota={quota.matching} label={(n) => `เหลือ ${n} ครั้ง`} testId="compat-quota-matching" />}
+
           {/* calc error → stay on this screen (done-cond: no navigate to a blank result), surface honestly.
               #263: one message per cause. The testid stays the same so goo's/ตู๋'s existing anchors keep
               pointing here; what changed is that the TEXT now differs per cause. */}
@@ -276,12 +290,21 @@ export function CompatibilityScreen({ config }: { config: CompatibilityConfig })
           onClose={() => setSelectOpen(false)}
           onSelect={(input) => { c.selectFriend(input); setSelectOpen(false) }}
           onAddNew={() => { setSelectOpen(false); setAddOpen(true) }}
+          // #264 — the friend allowance, shown where the decision to spend one is made. Both indicators
+          // read the SAME single fetch; two independent reads could disagree on screen at the same moment.
+          friendQuota={quota.friend}
         />
       )}
       {addOpen && (
         <AddFriendSheet
           onClose={() => setAddOpen(false)}
-          onCreate={c.createFriend}
+          onCreate={async (form) => {
+            const res = await c.createFriend(form)
+            // #264 — this is the one change that spends quota WITHOUT leaving the screen, so mount-time
+            // loading cannot cover it: refetch or the next open shows a count that is one too generous.
+            if (res.ok) quota.refetch()
+            return res
+          }}
         />
       )}
       {comingSoon && <ComingSoonSheet label={comingSoon} onClose={() => setComingSoon(null)} />}
