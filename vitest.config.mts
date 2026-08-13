@@ -70,6 +70,7 @@ export default defineConfig({
       'scripts/compat-error-copy-ui.test.tsx', // #263 — the UI half: four causes → four different sentences; .tsx
       'scripts/quota-route.test.tsx', // #264 — /api/quota both-quota remaining + wiring; .tsx
       'scripts/quota-indicator-ui.test.tsx', // #264 — the UI half: what is shown when there IS no number; .tsx
+      'scripts/calc-cooldown.test.tsx', // #265 — cooldown state machine; every guarantee lives in THIS lane; .tsx
     ],
   },
   resolve: {

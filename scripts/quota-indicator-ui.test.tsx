@@ -18,7 +18,7 @@
 //   U5  copy → `เหลือ N ครั้งในปีนี้`                                   → "ห้ามมีเส้นตายในบรรทัด" RED
 //   U6  indicator rendered even when calcError==='quota'              → "0 ครั้ง ไม่ซ้อนกับ ครบแล้ว" RED
 //   U7  'unlimited' renders a number                                  → "สมาชิกไม่เห็นตัวเลข" RED
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, render, screen, waitFor } from '@testing-library/react'
 
 const { push, calculateCompatibility, useCompatibility } = vi.hoisted(() => ({
@@ -44,6 +44,14 @@ import { CompatibilityScreen } from '@/features/v2-service/components/Compatibil
 const PERSON1 = { id: 'u-1', name: 'ฟีม', dob: '1990-01-01', time: '08:00', gender: 'MALE' }
 const PERSON2 = { id: 'f-1', name: 'เพื่อน', dob: '1992-02-02', time: '09:00', gender: 'FEMALE' }
 const CONFIG = { matchingType: 'LOVE', title: 'เช็คความสมพงศ์', tagline: 'ด้านความรัก' } as never
+
+// #265 — the calc cooldown persists in localStorage on purpose (it must survive navigating away and
+// back). Within one spec file jsdom keeps that storage between tests, so without this the FIRST test to
+// press the button leaves every later one facing a disabled control and timing out on a click that never
+// lands. Clearing here keeps each case starting from "has not calculated yet", which is what they assert.
+beforeEach(() => {
+  window.localStorage.clear()
+})
 
 afterEach(() => {
   cleanup()
