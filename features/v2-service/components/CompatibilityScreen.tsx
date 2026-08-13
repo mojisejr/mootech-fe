@@ -20,7 +20,7 @@ import { LogoutModal } from '@/features/v2-shell/components/LogoutModal'
 import { LoadingScreen } from '@/features/v2-shell/components/LoadingScreen'
 import { useV2Logout } from '@/features/auth/hooks/useV2Logout'
 import { useCompatibility, type CompatPerson } from '../hooks/useCompatibility'
-import { calculateCompatibility } from '../hooks/useCompatibilityResult'
+import { calculateCompatibility, type CompatCalcErrorReason } from '../hooks/useCompatibilityResult'
 import type { CompatibilityConfig } from '../compatibility'
 import { formatCompatBirth } from './compat-format'
 import { COMPAT_CALC_LOADING } from './compat-loading-copy'
@@ -85,6 +85,49 @@ function ProfileRow({ person, loadingDob, onEdit, onPick, testId, emptyLabel }: 
   )
 }
 
+// #263 — ONE MESSAGE PER CAUSE. The screen used to say "คำนวณไม่สำเร็จ ลองอีกครั้ง" for every failure,
+// which invites a retry — and on the quota path a retry is exactly what costs the user more (measured on
+// prod: 454 people burned past their ceiling by tapping again). goo's seam hands over WHY it failed; the
+// words are this file's job, and the RAW BE message is never shown (it still claims "ต่อวัน" and predates
+// the 100 ceiling — #263).
+//
+// 'navigate' is NOT one of goo's reasons: it is the local catch below, where the calc SUCCEEDED and only
+// the router failed. It gets its own copy because it is the one failure where the quota is already spent
+// and the result already exists server-side — telling that user to "ลองอีกครั้ง" would charge them twice
+// for a reading they can already open from "ดูดวงสมพงศ์ล่าสุด".
+//
+// tone picks colour + live-region role, and it is a claim about the user's situation, not decoration:
+//   'retry'   red   + role=alert  — something is broken and tapping again may genuinely fix it
+//   'blocked' navy  + role=status — nothing is broken; this is a fact about your account or your result,
+//                                   and there is somewhere to go. Red here would read as "you did something
+//                                   wrong", and the only repair the screen offers is the retry we are
+//                                   trying to stop. v3-navy is the existing heading token — no new colour.
+type CompatFailure = CompatCalcErrorReason | 'navigate'
+
+// Every case is authored as TWO lines on purpose. At 393 the paragraph is ~345px of centred 14px Thai, and
+// a single long sentence wraps wherever it lands — the captured frames had it breaking mid-phrase
+// ("ลองอีก / ครั้งได้เลย", "ลองอีก / ครั้ง"). Both unit and e2e were green through that: the STRING was
+// right and only the line-break was wrong, which is a thing no assertion on textContent can see. Choosing
+// the break here means the headline is always one line and the guidance is always the second.
+const CALC_ERROR_COPY: Record<CompatFailure, { tone: 'retry' | 'blocked'; lines: [string, string] }> = {
+  // ✓ verified in BE source, not assumed: the ceiling counts rows between moment().startOf('year') and
+  // .endOf('year') (mootech-be src/matching/matching.service.ts:71-84 — the locals are misleadingly named
+  // startOfDay/endOfDay). So the window really is the calendar year, and "ปีนี้" is safe to say. Drop those
+  // two words if that ever stops being true; the rest of the line stands on its own.
+  quota: { tone: 'blocked', lines: ['ใช้สิทธิ์ดูดวงสมพงศ์ครบแล้วสำหรับปีนี้', 'ดูผลที่เคยคำนวณไว้ได้ที่ "ดูดวงสมพงศ์ล่าสุด" ด้านล่าง'] },
+  // "ไม่ใช่ข้อมูลของคุณผิด" is the house phrasing for our-fault failures (ElementResultScreen.tsx:403).
+  // Without it people go and re-edit their friend's birth date, which was never the problem.
+  // ✓ retrying here is free: BE writes the quota row only after a successful calculation
+  // (matching.service.ts — userMatchingRepository.save sits inside `if (resultMatching && result)`),
+  // so a 5xx costs nothing and "ลองอีกครั้งได้เลย" is not an invitation to pay twice.
+  system: { tone: 'retry', lines: ['ระบบขัดข้องชั่วคราว', 'ไม่ใช่ข้อมูลของคุณผิด ลองอีกครั้งได้เลย'] },
+  // Deliberately NOT "คำขอยังไม่ถูกส่ง สิทธิ์ของคุณยังไม่ถูกใช้" — with no response back we cannot know
+  // whether BE processed it (timeout especially), and this ticket exists to stop the screen from claiming
+  // things it does not know.
+  network: { tone: 'retry', lines: ['เชื่อมต่อไม่ได้', 'ตรวจสัญญาณอินเทอร์เน็ตแล้วลองอีกครั้ง'] },
+  navigate: { tone: 'blocked', lines: ['คำนวณเสร็จแล้ว แต่เปิดหน้าผลไม่สำเร็จ', 'ดูผลของคุณได้ที่ "ดูดวงสมพงศ์ล่าสุด" ด้านล่าง'] },
+}
+
 export function CompatibilityScreen({ config }: { config: CompatibilityConfig }) {
   const c = useCompatibility(config)
   const { logout } = useV2Logout()
@@ -94,7 +137,9 @@ export function CompatibilityScreen({ config }: { config: CompatibilityConfig })
   const [comingSoon, setComingSoon] = useState<string | null>(null)
   const router = useRouter()
   const [calculating, setCalculating] = useState(false)
-  const [calcError, setCalcError] = useState(false)
+  // #263: was a boolean ("did it fail?"). Now it carries WHICH failure, because that is what decides the
+  // words. null = no failure showing.
+  const [calcError, setCalcError] = useState<CompatFailure | null>(null)
   // Fire-once latch. calculateCompatibility has NO in-flight guard of its own (it consumes the user's
   // matching quota + writes a log row), and the hook's comment hands that guard to THIS state machine.
   // A `calculating` state var alone is racy: a synchronous double-tap re-enters onViewResult before the
@@ -110,12 +155,12 @@ export function CompatibilityScreen({ config }: { config: CompatibilityConfig })
     if (!c.canViewResult || firingRef.current || !c.person1 || !c.person2) return
     firingRef.current = true
     setCalculating(true)
-    setCalcError(false)
+    setCalcError(null)
     const res = await calculateCompatibility(c.person1, c.person2, c.matchingType)
     if (!res.ok) {
       firingRef.current = false
       setCalculating(false)
-      setCalcError(true)
+      setCalcError(res.reason) // #263 — carry goo's cause through; the copy map below turns it into words
       return
     }
     // The quota was ALREADY spent (calc succeeded). router.push returns a Promise; if the navigation is
@@ -130,7 +175,8 @@ export function CompatibilityScreen({ config }: { config: CompatibilityConfig })
     } catch {
       firingRef.current = false
       setCalculating(false)
-      setCalcError(true)
+      // NOT 'system': the calc already succeeded and the quota is already spent. See CALC_ERROR_COPY.
+      setCalcError('navigate')
     }
   }
 
@@ -196,10 +242,22 @@ export function CompatibilityScreen({ config }: { config: CompatibilityConfig })
             ดูผลลัพธ์เลย
           </button>
 
-          {/* calc error → stay on this screen (done-cond: no navigate to a blank result), surface honestly */}
+          {/* calc error → stay on this screen (done-cond: no navigate to a blank result), surface honestly.
+              #263: one message per cause. The testid stays the same so goo's/ตู๋'s existing anchors keep
+              pointing here; what changed is that the TEXT now differs per cause. */}
           {calcError ? (
-            <p role="alert" data-testid="compat-result-error" className="text-center text-[14px] font-medium text-v3-error">
-              คำนวณไม่สำเร็จ ลองอีกครั้ง
+            <p
+              role={CALC_ERROR_COPY[calcError].tone === 'blocked' ? 'status' : 'alert'}
+              data-testid="compat-result-error"
+              className={[
+                'text-center text-[14px] font-medium',
+                CALC_ERROR_COPY[calcError].tone === 'blocked' ? 'text-v3-navy' : 'text-v3-error',
+              ].join(' ')}
+            >
+              {/* line 1 (bold) = WHAT happened · line 2 (normal) = what to do about it */}
+              {CALC_ERROR_COPY[calcError].lines.map((line, i) => (
+                <span key={line} className={i === 0 ? 'block font-bold' : 'block font-normal'}>{line}</span>
+              ))}
             </p>
           ) : null}
 
