@@ -118,11 +118,11 @@ export default function MatchingPage() {
 
   const getUserDetail = async (userId: string ) => {
     const result = await UserGetById(userId)
-    // Gate the add-friend button on the friend QUOTA only, mirroring the backend
-    // (member-with-friend.service: free users get limit_friend=1, paid=20, enforced in
-    // createMemberWithFriend). The old code required is_not_expired===true first, which
+    // Gate the add-friend button on the friend QUOTA only. payment.limit_friend comes from
+    // /api/user (pages/api/user.ts), whose free value is the shared FREE_FRIEND_LIMIT (lib/usage-core;
+    // 20 pre-launch, #262) and paid=20. The old code required is_not_expired===true first, which
     // wrongly blocked every free/expired user from adding even their first allowed friend —
-    // limit_friend already encodes the plan (1 free / 20 paid). #mootech-matching-add-friend
+    // limit_friend already encodes the plan (free=FREE_FRIEND_LIMIT / paid=20). #mootech-matching-add-friend
     const payment = result?.payment
     if (payment && typeof payment.limit_friend === 'number') {
       setIsLimitation(payment.total_friend >= payment.limit_friend)

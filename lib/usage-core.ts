@@ -19,6 +19,14 @@ export const AI_MSG = {
 // NestJS src/constants/payment-plan.ts -> PaymentPlan.MEMBER
 export const MEMBER_PLAN = 'MEMBER'
 
+// Free ceiling for "เพิ่มเพื่อน" (member-with-friend). TEMPORARY pre-launch value (ฟีมเคาะ 2026-08-13,
+// #262): raised 1 → 20. It lived as THREE hand-synced copies (lib/usage.ts, pages/api/member-with-friend,
+// pages/api/user.ts) and a fourth copy on the prod read-path (user.ts, the value the FE add-friend button
+// gates on) was missed in round 1. Single source now: all three friend read/enforce sites reference this.
+// ⚠️ LAUNCH ROLLBACK: cut the free ceiling back here — one edit, and every friend site follows. The MEMBER
+// ceiling (20) is a SEPARATE literal at each site and is NOT this constant (it does not roll back with free).
+export const FREE_FRIEND_LIMIT = 20
+
 export type MembershipReason = 'NO_PLAN' | 'EXPIRED' | 'MEMBER'
 export type UsageResult = { code: number; message: string; is_free: boolean }
 export type LimitMode = 'none' | 'free-only' | 'all'

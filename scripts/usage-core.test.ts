@@ -10,6 +10,7 @@ import {
   evaluateUsage,
   dayWindow,
   monthWindow,
+  FREE_FRIEND_LIMIT,
 } from '../lib/usage-core'
 
 let pass = 0
@@ -61,6 +62,11 @@ t('classify MEMBER valid (future) -> paid/MEMBER', () =>
     reason: 'MEMBER',
   }))
 
+// ── FREE_FRIEND_LIMIT: single source for the pre-launch friend ceiling (#262) ──
+// The three friend sites (lib/usage.ts, pages/api/member-with-friend, pages/api/user.ts) all reference
+// this. Revert here → all three follow → the real-path specs below + this assertion go red.
+t('FREE_FRIEND_LIMIT === 20 (pre-launch)', () => assert.equal(FREE_FRIEND_LIMIT, 20))
+
 // ── evaluateUsage: chinese-calendar (reflect membership, no count limit) ──
 const cc = (reason: any, isFree: boolean) =>
   evaluateUsage({ reason, isFree, count: 0, limitFree: 0, limitMember: 0, limitMode: 'none', reflectMembershipCode: true })
@@ -71,13 +77,18 @@ t('chinese-calendar EXPIRED -> 402 free', () =>
 t('chinese-calendar MEMBER -> 200 paid', () =>
   assert.deepEqual(cc('MEMBER', false), { code: AI_CODE.SUCCESS, message: AI_MSG.SUCCESS, is_free: false }))
 
-// ── evaluateUsage: member-with-friend (all, free=1/member=20, _ALL msg, code never NO_PLAN/EXPIRED) ──
+// ── evaluateUsage: member-with-friend (all, free=20/member=20 after #262, _ALL msg, code never NO_PLAN/EXPIRED) ──
+// NOTE: this mirrors the config values in lib/usage.ts:checkMemberWithFriendUsage. The teeth that a
+// revert of limitFree 20→1 must fail live in scripts/member-with-friend-limit.test.tsx (imports the
+// REAL wrapper). This block only proves evaluateUsage's mechanics at that shape.
 const mwf = (isFree: boolean, count: number, reason: any = isFree ? 'NO_PLAN' : 'MEMBER') =>
-  evaluateUsage({ reason, isFree, count, limitFree: 1, limitMember: 20, limitMode: 'all', reflectMembershipCode: false, outOfLimitMessage: AI_MSG.OUT_OF_LIMIT_ALL })
+  evaluateUsage({ reason, isFree, count, limitFree: 20, limitMember: 20, limitMode: 'all', reflectMembershipCode: false, outOfLimitMessage: AI_MSG.OUT_OF_LIMIT_ALL })
 t('mwf free under limit -> SUCCESS (code stays 200 even for NO_PLAN)', () =>
   assert.deepEqual(mwf(true, 0), { code: AI_CODE.SUCCESS, message: AI_MSG.SUCCESS, is_free: true }))
-t('mwf free at limit(1) -> OUT_OF_LIMIT _ALL', () =>
-  assert.deepEqual(mwf(true, 1), { code: AI_CODE.OUT_OF_LIMIT, message: AI_MSG.OUT_OF_LIMIT_ALL, is_free: true }))
+t('mwf free at 19 (under new limit) -> SUCCESS', () =>
+  assert.deepEqual(mwf(true, 19), { code: AI_CODE.SUCCESS, message: AI_MSG.SUCCESS, is_free: true }))
+t('mwf free at limit(20) -> OUT_OF_LIMIT _ALL', () =>
+  assert.deepEqual(mwf(true, 20), { code: AI_CODE.OUT_OF_LIMIT, message: AI_MSG.OUT_OF_LIMIT_ALL, is_free: true }))
 t('mwf member under limit(20) -> SUCCESS', () =>
   assert.deepEqual(mwf(false, 19), { code: AI_CODE.SUCCESS, message: AI_MSG.SUCCESS, is_free: false }))
 t('mwf member at limit(20) -> OUT_OF_LIMIT _ALL', () =>

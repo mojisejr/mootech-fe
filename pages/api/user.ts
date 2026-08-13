@@ -12,7 +12,7 @@ import { db } from '@/lib/db'
 // wrong is_not_expired (paid/free) — the "แตกเป็นจุดๆ" parity drift. usage-core's
 // isNotExpired mirrors the NestJS MomentService (Asia/Bangkok) and is unit-tested.
 // (#mootech-fold-parity-audit)
-import { isNotExpired } from '@/lib/usage-core'
+import { isNotExpired, FREE_FRIEND_LIMIT } from '@/lib/usage-core'
 
 const FORTUNE_LIMIT_FREE = 1 // be: src/constants/fortune-limit.ts FORTUNE_LIMIT.FREE
 
@@ -49,7 +49,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       payment: {
         ...(memberPayment ?? {}),
         total_friend: totalFriend,
-        limit_friend: isFree ? 1 : 20, // be: MemberWithFriendService.getLimit(is_free)
+        // This is the friend ceiling the FE add-friend button gates on (matching/index.tsx:128 ->
+        // total_friend >= limit_friend). Prod reads THIS route, not NestJS — so the free value must be
+        // the shared FREE_FRIEND_LIMIT (#262), else the 20 ceiling in usage.ts is invisible to the user.
+        limit_friend: isFree ? FREE_FRIEND_LIMIT : 20,
         limit_fortune: isFree ? FORTUNE_LIMIT_FREE : null, // be: FortuneTellingService.getLimit
         total_fortune: totalFortune,
         is_not_expired: isNotExpired(memberPayment ? memberPayment.expire_at : null),

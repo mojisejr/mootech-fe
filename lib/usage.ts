@@ -11,6 +11,7 @@ import {
   AI_MSG,
   classifyMembership,
   evaluateUsage,
+  FREE_FRIEND_LIMIT,
   type MembershipReason,
   type UsageResult,
 } from './usage-core'
@@ -46,7 +47,7 @@ export async function checkChineseCalendarUsage(userId: string, now?: Date): Pro
   })
 }
 
-// member-with-friend.isCheckUsage(user_id, 1, 20): code stays SUCCESS until limit; members limited;
+// member-with-friend.isCheckUsage(user_id, 20, 20): code stays SUCCESS until limit; members limited;
 // no time window (lifetime count of member_with_friend rows); OUT_OF_LIMIT message = _ALL variant.
 export async function checkMemberWithFriendUsage(userId: string, count: number, now?: Date): Promise<UsageResult> {
   const m = await resolveMembership(userId, now)
@@ -54,7 +55,8 @@ export async function checkMemberWithFriendUsage(userId: string, count: number, 
     reason: m.reason,
     isFree: m.isFree,
     count,
-    limitFree: 1,
+    // เพดานเพื่อนชั่วคราวก่อน launch (#262): free 1 → 20. Single source = FREE_FRIEND_LIMIT (usage-core).
+    limitFree: FREE_FRIEND_LIMIT,
     limitMember: 20,
     limitMode: 'all',
     reflectMembershipCode: false,
