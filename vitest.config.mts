@@ -65,6 +65,9 @@ export default defineConfig({
       'scripts/v2-auth-gate-escape.test.tsx', // #246 — identity-limbo escape hatch; .tsx (vitest-only, no #212 sync)
       'scripts/member-with-friend-limit.test.tsx', // #262 — real free friend limit 1→20; .tsx (invisible to ci.yml tsx lane)
       'scripts/user-friend-limit.test.tsx', // #262 r2 — /api/user limit_friend (FE-button read-path); .tsx (ตู๋ req-changes)
+      'scripts/call-api-with-status.test.tsx', // #263 — status-aware fetch path + callApi-unchanged guard; .tsx
+      'scripts/compat-calc-error-reasons.test.tsx', // #263 — calculateCompatibility failure-reason classification; .tsx
+      'scripts/compat-error-copy-ui.test.tsx', // #263 — the UI half: four causes → four different sentences; .tsx
     ],
   },
   resolve: {
