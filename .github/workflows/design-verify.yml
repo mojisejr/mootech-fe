@@ -7,6 +7,13 @@ name: design-verify
 # violating the Browser Truth doctrine. Separate job from `ci.yml` hard-gate — does not change it.
 on:
   pull_request:
+    # draft-first (#279): the job below is skipped while the PR is a draft (`if: draft == false`), so a
+    # draft push still creates a run record but the 4-min harness does not run. `ready_for_review` MUST be
+    # listed explicitly — the default activity set is [opened, synchronize, reopened], which does NOT include
+    # it, so without this line clicking "Ready for review" would NOT re-trigger and the gate would only ever
+    # have run (skipped) while the PR was a draft — a gate that never runs on the real thing. The other three
+    # are the defaults, restated because declaring `types` replaces the default set rather than extending it.
+    types: [opened, synchronize, reopened, ready_for_review]
     paths:
       - "pages/v2/**"
       - "features/**"
@@ -26,6 +33,12 @@ concurrency:
 
 jobs:
   splash-harness:
+    # Skip the whole harness while the PR is a draft (#279): the 4-min screen gate on a half-built surface
+    # is noise. The run record still appears (job = skipped), so the skip is visible, not silent. Paired with
+    # `ready_for_review` in the trigger above so the gate runs for real the moment the PR leaves draft.
+    # NOTE: this is the ONLY guard here — GitHub already blocks merging a draft PR, so a PR kept in draft
+    # forever cannot be merged past this skip; there is no path where a skipped draft becomes a merged commit.
+    if: github.event.pull_request.draft == false
     runs-on: ubuntu-latest
     env:
       # Not a secret — the v2 preview gate value; the harness sets the matching v2_access cookie.
