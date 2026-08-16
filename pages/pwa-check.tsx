@@ -85,10 +85,14 @@ export default function PwaCheckPage() {
           {busy ? "กำลังขอสิทธิ์…" : "ขออนุญาตแจ้งเตือน"}
         </button>
 
+        {/* 🔴 GATE-ONLY (ตู๋ F3) · หน้านี้กั้นหลัง v2 preview cookie แล้ว. แสดง subscription เต็ม (endpoint +
+            keys.p256dh + keys.auth) เพื่อยิง push ทดสอบ manual ก่อน phase 4 (#288) — พิสูจน์วงจรเต็มวันนี้.
+            keys เป็น public encryption keys (ไม่ใช่ credential) แต่ใครถือครบ 3 ส่วนยิง push เข้าเครื่องนี้ได้
+            ⇒ ❌ ห้ามหลุดออกนอก gate · หน้านี้ทั้งหน้า self-destruct ตอน launch (V2_PREVIEW_KEY ถูกตัด). */}
         {result && (
           <pre style={{ background: "#0B305B", color: "#E1FF00", borderRadius: 12, padding: 14, marginTop: 16, fontSize: 12, overflowX: "auto", whiteSpace: "pre-wrap", wordBreak: "break-all" }}>
             {result.ok
-              ? `✅ subscription ได้แล้ว\nendpoint:\n${result.subscription.endpoint}`
+              ? `✅ subscription ได้แล้ว — copy JSON ก้อนนี้ไปยิง push ทดสอบ (ครบ endpoint + keys.p256dh + keys.auth):\n${JSON.stringify(result.subscription.toJSON(), null, 2)}`
               : `❌ ${result.reason}`}
           </pre>
         )}
