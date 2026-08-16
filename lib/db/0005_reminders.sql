@@ -1,0 +1,42 @@
+-- 0005 · PWA push: push_subscription + reminder (mootech-fe#287)
+-- HAND-AUTHORED per the DRIZZLE WORKFLOW CONTRACT (schema.ts header): reviewed, applied BY HAND on
+-- dev → then prod (operator-gated). NEVER run blind / via drizzle push.
+--
+-- 🔴 prod = Supabase soxsccdlsycaevusndro. Applying to prod requires ฟีม (CLAUDE.md). goo does NOT run
+-- this on prod. ADDITIVE ONLY — two brand-new tables, no ALTER/DROP on any existing (pgloader'd) table.
+-- Idempotent (IF NOT EXISTS) so a re-run on dev is safe. gen_random_uuid() is built-in on Supabase PG.
+
+CREATE TABLE IF NOT EXISTS push_subscription (
+  id          uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id     varchar(36) NOT NULL,
+  endpoint    text        NOT NULL,
+  p256dh      text        NOT NULL,
+  auth        text        NOT NULL,
+  user_agent  text,
+  created_at  timestamptz NOT NULL DEFAULT now()
+);
+-- one device (endpoint) per user → re-subscribe is an UPSERT, and no cross-user overwrite is possible.
+CREATE UNIQUE INDEX IF NOT EXISTS uq_push_subscription_user_endpoint
+  ON push_subscription (user_id, endpoint);
+CREATE INDEX IF NOT EXISTS idx_push_subscription_user_id
+  ON push_subscription (user_id);
+
+CREATE TABLE IF NOT EXISTS reminder (
+  id             uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id        varchar(36) NOT NULL,
+  reminder_date  varchar(10) NOT NULL,   -- YYYY-MM-DD, ยาม START's Asia/Bangkok day
+  yam_id         varchar(8)  NOT NULL,
+  yam_label      text        NOT NULL,
+  window         varchar(16) NOT NULL,   -- "HH:MM-HH:MM", display only
+  destinations   json        NOT NULL,
+  fire_at_utc    timestamptz NOT NULL,   -- absolute notify instant, computed once at save
+  created_at     timestamptz NOT NULL DEFAULT now()
+);
+-- natural key = the dedup: a lost-response retry of the same (user, date, ยาม) collides → DO NOTHING.
+CREATE UNIQUE INDEX IF NOT EXISTS uq_reminder_user_date_yam
+  ON reminder (user_id, reminder_date, yam_id);
+CREATE INDEX IF NOT EXISTS idx_reminder_user_id
+  ON reminder (user_id);
+-- phase-4 cron scans due reminders by fire time.
+CREATE INDEX IF NOT EXISTS idx_reminder_fire_at_utc
+  ON reminder (fire_at_utc);

@@ -210,7 +210,13 @@ export interface Reminder {
   yamLabel: string
   window: string
   destinations: ReminderDestination[]
-  /** 'upcoming' = กำลังจะถึง · 'past' = เตือนไปแล้ว (จางลง). The §list superset uses exactly 2 groups. */
+  /** absolute notify instant, ISO 8601 UTC (#287). The server's source of truth for time; `group`
+   *  below is DERIVED from this by reminder-adapter, never stored server-side.
+   *  OPTIONAL only because the Phase-0 mock scaffold (client-truth) predates the server instant — the
+   *  real path (reminder-adapter) ALWAYS sets it. Becomes required when the hooks move off the mock. */
+  fireAtUtc?: string
+  /** 'upcoming' = กำลังจะถึง · 'past' = เตือนไปแล้ว (จางลง). The §list superset uses exactly 2 groups.
+   *  DERIVED (adapter): fireAtUtc < now → 'past'. Never sent by the backend (a stored value rots). */
   group: 'upcoming' | 'past'
 }
 
