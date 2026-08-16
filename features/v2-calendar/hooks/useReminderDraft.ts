@@ -28,8 +28,11 @@ export interface UseReminderDraft {
   toggleYam: (yamId: string) => void
   toggleDest: (dest: ReminderDestination) => void
   setNote: (note: string) => void
-  /** Commit the draft. NO-OP unless editing + committable (double-submit guard lives in the table). */
-  commit: () => void
+  /** Commit the draft: editing→saving, run `save`, then saving→saved (true) / saving→error (false).
+   *  NO-OP unless editing + committable; the `saving` latch makes a 2nd commit a no-op (double-submit).
+   *  #287: `save` is the real network call (POST) injected by the page — the STATES/guards are unchanged
+   *  from the Phase-0 mock, only what resolves/rejects them moved from a sync mock to an awaited request. */
+  commit: (save: () => Promise<boolean>) => Promise<void>
   cancel: () => void
   dismiss: () => void
 }
@@ -72,23 +75,39 @@ export function useReminderDraft(): UseReminderDraft {
     setState((s) => saveFlowNext(s, 'setNote'))
   }, [])
 
-  const commit = useCallback(() => {
-    setState((s) => {
-      // guard: only editing + committable may enter saving (the table also blocks illegal states)
-      if (s !== 'editing' || !hasCommittableDraft(draft)) return s
-      const saving = saveFlowNext(s, 'commit')
-      // Phase 0 mock: resolve immediately (no network). At API-time this becomes a request whose
-      // .then→resolve / .catch→reject. The synchronous resolve keeps the mock a pure state machine.
-      return saveFlowNext(saving, 'resolve')
-    })
-  }, [draft])
+  const commit = useCallback(
+    async (save: () => Promise<boolean>) => {
+      // Start allowed from `editing` (first attempt) or `error` (retry — same button re-clicked). The
+      // setState updater re-checks, so a 2nd commit fired while already `saving` is a NO-OP (the latch)
+      // — exactly one in-flight request, one row.
+      if ((state !== 'editing' && state !== 'error') || !hasCommittableDraft(draft)) return
+      setState((s) => {
+        if (s === 'editing') return saveFlowNext(s, 'commit') // → saving
+        if (s === 'error') return saveFlowNext(s, 'retry') //    → saving
+        return s // already saving = latch
+      })
+      let ok = false
+      try {
+        ok = await save()
+      } catch {
+        ok = false // a thrown saver is a failed save, never a silent success
+      }
+      // saving → saved (ok) / error (fail). Guarded on `saving` so a cancel mid-flight isn't overwritten.
+      setState((s) => (s === 'saving' ? saveFlowNext(s, ok ? 'resolve' : 'reject') : s))
+    },
+    [state, draft],
+  )
 
   const cancel = useCallback(() => setState((s) => saveFlowNext(s, 'cancel')), [])
   const dismiss = useCallback(() => setState((s) => saveFlowNext(s, 'dismiss')), [])
 
-  // The open sheet is FormMode (no Mate AI) whenever a draft is in flight; closed → not this surface's call.
+  // The open sheet is FormMode (no Mate AI) whenever a draft is in flight — including `error`, where the
+  // sheet stays open so the user can retry (the page keeps it mounted on error for the same reason).
   const menuState = useMemo<CalendarMenuState>(
-    () => (state === 'editing' || state === 'saving' ? CalendarMenuState.FormMode : CalendarMenuState.Normal),
+    () =>
+      state === 'editing' || state === 'saving' || state === 'error'
+        ? CalendarMenuState.FormMode
+        : CalendarMenuState.Normal,
     [state],
   )
 

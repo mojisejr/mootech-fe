@@ -75,6 +75,29 @@ export function hasCommittableDraft(draft: ReminderDraft): boolean {
   return draft.selectedYamIds.length > 0
 }
 
+// ── ด่านเวลา (goo · #287) — the client half of ③ "ตั้งย้อนหลัง = ปฏิเสธ". The SERVER also rejects (422),
+// but computing it client-side lets the sheet mark past ยาม the instant they're ticked, before any
+// round-trip. PURE (no network) so it's unit-tested against a fixed `now`.
+import { computeFireAt, isFireTimePast } from '@/lib/v2/reminder-time'
+
+/**
+ * Which of the selected ยาม already have a past (or unparseable) fire time — given each ยาม's window.
+ * `windowByYamId` maps ยาม id → "HH:MM-HH:MM" (the day-detail's yams). An empty result = all fireable.
+ */
+export function pastSelectedYams(
+  date: string,
+  windowByYamId: Record<string, string>,
+  selectedYamIds: string[],
+  now: Date = new Date(),
+): string[] {
+  return selectedYamIds.filter((id) => {
+    const window = windowByYamId[id]
+    if (!window) return false // unknown ยาม → let the server be the authority (don't false-flag)
+    const fireAt = computeFireAt(date, window)
+    return fireAt === null || isFireTimePast(fireAt, now)
+  })
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // LOST-RESPONSE / RELOAD / REPLAY — the cases the machine must survive (documented so Lamun composes
 // the sheet against them, not around them):
