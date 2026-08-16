@@ -6,9 +6,22 @@ import { CookiesProvider } from "react-cookie";
 import IdentitySelfHeal from "@/components/identity-self-heal";
 import Script from "next/script";
 import Head from "next/head";
+import { useEffect } from "react";
 
 export default function App({ Component, pageProps: { session, ...pageProps } }: AppProps) {
   const gtm = "GTM-MLZC4FRC";
+
+  // PWA (#285): register the Serwist-built service worker. Only in production — the SW is `disable`d
+  // in dev (next.config.mjs), so /sw.js doesn't exist there and registering would 404. sw.ts uses
+  // skipWaiting + clientsClaim so a new deploy takes over on the next load (ตู๋'s gate: one refresh,
+  // never "close the tab first").
+  useEffect(() => {
+    if (process.env.NODE_ENV !== "production") return;
+    if (!("serviceWorker" in navigator)) return;
+    navigator.serviceWorker.register("/sw.js").catch((err) => {
+      console.error("[pwa] service worker registration failed", err);
+    });
+  }, []);
   return (
     <>
       {/* viewport-fit=cover is required for env(safe-area-inset-*) to resolve on notched

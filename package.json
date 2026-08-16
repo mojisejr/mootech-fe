@@ -15,6 +15,7 @@
   "dependencies": {
     "@line/liff": "^2.27.0",
     "@nestjs/config": "^4.0.2",
+    "@serwist/next": "^9.5.12",
     "axios": "^1.7.7",
     "canvasjs-react-charts": "^1.0.5",
     "drizzle-orm": "^0.45.2",
@@ -29,7 +30,9 @@
     "react-cookie": "^8.0.1",
     "react-dom": "^18",
     "react-easy-crop": "^5.5.0",
-    "recharts": "^3.1.0"
+    "recharts": "^3.1.0",
+    "serwist": "^9.5.12",
+    "web-push": "^3.6.7"
   },
   "devDependencies": {
     "@playwright/test": "^1.61.0",

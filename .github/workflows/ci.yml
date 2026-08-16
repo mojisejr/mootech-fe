@@ -83,6 +83,16 @@ jobs:
           HOST: https://example.invalid
           NEXTAUTH_URL: https://example.invalid
           OMISE_PUBLIC_KEY: pkey_test_placeholder
+          # #285 VAPID leak gate — a PLACEHOLDER tracer, not a real secret. The next step greps
+          # .next/static for THIS value: it catches the private-key VALUE reaching a client chunk
+          # (hardcoded / NEXT_PUBLIC_ misprefix / bundled in). A bare process.env.VAPID_PRIVATE_KEY in
+          # client code is NOT caught — Next strips non-public env to undefined, so nothing ships.
+          VAPID_PRIVATE_KEY: vapid_private_placeholder_do_not_use
+
+      - name: VAPID private key must not reach the client bundle (#285, dual-gate w/ canary)
+        run: bash scripts/check-vapid-not-leaked.sh
+        env:
+          VAPID_PRIVATE_KEY: vapid_private_placeholder_do_not_use
 
       - name: CI duration (warn over 5 min — never fails the build)
         if: always()
