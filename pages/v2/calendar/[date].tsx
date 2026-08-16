@@ -11,6 +11,7 @@
 // one import away. The gate positions in particular were 14 July's fortune, so a future "just reuse the
 // frozen list" would ship an inverted compass. History lives in git (last touched 9cf9bdf) and the
 // per-decision reasons live in the ledger entry + each component's header.
+import { useState } from 'react'
 import type { GetServerSideProps } from 'next'
 import Link from 'next/link'
 import { useRouter } from 'next/router'
@@ -30,6 +31,10 @@ import { Dithi } from '@/features/v2-calendar/components/day-detail/Dithi'
 import { EightGates } from '@/features/v2-calendar/components/day-detail/EightGates'
 import { EightDeities } from '@/features/v2-calendar/components/day-detail/EightDeities'
 import { SaveSheet } from '@/features/v2-calendar/components/day-detail/SaveSheet'
+import { InstallGuideSheet, type InstallGuideVariant } from '@/features/v2-calendar/components/InstallGuideSheet'
+import { notifyStateFrom } from '@/features/v2-calendar/notify-state'
+import { usePwaCapability } from '@/lib/pwa/capability'
+import { requestPushSubscription } from '@/lib/pwa/subscribe'
 import { PersonalCalendarUpsell } from '@/features/v2-calendar/components/upsell/PersonalCalendarUpsell'
 import { useClientTier } from '@/features/v2-shell/hooks/useClientTier'
 
@@ -61,10 +66,28 @@ export default function V2CalendarDayPage({ teamPreview }: { teamPreview: boolea
   const free = isPaid === false
   const reminders = useReminders()
   const draft = useReminderDraft() // goo's save-flow machine — the page MASKS it, adds no state of its own
+  // #286 — เพจเป็นคนอ่านความสามารถของเครื่อง แล้วส่ง *สถานะที่แปลแล้ว* ลงไปให้ชีท
+  // (ชีทไม่เรียก hook เอง ⇒ unit test ป้อนครบ 6 สถานะได้โดยไม่ต้องมีเบราว์เซอร์)
+  const notify = notifyStateFrom(usePwaCapability())
+  const [guide, setGuide] = useState<InstallGuideVariant | null>(null)
+  // ขอสิทธิ์ได้เฉพาะจาก user gesture — เรียกตรงจาก onClick ของแถวมู่เมท ไม่ห่อใน effect
+  // usePwaCapability อ่านค่าใหม่เองตอน visibilitychange ⇒ ผลลัพธ์เข้าจอโดยไม่ต้อง refresh
+  const onRequestPermission = async () => {
+    const result = await requestPushSubscription()
+    if (result.ok) draft.toggleDest('mumate')
+    // ไม่สำเร็จ = ไม่ติ๊ก · เหตุผลไปโผล่ที่แถวใต้ toggle เองเมื่อ capability อ่านค่าใหม่
+  }
 
   // per-ยาม quick-add (§11 buttons) → a real POST (server assigns id; the hook merges the returned row).
   // Fire-and-forget from the button's view; the list reflects it on success.
   const addYam = (yam: YamSlot) => {
+    // ⚠️ CONFLICT #286 × #287 — ทั้งสองข้างของ conflict นี้ผิดคนละแบบ อย่าหยิบข้างใดข้างหนึ่ง
+    //   ฝั่งผม (#286) เคยเขียน destinations: [] ผ่าน reminders.add() ตอนที่ hook ยัง fabricate ฝั่ง client
+    //   แต่ #287 ลบ add() ทิ้ง และ planReminderCommit (reminder-plan.ts) ตอบ 400 'ต้องเลือกปลายทาง
+    //   อย่างน้อย 1 อย่าง' ⇒ [] จะ**บันทึกไม่ติดเลย** และปุ่มนี้เป็น fire-and-forget (void) ⇒ เงียบสนิท
+    //   นั่นแย่กว่าปัญหาเดิมที่ผมกำลังแก้ ⇒ คงปลายทาง ['mumate'] ไว้ตามของจริงบน main
+    // หนี้ที่ยังเปิดอยู่ (#286 ยกไปถามใน ใบ): ปุ่มนี้ยังสัญญา push โดยไม่ผ่านชีท ⇒ ผู้ใช้ที่สิทธิ์ยัง denied/
+    // needs-install จะได้รายการที่ไม่มีวันดัง · ที่พูดความจริงตอนนี้คือแถบสถานะถาวรบนหน้ารายการเท่านั้น
     void reminders.save({ date, yams: [{ yamId: yam.id, yamLabel: yam.label, window: yam.window }], destinations: ['mumate'] })
   }
 
@@ -153,7 +176,19 @@ export default function V2CalendarDayPage({ teamPreview }: { teamPreview: boolea
         {paid && advanced && <EightDeities deities={detail.spirits} />}
       </div>
       {/* screen 5 — save sheet, shown only while the machine is editing/saving (375:13316) */}
-      {sheetOpen && <SaveSheet date={date} yams={detail.yams} draft={draft} onSave={onSheetSave} />}
+      {sheetOpen && (
+        <SaveSheet
+          date={date}
+          yams={detail.yams}
+          draft={draft}
+          onSave={onSheetSave}
+          notify={notify}
+          onShowGuide={setGuide}
+          onRequestPermission={onRequestPermission}
+        />
+      )}
+      {/* ชีทสอนติดตั้ง/เปิดสิทธิ์ — z สูงกว่าชีทตั้งเตือน เพราะมันเปิดทับจากในนั้น */}
+      {guide && <InstallGuideSheet variant={guide} onClose={() => setGuide(null)} />}
     </CalendarShell>
   )
 }
