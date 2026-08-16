@@ -977,7 +977,10 @@ export const reminder = pgTable("reminder", {
 	reminderDate: varchar("reminder_date", { length: 10 }).notNull(), // YYYY-MM-DD, ยาม START's BKK day
 	yamId: varchar("yam_id", { length: 8 }).notNull(),
 	yamLabel: text("yam_label").notNull(),
-	window: varchar("window", { length: 16 }).notNull(), // "HH:MM-HH:MM" — display only
+	// DB column is `yam_window`, NOT `window`: `window` is a RESERVED keyword in Postgres (WINDOW clause)
+	// and an unquoted `window` column fails with a syntax error on raw SQL — caught applying 0005 to a real
+	// pg. The TS field stays `window` (API/DTO/client unchanged); only the physical column name differs.
+	window: varchar("yam_window", { length: 16 }).notNull(), // "HH:MM-HH:MM" — display only
 	destinations: json("destinations").$type<string[]>().notNull(),
 	fireAtUtc: timestamp("fire_at_utc", { withTimezone: true }).notNull(),
 	// #288's send-marker, added NOW so prod is migrated ONCE (บอง 2026-08-16): NULL = not yet sent,

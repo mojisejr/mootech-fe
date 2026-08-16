@@ -27,7 +27,7 @@ CREATE TABLE IF NOT EXISTS reminder (
   reminder_date  varchar(10) NOT NULL,   -- YYYY-MM-DD, ยาม START's Asia/Bangkok day
   yam_id         varchar(8)  NOT NULL,
   yam_label      text        NOT NULL,
-  window         varchar(16) NOT NULL,   -- "HH:MM-HH:MM", display only
+  yam_window     varchar(16) NOT NULL,   -- "HH:MM-HH:MM", display only (NOT `window` — reserved keyword)
   destinations   json        NOT NULL,
   fire_at_utc    timestamptz NOT NULL,   -- absolute notify instant, computed once at save
   sent_at        timestamptz,            -- #288 send-marker (NULL = not sent) — added now, prod migrated ONCE
