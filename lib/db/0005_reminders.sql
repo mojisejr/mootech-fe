@@ -30,6 +30,7 @@ CREATE TABLE IF NOT EXISTS reminder (
   window         varchar(16) NOT NULL,   -- "HH:MM-HH:MM", display only
   destinations   json        NOT NULL,
   fire_at_utc    timestamptz NOT NULL,   -- absolute notify instant, computed once at save
+  sent_at        timestamptz,            -- #288 send-marker (NULL = not sent) — added now, prod migrated ONCE
   created_at     timestamptz NOT NULL DEFAULT now()
 );
 -- natural key = the dedup: a lost-response retry of the same (user, date, ยาม) collides → DO NOTHING.
@@ -37,6 +38,6 @@ CREATE UNIQUE INDEX IF NOT EXISTS uq_reminder_user_date_yam
   ON reminder (user_id, reminder_date, yam_id);
 CREATE INDEX IF NOT EXISTS idx_reminder_user_id
   ON reminder (user_id);
--- phase-4 cron scans due reminders by fire time.
-CREATE INDEX IF NOT EXISTS idx_reminder_fire_at_utc
-  ON reminder (fire_at_utc);
+-- #288 cron scans DUE-and-UNSENT by fire time — partial index is exactly that scan.
+CREATE INDEX IF NOT EXISTS idx_reminder_due
+  ON reminder (fire_at_utc) WHERE sent_at IS NULL;

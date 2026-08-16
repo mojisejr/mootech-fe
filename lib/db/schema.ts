@@ -980,12 +980,17 @@ export const reminder = pgTable("reminder", {
 	window: varchar("window", { length: 16 }).notNull(), // "HH:MM-HH:MM" — display only
 	destinations: json("destinations").$type<string[]>().notNull(),
 	fireAtUtc: timestamp("fire_at_utc", { withTimezone: true }).notNull(),
+	// #288's send-marker, added NOW so prod is migrated ONCE (บอง 2026-08-16): NULL = not yet sent,
+	// a timestamp = sent. A one-shot reminder needs no separate reminder_sent table — this column IS
+	// the "ส่งไปแล้ว" record the cron writes, and the natural key above keeps it one row per (user,date,ยาม).
+	sentAt: timestamp("sent_at", { withTimezone: true }),
 	createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
 }, (table) => [
 	uniqueIndex("uq_reminder_user_date_yam").on(table.userId, table.reminderDate, table.yamId),
 	index("idx_reminder_user_id").on(table.userId),
-	// cron (phase 4) scans by fire time — index it now so that lane is ready.
-	index("idx_reminder_fire_at_utc").on(table.fireAtUtc),
+	// #288's cron scans DUE-and-UNSENT reminders. A partial index on fire time WHERE sent_at IS NULL is
+	// exactly that scan — added now so that lane is ready without a second prod migration.
+	index("idx_reminder_due").on(table.fireAtUtc).where(sql`sent_at IS NULL`),
 ]);
 
 export const analyticLife = pgTable("analytic_life", {
