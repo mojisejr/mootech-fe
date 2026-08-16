@@ -961,8 +961,13 @@ export const pushSubscription = pgTable("push_subscription", {
 	userAgent: text("user_agent"),
 	createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
 }, (table) => [
-	// re-subscribing the same device (same user) is an idempotent UPSERT, not a second row.
-	uniqueIndex("uq_push_subscription_user_endpoint").on(table.userId, table.endpoint),
+	// endpoint (the browser's own opaque push URL) is GLOBALLY unique to one device/profile → uniqueness
+	// is on endpoint ALONE, not (user_id, endpoint). With (user_id, endpoint) the SAME endpoint could bind
+	// to many user_ids (shared browser A→B, or an attacker), and #288's cron would push one account's
+	// reminders to another's device — which the victim could NOT remove (DELETE is scoped by their own
+	// user_id). One endpoint = one owner; re-subscribing REASSIGNS ownership (POST onConflict → set user_id).
+	// (ตู๋ #291 B2)
+	uniqueIndex("uq_push_subscription_endpoint").on(table.endpoint),
 	index("idx_push_subscription_user_id").on(table.userId),
 ]);
 

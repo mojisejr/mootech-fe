@@ -15,9 +15,12 @@ CREATE TABLE IF NOT EXISTS push_subscription (
   user_agent  text,
   created_at  timestamptz NOT NULL DEFAULT now()
 );
--- one device (endpoint) per user → re-subscribe is an UPSERT, and no cross-user overwrite is possible.
-CREATE UNIQUE INDEX IF NOT EXISTS uq_push_subscription_user_endpoint
-  ON push_subscription (user_id, endpoint);
+-- endpoint is GLOBALLY unique to one device/browser-profile → uniqueness on endpoint ALONE (not
+-- (user_id, endpoint)). This makes it impossible for one endpoint to bind to two users; re-subscribing
+-- REASSIGNS ownership via the POST upsert (set user_id). Without this, #288's cron could push one
+-- account's reminders to a device another user now controls, and the victim couldn't remove it. (ตู๋ #291 B2)
+CREATE UNIQUE INDEX IF NOT EXISTS uq_push_subscription_endpoint
+  ON push_subscription (endpoint);
 CREATE INDEX IF NOT EXISTS idx_push_subscription_user_id
   ON push_subscription (user_id);
 

@@ -34,13 +34,16 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       }
       const userAgent = typeof body.userAgent === 'string' ? body.userAgent.slice(0, 512) : null
 
-      // UPSERT on (user_id, endpoint): re-subscribing refreshes the keys, never adds a duplicate row.
+      // UPSERT on endpoint (globally unique to one device). A conflict means the SAME device already has a
+      // row — re-subscribing REASSIGNS it to the current caller (set user_id) and refreshes the keys. So a
+      // shared browser switching A→B moves the single row to B; there is never a second row for one device,
+      // and #288 can't push A's reminders to a device B now controls. (ตู๋ #291 B2)
       await db
         .insert(pushSubscription)
         .values({ userId, endpoint, p256dh, auth, userAgent })
         .onConflictDoUpdate({
-          target: [pushSubscription.userId, pushSubscription.endpoint],
-          set: { p256dh, auth, userAgent },
+          target: [pushSubscription.endpoint],
+          set: { userId, p256dh, auth, userAgent },
         })
       return res.status(201).json({ ok: true })
     }
