@@ -7,10 +7,15 @@
 #                           Without this, a grep that finds nothing is indistinguishable from a broken
 #                           grep — "หาอะไรไม่เจอเลยก็เขียว".
 #
-# CI sets VAPID_PRIVATE_KEY to a PLACEHOLDER (ci.yml keeps NO real secrets). That is the whole point:
-# the placeholder is the tracer. If any CLIENT code ever did `process.env.VAPID_PRIVATE_KEY`, Next
-# inlines that placeholder into .next/static → step (2) finds it → RED. So the gate catches the bug
-# CLASS (client code touching the private env), no real key needed. Run: bash scripts/check-vapid-not-leaked.sh
+# CI sets VAPID_PRIVATE_KEY to a PLACEHOLDER (ci.yml keeps NO real secrets) — the tracer this gate
+# greps for. WHAT IT CATCHES: the private-key VALUE reaching a client JS chunk in .next/static —
+# hardcoded in client code, carried by a NEXT_PUBLIC_-misprefixed env, or otherwise imported into a
+# client bundle. WHAT IT DOES NOT CATCH (and need not, because Next prevents it): a bare
+# `process.env.VAPID_PRIVATE_KEY` in client code — Next inlines ONLY NEXT_PUBLIC_* env into the
+# browser bundle, so a non-public var becomes `undefined` there and its value never ships. (ตู๋ M1:
+# that case is green, correctly.) SCOPE: greps the client bundle (.next/static) only — an SSR-prop
+# leak into page HTML is a different check, out of this gate's scope.
+# Run: bash scripts/check-vapid-not-leaked.sh
 set -euo pipefail
 
 STATIC_DIR="${STATIC_DIR:-.next/static}"

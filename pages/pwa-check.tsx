@@ -2,12 +2,15 @@
 // has a real path to VERIFY the phase-1 DoD (install → full screen → permission → subscription) before
 // มุน builds the real controls in phase 2 (#286). Disclosed in the issue + PR.
 //
-// It only READS capability and, on a button press, requests a subscription and prints it. No network,
-// no v2-calendar files touched. Safe to keep as a dev/diagnostic route; it exposes nothing secret.
+// It reads capability and, on a button press, requests a REAL push subscription. Because that is a real
+// side-effect (not "nothing secret"), the page is GATED behind the v2 preview cookie (getServerSideProps
+// below, ตู๋ F3) — it must not be publicly reachable on prod. No v2-calendar files touched.
 import { useState } from "react";
+import type { GetServerSideProps } from "next";
 import Head from "next/head";
 import { usePwaCapability } from "@/lib/pwa/capability";
 import { requestPushSubscription, type SubscribeResult } from "@/lib/pwa/subscribe";
+import { v2RedirectIfUnauthed } from "@/lib/v2/gate";
 
 const SAPPHIRE = "#1455A4";
 const BG = "#ECF0FD";
@@ -93,3 +96,10 @@ export default function PwaCheckPage() {
     </>
   );
 }
+
+// ตู๋ F3: this diagnostic page creates a REAL subscription, so it is not public — same v2 preview gate
+// as every other /v2 page (ฟีม reaches it through the gate). Self-destructs at launch: once
+// V2_PREVIEW_KEY is removed, isV2Authenticated → false → this always redirects to /v2 before render.
+export const getServerSideProps: GetServerSideProps = async ({ req }) => {
+  return v2RedirectIfUnauthed(req) ?? { props: {} };
+};

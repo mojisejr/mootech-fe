@@ -16,7 +16,6 @@
 // phase 1 (that is phase 3/4 on the server). They exist so the SW is push-ready the moment a
 // subscription is created, and so a manual DevTools "Push" test shows a notification end-to-end.
 
-import { defaultCache } from "@serwist/next/worker";
 import type { PrecacheEntry, SerwistGlobalConfig } from "serwist";
 import { Serwist } from "serwist";
 
@@ -34,11 +33,12 @@ const serwist = new Serwist({
   // A new SW activates and controls open pages immediately → one refresh after deploy is enough.
   skipWaiting: true,
   clientsClaim: true,
-  navigationPreload: true,
-  // Phase 1 = install + push only. We keep Serwist's default *asset* caching (js/css/fonts/images —
-  // all content-hashed, so they can't go stale) but do NOT add HTML/navigation caching, so the app
-  // is never served an offline page shell this phase.
-  runtimeCaching: defaultCache.filter((entry) => entry.matcher !== undefined),
+  // Phase 1 = install + push ONLY. runtimeCaching is EMPTY on purpose: Serwist's defaultCache includes
+  // `pages` / `pages-rsc` / `next-data` / `others` — that IS the HTML+navigation (offline page-shell)
+  // caching the ใบ forbids this phase. We add nothing runtime; the build's own assets are already
+  // covered by the precache manifest above. So navigations always hit the network → always fresh,
+  // and there is no page shell to go stale. (verified: compiled public/sw.js has no runtime cache route.)
+  runtimeCaching: [],
 });
 
 serwist.addEventListeners();
