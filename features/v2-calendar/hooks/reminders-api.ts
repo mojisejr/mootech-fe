@@ -23,7 +23,16 @@ const REMINDERS_URL = '/api/v2/reminders'
 /** GET the caller's reminders. Throws on non-2xx so the hook can surface a load error. */
 export async function fetchReminders(signal?: AbortSignal): Promise<ReminderDTO[]> {
   const res = await fetch(REMINDERS_URL, { signal, credentials: 'same-origin' })
-  if (!res.ok) throw new Error(`fetchReminders ${res.status}`)
+  if (!res.ok) {
+    // DRAIN the body before throwing. A `fetch` whose response body is never read leaves the request in
+    // an unfinished state in the browser (Playwright never fires `requestfinished`) → the page never
+    // reaches `networkidle`. On the /v2/calendar/[date] first paint this GET 401s for a free/unauth
+    // visitor; without this drain the design-verify harness `page.goto(networkidle)` hangs its full 30s.
+    // Verified: draining flips the harness from timeout → pass. (`?.()` + try/catch so a Response without a
+    // body reader — e.g. a unit-test mock — and a drain error both stay harmless and never mask the status.)
+    try { await res.text?.() } catch { /* body already consumed/absent — ignore, we only care to release it */ }
+    throw new Error(`fetchReminders ${res.status}`)
+  }
   const body = (await res.json()) as { reminders?: ReminderDTO[] }
   return body.reminders ?? []
 }
