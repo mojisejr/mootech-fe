@@ -1,3 +1,17 @@
+import withSerwistInit from "@serwist/next";
+
+// PWA (mootech-fe#285 phase 1). Serwist replaces the unmaintained next-pwa (ฟีมเคาะ). It compiles
+// sw.ts → public/sw.js at build time and injects the precache manifest.
+//   • disable in dev: the SW would cache dev assets and fight HMR. Verify the SW via `next build &&
+//     next start` (that is also the real ship path). `next dev` stays SW-free.
+//   • register: false → we register in pages/_app.tsx ourselves (Pages Router, explicit control).
+const withSerwist = withSerwistInit({
+  swSrc: "sw.ts",
+  swDest: "public/sw.js",
+  disable: process.env.NODE_ENV === "development",
+  register: false,
+});
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
@@ -23,4 +37,4 @@ const nextConfig = {
   },
 };
 
-export default nextConfig;
+export default withSerwist(nextConfig);
