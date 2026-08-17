@@ -187,7 +187,11 @@ export default function V2CalendarDayPage({ teamPreview }: { teamPreview: boolea
           onRequestPermission={onRequestPermission}
         />
       )}
-      {/* ชีทสอนติดตั้ง/เปิดสิทธิ์ — z สูงกว่าชีทตั้งเตือน เพราะมันเปิดทับจากในนั้น */}
+      {/* ชีทสอนติดตั้ง/เปิดสิทธิ์ — เปิดทับจากในชีทตั้งเตือน จึงต้องอยู่ชั้นเหนือมัน
+          #302: บรรทัดนี้เคยเขียนว่า "z สูงกว่า" ทั้งที่ของจริงเท่ากัน (z-50 ทั้งคู่) — วันนั้นมันอยู่บนได้
+          เพราะบังเอิญเรียงหลัง SaveSheet ตรงนี้ ไม่ใช่เพราะชั้น. ตอนนี้ชั้นบังคับจริงที่
+          InstallGuideSheet.tsx (z-[60]) ⇒ **ลำดับสองบรรทัดนี้สลับกันได้โดยผลไม่เปลี่ยน**
+          และมีฟันเฝ้าอยู่ที่ harness/save-sheet-hittable.ts เคส C */}
       {guide && <InstallGuideSheet variant={guide} onClose={() => setGuide(null)} />}
     </CalendarShell>
   )
