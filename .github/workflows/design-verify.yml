@@ -123,6 +123,14 @@ jobs:
           # this gate if it sat behind it. Earlier = this gate is seen before a downstream flake can mask it.
           HARNESS_HOST=http://localhost:3000 npx tsx harness/run-home-chart-cache.ts
           CCCODE=$?
+          # #299 save-sheet hit-test (goo 2026-08-17): the "บันทึก" button and the bottom Menubar were both
+          # z-40 → the nav covered the button → the tap never landed, and #287's DoD was never walkable on
+          # screen. This asserts document.elementFromPoint at the button's centre (sheet open) AND that the
+          # Menubar CTA is still hittable (sheet closed), across 320/393/1280. Backend-independent (all route-
+          # stubbed). Proven bidirectional: RED on main db2441a (hit=nav), GREEN once the sheet moved to the
+          # modal layer (z-50). PLACED BEFORE capture-coming-soon for the same bash -e reason as the block above.
+          HARNESS_HOST=http://localhost:3000 npx tsx harness/save-sheet-hittable.ts
+          ZCODE=$?
           # coming-soon controls (บอง 2026-08-06): its ledger entry names harness/capture-coming-soon.ts as
           # enforced_by — the third ledger in one day promising a guard nothing ran. Wired instead of
           # un-promised because it is genuinely ready: backend-independent, and it already exits non-zero on
@@ -174,7 +182,7 @@ jobs:
           # own watches that path. Team rule from it (บอง 2026-08-06): a conflict in a file carrying a
           # pass/fail condition is resolved by reading both sides and UNIONING them, never by picking — and
           # never in the GitHub web UI, whose result never passes through CI before it becomes the merge commit.
-          [ "$CODE" -eq 0 ] && [ "$PCODE" -eq 0 ] && [ "$MCODE" -eq 0 ] && [ "$SCODE" -eq 0 ] && [ "$CSCODE" -eq 0 ] && [ "$HSCODE" -eq 0 ] && [ "$FFCODE" -eq 0 ] && [ "$CCCODE" -eq 0 ]
+          [ "$CODE" -eq 0 ] && [ "$PCODE" -eq 0 ] && [ "$MCODE" -eq 0 ] && [ "$SCODE" -eq 0 ] && [ "$CSCODE" -eq 0 ] && [ "$HSCODE" -eq 0 ] && [ "$FFCODE" -eq 0 ] && [ "$CCCODE" -eq 0 ] && [ "$ZCODE" -eq 0 ]
 
       # Why a summary at all: on 2026-08-09 three of us read the SAME red run and all three concluded
       # "the artifact quota broke CI". The real cause was a TimeoutError four lines above it, and the
