@@ -63,10 +63,12 @@ async function openSheetPage(browser: Browser, vw: number) {
  *  The link only exists when notify state is `denied` or `needs-install` (notify-state.ts guideVariantFor).
  *  A plain chromium context has Notification.permission = 'denied' → state `denied` → the link is there.
  *  We ASSERT that precondition instead of skipping: a case that quietly finds no link would be a green
- *  gate that measured nothing. */
+ *  gate that measured nothing.
+ *  #298 reframe: the mumate-toggle row was removed — the notify state + "ดูวิธี" link now live on the SAVE
+ *  button (sheet-save carries data-notify-state; the link is save-notify-guide). Same invariant, new anchors. */
 async function openBothSheetsPage(browser: Browser, vw: number) {
   const { ctx, page } = await openSheetPage(browser, vw)
-  const state = await page.locator('[data-testid="dest-mumate"]').getAttribute('data-notify-state')
+  const state = await page.locator('[data-testid="sheet-save"]').getAttribute('data-notify-state')
   if (state !== 'denied') {
     throw new Error(
       `[#302 case C] precondition unmet: notify state is "${state}", expected "denied". ` +
@@ -74,7 +76,7 @@ async function openBothSheetsPage(browser: Browser, vw: number) {
         `Fix the environment (a bare chromium context must report Notification.permission=denied), not this check.`,
     )
   }
-  await page.locator('[data-testid="mumate-guide"]').click()
+  await page.locator('[data-testid="save-notify-guide"]').click()
   await page.locator('[data-testid="install-guide-sheet"]').waitFor({ timeout: 10000 })
   return { ctx, page }
 }
