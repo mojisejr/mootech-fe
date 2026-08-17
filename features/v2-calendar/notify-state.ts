@@ -23,6 +23,14 @@ export type NotifyState =
  * ลำดับการถามสำคัญกว่าตัวเงื่อนไข — ถามผิดลำดับแล้วผู้ใช้จะได้คำแนะนำที่ทำตามแล้วไม่ได้ผล:
  *
  *   1) ยังไม่รู้ก่อนเสมอ      — `canReceivePush === null` คือ "ยังไม่ได้อ่าน" ไม่ใช่ "อ่านแล้วไม่มี"
+ *                              🔴 ตัดสินจาก `null` เท่านั้น ❌ ห้ามเอา `permission === 'unknown'` มาร่วม:
+ *                              `capability.ts` ตั้ง `permission='unknown'` ทุกครั้งที่ **ไม่มี Notification API**
+ *                              (`hasNotification=false`) ซึ่งคือเคส `unsupported` เป๊ะๆ ⇒ เอามาไว้ด่านแรก
+ *                              เมื่อไหร่ บรรทัด `unsupported` ข้างล่างไปไม่ถึงเลย และคนที่เปิดจากในแอป LINE
+ *                              จะเห็นโครงกะพริบค้างถาวร — ไม่มีข้อความ ไม่มีปุ่มดูวิธี และไม่หายเอง เพราะ
+ *                              `hasNotification` ไม่มีวันเปลี่ยน (ตู๋จับได้ที่ #292 · มิวแทนต์ U4 ของเขา
+ *                              "รอด" แล้วกลายเป็นตัวแก้). ราก — `permission` แบกสองความหมายในค่าเดียว —
+ *                              ยังอยู่ที่ `lib/pwa/capability.ts` ของ phase 1 ⇒ เป็นใบแยก ไม่ใช่ใบนี้
  *   2) ต้องติดตั้งก่อน        — ต้องมาก่อน unsupported เพราะ iOS แท็บ Safari ก็ได้ canReceivePush=false
  *                              เหมือนกัน แต่ของมันแก้ได้ด้วยการติดตั้ง ⇒ ถ้าเช็ค unsupported ก่อน
  *                              ผู้ใช้ iPhone จะถูกบอกว่า "เครื่องนี้ใช้ไม่ได้" ทั้งที่แค่ต้องติดตั้ง
@@ -32,7 +40,7 @@ export type NotifyState =
 export function notifyStateFrom(capability: PwaCapability): NotifyState {
   const { canReceivePush, needsInstall, permission } = capability
 
-  if (canReceivePush === null || needsInstall === null || permission === 'unknown') return 'unknown'
+  if (canReceivePush === null || needsInstall === null) return 'unknown'
   if (needsInstall) return 'needs-install'
   if (!canReceivePush) return 'unsupported'
   if (permission === 'granted') return 'granted'

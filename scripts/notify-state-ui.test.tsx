@@ -43,7 +43,10 @@ const CASES: Array<{ name: string; cap: PwaCapability; expect: NotifyState }> = 
   { name: 'ยังไม่เคยถาม', cap: cap({ permission: 'default' }), expect: 'default' },
   { name: 'ปฏิเสธไปแล้ว', cap: cap({ permission: 'denied' }), expect: 'denied' },
   { name: 'iOS Safari ยังไม่ติดตั้ง', cap: cap({ canReceivePush: false, needsInstall: true, permission: 'default' }), expect: 'needs-install' },
-  { name: 'webview ในแอป LINE', cap: cap({ canReceivePush: false, needsInstall: false, permission: 'default' }), expect: 'unsupported' },
+  // ⚠️ ชื่อเดิมของเคสนี้คือ "webview ในแอป LINE" ซึ่ง **ผิด** — LINE ไม่มี Notification API ⇒ capabilityFromEnv
+  // จะให้ permission:'unknown' ไม่ใช่ 'default' · ชุดค่านี้ผลิตได้จริงจาก webview ที่ *มี* Notification แต่ไม่มี
+  // PushManager ⇒ เปลี่ยนชื่อให้ตรงของจริง · เคส LINE ตัวจริงเดินผ่าน env ในบล็อกล่างสุดของไฟล์
+  { name: 'webview ที่มี Notification แต่ไม่มี PushManager', cap: cap({ canReceivePush: false, needsInstall: false, permission: 'default' }), expect: 'unsupported' },
 ]
 
 describe('notifyStateFrom — 6 สถานะ ต้องแยกออกจากกันจริง', () => {
@@ -225,5 +228,52 @@ describe('🔴 "ยังไม่รู้" — เคสที่พังเ�
 
     expect(mutant(unknownCap)).toBe('denied') // มิวแทนต์ลงจริง ไม่ใช่ no-op
     expect(notifyStateFrom(unknownCap)).not.toBe(mutant(unknownCap)) // ของจริงไม่ทำแบบนั้น
+  })
+})
+
+// ── ชั้นที่ 0 · เดินจาก env ที่ "เครื่องจริงผลิตได้" ไม่ใช่จาก capability ที่เราปั้นเอง ───────────
+//
+// 🔴 นี่คือชั้นที่ขาดไปตอนแรก และมันคือเหตุที่ B1 หลุด (ตู๋จับได้ที่ #292):
+// ทุกเคสข้างบนประกอบ `PwaCapability` ด้วยมือ ⇒ เกณฑ์ "6 เคสไม่ซ้ำกันเลย" แข็งมาก แต่มันวัดแค่ว่า
+// *ฟังก์ชันแยกแยะ input ที่คนเขียนเลือกเอง* — จับ "สถานะที่รันไทม์ไปไม่ถึง" ไม่ได้เลย
+// เคส `webview ในแอป LINE` เดิมป้อน permission:'default' คู่กับ canReceivePush:false ซึ่ง
+// `capabilityFromEnv` **ผลิตไม่ได้** (hasNotification=false ⇒ permission เป็น 'unknown' เสมอ)
+// ⇒ เทสต์เขียวอยู่บนสถานะที่เครื่องไม่เคยสร้าง ขณะที่ของจริงตกไปช่อง unknown แล้วค้างถาวร
+import { capabilityFromEnv, UNKNOWN_CAPABILITY, type CapabilityEnv } from '@/lib/pwa/capability'
+
+const envOf = (o: Partial<CapabilityEnv>): CapabilityEnv => ({
+  hasServiceWorker: true, hasPushManager: true, hasNotification: true,
+  isStandalone: false, isIOSSafari: false, notificationPermission: 'granted', ...o,
+})
+
+describe('🔴 เดินจาก env จริง — capabilityFromEnv → notifyStateFrom', () => {
+  it('Android LINE webview (ไม่มี Notification API) → unsupported ❌ ไม่ใช่ค้างที่ unknown', () => {
+    // ของจริงที่ผู้ใช้เจอถ้าพลาดข้อนี้: โครง animate-pulse ค้างถาวร ไม่มีข้อความ ไม่มีปุ่มดูวิธี
+    // และไม่หายเอง เพราะ hasNotification ไม่มีวันเปลี่ยนระหว่างที่หน้าเปิดอยู่
+    const capability = capabilityFromEnv(envOf({ hasNotification: false, hasPushManager: false, hasServiceWorker: false }))
+    expect(capability.permission).toBe('unknown') // ← ค่าที่หลอก: 'unknown' ตรงนี้แปลว่า "ไม่มี API" ไม่ใช่ "ยังไม่อ่าน"
+    expect(notifyStateFrom(capability)).toBe('unsupported')
+    expect(NOTIFY_REASON[notifyStateFrom(capability)]).toBeTruthy() // ต้องมีประโยคให้อ่าน ไม่ใช่โครงเปล่า
+  })
+
+  it('CONTROL — iOS Safari แท็บที่ยังไม่ติดตั้ง ต้องยังได้ needs-install (ตัวแก้ต้องไม่กลืนเคสนี้)', () => {
+    const capability = capabilityFromEnv(envOf({ hasPushManager: false, isIOSSafari: true, notificationPermission: 'default' }))
+    expect(notifyStateFrom(capability)).toBe('needs-install')
+  })
+
+  it('CONTROL — SSR/ยังไม่ได้อ่าน ต้องยังเป็น unknown (นี่คือเคสเดียวที่ควรเป็น unknown)', () => {
+    expect(notifyStateFrom(capabilityFromEnv(null))).toBe('unknown')
+    expect(notifyStateFrom(UNKNOWN_CAPABILITY)).toBe('unknown')
+  })
+
+  it('มิวแทนต์: เอา `permission === unknown` กลับเข้าด่านแรก แล้วเคส LINE ต้องพัง', () => {
+    // ตัวแก้ B1 คือการ *ถอด* เงื่อนไข ⇒ ฟันของมันต้องเป็น "ใส่กลับแล้วแดง" ไม่ใช่ assert ทางบวกเฉยๆ
+    const mutant = (c: PwaCapability): NotifyState =>
+      c.canReceivePush === null || c.needsInstall === null || c.permission === 'unknown' ? 'unknown' : notifyStateFrom(c)
+    const line = capabilityFromEnv(envOf({ hasNotification: false, hasPushManager: false, hasServiceWorker: false }))
+    expect(mutant(line)).toBe('unknown')                    // มิวแทนต์ลงจริง
+    expect(notifyStateFrom(line)).not.toBe(mutant(line))    // ของจริงไม่ทำแบบนั้นแล้ว
+    // และมันต้องไม่ทำลาย SSR — ทั้งสองทางยังตอบเหมือนกันตรงนี้ (เคสที่ควร unknown จริงๆ)
+    expect(mutant(UNKNOWN_CAPABILITY)).toBe(notifyStateFrom(UNKNOWN_CAPABILITY))
   })
 })

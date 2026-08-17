@@ -29,8 +29,12 @@ const ENVS: Record<string, RuntimeEnv> = {
   denied:          { sw: true,  push: true,  notif: 'denied',  iosSafari: false, standalone: false },
   'needs-install': { sw: true,  push: false, notif: 'default', iosSafari: true,  standalone: false },
   unsupported:     { sw: false, push: false, notif: 'default', iosSafari: false, standalone: false },
-  unknown:         { sw: false, push: false, notif: null,      iosSafari: false, standalone: false },
+  // LINE ตัวจริง (ไม่มี Notification API) — ก่อนแก้ B1 ตกเป็น unknown แล้วค้าง ตอนนี้ตกช่องเดียวกับ unsupported
+  'unsupported-line': { sw: false, push: false, notif: null,   iosSafari: false, standalone: false },
 }
+// 🔴 `unknown` ไม่มีอยู่ในตารางนี้ **โดยตั้งใจ** — หลังแก้ B1 มันเกิดได้เฉพาะช่วงก่อน effect แรกทำงาน
+// ⇒ บังคับให้มันค้างในเบราว์เซอร์ไม่ได้อีกแล้ว ซึ่งคือผลลัพธ์ที่ถูกต้องของการแก้ · ❌ ไม่ประกอบ env ปลอม
+// ให้ได้ภาพมาแปะ · สัญญาของสถานะนี้ถูกกันด้วยฟันยูนิต (โครงว่าง + ไม่มี mumate-toggle) แทน
 
 const UID = 'harness-notify-user'
 // payment.is_not_expired = true ⇒ สมาชิก ⇒ ชีทตั้งเตือนเปิดได้ (free ถูกกั้นคนละเส้นทาง)
@@ -97,7 +101,7 @@ const EXPECT: Record<string, { disabled: boolean; toggle: boolean; reason: boole
   denied:          { disabled: true,  toggle: true,  reason: true,  guide: true,  skeleton: false },
   'needs-install': { disabled: true,  toggle: true,  reason: true,  guide: true,  skeleton: false },
   unsupported:     { disabled: true,  toggle: true,  reason: true,  guide: false, skeleton: false }, // ❌ ไม่มีวิธีให้สอน
-  unknown:         { disabled: true,  toggle: false, reason: false, guide: false, skeleton: true },  // โครงว่าง ❌ ไม่ใช่ toggle ปิด
+  'unsupported-line': { disabled: true, toggle: true, reason: true, guide: false, skeleton: false },
 }
 
 async function main() {
