@@ -37,7 +37,10 @@ export interface UseReminderDraft {
   dismiss: () => void
 }
 
-const EMPTY_DRAFT: ReminderDraft = { date: '', selectedYamIds: [], destinations: ['mumate'], note: '' }
+// #286: destinations เริ่มต้นเป็น [] ❌ ไม่ใช่ ['mumate'] — ค่าเดิมทำให้ผู้ใช้ 'เลือก' ปลายทางที่เขา
+// ไม่ได้เลือก และเป็นปลายทางที่ระบบยังส่งไม่ได้ด้วย (ไม่มี PWA จนถึง #285) ⇒ บันทึกแล้วขึ้นชิป
+// 'มู่เมท' ในรายการโดยไม่มีอะไรจะดัง. แตะบรรทัดนี้บรรทัดเดียวตามที่ใบระบุ — ที่เหลือเป็นของ goo
+const EMPTY_DRAFT: ReminderDraft = { date: '', selectedYamIds: [], destinations: [], note: '' }
 
 export function useReminderDraft(): UseReminderDraft {
   const [state, setState] = useState<SaveFlowState>('idle')
