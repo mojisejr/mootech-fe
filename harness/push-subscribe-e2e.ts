@@ -12,15 +12,18 @@
 // Eye-lane walk (#305). This is API-truth only, by design.
 //
 // Run (needs testenv stack DB + a next server pointed at it, ENVIRONMENT=develop for /dev-login):
-//   DATABASE_URL=…5433/mumate_test NEXTAUTH_SECRET=… V2_PREVIEW_KEY=local-testenv ENVIRONMENT=develop \
+//   DATABASE_URL=<testenv-pg-url> NEXTAUTH_SECRET=… V2_PREVIEW_KEY=local-testenv ENVIRONMENT=develop \
 //     npx next dev -p 3055 &
-//   HARNESS_HOST=http://localhost:3055 TEST_DB_URL=postgresql://postgres:postgres@localhost:5433/mumate_test \
-//     npx tsx harness/push-subscribe-e2e.ts
+//   HARNESS_HOST=http://localhost:3055 TEST_DB_URL=<testenv-pg-url> npx tsx harness/push-subscribe-e2e.ts
+//   (both URLs = the testenv stack's local postgres, e.g. testenv/env/fe.env's DATABASE_URL — never inline it here)
 import { chromium } from '@playwright/test'
 import { execSync } from 'node:child_process'
 
 const HOST = process.env.HARNESS_HOST || 'http://localhost:3055'
-const DB = process.env.TEST_DB_URL || 'postgresql://postgres:postgres@localhost:5433/mumate_test'
+// TEST_DB_URL is REQUIRED and passed via env — never hardcode a connection string (even the trivial local
+// testenv one) in committed source; a credential URI in the tree is exactly what the secret-scan gate flags.
+const DB = process.env.TEST_DB_URL
+if (!DB) { console.error('set TEST_DB_URL to the testenv postgres connection string (see the Run: header)'); process.exit(2) }
 const KEY = process.env.V2_PREVIEW_KEY || 'local-testenv'
 const USER = process.env.DEV_USER || '5c7befb3-ebd3-4740-989e-fd6a1cca9662' // dev seed + MEMBER (member_payment)
 
