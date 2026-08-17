@@ -121,7 +121,7 @@ function renderSheet(notify: NotifyState, destinations: string[] = []) {
       onSave={() => {}}
       notify={notify}
       onShowGuide={() => {}}
-      onRequestPermission={() => {}}
+      onToggleMumate={() => {}}
     />,
   )
 }

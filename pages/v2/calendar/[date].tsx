@@ -11,7 +11,7 @@
 // one import away. The gate positions in particular were 14 July's fortune, so a future "just reuse the
 // frozen list" would ship an inverted compass. History lives in git (last touched 9cf9bdf) and the
 // per-decision reasons live in the ledger entry + each component's header.
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import type { GetServerSideProps } from 'next'
 import Link from 'next/link'
 import { useRouter } from 'next/router'
@@ -35,6 +35,7 @@ import { InstallGuideSheet, type InstallGuideVariant } from '@/features/v2-calen
 import { notifyStateFrom } from '@/features/v2-calendar/notify-state'
 import { usePwaCapability } from '@/lib/pwa/capability'
 import { requestPushSubscription } from '@/lib/pwa/subscribe'
+import { toggleMumatePush, postPushSubscription, deletePushSubscription } from '@/lib/pwa/persist-subscription'
 import { PersonalCalendarUpsell } from '@/features/v2-calendar/components/upsell/PersonalCalendarUpsell'
 import { useClientTier } from '@/features/v2-shell/hooks/useClientTier'
 
@@ -70,12 +71,26 @@ export default function V2CalendarDayPage({ teamPreview }: { teamPreview: boolea
   // (ชีทไม่เรียก hook เอง ⇒ unit test ป้อนครบ 6 สถานะได้โดยไม่ต้องมีเบราว์เซอร์)
   const notify = notifyStateFrom(usePwaCapability())
   const [guide, setGuide] = useState<InstallGuideVariant | null>(null)
-  // ขอสิทธิ์ได้เฉพาะจาก user gesture — เรียกตรงจาก onClick ของแถวมู่เมท ไม่ห่อใน effect
-  // usePwaCapability อ่านค่าใหม่เองตอน visibilitychange ⇒ ผลลัพธ์เข้าจอโดยไม่ต้อง refresh
-  const onRequestPermission = async () => {
-    const result = await requestPushSubscription()
-    if (result.ok) draft.toggleDest('mumate')
-    // ไม่สำเร็จ = ไม่ติ๊ก · เหตุผลไปโผล่ที่แถวใต้ toggle เองเมื่อ capability อ่านค่าใหม่
+  // แตะ toggle มู่เมท = side-effect จริง (POST เปิด / DELETE ปิด) ไม่ใช่แค่พลิก draft: การติ๊กต้องสะท้อน
+  // "แถวในฐาน" ไม่ใช่ "เบราว์เซอร์ให้สิทธิ์" (#298 เกิดเพราะสองอันนี้ถูกปนกัน). ทิศ/สิทธิ์/ติ๊ก อยู่ใน
+  // toggleMumatePush — ที่นี่แค่ต่อ dep กับเบราว์เซอร์จริง. ขอสิทธิ์ต้องมาจาก user gesture ⇒ เรียกตรงจาก onClick.
+  // usePwaCapability อ่านค่าใหม่เองตอน visibilitychange ⇒ เหตุที่ไม่สำเร็จเข้าจอโดยไม่ต้อง refresh.
+  const mumateBusy = useRef(false) // กันแตะรัวซ้อน POST/DELETE — one in-flight at a time
+  const onToggleMumate = async () => {
+    if (mumateBusy.current) return
+    mumateBusy.current = true
+    try {
+      await toggleMumatePush({
+        isOn: draft.draft.destinations.includes('mumate'),
+        requestSubscription: () => requestPushSubscription(),
+        currentSubscription: async () => (await navigator.serviceWorker.ready).pushManager.getSubscription(),
+        post: (sub) => postPushSubscription(sub, navigator.userAgent),
+        remove: (endpoint) => deletePushSubscription(endpoint),
+        flip: () => draft.toggleDest('mumate'),
+      })
+    } finally {
+      mumateBusy.current = false
+    }
   }
 
   // per-ยาม quick-add (§11 buttons) → a real POST (server assigns id; the hook merges the returned row).
@@ -184,7 +199,7 @@ export default function V2CalendarDayPage({ teamPreview }: { teamPreview: boolea
           onSave={onSheetSave}
           notify={notify}
           onShowGuide={setGuide}
-          onRequestPermission={onRequestPermission}
+          onToggleMumate={onToggleMumate}
         />
       )}
       {/* ชีทสอนติดตั้ง/เปิดสิทธิ์ — z สูงกว่าชีทตั้งเตือน เพราะมันเปิดทับจากในนั้น */}

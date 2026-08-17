@@ -61,7 +61,7 @@ export function SaveSheet({
   onSave,
   notify,
   onShowGuide,
-  onRequestPermission,
+  onToggleMumate,
 }: {
   date: string
   yams: YamSlot[]
@@ -70,7 +70,9 @@ export function SaveSheet({
   /** สถานะแจ้งเตือนของเครื่อง — เพจอ่านจาก usePwaCapability() แล้วส่งลงมา (ชีทไม่เรียก hook เอง) */
   notify: NotifyState
   onShowGuide: (variant: 'install' | 'permission') => void
-  onRequestPermission: () => void
+  /** กดแถวมู่เมท — เพจเป็นคนยิง POST(เปิด)/DELETE(ปิด) แล้วพลิก draft เฉพาะเมื่อฐานสำเร็จ (#298).
+   *  ชีทไม่เรียก draft.toggleDest('mumate') เอง: การติ๊กต้องสะท้อนแถวในฐาน ไม่ใช่แค่สิทธิ์เบราว์เซอร์ */
+  onToggleMumate: () => void
 }) {
   const d = draft.draft
   const noDestination = d.destinations.length === 0
@@ -156,7 +158,10 @@ export function SaveSheet({
                       // บน element ที่ disabled ตั้งแต่ชั้น fiber ⇒ ยามใน handler จะไม่มีวันถูกเรียก และ
                       // เทสต์ที่ "พิสูจน์" ยามนั้นจะเขียวโดยไม่เคยแตะโค้ดจริง
                       disabled={loading || !usable}
-                      onClick={() => (notify === 'default' ? onRequestPermission() : draft.toggleDest(dm.id))}
+                      // เปิด(default/granted) และปิด(granted) ไปที่ handler เดียวของเพจ — เพจตัดสินทิศจาก
+                      // destinations แล้วยิง POST/DELETE ก่อนพลิก draft. ❌ ไม่เรียก draft.toggleDest ตรงนี้:
+                      // path granted เดิมพลิก draft ตรงๆ ข้ามเพจ ⇒ ไม่มีอะไรลง/ลบฐาน (นั่นคือบั๊ก #298)
+                      onClick={onToggleMumate}
                       className="flex items-center gap-3 text-left disabled:cursor-default"
                     >
                       <span className="grid size-11 shrink-0 place-items-center rounded-xl bg-v3-pastel-blue/30 text-lg">🔔</span>
