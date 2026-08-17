@@ -36,7 +36,14 @@ export function NotifyStatusBar({
 }: {
   state: NotifyState
   onShowGuide: (v: InstallGuideVariant) => void
-  /** เรียกขอสิทธิ์ — ต้องวิ่งตรงจาก onClick ของปุ่มนี้ (lib/pwa/subscribe.ts:7-8: user gesture เท่านั้น) */
+  /** เรียกขอสิทธิ์ — ต้องวิ่งตรงจาก onClick ของปุ่มนี้ (lib/pwa/subscribe.ts:7-8: user gesture เท่านั้น)
+   *
+   * ⚠️ **กฎ "ต้องเป็นคำสั่งแรก" นี้ยังไม่มีอะไรเฝ้ามันเลย** (ตู๋ · รีวิว PR #308): stub ของ
+   * `requestPermission` ทั้งใน unit และ harness **resolve เสมอ** ไม่ว่า gesture จะหมดอายุหรือยัง
+   * ⇒ ใส่ `await` คั่นหน้ามันเมื่อไหร่ ตัวนับก็ยังนับได้ แถบก็ยังพลิก ⇒ ทั้งสองด่านยังเขียว
+   * 🔴 ⇒ **ห้ามยกผล harness 21/21 ไปอ้างว่ากฎข้อนี้ถูกพิสูจน์แล้ว** — ตอนนี้มันถูกค้ำด้วยคอมเมนต์นี้
+   * กับสายตาคนรีวิวเท่านั้น · ทางปิดที่มีอยู่จริงแล้ว: assert **ลำดับการเรียก** แบบที่ goo ทำใน #303
+   * ❌ ไม่ใช่พยายามจำลอง gesture expiry ใน Playwright */
   onEnable: () => void
 }) {
   if (state === 'unknown') {

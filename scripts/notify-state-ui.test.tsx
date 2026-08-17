@@ -386,3 +386,27 @@ describe('#307 NotifyStatusBar — ครบ 6 สถานะ ไม่มี�
     expect(screen.queryByTestId('notify-status-enable')).not.toBeNull() // ← แต่ปุ่มเรามาจากเงื่อนไขอื่น
   })
 })
+
+// ── #307 · ปิดมิวแทนต์ที่ตู๋ยิงแล้ว "รอด" ในรีวิว PR #308 (d6e59a0) ─────────────────────────────
+//
+// มิวแทนต์: `canReceivePush = hasServiceWorker && hasPushManager` (ถอด `&& hasNotification` ออก)
+// → 37/37 ยังเขียว ⇒ **invariant ที่ไม่มียาม**
+//
+// 🔴 ทำไมมันสำคัญกับใบนี้โดยเฉพาะ (คำอธิบายของตู๋ ยกมาเพราะมันคือเหตุผลที่ทำให้เทสต์นี้มีค่า):
+// `notifications.tsx` เรียก `Notification.requestPermission()` **ดิบ** เป็นคำสั่งแรก (ถูกแล้ว — gesture)
+// ⇒ ความปลอดภัยของบรรทัดนั้นแขวนอยู่กับ *"state==='default' ⇒ Notification มีอยู่แน่นอน"*
+// ซึ่งเป็นจริงเพราะ `&& hasNotification` ตัวนี้ตัวเดียว · ถอดมันออก ⇒ runtime ที่มี SW+PushManager
+// แต่ไม่มี Notification จะตกเป็น `default` ⇒ ปุ่มโผล่ ⇒ กดแล้ว **TypeError ใน onClick** และไม่เข้า
+// `.catch()` ด้วย เพราะมัน throw ก่อนจะมี promise
+//
+// ⚠️ ตู๋ไม่บล็อกเพราะเขาหา runtime จริงที่มี PushManager แต่ไม่มี Notification ไม่ได้ (push แบบ
+// userVisibleOnly ต้องใช้ Notification) ⇒ นี่คือ invariant ที่ไม่มียาม ❌ ไม่ใช่บั๊กที่รอเกิด
+// ⇒ ปิดที่นี่ด้วยบรรทัดเดียวตามที่เขาเสนอ ดีกว่าปล่อยให้ "รอด" ค้างไว้ในบันทึกรีวิว
+describe('#307 · ยามของสมมติฐานที่ปุ่ม "เปิดการแจ้งเตือน" พึ่งอยู่', () => {
+  it('🔴 ไม่มี Notification API = รับ push ไม่ได้ ต้องไม่ตกเป็น default (ไม่งั้นปุ่มโผล่แล้วกดพัง)', () => {
+    const env = envOf({ hasServiceWorker: true, hasPushManager: true, hasNotification: false })
+    expect(capabilityFromEnv(env).canReceivePush).toBe(false)
+    // และผลปลายทางที่ผู้ใช้เห็น: ต้องเป็น unsupported (ไม่มีปุ่มใดๆ) ❌ ไม่ใช่ default (มีปุ่ม)
+    expect(notifyStateFrom(capabilityFromEnv(env))).toBe('unsupported')
+  })
+})
