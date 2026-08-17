@@ -99,10 +99,21 @@ export function readCapabilityEnv(): CapabilityEnv | null {
 }
 
 /**
+ * #307 (มุน) — "ไปอ่านรันไทม์ใหม่เดี๋ยวนี้". visibilitychange ครอบเคส "ผู้ใช้ออกไปตั้งค่าเครื่องแล้วกลับมา"
+ * ได้ แต่ครอบเคส "กดอนุญาตในกล่องของเบราว์เซอร์บนหน้าเดิม" ไม่ได้ — บนเดสก์ท็อป การกดอนุญาตไม่ทำให้
+ * หน้าซ่อนหรือโผล่ ⇒ hook ไม่เคยรู้ว่าสิทธิ์เปลี่ยน แล้วจอจะค้างบอกว่า "ยังไม่ได้เปิด" ทั้งที่เปิดแล้ว.
+ *
+ * 🔴 event นี้เป็นแค่ "สัญญาณให้ไปอ่าน" ❌ ไม่ใช่ช่องส่งค่า — ผู้เรียกยัดค่า capability เข้ามาไม่ได้เลย
+ * ทุก path ยังจบที่ readCapabilityEnv() ตัวเดียวกัน ⇒ ไม่มีทางที่จอจะแสดงสิทธิ์ที่ไม่ตรงกับของจริง
+ */
+export const CAPABILITY_CHANGED = "mumate:capability-changed";
+
+/**
  * React hook มุน binds to (phase 2). SSR-safe by construction: returns UNKNOWN_CAPABILITY on the
  * server and the first client render (so the markup matches → no hydration mismatch), then resolves
  * to the real capability in an effect. Re-reads on visibility change so a permission the user grants
- * in the OS prompt (or an install completed in another tab) is reflected without a manual reload.
+ * in the OS prompt (or an install completed in another tab) is reflected without a manual reload —
+ * and on CAPABILITY_CHANGED, for the same-page grant that visibilitychange cannot see (#307).
  */
 export function usePwaCapability(): PwaCapability {
   const [capability, setCapability] = useState<PwaCapability>(UNKNOWN_CAPABILITY);
@@ -111,7 +122,11 @@ export function usePwaCapability(): PwaCapability {
     const read = () => setCapability(capabilityFromEnv(readCapabilityEnv()));
     read();
     document.addEventListener("visibilitychange", read);
-    return () => document.removeEventListener("visibilitychange", read);
+    document.addEventListener(CAPABILITY_CHANGED, read);
+    return () => {
+      document.removeEventListener("visibilitychange", read);
+      document.removeEventListener(CAPABILITY_CHANGED, read);
+    };
   }, []);
 
   return capability;
