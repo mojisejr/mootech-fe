@@ -1,16 +1,12 @@
-// #286 phase 2 — ฟันของจอที่ต้องบอกสถานะแจ้งเตือนตามจริง
+// #286 phase 2 → #298 reframe — ฟันของ "การบอกสถานะแจ้งเตือนตามจริง"
 //
-// บั๊กที่ด่านนี้กัน (เกิดจริงมาแล้วทั้งคู่):
-//   ① toggle "มู่เมท" เปิดค้างเป็นค่าเริ่มต้น ⇒ ผู้ใช้ "เลือก" ปลายทางที่เขาไม่ได้เลือก และเป็น
-//      ปลายทางที่ยังส่งไม่ได้ด้วย
-//   ② "ยังไม่รู้" ถูกวาดเป็น "ปิด" ⇒ ปิดคือคำตอบ แต่ยังไม่รู้ไม่ใช่คำตอบ · ผู้ใช้จะสรุปว่าเขาปิดไว้เอง
-//      แล้วไปหาที่เปิดในแอป ซึ่งไม่มี
+// ชั้นที่ 1/0 (notifyStateFrom · capabilityFromEnv) = ตรรกะ 6 สถานะ ไม่เปลี่ยน — ฟันเดิมทั้งชุด.
+// ชั้นที่ 2 = จอจริง: #298 ถอด toggle ปลายทางออก ⇒ ความจริง 6 สถานะที่เคยอยู่บน toggle **ย้ายมาบน
+// "ปุ่มบันทึก"** (ข้อความปุ่มตาม notify + บรรทัดเหตุใต้ปุ่ม). บั๊กที่ยังต้องกัน:
+//   ② "ยังไม่รู้" ถูกปฏิบัติเหมือน "ปิด/ปฏิเสธ" ⇒ ผู้ใช้เห็นเหตุ "ยังไม่ดัง" ทั้งที่ยังไม่ได้อ่านค่า
 //
-// 🔴 เคส "ยังไม่รู้" ต้องมี NEGATIVE CONTROL ไม่ใช่แค่ assert ว่ามี skeleton — เทสต์ที่เช็คแค่
-// "เจอ skeleton" จะเขียวได้ทั้งที่ toggle ปิดถูกวาดอยู่ข้างๆ ⇒ ต้อง assert ว่า **ไม่มี toggle ปกติ
-// ปรากฏพร้อมกัน** ด้วย. มิวแทนต์ที่พิสูจน์ว่าฟันนี้กัด อยู่ในเทสต์ตัวสุดท้ายของไฟล์ — มันจำลอง
-// "การแก้ที่ทำให้ unknown กลายเป็น off" แล้วยืนยันว่าเงื่อนไขที่เราตรวจ *เปลี่ยนขั้ว* จริง
-// (ถ้าเขียนแต่ assert ทางบวก เราจะไม่มีวันรู้ว่ามันแยกสองกรณีนี้ออกจากกันได้จริงหรือเปล่า)
+// 🔴 NEGATIVE CONTROL ย้ายมาที่ปุ่ม: unknown → ❌ ไม่มี save-notify-reason · denied → มี · สองค่านี้
+// ต้องต่างกันจริง (assert !== ) ไม่ใช่แค่ assert ทางบวกอันเดียว
 import { describe, it, expect } from 'vitest'
 import { render, renderHook, screen, cleanup } from '@testing-library/react'
 import { afterEach } from 'vitest'
@@ -92,7 +88,8 @@ describe('notifyStateFrom — 6 สถานะ ต้องแยกออก�
   })
 })
 
-// ── ชั้นที่ 2 · จอจริง (SaveSheet) ─────────────────────────────────────────────────────────────
+// ── ชั้นที่ 2 · จอจริง (SaveSheet) — หลัง #298 reframe: สวิตช์ปลายทางหายไป ⇒ ความจริง 6 สถานะ
+//    ย้ายมาอยู่บน "ปุ่มบันทึก" (ข้อความปุ่ม + บรรทัดเหตุใต้ปุ่ม + ปุ่มดูวิธี) ─────────────────────────
 
 const YAMS: YamSlot[] = [{ id: 'y1', window: '09:00-10:59', label: 'ยามมงคล' } as YamSlot]
 
@@ -102,132 +99,72 @@ function draftWith(destinations: string[]): UseReminderDraft {
     draft: { date: '2026-08-16', selectedYamIds: ['y1'], destinations: destinations as never, note: '' },
     canCommit: true,
     menuState: 4,
-    open: () => {},
-    toggleYam: () => {},
-    toggleDest: () => {},
-    setNote: () => {},
-    commit: () => {},
-    cancel: () => {},
-    dismiss: () => {},
+    open: () => {}, toggleYam: () => {}, toggleDest: () => {}, setNote: () => {},
+    commit: () => {}, cancel: () => {}, dismiss: () => {},
   } as unknown as UseReminderDraft
 }
 
-function renderSheet(notify: NotifyState, destinations: string[] = []) {
+function renderSheet(notify: NotifyState) {
   return render(
-    <SaveSheet
-      date="2026-08-16"
-      yams={YAMS}
-      draft={draftWith(destinations)}
-      onSave={() => {}}
-      notify={notify}
-      onShowGuide={() => {}}
-      onToggleMumate={() => {}}
-    />,
+    <SaveSheet date="2026-08-16" yams={YAMS} draft={draftWith([])} onSave={() => {}} notify={notify} onShowGuide={() => {}} />,
   )
 }
 
 describe('ค่าเริ่มต้นของ draft — ตรวจที่ของจริง ไม่ใช่ที่ prop ที่เทสต์ป้อนเอง', () => {
-  it('🔴 เปิดแผ่นมาแล้วต้องไม่มีปลายทางไหนถูกเลือกไว้ให้', () => {
-    // ต้อง assert ที่ EMPTY_DRAFT ของจริงผ่าน hook — ถ้า assert ผ่าน SaveSheet ที่เราป้อน
-    // destinations=[] เอง มันจะเขียวตลอดไม่ว่าค่าเริ่มต้นจริงจะเป็นอะไร (assert ที่อ่านสิ่งที่ตัวเองเขียน)
+  it('🔴 เปิดแผ่นมาแล้ว draft ต้องว่างจริง (ไม่มีปลายทางถูกยัดไว้ให้)', () => {
     const { result } = renderHook(() => useReminderDraft())
     expect(result.current.draft.destinations).toEqual([])
   })
 })
 
-describe('SaveSheet — แถวมู่เมทพูดความจริงของเครื่องครบ 6 สถานะ', () => {
-  it('ค่าเริ่มต้นของแผ่นคือ "ยังไม่ได้เลือกปลายทาง" ❌ ไม่ใช่มู่เมทเปิดค้าง', () => {
-    // ตรวจที่ผลลัพธ์ของ EMPTY_DRAFT ผ่านจอจริง: ไม่มีปลายทางไหนติ๊กอยู่ตอนเปิดแผ่น
-    renderSheet('granted', [])
-    const hint = screen.getByTestId('save-no-destination')
-    expect(hint).toBeTruthy()
-    // 🔴 assert ที่ "ประโยค" ไม่ใช่แค่ testid — ก่อน #287 merge ตรงนี้เขียนว่า "บันทึกได้ แต่จะไม่มีอะไร
-    // เตือน" ซึ่งกลายเป็นเท็จเมื่อ planReminderCommit ตอบ 400 (บันทึกไม่ติดเลย) และฟันที่ดูแค่ testid
-    // ยังเขียวสนิทตลอดทาง ⇒ ผูกฟันไว้กับ*สิ่งที่ผู้ใช้อ่าน* ไม่ใช่ hook ที่ render มัน
-    expect(hint.textContent).toContain('ต้องเลือกปลายทางอย่างน้อย 1 อย่าง')
-    // ⚠️ ห้ามด้วย *ประโยคเก่าเต็มๆ* ❌ ไม่ใช่ชิ้นส่วน 'บันทึกได้' — ประโยคใหม่ลงท้ายว่า "ถึงจะบันทึกได้"
-    // ซึ่งมีชิ้นส่วนนั้นอยู่ ⇒ ฟันสองซี่บนสตริงเดียวจะกัดกันเอง (รอบแรกแดงเพราะเหตุนี้จริงๆ)
-    expect(hint.textContent).not.toContain('บันทึกได้ แต่จะไม่มีอะไรเตือน')
-  })
-
-  it('granted → ติ๊กได้จริง (ปุ่มไม่ disabled)', () => {
-    renderSheet('granted')
-    expect((screen.getByTestId('dest-mumate') as HTMLButtonElement).disabled).toBe(false)
-    expect(screen.queryByTestId('mumate-reason')).toBeNull()
-  })
-
-  it('default → ติ๊กได้ (การกดคือการขอสิทธิ์) และยังไม่มีเหตุผลให้บ่น', () => {
+describe('SaveSheet — ปุ่มบันทึกพูดความจริงของเครื่องครบ 6 สถานะ', () => {
+  it('default → ปุ่มเขียน "บันทึกและเปิดแจ้งเตือน" (กดครั้งเดียว = บันทึก + ขอสิทธิ์) · ยังไม่บ่นเหตุ', () => {
     renderSheet('default')
-    expect((screen.getByTestId('dest-mumate') as HTMLButtonElement).disabled).toBe(false)
-    expect(screen.queryByTestId('mumate-reason')).toBeNull()
+    expect(screen.getByTestId('sheet-save').textContent).toContain('บันทึกและเปิดแจ้งเตือน')
+    expect(screen.queryByTestId('save-notify-reason')).toBeNull()
+  })
+
+  it('granted → ปุ่มเขียน "บันทึก" เฉยๆ (สิทธิ์มีแล้ว) · ไม่มีเหตุใต้ปุ่ม', () => {
+    renderSheet('granted')
+    const btn = screen.getByTestId('sheet-save')
+    expect(btn.textContent).toContain('บันทึก')
+    expect(btn.textContent).not.toContain('เปิดแจ้งเตือน')
+    expect(screen.queryByTestId('save-notify-reason')).toBeNull()
   })
 
   for (const [state, guide] of [
-    ['denied', true],
-    ['needs-install', true],
-    ['unsupported', false],
+    ['denied', true], ['needs-install', true], ['unsupported', false],
   ] as Array<[NotifyState, boolean]>) {
-    it(`${state} → ติ๊กไม่ได้จริง + มีเหตุผล ${guide ? '+ ปุ่มดูวิธี' : '❌ ไม่มีปุ่มดูวิธี'}`, () => {
+    it(`${state} → ปุ่ม "บันทึก" (ตั้งได้แม้ยังไม่ดัง) + บรรทัดเหตุใต้ปุ่ม ${guide ? '+ ปุ่มดูวิธี' : '❌ ไม่มีปุ่มดูวิธี'}`, () => {
       renderSheet(state)
-      expect((screen.getByTestId('dest-mumate') as HTMLButtonElement).disabled).toBe(true)
-      expect(screen.getByTestId('mumate-reason').textContent).toBeTruthy()
-      expect(Boolean(screen.queryByTestId('mumate-guide'))).toBe(guide)
+      const btn = screen.getByTestId('sheet-save')
+      expect(btn.textContent).toContain('บันทึก')
+      expect(btn.textContent).not.toContain('เปิดแจ้งเตือน')
+      // ปุ่มยังกดได้ (canCommit=มียาม) — ตั้งใบไว้ได้แม้เครื่องยังไม่พร้อม (ฟีมเคาะ)
+      expect((btn as HTMLButtonElement).disabled).toBe(false)
+      const reason = screen.getByTestId('save-notify-reason')
+      expect(reason.textContent).toBeTruthy()
+      expect(reason.textContent).toContain(NOTIFY_REASON[state] as string)
+      expect(Boolean(screen.queryByTestId('save-notify-guide'))).toBe(guide)
     })
   }
 
-  it('Google/Apple ติ๊กได้เสมอ แม้ push จะพัง — แผ่นไม่ล่มทั้งใบ', () => {
-    renderSheet('unsupported')
-    const buttons = screen.getAllByRole('button').filter((b) => b.textContent?.includes('ปฏิทิน'))
-    expect(buttons.length).toBeGreaterThan(0)
-    for (const b of buttons) expect((b as HTMLButtonElement).disabled).toBe(false)
-  })
-})
-
-describe('🔴 "ยังไม่รู้" — เคสที่พังเงียบที่สุด', () => {
-  it('วาดเป็นโครงว่าง ❌ ไม่ใช่ toggle ปิด และปุ่มต้องกดไม่ได้ระหว่างยังไม่รู้', () => {
+  it('🔴 unknown (ยังไม่รู้) → ปุ่ม "บันทึก" และ ❌ ไม่โชว์เหตุ "ยังไม่ดัง" — ยังไม่รู้ ไม่ใช่ ปิด', () => {
+    // negative control ย้ายมาที่นี่: ถ้าใครยุบ unknown → denied จะมี save-notify-reason โผล่ทั้งที่ยังไม่ได้อ่านค่า
     renderSheet('unknown')
-    expect(screen.getByTestId('mumate-skeleton')).toBeTruthy()
-    expect((screen.getByTestId('dest-mumate') as HTMLButtonElement).disabled).toBe(true)
-    // negative control ชั้นแรก: ไม่มีเหตุผลแบบ "คุณปิดไว้" โผล่ตอนที่เรายังไม่รู้ด้วยซ้ำ
-    expect(screen.queryByTestId('mumate-reason')).toBeNull()
-    // 🔴 ชั้นที่สอง — "ไม่มี toggle ปกติอยู่ข้างๆ โครงว่าง". ปุ่มของ *แถว* (`dest-mumate`) มีอยู่ทุกสถานะ
-    // (แค่ disabled) ⇒ assert ที่ปุ่มแถวอย่างเดียวแยก "โครงว่าง" กับ "toggle ปิด" ไม่ออก. harness ที่ถ่าย
-    // จอจริงชนกำแพงนี้ก่อน (มันฟ้อง 3 ใบผิดทั้งที่จอถูก) ⇒ ติด testid ให้ Toggle แล้วผูกฟันไว้ที่การ*ไม่มี*
-    expect(screen.queryByTestId('mumate-toggle')).toBeNull()
+    expect(screen.getByTestId('sheet-save').textContent).toContain('บันทึก')
+    expect(screen.queryByTestId('save-notify-reason')).toBeNull()
   })
 
-  it('สถานะที่รู้แล้วทุกอันต้องมี toggle จริง — กันไม่ให้ข้อบนกลายเป็นจริงตลอดเวลา', () => {
-    // ถ้า `mumate-toggle` หายไปทั้งไฟล์ (พิมพ์ผิด/ถูกลบ) ข้อบนจะยังเขียว เพราะมันตรวจการ "ไม่มี"
-    for (const s of ['granted', 'default', 'denied', 'needs-install', 'unsupported'] as NotifyState[]) {
-      cleanup()
-      renderSheet(s)
-      expect(screen.queryByTestId('mumate-toggle'), `${s} ต้องมี toggle`).toBeTruthy()
-    }
-  })
-
-  it('สถานะที่ "ปิด" จริงๆ ต้องดูต่างจาก "ยังไม่รู้" — ไม่ใช่แค่คนละคำ', () => {
-    renderSheet('unknown')
-    const unknownHasSkeleton = Boolean(screen.queryByTestId('mumate-skeleton'))
-    cleanup()
-
+  it('สถานะที่ "บอกเหตุ" ต้องต่างจาก "ยังไม่รู้" จริง — ไม่ใช่แค่คนละคำ (negative control)', () => {
     renderSheet('denied')
-    const deniedHasSkeleton = Boolean(screen.queryByTestId('mumate-skeleton'))
-
-    // 🔴 นี่คือ negative control จริงของเคสนี้: ถ้าใครแก้ให้ unknown เรนเดอร์เหมือน denied
-    // (เช่นยุบ null → false ที่ notifyStateFrom หรือลบ ToggleSkeleton ทิ้ง) สองค่านี้จะเท่ากัน
-    // แล้วบรรทัดนี้แดง · assert ทางบวกอย่างเดียวจะเขียวต่อไปโดยไม่มีใครรู้
-    expect(unknownHasSkeleton).toBe(true)
-    expect(deniedHasSkeleton).toBe(false)
-    expect(unknownHasSkeleton).not.toBe(deniedHasSkeleton)
-  })
-
-  it('มิวแทนต์: ถ้า notifyStateFrom ยุบ unknown เป็น denied ด่านชั้นแรกต้องแดง', () => {
-    // จำลอง "การแก้ที่ดูสมเหตุสมผล" — อ่าน null ว่า false แล้วตกไปช่อง denied
-    const mutant = (c: PwaCapability): NotifyState => (c.permission === 'granted' ? 'granted' : 'denied')
-    const unknownCap = cap({ canReceivePush: null, needsInstall: null, permission: 'unknown' })
-
-    expect(mutant(unknownCap)).toBe('denied') // มิวแทนต์ลงจริง ไม่ใช่ no-op
-    expect(notifyStateFrom(unknownCap)).not.toBe(mutant(unknownCap)) // ของจริงไม่ทำแบบนั้น
+    const deniedHasReason = Boolean(screen.queryByTestId('save-notify-reason'))
+    cleanup()
+    renderSheet('unknown')
+    const unknownHasReason = Boolean(screen.queryByTestId('save-notify-reason'))
+    expect(deniedHasReason).toBe(true)
+    expect(unknownHasReason).toBe(false)
+    expect(deniedHasReason).not.toBe(unknownHasReason)
   })
 })
 

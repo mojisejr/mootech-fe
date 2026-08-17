@@ -1,15 +1,21 @@
-// MuMate PWA push · carry the device subscription to the server (goo · #298).
+// MuMate PWA push · carry the device subscription to the server (goo · #298, reframed 2026-08-17).
 //
 // This is the wire the whole PWA-push arc was missing. #285 asks the OS for a PushSubscription, #287 built
-// POST/DELETE /api/v2/push/subscribe that stores it, #286 drew the mumate toggle — but nothing ever carried
-// the subscription from the browser to the server. push_subscription stayed empty, so #288's cron would run,
-// find zero rows, and nothing would ever ring, while every screen looked "done".
+// POST/DELETE /api/v2/push/subscribe that stores it — but nothing ever carried the subscription from the
+// browser to the server. push_subscription stayed empty, so #288's cron would run, find zero rows, and
+// nothing would ever ring, while every screen looked "done".
 //
-// Two layers here, split so a unit test stubs ONLY fetch and exercises the rest for real
+// REFRAME: the destination switch was a dead end (only one destination left ⇒ not a choice), so it was
+// removed. Ticking a ยาม now saves the reminder; the SAVE button registers the device. So this file is no
+// longer a toggle — it is the SAVE action's push side (saveWithNotification), with the permission prompt
+// LEADING the user gesture (Safari drops a prompt requested after an await).
+//
+// Two layers, split so a unit test stubs ONLY fetch and exercises the rest for real
 // ([[thin-wrapper-mocked-both-sides]]):
 //   • postPushSubscription / deletePushSubscription — thin transport, never throw, drain-on-error.
-//   • toggleMumatePush — the direction/permission/tick orchestration, deps injected so it needs no browser.
+//   • saveWithNotification — the save-time permission/POST orchestration, deps injected so it needs no browser.
 import type { SubscribeResult } from './subscribe'
+import type { NotifyState } from '@/features/v2-calendar/notify-state'
 
 const SUBSCRIBE_URL = '/api/v2/push/subscribe'
 
@@ -42,6 +48,10 @@ export async function postPushSubscription(
 /**
  * DELETE this device's subscription by endpoint. The server scopes the delete by session user_id, so this
  * can only remove the caller's own row. Returns true IFF it was removed. Never throws.
+ *
+ * NOTE (#298 reframe): after the destination switch was removed, NOTHING calls this — there is no per-device
+ * "turn push off" control anymore. Kept intentionally for the future device-notification-settings surface;
+ * do not delete it (ใบ: "คง deletePushSubscription ไว้").
  */
 export async function deletePushSubscription(endpoint: string): Promise<boolean> {
   let res: Response
@@ -57,41 +67,49 @@ export async function deletePushSubscription(endpoint: string): Promise<boolean>
   return res.ok
 }
 
-export interface MumateToggleDeps {
-  /** Is the mumate destination currently ticked on? (⇒ this tap turns it OFF and DELETEs the row.) */
-  isOn: boolean
-  /** Ask the OS for permission + get-or-create the browser PushSubscription (lib/pwa/subscribe). */
+export interface SaveWithNotifyDeps {
+  /** The device's notification state (page reads it via notifyStateFrom). Decides whether to register. */
+  notify: NotifyState
+  /** Ask the OS for permission + get-or-create the browser PushSubscription. MUST be safe to call first. */
   requestSubscription: () => Promise<SubscribeResult>
-  /** The current device subscription, WITHOUT prompting — for the DELETE endpoint. null if none. */
-  currentSubscription: () => Promise<PushSubscription | null>
+  /** POST the device subscription to the server (idempotent UPSERT on endpoint). */
   post: (subscription: PushSubscription) => Promise<boolean>
-  remove: (endpoint: string) => Promise<boolean>
-  /** Flip the mumate destination in the draft (draft.toggleDest('mumate')). Called ONLY on server success. */
-  flip: () => void
+  /** Persist the reminder itself (drives goo's save-flow machine). Returns whether the row was saved. */
+  saveReminder: () => Promise<boolean>
+}
+
+export interface SaveWithNotifyResult {
+  saved: boolean //  the reminder row was persisted
+  pushed: boolean // the device subscription was stored (only ever attempted when the device can receive push)
 }
 
 /**
- * The mumate toggle's side effect. The tick must reflect the SERVER row, not the browser permission —
- * "the browser said yes" is not "the server has this device", and #298 exists precisely because those two
- * were conflated (the toggle ticked on permission while the row stayed empty).
+ * The save button's action after the #298 reframe. One tap: persist the reminder AND, when the device can
+ * receive push, register it — with the permission prompt LEADING the gesture.
  *
- *   turn ON  → request permission + subscribe → POST → flip ONLY on 201.
- *   turn OFF → DELETE the row → flip ONLY on success (or when there is no device subscription to delete).
+ *   default / granted            → requestSubscription() FIRST (before any await) → save reminder → POST on grant
+ *   denied / needs-install / unsupported → save the reminder ONLY, never touch the endpoint
  *
- * Any failure (denied / unsupported / needs-install / dismissed / POST 4xx-5xx / network) leaves the toggle
- * exactly where it was; the reason surfaces to the user via the capability re-read under the row.
+ * 🔴 The requestSubscription() call MUST happen before the reminder save is awaited. `Notification.request-
+ * Permission()` (subscribe.ts) only shows a prompt inside the user gesture; awaiting the save first exits the
+ * gesture in Safari and the box never appears. That ordering is the invariant mutant M9-b guards.
+ *
+ * The reminder is ALWAYS saved when committable, even if the user denies permission (ฟีม: ตั้งไว้ได้แม้เครื่อง
+ * ยังไม่พร้อม). A push failure never blocks the save.
  */
-export async function toggleMumatePush(deps: MumateToggleDeps): Promise<void> {
-  if (deps.isOn) {
-    const sub = await deps.currentSubscription()
-    if (!sub) {
-      deps.flip() // no device subscription ⇒ nothing to delete ⇒ just untick
-      return
-    }
-    if (await deps.remove(sub.endpoint)) deps.flip()
-    return
+export async function saveWithNotification(deps: SaveWithNotifyDeps): Promise<SaveWithNotifyResult> {
+  // 1) permission request LEADS the gesture — fire it synchronously, before we await anything below.
+  const wantsPush = deps.notify === 'default' || deps.notify === 'granted'
+  const subscribing = wantsPush ? deps.requestSubscription() : null
+
+  // 2) persist the reminder — always, regardless of the push outcome.
+  const saved = await deps.saveReminder()
+
+  // 3) if we asked, await the result and POST on grant. A denial/failure leaves `saved` intact.
+  let pushed = false
+  if (subscribing) {
+    const result = await subscribing
+    if (result.ok) pushed = await deps.post(result.subscription)
   }
-  const result = await deps.requestSubscription()
-  if (!result.ok) return // not granted / not supported ⇒ never POST, never tick
-  if (await deps.post(result.subscription)) deps.flip()
+  return { saved, pushed }
 }
