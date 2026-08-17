@@ -5,6 +5,7 @@
 // row style (#F9F4F0), the DayHeader top-bar pattern, and v3 tokens only — no new colour, no bespoke component.
 // goo's useReminders (list = upcoming/past/totalYams/totalDays + cancel) is UNCHANGED — the page only reads it;
 // it adds NO useState of its own. Cancel is goo's client mutation. 0 network. ฟีม: empty state = แบบ ก (เรียบ).
+import { useState } from 'react'
 import type { GetServerSideProps } from 'next'
 import Link from 'next/link'
 import { v2RedirectIfUnauthed } from '@/lib/v2/gate'
@@ -12,6 +13,9 @@ import { AppHeader } from '@/features/v2-shell/components/AppHeader'
 import { CalendarShell } from '@/features/v2-calendar/components/CalendarShell'
 import { SectionCard } from '@/features/v2-calendar/components/day-detail/SectionCard'
 import { useReminders, CalendarMenuState, type Reminder, type ReminderDestination } from '@/features/v2-calendar'
+import { InstallGuideSheet, type InstallGuideVariant } from '@/features/v2-calendar/components/InstallGuideSheet'
+import { notifyStateFrom, guideVariantFor, NOTIFY_REASON, type NotifyState } from '@/features/v2-calendar/notify-state'
+import { usePwaCapability } from '@/lib/pwa/capability'
 
 export const getServerSideProps: GetServerSideProps = async (ctx) => {
   ctx.res.setHeader('Cache-Control', 'no-store, must-revalidate')
@@ -72,8 +76,55 @@ function EmptyState() {
   )
 }
 
+// #286 · แถบสถานะถาวร — ตอบคำถาม "แจ้งเตือนเปิดอยู่ไหม" โดยที่ผู้ใช้ไม่ต้องกดอะไรเลย
+//
+// 🔴 เหตุที่มันต้องอยู่บนหน้า *รายการ* ไม่ใช่แค่ในชีทตอนตั้ง: สิทธิ์แจ้งเตือนถูกปิดที่ตัวเครื่องได้
+// ทีหลัง โดยที่รายการที่ตั้งไว้แล้วยังอยู่ครบ ⇒ จอที่โชว์ "ตั้งไว้ 5 อัน" เฉยๆ กำลังบอกความจริง
+// ที่ไม่เป็นความจริงอีกต่อไป. แถบนี้คือที่ที่ความจริงข้อนั้นอยู่.
+//
+// "ยังไม่รู้" เป็นโครงว่าง ❌ ไม่ใช่แถบเทาที่เขียนว่าปิด — ปิดคือคำตอบ ยังไม่รู้ไม่ใช่คำตอบ
+function NotifyStatusBar({ state, onShowGuide }: { state: NotifyState; onShowGuide: (v: InstallGuideVariant) => void }) {
+  if (state === 'unknown') {
+    return <div data-testid="notify-status-skeleton" aria-hidden className="h-[52px] animate-pulse rounded-2xl bg-black/[0.06]" />
+  }
+
+  const ok = state === 'granted'
+  const reason = NOTIFY_REASON[state]
+  const guide = guideVariantFor(state)
+
+  return (
+    <div
+      data-testid="notify-status"
+      data-notify-state={state}
+      role="status"
+      className={`flex items-start gap-3 rounded-2xl px-4 py-3 ${ok ? 'bg-v3-pastel-mint/50' : 'bg-v3-grade-yellow/40'}`}
+    >
+      <span aria-hidden className="text-base leading-6">{ok ? '🔔' : '🔕'}</span>
+      <div className="min-w-0 flex-1">
+        <p className="text-sm font-bold leading-6 text-v3-navy">
+          {ok ? 'การแจ้งเตือนเปิดอยู่' : state === 'default' ? 'ยังไม่ได้เปิดการแจ้งเตือน' : 'การแจ้งเตือนปิดอยู่'}
+        </p>
+        <p className="text-xs font-medium leading-5 text-v3-text-body">
+          {ok
+            ? 'ถึงเวลายามที่ตั้งไว้ เครื่องนี้จะเตือนคุณ'
+            : /* ทุกสถานะที่ไม่ใช่ granted ต้องพูดผลลัพธ์ให้ชัดก่อน แล้วค่อยบอกวิธี —
+                 ผู้ใช้ต้องรู้ว่า "รายการข้างล่างจะไม่ดัง" ไม่ใช่แค่ว่ามีบางอย่างตั้งค่าไม่ครบ */
+              (reason ?? 'รายการข้างล่างจะยังไม่ดังจนกว่าจะเปิดการแจ้งเตือน')}
+        </p>
+      </div>
+      {guide && (
+        <button type="button" data-testid="notify-status-guide" onClick={() => onShowGuide(guide)} className="shrink-0 self-center rounded-full border border-v3-sapphire/30 px-3 py-1 text-xs font-bold text-v3-sapphire">
+          ดูวิธี
+        </button>
+      )}
+    </div>
+  )
+}
+
 export default function V2CalendarNotificationsPage() {
   const { list, cancel } = useReminders()
+  const notify = notifyStateFrom(usePwaCapability())
+  const [guide, setGuide] = useState<InstallGuideVariant | null>(null)
   const isEmpty = list.upcoming.length === 0 && list.past.length === 0
 
   return (
@@ -87,6 +138,10 @@ export default function V2CalendarNotificationsPage() {
       </div>
 
       <div className="flex flex-col gap-4 px-4 pt-4">
+        {/* แถบสถานะมาก่อนสรุปยอด — ถ้าแจ้งเตือนปิดอยู่ ยอด "5 ยาม" ข้างล่างคือตัวเลขที่จะไม่เกิดขึ้น
+            ⇒ ผู้ใช้ต้องอ่านเงื่อนไขก่อนอ่านตัวเลข · แสดงทุกสถานะรวมทั้งตอนไม่มีรายการ */}
+        <NotifyStatusBar state={notify} onShowGuide={setGuide} />
+
         {/* summary — hidden in the empty state (แบบ ก stays clean; no "0 ยาม" above "ยังไม่มีการแจ้งเตือน") */}
         {!isEmpty && (
           <div className="rounded-[20px] bg-v3-sapphire px-5 py-4 text-white shadow-[0_4px_14px_rgba(20,85,164,0.24)]">
@@ -121,6 +176,7 @@ export default function V2CalendarNotificationsPage() {
           </>
         )}
       </div>
+      {guide && <InstallGuideSheet variant={guide} onClose={() => setGuide(null)} />}
     </CalendarShell>
   )
 }
