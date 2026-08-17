@@ -38,11 +38,11 @@ function DateDisplay({ date }: { date: string }) {
   )
 }
 
-function Toggle({ on, off }: { on: boolean; off?: boolean }) {
+function Toggle({ on, off, testId }: { on: boolean; off?: boolean; testId?: string }) {
   // `off` = ติ๊กไม่ได้จริง (ไม่ใช่แค่ปิดอยู่) — ต้องดูต่างจาก "ปิดแต่กดได้" ไม่งั้นผู้ใช้จะกดซ้ำๆ แล้วสงสัยว่าจอค้าง
   const track = on ? 'bg-v3-sapphire' : off ? 'bg-neutral-200' : 'bg-neutral-300'
   return (
-    <span className={`relative h-6 w-11 shrink-0 rounded-full transition-none ${track}`}>
+    <span data-testid={testId} className={`relative h-6 w-11 shrink-0 rounded-full transition-none ${track}`}>
       <span className={`absolute top-0.5 size-5 rounded-full shadow ${off ? 'bg-neutral-100' : 'bg-white'} ${on ? 'right-0.5' : 'left-0.5'}`} />
     </span>
   )
@@ -160,7 +160,10 @@ export function SaveSheet({
                         <span className={`block text-sm font-bold ${usable || loading ? 'text-v3-navy' : 'text-v3-text-muted'}`}>{dm.name}</span>
                         <span className="block text-xs text-v3-text-body">{dm.sub}</span>
                       </span>
-                      {loading ? <ToggleSkeleton /> : <Toggle on={d.destinations.includes(dm.id)} off={!usable} />}
+                      {/* `mumate-toggle` มีอยู่เฉพาะตอน "รู้แล้ว" — การ*ไม่มี*ของมันคือ negative control ที่
+                          อ่านได้จากเบราว์เซอร์จริง (ก่อนหน้านี้พิสูจน์ได้แต่ในเทสต์: harness เห็นแค่ปุ่มแถว
+                          ซึ่งมีอยู่ทุกสถานะ เลยแยก "โครงว่าง" กับ "toggle ปิด" ไม่ออกจาก DOM) */}
+                      {loading ? <ToggleSkeleton /> : <Toggle testId="mumate-toggle" on={d.destinations.includes(dm.id)} off={!usable} />}
                     </button>
 
                     {reason && (

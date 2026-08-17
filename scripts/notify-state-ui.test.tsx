@@ -187,6 +187,19 @@ describe('🔴 "ยังไม่รู้" — เคสที่พังเ�
     expect((screen.getByTestId('dest-mumate') as HTMLButtonElement).disabled).toBe(true)
     // negative control ชั้นแรก: ไม่มีเหตุผลแบบ "คุณปิดไว้" โผล่ตอนที่เรายังไม่รู้ด้วยซ้ำ
     expect(screen.queryByTestId('mumate-reason')).toBeNull()
+    // 🔴 ชั้นที่สอง — "ไม่มี toggle ปกติอยู่ข้างๆ โครงว่าง". ปุ่มของ *แถว* (`dest-mumate`) มีอยู่ทุกสถานะ
+    // (แค่ disabled) ⇒ assert ที่ปุ่มแถวอย่างเดียวแยก "โครงว่าง" กับ "toggle ปิด" ไม่ออก. harness ที่ถ่าย
+    // จอจริงชนกำแพงนี้ก่อน (มันฟ้อง 3 ใบผิดทั้งที่จอถูก) ⇒ ติด testid ให้ Toggle แล้วผูกฟันไว้ที่การ*ไม่มี*
+    expect(screen.queryByTestId('mumate-toggle')).toBeNull()
+  })
+
+  it('สถานะที่รู้แล้วทุกอันต้องมี toggle จริง — กันไม่ให้ข้อบนกลายเป็นจริงตลอดเวลา', () => {
+    // ถ้า `mumate-toggle` หายไปทั้งไฟล์ (พิมพ์ผิด/ถูกลบ) ข้อบนจะยังเขียว เพราะมันตรวจการ "ไม่มี"
+    for (const s of ['granted', 'default', 'denied', 'needs-install', 'unsupported'] as NotifyState[]) {
+      cleanup()
+      renderSheet(s)
+      expect(screen.queryByTestId('mumate-toggle'), `${s} ต้องมี toggle`).toBeTruthy()
+    }
   })
 
   it('สถานะที่ "ปิด" จริงๆ ต้องดูต่างจาก "ยังไม่รู้" — ไม่ใช่แค่คนละคำ', () => {
