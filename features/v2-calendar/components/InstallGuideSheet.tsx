@@ -95,7 +95,12 @@ export function InstallGuideSheet({ variant, onClose }: { variant: InstallGuideV
   const headingId = `install-guide-${variant}`
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/30" onClick={onClose} data-testid="install-guide-scrim">
+    // #302 · z-[60] = the ABOVE-MODAL layer (already used by DetailSheet, screen-loading, ComingSoon).
+    // This sheet is opened BY a button inside SaveSheet, which owns the modal layer (z-50). At z-50 both
+    // sat on the same level and only DOM order in [date].tsx put this one on top — correct today, silent
+    // the day someone reorders the JSX. Same mechanism as #299, one layer up. ❌ Do not lower this to
+    // z-50 without also moving SaveSheet down: harness/save-sheet-hittable.ts case C hit-tests it.
+    <div className="fixed inset-0 z-[60] flex items-end justify-center bg-black/30" onClick={onClose} data-testid="install-guide-scrim">
       <div
         role="dialog"
         aria-modal="true"
