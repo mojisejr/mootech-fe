@@ -14,7 +14,8 @@ import { CalendarShell } from '@/features/v2-calendar/components/CalendarShell'
 import { SectionCard } from '@/features/v2-calendar/components/day-detail/SectionCard'
 import { useReminders, CalendarMenuState, type Reminder, type ReminderDestination } from '@/features/v2-calendar'
 import { InstallGuideSheet, type InstallGuideVariant } from '@/features/v2-calendar/components/InstallGuideSheet'
-import { notifyStateFrom, guideVariantFor, NOTIFY_REASON, type NotifyState } from '@/features/v2-calendar/notify-state'
+import { NotifyStatusBar } from '@/features/v2-calendar/components/NotifyStatusBar'
+import { notifyStateFrom } from '@/features/v2-calendar/notify-state'
 import { usePwaCapability, CAPABILITY_CHANGED } from '@/lib/pwa/capability'
 import { requestPushSubscription } from '@/lib/pwa/subscribe'
 
@@ -77,92 +78,6 @@ function EmptyState() {
   )
 }
 
-// #286 · แถบสถานะถาวร — ตอบคำถาม "แจ้งเตือนเปิดอยู่ไหม" โดยที่ผู้ใช้ไม่ต้องกดอะไรเลย
-//
-// 🔴 เหตุที่มันต้องอยู่บนหน้า *รายการ* ไม่ใช่แค่ในชีทตอนตั้ง: สิทธิ์แจ้งเตือนถูกปิดที่ตัวเครื่องได้
-// ทีหลัง โดยที่รายการที่ตั้งไว้แล้วยังอยู่ครบ ⇒ จอที่โชว์ "ตั้งไว้ 5 อัน" เฉยๆ กำลังบอกความจริง
-// ที่ไม่เป็นความจริงอีกต่อไป. แถบนี้คือที่ที่ความจริงข้อนั้นอยู่.
-//
-// "ยังไม่รู้" เป็นโครงว่าง ❌ ไม่ใช่แถบเทาที่เขียนว่าปิด — ปิดคือคำตอบ ยังไม่รู้ไม่ใช่คำตอบ
-//
-// #307 · สองการปรับ และเหตุผลที่มันไม่ใช่เรื่องเดียวกัน:
-//
-// ① `default` เคยไม่มีทางออกอยู่บนจอ (บั๊ก ไม่ใช่เรื่องสวย) — ข้อความบอกว่า "ยังไม่ได้เปิด" และ
-//    "รายการข้างล่างจะยังไม่ดัง" แต่ปุ่มเดียวที่มีคือ `ดูวิธี` ซึ่งผูกกับ `guideVariantFor(state)` และ
-//    มันคืน `null` สำหรับ `default` (notify-state.ts) ⇒ ผู้ใช้อ่านปัญหาแล้วไม่มีอะไรให้กด.
-//    `default` เป็นสถานะเดียวที่แก้ได้**จากในแอป** (อีกสามอันต้องออกไปตั้งค่าเครื่อง/ติดตั้ง/เปลี่ยนเบราว์เซอร์)
-//    ⇒ มันจึงเป็นสถานะเดียวที่ควรมีปุ่ม *ลงมือ* ไม่ใช่ปุ่ม *สอน*.
-//
-// ② `granted` เนียนลงเป็นบรรทัดเดียวไม่มีกล่องสี (ฟีม: "ให้รู้ว่าเออ เปิดแล้วนะ" = ยืนยัน ไม่ใช่เฉลิมฉลอง).
-//    🔴 เนียนเฉพาะ `granted` — อีกสี่สถานะคงกล่องสีไว้ เพราะตอนนั้นรายการข้างล่าง **จะไม่ดังจริง**
-//    ⇒ ทำให้เนียนหมดทุกสถานะ = ซ่อนปัญหา ไม่ใช่ออกแบบให้สงบ
-export function NotifyStatusBar({
-  state,
-  onShowGuide,
-  onEnable,
-}: {
-  state: NotifyState
-  onShowGuide: (v: InstallGuideVariant) => void
-  /** เรียกขอสิทธิ์ — ต้องวิ่งตรงจาก onClick ของปุ่มนี้ (lib/pwa/subscribe.ts:7-8: user gesture เท่านั้น) */
-  onEnable: () => void
-}) {
-  if (state === 'unknown') {
-    return <div data-testid="notify-status-skeleton" aria-hidden className="h-[52px] animate-pulse rounded-2xl bg-black/[0.06]" />
-  }
-
-  // ✅ เปิดอยู่ = ยืนยันเงียบๆ บรรทัดเดียว ไม่มีกล่อง ไม่มีสีพื้น · รายการข้างล่างได้พื้นที่คืน
-  if (state === 'granted') {
-    return (
-      <p data-testid="notify-status" data-notify-state={state} role="status" className="flex items-center gap-1.5 px-1 text-xs font-medium leading-5 text-v3-text-muted">
-        <span aria-hidden>🔔</span>
-        การแจ้งเตือนเปิดอยู่
-      </p>
-    )
-  }
-
-  const reason = NOTIFY_REASON[state]
-  const guide = guideVariantFor(state)
-
-  return (
-    <div
-      data-testid="notify-status"
-      data-notify-state={state}
-      role="status"
-      className="flex items-start gap-3 rounded-2xl bg-v3-grade-yellow/40 px-4 py-3"
-    >
-      <span aria-hidden className="text-base leading-6">🔕</span>
-      <div className="min-w-0 flex-1">
-        <p className="text-sm font-bold leading-6 text-v3-navy">
-          {state === 'default' ? 'ยังไม่ได้เปิดการแจ้งเตือน' : 'การแจ้งเตือนปิดอยู่'}
-        </p>
-        <p className="text-xs font-medium leading-5 text-v3-text-body">
-          {/* ทุกสถานะที่ไม่ใช่ granted ต้องพูดผลลัพธ์ให้ชัดก่อน แล้วค่อยบอกวิธี —
-              ผู้ใช้ต้องรู้ว่า "รายการข้างล่างจะไม่ดัง" ไม่ใช่แค่ว่ามีบางอย่างตั้งค่าไม่ครบ */}
-          {reason ?? 'รายการข้างล่างจะยังไม่ดังจนกว่าจะเปิดการแจ้งเตือน'}
-        </p>
-      </div>
-      {/* ปุ่มลงมือ (default) มาก่อนปุ่มสอน (denied · needs-install) และทั้งสองอันไม่เคยขึ้นพร้อมกัน:
-          `default` คืนค่า guide เป็น null อยู่แล้ว ⇒ เงื่อนไขสองอันนี้แยกกันโดยโครงสร้าง ไม่ใช่โดยลำดับ
-          `unsupported` ไม่เข้าทั้งสองอัน — ไม่มีวิธีให้สอน และขอสิทธิ์ก็ไม่ช่วย ⇒ ไม่มีปุ่มเลย ตามเดิม */}
-      {state === 'default' && (
-        <button
-          type="button"
-          data-testid="notify-status-enable"
-          onClick={onEnable}
-          className="shrink-0 self-center rounded-full bg-v3-sapphire px-3 py-1.5 text-xs font-bold text-white"
-        >
-          เปิดการแจ้งเตือน
-        </button>
-      )}
-      {guide && (
-        <button type="button" data-testid="notify-status-guide" onClick={() => onShowGuide(guide)} className="shrink-0 self-center rounded-full border border-v3-sapphire/30 px-3 py-1 text-xs font-bold text-v3-sapphire">
-          ดูวิธี
-        </button>
-      )}
-    </div>
-  )
-}
-
 export default function V2CalendarNotificationsPage() {
   const { list, cancel } = useReminders()
   const notify = notifyStateFrom(usePwaCapability())
@@ -177,11 +92,23 @@ export default function V2CalendarNotificationsPage() {
   // ซึ่ง **ไม่เกิด** เมื่อผู้ใช้กดอนุญาตในกล่องของเบราว์เซอร์บนเดสก์ท็อป ⇒ ถ้าไม่บอกให้มันอ่านใหม่
   // แถบจะค้างที่ "ยังไม่ได้เปิด" ทั้งที่สิทธิ์เป็น granted แล้ว = จอโกหกในทิศทางตรงข้ามกับบั๊กเดิมพอดี
   // สิ่งที่ event นี้ทำคือสั่งให้ hook ไป**อ่านค่าจริงจากรันไทม์ใหม่** ❌ ไม่ใช่ป้อนค่าที่เราเดาเข้าไปเอง
+  // 🔴 สองจังหวะ ไม่ใช่จังหวะเดียว — และเหตุผลคือของจริงที่จับได้ตอนเขียนฟันของใบนี้:
+  // `requestPushSubscription()` ขอสิทธิ์ **แล้วรอ `navigator.serviceWorker.ready` ต่อ** (subscribe.ts:44)
+  // ซึ่งบนหน้าที่ยังไม่มี service worker ลงทะเบียน มันรอตลอดกาลโดยไม่ throw ⇒ ถ้าอ่านค่าใหม่ตอนมันเสร็จ
+  // อย่างเดียว ผู้ใช้ที่กด "อนุญาต" แล้วจะเห็นแถบค้างที่ "ยังไม่ได้เปิด" ต่อไปเรื่อยๆ
+  // ⇒ อ่านค่าใหม่ **ทันทีที่ผู้ใช้ตัดสินใจ** (จังหวะที่ 1) แล้วอ่านอีกทีตอน subscription จบ (จังหวะที่ 2)
   const onEnable = () => {
-    void requestPushSubscription().then(() => {
-      // ยิงทั้งกรณีสำเร็จและไม่สำเร็จ — 'denied' ก็เป็นความจริงใหม่ที่แถบต้องสะท้อน
-      document.dispatchEvent(new Event(CAPABILITY_CHANGED))
-    })
+    // gesture-critical: บรรทัดนี้ต้องเป็นคำสั่งแรก ❌ ห้าม await อะไรก่อน (subscribe.ts:7-8)
+    void Notification.requestPermission()
+      .then(() => {
+        // จังหวะที่ 1 — ยิงทั้ง granted และ denied: 'denied' ก็เป็นความจริงใหม่ที่แถบต้องสะท้อน
+        document.dispatchEvent(new Event(CAPABILITY_CHANGED))
+        // ค่อยไปสร้าง subscription จริง (ใช้ตัวเดิมของ goo · idempotent · reuse ของเดิมถ้ามี)
+        // ⚠️ ยังไม่ได้ส่งขึ้น server — `postPushSubscription` เกิดที่ #303 ซึ่งยังไม่ merge (เขียนไว้ในใบ)
+        return requestPushSubscription()
+      })
+      .then(() => document.dispatchEvent(new Event(CAPABILITY_CHANGED))) // จังหวะที่ 2
+      .catch(() => document.dispatchEvent(new Event(CAPABILITY_CHANGED))) // ล้มก็ต้องอ่านค่าใหม่ ไม่ค้างคำโกหก
   }
 
   return (

@@ -60,8 +60,16 @@ function initScript(e: RuntimeEnv): string {
     ${e.push ? '' : `try { delete window.PushManager } catch { window.PushManager = undefined }`}
     ${e.notif === null
       ? `try { delete window.Notification } catch { window.Notification = undefined }`
+      // #307: permission เก็บในตัวแปร ไม่ใช่ค่าคงที่ และ requestPermission() เลื่อนมันไปตามที่ตกลง —
+      // นี่คือการเล่นบทของ *เบราว์เซอร์+ผู้ใช้* ตามสัญญาที่ Notification API ประกาศไว้ ❌ ไม่ใช่การป้อน
+      // ผลลัพธ์ให้ UI · สิ่งที่ถูกทดสอบคือโค้ดของเรา: กดแล้วเรียกมันจริงไหม และอ่านค่าใหม่หลังจากนั้นไหม
       : `try { if(!window.Notification) window.Notification = function(){};
-             Object.defineProperty(window.Notification,'permission',{get:()=>${JSON.stringify(e.notif)},configurable:true}) } catch {}`}
+             window.__notifPerm = ${JSON.stringify(e.notif)};
+             window.__reqCalls = 0;
+             Object.defineProperty(window.Notification,'permission',{get:()=>window.__notifPerm,configurable:true});
+             window.Notification.requestPermission = () => { window.__reqCalls++;
+               if (window.__notifPerm === 'default') window.__notifPerm = ${JSON.stringify('granted')};
+               return Promise.resolve(window.__notifPerm) } } catch {}`}
     ${e.iosSafari
       // navigator.standalone "มีอยู่" เฉพาะ iOS Safari/WebKit — โค้ดตรวจการมีอยู่ ไม่ใช่ UA string
       ? `try { Object.defineProperty(navigator,'standalone',{get:()=>${e.standalone},configurable:true}) } catch {}`
@@ -77,8 +85,24 @@ function initScript(e: RuntimeEnv): string {
 const KILL_MOTION = `*,*::before,*::after{animation:none!important;transition:none!important;caret-color:transparent!important}`
 
 const OUT = 'harness/captures/notify'
-interface Row { state: string; width: number; expected: string; painted: string | null; onRoute: boolean; guide: boolean; errors: string[] }
-const ok = (r: Row) => (r.painted === r.expected || (r.expected === 'unknown' && r.painted === 'unknown(skeleton)')) && r.onRoute && !r.errors.length
+interface Row { state: string; width: number; expected: string; painted: string | null; onRoute: boolean; guide: boolean; errors: string[]
+  /** #307 — ปุ่มลงมือ (มีได้เฉพาะ default) · กล่องสี (ต้องหายเฉพาะ granted) · ผลของการกดปุ่มจริง */
+  enable?: boolean; boxed?: boolean; afterClick?: string | null; reqCalls?: number }
+const ok = (r: Row) => {
+  const stateOk = (r.painted === r.expected || (r.expected === 'unknown' && r.painted === 'unknown(skeleton)')) && r.onRoute && !r.errors.length
+  if (!stateOk) return false
+  // ── #307 ─────────────────────────────────────────────────────────────────────────────────────
+  const s = r.expected
+  if (s === 'unknown') return true                                  // โครงว่าง ไม่มีปุ่ม ไม่มีกล่อง
+  if (r.enable !== (s === 'default')) return false                  // ปุ่มลงมือ: เฉพาะ default
+  if (r.boxed !== (s !== 'granted')) return false                   // กล่องสี: หายเฉพาะ granted
+  if (s === 'default') {
+    // กดแล้วต้องเกิดสองอย่าง: เรียก requestPermission จริง และแถบต้องอ่านค่าใหม่แล้วพลิกเป็น granted
+    if (!r.reqCalls) return false
+    if (r.afterClick !== 'granted') return false
+  }
+  return true
+}
 
 async function main() {
 fs.mkdirSync(OUT, { recursive: true })
@@ -108,6 +132,15 @@ for (const [state, env] of Object.entries(ENVS)) {
 
     // ⚠️ negative control: คีย์ผิด/หาย = ถูกเด้งไป /v2 แต่ยังตอบ 200 ⇒ ต้องเช็ค url ไม่ใช่ status
     const onRoute = page.url().includes(ROUTE)
+    // 🔴 #307 — รอให้ effect แรกอ่าน capability เสร็จก่อนอ่านค่า: `networkidle` บอกว่าเน็ตนิ่ง
+    // ❌ ไม่ได้บอกว่า React commit effect แล้ว ⇒ รอบก่อนหน้านี้บางใบอ่านได้ 'unknown(skeleton)'
+    // สลับที่กันไปมาทุกรอบ (granted@1280 รอบหนึ่ง · default@320 อีกรอบ) = แข่งกัน ไม่ใช่บั๊กของจอ
+    //
+    // 🔑 ฟันไม่หายไปกับการรอ: ถ้า `unknown` ค้างจริง (บั๊ก B1 ของ #292 กลับมา) แถบจะไม่มีวันโผล่
+    // ⇒ หมดเวลา แล้ว painted ยังเป็น skeleton ⇒ ใบนั้น**แดง**ตามเดิม · การรอเปลี่ยนแค่ *ความเร็วเครื่อง*
+    // ให้ไม่นับเป็นบั๊ก ❌ ไม่ได้ผ่อนเกณฑ์ว่าอะไรถือว่าถูก
+    await page.waitForFunction(() => document.querySelector('[data-testid="notify-status"]') !== null, undefined, { timeout: 8000 })
+      .catch(() => {})
     const bar = page.locator('[data-testid="notify-status"]')
     const skel = page.locator('[data-testid="notify-status-skeleton"]')
     const painted = (await bar.count()) ? await bar.getAttribute('data-notify-state')
@@ -115,6 +148,13 @@ for (const [state, env] of Object.entries(ENVS)) {
 
     await page.screenshot({ path: path.join(OUT, `${state}-${width}.png`), fullPage: true })
     if (CURATED && width === 393) await page.screenshot({ path: `harness/out/notify-${state}-393.png`, fullPage: true })
+
+    // #307 · ปุ่มลงมือ + กล่องสี — อ่านจาก DOM ที่วาดจริง ไม่ใช่จากสิ่งที่โค้ดตั้งใจ
+    const enableBtn = page.locator('[data-testid="notify-status-enable"]')
+    const hasEnable = (await enableBtn.count()) > 0
+    const boxed = (await bar.count())
+      ? ((await bar.getAttribute('class')) ?? '').includes('bg-v3-grade-yellow')
+      : false
 
     const guideBtn = page.locator('[data-testid="notify-status-guide"]')
     const hasGuide = (await guideBtn.count()) > 0
@@ -126,7 +166,24 @@ for (const [state, env] of Object.entries(ENVS)) {
       if (CURATED && width === 393) await page.screenshot({ path: `harness/out/notify-${state}-guide-393.png`, fullPage: true })
     }
 
-    report.push({ state, width, expected: EXPECT_STATE[state] ?? state, painted, onRoute, guide: hasGuide, errors })
+    // #307 · การกดปุ่มจริง — ทำหลังถ่ายภาพครบแล้ว เพื่อไม่ให้ภาพเปลี่ยนสถานะไปก่อน
+    let afterClick: string | null = null
+    let reqCalls: number | undefined
+    if (hasEnable) {
+      await enableBtn.click()
+      // รอให้แถบพลิก ❌ ไม่ใช่ waitForTimeout คงที่ — ถ้ามันไม่พลิก ต้องหมดเวลาแล้วแดง ไม่ใช่ผ่านเพราะรอนาน
+      await page.waitForFunction(
+        () => document.querySelector('[data-testid="notify-status"]')?.getAttribute('data-notify-state') !== 'default',
+        undefined, { timeout: 5000 },
+      ).catch(() => {})
+      afterClick = await page.locator('[data-testid="notify-status"]').getAttribute('data-notify-state').catch(() => null)
+      reqCalls = await page.evaluate(() => (window as unknown as { __reqCalls?: number }).__reqCalls ?? 0)
+      await page.addStyleTag({ content: KILL_MOTION })
+      await page.screenshot({ path: path.join(OUT, `${state}-${width}-after-enable.png`), fullPage: true })
+      if (CURATED && width === 393) await page.screenshot({ path: `harness/out/notify-${state}-after-enable-393.png`, fullPage: true })
+    }
+
+    report.push({ state, width, expected: EXPECT_STATE[state] ?? state, painted, onRoute, guide: hasGuide, errors, enable: hasEnable, boxed, afterClick, reqCalls })
     await ctx.close()
   }
 }
@@ -156,7 +213,7 @@ for (const width of WIDTHS) {
                 : (await skel.count()) ? 'unknown(skeleton)' : 'NONE'
   await page.screenshot({ path: path.join(OUT, `${SSR_ROW.state}-${width}.png`), fullPage: true })
   if (CURATED && width === 393) await page.screenshot({ path: `harness/out/notify-${SSR_ROW.state}-393.png`, fullPage: true })
-  report.push({ state: SSR_ROW.state, width, expected: SSR_ROW.expected, painted, onRoute, guide: false, errors: [] })
+  report.push({ state: SSR_ROW.state, width, expected: SSR_ROW.expected, painted, onRoute, guide: false, errors: [], enable: false, boxed: false })
   await ctx.close()
 }
 
@@ -164,9 +221,9 @@ await browser.close()
 
 fs.writeFileSync(path.join(OUT, 'report.json'), JSON.stringify({ host: HOST, route: ROUTE, widths: WIDTHS, rows: report }, null, 2))
 
-console.log('    สถานะ            กว้าง  วาดจริง             อยู่บน route  ปุ่มดูวิธี  error')
+console.log('    สถานะ            กว้าง  วาดจริง             route  ดูวิธี  ปุ่มเปิด  กล่องสี  กดแล้วเป็น  เรียกขอสิทธิ์')
 for (const r of report) {
-  console.log(`  ${ok(r) ? '✓' : '✗'} ${r.state.padEnd(19)}${String(r.width).padEnd(7)}${String(r.painted).padEnd(20)}${r.onRoute ? 'ใช่' : '❌ ไม่'}          ${r.guide ? 'มี' : '—'}       ${r.errors.length || ''}`)
+  console.log(`  ${ok(r) ? '✓' : '✗'} ${r.state.padEnd(19)}${String(r.width).padEnd(7)}${String(r.painted).padEnd(20)}${(r.onRoute ? 'ใช่' : '❌').padEnd(7)}${(r.guide ? 'มี' : '—').padEnd(7)}${(r.enable ? 'มี' : '—').padEnd(9)}${(r.boxed ? 'มี' : '—').padEnd(9)}${String(r.afterClick ?? '—').padEnd(12)}${r.reqCalls ?? '—'}${r.errors.length ? ' ⚠️' + r.errors.length : ''}`)
 }
 const bad = report.filter((r) => !ok(r)).length
 console.log(bad ? `\n⚠️ ${bad}/${report.length} ใบไม่ตรงกับสถานะที่ตั้งใจ` : `\n✓ ${report.length}/${report.length} ใบตรงกับสถานะที่ตั้งใจ · เขียนที่ ${OUT}`)

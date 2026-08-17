@@ -24,6 +24,7 @@ import {
 import type { PwaCapability } from '@/lib/pwa/capability'
 import { SaveSheet } from '@/features/v2-calendar/components/day-detail/SaveSheet'
 import { useReminderDraft, type UseReminderDraft } from '@/features/v2-calendar/hooks/useReminderDraft'
+import { NotifyStatusBar } from '@/features/v2-calendar/components/NotifyStatusBar'
 import type { YamSlot } from '@/features/v2-calendar/types'
 
 afterEach(cleanup)
@@ -275,5 +276,113 @@ describe('🔴 เดินจาก env จริง — capabilityFromEnv → 
     expect(notifyStateFrom(line)).not.toBe(mutant(line))    // ของจริงไม่ทำแบบนั้นแล้ว
     // และมันต้องไม่ทำลาย SSR — ทั้งสองทางยังตอบเหมือนกันตรงนี้ (เคสที่ควร unknown จริงๆ)
     expect(mutant(UNKNOWN_CAPABILITY)).toBe(notifyStateFrom(UNKNOWN_CAPABILITY))
+  })
+})
+
+// ── #307 · แถบสถานะบนหน้ากระดิ่ง (NotifyStatusBar) ────────────────────────────────────────────
+//
+// บั๊กที่ด่านนี้กัน: `default` บอกว่า "ยังไม่ได้เปิด" + "รายการข้างล่างจะไม่ดัง" แล้ว **ไม่มีปุ่มให้กด**
+// เพราะปุ่มเดียวที่มีผูกกับ `guideVariantFor(state)` ซึ่งคืน null สำหรับ default.
+//
+// 🔴 รายชื่อสถานะมาจาก `Object.keys(NOTIFY_REASON)` ❌ ไม่ใช่ลิสต์ที่พิมพ์เองในไฟล์นี้ — `NOTIFY_REASON`
+// เป็น Record<NotifyState, …> ⇒ ถ้าใครเพิ่มสถานะที่ 7 มันต้องเพิ่มคีย์ที่นั่น (ไม่งั้น tsc แดง) แล้ว
+// ด่านนี้จะครอบมันเองทันที. ลิสต์ที่พิมพ์เองจะเงียบ: สถานะใหม่จะไม่ถูกตรวจ และไม่มีอะไรบอกเรา.
+const ALL_STATES = Object.keys(NOTIFY_REASON) as NotifyState[]
+const BOX = 'bg-v3-grade-yellow/40' // กล่องสีของสถานะที่มีปัญหา
+
+function renderBar(state: NotifyState, onEnable: () => void = () => {}) {
+  return render(<NotifyStatusBar state={state} onShowGuide={() => {}} onEnable={onEnable} />)
+}
+
+describe('#307 NotifyStatusBar — ครบ 6 สถานะ ไม่มีอันไหนหล่น', () => {
+  it('ชุดสถานะที่ด่านนี้เดินจริง ต้องเป็น 6 ตัวตาม notify-state.ts', () => {
+    // ถ้าบรรทัดนี้แดงเพราะมี 7 ตัว = ดี มันกำลังบอกว่ามีสถานะใหม่ที่ยังไม่มีใครออกแบบแถบให้
+    expect(ALL_STATES.sort()).toEqual(['default', 'denied', 'granted', 'needs-install', 'unknown', 'unsupported'])
+  })
+
+  it('ทุกสถานะวาดออกมาเป็น *อย่างใดอย่างหนึ่ง* เท่านั้น: โครงว่าง | บรรทัดเนียน | กล่องสี', () => {
+    for (const state of ALL_STATES) {
+      cleanup()
+      renderBar(state)
+      const skeleton = screen.queryByTestId('notify-status-skeleton')
+      const bar = screen.queryByTestId('notify-status')
+      // ❌ ห้ามมีทั้งคู่ และห้ามไม่มีเลย — เคสที่หล่นจะเงียบมาก (แถบหายไปจากจอโดยไม่มี error)
+      expect([skeleton, bar].filter(Boolean)).toHaveLength(1)
+    }
+  })
+
+  it('🔴 default ต้องมีปุ่มลงมือ และกดแล้วขอสิทธิ์จริง (นี่คือบั๊กของใบนี้)', () => {
+    const calls: string[] = []
+    renderBar('default', () => calls.push('enable'))
+    const button = screen.getByTestId('notify-status-enable')
+    expect(button.textContent).toContain('เปิดการแจ้งเตือน')
+    // assert ที่ "กดแล้วเกิดอะไร" ❌ ไม่ใช่ "ปุ่มมีอยู่" — ปุ่มมีอยู่ได้โดยไม่ต่อสายอะไรเลย (บทเรียน #299)
+    button.click()
+    expect(calls).toEqual(['enable'])
+    // และมันต้องไม่ใช่ปุ่ม "ดูวิธี" ปลอมตัวมา: default ไม่มีวิธีให้สอน มีแต่การลงมือ
+    expect(screen.queryByTestId('notify-status-guide')).toBeNull()
+  })
+
+  it('🔴 unsupported ต้องไม่มีปุ่มใดๆ — ทั้งลงมือและสอน (ขอสิทธิ์ก็ไม่ช่วย ติดตั้งก็ไม่ช่วย)', () => {
+    renderBar('unsupported')
+    expect(screen.queryByTestId('notify-status-enable')).toBeNull()
+    expect(screen.queryByTestId('notify-status-guide')).toBeNull()
+    expect(screen.getByTestId('notify-status').className).toContain(BOX) // แต่ยังต้องเด่น
+  })
+
+  it('เฉพาะ default ที่มีปุ่มลงมือ · เฉพาะ denied/needs-install ที่มีปุ่มสอน', () => {
+    for (const state of ALL_STATES) {
+      cleanup()
+      renderBar(state)
+      const hasEnable = screen.queryByTestId('notify-status-enable') !== null
+      const hasGuide = screen.queryByTestId('notify-status-guide') !== null
+      expect({ state, hasEnable }).toEqual({ state, hasEnable: state === 'default' })
+      expect({ state, hasGuide }).toEqual({ state, hasGuide: state === 'denied' || state === 'needs-install' })
+      // ปุ่มสองแบบต้องไม่เคยขึ้นพร้อมกัน — ผู้ใช้ต้องมีทางเดียวที่ชัด ไม่ใช่สองปุ่มให้เลือกเดา
+      expect(hasEnable && hasGuide).toBe(false)
+    }
+  })
+
+  it('🔴 granted เนียน: บรรทัดเดียว ไม่มีกล่องสี — และมันต้องเนียน *เฉพาะ* granted', () => {
+    renderBar('granted')
+    const quiet = screen.getByTestId('notify-status')
+    expect(quiet.className).not.toContain(BOX)
+    expect(quiet.className).not.toContain('bg-v3-pastel-mint') // กล่องเขียวเดิมต้องหายไปจริง
+    expect(quiet.textContent).toContain('การแจ้งเตือนเปิดอยู่')
+    // NEGATIVE CONTROL ของข้อนี้: อีกสี่สถานะต้อง **ยังมีกล่องสี** — ถ้าเนียนหมด = ซ่อนปัญหา
+    for (const state of ALL_STATES.filter((s) => s !== 'granted' && s !== 'unknown')) {
+      cleanup()
+      renderBar(state)
+      expect(screen.getByTestId('notify-status').className).toContain(BOX)
+    }
+  })
+
+  it('ทุกสถานะที่ไม่ใช่ granted ต้องมีประโยคบอกผลลัพธ์ ❌ ไม่ปล่อยให้เดา', () => {
+    for (const state of ALL_STATES.filter((s) => s !== 'granted' && s !== 'unknown')) {
+      cleanup()
+      renderBar(state)
+      const text = screen.getByTestId('notify-status').textContent ?? ''
+      expect(text.length).toBeGreaterThan(20)
+      // ประโยคของแต่ละสถานะต้องมาจาก NOTIFY_REASON ที่แปลไว้ที่เดียว ❌ ไม่ใช่ข้อความที่หน้านี้แต่งเอง
+      const reason = NOTIFY_REASON[state]
+      if (reason) expect(text).toContain(reason)
+    }
+  })
+
+  it('🔴 unknown ยังเป็นโครงว่าง ❌ ไม่ใช่ "ปิด" และไม่มีปุ่มหลุดออกมา', () => {
+    renderBar('unknown')
+    expect(screen.getByTestId('notify-status-skeleton')).toBeTruthy()
+    // negative control เดียวกับที่ไฟล์นี้ตั้งไว้สำหรับชีท: ต้อง assert ว่า *ไม่มี* แถบสถานะปกติโผล่พร้อมกัน
+    expect(screen.queryByTestId('notify-status')).toBeNull()
+    expect(screen.queryByTestId('notify-status-enable')).toBeNull()
+    expect(screen.queryByTestId('notify-status-guide')).toBeNull()
+  })
+
+  it('มิวแทนต์: ถ้าปุ่มลงมือถูกผูกกับ guideVariantFor เหมือนของเดิม default จะไม่มีปุ่มอีก', () => {
+    // ของเดิมพังเพราะเงื่อนไขปุ่มเป็น `guideVariantFor(state)` ⇒ ด่านนี้ต้องพิสูจน์ว่าเงื่อนไขนั้น
+    // *แยกขั้ว* กับสิ่งที่เราต้องการจริง ไม่ใช่แค่ assert ว่าวันนี้มีปุ่ม
+    expect(guideVariantFor('default')).toBeNull() // ← สาเหตุของบั๊กเดิม ยังเป็นจริงอยู่
+    renderBar('default')
+    expect(screen.queryByTestId('notify-status-enable')).not.toBeNull() // ← แต่ปุ่มเรามาจากเงื่อนไขอื่น
   })
 })
