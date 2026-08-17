@@ -75,7 +75,11 @@ export function SaveSheet({
   const d = draft.draft
   const noDestination = d.destinations.length === 0
   return (
-    <div className="fixed inset-0 z-40" data-testid="save-sheet">
+    // z-50 = the MODAL layer (DateSelector, LogoutModal). This sheet is a modal, so it belongs ABOVE the
+    // bottom Menubar, which is the NAV layer (z-40). At z-40 both sat on the same level and DOM order let
+    // the <nav> cover the "บันทึก" button → the click never landed (#299). Not a bespoke bump: it moves the
+    // sheet into the layer it always belonged in. (harness/save-sheet-hittable.ts proves the hit-test.)
+    <div className="fixed inset-0 z-50" data-testid="save-sheet">
       {/* backdrop — click = cancel (→ idle, menu stays 2) */}
       <button type="button" aria-label="ปิด" data-testid="sheet-backdrop" onClick={draft.cancel} className="absolute inset-0 bg-black/40" />
       <div className="absolute inset-x-0 bottom-0 mx-auto flex max-h-[88vh] w-full max-w-md flex-col overflow-hidden rounded-t-[24px] bg-v3-ghost-white">
