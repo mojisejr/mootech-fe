@@ -15,7 +15,7 @@ import type { GetServerSideProps } from 'next'
 import Link from 'next/link'
 import { useRouter } from 'next/router'
 import { v2RedirectIfUnauthed, isV2TeamPreview } from '@/lib/v2/gate'
-import { useDayDetail, useAdvancedMode, useReminders, useReminderDraft, menuStateForDay, type Reminder, type YamSlot } from '@/features/v2-calendar'
+import { useDayDetail, useAdvancedMode, useReminders, useReminderDraft, menuStateForDay, type YamSlot } from '@/features/v2-calendar'
 import { CalendarShell } from '@/features/v2-calendar/components/CalendarShell'
 import { DayHeader } from '@/features/v2-calendar/components/day-detail/DayHeader'
 import { DayStrip } from '@/features/v2-calendar/components/day-detail/DayStrip'
@@ -62,28 +62,33 @@ export default function V2CalendarDayPage({ teamPreview }: { teamPreview: boolea
   const reminders = useReminders()
   const draft = useReminderDraft() // goo's save-flow machine — the page MASKS it, adds no state of its own
 
-  // per-ยาม quick-add (§11 buttons) — goo's client-truth list, de-duped in the hook.
+  // per-ยาม quick-add (§11 buttons) → a real POST (server assigns id; the hook merges the returned row).
+  // Fire-and-forget from the button's view; the list reflects it on success.
   const addYam = (yam: YamSlot) => {
-    const r: Reminder = { id: `${date}-${yam.id}`, date, yamId: yam.id, yamLabel: yam.label, window: yam.window, destinations: ['mumate'], group: 'upcoming' }
-    reminders.add([r])
+    void reminders.save({ date, yams: [{ yamId: yam.id, yamLabel: yam.label, window: yam.window }], destinations: ['mumate'] })
   }
 
-  // save-sheet commit (goo's scaffold pattern): build one Reminder per ticked ยาม, drive the machine, grow the
-  // de-duped list. The no-op guard is goo's — commit is a NO-OP once `saving` (latch) and reminders.add de-dupes
-  // by id — so spamming บันทึก yields exactly one row per ยาม, never duplicates.
+  // save-sheet commit (#287): build the batch from the ticked ยาม + the day's yams, then drive the machine
+  // through the REAL POST. save() returns true on 2xx → machine → saved (and the list already has the rows);
+  // false (past 422 / free 403 / network) → machine → error, and the sheet stays open to retry. The saving
+  // latch + the server's natural-key dedup mean spamming บันทึก saves each ยาม exactly once.
   const onSheetSave = () => {
-    const rows: Reminder[] = draft.draft.selectedYamIds.map((yamId) => {
-      const yam = detail?.yams.find((y) => y.id === yamId) // onSheetSave only fires past the render guard (detail set); ?. is for the earlier-closure narrowing
-      return { id: `${date}-${yamId}`, date, yamId, yamLabel: yam?.label ?? yamId, window: yam?.window ?? '', destinations: draft.draft.destinations, group: 'upcoming' as const }
+    const yams = draft.draft.selectedYamIds.map((yamId) => {
+      const yam = detail?.yams.find((y) => y.id === yamId) // fires past the render guard (detail set); ?. narrows the earlier closure
+      return { yamId, yamLabel: yam?.label ?? yamId, window: yam?.window ?? '' }
     })
-    draft.commit()
-    if (rows.length) reminders.add(rows)
+    void draft.commit(async () => {
+      const outcome = await reminders.save({ date, yams, destinations: draft.draft.destinations })
+      return outcome.ok
+    })
   }
 
   const saved = reminders.hasReminderFor(date)
   // observable count of THIS date's reminders — lets the anchor prove list-+1 / cancel-no-add / no-op-single-row.
   const dateReminderCount = [...reminders.list.upcoming, ...reminders.list.past].filter((r) => r.date === date).length
-  const sheetOpen = draft.state === 'editing' || draft.state === 'saving'
+  // keep the sheet mounted on `error` too, so a failed save (past/free/network) leaves the form open to
+  // retry instead of vanishing silently (μุน's #286 adds the error copy; the machine + retry are here).
+  const sheetOpen = draft.state === 'editing' || draft.state === 'saving' || draft.state === 'error'
   // while the sheet is open the menu is FormMode(4, no Mate AI); else derived from data (Saved 3 / PrimaryAction 2).
   const menuState = sheetOpen ? draft.menuState : menuStateForDay(saved)
 

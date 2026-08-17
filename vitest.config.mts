@@ -73,6 +73,9 @@ export default defineConfig({
       'scripts/calc-cooldown.test.tsx', // #265 — cooldown state machine; every guarantee lives in THIS lane; .tsx
       'scripts/edit-friend-ui.test.tsx', // #266 — edit-friend UI; refuses to open a blank form; .tsx
       'scripts/pwa-capability.test.tsx', // #285 — PWA capability tri-state (unknown≠false); .tsx (vitest-only)
+      'scripts/reminder-logic.test.tsx', // #287 — reminder time/plan/adapter/identity (pure); .tsx
+      'scripts/reminders-client.test.tsx', // #287 — transport mapping + useReminders + past-guard; .tsx
+      'scripts/reminders-auth-gates.test.tsx', // #287 — SERVER gate teeth: identity/membership/scope (ตู๋ #291 B1); .tsx
     ],
   },
   resolve: {

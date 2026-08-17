@@ -1,4 +1,4 @@
-import { pgTable, bigserial, text, varchar, bigint, doublePrecision, json, index, boolean, primaryKey, uuid, timestamp, integer } from "drizzle-orm/pg-core"
+import { pgTable, bigserial, text, varchar, bigint, doublePrecision, json, index, uniqueIndex, boolean, primaryKey, uuid, timestamp, integer } from "drizzle-orm/pg-core"
 import { sql } from "drizzle-orm"
 
 // ───────────────────────────────────────────────────────────────────────────────────
@@ -942,6 +942,64 @@ export const useProvider = pgTable("use_provider", {
 	createAt: varchar("create_at", { length: 255 }).notNull(),
 	updateAt: varchar("update_at", { length: 255 }).notNull(),
 });
+
+// ── PWA push (mootech-fe#287) — NEW tables only, never altering the pgloader'd legacy tables above.
+// These two use MODERN types (uuid PK, timestamptz) — unlike the legacy string "create_at" columns —
+// because they are born here, not introspected. The migration is hand-authored in lib/db/0005_*.sql
+// and applied BY HAND on dev → prod (operator-gated); nothing here runs DDL. No FK to "user" (this DB
+// avoids hard FKs — see the legacy tables; user_id is a plain scoped column, filtered by session).
+
+// One device's push mailbox. Scoped by (user_id, endpoint): a user registers their own device, and a
+// DELETE/read is always filtered by the SESSION's user_id — so no one can overwrite or unsubscribe
+// someone else's device (#287's "ปิดเสียงเตือนเขาเงียบๆ" threat). Endpoint is the browser's opaque URL.
+export const pushSubscription = pgTable("push_subscription", {
+	id: uuid("id").defaultRandom().primaryKey().notNull(),
+	userId: varchar("user_id", { length: 36 }).notNull(),
+	endpoint: text("endpoint").notNull(),
+	p256dh: text("p256dh").notNull(),
+	auth: text("auth").notNull(),
+	userAgent: text("user_agent"),
+	createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+}, (table) => [
+	// endpoint (the browser's own opaque push URL) is GLOBALLY unique to one device/profile → uniqueness
+	// is on endpoint ALONE, not (user_id, endpoint). With (user_id, endpoint) the SAME endpoint could bind
+	// to many user_ids (shared browser A→B, or an attacker), and #288's cron would push one account's
+	// reminders to another's device — which the victim could NOT remove (DELETE is scoped by their own
+	// user_id). One endpoint = one owner; re-subscribing REASSIGNS ownership (POST onConflict → set user_id).
+	// (ตู๋ #291 B2)
+	uniqueIndex("uq_push_subscription_endpoint").on(table.endpoint),
+	index("idx_push_subscription_user_id").on(table.userId),
+]);
+
+// A saved reminder = one row per (user, day, ยาม). `fireAtUtc` is the ABSOLUTE instant to notify,
+// computed ONCE at save (lib/v2/reminder-time.ts) — never a display string the cron re-parses.
+// The natural key (user_id, reminder_date, yam_id) IS the dedup: a lost-response retry re-sends the
+// same (user, date, yam) → ON CONFLICT DO NOTHING → exactly one row (business-level idempotency,
+// stronger than an opaque token — see #287 comment). `group`/totals are NOT stored (adapter derives).
+export const reminder = pgTable("reminder", {
+	id: uuid("id").defaultRandom().primaryKey().notNull(),
+	userId: varchar("user_id", { length: 36 }).notNull(),
+	reminderDate: varchar("reminder_date", { length: 10 }).notNull(), // YYYY-MM-DD, ยาม START's BKK day
+	yamId: varchar("yam_id", { length: 8 }).notNull(),
+	yamLabel: text("yam_label").notNull(),
+	// DB column is `yam_window`, NOT `window`: `window` is a RESERVED keyword in Postgres (WINDOW clause)
+	// and an unquoted `window` column fails with a syntax error on raw SQL — caught applying 0005 to a real
+	// pg. The TS field stays `window` (API/DTO/client unchanged); only the physical column name differs.
+	window: varchar("yam_window", { length: 16 }).notNull(), // "HH:MM-HH:MM" — display only
+	destinations: json("destinations").$type<string[]>().notNull(),
+	fireAtUtc: timestamp("fire_at_utc", { withTimezone: true }).notNull(),
+	// #288's send-marker, added NOW so prod is migrated ONCE (บอง 2026-08-16): NULL = not yet sent,
+	// a timestamp = sent. A one-shot reminder needs no separate reminder_sent table — this column IS
+	// the "ส่งไปแล้ว" record the cron writes, and the natural key above keeps it one row per (user,date,ยาม).
+	sentAt: timestamp("sent_at", { withTimezone: true }),
+	createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+}, (table) => [
+	uniqueIndex("uq_reminder_user_date_yam").on(table.userId, table.reminderDate, table.yamId),
+	index("idx_reminder_user_id").on(table.userId),
+	// #288's cron scans DUE-and-UNSENT reminders. A partial index on fire time WHERE sent_at IS NULL is
+	// exactly that scan — added now so that lane is ready without a second prod migration.
+	index("idx_reminder_due").on(table.fireAtUtc).where(sql`sent_at IS NULL`),
+]);
 
 export const analyticLife = pgTable("analytic_life", {
 	id: bigserial({ mode: "bigint" }).primaryKey().notNull(),
