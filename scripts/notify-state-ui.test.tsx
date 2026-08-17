@@ -7,8 +7,8 @@
 //
 // 🔴 NEGATIVE CONTROL ย้ายมาที่ปุ่ม: unknown → ❌ ไม่มี save-notify-reason · denied → มี · สองค่านี้
 // ต้องต่างกันจริง (assert !== ) ไม่ใช่แค่ assert ทางบวกอันเดียว
-import { describe, it, expect } from 'vitest'
-import { render, renderHook, screen, cleanup } from '@testing-library/react'
+import { describe, it, expect, vi } from 'vitest'
+import { render, renderHook, screen, cleanup, fireEvent } from '@testing-library/react'
 import { afterEach } from 'vitest'
 import {
   notifyStateFrom,
@@ -118,6 +118,15 @@ describe('ค่าเริ่มต้นของ draft — ตรวจท�
 })
 
 describe('SaveSheet — ปุ่มบันทึกพูดความจริงของเครื่องครบ 6 สถานะ', () => {
+  it('🔴 B3 — ปุ่มบันทึกต้องต่อสายกับ onSave จริง: กดแล้ว handler ถูกเรียก (ถอด onClick → แดง)', () => {
+    // ตู๋ #303: `onClick={onSave}` → `() => {}` ผ่าน 35/35 เพราะไม่มีเทสต์ไหนกดปุ่มจริง — ปุ่มอยู่ครบ
+    // แต่ไม่มีใครเฝ้าว่ามันยังต่อสาย (ตระกูล #299: ปุ่มอยู่ แต่กดไม่ติด). ฟันนี้กดปุ่มจริงแล้ว assert callback.
+    const onSave = vi.fn()
+    render(<SaveSheet date="2026-08-16" yams={YAMS} draft={draftWith([])} onSave={onSave} notify="granted" onShowGuide={() => {}} />)
+    fireEvent.click(screen.getByTestId('sheet-save'))
+    expect(onSave).toHaveBeenCalledTimes(1)
+  })
+
   it('default → ปุ่มเขียน "บันทึกและเปิดแจ้งเตือน" (กดครั้งเดียว = บันทึก + ขอสิทธิ์) · ยังไม่บ่นเหตุ', () => {
     renderSheet('default')
     expect(screen.getByTestId('sheet-save').textContent).toContain('บันทึกและเปิดแจ้งเตือน')
