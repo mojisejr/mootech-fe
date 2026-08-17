@@ -94,28 +94,30 @@ async function probeTwoSheets(page: import('playwright').Page) {
     if (scrim.parentElement !== sheet.parentElement) {
       return { found: true, sameParent: false, scrimParent: scrim.parentElement?.tagName ?? null, sheetParent: sheet.parentElement?.tagName ?? null } as const
     }
-    const hitAtGuideCentre = () => {
+    // Two phases, measured with the same inlined code so nothing differs between them but DOM order.
+    // (Written as a loop, not a helper: tsx/esbuild injects a `__name` call into named functions, which
+    //  is undefined inside page.evaluate — the probe would crash instead of measuring.)
+    const hits: { inGuide: boolean; inSaveSheet: boolean; topTestId: string | null }[] = []
+    for (let phase = 0; phase < 2; phase++) {
+      // phase 1 = hostile order: put the save sheet AFTER the guide among its siblings. If the guide only
+      // wins by DOM order, this flips it and the guide's own centre starts resolving to the save sheet.
+      if (phase === 1) sheet.parentElement!.appendChild(sheet)
       const r = guide.getBoundingClientRect()
       const top = document.elementFromPoint(Math.round(r.left + r.width / 2), Math.round(r.top + r.height / 2)) as HTMLElement | null
-      return {
+      hits.push({
         inGuide: !!top?.closest('[data-testid="install-guide-sheet"]'),
         inSaveSheet: !!top?.closest('[data-testid="save-sheet"]'),
         topTestId: top?.closest('[data-testid]')?.getAttribute('data-testid') ?? null,
-      }
+      })
     }
-    const asRendered = hitAtGuideCentre()
-    // C2: hostile order — put the save sheet AFTER the guide among its siblings. If the guide only wins
-    // by DOM order, this flips it and the guide's own centre starts resolving to the save sheet.
-    sheet.parentElement!.appendChild(sheet)
-    const afterReorder = hitAtGuideCentre()
     return {
       found: true,
       sameParent: true,
       // reported for the log only — the pass/fail above is hit-testing, never these two numbers
       guideZ: getComputedStyle(scrim).zIndex,
       sheetZ: getComputedStyle(sheet).zIndex,
-      asRendered,
-      afterReorder,
+      asRendered: hits[0],
+      afterReorder: hits[1],
     } as const
   })
 }
