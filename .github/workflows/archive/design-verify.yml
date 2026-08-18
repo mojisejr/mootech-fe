@@ -5,7 +5,14 @@ name: design-verify
 # Unlike the auth e2e (local-only — it needs BE + Supabase, see e2e/README.md), the splash harness is
 # FE-ONLY: `next build && next start` + the v2 preview cookie, no backend. So it CAN run in CI without
 # violating the Browser Truth doctrine. Separate job from `ci.yml` hard-gate — does not change it.
-# 🅿️ ยกลงชั่วคราว 2026-08-18 (ฟีมสั่ง) — ด่านนี้ไม่รันบน PR อีกแล้ว **ไฟล์และ harness ทั้ง 9 ตัวยังอยู่ครบ ไม่ได้ลบ**
+# 🔴 path ทุกบรรทัดในไฟล์นี้เป็นของ "ก่อน mojisejr/mootech-fe#321" — harness/* ย้ายไป harness/archive/* หมดแล้ว
+#    (12 บรรทัดข้างล่างยังเขียน harness/run.ts · run-pixel · run-calendar-month · run-home-chart-cache ·
+#     save-sheet-hittable · capture-coming-soon · verify-home-skeleton · first-frame-v2 …)
+#    ⇒ **จะเปิดด่านนี้กลับ ต้องแก้ path ทุกบรรทัด ไม่ใช่แค่ git mv ไฟล์นี้กลับขึ้นไป** ไม่งั้นได้ workflow ที่พังทุก step
+#    ตู๋จับข้อนี้ตอนรีวิว #321: ไฟล์ถูก rename ทั้งไฟล์ (0+/0-) ⇒ บรรทัดพวกนี้ไม่โผล่ใน diff ⇒ ไม่มีอะไรสะดุด
+#
+# 🅿️ ยกลงชั่วคราว 2026-08-18 (ฟีมสั่ง) — ด่านนี้ไม่รันบน PR อีกแล้ว
+#    **ไฟล์และ harness ทั้ง 9 ตัวยังอยู่ครบ ไม่ได้ลบ — แต่ตั้งแต่ #321 มันอยู่คนละที่กับที่เขียนไว้ข้างล่าง**
 # เหตุผล 2 ข้อ ที่วัดได้:
 #   ① GitHub Actions quota ใกล้หมด — design-verify กิน 117.6 นาที จาก 40 run ล่าสุด = 70% ของ minutes ทั้งหมด
 #      (ci 44.6 · secret-scan 2.9 · main-guard 2.8) · repo นี้ private ⇒ ทุกนาทีถูกนับจริง

@@ -48,7 +48,8 @@ next-env.d.ts
 # generated harness evidence
 harness/evidence/
 
-# design-review captures — binaries + PII-shaped; reproduce via harness/capture-route.ts, don't commit
+# design-review captures — binaries + PII-shaped; reproduce via harness/archive/capture-route.ts
+# (archived 2026-08-18 · mootech-fe#321 — the dir stays here because that is where the tool writes), don't commit
 harness/captures/
 
 # raw image sources — ฟีม drops originals here; `npm run assets:optimize` writes the committed .webp to public/

@@ -24,12 +24,23 @@ containment, safe-area, hero band, tap-target). We extract anchors → lock them
 (the **1000%-verified truth**) → **compose** every screen from that system → **verify**. We never hand-roll
 per-screen pixels; a new value gets promoted into the system (named), never inlined as `max-h-[NNN]`.
 
-**The machine contract** (single source every agent + layer reads — no discipline-in-head):
-- `design.contract.ts` — anchors + frozen tolerances + mutants (DSL); schema in `harness/engine/types`.
-- `design.reference.ts` — reference geometry + `fidelity` stamp (adapter output).
-- Tolerances are grounded in real standards (iOS/WCAG) or **exact** reference geometry — never eyeballed.
+> 🗄️ **ARCHIVED 2026-08-18 — อ่านย่อหน้านี้ก่อนสองบล็อกข้างล่าง**
+> ฟีมเคาะใน `mojisejr/mootech-fe#318` ให้ยกด่านที่เราสร้างเองลงทั้งชุด · เครื่องมือทั้งหมดที่บล็อกข้างล่าง
+> พูดถึงย้ายไป `harness/archive/` แล้วโดย `mojisejr/mootech-fe#321` — **รันไม่ได้จากที่เดิม และไม่มีอะไรรันมันอัตโนมัติ**
+> ❌ **ห้ามอ้างผลรันของมันเป็นหลักฐาน** · ทางกลับ + เหตุผลอยู่ใน `harness/archive/README.md`
+>
+> **สิ่งที่ยังบังคับใช้เต็มร้อยคือ *เกณฑ์* ไม่ใช่ *ตัวรัน*** — anchor เป็น invariant ไม่ผูกขนาด · tolerance ต้องมาจาก
+> มาตรฐานจริง (iOS/WCAG) หรือเรขาคณิตอ้างอิงแบบ exact ❌ ห้ามกะเอา · และฟันที่พิสูจน์ไม่ได้ว่าจับบั๊กที่รู้จักได้
+> ยังไม่ใช่ฟัน · **ของที่เปลี่ยนคือใครเป็นคนวัด**: ตอนนี้คือ `build`/`lint`/`test` บนเครื่อง + ตาคนดูจอจริง
+> (ทบทวน 2026-09-01 — ถ้าบั๊กตระกูล `#299` หลุดถึงฟีม ให้กลับมาพิจารณาใหม่)
 
-**Verify = 4 layers + proof-of-teeth** (`harness/`, engine reused from `oracle-skills/design-verify`):
+**The machine contract** — เดิมเป็น single source ที่ทุก agent + ทุก layer อ่าน (no discipline-in-head):
+- `harness/archive/design.contract.ts` — anchors + frozen tolerances + mutants (DSL); schema ใน `harness/archive/engine/types`.
+- `harness/archive/design.reference.ts` — reference geometry + `fidelity` stamp (adapter output).
+- Tolerances are grounded in real standards (iOS/WCAG) or **exact** reference geometry — never eyeballed.
+  ⬆️ **บรรทัดนี้ยังบังคับใช้อยู่** แม้ตัวไฟล์จะถูก archive — มันเป็นเกณฑ์ ไม่ใช่เครื่องมือ
+
+**Verify = 4 layers + proof-of-teeth** (🗄️ `harness/archive/`, engine ตัวเดียวกับสกิล `design-verify` ที่ยังเรียกใช้ได้):
 1. **L1 source-lint** — no hand-rolled hex / arbitrary classes outside the system.
 2. **L2 computed** — measured *after fonts+images ready*; computed value must equal intent.
 3. **L3 ref-diff** — element boxes vs the reference; tolerance scales with `fidelity` (exact→tight, estimate→advisory).
@@ -37,11 +48,17 @@ per-screen pixels; a new value gets promoted into the system (named), never inli
 5. **🦷 Mutant suite** — real shipped bugs injected; the gate MUST fail on each. *A gate that can't
    demonstrate catching a known bug is belief, not verification.*
 
-**Fidelity scales the gate.** Figma = exact (block). Image/PDF = estimate (advisory + human eye). The
-harness always knows — and states — how much its green can be trusted.
+**Fidelity scales the gate.** Figma = exact (block). Image/PDF = estimate (advisory + human eye).
+เดิม harness เป็นตัวที่รู้ — และประกาศ — ว่าสีเขียวของมันเชื่อได้แค่ไหน
+🗄️ **ตอนนี้ไม่มีเครื่องที่ประกาศให้แล้ว ⇒ คนวัดต้องเขียนเอง**: ทุกผลที่ยกมาอ้างต้องมี **สภาพที่วัด + SHA**
+กำกับ ❌ ไม่ใช่แค่ตัวเลข — ผลที่ต่างกันเพราะสภาพต่างกันคือ finding ไม่ใช่เรื่องต้องปรับให้ตรง
 
-**Run:** `V2_PREVIEW_KEY` + dev server, then `npx tsx harness/run.ts` → 4 layers + mutant + evidence bundle.
-The block-anchor gate + teeth proof is the design Hard Gate before a screen is "done"; ฟีม signs **taste**.
+**Run:** 🗄️ `npx tsx harness/run.ts` **ใช้ไม่ได้แล้ว** — ไฟล์อยู่ที่ `harness/archive/run.ts` และ relative import
+ของมันยังชี้ของเดิม ⇒ ย้ายกลับต้องแก้ import ก่อน (ดู `harness/archive/README.md`)
+**ด่านของงานออกแบบตอนนี้**: `build` · `lint` · `test` เขียวบนเครื่อง + **ภาพ route จริง @393 แนบใน PR**
++ ตาคนดูจอจริงในขนาดที่เล็กที่สุดที่รองรับ · ฟีม เซ็น **taste** เหมือนเดิม
+🔴 สิ่งที่หายไปแล้วและไม่มีอะไรมาแทน: **ไม่มีเครื่องเฝ้าบั๊ก "ของสองอย่างซ้อนกันบนจอ" อัตโนมัติอีกแล้ว**
+(`#299` ปุ่มกดไม่ได้เพราะแถบเมนูทับ · `#302` ชีทอยู่บนเพราะบังเอิญเรียงหลังใน JSX) — ฟีมเลือกอย่างรู้ตัว
 
 ---
 

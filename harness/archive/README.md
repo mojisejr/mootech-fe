@@ -1,15 +1,44 @@
 # harness/archive — gates that nothing runs (kept, not deleted)
 
-**Moved here:** 2026-08-07 · **counted at main `a4560da`** · by goo (harness-tidy ใบ ข, on บอง’s ruling)
+## 🔴 Round 2 — 2026-08-18 · the WHOLE harness landed here (`mojisejr/mootech-fe#321`)
+
+ฟีม's ruling in `mojisejr/mootech-fe#318`: **gates move onto the machine.** `lint` + `test` are held by
+`.githooks/pre-push`; `build` is run by hand before "Ready for review". On GitHub only **`secret-scan`** and
+**`main-guard`** are left. Everything the team built to gate itself came here — **moved, not deleted.**
+
+**What arrived in this round** (52 renames, no file content changed):
+```
+harness/*.ts                39 files   →  harness/archive/
+harness/engine/             7 files    →  harness/archive/engine/
+harness/adapters/measureHtml.ts        →  harness/archive/adapters/
+harness/tsconfig.json · harness/CAPTURE.md
+design.contract.ts · design.reference.ts   (they sat at ROOT but are harness-only)   →  harness/archive/
+.github/workflows/ci.yml · design-verify.yml   →  .github/workflows/archive/
+```
+GitHub reads workflows one level deep only, so a workflow inside `archive/` stops running by itself.
+
+⚠️ **Relative imports in here point at where the file USED to be — including the ones that just arrived.**
+That was already true of the 44 files from round 1 (`../features/...` resolves to `harness/features/`, which
+has never existed). Nothing catches it because `tsconfig.json` `exclude` covers `harness/archive`. This is the
+`../` → `./` fix the section below is talking about: **do it before you trust anything you move back.**
+
+🔑 `design.contract.ts` / `design.reference.ts` did NOT get their imports fixed — they got moved **out of the
+range `tsc` checks**. Different thing. Say it that way if you cite this move.
+
+---
+
+**Round 1 — moved here:** 2026-08-07 · **counted at main `a4560da`** · by goo (harness-tidy ใบ ข, on บอง’s ruling)
 
 These 44 `run-*.ts` were **browser gates that CI never ran** — not `harness/run.ts`, not an npm
 script, not a workflow. A gate nobody runs is not a gate; it only *looks* like coverage. They are
 **MOVED, not deleted** (Rule 1 · Nothing is Deleted) — every file is intact and `git log --follow`
 traces it. They are excluded from `tsc` (`tsconfig.json` `exclude`), like `scripts/`.
 
-**CI still runs exactly 5 gates** (unchanged, still biting): `run.ts` · `run-pixel.ts` ·
+~~**CI still runs exactly 5 gates** (unchanged, still biting): `run.ts` · `run-pixel.ts` ·
 `run-calendar-month.ts` · `run-calendar-select.ts` (+ `capture-coming-soon.ts`) — all in
-`harness/`, wired in `.github/workflows/design-verify.yml`.
+`harness/`, wired in `.github/workflows/design-verify.yml`.~~
+🔴 **NOT TRUE since 2026-08-18** — round 2 above moved all five here and archived
+`design-verify.yml` too. **CI runs zero harness gates now.**
 
 ## 🚩 If you arrived here from a code comment
 Some files in `features/**` and `scripts/**` still carry prose like *"the invariant run-X.ts owns"*
