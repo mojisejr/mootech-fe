@@ -4,21 +4,15 @@
 // `saved` it closes and the bottom menu (state 3) is the "บันทึกแล้ว" indicator (375:16355). Cancel = backdrop
 // or handle → draft.cancel (→ idle, draft discarded, menu stays 2). 0 network.
 //
-// Phase 2 (#286) — แถว "แจ้งเตือนในแอป Mumate" เลิกโกหกเรื่องสถานะเครื่อง. เดิม toggle นี้ติ๊กได้
-// (และ *เปิดค้างเป็นค่าเริ่มต้น*) โดยไม่สนว่าเครื่องนี้ส่ง push ได้จริงไหม ⇒ ผู้ใช้กดบันทึกแล้ว
-// เห็นชิป "มู่เมท" ในรายการ ทั้งที่ไม่มีอะไรจะดังเลยตลอดไป.
-// แถวนี้จึงกินสถานะจาก `notifyStateFrom(capability)` ที่เพจอ่านมาให้ — SaveSheet ยังเป็น
-// presentational เต็มตัว (ไม่เรียก hook เอง) เพื่อให้ unit test ป้อนได้ครบทั้ง 6 สถานะโดยไม่ต้องมีเบราว์เซอร์.
-// Google/Apple ไม่ผูกกับสถานะนี้เลย — push พังไม่ควรทำให้ทั้งแผ่นใช้ไม่ได้.
-import type { YamSlot, ReminderDestination } from '../../types'
+// #286 → #298 reframe: the "ปลายทาง" block (the mumate on/off toggle + hidden Google/Apple rows) was a dead
+// end — only one destination has a backend, so the switch offered a "choice" of one and, unticked, sent every
+// save to a 400 (reminder-plan.ts:43). It was removed. Ticking a ยาม is now enough to save; the system fills
+// ['mumate'] itself. The device-state truth the toggle used to tell (6 states) moved onto the SAVE button:
+// its text asks for permission on `default`, and a line under it explains when the device can't ring.
+// SaveSheet stays presentational (no hook calls) so unit tests feed all 6 states without a browser.
+import type { YamSlot } from '../../types'
 import type { UseReminderDraft } from '../../hooks/useReminderDraft'
-import { canToggleMumate, guideVariantFor, NOTIFY_REASON, type NotifyState } from '../../notify-state'
-
-const DEST_META: Array<{ id: ReminderDestination; name: string; sub: string }> = [
-  { id: 'mumate', name: 'แจ้งเตือนในแอป Mumate', sub: 'push notification' },
-  { id: 'google', name: 'Google ปฏิทิน', sub: 'เพิ่มเป็น event ในวันนั้น' },
-  { id: 'apple', name: 'Apple Calendar', sub: 'เพิ่มเป็น event ในวันนั้น' },
-]
+import { guideVariantFor, NOTIFY_REASON, type NotifyState } from '../../notify-state'
 
 const THAI_MONTHS = ['มกราคม', 'กุมภาพันธ์', 'มีนาคม', 'เมษายน', 'พฤษภาคม', 'มิถุนายน', 'กรกฎาคม', 'สิงหาคม', 'กันยายน', 'ตุลาคม', 'พฤศจิกายน', 'ธันวาคม']
 
@@ -38,22 +32,6 @@ function DateDisplay({ date }: { date: string }) {
   )
 }
 
-function Toggle({ on, off, testId }: { on: boolean; off?: boolean; testId?: string }) {
-  // `off` = ติ๊กไม่ได้จริง (ไม่ใช่แค่ปิดอยู่) — ต้องดูต่างจาก "ปิดแต่กดได้" ไม่งั้นผู้ใช้จะกดซ้ำๆ แล้วสงสัยว่าจอค้าง
-  const track = on ? 'bg-v3-sapphire' : off ? 'bg-neutral-200' : 'bg-neutral-300'
-  return (
-    <span data-testid={testId} className={`relative h-6 w-11 shrink-0 rounded-full transition-none ${track}`}>
-      <span className={`absolute top-0.5 size-5 rounded-full shadow ${off ? 'bg-neutral-100' : 'bg-white'} ${on ? 'right-0.5' : 'left-0.5'}`} />
-    </span>
-  )
-}
-
-// "ยังไม่รู้" ต้องเป็นโครงว่าง ❌ ห้ามวาดเป็น toggle ปิด — *ปิดคือคำตอบ แต่ยังไม่รู้ไม่ใช่คำตอบ*
-// (ผู้ใช้ที่เห็น toggle ปิดจะสรุปว่าเขาปิดไว้เอง แล้วไปหาที่เปิดในแอป ซึ่งไม่มี)
-function ToggleSkeleton() {
-  return <span data-testid="mumate-skeleton" aria-hidden className="h-6 w-11 shrink-0 animate-pulse rounded-full bg-neutral-200" />
-}
-
 export function SaveSheet({
   date,
   yams,
@@ -61,7 +39,6 @@ export function SaveSheet({
   onSave,
   notify,
   onShowGuide,
-  onRequestPermission,
 }: {
   date: string
   yams: YamSlot[]
@@ -70,10 +47,12 @@ export function SaveSheet({
   /** สถานะแจ้งเตือนของเครื่อง — เพจอ่านจาก usePwaCapability() แล้วส่งลงมา (ชีทไม่เรียก hook เอง) */
   notify: NotifyState
   onShowGuide: (variant: 'install' | 'permission') => void
-  onRequestPermission: () => void
 }) {
   const d = draft.draft
-  const noDestination = d.destinations.length === 0
+  // when the device can't ring, say so under the save button (the 6-state truth that lived on the removed
+  // toggle). null for unknown/granted/default ⇒ no line. guide = install/permission sheet where it can help.
+  const saveReason = NOTIFY_REASON[notify]
+  const saveGuide = guideVariantFor(notify)
   return (
     // z-50 = the MODAL layer (DateSelector, LogoutModal). This sheet is a modal, so it belongs ABOVE the
     // bottom Menubar, which is the NAV layer (z-40). At z-40 both sat on the same level and DOM order let
@@ -122,97 +101,36 @@ export function SaveSheet({
               })}
             </div>
           </div>
-
-          {/* ปลายทาง */}
-          <div className="rounded-2xl bg-white p-4 shadow-sm">
-            <p className="mb-3 text-sm font-bold text-v3-navy">เพิ่มลงปฏิทินของคุณ</p>
-            <div className="flex flex-col gap-3">
-              {DEST_META.map((dm) => {
-                // เฉพาะแถวมู่เมทที่ผูกกับความสามารถของเครื่อง — Google/Apple ติ๊กได้เสมอ
-                if (dm.id !== 'mumate') {
-                  return (
-                    <button key={dm.id} type="button" onClick={() => draft.toggleDest(dm.id)} className="flex items-center gap-3 text-left">
-                      <span className="grid size-11 shrink-0 place-items-center rounded-xl bg-v3-pastel-blue/30 text-lg">🔔</span>
-                      <span className="min-w-0 flex-1">
-                        <span className="block text-sm font-bold text-v3-navy">{dm.name}</span>
-                        <span className="block text-xs text-v3-text-body">{dm.sub}</span>
-                      </span>
-                      <Toggle on={d.destinations.includes(dm.id)} />
-                    </button>
-                  )
-                }
-
-                const loading = notify === 'unknown'
-                const usable = canToggleMumate(notify)
-                const guide = guideVariantFor(notify)
-                const reason = NOTIFY_REASON[notify]
-                return (
-                  <div key={dm.id} className="flex flex-col gap-1.5">
-                    <button
-                      type="button"
-                      data-testid="dest-mumate"
-                      data-notify-state={notify}
-                      // ปิดปุ่มจริงด้วย disabled ❌ ไม่ใส่ยามใน handler ให้ดูเหมือนกัน — React กรอง click
-                      // บน element ที่ disabled ตั้งแต่ชั้น fiber ⇒ ยามใน handler จะไม่มีวันถูกเรียก และ
-                      // เทสต์ที่ "พิสูจน์" ยามนั้นจะเขียวโดยไม่เคยแตะโค้ดจริง
-                      disabled={loading || !usable}
-                      onClick={() => (notify === 'default' ? onRequestPermission() : draft.toggleDest(dm.id))}
-                      className="flex items-center gap-3 text-left disabled:cursor-default"
-                    >
-                      <span className="grid size-11 shrink-0 place-items-center rounded-xl bg-v3-pastel-blue/30 text-lg">🔔</span>
-                      <span className="min-w-0 flex-1">
-                        <span className={`block text-sm font-bold ${usable || loading ? 'text-v3-navy' : 'text-v3-text-muted'}`}>{dm.name}</span>
-                        <span className="block text-xs text-v3-text-body">{dm.sub}</span>
-                      </span>
-                      {/* `mumate-toggle` มีอยู่เฉพาะตอน "รู้แล้ว" — การ*ไม่มี*ของมันคือ negative control ที่
-                          อ่านได้จากเบราว์เซอร์จริง (ก่อนหน้านี้พิสูจน์ได้แต่ในเทสต์: harness เห็นแค่ปุ่มแถว
-                          ซึ่งมีอยู่ทุกสถานะ เลยแยก "โครงว่าง" กับ "toggle ปิด" ไม่ออกจาก DOM) */}
-                      {loading ? <ToggleSkeleton /> : <Toggle testId="mumate-toggle" on={d.destinations.includes(dm.id)} off={!usable} />}
-                    </button>
-
-                    {reason && (
-                      <p data-testid="mumate-reason" className="pl-14 text-xs font-medium leading-5 text-v3-text-muted">
-                        {reason}
-                        {guide && (
-                          <button type="button" data-testid="mumate-guide" onClick={() => onShowGuide(guide)} className="ml-1 font-bold text-v3-cyan underline">
-                            ดูวิธี
-                          </button>
-                        )}
-                      </p>
-                    )}
-                  </div>
-                )
-              })}
-            </div>
-          </div>
         </div>
 
-        {/* sticky save — disabled via goo's canCommit (no hand-written guard) */}
+        {/* sticky save — disabled via goo's canCommit (≥1 ยาม; no hand-written guard).
+            #298 reframe: the destination switch is gone — ticking a ยาม is enough to save, and the system
+            fills ['mumate'] itself. The button now carries the whole action:
+              • default  → "บันทึกและเปิดแจ้งเตือน" — one tap saves the reminder AND asks for permission
+              • else     → "บันทึก"
+            When the device can't ring (denied/needs-install/unsupported) a line under the button says so and
+            offers the install/permission guide — the 6-state truth that used to live on the removed toggle. */}
         <div className="border-t border-black/5 bg-v3-ghost-white px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-3">
-          {/* ⏳ ช่องที่เปิดขึ้นเพราะใบนี้ถอด default 'mumate' ออก: ติ๊กยามแล้วกดบันทึกได้ทั้งที่ไม่มีปลายทางเลย
-              ทางที่ถูกกว่าคือ canCommit บวก destinations.length > 0 แต่ `hasCommittableDraft` เป็นของ goo
-              (`save-flow.ts` + ฟันใน calendar-phase0.test.ts) และใบสั่งว่าต้องถามก่อนแตะ — ถามไว้ในใบแล้ว
-              ⇒ ระหว่างนี้ "พูดความจริงใต้ปุ่ม" ❌ ไม่บันทึกเงียบ · ถ้า goo รับข้อเสนอ บรรทัดนี้ลบทิ้งได้เลย
-
-              🔴 แก้ถ้อยคำหลัง #287 merge (2026-08-17): ประโยคเดิมเขียนว่า "บันทึกได้ แต่จะไม่มีอะไรเตือน"
-              ซึ่งจริงตอนที่ save ยังเป็น client-side. ตอนนี้ `planReminderCommit` ตอบ **400 'ต้องเลือก
-              ปลายทางอย่างน้อย 1 อย่าง'** ⇒ มัน **บันทึกไม่ติดเลย** ไม่ใช่บันทึกแล้วเงียบ. ประโยคเดิมจึงกลาย
-              เป็นคำโกหกโดยไม่มีเทสต์ไหนแดง — ฟันเดิม assert แค่ว่า testid โผล่ ไม่ได้ assert ประโยค ⇒
-              เพิ่ม assert ที่ตัวข้อความใน notify-state-ui.test.tsx ด้วย */}
-          {noDestination && draft.canCommit && (
-            <p data-testid="save-no-destination" className="mb-2 text-center text-xs font-medium leading-5 text-v3-text-muted">
-              ต้องเลือกปลายทางอย่างน้อย 1 อย่าง ถึงจะบันทึกได้
-            </p>
-          )}
           <button
             type="button"
             data-testid="sheet-save"
+            data-notify-state={notify}
             disabled={!draft.canCommit}
             onClick={onSave}
             className="h-[52px] w-full rounded-2xl bg-v3-sapphire text-base font-bold text-white disabled:bg-neutral-300 disabled:text-white/80"
           >
-            บันทึก
+            {notify === 'default' ? 'บันทึกและเปิดแจ้งเตือน' : 'บันทึก'}
           </button>
+          {saveReason && (
+            <p data-testid="save-notify-reason" className="mt-2 text-center text-xs font-medium leading-5 text-v3-text-muted">
+              {saveReason}
+              {saveGuide && (
+                <button type="button" data-testid="save-notify-guide" onClick={() => onShowGuide(saveGuide)} className="ml-1 font-bold text-v3-cyan underline">
+                  ดูวิธี
+                </button>
+              )}
+            </p>
+          )}
         </div>
       </div>
     </div>

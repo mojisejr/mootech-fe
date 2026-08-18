@@ -88,7 +88,7 @@ Payment spans **FE** (`pages/payment/*`, `pages/api/payment-package.ts`) and **B
 
 - **No secrets in git, PRs, or logs.** Real values live only in platform dashboards (`sync: false` on Render; Vercel env).
 - `.env*` is gitignored in all repos; `.env.example` (masked) is the contract.
-- **gitleaks** runs on every PR (FE/BE) scanning the **diff only** (not full history — historical secrets are handled by rotation, not history rewrite).
+- **gitleaks** runs on every PR (FE/BE) scanning the PR's **commit range only** (`base.sha..head.sha`, not full history — historical secrets are handled by rotation, not history rewrite). Since #309 it runs the pinned gitleaks **CLI** directly (not `gitleaks-action`), so it makes no GitHub API call — the gate can never fail *before* scanning, and a red always means either a real finding or a tool failure, distinguished in the job log.
 - ⚠️ **Known exposure:** real OAuth/LINE/Omise secrets exist in early git history (FE init commit, BE init commit). They **cannot** be removed by force-push (violates append-only history). **Rotation is a required go-live gate** (separate workstream), not solved by this flow.
 
 ---
