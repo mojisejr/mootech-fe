@@ -1,32 +1,65 @@
 #!/usr/bin/env bash
-# pre-push guard — refuse an ACCIDENTAL push straight to this repo's protected (default) branch.
+# pre-push — TWO guards, deliberately with DIFFERENT failure directions (see §fail direction below).
+#
+#   guard A (branch)  refuse an ACCIDENTAL push straight to this repo's protected (default) branch.
+#   guard B (gate)    refuse a push whose `lint` or `test` is not green on THIS machine.  (#320)
 #
 # The protected branch is READ FROM GIT, never hardcoded: mootech-fe → main, bazi → pdf-dev, etc.
 # (from the remote's HEAD symref). So the same hook is correct in every repo.
 #
-# HONEST SCOPE: this catches "เผลอ push main". It is NOT a hard block — `git push --no-verify` skips every
-# hook. It is the "ดัก" layer, not "บังคับ" (we have no enforced layer; GitHub Pro was declined). The PR/merge
-# rules still matter precisely because this can be bypassed.
+# HONEST SCOPE: this catches "เผลอ push main" and "เผลอ push ของที่ยังไม่เขียว". It is NOT a hard block —
+# `git push --no-verify` skips every hook. It is the "ดัก" layer, not "บังคับ" (we have no enforced layer;
+# GitHub Pro was declined). The PR/merge rules still matter precisely because this can be bypassed.
+#
+# WHY THE GATE LIVES HERE AND NOT IN CI (#318, ฟีม-decided 2026-08-18):
+#   `ci.yml` is being retired — merge into main = production deploy, and GitHub Actions minutes are paid.
+#   So build/lint/test move onto the developer's machine. `lint` + `test` run here on every push
+#   (mootech-fe ≈ 30s · mootech-be ≈ 112s, measured 2026-08-18). `build` deliberately does NOT:
+#   it costs 4m11s on mootech-fe and a normal issue takes 4-5 pushes ⇒ ~21 min of repeated build ⇒ people
+#   would reach for `--no-verify`, and that would take lint AND test down with it. `build` is checked once
+#   before opening the PR instead, with its output pasted into the PR body.
+#
+#   ⚠️ THE REASON IS THE VARIANCE, NOT THE AVERAGE. Five runs on the same commit, 2026-08-18:
+#       41s · 71s · 134s · 251s · 408s   — a 10× spread depending on what `.next/` happens to hold.
+#     Anyone who just ran `npm ci`, or switched between distant branches, pays the 400s end. So the honest
+#     statement is not "build is slow", it is "build's cost is UNPREDICTABLE" — and an unpredictable wait
+#     in front of every push is what teaches people to reach for `--no-verify`. lint+test are ~30s and
+#     barely move; that stability is why they can live here and build cannot.
 #
 # git invokes: pre-push <remote-name> <remote-url>, with stdin lines:
 #   <local ref> SP <local oid> SP <remote ref> SP <remote oid> LF
 set -euo pipefail
 
 remote="${1:-origin}"
+ZERO_OID_RE='^0*$'
 
+# ── guard A · protected branch ────────────────────────────────────────────────────────────────
 # protected branch = the remote's default branch, from git (not hardcoded).
 protected="$(git symbolic-ref --quiet --short "refs/remotes/${remote}/HEAD" 2>/dev/null | sed "s#^${remote}/##" || true)"
 if [ -z "${protected}" ]; then
-  # detection failed → FAIL OPEN (a ดัก must not block legit work when it can't tell) with a hint.
-  echo "pre-push: cannot determine ${remote}'s default branch (is ${remote}/HEAD set?) — guard skipped." >&2
-  exit 0
+  # Detection failed → guard A FAILS OPEN (a ดัก must not block legit work when it can't tell).
+  # 🔴 It must NOT `exit 0` here. That returns from the whole script and takes guard B — which fails
+  #    CLOSED on purpose — down with it. ตู๋ proved it (#325, 2026-08-18): with origin/HEAD removed and
+  #    lint red, the push SUCCEEDED and the hard gate never ran, while the message said "guard skipped"
+  #    (singular) — so the §fail direction paragraph below was describing something the code did not do.
+  #    Leaving `protected` empty and guarding the comparison skips ONLY guard A.
+  echo "pre-push: cannot determine ${remote}'s default branch (is ${remote}/HEAD set?) — branch guard skipped (the lint/test gate still runs)." >&2
 fi
 
 blocked=0
-while read -r _localref _localoid remoteref _remoteoid; do
+# has_content = at least one ref actually SENDS commits up. Verified empirically 2026-08-18 in a throwaway
+# repo, because guessing this wrong wastes 30-112s on pushes that carry no code:
+#   push a branch   → localref='refs/heads/feat/x'  localoid=<sha>
+#   push --delete   → localref='(delete)'           localoid=000…0     ⇒ skip the gate
+#   already up-to-date → git fires the hook with ZERO stdin lines      ⇒ skip the gate
+has_content=0
+while read -r _localref localoid remoteref _remoteoid; do
   [ -z "${remoteref:-}" ] && continue
+  if ! [[ "${localoid}" =~ ${ZERO_OID_RE} ]]; then
+    has_content=1
+  fi
   branch="${remoteref#refs/heads/}"
-  if [ "${branch}" = "${protected}" ]; then
+  if [ -n "${protected}" ] && [ "${branch}" = "${protected}" ]; then
     blocked=1
   fi
 done
@@ -37,13 +70,13 @@ if [ "${blocked}" -eq 1 ]; then
   ✋ pre-push blocked: you are pushing directly to '${protected}' (this repo's protected branch).
 
   Why this is blocked:
-    • direct pushes to '${protected}' skip ci / design-verify / secret-scan (all are on: pull_request)
     • merge is ฟีม's decision — even a one-line doc/ledger change goes through a PR
+    • main = production deploy; a direct push deploys without anyone reviewing it
 
   Do this instead:
     git switch -c feat/your-change            # put your commit(s) on a branch
     git push -u ${remote} feat/your-change    # push the branch (this is allowed)
-    gh pr create                              # open a PR → CI runs → ฟีม merges
+    gh pr create                              # open a PR → ฟีม merges
 
   (This is a guard, not a wall: 'git push --no-verify' bypasses it. Follow the PR rule anyway.)
 
@@ -51,4 +84,32 @@ MSG
   exit 1
 fi
 
+# ── guard B · hard gate (lint + test) ─────────────────────────────────────────────────────────
+if [ "${has_content}" -eq 0 ]; then
+  echo "pre-push: nothing being sent (delete / already up-to-date) — hard gate skipped." >&2
+  exit 0
+fi
+
+# §fail direction — guard A fails OPEN, guard B fails CLOSED. This asymmetry is deliberate:
+#   guard A protects against a MISTAKE. If it cannot tell whether you are making that mistake, blocking
+#     you would be worse than letting you through — you still have the PR rule.
+#   guard B asserts a FACT ("lint and test are green here"). If it cannot run the check, it has no fact
+#     to assert. Passing would announce green without anything having been measured — exactly the shape
+#     this whole issue (#318) exists to remove.
+# ⇒ do NOT "make the hook consistent" by aligning these two. They answer different questions.
+die() { printf '\n  ✋ pre-push blocked: %s\n\n' "$1" >&2; exit 1; }
+
+command -v npm >/dev/null 2>&1 \
+  || die "'npm' is not on PATH, so lint/test could not run. Not passing a check that never happened.
+     (GUI git clients often have a smaller PATH than your shell — launch from a terminal, or fix the client's PATH.)"
+
+echo "pre-push: hard gate → npm run lint" >&2
+npm run lint \
+  || die "'npm run lint' failed (or the 'lint' script is missing). Fix it, then push again."
+
+echo "pre-push: hard gate → npm test" >&2
+npm test \
+  || die "'npm test' failed (or the 'test' script is missing). Fix it, then push again."
+
+echo "pre-push: hard gate green (lint + test). 'npm run build' is still yours to run before opening the PR." >&2
 exit 0

@@ -8,10 +8,20 @@
 - [ ] chore
 - [ ] payment ⚠️ (triggers the FE↔BE sync checklist below)
 
-## Hard Gate (must be green before merge)
-- [ ] Build passes (`npm run build`)
-- [ ] Static check passes (`npx tsc --noEmit`)
-- [ ] Tests pass (`tsx scripts/*.test.ts`)
+## Hard Gate — run on YOUR machine, not in CI (see #318)
+`lint` + `test` are enforced by `.githooks/pre-push` on every push. `build` is not — check it here.
+
+- [ ] `npm run build` green — **paste the output below** (this is the one nothing enforces; 41s–408s depending on `.next/` cache)
+- [ ] `npm run lint` green (0 errors; warnings do not fail the gate)
+- [ ] `npm test` green
+- [ ] `git config core.hooksPath` prints `.githooks` on my machine
+
+<details><summary>output of `npm run build`</summary>
+
+```
+paste here
+```
+</details>
 
 ## Deploy impact
 - [ ] I understand: **merge into `main` = production deploy** (no separate deploy step)
