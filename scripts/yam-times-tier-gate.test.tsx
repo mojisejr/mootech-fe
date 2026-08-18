@@ -68,12 +68,12 @@ describe('#316 · ปุ่มเพิ่มปฏิทินรายยา�
     expect(screen.getAllByTestId(/^yam-add-y/)).toHaveLength(YAMS.length)
   })
 
-  it('ค่าเริ่มต้นของ locked คือ false — ผู้เรียกเดิมที่ยังไม่ส่ง prop ต้องไม่ถูกล็อกเงียบ', () => {
-    const onAdd = vi.fn()
-    render(<YamTimes yams={YAMS} onAdd={onAdd} />)
-    fireEvent.click(screen.getByTestId('yam-add-y1'))
-    expect(onAdd).toHaveBeenCalledTimes(1)
-  })
+  // ❌ ถอนเคส "ค่าเริ่มต้นของ locked คือ false" ออกแล้ว (ตู๋ #324 · request changes)
+  // เหตุผลที่เคสนั้นอ้าง — "ผู้เรียกเดิมที่ยังไม่ส่ง prop" — **ไม่มีอยู่จริง**: ผู้เรียก `YamTimes`
+  // ทั้ง repo มีตัวเดียวคือ [date].tsx:186 และมันส่ง prop อยู่แล้ว ⇒ เคสนั้นตรึง default ที่ไม่มีใครใช้
+  // ไว้ว่า "ถูกต้อง" และปิดทางทำ `locked` ให้เป็น required
+  // ⇒ ตอนนี้ `locked` เป็น required แล้ว ด่าน "ผู้เรียกต้องส่งค่ามา" อยู่ที่คอมไพเลอร์ (TS2741)
+  //   ซึ่งเป็นที่เดียวที่จับได้ — unit test จับไม่ได้เพราะมันเรียก component เอง ไม่ได้เรียกผ่านหน้าเพจ
 })
 
 // tier มีสามค่า ไม่ใช่สองค่า — ฟันนี้อยู่แยกจาก component เพราะบรรทัดที่ตัดสินอยู่ใน tier-lock.ts

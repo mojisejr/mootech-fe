@@ -15,6 +15,10 @@
 // ฝั่งเซิร์ฟเวอร์กันอยู่แล้วและ fail-closed (pages/api/v2/reminders.ts:40-43 · lib/usage-core.ts:94) ⇒ ด่านนี้
 // ไม่ได้กันข้อมูลรั่ว มันกัน **จอโกหก**: ก่อนหน้านี้ free กดแล้วยิง POST ได้ 403 แบบ fire-and-forget ⇒
 // ไม่มีอะไรขยับบนจอเลย ผู้ใช้อ่านว่าปุ่มเสีย
+//
+// ⚠️ ขอบเขตของด่านนี้คือ **ปุ่มรายยามเท่านั้น** — CTA แถบล่าง ("เพิ่มลงปฏิทิน เพื่อแจ้งเตือน") ยังเปิดชีท
+// ให้ free ได้อยู่ แล้วไปตายที่ 403 ตอนกดบันทึก (ตู๋จับตอนรีวิว #324) ⇒ ถือโดย #326 ซึ่งยังรอฟีมเคาะว่า
+// แถบล่างควรเป็นอะไรสำหรับ free ❌ อย่าอ่านไฟล์นี้ว่า "free ยิง POST ไม่ได้แล้ว" — จริงเฉพาะทางนี้
 import type { YamSlot } from '../../types'
 import { ComingSoonAction } from '@/features/v2-shell/components/ComingSoon'
 import { SectionCard } from './SectionCard'
@@ -28,7 +32,12 @@ const PILL_LOCKED = `${PILL} bg-v3-disabled-bg text-v3-text-body`
 
 export const YAM_LOCKED_MESSAGE = 'การตั้งเตือนเป็นของสมาชิก · ระบบสมาชิกกำลังจะมา เร็วๆ นี้'
 
-export function YamTimes({ yams, onAdd, locked = false }: { yams: YamSlot[]; onAdd: (yam: YamSlot) => void; locked?: boolean }) {
+// 🔴 `locked` เป็น required ❌ ไม่ใช่ optional ที่ default false — ตู๋ยิงพิสูจน์ (#324): ถอด
+// `locked={…}` ออกจากผู้เรียกจริงที่ [date].tsx:186 แล้ว **302/302 ยังเขียวครบ · tsc exit 0**
+// ⇒ ฟันทั้งชุดเฝ้า "component ทำอะไรเมื่อได้ locked" แต่ไม่มีอะไรเฝ้า "หน้าเพจส่ง locked มาจริงไหม"
+// required ย้ายด่านนั้นไปอยู่ที่คอมไพเลอร์: ถอดออก ⇒ TS2741 ชี้บรรทัดผู้เรียกเป๊ะ
+// (ผู้เรียกทั้ง repo มีตัวเดียวและส่ง prop อยู่แล้ว ⇒ ไม่มีใครเสียประโยชน์จาก default)
+export function YamTimes({ yams, onAdd, locked }: { yams: YamSlot[]; onAdd: (yam: YamSlot) => void; locked: boolean }) {
   return (
     <SectionCard title="เวลามงคล" info>
       <div className="flex flex-col gap-2.5">
