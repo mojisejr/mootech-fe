@@ -54,7 +54,9 @@ describe.skipIf(!TEST_URL)('createDbRepo.claimDue · real pg · FOR UPDATE SKIP 
   const NOW = new Date('2026-08-19T10:00:00.000Z')
 
   beforeAll(async () => {
-    client = postgres(TEST_URL as string, { max: 5, ssl: false })
+    // lock_timeout so that IF the guard regresses to a plain FOR UPDATE, the second claimer BLOCKS on
+    // the first's row-lock and errors in 3s instead of hanging the run — the mutant fails fast and loud.
+    client = postgres(TEST_URL as string, { max: 5, ssl: false, connection: { lock_timeout: '3000' } })
     testDb = drizzle(client, { schema })
     await client.unsafe(DDL)
     // repo.ts pulls in lib/db at import; DATABASE_URL is set so that lazy client constructs without
@@ -74,7 +76,7 @@ describe.skipIf(!TEST_URL)('createDbRepo.claimDue · real pg · FOR UPDATE SKIP 
   async function seedOneDueReminder() {
     await client.unsafe('DELETE FROM reminder; DELETE FROM push_subscription;')
     await client`INSERT INTO reminder (user_id, reminder_date, yam_id, yam_label, yam_window, destinations, fire_at_utc)
-      VALUES ('u1', '2026-08-19', 'y1', 'ยามรุ่ง', '06:00-07:00', '["mumate"]'::json, ${new Date(NOW.getTime() - 2 * 60_000)})`
+      VALUES ('u1', '2026-08-19', 'y1', 'ยามรุ่ง', '06:00-07:00', '["mumate"]'::json, ${new Date(NOW.getTime() - 2 * 60_000).toISOString()})`
   }
 
   it('two claimers overlapping: the row is handed to EXACTLY ONE (the other skips the locked row)', async () => {
@@ -88,9 +90,15 @@ describe.skipIf(!TEST_URL)('createDbRepo.claimDue · real pg · FOR UPDATE SKIP 
       return claimed
     })
     await new Promise((r) => setTimeout(r, 150)) // let A acquire the lock first
-    // Transaction B runs while A still holds the lock → SKIP LOCKED means B sees zero.
-    const bClaimed = await testDb.transaction(async (tx) => createDbRepo(tx as never).claimDue(NOW))
-    releaseA()
+    // Transaction B runs while A still holds the lock → SKIP LOCKED means B sees zero. (A plain FOR
+    // UPDATE would block here and hit lock_timeout — that is the mutant's fast failure.)
+    let bClaimed: Awaited<ReturnType<PushRepo['claimDue']>>
+    try {
+      bClaimed = await testDb.transaction(async (tx) => createDbRepo(tx as never).claimDue(NOW))
+    } finally {
+      releaseA() // always release A so the held lock frees and teardown never blocks
+      await pA
+    }
     const aClaimed = await pA
     expect(aClaimed.length).toBe(1)
     expect(bClaimed.length).toBe(0)
@@ -99,7 +107,7 @@ describe.skipIf(!TEST_URL)('createDbRepo.claimDue · real pg · FOR UPDATE SKIP 
   it('due row past its fire time only; a NOT-yet-due row is never claimed', async () => {
     await client.unsafe('DELETE FROM reminder;')
     await client`INSERT INTO reminder (user_id, reminder_date, yam_id, yam_label, yam_window, destinations, fire_at_utc)
-      VALUES ('u2', '2026-08-19', 'y2', 'ยามสาย', '10:00-11:00', '["mumate"]'::json, ${new Date(NOW.getTime() + 5 * 60_000)})`
+      VALUES ('u2', '2026-08-19', 'y2', 'ยามสาย', '10:00-11:00', '["mumate"]'::json, ${new Date(NOW.getTime() + 5 * 60_000).toISOString()})`
     const claimed = await testDb.transaction(async (tx) => createDbRepo(tx as never).claimDue(NOW))
     expect(claimed.length).toBe(0)
   })
@@ -107,7 +115,7 @@ describe.skipIf(!TEST_URL)('createDbRepo.claimDue · real pg · FOR UPDATE SKIP 
   it('a Google-only reminder (no "mumate" destination) is never claimed for push', async () => {
     await client.unsafe('DELETE FROM reminder;')
     await client`INSERT INTO reminder (user_id, reminder_date, yam_id, yam_label, yam_window, destinations, fire_at_utc)
-      VALUES ('u3', '2026-08-19', 'y3', 'ยามบ่าย', '13:00-14:00', '["google"]'::json, ${new Date(NOW.getTime() - 2 * 60_000)})`
+      VALUES ('u3', '2026-08-19', 'y3', 'ยามบ่าย', '13:00-14:00', '["google"]'::json, ${new Date(NOW.getTime() - 2 * 60_000).toISOString()})`
     const claimed = await testDb.transaction(async (tx) => createDbRepo(tx as never).claimDue(NOW))
     expect(claimed.length).toBe(0)
   })
