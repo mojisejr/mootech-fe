@@ -1,4 +1,5 @@
 import Image from 'next/image'
+import Link from 'next/link'
 
 // F5 — earned-invitation, not a wall. Shown after the chart+timeline are already fully visible
 // and playable — never blocks access to the free calculation itself.
@@ -9,12 +10,12 @@ export function CtaEarned({ onTryAnother }: { onTryAnother: () => void }) {
       <p className="mt-1 font-ibm text-sm text-calc_muted">อยากรู้ว่ามันแปลว่าอะไร?</p>
 
       <div className="relative mt-4">
-        <a
+        <Link
           href="/my-destiny"
           className="block w-full rounded-2xl bg-moumate_blue py-3 font-ibm font-medium text-moumate_black"
         >
           ดูคำทำนายเชิงลึก · สมัครฟรี
-        </a>
+        </Link>
         <Image
           src="/images/mumate/ic_sparkles.svg"
           width={22}

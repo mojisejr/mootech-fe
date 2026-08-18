@@ -5,8 +5,8 @@ import React from 'react';
 let CanvasJSChart: any;
 if (typeof window !== 'undefined') {
   // ทำ dynamic import เฉพาะฝั่ง client
-  const module = require('canvasjs-react-charts');
-  CanvasJSChart = module.CanvasJSChart;
+  const canvasModule = require('canvasjs-react-charts');
+  CanvasJSChart = canvasModule.CanvasJSChart;
 }
 
 

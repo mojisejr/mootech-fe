@@ -219,8 +219,9 @@ export default function ActivityPage() {
                             <div className="  w-full flex gap-3 flex-wrap mt-8 p-4 ">
                               {
                                 logActivity.map(function(item, index) {
-                                  return <ActivityCard 
-                                  create_at={item.create_at} 
+                                  return <ActivityCard
+                                  key={`${item.create_at}-${item.activity_name}`}
+                                  create_at={item.create_at}
                                   point={item.point} 
                                   description={item.activity_name}                                  
                                   />

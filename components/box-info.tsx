@@ -146,7 +146,7 @@ const BoxInfo = ({
                   if (item.ageEnd < 100) {
 
                     return  (
-                        <li className=' text-black mt-2 '><span className=' text-black  font-semibold'>ช่วงอายุ {item.ageStart} - {item.ageEnd}</span> : <br/>{item.note}</li>
+                        <li key={item.ageStart} className=' text-black mt-2 '><span className=' text-black  font-semibold'>ช่วงอายุ {item.ageStart} - {item.ageEnd}</span> : <br/>{item.note}</li>
                     )
                   } else {
                     return null

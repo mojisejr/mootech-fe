@@ -343,7 +343,7 @@ const getStateDayBuddhistDay = (item: any) => {
               {
                 ['อา','จ','อ','พ','พฤ','ศ','ส'].map(function(item, index){
                   return (
-                    <div className='w-[45px]  h-[45px] flex flex-wrap px-[2px] py-[4px]'>
+                    <div key={item} className='w-[45px]  h-[45px] flex flex-wrap px-[2px] py-[4px]'>
                       <div className='w-full flex justify-center'>
                         <span className=' flex justify-center items-center  text-black font-bold text-[14px] w-[26px] h-[26px] '>{item}</span>
                       </div>
@@ -357,7 +357,7 @@ const getStateDayBuddhistDay = (item: any) => {
               {
                 getWeek(1).map(function(item, index){
                   return (
-                    <div className={(getStateDayBackground(item)) + ' w-[45px]   rounded-[5px] h-[60px] flex flex-wrap px-[2px] py-[4px]'}>
+                    <div key={item.date || `empty-${index}`} className={(getStateDayBackground(item)) + ' w-[45px]   rounded-[5px] h-[60px] flex flex-wrap px-[2px] py-[4px]'}>
                       <div className='w-full flex justify-center'>
                         {getStateDay(item)}
                       </div>
@@ -372,7 +372,7 @@ const getStateDayBuddhistDay = (item: any) => {
               {
                 getWeek(2).map(function(item, index){
                   return (
-                    <div className={(getStateDayBackground(item)) + ' w-[45px]   rounded-[5px] h-[60px] flex flex-wrap px-[2px] py-[4px]'}>
+                    <div key={item.date || `empty-${index}`} className={(getStateDayBackground(item)) + ' w-[45px]   rounded-[5px] h-[60px] flex flex-wrap px-[2px] py-[4px]'}>
                       <div className='w-full flex justify-center'>
                         {getStateDay(item)}
                       </div>
@@ -387,7 +387,7 @@ const getStateDayBuddhistDay = (item: any) => {
               {
                 getWeek(3).map(function(item, index){
                   return (
-                    <div className={(getStateDayBackground(item)) + ' w-[45px]   rounded-[5px] h-[60px] flex flex-wrap px-[2px] py-[4px]'}>
+                    <div key={item.date || `empty-${index}`} className={(getStateDayBackground(item)) + ' w-[45px]   rounded-[5px] h-[60px] flex flex-wrap px-[2px] py-[4px]'}>
                       <div className='w-full flex justify-center'>
                         {getStateDay(item)}
                       </div>
@@ -403,7 +403,7 @@ const getStateDayBuddhistDay = (item: any) => {
               {
                 getWeek(4).map(function(item, index){
                   return (
-                    <div className={(getStateDayBackground(item)) + ' w-[45px]   rounded-[5px] h-[60px] flex flex-wrap px-[2px] py-[4px]'}>
+                    <div key={item.date || `empty-${index}`} className={(getStateDayBackground(item)) + ' w-[45px]   rounded-[5px] h-[60px] flex flex-wrap px-[2px] py-[4px]'}>
                       <div className='w-full flex justify-center'>
                         {getStateDay(item)}
                       </div>
@@ -418,7 +418,7 @@ const getStateDayBuddhistDay = (item: any) => {
               {
                 getWeek(5).map(function(item, index){
                   return (
-                    <div className={(getStateDayBackground(item)) + ' w-[45px]   rounded-[5px] h-[60px] flex flex-wrap px-[2px] py-[4px]'}>
+                    <div key={item.date || `empty-${index}`} className={(getStateDayBackground(item)) + ' w-[45px]   rounded-[5px] h-[60px] flex flex-wrap px-[2px] py-[4px]'}>
                       <div className='w-full flex justify-center'>
                         {getStateDay(item)}
                       </div>
@@ -452,7 +452,7 @@ const getStateDayBuddhistDay = (item: any) => {
                       {
                         calendarInfo?.groups?.is_thai_buddhist_day.map(function(item: any, index: any) {
                           return (
-                            <span className=' border border-[#FFEABA]  bg-[#FFF7D2] text-black rounded-full text-[16px] w-[36px] h-[36px] flex items-center justify-center '>{item}</span>
+                            <span key={item} className=' border border-[#FFEABA]  bg-[#FFF7D2] text-black rounded-full text-[16px] w-[36px] h-[36px] flex items-center justify-center '>{item}</span>
                           )
                         })
                       }
@@ -469,7 +469,7 @@ const getStateDayBuddhistDay = (item: any) => {
                       {
                         calendarInfo?.groups?.is_chinese_buddhist_day.map(function(item: any, index: any) {
                           return (
-                            <span className=' border border-[#FFE0AF]  bg-[#FFECCE] text-black rounded-full text-[16px] w-[36px] h-[36px] flex items-center justify-center '>{item}</span>
+                            <span key={item} className=' border border-[#FFE0AF]  bg-[#FFECCE] text-black rounded-full text-[16px] w-[36px] h-[36px] flex items-center justify-center '>{item}</span>
                           )
                         })
                       }
@@ -493,7 +493,7 @@ const getStateDayBuddhistDay = (item: any) => {
                       {
                         calendarInfo?.groups?.is_doctor_day.map(function(item: any, index: any) {
                           return (
-                            <span className=' border border-[#72C598]  bg-[#94CFAF] text-white rounded-full text-[16px] w-[36px] h-[36px] flex items-center justify-center '>{item}</span>
+                            <span key={item} className=' border border-[#72C598]  bg-[#94CFAF] text-white rounded-full text-[16px] w-[36px] h-[36px] flex items-center justify-center '>{item}</span>
                           )
                         })
                       }
@@ -517,7 +517,7 @@ const getStateDayBuddhistDay = (item: any) => {
                       {
                         calendarInfo?.groups?.is_good_day.map(function(item: any, index: any) {
                           return (
-                            <span className=' border border-[#FF8DA4]  bg-[#FCA8BA] text-white rounded-full text-[16px] w-[36px] h-[36px] flex items-center justify-center '>{item}</span>
+                            <span key={item} className=' border border-[#FF8DA4]  bg-[#FCA8BA] text-white rounded-full text-[16px] w-[36px] h-[36px] flex items-center justify-center '>{item}</span>
                           )
                         })
                       }
@@ -541,7 +541,7 @@ const getStateDayBuddhistDay = (item: any) => {
                       {
                         calendarInfo?.groups?.is_thian_chai.map(function(item: any, index: any) {
                           return (
-                            <span className=' border border-[#A4CCF0]  bg-[#C0E1FF] text-white rounded-full text-[16px] w-[36px] h-[36px] flex items-center justify-center '>{item}</span>
+                            <span key={item} className=' border border-[#A4CCF0]  bg-[#C0E1FF] text-white rounded-full text-[16px] w-[36px] h-[36px] flex items-center justify-center '>{item}</span>
                           )
                         })
                       }
@@ -550,7 +550,7 @@ const getStateDayBuddhistDay = (item: any) => {
                       {
                         calendarInfo?.holidays?.map(function(item: any, index: any) {
                           return (
-                            <span className=' text-[#888888] text-[12px]  flex w-full '>* {item.day} {item.description}</span>
+                            <span key={`${item.day}-${item.description}`} className=' text-[#888888] text-[12px]  flex w-full '>* {item.day} {item.description}</span>
                           )
                         })
                       }

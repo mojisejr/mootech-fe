@@ -29,9 +29,18 @@ export function AuthLoadingGate({ timeoutMs = 12000 }: { timeoutMs?: number }) {
       >
         โหลดใหม่อีกครั้ง
       </button>
-      <a href="/v2/login" className="text-sm text-v3-sapphire underline">
+      {/* Full-document navigation (not next/link client-nav) is deliberate: re-mounting _app
+          re-arms the identity self-heal, which is the whole point of this escape. Same reason
+          the reload button above uses window.location. */}
+      <button
+        type="button"
+        onClick={() => {
+          window.location.href = '/v2/login'
+        }}
+        className="text-sm text-v3-sapphire underline"
+      >
         เข้าสู่ระบบใหม่
-      </a>
+      </button>
     </div>
   )
 }

@@ -648,7 +648,8 @@ const [imageSrc, setImageSrc] = useState<string | null>(null);
                           {
                             logSurvey.map(function(item, index){
                               return (
-                                <SurveyCard 
+                                <SurveyCard
+                                  key={item.code}
                                   create_at={item.create_at}
                                   url={item.url}
                                   title={item.title}

@@ -99,10 +99,10 @@ export default function WelcomePage() {
   const [step, setStep] = useState<string>('FORM'); // FORM / LOADING / FINISH
 
   const items = [
-    <span className="w-full  text-center justify-center flex font-medium mt-2 font-ibm text-[24px] text-moumate_white" >🔮 กำลังวิเคราะห์ข้อมูลของคุณ... </span>,
-    <span className="w-full  text-center justify-center flex font-medium mt-2 font-ibm text-[24px] text-moumate_white" >📊 คำนวณตำแหน่งดาวเคราะห์  </span>,
-    <span className="w-full  text-center justify-center flex font-medium mt-2 font-ibm text-[24px] text-moumate_white" >🎯 วิเคราะห์บุคลิกภาพ</span>,
-    <span className="w-full  text-center justify-center flex font-medium mt-2 font-ibm text-[24px] text-moumate_white" >💫 สร้างผลลัพธ์ </span>,
+    <span key="loading-analyze" className="w-full  text-center justify-center flex font-medium mt-2 font-ibm text-[24px] text-moumate_white" >🔮 กำลังวิเคราะห์ข้อมูลของคุณ... </span>,
+    <span key="loading-planets" className="w-full  text-center justify-center flex font-medium mt-2 font-ibm text-[24px] text-moumate_white" >📊 คำนวณตำแหน่งดาวเคราะห์  </span>,
+    <span key="loading-personality" className="w-full  text-center justify-center flex font-medium mt-2 font-ibm text-[24px] text-moumate_white" >🎯 วิเคราะห์บุคลิกภาพ</span>,
+    <span key="loading-result" className="w-full  text-center justify-center flex font-medium mt-2 font-ibm text-[24px] text-moumate_white" >💫 สร้างผลลัพธ์ </span>,
 ];
   
 
@@ -565,7 +565,7 @@ export default function WelcomePage() {
             
                             <div className="w-full grow flex items-center ">
                               <span className="w-full font-ibm justify-center text-center font-semibold  text-[16px] text-moumate_black">
-                                Mumate ค้นพบ  <span className=" text-moumate_blue">"ความลับพิเศษ"</span> <br/>
+                                Mumate ค้นพบ  <span className=" text-moumate_blue">&quot;ความลับพิเศษ&quot;</span> <br/>
                               เกี่ยวกับตัวคุณ!
                               </span>
                               

@@ -202,7 +202,7 @@ useEffect(() => {
                       {
                         historyChat.map(function(item, index){
                           return (
-                            <div className={ (item.is_ai ? '  justify-start  ' : ' justify-end ' ) + ' w-full flex flex-wrap '}>
+                            <div key={index} className={ (item.is_ai ? '  justify-start  ' : ' justify-end ' ) + ' w-full flex flex-wrap '}>
                               <div className={
                                 (item.is_ai ? '  justify-start  ' : ' justify-end ' ) + 
                                 'w-3/4 flex flex-wrap my-2 text-white whitespace-pre-line '}>
