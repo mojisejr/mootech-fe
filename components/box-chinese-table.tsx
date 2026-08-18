@@ -426,8 +426,8 @@ const BoxChineseTable = ({
                   {
                     getDisplayResultCycle(resultHoroscope?.cycleLife?.life, true).map(function(item: any, index: number){
                       return (
-                        <div 
-                        
+                        <div
+                        key={item?.ageStart}
                         onClick={() => {
                           setSelectedAge(item?.ageStart);
                         }}
@@ -465,7 +465,8 @@ const BoxChineseTable = ({
                 {
                   getDisplayResultCycle(resultHoroscope?.cycleLife?.life, false).map(function(item: any, index: number){
                     return (
-                      <div 
+                      <div
+                      key={item?.ageStart}
                       onClick={() => {
                         setSelectedAge(item?.ageStart);
                       }}

@@ -34,10 +34,10 @@ export default function HowToEarnPage() {
  const [step, setStep] = useState<string>('FORM'); // FORM / LOADING
 
   const items = [
-    <span className="w-full  text-center justify-center flex font-medium mt-2 font-ibm text-[24px] text-black" >🔮 กำลังวิเคราะห์ข้อมูลของคุณ... </span>,
-    <span className="w-full  text-center justify-center flex font-medium mt-2 font-ibm text-[24px] text-black" >📊 คำนวณตำแหน่งดาวเคราะห์  </span>,
-    <span className="w-full  text-center justify-center flex font-medium mt-2 font-ibm text-[24px] text-black" >🎯 วิเคราะห์บุคลิกภาพ</span>,
-    <span className="w-full  text-center justify-center flex font-medium mt-2 font-ibm text-[24px] text-black" >💫 สร้างผลลัพธ์ </span>,
+    <span key="loading-analyze" className="w-full  text-center justify-center flex font-medium mt-2 font-ibm text-[24px] text-black" >🔮 กำลังวิเคราะห์ข้อมูลของคุณ... </span>,
+    <span key="loading-planets" className="w-full  text-center justify-center flex font-medium mt-2 font-ibm text-[24px] text-black" >📊 คำนวณตำแหน่งดาวเคราะห์  </span>,
+    <span key="loading-personality" className="w-full  text-center justify-center flex font-medium mt-2 font-ibm text-[24px] text-black" >🎯 วิเคราะห์บุคลิกภาพ</span>,
+    <span key="loading-result" className="w-full  text-center justify-center flex font-medium mt-2 font-ibm text-[24px] text-black" >💫 สร้างผลลัพธ์ </span>,
 ];
   
 

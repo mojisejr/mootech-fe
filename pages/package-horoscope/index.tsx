@@ -436,7 +436,7 @@ const callOmisePromtpay = async ( amount: number) => {
                       <span className='w-full  text-black justify-center font-medium text-2xl text-center flex flex-wrap mt-4'>2,890 บาท / 90 นาที</span>
 
                       <span className='w-full flex text-center text-[#888888] flex-wrap mt-4'>
-                              สำหรับคนที่ไม่ต้องการแค่ "รู้" แต่อยาก 'สร้าง'อนาคต! เจาะลึกทุกมิติ วางกลยุทธ์แบบ CEO
+                              สำหรับคนที่ไม่ต้องการแค่ &quot;รู้&quot; แต่อยาก &apos;สร้าง&apos;อนาคต! เจาะลึกทุกมิติ วางกลยุทธ์แบบ CEO
                               พร้อม Follow-up 7 วันเต็ม
                       </span>
 

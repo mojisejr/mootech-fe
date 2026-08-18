@@ -7,7 +7,7 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint --dir pages --dir components --dir features --dir lib --dir scripts --dir harness --dir constants --dir utils --dir types --dir dev-access --dir e2e",
+    "lint": "eslint . --ext .js,.jsx,.ts,.tsx",
     "test": "vitest run",
     "test:e2e:auth": "playwright test e2e/auth-loop.spec.ts",
     "assets:optimize": "tsx scripts/optimize-assets.ts"

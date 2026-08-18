@@ -18,7 +18,7 @@ const ModalOTP = ({
 
   const [otp, setOtp] = useState(Array(6).fill(''));
 
-  const inputRefs = Array.from({ length: 6 }, () => useRef<HTMLInputElement>(null));
+  const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
 
 
   const [refCodeInfo, setRefCodeInfo] = useState<string>(refCode)
@@ -44,13 +44,13 @@ const ModalOTP = ({
     setOtp(newOtp);
 
     if (value && index < 5) {
-      inputRefs[index + 1].current?.focus();
+      inputRefs.current[index + 1]?.focus();
     }
   };
 
   const handleKeyDown = (index: number, e: React.KeyboardEvent) => {
     if (e.key === 'Backspace' && !otp[index] && index > 0) {
-      inputRefs[index - 1].current?.focus();
+      inputRefs.current[index - 1]?.focus();
     }
   };
 
@@ -184,7 +184,9 @@ const ModalOTP = ({
                   otp.map((digit, index) => (
                   <input
                     key={index}
-                    ref={inputRefs[index]}
+                    ref={(el) => {
+                      inputRefs.current[index] = el;
+                    }}
                     type='text'
                     inputMode='numeric'
                     maxLength={1}

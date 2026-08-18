@@ -147,8 +147,9 @@ useEffect( () => {
               [...years].reverse().map(function(item, index) {
                 return (
                   <div
+                  key={item.year}
                   ref={(el: any) => (itemRefs.current[index] = el)}
-                  
+
                   className={'min-w-[70px] flex flex-wrap'}>
                     <div className={
                       (index == 0 ? ' border-l rounded-tl  ' : '' ) +  
