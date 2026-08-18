@@ -14,7 +14,8 @@ name: design-verify
 #
 # 🔁 เอากลับได้ด้วยการลบคอมเมนต์นี้แล้วคืน `pull_request:` block ข้างล่าง — ไม่มีอะไรถูกลบ
 #    ระหว่างนี้ยังรันมือ/สั่งรันได้ผ่าน workflow_dispatch  (Actions → design-verify → Run workflow)
-#    ใบที่ถือเรื่องนี้: mojisejr/mootech-fe#297 (flake) · #314 (bash -e) · #317 (ยกลง + เงื่อนไขเอากลับ)
+#    ใบที่ถือเรื่องนี้: mojisejr/mootech-fe#297 (flake) · mojisejr/mootech-fe#314 (bash -e)
+#    เงื่อนไขเอากลับ + เหตุผลเต็ม: PR mojisejr/mootech-fe#317 (PR ที่ยกลงนี้เอง)
 #
 # ของเดิมเก็บไว้ให้เห็น ไม่ลบ:
 #   on:
