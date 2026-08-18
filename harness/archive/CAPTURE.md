@@ -1,5 +1,19 @@
 # Capture Convention — webgang · test-env
 
+> 🗄️ **ARCHIVED 2026-08-18 — `mojisejr/mootech-fe#321`** (ฟีมเคาะใน `mojisejr/mootech-fe#318`)
+> **ทุกคำสั่งข้างล่างนี้รันจากที่ที่มันเขียนไว้ไม่ได้แล้ว** — `harness/capture-route.ts` ย้ายมาอยู่
+> `harness/archive/capture-route.ts` พร้อมกับ harness ทั้งชุด และ **ไม่มีอะไรรันมันอัตโนมัติอีกแล้ว**
+> ❌ **ห้ามอ้างผลรันของมันเป็นหลักฐาน**
+>
+> 🔑 **path ในไฟล์นี้จงใจไม่แก้** — ถ้าแก้ให้ถูกทีละบรรทัด มันจะกลายเป็นเอกสารที่*ดูรันได้*
+> ทั้งที่ relative import ข้างในไฟล์ `.ts` ยังชี้ไปที่เดิม (`../features/...` จาก `harness/archive/`
+> = `harness/features/` ซึ่งไม่เคยมี) ⇒ จะได้เอกสารที่หลอกให้ลองแล้วพังกลางทาง แทนที่จะบอกตรงๆ ว่าปิดแล้ว
+> อยากใช้จริง: อ่านทางกลับใน `harness/archive/README.md` — **ต้องแก้ import ก่อน** แล้วค่อยเชื่อผลรัน
+> (ข้อนี้มุนเป็นคนจับ และเป็นคนเสนอให้ทำแบบนี้แทนการไล่แก้ path)
+>
+> **สิ่งที่ยังบังคับใช้คือ *เกณฑ์* ไม่ใช่ *ตัวรัน*** — capture ที่เอาไปรีวิวยังต้องเห็น `fixed`/`sticky`
+> ครบ และยังต้องไม่ commit binary ที่มี PII เหมือนเดิม · คนวัดตอนนี้คือตาคนดูจอจริง
+
 The team's standard way to capture a real authed route for design review. Every agent uses this — no more
 asking ฟีม for screenshots, and no more "capture blocked by creds" (that friction is fixed at the root here).
 
