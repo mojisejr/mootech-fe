@@ -5,24 +5,27 @@ name: design-verify
 # Unlike the auth e2e (local-only — it needs BE + Supabase, see e2e/README.md), the splash harness is
 # FE-ONLY: `next build && next start` + the v2 preview cookie, no backend. So it CAN run in CI without
 # violating the Browser Truth doctrine. Separate job from `ci.yml` hard-gate — does not change it.
+# 🅿️ ยกลงชั่วคราว 2026-08-18 (ฟีมสั่ง) — ด่านนี้ไม่รันบน PR อีกแล้ว **ไฟล์และ harness ทั้ง 9 ตัวยังอยู่ครบ ไม่ได้ลบ**
+# เหตุผล 2 ข้อ ที่วัดได้:
+#   ① GitHub Actions quota ใกล้หมด — design-verify กิน 117.6 นาที จาก 40 run ล่าสุด = 70% ของ minutes ทั้งหมด
+#      (ci 44.6 · secret-scan 2.9 · main-guard 2.8) · repo นี้ private ⇒ ทุกนาทีถูกนับจริง
+#   ② มันหยุดงานมากกว่าที่มันกัน — 2026-08-17→18 ด่านนี้ทำให้ PR ค้าง 3 รอบด้วยเหตุที่ไม่ใช่บั๊กของโค้ด:
+#      flake ที่ page.reload/networkidle (#297) · bash -e ฆ่าด่านที่เหลือ (#314) · ค้างที่ install chromium 54 นาที
+#
+# 🔁 เอากลับได้ด้วยการลบคอมเมนต์นี้แล้วคืน `pull_request:` block ข้างล่าง — ไม่มีอะไรถูกลบ
+#    ระหว่างนี้ยังรันมือ/สั่งรันได้ผ่าน workflow_dispatch  (Actions → design-verify → Run workflow)
+#    ใบที่ถือเรื่องนี้: mojisejr/mootech-fe#297 (flake) · mojisejr/mootech-fe#314 (bash -e)
+#    เงื่อนไขเอากลับ + เหตุผลเต็ม: PR mojisejr/mootech-fe#317 (PR ที่ยกลงนี้เอง)
+#
+# ของเดิมเก็บไว้ให้เห็น ไม่ลบ:
+#   on:
+#     pull_request:
+#       types: [opened, synchronize, reopened, ready_for_review]
+#       paths: ["pages/v2/**", "features/**", "harness/**", "design.contract.ts",
+#               "design.reference.ts", "tailwind.config.ts", "postcss.config.*",
+#               ".github/workflows/design-verify.yml"]
 on:
-  pull_request:
-    # draft-first (#279): the job below is skipped while the PR is a draft (`if: draft == false`), so a
-    # draft push still creates a run record but the 4-min harness does not run. `ready_for_review` MUST be
-    # listed explicitly — the default activity set is [opened, synchronize, reopened], which does NOT include
-    # it, so without this line clicking "Ready for review" would NOT re-trigger and the gate would only ever
-    # have run (skipped) while the PR was a draft — a gate that never runs on the real thing. The other three
-    # are the defaults, restated because declaring `types` replaces the default set rather than extending it.
-    types: [opened, synchronize, reopened, ready_for_review]
-    paths:
-      - "pages/v2/**"
-      - "features/**"
-      - "harness/**"
-      - "design.contract.ts"
-      - "design.reference.ts"
-      - "tailwind.config.ts" # the features/ content-glob gap lived here — the whole silent-class family
-      - "postcss.config.*"
-      - ".github/workflows/design-verify.yml"
+  workflow_dispatch:
 
 permissions:
   contents: read
