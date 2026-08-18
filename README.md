@@ -1,23 +1,28 @@
 # mootech-fe
 
-## Setup — run this once per clone
+## Setup
 
 ```bash
-npm ci
-git config core.hooksPath .githooks    # ⚠️ required — see below
+npm ci        # this also installs the git hooks (see below)
 ```
 
-### ⚠️ `core.hooksPath` is NOT installed by cloning
+### The hooks install themselves — but know why, in case they don't
 
-It is a **local git config value**, not a file in the repo. Committing `.githooks/pre-push` does nothing
-on your machine until you run that one line. There is no check that catches a missing hook — if you skip
-it, everything looks normal and the gate simply never runs.
+`core.hooksPath` is a **local git config value**, not a file in the repo, so committing `.githooks/pre-push`
+does nothing on your machine on its own. `package.json` has a `prepare` script that runs
+`scripts/install-git-hooks.sh` after `npm install` **and** after `npm ci` (both verified 2026-08-18), which
+points `core.hooksPath` at the main checkout's `.githooks/` with an absolute path — so it covers every
+worktree, existing and future.
 
-Verify it took:
+It is wrapped in `|| true`: a broken hook install must never break `npm ci`. That means **a silent failure
+here leaves you with no hooks and no error**, so check once:
 
 ```bash
-git config core.hooksPath        # must print: .githooks
+git config core.hooksPath        # must print an absolute path ending in /.githooks
+bash scripts/install-git-hooks.sh   # re-run any time; safe to repeat
 ```
+
+Full detail on what the hook does and does not do: [`docs/git-hooks.md`](docs/git-hooks.md).
 
 ## Hard gate — what must be green, and where
 

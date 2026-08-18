@@ -37,9 +37,13 @@ ZERO_OID_RE='^0*$'
 # protected branch = the remote's default branch, from git (not hardcoded).
 protected="$(git symbolic-ref --quiet --short "refs/remotes/${remote}/HEAD" 2>/dev/null | sed "s#^${remote}/##" || true)"
 if [ -z "${protected}" ]; then
-  # detection failed → FAIL OPEN (a ดัก must not block legit work when it can't tell) with a hint.
-  echo "pre-push: cannot determine ${remote}'s default branch (is ${remote}/HEAD set?) — guard skipped." >&2
-  exit 0
+  # Detection failed → guard A FAILS OPEN (a ดัก must not block legit work when it can't tell).
+  # 🔴 It must NOT `exit 0` here. That returns from the whole script and takes guard B — which fails
+  #    CLOSED on purpose — down with it. ตู๋ proved it (#325, 2026-08-18): with origin/HEAD removed and
+  #    lint red, the push SUCCEEDED and the hard gate never ran, while the message said "guard skipped"
+  #    (singular) — so the §fail direction paragraph below was describing something the code did not do.
+  #    Leaving `protected` empty and guarding the comparison skips ONLY guard A.
+  echo "pre-push: cannot determine ${remote}'s default branch (is ${remote}/HEAD set?) — branch guard skipped (the lint/test gate still runs)." >&2
 fi
 
 blocked=0
@@ -55,7 +59,7 @@ while read -r _localref localoid remoteref _remoteoid; do
     has_content=1
   fi
   branch="${remoteref#refs/heads/}"
-  if [ "${branch}" = "${protected}" ]; then
+  if [ -n "${protected}" ] && [ "${branch}" = "${protected}" ]; then
     blocked=1
   fi
 done
