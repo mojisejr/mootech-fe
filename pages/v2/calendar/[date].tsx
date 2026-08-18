@@ -33,7 +33,8 @@ import { EightDeities } from '@/features/v2-calendar/components/day-detail/Eight
 import { SaveSheet } from '@/features/v2-calendar/components/day-detail/SaveSheet'
 import { InstallGuideSheet, type InstallGuideVariant } from '@/features/v2-calendar/components/InstallGuideSheet'
 import { notifyStateFrom } from '@/features/v2-calendar/notify-state'
-import { remindersLocked } from '@/features/v2-calendar/tier-lock'
+import { remindersLocked, dayDetailCta } from '@/features/v2-calendar/tier-lock'
+import { announceComingSoon, ComingSoonNotice } from '@/features/v2-shell/components/ComingSoon'
 import { usePwaCapability } from '@/lib/pwa/capability'
 import { requestPushSubscription } from '@/lib/pwa/subscribe'
 import { saveWithNotification, postPushSubscription } from '@/lib/pwa/persist-subscription'
@@ -125,6 +126,13 @@ export default function V2CalendarDayPage({ teamPreview }: { teamPreview: boolea
   const sheetOpen = draft.state === 'editing' || draft.state === 'saving' || draft.state === 'error'
   // while the sheet is open the menu is FormMode(4, no Mate AI); else derived from data (Saved 3 / PrimaryAction 2).
   const menuState = sheetOpen ? draft.menuState : menuStateForDay(saved)
+  // #326 — free/unknown ⇒ ปุ่มบอกว่าเป็นของสมาชิก และ **ไม่มีเส้นทางไปถึง draft.open** ⇒ ไม่มี POST
+  const cta = dayDetailCta({
+    isPaid,
+    saved,
+    openSheet: () => draft.open(date),
+    say: announceComingSoon,
+  })
 
   // goo · G-2 minimal compile-guard — NOT a designed loading state (that's มุน's M-D). useDayDetail now
   // fetches async, so `detail` is null while it loads; every section below binds it (yams/pillars/percent).
@@ -145,9 +153,13 @@ export default function V2CalendarDayPage({ teamPreview }: { teamPreview: boolea
     <CalendarShell
       title="รายละเอียดวัน"
       menuState={menuState}
-      ctaLabel={saved ? 'คุณบันทึกลงปฏิทินแล้ว' : 'เพิ่มลงปฏิทิน เพื่อแจ้งเตือน'}
-      onCta={() => draft.open(date)}
+      // #326 — ทางเข้าที่สอง. บรรทัดที่ตัดสินอยู่ใน tier-lock.ts ไม่ใช่ที่นี่ (ไฟล์นี้ import ไม่ได้ใน unit)
+      ctaLabel={cta.label}
+      onCta={cta.press}
     >
+      {/* #326 — ที่แขวน toast ประกาศไว้ตรงนี้ ❌ ไม่พึ่งว่าปุ่มล็อกรายยามของ #316 จะ mount อยู่พอดี
+          (ComingSoon.tsx:52-53 บันทึกไว้เองว่า "safe by accident" คือรูปที่ทีมใช้เวลาทั้งวันถอดออก) */}
+      <ComingSoonNotice />
       <DayHeader showUpgrade={free} />
       <span data-testid="reminder-count" className="sr-only">{dateReminderCount}</span>
       {/* Same layout decision as the month screen, and the case for it is stronger here: the two branches
