@@ -123,6 +123,20 @@ describe('runDueReminders · dedup / ceiling / subscription lifecycle', () => {
     expect(markSent).toHaveBeenCalledWith('r1', NOW)
   })
 
+  it('the payload handed to send carries the ยาม + the deep-link built from reminderDate (not undefined)', async () => {
+    const { repo } = makeRepo([reminder('r1', 'u1', minAgo(2))], { u1: [sub('s1')] })
+    const seen: { url: string; title: string; body: string }[] = []
+    const send = vi.fn(async (_t: unknown, p: { url: string; title: string; body: string }) => {
+      seen.push(p)
+      return { status: 'ok' } as SendOutcome
+    })
+    await runDueReminders({ repo, now: NOW, send })
+    expect(seen).toHaveLength(1)
+    expect(seen[0].url).toBe('/v2/calendar/2026-08-19') // reminderDate → date; never /v2/calendar/undefined
+    expect(seen[0].title).toContain('ยามรุ่ง')
+    expect(seen[0].body).toContain('06:00-07:00')
+  })
+
   it('due but no device yet (#303): not sent, not marked → left for a later tick', async () => {
     const { repo, markSent } = makeRepo([reminder('r1', 'u1', minAgo(2))], {})
     const send = okSender()

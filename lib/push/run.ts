@@ -69,7 +69,11 @@ export async function runDueReminders(deps: {
       continue
     }
 
-    const payload = buildReminderPayload(r)
+    const payload = buildReminderPayload({
+      date: r.reminderDate,
+      yamLabel: r.yamLabel,
+      window: r.window,
+    })
     let anyDelivered = false
     let anyKept = false // a subscription still present after this run (delivered OR transient-failed)
     for (const sub of subs) {
