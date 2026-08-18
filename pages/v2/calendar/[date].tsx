@@ -33,6 +33,7 @@ import { EightDeities } from '@/features/v2-calendar/components/day-detail/Eight
 import { SaveSheet } from '@/features/v2-calendar/components/day-detail/SaveSheet'
 import { InstallGuideSheet, type InstallGuideVariant } from '@/features/v2-calendar/components/InstallGuideSheet'
 import { notifyStateFrom } from '@/features/v2-calendar/notify-state'
+import { remindersLocked } from '@/features/v2-calendar/tier-lock'
 import { usePwaCapability } from '@/lib/pwa/capability'
 import { requestPushSubscription } from '@/lib/pwa/subscribe'
 import { saveWithNotification, postPushSubscription } from '@/lib/pwa/persist-subscription'
@@ -180,7 +181,9 @@ export default function V2CalendarDayPage({ teamPreview }: { teamPreview: boolea
         {paid && advanced && <Dithi dithi={detail.dithi} />}
         {/* every tier gets these two — Free-2 draws them in full */}
         <LuckyColors colors={detail.luckyColors} deity={detail.dayDeity} />
-        <YamTimes yams={detail.yams} onAdd={addYam} />
+        {/* #316 — ตัดสินด้วย remindersLocked(isPaid) ไม่ใช่ `free` (fail-closed · null = ล็อก)
+            ตรรกะอยู่ที่ features/v2-calendar/tier-lock.ts เพราะไฟล์ page นี้ unit test แตะไม่ได้ */}
+        <YamTimes yams={detail.yams} onAdd={addYam} locked={remindersLocked(isPaid)} />
         {/* §12/§13 [advanced] — 8 ประตู · 8 เทพ */}
         {paid && advanced && <EightGates gates={detail.gates} luckyDirection={detail.luckyDirection} />}
         {paid && advanced && <EightDeities deities={detail.spirits} />}

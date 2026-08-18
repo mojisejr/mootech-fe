@@ -168,6 +168,34 @@ describe('#287 gates — a free user is refused at the server (M2)', () => {
     const r = await run(remindersHandler, { method: 'GET' })
     expect(r.statusCode).toBe(403)
   })
+
+  // #316 — ช่องที่เจอตอน §0: M2 เดิมตรึงไว้เฉพาะ GET · ด่านจริงอยู่ก่อน method dispatch
+  // (pages/api/v2/reminders.ts:40-43) จึงกัน POST/DELETE อยู่แล้ว **แต่ไม่มีอะไรตรึงไว้**
+  // ⇒ ถ้าใครย้ายด่านเข้าไปใน branch ของ GET วันหลัง POST จะรั่วเงียบ และชุดเทสต์เดิมยังเขียวครบ
+  // 🔴 assert สองชั้น: สถานะ 403 **และ** ไม่มี insert เกิดขึ้นจริง — สถานะอย่างเดียวยังเขียวได้
+  // ถ้าใครเขียนแถวลงฐานก่อนแล้วค่อยตอบ 403
+  it('M2b (#316): free member → 403 on reminders POST และไม่มีแถวถูก insert', async () => {
+    signedInAsA()
+    h.state.isFree = true
+    const r = await run(remindersHandler, {
+      method: 'POST',
+      body: {
+        date: '2030-06-15',
+        yams: [{ yamId: 'y1', yamLabel: 'ยาม', window: '06:00-07:00' }],
+        destinations: ['mumate'],
+      },
+    })
+    expect(r.statusCode).toBe(403)
+    expect(h.captured.insertValues.flat()).toHaveLength(0)
+  })
+
+  it('M2c (#316): free member → 403 on reminders DELETE และไม่มีการลบเกิดขึ้น', async () => {
+    signedInAsA()
+    h.state.isFree = true
+    const r = await run(remindersHandler, { method: 'DELETE', query: { id: 'r1' } })
+    expect(r.statusCode).toBe(403)
+    expect(h.captured.deleteWhere).toHaveLength(0)
+  })
 })
 
 describe('#287 gates — every read/write is scoped by the session user_id (M3/M4/M5)', () => {
