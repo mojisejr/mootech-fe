@@ -19,6 +19,7 @@
 // ⚠️ ขอบเขตของด่านนี้คือ **ปุ่มรายยามเท่านั้น** — CTA แถบล่าง ("เพิ่มลงปฏิทิน เพื่อแจ้งเตือน") ยังเปิดชีท
 // ให้ free ได้อยู่ แล้วไปตายที่ 403 ตอนกดบันทึก (ตู๋จับตอนรีวิว #324) ⇒ ถือโดย #326 ซึ่งยังรอฟีมเคาะว่า
 // แถบล่างควรเป็นอะไรสำหรับ free ❌ อย่าอ่านไฟล์นี้ว่า "free ยิง POST ไม่ได้แล้ว" — จริงเฉพาะทางนี้
+import { Lock } from 'lucide-react'
 import type { YamSlot } from '../../types'
 import { ComingSoonAction } from '@/features/v2-shell/components/ComingSoon'
 import { SectionCard } from './SectionCard'
@@ -26,6 +27,12 @@ import { SectionCard } from './SectionCard'
 /** ปุ่มปกติ — sapphire ทึบ = กดแล้วเกิดผลจริง */
 const PILL = 'shrink-0 rounded-full px-4 py-2 text-xs font-bold'
 const PILL_ACTIVE = `${PILL} bg-v3-sapphire text-white`
+// ไอคอนล็อกใช้ `Lock` ของ lucide-react ❌ ไม่ใช่ emoji 🔒
+// ภาพรอบแรกของ Eye Truth: emoji เรนเดอร์เป็น **สีเต็ม (แม่กุญแจเหลือง)** ⇒ กลายเป็นจุดสีอิ่มที่สุด
+// บนจอที่ทั้งจอมีแต่ sapphire/navy/lemon-chiffon และมัน**ดังกว่าตัวหนังสือของปุ่มเอง**
+// ซ้ำร้าย emoji เรนเดอร์ไม่เหมือนกันข้ามแพลตฟอร์ม ⇒ เป็นภาพที่เราควบคุมไม่ได้
+// lucide เป็น convention ของ v2 อยู่แล้ว (features/v2-first-run/components/PdpaConsentScreen.tsx:2
+// import `Lock` ตัวเดียวกัน) และมันวาดด้วย `currentColor` ⇒ รับสีจากปุ่ม ไม่เอาพาเลตต์แปลกปลอมเข้ามา
 // ล็อก = โทน disabled ที่ DESIGN.md §2 ประกาศไว้แล้ว (`disabled-bg` #DDDDDD · tailwind.config.ts:65)
 // ❌ ไม่ประดิษฐ์ opacity ใหม่ · geometry เดิมทุกค่า ⇒ ตำแหน่ง/ขนาดไม่ขยับตามคำตัดสิน
 const PILL_LOCKED = `${PILL} bg-v3-disabled-bg text-v3-text-body`
@@ -54,9 +61,10 @@ export function YamTimes({ yams, onAdd, locked }: { yams: YamSlot[]; onAdd: (yam
                 testId={`yam-add-locked-${yam.id}`}
                 label={`ตั้งเตือน ${yam.window} — เฉพาะสมาชิก`}
                 message={YAM_LOCKED_MESSAGE}
-                className={PILL_LOCKED}
+                className={`${PILL_LOCKED} inline-flex items-center gap-1`}
               >
-                🔒 เพิ่มปฏิทิน
+                <Lock aria-hidden className="h-3.5 w-3.5" strokeWidth={2.5} />
+                เพิ่มปฏิทิน
               </ComingSoonAction>
             ) : (
               <button
