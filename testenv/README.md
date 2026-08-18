@@ -8,7 +8,7 @@ hand-assembling backend URL / bazi URL / passkey / MEMBER_ID. Two design rules r
 - **Explicit for the rare prod path** — connecting to real prod is a separate, deliberate command (`prod-run`)
   with typed confirmation and the dangerous-button providers neutralized by default.
 
-Lives in `mootech-fe/testenv/` (next to `harness/`, the verify-tooling home).
+Lives in `mootech-fe/testenv/` (next to `harness/`, whose tooling was archived 2026-08-18 — see below).
 
 ## Port map
 | service | port | notes |
@@ -109,7 +109,15 @@ node testenv/scripts/prod-run.mjs [--with-providers] <fe|be|bazi> -- <command> [
 - `prod-probe.mjs` (read-only) — reports whether the dangerous-button providers are BLOCKED or LIVE (DNS-resolve
   the host for LINE/8x8; check the sentinel key for SendGrid/Omise) **without firing anything** or printing a secret.
 
-## Capture / verify tooling (`harness/`)
+## Capture / verify tooling (`harness/archive/` — ARCHIVED 2026-08-18)
+
+> 🔴 **Everything in this section was moved to `harness/archive/` by `mojisejr/mootech-fe#321`** (ฟีม's ruling in
+> `mojisejr/mootech-fe#318`: gates live on the machine — `lint`/`test` on pre-push, `build` before Ready for
+> review — and nothing self-built runs on GitHub except `secret-scan` + `main-guard`). Nothing runs these files
+> anymore: no workflow, no npm script. They are **kept, not deleted** (`git log --follow` traces every one).
+> The paths below now read `harness/archive/<file>`, and a file moved back to `harness/` needs its relative
+> imports fixed first — see `harness/archive/README.md`. **Do not cite a run of these as evidence.**
+
 - **`capture-route.ts`** — team-standard review capture: dev-login → screenshot a route at 393/360/320. Per
   viewport it saves `full` (whole page) + `vp-top` (first screen, viewport-sized) + `vp-bottom` (the bottom
   screen, when the page is taller than one viewport — where a `fixed bottom-0` overlaps the last content, which
