@@ -26,12 +26,17 @@ GitHub Actions minutes are paid, so the checks moved onto your machine.
 
 | when | what | cost here |
 |---|---|---|
-| every `git push` | `npm run lint` + `npm test` — enforced by `.githooks/pre-push` | ≈ 30s |
-| before opening a PR | `npm run build` — paste the output into the PR body | ≈ 4m11s |
+| every `git push` | `npm run lint` + `npm test` — enforced by `.githooks/pre-push` | ≈ 30s, stable |
+| before opening a PR | `npm run build` — paste the output into the PR body | **41s – 408s** |
 
-`build` is deliberately **not** in the hook: a normal issue takes 4–5 pushes, so putting a 4-minute build
-in front of each one costs ~21 minutes of repeated work and people would reach for `--no-verify` — which
-would take `lint` and `test` down with it, since they share the hook.
+`build` is deliberately **not** in the hook, and the reason is the **variance**, not the average.
+Five runs on the same commit (2026-08-18): `41s · 71s · 134s · 251s · 408s` — a 10× spread depending on
+what `.next/` happens to hold. Anyone who just ran `npm ci`, or switched between distant branches, pays
+the 400s end.
+
+An unpredictable wait in front of every push is what teaches people to reach for `--no-verify` — and that
+would take `lint` and `test` down with it, since they share the hook. `lint` + `test` sit at ~30s and
+barely move; that stability is why they can live there and `build` cannot.
 
 ### What the gate does and does not catch
 

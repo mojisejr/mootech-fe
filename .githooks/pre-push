@@ -19,6 +19,13 @@
 #   would reach for `--no-verify`, and that would take lint AND test down with it. `build` is checked once
 #   before opening the PR instead, with its output pasted into the PR body.
 #
+#   ⚠️ THE REASON IS THE VARIANCE, NOT THE AVERAGE. Five runs on the same commit, 2026-08-18:
+#       41s · 71s · 134s · 251s · 408s   — a 10× spread depending on what `.next/` happens to hold.
+#     Anyone who just ran `npm ci`, or switched between distant branches, pays the 400s end. So the honest
+#     statement is not "build is slow", it is "build's cost is UNPREDICTABLE" — and an unpredictable wait
+#     in front of every push is what teaches people to reach for `--no-verify`. lint+test are ~30s and
+#     barely move; that stability is why they can live here and build cannot.
+#
 # git invokes: pre-push <remote-name> <remote-url>, with stdin lines:
 #   <local ref> SP <local oid> SP <remote ref> SP <remote oid> LF
 set -euo pipefail
