@@ -78,6 +78,7 @@ export default defineConfig({
       'scripts/reminders-auth-gates.test.tsx', // #287 — SERVER gate teeth: identity/membership/scope (ตู๋ #291 B1); .tsx
       'scripts/notify-state-ui.test.tsx', // #286 — 6 สถานะแจ้งเตือน + negative control ของเคส unknown; .tsx
       'scripts/push-subscribe-wire.test.tsx', // #298 — subscription→POST/DELETE transport + tick-mirrors-server orchestration; .tsx
+      'scripts/yam-times-tier-gate.test.tsx', // #316 — ปุ่มเพิ่มปฏิทินรายยามเป็นของสมาชิก + remindersLocked fail-closed; .tsx
     ],
   },
   resolve: {
