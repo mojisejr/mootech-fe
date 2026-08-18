@@ -35,6 +35,7 @@ import { InstallGuideSheet, type InstallGuideVariant } from '@/features/v2-calen
 import { notifyStateFrom } from '@/features/v2-calendar/notify-state'
 import { usePwaCapability } from '@/lib/pwa/capability'
 import { requestPushSubscription } from '@/lib/pwa/subscribe'
+import { saveWithNotification, postPushSubscription } from '@/lib/pwa/persist-subscription'
 import { PersonalCalendarUpsell } from '@/features/v2-calendar/components/upsell/PersonalCalendarUpsell'
 import { useClientTier } from '@/features/v2-shell/hooks/useClientTier'
 
@@ -70,13 +71,6 @@ export default function V2CalendarDayPage({ teamPreview }: { teamPreview: boolea
   // (ชีทไม่เรียก hook เอง ⇒ unit test ป้อนครบ 6 สถานะได้โดยไม่ต้องมีเบราว์เซอร์)
   const notify = notifyStateFrom(usePwaCapability())
   const [guide, setGuide] = useState<InstallGuideVariant | null>(null)
-  // ขอสิทธิ์ได้เฉพาะจาก user gesture — เรียกตรงจาก onClick ของแถวมู่เมท ไม่ห่อใน effect
-  // usePwaCapability อ่านค่าใหม่เองตอน visibilitychange ⇒ ผลลัพธ์เข้าจอโดยไม่ต้อง refresh
-  const onRequestPermission = async () => {
-    const result = await requestPushSubscription()
-    if (result.ok) draft.toggleDest('mumate')
-    // ไม่สำเร็จ = ไม่ติ๊ก · เหตุผลไปโผล่ที่แถวใต้ toggle เองเมื่อ capability อ่านค่าใหม่
-  }
 
   // per-ยาม quick-add (§11 buttons) → a real POST (server assigns id; the hook merges the returned row).
   // Fire-and-forget from the button's view; the list reflects it on success.
@@ -91,18 +85,34 @@ export default function V2CalendarDayPage({ teamPreview }: { teamPreview: boolea
     void reminders.save({ date, yams: [{ yamId: yam.id, yamLabel: yam.label, window: yam.window }], destinations: ['mumate'] })
   }
 
-  // save-sheet commit (#287): build the batch from the ticked ยาม + the day's yams, then drive the machine
-  // through the REAL POST. save() returns true on 2xx → machine → saved (and the list already has the rows);
-  // false (past 422 / free 403 / network) → machine → error, and the sheet stays open to retry. The saving
-  // latch + the server's natural-key dedup mean spamming บันทึก saves each ยาม exactly once.
+  // save-sheet commit (#287 · reframed #298): ONE tap saves the reminder AND registers the device for push.
+  // The destination switch is gone — the system fills ['mumate'] itself (reminder-plan.ts:43 still rejects an
+  // empty destinations from any OTHER caller). save() returns true on 2xx → machine → saved; false (past 422 /
+  // free 403 / network) → machine → error, sheet stays open to retry.
+  //
+  // 🔴 This is the user gesture, so saveWithNotification must request permission BEFORE it awaits the save —
+  // Safari only shows the prompt inside the gesture. Building yams is synchronous; the first await is inside
+  // saveWithNotification, after requestPushSubscription() has already fired. ❌ Do NOT await anything here first.
   const onSheetSave = () => {
     const yams = draft.draft.selectedYamIds.map((yamId) => {
       const yam = detail?.yams.find((y) => y.id === yamId) // fires past the render guard (detail set); ?. narrows the earlier closure
       return { yamId, yamLabel: yam?.label ?? yamId, window: yam?.window ?? '' }
     })
-    void draft.commit(async () => {
-      const outcome = await reminders.save({ date, yams, destinations: draft.draft.destinations })
-      return outcome.ok
+    void saveWithNotification({
+      notify,
+      requestSubscription: () => requestPushSubscription(),
+      post: (sub) => postPushSubscription(sub, navigator.userAgent),
+      // drive the save-flow machine through the REAL POST; resolve with whether the row was saved
+      saveReminder: () => {
+        let ok = false
+        return draft
+          .commit(async () => {
+            const outcome = await reminders.save({ date, yams, destinations: ['mumate'] })
+            ok = outcome.ok
+            return outcome.ok
+          })
+          .then(() => ok)
+      },
     })
   }
 
@@ -184,7 +194,6 @@ export default function V2CalendarDayPage({ teamPreview }: { teamPreview: boolea
           onSave={onSheetSave}
           notify={notify}
           onShowGuide={setGuide}
-          onRequestPermission={onRequestPermission}
         />
       )}
       {/* ชีทสอนติดตั้ง/เปิดสิทธิ์ — เปิดทับจากในชีทตั้งเตือน จึงต้องอยู่ชั้นเหนือมัน

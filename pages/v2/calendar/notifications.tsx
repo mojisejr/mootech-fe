@@ -12,7 +12,7 @@ import { v2RedirectIfUnauthed } from '@/lib/v2/gate'
 import { AppHeader } from '@/features/v2-shell/components/AppHeader'
 import { CalendarShell } from '@/features/v2-calendar/components/CalendarShell'
 import { SectionCard } from '@/features/v2-calendar/components/day-detail/SectionCard'
-import { useReminders, CalendarMenuState, type Reminder, type ReminderDestination } from '@/features/v2-calendar'
+import { useReminders, CalendarMenuState, type Reminder } from '@/features/v2-calendar'
 import { InstallGuideSheet, type InstallGuideVariant } from '@/features/v2-calendar/components/InstallGuideSheet'
 import { notifyStateFrom, guideVariantFor, NOTIFY_REASON, type NotifyState } from '@/features/v2-calendar/notify-state'
 import { usePwaCapability } from '@/lib/pwa/capability'
@@ -25,7 +25,7 @@ export const getServerSideProps: GetServerSideProps = async (ctx) => {
 }
 
 const THAI_MON_ABBR = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.']
-const DEST_LABEL: Record<ReminderDestination, string> = { mumate: 'มู่เมท', google: 'Google', apple: 'Apple' }
+// #298: the per-row destination chip is gone — every reminder is ['mumate'] now, so the chip told nothing.
 
 function thaiShort(iso: string): string {
   const [y, m, d] = iso.split('-').map(Number)
@@ -40,11 +40,6 @@ function ReminderRow({ r, onCancel }: { r: Reminder; onCancel?: (id: string) => 
       <div className="min-w-0 flex-1">
         <p className="truncate text-sm font-bold text-v3-navy">{r.yamLabel}</p>
         <p className="mt-0.5 text-xs font-medium text-v3-text-body">{thaiShort(r.date)} · {r.window}</p>
-        <div className="mt-1 flex flex-wrap gap-1">
-          {r.destinations.map((d) => (
-            <span key={d} className="rounded-full bg-white px-2 py-0.5 text-[11px] font-medium text-v3-sapphire">{DEST_LABEL[d]}</span>
-          ))}
-        </div>
       </div>
       {onCancel && (
         <button

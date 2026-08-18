@@ -77,6 +77,7 @@ export default defineConfig({
       'scripts/reminders-client.test.tsx', // #287 — transport mapping + useReminders + past-guard; .tsx
       'scripts/reminders-auth-gates.test.tsx', // #287 — SERVER gate teeth: identity/membership/scope (ตู๋ #291 B1); .tsx
       'scripts/notify-state-ui.test.tsx', // #286 — 6 สถานะแจ้งเตือน + negative control ของเคส unknown; .tsx
+      'scripts/push-subscribe-wire.test.tsx', // #298 — subscription→POST/DELETE transport + tick-mirrors-server orchestration; .tsx
     ],
   },
   resolve: {
