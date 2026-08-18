@@ -12,6 +12,7 @@
 `lint` + `test` are enforced by `.githooks/pre-push` on every push. `build` is not — check it here.
 
 - [ ] `npm run build` green — **paste the output below** (this is the one nothing enforces; 41s–408s depending on `.next/` cache)
+      🔐 build ยังรัน **secret gate** ให้เองต่อท้าย ⇒ output ต้องมีบรรทัด `✅ VAPID private key absent from client bundle`
 - [ ] `npm run lint` green (0 errors; warnings do not fail the gate)
 - [ ] `npm test` green
 - [ ] `git config core.hooksPath` prints `.githooks` on my machine

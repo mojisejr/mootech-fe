@@ -34,6 +34,11 @@ GitHub Actions minutes are paid, so the checks moved onto your machine.
 | every `git push` | `npm run lint` + `npm test` — enforced by `.githooks/pre-push` | ≈ 30s, stable |
 | before opening a PR | `npm run build` — paste the output into the PR body | **41s – 408s** |
 
+🔐 **`npm run build` รัน secret gate ให้เองต่อท้าย** (`postbuild` → `scripts/check-vapid-not-leaked.sh`)
+ไม่ต้องรันแยก · **build เขียว = VAPID private key ไม่หลุดเข้า client JS bundle (`.next/static`)** และตัวตรวจพิสูจน์ตัวเองด้วย canary ทุกครั้ง
+⚠️ **ขอบเขต**: gate ค้นเฉพาะ `.next/static` — คีย์ที่รั่วผ่าน SSR prop ลงไปใน HTML **อยู่นอกขอบเขต** (เขียนไว้ในหัว script)
+⚠️ ไม่รัน build = ไม่มี gate และ **ไม่มีสัญญาณอะไรบอก** — นี่คือราคาที่เรารับไว้ตอนย้ายมันออกจาก CI (`#327`)
+
 `build` is deliberately **not** in the hook, and the reason is the **variance**, not the average.
 Five runs on the same commit (2026-08-18): `41s · 71s · 134s · 251s · 408s` — a 10× spread depending on
 what `.next/` happens to hold. Anyone who just ran `npm ci`, or switched between distant branches, pays
