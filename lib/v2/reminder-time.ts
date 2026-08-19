@@ -16,14 +16,28 @@
 export const REMINDER_LEAD_MINUTES = 30;
 const BANGKOK_OFFSET = "+07:00";
 
-/** "HH:MM-HH:MM" → the START "HH:MM", or null if malformed / out of range. */
+/**
+ * "H:MM-H:MM" / "HH:MM-HH:MM" → the START, ALWAYS zero-padded "HH:MM", or null if malformed / out of range.
+ *
+ * #348 — the real HOUR_RANGE table (bazi-sft-dataset · almanac-engine.ts:124-126) ships 5 of 12 windows
+ * with a SINGLE-digit hour ("1:00-2:59" … "9:00-10:59"); the old `\d{2}` rejected them → computeFireAt null
+ * → 400 forever for 42% of yams, and a mixed batch failed whole. Two things are BOTH required:
+ *   1. accept 1–2 digit HOURS. Minutes stay strict `\d{2}` ON PURPOSE — the real table never emits a
+ *      single-digit minute, and a "9:5" would be AMBIGUOUS (05 or 50?) → padStart would silently pick
+ *      one = interpreting instead of rejecting, the very bug-class this fix exists to kill (ตู๋ #349). AND
+ *   2. return a 2-digit-PADDED "HH:MM". computeFireAt assembles `${start}:00+07:00` (:53) and re-compares
+ *      the round-tripped wall time against `start` (:59) BY STRING — return "1:00" and BOTH re-reject as
+ *      null (relaxing the regex alone is not enough; this is the trap). Pad both, though only the hour
+ *      can actually be short given the strict-minute regex above.
+ * The hh>23 / mm>59 range guard is unchanged, so malformed values still fall to null.
+ */
 export function windowStart(window: string): string | null {
-  const m = /^(\d{2}):(\d{2})-(\d{2}):(\d{2})$/.exec(window.trim());
+  const m = /^(\d{1,2}):(\d{2})-(\d{1,2}):(\d{2})$/.exec(window.trim());
   if (!m) return null;
   const hh = Number(m[1]);
   const mm = Number(m[2]);
   if (hh > 23 || mm > 59) return null;
-  return `${m[1]}:${m[2]}`;
+  return `${String(hh).padStart(2, '0')}:${String(mm).padStart(2, '0')}`;
 }
 
 /** Read back a UTC instant as its Asia/Bangkok wall date "YYYY-MM-DD" (shift +7h, then read UTC parts). */

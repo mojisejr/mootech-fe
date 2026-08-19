@@ -118,3 +118,72 @@ describe('resolveUserFromRows · refuse ambiguity, never pick row[0] (ตู๋ 
     expect(resolveUserFromRows([{ user_id: '  ' }, { user_id: 'u1' }])).toEqual({ ok: true, userId: 'u1' })
   })
 })
+
+// #348 — ตัวแปลงยอมรับชั่วโมงหลักเดียว (ฟีมเคาะทาง D).
+//
+// รากที่บั๊กนี้รอด: เคสด้านบนทุกตัวเป็นชั่วโมง 2 หลักที่ "คนเขียนพิมพ์เอง" ⇒ ไม่เคยแตะข้อมูลจริงจากตาราง
+// HOUR_RANGE ที่ 5/12 ค่าเป็นชั่วโมงหลักเดียว ⇒ เขียว 100% ทั้งที่ 42% ของยามตั้งเตือนไม่ได้เลย.
+// ⚠️ ขอบเขตของด่านนี้: 12 ค่านี้ copy มาจาก bazi-sft-dataset (almanac-engine.ts:124-126 · pdf-dev · verify
+//    2026-08-19). ถ้า bazi แก้ตาราง เทสต์นี้จะ "ไม่แดง" เพราะมันจำค่าไว้เอง ⇒ กันได้ครึ่งเดียว ไม่ใช่ทั้งหมด.
+const HOUR_RANGE_REAL = [
+  '23:00-00:59', '1:00-2:59', '3:00-4:59', '5:00-6:59',
+  '7:00-8:59', '9:00-10:59', '11:00-12:59', '13:00-14:59',
+  '15:00-16:59', '17:00-18:59', '19:00-20:59', '21:00-22:59',
+]
+const SINGLE_DIGIT = ['1:00-2:59', '3:00-4:59', '5:00-6:59', '7:00-8:59', '9:00-10:59']
+
+describe('#348 · ชั่วโมงหลักเดียว — ยิงข้อมูลจริงจาก HOUR_RANGE ไม่ใช่สตริงที่พิมพ์เอง', () => {
+  const now = new Date('2026-08-19T12:00:00Z') // ก่อนทุก fire time ของ 2026-08-20 ⇒ ตัดตัวแปร "เลยเวลา" ออกหมด
+  const yam = (id: string, window: string) => ({ yamId: id, yamLabel: `ยาม ${id}`, window })
+
+  it('ครบทั้ง 12 ค่าจากตาราง → computeFireAt ไม่เป็น null (วันพรุ่งนี้)', () => {
+    for (const w of HOUR_RANGE_REAL) {
+      expect(computeFireAt('2026-08-20', w), `window ${w}`).not.toBeNull()
+    }
+  })
+
+  it('ชั่วโมงหลักเดียว → windowStart คืนแบบ pad 2 หลัก ❌ ไม่ใช่ null ไม่ใช่ "1:00"', () => {
+    expect(windowStart('1:00-2:59')).toBe('01:00')
+    expect(windowStart('3:00-4:59')).toBe('03:00')
+    expect(windowStart('9:00-10:59')).toBe('09:00')
+    for (const w of SINGLE_DIGIT) expect(windowStart(w), w).toMatch(/^\d{2}:\d{2}$/)
+  })
+
+  it('🔴 กับดัก pad: ยิงทะลุถึง instant จริง — เลขคำนวณถูก ไม่ใช่แค่ไม่ null', () => {
+    // 9:00 BKK 08-20 = 02:00Z − 30 = 01:30Z (พิสูจน์ผ่านด่าน round-trip :59 ด้วย)
+    expect(computeFireAt('2026-08-20', '9:00-10:59')?.toISOString()).toBe('2026-08-20T01:30:00.000Z')
+    // 1:00 BKK 08-20 = 18:00Z 08-19 − 30 = 17:30Z 08-19 (ม้วนข้ามเที่ยงคืนกลับ + หลักเดียว)
+    expect(computeFireAt('2026-08-20', '1:00-2:59')?.toISOString()).toBe('2026-08-19T17:30:00.000Z')
+  })
+
+  it('🔴 planReminderCommit: ยามเช้าหลักเดียวตัวเดียว (พรุ่งนี้) → ok rows=1 (เดิม 400)', () => {
+    const plan = planReminderCommit({ date: '2026-08-20', yams: [yam('B3', '9:00-10:59')], destinations: ['mumate'] }, now)
+    expect(plan.ok).toBe(true)
+    if (plan.ok) expect(plan.rows).toHaveLength(1)
+  })
+
+  it('🔴 planReminderCommit: เย็น(2หลัก) + เช้า(หลักเดียว) ปนกัน → ได้ทั้งคู่ rows=2 ❌ ไม่ล้มทั้งชุด', () => {
+    const plan = planReminderCommit(
+      { date: '2026-08-20', yams: [yam('B_ev', '19:00-20:59'), yam('B_mo', '3:00-4:59')], destinations: ['mumate'] },
+      now,
+    )
+    expect(plan.ok).toBe(true)
+    if (plan.ok) expect(plan.rows.map((r) => r.yamId).sort()).toEqual(['B_ev', 'B_mo'])
+  })
+
+  it('NEGATIVE CONTROL · ค่าที่ควรเป็น null ยังเป็น null', () => {
+    expect(windowStart('99:00-00:00')).toBeNull() // ชั่วโมงเกิน 23
+    expect(windowStart('05:0006:59')).toBeNull() // ไม่มีขีดคั่น
+    expect(windowStart('not-a-date')).toBeNull()
+    expect(windowStart('1:99-2:00')).toBeNull() // นาทีเกิน 59 — หลักเดียวชั่วโมงก็ยังกัน
+    // 🔴 ตู๋ #349 — นาทีหลักเดียว "5" กำกวม (05 หรือ 50?) ⇒ regex นาทีคง \d{2} ⇒ reject ❌ ไม่ให้ padStart
+    //    เดาแทนข้อมูล (ตระกูลเดียวกับบั๊กที่ใบนี้แก้). ผ่อนแค่ชั่วโมง ไม่ผ่อนนาที.
+    expect(windowStart('9:5-10:59')).toBeNull() // นาที START หลักเดียว
+    expect(windowStart('9:00-10:5')).toBeNull() // นาที END หลักเดียว (sibling)
+  })
+
+  it('NEGATIVE CONTROL · ของที่เคยถูกต้องห้ามขยับ (2 หลักเหมือนเดิมเป๊ะ)', () => {
+    expect(computeFireAt('2026-08-20', '19:00-20:59')?.toISOString()).toBe('2026-08-20T11:30:00.000Z')
+    expect(windowStart('05:00-06:59')).toBe('05:00')
+  })
+})
