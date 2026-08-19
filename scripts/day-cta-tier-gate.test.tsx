@@ -214,4 +214,19 @@ describe('#326 ② ผู้เรียก — หน้ารายละเ�
     fireEvent.click(screen.getByRole('button', { name: new RegExp(DAY_CTA_OPEN_LABEL) }))
     expect(draftOpen).toHaveBeenCalledTimes(1)
   })
+
+  // #343 — ด่านของ **ผู้เรียก** สำหรับ `ctaDisabled` โดยเฉพาะ
+  // 🔴 บทเรียนของ #324: `dayReminderCta` คืน `disabled:true` ถูกต้องได้ และ `Menubar` รับ `ctaDisabled`
+  // ได้ถูกต้อง **แต่ถ้าหน้าเพจไม่ส่งค่าต่อ ปุ่มก็ยังกดได้อยู่ดี** และฟันของสองฝั่งนั้นเขียวทั้งคู่
+  // ⇒ ข้อนี้เรนเดอร์เพจจริงในสถานะที่ปุ่มต้องกดไม่ได้ แล้วอ่านจากปุ่มจริงบนจอ
+  it('🔴 paid + เลยเวลาหมด → ปุ่มบนหน้าเพจจริง **กดไม่ได้** (ถอด ctaDisabled ออกจากเพจ ⇒ ข้อนี้แดง)', async () => {
+    tier = true
+    // ยามเดียวของ mock คือ 09:00-10:59 ของวันที่ 2099-01-01 · ตั้งนาฬิกาไว้หลังจากนั้น ⇒ kind 'expired'
+    vi.setSystemTime(new Date('2099-06-01T00:00:00Z'))
+    await mountPage()
+    const btn = screen.getByRole('button', { name: new RegExp(DAY_CTA_EXPIRED_LABEL) }) as HTMLButtonElement
+    expect(btn.disabled).toBe(true)
+    fireEvent.click(btn)
+    expect(draftOpen).not.toHaveBeenCalled()
+  })
 })
