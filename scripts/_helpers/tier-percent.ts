@@ -1,4 +1,4 @@
-// harness/tier-percent.ts — the ONE-NUMBER reader, pulled out of run-tier-gate.ts so the mutants can prove
+// scripts/_helpers/tier-percent.ts (ย้ายออกจาก harness/archive/ โดย #334 — เทสต์ใน scripts/ import มันจริง) — the ONE-NUMBER reader, pulled out of run-tier-gate.ts so the mutants can prove
 // it without launching the browser harness (run-tier-gate.ts self-executes main()).
 //
 // WHAT THIS PATCH FIXES — the reader, so ONE-NUMBER READS RIGHT (not: catches a scale bug). Real percents

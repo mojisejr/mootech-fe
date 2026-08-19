@@ -14,7 +14,7 @@ import { dayCellTier, gradeRank, GRADES } from '../features/v2-calendar/grade'
 import { CalendarMenuState, menuHasMateAi, menuStateForDay } from '../features/v2-calendar/menu-state'
 import { buildMonthGrid, firstWeekday, daysInMonth } from '../features/v2-calendar/month-grid'
 import { generateMonthDays, mockReminderList } from '../features/v2-calendar/fixtures'
-import { isAppFetch } from '../harness/assert-no-app-fetch'
+import { isAppFetch } from './_helpers/assert-no-app-fetch'
 
 let pass = 0
 function t(name: string, fn: () => void) {

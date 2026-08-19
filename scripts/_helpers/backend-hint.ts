@@ -1,4 +1,4 @@
-// harness/backend-hint.ts — turn "a 502 on /api during capture" into a plain-language infra diagnosis.
+// scripts/_helpers/backend-hint.ts (ย้ายออกจาก harness/archive/ โดย #334 — เทสต์ใน scripts/ import มันจริง) — turn "a 502 on /api during capture" into a plain-language infra diagnosis.
 //
 // WHY: when the BE (NestJS :4000) is not booted, the FE BFF (/api/*) answers 502 "upstream unreachable", the
 // page falls back, and the browser logs a red console error. A reviewer reads that as a UI BUG — it is not, it

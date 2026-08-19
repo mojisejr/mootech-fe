@@ -1,4 +1,4 @@
-// harness/percent-crosscheck.ts — the CROSS-LAYER half of PERCENT-SCALE, as pure logic.
+// scripts/_helpers/percent-crosscheck.ts (ย้ายออกจาก harness/archive/ โดย #334 — เทสต์ใน scripts/ import มันจริง) — the CROSS-LAYER half of PERCENT-SCALE, as pure logic.
 //
 // The rule we agreed on (มุน→goo, #175): a scale leak cannot be caught by comparing the screen with itself.
 // The tile, the sentence and the ring all read one `detail.percent`, so a leaked value appears in all three

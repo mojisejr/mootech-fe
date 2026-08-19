@@ -1,8 +1,8 @@
-// Mutant proof for the ONE-NUMBER reader (harness/tier-percent.ts) — B-1. Plain tsx + node:assert.
+// Mutant proof for the ONE-NUMBER reader (scripts/_helpers/tier-percent.ts) — B-1. Plain tsx + node:assert.
 // Two scale mutants must turn the ONE-NUMBER invariant RED; the clean case stays GREEN. Proven at the
 // exact pure logic the harness assertion calls, so no browser is needed to show the mutant biting.
 import assert from 'node:assert'
-import { onePercentAgree, readPct } from '../harness/tier-percent'
+import { onePercentAgree, readPct } from './_helpers/tier-percent'
 
 let pass = 0
 const ok = (name: string, cond: boolean) => {

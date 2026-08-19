@@ -111,5 +111,40 @@ echo "pre-push: hard gate → npm test" >&2
 npm test \
   || die "'npm test' failed (or the 'test' script is missing). Fix it, then push again."
 
-echo "pre-push: hard gate green (lint + test). 'npm run build' is still yours to run before opening the PR." >&2
+# §lane 2 — the 74 plain node:assert scripts that `npm test` does NOT see.
+#   vitest runs ONLY the specs named in vitest.config.mts `include` (27 files). The other
+#   scripts/*.test.ts are plain node:assert scripts that used to run in ci.yml's tsx lane — and #321
+#   moved ci.yml into .github/workflows/archive/, so from 2026-08-18 13:56Z NOTHING ran them.
+#   `npm test` stayed green the whole time: it was green about a pile that had shrunk ~3x, and nothing
+#   said so. That is the exact failure this hook exists to prevent, so the lane moves here (#334).
+#   The skip list mirrors ci.yml's: those two ARE in vitest's include, so running them twice is waste.
+#   ⚠️ ANY new scripts/*.test.ts is picked up automatically — this is a glob, not a hand-synced list.
+#      (contrast vitest.config.mts, which IS hand-synced — that is tracked debt #212.)
+#   §scope — the lane only claims anything about repos that HAVE this pile. A repo with no scripts/
+#   directory (every oracle vault) has no node:assert tests, so "0 files ran" is the truth there, not a
+#   broken glob. Where scripts/ DOES exist, 0 matches means the glob broke and we must not call that green.
+if [ ! -d scripts ]; then
+  echo "pre-push: no scripts/ directory — tsx lane not applicable in this repo" >&2
+  echo "pre-push: hard gate green (lint + test). 'npm run build' is still yours to run before opening the PR." >&2
+  exit 0
+fi
+
+echo "pre-push: hard gate → scripts/*.test.ts (tsx lane)" >&2
+lane2_failed=0
+lane2_ran=0
+for f in scripts/*.test.ts; do
+  case "$f" in
+    scripts/logout-clears-caches.test.ts|scripts/v2-tier.test.ts) continue ;;
+  esac
+  lane2_ran=$((lane2_ran + 1))
+  npx tsx "$f" >/dev/null 2>&1 || { lane2_failed=1; echo "  ✗ $f" >&2; npx tsx "$f" >&2 2>&1 | tail -20; }
+done
+[ "$lane2_ran" -gt 0 ] \
+  || die "the tsx lane matched 0 files. scripts/*.test.ts is where 74 node:assert tests live; matching
+     nothing means the glob broke, not that the tests pass. Not asserting green over an empty run."
+[ "$lane2_failed" -eq 0 ] \
+  || die "a scripts/*.test.ts file failed in the tsx lane (see ✗ above). Fix it, then push again."
+echo "pre-push: tsx lane green ($lane2_ran files)" >&2
+
+echo "pre-push: hard gate green (lint + test + tsx lane). 'npm run build' is still yours to run before opening the PR." >&2
 exit 0

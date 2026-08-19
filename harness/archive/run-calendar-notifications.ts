@@ -13,7 +13,7 @@
 import { chromium, type Page } from 'playwright'
 import * as fs from 'fs'
 import * as path from 'path'
-import { trackAppFetches } from './assert-no-app-fetch'
+import { trackAppFetches } from '../../scripts/_helpers/assert-no-app-fetch'
 
 const HOST = process.env.CAPTURE_HOST ?? 'http://localhost:3011'
 const ROUTE = '/v2/calendar/notifications'

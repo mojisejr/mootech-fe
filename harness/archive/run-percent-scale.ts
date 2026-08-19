@@ -1,7 +1,7 @@
 // harness/run-percent-scale.ts — the HARVESTER half of PERCENT-SCALE.
 //
 // This file does not judge anything. It goes and gets the two layers — what the API said, and what the
-// screen painted — and hands them to harness/percent-crosscheck.ts, which is pure and lives under CI via
+// screen painted — and hands them to scripts/_helpers/percent-crosscheck.ts (ย้ายโดย #334), which is pure and runs in the pre-push tsx lane via
 // scripts/percent-scale.test.ts. That split is deliberate: a browser run can only exist in harness/, and CI
 // does not run harness/, so putting the judgement here would have left it unenforced exactly like the
 // service-hub anchor (#179) and the sapphire invariant were.
@@ -20,7 +20,7 @@
 import { chromium, type Page } from 'playwright'
 import * as fs from 'fs'
 import * as path from 'path'
-import { crossCheckPercents, harvestIsMeaningful, type ApiPercent, type ScreenPercent } from './percent-crosscheck'
+import { crossCheckPercents, harvestIsMeaningful, type ApiPercent, type ScreenPercent } from '../../scripts/_helpers/percent-crosscheck'
 
 const HOST = process.env.HARNESS_HOST ?? process.env.CAPTURE_HOST ?? 'http://localhost:3099'
 

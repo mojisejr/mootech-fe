@@ -52,7 +52,7 @@ import { chromium, type Browser, type BrowserContext, type Page } from 'playwrig
 import { PNG } from 'pngjs'
 import * as fs from 'fs'
 import * as path from 'path'
-import { readPct } from './tier-percent'
+import { readPct } from '../../scripts/_helpers/tier-percent'
 
 const HOST = process.env.CAPTURE_HOST ?? 'http://localhost:3099'
 const DAY = '/v2/calendar/2026-07-14'

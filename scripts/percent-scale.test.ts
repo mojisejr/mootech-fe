@@ -32,7 +32,7 @@
 // rejections below prove nothing.
 import assert from 'node:assert'
 import { isPlausiblePercent, percentText } from '../features/v2-calendar/components/percent-display'
-import { crossCheckPercents, harvestIsMeaningful } from '../harness/percent-crosscheck'
+import { crossCheckPercents, harvestIsMeaningful } from './_helpers/percent-crosscheck'
 
 let pass = 0
 const ok = (name: string, cond: boolean, detail = '') => {

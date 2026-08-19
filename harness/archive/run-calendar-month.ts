@@ -11,7 +11,7 @@
 //   npx tsx harness/run-calendar-month.ts   (dev server up; HARNESS_HOST + V2_PREVIEW_KEY env-overridable)
 import { chromium, type Browser, type Page, type Locator } from 'playwright'
 import * as fs from 'fs'
-import { trackAppFetches } from './assert-no-app-fetch'
+import { trackAppFetches } from '../../scripts/_helpers/assert-no-app-fetch'
 import { DAY_CELL_COLORS, SELECTED, CALENDAR_MARKER } from '../features/v2-calendar/components/grade-colors'
 import { dayCellTier } from '../features/v2-calendar'
 
