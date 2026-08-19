@@ -23,6 +23,9 @@ import { useReminderDraft, type UseReminderDraft } from '@/features/v2-calendar/
 import { NotifyStatusBar } from '@/features/v2-calendar/components/NotifyStatusBar'
 import type { YamSlot } from '@/features/v2-calendar/types'
 
+// #343 — SaveSheet มี prop `statusFor` เพิ่ม (required) ⇒ ทุก render ในไฟล์นี้ต้องส่ง
+// 🔴 และมันพังตอน **รัน** ไม่ใช่ตอนคอมไพล์ เพราะ `tsconfig.json:32` exclude `scripts` ทั้งโฟลเดอร์
+//    ⇒ ท่า "ทำ prop เป็น required เพื่อย้ายด่านไปที่คอมไพเลอร์" (#324) **ครอบไม่ถึงไฟล์เทสต์**
 afterEach(cleanup)
 
 // ── ชั้นที่ 1 · การแปล capability → สถานะ (ฟังก์ชันบริสุทธิ์) ─────────────────────────────────
@@ -107,7 +110,7 @@ function draftWith(destinations: string[]): UseReminderDraft {
 
 function renderSheet(notify: NotifyState) {
   return render(
-    <SaveSheet date="2026-08-16" yams={YAMS} draft={draftWith([])} onSave={() => {}} notify={notify} onShowGuide={() => {}} />,
+    <SaveSheet date="2026-08-16" yams={YAMS} draft={draftWith([])} onSave={() => {}} notify={notify} onShowGuide={() => {}} statusFor={() => 'addable'} />,
   )
 }
 
@@ -123,7 +126,7 @@ describe('SaveSheet — ปุ่มบันทึกพูดความจ�
     // ตู๋ #303: `onClick={onSave}` → `() => {}` ผ่าน 35/35 เพราะไม่มีเทสต์ไหนกดปุ่มจริง — ปุ่มอยู่ครบ
     // แต่ไม่มีใครเฝ้าว่ามันยังต่อสาย (ตระกูล #299: ปุ่มอยู่ แต่กดไม่ติด). ฟันนี้กดปุ่มจริงแล้ว assert callback.
     const onSave = vi.fn()
-    render(<SaveSheet date="2026-08-16" yams={YAMS} draft={draftWith([])} onSave={onSave} notify="granted" onShowGuide={() => {}} />)
+    render(<SaveSheet date="2026-08-16" yams={YAMS} draft={draftWith([])} onSave={onSave} notify="granted" onShowGuide={() => {}} statusFor={() => 'addable'} />)
     fireEvent.click(screen.getByTestId('sheet-save'))
     expect(onSave).toHaveBeenCalledTimes(1)
   })

@@ -37,47 +37,24 @@ export function remindersLocked(isPaid: boolean | null): boolean {
 export const DAY_CTA_LOCKED_MESSAGE = 'การตั้งเตือนเป็นของสมาชิก · ระบบสมาชิกกำลังจะมา เร็วๆ นี้'
 export const DAY_CTA_LOCKED_LABEL = 'เพิ่มลงปฏิทิน · เฉพาะสมาชิก'
 export const DAY_CTA_OPEN_LABEL = 'เพิ่มลงปฏิทิน เพื่อแจ้งเตือน'
-export const DAY_CTA_SAVED_LABEL = 'คุณบันทึกลงปฏิทินแล้ว'
-
-export type DayCtaPlan = {
-  /** ล็อกไหม — สำหรับฟัน/แอนเคอร์ ไม่ได้ใช้วาดอะไรเอง */
-  locked: boolean
-  /** ข้อความบนปุ่ม — ผู้ใช้เห็นว่าล็อก **ก่อน** กด ไม่ใช่รู้ตอนกดแล้ว */
-  label: string
-  /** สิ่งที่เกิดเมื่อกด — ทางล็อกไม่มีเส้นทางไปถึง openSheet เลย */
-  press: () => void
-}
-
-export function dayDetailCta(o: {
-  isPaid: boolean | null
-  saved: boolean
-  openSheet: () => void
-  say: (message: string) => void
-}): DayCtaPlan {
-  if (remindersLocked(o.isPaid)) {
-    return {
-      locked: true,
-      label: DAY_CTA_LOCKED_LABEL,
-      press: () => o.say(DAY_CTA_LOCKED_MESSAGE),
-    }
-  }
-  return {
-    locked: false,
-    label: o.saved ? DAY_CTA_SAVED_LABEL : DAY_CTA_OPEN_LABEL,
-    press: o.openSheet,
-  }
-}
+// #343 — `dayDetailCta` (2 สถานะ) ถูก `dayReminderCta` (7 สถานะ) แทนที่แล้ว และหน้าเพจสลับมาเรียกตัวใหม่
+// ⇒ ลบทิ้งตามที่ใบสั่ง ❌ ไม่เก็บไว้เป็นทางคู่ขนาน — ตัวตัดสินสองตัวสำหรับปุ่มเดียวคือรูปที่ทำให้จอโกหก
+// ป้ายเดิม `DAY_CTA_SAVED_LABEL` ('คุณบันทึกลงปฏิทินแล้ว') ไปอยู่เป็นค่า default ใน `Menubar` แล้ว
+// (หน้ารายการแจ้งเตือนยังใช้อยู่ · ไม่ได้ส่ง ctaLabel มา)
 
 // ────────────────────────────────────────────────────────────────────────────
 // #341 — ตรรกะยาม 3 สถานะ + ปุ่มแถบล่าง 7 สถานะ (goo · logic-only, P2/P3=มุน วาด)
 //
-// 🔴 ทำไม `dayReminderCta` เป็นฟังก์ชัน **ใหม่** ไม่ใช่ขยาย `dayDetailCta` เดิมในที่:
-// `[date].tsx:130` เรียก `dayDetailCta({isPaid,saved,openSheet,say})` และเพจเป็นของมุน (P2/P3) goo แตะไม่ได้.
+// 🔴 ทำไม `dayReminderCta` เคยเป็นฟังก์ชัน **ใหม่** แทนการขยายตัวเดิมในที่ (บันทึกไว้เป็นประวัติ — seam ปิดแล้ว):
+// ตอน #341 หน้าเพจยังเรียก `dayDetailCta({isPaid,saved,openSheet,say})` และเพจเป็นของมุน (P2/P3) goo แตะไม่ได้.
 // 7 สถานะต้องรับ input เพิ่ม (yams · addedYamIds · now · saving/justSaved · goToList) ⇒ ถ้าเปลี่ยน signature
 // ตัวเก่า เพจจะ compile ไม่ผ่าน + fang เดิม (day-cta-tier-gate ชั้น ② render เพจจริง) แตก + PR นี้ build แดง
 // = ผิดเป้าใบเอง (ขนานกับมุน · แต่ละ PR เขียวเอง). จึงเก็บตัวเก่าไว้ครบ แล้วเพิ่มตัวใหม่ที่ input required
-// (fail-closed: มุน render 7 สถานะไม่ได้ถ้าไม่ส่ง yam มา — กันป้ายโกหกเงียบ). seam: P2 สลับ call site
-// เพจ → `dayReminderCta` แล้วลบตัวเก่าได้ตอนนั้น. ตัวนี้ **ยัง unwired ใน PR ผม** โดยตั้งใจ (ชั้น ② เป็นงาน P2).
+// (fail-closed: มุน render 7 สถานะไม่ได้ถ้าไม่ส่ง yam มา — กันป้ายโกหกเงียบ).
+// ✅ #343 สลับ call site ของเพจมาที่ตัวนี้แล้ว และลบตัวเก่าทิ้ง ⇒ **ต่อสายแล้ว ไม่ใช่ unwired อีกต่อไป**
+// ⚠️ ข้อจำกัดที่รู้ตัว: สถานะ 2 (`saving`) วาดไม่ถึงตาผู้ใช้บนหน้า day-detail เพราะตอน `saving` ชีท
+// (`fixed inset-0 z-50`) คลุมเมนู (z-40) อยู่ และหลัง #343 ทุกเส้นทางบันทึกผ่านชีททั้งหมด — ต่อสายไว้
+// เพราะ fail-safe ราคาศูนย์ แต่ **ไม่มีฟันตัวไหนอ้างว่าผู้ใช้เห็นมัน** (บันทึกไว้ใน mootech-fe#343).
 
 export const DAY_CTA_SAVING_LABEL = 'กำลังบันทึก…'
 export const DAY_CTA_JUST_SAVED_LABEL = 'บันทึกเรียบร้อยแล้ว'

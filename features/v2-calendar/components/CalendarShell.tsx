@@ -20,12 +20,15 @@ export function CalendarShell({
   title,
   menuState,
   ctaLabel,
+  ctaDisabled,
   onCta,
   children,
 }: {
   title?: string
   menuState: CalendarMenuState
   ctaLabel?: string
+  /** #343 — ปุ่มกดไม่ได้ด้วยเหตุของหน้าเพจ (แยกจาก ctaLabel==='' ที่แปลว่ากำลังโหลด) */
+  ctaDisabled?: boolean
   onCta?: () => void
   children: ReactNode
 }) {
@@ -36,7 +39,7 @@ export function CalendarShell({
       </Head>
       <div className="min-h-screen bg-v3-ghost-white">
         <main className="mx-auto w-full max-w-md pb-32 pt-0">{children}</main>
-        <CalendarMenu state={VARIANT[menuState]} ctaLabel={ctaLabel} onCta={onCta} />
+        <CalendarMenu state={VARIANT[menuState]} ctaLabel={ctaLabel} ctaDisabled={ctaDisabled} onCta={onCta} />
       </div>
     </>
   )

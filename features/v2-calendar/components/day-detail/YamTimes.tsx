@@ -21,6 +21,7 @@
 // แถบล่างควรเป็นอะไรสำหรับ free ❌ อย่าอ่านไฟล์นี้ว่า "free ยิง POST ไม่ได้แล้ว" — จริงเฉพาะทางนี้
 import { Lock } from 'lucide-react'
 import type { YamSlot } from '../../types'
+import type { YamReminderStatus } from '../../tier-lock'
 import { ComingSoonAction } from '@/features/v2-shell/components/ComingSoon'
 import { SectionCard } from './SectionCard'
 
@@ -46,15 +47,46 @@ const PILL_ACTIVE = `${PILL} bg-v3-sapphire text-white`
 // ยอมรับไว้โดยรู้ตัว (label ตั้งใจให้ truncate ตั้งแต่แรก) ❌ ไม่ใช่ไม่รู้ · ถ้าจะชดเชยให้แก้ที่ความกว้าง
 // ของคอลัมน์ข้อความ ไม่ใช่ที่ตัวปุ่ม — ปุ่มต้องคงตำแหน่งตามคำตัดสิน #286
 const PILL_LOCKED = `${PILL} bg-v3-disabled-bg text-v3-text-body`
+// #343 — สองสถานะใหม่ที่ **ไม่ใช่การล็อกเพราะ tier**
+//   added : เพิ่มไปแล้ว — ยังกดได้ (พาไปหน้ารายการ) จึงเป็นปุ่มจริง แต่โทนเบาลงเพราะงานตรงนี้จบแล้ว
+//   past  : เลยเวลา — กดไม่ได้จริง ใช้ `disabled` ❌ ไม่ใช่ handler ที่เงียบ (ปุ่มที่รับคลิกแล้วไม่ทำอะไร
+//           คืออาการที่ใบร่ม #340 ตั้งขึ้นมาแก้) · ที่นี่ไม่มีตัวกันใน handler ให้ทดสอบ ⇒ ใช้ disabled ได้
+//           โดยไม่ชนกับเหตุผลที่ #316 เลี่ยงมัน (React กรองคลิกบน disabled ⇒ ตัวกันใน handler ทดสอบไม่ได้)
+// ทั้งสองแบบ **ยังอยู่ในรายการ ไม่ถูกซ่อน** — เหตุผลเดียวกับปุ่มล็อกของ #316: ผู้ใช้ต้องเห็นว่าวันนี้มีกี่ยาม
+// และตัวเองอยู่ตรงไหน ไม่ใช่เห็นรายการที่หดลงโดยไม่รู้ว่าอะไรหายไป
+const PILL_ADDED = `${PILL} bg-v3-sapphire/10 text-v3-sapphire`
+const PILL_PAST = `${PILL} bg-v3-disabled-bg text-v3-text-body`
 
 export const YAM_LOCKED_MESSAGE = 'การตั้งเตือนเป็นของสมาชิก · ระบบสมาชิกกำลังจะมา เร็วๆ นี้'
+
+// #343 — ป้ายของ 4 สถานะ export ไว้เพื่อให้ฟันอ้างค่าเดียวกับที่จอวาด ❌ ไม่ใช่พิมพ์สตริงซ้ำในเทสต์
+// (เทสต์ที่พิมพ์สตริงเองจะเขียวต่อไปแม้ป้ายบนจอเปลี่ยน — ฟันที่อ่านค่าที่ตัวเองเขียน)
+export const YAM_ADD_LABEL = 'เพิ่มปฏิทิน'
+export const YAM_ADDED_LABEL = 'เพิ่มแล้ว'
+export const YAM_PAST_LABEL = 'เลยเวลา'
 
 // 🔴 `locked` เป็น required ❌ ไม่ใช่ optional ที่ default false — ตู๋ยิงพิสูจน์ (#324): ถอด
 // `locked={…}` ออกจากผู้เรียกจริงที่ [date].tsx:186 แล้ว **302/302 ยังเขียวครบ · tsc exit 0**
 // ⇒ ฟันทั้งชุดเฝ้า "component ทำอะไรเมื่อได้ locked" แต่ไม่มีอะไรเฝ้า "หน้าเพจส่ง locked มาจริงไหม"
 // required ย้ายด่านนั้นไปอยู่ที่คอมไพเลอร์: ถอดออก ⇒ TS2741 ชี้บรรทัดผู้เรียกเป๊ะ
 // (ผู้เรียกทั้ง repo มีตัวเดียวและส่ง prop อยู่แล้ว ⇒ ไม่มีใครเสียประโยชน์จาก default)
-export function YamTimes({ yams, onAdd, locked }: { yams: YamSlot[]; onAdd: (yam: YamSlot) => void; locked: boolean }) {
+export function YamTimes({
+  yams,
+  onAdd,
+  locked,
+  statusFor,
+  onViewList,
+}: {
+  yams: YamSlot[]
+  onAdd: (yam: YamSlot) => void
+  locked: boolean
+  /** #343 — สถานะของยามนี้ (`added`/`past`/`addable`) · ตรรกะอยู่ที่ `yamReminderStatus` ใน tier-lock.ts
+   *  🔴 required เหมือน `locked` ด้วยเหตุผลเดียวกัน (#324): ถ้าเป็น optional ที่ default 'addable'
+   *  ผู้เรียกที่ลืมส่งจะได้ปุ่มที่บอกว่า "เพิ่มได้" กับยามที่เพิ่มไปแล้ว โดยไม่มีอะไรแดง */
+  statusFor: (yam: YamSlot) => YamReminderStatus
+  /** ไปหน้ารายการแจ้งเตือนทั้งหมด — ปลายทางของยามที่ "เพิ่มแล้ว" */
+  onViewList: () => void
+}) {
   return (
     <SectionCard title="เวลามงคล" info>
       <div className="flex flex-col gap-2.5">
@@ -76,6 +108,26 @@ export function YamTimes({ yams, onAdd, locked }: { yams: YamSlot[]; onAdd: (yam
                 <Lock aria-hidden className="h-3.5 w-3.5" strokeWidth={2.5} />
                 เพิ่มปฏิทิน
               </ComingSoonAction>
+            ) : statusFor(yam) === 'added' ? (
+              <button
+                type="button"
+                data-testid={`yam-added-${yam.id}`}
+                aria-label={`${yam.window} เพิ่มแล้ว — ดูการแจ้งเตือนทั้งหมด`}
+                onClick={onViewList}
+                className={PILL_ADDED}
+              >
+                {YAM_ADDED_LABEL}
+              </button>
+            ) : statusFor(yam) === 'past' ? (
+              <button
+                type="button"
+                data-testid={`yam-past-${yam.id}`}
+                disabled
+                aria-label={`${yam.window} เลยเวลาแจ้งเตือนแล้ว`}
+                className={PILL_PAST}
+              >
+                {YAM_PAST_LABEL}
+              </button>
             ) : (
               <button
                 type="button"
@@ -83,7 +135,7 @@ export function YamTimes({ yams, onAdd, locked }: { yams: YamSlot[]; onAdd: (yam
                 onClick={() => onAdd(yam)}
                 className={PILL_ACTIVE}
               >
-                เพิ่มปฏิทิน
+                {YAM_ADD_LABEL}
               </button>
             )}
           </div>

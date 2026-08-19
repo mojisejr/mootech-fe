@@ -61,9 +61,13 @@ function isActive(pathname: string, href: string): boolean {
 
 const NAV = 'fixed inset-x-0 bottom-0 z-40 mx-auto flex max-w-md items-center gap-3.5 px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-2'
 
-export function Menubar({ state = 'default', ctaLabel, onCta }: {
+export function Menubar({ state = 'default', ctaLabel, ctaDisabled = false, onCta }: {
   state?: MenubarState
   ctaLabel?: string
+  /** #343 — ปิดปุ่มด้วยเหตุของหน้าเพจ (กำลังบันทึก · เพิ่งบันทึก · เลยเวลาหมด) แยกจาก '' ที่แปลว่า "กำลังโหลด".
+   *  ก่อนหน้านี้ทางเดียวที่ปุ่มถูกปิดคือ sentinel `''` ⇒ สถานะ `disabled:true` ที่ `dayReminderCta` คืนมา
+   *  วาดไม่ได้เลย ปุ่มจะดูกดได้และกดได้จริงทั้งที่ `press` เป็น no-op = กดแล้วเงียบ (อาการของ #340). */
+  ctaDisabled?: boolean
   onCta?: () => void
 }) {
   const { pathname } = useRouter()
@@ -81,7 +85,7 @@ export function Menubar({ state = 'default', ctaLabel, onCta }: {
         <button
           type="button"
           onClick={onCta}
-          disabled={loading}
+          disabled={loading || ctaDisabled}
           aria-busy={loading || undefined}
           className="h-[70px] w-full rounded-2xl bg-v3-sapphire text-base font-bold leading-6 text-white disabled:opacity-60"
         >
@@ -118,8 +122,18 @@ export function Menubar({ state = 'default', ctaLabel, onCta }: {
           })}
         </ul>
       ) : (
-        // states 2/3 — a sapphire CTA filling the left slot. The label NEVER truncates: it shrinks and wraps
-        // (up to 2 balanced lines) so "เพื่อแจ้งเตือน" stays whole even at 320.
+        // states 2/3 — a sapphire CTA filling the left slot. The label shrinks and wraps (up to 2 balanced
+        // lines) rather than truncating, so no label is ever cut off mid-word — which in Thai, with no
+        // spaces between words, is the difference between "shorter" and "wrong".
+        // ⚠️ #326 replaced the state-2 label and #343 added five more, so this can no longer promise that
+        // any NAMED phrase survives a given width: the widest label decides, and it changes per state.
+        // Which of them actually wrap, and where, is unverified on a real screen — #306 holds that.
+        //
+        // #343 — the `✓` belongs to the DEFAULT label only, NOT to every label shown in state 'saved'.
+        // The menu state is derived from "does this day have a reminder" (menuStateForDay), which is a
+        // DIFFERENT question from what the button now says (dayReminderCta, 7 states). Decorating any
+        // caller-supplied label made the screen render "✓ เพิ่มยาม" — a checkmark claiming done on a
+        // button asking for more. Two sources deciding one string; the caller's own label wins.
         // `??` does not catch '' — and the day-detail loading screen passes exactly that with a no-op
         // handler, so the screen showed a full-width sapphire pill with NO LABEL that ate every tap. Not a
         // "coming soon" case: the action is real and merely not ready for a few hundred ms, so it says so
@@ -131,14 +145,15 @@ export function Menubar({ state = 'default', ctaLabel, onCta }: {
         // is the loading signal; absent still means "use the default for this state".
         <button
           type="button"
+          data-testid="menubar-cta"
           onClick={onCta}
-          disabled={ctaLabel === ''}
+          disabled={ctaLabel === '' || ctaDisabled}
           aria-busy={ctaLabel === '' || undefined}
           className="flex h-[70px] min-w-0 flex-1 items-center justify-center rounded-2xl bg-v3-sapphire px-4 text-center text-sm font-bold leading-tight text-white [text-wrap:balance] disabled:opacity-60"
         >
           {ctaLabel === ''
             ? 'กำลังโหลด…'
-            : state === 'saved' ? `✓ ${ctaLabel ?? 'คุณบันทึกลงปฏิทินแล้ว'}` : (ctaLabel ?? 'เพิ่มลงปฏิทิน เพื่อแจ้งเตือน')}
+            : (ctaLabel ?? (state === 'saved' ? '✓ คุณบันทึกลงปฏิทินแล้ว' : 'เพิ่มลงปฏิทิน เพื่อแจ้งเตือน'))}
         </button>
       )}
       <MateAIButton />
