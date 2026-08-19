@@ -16,3 +16,51 @@
 export function remindersLocked(isPaid: boolean | null): boolean {
   return isPaid !== true
 }
+
+// #326 — ทางเข้าที่ **สอง**: ปุ่มหลักบนแถบล่าง ("เพิ่มลงปฏิทิน เพื่อแจ้งเตือน")
+//
+// `#316` ปิดทางเข้าที่ปุ่มรายยาม · ทางนี้ยังเปิดอยู่ และโกหกหนักกว่า เพราะผู้ใช้ free เลือกยามจนเสร็จ
+// **ก่อน** จะโดน 403 แล้วชีทค้างไว้ให้ retry ⇒ ลงแรงไปแล้วค่อยถูกปฏิเสธ และจอไม่ได้บอกว่าเพราะไม่ใช่สมาชิก
+//
+// 🔴 ทำไมทั้ง "ตัดสิน" และ "ลงมือ" ต้องอยู่ในฟังก์ชันเดียวกันนี้ ไม่ใช่คืนแค่ boolean ให้หน้าเพจไปแตกเอง:
+// ปุ่มตัวนี้ถูกวาดโดย `Menubar` ซึ่งมีจุด render 9 แห่งทั่วแอป ⇒ ทำ prop ให้ required แบบที่ `#316`
+// ทำกับ `YamTimes` ไม่ได้ (พัง 9 จุดเพื่อกันจุดเดียว) ⇒ ด่านของผู้เรียกจึงต้องเป็น "หน้าเพจส่งอะไรเข้า
+// `onCta`" · ถ้าที่นี่คืนแค่ `locked` แล้วปล่อยให้ `[date].tsx` เขียน `locked ? … : …` เอง บรรทัดที่ตัดสิน
+// พฤติกรรมจะย้ายกลับเข้าไฟล์ที่ unit test import ไม่ได้ — ซึ่งเป็นเหตุผลเดียวกับที่ไฟล์นี้ถูกแยกออกมาแต่แรก
+//
+// ฟีมเคาะทาง **ก.** (2026-08-19): กดแล้ว *บอกว่าเป็นของสมาชิก* ❌ ไม่เปิดชีท ❌ ไม่ยิง POST
+// 📌 ปลายทางที่เหมาะจริงคือพาไปหน้า pricing — ยังไม่มีหน้านั้น บันทึกไว้ที่ mootech-fe#278 แล้ว
+
+export const DAY_CTA_LOCKED_MESSAGE = 'การตั้งเตือนเป็นของสมาชิก · ระบบสมาชิกกำลังจะมา เร็วๆ นี้'
+export const DAY_CTA_LOCKED_LABEL = 'เพิ่มลงปฏิทิน · เฉพาะสมาชิก'
+export const DAY_CTA_OPEN_LABEL = 'เพิ่มลงปฏิทิน เพื่อแจ้งเตือน'
+export const DAY_CTA_SAVED_LABEL = 'คุณบันทึกลงปฏิทินแล้ว'
+
+export type DayCtaPlan = {
+  /** ล็อกไหม — สำหรับฟัน/แอนเคอร์ ไม่ได้ใช้วาดอะไรเอง */
+  locked: boolean
+  /** ข้อความบนปุ่ม — ผู้ใช้เห็นว่าล็อก **ก่อน** กด ไม่ใช่รู้ตอนกดแล้ว */
+  label: string
+  /** สิ่งที่เกิดเมื่อกด — ทางล็อกไม่มีเส้นทางไปถึง openSheet เลย */
+  press: () => void
+}
+
+export function dayDetailCta(o: {
+  isPaid: boolean | null
+  saved: boolean
+  openSheet: () => void
+  say: (message: string) => void
+}): DayCtaPlan {
+  if (remindersLocked(o.isPaid)) {
+    return {
+      locked: true,
+      label: DAY_CTA_LOCKED_LABEL,
+      press: () => o.say(DAY_CTA_LOCKED_MESSAGE),
+    }
+  }
+  return {
+    locked: false,
+    label: o.saved ? DAY_CTA_SAVED_LABEL : DAY_CTA_OPEN_LABEL,
+    press: o.openSheet,
+  }
+}

@@ -21,27 +21,53 @@
 // the sentence twice. That directly contradicts the reason this component exists, written six lines above:
 // a response only sighted users receive would be half the fix. So the first mounted toast CLAIMS the slot
 // and the rest render nothing; when it unmounts the claim is released and the next mount takes it.
-import { useEffect, useRef, useState, type ReactNode } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
 
 type Listener = (msg: string | null) => void
 const listeners = new Set<Listener>()
 let current: string | null = null
 let seq = 0
+// #323 — THE EXPIRY LIVES WHERE THE STATE LIVES. It used to be a useRef inside each <ComingSoonAction/>,
+// and that control's unmount cleanup ran `clearTimeout` — so tapping a control and leaving the page inside
+// VISIBLE_MS cancelled the only thing that would ever reset `current`. `current` then survived for the life
+// of the tab, and the next ComingSoonToast to mount read it in `useState(current)` and showed a toast the
+// user never asked for, on a different screen. The state is module-scoped; an expiry owned by a component
+// is an expiry that dies whenever that component does. Clearing `current` on unmount instead would have
+// been the fast fix and the wrong one — it breaks the hand-over that `elect()` exists for (see below).
+let expiry: ReturnType<typeof setTimeout> | null = null
 
 /** show the notice. A later call replaces an earlier one rather than queueing behind it. */
 function announce(msg: string) {
   current = msg
   seq += 1
   listeners.forEach((l) => l(current))
+  const token = seq
+  if (expiry) clearTimeout(expiry)
+  expiry = setTimeout(() => clear(token), VISIBLE_MS)
 }
 function clear(token: number) {
   if (token !== seq) return // a newer message arrived; this timeout is stale
   current = null
+  if (expiry) {
+    clearTimeout(expiry)
+    expiry = null
+  }
   listeners.forEach((l) => l(null))
+}
+
+/**
+ * #326 — announce the same notice from a control this component does NOT wrap. The day-detail bottom-bar
+ * CTA is drawn by <Menubar/>, so it cannot be wrapped in <ComingSoonAction/>; it calls this instead and
+ * renders <ComingSoonNotice/> itself. Exported so that "a locked control says something" has ONE
+ * implementation, not a second copy that drifts.
+ */
+export function announceComingSoon(message: string) {
+  announce(message)
 }
 
 const DEFAULT_MESSAGE = 'ฟีเจอร์นี้กำลังจะมา เร็วๆ นี้'
 const VISIBLE_MS = 2200
+// (announce/clear above reference VISIBLE_MS from inside their bodies, which run after module init.)
 
 /**
  * The notice itself. Fixed above the bottom menu, out of flow, so it cannot shift anything on the page —
@@ -53,6 +79,10 @@ const VISIBLE_MS = 2200
 // by accident is the shape we spent the day removing.
 const mounted: Array<(owns: boolean) => void> = []
 const elect = () => mounted.forEach((set, i) => set(i === 0))
+
+export function ComingSoonNotice() {
+  return <ComingSoonToast />
+}
 
 function ComingSoonToast() {
   const [msg, setMsg] = useState<string | null>(current)
@@ -104,8 +134,8 @@ export function ComingSoonAction({
   message?: string
   testId?: string
 }) {
-  const timer = useRef<ReturnType<typeof setTimeout> | null>(null)
-  useEffect(() => () => { if (timer.current) clearTimeout(timer.current) }, [])
+  // #323 — no timer here on purpose. The notice's lifetime belongs to the module store, not to this
+  // button; a button that unmounts must not take the countdown with it.
   return (
     <>
       <button
@@ -113,12 +143,7 @@ export function ComingSoonAction({
         data-testid={testId}
         data-coming-soon="true"
         aria-label={label}
-        onClick={() => {
-          announce(message)
-          const token = seq
-          if (timer.current) clearTimeout(timer.current)
-          timer.current = setTimeout(() => clear(token), VISIBLE_MS)
-        }}
+        onClick={() => announce(message)}
         className={className}
       >
         {children}

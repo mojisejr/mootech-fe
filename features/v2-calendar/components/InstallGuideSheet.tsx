@@ -99,7 +99,9 @@ export function InstallGuideSheet({ variant, onClose }: { variant: InstallGuideV
     // This sheet is opened BY a button inside SaveSheet, which owns the modal layer (z-50). At z-50 both
     // sat on the same level and only DOM order in [date].tsx put this one on top — correct today, silent
     // the day someone reorders the JSX. Same mechanism as #299, one layer up. ❌ Do not lower this to
-    // z-50 without also moving SaveSheet down: harness/save-sheet-hittable.ts case C hit-tests it.
+    // z-50 without also moving SaveSheet down: harness/archive/save-sheet-hittable.ts case C hit-tested it.
+    // 🗄️ ARCHIVED by #321 — no workflow runs it now (.github/workflows/archive/design-verify.yml).
+    // ⇒ if you move either sheet's layer, NOTHING will catch a regression for you. Check it by hand.
     <div className="fixed inset-0 z-[60] flex items-end justify-center bg-black/30" onClick={onClose} data-testid="install-guide-scrim">
       <div
         role="dialog"

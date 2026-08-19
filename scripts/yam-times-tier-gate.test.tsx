@@ -8,14 +8,23 @@
 // 🔴 NEGATIVE CONTROL สองทิศในไฟล์นี้: locked → onAdd ไม่ถูกเรียก · ไม่ locked → ถูกเรียก 1 ครั้ง
 // พร้อม args เดิม · ถ้าเหลือแต่ทิศแรก ฟันจะยังเขียวเมื่อมีคนทำให้ปุ่มตายทั้งสองสถานะ
 import React from 'react'
-import { describe, it, expect, vi, afterEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, cleanup, fireEvent } from '@testing-library/react'
 import { YamTimes, YAM_LOCKED_MESSAGE } from '@/features/v2-calendar/components/day-detail/YamTimes'
 import { remindersLocked } from '@/features/v2-calendar/tier-lock'
 import type { YamSlot } from '@/features/v2-calendar/types'
 
+// #323 — ก่อนหน้านี้ไฟล์นี้ต้องวาง assert "ยังไม่มี toast" ไว้ในเคสแรกเท่านั้น เพราะ `current` ของ
+// ComingSoon เป็น state ระดับโมดูล และตัวจับเวลาที่จะล้างมันเคยเป็นของคอมโพเนนต์ ⇒ `cleanup()` ฆ่า
+// ตัวจับเวลาทิ้ง แล้วข้อความค้างข้ามเคส · ตอนนี้ตัวจับเวลาอยู่ที่โมดูลแล้ว ⇒ เดินนาฬิกาให้หมดอายุได้จริง
+const TOAST_MS = 2200
+beforeEach(() => {
+  vi.useFakeTimers({ shouldAdvanceTime: true })
+})
 afterEach(() => {
+  vi.advanceTimersByTime(TOAST_MS * 2)
   cleanup()
+  vi.useRealTimers()
   vi.restoreAllMocks()
 })
 
@@ -33,9 +42,6 @@ const mount = (locked: boolean) => {
 describe('#316 · ปุ่มเพิ่มปฏิทินรายยาม — ด่านสมาชิก', () => {
   it('locked → กดแล้ว onAdd ไม่ถูกเรียกเลย (client ไม่ยิง POST) · และก่อนกดยังไม่มี toast', () => {
     const onAdd = mount(true)
-    // 🔴 assert "ยังไม่มี toast" ต้องอยู่ในเคสแรกของไฟล์เท่านั้น — `announce()` เก็บข้อความไว้ที่
-    // module level (ComingSoon.tsx) และ `cleanup()` ล้างมันไม่ได้ ⇒ เคสหลังๆ จะเห็น toast ค้างจากเคสก่อน
-    // นี่ไม่ใช่ข้อจำกัดของเทสต์อย่างเดียว มันคือบั๊กจริงที่ยกไป mojisejr/mootech-fe#323
     expect(screen.queryByTestId('coming-soon-toast')).toBeNull()
     fireEvent.click(screen.getByTestId('yam-add-locked-y1'))
     expect(onAdd).not.toHaveBeenCalled()
@@ -66,6 +72,14 @@ describe('#316 · ปุ่มเพิ่มปฏิทินรายยา�
     mount(false)
     expect(screen.queryAllByTestId(/^yam-add-locked-/)).toHaveLength(0)
     expect(screen.getAllByTestId(/^yam-add-y/)).toHaveLength(YAMS.length)
+  })
+
+  // #323 — เคสนี้อยู่ **ท้ายไฟล์ หลังเคสที่กดจน toast โผล่ไปแล้ว** และนั่นคือสิ่งที่มันพิสูจน์:
+  // ข้อความไม่ค้างข้ามเคสอีกแล้ว ⇒ ข้อจำกัด "assert ต้องอยู่ในเคสแรกเท่านั้น" ถูกถอนออกได้จริง
+  // ❌ ห้ามย้ายเคสนี้ขึ้นไปข้างบน — ถ้าย้าย มันจะเขียวโดยไม่ได้พิสูจน์อะไรเลย
+  it('#323 · ไม่มี toast ค้างมาจากเคสก่อนหน้า (เคสนี้ต้องอยู่ท้ายไฟล์)', () => {
+    mount(true)
+    expect(screen.queryByTestId('coming-soon-toast')).toBeNull()
   })
 
   // ❌ ถอนเคส "ค่าเริ่มต้นของ locked คือ false" ออกแล้ว (ตู๋ #324 · request changes)
