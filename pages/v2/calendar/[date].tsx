@@ -215,7 +215,9 @@ export default function V2CalendarDayPage({ teamPreview }: { teamPreview: boolea
           #302: บรรทัดนี้เคยเขียนว่า "z สูงกว่า" ทั้งที่ของจริงเท่ากัน (z-50 ทั้งคู่) — วันนั้นมันอยู่บนได้
           เพราะบังเอิญเรียงหลัง SaveSheet ตรงนี้ ไม่ใช่เพราะชั้น. ตอนนี้ชั้นบังคับจริงที่
           InstallGuideSheet.tsx (z-[60]) ⇒ **ลำดับสองบรรทัดนี้สลับกันได้โดยผลไม่เปลี่ยน**
-          และมีฟันเฝ้าอยู่ที่ harness/save-sheet-hittable.ts เคส C */}
+          เคส C ของ harness/archive/save-sheet-hittable.ts เคยเฝ้าไว้ — 🗄️ #321 ย้ายเข้า archive แล้ว
+          ⇒ **ตอนนี้ไม่มีอะไรรันมันอัตโนมัติ** ประโยคนี้เก็บไว้เพื่อบอกว่าทำไมชั้นนี้เป็นแบบนี้
+          ❌ ห้ามอ่านว่ายังมีฟันเฝ้าอยู่ */}
       {guide && <InstallGuideSheet variant={guide} onClose={() => setGuide(null)} />}
     </CalendarShell>
   )

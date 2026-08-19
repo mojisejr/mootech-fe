@@ -57,7 +57,9 @@ export function SaveSheet({
     // z-50 = the MODAL layer (DateSelector, LogoutModal). This sheet is a modal, so it belongs ABOVE the
     // bottom Menubar, which is the NAV layer (z-40). At z-40 both sat on the same level and DOM order let
     // the <nav> cover the "บันทึก" button → the click never landed (#299). Not a bespoke bump: it moves the
-    // sheet into the layer it always belonged in. (harness/save-sheet-hittable.ts proves the hit-test.)
+    // sheet into the layer it always belonged in. (harness/archive/save-sheet-hittable.ts hit-tested it —
+    // 🗄️ ARCHIVED by #321: nothing runs it automatically any more, and it cannot run from its old path.
+    // Kept as the record of WHY this z-index is what it is; ❌ do not read it as a guard that still bites.)
     <div className="fixed inset-0 z-50" data-testid="save-sheet">
       {/* backdrop — click = cancel (→ idle, menu stays 2) */}
       <button type="button" aria-label="ปิด" data-testid="sheet-backdrop" onClick={draft.cancel} className="absolute inset-0 bg-black/40" />
