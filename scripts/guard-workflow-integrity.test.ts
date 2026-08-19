@@ -18,8 +18,19 @@ import { join, resolve } from 'node:path'
 
 const GUARD = resolve('scripts/guard-workflow-integrity.ts')
 
+// 🔴 env WITHOUT any GIT_* var. Under a git hook, git exports GIT_DIR (and GIT_INDEX_FILE), and
+//    GIT_DIR BEATS cwd — so every command this file runs would act on  the REAL repo instead of its sandbox.
+//    That is not theoretical: on 2026-08-19 it wrote `t <t@t> "base"` commits onto an open PR branch,
+//    created a `feature` branch nobody asked for, replaced the tree with the synthetic one below, and set
+//    core.bare=true in the shared .git/config (มุน found it · #337).
+//    It was harmless for months because nothing ran this file — #335 wired lane 2 into pre-push, which is
+//    the ONE place it runs under a hook. Green from a shell ≠ safe where it actually runs.
+const GIT_FREE_ENV: NodeJS.ProcessEnv = Object.fromEntries(
+  Object.entries(process.env).filter(([k]) => !k.startsWith('GIT_')),
+)
+
 function git(cwd: string, cmd: string): void {
-  execSync(`git ${cmd}`, { cwd, stdio: ['pipe', 'pipe', 'pipe'] })
+  execSync(`git ${cmd}`, { cwd, env: GIT_FREE_ENV, stdio: ['pipe', 'pipe', 'pipe'] })
 }
 
 /** A throwaway repo with two workflows committed on `main`, checked out on a `feature` branch. */
@@ -44,7 +55,8 @@ function runGuard(cwd: string, prBody: string): number {
   try {
     execSync(`npx tsx ${GUARD}`, {
       cwd,
-      env: { ...process.env, BASE_REF: 'main', PR_BODY: prBody },
+      // same reason as git(): the guard under test must read the SANDBOX, not the repo we run from
+      env: { ...GIT_FREE_ENV, BASE_REF: 'main', PR_BODY: prBody },
       stdio: ['pipe', 'pipe', 'pipe'],
     })
     return 0

@@ -85,6 +85,7 @@ export default defineConfig({
       'scripts/push-run.test.ts', // #288 — orchestrator: dedup / 15m ceiling / gone-delete / transient-keep
       'scripts/push-concurrency.test.ts',
       'scripts/pre-push-lane2.test.ts', // #334 — ฟันของ tsx lane เอง: ต้องอยู่ที่นี่ ไม่ใช่ในเลนที่มันเฝ้า (ตู๋ M1) // #288 — REAL pg: FOR UPDATE SKIP LOCKED, two claimers at once (gated by TEST_DATABASE_URL)
+      'scripts/guard-test-env-isolation.test.ts', // #337 — sandbox spec ต้องไม่เขียนลง repo จริงตอนรันใต้ hook
     ],
   },
   resolve: {
