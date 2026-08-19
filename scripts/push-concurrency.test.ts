@@ -68,7 +68,12 @@ describe.skipIf(!TEST_URL)('claimAndMark · real pg · at-most-once + bounded (F
     expect(second).toHaveLength(0)
   })
 
-  it('F1 · overlap: many claimers at once → every row claimed EXACTLY once (SKIP LOCKED, no double)', async () => {
+  // NOTE (ตู๋ N1): the no-double guarantee comes from the atomic UPDATE + the `sent_at IS NULL`
+  // predicate — under READ COMMITTED a blocked writer re-evaluates and sees the row already marked, so
+  // it cannot re-claim. SKIP LOCKED is NOT what makes this correct; it only lets concurrent claimers
+  // run WITHOUT blocking each other (throughput). No test guards that non-blocking property (4×20 is
+  // too small to see it) — so do not read this case as protecting SKIP LOCKED.
+  it('F1 · overlap: concurrent claimers → every row claimed EXACTLY once (atomic UPDATE + sent_at-IS-NULL recheck)', async () => {
     await seedDue(20)
     const results = await Promise.all([
       repo.claimAndMark(NOW),

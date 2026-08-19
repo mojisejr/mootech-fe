@@ -7,7 +7,10 @@
 //   then happens OUTSIDE any transaction (route.ts). So a crash/rollback can only make a reminder
 //   miss, never double-send — at-most-once, which is what the ticket's own rule ("ส่งช้าแย่กว่าไม่ส่ง")
 //   asks for (ตู๋ F1: a send inside the txn double-sends when the txn rolls back after delivery).
-// - FOR UPDATE SKIP LOCKED → two overlapping cron runs claim DISJOINT rows (Vercel documents overlap).
+// - Correctness against double-claim comes from this atomic UPDATE + `sent_at IS NULL`: under READ
+//   COMMITTED a concurrent writer that blocked re-evaluates after the first commits, sees the row
+//   already marked, and cannot re-claim. FOR UPDATE SKIP LOCKED is a THROUGHPUT choice on top — two
+//   overlapping cron runs (Vercel documents overlap) claim disjoint rows WITHOUT blocking each other.
 // - The lower bound (fire_at_utc >= now - LATE_CEILING_MINUTES) + LIMIT bound the working set to the
 //   15-minute window: an undelivered row ages out and is never scanned/locked again, so the cron hot
 //   path cannot grow with history (ตู๋ F2). ORDER BY fire_at_utc drains the most-urgent first.

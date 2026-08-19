@@ -1,11 +1,16 @@
 // MuMate v2 · push delivery (goo · #288 phase 4). The send phase, run AFTER the claim has already
 // marked sent_at and committed (repo.claimAndMark). It runs OUTSIDE any transaction — so nothing here
-// can roll back a mark, and a failure only makes a reminder MISS, never double-send (at-most-once,
-// which the ticket's "ส่งช้าแย่กว่าไม่ส่ง" rule prefers). Transport- and DB-agnostic via injected deps.
+// can roll back a mark, and a failure only makes a reminder MISS, never double-send. THIS at-most-once
+// choice is the deliberate one (ตู๋ F1 → ฟีมเคาะ): it prevents the double-send, trading it for a crash
+// AFTER the mark commits but BEFORE the send (rare), which the ticket's "ส่งช้าแย่กว่าไม่ส่ง" rule
+// prefers. Transport- and DB-agnostic via injected deps.
 //
-// Consequence of at-most-once (deliberate, ฟีมเคาะ): a transient push error (429/5xx) is NOT retried —
-// the row is already marked sent. We still do NOT delete the subscription on transient (only 404/410
-// = gone deletes it); deleting on a temporary hiccup would eat healthy subscribers.
+// A CONSEQUENCE of that choice (not a separately-designed rule): a transient push error (429/5xx) is
+// NOT retried — the row is already marked sent, so this reminder just misses this round. That is a
+// real user-facing cost (the old design retried within the 15-min ceiling); ฟีม looked at it and
+// accepted it on 2026-08-19 (#288 N2, option ก) — a safe retry would need per-device state = a schema
+// change = out of this ticket. We still do NOT delete the subscription on transient (only 404/410 =
+// gone deletes it); deleting on a temporary hiccup would eat healthy subscribers.
 
 import { buildReminderPayload, type PushPayload } from './payload'
 import type { ClaimedReminder } from './due'
