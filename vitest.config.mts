@@ -85,6 +85,7 @@ export default defineConfig({
       'scripts/push-run.test.ts', // #288 — orchestrator: dedup / 15m ceiling / gone-delete / transient-keep
       'scripts/push-concurrency.test.ts', // #288 — REAL pg: FOR UPDATE SKIP LOCKED, two claimers at once (gated by TEST_DATABASE_URL)
       'scripts/pre-push-lane2.test.ts', // #334 — ฟันของ tsx lane เอง: ต้องอยู่ที่นี่ ไม่ใช่ในเลนที่มันเฝ้า (ตู๋ M1)
+      'scripts/guard-test-env-isolation.test.ts', // #337 — sandbox spec ต้องไม่เขียนลง repo จริงตอนรันใต้ hook
       'scripts/coming-soon-toast.test.tsx', // #323 — อายุของ toast เป็นของ store โมดูล ไม่ใช่ของปุ่ม; .tsx
       'scripts/day-cta-tier-gate.test.tsx', // #326 — CTA แถบล่างเป็นสถานะล็อกสำหรับ free + ฟันชั้นผู้เรียก; .tsx
     ],
