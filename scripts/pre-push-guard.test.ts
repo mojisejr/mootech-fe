@@ -9,6 +9,15 @@
 // ANCHOR: scripts/pre-push-guard.test.ts#pre-push-protected-branch
 import assert from 'node:assert/strict'
 import { execSync } from 'node:child_process'
+
+// 🔴 env WITHOUT any GIT_* var — see #338. Under a git hook, git exports GIT_DIR and GIT_DIR BEATS cwd,
+//    so a sandbox built in a temp dir would still act on the REAL repo. This file RUNS the hook, and
+//    under lane 2 it runs inside one: exactly the condition that caused the damage on 2026-08-19.
+//    It was not the file that blew up, but it has the identical shape — fixed here rather than waiting
+//    for its turn (#338 DoD: ไล่ให้ครบ ❌ ไม่ใช่แก้เฉพาะตัวที่ระเบิด).
+const GIT_FREE_ENV: NodeJS.ProcessEnv = Object.fromEntries(
+  Object.entries(process.env).filter(([k]) => !k.startsWith('GIT_')),
+)
 import { existsSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
@@ -17,7 +26,7 @@ const HOOK = resolve('.githooks/pre-push')
 assert.ok(existsSync(HOOK), `${HOOK} must exist`)
 
 function git(cwd: string, cmd: string): void {
-  execSync(`git ${cmd}`, { cwd, stdio: ['pipe', 'pipe', 'pipe'] })
+  execSync(`git ${cmd}`, { cwd, env: GIT_FREE_ENV, stdio: ['pipe', 'pipe', 'pipe'] })
 }
 
 /**
@@ -58,6 +67,7 @@ function runHook(cwd: string, stdin: string): number {
   try {
     execSync(`bash ${HOOK} origin https://example.invalid/repo.git`, {
       cwd,
+      env: GIT_FREE_ENV,
       input: stdin,
       stdio: ['pipe', 'pipe', 'pipe'],
     })
