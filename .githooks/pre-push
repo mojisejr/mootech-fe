@@ -108,8 +108,90 @@ npm run lint \
   || die "'npm run lint' failed (or the 'lint' script is missing). Fix it, then push again."
 
 echo "pre-push: hard gate → npm test" >&2
-npm test \
+# `&& rc=0 || rc=$?`: a bare `x=$(cmd)` under `set -e` (line 31) exits the hook with CMD's own status,
+#   so a red test would leave with npm's code instead of reaching die() and its message — and guard B's
+#   contract is "fail CLOSED with 1". Caught by scripts/pre-push-guard.test.ts ("fails CLOSED when test is red").
+test_out=$(npm test 2>&1) && test_rc=0 || test_rc=$?
+printf '%s\n' "$test_out" >&2
+[ "$test_rc" -eq 0 ] \
   || die "'npm test' failed (or the 'test' script is missing). Fix it, then push again."
 
-echo "pre-push: hard gate green (lint + test). 'npm run build' is still yours to run before opening the PR." >&2
+# §skips are LOUD. vitest prints "N skipped" in a summary line that scrolls past; a spec gated behind an
+# env var (push-concurrency needs TEST_DATABASE_URL) then never runs and nobody notices — the same shape
+# as the 74 files this lane exists to recover (#334 / ตู๋'s N3 on #332).
+# `|| true`: with `set -o pipefail` (line 31) a grep that matches NOTHING returns 1 and kills the hook.
+#   That is the normal case — most runs skip nothing. Caught by scripts/pre-push-guard.test.ts.
+skipped=$(printf '%s\n' "$test_out" | grep -oE '[0-9]+ skipped' | head -1 || true)
+if [ -n "$skipped" ]; then
+  echo "pre-push: ⚠️  vitest รายงาน $skipped — ด่านเหล่านั้น 'ไม่ได้วิ่ง' ไม่ใช่ 'ผ่าน'" >&2
+  printf '%s\n' "$test_out" | grep -E '^\s*[↓→]|skipped' | head -5 >&2 || true
+  echo "pre-push:    ถ้ามันคือด่านของสิ่งที่คุณเพิ่งแก้ ไปรันมันจริงแล้วแปะ output ลง PR" >&2
+fi
+
+# §lane 2 — the 74 plain node:assert scripts that `npm test` does NOT see.
+#   vitest runs ONLY the specs named in vitest.config.mts `include` (27 files). The other
+#   scripts/*.test.ts are plain node:assert scripts that used to run in ci.yml's tsx lane — and #321
+#   moved ci.yml into .github/workflows/archive/, so from 2026-08-18 13:56Z NOTHING ran them.
+#   `npm test` stayed green the whole time: it was green about a pile that had shrunk ~3x, and nothing
+#   said so. That is the exact failure this hook exists to prevent, so the lane moves here (#334).
+#   The skip list mirrors ci.yml's: those two ARE in vitest's include, so running them twice is waste.
+#   ⚠️ ANY new scripts/*.test.ts is picked up automatically — this is a glob, not a hand-synced list.
+#      (contrast vitest.config.mts, which IS hand-synced — that is tracked debt #212.)
+#   §scope — the lane only claims anything about repos that HAVE this pile. A repo with no scripts/
+#   directory (every oracle vault) has no node:assert tests, so "0 files ran" is the truth there, not a
+#   broken glob. Where scripts/ DOES exist, 0 matches means the glob broke and we must not call that green.
+if [ ! -d scripts ]; then
+  echo "pre-push: no scripts/ directory — tsx lane not applicable in this repo" >&2
+  echo "pre-push: hard gate green (lint + test). 'npm run build' is still yours to run before opening the PR." >&2
+  exit 0
+fi
+
+#   §skip list — DERIVED from vitest.config.mts, never hand-copied.
+#   The first version of this lane hard-coded the two names ci.yml used to skip. That was already wrong
+#   the moment it was written: vitest's include had grown to 32 entries, and a spec that imports from
+#   'vitest' CANNOT run under plain tsx. #332 adds five such specs with a .test.ts extension → this glob
+#   would grab them → tsx dies → EVERY push in the repo is blocked (มุน caught it by merging all three
+#   branches together before any of them landed; each PR was green alone).
+#   ⚠️ #333's specs survived only because they end in .tsx — luck, not design.
+#   ⇒ one source of truth: whatever vitest claims, this lane skips. That is debt #212 paid on this side.
+vitest_specs=$(grep -oE "'scripts/[^']+\.test\.tsx?'" vitest.config.mts 2>/dev/null | tr -d "'" | sort -u)
+if [ -z "$vitest_specs" ]; then
+  die "could not read the spec list out of vitest.config.mts. Without it this lane cannot tell which
+     files vitest already owns, and running a vitest spec under tsx fails for a reason that has nothing
+     to do with your change. Fix the parse (or the config), then push again."
+fi
+
+echo "pre-push: hard gate → scripts/*.test.ts (tsx lane)" >&2
+lane2_failed=0
+lane2_ran=0
+for f in scripts/*.test.ts; do
+  # vitest owns it → `npm test` above already ran it. Running it here would fail on `import … from 'vitest'`.
+  if printf '%s\n' "$vitest_specs" | grep -qxF "$f"; then continue; fi
+  lane2_ran=$((lane2_ran + 1))
+  npx tsx "$f" >/dev/null 2>&1 || { lane2_failed=1; echo "  ✗ $f" >&2; npx tsx "$f" >&2 2>&1 | tail -20; }
+done
+[ "$lane2_ran" -gt 0 ] \
+  || die "the tsx lane matched 0 files. scripts/*.test.ts is where 74 node:assert tests live; matching
+     nothing means the glob broke, not that the tests pass. Not asserting green over an empty run."
+[ "$lane2_failed" -eq 0 ] \
+  || die "a scripts/*.test.ts file failed in the tsx lane (see ✗ above). Fix it, then push again."
+echo "pre-push: tsx lane green ($lane2_ran files)" >&2
+
+# §the two guards that went down with ci.yml. #321 archived the workflow that ran these; grep across
+#   main-guard.yml · secret-scan.yml · package.json · .githooks/ found no replacement runner (#334).
+#   Both are ~1s here, so there is no reason for them to live nowhere.
+if [ -f scripts/verify-architecture.ts ]; then
+  echo "pre-push: hard gate → verify-architecture" >&2
+  npx tsx scripts/verify-architecture.ts \
+    || die "'verify-architecture' failed. It used to run in ci.yml (archived by #321) and now runs here."
+fi
+if [ -f scripts/guard-workflow-integrity.ts ]; then
+  echo "pre-push: hard gate → guard-workflow-integrity" >&2
+  BASE_REF="${BASE_REF:-origin/main}" npx tsx scripts/guard-workflow-integrity.ts \
+    || die "'guard-workflow-integrity' failed — a workflow was deleted or renamed. That is exactly the
+     move that made 74 tests stop running on 2026-08-18. If it is deliberate, say so in the PR."
+fi
+
+echo "pre-push: hard gate green (lint + test + tsx lane + architecture + workflow-integrity)." >&2
+echo "pre-push: 'npm run build' is still yours to run before opening the PR." >&2
 exit 0

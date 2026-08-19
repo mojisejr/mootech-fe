@@ -1,4 +1,4 @@
-// harness/assert-no-app-fetch.ts — SHARED assertion (goo → Lamun · one code path, both lenses).
+// scripts/_helpers/assert-no-app-fetch.ts (ย้ายออกจาก harness/archive/ โดย #334 — เทสต์ใน scripts/ import มันจริง) — SHARED assertion (goo → Lamun · one code path, both lenses).
 //
 // The calendar Phase-0 mock must make 0 app-fetch, so a page can hit console-0 WITHOUT booting BE
 // (there is nothing to reach). This helper is imported by BOTH goo's capture and Lamun's calendar

@@ -16,7 +16,7 @@ import { chromium, type Page } from 'playwright'
 import * as fs from 'fs'
 import * as path from 'path'
 import { execSync } from 'child_process'
-import { backendUnreachableHint } from './backend-hint'
+import { backendUnreachableHint } from '../../scripts/_helpers/backend-hint'
 
 const HOST = process.env.CAPTURE_HOST ?? 'http://localhost:3000'
 const ENV_FILE = process.env.CAPTURE_ENV_FILE ?? 'testenv/env/fe.env'

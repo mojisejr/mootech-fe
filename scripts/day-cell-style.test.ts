@@ -2,7 +2,7 @@
 //
 // This exists because of a specific hole บอง found reviewing M-C: the rule "the selected cell paints
 // sapphire, not its tier tint" is what licenses the calendar grid and the grade badge to use different
-// colour languages at all (DESIGN.md §GRADE). It was enforced only by harness/run-calendar-month.ts — and
+// colour languages at all (DESIGN.md §GRADE). It was enforced only by harness/archive/run-calendar-month.ts (🗄️ archived by #321 — nothing runs it) — and
 // NOTHING ran that file. So the load-bearing invariant of a shipped design decision had no live guard.
 //
 // In scripts/, not harness/, on purpose: CI runs scripts/*.test.ts. Same reasoning as scripts/grade-scale.test.ts.

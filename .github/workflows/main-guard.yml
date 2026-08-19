@@ -1,5 +1,5 @@
 name: main-guard
-# TRIPWIRE on direct pushes to main. The 3 existing workflows (ci · design-verify · secret-scan) all trigger on
+# TRIPWIRE on direct pushes to main. The live workflows (main-guard · secret-scan) both trigger on
 # `pull_request` only, so a direct push to main runs NOTHING — on 2026-07-29 main sat red ~20 min unnoticed.
 # This runs whenever main MOVES and goes red loudly if (A) main fails tsc, or (B) main was
 # moved by a direct push instead of a PR merge.
