@@ -1,4 +1,4 @@
-// harness/percent-crosscheck.ts — the CROSS-LAYER half of PERCENT-SCALE, as pure logic.
+// scripts/_helpers/percent-crosscheck.ts (ย้ายออกจาก harness/archive/ โดย #334 — เทสต์ใน scripts/ import มันจริง) — the CROSS-LAYER half of PERCENT-SCALE, as pure logic.
 //
 // The rule we agreed on (มุน→goo, #175): a scale leak cannot be caught by comparing the screen with itself.
 // The tile, the sentence and the ring all read one `detail.percent`, so a leaked value appears in all three
@@ -11,7 +11,7 @@
 // other, hand both to this.
 //
 //     this file                    → given API numbers and screen numbers, is the pair acceptable?  (CI)
-//     harness/run-percent-scale.ts → go get the two sides from a live page                          (browser)
+//     harness/archive/run-percent-scale.ts (🗄️ archived, run by hand only) → go get the two sides from a live page                          (browser)
 //
 // ⚠️ TODAY THERE IS NO API SIDE TO HARVEST. useCalendarMonth and useDayDetail both still serve fixtures
 // (mockCalendarMonth / mockDayDetail); G-0c is the change that swaps in the adapter. The harvester therefore

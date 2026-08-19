@@ -4,7 +4,7 @@
 import { chromium } from 'playwright'
 import * as fs from 'fs'
 import * as path from 'path'
-import { trackAppFetches } from './assert-no-app-fetch'
+import { trackAppFetches } from '../../scripts/_helpers/assert-no-app-fetch'
 
 const HOST = process.env.CAPTURE_HOST ?? 'http://localhost:3011'
 const OUT = process.env.CAPTURE_OUT ?? '/private/tmp/claude-501/-Users-non-ghq-github-com-mojisejr-lamun-oracle/f45290ac-6a6b-4771-bb8c-19a1fa5a851b/scratchpad/shots'

@@ -62,7 +62,7 @@ import { chromium, type Page, type BrowserContext } from 'playwright'
 import { PNG } from 'pngjs'
 import * as fs from 'fs'
 import * as path from 'path'
-import { trackAppFetches } from './assert-no-app-fetch'
+import { trackAppFetches } from '../../scripts/_helpers/assert-no-app-fetch'
 
 const HOST = process.env.CAPTURE_HOST ?? 'http://localhost:3011'
 const SIZES = [320, 360, 393, 430]

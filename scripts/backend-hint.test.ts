@@ -4,7 +4,7 @@
 // must NOT be claimed as "BE not booted".
 // Run: npx tsx scripts/backend-hint.test.ts
 import assert from 'node:assert/strict'
-import { detectBackendUnreachable, backendUnreachableHint, parseFailed } from '../harness/backend-hint'
+import { detectBackendUnreachable, backendUnreachableHint, parseFailed } from './_helpers/backend-hint'
 
 let pass = 0
 function t(name: string, fn: () => void) {

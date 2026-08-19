@@ -83,7 +83,8 @@ export default defineConfig({
       'scripts/push-authorize.test.ts', // #288 — cron secret gate, fail-closed (truly-absent probe)
       'scripts/push-send.test.ts', // #288 — web-push wrapper: 404/410→gone vs 429/5xx→transient + arg-mapping
       'scripts/push-run.test.ts', // #288 — orchestrator: dedup / 15m ceiling / gone-delete / transient-keep
-      'scripts/push-concurrency.test.ts', // #288 — REAL pg: FOR UPDATE SKIP LOCKED, two claimers at once (gated by TEST_DATABASE_URL)
+      'scripts/push-concurrency.test.ts',
+      'scripts/pre-push-lane2.test.ts', // #334 — ฟันของ tsx lane เอง: ต้องอยู่ที่นี่ ไม่ใช่ในเลนที่มันเฝ้า (ตู๋ M1) // #288 — REAL pg: FOR UPDATE SKIP LOCKED, two claimers at once (gated by TEST_DATABASE_URL)
     ],
   },
   resolve: {

@@ -132,7 +132,7 @@ export function useV2Home(status: AuthStatus): V2Home {
         }
         // Self-heal (DoD#2): the cached chart is correct ONLY if its resultCode matches the LIVE row's. A
         // match → the instant mascot IS fresh → skip ChineseHoroscopeGet entirely (revisit costs 0 fetch —
-        // the P3 wiring invariant, proven live in harness/run-home-chart-cache.ts). A mismatch (dob edited →
+        // the P3 wiring invariant, proven live in harness/archive/run-home-chart-cache.ts — 🗄️ archived by #321, nothing runs it automatically). A mismatch (dob edited →
         // BE minted a new result_code, verified live testenv jvfQl2haFj2F→KBhQL58FQw8S) → refetch + overwrite.
         if (isChartFresh(userId, resultCode)) {
           setPhase('home')
