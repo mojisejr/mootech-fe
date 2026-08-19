@@ -175,7 +175,11 @@ describe('#348 · ชั่วโมงหลักเดียว — ยิง
     expect(windowStart('99:00-00:00')).toBeNull() // ชั่วโมงเกิน 23
     expect(windowStart('05:0006:59')).toBeNull() // ไม่มีขีดคั่น
     expect(windowStart('not-a-date')).toBeNull()
-    expect(windowStart('1:99-2:00')).toBeNull() // นาทีเกิน 59 — หลักเดียวก็ยังกัน
+    expect(windowStart('1:99-2:00')).toBeNull() // นาทีเกิน 59 — หลักเดียวชั่วโมงก็ยังกัน
+    // 🔴 ตู๋ #349 — นาทีหลักเดียว "5" กำกวม (05 หรือ 50?) ⇒ regex นาทีคง \d{2} ⇒ reject ❌ ไม่ให้ padStart
+    //    เดาแทนข้อมูล (ตระกูลเดียวกับบั๊กที่ใบนี้แก้). ผ่อนแค่ชั่วโมง ไม่ผ่อนนาที.
+    expect(windowStart('9:5-10:59')).toBeNull() // นาที START หลักเดียว
+    expect(windowStart('9:00-10:5')).toBeNull() // นาที END หลักเดียว (sibling)
   })
 
   it('NEGATIVE CONTROL · ของที่เคยถูกต้องห้ามขยับ (2 หลักเหมือนเดิมเป๊ะ)', () => {
