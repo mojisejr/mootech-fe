@@ -1,101 +1,80 @@
-// MuMate v2 · push-reminder orchestrator (goo · #288 phase 4). The DECISION logic, DB- and
-// transport-agnostic: it drives a PushRepo (the SQL half — repo.ts) and a Sender (the web-push half —
-// send.ts) through injected interfaces, so every rule below is unit-provable with fakes, and the same
-// logic runs unchanged whether Vercel cron or a future VPS calls it.
+// MuMate v2 · push delivery (goo · #288 phase 4). The send phase, run AFTER the claim has already
+// marked sent_at and committed (repo.claimAndMark). It runs OUTSIDE any transaction — so nothing here
+// can roll back a mark, and a failure only makes a reminder MISS, never double-send (at-most-once,
+// which the ticket's "ส่งช้าแย่กว่าไม่ส่ง" rule prefers). Transport- and DB-agnostic via injected deps.
 //
-// The three guarantees ตู๋ set, each isolated so a mutant on one fails its OWN test line:
-//   1. กันซ้ำ  — claimDue returns only sent_at-IS-NULL rows; markSent flips it → a second run this
-//                minute (or after a redeploy) claims nothing. (deploy ใหม่ → ไม่ส่งซ้ำ)
-//   2. เพดานช้า — withinCeiling drops rows > 15m late; they are left unsent (never sent behind time).
-//   3. sub ตาย  — 'gone' (404/410) deletes the row; 'transient' (429/5xx) KEEPS it and does NOT mark
-//                the reminder sent, so it retries next tick within the ceiling. (500 → ไม่มีใครถูกลบ)
+// Consequence of at-most-once (deliberate, ฟีมเคาะ): a transient push error (429/5xx) is NOT retried —
+// the row is already marked sent. We still do NOT delete the subscription on transient (only 404/410
+// = gone deletes it); deleting on a temporary hiccup would eat healthy subscribers.
 
 import { buildReminderPayload, type PushPayload } from './payload'
-import { withinCeiling, type ClaimableReminder } from './due'
+import type { ClaimedReminder } from './due'
 import type { PushTarget, SendOutcome } from './send'
 
 export interface SubscriptionRow extends PushTarget {
   id: string
 }
 
-// The SQL surface, kept tiny. claimDue MUST run inside a transaction that stays open across the whole
-// run (repo.ts locks the claimed rows FOR UPDATE SKIP LOCKED) so an overlapping cron invocation —
-// which Vercel documents CAN happen — skips rows already being processed instead of double-sending.
 export interface PushRepo {
-  claimDue(now: Date): Promise<ClaimableReminder[]>
+  // Atomic claim+mark+return (repo.ts). MUST commit before delivery begins → at-most-once.
+  claimAndMark(now: Date): Promise<ClaimedReminder[]>
   loadSubscriptions(userId: string): Promise<SubscriptionRow[]>
-  markSent(reminderId: string, at: Date): Promise<void>
   deleteSubscription(subscriptionId: string): Promise<void>
 }
 
 export type Sender = (target: PushTarget, payload: PushPayload) => Promise<SendOutcome>
 
-export interface RunSummary {
+export interface DeliverSummary {
   claimed: number
-  sent: number // reminders delivered to ≥1 device this run
-  droppedLate: number // claimed but past the ceiling → not sent
-  noDevice: number // due, in-window, but the user has no subscription yet → left for next tick
+  sent: number // reminders delivered to ≥1 device
+  noDevice: number // claimed (and marked) but the user has no subscription — a miss, not retried
   deletedSubscriptions: number
+  failed: number // a reminder whose delivery threw (DB/subs error) — isolated, batch continues
 }
 
-export async function runDueReminders(deps: {
-  repo: PushRepo
-  now: Date
+export async function deliverClaimed(deps: {
+  claimed: ClaimedReminder[]
+  repo: Pick<PushRepo, 'loadSubscriptions' | 'deleteSubscription'>
   send: Sender
-}): Promise<RunSummary> {
-  const { repo, now, send } = deps
-  const claimed = await repo.claimDue(now)
-  const summary: RunSummary = {
+}): Promise<DeliverSummary> {
+  const { claimed, repo, send } = deps
+  const summary: DeliverSummary = {
     claimed: claimed.length,
     sent: 0,
-    droppedLate: 0,
     noDevice: 0,
     deletedSubscriptions: 0,
+    failed: 0,
   }
 
   for (const r of claimed) {
-    if (!withinCeiling(r.fireAtUtc, now)) {
-      // Too late — leave sent_at NULL and never send behind time (ทิ้ง จบ). It stays out of every
-      // future send because it only gets later; no marker needed.
-      summary.droppedLate += 1
-      continue
-    }
-
-    const subs = await repo.loadSubscriptions(r.userId)
-    if (subs.length === 0) {
-      // A reminder can outrun its device: users may set reminders before granting permission (#303).
-      // Leave it unsent — if a subscription appears before the ceiling, the next tick delivers it.
-      summary.noDevice += 1
-      continue
-    }
-
-    const payload = buildReminderPayload({
-      date: r.reminderDate,
-      yamLabel: r.yamLabel,
-      window: r.window,
-    })
-    let anyDelivered = false
-    let anyKept = false // a subscription still present after this run (delivered OR transient-failed)
-    for (const sub of subs) {
-      const outcome = await send(sub, payload)
-      if (outcome.status === 'ok') {
-        anyDelivered = true
-        anyKept = true
-      } else if (outcome.status === 'gone') {
-        await repo.deleteSubscription(sub.id)
-        summary.deletedSubscriptions += 1
-      } else {
-        // transient — keep the subscription, do NOT count it delivered
-        anyKept = true
+    try {
+      const subs = await repo.loadSubscriptions(r.userId)
+      if (subs.length === 0) {
+        // Claimed + marked but no device (e.g. reminder set before granting permission, #303). Under
+        // at-most-once this is a miss, not a retry — consistent with "ไม่เตือน 1 ใบ ดีกว่าปลุกซ้ำ".
+        summary.noDevice += 1
+        continue
       }
-    }
-
-    if (anyDelivered || !anyKept) {
-      // Delivered to someone, OR every remaining target was gone (nobody left to deliver to) →
-      // mark sent so we stop. Only-transient-failures (anyKept && !anyDelivered) leaves it unsent
-      // so the next tick retries within the ceiling.
-      await repo.markSent(r.id, now)
-      if (anyDelivered) summary.sent += 1
+      const payload = buildReminderPayload({
+        date: r.reminderDate,
+        yamLabel: r.yamLabel,
+        window: r.window,
+      })
+      let delivered = false
+      for (const sub of subs) {
+        const outcome = await send(sub, payload)
+        if (outcome.status === 'ok') {
+          delivered = true
+        } else if (outcome.status === 'gone') {
+          await repo.deleteSubscription(sub.id) // 404/410 — subscription really dead
+          summary.deletedSubscriptions += 1
+        }
+        // transient (429/5xx/network): keep the subscription, do NOT retry the reminder (already marked)
+      }
+      if (delivered) summary.sent += 1
+    } catch {
+      // One reminder's DB/subs failure must not abort the whole batch (the row is already marked sent).
+      summary.failed += 1
     }
   }
 
