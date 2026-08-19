@@ -10,6 +10,15 @@
 // ['mumate'] itself. The device-state truth the toggle used to tell (6 states) moved onto the SAVE button:
 // its text asks for permission on `default`, and a line under it explains when the device can't ring.
 // SaveSheet stays presentational (no hook calls) so unit tests feed all 6 states without a browser.
+//
+// #342: the sheet now READS `draft.state` (it never did — the machine had saving/error since #287 and the
+// screen showed neither: tap "บันทึก" and nothing on screen changed, a failure just left the sheet sitting
+// open). `saving` → the button says so and stops accepting taps; `error` → a line under it says the save
+// failed and the button invites a retry (the machine allows error→saving, useReminderDraft.ts:89).
+// ⚠️ ONE failure copy, on purpose: the typed reason (SaveOutcome.kind, reminders-api.ts:13-19) is dropped
+// at [date].tsx:112 (`ok = outcome.ok`) and nothing stores it, so the sheet CANNOT know which of the 5 it
+// was. It says only what it can prove. Splitting the copy per reason needs the kind carried down first
+// (#341/#343) — the sheet must never guess a cause it wasn't told.
 import type { YamSlot } from '../../types'
 import type { UseReminderDraft } from '../../hooks/useReminderDraft'
 import { guideVariantFor, NOTIFY_REASON, type NotifyState } from '../../notify-state'
@@ -53,6 +62,23 @@ export function SaveSheet({
   // toggle). null for unknown/granted/default ⇒ no line. guide = install/permission sheet where it can help.
   const saveReason = NOTIFY_REASON[notify]
   const saveGuide = guideVariantFor(notify)
+  // the two save-flow states the screen has to tell apart. Every other state either isn't mounted
+  // (idle/saved — [date].tsx:125 keeps the sheet only for editing/saving/error) or is the normal form.
+  const saving = draft.state === 'saving'
+  const failed = draft.state === 'error'
+  // `saving` keeps the sapphire fill (work in progress) instead of the grey disabled fill (dead button) —
+  // so the `disabled:` variants are left OUT of the class list in that branch rather than overridden,
+  // which a plain utility could never win against (:disabled has the higher specificity).
+  const saveTone = saving
+    ? 'bg-v3-sapphire/70 text-white'
+    : 'bg-v3-sapphire text-white disabled:bg-neutral-300 disabled:text-white/80'
+  const saveLabel = saving
+    ? 'กำลังบันทึก…'
+    : failed
+      ? 'ลองบันทึกอีกครั้ง'
+      : notify === 'default'
+        ? 'บันทึกและเปิดแจ้งเตือน'
+        : 'บันทึก'
   return (
     // z-50 = the MODAL layer (DateSelector, LogoutModal). This sheet is a modal, so it belongs ABOVE the
     // bottom Menubar, which is the NAV layer (z-40). At z-40 both sat on the same level and DOM order let
@@ -117,12 +143,25 @@ export function SaveSheet({
             type="button"
             data-testid="sheet-save"
             data-notify-state={notify}
-            disabled={!draft.canCommit}
+            data-save-state={draft.state}
+            disabled={!draft.canCommit || saving}
+            aria-busy={saving}
             onClick={onSave}
-            className="h-[52px] w-full rounded-2xl bg-v3-sapphire text-base font-bold text-white disabled:bg-neutral-300 disabled:text-white/80"
+            className={`flex h-[52px] w-full items-center justify-center gap-2 rounded-2xl text-base font-bold ${saveTone}`}
           >
-            {notify === 'default' ? 'บันทึกและเปิดแจ้งเตือน' : 'บันทึก'}
+            {saving && <span aria-hidden data-testid="sheet-save-spinner" className="size-5 shrink-0 animate-spin rounded-full border-[3px] border-white/30 border-t-white" />}
+            {saveLabel}
           </button>
+          {/* The failure line. Colour is NOT the only carrier (the words say it) and the text itself is
+              v3-text-body on white = 9.4:1 — v3-error (#E73E3E) at this size would be 3.6:1 on the sheet's
+              ghost-white footer, under AA, so the token does the attention job as the rule where the 3:1
+              UI-component bar applies. ❌ It does NOT claim "nothing was saved": on a lost response
+              (reminders-api.ts:50 catches the network throw) the row may well exist. */}
+          {failed && (
+            <p role="alert" data-testid="save-error" className="mt-2 rounded-xl border-l-4 border-v3-error bg-white px-3 py-2 text-xs font-bold leading-5 text-v3-text-body">
+              บันทึกไม่สำเร็จ · ลองอีกครั้งได้เลย
+            </p>
+          )}
           {saveReason && (
             <p data-testid="save-notify-reason" className="mt-2 text-center text-xs font-medium leading-5 text-v3-text-muted">
               {saveReason}
