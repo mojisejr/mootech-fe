@@ -88,6 +88,7 @@ export default defineConfig({
       'scripts/guard-test-env-isolation.test.ts', // #337 — sandbox spec ต้องไม่เขียนลง repo จริงตอนรันใต้ hook
       'scripts/coming-soon-toast.test.tsx', // #323 — อายุของ toast เป็นของ store โมดูล ไม่ใช่ของปุ่ม; .tsx
       'scripts/day-cta-tier-gate.test.tsx', // #326 — CTA แถบล่างเป็นสถานะล็อกสำหรับ free + ฟันชั้นผู้เรียก; .tsx
+      'scripts/save-sheet-state.test.tsx', // #342 — ชีทอ่าน draft.state: กำลังบันทึก/ล้ม; .tsx
     ],
   },
   resolve: {

@@ -122,7 +122,8 @@ export default function V2CalendarDayPage({ teamPreview }: { teamPreview: boolea
   // observable count of THIS date's reminders — lets the anchor prove list-+1 / cancel-no-add / no-op-single-row.
   const dateReminderCount = [...reminders.list.upcoming, ...reminders.list.past].filter((r) => r.date === date).length
   // keep the sheet mounted on `error` too, so a failed save (past/free/network) leaves the form open to
-  // retry instead of vanishing silently (μุน's #286 adds the error copy; the machine + retry are here).
+  // retry instead of vanishing silently. #342 shipped the copy that makes that visible (SaveSheet reads
+  // draft.state now); the machine + retry are here.
   const sheetOpen = draft.state === 'editing' || draft.state === 'saving' || draft.state === 'error'
   // while the sheet is open the menu is FormMode(4, no Mate AI); else derived from data (Saved 3 / PrimaryAction 2).
   const menuState = sheetOpen ? draft.menuState : menuStateForDay(saved)
