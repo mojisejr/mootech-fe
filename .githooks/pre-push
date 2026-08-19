@@ -108,8 +108,20 @@ npm run lint \
   || die "'npm run lint' failed (or the 'lint' script is missing). Fix it, then push again."
 
 echo "pre-push: hard gate → npm test" >&2
-npm test \
+test_out=$(npm test 2>&1); test_rc=$?
+printf '%s\n' "$test_out" >&2
+[ "$test_rc" -eq 0 ] \
   || die "'npm test' failed (or the 'test' script is missing). Fix it, then push again."
+
+# §skips are LOUD. vitest prints "N skipped" in a summary line that scrolls past; a spec gated behind an
+# env var (push-concurrency needs TEST_DATABASE_URL) then never runs and nobody notices — the same shape
+# as the 74 files this lane exists to recover (#334 / ตู๋'s N3 on #332).
+skipped=$(printf '%s\n' "$test_out" | grep -oE '[0-9]+ skipped' | head -1)
+if [ -n "$skipped" ]; then
+  echo "pre-push: ⚠️  vitest รายงาน $skipped — ด่านเหล่านั้น 'ไม่ได้วิ่ง' ไม่ใช่ 'ผ่าน'" >&2
+  printf '%s\n' "$test_out" | grep -E '^\s*[↓→]|skipped' | head -5 >&2
+  echo "pre-push:    ถ้ามันคือด่านของสิ่งที่คุณเพิ่งแก้ ไปรันมันจริงแล้วแปะ output ลง PR" >&2
+fi
 
 # §lane 2 — the 74 plain node:assert scripts that `npm test` does NOT see.
 #   vitest runs ONLY the specs named in vitest.config.mts `include` (27 files). The other
@@ -160,5 +172,21 @@ done
   || die "a scripts/*.test.ts file failed in the tsx lane (see ✗ above). Fix it, then push again."
 echo "pre-push: tsx lane green ($lane2_ran files)" >&2
 
-echo "pre-push: hard gate green (lint + test + tsx lane). 'npm run build' is still yours to run before opening the PR." >&2
+# §the two guards that went down with ci.yml. #321 archived the workflow that ran these; grep across
+#   main-guard.yml · secret-scan.yml · package.json · .githooks/ found no replacement runner (#334).
+#   Both are ~1s here, so there is no reason for them to live nowhere.
+if [ -f scripts/verify-architecture.ts ]; then
+  echo "pre-push: hard gate → verify-architecture" >&2
+  npx tsx scripts/verify-architecture.ts \
+    || die "'verify-architecture' failed. It used to run in ci.yml (archived by #321) and now runs here."
+fi
+if [ -f scripts/guard-workflow-integrity.ts ]; then
+  echo "pre-push: hard gate → guard-workflow-integrity" >&2
+  BASE_REF="${BASE_REF:-origin/main}" npx tsx scripts/guard-workflow-integrity.ts \
+    || die "'guard-workflow-integrity' failed — a workflow was deleted or renamed. That is exactly the
+     move that made 74 tests stop running on 2026-08-18. If it is deliberate, say so in the PR."
+fi
+
+echo "pre-push: hard gate green (lint + test + tsx lane + architecture + workflow-integrity)." >&2
+echo "pre-push: 'npm run build' is still yours to run before opening the PR." >&2
 exit 0

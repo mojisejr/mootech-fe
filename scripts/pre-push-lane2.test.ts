@@ -48,7 +48,17 @@ const orphans = all
   .filter((p) => !registered.has(p))
 assert.deepEqual(orphans, [], `these import from 'vitest' but are not in vitest.config.mts include — vitest skips them and the tsx lane dies on them:\n  ${orphans.join('\n  ')}`)
 
-// ⑥ negative control — proves the matchers are not vacuously true against any text
+// ⑥ the two guards that went down with ci.yml must have a runner here (#334)
+assert.match(hook, /npx tsx scripts\/verify-architecture\.ts/, 'pre-push lost verify-architecture — it has run nowhere since #321 archived ci.yml')
+assert.match(hook, /scripts\/guard-workflow-integrity\.ts/, 'pre-push lost guard-workflow-integrity — same orphan as above')
+
+// ⑦ a skipped spec must be announced, not swallowed. vitest prints "N skipped" in a line that scrolls
+//    past; push-concurrency is gated behind TEST_DATABASE_URL and would otherwise never run silently
+//    (ตู๋'s N3 on #332) — the same shape as the 74 files this whole lane exists to recover.
+assert.match(hook, /skipped=\$\(printf/, 'pre-push no longer looks for skipped specs')
+assert.match(hook, /ไม่ได้วิ่ง/, 'pre-push no longer says out loud that a skipped spec did not run')
+
+// ⑧ negative control — proves the matchers are not vacuously true against any text
 assert.doesNotMatch('echo hello', /for f in scripts\/\*\.test\.ts; do/, 'control: matcher fires on unrelated text')
 
 console.log(`✓ pre-push tsx lane guard: loop present · fails closed · empty run blocked · skip list derived (${registered.size} specs) · ${all.length} .test.ts scanned, 0 orphaned`)
