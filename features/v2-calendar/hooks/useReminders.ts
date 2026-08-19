@@ -26,6 +26,8 @@ export interface UseReminders {
   /** the last load hit a transport error (retryable via refresh). save() reports its own outcome. */
   error: boolean
   hasReminderFor: (date: string) => boolean
+  /** #341 — yamId ที่ "เพิ่มแล้ว" ของวันนั้น (ไม่ใช่แค่ "วันนี้มีไหม") — ป้อนให้ dayReminderCta aggregate 7 สถานะ */
+  addedYamIdsFor: (date: string) => string[]
   refresh: () => Promise<void>
   /** POST a save; returns the typed outcome. On success the list already reflects the server's rows. */
   save: (input: SaveReminderInput) => Promise<SaveOutcome>
@@ -34,6 +36,16 @@ export interface UseReminders {
 }
 
 const EMPTY_LIST: ReminderList = { upcoming: [], past: [], totalYams: 0, totalDays: 0 }
+
+/**
+ * #341 — yamId ที่เพิ่มแล้วสำหรับ "วันหนึ่ง" (pure · de-dupe by yamId). แยกจากฮุคเพื่อให้ยิงฟันได้โดยไม่ต้องมี
+ * React — คู่กับ `hasReminderFor(date)` ที่ตอบได้แค่ "วันนี้มีไหม" ตัวนี้ตอบ "ยามไหนของวันนี้ถูกเพิ่ม".
+ */
+export function addedYamIdsForDate(dtos: ReminderDTO[], date: string): string[] {
+  const seen = new Set<string>()
+  for (const d of dtos) if (d.date === date) seen.add(d.yamId)
+  return Array.from(seen)
+}
 
 function dedupeById(dtos: ReminderDTO[]): ReminderDTO[] {
   const seen = new Set<string>()
@@ -85,6 +97,7 @@ export function useReminders(): UseReminders {
 
   const list = useMemo(() => (dtos === null ? EMPTY_LIST : toReminderList(dtos, new Date())), [dtos])
   const hasReminderFor = useCallback((date: string) => (dtos ?? []).some((r) => r.date === date), [dtos])
+  const addedYamIdsFor = useCallback((date: string) => addedYamIdsForDate(dtos ?? [], date), [dtos])
 
-  return { list, loading: dtos === null && !error, error, hasReminderFor, refresh, save, cancel }
+  return { list, loading: dtos === null && !error, error, hasReminderFor, addedYamIdsFor, refresh, save, cancel }
 }

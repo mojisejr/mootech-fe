@@ -70,3 +70,18 @@ export function computeFireAt(date: string, window: string): Date | null {
 export function isFireTimePast(fireAt: Date, now: Date = new Date()): boolean {
   return fireAt.getTime() <= now.getTime();
 }
+
+/**
+ * #341 — "ยามนี้เลยเวลาบันทึกไปหรือยัง" — the one composer of `computeFireAt` + `isFireTimePast`, so the
+ * CTA/status layer never re-derives the instant (get it wrong in two places and they drift).
+ *
+ * A MALFORMED window (`computeFireAt === null`) returns `false` ON PURPOSE — a window we cannot turn into
+ * an instant has no computable "past", and calling it "เลยเวลา" would be a label that lies (the yam is
+ * broken data, not expired). The save path rejects a malformed/past window itself at commit time
+ * (`planReminderCommit`), so a yam that surfaces as addable here still can't be saved into a lie. `now`
+ * is injectable for deterministic tests.
+ */
+export function isYamPast(date: string, window: string, now: Date = new Date()): boolean {
+  const fireAt = computeFireAt(date, window);
+  return fireAt === null ? false : isFireTimePast(fireAt, now);
+}
