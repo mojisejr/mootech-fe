@@ -136,15 +136,33 @@ export default function V2CalendarDayPage({ teamPreview }: { teamPreview: boolea
   const goToList = () => { void router.push('/v2/calendar/notifications') }
 
   // 3 · "บันทึกเรียบร้อยแล้ว" ~2 วินาที แล้วกลายเป็น "เพิ่มยาม"
-  // ⚠️ อายุของมันอยู่ใน effect ของเพจ **พร้อม cleanup** ❌ ไม่ใช่ตัวแปรระดับโมดูล — #323 คืออาการเดียวกัน
-  // เป๊ะ (ตัวจับเวลาอยู่คนละชั้นกับ state ⇒ ออกจากหน้าไปแล้วป้ายยังค้างไปโผล่หน้าถัดไป)
+  //
+  // 🔴 และ **ปล่อยเครื่องสถานะกลับ idle ด้วย** (ตู๋จับใน #350) — `save-flow.ts:64` `saved: { dismiss: 'idle' }`
+  // คือทางออกทางเดียวของ `saved` และ **ทั้งรีโปไม่เคยมีใครเรียก `dismiss()` เลย** ⇒ หลังบันทึกสำเร็จ state
+  // ค้างที่ `saved` ⇒ `open()` กลายเป็น NO-OP ตามตาราง ⇒ ปุ่ม "เพิ่มยาม" และปุ่มรายยาม (สายเดียวกัน)
+  // **กดแล้วเงียบทั้งคู่** — และ `setDraft` ใน `open` รันไปแล้ว ⇒ ยามที่ติ๊กไว้เปลี่ยนเงียบๆ โดยไม่มีจอโผล่
+  // ⇒ ทางที่ตายคือ "เพิ่มยามหลายอันในวันเดียว" ซึ่งเป็นชื่อของใบร่ม #340 ตรงๆ
+  //
+  // ⚠️ **แยกสอง effect โดยตั้งใจ** ❌ ไม่ใช่ยัด dismiss ลงใน effect เดียวกับตัวจับเวลา:
+  // `dismiss()` เปลี่ยน `draft.state` ทันที ⇒ effect ที่ผูก dep กับ `draft.state` จะ **cleanup ทิ้งทันที**
+  // ⇒ `clearTimeout` ยิงก่อนครบ 2 วิ ⇒ `justSaved` ค้าง true ตลอดกาล และปุ่มไม่มีวันกลับไปเป็น "เพิ่มยาม"
+  // (ป้ายที่กดไม่ได้ค้างถาวร = แย่กว่าบั๊กที่กำลังแก้) ⇒ ตัวจับเวลาผูกกับ `justSaved` ของเพจเอง
+  // ซึ่งเป็นชั้นเดียวกับที่มันมีชีวิตอยู่ — บทเรียนตรงกับ #323 เป๊ะ (อายุต้องอยู่ชั้นเดียวกับ state)
   const [justSaved, setJustSaved] = useState(false)
+  // ดึงสองชิ้นที่ effect ใช้ออกมาก่อน ❌ ไม่ใส่ `draft` ทั้งก้อนลง deps — ฮุคคืนอ็อบเจกต์ใหม่ทุก render
+  // ⇒ effect จะวิ่งทุกรอบ · `state` เป็น string และ `dismiss` เป็น useCallback deps ว่าง
+  // (useReminderDraft.ts:107) ⇒ ทั้งคู่นิ่งจริง และ exhaustive-deps ตรวจได้ครบโดยไม่ต้องปิดกฎ
+  const { state: draftState, dismiss: dismissDraft } = draft
   useEffect(() => {
-    if (draft.state !== 'saved') return
+    if (draftState !== 'saved') return
     setJustSaved(true)
+    dismissDraft() // saved → idle ⇒ ทางเข้าทั้งสองทางกลับมาใช้ได้ทันทีในหน้าเดิม
+  }, [draftState, dismissDraft])
+  useEffect(() => {
+    if (!justSaved) return
     const t = setTimeout(() => setJustSaved(false), 2000)
     return () => clearTimeout(t)
-  }, [draft.state])
+  }, [justSaved])
 
   const cta = dayReminderCta({
     isPaid,
