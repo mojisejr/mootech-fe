@@ -79,6 +79,11 @@ export default defineConfig({
       'scripts/notify-state-ui.test.tsx', // #286 — 6 สถานะแจ้งเตือน + negative control ของเคส unknown; .tsx
       'scripts/push-subscribe-wire.test.tsx', // #298 — subscription→POST/DELETE transport + tick-mirrors-server orchestration; .tsx
       'scripts/yam-times-tier-gate.test.tsx', // #316 — ปุ่มเพิ่มปฏิทินรายยามเป็นของสมาชิก + remindersLocked fail-closed; .tsx
+      'scripts/push-payload.test.ts', // #288 — notification payload carries ชื่อยาม+เวลา + deep-link
+      'scripts/push-authorize.test.ts', // #288 — cron secret gate, fail-closed (truly-absent probe)
+      'scripts/push-send.test.ts', // #288 — web-push wrapper: 404/410→gone vs 429/5xx→transient + arg-mapping
+      'scripts/push-run.test.ts', // #288 — orchestrator: dedup / 15m ceiling / gone-delete / transient-keep
+      'scripts/push-concurrency.test.ts', // #288 — REAL pg: FOR UPDATE SKIP LOCKED, two claimers at once (gated by TEST_DATABASE_URL)
       'scripts/coming-soon-toast.test.tsx', // #323 — อายุของ toast เป็นของ store โมดูล ไม่ใช่ของปุ่ม; .tsx
       'scripts/day-cta-tier-gate.test.tsx', // #326 — CTA แถบล่างเป็นสถานะล็อกสำหรับ free + ฟันชั้นผู้เรียก; .tsx
     ],
