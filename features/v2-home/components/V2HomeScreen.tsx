@@ -276,7 +276,7 @@ function ElementLine({ mascotCharacter, element, loading }: { mascotCharacter: s
 //
 // It did not, before this card. It drew the donut and two short bars and stopped, so the loading card
 // stood 184px shorter than the loaded one and EVERY landmark below it — the manifest CTA, both ดวงสมพงค์
-// cards, โหมดเซียน — slid down 184px the instant the fortune arrived (measured: harness/skeleton-shift.ts
+// cards, โหมดเซียน — slid down 184px the instant the fortune arrived (measured once with harness/archive/skeleton-shift.ts — 🗄️ archived by #321, nothing runs it automatically
 // @393). Nobody had seen it, because until this PR home never showed this skeleton: the full-screen white
 // gate covered the whole wait, and the short skeleton only ever flashed behind it. Removing the gate is
 // what put it on the main path — so it is this PR's to fix, even though the code predates it.

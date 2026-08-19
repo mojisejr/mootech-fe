@@ -7,7 +7,7 @@
 // <AuthLoadingGate/> → <ScreenLoading/> = `fixed inset-0 bg-white` + a spinner, over the whole screen,
 // menubar included.
 //
-// harness/first-frame-v2.ts recorded it off the compositor at ce31e57 (soft nav from /v2/service, 393×852).
+// harness/archive/first-frame-v2.ts (🗄️ archived by #321, nothing runs it automatically) recorded it off the compositor at ce31e57 (soft nav from /v2/service, 393×852).
 // The finding was DIRECTIONAL and it is the only part worth quoting here:
 //
 //   as shipped                         white frames with no menubar:  > 0

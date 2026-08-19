@@ -4,7 +4,7 @@
 // harness/*. I learned that the expensive way on #179 — a harness anchor for the service hub had been RED
 // for a week and nobody knew, because nothing runs it. Everything here is pure logic, so it can live where
 // it will actually be enforced. The one invariant that genuinely needs a browser (the selected day cell
-// must paint sapphire, not its tier tint) stays in harness/run-calendar-month.ts and is named there.
+// must paint sapphire, not its tier tint) stays in harness/archive/run-calendar-month.ts (🗄️ archived by #321 — nothing runs it) and is named there.
 //
 // WHAT THIS PROVES
 //   ZONE-MAP    — all 13 wire levels (lib/v2/api-grade.ts) land in the intended zone, nothing falls through.

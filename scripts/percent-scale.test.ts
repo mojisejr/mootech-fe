@@ -11,7 +11,7 @@
 //
 // In scripts/, not harness/, because CI runs scripts/*.test.ts. The other half of PERCENT-SCALE — the true
 // cross-layer comparison of the API's number against the painted glyph — needs a browser and lives in
-// harness/run-percent-scale.ts; its raw output is attached to the PR because nothing runs harness/ yet.
+// harness/archive/run-percent-scale.ts (🗄️ archived by #321 — run by hand only); its raw output is attached to the PR.
 //
 // WHAT THIS PROVES
 //   SCALE-GUARD  — a 0–1 fraction is rejected, and specifically NOT rounded into a plausible-looking "0".

@@ -11,7 +11,7 @@
 // other, hand both to this.
 //
 //     this file                    → given API numbers and screen numbers, is the pair acceptable?  (CI)
-//     harness/run-percent-scale.ts → go get the two sides from a live page                          (browser)
+//     harness/archive/run-percent-scale.ts (🗄️ archived, run by hand only) → go get the two sides from a live page                          (browser)
 //
 // ⚠️ TODAY THERE IS NO API SIDE TO HARVEST. useCalendarMonth and useDayDetail both still serve fixtures
 // (mockCalendarMonth / mockDayDetail); G-0c is the change that swaps in the adapter. The harvester therefore
