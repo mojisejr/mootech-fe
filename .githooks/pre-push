@@ -129,13 +129,27 @@ if [ ! -d scripts ]; then
   exit 0
 fi
 
+#   §skip list — DERIVED from vitest.config.mts, never hand-copied.
+#   The first version of this lane hard-coded the two names ci.yml used to skip. That was already wrong
+#   the moment it was written: vitest's include had grown to 32 entries, and a spec that imports from
+#   'vitest' CANNOT run under plain tsx. #332 adds five such specs with a .test.ts extension → this glob
+#   would grab them → tsx dies → EVERY push in the repo is blocked (มุน caught it by merging all three
+#   branches together before any of them landed; each PR was green alone).
+#   ⚠️ #333's specs survived only because they end in .tsx — luck, not design.
+#   ⇒ one source of truth: whatever vitest claims, this lane skips. That is debt #212 paid on this side.
+vitest_specs=$(grep -oE "'scripts/[^']+\.test\.tsx?'" vitest.config.mts 2>/dev/null | tr -d "'" | sort -u)
+if [ -z "$vitest_specs" ]; then
+  die "could not read the spec list out of vitest.config.mts. Without it this lane cannot tell which
+     files vitest already owns, and running a vitest spec under tsx fails for a reason that has nothing
+     to do with your change. Fix the parse (or the config), then push again."
+fi
+
 echo "pre-push: hard gate → scripts/*.test.ts (tsx lane)" >&2
 lane2_failed=0
 lane2_ran=0
 for f in scripts/*.test.ts; do
-  case "$f" in
-    scripts/logout-clears-caches.test.ts|scripts/v2-tier.test.ts) continue ;;
-  esac
+  # vitest owns it → `npm test` above already ran it. Running it here would fail on `import … from 'vitest'`.
+  if printf '%s\n' "$vitest_specs" | grep -qxF "$f"; then continue; fi
   lane2_ran=$((lane2_ran + 1))
   npx tsx "$f" >/dev/null 2>&1 || { lane2_failed=1; echo "  ✗ $f" >&2; npx tsx "$f" >&2 2>&1 | tail -20; }
 done

@@ -8,7 +8,7 @@
 // 🔴 It asserts the LOOP, not a comment: a mutant that keeps the echo line and deletes the `for` still fails.
 // ⚠️ This file itself only runs in that lane — which is the point: the lane proves it can run its own guard.
 import assert from 'node:assert/strict'
-import { readFileSync } from 'node:fs'
+import { readFileSync, readdirSync } from 'node:fs'
 import { join } from 'node:path'
 
 const hook = readFileSync(join(process.cwd(), '.githooks/pre-push'), 'utf8')
@@ -24,7 +24,31 @@ assert.match(hook, /\[ "\$lane2_failed" -eq 0 \]/, 'pre-push lane no longer bloc
 // ③ empty-run guard: matching 0 files must NOT read as green (the exact shape #334 was opened for)
 assert.match(hook, /\[ "\$lane2_ran" -gt 0 \]/, 'pre-push lane would pass silently when the glob matches nothing')
 
-// ④ negative control — proves the assertions above are not vacuously true against any text
+// ④ the skip list must be DERIVED from vitest.config.mts, never hand-copied.
+//    Hard-coded names were the original bug: a spec that imports from 'vitest' cannot run under tsx, so
+//    the moment someone adds a .test.ts spec to vitest's include, this lane grabs it and blocks every
+//    push in the repo. #332 does exactly that with five files. (มุน found it by merging all three
+//    open branches together — each one was green alone.)
+assert.match(hook, /vitest_specs=\$\(grep .*vitest\.config\.mts/, 'pre-push lane no longer derives its skip list from vitest.config.mts')
+assert.match(hook, /grep -qxF "\$f"/, 'pre-push lane no longer consults the derived list per file')
+assert.doesNotMatch(hook, /scripts\/logout-clears-caches\.test\.ts\|scripts\/v2-tier\.test\.ts/, 'a hand-copied skip list is back — that is the bug this guard exists for')
+
+// ⑤ THE invariant, checked against real files rather than hook text:
+//    every scripts/*.test.ts that imports from 'vitest' must be registered in vitest.config.mts.
+//    Unregistered → vitest never runs it AND the tsx lane dies on it. Both lanes lose at once.
+const cfg = readFileSync(join(process.cwd(), 'vitest.config.mts'), 'utf8')
+const registered = new Set((cfg.match(/'scripts\/[^']+\.test\.tsx?'/g) ?? []).map((q) => q.slice(1, -1)))
+assert.ok(registered.size > 0, 'parsed 0 specs out of vitest.config.mts — the check below would be vacuous')
+
+const all = readdirSync(join(process.cwd(), 'scripts')).filter((f) => f.endsWith('.test.ts'))
+assert.ok(all.length > 0, 'found 0 scripts/*.test.ts — this guard would pass over an empty set')
+const orphans = all
+  .map((f) => `scripts/${f}`)
+  .filter((p) => /^import .*from 'vitest'/m.test(readFileSync(join(process.cwd(), p), 'utf8')))
+  .filter((p) => !registered.has(p))
+assert.deepEqual(orphans, [], `these import from 'vitest' but are not in vitest.config.mts include — vitest skips them and the tsx lane dies on them:\n  ${orphans.join('\n  ')}`)
+
+// ⑥ negative control — proves the matchers are not vacuously true against any text
 assert.doesNotMatch('echo hello', /for f in scripts\/\*\.test\.ts; do/, 'control: matcher fires on unrelated text')
 
-console.log('✓ pre-push tsx lane guard: loop present · fails closed · empty run blocked')
+console.log(`✓ pre-push tsx lane guard: loop present · fails closed · empty run blocked · skip list derived (${registered.size} specs) · ${all.length} .test.ts scanned, 0 orphaned`)
