@@ -21,7 +21,13 @@
 // (#341/#343) — the sheet must never guess a cause it wasn't told.
 import type { YamSlot } from '../../types'
 import type { UseReminderDraft } from '../../hooks/useReminderDraft'
+import type { YamReminderStatus } from '../../tier-lock'
 import { guideVariantFor, NOTIFY_REASON, type NotifyState } from '../../notify-state'
+
+// #343 — เหตุที่ติ๊กไม่ได้ ต้องเขียนไว้ข้างตัวมันเอง ❌ ไม่ใช่พึ่งสีจางให้ผู้ใช้เดาเอง
+// (สีจาง = "ทำไมกดไม่ได้" ไม่มีคำตอบ · และผู้ใช้ที่แยกสีไม่ออกไม่เห็นความต่างเลย)
+export const SHEET_YAM_ADDED_NOTE = 'เพิ่มแล้ว'
+export const SHEET_YAM_PAST_NOTE = 'เลยเวลา'
 
 const THAI_MONTHS = ['มกราคม', 'กุมภาพันธ์', 'มีนาคม', 'เมษายน', 'พฤษภาคม', 'มิถุนายน', 'กรกฎาคม', 'สิงหาคม', 'กันยายน', 'ตุลาคม', 'พฤศจิกายน', 'ธันวาคม']
 
@@ -48,6 +54,7 @@ export function SaveSheet({
   onSave,
   notify,
   onShowGuide,
+  statusFor,
 }: {
   date: string
   yams: YamSlot[]
@@ -56,6 +63,12 @@ export function SaveSheet({
   /** สถานะแจ้งเตือนของเครื่อง — เพจอ่านจาก usePwaCapability() แล้วส่งลงมา (ชีทไม่เรียก hook เอง) */
   notify: NotifyState
   onShowGuide: (variant: 'install' | 'permission') => void
+  /** #343 — สถานะของยามนี้ · ยามที่ `past`/`added` ติ๊กไม่ได้ แต่ **ยังเห็นอยู่**
+   *  🔴 นี่คือด่านที่ปิดอาการหลักของใบร่ม #340: ก่อนหน้านี้ `yams.map` วาดทุกตัวเป็น checkbox โดยไม่กรอง
+   *  แต่ฝั่งเซิร์ฟเวอร์เป็น all-or-nothing (`lib/v2/reminder-plan.ts`) ⇒ ติ๊กยามที่เลยเวลาปนกับยามที่ดี
+   *  = **ไม่มีอันไหนถูกบันทึกเลย** และยามที่ผู้ใช้เลือกถูกก็หายไปด้วยโดยไม่มีอะไรบอก
+   *  ⇒ กันที่จอ ❌ ไม่แตะ server (all-or-nothing เป็นคำตัดสินของ #287 ที่มีเหตุผลเขียนไว้) */
+  statusFor: (yam: YamSlot) => YamReminderStatus
 }) {
   const d = draft.draft
   // when the device can't ring, say so under the save button (the 6-state truth that lived on the removed
@@ -113,17 +126,40 @@ export function SaveSheet({
             <p className="mb-3 text-sm font-bold text-v3-navy">เลือกยามที่จะให้เตือน</p>
             <div className="flex flex-col gap-2">
               {yams.map((yam) => {
-                const checked = d.selectedYamIds.includes(yam.id)
+                const status = statusFor(yam)
+                const added = status === 'added'
+                const past = status === 'past'
+                const locked = added || past
+                // "เพิ่มแล้ว" ติ๊กค้างไว้ให้เห็น (ผู้ใช้เพิ่มไว้จริง — ช่องว่างจะอ่านว่าของหาย)
+                // "เลยเวลา" ไม่ติ๊ก และติ๊กไม่ได้
+                const checked = added || d.selectedYamIds.includes(yam.id)
+                const note = added ? SHEET_YAM_ADDED_NOTE : past ? SHEET_YAM_PAST_NOTE : null
                 return (
-                  <label key={yam.id} className={`flex cursor-pointer items-center gap-3 rounded-2xl px-3 py-3 ${checked ? 'bg-v3-pastel-blue/40' : 'bg-v3-lemon-chiffon'}`}>
-                    <input type="checkbox" checked={checked} onChange={() => draft.toggleYam(yam.id)} className="peer sr-only" />
-                    <span className={`grid size-6 shrink-0 place-items-center rounded-md border-2 ${checked ? 'border-v3-sapphire bg-v3-sapphire text-white' : 'border-neutral-300 bg-white'}`}>
+                  <label
+                    key={yam.id}
+                    data-testid={`sheet-yam-${yam.id}`}
+                    data-yam-status={status}
+                    className={`flex items-center gap-3 rounded-2xl px-3 py-3 ${locked ? 'bg-v3-lemon-chiffon/50' : checked ? 'bg-v3-pastel-blue/40 cursor-pointer' : 'bg-v3-lemon-chiffon cursor-pointer'}`}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={checked}
+                      disabled={locked}
+                      onChange={() => draft.toggleYam(yam.id)}
+                      className="peer sr-only"
+                    />
+                    <span className={`grid size-6 shrink-0 place-items-center rounded-md border-2 ${past ? 'border-v3-border-checkbox bg-v3-disabled-bg' : checked ? 'border-v3-sapphire bg-v3-sapphire text-white' : 'border-neutral-300 bg-white'}`}>
                       {checked && <svg viewBox="0 0 16 16" className="size-4" fill="none"><path d="M3.5 8.5l3 3 6-6.5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /></svg>}
                     </span>
-                    <span className="min-w-0">
-                      <span className={`block text-sm font-bold ${checked ? 'text-v3-cyan' : 'text-v3-navy'}`}>{yam.window}</span>
+                    <span className="min-w-0 flex-1">
+                      <span className={`block text-sm font-bold ${past ? 'text-v3-text-muted' : checked ? 'text-v3-cyan' : 'text-v3-navy'}`}>{yam.window}</span>
                       <span className="block truncate text-xs text-v3-text-body">{yam.label}</span>
                     </span>
+                    {note && (
+                      <span data-testid={`sheet-yam-note-${yam.id}`} className="shrink-0 text-xs font-bold text-v3-text-muted">
+                        {note}
+                      </span>
+                    )}
                   </label>
                 )
               })}

@@ -11,7 +11,7 @@
 // one import away. The gate positions in particular were 14 July's fortune, so a future "just reuse the
 // frozen list" would ship an inverted compass. History lives in git (last touched 9cf9bdf) and the
 // per-decision reasons live in the ledger entry + each component's header.
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import type { GetServerSideProps } from 'next'
 import Link from 'next/link'
 import { useRouter } from 'next/router'
@@ -33,7 +33,7 @@ import { EightDeities } from '@/features/v2-calendar/components/day-detail/Eight
 import { SaveSheet } from '@/features/v2-calendar/components/day-detail/SaveSheet'
 import { InstallGuideSheet, type InstallGuideVariant } from '@/features/v2-calendar/components/InstallGuideSheet'
 import { notifyStateFrom } from '@/features/v2-calendar/notify-state'
-import { remindersLocked, dayDetailCta } from '@/features/v2-calendar/tier-lock'
+import { remindersLocked, dayReminderCta, yamReminderStatus } from '@/features/v2-calendar/tier-lock'
 import { announceComingSoon, ComingSoonNotice } from '@/features/v2-shell/components/ComingSoon'
 import { usePwaCapability } from '@/lib/pwa/capability'
 import { requestPushSubscription } from '@/lib/pwa/subscribe'
@@ -74,18 +74,16 @@ export default function V2CalendarDayPage({ teamPreview }: { teamPreview: boolea
   const notify = notifyStateFrom(usePwaCapability())
   const [guide, setGuide] = useState<InstallGuideVariant | null>(null)
 
-  // per-ยาม quick-add (§11 buttons) → a real POST (server assigns id; the hook merges the returned row).
-  // Fire-and-forget from the button's view; the list reflects it on success.
+  // #343 — ปุ่มรายยาม **เปิดชีทโดยติ๊กยามนั้นไว้ให้** ❌ ไม่ยิง POST ทันทีเหมือนเดิม
+  //
+  // ของเดิมเป็น fire-and-forget (`void reminders.save(...)`) ⇒ ผลลัพธ์ทั้งก้อนถูกทิ้ง: สำเร็จก็เงียบ
+  // ล้มก็เงียบ · และมันสัญญา push ให้ผู้ใช้ที่สิทธิ์ยัง denied/needs-install โดยไม่ผ่านหน้าจอที่บอกความจริง
+  // เรื่องนั้นเลย (หนี้ที่ #286 ยกไว้) ⇒ ทางเดียวกับชีททำให้ทั้งสองอย่างหายพร้อมกัน: ผู้ใช้เห็นสิ่งที่กำลัง
+  // จะบันทึก · เห็นสถานะกำลังบันทึก/ล้ม (#342) · และเห็นเหตุที่เครื่องจะไม่ดังก่อนกดยืนยัน
   const addYam = (yam: YamSlot) => {
-    // ⚠️ CONFLICT #286 × #287 — ทั้งสองข้างของ conflict นี้ผิดคนละแบบ อย่าหยิบข้างใดข้างหนึ่ง
-    //   ฝั่งผม (#286) เคยเขียน destinations: [] ผ่าน reminders.add() ตอนที่ hook ยัง fabricate ฝั่ง client
-    //   แต่ #287 ลบ add() ทิ้ง และ planReminderCommit (reminder-plan.ts) ตอบ 400 'ต้องเลือกปลายทาง
-    //   อย่างน้อย 1 อย่าง' ⇒ [] จะ**บันทึกไม่ติดเลย** และปุ่มนี้เป็น fire-and-forget (void) ⇒ เงียบสนิท
-    //   นั่นแย่กว่าปัญหาเดิมที่ผมกำลังแก้ ⇒ คงปลายทาง ['mumate'] ไว้ตามของจริงบน main
-    // หนี้ที่ยังเปิดอยู่ (#286 ยกไปถามใน ใบ): ปุ่มนี้ยังสัญญา push โดยไม่ผ่านชีท ⇒ ผู้ใช้ที่สิทธิ์ยัง denied/
-    // needs-install จะได้รายการที่ไม่มีวันดัง · ที่พูดความจริงตอนนี้คือแถบสถานะถาวรบนหน้ารายการเท่านั้น
-    void reminders.save({ date, yams: [{ yamId: yam.id, yamLabel: yam.label, window: yam.window }], destinations: ['mumate'] })
+    draft.open(date, [yam.id])
   }
+
 
   // save-sheet commit (#287 · reframed #298): ONE tap saves the reminder AND registers the device for push.
   // The destination switch is gone — the system fills ['mumate'] itself (reminder-plan.ts:43 still rejects an
@@ -128,11 +126,55 @@ export default function V2CalendarDayPage({ teamPreview }: { teamPreview: boolea
   // while the sheet is open the menu is FormMode(4, no Mate AI); else derived from data (Saved 3 / PrimaryAction 2).
   const menuState = sheetOpen ? draft.menuState : menuStateForDay(saved)
   // #326 — free/unknown ⇒ ปุ่มบอกว่าเป็นของสมาชิก และ **ไม่มีเส้นทางไปถึง draft.open** ⇒ ไม่มี POST
-  const cta = dayDetailCta({
+  // #343 — "ยามไหนของวันนี้ถูกเพิ่มแล้ว" (ไม่ใช่แค่ "วันนี้มีไหม") ⇒ ป้อนให้ทั้งปุ่มรายยาม ชีท และปุ่มแถบล่าง
+  const addedYamIds = reminders.addedYamIdsFor(date)
+  // 🔴 `now` อ่านนาฬิกาจริงตอน render — จงใจให้อยู่ที่นี่ที่เดียว และ**ไม่มีฟันตัวไหนยิงผ่านเพจเพื่อทดสอบเวลา**
+  // ฟันของ "เลยเวลา" ยิงที่ `yamReminderStatus`/`dayReminderCta` ตรงๆ พร้อม `now` ที่ป้อนเอง — ฟันที่พึ่ง
+  // นาฬิกาผนังจะเขียว/แดงตามเวลาที่รัน ไม่ใช่ตามโค้ด
+  const now = new Date()
+  const statusFor = (yam: YamSlot) => yamReminderStatus({ yam, date, addedYamIds, now })
+  const goToList = () => { void router.push('/v2/calendar/notifications') }
+
+  // 3 · "บันทึกเรียบร้อยแล้ว" ~2 วินาที แล้วกลายเป็น "เพิ่มยาม"
+  //
+  // 🔴 และ **ปล่อยเครื่องสถานะกลับ idle ด้วย** (ตู๋จับใน #350) — `save-flow.ts:64` `saved: { dismiss: 'idle' }`
+  // คือทางออกทางเดียวของ `saved` และ **ทั้งรีโปไม่เคยมีใครเรียก `dismiss()` เลย** ⇒ หลังบันทึกสำเร็จ state
+  // ค้างที่ `saved` ⇒ `open()` กลายเป็น NO-OP ตามตาราง ⇒ ปุ่ม "เพิ่มยาม" และปุ่มรายยาม (สายเดียวกัน)
+  // **กดแล้วเงียบทั้งคู่** — และ `setDraft` ใน `open` รันไปแล้ว ⇒ ยามที่ติ๊กไว้เปลี่ยนเงียบๆ โดยไม่มีจอโผล่
+  // ⇒ ทางที่ตายคือ "เพิ่มยามหลายอันในวันเดียว" ซึ่งเป็นชื่อของใบร่ม #340 ตรงๆ
+  //
+  // ⚠️ **แยกสอง effect โดยตั้งใจ** ❌ ไม่ใช่ยัด dismiss ลงใน effect เดียวกับตัวจับเวลา:
+  // `dismiss()` เปลี่ยน `draft.state` ทันที ⇒ effect ที่ผูก dep กับ `draft.state` จะ **cleanup ทิ้งทันที**
+  // ⇒ `clearTimeout` ยิงก่อนครบ 2 วิ ⇒ `justSaved` ค้าง true ตลอดกาล และปุ่มไม่มีวันกลับไปเป็น "เพิ่มยาม"
+  // (ป้ายที่กดไม่ได้ค้างถาวร = แย่กว่าบั๊กที่กำลังแก้) ⇒ ตัวจับเวลาผูกกับ `justSaved` ของเพจเอง
+  // ซึ่งเป็นชั้นเดียวกับที่มันมีชีวิตอยู่ — บทเรียนตรงกับ #323 เป๊ะ (อายุต้องอยู่ชั้นเดียวกับ state)
+  const [justSaved, setJustSaved] = useState(false)
+  // ดึงสองชิ้นที่ effect ใช้ออกมาก่อน ❌ ไม่ใส่ `draft` ทั้งก้อนลง deps — ฮุคคืนอ็อบเจกต์ใหม่ทุก render
+  // ⇒ effect จะวิ่งทุกรอบ · `state` เป็น string และ `dismiss` เป็น useCallback deps ว่าง
+  // (useReminderDraft.ts:107) ⇒ ทั้งคู่นิ่งจริง และ exhaustive-deps ตรวจได้ครบโดยไม่ต้องปิดกฎ
+  const { state: draftState, dismiss: dismissDraft } = draft
+  useEffect(() => {
+    if (draftState !== 'saved') return
+    setJustSaved(true)
+    dismissDraft() // saved → idle ⇒ ทางเข้าทั้งสองทางกลับมาใช้ได้ทันทีในหน้าเดิม
+  }, [draftState, dismissDraft])
+  useEffect(() => {
+    if (!justSaved) return
+    const t = setTimeout(() => setJustSaved(false), 2000)
+    return () => clearTimeout(t)
+  }, [justSaved])
+
+  const cta = dayReminderCta({
     isPaid,
-    saved,
+    saving: draft.state === 'saving',
+    justSaved,
+    yams: detail?.yams ?? [],
+    addedYamIds,
+    date,
+    now,
     openSheet: () => draft.open(date),
     say: announceComingSoon,
+    goToList,
   })
 
   // goo · G-2 minimal compile-guard — NOT a designed loading state (that's มุน's M-D). useDayDetail now
@@ -156,6 +198,9 @@ export default function V2CalendarDayPage({ teamPreview }: { teamPreview: boolea
       menuState={menuState}
       // #326 — ทางเข้าที่สอง. บรรทัดที่ตัดสินอยู่ใน tier-lock.ts ไม่ใช่ที่นี่ (ไฟล์นี้ import ไม่ได้ใน unit)
       ctaLabel={cta.label}
+      // #343 — 3 ใน 7 สถานะกดไม่ได้จริง (saving · justSaved · expired) · ก่อนหน้านี้ Menubar ปิดปุ่มได้
+      // ทางเดียวคือ sentinel '' ของ "กำลังโหลด" ⇒ ปุ่มจะกดได้ทั้งที่ press เป็น no-op = กดแล้วเงียบ
+      ctaDisabled={cta.disabled}
       onCta={cta.press}
     >
       {/* #326 — ที่แขวน toast ประกาศไว้ตรงนี้ ❌ ไม่พึ่งว่าปุ่มล็อกรายยามของ #316 จะ mount อยู่พอดี
@@ -176,12 +221,6 @@ export default function V2CalendarDayPage({ teamPreview }: { teamPreview: boolea
       <div className={`flex flex-col gap-4 px-4 pt-3 ${isPaid === null ? 'hidden' : ''}`}>
         <DayStrip date={date} />
         <DayScoreCard detail={detail} />
-        {/* Phase 7 A2 — after a save, the entry-point to the full list, in view while the user is paying attention */}
-        {saved && (
-          <Link href="/v2/calendar/notifications" data-testid="view-all-reminders" className="flex items-center justify-center gap-2 rounded-2xl border border-v3-sapphire/25 bg-v3-sapphire/[0.06] py-3 text-sm font-bold text-v3-sapphire">
-            ✓ บันทึกแล้ว · ดูรายการทั้งหมด →
-          </Link>
-        )}
         {paid && <AdvancedToggle on={advanced} onToggle={toggle} />}
         {/* §5 [advanced] — ดวงของฉัน (binds goo's detail.pillars) */}
         {paid && advanced && <MyChart pillars={detail.pillars} />}
@@ -196,10 +235,18 @@ export default function V2CalendarDayPage({ teamPreview }: { teamPreview: boolea
         <LuckyColors colors={detail.luckyColors} deity={detail.dayDeity} />
         {/* #316 — ตัดสินด้วย remindersLocked(isPaid) ไม่ใช่ `free` (fail-closed · null = ล็อก)
             ตรรกะอยู่ที่ features/v2-calendar/tier-lock.ts เพราะไฟล์ page นี้ unit test แตะไม่ได้ */}
-        <YamTimes yams={detail.yams} onAdd={addYam} locked={remindersLocked(isPaid)} />
+        <YamTimes yams={detail.yams} onAdd={addYam} locked={remindersLocked(isPaid)} statusFor={statusFor} onViewList={goToList} />
         {/* §12/§13 [advanced] — 8 ประตู · 8 เทพ */}
         {paid && advanced && <EightGates gates={detail.gates} luckyDirection={detail.luckyDirection} />}
         {paid && advanced && <EightDeities deities={detail.spirits} />}
+        {/* #343 — **ย้าย** ลิงก์นี้ลงมา ❌ ไม่ได้เพิ่มอันที่สอง (ของเดิมอยู่บนสุด ใต้กล่องคะแนน)
+            เหตุผล: จังหวะที่ลิงก์นี้มีความหมายคือ "เพิ่งบันทึกเสร็จ" ซึ่งสายตาอยู่ที่ปุ่มแถบล่าง
+            ตำแหน่งเดิมอยู่เหนือจอไปหลายส่วน ⇒ ผู้ใช้ต้องเลื่อนกลับขึ้นไปหาสิ่งที่ตัวเองเพิ่งทำ */}
+        {saved && (
+          <Link href="/v2/calendar/notifications" data-testid="view-all-reminders" className="flex items-center justify-center gap-2 rounded-2xl border border-v3-sapphire/25 bg-v3-sapphire/[0.06] py-3 text-sm font-bold text-v3-sapphire">
+            ✓ บันทึกแล้ว · ดูรายการทั้งหมด →
+          </Link>
+        )}
       </div>
       {/* screen 5 — save sheet, shown only while the machine is editing/saving (375:13316) */}
       {sheetOpen && (
@@ -210,6 +257,7 @@ export default function V2CalendarDayPage({ teamPreview }: { teamPreview: boolea
           onSave={onSheetSave}
           notify={notify}
           onShowGuide={setGuide}
+          statusFor={statusFor}
         />
       )}
       {/* ชีทสอนติดตั้ง/เปิดสิทธิ์ — เปิดทับจากในชีทตั้งเตือน จึงต้องอยู่ชั้นเหนือมัน

@@ -18,6 +18,13 @@ import type { UseReminderDraft } from '@/features/v2-calendar/hooks/useReminderD
 import type { SaveFlowState } from '@/features/v2-calendar/save-flow'
 import type { NotifyState } from '@/features/v2-calendar/notify-state'
 import type { YamSlot } from '@/features/v2-calendar/types'
+import type { YamReminderStatus } from '@/features/v2-calendar/tier-lock'
+import { SHEET_YAM_ADDED_NOTE, SHEET_YAM_PAST_NOTE } from '@/features/v2-calendar/components/day-detail/SaveSheet'
+import { Menubar } from '@/features/v2-shell/components/Menubar'
+
+// Menubar อ่าน useRouter() เพื่อไฮไลต์แท็บ — ชุดฟันของ #343 ท้ายไฟล์เรนเดอร์มันตรงๆ ⇒ ต้อง mount router
+// ปลอมให้ (ของจริงไม่มีใน jsdom) · pathname ตั้งเป็นหน้ารายละเอียดวันซึ่งเป็นที่ที่ปุ่มนี้อยู่จริง
+vi.mock('next/router', () => ({ useRouter: () => ({ pathname: '/v2/calendar/[date]', query: {}, push: vi.fn() }) }))
 
 afterEach(cleanup)
 
@@ -45,6 +52,7 @@ function renderAt(state: SaveFlowState, opts: { notify?: NotifyState; canCommit?
       onSave={onSave}
       notify={opts.notify ?? 'granted'}
       onShowGuide={() => {}}
+      statusFor={() => 'addable'}
     />,
   )
   return screen.getByTestId('sheet-save') as HTMLButtonElement
@@ -168,5 +176,120 @@ describe('#342 ④ · ของเดิมต้องไม่ถูกงั�
     expect(renderAt('editing', { canCommit: false }).disabled).toBe(true)
     cleanup()
     expect(renderAt('saving', { canCommit: false }).disabled).toBe(true)
+  })
+})
+
+
+// ───────────────────────── #343 · ช่องติ๊กในชีท 3 สถานะ ─────────────────────────
+//
+// 🔴 นี่คือด่านที่ปิด **อาการหลัก** ของใบร่ม #340 — ของหาย ไม่ใช่แค่ความสวยงาม:
+// ชีทเคยวาดทุกยามเป็น checkbox โดยไม่กรอง แต่ server เป็น all-or-nothing (reminder-plan.ts)
+// ⇒ ติ๊กยามที่เลยเวลาปนกับยามที่ดี = **ไม่มีอันไหนถูกบันทึกเลย** และยามที่เลือกถูกก็หายไปด้วย
+
+const YAMS3: YamSlot[] = [
+  { id: 'y1', window: '09:00-10:59', label: 'ยามหนึ่ง' } as YamSlot,
+  { id: 'y2', window: '19:00-20:59', label: 'ยามสอง' } as YamSlot,
+]
+
+function renderSheetWithStatus(statusOf: Record<string, YamReminderStatus>, selected: string[] = []) {
+  const draft = {
+    state: 'editing',
+    draft: { date: '2026-08-19', selectedYamIds: selected, destinations: [], note: '' },
+    canCommit: true,
+    menuState: 4,
+    open: () => {}, toggleYam: () => {}, toggleDest: () => {}, setNote: () => {},
+    commit: () => {}, cancel: () => {}, dismiss: () => {},
+  } as unknown as UseReminderDraft
+  render(
+    <SaveSheet
+      date="2026-08-19"
+      yams={YAMS3}
+      draft={draft}
+      onSave={() => {}}
+      notify="granted"
+      onShowGuide={() => {}}
+      statusFor={(y) => statusOf[y.id] ?? 'addable'}
+    />,
+  )
+}
+
+describe('#343 · ชีท — ยามที่เลยเวลา/เพิ่มแล้ว ติ๊กไม่ได้ แต่ยังเห็น', () => {
+  const box = (id: string) => document.querySelector(`[data-testid="sheet-yam-${id}"] input`) as HTMLInputElement
+
+  it('🔴 ยามที่เลยเวลา ติ๊กไม่ได้ (ถอด disabled ⇒ ข้อนี้แดง) และบอกเหตุว่าทำไม', () => {
+    renderSheetWithStatus({ y1: 'past' })
+    expect(box('y1').disabled).toBe(true)
+    expect(box('y1').checked).toBe(false)
+    expect(screen.getByTestId('sheet-yam-note-y1').textContent).toBe(SHEET_YAM_PAST_NOTE)
+  })
+
+  it('🔴 ยามที่เพิ่มแล้ว ติ๊กค้างไว้ให้เห็น + กดไม่ได้ + บอกว่าเพิ่มแล้ว', () => {
+    renderSheetWithStatus({ y1: 'added' })
+    expect(box('y1').checked).toBe(true)
+    expect(box('y1').disabled).toBe(true)
+    expect(screen.getByTestId('sheet-yam-note-y1').textContent).toBe(SHEET_YAM_ADDED_NOTE)
+  })
+
+  it('🔴 ทั้งสองแบบ **ยังอยู่ในรายการ ไม่ถูกซ่อน** — ผู้ใช้ต้องเห็นว่าวันนี้มีกี่ยามและตัวเองอยู่ตรงไหน', () => {
+    renderSheetWithStatus({ y1: 'past', y2: 'added' })
+    expect(screen.getByTestId('sheet-yam-y1')).toBeTruthy()
+    expect(screen.getByTestId('sheet-yam-y2')).toBeTruthy()
+    expect(screen.getByText('09:00-10:59')).toBeTruthy()
+    expect(screen.getByText('19:00-20:59')).toBeTruthy()
+  })
+
+  it('NEGATIVE CONTROL · ยามปกติยังติ๊กได้เหมือนเดิม และไม่มีป้ายเหตุ', () => {
+    renderSheetWithStatus({ y1: 'addable' })
+    expect(box('y1').disabled).toBe(false)
+    expect(screen.queryByTestId('sheet-yam-note-y1')).toBeNull()
+  })
+
+  it('🔴 ยามที่ล็อกอยู่ปนกับยามปกติในชีทเดียวกัน — ตัวที่ล็อกต้องไม่ลามไปปิดตัวปกติ', () => {
+    renderSheetWithStatus({ y1: 'past', y2: 'addable' }, ['y2'])
+    expect(box('y1').disabled).toBe(true)
+    expect(box('y2').disabled).toBe(false)
+    expect(box('y2').checked).toBe(true)
+  })
+})
+
+// ───────────────────────── #343 · ปุ่มแถบล่าง — ✓ กับ กดไม่ได้ ─────────────────────────
+
+describe('#343 · Menubar — ✓ เป็นของป้าย default เท่านั้น และปุ่มปิดได้ด้วยเหตุของหน้าเพจ', () => {
+  it('🔴 state=saved + ส่ง label เอง → **ไม่มี ✓ นำหน้า** (ไม่งั้นจอวาด "✓ เพิ่มยาม")', () => {
+    render(<Menubar state="saved" ctaLabel="เพิ่มยาม" onCta={() => {}} />)
+    const btn = screen.getByTestId('menubar-cta')
+    expect(btn.textContent).toBe('เพิ่มยาม')
+    expect(btn.textContent).not.toContain('✓')
+  })
+
+  it('NEGATIVE CONTROL · state=saved + ไม่ส่ง label → ป้าย default พร้อม ✓ เหมือนเดิม (หน้ารายการใช้ทางนี้)', () => {
+    render(<Menubar state="saved" onCta={() => {}} />)
+    expect(screen.getByTestId('menubar-cta').textContent).toBe('✓ คุณบันทึกลงปฏิทินแล้ว')
+  })
+
+  it('🔴 ctaDisabled → ปุ่มกดไม่ได้จริง และกดแล้ว onCta ไม่ถูกเรียก', () => {
+    const onCta = vi.fn()
+    render(<Menubar state="primary-cta" ctaLabel="เลยเวลาบันทึกแล้ว" ctaDisabled onCta={onCta} />)
+    const btn = screen.getByTestId('menubar-cta') as HTMLButtonElement
+    expect(btn.disabled).toBe(true)
+    fireEvent.click(btn)
+    expect(onCta).not.toHaveBeenCalled()
+  })
+
+  it('NEGATIVE CONTROL · ไม่ส่ง ctaDisabled → กดได้เหมือนเดิม', () => {
+    const onCta = vi.fn()
+    render(<Menubar state="primary-cta" ctaLabel="เพิ่มลงปฏิทิน เพื่อแจ้งเตือน" onCta={onCta} />)
+    const btn = screen.getByTestId('menubar-cta') as HTMLButtonElement
+    expect(btn.disabled).toBe(false)
+    fireEvent.click(btn)
+    expect(onCta).toHaveBeenCalledTimes(1)
+  })
+
+  it("ป้าย '' (กำลังโหลด) ยังทำงานแยกจาก ctaDisabled — สอง sentinel คนละความหมาย", () => {
+    render(<Menubar state="primary-cta" ctaLabel="" onCta={() => {}} />)
+    const btn = screen.getByTestId('menubar-cta') as HTMLButtonElement
+    expect(btn.textContent).toBe('กำลังโหลด…')
+    expect(btn.disabled).toBe(true)
+    expect(btn.getAttribute('aria-busy')).toBe('true')
   })
 })
