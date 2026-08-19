@@ -89,6 +89,7 @@ export default defineConfig({
       'scripts/coming-soon-toast.test.tsx', // #323 — อายุของ toast เป็นของ store โมดูล ไม่ใช่ของปุ่ม; .tsx
       'scripts/day-cta-tier-gate.test.tsx', // #326 — CTA แถบล่างเป็นสถานะล็อกสำหรับ free + ฟันชั้นผู้เรียก; .tsx
       'scripts/save-sheet-state.test.tsx', // #342 — ชีทอ่าน draft.state: กำลังบันทึก/ล้ม; .tsx
+      'scripts/reminder-cta.test.tsx', // #341 — ยาม 3 สถานะ + ปุ่มแถบล่าง 7 สถานะ (pure) + open preselect/addedYamIdsFor; .tsx
     ],
   },
   resolve: {

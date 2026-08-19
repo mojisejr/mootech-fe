@@ -24,7 +24,8 @@ export interface UseReminderDraft {
   canCommit: boolean
   /** The menu state THIS surface implies (goo drives it): the open sheet is always FormMode (no Mate AI). */
   menuState: CalendarMenuState
-  open: (date: string) => void
+  /** #341 — เปิดชีท; ส่ง `yamIds` เพื่อติ๊กยามไว้ล่วงหน้า (ทางเข้าจากปุ่มรายยาม) · ไม่ส่ง = ว่างเหมือนเดิม */
+  open: (date: string, yamIds?: string[]) => void
   toggleYam: (yamId: string) => void
   toggleDest: (dest: ReminderDestination) => void
   setNote: (note: string) => void
@@ -48,8 +49,9 @@ export function useReminderDraft(): UseReminderDraft {
 
   const canCommit = hasCommittableDraft(draft)
 
-  const open = useCallback((date: string) => {
-    setDraft({ ...EMPTY_DRAFT, date })
+  const open = useCallback((date: string, yamIds?: string[]) => {
+    // #341 — ติ๊กยามล่วงหน้าได้ (de-dupe กันยามซ้ำจากผู้เรียก); ไม่ส่ง = ว่างเหมือน Phase 0
+    setDraft({ ...EMPTY_DRAFT, date, selectedYamIds: yamIds ? Array.from(new Set(yamIds)) : [] })
     setState((s) => saveFlowNext(s, 'open'))
   }, [])
 
