@@ -38,6 +38,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     if (!found.ok) {
       if (found.status === 409) {
         console.error('[first-run-reset] ambiguous identity for one provider account — refusing')
+        // This endpoint DELETEs consent rows. resolve-user returns the MECHANICAL reason ('identity is
+        // ambiguous') shared with routes that delete NOTHING (reminders / push subscribe), so it must not
+        // carry reset wording. The DESTRUCTIVE endpoint owns the human half: `phase.message` is rendered
+        // raw on /v2 (TeamPreviewResetBadge.tsx:148), and on a data-deleting refusal the user most needs
+        // to know their data was NOT touched. resolve-user.ts is left untouched. (ตู๋/บอง review, #353)
+        return res.status(409).json({ ok: false, error: 'identity is ambiguous — not resetting' })
       }
       return res.status(found.status).json({ ok: false, error: found.error })
     }

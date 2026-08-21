@@ -19,6 +19,7 @@
 //   MF  the lookup stops matching provider case-insensitively (drop lower())     → the query-shape test reddens
 //   MG  first-run-reset handler drops the v2 preview gate                        → the gate test reddens
 //   MH  first-run-reset handler acts on an ambiguous identity (stops refusing)   → the handler-409 test reddens
+//   MI  first-run-reset forwards resolve-user's raw 409 reason to the user        → the "nothing was reset" test reddens
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 
 // Shared, inspectable state + capture buckets, declared via vi.hoisted so the (hoisted) vi.mock
@@ -259,6 +260,18 @@ describe('first-run-reset endpoint — behavior parity through the shared resolv
     await p
     expect(out.status).toBe(409)
     expect(writes()).toHaveLength(0) // the SELECT ran, but no UPDATE/DELETE followed
+  })
+
+  it('MI — the 409 the USER sees says nothing was reset (destructive endpoint owns the wording, not resolve-user\'s shared reason)', async () => {
+    // phase.message is rendered raw on /v2 (TeamPreviewResetBadge.tsx:148). resolve-user returns the
+    // MECHANICAL reason 'identity is ambiguous' (shared by reminders/subscribe, which delete nothing); the
+    // reset endpoint must add the half a human needs on a data-deleting refusal — that their data is intact.
+    // A mutant that forwards the raw `found.error` here drops '— not resetting' and reddens this test.
+    h.state.rows = [{ user_id: 'u-1' }, { user_id: 'u-2' }]
+    const { p, out } = invoke()
+    await p
+    expect(out.status).toBe(409)
+    expect((out.body as { error: string }).error).toContain('not resetting')
   })
 
   it('no account for this login ⇒ 404, nothing written', async () => {
