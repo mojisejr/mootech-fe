@@ -91,6 +91,8 @@ export default defineConfig({
       'scripts/save-sheet-state.test.tsx', // #342 — ชีทอ่าน draft.state: กำลังบันทึก/ล้ม; .tsx
       'scripts/reminder-cta.test.tsx', // #341 — ยาม 3 สถานะ + ปุ่มแถบล่าง 7 สถานะ (pure) + open preselect/addedYamIdsFor; .tsx
       'scripts/resolve-user.test.tsx', // #353 — teeth for lib/v2/resolve-user.ts (identity home) + first-run-reset parity
+      'scripts/member-subscription.test.ts', // #354 — pure: deterministic row-select + v2→legacy→free fallback
+      'scripts/member-subscription-db.test.ts', // #354 — real pg (skipIf !TEST_DATABASE_URL): migration/parity/determinism/fallback
     ],
   },
   resolve: {

@@ -53,3 +53,29 @@ export function computeTier(args: {
   // Determined.
   return { isPaid: isPaidMember(args.user), loading: false }
 }
+
+// ── v2 tier LEVELS (mootech-fe#354) ──────────────────────────────────────────────────────────────
+// #354 extends the paid/free boolean into a NAMED tier so a v2 subscription row can say WHICH level a
+// member holds. The catalog names are pending marketing; FREE + two paid names are the shape today.
+export const TIER_CODES = ['FREE', 'PLUS', 'PRO'] as const
+export type TierCode = (typeof TIER_CODES)[number]
+
+// Allow-list, NOT a cast (ตู๋ #369 B1): an unknown string is null, never coerced into a paid tier. On the
+// v2 path tier_code is the ONLY signal of membership, so a value outside this list means "we know nothing"
+// and the caller must fail closed (isPaid null), NOT read as paid. The DB CHECK in 0006 keeps garbage out
+// at write time; this is the read-side net for anything that ever slips past it.
+export function parseTierCode(raw: string | null | undefined): TierCode | null {
+  return (TIER_CODES as readonly string[]).includes(raw as string) ? (raw as TierCode) : null
+}
+
+// Derive the paid flag from a tier NAME, preserving the seam's rule that unknown must not be guessed:
+//   • null  → null  (name not determined — do NOT gate; same contract as computeTier's null)
+//   • FREE  → false (KNOWN not paid)
+//   • anything else → true (any named non-free tier is paid; a future PLUS/PRO stays paid without an edit)
+// A legacy member_payment member is paid but has NO tier name (their row predates this catalog): callers
+// keep using the boolean isPaid for that, and tier stays null — never downgrade a known-paid user to free
+// just because the NAME is unknown. #v2-tier-paid-rule (matches isPaidMember: strict, no truthy unlock).
+export function tierIsPaid(tier: TierCode | null): boolean | null {
+  if (tier === null) return null
+  return tier !== 'FREE'
+}
