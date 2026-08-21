@@ -738,6 +738,30 @@ export const memberSubscription = pgTable("member_subscription", {
 	check("member_subscription_status_check", sql`${table.status} IN ('ACTIVE','EXPIRED','REPLACED')`),
 ]);
 
+// v2 payment records (mootech-fe#355, migration 0007). Separate from v1 `payment`: the webhook settles by
+// a conditional UPDATE on `status` (charge_id UNIQUE) so double-delivery provisions at-most-once. tier_code
+// is server-written from lib/payment/catalog.ts. See 0007_v2_payment.sql.
+export const v2Payment = pgTable("v2_payment", {
+	id: varchar({ length: 36 }).primaryKey().notNull(),
+	userId: text("user_id").notNull().references(() => user.userId),
+	packageCode: text("package_code").notNull(),
+	tierCode: text("tier_code").notNull(),
+	amountSatang: integer("amount_satang").notNull(),
+	vatSatang: integer("vat_satang").default(0).notNull(),
+	method: text().notNull(),
+	chargeId: text("charge_id").notNull(),
+	orderId: text("order_id").notNull(),
+	status: text().notNull(),
+	createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+}, (table) => [
+	uniqueIndex("uq_v2_payment_charge_id").on(table.chargeId),
+	index("idx_v2_payment_user_id").on(table.userId),
+	// CHECK mirrors 0007 (Postgres names an inline column CHECK <table>_<column>_check, so these agree).
+	check("v2_payment_tier_code_check", sql`${table.tierCode} IN ('FREE','PLUS','PRO')`),
+	check("v2_payment_method_check", sql`${table.method} IN ('card','promptpay')`),
+	check("v2_payment_status_check", sql`${table.status} IN ('PENDING','APPROVED','REJECT')`),
+]);
+
 export const memberWithFriend = pgTable("member_with_friend", {
 	id: varchar({ length: 36 }).primaryKey().notNull(),
 	userId: text("user_id").notNull(),

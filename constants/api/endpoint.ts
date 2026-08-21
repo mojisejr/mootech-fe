@@ -123,4 +123,13 @@ export const API = {
   payment_package: {
     get: localApi('/payment-package'), // MIGRATED -> pages/api/payment-package.ts
   },
+  // v2 payment (#355) — NEW category, ADD-ONLY. The v1 `payment.*` above is untouched (v1 still takes
+  // money through it). All same-origin (localApi → /api/v2/...); the webhook is called by Omise, not the
+  // client, but it lives here for one place that names every v2 payment path.
+  v2_payment: {
+    charge: localApi('/v2/payment/charge'),
+    promptpay: localApi('/v2/payment/promptpay'),
+    status: localApi('/v2/payment/status'),
+    webhook: localApi('/v2/payment/webhook'),
+  },
 }
