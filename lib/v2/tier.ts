@@ -53,3 +53,20 @@ export function computeTier(args: {
   // Determined.
   return { isPaid: isPaidMember(args.user), loading: false }
 }
+
+// ── v2 tier LEVELS (mootech-fe#354) ──────────────────────────────────────────────────────────────
+// #354 extends the paid/free boolean into a NAMED tier so a v2 subscription row can say WHICH level a
+// member holds. The catalog names are pending marketing; FREE + two paid names are the shape today.
+export type TierCode = 'FREE' | 'PLUS' | 'PRO'
+
+// Derive the paid flag from a tier NAME, preserving the seam's rule that unknown must not be guessed:
+//   • null  → null  (name not determined — do NOT gate; same contract as computeTier's null)
+//   • FREE  → false (KNOWN not paid)
+//   • anything else → true (any named non-free tier is paid; a future PLUS/PRO stays paid without an edit)
+// A legacy member_payment member is paid but has NO tier name (their row predates this catalog): callers
+// keep using the boolean isPaid for that, and tier stays null — never downgrade a known-paid user to free
+// just because the NAME is unknown. #v2-tier-paid-rule (matches isPaidMember: strict, no truthy unlock).
+export function tierIsPaid(tier: TierCode | null): boolean | null {
+  if (tier === null) return null
+  return tier !== 'FREE'
+}

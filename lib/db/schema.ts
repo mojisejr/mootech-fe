@@ -1,4 +1,4 @@
-import { pgTable, bigserial, text, varchar, bigint, doublePrecision, json, index, uniqueIndex, boolean, primaryKey, uuid, timestamp, integer } from "drizzle-orm/pg-core"
+import { pgTable, bigserial, text, varchar, bigint, doublePrecision, json, index, uniqueIndex, boolean, primaryKey, uuid, timestamp, integer, date } from "drizzle-orm/pg-core"
 import { sql } from "drizzle-orm"
 
 // ───────────────────────────────────────────────────────────────────────────────────
@@ -715,6 +715,25 @@ export const paymentCode = pgTable("payment_code", {
 	createAt: varchar("create_at", { length: 255 }).notNull(),
 	isActive: boolean("is_active").notNull(),
 });
+
+// v2 membership store (mootech-fe#354, migration 0006). NOT an extension of member_payment: user_id is a
+// plain column (many rows / history per human), money is integer สตางค์, start_at/expire_at are real DATE.
+// Nobody flips status in Phase 2 — expiry is computed at read (expire_at vs today Asia/Bangkok); the reader
+// (lib/v2/subscription.ts) excludes non-ACTIVE and past-expire rows. See 0006_member_subscription.sql.
+export const memberSubscription = pgTable("member_subscription", {
+	id: varchar({ length: 36 }).primaryKey().notNull(),
+	userId: text("user_id").notNull(),
+	tierCode: text("tier_code").notNull(),
+	packageCode: text("package_code").notNull(),
+	amountSatang: integer("amount_satang").notNull(),
+	startAt: date("start_at").notNull(),
+	expireAt: date("expire_at").notNull(),
+	paymentId: text("payment_id"),
+	status: text().notNull(),
+	createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+}, (table) => [
+	index("idx_member_subscription_user_id").on(table.userId),
+]);
 
 export const memberWithFriend = pgTable("member_with_friend", {
 	id: varchar({ length: 36 }).primaryKey().notNull(),
