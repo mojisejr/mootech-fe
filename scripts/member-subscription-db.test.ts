@@ -18,6 +18,10 @@ import { resolveMembership } from '@/lib/usage'
 
 const TEST_URL = process.env.TEST_DATABASE_URL
 const MIGRATION = readFileSync(resolve('lib/db/0006_member_subscription.sql'), 'utf8')
+// #355 added member_subscription.v2_payment_id via 0007's ALTER; the drizzle schema (and so
+// resolveSubscription's select) now includes it, so the table must be set up with 0007 too or the read
+// fails on a missing column. Apply both.
+const MIGRATION7 = readFileSync(resolve('lib/db/0007_v2_payment.sql'), 'utf8')
 const NOW = new Date()
 
 function bkk(now: Date): string {
@@ -36,11 +40,13 @@ describe.skipIf(!TEST_URL)('member_subscription · real pg (#354)', () => {
 
   beforeAll(async () => {
     sql = postgres(TEST_URL as string, { max: 4, ssl: false })
-    // Recreate from the CURRENT migration so CHECK/FK are always the ones under test (an older run may have
-    // left the table without them; CREATE TABLE IF NOT EXISTS would not add them). Safe: this is the only
-    // feature that uses the table and it holds no other data.
+    // Recreate the CURRENT schema so CHECK/FK and #355's v2_payment_id column are all present (IF NOT
+    // EXISTS never reconciles an older shape). Drop both tables, then 0006 then 0007. Safe: these are our
+    // own feature tables with no other data.
     await sql.unsafe('DROP TABLE IF EXISTS member_subscription CASCADE;')
+    await sql.unsafe('DROP TABLE IF EXISTS v2_payment CASCADE;')
     await sql.unsafe(MIGRATION)
+    await sql.unsafe(MIGRATION7)
     const today = bkk(NOW)
     const [m] = await sql`SELECT mp.user_id FROM member_payment mp
       JOIN "user" usr ON usr.user_id = mp.user_id

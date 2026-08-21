@@ -729,6 +729,9 @@ export const memberSubscription = pgTable("member_subscription", {
 	startAt: date("start_at").notNull(),
 	expireAt: date("expire_at").notNull(),
 	paymentId: text("payment_id").references(() => payment.id),
+	// v2 link (#355, added by 0007's ALTER): the v2_payment that created this row. #354's payment_id FK
+	// points at the v1 `payment` table (unused by v2 → NULL for v2 rows); this points at v2_payment.
+	v2PaymentId: varchar("v2_payment_id", { length: 36 }).references(() => v2Payment.id),
 	status: text().notNull(),
 	createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
 }, (table) => [
@@ -736,6 +739,34 @@ export const memberSubscription = pgTable("member_subscription", {
 	// CHECK mirrors 0006 (Postgres names an inline column CHECK <table>_<column>_check, so these agree).
 	check("member_subscription_tier_code_check", sql`${table.tierCode} IN ('FREE','PLUS','PRO')`),
 	check("member_subscription_status_check", sql`${table.status} IN ('ACTIVE','EXPIRED','REPLACED')`),
+]);
+
+// v2 payment records (mootech-fe#355, migration 0007). Separate from v1 `payment`: the webhook settles by
+// a conditional UPDATE on `status` (charge_id UNIQUE) so double-delivery provisions at-most-once. tier_code
+// is server-written from lib/payment/catalog.ts. See 0007_v2_payment.sql.
+export const v2Payment = pgTable("v2_payment", {
+	id: varchar({ length: 36 }).primaryKey().notNull(),
+	userId: text("user_id").notNull().references(() => user.userId),
+	packageCode: text("package_code").notNull(),
+	tierCode: text("tier_code").notNull(),
+	amountSatang: integer("amount_satang").notNull(),
+	vatSatang: integer("vat_satang").default(0).notNull(),
+	// duration frozen at charge (ตู๋ #370 B2) — raw '1M'/'1Y' string + buffer, so settle never re-reads payment_package.
+	expire: text().notNull(),
+	bufferDay: integer("buffer_day").default(0).notNull(),
+	method: text().notNull(),
+	chargeId: text("charge_id").notNull(),
+	orderId: text("order_id").notNull(),
+	status: text().notNull(),
+	createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+}, (table) => [
+	uniqueIndex("uq_v2_payment_charge_id").on(table.chargeId),
+	index("idx_v2_payment_user_id").on(table.userId),
+	// CHECK mirrors 0007 (Postgres names an inline column CHECK <table>_<column>_check, so these agree).
+	check("v2_payment_tier_code_check", sql`${table.tierCode} IN ('FREE','PLUS','PRO')`),
+	check("v2_payment_method_check", sql`${table.method} IN ('card','promptpay')`),
+	check("v2_payment_status_check", sql`${table.status} IN ('PENDING','APPROVED','REJECT')`),
+	check("v2_payment_expire_check", sql`${table.expire} ~ '^[0-9]+[DMY]$'`),
 ]);
 
 export const memberWithFriend = pgTable("member_with_friend", {

@@ -93,6 +93,11 @@ export default defineConfig({
       'scripts/resolve-user.test.tsx', // #353 — teeth for lib/v2/resolve-user.ts (identity home) + first-run-reset parity
       'scripts/member-subscription.test.ts', // #354 — pure: deterministic row-select + v2→legacy→free fallback
       'scripts/member-subscription-db.test.ts', // #354 — real pg (skipIf !TEST_DATABASE_URL): migration/parity/determinism/fallback
+      'scripts/payment-catalog.test.ts', // #355 — pure: server pricing (satang/VAT-backward) + tier allow-list fail-loud
+      'scripts/payment-provision.test.ts', // #355 — pure: expire date math + shadow GREATEST merge (days never burn)
+      'scripts/payment-webhook-verify.test.ts', // #355 — pure: Omise HMAC verify, fail-closed (main-lane money gate)
+      'scripts/payment-charge-route.test.ts', // #355 — route: session gate + client-ignored + fail-loud-before-charge
+      'scripts/payment-webhook-db.test.ts', // #355 — real pg (skipIf !TEST_DATABASE_URL): webhook→settle→provision, idempotent+concurrent
     ],
   },
   resolve: {

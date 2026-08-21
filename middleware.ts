@@ -153,6 +153,17 @@ function guardV2(req: NextRequest): NextResponse | null {
   const isV2 = pathname === '/v2' || pathname.startsWith('/v2/') || pathname.startsWith('/api/v2');
   if (!isV2) return null;
 
+  // 🔴 Omise webhook exemption — MUST come BEFORE the V2_PREVIEW_KEY read below (#355). The webhook's
+  // caller is Omise's machine, not a browser, so it carries no v2_access cookie and its ONLY real gate
+  // is the HMAC signature verified inside the route. If it fell through to `if (!key)` it would be
+  // rewritten to /maintenance, and rewrite returns HTTP 200 → Omise reads 2xx as "delivered" and never
+  // retries → a card was charged and NOBODY is provisioned, with no failed-delivery queue to notice.
+  // That day is launch day: removing the preview gate (#247) means removing V2_PREVIEW_KEY, which is
+  // exactly when `if (!key)` starts firing. Exact === (never startsWith): the only unauthenticated path
+  // here is this one literal; `/webhookX` or `/webhook/extra` must still 401. The route itself fails
+  // closed on a missing signing secret — this exemption only skips the COOKIE gate, not the signature.
+  if (pathname === '/api/v2/payment/webhook') return noStore(NextResponse.next());
+
   const key = process.env.V2_PREVIEW_KEY;
   if (!key) return noStore(NextResponse.rewrite(new URL('/maintenance', req.url)));
 
