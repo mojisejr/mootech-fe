@@ -9,17 +9,21 @@
 // 🔴 MUTANT CONTRACT — each must go RED on its own:
 //   MA  selection drops the id tiebreak (ORDER BY expire_at,created_at only) → the identical-timestamp
 //       determinism test reddens (two rows with equal expire_at AND created_at → order-dependent pick)
-//   MB  selection stops excluding past-expire rows (removes expire_at >= today)  → the expired test reddens
+//   MB  selection stops excluding past-expire rows (removes expire_at >= today)  → the expired test reddens.
+//       This is B2's main-lane guard: the whole date filter lives in the picker now (not split into SQL),
+//       so flipping the compare (>= → <=) reddens HERE in `npm test`, never only in the DB suite.
 //   MC  selection stops excluding non-ACTIVE rows                                → the REPLACED test reddens
 //   MD  fallback returns free when there is no v2 row instead of the legacy verdict → the legacy-paid test reddens
 //   ME  a FREE-tier v2 row is treated as paid                                    → the FREE-tier test reddens
+//   MF  parseTierCode goes back to a raw cast (B1)                               → an unknown tier_code reads
+//       as paid and the "unknown ⇒ isPaid null" test reddens
 import { describe, it, expect } from 'vitest'
 import {
   pickActiveSubscriptionRow,
   resolveTierFromSources,
   type SubRow,
 } from '@/lib/v2/subscription'
-import { tierIsPaid } from '@/lib/v2/tier'
+import { tierIsPaid, parseTierCode } from '@/lib/v2/tier'
 
 const TODAY = '2026-08-21'
 const row = (o: Partial<SubRow> & { id: string }): SubRow => ({
@@ -147,6 +151,29 @@ describe('resolveTierFromSources — v2 first, then legacy member_payment, then 
       tier: null,
       source: 'none',
     })
+  })
+
+  it('MF — a v2 row with an UNKNOWN tier_code fails CLOSED: isPaid null (NOT true), never inferred paid', () => {
+    // tier_code is the ONLY membership signal on the v2 path, so garbage = we know nothing. A raw cast would
+    // make anything-but-FREE read as paid; the allow-list returns null and we fail closed (tier-lock locks).
+    for (const bad of ['free', 'PLUSS', 'ACTIVE', '', 'plus', 'Pro']) {
+      const r = resolveTierFromSources({ subRow: { tierCode: bad }, legacy: legacyMember })
+      expect(r.isPaid).not.toBe(true)
+      expect(r).toEqual({ isPaid: null, tier: null, source: 'v2' })
+    }
+  })
+})
+
+describe('parseTierCode — allow-list, not a cast (B1)', () => {
+  it('the three known codes parse to themselves', () => {
+    expect(parseTierCode('FREE')).toBe('FREE')
+    expect(parseTierCode('PLUS')).toBe('PLUS')
+    expect(parseTierCode('PRO')).toBe('PRO')
+  })
+  it('unknown / wrong-case / empty / null / undefined ⇒ null', () => {
+    for (const bad of ['free', 'PLUSS', 'ACTIVE', '', 'Pro', null, undefined]) {
+      expect(parseTierCode(bad as string | null | undefined)).toBeNull()
+    }
   })
 })
 

@@ -20,17 +20,23 @@
 -- Nobody flips status ACTIVE→EXPIRED in Phase 2 (there is no cron and no writer here). Expiry is decided
 -- AT READ TIME by comparing expire_at to today(Asia/Bangkok) — see lib/v2/subscription.ts. `status` still
 -- exists for the Phase-3 writer to mark REPLACED rows; the reader excludes anything not 'ACTIVE'.
+--
+-- CHECK + FK (ตู๋ #369 B1/T1) — added NOW while the table is empty and unapplied on prod, the cheapest
+-- moment. #361 named "the money lane has no references() at all" as a reason for a fresh table, so this one
+-- must not repeat that. CHECKs keep an unknown tier_code / status out at write time (the reader also fails
+-- closed on a bad tier_code, but a wrong `status` would make a PAID row invisible — a silent lost membership
+-- in the OPPOSITE direction, so the DB refuses it too). FKs make an orphan user_id / payment_id impossible.
 
 CREATE TABLE IF NOT EXISTS member_subscription (
   id             varchar(36) PRIMARY KEY,   -- app-supplied uuid (writer = Phase 3), same convention as other v1 tables
-  user_id        text        NOT NULL,      -- NOT a PK ⇒ many rows / history per human
-  tier_code      text        NOT NULL,      -- FREE | PLUS | PRO  (names pending marketing)
+  user_id        text        NOT NULL REFERENCES "user"(user_id),  -- NOT a PK ⇒ many rows / history per human
+  tier_code      text        NOT NULL CHECK (tier_code IN ('FREE','PLUS','PRO')),  -- names pending marketing
   package_code   text        NOT NULL,      -- points at payment_package.package_code
   amount_satang  integer     NOT NULL,      -- money in whole สตางค์ (not float baht)
   start_at       date        NOT NULL,
   expire_at      date        NOT NULL,
-  payment_id     text,                       -- points at payment.id (nullable: comp/manual grants)
-  status         text        NOT NULL,      -- ACTIVE | EXPIRED | REPLACED
+  payment_id     text        REFERENCES payment(id),  -- nullable: comp/manual grants have no payment row
+  status         text        NOT NULL CHECK (status IN ('ACTIVE','EXPIRED','REPLACED')),
   created_at     timestamptz NOT NULL DEFAULT now()
 );
 

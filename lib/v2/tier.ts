@@ -57,7 +57,16 @@ export function computeTier(args: {
 // ── v2 tier LEVELS (mootech-fe#354) ──────────────────────────────────────────────────────────────
 // #354 extends the paid/free boolean into a NAMED tier so a v2 subscription row can say WHICH level a
 // member holds. The catalog names are pending marketing; FREE + two paid names are the shape today.
-export type TierCode = 'FREE' | 'PLUS' | 'PRO'
+export const TIER_CODES = ['FREE', 'PLUS', 'PRO'] as const
+export type TierCode = (typeof TIER_CODES)[number]
+
+// Allow-list, NOT a cast (ตู๋ #369 B1): an unknown string is null, never coerced into a paid tier. On the
+// v2 path tier_code is the ONLY signal of membership, so a value outside this list means "we know nothing"
+// and the caller must fail closed (isPaid null), NOT read as paid. The DB CHECK in 0006 keeps garbage out
+// at write time; this is the read-side net for anything that ever slips past it.
+export function parseTierCode(raw: string | null | undefined): TierCode | null {
+  return (TIER_CODES as readonly string[]).includes(raw as string) ? (raw as TierCode) : null
+}
 
 // Derive the paid flag from a tier NAME, preserving the seam's rule that unknown must not be guessed:
 //   • null  → null  (name not determined — do NOT gate; same contract as computeTier's null)

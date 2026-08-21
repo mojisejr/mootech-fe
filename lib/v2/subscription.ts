@@ -11,18 +11,19 @@
 //   ② fallback — no live v2 row ⇒ the legacy member_payment verdict, computed by the SAME classifyMembership
 //      the v1 path uses (reused, not re-derived — #354). So deleting a v2 row drops a member back to their
 //      member_payment membership, NEVER to free (the DoD teeth).
-import { and, eq, gte } from 'drizzle-orm'
+import { eq } from 'drizzle-orm'
 import { db } from '@/lib/db'
 import { memberSubscription } from '@/lib/db/schema'
 import { bkkDateStr, type MembershipReason } from '@/lib/usage-core'
 import { resolveMembership } from '@/lib/usage'
-import { tierIsPaid, type TierCode } from './tier'
+import { parseTierCode, tierIsPaid, type TierCode } from './tier'
 
 export type MembershipSource = 'v2' | 'legacy' | 'none'
 export type ResolvedMembership = {
-  /** true = paid · false = KNOWN not-paid. Server read = always determined (no null here; the null
-   *  "not yet determined" state is a client-loading concern that stays in tier.ts computeTier). */
-  isPaid: boolean
+  /** true = paid · false = KNOWN not-paid · null = a v2 row carried an UNKNOWN tier_code so membership
+   *  could not be determined — fail closed, do NOT unlock (tier-lock.ts remindersLocked = isPaid !== true).
+   *  The legacy/none paths are always boolean; null only appears on the v2 path (ตู๋ #369 B1). */
+  isPaid: boolean | null
   /** the named v2 tier when it comes from a member_subscription row; null for a legacy-paid member (their
    *  row predates the catalog — paid, name unknown) and for free. Never downgrade a known-paid user to
    *  free just because the NAME is null. */
@@ -62,8 +63,17 @@ export function resolveTierFromSources(args: {
   legacy: { isFree: boolean; reason: MembershipReason }
 }): ResolvedMembership {
   if (args.subRow) {
-    const tier = args.subRow.tierCode as TierCode
-    // tierIsPaid: FREE→false, any other named tier→true. `=== true` so only a real paid tier unlocks.
+    const tier = parseTierCode(args.subRow.tierCode)
+    if (tier === null) {
+      // v2 row with an UNKNOWN tier_code: tier_code is the only signal here, so garbage = we know NOTHING
+      // (NOT "paid, name unknown" — that rule is only for a member already known-paid via another source).
+      // Fail closed and be loud so a bad writer is visible; the 0006 CHECK should make this unreachable.
+      console.error(
+        `[subscription] unknown tier_code on a v2 row — refusing to infer paid: ${JSON.stringify(args.subRow.tierCode)}`,
+      )
+      return { isPaid: null, tier: null, source: 'v2' }
+    }
+    // tierIsPaid: FREE→false, PLUS/PRO→true. `=== true` so only a real paid tier unlocks.
     return { isPaid: tierIsPaid(tier) === true, tier, source: 'v2' }
   }
   if (!args.legacy.isFree) return { isPaid: true, tier: null, source: 'legacy' }
@@ -71,9 +81,13 @@ export function resolveTierFromSources(args: {
   return { isPaid: false, tier: null, source: args.legacy.reason === 'EXPIRED' ? 'legacy' : 'none' }
 }
 
-// The DB read: v2 store first (SQL narrows to this user's ACTIVE + not-yet-expired rows; the pure picker is
-// the single source of the selection rule — the SQL ORDER BY would be belt-and-suspenders, so it is left to
-// the picker to avoid two copies of the rule). No live v2 row ⇒ reuse the v1 member_payment read + classify.
+// The DB read: v2 store first. The SQL does ONLY the user narrowing (eq(userId)); the ENTIRE selection rule
+// — status, expiry-vs-today, and ordering — lives in the pure picker so it is ONE copy, exercised by the
+// main `npm test` lane, not split with a half in SQL that only a DB suite could watch (ตู๋ #369 B2; this is
+// the "avoid two copies of the rule" principle already applied to ORDER BY, now applied to the filter too).
+// Cost: we fetch all of this user's rows rather than filtering at the DB — fine, one human has few rows
+// (one per purchase) and idx_member_subscription_user_id makes the fetch selective. No live v2 row ⇒ reuse
+// the v1 member_payment read + classify.
 export async function resolveSubscription(
   userId: string,
   now: Date = new Date(),
@@ -82,13 +96,7 @@ export async function resolveSubscription(
   const rows = await db
     .select()
     .from(memberSubscription)
-    .where(
-      and(
-        eq(memberSubscription.userId, userId),
-        eq(memberSubscription.status, 'ACTIVE'),
-        gte(memberSubscription.expireAt, today),
-      ),
-    )
+    .where(eq(memberSubscription.userId, userId))
   const candidates: SubRow[] = rows.map((r) => ({
     id: r.id,
     tierCode: r.tierCode,
