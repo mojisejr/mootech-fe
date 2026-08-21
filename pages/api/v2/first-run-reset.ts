@@ -15,51 +15,26 @@
 // It never deletes the user, the chart, or anything a real account depends on.
 import type { NextApiRequest, NextApiResponse } from 'next'
 import { sql } from 'drizzle-orm'
-import { getServerSession } from 'next-auth/next'
 import { db } from '@/lib/db'
 import { isV2Authenticated } from '@/lib/v2/gate'
-import { resolveResetIdentity, resolveUserFromRows } from '@/lib/v2/first-run-reset'
-import { authOptions } from '../auth/[...nextauth]'
-
-const rowsOf = (r: any): any[] => (Array.isArray(r) ? r : r?.rows ?? [])
+import { resolveSessionUserId } from '@/lib/v2/resolve-user'
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== 'POST') return res.status(405).json({ ok: false, error: 'Method not allowed' })
 
-  const session = (await getServerSession(req, res, authOptions)) as
-    | { providerId?: string; provider?: string }
-    | null
-
-  const who = resolveResetIdentity({
-    providerId: session?.providerId,
-    provider: session?.provider,
-    v2Authenticated: isV2Authenticated(req),
-  })
-  if (!who.ok) return res.status(who.status).json({ ok: false, error: who.error })
+  // Preview gate FIRST — this stays exactly where resolveResetIdentity checked it (gate before
+  // session), because resolveSessionUserId is the SHARED identity home (#287) and deliberately knows
+  // nothing about the team-preview gate. #353: the endpoint now derives the caller's user_id through
+  // that one shared module instead of keeping a second hand-synced copy of the session→user_id chain
+  // (the very "THREE hand-synced copies" disease lib/usage-core.ts:23 records). The session→user_id
+  // rule, the case-insensitive provider match, and the 409 "refuse-don't-guess" (ตู๋, #254 B2) all
+  // live in lib/v2/resolve-user.ts now — see there for why body/query/MEMBER_ID are never trusted.
+  if (!isV2Authenticated(req)) {
+    return res.status(401).json({ ok: false, error: 'not in team preview' })
+  }
 
   try {
-    // provider account id → internal user_id. user_provider.id_token holds providerAccountId
-    // (pages/index.tsx:371 → UserRegisterOrLogin's id_token arg). Match the provider too, so two
-    // accounts that happen to share an id across providers can never resolve to each other.
-    //
-    // 🔴 NO `LIMIT 1` (ตู๋, #254 B2). The first version took the first row the planner happened to
-    // return, and three facts stack up to make that a "delete someone else's data" bug with no
-    // attacker involved:
-    //   ① here the match is case-INsensitive (lower(provider))
-    //   ② the app's own dedupe is case-SENSITIVE — mootech-be user-provider.service.ts:32
-    //      findOne({ id_token, provider }) — so 'google' and 'GOOGLE' are two rows to the writer
-    //   ③ nothing enforces uniqueness on (id_token, provider) at the DB level: the entity has only
-    //      @PrimaryGeneratedColumn('uuid') on id, and no unique index exists in any migration
-    // So duplicates CAN exist, and `LIMIT 1` without ORDER BY is not "random" — it is "whichever row
-    // the planner returns first", which changes after writes/vacuum. We fetch ALL matches instead and
-    // refuse when they disagree: on a destructive endpoint, refusing beats guessing.
-    const rows = rowsOf(
-      await db.execute(
-        sql`SELECT user_id FROM user_provider
-            WHERE id_token = ${who.providerId} AND lower(provider) = lower(${who.provider})`,
-      ),
-    )
-    const found = resolveUserFromRows(rows)
+    const found = await resolveSessionUserId(req, res)
     if (!found.ok) {
       if (found.status === 409) {
         console.error('[first-run-reset] ambiguous identity for one provider account — refusing')
