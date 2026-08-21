@@ -14,6 +14,7 @@ import { Readable } from 'node:stream'
 import postgres from 'postgres'
 import { settleAndProvision } from '@/lib/payment/repo'
 import { signOmisePayload } from '@/lib/payment/webhook-verify'
+import { computeExpireDate } from '@/lib/payment/provision'
 import webhookHandler from '@/pages/api/v2/payment/webhook'
 
 const TEST_URL = process.env.TEST_DATABASE_URL
@@ -21,6 +22,9 @@ const M0006 = readFileSync(resolve('lib/db/0006_member_subscription.sql'), 'utf8
 const M0007 = readFileSync(resolve('lib/db/0007_v2_payment.sql'), 'utf8')
 const SECRET = Buffer.from('whsec_test_355').toString('base64')
 const TS = '1755766800'
+const NOW = new Date()
+const bkk = (n: Date) =>
+  new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Bangkok', year: 'numeric', month: '2-digit', day: '2-digit' }).format(n)
 
 function chargeEvent(chargeId: string) {
   return Buffer.from(
@@ -144,9 +148,18 @@ describe.skipIf(!TEST_URL)('payment webhook · real pg (#355)', () => {
     const out = await fireWebhook(chargeEvent('C6'), signOmisePayload(chargeEvent('C6'), TS, SECRET), TS)
     expect(out.status).toBe(200)
     const [sub] = await sql`SELECT expire_at::text AS expire_at FROM member_subscription WHERE user_id = ${users[3]}`
-    // ~1 year out (frozen '1Y'), so the year is next year — NOT this year + 1 month
-    const nextYear = new Date().getFullYear() + 1
-    expect(String(sub.expire_at).slice(0, 4)).toBe(String(nextYear))
+    // 🔴 assert the FULL frozen-1Y date (not just the year — in December, +1Y and the mutant's +1M land in
+    // the SAME year and a year-only probe would pass with the freeze removed; ตู๋ #370 T1). Tie it to the
+    // pure computeExpireDate so a mutant that settles on +1M reddens in EVERY month.
+    const expected = computeExpireDate(bkk(NOW), 0, { value: 1, unit: 'Y' })
+    expect(String(sub.expire_at)).toBe(expected)
+  })
+
+  it('T2 — the DB REFUSES a malformed frozen expire (CHECK on the format)', async () => {
+    await expect(
+      sql`INSERT INTO v2_payment (id, user_id, package_code, tier_code, amount_satang, vat_satang, expire, buffer_day, method, charge_id, order_id, status)
+          VALUES ('v2p-bad', ${users[0]}, 'MONTHLY', 'PLUS', 50000, 0, '1Y 6M', 0, 'card', 'Cbad', 'ordbad', 'PENDING')`,
+    ).rejects.toThrow(/check|expire/i)
   })
 
   it('🔴 shadow MERGE: an existing member with a LATER expiry keeps it (days never burn), plan stays MEMBER', async () => {

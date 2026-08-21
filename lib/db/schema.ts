@@ -766,6 +766,7 @@ export const v2Payment = pgTable("v2_payment", {
 	check("v2_payment_tier_code_check", sql`${table.tierCode} IN ('FREE','PLUS','PRO')`),
 	check("v2_payment_method_check", sql`${table.method} IN ('card','promptpay')`),
 	check("v2_payment_status_check", sql`${table.status} IN ('PENDING','APPROVED','REJECT')`),
+	check("v2_payment_expire_check", sql`${table.expire} ~ '^[0-9]+[DMY]$'`),
 ]);
 
 export const memberWithFriend = pgTable("member_with_friend", {

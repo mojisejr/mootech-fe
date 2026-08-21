@@ -34,7 +34,7 @@ CREATE TABLE IF NOT EXISTS v2_payment (
   -- retries longer, so settle must NOT re-read payment_package (its `expire` could change between charge
   -- and settle) — the user paid the frozen PRICE and must get the frozen TERM. Kept as the raw '1M'/'1Y'
   -- string (NOT a day count) so month/year calendar semantics survive (Feb clamp / leap), matching v1.
-  expire         text        NOT NULL,           -- payment_package.expire as-of charge ('1M' | '1Y' | '30D')
+  expire         text        NOT NULL CHECK (expire ~ '^[0-9]+[DMY]$'),  -- '1M' | '1Y' | '30D' — same strict shape parseExpireSpec accepts (ตู๋ #370 T2)
   buffer_day     integer     NOT NULL DEFAULT 0, -- payment_package.buffer_day as-of charge
   method         text        NOT NULL CHECK (method IN ('card','promptpay')),
   charge_id      text        NOT NULL,           -- Omise charge id — the webhook's join key
