@@ -64,6 +64,8 @@ export async function insertPending(
     tierCode: string
     amountSatang: number
     vatSatang: number
+    expire: string // frozen at charge (ตู๋ #370 B2)
+    bufferDay: number
     method: 'card' | 'promptpay'
     chargeId: string
     orderId: string
@@ -114,14 +116,8 @@ export async function settleAndProvision(
     if (approved.length === 0) return { provisioned: false } // lost the race, unknown charge, or already REJECT
     const pay = approved[0]
 
-    const pkgRows = await tx
-      .select({ expire: paymentPackage.expire, bufferDay: paymentPackage.bufferDay })
-      .from(paymentPackage)
-      .where(eq(paymentPackage.packageCode, pay.packageCode))
-      .orderBy(paymentPackage.id)
-      .limit(1)
-    if (!pkgRows[0]) throw new Error('package vanished between charge and settle') // rolls back the APPROVE
-
+    // Duration comes from the FROZEN terms on v2_payment (ตู๋ #370 B2) — NOT a fresh payment_package read,
+    // so a package edited between charge and settle can't change what this paid charge is worth.
     const [existing] = await tx
       .select({ expireAt: memberPayment.expireAt })
       .from(memberPayment)
@@ -135,8 +131,8 @@ export async function settleAndProvision(
         tierCode: pay.tierCode as TierCode,
         amountSatang: pay.amountSatang,
         vatSatang: pay.vatSatang,
-        expire: parseExpireSpec(pkgRows[0].expire),
-        bufferDay: Number(pkgRows[0].bufferDay),
+        expire: parseExpireSpec(pay.expire),
+        bufferDay: Number(pay.bufferDay),
       },
       paymentId: pay.id,
       today: bkkDate(now),

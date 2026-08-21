@@ -751,6 +751,9 @@ export const v2Payment = pgTable("v2_payment", {
 	tierCode: text("tier_code").notNull(),
 	amountSatang: integer("amount_satang").notNull(),
 	vatSatang: integer("vat_satang").default(0).notNull(),
+	// duration frozen at charge (ตู๋ #370 B2) — raw '1M'/'1Y' string + buffer, so settle never re-reads payment_package.
+	expire: text().notNull(),
+	bufferDay: integer("buffer_day").default(0).notNull(),
 	method: text().notNull(),
 	chargeId: text("charge_id").notNull(),
 	orderId: text("order_id").notNull(),

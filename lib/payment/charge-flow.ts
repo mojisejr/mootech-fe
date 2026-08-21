@@ -69,6 +69,9 @@ export async function runChargeFlow(
     tierCode: quote.tierCode,
     amountSatang: quote.amountSatang,
     vatSatang: quote.vatSatang,
+    // FREEZE the package's duration terms at charge time (ตู๋ #370 B2) — settle reads these, not payment_package.
+    expire: pkg.expire,
+    bufferDay: pkg.bufferDay,
     method,
     chargeId: charge.chargeId,
     orderId,

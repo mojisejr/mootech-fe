@@ -30,6 +30,12 @@ CREATE TABLE IF NOT EXISTS v2_payment (
   tier_code      text        NOT NULL CHECK (tier_code IN ('FREE','PLUS','PRO')),  -- granted level
   amount_satang  integer     NOT NULL,           -- server-computed satang actually charged (VAT-inclusive)
   vat_satang     integer     NOT NULL DEFAULT 0, -- VAT extracted BACKWARD from amount (0 until #362)
+  -- 🔴 duration FROZEN at charge time (ตู๋ #370 B2): a PromptPay QR can sit unpaid for hours and webhook
+  -- retries longer, so settle must NOT re-read payment_package (its `expire` could change between charge
+  -- and settle) — the user paid the frozen PRICE and must get the frozen TERM. Kept as the raw '1M'/'1Y'
+  -- string (NOT a day count) so month/year calendar semantics survive (Feb clamp / leap), matching v1.
+  expire         text        NOT NULL,           -- payment_package.expire as-of charge ('1M' | '1Y' | '30D')
+  buffer_day     integer     NOT NULL DEFAULT 0, -- payment_package.buffer_day as-of charge
   method         text        NOT NULL CHECK (method IN ('card','promptpay')),
   charge_id      text        NOT NULL,           -- Omise charge id — the webhook's join key
   order_id       text        NOT NULL,           -- our 10-digit order ref (parity with v1 metadata.orderId)

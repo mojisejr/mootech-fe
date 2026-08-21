@@ -80,9 +80,17 @@ describe.skipIf(!TEST_URL)('payment webhook · real pg (#355)', () => {
     await sql`DELETE FROM member_payment WHERE user_id = ANY(${users})`
   })
 
-  const seedPending = (chargeId: string, userId: string, pkg = 'MONTHLY', tier = 'PLUS', amount = 50000) =>
-    sql`INSERT INTO v2_payment (id, user_id, package_code, tier_code, amount_satang, vat_satang, method, charge_id, order_id, status)
-        VALUES (${'v2p-' + chargeId}, ${userId}, ${pkg}, ${tier}, ${amount}, 0, 'card', ${chargeId}, ${'ord' + chargeId}, 'PENDING')`
+  const seedPending = (
+    chargeId: string,
+    userId: string,
+    pkg = 'MONTHLY',
+    tier = 'PLUS',
+    amount = 50000,
+    expire = '1M',
+    bufferDay = 0,
+  ) =>
+    sql`INSERT INTO v2_payment (id, user_id, package_code, tier_code, amount_satang, vat_satang, expire, buffer_day, method, charge_id, order_id, status)
+        VALUES (${'v2p-' + chargeId}, ${userId}, ${pkg}, ${tier}, ${amount}, 0, ${expire}, ${bufferDay}, 'card', ${chargeId}, ${'ord' + chargeId}, 'PENDING')`
 
   it('full path: a signed charge.complete webhook → 200, APPROVED, and a member_subscription + shadow', async () => {
     await seedPending('C1', users[0])
@@ -126,6 +134,19 @@ describe.skipIf(!TEST_URL)('payment webhook · real pg (#355)', () => {
     expect(second.provisioned).toBe(false)
     const subs = await sql`SELECT id FROM member_subscription WHERE user_id = ${users[1]}`
     expect(subs.length).toBe(1)
+  })
+
+  it('🔴 B2 — settle uses the FROZEN expire on v2_payment, NOT a fresh payment_package read', async () => {
+    // v2_payment for MONTHLY but with a FROZEN expire of 1Y (payment_package.MONTHLY is 1M). If settle read
+    // payment_package it would grant ~1 month; reading the frozen term grants ~1 year. A mutant that
+    // re-reads payment_package reddens this (the year vs month gap).
+    await seedPending('C6', users[3], 'MONTHLY', 'PLUS', 50000, '1Y')
+    const out = await fireWebhook(chargeEvent('C6'), signOmisePayload(chargeEvent('C6'), TS, SECRET), TS)
+    expect(out.status).toBe(200)
+    const [sub] = await sql`SELECT expire_at::text AS expire_at FROM member_subscription WHERE user_id = ${users[3]}`
+    // ~1 year out (frozen '1Y'), so the year is next year — NOT this year + 1 month
+    const nextYear = new Date().getFullYear() + 1
+    expect(String(sub.expire_at).slice(0, 4)).toBe(String(nextYear))
   })
 
   it('🔴 shadow MERGE: an existing member with a LATER expiry keeps it (days never burn), plan stays MEMBER', async () => {
