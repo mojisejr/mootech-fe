@@ -729,6 +729,9 @@ export const memberSubscription = pgTable("member_subscription", {
 	startAt: date("start_at").notNull(),
 	expireAt: date("expire_at").notNull(),
 	paymentId: text("payment_id").references(() => payment.id),
+	// v2 link (#355, added by 0007's ALTER): the v2_payment that created this row. #354's payment_id FK
+	// points at the v1 `payment` table (unused by v2 → NULL for v2 rows); this points at v2_payment.
+	v2PaymentId: varchar("v2_payment_id", { length: 36 }).references(() => v2Payment.id),
 	status: text().notNull(),
 	createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
 }, (table) => [

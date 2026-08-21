@@ -44,3 +44,11 @@ CREATE UNIQUE INDEX IF NOT EXISTS uq_v2_payment_charge_id
 -- status.ts reads a user's own records by user_id.
 CREATE INDEX IF NOT EXISTS idx_v2_payment_user_id
   ON v2_payment (user_id);
+
+-- Link a provisioned member_subscription back to the v2_payment that created it (audit / refunds). #354's
+-- member_subscription.payment_id FK points at the v1 `payment` table, which v2 never writes — so for v2
+-- provisioning that column stays NULL and the link lives here instead. ADD COLUMN … IF NOT EXISTS is
+-- additive (nullable, no data touched); member_subscription is our own #354 table (empty on prod), not a
+-- pgloader'd one. Requires 0006 to have been applied first (normal migration order).
+ALTER TABLE member_subscription
+  ADD COLUMN IF NOT EXISTS v2_payment_id varchar(36) REFERENCES v2_payment (id);
