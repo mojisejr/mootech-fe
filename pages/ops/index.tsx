@@ -143,6 +143,13 @@ export default function OpsPage(props: Props) {
           <h1 className="sr-only">MuMate Ops Dashboard</h1>
           <HeroStrip overall={overall} />
 
+          {/* #377 — the first /ops screen that WRITES: package price + on-sale, no deploy needed. */}
+          <nav className="text-sm">
+            <a className="underline" href="/ops/packages">
+              จัดการแพ็กเกจ (ราคา / เปิด-ปิดขาย) →
+            </a>
+          </nav>
+
           <section>
             <h2 className="mb-3 text-sm font-semibold text-ops_text_muted">System Health</h2>
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">

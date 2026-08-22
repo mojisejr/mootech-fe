@@ -1,6 +1,9 @@
 // #361 — DB half #2: the preview→charge contract on a REAL postgres. skipIf(!TEST_DATABASE_URL); run with
 //   TEST_DATABASE_URL=… DATABASE_URL=… npx vitest run scripts/discount-preview-db.test.ts
 //
+// ⚠️ #377 note: these specs used MONTHLY, which #377 takes OFF SALE (is_active=false, per #376). That is
+// the system working — an off-sale package must be refused — so the specs moved to V2_PLUS_YEARLY (฿790),
+// the package that is actually sellable now.
 // Covers the DoD items that need real rows: the quote a user was shown is HONOURED or REFUSED (never
 // silently re-priced), a v1 payment_code holder is not told "invalid code", and a new code cannot take a
 // name the 43 legacy codes already use (case-insensitively).
@@ -44,30 +47,30 @@ describe.skipIf(!TEST_URL)('discount preview/charge contract · real pg (#361)',
               VALUES (${CODE}, ${CODE_STR}, 'PERCENT', 10, '{}', 'ACTIVE', 0)`
   })
 
-  it('preview prices MONTHLY (฿500) with a 10% code: discount ฿50 → ฿450, from real rows', async () => {
-    const p = await priceFor('MONTHLY', CODE_STR, NOW)
+  it('preview prices V2_PLUS_YEARLY (฿790) with a 10% code: discount ฿79 → ฿711, from real rows', async () => {
+    const p = await priceFor('V2_PLUS_YEARLY', CODE_STR, NOW)
     expect(p.ok).toBe(true)
     if (p.ok) {
-      expect(p.listSatang).toBe(50000)
-      expect(p.discountSatang).toBe(5000)
-      expect(p.amountSatang).toBe(45000)
+      expect(p.listSatang).toBe(79000)
+      expect(p.discountSatang).toBe(7900)
+      expect(p.amountSatang).toBe(71100)
     }
   })
 
   it('the code lookup is case-INsensitive (v1 s bug: Yijing vs YIJING were two rows)', async () => {
-    const lower = await priceFor('MONTHLY', CODE_STR.toLowerCase(), NOW)
+    const lower = await priceFor('V2_PLUS_YEARLY', CODE_STR.toLowerCase(), NOW)
     expect(lower.ok).toBe(true)
   })
 
   it('🔴 a PAUSED code is refused and the price is NOT quietly the full one', async () => {
     await sql`UPDATE discount_code SET status = 'PAUSED' WHERE id = ${CODE}`
-    const p = await priceFor('MONTHLY', CODE_STR, NOW)
+    const p = await priceFor('V2_PLUS_YEARLY', CODE_STR, NOW)
     expect(p).toMatchObject({ ok: false, codeError: 'STATUS' })
   })
 
   it('🔴 DoD — a v1 payment_code holder is NOT told "invalid code"', async () => {
     const [legacy] = await sql`SELECT code FROM payment_code LIMIT 1`
-    const p = await priceFor('MONTHLY', String(legacy.code), NOW)
+    const p = await priceFor('V2_PLUS_YEARLY', String(legacy.code), NOW)
     expect(p).toMatchObject({ ok: false, codeError: 'LEGACY_CODE' })
     if (!p.ok) expect(p.error).not.toMatch(/invalid/i) // the message must not call a real code invalid
   })
@@ -80,12 +83,12 @@ describe.skipIf(!TEST_URL)('discount preview/charge contract · real pg (#361)',
   })
 
   it('🔴 DoD — a quote whose price no longer matches is REFUSED by charge (409), not re-charged silently', async () => {
-    const p = await priceFor('MONTHLY', CODE_STR, NOW)
+    const p = await priceFor('V2_PLUS_YEARLY', CODE_STR, NOW)
     expect(p.ok).toBe(true)
     if (!p.ok) return
     const quoteId = await insertQuote({
       userId: user0,
-      packageCode: 'MONTHLY',
+      packageCode: 'V2_PLUS_YEARLY',
       codeId: p.code!.id,
       listSatang: p.listSatang,
       discountSatang: p.discountSatang,
@@ -104,11 +107,11 @@ describe.skipIf(!TEST_URL)('discount preview/charge contract · real pg (#361)',
   })
 
   it('🔴 an EXPIRED quote is refused (409) too', async () => {
-    const p = await priceFor('MONTHLY', CODE_STR, NOW)
+    const p = await priceFor('V2_PLUS_YEARLY', CODE_STR, NOW)
     if (!p.ok) throw new Error('priced')
     const quoteId = await insertQuote({
       userId: user0,
-      packageCode: 'MONTHLY',
+      packageCode: 'V2_PLUS_YEARLY',
       codeId: p.code!.id,
       listSatang: p.listSatang,
       discountSatang: p.discountSatang,
@@ -124,13 +127,13 @@ describe.skipIf(!TEST_URL)('discount preview/charge contract · real pg (#361)',
 
 
   it('🔴 #372② — sending a code WITHOUT the quote it was previewed with is REFUSED', async () => {
-    const out = await invokeChargeRaw({ package_code: 'MONTHLY', token: 'tok', code: CODE_STR })
+    const out = await invokeChargeRaw({ package_code: 'V2_PLUS_YEARLY', token: 'tok', code: CODE_STR })
     expect(out.status).toBe(400)
     expect(out.body).toMatchObject({ codeError: 'QUOTE_REQUIRED' })
   })
 
   it('no code + no quote is still allowed (nothing can drift without a code today)', async () => {
-    const out = await invokeChargeRaw({ package_code: 'MONTHLY', token: 'tok' }, true)
+    const out = await invokeChargeRaw({ package_code: 'V2_PLUS_YEARLY', token: 'tok' }, true)
     expect(out.status).toBe(200) // the stub gateway is allowed to run in this one
   })
 
@@ -167,7 +170,7 @@ describe.skipIf(!TEST_URL)('discount preview/charge contract · real pg (#361)',
       },
     }
     await run(
-      { method: 'POST', body: { package_code: 'MONTHLY', token: 'tok', code: CODE_STR, quote_id: quoteId } } as never,
+      { method: 'POST', body: { package_code: 'V2_PLUS_YEARLY', token: 'tok', code: CODE_STR, quote_id: quoteId } } as never,
       res as never,
       'card',
       async () => {

@@ -24,23 +24,16 @@ export type PackageRow = {
   amount: number // THB (payment_package.amount, a float)
   expire: string // "1Y" | "1M" | "30D" — single value+unit (v1's strict /^(\d+)([DMY])$/)
   bufferDay: number
+  // #377: both now come from the DB row, not from code.
+  tierCode: string // payment_package.tier_code — NOT NULL + CHECK at the DB
+  isActive: boolean // payment_package.is_active — false ⇒ not for sale
 }
 
-// package_code → the v2 tier it grants. ALLOW-LIST, fail-loud on a miss (lesson ③). These are the real
-// paid MEMBER subscription packages that exist today, all mapped to the base paid tier PLUS. The PLUS/PRO
-// split and any real sale packages are marketing's call (#361 / marketing) — 'PRO' stays reserved in the
-// enum + DB CHECK, ready, but #355 does not invent an assignment. Free/promo/topup/horoscope packages are
-// deliberately ABSENT ⇒ a charge for one fails loud before touching Omise.
-// ⚠️ REVIEW ME (ตู๋/ฟีม): confirm this mapping when marketing sets real packages.
-export const PACKAGE_TIER: Readonly<Record<string, TierCode>> = {
-  MONTHLY: 'PLUS',
-  SOULMATE: 'PLUS',
-  FAMILY_2: 'PLUS',
-  FAMILY_3: 'PLUS',
-  FAMILY_4: 'PLUS',
-  FAMILY_5: 'PLUS',
-  FAMILY_6: 'PLUS',
-}
+// 🔴 #377: the tier a package grants lives in the DATABASE (payment_package.tier_code), not in a map here.
+// The old hardcoded PACKAGE_TIER meant adding or re-pricing a package required a deploy, which made the
+// /ops screen pointless. parseTierCode still guards the value on the way in — a tier_code the reader cannot
+// map must never read as "paid" (#354 B1) — and the DB has its own CHECK + NOT NULL (see 0009 for why the
+// CHECK alone is not enough: NULL slips through `IN (…)`).
 
 export class UnsellablePackageError extends Error {
   constructor(public readonly packageCode: string, reason: string) {
@@ -76,9 +69,15 @@ export function quotePackage(
   pkg: PackageRow,
   opts: { codeDiscountSatang?: number; vatRate?: number } = {},
 ): Quote {
-  const tierCode = parseTierCode(PACKAGE_TIER[pkg.packageCode] ?? null)
+  // Not for sale ⇒ refuse BEFORE any pricing. This is the server-side half of "ปิดขายจาก /ops": hiding the
+  // card on the screen is not enough, the API must refuse the package_code too (#377 DoD).
+  if (!pkg.isActive) {
+    throw new UnsellablePackageError(pkg.packageCode, 'not on sale')
+  }
+
+  const tierCode = parseTierCode(pkg.tierCode)
   if (tierCode === null || tierCode === 'FREE') {
-    throw new UnsellablePackageError(pkg.packageCode, 'no paid tier is mapped for it')
+    throw new UnsellablePackageError(pkg.packageCode, 'no paid tier for it')
   }
 
   const listSatang = Math.round(Number(pkg.amount) * 100) // v1 parity: Math.round(amount*100)

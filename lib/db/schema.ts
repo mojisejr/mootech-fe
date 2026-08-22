@@ -681,7 +681,14 @@ export const paymentPackage = pgTable("payment_package", {
 	expire: varchar({ length: 255 }).notNull(),
 	// You can use { mode: "bigint" } if numbers are exceeding js number limitations
 	maxUser: bigint("max_user", { mode: "number" }).default(sql`'1'`).notNull(),
-});
+	// #377 (0009): the membership LEVEL this package grants, and whether it may be sold. tier_code is NOT
+	// NULL with a CHECK — `CHECK … IN (…)` alone would let NULL through (NULL IN → UNKNOWN → CHECK passes),
+	// and ADD COLUMN hands every legacy row exactly that NULL, so 0009 backfills then SET NOT NULL.
+	tierCode: text("tier_code").notNull(),
+	isActive: boolean("is_active").default(false).notNull(),
+}, (table) => [
+	check("payment_package_tier_code_check", sql`${table.tierCode} IN ('FREE','PLUS','PRO')`),
+]);
 
 export const paymentPlan = pgTable("payment_plan", {
 	id: bigserial({ mode: "bigint" }).primaryKey().notNull(),

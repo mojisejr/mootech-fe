@@ -8,8 +8,11 @@
 import { describe, it, expect } from 'vitest'
 import { quotePackage, parseExpireSpec, UnsellablePackageError, type PackageRow } from '@/lib/payment/catalog'
 
-const MONTHLY: PackageRow = { packageCode: 'MONTHLY', planCode: 'MEMBER', amount: 500, expire: '1M', bufferDay: 0 }
-const SOULMATE: PackageRow = { packageCode: 'SOULMATE', planCode: 'MEMBER', amount: 499, expire: '1Y', bufferDay: 7 }
+// #377: the tier and the on-sale flag now come from the payment_package ROW (they used to be a hardcoded
+// map here). The teeth below are unchanged in meaning — only where the inputs come from moved.
+
+const MONTHLY: PackageRow = { packageCode: 'MONTHLY', planCode: 'MEMBER', amount: 500, expire: '1M', bufferDay: 0, tierCode: 'PLUS', isActive: true }
+const SOULMATE: PackageRow = { packageCode: 'SOULMATE', planCode: 'MEMBER', amount: 499, expire: '1Y', bufferDay: 7, tierCode: 'PLUS', isActive: true }
 
 describe('quotePackage — server computes amount + tier, fails loud on the unmappable', () => {
   it('MC2 — amount is round(THB * 100) satang, VAT-inclusive', () => {
@@ -25,12 +28,17 @@ describe('quotePackage — server computes amount + tier, fails loud on the unma
   })
 
   it('MC1 — an unmapped package_code THROWS (no charge for a package with no paid tier)', () => {
-    const free: PackageRow = { packageCode: 'FREE', planCode: 'MEMBER', amount: 0, expire: '0D', bufferDay: 0 }
-    const horoscope: PackageRow = { packageCode: 'MUMATE_AI', planCode: 'HOROSCOPE', amount: 690, expire: '0D', bufferDay: 0 }
-    const typo: PackageRow = { ...MONTHLY, packageCode: 'MONTHLYY' }
-    for (const p of [free, horoscope, typo]) {
+    // a FREE-tier row, a one-off HOROSCOPE row, and a row whose tier_code is unmappable garbage
+    const free: PackageRow = { packageCode: 'FREE', planCode: 'MEMBER', amount: 0, expire: '0D', bufferDay: 0, tierCode: 'FREE', isActive: true }
+    const horoscope: PackageRow = { packageCode: 'MUMATE_AI', planCode: 'HOROSCOPE', amount: 690, expire: '0D', bufferDay: 0, tierCode: 'FREE', isActive: true }
+    const garbageTier: PackageRow = { ...MONTHLY, tierCode: 'GARBAGE' }
+    for (const p of [free, horoscope, garbageTier]) {
       expect(() => quotePackage(p)).toThrow(UnsellablePackageError)
     }
+  })
+
+  it('🔴 #377 — a package that is NOT on sale throws BEFORE pricing (closing "hidden on the screen, still sold by the API")', () => {
+    expect(() => quotePackage({ ...MONTHLY, isActive: false })).toThrow(UnsellablePackageError)
   })
 
   it('a non-positive / NaN amount on a mapped package still throws (never charges 0)', () => {
