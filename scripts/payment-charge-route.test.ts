@@ -12,8 +12,9 @@ const h = vi.hoisted(() => {
     session: { ok: true, userId: 'sess-user' } as
       | { ok: true; userId: string }
       | { ok: false; status: number; error: string },
-    pkg: { packageCode: 'MONTHLY', planCode: 'MEMBER', amount: 500, expire: '1M', bufferDay: 0 } as
-      | { packageCode: string; planCode: string; amount: number; expire: string; bufferDay: number }
+    // #377: a package row now carries its tier and its on-sale flag (they used to be a hardcoded map).
+    pkg: { packageCode: 'MONTHLY', planCode: 'MEMBER', amount: 500, expire: '1M', bufferDay: 0, tierCode: 'PLUS', isActive: true } as
+      | { packageCode: string; planCode: string; amount: number; expire: string; bufferDay: number; tierCode: string; isActive: boolean }
       | null,
   }
   const captured = {
@@ -74,7 +75,7 @@ function invoke(body: unknown, method = 'POST') {
 
 beforeEach(() => {
   h.state.session = { ok: true, userId: 'sess-user' }
-  h.state.pkg = { packageCode: 'MONTHLY', planCode: 'MEMBER', amount: 500, expire: '1M', bufferDay: 0 }
+  h.state.pkg = { packageCode: 'MONTHLY', planCode: 'MEMBER', amount: 500, expire: '1M', bufferDay: 0, tierCode: 'PLUS', isActive: true }
   h.captured.chargeArgs.length = 0
   h.captured.insertArgs.length = 0
   h.createCardCharge.mockClear()
@@ -118,7 +119,7 @@ describe('POST /api/v2/payment/charge', () => {
   })
 
   it('MR3 — a package that maps to no paid tier ⇒ 400 BEFORE any charge (fail-loud, not silent)', async () => {
-    h.state.pkg = { packageCode: 'FREE', planCode: 'MEMBER', amount: 0, expire: '0D', bufferDay: 0 }
+    h.state.pkg = { packageCode: 'FREE', planCode: 'MEMBER', amount: 0, expire: '0D', bufferDay: 0, tierCode: 'FREE', isActive: true }
     const { p, out } = invoke({ token: 'tok', package_code: 'FREE' })
     await p
     expect(out.status).toBe(400)
