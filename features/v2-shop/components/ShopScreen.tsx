@@ -71,7 +71,9 @@ export function ShopScreen() {
             <p className="text-base font-bold leading-6 text-v3-navy">มีคำถามเกี่ยวกับดวงชะตา?</p>
             <p className="mt-1 text-sm leading-5 text-v3-text-body">ให้เราคอยดูแลเคียงข้างคุณทุกเวลา</p>
           </div>
-          <span className="relative size-16 shrink-0">
+          {/* data-testid is the anchor e2e/v2-shop.spec.ts measures against — the mascot must never overlap
+              anything tappable, at any viewport, at any scroll position. */}
+          <span data-testid="shop-mascot" className="relative size-16 shrink-0">
             <Image src="/images/v2/mascot/01-nav.png" alt="" fill sizes="64px" style={{ objectFit: 'contain' }} />
           </span>
         </section>
