@@ -30,7 +30,7 @@ const base = (o: Partial<DiscountCodeSpec> = {}): DiscountCodeSpec => ({
 describe('quoteWithCode — the locked formula (list − code = amount, VAT backward)', () => {
   it('SAVE10 (PERCENT 10) on ฿1,590 → discount ฿159, amount ฿1,431 (design example)', () => {
     const q = quoteWithCode({ listSatang: 159000, code: base({ value: 10 }), vatPercent: 0 })
-    expect(q).toEqual({ listSatang: 159000, discountSatang: 15900, amountSatang: 143100, vatSatang: 0 })
+    expect(q).toEqual({ ok: true, listSatang: 159000, discountSatang: 15900, amountSatang: 143100, vatSatang: 0 })
   })
 
   it('VAT 7% is extracted backward from the discounted amount (inclusive)', () => {

@@ -66,6 +66,7 @@ export function vatBackward(amountSatang: number, vatPercent: number): number {
 }
 
 export type QuoteLines = {
+  ok: true
   listSatang: number
   discountSatang: number
   amountSatang: number // list − discount, VAT-inclusive
@@ -85,6 +86,7 @@ export function quoteWithCode(args: {
   const amountSatang = args.listSatang - discountSatang
   if (amountSatang < min) return { ok: false, reason: 'BELOW_MIN' }
   return {
+    ok: true,
     listSatang: args.listSatang,
     discountSatang,
     amountSatang,

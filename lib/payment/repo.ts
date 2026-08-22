@@ -6,6 +6,7 @@ import { db as defaultDb } from '@/lib/db'
 import { v2Payment, memberPayment, memberSubscription, paymentPackage, user } from '@/lib/db/schema'
 import { parseExpireSpec, type PackageRow } from './catalog'
 import { buildProvision } from './provision'
+import { reserveCodeInTx, releaseRedemption, Refuse } from '@/lib/discount/repo'
 import type { TierCode } from '@/lib/v2/tier'
 
 type Db = typeof defaultDb
@@ -75,6 +76,81 @@ export async function insertPending(
   const id = randomUUID()
   await db.insert(v2Payment).values({ id, status: 'PENDING', ...row })
   return id
+}
+
+// 🔴 #361 — RESERVE BEFORE MONEY. A discount code's quota must be refused BEFORE the card is charged, so
+// the v2_payment row and the discount reservation are written in ONE transaction that runs first; the real
+// charge_id is attached afterwards (attachChargeId) once Omise accepts.
+//
+// Why a placeholder charge_id: v2_payment.charge_id is NOT NULL + UNIQUE (it is #355's settlement key), but
+// at reserve time Omise has not issued one yet. `pending:<id>` is unique per row and can never collide with
+// a real Omise id (those are `chrg_…`), so a webhook can never match a not-yet-charged row.
+//
+// Failure paths: a refusal (FULL/PER_USER) rolls the whole txn back — no v2_payment row, used_count intact.
+// If the CHARGE then fails, the caller calls abandonPending() to release the reservation and mark the row.
+export function placeholderChargeId(paymentId: string): string {
+  return `pending:${paymentId}`
+}
+
+export async function insertPendingReserved(
+  row: {
+    userId: string
+    packageCode: string
+    tierCode: string
+    amountSatang: number
+    vatSatang: number
+    expire: string
+    bufferDay: number
+    method: 'card' | 'promptpay'
+    orderId: string
+    quoteId: string | null
+    discountSatang: number
+    codeId: string | null
+  },
+  reserve: null | { codeId: string; vatPercent: number; maxUsePerUser: number | null },
+  db: Db = defaultDb,
+): Promise<{ ok: true; paymentId: string } | { ok: false; reason: 'FULL' | 'PER_USER' }> {
+  const id = randomUUID()
+  try {
+    await db.transaction(async (tx) => {
+      await tx.insert(v2Payment).values({
+        id,
+        status: 'PENDING',
+        chargeId: placeholderChargeId(id),
+        ...row,
+      })
+      if (reserve) {
+        await reserveCodeInTx(tx as never, {
+          codeId: reserve.codeId,
+          userId: row.userId,
+          paymentId: id,
+          discountSatang: row.discountSatang,
+          vatPercent: reserve.vatPercent,
+          maxUsePerUser: reserve.maxUsePerUser,
+        })
+      }
+    })
+    return { ok: true, paymentId: id }
+  } catch (e) {
+    if (e instanceof Refuse) return { ok: false, reason: e.reason }
+    throw e
+  }
+}
+
+// Omise accepted → swap the placeholder for the real charge id (this is what the webhook will match).
+export async function attachChargeId(paymentId: string, chargeId: string, db: Db = defaultDb): Promise<void> {
+  await db.update(v2Payment).set({ chargeId }).where(eq(v2Payment.id, paymentId))
+}
+
+// The charge failed → release the code reservation (used_count back) and mark the row REJECT so it can
+// never settle. Safe to call when no code was used (codeId null).
+export async function abandonPending(
+  paymentId: string,
+  codeId: string | null,
+  db: Db = defaultDb,
+): Promise<void> {
+  if (codeId) await releaseRedemption(codeId, paymentId, db)
+  await db.update(v2Payment).set({ status: 'REJECT' }).where(eq(v2Payment.id, paymentId))
 }
 
 export async function listUserPayments(userId: string, db: Db = defaultDb) {
