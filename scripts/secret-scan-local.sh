@@ -37,12 +37,34 @@ git rev-parse --verify --quiet "${BASE}^{commit}" >/dev/null \
 HEAD_SHA="$(git rev-parse --verify --quiet HEAD)" \
   || { echo "🔴 อ่าน HEAD ไม่ได้ ⇒ ตรวจไม่ได้"; exit 2; }
 
-# 🔴 GIT_DIR ที่ชี้รีโปอื่น ทำให้สแกน 0 commit แล้วคืน 0 — สภาพนี้คือสภาพของการรันใต้ git hook พอดี
-#    บั๊กเดียวกับ mootech-fe#337 (GIT_DIR ชนะ cwd) ที่รีโปนี้เคยโดนมาแล้ว
+# 🔴 GIT_DIR ที่ชี้รีโปอื่น ทำให้อ่าน ref ของรีโปอื่น แล้วรายงานว่าสะอาด
+#    สภาพนี้คือสภาพของการรันใต้ git hook พอดี — บั๊กเดียวกับ mootech-fe#337 (GIT_DIR ชนะ cwd)
+#
+# ⚠️ ฉบับก่อนเทียบ `rev-parse --show-toplevel` กับที่ตั้งสคริปต์ — **ด่านนั้นมองไม่เห็น GIT_DIR** (ตู๋ #381 รอบสอง)
+#    เพราะเมื่อมี GIT_DIR แต่ไม่มี GIT_WORK_TREE `--show-toplevel` ยังตอบตาม cwd
+#    ⇒ ทั้งสองข้างของการเทียบเคลื่อนตาม cwd ทั้งคู่ ⇒ ด่านผ่านเสมอ ขณะที่การอ่าน ref ไปตาม GIT_DIR
+#    ยิงพิสูจน์: GIT_DIR=<อีกรีโป> → show-toplevel ไม่ขยับ · absolute-git-dir ขยับ · HEAD เป็นของรีโปอื่น
+#
+# 🔑 ตัวชี้วัดที่ไวจริงคือ `--absolute-git-dir`
+# ⚠️ แต่ใน worktree มันตอบ `<หลัก>/.git/worktrees/<ชื่อ>` ❌ ไม่ใช่ `$here/.git`
+#    ⇒ เทียบพาธตรงๆ จะแดงเก๊ทุกครั้งที่รันใน worktree ซึ่งเป็นที่ที่ตู๋รีวิวทุกใบ
+#    ⇒ เกณฑ์คือ "git dir อยู่ใต้รีโปเดียวกับสคริปต์" ❌ ไม่ใช่ "เท่ากันเป๊ะ"
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-top="$(git rev-parse --show-toplevel 2>/dev/null || echo '')"
-[ "$top" = "$here" ] \
-  || { echo "🔴 git ชี้ไป '$top' แต่สคริปต์อยู่ที่ '$here' (GIT_DIR ตั้งไว้?) ⇒ ตรวจไม่ได้"; exit 2; }
+gdir_abs="$(git rev-parse --absolute-git-dir 2>/dev/null || echo '')"
+common="$(git rev-parse --path-format=absolute --git-common-dir 2>/dev/null || echo '')"
+[ -n "$common" ] || { echo "🔴 อ่าน git-common-dir ไม่ได้ ⇒ ตรวจไม่ได้"; exit 2; }
+
+# 🔑 เกณฑ์คือ "git dir กับสคริปต์ เป็นของ **รีโปเดียวกัน**" ❌ ไม่ใช่ "อยู่ในโฟลเดอร์เดียวกัน"
+#    รันจาก worktree เป็นเรื่องปกติ (ตู๋รีวิวทุกใบใน worktree) — common-dir จะเป็น <หลัก>/.git ส่วน here เป็นโฟลเดอร์ worktree
+#    ⇒ เทียบด้วย **remote origin URL** ซึ่งเหมือนกันทุก worktree ของรีโปเดียวกัน แต่ต่างทันทีเมื่อ GIT_DIR ชี้รีโปอื่น
+want="$(git -C "$here" --git-dir="$here/.git" remote get-url origin 2>/dev/null || \
+        git -C "$here" remote get-url origin 2>/dev/null || echo '')"
+have="$(git remote get-url origin 2>/dev/null || echo '')"
+if [ -z "$have" ] || [ "$want" != "$have" ]; then
+  echo "🔴 git ชี้ไปรีโปอื่น — origin ที่อ่านได้: '${have:-<ว่าง>}' · ของสคริปต์: '${want:-<ว่าง>}'"
+  echo "   (git dir: '$gdir_abs') ⇒ GIT_DIR ถูกตั้งไว้? กำลังจะอ่าน ref ของรีโปอื่น ⇒ ตรวจไม่ได้"
+  exit 2
+fi
 
 n="$(git rev-list --count "${BASE}..${HEAD_SHA}")" \
   || { echo "🔴 นับ commit ไม่ได้ ⇒ ตรวจไม่ได้"; exit 2; }
