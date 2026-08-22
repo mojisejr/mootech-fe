@@ -50,6 +50,8 @@ export async function getPackage(code: string, db: Db = defaultDb): Promise<Pack
     amount: Number(row.amount),
     expire: row.expire,
     bufferDay: Number(row.bufferDay),
+    tierCode: row.tierCode, // #377 — the level comes from the DB row now
+    isActive: row.isActive,
   }
 }
 

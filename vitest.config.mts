@@ -101,6 +101,8 @@ export default defineConfig({
       'scripts/discount-rules.test.ts', // #361 — pure: discount math (floor/cap/clamp/VAT/no-100%) + code applicability
       'scripts/discount-concurrency-db.test.ts', // #361 — real pg (skipIf !TEST_DATABASE_URL): quota gate under parallel load + release
       'scripts/discount-preview-db.test.ts', // #361 real pg: preview-charge quote contract + legacy-code answers
+      'scripts/ops-packages.test.ts', // #377 — pure: what /ops may change (price + on-sale only)
+      'scripts/package-tier-db.test.ts', // #377 — real pg (skipIf !TEST_DATABASE_URL): tier/NOT NULL trap + ops-edit→sale-lane loop
     ],
   },
   resolve: {
