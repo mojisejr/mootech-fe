@@ -145,12 +145,13 @@ describe('#384 the header renders what the rule decided', () => {
 
 // ── bug A: the home error path ──────────────────────────────────────────────────────────────────────
 describe('#384 bug A — an /api/user error must not tell a paying member to upgrade', () => {
-  it('the home page composes membership from the ROW, so a settled-but-empty row reads as ไม่รู้', () => {
+  it('the home page reads the row-derived verdict, NEVER the old boolean', () => {
     const src = code('pages/v2/index.tsx')
-    // The fix is that the badge input is derived where "we could not tell" still exists. If someone points
-    // it back at the boolean, this reddens — and that boolean is precisely what shipped the bug.
-    expect(src).toMatch(/membership=\{\{\s*isPaid:\s*user\s*\?\s*isPaidMember\(user\)\s*:\s*null/)
-    expect(src).not.toMatch(/membership=\{\{[^}]*showUpgrade/)
+    // #383 put the three-valued verdict on HomeProfile itself, so home now hands the seam straight to the
+    // header — the same object the other five screens pass. What must never come back is the boolean: that
+    // is the field that had no value for "we could not tell" and spent it as "not paid".
+    expect(src).toMatch(/membership=\{profile\}/)
+    expect(src).not.toMatch(/showUpgrade/)
   })
 
   it('the home screen has no truthy badge fallback left to fall into', () => {
@@ -161,14 +162,17 @@ describe('#384 bug A — an /api/user error must not tell a paying member to upg
     expect(src).not.toMatch(/showUpgrade/)
   })
 
-  it('the real derivations still disagree — proving the bug was real, not a story about the code', () => {
-    // Runs the SHIPPED pure functions. If someone "fixes" home by making deriveHomeProfile tri-state and
-    // this file is never re-read, this case turns green on its own and the comment above stops being true —
-    // so it asserts the CURRENT source of the ambiguity, and is expected to be updated by that change.
-    const errored = { phase: 'home' as const, user: null }
-    expect(deriveHomeLoading(errored.phase, errored.user !== null).profile).toBe(false) // header is NOT greyed
-    expect(deriveHomeProfile(errored.user).showUpgrade).toBe(true) // ...and the old boolean says "sell to them"
-    // ⇒ the two together are the bug. The screen no longer reads that boolean; that is the fix.
+  it('the error path now answers "ไม่รู้" at the source — the bug is closed, not moved', () => {
+    // This case has been rewritten twice and BOTH rewrites are the point.
+    //   v1 (#384 draft) asserted deriveHomeProfile(null).showUpgrade === true — the bug, reproduced.
+    //   v2 (after #383) asserted isPaid null WHILE showUpgrade stayed true — the two disagreeing.
+    //   v3 (this one)   asserts the boolean is GONE and only the honest answer remains.
+    // Deleting it at any step would have deleted the fact it pins; the fact outlived the field.
+    const settledNoRow = { done: true, errored: false }
+    expect(deriveHomeLoading('home', false).profile).toBe(false) // the header is NOT greyed on this path
+    expect(deriveHomeProfile(null, settledNoRow).isPaid).toBeNull() // ...and the verdict refuses to guess
+    expect('showUpgrade' in deriveHomeProfile(null, settledNoRow)).toBe(false)
+    // ⇒ headerBadge turns that null into "no pill" — proven by MU1/MU2 in the mutant contract above.
   })
 })
 

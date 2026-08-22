@@ -11,13 +11,6 @@ import { isPaidMember, resolveDisplayTier, type TierCode } from '@/lib/v2/tier'
 
 export type HomeProfile = {
   pictureUrl: string | null
-  /**
-   * 2-VALUE VIEW — cannot say "not determined"; unknown collapses to `true` (badge shown), exactly as it
-   * behaved before #383. Deliberately UNCHANGED here so μุน's <V2HomeScreen/> keeps compiling and its
-   * pixels do not move in this PR: the screen switches to `isPaid`/`tier` in #384, and the collapse dies
-   * with that switch. Read `isPaid` for anything new — never this.
-   */
-  showUpgrade: boolean
   /** true = KNOWN paid · false = KNOWN not paid · null = NOT DETERMINED (loading / error) — render neither
    *  branch.
    *  ⚠️ The three states are the same as V2Tier.isPaid, but the INPUTS are not identical, and the earlier
@@ -69,7 +62,6 @@ export function deriveHomeProfile(user: ProfileSource, state: ProfileFetchState)
   const isPaid = determined ? isPaidMember(user) : null
   return {
     pictureUrl: (user?.picture_url && String(user.picture_url)) || null,
-    showUpgrade: !isPaidMember(user),
     isPaid,
     // resolveDisplayTier holds the no-contradiction contract (isPaid true ⇒ never 'FREE'; not-determined ⇒
     // never a name). Home and the other 4 screens get the name through the SAME function.

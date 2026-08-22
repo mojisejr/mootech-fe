@@ -3,9 +3,12 @@
 # Each mutant must turn the spec RED. It asserts the mutant LANDED (md5 changed) before trusting the run,
 # and asserts the restore landed after — `git diff` cannot see an untracked file and answers "unchanged"
 # for one that was overwritten three times (2026-08-22).
-import subprocess, hashlib, os, sys, json
+import subprocess, hashlib, os, sys, json, tempfile, shutil
 R='/Users/non/ghq/github.com/mojisejr/mootech-fe-384'
-BK=os.path.join(os.path.dirname(os.path.abspath(__file__)),'mutbak'); os.makedirs(BK,exist_ok=True)
+# 🔴 backups go to a TEMP dir, never beside this script: once this file moved into harness/ the old
+# `dirname(__file__)/mutbak` wrote restore-copies INTO the repo being mutated — a tool that leaves debris in
+# the tree it is auditing can make its own next run read a dirty tree.
+BK=tempfile.mkdtemp(prefix='mut384-')
 def md5(p): return hashlib.md5(open(p,'rb').read()).hexdigest()
 
 MUT=[
@@ -26,6 +29,8 @@ MUT=[
   "if (isPaid === false) return { kind: 'upgrade' }"),
  ("MU6 drop wire on ONE screen (notifications)", 'pages/v2/calendar/notifications.tsx',
   'membership={tier} upgradeCta={false}', 'upgradeCta={false}'),
+ ("MU8 home stops reading the seam (the line #384 rebased onto #383)", 'pages/v2/index.tsx',
+  'membership={profile}', ''),
  ("MU7 bring back truthy badge fallback", 'features/v2-home/components/V2HomeScreen.tsx',
   "const PROFILE_FALLBACK: Profile = { pictureUrl: null }",
   "const PROFILE_FALLBACK: Profile = { pictureUrl: null, showUpgrade: true }"),
@@ -64,4 +69,5 @@ for name,v,f in rows:
     for t in f: print(f"      ↳ {t}")
 print()
 # every mutant must be caught, and MU1..MU5,MU7 must not all hit the same single test
-print("restore check: all files match their pre-mutant md5 ✓")
+shutil.rmtree(BK, ignore_errors=True)
+print("restore check: all files match their pre-mutant md5 ✓ · temp backups removed")

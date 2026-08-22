@@ -27,21 +27,24 @@ const SETTLED = { done: true, errored: false }
 
 describe('deriveHomeProfile — กติกา ค upgrade badge (unchanged by #383)', () => {
   it('paid + still valid (is_not_expired===true) → HIDE badge', () => {
-    expect(deriveHomeProfile({ payment: { is_not_expired: true } }, SETTLED).showUpgrade).toBe(false)
+    expect(deriveHomeProfile({ payment: { is_not_expired: true } }, SETTLED).isPaid).toBe(true)
   })
   it('free (no payment row) → SHOW badge', () => {
-    expect(deriveHomeProfile({ payment: null }, SETTLED).showUpgrade).toBe(true)
+    expect(deriveHomeProfile({ payment: null }, SETTLED).isPaid).toBe(false)
   })
   it('expired (is_not_expired===false) → SHOW badge', () => {
-    expect(deriveHomeProfile({ payment: { is_not_expired: false } }, SETTLED).showUpgrade).toBe(true)
+    expect(deriveHomeProfile({ payment: { is_not_expired: false } }, SETTLED).isPaid).toBe(false)
   })
   it('no user yet → SHOW badge (safe default)', () => {
-    expect(deriveHomeProfile(null, SETTLED).showUpgrade).toBe(true)
+    // 🔴 #384 CHANGED WHAT THIS CASE SAYS, and the change IS the bug fix. It used to read "no row ⇒ show
+    //    the upsell". A settled fetch with no row means WE COULD NOT TELL, and the answer is now `null`:
+    //    the header draws nothing rather than telling a member who paid to upgrade.
+    expect(deriveHomeProfile(null, SETTLED).isPaid).toBeNull()
   })
   // neg-control: a truthy-but-not-true value must NOT hide the badge. If the rule were `!(is_not_expired)`
   // (truthy) instead of strict `=== true`, this would wrongly hide it — proving the strict comparison.
   it('strict ===true: a truthy non-boolean (1) must NOT hide the badge', () => {
-    expect(deriveHomeProfile({ payment: { is_not_expired: 1 as unknown as boolean } }, SETTLED).showUpgrade).toBe(true)
+    expect(deriveHomeProfile({ payment: { is_not_expired: 1 as unknown as boolean } }, SETTLED).isPaid).toBe(false)
   })
   it('avatar: real picture_url kept', () => {
     expect(deriveHomeProfile({ picture_url: 'https://x/p.jpg' }, SETTLED).pictureUrl).toBe('https://x/p.jpg')
@@ -71,9 +74,13 @@ describe('#383 deriveHomeProfile — home can finally say "NOT DETERMINED"', () 
     expect(deriveHomeProfile(null, SETTLED).isPaid).toBe(null)
   })
   // The 2-value view is UNCHANGED on purpose (#384 owns the switch): unknown still collapses to "show".
-  it('showUpgrade keeps the old collapse while unknown (pixels do not move in this PR)', () => {
-    expect(deriveHomeProfile(null, { done: true, errored: true }).showUpgrade).toBe(true)
-    expect(deriveHomeProfile(PAID_PRO, { done: false, errored: false }).showUpgrade).toBe(false)
+  it('#384 — the 2-value collapse is GONE: unknown is null in every not-determined shape', () => {
+    // Was: "showUpgrade keeps the old collapse while unknown (pixels do not move in this PR)". #383 kept the
+    // collapse alive on purpose so this screen could switch in one PR instead of two; #384 is that switch, so
+    // the field and its collapse leave together. Deleting the case would have deleted the fact — it is
+    // rewritten against the survivor instead.
+    expect(deriveHomeProfile(null, { done: true, errored: true }).isPaid).toBeNull()
+    expect(deriveHomeProfile(PAID_PRO, { done: false, errored: false }).isPaid).toBeNull()
   })
 })
 
@@ -88,7 +95,7 @@ describe('#383 deriveHomeProfile — the named tier, reconciled', () => {
     const p = deriveHomeProfile({ payment: { is_not_expired: true } }, SETTLED)
     expect(p.isPaid).toBe(true)
     expect(p.tier).toBe(null)
-    expect(p.showUpgrade).toBe(false)
+    expect(p.isPaid).toBe(true)
   })
   it('membership null (server could not determine it) → tier null, paid verdict untouched', () => {
     const p = deriveHomeProfile({ payment: { is_not_expired: true }, membership: null }, SETTLED)

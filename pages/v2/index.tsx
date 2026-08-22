@@ -119,16 +119,15 @@ function V2HomeRoute({ status }: { status: AuthStatus }) {
       // Header seam (กติกา ค): the AVATAR input from the single user fetch. μุน's V2HomeScreenProps
       // declares `profile?` (optional, safe default) — this pass compiles once #180 lands.
       profile={profile}
-      // Header BADGE input (#384) — composed HERE, not taken from `profile.showUpgrade`, and the reason is
-      // the bug that line shipped: `showUpgrade` is a boolean, so "we could not determine the tier" had to be
-      // spent as one of the two real answers, and it was spent as "not paid". On an /api/user error the hook
-      // settles to phase 'home' with `user: null` (lib/home/loading.ts:27 → loading.profile false), so the
-      // header un-greyed and a PAYING member was shown "อัพเกรด". The row is the only place that still knows
-      // the difference: `user === null` after settling means WE DO NOT KNOW, and the badge draws nothing.
-      // isPaidMember is the one shared paid rule (lib/v2/tier.ts) — reused, never re-derived.
-      // ⏭ #383 adds `isPaid` + `tier` to HomeProfile; when it merges this becomes `membership={profile}` and
-      //   PLUS/PRO start showing on home too. Until then every paying member is correctly "สมาชิก".
-      membership={{ isPaid: user ? isPaidMember(user) : null }}
+      // Header BADGE input (#384). `profile` now carries the three-valued verdict itself (#383 added
+      // `isPaid` + `tier` to HomeProfile), so home reads the SAME seam the other five screens read and the
+      // tier NAME reaches this screen too — PLUS/PRO, not just "สมาชิก".
+      //
+      // 🔴 It deliberately does NOT read `profile.showUpgrade`, and that field is gone as of this PR. It was
+      // a boolean, so "we could not determine the tier" had no value to be, and it was spent as "not paid":
+      // on an /api/user error the hook settles to phase 'home' with `user: null` (lib/home/loading.ts:27 →
+      // loading.profile false), the header un-greyed, and a PAYING member was shown "อัพเกรด".
+      membership={profile}
       // ธาตุ line: element ← the compute/mascot source FIRST (so text ธาตุ matches the character),
       // then FALL BACK to bazi's persona.elementTh — defense-in-depth after the compute path proved
       // fragile in prod (the toComputeSource envelope bug hid the element). persona.elementTh is the
