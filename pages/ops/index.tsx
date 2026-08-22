@@ -4,6 +4,7 @@
 // so this page can render the passkey form itself when unauthenticated.
 import type { GetServerSideProps } from 'next'
 import Head from 'next/head'
+import Link from 'next/link'
 import { eq } from 'drizzle-orm'
 import { db } from '@/lib/db'
 import { dashboardUsers } from '@/lib/db/schema'
@@ -145,9 +146,9 @@ export default function OpsPage(props: Props) {
 
           {/* #377 — the first /ops screen that WRITES: package price + on-sale, no deploy needed. */}
           <nav className="text-sm">
-            <a className="underline" href="/ops/packages">
+            <Link className="underline" href="/ops/packages">
               จัดการแพ็กเกจ (ราคา / เปิด-ปิดขาย) →
-            </a>
+            </Link>
           </nav>
 
           <section>
