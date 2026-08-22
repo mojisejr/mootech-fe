@@ -98,6 +98,9 @@ export default defineConfig({
       'scripts/payment-webhook-verify.test.ts', // #355 — pure: Omise HMAC verify, fail-closed (main-lane money gate)
       'scripts/payment-charge-route.test.ts', // #355 — route: session gate + client-ignored + fail-loud-before-charge
       'scripts/payment-webhook-db.test.ts', // #355 — real pg (skipIf !TEST_DATABASE_URL): webhook→settle→provision, idempotent+concurrent
+      'scripts/discount-rules.test.ts', // #361 — pure: discount math (floor/cap/clamp/VAT/no-100%) + code applicability
+      'scripts/discount-concurrency-db.test.ts', // #361 — real pg (skipIf !TEST_DATABASE_URL): quota gate under parallel load + release
+      'scripts/discount-preview-db.test.ts', // #361 real pg: preview-charge quote contract + legacy-code answers
     ],
   },
   resolve: {

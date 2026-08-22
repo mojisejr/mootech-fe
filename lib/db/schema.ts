@@ -758,6 +758,10 @@ export const v2Payment = pgTable("v2_payment", {
 	chargeId: text("charge_id").notNull(),
 	orderId: text("order_id").notNull(),
 	status: text().notNull(),
+	// discount linkage (#361, 0008 ALTER) — NULL/0 when no code was used.
+	codeId: varchar("code_id", { length: 36 }).references(() => discountCode.id),
+	discountSatang: integer("discount_satang").default(0).notNull(),
+	quoteId: varchar("quote_id", { length: 36 }).references(() => paymentQuote.id),
 	createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
 }, (table) => [
 	uniqueIndex("uq_v2_payment_charge_id").on(table.chargeId),
@@ -767,6 +771,57 @@ export const v2Payment = pgTable("v2_payment", {
 	check("v2_payment_method_check", sql`${table.method} IN ('card','promptpay')`),
 	check("v2_payment_status_check", sql`${table.status} IN ('PENDING','APPROVED','REJECT')`),
 	check("v2_payment_expire_check", sql`${table.expire} ~ '^[0-9]+[DMY]$'`),
+]);
+
+// discount codes (#361, migration 0008). NEW model: reduce the paid amount (not a free grant — that stays
+// on v1 payment_code). used_count is the concurrency counter; lower(code) is UNIQUE. See 0008.
+export const discountCode = pgTable("discount_code", {
+	id: varchar({ length: 36 }).primaryKey().notNull(),
+	code: text().notNull(),
+	kind: text().notNull(),
+	value: integer().notNull(),
+	maxDiscountSatang: integer("max_discount_satang"),
+	appliesTo: text("applies_to").array().notNull().default(sql`'{}'`),
+	startsAt: timestamp("starts_at", { withTimezone: true }),
+	endsAt: timestamp("ends_at", { withTimezone: true }),
+	maxUseTotal: integer("max_use_total"),
+	maxUsePerUser: integer("max_use_per_user"),
+	status: text().notNull(),
+	usedCount: integer("used_count").default(0).notNull(),
+	createdBy: text("created_by"),
+	createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+}, (table) => [
+	uniqueIndex("uq_discount_code_lower_code").on(sql`lower(${table.code})`),
+	check("discount_code_kind_check", sql`${table.kind} IN ('PERCENT','FIXED')`),
+	check("discount_code_status_check", sql`${table.status} IN ('ACTIVE','PAUSED','EXPIRED')`),
+]);
+
+export const discountRedemption = pgTable("discount_redemption", {
+	id: varchar({ length: 36 }).primaryKey().notNull(),
+	codeId: varchar("code_id", { length: 36 }).notNull().references(() => discountCode.id),
+	userId: text("user_id").notNull().references(() => user.userId),
+	paymentId: varchar("payment_id", { length: 36 }).notNull().references(() => v2Payment.id),
+	discountSatang: integer("discount_satang").notNull(),
+	vatPercentAtPurchase: integer("vat_percent_at_purchase").notNull(),
+	redeemedAt: timestamp("redeemed_at", { withTimezone: true }).defaultNow().notNull(),
+}, (table) => [
+	uniqueIndex("uq_discount_redemption_code_payment").on(table.codeId, table.paymentId),
+	index("idx_discount_redemption_code_user").on(table.codeId, table.userId),
+]);
+
+export const paymentQuote = pgTable("payment_quote", {
+	id: varchar({ length: 36 }).primaryKey().notNull(),
+	userId: text("user_id").notNull().references(() => user.userId),
+	packageCode: text("package_code").notNull(),
+	codeId: varchar("code_id", { length: 36 }).references(() => discountCode.id),
+	listSatang: integer("list_satang").notNull(),
+	discountSatang: integer("discount_satang").default(0).notNull(),
+	amountSatang: integer("amount_satang").notNull(),
+	vatPercent: integer("vat_percent").default(0).notNull(),
+	expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+	createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+}, (table) => [
+	index("idx_payment_quote_user").on(table.userId),
 ]);
 
 export const memberWithFriend = pgTable("member_with_friend", {

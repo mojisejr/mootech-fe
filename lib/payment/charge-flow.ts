@@ -4,8 +4,9 @@
 import type { NextApiRequest, NextApiResponse } from 'next'
 import { randomInt } from 'node:crypto'
 import { resolveSessionUserId } from '@/lib/v2/resolve-user'
-import { quotePackage, UnsellablePackageError, type Quote } from './catalog'
-import { getPackage, getUserEmail, insertPending } from './repo'
+import { getUserEmail, insertPendingReserved, attachChargeId, abandonPending } from './repo'
+import { priceFor } from '@/lib/discount/preview-flow'
+import { getQuote } from '@/lib/discount/repo'
 import type { ChargeResult } from './gateway'
 
 export function makeOrderId(): string {
@@ -34,52 +35,108 @@ export async function runChargeFlow(
   const body = (req.body ?? {}) as Record<string, unknown>
   const packageCode = typeof body.package_code === 'string' ? body.package_code : ''
   const token = typeof body.token === 'string' ? body.token : undefined
-  // 🔴 body.user_id / body.amount / body.discount / body.code are DELIBERATELY IGNORED — the amount and
-  // (later) the discount are computed server-side from the package the server looked up.
+  const quoteId = typeof body.quote_id === 'string' ? body.quote_id : null
+  // 🔴 body.user_id / body.amount / body.discount / body.percent are DELIBERATELY IGNORED — the amount and
+  // the discount are computed server-side. body.code is only a STRING key the server looks up itself.
+  const codeStr = typeof body.code === 'string' && body.code.trim() !== '' ? body.code.trim() : null
   if (!packageCode || (method === 'card' && !token)) {
     res.status(400).json({ error: 'missing token or package_code' })
     return
   }
 
-  // Price + tier BEFORE creating any charge — an unknown/unsellable package fails loud here, never after
-  // the card is charged (#355 ③).
-  const pkg = await getPackage(packageCode)
-  if (!pkg) {
-    res.status(400).json({ error: 'unknown package_code' })
+  // Price BEFORE any charge, with the SAME function preview used — an unknown/unsellable package or an
+  // unusable code fails loud here, never after the card is charged (#355 ③).
+  const now = new Date()
+  const priced = await priceFor(packageCode, codeStr, now)
+  if (!priced.ok) {
+    res.status(priced.status).json({ error: priced.error, codeError: priced.codeError })
     return
   }
-  let quote: Quote
-  try {
-    quote = quotePackage(pkg)
-  } catch (e) {
-    if (e instanceof UnsellablePackageError) {
-      res.status(400).json({ error: 'package is not available' })
+
+  // 🔴 With a code, the quote is MANDATORY (ตู๋ #372 ②): "you pay what you were shown" must not be a
+  // client's option. Without a code the amount comes from the package alone and cannot drift today — when
+  // #362 makes VAT editable from the back office it drifts for everyone, and this becomes unconditional.
+  if (codeStr && !quoteId) {
+    res.status(400).json({ error: 'a discount code requires the quote it was previewed with', codeError: 'QUOTE_REQUIRED' })
+    return
+  }
+
+  // 🔴 Quote compare (ตู๋ B3): if the client presents a quote_id, the freshly computed money must MATCH the
+  // quote the user was shown. VAT changed / code paused / window passed ⇒ the numbers move ⇒ refuse and say
+  // so, instead of silently charging a different amount. The client never sends the amount — we compare our
+  // recomputation against OUR stored quote.
+  if (quoteId) {
+    const q = await getQuote(quoteId, who.userId)
+    if (!q) {
+      res.status(400).json({ error: 'unknown quote' })
       return
     }
-    throw e
+    if (q.expiresAt.getTime() <= now.getTime()) {
+      res.status(409).json({ error: 'quote expired', quoteChanged: true })
+      return
+    }
+    const same =
+      q.packageCode === priced.packageCode &&
+      q.amountSatang === priced.amountSatang &&
+      q.discountSatang === priced.discountSatang &&
+      q.vatPercent === priced.vatPercent &&
+      (q.codeId ?? null) === (priced.code?.id ?? null)
+    if (!same) {
+      res.status(409).json({ error: 'price changed since the quote', quoteChanged: true })
+      return
+    }
+  }
+
+  // 🔴 RESERVE BEFORE MONEY (#361 ②): the v2_payment PENDING row + the discount reservation are written in
+  // ONE transaction FIRST. A full/over-quota code is refused here — before the card is touched. The charge
+  // id is attached after Omise accepts.
+  // ONE orderId for both the stored row and Omise's metadata — they are the same reference (v1 parity).
+  const orderId = makeOrderId()
+  const reserved = await insertPendingReserved(
+    {
+      userId: who.userId,
+      packageCode: priced.packageCode,
+      tierCode: priced.tierCode,
+      amountSatang: priced.amountSatang,
+      vatSatang: priced.vatSatang,
+      expire: priced.expire,
+      bufferDay: priced.bufferDay,
+      method,
+      orderId,
+      quoteId,
+      discountSatang: priced.discountSatang,
+      codeId: priced.code?.id ?? null,
+    },
+    priced.code
+      ? {
+          codeId: priced.code.id,
+          vatPercent: priced.vatPercent,
+          maxUsePerUser: priced.code.maxUsePerUser,
+        }
+      : null,
+  )
+  if (!reserved.ok) {
+    res.status(409).json({ error: 'code is no longer available', codeError: reserved.reason })
+    return
   }
 
   const email = (await getUserEmail(who.userId)) ?? ''
-  const orderId = makeOrderId()
-  const charge = await create({ amountSatang: quote.amountSatang, token, email, orderId })
-
-  await insertPending({
-    userId: who.userId,
-    packageCode: quote.packageCode,
-    tierCode: quote.tierCode,
-    amountSatang: quote.amountSatang,
-    vatSatang: quote.vatSatang,
-    // FREEZE the package's duration terms at charge time (ตู๋ #370 B2) — settle reads these, not payment_package.
-    expire: pkg.expire,
-    bufferDay: pkg.bufferDay,
-    method,
-    chargeId: charge.chargeId,
-    orderId,
-  })
+  let charge: ChargeResult
+  try {
+    charge = await create({ amountSatang: priced.amountSatang, token, email, orderId })
+  } catch (e) {
+    // The charge failed ⇒ give the code's quota back and kill the row, so a refused card can never leave a
+    // discount code looking "full" (the return path the ticket requires).
+    await abandonPending(reserved.paymentId, priced.code?.id ?? null)
+    throw e
+  }
+  await attachChargeId(reserved.paymentId, charge.chargeId)
 
   res.status(200).json({
     chargeId: charge.chargeId,
     status: 'PENDING',
+    amountSatang: priced.amountSatang,
+    discountSatang: priced.discountSatang,
     ...(charge.qrDownloadUri ? { qr: charge.qrDownloadUri } : {}),
   })
 }

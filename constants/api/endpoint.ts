@@ -127,6 +127,7 @@ export const API = {
   // money through it). All same-origin (localApi → /api/v2/...); the webhook is called by Omise, not the
   // client, but it lives here for one place that names every v2 payment path.
   v2_payment: {
+    preview: localApi('/v2/payment/preview'), // #361 — price a package (+ discount code) without charging
     charge: localApi('/v2/payment/charge'),
     promptpay: localApi('/v2/payment/promptpay'),
     status: localApi('/v2/payment/status'),

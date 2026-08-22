@@ -24,11 +24,12 @@ const h = vi.hoisted(() => {
     captured.chargeArgs.push(args)
     return { chargeId: 'chrg_test_1' }
   })
-  const insertPending = vi.fn(async (row: Record<string, unknown>) => {
+  // #361: the flow now RESERVES (v2_payment row + any discount) before the charge, then attaches the id.
+  const insertPendingReserved = vi.fn(async (row: Record<string, unknown>) => {
     captured.insertArgs.push(row)
-    return 'v2pay-1'
+    return { ok: true as const, paymentId: 'v2pay-1' }
   })
-  return { state, captured, createCardCharge, insertPending }
+  return { state, captured, createCardCharge, insertPendingReserved }
 })
 
 vi.mock('@/lib/v2/resolve-user', () => ({ resolveSessionUserId: vi.fn(async () => h.state.session) }))
@@ -36,9 +37,21 @@ vi.mock('@/lib/payment/omise-gateway', () => ({ omiseGateway: { createCardCharge
 vi.mock('@/lib/payment/repo', () => ({
   getPackage: vi.fn(async () => h.state.pkg),
   getUserEmail: vi.fn(async () => 'user@example.com'),
-  insertPending: h.insertPending,
+  insertPendingReserved: h.insertPendingReserved,
+  attachChargeId: vi.fn(async () => undefined),
+  abandonPending: vi.fn(async () => undefined),
   settleAndProvision: vi.fn(),
   listUserPayments: vi.fn(),
+}))
+// #361 quote store — no quote_id is sent by these specs, so the lookup is never hit.
+vi.mock('@/lib/discount/repo', () => ({
+  getQuote: vi.fn(async () => null),
+  getCodeByString: vi.fn(async () => null),
+  toSpec: vi.fn(),
+  insertQuote: vi.fn(),
+  reserveCodeInTx: vi.fn(),
+  releaseRedemption: vi.fn(),
+  Refuse: class extends Error {},
 }))
 
 import chargeHandler from '@/pages/api/v2/payment/charge'
@@ -65,7 +78,7 @@ beforeEach(() => {
   h.captured.chargeArgs.length = 0
   h.captured.insertArgs.length = 0
   h.createCardCharge.mockClear()
-  h.insertPending.mockClear()
+  h.insertPendingReserved.mockClear()
 })
 
 describe('POST /api/v2/payment/charge', () => {
@@ -75,7 +88,7 @@ describe('POST /api/v2/payment/charge', () => {
     await p
     expect(out.status).toBe(401)
     expect(h.createCardCharge).not.toHaveBeenCalled()
-    expect(h.insertPending).not.toHaveBeenCalled()
+    expect(h.insertPendingReserved).not.toHaveBeenCalled()
   })
 
   it('MR2 — a user_id and amount in the BODY are ignored; the SESSION user + SERVER amount are used', async () => {
