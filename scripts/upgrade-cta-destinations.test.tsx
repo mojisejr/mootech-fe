@@ -86,7 +86,14 @@ describe('#359 membership CTAs reach the shop', () => {
     const { PersonalCalendarUpsell } = await import(
       '@/features/v2-calendar/components/upsell/PersonalCalendarUpsell'
     )
-    render(<PersonalCalendarUpsell />)
+    // percent is REQUIRED (component:69) and feeds two rendered strings (component:89,97). Omitting it
+    // rendered "—%" — percentText returns an em dash for anything unusable (percent-display.ts:50-51),
+    // ON PURPOSE, so the screen never shows a confident wrong number. Which is exactly why nothing here
+    // complained: the component degraded gracefully and the spec stayed green while calling it wrong.
+    // tsc never sees this file either (tsconfig excludes scripts/, mootech-fe#351), so the compiler could
+    // not say so. ตู๋ caught it by reading. 42 is arbitrary but valid — this spec asserts the CTA's
+    // destination, not the number.
+    render(<PersonalCalendarUpsell percent={42} />)
     const cta = screen.getByTestId('calendar-upsell-cta')
     expect(cta.tagName).toBe('A')
     expect(cta.getAttribute('href')).toBe(SHOP_HREF)
