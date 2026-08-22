@@ -16,6 +16,7 @@ import { SinseSection } from './sections/SinseSection'
 import { CalendarMenu } from './CalendarMenu'
 import { comingSoonHrefById, type ServiceId } from '@/features/v2-service/services'
 import { HeaderTools } from '@/features/v2-shell/components/AppHeader'
+import type { MembershipLike } from '@/features/v2-shell/header-badge'
 import { TopBarBell } from '@/features/v2-shell/components/TopBarBell'
 import { DailyFortuneCard, HOME_FACET_RESERVE, HOME_DATEROW_RESERVE } from '@/features/v2-shell/components/DailyFortuneCard'
 import { LogoutModal } from '@/features/v2-shell/components/LogoutModal'
@@ -56,6 +57,10 @@ export type V2HomeScreenProps = {
    *  computes it. Optional so goo's current /v2 compiles before the wire lands — the pre-wire default is
    *  "show badge + letter avatar" (a safe fallback, NOT a rule). */
   profile?: Profile
+  /** Header badge input (#384). Absent / `isPaid: null` = not determined → NO pill (never the upsell).
+   *  The PAGE composes this from the fetched user row, because that row is where "we could not tell" still
+   *  exists — by the time the boolean profile is derived, the distinction is already gone. */
+  membership?: MembershipLike | null
   /** Per-zone data-loading flags — goo wires from useV2Home. `true` = that zone's data is not in yet →
    *  draw a GREY BLOCK, ❌ NOT the 01.webp mascot fallback (ฟีม: one clean reveal, no fallback-then-swap
    *  flicker). `profile` un-greys when the user row lands; `mascot` (+ ธาตุ) waits for the chart — they
@@ -83,13 +88,19 @@ function Skeleton({ className }: { className: string }) {
   return <span aria-hidden className={`block animate-pulse bg-v3-border-card ${className}`} />
 }
 
-// header data goo wires (parallel). pictureUrl null / onError → letter avatar; showUpgrade false → badge hidden.
-export type Profile = { pictureUrl: string | null; showUpgrade: boolean }
-const PROFILE_FALLBACK: Profile = { pictureUrl: null, showUpgrade: true }
+// header data goo wires (parallel). pictureUrl null / onError → letter avatar.
+//
+// #384 — `showUpgrade: boolean` LEFT this type, and that removal IS the bug fix. The badge no longer reads a
+// boolean derived from the user row, because that boolean had only two values for a question with three
+// answers: on an /api/user error the hook settles with `user: null`, deriveHomeProfile answered
+// `showUpgrade: true`, and a member who had paid was shown "อัพเกรด". Avatar and badge fail differently — a
+// letter-avatar fallback is harmless, an upsell fallback is not — so they stopped sharing one flag.
+export type Profile = { pictureUrl: string | null }
+const PROFILE_FALLBACK: Profile = { pictureUrl: null }
 
 const HERO_FALLBACK = '/images/v2/mascot/01.webp'
 
-export function V2HomeScreen({ greeting, mascotCharacter, onLogout, fortune, fortuneLoading, element, profile, loading }: V2HomeScreenProps) {
+export function V2HomeScreen({ greeting, mascotCharacter, onLogout, fortune, fortuneLoading, element, profile, membership, loading }: V2HomeScreenProps) {
   const [logoutOpen, setLogoutOpen] = useState(false)
   return (
     // page bg = bg-cream (Figma Lemon Chiffon) — the CONTINUOUS ground the whole scroll sits on
@@ -103,7 +114,7 @@ export function V2HomeScreen({ greeting, mascotCharacter, onLogout, fortune, for
 
       {/* ── content column: 393 primary, centred + capped, safe-area top, clears the fixed nav ── */}
       <div className="relative z-10 mx-auto flex w-full max-w-md flex-col px-4 pb-36 pt-[max(0.75rem,env(safe-area-inset-top))]">
-        <Greeting name={greeting.name} mascotCharacter={mascotCharacter} onAvatarTap={() => setLogoutOpen(true)} element={element} profile={profile ?? PROFILE_FALLBACK} loading={loading} />
+        <Greeting name={greeting.name} mascotCharacter={mascotCharacter} onAvatarTap={() => setLogoutOpen(true)} element={element} profile={profile ?? PROFILE_FALLBACK} membership={membership} loading={loading} />
         {/* `fortuneLoading` is the WHOLE truth for this card, and that is a deliberate arrangement.
             It briefly wasn't: while the user row was in flight the hook reported loading=false with no
             fortune, so the card fell through to its empty state and announced "ยังไม่มีข้อมูลดวงวันนี้"
@@ -143,7 +154,7 @@ function MascotImg({ src }: { src: string }) {
 // the name beside the right cluster → guaranteed cut. So: row1 = the "สวัสดีคุณ" LABEL (small, faded — a tag,
 // not a headline) + the tools (badge/bell/avatar, no long text so they never squeeze anyone); row2 = the
 // name at FULL width, bold, wrapping up to 2 lines (never truncated); row3 = the element line (unchanged).
-function Greeting({ name, mascotCharacter, onAvatarTap, element, profile, loading }: { name: string; mascotCharacter: string; onAvatarTap: () => void; element: ElementInfo; profile: Profile; loading: HomeScreenLoading }) {
+function Greeting({ name, mascotCharacter, onAvatarTap, element, profile, membership, loading }: { name: string; mascotCharacter: string; onAvatarTap: () => void; element: ElementInfo; profile: Profile; membership?: MembershipLike | null; loading: HomeScreenLoading }) {
   return (
     // Home composes the shared right cluster DIRECTLY (<HeaderTools/>) instead of <AppHeader/>'s row.
     // Reason, found by looking at the render rather than the diff: AppHeader lays title and tools side by
@@ -160,7 +171,7 @@ function Greeting({ name, mascotCharacter, onAvatarTap, element, profile, loadin
         <p className="min-w-0 flex-1 truncate text-sm font-medium leading-5 text-v3-text-muted">สวัสดีคุณ</p>
         {loading.profile ? <HeaderToolsSkeleton /> : (
           <HeaderTools
-            showUpgrade={profile.showUpgrade}
+            membership={membership}
             avatarName={name}
             avatarPictureUrl={profile.pictureUrl}
             onAvatar={onAvatarTap}

@@ -7,6 +7,7 @@
 // ?el=full|partial|none|blankband — Contract #2 greeting element line (full = ธาตุ + ดิถี band).
 // no "loading": element comes from settled compute (never loading here — too's dead-skeleton catch).
 import type { GetServerSideProps } from 'next'
+import type { MembershipLike } from '@/features/v2-shell/header-badge'
 import { useRouter } from 'next/router'
 import { v2RedirectIfUnauthed } from '@/lib/v2/gate'
 import { V2HomeScreen, type DailyFortune, type ElementInfo } from '@/features/v2-home/components/V2HomeScreen'
@@ -57,8 +58,19 @@ export default function V2HomePreview() {
   if (q.element !== undefined) element = { elementTh: q.element === 'null' ? null : (q.element as string), strengthLabel: element.strengthLabel }
   // ?name= — Structure A: name wraps ≤2 lines, never truncates (fast iteration; final verify = real /v2)
   const name = (q.name as string) || 'มิลา'
-  // ?pay=paid → no upgrade badge · ?pic=y → avatar image (else letter). goo wires the real profile at /v2.
-  const profile = { pictureUrl: q.pic === 'y' ? '/images/v2/mascot/01.webp' : null, showUpgrade: q.pay !== 'paid' }
+  // ?pic=y → avatar image (else letter). goo wires the real profile at /v2.
+  const profile = { pictureUrl: q.pic === 'y' ? '/images/v2/mascot/01.webp' : null }
+  // ?pay= drives the header badge (#384). FIVE reachable states, because the badge has five — and the fifth
+  // is the one that cannot be reached by waiting: `unknown` is what an /api/user ERROR looks like, and there
+  // is no way to produce it from a healthy dev server. A state the capture pass cannot shoot is a state
+  // nobody reviews, which is precisely how the bug it fixes stayed invisible.
+  //   (absent)|free → อัพเกรด   ·   paid → สมาชิก   ·   plus → PLUS   ·   pro → PRO   ·   unknown → ไม่มีป้าย
+  const membership: MembershipLike =
+    q.pay === 'unknown' ? { isPaid: null }
+    : q.pay === 'pro' ? { isPaid: true, tier: 'PRO' }
+    : q.pay === 'plus' ? { isPaid: true, tier: 'PLUS' }
+    : q.pay === 'paid' ? { isPaid: true, tier: null }
+    : { isPaid: false, tier: null }
   // ?mascot=<path> — Zone 2: force a specific mascot to test occlusion across the 60 shapes (?mascot=404 → broken → hero)
   const mascotCharacter = q.mascot === '404' ? '/images/v2/characters/__missing__.png' : ((q.mascot as string) || '/images/v2/characters/01_ชวด-ดิน.webp')
   // ?zones=profile,mascot — the per-zone grey blocks (P1). `?zones=all` = the pre-mount frame, i.e. exactly
@@ -67,5 +79,5 @@ export default function V2HomePreview() {
   // patch — the mid-flight states are otherwise unreachable without a slow network.
   const zones = ((q.zones as string) ?? '').split(',').filter(Boolean)
   const zoneLoading = { profile: zones.includes('profile') || zones.includes('all'), mascot: zones.includes('mascot') || zones.includes('all') }
-  return <V2HomeScreen greeting={{ name }} mascotCharacter={mascotCharacter} onLogout={() => window.alert('logout()')} fortune={fortune} fortuneLoading={loading} element={element} profile={profile} loading={zoneLoading} />
+  return <V2HomeScreen greeting={{ name }} mascotCharacter={mascotCharacter} onLogout={() => window.alert('logout()')} fortune={fortune} fortuneLoading={loading} element={element} profile={profile} membership={membership} loading={zoneLoading} />
 }

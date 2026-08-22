@@ -8,8 +8,9 @@
 import { useState } from 'react'
 import type { GetServerSideProps } from 'next'
 import Link from 'next/link'
-import { v2RedirectIfUnauthed } from '@/lib/v2/gate'
+import { v2RedirectIfUnauthed, isV2TeamPreview } from '@/lib/v2/gate'
 import { AppHeader } from '@/features/v2-shell/components/AppHeader'
+import { useClientTier } from '@/features/v2-shell/hooks/useClientTier'
 import { CalendarShell } from '@/features/v2-calendar/components/CalendarShell'
 import { SectionCard } from '@/features/v2-calendar/components/day-detail/SectionCard'
 import { useReminders, CalendarMenuState, type Reminder } from '@/features/v2-calendar'
@@ -23,7 +24,7 @@ export const getServerSideProps: GetServerSideProps = async (ctx) => {
   ctx.res.setHeader('Cache-Control', 'no-store, must-revalidate')
   const redirect = v2RedirectIfUnauthed(ctx.req)
   if (redirect) return redirect
-  return { props: {} }
+  return { props: { teamPreview: isV2TeamPreview(ctx.req) } }
 }
 
 const THAI_MON_ABBR = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.']
@@ -73,7 +74,8 @@ function EmptyState() {
   )
 }
 
-export default function V2CalendarNotificationsPage() {
+export default function V2CalendarNotificationsPage({ teamPreview }: { teamPreview: boolean }) {
+  const tier = useClientTier(teamPreview)
   const { list, cancel } = useReminders()
   const notify = notifyStateFrom(usePwaCapability())
   const [guide, setGuide] = useState<InstallGuideVariant | null>(null)
@@ -113,7 +115,12 @@ export default function V2CalendarNotificationsPage() {
           The multi-stop hex gradient is kept as-is; #C9E4F4 IS the v3-pastel-blue token value — do not
           "fix" it to a token. */}
       <div style={{ background: 'linear-gradient(105deg, #FFFFFF 40%, #C9E4F4 100%)' }} className="rounded-b-[20px]">
-        <AppHeader testId="notifications-header" title="การแจ้งเตือนทั้งหมด" backHref="/v2/calendar" className="items-center px-4 pb-3 pt-2" />
+        {/* #384 — this screen was the sixth <AppHeader/> and the only one that passed NO tier at all, so it
+            showed no badge to anyone. Members now see their level here (a level that disappears when you tap
+            the bell is the same "where did my status go" this ticket exists to fix), while free users keep
+            exactly what they have today: nothing. upgradeCta={false} is บอง's ruling 2026-08-22 — adding the
+            LEVEL is in scope, opening a new sales surface ฟีม has never seen is not. */}
+        <AppHeader testId="notifications-header" title="การแจ้งเตือนทั้งหมด" backHref="/v2/calendar" membership={tier} upgradeCta={false} className="items-center px-4 pb-3 pt-2" />
       </div>
 
       <div className="flex flex-col gap-4 px-4 pt-4">

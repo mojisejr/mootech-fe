@@ -28,7 +28,7 @@ export function ServiceHubScreen({ teamPreview = false }: { teamPreview?: boolea
   // calendar screens and both say "paid has no pill", but there is no paid frame for บริการทั้งหมด. The
   // rule is applied because showing "อัพเกรด" to someone who already upgraded is a real annoyance, not
   // because a drawing says so — if ฟีม wants it always-on here, it is a one-word change.
-  const { isPaid } = useClientTier(teamPreview)
+  const tier = useClientTier(teamPreview)
 
   return (
     <div className="relative min-h-screen w-full overflow-x-hidden bg-v3-bg-cream font-ibm">
@@ -44,7 +44,7 @@ export function ServiceHubScreen({ teamPreview = false }: { teamPreview?: boolea
 
       {/* content column: 393 primary, centred + capped, clears the fixed Menubar */}
       <div className="relative z-10 mx-auto flex w-full max-w-md flex-col px-4 pb-36 pt-[max(0.75rem,env(safe-area-inset-top))]">
-        <ServiceHeader onAvatar={() => setLogoutOpen(true)} showUpgrade={isPaid === false} />
+        <ServiceHeader onAvatar={() => setLogoutOpen(true)} membership={tier} />
         <div data-testid="service-hub-list" className="flex flex-col gap-2">
           {/* VISIBLE_SERVICES, not SERVICES: Healing Circles has no delivered art and is hidden until it
               does (ฟีม 2026-08-05). The catalog row still exists — see services.ts. The first two cards

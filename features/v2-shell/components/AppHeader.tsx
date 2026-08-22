@@ -22,10 +22,11 @@
 //   1. home's left is Structure A (ฟีม 2026-07-26): a small "สวัสดีคุณ" label row, then the NAME on its own
 //      full-width line. Figma draws one line because its mock name is short; a real long name would be cut,
 //      and ฟีม ruled the name must never truncate. The instruction outranks the drawing.
-//   2. `showUpgrade` is not defaulted. An undefined tier renders NO pill — never a pill "just in case".
-//      Showing an upsell to someone who already paid is the failure mode that actually costs us, and a
-//      default-on flag is exactly the silent-default class we closed in the compat calculator. Pages that
-//      know their tier pass it; wiring tier into the shell for the whole calendar flow is PR4 (Zone 4).
+//   2. the pill's input is not defaulted. An undetermined membership renders NO pill — never a pill "just
+//      in case". Showing an upsell to someone who already paid is the failure mode that actually costs us,
+//      and a default-on flag is exactly the silent-default class we closed in the compat calculator.
+//      #384 replaced the boolean `showUpgrade` with `membership` for exactly this reason: a two-valued type
+//      had no room for "ไม่รู้" and spent it as "not paid" on every error (see header-badge.ts).
 //
 // The AVATAR follows ฟีม's ruling that the bell/avatar look must be identical everywhere ("มันควรจะเป็นแบบ
 // นั้น") — one skin, no per-page variants. The ACTION stays with the page: pass `onAvatar` and it is a
@@ -36,6 +37,8 @@ import type { ReactNode } from 'react'
 import { TopBarBell } from './TopBarBell'
 import { TopBarAvatar } from './TopBarAvatar'
 import { SHOP_HREF } from '@/features/v2-shop/upgrade-cta'
+import { ComingSoonAction } from './ComingSoon'
+import { headerBadge, type MembershipLike } from '../header-badge'
 
 export type AppHeaderProps = {
   /** left: the page title (Heading/H1 24/32 navy — Figma) */
@@ -46,8 +49,15 @@ export type AppHeaderProps = {
   left?: ReactNode
   /** left: renders a back chevron before the title (day detail · notifications) */
   backHref?: string
-  /** right: the อัพเกรด pill. ONLY `true` shows it — undefined means "tier unknown" → hidden. */
-  showUpgrade?: boolean
+  /** right: who the viewer is. Absent / `isPaid: null` = not determined → NO pill at all (never a guess).
+   *  Replaces the old `showUpgrade?: boolean`, which could not express "ไม่รู้" and therefore spent it as
+   *  "not paid" — see features/v2-shell/header-badge.ts for the bug that cost. */
+  membership?: MembershipLike | null
+  /** right: may THIS screen show the อัพเกรด CTA? Screen policy, not user fact (#384). Default true; the
+   *  shop screen passes false (the CTA's destination IS that screen) and so does the notifications screen
+   *  (บอง 2026-08-22: showing the LEVEL there is in scope, opening a NEW sales surface is not). A paid
+   *  member's level badge is unaffected by this flag — it is not a sales control. */
+  upgradeCta?: boolean
   /** right: avatar tap. Absent → the avatar renders non-interactive (same pixels, no dead button). */
   onAvatar?: () => void
   avatarName?: string
@@ -79,6 +89,30 @@ function UpgradeBadge() {
   )
 }
 
+// The SAME 84×32 slot as the อัพเกรด pill, deliberately down to the drop-shadow.
+//
+// 🔴 DELIBERATE DIFFERENCE, LOGGED (ฟีม via บอง 2026-08-22): this keeps the CTA's cyan glow — a pressable
+// affordance — on a control whose destination (จอ "สิทธิ์ของฉัน", mootech-fe#365) does not exist yet, so the
+// tap answers "เร็วๆ นี้". Keeping the pixels identical is what makes "the header did not move" provable at
+// 0 px² across all six screens; whether a STATUS badge should speak the same visual language as a SALES
+// badge is a design question that needs its destination built first. mootech-fe#365 owns changing both.
+//
+// Widths measured, not assumed (#384, IBM Plex Sans Thai 16/500): อัพเกรด 55.13px · สมาชิก 46.55px ·
+// PLUS 38.31px · PRO 31.75px. The longest of the five is the word that already ships, so every new state is
+// NARROWER than the incumbent inside the same 84px box — nothing can overflow or clip.
+function TierBadge({ label }: { label: string }) {
+  return (
+    <ComingSoonAction
+      testId="header-tier"
+      label={`ระดับสมาชิก ${label}`}
+      message="สิทธิ์ของฉันกำลังจะมา เร็วๆ นี้"
+      className="grid h-8 w-[84px] shrink-0 place-items-center rounded-lg bg-v3-grade-yellow text-[16px] font-medium leading-6 text-v3-cyan drop-shadow-[0_4px_8px_rgba(117,227,235,0.5)]"
+    >
+      {label}
+    </ComingSoonAction>
+  )
+}
+
 function BackLink({ href }: { href: string }) {
   return (
     <Link href={href} aria-label="ย้อนกลับ" data-testid="header-back" className="-ml-1 grid size-9 shrink-0 place-items-center rounded-full text-v3-navy">
@@ -92,11 +126,13 @@ function BackLink({ href }: { href: string }) {
 // THE right cluster, exported on its own — because it is the actual shared thing (see the note at the top).
 // home needs it INSIDE its first row while its name and element line keep the full column width, so it
 // composes this directly instead of the <AppHeader/> row; every other screen gets it via <AppHeader/>.
-export function HeaderTools({ showUpgrade, onAvatar, avatarName, avatarPictureUrl = null, bellHref = '/v2/calendar/notifications' }:
-  Pick<AppHeaderProps, 'showUpgrade' | 'onAvatar' | 'avatarName' | 'avatarPictureUrl' | 'bellHref'>) {
+export function HeaderTools({ membership, upgradeCta = true, onAvatar, avatarName, avatarPictureUrl = null, bellHref = '/v2/calendar/notifications' }:
+  Pick<AppHeaderProps, 'membership' | 'upgradeCta' | 'onAvatar' | 'avatarName' | 'avatarPictureUrl' | 'bellHref'>) {
+  const badge = headerBadge(membership, { upgradeCta })
   return (
     <div data-testid="header-tools" className="flex shrink-0 items-center gap-2">
-      {showUpgrade === true && <UpgradeBadge />}
+      {badge.kind === 'upgrade' && <UpgradeBadge />}
+      {badge.kind === 'tier' && <TierBadge label={badge.label} />}
       <TopBarBell variant="solid" href={bellHref} />
       <TopBarAvatar variant="sapphire" name={avatarName} pictureUrl={avatarPictureUrl} onClick={onAvatar} />
     </div>
@@ -108,7 +144,8 @@ export function AppHeader({
   subtitle,
   left,
   backHref,
-  showUpgrade,
+  membership,
+  upgradeCta,
   onAvatar,
   avatarName,
   avatarPictureUrl = null,
@@ -127,7 +164,7 @@ export function AppHeader({
         </div>
       )}
       {/* THE right cluster — order and sizes are the invariant run-app-header.ts owns */}
-      <HeaderTools showUpgrade={showUpgrade} onAvatar={onAvatar} avatarName={avatarName} avatarPictureUrl={avatarPictureUrl} bellHref={bellHref} />
+      <HeaderTools membership={membership} upgradeCta={upgradeCta} onAvatar={onAvatar} avatarName={avatarName} avatarPictureUrl={avatarPictureUrl} bellHref={bellHref} />
     </header>
   )
 }

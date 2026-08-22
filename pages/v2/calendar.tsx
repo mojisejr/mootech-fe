@@ -31,7 +31,8 @@ export default function V2CalendarPage({ teamPreview }: { teamPreview: boolean }
   // Zone 4 — the paid rule lives once in goo's lib/v2/tier.ts; this page only reads the verdict.
   // `null` = not determined yet, and it is wrong to guess in EITHER direction, so both the pill and the
   // promo stay away until the tier is actually known. See the note on the promo below.
-  const { isPaid } = useClientTier(teamPreview)
+  const tier = useClientTier(teamPreview)
+  const { isPaid } = tier
   // M-B — the card follows the SELECTED day, not today. goo's hook already owns the rule (selection.ts:
   // today if today is in view, else day 1, re-applied on month change), so this is a one-word change from
   // `todayISO` to `selectedDate` and NOT a second copy of the rule. Before this, tapping a day moved the
@@ -60,7 +61,7 @@ export default function V2CalendarPage({ teamPreview }: { teamPreview: boolean }
 
   return (
     <CalendarShell title="ปฏิทินดวง" menuState={CalendarMenuState.Normal}>
-      <AppHeader title="ปฏิทินดวง" subtitle="ฤกษ์ดี วันมงคล ดิถีจีนรายวัน" showUpgrade={isPaid === false} className="items-start px-4 pb-2 pt-4" />
+      <AppHeader title="ปฏิทินดวง" subtitle="ฤกษ์ดี วันมงคล ดิถีจีนรายวัน" membership={tier} className="items-start px-4 pb-2 pt-4" />
 
       {/* Nothing below the header paints until the tier is known, and that is a LAYOUT decision, not a
           loading nicety. The alternatives were both measured on this screen: let the promo arrive late and

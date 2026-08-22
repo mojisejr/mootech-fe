@@ -72,7 +72,9 @@ describe('#359 membership CTAs reach the shop', () => {
     // AppHeader → TopBarAvatar → useCookies ⇒ ต้องมี provider ไม่งั้นล้มก่อนถึงสิ่งที่จะวัด
     render(
       <CookiesProvider>
-        <AppHeader title="ทดสอบ" showUpgrade />
+        {/* #384 — was `showUpgrade` (boolean). A free viewer is now expressed as the membership verdict
+            itself, so this spec keeps asserting the same user-visible fact through the new seam. */}
+        <AppHeader title="ทดสอบ" membership={{ isPaid: false }} />
       </CookiesProvider>,
     )
     const pill = screen.getByTestId('header-upgrade')

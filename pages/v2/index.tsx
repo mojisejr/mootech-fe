@@ -4,6 +4,7 @@
 //   2. APP identity — CLIENT via useV2AuthGate (mount-safe, cookie-truth, login-loop invariant):
 //      anon → onboarding carousel, loading/pre-mount → wait (splash), authed → home.
 import type { GetServerSideProps } from 'next'
+import { isPaidMember } from '@/lib/v2/tier'
 import { useRouter } from 'next/router'
 import { isV2Authenticated } from '@/lib/v2/gate'
 import { useV2AuthGate } from '@/features/auth/hooks/useV2AuthGate'
@@ -115,9 +116,19 @@ function V2HomeRoute({ status }: { status: AuthStatus }) {
       // Per-zone loading (goo → Lamun seam): true = data not in → grey block for that zone (❌ not the
       // 01.webp fallback). profile un-greys when the user row lands; mascot waits for the chart.
       loading={loading}
-      // Header seam (กติกา ค): avatar + upgrade-badge inputs from the single user fetch. μุน's
-      // V2HomeScreenProps declares `profile?` (optional, safe default) — this pass compiles once #180 lands.
+      // Header seam (กติกา ค): the AVATAR input from the single user fetch. μุน's V2HomeScreenProps
+      // declares `profile?` (optional, safe default) — this pass compiles once #180 lands.
       profile={profile}
+      // Header BADGE input (#384) — composed HERE, not taken from `profile.showUpgrade`, and the reason is
+      // the bug that line shipped: `showUpgrade` is a boolean, so "we could not determine the tier" had to be
+      // spent as one of the two real answers, and it was spent as "not paid". On an /api/user error the hook
+      // settles to phase 'home' with `user: null` (lib/home/loading.ts:27 → loading.profile false), so the
+      // header un-greyed and a PAYING member was shown "อัพเกรด". The row is the only place that still knows
+      // the difference: `user === null` after settling means WE DO NOT KNOW, and the badge draws nothing.
+      // isPaidMember is the one shared paid rule (lib/v2/tier.ts) — reused, never re-derived.
+      // ⏭ #383 adds `isPaid` + `tier` to HomeProfile; when it merges this becomes `membership={profile}` and
+      //   PLUS/PRO start showing on home too. Until then every paying member is correctly "สมาชิก".
+      membership={{ isPaid: user ? isPaidMember(user) : null }}
       // ธาตุ line: element ← the compute/mascot source FIRST (so text ธาตุ matches the character),
       // then FALL BACK to bazi's persona.elementTh — defense-in-depth after the compute path proved
       // fragile in prod (the toComputeSource envelope bug hid the element). persona.elementTh is the
