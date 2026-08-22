@@ -96,6 +96,30 @@ describe.skipIf(!TEST_URL)('payment_package tier + on-sale · real pg (#377)', (
     }
   })
 
+
+  it('🔴 T1 — re-running 0009 does NOT overwrite what /ops decided (an operator turned a legacy package back on)', async () => {
+    // The whole point of this ticket is that on-sale is an OPERATOR decision made from /ops. A migration
+    // that is advertised as safe to re-run must therefore never reassert it. Mutant: put the unguarded
+    // `UPDATE … SET is_active = false WHERE package_code NOT LIKE 'V2_%'` back → this test reddens.
+    await applyEdit({ packageCode: 'SOULMATE', amountBaht: 499, isActive: true })
+    const [before] = await sql`SELECT is_active FROM payment_package WHERE package_code = 'SOULMATE'`
+    expect(before.is_active).toBe(true)
+
+    await sql.unsafe(M0009) // exactly what an operator re-running the migration would do
+
+    const [after] = await sql`SELECT is_active FROM payment_package WHERE package_code = 'SOULMATE'`
+    expect(after.is_active).toBe(true) // still the operator's decision, not the migration's
+    await applyEdit({ packageCode: 'SOULMATE', amountBaht: 499, isActive: false }) // restore
+  })
+
+  it('a re-run still does not disturb the v2 rows an operator has priced', async () => {
+    await applyEdit({ packageCode: 'V2_PRO_YEARLY', amountBaht: 1234, isActive: true })
+    await sql.unsafe(M0009)
+    const [row] = await sql`SELECT amount, is_active FROM payment_package WHERE package_code = 'V2_PRO_YEARLY'`
+    expect(Number(row.amount)).toBe(1234)
+    expect(row.is_active).toBe(true)
+  })
+
   it('applyEdit only touches price + on-sale (tier / expire / description are untouched)', async () => {
     const [before] = await sql`SELECT tier_code, expire, description FROM payment_package WHERE package_code = 'V2_PRO_YEARLY'`
     await applyEdit({ packageCode: 'V2_PRO_YEARLY', amountBaht: 1490, isActive: true })

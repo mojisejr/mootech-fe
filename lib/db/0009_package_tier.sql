@@ -52,8 +52,15 @@ ALTER TABLE payment_package
 -- (v2 does not sell them; PAYASUSE is a separate ticket).
 UPDATE payment_package SET tier_code = 'PLUS' WHERE tier_code IS NULL AND plan_code = 'MEMBER';
 UPDATE payment_package SET tier_code = 'FREE' WHERE tier_code IS NULL;
--- Legacy packages stop being sold (#376); the rows stay for the members who already bought them.
-UPDATE payment_package SET is_active = false WHERE package_code NOT LIKE 'V2\_%';
+
+-- 🔴 THERE IS DELIBERATELY NO `UPDATE … SET is_active = false` HERE (ตู๋/บอง #379 T1).
+-- Legacy packages do stop being sold (#376) — but `ADD COLUMN … NOT NULL DEFAULT false` above already
+-- gave every pre-existing row `false` on the FIRST run, so an UPDATE would add nothing. What it WOULD add
+-- is damage on a SECOND run: it would overwrite whatever an operator had since set from /ops — the very
+-- screen this ticket adds for exactly that decision — while the header of this file invites re-running.
+-- The safest guard for a statement that is not needed is not to write the statement.
+-- (The tier backfill above is safe to repeat because it is guarded by `IS NULL`: once filled, it matches
+--  nothing. Same principle, different shape.)
 
 -- ── 3. close the door (only valid AFTER the backfill) ────────────────────────────────────────────────
 ALTER TABLE payment_package ALTER COLUMN tier_code SET NOT NULL;
