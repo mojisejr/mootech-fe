@@ -1,10 +1,15 @@
-import { chromium } from '/Users/non/ghq/github.com/mojisejr/mootech-fe-384/node_modules/playwright/index.mjs'
-import { PNG } from '/Users/non/ghq/github.com/mojisejr/mootech-fe-384/node_modules/pngjs/lib/png.js'
-import pixelmatch from '/Users/non/ghq/github.com/mojisejr/mootech-fe-384/node_modules/pixelmatch/index.js'
+import { chromium } from 'playwright'
+import { PNG } from 'pngjs'
+import pixelmatch from 'pixelmatch'
 import { readFileSync, writeFileSync } from 'node:fs'
 import { execSync } from 'node:child_process'
-const OUT='/Users/non/ghq/github.com/mojisejr/mootech-fe-384/harness/pixel-proof'
-const KEY=execSync(`grep '^V2_PREVIEW_KEY=' /Users/non/ghq/github.com/mojisejr/mootech-fe-384/.env.local | cut -d= -f2- | tr -d '"'`).toString().trim()
+import { fileURLToPath } from 'node:url'
+import { dirname, join as pjoin } from 'node:path'
+// ตู๋ T4 (#386): every path below is derived from THIS FILE's location, so the script audits the repo it
+// ships in — not the one whose absolute path happened to be in the author's shell when it was written.
+const REPO = dirname(dirname(fileURLToPath(import.meta.url)))
+const OUT = pjoin(REPO, 'harness', 'pixel-proof')
+const KEY=execSync(`grep '^V2_PREVIEW_KEY=' " + pjoin(REPO, '.env.local') + " | cut -d= -f2- | tr -d '"'`).toString().trim()
 
 const SCREENS=[
  {k:'service',       path:'/v2/service',                    tid:'service-header'},

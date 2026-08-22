@@ -41,10 +41,14 @@ type ProfileSource = {
  */
 export type ProfileFetchState = { done: boolean; errored: boolean }
 
-// กติกา ค (ฟีมเคาะ): hide the upgrade badge ONLY for a paid member whose plan is still valid. The paid
-// test is the SINGLE shared rule (lib/v2/tier isPaidMember, strict `=== true`) so the header badge and the
-// v2 tier gate can never disagree — showUpgrade is exactly its negation. Everyone else (free, expired, no
-// payment row, no user) shows the badge. Avatar: real `picture_url` else null (Lamun's first-letter tile).
+// กติกา ค (ฟีมเคาะ): the paid test is the SINGLE shared rule (lib/v2/tier isPaidMember, strict `=== true`)
+// so the header badge and the v2 tier gate can never disagree.
+//
+// ⚠️ THIS COMMENT USED TO DESCRIBE A FIELD THAT NO LONGER EXISTS (ตู๋ T1, #386). It said "showUpgrade is
+// exactly its negation … everyone else shows the badge", sitting directly above the function that feeds the
+// badge — so the next reader would have believed a boolean was still in play. #384 removed it: what the
+// header reads is `isPaid`, which is THREE-valued, and "not determined" draws no badge at all rather than
+// falling into the upsell. Avatar: real `picture_url` else null (Lamun's first-letter tile).
 //
 // 🔴 PRECEDENCE — when `membership.isPaid` (v2 composite) and `payment.is_not_expired` (legacy) disagree,
 // THE LEGACY FLAG WINS for the paid/free verdict, and here is WHY, not just that:

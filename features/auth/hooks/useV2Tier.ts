@@ -17,8 +17,10 @@
 // and no page ships a paid member the free/upsell branch. Guarding here (not per-page) means the next SSR
 // consumer cannot silently re-step the leak.
 //
-// Home note: home already fetches the user via useV2Home and derives isPaid from `profile.showUpgrade` —
-// it does NOT call this hook, keeping home's single UserGetById (#165). useV2Tier is for the other pages.
+// Home note: home already fetches the user via useV2Home and reads `profile.isPaid` / `profile.tier` — it
+// does NOT call this hook, keeping home's single UserGetById (#165). useV2Tier is for the other pages.
+// (Was "derives isPaid from `profile.showUpgrade`". That boolean is gone as of #384: it could not express
+//  "not determined" and spent it as "not paid", which is how a paying member was shown an upsell on error.)
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/router'
 import { useV2User } from './useV2User'

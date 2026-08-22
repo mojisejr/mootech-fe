@@ -23,7 +23,7 @@
 //                        screens is the viewport-strip in the PR, not this file.
 //   what the pill LOOKS like   not here at all — 0 px² header drift is proven by pixel-diff, not by the DOM.
 import React from 'react'
-import { readFileSync } from 'node:fs'
+import { readFileSync, readdirSync } from 'node:fs'
 import { join } from 'node:path'
 import { describe, it, expect, vi, afterEach } from 'vitest'
 import { render, screen, cleanup } from '@testing-library/react'
@@ -206,17 +206,48 @@ describe('#384 every screen that renders the shared header passes a membership',
     }
   })
 
-  it('the count is measured, not remembered — a seventh call site fails this', () => {
-    // The class this guards: a list hand-copied from a ticket goes stale silently. Counting the real call
-    // sites in the source means the list has to be updated by whoever adds the next screen.
-    const files = [
-      'features/v2-home/components/V2HomeScreen.tsx', 'features/v2-service/components/ServiceHeader.tsx',
-      'pages/v2/calendar.tsx', 'features/v2-calendar/components/day-detail/DayHeader.tsx',
-      'features/v2-shop/components/ShopScreen.tsx', 'pages/v2/calendar/notifications.tsx',
-      'features/v2-home/components/HomeSkeleton.tsx',
-    ]
-    const sites = files.reduce((n, rel) => n + (code(rel).match(/<(AppHeader|HeaderTools)\b/g) ?? []).length, 0)
-    // 6 screens + HomeSkeleton's pre-mount frame (which renders V2HomeScreen, badge hidden by loading.profile)
-    expect(sites).toBe(6)
+  it('every file that renders the shared header is on this list — walked, not remembered', () => {
+    // 🔴 THIS TEST REPLACED ONE THAT DID NOT DO WHAT IT SAID (ตู๋ B1, #386). The old one declared it guarded
+    // "a list hand-copied from a ticket goes stale silently" and then COUNTED CALL SITES INSIDE A HAND-LIST
+    // OF FILES — so a seventh screen in a NEW file was invisible to it. ตู๋ proved it by adding one: 17/17
+    // still green. The same line appended to an already-listed file went red. It guarded the members of the
+    // list against each other and nothing against the world.
+    //
+    // 🔑 AND THE FIRST FIX WAS THE SAME BUG ONE LEVEL UP. Walking `features/` + `pages/` makes THE ROOTS the
+    // hand-list — `components/` alone holds 73 .tsx files. No header renders from there today, and "today"
+    // is not a guarantee. So the walk starts at the repo root and skips only what cannot contain source.
+    //
+    // A SET, not a count — the same reason the vitest include list moved off a number in this PR: a number
+    // cannot answer "did somebody's call site disappear", and it can be right by accident. It WAS right by
+    // accident: the old `toBe(6)` matched only because the hand-list happened to omit AppHeader.tsx, which
+    // renders <HeaderTools/> itself and is a seventh site (ตู๋ found this while walking the tree).
+    const SKIP = new Set(['node_modules', '.next', '.git', 'out', 'coverage'])
+    const walk = (d: string): string[] =>
+      readdirSync(d, { withFileTypes: true }).flatMap((e) =>
+        SKIP.has(e.name) ? [] : e.isDirectory() ? walk(join(d, e.name)) : e.name.endsWith('.tsx') ? [join(d, e.name)] : [],
+      )
+    const root = process.cwd()
+    // Adapters count too (ServiceHeader/DayHeader wrap AppHeader for one screen each): a new adapter file is
+    // itself a new call site, so it lands in this set and forces this list — and the wiring list below — to
+    // be updated by whoever adds it.
+    const sites = walk(root)
+      .map((f) => f.slice(root.length + 1))
+      .filter((f) => /<(AppHeader|HeaderTools|ServiceHeader|DayHeader)\b/.test(code(f)))
+      .sort()
+    expect(sites).toEqual(
+      [
+        'features/v2-calendar/components/day-detail/DayHeader.tsx', // adapter → AppHeader (day detail)
+        'features/v2-home/components/V2HomeScreen.tsx', // composes <HeaderTools/> directly (Structure A)
+        'features/v2-service/components/ServiceHeader.tsx', // adapter → AppHeader (service hub)
+        'features/v2-service/components/ServiceHubScreen.tsx', // renders <ServiceHeader/> (ServiceHubScreen.tsx:47)
+        'features/v2-shell/components/AppHeader.tsx', // the definition: renders <HeaderTools/> itself
+        'features/v2-shop/components/ShopScreen.tsx',
+        'pages/v2/calendar.tsx',
+        'pages/v2/calendar/[date].tsx', // renders <DayHeader/>
+        'pages/v2/calendar/notifications.tsx',
+        'scripts/header-tier-badge.test.tsx', // this file renders one to assert on it
+        'scripts/upgrade-cta-destinations.test.tsx', // #359 asserts the pill is a link
+      ].sort(),
+    )
   })
 })

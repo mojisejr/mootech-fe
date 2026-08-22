@@ -3,21 +3,26 @@
 //  is a claim, not a proof.)
 //
 //   npm run dev -- -p 3384                        # this branch
-//   git worktree add --detach ../before origin/main && ln -s ../mootech-fe-384/node_modules ../before/
+//   git worktree add --detach ../before origin/main && ln -s "$PWD/node_modules" ../before/
 //   (cd ../before && npx next dev -p 3385)        # the BEFORE build, for the 0 px² diff
 //   cp .env.local ../before/                      # 🔴 without V2_PREVIEW_KEY every /v2/* rewrites to
 //                                                 #    /maintenance AND RETURNS 200 — curl looks green while
 //                                                 #    you photograph the wrong page. Assert page CONTENT.
 //   node harness/384-capture-badge-states.mjs
-import { chromium } from '/Users/non/ghq/github.com/mojisejr/mootech-fe-384/node_modules/playwright/index.mjs'
-import { PNG } from '/Users/non/ghq/github.com/mojisejr/mootech-fe-384/node_modules/pngjs/lib/png.js'
-import pixelmatch from '/Users/non/ghq/github.com/mojisejr/mootech-fe-384/node_modules/pixelmatch/index.js'
+import { chromium } from 'playwright'
+import { PNG } from 'pngjs'
+import pixelmatch from 'pixelmatch'
 import { readFileSync, writeFileSync, mkdirSync } from 'node:fs'
 import { execSync } from 'node:child_process'
+import { fileURLToPath } from 'node:url'
+import { dirname, join as pjoin } from 'node:path'
+// ตู๋ T4 (#386): every path below is derived from THIS FILE's location, so the script audits the repo it
+// ships in — not the one whose absolute path happened to be in the author's shell when it was written.
+const REPO = dirname(dirname(fileURLToPath(import.meta.url)))
 
-const OUT = '/Users/non/ghq/github.com/mojisejr/mootech-fe-384/harness/pixel-proof'
+const OUT = pjoin(REPO, 'harness', 'pixel-proof')
 mkdirSync(OUT, { recursive: true })
-const KEY = execSync(`grep '^V2_PREVIEW_KEY=' /Users/non/ghq/github.com/mojisejr/mootech-fe-384/.env.local | cut -d= -f2- | tr -d '"'`).toString().trim()
+const KEY = execSync(`grep '^V2_PREVIEW_KEY=' " + pjoin(REPO, '.env.local') + " | cut -d= -f2- | tr -d '"'`).toString().trim()
 
 const VIEWPORTS = [320, 393, 430, 768, 1280]
 // "สมาชิก" first, on purpose: goo confirmed every member who exists today lands in that state, so it is
