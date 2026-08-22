@@ -120,6 +120,40 @@ describe.skipIf(!TEST_URL)('payment_package tier + on-sale · real pg (#377)', (
     expect(row.is_active).toBe(true)
   })
 
+
+  it('🔴 #379 — recreating the columns while the v2 rows exist must NOT demote V2_PRO to PLUS', async () => {
+    // The dangerous shape: the columns are recreated (restore / hand-rollback) while the v2 rows are still
+    // there. INSERT … WHERE NOT EXISTS then skips them, so the BACKFILL is the only statement that touches
+    // them — and a blanket "MEMBER ⇒ PLUS" would hand a ฿1,590 package the PLUS tier with nothing failing.
+    // Mutant: drop the `AND package_code NOT LIKE 'V2_%'` (or the V2-first backfill) → this reddens.
+    await sql.unsafe('ALTER TABLE payment_package DROP COLUMN tier_code, DROP COLUMN is_active')
+    await sql.unsafe(M0009)
+    // 🔴 restore in a finally: this spec DESTROYS schema, so if an assertion below fails (which is exactly
+    // what the mutant makes happen) the repair must still run — otherwise the wreckage leaks into every
+    // later spec and their failures hide the real one.
+    try {
+    const rows = await sql`SELECT package_code, tier_code FROM payment_package WHERE package_code LIKE 'V2\_%' ORDER BY package_code`
+    const byCode = Object.fromEntries(rows.map((r) => [r.package_code, r.tier_code]))
+    expect(byCode['V2_PRO_YEARLY']).toBe('PRO') // the paid-for level survives a column rebuild
+    expect(byCode['V2_PRO_MONTHLY']).toBe('PRO')
+    expect(byCode['V2_PLUS_YEARLY']).toBe('PLUS')
+
+    const [{ c }] = await sql`SELECT count(*)::int AS c FROM payment_package WHERE tier_code IS NULL`
+    expect(c).toBe(0) // and nothing is left unmapped
+    const [{ l }] = await sql`SELECT count(*)::int AS l FROM payment_package
+                               WHERE plan_code = 'MEMBER' AND package_code NOT LIKE 'V2\_%' AND tier_code = 'PLUS'`
+    expect(l).toBe(15) // the legacy rows still get PLUS
+
+    // a rebuilt is_active column is fail-closed (an /ops decision the migration must not guess, per T1)
+    const [{ a }] = await sql`SELECT count(*)::int AS a FROM payment_package WHERE is_active`
+    expect(a).toBe(0)
+    } finally {
+      // put the table back the way the migration's first run intends, for the other specs
+      await sql`UPDATE payment_package SET tier_code = 'PRO' WHERE package_code LIKE 'V2\_PRO\_%'`
+      await sql`UPDATE payment_package SET is_active = true WHERE package_code IN ('V2_PLUS_YEARLY','V2_PRO_YEARLY')`
+    }
+  })
+
   it('applyEdit only touches price + on-sale (tier / expire / description are untouched)', async () => {
     const [before] = await sql`SELECT tier_code, expire, description FROM payment_package WHERE package_code = 'V2_PRO_YEARLY'`
     await applyEdit({ packageCode: 'V2_PRO_YEARLY', amountBaht: 1490, isActive: true })

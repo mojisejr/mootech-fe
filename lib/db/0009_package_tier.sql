@@ -50,8 +50,25 @@ ALTER TABLE payment_package
 -- MEMBER packages granted membership, so they are PLUS. HOROSCOPE / PAYASUSE are one-off purchases, not
 -- membership tiers — FREE marks them "not a paid membership level", which makes quotePackage refuse them
 -- (v2 does not sell them; PAYASUSE is a separate ticket).
-UPDATE payment_package SET tier_code = 'PLUS' WHERE tier_code IS NULL AND plan_code = 'MEMBER';
+-- 🔴 The v2 rows FIRST, derived from their own package_code (ตู๋ #379). They are plan_code='MEMBER' too, so
+-- a blanket "MEMBER ⇒ PLUS" backfill would silently demote V2_PRO_* to PLUS. That is not hypothetical: if
+-- the columns are ever recreated while the v2 rows already exist (a restore, a hand-rollback), the INSERT
+-- below is skipped by WHERE NOT EXISTS and the backfill is the only thing that touches them — the result
+-- is a ฿1,590 package granting PLUS, with nothing failing. Reproduced on a real database before fixing.
+-- A tier is a PROPERTY OF THE PACKAGE (and /ops deliberately cannot edit it), so deriving it here is
+-- correct; contrast is_active below, which is an operator decision the migration must never assert.
+UPDATE payment_package SET tier_code = 'PRO'  WHERE tier_code IS NULL AND package_code LIKE 'V2\_PRO\_%';
+UPDATE payment_package SET tier_code = 'PLUS' WHERE tier_code IS NULL AND package_code LIKE 'V2\_PLUS\_%';
+
+-- …then everything else. The explicit NOT LIKE keeps this statement harmless even if the two above are
+-- ever reordered or removed — the same "make a re-run match nothing" discipline as the IS NULL guard.
+UPDATE payment_package SET tier_code = 'PLUS'
+ WHERE tier_code IS NULL AND plan_code = 'MEMBER' AND package_code NOT LIKE 'V2\_%';
 UPDATE payment_package SET tier_code = 'FREE' WHERE tier_code IS NULL;
+
+-- ⚠️ is_active is NOT restored here on a re-created column: it is an /ops decision (T1), and the migration
+-- guessing it would be the very overwrite T1 removed. A column recreated from scratch therefore leaves
+-- every package OFF SALE — fail closed — and whoever recreated it turns the right ones back on from /ops.
 
 -- 🔴 THERE IS DELIBERATELY NO `UPDATE … SET is_active = false` HERE (ตู๋/บอง #379 T1).
 -- Legacy packages do stop being sold (#376) — but `ADD COLUMN … NOT NULL DEFAULT false` above already
