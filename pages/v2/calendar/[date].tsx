@@ -15,6 +15,7 @@ import { useEffect, useState } from 'react'
 import type { GetServerSideProps } from 'next'
 import Link from 'next/link'
 import { useRouter } from 'next/router'
+import { SHOP_HREF } from '@/features/v2-shop/upgrade-cta'
 import { v2RedirectIfUnauthed, isV2TeamPreview } from '@/lib/v2/gate'
 import { useDayDetail, useAdvancedMode, useReminders, useReminderDraft, menuStateForDay, type YamSlot } from '@/features/v2-calendar'
 import { CalendarShell } from '@/features/v2-calendar/components/CalendarShell'
@@ -134,6 +135,8 @@ export default function V2CalendarDayPage({ teamPreview }: { teamPreview: boolea
   const now = new Date()
   const statusFor = (yam: YamSlot) => yamReminderStatus({ yam, date, addedYamIds, now })
   const goToList = () => { void router.push('/v2/calendar/notifications') }
+  // #359 — สถานะล็อกของ CTA แถบล่างพาไปหน้าแพ็กเกจ ❌ ไม่ประกาศ 'เร็วๆ นี้' อีกต่อไป
+  const goToShop = () => { void router.push(SHOP_HREF) }
 
   // 3 · "บันทึกเรียบร้อยแล้ว" ~2 วินาที แล้วกลายเป็น "เพิ่มยาม"
   //
@@ -173,7 +176,7 @@ export default function V2CalendarDayPage({ teamPreview }: { teamPreview: boolea
     date,
     now,
     openSheet: () => draft.open(date),
-    say: announceComingSoon,
+    goToShop,
     goToList,
   })
 

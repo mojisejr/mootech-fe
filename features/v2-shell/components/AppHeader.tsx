@@ -35,7 +35,7 @@ import Link from 'next/link'
 import type { ReactNode } from 'react'
 import { TopBarBell } from './TopBarBell'
 import { TopBarAvatar } from './TopBarAvatar'
-import { ComingSoonAction } from './ComingSoon'
+import { SHOP_HREF } from '@/features/v2-shop/upgrade-cta'
 
 export type AppHeaderProps = {
   /** left: the page title (Heading/H1 24/32 navy — Figma) */
@@ -61,21 +61,21 @@ export type AppHeaderProps = {
   testId?: string
 }
 
-// Figma 636:12792 (Button/Contained). NOT a <button>: ฟีม 2026-08-03 — "เดี๋ยวมันจะต้องไป payment (v2) ครับ
-// แต่ตอนนี้ ยังไม่ต้องไปไหนก่อน". Until that route exists this is a badge, not a control, so it cannot read
-// as a button that silently does nothing. Turning it into a Link is then a one-line change.
-// ฟีม 2026-08-06: the pill answers now instead of eating the tap. Same pixels — only the element and the
-// response change (see ComingSoon.tsx for why silence read as broken rather than as unbuilt).
+// Figma 636:12792 (Button/Contained). ฟีม 2026-08-03 said this would go to payment "แต่ตอนนี้ ยังไม่ต้องไป
+// ไหนก่อน", and the comment here predicted "Turning it into a Link is then a one-line change."
+// #359 built the destination, so this is now that Link. Same pixels — only the element and where the tap
+// lands change. It was a ComingSoonAction in between (ฟีม 2026-08-06) so the tap answered instead of being
+// eaten; announcing is no longer the honest response now that there is a screen to show.
 function UpgradeBadge() {
   return (
-    <ComingSoonAction
-      testId="header-upgrade"
-      label="อัพเกรด"
-      message="ระบบสมาชิกกำลังจะมา เร็วๆ นี้"
+    <Link
+      href={SHOP_HREF}
+      data-testid="header-upgrade"
+      aria-label="อัพเกรด"
       className="grid h-8 w-[84px] shrink-0 place-items-center rounded-lg bg-v3-grade-yellow text-[16px] font-medium leading-6 text-v3-cyan drop-shadow-[0_4px_8px_rgba(117,227,235,0.5)]"
     >
       อัพเกรด
-    </ComingSoonAction>
+    </Link>
   )
 }
 

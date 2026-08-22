@@ -104,6 +104,7 @@ export default defineConfig({
       'scripts/ops-packages.test.ts', // #377 — pure: what /ops may change (price + on-sale only)
       'scripts/package-tier-db.test.ts', // #377 — real pg (skipIf !TEST_DATABASE_URL): tier/NOT NULL trap + ops-edit→sale-lane loop
       'scripts/shop-package-mapping.test.ts', // #359 — shop plan→package_code mapping + catalog agreement
+      'scripts/upgrade-cta-destinations.test.tsx', // #359 — ทั้ง 4 CTA ชี้มา /v2/shop · ของที่เหลือห้ามชี้มา
     ],
   },
   resolve: {
