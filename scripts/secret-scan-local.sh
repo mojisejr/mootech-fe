@@ -1,0 +1,132 @@
+#!/usr/bin/env bash
+# ตัวแทนชั่วคราวของ .github/workflows/secret-scan.yml ระหว่างที่ Actions minutes เต็ม (mootech-fe#380)
+#
+# 🔴 นี่ไม่ใช่ด่าน มันคือ "ตาข่ายที่ต้องมีคนขึง" — ต้องรันเอง ไม่มีอะไรบังคับ
+#    วันที่โควตากลับมา ให้ลบไฟล์นี้ทิ้งแล้วกลับไปใช้ workflow
+#
+# ใช้:  bash scripts/secret-scan-local.sh [BASE]       BASE ไม่ใส่ = origin/main
+#
+# ⚠️ ต้องเรียกจาก checkout ที่ไฟล์นี้อยู่ ❌ ห้ามเรียกข้าม checkout
+#    เช่น cd <โคลนหลัก> แล้วเรียก <worktree>/scripts/secret-scan-local.sh
+#    ⇒ ด่าน GIT_DIR จะแดง เพราะเกณฑ์ผูกกับ **ที่ตั้งของไฟล์** ไม่ใช่ที่ที่คุณยืนอยู่
+#    ทิศถูก (fail closed) แต่คนที่โดนจะไปไล่หา GIT_DIR ที่ไม่มีอยู่จริง (ตู๋ #381 รอบสี่)
+# คืน:  0 = สแกนแล้วสะอาด · 1 = พบความลับ · 2 = ตรวจไม่ได้ (❌ ไม่ใช่ "สะอาด")
+set -uo pipefail
+
+BASE="${1:-origin/main}"
+
+command -v gitleaks >/dev/null 2>&1 || { echo "🔴 ไม่มี gitleaks — brew install gitleaks"; exit 2; }
+
+# ── canary ─────────────────────────────────────────────────────────────────────────────────────────
+# 🔴 ประกอบตอนรัน ❌ ห้ามเขียนเป็นสตริงเดียวในไฟล์ (ตู๋ #381 B1)
+#    ของเดิมเขียน PAT รูปแบบจริงลงไปตรงๆ ⇒ **สคริปต์ไม่ผ่านการสแกนของตัวเอง**
+#    ⇒ ดังทุกครั้งที่ช่วง commit ครอบไฟล์นี้ ⇒ กลายเป็น noise ที่คนเรียนรู้ที่จะไม่ฟัง
+#    ⇒ วันที่มันดังเพราะของจริง จะไม่มีใครแยกออก
+# ⚠️ ห้ามใช้ AKIAIOSFODNN7EXAMPLE — gitleaks ยกเว้นคีย์ตัวอย่างของ AWS ⇒ canary ไม่ถูกจับ
+_canary() { printf '%s_%s' 'ghp' 'wWPw5k4aXcaT4fNP0UcnZwJUVFk6LO0pINUx'; }
+
+# ── control 1 · ไบนารีอ่านไฟล์แล้วเจอความลับได้ไหม ──────────────────────────────────────────────────
+cdir="$(mktemp -d)"; trap 'rm -rf "$cdir"' EXIT
+printf 'GITHUB_TOKEN=%s\n' "$(_canary)" > "$cdir/canary.env"
+# 🔴 ห้ามต่อ pipe ตรงเข้า grep — ใต้ `pipefail` exit 1 ของ gitleaks (เจอ leak) จะชนะ exit 0 ของ grep
+c1="$(gitleaks detect --source "$cdir" --no-git --redact -v 2>&1 || true)"
+printf '%s' "$c1" | grep -qiE "leaks found: [1-9]" \
+  || { echo "🔴 control 1 ล้ม: canary ไม่ถูกจับ ⇒ ผลสแกนเชื่อไม่ได้"; exit 2; }
+echo "✅ control 1 (โหมดไฟล์): canary ถูกจับได้"
+
+# ── ยืนยัน BASE เป็น ref จริง ───────────────────────────────────────────────────────────────────────
+# 🔴 ของเดิมใช้ `git rev-list … || echo 0` ⇒ "ไม่มี commit ใหม่" กับ "คำนวณช่วงไม่ได้" หน้าตาเหมือนกัน
+#    แล้ว exit 0 ⇒ **รายงานสะอาดโดยไม่ได้สแกน** (ตู๋ #381 B2 · ยิงพิสูจน์ 3 ทาง: พิมพ์ผิด · ref ไม่มี · GIT_DIR)
+git rev-parse --verify --quiet "${BASE}^{commit}" >/dev/null \
+  || { echo "🔴 BASE '$BASE' ไม่ใช่ commit ที่มีอยู่จริง ⇒ ตรวจไม่ได้"; exit 2; }
+HEAD_SHA="$(git rev-parse --verify --quiet HEAD)" \
+  || { echo "🔴 อ่าน HEAD ไม่ได้ ⇒ ตรวจไม่ได้"; exit 2; }
+
+# 🔴 GIT_DIR ที่ชี้รีโปอื่น ทำให้อ่าน ref ของรีโปอื่น แล้วรายงานว่าสะอาด
+#    สภาพนี้คือสภาพของการรันใต้ git hook พอดี — บั๊กเดียวกับ mootech-fe#337 (GIT_DIR ชนะ cwd)
+#
+# ⚠️ ฉบับก่อนเทียบ `rev-parse --show-toplevel` กับที่ตั้งสคริปต์ — **ด่านนั้นมองไม่เห็น GIT_DIR** (ตู๋ #381 รอบสอง)
+#    เพราะเมื่อมี GIT_DIR แต่ไม่มี GIT_WORK_TREE `--show-toplevel` ยังตอบตาม cwd
+#    ⇒ ทั้งสองข้างของการเทียบเคลื่อนตาม cwd ทั้งคู่ ⇒ ด่านผ่านเสมอ ขณะที่การอ่าน ref ไปตาม GIT_DIR
+#    ยิงพิสูจน์: GIT_DIR=<อีกรีโป> → show-toplevel ไม่ขยับ · absolute-git-dir ขยับ · HEAD เป็นของรีโปอื่น
+#
+# 🔑 ตัวชี้วัดที่ไวจริงคือ `--absolute-git-dir`
+# ⚠️ แต่ใน worktree มันตอบ `<หลัก>/.git/worktrees/<ชื่อ>` ❌ ไม่ใช่ `$here/.git`
+#    ⇒ เทียบพาธตรงๆ จะแดงเก๊ทุกครั้งที่รันใน worktree ซึ่งเป็นที่ที่ตู๋รีวิวทุกใบ
+#    ⇒ เกณฑ์คือ "git dir อยู่ใต้รีโปเดียวกับสคริปต์" ❌ ไม่ใช่ "เท่ากันเป๊ะ"
+here="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+
+# 🔴 ด่าน GIT_DIR — เขียนใหม่ 3 รอบ เพราะสองรอบแรกมองไม่เห็นสิ่งที่มันตั้งใจจับ (ตู๋ #381)
+#
+#  รอบ 1  เทียบ `--show-toplevel` กับที่ตั้งสคริปต์
+#         ❌ เมื่อมี GIT_DIR แต่ไม่มี GIT_WORK_TREE `--show-toplevel` ยังตอบตาม cwd
+#            ⇒ ทั้งสองข้างเคลื่อนตาม cwd ทั้งคู่ ⇒ ผ่านเสมอ ขณะที่การอ่าน ref ไปตาม GIT_DIR
+#  รอบ 2  เทียบ remote origin URL ("รีโปเดียวกันไหม")
+#         ✅ ปิดกับดัก worktree ได้ (รันจาก worktree ไม่แดงเก๊)
+#         ❌ แต่ origin เหมือนกันทุก checkout ของรีโปเดียวกัน
+#            ⇒ GIT_DIR ที่ชี้ **โคลนหลักของรีโปเดียวกัน** รอด — และนั่นคือรูปร่างจริงของ mootech-fe#337
+#            ยิงพิสูจน์: รันใน worktree + GIT_DIR=<โคลนหลัก>/.git → สแกน HEAD ของโคลนหลัก แล้วคืน 0
+#  รอบ 3  (ที่ใช้อยู่) เทียบ git dir ที่ env ปัจจุบันให้ กับ git dir ที่ได้เมื่อ **ถอด GIT_* ออก**
+#         ⇒ ต่างกันเมื่อไหร่ = มีอะไรใน env กำลังพา git ไปอ่านที่อื่น ไม่ว่ารีโปเดียวกันหรือคนละรีโป
+gd_env="$(git rev-parse --absolute-git-dir 2>/dev/null || echo '')"
+gd_clean="$(env -u GIT_DIR -u GIT_WORK_TREE -u GIT_INDEX_FILE -u GIT_COMMON_DIR -u GIT_OBJECT_DIRECTORY             git -C "$here" rev-parse --absolute-git-dir 2>/dev/null || echo '')"
+[ -n "$gd_clean" ] || { echo "🔴 อ่าน git dir ของ '$here' ไม่ได้ ⇒ ตรวจไม่ได้"; exit 2; }
+if [ "$gd_env" != "$gd_clean" ]; then
+  echo "🔴 env กำลังพา git ไปอ่านที่อื่น (GIT_DIR / GIT_WORK_TREE ถูกตั้งไว้?)"
+  echo "   env ให้    : '${gd_env:-<ว่าง>}'"
+  echo "   ที่ควรเป็น  : '$gd_clean'"
+  echo "   ⇒ กิ่งที่จะสแกนไม่ใช่กิ่งที่คุณอยู่ ⇒ ตรวจไม่ได้ (mootech-fe#337)"
+  exit 2
+fi
+
+n="$(git rev-list --count "${BASE}..${HEAD_SHA}")" \
+  || { echo "🔴 นับ commit ไม่ได้ ⇒ ตรวจไม่ได้"; exit 2; }
+
+# ── control 2 · โหมดเดียวกับด่านจริง (git range) ────────────────────────────────────────────────────
+# 🔴 control 1 พิสูจน์แค่ว่าไบนารีอ่านไฟล์เป็น ❌ ไม่ได้พิสูจน์ว่า "ช่วงที่สั่งสแกน มีอะไรถูกสแกนจริง"
+#    เคส GIT_DIR คือหลักฐาน: control 1 เขียว แต่สแกน 0 commit (ตู๋ #381 T1)
+# ⚠️ ห้ามสแกนโฟลเดอร์รีโปจริงด้วย --no-git เพื่อทดสอบ — มันไล่ node_modules จนค้าง (บองตกหลุมนี้ตอนแก้ T1)
+#    ใช้รีโป git ชั่วคราวที่มี canary 1 commit แทน ⇒ ทดสอบ --log-opts ตรงโหมด และเร็ว
+gdir="$(mktemp -d)"
+# 🔴 ทุกขั้นต้องล้มดัง — ห้ามให้ `cd` พลาดแล้วไหลไปทำงานในรีโปจริง
+#    บองตกหลุมนี้ตอนตั้ง: `( cd "$gdir" && … ) >/dev/null 2>&1 || …` กลืน error ของ cd
+#    ⇒ git init/commit ไปลงรีโป mootech-fe จริง สร้าง commit "base" กับ "canary" บนกิ่งที่กำลังทำงาน
+#    ⇒ แล้วการสแกนรอบถัดไปเจอ canary ของตัวเอง แล้วรายงานว่า "พบความลับ"
+#    จับได้เพราะอ่าน `Commit:` ในรายงานแล้วมันไม่ใช่ commit ของเรา
+[ -d "$gdir" ] || { echo "🔴 สร้างโฟลเดอร์ทดสอบไม่ได้ ⇒ ตรวจไม่ได้"; exit 2; }
+trap 'rm -rf "$cdir" "$gdir"' EXIT
+(
+  set -e
+  cd "$gdir"
+  [ "$(pwd -P)" = "$(cd "$gdir" && pwd -P)" ] || exit 9
+  git init -q .
+  git -c user.email=c@x -c user.name=c commit -q --allow-empty -m base
+  printf 'GITHUB_TOKEN=%s\n' "$(_canary)" > c.env
+  git add c.env
+  git -c user.email=c@x -c user.name=c commit -q -m canary
+) || { echo "🔴 control 2 ตั้งรีโปทดสอบไม่ได้ ⇒ ตรวจไม่ได้"; exit 2; }
+c2="$(cd "$gdir" && gitleaks detect --source . --redact -v --log-opts="HEAD~1..HEAD" 2>&1 || true)"
+printf '%s' "$c2" | grep -qiE "leaks found: [1-9]" \
+  || { echo "🔴 control 2 ล้ม: canary ในโหมด git-range ไม่ถูกจับ ⇒ ผลสแกนเชื่อไม่ได้"; exit 2; }
+echo "✅ control 2 (โหมด git range): canary ถูกจับได้"
+
+# ── สแกนจริง ───────────────────────────────────────────────────────────────────────────────────────
+echo "── สแกน ${BASE}..${HEAD_SHA:0:9} ($n commit)"
+[ "$n" = "0" ] && { echo "  ไม่มี commit ใหม่ — ไม่มีอะไรต้องสแกน"; exit 0; }
+
+report="$(mktemp -t gitleaks-XXXX).json"   # 🔴 พาธไม่คงที่ (ตู๋ T3) — /tmp ตัวเดิมทำให้อ่านรายงานรอบก่อน
+gitleaks detect --source . --redact -v \
+  --log-opts="${BASE}..${HEAD_SHA}" \
+  --report-format json --report-path "$report"
+rc=$?
+
+# 🔴 แยก "เจอความลับ" (rc=1) ออกจาก "เครื่องมือล้ม" (rc≥2) — ของเดิมพิมพ์ข้อความเดียวกัน (ตู๋ T2)
+#    ⇒ คนจะไปตามหาความลับที่ไม่มี
+case "$rc" in
+  0) echo "✅ ไม่พบความลับใน $n commit" ;;
+  1) echo "🔴 พบความลับ — รายงาน: $report"
+     echo "   ⛔ ห้าม push · ห้ามเปิด issue/PR · รายงานฟีมโดยตรงเท่านั้น (CLAUDE.md)" ;;
+  *) echo "🔴 gitleaks ล้มเอง (rc=$rc) — ❌ ไม่ใช่ 'เจอความลับ' และ ❌ ไม่ใช่ 'สะอาด'"
+     rc=2 ;;
+esac
+exit $rc
