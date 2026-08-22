@@ -28,6 +28,10 @@ import type { UserBirthRow } from '@/lib/bazi-bridge/input'
  */
 export type V2UserRow = UserBirthRow & {
   payment?: { is_not_expired?: boolean | null } | null
+  // #383 — the v2 membership composite. OPTIONAL on purpose: it is null when the server could not
+  // determine it (the v2 lookup failed) and absent from any response served before #383 shipped, and
+  // neither case may read as "free" — consumers narrow it through parseTierCode, which maps both to null.
+  membership?: { isPaid?: boolean | null; tier?: string | null; source?: string } | null
   user_id?: string
   error?: unknown
 }

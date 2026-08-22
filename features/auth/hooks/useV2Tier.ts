@@ -23,7 +23,7 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/router'
 import { useV2User } from './useV2User'
 import { useCurrentUser } from '@/lib/auth/use-current-user'
-import { computeTier, type V2Tier } from '@/lib/v2/tier'
+import { computeTier, resolveDisplayTier, type V2Tier } from '@/lib/v2/tier'
 import { resolveTierOverride } from '@/lib/v2/tier-override'
 
 // `teamPreview` (issue #225): may this render honour a `?tier=` override? It is the v2 gate verdict for
@@ -48,7 +48,7 @@ export function useV2Tier(teamPreview = false): V2Tier {
   // Pre-mount stays `null` (SSR-safe): the override is read only AFTER mount, so a `?tier=` param can never
   // change the server/first-client render — no hydration mismatch, and the "null must stay null" line below
   // is never reached before we even have a determined tier.
-  if (!mounted) return { isPaid: null, loading: true }
+  if (!mounted) return { isPaid: null, tier: null, loading: true }
   const base = computeTier({ status, userId, done, errored, user })
 
   // Team-preview URL override (issue #225, was #213): view a page as free/paid from `?tier=`. Gated by the
@@ -61,7 +61,14 @@ export function useV2Tier(teamPreview = false): V2Tier {
     const override = resolveTierOverride(router.query.tier)
     // no/junk param → leave base untouched. 🔴 And never manufacture certainty: a null (loading/error) tier
     // stays null — the override only flips a KNOWN true/false, the very thing a previewer wants to swap.
-    if (override !== null && base.isPaid !== null) return { ...base, isPaid: override }
+    // #383 — the NAME must not contradict the previewed flag, so it goes through the SAME reconciler every
+    // other consumer uses instead of a hand-written rule here. (ตู๋ B1: the hand-written version only
+    // handled `override === false`. Forcing "paid" onto a user whose v2 row says FREE handed the caller
+    // `{ isPaid: true, tier: 'FREE' }` — the exact pair lib/v2/tier.ts declares unreachable. A second copy
+    // of a rule is how the copy that was not thought through hard enough ships.)
+    if (override !== null && base.isPaid !== null) {
+      return { ...base, isPaid: override, tier: resolveDisplayTier(override, base.tier) }
+    }
   }
   return base
 }

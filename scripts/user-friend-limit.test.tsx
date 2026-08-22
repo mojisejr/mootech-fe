@@ -11,8 +11,16 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 // count, (4) fortune count]. We queue results in that order per test.
 const q: { results: any[]; i: number } = { results: [], i: 0 }
 
+// #383 (ตู๋ T4) — `select` is mocked too, and it is not decoration. /api/user gained a 4th read (the v2
+// membership lookup) which uses the query-builder API, not `execute`. Without this the route took its
+// fail-closed branch on EVERY case here and still went green — so this file, the one that certifies
+// /api/user's friend-limit contract, was certifying it with a third of the handler short-circuited and
+// `db.select is not a function` printed to stderr. Green is not evidence that anything was exercised.
 vi.mock('@/lib/db', () => ({
-  db: { execute: () => Promise.resolve(q.results[q.i++]) },
+  db: {
+    execute: () => Promise.resolve(q.results[q.i++]),
+    select: () => ({ from: () => ({ where: () => Promise.resolve([]) }) }),
+  },
   schema: {},
 }))
 
