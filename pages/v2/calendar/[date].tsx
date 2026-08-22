@@ -65,7 +65,8 @@ export default function V2CalendarDayPage({ teamPreview }: { teamPreview: boolea
   // failed) and there is no safe default: assume free and a paying member loses what they bought; assume
   // paid and the leak stays open. So neither branch renders — the screen shows the part every tier gets
   // (score card · ทิศ สีมงคล · เวลามงคล) and fills in once the answer is real.
-  const { isPaid } = useClientTier(teamPreview)
+  const tier = useClientTier(teamPreview)
+  const { isPaid } = tier
   const paid = isPaid === true
   const free = isPaid === false
   const reminders = useReminders()
@@ -209,7 +210,7 @@ export default function V2CalendarDayPage({ teamPreview }: { teamPreview: boolea
       {/* #326 — ที่แขวน toast ประกาศไว้ตรงนี้ ❌ ไม่พึ่งว่าปุ่มล็อกรายยามของ #316 จะ mount อยู่พอดี
           (ComingSoon.tsx:52-53 บันทึกไว้เองว่า "safe by accident" คือรูปที่ทีมใช้เวลาทั้งวันถอดออก) */}
       <ComingSoonNotice />
-      <DayHeader showUpgrade={free} />
+      <DayHeader membership={tier} />
       <span data-testid="reminder-count" className="sr-only">{dateReminderCount}</span>
       {/* Same layout decision as the month screen, and the case for it is stronger here: the two branches
           differ by three whole sections, so whichever one paints first, the other's arrival would drag

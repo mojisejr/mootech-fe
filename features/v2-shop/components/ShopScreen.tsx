@@ -17,6 +17,7 @@ import { useState } from 'react'
 import { PillTabs } from '@/components/ui/pill-tabs'
 import { Menubar } from '@/features/v2-shell/components/Menubar'
 import { AppHeader } from '@/features/v2-shell/components/AppHeader'
+import { useClientTier } from '@/features/v2-shell/hooks/useClientTier'
 import { PLANS, type BillingPeriod } from '../packages'
 import { PackageCard } from './PackageCard'
 
@@ -25,9 +26,10 @@ const PERIOD_TABS = [
   { label: 'รายปี (คุ้มกว่า 2 เดือน)', value: 'annual' },
 ]
 
-export function ShopScreen() {
+export function ShopScreen({ teamPreview = false }: { teamPreview?: boolean } = {}) {
   // The design shows รายปี pre-selected.
   const [period, setPeriod] = useState<BillingPeriod>('annual')
+  const tier = useClientTier(teamPreview)
 
   return (
     <div className="relative min-h-screen w-full overflow-x-hidden bg-v3-bg-cream font-ibm">
@@ -41,8 +43,12 @@ export function ShopScreen() {
       </div>
 
       <div className="relative z-10 mx-auto flex w-full max-w-md flex-col px-4 pb-36 pt-[max(0.75rem,env(safe-area-inset-top))]">
-        {/* showUpgrade={false}: the อัพเกรด pill's destination IS this screen — it must not point at itself. */}
-        <AppHeader testId="shop-header" title="เลือกแพ็คเกจที่ใช่" showUpgrade={false} className="items-center py-4" />
+        {/* upgradeCta={false}: the อัพเกรด pill's destination IS this screen — it must not point at itself.
+            The LEVEL badge is a different object and does show here (#384). The old `showUpgrade={false}`
+            suppressed both at once because they were one boolean; they are not one thing. This is the screen
+            where a member most needs to see the package they already hold — it is the only screen in the app
+            where not knowing it costs them money twice. */}
+        <AppHeader testId="shop-header" title="เลือกแพ็คเกจที่ใช่" membership={tier} upgradeCta={false} className="items-center py-4" />
 
         <p data-testid="shop-intro" className="text-sm leading-6 text-v3-text-body">
           ทุกแพ็คเกจออกแบบมาเพื่อคุณโดยเฉพาะ เลือกแผนที่ตอบโจทย์ไลฟ์สไตล์และเป้าหมายของคุณ

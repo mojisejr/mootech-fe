@@ -7,14 +7,17 @@
 // one (ServiceHubScreen → useV2Tier), so the flag is now a required prop rather than a constant. It is
 // deliberately NOT optional: a caller that forgets it would silently hide the pill from free members, and
 // the whole point of this arc is that the free→paid path stops depending on what somebody remembered.
+// #384 keeps it required for the same reason, only the TYPE widened: the hook's verdict travels whole
+// (isPaid true/false/null, plus the tier name once #383 lands) instead of being flattened into a boolean here.
 import { AppHeader } from '@/features/v2-shell/components/AppHeader'
+import type { MembershipLike } from '@/features/v2-shell/header-badge'
 
-export function ServiceHeader({ onAvatar, showUpgrade }: { onAvatar: () => void; showUpgrade: boolean }) {
+export function ServiceHeader({ onAvatar, membership }: { onAvatar: () => void; membership: MembershipLike }) {
   return (
     <AppHeader
       testId="service-header"
       title="บริการทั้งหมด"
-      showUpgrade={showUpgrade}
+      membership={membership}
       onAvatar={onAvatar}
       className="items-center py-4"
     />

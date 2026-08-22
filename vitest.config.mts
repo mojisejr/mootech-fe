@@ -105,9 +105,10 @@ export default defineConfig({
       'scripts/package-tier-db.test.ts', // #377 — real pg (skipIf !TEST_DATABASE_URL): tier/NOT NULL trap + ops-edit→sale-lane loop
       'scripts/shop-package-mapping.test.ts', // #359 — shop plan→package_code mapping + catalog agreement
       'scripts/upgrade-cta-destinations.test.tsx', // #359 — ทั้ง 4 CTA ชี้มา /v2/shop · ของที่เหลือห้ามชี้มา
-      'scripts/home-profile.test.ts', // #383 — MIGRATED off the dead tsx lane (#367): กติกา ค + home's tri-state
-      'scripts/user-membership-route.test.ts', // #383 — /api/user gains `membership` and no existing key moves
-      'scripts/user-membership-db.test.ts', // #383 — real pg (skipIf !TEST_DATABASE_URL): real rows through the real handler
+      'scripts/home-profile.test.ts', // #383 — MIGRATED off the dead tsx lane (#367)
+      'scripts/user-membership-route.test.ts', // #383 — /api/user gains `membership`
+      'scripts/user-membership-db.test.ts', // #383 — real pg (skipIf !TEST_DATABASE_URL)
+      'scripts/header-tier-badge.test.tsx', // #384 — 5 badge states + the "unknown" case + the 6-screen wiring
     ],
   },
   resolve: {

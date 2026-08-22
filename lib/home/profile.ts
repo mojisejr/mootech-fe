@@ -11,13 +11,6 @@ import { isPaidMember, resolveDisplayTier, type TierCode } from '@/lib/v2/tier'
 
 export type HomeProfile = {
   pictureUrl: string | null
-  /**
-   * 2-VALUE VIEW — cannot say "not determined"; unknown collapses to `true` (badge shown), exactly as it
-   * behaved before #383. Deliberately UNCHANGED here so μุน's <V2HomeScreen/> keeps compiling and its
-   * pixels do not move in this PR: the screen switches to `isPaid`/`tier` in #384, and the collapse dies
-   * with that switch. Read `isPaid` for anything new — never this.
-   */
-  showUpgrade: boolean
   /** true = KNOWN paid · false = KNOWN not paid · null = NOT DETERMINED (loading / error) — render neither
    *  branch.
    *  ⚠️ The three states are the same as V2Tier.isPaid, but the INPUTS are not identical, and the earlier
@@ -48,10 +41,14 @@ type ProfileSource = {
  */
 export type ProfileFetchState = { done: boolean; errored: boolean }
 
-// กติกา ค (ฟีมเคาะ): hide the upgrade badge ONLY for a paid member whose plan is still valid. The paid
-// test is the SINGLE shared rule (lib/v2/tier isPaidMember, strict `=== true`) so the header badge and the
-// v2 tier gate can never disagree — showUpgrade is exactly its negation. Everyone else (free, expired, no
-// payment row, no user) shows the badge. Avatar: real `picture_url` else null (Lamun's first-letter tile).
+// กติกา ค (ฟีมเคาะ): the paid test is the SINGLE shared rule (lib/v2/tier isPaidMember, strict `=== true`)
+// so the header badge and the v2 tier gate can never disagree.
+//
+// ⚠️ THIS COMMENT USED TO DESCRIBE A FIELD THAT NO LONGER EXISTS (ตู๋ T1, #386). It said "showUpgrade is
+// exactly its negation … everyone else shows the badge", sitting directly above the function that feeds the
+// badge — so the next reader would have believed a boolean was still in play. #384 removed it: what the
+// header reads is `isPaid`, which is THREE-valued, and "not determined" draws no badge at all rather than
+// falling into the upsell. Avatar: real `picture_url` else null (Lamun's first-letter tile).
 //
 // 🔴 PRECEDENCE — when `membership.isPaid` (v2 composite) and `payment.is_not_expired` (legacy) disagree,
 // THE LEGACY FLAG WINS for the paid/free verdict, and here is WHY, not just that:
@@ -69,7 +66,6 @@ export function deriveHomeProfile(user: ProfileSource, state: ProfileFetchState)
   const isPaid = determined ? isPaidMember(user) : null
   return {
     pictureUrl: (user?.picture_url && String(user.picture_url)) || null,
-    showUpgrade: !isPaidMember(user),
     isPaid,
     // resolveDisplayTier holds the no-contradiction contract (isPaid true ⇒ never 'FREE'; not-determined ⇒
     // never a name). Home and the other 4 screens get the name through the SAME function.

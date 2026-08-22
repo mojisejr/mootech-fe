@@ -19,11 +19,14 @@
 // What deliberately did NOT change: the back chevron (this is a child screen and must return to the month),
 // and the bell + avatar cluster, which ฟีม locked as identical app-wide on 2026-08-03.
 import { AppHeader } from '@/features/v2-shell/components/AppHeader'
+import type { MembershipLike } from '@/features/v2-shell/header-badge'
 
-// `showUpgrade` is a pass-through, deliberately with no default: AppHeader's contract is that only an
-// explicit `true` renders the pill, so an unknown tier keeps it hidden rather than showing an upsell to
-// someone who may already have paid. Figma Free-2 375:11286 has the pill; Paid-2 634:8194 does not.
-export function DayHeader({ showUpgrade }: { showUpgrade?: boolean }) {
+// `membership` is a pass-through, deliberately with no default: AppHeader's contract is that an
+// undetermined membership renders NO pill, so an unknown tier keeps it hidden rather than showing an upsell
+// to someone who may already have paid. Figma Free-2 375:11286 has the pill; Paid-2 634:8194 does not.
+// #384: was `showUpgrade?: boolean`. The screen used to send `free` (i.e. `isPaid === false`), which threw
+// away the difference between "known free" and "not determined" one layer BEFORE AppHeader could act on it.
+export function DayHeader({ membership }: { membership?: MembershipLike | null }) {
   // No subtitle, and that is a decision rather than an omission (บอง left it to me). ปฏิทินดวง's subtitle
   // ("ฤกษ์ดี วันมงคล ดิถีจีนรายวัน") frames a whole section. This screen is about ONE day, and that day is
   // already stated in full 145px below — "วันนี้ · อังคารที่ 14 กรกฎาคม 2569" — bigger, next to the ring it
@@ -34,6 +37,6 @@ export function DayHeader({ showUpgrade }: { showUpgrade?: boolean }) {
   // 40px tools. Here the left is a single line beside a 36px chevron, so centring is what keeps the chevron,
   // the title and the bell on one optical line. Same padding as ปฏิทินดวง otherwise.
   return (
-    <AppHeader testId="day-header" title="รายละเอียดวัน" backHref="/v2/calendar" showUpgrade={showUpgrade} className="items-center px-4 pb-2 pt-4" />
+    <AppHeader testId="day-header" title="รายละเอียดวัน" backHref="/v2/calendar" membership={membership} className="items-center px-4 pb-2 pt-4" />
   )
 }

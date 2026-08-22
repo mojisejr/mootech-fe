@@ -4,6 +4,7 @@
 //   2. APP identity — CLIENT via useV2AuthGate (mount-safe, cookie-truth, login-loop invariant):
 //      anon → onboarding carousel, loading/pre-mount → wait (splash), authed → home.
 import type { GetServerSideProps } from 'next'
+import { isPaidMember } from '@/lib/v2/tier'
 import { useRouter } from 'next/router'
 import { isV2Authenticated } from '@/lib/v2/gate'
 import { useV2AuthGate } from '@/features/auth/hooks/useV2AuthGate'
@@ -115,9 +116,18 @@ function V2HomeRoute({ status }: { status: AuthStatus }) {
       // Per-zone loading (goo → Lamun seam): true = data not in → grey block for that zone (❌ not the
       // 01.webp fallback). profile un-greys when the user row lands; mascot waits for the chart.
       loading={loading}
-      // Header seam (กติกา ค): avatar + upgrade-badge inputs from the single user fetch. μุน's
-      // V2HomeScreenProps declares `profile?` (optional, safe default) — this pass compiles once #180 lands.
+      // Header seam (กติกา ค): the AVATAR input from the single user fetch. μุน's V2HomeScreenProps
+      // declares `profile?` (optional, safe default) — this pass compiles once #180 lands.
       profile={profile}
+      // Header BADGE input (#384). `profile` now carries the three-valued verdict itself (#383 added
+      // `isPaid` + `tier` to HomeProfile), so home reads the SAME seam the other five screens read and the
+      // tier NAME reaches this screen too — PLUS/PRO, not just "สมาชิก".
+      //
+      // 🔴 It deliberately does NOT read `profile.showUpgrade`, and that field is gone as of this PR. It was
+      // a boolean, so "we could not determine the tier" had no value to be, and it was spent as "not paid":
+      // on an /api/user error the hook settles to phase 'home' with `user: null` (lib/home/loading.ts:27 →
+      // loading.profile false), the header un-greyed, and a PAYING member was shown "อัพเกรด".
+      membership={profile}
       // ธาตุ line: element ← the compute/mascot source FIRST (so text ธาตุ matches the character),
       // then FALL BACK to bazi's persona.elementTh — defense-in-depth after the compute path proved
       // fragile in prod (the toComputeSource envelope bug hid the element). persona.elementTh is the
