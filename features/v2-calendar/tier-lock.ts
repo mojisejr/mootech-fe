@@ -32,9 +32,9 @@ export function remindersLocked(isPaid: boolean | null): boolean {
 // พฤติกรรมจะย้ายกลับเข้าไฟล์ที่ unit test import ไม่ได้ — ซึ่งเป็นเหตุผลเดียวกับที่ไฟล์นี้ถูกแยกออกมาแต่แรก
 //
 // ฟีมเคาะทาง **ก.** (2026-08-19): กดแล้ว *บอกว่าเป็นของสมาชิก* ❌ ไม่เปิดชีท ❌ ไม่ยิง POST
-// 📌 ปลายทางที่เหมาะจริงคือพาไปหน้า pricing — ยังไม่มีหน้านั้น บันทึกไว้ที่ mootech-fe#278 แล้ว
+// 📌 #359 สร้างหน้า pricing แล้ว ⇒ สถานะ 7 พาไป `/v2/shop` · ข้อความ `DAY_CTA_LOCKED_MESSAGE` ถูกลบทิ้ง
+//    (มันเคยเป็นสตริงเดียวกันเป๊ะกับ `YAM_LOCKED_MESSAGE` คนละไฟล์ — สำเนาที่ต้องซิงก์ด้วยมือ ตอนนี้ไม่มีแล้ว)
 
-export const DAY_CTA_LOCKED_MESSAGE = 'การตั้งเตือนเป็นของสมาชิก · ระบบสมาชิกกำลังจะมา เร็วๆ นี้'
 export const DAY_CTA_LOCKED_LABEL = 'เพิ่มลงปฏิทิน · เฉพาะสมาชิก'
 export const DAY_CTA_OPEN_LABEL = 'เพิ่มลงปฏิทิน เพื่อแจ้งเตือน'
 // #343 — `dayDetailCta` (2 สถานะ) ถูก `dayReminderCta` (7 สถานะ) แทนที่แล้ว และหน้าเพจสลับมาเรียกตัวใหม่
@@ -125,7 +125,9 @@ export function dayReminderCta(o: {
   date: string
   now: Date
   openSheet: () => void
-  say: (message: string) => void
+  /** #359 — สถานะล็อกพาไปหน้าแพ็กเกจ ❌ ไม่ประกาศ 'เร็วๆ นี้' อีกต่อไป (ปลายทางมีแล้ว)
+   *  ชื่อนี้ทำให้ผู้เรียกที่ยังส่ง `say` มาแดงที่คอมไพเลอร์ แทนที่จะเงียบแล้วปุ่มไม่พาไปไหน */
+  goToShop: () => void
   goToList: () => void
 }): ReminderCtaPlan {
   const noop = () => {}
@@ -137,7 +139,7 @@ export function dayReminderCta(o: {
       label: DAY_CTA_LOCKED_LABEL,
       disabled: false,
       locked: true,
-      press: () => o.say(DAY_CTA_LOCKED_MESSAGE),
+      press: () => o.goToShop(),
     }
   }
   // 2 — กำลังบันทึก

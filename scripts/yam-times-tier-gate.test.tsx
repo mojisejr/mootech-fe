@@ -10,7 +10,8 @@
 import React from 'react'
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, cleanup, fireEvent } from '@testing-library/react'
-import { YamTimes, YAM_LOCKED_MESSAGE, YAM_ADD_LABEL, YAM_ADDED_LABEL, YAM_PAST_LABEL } from '@/features/v2-calendar/components/day-detail/YamTimes'
+import { YamTimes, YAM_ADD_LABEL, YAM_ADDED_LABEL, YAM_PAST_LABEL } from '@/features/v2-calendar/components/day-detail/YamTimes'
+import { SHOP_HREF } from '@/features/v2-shop/upgrade-cta'
 import { remindersLocked, yamReminderStatus, type YamReminderStatus } from '@/features/v2-calendar/tier-lock'
 import type { YamSlot } from '@/features/v2-calendar/types'
 
@@ -54,11 +55,16 @@ describe('#316 · ปุ่มเพิ่มปฏิทินรายยา�
     expect(screen.queryAllByTestId(/^yam-add-y/)).toHaveLength(0)
   })
 
-  it('locked → กดแล้วได้คำตอบว่าเป็นของสมาชิก ❌ ไม่ใช่เงียบ', () => {
+  // #359 — คำตอบเปลี่ยนจาก toast "เร็วๆ นี้" เป็นลิงก์ไปหน้าแพ็กเกจ (ปลายทางมีแล้ว)
+  // 🔴 หลักของ #316 ที่ห้ามหาย: ปุ่มยัง **กดได้และยังตอบ** ❌ ไม่ใช่ disabled ที่กดแล้วเงียบ
+  it('locked → เป็นลิงก์ไปหน้าแพ็กเกจ ❌ ไม่ใช่ปุ่มที่เงียบ', () => {
     mount(true)
-    fireEvent.click(screen.getByTestId('yam-add-locked-y1'))
-    // assert ข้อความที่ผู้ใช้อ่านจริง ไม่ใช่แค่ว่ามี element โผล่มา
-    expect(screen.getByTestId('coming-soon-toast').textContent).toBe(YAM_LOCKED_MESSAGE)
+    const el = screen.getByTestId('yam-add-locked-y1')
+    // assert ปลายทางจริงที่ผู้ใช้จะไปถึง ไม่ใช่แค่ว่ามี element โผล่มา
+    expect(el.tagName).toBe('A')
+    expect(el.getAttribute('href')).toBe(SHOP_HREF)
+    // และมันต้องไม่ใช่ของที่ถูกปิดไว้ — disabled/aria-disabled = กลับไปเป็นปุ่มที่เงียบ
+    expect(el.getAttribute('aria-disabled')).toBeNull()
   })
 
   it('NEGATIVE CONTROL · ไม่ locked → onAdd ถูกเรียก 1 ครั้ง ด้วย yam เดิม', () => {

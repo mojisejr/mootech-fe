@@ -16,7 +16,6 @@ import {
   DAY_CTA_EXPIRED_LABEL,
   DAY_CTA_OPEN_LABEL,
   DAY_CTA_LOCKED_LABEL,
-  DAY_CTA_LOCKED_MESSAGE,
 } from '@/features/v2-calendar/tier-lock'
 import { isYamPast } from '@/lib/v2/reminder-time'
 import { addedYamIdsForDate, useReminders } from '@/features/v2-calendar/hooks/useReminders'
@@ -83,7 +82,7 @@ describe('#341 · dayReminderCta — ปุ่มแถบล่าง 7 สถ�
     date: DATE,
     now: NOW,
   }
-  const spies = () => ({ openSheet: vi.fn(), say: vi.fn(), goToList: vi.fn() })
+  const spies = () => ({ openSheet: vi.fn(), goToShop: vi.fn(), goToList: vi.fn() })
   const cta = (o: Partial<typeof base>, s = spies()) => ({
     p: dayReminderCta({ ...base, ...o, ...s }),
     ...s,
@@ -145,14 +144,16 @@ describe('#341 · dayReminderCta — ปุ่มแถบล่าง 7 สถ�
     expect(openSheet).not.toHaveBeenCalled()
   })
 
-  it('7 · free (false) → locked · ชนะทุกอย่าง · กดแล้วพูดว่าเป็นของสมาชิก', () => {
-    const { p, openSheet, say } = cta({ isPaid: false, yams: [FUTURE_A] })
+  // #359 — คำตอบของสถานะล็อกเปลี่ยนจาก "พูดว่าเร็วๆ นี้" เป็น "พาไปหน้าแพ็กเกจ" เพราะปลายทางมีแล้ว
+  // 🔴 สิ่งที่ห้ามเปลี่ยนคือครึ่งแรก: ล็อกแล้ว **ไม่มีเส้นทางถึง openSheet** — นั่นคือด่านของ #326
+  it('7 · free (false) → locked · ชนะทุกอย่าง · กดแล้วพาไปหน้าแพ็กเกจ ❌ ไม่เปิดชีท', () => {
+    const { p, openSheet, goToShop } = cta({ isPaid: false, yams: [FUTURE_A] })
     expect(p.kind).toBe('locked')
     expect(p.locked).toBe(true)
     expect(p.label).toBe(DAY_CTA_LOCKED_LABEL)
     p.press()
     expect(openSheet).not.toHaveBeenCalled()
-    expect(say).toHaveBeenCalledWith(DAY_CTA_LOCKED_MESSAGE)
+    expect(goToShop).toHaveBeenCalledTimes(1)
   })
 
   it('7 fail-closed · null (ยังไม่รู้ tier) → locked ❌ ไม่ใช่ปลดล็อก', () => {
@@ -162,7 +163,7 @@ describe('#341 · dayReminderCta — ปุ่มแถบล่าง 7 สถ�
   })
 
   it('🔑 precedence · locked ชนะ saving+justSaved+aggregate', () => {
-    const { p, openSheet } = cta({
+    const { p, openSheet, goToShop } = cta({
       isPaid: null,
       saving: true,
       justSaved: true,
@@ -172,6 +173,7 @@ describe('#341 · dayReminderCta — ปุ่มแถบล่าง 7 สถ�
     expect(p.kind).toBe('locked')
     p.press()
     expect(openSheet).not.toHaveBeenCalled()
+    expect(goToShop).toHaveBeenCalledTimes(1)
   })
 
   it('🔑 precedence · saving ชนะ justSaved และ aggregate (เลยเวลาหมด)', () => {

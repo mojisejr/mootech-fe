@@ -18,7 +18,6 @@ import { render, screen, cleanup, fireEvent, waitFor, act } from '@testing-libra
 import {
   dayReminderCta,
   DAY_CTA_LOCKED_LABEL,
-  DAY_CTA_LOCKED_MESSAGE,
   DAY_CTA_OPEN_LABEL,
   DAY_CTA_ADD_MORE_LABEL,
   DAY_CTA_VIEW_LIST_LABEL,
@@ -26,6 +25,7 @@ import {
   DAY_CTA_JUST_SAVED_LABEL,
 } from '@/features/v2-calendar/tier-lock'
 import type { YamSlot } from '@/features/v2-calendar/types'
+import { SHOP_HREF } from '@/features/v2-shop/upgrade-cta'
 
 // #343 — ฟันนี้ย้ายบ้านจาก `dayDetailCta` (ถูกลบ) มาที่ `dayReminderCta` ❌ ไม่ได้ถูกลบทิ้ง
 // สิ่งที่ **ต้องไม่หาย** ตอนย้าย: เคส locked (free/null ⇒ ไม่มีเส้นทางถึง openSheet) และ **ชั้น ②
@@ -40,7 +40,7 @@ const YAMS = [yam('y1', '09:00-10:59'), yam('y2', '19:00-20:59')]
 describe('#326 ① ตัวตัดสิน — dayReminderCta', () => {
   const plan = (isPaid: boolean | null, over: Partial<Parameters<typeof dayReminderCta>[0]> = {}) => {
     const openSheet = vi.fn()
-    const say = vi.fn()
+    const goToShop = vi.fn()
     const goToList = vi.fn()
     const p = dayReminderCta({
       isPaid,
@@ -51,37 +51,38 @@ describe('#326 ① ตัวตัดสิน — dayReminderCta', () => {
       date: DATE,
       now: NOW,
       openSheet,
-      say,
+      goToShop,
       goToList,
       ...over,
     })
-    return { p, openSheet, say, goToList }
+    return { p, openSheet, goToShop, goToList }
   }
 
-  it('free (false) → กดแล้วไม่มีทางถึง openSheet · พูดว่าเป็นของสมาชิก', () => {
-    const { p, openSheet, say } = plan(false)
+  // #359 — ครึ่งที่ห้ามเปลี่ยน: ล็อกแล้วไม่มีเส้นทางถึง openSheet · ครึ่งที่เปลี่ยน: คำตอบคือหน้าแพ็กเกจ
+  it('free (false) → กดแล้วไม่มีทางถึง openSheet · พาไปหน้าแพ็กเกจ', () => {
+    const { p, openSheet, goToShop } = plan(false)
     expect(p.locked).toBe(true)
     expect(p.label).toBe(DAY_CTA_LOCKED_LABEL)
     p.press()
     expect(openSheet).not.toHaveBeenCalled()
-    expect(say).toHaveBeenCalledWith(DAY_CTA_LOCKED_MESSAGE)
+    expect(goToShop).toHaveBeenCalledTimes(1)
   })
 
   it('ยังไม่รู้ tier (null) → ล็อกเหมือน free (fail-closed) ❌ ไม่ใช่ปลดล็อก', () => {
-    const { p, openSheet, say } = plan(null)
+    const { p, openSheet, goToShop } = plan(null)
     expect(p.locked).toBe(true)
     p.press()
     expect(openSheet).not.toHaveBeenCalled()
-    expect(say).toHaveBeenCalledTimes(1)
+    expect(goToShop).toHaveBeenCalledTimes(1)
   })
 
   it('NEGATIVE CONTROL · paid (true) → เปิดชีทเหมือนเดิม ไม่มี toast', () => {
-    const { p, openSheet, say } = plan(true)
+    const { p, openSheet, goToShop } = plan(true)
     expect(p.locked).toBe(false)
     expect(p.label).toBe(DAY_CTA_OPEN_LABEL)
     p.press()
     expect(openSheet).toHaveBeenCalledTimes(1)
-    expect(say).not.toHaveBeenCalled()
+    expect(goToShop).not.toHaveBeenCalled()
   })
 
   it('NEGATIVE CONTROL · paid + เพิ่มไปแล้วบางยาม → "เพิ่มยาม" ❌ ไม่ใช่ป้ายที่บอกว่าเสร็จแล้ว', () => {
@@ -128,7 +129,10 @@ describe('#326 ① ตัวตัดสิน — dayReminderCta', () => {
 // ───────────────────────── ชั้น ② ผู้เรียก ─────────────────────────
 vi.mock('next/config', () => ({ default: () => ({ publicRuntimeConfig: {}, serverRuntimeConfig: {} }) }))
 // วันที่ในอนาคตพอที่ยามจะ "ยังไม่เลยเวลา" เสมอ ไม่ว่าจะรันวันไหน ❌ ไม่พึ่งนาฬิกาผนัง
-vi.mock('next/router', () => ({ useRouter: () => ({ query: { date: '2099-01-01' }, isReady: true, push: vi.fn() }) }))
+// #359 — push ต้องเป็นสปายตัวเดียวที่ assert ได้ ❌ ไม่ใช่ vi.fn() ใหม่ทุกครั้งที่เรียก useRouter
+// (ของเดิมสร้างใหม่ทุกครั้ง ⇒ ไม่มีทางตรวจว่าปุ่มพาไปไหน — ด่านที่ไม่มีวันจับการนำทางผิด)
+const routerPush = vi.hoisted(() => vi.fn())
+vi.mock('next/router', () => ({ useRouter: () => ({ query: { date: '2099-01-01' }, isReady: true, push: routerPush }) }))
 
 const draftOpen = vi.fn()
 let tier: boolean | null = false
@@ -233,13 +237,15 @@ describe('#326 ② ผู้เรียก — หน้ารายละเ�
     render(<Page teamPreview={false} />)
   }
 
-  it('free → ปุ่มแถบล่างบอกว่าเป็นของสมาชิก และกดแล้ว draft.open ไม่ถูกเรียกเลย', async () => {
+  it('free → ปุ่มแถบล่างพาไปหน้าแพ็กเกจ และกดแล้ว draft.open ไม่ถูกเรียกเลย', async () => {
     tier = false
+    routerPush.mockClear()
     await mountPage()
     const cta = screen.getByRole('button', { name: new RegExp(DAY_CTA_LOCKED_LABEL) })
     fireEvent.click(cta)
     expect(draftOpen).not.toHaveBeenCalled()
-    expect(screen.getByTestId('coming-soon-toast').textContent).toBe(DAY_CTA_LOCKED_MESSAGE)
+    // ยืนยันปลายทางจริง ไม่ใช่แค่ "มีการนำทางเกิดขึ้น" — ปลายทางผิดคือบั๊กที่เงียบที่สุดของงานนี้
+    expect(routerPush).toHaveBeenCalledWith(SHOP_HREF)
   })
 
   it('NEGATIVE CONTROL · paid → กดแล้ว draft.open ถูกเรียก 1 ครั้ง', async () => {

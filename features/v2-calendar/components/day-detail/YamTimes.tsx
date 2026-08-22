@@ -22,7 +22,8 @@
 import { Lock } from 'lucide-react'
 import type { YamSlot } from '../../types'
 import type { YamReminderStatus } from '../../tier-lock'
-import { ComingSoonAction } from '@/features/v2-shell/components/ComingSoon'
+import Link from 'next/link'
+import { SHOP_HREF, UPGRADE_TO_MEMBER_LABEL } from '@/features/v2-shop/upgrade-cta'
 import { SectionCard } from './SectionCard'
 
 /** ปุ่มปกติ — sapphire ทึบ = กดแล้วเกิดผลจริง */
@@ -57,7 +58,8 @@ const PILL_LOCKED = `${PILL} bg-v3-disabled-bg text-v3-text-body`
 const PILL_ADDED = `${PILL} bg-v3-sapphire/10 text-v3-sapphire`
 const PILL_PAST = `${PILL} bg-v3-disabled-bg text-v3-text-body`
 
-export const YAM_LOCKED_MESSAGE = 'การตั้งเตือนเป็นของสมาชิก · ระบบสมาชิกกำลังจะมา เร็วๆ นี้'
+// #359 — `YAM_LOCKED_MESSAGE` ถูกลบ: ปุ่มล็อกพาไป /v2/shop แล้ว ไม่มีข้อความให้ประกาศอีก
+// (มันเคยเป็นสตริงเดียวกันเป๊ะกับ `DAY_CTA_LOCKED_MESSAGE` ใน tier-lock.ts — สำเนาที่ต้องซิงก์ด้วยมือ)
 
 // #343 — ป้ายของ 4 สถานะ export ไว้เพื่อให้ฟันอ้างค่าเดียวกับที่จอวาด ❌ ไม่ใช่พิมพ์สตริงซ้ำในเทสต์
 // (เทสต์ที่พิมพ์สตริงเองจะเขียวต่อไปแม้ป้ายบนจอเปลี่ยน — ฟันที่อ่านค่าที่ตัวเองเขียน)
@@ -99,15 +101,17 @@ export function YamTimes({
             {locked ? (
               // ❌ ไม่ใช่ `disabled` — React กรองคลิกบน element ที่ disabled ทิ้งที่ชั้น fiber ⇒ ตัวกันใน handler
               // จะทดสอบจาก DOM ไม่ได้เลย และผู้ใช้จะกดแล้วเงียบเหมือนเดิม · ปุ่มต้อง "กดได้และตอบ"
-              <ComingSoonAction
-                testId={`yam-add-locked-${yam.id}`}
-                label={`ตั้งเตือน ${yam.window} — เฉพาะสมาชิก`}
-                message={YAM_LOCKED_MESSAGE}
+              // #359 — ปลายทางมีแล้ว: กดแล้วไปหน้าแพ็กเกจ ❌ ไม่ประกาศเฉยๆ อีกต่อไป
+              // หลักของ #316 ยังอยู่ครบทุกข้อ เปลี่ยนแค่ว่า "ตอบ" คืออะไร: จาก "เร็วๆ นี้" เป็นที่ที่ซื้อได้จริง
+              <Link
+                href={SHOP_HREF}
+                data-testid={`yam-add-locked-${yam.id}`}
+                aria-label={`ตั้งเตือน ${yam.window} — เฉพาะสมาชิก · ${UPGRADE_TO_MEMBER_LABEL}`}
                 className={`${PILL_LOCKED} inline-flex items-center gap-1`}
               >
                 <Lock aria-hidden className="h-3.5 w-3.5" strokeWidth={2.5} />
                 เพิ่มปฏิทิน
-              </ComingSoonAction>
+              </Link>
             ) : statusFor(yam) === 'added' ? (
               <button
                 type="button"
