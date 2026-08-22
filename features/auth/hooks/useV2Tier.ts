@@ -48,7 +48,7 @@ export function useV2Tier(teamPreview = false): V2Tier {
   // Pre-mount stays `null` (SSR-safe): the override is read only AFTER mount, so a `?tier=` param can never
   // change the server/first-client render — no hydration mismatch, and the "null must stay null" line below
   // is never reached before we even have a determined tier.
-  if (!mounted) return { isPaid: null, loading: true }
+  if (!mounted) return { isPaid: null, tier: null, loading: true }
   const base = computeTier({ status, userId, done, errored, user })
 
   // Team-preview URL override (issue #225, was #213): view a page as free/paid from `?tier=`. Gated by the
@@ -61,7 +61,12 @@ export function useV2Tier(teamPreview = false): V2Tier {
     const override = resolveTierOverride(router.query.tier)
     // no/junk param → leave base untouched. 🔴 And never manufacture certainty: a null (loading/error) tier
     // stays null — the override only flips a KNOWN true/false, the very thing a previewer wants to swap.
-    if (override !== null && base.isPaid !== null) return { ...base, isPaid: override }
+    // #383 — the NAME must not contradict the previewed flag: forcing "free" drops the tier name (a free
+    // view has no level), forcing "paid" keeps whatever the real row says (which may be null = a legacy
+    // member, itself a state the preview should be able to show).
+    if (override !== null && base.isPaid !== null) {
+      return { ...base, isPaid: override, tier: override ? base.tier : null }
+    }
   }
   return base
 }

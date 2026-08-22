@@ -12,7 +12,12 @@
 // (`"true"`, `1`, `{}`) can never silently unlock paid content. #v2-tier-paid-rule
 import type { AuthStatus } from '@/lib/auth/resolve-auth'
 
-export type TierSource = { payment?: { is_not_expired?: boolean | null } | null } | null
+export type TierSource = {
+  payment?: { is_not_expired?: boolean | null } | null
+  // #383 — the v2 membership composite from /api/user. Carries the NAME only; the paid verdict above is
+  // untouched by it (see the precedence note in lib/home/profile.ts for why the legacy flag wins).
+  membership?: { tier?: string | null } | null
+} | null
 
 export function isPaidMember(source: TierSource): boolean {
   return source?.payment?.is_not_expired === true
@@ -21,6 +26,9 @@ export function isPaidMember(source: TierSource): boolean {
 export type V2Tier = {
   /** true = paid · false = KNOWN not-paid (free/anon) · null = NOT yet determined (loading/error) — do not gate. */
   isPaid: boolean | null
+  /** #383 — WHICH level, when it is knowable. null means EITHER not-determined OR paid-with-no-name (a
+   *  legacy member); `isPaid` tells those apart. A screen must never read null as FREE. */
+  tier: TierCode | null
   loading: boolean
 }
 
@@ -39,19 +47,24 @@ export function computeTier(args: {
   errored: boolean // the fetch threw / returned an error shape / carried no user_id
   user: TierSource // the resolved user row (null if none / errored)
 }): V2Tier {
+  // #383 — `tier` follows isPaid's determinism EXACTLY: every branch that answers "not determined" for the
+  // boolean answers null for the name too, and the anon branch (KNOWN not-paid) has no NAME to report
+  // either — a free visitor is not "tier FREE", they have no subscription at all. Never guess FREE.
+  //
   // Truly anonymous (no session AND no valid MEMBER_ID) → KNOWN not a paid member. Safe to gate as free.
-  if (args.status === 'anon') return { isPaid: false, loading: false }
+  if (args.status === 'anon') return { isPaid: false, tier: null, loading: false }
   // Identity limbo (authed session but MEMBER_ID not resolved yet) → we do NOT know who this is, and they
   // MAY be a paying member. Guessing "free" here shows a paid user the upsell and gates content they paid
   // for (#246 symptom #5). Unknown = null; the gate must not commit either branch. NOT the same as anon.
-  if (args.status === 'loading') return { isPaid: null, loading: true }
+  if (args.status === 'loading') return { isPaid: null, tier: null, loading: true }
   // status === 'authed' below: a valid MEMBER_ID uuid is present.
   // Fetch still in flight → not determined. Do NOT flash free content.
-  if (!args.done) return { isPaid: null, loading: true }
+  if (!args.done) return { isPaid: null, tier: null, loading: true }
   // Settled but could not determine (error / no user_id) → unknown. Do NOT guess in either direction.
-  if (args.errored || !args.user) return { isPaid: null, loading: false }
+  if (args.errored || !args.user) return { isPaid: null, tier: null, loading: false }
   // Determined.
-  return { isPaid: isPaidMember(args.user), loading: false }
+  const isPaid = isPaidMember(args.user)
+  return { isPaid, tier: resolveDisplayTier(isPaid, args.user?.membership?.tier ?? null), loading: false }
 }
 
 // ── v2 tier LEVELS (mootech-fe#354) ──────────────────────────────────────────────────────────────
@@ -66,6 +79,32 @@ export type TierCode = (typeof TIER_CODES)[number]
 // at write time; this is the read-side net for anything that ever slips past it.
 export function parseTierCode(raw: string | null | undefined): TierCode | null {
   return (TIER_CODES as readonly string[]).includes(raw as string) ? (raw as TierCode) : null
+}
+
+/**
+ * #383 — the NAME a screen may DISPLAY, reconciled against the paid verdict, so the pair handed to the UI
+ * can never contradict itself. μุน asked directly whether `isPaid: true` + `tier: 'FREE'` can reach the
+ * badge; this function is the answer being enforced rather than promised.
+ *
+ * 🔴 THE CONTRACT (safe to write teeth against):
+ *     isPaid === true   ⇒ tier ∈ { 'PLUS', 'PRO', null }     (null = paid, name unknown → "สมาชิก")
+ *     isPaid === false  ⇒ tier ∈ { 'FREE', null }
+ *     isPaid === null   ⇒ tier === null                       (not determined — render neither branch)
+ *
+ * WHY collapse instead of passing the raw name through: the paid verdict and the name come from two
+ * stores, and the precedence (lib/home/profile.ts) already says the paid verdict wins. A name that
+ * disagrees with the winner is not a fact the screen can act on — it is evidence of a bad row — so it
+ * degrades to "no name" (which every screen must already handle for legacy members) instead of becoming a
+ * FOURTH thing the UI has to decide about. Today no writer can produce the contradiction: the only insert
+ * is settleV2Payment, and quotePackage (lib/payment/catalog.ts:79) refuses a FREE/unknown tier before any
+ * charge — so this is the read-side net, exactly like parseTierCode is for the DB CHECK.
+ */
+export function resolveDisplayTier(isPaid: boolean | null, raw: string | null | undefined): TierCode | null {
+  if (isPaid === null) return null // not determined ⇒ no name, ever
+  const tier = parseTierCode(raw)
+  if (tier === null) return null
+  // A named tier is displayable ONLY while it agrees with the paid verdict.
+  return tierIsPaid(tier) === isPaid ? tier : null
 }
 
 // Derive the paid flag from a tier NAME, preserving the seam's rule that unknown must not be guessed:

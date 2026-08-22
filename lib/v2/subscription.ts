@@ -81,6 +81,45 @@ export function resolveTierFromSources(args: {
   return { isPaid: false, tier: null, source: args.legacy.reason === 'EXPIRED' ? 'legacy' : 'none' }
 }
 
+// The raw member_subscription row as it comes back from drizzle — structural, so the mapping below stays
+// callable from anywhere holding those rows (the /api/user composite fetches them itself, #383).
+type SubscriptionRowLike = {
+  id: string
+  tierCode: string
+  status: string
+  expireAt: unknown
+  createdAt: unknown
+}
+
+// PURE row mapping. The date slicing IS part of the rule (expire_at is compared as 'YYYY-MM-DD' and
+// created_at as an ISO string), so it lives here in ONE copy rather than being re-typed by each caller.
+export function toSubRows(rows: SubscriptionRowLike[]): SubRow[] {
+  return rows.map((r) => ({
+    id: r.id,
+    tierCode: r.tierCode,
+    status: r.status,
+    expireAt: String(r.expireAt).slice(0, 10),
+    createdAt: r.createdAt instanceof Date ? r.createdAt.toISOString() : String(r.createdAt),
+  }))
+}
+
+// PURE: this user's v2 rows + today + the legacy verdict → the ONE membership answer. Extracted (#383) so
+// the two callers cannot drift: resolveSubscription below (which reads member_payment lazily) and the
+// /api/user composite (which ALREADY holds the member_payment row and must not read it a second time —
+// that route's latency is load-bearing for every v1 page). Same "one copy of the rule" reason the filter
+// was moved out of SQL in the first place (ตู๋ #369 B2).
+export function resolveMembershipFromRows(
+  rows: SubRow[],
+  today: string,
+  legacy: { isFree: boolean; reason: MembershipReason },
+): ResolvedMembership {
+  return resolveTierFromSources({ subRow: pickActiveSubscriptionRow(rows, today), legacy })
+}
+
+// A live v2 row wins outright, so in that branch the legacy verdict is never consulted — this placeholder
+// says "no legacy evidence" and is only ever passed when a subRow exists.
+const NO_LEGACY = { isFree: true, reason: 'NO_PLAN' as const }
+
 // The DB read: v2 store first. The SQL does ONLY the user narrowing (eq(userId)); the ENTIRE selection rule
 // — status, expiry-vs-today, and ordering — lives in the pure picker so it is ONE copy, exercised by the
 // main `npm test` lane, not split with a half in SQL that only a DB suite could watch (ตู๋ #369 B2; this is
@@ -97,16 +136,12 @@ export async function resolveSubscription(
     .select()
     .from(memberSubscription)
     .where(eq(memberSubscription.userId, userId))
-  const candidates: SubRow[] = rows.map((r) => ({
-    id: r.id,
-    tierCode: r.tierCode,
-    status: r.status,
-    expireAt: String(r.expireAt).slice(0, 10),
-    createdAt: r.createdAt instanceof Date ? r.createdAt.toISOString() : String(r.createdAt),
-  }))
-  const subRow = pickActiveSubscriptionRow(candidates, today)
-  if (subRow) return resolveTierFromSources({ subRow, legacy: { isFree: true, reason: 'NO_PLAN' } })
-
+  const candidates = toSubRows(rows)
+  // Skip the legacy read entirely when a live v2 row already decides it (unchanged behaviour — the second
+  // query is a cost, and its answer would be discarded).
+  if (pickActiveSubscriptionRow(candidates, today)) {
+    return resolveMembershipFromRows(candidates, today, NO_LEGACY)
+  }
   const m = await resolveMembership(userId, now)
-  return resolveTierFromSources({ subRow: null, legacy: { isFree: m.isFree, reason: m.reason } })
+  return resolveMembershipFromRows(candidates, today, { isFree: m.isFree, reason: m.reason })
 }

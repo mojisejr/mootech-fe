@@ -3,9 +3,15 @@
 //   { ...user, payment: { ...member_payment, total_friend, limit_friend,
 //                         limit_fortune, total_fortune, is_not_expired } }
 // Uses raw SELECT * so keys stay snake_case (parity with TypeORM output). 400 if not found.
+// #383 additionally attaches a `membership` composite ({ isPaid, tier, source }) so a v2 screen can show
+// WHICH package level a member holds, not just paid/free. It is a PURE ADDITION: every pre-existing key —
+// `payment.*` included — keeps its exact value and type, and no v1 consumer reads the new one.
 import type { NextApiRequest, NextApiResponse } from 'next'
-import { sql } from 'drizzle-orm'
+import { eq, sql } from 'drizzle-orm'
 import { db } from '@/lib/db'
+import { memberSubscription } from '@/lib/db/schema'
+import { bkkDateStr, classifyMembership } from '@/lib/usage-core'
+import { resolveMembershipFromRows, toSubRows, type ResolvedMembership } from '@/lib/v2/subscription'
 // Bangkok-correct expiry check. The previous local copy used `new Date()` +
 // `setHours()` in the SERVER's timezone — on Vercel (UTC) that flipped expiry at
 // UTC midnight, ~7h off Bangkok, so members near a Bangkok day-boundary saw the
@@ -17,6 +23,24 @@ import { isNotExpired, FREE_FRIEND_LIMIT } from '@/lib/usage-core'
 const FORTUNE_LIMIT_FREE = 1 // be: src/constants/fortune-limit.ts FORTUNE_LIMIT.FREE
 
 const rowsOf = (r: any): any[] => (Array.isArray(r) ? r : r?.rows ?? [])
+
+// #383 — the v2 rows for this user, fetched ALONGSIDE the existing lookups (never in series: this route's
+// header explains why sequential awaits here cost ~2s in prod).
+//
+// 🔴 It owns its own catch. Everything else in this handler is wrapped by ONE try that answers 500, so a
+// failure reading the v2 table would take down /api/user — the route every v1 page that takes real money
+// depends on — for a key none of them read. On failure the composite is `null` = NOT DETERMINED, which is
+// the same contract as computeTier's null: a caller must never read it as free.
+async function readSubRows(userId: string) {
+  try {
+    return toSubRows(
+      await db.select().from(memberSubscription).where(eq(memberSubscription.userId, userId)),
+    )
+  } catch (e: any) {
+    console.error(`[api/user] v2 membership lookup failed — returning membership: null (not "free"):`, e?.message ?? e)
+    return null
+  }
+}
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== 'GET') return res.status(405).json({ error: 'Method not allowed' })
@@ -34,15 +58,36 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     // awaiting in series. postgres.js pipelines them over the pool so we pay ~1 round-trip
     // instead of 3 (the old sequential awaits stacked ~2s of latency in prod). Same queries
     // and same results as before — only the await became parallel. (#mootech-latency-user-fold)
-    const [memberPaymentRows, totalFriendRows, totalFortuneRows] = await Promise.all([
+    const [memberPaymentRows, totalFriendRows, totalFortuneRows, subRows] = await Promise.all([
       db.execute(sql`SELECT * FROM member_payment WHERE user_id = ${userId} LIMIT 1`),
       db.execute(sql`SELECT count(*)::int AS n FROM member_with_friend WHERE user_id = ${userId}`),
       db.execute(sql`SELECT count(*)::int AS n FROM fortune_telling_log WHERE user_id = ${userId}`),
+      readSubRows(userId), // #383 — 4th query in the SAME parallel batch, so it costs no extra round trip
     ])
     const memberPayment = rowsOf(memberPaymentRows)[0] ?? null
     const totalFriend = Number(rowsOf(totalFriendRows)[0]?.n ?? 0)
     const totalFortune = Number(rowsOf(totalFortuneRows)[0]?.n ?? 0)
     const isFree = !memberPayment
+
+    // #383 — the named-tier verdict, from the ONE shared rule (lib/v2/subscription). The legacy half is
+    // classified from the member_payment row ALREADY fetched above, so this adds no second read of it.
+    // 🔴 memberPayment comes from a raw `SELECT *` → snake_case keys; classifyMembership takes the drizzle
+    // (camelCase) shape. Handing it the raw row would silently classify EVERY legacy member as NO_PLAN —
+    // i.e. every paying member of today would read `isPaid: false`. Hence the explicit mapping.
+    const now = new Date()
+    const membership: ResolvedMembership | null =
+      subRows === null
+        ? null
+        : resolveMembershipFromRows(
+            subRows,
+            bkkDateStr(now),
+            classifyMembership(
+              memberPayment
+                ? { planCode: memberPayment.plan_code, expireAt: memberPayment.expire_at }
+                : null,
+              now,
+            ),
+          )
 
     return res.status(200).json({
       ...user,
@@ -57,6 +102,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         total_fortune: totalFortune,
         is_not_expired: isNotExpired(memberPayment ? memberPayment.expire_at : null),
       },
+      // #383 — NEW key, camelCase because it is a v2 composite (the snake_case above exists for TypeORM
+      // parity; nothing here needs that). `null` = NOT DETERMINED, never "free".
+      membership,
     })
   } catch (e: any) {
     return res.status(500).json({ error: e?.message ?? 'internal error' })

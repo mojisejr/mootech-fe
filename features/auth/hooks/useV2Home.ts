@@ -42,6 +42,9 @@ export type HomeUser = UserBirthRow & {
   result_code?: string
   picture_url?: string | null
   payment?: { is_not_expired?: boolean | null } | null
+  // #383 — the v2 membership composite from /api/user (named tier). Optional: absent on a pre-#383
+  // response, null when the server could not determine it. Neither may be read as "free".
+  membership?: { isPaid?: boolean | null; tier?: string | null; source?: string } | null
   // v2 first-run gate (#233): null on the settled row = user has never finished onboarding.
   onboarded_at?: string | null
 }
@@ -78,6 +81,14 @@ export function useV2Home(status: AuthStatus): V2Home {
   const [phase, setPhase] = useState<'resolving' | 'home' | 'redirecting'>('resolving')
   const [computeSource, setComputeSource] = useState<ComputeMascotSource | null>(null)
   const [user, setUser] = useState<HomeUser | null>(null)
+  // #383 (μุน's DoD) — `user === null` alone CANNOT say why: still loading, or settled-with-an-error. Home
+  // collapsed both into "not paid" and showed a paying member the อัพเกรด badge whenever /api/user failed.
+  // Tracking the settle explicitly is what lets deriveHomeProfile answer "not determined" instead of
+  // guessing. Same vocabulary as useV2User: done = settled (success OR error), errored = settled, no row.
+  const [fetchState, setFetchState] = useState<{ done: boolean; errored: boolean }>({
+    done: false,
+    errored: false,
+  })
   // P3 (DoD#1): a cached chart lets the MASCOT un-grey INSTANTLY on remount (tab-switch back to home),
   // before UserGetById returns — while `profile` (avatar + upgrade badge) still waits for the LIVE row
   // (money-bug boundary, DoD#3, enforced in deriveHomeLoading — mascotReady never touches `profile`).
@@ -86,6 +97,8 @@ export function useV2Home(status: AuthStatus): V2Home {
   useEffect(() => {
     if (status !== 'authed' || !userId) return
     let alive = true
+    // A new identity starts UNDETERMINED again — never carry the previous account's settle forward.
+    setFetchState({ done: false, errored: false })
     // Instant mascot from the in-memory chart cache (DoD#1): show the cached chart the moment we remount,
     // before the UserGetById round-trip. Freshness is validated below once the live row's resultCode is
     // known — a match keeps it (no refetch), a mismatch (dob edited → new result_code) refetches + overwrites.
@@ -109,10 +122,12 @@ export function useV2Home(status: AuthStatus): V2Home {
           setUser(null)
           setComputeSource(null)
           setMascotReady(false) // API error → drop any instant-cached mascot, fall back to 01.png (safe)
+          setFetchState({ done: true, errored: true }) // #383 — SETTLED but unusable ⇒ membership NOT determined
           setPhase('home') // can't determine chart (API error) → land HOME on fallback, don't strand, don't register
           return
         }
         setUser(u)
+        setFetchState({ done: true, errored: false }) // #383 — a real row landed ⇒ the profile is determined
         const { resultCode, isRefreshResult } = resolveReturningResult(u)
         if (!resultCode || isRefreshResult) {
           setPhase('redirecting')
@@ -160,6 +175,7 @@ export function useV2Home(status: AuthStatus): V2Home {
           setUser(null)
           setComputeSource(null)
           setMascotReady(false)
+          setFetchState({ done: true, errored: true }) // #383 — threw ⇒ settled, and we know nothing
           setPhase('home')
         }
       }
@@ -179,7 +195,7 @@ export function useV2Home(status: AuthStatus): V2Home {
     // user/compute → both false → safe fallbacks show, never stuck grey.
     loading: deriveHomeLoading(phase, user !== null, mascotReady),
     computeSource,
-    profile: deriveHomeProfile(user),
+    profile: deriveHomeProfile(user, fetchState),
     user,
   }
 }
