@@ -19,7 +19,14 @@ export type HomeProfile = {
    */
   showUpgrade: boolean
   /** true = KNOWN paid · false = KNOWN not paid · null = NOT DETERMINED (loading / error) — render neither
-   *  branch. Same three states, same meaning, as V2Tier.isPaid, so home and the other 4 screens agree. */
+   *  branch.
+   *  ⚠️ The three states are the same as V2Tier.isPaid, but the INPUTS are not identical, and the earlier
+   *  wording here ("same meaning") papered over one case (ตู๋ #387 🔎): computeTier takes the resolveAuth
+   *  verdict, so a true anon reads `false` (KNOWN not-paid); this function never sees `status`, so a
+   *  non-authed visitor reads `null` (not determined) instead. Home is unreachable while non-authed
+   *  (useV2Home returns `redirecting: status !== 'authed'`, and its fetch effect returns early), so the
+   *  case does not reach a screen — but a caller that ever renders this profile OUTSIDE home must not
+   *  assume `null` means "still loading". */
   isPaid: boolean | null
   /** The named v2 tier. null means EITHER not-determined OR paid-with-no-name (a legacy member whose row
    *  predates the catalog) — the two are told apart by `isPaid`: null vs true. Never guess FREE. */

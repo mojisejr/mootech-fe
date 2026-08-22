@@ -24,8 +24,16 @@ const FORTUNE_LIMIT_FREE = 1 // be: src/constants/fortune-limit.ts FORTUNE_LIMIT
 
 const rowsOf = (r: any): any[] => (Array.isArray(r) ? r : r?.rows ?? [])
 
-// #383 — the v2 rows for this user, fetched ALONGSIDE the existing lookups (never in series: this route's
-// header explains why sequential awaits here cost ~2s in prod).
+// #383 — the v2 rows for this user, issued in the SAME batch as the existing lookups.
+//
+// ⚠️ WHAT THAT BUYS, PRECISELY (ตู๋ T2 measured it; the first version of this comment overclaimed):
+// lib/db/index.ts opens the pool with `max: 1`, so all four queries share ONE connection and postgres
+// EXECUTES THEM IN ARRIVAL ORDER — they are not run in parallel. What the shared Promise.all does buy is
+// that all four commands are dispatched before the first await, so this adds NO extra network round trip
+// (the thing that made the old sequential awaits cost ~2s in prod — see this route's header). The added
+// cost is the 4th query's own execution time, which today is an indexed lookup on a table holding 0 rows,
+// and which grows with that table. Measured against origin/main on a fixture that sleeps 0.3s per table:
+// 318ms → 622ms, i.e. exactly one extra query's worth — the honest number, not zero.
 //
 // 🔴 It owns its own catch. Everything else in this handler is wrapped by ONE try that answers 500, so a
 // failure reading the v2 table would take down /api/user — the route every v1 page that takes real money
@@ -62,7 +70,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       db.execute(sql`SELECT * FROM member_payment WHERE user_id = ${userId} LIMIT 1`),
       db.execute(sql`SELECT count(*)::int AS n FROM member_with_friend WHERE user_id = ${userId}`),
       db.execute(sql`SELECT count(*)::int AS n FROM fortune_telling_log WHERE user_id = ${userId}`),
-      readSubRows(userId), // #383 — 4th query in the SAME parallel batch, so it costs no extra round trip
+      readSubRows(userId), // #383 — 4th query, dispatched in the same batch: no extra round trip (see above)
     ])
     const memberPayment = rowsOf(memberPaymentRows)[0] ?? null
     const totalFriend = Number(rowsOf(totalFriendRows)[0]?.n ?? 0)

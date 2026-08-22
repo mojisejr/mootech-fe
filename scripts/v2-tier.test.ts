@@ -213,4 +213,38 @@ describe('useV2Tier — override wired through the seam (gated by teamPreview, #
     const legacyPaid: UserState = { status: 'authed', userId: 'u1', done: true, errored: false, user: { payment: { is_not_expired: true } } }
     expect(renderTier({ tier: 'paid', teamPreview: true, user: legacyPaid }).tier).toBe(null)
   })
+
+  // 🔴 ตู๋ B1 (#387) — the hole in the FIRST version of this: it hand-wrote `override ? base.tier : null`,
+  // which only reasoned about the free direction. A user whose v2 row says FREE has base.tier === 'FREE'
+  // (a legal row — the 0006 CHECK allows it), so forcing "paid" produced { isPaid: true, tier: 'FREE' } —
+  // the one pair lib/v2/tier.ts declares unreachable, produced by the file that declares it.
+  // Mutant: put `tier: override ? base.tier : null` back → this goes RED.
+  it('🔴 team + ?tier=paid on a user whose v2 row says FREE → tier drops to null, NEVER "FREE"', () => {
+    const freeRow: UserState = { status: 'authed', userId: 'u1', done: true, errored: false, user: { payment: { is_not_expired: false }, membership: { tier: 'FREE' } } }
+    // base really is the contradictory-looking-but-legal pair, else this test proves nothing
+    expect(renderTier({ teamPreview: false, user: freeRow }).tier).toBe('FREE')
+    const r = renderTier({ tier: 'paid', teamPreview: true, user: freeRow })
+    expect(r.isPaid).toBe(true)
+    expect(r.tier).toBe(null)
+  })
+
+  // The contract as a sweep, not as one lucky case: no reachable combination of (real row × override) may
+  // leave the hook holding a pair that lib/v2/tier.ts says cannot exist.
+  it('🔴 contract sweep: the override can never emit isPaid=true with tier="FREE"', () => {
+    const rows = [
+      { payment: { is_not_expired: false }, membership: { tier: 'FREE' } },
+      { payment: { is_not_expired: true }, membership: { tier: 'PRO' } },
+      { payment: { is_not_expired: true }, membership: { tier: 'PLUS' } },
+      { payment: { is_not_expired: true } },
+      { payment: { is_not_expired: false } },
+    ]
+    for (const user of rows) {
+      for (const tier of ['paid', 'free', 'lol', undefined] as const) {
+        const r = renderTier({ tier, teamPreview: true, user: { status: 'authed', userId: 'u1', done: true, errored: false, user } })
+        if (r.isPaid === true) expect(['PLUS', 'PRO', null]).toContain(r.tier)
+        if (r.isPaid === false) expect(['FREE', null]).toContain(r.tier)
+        if (r.isPaid === null) expect(r.tier).toBe(null)
+      }
+    }
+  })
 })
