@@ -4,7 +4,7 @@
 import { quotePackage, UnsellablePackageError } from '@/lib/payment/catalog'
 import { getPackage } from '@/lib/payment/repo'
 import { codeApplies, quoteWithCode, type DiscountCodeSpec } from './rules'
-import { getCodeByString, toSpec, type DiscountCodeRow } from './repo'
+import { getCodeByString, findLegacyCode, toSpec, type DiscountCodeRow } from './repo'
 
 // #355 pinned VAT at 0 until app_setting exists (#362). Kept as one named constant so #362 has a single
 // place to swap — and so preview/charge quote the SAME rate today.
@@ -25,7 +25,7 @@ export type PriceResult =
       code: DiscountCodeRow | null
       codeSpec: DiscountCodeSpec | null
     }
-  | { ok: false; status: 400; error: string; codeError?: 'INVALID' | 'STATUS' | 'WINDOW' | 'NOT_APPLICABLE' | 'BELOW_MIN' }
+  | { ok: false; status: 400; error: string; codeError?: 'INVALID' | 'LEGACY_CODE' | 'STATUS' | 'WINDOW' | 'NOT_APPLICABLE' | 'BELOW_MIN' }
 
 // Price a package (+ optional code string) entirely server-side. A code that cannot be honoured REFUSES the
 // request with a reason — it never silently prices at full (an unknown value must not become a valid
@@ -64,7 +64,21 @@ export async function priceFor(packageCode: string, codeStr: string | null, now:
   }
 
   const row = await getCodeByString(codeStr)
-  if (!row) return { ok: false, status: 400, error: 'invalid code', codeError: 'INVALID' }
+  if (!row) {
+    // Not a discount code — but it may be a v1 payment_code (a free-package grant). Say so, because telling
+    // a real code-holder "invalid code" is wrong and is exactly what the DoD forbids. The v2 payment lane
+    // cannot redeem it (that path is v1's), so we refuse the CHARGE but with the honest reason.
+    const legacy = await findLegacyCode(codeStr)
+    if (legacy) {
+      return {
+        ok: false,
+        status: 400,
+        error: 'this code is a v1 package code — redeem it on the old membership flow, not as a discount',
+        codeError: 'LEGACY_CODE',
+      }
+    }
+    return { ok: false, status: 400, error: 'invalid code', codeError: 'INVALID' }
+  }
 
   const spec = toSpec(row)
   const applies = codeApplies(spec, packageCode, now)

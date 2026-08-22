@@ -24,6 +24,27 @@ export async function getCodeByString(codeStr: string, db: Db = defaultDb): Prom
   return row ?? null
 }
 
+// 🔴 The v1 code table still exists and 43 codes live in it (16 redemptions). Two things follow, both DoD:
+//   • a holder of a v1 code (e.g. INFLU_001) typing it into the new screen must NOT be told "invalid code" —
+//     it IS a real code, it just belongs to the other system (free-package grant, not a discount).
+//   • a NEW discount code must not take a name that already exists there, case-insensitively.
+// Both are one question — "does this string already name a code anywhere?" — asked case-insensitively,
+// because v1 had no unique index and 'Yijing'/'YIJING' already collided in its log.
+export async function findLegacyCode(codeStr: string, db: Db = defaultDb): Promise<{ code: string } | null> {
+  const rows = await db.execute(
+    sql`SELECT code FROM payment_code WHERE lower(code) = lower(${codeStr}) LIMIT 1`,
+  )
+  const row = rowsOf(rows)[0]
+  return row ? { code: String(row.code) } : null
+}
+
+// Guard for creating a discount code (the /ops screen is #362; the RULE lives here so both callers share
+// it). Taken = the name exists in the new table OR in v1's payment_code, ignoring case.
+export async function isCodeNameTaken(codeStr: string, db: Db = defaultDb): Promise<boolean> {
+  if (await getCodeByString(codeStr, db)) return true
+  return (await findLegacyCode(codeStr, db)) !== null
+}
+
 export function toSpec(row: DiscountCodeRow): DiscountCodeSpec {
   return {
     kind: row.kind as DiscountCodeSpec['kind'],
