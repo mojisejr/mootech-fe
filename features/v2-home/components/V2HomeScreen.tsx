@@ -164,8 +164,9 @@ function Greeting({ name, mascotCharacter, onAvatarTap, element, profile, member
     // width defeats it. The genuinely shared thing is the CLUSTER, which is what this uses.
     //
     // The pill also changes skin here: it was lime + navy + rounded-full, Figma (636:12792) is grade-yellow +
-    // cyan + r8 with a cyan glow. Same rule (`profile.showUpgrade` from goo — the UI still never computes the
-    // payment rule), correct pixels.
+    // cyan + r8 with a cyan glow. Correct pixels, and the UI still never computes the payment rule — but as
+    // of #384 the input is `membership` (composed by the PAGE from the user row) rather than the boolean
+    // `profile.showUpgrade`, because that boolean could not say "ไม่รู้" and so said "ยังไม่จ่าย" on error.
     <header data-testid="home-header" className="flex flex-col gap-1.5 py-4 font-ibm">
       <div className="flex items-center gap-2">
         <p className="min-w-0 flex-1 truncate text-sm font-medium leading-5 text-v3-text-muted">สวัสดีคุณ</p>
