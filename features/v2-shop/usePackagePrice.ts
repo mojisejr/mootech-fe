@@ -20,6 +20,13 @@ export type PriceState =
   | { kind: 'ready'; amountThb: number }
   /** The server answered 200 with `null` — the code has no row. A data gap, not our outage. */
   | { kind: 'missing' }
+  /**
+   * The row exists but `is_active = false` — switched off from /ops (#377), not broken and not missing.
+   * 🔴 This state MUST be distinct from `ready`: V2_PLUS_MONTHLY and V2_PRO_MONTHLY carry `amount = 0`
+   * today (lib/db/0009_package_tier.sql:99-100), so a screen that only looked at the amount would print
+   * "฿0 / เดือน" for something `quotePackage` refuses to sell at all (lib/payment/catalog.ts:74-76).
+   */
+  | { kind: 'offSale' }
   /** The request itself failed (network / 5xx). Ours to apologise for, not the user's fault. */
   | { kind: 'error' }
 
@@ -41,7 +48,7 @@ export function usePackagePrice(code: string | null): PriceState {
       .then(async (res) => {
         // A non-2xx is our failure, not a data gap: keep them apart so the card can too.
         if (!res.ok) throw new Error(`payment-package ${res.status}`)
-        return (await res.json()) as { amount?: number } | null
+        return (await res.json()) as { amount?: number; is_active?: boolean } | null
       })
       .then((row) => {
         if (!alive) return
@@ -49,6 +56,12 @@ export function usePackagePrice(code: string | null): PriceState {
         // The endpoint answers 200 + `null` for an unknown code — that is "missing", not "error".
         if (row === null || amount == null || !Number.isFinite(Number(amount))) {
           setState({ kind: 'missing' })
+          return
+        }
+        // Off-sale is checked BEFORE the amount is trusted, for the same reason the server checks it before
+        // pricing: a switched-off row's price is not a price, it is leftover data.
+        if (row.is_active === false) {
+          setState({ kind: 'offSale' })
           return
         }
         setState({ kind: 'ready', amountThb: Number(amount) })

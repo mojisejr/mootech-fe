@@ -22,12 +22,19 @@ const TAPPABLE = "button, a, input, [role=button]";
 async function openShop(page: Page) {
   await page.context().addCookies([{ name: "v2_access", value: V2_KEY, url: BASE }]);
   // The price row comes from a DB this harness does not have — mock the CONTRACT, not the screen.
+  // Mirrors lib/db/0009_package_tier.sql:97-100 exactly — including the two rows that ship SWITCHED OFF at
+  // amount 0. A mock that only returned the sellable rows would hide the bug this screen must not have:
+  // printing "฿0 / เดือน" for a package the server refuses to sell.
+  const ROWS: Record<string, { amount: number; expire: string; is_active: boolean }> = {
+    V2_PLUS_YEARLY: { amount: 790, expire: "1Y", is_active: true },
+    V2_PRO_YEARLY: { amount: 1590, expire: "1Y", is_active: true },
+    V2_PLUS_MONTHLY: { amount: 0, expire: "1M", is_active: false },
+    V2_PRO_MONTHLY: { amount: 0, expire: "1M", is_active: false },
+  };
   await page.context().route("**/api/payment-package**", (route) => {
-    const code = new URL(route.request().url()).searchParams.get("code");
-    const row =
-      code === "MONTHLY"
-        ? { package_code: "MONTHLY", amount: 790, expire: "1Y", buffer_day: 0 }
-        : null;
+    const code = new URL(route.request().url()).searchParams.get("code") ?? "";
+    const r = ROWS[code];
+    const row = r ? { package_code: code, buffer_day: 0, ...r } : null;
     route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(row) });
   });
   await page.goto(`${BASE}/v2/shop`, { waitUntil: "networkidle" });
@@ -140,13 +147,12 @@ test.describe("#359 /v2/shop", () => {
 
   test("กดการ์ดที่ขายได้ → ถึง checkout พร้อม package_code ที่ถูกตัว", async ({ page }) => {
     await openShop(page);
-    // The only sellable code today is MONTHLY (lib/payment/catalog.ts:35-43) ⇒ switch to รายเดือน.
-    await page.getByRole("radio", { name: /รายเดือน/ }).click();
+    // รายปี is the screen's default AND the pair that ships on sale (0009:97-98) ⇒ no toggling needed.
     await page.getByTestId("plan-cta-plus").click();
     // The checkout PAGE belongs to #363 and does not exist yet — assert the destination we send them to,
     // not that it renders. Recorded in the PR as an explicitly Pending lane.
-    await page.waitForURL(/\/v2\/shop\/checkout\?package_code=MONTHLY/);
-    expect(new URL(page.url()).searchParams.get("package_code")).toBe("MONTHLY");
+    await page.waitForURL(/\/v2\/shop\/checkout\?package_code=V2_PLUS_YEARLY/);
+    expect(new URL(page.url()).searchParams.get("package_code")).toBe("V2_PLUS_YEARLY");
   });
 
   test("ปุ่มของแพ็กฟรีไม่พาไปหน้าจ่ายเงิน", async ({ page }) => {

@@ -5,11 +5,21 @@
 // time (`pages/api/payment-package.ts:12-14` — WHERE package_code = $code LIMIT 1); there is no list
 // endpoint, so the screen must know which codes to ask for. Codes are identity, not price.
 //
-// 🔴 A plan with no sellable code is NOT hidden and NOT silently broken — it renders with
-// `sellable: false` and the card refuses to send the user to checkout (see PackageCard). Reason:
-// `lib/payment/catalog.ts:35-43` maps every code that exists today to 'PLUS'; nothing maps to 'PRO', and
-// `catalog.ts:79-82` throws UnsellablePackageError for an unmapped code. Wiring the Pro card to checkout
-// today would charge the user's tap into a guaranteed error. Blocked on mootech-fe#359 (B2, ฟีม's call).
+// 🔴 A plan with no sellable code is NOT hidden and NOT silently broken — it renders, it says why, and the
+// card refuses to send the user to checkout (see PackageCard). `quotePackage` refuses a package that is
+// `is_active = false` BEFORE pricing it (lib/payment/catalog.ts:74-76) and refuses one whose tier is not a
+// paid tier (`:78-81`) — both throw UnsellablePackageError, i.e. a failure at the till, after the user
+// believed they were buying. The screen must not lead anyone there.
+//
+// 📌 UPDATED after #377 merged (2026-08-22): tiers moved OUT of a hardcoded map and into
+// `payment_package.tier_code`, and four real v2 rows landed (lib/db/0009_package_tier.sql:94-104):
+//     V2_PLUS_YEARLY   ฿790   1Y  PLUS  is_active=true
+//     V2_PRO_YEARLY   ฿1590   1Y  PRO   is_active=true
+//     V2_PLUS_MONTHLY    ฿0   1M  PLUS  is_active=false
+//     V2_PRO_MONTHLY     ฿0   1M  PRO   is_active=false
+// ⇒ B2 is unblocked: the Pro card HAS a sellable code now, and the annual prices are the design's own
+//   ฿790 / ฿1,590. The monthly pair exists but is switched off and priced at 0 — the screen must read
+//   `is_active`, or it would advertise "฿0 / เดือน" for something nobody can buy.
 //
 // 🔴 Names: ฟีม decided 2026-08-21 — the SCREEN says `Mumate +` / `Mumate Pro` everywhere, including the
 // button. The Figma buttons say `PLUS` / `PRO`; we deliberately diverge (recorded in the PR's
@@ -39,9 +49,10 @@ export type Plan = {
   badge?: { label: string; tone: 'pumpkin' | 'error' }
 }
 
-// ⚠️ MONTHLY is the only code `lib/payment/catalog.ts` sells today. The annual/monthly split and the Pro
-// codes are marketing's call (#359 B3/B4). Adding them here is a one-line change per plan — the mapping
-// test (scripts/shop-package-mapping.test.ts) keeps its teeth either way.
+// The codes below must exist in payment_package with a paid tier — scripts/shop-package-mapping.test.ts
+// asserts that against the migration itself, so a typo here reddens `npm test` rather than reaching a user.
+// Whether a code is CURRENTLY on sale is a DB fact that changes from /ops without a deploy (#377) ⇒ the
+// screen reads it at runtime from /api/payment-package, never from this file.
 export const PLANS: readonly Plan[] = [
   {
     id: 'free',
@@ -65,7 +76,7 @@ export const PLANS: readonly Plan[] = [
       'เชี่ยวมู chat (ชินแซ 24 ชม): 5 คำถาม / วัน',
       'เซียมซี / Oracle Card: 10 ครั้ง / วัน',
     ],
-    codes: { monthly: 'MONTHLY', annual: null },
+    codes: { monthly: 'V2_PLUS_MONTHLY', annual: 'V2_PLUS_YEARLY' },
     badge: { label: 'คุ้มค่าที่สุด', tone: 'pumpkin' },
   },
   {
@@ -79,7 +90,7 @@ export const PLANS: readonly Plan[] = [
       'ปฏิทินดวงเฉพาะบุคคล ไม่จำกัด (Unlimited)',
       'เชี่ยวมู chat (ชินแซ 24 ชม): ไม่จำกัด (Unlimited)',
     ],
-    codes: { monthly: null, annual: null },
+    codes: { monthly: 'V2_PRO_MONTHLY', annual: 'V2_PRO_YEARLY' },
     badge: { label: 'แนะนำ 🔥', tone: 'error' },
   },
 ]

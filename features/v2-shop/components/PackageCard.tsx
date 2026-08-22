@@ -74,7 +74,11 @@ export function PackageCard({
 }) {
   const code = codeFor(plan, period)
   const price = usePackagePrice(plan.id === 'free' ? null : code)
-  const href = checkoutHrefFor(plan, period)
+  // 🔴 "Can this be bought?" is a RUNTIME fact after #377: a package_code exists in this file, but whether
+  // it is on sale lives in payment_package.is_active and is flipped from /ops without a deploy. So the link
+  // needs BOTH — a declared code AND a server row that is actually ready. Deciding from the code alone
+  // would send a tap into UnsellablePackageError('not on sale') at lib/payment/catalog.ts:74-76.
+  const href = price.kind === 'ready' ? checkoutHrefFor(plan, period) : null
   // Two spellings on purpose, both taken from the frame: the price block sets the unit off from the amount
   // ("฿790 / ปี"), the button runs them together ("฿790/ปี"). One shared string would be wrong in one of
   // the two places, and the rendered-text audit is what caught it (the button read "฿790/ เดือน").
@@ -125,8 +129,10 @@ export function PackageCard({
           // Our outage — say so. Do not let it read as "this plan costs nothing" or "you did something wrong".
           <p className="text-sm leading-5 text-v3-error">ตอนนี้เราดึงราคาไม่ได้ ลองใหม่อีกครั้งได้เลย</p>
         ) : (
-          // unsellable | missing — the plan is real, the price is not on sale yet.
-          <p className="text-sm leading-5 text-v3-text-body">ยังไม่เปิดขายแพ็กเกจนี้</p>
+          // unsellable | missing | offSale — the plan is real, this billing period is not for sale.
+          <p className="text-sm leading-5 text-v3-text-body">
+            {period === 'annual' ? 'ยังไม่เปิดขายแพ็กเกจนี้' : 'ยังไม่เปิดขายแบบรายเดือน'}
+          </p>
         )}
       </div>
 
@@ -149,7 +155,12 @@ export function PackageCard({
           </Link>
         ) : href !== null ? (
           <Link href={href} data-testid={`plan-cta-${plan.id}`} className="block rounded-full">
-            <Button variant="primary" size="full" tabIndex={-1}>
+            {/* 🔴 normal-case overrides Button's uppercase (button.tsx:131) for THIS label only.
+                ฟีมเคาะ 2026-08-21 ว่าปุ่มต้องเขียน `Mumate +` / `Mumate Pro` ❌ ไม่ใช่ `PLUS` / `PRO`
+                — แต่ปุ่ม primary บังคับ uppercase ⇒ พิกเซลออกมาเป็น `MUMATE +` ซึ่งย้อนกลับไปใกล้สิ่งที่
+                คำตัดสินนั้นสั่งไม่ให้ใช้ · textContent เขียว (มันเก็บ `Mumate +` ไว้ครบ) — จับได้จากภาพ
+                ที่ render จริงเท่านั้น ตระกูลเดียวกับ "ข้อความถูก แต่ตัดบรรทัดผิด" ของ #326 */}
+            <Button variant="primary" size="full" tabIndex={-1} className="normal-case">
               {`สมัครแพ็กเกจ ${plan.name} ${price.kind === 'ready' ? `${formatThb(price.amountThb)}${buttonSuffix}` : ''}`.trim()}
             </Button>
           </Link>
