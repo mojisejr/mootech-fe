@@ -50,19 +50,27 @@ HEAD_SHA="$(git rev-parse --verify --quiet HEAD)" \
 #    ⇒ เทียบพาธตรงๆ จะแดงเก๊ทุกครั้งที่รันใน worktree ซึ่งเป็นที่ที่ตู๋รีวิวทุกใบ
 #    ⇒ เกณฑ์คือ "git dir อยู่ใต้รีโปเดียวกับสคริปต์" ❌ ไม่ใช่ "เท่ากันเป๊ะ"
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-gdir_abs="$(git rev-parse --absolute-git-dir 2>/dev/null || echo '')"
-common="$(git rev-parse --path-format=absolute --git-common-dir 2>/dev/null || echo '')"
-[ -n "$common" ] || { echo "🔴 อ่าน git-common-dir ไม่ได้ ⇒ ตรวจไม่ได้"; exit 2; }
 
-# 🔑 เกณฑ์คือ "git dir กับสคริปต์ เป็นของ **รีโปเดียวกัน**" ❌ ไม่ใช่ "อยู่ในโฟลเดอร์เดียวกัน"
-#    รันจาก worktree เป็นเรื่องปกติ (ตู๋รีวิวทุกใบใน worktree) — common-dir จะเป็น <หลัก>/.git ส่วน here เป็นโฟลเดอร์ worktree
-#    ⇒ เทียบด้วย **remote origin URL** ซึ่งเหมือนกันทุก worktree ของรีโปเดียวกัน แต่ต่างทันทีเมื่อ GIT_DIR ชี้รีโปอื่น
-want="$(git -C "$here" --git-dir="$here/.git" remote get-url origin 2>/dev/null || \
-        git -C "$here" remote get-url origin 2>/dev/null || echo '')"
-have="$(git remote get-url origin 2>/dev/null || echo '')"
-if [ -z "$have" ] || [ "$want" != "$have" ]; then
-  echo "🔴 git ชี้ไปรีโปอื่น — origin ที่อ่านได้: '${have:-<ว่าง>}' · ของสคริปต์: '${want:-<ว่าง>}'"
-  echo "   (git dir: '$gdir_abs') ⇒ GIT_DIR ถูกตั้งไว้? กำลังจะอ่าน ref ของรีโปอื่น ⇒ ตรวจไม่ได้"
+# 🔴 ด่าน GIT_DIR — เขียนใหม่ 3 รอบ เพราะสองรอบแรกมองไม่เห็นสิ่งที่มันตั้งใจจับ (ตู๋ #381)
+#
+#  รอบ 1  เทียบ `--show-toplevel` กับที่ตั้งสคริปต์
+#         ❌ เมื่อมี GIT_DIR แต่ไม่มี GIT_WORK_TREE `--show-toplevel` ยังตอบตาม cwd
+#            ⇒ ทั้งสองข้างเคลื่อนตาม cwd ทั้งคู่ ⇒ ผ่านเสมอ ขณะที่การอ่าน ref ไปตาม GIT_DIR
+#  รอบ 2  เทียบ remote origin URL ("รีโปเดียวกันไหม")
+#         ✅ ปิดกับดัก worktree ได้ (รันจาก worktree ไม่แดงเก๊)
+#         ❌ แต่ origin เหมือนกันทุก checkout ของรีโปเดียวกัน
+#            ⇒ GIT_DIR ที่ชี้ **โคลนหลักของรีโปเดียวกัน** รอด — และนั่นคือรูปร่างจริงของ mootech-fe#337
+#            ยิงพิสูจน์: รันใน worktree + GIT_DIR=<โคลนหลัก>/.git → สแกน HEAD ของโคลนหลัก แล้วคืน 0
+#  รอบ 3  (ที่ใช้อยู่) เทียบ git dir ที่ env ปัจจุบันให้ กับ git dir ที่ได้เมื่อ **ถอด GIT_* ออก**
+#         ⇒ ต่างกันเมื่อไหร่ = มีอะไรใน env กำลังพา git ไปอ่านที่อื่น ไม่ว่ารีโปเดียวกันหรือคนละรีโป
+gd_env="$(git rev-parse --absolute-git-dir 2>/dev/null || echo '')"
+gd_clean="$(env -u GIT_DIR -u GIT_WORK_TREE -u GIT_INDEX_FILE -u GIT_COMMON_DIR -u GIT_OBJECT_DIRECTORY             git -C "$here" rev-parse --absolute-git-dir 2>/dev/null || echo '')"
+[ -n "$gd_clean" ] || { echo "🔴 อ่าน git dir ของ '$here' ไม่ได้ ⇒ ตรวจไม่ได้"; exit 2; }
+if [ "$gd_env" != "$gd_clean" ]; then
+  echo "🔴 env กำลังพา git ไปอ่านที่อื่น (GIT_DIR / GIT_WORK_TREE ถูกตั้งไว้?)"
+  echo "   env ให้    : '${gd_env:-<ว่าง>}'"
+  echo "   ที่ควรเป็น  : '$gd_clean'"
+  echo "   ⇒ กิ่งที่จะสแกนไม่ใช่กิ่งที่คุณอยู่ ⇒ ตรวจไม่ได้ (mootech-fe#337)"
   exit 2
 fi
 
@@ -74,13 +82,24 @@ n="$(git rev-list --count "${BASE}..${HEAD_SHA}")" \
 #    เคส GIT_DIR คือหลักฐาน: control 1 เขียว แต่สแกน 0 commit (ตู๋ #381 T1)
 # ⚠️ ห้ามสแกนโฟลเดอร์รีโปจริงด้วย --no-git เพื่อทดสอบ — มันไล่ node_modules จนค้าง (บองตกหลุมนี้ตอนแก้ T1)
 #    ใช้รีโป git ชั่วคราวที่มี canary 1 commit แทน ⇒ ทดสอบ --log-opts ตรงโหมด และเร็ว
-gdir="$(mktemp -d)"; trap 'rm -rf "$cdir" "$gdir"' EXIT
+gdir="$(mktemp -d)"
+# 🔴 ทุกขั้นต้องล้มดัง — ห้ามให้ `cd` พลาดแล้วไหลไปทำงานในรีโปจริง
+#    บองตกหลุมนี้ตอนตั้ง: `( cd "$gdir" && … ) >/dev/null 2>&1 || …` กลืน error ของ cd
+#    ⇒ git init/commit ไปลงรีโป mootech-fe จริง สร้าง commit "base" กับ "canary" บนกิ่งที่กำลังทำงาน
+#    ⇒ แล้วการสแกนรอบถัดไปเจอ canary ของตัวเอง แล้วรายงานว่า "พบความลับ"
+#    จับได้เพราะอ่าน `Commit:` ในรายงานแล้วมันไม่ใช่ commit ของเรา
+[ -d "$gdir" ] || { echo "🔴 สร้างโฟลเดอร์ทดสอบไม่ได้ ⇒ ตรวจไม่ได้"; exit 2; }
+trap 'rm -rf "$cdir" "$gdir"' EXIT
 (
-  cd "$gdir" && git init -q . &&
-  git -c user.email=c@x -c user.name=c commit -q --allow-empty -m base &&
-  printf 'GITHUB_TOKEN=%s\n' "$(_canary)" > c.env &&
-  git add c.env && git -c user.email=c@x -c user.name=c commit -q -m canary
-) >/dev/null 2>&1 || { echo "🔴 control 2 ตั้งรีโปทดสอบไม่ได้ ⇒ ตรวจไม่ได้"; exit 2; }
+  set -e
+  cd "$gdir"
+  [ "$(pwd -P)" = "$(cd "$gdir" && pwd -P)" ] || exit 9
+  git init -q .
+  git -c user.email=c@x -c user.name=c commit -q --allow-empty -m base
+  printf 'GITHUB_TOKEN=%s\n' "$(_canary)" > c.env
+  git add c.env
+  git -c user.email=c@x -c user.name=c commit -q -m canary
+) || { echo "🔴 control 2 ตั้งรีโปทดสอบไม่ได้ ⇒ ตรวจไม่ได้"; exit 2; }
 c2="$(cd "$gdir" && gitleaks detect --source . --redact -v --log-opts="HEAD~1..HEAD" 2>&1 || true)"
 printf '%s' "$c2" | grep -qiE "leaks found: [1-9]" \
   || { echo "🔴 control 2 ล้ม: canary ในโหมด git-range ไม่ถูกจับ ⇒ ผลสแกนเชื่อไม่ได้"; exit 2; }
