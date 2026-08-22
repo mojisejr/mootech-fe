@@ -122,6 +122,33 @@ describe.skipIf(!TEST_URL)('discount preview/charge contract · real pg (#361)',
     expect(out.body).toMatchObject({ quoteChanged: true })
   })
 
+
+  it('🔴 #372② — sending a code WITHOUT the quote it was previewed with is REFUSED', async () => {
+    const out = await invokeChargeRaw({ package_code: 'MONTHLY', token: 'tok', code: CODE_STR })
+    expect(out.status).toBe(400)
+    expect(out.body).toMatchObject({ codeError: 'QUOTE_REQUIRED' })
+  })
+
+  it('no code + no quote is still allowed (nothing can drift without a code today)', async () => {
+    const out = await invokeChargeRaw({ package_code: 'MONTHLY', token: 'tok' }, true)
+    expect(out.status).toBe(200) // the stub gateway is allowed to run in this one
+  })
+
+  // Drive runChargeFlow with an arbitrary body. allowGateway=false makes the gateway throw if reached.
+  async function invokeChargeRaw(body: Record<string, unknown>, allowGateway = false) {
+    const { runChargeFlow } = await import('@/lib/payment/charge-flow')
+    const out = { status: 0, body: undefined as unknown }
+    const res = {
+      status(c: number) { out.status = c; return res },
+      json(b: unknown) { out.body = b; return res },
+    }
+    await runChargeFlow({ method: 'POST', body } as never, res as never, 'card', async () => {
+      if (!allowGateway) throw new Error('the gateway must NEVER be called here')
+      return { chargeId: 'chrg_stub_' + Math.random().toString(36).slice(2) }
+    })
+    return out
+  }
+
   // Drive runChargeFlow with a stub gateway; the session is mocked at module level below.
   async function invokeCharge(
     run: typeof import('@/lib/payment/charge-flow').runChargeFlow,

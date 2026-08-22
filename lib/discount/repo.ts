@@ -93,6 +93,50 @@ export class Refuse extends Error {
 // The reserve steps, taking an EXISTING transaction — so the caller can put the v2_payment INSERT in the
 // SAME transaction (see lib/payment/repo.insertPendingReserved). Throws Refuse; the caller's txn rolls back
 // and used_count reverts itself.
+// 🔴 LAYER 1 of the leak fix (ตู๋ #372 ③): a reservation whose QUOTE has expired can never be paid at that
+// price, so its hold is dead — release it. This runs INSIDE the reserve transaction, before the counter is
+// taken, so it needs no cron and no background sweeper: any contention on a code cleans that code's own
+// dead holds first. (#360's reconciler will call releaseExpiredHolds() for the whole table; that ticket
+// owns the sweep. THIS makes the common case — the same user coming back to reuse their own code — heal
+// without anyone running anything.)
+//
+// Dead = v2_payment still PENDING, holding this code, whose payment_quote.expires_at is in the past. We
+// delete those redemptions and give the counter back by exactly the number deleted (never below 0).
+const RELEASE_EXPIRED_SQL = (codeIdFilter: unknown) => sql`
+  WITH dead AS (
+    DELETE FROM discount_redemption dr
+     USING v2_payment p, payment_quote q
+     WHERE dr.payment_id = p.id
+       AND p.quote_id = q.id
+       AND p.status = 'PENDING'
+       AND q.expires_at < now()
+       ${codeIdFilter}
+    RETURNING dr.code_id
+  ), counted AS (
+    SELECT code_id, count(*)::int AS n FROM dead GROUP BY code_id
+  )
+  UPDATE discount_code c
+     SET used_count = GREATEST(c.used_count - counted.n, 0)
+    FROM counted
+   WHERE c.id = counted.code_id
+  RETURNING c.id, counted.n`
+
+/** Release dead holds for ONE code (called inside the reserve txn). Returns how many were freed. */
+export async function releaseExpiredHoldsForCode(
+  tx: { execute: (q: unknown) => Promise<unknown> },
+  codeId: string,
+): Promise<number> {
+  const r = await tx.execute(RELEASE_EXPIRED_SQL(sql`AND dr.code_id = ${codeId}`))
+  const row = rowsOf(r)[0]
+  return Number(row?.n ?? 0)
+}
+
+/** Release dead holds across EVERY code — the entry point #360's reconciler will call. */
+export async function releaseExpiredHolds(db: Db = defaultDb): Promise<number> {
+  const r = await db.execute(RELEASE_EXPIRED_SQL(sql``))
+  return rowsOf(r).reduce((sum, row) => sum + Number(row?.n ?? 0), 0)
+}
+
 export async function reserveCodeInTx(
   tx: {
     execute: (q: unknown) => Promise<unknown>
@@ -107,6 +151,10 @@ export async function reserveCodeInTx(
     maxUsePerUser: number | null
   },
 ): Promise<void> {
+  // ⓪ free this code's dead holds first (layer 1) — a QR nobody scanned must not keep the slot, and must
+  // not keep the SAME user locked out of their own max_use_per_user=1 code forever.
+  await releaseExpiredHoldsForCode(tx, args.codeId)
+
   // ① conditional UPDATE — THIS row is the concurrency gate (not an index). Parallel users contend on its
   // lock; the predicate is re-checked after the winner commits, so past max_use_total everyone matches 0.
   const upd = await tx.execute(sql`

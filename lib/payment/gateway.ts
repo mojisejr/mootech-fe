@@ -48,3 +48,17 @@ export function parseChargeEvent(rawBody: Buffer): ChargeEvent {
 export function isSettleable(evt: ChargeEvent): boolean {
   return evt.key === 'charge.complete' && evt.paid === true && evt.status === 'successful' && !!evt.chargeId
 }
+
+// 🔴 LAYER 2 of the discount-hold fix (ตู๋ #372 ③). A charge that ended and did NOT succeed frees its
+// discount hold immediately — no waiting for the quote to expire. The distinction that matters:
+//   TERMINAL FAILURE  failed / expired / reversed  ⇒ nobody can pay this charge any more ⇒ release
+//   NOT FINISHED YET  pending (and anything unknown) ⇒ do NOTHING — releasing while it can still be paid
+//                     would let the same code be spent twice.
+// Unknown statuses fall on the "not finished" side on purpose: never free a slot we are not sure is dead.
+const TERMINAL_FAILURE_STATUSES = new Set(['failed', 'expired', 'reversed'])
+
+export function isTerminalFailure(evt: ChargeEvent): boolean {
+  if (!evt.chargeId) return false
+  if (evt.paid === true) return false // paid ⇒ it is a success path, not a failure
+  return TERMINAL_FAILURE_STATUSES.has(evt.status)
+}

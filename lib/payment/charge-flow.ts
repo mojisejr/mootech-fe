@@ -53,6 +53,14 @@ export async function runChargeFlow(
     return
   }
 
+  // 🔴 With a code, the quote is MANDATORY (ตู๋ #372 ②): "you pay what you were shown" must not be a
+  // client's option. Without a code the amount comes from the package alone and cannot drift today — when
+  // #362 makes VAT editable from the back office it drifts for everyone, and this becomes unconditional.
+  if (codeStr && !quoteId) {
+    res.status(400).json({ error: 'a discount code requires the quote it was previewed with', codeError: 'QUOTE_REQUIRED' })
+    return
+  }
+
   // 🔴 Quote compare (ตู๋ B3): if the client presents a quote_id, the freshly computed money must MATCH the
   // quote the user was shown. VAT changed / code paused / window passed ⇒ the numbers move ⇒ refuse and say
   // so, instead of silently charging a different amount. The client never sends the amount — we compare our

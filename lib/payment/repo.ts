@@ -137,6 +137,21 @@ export async function insertPendingReserved(
   }
 }
 
+// 🔴 Layer 2 (ตู๋ #372 ③): a webhook saying the charge FAILED/EXPIRED/REVERSED frees the discount hold at
+// once. Looks the row up by charge_id, releases its code (if any) and marks it REJECT. Idempotent: an
+// already-REJECT row releases nothing (releaseRedemption returns released:false), and an APPROVED row is
+// left alone — a settled payment must never have its redemption removed.
+export async function abandonByChargeId(chargeId: string, db: Db = defaultDb): Promise<{ released: boolean }> {
+  const [row] = await db
+    .select({ id: v2Payment.id, codeId: v2Payment.codeId, status: v2Payment.status })
+    .from(v2Payment)
+    .where(eq(v2Payment.chargeId, chargeId))
+    .limit(1)
+  if (!row || row.status === 'APPROVED') return { released: false }
+  await abandonPending(row.id, row.codeId ?? null, db)
+  return { released: true }
+}
+
 // Omise accepted → swap the placeholder for the real charge id (this is what the webhook will match).
 export async function attachChargeId(paymentId: string, chargeId: string, db: Db = defaultDb): Promise<void> {
   await db.update(v2Payment).set({ chargeId }).where(eq(v2Payment.id, paymentId))

@@ -7,8 +7,8 @@
 // signature"). We read the raw stream ourselves.
 import type { NextApiRequest, NextApiResponse } from 'next'
 import { omiseGateway } from '@/lib/payment/omise-gateway'
-import { parseChargeEvent, isSettleable } from '@/lib/payment/gateway'
-import { settleAndProvision } from '@/lib/payment/repo'
+import { parseChargeEvent, isSettleable, isTerminalFailure } from '@/lib/payment/gateway'
+import { settleAndProvision, abandonByChargeId } from '@/lib/payment/repo'
 
 export const config = { api: { bodyParser: false } }
 
@@ -45,6 +45,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   // a retry or a simultaneous duplicate delivery grants at most once.
   if (isSettleable(evt) && evt.chargeId) {
     await settleAndProvision(evt.chargeId)
+  } else if (isTerminalFailure(evt) && evt.chargeId) {
+    // 🔴 The charge ENDED without succeeding (failed/expired/reversed) ⇒ free its discount hold now instead
+    // of waiting for the quote to expire (#372 ③ layer 2). An event that is merely not-finished-yet
+    // (pending, or anything we don't recognise) falls through and changes nothing — releasing a slot that
+    // can still be paid would let one code be spent twice.
+    await abandonByChargeId(evt.chargeId)
   }
 
   return res.status(200).json({ received: true })

@@ -15,6 +15,7 @@ import {
   MIN_CHARGE_SATANG,
   type DiscountCodeSpec,
 } from '@/lib/discount/rules'
+import { isTerminalFailure } from '@/lib/payment/gateway'
 
 const base = (o: Partial<DiscountCodeSpec> = {}): DiscountCodeSpec => ({
   kind: 'PERCENT',
@@ -94,5 +95,37 @@ describe('codeApplies — status / window / applies_to (quota is the DB, not her
   })
   it('MD5 — a package NOT in a non-empty applies_to ⇒ NOT_APPLICABLE', () => {
     expect(codeApplies(base({ appliesTo: ['SOULMATE'] }), 'MONTHLY', now)).toEqual({ ok: false, reason: 'NOT_APPLICABLE' })
+  })
+})
+
+// ── #372 ③ layer 2 (pure half): which webhook events free a discount hold ────────────────────────────
+// 🔴 MUTANT: make isTerminalFailure accept a pending/unknown status → the "not finished" test reddens.
+describe('isTerminalFailure — only an ENDED, unsuccessful charge frees the hold', () => {
+  const evt = (o: Partial<{ key: string; chargeId: string | null; paid: boolean; status: string }> = {}) => ({
+    key: 'charge.update',
+    chargeId: 'chrg_1',
+    paid: false,
+    status: 'failed',
+    ...o,
+  })
+
+  it('failed / expired / reversed ⇒ terminal failure', () => {
+    for (const status of ['failed', 'expired', 'reversed']) {
+      expect(isTerminalFailure(evt({ status }))).toBe(true)
+    }
+  })
+
+  it('🔴 NOT finished yet (pending) ⇒ NOT a failure — the slot must stay held while it can still be paid', () => {
+    expect(isTerminalFailure(evt({ status: 'pending' }))).toBe(false)
+  })
+
+  it('an unknown status is treated as not-finished (never free a slot we are unsure about)', () => {
+    expect(isTerminalFailure(evt({ status: 'weird_new_status' }))).toBe(false)
+    expect(isTerminalFailure(evt({ status: '' }))).toBe(false)
+  })
+
+  it('a PAID charge is never a failure, and an event with no charge id cannot act', () => {
+    expect(isTerminalFailure(evt({ paid: true, status: 'failed' }))).toBe(false)
+    expect(isTerminalFailure(evt({ chargeId: null }))).toBe(false)
   })
 })

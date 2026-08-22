@@ -22,6 +22,10 @@ const MIGRATION = readFileSync(resolve('lib/db/0006_member_subscription.sql'), '
 // resolveSubscription's select) now includes it, so the table must be set up with 0007 too or the read
 // fails on a missing column. Apply both.
 const MIGRATION7 = readFileSync(resolve('lib/db/0007_v2_payment.sql'), 'utf8')
+// #361's 0008 ALTERs v2_payment (code_id/discount_satang/quote_id) and those columns are in the drizzle
+// schema, so every suite that rebuilds v2_payment must apply 0008 too — otherwise the NEXT suite's reads
+// fail on a missing column (this bit the payment suite once already).
+const MIGRATION8 = readFileSync(resolve('lib/db/0008_discount_code.sql'), 'utf8')
 const NOW = new Date()
 
 function bkk(now: Date): string {
@@ -47,6 +51,7 @@ describe.skipIf(!TEST_URL)('member_subscription · real pg (#354)', () => {
     await sql.unsafe('DROP TABLE IF EXISTS v2_payment CASCADE;')
     await sql.unsafe(MIGRATION)
     await sql.unsafe(MIGRATION7)
+    await sql.unsafe(MIGRATION8)
     const today = bkk(NOW)
     const [m] = await sql`SELECT mp.user_id FROM member_payment mp
       JOIN "user" usr ON usr.user_id = mp.user_id

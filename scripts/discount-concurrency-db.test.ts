@@ -13,7 +13,11 @@ import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { randomUUID } from 'node:crypto'
 import postgres from 'postgres'
-import { reserveAndRedeem, releaseRedemption } from '@/lib/discount/repo'
+import { reserveAndRedeem, releaseRedemption, releaseExpiredHolds } from '@/lib/discount/repo'
+import { abandonByChargeId } from '@/lib/payment/repo'
+import { signOmisePayload } from '@/lib/payment/webhook-verify'
+import webhookHandler from '@/pages/api/v2/payment/webhook'
+import { Readable } from 'node:stream'
 
 const TEST_URL = process.env.TEST_DATABASE_URL
 const M0008 = readFileSync(resolve('lib/db/0008_discount_code.sql'), 'utf8')
@@ -33,6 +37,38 @@ describe.skipIf(!TEST_URL)('discount quota · real pg (#361)', () => {
     return id
   }
 
+  // a PENDING payment that HOLDS a quote (so layer 1 can decide whether the hold is dead)
+  async function seedPaymentWithQuote(userId: string, quoteExpiresAt: Date): Promise<string> {
+    const qid = randomUUID()
+    await sql`INSERT INTO payment_quote (id, user_id, package_code, code_id, list_satang, discount_satang, amount_satang, vat_percent, expires_at)
+      VALUES (${qid}, ${userId}, 'MONTHLY', ${CODE}, 50000, 5000, 45000, 0, ${quoteExpiresAt})`
+    const id = randomUUID()
+    await sql`INSERT INTO v2_payment
+      (id, user_id, package_code, tier_code, amount_satang, vat_satang, expire, buffer_day, method, charge_id, order_id, status, code_id, discount_satang, quote_id)
+      VALUES (${id}, ${userId}, 'MONTHLY', 'PLUS', 45000, 0, '1M', 0, 'promptpay', ${'pending:' + id}, '0000000000', 'PENDING', ${CODE}, 5000, ${qid})`
+    return id
+  }
+
+
+  // Fire a REAL webhook through the route (layer 2 lives in the route's branch, so the mutant that removes
+  // that branch must be caught HERE, not only at the repo function).
+  const WH_SECRET = Buffer.from('whsec_test_361').toString('base64')
+  const WH_TS = '1755766800'
+  async function fireWebhook(chargeId: string, status: string, paid = false) {
+    process.env.OMISE_WEBHOOK_SECRET = WH_SECRET
+    const raw = Buffer.from(JSON.stringify({ key: 'charge.update', data: { id: chargeId, status, paid } }), 'utf8')
+    const req = Readable.from([raw]) as unknown as { method: string; headers: Record<string, string> }
+    req.method = 'POST'
+    req.headers = {
+      'omise-signature': signOmisePayload(raw, WH_TS, WH_SECRET),
+      'omise-signature-timestamp': WH_TS,
+    }
+    const out = { status: 0 }
+    const res = { status(c: number) { out.status = c; return res }, json() { return res } }
+    await (webhookHandler(req as never, res as never) as Promise<void>)
+    return out
+  }
+
   beforeAll(async () => {
     sql = postgres(TEST_URL as string, { max: 24, ssl: false })
     await sql.unsafe(M0008) // idempotent
@@ -44,6 +80,7 @@ describe.skipIf(!TEST_URL)('discount quota · real pg (#361)', () => {
     if (sql) {
       await sql`DELETE FROM discount_redemption WHERE code_id = ${CODE}`
       await sql`DELETE FROM v2_payment WHERE order_id = '0000000000'`
+      await sql`DELETE FROM payment_quote WHERE code_id = ${CODE}`
       await sql`DELETE FROM discount_code WHERE id = ${CODE}`
       await sql.end()
     }
@@ -52,6 +89,7 @@ describe.skipIf(!TEST_URL)('discount quota · real pg (#361)', () => {
   beforeEach(async () => {
     await sql`DELETE FROM discount_redemption WHERE code_id = ${CODE}`
     await sql`DELETE FROM v2_payment WHERE order_id = '0000000000'`
+    await sql`DELETE FROM payment_quote WHERE code_id = ${CODE}`
     await sql`DELETE FROM discount_code WHERE id = ${CODE}`
   })
 
@@ -146,6 +184,100 @@ describe.skipIf(!TEST_URL)('discount quota · real pg (#361)', () => {
     // and the freed slot is really usable
     const pid2 = await seedPayment(users[1])
     expect((await reserveAndRedeem({ codeId: CODE, userId: users[1], paymentId: pid2, discountSatang: 15900, vatPercent: 0, maxUsePerUser: null })).ok).toBe(true)
+  })
+
+
+  // ── #372 ③: a hold must not outlive the chance to pay it ─────────────────────────────────────────────
+  // Layer 1 — the QUOTE expired ⇒ the hold is dead ⇒ the slot (and the per-user allowance) comes back.
+  // 🔴 MUTANT: remove the releaseExpiredHoldsForCode call from reserveCodeInTx → this test reddens.
+  it('🔴 layer 1 — a QR nobody scanned (quote expired) frees the code again for the SAME user (max_use_per_user=1)', async () => {
+    await makeCode({ maxUsePerUser: 1 })
+    const u = users[0]
+
+    // the user opens a QR: a quote is written, the payment holds the code… and is never paid
+    const abandoned = await seedPaymentWithQuote(u, new Date(Date.now() - 60_000)) // quote already expired
+    expect((await reserveAndRedeem({ codeId: CODE, userId: u, paymentId: abandoned, discountSatang: 5000, vatPercent: 0, maxUsePerUser: 1 })).ok).toBe(true)
+
+    // they come back and try their own code again — it must work, not "โค้ดไม่ถูกต้อง" forever
+    const retry = await seedPaymentWithQuote(u, new Date(Date.now() + 900_000))
+    const second = await reserveAndRedeem({ codeId: CODE, userId: u, paymentId: retry, discountSatang: 5000, vatPercent: 0, maxUsePerUser: 1 })
+    expect(second.ok).toBe(true)
+
+    const [{ c }] = await sql`SELECT count(*)::int AS c FROM discount_redemption WHERE code_id = ${CODE}`
+    expect(c).toBe(1) // the dead hold was removed, the live one remains
+    const [row] = await sql`SELECT used_count FROM discount_code WHERE id = ${CODE}`
+    expect(row.used_count).toBe(1) // not 2 — the counter did not leak
+  })
+
+  it('layer 1 — a hold whose quote is still VALID is NOT released (the slot stays taken)', async () => {
+    await makeCode({ maxUseTotal: 1 })
+    const live = await seedPaymentWithQuote(users[0], new Date(Date.now() + 900_000))
+    expect((await reserveAndRedeem({ codeId: CODE, userId: users[0], paymentId: live, discountSatang: 5000, vatPercent: 0, maxUsePerUser: null })).ok).toBe(true)
+
+    const other = await seedPaymentWithQuote(users[1], new Date(Date.now() + 900_000))
+    const second = await reserveAndRedeem({ codeId: CODE, userId: users[1], paymentId: other, discountSatang: 5000, vatPercent: 0, maxUsePerUser: null })
+    expect(second).toEqual({ ok: false, reason: 'FULL' }) // still held — releasing it would double-spend
+  })
+
+  it('releaseExpiredHolds() sweeps every code (the entry point #360s reconciler calls)', async () => {
+    await makeCode({ maxUseTotal: 5 })
+    const dead = await seedPaymentWithQuote(users[0], new Date(Date.now() - 60_000))
+    await reserveAndRedeem({ codeId: CODE, userId: users[0], paymentId: dead, discountSatang: 5000, vatPercent: 0, maxUsePerUser: null })
+    expect(await releaseExpiredHolds()).toBeGreaterThanOrEqual(1)
+    const [row] = await sql`SELECT used_count FROM discount_code WHERE id = ${CODE}`
+    expect(row.used_count).toBe(0)
+  })
+
+  // Layer 2 — the webhook says the charge ENDED unsuccessfully ⇒ release now, without waiting for the quote.
+  // 🔴 MUTANT: drop the isTerminalFailure branch in the webhook route → this test reddens.
+  it('🔴 layer 2 — a failed charge frees the hold immediately, while the quote is still valid', async () => {
+    await makeCode({ maxUseTotal: 1 })
+    const pid = await seedPaymentWithQuote(users[0], new Date(Date.now() + 900_000)) // quote NOT expired
+    await sql`UPDATE v2_payment SET charge_id = ${'chrg_fail_361'} WHERE id = ${pid}`
+    expect((await reserveAndRedeem({ codeId: CODE, userId: users[0], paymentId: pid, discountSatang: 5000, vatPercent: 0, maxUsePerUser: null })).ok).toBe(true)
+
+    expect(await abandonByChargeId('chrg_fail_361')).toEqual({ released: true })
+    const [row] = await sql`SELECT used_count FROM discount_code WHERE id = ${CODE}`
+    expect(row.used_count).toBe(0)
+    const [p] = await sql`SELECT status FROM v2_payment WHERE id = ${pid}`
+    expect(p.status).toBe('REJECT')
+  })
+
+  it('layer 2 — an APPROVED payment is never un-redeemed by a late failure event', async () => {
+    await makeCode({ maxUseTotal: 1 })
+    const pid = await seedPaymentWithQuote(users[0], new Date(Date.now() + 900_000))
+    await sql`UPDATE v2_payment SET charge_id = ${'chrg_ok_361'} WHERE id = ${pid}`
+    await reserveAndRedeem({ codeId: CODE, userId: users[0], paymentId: pid, discountSatang: 5000, vatPercent: 0, maxUsePerUser: null })
+    await sql`UPDATE v2_payment SET status = 'APPROVED' WHERE id = ${pid}`
+
+    expect(await abandonByChargeId('chrg_ok_361')).toEqual({ released: false })
+    const [{ c }] = await sql`SELECT count(*)::int AS c FROM discount_redemption WHERE code_id = ${CODE}`
+    expect(c).toBe(1) // a settled payment keeps its redemption
+  })
+
+
+  it('🔴 layer 2 via the ROUTE — a charge.failed webhook frees the hold (quote still valid)', async () => {
+    await makeCode({ maxUseTotal: 1 })
+    const pid = await seedPaymentWithQuote(users[0], new Date(Date.now() + 900_000))
+    await sql`UPDATE v2_payment SET charge_id = ${'chrg_route_fail_361'} WHERE id = ${pid}`
+    await reserveAndRedeem({ codeId: CODE, userId: users[0], paymentId: pid, discountSatang: 5000, vatPercent: 0, maxUsePerUser: null })
+
+    expect((await fireWebhook('chrg_route_fail_361', 'failed')).status).toBe(200)
+    const [row] = await sql`SELECT used_count FROM discount_code WHERE id = ${CODE}`
+    expect(row.used_count).toBe(0)
+  })
+
+  it('🔴 layer 2 via the ROUTE — a NOT-finished (pending) webhook must NOT free the hold', async () => {
+    await makeCode({ maxUseTotal: 1 })
+    const pid = await seedPaymentWithQuote(users[0], new Date(Date.now() + 900_000))
+    await sql`UPDATE v2_payment SET charge_id = ${'chrg_route_pending_361'} WHERE id = ${pid}`
+    await reserveAndRedeem({ codeId: CODE, userId: users[0], paymentId: pid, discountSatang: 5000, vatPercent: 0, maxUsePerUser: null })
+
+    expect((await fireWebhook('chrg_route_pending_361', 'pending')).status).toBe(200)
+    const [row] = await sql`SELECT used_count FROM discount_code WHERE id = ${CODE}`
+    expect(row.used_count).toBe(1) // still held — it can still be paid
+    const [{ c }] = await sql`SELECT count(*)::int AS c FROM discount_redemption WHERE code_id = ${CODE}`
+    expect(c).toBe(1)
   })
 
   it('lower(code) is UNIQUE — a case-variant of an existing code cannot be created', async () => {
