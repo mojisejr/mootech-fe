@@ -103,6 +103,7 @@ export default defineConfig({
       'scripts/discount-preview-db.test.ts', // #361 real pg: preview-charge quote contract + legacy-code answers
       'scripts/ops-packages.test.ts', // #377 — pure: what /ops may change (price + on-sale only)
       'scripts/package-tier-db.test.ts', // #377 — real pg (skipIf !TEST_DATABASE_URL): tier/NOT NULL trap + ops-edit→sale-lane loop
+      'scripts/shop-package-mapping.test.ts', // #359 — shop plan→package_code mapping + catalog agreement
     ],
   },
   resolve: {
