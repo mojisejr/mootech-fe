@@ -21,6 +21,8 @@ import { describe, it, expect } from 'vitest'
 import {
   pickActiveSubscriptionRow,
   resolveTierFromSources,
+  resolveMembershipFromRows,
+  toSubRows,
   type SubRow,
 } from '@/lib/v2/subscription'
 import { tierIsPaid, parseTierCode } from '@/lib/v2/tier'
@@ -187,5 +189,56 @@ describe('tierIsPaid — the named-tier paid rule, unknown stays unknown', () =>
   it('PLUS / PRO ⇒ true', () => {
     expect(tierIsPaid('PLUS')).toBe(true)
     expect(tierIsPaid('PRO')).toBe(true)
+  })
+})
+
+// ── #383 — the two pure pieces the /api/user composite reuses ────────────────────────────────────────
+// They exist so the selection + fallback rule has ONE copy across both callers (resolveSubscription, which
+// reads member_payment lazily, and the route, which already holds that row).
+//
+// 🔴 MUTANT CONTRACT (each reddens `npm test`):
+//   MS1  toSubRows stops slicing expire_at to 10 chars  → the timestamp case red (a DATE that arrives as
+//        '2099-12-31T00:00:00.000Z' would never compare equal to a 'YYYY-MM-DD' today)
+//   MS2  resolveMembershipFromRows ignores `legacy`      → the fallback cases red (a member drops to free)
+describe('#383 toSubRows — the row mapping IS part of the rule', () => {
+  // The shape the driver actually hands us today: expire_at as 'YYYY-MM-DD', created_at as a Date.
+  // (Proven end-to-end against real rows in scripts/user-membership-db.test.ts case ②.)
+  it('the REAL row shape maps through unchanged', () => {
+    const [r] = toSubRows([
+      { id: 'b', tierCode: 'PLUS', status: 'ACTIVE', expireAt: '2027-01-31', createdAt: new Date('2026-08-01T00:00:00Z') },
+    ])
+    expect(r.expireAt).toBe('2027-01-31')
+    expect(r.createdAt).toBe('2026-08-01T00:00:00.000Z')
+  })
+  it('a non-Date created_at is stringified, not dropped', () => {
+    const [r] = toSubRows([
+      { id: 'c', tierCode: 'PLUS', status: 'ACTIVE', expireAt: '2027-01-31', createdAt: '2026-08-01 07:00:00' },
+    ])
+    expect(r.createdAt).toBe('2026-08-01 07:00:00')
+  })
+  // 🟠 NOT ASSERTED HERE ON PURPOSE — a Date-valued expire_at maps to garbage ('Fri Jan 01', from
+  // String(Date).slice(0,10)), which would read as long-expired and drop a paying v2 member to their
+  // legacy verdict. Pre-existing since #354; unreachable today because the driver returns a string for
+  // this column. Recorded as its own ticket rather than fixed here (it is not needed to prove #383's DoD,
+  // and #352's rule is: found-on-the-way ⇒ open a ticket, do not detour). Pinning the broken output in a
+  // test would bless it, so this comment is the marker instead.
+})
+
+describe('#383 resolveMembershipFromRows — same verdict as the lazy path, without the second read', () => {
+  const TODAY = '2026-08-22'
+  const live = { id: 'x', tierCode: 'PRO' as const, status: 'ACTIVE', expireAt: '2099-12-31', createdAt: '2026-08-01T00:00:00.000Z' }
+  const dead = { ...live, id: 'y', expireAt: '2020-01-01' }
+  const LEGACY_MEMBER = { isFree: false, reason: 'MEMBER' as const }
+  const LEGACY_NONE = { isFree: true, reason: 'NO_PLAN' as const }
+
+  it('a live row wins and names the tier', () => {
+    expect(resolveMembershipFromRows([live], TODAY, LEGACY_NONE)).toEqual({ isPaid: true, tier: 'PRO', source: 'v2' })
+  })
+  // 🔴 MS2 — the direction that costs a paying member their access.
+  it('🔴 no live row + a paid legacy verdict → paid, unnamed, source legacy (NEVER free)', () => {
+    expect(resolveMembershipFromRows([dead], TODAY, LEGACY_MEMBER)).toEqual({ isPaid: true, tier: null, source: 'legacy' })
+  })
+  it('no rows at all + no legacy → free/none', () => {
+    expect(resolveMembershipFromRows([], TODAY, LEGACY_NONE)).toEqual({ isPaid: false, tier: null, source: 'none' })
   })
 })

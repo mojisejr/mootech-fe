@@ -2,10 +2,11 @@
 // member whose plan is still valid (payment.is_not_expired === true); free / expired / no-payment / no-user
 // all SHOW it — identical to v1 header-v2.tsx so the two versions never disagree about paid status.
 //
-// #383 — MOVED FROM THE tsx LANE ONTO vitest (registered in vitest.config.mts). It was a `npx tsx` script,
-// and nothing runs that lane any more since ci.yml went to archive (#367) — so this rule, which decides
-// whether a PAYING member sees an "อัพเกรด" badge, was being enforced by nobody. The pre-push gate is
-// `lint` + `npm test`; a rule that matters has to live there. Same assertions, vitest syntax.
+// #383 — MOVED FROM THE tsx LANE ONTO vitest (registered in vitest.config.mts), the opportunistic
+// migration #210 asks for whenever a spec is being edited anyway. Same assertions, vitest syntax.
+// ⚠️ NOT because the tsx lane is dead — I wrote that reason first and it was WRONG: #334 moved that lane
+// into .githooks/pre-push, where it ran 73 files on the push that carried this commit. It derives its skip
+// list from vitest.config.mts, so registering this file there is what keeps it from being run TWICE.
 //
 // SECOND bug-class this now owns (μุน's finding, #383 DoD 🔴): home's contract was a plain boolean, so
 // "we do not know yet" collapsed into "not paid" — a paying member saw the badge whenever /api/user
