@@ -52,13 +52,19 @@ const ROOT = join(REPO, 'harness', '.tmp')
  * to discover — a guard whose limits are undocumented gets trusted past them.
  */
 export function evidenceDir(name = '') {
-  // the root must be a real directory, never a link — see the symlink note above
+  // The root must be a real directory, never a link — see the symlink note above.
+  // 🔴 The lstat and the throw are separated ON PURPOSE. They were one try/catch first, which meant the
+  // guard's own Error travelled through the guard's own catch and only survived because `new Error()`
+  // has no `.code` and so failed the `!== 'ENOENT'` test. Right answer, reason nobody wrote down —
+  // and the day someone gives that Error a code, the check disappears silently. (ตู๋, reviewing #421.)
+  let rootStat = null
   try {
-    if (lstatSync(ROOT).isSymbolicLink()) {
-      throw new Error(`evidenceDir: ${ROOT} is a symlink. The evidence root must be a real directory — a link makes the containment check below true about the path and false about where the bytes land.`)
-    }
+    rootStat = lstatSync(ROOT)
   } catch (e) {
-    if (e.code !== 'ENOENT') throw e   // not existing yet is fine; mkdirSync creates it
+    if (e.code !== 'ENOENT') throw e   // not existing yet is fine; mkdirSync creates it below
+  }
+  if (rootStat?.isSymbolicLink()) {
+    throw new Error(`evidenceDir: ${ROOT} is a symlink. The evidence root must be a real directory — a link makes the containment check below true about the path and false about where the bytes land.`)
   }
   const out = name ? resolve(ROOT, name) : ROOT
   if (out !== ROOT && !out.startsWith(ROOT + sep)) {
