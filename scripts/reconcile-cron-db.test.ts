@@ -8,6 +8,14 @@
 //   MC1  drop `ne(status,'APPROVED')` from settleAndProvision's predicate → ③ (parallel runs) reddens
 //   MC2  treat an unreachable gateway as "not paid" instead of skipping  → ⑤ reddens
 //   MC3  the cron stops checking CRON_SECRET                              → ④ reddens
+//   MC4  delete the console.warn on the "switched off" branch             → ⑨ reddens
+//   MC5  make both branches log ONE identical line that still contains both keywords
+//        ("SKIPPED" and "refused a caller")                                → ⑨d reddens ALONE
+//        🔑 the keywords must survive, or ④ and ⑨ redden too and the run stops proving that ⑨d
+//        catches something they cannot. บอง wrote this contract wrong on the first pass (said
+//        ④/⑨ stay green while deleting the very string ④ watches) and only found out by firing it.
+//        (MC4/MC5 added by บอง 2026-08-24 after ตู๋ proved M-too-2 and M-too-3 both stayed green:
+//         the DoD line "ปิดอยู่แล้วไม่เงียบ" had nothing in the repo watching it.)
 import { describe, it, expect, beforeAll, afterAll, afterEach, vi } from 'vitest'
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
@@ -126,8 +134,16 @@ describe.skipIf(!TEST_URL)('#360 reconcile cron · real pg', () => {
     await seed('r360-d', 'chrg_d', users[0])
     h.paidCharges.add('chrg_d')
 
-    expect((await callCron(undefined)).code).toBe(401)
-    expect((await callCron('Bearer nope')).code).toBe(401)
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    try {
+      expect((await callCron(undefined)).code).toBe(401)
+      expect((await callCron('Bearer nope')).code).toBe(401)
+      // #409 DoD "ปิดอยู่แล้วไม่เงียบ": a refused caller must leave a line behind. Somebody is knocking on a
+      // public endpoint that grants memberships — silence here is how that goes unnoticed.
+      expect(warn.mock.calls.flat().join(' ')).toMatch(/refused a caller/)
+    } finally {
+      warn.mockRestore()
+    }
     expect(h.retrieveCalls.length, 'an unauthorized call must not even reach the gateway').toBe(0)
     const [pay] = await sql`SELECT status FROM v2_payment WHERE id = 'r360-d'`
     expect(pay.status).toBe('PENDING')
@@ -178,23 +194,30 @@ describe.skipIf(!TEST_URL)('#360 reconcile cron · real pg', () => {
   // The pure rule has its own teeth (scripts/reconcile-flag.test.ts); what this pins is that the switch is
   // actually WIRED and sits in the right place: nothing is read, nothing is asked of the gateway, and above
   // all nobody is granted anything while it is off.
-  // 🔴 MUTANT: delete the `isReconcileEnabled` guard in the handler → ⑨ reddens (⑨b keeps passing, which is
-  // how you can tell ⑨ failed because the switch stopped working and not because the job died).
+  // 🔴 MUTANT: delete the `isReconcileEnabled` guard in the handler → ⑨ reddens.
+  // The case that stays GREEN and so tells you the job itself is alive is ⑨c, NOT ⑨b:
+  // ⑨b sets the flag to 'off' on its own first line, so removing the guard reddens it too.
+  // (ตู๋ fired the mutant and proved it 2026-08-23; the comment used to name ⑨b and was simply wrong.)
   it('🔴 ⑨ switched off → grants nothing, asks the gateway nothing, and says so', async () => {
     const prev = process.env.RECONCILE_ENABLED
     await seed('r360-i', 'chrg_i', users[0])
     h.paidCharges.add('chrg_i')
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
     try {
       process.env.RECONCILE_ENABLED = 'off'
       const out = await callCron(`Bearer ${SECRET}`)
       expect(out.code).toBe(200) // being off is not a failure — an error would make Vercel retry it
       expect(out.body.skipped).toBe('disabled')
+      // #409 DoD "ปิดอยู่แล้วไม่เงียบ". The symptom of a silently-off reconciler is "nothing happens",
+      // which nobody notices until somebody goes looking. The line is the only thing that says otherwise.
+      expect(warn.mock.calls.flat().join(' ')).toMatch(/SKIPPED/)
       expect(out.body.provisioned).toBe(0)
       expect(h.retrieveCalls.length, 'a disabled run must not touch the gateway at all').toBe(0)
       const [pay] = await sql`SELECT status FROM v2_payment WHERE id = 'r360-i'`
       expect(pay.status).toBe('PENDING') // untouched, and still recoverable the moment it is switched on
       expect((await sql`SELECT id FROM member_subscription WHERE user_id = ${users[0]}`).length).toBe(0)
     } finally {
+      warn.mockRestore()
       if (prev === undefined) delete process.env.RECONCILE_ENABLED
       else process.env.RECONCILE_ENABLED = prev
     }
@@ -231,6 +254,39 @@ describe.skipIf(!TEST_URL)('#360 reconcile cron · real pg', () => {
       expect(out.body.skipped).toBeUndefined()
       expect(out.body.provisioned).toBe(1)
     } finally {
+      if (prev === undefined) delete process.env.RECONCILE_ENABLED
+      else process.env.RECONCILE_ENABLED = prev
+    }
+  })
+
+  // ⑨d — the two refusals must not share a line. The handler comment says so; nothing enforced it.
+  // Both paths answer "the job did nothing", and the reason is the ONLY thing that separates
+  //   "somebody is probing a public endpoint that grants memberships"   from   "we turned it off".
+  // Collapse them and the first hides inside the second on exactly the day it matters.
+  // 🔴 MUTANT MC5: collapse both branches onto ONE identical line that still contains "SKIPPED" and
+  //    "refused a caller" → ④ green · ⑨ green · THIS case red, alone. Fired 2026-08-24, all three
+  //    verified one at a time. That is the whole argument for this case existing: a per-branch
+  //    assertion can only see its own line, never that two lines became the same line.
+  it('🔴 ⑨ d a refused caller and a switched-off job never log the same line', async () => {
+    const prev = process.env.RECONCILE_ENABLED
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    try {
+      // path 1 — refused caller (the flag is irrelevant here; the secret gate runs first)
+      warn.mockClear()
+      await callCron('Bearer nope')
+      const refused = warn.mock.calls.flat().join(' ')
+
+      // path 2 — switched off, with a VALID secret
+      warn.mockClear()
+      process.env.RECONCILE_ENABLED = 'off'
+      await callCron(`Bearer ${SECRET}`)
+      const disabled = warn.mock.calls.flat().join(' ')
+
+      expect(refused, 'a refused caller must log something').not.toBe('')
+      expect(disabled, 'a switched-off run must log something').not.toBe('')
+      expect(disabled, 'the two refusals must be distinguishable in the log').not.toBe(refused)
+    } finally {
+      warn.mockRestore()
       if (prev === undefined) delete process.env.RECONCILE_ENABLED
       else process.env.RECONCILE_ENABLED = prev
     }
