@@ -28,12 +28,20 @@ MUT=[
   "disabled={busy || value.trim() === ''}", "disabled={busy}"),
  ("MU5 keep the input row in the success state", 'features/v2-shop/components/DiscountCodeField.tsx',
   "{!isSuccess && (", "{true && ("),
+ ("MU7 pickCharge takes rows[0] (right almost every time)", 'features/v2-shop/useChargeStatus.ts',
+  "return rows.find((r) => r.chargeId === chargeId) ?? null", "return rows[0] ?? null"),
+ ("MU8 PENDING reads as success", 'features/v2-shop/useChargeStatus.ts',
+  "return row.status === 'APPROVED' ? 'APPROVED' : 'PENDING'", "return 'APPROVED'"),
+ ("MU9 a row we cannot see reads as success", 'features/v2-shop/useChargeStatus.ts',
+  "if (!row) return 'UNKNOWN'", "if (!row) return 'APPROVED'"),
+ ("MU10 someone adds .limit(20) to listUserPayments", 'lib/payment/repo.ts',
+  ".orderBy(desc(v2Payment.createdAt))", ".orderBy(desc(v2Payment.createdAt))\n    .limit(20)"),
  ("MU6 drop role=alert from the error helper", 'features/v2-shop/components/DiscountCodeField.tsx',
   "role={isError ? 'alert' : 'status'}", "role={'status'}"),
 ]
 
 def failed_tests():
-    r=subprocess.run(['npx','vitest','run','scripts/discount-code-field.test.tsx','--reporter=json'],
+    r=subprocess.run(['npx','vitest','run','scripts/discount-code-field.test.tsx','scripts/charge-status.test.ts','--reporter=json'],
                      cwd=R,capture_output=True,text=True)
     out=r.stdout
     i=out.find('{')
