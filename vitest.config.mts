@@ -115,6 +115,7 @@ export default defineConfig({
       'scripts/user-membership-db.test.ts', // #383 — real pg (skipIf !TEST_DATABASE_URL)
       'scripts/env-example-drift.test.ts', // #403 — .env.example ต้องประกาศทุก env ที่แอปอ่าน (lib/pages/features)
       'scripts/header-tier-badge.test.tsx', // #384 — 5 badge states + the "unknown" case + the 6-screen wiring
+      'scripts/v1-add-friend-copy.test.tsx', // #413 — โมดัลเพิ่มเพื่อนของ v1: ป้ายต้องบอกว่าเป็นข้อมูลเพื่อน
     ],
   },
   resolve: {

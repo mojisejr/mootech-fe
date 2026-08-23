@@ -54,8 +54,11 @@ export default function ProfileEditPage() {
 
  const [step, setStep] = useState<string>('FORM'); // FORM / LOADING
 
+  // #413 — "ของคุณ" here said the app was analysing the USER's chart while this page edits a FRIEND's.
+  // The identical line is correct on pages/profile/edit (that page IS about the user) — which is why this
+  // is a per-page decision and not a find-and-replace.
   const items = [
-    <span key="loading-analyze" className="w-full  text-center justify-center flex font-medium mt-2 font-ibm text-[24px] text-black" >🔮 กำลังวิเคราะห์ข้อมูลของคุณ... </span>,
+    <span key="loading-analyze" className="w-full  text-center justify-center flex font-medium mt-2 font-ibm text-[24px] text-black" >🔮 กำลังวิเคราะห์ข้อมูลเพื่อน... </span>,
     <span key="loading-planets" className="w-full  text-center justify-center flex font-medium mt-2 font-ibm text-[24px] text-black" >📊 คำนวณตำแหน่งดาวเคราะห์  </span>,
     <span key="loading-personality" className="w-full  text-center justify-center flex font-medium mt-2 font-ibm text-[24px] text-black" >🎯 วิเคราะห์บุคลิกภาพ</span>,
     <span key="loading-result" className="w-full  text-center justify-center flex font-medium mt-2 font-ibm text-[24px] text-black" >💫 สร้างผลลัพธ์ </span>,
