@@ -98,12 +98,18 @@ MUT=[
   "        if (false) {\n          // A code we cannot honour. The PRICE the user was looking at is still valid — keep it."),
  ("MU39 leak the server enum to the reader", 'features/v2-shop/useCheckout.ts',
   "setCodeError(CODE_REASON[String(data.codeError)] ?? undefined)", "setCodeError(String(data.codeError))"),
+ ("MU40 set the key on mount, not before createToken", 'features/v2-shop/omise-token.ts',
+  "  O.setPublicKey(v2OmiseKey()) // \u2190 the line the header is about\n  return new Promise",
+  "  return new Promise"),
+ ("MU41 fall back to v1's LIVE key when _V2 is missing", 'features/v2-shop/omise-token.ts',
+  "  if (!k) throw new OmiseKeyMissingError(`${V2_OMISE_KEY_ENV} is not set`)\n  return k",
+  "  if (!k) return env['NEXT_PUBLIC_OMISE_KEY'] ?? ''\n  return k"),
  ("MU6 drop role=alert from the error helper", 'features/v2-shop/components/DiscountCodeField.tsx',
   "role={isError ? 'alert' : 'status'}", "role={'status'}"),
 ]
 
 def failed_tests():
-    r=subprocess.run(['npx','vitest','run','scripts/discount-code-field.test.tsx','scripts/charge-status.test.ts','scripts/order-summary.test.tsx','scripts/payment-method-picker.test.tsx','scripts/qr-screen.test.tsx','scripts/result-state.test.ts','scripts/result-screen.test.tsx','scripts/use-checkout.test.tsx','--reporter=json'],
+    r=subprocess.run(['npx','vitest','run','scripts/discount-code-field.test.tsx','scripts/charge-status.test.ts','scripts/order-summary.test.tsx','scripts/payment-method-picker.test.tsx','scripts/qr-screen.test.tsx','scripts/result-state.test.ts','scripts/result-screen.test.tsx','scripts/use-checkout.test.tsx','scripts/omise-token.test.ts','--reporter=json'],
                      cwd=R,capture_output=True,text=True)
     out=r.stdout
     i=out.find('{')

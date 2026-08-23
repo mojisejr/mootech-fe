@@ -120,6 +120,7 @@ export default defineConfig({
       'scripts/result-state.test.ts', // #363 — audit 6 สถานะหลังจ่าย: สถานะไหน 'เงินขยับแล้ว' + กดซ้ำช่วยไหม
       'scripts/result-screen.test.tsx', // #363 — จอ result: เครื่องหมายถูกมาจาก paid ไม่ใช่ชื่อสถานะ
       'scripts/use-checkout.test.tsx', // #363 — ✕ ต้องยิง preview ใหม่ · โค้ดผิดห้ามลบราคาทิ้ง
+      'scripts/omise-token.test.ts', // #363 — คีย์ v2 เท่านั้น และตั้งทันทีก่อน createToken
     ],
   },
   resolve: {
