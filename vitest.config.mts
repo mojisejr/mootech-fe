@@ -111,6 +111,7 @@ export default defineConfig({
       'scripts/home-profile.test.ts', // #383 — MIGRATED off the dead tsx lane (#367)
       'scripts/user-membership-route.test.ts', // #383 — /api/user gains `membership`
       'scripts/user-membership-db.test.ts', // #383 — real pg (skipIf !TEST_DATABASE_URL)
+      'scripts/env-example-drift.test.ts', // #403 — .env.example ต้องประกาศทุก env ที่แอปอ่าน (lib/pages/features)
       'scripts/header-tier-badge.test.tsx', // #384 — 5 badge states + the "unknown" case + the 6-screen wiring
     ],
   },
