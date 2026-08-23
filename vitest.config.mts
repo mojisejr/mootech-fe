@@ -115,6 +115,8 @@ export default defineConfig({
       'scripts/discount-code-field.test.tsx', // #363 — โค้ดส่วนลด 3 สถานะ + จอต้องคิดเลขไม่เป็น
       'scripts/charge-status.test.ts', // #363 — หาแถวด้วย chargeId + รอไม่ใช่สำเร็จ + ปักว่า query ห้ามมี limit
       'scripts/order-summary.test.tsx', // #363 — การ์ดสรุปยอด: พิมพ์ quote ไม่คิดเลข + audit คำสัญญารายบรรทัด
+      'scripts/payment-method-picker.test.tsx', // #363 — ขายสองวิธี · อีกสองตัวต้องไม่อยู่ใน DOM
+      'scripts/qr-screen.test.tsx', // #363 — จอ QR: ห้ามอ้างสำเร็จ/หมดอายุ · ย้อนกลับต้องไม่ยิงอะไร
     ],
   },
   resolve: {

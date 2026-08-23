@@ -54,12 +54,26 @@ MUT=[
   "        if (stopped.current) return\n        setError(true)", "        if (stopped.current) return\n        setError(true)\n        return"),
  ("MU19 keep polling forever past the deadline", 'features/v2-shop/useChargeStatus.ts',
   "      if (!stopped.current && now() - startedAt >= staleAfterMs) {", "      if (false) {"),
+ ("MU20 render every method including the ones we cannot charge", 'features/v2-shop/components/PaymentMethodPicker.tsx',
+  "const shown = METHODS.filter((m) => m.enabled)", "const shown = METHODS"),
+ ("MU21 hide the two with CSS instead of not rendering", 'features/v2-shop/components/PaymentMethodPicker.tsx',
+  "const shown = METHODS.filter((m) => m.enabled)", "const shown = METHODS.map((m) => m)"),
+ ("MU22 stop announcing which method is selected", 'features/v2-shop/components/PaymentMethodPicker.tsx',
+  "aria-checked={selected}", "aria-checked={false}"),
+ ("MU23 claim success while still pending", 'features/v2-shop/components/QrScreen.tsx',
+  "{error ? QR_COPY.offline : QR_COPY.waiting}", "{'ชำระเงินสำเร็จ'}"),
+ ("MU24 a status error reads as the payment failing", 'features/v2-shop/components/QrScreen.tsx',
+  "  offline: 'ตอนนี้เช็คสถานะไม่ได้ กำลังลองใหม่ให้อัตโนมัติ',", "  offline: 'ชำระเงินล้มเหลว',"),
+ ("MU25 claim the QR is certainly expired", 'features/v2-shop/components/QrScreen.tsx',
+  "  maybeExpired: 'QR นี้อาจหมดอายุแล้ว ถ้าคุณจ่ายไปแล้วให้กดตรวจสอบอีกครั้ง',", "  maybeExpired: 'QR หมดอายุแล้ว',"),
+ ("MU26 settle on ANY approved row, not mine", 'features/v2-shop/useChargeStatus.ts',
+  "  return rows.find((r) => r.chargeId === chargeId) ?? null", "  return rows.find((r) => r.status === 'APPROVED') ?? null"),
  ("MU6 drop role=alert from the error helper", 'features/v2-shop/components/DiscountCodeField.tsx',
   "role={isError ? 'alert' : 'status'}", "role={'status'}"),
 ]
 
 def failed_tests():
-    r=subprocess.run(['npx','vitest','run','scripts/discount-code-field.test.tsx','scripts/charge-status.test.ts','scripts/order-summary.test.tsx','--reporter=json'],
+    r=subprocess.run(['npx','vitest','run','scripts/discount-code-field.test.tsx','scripts/charge-status.test.ts','scripts/order-summary.test.tsx','scripts/payment-method-picker.test.tsx','scripts/qr-screen.test.tsx','--reporter=json'],
                      cwd=R,capture_output=True,text=True)
     out=r.stdout
     i=out.find('{')
