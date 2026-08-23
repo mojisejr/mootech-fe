@@ -88,7 +88,7 @@ t('isCacheableMonth: gated (allowed:false) → false', () => {
 t('miss on a fresh key → undefined', () => {
   installLS(makeFakeLS())
   clearMonthCache()
-  assert.equal(peekMonth(monthKey('u1', SIG1, monthYM(2026, 8))), undefined)
+  assert.equal(peekMonth(monthKey('u1', SIG1, monthYM(2026, 8)), PAID_VIEWER), undefined)
 })
 t('setMonth then peek → memory hit returns the same days', () => {
   installLS(makeFakeLS())
@@ -132,7 +132,7 @@ t('clearMonthCache → memory empty + no mumate:cal:* left in localStorage', () 
   ls.setItem('unrelated:key', 'keep') // ...but nothing outside our namespace
   clearMonthCache()
   assert.equal(_monthCacheMemSize(), 0, 'memory cleared')
-  assert.equal(peekMonth(monthKey('u1', SIG1, monthYM(2026, 8))), undefined)
+  assert.equal(peekMonth(monthKey('u1', SIG1, monthYM(2026, 8)), PAID_VIEWER), undefined)
   let ours = 0
   for (let i = 0; i < ls.length; i++) if ((ls.key(i) ?? '').startsWith('mumate:cal:')) ours++
   assert.equal(ours, 0, 'all mumate:cal:* (every version) removed')
@@ -226,7 +226,7 @@ t(`localStorage capped at MONTH_CACHE_MAX (=${MONTH_CACHE_MAX}) — oldest-writt
   assert.equal(ours, MONTH_CACHE_MAX, 'localStorage bounded at the cap')
   // the 5 oldest (i=0..4, t=1000..1004) evicted; the newest present
   assert.equal(peekMonth(monthKey('u1', SIG1, '2020-01'), PAID_VIEWER), undefined, 'oldest evicted')
-  assert.deepEqual(peekMonth(monthKey('u1', SIG1, `2020-${String(N).padStart(2, '0')}`)), DAYS_A, 'newest kept')
+  assert.deepEqual(peekMonth(monthKey('u1', SIG1, `2020-${String(N).padStart(2, '0')}`), PAID_VIEWER), DAYS_A, 'newest kept')
 })
 t('memory layer also capped (does not grow unbounded within a session)', () => {
   installLS(makeFakeLS())
