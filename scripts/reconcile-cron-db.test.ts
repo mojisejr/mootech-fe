@@ -173,4 +173,66 @@ describe.skipIf(!TEST_URL)('#360 reconcile cron · real pg', () => {
     expect(h.retrieveCalls.length).toBe(0)
     expect((await sql`SELECT id FROM member_subscription WHERE user_id = ${users[2]}`).length).toBe(0)
   })
+
+  // ⑨ 🔴 #409 — the kill switch, proven on the REAL handler with a REAL database behind it.
+  // The pure rule has its own teeth (scripts/reconcile-flag.test.ts); what this pins is that the switch is
+  // actually WIRED and sits in the right place: nothing is read, nothing is asked of the gateway, and above
+  // all nobody is granted anything while it is off.
+  // 🔴 MUTANT: delete the `isReconcileEnabled` guard in the handler → ⑨ reddens (⑨b keeps passing, which is
+  // how you can tell ⑨ failed because the switch stopped working and not because the job died).
+  it('🔴 ⑨ switched off → grants nothing, asks the gateway nothing, and says so', async () => {
+    const prev = process.env.RECONCILE_ENABLED
+    await seed('r360-i', 'chrg_i', users[0])
+    h.paidCharges.add('chrg_i')
+    try {
+      process.env.RECONCILE_ENABLED = 'off'
+      const out = await callCron(`Bearer ${SECRET}`)
+      expect(out.code).toBe(200) // being off is not a failure — an error would make Vercel retry it
+      expect(out.body.skipped).toBe('disabled')
+      expect(out.body.provisioned).toBe(0)
+      expect(h.retrieveCalls.length, 'a disabled run must not touch the gateway at all').toBe(0)
+      const [pay] = await sql`SELECT status FROM v2_payment WHERE id = 'r360-i'`
+      expect(pay.status).toBe('PENDING') // untouched, and still recoverable the moment it is switched on
+      expect((await sql`SELECT id FROM member_subscription WHERE user_id = ${users[0]}`).length).toBe(0)
+    } finally {
+      if (prev === undefined) delete process.env.RECONCILE_ENABLED
+      else process.env.RECONCILE_ENABLED = prev
+    }
+  })
+
+  // ⑨b CONTROL — the same row, the same charge, switch back on. Without this, ⑨ would also pass if the
+  // reconciler were broken outright, which is the boring way a negative test goes green.
+  it('⑨ b control: switched back on → the same payment IS recovered', async () => {
+    const prev = process.env.RECONCILE_ENABLED
+    await seed('r360-j', 'chrg_j', users[1])
+    h.paidCharges.add('chrg_j')
+    try {
+      process.env.RECONCILE_ENABLED = 'off'
+      expect((await callCron(`Bearer ${SECRET}`)).body.provisioned).toBe(0)
+
+      process.env.RECONCILE_ENABLED = 'on'
+      const out = await callCron(`Bearer ${SECRET}`)
+      expect(out.body.skipped).toBeUndefined()
+      expect(out.body.provisioned).toBe(1)
+      expect((await sql`SELECT id FROM member_subscription WHERE user_id = ${users[1]}`).length).toBe(1)
+    } finally {
+      if (prev === undefined) delete process.env.RECONCILE_ENABLED
+      else process.env.RECONCILE_ENABLED = prev
+    }
+  })
+
+  it('⑨ c unset behaves exactly like on (the default keeps repairing)', async () => {
+    const prev = process.env.RECONCILE_ENABLED
+    await seed('r360-k', 'chrg_k', users[2])
+    h.paidCharges.add('chrg_k')
+    try {
+      delete process.env.RECONCILE_ENABLED
+      const out = await callCron(`Bearer ${SECRET}`)
+      expect(out.body.skipped).toBeUndefined()
+      expect(out.body.provisioned).toBe(1)
+    } finally {
+      if (prev === undefined) delete process.env.RECONCILE_ENABLED
+      else process.env.RECONCILE_ENABLED = prev
+    }
+  })
 })
