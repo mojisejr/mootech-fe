@@ -10,6 +10,16 @@
 // .tsx on purpose: ci.yml's legacy tsx lane globs `scripts/*.test.ts` and never sees `.tsx`, so this runs
 // under vitest only (registered in vitest.config.mts include) — no #212 skip-list sync needed.
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+
+// #252 — the route now derives the caller's user_id from the signed session before it does anything else,
+// so this spec has to say who is calling. It is mocked (not exercised) ON PURPOSE: what this file owns is
+// the BFF↔BE shared secret, and the identity half has its own teeth in scripts/onboarding-identity.test.tsx.
+// Without this mock every case here dies inside getServerSession on a stub res — a failure about the
+// harness, not about the header, which is exactly the kind of noise that teaches people to ignore a spec.
+vi.mock('@/lib/v2/resolve-user', () => ({
+  resolveSessionUserId: vi.fn(async () => ({ ok: true, userId: 'u1' })),
+}))
+
 import handler from '../pages/api/v2/onboarding'
 
 function makeRes() {
@@ -60,7 +70,7 @@ describe('BFF /api/v2/onboarding → BE /consent carries x-consent-secret (#16 c
 
   it('sends x-consent-secret equal to CONSENT_SECRET on the BE /consent call', async () => {
     const res = makeRes()
-    await handler(makeReq({ user_id: 'u1', goal: 'finance' }), res as never)
+    await handler(makeReq({ goal: 'finance' }), res as never) // #252: no user_id — the session decides
 
     expect(res.status).toHaveBeenCalledWith(200)
     expect(fetchMock).toHaveBeenCalledTimes(1)
@@ -74,7 +84,7 @@ describe('BFF /api/v2/onboarding → BE /consent carries x-consent-secret (#16 c
   it('never omits the header key even when CONSENT_SECRET is unset (fail-closed at BE, not silently dropped here)', async () => {
     delete process.env.CONSENT_SECRET
     const res = makeRes()
-    await handler(makeReq({ user_id: 'u1', goal: 'finance' }), res as never)
+    await handler(makeReq({ goal: 'finance' }), res as never) // #252: no user_id — the session decides
 
     const [, opts] = fetchMock.mock.calls[0] as [string, RequestInit]
     const headers = opts.headers as Record<string, string>

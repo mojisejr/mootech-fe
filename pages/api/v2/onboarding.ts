@@ -7,12 +7,26 @@
 //   • policy_version is server-owned — never read from the client body.
 // This route carries the BFF↔BE shared secret `x-consent-secret` (mootech-be#16, fail-closed there):
 // without the header the BE rejects the call with 401, so a request from OUTSIDE (a direct curl with no
-// secret) cannot reach /consent. It does NOT prove the end user's identity — this route still passes
-// user_id from the request body, so a bogus user_id from an authorized caller is not stopped here (that
-// identity half is tracked in mootech-fe#252). Same pattern as the AI wallet (lib/credit/wallet-client.ts
-// sends x-ai-secret). Server-side only — CONSENT_SECRET is never NEXT_PUBLIC_.
+// secret) cannot reach /consent. Same pattern as the AI wallet (lib/credit/wallet-client.ts sends
+// x-ai-secret). Server-side only — CONSENT_SECRET is never NEXT_PUBLIC_.
+//
+// 🔴 IDENTITY (#252) — the secret above answers "may this CALLER reach /consent", never "WHO is it".
+// Until this ticket the answer to "who" was `req.body.user_id`, and ตู๋ proved with a live probe that a
+// request holding only the team passkey could write a PDPA consent row in a VICTIM's name and get 200
+// back. The MEMBER_ID cookie is no better: pages/index.tsx sets it with a client-side `setCookie`, so it
+// is not httpOnly and the sender owns it end to end.
+// ⇒ user_id is now derived SERVER-SIDE from the signed NextAuth session and the request's own claim about
+//   who it is, is not read at all. `user_id` in the body is INERT — not validated, not compared, not
+//   logged: nothing to disagree with is the only shape that cannot be tricked into agreeing.
+// ⇒ This uses resolveSessionUserId, the shared identity home (#287), NOT a local copy of the same three
+//   steps. resolveUserFromRows there also refuses (409) when one provider account maps to two user rows —
+//   a rule ตู๋ found in #254 B2 that a re-implementation here would silently drop.
+// 🪞 The cost, stated because it IS a behaviour change: a visitor whose NextAuth session has expired but
+//   whose MEMBER_ID cookie has not now gets 401 where they used to get 200. That is the same bar the
+//   other six identity-bearing v2 routes already hold, and the alternative is trusting the forgeable half.
 import type { NextApiRequest, NextApiResponse } from 'next'
 import { PDPA_POLICY_VERSION } from '@/constants/pdpa'
+import { resolveSessionUserId } from '@/lib/v2/resolve-user'
 
 const BE_ENDPOINT = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:4000'
 if (/bazichart\.mumate\.co/i.test(BE_ENDPOINT)) {
@@ -29,9 +43,14 @@ function isGoal(v: unknown): v is (typeof GOALS)[number] {
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== 'POST') return res.status(405).json({ ok: false, error: 'Method not allowed' })
 
-  const userId = typeof req.body?.user_id === 'string' ? req.body.user_id.trim() : ''
+  // Identity FIRST — before the body is inspected at all, and before anything leaves this process.
+  // An unauthenticated request must not learn whether its goal was well-formed, and must never cause a
+  // call to the BE (the write side). 401 / 404 / 409 come straight from the shared resolver.
+  const who = await resolveSessionUserId(req, res)
+  if (!who.ok) return res.status(who.status).json({ ok: false, error: who.error })
+  const userId = who.userId
+
   const goal = req.body?.goal
-  if (!userId) return res.status(400).json({ ok: false, error: 'user_id required' })
   if (!isGoal(goal)) {
     return res.status(400).json({ ok: false, error: 'goal must be one of the 6 first-run goals' })
   }
