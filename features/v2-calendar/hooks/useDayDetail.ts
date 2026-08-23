@@ -14,6 +14,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { useV2User } from '@/features/auth/hooks/useV2User'
 import { useHasMounted } from '@/lib/hooks/use-has-mounted'
 import { isBirthProfileComplete, userRowToFeCalcInput } from '@/lib/bazi-bridge/input'
+import { isPaidMember } from '@/lib/v2/tier'
 import type { DayDetail } from '../types'
 import { bangkokTodayISO } from '../today'
 import { fetchDayDetail } from './fetch-day-detail'
@@ -31,6 +32,11 @@ export function useDayDetail(date: string): UseDayDetail {
   const hasMounted = useHasMounted()
   const { userId, user } = useV2User()
   const person = useMemo(() => (user && isBirthProfileComplete(user) ? userRowToFeCalcInput(user) : null), [user])
+  // #226 — the reply is now TIER-SHAPED (the BFF trims the paid sections for a free caller), so the tier is
+  // part of what identifies a cached day. Read from the SAME row `person` comes from, through the one frozen
+  // client rule (isPaidMember) — never a second definition of "paid". `person` is non-null below, so `user`
+  // is too: the tier is known whenever a key gets built.
+  const paid = isPaidMember(user)
   // Same determinants as the BFF cache key — dob edit → new signature → no cross-birth stale.
   const birthSig = useMemo(() => (person ? JSON.stringify(person) : ''), [person])
 
@@ -40,11 +46,11 @@ export function useDayDetail(date: string): UseDayDetail {
   useEffect(() => {
     if (!hasMounted || !userId || !person) return
     const today = bangkokTodayISO()
-    const k = dayKey(userId, birthSig, today)
+    const k = dayKey(userId, birthSig, today, paid)
     if (peekDayDetail(k) === undefined) {
-      void getDayDetail(k, () => fetchDayDetail(person, userId, today).then((r) => r.detail))
+      void getDayDetail(k, () => fetchDayDetail(person, today).then((r) => r.detail))
     }
-  }, [hasMounted, userId, birthSig, person])
+  }, [hasMounted, userId, birthSig, person, paid])
 
   // The selected day's detail — anti-latch on [date].
   useEffect(() => {
@@ -52,7 +58,7 @@ export function useDayDetail(date: string): UseDayDetail {
       setState({ detail: null, loading: false })
       return
     }
-    const k = dayKey(userId, birthSig, date)
+    const k = dayKey(userId, birthSig, date, paid)
 
     // Resolved-hit → render in THIS tick (no loading flash, no re-fetch).
     const peeked = peekDayDetail(k)
@@ -63,14 +69,14 @@ export function useDayDetail(date: string): UseDayDetail {
 
     let alive = true
     setState({ detail: null, loading: true }) // new day → clear old text; the ring (month cell) stays visible
-    getDayDetail(k, () => fetchDayDetail(person, userId, date).then((r) => r.detail)).then((lib) => {
+    getDayDetail(k, () => fetchDayDetail(person, date).then((r) => r.detail)).then((lib) => {
       if (!alive) return // date changed / unmounted mid-flight → drop this stale response (THE anti-latch)
       setState({ detail: lib ? libDayDetailToFeature(lib) : null, loading: false })
     })
     return () => {
       alive = false
     }
-  }, [date, userId, birthSig, person])
+  }, [date, userId, birthSig, person, paid])
 
   return state
 }

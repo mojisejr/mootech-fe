@@ -36,12 +36,16 @@ const libDetail = (tag: string): LibDayDetail =>
      spirits: [], wanPhra: { isWanPhra: false, label: '' }, colors: [], gates: [],
      dithi: { officer: '', officerDesc: '', jianchu: '' }, luckyDirection: '' }) as unknown as LibDayDetail
 
-// ── dayKey: includes userId + birthSig + date (bug-class 1 & 2 — the key is the whole defence) ──
-ok('dayKey includes userId', dayKey('user-A', 'sig', '2026-08-05').startsWith('user-A:'))
-ok('dayKey includes date', dayKey('user-A', 'sig', '2026-08-05').endsWith(':2026-08-05'))
-ok('dayKey different user → different key', dayKey('user-A', 'sig', '2026-08-05') !== dayKey('user-B', 'sig', '2026-08-05'))
-ok('dayKey different birth → different key', dayKey('user-A', 'sig1', '2026-08-05') !== dayKey('user-A', 'sig2', '2026-08-05'))
-ok('dayKey different date → different key', dayKey('user-A', 'sig', '2026-08-05') !== dayKey('user-A', 'sig', '2026-08-06'))
+// ── dayKey: includes userId + birthSig + date + tier (bug-class 1 & 2 — the key is the whole defence) ──
+ok('dayKey includes userId', dayKey('user-A', 'sig', '2026-08-05', false).startsWith('user-A:'))
+ok('dayKey includes date', dayKey('user-A', 'sig', '2026-08-05', false).includes(':2026-08-05:')) // #226: the tier now trails the date
+ok('dayKey different user → different key', dayKey('user-A', 'sig', '2026-08-05', false) !== dayKey('user-B', 'sig', '2026-08-05', false))
+ok('dayKey different birth → different key', dayKey('user-A', 'sig1', '2026-08-05', false) !== dayKey('user-A', 'sig2', '2026-08-05', false))
+ok('dayKey different date → different key', dayKey('user-A', 'sig', '2026-08-05', false) !== dayKey('user-A', 'sig', '2026-08-06', false))
+// 🔴 #226 — the FOURTH determinant. The BFF trims the reply by tier, so one (user, birth, date) now has two
+// shapes; a key that cannot tell them apart serves a paying user the free-shaped day out of memory until a
+// reload (the "stranded on the free gate" money bug this cache's own header warns about).
+ok('dayKey different tier → different key', dayKey('user-A', 'sig', '2026-08-05', false) !== dayKey('user-A', 'sig', '2026-08-05', true))
 
 async function run() {
   clearDayDetailCache()
@@ -49,7 +53,7 @@ async function run() {
   // ── bug-class 3: dedup — two concurrent reads of ONE key share ONE fetch ──
   let fetchCount = 0
   const slowFetch = () => new Promise<LibDayDetail | null>((res) => { fetchCount += 1; setTimeout(() => res(libDetail('A-day5')), 5) })
-  const kA5 = dayKey('user-A', 'sigA', '2026-08-05')
+  const kA5 = dayKey('user-A', 'sigA', '2026-08-05', false)
   const [r1, r2] = await Promise.all([getDayDetail(kA5, slowFetch), getDayDetail(kA5, slowFetch)])
   ok('dedup: concurrent same-key reads share ONE fetch', fetchCount === 1)
   ok('dedup: both callers get the same detail', r1?.summary === 'A-day5' && r2?.summary === 'A-day5')
@@ -60,17 +64,17 @@ async function run() {
   ok('resolved-hit: no second fetch', fetchCount === 1)
   ok('resolved-hit: returns the cached detail, not the new fetcher', r3?.summary === 'A-day5')
   ok('peek: resolved key returns the value synchronously', peekDayDetail(kA5)?.summary === 'A-day5')
-  ok('peek: unknown key returns undefined (→ hook shows loading)', peekDayDetail(dayKey('user-A', 'sigA', '2026-12-25')) === undefined)
+  ok('peek: unknown key returns undefined (→ hook shows loading)', peekDayDetail(dayKey('user-A', 'sigA', '2026-12-25', false)) === undefined)
 
   // ── bug-class 1: CROSS-USER — user-B's key gets user-B's day, never user-A's cached day ──
-  const kB5 = dayKey('user-B', 'sigB', '2026-08-05') // same date, different user
+  const kB5 = dayKey('user-B', 'sigB', '2026-08-05', false) // same date, different user
   ok('cross-user: user-B key is NOT resolved by user-A caching', !hasDayDetail(kB5))
   const rB = await getDayDetail(kB5, () => Promise.resolve(libDetail('B-day5')))
   ok('cross-user: user-B gets user-B detail', rB?.summary === 'B-day5')
   ok('cross-user: user-A still has user-A detail (no clobber)', peekDayDetail(kA5)?.summary === 'A-day5')
 
   // ── bug-class 1: logout — clearDayDetailCache drops BOTH resolved and inflight ──
-  const pendingKey = dayKey('user-A', 'sigA', '2026-09-09')
+  const pendingKey = dayKey('user-A', 'sigA', '2026-09-09', false)
   void getDayDetail(pendingKey, () => new Promise<LibDayDetail | null>(() => {})) // never resolves → stays in-flight
   ok('before clear: resolved and inflight both populated', _dayCacheSizes().resolved > 0 && _dayCacheSizes().inflight > 0)
   clearDayDetailCache()
@@ -79,7 +83,7 @@ async function run() {
   ok('logout: previous user-A day no longer served', peekDayDetail(kA5) === undefined)
 
   // ── bug-class 4: a rejected fetch is NOT cached — the next read retries ──
-  const kFail = dayKey('user-C', 'sigC', '2026-10-10')
+  const kFail = dayKey('user-C', 'sigC', '2026-10-10', false)
   let failCalls = 0
   await getDayDetail(kFail, () => { failCalls += 1; return Promise.reject(new Error('5xx')) }).catch(() => {})
   ok('failure: rejection is not stored as resolved', !hasDayDetail(kFail))

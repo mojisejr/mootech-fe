@@ -6,11 +6,25 @@
 // thaiLunar(วันพระ) · dayPillar/monthPillar/yearPillar(ธาตุ) come from the almanac fetch. The mapper
 // (lib/v2-calendar/day-detail.ts) owns the field-by-field trim — every field traces to a raw upstream field.
 //
-// Gate: OPEN (ฟีม 2026-08-05, Track B — ยังไม่เปิดขาย, เปิดทั้ง free+paid; ก่อนเปิดขายค่อยพิจารณา gate เหมือน
-// calendar-month). Cache per (user, birth-signature, date) — mirrors fortuneCacheKey so re-open a day is instant.
+// 🔴 GATE (#226) — the paid sections are now cut SERVER-SIDE. Before this, every field went to everyone and
+// pages/v2/calendar/[date].tsx hid them with `{paid && …}`: the whole object was in the browser before the
+// tier was even evaluated, so Network tab / curl read the paid content for free. Hiding is layout; this is
+// access. The cut is an ALLOW-LIST (lib/v2-calendar/day-detail.ts pickFreeDayDetail) so a field bazi adds
+// later is not sent by default.
+//
+// IDENTITY: the tier is resolved for the SESSION's user (resolveSessionUserId). It is deliberately NOT the
+// `userId` the body used to carry — a gate whose subject the sender picks is the bug of #252 and #391, and
+// this route would have been the third. The body no longer carries one at all.
+//
+// Cache per (SESSION user, birth-signature, date) — mirrors fortuneCacheKey so re-open a day is instant.
+// 🔴 The cache stores the FULL day and the trim happens on the way OUT. Caching the trimmed value would
+// mean the first free viewer of a day poisons it for every paying viewer after them (and vice versa) — a
+// tier-shaped cache bug that is invisible until someone pays.
 import type { NextApiRequest, NextApiResponse } from 'next'
 import { toBaziInput, type FeCalcInput } from '@/lib/bazi-bridge/input'
-import { mapDayDetail, type DayDetail } from '@/lib/v2-calendar/day-detail'
+import { mapDayDetail, pickFreeDayDetail, type DayDetail } from '@/lib/v2-calendar/day-detail'
+import { resolveSessionUserId } from '@/lib/v2/resolve-user'
+import { resolveSubscription } from '@/lib/v2/subscription'
 import { BAZI_BASE, BAZI_TIMEOUT_MS, fetchAlmanacDays, type AlmanacDay } from '@/lib/v2-calendar/month'
 
 type AlmanacDated = AlmanacDay & { date?: unknown }
@@ -42,12 +56,28 @@ const dayCacheKey = (userId: string, rawInput: unknown, date: string) => `${user
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' })
-  const { person, date, userId } = (req.body ?? {}) as { person?: FeCalcInput; date?: string; userId?: string }
+  // `userId` is no longer destructured — this route has no notion of who the SENDER claims to be.
+  const { person, date } = (req.body ?? {}) as { person?: FeCalcInput; date?: string }
 
   const parsed = parseDate(date)
   if (!parsed) return res.status(400).json({ error: 'Invalid date; expected "YYYY-MM-DD".' })
   if (!person) return res.status(400).json({ error: 'person (birth data) is required.' })
-  if (!userId) return res.status(400).json({ error: 'userId is required.' })
+
+  // Identity, then tier. The old `!userId → 400` guard is gone: the caller no longer supplies one, and a
+  // request without a usable session is refused here instead (401/404/409 straight from the resolver).
+  const who = await resolveSessionUserId(req, res)
+  if (!who.ok) return res.status(who.status).json({ error: who.error })
+  const userId = who.userId
+
+  // The paid verdict comes from the v2 membership seam (#354) — the module whose header calls itself "the
+  // ONE place that answers what tier is this user". `isPaid` is boolean | null there; only a literal true
+  // unlocks, so an undetermined tier (an unrecognised tier_code) serves the FREE view rather than guessing.
+  let paid = false
+  try {
+    paid = (await resolveSubscription(userId)).isPaid === true
+  } catch {
+    paid = false // cannot determine membership → free (fail closed; never serve paid content on an error)
+  }
 
   const ac = new AbortController()
   const timer = setTimeout(() => ac.abort(), BAZI_TIMEOUT_MS)
@@ -57,7 +87,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const cached = dayCache.get(key)
     if (cached) {
       clearTimeout(timer)
-      return res.status(200).json({ detail: cached, cached: true })
+      return res.status(200).json({ detail: paid ? cached : pickFreeDayDetail(cached), cached: true })
     }
 
     const [mvd, almanacDays] = await Promise.all([
@@ -69,8 +99,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const almanacDay = (almanacDays as AlmanacDated[]).find((a) => a && a.date === date) ?? null
     const detail = mapDayDetail(mvd, almanacDay)
     if (dayCache.size >= DAY_CACHE_MAX) dayCache.clear()
-    dayCache.set(key, detail)
-    return res.status(200).json({ detail })
+    dayCache.set(key, detail) // FULL — see the header: the trim is a per-response view, never a stored one
+    return res.status(200).json({ detail: paid ? detail : pickFreeDayDetail(detail) })
   } catch {
     clearTimeout(timer)
     // upstream unreachable/timeout → graceful, never 5xx (UI shows its own retry state)
