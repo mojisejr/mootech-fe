@@ -4,10 +4,17 @@
     {
       "path": "/api/cron/push-reminders",
       "schedule": "* * * * *"
+    },
+    {
+      "path": "/api/cron/reconcile-payment",
+      "schedule": "*/15 * * * *"
     }
   ],
   "functions": {
     "pages/api/cron/push-reminders.ts": {
+      "maxDuration": 60
+    },
+    "pages/api/cron/reconcile-payment.ts": {
       "maxDuration": 60
     }
   }

@@ -72,6 +72,7 @@ export default defineConfig({
       'scripts/quota-indicator-ui.test.tsx', // #264 — the UI half: what is shown when there IS no number; .tsx
       'scripts/calc-cooldown.test.tsx', // #265 — cooldown state machine; every guarantee lives in THIS lane; .tsx
       'scripts/edit-friend-ui.test.tsx', // #266 — edit-friend UI; refuses to open a blank form; .tsx
+      'scripts/add-friend-copy.test.tsx', // #277 — ทุกคำในชีทเพิ่มเพื่อนบอกว่าเป็นข้อมูลของเพื่อน + ข้อความล้มที่ถูกอยู่แล้วต้องไม่โดนลบ
       'scripts/pwa-capability.test.tsx', // #285 — PWA capability tri-state (unknown≠false); .tsx (vitest-only)
       'scripts/reminder-logic.test.tsx', // #287 — reminder time/plan/adapter/identity (pure); .tsx
       'scripts/reminders-client.test.tsx', // #287 — transport mapping + useReminders + past-guard; .tsx
@@ -98,6 +99,7 @@ export default defineConfig({
       'scripts/payment-webhook-verify.test.ts', // #355 — pure: Omise HMAC verify, fail-closed (main-lane money gate)
       'scripts/payment-charge-route.test.ts', // #355 — route: session gate + client-ignored + fail-loud-before-charge
       'scripts/payment-webhook-db.test.ts', // #355 — real pg (skipIf !TEST_DATABASE_URL): webhook→settle→provision, idempotent+concurrent
+      'scripts/reconcile-cron-db.test.ts', // #360 — real pg: reconciler cron (parallel runs · secret gate · boundary)
       'scripts/discount-rules.test.ts', // #361 — pure: discount math (floor/cap/clamp/VAT/no-100%) + code applicability
       'scripts/discount-concurrency-db.test.ts', // #361 — real pg (skipIf !TEST_DATABASE_URL): quota gate under parallel load + release
       'scripts/discount-preview-db.test.ts', // #361 real pg: preview-charge quote contract + legacy-code answers
@@ -108,9 +110,12 @@ export default defineConfig({
       'scripts/onboarding-identity.test.tsx', // #252 — consent identity is server-derived; the body's user_id is inert
       'scripts/save-onboarding-client.test.tsx', // #252 — the client sends the goal and no identity, ever
       'scripts/calendar-month-identity.test.tsx', // #391 — the paid-month gate judges the SESSION (runs with the gate CLOSED)
+      'scripts/day-detail-paywall.test.tsx', // #226 — paid sections cut server-side (allow-list) + the cached path
+      'scripts/calendar-month-gate-closed.test.tsx', // #293 — the REAL gate constant (never mocked): free refused with 0 upstream calls
       'scripts/home-profile.test.ts', // #383 — MIGRATED off the dead tsx lane (#367)
       'scripts/user-membership-route.test.ts', // #383 — /api/user gains `membership`
       'scripts/user-membership-db.test.ts', // #383 — real pg (skipIf !TEST_DATABASE_URL)
+      'scripts/env-example-drift.test.ts', // #403 — .env.example ต้องประกาศทุก env ที่แอปอ่าน (lib/pages/features)
       'scripts/header-tier-badge.test.tsx', // #384 — 5 badge states + the "unknown" case + the 6-screen wiring
       'scripts/discount-code-field.test.tsx', // #363 — โค้ดส่วนลด 3 สถานะ + จอต้องคิดเลขไม่เป็น
       'scripts/charge-status.test.ts', // #363 — หาแถวด้วย chargeId + รอไม่ใช่สำเร็จ + ปักว่า query ห้ามมี limit
@@ -121,6 +126,7 @@ export default defineConfig({
       'scripts/result-screen.test.tsx', // #363 — จอ result: เครื่องหมายถูกมาจาก paid ไม่ใช่ชื่อสถานะ
       'scripts/use-checkout.test.tsx', // #363 — ✕ ต้องยิง preview ใหม่ · โค้ดผิดห้ามลบราคาทิ้ง
       'scripts/omise-token.test.ts', // #363 — คีย์ v2 เท่านั้น และตั้งทันทีก่อน createToken
+      'scripts/v1-add-friend-copy.test.tsx', // #413 — โมดัลเพิ่มเพื่อนของ v1: ป้ายต้องบอกว่าเป็นข้อมูลเพื่อน
     ],
   },
   resolve: {

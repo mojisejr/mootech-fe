@@ -142,9 +142,12 @@ export interface DayDetailColor {
 }
 /** ดิถี — ข้อความล้วน (❌ ไม่แปลงเป็นโทนดี/ร้าย — การตีความ ไม่ใช่ข้อมูล). */
 export interface DayDetailDithi {
+  /** ชิปบนการ์ดคะแนน — ทุก tier เห็น. */
   officer: string
-  officerDesc: string
-  jianchu: string
+  /** เนื้อของหัวข้อ <Dithi/> ที่ขายเงิน — 🔴 OPTIONAL ตั้งแต่ #226: BFF ตัดสองตัวนี้ออกสำหรับผู้ใช้ฟรี
+   *  (ดิถีเป็นฟิลด์เดียวในก้อนที่แยกครึ่งข้างในตัวเอง) ⇒ การมีอยู่ของมันคือคำตัดสินของเซิร์ฟเวอร์. */
+  officerDesc?: string
+  jianchu?: string
 }
 
 export interface DayDetail {
@@ -167,23 +170,25 @@ export interface DayDetail {
 
   // ── ครึ่งล่าง (G-4) — เปิดฟิลด์หน้ารายละเอียดวัน ให้ μุน's M-D ย้าย content.ts → detail.* ──
   // กอง 1 (ย้ายตรงๆ — ท่อ day-detail (B-5) มีให้ครบ; sub-types reused from lib/v2-calendar/day-detail):
-  /** ความเข้ากันรายด้าน — facets[] (isMain→isStrength). */
-  compatAreas: DayDetailArea[]
-  /** คำแนะนำของด้านหลัก — facets[].lines[].text (3 บรรทัด). */
-  advice: string[]
-  /** 💡 บรรทัดสรุปปฏิกิริยาธาตุ — elementRelation.summaryTh. */
-  insight: string
+  /** ความเข้ากันรายด้าน — facets[] (isMain→isStrength).
+   *  🔴 OPTIONAL ตั้งแต่ #226: BFF ตัดฟิลด์ที่ขายเงินออกก่อนส่งให้ผู้ใช้ฟรี ⇒ "ไม่มีฟิลด์" คือคำตอบปกติ
+   *  ไม่ใช่ความผิดพลาด · type ที่ยังบอกว่า required จะโกหก และทำให้ผู้เรียกใหม่ `.map()` ได้โดยไม่มีอะไรทัก */
+  compatAreas?: DayDetailArea[]
+  /** คำแนะนำของด้านหลัก — facets[].lines[].text (3 บรรทัด). OPTIONAL — paid (#226). */
+  advice?: string[]
+  /** 💡 บรรทัดสรุปปฏิกิริยาธาตุ — elementRelation.summaryTh. OPTIONAL — paid (#226). */
+  insight?: string
   /** เทพประจำวัน — almanac.deity. */
   dayDeity: string
-  /** 8 เทพ 八神 + คีย์เวิร์ด — almanac.spirits[]. */
-  spirits: DayDetailSpirit[]
+  /** 8 เทพ 八神 + คีย์เวิร์ด — almanac.spirits[]. OPTIONAL — paid (#226). */
+  spirits?: DayDetailSpirit[]
   /** แถววันพระ (ค่ำ/เดือน) — almanac.thaiLunar. */
   wanPhra: { isWanPhra: boolean; label: string }
   // กอง 2 (ส่งดิบ — ❌ ห้ามแปลง/ตีความ; ตำราไม่มีเกณฑ์ = แปลง=แต่งตำรา; μุน ตัดสินการแสดงผล):
   /** สีมงคล — ชื่อสีไทย ❌ ไม่แปลงเป็นรหัสสี (งานดีไซน์ μุน). */
   luckyColors: DayDetailColor[]
-  /** 8 ประตู — ชื่อ+ทิศ+ความหมาย ❌ ไม่ใส่ระดับดี/ร้าย (ตำราไม่มี). */
-  gates: DayDetailGate[]
+  /** 8 ประตู — ชื่อ+ทิศ+ความหมาย ❌ ไม่ใส่ระดับดี/ร้าย (ตำราไม่มี). OPTIONAL — paid (#226). */
+  gates?: DayDetailGate[]
   /** ดิถี — officer + คำอธิบาย + jianchu เป็นข้อความ ❌ ไม่แปลงเป็นโทนดี/ร้าย. */
   dithi: DayDetailDithi
   /**

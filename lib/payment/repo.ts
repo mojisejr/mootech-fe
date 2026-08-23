@@ -1,12 +1,12 @@
 // v2 payment I/O (mootech-fe#355) — the ONLY layer that touches the DB. The decision logic is pure
 // (catalog/provision); this file reads/writes and owns the ATOMIC settlement.
-import { and, eq, ne, desc, sql } from 'drizzle-orm'
+import { and, eq, ne, gte, desc, sql } from 'drizzle-orm'
 import { randomUUID } from 'node:crypto'
 import { db as defaultDb } from '@/lib/db'
-import { v2Payment, memberPayment, memberSubscription, paymentPackage, user } from '@/lib/db/schema'
+import { v2Payment, memberPayment, memberSubscription, paymentPackage, paymentQuote, user } from '@/lib/db/schema'
 import { parseExpireSpec, type PackageRow } from './catalog'
 import { buildProvision } from './provision'
-import { reserveCodeInTx, releaseRedemption, Refuse } from '@/lib/discount/repo'
+import { reserveCodeInTx, releaseRedemption, restoreRedemption, Refuse } from '@/lib/discount/repo'
 import type { TierCode } from '@/lib/v2/tier'
 
 type Db = typeof defaultDb
@@ -170,6 +170,28 @@ export async function abandonPending(
   await db.update(v2Payment).set({ status: 'REJECT' }).where(eq(v2Payment.id, paymentId))
 }
 
+/**
+ * #360 — the rows the reconciler may consider. The WINDOW is applied in SQL (so a long-lived table does
+ * not get pulled into memory) but the RULE that decides which of them to act on stays pure
+ * (lib/payment/reconcile.ts) — the same split the month gate uses: narrow in SQL, decide in code, one copy
+ * of the rule that a unit test can argue with.
+ */
+export async function listUnsettledPayments(
+  since: Date,
+  db: Db = defaultDb,
+): Promise<Array<{ id: string; chargeId: string; orderId: string; status: string; createdAt: Date }>> {
+  return db
+    .select({
+      id: v2Payment.id,
+      chargeId: v2Payment.chargeId,
+      orderId: v2Payment.orderId,
+      status: v2Payment.status,
+      createdAt: v2Payment.createdAt,
+    })
+    .from(v2Payment)
+    .where(and(eq(v2Payment.status, 'PENDING'), gte(v2Payment.createdAt, since)))
+}
+
 export async function listUserPayments(userId: string, db: Db = defaultDb) {
   return db
     .select({
@@ -195,19 +217,76 @@ export async function listUserPayments(userId: string, db: Db = defaultDb) {
 //      expire_at = GREATEST(existing, new) computed IN SQL, so even two DIFFERENT charges for the same user
 //      settling at once never shorten the membership.
 // Returns whether THIS call provisioned. Idempotent: a replay after settlement changes 0 rows → false.
+/**
+ * What a settlement attempt actually did. `provisioned` alone conflated FIVE different worlds — the comment
+ * on this function used to list three of them and got one of those wrong (it claimed an already-REJECT row
+ * returns 0 rows; the predicate is `status <> 'APPROVED'`, so a REJECT row is flipped and provisioned).
+ * The webhook cannot tell "we granted it" from "we have never heard of this charge" without this, and those
+ * two need OPPOSITE handling: one is routine, the other means somebody's money is sitting outside our books.
+ */
+export type SettleOutcome =
+  | 'PROVISIONED' // matched by charge_id and granted just now
+  | 'RECOVERED' //   charge_id was never attached (the money moved but the write did not) → matched by order_id
+  | 'ALREADY' //     a row exists and is already APPROVED — a replay/duplicate delivery. Routine.
+  | 'NO_ROW' //      nothing matches by charge_id OR order_id. 🔴 money may exist outside our records.
+  | 'AMBIGUOUS' //   more than one row carries that order_id → refuse to guess which payment this is.
+
 export async function settleAndProvision(
   chargeId: string,
+  orderId: string | null = null,
   now: Date = new Date(),
   db: Db = defaultDb,
-): Promise<{ provisioned: boolean }> {
+): Promise<{ provisioned: boolean; outcome: SettleOutcome }> {
   return db.transaction(async (tx) => {
     const approved = await tx
       .update(v2Payment)
       .set({ status: 'APPROVED' })
       .where(and(eq(v2Payment.chargeId, chargeId), ne(v2Payment.status, 'APPROVED')))
       .returning()
-    if (approved.length === 0) return { provisioned: false } // lost the race, unknown charge, or already REJECT
-    const pay = approved[0]
+
+    let pay = approved[0]
+    let outcome: SettleOutcome = 'PROVISIONED'
+
+    if (!pay) {
+      // Nothing moved on charge_id. Three different worlds live here — tell them apart before answering.
+      const [existing] = await tx
+        .select({ id: v2Payment.id, status: v2Payment.status })
+        .from(v2Payment)
+        .where(eq(v2Payment.chargeId, chargeId))
+        .limit(1)
+      if (existing) return { provisioned: false, outcome: 'ALREADY' } // it is ours and already granted
+
+      // 🔴 #371 — THE RECOVERY. The row is written BEFORE the money moves (#361), so if Omise says a charge
+      // succeeded and no row carries that charge_id, the row almost certainly exists WITHOUT it: the charge
+      // was created and `attachChargeId` never landed (deploy, DB blip, or the webhook simply arrived first
+      // — PromptPay fires fast). order_id is the one identifier that is on the row before any money moves
+      // AND travels to Omise as metadata, so it is what closes that window.
+      if (!orderId) return { provisioned: false, outcome: 'NO_ROW' }
+      const candidates = await tx
+        .select({ id: v2Payment.id, status: v2Payment.status, chargeId: v2Payment.chargeId })
+        .from(v2Payment)
+        .where(eq(v2Payment.orderId, orderId))
+      // order_id is 10 random digits and carries NO uniqueness constraint, so a collision is possible.
+      // Picking "whichever row the planner returned" would grant a stranger's payment to somebody else —
+      // the same refuse-on-ambiguity rule resolveUserFromRows follows for identity (ตู๋ #254 B2).
+      if (candidates.length === 0) return { provisioned: false, outcome: 'NO_ROW' }
+      if (candidates.length > 1) return { provisioned: false, outcome: 'AMBIGUOUS' }
+      const [cand] = candidates
+      if (cand.status === 'APPROVED') return { provisioned: false, outcome: 'ALREADY' }
+      // Only a row still holding its placeholder may adopt this charge id. A row already bound to a REAL
+      // charge belongs to that charge; taking it would move one person's payment onto another's record.
+      if (cand.chargeId !== placeholderChargeId(cand.id)) {
+        return { provisioned: false, outcome: 'AMBIGUOUS' }
+      }
+      const [recovered] = await tx
+        .update(v2Payment)
+        .set({ status: 'APPROVED', chargeId })
+        .where(and(eq(v2Payment.id, cand.id), ne(v2Payment.status, 'APPROVED')))
+        .returning()
+      if (!recovered) return { provisioned: false, outcome: 'ALREADY' } // lost a race to a concurrent delivery
+      pay = recovered
+      outcome = 'RECOVERED'
+    }
 
     // Duration comes from the FROZEN terms on v2_payment (ตู๋ #370 B2) — NOT a fresh payment_package read,
     // so a package edited between charge and settle can't change what this paid charge is worth.
@@ -267,6 +346,34 @@ export async function settleAndProvision(
         },
       })
 
-    return { provisioned: true }
+    // 🔴 #371 — a REJECTed row that turns out to have been PAID had its discount hold released by
+    // abandonPending. The purchase really happened, so the redemption belongs back on the books: leaving it
+    // off makes used_count LESS true, and the next buyer can spend a slot this sale already consumed.
+    // Restored WITHOUT the quota gate on purpose — the gate exists to stop a NEW use from exceeding the
+    // limit, not to un-record a completed one. If that pushes used_count past max_use_total, that number is
+    // the honest count of what was sold, and it is visible; the alternative is a silent undercount.
+    if (pay.codeId) {
+      // vat_percent_at_purchase is required on the redemption row and is NOT on v2_payment — it lives on
+      // the quote. A payment that carries a code ALWAYS carries the quote it was previewed with (the charge
+      // flow refuses a code without one, ตู๋ #372 ②), so this read is not a maybe. If it ever comes back
+      // empty we skip the restore rather than invent a rate: a wrong number on a money row is worse than a
+      // missing row, and the missing row is what NO_ROW-style logging is for.
+      const [q] = await tx
+        .select({ vatPercent: paymentQuote.vatPercent })
+        .from(paymentQuote)
+        .where(eq(paymentQuote.id, pay.quoteId ?? ''))
+        .limit(1)
+      if (q) {
+        await restoreRedemption(tx as never, {
+          codeId: pay.codeId,
+          userId: pay.userId,
+          paymentId: pay.id,
+          discountSatang: pay.discountSatang ?? 0,
+          vatPercent: q.vatPercent,
+        })
+      }
+    }
+
+    return { provisioned: true, outcome }
   })
 }

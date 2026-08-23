@@ -445,7 +445,12 @@ const [imageSrc, setImageSrc] = useState<string | null>(null);
           
           {/* GENDER */}
           <div className="w-full flex flex-wrap  mt-[24px]">
-            <span className=" font-ibm font-medium text-[16px] text-moumate_black">เพศดั้งเดิมของคุณ</span> 
+            {/* #413 — was "เพศดั้งเดิมของคุณ" on a modal that collects a FRIEND's birth data. Same defect as #277
+                fixed on the v2 sheet, except this one is on the version real users are using today, so the
+                cost of leaving it is not hypothetical: a birth date entered for the wrong person produces a
+                reading that looks entirely normal and is about somebody else.
+                ONLY the words change — v1 takes real money and this ticket is not a refactor. */}
+            <span className=" font-ibm font-medium text-[16px] text-moumate_black">เพศดั้งเดิมของเพื่อน</span> 
           </div>
           <div className=" w-full grid grid-cols-2 gap-[18px]  mt-[12px]">
 

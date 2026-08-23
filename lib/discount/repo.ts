@@ -237,3 +237,44 @@ export async function releaseRedemption(
     return { released: true }
   })
 }
+
+// 🔴 #371 — put a redemption BACK after a payment turns out to have succeeded all along.
+//
+// The path: the card was charged, our call to the gateway threw anyway (a read timeout looks exactly like a
+// refusal), abandonPending marked the row REJECT and released the code's slot. Later the webhook proves the
+// charge was paid. The sale happened, so the slot was really spent — and the release has to be undone or
+// the next buyer spends it a second time.
+//
+// ❗ NO QUOTA GATE HERE, and that is the decision, not an oversight. reserveCodeInTx refuses past
+// max_use_total because a NEW use must not exceed the limit. This is not a new use: it is the record of one
+// that already completed and was paid for. Refusing it would not un-sell anything — it would only make
+// used_count smaller than the truth, which is the direction that costs money (someone else gets the slot
+// that was already sold). If this pushes the count past the ceiling, that count is what actually happened
+// and it is visible in /ops.
+//
+// Idempotent: the UNIQUE (code_id, payment_id) index means a second call inserts nothing, so a duplicate
+// webhook delivery cannot inflate the count. We only bump used_count when the row was really absent.
+export async function restoreRedemption(
+  tx: {
+    execute: (q: unknown) => Promise<unknown>
+    insert: (t: unknown) => { values: (v: unknown) => { onConflictDoNothing: () => Promise<unknown> } }
+  },
+  args: { codeId: string; userId: string; paymentId: string; discountSatang: number; vatPercent: number },
+): Promise<{ restored: boolean }> {
+  const existing = await tx.execute(sql`
+    SELECT 1 FROM discount_redemption
+     WHERE code_id = ${args.codeId} AND payment_id = ${args.paymentId} LIMIT 1`)
+  if (rowsOf(existing).length > 0) return { restored: false } // never released, or already restored
+
+  await tx.insert(discountRedemption).values({
+    id: randomUUID(),
+    codeId: args.codeId,
+    userId: args.userId,
+    paymentId: args.paymentId,
+    discountSatang: args.discountSatang,
+    vatPercentAtPurchase: args.vatPercent,
+  }).onConflictDoNothing()
+
+  await tx.execute(sql`UPDATE discount_code SET used_count = used_count + 1 WHERE id = ${args.codeId}`)
+  return { restored: true }
+}

@@ -7,6 +7,13 @@
 // payment flips isPaid), so caching it stranded a paid user on the free gate. Different data, different rule.
 // The key includes the birth signature, so editing dob yields a new key (no cross-birth stale).
 //
+// 🔴 #226 ADDED A FOURTH DETERMINANT — `paid`. Since the BFF now TRIMS the reply by tier, the same
+// (user, birth, date) resolves to two DIFFERENT objects, and the sentence above stopped being true the
+// moment that shipped. Without this dimension a user who upgrades inside the app keeps being served the
+// free-shaped day out of this Map until a reload — exactly the "stranded a paid user on the free gate"
+// bug this header warns about, re-entering through the door it was written to guard.
+// (The upgrade path is real: /v2/shop is one tap from this screen.)
+//
 // Failure is never cached (a reject deletes the in-flight entry → retryable). clearDayDetailCache() on
 // logout drops everything (next identity starts clean).
 import type { DayDetail as LibDayDetail } from '@/lib/v2-calendar/day-detail'
@@ -16,9 +23,10 @@ type Fetcher = () => Promise<LibDayDetail | null>
 const resolved = new Map<string, LibDayDetail | null>()
 const inflight = new Map<string, Promise<LibDayDetail | null>>()
 
-/** stable key — same determinants as the BFF's dayCacheKey (userId + birth signature + date). */
-export function dayKey(userId: string, birthSig: string, date: string): string {
-  return `${userId}:${birthSig}:${date}`
+/** stable key — the BFF's dayCacheKey determinants (userId + birth signature + date) PLUS the tier, which
+ *  the BFF does not need in its own key because it caches the FULL day and trims per response (#226). */
+export function dayKey(userId: string, birthSig: string, date: string, paid: boolean): string {
+  return `${userId}:${birthSig}:${date}:${paid ? 'paid' : 'free'}`
 }
 
 /**
