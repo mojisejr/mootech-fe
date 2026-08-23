@@ -44,7 +44,26 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   // Only a completed, paid charge provisions — and settleAndProvision is idempotent + concurrency-safe, so
   // a retry or a simultaneous duplicate delivery grants at most once.
   if (isSettleable(evt) && evt.chargeId) {
-    await settleAndProvision(evt.chargeId)
+    // #371 — orderId lets a paid charge find its row even when charge_id was never attached to it.
+    const { outcome } = await settleAndProvision(evt.chargeId, evt.orderId)
+    // 🔴 The answer to Omise stays 200 for every outcome, ON PURPOSE. The ticket warns against replying
+    // non-2xx blindly, and the reason bites hardest here: a retry only helps if the cause is temporary, and
+    // NO_ROW is not temporary — it means this charge is not in our books at all (a foreign charge, a wrong
+    // key, a deleted row). Answering 5xx to that would make Omise retry it forever while nothing changes.
+    // What must NOT stay the same is the LOG: these outcomes had one shape before, so "granted" and "money
+    // we cannot account for" were indistinguishable in the one place a human would look.
+    if (outcome === 'NO_ROW' || outcome === 'AMBIGUOUS') {
+      console.error(
+        `[v2/payment/webhook] 🔴 PAID CHARGE WITH NO USABLE ROW (${outcome}) — charge=${evt.chargeId} ` +
+          `order=${evt.orderId ?? '(none)'}. Money has moved and nobody has been granted anything. ` +
+          `Check this charge in the Omise dashboard against v2_payment before assuming it is not ours.`,
+      )
+    } else if (outcome === 'RECOVERED') {
+      console.warn(
+        `[v2/payment/webhook] recovered by order_id — charge=${evt.chargeId} order=${evt.orderId}. ` +
+          `The row existed but never received its charge_id (attach failed, or this delivery beat it).`,
+      )
+    }
   } else if (isTerminalFailure(evt) && evt.chargeId) {
     // 🔴 The charge ENDED without succeeding (failed/expired/reversed) ⇒ free its discount hold now instead
     // of waiting for the quote to expire (#372 ③ layer 2). An event that is merely not-finished-yet
