@@ -112,6 +112,7 @@ export default defineConfig({
       'scripts/user-membership-route.test.ts', // #383 — /api/user gains `membership`
       'scripts/user-membership-db.test.ts', // #383 — real pg (skipIf !TEST_DATABASE_URL)
       'scripts/header-tier-badge.test.tsx', // #384 — 5 badge states + the "unknown" case + the 6-screen wiring
+      'scripts/discount-code-field.test.tsx', // #363 — โค้ดส่วนลด 3 สถานะ + จอต้องคิดเลขไม่เป็น
     ],
   },
   resolve: {

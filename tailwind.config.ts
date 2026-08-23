@@ -86,6 +86,14 @@ const config: Config = {
           'mate-purple': '#6F1BAF',     // Mate-AI base gradient end
           // Home pastel tiles
           'pastel-mint': '#E0FFC4',
+          // ── success / "it worked" (mootech-fe#363, Figma 55159:5611 Discount Code · State=Success) ──
+          // The FIRST success role in v3: nothing green existed before, because until checkout nothing in v2
+          // could succeed in a way worth colouring. Taken from the design as-is (no near-miss token to reuse),
+          // and measured before adopting: success-text on success-bg = 5.43:1 → WCAG AA for normal text.
+          // ❌ Do NOT reach for these as a generic "green" — they are the applied-discount chip's three parts.
+          'success-bg': '#EAF3DE',      // chip fill
+          'success-border': '#97C459',  // chip border + check glyph
+          'success-text': '#3B6D11',    // code name · −฿amount · helper line
           'pastel-sky': '#C1E6F8',
           'pastel-blue': '#C9E4F4',
           'pastel-lilac': '#ECD9FB',
