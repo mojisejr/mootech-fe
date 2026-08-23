@@ -107,6 +107,7 @@ export default defineConfig({
       'scripts/upgrade-cta-destinations.test.tsx', // #359 — ทั้ง 4 CTA ชี้มา /v2/shop · ของที่เหลือห้ามชี้มา
       'scripts/onboarding-identity.test.tsx', // #252 — consent identity is server-derived; the body's user_id is inert
       'scripts/save-onboarding-client.test.tsx', // #252 — the client sends the goal and no identity, ever
+      'scripts/calendar-month-identity.test.tsx', // #391 — the paid-month gate judges the SESSION (runs with the gate CLOSED)
       'scripts/home-profile.test.ts', // #383 — MIGRATED off the dead tsx lane (#367)
       'scripts/user-membership-route.test.ts', // #383 — /api/user gains `membership`
       'scripts/user-membership-db.test.ts', // #383 — real pg (skipIf !TEST_DATABASE_URL)
