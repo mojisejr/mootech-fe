@@ -1,0 +1,78 @@
+// features/v2-shop/result-state.ts — the six things that can be true after someone tries to pay (#363).
+//
+// 🔴 NONE OF THESE SIX EXIST IN FIGMA. The design has a checkout frame and nothing after it, so every word
+// below is authored, not translated — which the ticket names as the riskiest copy in the whole job, because
+// no reviewer can diff it against a frame. Two consequences, both deliberate:
+//   1. the states are a CLOSED UNION, so "did we cover them all?" is a question the compiler answers;
+//   2. every string lives here, so the per-line audit enumerates one file instead of hunting a screen.
+//
+// 🔑 THE RULE EVERY LINE IS WRITTEN AGAINST (from #347 / #263): a failure message must let the reader tell
+// whether TRYING AGAIN COULD WORK. "เกิดข้อผิดพลาด" fails that test — it is true of every row here and
+// useful in none of them. So each state carries `retry`, and the copy matches it rather than decorating it.
+export type ResultState =
+  | 'PAYING' // in flight — we have not heard back yet
+  | 'APPROVED' // settled: /payment/status says APPROVED for THIS chargeId
+  | 'CARD_DECLINED' // the bank said no. Trying the same card again is unlikely to help; another one might.
+  | 'OFFLINE' // WE could not reach our own status endpoint. Says nothing about the money.
+  | 'ALREADY_PAID' // this charge is already settled — the user pressed again, or came back to a done screen
+  | 'QR_MAYBE_EXPIRED' // past our own deadline with no settle. NOT "expired" — we are not told that.
+
+export type ResultCopy = {
+  /** the headline. */
+  title: string
+  /** one line under it, in the user's terms. */
+  body: string
+  /** 🔴 can pressing again plausibly change the outcome? Drives which action the screen offers. */
+  retry: 'same' | 'different' | 'none'
+  /** true only when the user's money has actually moved. Exactly ONE state may set this. */
+  paid: boolean
+}
+
+export const RESULT_COPY: Record<ResultState, ResultCopy> = {
+  PAYING: {
+    title: 'กำลังดำเนินการ',
+    body: 'กำลังตรวจสอบการชำระเงิน อย่าเพิ่งปิดหน้านี้',
+    retry: 'none',
+    paid: false,
+  },
+  APPROVED: {
+    title: 'ชำระเงินสำเร็จ',
+    body: 'สิทธิ์ของคุณเปิดใช้งานแล้ว',
+    retry: 'none',
+    paid: true,
+  },
+  CARD_DECLINED: {
+    // Names WHO said no, because "ล้มเหลว" leaves the user wondering whether we lost their money.
+    title: 'ธนาคารปฏิเสธการชำระเงิน',
+    body: 'ยังไม่มีการตัดเงินจากบัตรใบนี้ ลองใช้บัตรใบอื่นหรือชำระด้วยพร้อมเพย์',
+    retry: 'different',
+    paid: false,
+  },
+  OFFLINE: {
+    // ❌ never "การชำระเงินล้มเหลว": our network is not their payment.
+    title: 'เช็คสถานะไม่ได้ตอนนี้',
+    body: 'การเชื่อมต่อมีปัญหา ถ้าคุณจ่ายไปแล้วเงินไม่หาย กดตรวจสอบอีกครั้งได้เลย',
+    retry: 'same',
+    paid: false,
+  },
+  ALREADY_PAID: {
+    // The double-press case. Saying "สำเร็จ" here would be true but would also read as "your SECOND payment
+    // went through", so it says plainly that there is only one.
+    title: 'รายการนี้ชำระเงินแล้ว',
+    body: 'ไม่มีการตัดเงินซ้ำ สิทธิ์ของคุณเปิดใช้งานอยู่แล้ว',
+    retry: 'none',
+    paid: true,
+  },
+  QR_MAYBE_EXPIRED: {
+    // อาจ — the gateway never tells us when a QR dies (useChargeStatus.STALE_AFTER_MS).
+    title: 'QR นี้อาจหมดอายุแล้ว',
+    body: 'ถ้าคุณจ่ายไปแล้ว กดตรวจสอบอีกครั้ง ถ้ายัง ขอ QR ใหม่ได้',
+    retry: 'same',
+    paid: false,
+  },
+}
+
+/** The one place that answers "has their money moved?" — so no screen can decide it locally. */
+export function isPaidState(s: ResultState): boolean {
+  return RESULT_COPY[s].paid
+}

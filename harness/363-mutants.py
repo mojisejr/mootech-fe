@@ -68,12 +68,23 @@ MUT=[
   "  maybeExpired: 'QR นี้อาจหมดอายุแล้ว ถ้าคุณจ่ายไปแล้วให้กดตรวจสอบอีกครั้ง',", "  maybeExpired: 'QR หมดอายุแล้ว',"),
  ("MU26 settle on ANY approved row, not mine", 'features/v2-shop/useChargeStatus.ts',
   "  return rows.find((r) => r.chargeId === chargeId) ?? null", "  return rows.find((r) => r.status === 'APPROVED') ?? null"),
+ ("MU27 a non-paid state claims the money moved", 'features/v2-shop/result-state.ts',
+  "    title: 'ธนาคารปฏิเสธการชำระเงิน',\n    body: 'ยังไม่มีการตัดเงินจากบัตรใบนี้ ลองใช้บัตรใบอื่นหรือชำระด้วยพร้อมเพย์',\n    retry: 'different',\n    paid: false,",
+  "    title: 'ธนาคารปฏิเสธการชำระเงิน',\n    body: 'ยังไม่มีการตัดเงินจากบัตรใบนี้ ลองใช้บัตรใบอื่นหรือชำระด้วยพร้อมเพย์',\n    retry: 'different',\n    paid: true,"),
+ ("MU28 our network worded as their payment failing", 'features/v2-shop/result-state.ts',
+  "    title: 'เช็คสถานะไม่ได้ตอนนี้',", "    title: 'ชำระเงินล้มเหลว',"),
+ ("MU29 tell a declined card to try the same thing", 'features/v2-shop/result-state.ts',
+  "    retry: 'different',\n    paid: false,\n  },\n  OFFLINE", "    retry: 'same',\n    paid: false,\n  },\n  OFFLINE"),
+ ("MU30 fall back to a generic error sentence", 'features/v2-shop/result-state.ts',
+  "    body: 'การเชื่อมต่อมีปัญหา ถ้าคุณจ่ายไปแล้วเงินไม่หาย กดตรวจสอบอีกครั้งได้เลย',", "    body: 'เกิดข้อผิดพลาด ลองใหม่อีกครั้งภายหลัง',"),
+ ("MU31 the double-press state reads as a second success", 'features/v2-shop/result-state.ts',
+  "    title: 'รายการนี้ชำระเงินแล้ว',", "    title: 'ชำระเงินสำเร็จ',"),
  ("MU6 drop role=alert from the error helper", 'features/v2-shop/components/DiscountCodeField.tsx',
   "role={isError ? 'alert' : 'status'}", "role={'status'}"),
 ]
 
 def failed_tests():
-    r=subprocess.run(['npx','vitest','run','scripts/discount-code-field.test.tsx','scripts/charge-status.test.ts','scripts/order-summary.test.tsx','scripts/payment-method-picker.test.tsx','scripts/qr-screen.test.tsx','--reporter=json'],
+    r=subprocess.run(['npx','vitest','run','scripts/discount-code-field.test.tsx','scripts/charge-status.test.ts','scripts/order-summary.test.tsx','scripts/payment-method-picker.test.tsx','scripts/qr-screen.test.tsx','scripts/result-state.test.ts','--reporter=json'],
                      cwd=R,capture_output=True,text=True)
     out=r.stdout
     i=out.find('{')

@@ -117,6 +117,7 @@ export default defineConfig({
       'scripts/order-summary.test.tsx', // #363 — การ์ดสรุปยอด: พิมพ์ quote ไม่คิดเลข + audit คำสัญญารายบรรทัด
       'scripts/payment-method-picker.test.tsx', // #363 — ขายสองวิธี · อีกสองตัวต้องไม่อยู่ใน DOM
       'scripts/qr-screen.test.tsx', // #363 — จอ QR: ห้ามอ้างสำเร็จ/หมดอายุ · ย้อนกลับต้องไม่ยิงอะไร
+      'scripts/result-state.test.ts', // #363 — audit 6 สถานะหลังจ่าย: สถานะไหน 'เงินขยับแล้ว' + กดซ้ำช่วยไหม
     ],
   },
   resolve: {
