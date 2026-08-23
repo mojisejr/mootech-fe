@@ -69,12 +69,18 @@ export function useChargeStatus(
   const [stale, setStale] = useState(false)
   const [nonce, setNonce] = useState(0)
   const stopped = useRef(false)
+  // The clock is injectable so the deadline is testable without waiting 15 real minutes. Its default is a
+  // fresh closure on every render, so it lives in a ref: the effect reads the CURRENT clock without being
+  // restarted by its identity — which is what putting it in the dep list would do (one poll restart per
+  // render, i.e. a deadline that never arrives).
+  const nowRef = useRef(now)
+  nowRef.current = now
 
   useEffect(() => {
     if (!chargeId) return
     stopped.current = false
     setStale(false)
-    const startedAt = now()
+    const startedAt = nowRef.current()
     let timer: ReturnType<typeof setTimeout> | null = null
 
     const tick = async () => {
@@ -95,7 +101,7 @@ export function useChargeStatus(
       }
       // Past the deadline we STOP ASKING but claim nothing: not expired, not failed. The screen switches to
       // "อาจหมดอายุ" plus a manual check, because a user who paid at minute 20 must still be able to find out.
-      if (!stopped.current && now() - startedAt >= staleAfterMs) {
+      if (!stopped.current && nowRef.current() - startedAt >= staleAfterMs) {
         setStale(true)
         return
       }

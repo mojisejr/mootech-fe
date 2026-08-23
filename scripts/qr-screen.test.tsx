@@ -14,6 +14,9 @@ import { describe, it, expect, vi, afterEach, beforeEach } from 'vitest'
 import { render, screen, cleanup, waitFor, fireEvent } from '@testing-library/react'
 import { QrScreen, QR_COPY } from '@/features/v2-shop/components/QrScreen'
 
+// The mock deliberately renders a bare <img>: the point is to assert the QR's src/alt reach the DOM, and
+// next/image's real behaviour (loader, sizing) is not what this spec is about.
+// eslint-disable-next-line @next/next/no-img-element
 vi.mock('next/image', () => ({ default: (p: Record<string, unknown>) => <img alt={String(p.alt)} src={String(p.src)} /> }))
 
 const mockStatus = (payments: unknown) =>
