@@ -48,6 +48,12 @@ MUT=[
   ">ใช้ได้ถึง {validUntilText}</p>", ">ต่ออายุอัตโนมัติ {validUntilText}</p>"),
  ("MU16 invent the annual-saving row", 'features/v2-shop/components/OrderSummaryCard.tsx',
   "{quote.annualSavingSatang !== undefined && quote.annualSavingSatang > 0 && (", "{true && ("),
+ ("MU17 past the deadline, claim APPROVED", 'features/v2-shop/useChargeStatus.ts',
+  "        setStale(true)\n        return", "        setStatus('APPROVED')\n        return"),
+ ("MU18 a fetch error ends the wait", 'features/v2-shop/useChargeStatus.ts',
+  "        if (stopped.current) return\n        setError(true)", "        if (stopped.current) return\n        setError(true)\n        return"),
+ ("MU19 keep polling forever past the deadline", 'features/v2-shop/useChargeStatus.ts',
+  "      if (!stopped.current && now() - startedAt >= staleAfterMs) {", "      if (false) {"),
  ("MU6 drop role=alert from the error helper", 'features/v2-shop/components/DiscountCodeField.tsx',
   "role={isError ? 'alert' : 'status'}", "role={'status'}"),
 ]

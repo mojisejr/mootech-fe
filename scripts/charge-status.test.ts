@@ -69,3 +69,78 @@ describe('#363 the dependency this hook has on someone else\'s query', () => {
     expect(body.length).toBeGreaterThan(120)
   })
 })
+
+// ── the deadline behaviour (#363 criteria ①) ────────────────────────────────────────────────────────
+// 🔴 MUTANT CONTRACT (cont.):
+//   MU11 after the deadline, report APPROVED / "expired" instead of `stale`   → "claims nothing" reddens
+//   MU12 a fetch error ends the wait                                          → "an error is not an answer" reddens
+//   MU13 keep polling forever past the deadline                               → "stops asking" reddens
+import { renderHook, waitFor, act } from '@testing-library/react'
+import { useChargeStatus } from '@/features/v2-shop/useChargeStatus'
+import { vi as vitest, beforeEach, afterEach as afterEachHook } from 'vitest'
+
+const mockStatus = (payments: unknown, ok = true) => {
+  vitest.stubGlobal('fetch', vitest.fn(async () => ({ ok, json: async () => ({ payments }) })))
+}
+
+beforeEach(() => vitest.unstubAllGlobals())
+afterEachHook(() => vitest.unstubAllGlobals())
+
+describe('#363 how long we keep asking, and what we refuse to say', () => {
+  it('settles on APPROVED and stops asking', async () => {
+    mockStatus([{ chargeId: 'c1', status: 'APPROVED' }])
+    const { result } = renderHook(() => useChargeStatus('c1', { pollMs: 5 }))
+    await waitFor(() => expect(result.current.status).toBe('APPROVED'))
+    expect(result.current.polling).toBe(false)
+    const calls = (globalThis.fetch as unknown as { mock: { calls: unknown[] } }).mock.calls.length
+    await new Promise((r) => setTimeout(r, 40))
+    expect((globalThis.fetch as unknown as { mock: { calls: unknown[] } }).mock.calls.length).toBe(calls)
+  })
+
+  it('🔴 past the deadline it CLAIMS NOTHING — not success, not failure', async () => {
+    mockStatus([{ chargeId: 'c1', status: 'PENDING' }])
+    let t = 0
+    const { result } = renderHook(() => useChargeStatus('c1', { pollMs: 1, staleAfterMs: 10, now: () => (t += 6) }))
+    await waitFor(() => expect(result.current.stale).toBe(true))
+    // The three things it must not have become.
+    expect(result.current.status).not.toBe('APPROVED')
+    expect(result.current.polling).toBe(false)
+    expect(result.current.error).toBe(false) // "we stopped asking" is not "something went wrong"
+  })
+
+  it('stops asking once stale — the loop does not run forever behind the screen', async () => {
+    mockStatus([{ chargeId: 'c1', status: 'PENDING' }])
+    let t = 0
+    const { result } = renderHook(() => useChargeStatus('c1', { pollMs: 1, staleAfterMs: 10, now: () => (t += 6) }))
+    await waitFor(() => expect(result.current.stale).toBe(true))
+    const calls = (globalThis.fetch as unknown as { mock: { calls: unknown[] } }).mock.calls.length
+    await new Promise((r) => setTimeout(r, 40))
+    expect((globalThis.fetch as unknown as { mock: { calls: unknown[] } }).mock.calls.length).toBe(calls)
+  })
+
+  it('check() asks again after the deadline — a user who paid late can still find out', async () => {
+    mockStatus([{ chargeId: 'c1', status: 'PENDING' }])
+    let t = 0
+    const { result } = renderHook(() => useChargeStatus('c1', { pollMs: 1, staleAfterMs: 10, now: () => (t += 6) }))
+    await waitFor(() => expect(result.current.stale).toBe(true))
+    mockStatus([{ chargeId: 'c1', status: 'APPROVED' }])
+    act(() => result.current.check())
+    await waitFor(() => expect(result.current.status).toBe('APPROVED'))
+  })
+
+  it('a fetch error is not an answer — it ASKS AGAIN', async () => {
+    // 🔴 THE FIRST VERSION OF THIS TEST DID NOT BITE, and the reason is worth keeping. It asserted
+    // `result.current.polling === true` — but `polling` is DERIVED from state (`chargeId && !approved &&
+    // !stale`), so it stays true whether or not another request is ever scheduled. A mutant that returned
+    // early after `setError(true)` — killing the retry loop outright — left that flag untouched and the test
+    // green (MU18 survived, caught by the mutant runner rather than by review).
+    // The fix is to measure the behaviour the sentence claims: another request actually goes out.
+    vitest.stubGlobal('fetch', vitest.fn(async () => { throw new Error('offline') }))
+    const { result } = renderHook(() => useChargeStatus('c1', { pollMs: 2 }))
+    await waitFor(() => expect(result.current.error).toBe(true))
+    expect(result.current.status).not.toBe('APPROVED')
+    const calls = () => (globalThis.fetch as unknown as { mock: { calls: unknown[] } }).mock.calls.length
+    const first = calls()
+    await waitFor(() => expect(calls()).toBeGreaterThan(first))
+  })
+})

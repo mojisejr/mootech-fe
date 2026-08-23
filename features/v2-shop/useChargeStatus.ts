@@ -37,16 +37,44 @@ export function statusOf(row: PaymentRow | null): ChargeStatus {
 
 export const POLL_MS = 3000
 
-export type UseChargeStatus = { status: ChargeStatus; polling: boolean; error: boolean }
+/**
+ * 🔴 OUR NUMBER, NOT OMISE'S — and the UI says "อาจ" because of that (#363 criteria, 2026-08-23).
+ *
+ * The PromptPay response carries `chargeId` and the QR image and NOTHING about when the QR dies
+ * (omise-gateway.ts:71-74 reads only `source.scannable_code.image.download_uri`). The only deadline this
+ * system actually holds is the quote TTL — 15 minutes (pages/api/v2/payment/preview.ts:14) — and that one is
+ * already spent by the time a charge exists. So this is not "when the QR expires". It is "how long we keep
+ * asking before we admit we do not know", and it is deliberately the same 15 minutes rather than a tenth
+ * invented number. If the gateway ever forwards Omise's own `expires_at`, a real countdown becomes possible
+ * and the word "อาจ" can come off the screen.
+ */
+export const STALE_AFTER_MS = 15 * 60 * 1000
 
-export function useChargeStatus(chargeId: string | null, { pollMs = POLL_MS } = {}): UseChargeStatus {
+export type UseChargeStatus = {
+  status: ChargeStatus
+  polling: boolean
+  error: boolean
+  /** past the deadline with no settle — the screen offers "ตรวจสอบอีกครั้ง" / "ขอ QR ใหม่" instead of claiming. */
+  stale: boolean
+  /** one manual poll. Nothing is lost by asking again, so the user is never stuck with our guess. */
+  check: () => void
+}
+
+export function useChargeStatus(
+  chargeId: string | null,
+  { pollMs = POLL_MS, staleAfterMs = STALE_AFTER_MS, now = () => Date.now() } = {},
+): UseChargeStatus {
   const [status, setStatus] = useState<ChargeStatus>('UNKNOWN')
   const [error, setError] = useState(false)
+  const [stale, setStale] = useState(false)
+  const [nonce, setNonce] = useState(0)
   const stopped = useRef(false)
 
   useEffect(() => {
     if (!chargeId) return
     stopped.current = false
+    setStale(false)
+    const startedAt = now()
     let timer: ReturnType<typeof setTimeout> | null = null
 
     const tick = async () => {
@@ -65,6 +93,12 @@ export function useChargeStatus(chargeId: string | null, { pollMs = POLL_MS } = 
         if (stopped.current) return
         setError(true)
       }
+      // Past the deadline we STOP ASKING but claim nothing: not expired, not failed. The screen switches to
+      // "อาจหมดอายุ" plus a manual check, because a user who paid at minute 20 must still be able to find out.
+      if (!stopped.current && now() - startedAt >= staleAfterMs) {
+        setStale(true)
+        return
+      }
       if (!stopped.current) timer = setTimeout(tick, pollMs)
     }
     void tick()
@@ -73,7 +107,13 @@ export function useChargeStatus(chargeId: string | null, { pollMs = POLL_MS } = 
       stopped.current = true
       if (timer) clearTimeout(timer)
     }
-  }, [chargeId, pollMs])
+  }, [chargeId, pollMs, staleAfterMs, nonce])
 
-  return { status, polling: !!chargeId && status !== 'APPROVED', error }
+  return {
+    status,
+    polling: !!chargeId && status !== 'APPROVED' && !stale,
+    error,
+    stale,
+    check: () => setNonce((n) => n + 1),
+  }
 }
