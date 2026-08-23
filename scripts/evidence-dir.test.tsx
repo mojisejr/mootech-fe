@@ -16,8 +16,9 @@
 // .tsx on purpose: ci.yml's tsx lane globs `*.test.ts`, so a `.tsx` spec is vitest-only and needs no
 // entry in that lane's skip list (the #212 hand-synced-copies debt).
 import { describe, it, expect } from 'vitest'
-import { existsSync, rmSync } from 'node:fs'
-import { join, dirname, sep } from 'node:path'
+import { existsSync, rmSync, writeFileSync, unlinkSync, symlinkSync, mkdirSync } from 'node:fs'
+import { execFileSync } from 'node:child_process'
+import { join, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { evidenceDir } from '../harness/evidence-dir.mjs'
 
@@ -51,9 +52,48 @@ describe('evidenceDir — the one place that decides where harness output lands'
     expect(existsSync(escaped)).toBe(false) // ← the assertion the first version would have failed
   })
 
-  it('the root it hands out is the one .gitignore covers', () => {
-    // not a string compare against a literal: derive both sides, so renaming one without the other fails
-    expect(evidenceDir().startsWith(join(REPO, 'harness') + sep)).toBe(true)
-    expect(evidenceDir().endsWith(`${sep}.tmp`)).toBe(true)
+  // 🔴 THIS TEST USED TO BE A LIE, AND THE NAME IS WHY IT MATTERED. The first version asserted the
+  // path ENDS IN '.tmp' and called that "the one .gitignore covers" — it never opened .gitignore.
+  // ตู๋ mutated the ignore rule to `harness/.tmpp/`, which breaks the entire point of #417, and all
+  // eight specs stayed green plus the full 640-test suite. A tooth named after a class it does not
+  // guard is worse than no tooth: the name is what stops the next person from writing the real one.
+  // So git answers now, not string arithmetic.
+  it('the root it hands out is REALLY ignored — git says so, not the string', () => {
+    const probe = join(evidenceDir(), '__ignore_probe.png')
+    writeFileSync(probe, '')
+    try {
+      // exit 0 = ignored. execFileSync throws on exit 1, which is exactly the failure we want to see.
+      execFileSync('git', ['check-ignore', '-q', probe], { cwd: REPO })
+    } finally {
+      unlinkSync(probe)
+    }
+  })
+
+  it('and the tracked directory this replaced is NOT ignored — the probe can tell the two apart', () => {
+    // negative control on the probe itself: a check that answers "ignored" for everything proves nothing.
+    const tracked = join(REPO, 'harness', 'pixel-proof', '__ignore_probe.png')
+    writeFileSync(tracked, '')
+    try {
+      expect(() => execFileSync('git', ['check-ignore', '-q', tracked], { cwd: REPO })).toThrow()
+    } finally {
+      unlinkSync(tracked)
+    }
+  })
+
+  // ตู๋'s second pass: `resolve` reads the string, so a symlinked root passes a check that is true
+  // about the path and false about where the bytes land. The dangerous direction is .tmp -> pixel-proof.
+  it('refuses to hand out a root that is a symlink', () => {
+    const root = evidenceDir()
+    const target = join(REPO, 'harness', '.tmp-symlink-spec-target')
+    rmSync(root, { recursive: true, force: true })
+    mkdirSync(target, { recursive: true })
+    try {
+      symlinkSync(target, root)
+      expect(() => evidenceDir('shot')).toThrow(/symlink/)
+    } finally {
+      rmSync(root, { force: true })          // removes the LINK, not the target
+      rmSync(target, { recursive: true, force: true })
+      mkdirSync(root, { recursive: true })   // put the real directory back
+    }
   })
 })

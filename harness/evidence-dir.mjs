@@ -21,7 +21,7 @@
 // evidence images are test output, not something the app serves.
 import { fileURLToPath } from 'node:url'
 import { dirname, join, resolve, sep } from 'node:path'
-import { mkdirSync } from 'node:fs'
+import { mkdirSync, lstatSync } from 'node:fs'
 
 const REPO = dirname(dirname(fileURLToPath(import.meta.url)))
 const ROOT = join(REPO, 'harness', '.tmp')
@@ -41,8 +41,25 @@ const ROOT = join(REPO, 'harness', '.tmp')
  * `resolve` first (it normalises the `a/../..` form that a substring check misses), then require the
  * root prefix WITH a separator — 'harness/.tmpX' must not pass a bare startsWith. Validate BEFORE
  * mkdirSync: a guard that throws after creating the directory has already done the damage.
+ *
+ * 🔴 CONTAINMENT IS LEXICAL, AND THAT IS NOT THE WHOLE STORY. ตู๋ went through it a second time on the
+ * same review: `resolve` reads the STRING, so if the root itself is a symlink the check passes while
+ * the bytes land somewhere else — he proved it with `ln -s /tmp/x harness/.tmp`, and the direction that
+ * actually costs us is `.tmp -> pixel-proof`, which puts output back in the TRACKED tree while the guard
+ * reports everything is fine. So the root is refused outright when it is a symlink. What is still NOT
+ * covered: a symlink at an intermediate component created between this check and the write. That is a
+ * real remaining gap, it is filed as #420, and it is written here rather than left for the next person
+ * to discover — a guard whose limits are undocumented gets trusted past them.
  */
 export function evidenceDir(name = '') {
+  // the root must be a real directory, never a link — see the symlink note above
+  try {
+    if (lstatSync(ROOT).isSymbolicLink()) {
+      throw new Error(`evidenceDir: ${ROOT} is a symlink. The evidence root must be a real directory — a link makes the containment check below true about the path and false about where the bytes land.`)
+    }
+  } catch (e) {
+    if (e.code !== 'ENOENT') throw e   // not existing yet is fine; mkdirSync creates it
+  }
   const out = name ? resolve(ROOT, name) : ROOT
   if (out !== ROOT && !out.startsWith(ROOT + sep)) {
     throw new Error(`evidenceDir: "${name}" resolves outside the evidence root (${out}). Harness output must stay under ${ROOT} — that is the only path .gitignore knows about.`)
