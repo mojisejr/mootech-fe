@@ -83,22 +83,45 @@ function ProfileRow({ person, loadingDob, onEdit, onPick, onChangePerson, editBu
     // birthdate was being pushed onto a second line and breaking after the "·", leaving the separator
     // dangling. Right padding drops to 8px only on the two-action row; the buttons' own inset supplies the
     // visual gutter, and rows with one action keep the original 24px.
-    // #276 — BELOW 360 THE ACTIONS TAKE THEIR OWN LINE. Measured, not guessed: at 320 the text column gets
-    // 76px and the birthdate needs 147.6px, so it is short by 71.6px — more than every scrap of padding on
-    // the row put together. The only way to give it that room is to stop the two 44px targets from sharing
-    // the line, and 44 is the tap-target floor #249 established, so they cannot shrink either.
-    // At 393 the column measures 149px against a 147.6px birthdate — it fits by 1.4px, which is the "ปรับมา
-    // พอดี" from #266. That margin is why this uses a breakpoint instead of anything adaptive: anything that
-    // reflows by content would land on the wrong side of 1.4px sooner or later. `flex-nowrap` from 360 up
-    // restores the pre-#276 layout exactly, so 360/393/430 do not move a pixel.
-    // (`min-[360px]:` is already the project's way of doing this — DailyFortuneCard.tsx:109.)
-    <section data-testid={testId} className={`flex w-full items-center overflow-hidden rounded-[56px] bg-v3-ghost-white py-3 pl-3 ${onChangePerson ? 'flex-wrap gap-x-2 gap-y-1 pr-2 min-[360px]:flex-nowrap' : 'gap-3 pr-6'}`}>
+    // #276 — THE ACTIONS TAKE THEIR OWN LINE WHEN THE BIRTHDATE CANNOT FIT BESIDE THEM. Measured, not
+    // guessed: at 320 the text column gets 76px and the birthdate needs 147.6px, so it is short by 71.6px —
+    // more than every scrap of padding on the row put together. The only way to give it that room is to stop
+    // the two 44px targets from sharing the line, and 44 is the tap-target floor #249 established, so they
+    // cannot shrink either.
+    // #414 — WHAT DECIDES IS THE BIRTHDATE'S WIDTH, NOT THE VIEWPORT'S. #276 wrote that rule as
+    // `min-[360px]:flex-nowrap`, and 360 was a guess: the text column measures exactly (viewport - 244)px at
+    // every width tested, so a 147.6px birthdate runs out of room at 391.6 — not at 360. Everything from 360
+    // to 391 kept the actions on the line and broke the date instead, leaving "23 พ.ย. 2538 ·" with the
+    // separator dangling at 360-390, and an orphaned "น." at 391. That is the whole of #414, and it is the
+    // same defect #276 fixed, still shipping, one pixel range over.
+    // So the number here is the one that actually decides — `min-w-[148px]` is what the rendered birthdate
+    // needs (147.6px, measured at DPR 2 with the real font) — and the wrap follows the CONTENT: whenever the
+    // row cannot give the text column that much, the actions go to their own line, exactly as they already
+    // do at 320. No viewport appears in this rule at all, so there is no width left for the next date to
+    // land on the wrong side of.
+    // 🔴 KNOWN, MEASURED, AND OUT OF SCOPE: 147.6px is THIS date, not the column. All twelve abbreviated
+    // months were measured (harness header carries the table): the widest is เม.ย. at 150.3px and the
+    // runner-up is พ.ค. at 148.1px, so 148 leaves ten months with room and two without. After this change
+    // the actions sit beside the text from 392 up, where the column is (viewport - 244), so what is left
+    // broken is exactly: เม.ย. at 392/393/394, and พ.ค. at 392 alone — a one-pixel window. `min-w-[151px]`
+    // is the value that closes every month, at the cost of making 393 wrap for everyone, which is the
+    // trade #414's DoD is not allowed to make. Filed as its own ticket.
+    // Leaving the dob wrappable (no `whitespace-nowrap`) is deliberate for exactly those cases: a second
+    // line is ugly, a birthdate clipped by this row's `overflow-hidden` would be silent.
+    // (The month figures are ตู๋'s, from reviewing this PR, re-run by me and agreeing to 0.1px. My own
+    // first list of "wide" months was arrived at by counting glyphs and had มี.ค. in it — it is 146.3px,
+    // one of the narrowest. Character count is not width.)
+    <section data-testid={testId} className={`flex w-full flex-wrap items-center overflow-hidden rounded-[56px] bg-v3-ghost-white py-3 pl-3 ${onChangePerson ? 'gap-x-2 gap-y-1 pr-2' : 'gap-x-3 gap-y-1 pr-6'}`}>
       <span className="relative grid size-10 shrink-0 place-items-center overflow-hidden rounded-full bg-v3-sapphire text-sm font-bold text-white">
         {person.imageProfile
           ? <Image src={person.imageProfile} alt="" fill sizes="40px" style={{ objectFit: 'cover' }} />
           : <span>{person.name.trim().charAt(0) || '?'}</span>}
       </span>
-      <div className="flex min-w-0 flex-1 flex-col justify-center gap-1 text-v3-navy">
+      {/* #414 — min-w is the birthdate's width, so the row wraps on CONTENT instead of on a viewport guess.
+          Row 1 gets the same floor as row 2 on purpose: it is the same column showing the same kind of
+          string, and its own birthdate was breaking with the same dangling "·" at 320/359/360 (measured).
+          Two rules for one column is what let this defect ship twice. */}
+      <div className="flex min-w-[148px] flex-1 flex-col justify-center gap-1 text-v3-navy">
         <p data-testid={`${testId}-name`} className="truncate text-[16px] font-bold leading-6">{person.name}</p>
         {loadingDob
           ? <span data-testid="compat-person2-dob-loading" className="h-[14px] w-32 animate-pulse rounded bg-v3-ghost-white brightness-95" aria-hidden />
@@ -110,10 +133,12 @@ function ProfileRow({ person, loadingDob, onEdit, onPick, onChangePerson, editBu
           defect #263 removed from the message below. Two actions, two labels, two testids.
           min-w/min-h 44: two small text targets side by side is exactly where #249's 41px tap-target
           failure came from — measured at 393 and 320, not eyeballed. */}
-      {/* #276 — `w-full` is what pushes this group onto its own line while the row is wrapping; from 360 up
-          `w-auto` + the row's `flex-nowrap` put it back beside the text, unchanged. justify-end keeps the
-          actions on the reading edge in both arrangements. */}
-      <div className={`flex shrink-0 items-center ${onChangePerson ? 'w-full justify-end min-[360px]:w-auto min-[360px]:justify-start' : ''}`}>
+      {/* #276/#414 — `ml-auto` keeps the actions on the reading edge in BOTH arrangements: beside the text
+          it changes nothing (the text column already grows into the space), and on a wrapped line it pushes
+          them right, which is what `w-full justify-end` was doing before. It replaces that pair because
+          `w-full` forced the wrap by itself — the row could never put the actions beside the text no matter
+          how much room there was, so the layout needed a viewport rule to undo it. */}
+      <div className="ml-auto flex shrink-0 items-center">
         {onChangePerson && (
           <button
             type="button" onClick={onChangePerson} data-testid={`${testId}-change`}
