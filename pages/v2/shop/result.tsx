@@ -37,7 +37,10 @@ export default function V2ResultPage() {
         : claimed
 
   return (
-    <div className="min-h-screen w-full bg-v3-bg-cream">
+    // Centred for the same reason as the QR screen: top-aligned, the outcome sat above half a phone of
+    // empty cream and read as an unfinished page. On the screen that tells someone whether their money moved,
+    // "unfinished" is the worst possible impression to leave.
+    <div className="flex min-h-screen w-full flex-col justify-center bg-v3-bg-cream">
       <Head><title>ผลการชำระเงิน · MuMate</title></Head>
       <ResultScreen
         state={state}

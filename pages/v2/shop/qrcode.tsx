@@ -27,7 +27,11 @@ export default function V2QrPage() {
   }
 
   return (
-    <div className="min-h-screen w-full bg-v3-bg-cream px-4 py-10">
+    // 🔴 CENTRED, not top-aligned. Top-aligned, this screen left half a phone of empty cream below the
+    // content, which on a device reads as "the page did not finish loading" — on the screen where the user
+    // is waiting for a payment to complete, that is the single worst thing it could imply. Caught by looking
+    // at the capture, not by any assertion: every testid was present and correct.
+    <div className="flex min-h-screen w-full flex-col items-center justify-center bg-v3-bg-cream px-4 py-10">
       <Head><title>สแกนเพื่อชำระเงิน · MuMate</title></Head>
       <QrScreen
         chargeId={charge}
