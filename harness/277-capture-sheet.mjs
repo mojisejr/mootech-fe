@@ -6,10 +6,11 @@ import { chromium } from 'playwright'
 import { execSync } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
 import { dirname, join } from 'node:path'
-import { mkdirSync } from 'node:fs'
+import { evidenceDir } from './evidence-dir.mjs'
 
 const REPO = dirname(dirname(fileURLToPath(import.meta.url)))
-const OUT = join(REPO, 'harness', 'pixel-proof'); mkdirSync(OUT, { recursive: true })
+// #417 — the output root is a value now, not a string spelled out here. See harness/evidence-dir.mjs.
+const OUT = evidenceDir()
 const LABEL = process.argv[2] ?? 'after'
 const KEY = execSync(`grep '^V2_PREVIEW_KEY=' ${join(REPO, '.env.local')} | cut -d= -f2- | tr -d '"'`).toString().trim()
 

@@ -5,9 +5,10 @@
 import { chromium } from 'playwright'
 import { fileURLToPath } from 'node:url'
 import { dirname, join } from 'node:path'
-import { mkdirSync } from 'node:fs'
+import { evidenceDir } from './evidence-dir.mjs'
 const REPO = dirname(dirname(fileURLToPath(import.meta.url)))
-const OUT = join(REPO, 'harness', 'pixel-proof'); mkdirSync(OUT, { recursive: true })
+// #417 — the output root is a value now, not a string spelled out here. See harness/evidence-dir.mjs.
+const OUT = evidenceDir()
 const LABEL = process.argv[2] ?? 'after'
 const UID = '11111111-2222-4333-8444-555555555555'
 const b = await chromium.launch()
