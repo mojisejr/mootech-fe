@@ -17,6 +17,10 @@ import {
   _monthCacheMemSize,
 } from '../features/v2-calendar/hooks/month-cache'
 
+// #293 — peekMonth now asks WHO is reading. The cases below exercise cache MECHANICS, so the viewer is a
+// paying member throughout; the tier guard itself is proven in its own block at the end of this file.
+const PAID_VIEWER = { paid: true }
+
 let pass = 0
 function t(name: string, fn: () => void) {
   try {
@@ -91,7 +95,7 @@ t('setMonth then peek → memory hit returns the same days', () => {
   clearMonthCache()
   const k = monthKey('u1', SIG1, monthYM(2026, 8))
   setMonth(k, DAYS_A)
-  assert.deepEqual(peekMonth(k), DAYS_A)
+  assert.deepEqual(peekMonth(k, PAID_VIEWER), DAYS_A)
 })
 
 // ── ชั้น 2: reopen app (memory empty, value only in localStorage) → read + promote ──
@@ -103,7 +107,7 @@ t('reopen app: value only in localStorage → peek reads it AND promotes to memo
   // simulate a prior session having persisted it (write straight to LS under the versioned prefix + shape)
   ls.setItem('mumate:cal:v1:' + k, JSON.stringify({ t: 1, d: DAYS_A }))
   assert.equal(_monthCacheMemSize(), 0, 'precondition: memory empty')
-  assert.deepEqual(peekMonth(k), DAYS_A, 'reads from localStorage')
+  assert.deepEqual(peekMonth(k, PAID_VIEWER), DAYS_A, 'reads from localStorage')
   assert.equal(_monthCacheMemSize(), 1, 'promoted into memory (next read is parse-free)')
 })
 
@@ -113,8 +117,8 @@ t('dob change → different key → miss (แก้วันเกิด ปฏ�
   clearMonthCache()
   const ym = monthYM(2026, 8)
   setMonth(monthKey('u1', SIG1, ym), DAYS_A)
-  assert.equal(peekMonth(monthKey('u1', SIG2, ym)), undefined, 'new dob signature must miss')
-  assert.deepEqual(peekMonth(monthKey('u1', SIG1, ym)), DAYS_A, 'old signature still its own entry')
+  assert.equal(peekMonth(monthKey('u1', SIG2, ym), PAID_VIEWER), undefined, 'new dob signature must miss')
+  assert.deepEqual(peekMonth(monthKey('u1', SIG1, ym), PAID_VIEWER), DAYS_A, 'old signature still its own entry')
 })
 
 // ── DoD #6: logout clears memory AND every persisted mumate:cal:* key ──
@@ -161,7 +165,7 @@ t('throwing localStorage → set/peek/clear never throw; memory layer still work
   clearMonthCache() // must not throw even though clear() throws
   const k = monthKey('u1', SIG1, monthYM(2026, 8))
   assert.doesNotThrow(() => setMonth(k, DAYS_A)) // setItem throws → swallowed, memory still set
-  assert.deepEqual(peekMonth(k), DAYS_A, 'served from memory despite localStorage throwing')
+  assert.deepEqual(peekMonth(k, PAID_VIEWER), DAYS_A, 'served from memory despite localStorage throwing')
 })
 t('localStorage access itself throws (private mode) → treated as absent, memory-only', () => {
   Object.defineProperty(globalThis, 'localStorage', {
@@ -173,7 +177,7 @@ t('localStorage access itself throws (private mode) → treated as absent, memor
   clearMonthCache()
   const k = monthKey('u1', SIG1, monthYM(2026, 8))
   assert.doesNotThrow(() => setMonth(k, DAYS_A))
-  assert.deepEqual(peekMonth(k), DAYS_A)
+  assert.deepEqual(peekMonth(k, PAID_VIEWER), DAYS_A)
   // restore a normal data property for any later work
   Object.defineProperty(globalThis, 'localStorage', { configurable: true, writable: true, value: undefined })
 })
@@ -185,7 +189,7 @@ t('corrupt localStorage JSON → miss + evicts the bad key', () => {
   clearMonthCache()
   const k = monthKey('u1', SIG1, monthYM(2026, 8))
   ls.setItem('mumate:cal:v1:' + k, '{not valid json')
-  assert.equal(peekMonth(k), undefined, 'corrupt → miss')
+  assert.equal(peekMonth(k, PAID_VIEWER), undefined, 'corrupt → miss')
   assert.equal(ls.getItem('mumate:cal:v1:' + k), null, 'bad key evicted')
 })
 t('wrong-shape persisted value (no `d` array) → miss + evict', () => {
@@ -194,7 +198,7 @@ t('wrong-shape persisted value (no `d` array) → miss + evict', () => {
   clearMonthCache()
   const k = monthKey('u1', SIG1, monthYM(2026, 8))
   ls.setItem('mumate:cal:v1:' + k, JSON.stringify({ nope: true }))
-  assert.equal(peekMonth(k), undefined)
+  assert.equal(peekMonth(k, PAID_VIEWER), undefined)
   assert.equal(ls.getItem('mumate:cal:v1:' + k), null)
 })
 t('legacy array-shape entry (pre-{t,d}) → miss + evict (graceful migration, no crash)', () => {
@@ -203,7 +207,7 @@ t('legacy array-shape entry (pre-{t,d}) → miss + evict (graceful migration, no
   clearMonthCache()
   const k = monthKey('u1', SIG1, monthYM(2026, 8))
   ls.setItem('mumate:cal:v1:' + k, JSON.stringify(DAYS_A)) // the shape a Vercel-preview visitor may hold
-  assert.equal(peekMonth(k), undefined, 'old array shape not mis-read')
+  assert.equal(peekMonth(k, PAID_VIEWER), undefined, 'old array shape not mis-read')
   assert.equal(ls.getItem('mumate:cal:v1:' + k), null, 'evicted → next view re-fetches')
 })
 
@@ -221,7 +225,7 @@ t(`localStorage capped at MONTH_CACHE_MAX (=${MONTH_CACHE_MAX}) — oldest-writt
   for (let i = 0; i < ls.length; i++) if ((ls.key(i) ?? '').startsWith('mumate:cal:v1:')) ours++
   assert.equal(ours, MONTH_CACHE_MAX, 'localStorage bounded at the cap')
   // the 5 oldest (i=0..4, t=1000..1004) evicted; the newest present
-  assert.equal(peekMonth(monthKey('u1', SIG1, '2020-01')), undefined, 'oldest evicted')
+  assert.equal(peekMonth(monthKey('u1', SIG1, '2020-01'), PAID_VIEWER), undefined, 'oldest evicted')
   assert.deepEqual(peekMonth(monthKey('u1', SIG1, `2020-${String(N).padStart(2, '0')}`)), DAYS_A, 'newest kept')
 })
 t('memory layer also capped (does not grow unbounded within a session)', () => {
@@ -284,7 +288,7 @@ t('quota from ANOTHER feature (our entries cannot free it) → memory-only, no c
   for (let i = 0; i < 5; i++) ls.setItem(`other-feature:${i}`, 'x') // a foreign feature fills the quota
   const k = monthKey('u1', SIG1, monthYM(2026, 8))
   assert.doesNotThrow(() => setMonth(k, DAYS_A, 9000)) // we evict our own (none) → retry fails → swallow
-  assert.deepEqual(peekMonth(k), DAYS_A, 'served from MEMORY (LS write lost — victim, not cause)')
+  assert.deepEqual(peekMonth(k, PAID_VIEWER), DAYS_A, 'served from MEMORY (LS write lost — victim, not cause)')
   let foreign = 0
   for (let i = 0; i < ls.length; i++) if ((ls.key(i) ?? '').startsWith('other-feature:')) foreign++
   assert.equal(foreign, 5, "another feature's entries left untouched")
@@ -292,3 +296,26 @@ t('quota from ANOTHER feature (our entries cannot free it) → memory-only, no c
 
 console.log(`\n${pass} passed`)
 
+
+// ── #293 · the tier guard on the READ ─────────────────────────────────────────────────────────────────
+// Bug-class this owns: closing a SERVER gate and believing the users are gated. Every entry in this store
+// is paid content (isCacheableMonth writes only on allowed===true), it lives in localStorage, and it was
+// filled during the 18 days the gate stood open. Turning the API refusal on does not reach a single one of
+// those devices — the app would open, peek, and render a paid month for a free viewer, with the ticket
+// closed and the server behaving perfectly.
+//
+// 🔴 MUTANT CONTRACT: delete the `if (!viewer.paid) return undefined` line in peekMonth → the first case
+// below goes RED (a free viewer reads a stored month).
+{
+  clearMonthCache()
+  const k = monthKey('u1', SIG1, monthYM(2026, 8))
+  setMonth(k, DAYS_A)
+
+  assert.deepEqual(peekMonth(k, { paid: true }), DAYS_A, 'a paying viewer still reads instantly (no slowdown)')
+  assert.equal(peekMonth(k, { paid: false }), undefined, '🔴 a FREE viewer must not read a stored paid month')
+
+  // …and the entry is NOT destroyed: a lapsed member who renews gets their own months back instantly.
+  // Enforcing a permission must not delete the user's data.
+  assert.deepEqual(peekMonth(k, { paid: true }), DAYS_A, 'renewing restores the instant read (nothing was evicted)')
+  console.log('  ✓ #293 tier guard: free viewer blocked · paid viewer unaffected · entry preserved')
+}

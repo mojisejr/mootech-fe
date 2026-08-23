@@ -21,11 +21,13 @@
 // DIFFERENT rule — NOT deterministic (a payment flips isPaid) → it is in-flight-ONLY (lib/v2/user-cache.ts),
 // a money bug if persisted. This module deliberately walks BESIDE user-cache.ts, never touches it.
 //
-// 🟡 DEBT (ตู๋ F5, tied to SALES-LAUNCH day — not this round): the key carries NO membership dimension, and
-// this cache sits IN FRONT of the paywall gate. Today the month fortune is deterministic and ungated, so a
-// cached month is content-correct regardless of the gate. But the day GATE_OPEN flips (paid calendar), any
-// invariant elsewhere that assumes "the calendar is gate-first, no client cache in front" becomes false —
-// revisit this key's membership dimension THEN, before launch, not after.
+// ✅ ตู๋ F5, SETTLED BY #293 — and it came due exactly as written. That debt said: "today the month is
+// ungated so a cached month is content-correct regardless of the gate; the day GATE_OPEN flips, revisit
+// this — THEN, before launch, not after." The gate flipped on 2026-08-23, so this is that day.
+// The membership dimension went to the READ (peekMonth's `viewer.paid`), not into the key, because every
+// stored entry is paid content by construction (isCacheableMonth writes only on allowed === true) — so the
+// question is never "which tier does this entry belong to", it is "may THIS viewer read it right now".
+// A key dimension would also have kept a lapsed member's old entries readable under a "free" key forever.
 //
 // ❗ FAILURE IS NEVER CACHED — isCacheableMonth() gates the write: a degraded/empty/gated response (upstream
 // timeout, no identity) is transient, and a persisted empty month would freeze that failure forever. Only a
@@ -119,8 +121,19 @@ export function isCacheableMonth(resp: { allowed?: boolean; degraded?: boolean; 
  * SYNC peek — memory first (instant, no parse), then localStorage (parse + promote to memory), else
  * `undefined`. Returning in the same tick is what lets the hook render a cached month WITHOUT a loading
  * flash (DoD #1). A corrupt or wrong-shaped localStorage entry is treated as a miss and evicted.
+ *
+ * 🔴 `viewer.paid` IS REQUIRED, AND IT IS THE WHOLE POINT OF #293's CLIENT HALF.
+ * Every entry in this store is PAID content: isCacheableMonth only writes on `allowed === true`. Closing
+ * the server gate stops the API from producing new ones — it does NOT reach the months already sitting in
+ * localStorage on real devices from the 18 days the gate stood open. Those survive reloads, so without
+ * this guard a free user keeps opening the app and seeing a paid month, and the ticket would read as done
+ * while nothing changed for the people it is about.
+ * Not deleted on a miss, deliberately: a lapsed member who renews reads their own months instantly again,
+ * and we never destroy data to enforce a permission. Required (not defaulted) so a new call site has to
+ * answer the question — a default of `true` is the leak, and a default of `false` is a silent slowdown.
  */
-export function peekMonth(key: string): MonthDays | undefined {
+export function peekMonth(key: string, viewer: { paid: boolean }): MonthDays | undefined {
+  if (!viewer.paid) return undefined
   const mem = MEM.get(key)
   if (mem) return mem
 
