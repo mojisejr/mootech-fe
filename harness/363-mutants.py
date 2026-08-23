@@ -79,12 +79,20 @@ MUT=[
   "    body: 'การเชื่อมต่อมีปัญหา ถ้าคุณจ่ายไปแล้วเงินไม่หาย กดตรวจสอบอีกครั้งได้เลย',", "    body: 'เกิดข้อผิดพลาด ลองใหม่อีกครั้งภายหลัง',"),
  ("MU31 the double-press state reads as a second success", 'features/v2-shop/result-state.ts',
   "    title: 'รายการนี้ชำระเงินแล้ว',", "    title: 'ชำระเงินสำเร็จ',"),
+ ("MU32 the tick follows the state NAME, not `paid`", 'features/v2-shop/components/ResultScreen.tsx',
+  "inFlight ? '\u2026' : copy.paid ? '\u2713' : '!'", "inFlight ? '\u2026' : state === 'APPROVED' ? '\u2713' : '!'"),
+ ("MU33 offer the same road to a declined card", 'features/v2-shop/components/ResultScreen.tsx',
+  "{copy.retry === 'different' && onTryAnother && (", "{copy.retry === 'different' && onTryAnother && false && ("),
+ ("MU34 show a retry button while still in flight", 'features/v2-shop/components/ResultScreen.tsx',
+  "{copy.retry === 'same' && onRetrySame && (", "{(copy.retry === 'same' || inFlight) && onRetrySame && ("),
+ ("MU35 stop announcing the outcome", 'features/v2-shop/components/ResultScreen.tsx',
+  'role="status" aria-live="polite" className="text-center text-2xl', 'className="text-center text-2xl'),
  ("MU6 drop role=alert from the error helper", 'features/v2-shop/components/DiscountCodeField.tsx',
   "role={isError ? 'alert' : 'status'}", "role={'status'}"),
 ]
 
 def failed_tests():
-    r=subprocess.run(['npx','vitest','run','scripts/discount-code-field.test.tsx','scripts/charge-status.test.ts','scripts/order-summary.test.tsx','scripts/payment-method-picker.test.tsx','scripts/qr-screen.test.tsx','scripts/result-state.test.ts','--reporter=json'],
+    r=subprocess.run(['npx','vitest','run','scripts/discount-code-field.test.tsx','scripts/charge-status.test.ts','scripts/order-summary.test.tsx','scripts/payment-method-picker.test.tsx','scripts/qr-screen.test.tsx','scripts/result-state.test.ts','scripts/result-screen.test.tsx','--reporter=json'],
                      cwd=R,capture_output=True,text=True)
     out=r.stdout
     i=out.find('{')
