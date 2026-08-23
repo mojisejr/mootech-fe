@@ -87,12 +87,23 @@ MUT=[
   "{copy.retry === 'same' && onRetrySame && (", "{(copy.retry === 'same' || inFlight) && onRetrySame && ("),
  ("MU35 stop announcing the outcome", 'features/v2-shop/components/ResultScreen.tsx',
   'role="status" aria-live="polite" className="text-center text-2xl', 'className="text-center text-2xl'),
+ ("MU36 clearCode subtracts locally instead of re-pricing", 'features/v2-shop/useCheckout.ts',
+  "    clearCode: () => { setCode(''); void price(null) },",
+  "    clearCode: () => { setCode(''); setCodeState('default'); setQuote((q) => q && { ...q, discountSatang: 0, amountSatang: q.amountSatang + q.discountSatang, codeApplied: null }) },"),
+ ("MU37 a refused code blanks the quote", 'features/v2-shop/useCheckout.ts',
+  "          setCodeState('error')\n          setCodeError(CODE_REASON[String(data.codeError)] ?? undefined)\n          return",
+  "          setCodeState('error')\n          setQuote(null)\n          return"),
+ ("MU38 a refused code is treated as fatal", 'features/v2-shop/useCheckout.ts',
+  "        if (withCode) {\n          // A code we cannot honour. The PRICE the user was looking at is still valid — keep it.",
+  "        if (false) {\n          // A code we cannot honour. The PRICE the user was looking at is still valid — keep it."),
+ ("MU39 leak the server enum to the reader", 'features/v2-shop/useCheckout.ts',
+  "setCodeError(CODE_REASON[String(data.codeError)] ?? undefined)", "setCodeError(String(data.codeError))"),
  ("MU6 drop role=alert from the error helper", 'features/v2-shop/components/DiscountCodeField.tsx',
   "role={isError ? 'alert' : 'status'}", "role={'status'}"),
 ]
 
 def failed_tests():
-    r=subprocess.run(['npx','vitest','run','scripts/discount-code-field.test.tsx','scripts/charge-status.test.ts','scripts/order-summary.test.tsx','scripts/payment-method-picker.test.tsx','scripts/qr-screen.test.tsx','scripts/result-state.test.ts','scripts/result-screen.test.tsx','--reporter=json'],
+    r=subprocess.run(['npx','vitest','run','scripts/discount-code-field.test.tsx','scripts/charge-status.test.ts','scripts/order-summary.test.tsx','scripts/payment-method-picker.test.tsx','scripts/qr-screen.test.tsx','scripts/result-state.test.ts','scripts/result-screen.test.tsx','scripts/use-checkout.test.tsx','--reporter=json'],
                      cwd=R,capture_output=True,text=True)
     out=r.stdout
     i=out.find('{')
