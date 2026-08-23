@@ -10,9 +10,13 @@
 // ❗ WHY a PERSISTED cache is safe here — the SAME rule day-detail-cache.ts states, applied to the month:
 // a month's fortune is DETERMINISTIC in (userId, birth-signature, YYYY-MM) — bazi computes the same days for
 // a fixed month+birth forever, so a stored result can never go stale. The key includes a HASH of the birth
-// signature (JSON.stringify(person)) — the SAME determinant as the BFF's fortuneCacheKey, but hashed because
-// (unlike fortuneCacheKey, which lives in server RAM) THIS key is written to the user's disk and must carry
-// no plaintext PII (see hashSig / ตู๋ F4). Editing dob → new signature → new hash → new key → the old month
+// signature (JSON.stringify(person)) — the same THREE determinants the BFF's fortuneCacheKey uses, but
+// hashed because (unlike fortuneCacheKey, which lives in server RAM) THIS key is written to the user's disk
+// and must carry no plaintext PII (see hashSig / ตู๋ F4).
+// ⚠️ SINCE #391 THE USER DIMENSION COMES FROM A DIFFERENT SOURCE ON EACH SIDE: the BFF keys on the SESSION's
+// user_id (it no longer accepts one from the request), while this key uses the MEMBER_ID cookie. For one
+// signed-in person they are the same id; they can drift only in the identity-limbo family (#246/#257), and
+// the failure mode there is a stale LOCAL hit, never the server serving the wrong person. Editing dob → new signature → new hash → new key → the old month
 // is never read again (แก้วันเกิด → ปฏิทินเปลี่ยนตาม, DoD #5). The user ROW is a
 // DIFFERENT rule — NOT deterministic (a payment flips isPaid) → it is in-flight-ONLY (lib/v2/user-cache.ts),
 // a money bug if persisted. This module deliberately walks BESIDE user-cache.ts, never touches it.
