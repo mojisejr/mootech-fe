@@ -20,14 +20,56 @@
 // body, next to the command that regenerates the picture. That is ฟีม's ruling on #417 (2026-08-23):
 // evidence images are test output, not something the app serves.
 import { fileURLToPath } from 'node:url'
-import { dirname, join } from 'node:path'
-import { mkdirSync } from 'node:fs'
+import { dirname, join, resolve, sep } from 'node:path'
+import { mkdirSync, lstatSync } from 'node:fs'
 
 const REPO = dirname(dirname(fileURLToPath(import.meta.url)))
+const ROOT = join(REPO, 'harness', '.tmp')
 
-/** Absolute path to the ignored evidence root, created if missing. Pass a name to get a subdir. */
+/**
+ * Absolute path to the ignored evidence root, created if missing. Pass a name to get a subdir.
+ * Throws if `name` would land outside the root.
+ *
+ * 🔴 THE ARGUMENT IS CHECKED BECAUSE THE FIRST VERSION OF THIS FUNCTION DID NOT CHECK IT, and ตู๋
+ * walked out through it while adversarially reviewing #417 — the review I asked for precisely because
+ * I should not certify my own gate:
+ *     evidenceDir('../pixel-proof')       → harness/pixel-proof   (back inside the TRACKED dir)
+ *     evidenceDir('a/../../pixel-proof')  → harness/pixel-proof   (same, past a naive '..' check)
+ *     evidenceDir('../../..')             → the parent of the repo — and mkdirSync CREATED it there,
+ *                                           in the directory every worktree on this machine sits in.
+ * One function holds the whole rule, so one unchecked argument was the whole rule being optional.
+ * `resolve` first (it normalises the `a/../..` form that a substring check misses), then require the
+ * root prefix WITH a separator — 'harness/.tmpX' must not pass a bare startsWith. Validate BEFORE
+ * mkdirSync: a guard that throws after creating the directory has already done the damage.
+ *
+ * 🔴 CONTAINMENT IS LEXICAL, AND THAT IS NOT THE WHOLE STORY. ตู๋ went through it a second time on the
+ * same review: `resolve` reads the STRING, so if the root itself is a symlink the check passes while
+ * the bytes land somewhere else — he proved it with `ln -s /tmp/x harness/.tmp`, and the direction that
+ * actually costs us is `.tmp -> pixel-proof`, which puts output back in the TRACKED tree while the guard
+ * reports everything is fine. So the root is refused outright when it is a symlink. What is still NOT
+ * covered: a symlink at an intermediate component created between this check and the write. That is a
+ * real remaining gap, it is filed as #420, and it is written here rather than left for the next person
+ * to discover — a guard whose limits are undocumented gets trusted past them.
+ */
 export function evidenceDir(name = '') {
-  const out = name ? join(REPO, 'harness', '.tmp', name) : join(REPO, 'harness', '.tmp')
+  // The root must be a real directory, never a link — see the symlink note above.
+  // 🔴 The lstat and the throw are separated ON PURPOSE. They were one try/catch first, which meant the
+  // guard's own Error travelled through the guard's own catch and only survived because `new Error()`
+  // has no `.code` and so failed the `!== 'ENOENT'` test. Right answer, reason nobody wrote down —
+  // and the day someone gives that Error a code, the check disappears silently. (ตู๋, reviewing #421.)
+  let rootStat = null
+  try {
+    rootStat = lstatSync(ROOT)
+  } catch (e) {
+    if (e.code !== 'ENOENT') throw e   // not existing yet is fine; mkdirSync creates it below
+  }
+  if (rootStat?.isSymbolicLink()) {
+    throw new Error(`evidenceDir: ${ROOT} is a symlink. The evidence root must be a real directory — a link makes the containment check below true about the path and false about where the bytes land.`)
+  }
+  const out = name ? resolve(ROOT, name) : ROOT
+  if (out !== ROOT && !out.startsWith(ROOT + sep)) {
+    throw new Error(`evidenceDir: "${name}" resolves outside the evidence root (${out}). Harness output must stay under ${ROOT} — that is the only path .gitignore knows about.`)
+  }
   mkdirSync(out, { recursive: true })
   return out
 }
