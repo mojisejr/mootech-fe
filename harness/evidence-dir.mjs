@@ -20,14 +20,33 @@
 // body, next to the command that regenerates the picture. That is ฟีม's ruling on #417 (2026-08-23):
 // evidence images are test output, not something the app serves.
 import { fileURLToPath } from 'node:url'
-import { dirname, join } from 'node:path'
+import { dirname, join, resolve, sep } from 'node:path'
 import { mkdirSync } from 'node:fs'
 
 const REPO = dirname(dirname(fileURLToPath(import.meta.url)))
+const ROOT = join(REPO, 'harness', '.tmp')
 
-/** Absolute path to the ignored evidence root, created if missing. Pass a name to get a subdir. */
+/**
+ * Absolute path to the ignored evidence root, created if missing. Pass a name to get a subdir.
+ * Throws if `name` would land outside the root.
+ *
+ * 🔴 THE ARGUMENT IS CHECKED BECAUSE THE FIRST VERSION OF THIS FUNCTION DID NOT CHECK IT, and ตู๋
+ * walked out through it while adversarially reviewing #417 — the review I asked for precisely because
+ * I should not certify my own gate:
+ *     evidenceDir('../pixel-proof')       → harness/pixel-proof   (back inside the TRACKED dir)
+ *     evidenceDir('a/../../pixel-proof')  → harness/pixel-proof   (same, past a naive '..' check)
+ *     evidenceDir('../../..')             → the parent of the repo — and mkdirSync CREATED it there,
+ *                                           in the directory every worktree on this machine sits in.
+ * One function holds the whole rule, so one unchecked argument was the whole rule being optional.
+ * `resolve` first (it normalises the `a/../..` form that a substring check misses), then require the
+ * root prefix WITH a separator — 'harness/.tmpX' must not pass a bare startsWith. Validate BEFORE
+ * mkdirSync: a guard that throws after creating the directory has already done the damage.
+ */
 export function evidenceDir(name = '') {
-  const out = name ? join(REPO, 'harness', '.tmp', name) : join(REPO, 'harness', '.tmp')
+  const out = name ? resolve(ROOT, name) : ROOT
+  if (out !== ROOT && !out.startsWith(ROOT + sep)) {
+    throw new Error(`evidenceDir: "${name}" resolves outside the evidence root (${out}). Harness output must stay under ${ROOT} — that is the only path .gitignore knows about.`)
+  }
   mkdirSync(out, { recursive: true })
   return out
 }
