@@ -32,6 +32,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { useHasMounted } from '@/lib/hooks/use-has-mounted'
 import { useV2User } from '@/features/auth/hooks/useV2User'
 import { isBirthProfileComplete, userRowToFeCalcInput } from '@/lib/bazi-bridge/input'
+import { isPaidMember } from '@/lib/v2/tier'
 import type { CalendarMonth } from '../types'
 import { bangkokTodayISO, bangkokToday } from '../today'
 import { defaultSelectedDate, isSelectableDate } from './selection'
@@ -118,7 +119,9 @@ export function useCalendarMonth(): UseCalendarMonth {
     // skeleton even on a hit. Key determinants = the BFF's exactly (userId + birth signature + YYYY-MM), so
     // editing dob makes `person` (and the signature) change → a fresh key → a miss → refetch (DoD #5).
     const key = monthKey(userId, JSON.stringify(person), monthYM(cursor.year, cursor.month))
-    const cachedDays = peekMonth(key)
+    // #293 — the gate is closed now, so the cache must not become the way around it: every stored month is
+    // paid content, and the ones written during the 18 days the gate stood open are still on real devices.
+    const cachedDays = peekMonth(key, { paid: isPaidMember(user) })
     if (cachedDays) {
       setMonthState({ month: assembleFeatureMonth(cursor.year, cursor.month, cachedDays), loading: false })
       return // instant, no fetch

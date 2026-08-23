@@ -1,13 +1,15 @@
 // MuMate v2 — ปฏิทินดวง · client fetch for the personalised month grid.
 // Browser → same-origin BFF (/api/v2/calendar-month) → bazi man-vs-day + almanac (the BFF proxies; birth
 // data never leaves to a 3rd origin). One call returns the WHOLE month at once — there is no per-day
-// "loading" state, only "no month yet" vs "month here" (บอง 2026-08-05). Pure I/O: given person+userId+
-// month it resolves a typed response or a graceful degraded/empty one; it NEVER throws to the caller (the
-// hook maps this to { month:null, loading:false }).
+// "loading" state, only "no month yet" vs "month here" (บอง 2026-08-05). Pure I/O: given person+month it
+// resolves a typed response or a graceful degraded/empty one; it NEVER throws to the caller (the hook maps
+// this to { month:null, loading:false }). No identity is passed: since #391 the BFF derives the caller
+// from their signed session, so this call carries none.
 import type { FeCalcInput } from '@/lib/bazi-bridge/input'
 import type { CalendarDay as ApiCalendarDay } from '@/lib/v2-calendar/month'
 
-/** Shape the BFF returns (pages/api/v2/calendar-month). `allowed:false` = gated/no-userId; days empty. */
+/** Shape the BFF returns (pages/api/v2/calendar-month). `allowed:false` = the membership gate refused, or
+ *  there is no usable session (#391 — it is no longer "no userId in the body"); days empty either way. */
 export interface CalendarMonthResponse {
   allowed: boolean
   year: number

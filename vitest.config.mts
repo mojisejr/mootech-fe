@@ -72,6 +72,7 @@ export default defineConfig({
       'scripts/quota-indicator-ui.test.tsx', // #264 — the UI half: what is shown when there IS no number; .tsx
       'scripts/calc-cooldown.test.tsx', // #265 — cooldown state machine; every guarantee lives in THIS lane; .tsx
       'scripts/edit-friend-ui.test.tsx', // #266 — edit-friend UI; refuses to open a blank form; .tsx
+      'scripts/add-friend-copy.test.tsx', // #277 — ทุกคำในชีทเพิ่มเพื่อนบอกว่าเป็นข้อมูลของเพื่อน + ข้อความล้มที่ถูกอยู่แล้วต้องไม่โดนลบ
       'scripts/pwa-capability.test.tsx', // #285 — PWA capability tri-state (unknown≠false); .tsx (vitest-only)
       'scripts/reminder-logic.test.tsx', // #287 — reminder time/plan/adapter/identity (pure); .tsx
       'scripts/reminders-client.test.tsx', // #287 — transport mapping + useReminders + past-guard; .tsx
@@ -110,9 +111,11 @@ export default defineConfig({
       'scripts/save-onboarding-client.test.tsx', // #252 — the client sends the goal and no identity, ever
       'scripts/calendar-month-identity.test.tsx', // #391 — the paid-month gate judges the SESSION (runs with the gate CLOSED)
       'scripts/day-detail-paywall.test.tsx', // #226 — paid sections cut server-side (allow-list) + the cached path
+      'scripts/calendar-month-gate-closed.test.tsx', // #293 — the REAL gate constant (never mocked): free refused with 0 upstream calls
       'scripts/home-profile.test.ts', // #383 — MIGRATED off the dead tsx lane (#367)
       'scripts/user-membership-route.test.ts', // #383 — /api/user gains `membership`
       'scripts/user-membership-db.test.ts', // #383 — real pg (skipIf !TEST_DATABASE_URL)
+      'scripts/env-example-drift.test.ts', // #403 — .env.example ต้องประกาศทุก env ที่แอปอ่าน (lib/pages/features)
       'scripts/header-tier-badge.test.tsx', // #384 — 5 badge states + the "unknown" case + the 6-screen wiring
     ],
   },
