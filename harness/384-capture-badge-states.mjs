@@ -12,16 +12,17 @@
 import { chromium } from 'playwright'
 import { PNG } from 'pngjs'
 import pixelmatch from 'pixelmatch'
-import { readFileSync, writeFileSync, mkdirSync } from 'node:fs'
+import { readFileSync, writeFileSync } from 'node:fs'
 import { execSync } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
 import { dirname, join as pjoin } from 'node:path'
+import { evidenceDir } from './evidence-dir.mjs'
 // ตู๋ T4 (#386): every path below is derived from THIS FILE's location, so the script audits the repo it
 // ships in — not the one whose absolute path happened to be in the author's shell when it was written.
 const REPO = dirname(dirname(fileURLToPath(import.meta.url)))
 
-const OUT = pjoin(REPO, 'harness', 'pixel-proof')
-mkdirSync(OUT, { recursive: true })
+// #417 — the output root is a value now, not a string spelled out here. See harness/evidence-dir.mjs.
+const OUT = evidenceDir()
 const KEY = execSync(`grep '^V2_PREVIEW_KEY=' " + pjoin(REPO, '.env.local') + " | cut -d= -f2- | tr -d '"'`).toString().trim()
 
 const VIEWPORTS = [320, 393, 430, 768, 1280]
