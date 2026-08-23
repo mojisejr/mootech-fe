@@ -23,6 +23,17 @@ export interface PaymentGateway {
   }): Promise<ChargeResult>
   // wraps the pure verifyOmiseSignature with the configured secret; fails closed.
   verifyWebhook(rawBody: Buffer, signature: string | null, timestamp: string | null): boolean
+  /**
+   * READ one charge back from the gateway (#360). Added because the reconciler has to answer "did this
+   * charge actually succeed?" for a payment whose webhook never arrived — and until now this port could
+   * only WRITE. The ticket's rule ("never call Omise directly, go through the port") is why the capability
+   * is added here rather than a fetch in the cron.
+   *
+   * Returns the same three facts the webhook carries, so the reconciler and the webhook agree by
+   * construction — one predicate (isSettleable) judges both. `null` = the gateway does not know this
+   * charge; that is NOT "not paid", and the caller must not treat it as a reason to give up on the row.
+   */
+  retrieveCharge(chargeId: string): Promise<{ chargeId: string; paid: boolean; status: string } | null>
 }
 
 // PURE extraction of the settle-relevant fields from an Omise webhook body. Kept out of the adapter so it
