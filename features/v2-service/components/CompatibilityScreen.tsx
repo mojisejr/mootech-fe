@@ -83,7 +83,16 @@ function ProfileRow({ person, loadingDob, onEdit, onPick, onChangePerson, editBu
     // birthdate was being pushed onto a second line and breaking after the "·", leaving the separator
     // dangling. Right padding drops to 8px only on the two-action row; the buttons' own inset supplies the
     // visual gutter, and rows with one action keep the original 24px.
-    <section data-testid={testId} className={`flex w-full items-center overflow-hidden rounded-[56px] bg-v3-ghost-white py-3 pl-3 ${onChangePerson ? 'gap-2 pr-2' : 'gap-3 pr-6'}`}>
+    // #276 — BELOW 360 THE ACTIONS TAKE THEIR OWN LINE. Measured, not guessed: at 320 the text column gets
+    // 76px and the birthdate needs 147.6px, so it is short by 71.6px — more than every scrap of padding on
+    // the row put together. The only way to give it that room is to stop the two 44px targets from sharing
+    // the line, and 44 is the tap-target floor #249 established, so they cannot shrink either.
+    // At 393 the column measures 149px against a 147.6px birthdate — it fits by 1.4px, which is the "ปรับมา
+    // พอดี" from #266. That margin is why this uses a breakpoint instead of anything adaptive: anything that
+    // reflows by content would land on the wrong side of 1.4px sooner or later. `flex-nowrap` from 360 up
+    // restores the pre-#276 layout exactly, so 360/393/430 do not move a pixel.
+    // (`min-[360px]:` is already the project's way of doing this — DailyFortuneCard.tsx:109.)
+    <section data-testid={testId} className={`flex w-full items-center overflow-hidden rounded-[56px] bg-v3-ghost-white py-3 pl-3 ${onChangePerson ? 'flex-wrap gap-x-2 gap-y-1 pr-2 min-[360px]:flex-nowrap' : 'gap-3 pr-6'}`}>
       <span className="relative grid size-10 shrink-0 place-items-center overflow-hidden rounded-full bg-v3-sapphire text-sm font-bold text-white">
         {person.imageProfile
           ? <Image src={person.imageProfile} alt="" fill sizes="40px" style={{ objectFit: 'cover' }} />
@@ -101,7 +110,10 @@ function ProfileRow({ person, loadingDob, onEdit, onPick, onChangePerson, editBu
           defect #263 removed from the message below. Two actions, two labels, two testids.
           min-w/min-h 44: two small text targets side by side is exactly where #249's 41px tap-target
           failure came from — measured at 393 and 320, not eyeballed. */}
-      <div className="flex shrink-0 items-center">
+      {/* #276 — `w-full` is what pushes this group onto its own line while the row is wrapping; from 360 up
+          `w-auto` + the row's `flex-nowrap` put it back beside the text, unchanged. justify-end keeps the
+          actions on the reading edge in both arrangements. */}
+      <div className={`flex shrink-0 items-center ${onChangePerson ? 'w-full justify-end min-[360px]:w-auto min-[360px]:justify-start' : ''}`}>
         {onChangePerson && (
           <button
             type="button" onClick={onChangePerson} data-testid={`${testId}-change`}
