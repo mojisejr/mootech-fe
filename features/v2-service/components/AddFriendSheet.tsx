@@ -124,8 +124,8 @@ export function AddFriendSheet({ onClose, onCreate, edit }: {
 
         <div className="flex w-full flex-col gap-5">
           <div className="flex flex-col gap-2">
-            <Label>ชื่อ</Label>
-            <input value={name} onChange={(e) => setName(e.target.value)} placeholder="ใส่ชื่อของคุณ" className={inputCls} data-testid="add-friend-name" />
+            <Label>ชื่อเพื่อน</Label>
+            <input value={name} onChange={(e) => setName(e.target.value)} placeholder="ใส่ชื่อเพื่อน" className={inputCls} data-testid="add-friend-name" />
           </div>
 
           <div className="flex w-full items-start gap-1">
@@ -163,11 +163,16 @@ export function AddFriendSheet({ onClose, onCreate, edit }: {
 
           {/* GENDER — REFRAME 3 (ฟีม): not in Figma, restored from v1. Pre-highlighted VISIBLE MALE. */}
           <div className="flex flex-col gap-2">
-            {/* #266 — in edit mode this sheet is unambiguously about the FRIEND, and a label reading
-                "ของคุณ" points at the very confusion this ticket removes (which row edits whom). Changed
-                for edit only; create keeps its existing wording — that one is also arguably misaddressed
-                and predates this ticket, so it is reported rather than quietly rewritten here. */}
-            <Label>{edit ? 'เพศดั้งเดิมของเพื่อน' : 'เพศดั้งเดิมของคุณ'}</Label>
+            {/* #266 changed this for EDIT only and left create saying "ของคุณ", with a note that it was
+                "reported rather than quietly rewritten here". #277 is that report coming back.
+                🔴 WHY IT IS NOT A TYPO. This sheet collects a birth date and time that get fed to a
+                compatibility calculation. A label reading "ของคุณ" on a form about somebody else invites the
+                user to enter THEIR OWN details — and the result of that mistake is a reading of the user
+                against themselves, which looks completely normal and is wrong. Nothing downstream can catch
+                it: the data is well-formed, it is simply about the wrong person.
+                Both modes now say the same thing, so the conditional is gone: this sheet is ALWAYS about a
+                friend, and there is no longer a branch where it can claim otherwise. */}
+            <Label>เพศดั้งเดิมของเพื่อน</Label>
             <div className="grid grid-cols-2 gap-[18px]">
               {(['MALE', 'FEMALE'] as const).map((g) => (
                 <button
