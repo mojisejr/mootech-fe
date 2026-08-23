@@ -17,13 +17,29 @@ import { isAuthorized } from '@/lib/push/authorize'
 import { omiseGateway } from '@/lib/payment/omise-gateway'
 import { listUnsettledPayments, settleAndProvision } from '@/lib/payment/repo'
 import { runReconcile } from '@/lib/payment/reconcile-run'
+import { isReconcileEnabled } from '@/lib/payment/reconcile-flag'
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== 'GET') {
     return res.status(405).json({ ok: false, error: 'method not allowed' })
   }
   if (!isAuthorized(req.headers.authorization, process.env.CRON_SECRET)) {
+    // 🔴 A REFUSED CALLER AND A SWITCHED-OFF JOB ARE DIFFERENT EVENTS AND MUST NOT SHARE A LINE (#409).
+    // One means somebody is knocking on a public endpoint that grants memberships; the other means we
+    // turned it off on purpose. Logged the same, the first hides inside the second on the day it matters.
+    console.warn('[cron/reconcile-payment] refused a caller (bad or missing CRON_SECRET)')
     return res.status(401).json({ ok: false, error: 'unauthorized' })
+  }
+
+  // #409 — the kill switch, AFTER the secret gate on purpose: an unauthorized caller must not be able to
+  // learn whether the job is currently enabled. It answers 200 rather than an error, because being off is
+  // not a failure — Vercel would retry an error, and there is nothing to retry.
+  if (!isReconcileEnabled(process.env.RECONCILE_ENABLED)) {
+    console.warn(
+      '[cron/reconcile-payment] SKIPPED — RECONCILE_ENABLED is set to off. Payments whose webhook was ' +
+        'lost are NOT being recovered while this stands. Unset the variable (or set it to on) and redeploy.',
+    )
+    return res.status(200).json({ ok: true, skipped: 'disabled', considered: 0, confirmedPaid: 0, provisioned: 0, unreachable: 0 })
   }
 
   const summary = await runReconcile({
