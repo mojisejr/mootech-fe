@@ -374,4 +374,24 @@ describe.skipIf(!TEST_URL)('payment webhook · real pg (#355)', () => {
       ).toBe(0)
     }
   })
+
+  // ⑧b CONTROL — ตู๋'s addition, taken as written (his reasoning, my file). Without it, ⑧ could go green
+  // for the boring reason: the recovery path broken outright makes every "must not recover" case pass.
+  // Case ② already covers that from a distance, but a negative test whose control lives in another test is
+  // a negative test the next reader has to go looking for — and the day ② is edited for its own reasons,
+  // ⑧ quietly stops meaning anything. The control belongs next to the claim it protects.
+  it('⑧ b control: the SAME shape of row IS recovered by a charge that really succeeded', async () => {
+    await seedRow('p371-i', { chargeId: 'pending:p371-i', orderId: 'ORD371I', status: 'REJECT', userId: users[0] })
+    try {
+      const out = await fire('C371I', 'ORD371I')
+      expect(out.status).toBe(200)
+      const [row] = await sql`SELECT status, charge_id FROM v2_payment WHERE id = 'p371-i'`
+      expect(row.status).toBe('APPROVED')
+      expect(row.charge_id).toBe('C371I')
+      expect((await sql`SELECT id FROM member_subscription WHERE v2_payment_id = 'p371-i'`).length).toBe(1)
+    } finally {
+      await sql`DELETE FROM member_subscription WHERE v2_payment_id = 'p371-i'`
+      await sql`DELETE FROM v2_payment WHERE id = 'p371-i'`
+    }
+  })
 })
