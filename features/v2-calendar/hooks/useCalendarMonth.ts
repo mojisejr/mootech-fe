@@ -126,7 +126,9 @@ export function useCalendarMonth(): UseCalendarMonth {
 
     let alive = true
     setMonthState({ month: null, loading: true }) // MISS → clear the previous month BEFORE the fetch → never stale
-    fetchCalendarMonth(person, userId, cursor.year, cursor.month).then((resp) => {
+    // #391: userId is no longer SENT — the BFF reads the session. It stays in `key` above because
+    // the CLIENT cache still has to be partitioned per account on a shared device.
+    fetchCalendarMonth(person, cursor.year, cursor.month).then((resp) => {
       if (!alive) return // month changed / unmounted mid-flight → drop this (stale) response
       // Cache only a REAL month — a degraded/empty/gated response is transient and must never be persisted
       // (a frozen empty month = a failure cached forever). Store the RAW days; assemble is re-run on read.

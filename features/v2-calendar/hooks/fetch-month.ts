@@ -26,9 +26,13 @@ export function toMonthParam(year: number, month: number): string {
  * POST the personalised month. Resolves a well-formed response even on network/parse failure (degraded,
  * empty days) so the caller has a single, total mapping and never a rejected promise to babysit.
  */
+// 🔴 #391 — the `userId` parameter is GONE, not just unused. The route derives the caller from their
+// signed session now, so a user id on this call would be a value that travels, looks authoritative, and
+// is ignored — the shape that got us mootech-fe#252. The caller still keeps its own userId for the
+// CLIENT-side month cache key (that one never leaves the browser and partitions local storage), which is
+// a different job with a different trust level.
 export async function fetchCalendarMonth(
   person: FeCalcInput,
-  userId: string,
   year: number,
   month: number,
   signal?: AbortSignal,
@@ -38,7 +42,7 @@ export async function fetchCalendarMonth(
     const r = await fetch('/api/v2/calendar-month', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ person, userId, month: toMonthParam(year, month) }),
+      body: JSON.stringify({ person, month: toMonthParam(year, month) }),
       ...(signal ? { signal } : {}),
     })
     if (!r.ok) return fallback

@@ -83,18 +83,22 @@ async function run() {
     capturedBody = JSON.parse(init.body)
     return { ok: true, json: async () => ({ allowed: true, year: 2026, month: 8, days: [apiDay()] }) }
   }) as unknown as typeof fetch
-  const okRes = await fetchCalendarMonth(person, 'user-1', 2026, 8)
+  const okRes = await fetchCalendarMonth(person, 2026, 8)
   ok('fetch success parses days', okRes.allowed === true && okRes.days.length === 1 && okRes.days[0].date === '2026-08-05')
-  ok('fetch sends person+userId+month in body', capturedBody.userId === 'user-1' && capturedBody.month === '2026-08' && !!capturedBody.person)
+  ok('fetch sends person+month in body', capturedBody.month === '2026-08' && !!capturedBody.person)
+  // 🔴 #391 — the assertion FLIPPED on purpose. It used to require `userId` in the body; the route now
+  // derives the caller from their session, and a user id on the wire is exactly what let a sender
+  // nominate whose membership the gate checked. Sending it again must fail here, not pass quietly.
+  ok('fetch sends NO identity in the body (#391)', !('userId' in capturedBody) && !('user_id' in capturedBody))
 
   // !ok response → graceful degraded, empty (never throws)
   globalThis.fetch = (async () => ({ ok: false, json: async () => ({}) })) as unknown as typeof fetch
-  const badRes = await fetchCalendarMonth(person, 'user-1', 2026, 8)
+  const badRes = await fetchCalendarMonth(person, 2026, 8)
   ok('fetch !ok → degraded empty, no throw', badRes.degraded === true && badRes.days.length === 0)
 
   // network throw → graceful degraded (never rejects to caller)
   globalThis.fetch = (async () => { throw new Error('network') }) as unknown as typeof fetch
-  const throwRes = await fetchCalendarMonth(person, 'user-1', 2026, 8)
+  const throwRes = await fetchCalendarMonth(person, 2026, 8)
   ok('fetch throw → degraded empty, no throw', throwRes.degraded === true && throwRes.days.length === 0)
 
   globalThis.fetch = realFetch
