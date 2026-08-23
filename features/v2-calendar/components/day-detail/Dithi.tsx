@@ -14,11 +14,15 @@ import type { DayDetailDithi } from '../../types'
 import { SectionCard } from './SectionCard'
 
 export function Dithi({ dithi }: { dithi: DayDetailDithi }) {
-  const rows: { label: string; value: string }[] = [
+  // #226 — officerDesc/jianchu are OPTIONAL now (the BFF sends only `officer` to a free viewer). The
+  // runtime behaviour is unchanged: the filter below already dropped empty rows. What changed is the type
+  // predicate, so the compiler can see that the survivors have a value — the annotation used to claim
+  // three strings that are no longer guaranteed to exist.
+  const rows = [
     { label: 'ดิถี', value: dithi.officer },
     { label: 'ความหมาย', value: dithi.officerDesc },
     { label: '建除', value: dithi.jianchu },
-  ].filter((r) => r.value?.trim())
+  ].filter((r): r is { label: string; value: string } => !!r.value?.trim())
 
   return (
     <SectionCard title={`ดิถีวันนี้${dithi.officer ? ` · ${dithi.officer}` : ''}`} testId="dithi">

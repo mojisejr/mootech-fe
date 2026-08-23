@@ -1,13 +1,16 @@
 // MuMate v2 — ปฏิทินดวง · client fetch for one day's detail (G-2 foundation).
 // Browser → same-origin BFF (/api/v2/day-detail) → bazi man-vs-day(day) + almanac (the BFF proxies; birth
 // data never leaves to a 3rd origin). Returns the trimmed lib DayDetail (mapDayDetail). Pure I/O: given
-// person+userId+date it resolves a typed response or a graceful degraded one; it NEVER throws to the caller
+// person+date it resolves a typed response or a graceful degraded one; it NEVER throws to the caller
 // (the hook maps this to a settled "no detail" state). Grade-independent — returns the pipe's DayDetail
 // as-is; the lib→feature adapter (with the 13-level grade decision, M-C) wires it into useDayDetail later.
 import type { FeCalcInput } from '@/lib/bazi-bridge/input'
 import type { DayDetail as LibDayDetail } from '@/lib/v2-calendar/day-detail'
 
-/** Shape the BFF returns (pages/api/v2/day-detail). `detail` null on a bad/degraded response. */
+/** Shape the BFF returns (pages/api/v2/day-detail). `detail` null on a bad/degraded response.
+ *  #226: for a FREE caller the paid fields are ABSENT from `detail` — the type stays LibDayDetail because
+ *  every consumer already reads it field-by-field behind a `paid &&` guard; what changed is that the free
+ *  browser no longer HAS them to read. */
 export interface DayDetailResponse {
   detail: LibDayDetail | null
   /** the day was served from the per-(user,birth,date) cache (re-open a day = instant). */
@@ -20,9 +23,11 @@ export interface DayDetailResponse {
  * POST one day's detail. Resolves a well-formed response even on network/parse/non-2xx failure (detail
  * null, degraded) so the caller has a single, total mapping and never a rejected promise to babysit.
  */
+// 🔴 #226 — no identity travels on this call. The BFF derives the caller from their signed session and
+// decides the TIER there, so the response a free user gets is already trimmed (paid sections absent, not
+// hidden). A `userId` here would be a value that looks authoritative and is ignored — the #252 shape.
 export async function fetchDayDetail(
   person: FeCalcInput,
-  userId: string,
   date: string,
   signal?: AbortSignal,
 ): Promise<DayDetailResponse> {
@@ -31,7 +36,7 @@ export async function fetchDayDetail(
     const r = await fetch('/api/v2/day-detail', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ person, userId, date }),
+      body: JSON.stringify({ person, date }),
       ...(signal ? { signal } : {}),
     })
     if (!r.ok) return fallback

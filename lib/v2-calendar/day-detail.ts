@@ -118,3 +118,77 @@ export function mapDayDetail(mvd: unknown, almanacDay: unknown): DayDetail {
     }),
   }
 }
+
+// ── #226 · the paywall, at the SOURCE ────────────────────────────────────────────────────────────────
+// Until this shipped, /api/v2/day-detail returned every field to everyone and the SCREEN hid the paid
+// ones behind `{paid && …}`. That is not a gate: the whole object was already in the browser before the
+// tier was evaluated — Network tab, `curl`, anything. UI hiding is a layout decision, never an access one.
+//
+// 🔴 ALLOW-LIST, NOT A DENY-LIST — the single most important line in this file.
+// A deny-list ("delete compatAreas, insight, …") is correct only for the fields that exist TODAY. bazi is
+// an upstream we do not own; the day mapper grows when it grows, and every field added later would ship to
+// free users automatically until somebody remembered to extend the list. With an allow-list the default
+// for anything new is "not sent", and the failure mode of forgetting is a missing free field (visible,
+// harmless) instead of a leaked paid one (invisible, costs money).
+//
+// The list below is exactly what the FREE screen renders — traced call site by call site in
+// pages/v2/calendar/[date].tsx, not guessed:
+//   percent → PersonalCalendarUpsell (the free upsell card ITSELF shows the score — cutting it breaks the
+//             thing that sells the upgrade) · yams → YamTimes (free sees the list; the ADD button is what
+//             remindersLocked disables) · luckyColors + dayDeity → LuckyColors · summary/suitable/avoid/
+//             ganzhi/grade/date/wanPhra → the header + score card.
+export const FREE_DAY_DETAIL_FIELDS = [
+  'date',
+  'dayGanzhi',
+  'overallPercent',
+  'grade',
+  'summary',
+  'suitable',
+  'avoid',
+  'yams',
+  'dayDeity',
+  'wanPhra',
+  'colors',
+  // 🔴 luckyDirection IS free — corrected after a proper sweep. My first pass called it paid-only because
+  // its only match in pages/v2/calendar/[date].tsx is `<EightGates …>` under `{paid && advanced && …}`.
+  // That was a scope-of-check error: <DayScoreCard/> renders for EVERYONE (it is the score card, not a paid
+  // section) and shows a "ทิศมงคล …" chip from this field via its own prop. Grepping the PAGE cannot see a
+  // field a COMPONENT reads — the sweep has to follow the tree.
+  'luckyDirection',
+] as const satisfies readonly (keyof DayDetail)[]
+
+/** The free-tier view of a day. Paid fields are ABSENT (not null, not empty) — a caller cannot tell a
+ *  trimmed field from one bazi never returned, and there is nothing to un-hide.
+ *  `dithi` is the one field carried PARTIALLY: see FREE_DITHI_KEYS below. */
+export type FreeDayDetail = Pick<DayDetail, (typeof FREE_DAY_DETAIL_FIELDS)[number]> & {
+  dithi: Pick<DayDetail['dithi'], 'officer'>
+}
+
+// `dithi` is not free-or-paid, it is BOTH — the only field in the payload that splits inside itself.
+//   officer      → the free score card's chip (<DayScoreCard/>, rendered for every tier)
+//   officerDesc  → the paid <Dithi/> section
+//   jianchu      → the paid <Dithi/> section
+// Cutting the whole object would silently remove a chip a free user sees today; keeping the whole object
+// would ship the paid section's text. So the trim goes one level deeper here, and ONLY here.
+const FREE_DITHI_KEYS = ['officer'] as const satisfies readonly (keyof DayDetail['dithi'])[]
+
+/**
+ * Keep only the free fields. PURE — the route calls it on the way OUT, so the server cache can keep
+ * storing the FULL day (one upstream computation serves both tiers, and a free user's cached copy can
+ * never be handed to a paying one).
+ *
+ * 🔴 Fields deliberately NOT in the list, and why:
+ *   compatAreas · insight · advice · gates · spirits — the paid sections (ใบ #226's DoD)
+ *   dithi.officerDesc · dithi.jianchu — the paid half of the split field above
+ *   verdict · dayPillars · ownerPillars — no consumer at all today (day-detail-adapter maps none of the
+ *     three), so they are over-fetch rather than a leak; they stay out because the allow-list only carries
+ *     what the free screen actually renders. Wiring MyChart is μุน's ticket, not this one.
+ */
+export function pickFreeDayDetail(detail: DayDetail): FreeDayDetail {
+  const out = {} as Record<string, unknown>
+  for (const k of FREE_DAY_DETAIL_FIELDS) out[k] = detail[k]
+  const dithi = {} as Record<string, unknown>
+  for (const k of FREE_DITHI_KEYS) dithi[k] = detail.dithi?.[k]
+  out.dithi = dithi
+  return out as FreeDayDetail
+}
