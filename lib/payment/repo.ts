@@ -1,6 +1,6 @@
 // v2 payment I/O (mootech-fe#355) — the ONLY layer that touches the DB. The decision logic is pure
 // (catalog/provision); this file reads/writes and owns the ATOMIC settlement.
-import { and, eq, ne, desc, sql } from 'drizzle-orm'
+import { and, eq, ne, gte, desc, sql } from 'drizzle-orm'
 import { randomUUID } from 'node:crypto'
 import { db as defaultDb } from '@/lib/db'
 import { v2Payment, memberPayment, memberSubscription, paymentPackage, paymentQuote, user } from '@/lib/db/schema'
@@ -168,6 +168,28 @@ export async function abandonPending(
 ): Promise<void> {
   if (codeId) await releaseRedemption(codeId, paymentId, db)
   await db.update(v2Payment).set({ status: 'REJECT' }).where(eq(v2Payment.id, paymentId))
+}
+
+/**
+ * #360 — the rows the reconciler may consider. The WINDOW is applied in SQL (so a long-lived table does
+ * not get pulled into memory) but the RULE that decides which of them to act on stays pure
+ * (lib/payment/reconcile.ts) — the same split the month gate uses: narrow in SQL, decide in code, one copy
+ * of the rule that a unit test can argue with.
+ */
+export async function listUnsettledPayments(
+  since: Date,
+  db: Db = defaultDb,
+): Promise<Array<{ id: string; chargeId: string; orderId: string; status: string; createdAt: Date }>> {
+  return db
+    .select({
+      id: v2Payment.id,
+      chargeId: v2Payment.chargeId,
+      orderId: v2Payment.orderId,
+      status: v2Payment.status,
+      createdAt: v2Payment.createdAt,
+    })
+    .from(v2Payment)
+    .where(and(eq(v2Payment.status, 'PENDING'), gte(v2Payment.createdAt, since)))
 }
 
 export async function listUserPayments(userId: string, db: Db = defaultDb) {

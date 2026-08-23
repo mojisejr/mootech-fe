@@ -20,6 +20,19 @@ function authHeader(): string {
 
 // POST form-encoded to Omise; returns the parsed JSON. Throws a NON-PII error on a non-2xx or Omise error
 // object (message carries only Omise's own code, no user data).
+// GET one object from Omise (#360 — the reconciler's read path). Same non-PII error discipline as the
+// POST helper: the message carries Omise's own code and nothing about the payer.
+async function omiseGet(path: string): Promise<Record<string, unknown> | null> {
+  const res = await fetch(`${OMISE_API}${path}`, { headers: { Authorization: authHeader() } })
+  const json = (await res.json().catch(() => ({}))) as Record<string, unknown>
+  if (res.status === 404) return null // the gateway has never heard of this charge
+  if (!res.ok || json?.object === 'error') {
+    const code = typeof json?.code === 'string' ? json.code : `http_${res.status}`
+    throw new Error(`omise GET ${path} failed: ${code}`)
+  }
+  return json
+}
+
 async function omisePost(path: string, form: Record<string, string>): Promise<Record<string, unknown>> {
   const res = await fetch(`${OMISE_API}${path}`, {
     method: 'POST',
@@ -72,6 +85,19 @@ export const omiseGateway: PaymentGateway = {
     }
     const qr = src.scannable_code?.image?.download_uri
     return { chargeId: String(charge.id), qrDownloadUri: typeof qr === 'string' ? qr : undefined }
+  },
+
+  async retrieveCharge(chargeId: string) {
+    // 🔴 THROWS on a transport/auth failure instead of returning null. A reconciler that reads "the gateway
+    // is unreachable" as "this charge is not paid" would walk past real money every time Omise hiccups —
+    // and it would do it silently, once per cron run, forever. Only a real 404 means "not ours".
+    const json = await omiseGet(`/charges/${encodeURIComponent(chargeId)}`)
+    if (!json) return null
+    return {
+      chargeId: typeof json.id === 'string' ? json.id : chargeId,
+      paid: json.paid === true,
+      status: typeof json.status === 'string' ? json.status : '',
+    }
   },
 
   verifyWebhook(rawBody, signature, timestamp): boolean {
