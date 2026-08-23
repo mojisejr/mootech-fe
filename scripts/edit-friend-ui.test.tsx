@@ -208,6 +208,10 @@ describe('#266 แก้ไขข้อมูลเพื่อน — ป้า
     expect(screen.getByTestId('add-friend-save').textContent).toBe('บันทึก')
     expect((screen.getByTestId('add-friend-name') as HTMLInputElement).value).toBe('') // create starts empty
     expect(screen.getByText('หรือเชื่อมต่อบัญชี')).toBeTruthy()
-    expect(screen.getByText('เพศดั้งเดิมของคุณ')).toBeTruthy() // create's wording is deliberately untouched
+    // #277 — this line used to assert 'เพศดั้งเดิมของคุณ', pinning the bug on purpose as a record that #266
+    // touched edit only. That report became #277, so the assertion is REWRITTEN, not deleted: the fact it
+    // pins (create and edit must address the same person) outlived the wording it was written against.
+    expect(screen.getByText('เพศดั้งเดิมของเพื่อน')).toBeTruthy()
+    expect(screen.queryByText('เพศดั้งเดิมของคุณ')).toBeNull()
   })
 })
