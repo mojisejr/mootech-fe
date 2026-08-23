@@ -225,24 +225,37 @@ export default function V2CalendarDayPage({ teamPreview }: { teamPreview: boolea
       <div className={`flex flex-col gap-4 px-4 pt-3 ${isPaid === null ? 'hidden' : ''}`}>
         <DayStrip date={date} />
         <DayScoreCard detail={detail} />
-        {paid && <AdvancedToggle on={advanced} onToggle={toggle} />}
+        {/* 🔴 #226 (ตู๋ B1) — จากนี้ทุกหัวข้อที่ขายเงิน **วาดเมื่อข้อมูลของมันมาถึง** ❌ ไม่ใช่เมื่อกฎ paid
+            ชุดที่สองบนจอบอกว่าควรมี · เหตุผล: BFF ตัดฟิลด์ตาม tier แล้ว (seam v2 · resolveSubscription)
+            แต่จอตัดสินด้วย isPaidMember (ธง v1) ⇒ สองที่เห็นไม่ตรงกันได้จริง และทางที่ง่ายที่สุดคือ
+            `catch { paid = false }` ที่ใบนี้เพิ่งเพิ่มเอง (DB สะดุด 1 ครั้ง) ⇒ จอเชื่อว่า paid แล้วส่ง
+            undefined เข้า .map()/.find()/.length ⇒ throw ตอน render ⇒ **หลุดทั้งหน้า** (ไม่มี error
+            boundary ที่ไหนเลยในรีโป) ⇒ ด่านที่ตั้งใจกันรายได้ กลับทำให้ "คนที่จ่ายเงินแล้ว" เจอจอว่าง
+            🔑 หลังใบนี้ การมีอยู่ของฟิลด์ = คำตัดสินของเซิร์ฟเวอร์อยู่แล้ว จอไม่ต้องเดาซ้ำ
+            ⚠️ เงื่อนไขต้องเป็นฟิลด์ที่ **paid เท่านั้น** — `dithi` กับ `luckyDirection` เป็นของฟรีหลัง #226
+            (การ์ดคะแนนใช้) ⇒ ใช้มันเป็นเงื่อนไข = โชว์หัวข้อที่ขายเงินให้คนใช้ฟรี */}
+        {detail.compatAreas && <AdvancedToggle on={advanced} onToggle={toggle} />}
         {/* §5 [advanced] — ดวงของฉัน (binds goo's detail.pillars) */}
-        {paid && advanced && <MyChart pillars={detail.pillars} />}
+        {advanced && detail.pillars && <MyChart pillars={detail.pillars} />}
         {/* Figma Free-2 375:11286 puts the upsell exactly here — after the score card, before ทิศ สีมงคล —
             standing in for the three sections below it. The percent is the SAME one the ring shows. */}
         {free && <PersonalCalendarUpsell percent={detail.percent} />}
-        {paid && <CompatList areas={detail.compatAreas} insight={detail.insight} />}
-        {paid && <PredictionCards areas={detail.compatAreas} advice={detail.advice} />}
-        {/* §9 [advanced] — ดิถีวันนี้ · สะสม */}
-        {paid && advanced && <Dithi dithi={detail.dithi} />}
+        {detail.compatAreas && <CompatList areas={detail.compatAreas} insight={detail.insight ?? ''} />}
+        {detail.compatAreas && detail.advice && (
+          <PredictionCards areas={detail.compatAreas} advice={detail.advice} />
+        )}
+        {/* §9 [advanced] — ดิถีวันนี้ · สะสม · เงื่อนไขคือ jianchu (ครึ่งที่ขายเงินของ dithi)
+            ❌ ไม่ใช่ `detail.dithi` ทั้งก้อน ซึ่งผู้ใช้ฟรีก็มี (officer ไปเป็นชิปบนการ์ดคะแนน) */}
+        {advanced && detail.dithi?.jianchu && <Dithi dithi={detail.dithi} />}
         {/* every tier gets these two — Free-2 draws them in full */}
         <LuckyColors colors={detail.luckyColors} deity={detail.dayDeity} />
         {/* #316 — ตัดสินด้วย remindersLocked(isPaid) ไม่ใช่ `free` (fail-closed · null = ล็อก)
             ตรรกะอยู่ที่ features/v2-calendar/tier-lock.ts เพราะไฟล์ page นี้ unit test แตะไม่ได้ */}
         <YamTimes yams={detail.yams} onAdd={addYam} locked={remindersLocked(isPaid)} statusFor={statusFor} onViewList={goToList} />
         {/* §12/§13 [advanced] — 8 ประตู · 8 เทพ */}
-        {paid && advanced && <EightGates gates={detail.gates} luckyDirection={detail.luckyDirection} />}
-        {paid && advanced && <EightDeities deities={detail.spirits} />}
+        {/* เงื่อนไขคือ `gates` (paid) ❌ ไม่ใช่ `luckyDirection` ซึ่งเป็นของฟรีหลัง #226 */}
+        {advanced && detail.gates && <EightGates gates={detail.gates} luckyDirection={detail.luckyDirection} />}
+        {advanced && detail.spirits && <EightDeities deities={detail.spirits} />}
         {/* #343 — **ย้าย** ลิงก์นี้ลงมา ❌ ไม่ได้เพิ่มอันที่สอง (ของเดิมอยู่บนสุด ใต้กล่องคะแนน)
             เหตุผล: จังหวะที่ลิงก์นี้มีความหมายคือ "เพิ่งบันทึกเสร็จ" ซึ่งสายตาอยู่ที่ปุ่มแถบล่าง
             ตำแหน่งเดิมอยู่เหนือจอไปหลายส่วน ⇒ ผู้ใช้ต้องเลื่อนกลับขึ้นไปหาสิ่งที่ตัวเองเพิ่งทำ */}

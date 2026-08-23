@@ -17,9 +17,14 @@
 // this route would have been the third. The body no longer carries one at all.
 //
 // Cache per (SESSION user, birth-signature, date) — mirrors fortuneCacheKey so re-open a day is instant.
-// 🔴 The cache stores the FULL day and the trim happens on the way OUT. Caching the trimmed value would
-// mean the first free viewer of a day poisons it for every paying viewer after them (and vice versa) — a
-// tier-shaped cache bug that is invisible until someone pays.
+// 🔴 The cache stores the FULL day and the trim happens on the way OUT.
+// ⚠️ NOT because one viewer could poison another's entry — they cannot: the user id is IN the key, so two
+// people never share a slot (ตู๋ T1 corrected this sentence; the first version of it described a bug that
+// cannot happen and would have taught the next reader the wrong model of this cache).
+// The real reason is ONE person whose tier changes between two views — they subscribe, or their plan
+// lapses. Storing the trimmed value would freeze whichever tier they had at first view: a member who just
+// paid would keep getting the free shape until the entry expired. Storing the full day and deciding per
+// response makes the upgrade visible on the very next request, with no recompute.
 import type { NextApiRequest, NextApiResponse } from 'next'
 import { toBaziInput, type FeCalcInput } from '@/lib/bazi-bridge/input'
 import { mapDayDetail, pickFreeDayDetail, type DayDetail } from '@/lib/v2-calendar/day-detail'

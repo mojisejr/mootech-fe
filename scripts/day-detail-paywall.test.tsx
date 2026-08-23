@@ -225,3 +225,69 @@ describe('#226 /api/v2/day-detail — the paid sections are cut at the source', 
     expect((await call({ person: PERSON, date: freshDate() }, 'GET')).statusCode).toBe(405)
   })
 })
+
+// ── #226 · ตู๋ B1 — the client must not re-derive "paid", and the adapter must not hide the answer ────
+//
+// B1 in one sentence: the SCREEN decided what to render with `isPaidMember` (the v1 flag) while the SERVER
+// decided what to SEND with resolveSubscription (the v2 seam). Two holders of one rule, and the cheapest
+// way to make them disagree was the `catch { paid = false }` this very PR added — one DB hiccup and the
+// screen would pass `undefined` into .map()/.find()/.length. There is no error boundary anywhere in the
+// repo, so that is a blank page, and it lands on the person who PAID.
+//
+// The fix is in pages/v2/calendar/[date].tsx: every paid section now renders on the presence of ITS OWN
+// data. That file has no unit test (its own comment says so), so what is pinned here is the invariant the
+// page's guards depend on: **the adapter must pass a missing paid field through as missing.**
+// The day someone writes `compatAreas: lib.compatAreas ?? []` to "be safe", every guard on the page turns
+// true again, free users get empty paid sections, and the crash comes back the moment a field is read
+// deeper. That default is the mutant this block exists to catch.
+import { libDayDetailToFeature } from '@/features/v2-calendar/hooks/day-detail-adapter'
+
+describe('#226 ตู๋ B1 — a trimmed day survives the adapter as TRIMMED, not as empty shells', () => {
+  it('🔴 paid fields absent in → absent out (never [] / "" / a default)', () => {
+    const free = {
+      date: '2027-01-05',
+      dayGanzhi: '甲子',
+      overallPercent: 71,
+      grade: 'B+',
+      summary: 'สรุปวัน',
+      suitable: ['ก'],
+      avoid: ['ข'],
+      yams: [{ id: 'y1', window: '06:00-07:36', label: 'ยาม' }],
+      dayDeity: 'เทพ',
+      wanPhra: { isWanPhra: false, label: '' },
+      colors: [{ element: 'ไม้', colors: 'เขียว' }],
+      luckyDirection: 'ทิศเหนือ',
+      dithi: { officer: 'FREE-officer' },
+    }
+    const view = libDayDetailToFeature(free as never)
+    for (const f of ['compatAreas', 'advice', 'insight', 'gates', 'spirits'] as const) {
+      expect(view[f]).toBeUndefined()
+    }
+    // the split field keeps its free half and only its free half
+    expect(view.dithi).toEqual({ officer: 'FREE-officer' })
+    // and the free half of the screen is fully intact — the guards must not cost a free user anything
+    expect(view.percent).toBe(71)
+    expect(view.yams).toHaveLength(1)
+    expect(view.luckyColors).toHaveLength(1)
+    expect(view.luckyDirection).toBe('ทิศเหนือ')
+  })
+
+  it('a paid day still adapts whole (the guards must not drop what a payer bought)', () => {
+    const paidLib = {
+      date: '2027-01-05', dayGanzhi: '甲子', overallPercent: 71, grade: 'B+', summary: 's',
+      suitable: [], avoid: [], yams: [], dayDeity: '', wanPhra: { isWanPhra: false, label: '' },
+      colors: [], luckyDirection: 'ทิศเหนือ',
+      dithi: { officer: 'o', officerDesc: 'd', jianchu: 'j' },
+      compatAreas: [{ key: 'love', label: 'ความรัก', percent: 80, grade: 'A', isStrength: true }],
+      advice: ['a'], insight: 'i', gates: [{ name: 'g', direction: 'N', meaning: 'm' }],
+      spirits: [{ name: 'sp', keywords: [] }],
+    }
+    const view = libDayDetailToFeature(paidLib as never)
+    expect(view.compatAreas).toHaveLength(1)
+    expect(view.advice).toEqual(['a'])
+    expect(view.insight).toBe('i')
+    expect(view.gates).toHaveLength(1)
+    expect(view.spirits).toHaveLength(1)
+    expect(view.dithi).toEqual({ officer: 'o', officerDesc: 'd', jianchu: 'j' })
+  })
+})
