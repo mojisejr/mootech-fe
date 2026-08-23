@@ -318,4 +318,60 @@ describe.skipIf(!TEST_URL)('payment webhook · real pg (#355)', () => {
       await sql`DELETE FROM discount_code WHERE id = 'dc371'`
     }
   })
+
+  // ⑧ 🔴 THE SEPARATOR THE OTHER SEVEN CASES DO NOT TEST (ตู๋, review of #405).
+  //
+  // Every case above sends `paid:true, status:'successful'`. That proves recovery WORKS, and proves nothing
+  // at all about the thing recovery must never do: wake a REJECTed row on an event that is not a payment.
+  // The behaviour is correct today — `isSettleable` requires key/paid/status together, so a non-paid event
+  // never reaches settleAndProvision — but "correct today" with nothing watching is how a separator dies:
+  // the day someone relaxes isSettleable (or moves the recovery call outside that `if`), a `charge.pending`
+  // or a failed charge would adopt the charge id and grant a membership nobody paid for.
+  //
+  // 🔴 MUTANT CONTRACT: drop the `paid` (or the `status === 'successful'`) requirement from isSettleable
+  // → this case goes RED. Nothing else in the suite does.
+  const nonPaidEvent = (chargeId: string, orderId: string, over: Record<string, unknown>) =>
+    Buffer.from(
+      JSON.stringify({
+        key: 'charge.complete',
+        data: { id: chargeId, status: 'successful', paid: true, metadata: { orderId }, ...over },
+      }),
+      'utf8',
+    )
+
+  it('🔴 ⑧ an event that is not a completed PAYMENT never wakes a REJECTed row through the order_id path', async () => {
+    // the shape a charge that was cut off leaves behind: REJECT + still on its placeholder
+    const shapes: Array<[string, Record<string, unknown>]> = [
+      ['paid:false', { paid: false }],
+      ['status failed', { status: 'failed', paid: false }],
+      ['status pending (not finished yet)', { status: 'pending', paid: false }],
+      ['paid but status failed', { status: 'failed', paid: true }],
+      ['a different event key', { }],
+    ]
+    for (const [label, over] of shapes) {
+      await sql`DELETE FROM member_subscription WHERE user_id = ${users[0]}`
+      await sql.unsafe('DELETE FROM v2_payment;')
+      await seedRow('p371-g', { chargeId: 'pending:p371-g', orderId: 'ORD371G', status: 'REJECT', userId: users[0] })
+
+      const raw =
+        label === 'a different event key'
+          ? Buffer.from(
+              JSON.stringify({ key: 'charge.create', data: { id: 'chrg_371_g', status: 'successful', paid: true, metadata: { orderId: 'ORD371G' } } }),
+              'utf8',
+            )
+          : nonPaidEvent('chrg_371_g', 'ORD371G', over)
+      const out = await fireWebhook(raw, signOmisePayload(raw, TS, SECRET), TS)
+      expect(out.status).toBe(200) // still a well-formed delivery — we just do not act on it
+
+      const [pay] = await sql`SELECT status, charge_id FROM v2_payment WHERE id = 'p371-g'`
+      expect(pay.status, `${label}: must not be granted`).not.toBe('APPROVED')
+      // and the charge id must NOT be adopted — adopting it would let a later paid event for a DIFFERENT
+      // charge miss this row, and it silently rewrites which charge this payment belongs to.
+      expect(pay.charge_id, `${label}: must not adopt the charge id`).toBe('pending:p371-g')
+      expect(
+        (await sql`SELECT id FROM member_subscription WHERE user_id = ${users[0]}`).length,
+        `${label}: nobody may be granted a membership`,
+      ).toBe(0)
+    }
+  })
 })
