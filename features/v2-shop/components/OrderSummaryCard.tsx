@@ -98,6 +98,7 @@ export function OrderSummaryCard({ planName, validUntilText, quote, onChangePlan
         <hr className="w-full border-t border-v3-border-card" />
 
         <DiscountCodeField
+          variant="inline"
           state={discount.state}
           value={discount.value}
           onChange={discount.onChange}
