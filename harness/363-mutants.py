@@ -36,12 +36,24 @@ MUT=[
   "if (!row) return 'UNKNOWN'", "if (!row) return 'APPROVED'"),
  ("MU10 someone adds .limit(20) to listUserPayments", 'lib/payment/repo.ts',
   ".orderBy(desc(v2Payment.createdAt))", ".orderBy(desc(v2Payment.createdAt))\n    .limit(20)"),
+ ("MU11 total is computed instead of printed", 'features/v2-shop/components/OrderSummaryCard.tsx',
+  "{formatSatang(quote.amountSatang)}", "{formatSatang(quote.listSatang - quote.discountSatang)}"),
+ ("MU12 show VAT 0% row instead of hiding it", 'features/v2-shop/components/OrderSummaryCard.tsx',
+  "const showVat = quote.vatPercent > 0", "const showVat = true"),
+ ("MU13 chip only — drop the summary line for the code", 'features/v2-shop/components/OrderSummaryCard.tsx',
+  "{hasCode && (\n          <Row\n            testId=\"summary-code-discount\"", "{false && (\n          <Row\n            testId=\"summary-code-discount\""),
+ ("MU14 put วันนี้ back on the total label", 'features/v2-shop/components/OrderSummaryCard.tsx',
+  ">ยอดชำระ</p>", ">ยอดชำระวันนี้</p>"),
+ ("MU15 put ต่ออายุอัตโนมัติ back on the plan line", 'features/v2-shop/components/OrderSummaryCard.tsx',
+  ">ใช้ได้ถึง {validUntilText}</p>", ">ต่ออายุอัตโนมัติ {validUntilText}</p>"),
+ ("MU16 invent the annual-saving row", 'features/v2-shop/components/OrderSummaryCard.tsx',
+  "{quote.annualSavingSatang !== undefined && quote.annualSavingSatang > 0 && (", "{true && ("),
  ("MU6 drop role=alert from the error helper", 'features/v2-shop/components/DiscountCodeField.tsx',
   "role={isError ? 'alert' : 'status'}", "role={'status'}"),
 ]
 
 def failed_tests():
-    r=subprocess.run(['npx','vitest','run','scripts/discount-code-field.test.tsx','scripts/charge-status.test.ts','--reporter=json'],
+    r=subprocess.run(['npx','vitest','run','scripts/discount-code-field.test.tsx','scripts/charge-status.test.ts','scripts/order-summary.test.tsx','--reporter=json'],
                      cwd=R,capture_output=True,text=True)
     out=r.stdout
     i=out.find('{')
