@@ -53,7 +53,7 @@ MUT=[
  ("MU18 a fetch error ends the wait", 'features/v2-shop/useChargeStatus.ts',
   "        if (stopped.current) return\n        setError(true)", "        if (stopped.current) return\n        setError(true)\n        return"),
  ("MU19 keep polling forever past the deadline", 'features/v2-shop/useChargeStatus.ts',
-  "      if (!stopped.current && now() - startedAt >= staleAfterMs) {", "      if (false) {"),
+  "      if (!stopped.current && nowRef.current() - startedAt >= staleAfterMs) {", "      if (false) {"),
  ("MU20 render every method including the ones we cannot charge", 'features/v2-shop/components/PaymentMethodPicker.tsx',
   "const shown = METHODS.filter((m) => m.enabled)", "const shown = METHODS"),
  ("MU21 hide the two with CSS instead of not rendering", 'features/v2-shop/components/PaymentMethodPicker.tsx',
@@ -111,11 +111,22 @@ print("restore check: all files match their pre-mutant md5 \u2713 \u00b7 temp ba
 # 🔴 EXIT NON-ZERO WHEN A TOOTH DOES NOT BITE (ตู๋ T5, #386). The closing lines of this file used to state the
 # contract as a COMMENT while the process exited 0 no matter what it printed — so anyone wiring it into a
 # gate would have got a gate that is green by construction. A checker that cannot fail is not a checker.
-survived=[n for n,v,_ in rows if 'RED' not in v]
+# 🔴 TWO DIFFERENT FAILURES, AND CONFLATING THEM SENDS SOMEONE TO REWRITE A PERFECTLY GOOD TEST.
+#   stale  = the anchor string no longer exists, so the mutant NEVER LANDED. This says nothing at all about
+#            the tooth; it says this runner is out of date with the code it audits.
+#   survived = the mutant landed and the suite stayed green. THAT is a tooth that does not bite.
+# The first version of this summary printed "TOOTH DOES NOT BITE" for both (caught 2026-08-23, after a
+# rename turned `now()` into `nowRef.current()` and MU19's anchor went stale).
+stale=[n for n,v,_ in rows if 'ANCHOR NOT FOUND' in v]
+survived=[n for n,v,_ in rows if 'RED' not in v and 'ANCHOR NOT FOUND' not in v]
 hits=[tuple(sorted(f)) for _,v,f in rows if 'RED' in v]
 piled = len(rows)>1 and len(set(hits))==1
+if stale:
+    print('\n\U0001f7e0 STALE ANCHORS (the mutant never landed \u2014 this runner is behind the code, the teeth are unjudged):')
+    for n in stale: print('   \u00b7', n)
 if survived:
-    print('\n\U0001f534 MUTANTS THAT SURVIVED (the tooth does not bite):', ', '.join(survived))
+    print('\n\U0001f534 MUTANTS THAT SURVIVED (landed, and nothing went red \u2014 the tooth does not bite):')
+    for n in survived: print('   \u00b7', n)
 if piled:
     print('\n\U0001f534 every mutant reddened the SAME test(s) — one assertion is carrying all of them')
-sys.exit(1 if (survived or piled) else 0)
+sys.exit(1 if (survived or stale or piled) else 0)
