@@ -12,14 +12,17 @@
 // a fixed month+birth forever, so a stored result can never go stale. The key includes a HASH of the birth
 // signature (JSON.stringify(person)) — the same THREE determinants the BFF's fortuneCacheKey uses, but
 // hashed because (unlike fortuneCacheKey, which lives in server RAM) THIS key is written to the user's disk
-// and must carry no plaintext PII (see hashSig / ตู๋ F4).
+// and must carry no plaintext PII (see hashSig / ตู๋ F4). Editing dob → new signature → new hash → new key
+// → the old month is never read again (แก้วันเกิด → ปฏิทินเปลี่ยนตาม, DoD #5). The user ROW is a DIFFERENT
+// rule — NOT deterministic (a payment flips isPaid) → it is in-flight-ONLY (lib/v2/user-cache.ts), a money
+// bug if persisted. This module deliberately walks BESIDE user-cache.ts, never touches it.
+//
 // ⚠️ SINCE #391 THE USER DIMENSION COMES FROM A DIFFERENT SOURCE ON EACH SIDE: the BFF keys on the SESSION's
 // user_id (it no longer accepts one from the request), while this key uses the MEMBER_ID cookie. For one
 // signed-in person they are the same id; they can drift only in the identity-limbo family (#246/#257), and
-// the failure mode there is a stale LOCAL hit, never the server serving the wrong person. Editing dob → new signature → new hash → new key → the old month
-// is never read again (แก้วันเกิด → ปฏิทินเปลี่ยนตาม, DoD #5). The user ROW is a
-// DIFFERENT rule — NOT deterministic (a payment flips isPaid) → it is in-flight-ONLY (lib/v2/user-cache.ts),
-// a money bug if persisted. This module deliberately walks BESIDE user-cache.ts, never touches it.
+// the failure mode there is a stale LOCAL hit, never the server serving the wrong person.
+// (🪞 That block landed mid-sentence when #396 merged — the "Editing dob" line ended up trailing it and the
+//  paragraph read as one run-on. Put back where it belongs here: #396 was mine, so is the tidy-up.)
 //
 // ✅ ตู๋ F5, SETTLED BY #293 — and it came due exactly as written. That debt said: "today the month is
 // ungated so a cached month is content-correct regardless of the gate; the day GATE_OPEN flips, revisit
