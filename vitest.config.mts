@@ -118,6 +118,15 @@ export default defineConfig({
       'scripts/user-membership-db.test.ts', // #383 — real pg (skipIf !TEST_DATABASE_URL)
       'scripts/env-example-drift.test.ts', // #403 — .env.example ต้องประกาศทุก env ที่แอปอ่าน (lib/pages/features)
       'scripts/header-tier-badge.test.tsx', // #384 — 5 badge states + the "unknown" case + the 6-screen wiring
+      'scripts/discount-code-field.test.tsx', // #363 — โค้ดส่วนลด 3 สถานะ + จอต้องคิดเลขไม่เป็น
+      'scripts/charge-status.test.ts', // #363 — หาแถวด้วย chargeId + รอไม่ใช่สำเร็จ + ปักว่า query ห้ามมี limit
+      'scripts/order-summary.test.tsx', // #363 — การ์ดสรุปยอด: พิมพ์ quote ไม่คิดเลข + audit คำสัญญารายบรรทัด
+      'scripts/payment-method-picker.test.tsx', // #363 — ขายสองวิธี · อีกสองตัวต้องไม่อยู่ใน DOM
+      'scripts/qr-screen.test.tsx', // #363 — จอ QR: ห้ามอ้างสำเร็จ/หมดอายุ · ย้อนกลับต้องไม่ยิงอะไร
+      'scripts/result-state.test.ts', // #363 — audit 6 สถานะหลังจ่าย: สถานะไหน 'เงินขยับแล้ว' + กดซ้ำช่วยไหม
+      'scripts/result-screen.test.tsx', // #363 — จอ result: เครื่องหมายถูกมาจาก paid ไม่ใช่ชื่อสถานะ
+      'scripts/use-checkout.test.tsx', // #363 — ✕ ต้องยิง preview ใหม่ · โค้ดผิดห้ามลบราคาทิ้ง
+      'scripts/omise-token.test.ts', // #363 — คีย์ v2 เท่านั้น และตั้งทันทีก่อน createToken
       'scripts/v1-add-friend-copy.test.tsx', // #413 — โมดัลเพิ่มเพื่อนของ v1: ป้ายต้องบอกว่าเป็นข้อมูลเพื่อน
     ],
   },

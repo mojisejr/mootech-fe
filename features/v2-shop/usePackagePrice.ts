@@ -81,3 +81,16 @@ export function usePackagePrice(code: string | null): PriceState {
 export function formatThb(amountThb: number): string {
   return `฿${amountThb.toLocaleString('th-TH', { maximumFractionDigits: 2 })}`
 }
+
+/**
+ * satang → the same ฿-text. THE ONLY PLACE `/100` HAPPENS (mootech-fe#363).
+ *
+ * The money lane speaks satang end to end (preview/charge/webhook/DB all carry `*Satang`), the screen speaks
+ * baht. That conversion is a UNIT change, not a price decision — but it is still arithmetic on money, and
+ * arithmetic on money that is written twice is arithmetic that will disagree once. Checkout renders every
+ * amount through here, so the checkout components themselves contain no division at all (pinned by
+ * scripts/discount-code-field.test.ts and the summary spec).
+ */
+export function formatSatang(satang: number): string {
+  return formatThb(satang / 100)
+}

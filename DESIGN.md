@@ -102,6 +102,7 @@ per-screen pixels; a new value gets promoted into the system (named), never inli
 | Token | Hex |
 |---|---|
 | `error` | `#E73E3E` · legacy input error `#C13515` |
+| `success-bg` / `success-border` / `success-text` | `#EAF3DE` / `#97C459` / `#3B6D11` — **บทบาทใหม่ ไม่ใช่สีเขียวทั่วไป** ↓ |
 | `focus-border` | `#3475E2` (input) · `#222` shade-02 (dropdown/link) |
 | `link-legal` | `#004CC4` (legal link) |
 | `border-input` | `#E5E7EB` · checkout `#D1D5DB` |
@@ -109,6 +110,24 @@ per-screen pixels; a new value gets promoted into the system (named), never inli
 | `disabled-bg` | `#DDDDDD` |
 | `border-dropdown` | `#B0B0B0` · `border-checkbox` `#C2C2C2` |
 | `tab-track` | `#EBEBEB` · `tab-focus` `#F7F7F7` · `dropdown-label` `#717171` |
+
+#### `success-*` — สถานะ "สำเร็จ" (เพิ่ม 2026-08-23 · `mootech-fe#363` · Figma `55159:5611`)
+
+v3 **ไม่เคยมีสีเขียว** มาก่อน เพราะจนถึงจอ checkout ยังไม่มีอะไรใน v2 ที่ "สำเร็จ" ในแบบที่ต้องลงสี
+สามตัวนี้เป็น**ชิ้นส่วนของป้ายโค้ดส่วนลดที่ใช้ได้แล้ว** ตัวเดียวกัน ❌ **ไม่ใช่จานสีเขียวสำหรับงานทั่วไป**
+
+```
+success-bg      #EAF3DE   พื้นของ chip
+success-border  #97C459   ขอบ chip + เครื่องหมายถูก
+success-text    #3B6D11   ชื่อโค้ด · −฿ยอด · บรรทัดช่วยใต้ช่อง
+```
+**วัดแล้วก่อนรับเข้า contract**: `success-text` บนพื้น `success-bg` = **5.43:1** ⇒ ผ่าน WCAG AA สำหรับข้อความปกติ (≥4.5)
+⇒ ใครเอาไปใช้คู่อื่น **ต้องวัดใหม่** — ตัวเลขนี้รับประกันแค่คู่นี้คู่เดียว
+
+🔴 **ทำไมต้องอยู่ในไฟล์นี้ ไม่ใช่แค่ `tailwind.config.ts`** — config ตอบว่า *ค่าเท่าไหร่*
+แต่ตอบไม่ได้ว่า *ใช้ตอนไหน · ห้ามใช้ตอนไหน · ใครเป็นคนตัดสิน*
+บทเรียนคือ `mootech-fe#310`: ค่า z-index **9 ค่า** ประกาศอยู่ในโค้ดครบ แต่ไม่มีใครถือ เพราะไม่เคยถูกประกาศในสัญญา
+⇒ token ที่มีแต่ในโค้ด = ค่าที่ไม่มีเจ้าของ · คนถัดไปจะเพิ่มตัวที่ 10 โดยไม่รู้ว่ามี 9 ตัวอยู่แล้ว
 
 ### Nav / Mate AI (dark surface + gradients) `✓`
 | Token | Value |

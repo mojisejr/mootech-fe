@@ -178,9 +178,10 @@ describe('#384 bug A — an /api/user error must not tell a paying member to upg
 
 // ── the six screens are wired ───────────────────────────────────────────────────────────────────────
 describe('#384 every screen that renders the shared header passes a membership', () => {
-  // The ticket said FIVE screens. There are SIX <AppHeader/>/<HeaderTools/> call sites — the notifications
-  // screen passed no tier at all, which is why it showed no badge to anyone. Naming the number here means a
-  // seventh screen added later without a wire makes this list wrong out loud instead of quietly incomplete.
+  // The ticket said FIVE screens. There were SIX — the notifications screen passed no tier at all. It is
+  // SEVEN as of #363 (checkout), and that is this list working as designed: the count is named here, so the
+  // screen added next cannot arrive without someone updating it. It caught its own author on the very next
+  // ticket, which is the only kind of proof a guard like this can offer.
   const SCREENS = [
     { rel: 'features/v2-home/components/V2HomeScreen.tsx', cta: true },
     { rel: 'features/v2-service/components/ServiceHubScreen.tsx', cta: true },
@@ -188,10 +189,13 @@ describe('#384 every screen that renders the shared header passes a membership',
     { rel: 'pages/v2/calendar/[date].tsx', cta: true },
     { rel: 'features/v2-shop/components/ShopScreen.tsx', cta: false },
     { rel: 'pages/v2/calendar/notifications.tsx', cta: false },
+    // #363 — checkout. upgradeCta false: you are already buying; an "อัพเกรด" pill here would send the user
+    // back to the shop mid-payment.
+    { rel: 'pages/v2/shop/checkout.tsx', cta: false },
   ] as const
 
   it('all six pass membership through', () => {
-    expect(SCREENS).toHaveLength(6)
+    expect(SCREENS).toHaveLength(7)
     for (const { rel } of SCREENS) {
       expect(code(rel), `${rel} stopped passing membership`).toMatch(/membership=\{/)
     }
@@ -199,7 +203,11 @@ describe('#384 every screen that renders the shared header passes a membership',
 
   it('exactly the two non-selling screens say so, and no others', () => {
     const off = SCREENS.filter((s) => !s.cta).map((s) => s.rel)
-    expect(off).toEqual(['features/v2-shop/components/ShopScreen.tsx', 'pages/v2/calendar/notifications.tsx'])
+    expect(off).toEqual([
+      'features/v2-shop/components/ShopScreen.tsx',
+      'pages/v2/calendar/notifications.tsx',
+      'pages/v2/shop/checkout.tsx',
+    ])
     for (const { rel, cta } of SCREENS) {
       const hasFlag = /upgradeCta=\{false\}/.test(code(rel))
       expect(hasFlag, `${rel} upgradeCta={false} should be ${!cta}`).toBe(!cta)
@@ -245,6 +253,7 @@ describe('#384 every screen that renders the shared header passes a membership',
         'pages/v2/calendar.tsx',
         'pages/v2/calendar/[date].tsx', // renders <DayHeader/>
         'pages/v2/calendar/notifications.tsx',
+        'pages/v2/shop/checkout.tsx', // #363 — the checkout screen, added while this tooth was already in place
         'scripts/header-tier-badge.test.tsx', // this file renders one to assert on it
         'scripts/upgrade-cta-destinations.test.tsx', // #359 asserts the pill is a link
       ].sort(),
