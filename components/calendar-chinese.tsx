@@ -53,9 +53,13 @@ const [listCalendars, setListCalendars] = useState<GridItem[]>(
   // Loading indicator while the calendar data is being fetched.
   const [isLoading, setIsLoading] = useState<boolean>(true)
 
+  // #427 — v1 ปิดการขายแล้ว (#376) · ปุ่ม "ปลดล็อค" เคย router.replace ไป /package-price
+  // ⇒ ผู้ใช้ถูกพาออกจากปฏิทินที่กำลังดู ไปเจอ "ปิดการขายชั่วคราว" แล้วกด back ไม่กลับ (replace ทับ history)
+  // ตอบตรงที่ปุ่มแทน · gotoPayment ยังอยู่ ไม่ถูกลบ — เปิดขายกลับเมื่อไหร่ เอา onClick กลับมาเรียกมันได้
   const gotoPayment = () => {
     router.replace(PageRouter.PACKAGE_PRICE)
   }
+  const [salesClosedNotice, setSalesClosedNotice] = useState(false)
 
 
 useEffect(() => {
@@ -581,13 +585,27 @@ const getStateDayBuddhistDay = (item: any) => {
                               </p>
 
                               <button
-                                onClick={ () => { gotoPayment() }}
+                                type="button"
+                                data-testid="calendar-unlock"
+                                onClick={ () => { setSalesClosedNotice(true) }}
                                 className="mt-4 px-6 py-2 rounded-full
                                           bg-moumate_blue text-white
                                           hover:scale-105 transition-all duration-300"
                               >
                                 ปลดล็อค
                               </button>
+                              {salesClosedNotice && (
+                                <p
+                                  data-testid="calendar-unlock-notice"
+                                  role="status"
+                                  aria-live="polite"
+                                  className="mt-3 text-[13px] leading-6 text-moumate_black"
+                                >
+                                  ตอนนี้ปิดการขายชั่วคราว เรากำลังปรับแพ็กเกจใหม่
+                                  <br />
+                                  สิทธิ์ที่ซื้อไว้แล้วยังใช้งานได้ตามปกติ
+                                </p>
+                              )}
                             </div>
                           </div>
                         )
