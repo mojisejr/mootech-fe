@@ -4,11 +4,12 @@
 // **ไม่มี payment หรือหมดอายุ** (header-v2.tsx:86-90) ⇒ ผู้ใช้ฟรีทุกคนเห็นป้ายนี้เกือบทุกหน้าของแอป
 // ⇒ ทางเข้านี้กว้างกว่า 4 จุดแรกรวมกัน (บองไล่เจอและยืนยันเลข 16 · ผมนับได้ 12 เพราะใส่ `head -12` เอง)
 //
-// 🔴 ที่นี่ใช้ toast ของ ComingSoon **ได้** ต่างจากในโมดัลแชต — เหตุผลเดียวกันทั้งคู่คือ z:
-//      ComingSoon toast z-[60] · header z-50           ⇒ toast อยู่เหนือ ✅
-//      ComingSoon toast z-[60] · โมดัลแชต z-[9999]     ⇒ toast อยู่ใต้  ❌ (#376)
-// เคส "toast อยู่เหนือ header" ข้างล่างคือฟันที่กันการย้าย header ไปอยู่ z สูงกว่า 60 แล้วไม่มีใครรู้ว่า
-// คำตอบหายไปอยู่ข้างใต้
+// 🔴 ที่นี่ใช้ toast ของ ComingSoon **ได้** ต่างจากในโมดัลแชต (#376)
+//   เหตุผลเดิมตรงนี้เทียบเลข z ตรงๆ — **ผิด**: toast เคย render เป็นลูกของแถบ z-50 ⇒ เลขของมันถูก
+//   ตีความในกรงนั้น ไม่ใช่ระดับหน้า (ตู๋จับ · บองพิสูจน์ด้วยพิกเซล) · ตอนนี้ toast portal ไป
+//   document.body แล้ว — ดู ComingSoon.tsx
+// ⇒ เคสสุดท้ายในไฟล์นี้จึงปัก **คุณสมบัติ** (ไม่ถูกขังในกรงของใคร) ก่อน แล้วค่อยเทียบเลข
+//   ซึ่งเพิ่งจะแปลว่าอะไรได้ *หลัง* หลุดจากกรง
 import React from 'react'
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, cleanup, fireEvent, waitFor } from '@testing-library/react'
@@ -64,14 +65,30 @@ describe('#427 ⑤ ป้าย "อัพเกรด" บน header', () => {
     expect(replace).not.toHaveBeenCalled()
   })
 
-  it('toast ต้องอยู่ชั้นเหนือ header — กันการย้าย header ไป z สูงกว่า 60 แล้วคำตอบหายไปอยู่ข้างใต้', async () => {
+  // 🔴 ฟันตัวนี้เขียนใหม่ทั้งอัน — ของเดิมเทียบ `toastZ > barZ` (60 > 50) แล้วเขียวตลอด
+  // **ทั้งตอนที่ถูกและตอนที่ผิด** เพราะ toast อยู่ *ข้างใน* bar นั้น ⇒ z ของมันถูกตีความภายใน
+  // stacking context ของ bar ⇒ ตัวเลขที่เอามาเทียบไม่ได้ตัดสินอะไรเลยว่าใครทับใครบนหน้าจอ
+  // ตู๋จับได้ในรีวิว · บองพิสูจน์ด้วยพิกเซลบนเบราว์เซอร์จริง (overlay z-60 → กรอบ toast ขาวล้วน)
+  //
+  // ของใหม่ปัก **คุณสมบัติ** แทน **สูตร**: toast ต้องไม่มีบรรพบุรุษที่ถือ z เลย และต้องอยู่ที่ body
+  // สองบรรทัดนี้ไม่ผูกกับเลข z ใดๆ ⇒ ย้าย header ไป z เท่าไหร่ก็ไม่ทำให้มันตอบผิด
+  it('toast ต้องไม่ถูกขังใน stacking context ของใคร — ไม่มีบรรพบุรุษที่ถือ z และอยู่ที่ body', async () => {
     await mount()
     fireEvent.click(await screen.findByTestId('header-upgrade'))
-    const toastZ = Number(
-      (screen.getByTestId('coming-soon-toast').className.match(/z-\[(\d+)\]/) || [])[1],
-    )
+    const toast = screen.getByTestId('coming-soon-toast')
+    // ⚠️ ถามจาก parentElement ขึ้นไป ❌ ไม่ใช่ toast.closest(...) — `closest` เริ่มนับที่ตัวเอง
+    // และตัว toast ถือ z-[9000] ของมันเอง ⇒ เขียนแบบนั้นจะแดงตลอดไม่ว่าโค้ดถูกหรือผิด
+    // (สูตรที่เสนอกันไว้ในรีวิวเป็นแบบนั้นพอดี — จับได้ตอนยิงจริง ไม่ใช่ตอนอ่าน)
+    expect(toast.parentElement?.closest('[class*="z-"]')).toBeNull()
+    expect(toast.parentElement).toBe(document.body)
+
+    // และ *หลังจาก* หลุดจากกรงแล้วเท่านั้น การเทียบตัวเลขถึงจะแปลว่าอะไร: ตอนนี้แถบ header กับ toast
+    // อยู่คนละกิ่งใต้ root context เดียวกัน ⇒ เลขที่ใหญ่กว่าทับจริง (ก่อนแก้ ทั้งคู่อยู่กรงเดียวกัน
+    // เลขจึงไม่ตัดสินอะไร) ⇒ บรรทัดนี้กันคนลดเลข z ของ toast ลงมาต่ำกว่า chrome
     const bar = screen.getByTestId('header-upgrade').closest('div[class*="z-"]')
-    const barZ = Number((bar?.className.match(/z-(\d+)/) || [])[1])
-    expect(toastZ).toBeGreaterThan(barZ)
+    expect(bar?.contains(toast)).toBe(false) // เงื่อนไขที่ทำให้บรรทัดถัดไปมีความหมาย
+    const zOf = (el: Element | null | undefined) =>
+      Number((el?.className.match(/z-\[?(\d+)\]?/) || [])[1])
+    expect(zOf(toast)).toBeGreaterThan(zOf(bar))
   })
 })
