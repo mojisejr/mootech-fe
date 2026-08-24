@@ -93,3 +93,45 @@ describe('#427 ② ปุ่ม "ปลดล็อค" ในการ์ดป
     expect(replace).not.toHaveBeenCalled()
   })
 })
+
+// ---- จุด ③ ปุ่ม "ปลดล็อค" ในการ์ดปฏิทิน **รายวัน** ----
+// 🔑 จุดนี้เกือบหลุดจาก PR ทั้งใบ: ผมไล่ผู้เรียกด้วย grep คำว่า "calendar-chinese" ซึ่งไม่ match ชื่อไฟล์
+// `calendar-dairy-chinese.tsx` แล้วสรุปว่า prop `gotoPayment` ที่ `chinese-calendar:321` ส่งมาไม่มีใครรับ
+// = dead code · ของจริงมันมารับที่นี่ และผู้ใช้กดได้จริงในมุมมองรายวัน (บองเปิดไฟล์แล้วชี้ให้เห็น)
+// ⇒ เคสชุดนี้คือฟันที่ทำให้ "จุดที่ 4 หายไป" กลายเป็นสิ่งที่ล้มดัง แทนที่จะเป็นสิ่งที่ไม่มีใครสังเกต
+vi.mock('@/constants/api/api-chinese-calendar-get-dairy', () => ({
+  ChineseCalendarGetDairyAPI: vi.fn(async () => ({ is_allow: false, data: [] })),
+}))
+
+describe('#427 ③ ปุ่ม "ปลดล็อค" ในการ์ดปฏิทินรายวัน', () => {
+  const mount = async () => {
+    const Card = (await import('@/components/calendar-dairy-chinese')).default
+    return render(
+      <Card userId="u1" initDay={24} initMonth={8} initYear={2026} onChangeDate={vi.fn()} gotoPayment={vi.fn()} />,
+    )
+  }
+
+  it('ปุ่มโผล่จริงตอนยังไม่มีสิทธิ์ — negative control ของเครื่องมือวัด', async () => {
+    await mount()
+    expect(await screen.findByTestId('dairy-unlock')).toBeTruthy()
+  })
+
+  it('กดแล้วบอกว่าปิดการขาย ❌ ไม่ใช่เงียบ', async () => {
+    await mount()
+    const btn = await screen.findByTestId('dairy-unlock')
+    expect(screen.queryByTestId('dairy-unlock-notice')).toBeNull()
+    fireEvent.click(btn)
+    const t = screen.getByTestId('dairy-unlock-notice').textContent || ''
+    expect(t).toContain('ปิดการขายชั่วคราว')
+    expect(t).toContain('ยังใช้งานได้ตามปกติ')
+  })
+
+  it('ไม่พาผู้ใช้ออกจากวันที่กำลังดู — gotoPayment ที่หน้าส่งมาต้องไม่ถูกเรียก', async () => {
+    const Card = (await import('@/components/calendar-dairy-chinese')).default
+    const gotoPayment = vi.fn()
+    render(<Card userId="u1" initDay={24} initMonth={8} initYear={2026} onChangeDate={vi.fn()} gotoPayment={gotoPayment} />)
+    fireEvent.click(await screen.findByTestId('dairy-unlock'))
+    expect(gotoPayment).not.toHaveBeenCalled()
+    expect(replace).not.toHaveBeenCalled()
+  })
+})
