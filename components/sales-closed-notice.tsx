@@ -20,9 +20,14 @@ import Image from 'next/image';
 const BRAND_GRADIENT = 'linear-gradient(180deg, #1B9AAF 0%, #3A78A9 100%)';
 
 export const SALES_CLOSED_TITLE = 'ปิดการขายชั่วคราว';
-export const SALES_CLOSED_BODY = 'ตอนนี้เรากำลังปรับแพ็กเกจใหม่ จึงปิดการซื้อไว้ก่อน';
+
+// AUTHORED LINE BREAKS, not wrapped ones. Thai has no word spaces, so the browser breaks wherever the box
+// runs out — the first capture at 393 split "จึงปิดการซื้อไว้ / ก่อน" and "ยังใช้งานได้ตาม / ปกติทุกอย่าง",
+// both mid-phrase. Every assertion on textContent stayed green through that, because textContent cannot see
+// WHERE text wraps. Each line here is its own block, so the break is a decision instead of a leftover.
+export const SALES_CLOSED_BODY = ['ตอนนี้เรากำลังปรับแพ็กเกจใหม่', 'จึงปิดการซื้อไว้ก่อน'];
 /** the half users actually worry about — say it before they ask */
-export const SALES_CLOSED_REASSURANCE = 'บัญชีของคุณและสิทธิ์ที่ซื้อไว้แล้ว ยังใช้งานได้ตามปกติทุกอย่าง';
+export const SALES_CLOSED_REASSURANCE = ['บัญชีและสิทธิ์ที่ซื้อไว้แล้ว', 'ยังใช้งานได้ตามปกติทุกอย่าง'];
 
 export default function SalesClosedNotice({ onBack }: { onBack?: () => void }) {
   return (
@@ -71,12 +76,18 @@ export default function SalesClosedNotice({ onBack }: { onBack?: () => void }) {
           </h1>
 
           <p className="mt-3 text-[16px] leading-relaxed text-moumate_black">
-            {SALES_CLOSED_BODY}
+            {SALES_CLOSED_BODY.map((line) => (
+              <span key={line} className="block">{line}</span>
+            ))}
           </p>
-          {/* authored as its own element, not a wrapped sentence: this is the line that keeps a user from
-              concluding the app is dead, so it must not be the one that gets visually swallowed. */}
-          <p className="mt-2 text-[15px] leading-relaxed text-moumate_gray">
-            {SALES_CLOSED_REASSURANCE}
+          {/* This is the line that keeps a user from concluding the app is dead, so it must not be the one
+              that gets visually swallowed — which is exactly what happened on the first capture: it was set
+              in moumate_gray (#888888), a token this repo's own config records as FAILING 4.5:1
+              (tailwind.config.ts:145-149). The most important sentence was the faintest one on the screen. */}
+          <p className="mt-3 text-[15px] font-medium leading-relaxed text-moumate_black">
+            {SALES_CLOSED_REASSURANCE.map((line) => (
+              <span key={line} className="block">{line}</span>
+            ))}
           </p>
 
           {onBack ? (
