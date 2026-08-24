@@ -31,6 +31,10 @@ const Menu = ({
   ])
 
   const [resultCode, setResultCode] = useState<any>(null)
+  // #427 — เมนูสองรายการนี้พาไปหน้าขายที่ปิดไปแล้ว (#376) ด้วย router.replace ⇒ กดกลับไม่ได้
+  // ตอบตรงที่แถวที่กด · ไม่ใช้ toast ที่นี่เพราะเมนูเป็นรายการแนวตั้งที่มีที่ว่างพอ ⇒ คำตอบไม่ต้องพึ่ง z เลย
+  // (ต่างจากป้ายอัพเกรดบน header ที่สูง 60px fixed จนไม่มีที่วาง)
+  const [salesClosedNotice, setSalesClosedNotice] = useState<string>('')
 
   const router = useRouter();
   const { userId: authUserId, status: authStatus } = useCurrentUser();
@@ -250,7 +254,8 @@ const Menu = ({
                             <span className={' w-full flex grow text-moumate_blue ml-2'}>{menus[1].items[4].title}</span>
                       </div>
                       <div 
-                      onClick={() => { router.replace(menus[1].items[5].to)}}
+                      data-testid="menu-horoscope"
+                      onClick={() => { setSalesClosedNotice('horoscope') }}
                       
                       className={
                           ' border-b border-gray-200  w-full flex  flex-nowrap py-4 cursor-pointer px-4 '}>
@@ -265,6 +270,16 @@ const Menu = ({
                             </div>
                             <span className={' w-full flex grow text-moumate_blue ml-2'}>{menus[1].items[5].title}</span>
                       </div>
+                      {salesClosedNotice === 'horoscope' && (
+                        <p
+                          data-testid="menu-horoscope-notice"
+                          role="status"
+                          aria-live="polite"
+                          className="w-full px-4 pb-3 -mt-2 text-[13px] leading-6 text-moumate_black"
+                        >
+                          ตอนนี้ปิดการขายชั่วคราว เรากำลังปรับแพ็กเกจใหม่ · สิทธิ์ที่ซื้อไว้แล้วยังใช้งานได้ตามปกติ
+                        </p>
+                      )}
                       <div
                       onClick={() => { router.replace(menus[1].items[9].to)}}
                       className={
@@ -297,7 +312,8 @@ const Menu = ({
                             <span className={' w-full flex grow text-moumate_blue ml-2'}>{menus[1].items[6].title}</span>
                       </div>  */}
                       <div 
-                      onClick={() => { router.replace(menus[1].items[7].to)}}
+                      data-testid="menu-price"
+                      onClick={() => { setSalesClosedNotice('price') }}
                       
                       className={
                           ' border-b-0 border-gray-200  w-full flex  flex-nowrap py-4 cursor-pointer px-4 '}>
@@ -311,7 +327,17 @@ const Menu = ({
                               />
                             </div>
                             <span className={' w-full flex grow text-moumate_blue ml-2'}>{menus[1].items[7].title}</span>
-                      </div> 
+                      </div>
+                      {salesClosedNotice === 'price' && (
+                        <p
+                          data-testid="menu-price-notice"
+                          role="status"
+                          aria-live="polite"
+                          className="w-full px-4 pb-3 -mt-2 text-[13px] leading-6 text-moumate_black"
+                        >
+                          ตอนนี้ปิดการขายชั่วคราว เรากำลังปรับแพ็กเกจใหม่ · สิทธิ์ที่ซื้อไว้แล้วยังใช้งานได้ตามปกติ
+                        </p>
+                      )} 
                       {/* <div 
                       
                       onClick={() => { router.replace(menus[1].items[8].to)}}

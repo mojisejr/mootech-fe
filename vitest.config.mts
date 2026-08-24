@@ -133,6 +133,7 @@ export default defineConfig({
       'scripts/v1-sales-closed-ctas.test.tsx', // #376 — ปิดการขาย v1 ชั้น CTA (จุด ③④); .tsx
       'scripts/v1-blocking-cta-closed.test.tsx', // #427 — ปุ่มที่ชวนไปซื้อต้องตอบตรงที่กด; .tsx
       'scripts/v1-header-upgrade-closed.test.tsx', // #427 — ป้ายอัพเกรดบน header (16 หน้า); .tsx
+      'scripts/v1-menu-package-closed.test.tsx', // #427 — เมนู 2 รายการที่พาไปหน้าขาย; .tsx
     ],
   },
   resolve: {
