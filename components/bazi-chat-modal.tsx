@@ -76,6 +76,17 @@ const BaziChatModal = ({ userId, onClose }: ComponentProps) => {
   const [editingTitle, setEditingTitle] = useState("")
   const [wallet, setWallet] = useState<{ balance: number; unlimited: boolean; enforced: boolean } | null>(null)
   const [outOfCredit, setOutOfCredit] = useState(false)
+  // #376 — v1 stopped selling. The "ซื้อเพิ่ม" pill used to be a <Link> to /package-price; that page is now
+  // closed, so the link would walk the user to a dead end at the exact moment they ran out of questions.
+  // The answer is given HERE instead, inline in the credit bar.
+  //
+  // NOT features/v2-shell's ComingSoon toast, even though the issue names it as the template and it solves
+  // this exact problem for v2. Its toast renders at z-[60]; this modal is z-[9999] (line 250). The toast
+  // would mount, pass every assertion about announce() being called, and paint UNDERNEATH the chat — the
+  // user taps and sees nothing. A green test over a silent screen is the failure mode this component was
+  // written to prevent, so borrowing its z-index would have inverted its own purpose. What IS borrowed is
+  // the part that matters: the control answers, and role=status/aria-live means it answers out loud too.
+  const [topUpNotice, setTopUpNotice] = useState(false)
 
   const bottomRef = useRef<HTMLDivElement | null>(null)
   const hydratingRef = useRef(false)
@@ -378,13 +389,26 @@ const BaziChatModal = ({ userId, onClose }: ComponentProps) => {
                 {wallet.unlimited ? "✨ ถามได้ไม่จำกัด" : `เหลือ ${Math.max(0, wallet.balance)} คำถาม`}
               </span>
               {!wallet.unlimited && (outOfCredit || wallet.balance <= 0) && (
-                <Link
-                  href="/package-price?tab=PAYASUSE"
+                <button
+                  type="button"
+                  data-testid="chat-topup"
+                  onClick={() => setTopUpNotice(true)}
                   className="flex-none rounded-full bg-white text-chat_header_to text-[12px] font-medium px-3 py-[5px] cursor-pointer hover:bg-white/90 active:scale-95 transition"
                 >
                   ซื้อเพิ่ม
-                </Link>
+                </button>
               )}
+            </div>
+          )}
+
+          {topUpNotice && (
+            <div
+              data-testid="chat-topup-notice"
+              role="status"
+              aria-live="polite"
+              className="flex-none w-full px-[20px] pb-[8px] text-[12px] leading-5 text-white/90"
+            >
+              ตอนนี้ปิดการขายชั่วคราว เรากำลังปรับแพ็กเกจใหม่ · คำถามที่เหลืออยู่ยังใช้ได้ตามปกติ
             </div>
           )}
 
