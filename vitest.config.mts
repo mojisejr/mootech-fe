@@ -52,6 +52,7 @@ export default defineConfig({
     // Same shape as the merge-conflict rule already written into design-verify.yml. Debt #212 is
     // that this list and ci.yml's skip list are two hand-synced copies of the same fact.
     include: [
+      'scripts/v2-entitlement.test.ts', // #358 — teeth on the v2 entitlement table (count vs span shapes)
       'scripts/evidence-dir.test.tsx', // #417 — teeth on the ONE function that decides where harness output lands (.tsx: vitest-only, no #212 sync)
       'scripts/logout-clears-caches.test.ts',
       'scripts/v2-tier.test.ts', // #214 — must survive this merge
