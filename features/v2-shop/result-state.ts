@@ -76,10 +76,15 @@ export const RESULT_COPY: Record<ResultState, ResultCopy> = {
     paid: false,
   },
   QR_MAYBE_EXPIRED: {
-    // อาจ — the gateway never tells us when a QR dies (useChargeStatus.POLL_UNTIL_MS), and by the time this
-    // shows, the automatic repair window (reconcile-window.RECONCILE_HORIZON_MS) is closed as well.
+    // อาจ — the gateway never tells us when a QR dies (useChargeStatus.POLL_UNTIL_MS).
+    //
+    // 🔴 IT SPEAKS TO TWO PEOPLE AT ONCE, ON PURPOSE (ฟีม เคาะทาง C, 2026-08-24). At this point the screen
+    // does not know which of them is reading it: someone who never paid and needs a fresh QR, or someone
+    // whose money already left and whose row the cron is still working on for another seven days. Address
+    // only the first and the second pays twice; address only the second and the first is stuck. So the
+    // sentence carries both, in that order — the unpaid case first because it is the common one.
     title: 'QR นี้อาจหมดอายุแล้ว',
-    body: 'ถ้าคุณจ่ายไปแล้ว กดตรวจสอบอีกครั้ง ถ้ายัง ขอ QR ใหม่ได้',
+    body: 'ถ้ายังไม่ได้จ่าย ขอ QR ใหม่ได้เลย · ถ้าจ่ายไปแล้ว ไม่ต้องจ่ายซ้ำ ระบบยังตามให้อยู่ กดตรวจสอบอีกครั้งได้',
     retry: 'same',
     paid: false,
   },

@@ -27,13 +27,20 @@ import { DEFAULT_WINDOW } from './reconcile'
 export const RECONCILE_CRON_INTERVAL_MS = 15 * 60_000
 
 /**
- * The last moment a repair can still plausibly happen for a charge created at t=0.
+ * The moment the reconciler's FIRST LOOK is guaranteed to have happened, for a charge created at t=0.
  *
  * grace: the reconciler ignores the row entirely until it is this old (reconcile.ts selectReconcileCandidates).
  * + one cron period: becoming ELIGIBLE is not the same as being LOOKED AT — the run that would pick it up
  *   may have fired one second before it aged in, so the first real chance is up to a full period later.
  *
- * Past this, the reconciler has had its turn and nothing more is coming automatically.
+ * 🔴 THIS IS NOT "WHEN REPAIR STOPS BEING POSSIBLE" — an earlier version of this file said that and it was
+ * WRONG (ตู๋, review of #424). There is no attempt counter, no give-up flag, and no terminal state anywhere
+ * in lib/payment: a PENDING row is re-asked every cron period for as long as DEFAULT_WINDOW.windowMs — SEVEN
+ * DAYS (repo.ts:191 `createdAt >= now - windowMs`). A run that cannot reach the gateway just counts itself
+ * `unreachable` and leaves the row untouched for the next one (reconcile-run.ts:60-64).
+ *
+ * So passing this instant means only: "we can no longer PROMISE the user that a look is still pending."
+ * The screen must keep that distinction — it may stop guaranteeing, it may never stop watching.
  */
 export const RECONCILE_HORIZON_MS = DEFAULT_WINDOW.graceMs + RECONCILE_CRON_INTERVAL_MS
 
@@ -41,9 +48,12 @@ export const RECONCILE_HORIZON_MS = DEFAULT_WINDOW.graceMs + RECONCILE_CRON_INTE
  * PURE — which of the three honest things the screen may say, given how long it has been waiting.
  *
  * `waiting`     we are still polling; the webhook usually lands in seconds.
- * `reconciling` fast polling is over but the cron's window is still open, so we keep asking slowly. NOT a
- *               failure, and explicitly not an invitation to pay again — that invitation is exactly the bug.
- * `exhausted`   the automatic paths are spent. Only now may the screen suggest a new QR.
+ * `reconciling` fast polling is over but the FIRST guaranteed look has not landed yet, so we keep asking
+ *               slowly. NOT a failure, and explicitly not an invitation to pay again — that invitation is
+ *               exactly the bug this file was opened for.
+ * `exhausted`   the guarantee is spent, NOT the repair (see RECONCILE_HORIZON_MS). The screen may now offer
+ *               a new QR to whoever never paid — while still telling whoever DID pay not to pay twice, and
+ *               while still polling, because the cron is very much alive for another seven days.
  *
  * 🔴 `graceMs` is the LOWER bound, not the moment of repair — see RECONCILE_HORIZON_MS.
  */

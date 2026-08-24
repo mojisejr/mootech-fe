@@ -69,8 +69,9 @@ export type UseChargeStatus = {
   polling: boolean
   error: boolean
   /**
-   * 🔴 EXHAUSTED, not merely late (#423). True only once the reconcile cron's window has closed too, so the
-   * screen may finally offer "ขอ QR ใหม่" without contradicting a repair that is still allowed to happen.
+   * 🔴 "we can no longer PROMISE a look is pending" — NOT "the repair is over" (#424 review). The cron keeps
+   * trying for DEFAULT_WINDOW.windowMs. This flag only unlocks the offer of a new QR for the user who never
+   * paid; the same screen must still tell the user who DID pay not to pay twice.
    */
   stale: boolean
   /** which of the three honest things the screen may say — see reconcile-window.waitPhase. */
@@ -131,7 +132,11 @@ export function useChargeStatus(
       // is the whole bug: it invited a second payment from someone whose first one had already worked.
       const nextPhase = waitPhase(nowRef.current() - startedAt, pollUntilMs, horizonMs)
       setPhase(nextPhase)
-      if (nextPhase === 'exhausted') return
+      // 🔴 EVEN `exhausted` KEEPS ASKING (ตู๋, review of #424). The first version returned here, which meant a
+      // cron run that could not reach the gateway at minute 20 — and therefore repaired the row at minute 45 —
+      // could never reach a screen the user still had open. The reconciler runs for seven days; a poll every
+      // 30s costs one request while someone is actually looking. Only APPROVED ends the loop (above), and
+      // closing the page ends it via the effect cleanup.
       timer = setTimeout(tick, nextPhase === 'waiting' ? pollMs : slowPollMs)
     }
     void tick()
@@ -145,7 +150,9 @@ export function useChargeStatus(
   const stale = phase === 'exhausted'
   return {
     status,
-    polling: !!chargeId && status !== 'APPROVED' && !stale,
+    // 🔴 `polling` now means what it says — we ask until the charge settles or the page closes. It no longer
+    // goes false at the horizon, because we no longer stop there.
+    polling: !!chargeId && status !== 'APPROVED',
     error,
     stale,
     phase,

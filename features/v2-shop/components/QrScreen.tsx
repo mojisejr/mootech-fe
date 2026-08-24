@@ -7,9 +7,11 @@
 //
 // 🔴 WHAT THIS SCREEN MAY NEVER SAY. It may not say the payment succeeded unless /payment/status reports
 // APPROVED for THIS chargeId, and it may not say the QR expired — because nothing tells us that (the gateway
-// forwards only the QR image; see useChargeStatus.POLL_UNTIL_MS). Only once the reconcile cron's window has
-// closed too (lib/payment/reconcile-window.RECONCILE_HORIZON_MS) does it say "อาจหมดอายุ" — อาจ, because that
-// is the honest strength of the claim — and hand the user two ways forward instead of a verdict.
+// forwards only the QR image; see useChargeStatus.POLL_UNTIL_MS). Only once the reconciler's first look is
+// guaranteed to have happened (lib/payment/reconcile-window.RECONCILE_HORIZON_MS) does it say "อาจหมดอายุ" —
+// อาจ, because that is the honest strength of the claim — and hand the user two ways forward instead of a
+// verdict. 🔴 That instant is NOT the end of the repair: the cron keeps trying for seven days, so the screen
+// keeps polling past it and the copy still tells a payer not to pay twice (#424 review).
 //
 // 🔴 AND THERE IS A PHASE BETWEEN THOSE TWO (#423). Fast polling ends at minute 15; the cron that repairs an
 // unwitnessed payment cannot run before minute 15 and may not run until minute 30. Offering "ขอ QR ใหม่" in
@@ -27,7 +29,10 @@ export const QR_COPY = {
   // ❌ never "ล้มเหลว": a network hiccup on our side is not the user's payment failing.
   offline: 'ตอนนี้เช็คสถานะไม่ได้ กำลังลองใหม่ให้อัตโนมัติ',
   // อาจ — we do not know. See the header.
-  maybeExpired: 'QR นี้อาจหมดอายุแล้ว ถ้าคุณจ่ายไปแล้วให้กดตรวจสอบอีกครั้ง',
+  // 🔴 Two readers, one sentence (ฟีม, ทาง C). We cannot tell whether the person looking at this paid or
+  // not, so it must be usable by both: a new QR for the one who did not, and "ไม่ต้องจ่ายซ้ำ" for the one
+  // who did — whose row the reconciler is still working on.
+  maybeExpired: 'QR นี้อาจหมดอายุแล้ว ถ้ายังไม่ได้จ่าย ขอ QR ใหม่ได้เลย · ถ้าจ่ายไปแล้ว ไม่ต้องจ่ายซ้ำ ระบบยังตามให้อยู่',
   // 🔴 The gap phase (#423). It must NOT read as failure and must NOT offer a new QR: the user it speaks to
   // is the one whose money already moved. "ไม่ต้องจ่ายซ้ำ" is the load-bearing half of this sentence.
   reconciling: 'ยังไม่ได้รับการยืนยันจากธนาคาร ระบบกำลังตรวจสอบให้อัตโนมัติ ไม่ต้องจ่ายซ้ำ',

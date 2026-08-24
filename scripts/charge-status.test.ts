@@ -102,20 +102,42 @@ describe('#363 how long we keep asking, and what we refuse to say', () => {
     let t = 0
     const { result } = renderHook(() => useChargeStatus('c1', { pollMs: 1, pollUntilMs: 10, horizonMs: 10, now: () => (t += 6) }))
     await waitFor(() => expect(result.current.stale).toBe(true))
-    // The three things it must not have become.
+    // The things it must not have become.
     expect(result.current.status).not.toBe('APPROVED')
-    expect(result.current.polling).toBe(false)
-    expect(result.current.error).toBe(false) // "we stopped asking" is not "something went wrong"
+    expect(result.current.error).toBe(false) // "we stopped promising" is not "something went wrong"
+    // 🔴 CHANGED BY #424: `polling` stays TRUE here. It used to flip false at the horizon, which encoded the
+    // belief that nothing more could arrive — the belief this whole review overturned. We keep asking.
+    expect(result.current.polling).toBe(true)
   })
 
-  it('stops asking once stale — the loop does not run forever behind the screen', async () => {
+  it('🔴 #424: it KEEPS asking once stale — stale means "no longer promised", not "no longer watched"', async () => {
+    // 🔴 THIS TEST ASSERTED THE OPPOSITE UNTIL ตู๋'S REVIEW OF #424, and the case that flipped it is worth
+    // keeping: a cron run that cannot reach the gateway counts itself `unreachable` and leaves the row for
+    // the next run (reconcile-run.ts:60-64), which can settle it an hour later. The old behaviour — return
+    // at the horizon — meant that settle could never reach a screen the user still had open, and the screen
+    // would sit there showing "อาจหมดอายุ" over a paid membership.
     mockStatus([{ chargeId: 'c1', status: 'PENDING' }])
     let t = 0
-    const { result } = renderHook(() => useChargeStatus('c1', { pollMs: 1, pollUntilMs: 10, horizonMs: 10, now: () => (t += 6) }))
+    const { result } = renderHook(() =>
+      useChargeStatus('c1', { pollMs: 1, slowPollMs: 1, pollUntilMs: 10, horizonMs: 10, now: () => (t += 6) }),
+    )
     await waitFor(() => expect(result.current.stale).toBe(true))
     const calls = (globalThis.fetch as unknown as { mock: { calls: unknown[] } }).mock.calls.length
-    await new Promise((r) => setTimeout(r, 40))
-    expect((globalThis.fetch as unknown as { mock: { calls: unknown[] } }).mock.calls.length).toBe(calls)
+    await waitFor(() =>
+      expect((globalThis.fetch as unknown as { mock: { calls: unknown[] } }).mock.calls.length).toBeGreaterThan(calls),
+    )
+  })
+
+  it('🔴 #424: a settle that lands AFTER the horizon still reaches the screen', async () => {
+    // The whole point of not returning early — proven end to end rather than by counting fetches.
+    mockStatus([{ chargeId: 'c1', status: 'PENDING' }])
+    let t = 0
+    const { result } = renderHook(() =>
+      useChargeStatus('c1', { pollMs: 1, slowPollMs: 1, pollUntilMs: 10, horizonMs: 10, now: () => (t += 6) }),
+    )
+    await waitFor(() => expect(result.current.stale).toBe(true))
+    mockStatus([{ chargeId: 'c1', status: 'APPROVED' }]) // the cron got through on a later run
+    await waitFor(() => expect(result.current.status).toBe('APPROVED')) // …with nobody pressing anything
   })
 
   it('check() asks again after the deadline — a user who paid late can still find out', async () => {

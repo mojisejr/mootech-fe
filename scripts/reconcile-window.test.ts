@@ -40,21 +40,45 @@ function cronIntervalMsFromVercelJson(): number {
   throw new Error(`unhandled cron schedule ${row.schedule} — teach this test before shipping it`)
 }
 
-describe('#423 · the screen may not give up before the reconciler has had its turn', () => {
+describe('#423/#424 · the screen may not stop promising before the reconciler has been guaranteed a look', () => {
   it('🔴 the mirrored cron period equals the one Vercel actually runs', () => {
     expect(RECONCILE_CRON_INTERVAL_MS).toBe(cronIntervalMsFromVercelJson())
   })
 
-  it('the horizon is grace + one full cron period — becoming eligible is not being looked at', () => {
-    // Eligibility starts at graceMs (reconcile.ts selectReconcileCandidates filters `createdAt <= now - grace`),
-    // but the run that would pick the row up may have fired a second before it aged in.
+  it('🔴 THE PROPERTY, NOT THE FORMULA: the screen sits strictly inside the reconciler\'s working range', () => {
+    // ⚠️ THIS ASSERTION WAS REWRITTEN AFTER ตู๋'S REVIEW OF #424, AND THE REASON MATTERS MORE THAN THE LINE.
+    // It used to read `HORIZON === graceMs + cronInterval` — an assertion about the formula this file happens
+    // to use. ตู๋ mutated the horizon to `windowMs` (a defensible choice: the reconciler really does keep
+    // trying that long) and ONLY that one test went red, while every test about behaviour stayed green.
+    // A suite that pins the author's arithmetic tells the next person their better idea is a regression.
+    //
+    // So what is pinned here is the property the ticket is actually about:
+    //   the screen must stop guaranteeing AFTER it stops polling fast, and NEVER LATER than the last moment
+    //   the reconciler would still consider the row at all.
+    // Any horizon inside that range is a legitimate product decision; anything outside it is #423 again.
+    expect(POLL_UNTIL_MS).toBeLessThan(RECONCILE_HORIZON_MS)
+    expect(RECONCILE_HORIZON_MS).toBeLessThanOrEqual(DEFAULT_WINDOW.windowMs)
+    expect(RECONCILE_HORIZON_MS).toBeGreaterThanOrEqual(DEFAULT_WINDOW.graceMs)
+  })
+
+  it('the chosen horizon is grace + one cron period — documented, not enforced as the only right answer', () => {
+    // Kept as a CHANGE DETECTOR for today's choice, deliberately separate from the property above so that
+    // replacing the formula is a one-line, obviously-intentional edit instead of a mysterious red suite.
+    // Eligibility starts at graceMs (reconcile.ts selectReconcileCandidates), but the run that would pick the
+    // row up may have fired a second before it aged in — hence one full period, not zero.
     expect(RECONCILE_HORIZON_MS).toBe(DEFAULT_WINDOW.graceMs + cronIntervalMsFromVercelJson())
   })
 
-  it('🔴 THE BUG ITSELF: the screen must not reach "give up" before the repair window closes', () => {
-    // This is the assertion that would have caught #423 on the day it shipped.
-    expect(POLL_UNTIL_MS).toBeLessThan(RECONCILE_HORIZON_MS)
-    expect(RECONCILE_HORIZON_MS).toBeGreaterThanOrEqual(DEFAULT_WINDOW.graceMs)
+  it("today's horizon leaves runway behind it — CHANGE DETECTOR, not a law", () => {
+    // The claim this file used to make in prose ("nothing more is coming automatically") was false:
+    // reconcile-run.ts:60-64 leaves an unreachable row untouched and repo.ts:191 keeps selecting it, so a
+    // charge can settle long after the screen stops promising. That is why the screen keeps polling.
+    //
+    // ⚠️ Deliberately NOT part of the property above. A future horizon of exactly `windowMs` would be a
+    // legitimate choice (promise for as long as the cron looks) and would turn this red — which is correct
+    // for a change detector and would have been WRONG for a property. The two live apart so the next reader
+    // can tell which kind of red they are looking at.
+    expect(DEFAULT_WINDOW.windowMs).toBeGreaterThan(RECONCILE_HORIZON_MS)
   })
 
   it('every minute between 0 and the horizon has a phase, and none of them is "exhausted"', () => {
