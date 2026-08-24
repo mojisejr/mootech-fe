@@ -129,6 +129,12 @@ export default defineConfig({
       'scripts/use-checkout.test.tsx', // #363 — ✕ ต้องยิง preview ใหม่ · โค้ดผิดห้ามลบราคาทิ้ง
       'scripts/omise-token.test.ts', // #363 — คีย์ v2 เท่านั้น และตั้งทันทีก่อน createToken
       'scripts/v1-add-friend-copy.test.tsx', // #413 — โมดัลเพิ่มเพื่อนของ v1: ป้ายต้องบอกว่าเป็นข้อมูลเพื่อน
+      'scripts/v1-sales-closed-pages.test.tsx', // #376 — ปิดการขาย v1 ชั้นหน้า (จุด ①②); .tsx
+      'scripts/v1-sales-closed-ctas.test.tsx', // #376 — ปิดการขาย v1 ชั้น CTA (จุด ③④); .tsx
+      'scripts/v1-blocking-cta-closed.test.tsx', // #427 — ปุ่มที่ชวนไปซื้อต้องตอบตรงที่กด; .tsx
+      'scripts/v1-header-upgrade-closed.test.tsx', // #427 — ป้ายอัพเกรดบน header (16 หน้า); .tsx
+      'scripts/bazi-chat-launcher-exit.test.tsx', // #376 A2 — เฝ้าเงื่อนไข !open เท่านั้น · ❌ ไม่ใช่ด่านของ A2 (jsdom ไม่เดินแอนิเมชัน · มิวแทนต์ที่รอดเขียนไว้ในไฟล์); .tsx
+      'scripts/v1-menu-package-closed.test.tsx', // #427 — เมนู 2 รายการที่พาไปหน้าขาย; .tsx
     ],
   },
   resolve: {

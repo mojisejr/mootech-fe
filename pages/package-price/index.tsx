@@ -19,7 +19,24 @@ import { useEffect, useState } from "react";
 import { useCookies } from 'react-cookie';
 
 
+import SalesClosedNotice from '@/components/sales-closed-notice';
+
+// #376 — V1 STOPPED SELLING. The gate is here, at the top of the page component, and not on each button:
+// this page draws MEMBER and PAYASUSE in tabs and PAYASUSE alone has two entry points elsewhere, so a
+// per-button hide is a list that has to stay complete forever. Returning before the shop renders means
+// there is no purchase control on the screen to reach — including any added later by someone who never
+// read this issue.
+//
+// NOTHING IS DELETED. The entire original page is directly below, renamed, compiling, and one line away
+// from coming back: move `export default` onto it. That is deliberate — v2 will sell these same packages
+// again (mojisejr/mootech-fe#378), and the thing that makes reopening safe is that the code never left.
 export default function PackagePricePage() {
+  const router = useRouter();
+  return <SalesClosedNotice onBack={() => router.replace(PageRouter.HOME)} />;
+}
+
+// kept compiling on purpose (see above); this config has no unused-symbol rule to appease.
+function PackagePricePageLegacy() {
 
   const [cookies, setCookie , removeCookie] = useCookies([
     CookieKey.MEMBER_ID, 

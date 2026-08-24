@@ -22,6 +22,7 @@
 // a response only sighted users receive would be half the fix. So the first mounted toast CLAIMS the slot
 // and the rest render nothing; when it unmounts the claim is released and the next mount takes it.
 import { useEffect, useState, type ReactNode } from 'react'
+import { createPortal } from 'react-dom'
 
 type Listener = (msg: string | null) => void
 const listeners = new Set<Listener>()
@@ -98,19 +99,42 @@ function ComingSoonToast() {
     }
   }, [])
   if (!owns || !msg) return null
-  return (
+  // #426/B4 — PORTAL ไป body ❌ ไม่ใช่ render อยู่ตรงที่ถูก mount
+  //
+  // ตู๋เจาะรูนี้ในรีวิว และบองพิสูจน์ด้วยพิกเซลบนเบราว์เซอร์จริง: บรรพบุรุษของ toast ที่แถบ header
+  // (`header-v2.tsx` — `fixed` + `z-50`) **สร้าง stacking context** ⇒ `z` ของ toast ถูกตีความ
+  // *ภายในกล่อง header* ⇒ ระดับจริงของมันบนหน้าคือ 50 ไม่ใช่ค่าที่เขียนไว้
+  //   ไม่มี overlay  49,491 bytes  เห็นข้อความ
+  //   overlay z-60    1,025 bytes  ขาวล้วน
+  //   overlay z-80    1,025 bytes  ขาวล้วน  (= /matching:255)
+  //
+  // และรูมันกว้างกว่าแค่ header: <ComingSoonAction/> ข้างล่าง render <ComingSoonToast/> ไว้
+  // *ข้างปุ่มของตัวเอง* เสมอ และตัวที่ได้ออกจอคือตัวที่ mount ก่อน (elect) ⇒ toast จะไปโผล่
+  // ตรงไหนก็ได้ในต้นไม้ ⇒ ย้ายเฉพาะตัวใน header = ปิดรูที่ถูกเจาะ แต่ไม่ปิดคลาส
+  // portal ที่นี่ที่เดียวจึงปิดทุก instance ทั้งที่มีอยู่และที่จะเพิ่มทีหลัง
+  //
+  // guard นี้ไม่ใช่พิธี: `owns` เริ่ม false ⇒ ฝั่ง server เดินไม่ถึงบรรทัดนี้อยู่แล้ว — แต่
+  // "ปลอดภัยเพราะกลไกอื่นบังเอิญกันไว้" ไม่ใช่ invariant มันแค่ยังไม่พัง
+  if (typeof document === 'undefined') return null
+  return createPortal(
     <div
       data-testid="coming-soon-toast"
       // role=status + aria-live means a screen reader hears the answer too. The whole point of this change
       // is that a tap gets a response; a response only sighted users receive would be half the fix.
       role="status"
       aria-live="polite"
-      className="pointer-events-none fixed inset-x-0 bottom-[104px] z-[60] flex justify-center px-6"
+      // z-[9000] — เหนือ app chrome ทุกตัวที่มีอยู่จริงในรีโป (นับ 2026-08-25: z-50 ×55 · z-[60] ×10 ·
+      // z-[80] ×1 · z-[90] ×3) และ **ต่ำกว่าแถบโมดัลจริง** (z-[9998] · z-[9999] ×23 · z-[10000])
+      // ที่ต้องต่ำกว่าโมดัล เพราะ #376 ตัดสินไว้แล้วว่าปุ่มในโมดัลแชตต้องตอบ inline — toast ที่ลอด
+      // ใต้โมดัลคือคำตอบที่ผู้ใช้มองไม่เห็น การดัน toast ให้ชนะโมดัลจะกลับคำตัดสินนั้นเงียบๆ
+      // 📌 9000 เป็นชั้นที่ยังไม่มีใครถือ — ส่งต่อให้ #310 (ทะเบียนชั้น z) ไปขึ้นทะเบียน
+      className="pointer-events-none fixed inset-x-0 bottom-[104px] z-[9000] flex justify-center px-6"
     >
       <span className="rounded-full bg-v3-navy/90 px-4 py-2 text-center text-[13px] font-medium leading-5 text-white shadow-[0_6px_18px_rgba(11,48,91,0.28)]">
         {msg}
       </span>
-    </div>
+    </div>,
+    document.body,
   )
 }
 

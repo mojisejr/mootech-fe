@@ -11,6 +11,7 @@ import { useCookies } from 'react-cookie';
 import { UserGetById } from '@/constants/api/api-user-get';
 import { useCurrentUser } from '@/lib/auth/use-current-user';
 import { useHasMounted } from '@/lib/hooks/use-has-mounted';
+import { announceComingSoon, ComingSoonNotice } from '@/features/v2-shell/components/ComingSoon'
 
 type ComponentProps = {
   isShowMenu: boolean,
@@ -143,11 +144,31 @@ const HeaderMuMate = ({
             <div className='w-fit flex  items-center flex-none'>
               {
                 isShowUpgrade && <div className='w-fit pr-4'>
-                  <span 
-                  onClick={() => { router.replace(PageRouter.PACKAGE_PRICE) }}
-                  className='w-fit cursor-pointer text-[#1B9AAF] bg-[#F1FF75] py-[4px] px-[8px] rounded-[8px]'>
-                  อัพเกรด
-                </span>
+                  {/* #427 — ป้าย "อัพเกรด" เคย router.replace ไป /package-price · v1 ปิดการขายแล้ว (#376)
+                      และ header นี้อยู่บน 12+ หน้า ⇒ นี่คือทางเข้าที่กว้างที่สุดในบรรดาทั้งหมด
+
+                      ที่นี่ใช้ toast ของ ComingSoon ได้ ต่างจากในโมดัลแชต (#376) — และ header สูง 60px
+                      แบบ fixed ไม่มีที่ให้วางคำตอบ inline โดยไม่ดันเลย์เอาต์ของทุกหน้า
+                      ⇒ ที่นี่ toast คือคำตอบที่ถูก ไม่ใช่ท่าที่ยอมรับได้
+
+                      🔴 เหตุผลที่เคยเขียนไว้ตรงนี้ **ผิด และผมเก็บมันไว้ให้เห็นว่าผิดยังไง**:
+                        เดิมเขียนว่า "toast z-[60] · header z-50 ⇒ toast อยู่เหนือ ✅"
+                        ของจริง toast ตัวนั้น render เป็น *ลูก* ของแถบ z-50 ข้างล่างนี้ ⇒ `fixed` + `z`
+                        สร้าง stacking context ⇒ z-60 ของมันถูกตีความ *ภายในกล่อง* ⇒ ระดับจริงบนหน้า = 50
+                        ⇒ ของที่ z ≥ 60 ทับคำตอบได้ทั้งหมด (บองพิสูจน์ด้วยพิกเซล: overlay z-60 → ขาวล้วน)
+                      ตอนนี้ ComingSoonToast portal ตัวเองไป document.body แล้ว (ComingSoon.tsx) ⇒ ที่นี่
+                      ไม่ต้องรู้เรื่อง z ของ header อีก และ "ย้าย header ไป z เท่าไหร่" ไม่กระทบคำตอบ
+
+                      เปลี่ยน span → button ด้วย: ของเดิมเป็น <span onClick> ⇒ คีย์บอร์ดโฟกัสไม่ได้
+                      และ screen reader ไม่ประกาศว่าเป็นตัวควบคุม · className เดิมทั้งดุ้น พิกเซลไม่เปลี่ยน */}
+                  <button
+                    type='button'
+                    data-testid='header-upgrade'
+                    onClick={() => { announceComingSoon('ตอนนี้ปิดการขายชั่วคราว เรากำลังปรับแพ็กเกจใหม่ · สิทธิ์ที่ซื้อไว้แล้วยังใช้งานได้ตามปกติ') }}
+                    className='w-fit cursor-pointer text-[#1B9AAF] bg-[#F1FF75] py-[4px] px-[8px] rounded-[8px]'>
+                    อัพเกรด
+                  </button>
+                  <ComingSoonNotice />
                 </div>
               }
               {

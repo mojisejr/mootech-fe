@@ -20,7 +20,19 @@ import { useEffect, useState } from "react";
 import { useCookies } from 'react-cookie';
 
 
-export default function FortuneStickPage() {
+import SalesClosedNotice from '@/components/sales-closed-notice';
+
+// #376 — V1 STOPPED SELLING. Same gate, same reason as pages/package-price/index.tsx: this page sells the
+// HOROSCOPE plan, and it is reachable from the main menu ("ดูดวง") and from the thank-you screen, so the
+// closure belongs to the page rather than to any one caller. The original page is below, unchanged and
+// unreferenced; restoring it is moving `export default` back onto it.
+export default function PackageHoroscopePage() {
+  const router = useRouter();
+  return <SalesClosedNotice onBack={() => router.replace(PageRouter.HOME)} />;
+}
+
+// kept compiling on purpose (see above); this config has no unused-symbol rule to appease.
+function FortuneStickPage() {
 
   const [cookies, setCookie , removeCookie] = useCookies([
     CookieKey.MEMBER_ID, 

@@ -33,6 +33,10 @@ export default function ProfilePage() {
 
   const [errorMessageCode, setErrorMessageCode] = useState<string>('')
   const [errorMessageSuccess, setErrorMessageSuccess] = useState<string>('')
+  // #376 — v1 stopped selling. "เติมเครดิต" used to router.push to /package-price, which is now closed; the
+  // user would land on a notice with no way back to what they were doing. Answer in place instead, in the
+  // same card, so the sentence arrives where the tap did.
+  const [topUpNotice, setTopUpNotice] = useState<boolean>(false)
 
 
   const [cookies, setCookie , removeCookie] = useCookies([
@@ -427,11 +431,23 @@ const [imageSrc, setImageSrc] = useState<string | null>(null);
                             </div>
                             {!aiBalance.unlimited && (
                               <button
-                                onClick={() => router.push("/package-price?tab=PAYASUSE")}
+                                type="button"
+                                data-testid="profile-topup"
+                                onClick={() => setTopUpNotice(true)}
                                 className="w-fit cursor-pointer bg-[#1B9AAF] text-white font-medium py-[10px] px-[20px] rounded-[40px] hover:opacity-90 active:scale-95 transition"
                               >
                                 เติมเครดิต
                               </button>
+                            )}
+                            {topUpNotice && (
+                              <p
+                                data-testid="profile-topup-notice"
+                                role="status"
+                                aria-live="polite"
+                                className="basis-full text-[14px] leading-6 text-[#444444]"
+                              >
+                                ตอนนี้ปิดการขายชั่วคราว เรากำลังปรับแพ็กเกจใหม่ · เครดิตที่เหลืออยู่ยังใช้ได้ตามปกติ
+                              </p>
                             )}
                           </div>
                         )}
