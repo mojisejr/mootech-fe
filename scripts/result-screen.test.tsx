@@ -1,4 +1,6 @@
-// #363 — teeth for the arrangement of the six states. MAIN lane.
+// #363 — teeth for the arrangement of the states. MAIN lane.
+// #423 — seven now: RECONCILING sits between PAYING and QR_MAYBE_EXPIRED. The count assertion below is what
+// forced this file to be opened when it was added — keep it exact, never `toBeGreaterThan`.
 //
 // 🔴 MUTANT CONTRACT:
 //   MU1  derive the tick from the state NAME instead of `paid`  → "the mark follows paid" reddens
@@ -20,8 +22,8 @@ const STATES = Object.keys(RESULT_COPY) as ResultState[]
 const all = { onRetrySame: vi.fn(), onTryAnother: vi.fn(), onDone: vi.fn() }
 
 describe('#363 the screen cannot contradict the table', () => {
-  it('🔴 the success mark appears on exactly the states where money moved — all six checked', () => {
-    expect(STATES).toHaveLength(6)
+  it('🔴 the success mark appears on exactly the states where money moved — all seven checked', () => {
+    expect(STATES).toHaveLength(7)
     for (const s of STATES) {
       render(<ResultScreen state={s} {...all} />)
       const paid = RESULT_COPY[s].paid

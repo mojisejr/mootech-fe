@@ -7,9 +7,14 @@
 //
 // 🔴 WHAT THIS SCREEN MAY NEVER SAY. It may not say the payment succeeded unless /payment/status reports
 // APPROVED for THIS chargeId, and it may not say the QR expired — because nothing tells us that (the gateway
-// forwards only the QR image; see useChargeStatus.STALE_AFTER_MS). After our own 15-minute deadline it says
-// "อาจหมดอายุ" — อาจ, because that is the honest strength of the claim — and hands the user two ways forward
-// instead of a verdict.
+// forwards only the QR image; see useChargeStatus.POLL_UNTIL_MS). Only once the reconcile cron's window has
+// closed too (lib/payment/reconcile-window.RECONCILE_HORIZON_MS) does it say "อาจหมดอายุ" — อาจ, because that
+// is the honest strength of the claim — and hand the user two ways forward instead of a verdict.
+//
+// 🔴 AND THERE IS A PHASE BETWEEN THOSE TWO (#423). Fast polling ends at minute 15; the cron that repairs an
+// unwitnessed payment cannot run before minute 15 and may not run until minute 30. Offering "ขอ QR ใหม่" in
+// that gap asks for a SECOND payment from the one user whose first payment already worked — so the gap gets
+// its own line that says what is actually happening and offers no new QR.
 import Image from 'next/image'
 import { useEffect } from 'react'
 import { useChargeStatus } from '../useChargeStatus'
@@ -23,6 +28,9 @@ export const QR_COPY = {
   offline: 'ตอนนี้เช็คสถานะไม่ได้ กำลังลองใหม่ให้อัตโนมัติ',
   // อาจ — we do not know. See the header.
   maybeExpired: 'QR นี้อาจหมดอายุแล้ว ถ้าคุณจ่ายไปแล้วให้กดตรวจสอบอีกครั้ง',
+  // 🔴 The gap phase (#423). It must NOT read as failure and must NOT offer a new QR: the user it speaks to
+  // is the one whose money already moved. "ไม่ต้องจ่ายซ้ำ" is the load-bearing half of this sentence.
+  reconciling: 'ยังไม่ได้รับการยืนยันจากธนาคาร ระบบกำลังตรวจสอบให้อัตโนมัติ ไม่ต้องจ่ายซ้ำ',
   checkAgain: 'ตรวจสอบอีกครั้ง',
   newQr: 'ขอ QR ใหม่',
   amountLabel: 'ยอดชำระ',
@@ -40,7 +48,7 @@ export type QrScreenProps = {
 }
 
 export function QrScreen({ chargeId, qrUrl, amountText, onApproved, onNewQr, onBack }: QrScreenProps) {
-  const { status, error, stale, check } = useChargeStatus(chargeId)
+  const { status, error, stale, phase, check } = useChargeStatus(chargeId)
   // 🔴 In an effect, not in the render body. Calling onApproved() while rendering fires it again on every
   // subsequent render and pushes a parent state update into React's render phase — the settle would be
   // announced repeatedly, and on a payment screen "repeatedly" can mean a second navigation or a second
@@ -66,10 +74,23 @@ export function QrScreen({ chargeId, qrUrl, amountText, onApproved, onNewQr, onB
         {QR_COPY.amountLabel} <span data-testid="qr-amount">{amountText}</span>
       </p>
 
-      {!stale && (
+      {phase === 'waiting' && (
         <p data-testid="qr-waiting" role="status" aria-live="polite" className="text-sm leading-[22px] text-v3-text-muted">
           {error ? QR_COPY.offline : QR_COPY.waiting}
         </p>
+      )}
+
+      {/* 🔴 No "ขอ QR ใหม่" button here on purpose — see QR_COPY.reconciling. "ตรวจสอบอีกครั้ง" is offered
+          because asking again costs nothing and is the one action that can end the wait early. */}
+      {phase === 'reconciling' && (
+        <div data-testid="qr-reconciling" className="flex w-full flex-col items-center gap-3">
+          <p role="status" aria-live="polite" className="text-center text-sm leading-[22px] text-v3-text-body">
+            {error ? QR_COPY.offline : QR_COPY.reconciling}
+          </p>
+          <button type="button" data-testid="qr-check-again-slow" onClick={check} className="w-full rounded-pill border-[1.5px] border-v3-sapphire px-5 py-2.5 text-sm font-medium text-v3-sapphire">
+            {QR_COPY.checkAgain}
+          </button>
+        </div>
       )}
 
       {stale && (

@@ -100,7 +100,7 @@ describe('#363 how long we keep asking, and what we refuse to say', () => {
   it('🔴 past the deadline it CLAIMS NOTHING — not success, not failure', async () => {
     mockStatus([{ chargeId: 'c1', status: 'PENDING' }])
     let t = 0
-    const { result } = renderHook(() => useChargeStatus('c1', { pollMs: 1, staleAfterMs: 10, now: () => (t += 6) }))
+    const { result } = renderHook(() => useChargeStatus('c1', { pollMs: 1, pollUntilMs: 10, horizonMs: 10, now: () => (t += 6) }))
     await waitFor(() => expect(result.current.stale).toBe(true))
     // The three things it must not have become.
     expect(result.current.status).not.toBe('APPROVED')
@@ -111,7 +111,7 @@ describe('#363 how long we keep asking, and what we refuse to say', () => {
   it('stops asking once stale — the loop does not run forever behind the screen', async () => {
     mockStatus([{ chargeId: 'c1', status: 'PENDING' }])
     let t = 0
-    const { result } = renderHook(() => useChargeStatus('c1', { pollMs: 1, staleAfterMs: 10, now: () => (t += 6) }))
+    const { result } = renderHook(() => useChargeStatus('c1', { pollMs: 1, pollUntilMs: 10, horizonMs: 10, now: () => (t += 6) }))
     await waitFor(() => expect(result.current.stale).toBe(true))
     const calls = (globalThis.fetch as unknown as { mock: { calls: unknown[] } }).mock.calls.length
     await new Promise((r) => setTimeout(r, 40))
@@ -121,7 +121,7 @@ describe('#363 how long we keep asking, and what we refuse to say', () => {
   it('check() asks again after the deadline — a user who paid late can still find out', async () => {
     mockStatus([{ chargeId: 'c1', status: 'PENDING' }])
     let t = 0
-    const { result } = renderHook(() => useChargeStatus('c1', { pollMs: 1, staleAfterMs: 10, now: () => (t += 6) }))
+    const { result } = renderHook(() => useChargeStatus('c1', { pollMs: 1, pollUntilMs: 10, horizonMs: 10, now: () => (t += 6) }))
     await waitFor(() => expect(result.current.stale).toBe(true))
     mockStatus([{ chargeId: 'c1', status: 'APPROVED' }])
     act(() => result.current.check())

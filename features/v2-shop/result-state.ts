@@ -15,6 +15,7 @@ export type ResultState =
   | 'CARD_DECLINED' // the bank said no. Trying the same card again is unlikely to help; another one might.
   | 'OFFLINE' // WE could not reach our own status endpoint. Says nothing about the money.
   | 'ALREADY_PAID' // this charge is already settled — the user pressed again, or came back to a done screen
+  | 'RECONCILING' // past our POLL deadline, but the repair cron's window is still open (#423)
   | 'QR_MAYBE_EXPIRED' // past our own deadline with no settle. NOT "expired" — we are not told that.
 
 export type ResultCopy = {
@@ -63,8 +64,20 @@ export const RESULT_COPY: Record<ResultState, ResultCopy> = {
     retry: 'none',
     paid: true,
   },
+  RECONCILING: {
+    // 🔴 THE STATE THAT DID NOT EXIST, AND WHOSE ABSENCE WAS THE BUG (#423).
+    // Between minute 15 (fast polling stops) and minute 30 (the reconcile cron's window closes) the screen
+    // used to show QR_MAYBE_EXPIRED — i.e. it told the ONE user whose payment the reconciler exists to
+    // rescue that they should pay again, before the rescue was even permitted to run.
+    // `retry: 'same'` and never 'different': asking again is free, paying again is not.
+    title: 'กำลังตรวจสอบกับธนาคาร',
+    body: 'ยังไม่ได้รับการยืนยัน ระบบกำลังตรวจสอบให้อัตโนมัติ ไม่ต้องจ่ายซ้ำ',
+    retry: 'same',
+    paid: false,
+  },
   QR_MAYBE_EXPIRED: {
-    // อาจ — the gateway never tells us when a QR dies (useChargeStatus.STALE_AFTER_MS).
+    // อาจ — the gateway never tells us when a QR dies (useChargeStatus.POLL_UNTIL_MS), and by the time this
+    // shows, the automatic repair window (reconcile-window.RECONCILE_HORIZON_MS) is closed as well.
     title: 'QR นี้อาจหมดอายุแล้ว',
     body: 'ถ้าคุณจ่ายไปแล้ว กดตรวจสอบอีกครั้ง ถ้ายัง ขอ QR ใหม่ได้',
     retry: 'same',
