@@ -1,4 +1,6 @@
-// #363 — the per-line audit of the six post-payment states. MAIN lane.
+// #363 — the per-line audit of the post-payment states. MAIN lane.
+// #423 — a SEVENTH state (RECONCILING) joined them; the count below is the tripwire that made adding it a
+// deliberate act instead of a silent one.
 //
 // 🔴 MUTANT CONTRACT:
 //   MU1  mark a non-paid state `paid: true`                  → "only two states mean money moved" reddens
@@ -8,18 +10,18 @@
 //   MU5  drop a state from RESULT_COPY                       → the closed-union test reddens
 //
 // 🔑 THIS FILE IS THE AUDIT THE TICKET ASKS FOR, and it is a TABLE rather than an eyeball pass because the
-// ticket's own warning is that these six lines exist nowhere in Figma: nobody will diff them against a frame,
-// so the only reader they will ever get is this one. "ครบ" becomes answerable — there are exactly six, and
-// here is the verdict on all six.
+// ticket's own warning is that these lines exist nowhere in Figma: nobody will diff them against a frame,
+// so the only reader they will ever get is this one. "ครบ" becomes answerable — there are exactly seven, and
+// here is the verdict on all seven.
 import { describe, it, expect } from 'vitest'
 import { RESULT_COPY, isPaidState, type ResultState } from '@/features/v2-shop/result-state'
 
-const STATES: ResultState[] = ['PAYING', 'APPROVED', 'CARD_DECLINED', 'OFFLINE', 'ALREADY_PAID', 'QR_MAYBE_EXPIRED']
+const STATES: ResultState[] = ['PAYING', 'APPROVED', 'CARD_DECLINED', 'OFFLINE', 'ALREADY_PAID', 'RECONCILING', 'QR_MAYBE_EXPIRED']
 
-describe('#363 the six states, enumerated', () => {
-  it('there are exactly six, and the table covers all of them', () => {
+describe('#363/#423 the seven states, enumerated', () => {
+  it('there are exactly seven, and the table covers all of them', () => {
     // Surface size out loud: the assertions below iterate this list, so a shrunken list would quietly pass.
-    expect(STATES).toHaveLength(6)
+    expect(STATES).toHaveLength(7)
     expect(Object.keys(RESULT_COPY).sort()).toEqual([...STATES].sort())
   })
 

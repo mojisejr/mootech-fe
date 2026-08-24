@@ -18,6 +18,7 @@
 // good reason, a user with 20 older payments stops finding their new charge — and the failure is SILENT: the
 // screen just waits forever. scripts/charge-status.test.ts pins it so that edit goes red instead.
 import { useEffect, useRef, useState } from 'react'
+import { RECONCILE_HORIZON_MS, waitPhase, type WaitPhase } from '@/lib/payment/reconcile-window'
 
 export type ChargeStatus = 'PENDING' | 'APPROVED' | 'UNKNOWN'
 
@@ -47,26 +48,51 @@ export const POLL_MS = 3000
  * asking before we admit we do not know", and it is deliberately the same 15 minutes rather than a tenth
  * invented number. If the gateway ever forwards Omise's own `expires_at`, a real countdown becomes possible
  * and the word "อาจ" can come off the screen.
+ *
+ * 🔴 RENAMED FROM `STALE_AFTER_MS` (#423). It was never "when to give up" — it is "when to stop asking
+ * every three seconds". Giving up happens at RECONCILE_HORIZON_MS, which is twice as far away, because the
+ * cron that repairs an unwitnessed payment cannot even START before this instant. Under the old name the
+ * screen offered "ขอ QR ใหม่" 0–15 minutes before the repair was allowed to run — to the very user the
+ * repair exists for.
  */
-export const STALE_AFTER_MS = 15 * 60 * 1000
+export const POLL_UNTIL_MS = 15 * 60 * 1000
+
+/**
+ * How often to ask once fast polling is over. The reconciler works on a 15-minute cron, so a 3-second poll
+ * buys nothing here — but stopping entirely would mean a successful repair at minute 22 never reaches the
+ * screen the user is still looking at.
+ */
+export const SLOW_POLL_MS = 30_000
 
 export type UseChargeStatus = {
   status: ChargeStatus
   polling: boolean
   error: boolean
-  /** past the deadline with no settle — the screen offers "ตรวจสอบอีกครั้ง" / "ขอ QR ใหม่" instead of claiming. */
+  /**
+   * 🔴 "we can no longer PROMISE a look is pending" — NOT "the repair is over" (#424 review). The cron keeps
+   * trying for DEFAULT_WINDOW.windowMs. This flag only unlocks the offer of a new QR for the user who never
+   * paid; the same screen must still tell the user who DID pay not to pay twice.
+   */
   stale: boolean
+  /** which of the three honest things the screen may say — see reconcile-window.waitPhase. */
+  phase: WaitPhase
   /** one manual poll. Nothing is lost by asking again, so the user is never stuck with our guess. */
   check: () => void
 }
 
 export function useChargeStatus(
   chargeId: string | null,
-  { pollMs = POLL_MS, staleAfterMs = STALE_AFTER_MS, now = () => Date.now() } = {},
+  {
+    pollMs = POLL_MS,
+    slowPollMs = SLOW_POLL_MS,
+    pollUntilMs = POLL_UNTIL_MS,
+    horizonMs = RECONCILE_HORIZON_MS,
+    now = () => Date.now(),
+  } = {},
 ): UseChargeStatus {
   const [status, setStatus] = useState<ChargeStatus>('UNKNOWN')
   const [error, setError] = useState(false)
-  const [stale, setStale] = useState(false)
+  const [phase, setPhase] = useState<WaitPhase>('waiting')
   const [nonce, setNonce] = useState(0)
   const stopped = useRef(false)
   // The clock is injectable so the deadline is testable without waiting 15 real minutes. Its default is a
@@ -79,7 +105,7 @@ export function useChargeStatus(
   useEffect(() => {
     if (!chargeId) return
     stopped.current = false
-    setStale(false)
+    setPhase('waiting')
     const startedAt = nowRef.current()
     let timer: ReturnType<typeof setTimeout> | null = null
 
@@ -99,13 +125,19 @@ export function useChargeStatus(
         if (stopped.current) return
         setError(true)
       }
-      // Past the deadline we STOP ASKING but claim nothing: not expired, not failed. The screen switches to
-      // "อาจหมดอายุ" plus a manual check, because a user who paid at minute 20 must still be able to find out.
-      if (!stopped.current && nowRef.current() - startedAt >= staleAfterMs) {
-        setStale(true)
-        return
-      }
-      if (!stopped.current) timer = setTimeout(tick, pollMs)
+      if (stopped.current) return
+      // 🔴 THREE PHASES, ONE OF WHICH DID NOT EXIST BEFORE #423.
+      // `waiting` polls fast; `reconciling` keeps polling slowly because the cron may still settle this row
+      // and the user is still on the page; only `exhausted` claims nothing more is coming. Claiming it early
+      // is the whole bug: it invited a second payment from someone whose first one had already worked.
+      const nextPhase = waitPhase(nowRef.current() - startedAt, pollUntilMs, horizonMs)
+      setPhase(nextPhase)
+      // 🔴 EVEN `exhausted` KEEPS ASKING (ตู๋, review of #424). The first version returned here, which meant a
+      // cron run that could not reach the gateway at minute 20 — and therefore repaired the row at minute 45 —
+      // could never reach a screen the user still had open. The reconciler runs for seven days; a poll every
+      // 30s costs one request while someone is actually looking. Only APPROVED ends the loop (above), and
+      // closing the page ends it via the effect cleanup.
+      timer = setTimeout(tick, nextPhase === 'waiting' ? pollMs : slowPollMs)
     }
     void tick()
 
@@ -113,13 +145,17 @@ export function useChargeStatus(
       stopped.current = true
       if (timer) clearTimeout(timer)
     }
-  }, [chargeId, pollMs, staleAfterMs, nonce])
+  }, [chargeId, pollMs, slowPollMs, pollUntilMs, horizonMs, nonce])
 
+  const stale = phase === 'exhausted'
   return {
     status,
-    polling: !!chargeId && status !== 'APPROVED' && !stale,
+    // 🔴 `polling` now means what it says — we ask until the charge settles or the page closes. It no longer
+    // goes false at the horizon, because we no longer stop there.
+    polling: !!chargeId && status !== 'APPROVED',
     error,
     stale,
+    phase,
     check: () => setNonce((n) => n + 1),
   }
 }

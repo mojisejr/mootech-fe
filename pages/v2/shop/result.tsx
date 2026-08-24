@@ -24,7 +24,7 @@ export default function V2ResultPage() {
   const router = useRouter()
   const charge = typeof router.query.charge === 'string' ? router.query.charge : ''
   const claimed: ResultState = isState(router.query.state) ? router.query.state : 'PAYING'
-  const { status, stale, check } = useChargeStatus(charge || null)
+  const { status, phase, check } = useChargeStatus(charge || null)
 
   // 🔴 THE SERVER DECIDES WHETHER MONEY MOVED. A claim of APPROVED (or PAYING) is only allowed to become a
   // success once /payment/status agrees about THIS charge. Claims that do not assert payment (a declined
@@ -33,7 +33,11 @@ export default function V2ResultPage() {
   const settled = status === 'APPROVED'
   const state: ResultState =
     settled ? (claimed === 'PAYING' ? 'APPROVED' : claimed === 'APPROVED' ? 'APPROVED' : 'ALREADY_PAID')
-      : RESULT_COPY[claimed].paid ? (stale ? 'QR_MAYBE_EXPIRED' : 'PAYING') // claimed success, unverified → keep waiting
+      // 🔴 THREE ANSWERS, NOT TWO (#423). An unverified claim of success is 'PAYING' while we poll fast,
+      // 'RECONCILING' while the repair cron may still settle it, and only then 'QR_MAYBE_EXPIRED'. The middle
+      // one exists so the screen never suggests paying again during the window that fixes it for free.
+      : RESULT_COPY[claimed].paid
+        ? phase === 'waiting' ? 'PAYING' : phase === 'reconciling' ? 'RECONCILING' : 'QR_MAYBE_EXPIRED'
         : claimed
 
   return (
