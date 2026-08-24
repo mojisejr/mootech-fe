@@ -128,9 +128,9 @@ export default defineConfig({
       'scripts/result-screen.test.tsx', // #363 — จอ result: เครื่องหมายถูกมาจาก paid ไม่ใช่ชื่อสถานะ
       'scripts/use-checkout.test.tsx', // #363 — ✕ ต้องยิง preview ใหม่ · โค้ดผิดห้ามลบราคาทิ้ง
       'scripts/omise-token.test.ts', // #363 — คีย์ v2 เท่านั้น และตั้งทันทีก่อน createToken
-      'scripts/v1-add-friend-copy.test.tsx',
+      'scripts/v1-add-friend-copy.test.tsx', // #413 — โมดัลเพิ่มเพื่อนของ v1: ป้ายต้องบอกว่าเป็นข้อมูลเพื่อน
       'scripts/v1-sales-closed-pages.test.tsx', // #376 — ปิดการขาย v1 ชั้นหน้า (จุด ①②); .tsx
-      'scripts/v1-sales-closed-ctas.test.tsx', // #376 — ปิดการขาย v1 ชั้น CTA (จุด ③④); .tsx // #413 — โมดัลเพิ่มเพื่อนของ v1: ป้ายต้องบอกว่าเป็นข้อมูลเพื่อน
+      'scripts/v1-sales-closed-ctas.test.tsx', // #376 — ปิดการขาย v1 ชั้น CTA (จุด ③④); .tsx
     ],
   },
   resolve: {
