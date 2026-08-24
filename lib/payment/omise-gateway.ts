@@ -5,6 +5,7 @@
 // 🔴 No PII logs: on failure we surface Omise's error code/status only, never the request body / email /
 // token / charge row (#355 ④).
 import { verifyOmiseSignature } from './webhook-verify'
+import { webhookEndpointFields } from './webhook-endpoint'
 import type { PaymentGateway, ChargeResult } from './gateway'
 
 const OMISE_API = 'https://api.omise.co'
@@ -52,7 +53,10 @@ async function omisePost(path: string, form: Record<string, string>): Promise<Re
 
 export const omiseGateway: PaymentGateway = {
   async createCardCharge({ amountSatang, token, email, orderId }): Promise<ChargeResult> {
+    // #374 — resolved BEFORE the POST so a misconfigured endpoint fails here, never after a card is charged.
+    const webhook = webhookEndpointFields()
     const json = await omisePost('/charges', {
+      ...webhook,
       amount: String(amountSatang),
       currency: 'thb',
       card: token,
@@ -65,12 +69,17 @@ export const omiseGateway: PaymentGateway = {
   },
 
   async createPromptPayCharge({ amountSatang, email, orderId }): Promise<ChargeResult> {
+    // #374 — resolved BEFORE /sources: a bad endpoint must not leave an orphan source behind, and must
+    // never reach the point where a QR is shown to someone who could then pay into a charge we cannot hear
+    // about. `webhook_endpoints` goes on the CHARGE (the source carries no events of its own).
+    const webhook = webhookEndpointFields()
     const source = await omisePost('/sources', {
       type: 'promptpay',
       amount: String(amountSatang),
       currency: 'thb',
     })
     const charge = await omisePost('/charges', {
+      ...webhook,
       amount: String(amountSatang),
       currency: 'thb',
       source: String(source.id),
