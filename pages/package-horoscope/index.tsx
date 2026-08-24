@@ -31,7 +31,7 @@ export default function PackageHoroscopePage() {
   return <SalesClosedNotice onBack={() => router.replace(PageRouter.HOME)} />;
 }
 
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
+// kept compiling on purpose (see above); this config has no unused-symbol rule to appease.
 function FortuneStickPage() {
 
   const [cookies, setCookie , removeCookie] = useCookies([
