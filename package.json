@@ -13,7 +13,7 @@
     "test:e2e:shop": "playwright test e2e/v2-shop.spec.ts",
     "assets:optimize": "tsx scripts/optimize-assets.ts",
     "prepare": "bash scripts/install-git-hooks.sh || true",
-    "postbuild": "VAPID_PRIVATE_KEY=${VAPID_PRIVATE_KEY:-vapid_private_placeholder_do_not_use} bash scripts/check-vapid-not-leaked.sh"
+    "postbuild": "VAPID_PRIVATE_KEY=${VAPID_PRIVATE_KEY:-vapid_private_placeholder_do_not_use} bash scripts/check-vapid-not-leaked.sh && bash scripts/check-omise-key-inlined.sh"
   },
   "dependencies": {
     "@line/liff": "^2.27.0",

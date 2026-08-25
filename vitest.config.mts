@@ -53,6 +53,7 @@ export default defineConfig({
     // that this list and ci.yml's skip list are two hand-synced copies of the same fact.
     include: [
       'scripts/omise-dynamic-webhook.test.ts', // #374 — teeth on 'every v2 charge carries its own webhook endpoint'
+      'scripts/public-env-inlinable.test.ts', // #432 — a NEXT_PUBLIC_ read through an alias ships as undefined
       'scripts/evidence-dir.test.tsx', // #417 — teeth on the ONE function that decides where harness output lands (.tsx: vitest-only, no #212 sync)
       'scripts/logout-clears-caches.test.ts',
       'scripts/v2-tier.test.ts', // #214 — must survive this merge

@@ -29,9 +29,29 @@ type OmiseGlobal = {
 
 export class OmiseKeyMissingError extends Error {}
 
-/** Resolve the v2 key. Throws LOUDLY rather than tokenizing with whatever key happens to be installed. */
-export function v2OmiseKey(env: Record<string, string | undefined> = process.env as Record<string, string | undefined>): string {
-  const k = env[V2_OMISE_KEY_ENV]
+/**
+ * Resolve the v2 key. Throws LOUDLY rather than tokenizing with whatever key happens to be installed.
+ *
+ * 🔴 THE READ MUST STAY A LITERAL `process.env.NEXT_PUBLIC_OMISE_KEY_V2` — mootech-fe#432.
+ * This function used to take `env = process.env` and read `env[V2_OMISE_KEY_ENV]`. That is invisible to
+ * the bundler: Next inlines a browser value ONLY where the source literally says `process.env.NAME`.
+ * Through an alias there is nothing to substitute, so the compiled chunk kept the NAME as a string and
+ * shipped no value — `undefined` in every browser, on every deploy, no matter what Vercel had set.
+ * Verified: `NEXT_PUBLIC_OMISE_KEY_V2=pkey_test_PROOF123 npm run build` → 0 files under .next/static
+ * contained that value, while the checkout chunk contained the literal "NEXT_PUBLIC_OMISE_KEY_V2".
+ * Every card payment on /v2 threw OmiseKeyMissingError before a request ever left the browser.
+ *
+ * 🔑 Same root as the guard hole ตู๋ found in PR #425 — an alias hides the read from a tool. There it
+ * was our own drift guard and the cost was a green that guarded nothing. Here the tool was the compiler
+ * and the cost was a feature that could not work at all.
+ *
+ * `override` replaces the old injectable `env` param: tests still inject, and the production path is a
+ * shape the bundler can see. Two guards keep it that way:
+ *   scripts/public-env-inlinable.test.ts   — no NEXT_PUBLIC_* may be read through a subscript, repo-wide
+ *   scripts/check-omise-key-inlined.sh     — postbuild: the VALUE must actually appear in .next/static
+ */
+export function v2OmiseKey(override?: string): string {
+  const k = override ?? process.env.NEXT_PUBLIC_OMISE_KEY_V2
   // ❌ never fall back to NEXT_PUBLIC_OMISE_KEY: a missing v2 key must stop the screen, not quietly charge
   //    through v1's live credentials.
   if (!k) throw new OmiseKeyMissingError(`${V2_OMISE_KEY_ENV} is not set`)
