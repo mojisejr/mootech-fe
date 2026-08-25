@@ -141,6 +141,13 @@ export async function runChargeFlow(
   // card with HTTP 200 and object 'charge' (never an error object), so omisePost above did NOT throw —
   // which is exactly why a plain try/catch could never have caught this.
   if (isRefusedCharge(charge)) {
+    // 🔴 ORDER IS LOAD-BEARING — reason first, verdict second (ตู๋, review of #440 round 2). Not because
+    // the reason matters more, but because it is the only one of the two that nothing else can rebuild:
+    // recordChargeFailure has exactly ONE caller in the repo (here), and the webhook never writes
+    // failure_code. A hold left held is released later by abandonByChargeId; a reason never written is
+    // gone. So if abandonPending is the line that throws, writing the reason first is what saves it.
+    // Guarded by MR7 in scripts/payment-charge-route.test.ts — do not reorder these two calls.
+    //
     // 🔴 WRITING DOWN THE REASON MUST NEVER BE ABLE TO STOP THE REFUND OF THE HOLD (ตู๋, review of #440).
     // These two lines are not equals. Releasing the discount hold and marking the row REJECT is REQUIRED —
     // skip it and the user's code stays spent on a payment that never happened. Recording WHY is a nicety.

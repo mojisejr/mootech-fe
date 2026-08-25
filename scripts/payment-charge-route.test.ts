@@ -8,6 +8,7 @@
 //   MR4  the handler stops asking the gateway's verdict (#437 isRefusedCharge)   → the declined-card test reddens
 //   MR5  the refusal is marked but the REASON is not written down (#437)         → the failure-code test reddens
 //   MR6  recording the reason is allowed to abort the hold release (#440 ตู๋)    → the leaked-hold test reddens
+//   MR7  the reason is written AFTER the verdict instead of before (#440 ตู๋)   → the ordering test reddens
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 
 const h = vi.hoisted(() => {
@@ -181,6 +182,30 @@ describe('POST /api/v2/payment/charge', () => {
     // and the caller still gets a truthful answer, not a 500
     expect(out.status).toBe(200)
     expect((out.body as { status: string }).status).toBe('REJECT')
+  })
+
+  // 🔴 MR7 — ตู๋ overruled my "ordering stopped mattering" argument on #440 round 2, and he was right.
+  // I claimed the catch around recordChargeFailure made the order irrelevant. It does not, because the two
+  // things being protected are NOT equally recoverable:
+  //
+  //   hold left held      abandonByChargeId in the webhook releases it later   → recoverable
+  //   reason not written  recordChargeFailure has exactly ONE caller in the     → LOST FOREVER
+  //                       whole repo (lib/payment/charge-flow.ts) and the
+  //                       webhook never writes failure_code at all
+  //
+  // So if abandonPending is the one that throws (a plain DB hiccup — the same argument I used to justify
+  // the catch applies to it too), writing the reason FIRST is the only thing that keeps it. Reversed, we
+  // lose the one fact nothing else in the system can ever reproduce.
+  it('MR7 — the reason is written BEFORE the verdict, because only the reason is unrecoverable', async () => {
+    h.gatewayAnswer.value = { status: 'failed', paid: false, failureCode: 'stolen_or_lost_card', failureMessage: 'y' }
+    const { p } = invoke({ token: 'tok', package_code: 'MONTHLY' })
+    await p
+    expect(h.recordChargeFailure).toHaveBeenCalled()
+    expect(h.abandonPending).toHaveBeenCalled()
+    expect(
+      h.recordChargeFailure.mock.invocationCallOrder[0],
+      'recordChargeFailure must run BEFORE abandonPending — see the comment above this test',
+    ).toBeLessThan(h.abandonPending.mock.invocationCallOrder[0])
   })
 
   // A charge the gateway took successfully must still be PENDING here: only settleAndProvision (webhook /
