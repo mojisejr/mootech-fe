@@ -62,12 +62,13 @@ export default function V2CheckoutPage({ teamPreview }: { teamPreview: boolean }
         body: JSON.stringify({ package_code: packageCode, token, quote_id: co.quote.quoteId, ...(co.quote.codeApplied ? { code: co.quote.codeApplied } : {}) }),
       })
       const d = (await r.json()) as { chargeId?: string }
-      if (!r.ok || !d.chargeId) { setPaying(false); void router.push('/v2/shop/result?state=CARD_DECLINED'); return }
-      void router.push(`/v2/shop/result?state=PAYING&charge=${encodeURIComponent(d.chargeId)}`)
+      if (!r.ok || !d.chargeId) { setPaying(false); void router.push(`/v2/shop/result?state=CARD_DECLINED&package_code=${encodeURIComponent(packageCode)}`); return }
+      void router.push(`/v2/shop/result?state=PAYING&charge=${encodeURIComponent(d.chargeId)}&package_code=${encodeURIComponent(packageCode)}`)
     } catch {
       // Tokenisation refused (bad number/expiry/cvc) or omise.js missing. The bank never saw a charge.
+      // #438 — package_code rides along so the result screen can offer a way BACK to this same checkout.
       setPaying(false)
-      void router.push('/v2/shop/result?state=CARD_DECLINED')
+      void router.push(`/v2/shop/result?state=CARD_DECLINED&package_code=${encodeURIComponent(packageCode)}`)
     }
   }
 

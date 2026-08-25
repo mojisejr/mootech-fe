@@ -102,6 +102,7 @@ export default defineConfig({
       'scripts/payment-webhook-verify.test.ts', // #355 — pure: Omise HMAC verify, fail-closed (main-lane money gate)
       'scripts/payment-charge-route.test.ts', // #355 — route: session gate + client-ignored + fail-loud-before-charge
       'scripts/terminal-failure-agreement.test.ts', // #437 — isRefusedCharge (สร้าง charge) กับ isTerminalFailure (webhook) ต้องตอบเหมือนกัน
+      'scripts/result-declined-rule.test.ts', // #438 — จอต้องพูดคำว่าธนาคารปฏิเสธได้ + ปุ่มต้องไม่พาไปหน้าตาย
       'scripts/payment-webhook-db.test.ts', // #355 — real pg (skipIf !TEST_DATABASE_URL): webhook→settle→provision, idempotent+concurrent
       'scripts/reconcile-cron-db.test.ts', // #360 — real pg: reconciler cron (parallel runs · secret gate · boundary)
       'scripts/discount-rules.test.ts', // #361 — pure: discount math (floor/cap/clamp/VAT/no-100%) + code applicability

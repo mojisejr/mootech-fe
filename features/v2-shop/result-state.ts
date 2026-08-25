@@ -94,3 +94,65 @@ export const RESULT_COPY: Record<ResultState, ResultCopy> = {
 export function isPaidState(s: ResultState): boolean {
   return RESULT_COPY[s].paid
 }
+
+
+// ─────────────────────────────────────────────────────────────────────────────
+// #438 — THE RULE THAT PICKS THE STATE, moved next to the words it picks between.
+//
+// It used to be a nested ternary inside pages/v2/shop/result.tsx, which meant the only way to test it was
+// to render a page and drive a router. So nobody did, and the branch that was missing (a refused charge)
+// went unnoticed for as long as it existed. Pure function, four inputs, one answer.
+
+export type WaitPhaseLike = 'waiting' | 'reconciling' | 'exhausted'
+
+export type ResultInputs = {
+  /** what /api/v2/payment/status says about THIS charge. */
+  status: 'PENDING' | 'APPROVED' | 'REJECTED' | 'UNKNOWN'
+  /** 'card' | 'promptpay' | null — how the row was paid. Null until a row for this charge is seen. */
+  method: string | null
+  /** what the URL claims. Anyone can type a URL, so this never decides on its own. */
+  claimed: ResultState
+  /** how long we have been waiting, bucketed (useChargeStatus). */
+  phase: WaitPhaseLike
+}
+
+export function resolveResultState({ status, method, claimed, phase }: ResultInputs): ResultState {
+  // 🔴 THE SERVER DECIDES WHETHER MONEY MOVED. A claimed APPROVED (or PAYING) only becomes a success once
+  // /payment/status agrees about this charge — otherwise /v2/shop/result?state=APPROVED would be a page
+  // that tells anyone their payment succeeded.
+  if (status === 'APPROVED') {
+    return claimed === 'PAYING' || claimed === 'APPROVED' ? 'APPROVED' : 'ALREADY_PAID'
+  }
+
+  // 🔴 AND THE SERVER ALSO DECIDES WHEN IT DID NOT (#438). This arm did not exist; without it a refused
+  // charge fell through to the clock-based branch below, where PAYING has paid:false, so it landed on
+  // `claimed` — the literal string 'PAYING' — and stayed there no matter how much time passed.
+  //
+  // Card ONLY, deliberately: v2_payment has one 'REJECT' but two causes, and CARD_DECLINED's words
+  // ("ลองใช้บัตรใบอื่น") are wrong for a PromptPay QR that expired. PromptPay keeps its old behaviour
+  // here until mootech-fe#443 gives it words of its own — a known gap, not a forgotten one.
+  if (status === 'REJECTED' && method === 'card') return 'CARD_DECLINED'
+
+  // An unverified claim of success is 'PAYING' while we poll fast, 'RECONCILING' while the repair cron may
+  // still settle it, and only then 'QR_MAYBE_EXPIRED' (#423). The middle one exists so the screen never
+  // suggests paying again during the window that fixes it for free.
+  if (RESULT_COPY[claimed].paid) {
+    return phase === 'waiting' ? 'PAYING' : phase === 'reconciling' ? 'RECONCILING' : 'QR_MAYBE_EXPIRED'
+  }
+
+  // Claims that do not assert payment (a declined card, our own offline) are shown as-is — they cost the
+  // user nothing if wrong, and the alternative is a blank screen after a failure.
+  return claimed
+}
+
+/**
+ * #438 — where "เลือกวิธีชำระเงินอื่น" goes.
+ *
+ * 🔴 A bare '/v2/shop/checkout' is a DEAD END, not a neutral fallback: checkout reads package_code from the
+ * query, gets '', and /api/v2/payment/preview answers 400. The user who was just declined would press the
+ * one button offered and land on a second broken screen. With no package to return to, the package list is
+ * the honest destination.
+ */
+export function tryAnotherHref(packageCode: string): string {
+  return packageCode ? `/v2/shop/checkout?package_code=${encodeURIComponent(packageCode)}` : '/v2/shop'
+}

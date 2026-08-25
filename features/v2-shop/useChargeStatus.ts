@@ -20,20 +20,42 @@
 import { useEffect, useRef, useState } from 'react'
 import { RECONCILE_HORIZON_MS, waitPhase, type WaitPhase } from '@/lib/payment/reconcile-window'
 
-export type ChargeStatus = 'PENDING' | 'APPROVED' | 'UNKNOWN'
+// 🔴 #438 — FOUR ANSWERS, NOT THREE. `REJECTED` did not exist, and its absence is the bug: v2_payment has
+// three statuses (schema.ts: PENDING/APPROVED/REJECT) and this type had two, so a refused charge arrived
+// here and left as 'PENDING'. The screen then said "กำลังดำเนินการ" forever — to a user whose bank had
+// already said no, and whose row the server had already marked REJECT.
+export type ChargeStatus = 'PENDING' | 'APPROVED' | 'REJECTED' | 'UNKNOWN'
 
-export type PaymentRow = { chargeId: string | null; status: string }
+// `method` (#438) — /api/v2/payment/status:21 already sends it. A REJECT means two different things
+// depending on it, and only one of them may use the card copy. See statusOf's caller in result.tsx.
+export type PaymentRow = { chargeId: string | null; status: string; method?: string }
 
 /** PURE — the whole selection rule, so it is testable without a timer or a network. */
 export function pickCharge(rows: PaymentRow[], chargeId: string): PaymentRow | null {
   return rows.find((r) => r.chargeId === chargeId) ?? null
 }
 
-/** PURE — what the SCREEN is allowed to say about a row. Anything that is not a settled APPROVED is
- *  "still waiting"; there is no third answer that lets the UI claim success early. */
+/** PURE — what the SCREEN is allowed to say about a row.
+ *
+ *  🔴 ALLOWLIST, NOT else (#438). The original rule was "anything that is not APPROVED is still waiting",
+ *  which correctly stopped the UI claiming success early — and, with it, threw away every failure. Both
+ *  halves matter, so the mapping now names the two statuses it understands and sends EVERYTHING ELSE to
+ *  'PENDING'. A status string this code has never heard of is therefore still "we are waiting": it is
+ *  neither read as success (the original guarantee, scripts/charge-status.test.ts:48-54) nor as failure.
+ *
+ *  Do not rewrite this as `row.status === 'APPROVED' ? … : row.status === 'REJECT' ? … : …` with the arms
+ *  reordered — the point is that the DEFAULT arm is PENDING, whatever new value the DB grows next. */
 export function statusOf(row: PaymentRow | null): ChargeStatus {
   if (!row) return 'UNKNOWN'
-  return row.status === 'APPROVED' ? 'APPROVED' : 'PENDING'
+  if (row.status === 'APPROVED') return 'APPROVED'
+  if (row.status === 'REJECT') return 'REJECTED'
+  return 'PENDING'
+}
+
+/** PURE — is this a state nothing further will change? Used to stop polling AND to stop the screen waiting.
+ *  Kept separate from statusOf so both callers read the same rule instead of each spelling it out. */
+export function isSettledStatus(s: ChargeStatus): boolean {
+  return s === 'APPROVED' || s === 'REJECTED'
 }
 
 export const POLL_MS = 3000
@@ -66,6 +88,8 @@ export const SLOW_POLL_MS = 30_000
 
 export type UseChargeStatus = {
   status: ChargeStatus
+  /** #438 — 'card' | 'promptpay' for THIS charge, or null until a row is seen. Only the screen uses it. */
+  method: string | null
   polling: boolean
   error: boolean
   /**
@@ -91,6 +115,9 @@ export function useChargeStatus(
   } = {},
 ): UseChargeStatus {
   const [status, setStatus] = useState<ChargeStatus>('UNKNOWN')
+  // #438 — the method the row was actually paid with. A REJECT means "the bank refused this card" or "this
+  // QR died"; the screen needs to know which before it picks words. Null until a row for THIS charge is seen.
+  const [method, setMethod] = useState<string | null>(null)
   const [error, setError] = useState(false)
   const [phase, setPhase] = useState<WaitPhase>('waiting')
   const [nonce, setNonce] = useState(0)
@@ -114,13 +141,17 @@ export function useChargeStatus(
         const r = await fetch('/api/v2/payment/status')
         if (!r.ok) throw new Error(String(r.status))
         const data = (await r.json()) as { payments?: PaymentRow[] }
-        const next = statusOf(pickCharge(data.payments ?? [], chargeId))
+        const row = pickCharge(data.payments ?? [], chargeId)
+        const next = statusOf(row)
         if (stopped.current) return
         setError(false)
         setStatus(next)
+        setMethod(row?.method ?? null)
         // Settled is settled — stop asking. Everything else keeps waiting: a transient network error must not
         // end the wait, because ending it is indistinguishable on screen from "it failed".
-        if (next === 'APPROVED') return
+        // 🔴 #438 — REJECTED ends the loop too. A refused charge is as final as a settled one; polling on
+        // would burn a request every 30 seconds forever for an answer that can no longer change.
+        if (isSettledStatus(next)) return
       } catch {
         if (stopped.current) return
         setError(true)
@@ -150,9 +181,10 @@ export function useChargeStatus(
   const stale = phase === 'exhausted'
   return {
     status,
+    method,
     // 🔴 `polling` now means what it says — we ask until the charge settles or the page closes. It no longer
     // goes false at the horizon, because we no longer stop there.
-    polling: !!chargeId && status !== 'APPROVED',
+    polling: !!chargeId && !isSettledStatus(status),
     error,
     stale,
     phase,
