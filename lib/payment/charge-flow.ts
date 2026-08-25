@@ -141,12 +141,25 @@ export async function runChargeFlow(
   // card with HTTP 200 and object 'charge' (never an error object), so omisePost above did NOT throw —
   // which is exactly why a plain try/catch could never have caught this.
   if (isRefusedCharge(charge)) {
-    // Reason first, verdict second: if the process dies between them the row is still PENDING (recoverable
-    // by the webhook) rather than REJECT with no explanation.
-    await recordChargeFailure(reserved.paymentId, {
-      code: charge.failureCode ?? null,
-      message: charge.failureMessage ?? null,
-    })
+    // 🔴 WRITING DOWN THE REASON MUST NEVER BE ABLE TO STOP THE REFUND OF THE HOLD (ตู๋, review of #440).
+    // These two lines are not equals. Releasing the discount hold and marking the row REJECT is REQUIRED —
+    // skip it and the user's code stays spent on a payment that never happened. Recording WHY is a nicety.
+    // A nicety is not allowed to take the required thing down with it, so it gets its own catch.
+    //
+    // This is not hypothetical: deploying this code before migration 0010 makes the UPDATE below raise
+    // 42703 (undefined_column). Unguarded, that throw skipped abandonPending entirely — the caller got a
+    // 500 AND the hold leaked. ตู๋ proved it with an injected 42703 plus a control run. Ordering the deploy
+    // (migration first) would also avoid it, but ordering is a rule a human has to remember every time;
+    // this catch is structure, and it also covers the DB simply being unreachable for a moment.
+    try {
+      await recordChargeFailure(reserved.paymentId, {
+        code: charge.failureCode ?? null,
+        message: charge.failureMessage ?? null,
+      })
+    } catch (e) {
+      // Deliberately swallowed AND surfaced: the row still becomes REJECT below, we just lose the reason.
+      console.error('[#437] could not record charge failure reason', { paymentId: reserved.paymentId, chargeId: charge.chargeId, error: e })
+    }
     // Same call the webhook's terminal-failure branch uses: releases the discount hold AND marks REJECT.
     // Doing it here means the code is free again immediately, instead of waiting for a webhook round-trip.
     await abandonPending(reserved.paymentId, priced.code?.id ?? null)

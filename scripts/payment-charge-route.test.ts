@@ -7,6 +7,7 @@
 //   MR3  an unknown / unsellable package is charged instead of failing first    → the fail-loud test reddens
 //   MR4  the handler stops asking the gateway's verdict (#437 isRefusedCharge)   → the declined-card test reddens
 //   MR5  the refusal is marked but the REASON is not written down (#437)         → the failure-code test reddens
+//   MR6  recording the reason is allowed to abort the hold release (#440 ตู๋)    → the leaked-hold test reddens
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 
 const h = vi.hoisted(() => {
@@ -163,6 +164,23 @@ describe('POST /api/v2/payment/charge', () => {
     expect((out.body as { status: string }).status).toBe('PENDING')
     expect(h.abandonPending).not.toHaveBeenCalled()
     expect(h.recordChargeFailure).not.toHaveBeenCalled()
+  })
+
+  // 🔴 MR6 — ตู๋'s finding on #440. Deploying this code before migration 0010 makes recordChargeFailure
+  // raise 42703 (undefined_column). Unguarded, that throw skipped abandonPending on the very next line:
+  // the caller got a 500 AND the user's discount code stayed spent on a payment that never happened.
+  // The teeth here are NOT about ordering — they are about the nicety being unable to kill the necessity.
+  it('MR6 — the reason failing to save must NOT leak the discount hold', async () => {
+    h.gatewayAnswer.value = { status: 'failed', paid: false, failureCode: 'payment_rejected', failureMessage: 'x' }
+    // exactly what Postgres raises when 0010 has not been applied yet
+    h.recordChargeFailure.mockRejectedValueOnce(Object.assign(new Error('column "failure_code" does not exist'), { code: '42703' }))
+    const { p, out } = invoke({ token: 'tok', package_code: 'MONTHLY' })
+    await p
+    // the hold is released and the row is marked, even though the reason could not be written
+    expect(h.abandonPending).toHaveBeenCalled()
+    // and the caller still gets a truthful answer, not a 500
+    expect(out.status).toBe(200)
+    expect((out.body as { status: string }).status).toBe('REJECT')
   })
 
   // A charge the gateway took successfully must still be PENDING here: only settleAndProvision (webhook /
