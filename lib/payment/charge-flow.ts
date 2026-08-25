@@ -19,7 +19,7 @@ export async function runChargeFlow(
   req: NextApiRequest,
   res: NextApiResponse,
   method: 'card' | 'promptpay',
-  create: (args: { amountSatang: number; token?: string; email: string; orderId: string }) => Promise<ChargeResult>,
+  create: (args: { amountSatang: number; token?: string; email: string; orderId: string; packageCode: string }) => Promise<ChargeResult>,
 ): Promise<void> {
   if (req.method !== 'POST') {
     res.status(405).json({ error: 'Method not allowed' })
@@ -124,7 +124,7 @@ export async function runChargeFlow(
   const email = (await getUserEmail(who.userId)) ?? ''
   let charge: ChargeResult
   try {
-    charge = await create({ amountSatang: priced.amountSatang, token, email, orderId })
+    charge = await create({ amountSatang: priced.amountSatang, token, email, orderId, packageCode })
   } catch (e) {
     // The charge failed ⇒ give the code's quota back and kill the row, so a refused card can never leave a
     // discount code looking "full" (the return path the ticket requires).
@@ -189,5 +189,9 @@ export async function runChargeFlow(
     amountSatang: priced.amountSatang,
     discountSatang: priced.discountSatang,
     ...(charge.qrDownloadUri ? { qr: charge.qrDownloadUri } : {}),
+    // 🔴 #439 — the bank wants to see the cardholder before it decides. Handing this to the client is the
+    // whole point: Omise returns it, and until #439 the adapter threw it away, so nobody could be sent.
+    // Absent on any charge that did not need authentication — the client must treat absence as "carry on".
+    ...(charge.authorizeUri ? { authorizeUri: charge.authorizeUri } : {}),
   })
 }

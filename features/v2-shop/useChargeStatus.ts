@@ -28,11 +28,31 @@ export type ChargeStatus = 'PENDING' | 'APPROVED' | 'REJECTED' | 'UNKNOWN'
 
 // `method` (#438) — /api/v2/payment/status:21 already sends it. A REJECT means two different things
 // depending on it, and only one of them may use the card copy. See statusOf's caller in result.tsx.
-export type PaymentRow = { chargeId: string | null; status: string; method?: string }
+export type PaymentRow = { chargeId: string | null; status: string; method?: string; orderId?: string | null }
 
 /** PURE — the whole selection rule, so it is testable without a timer or a network. */
 export function pickCharge(rows: PaymentRow[], chargeId: string): PaymentRow | null {
   return rows.find((r) => r.chargeId === chargeId) ?? null
+}
+
+/**
+ * PURE — find this user's row by EITHER identifier (#439).
+ *
+ * 🔴 WHY orderId HAD TO EXIST AS A KEY. A 3-D Secure return_uri must be handed to Omise *before* Omise
+ * issues a charge id, so the only identifier we can put in that URL is one we minted ourselves: orderId
+ * (lib/payment/charge-flow.ts makeOrderId). The cardholder comes back to /v2/shop/result?order=… with no
+ * charge id anywhere, and this is how the screen finds its own row.
+ *
+ * chargeId wins when both are given: it is the narrower key (unique index on v2_payment.charge_id),
+ * while orderId is only unique in practice.
+ */
+export function pickPayment(rows: PaymentRow[], by: { chargeId?: string | null; orderId?: string | null }): PaymentRow | null {
+  if (by.chargeId) {
+    const hit = rows.find((r) => r.chargeId === by.chargeId)
+    if (hit) return hit
+  }
+  if (by.orderId) return rows.find((r) => r.orderId === by.orderId) ?? null
+  return null
 }
 
 /** PURE — what the SCREEN is allowed to say about a row.
@@ -105,7 +125,9 @@ export type UseChargeStatus = {
 }
 
 export function useChargeStatus(
-  chargeId: string | null,
+  // #439 — a string is still accepted (every existing caller passes one). An object lets the result screen
+  // ask by orderId, which is the only identifier a 3DS return_uri can carry.
+  key: string | null | { chargeId?: string | null; orderId?: string | null },
   {
     pollMs = POLL_MS,
     slowPollMs = SLOW_POLL_MS,
@@ -114,6 +136,13 @@ export function useChargeStatus(
     now = () => Date.now(),
   } = {},
 ): UseChargeStatus {
+  // #439 — normalise the two accepted shapes into primitives, so the effect's dep list compares by VALUE.
+  // An object literal from the caller would be a new identity every render, i.e. a poll that restarts
+  // forever — the same trap the `now` ref below already documents.
+  const byChargeId = typeof key === 'string' ? key : (key?.chargeId ?? null)
+  const byOrderId = typeof key === 'string' ? null : (key?.orderId ?? null)
+  const lookupKey = byChargeId || byOrderId
+
   const [status, setStatus] = useState<ChargeStatus>('UNKNOWN')
   // #438 — the method the row was actually paid with. A REJECT means "the bank refused this card" or "this
   // QR died"; the screen needs to know which before it picks words. Null until a row for THIS charge is seen.
@@ -130,7 +159,7 @@ export function useChargeStatus(
   nowRef.current = now
 
   useEffect(() => {
-    if (!chargeId) return
+    if (!lookupKey) return
     stopped.current = false
     setPhase('waiting')
     const startedAt = nowRef.current()
@@ -141,7 +170,7 @@ export function useChargeStatus(
         const r = await fetch('/api/v2/payment/status')
         if (!r.ok) throw new Error(String(r.status))
         const data = (await r.json()) as { payments?: PaymentRow[] }
-        const row = pickCharge(data.payments ?? [], chargeId)
+        const row = pickPayment(data.payments ?? [], { chargeId: byChargeId, orderId: byOrderId })
         const next = statusOf(row)
         if (stopped.current) return
         setError(false)
@@ -176,7 +205,7 @@ export function useChargeStatus(
       stopped.current = true
       if (timer) clearTimeout(timer)
     }
-  }, [chargeId, pollMs, slowPollMs, pollUntilMs, horizonMs, nonce])
+  }, [lookupKey, byChargeId, byOrderId, pollMs, slowPollMs, pollUntilMs, horizonMs, nonce])
 
   const stale = phase === 'exhausted'
   return {
@@ -184,7 +213,7 @@ export function useChargeStatus(
     method,
     // 🔴 `polling` now means what it says — we ask until the charge settles or the page closes. It no longer
     // goes false at the horizon, because we no longer stop there.
-    polling: !!chargeId && !isSettledStatus(status),
+    polling: !!lookupKey && !isSettledStatus(status),
     error,
     stale,
     phase,

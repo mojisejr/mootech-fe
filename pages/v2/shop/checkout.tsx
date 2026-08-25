@@ -61,8 +61,15 @@ export default function V2CheckoutPage({ teamPreview }: { teamPreview: boolean }
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ package_code: packageCode, token, quote_id: co.quote.quoteId, ...(co.quote.codeApplied ? { code: co.quote.codeApplied } : {}) }),
       })
-      const d = (await r.json()) as { chargeId?: string }
+      const d = (await r.json()) as { chargeId?: string; authorizeUri?: string }
       if (!r.ok || !d.chargeId) { setPaying(false); void router.push(`/v2/shop/result?state=CARD_DECLINED&package_code=${encodeURIComponent(packageCode)}`); return }
+      // 🔴 #439 — THE BANK WANTS TO SEE THEM FIRST. When Omise returns an authorize_uri the charge is not
+      // finished and cannot finish here: the cardholder has to authenticate on their bank's page, and Omise
+      // sends them back to the return_uri we supplied (lib/payment/return-uri.ts) — which is this same
+      // result screen, keyed by our orderId. Leaving `paying` true on purpose: this navigation leaves the
+      // app, and re-enabling the button would invite a second charge in the moment before it does.
+      // Not router.push — that is Next's client router and this destination is not ours.
+      if (d.authorizeUri) { window.location.href = d.authorizeUri; return }
       void router.push(`/v2/shop/result?state=PAYING&charge=${encodeURIComponent(d.chargeId)}&package_code=${encodeURIComponent(packageCode)}`)
     } catch {
       // Tokenisation refused (bad number/expiry/cvc) or omise.js missing. The bank never saw a charge.

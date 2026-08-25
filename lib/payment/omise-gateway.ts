@@ -6,6 +6,7 @@
 // token / charge row (#355 ④).
 import { verifyOmiseSignature } from './webhook-verify'
 import { webhookEndpointFields } from './webhook-endpoint'
+import { cardReturnUriFields } from './return-uri'
 import type { PaymentGateway, ChargeResult } from './gateway'
 
 const OMISE_API = 'https://api.omise.co'
@@ -55,17 +56,19 @@ async function omisePost(path: string, form: Record<string, string>): Promise<Re
 // Before this, `createCardCharge` returned `{ chargeId: String(json.id) }` and dropped everything else, so
 // a declined card was indistinguishable from a pending one all the way to the user's screen.
 // Fields stay optional-shaped: Omise omits `failure_code` entirely on a charge that has not failed.
-function readOutcome(json: Record<string, unknown>): Pick<ChargeResult, 'status' | 'paid' | 'failureCode' | 'failureMessage'> {
+function readOutcome(json: Record<string, unknown>): Pick<ChargeResult, 'status' | 'paid' | 'failureCode' | 'failureMessage' | 'authorizeUri'> {
   return {
     status: typeof json.status === 'string' ? json.status : undefined,
     paid: json.paid === true,
     failureCode: typeof json.failure_code === 'string' ? json.failure_code : null,
     failureMessage: typeof json.failure_message === 'string' ? json.failure_message : null,
+    // #439 — Omise sets this when the charge needs 3-D Secure. Null on every other outcome.
+    authorizeUri: typeof json.authorize_uri === 'string' ? json.authorize_uri : null,
   }
 }
 
 export const omiseGateway: PaymentGateway = {
-  async createCardCharge({ amountSatang, token, email, orderId }): Promise<ChargeResult> {
+  async createCardCharge({ amountSatang, token, email, orderId, packageCode }): Promise<ChargeResult> {
     // #374 — resolved BEFORE the POST so a misconfigured endpoint fails here, never after a card is charged.
     const webhook = webhookEndpointFields()
     const json = await omisePost('/charges', {
@@ -76,7 +79,10 @@ export const omiseGateway: PaymentGateway = {
       email,
       receipt: 'true',
       'metadata[orderId]': orderId,
-      ...(process.env.OMISE_RETURN_URI ? { return_uri: process.env.OMISE_RETURN_URI } : {}),
+      // 🔴 #439 — CARD ONLY, and built per charge (lib/payment/return-uri.ts). The old line here read the
+      // shared OMISE_RETURN_URI, which would have pointed both lanes at one static page; PromptPay below
+      // still reads that one, so this ticket cannot move a lane it was not asked to touch.
+      ...cardReturnUriFields({ orderId, packageCode: packageCode ?? '' }),
     })
     return { chargeId: String(json.id), ...readOutcome(json) }
   },
