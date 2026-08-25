@@ -26,6 +26,9 @@ const MIGRATION7 = readFileSync(resolve('lib/db/0007_v2_payment.sql'), 'utf8')
 // schema, so every suite that rebuilds v2_payment must apply 0008 too — otherwise the NEXT suite's reads
 // fail on a missing column (this bit the payment suite once already).
 const MIGRATION8 = readFileSync(resolve('lib/db/0008_discount_code.sql'), 'utf8')
+// #437's 0010 ALTERs v2_payment (failure_code/failure_message) and those columns are in the drizzle schema,
+// so every suite that rebuilds v2_payment must apply 0010 too — same trap as 0008 above, one migration on.
+const MIGRATION10 = readFileSync(resolve('lib/db/0010_v2_payment_failure.sql'), 'utf8')
 const NOW = new Date()
 
 function bkk(now: Date): string {
@@ -52,6 +55,7 @@ describe.skipIf(!TEST_URL)('member_subscription · real pg (#354)', () => {
     await sql.unsafe(MIGRATION)
     await sql.unsafe(MIGRATION7)
     await sql.unsafe(MIGRATION8)
+    await sql.unsafe(MIGRATION10) // #437 — failure_code/failure_message
     const today = bkk(NOW)
     const [m] = await sql`SELECT mp.user_id FROM member_payment mp
       JOIN "user" usr ON usr.user_id = mp.user_id

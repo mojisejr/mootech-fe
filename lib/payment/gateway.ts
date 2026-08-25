@@ -7,6 +7,15 @@ export type ChargeResult = {
   chargeId: string
   // PromptPay only: the QR image the client renders. Undefined for card charges.
   qrDownloadUri?: string
+  // 🔴 #437 — WHAT THE GATEWAY ACTUALLY SAID. Until this existed the adapter returned the id and threw the
+  // rest away, so a card Omise had already declined came back looking exactly like one still in flight:
+  // HTTP 200, object 'charge', status 'failed' — never an error, so nothing threw and nothing noticed.
+  // These four are optional because a fake gateway in a test may not supply them; ABSENT must therefore
+  // read as "the gateway did not say", never as "the gateway said it is fine".
+  status?: string
+  paid?: boolean
+  failureCode?: string | null
+  failureMessage?: string | null
 }
 
 export interface PaymentGateway {
@@ -86,4 +95,14 @@ export function isTerminalFailure(evt: ChargeEvent): boolean {
   if (!evt.chargeId) return false
   if (evt.paid === true) return false // paid ⇒ it is a success path, not a failure
   return TERMINAL_FAILURE_STATUSES.has(evt.status)
+}
+
+// 🔴 #437 — the SAME question asked of a charge we just created, instead of an event that arrived later.
+// One definition of "terminal" for both doors: if these two ever disagree, a card could be refused at
+// creation and settled by a webhook (or the reverse), and the row would end up in whichever state won the
+// race. Shares TERMINAL_FAILURE_STATUSES on purpose — do not inline the list at either call site.
+// `status` absent ⇒ NOT terminal: a gateway that did not answer is "not finished yet", never "refused".
+export function isRefusedCharge(charge: { status?: string; paid?: boolean }): boolean {
+  if (charge.paid === true) return false
+  return TERMINAL_FAILURE_STATUSES.has(charge.status ?? '')
 }

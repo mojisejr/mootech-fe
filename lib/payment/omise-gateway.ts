@@ -51,6 +51,19 @@ async function omisePost(path: string, form: Record<string, string>): Promise<Re
   return json
 }
 
+// 🔴 #437 — one place that reads the gateway's own verdict off a /charges response, used by BOTH lanes.
+// Before this, `createCardCharge` returned `{ chargeId: String(json.id) }` and dropped everything else, so
+// a declined card was indistinguishable from a pending one all the way to the user's screen.
+// Fields stay optional-shaped: Omise omits `failure_code` entirely on a charge that has not failed.
+function readOutcome(json: Record<string, unknown>): Pick<ChargeResult, 'status' | 'paid' | 'failureCode' | 'failureMessage'> {
+  return {
+    status: typeof json.status === 'string' ? json.status : undefined,
+    paid: json.paid === true,
+    failureCode: typeof json.failure_code === 'string' ? json.failure_code : null,
+    failureMessage: typeof json.failure_message === 'string' ? json.failure_message : null,
+  }
+}
+
 export const omiseGateway: PaymentGateway = {
   async createCardCharge({ amountSatang, token, email, orderId }): Promise<ChargeResult> {
     // #374 — resolved BEFORE the POST so a misconfigured endpoint fails here, never after a card is charged.
@@ -65,7 +78,7 @@ export const omiseGateway: PaymentGateway = {
       'metadata[orderId]': orderId,
       ...(process.env.OMISE_RETURN_URI ? { return_uri: process.env.OMISE_RETURN_URI } : {}),
     })
-    return { chargeId: String(json.id) }
+    return { chargeId: String(json.id), ...readOutcome(json) }
   },
 
   async createPromptPayCharge({ amountSatang, email, orderId }): Promise<ChargeResult> {
@@ -93,7 +106,7 @@ export const omiseGateway: PaymentGateway = {
       scannable_code?: { image?: { download_uri?: unknown } }
     }
     const qr = src.scannable_code?.image?.download_uri
-    return { chargeId: String(charge.id), qrDownloadUri: typeof qr === 'string' ? qr : undefined }
+    return { chargeId: String(charge.id), qrDownloadUri: typeof qr === 'string' ? qr : undefined, ...readOutcome(charge) }
   },
 
   async retrieveCharge(chargeId: string) {

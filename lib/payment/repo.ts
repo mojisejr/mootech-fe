@@ -159,6 +159,21 @@ export async function attachChargeId(paymentId: string, chargeId: string, db: Db
   await db.update(v2Payment).set({ chargeId }).where(eq(v2Payment.id, paymentId))
 }
 
+// 🔴 #437 — the gateway answered and the answer was "no". Write down WHY, next to the row it belongs to.
+// Deliberately does NOT touch `status`: the verdict is abandonPending's job, and keeping the two apart is
+// what stops a reason from ever being mistaken for a state. Safe to call with both fields null (a gateway
+// that refused without saying why still gets a row that says "asked, got nothing").
+export async function recordChargeFailure(
+  paymentId: string,
+  failure: { code: string | null; message: string | null },
+  db: Db = defaultDb,
+): Promise<void> {
+  await db
+    .update(v2Payment)
+    .set({ failureCode: failure.code, failureMessage: failure.message })
+    .where(eq(v2Payment.id, paymentId))
+}
+
 // The charge failed → release the code reservation (used_count back) and mark the row REJECT so it can
 // never settle. Safe to call when no code was used (codeId null).
 export async function abandonPending(
