@@ -21,6 +21,10 @@ import { Readable } from 'node:stream'
 
 const TEST_URL = process.env.TEST_DATABASE_URL
 const M0008 = readFileSync(resolve('lib/db/0008_discount_code.sql'), 'utf8')
+// #437 added failure_code/failure_message to v2_payment via 0010's ALTERs. Same trap as 0008 above:
+// the drizzle schema now includes them, so EVERY schema-wide select/returning asks for them — including
+// settleAndProvision's. Build the table without 0010 and the money path dies on a missing column.
+const M0010 = readFileSync(resolve('lib/db/0010_v2_payment_failure.sql'), 'utf8')
 
 describe.skipIf(!TEST_URL)('discount quota · real pg (#361)', () => {
   let sql: ReturnType<typeof postgres>
@@ -72,6 +76,7 @@ describe.skipIf(!TEST_URL)('discount quota · real pg (#361)', () => {
   beforeAll(async () => {
     sql = postgres(TEST_URL as string, { max: 24, ssl: false })
     await sql.unsafe(M0008) // idempotent
+    await sql.unsafe(M0010) // #437 — failure_code/failure_message (schema-wide select needs them)
     const rows = await sql`SELECT user_id FROM "user" LIMIT 6`
     users = rows.map((r) => r.user_id as string)
   })

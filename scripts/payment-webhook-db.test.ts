@@ -23,6 +23,10 @@ const M0007 = readFileSync(resolve('lib/db/0007_v2_payment.sql'), 'utf8')
 // #361 added discount columns to v2_payment via 0008's ALTERs; the drizzle schema (and every select) now
 // includes them, so the table must be built with 0008 too or the reads fail on a missing column.
 const M0008 = readFileSync(resolve('lib/db/0008_discount_code.sql'), 'utf8')
+// #437 added failure_code/failure_message to v2_payment via 0010's ALTERs. Same trap as 0008 above:
+// the drizzle schema now includes them, so EVERY schema-wide select/returning asks for them — including
+// settleAndProvision's. Build the table without 0010 and the money path dies on a missing column.
+const M0010 = readFileSync(resolve('lib/db/0010_v2_payment_failure.sql'), 'utf8')
 const SECRET = Buffer.from('whsec_test_355').toString('base64')
 const TS = '1755766800'
 const NOW = new Date()
@@ -68,6 +72,7 @@ describe.skipIf(!TEST_URL)('payment webhook · real pg (#355)', () => {
     await sql.unsafe('DROP TABLE IF EXISTS v2_payment CASCADE;')
     await sql.unsafe(M0007) // fresh v2_payment + re-add v2_payment_id
     await sql.unsafe(M0008) // + #361's discount columns/tables (schema-wide select needs them)
+    await sql.unsafe(M0010) // #437 — failure_code/failure_message (schema-wide select needs them)
     const rows = await sql`SELECT user_id FROM "user"
       WHERE user_id NOT IN (SELECT user_id FROM member_payment) LIMIT 4`
     users = rows.map((r) => r.user_id as string)

@@ -43,6 +43,10 @@ const TEST_URL = process.env.TEST_DATABASE_URL
 const M0006 = readFileSync(resolve('lib/db/0006_member_subscription.sql'), 'utf8')
 const M0007 = readFileSync(resolve('lib/db/0007_v2_payment.sql'), 'utf8')
 const M0008 = readFileSync(resolve('lib/db/0008_discount_code.sql'), 'utf8')
+// #437 added failure_code/failure_message to v2_payment via 0010's ALTERs. Same trap as 0008 above:
+// the drizzle schema now includes them, so EVERY schema-wide select/returning asks for them — including
+// settleAndProvision's. Build the table without 0010 and the money path dies on a missing column.
+const M0010 = readFileSync(resolve('lib/db/0010_v2_payment_failure.sql'), 'utf8')
 const SECRET = 'cron-secret-360'
 
 function callCron(auth?: string) {
@@ -67,6 +71,7 @@ describe.skipIf(!TEST_URL)('#360 reconcile cron · real pg', () => {
     await sql.unsafe('DROP TABLE IF EXISTS v2_payment CASCADE;')
     await sql.unsafe(M0007)
     await sql.unsafe(M0008)
+    await sql.unsafe(M0010) // #437 — failure_code/failure_message (schema-wide select needs them)
     const rows = await sql`SELECT user_id FROM "user" WHERE user_id NOT IN (SELECT user_id FROM member_payment) LIMIT 4`
     users = rows.map((r) => r.user_id as string)
     expect(users.length, 'fixture: need 4 member_payment-free users').toBeGreaterThan(3)
