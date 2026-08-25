@@ -122,3 +122,60 @@ test.describe("#363 checkout — browser truth", () => {
     await expect(page.locator("body")).not.toContainText("สิทธิ์ของคุณเปิดใช้งานแล้ว");
   });
 });
+
+// ─────────────────────────────────────────────────────────────────────────────
+// #438 — the card lane's dead end. Everything above walks PromptPay; the card branch of checkout.tsx has
+// never had a browser test at all, which is part of why the bug below survived.
+//
+// We enter the result screen directly rather than driving the card form: tokenisation calls Omise's CDN
+// script, which this harness cannot stand up. What matters here is not how the charge was made — it is what
+// the screen does once /payment/status says the charge was REFUSED, which is exactly what we stub.
+const DECLINED_CARD = { chargeId: "chrg_e2e", status: "REJECT", method: "card", orderId: "o", packageCode: "V2_PRO_YEARLY", tierCode: "PRO", amountSatang: 159000, createdAt: new Date(0).toISOString() };
+
+async function arriveDeclined(page: Page, opts: { withPackage?: boolean } = {}) {
+  await page.context().addCookies([{ name: "v2_access", value: V2_KEY, url: BASE }]);
+  await page.route("**/api/v2/payment/status", (r) => r.fulfill({ json: { payments: [DECLINED_CARD] } }));
+  // the checkout the button should be able to return to must be able to price itself
+  await page.route("**/api/v2/payment/preview", (r) => r.fulfill({ json: QUOTE }));
+  const pkg = opts.withPackage === false ? "" : "&package_code=V2_PRO_YEARLY";
+  await page.goto(`${BASE}/v2/shop/result?state=PAYING&charge=chrg_e2e${pkg}`);
+}
+
+test.describe("#438 a refused card is a road, not a wall", () => {
+  test("the screen NAMES the refusal instead of waiting forever", async ({ page }) => {
+    await arriveDeclined(page);
+    const screen = page.getByTestId("result-screen");
+    await expect(screen).toBeVisible();
+    // the state itself, so a copy tweak cannot quietly turn this green
+    await expect(screen).toHaveAttribute("data-state", "CARD_DECLINED");
+    await expect(screen).toHaveAttribute("data-paid", "0");
+    await expect(page.getByTestId("result-title")).toHaveText("ธนาคารปฏิเสธการชำระเงิน");
+    // and it is NOT the old forever-screen
+    await expect(page.getByTestId("result-title")).not.toHaveText("กำลังดำเนินการ");
+  });
+
+  test("there is something to press — the old screen offered nothing at all", async ({ page }) => {
+    await arriveDeclined(page);
+    await expect(page.getByTestId("result-try-another")).toBeVisible();
+    await expect(page.getByTestId("result-done")).toBeVisible();
+    // 🔴 never "ลองอีกครั้ง" on the same card — pressing it again sends the user in a circle
+    await expect(page.getByTestId("result-retry-same")).toHaveCount(0);
+  });
+
+  // 🔴 THE TEST THIS TICKET GREW FOR. Asserting the URL alone would pass even when the destination answers
+  // 400: checkout reads package_code from the query, and without it /api/v2/payment/preview refuses. So the
+  // proof is that the destination can PRICE ITSELF — order-summary is only rendered when a quote arrived.
+  test("pressing it lands on a checkout that WORKS, for the same package", async ({ page }) => {
+    await arriveDeclined(page);
+    await page.getByTestId("result-try-another").click();
+    await expect(page).toHaveURL(/\/v2\/shop\/checkout\?package_code=V2_PRO_YEARLY/);
+    await expect(page.getByTestId("order-summary")).toBeVisible();
+  });
+
+  test("with no package to return to, it goes to the list — never a checkout it cannot price", async ({ page }) => {
+    await arriveDeclined(page, { withPackage: false });
+    await page.getByTestId("result-try-another").click();
+    await expect(page).toHaveURL(/\/v2\/shop(\?|$)/);
+    expect(page.url()).not.toContain("/checkout");
+  });
+});
