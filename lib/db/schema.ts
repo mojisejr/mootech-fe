@@ -765,6 +765,11 @@ export const v2Payment = pgTable("v2_payment", {
 	chargeId: text("charge_id").notNull(),
 	orderId: text("order_id").notNull(),
 	status: text().notNull(),
+	// 🔴 #437 (0010 ALTER) — WHY the gateway refused, never the verdict itself. NULL means "it did not say"
+	// (or it never failed); it must never be read as a status. Rows created before 0010 stay NULL forever,
+	// because the reason was thrown away at lib/payment/omise-gateway.ts before this ticket.
+	failureCode: text("failure_code"),
+	failureMessage: text("failure_message"),
 	// discount linkage (#361, 0008 ALTER) — NULL/0 when no code was used.
 	codeId: varchar("code_id", { length: 36 }).references(() => discountCode.id),
 	discountSatang: integer("discount_satang").default(0).notNull(),

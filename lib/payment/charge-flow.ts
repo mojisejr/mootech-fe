@@ -4,10 +4,11 @@
 import type { NextApiRequest, NextApiResponse } from 'next'
 import { randomInt } from 'node:crypto'
 import { resolveSessionUserId } from '@/lib/v2/resolve-user'
-import { getUserEmail, insertPendingReserved, attachChargeId, abandonPending } from './repo'
+import { getUserEmail, insertPendingReserved, attachChargeId, abandonPending, recordChargeFailure } from './repo'
 import { priceFor } from '@/lib/discount/preview-flow'
 import { getQuote } from '@/lib/discount/repo'
 import type { ChargeResult } from './gateway'
+import { isRefusedCharge } from './gateway'
 
 export function makeOrderId(): string {
   // parity with v1: 10 random decimal digits (crypto.randomInt)
@@ -130,8 +131,38 @@ export async function runChargeFlow(
     await abandonPending(reserved.paymentId, priced.code?.id ?? null)
     throw e
   }
+  // The charge EXISTS at the gateway now — refused or not. Attach the real id FIRST and unconditionally,
+  // so the webhook can always find this row no matter what we conclude on the next line.
   await attachChargeId(reserved.paymentId, charge.chargeId)
 
+  // 🔴 #437 — ASK THE GATEWAY'S OWN VERDICT. Until this block existed, the answer was thrown away and every
+  // charge was reported as PENDING: a card Omise had already declined reached the screen as "in progress"
+  // and stayed there forever, because nothing downstream ever learned otherwise. Omise answers a declined
+  // card with HTTP 200 and object 'charge' (never an error object), so omisePost above did NOT throw —
+  // which is exactly why a plain try/catch could never have caught this.
+  if (isRefusedCharge(charge)) {
+    // Reason first, verdict second: if the process dies between them the row is still PENDING (recoverable
+    // by the webhook) rather than REJECT with no explanation.
+    await recordChargeFailure(reserved.paymentId, {
+      code: charge.failureCode ?? null,
+      message: charge.failureMessage ?? null,
+    })
+    // Same call the webhook's terminal-failure branch uses: releases the discount hold AND marks REJECT.
+    // Doing it here means the code is free again immediately, instead of waiting for a webhook round-trip.
+    await abandonPending(reserved.paymentId, priced.code?.id ?? null)
+    res.status(200).json({
+      chargeId: charge.chargeId,
+      status: 'REJECT',
+      failureCode: charge.failureCode ?? null,
+      amountSatang: priced.amountSatang,
+      discountSatang: priced.discountSatang,
+    })
+    return
+  }
+
+  // Not refused. Still PENDING on purpose — accepted is NOT settled: only settleAndProvision (webhook or
+  // reconcile cron) may write APPROVED, because that is the same step that creates member_subscription.
+  // Marking APPROVED here would produce a paid row that granted nobody anything.
   res.status(200).json({
     chargeId: charge.chargeId,
     status: 'PENDING',

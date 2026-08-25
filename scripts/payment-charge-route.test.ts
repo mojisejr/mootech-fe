@@ -5,6 +5,8 @@
 //   MR1  the handler drops the session gate (charges without a session)        → the no-session test reddens
 //   MR2  the handler takes user_id/amount from the BODY                         → the client-ignored test reddens
 //   MR3  an unknown / unsellable package is charged instead of failing first    → the fail-loud test reddens
+//   MR4  the handler stops asking the gateway's verdict (#437 isRefusedCharge)   → the declined-card test reddens
+//   MR5  the refusal is marked but the REASON is not written down (#437)         → the failure-code test reddens
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 
 const h = vi.hoisted(() => {
@@ -21,16 +23,21 @@ const h = vi.hoisted(() => {
     chargeArgs: [] as Array<Record<string, unknown>>,
     insertArgs: [] as Array<Record<string, unknown>>,
   }
+  // #437 — the gateway's own verdict is now part of what it returns. Default: it said nothing (the shape
+  // every pre-#437 test relied on), so ABSENT must keep reading as "not finished yet", never as refused.
+  const gatewayAnswer = { value: {} as Record<string, unknown> }
   const createCardCharge = vi.fn(async (args: Record<string, unknown>) => {
     captured.chargeArgs.push(args)
-    return { chargeId: 'chrg_test_1' }
+    return { chargeId: 'chrg_test_1', ...gatewayAnswer.value }
   })
   // #361: the flow now RESERVES (v2_payment row + any discount) before the charge, then attaches the id.
   const insertPendingReserved = vi.fn(async (row: Record<string, unknown>) => {
     captured.insertArgs.push(row)
     return { ok: true as const, paymentId: 'v2pay-1' }
   })
-  return { state, captured, createCardCharge, insertPendingReserved }
+  const abandonPending = vi.fn(async () => undefined)
+  const recordChargeFailure = vi.fn(async () => undefined)
+  return { state, captured, createCardCharge, insertPendingReserved, gatewayAnswer, abandonPending, recordChargeFailure }
 })
 
 vi.mock('@/lib/v2/resolve-user', () => ({ resolveSessionUserId: vi.fn(async () => h.state.session) }))
@@ -40,7 +47,8 @@ vi.mock('@/lib/payment/repo', () => ({
   getUserEmail: vi.fn(async () => 'user@example.com'),
   insertPendingReserved: h.insertPendingReserved,
   attachChargeId: vi.fn(async () => undefined),
-  abandonPending: vi.fn(async () => undefined),
+  abandonPending: h.abandonPending,
+  recordChargeFailure: h.recordChargeFailure,
   settleAndProvision: vi.fn(),
   listUserPayments: vi.fn(),
 }))
@@ -80,6 +88,9 @@ beforeEach(() => {
   h.captured.insertArgs.length = 0
   h.createCardCharge.mockClear()
   h.insertPendingReserved.mockClear()
+  h.abandonPending.mockClear()
+  h.recordChargeFailure.mockClear()
+  h.gatewayAnswer.value = {}
 })
 
 describe('POST /api/v2/payment/charge', () => {
@@ -116,6 +127,52 @@ describe('POST /api/v2/payment/charge', () => {
     await p
     expect(out.status).toBe(400)
     expect(h.createCardCharge).not.toHaveBeenCalled()
+  })
+
+  // 🔴 #437 — the incident this ticket exists for. Omise answers a DECLINED card with HTTP 200 and a normal
+  // charge object (status 'failed'), never an error object, so nothing throws. Before #437 the handler read
+  // only `id` off that response and replied `status: 'PENDING'`, and the screen said "กำลังดำเนินการ" until
+  // the tab was closed. Real charge: chrg_test_68smuuztswneop8au3z, 2026-08-25.
+  it('MR4 — a card the gateway DECLINED is not reported as pending', async () => {
+    h.gatewayAnswer.value = { status: 'failed', paid: false, failureCode: 'payment_rejected', failureMessage: 'Payment was rejected' }
+    const { p, out } = invoke({ token: 'tok', package_code: 'MONTHLY' })
+    await p
+    expect(out.status).toBe(200) // the REQUEST succeeded; the PAYMENT did not — two different things
+    expect((out.body as { status: string }).status).toBe('REJECT')
+    expect((out.body as { status: string }).status).not.toBe('PENDING')
+    // and the row is marked, so the poller/webhook cannot keep treating it as in flight
+    expect(h.abandonPending).toHaveBeenCalled()
+  })
+
+  it('MR5 — the REASON the bank gave is written down, not just the refusal', async () => {
+    h.gatewayAnswer.value = { status: 'failed', paid: false, failureCode: 'insufficient_fund', failureMessage: 'Insufficient funds' }
+    const { p } = invoke({ token: 'tok', package_code: 'MONTHLY' })
+    await p
+    expect(h.recordChargeFailure).toHaveBeenCalled()
+    const [, failure] = h.recordChargeFailure.mock.calls[0] as [string, { code: string | null; message: string | null }]
+    expect(failure.code).toBe('insufficient_fund')
+    expect(failure.message).toBe('Insufficient funds')
+  })
+
+  // The other half of MR4: absence of an answer must NOT be read as refusal, or a gateway that simply
+  // did not report a status would start killing perfectly good charges.
+  it('a gateway that says nothing is still PENDING — silence is not a refusal', async () => {
+    h.gatewayAnswer.value = {} // exactly what every pre-#437 fake returned
+    const { p, out } = invoke({ token: 'tok', package_code: 'MONTHLY' })
+    await p
+    expect((out.body as { status: string }).status).toBe('PENDING')
+    expect(h.abandonPending).not.toHaveBeenCalled()
+    expect(h.recordChargeFailure).not.toHaveBeenCalled()
+  })
+
+  // A charge the gateway took successfully must still be PENDING here: only settleAndProvision (webhook /
+  // reconcile cron) may write APPROVED, because that is the step that also creates member_subscription.
+  it('an ACCEPTED card is still PENDING here — accepted is not settled', async () => {
+    h.gatewayAnswer.value = { status: 'successful', paid: true }
+    const { p, out } = invoke({ token: 'tok', package_code: 'MONTHLY' })
+    await p
+    expect((out.body as { status: string }).status).toBe('PENDING')
+    expect(h.abandonPending).not.toHaveBeenCalled()
   })
 
   it('MR3 — a package that maps to no paid tier ⇒ 400 BEFORE any charge (fail-loud, not silent)', async () => {
