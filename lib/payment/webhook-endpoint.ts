@@ -31,7 +31,12 @@ export class WebhookEndpointConfigError extends Error {
 }
 
 // Hostname forms Omise rejects. Checked here so a bad value fails at our door, not at the till.
-function hostnameIsRejected(hostname: string): boolean {
+//
+// 🔴 EXPORTED because #439 needs the same rule for the 3-D Secure return origin, and ตู๋ caught the first
+// attempt at that: a hand-copied version that had drifted on day one (no lowercasing, no bracketed IPv6 —
+// `https://[::1]/` passed the copy while this one rejects it). One implementation, two callers; there is
+// no version of "keep the copies in sync" that survives contact with a second person.
+export function hostnameIsRejected(hostname: string): boolean {
   const h = hostname.toLowerCase()
   if (h === 'localhost') return true
   if (h.endsWith('.localhost')) return true

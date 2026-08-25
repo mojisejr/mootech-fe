@@ -16,6 +16,11 @@ export type ChargeResult = {
   paid?: boolean
   failureCode?: string | null
   failureMessage?: string | null
+  // 🔴 #439 — where the bank wants the cardholder sent for 3-D Secure. Present ONLY when Omise decided the
+  // charge needs authentication; absent on a charge that settled or failed outright. Dropping it (which is
+  // what this adapter did until #439) turns "the bank wants to check who you are" into a charge that can
+  // never complete — and, before a return_uri existed, into an outright refusal.
+  authorizeUri?: string | null
 }
 
 export interface PaymentGateway {
@@ -24,6 +29,8 @@ export interface PaymentGateway {
     token: string
     email: string
     orderId: string
+    // #439 — rides into the return_uri so the cardholder comes back to the right checkout if declined.
+    packageCode?: string
   }): Promise<ChargeResult>
   createPromptPayCharge(args: {
     amountSatang: number

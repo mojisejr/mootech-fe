@@ -6,7 +6,7 @@ import { runChargeFlow } from '@/lib/payment/charge-flow'
 import { omiseGateway } from '@/lib/payment/omise-gateway'
 
 export default function handler(req: NextApiRequest, res: NextApiResponse) {
-  return runChargeFlow(req, res, 'card', ({ amountSatang, token, email, orderId }) =>
-    omiseGateway.createCardCharge({ amountSatang, token: token as string, email, orderId }),
+  return runChargeFlow(req, res, 'card', ({ amountSatang, token, email, orderId, packageCode }) =>
+    omiseGateway.createCardCharge({ amountSatang, token: token as string, email, orderId, packageCode }),
   )
 }

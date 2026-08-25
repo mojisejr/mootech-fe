@@ -27,7 +27,10 @@ export default function V2ResultPage() {
   // #438 — carried through from checkout so "เลือกวิธีชำระเงินอื่น" can land on the SAME package's checkout
   // instead of a bare /v2/shop/checkout, which resolves package_code to '' and makes /payment/preview 400.
   const packageCode = typeof router.query.package_code === 'string' ? router.query.package_code : ''
-  const { status, method, phase, check } = useChargeStatus(charge || null)
+  // #439 — a cardholder returning from their bank arrives with `order`, never `charge`: the return_uri had
+  // to be handed to Omise before Omise minted a charge id, so the only identifier it can carry is ours.
+  const order = typeof router.query.order === 'string' ? router.query.order : ''
+  const { status, method, phase, check } = useChargeStatus({ chargeId: charge || null, orderId: order || null })
 
   // Glue only — the rule lives in result-state.ts next to the words it chooses between, so it can be tested
   // without a router. That is not tidiness: the branch this ticket adds was missing precisely because the

@@ -1,6 +1,10 @@
 // #363 — Browser Truth for the checkout flow (/v2/shop → checkout → QR / result).
 //
 // Run:  E2E_BASE_URL=http://127.0.0.1:3363 npx playwright test e2e/v2-checkout.spec.ts
+// 🔴 The dev server needs NEXT_PUBLIC_OMISE_KEY_V2 set to ANY non-empty value as well as V2_PREVIEW_KEY
+//    (#439). Without it features/v2-shop/omise-token.ts throws OmiseKeyMissingError before tokenising and
+//    the card tests land on CARD_DECLINED — fail-closed, not a false green, but ตู๋ lost a run to it
+//    following these instructions, so it is written down here rather than learned twice.
 // Needs a dev server with V2_PREVIEW_KEY set — without it the middleware REWRITES every /v2/* request to
 // /maintenance AND STILL ANSWERS 200, so a status check proves nothing. Every test asserts it is on the real
 // screen before measuring.
@@ -177,5 +181,62 @@ test.describe("#438 a refused card is a road, not a wall", () => {
     await page.getByTestId("result-try-another").click();
     await expect(page).toHaveURL(/\/v2\/shop(\?|$)/);
     expect(page.url()).not.toContain("/checkout");
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// #439 — 3-D Secure. The card lane finally gets driven for real here: we stub window.Omise so tokenisation
+// resolves without loading Omise's CDN script, then stub the charge route to answer the way Omise answers a
+// charge that needs authentication. What is under test is OUR half — do we send the cardholder to the bank.
+test.describe("#439 the cardholder reaches their bank", () => {
+  async function arriveCheckout(page: Page, chargeJson: Record<string, unknown>) {
+    await page.context().addCookies([{ name: "v2_access", value: V2_KEY, url: BASE }]);
+    // 🔴 SERVE our own omise.js instead of the CDN's. addInitScript alone is not enough: _document.tsx:19
+    // loads https://cdn.omise.co/omise.js with strategy beforeInteractive, and the real script overwrites
+    // window.Omise — which then tries to tokenise for real against a fake public key, fails, and the page
+    // lands on CARD_DECLINED. Intercepting the script URL is the only way the stub survives.
+    await page.route("**/cdn.omise.co/omise.js", (r) =>
+      r.fulfill({
+        contentType: "application/javascript",
+        body: "window.Omise={setPublicKey:function(){},createToken:function(k,f,cb){cb(200,{id:'tokn_e2e'})}};",
+      }));
+    await page.route("**/api/v2/payment/preview", (r) => r.fulfill({ json: QUOTE }));
+    await page.route("**/api/v2/payment/charge", (r) => r.fulfill({ json: chargeJson }));
+    await page.route("**/api/v2/payment/status", (r) =>
+      r.fulfill({ json: { payments: [{ chargeId: "chrg_3ds", orderId: "ord_3ds", status: "PENDING", method: "card" }] } }));
+    await page.goto(`${BASE}/v2/shop/checkout?package_code=V2_PRO_YEARLY`);
+    await expect(page.getByTestId("order-summary")).toBeVisible();
+    await page.getByTestId("method-card").click();
+    await page.getByTestId("card-name").fill("David Watson");
+    await page.getByTestId("card-number").fill("4242424242424242");
+    await page.getByTestId("card-expiry").fill("04/2030");
+    await page.getByTestId("card-cvc").fill("123");
+  }
+
+  // 🔴 THE WHOLE TICKET. Before #439 the adapter dropped authorize_uri, so this navigation could not happen
+  // at all — and with 3DS switched on at Omise the charge was refused outright instead.
+  test("a charge that needs authentication navigates AWAY to the bank", async ({ page }) => {
+    await arriveCheckout(page, { chargeId: "chrg_3ds", status: "PENDING", authorizeUri: `${BASE}/__fake-bank__?x=1` });
+    await page.getByTestId("checkout-pay").click();
+    await page.waitForURL(/__fake-bank__/);
+    expect(page.url()).toContain("__fake-bank__");
+  });
+
+  test("a charge that needs NO authentication still goes to our own result screen", async ({ page }) => {
+    await arriveCheckout(page, { chargeId: "chrg_3ds", status: "PENDING" });
+    await page.getByTestId("checkout-pay").click();
+    await page.waitForURL(/\/v2\/shop\/result/);
+    expect(page.url()).toContain("charge=chrg_3ds");
+    expect(page.url()).not.toContain("__fake-bank__");
+  });
+
+  // The return leg: the bank sends them back with OUR orderId and no charge id anywhere.
+  test("coming back from the bank with only an order id still finds the row", async ({ page }) => {
+    await page.context().addCookies([{ name: "v2_access", value: V2_KEY, url: BASE }]);
+    await page.route("**/api/v2/payment/status", (r) =>
+      r.fulfill({ json: { payments: [{ chargeId: "chrg_3ds", orderId: "ord_3ds", status: "REJECT", method: "card" }] } }));
+    await page.goto(`${BASE}/v2/shop/result?state=PAYING&order=ord_3ds&package_code=V2_PRO_YEARLY`);
+    // it resolved the row by orderId alone — otherwise the screen would still be "กำลังดำเนินการ"
+    await expect(page.getByTestId("result-screen")).toHaveAttribute("data-state", "CARD_DECLINED");
   });
 });
