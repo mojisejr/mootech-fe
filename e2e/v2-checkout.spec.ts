@@ -1,6 +1,10 @@
 // #363 — Browser Truth for the checkout flow (/v2/shop → checkout → QR / result).
 //
 // Run:  E2E_BASE_URL=http://127.0.0.1:3363 npx playwright test e2e/v2-checkout.spec.ts
+// 🔴 The dev server needs NEXT_PUBLIC_OMISE_KEY_V2 set to ANY non-empty value as well as V2_PREVIEW_KEY
+//    (#439). Without it features/v2-shop/omise-token.ts throws OmiseKeyMissingError before tokenising and
+//    the card tests land on CARD_DECLINED — fail-closed, not a false green, but ตู๋ lost a run to it
+//    following these instructions, so it is written down here rather than learned twice.
 // Needs a dev server with V2_PREVIEW_KEY set — without it the middleware REWRITES every /v2/* request to
 // /maintenance AND STILL ANSWERS 200, so a status check proves nothing. Every test asserts it is on the real
 // screen before measuring.

@@ -45,6 +45,12 @@ export function pickCharge(rows: PaymentRow[], chargeId: string): PaymentRow | n
  *
  * chargeId wins when both are given: it is the narrower key (unique index on v2_payment.charge_id),
  * while orderId is only unique in practice.
+ *
+ * 📌 KNOWN, DELIBERATE (ตู๋, review of #448): on a duplicate orderId this takes the first row, while the
+ * server's settleAndProvision refuses and returns AMBIGUOUS. The two disagree on purpose — the server is
+ * deciding whether money moved, this is only deciding which row to SHOW, and the rows it can see are
+ * already scoped to the session user by listUserPayments. Worst case is a user seeing their own other
+ * row. Tighten this the day orderId collisions stop being theoretical.
  */
 export function pickPayment(rows: PaymentRow[], by: { chargeId?: string | null; orderId?: string | null }): PaymentRow | null {
   if (by.chargeId) {

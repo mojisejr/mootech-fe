@@ -18,6 +18,8 @@
 //
 // 🔴 CARD ONLY. PromptPay keeps the old OMISE_RETURN_URI (unset on prod, verified 2026-08-25) so this
 // ticket cannot move a lane it was not asked to touch — ฟีม เคาะทาง B.
+import { hostnameIsRejected } from './webhook-endpoint'
+
 export const CARD_RETURN_ORIGIN_ENV = 'OMISE_RETURN_ORIGIN_V2'
 
 export class ReturnUriConfigError extends Error {
@@ -25,13 +27,6 @@ export class ReturnUriConfigError extends Error {
     super(message)
     this.name = 'ReturnUriConfigError'
   }
-}
-
-/** Same rejects Omise applies to webhook endpoints; a bank redirect has the same shape of requirement. */
-function hostnameIsRejected(hostname: string): boolean {
-  if (hostname === 'localhost' || hostname.endsWith('.localhost')) return true
-  if (/^\d+$/.test(hostname.replace(/\./g, ''))) return true // 127.0.0.1 / all-digit host
-  return false
 }
 
 /**

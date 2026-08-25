@@ -53,6 +53,17 @@ describe('#439 the URL we hand the bank', () => {
     expect(cardReturnUri({ orderId: 'o', packageCode: 'p' }, { [CARD_RETURN_ORIGIN_ENV]: '   ' })).toBeNull()
   })
 
+  // 🔴 ตู๋ found the first version of this file hand-copying webhook-endpoint's host rule and drifting on
+  // day one: `https://[::1]/` passed the copy and was rejected by the original. The copy is gone (one
+  // exported implementation now), and this test is what makes a future re-copy visible.
+  it('🔴 MZ5b — the host rule is the SAME one the webhook endpoint uses, not a lookalike', () => {
+    for (const bad of ['https://[::1]/', 'https://[fe80::1]/', 'https://LOCALHOST/', 'https://sub.LocalHost/', 'https://192.168.1.1/', 'https://12345/']) {
+      expect(() => cardReturnUri({ orderId: 'o', packageCode: 'p' }, { [CARD_RETURN_ORIGIN_ENV]: bad }), bad).toThrow(ReturnUriConfigError)
+    }
+    // CONTROL — a real host must still pass, or the test above proves nothing
+    expect(cardReturnUri({ orderId: 'o', packageCode: 'p' }, { [CARD_RETURN_ORIGIN_ENV]: 'https://mumate.com' })).toContain('https://mumate.com/')
+  })
+
   it('🔴 MZ5 — an origin the bank cannot redirect a real browser to is refused, not patched', () => {
     // the BANK redirects the CUSTOMER'S browser — localhost is this machine, not theirs
     for (const bad of ['http://mumate.example.com', 'https://localhost:3000', 'https://127.0.0.1']) {
