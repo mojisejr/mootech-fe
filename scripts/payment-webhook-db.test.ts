@@ -105,6 +105,24 @@ describe.skipIf(!TEST_URL)('payment webhook · real pg (#355)', () => {
     sql`INSERT INTO v2_payment (id, user_id, package_code, tier_code, amount_satang, vat_satang, expire, buffer_day, method, charge_id, order_id, status)
         VALUES (${'v2p-' + chargeId}, ${userId}, ${pkg}, ${tier}, ${amount}, 0, ${expire}, ${bufferDay}, 'card', ${chargeId}, ${'ord' + chargeId}, 'PENDING')`
 
+  const seedSub = (
+    id: string,
+    userId: string,
+    tier: string,
+    expireAt: string,
+    status = 'ACTIVE',
+    startAt = bkk(NOW),
+  ) =>
+    sql`INSERT INTO member_subscription (id, user_id, tier_code, package_code, amount_satang, start_at, expire_at, status)
+        VALUES (${id}, ${userId}, ${tier}, ${'PKG-' + tier}, 79000, ${startAt}, ${expireAt}, ${status})`
+
+  const addDaysStr = (ymd: string, n: number) => {
+    const [y, m, d] = ymd.split('-').map(Number)
+    const t = new Date(Date.UTC(y, m - 1, d + n))
+    return `${t.getUTCFullYear()}-${String(t.getUTCMonth() + 1).padStart(2, '0')}-${String(t.getUTCDate()).padStart(2, '0')}`
+  }
+  const dateOf = (v: unknown) => (v instanceof Date ? bkk(v) : String(v).slice(0, 10))
+
   it('full path: a signed charge.complete webhook → 200, APPROVED, and a member_subscription + shadow', async () => {
     await seedPending('C1', users[0])
     const raw = chargeEvent('C1')
@@ -171,19 +189,44 @@ describe.skipIf(!TEST_URL)('payment webhook · real pg (#355)', () => {
     ).rejects.toThrow(/check|expire/i)
   })
 
-  it('🔴 shadow MERGE: an existing member with a LATER expiry keeps it (days never burn), plan stays MEMBER', async () => {
+  // 🔴 CHANGED BY #456 — READ THIS BEFORE TRUSTING THE OLD NUMBER. Until #456 this test asserted the shadow
+  // stayed at exactly '2027-12-31', and it passed. It passed while the user was LOSING fifteen months.
+  //
+  // The reason is the gap between what this test measured and what the user experiences:
+  // lib/v2/subscription.ts:142 picks a live member_subscription row OVER the legacy member_payment date. So
+  // a legacy member who bought one month got a v2 row expiring next month, and THAT is what every screen
+  // then read — their 2027-12-31 was still sitting in member_payment, correct, preserved, and no longer
+  // consulted by anybody. This test watched the store that had stopped deciding.
+  //
+  // Under #456 the purchase carries their remaining days: 2027-12-31 + the month they just bought =
+  // 2028-01-31, in BOTH stores. The original claim ("days never burn") is now asserted where it can
+  // actually be observed — at the reader — and the shadow is additionally pinned as never-shortened rather
+  // than never-changed.
+  it('🔴 shadow MERGE + #456 carry-over: a legacy member with a LATER expiry keeps every day AND gains the month they bought', async () => {
     // synthetic member_payment for a user that has none — far-future expiry
     await sql`INSERT INTO member_payment (user_id, plan_code, package_code, create_at, start_at, expire_at)
       VALUES (${users[2]}, 'MEMBER', 'SOULMATE', '2026-01-01 00:00:00', '2026-01-01', '2027-12-31')`
-    await seedPending('C5', users[2]) // MONTHLY → +1 month, much sooner than 2027-12-31
+    await seedPending('C5', users[2]) // MONTHLY → +1 month, on TOP of 2027-12-31 (was: instead of it)
     const out = await fireWebhook(chargeEvent('C5'), signOmisePayload(chargeEvent('C5'), TS, SECRET), TS)
     expect(out.status).toBe(200)
+
     const [mp] = await sql`SELECT plan_code, expire_at FROM member_payment WHERE user_id = ${users[2]}`
     expect(mp.plan_code).toBe('MEMBER')
-    expect(String(mp.expire_at)).toBe('2027-12-31') // GREATEST — NOT shortened to next month
+    // GREATEST still holds: the shadow is never SHORTENED. It may now move forward, because the purchase
+    // genuinely added time — a mutant that shortens it below the legacy date still reddens here.
+    expect(dateOf(mp.expire_at) >= '2027-12-31').toBe(true)
+    expect(dateOf(mp.expire_at)).toBe(addDaysStr('2027-12-31', 31)) // Dec 31 + the 1M package = 2028-01-31
+
     // and a fresh subscription row was still recorded for this purchase
-    const subs = await sql`SELECT id FROM member_subscription WHERE user_id = ${users[2]}`
+    const subs = await sql`SELECT id, expire_at FROM member_subscription WHERE user_id = ${users[2]}`
     expect(subs.length).toBe(1)
+
+    // 🔴 THE ASSERTION THE OLD VERSION WAS MISSING: what the user's screen actually reads. This is the one
+    // that would have caught the loss, and the one a future mutant has to get past.
+    const { resolveSubscription } = await import('@/lib/v2/subscription')
+    const verdict = await resolveSubscription(users[2], NOW)
+    expect(verdict.isPaid).toBe(true)
+    expect(dateOf(subs[0].expire_at) >= '2027-12-31', 'the live v2 row must not expire before the legacy date it overrides').toBe(true)
   })
 
   // ══ #371 · เงินออกแล้วแต่ charge_id ไม่เคยถูกผูกกับแถว ═══════════════════════════════════════════════
@@ -398,5 +441,114 @@ describe.skipIf(!TEST_URL)('payment webhook · real pg (#355)', () => {
       await sql`DELETE FROM member_subscription WHERE v2_payment_id = 'p371-i'`
       await sql`DELETE FROM v2_payment WHERE id = 'p371-i'`
     }
+  })
+
+  // ── #456 — ซื้อซ้ำ / อัปเกรด, against real postgres ──────────────────────────────────────────────
+  //
+  // This is the half the pure tests cannot reach: the DoD's "แถวเก่ากลายเป็น REPLACED และ
+  // pickActiveSubscriptionRow หยิบแถวใหม่" is a claim about two writes landing together in one
+  // transaction, and about what the READER then sees. Only a real DB can answer it.
+  it('#456 ① upgrade PLUS→PRO: the old row becomes REPLACED and the 100 days left FOLLOW onto the new row', async () => {
+    const u = users[2]
+    const today = bkk(NOW)
+    const oldExpire = addDaysStr(today, 100)
+    await seedSub('s456-old', u, 'PLUS', oldExpire)
+    await seedPending('C456A', u, 'YEARLY-PRO', 'PRO', 129000, '1Y', 0)
+
+    const r = await settleAndProvision('C456A')
+    expect(r.provisioned).toBe(true)
+
+    const rows = await sql`SELECT id, tier_code, status, expire_at FROM member_subscription
+                           WHERE user_id = ${u} ORDER BY status`
+    expect(rows.length).toBe(2) // history is preserved — nothing is deleted (Principle 1)
+
+    const oldRow = rows.find((r) => r.id === 's456-old')
+    const newRow = rows.find((r) => r.id !== 's456-old')
+    expect(oldRow?.status, 'the superseded row must be REPLACED').toBe('REPLACED')
+    expect(newRow?.status).toBe('ACTIVE')
+    expect(newRow?.tier_code).toBe('PRO')
+
+    // 🔴 THE NUMBER THIS TICKET EXISTS FOR: 1 year from today PLUS the 100 days they had left.
+    const expected = addDaysStr(computeExpireDate(today, 0, { value: 1, unit: 'Y' }), 100)
+    expect(dateOf(newRow?.expire_at)).toBe(expected)
+  })
+
+  it('#456 ② the READER then answers PRO — the new row wins and the REPLACED one is invisible', async () => {
+    const u = users[2]
+    const today = bkk(NOW)
+    await seedSub('s456-old2', u, 'PLUS', addDaysStr(today, 100))
+    await seedPending('C456B', u, 'YEARLY-PRO', 'PRO', 129000, '1Y', 0)
+    await settleAndProvision('C456B')
+
+    const { resolveSubscription } = await import('@/lib/v2/subscription')
+    const verdict = await resolveSubscription(u, NOW)
+    expect(verdict.isPaid).toBe(true)
+    expect(verdict.tier).toBe('PRO')
+    expect(verdict.source).toBe('v2')
+  })
+
+  it('#456 ③ a FIRST purchase is unchanged — no prior row ⇒ the span is exactly the package, not a day more', async () => {
+    const u = users[3]
+    const today = bkk(NOW)
+    await seedPending('C456C', u, 'MONTHLY', 'PLUS', 50000, '1M', 0)
+    await settleAndProvision('C456C')
+
+    const rows = await sql`SELECT status, expire_at FROM member_subscription WHERE user_id = ${u}`
+    expect(rows.length).toBe(1)
+    expect(rows[0].status).toBe('ACTIVE')
+    expect(dateOf(rows[0].expire_at)).toBe(computeExpireDate(today, 0, { value: 1, unit: 'M' }))
+  })
+
+  it('#456 ④ an EXPIRED row is not superseded and carries nothing — a lapsed member simply buys again', async () => {
+    const u = users[2]
+    const today = bkk(NOW)
+    await seedSub('s456-dead', u, 'PLUS', addDaysStr(today, -30)) // ACTIVE status, but past its expiry
+    await seedPending('C456D', u, 'MONTHLY', 'PLUS', 50000, '1M', 0)
+    await settleAndProvision('C456D')
+
+    const [dead] = await sql`SELECT status FROM member_subscription WHERE id = 's456-dead'`
+    expect(dead.status, 'a row that already expired was not superseded by this purchase').toBe('ACTIVE')
+    const [fresh] = await sql`SELECT expire_at FROM member_subscription WHERE user_id = ${u} AND id <> 's456-dead'`
+    expect(dateOf(fresh.expire_at)).toBe(computeExpireDate(today, 0, { value: 1, unit: 'M' })) // nothing carried
+  })
+
+  it('#456 ⑤ two accepted charges settling one after the other CHAIN — the second carries the first\'s days', async () => {
+    const u = users[3]
+    const today = bkk(NOW)
+    await seedPending('C456E', u, 'MONTHLY', 'PLUS', 50000, '1M', 0)
+    await seedPending('C456F', u, 'YEARLY-PRO', 'PRO', 129000, '1Y', 0)
+
+    await settleAndProvision('C456E') // → PLUS, 1 month
+    await settleAndProvision('C456F') // → PRO, 1 year + whatever the month had left
+
+    const rows = await sql`SELECT status, tier_code, expire_at FROM member_subscription WHERE user_id = ${u}`
+    expect(rows.length).toBe(2)
+    expect(rows.filter((r) => r.status === 'ACTIVE').length, 'exactly ONE live row — the bug was two').toBe(1)
+
+    const live = rows.find((r) => r.status === 'ACTIVE')
+    expect(live?.tier_code).toBe('PRO')
+    // The month's remaining days = its expiry minus today; they ride onto the year.
+    const monthExpire = computeExpireDate(today, 0, { value: 1, unit: 'M' })
+    const carried = Math.round((Date.parse(monthExpire) - Date.parse(today)) / 86_400_000)
+    expect(dateOf(live?.expire_at)).toBe(addDaysStr(computeExpireDate(today, 0, { value: 1, unit: 'Y' }), carried))
+  })
+
+  it('#456 ⑥ a LEGACY member (member_payment only, no tier name) may buy, and their days follow', async () => {
+    const u = users[3]
+    const today = bkk(NOW)
+    const legacyExpire = addDaysStr(today, 60)
+    await sql`INSERT INTO member_payment (user_id, plan_code, package_code, create_at, start_at, expire_at)
+              VALUES (${u}, 'MEMBER', 'LEGACY', ${today + ' 00:00:00'}, ${today}, ${legacyExpire})`
+    await seedPending('C456G', u, 'YEARLY-PRO', 'PRO', 129000, '1Y', 0)
+    await settleAndProvision('C456G')
+
+    const rows = await sql`SELECT status, tier_code, expire_at FROM member_subscription WHERE user_id = ${u}`
+    expect(rows.length).toBe(1)
+    expect(rows[0].tier_code).toBe('PRO')
+    expect(dateOf(rows[0].expire_at)).toBe(addDaysStr(computeExpireDate(today, 0, { value: 1, unit: 'Y' }), 60))
+
+    // 🔴 And the shadow must not have been shortened either — GREATEST still holds.
+    const [mp] = await sql`SELECT expire_at FROM member_payment WHERE user_id = ${u}`
+    expect(dateOf(mp.expire_at) >= legacyExpire).toBe(true)
   })
 })

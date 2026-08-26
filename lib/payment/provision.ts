@@ -79,16 +79,29 @@ export type ShadowWrite = {
 
 // Build the two writes for a successful payment. `existingMemberPayment` is the caller's current
 // member_payment row (or null) — only its expireAt matters, for the GREATEST merge.
+//
+// 🔴 #456 — `carryOverDays` is the days the buyer had LEFT on what they already held, and they are added on
+// top of the package's own span. This is ทาง C (ฟีมเคาะ 2026-08-26): full price, no proration, but not one
+// paid day is lost. It defaults to 0 so every existing caller and every FIRST purchase behaves exactly as
+// before — the DoD requires a first purchase to be unchanged "แม้แต่วันเดียว".
+//
+// 🔴 It is added to the SUBSCRIPTION row, and the shadow merge then sees the carried span too. That
+// direction matters: lib/v2/subscription.ts picks a live v2 row OVER the legacy member_payment date, so a
+// v2 row written WITHOUT the carry-over would win against — and therefore silently shorten — a longer
+// legacy membership. Carrying first and merging second means neither store can shorten the other.
 export function buildProvision(args: {
   userId: string
   quote: Quote
   paymentId: string
   today: string
   existingMemberPayment: { expireAt?: string | null } | null
+  carryOverDays?: number
 }): { subscription: SubscriptionWrite; shadow: ShadowWrite } {
   const { userId, quote, paymentId, today, existingMemberPayment } = args
+  // Never negative (that would SHORTEN the purchase) and never fractional — days are whole things here.
+  const carryOverDays = Math.max(0, Math.trunc(args.carryOverDays ?? 0) || 0)
   const startAt = addDays(today, Math.max(0, Math.trunc(quote.bufferDay) || 0))
-  const newExpire = computeExpireDate(today, quote.bufferDay, quote.expire)
+  const newExpire = addDays(computeExpireDate(today, quote.bufferDay, quote.expire), carryOverDays)
 
   return {
     subscription: {

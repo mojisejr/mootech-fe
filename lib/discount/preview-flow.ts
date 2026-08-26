@@ -2,6 +2,7 @@
 // two can never disagree about the money (ตู๋ T6/B3). preview writes the result into payment_quote; charge
 // recomputes with this same function and COMPARES against the stored quote.
 import { quotePackage, UnsellablePackageError } from '@/lib/payment/catalog'
+import type { TierCode } from '@/lib/v2/tier'
 import { getPackage } from '@/lib/payment/repo'
 import { codeApplies, quoteWithCode, type DiscountCodeSpec } from './rules'
 import { getCodeByString, findLegacyCode, toSpec, type DiscountCodeRow } from './repo'
@@ -14,7 +15,10 @@ export type PriceResult =
   | {
       ok: true
       packageCode: string
-      tierCode: string
+      // #456 — NARROWED from `string`. quotePackage (lib/payment/catalog.ts:78-81) already refuses anything
+      // that is not a named PAID tier before returning, so `string` was always wider than the value. The
+      // repurchase gate compares this against the ladder and must not be handed an unplaceable string.
+      tierCode: TierCode
       expire: string
       bufferDay: number
       listSatang: number
