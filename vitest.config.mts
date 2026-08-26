@@ -107,6 +107,7 @@ export default defineConfig({
       'scripts/member-subscription-db.test.ts', // #354 — real pg (skipIf !TEST_DATABASE_URL): migration/parity/determinism/fallback
       'scripts/payment-catalog.test.ts', // #355 — pure: server pricing (satang/VAT-backward) + tier allow-list fail-loud
       'scripts/payment-provision.test.ts', // #355 — pure: expire date math + shadow GREATEST merge (days never burn)
+      'scripts/payment-purchase-gate.test.ts', // #456 — pure: ซื้อซ้ำ/อัปเกรด — เมทริกซ์ 5 แถว + วันที่เหลือตามไปด้วย
       'scripts/payment-webhook-verify.test.ts', // #355 — pure: Omise HMAC verify, fail-closed (main-lane money gate)
       'scripts/vitest-include-drift.test.ts',
     'scripts/payment-charge-route.test.ts', // #355 — route: session gate + client-ignored + fail-loud-before-charge
