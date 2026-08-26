@@ -11,7 +11,20 @@ import { evidenceDir } from './evidence-dir.mjs'
 const REPO = dirname(dirname(fileURLToPath(import.meta.url)))
 // #417 — the output root is a value now, not a string spelled out here. See harness/evidence-dir.mjs.
 const OUT = evidenceDir()
-const KEY=execSync(`grep '^V2_PREVIEW_KEY=' " + pjoin(REPO, '.env.local') + " | cut -d= -f2- | tr -d '"'`).toString().trim()
+// 🔴 #365 — this was `" + pjoin(REPO, '.env.local') + "` : string-concat syntax sitting INSIDE a template
+// literal, so it was never interpolated. The shell received those characters verbatim, grep failed on a file
+// literally named ` + pjoin(REPO, '.env.local') + `, and — because a pipeline exits with its LAST command's
+// status (tr, 0) — execSync did not throw. KEY came out ''. An empty v2_access cookie sends every /v2/* to
+// /maintenance (middleware.ts:56), which has none of the header testids, so every capture below returned
+// 'SCREEN DID NOT RENDER'. Loud, not silently green — but this harness has not produced a real pixel number
+// since it was written. The four sibling harnesses (363/276/277) always had the ${...} form; only the two
+// #384 ones drifted.
+const KEY=execSync(`grep '^V2_PREVIEW_KEY=' ${pjoin(REPO, '.env.local')} | cut -d= -f2- | tr -d '"'`).toString().trim()
+// #365 — fail loudly and IMMEDIATELY when the key is missing, instead of letting an empty cookie walk every
+// capture into /maintenance and reporting 'SCREEN DID NOT RENDER' fifteen times. A harness that cannot
+// measure must say WHY on line one; the old shape made the reader debug Playwright to find an env problem.
+// (.env.local is gitignored, so a fresh worktree does not have one — `cp ../mootech-fe/.env.local .` first.)
+if (!KEY) throw new Error('V2_PREVIEW_KEY not found in .env.local — every /v2/* would rewrite to /maintenance and nothing below would measure anything. Copy .env.local into this worktree first.')
 
 const SCREENS=[
  {k:'service',       path:'/v2/service',                    tid:'service-header'},
