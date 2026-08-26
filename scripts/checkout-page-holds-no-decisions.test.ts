@@ -13,7 +13,23 @@
 // while a paying member was told their bank had declined them.
 //
 // A unit test on the pure function cannot see that: the page can simply stop calling it. This file watches
-// the page itself, as SOURCE, because there is nothing else in the repo that renders it.
+// the page itself, as SOURCE.
+//
+// 🔴 AND SOURCE IS ALL IT WATCHES — read this before trusting the file name (ตู๋, review r2 of ec6e66c).
+// It enforces VOCABULARY: that the page does not spell a result state or build a result URL. It cannot
+// enforce BEHAVIOUR. ตู๋ put the whole bug back without typing one forbidden word, using a helper this very
+// PR added:
+//
+//     + if (!r.ok) { setPaying(false); void router.push(tokenizationFailedDestination(packageCode).href); return }
+//
+// …and every assertion below stayed green while a paying member was told their bank had declined them.
+// **409 is `!r.ok`.** A guard weaker than its own name is worse than no guard, because the next reviewer
+// stops looking here.
+//
+// ⇒ The BEHAVIOUR is guarded by scripts/checkout-pay-mount.test.tsx, which mounts the page and presses the
+// button. This file stays because it caught a real leftover the moment it was written (the catch block was
+// still routing to CARD_DECLINED by hand) and because it keeps the page from re-growing decisions in
+// vocabulary the mount test does not happen to exercise. It is a second net, not the net.
 //
 // 🔴 MUTANT CONTRACT:
 //   MK1  put a result-state literal back in the page          → "names no destination" reddens
