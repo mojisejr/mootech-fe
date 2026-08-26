@@ -95,6 +95,21 @@ export const PLANS: readonly Plan[] = [
   },
 ]
 
+/** #466 — the plan NAME for a tier code, from the SAME list the cards are drawn from.
+ *
+ *  🔴 A fourth copy of this mapping was the easy move and the wrong one: `plan.ts:24` and
+ *  `payment-history.ts:55` already each hold their own, and `PackageCard.tsx:159` records that ฟีม decided
+ *  the screen says `Mumate +` / `Mumate Pro` and never `PLUS` / `PRO`. One more hand-typed table is one more
+ *  place for that decision to drift out of. This reads PLANS, so a renamed plan renames everywhere at once.
+ *
+ *  null when the tier is unknown or has no plan — the caller must say something tier-less rather than
+ *  print a code at the user. */
+export function planNameForTier(tier: string | null | undefined): string | null {
+  if (!tier) return null
+  const id = tier.toLowerCase()
+  return PLANS.find((p) => p.id === id)?.name ?? null
+}
+
 /** The code this plan sells for the selected period, or null when it is not sellable yet. */
 export function codeFor(plan: Plan, period: BillingPeriod): string | null {
   return plan.codes[period]

@@ -18,7 +18,8 @@ import { CardForm, type CardState } from '@/features/v2-shop/components/CardForm
 import { useCheckout } from '@/features/v2-shop/useCheckout'
 import { createCardToken } from '@/features/v2-shop/omise-token'
 import { formatSatang } from '@/features/v2-shop/usePackagePrice'
-import { PLANS } from '@/features/v2-shop/packages'
+import { PLANS, planNameForTier } from '@/features/v2-shop/packages'
+import { refusedHref } from '@/features/v2-shop/result-state'
 
 export const getServerSideProps: GetServerSideProps = async (ctx) => {
   ctx.res.setHeader('Cache-Control', 'no-store, must-revalidate')
@@ -41,6 +42,19 @@ export default function V2CheckoutPage({ teamPreview }: { teamPreview: boolean }
   const plan = PLANS.find((p) => Object.values(p.codes).includes(packageCode))
   const planName = plan ? `${plan.name} · ${packageCode.endsWith('YEARLY') ? 'รายปี' : 'รายเดือน'}` : packageCode
 
+  // #466 — the decision itself lives in result-state.ts (pure, tested). This only supplies the two things
+  // the page knows: the plan the user tried to buy, and the plan they already hold.
+  //   ALREADY_ON_THIS_TIER  they hold the one they just tried to buy — that is `plan` right here
+  //   CANNOT_DOWNGRADE      they hold something HIGHER, which only the client knows: the server's 409
+  //                         names the SITUATION, deliberately not the tier
+  const refused = (status: number, purchaseError?: string) =>
+    refusedHref({
+      status,
+      purchaseError,
+      packageCode,
+      planName: purchaseError === 'ALREADY_ON_THIS_TIER' ? plan?.name : planNameForTier(tier.tier),
+    })
+
   async function pay() {
     if (!co.quote || paying) return
     setPaying(true)
@@ -50,7 +64,10 @@ export default function V2CheckoutPage({ teamPreview }: { teamPreview: boolean }
           method: 'POST', headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ package_code: packageCode, quote_id: co.quote.quoteId, ...(co.quote.codeApplied ? { code: co.quote.codeApplied } : {}) }),
         })
-        const d = (await r.json()) as { chargeId?: string; qr?: string }
+        const d = (await r.json()) as { chargeId?: string; qr?: string; purchaseError?: string }
+        // 🔴 #466 — same question on the PromptPay lane, where the fallback blamed our own network.
+        const refusedPP = refused(r.status, d.purchaseError)
+        if (refusedPP) { setPaying(false); void router.push(refusedPP); return }
         if (!r.ok || !d.chargeId || !d.qr) { setPaying(false); void router.push('/v2/shop/result?state=OFFLINE'); return }
         void router.push(`/v2/shop/qrcode?charge=${encodeURIComponent(d.chargeId)}&qr=${encodeURIComponent(d.qr)}&amount=${co.quote.amountSatang}`)
         return
@@ -61,7 +78,13 @@ export default function V2CheckoutPage({ teamPreview }: { teamPreview: boolean }
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ package_code: packageCode, token, quote_id: co.quote.quoteId, ...(co.quote.codeApplied ? { code: co.quote.codeApplied } : {}) }),
       })
-      const d = (await r.json()) as { chargeId?: string; authorizeUri?: string }
+      const d = (await r.json()) as { chargeId?: string; authorizeUri?: string; purchaseError?: string }
+      // 🔴 #466 — ASK WHY BEFORE DECIDING WHAT TO SAY, and it matters MOST on this lane: the fallback on
+      // the next line names the BANK, and the bank never saw this card. mootech-fe#456 refuses the purchase
+      // at lib/payment/charge-flow.ts:66 — before Omise is called at all — so there is nothing for a bank
+      // to have declined. Returns null for every other failure, leaving the old behaviour untouched.
+      const refusedCard = refused(r.status, d.purchaseError)
+      if (refusedCard) { setPaying(false); void router.push(refusedCard); return }
       if (!r.ok || !d.chargeId) { setPaying(false); void router.push(`/v2/shop/result?state=CARD_DECLINED&package_code=${encodeURIComponent(packageCode)}`); return }
       // 🔴 #439 — THE BANK WANTS TO SEE THEM FIRST. When Omise returns an authorize_uri the charge is not
       // finished and cannot finish here: the cardholder has to authenticate on their bank's page, and Omise

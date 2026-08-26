@@ -108,6 +108,7 @@ export default defineConfig({
       'scripts/payment-catalog.test.ts', // #355 — pure: server pricing (satang/VAT-backward) + tier allow-list fail-loud
       'scripts/payment-provision.test.ts', // #355 — pure: expire date math + shadow GREATEST merge (days never burn)
       'scripts/payment-purchase-gate.test.ts', // #456 — pure: ซื้อซ้ำ/อัปเกรด — เมทริกซ์ 5 แถว + วันที่เหลือตามไปด้วย
+      'scripts/purchase-gate-db.test.ts', // #466 — real pg (skipIf !TEST_DATABASE_URL): ด่านอ่านฐานข้อมูลแล้วเห็นว่าเป็นสมาชิกจริงไหม
       'scripts/payment-webhook-verify.test.ts', // #355 — pure: Omise HMAC verify, fail-closed (main-lane money gate)
       'scripts/account-screen-mount.test.tsx', // #365 — จอประกอบจริง: ประวัติล้มแล้วต้องไม่พูดว่า 'ยังไม่มีรายการ' (ตู๋ R1/R2)
       'scripts/account-screen.test.tsx', // #365 — จอสิทธิ์ของฉัน: ป้ายพาไป · planFor · ตัวกรอง APPROVED · วันที่ พ.ศ.
