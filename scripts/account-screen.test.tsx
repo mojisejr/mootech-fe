@@ -7,13 +7,16 @@
 //   A3  planFor stops reading tier and always says Free  → the legacy + PRO cases red
 //   A4  toHistoryItems drops the APPROVED filter         → the history filter case red
 //   A5  formatThaiDateAbbr uses CE instead of BE         → the date case red
+//   A6  toHistoryItems slices the ISO string again        → the 00:00–06:59 Thai cases red   (ตู๋ ①, 8cbe56b)
+//   A7  historyState folds `errored` into empty           → the "our failure is not their fact" case red (ตู๋ ②)
 import React from 'react'
 import { describe, it, expect, vi, afterEach } from 'vitest'
 import { render, screen, cleanup } from '@testing-library/react'
 import { CookiesProvider } from 'react-cookie'
 import { HeaderTools } from '@/features/v2-shell/components/AppHeader'
 import { planFor } from '@/features/v2-account/plan'
-import { toHistoryItems, type PaymentRow } from '@/features/v2-account/payment-history'
+import { toHistoryItems, historyState, type PaymentRow } from '@/features/v2-account/payment-history'
+import { HistoryCard } from '@/features/v2-account/components/HistoryCard'
 import { formatThaiDateAbbr } from '@/lib/v2/thai-date'
 import { ACCOUNT_HREF } from '@/features/v2-account/account-cta'
 import { readFileSync } from 'node:fs'
@@ -32,6 +35,17 @@ afterEach(cleanup)
 
 const renderTools = (props: Record<string, unknown>) =>
   render(<CookiesProvider>{React.createElement(HeaderTools, props)}</CookiesProvider>)
+
+// 🔴 CODE ONLY, NEVER PROSE. The first draft of this tooth matched the raw file — and AccountScreen.tsx
+// mentions `tierLink={false}` twice in comments explaining WHY it is there. Deleting the real prop would
+// have left the tooth green, guarded by its own documentation. Caught by firing the mutant and watching
+// it survive; the same trap scripts/header-tier-badge.test.tsx:39 records for #384.
+const code = (rel: string) =>
+  readFileSync(join(process.cwd(), rel), 'utf8')
+    .replace(/\{\s*\/\*[\s\S]*?\*\/\s*\}/g, '') // {/* jsx comment */}
+    .replace(/\/\*[\s\S]*?\*\//g, '')                // /* block */
+    .replace(/^\s*\/\/.*$/gm, '')                      // // line
+const read = code
 
 const PAID_PRO = { isPaid: true as const, tier: 'PRO' as const }
 
@@ -69,15 +83,6 @@ describe('#365 ป้ายระดับ — ปลายทางมีจร
 })
 
 describe('#365 การต่อสาย (SOURCE-LEVEL — ไม่ใช่ render)', () => {
-  // 🔴 CODE ONLY, NEVER PROSE. The first draft of this tooth matched the raw file — and AccountScreen.tsx
-  // mentions `tierLink={false}` twice in comments explaining WHY it is there. Deleting the real prop would
-  // have left the tooth green, guarded by its own documentation. Caught by firing the mutant and watching
-  // it survive; the same trap scripts/header-tier-badge.test.tsx:39 records for #384.
-  const code = (rel: string) =>
-    readFileSync(join(process.cwd(), rel), 'utf8')
-      .replace(/\{\s*\/\*[\s\S]*?\*\/\s*\}/g, '') // {/* jsx comment */}
-      .replace(/\/\*[\s\S]*?\*\//g, '')                // /* block */
-      .replace(/^\s*\/\/.*$/gm, '')                      // // line
   const read = code
 
   // 🔴 A2b — the screen that IS the destination must opt out. Asserted on CODE because mounting AccountScreen
@@ -149,6 +154,77 @@ describe('#365 ประวัติการซื้อ — เฉพาะร
 
   it('package_code ที่ยังไม่รู้จัก → บอกชื่อระดับไปก่อน ❌ ไม่เดารอบการชำระ', () => {
     expect(toHistoryItems([row('APPROVED', { packageCode: 'PRO_LIFETIME' })])[0].title).toBe('Mumate Pro')
+  })
+})
+
+describe('#365 วันที่ในประวัติ อ่านปฏิทินไทย ไม่ใช่ปฏิทิน UTC (ตู๋ ① · 8cbe56b)', () => {
+  const at = (iso: string): PaymentRow => ({
+    packageCode: 'PRO_ANNUAL', tierCode: 'PRO', amountSatang: 129000, status: 'APPROVED', createdAt: iso,
+  })
+  const shown = (iso: string) => toHistoryItems([at(iso)])[0].dateText
+
+  // 🔑 CONTROL FIRST. 03:00Z = 10:00 น. ไทย — the SAME civil day in both calendars, so this value cannot
+  // tell a UTC reader from a Bangkok one. It was the only kind of timestamp the first version of this file
+  // used, which is exactly why the bug shipped past it. Keep it: it proves the instrument still works.
+  it('CONTROL · ซื้อ 10:00 น. ไทย — สองปฏิทินตอบเหมือนกัน (เคสนี้แยกบั๊กไม่ได้ และต้องเขียวเสมอ)', () => {
+    expect(shown('2026-08-26T03:00:00.000Z')).toBe('26 ส.ค. 2569')
+  })
+
+  // 🔴 A6 — the 7-hours-in-24 window where the two calendars DISAGREE. UTC says the 25th, Bangkok the 26th.
+  it('🔴 A6 ซื้อ 02:30 น. ไทย 26 ส.ค. → ต้องเป็น 26 ไม่ใช่ 25', () => {
+    expect(shown('2026-08-25T19:30:00.000Z')).toBe('26 ส.ค. 2569')
+  })
+
+  // and it moves the MONTH too, which is what makes it read as a different purchase entirely.
+  it('🔴 A6 ซื้อ 00:05 น. ไทย 1 ก.ย. → ต้องเป็น 1 ก.ย. ไม่ใช่ 31 ส.ค.', () => {
+    expect(shown('2026-08-31T17:05:00.000Z')).toBe('1 ก.ย. 2569')
+  })
+
+  it('ปลายอีกด้านของวันไทยก็ต้องไม่เลื่อน — 23:59 น. ไทย ยังเป็นวันเดิม', () => {
+    expect(shown('2026-08-26T16:59:00.000Z')).toBe('26 ส.ค. 2569')
+  })
+})
+
+describe('#365 "โหลดไม่ได้" ต้องไม่หน้าตาเหมือน "ยังไม่มีรายการ" (ตู๋ ② · 8cbe56b)', () => {
+  const rows = (status: string): PaymentRow[] => [{
+    packageCode: 'PRO_ANNUAL', tierCode: 'PRO', amountSatang: 129000, status, createdAt: '2026-07-14T03:00:00.000Z',
+  }]
+
+  // 🔴 A7 — the pure rule. `errored` outranks everything: it is OUR failure, not a fact about the person.
+  it('🔴 A7 errored → kind "error" ❌ ไม่ใช่ "empty" แม้ rows จะว่าง', () => {
+    expect(historyState({ done: true, errored: true, rows: [] }).kind).toBe('error')
+    expect(historyState({ done: true, errored: true, rows: null }).kind).toBe('error')
+  })
+
+  it('คำขอสำเร็จแต่ไม่มีรายการที่จ่ายจริง → "empty" (ไม่ใช่ error — ระบบทำงานปกติ เขายังไม่ได้ซื้อ)', () => {
+    expect(historyState({ done: true, errored: false, rows: rows('REJECT') }).kind).toBe('empty')
+  })
+
+  it('ยังไม่เสร็จ → "loading" ❌ ไม่ใช่ empty (ไม่งั้นจะกระพริบคำว่าไม่มีรายการก่อนข้อมูลมา)', () => {
+    expect(historyState({ done: false, errored: false, rows: null }).kind).toBe('loading')
+    expect(historyState({ done: true, errored: false, rows: null }).kind).toBe('loading')
+  })
+
+  // 🔴 RENDERED — the words a person actually reads. The pure rule above could be right while the card still
+  // painted the same sentence for both, which is the bug that shipped.
+  it('🔴 A7 การ์ดตอน error ต้องไม่มีคำว่า "ยังไม่มีรายการ" และต้องมีทางลองใหม่', () => {
+    render(<HistoryCard state={{ kind: 'error' }} onRetry={() => {}} />)
+    expect(screen.queryByTestId('account-history-empty')).toBeNull()
+    expect(screen.getByTestId('account-history').textContent).not.toContain('ยังไม่มีรายการ')
+    expect(screen.getByTestId('account-history-error').textContent).toContain('โหลดประวัติการซื้อไม่สำเร็จ')
+    expect(screen.getByTestId('account-history-retry')).not.toBeNull()
+  })
+
+  it('การ์ดตอนว่างจริง ยังพูดว่าไม่มีรายการเหมือนเดิม (ไม่ได้แก้ด้วยการลบข้อความนั้นทิ้ง)', () => {
+    render(<HistoryCard state={{ kind: 'empty' }} onRetry={() => {}} />)
+    expect(screen.getByTestId('account-history-empty').textContent).toBe('ยังไม่มีรายการ')
+    expect(screen.queryByTestId('account-history-error')).toBeNull()
+  })
+
+  it('AccountScreen ต้องไม่แปลง response ที่ไม่ ok เป็นลิสต์ว่าง (SOURCE-LEVEL)', () => {
+    const src = code('features/v2-account/components/AccountScreen.tsx')
+    expect(src).not.toMatch(/r\.ok \? r\.json\(\) : \{ payments: \[\] \}/)
+    expect(src).toMatch(/setHistoryErrored\(true\)/)
   })
 })
 

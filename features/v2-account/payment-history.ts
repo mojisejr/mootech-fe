@@ -10,6 +10,7 @@
 // This is an INTENDED difference, not a forgotten filter. If we ever need to show a failed attempt, that is
 // a support surface with its own words ("รายการที่ไม่สำเร็จ"), not a line item inside a purchase list.
 import { formatThaiDateAbbr } from '@/lib/v2/thai-date'
+import { bkkDateStr } from '@/lib/usage-core'
 import { formatSatang } from '@/features/v2-shop/usePackagePrice'
 
 /** The wire shape from /api/v2/payment/status (pages/api/v2/payment/status.ts:17-25). */
@@ -54,7 +55,35 @@ export function toHistoryItems(rows: PaymentRow[]): HistoryItem[] {
     .map((r, i) => ({
       key: `${r.createdAt}-${i}`,
       title: titleFor(r),
-      dateText: formatThaiDateAbbr(r.createdAt.slice(0, 10)),
+      // 🔴 #365 (ตู๋, review of 8cbe56b) — `createdAt` is an INSTANT, not a civil date: v2_payment.created_at
+      // is `timestamptz` and status.ts hands it over as `.toISOString()`, which is always UTC. Slicing the
+      // first 10 characters therefore read the UTC CALENDAR, so anyone who bought between 00:00 and 06:59
+      // Thai time — 7 of every 24 hours — saw their purchase dated a day early, and across a month boundary
+      // it moved the month too. Convert to the Bangkok civil date first, through the repo's ONE copy of that
+      // rule (lib/usage-core.ts:63; lib/payment/repo.ts:350 writes member_payment.create_at the same way).
+      dateText: formatThaiDateAbbr(bkkDateStr(new Date(r.createdAt))),
       amountText: formatSatang(r.amountSatang),
     }))
+}
+
+
+/** What the history card is showing. `error` exists so "โหลดไม่ได้" can never render as "ยังไม่มีรายการ" —
+ *  a member who HAS bought something must not be told they never did, on the screen they opened to check.
+ *  (AccountScreen said this in a comment and then collapsed all three into `[]`; ตู๋ caught it at 8cbe56b.) */
+export type HistoryState =
+  | { kind: 'loading' }
+  | { kind: 'error' }
+  | { kind: 'empty' }
+  | { kind: 'items'; items: HistoryItem[] }
+
+/**
+ * PURE. rows === null means "the fetch has not produced rows" — which is loading OR failed, and those two
+ * are NOT the same answer, so `errored` is a separate input rather than something inferred from null.
+ * 🔴 An APPROVED-less list is `empty`, not `error`: the request worked, the person simply has not bought.
+ */
+export function historyState(args: { done: boolean; errored: boolean; rows: PaymentRow[] | null }): HistoryState {
+  if (args.errored) return { kind: 'error' }
+  if (!args.done || args.rows === null) return { kind: 'loading' }
+  const items = toHistoryItems(args.rows)
+  return items.length === 0 ? { kind: 'empty' } : { kind: 'items', items }
 }

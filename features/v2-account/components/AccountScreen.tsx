@@ -23,7 +23,8 @@ import { useV2User } from '@/features/auth/hooks/useV2User'
 import { SHOP_HREF } from '@/features/v2-shop/upgrade-cta'
 import { parseTierCode } from '@/lib/v2/tier'
 import type { MembershipLike } from '@/features/v2-shell/header-badge'
-import { toHistoryItems, type HistoryItem, type PaymentRow } from '../payment-history'
+import { historyState, type PaymentRow } from '../payment-history'
+import { HistoryCard } from './HistoryCard'
 import { planFor, type Plan } from '../plan'
 
 const CARD = 'flex w-full flex-col gap-4 rounded-[20px] bg-white p-5 drop-shadow-[0_4px_15px_rgba(26,38,77,0.12)]'
@@ -60,51 +61,30 @@ function StatusCard({ plan }: { plan: Plan }) {
   )
 }
 
-function HistoryCard({ items, loading }: { items: HistoryItem[]; loading: boolean }) {
-  return (
-    <>
-      <h2 className="mt-6 text-base font-bold leading-6 text-v3-navy">ประวัติการซื้อ</h2>
-      <section data-testid="account-history" className={`${CARD} mt-3 font-ibm`}>
-        {loading ? (
-          <div data-testid="account-history-loading" aria-hidden className="h-5 w-2/3 animate-pulse rounded bg-v3-border-card" />
-        ) : items.length === 0 ? (
-          // 🔴 An empty list says so. Hiding the card would make a member who HAS bought something wonder
-          // whether the screen failed — "ยังไม่มีรายการ" and "ไม่โหลด" must never look the same.
-          <p data-testid="account-history-empty" className="text-sm leading-[22px] text-v3-text-body">ยังไม่มีรายการ</p>
-        ) : (
-          items.map((it, i) => (
-            <div key={it.key} className="flex w-full flex-col gap-2">
-              {i > 0 && <hr className="w-full border-t border-v3-border-card" />}
-              <p className="text-sm font-bold leading-5 text-v3-navy">{it.title}</p>
-              <div className="flex w-full items-baseline justify-between text-sm">
-                <p className="leading-[22px] text-v3-text-body">{it.dateText}</p>
-                <p className="font-bold leading-5 text-v3-navy">{it.amountText}</p>
-              </div>
-            </div>
-          ))
-        )}
-      </section>
-      <p className="mt-2 px-1 text-xs leading-[18px] text-v3-text-body">ใบเสร็จส่งไปที่อีเมลของคุณแล้ว</p>
-    </>
-  )
-}
-
 export function AccountScreen() {
   const { user, done, errored } = useV2User()
   const [rows, setRows] = useState<PaymentRow[] | null>(null)
   const [historyDone, setHistoryDone] = useState(false)
+  // 🔴 #365 (ตู๋, 8cbe56b): a failed read used to land on `rows = []`, which HistoryCard rendered as
+  // "ยังไม่มีรายการ" — telling a paying member they had never bought anything. The three outcomes are now
+  // three states, and this flag is the one that keeps our failure from being reported as their fact.
+  const [historyErrored, setHistoryErrored] = useState(false)
+  const [attempt, setAttempt] = useState(0)
 
   useEffect(() => {
     let alive = true
+    setHistoryDone(false)
+    setHistoryErrored(false)
     fetch('/api/v2/payment/status')
-      .then((r) => (r.ok ? r.json() : { payments: [] }))
+      // ❌ NOT `r.ok ? ... : { payments: [] }` — a 401/500 is not an empty history.
+      .then((r) => (r.ok ? r.json() : Promise.reject(new Error(String(r.status)))))
       .then((j) => { if (alive) setRows(Array.isArray(j?.payments) ? j.payments : []) })
-      // A failed history read must not blank the whole screen: the level and expiry above it are the reason
-      // the user opened this page. Empty list + done, never a thrown render.
-      .catch(() => { if (alive) setRows([]) })
+      // A failed read must not blank the whole screen either: the level and expiry above it are the reason
+      // the user opened this page. Mark the card errored, leave the rest standing.
+      .catch(() => { if (alive) { setHistoryErrored(true); setRows(null) } })
       .finally(() => { if (alive) setHistoryDone(true) })
     return () => { alive = false }
-  }, [])
+  }, [attempt])
 
   const membership = user?.membership ?? null
   // The composite types every field optional (the server may omit the whole key). `headerBadge` needs the
@@ -154,7 +134,7 @@ export function AccountScreen() {
           <StatusCard plan={planFor(membership)} />
         )}
 
-        <HistoryCard items={rows ? toHistoryItems(rows) : []} loading={!historyDone} />
+        <HistoryCard state={historyState({ done: historyDone, errored: historyErrored, rows })} onRetry={() => setAttempt((n) => n + 1)} />
 
         <section data-testid="account-footer-ask" className="mt-8 flex items-center gap-4 rounded-3xl bg-white/70 px-6 py-5">
           <div className="flex-1">
