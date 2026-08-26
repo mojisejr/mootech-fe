@@ -6,7 +6,7 @@
 //   MU3  headerBadge: return the raw tier name for a paid row with no name     → "สมาชิก" test reddens
 //   MU4  headerBadge: print the name for tier 'FREE' on a paid row             → "ห้ามพิมพ์ FREE" reddens
 //   MU5  AppHeader: render the pill on `upgradeCta: false`                     → shop/notifications reddens
-//   MU6  drop `membership=` from any one of the six screens                    → the wiring test reddens
+//   MU6  drop `membership=` from any one of the listed screens                 → the wiring test reddens
 //   MU7  V2HomeScreen: bring back a truthy badge fallback when membership absent → bug-A test reddens
 //
 // 🔑 WHY THE "ไม่รู้" CASE GETS TWO MUTANTS AND ITS OWN SECTION.
@@ -18,7 +18,7 @@
 // 🔴 WHAT THIS FILE DOES AND DOES NOT GUARD — so a green run is not read as more than it is:
 //   headerBadge          the rule itself, exhaustively. This is the tooth.
 //   HeaderTools          RENDERED — the pill's text and testid come off the real element.
-//   the six screens      SOURCE-LEVEL only (a grep for the prop). It catches "somebody deleted the wire";
+//   the listed screens   SOURCE-LEVEL only (a grep for the prop). It catches "somebody deleted the wire";
 //                        it CANNOT catch "the wire carries the wrong value". The rendered proof for the
 //                        screens is the viewport-strip in the PR, not this file.
 //   what the pill LOOKS like   not here at all — 0 px² header drift is proven by pixel-diff, not by the DOM.
@@ -50,7 +50,7 @@ const code = (rel: string) =>
     .join('\n')
 
 // ── the rule ────────────────────────────────────────────────────────────────────────────────────────
-describe('#384 headerBadge — the rule all six screens share', () => {
+describe('#384 headerBadge — the rule every header screen shares', () => {
   it('ไม่รู้ (isPaid null) draws NOTHING — not the upsell, not a level', () => {
     // Both directions asserted on purpose: a mutant that guesses free and a mutant that guesses paid are
     // different bugs with different victims, and `kind !== 'upgrade'` alone would let the second one pass.
@@ -176,7 +176,7 @@ describe('#384 bug A — an /api/user error must not tell a paying member to upg
   })
 })
 
-// ── the six screens are wired ───────────────────────────────────────────────────────────────────────
+// ── every screen that renders the shared header is wired ───────────────────────────────────────────────────────────────────────
 describe('#384 every screen that renders the shared header passes a membership', () => {
   // The ticket said FIVE screens. There were SIX — the notifications screen passed no tier at all. It is
   // SEVEN as of #363 (checkout), and that is this list working as designed: the count is named here, so the
@@ -192,21 +192,35 @@ describe('#384 every screen that renders the shared header passes a membership',
     // #363 — checkout. upgradeCta false: you are already buying; an "อัพเกรด" pill here would send the user
     // back to the shop mid-payment.
     { rel: 'pages/v2/shop/checkout.tsx', cta: false },
+    // #365 — จอ "สิทธิ์ของฉัน". cta false: this screen reports what you hold; opening a sales surface on the
+    // page a member came to for reassurance is the same mistake notifications closed. It is also the first
+    // screen to pass `tierLink={false}` — the LEVEL badge points here, so here it must not navigate. That
+    // second wire has its own tooth in scripts/account-screen.test.tsx (A2b); this list guards `membership=`.
+    { rel: 'features/v2-account/components/AccountScreen.tsx', cta: false },
   ] as const
 
-  it('all six pass membership through', () => {
-    expect(SCREENS).toHaveLength(7)
+  it('every screen in the list passes membership through', () => {
+    // 🔴 The NUMBER is the point of this line, not the loop: it is what makes a new screen impossible to add
+    // silently. Was 7 (#363 checkout) → 8 with #365's /v2/account.
+    // 🟠 The prose above/below this block said "six" while the assertion said 7 — the words drifted, the
+    // number did not. Names updated to stop counting in two places.
+    expect(SCREENS).toHaveLength(8)
     for (const { rel } of SCREENS) {
       expect(code(rel), `${rel} stopped passing membership`).toMatch(/membership=\{/)
     }
   })
 
-  it('exactly the two non-selling screens say so, and no others', () => {
+  it('exactly the non-selling screens say so, and no others', () => {
+    // 🔴 SPELLED OUT, not derived from SCREENS — deriving both sides from the same array would make this
+    // assertion true by construction. The list below is the SECOND opinion; a screen silently flipped from
+    // selling to not-selling has to be typed here too. Four as of #365 (was three at #363).
     const off = SCREENS.filter((s) => !s.cta).map((s) => s.rel)
     expect(off).toEqual([
       'features/v2-shop/components/ShopScreen.tsx',
       'pages/v2/calendar/notifications.tsx',
       'pages/v2/shop/checkout.tsx',
+      // #365 — จอ "สิทธิ์ของฉัน" already tells a free user they are free and offers ดูแพ็คเกจ in the card.
+      'features/v2-account/components/AccountScreen.tsx',
     ])
     for (const { rel, cta } of SCREENS) {
       const hasFlag = /upgradeCta=\{false\}/.test(code(rel))
@@ -244,6 +258,7 @@ describe('#384 every screen that renders the shared header passes a membership',
       .sort()
     expect(sites).toEqual(
       [
+        'features/v2-account/components/AccountScreen.tsx', // #365 — จอ "สิทธิ์ของฉัน"
         'features/v2-calendar/components/day-detail/DayHeader.tsx', // adapter → AppHeader (day detail)
         'features/v2-home/components/V2HomeScreen.tsx', // composes <HeaderTools/> directly (Structure A)
         'features/v2-service/components/ServiceHeader.tsx', // adapter → AppHeader (service hub)

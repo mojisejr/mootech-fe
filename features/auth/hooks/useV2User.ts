@@ -31,7 +31,10 @@ export type V2UserRow = UserBirthRow & {
   // #383 — the v2 membership composite. OPTIONAL on purpose: it is null when the server could not
   // determine it (the v2 lookup failed) and absent from any response served before #383 shipped, and
   // neither case may read as "free" — consumers narrow it through parseTierCode, which maps both to null.
-  membership?: { isPaid?: boolean | null; tier?: string | null; source?: string } | null
+  // #365 — expireAt rides on the same composite (lib/v2/subscription.ts attaches it from the row the ONE
+  // selection rule picked). null = no v2 row decided the verdict (legacy-paid / free / not-determined).
+  // 🔴 null is NOT "expired" — isPaid is the only field that answers that.
+  membership?: { isPaid?: boolean | null; tier?: string | null; source?: string; expireAt?: string | null } | null
   user_id?: string
   error?: unknown
 }

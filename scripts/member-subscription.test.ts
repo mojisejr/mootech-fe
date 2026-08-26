@@ -232,13 +232,36 @@ describe('#383 resolveMembershipFromRows — same verdict as the lazy path, with
   const LEGACY_NONE = { isFree: true, reason: 'NO_PLAN' as const }
 
   it('a live row wins and names the tier', () => {
-    expect(resolveMembershipFromRows([live], TODAY, LEGACY_NONE)).toEqual({ isPaid: true, tier: 'PRO', source: 'v2' })
+    // #365 — expireAt is the WINNING ROW's date, not a copy of anything the caller passed in.
+    expect(resolveMembershipFromRows([live], TODAY, LEGACY_NONE)).toEqual({ isPaid: true, tier: 'PRO', source: 'v2', expireAt: '2099-12-31' })
   })
   // 🔴 MS2 — the direction that costs a paying member their access.
   it('🔴 no live row + a paid legacy verdict → paid, unnamed, source legacy (NEVER free)', () => {
-    expect(resolveMembershipFromRows([dead], TODAY, LEGACY_MEMBER)).toEqual({ isPaid: true, tier: null, source: 'legacy' })
+    // #365 — expireAt null on the legacy path. The member DOES have an expiry; it lives in member_payment,
+    // which is not this seam's table. 🔴 null here must never be read as "expired": isPaid says true.
+    expect(resolveMembershipFromRows([dead], TODAY, LEGACY_MEMBER)).toEqual({ isPaid: true, tier: null, source: 'legacy', expireAt: null })
   })
   it('no rows at all + no legacy → free/none', () => {
-    expect(resolveMembershipFromRows([], TODAY, LEGACY_NONE)).toEqual({ isPaid: false, tier: null, source: 'none' })
+    expect(resolveMembershipFromRows([], TODAY, LEGACY_NONE)).toEqual({ isPaid: false, tier: null, source: 'none', expireAt: null })
+  })
+
+  // #365 — the date must come from the row the ONE selection rule PICKED, not from "a row this user has".
+  // This is the unit-level half of the ticket's 2-row probe; the DB half lives in member-subscription-db.
+  // 🔴 MUTANT: make resolveMembershipFromRows report rows[0].expireAt instead of the picked row's → red.
+  it('🔴 #365 two live rows → expireAt follows the WINNER (expire_at DESC), not the array order', () => {
+    const loser = { ...live, id: 'a', expireAt: '2027-01-01' }
+    const winner = { ...live, id: 'b', expireAt: '2030-06-30' }
+    // loser first on purpose: an implementation that reads rows[0] passes only if the array is sorted for it.
+    expect(resolveMembershipFromRows([loser, winner], TODAY, LEGACY_NONE).expireAt).toBe('2030-06-30')
+    expect(resolveMembershipFromRows([winner, loser], TODAY, LEGACY_NONE).expireAt).toBe('2030-06-30')
+  })
+
+  // #365 — a row whose tier_code we refuse to understand grants nothing, so it must not print a date either.
+  // 🔴 MUTANT: drop the `verdict.isPaid !== null` guard → this goes red (a declined membership shows an expiry).
+  it('🔴 #365 unknown tier_code → isPaid null AND expireAt null (a declined membership prints no date)', () => {
+    const junk = { ...live, id: 'j', tierCode: 'PLATINUM' }
+    const r = resolveMembershipFromRows([junk], TODAY, LEGACY_NONE)
+    expect(r.isPaid).toBeNull()
+    expect(r.expireAt).toBeNull()
   })
 })

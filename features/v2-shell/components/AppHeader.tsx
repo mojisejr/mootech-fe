@@ -37,7 +37,7 @@ import type { ReactNode } from 'react'
 import { TopBarBell } from './TopBarBell'
 import { TopBarAvatar } from './TopBarAvatar'
 import { SHOP_HREF } from '@/features/v2-shop/upgrade-cta'
-import { ComingSoonAction } from './ComingSoon'
+import { ACCOUNT_HREF } from '@/features/v2-account/account-cta'
 import { headerBadge, type MembershipLike } from '../header-badge'
 
 export type AppHeaderProps = {
@@ -58,6 +58,11 @@ export type AppHeaderProps = {
    *  (บอง 2026-08-22: showing the LEVEL there is in scope, opening a NEW sales surface is not). A paid
    *  member's level badge is unaffected by this flag — it is not a sales control. */
   upgradeCta?: boolean
+  /** right: may THIS screen's level badge navigate to /v2/account (#365)? Screen policy, like `upgradeCta`.
+   *  Default true; /v2/account itself passes false so the badge does not link to the page being viewed.
+   *  ⚠️ This is NOT a user fact and must never be derived from one — a paid member on /v2/account still SEES
+   *  their badge, it simply does not navigate. */
+  tierLink?: boolean
   /** right: avatar tap. Absent → the avatar renders non-interactive (same pixels, no dead button). */
   onAvatar?: () => void
   avatarName?: string
@@ -100,16 +105,29 @@ function UpgradeBadge() {
 // Widths measured, not assumed (#384, IBM Plex Sans Thai 16/500): อัพเกรด 55.13px · สมาชิก 46.55px ·
 // PLUS 38.31px · PRO 31.75px. The longest of the five is the word that already ships, so every new state is
 // NARROWER than the incumbent inside the same 84px box — nothing can overflow or clip.
-function TierBadge({ label }: { label: string }) {
+// #365 — the destination exists now, so the tap navigates instead of announcing. The class list is a const
+// because BOTH branches must paint the identical 84×32 box: "the header did not move" is provable at 0 px²
+// only if the element swap changes nothing but the element.
+const TIER_BADGE_CLASS =
+  'grid h-8 w-[84px] shrink-0 place-items-center rounded-lg bg-v3-grade-yellow text-[16px] font-medium leading-6 text-v3-cyan drop-shadow-[0_4px_8px_rgba(117,227,235,0.5)]'
+
+// `linked` is the SCREEN's policy, exactly like `upgradeCta` above it, and for the same reason #384 split
+// that one out: /v2/account is where this badge POINTS, so on that screen it would point at itself. ShopScreen
+// already closed this shape for the seller pill (ShopScreen.tsx:44). A control that navigates to the page you
+// are already on is not a no-op — it is a tap that answers by doing nothing visible.
+function TierBadge({ label, linked }: { label: string; linked: boolean }) {
+  if (!linked) {
+    // Same pixels, no anchor: nothing to focus, nothing to click, nothing that lies about being pressable.
+    return (
+      <div data-testid="header-tier" aria-label={`ระดับสมาชิก ${label}`} className={TIER_BADGE_CLASS}>
+        {label}
+      </div>
+    )
+  }
   return (
-    <ComingSoonAction
-      testId="header-tier"
-      label={`ระดับสมาชิก ${label}`}
-      message="สิทธิ์ของฉันกำลังจะมา เร็วๆ นี้"
-      className="grid h-8 w-[84px] shrink-0 place-items-center rounded-lg bg-v3-grade-yellow text-[16px] font-medium leading-6 text-v3-cyan drop-shadow-[0_4px_8px_rgba(117,227,235,0.5)]"
-    >
+    <Link href={ACCOUNT_HREF} data-testid="header-tier" aria-label={`ระดับสมาชิก ${label}`} className={TIER_BADGE_CLASS}>
       {label}
-    </ComingSoonAction>
+    </Link>
   )
 }
 
@@ -126,13 +144,13 @@ function BackLink({ href }: { href: string }) {
 // THE right cluster, exported on its own — because it is the actual shared thing (see the note at the top).
 // home needs it INSIDE its first row while its name and element line keep the full column width, so it
 // composes this directly instead of the <AppHeader/> row; every other screen gets it via <AppHeader/>.
-export function HeaderTools({ membership, upgradeCta = true, onAvatar, avatarName, avatarPictureUrl = null, bellHref = '/v2/calendar/notifications' }:
-  Pick<AppHeaderProps, 'membership' | 'upgradeCta' | 'onAvatar' | 'avatarName' | 'avatarPictureUrl' | 'bellHref'>) {
+export function HeaderTools({ membership, upgradeCta = true, tierLink = true, onAvatar, avatarName, avatarPictureUrl = null, bellHref = '/v2/calendar/notifications' }:
+  Pick<AppHeaderProps, 'membership' | 'upgradeCta' | 'tierLink' | 'onAvatar' | 'avatarName' | 'avatarPictureUrl' | 'bellHref'>) {
   const badge = headerBadge(membership, { upgradeCta })
   return (
     <div data-testid="header-tools" className="flex shrink-0 items-center gap-2">
       {badge.kind === 'upgrade' && <UpgradeBadge />}
-      {badge.kind === 'tier' && <TierBadge label={badge.label} />}
+      {badge.kind === 'tier' && <TierBadge label={badge.label} linked={tierLink} />}
       <TopBarBell variant="solid" href={bellHref} />
       <TopBarAvatar variant="sapphire" name={avatarName} pictureUrl={avatarPictureUrl} onClick={onAvatar} />
     </div>
@@ -146,6 +164,7 @@ export function AppHeader({
   backHref,
   membership,
   upgradeCta,
+  tierLink,
   onAvatar,
   avatarName,
   avatarPictureUrl = null,
@@ -164,7 +183,7 @@ export function AppHeader({
         </div>
       )}
       {/* THE right cluster — order and sizes are the invariant run-app-header.ts owns */}
-      <HeaderTools membership={membership} upgradeCta={upgradeCta} onAvatar={onAvatar} avatarName={avatarName} avatarPictureUrl={avatarPictureUrl} bellHref={bellHref} />
+      <HeaderTools membership={membership} upgradeCta={upgradeCta} tierLink={tierLink} onAvatar={onAvatar} avatarName={avatarName} avatarPictureUrl={avatarPictureUrl} bellHref={bellHref} />
     </header>
   )
 }
