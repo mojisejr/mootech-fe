@@ -30,6 +30,10 @@ export default function V2ResultPage() {
   // #439 — a cardholder returning from their bank arrives with `order`, never `charge`: the return_uri had
   // to be handed to Omise before Omise minted a charge id, so the only identifier it can carry is ours.
   const order = typeof router.query.order === 'string' ? router.query.order : ''
+  // #466 — the plan to name in a refusal, handed over by checkout. A display name, never a tier code: it is
+  // only ever read back out as words, so a stranger typing one in can make the page say a different plan
+  // name and nothing else. The verdict itself still comes from `state`, which is checked against the union.
+  const planName = typeof router.query.plan === 'string' ? router.query.plan : null
   const { status, method, phase, check } = useChargeStatus({ chargeId: charge || null, orderId: order || null })
 
   // Glue only — the rule lives in result-state.ts next to the words it chooses between, so it can be tested
@@ -51,6 +55,9 @@ export default function V2ResultPage() {
         // "try another method" into a second dead end. No package in the URL (an old link, a hand-typed
         // one) ⇒ send them somewhere that works: the package list.
         onTryAnother={() => router.push(tryAnotherHref(packageCode))}
+        planName={planName}
+        // ฟีมเคาะ 2026-08-26: a refused purchase lands back on the package list. That falls out of the
+        // existing rule — paid:false already goes to /v2/shop — so there is nothing special-cased here.
         onDone={() => router.push(RESULT_COPY[state].paid ? '/v2' : '/v2/shop')}
       />
     </div>

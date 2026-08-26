@@ -17,6 +17,13 @@ export type ResultState =
   | 'ALREADY_PAID' // this charge is already settled — the user pressed again, or came back to a done screen
   | 'RECONCILING' // past our POLL deadline, but the repair cron's window is still open (#423)
   | 'QR_MAYBE_EXPIRED' // past our own deadline with no settle. NOT "expired" — we are not told that.
+  // ── #466 — the server REFUSED before any money moved (mootech-fe#456's gate) ──────────────────────
+  // These two are not failures of a payment. Nothing was charged, nothing was declined, nothing is
+  // pending: the purchase was never allowed to start. Before #466 they fell into CARD_DECLINED and
+  // OFFLINE, which told a paying member that their BANK had refused them — about a card the bank never
+  // saw, because charge-flow.ts:66 answers 409 long before Omise is called.
+  | 'ALREADY_ON_THIS_TIER' // they hold this exact plan and it has not expired
+  | 'CANNOT_DOWNGRADE' //     they hold a HIGHER plan; selling them a lower one would take something away
 
 export type ResultCopy = {
   /** the headline. */
@@ -88,6 +95,57 @@ export const RESULT_COPY: Record<ResultState, ResultCopy> = {
     retry: 'same',
     paid: false,
   },
+  ALREADY_ON_THIS_TIER: {
+    // 🔴 THE FIRST WORD IS NOT "ล้มเหลว" AND MUST NEVER BECOME IT. Nothing went wrong here — the user
+    // already owns what they were about to buy, which is good news wearing the clothes of an error.
+    // The tier-less wording is the FALLBACK; resultCopyFor names the plan when the screen knows it.
+    title: 'คุณเป็นสมาชิกอยู่แล้ว',
+    body: 'ไม่มีการตัดเงิน แพ็กเกจนี้เปิดใช้งานอยู่แล้ว ดูวันหมดอายุได้ที่หน้าสิทธิ์ของฉัน',
+    // 'none' — pressing anything here cannot change the outcome, and offering "ลองอีกครั้ง" would invite
+    // them to walk back into the same refusal. The screen's single button becomes กลับหน้าแพ็กเกจ.
+    retry: 'none',
+    paid: false,
+  },
+  CANNOT_DOWNGRADE: {
+    // Says what they HAVE, not what they may not do — the answer to "why can't I?" is that they are
+    // already above it, which is not a punishment.
+    title: 'คุณถือแพ็กเกจที่สูงกว่านี้อยู่',
+    body: 'ไม่มีการตัดเงิน การซื้อแพ็กเกจที่เล็กกว่าจะทำให้สิทธิ์ที่คุณมีอยู่ลดลง ระบบจึงไม่ให้ทำ',
+    retry: 'none',
+    paid: false,
+  },
+}
+
+/** The two #466 states, kept as a set so callers can ask "was this a refusal, not a failure?" without
+ *  string-matching. Used by the copy refiner below and by the checkout page's 409 branch. */
+export const REFUSED_STATES = ['ALREADY_ON_THIS_TIER', 'CANNOT_DOWNGRADE'] as const
+export type RefusedState = (typeof REFUSED_STATES)[number]
+export function isRefusedState(s: string): s is RefusedState {
+  return (REFUSED_STATES as readonly string[]).includes(s)
+}
+
+/**
+ * #466 — the copy, with the plan NAMED when the screen knows which one.
+ *
+ * 🔴 Why not just put the name in RESULT_COPY: every other string in this file is a constant, and the file
+ * says so at the top ("every string lives here, so the per-line audit enumerates one file"). These two are
+ * the only ones that depend on runtime data. Rather than turn the whole table into functions — which would
+ * make the audit read thirteen call sites instead of one table — the table keeps a truthful tier-less
+ * sentence, and this refines it. Both versions are correct; one is more specific.
+ *
+ * `planName` null (tier not resolved yet, or a plan we cannot name) ⇒ the fallback, never a code like
+ * "PLUS" printed at a user.
+ */
+export function resultCopyFor(state: ResultState, planName?: string | null): ResultCopy {
+  const base = RESULT_COPY[state]
+  if (!planName) return base
+  if (state === 'ALREADY_ON_THIS_TIER') {
+    return { ...base, title: `คุณเป็นสมาชิก ${planName} อยู่แล้ว` }
+  }
+  if (state === 'CANNOT_DOWNGRADE') {
+    return { ...base, title: `คุณเป็นสมาชิก ${planName} อยู่แล้ว`, body: `ไม่มีการตัดเงิน ${planName} ให้สิทธิ์มากกว่าแพ็กเกจที่เลือก ระบบจึงไม่ให้ลดระดับ` }
+  }
+  return base
 }
 
 /** The one place that answers "has their money moved?" — so no screen can decide it locally. */
@@ -155,4 +213,36 @@ export function resolveResultState({ status, method, claimed, phase }: ResultInp
  */
 export function tryAnotherHref(packageCode: string): string {
   return packageCode ? `/v2/shop/checkout?package_code=${encodeURIComponent(packageCode)}` : '/v2/shop'
+}
+
+/**
+ * #466 — where a REFUSED purchase goes, or null when this was not a refusal.
+ *
+ * Lives here, not in pages/v2/shop/checkout.tsx, for the reason that file states about itself at line 5:
+ * "a page is the one place nobody writes unit tests for, so it should hold as few decisions as possible".
+ * The decision this makes is which words a paying member sees about their own money — exactly the kind that
+ * must not sit somewhere untestable. That is not hypothetical: the branch it replaces (`!r.ok` ⇒
+ * CARD_DECLINED) was wrong from the moment mootech-fe#456 shipped, and no test could see it.
+ *
+ * 🔴 BOTH halves of the guard are required.
+ *   status 409 alone is not proof — a quote whose price moved also answers 409 (charge-flow.ts:86) and
+ *   belongs on a different screen.
+ *   A `purchaseError` we do not recognise must never be pasted in as a state name — result.tsx falls back
+ *   to PAYING for anything not in RESULT_COPY, which would park the reader on a spinner for a payment that
+ *   never started. isRefusedState is the closed-union check that keeps the URL honest.
+ *
+ * `planName` is a display name ('Mumate +'), never a tier code, and it is optional: unknown ⇒ omitted ⇒
+ * the screen uses its truthful tier-less wording rather than printing PLUS at a human.
+ */
+export function refusedHref(args: {
+  status: number
+  purchaseError?: string | null
+  packageCode: string
+  planName?: string | null
+}): string | null {
+  const { status, purchaseError, packageCode, planName } = args
+  if (status !== 409 || !purchaseError || !isRefusedState(purchaseError)) return null
+  const q = new URLSearchParams({ state: purchaseError, package_code: packageCode })
+  if (planName) q.set('plan', planName)
+  return `/v2/shop/result?${q.toString()}`
 }

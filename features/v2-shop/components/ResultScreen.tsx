@@ -6,7 +6,7 @@
 //     green tick because somebody pattern-matched on a string;
 //   • the action offered comes from `retry`, so "ลองอีกครั้ง" cannot appear on a state where trying again
 //     sends the user in a circle (a declined card).
-import { RESULT_COPY, type ResultState } from '../result-state'
+import { RESULT_COPY, resultCopyFor, type ResultState } from '../result-state'
 import { cn } from '@/lib/utils/cn'
 
 export type ResultScreenProps = {
@@ -17,10 +17,15 @@ export type ResultScreenProps = {
   onTryAnother?: () => void
   /** always available once nothing is in flight: go use the thing they bought (or came back for). */
   onDone?: () => void
+  /** #466 — the plan to NAME in a refusal ("คุณเป็นสมาชิก Mumate + อยู่แล้ว"). Absent/unknown ⇒ the table's
+   *  tier-less wording, which is still true. Ignored by the other seven states. */
+  planName?: string | null
 }
 
-export function ResultScreen({ state, onRetrySame, onTryAnother, onDone }: ResultScreenProps) {
-  const copy = RESULT_COPY[state]
+export function ResultScreen({ state, onRetrySame, onTryAnother, onDone, planName }: ResultScreenProps) {
+  // #466 — resultCopyFor returns RESULT_COPY[state] untouched for every state that does not name a plan,
+  // so the "one audited table" property this file relies on is unchanged.
+  const copy = resultCopyFor(state, planName)
   const inFlight = state === 'PAYING'
 
   return (
