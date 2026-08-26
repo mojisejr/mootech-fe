@@ -17,6 +17,7 @@
 //   S8  determined read from `user?.membership` instead of the paid verdict   → the logged-out rows redden (ตู๋ MUT-A)
 //   S9  a refused card keeps its refusal text AND draws a buy control anyway  → the controlsIn(...) rows redden (ตู๋ MUT-B2)
 //   S10 the failure line goes back to retry-button copy with no button there  → the failure-copy test reddens
+//   S11 the carry-over promise renders on a card the viewer cannot buy         → the no-promises rows redden (ตู๋ MUT-D)
 import React from 'react'
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, cleanup, waitFor } from '@testing-library/react'
@@ -133,6 +134,9 @@ describe('#457 row 2 — a PLUS member', () => {
     expect(controlsIn('plus')).toHaveLength(0)
     expect(cardText('plus')).not.toContain('สมัครแพ็กเกจ')
     expect(cardText('plus')).not.toContain('อัปเกรดเป็น')
+    // ตู๋ MUT-D: "no control" and "no promise" are two claims, and these rows only made the first. Letting
+    // the carry-over line render here tells someone who cannot buy this that buying it keeps their days.
+    expect(cardText('plus')).not.toContain('จะถูกบวกให้')
   })
   it('🔴 shows the DATE THEY WERE GIVEN — a different expiry renders differently', async () => {
     // negative control for S2: an assertion that could pass with a hardcoded date proves nothing.
@@ -153,11 +157,13 @@ describe('#457 row 3 — a PRO member', () => {
     // 🔴 the assertion ตู๋'s MUT-B2 walked through: a refusal that still ships a button is not a refusal.
     expect(controlsIn('plus')).toHaveLength(0)
     expect(cardText('plus')).not.toContain('สมัครแพ็กเกจ')
+    expect(cardText('plus')).not.toContain('จะถูกบวกให้') // ตู๋ MUT-D — no promises either, not just no controls
   })
   it('sees Mumate Pro as the package they hold, with nothing to press there either', async () => {
     await mountAs({ isPaid: true, tier: 'PRO', loading: false }, '2027-08-26')
     expect(screen.getByTestId('plan-status-pro').textContent).toContain('แพ็กเกจปัจจุบันของคุณ')
     expect(controlsIn('pro')).toHaveLength(0)
+    expect(cardText('pro')).not.toContain('จะถูกบวกให้')
   })
 })
 
@@ -170,6 +176,7 @@ describe('#457 row 4 — 🔴 we do not know yet: the screen must not guess in e
     expect(screen.getByTestId('plan-cta-pending-plus').textContent).toContain('กำลังตรวจสอบสถานะสมาชิก')
     expect(controlsIn('plus')).toHaveLength(0)
     expect(cardText('plus')).not.toContain('สมัครแพ็กเกจ')
+    expect(cardText('plus')).not.toContain('จะถูกบวกให้')
     expect(body()).not.toContain('แพ็กเกจปัจจุบันของคุณ')
   })
   it('🔴 the failure line offers no control, so it must not tell anyone to press one', async () => {
