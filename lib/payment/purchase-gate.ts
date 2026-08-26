@@ -29,6 +29,21 @@ export type Entitlement = {
   isPaid: boolean
   /** last day the current entitlement is valid, 'YYYY-MM-DD' (inclusive); null when not paid */
   expireAt: string | null
+  /** 🔴 HIGHEST tier among ALL live rows — not just the one the reader picked (ตู๋, review r2 of #460).
+   *
+   *  These differ only when somebody holds several live rows at different tiers, because
+   *  lib/v2/subscription.ts:49-56 picks by expire_at DESC, NOT by tier: a PLUS row expiring later outranks
+   *  a PRO row expiring sooner *as the reader's answer*, while the PRO row is still something they hold.
+   *
+   *  The DOOR compares against `tier` — the reader's answer is what a buyer actually has today.
+   *  The SETTLE compares against THIS — "never write a row below what they hold" has to mean every row
+   *  they hold, or the sentence is not the rule the code runs. Superseding a PRO row because a
+   *  later-expiring PLUS row happened to win the sort would close it permanently, and that is the one
+   *  state from which the data could still have been repaired.
+   *
+   *  No code path in this repo can create that state any more (#456 leaves exactly one live row), so this
+   *  is about rows written BEFORE it. Absent ⇒ falls back to `tier`. */
+  highestLiveTier?: TierCode | null
 }
 
 /** Why a purchase was refused. These strings travel to the client and into #457's screen copy, so they name
@@ -182,7 +197,9 @@ export function decideSettlement(args: {
 
   // Legacy-paid: no name, so no rank, so nothing to rank BELOW. Grant and carry (same reasoning as the
   // door's legacy branch — we never punish somebody we cannot place on the ladder).
-  const held = tierRank(current.tier)
+  //
+  // 🔴 Compare against the HIGHEST live tier, not the reader's pick — see Entitlement.highestLiveTier.
+  const held = tierRank(current.highestLiveTier !== undefined ? current.highestLiveTier : current.tier)
   if (held === null) return { grant: true, carryOverDays }
 
   const paid = tierRank(paidTier)

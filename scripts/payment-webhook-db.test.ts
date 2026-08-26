@@ -589,6 +589,48 @@ describe.skipIf(!TEST_URL)('payment webhook · real pg (#355)', () => {
   // It is also the tooth that keeps decideSettlement from over-correcting: the door refuses same-tier
   // repurchase, and it would be easy to make the webhook refuse it too. That would give ฟีม back exactly
   // the bug he reported. This test reddens the moment anyone does that.
+  // 🔴 #456 ⑨ — ตู๋'s case C (review r2). LEGACY DATA ONLY: two live rows at different tiers, where the
+  // LOWER one expires later and therefore wins the reader's sort. #456 cannot create this state any more
+  // (a grant supersedes every live row; a refusal is born REPLACED), so this is about rows already in the
+  // database when it ships.
+  //
+  // The trap: `held` from the picker is PLUS, so a stale PLUS would rank "equal" and be granted — closing
+  // the PRO row as REPLACED permanently, which is the one state from which the data could still be
+  // repaired. Comparing against the HIGHEST live tier is what stops that.
+  it('#456 ⑨ legacy conflict: a stale PLUS must not close a live PRO row that expires sooner', async () => {
+    const u = users[2]
+    const today = bkk(NOW)
+    await seedSub('s456-pro-short', u, 'PRO', addDaysStr(today, 30)) // higher tier, expires SOONER
+    await seedSub('s456-plus-long', u, 'PLUS', addDaysStr(today, 100)) // lower tier, wins the reader's sort
+    await seedPending('C456N', u, 'MONTHLY', 'PLUS', 50000, '1M', 0)
+
+    const { resolveSubscription } = await import('@/lib/v2/subscription')
+    expect((await resolveSubscription(u, NOW)).tier, 'precondition: the reader already answers PLUS').toBe('PLUS')
+
+    await settleAndProvision('C456N')
+
+    const [pro] = await sql`SELECT status FROM member_subscription WHERE id = 's456-pro-short'`
+    expect(pro.status, 'the PRO row must NOT be closed by a PLUS payment').toBe('ACTIVE')
+    const [fresh] = await sql`SELECT status FROM member_subscription WHERE v2_payment_id = 'v2p-C456N'`
+    expect(fresh.status, 'the stale PLUS row is born superseded').toBe('REPLACED')
+    // the reader's answer is unchanged — nothing was taken from the user either way
+    expect((await resolveSubscription(u, NOW)).tier).toBe('PLUS')
+  })
+
+  it('#456 ⑨ b CONTROL — a PRO settling into that same legacy state IS granted and cleans it up', async () => {
+    const u = users[3]
+    const today = bkk(NOW)
+    await seedSub('s456-pro-short2', u, 'PRO', addDaysStr(today, 30))
+    await seedSub('s456-plus-long2', u, 'PLUS', addDaysStr(today, 100))
+    await seedPending('C456O', u, 'YEARLY-PRO', 'PRO', 129000, '1Y', 0)
+
+    await settleAndProvision('C456O')
+
+    const rows = await sql`SELECT status, tier_code FROM member_subscription WHERE user_id = ${u}`
+    expect(rows.filter((r) => r.status === 'ACTIVE').length, 'the conflict is resolved to ONE live row').toBe(1)
+    expect(rows.find((r) => r.status === 'ACTIVE')?.tier_code).toBe('PRO')
+  })
+
   it('#456 ⑧ ฟีม case: TWO PLUS charges settle ⇒ ONE live row holding BOTH years, not one year', async () => {
     const u = users[2]
     const today = bkk(NOW)

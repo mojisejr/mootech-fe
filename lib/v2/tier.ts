@@ -130,7 +130,14 @@ export function tierIsPaid(tier: TierCode | null): boolean | null {
 const TIER_RANK: Record<TierCode, number> = { FREE: 0, PLUS: 1, PRO: 2 }
 
 /** Position of a tier in the paid ladder. null (unknown/unnamed tier) has NO position — callers must
- *  decide what "we cannot place this" means for them rather than getting a number that sorts as free. */
+ *  decide what "we cannot place this" means for them rather than getting a number that sorts as free.
+ *
+ *  🔴 The lookup is checked, not assumed (ตู๋, review r2 of #460). The parameter says TierCode, but values
+ *  reaching it come from the DATABASE through casts, and `TIER_RANK[someUnknownString]` is `undefined` —
+ *  which is not `null`, so a caller's `=== null` guard silently never fires and `undefined >= n` is just
+ *  false. That made the fail-closed branch in purchase-gate unreachable while looking present. */
 export function tierRank(tier: TierCode | null | undefined): number | null {
-  return tier == null ? null : TIER_RANK[tier]
+  if (tier == null) return null
+  const rank = TIER_RANK[tier] as number | undefined
+  return typeof rank === 'number' ? rank : null
 }

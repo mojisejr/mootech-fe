@@ -12,9 +12,12 @@
 //   MG6  treat an unpaid/lapsed user as paid                                → the "first purchase unchanged" tests redden
 //   MG7  decideSettlement grants a tier BELOW the one held (the demotion)   → the settlement downgrade tests redden
 //   MG8  decideSettlement refuses the SAME tier instead of adding its time  → the "ฟีม paid twice" test reddens
+//   MG9  tierRank hands back undefined instead of null for an unmapped tier → the tierRank('GOLD') test reddens
+//   MG10 decideSettlement compares against the READER's row, not the highest → the legacy-conflict tests redden
+//   MG11 remainingDays stops rejecting impossible dates (2026-02-31)         → the does-not-exist test reddens
 import { describe, it, expect } from 'vitest'
 import { decidePurchase, decideSettlement, remainingDays, type Entitlement } from '@/lib/payment/purchase-gate'
-import { tierRank } from '@/lib/v2/tier'
+import { tierRank, type TierCode } from '@/lib/v2/tier'
 
 const TODAY = '2026-08-26'
 
@@ -32,6 +35,10 @@ describe('tierRank — the ladder #456 compares on', () => {
     expect(tierRank('PRO')).toBe(2)
     expect(tierRank(null)).toBeNull()
     expect(tierRank(undefined)).toBeNull()
+    // 🔴 ตู๋ r2: a value that reached here from the DB through a cast must come back null, NOT undefined.
+    // undefined fails `=== null` and compares false against every number, so a caller's fail-closed guard
+    // would look present and never fire. This is the assertion that keeps that guard reachable.
+    expect(tierRank('GOLD' as unknown as TierCode)).toBeNull()
   })
 })
 
@@ -208,7 +215,87 @@ describe('remainingDays — no silent ceiling (ตู๋ ①)', () => {
     // returned 4000 on hitting its own limit, with no error and no log.
     expect(remainingDays('2026-08-26', '2036-08-26')).toBe(3653) // 10 years incl. leap days 2028/32/36
   })
-  it('and a date that does not exist is refused rather than rolled over', () => {
-    expect(remainingDays('2026-08-26', '2026-02-31')).toBe(0)
+  // 🔴 REWRITTEN (ตู๋, review r2 of #460). The old version used today='2026-08-26' with '2026-02-31', and
+  // it passed with the validity check REMOVED: 2026-02-31 rolls over to 2026-03-03, which is BEFORE that
+  // today, so the never-negative clamp answered 0 anyway. Both poles gave the same number ⇒ the assertion
+  // was measuring the clamp, not the thing its name claims. A `today` the rolled-over date lands AFTER
+  // separates them. Same shape as the 03:00Z fix on the date lane in #452: a value both poles agree on is
+  // not a tooth.
+  it('a date that does not exist is REFUSED, not silently rolled over into a real one', () => {
+    // without the validity check these would be 61 and 365 — a purchase silently granted months it never
+    // bought, from a typo in a DATE column.
+    expect(remainingDays('2026-01-01', '2026-02-31')).toBe(0) // would roll to 2026-03-03 ⇒ 61
+    expect(remainingDays('2026-01-01', '2026-13-01')).toBe(0) // month 13 ⇒ would roll to 2027-01-01 ⇒ 365
+    // and the control: the neighbouring REAL dates do count, so this is not a blanket zero
+    expect(remainingDays('2026-01-01', '2026-02-28')).toBe(58)
+    expect(remainingDays('2026-01-01', '2026-03-03')).toBe(61)
+  })
+})
+
+describe('decideSettlement — comparing against the HIGHEST live tier (ตู๋ r2 ①)', () => {
+  // 🔴 The state below can only exist in rows written BEFORE #456: a PRO row expiring sooner and a PLUS row
+  // expiring later, both live. lib/v2/subscription.ts picks by expire_at, so the READER answers PLUS —
+  // but the person still holds a PRO row, and superseding it would close it permanently.
+  const conflicting: Entitlement = {
+    tier: 'PLUS', // what the reader answers (it expires later)
+    highestLiveTier: 'PRO', // what they actually hold at the top
+    isPaid: true,
+    expireAt: '2026-12-04', // the reader's row, +100 days
+  }
+
+  it('a stale PLUS must NOT be granted while a live PRO row exists, even though the reader says PLUS', () => {
+    expect(decideSettlement({ current: conflicting, paidTier: 'PLUS', today: TODAY })).toEqual({
+      grant: false,
+      reason: 'WOULD_DOWNGRADE',
+    })
+  })
+
+  it('CONTROL — a PRO settling into the same state IS granted, and carries the reader row’s days', () => {
+    expect(decideSettlement({ current: conflicting, paidTier: 'PRO', today: TODAY })).toEqual({
+      grant: true,
+      carryOverDays: 100,
+    })
+  })
+
+  it('when the field is absent the reader’s tier is used — every state this codebase can now create', () => {
+    const plain: Entitlement = { tier: 'PLUS', isPaid: true, expireAt: '2026-12-04' }
+    expect(decideSettlement({ current: plain, paidTier: 'PLUS', today: TODAY })).toEqual({
+      grant: true,
+      carryOverDays: 100,
+    })
+  })
+})
+
+describe('an unplaceable paid tier fails CLOSED (ตู๋ r2 ③)', () => {
+  // 🔴 HONEST ABOUT WHAT THIS DOES AND DOES NOT PROVE.
+  //
+  // It pins the BEHAVIOUR: a tier_code we cannot place on the ladder never grants anything. It does NOT
+  // distinguish the explicit `paid === null` guard from its absence, because the fallthrough is fail-closed
+  // to the same answer (`null >= 1` is false in JS, so it lands on WOULD_DOWNGRADE either way). By this
+  // repo's own rule — a value both poles agree on is not a tooth — this is a behaviour pin, not a mutant
+  // tooth, and it is written down as such rather than counted as coverage it does not give.
+  //
+  // What actually holds that guard in place is the TYPE CHECKER: delete it and `npx tsc --noEmit` fails
+  // with "'paid' is possibly 'null'". That is a stronger keeper than a test, and it is where the guard's
+  // protection genuinely lives. (v2_payment.tier_code also has a DB CHECK at 0007:30, so the state is
+  // unreachable from the real write path — ตู๋ was right that this is not a hole.)
+  it('a tier_code outside the catalog is never granted, at either gate', () => {
+    const unknown = 'GOLD' as unknown as TierCode
+    expect(decideSettlement({ current: plusUntil('2027-08-25'), paidTier: unknown, today: TODAY })).toEqual({
+      grant: false,
+      reason: 'WOULD_DOWNGRADE',
+    })
+    expect(decidePurchase({ current: plusUntil('2027-08-25'), targetTier: unknown, today: TODAY })).toEqual({
+      allow: false,
+      reason: 'CANNOT_DOWNGRADE',
+    })
+  })
+
+  it('but a user holding nothing still buys normally — fail-closed must not mean fail-always', () => {
+    const unknown = 'GOLD' as unknown as TierCode
+    expect(decideSettlement({ current: free, paidTier: unknown, today: TODAY })).toEqual({
+      grant: true,
+      carryOverDays: 0,
+    })
   })
 })

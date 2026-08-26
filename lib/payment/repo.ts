@@ -9,7 +9,7 @@ import { buildProvision } from './provision'
 import { decidePurchase, decideSettlement, type Entitlement, type PurchaseDecision } from './purchase-gate'
 import { toSubRows, pickActiveSubscriptionRow } from '@/lib/v2/subscription'
 import { classifyMembership, bkkDateStr } from '@/lib/usage-core'
-import { parseTierCode } from '@/lib/v2/tier'
+import { parseTierCode, tierRank } from '@/lib/v2/tier'
 import { reserveCodeInTx, releaseRedemption, restoreRedemption, Refuse } from '@/lib/discount/repo'
 import type { TierCode } from '@/lib/v2/tier'
 
@@ -269,7 +269,28 @@ export async function readEntitlement(
   }
 
   const live = pickActiveSubscriptionRow(rows, today)
-  if (live) return { tier: parseTierCode(live.tierCode), isPaid: true, expireAt: live.expireAt, supersedeIds }
+  if (live) {
+    // The HIGHEST tier among the live rows, which is not always the row the picker returned (it sorts by
+    // expire_at, not by tier). supersedeIds already IS the live set, so it is reused rather than re-filtered.
+    const liveById = new Map(rows.map((r) => [r.id, r]))
+    let highestLiveTier: TierCode | null = null
+    let best = -1
+    for (const id of supersedeIds) {
+      const t = parseTierCode(liveById.get(id)?.tierCode)
+      const r = tierRank(t)
+      if (r !== null && r > best) {
+        best = r
+        highestLiveTier = t
+      }
+    }
+    return {
+      tier: parseTierCode(live.tierCode),
+      isPaid: true,
+      expireAt: live.expireAt,
+      highestLiveTier,
+      supersedeIds,
+    }
+  }
 
   // No live v2 row ⇒ the legacy member_payment verdict, exactly as lib/v2/subscription.ts falls back.
   const [mp] = await db
@@ -280,9 +301,15 @@ export async function readEntitlement(
   const legacy = classifyMembership(mp ?? null, now)
   // No live v2 row ⇒ nothing to supersede: a legacy membership lives on member_payment, whose one row is
   // MERGED by the shadow's GREATEST, never replaced.
-  if (legacy.isFree) return { tier: null, isPaid: false, expireAt: null, supersedeIds: [] }
+  if (legacy.isFree) return { tier: null, isPaid: false, expireAt: null, highestLiveTier: null, supersedeIds: [] }
   // Paid, but member_payment has no tier column — this is the unnamed LEGACY member (#456's 6th row).
-  return { tier: null, isPaid: true, expireAt: String(mp?.expireAt ?? '').slice(0, 10) || null, supersedeIds: [] }
+  return {
+    tier: null,
+    isPaid: true,
+    expireAt: String(mp?.expireAt ?? '').slice(0, 10) || null,
+    highestLiveTier: null,
+    supersedeIds: [],
+  }
 }
 
 /** The door's question in one call: may this user buy this tier, and what follows them if so? */
@@ -394,11 +421,15 @@ export async function settleAndProvision(
     // CREATED; between then and now the buyer may have bought something better, and an abandoned PromptPay
     // charge stays PENDING indefinitely, so "then" can be days ago. decideSettlement answers the webhook's
     // own question — what may we WRITE — which is not the door's question of what may be BOUGHT.
-    const settlement = decideSettlement({
-      current: held,
-      paidTier: pay.tierCode as TierCode,
-      today: bkkDate(now),
-    })
+    // 🔴 BOTH SIDES OF THE COMPARISON GO THROUGH parseTierCode (ตู๋, review r2). `held` always did; this
+    // side used a bare `as TierCode`, so one half of the same comparison was checked and the other was
+    // asserted. The DB's CHECK on v2_payment.tier_code (0007:30) makes an unmappable value unreachable
+    // today — that is a reason it has not bitten, not a reason to keep the asymmetry.
+    const paidTier = parseTierCode(pay.tierCode)
+    const settlement =
+      paidTier === null
+        ? ({ grant: false, reason: 'WOULD_DOWNGRADE' } as const) // unplaceable ⇒ never let it win
+        : decideSettlement({ current: held, paidTier, today: bkkDate(now) })
     const carryOverDays = settlement.grant ? settlement.carryOverDays : 0
     // A payment that would demote the buyer is still RECORDED (v2_payment is APPROVED above — money that
     // moved is never un-recorded) but its subscription row is born superseded: it never becomes the live
