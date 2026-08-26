@@ -14,6 +14,9 @@
 //   S5  the legacy member's button says อัปเกรด                             → the legacy wording test reddens
 //   S6  the blocked (downgrade) card renders a checkout link                → the PRO→PLUS test reddens
 //   S7  the payment terms render on a card that offers no payment            → the legal-note tests redden
+//   S8  determined read from `user?.membership` instead of the paid verdict   → the logged-out rows redden (ตู๋ MUT-A)
+//   S9  a refused card keeps its refusal text AND draws a buy control anyway  → the controlsIn(...) rows redden (ตู๋ MUT-B2)
+//   S10 the failure line goes back to retry-button copy with no button there  → the failure-copy test reddens
 import React from 'react'
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, cleanup, waitFor } from '@testing-library/react'
@@ -31,10 +34,14 @@ vi.mock('next/router', () => ({
 // contract lib/v2/tier.ts:89-92 states (isPaid true ⇒ tier ∈ {PLUS,PRO,null}; isPaid null ⇒ tier null), and
 // scripts/v2-tier.test.ts owns whether the real hook produces it. This file owns what the SCREEN does with it.
 const tierState = vi.hoisted(() => ({ value: { isPaid: null as boolean | null, tier: null as string | null, loading: true } }))
-const userState = vi.hoisted(() => ({ value: { expireAt: null as string | null } }))
+// 🔴 `user` IS THE WHOLE ROW, not just an expiry. The first version of this mock always handed back a
+// `membership` object, which made the screen's `determined` expression untestable: ตู๋ swapped it for
+// `user?.membership != null` and all 908 tests stayed green while a logged-OUT visitor lost the buy button.
+// A visitor with no membership row is a real shape /api/user returns, so the fixture must be able to be it.
+const userState = vi.hoisted(() => ({ value: null as { user_id: string; membership?: unknown } | null }))
 vi.mock('@/features/v2-shell/hooks/useClientTier', () => ({ useClientTier: () => tierState.value }))
 vi.mock('@/features/auth/hooks/useV2User', () => ({
-  useV2User: () => ({ userId: 'u-457', done: true, errored: false, user: { user_id: 'u-457', membership: { expireAt: userState.value.expireAt } } }),
+  useV2User: () => ({ userId: 'u-457', done: true, errored: false, user: userState.value }),
 }))
 
 import { ShopScreen } from '@/features/v2-shop/components/ShopScreen'
@@ -63,7 +70,7 @@ const renderScreen = () => render(<CookiesProvider><ShopScreen /></CookiesProvid
 /** Set the viewer, mount, and wait until prices have resolved so the finished page is what gets asserted. */
 async function mountAs(tier: { isPaid: boolean | null; tier: string | null; loading: boolean }, expireAt: string | null = null) {
   tierState.value = tier
-  userState.value = { expireAt }
+  userState.value = { user_id: 'u-457', membership: { expireAt } }
   renderScreen()
   // 🔴 Wait for the price to be READY, not merely "no longer loading". The weaker wait passes on `missing`
   // and `offSale` too, so a broken fixture sails through it and fails later as a confusing button assertion.
@@ -71,6 +78,14 @@ async function mountAs(tier: { isPaid: boolean | null; tier: string | null; load
 }
 
 const body = () => document.body.textContent ?? ''
+
+/** 🔴 ASK THE CARD, NOT A testid. ตู๋'s MUT-B2 kept every refusal string intact and drew a second buy
+ *  button under a testid nothing queried — 39/39 green. `queryByTestId(...)` can only ever answer "no
+ *  element with THAT NAME", which is not the claim these tests make. The claim is "this card offers no
+ *  way to buy", so it has to be asked of every control the card actually contains. */
+const cardOf = (id: string) => screen.getByTestId(`plan-card-${id}`)
+const controlsIn = (id: string) => cardOf(id).querySelectorAll('a[href], button, [role="button"]')
+const cardText = (id: string) => cardOf(id).textContent ?? ''
 
 beforeEach(() => { stubPrices() })
 afterEach(() => { cleanup(); vi.unstubAllGlobals() })
@@ -87,11 +102,37 @@ describe('#457 row 1 — a Free viewer sees the shop exactly as before', () => {
   })
 })
 
+describe('#457 🔴 row 1b — LOGGED OUT: no membership row exists, and the shop still sells', () => {
+  // ตู social's MUT-A: `determined: user?.membership != null` keeps every other row green and quietly closes
+  // the shop to everyone who is not signed in — the single most expensive thing this ticket could break.
+  // The unit file proves computeTier ANSWERS correctly for anon; only this row proves ShopScreen USES that
+  // answer. It needs a fixture where the paid verdict is known and the membership row is genuinely absent.
+  it('an anonymous visitor (KNOWN not-paid, no membership row) still gets both buy buttons', async () => {
+    tierState.value = { isPaid: false, tier: null, loading: false }
+    userState.value = { user_id: 'u-457' } // logged in far enough to have a row, but no membership on it
+    renderScreen()
+    await waitFor(() => expect(screen.getByTestId('plan-price-plus').textContent).toContain('฿790'))
+    expect(screen.getByTestId('plan-cta-plus').textContent).toContain('สมัครแพ็กเกจ')
+    expect(screen.getByTestId('plan-cta-pro').textContent).toContain('สมัครแพ็กเกจ')
+    expect(screen.queryByTestId('plan-cta-pending-plus')).toBeNull()
+  })
+  it('and so does a visitor with no /api/user row at all', async () => {
+    tierState.value = { isPaid: false, tier: null, loading: false }
+    userState.value = null
+    renderScreen()
+    await waitFor(() => expect(screen.getByTestId('plan-price-plus').textContent).toContain('฿790'))
+    expect(screen.getByTestId('plan-cta-plus').textContent).toContain('สมัครแพ็กเกจ')
+    expect(controlsIn('plus').length).toBeGreaterThan(0)
+  })
+})
+
 describe('#457 row 2 — a PLUS member', () => {
-  it('is told Mumate + is theirs, WITH the real expiry date, and gets no button for it', async () => {
+  it('is told Mumate + is theirs, WITH the real expiry date, and gets NO way to buy it at all', async () => {
     await mountAs({ isPaid: true, tier: 'PLUS', loading: false }, '2027-08-26')
     expect(screen.getByTestId('plan-status-plus').textContent).toBe('แพ็กเกจปัจจุบันของคุณ · ใช้ได้ถึง 26 ส.ค. 2570')
-    expect(screen.queryByTestId('plan-cta-plus')).toBeNull()
+    expect(controlsIn('plus')).toHaveLength(0)
+    expect(cardText('plus')).not.toContain('สมัครแพ็กเกจ')
+    expect(cardText('plus')).not.toContain('อัปเกรดเป็น')
   })
   it('🔴 shows the DATE THEY WERE GIVEN — a different expiry renders differently', async () => {
     // negative control for S2: an assertion that could pass with a hardcoded date proves nothing.
@@ -106,33 +147,49 @@ describe('#457 row 2 — a PLUS member', () => {
 })
 
 describe('#457 row 3 — a PRO member', () => {
-  it('cannot be sold Mumate + — no link, and the card says why', async () => {
+  it('cannot be sold Mumate + — the card says why and carries NO control of any kind', async () => {
     await mountAs({ isPaid: true, tier: 'PRO', loading: false }, '2027-08-26')
-    expect(screen.queryByTestId('plan-cta-plus')).toBeNull()
     expect(screen.getByTestId('plan-status-plus').textContent).toContain('คุณเป็นสมาชิกระดับสูงกว่านี้อยู่แล้ว')
+    // 🔴 the assertion ตู๋'s MUT-B2 walked through: a refusal that still ships a button is not a refusal.
+    expect(controlsIn('plus')).toHaveLength(0)
+    expect(cardText('plus')).not.toContain('สมัครแพ็กเกจ')
   })
-  it('sees Mumate Pro as the package they hold', async () => {
+  it('sees Mumate Pro as the package they hold, with nothing to press there either', async () => {
     await mountAs({ isPaid: true, tier: 'PRO', loading: false }, '2027-08-26')
     expect(screen.getByTestId('plan-status-pro').textContent).toContain('แพ็กเกจปัจจุบันของคุณ')
+    expect(controlsIn('pro')).toHaveLength(0)
   })
 })
 
 describe('#457 row 4 — 🔴 we do not know yet: the screen must not guess in either direction', () => {
   it('while loading, offers no purchase and claims no membership', async () => {
     tierState.value = { isPaid: null, tier: null, loading: true }
-    userState.value = { expireAt: null }
+    userState.value = null
     renderScreen()
     await waitFor(() => expect(screen.getByTestId('plan-cta-pending-plus')).toBeTruthy())
     expect(screen.getByTestId('plan-cta-pending-plus').textContent).toContain('กำลังตรวจสอบสถานะสมาชิก')
-    expect(screen.queryByTestId('plan-cta-plus')).toBeNull()
+    expect(controlsIn('plus')).toHaveLength(0)
+    expect(cardText('plus')).not.toContain('สมัครแพ็กเกจ')
     expect(body()).not.toContain('แพ็กเกจปัจจุบันของคุณ')
+  })
+  it('🔴 the failure line offers no control, so it must not tell anyone to press one', async () => {
+    // ตู๋: same rule that deleted the payment terms from a card with no payment (S7), applied to the line
+    // I wrote in that very commit. "ลองใหม่อีกครั้งได้เลย" is retry-button copy; there is no retry button.
+    tierState.value = { isPaid: null, tier: null, loading: false }
+    userState.value = null
+    renderScreen()
+    await waitFor(() => expect(screen.getByTestId('plan-cta-pending-plus')).toBeTruthy())
+    const pending = screen.getByTestId('plan-cta-pending-plus')
+    expect(pending.querySelectorAll('a[href], button, [role="button"]')).toHaveLength(0)
+    expect(pending.textContent).not.toContain('ลองใหม่อีกครั้ง')
+    expect(pending.textContent).toContain('ลองโหลดหน้านี้ใหม่')
   })
   it('🔴 when the lookup FAILED, says so — it does not keep pretending to check', async () => {
     tierState.value = { isPaid: null, tier: null, loading: false }
-    userState.value = { expireAt: null }
+    userState.value = null
     renderScreen()
     await waitFor(() => expect(screen.getByTestId('plan-cta-pending-pro')).toBeTruthy())
-    expect(screen.getByTestId('plan-cta-pending-pro').textContent).toContain('ตรวจสอบสถานะสมาชิกไม่ได้')
+    expect(screen.getByTestId('plan-cta-pending-pro').textContent).toContain('ตรวจสอบสถานะสมาชิกของคุณไม่ได้')
     expect(body()).not.toContain('กำลังตรวจสอบสถานะสมาชิก')
   })
 })
@@ -162,7 +219,7 @@ describe('#457 — 🔴 payment terms only where there is a payment (found by LO
   })
   it('and neither does a card whose viewer we cannot place yet', async () => {
     tierState.value = { isPaid: null, tier: null, loading: true }
-    userState.value = { expireAt: null }
+    userState.value = null
     renderScreen()
     await waitFor(() => expect(screen.getByTestId('plan-cta-pending-plus')).toBeTruthy())
     expect(screen.queryByTestId('plan-legal-plus')).toBeNull()

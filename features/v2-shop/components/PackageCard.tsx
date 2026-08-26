@@ -179,7 +179,7 @@ export function PackageCard({
           >
             {verdict.because === 'loading'
               ? 'กำลังตรวจสอบสถานะสมาชิกของคุณ…'
-              : 'ตอนนี้เราตรวจสอบสถานะสมาชิกไม่ได้ ลองใหม่อีกครั้งได้เลย'}
+              : 'ตอนนี้เราตรวจสอบสถานะสมาชิกของคุณไม่ได้ · ลองโหลดหน้านี้ใหม่อีกครั้ง'}
           </p>
         ) : verdict.kind === 'current' ? (
           // They already hold this level. Not a disabled button: there is nothing to press, so we render no
