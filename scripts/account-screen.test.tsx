@@ -15,7 +15,7 @@ import { render, screen, cleanup } from '@testing-library/react'
 import { CookiesProvider } from 'react-cookie'
 import { HeaderTools } from '@/features/v2-shell/components/AppHeader'
 import { planFor } from '@/features/v2-account/plan'
-import { toHistoryItems, historyState, type PaymentRow } from '@/features/v2-account/payment-history'
+import { toHistoryItems, historyState, bkkCivilDate, type PaymentRow } from '@/features/v2-account/payment-history'
 import { HistoryCard } from '@/features/v2-account/components/HistoryCard'
 import { formatThaiDateAbbr } from '@/lib/v2/thai-date'
 import { ACCOUNT_HREF } from '@/features/v2-account/account-cta'
@@ -185,6 +185,29 @@ describe('#365 วันที่ในประวัติ อ่านปฏ�
   })
 })
 
+describe('#365 bkkCivilDate ต้องเป็นฟังก์ชัน total — โยนไม่ได้ (ตู๋ ข้อแถม · 2aac026)', () => {
+  // 🔴 A8 — `bkkDateStr(new Date(junk))` throws RangeError out of Intl.DateTimeFormat.format. Reachable only
+  // through a malformed createdAt, which the real API never sends (status.ts:23 always .toISOString()).
+  // แต่มันชนกับเป้าที่ PR นี้ประกาศเอง: historyState() ถูกเรียกใน RENDER BODY ของจอ ❌ ไม่ใช่ในการ์ด
+  // ⇒ throw ที่นี่ = ทั้งจอตาย ไม่ใช่แค่การ์ดตาย · ฟังก์ชัน total ถูกกว่าการจำว่าตรงไหนปลอดภัยที่จะ partial
+  it('🔴 A8 createdAt ที่ parse ไม่ได้ → คืนค่าว่าง ❌ ไม่โยน RangeError', () => {
+    for (const junk of ['', 'not-a-date', 'null', '2026-13-45T99:99:99Z']) {
+      expect(() => bkkCivilDate(junk)).not.toThrow()
+      expect(bkkCivilDate(junk)).toBe('')
+    }
+  })
+
+  it('และ toHistoryItems ทั้งก้อนก็ต้องไม่โยน (นี่คือตัวที่จอเรียกจริง)', () => {
+    const row: PaymentRow = { packageCode: 'PRO_ANNUAL', tierCode: 'PRO', amountSatang: 129000, status: 'APPROVED', createdAt: 'garbage' }
+    expect(() => toHistoryItems([row])).not.toThrow()
+    expect(toHistoryItems([row])[0].dateText).toBe('')
+  })
+
+  it('CONTROL · ค่าปกติยังทำงานเหมือนเดิม (กันไม่ให้ "ไม่โยน" ถูกทำให้จริงด้วยการคืนว่างเสมอ)', () => {
+    expect(bkkCivilDate('2026-08-25T19:30:00.000Z')).toBe('26 ส.ค. 2569')
+  })
+})
+
 describe('#365 "โหลดไม่ได้" ต้องไม่หน้าตาเหมือน "ยังไม่มีรายการ" (ตู๋ ② · 8cbe56b)', () => {
   const rows = (status: string): PaymentRow[] => [{
     packageCode: 'PRO_ANNUAL', tierCode: 'PRO', amountSatang: 129000, status, createdAt: '2026-07-14T03:00:00.000Z',
@@ -221,11 +244,13 @@ describe('#365 "โหลดไม่ได้" ต้องไม่หน้�
     expect(screen.queryByTestId('account-history-error')).toBeNull()
   })
 
-  it('AccountScreen ต้องไม่แปลง response ที่ไม่ ok เป็นลิสต์ว่าง (SOURCE-LEVEL)', () => {
-    const src = code('features/v2-account/components/AccountScreen.tsx')
-    expect(src).not.toMatch(/r\.ok \? r\.json\(\) : \{ payments: \[\] \}/)
-    expect(src).toMatch(/setHistoryErrored\(true\)/)
-  })
+  // 🗑️ REMOVED, ON PURPOSE (ตู๋ R2, review of 2aac026). There was a source-level test here asserting
+  //     expect(src).not.toMatch(/r\.ok \? r\.json\(\) : \{ payments: \[\] \}/)
+  // ตู๋ put the old bug straight back with ONE extra pair of parentheses — `: ({ payments: [] })` — and the
+  // whole suite stayed green while "ยังไม่มีรายการ" returned on every failure path. It was named for a
+  // BEHAVIOUR and only ever checked a SPELLING, which is worse than no tooth: the name stops the next person
+  // from looking. The real guard now mounts the screen and reads the words:
+  //     scripts/account-screen-mount.test.tsx  (B1 · B2)
 })
 
 describe('#365 formatThaiDateAbbr — พ.ศ. และเดือนย่อ', () => {

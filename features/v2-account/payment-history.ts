@@ -22,6 +22,23 @@ export type PaymentRow = {
   createdAt: string // ISO 8601
 }
 
+/**
+ * PURE and TOTAL: an ISO instant → the civil 'YYYY-MM-DD' in Asia/Bangkok → the Thai display string.
+ * Unparseable input returns '' — the same contract formatThaiDateAbbr already has for junk.
+ *
+ * 🔴 WHY THE NaN GUARD EXISTS (ตู๋ R2-bonus, review of 2aac026): `bkkDateStr(new Date(junk))` THROWS
+ * RangeError from Intl.DateTimeFormat.format. The version this replaced returned '' instead. It cannot
+ * happen through the real API (status.ts:23 always sends `.toISOString()`), but toHistoryItems is reached
+ * from historyState(), which this screen calls in its RENDER BODY — so a throw here takes down the whole
+ * page, not just the card. That directly contradicts the promise this PR makes out loud: การ์ดล้ม จอไม่ล้ม.
+ * A total function is cheaper than remembering where it is safe to be partial.
+ */
+export function bkkCivilDate(iso: string): string {
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return ''
+  return formatThaiDateAbbr(bkkDateStr(d))
+}
+
 export type HistoryItem = {
   key: string
   /** 'Mumate Pro · รายปี' — the plan as the user bought it. */
@@ -61,7 +78,7 @@ export function toHistoryItems(rows: PaymentRow[]): HistoryItem[] {
       // Thai time — 7 of every 24 hours — saw their purchase dated a day early, and across a month boundary
       // it moved the month too. Convert to the Bangkok civil date first, through the repo's ONE copy of that
       // rule (lib/usage-core.ts:63; lib/payment/repo.ts:350 writes member_payment.create_at the same way).
-      dateText: formatThaiDateAbbr(bkkDateStr(new Date(r.createdAt))),
+      dateText: bkkCivilDate(r.createdAt),
       amountText: formatSatang(r.amountSatang),
     }))
 }
