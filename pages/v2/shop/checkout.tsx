@@ -19,7 +19,7 @@ import { useCheckout } from '@/features/v2-shop/useCheckout'
 import { createCardToken } from '@/features/v2-shop/omise-token'
 import { formatSatang } from '@/features/v2-shop/usePackagePrice'
 import { PLANS, planNameForTier } from '@/features/v2-shop/packages'
-import { refusedHref } from '@/features/v2-shop/result-state'
+import { payDestination, tokenizationFailedDestination, type PayBody, type PayLane } from '@/features/v2-shop/pay-destination'
 
 export const getServerSideProps: GetServerSideProps = async (ctx) => {
   ctx.res.setHeader('Cache-Control', 'no-store, must-revalidate')
@@ -42,63 +42,53 @@ export default function V2CheckoutPage({ teamPreview }: { teamPreview: boolean }
   const plan = PLANS.find((p) => Object.values(p.codes).includes(packageCode))
   const planName = plan ? `${plan.name} · ${packageCode.endsWith('YEARLY') ? 'รายปี' : 'รายเดือน'}` : packageCode
 
-  // #466 — the decision itself lives in result-state.ts (pure, tested). This only supplies the two things
-  // the page knows: the plan the user tried to buy, and the plan they already hold.
-  //   ALREADY_ON_THIS_TIER  they hold the one they just tried to buy — that is `plan` right here
-  //   CANNOT_DOWNGRADE      they hold something HIGHER, which only the client knows: the server's 409
-  //                         names the SITUATION, deliberately not the tier
-  const refused = (status: number, purchaseError?: string) =>
-    refusedHref({
-      status,
-      purchaseError,
-      packageCode,
-      planName: purchaseError === 'ALREADY_ON_THIS_TIER' ? plan?.name : planNameForTier(tier.tier),
-    })
-
+  // 🔴 #466 round 2 — THE PAGE HOLDS NO ROUTING DECISION AT ALL ANY MORE (ตู๋, review of 983d3b0).
+  // Round 1 moved WHERE a refusal goes into a pure function but left WHEN it is asked as a line of ordering
+  // here — and ตู๋ proved that half was still unguarded: deleting the refusal check, or moving `!r.ok`
+  // above it, both kept `npm test` green and both put "ธนาคารปฏิเสธการชำระเงิน" back in front of a paying
+  // member. So the order came out too. Everything below is transport; the answer comes from payDestination.
   async function pay() {
     if (!co.quote || paying) return
     setPaying(true)
     try {
-      if (method === 'promptpay') {
-        const r = await fetch('/api/v2/payment/promptpay', {
-          method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ package_code: packageCode, quote_id: co.quote.quoteId, ...(co.quote.codeApplied ? { code: co.quote.codeApplied } : {}) }),
-        })
-        const d = (await r.json()) as { chargeId?: string; qr?: string; purchaseError?: string }
-        // 🔴 #466 — same question on the PromptPay lane, where the fallback blamed our own network.
-        const refusedPP = refused(r.status, d.purchaseError)
-        if (refusedPP) { setPaying(false); void router.push(refusedPP); return }
-        if (!r.ok || !d.chargeId || !d.qr) { setPaying(false); void router.push('/v2/shop/result?state=OFFLINE'); return }
-        void router.push(`/v2/shop/qrcode?charge=${encodeURIComponent(d.chargeId)}&qr=${encodeURIComponent(d.qr)}&amount=${co.quote.amountSatang}`)
-        return
+      const lane: PayLane = method === 'promptpay' ? 'promptpay' : 'card'
+      const body: Record<string, unknown> = {
+        package_code: packageCode,
+        quote_id: co.quote.quoteId,
+        ...(co.quote.codeApplied ? { code: co.quote.codeApplied } : {}),
       }
-      const [mm, yy] = card.expiry.split('/')
-      const token = await createCardToken({ name: card.name, number: card.number, expMonth: (mm ?? '').trim(), expYear: (yy ?? '').trim(), cvc: card.cvc })
-      const r = await fetch('/api/v2/payment/charge', {
+      if (lane === 'card') {
+        const [mm, yy] = card.expiry.split('/')
+        body.token = await createCardToken({
+          name: card.name, number: card.number,
+          expMonth: (mm ?? '').trim(), expYear: (yy ?? '').trim(), cvc: card.cvc,
+        })
+      }
+      const r = await fetch(lane === 'promptpay' ? '/api/v2/payment/promptpay' : '/api/v2/payment/charge', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ package_code: packageCode, token, quote_id: co.quote.quoteId, ...(co.quote.codeApplied ? { code: co.quote.codeApplied } : {}) }),
+        body: JSON.stringify(body),
       })
-      const d = (await r.json()) as { chargeId?: string; authorizeUri?: string; purchaseError?: string }
-      // 🔴 #466 — ASK WHY BEFORE DECIDING WHAT TO SAY, and it matters MOST on this lane: the fallback on
-      // the next line names the BANK, and the bank never saw this card. mootech-fe#456 refuses the purchase
-      // at lib/payment/charge-flow.ts:66 — before Omise is called at all — so there is nothing for a bank
-      // to have declined. Returns null for every other failure, leaving the old behaviour untouched.
-      const refusedCard = refused(r.status, d.purchaseError)
-      if (refusedCard) { setPaying(false); void router.push(refusedCard); return }
-      if (!r.ok || !d.chargeId) { setPaying(false); void router.push(`/v2/shop/result?state=CARD_DECLINED&package_code=${encodeURIComponent(packageCode)}`); return }
-      // 🔴 #439 — THE BANK WANTS TO SEE THEM FIRST. When Omise returns an authorize_uri the charge is not
-      // finished and cannot finish here: the cardholder has to authenticate on their bank's page, and Omise
-      // sends them back to the return_uri we supplied (lib/payment/return-uri.ts) — which is this same
-      // result screen, keyed by our orderId. Leaving `paying` true on purpose: this navigation leaves the
-      // app, and re-enabling the button would invite a second charge in the moment before it does.
-      // Not router.push — that is Next's client router and this destination is not ours.
-      if (d.authorizeUri) { window.location.href = d.authorizeUri; return }
-      void router.push(`/v2/shop/result?state=PAYING&charge=${encodeURIComponent(d.chargeId)}&package_code=${encodeURIComponent(packageCode)}`)
-    } catch {
-      // Tokenisation refused (bad number/expiry/cvc) or omise.js missing. The bank never saw a charge.
+      const d = (await r.json()) as PayBody
+
+      const dest = payDestination({
+        lane, status: r.status, ok: r.ok, body: d,
+        packageCode, amountSatang: co.quote.amountSatang,
+        // the plan they tried to buy · and the plan they already hold — the only two things this page knows
+        // that the server's 409 deliberately does not say (it names the SITUATION, not the tier).
+        targetPlanName: plan?.name,
+        heldPlanName: planNameForTier(tier.tier),
+      })
+      if (!dest.keepPaying) setPaying(false)
+      // 🔴 #439 — window.location, not router.push: an external destination is not Next's to route.
+      if (dest.kind === 'external') { window.location.href = dest.href; return }
+      void router.push(dest.href)
+  } catch {
+      // Tokenisation refused (bad number/expiry/cvc) or omise.js missing. The bank never saw a charge and
+      // no request was ever made — so there is no server answer to reason about. It gets its own pure
+      // answer rather than an invented status code passed to payDestination.
       // #438 — package_code rides along so the result screen can offer a way BACK to this same checkout.
       setPaying(false)
-      void router.push(`/v2/shop/result?state=CARD_DECLINED&package_code=${encodeURIComponent(packageCode)}`)
+      void router.push(tokenizationFailedDestination(packageCode).href)
     }
   }
 
