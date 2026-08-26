@@ -34,7 +34,16 @@ vi.mock('next/router', () => ({ useRouter: () => ({ query: {}, isReady: true, pu
 afterEach(cleanup)
 
 const ROOT = process.cwd()
-const read = (rel: string) => readFileSync(join(ROOT, rel), 'utf8')
+// 🔴 #365 (ตู๋'s review of 8cbe56b) — CODE ONLY, NEVER PROSE. This read the raw file, so a comment that
+// merely MENTIONS SHOP_HREF would keep the assertion below green after the real `href={SHOP_HREF}` was
+// deleted. Not a hole today (ตู๋ grepped all four files: every hit is real code), but it is the same shape
+// that DID bite in scripts/account-screen.test.tsx during this PR — a tooth held up by its own documentation.
+// Widen the guard rather than wait for it to be exploited. Same helper as header-tier-badge.test.tsx:44.
+const read = (rel: string) =>
+  readFileSync(join(ROOT, rel), 'utf8')
+    .replace(/\{\s*\/\*[\s\S]*?\*\/\s*\}/g, '') // {/* jsx comment */}
+    .replace(/\/\*[\s\S]*?\*\//g, '')                // /* block */
+    .replace(/^\s*\/\/.*$/gm, '')                      // // line
 
 /** Every control that means "you need a membership" — these MUST reach the shop. */
 const MEMBERSHIP_SITES = [

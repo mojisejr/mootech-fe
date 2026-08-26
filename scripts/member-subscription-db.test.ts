@@ -134,20 +134,24 @@ describe.skipIf(!TEST_URL)('member_subscription · real pg (#354)', () => {
 
   it('3 read cases: v2 row → tier from v2 · legacy only → paid · neither → free', async () => {
     await seed({ id: 'test-354-a', userId: u[0], tier: 'PRO', expireAt: '2027-12-31' })
-    expect(await resolveSubscription(u[0], NOW)).toEqual({ isPaid: true, tier: 'PRO', source: 'v2' })
+    // #365 — the DATE comes back too, and it is the seeded row's, straight from postgres.
+    expect(await resolveSubscription(u[0], NOW)).toEqual({ isPaid: true, tier: 'PRO', source: 'v2', expireAt: '2027-12-31' })
 
     const legacyResolved = await resolveSubscription(liveMember, NOW)
-    expect(legacyResolved).toEqual({ isPaid: true, tier: null, source: 'legacy' })
+    // #365 — null on the legacy path even though this member DOES have a member_payment expire_at.
+    expect(legacyResolved).toEqual({ isPaid: true, tier: null, source: 'legacy', expireAt: null })
 
     // a user_id with no v2 row and no member_payment row → free (a READ needs no FK)
-    expect(await resolveSubscription('nobody-354', NOW)).toEqual({ isPaid: false, tier: null, source: 'none' })
+    expect(await resolveSubscription('nobody-354', NOW)).toEqual({ isPaid: false, tier: null, source: 'none', expireAt: null })
   })
 
   it('B2 — the picker (not SQL) applies the whole filter: past-expire + REPLACED siblings are ignored', async () => {
     await seed({ id: 'test-354-old', userId: u[1], tier: 'PRO', expireAt: '2026-08-01' }) // past-expire
     await seed({ id: 'test-354-repl', userId: u[1], tier: 'PRO', status: 'REPLACED', expireAt: '2099-01-01' })
     await seed({ id: 'test-354-live', userId: u[1], tier: 'PLUS', expireAt: '2027-01-01' }) // the live one
-    expect(await resolveSubscription(u[1], NOW)).toEqual({ isPaid: true, tier: 'PLUS', source: 'v2' })
+    // #365 — and the date follows the row the picker chose, NOT the REPLACED sibling's 2099-01-01, which is
+    // the furthest date in the table. A picker that ordered by expire_at before filtering would say 2099.
+    expect(await resolveSubscription(u[1], NOW)).toEqual({ isPaid: true, tier: 'PLUS', source: 'v2', expireAt: '2027-01-01' })
   })
 
   it('🔴 deterministic pick: 3 ACTIVE rows, identical expire_at+created_at → SAME tier on 10 reads', async () => {
@@ -161,10 +165,47 @@ describe.skipIf(!TEST_URL)('member_subscription · real pg (#354)', () => {
     expect(reads[0]).toBe('PRO') // id 'test-354-d3' wins the DESC id tiebreak
   })
 
+  // ── #365 · THE TWO-ROW PROBE the ticket asks for, against real postgres ────────────────────────────
+  //
+  // 🔑 WHY TWO ROWS AND NOT ONE (ตู๋ F1/F2, restated in the ticket): a one-row probe proves the screen reads
+  // A value from the DB. It does NOT prove it reads the RIGHT row — a screen that picks arbitrarily passes
+  // whenever the row it happened to grab is the one the test edited. The two halves below only both hold if
+  // the selection rule is actually being applied.
+  //
+  // ⚠️ The third case is not decoration. "editing the loser changes nothing" is ALSO what you would see if
+  // the code ignored the database entirely, so it is only evidence once the same instrument is shown to
+  // MOVE — case ③ promotes the loser and the answer must follow it.
+  it('🔴 #365 two live rows: editing the WINNER moves the date · editing the LOSER does not', async () => {
+    const user = u[0]
+    await seed({ id: 'sub-365-lose', userId: user, tier: 'PRO', expireAt: '2027-01-01' })
+    await seed({ id: 'sub-365-win', userId: user, tier: 'PRO', expireAt: '2030-06-30' })
+
+    // baseline — the furthest ACTIVE expire_at wins (lib/v2/subscription.ts pickActiveSubscriptionRow)
+    expect((await resolveSubscription(user, NOW)).expireAt).toBe('2030-06-30')
+
+    // ① edit the WINNER → the answer must follow it (still the furthest)
+    await sql`UPDATE member_subscription SET expire_at = ${'2031-12-25'} WHERE id = ${'sub-365-win'}`
+    expect((await resolveSubscription(user, NOW)).expireAt).toBe('2031-12-25')
+
+    // ② edit the LOSER, keeping it a loser → the answer must NOT move
+    await sql`UPDATE member_subscription SET expire_at = ${'2028-02-29'} WHERE id = ${'sub-365-lose'}`
+    expect((await resolveSubscription(user, NOW)).expireAt).toBe('2031-12-25')
+
+    // ③ NEGATIVE CONTROL for ② — promote the loser past the winner. If the instrument cannot see this, then
+    // ②'s "did not move" measured nothing. The tier travels with the row, so assert both: a picker that
+    // returned the right DATE off the wrong ROW would still be wrong.
+    await sql`UPDATE member_subscription SET expire_at = ${'2099-01-01'}, tier_code = ${'PLUS'} WHERE id = ${'sub-365-lose'}`
+    const promoted = await resolveSubscription(user, NOW)
+    expect(promoted.expireAt).toBe('2099-01-01')
+    expect(promoted.tier).toBe('PLUS')
+
+    await sql`DELETE FROM member_subscription WHERE id IN (${'sub-365-win'}, ${'sub-365-lose'})`
+  })
+
   it('🔴 TEETH — delete the v2 row and a member falls back to member_payment, NOT to free', async () => {
     await seed({ id: 'sub-354-teeth', userId: liveMember, tier: 'PLUS', expireAt: '2027-12-31' })
-    expect(await resolveSubscription(liveMember, NOW)).toEqual({ isPaid: true, tier: 'PLUS', source: 'v2' })
+    expect(await resolveSubscription(liveMember, NOW)).toEqual({ isPaid: true, tier: 'PLUS', source: 'v2', expireAt: '2027-12-31' })
     await sql`DELETE FROM member_subscription WHERE id = ${'sub-354-teeth'}`
-    expect(await resolveSubscription(liveMember, NOW)).toEqual({ isPaid: true, tier: null, source: 'legacy' })
+    expect(await resolveSubscription(liveMember, NOW)).toEqual({ isPaid: true, tier: null, source: 'legacy', expireAt: null })
   })
 })

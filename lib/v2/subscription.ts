@@ -19,7 +19,12 @@ import { resolveMembership } from '@/lib/usage'
 import { parseTierCode, tierIsPaid, type TierCode } from './tier'
 
 export type MembershipSource = 'v2' | 'legacy' | 'none'
-export type ResolvedMembership = {
+
+/** The TIER verdict alone — what `resolveTierFromSources` can answer from a tier_code and a legacy row.
+ *  Deliberately WITHOUT expire_at: that function is handed `{ tierCode }` and nothing else, and #365 is not
+ *  a reason to widen the one pure rule that decides who is paid. The date is attached one level up, by the
+ *  function that actually holds the winning ROW. */
+export type MembershipVerdict = {
   /** true = paid · false = KNOWN not-paid · null = a v2 row carried an UNKNOWN tier_code so membership
    *  could not be determined — fail closed, do NOT unlock (tier-lock.ts remindersLocked = isPaid !== true).
    *  The legacy/none paths are always boolean; null only appears on the v2 path (ตู๋ #369 B1). */
@@ -30,6 +35,23 @@ export type ResolvedMembership = {
   tier: TierCode | null
   /** where the verdict came from — 'v2' row · 'legacy' member_payment row (paid or expired) · 'none'. */
   source: MembershipSource
+}
+
+/** The verdict PLUS the winning row's expiry — what a screen needs to say "ใช้ได้ถึง …".
+ *
+ *  #365 (จอ "สิทธิ์ของฉัน") needs the date, and its DoD says the date must COME FROM member_subscription and
+ *  must NOT be computed by the screen. Before this, `expire_at` lived only inside SubRow and was dropped at
+ *  resolveTierFromSources, so the only date any caller could reach was member_payment.expire_at via
+ *  /api/user (a DIFFERENT table). A screen that wanted the v2 date had two options, both wrong: re-read the
+ *  table itself (a second copy of the selection rule — the bug ตู๋ closed in #369 B2) or compute it from the
+ *  package (the exact thing #365's DoD forbids). So it is exposed here, from the row the ONE rule picked.
+ *
+ *  `null` means "no v2 row decided this" — legacy-paid, free, or not-determined. It is NOT "no expiry":
+ *  a legacy member does have one, it just lives in member_payment and is not this seam's to report.
+ *  ⚠️ A caller must never read `expireAt: null` as "expired" — `isPaid` is the only field that answers that. */
+export type ResolvedMembership = MembershipVerdict & {
+  /** 'YYYY-MM-DD' from the winning member_subscription row · null when no v2 row decided the verdict. */
+  expireAt: string | null
 }
 
 // The minimal row shape the pure selection needs — keeps pickActiveSubscriptionRow DB-free and unit-testable.
@@ -61,7 +83,7 @@ export function pickActiveSubscriptionRow<T extends SubRow>(rows: T[], today: st
 export function resolveTierFromSources(args: {
   subRow: { tierCode: string } | null
   legacy: { isFree: boolean; reason: MembershipReason }
-}): ResolvedMembership {
+}): MembershipVerdict {
   if (args.subRow) {
     const tier = parseTierCode(args.subRow.tierCode)
     if (tier === null) {
@@ -113,7 +135,16 @@ export function resolveMembershipFromRows(
   today: string,
   legacy: { isFree: boolean; reason: MembershipReason },
 ): ResolvedMembership {
-  return resolveTierFromSources({ subRow: pickActiveSubscriptionRow(rows, today), legacy })
+  const subRow = pickActiveSubscriptionRow(rows, today)
+  const verdict = resolveTierFromSources({ subRow, legacy })
+  // #365 — the date rides along ONLY when a v2 row actually decided the verdict. Two cases deliberately
+  // answer null even though a row was in hand:
+  //   · verdict.source !== 'v2'  → the legacy/none paths. Their expiry is member_payment's, not ours.
+  //   · isPaid === null          → the row carried an unknown tier_code, so we refused to grant membership
+  //                                (see resolveTierFromSources). Printing "ใช้ได้ถึง …" for a membership we
+  //                                just declined would be the screen contradicting the gate.
+  const expireAt = subRow !== null && verdict.source === 'v2' && verdict.isPaid !== null ? subRow.expireAt : null
+  return { ...verdict, expireAt }
 }
 
 // A live v2 row wins outright, so in that branch the legacy verdict is never consulted — this placeholder
