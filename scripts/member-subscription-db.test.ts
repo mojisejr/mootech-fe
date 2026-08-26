@@ -1,6 +1,6 @@
 // #354 — DB half: proves the v2 membership seam against a REAL postgres. Like push-concurrency.test.ts it
 // is `describe.skipIf(!TEST_DATABASE_URL)` and does NOT run in the pre-push lane; run it against the testenv
-// pg (which carries the 24 anonymized member_payment rows) for the PR proof:
+// pg (which carries the anonymized member_payment rows) for the PR proof:
 //   TEST_DATABASE_URL=postgres://postgres:postgres@localhost:5433/mumate_test \
 //   DATABASE_URL=postgres://postgres:postgres@localhost:5433/mumate_test \
 //   npx vitest run scripts/member-subscription-db.test.ts
@@ -111,9 +111,18 @@ describe.skipIf(!TEST_URL)('member_subscription · real pg (#354)', () => {
     ).rejects.toThrow(/foreign key|violates/i)
   })
 
-  it('the 24 existing member_payment users read EXACTLY as before (no v2 rows, no data moved)', async () => {
+  it('every existing member_payment user reads EXACTLY as before (no v2 rows, no data moved)', async () => {
     const users = await sql`SELECT user_id FROM member_payment`
-    expect(users.length).toBe(24)
+    // 🔴 #442 — this used to read `toBe(24)`, a snapshot of however many rows the dump happened to carry
+    // the day #354 was written. The number MOVES on its own: settling a v2 payment writes a shadow
+    // member_payment row, so every payment test run on testenv bumps it (it reached 25 and went red on
+    // `main` itself, which is worse than useless — the next person cannot tell whether they broke it).
+    // The count never guarded anything; the LOOP below is the whole point of this test.
+    //
+    // 🔴 WHY NOT DROP THE ASSERTION ENTIRELY. With an empty table the loop runs zero times and this test
+    // goes green having proven nothing — a pass that survives the disappearance of the thing it checks.
+    // Reading the floor off the database keeps the test tied to behaviour instead of to a snapshot.
+    expect(users.length).toBeGreaterThan(0)
     for (const { user_id } of users) {
       const legacy = await resolveMembership(user_id, NOW)
       const resolved = await resolveSubscription(user_id, NOW)
