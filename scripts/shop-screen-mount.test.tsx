@@ -13,6 +13,7 @@
 //   S4  `undetermined` falls through to the buy button                      → the loading/error tests redden
 //   S5  the legacy member's button says อัปเกรด                             → the legacy wording test reddens
 //   S6  the blocked (downgrade) card renders a checkout link                → the PRO→PLUS test reddens
+//   S7  the payment terms render on a card that offers no payment            → the legal-note tests redden
 import React from 'react'
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, cleanup, waitFor } from '@testing-library/react'
@@ -148,6 +149,32 @@ describe('#457 row 5 — a legacy member: paid, no level name', () => {
   it('is still told their remaining days carry over', async () => {
     await mountAs({ isPaid: true, tier: null, loading: false }, '2027-03-01')
     expect(screen.getByTestId('plan-carry-note-plus').textContent).toContain('จะถูกบวกให้')
+  })
+})
+
+describe('#457 — 🔴 payment terms only where there is a payment (found by LOOKING at the page)', () => {
+  // Not caught by any assertion above: every string on the card was correct, and the card was still wrong.
+  // A PRO member's Mumate + card refused the purchase and then printed the terms of that purchase.
+  it('a card that offers no purchase carries no "เมื่อชำระเงินเรียบร้อยแล้ว" line', async () => {
+    await mountAs({ isPaid: true, tier: 'PRO', loading: false }, '2027-08-26')
+    expect(screen.queryByTestId('plan-legal-plus')).toBeNull() // blocked — cannot downgrade
+    expect(screen.queryByTestId('plan-legal-pro')).toBeNull() // current — already theirs
+  })
+  it('and neither does a card whose viewer we cannot place yet', async () => {
+    tierState.value = { isPaid: null, tier: null, loading: true }
+    userState.value = { expireAt: null }
+    renderScreen()
+    await waitFor(() => expect(screen.getByTestId('plan-cta-pending-plus')).toBeTruthy())
+    expect(screen.queryByTestId('plan-legal-plus')).toBeNull()
+  })
+  it('🔴 but a card that DOES offer a purchase still carries it — this is not "delete the terms"', async () => {
+    await mountAs({ isPaid: false, tier: null, loading: false })
+    expect(screen.getByTestId('plan-legal-plus').textContent).toContain('เมื่อชำระเงินเรียบร้อยแล้ว')
+    expect(screen.getByTestId('plan-legal-pro').textContent).toContain('นโยบายความเป็นส่วนตัว')
+  })
+  it('and so does an upgrade card', async () => {
+    await mountAs({ isPaid: true, tier: 'PLUS', loading: false }, '2027-08-26')
+    expect(screen.getByTestId('plan-legal-pro').textContent).toContain('เมื่อชำระเงินเรียบร้อยแล้ว')
   })
 })
 

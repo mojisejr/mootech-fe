@@ -244,8 +244,13 @@ export function PackageCard({
         </p>
       ) : null}
 
-      {plan.id !== 'free' ? (
-        <p className="mt-3 text-center text-xs leading-[18px] text-v3-text-muted">
+      {/* 🔴 The payment terms belong to a PAYMENT. Found by looking at the rendered page, not by any
+          assertion: a PRO member's Mumate + card said "คุณเป็นสมาชิกระดับสูงกว่านี้อยู่แล้ว" and then, one
+          line below, "เมื่อชำระเงินเรียบร้อยแล้ว ถือว่ายอมรับ…" — terms for a purchase the same card had
+          just refused to offer. Same family as the card's other rule: never say words that imply an action
+          this card does not have. */}
+      {plan.id !== 'free' && (verdict.kind === 'buy' || verdict.kind === 'upgrade') ? (
+        <p data-testid={`plan-legal-${plan.id}`} className="mt-3 text-center text-xs leading-[18px] text-v3-text-muted">
           เมื่อชำระเงินเรียบร้อยแล้ว ถือว่ายอมรับ{' '}
           <TextLink type="legal" size="small" href="/privacy/policy">
             นโยบายความเป็นส่วนตัว
