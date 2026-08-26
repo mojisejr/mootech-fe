@@ -10,8 +10,10 @@
 //   MG4  make remainingDays inclusive of the expiry day (off-by-one)        → the day-count tests redden
 //   MG5  let a downgrade through (wanted < held ⇒ allow)                    → the PRO→PLUS test reddens
 //   MG6  treat an unpaid/lapsed user as paid                                → the "first purchase unchanged" tests redden
+//   MG7  decideSettlement grants a tier BELOW the one held (the demotion)   → the settlement downgrade tests redden
+//   MG8  decideSettlement refuses the SAME tier instead of adding its time  → the "ฟีม paid twice" test reddens
 import { describe, it, expect } from 'vitest'
-import { decidePurchase, remainingDays, type Entitlement } from '@/lib/payment/purchase-gate'
+import { decidePurchase, decideSettlement, remainingDays, type Entitlement } from '@/lib/payment/purchase-gate'
 import { tierRank } from '@/lib/v2/tier'
 
 const TODAY = '2026-08-26'
@@ -141,5 +143,72 @@ describe('MG2 — the refusals are real (a gate that always allows fails these)'
       expect(r.allow).toBe(false)
       expect(r).not.toHaveProperty('carryOverDays')
     }
+  })
+})
+
+// ── the SETTLEMENT question (ตู๋'s review of 2c196b8) ────────────────────────────────────────────────
+//
+// The door and the webhook are NOT the same question, and the tests say so separately on purpose. A door
+// test that also passed for the webhook is exactly what let 1,790 บาท buy PLUS.
+describe('decideSettlement — money has already moved; what may we WRITE?', () => {
+  it('MG7 — a stale LOWER tier landing on a higher one is NOT granted (nobody is demoted by a payment)', () => {
+    expect(decideSettlement({ current: proUntil('2027-08-25'), paidTier: 'PLUS', today: TODAY })).toEqual({
+      grant: false,
+      reason: 'WOULD_DOWNGRADE',
+    })
+  })
+
+  it('MG7 — and a refusal carries no day count: nothing about the live row may be recomputed from it', () => {
+    const d = decideSettlement({ current: proUntil('2027-08-25'), paidTier: 'PLUS', today: TODAY })
+    expect(d).not.toHaveProperty('carryOverDays')
+  })
+
+  it('an UPGRADE landing is granted and carries the days left, exactly like the door promised', () => {
+    expect(decideSettlement({ current: plusUntil('2027-08-25'), paidTier: 'PRO', today: TODAY })).toEqual({
+      grant: true,
+      carryOverDays: 364,
+    })
+  })
+
+  it('MG8 — the SAME tier IS granted here, unlike at the door — this is ฟีม paying twice for PLUS', () => {
+    // 🔴 The door refuses this (you would be paying for nothing). At the webhook the money is already gone,
+    // so the honest outcome is to ADD the time it bought. Refusing here would rebuild the original bug:
+    // 1,580 บาท for one year.
+    expect(decideSettlement({ current: plusUntil('2027-08-25'), paidTier: 'PLUS', today: TODAY })).toEqual({
+      grant: true,
+      carryOverDays: 364,
+    })
+  })
+
+  it('a first purchase (holding nothing) is granted with nothing carried', () => {
+    expect(decideSettlement({ current: free, paidTier: 'PLUS', today: TODAY })).toEqual({
+      grant: true,
+      carryOverDays: 0,
+    })
+  })
+
+  it('a LAPSED member is granted with nothing carried — they held nothing when the money landed', () => {
+    expect(decideSettlement({ current: lapsed, paidTier: 'PLUS', today: TODAY })).toEqual({
+      grant: true,
+      carryOverDays: 0,
+    })
+  })
+
+  it('a LEGACY member has no rank, so nothing can rank below them: granted, days carried', () => {
+    expect(decideSettlement({ current: legacyUntil('2026-12-04'), paidTier: 'PLUS', today: TODAY })).toEqual({
+      grant: true,
+      carryOverDays: 100,
+    })
+  })
+})
+
+describe('remainingDays — no silent ceiling (ตู๋ ①)', () => {
+  it('a 10-year span is counted in full, not truncated to a cap', () => {
+    // 20ADMINMUMATE26 is a 10Y package sitting inactive. The previous implementation walked day by day and
+    // returned 4000 on hitting its own limit, with no error and no log.
+    expect(remainingDays('2026-08-26', '2036-08-26')).toBe(3653) // 10 years incl. leap days 2028/32/36
+  })
+  it('and a date that does not exist is refused rather than rolled over', () => {
+    expect(remainingDays('2026-08-26', '2026-02-31')).toBe(0)
   })
 })

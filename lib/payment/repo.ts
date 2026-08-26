@@ -6,7 +6,7 @@ import { db as defaultDb } from '@/lib/db'
 import { v2Payment, memberPayment, memberSubscription, paymentPackage, paymentQuote, user } from '@/lib/db/schema'
 import { parseExpireSpec, type PackageRow } from './catalog'
 import { buildProvision } from './provision'
-import { decidePurchase, remainingDays, type Entitlement, type PurchaseDecision } from './purchase-gate'
+import { decidePurchase, decideSettlement, type Entitlement, type PurchaseDecision } from './purchase-gate'
 import { toSubRows, pickActiveSubscriptionRow } from '@/lib/v2/subscription'
 import { classifyMembership, bkkDateStr } from '@/lib/usage-core'
 import { parseTierCode } from '@/lib/v2/tier'
@@ -389,7 +389,22 @@ export async function settleAndProvision(
     // from what the user holds AT SETTLEMENT. If two accepted charges settle back to back, the second one
     // reads the first one's row and carries ITS remaining days — the chain stays honest without a lock.
     const held = await readEntitlement(pay.userId, now, tx as unknown as Db)
-    const carryOverDays = remainingDays(bkkDate(now), held.expireAt)
+
+    // 🔴 #456 (ตู๋, review of 2c196b8) — ASK THE MATRIX HERE TOO. The door asked when the charge was
+    // CREATED; between then and now the buyer may have bought something better, and an abandoned PromptPay
+    // charge stays PENDING indefinitely, so "then" can be days ago. decideSettlement answers the webhook's
+    // own question — what may we WRITE — which is not the door's question of what may be BOUGHT.
+    const settlement = decideSettlement({
+      current: held,
+      paidTier: pay.tierCode as TierCode,
+      today: bkkDate(now),
+    })
+    const carryOverDays = settlement.grant ? settlement.carryOverDays : 0
+    // A payment that would demote the buyer is still RECORDED (v2_payment is APPROVED above — money that
+    // moved is never un-recorded) but its subscription row is born superseded: it never becomes the live
+    // row, and it supersedes nothing. Whether that money is refunded or kept as credit is ฟีม's call and
+    // is deliberately NOT decided here; what could not wait for that answer is that nobody gets demoted.
+    const rowStatus: 'ACTIVE' | 'REPLACED' = settlement.grant ? 'ACTIVE' : 'REPLACED'
 
     const { subscription, shadow } = buildProvision({
       userId: pay.userId,
@@ -412,7 +427,7 @@ export async function settleAndProvision(
     // would otherwise leave a user holding two live rows again, which is the bug this ticket exists for.
     // status='REPLACED' is already in the schema (lib/db/schema.ts:748, migration 0006) — no migration here.
     // Nothing is deleted: the superseded rows keep their amount and span as the payment history they are.
-    if (held.supersedeIds.length > 0) {
+    if (settlement.grant && held.supersedeIds.length > 0) {
       await tx
         .update(memberSubscription)
         .set({ status: 'REPLACED' })
@@ -434,7 +449,7 @@ export async function settleAndProvision(
       expireAt: subscription.expireAt,
       // v1 payment_id FK stays NULL for v2; the v2_payment link goes in v2_payment_id (0007).
       v2PaymentId: subscription.paymentId,
-      status: subscription.status,
+      status: rowStatus,
     })
 
     // Shadow: plan_code always MEMBER (rule ①); expire_at = GREATEST in SQL (rule ②, atomic vs concurrent

@@ -533,6 +533,98 @@ describe.skipIf(!TEST_URL)('payment webhook · real pg (#355)', () => {
     expect(dateOf(live?.expire_at)).toBe(addDaysStr(computeExpireDate(today, 0, { value: 1, unit: 'Y' }), carried))
   })
 
+  // 🔴 #456 ⑦ — THE POLAR OPPOSITE OF ⑤ (ตู๋, review of 2c196b8). ⑤ proves the way UP; nothing proved the
+  // way DOWN, and the way down was broken: the door asks the matrix when the charge is CREATED, but a
+  // PromptPay QR that the user closed stays PENDING forever (no writer expires it — ตู๋ confirmed while
+  // reviewing #452). So:
+  //
+  //   free user taps PLUS with PromptPay  → QR issued, tab closed          (v2_payment PENDING, forever)
+  //   changes their mind, taps PRO with a card → door says yes (they ARE free) → settles → PRO
+  //   days later they find the old QR and pay it → the webhook lands       → they become PLUS
+  //
+  // ตู๋'s probe on real postgres: 1,790 บาท paid, tier PLUS held, the PRO row marked REPLACED. The days
+  // survived (carry-over worked); the LEVEL did not. That is "PRO buys PLUS ⇒ refuse" from ฟีม's matrix,
+  // arriving at the webhook instead of at the door — and nobody was asking the matrix there.
+  it('#456 ⑦ REVERSE ORDER: a stale LOWER-tier charge settling after an upgrade must NOT take the level away', async () => {
+    const u = users[2]
+    const today = bkk(NOW)
+    // Both charges were created while the user was free — both legitimately passed the door.
+    await seedPending('C456H', u, 'MONTHLY', 'PLUS', 50000, '1M', 0) // the abandoned QR
+    await seedPending('C456I', u, 'YEARLY-PRO', 'PRO', 129000, '1Y', 0) // the card they actually used
+
+    await settleAndProvision('C456I') // the card lands first → PRO
+    const { resolveSubscription } = await import('@/lib/v2/subscription')
+    expect((await resolveSubscription(u, NOW)).tier, 'precondition: the card purchase granted PRO').toBe('PRO')
+
+    await settleAndProvision('C456H') // the old QR is finally paid
+
+    // 🔴 THE CLAIM: money that was already spent may be recorded, but it may never DOWNGRADE anybody.
+    const after = await resolveSubscription(u, NOW)
+    expect(after.tier, 'a stale PLUS charge must not demote a PRO member').toBe('PRO')
+    expect(after.isPaid).toBe(true)
+
+    // and the PRO row must still be the live one — not superseded by the thing that came after it
+    const rows = await sql`SELECT tier_code, status FROM member_subscription WHERE user_id = ${u}`
+    const pro = rows.find((r) => r.tier_code === 'PRO')
+    expect(pro?.status, 'the higher row must survive the lower settlement').toBe('ACTIVE')
+    expect(
+      rows.filter((r) => r.status === 'ACTIVE').length,
+      'and exactly ONE row may be live — two live rows is the bug this ticket exists for',
+    ).toBe(1)
+
+    // The payment is still RECORDED — money that moved is never un-recorded. It simply never became live.
+    const [paid] = await sql`SELECT status FROM v2_payment WHERE charge_id = 'C456H'`
+    expect(paid.status, 'the stale charge is still marked APPROVED — it really was paid').toBe('APPROVED')
+    expect(rows.find((r) => r.tier_code === 'PLUS')?.status, 'and its row exists, born superseded').toBe('REPLACED')
+
+    // 🔴 and the shadow may not be SHORTENED by any of this — the never-burn rule still holds.
+    const [mp] = await sql`SELECT expire_at FROM member_payment WHERE user_id = ${u}`
+    expect(dateOf(mp.expire_at) >= computeExpireDate(today, 0, { value: 1, unit: 'Y' })).toBe(true)
+  })
+
+  // 🔴 #456 ⑧ — ฟีม'S OWN CASE, END TO END. This is the account that opened the ticket: one card and one
+  // PromptPay, BOTH PLUS, both settled. Before #456 it produced two live rows and one year of membership
+  // for 1,580 บาท. It must now produce ONE live row carrying BOTH spans.
+  //
+  // It is also the tooth that keeps decideSettlement from over-correcting: the door refuses same-tier
+  // repurchase, and it would be easy to make the webhook refuse it too. That would give ฟีม back exactly
+  // the bug he reported. This test reddens the moment anyone does that.
+  it('#456 ⑧ ฟีม case: TWO PLUS charges settle ⇒ ONE live row holding BOTH years, not one year', async () => {
+    const u = users[2]
+    const today = bkk(NOW)
+    await seedPending('C456L', u, 'V2_PLUS_YEARLY', 'PLUS', 79000, '1Y', 0) // the card
+    await seedPending('C456M', u, 'V2_PLUS_YEARLY', 'PLUS', 79000, '1Y', 0) // the PromptPay
+
+    await settleAndProvision('C456L')
+    await settleAndProvision('C456M')
+
+    const rows = await sql`SELECT status, tier_code, expire_at FROM member_subscription WHERE user_id = ${u}`
+    expect(rows.length).toBe(2) // history: one row per payment, both kept
+    expect(rows.filter((r) => r.status === 'ACTIVE').length, 'exactly ONE live row').toBe(1)
+
+    const live = rows.find((r) => r.status === 'ACTIVE')
+    expect(live?.tier_code).toBe('PLUS')
+    // 🔴 THE NUMBER FROM THE TICKET: 790 + 790 must buy TWO years, not one.
+    const oneYear = computeExpireDate(today, 0, { value: 1, unit: 'Y' })
+    const carried = Math.round((Date.parse(oneYear) - Date.parse(today)) / 86_400_000)
+    expect(dateOf(live?.expire_at)).toBe(addDaysStr(oneYear, carried))
+
+    const { resolveSubscription } = await import('@/lib/v2/subscription')
+    expect((await resolveSubscription(u, NOW)).tier).toBe('PLUS')
+  })
+
+  it('#456 ⑦ b CONTROL — the SAME two charges in the other order still upgrade correctly', async () => {
+    const u = users[3]
+    await seedPending('C456J', u, 'MONTHLY', 'PLUS', 50000, '1M', 0)
+    await seedPending('C456K', u, 'YEARLY-PRO', 'PRO', 129000, '1Y', 0)
+    await settleAndProvision('C456J') // PLUS first
+    await settleAndProvision('C456K') // then the upgrade
+    const { resolveSubscription } = await import('@/lib/v2/subscription')
+    expect((await resolveSubscription(u, NOW)).tier).toBe('PRO')
+    const rows = await sql`SELECT status FROM member_subscription WHERE user_id = ${u}`
+    expect(rows.filter((r) => r.status === 'ACTIVE').length).toBe(1)
+  })
+
   it('#456 ⑥ a LEGACY member (member_payment only, no tier name) may buy, and their days follow', async () => {
     const u = users[3]
     const today = bkk(NOW)

@@ -15,7 +15,6 @@
 // them money. Carrying days over touches ONE number in ONE pure function and the buyer loses nothing: every
 // day they already paid for follows them onto the new tier.
 import { tierRank, type TierCode } from '@/lib/v2/tier'
-import { addDays } from './provision'
 
 /** What the buyer holds RIGHT NOW, as read by lib/payment/repo.ts readEntitlement.
  *
@@ -55,20 +54,31 @@ export type PurchaseDecision =
 export function remainingDays(today: string, expireAt: string | null | undefined): number {
   if (!expireAt) return 0
   const e = String(expireAt).slice(0, 10)
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(e) || !/^\d{4}-\d{2}-\d{2}$/.test(today)) return 0
-  // addDays is the repo's one piece of civil-date math (UTC, no moment) — reused rather than re-derived so
-  // there is a single definition of "a day" in the money lane.
-  let n = 0
-  // Walking is O(days) but bounded by the longest package sold (10Y ⇒ ~3,650 steps) and keeps this function
-  // dependent on ONE date primitive instead of introducing a second, subtly different, ms-based one.
-  // A ms subtraction over UTC midnights would also be correct; it would just be a second definition.
-  const MAX = 4000
-  let cur = today
-  while (cur < e && n < MAX) {
-    cur = addDays(cur, 1)
-    n += 1
-  }
-  return n
+  const d1 = parseYmdUtc(today)
+  const d2 = parseYmdUtc(e)
+  if (d1 === null || d2 === null) return 0
+  const days = Math.round((d2 - d1) / 86_400_000)
+  return days > 0 ? days : 0 // never negative — a past date owes nothing, it must not SHORTEN the new span
+}
+
+// UTC midnight of a 'YYYY-MM-DD', or null if it is not a real calendar date. UTC has no DST, so the
+// difference between two of these is always an exact whole number of days.
+//
+// 🔴 This replaced a day-by-day walk that stopped at a hard cap of 4,000 and returned the cap SILENTLY
+// (ตู๋, review of 2c196b8). Nothing sold today can reach it — every active package is 1Y — but
+// `20ADMINMUMATE26` is a 10Y package sitting inactive, and the day somebody switches it on the cap would
+// start eating days off a paying customer with no error, no log, and no way to notice. A silent truncation
+// on the money lane is the exact shape we keep finding; it does not get to stay because it is unreachable
+// this week.
+function parseYmdUtc(ymd: string): number | null {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(ymd ?? '')
+  if (!m) return null
+  const [y, mo, d] = [Number(m[1]), Number(m[2]), Number(m[3])]
+  const t = Date.UTC(y, mo - 1, d)
+  const probe = new Date(t)
+  // reject dates that do not exist (2026-02-31 rolls over to March — that is not the day anyone meant)
+  if (probe.getUTCFullYear() !== y || probe.getUTCMonth() !== mo - 1 || probe.getUTCDate() !== d) return null
+  return t
 }
 
 /**
@@ -116,4 +126,68 @@ export function decidePurchase(args: {
   if (wanted > held) return { allow: true, carryOverDays } // upgrade — the whole point of ทาง C
   if (wanted === held) return { allow: false, reason: 'ALREADY_ON_THIS_TIER' }
   return { allow: false, reason: 'CANNOT_DOWNGRADE' }
+}
+
+// ── the SETTLEMENT question (mootech-fe#456, ตู๋'s review of 2c196b8) ─────────────────────────────
+//
+// 🔴 THE DOOR AND THE WEBHOOK ASK DIFFERENT QUESTIONS, and giving them the same answer is what broke.
+//
+//   door     "may this person BUY this?"          — nothing has happened yet; refusing costs nobody anything
+//   webhook  "the money has MOVED. what may we write?" — refusing is no longer free, and pretending the
+//            payment did not happen is not on the table
+//
+// The gap between them is real time. A PromptPay QR the user closed stays PENDING forever — no writer
+// expires it (ตู๋ confirmed while reviewing #452) — so a charge created while somebody was FREE can settle
+// days later, after they have bought something else. The door answered correctly both times. Nobody was
+// asking anything at the webhook.
+//
+// ตู๋'s probe on real postgres: settle PRO (1,290) then settle a stale PLUS (500) ⇒ tier PLUS, the PRO row
+// marked REPLACED. 1,790 บาท paid, PLUS held. The days survived; the LEVEL was taken away.
+//
+// 🔑 AND THE OBVIOUS MINIMAL FIX IS NOT ENOUGH — measured, not assumed. Excluding higher-ranked rows from
+// supersedeIds leaves the PRO row ACTIVE, but the new PLUS row still carries PRO's remaining days, so it
+// expires LATER, and lib/v2/subscription.ts:49-56 picks by expire_at DESC — not by tier. The reader still
+// answers PLUS. Probed on postgres before writing this: the demotion survives that fix untouched.
+//
+// So the rule this function states is about the WRITE, not about permission:
+//   **never write a row that ranks below what the buyer already holds live.**
+
+export type SettlementDecision =
+  | { grant: true; carryOverDays: number }
+  | { grant: false; reason: 'WOULD_DOWNGRADE' }
+
+/**
+ * What a settlement may write, given what the buyer holds at the moment the money lands.
+ *
+ * 🔴 SAME TIER IS A GRANT, NOT A REFUSAL — and that is deliberate, not an oversight of the door's matrix.
+ * At the door, buying the tier you already hold is refused because you would be paying for nothing. At the
+ * webhook the payment ALREADY HAPPENED, and the honest thing to do with it is add the time it bought. This
+ * is ฟีม's own case: one card + one PromptPay, both PLUS. Refusing here would recreate the exact bug
+ * mootech-fe#456 exists to fix — 1,580 บาท for one year.
+ *
+ * 🔴 WHAT A REFUSAL DOES *NOT* DECIDE: whether the money is refunded or kept as credit. That is ฟีม's call
+ * (ตู๋ said so explicitly and he is right). This function only guarantees the thing that cannot wait for an
+ * answer: nobody is demoted by a payment. The caller records the purchase either way — money that moved is
+ * never un-recorded — it just does not grant a level below the one already held.
+ */
+export function decideSettlement(args: {
+  current: Entitlement
+  paidTier: TierCode
+  today: string
+}): SettlementDecision {
+  const { current, paidTier, today } = args
+  if (!current.isPaid) return { grant: true, carryOverDays: 0 }
+
+  const carryOverDays = remainingDays(today, current.expireAt)
+
+  // Legacy-paid: no name, so no rank, so nothing to rank BELOW. Grant and carry (same reasoning as the
+  // door's legacy branch — we never punish somebody we cannot place on the ladder).
+  const held = tierRank(current.tier)
+  if (held === null) return { grant: true, carryOverDays }
+
+  const paid = tierRank(paidTier)
+  if (paid === null) return { grant: false, reason: 'WOULD_DOWNGRADE' } // unplaceable ⇒ do not let it win
+
+  if (paid >= held) return { grant: true, carryOverDays } // upgrade, or same tier ⇒ add the time bought
+  return { grant: false, reason: 'WOULD_DOWNGRADE' }
 }
