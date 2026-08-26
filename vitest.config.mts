@@ -7,11 +7,19 @@ const rootDir = path.dirname(fileURLToPath(import.meta.url))
 
 // vitest as the repo's real test framework (issue #210). Scoped deliberately narrow:
 //   • environment jsdom — needed for React hooks (@testing-library/react renderHook).
-//   • include lists ONLY the specs migrated to vitest. The other 71 scripts/*.test.ts are plain
-//     node:assert scripts that still run under `tsx` in ci.yml (issue #210: don't move them — they
-//     migrate opportunistically). A directory glob would wrongly try to run those as vitest suites,
-//     so new vitest specs are added to this list one by one as they convert.
-//     (A `.test.tsx` spec is invisible to that ci.yml lane by extension — it globs `*.test.ts`.)
+//   • include lists ONLY the specs migrated to vitest. The rest of scripts/*.test.ts are plain
+//     node:assert scripts (issue #210: don't move them — they migrate opportunistically). A directory
+//     glob would wrongly try to run those as vitest suites, so new vitest specs are added to this list
+//     one by one as they convert.
+//
+//     🔴 THIS LIST IS HAND-WRITTEN, SO IT DRIFTS. Two claims that used to live here were both stale by
+//     2026-08-26 and cost real time: "71 files" (measured 75 at aa0174f) and "run under `tsx` in ci.yml"
+//     (#321 archived ci.yml on 2026-08-18; the lane was rebuilt inside .githooks/pre-push by #334).
+//     ⇒ do not write a COUNT or a RUNNER NAME in this comment again. scripts/vitest-include-drift.test.ts
+//     now measures both from the tree on every `npm test`, which is the only version that cannot rot.
+//
+//     (A `.test.tsx` spec is invisible to the pre-push tsx lane by extension — it globs `*.test.ts` —
+//      so an unregistered .test.tsx is run by nothing at all. That is assertion ① of #441's guard.)
 //   • alias '@' → repo root, mirroring tsconfig.json paths ("@/*": ["./*"]).
 
 // JSX (issue #215). tsconfig.json sets jsx: "preserve" because Next compiles JSX itself — and vite
@@ -100,7 +108,8 @@ export default defineConfig({
       'scripts/payment-catalog.test.ts', // #355 — pure: server pricing (satang/VAT-backward) + tier allow-list fail-loud
       'scripts/payment-provision.test.ts', // #355 — pure: expire date math + shadow GREATEST merge (days never burn)
       'scripts/payment-webhook-verify.test.ts', // #355 — pure: Omise HMAC verify, fail-closed (main-lane money gate)
-      'scripts/payment-charge-route.test.ts', // #355 — route: session gate + client-ignored + fail-loud-before-charge
+      'scripts/vitest-include-drift.test.ts',
+    'scripts/payment-charge-route.test.ts', // #355 — route: session gate + client-ignored + fail-loud-before-charge
       'scripts/terminal-failure-agreement.test.ts', // #437 — isRefusedCharge (สร้าง charge) กับ isTerminalFailure (webhook) ต้องตอบเหมือนกัน
       'scripts/result-declined-rule.test.ts', // #438 — จอต้องพูดคำว่าธนาคารปฏิเสธได้ + ปุ่มต้องไม่พาไปหน้าตาย
       'scripts/return-uri-3ds.test.ts', // #439 — return_uri ต่อ charge + เลนบัตรกับพร้อมเพย์ต้องไม่ขยับหากัน
