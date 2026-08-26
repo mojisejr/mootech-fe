@@ -9,6 +9,7 @@
 //   MR5  the refusal is marked but the REASON is not written down (#437)         → the failure-code test reddens
 //   MR6  recording the reason is allowed to abort the hold release (#440 ตู๋)    → the leaked-hold test reddens
 //   MR7  the reason is written AFTER the verdict instead of before (#440 ตู๋)   → the ordering test reddens
+//   MR8  the repurchase gate is dropped, or moved AFTER the money (#456)        → the already-entitled tests redden
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 
 const h = vi.hoisted(() => {
@@ -39,7 +40,15 @@ const h = vi.hoisted(() => {
   })
   const abandonPending = vi.fn(async () => undefined)
   const recordChargeFailure = vi.fn(async () => undefined)
-  return { state, captured, createCardCharge, insertPendingReserved, gatewayAnswer, abandonPending, recordChargeFailure }
+  // #456 — what the repurchase gate answers. Default: allow, carry nothing (a first-time buyer), which is
+  // the world every pre-#456 spec in this file assumed, so none of them change meaning.
+  const purchaseDecision = {
+    value: { allow: true, carryOverDays: 0 } as
+      | { allow: true; carryOverDays: number }
+      | { allow: false; reason: string },
+  }
+  const decidePurchaseFor = vi.fn(async () => purchaseDecision.value)
+  return { state, captured, createCardCharge, insertPendingReserved, gatewayAnswer, abandonPending, recordChargeFailure, purchaseDecision, decidePurchaseFor }
 })
 
 vi.mock('@/lib/v2/resolve-user', () => ({ resolveSessionUserId: vi.fn(async () => h.state.session) }))
@@ -51,6 +60,7 @@ vi.mock('@/lib/payment/repo', () => ({
   attachChargeId: vi.fn(async () => undefined),
   abandonPending: h.abandonPending,
   recordChargeFailure: h.recordChargeFailure,
+  decidePurchaseFor: h.decidePurchaseFor,
   settleAndProvision: vi.fn(),
   listUserPayments: vi.fn(),
 }))
@@ -93,6 +103,8 @@ beforeEach(() => {
   h.abandonPending.mockClear()
   h.recordChargeFailure.mockClear()
   h.gatewayAnswer.value = {}
+  h.purchaseDecision.value = { allow: true, carryOverDays: 0 }
+  h.decidePurchaseFor.mockClear()
 })
 
 describe('POST /api/v2/payment/charge', () => {
@@ -231,6 +243,43 @@ describe('POST /api/v2/payment/charge', () => {
     await p
     expect(out.status).toBe(400)
     expect(h.createCardCharge).not.toHaveBeenCalled()
+  })
+
+  // ── #456 — the repurchase gate ───────────────────────────────────────────────────────────────
+  it('MR8 — already on this tier ⇒ 409 and NOTHING is reserved and NO charge is created', async () => {
+    h.purchaseDecision.value = { allow: false, reason: 'ALREADY_ON_THIS_TIER' }
+    const { p, out } = invoke({ package_code: 'MONTHLY', token: 'tokn_1' })
+    await p
+    expect(out.status).toBe(409)
+    expect((out.body as { purchaseError?: string }).purchaseError).toBe('ALREADY_ON_THIS_TIER')
+    // 🔴 THE POINT OF THE TICKET: the refusal happens BEFORE the money. Not "the charge was reversed" —
+    // no v2_payment row was reserved, no discount hold was taken, and Omise was never called at all.
+    expect(h.insertPendingReserved).not.toHaveBeenCalled()
+    expect(h.createCardCharge).not.toHaveBeenCalled()
+    expect(h.abandonPending).not.toHaveBeenCalled() // nothing to unwind ⇒ nothing was wound
+  })
+
+  it('MR8 — a downgrade is refused the same way, and names its own reason', async () => {
+    h.purchaseDecision.value = { allow: false, reason: 'CANNOT_DOWNGRADE' }
+    const { p, out } = invoke({ package_code: 'MONTHLY', token: 'tokn_1' })
+    await p
+    expect(out.status).toBe(409)
+    expect((out.body as { purchaseError?: string }).purchaseError).toBe('CANNOT_DOWNGRADE')
+    expect(h.createCardCharge).not.toHaveBeenCalled()
+  })
+
+  it('the gate is asked about the SESSION user and the tier the SERVER priced — never the body', async () => {
+    const { p } = invoke({ package_code: 'MONTHLY', token: 'tokn_1', user_id: 'attacker', tier_code: 'FREE' })
+    await p
+    expect(h.decidePurchaseFor).toHaveBeenCalledWith('sess-user', 'PLUS', expect.any(Date))
+  })
+
+  it('an allowed purchase is untouched by the gate — it charges exactly as before', async () => {
+    const { p, out } = invoke({ package_code: 'MONTHLY', token: 'tokn_1' })
+    await p
+    expect(out.status).toBe(200)
+    expect((out.body as { status?: string }).status).toBe('PENDING')
+    expect(h.createCardCharge).toHaveBeenCalledTimes(1)
   })
 
   it('non-POST ⇒ 405', async () => {

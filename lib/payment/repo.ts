@@ -1,11 +1,15 @@
 // v2 payment I/O (mootech-fe#355) — the ONLY layer that touches the DB. The decision logic is pure
 // (catalog/provision); this file reads/writes and owns the ATOMIC settlement.
-import { and, eq, ne, gte, desc, sql } from 'drizzle-orm'
+import { and, eq, ne, gte, desc, sql, inArray } from 'drizzle-orm'
 import { randomUUID } from 'node:crypto'
 import { db as defaultDb } from '@/lib/db'
 import { v2Payment, memberPayment, memberSubscription, paymentPackage, paymentQuote, user } from '@/lib/db/schema'
 import { parseExpireSpec, type PackageRow } from './catalog'
 import { buildProvision } from './provision'
+import { decidePurchase, decideSettlement, type Entitlement, type PurchaseDecision } from './purchase-gate'
+import { toSubRows, pickActiveSubscriptionRow } from '@/lib/v2/subscription'
+import { classifyMembership, bkkDateStr } from '@/lib/usage-core'
+import { parseTierCode, tierRank } from '@/lib/v2/tier'
 import { reserveCodeInTx, releaseRedemption, restoreRedemption, Refuse } from '@/lib/discount/repo'
 import type { TierCode } from '@/lib/v2/tier'
 
@@ -224,6 +228,101 @@ export async function listUserPayments(userId: string, db: Db = defaultDb) {
     .orderBy(desc(v2Payment.createdAt))
 }
 
+// ── #456: what does this person hold RIGHT NOW? ───────────────────────────────────────────────────
+// Read for the repurchase/upgrade decision. Two callers, deliberately the SAME function: the door
+// (charge-flow, before any money moves) and the settlement (inside settleAndProvision's transaction, where
+// it is the authoritative read — the world may have moved between charge and webhook).
+//
+// 🔴 This does NOT re-derive either membership rule. The v2 side reuses toSubRows + pickActiveSubscriptionRow
+// (lib/v2/subscription.ts, the ONE copy of the selection rule — #369 B2), and the legacy side reuses
+// classifyMembership (lib/usage-core.ts, the ONE copy the v1 path uses). #456 said not to touch
+// subscription.ts and this is why it does not need to: the rule is imported, not rewritten.
+//
+// The tier NAME still goes through parseTierCode: a tier_code the reader cannot map must never be placed on
+// the ladder as if it were a known level (#354 B1). Unmappable ⇒ tier null ⇒ the legacy branch of
+// decidePurchase, which allows rather than refuses. Fail towards not locking a paying customer out.
+export type CurrentEntitlement = Entitlement & {
+  /** ids of EVERY member_subscription row that counts as live today — the rows an upgrade must supersede.
+   *  Enumerated by running the exported picker until it runs dry, so "live" has exactly ONE definition in
+   *  the codebase and this file never re-states it as a WHERE clause that could drift from the reader. */
+  supersedeIds: string[]
+}
+
+export async function readEntitlement(
+  userId: string,
+  now: Date = new Date(),
+  db: Db = defaultDb,
+): Promise<CurrentEntitlement> {
+  const today = bkkDateStr(now)
+  const subs = await db.select().from(memberSubscription).where(eq(memberSubscription.userId, userId))
+  const rows = toSubRows(subs)
+
+  // Drain the picker: each pass yields the row that would decide membership if the ones already taken were
+  // gone. One human has few rows (one per purchase), so this is a handful of passes over a handful of rows.
+  const supersedeIds: string[] = []
+  let pool = rows
+  for (;;) {
+    const r = pickActiveSubscriptionRow(pool, today)
+    if (!r) break
+    supersedeIds.push(r.id)
+    pool = pool.filter((x) => x.id !== r.id)
+  }
+
+  const live = pickActiveSubscriptionRow(rows, today)
+  if (live) {
+    // The HIGHEST tier among the live rows, which is not always the row the picker returned (it sorts by
+    // expire_at, not by tier). supersedeIds already IS the live set, so it is reused rather than re-filtered.
+    const liveById = new Map(rows.map((r) => [r.id, r]))
+    let highestLiveTier: TierCode | null = null
+    let best = -1
+    for (const id of supersedeIds) {
+      const t = parseTierCode(liveById.get(id)?.tierCode)
+      const r = tierRank(t)
+      if (r !== null && r > best) {
+        best = r
+        highestLiveTier = t
+      }
+    }
+    return {
+      tier: parseTierCode(live.tierCode),
+      isPaid: true,
+      expireAt: live.expireAt,
+      highestLiveTier,
+      supersedeIds,
+    }
+  }
+
+  // No live v2 row ⇒ the legacy member_payment verdict, exactly as lib/v2/subscription.ts falls back.
+  const [mp] = await db
+    .select({ planCode: memberPayment.planCode, expireAt: memberPayment.expireAt })
+    .from(memberPayment)
+    .where(eq(memberPayment.userId, userId))
+    .limit(1)
+  const legacy = classifyMembership(mp ?? null, now)
+  // No live v2 row ⇒ nothing to supersede: a legacy membership lives on member_payment, whose one row is
+  // MERGED by the shadow's GREATEST, never replaced.
+  if (legacy.isFree) return { tier: null, isPaid: false, expireAt: null, highestLiveTier: null, supersedeIds: [] }
+  // Paid, but member_payment has no tier column — this is the unnamed LEGACY member (#456's 6th row).
+  return {
+    tier: null,
+    isPaid: true,
+    expireAt: String(mp?.expireAt ?? '').slice(0, 10) || null,
+    highestLiveTier: null,
+    supersedeIds: [],
+  }
+}
+
+/** The door's question in one call: may this user buy this tier, and what follows them if so? */
+export async function decidePurchaseFor(
+  userId: string,
+  targetTier: TierCode,
+  now: Date = new Date(),
+  db: Db = defaultDb,
+): Promise<PurchaseDecision> {
+  const current = await readEntitlement(userId, now, db)
+  return decidePurchase({ current, targetTier, today: bkkDateStr(now) })
+}
+
 // 🔴 ATOMIC settlement — the DB is the arbiter (#355 ⑤). In ONE transaction:
 //   1. conditional UPDATE status PENDING→APPROVED WHERE charge_id AND status<>'APPROVED' — exactly one of
 //      two concurrent webhooks changes a row; the loser's UPDATE matches 0 rows (Postgres re-checks the
@@ -311,6 +410,33 @@ export async function settleAndProvision(
       .where(eq(memberPayment.userId, pay.userId))
       .limit(1)
 
+    // 🔴 #456 — READ THE CURRENT ENTITLEMENT HERE, INSIDE THE TRANSACTION, not at charge time. The door
+    // (charge-flow) already refused the purchases that must never happen, but the door's answer is minutes
+    // old by the time a webhook lands and it was never the authority: the row this writes must be computed
+    // from what the user holds AT SETTLEMENT. If two accepted charges settle back to back, the second one
+    // reads the first one's row and carries ITS remaining days — the chain stays honest without a lock.
+    const held = await readEntitlement(pay.userId, now, tx as unknown as Db)
+
+    // 🔴 #456 (ตู๋, review of 2c196b8) — ASK THE MATRIX HERE TOO. The door asked when the charge was
+    // CREATED; between then and now the buyer may have bought something better, and an abandoned PromptPay
+    // charge stays PENDING indefinitely, so "then" can be days ago. decideSettlement answers the webhook's
+    // own question — what may we WRITE — which is not the door's question of what may be BOUGHT.
+    // 🔴 BOTH SIDES OF THE COMPARISON GO THROUGH parseTierCode (ตู๋, review r2). `held` always did; this
+    // side used a bare `as TierCode`, so one half of the same comparison was checked and the other was
+    // asserted. The DB's CHECK on v2_payment.tier_code (0007:30) makes an unmappable value unreachable
+    // today — that is a reason it has not bitten, not a reason to keep the asymmetry.
+    const paidTier = parseTierCode(pay.tierCode)
+    const settlement =
+      paidTier === null
+        ? ({ grant: false, reason: 'WOULD_DOWNGRADE' } as const) // unplaceable ⇒ never let it win
+        : decideSettlement({ current: held, paidTier, today: bkkDate(now) })
+    const carryOverDays = settlement.grant ? settlement.carryOverDays : 0
+    // A payment that would demote the buyer is still RECORDED (v2_payment is APPROVED above — money that
+    // moved is never un-recorded) but its subscription row is born superseded: it never becomes the live
+    // row, and it supersedes nothing. Whether that money is refunded or kept as credit is ฟีม's call and
+    // is deliberately NOT decided here; what could not wait for that answer is that nobody gets demoted.
+    const rowStatus: 'ACTIVE' | 'REPLACED' = settlement.grant ? 'ACTIVE' : 'REPLACED'
+
     const { subscription, shadow } = buildProvision({
       userId: pay.userId,
       quote: {
@@ -324,7 +450,25 @@ export async function settleAndProvision(
       paymentId: pay.id,
       today: bkkDate(now),
       existingMemberPayment: existing ?? null,
+      carryOverDays,
     })
+
+    // 🔴 #456 — the rows whose days we just carried over are now SUPERSEDED, and they are marked in the SAME
+    // transaction that writes their successor. Same-transaction is the whole point: a crash between the two
+    // would otherwise leave a user holding two live rows again, which is the bug this ticket exists for.
+    // status='REPLACED' is already in the schema (lib/db/schema.ts:748, migration 0006) — no migration here.
+    // Nothing is deleted: the superseded rows keep their amount and span as the payment history they are.
+    if (settlement.grant && held.supersedeIds.length > 0) {
+      await tx
+        .update(memberSubscription)
+        .set({ status: 'REPLACED' })
+        .where(
+          and(
+            eq(memberSubscription.userId, pay.userId),
+            inArray(memberSubscription.id, held.supersedeIds),
+          ),
+        )
+    }
 
     await tx.insert(memberSubscription).values({
       id: randomUUID(),
@@ -336,7 +480,7 @@ export async function settleAndProvision(
       expireAt: subscription.expireAt,
       // v1 payment_id FK stays NULL for v2; the v2_payment link goes in v2_payment_id (0007).
       v2PaymentId: subscription.paymentId,
-      status: subscription.status,
+      status: rowStatus,
     })
 
     // Shadow: plan_code always MEMBER (rule ①); expire_at = GREATEST in SQL (rule ②, atomic vs concurrent

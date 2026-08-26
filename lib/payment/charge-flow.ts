@@ -4,7 +4,7 @@
 import type { NextApiRequest, NextApiResponse } from 'next'
 import { randomInt } from 'node:crypto'
 import { resolveSessionUserId } from '@/lib/v2/resolve-user'
-import { getUserEmail, insertPendingReserved, attachChargeId, abandonPending, recordChargeFailure } from './repo'
+import { getUserEmail, insertPendingReserved, attachChargeId, abandonPending, recordChargeFailure, decidePurchaseFor } from './repo'
 import { priceFor } from '@/lib/discount/preview-flow'
 import { getQuote } from '@/lib/discount/repo'
 import type { ChargeResult } from './gateway'
@@ -51,6 +51,23 @@ export async function runChargeFlow(
   const priced = await priceFor(packageCode, codeStr, now)
   if (!priced.ok) {
     res.status(priced.status).json({ error: priced.error, codeError: priced.codeError })
+    return
+  }
+
+  // 🔴 #456 — THE REPURCHASE GATE, and its POSITION is the requirement, not a detail. It sits after pricing
+  // (it needs the tier the package grants) and BEFORE insertPendingReserved — which means before the
+  // v2_payment row, before the discount hold, and before Omise is touched at all. Refusing after the money
+  // moved would mean taking payment and then saying the purchase was not allowed, which is worse than the
+  // bug this ticket fixes.
+  //
+  // 🔴 A closed button on the shop screen (มุน, mootech-fe#457) is NOT this gate. The button is what a
+  // cooperative client does; this is what happens to everybody else. Both read the same decision function,
+  // so they cannot disagree about who may buy what.
+  const purchase = await decidePurchaseFor(who.userId, priced.tierCode, now)
+  if (!purchase.allow) {
+    // 409, not 400: the request is well-formed and was legal to make — it conflicts with what this user
+    // already holds. `reason` names the SITUATION so #457's screen can choose its own words for it.
+    res.status(409).json({ error: 'already entitled', purchaseError: purchase.reason })
     return
   }
 
