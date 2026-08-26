@@ -1,14 +1,17 @@
 // #463 — teeth for "a PromptPay QR is scannable for 5 minutes, then it is not".
 //
-// 🔴 MUTANT CONTRACT. The bar is a DISTINCT FAILURE SIGNATURE per mutant — the set of reddened tests must
-// differ — and the test named for a mutant must be inside that mutant's set. It is NOT "exactly one test
-// reddens": removing the field entirely (MU1) necessarily breaks every test that reads its value, and a
-// contract written to pretend otherwise would be false on its first run. Signatures fired 2026-08-26:
-//   MU1 → {charge-carries, starts-when-QR-exists}      MU2 → {charge-carries, source-has-none, starts-when}
-//   MU3 → {starts-when-QR-exists}                      MU4 → {ceiling}
-//   MU5 → {zero-or-negative}                           MU6 → {charge-carries, starts-when-QR-exists}
-// ⚠️ MU1 and MU6 share a signature: both are "the value on the charge is not now+5min". That is honest —
-// this file cannot tell a missing field from a wrong duration, and it does not claim to.
+// 🔴 MUTANT CONTRACT. A "signature" here is WHAT THE FAILURE SAYS, not which tests go red. The set of
+// reddened tests is the coarser thing and it does not separate every mutant; the assertion message does,
+// and that is the line a person actually reads when a test breaks. It is NOT "exactly one test reddens":
+// removing the field entirely (MU1) necessarily breaks every test that reads its value.
+// Fired 2026-08-26 at 09ca614 — sets, then the message that identifies each:
+//   MU1 → {charge-carries, starts-when}   "expected null to be truthy"        ← field gone
+//   MU6 → {charge-carries, starts-when}   "expected 420000 to be 300000"      ← field there, duration wrong
+//   MU2 → {charge-carries, source-has-none, starts-when}                      ← only mutant that reddens source-has-none
+//   MU3 → {starts-when}      MU4 → {ceiling}      MU5 → {zero-or-negative}
+// ⚠️ MU1 and MU6 share a SET and that is fine — they do not share a message, so the debugger is never
+// misled. ตู๋ checked this at 09ca614 and said not to split the tests: adding a presence-only assertion to
+// separate them would test spelling, which is the thing this file exists to avoid.
 //
 // (each mutant, and the test that must be in its set):
 //   MU1  drop `...promptPayExpiryFields(new Date())` from createPromptPayCharge
