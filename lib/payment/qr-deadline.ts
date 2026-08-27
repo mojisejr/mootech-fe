@@ -28,3 +28,22 @@ export function qrDeadlineState(deadline: Date | string | null | undefined, now:
   if (Number.isNaN(at.getTime())) return 'unknown'
   return at.getTime() <= now.getTime() ? 'expired' : 'live'
 }
+
+/**
+ * สิ่งที่ `/api/v2/payment/status` บอกจอเกี่ยวกับ QR — **สองช่องที่สร้างพร้อมกันจากค่าเดียว**
+ *
+ * 🔴 `liveUntil` ไม่ใช่ "วันหมดอายุ" ที่ถูกกรอง มันคือ **หน้าต่างที่ยังเปิดอยู่** — จึงมีค่าเฉพาะตอน `live`
+ * เหตุผล (มุน · ทาง ข ใน #455): ถ้าส่ง timestamp ไปทุกสถานะ กับดักยังอยู่ข้าง ๆ ทางที่ถูก —
+ * `if (liveUntil && new Date(liveUntil) < now)` อ่านแล้วสมเหตุสมผล ถูกวันนี้ และผิดเงียบวันที่สองช่องไม่ตรงกัน
+ * การไม่ส่งทำให้เงื่อนไขนั้น **เป็นเท็จเสมอ** ⇒ ทางเดียวที่จะรู้ว่า QR ตายคืออ่าน `qrDeadline`
+ *
+ * ⇒ payload นี้ **สร้าง `{ qrDeadline: 'expired', liveUntil: <ค่า> }` ไม่ได้เลย** และนั่นคือทั้งหมดของมัน
+ */
+export type QrStatusFields = { qrDeadline: QrDeadlineState; liveUntil: string | null }
+
+export function qrStatusFields(deadline: Date | string | null | undefined, now: Date): QrStatusFields {
+  const qrDeadline = qrDeadlineState(deadline, now)
+  if (qrDeadline !== 'live') return { qrDeadline, liveUntil: null }
+  const at = deadline instanceof Date ? deadline : new Date(deadline as string)
+  return { qrDeadline, liveUntil: at.toISOString() }
+}

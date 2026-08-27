@@ -7,6 +7,8 @@
 //   MU4  attachChargeId เขียนทับด้วย null เมื่อไม่ส่ง → "omitting the argument leaves the column alone" reddens
 //   MU5  qrDeadlineState ยุบ unknown ไปเป็น live      → "null is unknown, never live" reddens
 //   MU6  qrDeadlineState ตอบ expired ให้ค่าที่ parse ไม่ได้ → "unparsable is unknown, never expired" reddens
+//   MU7  qrStatusFields ส่ง liveUntil ตอน expired ด้วย    → "a dead QR ships no timestamp" reddens
+//   MU8  qrStatusFields ส่ง liveUntil ตอน unknown ด้วย    → "unknown ships no timestamp" reddens
 //
 // 🔑 ทำไมเทสต์นี้ยืนยัน "ไม่รู้ ≠ ยังไม่หมดอายุ" ด้วย:
 // Omise ไม่ยิง event ตอนหมดอายุ (วัด 2026-08-27: 0 จาก 124 charge ที่ expired มี event อื่นนอกจาก
@@ -15,7 +17,7 @@
 import { describe, it, expect, vi, afterEach } from 'vitest'
 import { omiseGateway } from '@/lib/payment/omise-gateway'
 import { OMISE_WEBHOOK_URL_ENV } from '@/lib/payment/webhook-endpoint'
-import { qrDeadlineState } from '@/lib/payment/qr-deadline'
+import { qrDeadlineState, qrStatusFields } from '@/lib/payment/qr-deadline'
 
 const GOOD_WEBHOOK = 'https://mumate.example.com/api/v2/payment/webhook'
 const EXPIRES = '2026-08-27T10:05:00Z'
@@ -91,5 +93,37 @@ describe('#455 ② สามสถานะ — ไม่มี boolean ให�
   it('รับได้ทั้ง Date และ ISO string — แถวจาก drizzle เป็น Date ส่วน JSON เป็นสตริง', () => {
     expect(qrDeadlineState('2026-08-27T11:00:00.000Z', NOW)).toBe('expired')
     expect(qrDeadlineState('2026-08-27T13:00:00.000Z', NOW)).toBe('live')
+  })
+})
+
+describe('#455 ③ payload ที่ขัดกันเองสร้างไม่ได้ (ทาง ข ของมุน · ฟันของตู๋ #476)', () => {
+  const NOW = new Date('2026-08-27T12:00:00.000Z')
+  const PAST = new Date('2026-08-27T11:00:00.000Z')
+  const FUTURE = new Date('2026-08-27T13:00:00.000Z')
+
+  it('🔴 a dead QR ships no timestamp (MU7)', () => {
+    // ถ้าส่งไปด้วย จอจะเขียน `if (liveUntil && liveUntil < now)` ได้ และมันจะถูก—จนกว่าสองช่องจะไม่ตรงกัน
+    expect(qrStatusFields(PAST, NOW)).toEqual({ qrDeadline: 'expired', liveUntil: null })
+  })
+
+  it('🔴 unknown ships no timestamp (MU8)', () => {
+    expect(qrStatusFields(null, NOW)).toEqual({ qrDeadline: 'unknown', liveUntil: null })
+    expect(qrStatusFields('ไม่ใช่วันที่', NOW)).toEqual({ qrDeadline: 'unknown', liveUntil: null })
+  })
+
+  it('QR ที่ยังใช้ได้ ส่ง timestamp ให้ทำ countdown — ซึ่งเป็นสถานะเดียวที่ countdown มีความหมาย', () => {
+    expect(qrStatusFields(FUTURE, NOW)).toEqual({
+      qrDeadline: 'live',
+      liveUntil: '2026-08-27T13:00:00.000Z',
+    })
+  })
+
+  it('🔴 ไม่มีอินพุตไหนสร้าง payload ที่ liveUntil มีค่าแต่ qrDeadline ไม่ใช่ live ได้', () => {
+    // นี่คือคำกล่าวอ้างทั้งหมดของทาง ข — ถ้ามันเป็นเท็จ กับดักกลับมาทันที
+    const inputs = [PAST, FUTURE, NOW, null, undefined, 'ไม่ใช่วันที่', PAST.toISOString(), FUTURE.toISOString()]
+    for (const i of inputs) {
+      const f = qrStatusFields(i, NOW)
+      if (f.liveUntil !== null) expect(f.qrDeadline, `อินพุต ${String(i)}`).toBe('live')
+    }
   })
 })
