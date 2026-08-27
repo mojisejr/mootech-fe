@@ -254,7 +254,21 @@ export function resolveResultState({ status, method, claimed, phase, qrDeadline,
   if (status === 'REJECTED' && method === 'promptpay') {
     // 🔴 สองคำนี้คือคำที่ slice 3 เขียนลงคอลัมน์เมื่อ "แถวจบแล้วและไม่มีใครจ่าย" (reconcile-run.ts)
     // ⇒ ตรงนี้เราถูกบอกทั้งสองอย่าง: server จบแล้ว และเหตุคือหมดอายุ ⇒ พูดตรง ๆ ได้
-    if (failureCode === 'gateway_expired' || failureCode === 'mootech_expired') return 'QR_EXPIRED'
+    // ชุดค่าที่ฝั่ง server ผลิตได้ มีสามตัวเท่านั้น (reconcile-run.ts · ยืนยันกับบอง 2026-08-27)
+    //   gateway_expired    QR ตาย ไม่มีใครจ่าย ไม่มีใครปฏิเสธ   ← ตัวเดียวที่แปลว่าหมดอายุ
+    //   gateway_failed     gateway จบให้ แต่ไม่ได้ให้รหัสของตัวเอง
+    //   gateway_reversed   เคยจ่ายแล้ว แล้วเงินถูกตีกลับ
+    // นอกจากสามตัวนี้ = รหัสจาก Omise ตรง ๆ = ถูกปฏิเสธจริง
+    //
+    // 🔴 เทียบด้วย === ❌ ไม่ใช่ startsWith — ผู้ผลิตสร้างค่านี้เต็มพอดี ไม่มีส่วนต่อท้าย
+    // คอมเมนต์ฝั่ง server เคยเขียนว่า "starts" ⇒ คนอ่านคำอธิบายจะเขียน startsWith คนอ่านโค้ดจะเขียน ===
+    // แล้วทั้งคู่เชื่อว่าทำตามสัญญา · บองแก้คำนั้นแล้วและเขียนกำกับไว้ว่าเคยทำให้เกิดเรื่องนี้
+    //
+    // 🔴 `mootech_expired` ถูกยกเลิกถาวร ❌ ห้ามเติมกลับ — ไม่ใช่แค่ "วันนี้ไม่มีผู้ผลิต"
+    // isRefusedCharge เป็นจริงเฉพาะเมื่อ status อยู่ใน TERMINAL_FAILURE_STATUSES ⇒ ไม่มีเคสที่ gateway
+    // ไม่บอก status ให้ fallback รับ ⇒ กิ่งนั้นเดินไปไม่ถึงเชิงโครงสร้าง
+    // ฉบับก่อนของบรรทัดนี้เขียน `|| failureCode === 'mootech_expired'` เพราะคอมเมนต์ฝั่ง server บอกให้จับคู่
+    if (failureCode === 'gateway_expired') return 'QR_EXPIRED'
 
     // server ยังไม่ส่ง failureCode ออกมา (deploy ไม่พร้อมกัน) ⇒ ถอยไปใช้สัญญาณที่มีอยู่บน wire แล้ว
     // สองสัญญาณต้องตรงกันถึงจะพูดว่าหมดอายุ: แถวจบแล้ว **และ** QR ตายแล้ว

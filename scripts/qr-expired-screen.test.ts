@@ -183,15 +183,28 @@ describe('#455 slice 3 — พร้อมเพย์ที่จบแล้�
 
   it('🔴 phase แช่ที่ waiting ก็ยังต้องไม่ใช่ PAYING — นี่คือเคสที่ผู้ใช้เจอจริง', () => {
     // phase: 'waiting' ตรงนี้ **ไม่ใช่การจัดฉาก** มันคือค่าที่ hook ค้างไว้จริงเมื่อสถานะ settled
-    for (const fc of ['gateway_expired', 'mootech_expired', null, 'failed']) {
+    for (const fc of ['gateway_expired', 'gateway_failed', 'gateway_reversed', null, 'failed']) {
       const got = resolveResultState({ ...rejected, failureCode: fc })
       expect(got, `failureCode=${String(fc)}`).not.toBe('PAYING')
     }
   })
 
-  it('สองคำที่ slice 3 เขียนลงคอลัมน์ → พูดตรง ๆ ว่าหมดอายุ', () => {
+  it('คำเดียวที่แปลว่าหมดอายุ คือ gateway_expired', () => {
     expect(resolveResultState({ ...rejected, failureCode: 'gateway_expired' })).toBe('QR_EXPIRED')
-    expect(resolveResultState({ ...rejected, failureCode: 'mootech_expired' })).toBe('QR_EXPIRED')
+  })
+
+  it('🔴 ชุดค่าที่ server ผลิตได้มีสามตัว และสองตัวที่เหลือ ❌ ไม่ใช่หมดอายุ', () => {
+    // ประกาศขนาดพื้นผิวออกมาดัง ๆ — ถ้าฝั่ง server เพิ่มค่าที่สี่ รายการนี้จะไม่รู้ และนั่นคือขีดจำกัดที่รู้ตัว
+    const PRODUCED = ['gateway_expired', 'gateway_failed', 'gateway_reversed'] as const
+    expect(PRODUCED).toHaveLength(3)
+    expect(resolveResultState({ ...rejected, failureCode: 'gateway_failed' })).toBe('QR_MAYBE_EXPIRED')
+    expect(resolveResultState({ ...rejected, failureCode: 'gateway_reversed' })).toBe('QR_MAYBE_EXPIRED')
+  })
+
+  it('🔴 mootech_expired ถูกยกเลิกถาวร — ถ้ามันโผล่มา ต้องไม่ถูกอ่านว่าหมดอายุ', () => {
+    // เคยจับคู่ไว้ในฉบับก่อน เพราะคอมเมนต์ฝั่ง server บอกให้จับคู่ · ของจริงไม่มีผู้ผลิตและเดินไปไม่ถึงเชิงโครงสร้าง
+    // เทสต์นี้ตรึงการถอดออก ⇒ ถ้าใครเติมกลับโดยไม่มีผู้ผลิต บรรทัดนี้แดง
+    expect(resolveResultState({ ...rejected, failureCode: 'mootech_expired' })).toBe('QR_MAYBE_EXPIRED')
   })
 
   it('server ยังไม่ส่ง failureCode ⇒ ต้องมีสองสัญญาณตรงกันถึงจะพูดว่าหมดอายุ', () => {
@@ -218,7 +231,7 @@ describe('#455 slice 3 — พร้อมเพย์ที่จบแล้�
   })
 
   it('ทุกค่าของ failureCode ที่ทดสอบ ให้ผลไม่เหมือนกันทั้งหมด — ไม่งั้นแปลว่ากิ่งไม่มีผล', () => {
-    const seen = new Set(['gateway_expired', 'mootech_expired', null, 'failed'].map((fc) =>
+    const seen = new Set(['gateway_expired', 'gateway_failed', 'gateway_reversed', null, 'failed'].map((fc) =>
       resolveResultState({ ...rejected, failureCode: fc }),
     ))
     expect(seen.size, `ได้ ${[...seen].join(' / ')}`).toBeGreaterThan(1)
