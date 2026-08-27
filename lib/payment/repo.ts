@@ -17,6 +17,14 @@ type Db = typeof defaultDb
 
 // #484 — the one value this lane writes. Named once so the webhook, the screen contract and the tests
 // cannot drift into three spellings of the same fact.
+//
+// 🔴 IT HAS A SECOND PRODUCER, so nothing may branch on this code ALONE (lamun caught the screen doing
+// exactly that). reconcile-run.ts:105 builds `gateway_${charge.status}` and reaches the same string, but
+// it goes through abandonByChargeId, which returns at repo.ts:173 when the row is APPROVED. So:
+//   REJECT   + gateway_reversed → reversed before anything was ever granted   (the reconciler wrote it)
+//   APPROVED + gateway_reversed → granted, then taken back                     (this lane wrote it)
+// A reader that wants the second one must ask for `status === 'APPROVED'` too, or it will tell a user
+// their entitlement was revoked when they never had one.
 export const REVERSED_CODE = 'gateway_reversed'
 
 // Civil timestamp 'YYYY-MM-DD HH:mm:ss' in Asia/Bangkok (member_payment.create_at parity with v1's moment).
