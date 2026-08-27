@@ -198,6 +198,11 @@ describe('#455 slice 3 — พร้อมเพย์ที่จบแล้�
     const PRODUCED = ['gateway_expired', 'gateway_failed', 'gateway_reversed'] as const
     expect(PRODUCED).toHaveLength(3)
     expect(resolveResultState({ ...rejected, failureCode: 'gateway_failed' })).toBe('QR_MAYBE_EXPIRED')
+    // ⚠️ `gateway_reversed` ไปถึงกิ่งพร้อมเพย์ได้เท่าที่ **โค้ดเรา** อนุญาต — TERMINAL_FAILURE_STATUSES
+    // (lib/payment/gateway.ts:105) ไม่แยก method เลย · แต่ **ยังไม่มีใครยืนยันว่า Omise ส่งค่านี้กับพร้อมเพย์**
+    // ⇒ บรรทัดนี้ตรึงพฤติกรรมของอินพุตที่ยังพิสูจน์ไม่ได้ว่าเกิดจริง ❌ ห้ามอ่านว่าเป็นเคสที่วัดมาแล้ว
+    // 🔴 และคำที่ได้จากถังนี้ **ผิดกับเคสนี้** — mojisejr/mootech-fe#484 ถืออยู่ (สิทธิ์ไม่ถูกถอน เงินถูกตีกลับ)
+    // ที่นี่ตรึงไว้แค่ว่า "ไม่ถูกอ่านว่าหมดอายุ" ❌ ไม่ได้แปลว่าคำที่ได้ถูกต้อง
     expect(resolveResultState({ ...rejected, failureCode: 'gateway_reversed' })).toBe('QR_MAYBE_EXPIRED')
   })
 
