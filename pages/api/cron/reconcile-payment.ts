@@ -52,10 +52,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   })
 
   // Counts only — no user id, no charge id, no amount (the ticket's rule; the push cron follows the same).
-  if (summary.provisioned > 0 || summary.unreachable > 0) {
+  // #455 slice 3: `abandoned` joins both the condition and the message. A run that moved 20 rows out of
+  // PENDING but provisioned nothing used to be completely silent — the count reached only the JSON
+  // response, and nobody reads a cron's response body. (too, round 1.)
+  if (summary.provisioned > 0 || summary.unreachable > 0 || (summary.abandoned ?? 0) > 0) {
     console.warn(
       `[cron/reconcile-payment] considered=${summary.considered} confirmedPaid=${summary.confirmedPaid} ` +
-        `provisioned=${summary.provisioned} unreachable=${summary.unreachable}`,
+        `provisioned=${summary.provisioned} abandoned=${summary.abandoned ?? 0} unreachable=${summary.unreachable}`,
     )
   }
   return res.status(200).json({ ok: true, ...summary })

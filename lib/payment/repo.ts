@@ -154,7 +154,7 @@ export async function abandonByChargeId(
   // reversible while the two causes stay distinguishable in the data. `failure_code` already exists
   // (#437, migration 0010), is plain text with no CHECK, and is otherwise written verbatim from Omise.
   // Writing the cause here costs no migration and keeps this answerable:
-  //   walked away  status='REJECT' AND failure_code = 'mootech_expired' (or 'gateway_expired')
+  //   walked away  status='REJECT' AND failure_code = 'gateway_expired'
   //   refused      status='REJECT' AND failure_code IS DISTINCT FROM those
   // Omitting it is still valid — the webhook path passes nothing and behaves exactly as before.
   reason: string | null = null,
@@ -171,11 +171,8 @@ export async function abandonByChargeId(
     .where(eq(v2Payment.chargeId, chargeId))
     .limit(1)
   if (!row || row.status === 'APPROVED') return { released: false }
-  await abandonPending(row.id, row.codeId ?? null, db)
   // Never overwrite a cause the gateway already gave us: what Omise said outranks what we inferred.
-  if (reason && !row.failureCode) {
-    await db.update(v2Payment).set({ failureCode: reason }).where(eq(v2Payment.id, row.id))
-  }
+  await abandonPending(row.id, row.codeId ?? null, db, row.failureCode ? null : reason)
   return { released: true }
 }
 
@@ -222,9 +219,19 @@ export async function abandonPending(
   paymentId: string,
   codeId: string | null,
   db: Db = defaultDb,
+  // 🔴 #455 slice 3, round 2 (too). The cause used to be a SECOND statement after this one, and the way
+  // that failed was the way that inverts the answer: statement 1 lands REJECT, statement 2 fails, the row
+  // reads REJECT + failure_code NULL — which the ticket's own query classifies as "the bank refused".
+  // A customer who walked away would be recorded as a refusal, and that is the exact distinction this
+  // whole change exists to protect. One UPDATE, so the two facts cannot disagree.
+  // Pass null (the webhook path does) and the column is left exactly as it was.
+  reason: string | null = null,
 ): Promise<void> {
   if (codeId) await releaseRedemption(codeId, paymentId, db)
-  await db.update(v2Payment).set({ status: 'REJECT' }).where(eq(v2Payment.id, paymentId))
+  await db
+    .update(v2Payment)
+    .set(reason ? { status: 'REJECT', failureCode: reason } : { status: 'REJECT' })
+    .where(eq(v2Payment.id, paymentId))
 }
 
 /**

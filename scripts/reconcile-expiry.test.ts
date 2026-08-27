@@ -14,7 +14,13 @@
 // 🔴 MUTANT CONTRACT (each must redden this file):
 //   ME1  drop the `isRefusedCharge` guard, abandon whenever not-paid  → ③ and ④ redden (still-payable rows taken)
 //   ME2  treat a null charge as terminal                              → ③ reddens
-//   ME3  abandon before checking gatewaySaysPaid                      → ① reddens (a paid row is abandoned)
+//   ME3  abandon before checking gatewaySaysPaid   → 🟢 EQUIVALENT, cannot be killed. too fired it and it
+//        survived, and the reason is structural rather than a gap in these cases:
+//          gatewaySaysPaid  requires charge.paid === true
+//          isRefusedCharge  returns false when charge.paid === true   (gateway.ts:119)
+//        The two predicates are disjoint by construction, so swapping their order gives an identical
+//        result for every possible input. ⚠️ The day anyone removes the `paid` check from
+//        isRefusedCharge, ME3 becomes killable immediately and this file then NEEDS a case for it.
 //   ME4  stop passing the reason through                              → ⑤ reddens (cause is lost, REJECT becomes ambiguous)
 //   ME5  count abandoned even when released=false                     → ⑥ reddens (an APPROVED row would inflate the count)
 import assert from 'node:assert/strict'
@@ -109,6 +115,19 @@ async function main() {
     assert.equal(s.abandoned, 0, '⑥ released=false must not inflate the count')
   }
 
+  // ⑧ `reversed` is in TERMINAL_FAILURE_STATUSES too, and a reversed charge is one that WAS paid.
+  //    Abandoning it and returning the discount hold is the behaviour we want — a reversal means the money
+  //    went back — but no case touched it until too asked. Covering it rather than answering in prose:
+  //    if this ever needs to differ from `expired`, the difference should fail here first.
+  {
+    const { d, abandoned, settled } = deps({ c_rev: { chargeId: 'c_rev', paid: false, status: 'reversed' } })
+    const s = await runReconcile(d, NOW)
+    assert.equal(settled.length, 0, '⑧ a reversed charge must not be settled')
+    assert.equal(abandoned.length, 1, '⑧ a reversed charge is terminal and must be abandoned')
+    assert.equal(abandoned[0].reason, 'gateway_reversed', '⑧ its cause is recorded as its own, not as expiry')
+    assert.equal(s.abandoned, 1)
+  }
+
   // ⑦ an unreachable gateway is reported, and touches nothing
   {
     const { d, abandoned, settled } = deps({})
@@ -127,7 +146,7 @@ async function main() {
     assert.equal(settled.length, 0)
   }
 
-  console.log('reconcile-expiry: 7 cases green')
+  console.log('reconcile-expiry: 8 cases green')
 }
 
 main().catch((e) => {

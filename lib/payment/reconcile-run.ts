@@ -95,7 +95,11 @@ export async function runReconcile(
         // Prefer what the gateway actually said. Fall back to a namespaced code of our own so that
         // "the bank refused" and "the customer walked away" stay separable in SQL — Feem chose to reuse
         // the REJECT status rather than add EXPIRED, and this column is what keeps that reversible.
-        const reason = charge.failureCode ?? (charge.status ? `gateway_${charge.status}` : 'mootech_expired')
+        // `charge.status` is always truthy here: isRefusedCharge is only true when status is in
+        // TERMINAL_FAILURE_STATUSES (gateway.ts:105). The earlier `: 'mootech_expired'` fallback was
+        // therefore unreachable — too proved it by swapping the literal for MUTANT_DEAD_BRANCH and
+        // watching every test stay green. Worse, repo.ts told Feem to query that value FIRST.
+        const reason = charge.failureCode ?? `gateway_${charge.status}`
         const out = await deps.abandon(row.chargeId, reason)
         if (out.released) summary.abandoned = (summary.abandoned ?? 0) + 1
       }
