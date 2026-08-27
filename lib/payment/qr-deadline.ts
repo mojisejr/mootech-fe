@@ -45,9 +45,18 @@ export function qrDeadlineState(deadline: Date | string | null | undefined, now:
  * เคสที่ถูกต้อง มันคือ countdown เดินถึงศูนย์ ❌ ไม่ใช่ QR ตาย
  *
  * ⇒ สิ่งที่ทาง ข เอาออกคือ **ค่าดิบที่ใช้สรุปว่า "หมดอายุ" ได้** ❌ ไม่ใช่การเปรียบเทียบเวลา
- * ⇒ payload นี้สร้าง `{ qrDeadline: 'expired' | 'unknown', liveUntil: <ค่า> }` ไม่ได้ และนั่นคือทั้งหมดของมัน
+ *
+ * 🔴 **`{ qrDeadline: 'expired' | 'unknown', liveUntil: <ค่า> }` เขียนไม่ได้ — บังคับด้วย type**
+ * ฉบับก่อนหน้าประกาศเป็น `{ qrDeadline: QrDeadlineState; liveUntil: string | null }` ซึ่งเป็น**สองช่องอิสระ**
+ * ⇒ ประโยค "สร้างไม่ได้" ตอนนั้นเป็นจริงเพราะ**วันนี้มีผู้ผลิตรายเดียว** ❌ ไม่ใช่เพราะรูปร่างนั้นเป็นไปไม่ได้
+ * (ตู๋จับ · มุนยอมรับว่าเขียนประโยคเดียวกันผิดในข้อความที่ใช้เตือนเรื่องนี้พอดี)
+ *
+ * 🔑 หลักเดียวกับที่เลือกทาง ข ตั้งแต่ต้น — **เอาความเป็นไปได้ออก ❌ ไม่ใช่เฝ้ามัน**
+ * เทสต์เฝ้าได้เฉพาะผู้ผลิตที่เรานึกถึง · type ปฏิเสธผู้ผลิตที่ยังไม่มีใครเขียนด้วย
  */
-export type QrStatusFields = { qrDeadline: QrDeadlineState; liveUntil: string | null }
+export type QrStatusFields =
+  | { qrDeadline: 'live'; liveUntil: string }
+  | { qrDeadline: 'expired' | 'unknown'; liveUntil: null }
 
 export function qrStatusFields(deadline: Date | string | null | undefined, now: Date): QrStatusFields {
   const qrDeadline = qrDeadlineState(deadline, now)
