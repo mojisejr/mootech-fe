@@ -15,6 +15,22 @@ import type { TierCode } from '@/lib/v2/tier'
 
 type Db = typeof defaultDb
 
+// #484 — the one value this lane writes. Named once so the webhook, the screen contract and the tests
+// cannot drift into three spellings of the same fact.
+//
+// 🔴 IT HAS A SECOND PRODUCER, so nothing may branch on this code ALONE (lamun caught the screen doing
+// exactly that). reconcile-run.ts:105 builds `gateway_${charge.status}` and reaches the same string, but
+// it goes through abandonByChargeId, which returns at repo.ts:173 when the row is APPROVED. So:
+//   REJECT   + gateway_reversed → reversed before anything was ever granted   (the reconciler wrote it)
+//   APPROVED + gateway_reversed → granted, then taken back                     (this lane wrote it)
+// A reader that wants the second one must ask for `status === 'APPROVED'` too, or it will tell a user
+// their entitlement was revoked when they never had one.
+export const REVERSED_CODE = 'gateway_reversed'
+
+// #484 — captured on a payment when the user had NO member_payment row at settle time. Distinct from NULL,
+// which means no writer had run yet. '' is a measurement ("there was nothing"); NULL is ignorance.
+export const NO_SHADOW = ''
+
 // Civil timestamp 'YYYY-MM-DD HH:mm:ss' in Asia/Bangkok (member_payment.create_at parity with v1's moment).
 function bkkTimestamp(now: Date): string {
   const parts = new Intl.DateTimeFormat('en-CA', {
@@ -174,6 +190,142 @@ export async function abandonByChargeId(
   // Never overwrite a cause the gateway already gave us: what Omise said outranks what we inferred.
   await abandonPending(row.id, row.codeId ?? null, db, row.failureCode ? null : reason)
   return { released: true }
+}
+
+// 🔴 #484 — A REVERSED CHARGE TAKES THE ENTITLEMENT WITH IT. Feem's rule, stated once: a payment that
+// did not stay successful grants nothing. Today nothing implements it — abandonByChargeId returns at
+// repo.ts's APPROVED guard without touching a thing, and `reversed` appears nowhere in any write path.
+//
+// 🔴 WHAT THIS DELIBERATELY DOES NOT TOUCH, and why the guards above stay exactly as they are:
+//   · v2_payment.status stays 'APPROVED'. The charge WAS paid; that is history, not a claim about today.
+//     It also keeps settleAndProvision's `ne(status,'APPROVED')` idempotency intact — flip the row back
+//     and a late duplicate charge.complete could grant the whole thing again (#371's hole, reopened).
+//   · abandonByChargeId's APPROVED guard is untouched. It exists to stop a stray event un-settling a real
+//     payment, and this is a separate door, not a widening of that one.
+// The reversal is recorded as a REASON (failure_code), never as a verdict on the payment itself.
+//
+// TWO LANES HOLD THE ENTITLEMENT AND BOTH MUST MOVE:
+//   member_subscription  one row per purchase → ACTIVE becomes EXPIRED. lib/v2/subscription.ts:71 reads
+//                        `status === 'ACTIVE' && expireAt >= today`, so this alone ends the v2 lane.
+//   member_payment       ONE row per user, written GREATEST → cannot be walked back by arithmetic. It is
+//                        restored from prev_member_expire_at (#484, 0012), taking the LATER of that and
+//                        whatever ACTIVE rows the user still holds, so a purchase made AFTER this one is
+//                        not thrown away with it.
+// If prev_member_expire_at is NULL the row predates 0012: the v2 lane is still revoked, and the shadow is
+// left ALONE and logged loudly. Guessing a date there would silently shorten a membership someone paid for.
+export async function revokeByChargeId(
+  chargeId: string,
+  db: Db = defaultDb,
+): Promise<{ revoked: boolean; shadowHandled: 'RESTORED' | 'CLEARED' | 'NEEDS_HUMAN' | 'NONE' }> {
+  return db.transaction(async (tx) => {
+    const [pay] = await tx
+      .select({
+        id: v2Payment.id,
+        userId: v2Payment.userId,
+        status: v2Payment.status,
+        failureCode: v2Payment.failureCode,
+        prevMemberExpireAt: v2Payment.prevMemberExpireAt,
+      })
+      .from(v2Payment)
+      .where(eq(v2Payment.chargeId, chargeId))
+      .limit(1)
+
+    // Not ours, or never granted anything. `failed`/`expired` land here too and correctly do nothing.
+    if (!pay || pay.status !== 'APPROVED') return { revoked: false, shadowHandled: 'NONE' }
+    // Already done. Re-delivery of the same reversal must not run the shadow restore a second time, or a
+    // purchase made between the two deliveries would be undone by the second one.
+    if (pay.failureCode === REVERSED_CODE) return { revoked: false, shadowHandled: 'NONE' }
+
+    await tx.update(v2Payment).set({ failureCode: REVERSED_CODE }).where(eq(v2Payment.id, pay.id))
+
+    // Only an ACTIVE row is moved, ON PURPOSE. If a later purchase already superseded this one the row is
+    // 'REPLACED', which grants nothing anyway (lib/v2/subscription.ts:71 asks for ACTIVE), so there is
+    // nothing to take back on that side. It does mean "a reversal ends the v2 lane" is exactly true only
+    // for a row that was still live: for a superseded one the only trace of the reversal is failure_code on
+    // v2_payment, which is the right place for it — the entitlement was already gone. (too, review probe.)
+    await tx
+      .update(memberSubscription)
+      .set({ status: 'EXPIRED' })
+      .where(and(eq(memberSubscription.v2PaymentId, pay.id), eq(memberSubscription.status, 'ACTIVE')))
+
+    // 🔴 WHAT SURVIVES IS DECIDED BY WHETHER THE MONEY STAYED, NOT BY THE SUBSCRIPTION'S STATUS
+    // (too, review of 0abb9d5, proved both directions with rows).
+    // 'REPLACED' means a later purchase superseded this one. It does NOT mean the money came back. Filter
+    // on status = 'ACTIVE' and a paid-for month vanishes the moment a newer purchase is reversed:
+    //   base X → A pushes to A → B pushes to B.  reverse ONLY B ⇒ A's row is REPLACED ⇒ dropped from the
+    //   survivors ⇒ the user falls all the way back to X, and A's money was never refunded.
+    // The two errors are mirror images and no choice of FLOOR fixes both — the floor was never the broken
+    // part. A row is legitimate when the payment behind it is still APPROVED and was not reversed, whatever
+    // the subscription status says.
+    // Rows with no v2_payment link are pre-v2 grants: nothing can have reversed them, so they count too.
+    const subs = await tx
+      .select({ expireAt: memberSubscription.expireAt, paymentId: memberSubscription.v2PaymentId })
+      .from(memberSubscription)
+      .where(eq(memberSubscription.userId, pay.userId))
+    const dead = await tx
+      .select({ id: v2Payment.id, status: v2Payment.status, failureCode: v2Payment.failureCode })
+      .from(v2Payment)
+      .where(eq(v2Payment.userId, pay.userId))
+    const deadIds = new Set(
+      dead.filter((r) => r.status !== 'APPROVED' || r.failureCode === REVERSED_CODE).map((r) => r.id),
+    )
+    const latestSurvivor = subs
+      .filter((r) => r.paymentId === null || !deadIds.has(r.paymentId))
+      .reduce<string | null>((best, r) => (best === null || String(r.expireAt) > best ? String(r.expireAt) : best), null)
+
+    // 🔴 prev_member_expire_at ON ITS OWN IS NOT A SAFE FLOOR (too, review of 9bb1915, proved with rows).
+    // It stores what the shadow WAS, and what it was may itself have come from a purchase that is later
+    // reversed too. Reverse both and the naive restore lands on the reversed purchase's date:
+    //   base X → A pushes to A → B pushes to B.  reverse B ⇒ B.prev = A ⇒ the user keeps A's month,
+    //   and A's money went back as well. member_payment is what lib/usage.ts:33 reads, so that is a real
+    //   entitlement, not a bookkeeping detail.
+    // The floor that survives any number of reversals is the EARLIEST captured value for this user: the
+    // upsert is GREATEST, so the captured values are non-decreasing over time, and the minimum of them is
+    // the shadow as it stood before v2 ever touched it — the legacy baseline.
+    // NULLs (rows from before 0012) are skipped rather than treated as zero. If the true earliest is one of
+    // them the floor comes out too HIGH, which leaves the user holding more than they paid for. That is the
+    // safe direction: we never take away time we cannot prove was ours to take.
+    const captured = await tx
+      .select({ prev: v2Payment.prevMemberExpireAt })
+      .from(v2Payment)
+      .where(and(eq(v2Payment.userId, pay.userId), eq(v2Payment.status, 'APPROVED')))
+    // Three outcomes, not two. The captured values are non-decreasing (the upsert is GREATEST), so the
+    // earliest one is the floor — and '' sorts before every date, which is exactly right: if any purchase
+    // saw no shadow at all, the floor is nothing.
+    const knownFloors = captured.map((r) => r.prev).filter((v): v is string => typeof v === 'string')
+    const sawNothing = knownFloors.includes(NO_SHADOW)
+    const anyUnknown = captured.some((r) => r.prev === null)
+    const baseline = sawNothing
+      ? null
+      : knownFloors.reduce<string | null>((best, v) => (best === null || v < best ? v : best), null)
+
+    // Nothing left standing AND we measured that there was nothing to begin with ⇒ take the shadow away.
+    // This is the first-time buyer whose money came back: leaving the row is leaving them a paid tier.
+    if (sawNothing && latestSurvivor === null) {
+      await tx.delete(memberPayment).where(eq(memberPayment.userId, pay.userId))
+      return { revoked: true, shadowHandled: 'CLEARED' }
+    }
+
+    if (baseline === null && latestSurvivor === null) {
+      // Nothing to restore from and nothing left standing: the honest answer is "we do not know what this
+      // user's shadow should say", so it is not written over. See the migration header for why.
+      console.error(
+        `[#484] reversal revoked the v2 lane but member_payment was left ALONE — charge=${chargeId} ` +
+          `payment=${pay.id} user=${pay.userId} unknownCaptures=${anyUnknown}. This payment settled ` +
+          `BEFORE the capture in settleAndProvision shipped, so the value it overwrote was never recorded ` +
+          `— it is not "no entitlement", it is "we do not know". A human decides what ` +
+          `member_payment.expire_at should be for this user. This set is finite and shrinking: it can only ` +
+          `contain payments that settled before this code deployed.`,
+      )
+      return { revoked: true, shadowHandled: 'NEEDS_HUMAN' }
+    }
+
+    const restored = [baseline, latestSurvivor]
+      .filter((v): v is string => typeof v === 'string' && v !== '')
+      .reduce((a, b) => (a > b ? a : b))
+    await tx.update(memberPayment).set({ expireAt: restored }).where(eq(memberPayment.userId, pay.userId))
+    return { revoked: true, shadowHandled: 'RESTORED' }
+  })
 }
 
 // Omise accepted → swap the placeholder for the real charge id (this is what the webhook will match).
@@ -464,6 +616,29 @@ export async function settleAndProvision(
       .from(memberPayment)
       .where(eq(memberPayment.userId, pay.userId))
       .limit(1)
+
+    // 🔴 #484 — CAPTURE THE SHADOW'S OLD VALUE HERE, IN THE SAME TRANSACTION THAT IS ABOUT TO REPLACE IT.
+    // The upsert below writes expire_at = GREATEST(old, new). After that statement the old value does not
+    // exist anywhere: member_payment is one row per user, and it is not reconstructible from the surviving
+    // member_subscription rows either, because a legacy member's baseline was never a v2 row. This is the
+    // only moment it can be recorded, and a reversal (#484) is the only reader. Writing it inside the
+    // transaction means a rollback takes it with the grant — the two can never disagree.
+    // NULL is written when the user had no shadow row at all; a reversal treats that as "unknown" and
+    // hands the member_payment side to a human rather than inventing a date.
+    //
+    // 🔴 THE EMPTY STRING IS NOT A MISSING VALUE, IT IS AN ANSWER (too, PROBE-C on 9203a56).
+    // Writing NULL for "this user had no shadow row" collapses it with "nobody ever wrote this column",
+    // and those two need opposite handling on a reversal: the first is a fact we measured (there was
+    // nothing, so a reversal must leave nothing), the second is ignorance (hand it to a human).
+    // Collapsed, the most common case in the product — a FIRST-TIME buyer whose money is returned — fell
+    // into the ignorance branch and kept their entitlement, which is the sentence this ticket opens with.
+    // The column is plain text with no CHECK, so '' costs no migration. It is unambiguous because nothing
+    // has ever written this column on any environment: 0012 shipped the column, this line ships the first
+    // writer, so NULL means exactly "settled before this code did" and nothing else.
+    await tx
+      .update(v2Payment)
+      .set({ prevMemberExpireAt: existing?.expireAt ?? NO_SHADOW })
+      .where(eq(v2Payment.id, pay.id))
 
     // 🔴 #456 — READ THE CURRENT ENTITLEMENT HERE, INSIDE THE TRANSACTION, not at charge time. The door
     // (charge-flow) already refused the purchases that must never happen, but the door's answer is minutes

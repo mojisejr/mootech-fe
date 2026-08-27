@@ -29,6 +29,13 @@ const MIGRATION8 = readFileSync(resolve('lib/db/0008_discount_code.sql'), 'utf8'
 // #437's 0010 ALTERs v2_payment (failure_code/failure_message) and those columns are in the drizzle schema,
 // so every suite that rebuilds v2_payment must apply 0010 too — same trap as 0008 above, one migration on.
 const MIGRATION10 = readFileSync(resolve('lib/db/0010_v2_payment_failure.sql'), 'utf8')
+// 🔴 0011 and 0012 are ALTERs on v2_payment too, and 0011 was already missing here before #484: the
+// drizzle schema has carried charge_expires_at since #455, so every schema-wide select in this suite has
+// been asking for a column this fixture never created. It stayed invisible because these suites are
+// skipIf(!TEST_DATABASE_URL) and the pre-push lane does not run them. An ALTER that lands in schema.ts
+// has to land in every hand-built fixture, and nothing enforces that — running them is the only check.
+const MIGRATION11 = readFileSync(resolve('lib/db/0011_v2_payment_qr_expiry.sql'), 'utf8')
+const MIGRATION12 = readFileSync(resolve('lib/db/0012_v2_payment_prev_member_expire.sql'), 'utf8')
 const NOW = new Date()
 
 function bkk(now: Date): string {
@@ -56,6 +63,8 @@ describe.skipIf(!TEST_URL)('member_subscription · real pg (#354)', () => {
     await sql.unsafe(MIGRATION7)
     await sql.unsafe(MIGRATION8)
     await sql.unsafe(MIGRATION10) // #437 — failure_code/failure_message
+    await sql.unsafe(MIGRATION11)
+    await sql.unsafe(MIGRATION12)
     const today = bkk(NOW)
     const [m] = await sql`SELECT mp.user_id FROM member_payment mp
       JOIN "user" usr ON usr.user_id = mp.user_id
