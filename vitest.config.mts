@@ -119,6 +119,8 @@ export default defineConfig({
     'scripts/payment-charge-route.test.ts', // #355 — route: session gate + client-ignored + fail-loud-before-charge
       'scripts/terminal-failure-agreement.test.ts', // #437 — isRefusedCharge (สร้าง charge) กับ isTerminalFailure (webhook) ต้องตอบเหมือนกัน
       'scripts/result-declined-rule.test.ts', // #438 — จอต้องพูดคำว่าธนาคารปฏิเสธได้ + ปุ่มต้องไม่พาไปหน้าตาย
+      'scripts/qr-expiry-reaches-row.test.ts',
+      'scripts/qr-expiry-row-db.test.ts', // #455 slice 1 — real pg: คอลัมน์ใหม่เขียนลงได้ อ่านกลับได้ แถวเก่าเป็น null // #455 slice 1 — วันหมดอายุเดินทางจาก Omise ถึงแถวถึงจอ
       'scripts/promptpay-qr-expiry.test.ts', // #463 — QR มีอายุ 5 นาที ที่ Omise ไม่ใช่ค่าตั้งต้น 24 ชม.
       'scripts/return-uri-3ds.test.ts', // #439 — return_uri ต่อ charge + เลนบัตรกับพร้อมเพย์ต้องไม่ขยับหากัน
       'scripts/payment-webhook-db.test.ts', // #355 — real pg (skipIf !TEST_DATABASE_URL): webhook→settle→provision, idempotent+concurrent

@@ -21,6 +21,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       method: r.method,
       status: r.status,
       createdAt: r.createdAt.toISOString(),
+      // #455 — when the QR stops being scannable, straight from the gateway. `null` = we do not know
+      // (card charge, or a row older than 0011). The screen must not read null as "still valid".
+      chargeExpiresAt: r.chargeExpiresAt ? r.chargeExpiresAt.toISOString() : null,
     })),
   })
 }

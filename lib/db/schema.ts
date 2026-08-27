@@ -770,6 +770,11 @@ export const v2Payment = pgTable("v2_payment", {
 	// because the reason was thrown away at lib/payment/omise-gateway.ts before this ticket.
 	failureCode: text("failure_code"),
 	failureMessage: text("failure_message"),
+	// 🔴 #455 (0011 ALTER) — WHEN the QR stops being scannable, verbatim from Omise. PromptPay only; a card
+	// charge has no expiry and stays NULL. NULL also means the row predates 0011, or Omise did not say.
+	// NULL is NEVER "not expired" — the gateway emits no event when a charge expires (measured: 0 of 124
+	// expired charges carry any event beyond charge.create), so absence here is ignorance, not a verdict.
+	chargeExpiresAt: timestamp("charge_expires_at", { withTimezone: true }),
 	// discount linkage (#361, 0008 ALTER) — NULL/0 when no code was used.
 	codeId: varchar("code_id", { length: 36 }).references(() => discountCode.id),
 	discountSatang: integer("discount_satang").default(0).notNull(),
