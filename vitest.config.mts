@@ -126,6 +126,7 @@ export default defineConfig({
       'scripts/promptpay-qr-expiry.test.ts', // #463 — QR มีอายุ 5 นาที ที่ Omise ไม่ใช่ค่าตั้งต้น 24 ชม.
       'scripts/rtl-cleanup-contract.test.tsx', // #451 ตัว A — ฟันของ setupFiles: ถอดบรรทัดนั้นออกแล้วต้องแดง
       'scripts/return-uri-3ds.test.ts', // #439 — return_uri ต่อ charge + เลนบัตรกับพร้อมเพย์ต้องไม่ขยับหากัน
+      'scripts/reversal-revoke-db.test.ts', // #484 — real pg: เงินตีกลับแล้วสิทธิ์ต้องหลุด และเลน v1 ต้องไม่ถูกเดาทับ
       'scripts/payment-webhook-db.test.ts', // #355 — real pg (skipIf !TEST_DATABASE_URL): webhook→settle→provision, idempotent+concurrent
       'scripts/reconcile-cron-db.test.ts', // #360 — real pg: reconciler cron (parallel runs · secret gate · boundary)
       'scripts/discount-rules.test.ts', // #361 — pure: discount math (floor/cap/clamp/VAT/no-100%) + code applicability

@@ -110,6 +110,19 @@ export function isTerminalFailure(evt: ChargeEvent): boolean {
   return TERMINAL_FAILURE_STATUSES.has(evt.status)
 }
 
+// 🔴 #484 — A REVERSAL IS THE ONE FAILURE THAT ARRIVES AFTER WE ALREADY GRANTED SOMETHING, so it is the
+// one that cannot be routed by isTerminalFailure above: that function answers `false` the moment
+// `evt.paid === true`, and a reversed charge WAS paid. Whether Omise sends `paid` as true or false on a
+// reversal is not something we have ever seen — no reversed event has reached this webhook, and the only
+// test that exercises the status is one we wrote ourselves (scripts/reconcile-expiry.test.ts sets
+// paid:false). So this deliberately does NOT look at `paid` at all: the answer is the same either way,
+// and the unknown stops being able to decide whether the entitlement comes off.
+// Narrow on purpose — `reversed` alone, never the whole TERMINAL_FAILURE_STATUSES set: `failed` and
+// `expired` never granted anything, so there is nothing for them to take back.
+export function isReversal(evt: ChargeEvent): boolean {
+  return evt.status === 'reversed' && !!evt.chargeId
+}
+
 // 🔴 #437 — the SAME question asked of a charge we just created, instead of an event that arrived later.
 // One definition of "terminal" for both doors: if these two ever disagree, a card could be refused at
 // creation and settled by a webhook (or the reverse), and the row would end up in whichever state won the
