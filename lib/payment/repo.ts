@@ -263,6 +263,13 @@ export async function listUserPayments(userId: string, db: Db = defaultDb) {
       // #455 — the screen cannot know when a QR died unless we carry it. NULL for card rows and for any
       // row created before 0011; the caller must treat NULL as "unknown", never as "still good".
       chargeExpiresAt: v2Payment.chargeExpiresAt,
+      // 🔴 #455 slice 3 — WHY THIS HAD TO COME OUT TOO, and why leaving it in was a real defect.
+      // Feem chose to reuse REJECT rather than add EXPIRED. I argued in the ticket that failure_code
+      // keeps the two causes separable — and then never carried it past the server, so the screen saw
+      // ONE 'REJECT' with TWO meanings. lamun found it by reading this payload instead of trusting the
+      // claim. That is #437's shape exactly: the server held what the gateway said and shipped only the id.
+      // NULL means the gateway gave no reason AND we inferred none — never "it was fine".
+      failureCode: v2Payment.failureCode,
     })
     .from(v2Payment)
     .where(eq(v2Payment.userId, userId))

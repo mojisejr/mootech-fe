@@ -22,6 +22,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       amountSatang: r.amountSatang,
       method: r.method,
       status: r.status,
+      // #455 slice 3 — REJECT has two causes and the screen has to tell them apart:
+      //   walked away  failureCode starts 'gateway_expired' / 'mootech_expired'
+      //   refused      anything else the gateway said
+      // Without this the PromptPay-expired case is indistinguishable from a bank refusal on the wire.
+      failureCode: r.failureCode ?? null,
       createdAt: r.createdAt.toISOString(),
       // 🔴 #455 — สองช่องนี้สร้างพร้อมกันจากค่าเดียว · payload ที่ขัดกันเองสร้างไม่ได้
       // เหตุผลเต็ม + คำรับประกันที่ถูก อยู่ใน lib/payment/qr-deadline.ts
