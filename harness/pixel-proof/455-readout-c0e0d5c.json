@@ -1,0 +1,870 @@
+{
+  "sha": "c0e0d5c",
+  "capturedAt": "2026-08-27T13:18:37.199Z",
+  "rows": [
+    {
+      "phase": "waiting",
+      "case": "expired",
+      "w": 320,
+      "state": "PAYING",
+      "paid": "0",
+      "title": "กำลังดำเนินการ",
+      "body": "กำลังตรวจสอบการชำระเงิน อย่าเพิ่งปิดหน้านี้"
+    },
+    {
+      "phase": "waiting",
+      "case": "expired",
+      "w": 393,
+      "state": "PAYING",
+      "paid": "0",
+      "title": "กำลังดำเนินการ",
+      "body": "กำลังตรวจสอบการชำระเงิน อย่าเพิ่งปิดหน้านี้"
+    },
+    {
+      "phase": "waiting",
+      "case": "expired",
+      "w": 768,
+      "state": "PAYING",
+      "paid": "0",
+      "title": "กำลังดำเนินการ",
+      "body": "กำลังตรวจสอบการชำระเงิน อย่าเพิ่งปิดหน้านี้"
+    },
+    {
+      "phase": "waiting",
+      "case": "expired",
+      "w": 1280,
+      "state": "PAYING",
+      "paid": "0",
+      "title": "กำลังดำเนินการ",
+      "body": "กำลังตรวจสอบการชำระเงิน อย่าเพิ่งปิดหน้านี้"
+    },
+    {
+      "phase": "reconciling",
+      "case": "expired",
+      "w": 320,
+      "state": "RECONCILING",
+      "paid": "0",
+      "title": "กำลังตรวจสอบกับธนาคาร",
+      "body": "ยังไม่ได้รับการยืนยัน ระบบกำลังตรวจสอบให้อัตโนมัติ ไม่ต้องจ่ายซ้ำ"
+    },
+    {
+      "phase": "reconciling",
+      "case": "expired",
+      "w": 393,
+      "state": "RECONCILING",
+      "paid": "0",
+      "title": "กำลังตรวจสอบกับธนาคาร",
+      "body": "ยังไม่ได้รับการยืนยัน ระบบกำลังตรวจสอบให้อัตโนมัติ ไม่ต้องจ่ายซ้ำ"
+    },
+    {
+      "phase": "reconciling",
+      "case": "expired",
+      "w": 768,
+      "state": "RECONCILING",
+      "paid": "0",
+      "title": "กำลังตรวจสอบกับธนาคาร",
+      "body": "ยังไม่ได้รับการยืนยัน ระบบกำลังตรวจสอบให้อัตโนมัติ ไม่ต้องจ่ายซ้ำ"
+    },
+    {
+      "phase": "reconciling",
+      "case": "expired",
+      "w": 1280,
+      "state": "RECONCILING",
+      "paid": "0",
+      "title": "กำลังตรวจสอบกับธนาคาร",
+      "body": "ยังไม่ได้รับการยืนยัน ระบบกำลังตรวจสอบให้อัตโนมัติ ไม่ต้องจ่ายซ้ำ"
+    },
+    {
+      "phase": "exhausted",
+      "case": "expired",
+      "w": 320,
+      "state": "QR_EXPIRED",
+      "paid": "0",
+      "title": "QR หมดอายุแล้ว",
+      "body": "ขอ QR ใหม่ได้เลย · ถ้าจ่ายไปแล้ว ไม่ต้องจ่ายซ้ำ ระบบยังตามให้"
+    },
+    {
+      "phase": "exhausted",
+      "case": "expired",
+      "w": 393,
+      "state": "QR_EXPIRED",
+      "paid": "0",
+      "title": "QR หมดอายุแล้ว",
+      "body": "ขอ QR ใหม่ได้เลย · ถ้าจ่ายไปแล้ว ไม่ต้องจ่ายซ้ำ ระบบยังตามให้"
+    },
+    {
+      "phase": "exhausted",
+      "case": "expired",
+      "w": 768,
+      "state": "QR_EXPIRED",
+      "paid": "0",
+      "title": "QR หมดอายุแล้ว",
+      "body": "ขอ QR ใหม่ได้เลย · ถ้าจ่ายไปแล้ว ไม่ต้องจ่ายซ้ำ ระบบยังตามให้"
+    },
+    {
+      "phase": "exhausted",
+      "case": "expired",
+      "w": 1280,
+      "state": "QR_EXPIRED",
+      "paid": "0",
+      "title": "QR หมดอายุแล้ว",
+      "body": "ขอ QR ใหม่ได้เลย · ถ้าจ่ายไปแล้ว ไม่ต้องจ่ายซ้ำ ระบบยังตามให้"
+    },
+    {
+      "phase": "waiting",
+      "case": "unknown",
+      "w": 320,
+      "state": "PAYING",
+      "paid": "0",
+      "title": "กำลังดำเนินการ",
+      "body": "กำลังตรวจสอบการชำระเงิน อย่าเพิ่งปิดหน้านี้"
+    },
+    {
+      "phase": "waiting",
+      "case": "unknown",
+      "w": 393,
+      "state": "PAYING",
+      "paid": "0",
+      "title": "กำลังดำเนินการ",
+      "body": "กำลังตรวจสอบการชำระเงิน อย่าเพิ่งปิดหน้านี้"
+    },
+    {
+      "phase": "waiting",
+      "case": "unknown",
+      "w": 768,
+      "state": "PAYING",
+      "paid": "0",
+      "title": "กำลังดำเนินการ",
+      "body": "กำลังตรวจสอบการชำระเงิน อย่าเพิ่งปิดหน้านี้"
+    },
+    {
+      "phase": "waiting",
+      "case": "unknown",
+      "w": 1280,
+      "state": "PAYING",
+      "paid": "0",
+      "title": "กำลังดำเนินการ",
+      "body": "กำลังตรวจสอบการชำระเงิน อย่าเพิ่งปิดหน้านี้"
+    },
+    {
+      "phase": "reconciling",
+      "case": "unknown",
+      "w": 320,
+      "state": "RECONCILING",
+      "paid": "0",
+      "title": "กำลังตรวจสอบกับธนาคาร",
+      "body": "ยังไม่ได้รับการยืนยัน ระบบกำลังตรวจสอบให้อัตโนมัติ ไม่ต้องจ่ายซ้ำ"
+    },
+    {
+      "phase": "reconciling",
+      "case": "unknown",
+      "w": 393,
+      "state": "RECONCILING",
+      "paid": "0",
+      "title": "กำลังตรวจสอบกับธนาคาร",
+      "body": "ยังไม่ได้รับการยืนยัน ระบบกำลังตรวจสอบให้อัตโนมัติ ไม่ต้องจ่ายซ้ำ"
+    },
+    {
+      "phase": "reconciling",
+      "case": "unknown",
+      "w": 768,
+      "state": "RECONCILING",
+      "paid": "0",
+      "title": "กำลังตรวจสอบกับธนาคาร",
+      "body": "ยังไม่ได้รับการยืนยัน ระบบกำลังตรวจสอบให้อัตโนมัติ ไม่ต้องจ่ายซ้ำ"
+    },
+    {
+      "phase": "reconciling",
+      "case": "unknown",
+      "w": 1280,
+      "state": "RECONCILING",
+      "paid": "0",
+      "title": "กำลังตรวจสอบกับธนาคาร",
+      "body": "ยังไม่ได้รับการยืนยัน ระบบกำลังตรวจสอบให้อัตโนมัติ ไม่ต้องจ่ายซ้ำ"
+    },
+    {
+      "phase": "exhausted",
+      "case": "unknown",
+      "w": 320,
+      "state": "QR_MAYBE_EXPIRED",
+      "paid": "0",
+      "title": "QR นี้อาจหมดอายุแล้ว",
+      "body": "ถ้ายังไม่ได้จ่าย ขอ QR ใหม่ได้เลย · ถ้าจ่ายไปแล้ว ไม่ต้องจ่ายซ้ำ ระบบยังตามให้อยู่ กดตรวจสอบอีกครั้งได้"
+    },
+    {
+      "phase": "exhausted",
+      "case": "unknown",
+      "w": 393,
+      "state": "QR_MAYBE_EXPIRED",
+      "paid": "0",
+      "title": "QR นี้อาจหมดอายุแล้ว",
+      "body": "ถ้ายังไม่ได้จ่าย ขอ QR ใหม่ได้เลย · ถ้าจ่ายไปแล้ว ไม่ต้องจ่ายซ้ำ ระบบยังตามให้อยู่ กดตรวจสอบอีกครั้งได้"
+    },
+    {
+      "phase": "exhausted",
+      "case": "unknown",
+      "w": 768,
+      "state": "QR_MAYBE_EXPIRED",
+      "paid": "0",
+      "title": "QR นี้อาจหมดอายุแล้ว",
+      "body": "ถ้ายังไม่ได้จ่าย ขอ QR ใหม่ได้เลย · ถ้าจ่ายไปแล้ว ไม่ต้องจ่ายซ้ำ ระบบยังตามให้อยู่ กดตรวจสอบอีกครั้งได้"
+    },
+    {
+      "phase": "exhausted",
+      "case": "unknown",
+      "w": 1280,
+      "state": "QR_MAYBE_EXPIRED",
+      "paid": "0",
+      "title": "QR นี้อาจหมดอายุแล้ว",
+      "body": "ถ้ายังไม่ได้จ่าย ขอ QR ใหม่ได้เลย · ถ้าจ่ายไปแล้ว ไม่ต้องจ่ายซ้ำ ระบบยังตามให้อยู่ กดตรวจสอบอีกครั้งได้"
+    },
+    {
+      "phase": "waiting",
+      "case": "live-stale",
+      "w": 320,
+      "state": "PAYING",
+      "paid": "0",
+      "title": "กำลังดำเนินการ",
+      "body": "กำลังตรวจสอบการชำระเงิน อย่าเพิ่งปิดหน้านี้"
+    },
+    {
+      "phase": "waiting",
+      "case": "live-stale",
+      "w": 393,
+      "state": "PAYING",
+      "paid": "0",
+      "title": "กำลังดำเนินการ",
+      "body": "กำลังตรวจสอบการชำระเงิน อย่าเพิ่งปิดหน้านี้"
+    },
+    {
+      "phase": "waiting",
+      "case": "live-stale",
+      "w": 768,
+      "state": "PAYING",
+      "paid": "0",
+      "title": "กำลังดำเนินการ",
+      "body": "กำลังตรวจสอบการชำระเงิน อย่าเพิ่งปิดหน้านี้"
+    },
+    {
+      "phase": "waiting",
+      "case": "live-stale",
+      "w": 1280,
+      "state": "PAYING",
+      "paid": "0",
+      "title": "กำลังดำเนินการ",
+      "body": "กำลังตรวจสอบการชำระเงิน อย่าเพิ่งปิดหน้านี้"
+    },
+    {
+      "phase": "reconciling",
+      "case": "live-stale",
+      "w": 320,
+      "state": "RECONCILING",
+      "paid": "0",
+      "title": "กำลังตรวจสอบกับธนาคาร",
+      "body": "ยังไม่ได้รับการยืนยัน ระบบกำลังตรวจสอบให้อัตโนมัติ ไม่ต้องจ่ายซ้ำ"
+    },
+    {
+      "phase": "reconciling",
+      "case": "live-stale",
+      "w": 393,
+      "state": "RECONCILING",
+      "paid": "0",
+      "title": "กำลังตรวจสอบกับธนาคาร",
+      "body": "ยังไม่ได้รับการยืนยัน ระบบกำลังตรวจสอบให้อัตโนมัติ ไม่ต้องจ่ายซ้ำ"
+    },
+    {
+      "phase": "reconciling",
+      "case": "live-stale",
+      "w": 768,
+      "state": "RECONCILING",
+      "paid": "0",
+      "title": "กำลังตรวจสอบกับธนาคาร",
+      "body": "ยังไม่ได้รับการยืนยัน ระบบกำลังตรวจสอบให้อัตโนมัติ ไม่ต้องจ่ายซ้ำ"
+    },
+    {
+      "phase": "reconciling",
+      "case": "live-stale",
+      "w": 1280,
+      "state": "RECONCILING",
+      "paid": "0",
+      "title": "กำลังตรวจสอบกับธนาคาร",
+      "body": "ยังไม่ได้รับการยืนยัน ระบบกำลังตรวจสอบให้อัตโนมัติ ไม่ต้องจ่ายซ้ำ"
+    },
+    {
+      "phase": "exhausted",
+      "case": "live-stale",
+      "w": 320,
+      "state": "QR_MAYBE_EXPIRED",
+      "paid": "0",
+      "title": "QR นี้อาจหมดอายุแล้ว",
+      "body": "ถ้ายังไม่ได้จ่าย ขอ QR ใหม่ได้เลย · ถ้าจ่ายไปแล้ว ไม่ต้องจ่ายซ้ำ ระบบยังตามให้อยู่ กดตรวจสอบอีกครั้งได้"
+    },
+    {
+      "phase": "exhausted",
+      "case": "live-stale",
+      "w": 393,
+      "state": "QR_MAYBE_EXPIRED",
+      "paid": "0",
+      "title": "QR นี้อาจหมดอายุแล้ว",
+      "body": "ถ้ายังไม่ได้จ่าย ขอ QR ใหม่ได้เลย · ถ้าจ่ายไปแล้ว ไม่ต้องจ่ายซ้ำ ระบบยังตามให้อยู่ กดตรวจสอบอีกครั้งได้"
+    },
+    {
+      "phase": "exhausted",
+      "case": "live-stale",
+      "w": 768,
+      "state": "QR_MAYBE_EXPIRED",
+      "paid": "0",
+      "title": "QR นี้อาจหมดอายุแล้ว",
+      "body": "ถ้ายังไม่ได้จ่าย ขอ QR ใหม่ได้เลย · ถ้าจ่ายไปแล้ว ไม่ต้องจ่ายซ้ำ ระบบยังตามให้อยู่ กดตรวจสอบอีกครั้งได้"
+    },
+    {
+      "phase": "exhausted",
+      "case": "live-stale",
+      "w": 1280,
+      "state": "QR_MAYBE_EXPIRED",
+      "paid": "0",
+      "title": "QR นี้อาจหมดอายุแล้ว",
+      "body": "ถ้ายังไม่ได้จ่าย ขอ QR ใหม่ได้เลย · ถ้าจ่ายไปแล้ว ไม่ต้องจ่ายซ้ำ ระบบยังตามให้อยู่ กดตรวจสอบอีกครั้งได้"
+    },
+    {
+      "phase": "waiting",
+      "case": "rejected-gateway-expired",
+      "w": 320,
+      "state": "QR_EXPIRED",
+      "paid": "0",
+      "title": "QR หมดอายุแล้ว",
+      "body": "ขอ QR ใหม่ได้เลย · ถ้าจ่ายไปแล้ว ไม่ต้องจ่ายซ้ำ ระบบยังตามให้"
+    },
+    {
+      "phase": "waiting",
+      "case": "rejected-gateway-expired",
+      "w": 393,
+      "state": "QR_EXPIRED",
+      "paid": "0",
+      "title": "QR หมดอายุแล้ว",
+      "body": "ขอ QR ใหม่ได้เลย · ถ้าจ่ายไปแล้ว ไม่ต้องจ่ายซ้ำ ระบบยังตามให้"
+    },
+    {
+      "phase": "waiting",
+      "case": "rejected-gateway-expired",
+      "w": 768,
+      "state": "QR_EXPIRED",
+      "paid": "0",
+      "title": "QR หมดอายุแล้ว",
+      "body": "ขอ QR ใหม่ได้เลย · ถ้าจ่ายไปแล้ว ไม่ต้องจ่ายซ้ำ ระบบยังตามให้"
+    },
+    {
+      "phase": "waiting",
+      "case": "rejected-gateway-expired",
+      "w": 1280,
+      "state": "QR_EXPIRED",
+      "paid": "0",
+      "title": "QR หมดอายุแล้ว",
+      "body": "ขอ QR ใหม่ได้เลย · ถ้าจ่ายไปแล้ว ไม่ต้องจ่ายซ้ำ ระบบยังตามให้"
+    },
+    {
+      "phase": "reconciling",
+      "case": "rejected-gateway-expired",
+      "w": 320,
+      "state": "QR_EXPIRED",
+      "paid": "0",
+      "title": "QR หมดอายุแล้ว",
+      "body": "ขอ QR ใหม่ได้เลย · ถ้าจ่ายไปแล้ว ไม่ต้องจ่ายซ้ำ ระบบยังตามให้"
+    },
+    {
+      "phase": "reconciling",
+      "case": "rejected-gateway-expired",
+      "w": 393,
+      "state": "QR_EXPIRED",
+      "paid": "0",
+      "title": "QR หมดอายุแล้ว",
+      "body": "ขอ QR ใหม่ได้เลย · ถ้าจ่ายไปแล้ว ไม่ต้องจ่ายซ้ำ ระบบยังตามให้"
+    },
+    {
+      "phase": "reconciling",
+      "case": "rejected-gateway-expired",
+      "w": 768,
+      "state": "QR_EXPIRED",
+      "paid": "0",
+      "title": "QR หมดอายุแล้ว",
+      "body": "ขอ QR ใหม่ได้เลย · ถ้าจ่ายไปแล้ว ไม่ต้องจ่ายซ้ำ ระบบยังตามให้"
+    },
+    {
+      "phase": "reconciling",
+      "case": "rejected-gateway-expired",
+      "w": 1280,
+      "state": "QR_EXPIRED",
+      "paid": "0",
+      "title": "QR หมดอายุแล้ว",
+      "body": "ขอ QR ใหม่ได้เลย · ถ้าจ่ายไปแล้ว ไม่ต้องจ่ายซ้ำ ระบบยังตามให้"
+    },
+    {
+      "phase": "exhausted",
+      "case": "rejected-gateway-expired",
+      "w": 320,
+      "state": "QR_EXPIRED",
+      "paid": "0",
+      "title": "QR หมดอายุแล้ว",
+      "body": "ขอ QR ใหม่ได้เลย · ถ้าจ่ายไปแล้ว ไม่ต้องจ่ายซ้ำ ระบบยังตามให้"
+    },
+    {
+      "phase": "exhausted",
+      "case": "rejected-gateway-expired",
+      "w": 393,
+      "state": "QR_EXPIRED",
+      "paid": "0",
+      "title": "QR หมดอายุแล้ว",
+      "body": "ขอ QR ใหม่ได้เลย · ถ้าจ่ายไปแล้ว ไม่ต้องจ่ายซ้ำ ระบบยังตามให้"
+    },
+    {
+      "phase": "exhausted",
+      "case": "rejected-gateway-expired",
+      "w": 768,
+      "state": "QR_EXPIRED",
+      "paid": "0",
+      "title": "QR หมดอายุแล้ว",
+      "body": "ขอ QR ใหม่ได้เลย · ถ้าจ่ายไปแล้ว ไม่ต้องจ่ายซ้ำ ระบบยังตามให้"
+    },
+    {
+      "phase": "exhausted",
+      "case": "rejected-gateway-expired",
+      "w": 1280,
+      "state": "QR_EXPIRED",
+      "paid": "0",
+      "title": "QR หมดอายุแล้ว",
+      "body": "ขอ QR ใหม่ได้เลย · ถ้าจ่ายไปแล้ว ไม่ต้องจ่ายซ้ำ ระบบยังตามให้"
+    },
+    {
+      "phase": "waiting",
+      "case": "rejected-unexplained",
+      "w": 320,
+      "state": "QR_MAYBE_EXPIRED",
+      "paid": "0",
+      "title": "QR นี้อาจหมดอายุแล้ว",
+      "body": "ถ้ายังไม่ได้จ่าย ขอ QR ใหม่ได้เลย · ถ้าจ่ายไปแล้ว ไม่ต้องจ่ายซ้ำ ระบบยังตามให้อยู่ กดตรวจสอบอีกครั้งได้"
+    },
+    {
+      "phase": "waiting",
+      "case": "rejected-unexplained",
+      "w": 393,
+      "state": "QR_MAYBE_EXPIRED",
+      "paid": "0",
+      "title": "QR นี้อาจหมดอายุแล้ว",
+      "body": "ถ้ายังไม่ได้จ่าย ขอ QR ใหม่ได้เลย · ถ้าจ่ายไปแล้ว ไม่ต้องจ่ายซ้ำ ระบบยังตามให้อยู่ กดตรวจสอบอีกครั้งได้"
+    },
+    {
+      "phase": "waiting",
+      "case": "rejected-unexplained",
+      "w": 768,
+      "state": "QR_MAYBE_EXPIRED",
+      "paid": "0",
+      "title": "QR นี้อาจหมดอายุแล้ว",
+      "body": "ถ้ายังไม่ได้จ่าย ขอ QR ใหม่ได้เลย · ถ้าจ่ายไปแล้ว ไม่ต้องจ่ายซ้ำ ระบบยังตามให้อยู่ กดตรวจสอบอีกครั้งได้"
+    },
+    {
+      "phase": "waiting",
+      "case": "rejected-unexplained",
+      "w": 1280,
+      "state": "QR_MAYBE_EXPIRED",
+      "paid": "0",
+      "title": "QR นี้อาจหมดอายุแล้ว",
+      "body": "ถ้ายังไม่ได้จ่าย ขอ QR ใหม่ได้เลย · ถ้าจ่ายไปแล้ว ไม่ต้องจ่ายซ้ำ ระบบยังตามให้อยู่ กดตรวจสอบอีกครั้งได้"
+    },
+    {
+      "phase": "reconciling",
+      "case": "rejected-unexplained",
+      "w": 320,
+      "state": "QR_MAYBE_EXPIRED",
+      "paid": "0",
+      "title": "QR นี้อาจหมดอายุแล้ว",
+      "body": "ถ้ายังไม่ได้จ่าย ขอ QR ใหม่ได้เลย · ถ้าจ่ายไปแล้ว ไม่ต้องจ่ายซ้ำ ระบบยังตามให้อยู่ กดตรวจสอบอีกครั้งได้"
+    },
+    {
+      "phase": "reconciling",
+      "case": "rejected-unexplained",
+      "w": 393,
+      "state": "QR_MAYBE_EXPIRED",
+      "paid": "0",
+      "title": "QR นี้อาจหมดอายุแล้ว",
+      "body": "ถ้ายังไม่ได้จ่าย ขอ QR ใหม่ได้เลย · ถ้าจ่ายไปแล้ว ไม่ต้องจ่ายซ้ำ ระบบยังตามให้อยู่ กดตรวจสอบอีกครั้งได้"
+    },
+    {
+      "phase": "reconciling",
+      "case": "rejected-unexplained",
+      "w": 768,
+      "state": "QR_MAYBE_EXPIRED",
+      "paid": "0",
+      "title": "QR นี้อาจหมดอายุแล้ว",
+      "body": "ถ้ายังไม่ได้จ่าย ขอ QR ใหม่ได้เลย · ถ้าจ่ายไปแล้ว ไม่ต้องจ่ายซ้ำ ระบบยังตามให้อยู่ กดตรวจสอบอีกครั้งได้"
+    },
+    {
+      "phase": "reconciling",
+      "case": "rejected-unexplained",
+      "w": 1280,
+      "state": "QR_MAYBE_EXPIRED",
+      "paid": "0",
+      "title": "QR นี้อาจหมดอายุแล้ว",
+      "body": "ถ้ายังไม่ได้จ่าย ขอ QR ใหม่ได้เลย · ถ้าจ่ายไปแล้ว ไม่ต้องจ่ายซ้ำ ระบบยังตามให้อยู่ กดตรวจสอบอีกครั้งได้"
+    },
+    {
+      "phase": "exhausted",
+      "case": "rejected-unexplained",
+      "w": 320,
+      "state": "QR_MAYBE_EXPIRED",
+      "paid": "0",
+      "title": "QR นี้อาจหมดอายุแล้ว",
+      "body": "ถ้ายังไม่ได้จ่าย ขอ QR ใหม่ได้เลย · ถ้าจ่ายไปแล้ว ไม่ต้องจ่ายซ้ำ ระบบยังตามให้อยู่ กดตรวจสอบอีกครั้งได้"
+    },
+    {
+      "phase": "exhausted",
+      "case": "rejected-unexplained",
+      "w": 393,
+      "state": "QR_MAYBE_EXPIRED",
+      "paid": "0",
+      "title": "QR นี้อาจหมดอายุแล้ว",
+      "body": "ถ้ายังไม่ได้จ่าย ขอ QR ใหม่ได้เลย · ถ้าจ่ายไปแล้ว ไม่ต้องจ่ายซ้ำ ระบบยังตามให้อยู่ กดตรวจสอบอีกครั้งได้"
+    },
+    {
+      "phase": "exhausted",
+      "case": "rejected-unexplained",
+      "w": 768,
+      "state": "QR_MAYBE_EXPIRED",
+      "paid": "0",
+      "title": "QR นี้อาจหมดอายุแล้ว",
+      "body": "ถ้ายังไม่ได้จ่าย ขอ QR ใหม่ได้เลย · ถ้าจ่ายไปแล้ว ไม่ต้องจ่ายซ้ำ ระบบยังตามให้อยู่ กดตรวจสอบอีกครั้งได้"
+    },
+    {
+      "phase": "exhausted",
+      "case": "rejected-unexplained",
+      "w": 1280,
+      "state": "QR_MAYBE_EXPIRED",
+      "paid": "0",
+      "title": "QR นี้อาจหมดอายุแล้ว",
+      "body": "ถ้ายังไม่ได้จ่าย ขอ QR ใหม่ได้เลย · ถ้าจ่ายไปแล้ว ไม่ต้องจ่ายซ้ำ ระบบยังตามให้อยู่ กดตรวจสอบอีกครั้งได้"
+    },
+    {
+      "phase": "waiting",
+      "case": "rejected-no-failurecode",
+      "w": 320,
+      "state": "QR_EXPIRED",
+      "paid": "0",
+      "title": "QR หมดอายุแล้ว",
+      "body": "ขอ QR ใหม่ได้เลย · ถ้าจ่ายไปแล้ว ไม่ต้องจ่ายซ้ำ ระบบยังตามให้"
+    },
+    {
+      "phase": "waiting",
+      "case": "rejected-no-failurecode",
+      "w": 393,
+      "state": "QR_EXPIRED",
+      "paid": "0",
+      "title": "QR หมดอายุแล้ว",
+      "body": "ขอ QR ใหม่ได้เลย · ถ้าจ่ายไปแล้ว ไม่ต้องจ่ายซ้ำ ระบบยังตามให้"
+    },
+    {
+      "phase": "waiting",
+      "case": "rejected-no-failurecode",
+      "w": 768,
+      "state": "QR_EXPIRED",
+      "paid": "0",
+      "title": "QR หมดอายุแล้ว",
+      "body": "ขอ QR ใหม่ได้เลย · ถ้าจ่ายไปแล้ว ไม่ต้องจ่ายซ้ำ ระบบยังตามให้"
+    },
+    {
+      "phase": "waiting",
+      "case": "rejected-no-failurecode",
+      "w": 1280,
+      "state": "QR_EXPIRED",
+      "paid": "0",
+      "title": "QR หมดอายุแล้ว",
+      "body": "ขอ QR ใหม่ได้เลย · ถ้าจ่ายไปแล้ว ไม่ต้องจ่ายซ้ำ ระบบยังตามให้"
+    },
+    {
+      "phase": "reconciling",
+      "case": "rejected-no-failurecode",
+      "w": 320,
+      "state": "QR_EXPIRED",
+      "paid": "0",
+      "title": "QR หมดอายุแล้ว",
+      "body": "ขอ QR ใหม่ได้เลย · ถ้าจ่ายไปแล้ว ไม่ต้องจ่ายซ้ำ ระบบยังตามให้"
+    },
+    {
+      "phase": "reconciling",
+      "case": "rejected-no-failurecode",
+      "w": 393,
+      "state": "QR_EXPIRED",
+      "paid": "0",
+      "title": "QR หมดอายุแล้ว",
+      "body": "ขอ QR ใหม่ได้เลย · ถ้าจ่ายไปแล้ว ไม่ต้องจ่ายซ้ำ ระบบยังตามให้"
+    },
+    {
+      "phase": "reconciling",
+      "case": "rejected-no-failurecode",
+      "w": 768,
+      "state": "QR_EXPIRED",
+      "paid": "0",
+      "title": "QR หมดอายุแล้ว",
+      "body": "ขอ QR ใหม่ได้เลย · ถ้าจ่ายไปแล้ว ไม่ต้องจ่ายซ้ำ ระบบยังตามให้"
+    },
+    {
+      "phase": "reconciling",
+      "case": "rejected-no-failurecode",
+      "w": 1280,
+      "state": "QR_EXPIRED",
+      "paid": "0",
+      "title": "QR หมดอายุแล้ว",
+      "body": "ขอ QR ใหม่ได้เลย · ถ้าจ่ายไปแล้ว ไม่ต้องจ่ายซ้ำ ระบบยังตามให้"
+    },
+    {
+      "phase": "exhausted",
+      "case": "rejected-no-failurecode",
+      "w": 320,
+      "state": "QR_EXPIRED",
+      "paid": "0",
+      "title": "QR หมดอายุแล้ว",
+      "body": "ขอ QR ใหม่ได้เลย · ถ้าจ่ายไปแล้ว ไม่ต้องจ่ายซ้ำ ระบบยังตามให้"
+    },
+    {
+      "phase": "exhausted",
+      "case": "rejected-no-failurecode",
+      "w": 393,
+      "state": "QR_EXPIRED",
+      "paid": "0",
+      "title": "QR หมดอายุแล้ว",
+      "body": "ขอ QR ใหม่ได้เลย · ถ้าจ่ายไปแล้ว ไม่ต้องจ่ายซ้ำ ระบบยังตามให้"
+    },
+    {
+      "phase": "exhausted",
+      "case": "rejected-no-failurecode",
+      "w": 768,
+      "state": "QR_EXPIRED",
+      "paid": "0",
+      "title": "QR หมดอายุแล้ว",
+      "body": "ขอ QR ใหม่ได้เลย · ถ้าจ่ายไปแล้ว ไม่ต้องจ่ายซ้ำ ระบบยังตามให้"
+    },
+    {
+      "phase": "exhausted",
+      "case": "rejected-no-failurecode",
+      "w": 1280,
+      "state": "QR_EXPIRED",
+      "paid": "0",
+      "title": "QR หมดอายุแล้ว",
+      "body": "ขอ QR ใหม่ได้เลย · ถ้าจ่ายไปแล้ว ไม่ต้องจ่ายซ้ำ ระบบยังตามให้"
+    },
+    {
+      "phase": "waiting",
+      "case": "reversed-approved",
+      "w": 320,
+      "state": "PAYMENT_REVERSED",
+      "paid": "0",
+      "title": "เงินถูกคืนกลับไปแล้ว",
+      "body": "การเป็นสมาชิกจากการชำระเงินครั้งนี้ถูกยกเลิกแล้ว"
+    },
+    {
+      "phase": "waiting",
+      "case": "reversed-approved",
+      "w": 393,
+      "state": "PAYMENT_REVERSED",
+      "paid": "0",
+      "title": "เงินถูกคืนกลับไปแล้ว",
+      "body": "การเป็นสมาชิกจากการชำระเงินครั้งนี้ถูกยกเลิกแล้ว"
+    },
+    {
+      "phase": "waiting",
+      "case": "reversed-approved",
+      "w": 768,
+      "state": "PAYMENT_REVERSED",
+      "paid": "0",
+      "title": "เงินถูกคืนกลับไปแล้ว",
+      "body": "การเป็นสมาชิกจากการชำระเงินครั้งนี้ถูกยกเลิกแล้ว"
+    },
+    {
+      "phase": "waiting",
+      "case": "reversed-approved",
+      "w": 1280,
+      "state": "PAYMENT_REVERSED",
+      "paid": "0",
+      "title": "เงินถูกคืนกลับไปแล้ว",
+      "body": "การเป็นสมาชิกจากการชำระเงินครั้งนี้ถูกยกเลิกแล้ว"
+    },
+    {
+      "phase": "reconciling",
+      "case": "reversed-approved",
+      "w": 320,
+      "state": "PAYMENT_REVERSED",
+      "paid": "0",
+      "title": "เงินถูกคืนกลับไปแล้ว",
+      "body": "การเป็นสมาชิกจากการชำระเงินครั้งนี้ถูกยกเลิกแล้ว"
+    },
+    {
+      "phase": "reconciling",
+      "case": "reversed-approved",
+      "w": 393,
+      "state": "PAYMENT_REVERSED",
+      "paid": "0",
+      "title": "เงินถูกคืนกลับไปแล้ว",
+      "body": "การเป็นสมาชิกจากการชำระเงินครั้งนี้ถูกยกเลิกแล้ว"
+    },
+    {
+      "phase": "reconciling",
+      "case": "reversed-approved",
+      "w": 768,
+      "state": "PAYMENT_REVERSED",
+      "paid": "0",
+      "title": "เงินถูกคืนกลับไปแล้ว",
+      "body": "การเป็นสมาชิกจากการชำระเงินครั้งนี้ถูกยกเลิกแล้ว"
+    },
+    {
+      "phase": "reconciling",
+      "case": "reversed-approved",
+      "w": 1280,
+      "state": "PAYMENT_REVERSED",
+      "paid": "0",
+      "title": "เงินถูกคืนกลับไปแล้ว",
+      "body": "การเป็นสมาชิกจากการชำระเงินครั้งนี้ถูกยกเลิกแล้ว"
+    },
+    {
+      "phase": "exhausted",
+      "case": "reversed-approved",
+      "w": 320,
+      "state": "PAYMENT_REVERSED",
+      "paid": "0",
+      "title": "เงินถูกคืนกลับไปแล้ว",
+      "body": "การเป็นสมาชิกจากการชำระเงินครั้งนี้ถูกยกเลิกแล้ว"
+    },
+    {
+      "phase": "exhausted",
+      "case": "reversed-approved",
+      "w": 393,
+      "state": "PAYMENT_REVERSED",
+      "paid": "0",
+      "title": "เงินถูกคืนกลับไปแล้ว",
+      "body": "การเป็นสมาชิกจากการชำระเงินครั้งนี้ถูกยกเลิกแล้ว"
+    },
+    {
+      "phase": "exhausted",
+      "case": "reversed-approved",
+      "w": 768,
+      "state": "PAYMENT_REVERSED",
+      "paid": "0",
+      "title": "เงินถูกคืนกลับไปแล้ว",
+      "body": "การเป็นสมาชิกจากการชำระเงินครั้งนี้ถูกยกเลิกแล้ว"
+    },
+    {
+      "phase": "exhausted",
+      "case": "reversed-approved",
+      "w": 1280,
+      "state": "PAYMENT_REVERSED",
+      "paid": "0",
+      "title": "เงินถูกคืนกลับไปแล้ว",
+      "body": "การเป็นสมาชิกจากการชำระเงินครั้งนี้ถูกยกเลิกแล้ว"
+    },
+    {
+      "phase": "waiting",
+      "case": "reversed-never-granted",
+      "w": 320,
+      "state": "QR_MAYBE_EXPIRED",
+      "paid": "0",
+      "title": "QR นี้อาจหมดอายุแล้ว",
+      "body": "ถ้ายังไม่ได้จ่าย ขอ QR ใหม่ได้เลย · ถ้าจ่ายไปแล้ว ไม่ต้องจ่ายซ้ำ ระบบยังตามให้อยู่ กดตรวจสอบอีกครั้งได้"
+    },
+    {
+      "phase": "waiting",
+      "case": "reversed-never-granted",
+      "w": 393,
+      "state": "QR_MAYBE_EXPIRED",
+      "paid": "0",
+      "title": "QR นี้อาจหมดอายุแล้ว",
+      "body": "ถ้ายังไม่ได้จ่าย ขอ QR ใหม่ได้เลย · ถ้าจ่ายไปแล้ว ไม่ต้องจ่ายซ้ำ ระบบยังตามให้อยู่ กดตรวจสอบอีกครั้งได้"
+    },
+    {
+      "phase": "waiting",
+      "case": "reversed-never-granted",
+      "w": 768,
+      "state": "QR_MAYBE_EXPIRED",
+      "paid": "0",
+      "title": "QR นี้อาจหมดอายุแล้ว",
+      "body": "ถ้ายังไม่ได้จ่าย ขอ QR ใหม่ได้เลย · ถ้าจ่ายไปแล้ว ไม่ต้องจ่ายซ้ำ ระบบยังตามให้อยู่ กดตรวจสอบอีกครั้งได้"
+    },
+    {
+      "phase": "waiting",
+      "case": "reversed-never-granted",
+      "w": 1280,
+      "state": "QR_MAYBE_EXPIRED",
+      "paid": "0",
+      "title": "QR นี้อาจหมดอายุแล้ว",
+      "body": "ถ้ายังไม่ได้จ่าย ขอ QR ใหม่ได้เลย · ถ้าจ่ายไปแล้ว ไม่ต้องจ่ายซ้ำ ระบบยังตามให้อยู่ กดตรวจสอบอีกครั้งได้"
+    },
+    {
+      "phase": "reconciling",
+      "case": "reversed-never-granted",
+      "w": 320,
+      "state": "QR_MAYBE_EXPIRED",
+      "paid": "0",
+      "title": "QR นี้อาจหมดอายุแล้ว",
+      "body": "ถ้ายังไม่ได้จ่าย ขอ QR ใหม่ได้เลย · ถ้าจ่ายไปแล้ว ไม่ต้องจ่ายซ้ำ ระบบยังตามให้อยู่ กดตรวจสอบอีกครั้งได้"
+    },
+    {
+      "phase": "reconciling",
+      "case": "reversed-never-granted",
+      "w": 393,
+      "state": "QR_MAYBE_EXPIRED",
+      "paid": "0",
+      "title": "QR นี้อาจหมดอายุแล้ว",
+      "body": "ถ้ายังไม่ได้จ่าย ขอ QR ใหม่ได้เลย · ถ้าจ่ายไปแล้ว ไม่ต้องจ่ายซ้ำ ระบบยังตามให้อยู่ กดตรวจสอบอีกครั้งได้"
+    },
+    {
+      "phase": "reconciling",
+      "case": "reversed-never-granted",
+      "w": 768,
+      "state": "QR_MAYBE_EXPIRED",
+      "paid": "0",
+      "title": "QR นี้อาจหมดอายุแล้ว",
+      "body": "ถ้ายังไม่ได้จ่าย ขอ QR ใหม่ได้เลย · ถ้าจ่ายไปแล้ว ไม่ต้องจ่ายซ้ำ ระบบยังตามให้อยู่ กดตรวจสอบอีกครั้งได้"
+    },
+    {
+      "phase": "reconciling",
+      "case": "reversed-never-granted",
+      "w": 1280,
+      "state": "QR_MAYBE_EXPIRED",
+      "paid": "0",
+      "title": "QR นี้อาจหมดอายุแล้ว",
+      "body": "ถ้ายังไม่ได้จ่าย ขอ QR ใหม่ได้เลย · ถ้าจ่ายไปแล้ว ไม่ต้องจ่ายซ้ำ ระบบยังตามให้อยู่ กดตรวจสอบอีกครั้งได้"
+    },
+    {
+      "phase": "exhausted",
+      "case": "reversed-never-granted",
+      "w": 320,
+      "state": "QR_MAYBE_EXPIRED",
+      "paid": "0",
+      "title": "QR นี้อาจหมดอายุแล้ว",
+      "body": "ถ้ายังไม่ได้จ่าย ขอ QR ใหม่ได้เลย · ถ้าจ่ายไปแล้ว ไม่ต้องจ่ายซ้ำ ระบบยังตามให้อยู่ กดตรวจสอบอีกครั้งได้"
+    },
+    {
+      "phase": "exhausted",
+      "case": "reversed-never-granted",
+      "w": 393,
+      "state": "QR_MAYBE_EXPIRED",
+      "paid": "0",
+      "title": "QR นี้อาจหมดอายุแล้ว",
+      "body": "ถ้ายังไม่ได้จ่าย ขอ QR ใหม่ได้เลย · ถ้าจ่ายไปแล้ว ไม่ต้องจ่ายซ้ำ ระบบยังตามให้อยู่ กดตรวจสอบอีกครั้งได้"
+    },
+    {
+      "phase": "exhausted",
+      "case": "reversed-never-granted",
+      "w": 768,
+      "state": "QR_MAYBE_EXPIRED",
+      "paid": "0",
+      "title": "QR นี้อาจหมดอายุแล้ว",
+      "body": "ถ้ายังไม่ได้จ่าย ขอ QR ใหม่ได้เลย · ถ้าจ่ายไปแล้ว ไม่ต้องจ่ายซ้ำ ระบบยังตามให้อยู่ กดตรวจสอบอีกครั้งได้"
+    },
+    {
+      "phase": "exhausted",
+      "case": "reversed-never-granted",
+      "w": 1280,
+      "state": "QR_MAYBE_EXPIRED",
+      "paid": "0",
+      "title": "QR นี้อาจหมดอายุแล้ว",
+      "body": "ถ้ายังไม่ได้จ่าย ขอ QR ใหม่ได้เลย · ถ้าจ่ายไปแล้ว ไม่ต้องจ่ายซ้ำ ระบบยังตามให้อยู่ กดตรวจสอบอีกครั้งได้"
+    }
+  ]
+}

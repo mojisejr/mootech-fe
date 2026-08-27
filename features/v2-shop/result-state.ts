@@ -26,6 +26,12 @@ export type ResultState =
   // rows where we are still NOT told, which are the majority — 124 of 184 charges have no deadline at
   // all (lib/payment/qr-deadline.ts:6). Two states, two audiences, one honest sentence each.
   | 'QR_EXPIRED' //     the gateway's own deadline has passed. Certain about the QR, still unsure about the money.
+  // ── #484 — money moved, then moved back. Not a failure: it worked, and was undone ────────────────
+  // The only row where the user HELD the thing and then stopped holding it. Every other row here is
+  // about a purchase that did or did not complete; this one is about one that completed and was
+  // reversed, taking the entitlement with it (repo.ts — one transaction, so the screen can never see
+  // this code while the subscription is still ACTIVE).
+  | 'PAYMENT_REVERSED' //  paid, then the money went back — and the membership from THAT payment went with it
   // ── #466 — the server REFUSED before any money moved (mootech-fe#456's gate) ──────────────────────
   // These two are not failures of a payment. Nothing was charged, nothing was declined, nothing is
   // pending: the purchase was never allowed to start. Before #466 they fell into CARD_DECLINED and
@@ -40,7 +46,7 @@ export type ResultCopy = {
   /** one line under it, in the user's terms. */
   body: string
   /** 🔴 can pressing again plausibly change the outcome? Drives which action the screen offers. */
-  retry: 'same' | 'different' | 'new-qr' | 'none'
+  retry: 'same' | 'different' | 'new-qr' | 'buy-again' | 'none'
   /** true only when the user's money has actually moved. Exactly ONE state may set this. */
   paid: boolean
 }
@@ -102,6 +108,31 @@ export const RESULT_COPY: Record<ResultState, ResultCopy> = {
     title: 'QR นี้อาจหมดอายุแล้ว',
     body: 'ถ้ายังไม่ได้จ่าย ขอ QR ใหม่ได้เลย · ถ้าจ่ายไปแล้ว ไม่ต้องจ่ายซ้ำ ระบบยังตามให้อยู่ กดตรวจสอบอีกครั้งได้',
     retry: 'same',
+    paid: false,
+  },
+  PAYMENT_REVERSED: {
+    // 🔴 พูดถึง **การซื้อครั้งนี้** ❌ ไม่ใช่สถานะสมาชิกโดยรวม
+    // 🔴 เส้นแบ่งคือ **โค้ดที่เขียนคอลัมน์** ❌ ไม่ใช่ migration ที่เพิ่มคอลัมน์ — คนละนาที
+    //   migration 0012 ลงคอลัมน์ไปแล้ว · ตัวเขียนตัวแรกอยู่ที่ mojisejr/mootech-fe#487 ซึ่งยังไม่ merge
+    //   ⇒ แถวที่เกิด **หลัง** 0012 แต่ **ก่อน** #487 ก็เป็น NULL เหมือนกัน
+    //   ฉบับแรกของคอมเมนต์นี้เขียนว่า "ก่อน migration 0012" ⇒ คนอ่านจะไปหาแถวที่เก่ากว่า migration แล้วไม่เจอสักแถว
+    // แถวเหล่านั้นถูกถอนเลน v2 แต่ member_payment ถูกจงใจไม่แตะ (เดาวันไม่ได้)
+    // ⇒ ผู้ใช้บางคนอาจยังเข้าใช้ได้ผ่านเลนเก่าชั่วคราว · ประโยคที่พูดถึงการซื้อครั้งนี้เป็นจริงทั้งสองเส้นทาง
+    // เพราะแถว member_subscription ของการซื้อครั้งนี้ออกจาก ACTIVE เสมอ
+    //
+    // ❌ ไม่ใช้คำว่า ล้มเหลว — มันเคยสำเร็จ · ❌ ไม่โทษธนาคาร — ธนาคารไม่ได้ปฏิเสธ มันผ่านไปแล้ว
+    // ❌ ไม่มีคำว่า ระบบยังตามให้ — ไม่มีใครตามให้ และนั่นคือประโยคที่ #484 สั่งให้เลิกพูด
+    title: 'เงินถูกคืนกลับไปแล้ว',
+    // ประโยคเดียว ปุ่มเป็นคนเสนอทางต่อเอง — ฉบับแรกต่อท้ายว่า "ถ้ายังต้องการ ซื้อใหม่ได้เลย"
+    // แล้วที่ 393 คำว่า "ถ้ายัง / ต้องการ" ตกคนละบรรทัด
+    body: 'การเป็นสมาชิกจากการชำระเงินครั้งนี้ถูกยกเลิกแล้ว',
+    // 🔴 'buy-again' ❌ ไม่ใช่ 'new-qr' — ฉบับแรกใช้ 'new-qr' เพราะ **ปลายทางถูก** (checkout ของแพ็กเกจ)
+    // แล้วปุ่มก็พิมพ์ว่า "ขอ QR ใหม่" ให้คนที่จ่ายด้วยบัตรและไม่เคยเห็น QR เลย
+    // เป็นคลาสเดียวกับที่ 'new-qr' ถูกสร้างขึ้นมาแก้ — หยิบค่ามาใช้เพราะปลายทาง แล้วได้คำของเรื่องอื่นติดมา
+    retry: 'buy-again',
+    // 🔴 false — เงินไม่ได้อยู่กับเราแล้ว และผู้ใช้ไม่ได้ถือของ
+    // ป้ายนี้ตอบคำถาม "เงินขยับไหม" ❌ ไม่ใช่ "เงินขยับแล้วอยู่ที่ไหน" ⇒ true ตรงนี้จะติ๊กถูกทางเทคนิค
+    // แล้วขึ้นเครื่องหมายสำเร็จให้คนที่เพิ่งเสียสิทธิ์ไป
     paid: false,
   },
   QR_EXPIRED: {
@@ -228,6 +259,19 @@ export function resolveResultState({ status, method, claimed, phase, qrDeadline,
   // 🔴 THE SERVER DECIDES WHETHER MONEY MOVED. A claimed APPROVED (or PAYING) only becomes a success once
   // /payment/status agrees about this charge — otherwise /v2/shop/result?state=APPROVED would be a page
   // that tells anyone their payment succeeded.
+  // ── #484 — ต้องอยู่ **ก่อน** กิ่ง APPROVED ข้างล่าง ────────────────────────────────────────────────
+  // แถวที่ถูกตีกลับ **คงสถานะ APPROVED ไว้** โดยตั้งใจ เพราะการจ่ายเกิดขึ้นจริงในอดีต
+  // ⇒ ถ้ากิ่งนี้อยู่หลัง กิ่ง APPROVED จะตอบก่อน แล้วจอจะขึ้น "ชำระเงินสำเร็จ" พร้อม paid: true
+  //   ในวินาทีที่เงินถูกคืนไปแล้วและสิทธิ์ถูกถอนไปแล้ว (ยิงยืนยันด้วยอินพุตตามสัญญาก่อนเขียนบรรทัดนี้)
+  //
+  // 🔴 ต้องดู `status` ด้วย ❌ ไม่ใช่ `failureCode` อย่างเดียว — ค่านี้มีผู้ผลิต **2 ราย**
+  //   REJECT   + gateway_reversed   ตัวกระทบยอดเขียน (reconcile-run.ts) — ถูกตีกลับโดยไม่เคยมีใครได้สิทธิ์
+  //   APPROVED + gateway_reversed   เส้นของ #484 — ให้สิทธิ์ไปแล้ว แล้วเอาคืน
+  // เคสแรกไม่เคยมีสิทธิ์ให้ถอน ⇒ ห้ามได้คำว่า "การเป็นสมาชิก...ถูกยกเลิกแล้ว"
+  // เคสแรกวันนี้ยังตกถัง QR_MAYBE_EXPIRED และยังพูดว่า "ระบบยังตามให้" ซึ่งผิดเหมือนกัน
+  // ⇒ mojisejr/mootech-fe#488 ถือเรื่องนั้น (เลขนี้ยืนยันหลังเปิดใบจริงแล้ว ❌ ไม่ได้เดา)
+  if (status === 'APPROVED' && failureCode === 'gateway_reversed') return 'PAYMENT_REVERSED'
+
   if (status === 'APPROVED') {
     return claimed === 'PAYING' || claimed === 'APPROVED' ? 'APPROVED' : 'ALREADY_PAID'
   }
