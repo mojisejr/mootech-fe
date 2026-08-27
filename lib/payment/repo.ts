@@ -159,8 +159,25 @@ export async function abandonByChargeId(chargeId: string, db: Db = defaultDb): P
 }
 
 // Omise accepted → swap the placeholder for the real charge id (this is what the webhook will match).
-export async function attachChargeId(paymentId: string, chargeId: string, db: Db = defaultDb): Promise<void> {
-  await db.update(v2Payment).set({ chargeId }).where(eq(v2Payment.id, paymentId))
+//
+// 🔴 #455 — `chargeExpiresAt` rides along on THIS update on purpose. It is the one write that already
+// happens after Omise has answered, so recording the deadline costs no extra round-trip and no extra
+// transaction. Passing nothing leaves the column untouched (card charges have no expiry); passing null
+// writes null, which reads as "the gateway did not say" — never as "not expired".
+export async function attachChargeId(
+  paymentId: string,
+  chargeId: string,
+  expiresAt?: string | null,
+  db: Db = defaultDb,
+): Promise<void> {
+  const patch: { chargeId: string; chargeExpiresAt?: Date | null } = { chargeId }
+  if (expiresAt !== undefined) {
+    const at = expiresAt === null ? null : new Date(expiresAt)
+    // A gateway string we cannot parse is NOT a deadline. Store null rather than an Invalid Date, which
+    // would silently become NULL in postgres anyway and lose the fact that we tried.
+    patch.chargeExpiresAt = at !== null && Number.isNaN(at.getTime()) ? null : at
+  }
+  await db.update(v2Payment).set(patch).where(eq(v2Payment.id, paymentId))
 }
 
 // 🔴 #437 — the gateway answered and the answer was "no". Write down WHY, next to the row it belongs to.
@@ -222,6 +239,9 @@ export async function listUserPayments(userId: string, db: Db = defaultDb) {
       method: v2Payment.method,
       status: v2Payment.status,
       createdAt: v2Payment.createdAt,
+      // #455 — the screen cannot know when a QR died unless we carry it. NULL for card rows and for any
+      // row created before 0011; the caller must treat NULL as "unknown", never as "still good".
+      chargeExpiresAt: v2Payment.chargeExpiresAt,
     })
     .from(v2Payment)
     .where(eq(v2Payment.userId, userId))

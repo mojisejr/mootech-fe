@@ -150,7 +150,9 @@ export async function runChargeFlow(
   }
   // The charge EXISTS at the gateway now — refused or not. Attach the real id FIRST and unconditionally,
   // so the webhook can always find this row no matter what we conclude on the next line.
-  await attachChargeId(reserved.paymentId, charge.chargeId)
+  // #455 — the gateway's deadline arrives on the same response as the charge id, so it is written in the
+  // same update. Card charges carry no expiry and pass null.
+  await attachChargeId(reserved.paymentId, charge.chargeId, charge.expiresAt ?? null)
 
   // 🔴 #437 — ASK THE GATEWAY'S OWN VERDICT. Until this block existed, the answer was thrown away and every
   // charge was reported as PENDING: a card Omise had already declined reached the screen as "in progress"

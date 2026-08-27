@@ -57,7 +57,7 @@ async function omisePost(path: string, form: Record<string, string>): Promise<Re
 // Before this, `createCardCharge` returned `{ chargeId: String(json.id) }` and dropped everything else, so
 // a declined card was indistinguishable from a pending one all the way to the user's screen.
 // Fields stay optional-shaped: Omise omits `failure_code` entirely on a charge that has not failed.
-function readOutcome(json: Record<string, unknown>): Pick<ChargeResult, 'status' | 'paid' | 'failureCode' | 'failureMessage' | 'authorizeUri'> {
+function readOutcome(json: Record<string, unknown>): Pick<ChargeResult, 'status' | 'paid' | 'failureCode' | 'failureMessage' | 'authorizeUri' | 'expiresAt'> {
   return {
     status: typeof json.status === 'string' ? json.status : undefined,
     paid: json.paid === true,
@@ -65,6 +65,9 @@ function readOutcome(json: Record<string, unknown>): Pick<ChargeResult, 'status'
     failureMessage: typeof json.failure_message === 'string' ? json.failure_message : null,
     // #439 — Omise sets this when the charge needs 3-D Secure. Null on every other outcome.
     authorizeUri: typeof json.authorize_uri === 'string' ? json.authorize_uri : null,
+    // #455 — read straight off the SAME response we already have. This is not a new call to Omise; the
+    // field was arriving on every charge and being discarded here. Card charges simply do not carry it.
+    expiresAt: typeof json.expires_at === 'string' ? json.expires_at : null,
   }
 }
 

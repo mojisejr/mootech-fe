@@ -21,6 +21,12 @@ export type ChargeResult = {
   // what this adapter did until #439) turns "the bank wants to check who you are" into a charge that can
   // never complete — and, before a return_uri existed, into an outright refusal.
   authorizeUri?: string | null
+  // 🔴 #455 — Omise's own deadline for this charge (ISO-8601, verbatim). PromptPay only; a card charge has
+  // no expiry and never carries this. ABSENT/null means "the gateway did not say" and must NEVER be read as
+  // "not expired": Omise emits no event when a charge expires (measured 2026-08-27 — of 124 expired charges,
+  // the number carrying any event beyond charge.create is zero), so our own row is the only place this fact
+  // can live. Until #455 the adapter threw it away on every single charge.
+  expiresAt?: string | null
 }
 
 export interface PaymentGateway {
