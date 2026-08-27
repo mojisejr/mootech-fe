@@ -55,6 +55,14 @@ export function ResultScreen({ state, onRetrySame, onTryAnother, onDone, planNam
             ตรวจสอบอีกครั้ง
           </button>
         )}
+        {copy.retry === 'new-qr' && onTryAnother && (
+          // 🔴 NOT "ตรวจสอบอีกครั้ง". The gateway told us this QR is dead — asking again cannot revive it.
+          // Same destination as "เลือกวิธีชำระเงินอื่น" (the package's checkout, which mints a new charge),
+          // different words, because the words are the part that was wrong.
+          <button type="button" data-testid="result-new-qr" onClick={onTryAnother} className="w-full rounded-pill bg-v3-sapphire px-5 py-3 text-sm font-medium text-white">
+            ขอ QR ใหม่
+          </button>
+        )}
         {copy.retry === 'different' && onTryAnother && (
           // 🔴 NOT "ลองอีกครั้ง". The same card will be declined again; the way forward is another method.
           <button type="button" data-testid="result-try-another" onClick={onTryAnother} className="w-full rounded-pill bg-v3-sapphire px-5 py-3 text-sm font-medium text-white">

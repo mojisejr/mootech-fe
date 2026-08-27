@@ -9,6 +9,8 @@
 // 🔑 THE RULE EVERY LINE IS WRITTEN AGAINST (from #347 / #263): a failure message must let the reader tell
 // whether TRYING AGAIN COULD WORK. "เกิดข้อผิดพลาด" fails that test — it is true of every row here and
 // useful in none of them. So each state carries `retry`, and the copy matches it rather than decorating it.
+import type { QrDeadlineState } from '@/lib/payment/qr-deadline'
+
 export type ResultState =
   | 'PAYING' // in flight — we have not heard back yet
   | 'APPROVED' // settled: /payment/status says APPROVED for THIS chargeId
@@ -17,6 +19,13 @@ export type ResultState =
   | 'ALREADY_PAID' // this charge is already settled — the user pressed again, or came back to a done screen
   | 'RECONCILING' // past our POLL deadline, but the repair cron's window is still open (#423)
   | 'QR_MAYBE_EXPIRED' // past our own deadline with no settle. NOT "expired" — we are not told that.
+  // ── #455 slice 2 — the gateway DID tell us. Separate state, not a reworded QR_MAYBE_EXPIRED ─────
+  // The word "อาจ" in the row above was never hedging: it was accurate, because our own clock was the
+  // only thing that had spoken. /api/v2/payment/status now carries `qrDeadline` (#476), so for some
+  // rows we are told. Sharpening the existing words would have taken the honest "อาจ" away from the
+  // rows where we are still NOT told, which are the majority — 124 of 184 charges have no deadline at
+  // all (lib/payment/qr-deadline.ts:6). Two states, two audiences, one honest sentence each.
+  | 'QR_EXPIRED' //     the gateway's own deadline has passed. Certain about the QR, still unsure about the money.
   // ── #466 — the server REFUSED before any money moved (mootech-fe#456's gate) ──────────────────────
   // These two are not failures of a payment. Nothing was charged, nothing was declined, nothing is
   // pending: the purchase was never allowed to start. Before #466 they fell into CARD_DECLINED and
@@ -31,7 +40,7 @@ export type ResultCopy = {
   /** one line under it, in the user's terms. */
   body: string
   /** 🔴 can pressing again plausibly change the outcome? Drives which action the screen offers. */
-  retry: 'same' | 'different' | 'none'
+  retry: 'same' | 'different' | 'new-qr' | 'none'
   /** true only when the user's money has actually moved. Exactly ONE state may set this. */
   paid: boolean
 }
@@ -93,6 +102,33 @@ export const RESULT_COPY: Record<ResultState, ResultCopy> = {
     title: 'QR นี้อาจหมดอายุแล้ว',
     body: 'ถ้ายังไม่ได้จ่าย ขอ QR ใหม่ได้เลย · ถ้าจ่ายไปแล้ว ไม่ต้องจ่ายซ้ำ ระบบยังตามให้อยู่ กดตรวจสอบอีกครั้งได้',
     retry: 'same',
+    paid: false,
+  },
+  QR_EXPIRED: {
+    // 🔴 NO 'อาจ' HERE, ON PURPOSE. The row above hedges because nobody told us; this row exists only
+    // when `qrDeadline === 'expired'` — the gateway's own deadline, read off the row (#476). Hedging
+    // when we DO know sends a user who could simply ask for a new QR into another round of waiting.
+    //
+    // 🔴 BUT IT STILL SPEAKS TO TWO PEOPLE. A dead QR says nothing about whether money moved: someone
+    // who scanned at the last second and lost the webhook is reading this too. So the second sentence
+    // is kept word-for-word from QR_MAYBE_EXPIRED. What changed is our certainty about the QR — not
+    // our certainty about their money.
+    // 🔴 'new-qr' — A THIRD ACTION, ADDED BECAUSE THE WORDS ALREADY PROMISED IT (#455, caught in the photo).
+    // The first version of this row said "ขอ QR ใหม่ได้เลย" while `retry: 'same'` rendered the only button
+    // the vocabulary had: "ตรวจสอบอีกครั้ง". Every unit test was green — none of them can see that a
+    // sentence names an action the screen does not offer. The screenshot could, on the first look.
+    //
+    // 'same' is WRONG here specifically because we were told. Asking again is the honest move when we do
+    // not know (QR_MAYBE_EXPIRED keeps it); once the gateway's own deadline has passed, checking again
+    // cannot revive the QR, and the person who never paid needs a fresh one.
+    // This is mootech-fe#471's class — copy that promises a button that is not there.
+    title: 'QR หมดอายุแล้ว',
+    // 🔴 ประโยคจบที่ 'ระบบยังตามให้' ❌ ไม่ใช่ 'ระบบยังตามให้อยู่' — ตัดคำท้ายทิ้งเพราะการวางบรรทัด
+    // ที่ 393 (ความกว้างจอหลัก) 'อยู่' ตกไปอยู่บรรทัดสองตัวเดียว ส่วนที่ 320 ตัดสวยอยู่แล้ว
+    // ไทยไม่มีช่องว่างระหว่างคำ ⇒ เบราว์เซอร์ตัดด้วยพจนานุกรม และ assertion บน textContent มองไม่เห็น
+    // ว่าบรรทัดถูกตัดตรงไหน ⇒ เห็นได้จากภาพเท่านั้น (mojisejr/mootech-fe#414 เป็นคลาสเดียวกัน)
+    body: 'ขอ QR ใหม่ได้เลย · ถ้าจ่ายไปแล้ว ไม่ต้องจ่ายซ้ำ ระบบยังตามให้',
+    retry: 'new-qr',
     paid: false,
   },
   ALREADY_ON_THIS_TIER: {
@@ -172,9 +208,23 @@ export type ResultInputs = {
   claimed: ResultState
   /** how long we have been waiting, bucketed (useChargeStatus). */
   phase: WaitPhaseLike
+  /**
+   * #455 — what the SERVER says about the gateway's own deadline for this charge (`/payment/status`).
+   *
+   * 🔴 `liveUntil` is deliberately NOT here. It exists for a countdown, and `now > liveUntil` on the
+   * user's device is true every day between two slow polls (30s — useChargeStatus.ts:113) without the QR
+   * being dead. A comparison that reads as a verdict but is only a staleness signal is exactly how the
+   * screen would start lying again, so this function is never given the material to make it.
+   */
+  qrDeadline: QrDeadlineState
+  /**
+   * #455 slice 3 — เหตุผลที่แถวจบแบบไม่ได้จ่าย (`/payment/status`, mojisejr/mootech-fe#481)
+   * `null` = ไม่ถูกบอกเหตุ ❌ ไม่ใช่ "ไม่มีเหตุ" — และเป็นค่าที่ได้ตอน server ยังไม่ deploy ฟิลด์นี้ด้วย
+   */
+  failureCode: string | null
 }
 
-export function resolveResultState({ status, method, claimed, phase }: ResultInputs): ResultState {
+export function resolveResultState({ status, method, claimed, phase, qrDeadline, failureCode }: ResultInputs): ResultState {
   // 🔴 THE SERVER DECIDES WHETHER MONEY MOVED. A claimed APPROVED (or PAYING) only becomes a success once
   // /payment/status agrees about this charge — otherwise /v2/shop/result?state=APPROVED would be a page
   // that tells anyone their payment succeeded.
@@ -191,11 +241,60 @@ export function resolveResultState({ status, method, claimed, phase }: ResultInp
   // here until mootech-fe#443 gives it words of its own — a known gap, not a forgotten one.
   if (status === 'REJECTED' && method === 'card') return 'CARD_DECLINED'
 
+  // ── #455 slice 3 — พร้อมเพย์ที่จบแล้ว ต้องไม่ตกไปที่กิ่งนาฬิกาข้างล่าง ─────────────────────────────
+  //
+  // 🔴 บั๊กที่กิ่งนี้แก้ ไม่ใช่ "คำไม่สวย" แต่คือ **จอค้างตลอดกาล**
+  // useChargeStatus.ts:83 นับ REJECTED เป็น settled ⇒ :208 ออกจาก loop ⇒ บรรทัดที่ setPhase (:218-219)
+  // ไม่เคยถูกเดินอีกเลย ⇒ phase แช่ที่ 'waiting' ถาวร ⇒ แถวพร้อมเพย์ที่ REJECT ตกลงมาที่กิ่งข้างล่าง
+  // แล้วอ่าน phase ที่แช่อยู่ ⇒ ผู้ใช้เห็น "กำลังดำเนินการ" ไปตลอด ไม่ใช่ 30 นาทีแล้วหาย
+  // (ยิงจอจริงยืนยันแล้ว 3 phase × 3 เคส ก่อนเขียนกิ่งนี้)
+  //
+  // ก่อน slice 3 ช่องนี้แคบมากเพราะพร้อมเพย์แทบไม่เคยเป็น REJECT · slice 3 ทำให้มันเป็นทางหลัก
+  // (พร้อมเพย์ 74 จาก 74 ใบจบที่ expired) ⇒ งานจอคืออีกครึ่งของการเปลี่ยนแปลงเดียวกัน ❌ ไม่ใช่งานตามหลัง
+  if (status === 'REJECTED' && method === 'promptpay') {
+    // 🔴 สองคำนี้คือคำที่ slice 3 เขียนลงคอลัมน์เมื่อ "แถวจบแล้วและไม่มีใครจ่าย" (reconcile-run.ts)
+    // ⇒ ตรงนี้เราถูกบอกทั้งสองอย่าง: server จบแล้ว และเหตุคือหมดอายุ ⇒ พูดตรง ๆ ได้
+    // ชุดค่าที่ฝั่ง server ผลิตได้ มีสามตัวเท่านั้น (reconcile-run.ts · ยืนยันกับบอง 2026-08-27)
+    //   gateway_expired    QR ตาย ไม่มีใครจ่าย ไม่มีใครปฏิเสธ   ← ตัวเดียวที่แปลว่าหมดอายุ
+    //   gateway_failed     gateway จบให้ แต่ไม่ได้ให้รหัสของตัวเอง
+    //   gateway_reversed   เคยจ่ายแล้ว แล้วเงินถูกตีกลับ
+    // นอกจากสามตัวนี้ = รหัสจาก Omise ตรง ๆ = ถูกปฏิเสธจริง
+    //
+    // 🔴 เทียบด้วย === ❌ ไม่ใช่ startsWith — ผู้ผลิตสร้างค่านี้เต็มพอดี ไม่มีส่วนต่อท้าย
+    // คอมเมนต์ฝั่ง server เคยเขียนว่า "starts" ⇒ คนอ่านคำอธิบายจะเขียน startsWith คนอ่านโค้ดจะเขียน ===
+    // แล้วทั้งคู่เชื่อว่าทำตามสัญญา · บองแก้คำนั้นแล้วและเขียนกำกับไว้ว่าเคยทำให้เกิดเรื่องนี้
+    //
+    // 🔴 `mootech_expired` ถูกยกเลิกถาวร ❌ ห้ามเติมกลับ — ไม่ใช่แค่ "วันนี้ไม่มีผู้ผลิต"
+    // isRefusedCharge เป็นจริงเฉพาะเมื่อ status อยู่ใน TERMINAL_FAILURE_STATUSES ⇒ ไม่มีเคสที่ gateway
+    // ไม่บอก status ให้ fallback รับ ⇒ กิ่งนั้นเดินไปไม่ถึงเชิงโครงสร้าง
+    // ฉบับก่อนของบรรทัดนี้เขียน `|| failureCode === 'mootech_expired'` เพราะคอมเมนต์ฝั่ง server บอกให้จับคู่
+    if (failureCode === 'gateway_expired') return 'QR_EXPIRED'
+
+    // server ยังไม่ส่ง failureCode ออกมา (deploy ไม่พร้อมกัน) ⇒ ถอยไปใช้สัญญาณที่มีอยู่บน wire แล้ว
+    // สองสัญญาณต้องตรงกันถึงจะพูดว่าหมดอายุ: แถวจบแล้ว **และ** QR ตายแล้ว
+    if (failureCode === null && qrDeadline === 'expired') return 'QR_EXPIRED'
+
+    // เหลือ: แถวจบแล้ว แต่เราอธิบายไม่ได้ว่าทำไม
+    // ⚠️ ยังไม่มีคำที่ถูกสำหรับเคสนี้ — นั่นคือ mojisejr/mootech-fe#443 (พร้อมเพย์ที่ล้มเหลวต้องมีคำของตัวเอง)
+    // QR_MAYBE_EXPIRED เป็นแถวที่ผิดน้อยที่สุดที่มีอยู่: หัวข้อฮedge ด้วยคำว่า "อาจ" และเนื้อของมัน
+    // (ยังไม่จ่าย → ขอ QR ใหม่ · จ่ายแล้ว → ไม่ต้องจ่ายซ้ำ) ถูกต้องกับพร้อมเพย์ที่จบแบบไม่ได้จ่ายทุกกรณี
+    // 🔴 มันยัง**ไม่ถูก**เพราะหัวข้อชี้สาเหตุที่เราอาจรู้อยู่แล้วว่าไม่ใช่ — แต่ค้างตลอดกาลแย่กว่า
+    return 'QR_MAYBE_EXPIRED'
+  }
+
   // An unverified claim of success is 'PAYING' while we poll fast, 'RECONCILING' while the repair cron may
   // still settle it, and only then 'QR_MAYBE_EXPIRED' (#423). The middle one exists so the screen never
   // suggests paying again during the window that fixes it for free.
   if (RESULT_COPY[claimed].paid) {
-    return phase === 'waiting' ? 'PAYING' : phase === 'reconciling' ? 'RECONCILING' : 'QR_MAYBE_EXPIRED'
+    if (phase === 'waiting') return 'PAYING'
+    // 🔴 `expired` DOES NOT BEAT RECONCILING (#423). The QR being dead says nothing about whether money
+    // moved, and while the repair cron's window is open it may still settle for free. Offering "ขอ QR ใหม่"
+    // in that window is how a user pays twice — the exact thing RECONCILING was added to prevent.
+    if (phase === 'reconciling') return 'RECONCILING'
+    // Only PromptPay has a QR to expire. The card lane's charge_expires_at is null for the whole lane
+    // (lib/payment/qr-deadline.ts:6) so it answers 'unknown' today — but if that ever changes, a card
+    // holder must not be handed words about a QR they never saw.
+    return qrDeadline === 'expired' && method === 'promptpay' ? 'QR_EXPIRED' : 'QR_MAYBE_EXPIRED'
   }
 
   // Claims that do not assert payment (a declined card, our own offline) are shown as-is — they cost the

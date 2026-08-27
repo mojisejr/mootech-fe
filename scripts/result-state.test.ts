@@ -21,8 +21,10 @@
 //
 // 🔑 THIS FILE IS THE AUDIT THE TICKET ASKS FOR, and it is a TABLE rather than an eyeball pass because the
 // ticket's own warning is that these lines exist nowhere in Figma: nobody will diff them against a frame,
-// so the only reader they will ever get is this one. "ครบ" becomes answerable — there are exactly nine, and
-// here is the verdict on all nine.
+// so the only reader they will ever get is this one. "ครบ" becomes answerable — there are exactly ten, and
+// here is the verdict on all ten.
+// #455 — a TENTH (QR_EXPIRED). The tripwire fired again and this is the deliberate act it forces: the words
+// for the row where the gateway DID tell us are written here, in the audited table, not at a call site.
 import { describe, it, expect } from 'vitest'
 import {
   RESULT_COPY,
@@ -36,13 +38,13 @@ import {
 
 const STATES: ResultState[] = [
   'PAYING', 'APPROVED', 'CARD_DECLINED', 'OFFLINE', 'ALREADY_PAID', 'RECONCILING', 'QR_MAYBE_EXPIRED',
-  'ALREADY_ON_THIS_TIER', 'CANNOT_DOWNGRADE',
+  'QR_EXPIRED', 'ALREADY_ON_THIS_TIER', 'CANNOT_DOWNGRADE',
 ]
 
-describe('#363/#423/#466 the nine states, enumerated', () => {
-  it('there are exactly nine, and the table covers all of them', () => {
+describe('#363/#423/#466/#455 the ten states, enumerated', () => {
+  it('there are exactly ten, and the table covers all of them', () => {
     // Surface size out loud: the assertions below iterate this list, so a shrunken list would quietly pass.
-    expect(STATES).toHaveLength(9)
+    expect(STATES).toHaveLength(10)
     expect(Object.keys(RESULT_COPY).sort()).toEqual([...STATES].sort())
   })
 
@@ -58,7 +60,7 @@ describe('#363/#423/#466 the nine states, enumerated', () => {
   it('every line tells the reader whether trying again could work', () => {
     for (const s of STATES) {
       const c = RESULT_COPY[s]
-      expect(['same', 'different', 'none']).toContain(c.retry)
+      expect(['same', 'different', 'new-qr', 'none']).toContain(c.retry)
       // The generic sentence that is true of all six and useful in none (#347/#263).
       expect(c.body, `${s} falls back to a non-answer`).not.toMatch(/เกิดข้อผิดพลาด|ผิดพลาดบางอย่าง|ลองใหม่อีกครั้งภายหลัง/)
       expect(c.title.length).toBeGreaterThan(0)
@@ -98,8 +100,23 @@ describe('#363/#423/#466 the nine states, enumerated', () => {
     expect(c.title).not.toContain('สำเร็จ') // "ชำระเงินสำเร็จ" here reads as "your second one worked"
   })
 
-  it('the QR state says อาจ — we are never told when a QR dies', () => {
+  // 🔴 #455 CHANGED THE SENTENCE THIS TEST USED TO CARRY. It read "we are never told when a QR dies",
+  // which was true of the whole system until /payment/status started carrying `qrDeadline` (#476). The
+  // assertion never broke — only the reason under it did, which is the failure mode where a green test
+  // teaches the next reader something that stopped being true. Both rows are now named, side by side.
+  it('อาจ belongs to the row where nobody told us, and ONLY to that row', () => {
     expect(RESULT_COPY.QR_MAYBE_EXPIRED.title).toContain('อาจ')
+    expect(RESULT_COPY.QR_EXPIRED.title).not.toContain('อาจ')
+  })
+
+  it('the told row is certain about the QR and still careful about the money', () => {
+    const c = RESULT_COPY.QR_EXPIRED
+    // certain: no hedge about the QR itself — the gateway's own deadline said so.
+    expect(c.title).toContain('หมดอายุแล้ว')
+    // careful: a dead QR says NOTHING about whether money moved. The second audience must survive here,
+    // or someone who paid at the last second and lost the webhook is told to go and pay again.
+    expect(c.body).toContain('ไม่ต้องจ่ายซ้ำ')
+    expect(c.paid).toBe(false)
   })
 })
 
