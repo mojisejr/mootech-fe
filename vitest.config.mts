@@ -120,6 +120,7 @@ export default defineConfig({
     'scripts/payment-charge-route.test.ts', // #355 — route: session gate + client-ignored + fail-loud-before-charge
       'scripts/terminal-failure-agreement.test.ts', // #437 — isRefusedCharge (สร้าง charge) กับ isTerminalFailure (webhook) ต้องตอบเหมือนกัน
       'scripts/result-declined-rule.test.ts', // #438 — จอต้องพูดคำว่าธนาคารปฏิเสธได้ + ปุ่มต้องไม่พาไปหน้าตาย
+      'scripts/promptpay-qr-expiry.test.ts', // #463 — QR มีอายุ 5 นาที ที่ Omise ไม่ใช่ค่าตั้งต้น 24 ชม.
       'scripts/rtl-cleanup-contract.test.tsx', // #451 ตัว A — ฟันของ setupFiles: ถอดบรรทัดนั้นออกแล้วต้องแดง
       'scripts/return-uri-3ds.test.ts', // #439 — return_uri ต่อ charge + เลนบัตรกับพร้อมเพย์ต้องไม่ขยับหากัน
       'scripts/payment-webhook-db.test.ts', // #355 — real pg (skipIf !TEST_DATABASE_URL): webhook→settle→provision, idempotent+concurrent
@@ -130,6 +131,8 @@ export default defineConfig({
       'scripts/ops-packages.test.ts', // #377 — pure: what /ops may change (price + on-sale only)
       'scripts/package-tier-db.test.ts', // #377 — real pg (skipIf !TEST_DATABASE_URL): tier/NOT NULL trap + ops-edit→sale-lane loop
       'scripts/shop-package-mapping.test.ts', // #359 — shop plan→package_code mapping + catalog agreement
+      'scripts/shop-card-verdict.test.ts', // #457 — การ์ดแต่ละใบพูดกับผู้ใช้แต่ละสถานะให้ถูก (ฟังก์ชันบริสุทธิ์)
+      'scripts/shop-screen-mount.test.tsx', // #457 — จอขายจริงพูดตามคำตัดสินนั้น (assert สตริงที่ render)
       'scripts/upgrade-cta-destinations.test.tsx', // #359 — ทั้ง 4 CTA ชี้มา /v2/shop · ของที่เหลือห้ามชี้มา
       'scripts/onboarding-identity.test.tsx', // #252 — consent identity is server-derived; the body's user_id is inert
       'scripts/save-onboarding-client.test.tsx', // #252 — the client sends the goal and no identity, ever
