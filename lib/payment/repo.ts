@@ -147,14 +147,35 @@ export async function insertPendingReserved(
 // once. Looks the row up by charge_id, releases its code (if any) and marks it REJECT. Idempotent: an
 // already-REJECT row releases nothing (releaseRedemption returns released:false), and an APPROVED row is
 // left alone — a settled payment must never have its redemption removed.
-export async function abandonByChargeId(chargeId: string, db: Db = defaultDb): Promise<{ released: boolean }> {
+export async function abandonByChargeId(
+  chargeId: string,
+  // 🔴 #455 slice 3 — WHY a reason at all, when the status alone would "work".
+  // Feem chose to reuse REJECT rather than add an EXPIRED status, to ship sooner. That choice is only
+  // reversible while the two causes stay distinguishable in the data. `failure_code` already exists
+  // (#437, migration 0010), is plain text with no CHECK, and is otherwise written verbatim from Omise.
+  // Writing the cause here costs no migration and keeps this answerable:
+  //   walked away  status='REJECT' AND failure_code = 'mootech_expired' (or 'gateway_expired')
+  //   refused      status='REJECT' AND failure_code IS DISTINCT FROM those
+  // Omitting it is still valid — the webhook path passes nothing and behaves exactly as before.
+  reason: string | null = null,
+  db: Db = defaultDb,
+): Promise<{ released: boolean }> {
   const [row] = await db
-    .select({ id: v2Payment.id, codeId: v2Payment.codeId, status: v2Payment.status })
+    .select({
+      id: v2Payment.id,
+      codeId: v2Payment.codeId,
+      status: v2Payment.status,
+      failureCode: v2Payment.failureCode,
+    })
     .from(v2Payment)
     .where(eq(v2Payment.chargeId, chargeId))
     .limit(1)
   if (!row || row.status === 'APPROVED') return { released: false }
   await abandonPending(row.id, row.codeId ?? null, db)
+  // Never overwrite a cause the gateway already gave us: what Omise said outranks what we inferred.
+  if (reason && !row.failureCode) {
+    await db.update(v2Payment).set({ failureCode: reason }).where(eq(v2Payment.id, row.id))
+  }
   return { released: true }
 }
 

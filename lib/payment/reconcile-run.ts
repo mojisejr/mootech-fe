@@ -13,12 +13,20 @@
 // only thing a claim phase could add is a permanent miss.
 // ⇒ Two runs in parallel: both read, both call settle, exactly one UPDATE matches. Proven in the db suite.
 import { gatewaySaysPaid, selectReconcileCandidates, DEFAULT_WINDOW, type ReconcileWindow } from './reconcile'
+import { isRefusedCharge } from './gateway'
 
 export type ReconcileDeps = {
   listUnsettled: (since: Date) => Promise<
     Array<{ id: string; chargeId: string; orderId: string; status: string; createdAt: Date }>
   >
-  retrieveCharge: (chargeId: string) => Promise<{ chargeId: string; paid: boolean; status: string } | null>
+  // 🔴 #455 slice 3 widened this by ONE optional field. The real adapter (omise-gateway.ts readOutcome)
+  // has always returned failureCode; this type simply did not ask for it, because #360 only needed to know
+  // "paid or not". It stays OPTIONAL so a fake gateway in a test may omit it, and so that absent reads as
+  // "the gateway did not say" — never as a verdict. Same rule the other three optional fields on
+  // ChargeResult carry (gateway.ts).
+  retrieveCharge: (
+    chargeId: string,
+  ) => Promise<{ chargeId: string; paid: boolean; status: string; failureCode?: string | null } | null>
   /**
    * 🔴 TAKES ONLY THE charge_id — deliberately. #371 added an order_id recovery path to settleAndProvision,
    * and this cron does not use it: every row it selects already HAS a real charge id (that is the selection
@@ -27,9 +35,17 @@ export type ReconcileDeps = {
    * and not only in a comment: #360 recovers by charge_id, #371 by order_id.
    */
   settle: (chargeId: string) => Promise<{ provisioned: boolean }>
+  /**
+   * 🔴 #455 slice 3 — the row is finished and nobody paid. Same function the webhook already calls
+   * (`abandonByChargeId`, repo.ts:150): it refuses to touch an APPROVED row and it releases the
+   * discount hold. This is a THIRD door onto one existing path, not a second implementation.
+   */
+  abandon: (chargeId: string, reason: string | null) => Promise<{ released: boolean }>
 }
 
 export type ReconcileSummary = {
+  /** #455 — rows the gateway called terminal, moved out of PENDING by this run */
+  abandoned?: number
   /** rows the window + rule selected */
   considered: number
   /** the gateway confirmed these were paid */
@@ -53,7 +69,7 @@ export async function runReconcile(
 ): Promise<ReconcileSummary> {
   const rows = await deps.listUnsettled(new Date(now.getTime() - w.windowMs))
   const candidates = selectReconcileCandidates(rows, now, w)
-  const summary: ReconcileSummary = { considered: candidates.length, confirmedPaid: 0, provisioned: 0, unreachable: 0 }
+  const summary: ReconcileSummary = { considered: candidates.length, confirmedPaid: 0, provisioned: 0, unreachable: 0, abandoned: 0 }
 
   for (const row of candidates) {
     let charge: Awaited<ReturnType<ReconcileDeps['retrieveCharge']>>
@@ -64,7 +80,27 @@ export async function runReconcile(
       summary.unreachable += 1
       continue
     }
-    if (!gatewaySaysPaid(charge)) continue // includes the null case: the gateway does not know it (yet)
+    if (!gatewaySaysPaid(charge)) {
+      // 🔴 #455 slice 3 — WHY THIS BRANCH EXISTS AT ALL.
+      // A PromptPay charge that expires produces NO webhook: measured 0 of 124 expired charges carried
+      // any event beyond charge.create (see schema.ts on chargeExpiresAt). So the door the webhook uses
+      // (isTerminalFailure → abandonByChargeId, webhook.ts:67-72) is never reached for an expiry, and the
+      // row sat at PENDING until the 7-day window dropped it — then forever. That is DoD ③ of #455.
+      //
+      // `isRefusedCharge` is the SAME predicate the create path uses (gateway.ts:118) and it shares
+      // TERMINAL_FAILURE_STATUSES with the webhook path. Three doors, one definition of "finished" —
+      // scripts/terminal-failure-agreement.test.ts is what stops them drifting apart.
+      // A charge with no status is NOT terminal: an unanswered gateway is "not finished", never "refused".
+      if (charge !== null && isRefusedCharge(charge)) {
+        // Prefer what the gateway actually said. Fall back to a namespaced code of our own so that
+        // "the bank refused" and "the customer walked away" stay separable in SQL — Feem chose to reuse
+        // the REJECT status rather than add EXPIRED, and this column is what keeps that reversible.
+        const reason = charge.failureCode ?? (charge.status ? `gateway_${charge.status}` : 'mootech_expired')
+        const out = await deps.abandon(row.chargeId, reason)
+        if (out.released) summary.abandoned = (summary.abandoned ?? 0) + 1
+      }
+      continue // includes the null case: the gateway does not know it (yet)
+    }
     summary.confirmedPaid += 1
     const res = await deps.settle(row.chargeId)
     if (res.provisioned) summary.provisioned += 1
