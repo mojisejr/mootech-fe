@@ -111,7 +111,9 @@ describe('#363/#423/#466/#455 the eleven states, enumerated', () => {
 
   it('#484 — the reversed row speaks about THIS purchase, and never promises a chase', () => {
     const c = RESULT_COPY.PAYMENT_REVERSED
-    // พูดถึงการซื้อครั้งนี้ ❌ ไม่ใช่สถานะสมาชิกโดยรวม — แถวก่อน migration 0012 อาจยังใช้เลนเก่าได้ชั่วคราว
+    // พูดถึงการซื้อครั้งนี้ ❌ ไม่ใช่สถานะสมาชิกโดยรวม
+    // แถวที่จ่ายก่อน **ตัวเขียนคอลัมน์** ขึ้น (mojisejr/mootech-fe#487 ยังไม่ merge) อาจยังใช้เลนเก่าได้ชั่วคราว
+    // วัดบน prod เช้านี้แบบอ่านอย่างเดียว: APPROVED ที่ prev_member_expire_at เป็น NULL = 2 แถว และหดลงเรื่อย ๆ
     expect(c.body).toContain('การชำระเงินครั้งนี้')
     // ประโยคที่ #484 สั่งให้เลิกพูด
     expect(c.body).not.toContain('ระบบยังตามให้')
