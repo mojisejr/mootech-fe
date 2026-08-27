@@ -22,6 +22,25 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       amountSatang: r.amountSatang,
       method: r.method,
       status: r.status,
+      // #455 slice 3 — REJECT has two causes and the screen has to tell them apart.
+      // Match EXACTLY, not by prefix. The producer is one line, lib/payment/reconcile-run.ts:102:
+      //     const reason = charge.failureCode ?? `gateway_${charge.status}`
+      // so the only values we ever write are the three below, each in full:
+      //   'gateway_expired'    the QR died — nobody paid, nobody refused
+      //   'gateway_failed'     the gateway ended it and gave no code of its own
+      //   'gateway_reversed'   it HAD been paid and the money went back
+      // anything else in this column came verbatim from Omise and means the gateway refused.
+      //
+      // 🔴 'mootech_expired' is RETIRED — it can never appear. It was a fallback for "the gateway gave no
+      // status", which isRefusedCharge makes impossible (gateway.ts:118 only passes a status that is in
+      // TERMINAL_FAILURE_STATUSES). too proved it unreachable; the producer is gone.
+      // It is named here ONLY so that anyone who read the earlier version of this comment — lamun did, and
+      // wrote `|| failureCode === 'mootech_expired'` into the screen because of it — knows to delete that
+      // half rather than wonder why it never fires. Do not add it back without a producer.
+      //
+      // ⚠️ The earlier wording said failureCode "starts" gateway_expired. It does not start with it, it IS
+      // it. One reader writes startsWith, another writes ===, and both believe they followed the contract.
+      failureCode: r.failureCode ?? null,
       createdAt: r.createdAt.toISOString(),
       // 🔴 #455 — สองช่องนี้สร้างพร้อมกันจากค่าเดียว · payload ที่ขัดกันเองสร้างไม่ได้
       // เหตุผลเต็ม + คำรับประกันที่ถูก อยู่ใน lib/payment/qr-deadline.ts

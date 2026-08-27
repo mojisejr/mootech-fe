@@ -147,14 +147,32 @@ export async function insertPendingReserved(
 // once. Looks the row up by charge_id, releases its code (if any) and marks it REJECT. Idempotent: an
 // already-REJECT row releases nothing (releaseRedemption returns released:false), and an APPROVED row is
 // left alone — a settled payment must never have its redemption removed.
-export async function abandonByChargeId(chargeId: string, db: Db = defaultDb): Promise<{ released: boolean }> {
+export async function abandonByChargeId(
+  chargeId: string,
+  // 🔴 #455 slice 3 — WHY a reason at all, when the status alone would "work".
+  // Feem chose to reuse REJECT rather than add an EXPIRED status, to ship sooner. That choice is only
+  // reversible while the two causes stay distinguishable in the data. `failure_code` already exists
+  // (#437, migration 0010), is plain text with no CHECK, and is otherwise written verbatim from Omise.
+  // Writing the cause here costs no migration and keeps this answerable:
+  //   walked away  status='REJECT' AND failure_code = 'gateway_expired'
+  //   refused      status='REJECT' AND failure_code IS DISTINCT FROM those
+  // Omitting it is still valid — the webhook path passes nothing and behaves exactly as before.
+  reason: string | null = null,
+  db: Db = defaultDb,
+): Promise<{ released: boolean }> {
   const [row] = await db
-    .select({ id: v2Payment.id, codeId: v2Payment.codeId, status: v2Payment.status })
+    .select({
+      id: v2Payment.id,
+      codeId: v2Payment.codeId,
+      status: v2Payment.status,
+      failureCode: v2Payment.failureCode,
+    })
     .from(v2Payment)
     .where(eq(v2Payment.chargeId, chargeId))
     .limit(1)
   if (!row || row.status === 'APPROVED') return { released: false }
-  await abandonPending(row.id, row.codeId ?? null, db)
+  // Never overwrite a cause the gateway already gave us: what Omise said outranks what we inferred.
+  await abandonPending(row.id, row.codeId ?? null, db, row.failureCode ? null : reason)
   return { released: true }
 }
 
@@ -201,9 +219,19 @@ export async function abandonPending(
   paymentId: string,
   codeId: string | null,
   db: Db = defaultDb,
+  // 🔴 #455 slice 3, round 2 (too). The cause used to be a SECOND statement after this one, and the way
+  // that failed was the way that inverts the answer: statement 1 lands REJECT, statement 2 fails, the row
+  // reads REJECT + failure_code NULL — which the ticket's own query classifies as "the bank refused".
+  // A customer who walked away would be recorded as a refusal, and that is the exact distinction this
+  // whole change exists to protect. One UPDATE, so the two facts cannot disagree.
+  // Pass null (the webhook path does) and the column is left exactly as it was.
+  reason: string | null = null,
 ): Promise<void> {
   if (codeId) await releaseRedemption(codeId, paymentId, db)
-  await db.update(v2Payment).set({ status: 'REJECT' }).where(eq(v2Payment.id, paymentId))
+  await db
+    .update(v2Payment)
+    .set(reason ? { status: 'REJECT', failureCode: reason } : { status: 'REJECT' })
+    .where(eq(v2Payment.id, paymentId))
 }
 
 /**
@@ -242,6 +270,13 @@ export async function listUserPayments(userId: string, db: Db = defaultDb) {
       // #455 — the screen cannot know when a QR died unless we carry it. NULL for card rows and for any
       // row created before 0011; the caller must treat NULL as "unknown", never as "still good".
       chargeExpiresAt: v2Payment.chargeExpiresAt,
+      // 🔴 #455 slice 3 — WHY THIS HAD TO COME OUT TOO, and why leaving it in was a real defect.
+      // Feem chose to reuse REJECT rather than add EXPIRED. I argued in the ticket that failure_code
+      // keeps the two causes separable — and then never carried it past the server, so the screen saw
+      // ONE 'REJECT' with TWO meanings. lamun found it by reading this payload instead of trusting the
+      // claim. That is #437's shape exactly: the server held what the gateway said and shipped only the id.
+      // NULL means the gateway gave no reason AND we inferred none — never "it was fine".
+      failureCode: v2Payment.failureCode,
     })
     .from(v2Payment)
     .where(eq(v2Payment.userId, userId))

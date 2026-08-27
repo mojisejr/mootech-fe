@@ -15,7 +15,7 @@ import type { NextApiRequest, NextApiResponse } from 'next'
 import { db } from '@/lib/db'
 import { isAuthorized } from '@/lib/push/authorize'
 import { omiseGateway } from '@/lib/payment/omise-gateway'
-import { listUnsettledPayments, settleAndProvision } from '@/lib/payment/repo'
+import { listUnsettledPayments, settleAndProvision, abandonByChargeId } from '@/lib/payment/repo'
 import { runReconcile } from '@/lib/payment/reconcile-run'
 import { isReconcileEnabled } from '@/lib/payment/reconcile-flag'
 
@@ -46,13 +46,19 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     listUnsettled: (since) => listUnsettledPayments(since, db),
     retrieveCharge: (chargeId) => omiseGateway.retrieveCharge(chargeId),
     settle: (chargeId) => settleAndProvision(chargeId),
+    // #455 slice 3 — the same abandon path the webhook uses, reached from the cron for the expiry case
+    // that never produces a webhook at all.
+    abandon: (chargeId, reason) => abandonByChargeId(chargeId, reason, db),
   })
 
   // Counts only — no user id, no charge id, no amount (the ticket's rule; the push cron follows the same).
-  if (summary.provisioned > 0 || summary.unreachable > 0) {
+  // #455 slice 3: `abandoned` joins both the condition and the message. A run that moved 20 rows out of
+  // PENDING but provisioned nothing used to be completely silent — the count reached only the JSON
+  // response, and nobody reads a cron's response body. (too, round 1.)
+  if (summary.provisioned > 0 || summary.unreachable > 0 || (summary.abandoned ?? 0) > 0) {
     console.warn(
       `[cron/reconcile-payment] considered=${summary.considered} confirmedPaid=${summary.confirmedPaid} ` +
-        `provisioned=${summary.provisioned} unreachable=${summary.unreachable}`,
+        `provisioned=${summary.provisioned} abandoned=${summary.abandoned ?? 0} unreachable=${summary.unreachable}`,
     )
   }
   return res.status(200).json({ ok: true, ...summary })
