@@ -18,6 +18,7 @@
 // good reason, a user with 20 older payments stops finding their new charge — and the failure is SILENT: the
 // screen just waits forever. scripts/charge-status.test.ts pins it so that edit goes red instead.
 import { useEffect, useRef, useState } from 'react'
+import type { QrDeadlineState } from '@/lib/payment/qr-deadline'
 import { RECONCILE_HORIZON_MS, waitPhase, type WaitPhase } from '@/lib/payment/reconcile-window'
 
 // 🔴 #438 — FOUR ANSWERS, NOT THREE. `REJECTED` did not exist, and its absence is the bug: v2_payment has
@@ -28,7 +29,20 @@ export type ChargeStatus = 'PENDING' | 'APPROVED' | 'REJECTED' | 'UNKNOWN'
 
 // `method` (#438) — /api/v2/payment/status:21 already sends it. A REJECT means two different things
 // depending on it, and only one of them may use the card copy. See statusOf's caller in result.tsx.
-export type PaymentRow = { chargeId: string | null; status: string; method?: string; orderId?: string | null }
+// #455 — `qrDeadline` มาจาก /api/v2/payment/status (slice 1 · #476) และเป็น **optional** ตรงนี้โดยตั้งใจ:
+// แถวเก่าที่ค้างอยู่ใน cache ของเบราว์เซอร์ หรือ server ที่ยังไม่ได้ deploy ก็จะไม่มีช่องนี้ ⇒ อ่านได้เป็น
+// `undefined` ⇒ ตัวอ่านข้างล่างแปลงเป็น 'unknown' ❌ ไม่ใช่ 'live' และไม่ใช่ 'expired'
+// "ไม่ถูกบอก" คือคำตอบที่ถูกต้องสำหรับทั้งสองกรณีนั้น และมันเป็นค่าที่ปลอดภัยที่สุดในสามค่า
+//
+// 🔴 `liveUntil` ไม่ถูกดึงเข้ามาที่นี่เลย — จอนี้ไม่มี countdown และการมีมันอยู่ในมือคือการเชิญให้เขียน
+// `now > liveUntil` ซึ่งเป็นจริงทุกวันระหว่างสอง slow poll โดยที่ QR ยังไม่ตาย (ดู SLOW_POLL_MS ข้างล่าง)
+export type PaymentRow = {
+  chargeId: string | null
+  status: string
+  method?: string
+  orderId?: string | null
+  qrDeadline?: QrDeadlineState
+}
 
 /** PURE — the whole selection rule, so it is testable without a timer or a network. */
 export function pickCharge(rows: PaymentRow[], chargeId: string): PaymentRow | null {
@@ -126,6 +140,8 @@ export type UseChargeStatus = {
   stale: boolean
   /** which of the three honest things the screen may say — see reconcile-window.waitPhase. */
   phase: WaitPhase
+  /** #455 — what the SERVER says about the gateway's deadline. 'unknown' until told, never assumed. */
+  qrDeadline: QrDeadlineState
   /** one manual poll. Nothing is lost by asking again, so the user is never stuck with our guess. */
   check: () => void
 }
@@ -153,6 +169,7 @@ export function useChargeStatus(
   // #438 — the method the row was actually paid with. A REJECT means "the bank refused this card" or "this
   // QR died"; the screen needs to know which before it picks words. Null until a row for THIS charge is seen.
   const [method, setMethod] = useState<string | null>(null)
+  const [qrDeadline, setQrDeadline] = useState<QrDeadlineState>('unknown')
   const [error, setError] = useState(false)
   const [phase, setPhase] = useState<WaitPhase>('waiting')
   const [nonce, setNonce] = useState(0)
@@ -182,6 +199,8 @@ export function useChargeStatus(
         setError(false)
         setStatus(next)
         setMethod(row?.method ?? null)
+        // ไม่มีแถว หรือแถวไม่มีช่องนี้ = ไม่ถูกบอก ⇒ 'unknown' (ดูเหตุผลที่ PaymentRow ข้างบน)
+        setQrDeadline(row?.qrDeadline ?? 'unknown')
         // Settled is settled — stop asking. Everything else keeps waiting: a transient network error must not
         // end the wait, because ending it is indistinguishable on screen from "it failed".
         // 🔴 #438 — REJECTED ends the loop too. A refused charge is as final as a settled one; polling on
@@ -223,6 +242,7 @@ export function useChargeStatus(
     error,
     stale,
     phase,
+    qrDeadline,
     check: () => setNonce((n) => n + 1),
   }
 }

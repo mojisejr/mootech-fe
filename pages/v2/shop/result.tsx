@@ -34,12 +34,12 @@ export default function V2ResultPage() {
   // only ever read back out as words, so a stranger typing one in can make the page say a different plan
   // name and nothing else. The verdict itself still comes from `state`, which is checked against the union.
   const planName = typeof router.query.plan === 'string' ? router.query.plan : null
-  const { status, method, phase, check } = useChargeStatus({ chargeId: charge || null, orderId: order || null })
+  const { status, method, phase, qrDeadline, check } = useChargeStatus({ chargeId: charge || null, orderId: order || null })
 
   // Glue only — the rule lives in result-state.ts next to the words it chooses between, so it can be tested
   // without a router. That is not tidiness: the branch this ticket adds was missing precisely because the
   // only way to exercise the old nested ternary was to render this page.
-  const state: ResultState = resolveResultState({ status, method, claimed, phase })
+  const state: ResultState = resolveResultState({ status, method, claimed, phase, qrDeadline })
 
   return (
     // Centred for the same reason as the QR screen: top-aligned, the outcome sat above half a phone of
