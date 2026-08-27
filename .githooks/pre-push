@@ -192,6 +192,33 @@ if [ -f scripts/guard-workflow-integrity.ts ]; then
      move that made 74 tests stop running on 2026-08-18. If it is deliberate, say so in the PR."
 fi
 
-echo "pre-push: hard gate green (lint + test + tsx lane + architecture + workflow-integrity)." >&2
+# §secret scan — moved here 2026-08-27 when .github/workflows/secret-scan.yml was deleted.
+#   That workflow had been dead since 2026-08-22 (#380: Actions minutes ran out), and line 181 of this
+#   very file recorded that no replacement runner was ever found (#334). So for five days secrets were
+#   scanned NOWHERE while the checks list still showed a secret-scan entry. Deleting the workflow does
+#   not create that gap — it makes it visible. This closes it.
+#   Same invocation the workflow used: gitleaks detect --redact over a commit range.
+#   Local gitleaks is 8.30.1; the workflow pinned 8.24.3. Newer, so no rules are lost.
+if command -v gitleaks >/dev/null 2>&1; then
+  scan_base="$(git merge-base origin/main HEAD 2>/dev/null || true)"
+  [ -n "$scan_base" ] \
+    || die "cannot compute a scan range against origin/main. Refusing to pass a secret scan that never
+     scanned anything — that is the failure mode #309 shipped for weeks. Run 'git fetch origin' first."
+  scan_count="$(git rev-list --count "$scan_base..HEAD")"
+  if [ "$scan_count" -gt 0 ]; then
+    echo "pre-push: hard gate → gitleaks ($scan_count commits)" >&2
+    gitleaks detect --source . --redact -v --log-opts="$scan_base..HEAD" --no-banner >/dev/null 2>&1 \
+      || die "gitleaks found a secret in the commits you are about to push. Do NOT push it, do NOT
+     rotate the key yourself, and do NOT open an issue about it. Tell Feem directly — that is the rule."
+    echo "pre-push: gitleaks green ($scan_count commits scanned)" >&2
+  else
+    echo "pre-push: gitleaks SKIPPED — 0 commits ahead of origin/main. Skipped, not passed." >&2
+  fi
+else
+  die "gitleaks is not installed, and it is the only secret scan we have left after the workflow was
+     deleted. 'brew install gitleaks'. Refusing to push unscanned rather than pretend this is green."
+fi
+
+echo "pre-push: hard gate green (lint + test + tsx lane + architecture + workflow-integrity + gitleaks)." >&2
 echo "pre-push: 'npm run build' is still yours to run before opening the PR." >&2
 exit 0
