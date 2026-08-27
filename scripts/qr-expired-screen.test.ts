@@ -36,6 +36,7 @@ const base: ResultInputs = {
   method: 'promptpay',
   claimed: 'APPROVED',
   phase: 'exhausted',
+  failureCode: null,
 }
 
 describe('#455 ตัวคุม fixture — ถ้า fixture ไม่เดินเข้ากิ่ง ฟันทั้งไฟล์เป็นเขียวปลอม', () => {
@@ -164,5 +165,62 @@ describe('#455 คำของ QR_EXPIRED — ถูกบอกแล้ว จ
       expect(['new-qr', 'different'], `${s} ถูกซ่อมแล้ว (${KNOWN_GAP[s]}) — ลบออกจาก KNOWN_GAP ได้`)
         .not.toContain(RESULT_COPY[s].retry)
     }
+  })
+})
+
+// ─────────────────────────────────────────────────────────────────────────────
+describe('#455 slice 3 — พร้อมเพย์ที่จบแล้ว ต้องไม่ค้างที่ "กำลังดำเนินการ" ตลอดกาล', () => {
+  // 🔴 บั๊กที่ชุดนี้เฝ้า: useChargeStatus.ts:83 นับ REJECTED เป็น settled ⇒ :208 ออกจาก loop
+  // ⇒ :218-219 ที่ setPhase ไม่ถูกเดินอีก ⇒ phase แช่ที่ 'waiting' ถาวร
+  // ⇒ ถ้ากิ่ง REJECTED+promptpay หายไป แถวนั้นจะตกไปอ่าน phase ที่แช่ แล้วตอบ PAYING ตลอดกาล
+  //
+  // 🔴 MUTANT CONTRACT
+  //   MU7  ลบกิ่ง REJECTED+promptpay ทิ้ง            → ทุกข้อในบล็อกนี้แดง (ได้ PAYING)
+  //   MU8  ให้ failureCode อะไรก็ได้ตอบ QR_EXPIRED    → "อธิบายไม่ได้ ไม่ใช่ หมดอายุ" แดง
+  //   MU9  ให้กิ่งนี้กิน method อื่นด้วย                → "บัตรไม่ได้รับคำของ QR" แดง
+  //   MU10 ให้ REJECTED มาก่อน APPROVED               → "server ยืนยันว่าจ่ายแล้ว ชนะเสมอ" แดง
+  const rejected: ResultInputs = { ...base, status: 'REJECTED', phase: 'waiting' }
+
+  it('🔴 phase แช่ที่ waiting ก็ยังต้องไม่ใช่ PAYING — นี่คือเคสที่ผู้ใช้เจอจริง', () => {
+    // phase: 'waiting' ตรงนี้ **ไม่ใช่การจัดฉาก** มันคือค่าที่ hook ค้างไว้จริงเมื่อสถานะ settled
+    for (const fc of ['gateway_expired', 'mootech_expired', null, 'failed']) {
+      const got = resolveResultState({ ...rejected, failureCode: fc })
+      expect(got, `failureCode=${String(fc)}`).not.toBe('PAYING')
+    }
+  })
+
+  it('สองคำที่ slice 3 เขียนลงคอลัมน์ → พูดตรง ๆ ว่าหมดอายุ', () => {
+    expect(resolveResultState({ ...rejected, failureCode: 'gateway_expired' })).toBe('QR_EXPIRED')
+    expect(resolveResultState({ ...rejected, failureCode: 'mootech_expired' })).toBe('QR_EXPIRED')
+  })
+
+  it('server ยังไม่ส่ง failureCode ⇒ ต้องมีสองสัญญาณตรงกันถึงจะพูดว่าหมดอายุ', () => {
+    // ระหว่างที่ #481 ยังไม่ deploy จอต้องทำงานได้ ❌ ห้ามพังเพราะฟิลด์หาย
+    expect(resolveResultState({ ...rejected, failureCode: null, qrDeadline: 'expired' })).toBe('QR_EXPIRED')
+    expect(resolveResultState({ ...rejected, failureCode: null, qrDeadline: 'unknown' })).toBe('QR_MAYBE_EXPIRED')
+    expect(resolveResultState({ ...rejected, failureCode: null, qrDeadline: 'live' })).toBe('QR_MAYBE_EXPIRED')
+  })
+
+  it('🔴 เหตุที่อธิบายไม่ได้ ❌ ไม่ใช่ หมดอายุ — แม้ QR จะตายแล้วก็ตาม', () => {
+    // Omise บอกเหตุมาแล้วและมันไม่ใช่หมดอายุ ⇒ ห้ามพิมพ์ว่าหมดอายุ แม้ qrDeadline จะบอกว่า expired
+    // เพราะสองอย่างนี้ตอบคนละคำถาม: QR ตายเมื่อไหร่ กับ แถวนี้จบเพราะอะไร
+    expect(resolveResultState({ ...rejected, failureCode: 'failed', qrDeadline: 'expired' }))
+      .toBe('QR_MAYBE_EXPIRED')
+  })
+
+  it('บัตรยังเป็นของกิ่งเดิม ไม่ถูกกิ่งใหม่แย่งไป', () => {
+    expect(resolveResultState({ ...rejected, method: 'card', failureCode: 'gateway_expired' }))
+      .toBe('CARD_DECLINED')
+  })
+
+  it('server ที่ยืนยันว่าจ่ายแล้ว ชนะทุกอย่าง — REJECTED ไม่แย่ง APPROVED', () => {
+    expect(resolveResultState({ ...rejected, status: 'APPROVED' })).toBe('APPROVED')
+  })
+
+  it('ทุกค่าของ failureCode ที่ทดสอบ ให้ผลไม่เหมือนกันทั้งหมด — ไม่งั้นแปลว่ากิ่งไม่มีผล', () => {
+    const seen = new Set(['gateway_expired', 'mootech_expired', null, 'failed'].map((fc) =>
+      resolveResultState({ ...rejected, failureCode: fc }),
+    ))
+    expect(seen.size, `ได้ ${[...seen].join(' / ')}`).toBeGreaterThan(1)
   })
 })

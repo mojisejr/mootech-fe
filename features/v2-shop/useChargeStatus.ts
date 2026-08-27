@@ -42,6 +42,14 @@ export type PaymentRow = {
   method?: string
   orderId?: string | null
   qrDeadline?: QrDeadlineState
+  /**
+   * #455 slice 3 — เหตุผลที่แถวจบแบบไม่ได้จ่าย · optional ด้วยเหตุผลเดียวกับ `qrDeadline`:
+   * ฝั่ง server เพิ่งเริ่มส่งมัน (mojisejr/mootech-fe#481) ⇒ ระหว่างที่สองฝั่งยัง deploy ไม่พร้อมกัน
+   * จอต้องอ่านได้ทั้งตอนมีและตอนไม่มี ❌ ห้ามพังเพราะฟิลด์หาย
+   *
+   * 🔴 `null` แปลว่า **gateway ไม่ได้บอกเหตุ และเราก็ไม่ได้อนุมานเอง** ❌ ไม่ใช่ "ไม่มีปัญหา"
+   */
+  failureCode?: string | null
 }
 
 /** PURE — the whole selection rule, so it is testable without a timer or a network. */
@@ -142,6 +150,8 @@ export type UseChargeStatus = {
   phase: WaitPhase
   /** #455 — what the SERVER says about the gateway's deadline. 'unknown' until told, never assumed. */
   qrDeadline: QrDeadlineState
+  /** #455 slice 3 — why a finished row ended unpaid. null = we were told nothing, NOT "nothing wrong". */
+  failureCode: string | null
   /** one manual poll. Nothing is lost by asking again, so the user is never stuck with our guess. */
   check: () => void
 }
@@ -170,6 +180,7 @@ export function useChargeStatus(
   // QR died"; the screen needs to know which before it picks words. Null until a row for THIS charge is seen.
   const [method, setMethod] = useState<string | null>(null)
   const [qrDeadline, setQrDeadline] = useState<QrDeadlineState>('unknown')
+  const [failureCode, setFailureCode] = useState<string | null>(null)
   const [error, setError] = useState(false)
   const [phase, setPhase] = useState<WaitPhase>('waiting')
   const [nonce, setNonce] = useState(0)
@@ -201,6 +212,7 @@ export function useChargeStatus(
         setMethod(row?.method ?? null)
         // ไม่มีแถว หรือแถวไม่มีช่องนี้ = ไม่ถูกบอก ⇒ 'unknown' (ดูเหตุผลที่ PaymentRow ข้างบน)
         setQrDeadline(row?.qrDeadline ?? 'unknown')
+        setFailureCode(row?.failureCode ?? null)
         // Settled is settled — stop asking. Everything else keeps waiting: a transient network error must not
         // end the wait, because ending it is indistinguishable on screen from "it failed".
         // 🔴 #438 — REJECTED ends the loop too. A refused charge is as final as a settled one; polling on
@@ -220,8 +232,12 @@ export function useChargeStatus(
       // 🔴 EVEN `exhausted` KEEPS ASKING (ตู๋, review of #424). The first version returned here, which meant a
       // cron run that could not reach the gateway at minute 20 — and therefore repaired the row at minute 45 —
       // could never reach a screen the user still had open. The reconciler runs for seven days; a poll every
-      // 30s costs one request while someone is actually looking. Only APPROVED ends the loop (above), and
-      // closing the page ends it via the effect cleanup.
+      // 30s costs one request while someone is actually looking. A SETTLED status ends the loop (above —
+      // isSettledStatus, which is APPROVED *and* REJECTED since #438), and closing the page ends it via the
+      // effect cleanup.
+      // 🔴 ประโยคเดิมตรงนี้เขียนว่า "Only APPROVED ends the loop" ซึ่งผิดตั้งแต่ #438 เพิ่ม REJECTED เข้าไป
+      // ที่ :83 · assertion ไม่มีทางแดงเพราะไม่มีใครทดสอบคอมเมนต์ · บองชี้ให้ตอน slice 3 (mojisejr/mootech-fe#481)
+      // และมันสำคัญกว่าที่เห็น: การที่ loop จบเมื่อ REJECTED คือสาเหตุที่ phase แช่ ซึ่งคือบั๊กที่ slice นี้แก้
       timer = setTimeout(tick, nextPhase === 'waiting' ? pollMs : slowPollMs)
     }
     void tick()
@@ -243,6 +259,7 @@ export function useChargeStatus(
     stale,
     phase,
     qrDeadline,
+    failureCode,
     check: () => setNonce((n) => n + 1),
   }
 }

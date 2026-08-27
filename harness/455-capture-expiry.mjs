@@ -58,6 +58,12 @@ const CASES = [
   // 🔴 เคสที่เกิดทุกวัน: server ตอบ live พร้อม liveUntil แล้วผู้ใช้ถือคำตอบไว้จน liveUntil เป็นอดีต
   //    จอต้อง **ไม่** พูดว่าหมดอายุจากการเปรียบเทียบนั้น
   { id: 'live-stale', qrDeadline: 'live', liveUntil: new Date(Date.now() - 60_000).toISOString(), note: 'live + liveUntil เป็นอดีตบนเครื่องผู้ใช้' },
+  // ── slice 3 (mojisejr/mootech-fe#481) เริ่มเขียนแถวแบบนี้ ─────────────────────────────────────
+  // 🔴 wire ใช้ 'REJECT' ❌ ไม่ใช่ 'REJECTED' — statusOf โยนค่าอื่นทั้งหมดไปเป็น PENDING
+  //    โพรบฉบับแรกของผมส่ง 'REJECTED' ⇒ วัดเส้น PENDING มาตลอดโดยไม่รู้ตัว
+  { id: 'rejected-gateway-expired', status: 'REJECT', failureCode: 'gateway_expired', qrDeadline: 'expired', liveUntil: null, note: 'slice 3 บอกว่าหมดอายุ' },
+  { id: 'rejected-unexplained', status: 'REJECT', failureCode: 'failed', qrDeadline: 'expired', liveUntil: null, note: 'จบแล้ว แต่เหตุไม่ใช่หมดอายุ — #443' },
+  { id: 'rejected-no-failurecode', status: 'REJECT', failureCode: null, qrDeadline: 'expired', liveUntil: null, note: 'server ยังไม่ deploy #481' },
 ]
 
 const b = await chromium.launch()
@@ -69,7 +75,7 @@ for (const c of CASES) {
     const ctx = await b.newContext({ viewport: { width: w, height: 900 }, deviceScaleFactor: 2 })
     await ctx.addCookies([{ name: 'v2_access', value: KEY, domain: 'localhost', path: '/' }])
     await ctx.route('**/api/v2/payment/status', (r) =>
-      r.fulfill({ json: { payments: [{ chargeId: 'chrg_demo', status: 'PENDING', method: 'promptpay', qrDeadline: c.qrDeadline, liveUntil: c.liveUntil }] } }),
+      r.fulfill({ json: { payments: [{ chargeId: 'chrg_demo', status: c.status ?? 'PENDING', method: 'promptpay', qrDeadline: c.qrDeadline, liveUntil: c.liveUntil, failureCode: c.failureCode ?? null }] } }),
     )
     const p = await ctx.newPage()
     await p.addInitScript(clockJump(ph.jumpMs))

@@ -217,9 +217,14 @@ export type ResultInputs = {
    * screen would start lying again, so this function is never given the material to make it.
    */
   qrDeadline: QrDeadlineState
+  /**
+   * #455 slice 3 — เหตุผลที่แถวจบแบบไม่ได้จ่าย (`/payment/status`, mojisejr/mootech-fe#481)
+   * `null` = ไม่ถูกบอกเหตุ ❌ ไม่ใช่ "ไม่มีเหตุ" — และเป็นค่าที่ได้ตอน server ยังไม่ deploy ฟิลด์นี้ด้วย
+   */
+  failureCode: string | null
 }
 
-export function resolveResultState({ status, method, claimed, phase, qrDeadline }: ResultInputs): ResultState {
+export function resolveResultState({ status, method, claimed, phase, qrDeadline, failureCode }: ResultInputs): ResultState {
   // 🔴 THE SERVER DECIDES WHETHER MONEY MOVED. A claimed APPROVED (or PAYING) only becomes a success once
   // /payment/status agrees about this charge — otherwise /v2/shop/result?state=APPROVED would be a page
   // that tells anyone their payment succeeded.
@@ -235,6 +240,33 @@ export function resolveResultState({ status, method, claimed, phase, qrDeadline 
   // ("ลองใช้บัตรใบอื่น") are wrong for a PromptPay QR that expired. PromptPay keeps its old behaviour
   // here until mootech-fe#443 gives it words of its own — a known gap, not a forgotten one.
   if (status === 'REJECTED' && method === 'card') return 'CARD_DECLINED'
+
+  // ── #455 slice 3 — พร้อมเพย์ที่จบแล้ว ต้องไม่ตกไปที่กิ่งนาฬิกาข้างล่าง ─────────────────────────────
+  //
+  // 🔴 บั๊กที่กิ่งนี้แก้ ไม่ใช่ "คำไม่สวย" แต่คือ **จอค้างตลอดกาล**
+  // useChargeStatus.ts:83 นับ REJECTED เป็น settled ⇒ :208 ออกจาก loop ⇒ บรรทัดที่ setPhase (:218-219)
+  // ไม่เคยถูกเดินอีกเลย ⇒ phase แช่ที่ 'waiting' ถาวร ⇒ แถวพร้อมเพย์ที่ REJECT ตกลงมาที่กิ่งข้างล่าง
+  // แล้วอ่าน phase ที่แช่อยู่ ⇒ ผู้ใช้เห็น "กำลังดำเนินการ" ไปตลอด ไม่ใช่ 30 นาทีแล้วหาย
+  // (ยิงจอจริงยืนยันแล้ว 3 phase × 3 เคส ก่อนเขียนกิ่งนี้)
+  //
+  // ก่อน slice 3 ช่องนี้แคบมากเพราะพร้อมเพย์แทบไม่เคยเป็น REJECT · slice 3 ทำให้มันเป็นทางหลัก
+  // (พร้อมเพย์ 74 จาก 74 ใบจบที่ expired) ⇒ งานจอคืออีกครึ่งของการเปลี่ยนแปลงเดียวกัน ❌ ไม่ใช่งานตามหลัง
+  if (status === 'REJECTED' && method === 'promptpay') {
+    // 🔴 สองคำนี้คือคำที่ slice 3 เขียนลงคอลัมน์เมื่อ "แถวจบแล้วและไม่มีใครจ่าย" (reconcile-run.ts)
+    // ⇒ ตรงนี้เราถูกบอกทั้งสองอย่าง: server จบแล้ว และเหตุคือหมดอายุ ⇒ พูดตรง ๆ ได้
+    if (failureCode === 'gateway_expired' || failureCode === 'mootech_expired') return 'QR_EXPIRED'
+
+    // server ยังไม่ส่ง failureCode ออกมา (deploy ไม่พร้อมกัน) ⇒ ถอยไปใช้สัญญาณที่มีอยู่บน wire แล้ว
+    // สองสัญญาณต้องตรงกันถึงจะพูดว่าหมดอายุ: แถวจบแล้ว **และ** QR ตายแล้ว
+    if (failureCode === null && qrDeadline === 'expired') return 'QR_EXPIRED'
+
+    // เหลือ: แถวจบแล้ว แต่เราอธิบายไม่ได้ว่าทำไม
+    // ⚠️ ยังไม่มีคำที่ถูกสำหรับเคสนี้ — นั่นคือ mojisejr/mootech-fe#443 (พร้อมเพย์ที่ล้มเหลวต้องมีคำของตัวเอง)
+    // QR_MAYBE_EXPIRED เป็นแถวที่ผิดน้อยที่สุดที่มีอยู่: หัวข้อฮedge ด้วยคำว่า "อาจ" และเนื้อของมัน
+    // (ยังไม่จ่าย → ขอ QR ใหม่ · จ่ายแล้ว → ไม่ต้องจ่ายซ้ำ) ถูกต้องกับพร้อมเพย์ที่จบแบบไม่ได้จ่ายทุกกรณี
+    // 🔴 มันยัง**ไม่ถูก**เพราะหัวข้อชี้สาเหตุที่เราอาจรู้อยู่แล้วว่าไม่ใช่ — แต่ค้างตลอดกาลแย่กว่า
+    return 'QR_MAYBE_EXPIRED'
+  }
 
   // An unverified claim of success is 'PAYING' while we poll fast, 'RECONCILING' while the repair cron may
   // still settle it, and only then 'QR_MAYBE_EXPIRED' (#423). The middle one exists so the screen never
