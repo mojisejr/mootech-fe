@@ -234,6 +234,11 @@ export async function revokeByChargeId(
 
     await tx.update(v2Payment).set({ failureCode: REVERSED_CODE }).where(eq(v2Payment.id, pay.id))
 
+    // Only an ACTIVE row is moved, ON PURPOSE. If a later purchase already superseded this one the row is
+    // 'REPLACED', which grants nothing anyway (lib/v2/subscription.ts:71 asks for ACTIVE), so there is
+    // nothing to take back on that side. It does mean "a reversal ends the v2 lane" is exactly true only
+    // for a row that was still live: for a superseded one the only trace of the reversal is failure_code on
+    // v2_payment, which is the right place for it — the entitlement was already gone. (too, review probe.)
     await tx
       .update(memberSubscription)
       .set({ status: 'EXPIRED' })
@@ -249,7 +254,28 @@ export async function revokeByChargeId(
       null,
     )
 
-    if (pay.prevMemberExpireAt === null && latestSurvivor === null) {
+    // 🔴 prev_member_expire_at ON ITS OWN IS NOT A SAFE FLOOR (too, review of 9bb1915, proved with rows).
+    // It stores what the shadow WAS, and what it was may itself have come from a purchase that is later
+    // reversed too. Reverse both and the naive restore lands on the reversed purchase's date:
+    //   base X → A pushes to A → B pushes to B.  reverse B ⇒ B.prev = A ⇒ the user keeps A's month,
+    //   and A's money went back as well. member_payment is what lib/usage.ts:33 reads, so that is a real
+    //   entitlement, not a bookkeeping detail.
+    // The floor that survives any number of reversals is the EARLIEST captured value for this user: the
+    // upsert is GREATEST, so the captured values are non-decreasing over time, and the minimum of them is
+    // the shadow as it stood before v2 ever touched it — the legacy baseline.
+    // NULLs (rows from before 0012) are skipped rather than treated as zero. If the true earliest is one of
+    // them the floor comes out too HIGH, which leaves the user holding more than they paid for. That is the
+    // safe direction: we never take away time we cannot prove was ours to take.
+    const captured = await tx
+      .select({ prev: v2Payment.prevMemberExpireAt })
+      .from(v2Payment)
+      .where(and(eq(v2Payment.userId, pay.userId), eq(v2Payment.status, 'APPROVED')))
+    const baseline = captured.reduce<string | null>(
+      (best, r) => (typeof r.prev === 'string' && r.prev !== '' && (best === null || r.prev < best) ? r.prev : best),
+      null,
+    )
+
+    if (baseline === null && latestSurvivor === null) {
       // Nothing to restore from and nothing left standing: the honest answer is "we do not know what this
       // user's shadow should say", so it is not written over. See the migration header for why.
       console.error(
@@ -260,7 +286,7 @@ export async function revokeByChargeId(
       return { revoked: true, shadowHandled: 'NEEDS_HUMAN' }
     }
 
-    const restored = [pay.prevMemberExpireAt, latestSurvivor]
+    const restored = [baseline, latestSurvivor]
       .filter((v): v is string => typeof v === 'string' && v !== '')
       .reduce((a, b) => (a > b ? a : b))
     await tx.update(memberPayment).set({ expireAt: restored }).where(eq(memberPayment.userId, pay.userId))

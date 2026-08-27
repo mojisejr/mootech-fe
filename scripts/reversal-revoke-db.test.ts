@@ -185,6 +185,30 @@ describe.skipIf(!TEST_URL)('#484 a reversed charge takes the entitlement with it
     expect(pay.failure_code).toBe('gateway_reversed') // the v2 lane still records the reversal
   })
 
+  // 🔴 ตู๋ proved this one with rows, on 9bb1915, and it was RED then: the naive restore read the reversed
+  // purchase's own captured value and left the user a month they had been refunded for.
+  it('two purchases, both reversed — the shadow goes back to the ORIGINAL base, not to the reversed one', async () => {
+    const base = '2026-09-30'
+    await sql`INSERT INTO member_payment (user_id, plan_code, package_code, create_at, start_at, expire_at)
+              VALUES (${users[2]}, 'MEMBER', 'LEGACY', ${bkk(NOW)}, ${bkk(NOW)}, ${base})`
+    await seedPending('RA', users[2])
+    await fire(completeEvent('RA'))
+    const afterA = await shadowOf(users[2])
+    await seedPending('RB', users[2])
+    await fire(completeEvent('RB'))
+    const afterB = await shadowOf(users[2])
+    expect(afterA).not.toBe(base) // the grants really did push the shadow forward
+    expect(afterB).not.toBe(afterA)
+
+    // 🔴 ลำดับสำคัญ และผมเขียนกลับด้านในรอบแรกจนเทสต์ผ่านทั้งที่บั๊กยังอยู่ (มิวแทนต์ไม่แดง)
+    // ตีกลับ A ก่อน: แถวของ A เป็น REPLACED ไปแล้วเพราะ B มาทับ ⇒ เงายังถือวันของ B ซึ่งถูกต้อง
+    // แล้วค่อยตีกลับ B: ถึงตรงนี้ไม่เหลือแถว ACTIVE เลย ⇒ ถ้าอ่าน prev ของ B จะได้วันของ A ที่ถูกคืนไปแล้ว
+    await fire(reversalEvent('RA'))
+    await fire(reversalEvent('RB'))
+    // เงินคืนครบทั้งสองครั้ง ⇒ ไม่มีเดือนไหนเหลือให้ถือ
+    expect(await shadowOf(users[2])).toBe(base)
+  })
+
   it('a second delivery of the same reversal changes nothing', async () => {
     const before = '2027-03-31'
     await sql`INSERT INTO member_payment (user_id, plan_code, package_code, create_at, start_at, expire_at)
