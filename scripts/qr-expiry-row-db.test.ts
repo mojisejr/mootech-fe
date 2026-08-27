@@ -10,7 +10,10 @@
 //
 // 🔴 MUTANT CONTRACT (แต่ละตัวมีข้อความ failure ของตัวเอง)
 //   QD1  attachChargeId ทิ้ง expiresAt (set แค่ chargeId)        → ① reddens
-//   QD2  ไม่ส่ง argument แล้วเขียนทับเป็น null                    → ② reddens  ← แถวเก่าจะถูกล้างโดยไม่มีใครรู้
+//   QD2  ไม่ส่ง argument แล้วเขียนทับเป็น null                    → ② reddens
+//        ⚠️ ตู๋ #476: เคสนี้ยังไม่มีใครเดินในโปรดักชัน — charge-flow.ts:155 ส่งอาร์กิวเมนต์ที่ 3 เสมอทั้ง
+//        สองเลน (บัตรส่ง null · พร้อมเพย์ส่งค่าจริง) ⇒ ฟันตัวนี้เฝ้า**รูปร่างที่ยังไม่มีคนใช้**
+//        เก็บไว้เพราะมันจะกัดวันที่มีผู้เขียนคนที่สอง ❌ แต่ห้ามอ่านว่ามันปิดความเสี่ยงของวันนี้
 //   QD3  ค่าที่ parse ไม่ได้ถูกเขียนลงไปแทนที่จะเป็น null         → ③ reddens
 //   QD4  listUserPayments เลิก select คอลัมน์นี้                  → ④ reddens  ← จอจะไม่มีวันรู้
 import { describe, it, expect, beforeAll, afterAll, afterEach } from 'vitest'
