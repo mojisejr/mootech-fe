@@ -60,7 +60,7 @@ describe('#363/#423/#466/#455 the eleven states, enumerated', () => {
   it('every line tells the reader whether trying again could work', () => {
     for (const s of STATES) {
       const c = RESULT_COPY[s]
-      expect(['same', 'different', 'new-qr', 'none']).toContain(c.retry)
+      expect(['same', 'different', 'new-qr', 'buy-again', 'none']).toContain(c.retry)
       // The generic sentence that is true of all six and useful in none (#347/#263).
       expect(c.body, `${s} falls back to a non-answer`).not.toMatch(/เกิดข้อผิดพลาด|ผิดพลาดบางอย่าง|ลองใหม่อีกครั้งภายหลัง/)
       expect(c.title.length).toBeGreaterThan(0)
@@ -115,6 +115,9 @@ describe('#363/#423/#466/#455 the eleven states, enumerated', () => {
     expect(c.body).toContain('การชำระเงินครั้งนี้')
     // ประโยคที่ #484 สั่งให้เลิกพูด
     expect(c.body).not.toContain('ระบบยังตามให้')
+    // 🔴 คนที่จ่ายด้วยบัตรก็มาถึงจอนี้ได้ — คำว่า QR ไม่ควรโผล่ทั้งในเนื้อและบนปุ่ม
+    expect(c.title + c.body).not.toContain('QR')
+    expect(c.retry, 'ปุ่มต้องพูดเรื่องซื้ออีกครั้ง ❌ ไม่ใช่ขอ QR ใหม่').toBe('buy-again')
     // ❌ ไม่ใช่ความล้มเหลว มันเคยสำเร็จ · ❌ ไม่โทษธนาคาร
     expect(c.title).not.toContain('ล้มเหลว')
     expect(c.body + c.title).not.toContain('ธนาคาร')

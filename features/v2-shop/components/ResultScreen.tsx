@@ -63,6 +63,14 @@ export function ResultScreen({ state, onRetrySame, onTryAnother, onDone, planNam
             ขอ QR ใหม่
           </button>
         )}
+        {copy.retry === 'buy-again' && onTryAnother && (
+          // 🔴 NOT "ขอ QR ใหม่". This screen is reached by card payers too — a reversal is not a QR story.
+          // Same destination as the other two (the package's checkout), different words, because the words
+          // are what the reader acts on.
+          <button type="button" data-testid="result-buy-again" onClick={onTryAnother} className="w-full rounded-pill bg-v3-sapphire px-5 py-3 text-sm font-medium text-white">
+            ซื้ออีกครั้ง
+          </button>
+        )}
         {copy.retry === 'different' && onTryAnother && (
           // 🔴 NOT "ลองอีกครั้ง". The same card will be declined again; the way forward is another method.
           <button type="button" data-testid="result-try-another" onClick={onTryAnother} className="w-full rounded-pill bg-v3-sapphire px-5 py-3 text-sm font-medium text-white">

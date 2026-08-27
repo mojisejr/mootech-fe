@@ -64,6 +64,12 @@ const CASES = [
   { id: 'rejected-gateway-expired', status: 'REJECT', failureCode: 'gateway_expired', qrDeadline: 'expired', liveUntil: null, note: 'slice 3 บอกว่าหมดอายุ' },
   { id: 'rejected-unexplained', status: 'REJECT', failureCode: 'failed', qrDeadline: 'expired', liveUntil: null, note: 'จบแล้ว แต่เหตุไม่ใช่หมดอายุ — #443' },
   { id: 'rejected-no-failurecode', status: 'REJECT', failureCode: null, qrDeadline: 'expired', liveUntil: null, note: 'server ยังไม่ deploy #481' },
+  // ── mojisejr/mootech-fe#484 — จ่ายแล้วเงินถูกตีกลับ ──────────────────────────────────────────────
+  // 🔴 แถวคง status APPROVED ไว้โดยตั้งใจ (การจ่ายเกิดขึ้นจริงในอดีต) ⇒ ถ้ากิ่งอยู่ผิดที่ จอจะขึ้น
+  //    "ชำระเงินสำเร็จ" พร้อม paid: true ในวินาทีที่เงินถูกคืนและสิทธิ์ถูกถอน
+  { id: 'reversed-approved', status: 'APPROVED', failureCode: 'gateway_reversed', qrDeadline: 'unknown', liveUntil: null, note: 'ให้สิทธิ์แล้ว แล้วเอาคืน' },
+  // ผู้ผลิตรายที่สองของค่าเดียวกัน — ไม่เคยมีสิทธิ์ให้ถอน ⇒ ต้องไม่ได้คำเดียวกัน (mojisejr/mootech-fe#488)
+  { id: 'reversed-never-granted', status: 'REJECT', failureCode: 'gateway_reversed', qrDeadline: 'unknown', liveUntil: null, note: 'ตีกลับ โดยไม่เคยได้สิทธิ์' },
 ]
 
 const b = await chromium.launch()
