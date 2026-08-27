@@ -118,6 +118,25 @@ describe('#455 ③ payload ที่ขัดกันเองสร้าง�
     })
   })
 
+  it('🔴 สัญญาที่ slice 2 ต้องรับมือ: live คู่กับ liveUntil ที่เป็นอดีต **เกิดได้ทุกวัน**', () => {
+    // ตู๋หาเคสค้านนี้มา และมุนแก้คำรับประกันของตัวเองตาม (#455) — ทั้งคู่เคยเขียนว่า
+    // "การไม่ส่ง timestamp ทำให้ now > liveUntil เป็นเท็จเสมอ" ซึ่ง**ไม่จริง**
+    //
+    // server ตัดสิน live ณ วินาทีที่มันตอบ · client ถือคำตอบไว้ · slow poll ห่าง 30 วินาที
+    // ⇒ ระหว่างสองรอบ liveUntil < now บนเครื่องผู้ใช้ และนั่นคือเคสที่ถูกต้อง: countdown เดินถึงศูนย์
+    const serverAnsweredAt = new Date('2026-08-27T12:00:00.000Z')
+    const f = qrStatusFields(new Date('2026-08-27T12:00:20.000Z'), serverAnsweredAt)
+    expect(f.qrDeadline).toBe('live')
+    expect(f.liveUntil).toBe('2026-08-27T12:00:20.000Z')
+
+    // 30 วินาทีต่อมาบนเครื่อง client — ยังไม่ถึงรอบ poll ถัดไป
+    const clientReadsAt = new Date('2026-08-27T12:00:30.000Z')
+    expect(new Date(f.liveUntil as string) < clientReadsAt, 'เงื่อนไขนี้เป็นจริง ❌ ไม่ใช่เท็จเสมอ').toBe(true)
+
+    // 🔴 slice 2 ต้องอ่าน payload นี้ว่า "คำตอบที่ถืออยู่เก่าแล้ว ⇒ ไปถามใหม่"
+    // ❌ ห้ามอ่านว่า "หมดอายุแล้ว" — qrDeadline ยังบอกว่า live และมันคือทางเดียวที่พูดเรื่องหมดอายุได้
+  })
+
   it('🔴 ไม่มีอินพุตไหนสร้าง payload ที่ liveUntil มีค่าแต่ qrDeadline ไม่ใช่ live ได้', () => {
     // นี่คือคำกล่าวอ้างทั้งหมดของทาง ข — ถ้ามันเป็นเท็จ กับดักกลับมาทันที
     const inputs = [PAST, FUTURE, NOW, null, undefined, 'ไม่ใช่วันที่', PAST.toISOString(), FUTURE.toISOString()]
