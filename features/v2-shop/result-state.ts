@@ -40,7 +40,7 @@ export type ResultCopy = {
   /** one line under it, in the user's terms. */
   body: string
   /** 🔴 can pressing again plausibly change the outcome? Drives which action the screen offers. */
-  retry: 'same' | 'different' | 'none'
+  retry: 'same' | 'different' | 'new-qr' | 'none'
   /** true only when the user's money has actually moved. Exactly ONE state may set this. */
   paid: boolean
 }
@@ -113,9 +113,22 @@ export const RESULT_COPY: Record<ResultState, ResultCopy> = {
     // who scanned at the last second and lost the webhook is reading this too. So the second sentence
     // is kept word-for-word from QR_MAYBE_EXPIRED. What changed is our certainty about the QR — not
     // our certainty about their money.
+    // 🔴 'new-qr' — A THIRD ACTION, ADDED BECAUSE THE WORDS ALREADY PROMISED IT (#455, caught in the photo).
+    // The first version of this row said "ขอ QR ใหม่ได้เลย" while `retry: 'same'` rendered the only button
+    // the vocabulary had: "ตรวจสอบอีกครั้ง". Every unit test was green — none of them can see that a
+    // sentence names an action the screen does not offer. The screenshot could, on the first look.
+    //
+    // 'same' is WRONG here specifically because we were told. Asking again is the honest move when we do
+    // not know (QR_MAYBE_EXPIRED keeps it); once the gateway's own deadline has passed, checking again
+    // cannot revive the QR, and the person who never paid needs a fresh one.
+    // This is mootech-fe#471's class — copy that promises a button that is not there.
     title: 'QR หมดอายุแล้ว',
-    body: 'ขอ QR ใหม่ได้เลย · ถ้าจ่ายไปแล้ว ไม่ต้องจ่ายซ้ำ ระบบยังตามให้อยู่ กดตรวจสอบอีกครั้งได้',
-    retry: 'same',
+    // 🔴 ประโยคจบที่ 'ระบบยังตามให้' ❌ ไม่ใช่ 'ระบบยังตามให้อยู่' — ตัดคำท้ายทิ้งเพราะการวางบรรทัด
+    // ที่ 393 (ความกว้างจอหลัก) 'อยู่' ตกไปอยู่บรรทัดสองตัวเดียว ส่วนที่ 320 ตัดสวยอยู่แล้ว
+    // ไทยไม่มีช่องว่างระหว่างคำ ⇒ เบราว์เซอร์ตัดด้วยพจนานุกรม และ assertion บน textContent มองไม่เห็น
+    // ว่าบรรทัดถูกตัดตรงไหน ⇒ เห็นได้จากภาพเท่านั้น (mojisejr/mootech-fe#414 เป็นคลาสเดียวกัน)
+    body: 'ขอ QR ใหม่ได้เลย · ถ้าจ่ายไปแล้ว ไม่ต้องจ่ายซ้ำ ระบบยังตามให้',
+    retry: 'new-qr',
     paid: false,
   },
   ALREADY_ON_THIS_TIER: {

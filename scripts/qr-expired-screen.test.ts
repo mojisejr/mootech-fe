@@ -131,8 +131,38 @@ describe('#455 คำของ QR_EXPIRED — ถูกบอกแล้ว จ
     expect(a.title).not.toContain('อาจ')
   })
 
-  it('ไม่มีเงินออก และยังลองใหม่ได้ด้วยวิธีเดิม', () => {
+  it('ไม่มีเงินออก และทางต่อคือ QR ใหม่ ❌ ไม่ใช่ ตรวจสอบอีกครั้ง', () => {
     expect(RESULT_COPY.QR_EXPIRED.paid).toBe(false)
-    expect(RESULT_COPY.QR_EXPIRED.retry).toBe('same')
+    // 'same' เคยอยู่ตรงนี้ และเทสต์ก็เขียว — จนภาพจอเผยว่าคำสัญญาปุ่มที่จอไม่มี (mootech-fe#471)
+    expect(RESULT_COPY.QR_EXPIRED.retry).toBe('new-qr')
+  })
+
+  it('🔴 คำที่สัญญา "ขอ QR ใหม่" ต้องมาคู่กับปุ่มที่ทำอย่างนั้นได้เสมอ — ทุกแถวในตาราง', () => {
+    // ฟันของ **คลาส** ❌ ไม่ใช่ของแถวเดียว: ถ้าวันหนึ่งมีใครเขียนประโยคนี้ในแถวอื่นแล้วลืมปุ่ม บรรทัดนี้ต้องแดง
+    const promises = (Object.keys(RESULT_COPY) as ResultState[]).filter((s) =>
+      RESULT_COPY[s].body.includes('ขอ QR ใหม่'),
+    )
+    expect(promises.length, 'ต้องมีอย่างน้อยหนึ่งแถวที่พูดประโยคนี้ ไม่งั้นฟันนี้ตรวจศูนย์แถว').toBeGreaterThan(0)
+
+    // 🔴 ช่องว่างที่รู้อยู่ ❌ ไม่ใช่ข้อยกเว้นเพื่อให้เขียว — QR_MAYBE_EXPIRED พูดประโยคนี้อยู่บน main
+    // มาก่อน slice นี้ และมันสัญญา **สองปุ่ม** (ขอ QR ใหม่ + ตรวจสอบอีกครั้ง) โดยมีให้จริงปุ่มเดียว
+    // การแก้มันคือการออกแบบปุ่มของจอที่ ship ไปแล้ว ซึ่งไม่ใช่ slice นี้ ⇒ แยกใบ
+    const KNOWN_GAP: Partial<Record<ResultState, string>> = {
+      // เลขนี้เขียนหลังเปิดใบจริงแล้ว — ฉบับแรกเขียน #479 จากการเดา ของจริงคือ #480
+      QR_MAYBE_EXPIRED: 'mojisejr/mootech-fe#480',
+    }
+
+    for (const s of promises) {
+      if (KNOWN_GAP[s]) continue
+      expect(['new-qr', 'different'], `${s} สัญญา QR ใหม่ แต่ retry=${RESULT_COPY[s].retry}`)
+        .toContain(RESULT_COPY[s].retry)
+    }
+
+    // 🔑 ทำให้รายการยกเว้น **หมดอายุเอง**: ถ้าใครซ่อมแถวที่อยู่ในรายการ บรรทัดนี้จะแดงทันที
+    // และบังคับให้ลบชื่อออกจากรายการ ⇒ รายการยกเว้นเน่าค้างอยู่ไม่ได้
+    for (const s of Object.keys(KNOWN_GAP) as ResultState[]) {
+      expect(['new-qr', 'different'], `${s} ถูกซ่อมแล้ว (${KNOWN_GAP[s]}) — ลบออกจาก KNOWN_GAP ได้`)
+        .not.toContain(RESULT_COPY[s].retry)
+    }
   })
 })

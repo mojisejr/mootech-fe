@@ -60,7 +60,7 @@ describe('#363/#423/#466/#455 the ten states, enumerated', () => {
   it('every line tells the reader whether trying again could work', () => {
     for (const s of STATES) {
       const c = RESULT_COPY[s]
-      expect(['same', 'different', 'none']).toContain(c.retry)
+      expect(['same', 'different', 'new-qr', 'none']).toContain(c.retry)
       // The generic sentence that is true of all six and useful in none (#347/#263).
       expect(c.body, `${s} falls back to a non-answer`).not.toMatch(/เกิดข้อผิดพลาด|ผิดพลาดบางอย่าง|ลองใหม่อีกครั้งภายหลัง/)
       expect(c.title.length).toBeGreaterThan(0)
