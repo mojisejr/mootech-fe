@@ -244,15 +244,30 @@ export async function revokeByChargeId(
       .set({ status: 'EXPIRED' })
       .where(and(eq(memberSubscription.v2PaymentId, pay.id), eq(memberSubscription.status, 'ACTIVE')))
 
-    // What the user still legitimately holds after this purchase is taken away.
-    const survivors = await tx
-      .select({ expireAt: memberSubscription.expireAt })
+    // 🔴 WHAT SURVIVES IS DECIDED BY WHETHER THE MONEY STAYED, NOT BY THE SUBSCRIPTION'S STATUS
+    // (too, review of 0abb9d5, proved both directions with rows).
+    // 'REPLACED' means a later purchase superseded this one. It does NOT mean the money came back. Filter
+    // on status = 'ACTIVE' and a paid-for month vanishes the moment a newer purchase is reversed:
+    //   base X → A pushes to A → B pushes to B.  reverse ONLY B ⇒ A's row is REPLACED ⇒ dropped from the
+    //   survivors ⇒ the user falls all the way back to X, and A's money was never refunded.
+    // The two errors are mirror images and no choice of FLOOR fixes both — the floor was never the broken
+    // part. A row is legitimate when the payment behind it is still APPROVED and was not reversed, whatever
+    // the subscription status says.
+    // Rows with no v2_payment link are pre-v2 grants: nothing can have reversed them, so they count too.
+    const subs = await tx
+      .select({ expireAt: memberSubscription.expireAt, paymentId: memberSubscription.v2PaymentId })
       .from(memberSubscription)
-      .where(and(eq(memberSubscription.userId, pay.userId), eq(memberSubscription.status, 'ACTIVE')))
-    const latestSurvivor = survivors.reduce<string | null>(
-      (best, r) => (best === null || String(r.expireAt) > best ? String(r.expireAt) : best),
-      null,
+      .where(eq(memberSubscription.userId, pay.userId))
+    const dead = await tx
+      .select({ id: v2Payment.id, status: v2Payment.status, failureCode: v2Payment.failureCode })
+      .from(v2Payment)
+      .where(eq(v2Payment.userId, pay.userId))
+    const deadIds = new Set(
+      dead.filter((r) => r.status !== 'APPROVED' || r.failureCode === REVERSED_CODE).map((r) => r.id),
     )
+    const latestSurvivor = subs
+      .filter((r) => r.paymentId === null || !deadIds.has(r.paymentId))
+      .reduce<string | null>((best, r) => (best === null || String(r.expireAt) > best ? String(r.expireAt) : best), null)
 
     // 🔴 prev_member_expire_at ON ITS OWN IS NOT A SAFE FLOOR (too, review of 9bb1915, proved with rows).
     // It stores what the shadow WAS, and what it was may itself have come from a purchase that is later

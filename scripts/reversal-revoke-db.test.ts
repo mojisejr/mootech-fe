@@ -209,6 +209,24 @@ describe.skipIf(!TEST_URL)('#484 a reversed charge takes the entitlement with it
     expect(await shadowOf(users[2])).toBe(base)
   })
 
+  // 🔴 ตู๋ยิงเคสนี้ที่ 0abb9d5 แล้วมันแดง — การแก้เคสข้างบนพาบั๊กใหม่มาในทิศตรงข้าม
+  // ตีกลับเฉพาะใบหลัง แล้วเดือนที่ใบแรกจ่ายมาหายไป เพราะแถวของใบแรกเป็น REPLACED
+  // ⇒ ตัวกรอง status = 'ACTIVE' ทิ้งมันทั้งที่เงินของมันไม่เคยถูกคืน
+  it('reverse ONLY the later purchase — the earlier one that was really paid keeps its month', async () => {
+    const base = '2026-09-30'
+    await sql`INSERT INTO member_payment (user_id, plan_code, package_code, create_at, start_at, expire_at)
+              VALUES (${users[3]}, 'MEMBER', 'LEGACY', ${bkk(NOW)}, ${bkk(NOW)}, ${base})`
+    await seedPending('RC', users[3])
+    await fire(completeEvent('RC'))
+    const afterA = await shadowOf(users[3])
+    await seedPending('RD', users[3])
+    await fire(completeEvent('RD'))
+
+    await fire(reversalEvent('RD')) // ตีกลับใบหลังใบเดียว เงินของใบแรกยังอยู่กับเรา
+    expect(await shadowOf(users[3])).toBe(afterA)
+    expect(afterA).not.toBe(base) // ถ้าเท่ากับฐาน แปลว่าเดือนที่จ่ายมาถูกริบ
+  })
+
   it('a second delivery of the same reversal changes nothing', async () => {
     const before = '2027-03-31'
     await sql`INSERT INTO member_payment (user_id, plan_code, package_code, create_at, start_at, expire_at)
