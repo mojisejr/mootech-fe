@@ -27,6 +27,10 @@ type Db = typeof defaultDb
 // their entitlement was revoked when they never had one.
 export const REVERSED_CODE = 'gateway_reversed'
 
+// #484 — captured on a payment when the user had NO member_payment row at settle time. Distinct from NULL,
+// which means no writer had run yet. '' is a measurement ("there was nothing"); NULL is ignorance.
+export const NO_SHADOW = ''
+
 // Civil timestamp 'YYYY-MM-DD HH:mm:ss' in Asia/Bangkok (member_payment.create_at parity with v1's moment).
 function bkkTimestamp(now: Date): string {
   const parts = new Intl.DateTimeFormat('en-CA', {
@@ -212,7 +216,7 @@ export async function abandonByChargeId(
 export async function revokeByChargeId(
   chargeId: string,
   db: Db = defaultDb,
-): Promise<{ revoked: boolean; shadowHandled: 'RESTORED' | 'NEEDS_HUMAN' | 'NONE' }> {
+): Promise<{ revoked: boolean; shadowHandled: 'RESTORED' | 'CLEARED' | 'NEEDS_HUMAN' | 'NONE' }> {
   return db.transaction(async (tx) => {
     const [pay] = await tx
       .select({
@@ -285,18 +289,33 @@ export async function revokeByChargeId(
       .select({ prev: v2Payment.prevMemberExpireAt })
       .from(v2Payment)
       .where(and(eq(v2Payment.userId, pay.userId), eq(v2Payment.status, 'APPROVED')))
-    const baseline = captured.reduce<string | null>(
-      (best, r) => (typeof r.prev === 'string' && r.prev !== '' && (best === null || r.prev < best) ? r.prev : best),
-      null,
-    )
+    // Three outcomes, not two. The captured values are non-decreasing (the upsert is GREATEST), so the
+    // earliest one is the floor — and '' sorts before every date, which is exactly right: if any purchase
+    // saw no shadow at all, the floor is nothing.
+    const knownFloors = captured.map((r) => r.prev).filter((v): v is string => typeof v === 'string')
+    const sawNothing = knownFloors.includes(NO_SHADOW)
+    const anyUnknown = captured.some((r) => r.prev === null)
+    const baseline = sawNothing
+      ? null
+      : knownFloors.reduce<string | null>((best, v) => (best === null || v < best ? v : best), null)
+
+    // Nothing left standing AND we measured that there was nothing to begin with ⇒ take the shadow away.
+    // This is the first-time buyer whose money came back: leaving the row is leaving them a paid tier.
+    if (sawNothing && latestSurvivor === null) {
+      await tx.delete(memberPayment).where(eq(memberPayment.userId, pay.userId))
+      return { revoked: true, shadowHandled: 'CLEARED' }
+    }
 
     if (baseline === null && latestSurvivor === null) {
       // Nothing to restore from and nothing left standing: the honest answer is "we do not know what this
       // user's shadow should say", so it is not written over. See the migration header for why.
       console.error(
         `[#484] reversal revoked the v2 lane but member_payment was left ALONE — charge=${chargeId} ` +
-          `payment=${pay.id}. The row predates migration 0012, so the value this purchase overwrote was ` +
-          `never recorded. A human must decide what member_payment.expire_at should be for this user.`,
+          `payment=${pay.id} user=${pay.userId} unknownCaptures=${anyUnknown}. This payment settled ` +
+          `BEFORE the capture in settleAndProvision shipped, so the value it overwrote was never recorded ` +
+          `— it is not "no entitlement", it is "we do not know". A human decides what ` +
+          `member_payment.expire_at should be for this user. This set is finite and shrinking: it can only ` +
+          `contain payments that settled before this code deployed.`,
       )
       return { revoked: true, shadowHandled: 'NEEDS_HUMAN' }
     }
@@ -606,9 +625,19 @@ export async function settleAndProvision(
     // transaction means a rollback takes it with the grant — the two can never disagree.
     // NULL is written when the user had no shadow row at all; a reversal treats that as "unknown" and
     // hands the member_payment side to a human rather than inventing a date.
+    //
+    // 🔴 THE EMPTY STRING IS NOT A MISSING VALUE, IT IS AN ANSWER (too, PROBE-C on 9203a56).
+    // Writing NULL for "this user had no shadow row" collapses it with "nobody ever wrote this column",
+    // and those two need opposite handling on a reversal: the first is a fact we measured (there was
+    // nothing, so a reversal must leave nothing), the second is ignorance (hand it to a human).
+    // Collapsed, the most common case in the product — a FIRST-TIME buyer whose money is returned — fell
+    // into the ignorance branch and kept their entitlement, which is the sentence this ticket opens with.
+    // The column is plain text with no CHECK, so '' costs no migration. It is unambiguous because nothing
+    // has ever written this column on any environment: 0012 shipped the column, this line ships the first
+    // writer, so NULL means exactly "settled before this code did" and nothing else.
     await tx
       .update(v2Payment)
-      .set({ prevMemberExpireAt: existing?.expireAt ?? null })
+      .set({ prevMemberExpireAt: existing?.expireAt ?? NO_SHADOW })
       .where(eq(v2Payment.id, pay.id))
 
     // 🔴 #456 — READ THE CURRENT ENTITLEMENT HERE, INSIDE THE TRANSACTION, not at charge time. The door

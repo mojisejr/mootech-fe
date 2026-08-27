@@ -171,10 +171,29 @@ describe.skipIf(!TEST_URL)('#484 a reversed charge takes the entitlement with it
     expect(await shadowOf(users[2])).toBe(laterShadow)
   })
 
+  // 🔴 too's PROBE-C on 9203a56, red then: the most common case in the product. Someone who was never a
+  // member buys once and the money is returned. The v2 lane closed correctly and member_payment kept the
+  // granted date, so lib/usage.ts:33 still read them as a paid member — the exact sentence this ticket
+  // opens with, still happening after the ticket was "done".
+  it('first-time buyer, money returned — the shadow row is taken away, not left standing', async () => {
+    const before = await shadowOf(users[1])
+    expect(before).toBe(null) // this user genuinely has no member_payment row
+
+    await seedPending('RF', users[1])
+    await fire(completeEvent('RF'))
+    expect(await shadowOf(users[1])).not.toBe(null) // settling created one
+
+    const [cap] = await sql`SELECT prev_member_expire_at FROM v2_payment WHERE charge_id = 'RF'`
+    expect(cap.prev_member_expire_at).toBe('') // '' = measured "there was nothing", NOT unknown
+
+    await fire(reversalEvent('RF'))
+    expect(await shadowOf(users[1])).toBe(null) // back to having no entitlement at all
+  })
+
   it('a row that predates 0012 is NOT guessed over — the shadow is left exactly as it was', async () => {
     await seedPending('R6', users[3])
     await fire(completeEvent('R6'))
-    // simulate the pre-migration world: the capture never happened for this row
+    // simulate the world before the capture shipped: NULL, which means ignorance, not 'nothing'
     await sql`UPDATE v2_payment SET prev_member_expire_at = NULL WHERE charge_id = 'R6'`
     await sql`UPDATE member_subscription SET status = 'REPLACED' WHERE user_id = ${users[3]}`
     const untouched = await shadowOf(users[3])
