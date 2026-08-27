@@ -53,10 +53,17 @@ blocked=0
 #   push --delete   → localref='(delete)'           localoid=000…0     ⇒ skip the gate
 #   already up-to-date → git fires the hook with ZERO stdin lines      ⇒ skip the gate
 has_content=0
+# 🔴 push_tips collects the oids git is ACTUALLY sending. The secret scan below used to scan
+# merge-base(origin/main, HEAD)..HEAD instead — and too proved that lets a leak through: standing on
+# `main` while pushing another branch gives HEAD == origin/main, so the range is 0 commits and the scan
+# reports "SKIPPED — 0 commits ahead" while a real commit goes up unscanned. HEAD is where you are
+# standing; these lines are what you are sending. Only the second one is the thing to scan.
+push_tips=""
 while read -r _localref localoid remoteref _remoteoid; do
   [ -z "${remoteref:-}" ] && continue
   if ! [[ "${localoid}" =~ ${ZERO_OID_RE} ]]; then
     has_content=1
+    push_tips="${push_tips}${localoid} "
   fi
   branch="${remoteref#refs/heads/}"
   if [ -n "${protected}" ] && [ "${branch}" = "${protected}" ]; then
@@ -192,6 +199,68 @@ if [ -f scripts/guard-workflow-integrity.ts ]; then
      move that made 74 tests stop running on 2026-08-18. If it is deliberate, say so in the PR."
 fi
 
-echo "pre-push: hard gate green (lint + test + tsx lane + architecture + workflow-integrity)." >&2
+# §secret scan — moved here 2026-08-27 when .github/workflows/secret-scan.yml was deleted.
+#   That workflow had been dead since 2026-08-22 (#380: Actions minutes ran out), and line 181 of this
+#   very file recorded that no replacement runner was ever found (#334). So for five days secrets were
+#   scanned NOWHERE while the checks list still showed a secret-scan entry.
+#
+#   🔴 Round 2 (too). Three things were wrong and all three are fixed here:
+#   a) the range came from HEAD, not from what git is sending. Standing on `main` and pushing a feature
+#      branch gave a 0-commit range, printed "SKIPPED", and shipped the commit unscanned.
+#      Now it scans every tip in push_tips, which is read from git's own stdin.
+#   b) a broken tool and a real leak both printed "a secret was found, tell Feem". gitleaks exits
+#      non-zero for several reasons; secret-scan.yml (the file being deleted) separated those and said
+#      why (#309). Now: findings>0 is a leak, non-zero with 0 findings is a broken tool, and they say
+#      different things.
+#   c) `>/dev/null 2>&1` threw away every finding, so whoever got blocked could not triage. The report
+#      is written to a file and its location is printed. The one real hit in this repo right now is a
+#      false positive (a test publishable key inside a comment block) — a message ordering someone to
+#      wake Feem over that would have been wrong.
+if command -v gitleaks >/dev/null 2>&1; then
+  scan_rc=0
+  for tip in ${push_tips}; do
+    scan_base="$(git merge-base origin/main "${tip}" 2>/dev/null || true)"
+    [ -n "${scan_base}" ] \
+      || die "cannot compute a scan range for ${tip} against origin/main. Refusing to pass a secret scan
+     that never scanned anything — that is the failure #309 shipped for weeks. Run 'git fetch origin'."
+    scan_count="$(git rev-list --count "${scan_base}..${tip}")"
+    [ "${scan_count}" -gt 0 ] || continue
+    report="$(mktemp -t gitleaks-report)"
+    echo "pre-push: hard gate → gitleaks (${scan_count} commits ending ${tip})" >&2
+    if gitleaks detect --source . --redact --no-banner \
+         --log-opts="${scan_base}..${tip}" --report-path "${report}" --report-format json >/dev/null 2>&1
+    then
+      rm -f "${report}"
+      continue
+    fi
+    findings=0
+    if [ -s "${report}" ]; then
+      findings="$(python3 -c "import json,sys;print(len(json.load(open(sys.argv[1]))))" "${report}" 2>/dev/null || echo 0)"
+    fi
+    if [ "${findings}" -gt 0 ]; then
+      echo "  ✋ gitleaks found ${findings} finding(s) in ${scan_base}..${tip}" >&2
+      # 🔴 prints to STDOUT and the shell redirects — the first version wrote to stderr and then had
+      # `2>/dev/null` on the same line, which swallowed exactly the lines this exists to show. That is the
+      # same defect too had just rejected one block above (`>/dev/null 2>&1` discarding every finding).
+      python3 -c "
+import json,sys
+for f in json.load(open(sys.argv[1])):
+    print('     {}:{}  rule={}'.format(f.get('File'), f.get('StartLine'), f.get('RuleID')))
+" "${report}" >&2 || echo "     (could not parse ${report} — open it by hand)" >&2
+      die "gitleaks found a secret in what you are about to push. Look at the lines above FIRST — a
+     publishable test key inside a comment is a false positive and does not need anyone woken up. If it
+     is a real credential: do NOT push, do NOT rotate it yourself, do NOT open an issue. Tell Feem."
+    fi
+    die "gitleaks exited non-zero but reported ZERO findings — that is a BROKEN TOOL, not a leak
+     (#309 shipped exactly this confusion for weeks). Report kept at ${report}. Do not wake anyone over
+     it; fix or reinstall gitleaks, then push again."
+  done
+  [ "${scan_rc}" -eq 0 ] && echo "pre-push: gitleaks green" >&2
+else
+  die "gitleaks is not installed, and it is the only secret scan we have left after the workflow was
+     deleted. 'brew install gitleaks'. Refusing to push unscanned rather than pretend this is green."
+fi
+
+echo "pre-push: hard gate green (lint + test + tsx lane + architecture + workflow-integrity + gitleaks)." >&2
 echo "pre-push: 'npm run build' is still yours to run before opening the PR." >&2
 exit 0
