@@ -53,6 +53,7 @@ export default defineConfig({
   plugins: [jsxAutomatic],
   test: {
     environment: 'jsdom',
+    setupFiles: ['scripts/vitest-setup-rtl.ts'],
     // ⚠️ UNION, never "pick a side". This list is a pass/fail condition: #214 and #218 each appended
     // one spec to the same line from the same base, so the fastest resolution (keep one branch's
     // line) SILENTLY DELETES the other spec — and ci.yml's tsx lane already skips both by name
@@ -120,6 +121,7 @@ export default defineConfig({
       'scripts/terminal-failure-agreement.test.ts', // #437 — isRefusedCharge (สร้าง charge) กับ isTerminalFailure (webhook) ต้องตอบเหมือนกัน
       'scripts/result-declined-rule.test.ts', // #438 — จอต้องพูดคำว่าธนาคารปฏิเสธได้ + ปุ่มต้องไม่พาไปหน้าตาย
       'scripts/promptpay-qr-expiry.test.ts', // #463 — QR มีอายุ 5 นาที ที่ Omise ไม่ใช่ค่าตั้งต้น 24 ชม.
+      'scripts/rtl-cleanup-contract.test.tsx', // #451 ตัว A — ฟันของ setupFiles: ถอดบรรทัดนั้นออกแล้วต้องแดง
       'scripts/return-uri-3ds.test.ts', // #439 — return_uri ต่อ charge + เลนบัตรกับพร้อมเพย์ต้องไม่ขยับหากัน
       'scripts/payment-webhook-db.test.ts', // #355 — real pg (skipIf !TEST_DATABASE_URL): webhook→settle→provision, idempotent+concurrent
       'scripts/reconcile-cron-db.test.ts', // #360 — real pg: reconciler cron (parallel runs · secret gate · boundary)
