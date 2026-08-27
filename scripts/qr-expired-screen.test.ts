@@ -242,3 +242,49 @@ describe('#455 slice 3 — พร้อมเพย์ที่จบแล้�
     expect(seen.size, `ได้ ${[...seen].join(' / ')}`).toBeGreaterThan(1)
   })
 })
+
+// ─────────────────────────────────────────────────────────────────────────────
+describe('#484 จ่ายแล้วเงินถูกตีกลับ — จอต้องไม่พูดว่าสำเร็จ', () => {
+  // 🔴 บั๊กที่ชุดนี้เฝ้า: แถวที่ถูกตีกลับ **คงสถานะ APPROVED ไว้โดยตั้งใจ** (การจ่ายเกิดขึ้นจริงในอดีต)
+  // ⇒ ถ้ากิ่ง reversed อยู่หลังกิ่ง APPROVED จอจะขึ้น "ชำระเงินสำเร็จ" พร้อม paid: true
+  //   ในวินาทีที่เงินถูกคืนไปแล้วและสิทธิ์ถูกถอนไปแล้ว
+  //
+  // 🔴 MUTANT CONTRACT
+  //   MU11  ย้ายกิ่ง reversed ไปไว้หลังกิ่ง APPROVED   → "ไม่พูดว่าสำเร็จ" แดง
+  //   MU12  ตัด `status === 'APPROVED'` ออกจากเงื่อนไข → "เคสที่ไม่เคยมีสิทธิ์" แดง
+  //   MU13  ให้ PAYMENT_REVERSED ตั้ง paid: true       → ตารางที่ถูกตรวจแดง
+  const base484: ResultInputs = {
+    status: 'APPROVED', method: 'promptpay', claimed: 'APPROVED',
+    phase: 'waiting', qrDeadline: 'unknown', failureCode: 'gateway_reversed',
+  }
+
+  it('🔴 ไม่แสดง APPROVED หรือ ALREADY_PAID — ยิงด้วยอินพุตตามสัญญาในใบ', () => {
+    for (const claimed of ['PAYING', 'APPROVED'] as ResultState[]) {
+      const got = resolveResultState({ ...base484, claimed })
+      expect(got, `claimed=${claimed}`).toBe('PAYMENT_REVERSED')
+      expect(RESULT_COPY[got].paid, 'ห้ามขึ้นเครื่องหมายว่าเงินขยับ').toBe(false)
+    }
+  })
+
+  it('🔴 ผู้ผลิตอีกรายของค่านี้ — REJECT + reversed ไม่เคยมีสิทธิ์ให้ถอน ⇒ ห้ามได้คำเดียวกัน', () => {
+    // reconcile-run.ts เขียน gateway_reversed ให้แถวที่ยังไม่เคยให้สิทธิ์ ซึ่งจบเป็น REJECT
+    // ถ้ากิ่งดูแต่ failureCode เคสนี้จะได้ประโยค "การเป็นสมาชิก...ถูกยกเลิกแล้ว" ทั้งที่ไม่เคยมี
+    const got = resolveResultState({ ...base484, status: 'REJECTED' })
+    expect(got).not.toBe('PAYMENT_REVERSED')
+  })
+
+  it('phase ไม่มีผลกับเคสนี้ — คำตอบของ server เป็นคำตัดสิน', () => {
+    for (const phase of ['waiting', 'reconciling', 'exhausted'] as ResultInputs['phase'][]) {
+      expect(resolveResultState({ ...base484, phase }), `phase=${phase}`).toBe('PAYMENT_REVERSED')
+    }
+  })
+
+  it('เลนบัตรที่ถูกตีกลับก็ได้คำเดียวกัน — การตีกลับไม่ใช่เรื่องของวิธีจ่าย', () => {
+    expect(resolveResultState({ ...base484, method: 'card' })).toBe('PAYMENT_REVERSED')
+  })
+
+  it('APPROVED ปกติที่ไม่มี failureCode ยังเป็น APPROVED — กิ่งใหม่ไม่รั่วไปทับของเก่า', () => {
+    expect(resolveResultState({ ...base484, failureCode: null })).toBe('APPROVED')
+    expect(resolveResultState({ ...base484, failureCode: 'gateway_failed' })).toBe('APPROVED')
+  })
+})

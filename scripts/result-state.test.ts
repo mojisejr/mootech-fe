@@ -21,8 +21,8 @@
 //
 // 🔑 THIS FILE IS THE AUDIT THE TICKET ASKS FOR, and it is a TABLE rather than an eyeball pass because the
 // ticket's own warning is that these lines exist nowhere in Figma: nobody will diff them against a frame,
-// so the only reader they will ever get is this one. "ครบ" becomes answerable — there are exactly ten, and
-// here is the verdict on all ten.
+// so the only reader they will ever get is this one. "ครบ" becomes answerable — there are exactly eleven, and
+// here is the verdict on all eleven.
 // #455 — a TENTH (QR_EXPIRED). The tripwire fired again and this is the deliberate act it forces: the words
 // for the row where the gateway DID tell us are written here, in the audited table, not at a call site.
 import { describe, it, expect } from 'vitest'
@@ -38,13 +38,13 @@ import {
 
 const STATES: ResultState[] = [
   'PAYING', 'APPROVED', 'CARD_DECLINED', 'OFFLINE', 'ALREADY_PAID', 'RECONCILING', 'QR_MAYBE_EXPIRED',
-  'QR_EXPIRED', 'ALREADY_ON_THIS_TIER', 'CANNOT_DOWNGRADE',
+  'QR_EXPIRED', 'PAYMENT_REVERSED', 'ALREADY_ON_THIS_TIER', 'CANNOT_DOWNGRADE',
 ]
 
-describe('#363/#423/#466/#455 the ten states, enumerated', () => {
-  it('there are exactly ten, and the table covers all of them', () => {
+describe('#363/#423/#466/#455 the eleven states, enumerated', () => {
+  it('there are exactly eleven, and the table covers all of them', () => {
     // Surface size out loud: the assertions below iterate this list, so a shrunken list would quietly pass.
-    expect(STATES).toHaveLength(10)
+    expect(STATES).toHaveLength(11)
     expect(Object.keys(RESULT_COPY).sort()).toEqual([...STATES].sort())
   })
 
@@ -107,6 +107,19 @@ describe('#363/#423/#466/#455 the ten states, enumerated', () => {
   it('อาจ belongs to the row where nobody told us, and ONLY to that row', () => {
     expect(RESULT_COPY.QR_MAYBE_EXPIRED.title).toContain('อาจ')
     expect(RESULT_COPY.QR_EXPIRED.title).not.toContain('อาจ')
+  })
+
+  it('#484 — the reversed row speaks about THIS purchase, and never promises a chase', () => {
+    const c = RESULT_COPY.PAYMENT_REVERSED
+    // พูดถึงการซื้อครั้งนี้ ❌ ไม่ใช่สถานะสมาชิกโดยรวม — แถวก่อน migration 0012 อาจยังใช้เลนเก่าได้ชั่วคราว
+    expect(c.body).toContain('การชำระเงินครั้งนี้')
+    // ประโยคที่ #484 สั่งให้เลิกพูด
+    expect(c.body).not.toContain('ระบบยังตามให้')
+    // ❌ ไม่ใช่ความล้มเหลว มันเคยสำเร็จ · ❌ ไม่โทษธนาคาร
+    expect(c.title).not.toContain('ล้มเหลว')
+    expect(c.body + c.title).not.toContain('ธนาคาร')
+    // 🔴 เงินไม่ได้อยู่กับเราแล้ว ⇒ ห้ามขึ้นเครื่องหมายว่าเงินขยับ
+    expect(c.paid).toBe(false)
   })
 
   it('the told row is certain about the QR and still careful about the money', () => {
