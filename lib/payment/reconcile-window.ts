@@ -1,16 +1,20 @@
 // features ↔ cron seam (mootech-fe#423) — how long the SCREEN must keep believing a repair is still
 // possible, derived from the reconciler's own numbers instead of a second hand-picked deadline.
 //
-// ── THE BUG THIS FILE EXISTS TO PREVENT ─────────────────────────────────────────────────────────────
-// Three fifteens lived in three files and nobody owned the relationship between them:
+// ── THE BUG THIS FILE EXISTS TO PREVENT — ⚠️ PAST TENSE. This is the world BEFORE #423, kept because the
+// relationship it describes is the reason this file exists. It is NOT a description of today's behaviour.
+// (มุน read it as current on 2026-08-27 and nearly deferred #455's screen work on the strength of it.)
 //
-//   useChargeStatus.STALE_AFTER_MS   15m   the screen gives up and offers "ขอ QR ใหม่"
+//   useChargeStatus.STALE_AFTER_MS   15m   the screen GAVE UP and offered "ขอ QR ใหม่"
+//        🔴 that symbol no longer exists — #423 renamed it to POLL_UNTIL_MS (useChargeStatus.ts:100) and,
+//        more importantly, changed what happens at that moment: the screen now enters RECONCILING
+//        (result-state.ts:74) and keeps waiting until the horizon below, instead of quitting.
 //   reconcile.DEFAULT_WINDOW.graceMs 15m   the reconciler REFUSES to touch a row younger than this
 //   vercel.json  crons  */15         15m   so the next run that may touch it is up to 15m away
 //
-// The reconciler can therefore first act at minute 15 and last act at minute 30 — and the screen quit at
-// minute 15 exactly. In the one case the reconciler exists for (money moved, webhook never arrived) the
-// user was told to pay again 0–15 minutes BEFORE the repair was even allowed to start.
+// The reconciler can therefore first act at minute 15 and last act at minute 30 — and the screen USED TO
+// quit at minute 15 exactly. In the one case the reconciler exists for (money moved, webhook never
+// arrived) the user WAS told to pay again 0–15 minutes BEFORE the repair was even allowed to start.
 //
 // 🔴 SO THE HORIZON IS COMPUTED, NEVER TYPED. Whoever widens graceMs or slows the cron moves this with
 // them; nobody has to remember that a screen in another folder depends on it.
