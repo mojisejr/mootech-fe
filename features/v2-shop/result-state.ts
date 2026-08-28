@@ -15,6 +15,8 @@ export type ResultState =
   | 'PAYING' // in flight — we have not heard back yet
   | 'APPROVED' // settled: /payment/status says APPROVED for THIS chargeId
   | 'CARD_DECLINED' // the bank said no. Trying the same card again is unlikely to help; another one might.
+  | 'CARD_UNREADABLE' //   the gateway would not accept the card DETAILS. The bank never saw it, so this
+  //                       must not say the bank refused — but the buyer can fix it by retyping (#492).
   | 'PAYMENT_SETUP_BROKEN' // OUR side failed before any card left the browser — a bad key, a missing SDK,
   //                          a reason Omise gave that we do not recognise. Never the buyer's fault (#492).
   | 'OFFLINE' // WE could not reach our own status endpoint. Says nothing about the money.
@@ -73,14 +75,30 @@ export const RESULT_COPY: Record<ResultState, ResultCopy> = {
     retry: 'different',
     paid: false,
   },
+  CARD_UNREADABLE: {
+    // 🔴 THE BANK IS NOT MENTIONED, AND THAT IS THE POINT (ตู๋, review r1 B1). This screen is reached when
+    // TOKENISATION failed — Omise would not accept the card details and no charge was ever created, so no
+    // bank has seen this card. Sending these buyers to CARD_DECLINED, which says "ธนาคารปฏิเสธการชำระเงิน",
+    // was the sentence mootech-fe#492 opened in order to delete, and the first version of #492 still sent
+    // them there. "ลองใช้บัตรใบอื่น" is wrong too: the same card usually works once it is typed correctly.
+    title: 'ตรวจสอบข้อมูลบัตรอีกครั้ง',
+    body: 'ยังไม่มีการตัดเงิน ข้อมูลบัตรที่กรอกไม่ผ่านการตรวจ ลองกรอกใหม่อีกครั้งได้เลย',
+    // Back to THIS package's checkout, where the fields are — not "check again", which has nothing to check.
+    retry: 'buy-again',
+    paid: false,
+  },
   PAYMENT_SETUP_BROKEN: {
     // 🔴 NEVER blame the card here. This state exists for the cases where OUR key is wrong, omise.js did
     // not load, or Omise gave a reason we have no mapping for — and in every one of them the buyer's card
     // is fine and nothing was charged. Telling them their bank refused would be blaming a stranger for
     // our own outage, which is the worst sentence this screen was capable of producing (#492).
     title: 'ระบบชำระเงินมีปัญหา',
-    body: 'ยังไม่มีการตัดเงิน ไม่ใช่เพราะบัตรของคุณ ลองอีกครั้งในอีกสักครู่ ถ้ายังไม่ได้ติดต่อเราได้เลย',
-    retry: 'same',
+    body: 'ยังไม่มีการตัดเงิน ไม่ใช่เพราะบัตรของคุณ ลองอีกครั้งได้เลย ถ้ายังไม่ได้ติดต่อเราได้',
+    // 🔴 NOT 'same' (ตู๋, review r1 B3). 'same' renders "ตรวจสอบอีกครั้ง", which calls the status check —
+    // and this URL carries no charge and no order, so useChargeStatus:196 returns immediately and the
+    // button does nothing at all. Nothing was ever created here; there is nothing to check. 'buy-again'
+    // uses the package_code the URL already carries and returns the buyer to the checkout that failed.
+    retry: 'buy-again',
     paid: false,
   },
   OFFLINE: {

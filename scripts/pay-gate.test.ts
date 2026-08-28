@@ -13,7 +13,8 @@
 //
 // ANCHOR: scripts/pay-gate.test.ts#pay-gate
 import assert from 'node:assert/strict'
-import { validateCard, type CardState } from '../features/v2-shop/card-rules'
+import { type CardState } from '../features/v2-shop/card-rules'
+import { payReady } from '../features/v2-shop/pay-ready'
 import { tokenizationFailedDestination } from '../features/v2-shop/pay-destination'
 import { RESULT_COPY } from '../features/v2-shop/result-state'
 
@@ -29,10 +30,11 @@ const check = (name: string, fn: () => void): void => {
   }
 }
 
-// `ready` as checkout computes it. Kept in the same shape as the page so the assertion is about the
-// decision, not about React.
+// 🔴 IMPORTED, NOT RE-IMPLEMENTED (ตู๋, review r1 B2). The first version of this file wrote the rule out
+// again, so deleting the real condition from pages/v2/shop/checkout.tsx left every lane green — a test
+// that rebuilds what it guards proves only that the tester can write it twice.
 const ready = (card: CardState, method: 'card' | 'promptpay', hasQuote = true, loading = false): boolean =>
-  hasQuote && !loading && (method === 'promptpay' || validateCard(card, NOW).ok)
+  payReady({ hasQuote, loading, method, card, now: NOW })
 
 const GOOD: CardState = { name: 'David Watson', number: '4242424242424242', expiry: '04/2027', cvc: '123' }
 const EMPTY: CardState = { name: '', number: '', expiry: '', cvc: '' }
@@ -74,9 +76,30 @@ check('the quote still gates, on both lanes', () => {
 // ── whose fault ──────────────────────────────────────────────────────────────────────────────────────
 const stateOf = (href: string): string => new URL(href, 'https://x').searchParams.get('state') ?? ''
 
-check('the three codes a buyer can act on go to CARD_DECLINED', () => {
+check('🔴 the three buyer-fixable codes go to CARD_UNREADABLE — NEVER to CARD_DECLINED', () => {
+  // The correction from review r1 B1. These are TOKENISATION failures: no charge was created, so no bank
+  // saw this card. CARD_DECLINED says "ธนาคารปฏิเสธการชำระเงิน", which is the sentence this ticket exists
+  // to stop — and the first version of this file asserted the wrong direction on this very line.
   for (const code of ['invalid_card', 'expired_card', 'invalid_security_code']) {
-    assert.equal(stateOf(tokenizationFailedDestination('PKG', code).href), 'CARD_DECLINED', code)
+    assert.equal(stateOf(tokenizationFailedDestination('PKG', code).href), 'CARD_UNREADABLE', code)
+  }
+})
+
+check('🔴 NO tokenisation failure can reach CARD_DECLINED, whatever the code', () => {
+  const codes = [null, '', 'invalid_card', 'expired_card', 'invalid_security_code',
+    'authentication_failure', 'service_not_found', 'anything_new']
+  for (const code of codes) {
+    assert.notEqual(stateOf(tokenizationFailedDestination('PKG', code).href), 'CARD_DECLINED', String(code))
+  }
+})
+
+check('🔴 both failure screens lead somewhere that DOES something (review r1 B3)', () => {
+  // 'same' renders "ตรวจสอบอีกครั้ง", which calls the status check — and neither of these URLs carries a
+  // charge or an order, so the check returns immediately and the button does nothing at all. Nothing was
+  // created here; there is nothing to check. The way forward is back to the checkout that failed.
+  for (const st of ['CARD_UNREADABLE', 'PAYMENT_SETUP_BROKEN'] as const) {
+    assert.notEqual(RESULT_COPY[st].retry, 'same', `${st}: a check button with nothing to check`)
+    assert.notEqual(RESULT_COPY[st].retry, 'none', `${st}: a dead end with no way forward`)
   }
 })
 
@@ -105,12 +128,14 @@ check('the package code still rides along, so the result screen can offer the wa
 })
 
 // ── the words ────────────────────────────────────────────────────────────────────────────────────────
-check('the our-side screen does not mention the bank or the card, and says no money moved', () => {
-  const c = RESULT_COPY.PAYMENT_SETUP_BROKEN
-  assert.equal(c.paid, false)
-  assert.ok(!c.title.includes('ธนาคาร'), `title blames the bank: ${c.title}`)
-  assert.ok(!c.body.includes('ธนาคาร'), `body blames the bank: ${c.body}`)
-  assert.ok(c.body.includes('ยังไม่มีการตัดเงิน'), `must say no money moved: ${c.body}`)
+check('🔴 neither tokenisation screen mentions the bank, and both say no money moved', () => {
+  for (const st of ['CARD_UNREADABLE', 'PAYMENT_SETUP_BROKEN'] as const) {
+    const c = RESULT_COPY[st]
+    assert.equal(c.paid, false, st)
+    assert.ok(!c.title.includes('ธนาคาร'), `${st} title blames the bank: ${c.title}`)
+    assert.ok(!c.body.includes('ธนาคาร'), `${st} body blames the bank: ${c.body}`)
+    assert.ok(c.body.includes('ยังไม่มีการตัดเงิน'), `${st} must say no money moved: ${c.body}`)
+  }
 })
 
 check('CARD_DECLINED still speaks for a real decline, and still says no money moved', () => {

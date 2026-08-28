@@ -131,8 +131,18 @@ export function payDestination(args: {
  */
 const BUYER_FIXABLE = new Set(['invalid_card', 'expired_card', 'invalid_security_code'])
 
+/**
+ * 🔴 NEITHER BUCKET IS CARD_DECLINED, AND THAT IS THE CORRECTION (ตู๋, review r1 B1).
+ *
+ * Both are TOKENISATION failures: Omise refused the card details and no charge was ever created, so no
+ * bank has seen this card. CARD_DECLINED says "ธนาคารปฏิเสธการชำระเงิน" — the exact sentence this ticket
+ * exists to stop — and the first version of this function still sent the buyer-fixable half there.
+ *
+ * CARD_DECLINED stays reachable from ONE place: a server-side REJECT on the card lane
+ * (result-state.ts, `status === 'REJECTED' && method === 'card'`), where a bank really did refuse.
+ */
 export function tokenizationFailedDestination(packageCode: string, code: string | null = null): PayDestination {
-  const state = code !== null && BUYER_FIXABLE.has(code) ? 'CARD_DECLINED' : 'PAYMENT_SETUP_BROKEN'
+  const state = code !== null && BUYER_FIXABLE.has(code) ? 'CARD_UNREADABLE' : 'PAYMENT_SETUP_BROKEN'
   return {
     kind: 'route',
     href: `/v2/shop/result?state=${state}&package_code=${encodeURIComponent(packageCode)}`,

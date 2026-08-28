@@ -21,8 +21,8 @@
 //
 // 🔑 THIS FILE IS THE AUDIT THE TICKET ASKS FOR, and it is a TABLE rather than an eyeball pass because the
 // ticket's own warning is that these lines exist nowhere in Figma: nobody will diff them against a frame,
-// so the only reader they will ever get is this one. "ครบ" becomes answerable — there are exactly twelve, and
-// here is the verdict on all twelve.
+// so the only reader they will ever get is this one. "ครบ" becomes answerable — there are exactly thirteen, and
+// here is the verdict on all thirteen.
 // #455 — a TENTH (QR_EXPIRED). The tripwire fired again and this is the deliberate act it forces: the words
 // for the row where the gateway DID tell us are written here, in the audited table, not at a call site.
 import { describe, it, expect } from 'vitest'
@@ -37,14 +37,14 @@ import {
 } from '@/features/v2-shop/result-state'
 
 const STATES: ResultState[] = [
-  'PAYING', 'APPROVED', 'CARD_DECLINED', 'PAYMENT_SETUP_BROKEN', 'OFFLINE', 'ALREADY_PAID', 'RECONCILING', 'QR_MAYBE_EXPIRED',
+  'PAYING', 'APPROVED', 'CARD_DECLINED', 'CARD_UNREADABLE', 'PAYMENT_SETUP_BROKEN', 'OFFLINE', 'ALREADY_PAID', 'RECONCILING', 'QR_MAYBE_EXPIRED',
   'QR_EXPIRED', 'PAYMENT_REVERSED', 'ALREADY_ON_THIS_TIER', 'CANNOT_DOWNGRADE',
 ]
 
-describe('#363/#423/#466/#455 the twelve states, enumerated', () => {
-  it('there are exactly twelve, and the table covers all of them', () => {
+describe('#363/#423/#466/#455 the thirteen states, enumerated', () => {
+  it('there are exactly thirteen, and the table covers all of them', () => {
     // Surface size out loud: the assertions below iterate this list, so a shrunken list would quietly pass.
-    expect(STATES).toHaveLength(12)
+    expect(STATES).toHaveLength(13)
     expect(Object.keys(RESULT_COPY).sort()).toEqual([...STATES].sort())
   })
 

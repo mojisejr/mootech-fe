@@ -18,6 +18,7 @@ import { CardForm, type CardState } from '@/features/v2-shop/components/CardForm
 import { useCheckout } from '@/features/v2-shop/useCheckout'
 import { createCardToken, OmiseTokenError } from '@/features/v2-shop/omise-token'
 import { validateCard } from '@/features/v2-shop/card-rules'
+import { payReady } from '@/features/v2-shop/pay-ready'
 import { formatSatang } from '@/features/v2-shop/usePackagePrice'
 import { PLANS, planNameForTier } from '@/features/v2-shop/packages'
 import { payDestination, tokenizationFailedDestination, type PayBody, type PayLane } from '@/features/v2-shop/pay-destination'
@@ -104,8 +105,12 @@ export default function V2CheckoutPage({ teamPreview }: { teamPreview: boolean }
   // so "a" in every field could press Pay. The form no longer computes this for itself; it is handed the
   // result below, so the button and the red borders can never disagree about the same card.
   // `now` lives here and only here — see the CardForm props for why it is not a defaulted prop there.
+  //
+  // 🔴 `payReady` is IMPORTED, not written out here (ตู๋, review r1 B2). The first version inlined this
+  // condition and the test inlined its own copy, so deleting the rule from this page kept every lane
+  // green. Sharing the function makes that deletion a compile error instead of a silent pass.
   const validation = validateCard(card, now)
-  const ready = !!co.quote && !co.loading && (method === 'promptpay' || validation.ok)
+  const ready = payReady({ hasQuote: !!co.quote, loading: co.loading, method, card, now })
 
   return (
     <div className="relative min-h-screen w-full overflow-x-hidden bg-v3-bg-cream font-ibm">

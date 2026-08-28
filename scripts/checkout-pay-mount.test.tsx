@@ -24,6 +24,14 @@
 //   MP2  flip `if (!dest.keepPaying) setPaying(false)`             → the button-stays-locked test reddens
 //   MP3  drop the refusal branch inside payDestination             → the 409 test reddens
 //   MP4  send a refusal through the router as an external URL      → the 3-D Secure test reddens
+//   MP5  drop payReady from `ready` in checkout.tsx (#492)          → the card-gate tests redden
+//
+// 🔴 MP5 EXISTS BECAUSE THE FOURTH VERSION OF THAT GUARD FAILED THE SAME WAY AS THE FIRST THREE (#492).
+// mootech-fe#492 first asserted the rule inside its own unit file, which RE-IMPLEMENTED `ready`; ตู๋
+// deleted the real condition from the page and 1012 tests stayed green. Extracting payReady() into a
+// shared module fixed the DUPLICATION but not the TEETH: the page can simply stop calling the shared
+// function, and nothing here noticed until the button itself was asserted. Only mounting the page and
+// looking at the button can tell "the rule exists" apart from "the page uses it".
 import React from 'react'
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, cleanup, waitFor, fireEvent } from '@testing-library/react'
@@ -89,6 +97,52 @@ async function arriveOnPromptPay() {
 
 beforeEach(() => { push.mockClear() })
 afterEach(() => { cleanup(); vi.unstubAllGlobals() })
+
+/** Fill the card fields by typing, exactly as a buyer does — the form filters keystrokes. */
+function typeCard(v: { name: string; number: string; expiry: string; cvc: string }) {
+  fireEvent.change(screen.getByTestId('card-name'), { target: { value: v.name } })
+  fireEvent.change(screen.getByTestId('card-number'), { target: { value: v.number } })
+  fireEvent.change(screen.getByTestId('card-expiry'), { target: { value: v.expiry } })
+  fireEvent.change(screen.getByTestId('card-cvc'), { target: { value: v.cvc } })
+}
+
+async function arriveOnCard() {
+  render(
+    <CookiesProvider>
+      <CheckoutPage teamPreview={false} />
+    </CookiesProvider>,
+  )
+  await screen.findByTestId('checkout-pay')
+  // the quote must land first, or `ready` is false for a reason that has nothing to do with the card
+  await waitFor(() => expect(screen.queryByTestId('card-form')).not.toBeNull())
+}
+
+const payBtn = () => screen.getByTestId('checkout-pay') as HTMLButtonElement
+
+describe('#492 MP5 — ปุ่มจ่ายต้องกดไม่ได้ตอนบัตรยังไม่ถูกต้อง', () => {
+  it('🔴 กรอก "a" ทุกช่องแล้วปุ่มจ่ายยังกดไม่ได้ — สถานะที่กดได้ก่อนใบนี้', async () => {
+    vi.stubGlobal('fetch', serve({ status: 200, body: {} }))
+    await arriveOnCard()
+    typeCard({ name: 'a', number: 'a', expiry: 'a', cvc: 'a' })
+    await waitFor(() => expect(payBtn().disabled).toBe(true))
+  })
+
+  it('🔴 เลขบัตรผิดหนึ่งหลัก (Luhn ไม่ผ่าน) ปุ่มยังกดไม่ได้ — ทุกช่องไม่ว่างครบ', async () => {
+    // Every box is non-empty, so the OLD gate would have opened. Only a real check closes this one.
+    vi.stubGlobal('fetch', serve({ status: 200, body: {} }))
+    await arriveOnCard()
+    typeCard({ name: 'David Watson', number: '4242424242424243', expiry: '04/2027', cvc: '123' })
+    await waitFor(() => expect(payBtn().disabled).toBe(true))
+  })
+
+  it('บัตรที่ถูกต้อง ปุ่มกดได้ — ไม่งั้นเทสต์สองข้อบนผ่านได้ด้วยปุ่มที่ตายตลอดกาล', async () => {
+    // The control. Without it, a button hard-wired to disabled would satisfy everything above.
+    vi.stubGlobal('fetch', serve({ status: 200, body: {} }))
+    await arriveOnCard()
+    typeCard({ name: 'David Watson', number: '4242424242424242', expiry: '04/2027', cvc: '123' })
+    await waitFor(() => expect(payBtn().disabled).toBe(false))
+  })
+})
 
 describe('#466 กดจ่ายตอนที่เป็นสมาชิกอยู่แล้ว — จอต้องไม่โทษธนาคาร', () => {
   it('🔴 MP1/MP3 — 409 ALREADY_ON_THIS_TIER พาไปจอ "คุณเป็นสมาชิกอยู่แล้ว" ❌ ไม่ใช่ CARD_DECLINED', async () => {
