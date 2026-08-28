@@ -633,8 +633,34 @@ export async function settleAndProvision(
     // Collapsed, the most common case in the product — a FIRST-TIME buyer whose money is returned — fell
     // into the ignorance branch and kept their entitlement, which is the sentence this ticket opens with.
     // The column is plain text with no CHECK, so '' costs no migration. It is unambiguous because nothing
-    // has ever written this column on any environment: 0012 shipped the column, this line ships the first
-    // writer, so NULL means exactly "settled before this code did" and nothing else.
+    // had ever written this column in PRODUCTION when this line shipped: 0012 shipped the column, this line
+    // ships the first writer, so NULL means exactly "settled before this code did" and nothing else.
+    //
+    // 🔴 THE RECEIPT IS PINNED HERE BECAUSE IT CANNOT BE RE-FIRED (too, on mootech-fe#484). The measurement
+    // below stops being reproducible the moment the first reversal settles — after that a non-NULL value
+    // is this writer working correctly, and "nothing has ever written it" can never be established again.
+    // Read-only queries against prod, inside BEGIN TRANSACTION READ ONLY, at main = f928481 (the merge
+    // commit of mootech-fe#487). Bound to the COMMIT, not to a date: main moves several times an hour.
+    //
+    //   prev_member_expire_at | text | is_nullable YES | no default    ← matches 0012 exactly
+    //   count(*) where prev_member_expire_at is not null   = 0         ← the claim above, measured
+    //   count(*) where status='APPROVED' and it is null    = 2         ← every APPROVED row there is
+    //   whole table: APPROVED 2, REJECT 3
+    //
+    // The last two numbers constrain each other: 2 = all of APPROVED, so no approved row was skipped by
+    // the first count. A single number could have been a filter typo; two that must agree cannot.
+    //
+    // 🔴 THE EARLIER WORDING SAID "on any environment" AND THAT WAS WRONG IN BOTH DIRECTIONS — too caught
+    // the gap between what the sentence claimed and what anyone had actually looked at:
+    //   prod     measured, above.
+    //   dev      CANNOT be measured — the jgxsj project was retired 2026-06-19 and the pooler now answers
+    //            `FATAL: (ENOTFOUND) tenant/user ... not found`. An unmeasurable environment is not a
+    //            clean one.
+    //   testenv  measured: column present, 0 rows, 0 rows total — but scripts/reversal-revoke-db.test.ts
+    //            writes this column on every run and cleans up after itself, so "nothing has ever written
+    //            it" is plainly FALSE there. It does not matter (testenv data is disposable), which is
+    //            exactly why the sentence must say PRODUCTION rather than sweep it in.
+    // ⇒ the claim a reader relies on is about production rows, and it now says so.
     await tx
       .update(v2Payment)
       .set({ prevMemberExpireAt: existing?.expireAt ?? NO_SHADOW })
