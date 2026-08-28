@@ -1,0 +1,24 @@
+-- 0013 · v2_payment.prev_member_expire_at: the column COMMENT contradicts the producer (mootech-fe#498)
+-- HAND-AUTHORED per the DRIZZLE WORKFLOW CONTRACT (schema.ts header): reviewed, applied BY HAND.
+-- NEVER run blind / via drizzle push.
+--
+-- 🔴 WHY A NEW FILE INSTEAD OF EDITING 0012. 0012 has already run against prod. Rewriting its SQL would
+-- make the file describe a statement nobody ever executed, and the whole reason this ticket exists is that
+-- what shipped and what the text says had drifted apart. A migration file is a record of what ran.
+--
+-- WHAT CHANGED UNDER IT. mootech-fe#487 moved the producer from writing NULL to writing '' when the buyer
+-- had no member_payment row at settle time (too, PROBE-C on 9203a56):
+--
+--   lib/payment/repo.ts:32    export const NO_SHADOW = ''
+--   lib/payment/repo.ts:640   .set({ prevMemberExpireAt: existing?.expireAt ?? NO_SHADOW })
+--
+-- Collapsing those two into NULL is what let a FIRST-TIME buyer keep their entitlement after a refund —
+-- "we measured that there was nothing" and "nobody ever wrote this column" need opposite handling on a
+-- reversal, and only the second one may be handed to a human.
+--
+-- 🔴 THE COMMENT IS A DEPLOYED ARTIFACT, NOT A CODE COMMENT. 0012 carried its text into prod's catalog, so
+-- anyone inspecting the column on prod reads it. Editing a .sql file in this repo does not change
+-- pg_description — this statement has to be RUN, or the fix is a fix in name only. That is the same class
+-- as everything else this ticket family found: what shipped is not what was reviewed.
+
+COMMENT ON COLUMN v2_payment.prev_member_expire_at IS 'member_payment.expire_at as it stood immediately BEFORE this payment settled, verbatim YYYY-MM-DD. Restored on reversal. '''' = MEASURED: the buyer had no member_payment row at settle. NULL = this payment settled before #487 shipped the writer, so the value is unknown — never "no entitlement". #484 #487 #498';

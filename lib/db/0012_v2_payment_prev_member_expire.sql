@@ -23,6 +23,13 @@
 -- NULL means "we do not know": either the row predates this migration, or the user had no shadow row at
 -- settle time. NULL is NEVER "the user had no entitlement" — a reversal on a NULL row must hand the
 -- member_payment side to a human and MUST NOT guess a value over it.
+--
+-- 🔴 THE THREE LINES ABOVE STOPPED BEING TRUE ON 2026-08-27 — see 0013 (mootech-fe#498). They are kept
+-- verbatim because this file records what ran, not what is currently true. mootech-fe#487 made the
+-- producer write '' (not NULL) when the buyer had no shadow row, so "or the user had no shadow row at
+-- settle time" is now false, and "a reversal on a NULL row must hand it to a human" is the behaviour
+-- that #487 removed — it was letting refunded first-time buyers keep their entitlement.
+-- The COMMENT below shipped that same wording into prod's catalog; 0013 replaces it there.
 
 ALTER TABLE v2_payment ADD COLUMN IF NOT EXISTS prev_member_expire_at text;
 
