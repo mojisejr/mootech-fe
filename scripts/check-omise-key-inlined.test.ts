@@ -27,13 +27,17 @@ assert.ok(existsSync(GATE), `${GATE} must exist`)
 // A key long enough to clear the >=12-char guard, and short enough to read in a failure message.
 const PRESENT_KEY = 'pkey_test_INBUNDLE_0123456789'
 const ABSENT_KEY = 'pkey_test_NOTINBUNDLE_9876543'
+// mootech-fe#435: a key with whitespace INSIDE it, planted in the bundle exactly as the bundler would
+// inline it. The gate used to grep for its OWN trimmed spelling, which appears nowhere, and reddened
+// claiming the source was unbundlable — a different bug, reported for a build where it is not happening.
+const SPACED_KEY = 'pkey_test_SPACED 0123456789'
 
 const dir = mkdtempSync(join(tmpdir(), 'omise-gate-'))
 const staticDir = join(dir, 'static')
 writeFileSync(join(dir, 'placeholder'), '')
 execFileSync('mkdir', ['-p', staticDir])
 // The bundle contains PRESENT_KEY and not ABSENT_KEY — that is what lets one case pass and one redden.
-writeFileSync(join(staticDir, 'chunk.js'), `var k="${PRESENT_KEY}";\n`)
+writeFileSync(join(staticDir, 'chunk.js'), `var k="${PRESENT_KEY}";\nvar s="${SPACED_KEY}";\n`)
 
 /**
  * Run the gate with a FULLY CONTROLLED environment.
@@ -80,10 +84,41 @@ const cases: Case[] = [
   { name: 'VERCEL_ENV=development without VERCEL, no key → RED', env: { VERCEL_ENV: 'development' }, rc: 1 },
   {
     // Whitespace is somebody's mistake, not an absence. It must fall through the skip, not be swallowed.
-    // (The MESSAGE it prints is still wrong — that is mootech-fe#435, deliberately not fixed here.)
-    name: 'local build, key is whitespace → RED, not skipped',
+    // mootech-fe#435: it must also SAY which of the two it is. "Nobody set it" and "somebody set it and
+    // it came out blank" need opposite actions, and this used to print the sentence for the other one.
+    name: 'local build, key is whitespace → RED naming the RIGHT cause',
     env: { NEXT_PUBLIC_OMISE_KEY_V2: '   ' },
     rc: 1,
+    expect: /SET at build time but contains nothing except whitespace/,
+  },
+  {
+    name: 'preview + key is whitespace → RED naming the RIGHT cause (does not skip, does not say "not set")',
+    env: { VERCEL: '1', VERCEL_ENV: 'preview', NEXT_PUBLIC_OMISE_KEY_V2: ' ' },
+    rc: 1,
+    expect: /SET at build time but contains nothing except whitespace/,
+  },
+  {
+    name: 'production + key is whitespace → RED naming the RIGHT cause',
+    env: { VERCEL: '1', VERCEL_ENV: 'production', NEXT_PUBLIC_OMISE_KEY_V2: ' ' },
+    rc: 1,
+    expect: /SET at build time but contains nothing except whitespace/,
+  },
+  {
+    // 🔴 mootech-fe#435, the second half: the value SEARCHED FOR must be the value the bundler inlined.
+    // Before the fix this reddened with "VALUE is absent" — the gate was looking for a string it had
+    // trimmed itself, which is in no bundle anywhere.
+    name: 'key contains a space and the bundle holds it verbatim → GREEN',
+    env: { NEXT_PUBLIC_OMISE_KEY_V2: SPACED_KEY },
+    rc: 0,
+    expect: /reached the client bundle/,
+  },
+  {
+    // The negative twin of the row above: same shape of key, absent from the bundle, must still redden.
+    // Without it, "greps the raw value" and "greps nothing at all" look identical.
+    name: 'key contains a space and is NOT in the bundle → RED',
+    env: { NEXT_PUBLIC_OMISE_KEY_V2: 'pkey_test_SPACED 9999999999' },
+    rc: 1,
+    expect: /VALUE is absent/,
   },
   {
     name: 'local build, key set but absent from bundle → RED',
@@ -115,6 +150,30 @@ for (const c of cases) {
     assert.equal(rc, c.rc, `${c.name}: expected rc=${c.rc}, got ${rc}\n${out}`)
     if (c.expect) assert.match(out, c.expect, `${c.name}: output did not match ${c.expect}\n${out}`)
     console.log(`  ✓ ${c.name}`)
+  } catch (e) {
+    failures += 1
+    console.error(`  ✗ ${(e as Error).message}`)
+  }
+}
+
+// ── CONTROL PAIR — two runs that must land on OPPOSITE verdicts, compared in this same process ──────
+// 🔴 Why a table of expected rc values is not enough: a word-splitting bug in the runner once made every
+// row return the same verdict, and a table asserting "rc=1" on mostly-red rows stayed green through it.
+// This pair differs in ONE thing (the key) and asserts the verdicts DIFFER, so a runner that has stopped
+// distinguishing anything fails here even if every row above still matches its expectation.
+{
+  const present = runGate({ NEXT_PUBLIC_OMISE_KEY_V2: PRESENT_KEY })
+  const absent = runGate({ NEXT_PUBLIC_OMISE_KEY_V2: ABSENT_KEY })
+  try {
+    assert.notEqual(
+      present.rc,
+      absent.rc,
+      `control pair collapsed: both runs returned rc=${present.rc}. The harness is no longer telling the ` +
+        `two apart, so every verdict above is suspect.\n--- present ---\n${present.out}\n--- absent ---\n${absent.out}`,
+    )
+    assert.equal(present.rc, 0, 'control: the key that IS in the bundle must be green')
+    assert.equal(absent.rc, 1, 'control: the key that is NOT in the bundle must be red')
+    console.log('  ✓ control pair: same harness, one green and one red')
   } catch (e) {
     failures += 1
     console.error(`  ✗ ${(e as Error).message}`)
