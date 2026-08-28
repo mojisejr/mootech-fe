@@ -94,8 +94,22 @@ export function payDestination(args: {
     }
   }
 
+  // ── 🔴 OUR OWN ENDPOINT FAILED. NOT THE BANK. (ตู๋, review r2 of 1d7b2c3) ─────────────────────────
+  // This branch fires on any non-2xx from /api/v2/payment/charge that carried no recognised refusal: a
+  // 500, a 400, a 401, a 409 for an expired quote. It said "ธนาคารปฏิเสธการชำระเงิน" for every one of
+  // them.
+  //
+  // 🔑 AND A REAL DECLINE NEVER COMES THROUGH HERE. lib/payment/charge-flow.ts:192 answers **200** with
+  // `status: 'REJECT'` when Omise refuses, and that surfaces later through /payment/status, where
+  // result-state.ts turns `status === 'REJECTED' && method === 'card'` into CARD_DECLINED. So the branch
+  // that names the bank was the ONE branch a bank could not reach — it fired only when we broke.
+  //
+  // That inversion is the same bug this ticket opened for, at a different line, and it was reachable
+  // before #492 touched anything. Fixed here rather than left for a follow-up: shipping a change called
+  // "stop blaming the buyer" while its widest entrance kept doing exactly that would be the claim being
+  // louder than the mechanism.
   if (!ok || !body.chargeId) {
-    return { kind: 'route', href: `/v2/shop/result?state=CARD_DECLINED&package_code=${pkg}`, keepPaying: false }
+    return { kind: 'route', href: `/v2/shop/result?state=PAYMENT_SETUP_BROKEN&package_code=${pkg}`, keepPaying: false }
   }
 
   // ── 3. #439 — the bank wants to see the cardholder first. Not our router: not our destination. ─────
@@ -140,6 +154,8 @@ const BUYER_FIXABLE = new Set(['invalid_card', 'expired_card', 'invalid_security
  *
  * CARD_DECLINED stays reachable from ONE place: a server-side REJECT on the card lane
  * (result-state.ts, `status === 'REJECTED' && method === 'card'`), where a bank really did refuse.
+ * Verified in review r2 — the `!ok` branch below used to be a second entrance, and it was the one a
+ * bank could never reach.
  */
 export function tokenizationFailedDestination(packageCode: string, code: string | null = null): PayDestination {
   const state = code !== null && BUYER_FIXABLE.has(code) ? 'CARD_UNREADABLE' : 'PAYMENT_SETUP_BROKEN'

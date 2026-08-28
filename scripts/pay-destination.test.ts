@@ -65,18 +65,29 @@ describe('#466 the refusal is decided FIRST — the order is the rule', () => {
     expect(new URLSearchParams(down.href.split('?')[1]).get('plan')).toBe('Mumate Pro')
   })
 
-  it('🔴 a 409 that is NOT a refusal keeps the old failure screens — the other 409s carry no purchaseError', () => {
+  it('🔴 a 409 that is NOT a refusal is OUR failure, not the bank — #492 r2', () => {
     // charge-flow answers 409 for a quote that expired and for a price that moved. Those are a different
-    // screen, and they must not be dressed up as "you already own this".
-    expect(state(payDestination({ ...base, lane: 'card', status: 409, ok: false, body: {} }).href)).toBe('CARD_DECLINED')
-    expect(state(payDestination({ ...base, lane: 'card', status: 409, ok: false, body: { purchaseError: 'QUOTE_REQUIRED' } }).href)).toBe('CARD_DECLINED')
+    // screen, and they must not be dressed up as "you already own this" — NOR as "the bank refused",
+    // which is what this branch said until review r2. A real Omise decline answers 200 with
+    // status REJECT (charge-flow.ts:192), so it never arrives here at all.
+    expect(state(payDestination({ ...base, lane: 'card', status: 409, ok: false, body: {} }).href)).toBe('PAYMENT_SETUP_BROKEN')
+    expect(state(payDestination({ ...base, lane: 'card', status: 409, ok: false, body: { purchaseError: 'QUOTE_REQUIRED' } }).href)).toBe('PAYMENT_SETUP_BROKEN')
     // and a refusal-shaped string on a non-409 answer proves nothing — never take the client's word for it
-    expect(state(payDestination({ ...base, lane: 'card', status: 500, ok: false, body: { purchaseError: 'ALREADY_ON_THIS_TIER' } }).href)).toBe('CARD_DECLINED')
+    expect(state(payDestination({ ...base, lane: 'card', status: 500, ok: false, body: { purchaseError: 'ALREADY_ON_THIS_TIER' } }).href)).toBe('PAYMENT_SETUP_BROKEN')
+  })
+
+  it('🔴 NOTHING the card lane can answer reaches CARD_DECLINED — a bank cannot get here', () => {
+    // The class, pinned. CARD_DECLINED must be unreachable from payDestination entirely: the only honest
+    // source is /payment/status reporting REJECTED, which this function never sees.
+    for (const status of [400, 401, 403, 404, 409, 429, 500, 502, 503]) {
+      const d = payDestination({ ...base, lane: 'card', status, ok: false, body: {} })
+      expect(state(d.href), `HTTP ${status}`).not.toBe('CARD_DECLINED')
+    }
   })
 
   it('an unknown purchaseError never reaches the URL — result.tsx would park the reader on a spinner', () => {
     const d = payDestination({ ...base, lane: 'card', status: 409, ok: false, body: { purchaseError: 'SOMETHING_NEW' } })
-    expect(state(d.href)).toBe('CARD_DECLINED')
+    expect(state(d.href)).toBe('PAYMENT_SETUP_BROKEN')
     expect(d.href).not.toContain('SOMETHING_NEW')
   })
 })
@@ -91,9 +102,11 @@ describe('#466 the two lanes fail in their own words', () => {
     }
   })
 
-  it('the card lane keeps CARD_DECLINED and carries the package back for a retry', () => {
+  it('a 200 with no chargeId is OURS too — success with a malformed body is still our failure (#492 r2)', () => {
+    // ok:true and nothing to poll. Our endpoint said yes and handed back nothing; the bank is not
+    // involved in that sentence either.
     const d = payDestination({ ...base, lane: 'card', status: 200, ok: true, body: {} })
-    expect(state(d.href)).toBe('CARD_DECLINED')
+    expect(state(d.href)).toBe('PAYMENT_SETUP_BROKEN')
     expect(d.href).toContain('package_code=V2_PLUS_YEARLY')
   })
 })
