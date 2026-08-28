@@ -118,11 +118,15 @@ export function CardForm({
 
   const blur = (k: CardField) => () => setTouched((t) => ({ ...t, [k]: true }))
 
+  // The checkout frame asks for border-checkout #D1D5DB, not the app-wide border-input #E5E7EB.
+  // Measured from Figma 402:21464 on three fields, and from the rendered route (mootech-fe#502).
+  const TONE = 'checkout' as const
+
   const field = (k: CardField) => {
     const reason = reasonFor(k)
     // The CVC length is the brand's, so the sentence carries the number rather than describing it.
     const words = reason ? SAYS[reason].replace('N', String(cvcLengthFor(brand))) : undefined
-    return { error: reason != null, helper: words, onBlur: blur(k) }
+    return { error: reason != null, helper: words, onBlur: blur(k), tone: TONE }
   }
 
   return (

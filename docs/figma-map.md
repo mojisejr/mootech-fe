@@ -10,11 +10,19 @@
 
 | | |
 |---|---|
-| File | **Mumate app - V3 (Copy)** — working copy ที่ duplicate มาไว้ใน team `HomemadFarm` (ฟีมเป็นเจ้าของ) |
-| fileKey | `hEOnE9S6wLkMhb0Iy2Fe6T` |
-| Link | `https://www.figma.com/design/hEOnE9S6wLkMhb0Iy2Fe6T/Mumate-app-V3--Copy-` |
-| เข้าถึงผ่าน | Figma MCP (remote connector) — account ฟีม (`Nonthasak`), **Dev seat / Pro** บน `HomemadFarm` |
+| File | **Mumate app V3** — ไฟล์ที่ใช้จริง อยู่ใน team `mootech co's team` |
+| fileKey | `g2tyfcBQNU7CNlHBxQr3PL` |
+| Link | `https://www.figma.com/design/g2tyfcBQNU7CNlHBxQr3PL/Mumate-app-V3` |
+| เข้าถึงผ่าน | Figma MCP (remote connector) — account `mootech co` (mootech.co@gmail.com), **Full seat / Pro** |
+| 🔴 ตัวเก่า อย่าใช้ | `hEOnE9S6wLkMhb0Iy2Fe6T` "Mumate app - V3 (Copy)" — duplicate ตัวแรก อยู่ team `HomemadFarm` ซึ่ง connector ปัจจุบันเข้าไม่ได้ **และไม่จำเป็นต้องเข้า** |
 | ต้นฉบับ | ไฟล์เดิมของ o (`i4CykBp2JNHXg0lmDUYzrQ`) — final แล้ว o ไม่แก้ต่อ จึง dup มาทำงาน (node-id ตรงกันทุกตัว) |
+
+🔴 **แก้ 2026-08-28 (`mootech-fe#502`) — ตารางข้างบนเคยชี้ไฟล์ผิดมาหลายสัปดาห์**
+จอแอปทั้งหมดอยู่ใน `g2tyfcBQNU7CNlHBxQr3PL` ซึ่งเปิดได้ปกติมาตลอด ที่หลงกันเพราะ
+`get_metadata` แบบไม่ระบุ nodeId คืน page มาแค่ `Cover` ⇒ สองร่างสรุปว่า "ไฟล์นี้ไม่มีจอแอป"
+แล้วเขียนลง memory คนละไฟล์ จนกลายเป็นหลักฐานที่อ้างอิงกันเอง
+⇒ **ห้ามสรุปเนื้อหาไฟล์จากรายการ page** ให้ยิง node id ที่รู้จักตรง ๆ เช่น `402:21464` = จอ checkout
+   node-id ข้ามสำเนาได้ ⇒ id ในตารางข้างล่างใช้ probe กับไฟล์ไหนก็ได้
 
 **หมายเหตุการเข้าถึง:**
 - Figma seat ผูกกับ **team** ไม่ใช่ account — ต้องให้ไฟล์อยู่ใน team ที่ฟีมมี Dev seat (`HomemadFarm`) ถึงจะได้ quota เต็ม. ต้นฉบับของ o อยู่ team ที่ฟีมมีแค่ View seat → rate-limit เร็ว จึง dup มา.

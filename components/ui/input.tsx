@@ -14,11 +14,22 @@ export type InputProps = Omit<InputHTMLAttributes<HTMLInputElement>, 'size'> & {
   trailingIcon?: ReactNode
   /** Class on the outer pill container (border/bg live here so focus-within works with a trailing icon). */
   containerClassName?: string
+  /**
+   * Which resting border the pill wears. `default` is `border-input` #E5E7EB, the app-wide value.
+   * `checkout` is `border-checkout` #D1D5DB, which the Figma checkout frame asks for (mootech-fe#502).
+   *
+   * 🔴 This is a PROP rather than a class passed through `containerClassName`, and the reason is
+   * mechanical: `cn` is a plain concatenator (see its own header — clsx/tailwind-merge are not
+   * dependencies here), so appending `border-v3-border-checkout` would leave BOTH border-colour
+   * utilities on the element and let the winner be decided by Tailwind's emit order in the
+   * stylesheet, not by the order we wrote them. Swapping the class is order-independent.
+   */
+  tone?: 'default' | 'checkout'
 }
 
 // Bare pill control — the border/focus/error styling lives on a container so a trailing
 // icon can sit inside the same pill and focus-within can light the whole field.
-export function Input({ error, trailingIcon, containerClassName, className, disabled, ...rest }: InputProps) {
+export function Input({ error, trailingIcon, containerClassName, className, disabled, tone = 'default', ...rest }: InputProps) {
   return (
     <div
       className={cn(
@@ -26,7 +37,9 @@ export function Input({ error, trailingIcon, containerClassName, className, disa
         // default/hover 1px → focus 2px #3475E2. error overrides to 2px #E73E3E.
         error
           ? 'border-2 border-v3-error'
-          : 'border border-v3-border-input focus-within:border-2 focus-within:border-v3-focus-border',
+          : tone === 'checkout'
+            ? 'border border-v3-border-checkout focus-within:border-2 focus-within:border-v3-focus-border'
+            : 'border border-v3-border-input focus-within:border-2 focus-within:border-v3-focus-border',
         disabled && 'opacity-50',
         containerClassName,
       )}
