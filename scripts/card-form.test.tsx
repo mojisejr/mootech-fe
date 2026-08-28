@@ -179,3 +179,25 @@ describe('#491 · one CardState, not two', () => {
     expect(typeof rules.validateCard).toBe('function')
   })
 })
+
+describe('#502 · the checkout border matches its own frame, not the app-wide one', () => {
+  // 🔴 WHAT THIS DOES AND DOES NOT PROVE. The FRAME question — which colour Figma asks for — was
+  // settled by pixels: Figma 402:21464 samples #D1D5DB on three fields, and the rendered route now
+  // samples #D3D6DC where it used to sample #E6E8EB (both antialiased one step off their token).
+  // Images are in harness/pixel-proof/502-*. This test is only the REGRESSION tooth: it catches
+  // someone flipping the field back to the app-wide border. A class assertion cannot tell you what
+  // the frame wants, and it is not offered as if it could.
+  it('the card fields carry the checkout border, not border-input', () => {
+    render(<Harness />)
+    const pill = number().closest('div')!
+    expect(pill.className).toContain('border-v3-border-checkout')
+    expect(pill.className).not.toContain('border-v3-border-input')
+  })
+
+  it('the tone is a swapped class, never both — cn concatenates and would leave the winner to CSS order', () => {
+    render(<Harness />)
+    const cls = number().closest('div')!.className
+    const both = cls.includes('border-v3-border-checkout') && cls.includes('border-v3-border-input')
+    expect(both).toBe(false)
+  })
+})
