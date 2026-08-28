@@ -61,6 +61,7 @@ export default defineConfig({
     // Same shape as the merge-conflict rule already written into design-verify.yml. Debt #212 is
     // that this list and ci.yml's skip list are two hand-synced copies of the same fact.
     include: [
+      'scripts/v2-entitlement.test.ts', // #358 — teeth on the v2 entitlement table (count vs span shapes)
       'scripts/card-form.test.tsx', // #491 — teeth on 'a buyer cannot type nonsense into the card fields'
       'scripts/omise-dynamic-webhook.test.ts', // #374 — teeth on 'every v2 charge carries its own webhook endpoint'
       'scripts/public-env-inlinable.test.ts', // #432 — a NEXT_PUBLIC_ read through an alias ships as undefined
