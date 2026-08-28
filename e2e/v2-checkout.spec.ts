@@ -3,8 +3,10 @@
 // Run:  E2E_BASE_URL=http://127.0.0.1:3363 npx playwright test e2e/v2-checkout.spec.ts
 // 🔴 The dev server needs NEXT_PUBLIC_OMISE_KEY_V2 set to ANY non-empty value as well as V2_PREVIEW_KEY
 //    (#439). Without it features/v2-shop/omise-token.ts throws OmiseKeyMissingError before tokenising and
-//    the card tests land on CARD_DECLINED — fail-closed, not a false green, but ตู๋ lost a run to it
+//    the card tests land on PAYMENT_SETUP_BROKEN — fail-closed, not a false green, but ตู๋ lost a run to it
 //    following these instructions, so it is written down here rather than learned twice.
+//    🔴 It said CARD_DECLINED until #492. A missing key is OUR failure and no longer wears the bank's
+//    words — and an instruction that names the wrong screen is exactly what cost that run the first time.
 // Needs a dev server with V2_PREVIEW_KEY set — without it the middleware REWRITES every /v2/* request to
 // /maintenance AND STILL ANSWERS 200, so a status check proves nothing. Every test asserts it is on the real
 // screen before measuring.
@@ -194,7 +196,8 @@ test.describe("#439 the cardholder reaches their bank", () => {
     // 🔴 SERVE our own omise.js instead of the CDN's. addInitScript alone is not enough: _document.tsx:19
     // loads https://cdn.omise.co/omise.js with strategy beforeInteractive, and the real script overwrites
     // window.Omise — which then tries to tokenise for real against a fake public key, fails, and the page
-    // lands on CARD_DECLINED. Intercepting the script URL is the only way the stub survives.
+    // lands on PAYMENT_SETUP_BROKEN (CARD_DECLINED until #492: a fake key is our problem, not the bank's).
+    // Intercepting the script URL is the only way the stub survives.
     await page.route("**/cdn.omise.co/omise.js", (r) =>
       r.fulfill({
         contentType: "application/javascript",

@@ -129,11 +129,15 @@ export function payDestination(args: {
  * request was ever made. Folding it into a function whose arguments are `status` and `ok` would mean
  * inventing values for both, and an invented 402 is exactly the kind of half-true that this ticket is about.
  *
- * 🔴 CARD_DECLINED is the RIGHT screen here and the words still hold — "ยังไม่มีการตัดเงินจากบัตรใบนี้" is
- * true, and the bank genuinely is the next thing to try a different card against. What was wrong in #466
- * was using this screen for a case where the bank was never involved AND the user owns the plan already.
- * (Whether the copy should distinguish "we could not read your card" from "the bank said no" is
- * mootech-fe#447's question, not this one.)
+ * 🔴 THIS PARAGRAPH USED TO SAY CARD_DECLINED WAS THE RIGHT SCREEN HERE. It is not, and #492 answered
+ * the question it deferred (ตู๋ flagged this line in two consecutive reviews — the second time because
+ * the first fix moved the code and left the sentence).
+ *
+ * No charge exists when tokenisation fails, so no bank has seen this card, so no screen reached from here
+ * may name one. The split is by whose fault it is: three codes the buyer can retype → CARD_UNREADABLE;
+ * everything else, including a code we do not recognise → PAYMENT_SETUP_BROKEN. What #466 got wrong was
+ * narrower than what was wrong here — it used this screen for a case where the user already owned the
+ * plan; the bank was never involved in ANY case reaching this function.
  */
 /**
  * Omise's codes for "we read the card and it is not usable". The buyer can fix these.
