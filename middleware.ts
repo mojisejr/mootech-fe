@@ -162,16 +162,32 @@ function isPaymentLane(pathname: string): boolean {
   return PAYMENT_LANE_PREFIXES.some((p) => pathname === p || pathname.startsWith(`${p}/`));
 }
 
+// 🔴 Every entry below was found by LOADING THE PAGE IN CHROMIUM under the policy, not by reading the
+// source. Two of them are invisible from the served HTML and the first draft of this list missed both:
+// the Google Fonts stylesheets are `@import`s inside styles/globals.css:1-6, and Next's dev server
+// evaluates strings for HMR. Reading the markup would never have shown either.
+//
+// 'unsafe-eval' is DEVELOPMENT ONLY. A production build does not need it — measured on `npm run build`
+// + `next start`: no eval violation appears, only the two below. Keeping it out of production is the
+// whole point, so it is keyed on NODE_ENV === 'development' and never on "not production", which would
+// hand it to the test environment as well and let a spec pass on a policy prod never sees.
+const isDev = process.env.NODE_ENV === 'development';
+
 const PAYMENT_LANE_CSP = [
   "default-src 'self'",
   // cdn.omise.co serves omise.js (pages/_document.tsx:19), which tokenises the card in the browser.
-  "script-src 'self' https://cdn.omise.co",
+  // 'unsafe-eval' in dev only: `next dev` compiles modules through eval for HMR, so without it the
+  // checkout screen does not render at all locally. Production builds do not evaluate strings.
+  `script-src 'self' https://cdn.omise.co${isDev ? " 'unsafe-eval'" : ''}`,
   // api.omise.co is where the token request goes (features/v2-shop/omise-token.ts).
   "connect-src 'self' https://api.omise.co",
   // The PromptPay QR is an <Image> served straight from Omise (next.config.mjs:34, unoptimized).
   "img-src 'self' data: https://api.omise.co",
-  "style-src 'self' 'unsafe-inline'",
-  "font-src 'self' data:",
+  // fonts.googleapis.com serves the six @import-ed stylesheets in styles/globals.css:1-6, and those
+  // stylesheets in turn fetch their font files from fonts.gstatic.com. Self-hosting them would remove
+  // both origins and is worth doing — tracked as mojisejr/mootech-fe#506, not widened into this one.
+  "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+  "font-src 'self' data: https://fonts.gstatic.com",
   // No iframes at all on these screens. This is what shuts out the GTM <noscript> frame
   // (pages/_document.tsx:22-30). 3-D Secure is NOT affected: the bank is reached by a top-level
   // navigation (pages/v2/shop/checkout.tsx:88 sets window.location.href), which CSP does not police.

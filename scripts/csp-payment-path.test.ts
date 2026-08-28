@@ -118,6 +118,22 @@ describe('#493 the header still says what the decisions rest on', () => {
     expect(header()).toContain('https://api.omise.co')
   })
 
+  it('🔴 unsafe-eval is NOT in the policy outside development', () => {
+    // `next dev` needs it (it evaluates strings for HMR) and production does not — measured against a
+    // real build. vitest runs with NODE_ENV=test, so this asserts the shape production actually gets.
+    // If this ever goes green while production is broken, the condition in middleware.ts widened from
+    // "development" to "not production".
+    expect(process.env.NODE_ENV).not.toBe('development')
+    expect(header()).not.toContain('unsafe-eval')
+  })
+
+  it('the font origins the stylesheets pull in are allowed', () => {
+    // styles/globals.css:1-6 @imports six sheets from fonts.googleapis.com, which then fetch files from
+    // fonts.gstatic.com. Neither is visible in the served HTML; both were found in a browser.
+    expect(header()).toContain('https://fonts.googleapis.com')
+    expect(header()).toContain('https://fonts.gstatic.com')
+  })
+
   it('the fallback is closed, so a directive we forgot does not default to open', () => {
     expect(header()).toContain("default-src 'self'")
     expect(header()).toContain("object-src 'none'")
