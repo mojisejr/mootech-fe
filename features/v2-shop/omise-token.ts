@@ -23,11 +23,30 @@ type OmiseGlobal = {
   createToken: (
     kind: 'card',
     fields: Record<string, string>,
-    cb: (status: number, res: { id?: string; message?: string }) => void,
+    cb: (status: number, res: { id?: string; message?: string; code?: string }) => void,
   ) => void
 }
 
 export class OmiseKeyMissingError extends Error {}
+
+/**
+ * Omise's own machine-readable reason for refusing to tokenise, carried out with the Error.
+ *
+ * 🔴 IT WAS ALREADY BEING THROWN AWAY. `createToken` handed back `res.message` and nothing else, and
+ * pages/v2/shop/checkout.tsx caught it with a bare `catch {}`. So every refusal — a mistyped number, an
+ * expired card, AND our own key being wrong — arrived at the screen as the same nothing, and the screen
+ * said the BANK declined. The information needed to tell those apart existed the whole time
+ * (mootech-fe#492).
+ */
+export class OmiseTokenError extends Error {
+  /** e.g. 'invalid_card' · 'expired_card' · 'invalid_security_code' · 'authentication_failure'. */
+  readonly code: string | null
+  constructor(message: string, code: string | null) {
+    super(message)
+    this.name = 'OmiseTokenError'
+    this.code = code
+  }
+}
 
 /**
  * Resolve the v2 key. Throws LOUDLY rather than tokenizing with whatever key happens to be installed.
@@ -74,7 +93,9 @@ export async function createCardToken(fields: CardFields, omise?: OmiseGlobal): 
       },
       (status, res) => {
         if (status === 200 && res.id) resolve(res.id)
-        else reject(new Error(res.message ?? `omise token failed (${status})`))
+        // The code is what lets the screen tell "your card" apart from "our key". Null when Omise sends
+        // none — and null must be treated as OUR fault, not the buyer's (see pay-destination.ts).
+        else reject(new OmiseTokenError(res.message ?? `omise token failed (${status})`, res.code ?? null))
       },
     )
   })

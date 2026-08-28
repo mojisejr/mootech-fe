@@ -25,8 +25,8 @@ const STATES = Object.keys(RESULT_COPY) as ResultState[]
 const all = { onRetrySame: vi.fn(), onTryAnother: vi.fn(), onDone: vi.fn() }
 
 describe('#363 the screen cannot contradict the table', () => {
-  it('🔴 the success mark appears on exactly the states where money moved — all eleven checked', () => {
-    expect(STATES).toHaveLength(11) // #455 QR_EXPIRED · #484 PAYMENT_REVERSED joined the table
+  it('🔴 the success mark appears on exactly the states where money moved — all thirteen checked', () => {
+    expect(STATES).toHaveLength(13) // #455 QR_EXPIRED · #484 PAYMENT_REVERSED · #492 CARD_UNREADABLE + PAYMENT_SETUP_BROKEN joined the table
     for (const s of STATES) {
       render(<ResultScreen state={s} {...all} />)
       const paid = RESULT_COPY[s].paid

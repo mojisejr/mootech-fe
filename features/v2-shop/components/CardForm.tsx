@@ -32,10 +32,10 @@ import {
   digitsOnly,
   formatCardNumber,
   formatExpiry,
-  validateCard,
   type CardField,
   type CardReason,
   type CardState,
+  type CardValidation,
 } from '../card-rules'
 import { CardBrandMark } from './CardBrandMark'
 
@@ -67,25 +67,40 @@ const clean = {
   name: (v: string) => v.replace(/[0-9]/g, ''),
   number: (v: string) => formatCardNumber(v),
   expiry: (v: string) => formatExpiry(digitsOnly(v)),
-  cvc: (v: string, brand = 'unknown' as const) => digitsOnly(v),
-} satisfies Record<CardField, (v: string, ...rest: never[]) => string>
+  cvc: (v: string) => digitsOnly(v),
+} satisfies Record<CardField, (v: string) => string>
 
 export function CardForm({
   value,
   onChange,
-  now = new Date(),
+  validation,
 }: {
   value: CardState
   onChange: (v: CardState) => void
-  /** Passed in so a test can sit on the boundary between this month and last. Never read from a clock here. */
-  now?: Date
+  /**
+   * 🔴 COMPUTED BY THE CALLER, AND THERE IS NO `now` PROP ON PURPOSE (mootech-fe#492, lamun's call).
+   *
+   * The previous shape took `now?: Date` defaulting to `new Date()`, with a comment one line below
+   * reading "Never read from a clock here." checkout.tsx never passed it, so this form read its own
+   * clock every render — in the file whose own comment forbade it, written the same day.
+   *
+   * A default that quietly hands out a clock IS the mechanism that allows a second one. So the fix is
+   * the type, not the warning: this form has no clock because it has no clock PARAMETER. Today proved a
+   * warning does not stop the person who wrote it, in their own file, hours later.
+   *
+   * `validateCard` therefore has exactly one call site (checkout.tsx), which removes — rather than
+   * reduces — the case where someone adds a rule in one place and not the other.
+   */
+  validation: CardValidation
 }) {
   // Errors appear when the buyer LEAVES a field, not while they are still filling it in. Marking a
   // half-typed number as wrong is technically true and useless.
   const [touched, setTouched] = useState<Partial<Record<CardField, boolean>>>({})
 
+  // detectBrand STAYS here. It is pure and clock-free, so it cannot bring back the second clock that
+  // removing `now` was about — and the form needs the brand for three things that are not validation:
+  // the CVC keystroke cap, the digit count inside the CVC message, and the brand mark (lamun, #492).
   const brand = detectBrand(value.number)
-  const validation = validateCard(value, now)
   const reasonFor = (f: CardField) => (touched[f] ? validation.fields[f] : null)
 
   const set = (k: CardField) => (e: { target: { value: string } }) => {

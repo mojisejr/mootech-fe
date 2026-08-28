@@ -94,8 +94,22 @@ export function payDestination(args: {
     }
   }
 
+  // ── 🔴 OUR OWN ENDPOINT FAILED. NOT THE BANK. (ตู๋, review r2 of 1d7b2c3) ─────────────────────────
+  // This branch fires on any non-2xx from /api/v2/payment/charge that carried no recognised refusal: a
+  // 500, a 400, a 401, a 409 for an expired quote. It said "ธนาคารปฏิเสธการชำระเงิน" for every one of
+  // them.
+  //
+  // 🔑 AND A REAL DECLINE NEVER COMES THROUGH HERE. lib/payment/charge-flow.ts:192 answers **200** with
+  // `status: 'REJECT'` when Omise refuses, and that surfaces later through /payment/status, where
+  // result-state.ts turns `status === 'REJECTED' && method === 'card'` into CARD_DECLINED. So the branch
+  // that names the bank was the ONE branch a bank could not reach — it fired only when we broke.
+  //
+  // That inversion is the same bug this ticket opened for, at a different line, and it was reachable
+  // before #492 touched anything. Fixed here rather than left for a follow-up: shipping a change called
+  // "stop blaming the buyer" while its widest entrance kept doing exactly that would be the claim being
+  // louder than the mechanism.
   if (!ok || !body.chargeId) {
-    return { kind: 'route', href: `/v2/shop/result?state=CARD_DECLINED&package_code=${pkg}`, keepPaying: false }
+    return { kind: 'route', href: `/v2/shop/result?state=PAYMENT_SETUP_BROKEN&package_code=${pkg}`, keepPaying: false }
   }
 
   // ── 3. #439 — the bank wants to see the cardholder first. Not our router: not our destination. ─────
@@ -115,16 +129,43 @@ export function payDestination(args: {
  * request was ever made. Folding it into a function whose arguments are `status` and `ok` would mean
  * inventing values for both, and an invented 402 is exactly the kind of half-true that this ticket is about.
  *
- * 🔴 CARD_DECLINED is the RIGHT screen here and the words still hold — "ยังไม่มีการตัดเงินจากบัตรใบนี้" is
- * true, and the bank genuinely is the next thing to try a different card against. What was wrong in #466
- * was using this screen for a case where the bank was never involved AND the user owns the plan already.
- * (Whether the copy should distinguish "we could not read your card" from "the bank said no" is
- * mootech-fe#447's question, not this one.)
+ * 🔴 THIS PARAGRAPH USED TO SAY CARD_DECLINED WAS THE RIGHT SCREEN HERE. It is not, and #492 answered
+ * the question it deferred (ตู๋ flagged this line in two consecutive reviews — the second time because
+ * the first fix moved the code and left the sentence).
+ *
+ * No charge exists when tokenisation fails, so no bank has seen this card, so no screen reached from here
+ * may name one. The split is by whose fault it is: three codes the buyer can retype → CARD_UNREADABLE;
+ * everything else, including a code we do not recognise → PAYMENT_SETUP_BROKEN. What #466 got wrong was
+ * narrower than what was wrong here — it used this screen for a case where the user already owned the
+ * plan; the bank was never involved in ANY case reaching this function.
  */
-export function tokenizationFailedDestination(packageCode: string): PayDestination {
+/**
+ * Omise's codes for "we read the card and it is not usable". The buyer can fix these.
+ *
+ * 🔴 THIS IS AN ALLOW-LIST, AND THAT DIRECTION IS THE POINT (mootech-fe#492). Anything NOT named here —
+ * including a null code, our key being wrong, omise.js failing to load, or a reason Omise adds next year —
+ * falls to PAYMENT_SETUP_BROKEN. Telling buyers they got it wrong when we do not know is blaming somebody
+ * without evidence, and the cost lands on them: they go and find another card for a problem we caused.
+ */
+const BUYER_FIXABLE = new Set(['invalid_card', 'expired_card', 'invalid_security_code'])
+
+/**
+ * 🔴 NEITHER BUCKET IS CARD_DECLINED, AND THAT IS THE CORRECTION (ตู๋, review r1 B1).
+ *
+ * Both are TOKENISATION failures: Omise refused the card details and no charge was ever created, so no
+ * bank has seen this card. CARD_DECLINED says "ธนาคารปฏิเสธการชำระเงิน" — the exact sentence this ticket
+ * exists to stop — and the first version of this function still sent the buyer-fixable half there.
+ *
+ * CARD_DECLINED stays reachable from ONE place: a server-side REJECT on the card lane
+ * (result-state.ts, `status === 'REJECTED' && method === 'card'`), where a bank really did refuse.
+ * Verified in review r2 — the `!ok` branch below used to be a second entrance, and it was the one a
+ * bank could never reach.
+ */
+export function tokenizationFailedDestination(packageCode: string, code: string | null = null): PayDestination {
+  const state = code !== null && BUYER_FIXABLE.has(code) ? 'CARD_UNREADABLE' : 'PAYMENT_SETUP_BROKEN'
   return {
     kind: 'route',
-    href: `/v2/shop/result?state=CARD_DECLINED&package_code=${encodeURIComponent(packageCode)}`,
+    href: `/v2/shop/result?state=${state}&package_code=${encodeURIComponent(packageCode)}`,
     keepPaying: false,
   }
 }
