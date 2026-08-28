@@ -142,6 +142,56 @@ function guardOps(req: NextRequest): NextResponse | null {
   return noStore(NextResponse.redirect(new URL('/ops', req.url)));
 }
 
+// Payment-lane Content-Security-Policy (#493).
+//
+// We keep our own card inputs (features/v2-shop/components/CardForm.tsx) instead of Omise's iframe —
+// a decision recorded in #446 — so any script that runs on these screens can read the card number out
+// of the DOM. The header below is the browser-enforced list of what those screens may load and talk to.
+//
+// SCOPE IS DELIBERATELY THE PAYMENT SCREENS ONLY, not the app. Two reasons: the rest of /v2 has never
+// been audited for what it loads, and Google Tag Manager (pages/_app.tsx:36-42) is a console through
+// which anyone with access injects JavaScript with no PR, no review and no deploy. Feem decided
+// 2026-08-28: GTM stays everywhere else and is SHUT OUT of the payment lane. That is why `script-src`
+// carries no 'unsafe-inline' — the GTM loader is an inline script, so omitting it is what blocks it.
+//
+// 'unsafe-inline' remains on style-src ONLY: React writes `style` attributes and Next ships a style
+// block, and inline CSS cannot exfiltrate a card number the way a script can.
+const PAYMENT_LANE_PREFIXES = ['/v2/shop/checkout', '/v2/shop/qrcode', '/v2/shop/result'] as const;
+
+function isPaymentLane(pathname: string): boolean {
+  return PAYMENT_LANE_PREFIXES.some((p) => pathname === p || pathname.startsWith(`${p}/`));
+}
+
+const PAYMENT_LANE_CSP = [
+  "default-src 'self'",
+  // cdn.omise.co serves omise.js (pages/_document.tsx:19), which tokenises the card in the browser.
+  "script-src 'self' https://cdn.omise.co",
+  // api.omise.co is where the token request goes (features/v2-shop/omise-token.ts).
+  "connect-src 'self' https://api.omise.co",
+  // The PromptPay QR is an <Image> served straight from Omise (next.config.mjs:34, unoptimized).
+  "img-src 'self' data: https://api.omise.co",
+  "style-src 'self' 'unsafe-inline'",
+  "font-src 'self' data:",
+  // No iframes at all on these screens. This is what shuts out the GTM <noscript> frame
+  // (pages/_document.tsx:22-30). 3-D Secure is NOT affected: the bank is reached by a top-level
+  // navigation (pages/v2/shop/checkout.tsx:88 sets window.location.href), which CSP does not police.
+  "frame-src 'none'",
+  "object-src 'none'",
+  "base-uri 'self'",
+  // Our own forms post to us. The bank hand-off is a navigation, not a form submit.
+  "form-action 'self'",
+  "frame-ancestors 'none'",
+].join('; ');
+
+// Attaches the payment-lane CSP to a response when the REQUEST targets that lane. Keyed on the request
+// path, not on where the response ends up, so a rewrite to /maintenance is still covered and the rule
+// stays something a test can state in one line.
+function withPaymentLaneCsp(req: NextRequest, res: NextResponse): NextResponse {
+  if (!isPaymentLane(req.nextUrl.pathname)) return res;
+  res.headers.set('Content-Security-Policy', PAYMENT_LANE_CSP);
+  return res;
+}
+
 // Returns a response when the request targets the v2 preview surface, otherwise null. Mirrors
 // guardOps: `/api/v2/login` is always reachable when the key is configured (it validates the
 // submitted passkey and is how the cookie gets set). `/v2` itself passes through so its
@@ -213,7 +263,9 @@ export function middleware(req: NextRequest) {
 
   // MuMate v2 preview gate — team-only, independent of maintenance mode.
   const v2 = guardV2(req);
-  if (v2) return v2;
+  // guardV2 has seven exits (:165 :168 :170 :173 :175 :178 :181) and a v2 request never reaches the
+  // end of this file, so the CSP is attached here — the one point every v2 response passes through.
+  if (v2) return withPaymentLaneCsp(req, v2);
 
   // Maintenance off -> behave normally (normal caching resumes).
   // (While maintenance is on, every gated response below uses the module-level noStore so the
