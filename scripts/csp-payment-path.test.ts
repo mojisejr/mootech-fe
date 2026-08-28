@@ -112,10 +112,15 @@ describe('#493 the header still says what the decisions rest on', () => {
     expect(header()).toContain("frame-src 'none'")
   })
 
-  it('the two Omise origins the lane genuinely needs are allowed', () => {
-    // cdn.omise.co serves omise.js; api.omise.co takes the token request and serves the PromptPay QR.
+  it('🔴 all THREE Omise origins are allowed, including the card vault', () => {
+    // cdn.omise.co serves omise.js. Then the script splits: createToken (card) posts to
+    // vault.omise.co/tokens and createSource (PromptPay) to api.omise.co/sources/ — its own config,
+    // not ours. Missing vault.omise.co forbids every card payment while PromptPay keeps working, which
+    // is exactly the shape that survived three passes here. The behavioural proof is in
+    // e2e/v2-csp-teeth.spec.ts, which drives the real omise.js instead of a stub.
     expect(header()).toContain('https://cdn.omise.co')
     expect(header()).toContain('https://api.omise.co')
+    expect(header()).toContain('https://vault.omise.co')
   })
 
   it('🔴 unsafe-eval is NOT in the policy outside development', () => {

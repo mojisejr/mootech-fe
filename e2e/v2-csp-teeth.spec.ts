@@ -124,6 +124,76 @@ test.describe("#493 the checkout CSP refuses, it does not merely report", () => 
   });
 });
 
+// ── The tooth that the off-list-script test cannot be ────────────────────────────────────────────────
+//
+// 🔴 WHY THIS EXISTS, in ตู๋'s words on PR #505: "the teeth only fire at a script that is OUTSIDE the
+// list, so a host MISSING from the list is invisible by construction". That is precisely what happened:
+// connect-src named api.omise.co and omise.js posts the card token to vault.omise.co, so the policy
+// allowed PromptPay and forbade every card payment. Three passes did not see it, because
+// e2e/v2-checkout.spec.ts:202-207 REPLACES omise.js with a stub, so the request to the vault was never
+// made in any run.
+//
+// So this block drives the REAL omise.js and asserts the ABSENCE of any connect-src violation. It does
+// not need to know which hosts the script uses — a host we failed to list shows up as a violation
+// whatever its name is. That is the difference between a tooth that guards a list and one that guards
+// the lane.
+//
+// Both Omise hosts are intercepted locally, so no request reaches Omise and no key is used. CSP is
+// evaluated BEFORE the interception, which is what makes the interceptor a usable witness: reached
+// means the policy allowed it, never reached means the policy blocked it.
+test.describe("#493 the real card lane runs under the policy", () => {
+  test("🔴 driving the REAL omise.js raises NO connect-src violation, and the card token gets out", async ({ page }) => {
+    let vaultHits = 0;
+    let sourcesHits = 0;
+
+    await page.route("https://vault.omise.co/**", (route) => {
+      vaultHits++;
+      return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ object: "token", id: "tokn_csp_e2e", card: {} }) });
+    });
+    await page.route("https://api.omise.co/sources/**", (route) => {
+      sourcesHits++;
+      return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ object: "source", id: "src_csp_e2e" }) });
+    });
+
+    await page.addInitScript(() => {
+      (window as unknown as { __CSP_VIOLATIONS__: string[] }).__CSP_VIOLATIONS__ = [];
+      document.addEventListener("securitypolicyviolation", (e) => {
+        const ev = e as SecurityPolicyViolationEvent;
+        (window as unknown as { __CSP_VIOLATIONS__: string[] }).__CSP_VIOLATIONS__.push(
+          `${ev.violatedDirective}|${ev.blockedURI}`,
+        );
+      });
+    });
+    await page.context().addCookies([{ name: "v2_access", value: V2_KEY, url: BASE }]);
+
+    // Our own money endpoints are mocked; the Omise call is the thing under test and it is REAL code.
+    await page.route("**/api/v2/payment/preview", (r) => r.fulfill({ json: QUOTE }));
+    await page.route("**/api/v2/payment/charge", (r) =>
+      r.fulfill({ json: { chargeId: "chrg_csp", status: "PENDING" } }));
+    await page.route("**/api/v2/payment/status", (r) =>
+      r.fulfill({ json: { payments: [{ chargeId: "chrg_csp", orderId: "ord_csp", status: "PENDING", method: "card" }] } }));
+
+    await page.goto(`${BASE}/v2/shop/checkout?package_code=V2_PRO_YEARLY`);
+    await expect(page.getByTestId("order-summary")).toBeVisible();
+    // The real script must be the one that answers, not a leftover stub.
+    await page.waitForFunction(() => typeof (window as unknown as { Omise?: unknown }).Omise !== "undefined", null, { timeout: 10_000 });
+
+    await page.getByTestId("method-card").click();
+    await page.getByTestId("card-name").fill("David Watson");
+    await page.getByTestId("card-number").fill("4242424242424242");
+    await page.getByTestId("card-expiry").fill("04/2030");
+    await page.getByTestId("card-cvc").fill("123");
+    await page.getByTestId("checkout-pay").click();
+
+    await expect.poll(() => vaultHits, { timeout: 10_000 }).toBeGreaterThan(0);
+
+    const seen = await page.evaluate(() => (window as unknown as { __CSP_VIOLATIONS__: string[] }).__CSP_VIOLATIONS__ ?? []);
+    expect(seen.filter((v) => v.startsWith("connect-src"))).toEqual([]);
+    // Nothing actually left for Omise: both hosts were served from this process.
+    expect(sourcesHits).toBe(0);
+  });
+});
+
 test.describe("#493 CONTROL — the same injection on a screen with no CSP", () => {
   // If this goes red, the test above proves nothing: it would mean the injection never works and the
   // "refused" result is an artefact of the harness, not of the policy.

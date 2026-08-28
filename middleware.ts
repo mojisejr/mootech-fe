@@ -179,8 +179,18 @@ const PAYMENT_LANE_CSP = [
   // 'unsafe-eval' in dev only: `next dev` compiles modules through eval for HMR, so without it the
   // checkout screen does not render at all locally. Production builds do not evaluate strings.
   `script-src 'self' https://cdn.omise.co${isDev ? " 'unsafe-eval'" : ''}`,
-  // api.omise.co is where the token request goes (features/v2-shop/omise-token.ts).
-  "connect-src 'self' https://api.omise.co",
+  // 🔴 BOTH Omise hosts, and the card one is NOT api.omise.co. omise.js keeps its own config: the
+  // 32,718-byte script served from the CDN declares `vaultUrl:"https://vault.omise.co"` and
+  // `interfaceUrl:"https://api.omise.co"`, and `createToken` posts to `this.config.vaultUrl` + /tokens
+  // while `createSource` (PromptPay) goes to the interface URL + /sources/. Verified in Chromium: with
+  // vault.omise.co missing, POST vault.omise.co/tokens raises a connect-src violation and never leaves
+  // the browser — i.e. the policy allowed PromptPay and silently forbade every card payment.
+  //
+  // ⛔ Do not "check this against features/v2-shop/omise-token.ts". That file names no host at all — it
+  // calls O.createToken and the destination lives inside a script we do not own. An earlier version of
+  // this comment cited it as the source, which is why the wrong host survived three review passes: the
+  // evidence that would contradict it was never in the file being pointed at. Check cdn.omise.co/omise.js.
+  "connect-src 'self' https://api.omise.co https://vault.omise.co",
   // The PromptPay QR is an <Image> served straight from Omise (next.config.mjs:34, unoptimized).
   "img-src 'self' data: https://api.omise.co",
   // fonts.googleapis.com serves the six @import-ed stylesheets in styles/globals.css:1-6, and those
