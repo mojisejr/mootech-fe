@@ -69,19 +69,29 @@ fi
 # 🔴 THE CONDITION IS DELIBERATELY NARROW, and narrow in the direction that costs us if it is wrong.
 # Skipping too widely re-creates mootech-fe#432 exactly: a deploy whose key was never set, a gate that
 # stayed green, and every card payment on /v2 throwing OmiseKeyMissingError before a request leaves the
-# browser. So the skip requires ALL THREE — not on Vercel, not in CI, and no key present:
-#   VERCEL is set on every Vercel build (all environments); CI is set by GitHub Actions and every other
-#   runner we might add. Either one present means somebody is building something that gets shipped or
-#   gated, and this gate stays binding.
+# browser. So the skip requires ALL FOUR to be absent — VERCEL, VERCEL_ENV, CI, and the key itself.
+#
+# 🔴 VERCEL_ENV IS ITS OWN LEG, NOT A DUPLICATE OF VERCEL — ตู๋, review of 6bb05d7. The first version of
+# this branch tested VERCEL alone, and `VERCEL_ENV=production` with VERCEL unset skipped while PRINTING
+# "local build". Two branches in this one file then disagreed about what "on Vercel" means: the preview
+# branch above keys on VERCEL_ENV, this one keyed on VERCEL. A file whose own two answers differ will
+# eventually be read by someone who only finds one of them.
+#
+# 🔴 CI IS A FORWARD GUARD, AND SAYING SO IS THE POINT — measured 2026-08-28: `.github/workflows/` holds
+# nothing but `archive/`, so NOTHING SETS CI IN THIS REPO TODAY. mootech-fe#479 archived the last one and
+# the lane moved into .githooks/pre-push. The leg is kept because the day a workflow returns is exactly
+# the day nobody will re-read this file — but it must not be described as a live guard, or the next
+# reader counts a protection we do not have. (Claiming otherwise is the disease .env.example fights.)
 #
 # 🔑 WATCHING THE CONDITION, NOT ONE CAUSE OF IT — same lesson ตู๋ drew for the preview branch above in
 # PR #433 round 2, and the same shape as pin ⑤ in scripts/env-example-drift.test.ts. The condition is
-# "nobody will download this bundle"; being off Vercel is one cause of that, being outside CI is another.
-# Keying on a single spelling of it is what lets the real case through.
+# "nobody will download this bundle"; each of the three env legs is one CAUSE of that being false, and
+# keying on a single spelling of it is what lets the real case through. That is precisely how VERCEL_ENV
+# got missed the first time round.
 #
 # 📌 ORDERING: this sits AFTER the preview branch and BEFORE the trim, for the same reason that one does.
 # A key of pure whitespace is somebody's mistake, not an absence, and it must not be skipped into silence.
-if [ -z "${VERCEL:-}" ] && [ -z "${CI:-}" ] && [ -z "$KEY" ]; then
+if [ -z "${VERCEL:-}" ] && [ -z "${VERCEL_ENV:-}" ] && [ -z "${CI:-}" ] && [ -z "$KEY" ]; then
   echo "⏭️  $VAR gate SKIPPED — local build, no key set."
   echo "   NOT CHECKED (≠ checked and clean). This gate asks whether the key reached the bundle the USER"
   echo "   downloads, which is a deploy question; a local build ships to nobody. Vercel and CI builds are"

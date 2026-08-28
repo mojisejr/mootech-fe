@@ -7,6 +7,9 @@
 // skips, and every neighbouring combination still reddens. A test that only asserted the skip would pass
 // just as happily if the condition were `true`.
 //
+// Round 2 added the VERCEL_ENV leg after ตู๋ found the hole by firing the combination this file did
+// not have a case for — which is the argument for the table growing by a row every time, not by a rewrite.
+//
 // The script is run for real against a throwaway static dir — no mocking, because the thing that can be
 // wrong is the shell condition itself.
 // Run: npx tsx scripts/check-omise-key-inlined.test.ts
@@ -70,6 +73,11 @@ const cases: Case[] = [
   { name: 'VERCEL set, no key → RED', env: { VERCEL: '1' }, rc: 1 },
   { name: 'VERCEL production, no key → RED', env: { VERCEL: '1', VERCEL_ENV: 'production' }, rc: 1 },
   { name: 'CI set, no key → RED', env: { CI: 'true' }, rc: 1 },
+  // 🔴 ตู๋, review of 6bb05d7: the first version tested VERCEL alone, so this exact call SKIPPED and
+  // printed "local build". VERCEL_ENV is a separate leg because the preview branch above keys on it —
+  // one file must not hold two different answers to "are we on Vercel".
+  { name: 'VERCEL_ENV set without VERCEL, no key → RED', env: { VERCEL_ENV: 'production' }, rc: 1 },
+  { name: 'VERCEL_ENV=development without VERCEL, no key → RED', env: { VERCEL_ENV: 'development' }, rc: 1 },
   {
     // Whitespace is somebody's mistake, not an absence. It must fall through the skip, not be swallowed.
     // (The MESSAGE it prints is still wrong — that is mootech-fe#435, deliberately not fixed here.)
