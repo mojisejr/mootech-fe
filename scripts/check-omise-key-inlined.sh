@@ -55,6 +55,53 @@ if [ "${VERCEL_ENV:-}" = "preview" ] && [ -z "$KEY" ]; then
   exit 0
 fi
 
+# ── the second place there is nothing to check: a developer's own machine ──────────────────────────
+# mootech-fe#482. `npm run build` was red for EVERY teammate, because no file that Next loads is checked
+# in: .gitignore:29 ignores .env, :30 ignores .env*.local, and :32 keeps only .env.example — which Next
+# never reads. So a fresh clone cannot satisfy this gate no matter how carefully anyone follows a README,
+# and the rule "build green before pressing Ready for review" was unsatisfiable rather than merely unmet.
+#
+# 🔴 THE QUESTION THIS GATE ASKS IS A DEPLOY QUESTION: "did the key reach the bundle the USER downloads?"
+# A developer building locally to catch a type error is not shipping that bundle to anyone. Demanding a
+# payment credential from them answers nothing and teaches the whole team to ignore a red postbuild —
+# which is how the VAPID gate beside it would die too.
+#
+# 🔴 THE CONDITION IS DELIBERATELY NARROW, and narrow in the direction that costs us if it is wrong.
+# Skipping too widely re-creates mootech-fe#432 exactly: a deploy whose key was never set, a gate that
+# stayed green, and every card payment on /v2 throwing OmiseKeyMissingError before a request leaves the
+# browser. So the skip requires ALL FOUR to be absent — VERCEL, VERCEL_ENV, CI, and the key itself.
+#
+# 🔴 VERCEL_ENV IS ITS OWN LEG, NOT A DUPLICATE OF VERCEL — ตู๋, review of 6bb05d7. The first version of
+# this branch tested VERCEL alone, and `VERCEL_ENV=production` with VERCEL unset skipped while PRINTING
+# "local build". Two branches in this one file then disagreed about what "on Vercel" means: the preview
+# branch above keys on VERCEL_ENV, this one keyed on VERCEL. A file whose own two answers differ will
+# eventually be read by someone who only finds one of them.
+#
+# 🔴 CI IS A FORWARD GUARD, AND SAYING SO IS THE POINT — measured 2026-08-28: `.github/workflows/` holds
+# nothing but `archive/`, so NOTHING SETS CI IN THIS REPO TODAY. mootech-fe#479 archived the last one and
+# the lane moved into .githooks/pre-push. The leg is kept because the day a workflow returns is exactly
+# the day nobody will re-read this file — but it must not be described as a live guard, or the next
+# reader counts a protection we do not have. (Claiming otherwise is the disease .env.example fights.)
+#
+# 🔑 WATCHING THE CONDITION, NOT ONE CAUSE OF IT — same lesson ตู๋ drew for the preview branch above in
+# PR #433 round 2, and the same shape as pin ⑤ in scripts/env-example-drift.test.ts. The condition is
+# "nobody will download this bundle"; each of the three env legs is one CAUSE of that being false, and
+# keying on a single spelling of it is what lets the real case through. That is precisely how VERCEL_ENV
+# got missed the first time round.
+#
+# 📌 ORDERING: this sits AFTER the preview branch and BEFORE the trim, for the same reason that one does.
+# A key of pure whitespace is somebody's mistake, not an absence, and it must not be skipped into silence.
+if [ -z "${VERCEL:-}" ] && [ -z "${VERCEL_ENV:-}" ] && [ -z "${CI:-}" ] && [ -z "$KEY" ]; then
+  echo "⏭️  $VAR gate SKIPPED — local build, no key set."
+  echo "   NOT CHECKED (≠ checked and clean). This gate asks whether the key reached the bundle the USER"
+  echo "   downloads, which is a deploy question; a local build ships to nobody. Vercel and CI builds are"
+  echo "   binding and this branch cannot be reached there. (mootech-fe#482)"
+  echo "   To exercise the v2 card lane locally, put a TEST public key in .env.local:"
+  echo "     $VAR=pkey_test_...   ← Omise Dashboard → Settings → Keys → Public key, in TEST mode"
+  echo "   Ask Feem if you do not have dashboard access. Never use the live key here, and never commit one."
+  exit 0
+fi
+
 # (0) the value must be SEARCHABLE before it is searched for — ตู๋ 2026-08-25, PR #433 round 3.
 # `grep -F` matches a SUBSTRING, so a one-character or whitespace key is "found" in almost any bundle and
 # this gate goes green over a key Omise will reject. That is the SAME outcome #432 was opened for: gate
