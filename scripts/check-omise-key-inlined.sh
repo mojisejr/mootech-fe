@@ -23,7 +23,12 @@ set -euo pipefail
 
 STATIC_DIR="${STATIC_DIR:-.next/static}"
 VAR=NEXT_PUBLIC_OMISE_KEY_V2
-KEY="${NEXT_PUBLIC_OMISE_KEY_V2:-}"
+# 🔴 TWO VALUES, DELIBERATELY. RAW is what the environment actually holds and what the bundler inlined;
+# STRIPPED is RAW with whitespace removed. Overwriting one with the other is mootech-fe#435: the strip
+# used to happen before the "was it set at all" question, so a key of pure spaces arrived there already
+# empty and the gate answered "is not set" — sending the reader to set a key they had already set.
+# Measured before the fix: preview+" ", local+" " and a genuinely unset key printed the same sentence.
+RAW="${NEXT_PUBLIC_OMISE_KEY_V2:-}"
 
 # ── where this gate is BINDING, and where it is not ────────────────────────────────────────────────
 # ฟีมเคาะ 2026-08-25: the team does NOT test /v2 on Vercel Preview. /v2 is passkey-gated (V2_PREVIEW_KEY),
@@ -48,7 +53,7 @@ KEY="${NEXT_PUBLIC_OMISE_KEY_V2:-}"
 # Preview is supposed to have NO key at all, so a key made of spaces means somebody DID set one and it
 # came out wrong. Trimming first would turn that into a silent skip — a real mistake made invisible by
 # the very branch that exists to tolerate an intentional absence. Verified: preview+" " → rc=1.
-if [ "${VERCEL_ENV:-}" = "preview" ] && [ -z "$KEY" ]; then
+if [ "${VERCEL_ENV:-}" = "preview" ] && [ -z "$RAW" ]; then
   echo "⏭️  $VAR gate SKIPPED — VERCEL_ENV=preview."
   echo "   NOT CHECKED (≠ checked and clean). The team tests /v2 on production behind V2_PREVIEW_KEY,"
   echo "   so Preview deliberately has no v2 Omise key (ฟีมเคาะ 2026-08-25). Production builds are binding."
@@ -91,7 +96,7 @@ fi
 #
 # 📌 ORDERING: this sits AFTER the preview branch and BEFORE the trim, for the same reason that one does.
 # A key of pure whitespace is somebody's mistake, not an absence, and it must not be skipped into silence.
-if [ -z "${VERCEL:-}" ] && [ -z "${VERCEL_ENV:-}" ] && [ -z "${CI:-}" ] && [ -z "$KEY" ]; then
+if [ -z "${VERCEL:-}" ] && [ -z "${VERCEL_ENV:-}" ] && [ -z "${CI:-}" ] && [ -z "$RAW" ]; then
   echo "⏭️  $VAR gate SKIPPED — local build, no key set."
   echo "   NOT CHECKED (≠ checked and clean). This gate asks whether the key reached the bundle the USER"
   echo "   downloads, which is a deploy question; a local build ships to nobody. Vercel and CI builds are"
@@ -111,9 +116,11 @@ fi
 # the day the vendor changes it the gate reddens with the wrong reason — the misdirection disease that
 # .env.example was written against. Length says the only thing we actually need: a real credential cannot
 # be short enough for grep to hit it by accident. 12 is deliberately far below any real key.
-KEY=$(printf '%s' "$KEY" | tr -d '[:space:]')
-if [ -n "$KEY" ] && [ "${#KEY}" -lt 12 ]; then
-  echo "❌ $VAR is set but is only ${#KEY} character(s) after trimming whitespace."
+# 📌 The result goes into its OWN variable. It used to be assigned back over KEY, which is what destroyed
+# the evidence the next block needs (mootech-fe#435).
+STRIPPED=$(printf '%s' "$RAW" | tr -d '[:space:]')
+if [ -n "$STRIPPED" ] && [ "${#STRIPPED}" -lt 12 ]; then
+  echo "❌ $VAR is set but is only ${#STRIPPED} character(s) after trimming whitespace."
   echo "   Too short to be a real key — and short enough that grep would 'find' it in any bundle,"
   echo "   so this gate would go GREEN over a key Omise rejects. Refusing to answer. (mootech-fe#433)"
   exit 1
@@ -121,7 +128,20 @@ fi
 
 # (1) fail closed. A build without the key produces a bundle that cannot take a payment; shipping it
 # quietly is the exact outcome #432 was opened for.
-if [ -z "$KEY" ]; then
+#
+# 🔴 TWO CAUSES, TWO MESSAGES — mootech-fe#435. "Nobody set it" and "somebody set it and it came out
+# blank" need opposite actions from the reader: go set it, versus go look at what you set. They used to
+# print the same sentence, because the whitespace was stripped before this question was asked. A gate
+# whose red message names the wrong cause sends the next person hunting the wrong bug, which is the
+# disease this file's own header (line 19) was written against.
+if [ -n "$RAW" ] && [ -z "$STRIPPED" ]; then
+  echo "❌ $VAR is SET at build time but contains nothing except whitespace (${#RAW} character(s))."
+  echo "   Somebody DID set this — it is not missing. Look at the value itself: a stray space pasted"
+  echo "   into the Vercel UI, or an empty quoted string in .env. Fix the VALUE, do not re-add the key."
+  exit 1
+fi
+
+if [ -z "$RAW" ]; then
   echo "❌ $VAR is not set at build time — the /v2 card screen would ship with no key."
   echo "   Set it (Vercel → Environment Variables, or your .env for a local build) and rebuild."
   exit 1
@@ -146,8 +166,15 @@ fi
 rm -f "$CANARY_FILE"; trap - EXIT
 
 # (3) the real question.
-if grep -rqF "$KEY" "$STATIC_DIR"; then
-  HITS=$(grep -rlF "$KEY" "$STATIC_DIR" | wc -l | tr -d ' ')
+#
+# 🔴 GREP THE RAW VALUE, NEVER THE STRIPPED ONE — mootech-fe#435. The bundler inlines what the
+# environment held, whitespace and all. Searching for a value this gate trimmed itself asks a question
+# about a string that exists nowhere: a key with a space in the middle is in the bundle verbatim, and
+# the trimmed spelling is not, so the gate reddened claiming "the source reads it in a shape the
+# bundler cannot substitute" — which is a different bug, and a real one, being reported for a build
+# where it is not happening.
+if grep -rqF "$RAW" "$STATIC_DIR"; then
+  HITS=$(grep -rlF "$RAW" "$STATIC_DIR" | wc -l | tr -d ' ')
   echo "✅ $VAR reached the client bundle ($HITS file(s)), and the detector is proven (canary caught)."
   exit 0
 fi
