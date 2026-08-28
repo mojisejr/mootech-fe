@@ -33,6 +33,7 @@ function typeInto(el: HTMLInputElement, text: string) {
     fireEvent.change(el, { target: { value: el.value + ch } })
   }
 }
+import { validateCard } from '@/features/v2-shop/card-rules'
 import { CardForm } from '@/features/v2-shop/components/CardForm'
 import type { CardState } from '@/features/v2-shop/card-rules'
 
@@ -42,9 +43,15 @@ afterEach(cleanup)
 const VISA = '4242424242424242'
 const NOW = new Date('2026-08-28T00:00:00Z')
 
+/**
+ * The Harness now plays the part checkout plays: it owns the clock and computes the validation, then
+ * hands the RESULT down. That is the #492 shape, and it is why the two clock cases below still mean
+ * something — they prove the clock belongs to the CALLER. CardForm itself no longer has one to test,
+ * which is the point: it has no clock parameter at all.
+ */
 function Harness({ now = NOW, initial }: { now?: Date; initial?: Partial<CardState> }) {
   const [card, setCard] = useState<CardState>({ name: '', number: '', expiry: '', cvc: '', ...initial })
-  return <CardForm value={card} onChange={setCard} now={now} />
+  return <CardForm value={card} onChange={setCard} validation={validateCard(card, now)} />
 }
 
 const number = () => screen.getByTestId('card-number') as HTMLInputElement

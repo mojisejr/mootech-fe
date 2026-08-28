@@ -15,6 +15,8 @@ export type ResultState =
   | 'PAYING' // in flight — we have not heard back yet
   | 'APPROVED' // settled: /payment/status says APPROVED for THIS chargeId
   | 'CARD_DECLINED' // the bank said no. Trying the same card again is unlikely to help; another one might.
+  | 'PAYMENT_SETUP_BROKEN' // OUR side failed before any card left the browser — a bad key, a missing SDK,
+  //                          a reason Omise gave that we do not recognise. Never the buyer's fault (#492).
   | 'OFFLINE' // WE could not reach our own status endpoint. Says nothing about the money.
   | 'ALREADY_PAID' // this charge is already settled — the user pressed again, or came back to a done screen
   | 'RECONCILING' // past our POLL deadline, but the repair cron's window is still open (#423)
@@ -69,6 +71,16 @@ export const RESULT_COPY: Record<ResultState, ResultCopy> = {
     title: 'ธนาคารปฏิเสธการชำระเงิน',
     body: 'ยังไม่มีการตัดเงินจากบัตรใบนี้ ลองใช้บัตรใบอื่นหรือชำระด้วยพร้อมเพย์',
     retry: 'different',
+    paid: false,
+  },
+  PAYMENT_SETUP_BROKEN: {
+    // 🔴 NEVER blame the card here. This state exists for the cases where OUR key is wrong, omise.js did
+    // not load, or Omise gave a reason we have no mapping for — and in every one of them the buyer's card
+    // is fine and nothing was charged. Telling them their bank refused would be blaming a stranger for
+    // our own outage, which is the worst sentence this screen was capable of producing (#492).
+    title: 'ระบบชำระเงินมีปัญหา',
+    body: 'ยังไม่มีการตัดเงิน ไม่ใช่เพราะบัตรของคุณ ลองอีกครั้งในอีกสักครู่ ถ้ายังไม่ได้ติดต่อเราได้เลย',
+    retry: 'same',
     paid: false,
   },
   OFFLINE: {

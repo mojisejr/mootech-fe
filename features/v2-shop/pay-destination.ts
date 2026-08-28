@@ -121,10 +121,21 @@ export function payDestination(args: {
  * (Whether the copy should distinguish "we could not read your card" from "the bank said no" is
  * mootech-fe#447's question, not this one.)
  */
-export function tokenizationFailedDestination(packageCode: string): PayDestination {
+/**
+ * Omise's codes for "we read the card and it is not usable". The buyer can fix these.
+ *
+ * 🔴 THIS IS AN ALLOW-LIST, AND THAT DIRECTION IS THE POINT (mootech-fe#492). Anything NOT named here —
+ * including a null code, our key being wrong, omise.js failing to load, or a reason Omise adds next year —
+ * falls to PAYMENT_SETUP_BROKEN. Telling buyers they got it wrong when we do not know is blaming somebody
+ * without evidence, and the cost lands on them: they go and find another card for a problem we caused.
+ */
+const BUYER_FIXABLE = new Set(['invalid_card', 'expired_card', 'invalid_security_code'])
+
+export function tokenizationFailedDestination(packageCode: string, code: string | null = null): PayDestination {
+  const state = code !== null && BUYER_FIXABLE.has(code) ? 'CARD_DECLINED' : 'PAYMENT_SETUP_BROKEN'
   return {
     kind: 'route',
-    href: `/v2/shop/result?state=CARD_DECLINED&package_code=${encodeURIComponent(packageCode)}`,
+    href: `/v2/shop/result?state=${state}&package_code=${encodeURIComponent(packageCode)}`,
     keepPaying: false,
   }
 }

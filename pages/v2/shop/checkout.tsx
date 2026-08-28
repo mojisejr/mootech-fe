@@ -16,7 +16,8 @@ import { OrderSummaryCard } from '@/features/v2-shop/components/OrderSummaryCard
 import { PaymentMethodPicker, type PayMethod } from '@/features/v2-shop/components/PaymentMethodPicker'
 import { CardForm, type CardState } from '@/features/v2-shop/components/CardForm'
 import { useCheckout } from '@/features/v2-shop/useCheckout'
-import { createCardToken } from '@/features/v2-shop/omise-token'
+import { createCardToken, OmiseTokenError } from '@/features/v2-shop/omise-token'
+import { validateCard } from '@/features/v2-shop/card-rules'
 import { formatSatang } from '@/features/v2-shop/usePackagePrice'
 import { PLANS, planNameForTier } from '@/features/v2-shop/packages'
 import { payDestination, tokenizationFailedDestination, type PayBody, type PayLane } from '@/features/v2-shop/pay-destination'
@@ -37,6 +38,9 @@ export default function V2CheckoutPage({ teamPreview }: { teamPreview: boolean }
   const co = useCheckout(packageCode)
   const [method, setMethod] = useState<PayMethod>('card')
   const [card, setCard] = useState<CardState>(EMPTY_CARD)
+  // One clock for the page. Held in state so a re-render cannot silently move the month boundary
+  // underneath a buyer who is mid-form.
+  const [now] = useState(() => new Date())
   const [paying, setPaying] = useState(false)
 
   const plan = PLANS.find((p) => Object.values(p.codes).includes(packageCode))
@@ -82,17 +86,26 @@ export default function V2CheckoutPage({ teamPreview }: { teamPreview: boolean }
       // 🔴 #439 — window.location, not router.push: an external destination is not Next's to route.
       if (dest.kind === 'external') { window.location.href = dest.href; return }
       void router.push(dest.href)
-  } catch {
-      // Tokenisation refused (bad number/expiry/cvc) or omise.js missing. The bank never saw a charge and
-      // no request was ever made — so there is no server answer to reason about. It gets its own pure
-      // answer rather than an invented status code passed to payDestination.
+  } catch (e) {
+      // Tokenisation refused, or omise.js is missing. The bank never saw a charge and no request was ever
+      // made — so there is no server answer to reason about. It gets its own pure answer rather than an
+      // invented status code passed to payDestination.
       // #438 — package_code rides along so the result screen can offer a way BACK to this same checkout.
+      // 🔴 #492 — and the REASON rides along too. This was a bare `catch {}`: every refusal, from a
+      // mistyped digit to our own key being wrong, arrived here as the same nothing and the buyer was
+      // told their BANK declined. Omise sends a code; we were discarding it at this exact line.
       setPaying(false)
-      void router.push(tokenizationFailedDestination(packageCode).href)
+      const code = e instanceof OmiseTokenError ? e.code : null
+      void router.push(tokenizationFailedDestination(packageCode, code).href)
     }
   }
 
-  const ready = !!co.quote && !co.loading && (method === 'promptpay' || (card.name && card.number && card.expiry && card.cvc))
+  // 🔴 #492 — THE ONE CALL SITE. Before this, `ready` asked only whether the four boxes were non-empty,
+  // so "a" in every field could press Pay. The form no longer computes this for itself; it is handed the
+  // result below, so the button and the red borders can never disagree about the same card.
+  // `now` lives here and only here — see the CardForm props for why it is not a defaulted prop there.
+  const validation = validateCard(card, now)
+  const ready = !!co.quote && !co.loading && (method === 'promptpay' || validation.ok)
 
   return (
     <div className="relative min-h-screen w-full overflow-x-hidden bg-v3-bg-cream font-ibm">
@@ -115,7 +128,7 @@ export default function V2CheckoutPage({ teamPreview }: { teamPreview: boolean }
         <section className="flex w-full flex-col gap-4 rounded-[20px] bg-white p-4 drop-shadow-[0_4px_15px_rgba(26,38,77,0.12)]">
           <h2 className="text-base font-bold leading-6 text-v3-navy">วิธีชำระเงิน</h2>
           <PaymentMethodPicker value={method} onChange={setMethod} />
-          {method === 'card' && <CardForm value={card} onChange={setCard} />}
+          {method === 'card' && <CardForm value={card} onChange={setCard} validation={validation} />}
         </section>
 
         <button
