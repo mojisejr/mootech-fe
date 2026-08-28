@@ -142,6 +142,15 @@ test.describe("#493 the checkout CSP refuses, it does not merely report", () => 
 // evaluated BEFORE the interception, which is what makes the interceptor a usable witness: reached
 // means the policy allowed it, never reached means the policy blocked it.
 test.describe("#493 the real card lane runs under the policy", () => {
+  // ⚠️ READ THIS CASE WITH THE FILE, NEVER ALONE. Its main assertion is an ABSENCE (no connect-src
+  // violation), and an absence is also what you get when there is no policy at all. What keeps it
+  // honest is the `expect.poll(vaultHits).toBeGreaterThan(0)` above it: the token request must really
+  // have been permitted and reached the interceptor. ตู๋ walked the failure modes on c8282e6 and they
+  // all land red — CSP blocks cdn.omise.co → window.Omise never appears → waitForFunction times out;
+  // CSP blocks the vault → vaultHits stays 0; the pay button does not fire → vaultHits stays 0; some
+  // other host is missing → the violation filter catches it. The one world where this case alone goes
+  // green is "the CSP vanished entirely", and that world is already red two cases up, where the
+  // enforcing-header and off-list-script cases live. That is why they belong in one file.
   test("🔴 driving the REAL omise.js raises NO connect-src violation, and the card token gets out", async ({ page }) => {
     let vaultHits = 0;
     let sourcesHits = 0;
