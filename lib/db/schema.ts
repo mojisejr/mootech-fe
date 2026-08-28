@@ -765,6 +765,24 @@ export const v2Payment = pgTable("v2_payment", {
 	chargeId: text("charge_id").notNull(),
 	orderId: text("order_id").notNull(),
 	status: text().notNull(),
+	// 🔴 #437 (0010 ALTER) — WHY the gateway refused, never the verdict itself. NULL means "it did not say"
+	// (or it never failed); it must never be read as a status. Rows created before 0010 stay NULL forever,
+	// because the reason was thrown away at lib/payment/omise-gateway.ts before this ticket.
+	failureCode: text("failure_code"),
+	failureMessage: text("failure_message"),
+	// 🔴 #455 (0011 ALTER) — WHEN the QR stops being scannable, verbatim from Omise. PromptPay only; a card
+	// charge has no expiry and stays NULL. NULL also means the row predates 0011, or Omise did not say.
+	// NULL is NEVER "not expired" — the gateway emits no event when a charge expires (measured: 0 of 124
+	// expired charges carry any event beyond charge.create), so absence here is ignorance, not a verdict.
+	chargeExpiresAt: timestamp("charge_expires_at", { withTimezone: true }),
+	// 🔴 #484 (0012 ALTER) — member_payment.expire_at as it stood immediately BEFORE this payment settled.
+	// member_payment is ONE row per user written with GREATEST (repo.ts:559), so the value this purchase
+	// overwrote cannot be computed back afterwards — not from the row, and not from the surviving
+	// member_subscription rows, because a legacy member's baseline was never a v2 row at all. Captured on
+	// the way in so a REVERSAL can restore it instead of guessing. Same 'YYYY-MM-DD' text shape the shadow
+	// itself uses. NULL = the row predates 0012, or there was no shadow row then — NEVER "no entitlement":
+	// a reversal on a NULL row hands the member_payment side to a human and writes nothing over it.
+	prevMemberExpireAt: text("prev_member_expire_at"),
 	// discount linkage (#361, 0008 ALTER) — NULL/0 when no code was used.
 	codeId: varchar("code_id", { length: 36 }).references(() => discountCode.id),
 	discountSatang: integer("discount_satang").default(0).notNull(),

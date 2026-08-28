@@ -19,7 +19,6 @@ const nextConfig = {
     NEXT_STATIC_ENV: process.env.ENVIRONMENT,
     NEXT_STATIC_HOST: process.env.HOST,
     NEXT_STATIC_NEXTAUTH_URL: process.env.NEXTAUTH_URL,
-    NEXT_STATIC_OMISE_PUBLIC_KEY: process.env.OMISE_PUBLIC_KEY,
   },
   images: {
     unoptimized: true,

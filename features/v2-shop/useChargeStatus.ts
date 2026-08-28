@@ -18,22 +18,92 @@
 // good reason, a user with 20 older payments stops finding their new charge — and the failure is SILENT: the
 // screen just waits forever. scripts/charge-status.test.ts pins it so that edit goes red instead.
 import { useEffect, useRef, useState } from 'react'
+import type { QrDeadlineState } from '@/lib/payment/qr-deadline'
 import { RECONCILE_HORIZON_MS, waitPhase, type WaitPhase } from '@/lib/payment/reconcile-window'
 
-export type ChargeStatus = 'PENDING' | 'APPROVED' | 'UNKNOWN'
+// 🔴 #438 — FOUR ANSWERS, NOT THREE. `REJECTED` did not exist, and its absence is the bug: v2_payment has
+// three statuses (schema.ts: PENDING/APPROVED/REJECT) and this type had two, so a refused charge arrived
+// here and left as 'PENDING'. The screen then said "กำลังดำเนินการ" forever — to a user whose bank had
+// already said no, and whose row the server had already marked REJECT.
+export type ChargeStatus = 'PENDING' | 'APPROVED' | 'REJECTED' | 'UNKNOWN'
 
-export type PaymentRow = { chargeId: string | null; status: string }
+// `method` (#438) — /api/v2/payment/status:21 already sends it. A REJECT means two different things
+// depending on it, and only one of them may use the card copy. See statusOf's caller in result.tsx.
+// #455 — `qrDeadline` มาจาก /api/v2/payment/status (slice 1 · #476) และเป็น **optional** ตรงนี้โดยตั้งใจ:
+// แถวเก่าที่ค้างอยู่ใน cache ของเบราว์เซอร์ หรือ server ที่ยังไม่ได้ deploy ก็จะไม่มีช่องนี้ ⇒ อ่านได้เป็น
+// `undefined` ⇒ ตัวอ่านข้างล่างแปลงเป็น 'unknown' ❌ ไม่ใช่ 'live' และไม่ใช่ 'expired'
+// "ไม่ถูกบอก" คือคำตอบที่ถูกต้องสำหรับทั้งสองกรณีนั้น และมันเป็นค่าที่ปลอดภัยที่สุดในสามค่า
+//
+// 🔴 `liveUntil` ไม่ถูกดึงเข้ามาที่นี่เลย — จอนี้ไม่มี countdown และการมีมันอยู่ในมือคือการเชิญให้เขียน
+// `now > liveUntil` ซึ่งเป็นจริงทุกวันระหว่างสอง slow poll โดยที่ QR ยังไม่ตาย (ดู SLOW_POLL_MS ข้างล่าง)
+export type PaymentRow = {
+  chargeId: string | null
+  status: string
+  method?: string
+  orderId?: string | null
+  qrDeadline?: QrDeadlineState
+  /**
+   * #455 slice 3 — เหตุผลที่แถวจบแบบไม่ได้จ่าย · optional ด้วยเหตุผลเดียวกับ `qrDeadline`:
+   * ฝั่ง server เพิ่งเริ่มส่งมัน (mojisejr/mootech-fe#481) ⇒ ระหว่างที่สองฝั่งยัง deploy ไม่พร้อมกัน
+   * จอต้องอ่านได้ทั้งตอนมีและตอนไม่มี ❌ ห้ามพังเพราะฟิลด์หาย
+   *
+   * 🔴 `null` แปลว่า **gateway ไม่ได้บอกเหตุ และเราก็ไม่ได้อนุมานเอง** ❌ ไม่ใช่ "ไม่มีปัญหา"
+   */
+  failureCode?: string | null
+}
 
 /** PURE — the whole selection rule, so it is testable without a timer or a network. */
 export function pickCharge(rows: PaymentRow[], chargeId: string): PaymentRow | null {
   return rows.find((r) => r.chargeId === chargeId) ?? null
 }
 
-/** PURE — what the SCREEN is allowed to say about a row. Anything that is not a settled APPROVED is
- *  "still waiting"; there is no third answer that lets the UI claim success early. */
+/**
+ * PURE — find this user's row by EITHER identifier (#439).
+ *
+ * 🔴 WHY orderId HAD TO EXIST AS A KEY. A 3-D Secure return_uri must be handed to Omise *before* Omise
+ * issues a charge id, so the only identifier we can put in that URL is one we minted ourselves: orderId
+ * (lib/payment/charge-flow.ts makeOrderId). The cardholder comes back to /v2/shop/result?order=… with no
+ * charge id anywhere, and this is how the screen finds its own row.
+ *
+ * chargeId wins when both are given: it is the narrower key (unique index on v2_payment.charge_id),
+ * while orderId is only unique in practice.
+ *
+ * 📌 KNOWN, DELIBERATE (ตู๋, review of #448): on a duplicate orderId this takes the first row, while the
+ * server's settleAndProvision refuses and returns AMBIGUOUS. The two disagree on purpose — the server is
+ * deciding whether money moved, this is only deciding which row to SHOW, and the rows it can see are
+ * already scoped to the session user by listUserPayments. Worst case is a user seeing their own other
+ * row. Tighten this the day orderId collisions stop being theoretical.
+ */
+export function pickPayment(rows: PaymentRow[], by: { chargeId?: string | null; orderId?: string | null }): PaymentRow | null {
+  if (by.chargeId) {
+    const hit = rows.find((r) => r.chargeId === by.chargeId)
+    if (hit) return hit
+  }
+  if (by.orderId) return rows.find((r) => r.orderId === by.orderId) ?? null
+  return null
+}
+
+/** PURE — what the SCREEN is allowed to say about a row.
+ *
+ *  🔴 ALLOWLIST, NOT else (#438). The original rule was "anything that is not APPROVED is still waiting",
+ *  which correctly stopped the UI claiming success early — and, with it, threw away every failure. Both
+ *  halves matter, so the mapping now names the two statuses it understands and sends EVERYTHING ELSE to
+ *  'PENDING'. A status string this code has never heard of is therefore still "we are waiting": it is
+ *  neither read as success (the original guarantee, scripts/charge-status.test.ts:48-54) nor as failure.
+ *
+ *  Do not rewrite this as `row.status === 'APPROVED' ? … : row.status === 'REJECT' ? … : …` with the arms
+ *  reordered — the point is that the DEFAULT arm is PENDING, whatever new value the DB grows next. */
 export function statusOf(row: PaymentRow | null): ChargeStatus {
   if (!row) return 'UNKNOWN'
-  return row.status === 'APPROVED' ? 'APPROVED' : 'PENDING'
+  if (row.status === 'APPROVED') return 'APPROVED'
+  if (row.status === 'REJECT') return 'REJECTED'
+  return 'PENDING'
+}
+
+/** PURE — is this a state nothing further will change? Used to stop polling AND to stop the screen waiting.
+ *  Kept separate from statusOf so both callers read the same rule instead of each spelling it out. */
+export function isSettledStatus(s: ChargeStatus): boolean {
+  return s === 'APPROVED' || s === 'REJECTED'
 }
 
 export const POLL_MS = 3000
@@ -66,6 +136,8 @@ export const SLOW_POLL_MS = 30_000
 
 export type UseChargeStatus = {
   status: ChargeStatus
+  /** #438 — 'card' | 'promptpay' for THIS charge, or null until a row is seen. Only the screen uses it. */
+  method: string | null
   polling: boolean
   error: boolean
   /**
@@ -76,12 +148,18 @@ export type UseChargeStatus = {
   stale: boolean
   /** which of the three honest things the screen may say — see reconcile-window.waitPhase. */
   phase: WaitPhase
+  /** #455 — what the SERVER says about the gateway's deadline. 'unknown' until told, never assumed. */
+  qrDeadline: QrDeadlineState
+  /** #455 slice 3 — why a finished row ended unpaid. null = we were told nothing, NOT "nothing wrong". */
+  failureCode: string | null
   /** one manual poll. Nothing is lost by asking again, so the user is never stuck with our guess. */
   check: () => void
 }
 
 export function useChargeStatus(
-  chargeId: string | null,
+  // #439 — a string is still accepted (every existing caller passes one). An object lets the result screen
+  // ask by orderId, which is the only identifier a 3DS return_uri can carry.
+  key: string | null | { chargeId?: string | null; orderId?: string | null },
   {
     pollMs = POLL_MS,
     slowPollMs = SLOW_POLL_MS,
@@ -90,7 +168,19 @@ export function useChargeStatus(
     now = () => Date.now(),
   } = {},
 ): UseChargeStatus {
+  // #439 — normalise the two accepted shapes into primitives, so the effect's dep list compares by VALUE.
+  // An object literal from the caller would be a new identity every render, i.e. a poll that restarts
+  // forever — the same trap the `now` ref below already documents.
+  const byChargeId = typeof key === 'string' ? key : (key?.chargeId ?? null)
+  const byOrderId = typeof key === 'string' ? null : (key?.orderId ?? null)
+  const lookupKey = byChargeId || byOrderId
+
   const [status, setStatus] = useState<ChargeStatus>('UNKNOWN')
+  // #438 — the method the row was actually paid with. A REJECT means "the bank refused this card" or "this
+  // QR died"; the screen needs to know which before it picks words. Null until a row for THIS charge is seen.
+  const [method, setMethod] = useState<string | null>(null)
+  const [qrDeadline, setQrDeadline] = useState<QrDeadlineState>('unknown')
+  const [failureCode, setFailureCode] = useState<string | null>(null)
   const [error, setError] = useState(false)
   const [phase, setPhase] = useState<WaitPhase>('waiting')
   const [nonce, setNonce] = useState(0)
@@ -103,7 +193,7 @@ export function useChargeStatus(
   nowRef.current = now
 
   useEffect(() => {
-    if (!chargeId) return
+    if (!lookupKey) return
     stopped.current = false
     setPhase('waiting')
     const startedAt = nowRef.current()
@@ -114,13 +204,20 @@ export function useChargeStatus(
         const r = await fetch('/api/v2/payment/status')
         if (!r.ok) throw new Error(String(r.status))
         const data = (await r.json()) as { payments?: PaymentRow[] }
-        const next = statusOf(pickCharge(data.payments ?? [], chargeId))
+        const row = pickPayment(data.payments ?? [], { chargeId: byChargeId, orderId: byOrderId })
+        const next = statusOf(row)
         if (stopped.current) return
         setError(false)
         setStatus(next)
+        setMethod(row?.method ?? null)
+        // ไม่มีแถว หรือแถวไม่มีช่องนี้ = ไม่ถูกบอก ⇒ 'unknown' (ดูเหตุผลที่ PaymentRow ข้างบน)
+        setQrDeadline(row?.qrDeadline ?? 'unknown')
+        setFailureCode(row?.failureCode ?? null)
         // Settled is settled — stop asking. Everything else keeps waiting: a transient network error must not
         // end the wait, because ending it is indistinguishable on screen from "it failed".
-        if (next === 'APPROVED') return
+        // 🔴 #438 — REJECTED ends the loop too. A refused charge is as final as a settled one; polling on
+        // would burn a request every 30 seconds forever for an answer that can no longer change.
+        if (isSettledStatus(next)) return
       } catch {
         if (stopped.current) return
         setError(true)
@@ -135,8 +232,12 @@ export function useChargeStatus(
       // 🔴 EVEN `exhausted` KEEPS ASKING (ตู๋, review of #424). The first version returned here, which meant a
       // cron run that could not reach the gateway at minute 20 — and therefore repaired the row at minute 45 —
       // could never reach a screen the user still had open. The reconciler runs for seven days; a poll every
-      // 30s costs one request while someone is actually looking. Only APPROVED ends the loop (above), and
-      // closing the page ends it via the effect cleanup.
+      // 30s costs one request while someone is actually looking. A SETTLED status ends the loop (above —
+      // isSettledStatus, which is APPROVED *and* REJECTED since #438), and closing the page ends it via the
+      // effect cleanup.
+      // 🔴 ประโยคเดิมตรงนี้เขียนว่า "Only APPROVED ends the loop" ซึ่งผิดตั้งแต่ #438 เพิ่ม REJECTED เข้าไป
+      // ที่ :83 · assertion ไม่มีทางแดงเพราะไม่มีใครทดสอบคอมเมนต์ · บองชี้ให้ตอน slice 3 (mojisejr/mootech-fe#481)
+      // และมันสำคัญกว่าที่เห็น: การที่ loop จบเมื่อ REJECTED คือสาเหตุที่ phase แช่ ซึ่งคือบั๊กที่ slice นี้แก้
       timer = setTimeout(tick, nextPhase === 'waiting' ? pollMs : slowPollMs)
     }
     void tick()
@@ -145,17 +246,20 @@ export function useChargeStatus(
       stopped.current = true
       if (timer) clearTimeout(timer)
     }
-  }, [chargeId, pollMs, slowPollMs, pollUntilMs, horizonMs, nonce])
+  }, [lookupKey, byChargeId, byOrderId, pollMs, slowPollMs, pollUntilMs, horizonMs, nonce])
 
   const stale = phase === 'exhausted'
   return {
     status,
+    method,
     // 🔴 `polling` now means what it says — we ask until the charge settles or the page closes. It no longer
     // goes false at the horizon, because we no longer stop there.
-    polling: !!chargeId && status !== 'APPROVED',
+    polling: !!lookupKey && !isSettledStatus(status),
     error,
     stale,
     phase,
+    qrDeadline,
+    failureCode,
     check: () => setNonce((n) => n + 1),
   }
 }

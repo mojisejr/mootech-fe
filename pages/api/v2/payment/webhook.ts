@@ -7,8 +7,8 @@
 // signature"). We read the raw stream ourselves.
 import type { NextApiRequest, NextApiResponse } from 'next'
 import { omiseGateway } from '@/lib/payment/omise-gateway'
-import { parseChargeEvent, isSettleable, isTerminalFailure } from '@/lib/payment/gateway'
-import { settleAndProvision, abandonByChargeId } from '@/lib/payment/repo'
+import { parseChargeEvent, isSettleable, isTerminalFailure, isReversal } from '@/lib/payment/gateway'
+import { settleAndProvision, abandonByChargeId, revokeByChargeId } from '@/lib/payment/repo'
 
 export const config = { api: { bodyParser: false } }
 
@@ -64,6 +64,20 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           `The row existed but never received its charge_id (attach failed, or this delivery beat it).`,
       )
     }
+  } else if (isReversal(evt)) {
+    // 🔴 #484 — CHECKED BEFORE isTerminalFailure ON PURPOSE. That branch answers `false` whenever the event
+    // says `paid: true`, and a reversed charge WAS paid, so a reversal arriving that way would fall through
+    // this whole handler and change nothing at all — not even the discount hold. Asking the narrower
+    // question first makes the routing independent of a field we have never observed on a real reversal.
+    const { revoked, shadowHandled } = await revokeByChargeId(evt.chargeId!)
+    if (revoked && shadowHandled === 'NEEDS_HUMAN') {
+      // revokeByChargeId already logged the detail. Kept as a second line here because this is the file a
+      // human opens when they are looking at webhook behaviour, and a silent partial revoke is the exact
+      // shape this ticket exists to end.
+      console.warn(`[v2/payment/webhook] #484 reversal handled, member_payment left for a human — charge=${evt.chargeId}`)
+    }
+    // The discount hold still has to come off, exactly as any other terminal end (#372 ③ layer 2).
+    await abandonByChargeId(evt.chargeId!)
   } else if (isTerminalFailure(evt) && evt.chargeId) {
     // 🔴 The charge ENDED without succeeding (failed/expired/reversed) ⇒ free its discount hold now instead
     // of waiting for the quote to expire (#372 ③ layer 2). An event that is merely not-finished-yet

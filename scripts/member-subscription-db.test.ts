@@ -1,6 +1,6 @@
 // #354 — DB half: proves the v2 membership seam against a REAL postgres. Like push-concurrency.test.ts it
 // is `describe.skipIf(!TEST_DATABASE_URL)` and does NOT run in the pre-push lane; run it against the testenv
-// pg (which carries the 24 anonymized member_payment rows) for the PR proof:
+// pg (which carries the anonymized member_payment rows) for the PR proof:
 //   TEST_DATABASE_URL=postgres://postgres:postgres@localhost:5433/mumate_test \
 //   DATABASE_URL=postgres://postgres:postgres@localhost:5433/mumate_test \
 //   npx vitest run scripts/member-subscription-db.test.ts
@@ -26,6 +26,16 @@ const MIGRATION7 = readFileSync(resolve('lib/db/0007_v2_payment.sql'), 'utf8')
 // schema, so every suite that rebuilds v2_payment must apply 0008 too — otherwise the NEXT suite's reads
 // fail on a missing column (this bit the payment suite once already).
 const MIGRATION8 = readFileSync(resolve('lib/db/0008_discount_code.sql'), 'utf8')
+// #437's 0010 ALTERs v2_payment (failure_code/failure_message) and those columns are in the drizzle schema,
+// so every suite that rebuilds v2_payment must apply 0010 too — same trap as 0008 above, one migration on.
+const MIGRATION10 = readFileSync(resolve('lib/db/0010_v2_payment_failure.sql'), 'utf8')
+// 🔴 0011 and 0012 are ALTERs on v2_payment too, and 0011 was already missing here before #484: the
+// drizzle schema has carried charge_expires_at since #455, so every schema-wide select in this suite has
+// been asking for a column this fixture never created. It stayed invisible because these suites are
+// skipIf(!TEST_DATABASE_URL) and the pre-push lane does not run them. An ALTER that lands in schema.ts
+// has to land in every hand-built fixture, and nothing enforces that — running them is the only check.
+const MIGRATION11 = readFileSync(resolve('lib/db/0011_v2_payment_qr_expiry.sql'), 'utf8')
+const MIGRATION12 = readFileSync(resolve('lib/db/0012_v2_payment_prev_member_expire.sql'), 'utf8')
 const NOW = new Date()
 
 function bkk(now: Date): string {
@@ -52,6 +62,9 @@ describe.skipIf(!TEST_URL)('member_subscription · real pg (#354)', () => {
     await sql.unsafe(MIGRATION)
     await sql.unsafe(MIGRATION7)
     await sql.unsafe(MIGRATION8)
+    await sql.unsafe(MIGRATION10) // #437 — failure_code/failure_message
+    await sql.unsafe(MIGRATION11)
+    await sql.unsafe(MIGRATION12)
     const today = bkk(NOW)
     const [m] = await sql`SELECT mp.user_id FROM member_payment mp
       JOIN "user" usr ON usr.user_id = mp.user_id
@@ -107,9 +120,18 @@ describe.skipIf(!TEST_URL)('member_subscription · real pg (#354)', () => {
     ).rejects.toThrow(/foreign key|violates/i)
   })
 
-  it('the 24 existing member_payment users read EXACTLY as before (no v2 rows, no data moved)', async () => {
+  it('every existing member_payment user reads EXACTLY as before (no v2 rows, no data moved)', async () => {
     const users = await sql`SELECT user_id FROM member_payment`
-    expect(users.length).toBe(24)
+    // 🔴 #442 — this used to read `toBe(24)`, a snapshot of however many rows the dump happened to carry
+    // the day #354 was written. The number MOVES on its own: settling a v2 payment writes a shadow
+    // member_payment row, so every payment test run on testenv bumps it (it reached 25 and went red on
+    // `main` itself, which is worse than useless — the next person cannot tell whether they broke it).
+    // The count never guarded anything; the LOOP below is the whole point of this test.
+    //
+    // 🔴 WHY NOT DROP THE ASSERTION ENTIRELY. With an empty table the loop runs zero times and this test
+    // goes green having proven nothing — a pass that survives the disappearance of the thing it checks.
+    // Reading the floor off the database keeps the test tied to behaviour instead of to a snapshot.
+    expect(users.length).toBeGreaterThan(0)
     for (const { user_id } of users) {
       const legacy = await resolveMembership(user_id, NOW)
       const resolved = await resolveSubscription(user_id, NOW)
@@ -121,20 +143,24 @@ describe.skipIf(!TEST_URL)('member_subscription · real pg (#354)', () => {
 
   it('3 read cases: v2 row → tier from v2 · legacy only → paid · neither → free', async () => {
     await seed({ id: 'test-354-a', userId: u[0], tier: 'PRO', expireAt: '2027-12-31' })
-    expect(await resolveSubscription(u[0], NOW)).toEqual({ isPaid: true, tier: 'PRO', source: 'v2' })
+    // #365 — the DATE comes back too, and it is the seeded row's, straight from postgres.
+    expect(await resolveSubscription(u[0], NOW)).toEqual({ isPaid: true, tier: 'PRO', source: 'v2', expireAt: '2027-12-31' })
 
     const legacyResolved = await resolveSubscription(liveMember, NOW)
-    expect(legacyResolved).toEqual({ isPaid: true, tier: null, source: 'legacy' })
+    // #365 — null on the legacy path even though this member DOES have a member_payment expire_at.
+    expect(legacyResolved).toEqual({ isPaid: true, tier: null, source: 'legacy', expireAt: null })
 
     // a user_id with no v2 row and no member_payment row → free (a READ needs no FK)
-    expect(await resolveSubscription('nobody-354', NOW)).toEqual({ isPaid: false, tier: null, source: 'none' })
+    expect(await resolveSubscription('nobody-354', NOW)).toEqual({ isPaid: false, tier: null, source: 'none', expireAt: null })
   })
 
   it('B2 — the picker (not SQL) applies the whole filter: past-expire + REPLACED siblings are ignored', async () => {
     await seed({ id: 'test-354-old', userId: u[1], tier: 'PRO', expireAt: '2026-08-01' }) // past-expire
     await seed({ id: 'test-354-repl', userId: u[1], tier: 'PRO', status: 'REPLACED', expireAt: '2099-01-01' })
     await seed({ id: 'test-354-live', userId: u[1], tier: 'PLUS', expireAt: '2027-01-01' }) // the live one
-    expect(await resolveSubscription(u[1], NOW)).toEqual({ isPaid: true, tier: 'PLUS', source: 'v2' })
+    // #365 — and the date follows the row the picker chose, NOT the REPLACED sibling's 2099-01-01, which is
+    // the furthest date in the table. A picker that ordered by expire_at before filtering would say 2099.
+    expect(await resolveSubscription(u[1], NOW)).toEqual({ isPaid: true, tier: 'PLUS', source: 'v2', expireAt: '2027-01-01' })
   })
 
   it('🔴 deterministic pick: 3 ACTIVE rows, identical expire_at+created_at → SAME tier on 10 reads', async () => {
@@ -148,10 +174,47 @@ describe.skipIf(!TEST_URL)('member_subscription · real pg (#354)', () => {
     expect(reads[0]).toBe('PRO') // id 'test-354-d3' wins the DESC id tiebreak
   })
 
+  // ── #365 · THE TWO-ROW PROBE the ticket asks for, against real postgres ────────────────────────────
+  //
+  // 🔑 WHY TWO ROWS AND NOT ONE (ตู๋ F1/F2, restated in the ticket): a one-row probe proves the screen reads
+  // A value from the DB. It does NOT prove it reads the RIGHT row — a screen that picks arbitrarily passes
+  // whenever the row it happened to grab is the one the test edited. The two halves below only both hold if
+  // the selection rule is actually being applied.
+  //
+  // ⚠️ The third case is not decoration. "editing the loser changes nothing" is ALSO what you would see if
+  // the code ignored the database entirely, so it is only evidence once the same instrument is shown to
+  // MOVE — case ③ promotes the loser and the answer must follow it.
+  it('🔴 #365 two live rows: editing the WINNER moves the date · editing the LOSER does not', async () => {
+    const user = u[0]
+    await seed({ id: 'sub-365-lose', userId: user, tier: 'PRO', expireAt: '2027-01-01' })
+    await seed({ id: 'sub-365-win', userId: user, tier: 'PRO', expireAt: '2030-06-30' })
+
+    // baseline — the furthest ACTIVE expire_at wins (lib/v2/subscription.ts pickActiveSubscriptionRow)
+    expect((await resolveSubscription(user, NOW)).expireAt).toBe('2030-06-30')
+
+    // ① edit the WINNER → the answer must follow it (still the furthest)
+    await sql`UPDATE member_subscription SET expire_at = ${'2031-12-25'} WHERE id = ${'sub-365-win'}`
+    expect((await resolveSubscription(user, NOW)).expireAt).toBe('2031-12-25')
+
+    // ② edit the LOSER, keeping it a loser → the answer must NOT move
+    await sql`UPDATE member_subscription SET expire_at = ${'2028-02-29'} WHERE id = ${'sub-365-lose'}`
+    expect((await resolveSubscription(user, NOW)).expireAt).toBe('2031-12-25')
+
+    // ③ NEGATIVE CONTROL for ② — promote the loser past the winner. If the instrument cannot see this, then
+    // ②'s "did not move" measured nothing. The tier travels with the row, so assert both: a picker that
+    // returned the right DATE off the wrong ROW would still be wrong.
+    await sql`UPDATE member_subscription SET expire_at = ${'2099-01-01'}, tier_code = ${'PLUS'} WHERE id = ${'sub-365-lose'}`
+    const promoted = await resolveSubscription(user, NOW)
+    expect(promoted.expireAt).toBe('2099-01-01')
+    expect(promoted.tier).toBe('PLUS')
+
+    await sql`DELETE FROM member_subscription WHERE id IN (${'sub-365-win'}, ${'sub-365-lose'})`
+  })
+
   it('🔴 TEETH — delete the v2 row and a member falls back to member_payment, NOT to free', async () => {
     await seed({ id: 'sub-354-teeth', userId: liveMember, tier: 'PLUS', expireAt: '2027-12-31' })
-    expect(await resolveSubscription(liveMember, NOW)).toEqual({ isPaid: true, tier: 'PLUS', source: 'v2' })
+    expect(await resolveSubscription(liveMember, NOW)).toEqual({ isPaid: true, tier: 'PLUS', source: 'v2', expireAt: '2027-12-31' })
     await sql`DELETE FROM member_subscription WHERE id = ${'sub-354-teeth'}`
-    expect(await resolveSubscription(liveMember, NOW)).toEqual({ isPaid: true, tier: null, source: 'legacy' })
+    expect(await resolveSubscription(liveMember, NOW)).toEqual({ isPaid: true, tier: null, source: 'legacy', expireAt: null })
   })
 })

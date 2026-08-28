@@ -6,7 +6,7 @@
 //     green tick because somebody pattern-matched on a string;
 //   • the action offered comes from `retry`, so "ลองอีกครั้ง" cannot appear on a state where trying again
 //     sends the user in a circle (a declined card).
-import { RESULT_COPY, type ResultState } from '../result-state'
+import { RESULT_COPY, resultCopyFor, type ResultState } from '../result-state'
 import { cn } from '@/lib/utils/cn'
 
 export type ResultScreenProps = {
@@ -17,10 +17,15 @@ export type ResultScreenProps = {
   onTryAnother?: () => void
   /** always available once nothing is in flight: go use the thing they bought (or came back for). */
   onDone?: () => void
+  /** #466 — the plan to NAME in a refusal ("คุณเป็นสมาชิก Mumate + อยู่แล้ว"). Absent/unknown ⇒ the table's
+   *  tier-less wording, which is still true. Ignored by the other seven states. */
+  planName?: string | null
 }
 
-export function ResultScreen({ state, onRetrySame, onTryAnother, onDone }: ResultScreenProps) {
-  const copy = RESULT_COPY[state]
+export function ResultScreen({ state, onRetrySame, onTryAnother, onDone, planName }: ResultScreenProps) {
+  // #466 — resultCopyFor returns RESULT_COPY[state] untouched for every state that does not name a plan,
+  // so the "one audited table" property this file relies on is unchanged.
+  const copy = resultCopyFor(state, planName)
   const inFlight = state === 'PAYING'
 
   return (
@@ -48,6 +53,22 @@ export function ResultScreen({ state, onRetrySame, onTryAnother, onDone }: Resul
         {copy.retry === 'same' && onRetrySame && (
           <button type="button" data-testid="result-retry-same" onClick={onRetrySame} className="w-full rounded-pill bg-v3-sapphire px-5 py-3 text-sm font-medium text-white">
             ตรวจสอบอีกครั้ง
+          </button>
+        )}
+        {copy.retry === 'new-qr' && onTryAnother && (
+          // 🔴 NOT "ตรวจสอบอีกครั้ง". The gateway told us this QR is dead — asking again cannot revive it.
+          // Same destination as "เลือกวิธีชำระเงินอื่น" (the package's checkout, which mints a new charge),
+          // different words, because the words are the part that was wrong.
+          <button type="button" data-testid="result-new-qr" onClick={onTryAnother} className="w-full rounded-pill bg-v3-sapphire px-5 py-3 text-sm font-medium text-white">
+            ขอ QR ใหม่
+          </button>
+        )}
+        {copy.retry === 'buy-again' && onTryAnother && (
+          // 🔴 NOT "ขอ QR ใหม่". This screen is reached by card payers too — a reversal is not a QR story.
+          // Same destination as the other two (the package's checkout), different words, because the words
+          // are what the reader acts on.
+          <button type="button" data-testid="result-buy-again" onClick={onTryAnother} className="w-full rounded-pill bg-v3-sapphire px-5 py-3 text-sm font-medium text-white">
+            ซื้ออีกครั้ง
           </button>
         )}
         {copy.retry === 'different' && onTryAnother && (

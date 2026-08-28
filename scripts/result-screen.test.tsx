@@ -1,5 +1,8 @@
 // #363 — teeth for the arrangement of the states. MAIN lane.
-// #423 — seven now: RECONCILING sits between PAYING and QR_MAYBE_EXPIRED. The count assertion below is what
+// #466 — nine now: ALREADY_ON_THIS_TIER and CANNOT_DOWNGRADE joined. They are the first states that are
+// neither a success nor a failure — the purchase was refused before any money moved — so this file also
+// pins that they render as a refusal (no tick) and offer exactly one way out: back to the package list.
+// #423 — seven then: RECONCILING sits between PAYING and QR_MAYBE_EXPIRED. The count assertion below is what
 // forced this file to be opened when it was added — keep it exact, never `toBeGreaterThan`.
 //
 // 🔴 MUTANT CONTRACT:
@@ -15,15 +18,15 @@ import React from 'react'
 import { describe, it, expect, vi, afterEach } from 'vitest'
 import { render, screen, cleanup } from '@testing-library/react'
 import { ResultScreen } from '@/features/v2-shop/components/ResultScreen'
-import { RESULT_COPY, type ResultState } from '@/features/v2-shop/result-state'
+import { RESULT_COPY, REFUSED_STATES, type ResultState } from '@/features/v2-shop/result-state'
 
 afterEach(cleanup)
 const STATES = Object.keys(RESULT_COPY) as ResultState[]
 const all = { onRetrySame: vi.fn(), onTryAnother: vi.fn(), onDone: vi.fn() }
 
 describe('#363 the screen cannot contradict the table', () => {
-  it('🔴 the success mark appears on exactly the states where money moved — all seven checked', () => {
-    expect(STATES).toHaveLength(7)
+  it('🔴 the success mark appears on exactly the states where money moved — all thirteen checked', () => {
+    expect(STATES).toHaveLength(13) // #455 QR_EXPIRED · #484 PAYMENT_REVERSED · #492 CARD_UNREADABLE + PAYMENT_SETUP_BROKEN joined the table
     for (const s of STATES) {
       render(<ResultScreen state={s} {...all} />)
       const paid = RESULT_COPY[s].paid
@@ -79,5 +82,47 @@ describe('#363 the screen cannot contradict the table', () => {
     cleanup()
     render(<ResultScreen state="CARD_DECLINED" {...all} />)
     expect(screen.getByTestId('result-done').textContent).toBe('กลับหน้าแพ็กเกจ')
+  })
+
+  // ── #466 — a refusal is not a failure, and the way out is not "try again" ──────────────────────────
+  it('🔴 a refusal shows no success mark and never claims money moved', () => {
+    for (const s of REFUSED_STATES) {
+      render(<ResultScreen state={s} {...all} />)
+      expect(screen.getByTestId('result-screen').getAttribute('data-paid'), s).toBe('0')
+      expect(screen.getByTestId('result-mark').textContent, `${s} mark`).toBe('!')
+      cleanup()
+    }
+  })
+
+  it('🔴 a refusal offers ONE way out — back to the package list (ฟีมเคาะ 2026-08-26)', () => {
+    for (const s of REFUSED_STATES) {
+      render(<ResultScreen state={s} {...all} />)
+      // retry:'none' ⇒ neither retry button may be drawn: pressing again cannot change a refusal, and
+      // "เลือกวิธีชำระเงินอื่น" would send a member who already owns the plan back to buy it again.
+      expect(screen.queryByTestId('result-retry-same'), s).toBeNull()
+      expect(screen.queryByTestId('result-try-another'), s).toBeNull()
+      expect(screen.getByTestId('result-done').textContent, s).toBe('กลับหน้าแพ็กเกจ')
+      cleanup()
+    }
+  })
+
+  it('MU8 — the plan is named when the screen is told which one, and never a raw code when it is not', () => {
+    render(<ResultScreen state="ALREADY_ON_THIS_TIER" planName="Mumate +" {...all} />)
+    expect(screen.getByTestId('result-title').textContent).toContain('Mumate +')
+    cleanup()
+
+    render(<ResultScreen state="ALREADY_ON_THIS_TIER" {...all} />)
+    const title = screen.getByTestId('result-title').textContent ?? ''
+    expect(title).toBe(RESULT_COPY.ALREADY_ON_THIS_TIER.title) // the truthful tier-less fallback
+    expect(title).not.toMatch(/PLUS|PRO|FREE/)
+    cleanup()
+  })
+
+  it('planName changes nothing for the other seven states', () => {
+    for (const s of STATES.filter((x) => !REFUSED_STATES.includes(x as never))) {
+      render(<ResultScreen state={s} planName="Mumate Pro" {...all} />)
+      expect(screen.getByTestId('result-title').textContent, s).toBe(RESULT_COPY[s].title)
+      cleanup()
+    }
   })
 })

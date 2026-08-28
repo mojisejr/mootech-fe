@@ -33,9 +33,19 @@ describe('#363 which key, and when', () => {
   it('🔴 a missing v2 key STOPS the screen — it never borrows v1\'s live key', () => {
     // The fallback that would look helpful and would silently charge through v1's live credentials, or
     // (worse) make v1 tokenize against test once someone swapped it to try this screen.
-    expect(() => v2OmiseKey({ NEXT_PUBLIC_OMISE_KEY: 'pkey_live_v1' })).toThrow(OmiseKeyMissingError)
-    expect(() => v2OmiseKey({})).toThrow(OmiseKeyMissingError)
-    expect(v2OmiseKey({ [V2_OMISE_KEY_ENV]: 'pkey_test_v2' })).toBe('pkey_test_v2')
+    // #432: the signature is now `v2OmiseKey(override?)` — the old `env` object could not stay, because
+    // reading through it is exactly what hid the var from the bundler. Injection is preserved.
+    const saved = process.env[V2_OMISE_KEY_ENV]
+    try {
+      delete process.env[V2_OMISE_KEY_ENV]
+      process.env.NEXT_PUBLIC_OMISE_KEY = 'pkey_live_v1' // v1's key present, v2's absent
+      expect(() => v2OmiseKey()).toThrow(OmiseKeyMissingError)
+      expect(v2OmiseKey('pkey_test_v2')).toBe('pkey_test_v2')
+    } finally {
+      if (saved === undefined) delete process.env[V2_OMISE_KEY_ENV]
+      else process.env[V2_OMISE_KEY_ENV] = saved
+      delete process.env.NEXT_PUBLIC_OMISE_KEY
+    }
   })
 
   it('the source never mentions v1\'s env name outside a comment', () => {

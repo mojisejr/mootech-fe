@@ -24,6 +24,16 @@ const CalendarChineseDairyCard = ({
   gotoPayment
 } : ComponentProps) => {
 
+  // #427 — v1 ปิดการขายแล้ว (#376) · ปุ่ม "ปลดล็อค" ในมุมมองรายวันเคยเรียก gotoPayment ซึ่ง router.replace
+  // ไป /package-price ⇒ พาผู้ใช้ออกจากวันที่กำลังดู ไปเจอ "ปิดการขายชั่วคราว" แล้วกด back ไม่กลับ
+  // ตอบตรงที่ปุ่มแทน · `gotoPayment` ยังอยู่ในสัญญา ไม่ถูกลบ (Principle 1)
+  //
+  // 🔑 จุดนี้เกือบหลุด: ผมไล่ผู้เรียกด้วย grep คำว่า "calendar-chinese" ซึ่ง **ไม่ match ชื่อไฟล์นี้**
+  // (calendar-DAIRY-chinese) แล้วสรุปว่า prop gotoPayment ที่ chinese-calendar ส่งมาไม่มีใครรับ = dead code
+  // ของจริงมันมารับที่นี่ · บองเปิดไฟล์แล้วชี้ให้เห็น — `calendar-month-chinese` กับ `calendar-dairy-chinese`
+  // import อยู่ติดกันบรรทัด 1-2 ของหน้าเดียวกัน และผมอ่านผ่านไปตัวเดียว
+  const [salesClosedNotice, setSalesClosedNotice] = useState(false)
+
 
   const today = new Date()
   const [day, setDay] = useState<number>(initDay)
@@ -458,13 +468,27 @@ const getTime = (info: any) => {
                               </p>
 
                               <button
-                                onClick={ () => { gotoPayment() }}
+                                type="button"
+                                data-testid="dairy-unlock"
+                                onClick={ () => { setSalesClosedNotice(true) }}
                                 className="mt-4 px-6 py-2 rounded-full
                                           bg-moumate_blue text-white
                                           hover:scale-105 transition-all duration-300"
                               >
                                 ปลดล็อค
                               </button>
+                              {salesClosedNotice && (
+                                <p
+                                  data-testid="dairy-unlock-notice"
+                                  role="status"
+                                  aria-live="polite"
+                                  className="mt-3 text-[13px] leading-6 text-moumate_black"
+                                >
+                                  ตอนนี้ปิดการขายชั่วคราว เรากำลังปรับแพ็กเกจใหม่
+                                  <br />
+                                  สิทธิ์ที่ซื้อไว้แล้วยังใช้งานได้ตามปกติ
+                                </p>
+                              )}
                             </div>
                           </div>
                         )

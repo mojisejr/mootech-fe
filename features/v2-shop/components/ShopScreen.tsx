@@ -18,8 +18,25 @@ import { PillTabs } from '@/components/ui/pill-tabs'
 import { Menubar } from '@/features/v2-shell/components/Menubar'
 import { AppHeader } from '@/features/v2-shell/components/AppHeader'
 import { useClientTier } from '@/features/v2-shell/hooks/useClientTier'
+import { useV2User } from '@/features/auth/hooks/useV2User'
 import { PLANS, type BillingPeriod } from '../packages'
+import { cardVerdictFor, type ViewerMembership } from '../card-verdict'
 import { PackageCard } from './PackageCard'
+
+// 🔴 THE ONLY CLOCK READ ON THIS SCREEN, and nothing rendered depends on it.
+// `decidePurchase` needs a calendar day to COUNT remaining days; the card never prints that number (the
+// binding one comes from /api/v2/payment/preview at checkout). Asia/Bangkok is pinned rather than taken
+// from the device so two people looking at the same account on the same evening cannot get different
+// answers — the mootech-fe#452 bug-class, where a timezone slid a rendered date back a day.
+// 'en-CA' is the locale whose numeric format IS 'YYYY-MM-DD'; no Date arithmetic happens here.
+function todayInBangkok(): string {
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Bangkok',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(new Date())
+}
 
 const PERIOD_TABS = [
   { label: 'รายเดือน', value: 'monthly' },
@@ -30,6 +47,19 @@ export function ShopScreen({ teamPreview = false }: { teamPreview?: boolean } = 
   // The design shows รายปี pre-selected.
   const [period, setPeriod] = useState<BillingPeriod>('annual')
   const tier = useClientTier(teamPreview)
+  // 🔴 TWO HOOKS, ON PURPOSE — and they are NOT two fetches: useV2Tier.ts:39 already calls useV2User, which
+  // de-duplicates /api/user across the page.
+  //   · `tier` (useV2Tier) owns the PAID VERDICT, and it is the only thing that tells an anonymous visitor
+  //     (KNOWN not-paid, tier.ts:55 → isPaid false) apart from identity-limbo and a failed fetch (both
+  //     null, tier.ts:59-64). Reading `user.membership == null` instead would collapse those: a logged-out
+  //     visitor would be treated as "we do not know" and LOSE the buy button they have today.
+  //   · `user.membership` is borrowed for ONE field, `expireAt`, which V2Tier does not carry (tier.ts:26-33)
+  //     and DoD ② needs. Widening V2Tier would drag six other screens through a contract change
+  //     (header-badge.ts:31 accepts its result verbatim) for one card's date line.
+  const { user } = useV2User()
+  const membership: ViewerMembership =
+    tier.isPaid == null ? null : { isPaid: tier.isPaid, tier: tier.tier, expireAt: user?.membership?.expireAt ?? null }
+  const today = todayInBangkok()
 
   return (
     <div className="relative min-h-screen w-full overflow-x-hidden bg-v3-bg-cream font-ibm">
@@ -67,7 +97,18 @@ export function ShopScreen({ teamPreview = false }: { teamPreview?: boolean } = 
 
         <div data-testid="shop-plan-list" className="mt-5 flex flex-col gap-5">
           {PLANS.map((plan) => (
-            <PackageCard key={plan.id} plan={plan} period={period} />
+            <PackageCard
+              key={plan.id}
+              plan={plan}
+              period={period}
+              verdict={cardVerdictFor({
+                planId: plan.id,
+                determined: tier.isPaid != null,
+                loading: tier.loading,
+                membership,
+                today,
+              })}
+            />
           ))}
         </div>
 

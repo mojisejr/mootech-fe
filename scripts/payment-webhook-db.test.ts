@@ -23,6 +23,18 @@ const M0007 = readFileSync(resolve('lib/db/0007_v2_payment.sql'), 'utf8')
 // #361 added discount columns to v2_payment via 0008's ALTERs; the drizzle schema (and every select) now
 // includes them, so the table must be built with 0008 too or the reads fail on a missing column.
 const M0008 = readFileSync(resolve('lib/db/0008_discount_code.sql'), 'utf8')
+// #437 added failure_code/failure_message to v2_payment via 0010's ALTERs. Same trap as 0008 above:
+// the drizzle schema now includes them, so EVERY schema-wide select/returning asks for them — including
+// settleAndProvision's. Build the table without 0010 and the money path dies on a missing column.
+const M0010 = readFileSync(resolve('lib/db/0010_v2_payment_failure.sql'), 'utf8')
+// 🔴 0011 and 0012 are ALTERs on v2_payment too, and this suite was already missing 0011 before #484
+// touched it: the drizzle schema has carried charge_expires_at since #455, so every schema-wide
+// select/returning here has been asking for a column this fixture never created. It did not show up
+// because these suites are skipIf(!TEST_DATABASE_URL) and nothing in the pre-push lane runs them.
+// The pattern is the point: an ALTER that lands in schema.ts must land in every fixture that builds
+// the table by hand, and there is nothing that enforces it — so the list is checked by running them.
+const M0011 = readFileSync(resolve('lib/db/0011_v2_payment_qr_expiry.sql'), 'utf8')
+const M0012 = readFileSync(resolve('lib/db/0012_v2_payment_prev_member_expire.sql'), 'utf8')
 const SECRET = Buffer.from('whsec_test_355').toString('base64')
 const TS = '1755766800'
 const NOW = new Date()
@@ -68,6 +80,9 @@ describe.skipIf(!TEST_URL)('payment webhook · real pg (#355)', () => {
     await sql.unsafe('DROP TABLE IF EXISTS v2_payment CASCADE;')
     await sql.unsafe(M0007) // fresh v2_payment + re-add v2_payment_id
     await sql.unsafe(M0008) // + #361's discount columns/tables (schema-wide select needs them)
+    await sql.unsafe(M0010) // #437 — failure_code/failure_message (schema-wide select needs them)
+    await sql.unsafe(M0011) // #455 — charge_expires_at (schema-wide select needs it)
+    await sql.unsafe(M0012) // #484 — prev_member_expire_at (schema-wide select needs it)
     const rows = await sql`SELECT user_id FROM "user"
       WHERE user_id NOT IN (SELECT user_id FROM member_payment) LIMIT 4`
     users = rows.map((r) => r.user_id as string)
@@ -99,6 +114,24 @@ describe.skipIf(!TEST_URL)('payment webhook · real pg (#355)', () => {
   ) =>
     sql`INSERT INTO v2_payment (id, user_id, package_code, tier_code, amount_satang, vat_satang, expire, buffer_day, method, charge_id, order_id, status)
         VALUES (${'v2p-' + chargeId}, ${userId}, ${pkg}, ${tier}, ${amount}, 0, ${expire}, ${bufferDay}, 'card', ${chargeId}, ${'ord' + chargeId}, 'PENDING')`
+
+  const seedSub = (
+    id: string,
+    userId: string,
+    tier: string,
+    expireAt: string,
+    status = 'ACTIVE',
+    startAt = bkk(NOW),
+  ) =>
+    sql`INSERT INTO member_subscription (id, user_id, tier_code, package_code, amount_satang, start_at, expire_at, status)
+        VALUES (${id}, ${userId}, ${tier}, ${'PKG-' + tier}, 79000, ${startAt}, ${expireAt}, ${status})`
+
+  const addDaysStr = (ymd: string, n: number) => {
+    const [y, m, d] = ymd.split('-').map(Number)
+    const t = new Date(Date.UTC(y, m - 1, d + n))
+    return `${t.getUTCFullYear()}-${String(t.getUTCMonth() + 1).padStart(2, '0')}-${String(t.getUTCDate()).padStart(2, '0')}`
+  }
+  const dateOf = (v: unknown) => (v instanceof Date ? bkk(v) : String(v).slice(0, 10))
 
   it('full path: a signed charge.complete webhook → 200, APPROVED, and a member_subscription + shadow', async () => {
     await seedPending('C1', users[0])
@@ -166,19 +199,44 @@ describe.skipIf(!TEST_URL)('payment webhook · real pg (#355)', () => {
     ).rejects.toThrow(/check|expire/i)
   })
 
-  it('🔴 shadow MERGE: an existing member with a LATER expiry keeps it (days never burn), plan stays MEMBER', async () => {
+  // 🔴 CHANGED BY #456 — READ THIS BEFORE TRUSTING THE OLD NUMBER. Until #456 this test asserted the shadow
+  // stayed at exactly '2027-12-31', and it passed. It passed while the user was LOSING fifteen months.
+  //
+  // The reason is the gap between what this test measured and what the user experiences:
+  // lib/v2/subscription.ts:142 picks a live member_subscription row OVER the legacy member_payment date. So
+  // a legacy member who bought one month got a v2 row expiring next month, and THAT is what every screen
+  // then read — their 2027-12-31 was still sitting in member_payment, correct, preserved, and no longer
+  // consulted by anybody. This test watched the store that had stopped deciding.
+  //
+  // Under #456 the purchase carries their remaining days: 2027-12-31 + the month they just bought =
+  // 2028-01-31, in BOTH stores. The original claim ("days never burn") is now asserted where it can
+  // actually be observed — at the reader — and the shadow is additionally pinned as never-shortened rather
+  // than never-changed.
+  it('🔴 shadow MERGE + #456 carry-over: a legacy member with a LATER expiry keeps every day AND gains the month they bought', async () => {
     // synthetic member_payment for a user that has none — far-future expiry
     await sql`INSERT INTO member_payment (user_id, plan_code, package_code, create_at, start_at, expire_at)
       VALUES (${users[2]}, 'MEMBER', 'SOULMATE', '2026-01-01 00:00:00', '2026-01-01', '2027-12-31')`
-    await seedPending('C5', users[2]) // MONTHLY → +1 month, much sooner than 2027-12-31
+    await seedPending('C5', users[2]) // MONTHLY → +1 month, on TOP of 2027-12-31 (was: instead of it)
     const out = await fireWebhook(chargeEvent('C5'), signOmisePayload(chargeEvent('C5'), TS, SECRET), TS)
     expect(out.status).toBe(200)
+
     const [mp] = await sql`SELECT plan_code, expire_at FROM member_payment WHERE user_id = ${users[2]}`
     expect(mp.plan_code).toBe('MEMBER')
-    expect(String(mp.expire_at)).toBe('2027-12-31') // GREATEST — NOT shortened to next month
+    // GREATEST still holds: the shadow is never SHORTENED. It may now move forward, because the purchase
+    // genuinely added time — a mutant that shortens it below the legacy date still reddens here.
+    expect(dateOf(mp.expire_at) >= '2027-12-31').toBe(true)
+    expect(dateOf(mp.expire_at)).toBe(addDaysStr('2027-12-31', 31)) // Dec 31 + the 1M package = 2028-01-31
+
     // and a fresh subscription row was still recorded for this purchase
-    const subs = await sql`SELECT id FROM member_subscription WHERE user_id = ${users[2]}`
+    const subs = await sql`SELECT id, expire_at FROM member_subscription WHERE user_id = ${users[2]}`
     expect(subs.length).toBe(1)
+
+    // 🔴 THE ASSERTION THE OLD VERSION WAS MISSING: what the user's screen actually reads. This is the one
+    // that would have caught the loss, and the one a future mutant has to get past.
+    const { resolveSubscription } = await import('@/lib/v2/subscription')
+    const verdict = await resolveSubscription(users[2], NOW)
+    expect(verdict.isPaid).toBe(true)
+    expect(dateOf(subs[0].expire_at) >= '2027-12-31', 'the live v2 row must not expire before the legacy date it overrides').toBe(true)
   })
 
   // ══ #371 · เงินออกแล้วแต่ charge_id ไม่เคยถูกผูกกับแถว ═══════════════════════════════════════════════
@@ -393,5 +451,248 @@ describe.skipIf(!TEST_URL)('payment webhook · real pg (#355)', () => {
       await sql`DELETE FROM member_subscription WHERE v2_payment_id = 'p371-i'`
       await sql`DELETE FROM v2_payment WHERE id = 'p371-i'`
     }
+  })
+
+  // ── #456 — ซื้อซ้ำ / อัปเกรด, against real postgres ──────────────────────────────────────────────
+  //
+  // This is the half the pure tests cannot reach: the DoD's "แถวเก่ากลายเป็น REPLACED และ
+  // pickActiveSubscriptionRow หยิบแถวใหม่" is a claim about two writes landing together in one
+  // transaction, and about what the READER then sees. Only a real DB can answer it.
+  it('#456 ① upgrade PLUS→PRO: the old row becomes REPLACED and the 100 days left FOLLOW onto the new row', async () => {
+    const u = users[2]
+    const today = bkk(NOW)
+    const oldExpire = addDaysStr(today, 100)
+    await seedSub('s456-old', u, 'PLUS', oldExpire)
+    await seedPending('C456A', u, 'YEARLY-PRO', 'PRO', 129000, '1Y', 0)
+
+    const r = await settleAndProvision('C456A')
+    expect(r.provisioned).toBe(true)
+
+    const rows = await sql`SELECT id, tier_code, status, expire_at FROM member_subscription
+                           WHERE user_id = ${u} ORDER BY status`
+    expect(rows.length).toBe(2) // history is preserved — nothing is deleted (Principle 1)
+
+    const oldRow = rows.find((r) => r.id === 's456-old')
+    const newRow = rows.find((r) => r.id !== 's456-old')
+    expect(oldRow?.status, 'the superseded row must be REPLACED').toBe('REPLACED')
+    expect(newRow?.status).toBe('ACTIVE')
+    expect(newRow?.tier_code).toBe('PRO')
+
+    // 🔴 THE NUMBER THIS TICKET EXISTS FOR: 1 year from today PLUS the 100 days they had left.
+    const expected = addDaysStr(computeExpireDate(today, 0, { value: 1, unit: 'Y' }), 100)
+    expect(dateOf(newRow?.expire_at)).toBe(expected)
+  })
+
+  it('#456 ② the READER then answers PRO — the new row wins and the REPLACED one is invisible', async () => {
+    const u = users[2]
+    const today = bkk(NOW)
+    await seedSub('s456-old2', u, 'PLUS', addDaysStr(today, 100))
+    await seedPending('C456B', u, 'YEARLY-PRO', 'PRO', 129000, '1Y', 0)
+    await settleAndProvision('C456B')
+
+    const { resolveSubscription } = await import('@/lib/v2/subscription')
+    const verdict = await resolveSubscription(u, NOW)
+    expect(verdict.isPaid).toBe(true)
+    expect(verdict.tier).toBe('PRO')
+    expect(verdict.source).toBe('v2')
+  })
+
+  it('#456 ③ a FIRST purchase is unchanged — no prior row ⇒ the span is exactly the package, not a day more', async () => {
+    const u = users[3]
+    const today = bkk(NOW)
+    await seedPending('C456C', u, 'MONTHLY', 'PLUS', 50000, '1M', 0)
+    await settleAndProvision('C456C')
+
+    const rows = await sql`SELECT status, expire_at FROM member_subscription WHERE user_id = ${u}`
+    expect(rows.length).toBe(1)
+    expect(rows[0].status).toBe('ACTIVE')
+    expect(dateOf(rows[0].expire_at)).toBe(computeExpireDate(today, 0, { value: 1, unit: 'M' }))
+  })
+
+  it('#456 ④ an EXPIRED row is not superseded and carries nothing — a lapsed member simply buys again', async () => {
+    const u = users[2]
+    const today = bkk(NOW)
+    await seedSub('s456-dead', u, 'PLUS', addDaysStr(today, -30)) // ACTIVE status, but past its expiry
+    await seedPending('C456D', u, 'MONTHLY', 'PLUS', 50000, '1M', 0)
+    await settleAndProvision('C456D')
+
+    const [dead] = await sql`SELECT status FROM member_subscription WHERE id = 's456-dead'`
+    expect(dead.status, 'a row that already expired was not superseded by this purchase').toBe('ACTIVE')
+    const [fresh] = await sql`SELECT expire_at FROM member_subscription WHERE user_id = ${u} AND id <> 's456-dead'`
+    expect(dateOf(fresh.expire_at)).toBe(computeExpireDate(today, 0, { value: 1, unit: 'M' })) // nothing carried
+  })
+
+  it('#456 ⑤ two accepted charges settling one after the other CHAIN — the second carries the first\'s days', async () => {
+    const u = users[3]
+    const today = bkk(NOW)
+    await seedPending('C456E', u, 'MONTHLY', 'PLUS', 50000, '1M', 0)
+    await seedPending('C456F', u, 'YEARLY-PRO', 'PRO', 129000, '1Y', 0)
+
+    await settleAndProvision('C456E') // → PLUS, 1 month
+    await settleAndProvision('C456F') // → PRO, 1 year + whatever the month had left
+
+    const rows = await sql`SELECT status, tier_code, expire_at FROM member_subscription WHERE user_id = ${u}`
+    expect(rows.length).toBe(2)
+    expect(rows.filter((r) => r.status === 'ACTIVE').length, 'exactly ONE live row — the bug was two').toBe(1)
+
+    const live = rows.find((r) => r.status === 'ACTIVE')
+    expect(live?.tier_code).toBe('PRO')
+    // The month's remaining days = its expiry minus today; they ride onto the year.
+    const monthExpire = computeExpireDate(today, 0, { value: 1, unit: 'M' })
+    const carried = Math.round((Date.parse(monthExpire) - Date.parse(today)) / 86_400_000)
+    expect(dateOf(live?.expire_at)).toBe(addDaysStr(computeExpireDate(today, 0, { value: 1, unit: 'Y' }), carried))
+  })
+
+  // 🔴 #456 ⑦ — THE POLAR OPPOSITE OF ⑤ (ตู๋, review of 2c196b8). ⑤ proves the way UP; nothing proved the
+  // way DOWN, and the way down was broken: the door asks the matrix when the charge is CREATED, but a
+  // PromptPay QR that the user closed stays PENDING forever (no writer expires it — ตู๋ confirmed while
+  // reviewing #452). So:
+  //
+  //   free user taps PLUS with PromptPay  → QR issued, tab closed          (v2_payment PENDING, forever)
+  //   changes their mind, taps PRO with a card → door says yes (they ARE free) → settles → PRO
+  //   days later they find the old QR and pay it → the webhook lands       → they become PLUS
+  //
+  // ตู๋'s probe on real postgres: 1,790 บาท paid, tier PLUS held, the PRO row marked REPLACED. The days
+  // survived (carry-over worked); the LEVEL did not. That is "PRO buys PLUS ⇒ refuse" from ฟีม's matrix,
+  // arriving at the webhook instead of at the door — and nobody was asking the matrix there.
+  it('#456 ⑦ REVERSE ORDER: a stale LOWER-tier charge settling after an upgrade must NOT take the level away', async () => {
+    const u = users[2]
+    const today = bkk(NOW)
+    // Both charges were created while the user was free — both legitimately passed the door.
+    await seedPending('C456H', u, 'MONTHLY', 'PLUS', 50000, '1M', 0) // the abandoned QR
+    await seedPending('C456I', u, 'YEARLY-PRO', 'PRO', 129000, '1Y', 0) // the card they actually used
+
+    await settleAndProvision('C456I') // the card lands first → PRO
+    const { resolveSubscription } = await import('@/lib/v2/subscription')
+    expect((await resolveSubscription(u, NOW)).tier, 'precondition: the card purchase granted PRO').toBe('PRO')
+
+    await settleAndProvision('C456H') // the old QR is finally paid
+
+    // 🔴 THE CLAIM: money that was already spent may be recorded, but it may never DOWNGRADE anybody.
+    const after = await resolveSubscription(u, NOW)
+    expect(after.tier, 'a stale PLUS charge must not demote a PRO member').toBe('PRO')
+    expect(after.isPaid).toBe(true)
+
+    // and the PRO row must still be the live one — not superseded by the thing that came after it
+    const rows = await sql`SELECT tier_code, status FROM member_subscription WHERE user_id = ${u}`
+    const pro = rows.find((r) => r.tier_code === 'PRO')
+    expect(pro?.status, 'the higher row must survive the lower settlement').toBe('ACTIVE')
+    expect(
+      rows.filter((r) => r.status === 'ACTIVE').length,
+      'and exactly ONE row may be live — two live rows is the bug this ticket exists for',
+    ).toBe(1)
+
+    // The payment is still RECORDED — money that moved is never un-recorded. It simply never became live.
+    const [paid] = await sql`SELECT status FROM v2_payment WHERE charge_id = 'C456H'`
+    expect(paid.status, 'the stale charge is still marked APPROVED — it really was paid').toBe('APPROVED')
+    expect(rows.find((r) => r.tier_code === 'PLUS')?.status, 'and its row exists, born superseded').toBe('REPLACED')
+
+    // 🔴 and the shadow may not be SHORTENED by any of this — the never-burn rule still holds.
+    const [mp] = await sql`SELECT expire_at FROM member_payment WHERE user_id = ${u}`
+    expect(dateOf(mp.expire_at) >= computeExpireDate(today, 0, { value: 1, unit: 'Y' })).toBe(true)
+  })
+
+  // 🔴 #456 ⑧ — ฟีม'S OWN CASE, END TO END. This is the account that opened the ticket: one card and one
+  // PromptPay, BOTH PLUS, both settled. Before #456 it produced two live rows and one year of membership
+  // for 1,580 บาท. It must now produce ONE live row carrying BOTH spans.
+  //
+  // It is also the tooth that keeps decideSettlement from over-correcting: the door refuses same-tier
+  // repurchase, and it would be easy to make the webhook refuse it too. That would give ฟีม back exactly
+  // the bug he reported. This test reddens the moment anyone does that.
+  // 🔴 #456 ⑨ — ตู๋'s case C (review r2). LEGACY DATA ONLY: two live rows at different tiers, where the
+  // LOWER one expires later and therefore wins the reader's sort. #456 cannot create this state any more
+  // (a grant supersedes every live row; a refusal is born REPLACED), so this is about rows already in the
+  // database when it ships.
+  //
+  // The trap: `held` from the picker is PLUS, so a stale PLUS would rank "equal" and be granted — closing
+  // the PRO row as REPLACED permanently, which is the one state from which the data could still be
+  // repaired. Comparing against the HIGHEST live tier is what stops that.
+  it('#456 ⑨ legacy conflict: a stale PLUS must not close a live PRO row that expires sooner', async () => {
+    const u = users[2]
+    const today = bkk(NOW)
+    await seedSub('s456-pro-short', u, 'PRO', addDaysStr(today, 30)) // higher tier, expires SOONER
+    await seedSub('s456-plus-long', u, 'PLUS', addDaysStr(today, 100)) // lower tier, wins the reader's sort
+    await seedPending('C456N', u, 'MONTHLY', 'PLUS', 50000, '1M', 0)
+
+    const { resolveSubscription } = await import('@/lib/v2/subscription')
+    expect((await resolveSubscription(u, NOW)).tier, 'precondition: the reader already answers PLUS').toBe('PLUS')
+
+    await settleAndProvision('C456N')
+
+    const [pro] = await sql`SELECT status FROM member_subscription WHERE id = 's456-pro-short'`
+    expect(pro.status, 'the PRO row must NOT be closed by a PLUS payment').toBe('ACTIVE')
+    const [fresh] = await sql`SELECT status FROM member_subscription WHERE v2_payment_id = 'v2p-C456N'`
+    expect(fresh.status, 'the stale PLUS row is born superseded').toBe('REPLACED')
+    // the reader's answer is unchanged — nothing was taken from the user either way
+    expect((await resolveSubscription(u, NOW)).tier).toBe('PLUS')
+  })
+
+  it('#456 ⑨ b CONTROL — a PRO settling into that same legacy state IS granted and cleans it up', async () => {
+    const u = users[3]
+    const today = bkk(NOW)
+    await seedSub('s456-pro-short2', u, 'PRO', addDaysStr(today, 30))
+    await seedSub('s456-plus-long2', u, 'PLUS', addDaysStr(today, 100))
+    await seedPending('C456O', u, 'YEARLY-PRO', 'PRO', 129000, '1Y', 0)
+
+    await settleAndProvision('C456O')
+
+    const rows = await sql`SELECT status, tier_code FROM member_subscription WHERE user_id = ${u}`
+    expect(rows.filter((r) => r.status === 'ACTIVE').length, 'the conflict is resolved to ONE live row').toBe(1)
+    expect(rows.find((r) => r.status === 'ACTIVE')?.tier_code).toBe('PRO')
+  })
+
+  it('#456 ⑧ ฟีม case: TWO PLUS charges settle ⇒ ONE live row holding BOTH years, not one year', async () => {
+    const u = users[2]
+    const today = bkk(NOW)
+    await seedPending('C456L', u, 'V2_PLUS_YEARLY', 'PLUS', 79000, '1Y', 0) // the card
+    await seedPending('C456M', u, 'V2_PLUS_YEARLY', 'PLUS', 79000, '1Y', 0) // the PromptPay
+
+    await settleAndProvision('C456L')
+    await settleAndProvision('C456M')
+
+    const rows = await sql`SELECT status, tier_code, expire_at FROM member_subscription WHERE user_id = ${u}`
+    expect(rows.length).toBe(2) // history: one row per payment, both kept
+    expect(rows.filter((r) => r.status === 'ACTIVE').length, 'exactly ONE live row').toBe(1)
+
+    const live = rows.find((r) => r.status === 'ACTIVE')
+    expect(live?.tier_code).toBe('PLUS')
+    // 🔴 THE NUMBER FROM THE TICKET: 790 + 790 must buy TWO years, not one.
+    const oneYear = computeExpireDate(today, 0, { value: 1, unit: 'Y' })
+    const carried = Math.round((Date.parse(oneYear) - Date.parse(today)) / 86_400_000)
+    expect(dateOf(live?.expire_at)).toBe(addDaysStr(oneYear, carried))
+
+    const { resolveSubscription } = await import('@/lib/v2/subscription')
+    expect((await resolveSubscription(u, NOW)).tier).toBe('PLUS')
+  })
+
+  it('#456 ⑦ b CONTROL — the SAME two charges in the other order still upgrade correctly', async () => {
+    const u = users[3]
+    await seedPending('C456J', u, 'MONTHLY', 'PLUS', 50000, '1M', 0)
+    await seedPending('C456K', u, 'YEARLY-PRO', 'PRO', 129000, '1Y', 0)
+    await settleAndProvision('C456J') // PLUS first
+    await settleAndProvision('C456K') // then the upgrade
+    const { resolveSubscription } = await import('@/lib/v2/subscription')
+    expect((await resolveSubscription(u, NOW)).tier).toBe('PRO')
+    const rows = await sql`SELECT status FROM member_subscription WHERE user_id = ${u}`
+    expect(rows.filter((r) => r.status === 'ACTIVE').length).toBe(1)
+  })
+
+  it('#456 ⑥ a LEGACY member (member_payment only, no tier name) may buy, and their days follow', async () => {
+    const u = users[3]
+    const today = bkk(NOW)
+    const legacyExpire = addDaysStr(today, 60)
+    await sql`INSERT INTO member_payment (user_id, plan_code, package_code, create_at, start_at, expire_at)
+              VALUES (${u}, 'MEMBER', 'LEGACY', ${today + ' 00:00:00'}, ${today}, ${legacyExpire})`
+    await seedPending('C456G', u, 'YEARLY-PRO', 'PRO', 129000, '1Y', 0)
+    await settleAndProvision('C456G')
+
+    const rows = await sql`SELECT status, tier_code, expire_at FROM member_subscription WHERE user_id = ${u}`
+    expect(rows.length).toBe(1)
+    expect(rows[0].tier_code).toBe('PRO')
+    expect(dateOf(rows[0].expire_at)).toBe(addDaysStr(computeExpireDate(today, 0, { value: 1, unit: 'Y' }), 60))
+
+    // 🔴 And the shadow must not have been shortened either — GREATEST still holds.
+    const [mp] = await sql`SELECT expire_at FROM member_payment WHERE user_id = ${u}`
+    expect(dateOf(mp.expire_at) >= legacyExpire).toBe(true)
   })
 })

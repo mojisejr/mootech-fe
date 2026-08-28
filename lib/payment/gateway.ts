@@ -7,6 +7,26 @@ export type ChargeResult = {
   chargeId: string
   // PromptPay only: the QR image the client renders. Undefined for card charges.
   qrDownloadUri?: string
+  // 🔴 #437 — WHAT THE GATEWAY ACTUALLY SAID. Until this existed the adapter returned the id and threw the
+  // rest away, so a card Omise had already declined came back looking exactly like one still in flight:
+  // HTTP 200, object 'charge', status 'failed' — never an error, so nothing threw and nothing noticed.
+  // These four are optional because a fake gateway in a test may not supply them; ABSENT must therefore
+  // read as "the gateway did not say", never as "the gateway said it is fine".
+  status?: string
+  paid?: boolean
+  failureCode?: string | null
+  failureMessage?: string | null
+  // 🔴 #439 — where the bank wants the cardholder sent for 3-D Secure. Present ONLY when Omise decided the
+  // charge needs authentication; absent on a charge that settled or failed outright. Dropping it (which is
+  // what this adapter did until #439) turns "the bank wants to check who you are" into a charge that can
+  // never complete — and, before a return_uri existed, into an outright refusal.
+  authorizeUri?: string | null
+  // 🔴 #455 — Omise's own deadline for this charge (ISO-8601, verbatim). PromptPay only; a card charge has
+  // no expiry and never carries this. ABSENT/null means "the gateway did not say" and must NEVER be read as
+  // "not expired": Omise emits no event when a charge expires (measured 2026-08-27 — of 124 expired charges,
+  // the number carrying any event beyond charge.create is zero), so our own row is the only place this fact
+  // can live. Until #455 the adapter threw it away on every single charge.
+  expiresAt?: string | null
 }
 
 export interface PaymentGateway {
@@ -15,6 +35,8 @@ export interface PaymentGateway {
     token: string
     email: string
     orderId: string
+    // #439 — rides into the return_uri so the cardholder comes back to the right checkout if declined.
+    packageCode?: string
   }): Promise<ChargeResult>
   createPromptPayCharge(args: {
     amountSatang: number
@@ -86,4 +108,27 @@ export function isTerminalFailure(evt: ChargeEvent): boolean {
   if (!evt.chargeId) return false
   if (evt.paid === true) return false // paid ⇒ it is a success path, not a failure
   return TERMINAL_FAILURE_STATUSES.has(evt.status)
+}
+
+// 🔴 #484 — A REVERSAL IS THE ONE FAILURE THAT ARRIVES AFTER WE ALREADY GRANTED SOMETHING, so it is the
+// one that cannot be routed by isTerminalFailure above: that function answers `false` the moment
+// `evt.paid === true`, and a reversed charge WAS paid. Whether Omise sends `paid` as true or false on a
+// reversal is not something we have ever seen — no reversed event has reached this webhook, and the only
+// test that exercises the status is one we wrote ourselves (scripts/reconcile-expiry.test.ts sets
+// paid:false). So this deliberately does NOT look at `paid` at all: the answer is the same either way,
+// and the unknown stops being able to decide whether the entitlement comes off.
+// Narrow on purpose — `reversed` alone, never the whole TERMINAL_FAILURE_STATUSES set: `failed` and
+// `expired` never granted anything, so there is nothing for them to take back.
+export function isReversal(evt: ChargeEvent): boolean {
+  return evt.status === 'reversed' && !!evt.chargeId
+}
+
+// 🔴 #437 — the SAME question asked of a charge we just created, instead of an event that arrived later.
+// One definition of "terminal" for both doors: if these two ever disagree, a card could be refused at
+// creation and settled by a webhook (or the reverse), and the row would end up in whichever state won the
+// race. Shares TERMINAL_FAILURE_STATUSES on purpose — do not inline the list at either call site.
+// `status` absent ⇒ NOT terminal: a gateway that did not answer is "not finished yet", never "refused".
+export function isRefusedCharge(charge: { status?: string; paid?: boolean }): boolean {
+  if (charge.paid === true) return false
+  return TERMINAL_FAILURE_STATUSES.has(charge.status ?? '')
 }

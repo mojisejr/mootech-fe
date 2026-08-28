@@ -5,6 +5,9 @@
 // 🔴 No PII logs: on failure we surface Omise's error code/status only, never the request body / email /
 // token / charge row (#355 ④).
 import { verifyOmiseSignature } from './webhook-verify'
+import { webhookEndpointFields } from './webhook-endpoint'
+import { cardReturnUriFields } from './return-uri'
+import { promptPayExpiryFields } from './qr-expiry'
 import type { PaymentGateway, ChargeResult } from './gateway'
 
 const OMISE_API = 'https://api.omise.co'
@@ -50,33 +53,65 @@ async function omisePost(path: string, form: Record<string, string>): Promise<Re
   return json
 }
 
+// 🔴 #437 — one place that reads the gateway's own verdict off a /charges response, used by BOTH lanes.
+// Before this, `createCardCharge` returned `{ chargeId: String(json.id) }` and dropped everything else, so
+// a declined card was indistinguishable from a pending one all the way to the user's screen.
+// Fields stay optional-shaped: Omise omits `failure_code` entirely on a charge that has not failed.
+function readOutcome(json: Record<string, unknown>): Pick<ChargeResult, 'status' | 'paid' | 'failureCode' | 'failureMessage' | 'authorizeUri' | 'expiresAt'> {
+  return {
+    status: typeof json.status === 'string' ? json.status : undefined,
+    paid: json.paid === true,
+    failureCode: typeof json.failure_code === 'string' ? json.failure_code : null,
+    failureMessage: typeof json.failure_message === 'string' ? json.failure_message : null,
+    // #439 — Omise sets this when the charge needs 3-D Secure. Null on every other outcome.
+    authorizeUri: typeof json.authorize_uri === 'string' ? json.authorize_uri : null,
+    // #455 — read straight off the SAME response we already have. This is not a new call to Omise; the
+    // field was arriving on every charge and being discarded here. Card charges simply do not carry it.
+    expiresAt: typeof json.expires_at === 'string' ? json.expires_at : null,
+  }
+}
+
 export const omiseGateway: PaymentGateway = {
-  async createCardCharge({ amountSatang, token, email, orderId }): Promise<ChargeResult> {
+  async createCardCharge({ amountSatang, token, email, orderId, packageCode }): Promise<ChargeResult> {
+    // #374 — resolved BEFORE the POST so a misconfigured endpoint fails here, never after a card is charged.
+    const webhook = webhookEndpointFields()
     const json = await omisePost('/charges', {
+      ...webhook,
       amount: String(amountSatang),
       currency: 'thb',
       card: token,
       email,
       receipt: 'true',
       'metadata[orderId]': orderId,
-      ...(process.env.OMISE_RETURN_URI ? { return_uri: process.env.OMISE_RETURN_URI } : {}),
+      // 🔴 #439 — CARD ONLY, and built per charge (lib/payment/return-uri.ts). The old line here read the
+      // shared OMISE_RETURN_URI, which would have pointed both lanes at one static page; PromptPay below
+      // still reads that one, so this ticket cannot move a lane it was not asked to touch.
+      ...cardReturnUriFields({ orderId, packageCode: packageCode ?? '' }),
     })
-    return { chargeId: String(json.id) }
+    return { chargeId: String(json.id), ...readOutcome(json) }
   },
 
   async createPromptPayCharge({ amountSatang, email, orderId }): Promise<ChargeResult> {
+    // #374 — resolved BEFORE /sources: a bad endpoint must not leave an orphan source behind, and must
+    // never reach the point where a QR is shown to someone who could then pay into a charge we cannot hear
+    // about. `webhook_endpoints` goes on the CHARGE (the source carries no events of its own).
+    const webhook = webhookEndpointFields()
     const source = await omisePost('/sources', {
       type: 'promptpay',
       amount: String(amountSatang),
       currency: 'thb',
     })
     const charge = await omisePost('/charges', {
+      ...webhook,
       amount: String(amountSatang),
       currency: 'thb',
       source: String(source.id),
       email,
       receipt: 'true',
       'metadata[orderId]': orderId,
+      // #463 — on the CHARGE, like webhook_endpoints[] above; the source carries no lifetime of its own.
+      // Computed AFTER /sources so the 5 minutes start when the QR exists, not when we began asking for it.
+      ...promptPayExpiryFields(new Date()),
       ...(process.env.OMISE_RETURN_URI ? { return_uri: process.env.OMISE_RETURN_URI } : {}),
     })
     // QR lives at charge.source.scannable_code.image.download_uri
@@ -84,7 +119,7 @@ export const omiseGateway: PaymentGateway = {
       scannable_code?: { image?: { download_uri?: unknown } }
     }
     const qr = src.scannable_code?.image?.download_uri
-    return { chargeId: String(charge.id), qrDownloadUri: typeof qr === 'string' ? qr : undefined }
+    return { chargeId: String(charge.id), qrDownloadUri: typeof qr === 'string' ? qr : undefined, ...readOutcome(charge) }
   },
 
   async retrieveCharge(chargeId: string) {

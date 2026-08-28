@@ -106,7 +106,8 @@ describe('#383 /api/user → membership composite', () => {
     reset({ memberPayment: { user_id: 'u1', plan_code: 'MEMBER', expire_at: FUTURE } })
     const { code, body } = await call()
     expect(code).toBe(200)
-    expect(body.membership).toEqual({ isPaid: true, tier: null, source: 'legacy' })
+    // #365 — expireAt null on the legacy path: their expiry lives in member_payment, not in this seam's table. 🔴 null is NOT "expired" — isPaid answers that.
+    expect(body.membership).toEqual({ isPaid: true, tier: null, source: 'legacy', expireAt: null })
     // and the legacy flag the whole app already gates on is still true — the two never disagree here
     expect(body.payment.is_not_expired).toBe(true)
   })
@@ -117,18 +118,35 @@ describe('#383 /api/user → membership composite', () => {
       subRows: [subRow()],
     })
     const { body } = await call()
-    expect(body.membership).toEqual({ isPaid: true, tier: 'PRO', source: 'v2' })
+    // #365 — the DATE travels too, and it is the v2 ROW's. Both rows carry FUTURE here, so this case alone cannot tell the two tables apart — case ②b below is the one that can.
+    expect(body.membership).toEqual({ isPaid: true, tier: 'PRO', source: 'v2', expireAt: FUTURE })
+  })
+
+  // #365 — THE decisive one for "which table did the date come from". Both rows are live, but they carry
+  // DIFFERENT dates on purpose: the member_payment shadow row says 2099-12-31 and the v2 row says
+  // 2030-06-30. A composite that reported the legacy column would answer FUTURE here and pass every other
+  // case in this file. 🔴 MUTANT: make api/user report memberPayment.expire_at → this alone goes red.
+  it('②b v2 row and member_payment disagree → the v2 DATE wins (the other cases cannot tell them apart)', async () => {
+    reset({
+      memberPayment: { user_id: 'u1', plan_code: 'MEMBER', expire_at: FUTURE },
+      subRows: [subRow({ expireAt: '2030-06-30' })],
+    })
+    const { body } = await call()
+    expect(body.membership).toEqual({ isPaid: true, tier: 'PRO', source: 'v2', expireAt: '2030-06-30' })
+    expect(body.membership.expireAt).not.toBe(FUTURE) // spelled out: the legacy value must not appear here
   })
 
   it('③ free user (no payment row, no v2 row) → { isPaid: false, tier: null, source: "none" }', async () => {
     const { body } = await call()
-    expect(body.membership).toEqual({ isPaid: false, tier: null, source: 'none' })
+    // #365 — expireAt null on the legacy path: their expiry lives in member_payment, not in this seam's table. 🔴 null is NOT "expired" — isPaid answers that.
+    expect(body.membership).toEqual({ isPaid: false, tier: null, source: 'none', expireAt: null })
   })
 
   it('③b expired member → source "legacy", isPaid false (expiry is decided at READ time)', async () => {
     reset({ memberPayment: { user_id: 'u1', plan_code: 'MEMBER', expire_at: PAST } })
     const { body } = await call()
-    expect(body.membership).toEqual({ isPaid: false, tier: null, source: 'legacy' })
+    // #365 — expireAt null on the legacy path: their expiry lives in member_payment, not in this seam's table. 🔴 null is NOT "expired" — isPaid answers that.
+    expect(body.membership).toEqual({ isPaid: false, tier: null, source: 'legacy', expireAt: null })
   })
 
   it('③c an EXPIRED v2 row falls back to the legacy verdict — never to free', async () => {
@@ -137,7 +155,8 @@ describe('#383 /api/user → membership composite', () => {
       subRows: [subRow({ expireAt: PAST })],
     })
     const { body } = await call()
-    expect(body.membership).toEqual({ isPaid: true, tier: null, source: 'legacy' })
+    // #365 — expireAt null on the legacy path: their expiry lives in member_payment, not in this seam's table. 🔴 null is NOT "expired" — isPaid answers that.
+    expect(body.membership).toEqual({ isPaid: true, tier: null, source: 'legacy', expireAt: null })
   })
 
   // ④ 🔴 CONDITION ③ OF THE TICKET. The v2 table is the newest thing in this route; /api/user is what every

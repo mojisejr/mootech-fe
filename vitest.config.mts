@@ -7,11 +7,19 @@ const rootDir = path.dirname(fileURLToPath(import.meta.url))
 
 // vitest as the repo's real test framework (issue #210). Scoped deliberately narrow:
 //   • environment jsdom — needed for React hooks (@testing-library/react renderHook).
-//   • include lists ONLY the specs migrated to vitest. The other 71 scripts/*.test.ts are plain
-//     node:assert scripts that still run under `tsx` in ci.yml (issue #210: don't move them — they
-//     migrate opportunistically). A directory glob would wrongly try to run those as vitest suites,
-//     so new vitest specs are added to this list one by one as they convert.
-//     (A `.test.tsx` spec is invisible to that ci.yml lane by extension — it globs `*.test.ts`.)
+//   • include lists ONLY the specs migrated to vitest. The rest of scripts/*.test.ts are plain
+//     node:assert scripts (issue #210: don't move them — they migrate opportunistically). A directory
+//     glob would wrongly try to run those as vitest suites, so new vitest specs are added to this list
+//     one by one as they convert.
+//
+//     🔴 THIS LIST IS HAND-WRITTEN, SO IT DRIFTS. Two claims that used to live here were both stale by
+//     2026-08-26 and cost real time: "71 files" (measured 75 at aa0174f) and "run under `tsx` in ci.yml"
+//     (#321 archived ci.yml on 2026-08-18; the lane was rebuilt inside .githooks/pre-push by #334).
+//     ⇒ do not write a COUNT or a RUNNER NAME in this comment again. scripts/vitest-include-drift.test.ts
+//     now measures both from the tree on every `npm test`, which is the only version that cannot rot.
+//
+//     (A `.test.tsx` spec is invisible to the pre-push tsx lane by extension — it globs `*.test.ts` —
+//      so an unregistered .test.tsx is run by nothing at all. That is assertion ① of #441's guard.)
 //   • alias '@' → repo root, mirroring tsconfig.json paths ("@/*": ["./*"]).
 
 // JSX (issue #215). tsconfig.json sets jsx: "preserve" because Next compiles JSX itself — and vite
@@ -45,6 +53,7 @@ export default defineConfig({
   plugins: [jsxAutomatic],
   test: {
     environment: 'jsdom',
+    setupFiles: ['scripts/vitest-setup-rtl.ts'],
     // ⚠️ UNION, never "pick a side". This list is a pass/fail condition: #214 and #218 each appended
     // one spec to the same line from the same base, so the fastest resolution (keep one branch's
     // line) SILENTLY DELETES the other spec — and ci.yml's tsx lane already skips both by name
@@ -53,6 +62,9 @@ export default defineConfig({
     // that this list and ci.yml's skip list are two hand-synced copies of the same fact.
     include: [
       'scripts/v2-entitlement.test.ts', // #358 — teeth on the v2 entitlement table (count vs span shapes)
+      'scripts/card-form.test.tsx', // #491 — teeth on 'a buyer cannot type nonsense into the card fields'
+      'scripts/omise-dynamic-webhook.test.ts', // #374 — teeth on 'every v2 charge carries its own webhook endpoint'
+      'scripts/public-env-inlinable.test.ts', // #432 — a NEXT_PUBLIC_ read through an alias ships as undefined
       'scripts/evidence-dir.test.tsx', // #417 — teeth on the ONE function that decides where harness output lands (.tsx: vitest-only, no #212 sync)
       'scripts/logout-clears-caches.test.ts',
       'scripts/v2-tier.test.ts', // #214 — must survive this merge
@@ -98,8 +110,25 @@ export default defineConfig({
       'scripts/member-subscription-db.test.ts', // #354 — real pg (skipIf !TEST_DATABASE_URL): migration/parity/determinism/fallback
       'scripts/payment-catalog.test.ts', // #355 — pure: server pricing (satang/VAT-backward) + tier allow-list fail-loud
       'scripts/payment-provision.test.ts', // #355 — pure: expire date math + shadow GREATEST merge (days never burn)
+      'scripts/payment-purchase-gate.test.ts', // #456 — pure: ซื้อซ้ำ/อัปเกรด — เมทริกซ์ 5 แถว + วันที่เหลือตามไปด้วย
+      'scripts/purchase-gate-db.test.ts', // #466 — real pg (skipIf !TEST_DATABASE_URL): ด่านอ่านฐานข้อมูลแล้วเห็นว่าเป็นสมาชิกจริงไหม
+      'scripts/pay-destination.test.ts', // #466 รอบ 2 — pure: หน้าชำระเงินไปไหนต่อ และ 'ถามเมื่อไหร่' คือกติกา
+      'scripts/checkout-page-holds-no-decisions.test.ts', // #466 รอบ 2 — call-site: หน้าเพจต้องไม่ถือคำตัดสินเอง
+      'scripts/checkout-pay-mount.test.tsx', // #466 รอบ 3 — mount จริง: กดปุ่มจ่ายแล้วไปไหน (ตรวจพฤติกรรม ไม่ใช่คำศัพท์)
       'scripts/payment-webhook-verify.test.ts', // #355 — pure: Omise HMAC verify, fail-closed (main-lane money gate)
-      'scripts/payment-charge-route.test.ts', // #355 — route: session gate + client-ignored + fail-loud-before-charge
+      'scripts/account-screen-mount.test.tsx', // #365 — จอประกอบจริง: ประวัติล้มแล้วต้องไม่พูดว่า 'ยังไม่มีรายการ' (ตู๋ R1/R2)
+      'scripts/account-screen.test.tsx', // #365 — จอสิทธิ์ของฉัน: ป้ายพาไป · planFor · ตัวกรอง APPROVED · วันที่ พ.ศ.
+      'scripts/vitest-include-drift.test.ts',
+    'scripts/payment-charge-route.test.ts', // #355 — route: session gate + client-ignored + fail-loud-before-charge
+      'scripts/terminal-failure-agreement.test.ts', // #437 — isRefusedCharge (สร้าง charge) กับ isTerminalFailure (webhook) ต้องตอบเหมือนกัน
+      'scripts/result-declined-rule.test.ts', // #438 — จอต้องพูดคำว่าธนาคารปฏิเสธได้ + ปุ่มต้องไม่พาไปหน้าตาย
+      'scripts/qr-expiry-reaches-row.test.ts',
+      'scripts/qr-expired-screen.test.ts', // #455 slice 2 — จอพูดเรื่องหมดอายุจากคำตอบ server ไม่ใช่นาฬิกาตัวเอง
+      'scripts/qr-expiry-row-db.test.ts', // #455 slice 1 — real pg: คอลัมน์ใหม่เขียนลงได้ อ่านกลับได้ แถวเก่าเป็น null // #455 slice 1 — วันหมดอายุเดินทางจาก Omise ถึงแถวถึงจอ
+      'scripts/promptpay-qr-expiry.test.ts', // #463 — QR มีอายุ 5 นาที ที่ Omise ไม่ใช่ค่าตั้งต้น 24 ชม.
+      'scripts/rtl-cleanup-contract.test.tsx', // #451 ตัว A — ฟันของ setupFiles: ถอดบรรทัดนั้นออกแล้วต้องแดง
+      'scripts/return-uri-3ds.test.ts', // #439 — return_uri ต่อ charge + เลนบัตรกับพร้อมเพย์ต้องไม่ขยับหากัน
+      'scripts/reversal-revoke-db.test.ts', // #484 — real pg: เงินตีกลับแล้วสิทธิ์ต้องหลุด และเลน v1 ต้องไม่ถูกเดาทับ
       'scripts/payment-webhook-db.test.ts', // #355 — real pg (skipIf !TEST_DATABASE_URL): webhook→settle→provision, idempotent+concurrent
       'scripts/reconcile-cron-db.test.ts', // #360 — real pg: reconciler cron (parallel runs · secret gate · boundary)
       'scripts/discount-rules.test.ts', // #361 — pure: discount math (floor/cap/clamp/VAT/no-100%) + code applicability
@@ -108,6 +137,8 @@ export default defineConfig({
       'scripts/ops-packages.test.ts', // #377 — pure: what /ops may change (price + on-sale only)
       'scripts/package-tier-db.test.ts', // #377 — real pg (skipIf !TEST_DATABASE_URL): tier/NOT NULL trap + ops-edit→sale-lane loop
       'scripts/shop-package-mapping.test.ts', // #359 — shop plan→package_code mapping + catalog agreement
+      'scripts/shop-card-verdict.test.ts', // #457 — การ์ดแต่ละใบพูดกับผู้ใช้แต่ละสถานะให้ถูก (ฟังก์ชันบริสุทธิ์)
+      'scripts/shop-screen-mount.test.tsx', // #457 — จอขายจริงพูดตามคำตัดสินนั้น (assert สตริงที่ render)
       'scripts/upgrade-cta-destinations.test.tsx', // #359 — ทั้ง 4 CTA ชี้มา /v2/shop · ของที่เหลือห้ามชี้มา
       'scripts/onboarding-identity.test.tsx', // #252 — consent identity is server-derived; the body's user_id is inert
       'scripts/save-onboarding-client.test.tsx', // #252 — the client sends the goal and no identity, ever
@@ -130,6 +161,13 @@ export default defineConfig({
       'scripts/use-checkout.test.tsx', // #363 — ✕ ต้องยิง preview ใหม่ · โค้ดผิดห้ามลบราคาทิ้ง
       'scripts/omise-token.test.ts', // #363 — คีย์ v2 เท่านั้น และตั้งทันทีก่อน createToken
       'scripts/v1-add-friend-copy.test.tsx', // #413 — โมดัลเพิ่มเพื่อนของ v1: ป้ายต้องบอกว่าเป็นข้อมูลเพื่อน
+      'scripts/v1-sales-closed-pages.test.tsx', // #376 — ปิดการขาย v1 ชั้นหน้า (จุด ①②); .tsx
+      'scripts/v1-sales-closed-ctas.test.tsx', // #376 — ปิดการขาย v1 ชั้น CTA (จุด ③④); .tsx
+      'scripts/v1-blocking-cta-closed.test.tsx', // #427 — ปุ่มที่ชวนไปซื้อต้องตอบตรงที่กด; .tsx
+      'scripts/v1-header-upgrade-closed.test.tsx', // #427 — ป้ายอัพเกรดบน header (16 หน้า); .tsx
+      'scripts/bazi-chat-launcher-exit.test.tsx', // #376 A2 — เฝ้าเงื่อนไข !open เท่านั้น · ❌ ไม่ใช่ด่านของ A2 (jsdom ไม่เดินแอนิเมชัน · มิวแทนต์ที่รอดเขียนไว้ในไฟล์); .tsx
+      'scripts/v1-menu-package-closed.test.tsx', // #427 — เมนู 2 รายการที่พาไปหน้าขาย; .tsx
+      'scripts/csp-payment-path.test.ts', // #493 — CSP อยู่บนเส้นจ่ายเงินเท่านั้น + ฟันของข้อตกลงเรื่อง GTM
     ],
   },
   resolve: {

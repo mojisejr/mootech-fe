@@ -9,6 +9,7 @@ import type { NextApiRequest, NextApiResponse } from 'next'
 import { resolveSessionUserId } from '@/lib/v2/resolve-user'
 import { priceFor } from '@/lib/discount/preview-flow'
 import { insertQuote } from '@/lib/discount/repo'
+import { decidePurchaseFor } from '@/lib/payment/repo'
 
 // A quote is only good for a short while — the price it froze (VAT, code status, code quota) can move.
 export const QUOTE_TTL_MS = 15 * 60 * 1000
@@ -29,6 +30,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   if (!priced.ok) {
     return res.status(priced.status).json({ error: priced.error, codeError: priced.codeError })
   }
+
+  // 🔴 #456 — REPORT the repurchase verdict here; do NOT enforce it here. Preview's job is to let a screen
+  // render truthfully, and a screen that must say "คุณเป็น PLUS อยู่แล้ว" needs the price AND the reason in
+  // the same answer (มุน needs exactly this for mootech-fe#457). The ENFORCEMENT lives at the door in
+  // lib/payment/charge-flow.ts, before any money moves — refusing here as well would only mean a client
+  // that skips preview walks straight past the check, which is how a screen-shaped gate becomes no gate.
+  // Same function, same answer, one copy of the rule.
+  const purchase = await decidePurchaseFor(who.userId, priced.tierCode, now)
 
   const expiresAt = new Date(now.getTime() + QUOTE_TTL_MS)
   const quoteId = await insertQuote({
@@ -52,5 +61,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     vatPercent: priced.vatPercent,
     codeApplied: priced.code ? priced.code.code : null,
     expiresAt: expiresAt.toISOString(),
+    // #456 — { allow: true, carryOverDays } | { allow: false, reason }. A client that ignores this field
+    // behaves exactly as before and is still refused at charge; it is here so the screen does not have to
+    // find out by trying to pay.
+    purchase,
   })
 }

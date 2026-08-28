@@ -4,10 +4,11 @@
 import type { NextApiRequest, NextApiResponse } from 'next'
 import { randomInt } from 'node:crypto'
 import { resolveSessionUserId } from '@/lib/v2/resolve-user'
-import { getUserEmail, insertPendingReserved, attachChargeId, abandonPending } from './repo'
+import { getUserEmail, insertPendingReserved, attachChargeId, abandonPending, recordChargeFailure, decidePurchaseFor } from './repo'
 import { priceFor } from '@/lib/discount/preview-flow'
 import { getQuote } from '@/lib/discount/repo'
 import type { ChargeResult } from './gateway'
+import { isRefusedCharge } from './gateway'
 
 export function makeOrderId(): string {
   // parity with v1: 10 random decimal digits (crypto.randomInt)
@@ -18,7 +19,7 @@ export async function runChargeFlow(
   req: NextApiRequest,
   res: NextApiResponse,
   method: 'card' | 'promptpay',
-  create: (args: { amountSatang: number; token?: string; email: string; orderId: string }) => Promise<ChargeResult>,
+  create: (args: { amountSatang: number; token?: string; email: string; orderId: string; packageCode: string }) => Promise<ChargeResult>,
 ): Promise<void> {
   if (req.method !== 'POST') {
     res.status(405).json({ error: 'Method not allowed' })
@@ -50,6 +51,23 @@ export async function runChargeFlow(
   const priced = await priceFor(packageCode, codeStr, now)
   if (!priced.ok) {
     res.status(priced.status).json({ error: priced.error, codeError: priced.codeError })
+    return
+  }
+
+  // 🔴 #456 — THE REPURCHASE GATE, and its POSITION is the requirement, not a detail. It sits after pricing
+  // (it needs the tier the package grants) and BEFORE insertPendingReserved — which means before the
+  // v2_payment row, before the discount hold, and before Omise is touched at all. Refusing after the money
+  // moved would mean taking payment and then saying the purchase was not allowed, which is worse than the
+  // bug this ticket fixes.
+  //
+  // 🔴 A closed button on the shop screen (มุน, mootech-fe#457) is NOT this gate. The button is what a
+  // cooperative client does; this is what happens to everybody else. Both read the same decision function,
+  // so they cannot disagree about who may buy what.
+  const purchase = await decidePurchaseFor(who.userId, priced.tierCode, now)
+  if (!purchase.allow) {
+    // 409, not 400: the request is well-formed and was legal to make — it conflicts with what this user
+    // already holds. `reason` names the SITUATION so #457's screen can choose its own words for it.
+    res.status(409).json({ error: 'already entitled', purchaseError: purchase.reason })
     return
   }
 
@@ -123,20 +141,76 @@ export async function runChargeFlow(
   const email = (await getUserEmail(who.userId)) ?? ''
   let charge: ChargeResult
   try {
-    charge = await create({ amountSatang: priced.amountSatang, token, email, orderId })
+    charge = await create({ amountSatang: priced.amountSatang, token, email, orderId, packageCode })
   } catch (e) {
     // The charge failed ⇒ give the code's quota back and kill the row, so a refused card can never leave a
     // discount code looking "full" (the return path the ticket requires).
     await abandonPending(reserved.paymentId, priced.code?.id ?? null)
     throw e
   }
-  await attachChargeId(reserved.paymentId, charge.chargeId)
+  // The charge EXISTS at the gateway now — refused or not. Attach the real id FIRST and unconditionally,
+  // so the webhook can always find this row no matter what we conclude on the next line.
+  // #455 — the gateway's deadline arrives on the same response as the charge id, so it is written in the
+  // same update. Card charges carry no expiry and pass null.
+  await attachChargeId(reserved.paymentId, charge.chargeId, charge.expiresAt ?? null)
 
+  // 🔴 #437 — ASK THE GATEWAY'S OWN VERDICT. Until this block existed, the answer was thrown away and every
+  // charge was reported as PENDING: a card Omise had already declined reached the screen as "in progress"
+  // and stayed there forever, because nothing downstream ever learned otherwise. Omise answers a declined
+  // card with HTTP 200 and object 'charge' (never an error object), so omisePost above did NOT throw —
+  // which is exactly why a plain try/catch could never have caught this.
+  if (isRefusedCharge(charge)) {
+    // 🔴 ORDER IS LOAD-BEARING — reason first, verdict second (ตู๋, review of #440 round 2). Not because
+    // the reason matters more, but because it is the only one of the two that nothing else can rebuild:
+    // recordChargeFailure has exactly ONE caller in the repo (here), and the webhook never writes
+    // failure_code. A hold left held is released later by abandonByChargeId; a reason never written is
+    // gone. So if abandonPending is the line that throws, writing the reason first is what saves it.
+    // Guarded by MR7 in scripts/payment-charge-route.test.ts — do not reorder these two calls.
+    //
+    // 🔴 WRITING DOWN THE REASON MUST NEVER BE ABLE TO STOP THE REFUND OF THE HOLD (ตู๋, review of #440).
+    // These two lines are not equals. Releasing the discount hold and marking the row REJECT is REQUIRED —
+    // skip it and the user's code stays spent on a payment that never happened. Recording WHY is a nicety.
+    // A nicety is not allowed to take the required thing down with it, so it gets its own catch.
+    //
+    // This is not hypothetical: deploying this code before migration 0010 makes the UPDATE below raise
+    // 42703 (undefined_column). Unguarded, that throw skipped abandonPending entirely — the caller got a
+    // 500 AND the hold leaked. ตู๋ proved it with an injected 42703 plus a control run. Ordering the deploy
+    // (migration first) would also avoid it, but ordering is a rule a human has to remember every time;
+    // this catch is structure, and it also covers the DB simply being unreachable for a moment.
+    try {
+      await recordChargeFailure(reserved.paymentId, {
+        code: charge.failureCode ?? null,
+        message: charge.failureMessage ?? null,
+      })
+    } catch (e) {
+      // Deliberately swallowed AND surfaced: the row still becomes REJECT below, we just lose the reason.
+      console.error('[#437] could not record charge failure reason', { paymentId: reserved.paymentId, chargeId: charge.chargeId, error: e })
+    }
+    // Same call the webhook's terminal-failure branch uses: releases the discount hold AND marks REJECT.
+    // Doing it here means the code is free again immediately, instead of waiting for a webhook round-trip.
+    await abandonPending(reserved.paymentId, priced.code?.id ?? null)
+    res.status(200).json({
+      chargeId: charge.chargeId,
+      status: 'REJECT',
+      failureCode: charge.failureCode ?? null,
+      amountSatang: priced.amountSatang,
+      discountSatang: priced.discountSatang,
+    })
+    return
+  }
+
+  // Not refused. Still PENDING on purpose — accepted is NOT settled: only settleAndProvision (webhook or
+  // reconcile cron) may write APPROVED, because that is the same step that creates member_subscription.
+  // Marking APPROVED here would produce a paid row that granted nobody anything.
   res.status(200).json({
     chargeId: charge.chargeId,
     status: 'PENDING',
     amountSatang: priced.amountSatang,
     discountSatang: priced.discountSatang,
     ...(charge.qrDownloadUri ? { qr: charge.qrDownloadUri } : {}),
+    // 🔴 #439 — the bank wants to see the cardholder before it decides. Handing this to the client is the
+    // whole point: Omise returns it, and until #439 the adapter threw it away, so nobody could be sent.
+    // Absent on any charge that did not need authentication — the client must treat absence as "carry on".
+    ...(charge.authorizeUri ? { authorizeUri: charge.authorizeUri } : {}),
   })
 }

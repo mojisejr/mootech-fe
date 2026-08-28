@@ -16,9 +16,12 @@ import { OrderSummaryCard } from '@/features/v2-shop/components/OrderSummaryCard
 import { PaymentMethodPicker, type PayMethod } from '@/features/v2-shop/components/PaymentMethodPicker'
 import { CardForm, type CardState } from '@/features/v2-shop/components/CardForm'
 import { useCheckout } from '@/features/v2-shop/useCheckout'
-import { createCardToken } from '@/features/v2-shop/omise-token'
+import { createCardToken, OmiseTokenError } from '@/features/v2-shop/omise-token'
+import { validateCard } from '@/features/v2-shop/card-rules'
+import { payReady } from '@/features/v2-shop/pay-ready'
 import { formatSatang } from '@/features/v2-shop/usePackagePrice'
-import { PLANS } from '@/features/v2-shop/packages'
+import { PLANS, planNameForTier } from '@/features/v2-shop/packages'
+import { payDestination, tokenizationFailedDestination, type PayBody, type PayLane } from '@/features/v2-shop/pay-destination'
 
 export const getServerSideProps: GetServerSideProps = async (ctx) => {
   ctx.res.setHeader('Cache-Control', 'no-store, must-revalidate')
@@ -36,42 +39,78 @@ export default function V2CheckoutPage({ teamPreview }: { teamPreview: boolean }
   const co = useCheckout(packageCode)
   const [method, setMethod] = useState<PayMethod>('card')
   const [card, setCard] = useState<CardState>(EMPTY_CARD)
+  // One clock for the page. Held in state so a re-render cannot silently move the month boundary
+  // underneath a buyer who is mid-form.
+  const [now] = useState(() => new Date())
   const [paying, setPaying] = useState(false)
 
   const plan = PLANS.find((p) => Object.values(p.codes).includes(packageCode))
   const planName = plan ? `${plan.name} · ${packageCode.endsWith('YEARLY') ? 'รายปี' : 'รายเดือน'}` : packageCode
 
+  // 🔴 #466 round 2 — THE PAGE HOLDS NO ROUTING DECISION AT ALL ANY MORE (ตู๋, review of 983d3b0).
+  // Round 1 moved WHERE a refusal goes into a pure function but left WHEN it is asked as a line of ordering
+  // here — and ตู๋ proved that half was still unguarded: deleting the refusal check, or moving `!r.ok`
+  // above it, both kept `npm test` green and both put "ธนาคารปฏิเสธการชำระเงิน" back in front of a paying
+  // member. So the order came out too. Everything below is transport; the answer comes from payDestination.
   async function pay() {
     if (!co.quote || paying) return
     setPaying(true)
     try {
-      if (method === 'promptpay') {
-        const r = await fetch('/api/v2/payment/promptpay', {
-          method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ package_code: packageCode, quote_id: co.quote.quoteId, ...(co.quote.codeApplied ? { code: co.quote.codeApplied } : {}) }),
-        })
-        const d = (await r.json()) as { chargeId?: string; qr?: string }
-        if (!r.ok || !d.chargeId || !d.qr) { setPaying(false); void router.push('/v2/shop/result?state=OFFLINE'); return }
-        void router.push(`/v2/shop/qrcode?charge=${encodeURIComponent(d.chargeId)}&qr=${encodeURIComponent(d.qr)}&amount=${co.quote.amountSatang}`)
-        return
+      const lane: PayLane = method === 'promptpay' ? 'promptpay' : 'card'
+      const body: Record<string, unknown> = {
+        package_code: packageCode,
+        quote_id: co.quote.quoteId,
+        ...(co.quote.codeApplied ? { code: co.quote.codeApplied } : {}),
       }
-      const [mm, yy] = card.expiry.split('/')
-      const token = await createCardToken({ name: card.name, number: card.number, expMonth: (mm ?? '').trim(), expYear: (yy ?? '').trim(), cvc: card.cvc })
-      const r = await fetch('/api/v2/payment/charge', {
+      if (lane === 'card') {
+        const [mm, yy] = card.expiry.split('/')
+        body.token = await createCardToken({
+          name: card.name, number: card.number,
+          expMonth: (mm ?? '').trim(), expYear: (yy ?? '').trim(), cvc: card.cvc,
+        })
+      }
+      const r = await fetch(lane === 'promptpay' ? '/api/v2/payment/promptpay' : '/api/v2/payment/charge', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ package_code: packageCode, token, quote_id: co.quote.quoteId, ...(co.quote.codeApplied ? { code: co.quote.codeApplied } : {}) }),
+        body: JSON.stringify(body),
       })
-      const d = (await r.json()) as { chargeId?: string }
-      if (!r.ok || !d.chargeId) { setPaying(false); void router.push('/v2/shop/result?state=CARD_DECLINED'); return }
-      void router.push(`/v2/shop/result?state=PAYING&charge=${encodeURIComponent(d.chargeId)}`)
-    } catch {
-      // Tokenisation refused (bad number/expiry/cvc) or omise.js missing. The bank never saw a charge.
+      const d = (await r.json()) as PayBody
+
+      const dest = payDestination({
+        lane, status: r.status, ok: r.ok, body: d,
+        packageCode, amountSatang: co.quote.amountSatang,
+        // the plan they tried to buy · and the plan they already hold — the only two things this page knows
+        // that the server's 409 deliberately does not say (it names the SITUATION, not the tier).
+        targetPlanName: plan?.name,
+        heldPlanName: planNameForTier(tier.tier),
+      })
+      if (!dest.keepPaying) setPaying(false)
+      // 🔴 #439 — window.location, not router.push: an external destination is not Next's to route.
+      if (dest.kind === 'external') { window.location.href = dest.href; return }
+      void router.push(dest.href)
+  } catch (e) {
+      // Tokenisation refused, or omise.js is missing. The bank never saw a charge and no request was ever
+      // made — so there is no server answer to reason about. It gets its own pure answer rather than an
+      // invented status code passed to payDestination.
+      // #438 — package_code rides along so the result screen can offer a way BACK to this same checkout.
+      // 🔴 #492 — and the REASON rides along too. This was a bare `catch {}`: every refusal, from a
+      // mistyped digit to our own key being wrong, arrived here as the same nothing and the buyer was
+      // told their BANK declined. Omise sends a code; we were discarding it at this exact line.
       setPaying(false)
-      void router.push('/v2/shop/result?state=CARD_DECLINED')
+      const code = e instanceof OmiseTokenError ? e.code : null
+      void router.push(tokenizationFailedDestination(packageCode, code).href)
     }
   }
 
-  const ready = !!co.quote && !co.loading && (method === 'promptpay' || (card.name && card.number && card.expiry && card.cvc))
+  // 🔴 #492 — THE ONE CALL SITE. Before this, `ready` asked only whether the four boxes were non-empty,
+  // so "a" in every field could press Pay. The form no longer computes this for itself; it is handed the
+  // result below, so the button and the red borders can never disagree about the same card.
+  // `now` lives here and only here — see the CardForm props for why it is not a defaulted prop there.
+  //
+  // 🔴 `payReady` is IMPORTED, not written out here (ตู๋, review r1 B2). The first version inlined this
+  // condition and the test inlined its own copy, so deleting the rule from this page kept every lane
+  // green. Sharing the function makes that deletion a compile error instead of a silent pass.
+  const validation = validateCard(card, now)
+  const ready = payReady({ hasQuote: !!co.quote, loading: co.loading, method, card, now })
 
   return (
     <div className="relative min-h-screen w-full overflow-x-hidden bg-v3-bg-cream font-ibm">
@@ -94,7 +133,7 @@ export default function V2CheckoutPage({ teamPreview }: { teamPreview: boolean }
         <section className="flex w-full flex-col gap-4 rounded-[20px] bg-white p-4 drop-shadow-[0_4px_15px_rgba(26,38,77,0.12)]">
           <h2 className="text-base font-bold leading-6 text-v3-navy">วิธีชำระเงิน</h2>
           <PaymentMethodPicker value={method} onChange={setMethod} />
-          {method === 'card' && <CardForm value={card} onChange={setCard} />}
+          {method === 'card' && <CardForm value={card} onChange={setCard} validation={validation} />}
         </section>
 
         <button

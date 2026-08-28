@@ -4,11 +4,11 @@
 >
 > **Status:** ✅ ACTIVE (v3) — authored by Lamun 2026-07-20, **delegated authority from `o`**. Working contract for the V3 redesign.
 >
-> **Why v3:** v2 was written before the Figma file was duplicated into ฟีม's team, so **Pro Figma (deep `get_design_context`) wasn't available** → its tokens/atmosphere were partly wrong (cyan mislabeled "legacy", "3-font", "flat-only", element hex deferred). v3 is built from a **full deep extraction of every section** (onboarding, Service, Calendar, Payment, Couple's Horoscope, my-destiny) + all component sets, via the Pro/Dev seat on the working copy `hEOnE9S6wLkMhb0Iy2Fe6T`.
+> **Why v3:** v2 was written before the Figma file was duplicated into ฟีม's team, so **Pro Figma (deep `get_design_context`) wasn't available** → its tokens/atmosphere were partly wrong (cyan mislabeled "legacy", "3-font", "flat-only", element hex deferred). v3 is built from a **full deep extraction of every section** (onboarding, Service, Calendar, Payment, Couple's Horoscope, my-destiny) + all component sets, via the Pro/Dev seat. (The capture was taken from `hEOnE9S6wLkMhb0Iy2Fe6T`, the first duplicate; node-ids are identical across copies so the extraction still holds — but the file in use is now `g2tyfcBQNU7CNlHBxQr3PL`, see `docs/figma-map.md`.)
 >
 > **This is a COMPLETE CAPTURE, not a trimmed contract** (per ฟีม 2026-07-20): every token/variant/aesthetic observed in Figma is documented here — including my-destiny's legacy glass world — so we never re-read Figma. What to change/drop is decided **at build time**, per screen, not here. Deferred calls are listed in §14.
 >
-> Source: Figma **Mumate app - V3 (Copy)** `hEOnE9S6wLkMhb0Iy2Fe6T` · structure + code map: [`docs/figma-map.md`](docs/figma-map.md)
+> Source: Figma **Mumate app V3** `g2tyfcBQNU7CNlHBxQr3PL` · structure + code map: [`docs/figma-map.md`](docs/figma-map.md)
 > Evidence: `✓` observed in Figma/code · `~` inferred · `?` not yet confirmed
 
 ---
@@ -105,7 +105,8 @@ per-screen pixels; a new value gets promoted into the system (named), never inli
 | `success-bg` / `success-border` / `success-text` | `#EAF3DE` / `#97C459` / `#3B6D11` — **บทบาทใหม่ ไม่ใช่สีเขียวทั่วไป** ↓ |
 | `focus-border` | `#3475E2` (input) · `#222` shade-02 (dropdown/link) |
 | `link-legal` | `#004CC4` (legal link) |
-| `border-input` | `#E5E7EB` · checkout `#D1D5DB` |
+| `border-input` | `#E5E7EB` — app-wide resting input border |
+| `border-checkout` | `#D1D5DB` — the checkout form's input border. Measured from Figma `402:21464` on three fields 2026-08-28 (`mootech-fe#502`); the built page had been painting `#E5E7EB` since it shipped. Reach it with `<Field tone="checkout">`, never by appending a class — `cn` does not resolve conflicting utilities. |
 | `border-card` | `#E9EAEB` · warm `#E0DEDB` / `#E5E3E0` |
 | `disabled-bg` | `#DDDDDD` |
 | `border-dropdown` | `#B0B0B0` · `border-checkbox` `#C2C2C2` |

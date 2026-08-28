@@ -142,6 +142,82 @@ function guardOps(req: NextRequest): NextResponse | null {
   return noStore(NextResponse.redirect(new URL('/ops', req.url)));
 }
 
+// Payment-lane Content-Security-Policy (#493).
+//
+// We keep our own card inputs (features/v2-shop/components/CardForm.tsx) instead of Omise's iframe —
+// a decision recorded in #446 — so any script that runs on these screens can read the card number out
+// of the DOM. The header below is the browser-enforced list of what those screens may load and talk to.
+//
+// SCOPE IS DELIBERATELY THE PAYMENT SCREENS ONLY, not the app. Two reasons: the rest of /v2 has never
+// been audited for what it loads, and Google Tag Manager (pages/_app.tsx:36-42) is a console through
+// which anyone with access injects JavaScript with no PR, no review and no deploy. Feem decided
+// 2026-08-28: GTM stays everywhere else and is SHUT OUT of the payment lane. That is why `script-src`
+// carries no 'unsafe-inline' — the GTM loader is an inline script, so omitting it is what blocks it.
+//
+// 'unsafe-inline' remains on style-src ONLY: React writes `style` attributes and Next ships a style
+// block, and inline CSS cannot exfiltrate a card number the way a script can.
+const PAYMENT_LANE_PREFIXES = ['/v2/shop/checkout', '/v2/shop/qrcode', '/v2/shop/result'] as const;
+
+function isPaymentLane(pathname: string): boolean {
+  return PAYMENT_LANE_PREFIXES.some((p) => pathname === p || pathname.startsWith(`${p}/`));
+}
+
+// 🔴 Every entry below was found by LOADING THE PAGE IN CHROMIUM under the policy, not by reading the
+// source. Two of them are invisible from the served HTML and the first draft of this list missed both:
+// the Google Fonts stylesheets are `@import`s inside styles/globals.css:1-6, and Next's dev server
+// evaluates strings for HMR. Reading the markup would never have shown either.
+//
+// 'unsafe-eval' is DEVELOPMENT ONLY. A production build does not need it — measured on `npm run build`
+// + `next start`: no eval violation appears, only the two below. Keeping it out of production is the
+// whole point, so it is keyed on NODE_ENV === 'development' and never on "not production", which would
+// hand it to the test environment as well and let a spec pass on a policy prod never sees.
+const isDev = process.env.NODE_ENV === 'development';
+
+const PAYMENT_LANE_CSP = [
+  "default-src 'self'",
+  // cdn.omise.co serves omise.js (pages/_document.tsx:19), which tokenises the card in the browser.
+  // 'unsafe-eval' in dev only: `next dev` compiles modules through eval for HMR, so without it the
+  // checkout screen does not render at all locally. Production builds do not evaluate strings.
+  `script-src 'self' https://cdn.omise.co${isDev ? " 'unsafe-eval'" : ''}`,
+  // 🔴 BOTH Omise hosts, and the card one is NOT api.omise.co. omise.js keeps its own config: the
+  // 32,718-byte script served from the CDN declares `vaultUrl:"https://vault.omise.co"` and
+  // `interfaceUrl:"https://api.omise.co"`, and `createToken` posts to `this.config.vaultUrl` + /tokens
+  // while `createSource` (PromptPay) goes to the interface URL + /sources/. Verified in Chromium: with
+  // vault.omise.co missing, POST vault.omise.co/tokens raises a connect-src violation and never leaves
+  // the browser — i.e. the policy allowed PromptPay and silently forbade every card payment.
+  //
+  // ⛔ Do not "check this against features/v2-shop/omise-token.ts". That file names no host at all — it
+  // calls O.createToken and the destination lives inside a script we do not own. An earlier version of
+  // this comment cited it as the source, which is why the wrong host survived three review passes: the
+  // evidence that would contradict it was never in the file being pointed at. Check cdn.omise.co/omise.js.
+  "connect-src 'self' https://api.omise.co https://vault.omise.co",
+  // The PromptPay QR is an <Image> served straight from Omise (next.config.mjs:34, unoptimized).
+  "img-src 'self' data: https://api.omise.co",
+  // fonts.googleapis.com serves the six @import-ed stylesheets in styles/globals.css:1-6, and those
+  // stylesheets in turn fetch their font files from fonts.gstatic.com. Self-hosting them would remove
+  // both origins and is worth doing — tracked as mojisejr/mootech-fe#506, not widened into this one.
+  "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+  "font-src 'self' data: https://fonts.gstatic.com",
+  // No iframes at all on these screens. This is what shuts out the GTM <noscript> frame
+  // (pages/_document.tsx:22-30). 3-D Secure is NOT affected: the bank is reached by a top-level
+  // navigation (pages/v2/shop/checkout.tsx:88 sets window.location.href), which CSP does not police.
+  "frame-src 'none'",
+  "object-src 'none'",
+  "base-uri 'self'",
+  // Our own forms post to us. The bank hand-off is a navigation, not a form submit.
+  "form-action 'self'",
+  "frame-ancestors 'none'",
+].join('; ');
+
+// Attaches the payment-lane CSP to a response when the REQUEST targets that lane. Keyed on the request
+// path, not on where the response ends up, so a rewrite to /maintenance is still covered and the rule
+// stays something a test can state in one line.
+function withPaymentLaneCsp(req: NextRequest, res: NextResponse): NextResponse {
+  if (!isPaymentLane(req.nextUrl.pathname)) return res;
+  res.headers.set('Content-Security-Policy', PAYMENT_LANE_CSP);
+  return res;
+}
+
 // Returns a response when the request targets the v2 preview surface, otherwise null. Mirrors
 // guardOps: `/api/v2/login` is always reachable when the key is configured (it validates the
 // submitted passkey and is how the cookie gets set). `/v2` itself passes through so its
@@ -213,7 +289,9 @@ export function middleware(req: NextRequest) {
 
   // MuMate v2 preview gate — team-only, independent of maintenance mode.
   const v2 = guardV2(req);
-  if (v2) return v2;
+  // guardV2 has seven exits (:165 :168 :170 :173 :175 :178 :181) and a v2 request never reaches the
+  // end of this file, so the CSP is attached here — the one point every v2 response passes through.
+  if (v2) return withPaymentLaneCsp(req, v2);
 
   // Maintenance off -> behave normally (normal caching resumes).
   // (While maintenance is on, every gated response below uses the module-level noStore so the

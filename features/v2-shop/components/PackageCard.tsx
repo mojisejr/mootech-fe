@@ -18,6 +18,8 @@ import { Button } from '@/components/ui/button'
 import { TextLink } from '@/components/ui/link'
 import { ComingSoonAction } from '@/features/v2-shell/components/ComingSoon'
 import { cn } from '@/lib/utils/cn'
+import { formatThaiDateAbbr } from '@/lib/v2/thai-date'
+import type { CardVerdict } from '../card-verdict'
 import type { BillingPeriod, Plan } from '../packages'
 import { checkoutHrefFor, codeFor } from '../packages'
 import { formatThb, usePackagePrice } from '../usePackagePrice'
@@ -63,13 +65,21 @@ function perDayText(amountThb: number): string {
   return `ตกเพียงวันละ ${perDay.toLocaleString('th-TH', { minimumFractionDigits: 1, maximumFractionDigits: 1 })} บาทเท่านั้น`
 }
 
+// 🔴 THE CARD NOW HAS TWO INDEPENDENT AXES AND THEY MUST NOT BE COLLAPSED (#457):
+//   price   — is this package for sale?      (usePackagePrice: ready | loading | error | unsellable)
+//   verdict — may THIS viewer buy it?        (cardVerdictFor: buy | upgrade | current | blocked | unknown)
+// A package can be perfectly on sale and still not be for THIS person, and a package this person could
+// upgrade to can be off sale. Rendering one from the other is how a member gets invited into a refusal.
 export function PackageCard({
   plan,
   period,
+  verdict,
   className,
 }: {
   plan: Plan
   period: BillingPeriod
+  /** what this card may say to the current viewer — #457. `free-card` freezes the pre-#457 behaviour. */
+  verdict: CardVerdict
   className?: string
 }) {
   const code = codeFor(plan, period)
@@ -146,13 +156,52 @@ export function PackageCard({
       </ul>
 
       <div className="mt-6">
-        {plan.id === 'free' ? (
+        {plan.id === 'free' || verdict.kind === 'free-card' ? (
           // Free's button leaves the shop for the app — it must never reach checkout (DoD).
           <Link href="/v2" data-testid="plan-cta-free" className="block rounded-full">
             <Button variant="primary" size="full" tabIndex={-1}>
               เริ่มใช้ฟรี
             </Button>
           </Link>
+        ) : verdict.kind === 'undetermined' ? (
+          // 🔴 DoD ④ — we do not know this viewer's level, so we render NEITHER branch: no buy button
+          // (which would tell a member to re-buy what they hold) and no "แพ็กปัจจุบัน" (which would claim
+          // knowledge we do not have). The two reasons get two sentences — a failed lookup that says
+          // "กำลังตรวจสอบ…" forever is our outage wearing the costume of the user's patience.
+          <p
+            data-testid={`plan-cta-pending-${plan.id}`}
+            className={cn(
+              'grid min-h-14 w-full place-items-center rounded-full border border-dashed px-4 text-center text-sm font-semibold leading-5',
+              verdict.because === 'loading'
+                ? 'border-v3-border-warm text-v3-text-muted'
+                : 'border-v3-error text-v3-error',
+            )}
+          >
+            {verdict.because === 'loading'
+              ? 'กำลังตรวจสอบสถานะสมาชิกของคุณ…'
+              : 'ตอนนี้เราตรวจสอบสถานะสมาชิกของคุณไม่ได้ · ลองโหลดหน้านี้ใหม่อีกครั้ง'}
+          </p>
+        ) : verdict.kind === 'current' ? (
+          // They already hold this level. Not a disabled button: there is nothing to press, so we render no
+          // control at all rather than a dead one (PackageCard's own rule below — a locked CONTROL must
+          // still answer; the honest fix here is not to offer a control).
+          <p
+            data-testid={`plan-status-${plan.id}`}
+            className="grid min-h-14 w-full place-items-center rounded-full bg-v3-sapphire/10 px-4 text-center text-base font-bold leading-6 text-v3-sapphire"
+          >
+            {verdict.expireAt && formatThaiDateAbbr(verdict.expireAt)
+              ? `แพ็กเกจปัจจุบันของคุณ · ใช้ได้ถึง ${formatThaiDateAbbr(verdict.expireAt)}`
+              : 'แพ็กเกจปัจจุบันของคุณ'}
+          </p>
+        ) : verdict.kind === 'blocked' ? (
+          // They hold something ABOVE this. Selling it would take time and level away from them
+          // (purchase-gate.ts CANNOT_DOWNGRADE). Name the situation, never the fix.
+          <p
+            data-testid={`plan-status-${plan.id}`}
+            className="grid min-h-14 w-full place-items-center rounded-full bg-v3-bg-cream px-4 text-center text-sm font-semibold leading-5 text-v3-text-body"
+          >
+            คุณเป็นสมาชิกระดับสูงกว่านี้อยู่แล้ว
+          </p>
         ) : href !== null ? (
           <Link href={href} data-testid={`plan-cta-${plan.id}`} className="block rounded-full">
             {/* 🔴 normal-case overrides Button's uppercase (button.tsx:131) for THIS label only.
@@ -161,7 +210,12 @@ export function PackageCard({
                 คำตัดสินนั้นสั่งไม่ให้ใช้ · textContent เขียว (มันเก็บ `Mumate +` ไว้ครบ) — จับได้จากภาพ
                 ที่ render จริงเท่านั้น ตระกูลเดียวกับ "ข้อความถูก แต่ตัดบรรทัดผิด" ของ #326 */}
             <Button variant="primary" size="full" tabIndex={-1} className="normal-case">
-              {`สมัครแพ็กเกจ ${plan.name} ${price.kind === 'ready' ? `${formatThb(price.amountThb)}${buttonSuffix}` : ''}`.trim()}
+              {/* 🔴 Only a verdict of `upgrade` may say อัปเกรด. A legacy member (paid, no level name) is
+                  `buy` with days to carry — calling THAT an upgrade would claim we know they rank below
+                  this package, and we do not know what they hold at all. */}
+              {`${verdict.kind === 'upgrade' ? 'อัปเกรดเป็น' : 'สมัครแพ็กเกจ'} ${plan.name} ${
+                price.kind === 'ready' ? `${formatThb(price.amountThb)}${buttonSuffix}` : ''
+              }`.trim()}
             </Button>
           </Link>
         ) : (
@@ -181,8 +235,22 @@ export function PackageCard({
         )}
       </div>
 
-      {plan.id !== 'free' ? (
-        <p className="mt-3 text-center text-xs leading-[18px] text-v3-text-muted">
+      {/* 🔴 DoD ③ — the fear this line removes is specific: a member who thinks upgrading forfeits the time
+          they already paid for will not upgrade. It appears ONLY when days actually follow them, so it can
+          never become a decoration that is true on every card. */}
+      {verdict.kind === 'upgrade' || (verdict.kind === 'buy' && verdict.carriesDays) ? (
+        <p data-testid={`plan-carry-note-${plan.id}`} className="mt-3 text-center text-sm font-semibold leading-5 text-v3-cyan">
+          วันที่เหลือของแพ็กเกจปัจจุบันจะถูกบวกให้ ไม่หายไป
+        </p>
+      ) : null}
+
+      {/* 🔴 The payment terms belong to a PAYMENT. Found by looking at the rendered page, not by any
+          assertion: a PRO member's Mumate + card said "คุณเป็นสมาชิกระดับสูงกว่านี้อยู่แล้ว" and then, one
+          line below, "เมื่อชำระเงินเรียบร้อยแล้ว ถือว่ายอมรับ…" — terms for a purchase the same card had
+          just refused to offer. Same family as the card's other rule: never say words that imply an action
+          this card does not have. */}
+      {plan.id !== 'free' && (verdict.kind === 'buy' || verdict.kind === 'upgrade') ? (
+        <p data-testid={`plan-legal-${plan.id}`} className="mt-3 text-center text-xs leading-[18px] text-v3-text-muted">
           เมื่อชำระเงินเรียบร้อยแล้ว ถือว่ายอมรับ{' '}
           <TextLink type="legal" size="small" href="/privacy/policy">
             นโยบายความเป็นส่วนตัว
