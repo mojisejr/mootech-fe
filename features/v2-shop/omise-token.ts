@@ -13,7 +13,8 @@
 // 🔴 AND IT MUST BE THE _V2 KEY. `NEXT_PUBLIC_OMISE_KEY` is v1's LIVE key, in use by five files that take
 // real money. If v2 borrowed it and anyone flipped it to a test key to try this screen, v1 would tokenize
 // against test while mootech-be holds live — real customers would stop being able to pay, silently.
-// (There is a third name, NEXT_STATIC_OMISE_PUBLIC_KEY, which nothing reads: see mootech-fe#395.)
+// (A third name once existed here, NEXT_STATIC_OMISE_PUBLIC_KEY. Nothing read it and it was deleted in
+//  mootech-fe#395 — the note is kept only so this list reads as two names on purpose, not by omission.)
 export const V2_OMISE_KEY_ENV = 'NEXT_PUBLIC_OMISE_KEY_V2'
 
 export type CardFields = { name: string; number: string; expMonth: string; expYear: string; cvc: string }
