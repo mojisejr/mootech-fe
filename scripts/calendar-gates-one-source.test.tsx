@@ -223,7 +223,7 @@ describe('#358 Phase 2 — both calendar gates decide from ONE source', () => {
   //    🔴 IT IS NOT REACHABLE BY PURCHASE, and I called it reachable twice before checking the write path.
   //    lib/payment/catalog.ts:78-80 throws UnsellablePackageError for a FREE tier BEFORE pricing, AFTER the
   //    isActive check — so activating one of the 6 FREE-tier catalogue rows does not sell it either.
-  //    scripts/payment-catalog.test.ts:29 pins that with an isActive:true FREE row, and ตู๋ proved the pin
+  //    scripts/payment-catalog.test.ts:30 pins that with an isActive:true FREE row, and ตู๋ proved the pin
   //    has teeth by deleting the `|| tierCode === 'FREE'` clause and watching it redden.
   //    lib/payment/repo.ts:729 is the ONLY insert into member_subscription outside tests (grepped over
   //    lib pages features harness), so the row can only arrive by hand or by ops.
@@ -232,7 +232,7 @@ describe('#358 Phase 2 — both calendar gates decide from ONE source', () => {
   //    the resolver is willing to downgrade a known-paid member, which lib/v2/subscription.ts:55 says it
   //    intends never to do. mojisejr/mootech-fe#525 holds the decision. When that is fixed this test flips,
   //    and it flipping is the point: it is the guard that catches the fix landing.
-  it('⑥ a paying legacy member with a live FREE v2 row loses the month — reachable, and ticketed at #525', async () => {
+  it('⑥ a paying legacy member with a live FREE v2 row loses the month — latent, ticketed at #525', async () => {
     const u = 'U-LEGACY-SHADOWED-BY-FREE'
     h.memberPaymentValid.add(u)
     h.freeV2Row.add(u)

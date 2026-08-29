@@ -64,7 +64,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   // the gate could not be turned into a way to be someone else.
   if (!CALENDAR_MONTH_GATE_OPEN) {
     // 🔴 #358 Phase 2 — ONE resolver for both calendar gates. This used to call `resolveMembership`
-    // (lib/usage.ts:27), which reads member_payment and nothing else, while day-detail.ts:82 has always
+    // (lib/usage.ts:27), which reads member_payment and nothing else, while pages/api/v2/day-detail.ts:82 has always
     // called `resolveSubscription` (lib/v2/subscription.ts:220), which reads member_subscription first and
     // only then falls back to that same member_payment read. Two gates on ONE feature, two stores.
     //
@@ -91,12 +91,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     //          'FREE' does pass the CHECK, maps cleanly, and is not paid (lib/v2/tier.ts:124) — but
     //          lib/payment/catalog.ts:78-80 throws UnsellablePackageError for a FREE tier BEFORE pricing
     //          and AFTER the isActive check, so activating one of the 6 FREE-tier catalogue rows does not
-    //          sell it. scripts/payment-catalog.test.ts:29 pins this with an isActive:true row, and the pin
+    //          sell it. scripts/payment-catalog.test.ts:30 pins this with an isActive:true row, and the pin
     //          has teeth. lib/payment/repo.ts:729 is the ONLY insert outside tests.
     //          ⇒ the row can arrive by hand or by ops, not by anyone buying anything.
     //          ⚠️ ? unknown whether prod holds any member_subscription row with tier_code = 'FREE'.
     //
-    // Row 3 is NOT introduced here: day-detail.ts:82 has always used this resolver, so that user is already
+    // Row 3 is NOT introduced here: pages/api/v2/day-detail.ts:82 has always used this resolver, so that user is already
     // refused day details on main. This route joining it turns half-broken into fully broken.
     //
     // 🔑 Worth keeping: the reachability of row 3 was asserted four times in this branch and was wrong
@@ -108,7 +108,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     // sources and a failure cannot be attributed to either.
     //
     // `isPaid === true` and not `!isFree`: only a literal true unlocks — the same fail-closed reading
-    // day-detail.ts:82 uses, so the two gates now agree about the undetermined case too. That agreement is
+    // pages/api/v2/day-detail.ts:82 uses, so the two gates now agree about the undetermined case too. That agreement is
     // row 2: a deliberate behaviour change, not a side effect.
     let paid = false
     try {
