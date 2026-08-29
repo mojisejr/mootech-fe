@@ -36,6 +36,10 @@ const h = vi.hoisted(() => ({
 }))
 
 vi.mock('@/lib/v2/resolve-user', () => ({ resolveSessionUserId: vi.fn(async () => h.who) }))
+// #358 Phase 3 — this suite is about the paid-field TRIM, not the span, and its dates are 2027-01-xx
+// (chosen so the module-level cache never collides). Pinning "now" to that month keeps every case
+// in span so the span gate never fires here and these assertions keep measuring what they name.
+vi.mock('@/lib/v2/clock', () => ({ currentMonthBkk: () => '2027-01' }))
 vi.mock('@/lib/v2/subscription', () => ({
   resolveSubscription: vi.fn(async (userId: string) => {
     if (h.subThrows) throw new Error('membership store unreachable')

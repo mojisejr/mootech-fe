@@ -28,6 +28,9 @@ const h = vi.hoisted(() => ({
 }))
 
 vi.mock('@/lib/v2/resolve-user', () => ({ resolveSessionUserId: vi.fn(async () => h.who) }))
+// #358 Phase 3 — this suite is about the MEMBERSHIP gate, not the span, and freshMonth() walks 2028-xx.
+// "now" is pinned to 2028-01 and every case is given PRO below, so the span is never what decides here.
+vi.mock('@/lib/v2/clock', () => ({ currentMonthBkk: () => '2028-01' }))
 // #358 Phase 2 — the route now asks resolveSubscription, so the stub moved with it. Left as a full module
 // mock rather than a spread of the original: the original pulls @/lib/db, and a membership stub that can
 // still reach a database is not a stub. `isPaid` (boolean | null) replaces `isFree` (boolean) because that
@@ -59,7 +62,7 @@ const PERSON = { dob: '1990-01-01', time: '08:00', gender: 'male', isRememberTim
 let n = 0
 const freshMonth = () => `2028-${String((n++ % 12) + 1).padStart(2, '0')}`
 
-async function call(userId: string) {
+async function call(userId: string, month?: string) {
   const res: { statusCode: number; body: any; status: any; json: any } = {
     statusCode: 0,
     body: undefined,
@@ -67,7 +70,7 @@ async function call(userId: string) {
     json: vi.fn((b: unknown) => ((res.body = b), res)),
   }
   h.who = { ok: true, userId }
-  await handler({ method: 'POST', body: { person: PERSON, month: freshMonth() } } as never, res as never)
+  await handler({ method: 'POST', body: { person: PERSON, month: month ?? freshMonth() } } as never, res as never)
   return res
 }
 
@@ -79,12 +82,26 @@ describe('#293 calendar-month — the gate we actually ship is CLOSED', () => {
   })
 
   // ① 🔴 MC1/MC2 — the ticket, against the real constant.
-  it('🔴 ① a free member is refused, and the paid upstream is NEVER called (fortuneCalls === 0)', async () => {
-    const res = await call('FREE-USER')
+  // 🔴 ① CHANGED BY #358 Phase 3 (ฟีมเคาะ 2026-08-29, ทาง A) — and the CRITERION is untouched.
+  // This case used to read "a free member is refused" full stop, because the route was paid-only. The shop
+  // card has always sold FREE one month of ปฏิทินดวง, so ฟีม decided the route should honour the card. A
+  // free member is therefore no longer refused everywhere — they are refused BEYOND their span.
+  // What this file owns is unchanged and is the reason it exists: a refusal must cost us NOTHING upstream.
+  // `fortuneCalls === 0` is still the criterion, still measured, and still the thing MC2 would break.
+  it('🔴 ① a free member is refused BEYOND their span, and the paid upstream is NEVER called (fortuneCalls === 0)', async () => {
+    const res = await call('FREE-USER', '2028-06') // "now" is pinned to 2028-01, so this is out of span
     expect(res.statusCode).toBe(200)
     expect(res.body.allowed).toBe(false)
     expect(res.body.days).toEqual([])
     expect(h.fortuneCalls).toBe(0) // ← the criterion. An empty reply we PAID for is not a refusal.
+  })
+
+  // ① b — the other half of ทาง A, and the half that costs money. Written next to ① so nobody reads this
+  // file as "free gets nothing" ever again.
+  it('🔴 ① b a free member DOES get the current month, and we DO pay the upstream for it', async () => {
+    const res = await call('FREE-USER', '2028-01') // the pinned current month
+    expect(res.body.allowed).toBe(true)
+    expect(h.fortuneCalls).toBe(1) // the ~6.8s first-view cost ฟีม accepted, asserted rather than implied
   })
 
   // ② 🔴 MC3 — the other pole, in the same run. Without it, a gate that refuses everybody looks perfect.

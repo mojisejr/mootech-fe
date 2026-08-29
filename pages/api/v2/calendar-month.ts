@@ -21,6 +21,8 @@
 import type { NextApiRequest, NextApiResponse } from 'next'
 import { toBaziInput, type FeCalcInput } from '@/lib/bazi-bridge/input'
 import { resolveSubscription } from '@/lib/v2/subscription'
+import { calendarMonthReachable } from '@/lib/v2/entitlement'
+import { currentMonthBkk } from '@/lib/v2/clock'
 import { resolveSessionUserId } from '@/lib/v2/resolve-user'
 import { CALENDAR_MONTH_GATE_OPEN } from '@/lib/v2-calendar/gate'
 import {
@@ -62,6 +64,17 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   // The switch lives in lib/v2-calendar/gate.ts and is CLOSED (#293, 2026-08-23), so this branch is the
   // live path now, not a dormant one. The subject below is the SESSION's user (#391), which is why closing
   // the gate could not be turned into a way to be someone else.
+  // The membership verdict, read ONCE and used by both gates below. Hoisted out of the switch by #358
+  // Phase 3 because the span gate needs it too; when the switch is open this is one read that previously
+  // did not happen, and the switch ships CLOSED (lib/v2-calendar/gate.ts).
+  let verdict: { isPaid: boolean | null; tier: string | null } = { isPaid: false, tier: null }
+  try {
+    const v = await resolveSubscription(userId)
+    verdict = { isPaid: v.isPaid, tier: v.tier }
+  } catch {
+    verdict = { isPaid: false, tier: null } // cannot confirm membership → treat as free (fail-closed)
+  }
+
   if (!CALENDAR_MONTH_GATE_OPEN) {
     // 🔴 #358 Phase 2 — ONE resolver for both calendar gates. This used to call `resolveMembership`
     // (lib/usage.ts:27), which reads member_payment and nothing else, while pages/api/v2/day-detail.ts:82 has always
@@ -108,15 +121,40 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     // sources and a failure cannot be attributed to either.
     //
     // `isPaid === true` and not `!isFree`: only a literal true unlocks — the same fail-closed reading
-    // pages/api/v2/day-detail.ts:82 uses, so the two gates now agree about the undetermined case too. That agreement is
-    // row 2: a deliberate behaviour change, not a side effect.
-    let paid = false
-    try {
-      paid = (await resolveSubscription(userId)).isPaid === true
-    } catch {
-      paid = false // cannot confirm membership → treat as free (fail-closed)
+    // pages/api/v2/day-detail.ts:82 uses, so the two gates now agree about the undetermined case too.
+    //
+    // 🔴 #358 Phase 3 — THE PAID-ONLY REFUSAL IS GONE FROM HERE, and that is the point of the phase, not a
+    // side effect. It read `if (verdict.isPaid !== true) return allowed:false`, so a non-paying visitor got
+    // no month at all. The shop card has always sold FREE "ปฏิทินดวง 1 เดือน"
+    // (features/v2-shop/packages.ts), so the route and the price list disagreed and the route won.
+    // ฟีมเคาะ 2026-08-29 ทาง A: honour the card. The SPAN below is now the only gate, and for FREE it
+    // admits exactly the current month — which is the same refusal for every other month, reached by the
+    // rule that was sold rather than by a boolean.
+    // ⚠️ THE COST IS REAL AND WAS ACCEPTED, not overlooked: every non-paying visitor may now trigger one
+    // upstream bazi call per month, and a first view of a new month costs about 6.8s (lines 10-11 above).
+    // An UNDETERMINED verdict (isPaid null) spends FREE, so a membership-lookup error now serves the
+    // current month instead of nothing — the same reading pages/api/v2/day-detail.ts uses for that state.
+    //
+    // ── THE SPAN. How far this level may scroll ─────────────────────────────────────────────────────
+    //
+    // 🔴 INSIDE the switch, and my first draft had it outside. I reasoned that the switch answers "is this
+    // feature paid-only right now" while the span answers "what did the package sell", so they should be
+    // independent. scripts/calendar-month-identity.test.tsx has a named case — "gate OPEN (today) → a free
+    // session still gets the personalised month" — that says the switch means the WHOLE paid gate is off.
+    // That contract is the team's and predates me; my separation was my own reasoning. The test won.
+    // ⚠️ The coupling is real and stays: flipping the switch open also removes the span. Phase 4 retires
+    // the switch, and that is where it goes away rather than being papered over here.
+    //
+    // 🔴 The comparison itself is NOT restated here — lib/v2/entitlement.ts calendarMonthReachable is the
+    // one copy, and pages/api/v2/day-detail.ts calls the same function with the same arguments. Phase 2's
+    // lesson applied one level up: two routes asking one question, never two.
+    //
+    // Refusal shape is the existing one (200 + allowed:false + empty days), so the screen needs no change
+    // and no upstream fortune call is paid for a month we are not going to return.
+    const wantedMonth = `${parsed.year}-${String(parsed.month).padStart(2, '0')}`
+    if (!calendarMonthReachable(verdict, wantedMonth, currentMonthBkk())) {
+      return res.status(200).json({ allowed: false, year: parsed.year, month: parsed.month, days: [] })
     }
-    if (!paid) return res.status(200).json({ allowed: false, year: parsed.year, month: parsed.month, days: [] })
   }
   // ────────────────────────────────────────────────────────────────────────────────────────────────
 
