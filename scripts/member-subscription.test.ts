@@ -521,4 +521,39 @@ describe('#358 Phase 1 — resolveSubscription threads the legacy expiry from it
     // without this, ML7's `toBe(0)` would also pass against a counter that never increments at all.
     expect(dbState.legacyReads).toBe(1)
   })
+
+  // 🔴 #525 — the OTHER half of the fix, and the half nothing was watching. Reverting the call site to a
+  // bare `if (live)` left all 99 test files green: the pure rule kept its fall-through, but the caller
+  // handed it NO_LEGACY, so it fell through to a placeholder saying "no legacy evidence" and answered free
+  // anyway — the user-visible defect, fully restored, under a green suite. Same shape as ML7 above: the
+  // RETURN VALUE alone cannot see it, because the mock's legacy fixture is what makes the difference. So
+  // count the read, exactly as ML7 does.
+  it('🔴 #525 — a live FREE row DOES issue the member_payment read (the mutant that survived without this)', async () => {
+    dbState.subRows = [
+      { id: 'v2', tierCode: 'FREE', status: 'ACTIVE', expireAt: '2030-06-30', createdAt: new Date('2026-08-01T00:00:00Z') },
+    ]
+    dbState.legacy = {
+      isFree: false,
+      reason: 'MEMBER',
+      memberPayment: { userId: 'u1', planCode: 'MEMBER', expireAt: '2027-03-31' },
+    }
+    expect(dbState.legacyReads).toBe(0) // nothing read yet — so the 1 below is this call's, not a leftover
+    expect(await resolveSubscription('u1', NOW)).toEqual({
+      isPaid: true,
+      tier: 'PRO',
+      source: 'legacy',
+      expireAt: '2027-03-31', // the member's own date, NOT the FREE row's 2030-06-30
+    })
+    expect(dbState.legacyReads).toBe(1)
+  })
+
+  it('🔴 #525 control — a live FREE row with NO paid legacy stays free, and the read still happened', async () => {
+    dbState.subRows = [
+      { id: 'v2', tierCode: 'FREE', status: 'ACTIVE', expireAt: '2030-06-30', createdAt: new Date('2026-08-01T00:00:00Z') },
+    ]
+    dbState.legacy = { isFree: true, reason: 'EXPIRED', memberPayment: { userId: 'u1', planCode: 'MEMBER', expireAt: '2020-01-01' } }
+    // proves the read is not simply "always answer paid": same row, same query, opposite answer
+    expect(await resolveSubscription('u1', NOW)).toEqual({ isPaid: false, tier: null, source: 'legacy', expireAt: null })
+    expect(dbState.legacyReads).toBe(1)
+  })
 })
