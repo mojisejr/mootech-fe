@@ -29,6 +29,15 @@ import type { PlanId } from './packages'
 export type ViewerMembership = {
   isPaid?: boolean | null
   tier?: string | null
+  /** 🔴 WHERE the verdict came from — lib/v2/subscription.ts:21 MembershipSource ('v2' | 'legacy' | 'none').
+   *  It rides on the composite already (useV2User.ts:37) and is what tells a NAME THAT WAS READ apart from
+   *  a NAME THAT WAS DECIDED. Since #358 Phase 1 (subscription.ts:26 LEGACY_TIER) a valid legacy member
+   *  resolves to tier 'PRO' — member_payment has no tier column, so that name is a product decision, not a
+   *  row. Without this field the two are indistinguishable and the gate below refuses a legacy member on
+   *  BOTH cards (PRO → 'current', PLUS → 'blocked'), which is the opposite of the rule stated at
+   *  purchase-gate.ts:111-116: never refuse someone we cannot place on the ladder.
+   *  Optional/loose-typed for the same reason every field here is: the row may be absent or half-known. */
+  source?: string | null
   expireAt?: string | null
 } | null
 
@@ -82,8 +91,24 @@ export function cardVerdictFor(args: {
     return { kind: 'undetermined', because: loading ? 'loading' : 'unavailable' }
   }
 
+  // 🔴 THE DISPLAY READS THE TIER, THE GATE READS THE SOURCE.
+  // #358 Phase 1 gave a valid legacy member the NAME 'PRO' (subscription.ts:26) so every named-tier screen
+  // stops special-casing null — a display decision, and the right one. But `Entitlement.tier` is not a name
+  // to show, it is "the level we can PROVE they hold" (purchase-gate.ts:29), and for a legacy member there
+  // is no such level: member_payment has no tier column. Handing the decided name to the gate makes it
+  // answer the placeable-member matrix (PRO→PRO = ALREADY_ON_THIS_TIER, PRO→PLUS = CANNOT_DOWNGRADE), so
+  // both cards refuse and the 2 legacy members on prod can buy nothing at all (17 rows in member_payment
+  // are still valid, but 15 of them also hold a live v2 row and take the v2 branch — #358 has the working).
+  //
+  // So the gate is told what the STORE knows, not what the screen shows: source 'legacy' ⇒ unplaceable ⇒
+  // purchase-gate's own legacy branch (`held === null` ⇒ allow, carry the days). The rule is still not
+  // re-derived here — this only stops feeding it a name it was never meant to receive.
+  //
+  // Strictly `=== 'legacy'`, never `!== 'v2'`: an absent source must keep today's behaviour for a NAMED
+  // tier, because before #383 the only way to hold a name was a real v2 row, and reading a v2 PRO member as
+  // unplaceable would sell them the package they already own.
   const current: Entitlement = {
-    tier: parseTierCode(membership.tier),
+    tier: membership.source === 'legacy' ? null : parseTierCode(membership.tier),
     isPaid: membership.isPaid === true,
     expireAt: membership.expireAt ?? null,
   }

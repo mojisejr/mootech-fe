@@ -18,6 +18,11 @@
 //   S9  a refused card keeps its refusal text AND draws a buy control anyway  → the controlsIn(...) rows redden (ตู๋ MUT-B2)
 //   S10 the failure line goes back to retry-button copy with no button there  → the failure-copy test reddens
 //   S11 the carry-over promise renders on a card the viewer cannot buy         → the no-promises rows redden (ตู๋ MUT-D)
+//   S12 ShopScreen rebuilds ViewerMembership without `source` (ShopScreen.tsx:59-71) → the legacy rows redden.
+//        🔴 THIS IS THE ONE THE SUITE DID NOT HAVE. #358 Phase 1 gave a valid legacy member the tier NAME
+//        'PRO' (subscription.ts:26), and the screen was dropping the field that says the name was DECIDED,
+//        not read — so both paid cards refused them and 1060 tests stayed green. The legacy fixture below is
+//        now the shape the server actually returns, which is what makes S12 reachable at all.
 import React from 'react'
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, cleanup, waitFor } from '@testing-library/react'
@@ -69,9 +74,16 @@ function stubPrices() {
 const renderScreen = () => render(<CookiesProvider><ShopScreen /></CookiesProvider>)
 
 /** Set the viewer, mount, and wait until prices have resolved so the finished page is what gets asserted. */
-async function mountAs(tier: { isPaid: boolean | null; tier: string | null; loading: boolean }, expireAt: string | null = null) {
+async function mountAs(
+  tier: { isPaid: boolean | null; tier: string | null; loading: boolean },
+  expireAt: string | null = null,
+  // #358 Phase 1 — lib/v2/subscription.ts:21 MembershipSource, as /api/user hands it over. Defaulted to
+  // 'v2' because that is what a NAMED tier means for every row above: a real member_subscription row was
+  // read. Only the legacy member overrides it, and for them it is the whole difference.
+  source: 'v2' | 'legacy' | 'none' = 'v2',
+) {
   tierState.value = tier
-  userState.value = { user_id: 'u-457', membership: { expireAt } }
+  userState.value = { user_id: 'u-457', membership: { expireAt, source } }
   renderScreen()
   // 🔴 Wait for the price to be READY, not merely "no longer loading". The weaker wait passes on `missing`
   // and `offSale` too, so a broken fixture sails through it and fails later as a confusing button assertion.
@@ -201,9 +213,15 @@ describe('#457 row 4 — 🔴 we do not know yet: the screen must not guess in e
   })
 })
 
-describe('#457 row 5 — a legacy member: paid, no level name', () => {
+describe('#457 row 5 — a legacy member: paid, and (since #358 Phase 1) a DECIDED level name', () => {
+  // 🔴 THE FIXTURE MOVED, AND THAT IS THE POINT. This row used to mount `{ isPaid: true, tier: null }`, a
+  // shape no writer produces any more: #358 Phase 1 made the resolver answer 'PRO' for these members
+  // (subscription.ts:26) with `source: 'legacy'` marking the name as a decision. Mounting the old shape is
+  // what let the shop stop selling to them with every test green. The verdict half of this is bound to the
+  // real resolver in scripts/shop-card-verdict.test.ts; this half is the only thing that reddens if
+  // ShopScreen.tsx stops carrying `source` through.
   it('may buy either package, and is never told a level they might not have', async () => {
-    await mountAs({ isPaid: true, tier: null, loading: false }, '2027-03-01')
+    await mountAs({ isPaid: true, tier: 'PRO', loading: false }, '2027-03-01', 'legacy')
     expect(screen.getByTestId('plan-cta-plus').textContent).toContain('สมัครแพ็กเกจ Mumate +')
     expect(screen.getByTestId('plan-cta-pro').textContent).toContain('สมัครแพ็กเกจ Mumate Pro')
     // 🔴 S5 — "อัปเกรด" claims we know they rank below this. We do not know what they hold at all.
@@ -211,7 +229,7 @@ describe('#457 row 5 — a legacy member: paid, no level name', () => {
     expect(body()).not.toContain('แพ็กเกจปัจจุบันของคุณ')
   })
   it('is still told their remaining days carry over', async () => {
-    await mountAs({ isPaid: true, tier: null, loading: false }, '2027-03-01')
+    await mountAs({ isPaid: true, tier: 'PRO', loading: false }, '2027-03-01', 'legacy')
     expect(screen.getByTestId('plan-carry-note-plus').textContent).toContain('จะถูกบวกให้')
   })
 })

@@ -57,8 +57,19 @@ export function ShopScreen({ teamPreview = false }: { teamPreview?: boolean } = 
   //     and DoD ② needs. Widening V2Tier would drag six other screens through a contract change
   //     (header-badge.ts:31 accepts its result verbatim) for one card's date line.
   const { user } = useV2User()
+  //     `source` rides on the SAME composite and must not be dropped here: since #358 Phase 1 a legacy
+  //     member's tier NAME is a decision (subscription.ts:26), and `source` is the only field that says so.
+  //     Rebuilding the membership without it made both paid cards refuse them (card-verdict.ts, the
+  //     display-reads-the-tier/gate-reads-the-source note). Plumbing, not a rule — nothing is decided here.
   const membership: ViewerMembership =
-    tier.isPaid == null ? null : { isPaid: tier.isPaid, tier: tier.tier, expireAt: user?.membership?.expireAt ?? null }
+    tier.isPaid == null
+      ? null
+      : {
+          isPaid: tier.isPaid,
+          tier: tier.tier,
+          source: user?.membership?.source ?? null,
+          expireAt: user?.membership?.expireAt ?? null,
+        }
   const today = todayInBangkok()
 
   return (
