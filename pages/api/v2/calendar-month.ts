@@ -151,6 +151,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     //
     // Refusal shape is the existing one (200 + allowed:false + empty days), so the screen needs no change
     // and no upstream fortune call is paid for a month we are not going to return.
+    //
+    // ⚠️ THIS REFUSAL IS INDISTINGUISHABLE FROM THE ONE AT :59, and that is a real gap, not a nicety.
+    // Line 59 refuses "we do not know who you are"; this one refuses "your package stops here". Both
+    // answer the same object, so the screen cannot tell an expired session from a sales moment — and the
+    // arrow ฟีม described pressing comes from THIS route. Not fixed here because adding a reason field is
+    // a response-shape change with a screen half, and ตู๋ confirmed no open issue covered it.
+    // ⇒ mojisejr/mootech-fe#530, the sibling of #529 on the day route. Do them together: one behaviour
+    //   split across two routes is exactly how the two calendar gates drifted apart before Phase 2.
     const wantedMonth = `${parsed.year}-${String(parsed.month).padStart(2, '0')}`
     if (!calendarMonthReachable(verdict, wantedMonth, currentMonthBkk())) {
       return res.status(200).json({ allowed: false, year: parsed.year, month: parsed.month, days: [] })

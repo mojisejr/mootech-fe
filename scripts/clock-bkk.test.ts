@@ -14,12 +14,12 @@
 //
 // 🔴 MUTANT CONTRACT (each reddens `npm test`):
 //   Fired 2026-08-29 with a `git diff --numstat` guard. Measured, and ③ is not what I predicted:
-//   MK1  currentMonthBkk uses toISOString().slice(0,7) instead of bkkDateStr  → ② ⑤   (2 of 5)
+//   MK1  currentMonthBkk uses toISOString().slice(0,7) instead of bkkDateStr  → ② ⑤
 //        ③ stays GREEN and that is correct — at 23:30 Bangkok, UTC is 16:30 the SAME day, so both
 //        readings agree. Only the hours after midnight Bangkok split them, which is exactly the window
 //        the header describes. ③ earns its place by ruling out "always answer the next month", not by
 //        catching MK1.
-//   MK2  the slice takes (0,4)                                                → all five (5 of 5)
+//   MK2  the slice takes (0,4)                                                → every case in the file
 import { describe, it, expect } from 'vitest'
 import { currentMonthBkk } from '@/lib/v2/clock'
 

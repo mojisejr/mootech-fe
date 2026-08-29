@@ -14,11 +14,16 @@
 //   cannot be read as a survivor. These are the MEASURED results — an earlier version of this block held
 //   my predictions for MS1, MS2 and MS3 and all three were wrong, while the PR body carried the real ones.
 //   ตู๋ caught the two copies disagreeing, and the file is the copy that outlives the PR.
-//   MS1  PLUS and PRO get the same span in lib/v2/entitlement.ts   → ④ ⑦        (2 of 7)
-//   MS2  isMonthReachable uses `<= span` instead of `<= span - 1`  → ② ③ ⑤ ⑦    (4 of 7)
-//   MS3  the span check is deleted from calendar-month.ts          → ② ③ ⑤ ⑦    (4 of 7)
-//   MS4  the span check is deleted from day-detail.ts              → ⑤ ONLY     (1 of 7) the walk-around
-//   MS5  entitlementTierOf maps a paid-but-unnamed verdict to FREE → ⑥          (1 of 7)
+//   🔴 WHICH CASES, NEVER HOW MANY. The counts used to read "(2 of 7)" and the file has 8 cases — I added
+//   ⑧ and every denominator went stale in the same commit, silently, while every numerator stayed right.
+//   ตู๋: the denominator is the part that rots each time somebody adds a case. So it is gone. A named list
+//   is checkable by running the mutant; a fraction is a second fact about the file that nothing maintains.
+//   MS1  PLUS and PRO get the same span in lib/v2/entitlement.ts   → ④ ⑦
+//   MS2  isMonthReachable uses `<= span` instead of `<= span - 1`  → ② ③ ⑤ ⑦
+//   MS3  the span check is deleted from calendar-month.ts          → ② ③ ⑤ ⑦
+//   MS4  the span check is deleted from day-detail.ts              → ⑤ ONLY — the walk-around
+//   MS5  entitlementTierOf maps a paid-but-unnamed verdict to FREE → ⑥
+//   MS6  day-detail slices the RAW date instead of `parsed`        → ⑧ ONLY — the leading-space case
 //   SURVIVOR  a comment-only edit in the same block                → rc=0, 7 passed
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 
