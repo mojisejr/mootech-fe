@@ -21,11 +21,18 @@
 //
 // 🔴 MUTANT CONTRACT (each reddens `npm test`):
 //   Fired 2026-08-29 against the committed baseline, results as measured and not as predicted:
-//   MP1  calendar-month goes back to resolveMembership   → ① v2-row-only + ④ redden (2 of 7). The other
+//   MP1  calendar-month goes back to resolveMembership   → ① v2-row-only + ④ + ⑤ redden (3 of 8). The other
 //        three rows of ① stay green, which is what makes it the DIVERGENT state and not a blanket failure.
-//   MP2  calendar-month reads `isPaid` loosely (`!== false` instead of `=== true`)  → ③ only (1 of 7)
-//   MP3  day-detail goes to resolveMembership instead     → ① v2-row-only reddens from the other side
-//        (1 of 7), proving the table watches both routes and not just the one that changed
+//        ⑤ reddening is the CORRECT result and I predicted green: ⑤ pins the direction where main ALLOWED
+//        and this branch refuses, so restoring main's resolver is exactly what must break it.
+//   MP2  calendar-month reads `isPaid` loosely (`!== false` instead of `=== true`)  → ③ + ⑤ (2 of 8)
+//   MP3  day-detail goes to resolveMembership instead     → ① v2-row-only + ⑤ (2 of 8), reddening from the
+//        other side and proving the table watches both routes, not just the one that changed
+//
+// 🔴 HOW THIS TABLE WAS FILLED IN, because it matters more than the numbers. Adding ⑤ changed three of the
+// four counts, and on the first pass I typed the new counts from reasoning and then fired. MP2 happened to
+// match; MP1 and MP3 did not. Every number above is now from a run, and the two places where my prediction
+// and the run disagreed are written down rather than quietly overwritten.
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 
 const h = vi.hoisted(() => ({
@@ -178,6 +185,24 @@ describe('#358 Phase 2 — both calendar gates decide from ONE source', () => {
     h.undetermined.add(u)
     expect(await monthAllows(u)).toBe(false)
     expect(await dayAllows(u)).toBe(false)
+  })
+
+  // ⑤ 🔴 THE OTHER DIRECTION. ตู๋ measured this through both real handlers and it is the case that made the
+  //    first draft of this PR's description false: a user with a VALID member_payment row who ALSO holds a
+  //    live v2 row we cannot map answered { month: true, day: false } on main and { month: false, day:
+  //    false } here. The month gate LOSES this calendar for them. Kept as a test rather than a sentence,
+  //    because a sentence is what was wrong the first time.
+  //    Not reachable on a database carrying lib/db/0006_member_subscription.sql:33 — its CHECK admits only
+  //    FREE/PLUS/PRO and lib/v2/tier.ts:73 maps all three. ⚠️ ? unknown whether prod carries that CHECK.
+  it('⑤ a legacy member whose v2 row cannot be mapped — both gates refuse, and the month gate used to allow', async () => {
+    const u = 'U-LEGACY-PLUS-UNMAPPABLE'
+    h.memberPaymentValid.add(u)
+    h.undetermined.add(u) // the live v2 row wins over the legacy shadow, and it answers isPaid: null
+    expect(await monthAllows(u)).toBe(false)
+    expect(await dayAllows(u)).toBe(false)
+    // the half that proves this is the DIVERGENT reading and not just "everything is refused":
+    h.undetermined.delete(u)
+    expect(await monthAllows(u), 'drop the unmappable row and the legacy member is served again').toBe(true)
   })
 
   // ④ The store the month gate used to read alone must no longer be able to answer for it on its own.
