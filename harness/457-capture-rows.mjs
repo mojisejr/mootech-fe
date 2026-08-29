@@ -19,6 +19,23 @@ import { writeFileSync } from 'node:fs'
 import { evidenceDir, REPO_ROOT as REPO } from './evidence-dir.mjs'
 
 const OUT = evidenceDir('457')
+// 🔴 THE RESULT FILE HAS TO SAY WHICH COMMIT IT CAME FROM AND WHAT WAS ASKED FOR.
+// Not a new idea — harness/455-capture-expiry.mjs:18,125 already writes `455-readout-${SHA}.json` with
+// `{ sha, capturedAt, rows }`. This file was the one that did not follow it, and that cost a real result:
+// a three-way before/after comparison across 76449e1 → 5f9ca5b → 18dc83c reported "nothing changed" for a
+// pair that had a buy button appear between them. Cause: `rows.json` was OVERWRITTEN by a later
+// `ROWS=pro` run in the same worktree, the comparer intersected the two files' keys, found ZERO keys in
+// common, and reported no differences — a pass produced by comparing nothing at all. Only the positive
+// control (a pair that MUST differ) caught it.
+//
+// 🔴 THE FIRST VERSION OF THIS FIX PUT ONLY THE SHA IN THE FILENAME, AND IT FIXED NOTHING. Both runs in
+// the real incident were at the SAME commit — wide first, then `ROWS=pro` in the same worktree — so a
+// sha-named file is overwritten exactly as `rows.json` was. Re-running the incident against the patched
+// file reproduced the clobber on the first try. What the filename needs is the thing that DIFFERS between
+// the two runs, which is the row SELECTION; the sha answers a different question (which commit is this),
+// and `requested` in the payload answers a third (was this row absent, or never asked for). Three
+// separate questions, and only naming all three stops a later reader from mistaking one for another.
+const SHA = execSync('git rev-parse --short HEAD', { cwd: REPO }).toString().trim()
 const KEY = execSync(`grep '^V2_PREVIEW_KEY=' ${join(REPO, '.env.local')} | cut -d= -f2- | tr -d '"'`).toString().trim()
 const BASE = `http://localhost:${process.env.PORT ?? 3457}`
 const VPS = (process.env.VPS ?? '320,393,768,1280').split(',').map(Number)
@@ -32,8 +49,16 @@ const ROWS = {
   free: { user: user({ is_not_expired: false }, { isPaid: false, tier: null, source: 'v2', expireAt: null }) },
   plus: { user: user({ is_not_expired: true }, { isPaid: true, tier: 'PLUS', source: 'v2', expireAt: '2027-08-26' }) },
   pro: { user: user({ is_not_expired: true }, { isPaid: true, tier: 'PRO', source: 'v2', expireAt: '2027-08-26' }) },
-  // paid, but the row predates the tier catalogue ⇒ no level NAME (the 2 MANUAL_VIP accounts)
-  legacy: { user: user({ is_not_expired: true }, { isPaid: true, tier: null, source: 'legacy', expireAt: null }) },
+  // Paid off a member_payment row (the 2 MANUAL_VIP accounts on prod, measured 2026-08-29).
+  // 🔴 Since #358 Phase 1 the resolver NAMES them: lib/v2/subscription.ts:26 LEGACY_TIER = 'PRO', and the
+  // expiry rides along from that row. So this is what /api/user actually answers for them today.
+  legacy: { user: user({ is_not_expired: true }, { isPaid: true, tier: 'PRO', source: 'legacy', expireAt: '2027-03-31' }) },
+  // 🔴 HISTORICAL — no server can produce this shape any more; keep it only as the BEFORE pole of a
+  // before/after run against a pre-#358 commit. It used to be the row named `legacy`, and leaving it under
+  // that name is what makes it dangerous: whoever photographed `legacy` after #358 Phase 1 landed was
+  // photographing a viewer who does not exist, with nothing to warn them. Renamed rather than deleted
+  // because the before/after comparison genuinely needs this pole (Principle 1: supersede, do not erase).
+  legacyBefore358: { user: user({ is_not_expired: true }, { isPaid: true, tier: null, source: 'legacy', expireAt: null }) },
   // 🔴 settled-but-failed: computeTier answers isPaid null with loading FALSE (tier.ts:64) — the row that
   // must say "we could not find out", never "still checking".
   unavailable: { status: 500 },
@@ -113,6 +138,15 @@ for (const [name, spec] of Object.entries(ROWS)) {
   }
 }
 await b.close()
-writeFileSync(join(OUT, 'rows.json'), JSON.stringify(rows, null, 2))
+// `requested` is the half that makes this file readable by a LATER comparison: `rows` alone cannot say
+// whether a row is missing because the screen dropped it or because this run never asked for it.
+const PICKED = ONLY ?? Object.keys(ROWS)
+// selection in the NAME so a narrow run lands beside a wide one instead of on top of it; sha in the NAME
+// so two commits never share a file; both again in the payload so a file that gets moved still says so.
+const OUT_FILE = join(OUT, `457-rows-${SHA}-${[...PICKED].sort().join('+')}.json`)
+writeFileSync(
+  OUT_FILE,
+  JSON.stringify({ sha: SHA, capturedAt: new Date().toISOString(), requested: { rows: PICKED, viewports: VPS }, rows }, null, 2),
+)
 console.table(rows.filter((r) => r.w === 393))
-console.log(`\n${rows.length} rows → ${OUT}`)
+console.log(`\nSHA ${SHA} · ${rows.length} rows (${PICKED.length} × ${VPS.length}) → ${OUT_FILE}`)
