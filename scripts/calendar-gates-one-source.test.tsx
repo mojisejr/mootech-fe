@@ -20,11 +20,12 @@
 // run in this lane. If those two files ever disagree, the DB one is right.
 //
 // 🔴 MUTANT CONTRACT (each reddens `npm test`):
-//   MP1  calendar-month goes back to resolveMembership   → the v2-row-only row of the table reddens,
-//        and ONLY that row — which is what makes it the divergent state and not a blanket failure
-//   MP2  calendar-month reads `isPaid` loosely (`!== false` instead of `=== true`)  → ③ reddens
-//   MP3  day-detail goes to resolveMembership instead     → the same row reddens from the other side,
-//        proving the table is not just watching one route
+//   Fired 2026-08-29 against the committed baseline, results as measured and not as predicted:
+//   MP1  calendar-month goes back to resolveMembership   → ① v2-row-only + ④ redden (2 of 7). The other
+//        three rows of ① stay green, which is what makes it the DIVERGENT state and not a blanket failure.
+//   MP2  calendar-month reads `isPaid` loosely (`!== false` instead of `=== true`)  → ③ only (1 of 7)
+//   MP3  day-detail goes to resolveMembership instead     → ① v2-row-only reddens from the other side
+//        (1 of 7), proving the table watches both routes and not just the one that changed
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 
 const h = vi.hoisted(() => ({
@@ -155,10 +156,14 @@ describe('#358 Phase 2 — both calendar gates decide from ONE source', () => {
 
   // ② 🔴 The table above passes trivially if BOTH gates refuse everyone. This is the pole that stops that:
   //    two users in the same run, one paid and one not, must come out different at BOTH gates.
+  //    🔴 The paid user here holds a member_payment row, NOT a v2 row, on purpose. The first draft used a
+  //    v2 row — which is the divergent state itself — so this control reddened under MP1 alongside the case
+  //    it was supposed to be independent of, and could not have told "the gates stopped separating anyone"
+  //    apart from "the divergent row moved". A control that fails with the thing it controls for is not one.
   it('② CONTROL — the gates still separate a paying user from a free one, at both routes', async () => {
     const paid = 'U-CTRL-PAID'
     const free = 'U-CTRL-FREE'
-    h.liveV2Row.add(paid)
+    h.memberPaymentValid.add(paid)
     expect(await monthAllows(paid)).toBe(true)
     expect(await dayAllows(paid)).toBe(true)
     expect(await monthAllows(free)).toBe(false)
