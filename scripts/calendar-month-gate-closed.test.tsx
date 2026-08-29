@@ -28,10 +28,16 @@ const h = vi.hoisted(() => ({
 }))
 
 vi.mock('@/lib/v2/resolve-user', () => ({ resolveSessionUserId: vi.fn(async () => h.who) }))
-vi.mock('@/lib/usage', () => ({
-  resolveMembership: vi.fn(async (userId: string) => ({
-    isFree: !h.paidUsers.has(userId),
-    reason: h.paidUsers.has(userId) ? 'MEMBER' : 'NO_PLAN',
+// #358 Phase 2 — the route now asks resolveSubscription, so the stub moved with it. Left as a full module
+// mock rather than a spread of the original: the original pulls @/lib/db, and a membership stub that can
+// still reach a database is not a stub. `isPaid` (boolean | null) replaces `isFree` (boolean) because that
+// is the field the gate now reads, and only a literal true unlocks.
+vi.mock('@/lib/v2/subscription', () => ({
+  resolveSubscription: vi.fn(async (userId: string) => ({
+    isPaid: h.paidUsers.has(userId),
+    tier: h.paidUsers.has(userId) ? 'PRO' : null,
+    source: h.paidUsers.has(userId) ? 'v2' : 'none',
+    expireAt: null,
   })),
 }))
 // Only the upstream network calls are stubbed. lib/v2-calendar/gate is deliberately NOT mocked.

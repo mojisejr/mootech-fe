@@ -2,7 +2,7 @@
 // per-day fortune) + almanac (วันพระ), in PARALLEL. WHY a proxy (same as home-fortune): BAZI_BASE_URL is
 // a SERVER env, birth data must not leave to a 3rd origin, no browser→bazi CORS.
 //
-// SCOPE (ฟีม 2026-08-03): personalised month fortune is PAID only. resolveMembership gates server-side —
+// SCOPE (ฟีม 2026-08-03): personalised month fortune is PAID only. resolveSubscription gates server-side —
 // free/expired → { allowed:false, days:[] } with NO upstream call (defence-in-depth; the UI shell also
 // hides it). วันพระ is served to BOTH tiers from the SAME almanac source (see lib/v2-calendar/month.ts and
 // the ungated almanac-month route) — one source, no drift. We do NOT touch chinese-calendar/month.ts.
@@ -20,7 +20,7 @@
 // The same session id also keys the server-side fortune cache below — one identity in this file, not two.
 import type { NextApiRequest, NextApiResponse } from 'next'
 import { toBaziInput, type FeCalcInput } from '@/lib/bazi-bridge/input'
-import { resolveMembership } from '@/lib/usage'
+import { resolveSubscription } from '@/lib/v2/subscription'
 import { resolveSessionUserId } from '@/lib/v2/resolve-user'
 import { CALENDAR_MONTH_GATE_OPEN } from '@/lib/v2-calendar/gate'
 import {
@@ -63,13 +63,29 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   // live path now, not a dormant one. The subject below is the SESSION's user (#391), which is why closing
   // the gate could not be turned into a way to be someone else.
   if (!CALENDAR_MONTH_GATE_OPEN) {
-    let isFree = true
+    // 🔴 #358 Phase 2 — ONE resolver for both calendar gates. This used to call `resolveMembership`
+    // (lib/usage.ts:27), which reads member_payment and nothing else, while day-detail.ts:82 has always
+    // called `resolveSubscription` (lib/v2/subscription.ts:220), which reads member_subscription first and
+    // only then falls back to that same member_payment read. Two gates on ONE feature, deciding from two
+    // stores. The disagreement runs in exactly one direction: a user holding a live member_subscription row
+    // with no valid member_payment row was PAID to the day gate and FREE to this one.
+    //
+    // No purchase made through this codebase can produce that state — lib/payment/repo.ts:729 inserts the
+    // subscription and :743 upserts the member_payment shadow inside one transaction, and the shadow's
+    // expiry is GREATEST (:760) so it can never expire first. So this fixes a LATENT split, not a live bug,
+    // and the user must see nothing change. It is done before Phase 3's three-level span ceiling on purpose:
+    // put a ceiling on top of two disagreeing sources and a failure cannot be attributed to either.
+    //
+    // `isPaid === true` and not `!isFree`: isPaid is boolean | null, and null means a v2 row carried a
+    // tier_code we refused to understand. Only a literal true unlocks — the same fail-closed reading
+    // day-detail.ts:82 uses, so the two gates now also agree about the undetermined case.
+    let paid = false
     try {
-      ;({ isFree } = await resolveMembership(userId))
+      paid = (await resolveSubscription(userId)).isPaid === true
     } catch {
-      isFree = true // can't confirm membership → treat as free (fail-closed)
+      paid = false // cannot confirm membership → treat as free (fail-closed)
     }
-    if (isFree) return res.status(200).json({ allowed: false, year: parsed.year, month: parsed.month, days: [] })
+    if (!paid) return res.status(200).json({ allowed: false, year: parsed.year, month: parsed.month, days: [] })
   }
   // ────────────────────────────────────────────────────────────────────────────────────────────────
 

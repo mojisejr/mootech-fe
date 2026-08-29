@@ -145,6 +145,7 @@ export default defineConfig({
       'scripts/calendar-month-identity.test.tsx', // #391 — the paid-month gate judges the SESSION (runs with the gate CLOSED)
       'scripts/day-detail-paywall.test.tsx', // #226 — paid sections cut server-side (allow-list) + the cached path
       'scripts/calendar-month-gate-closed.test.tsx', // #293 — the REAL gate constant (never mocked): free refused with 0 upstream calls
+      'scripts/calendar-gates-one-source.test.tsx', // #358 Phase 2 — the month gate and the day gate answer the same for every store state
       'scripts/home-profile.test.ts', // #383 — MIGRATED off the dead tsx lane (#367)
       'scripts/user-membership-route.test.ts', // #383 — /api/user gains `membership`
       'scripts/user-membership-db.test.ts', // #383 — real pg (skipIf !TEST_DATABASE_URL)
