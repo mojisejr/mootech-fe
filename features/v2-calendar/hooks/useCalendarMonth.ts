@@ -37,7 +37,7 @@ import type { CalendarMonth } from '../types'
 import { bangkokTodayISO, bangkokToday } from '../today'
 import { defaultSelectedDate, isSelectableDate } from './selection'
 import { assembleFeatureMonth } from './month-adapter'
-import { fetchCalendarMonth } from './fetch-month'
+import { fetchCalendarMonth, type CalendarRefusalReason } from './fetch-month'
 import { monthKey, monthYM, peekMonth, setMonth, isCacheableMonth } from './month-cache'
 
 type Cursor = { year: number; month: number }
@@ -47,6 +47,15 @@ export interface UseCalendarMonth {
   month: CalendarMonth | null
   /** true while the month is not yet available (before the cursor resolves; a real fetch later). */
   loading: boolean
+  /**
+   * 🔴 #530 — why the server refused this month, or `null` when it did not refuse. The screen's answer to
+   * the two values is opposite, which is the entire reason the field exists:
+   *   'out-of-span'  the package stops here      → invite an upgrade (ฟีมเคาะ 2026-08-24)
+   *   'no-identity'  we cannot tell who you are  → the sign-in path
+   * `null` covers every other empty month — loading, anon, no birth profile, a failed fetch — so a screen
+   * that only special-cases these two strings still renders its existing neutral face for all of those.
+   */
+  refusal: CalendarRefusalReason | null
   /**
    * The cursor's year / month — `null` ONLY before the cursor resolves (pre-mount / SSR / first paint), so the
    * consumer shows a neutral label until then and NEVER a made-up month (was `?? MOCK_YEAR/MOCK_MONTH` = July
@@ -99,18 +108,28 @@ export function useCalendarMonth(): UseCalendarMonth {
   //   user errored / no birth data  → null, settled (nothing to compute)
   //   fetching the month            → null, loading (old month cleared FIRST → never stale)
   //   month arrived                 → the assembled month, settled
-  const [monthState, setMonthState] = useState<{ month: CalendarMonth | null; loading: boolean }>({
+  // 🔴 #530 — `refusal` is the THIRD thing this state carries, and it is why the shape widened. `month:
+  // null` has always meant five different things (cursor resolving · anon · user errored · no birth data ·
+  // the fetch failed) and the screen renders one neutral face for all of them. "Your package stops here"
+  // is not one of those: ฟีมเคาะ 2026-08-24 that it should invite an upgrade. It cannot ride on `month`
+  // because null is already overloaded, so it gets its own field and defaults to null everywhere else.
+  const [monthState, setMonthState] = useState<{
+    month: CalendarMonth | null
+    loading: boolean
+    refusal: CalendarRefusalReason | null
+  }>({
     month: null,
     loading: true,
+    refusal: null,
   })
-  const { month, loading } = monthState
+  const { month, loading, refusal } = monthState
 
   useEffect(() => {
-    if (!cursor) return setMonthState({ month: null, loading: true }) // cursor resolving (fenced pre-mount)
-    if (!userId) return setMonthState({ month: null, loading: false }) // anon → no personalised month
-    if (!done) return setMonthState({ month: null, loading: true }) // user row still in flight
-    if (errored || !user) return setMonthState({ month: null, loading: false }) // could not get the user row
-    if (!person) return setMonthState({ month: null, loading: false }) // profile incomplete → nothing to compute
+    if (!cursor) return setMonthState({ month: null, loading: true, refusal: null }) // cursor resolving (fenced pre-mount)
+    if (!userId) return setMonthState({ month: null, loading: false, refusal: null }) // anon → no personalised month
+    if (!done) return setMonthState({ month: null, loading: true, refusal: null }) // user row still in flight
+    if (errored || !user) return setMonthState({ month: null, loading: false, refusal: null }) // could not get the user row
+    if (!person) return setMonthState({ month: null, loading: false, refusal: null }) // profile incomplete → nothing to compute
 
     // ── 2-layer client cache (P2) ──────────────────────────────────────────────────────────────────
     // SYNC peek BEFORE any `loading:true`: a cached month (memory or localStorage) renders in THIS SAME
@@ -123,12 +142,12 @@ export function useCalendarMonth(): UseCalendarMonth {
     // paid content, and the ones written during the 18 days the gate stood open are still on real devices.
     const cachedDays = peekMonth(key, { paid: isPaidMember(user) })
     if (cachedDays) {
-      setMonthState({ month: assembleFeatureMonth(cursor.year, cursor.month, cachedDays), loading: false })
+      setMonthState({ month: assembleFeatureMonth(cursor.year, cursor.month, cachedDays), loading: false, refusal: null })
       return // instant, no fetch
     }
 
     let alive = true
-    setMonthState({ month: null, loading: true }) // MISS → clear the previous month BEFORE the fetch → never stale
+    setMonthState({ month: null, loading: true, refusal: null }) // MISS → clear the previous month BEFORE the fetch → never stale
     // #391: userId is no longer SENT — the BFF reads the session. It stays in `key` above because
     // the CLIENT cache still has to be partitioned per account on a shared device.
     fetchCalendarMonth(person, cursor.year, cursor.month).then((resp) => {
@@ -136,7 +155,13 @@ export function useCalendarMonth(): UseCalendarMonth {
       // Cache only a REAL month — a degraded/empty/gated response is transient and must never be persisted
       // (a frozen empty month = a failure cached forever). Store the RAW days; assemble is re-run on read.
       if (isCacheableMonth(resp)) setMonth(key, resp.days)
-      setMonthState({ month: assembleFeatureMonth(cursor.year, cursor.month, resp.days), loading: false })
+      // #530 — a refusal reason only survives here when the response actually refused. isCacheableMonth
+      // already keeps a gated month out of the cache, so a refusal is never replayed from storage either.
+      setMonthState({
+        month: assembleFeatureMonth(cursor.year, cursor.month, resp.days),
+        loading: false,
+        refusal: resp.allowed ? null : (resp.reason ?? null),
+      })
     })
     return () => {
       alive = false
@@ -172,6 +197,7 @@ export function useCalendarMonth(): UseCalendarMonth {
   return {
     month,
     loading,
+    refusal,
     year: cursor?.year ?? null, // null = cursor not resolved yet (pre-mount); NEVER a made-up month (#208)
     monthIndex: cursor?.month ?? null,
     todayISO,

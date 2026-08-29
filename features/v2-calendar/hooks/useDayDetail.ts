@@ -17,15 +17,38 @@ import { isBirthProfileComplete, userRowToFeCalcInput } from '@/lib/bazi-bridge/
 import { isPaidMember } from '@/lib/v2/tier'
 import type { DayDetail } from '../types'
 import { bangkokTodayISO } from '../today'
-import { fetchDayDetail } from './fetch-day-detail'
+import { fetchDayDetail, type DayDetailResponse } from './fetch-day-detail'
 import { libDayDetailToFeature } from './day-detail-adapter'
-import { dayKey, getDayDetail, peekDayDetail } from './day-detail-cache'
+import { dayKey, getDayDetail, peekDayDetail, type CachedDay } from './day-detail-cache'
 
 export interface UseDayDetail {
   /** the selected day's detail — `null` while loading, or when there is no identity/complete profile. */
   detail: DayDetail | null
   /** true while the day-detail fetch is in flight (the card keeps its ring; only the text waits). */
   loading: boolean
+  /**
+   * 🔴 #529 — THE THIRD STATE. `detail: null` with `loading: false` used to mean all of: the upstream
+   * timed out · there is no identity · the birth profile is incomplete · and (since #358 Phase 3) *this
+   * day is outside what your package sells*. The last one is not a failure and must not read as one:
+   * ฟีมเคาะ 2026-08-24 that pressing past your span should INVITE AN UPGRADE, and a state indistinguishable
+   * from breakage cannot invite anything — least of all to the FREE user we are trying to sell to.
+   *
+   * true ⇒ a paid wall. false ⇒ everything else, including every genuine failure. A screen that ignores
+   * this field behaves exactly as it did before.
+   */
+  outOfSpan: boolean
+}
+
+/** #529 — response → the record the cache holds. `outOfSpan` is a property of (user, birth, date, tier)
+ *  and so survives a hit; `cached`/`degraded` are facts about one request and deliberately do not. */
+function toCachedDay(r: DayDetailResponse): CachedDay {
+  return { detail: r.detail, outOfSpan: r.outOfSpan === true }
+}
+
+/** #529 — the cached record → what the screen reads. One place performs the lib→feature adaptation, so
+ *  the cache-hit branch and the fetch branch cannot answer differently for the same stored day. */
+function toState(day: CachedDay): { detail: DayDetail | null; outOfSpan: boolean } {
+  return { detail: day.detail ? libDayDetailToFeature(day.detail) : null, outOfSpan: day.outOfSpan }
 }
 
 export function useDayDetail(date: string): UseDayDetail {
@@ -40,7 +63,11 @@ export function useDayDetail(date: string): UseDayDetail {
   // Same determinants as the BFF cache key — dob edit → new signature → no cross-birth stale.
   const birthSig = useMemo(() => (person ? JSON.stringify(person) : ''), [person])
 
-  const [state, setState] = useState<{ detail: DayDetail | null; loading: boolean }>({ detail: null, loading: true })
+  const [state, setState] = useState<{ detail: DayDetail | null; loading: boolean; outOfSpan: boolean }>({
+    detail: null,
+    loading: true,
+    outOfSpan: false,
+  })
 
   // Prefetch today once identity is ready — fire-and-forget into the shared cache (sets no state).
   useEffect(() => {
@@ -48,14 +75,16 @@ export function useDayDetail(date: string): UseDayDetail {
     const today = bangkokTodayISO()
     const k = dayKey(userId, birthSig, today, paid)
     if (peekDayDetail(k) === undefined) {
-      void getDayDetail(k, () => fetchDayDetail(person, today).then((r) => r.detail))
+      // #529 — the prefetch stores the SAME record the selected-day path stores. Caching `r.detail` here
+      // and the full record there would make today's card depend on which path warmed it.
+      void getDayDetail(k, () => fetchDayDetail(person, today).then(toCachedDay))
     }
   }, [hasMounted, userId, birthSig, person, paid])
 
   // The selected day's detail — anti-latch on [date].
   useEffect(() => {
     if (!date || !userId || !person) {
-      setState({ detail: null, loading: false })
+      setState({ detail: null, loading: false, outOfSpan: false })
       return
     }
     const k = dayKey(userId, birthSig, date, paid)
@@ -63,15 +92,17 @@ export function useDayDetail(date: string): UseDayDetail {
     // Resolved-hit → render in THIS tick (no loading flash, no re-fetch).
     const peeked = peekDayDetail(k)
     if (peeked !== undefined) {
-      setState({ detail: peeked ? libDayDetailToFeature(peeked) : null, loading: false })
+      // #529 — an out-of-span day is out-of-span on a re-view too. The cache used to hold the detail
+      // alone, so this branch could only ever answer "no detail" and the wall became a crash on every hit.
+      setState({ ...toState(peeked), loading: false })
       return
     }
 
     let alive = true
-    setState({ detail: null, loading: true }) // new day → clear old text; the ring (month cell) stays visible
-    getDayDetail(k, () => fetchDayDetail(person, date).then((r) => r.detail)).then((lib) => {
+    setState({ detail: null, loading: true, outOfSpan: false }) // new day → clear old text; the ring (month cell) stays visible
+    getDayDetail(k, () => fetchDayDetail(person, date).then(toCachedDay)).then((day) => {
       if (!alive) return // date changed / unmounted mid-flight → drop this stale response (THE anti-latch)
-      setState({ detail: lib ? libDayDetailToFeature(lib) : null, loading: false })
+      setState({ ...toState(day), loading: false })
     })
     return () => {
       alive = false

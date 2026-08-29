@@ -18,10 +18,31 @@
 // logout drops everything (next identity starts clean).
 import type { DayDetail as LibDayDetail } from '@/lib/v2-calendar/day-detail'
 
-type Fetcher = () => Promise<LibDayDetail | null>
+/**
+ * 🔴 #529 — WHAT THIS CACHE STORES, and why it is no longer the detail object alone.
+ *
+ * The stored value used to be `LibDayDetail | null`, so `null` was the only way to say "no detail" and it
+ * collapsed three different situations into one pixel: the upstream broke, the profile has no birthday,
+ * and — since #358 Phase 3 — *this day is outside what your package sells*. The route emits `outOfSpan`
+ * and features/v2-calendar/hooks/fetch-day-detail.ts carries it across the wire, but the value cached
+ * here was rebuilt as `r.detail`, so the flag died at this boundary and the screen showed the person a
+ * broken card where ฟีมเคาะ 2026-08-24 says it should show an invitation to upgrade.
+ *
+ * ⚠️ The widening is what makes the fix possible — a cache hit can only return what the cache holds. This
+ * is deliberately a small record rather than the raw response: `cached`/`degraded` are transport facts
+ * about ONE request and must never be replayed from a later hit, while these two ARE properties of the
+ * (user, birth, date, tier) key and so are safe to store.
+ */
+export type CachedDay = {
+  detail: LibDayDetail | null
+  /** the day sits outside this tier's span — a paid wall, NOT a failure. */
+  outOfSpan: boolean
+}
 
-const resolved = new Map<string, LibDayDetail | null>()
-const inflight = new Map<string, Promise<LibDayDetail | null>>()
+type Fetcher = () => Promise<CachedDay>
+
+const resolved = new Map<string, CachedDay>()
+const inflight = new Map<string, Promise<CachedDay>>()
 
 /** stable key — the BFF's dayCacheKey determinants (userId + birth signature + date) PLUS the tier, which
  *  the BFF does not need in its own key because it caches the FULL day and trims per response (#226). */
@@ -33,15 +54,16 @@ export function dayKey(userId: string, birthSig: string, date: string, paid: boo
  * Resolve a day's detail, deduped. Resolved-hit → instant (no re-fetch). In-flight → share the promise.
  * Else fetch; on success store; on failure drop the in-flight entry (retryable, never a cached failure).
  */
-export function getDayDetail(key: string, fetcher: Fetcher): Promise<LibDayDetail | null> {
-  if (resolved.has(key)) return Promise.resolve(resolved.get(key) ?? null)
+export function getDayDetail(key: string, fetcher: Fetcher): Promise<CachedDay> {
+  const hit = resolved.get(key)
+  if (hit) return Promise.resolve(hit)
   const pending = inflight.get(key)
   if (pending) return pending
 
   const p = fetcher()
-    .then((detail) => {
-      resolved.set(key, detail)
-      return detail
+    .then((day) => {
+      resolved.set(key, day)
+      return day
     })
     .finally(() => {
       if (inflight.get(key) === p) inflight.delete(key)
@@ -55,10 +77,12 @@ export function hasDayDetail(key: string): boolean {
   return resolved.has(key)
 }
 
-/** SYNC peek: the resolved value (detail or null) if cached, else `undefined` — lets a re-view render the
- * cached day in the SAME tick (no loading flash), instead of waiting a microtask for a promise. */
-export function peekDayDetail(key: string): LibDayDetail | null | undefined {
-  return resolved.has(key) ? (resolved.get(key) ?? null) : undefined
+/** SYNC peek: the resolved record if cached, else `undefined` — lets a re-view render the cached day in
+ * the SAME tick (no loading flash), instead of waiting a microtask for a promise.
+ * #529: returns the whole CachedDay, so an out-of-span day stays out-of-span on a cache hit. Returning
+ * the detail alone here is precisely how the flag was lost the first time. */
+export function peekDayDetail(key: string): CachedDay | undefined {
+  return resolved.get(key)
 }
 
 /** logout hygiene — drop every cached day + any in-flight fetch. */
