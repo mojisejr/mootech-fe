@@ -20,8 +20,20 @@ import {
   peekDayDetail,
   clearDayDetailCache,
   _dayCacheSizes,
+  type CachedDay,
 } from '../features/v2-calendar/hooks/day-detail-cache'
 import type { DayDetail as LibDayDetail } from '../lib/v2-calendar/day-detail'
+
+// 🔴 #529 — the cache stores a RECORD now, not the detail object. `outOfSpan` is the third state the
+// screen needs (a paid wall, which is not a failure); storing the detail alone is exactly how the route's
+// flag died before it reached anybody. Every fetcher below goes through this, so the assertions test the
+// contract the hook actually uses.
+//
+// ⚠️ Worth knowing while reading this file: tsconfig.json:32 EXCLUDES scripts/, so nothing type-checks
+// these 74 node:assert tests. Before this edit they kept passing against the widened cache by storing a
+// bare LibDayDetail and reading `.summary` off it — green, and testing a shape the app no longer uses.
+// Tracked at mojisejr/mootech-fe#532.
+const cached = (d: LibDayDetail | null, outOfSpan = false): CachedDay => ({ detail: d, outOfSpan })
 
 let pass = 0
 function ok(name: string, cond: boolean) {
@@ -52,30 +64,30 @@ async function run() {
 
   // ── bug-class 3: dedup — two concurrent reads of ONE key share ONE fetch ──
   let fetchCount = 0
-  const slowFetch = () => new Promise<LibDayDetail | null>((res) => { fetchCount += 1; setTimeout(() => res(libDetail('A-day5')), 5) })
+  const slowFetch = () => new Promise<CachedDay>((res) => { fetchCount += 1; setTimeout(() => res(cached(libDetail('A-day5'))), 5) })
   const kA5 = dayKey('user-A', 'sigA', '2026-08-05', false)
   const [r1, r2] = await Promise.all([getDayDetail(kA5, slowFetch), getDayDetail(kA5, slowFetch)])
   ok('dedup: concurrent same-key reads share ONE fetch', fetchCount === 1)
-  ok('dedup: both callers get the same detail', r1?.summary === 'A-day5' && r2?.summary === 'A-day5')
+  ok('dedup: both callers get the same detail', r1.detail?.summary === 'A-day5' && r2.detail?.summary === 'A-day5')
 
   // ── bug-class 3: resolved-hit — a resolved key never re-fetches (instant re-view) ──
   ok('resolved key is marked resolved', hasDayDetail(kA5))
-  const r3 = await getDayDetail(kA5, () => { fetchCount += 1; return Promise.resolve(libDetail('SHOULD-NOT-RUN')) })
+  const r3 = await getDayDetail(kA5, () => { fetchCount += 1; return Promise.resolve(cached(libDetail('SHOULD-NOT-RUN'))) })
   ok('resolved-hit: no second fetch', fetchCount === 1)
-  ok('resolved-hit: returns the cached detail, not the new fetcher', r3?.summary === 'A-day5')
-  ok('peek: resolved key returns the value synchronously', peekDayDetail(kA5)?.summary === 'A-day5')
+  ok('resolved-hit: returns the cached detail, not the new fetcher', r3.detail?.summary === 'A-day5')
+  ok('peek: resolved key returns the value synchronously', peekDayDetail(kA5)?.detail?.summary === 'A-day5')
   ok('peek: unknown key returns undefined (→ hook shows loading)', peekDayDetail(dayKey('user-A', 'sigA', '2026-12-25', false)) === undefined)
 
   // ── bug-class 1: CROSS-USER — user-B's key gets user-B's day, never user-A's cached day ──
   const kB5 = dayKey('user-B', 'sigB', '2026-08-05', false) // same date, different user
   ok('cross-user: user-B key is NOT resolved by user-A caching', !hasDayDetail(kB5))
-  const rB = await getDayDetail(kB5, () => Promise.resolve(libDetail('B-day5')))
-  ok('cross-user: user-B gets user-B detail', rB?.summary === 'B-day5')
-  ok('cross-user: user-A still has user-A detail (no clobber)', peekDayDetail(kA5)?.summary === 'A-day5')
+  const rB = await getDayDetail(kB5, () => Promise.resolve(cached(libDetail('B-day5'))))
+  ok('cross-user: user-B gets user-B detail', rB.detail?.summary === 'B-day5')
+  ok('cross-user: user-A still has user-A detail (no clobber)', peekDayDetail(kA5)?.detail?.summary === 'A-day5')
 
   // ── bug-class 1: logout — clearDayDetailCache drops BOTH resolved and inflight ──
   const pendingKey = dayKey('user-A', 'sigA', '2026-09-09', false)
-  void getDayDetail(pendingKey, () => new Promise<LibDayDetail | null>(() => {})) // never resolves → stays in-flight
+  void getDayDetail(pendingKey, () => new Promise<CachedDay>(() => {})) // never resolves → stays in-flight
   ok('before clear: resolved and inflight both populated', _dayCacheSizes().resolved > 0 && _dayCacheSizes().inflight > 0)
   clearDayDetailCache()
   ok('logout: clear drops resolved', _dayCacheSizes().resolved === 0)
@@ -88,9 +100,29 @@ async function run() {
   await getDayDetail(kFail, () => { failCalls += 1; return Promise.reject(new Error('5xx')) }).catch(() => {})
   ok('failure: rejection is not stored as resolved', !hasDayDetail(kFail))
   ok('failure: in-flight entry dropped after reject', _dayCacheSizes().inflight === 0)
-  const rRetry = await getDayDetail(kFail, () => { failCalls += 1; return Promise.resolve(libDetail('C-recovered')) })
+  const rRetry = await getDayDetail(kFail, () => { failCalls += 1; return Promise.resolve(cached(libDetail('C-recovered'))) })
   ok('failure: next read RETRIES (fetcher ran twice)', failCalls === 2)
-  ok('failure: retry succeeds and caches', rRetry?.summary === 'C-recovered' && hasDayDetail(kFail))
+  ok('failure: retry succeeds and caches', rRetry.detail?.summary === 'C-recovered' && hasDayDetail(kFail))
+
+  // ── #529 bug-class 5: the OUT-OF-SPAN flag must survive a cache hit ──
+  // The whole defect: the route emits outOfSpan, fetch-day-detail carries it, and the cached value used to
+  // be the detail alone — so on the very next view of that day the wall read as a crash. A cache can only
+  // return what it holds.
+  clearDayDetailCache()
+  const kSpan = dayKey('user-D', 'sigD', '2027-01-01', false)
+  const wall = await getDayDetail(kSpan, () => Promise.resolve(cached(null, true)))
+  ok('out-of-span: the fetch result carries the flag', wall.detail === null && wall.outOfSpan === true)
+  ok('out-of-span: SURVIVES a peek (the cache-hit path the screen renders from)', peekDayDetail(kSpan)?.outOfSpan === true)
+  const wall2 = await getDayDetail(kSpan, () => Promise.resolve(cached(libDetail('SHOULD-NOT-RUN'))))
+  ok('out-of-span: survives a resolved-hit and does not re-fetch', wall2.outOfSpan === true && wall2.detail === null)
+
+  // 🔴 CONTROL — a GENUINE failure must still read as a failure, never as a paid wall (both DoDs ask for
+  // this by name). Without it, "outOfSpan is true" above could be satisfied by a cache that flags
+  // everything empty as a paid wall, which would put an upsell in front of a person whose fetch just died.
+  const kDead = dayKey('user-D', 'sigD', '2027-02-02', false)
+  const dead = await getDayDetail(kDead, () => Promise.resolve(cached(null, false)))
+  ok('CONTROL: a null detail with no wall stays NOT out-of-span', dead.detail === null && dead.outOfSpan === false)
+  ok('CONTROL: and it stays that way through the cache', peekDayDetail(kDead)?.outOfSpan === false)
 
   clearDayDetailCache()
   console.log(`✅ day-detail-cache.test.ts — ${pass} assertions passed`)
