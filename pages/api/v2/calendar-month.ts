@@ -87,14 +87,21 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     //   row 2  UNREACHABLE while 0006 is applied. lib/db/0006_member_subscription.sql:33 CHECKs
     //          tier_code IN ('FREE','PLUS','PRO') and lib/v2/tier.ts:73 maps all three.
     //          ⚠️ ? unknown whether prod carries 0006.
-    //   row 3  🔴 REACHABLE, and the CHECK does not stand in the way — 'FREE' is one of the values it
-    //          ADMITS. It maps cleanly and is not paid (lib/v2/tier.ts:124). The write path copies
-    //          tier_code off payment_package (catalog.ts:28 → charge-flow.ts:117 → provision.ts:109 →
-    //          repo.ts:732), and testenv carries 6 FREE-tier catalogue rows today, all inactive — one
-    //          /ops toggle from being sold (#377). Found with a camera, not by re-reading this comment.
+    //   row 3  NOT REACHABLE BY PURCHASE either, and I claimed the opposite before reading the write path.
+    //          'FREE' does pass the CHECK, maps cleanly, and is not paid (lib/v2/tier.ts:124) — but
+    //          lib/payment/catalog.ts:78-80 throws UnsellablePackageError for a FREE tier BEFORE pricing
+    //          and AFTER the isActive check, so activating one of the 6 FREE-tier catalogue rows does not
+    //          sell it. scripts/payment-catalog.test.ts:29 pins this with an isActive:true row, and the pin
+    //          has teeth. lib/payment/repo.ts:729 is the ONLY insert outside tests.
+    //          ⇒ the row can arrive by hand or by ops, not by anyone buying anything.
+    //          ⚠️ ? unknown whether prod holds any member_subscription row with tier_code = 'FREE'.
     //
     // Row 3 is NOT introduced here: day-detail.ts:82 has always used this resolver, so that user is already
     // refused day details on main. This route joining it turns half-broken into fully broken.
+    //
+    // 🔑 Worth keeping: the reachability of row 3 was asserted four times in this branch and was wrong
+    // three of them. What settled it was grepping for the WRITE path, which took one command and which
+    // nobody ran until the third round of review.
     // Owned by mojisejr/mootech-fe#525, pinned by ⑥ in scripts/calendar-gates-one-source.test.tsx.
     //
     // Done before Phase 3's three-level span ceiling on purpose: put a ceiling on top of two disagreeing

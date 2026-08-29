@@ -215,15 +215,23 @@ describe('#358 Phase 2 — both calendar gates decide from ONE source', () => {
     expect(await monthAllows(u), 'drop the unmappable row and the legacy member is served again').toBe(true)
   })
 
-  // ⑥ 🔴 THE REACHABLE ONE. ⑤ above is the shape ตู๋ named, and 0006's CHECK really does stop it. This is
-  //    the same loss through a value the CHECK ADMITS: tier_code 'FREE' maps cleanly and is not paid
-  //    (lib/v2/tier.ts:124), and a live row never consults the legacy branch (lib/v2/subscription.ts:211).
-  //    So a paying legacy member is cancelled by a FREE row, and the write path copies that value straight
-  //    off payment_package — 6 such rows exist on testenv, inactive, one /ops toggle from being sold.
-  //    ลามุน photographed it: grid on d8643c3, nothing on this branch, header still saying "สมาชิก".
-  //    🔴 This test asserts TODAY's behaviour, which is a LOSS, and it is not the behaviour we want.
-  //    mojisejr/mootech-fe#525 holds the decision. When that is fixed, this test flips — and it flipping
-  //    is the point: it is the guard that will catch the fix landing.
+  // ⑥ The same loss through a value 0006's CHECK ADMITS: tier_code 'FREE' maps cleanly and is not paid
+  //    (lib/v2/tier.ts:124), and a live row never consults the legacy branch (lib/v2/subscription.ts:211),
+  //    so a paying legacy member is cancelled by a FREE row. ลามุน photographed it: grid on d8643c3,
+  //    nothing on this branch, header still reading "สมาชิก".
+  //
+  //    🔴 IT IS NOT REACHABLE BY PURCHASE, and I called it reachable twice before checking the write path.
+  //    lib/payment/catalog.ts:78-80 throws UnsellablePackageError for a FREE tier BEFORE pricing, AFTER the
+  //    isActive check — so activating one of the 6 FREE-tier catalogue rows does not sell it either.
+  //    scripts/payment-catalog.test.ts:29 pins that with an isActive:true FREE row, and ตู๋ proved the pin
+  //    has teeth by deleting the `|| tierCode === 'FREE'` clause and watching it redden.
+  //    lib/payment/repo.ts:729 is the ONLY insert into member_subscription outside tests (grepped over
+  //    lib pages features harness), so the row can only arrive by hand or by ops.
+  //
+  //    🔴 This test still asserts TODAY's behaviour, which is a LOSS, and it is not the behaviour we want —
+  //    the resolver is willing to downgrade a known-paid member, which lib/v2/subscription.ts:55 says it
+  //    intends never to do. mojisejr/mootech-fe#525 holds the decision. When that is fixed this test flips,
+  //    and it flipping is the point: it is the guard that catches the fix landing.
   it('⑥ a paying legacy member with a live FREE v2 row loses the month — reachable, and ticketed at #525', async () => {
     const u = 'U-LEGACY-SHADOWED-BY-FREE'
     h.memberPaymentValid.add(u)
