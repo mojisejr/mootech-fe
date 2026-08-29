@@ -116,7 +116,7 @@ export function resolveDisplayTier(isPaid: boolean | null, raw: string | null | 
 // applied in resolveTierFromSources). `tier: null` next to `isPaid: true` still exists and still means
 // "paid, name unknown": the /api/user membership composite absent or unreadable, and DELIBERATELY at the
 // purchase gate, which is handed null for a legacy viewer on purpose (features/v2-shop/card-verdict.ts:111
-// and lib/payment/repo.ts:512). Either way callers keep using the boolean isPaid — never downgrade a
+// and lib/payment/repo.ts:514). Either way callers keep using the boolean isPaid — never downgrade a
 // known-paid user to free just because the NAME is unknown.
 // #v2-tier-paid-rule (matches isPaidMember: strict, no truthy unlock).
 export function tierIsPaid(tier: TierCode | null): boolean | null {

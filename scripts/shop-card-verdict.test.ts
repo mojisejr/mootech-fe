@@ -239,8 +239,8 @@ describe('#358 Phase 1 🔴 the REAL resolver output, through the screen own map
   // people the phase was for. So nothing below is typed by hand: the fixture is a member_payment ROW, and
   // every shape after it is produced by the real functions the request path uses, in the same order:
   //
-  //   member_payment row → classifyMembership (usage-core.ts:90, what pages/api/user.ts:88 calls)
-  //                      → resolveMembershipFromRows (subscription.ts:169, what pages/api/user.ts:86 calls)
+  //   member_payment row → classifyMembership (usage-core.ts:90, what pages/api/user.ts:90 calls)
+  //                      → resolveMembershipFromRows (subscription.ts:183, what pages/api/user.ts:86 calls)
   //                      → computeTier (tier.ts:41, what useV2Tier gives ShopScreen)
   //                      → the ShopScreen.tsx:59-71 mapping
   //                      → cardVerdictFor

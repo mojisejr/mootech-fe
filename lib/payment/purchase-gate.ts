@@ -21,7 +21,7 @@ import { tierRank, type TierCode } from '@/lib/v2/tier'
  *  🔴 `tier: null` while `isPaid: true` is NOT a bug and NOT free — it is a LEGACY member: someone whose
  *  membership lives on member_payment, which predates the tier catalog and therefore has no level NAME.
  *  Still exactly what this gate receives after #358 Phase 1 gave those members a DISPLAY name
- *  (lib/v2/subscription.ts:26 → 'PRO'): both feeders null it here on purpose — lib/payment/repo.ts:512 for
+ *  (lib/v2/subscription.ts:26 → 'PRO'): both feeders null it here on purpose — lib/payment/repo.ts:514 for
  *  the door, features/v2-shop/card-verdict.ts:111 for the shop card.
  *  2 accounts on prod are in this state (measured 2026-08-29). ⚠️ The "24" this line used to give counted
  *  member_payment ROWS — including the shadow row every v2 settlement upserts (lib/payment/repo.ts:742-748)
