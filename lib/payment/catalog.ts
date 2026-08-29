@@ -76,6 +76,17 @@ export function quotePackage(
   }
 
   const tierCode = parseTierCode(pkg.tierCode)
+  // 🔴 The `=== 'FREE'` half is load-bearing OUTSIDE this file, and its only pin is one row of one test.
+  // A FREE tier passes 0006's CHECK and maps cleanly, so nothing downstream refuses it: a live FREE
+  // member_subscription row makes resolveSubscription answer not-paid for someone whose member_payment row
+  // says they are paid, and both calendar gates then refuse them (mootech-fe#525). This line is the reason
+  // no PURCHASE can create that row — note it sits AFTER the isActive check at :74 and never reads
+  // isActive, so flipping a FREE package on from /ops does not open the path either.
+  // 🔴 In scripts/payment-catalog.test.ts MC1 the row that actually exercises THIS clause is `horoscope`
+  // (:33, amount 690). Measured 2026-08-29 by deleting `|| tierCode === 'FREE'` and running the three rows
+  // individually: `free` (:32) still throws on the amount check, `garbageTier` (:34) still throws on the
+  // null half, and only :33 reddens. Delete :33 as a near-duplicate of :32 and MC1 keeps its name and its
+  // green tick while no longer testing this clause at all.
   if (tierCode === null || tierCode === 'FREE') {
     throw new UnsellablePackageError(pkg.packageCode, 'no paid tier for it')
   }
