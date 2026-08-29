@@ -29,6 +29,11 @@ describe('quotePackage — server computes amount + tier, fails loud on the unma
 
   it('MC1 — an unmapped package_code THROWS (no charge for a package with no paid tier)', () => {
     // a FREE-tier row, a one-off HOROSCOPE row, and a row whose tier_code is unmappable garbage
+    // 🔴 DO NOT DELETE `horoscope` AS A DUPLICATE OF `free`. They look alike (both tierCode 'FREE') and are
+    // not: measured 2026-08-29 by removing `|| tierCode === 'FREE'` from lib/payment/catalog.ts:79 and
+    // running the three individually, `free` still throws on the amount check (amount 0) and `garbageTier`
+    // still throws on the null half, so `horoscope` (amount 690) is the ONLY row that reddens. It is the
+    // whole pin on a clause other code leans on — see the note at that line and mootech-fe#525.
     const free: PackageRow = { packageCode: 'FREE', planCode: 'MEMBER', amount: 0, expire: '0D', bufferDay: 0, tierCode: 'FREE', isActive: true }
     const horoscope: PackageRow = { packageCode: 'MUMATE_AI', planCode: 'HOROSCOPE', amount: 690, expire: '0D', bufferDay: 0, tierCode: 'FREE', isActive: true }
     const garbageTier: PackageRow = { ...MONTHLY, tierCode: 'GARBAGE' }
