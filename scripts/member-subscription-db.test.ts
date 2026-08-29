@@ -50,6 +50,7 @@ function bkk(now: Date): string {
 describe.skipIf(!TEST_URL)('member_subscription · real pg (#354)', () => {
   let sql: ReturnType<typeof postgres>
   let liveMember: string // a real MEMBER user_id that also exists in "user" (FK-safe)
+  let liveMemberExpireAt: string // #358 — that row's member_payment.expire_at, as 'YYYY-MM-DD'
   let u: string[] // generic real user_ids from "user" for FK-safe seeding
 
   beforeAll(async () => {
@@ -66,10 +67,13 @@ describe.skipIf(!TEST_URL)('member_subscription · real pg (#354)', () => {
     await sql.unsafe(MIGRATION11)
     await sql.unsafe(MIGRATION12)
     const today = bkk(NOW)
-    const [m] = await sql`SELECT mp.user_id FROM member_payment mp
+    const [m] = await sql`SELECT mp.user_id, mp.expire_at FROM member_payment mp
       JOIN "user" usr ON usr.user_id = mp.user_id
       WHERE mp.plan_code = 'MEMBER' AND mp.expire_at >= ${today} LIMIT 1`
     liveMember = m.user_id
+    // #358 Phase 1 — read the expected date off the FIXTURE, never hard-code it: these rows are the real
+    // anonymized member_payment data and their dates differ per dump.
+    liveMemberExpireAt = String(m.expire_at).slice(0, 10)
     const gens = await sql`SELECT user_id FROM "user" LIMIT 4`
     u = gens.map((r) => r.user_id as string)
   })
@@ -120,7 +124,10 @@ describe.skipIf(!TEST_URL)('member_subscription · real pg (#354)', () => {
     ).rejects.toThrow(/foreign key|violates/i)
   })
 
-  it('every existing member_payment user reads EXACTLY as before (no v2 rows, no data moved)', async () => {
+  // ⚠️ The title used to be "reads EXACTLY as before". #358 Phase 1 broke that half: a VALID legacy member
+  // now reads tier 'PRO' + their own expire_at (lib/v2/subscription.ts:26), which is what the loop asserts.
+  // The paid/not-paid verdict and the source ARE still exactly as before, and no data moved.
+  it('every existing member_payment user keeps the SAME paid verdict and source — and a valid one now also reads tier PRO with their own expiry (no data moved)', async () => {
     const users = await sql`SELECT user_id FROM member_payment`
     // 🔴 #442 — this used to read `toBe(24)`, a snapshot of however many rows the dump happened to carry
     // the day #354 was written. The number MOVES on its own: settling a v2 payment writes a shadow
@@ -136,8 +143,15 @@ describe.skipIf(!TEST_URL)('member_subscription · real pg (#354)', () => {
       const legacy = await resolveMembership(user_id, NOW)
       const resolved = await resolveSubscription(user_id, NOW)
       expect(resolved.isPaid).toBe(!legacy.isFree)
-      expect(resolved.tier).toBeNull()
+      // #358 Phase 1 — a VALID legacy member is PRO; everyone else still has no tier.
+      expect(resolved.tier).toBe(legacy.isFree ? null : 'PRO')
       expect(resolved.source).toBe(legacy.isFree ? (legacy.reason === 'EXPIRED' ? 'legacy' : 'none') : 'legacy')
+      // and only a PAID legacy verdict reports a date (an expired row decided "not paid" → no date)
+      if (!legacy.isFree) {
+        expect(resolved.expireAt).toBe(String(legacy.memberPayment?.expireAt).slice(0, 10))
+      } else {
+        expect(resolved.expireAt).toBeNull()
+      }
     }
   })
 
@@ -147,8 +161,8 @@ describe.skipIf(!TEST_URL)('member_subscription · real pg (#354)', () => {
     expect(await resolveSubscription(u[0], NOW)).toEqual({ isPaid: true, tier: 'PRO', source: 'v2', expireAt: '2027-12-31' })
 
     const legacyResolved = await resolveSubscription(liveMember, NOW)
-    // #365 — null on the legacy path even though this member DOES have a member_payment expire_at.
-    expect(legacyResolved).toEqual({ isPaid: true, tier: null, source: 'legacy', expireAt: null })
+    // #358 Phase 1 — PRO, and the date IS this member's member_payment.expire_at (read from the fixture).
+    expect(legacyResolved).toEqual({ isPaid: true, tier: 'PRO', source: 'legacy', expireAt: liveMemberExpireAt })
 
     // a user_id with no v2 row and no member_payment row → free (a READ needs no FK)
     expect(await resolveSubscription('nobody-354', NOW)).toEqual({ isPaid: false, tier: null, source: 'none', expireAt: null })
@@ -215,6 +229,6 @@ describe.skipIf(!TEST_URL)('member_subscription · real pg (#354)', () => {
     await seed({ id: 'sub-354-teeth', userId: liveMember, tier: 'PLUS', expireAt: '2027-12-31' })
     expect(await resolveSubscription(liveMember, NOW)).toEqual({ isPaid: true, tier: 'PLUS', source: 'v2', expireAt: '2027-12-31' })
     await sql`DELETE FROM member_subscription WHERE id = ${'sub-354-teeth'}`
-    expect(await resolveSubscription(liveMember, NOW)).toEqual({ isPaid: true, tier: null, source: 'legacy', expireAt: null })
+    expect(await resolveSubscription(liveMember, NOW)).toEqual({ isPaid: true, tier: 'PRO', source: 'legacy', expireAt: liveMemberExpireAt })
   })
 })

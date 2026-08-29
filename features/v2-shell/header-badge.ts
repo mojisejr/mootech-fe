@@ -41,8 +41,13 @@ export type HeaderBadge =
   | { kind: 'upgrade' }
   | { kind: 'tier'; label: string }
 
-/** ป้ายของสมาชิกที่จ่ายจริงแต่ไม่มีชื่อระดับ — legacy member_payment rows predate the v2 catalog
- *  (lib/v2/subscription.ts:27-29). ❌ NEVER "FREE": they paid. */
+/** ป้ายของสมาชิกที่จ่ายจริงแต่ไม่มีชื่อระดับ ❌ NEVER "FREE": they paid.
+ *  ⚠️ This is no longer what a legacy member sees, and the old citation (subscription.ts:27-29) no longer
+ *  points at anything. Since #358 Phase 1 a VALID legacy member resolves to 'PRO'
+ *  (lib/v2/subscription.ts:26) and this pill prints PRO for them. The label now belongs to a paid viewer
+ *  whose NAME did not reach us: the /api/user membership composite absent or unreadable, or the pre-#383
+ *  hook shape this module still accepts (see "WHY `tier` IS OPTIONAL" above).
+ *  Guard: scripts/header-tier-badge.test.tsx, 'paid with no level name → "สมาชิก"'. */
 export const MEMBER_BADGE_LABEL = 'สมาชิก'
 
 const NONE: HeaderBadge = { kind: 'none' }

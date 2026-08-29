@@ -210,9 +210,13 @@ export function PackageCard({
                 คำตัดสินนั้นสั่งไม่ให้ใช้ · textContent เขียว (มันเก็บ `Mumate +` ไว้ครบ) — จับได้จากภาพ
                 ที่ render จริงเท่านั้น ตระกูลเดียวกับ "ข้อความถูก แต่ตัดบรรทัดผิด" ของ #326 */}
             <Button variant="primary" size="full" tabIndex={-1} className="normal-case">
-              {/* 🔴 Only a verdict of `upgrade` may say อัปเกรด. A legacy member (paid, no level name) is
-                  `buy` with days to carry — calling THAT an upgrade would claim we know they rank below
-                  this package, and we do not know what they hold at all. */}
+              {/* 🔴 Only a verdict of `upgrade` may say อัปเกรด. A legacy member is `buy` with days to
+                  carry — calling THAT an upgrade would claim we know they rank below this package, and we
+                  do not know what they hold at all.
+                  ⚠️ Since #358 Phase 1 they DO have a level name on screen ('PRO', lib/v2/subscription.ts:26).
+                  What they have no PROVABLE level for is the gate, which is handed `tier: null` for them on
+                  purpose (features/v2-shop/card-verdict.ts:111) so purchase-gate's legacy branch allows the
+                  buy. Guard: scripts/shop-screen-mount.test.tsx '#457 row 5' asserts no 'อัปเกรดเป็น'. */}
               {`${verdict.kind === 'upgrade' ? 'อัปเกรดเป็น' : 'สมัครแพ็กเกจ'} ${plan.name} ${
                 price.kind === 'ready' ? `${formatThb(price.amountThb)}${buttonSuffix}` : ''
               }`.trim()}

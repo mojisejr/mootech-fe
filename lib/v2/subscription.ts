@@ -1,7 +1,7 @@
 // v2 membership READ seam (mootech-fe#354, Phase 2 of #352) — the ONE place that answers "what tier is
 // this user?" by reading the NEW member_subscription store FIRST and falling back to the legacy
-// member_payment store, so the 24 existing members keep reading exactly as before while new v2 rows take
-// precedence. This module only READS (the writer is Phase 3, #355).
+// member_payment store, so an existing member never drops to free while new v2 rows take precedence. This
+// module only READS (the writer is Phase 3, #355). ⚠️ NOT "the 24 existing members keep reading exactly as before" any more — see the note under LEGACY_TIER below.
 //
 // Two rules live here, both spelled out because the new table intentionally allows MANY rows per user:
 //   ① selection — of a user's rows, pick the ACTIVE one still valid today, newest first, DETERMINISTICALLY
@@ -20,6 +20,25 @@ import { parseTierCode, tierIsPaid, type TierCode } from './tier'
 
 export type MembershipSource = 'v2' | 'legacy' | 'none'
 
+/** #358 Phase 1 — the tier a VALID legacy member_payment member resolves to. member_payment has no tier
+ *  column, so this is the product decision recorded in #352's closing criterion ("legacy members must not
+ *  lose access; treat them as PRO"), written once here rather than re-typed at each call site. */
+export const LEGACY_TIER: TierCode = 'PRO'
+
+// 🔴 WHAT THAT DECISION CHANGED, AND THE NUMBER THAT CAME WITH IT — written here because this file's own
+// header used to promise the opposite ("the 24 existing members keep reading exactly as before"):
+//   · a VALID legacy member now reads `tier: 'PRO'` (:151) and carries their
+//     member_payment.expire_at (:203-204); both used to be null. Guards: the "#358 Phase 1" block in
+//     scripts/member-subscription.test.ts (main lane) and scripts/member-subscription-db.test.ts:130
+//     (DB-gated — it does NOT run in `npm test`).
+//   · 24 was a count of ROWS, never of people. Every v2 settlement upserts a shadow member_payment row with
+//     plan_code='MEMBER' (lib/payment/repo.ts:742-748), so that predicate counts v2 buyers too — and the
+//     legacy branch below only fires when NO live member_subscription row exists. Measured on prod
+//     2026-08-29: 25 rows carry plan_code='MEMBER' and 17 are still valid, but 15 of those 17 also hold a
+//     live v2 row, so 2 accounts actually reach this branch — the MANUAL_VIP pair named at
+//     harness/457-capture-rows.mjs:35. The denominator of any bigger number here is ROWS IN member_payment,
+//     never humans without a v2 subscription.
+
 /** The TIER verdict alone — what `resolveTierFromSources` can answer from a tier_code and a legacy row.
  *  Deliberately WITHOUT expire_at: that function is handed `{ tierCode }` and nothing else, and #365 is not
  *  a reason to widen the one pure rule that decides who is paid. The date is attached one level up, by the
@@ -29,9 +48,12 @@ export type MembershipVerdict = {
    *  could not be determined — fail closed, do NOT unlock (tier-lock.ts remindersLocked = isPaid !== true).
    *  The legacy/none paths are always boolean; null only appears on the v2 path (ตู๋ #369 B1). */
   isPaid: boolean | null
-  /** the named v2 tier when it comes from a member_subscription row; null for a legacy-paid member (their
-   *  row predates the catalog — paid, name unknown) and for free. Never downgrade a known-paid user to
-   *  free just because the NAME is null. */
+  /** the named tier. For a v2 row it is that row's tier_code. For a VALID legacy member it is 'PRO' —
+   *  #358 Phase 1: member_payment has no tier column at all, and the product owner's closing criterion for
+   *  #352 is that the legacy members must not lose access and are treated as PRO. Before this they read
+   *  `tier: null` ("paid, name unknown"), which every named-tier screen had to special-case.
+   *  null for free / expired / not-determined. Never downgrade a known-paid user to free because of a
+   *  null NAME. */
   tier: TierCode | null
   /** where the verdict came from — 'v2' row · 'legacy' member_payment row (paid or expired) · 'none'. */
   source: MembershipSource
@@ -46,12 +68,37 @@ export type MembershipVerdict = {
  *  table itself (a second copy of the selection rule — the bug ตู๋ closed in #369 B2) or compute it from the
  *  package (the exact thing #365's DoD forbids). So it is exposed here, from the row the ONE rule picked.
  *
- *  `null` means "no v2 row decided this" — legacy-paid, free, or not-determined. It is NOT "no expiry":
- *  a legacy member does have one, it just lives in member_payment and is not this seam's to report.
+ *  #358 Phase 1 widened it: the legacy-PAID path now reports a date too, taken from the member_payment row
+ *  the CALLER already holds (see LegacyInput) — that member has an expiry, and before this a screen showed
+ *  them a blank "ใช้ได้ถึง". `null` now means only free / expired / not-determined.
  *  ⚠️ A caller must never read `expireAt: null` as "expired" — `isPaid` is the only field that answers that. */
 export type ResolvedMembership = MembershipVerdict & {
-  /** 'YYYY-MM-DD' from the winning member_subscription row · null when no v2 row decided the verdict. */
+  /** 'YYYY-MM-DD' from whichever row decided the verdict — the winning member_subscription row on the v2
+   *  path, and (since #358 Phase 1) the member_payment row on the legacy-PAID path. null for free, for an
+   *  expired legacy row, and for a v2 row whose tier_code we refused to understand.
+   *  ⚠️ Still never read `expireAt: null` as "expired" — `isPaid` is the only field that answers that. */
   expireAt: string | null
+}
+
+/** The legacy half of the input to the two resolvers: the classifyMembership verdict for this user's
+ *  member_payment row, PLUS that row's raw expire_at so the date can ride along without either caller
+ *  reading member_payment a second time (#358 Phase 1). Optional because it only matters when the legacy
+ *  verdict actually wins; a caller that has no row passes nothing. */
+export type LegacyInput = {
+  isFree: boolean
+  reason: MembershipReason
+  /** member_payment.expire_at exactly as the row carries it (a varchar, 'YYYY-MM-DD' in practice). */
+  expireAt?: string | null
+}
+
+// member_payment.expire_at is a varchar, so normalise to the SAME 'YYYY-MM-DD' shape the v2 path reports
+// (toSubRows slices the v2 column the same way) and refuse anything that is not a plain calendar date —
+// a screen must never print a half-parsed timestamp. Same slice+regex pair as usage-core.isNotExpired,
+// which is what decided this member was still valid in the first place.
+function legacyExpireAt(raw: string | null | undefined): string | null {
+  if (!raw) return null
+  const day = String(raw).slice(0, 10)
+  return /^\d{4}-\d{2}-\d{2}$/.test(day) ? day : null
 }
 
 // The minimal row shape the pure selection needs — keeps pickActiveSubscriptionRow DB-free and unit-testable.
@@ -82,7 +129,7 @@ export function pickActiveSubscriptionRow<T extends SubRow>(rows: T[], today: st
 // else free. `legacy` is the classifyMembership result for this user's member_payment row (isFree + reason).
 export function resolveTierFromSources(args: {
   subRow: { tierCode: string } | null
-  legacy: { isFree: boolean; reason: MembershipReason }
+  legacy: LegacyInput
 }): MembershipVerdict {
   if (args.subRow) {
     const tier = parseTierCode(args.subRow.tierCode)
@@ -98,7 +145,10 @@ export function resolveTierFromSources(args: {
     // tierIsPaid: FREE→false, PLUS/PRO→true. `=== true` so only a real paid tier unlocks.
     return { isPaid: tierIsPaid(tier) === true, tier, source: 'v2' }
   }
-  if (!args.legacy.isFree) return { isPaid: true, tier: null, source: 'legacy' }
+  // #358 Phase 1 — a VALID legacy member is PRO. member_payment carries no tier column, so the name is a
+  // decision, not a read: #352's closing criterion says the legacy members keep their access and are
+  // treated as PRO. `source` stays 'legacy' so a caller can still tell where the verdict came from.
+  if (!args.legacy.isFree) return { isPaid: true, tier: LEGACY_TIER, source: 'legacy' }
   // free: distinguish "had a member_payment row but it's expired" (legacy) from "no row at all" (none).
   return { isPaid: false, tier: null, source: args.legacy.reason === 'EXPIRED' ? 'legacy' : 'none' }
 }
@@ -133,23 +183,32 @@ export function toSubRows(rows: SubscriptionRowLike[]): SubRow[] {
 export function resolveMembershipFromRows(
   rows: SubRow[],
   today: string,
-  legacy: { isFree: boolean; reason: MembershipReason },
+  legacy: LegacyInput,
 ): ResolvedMembership {
   const subRow = pickActiveSubscriptionRow(rows, today)
   const verdict = resolveTierFromSources({ subRow, legacy })
-  // #365 — the date rides along ONLY when a v2 row actually decided the verdict. Two cases deliberately
-  // answer null even though a row was in hand:
-  //   · verdict.source !== 'v2'  → the legacy/none paths. Their expiry is member_payment's, not ours.
-  //   · isPaid === null          → the row carried an unknown tier_code, so we refused to grant membership
-  //                                (see resolveTierFromSources). Printing "ใช้ได้ถึง …" for a membership we
-  //                                just declined would be the screen contradicting the gate.
-  const expireAt = subRow !== null && verdict.source === 'v2' && verdict.isPaid !== null ? subRow.expireAt : null
+  // The date always comes from the row that DECIDED the verdict, never from "a row this user has".
+  //   · v2 path (#365)  → the WINNING member_subscription row's expire_at, and only when a tier was
+  //                       actually granted: isPaid === null means we refused the membership, and printing
+  //                       "ใช้ได้ถึง …" for a membership we just declined would contradict the gate.
+  //   · legacy path (#358 Phase 1) → the member_payment row's expire_at, handed in by the caller that
+  //                       already holds that row (neither caller may read member_payment twice). Only for
+  //                       a PAID legacy verdict — an EXPIRED row decided "not paid", so it reports no date.
+  //   · none / free     → null.
+  const expireAt =
+    verdict.source === 'v2'
+      ? subRow !== null && verdict.isPaid !== null
+        ? subRow.expireAt
+        : null
+      : verdict.source === 'legacy' && verdict.isPaid === true
+        ? legacyExpireAt(legacy.expireAt)
+        : null
   return { ...verdict, expireAt }
 }
 
 // A live v2 row wins outright, so in that branch the legacy verdict is never consulted — this placeholder
 // says "no legacy evidence" and is only ever passed when a subRow exists.
-const NO_LEGACY = { isFree: true, reason: 'NO_PLAN' as const }
+const NO_LEGACY: LegacyInput = { isFree: true, reason: 'NO_PLAN', expireAt: null }
 
 // The DB read: v2 store first. The SQL does ONLY the user narrowing (eq(userId)); the ENTIRE selection rule
 // — status, expiry-vs-today, and ordering — lives in the pure picker so it is ONE copy, exercised by the
@@ -173,6 +232,12 @@ export async function resolveSubscription(
   if (pickActiveSubscriptionRow(candidates, today)) {
     return resolveMembershipFromRows(candidates, today, NO_LEGACY)
   }
+  // resolveMembership already returns the whole member_payment row it read, so #358's legacy expire_at is
+  // taken from THAT read — no second query of member_payment here.
   const m = await resolveMembership(userId, now)
-  return resolveMembershipFromRows(candidates, today, { isFree: m.isFree, reason: m.reason })
+  return resolveMembershipFromRows(candidates, today, {
+    isFree: m.isFree,
+    reason: m.reason,
+    expireAt: m.memberPayment?.expireAt ?? null,
+  })
 }

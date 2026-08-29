@@ -26,8 +26,8 @@ export function isPaidMember(source: TierSource): boolean {
 export type V2Tier = {
   /** true = paid · false = KNOWN not-paid (free/anon) · null = NOT yet determined (loading/error) — do not gate. */
   isPaid: boolean | null
-  /** #383 — WHICH level, when it is knowable. null means EITHER not-determined OR paid-with-no-name (a
-   *  legacy member); `isPaid` tells those apart. A screen must never read null as FREE. */
+  /** #383 — WHICH level, when it is knowable. null means EITHER not-determined OR paid-with-no-name; `isPaid` tells those apart. A screen must never read null as FREE.
+   *  ⚠️ "no name" is NOT a legacy member any more — #358 Phase 1 names a valid one 'PRO' (lib/v2/subscription.ts:26); null now means the /api/user membership composite was absent or unreadable. */
   tier: TierCode | null
   loading: boolean
 }
@@ -94,7 +94,7 @@ export function parseTierCode(raw: string | null | undefined): TierCode | null {
  * WHY collapse instead of passing the raw name through: the paid verdict and the name come from two
  * stores, and the precedence (lib/home/profile.ts) already says the paid verdict wins. A name that
  * disagrees with the winner is not a fact the screen can act on — it is evidence of a bad row — so it
- * degrades to "no name" (which every screen must already handle for legacy members) instead of becoming a
+ * degrades to "no name" (a state every screen must already handle: an absent /api/user composite — ⚠️ no longer "for legacy members", #358 Phase 1 names them 'PRO', lib/v2/subscription.ts:26) instead of becoming a
  * FOURTH thing the UI has to decide about. Today no writer can produce the contradiction: the only insert
  * is settleV2Payment, and quotePackage (lib/payment/catalog.ts:79) refuses a FREE/unknown tier before any
  * charge — so this is the read-side net, exactly like parseTierCode is for the DB CHECK.
@@ -111,9 +111,14 @@ export function resolveDisplayTier(isPaid: boolean | null, raw: string | null | 
 //   • null  → null  (name not determined — do NOT gate; same contract as computeTier's null)
 //   • FREE  → false (KNOWN not paid)
 //   • anything else → true (any named non-free tier is paid; a future PLUS/PRO stays paid without an edit)
-// A legacy member_payment member is paid but has NO tier name (their row predates this catalog): callers
-// keep using the boolean isPaid for that, and tier stays null — never downgrade a known-paid user to free
-// just because the NAME is unknown. #v2-tier-paid-rule (matches isPaidMember: strict, no truthy unlock).
+// A member_payment row still has no tier COLUMN, but a legacy member no longer reaches a screen unnamed:
+// since #358 Phase 1 the read seam DECIDES the name for a valid one — 'PRO' (lib/v2/subscription.ts:26,
+// applied in resolveTierFromSources). `tier: null` next to `isPaid: true` still exists and still means
+// "paid, name unknown": the /api/user membership composite absent or unreadable, and DELIBERATELY at the
+// purchase gate, which is handed null for a legacy viewer on purpose (features/v2-shop/card-verdict.ts:111
+// and lib/payment/repo.ts:514). Either way callers keep using the boolean isPaid — never downgrade a
+// known-paid user to free just because the NAME is unknown.
+// #v2-tier-paid-rule (matches isPaidMember: strict, no truthy unlock).
 export function tierIsPaid(tier: TierCode | null): boolean | null {
   if (tier === null) return null
   return tier !== 'FREE'

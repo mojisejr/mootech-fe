@@ -105,7 +105,9 @@ describe('#365 planFor — สามสัญญาณแยกกัน ไม�
   })
 
   // 🔴 A3 — the direction that costs a paying member their trust.
-  it('🔴 A3 สมาชิกเก่าที่ไม่มีชื่อระดับ ❌ ห้ามขึ้นคำว่า Free', () => {
+  // ⚠️ เดิมเขียนว่า "สมาชิกเก่า" — ตั้งแต่ #358 Phase 1 สมาชิกเก่าที่ยังไม่หมดอายุจะได้ชื่อ 'PRO'
+  // (lib/v2/subscription.ts:26) พร้อมวันหมดอายุของตัวเอง อินพุตนี้จึงคือ "จ่ายแล้ว แต่ชื่อระดับมาไม่ถึง"
+  it('🔴 A3 สมาชิกที่จ่ายแล้วแต่ชื่อระดับมาไม่ถึง ❌ ห้ามขึ้นคำว่า Free', () => {
     const p = planFor({ isPaid: true, tier: null, expireAt: null })
     expect(p.isFree).toBe(false)
     expect(p.heading).toBe('สมาชิก')

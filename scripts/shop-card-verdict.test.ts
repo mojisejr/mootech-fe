@@ -6,7 +6,8 @@
 //
 // 🔴 THE MATRIX IS 5 ROWS, NOT 3. The ticket draws Free / PLUS / PRO. The two it does not draw are the two
 // that fail silently: `undetermined` (loading or error — guessing either way is wrong, tier.ts:35-39) and
-// the legacy member (paid, no level name — lib/v2/tier.ts:114). Both are asserted here.
+// the legacy member — paid, and with no PROVABLE level at the gate. (Since #358 Phase 1 the screen does
+// show them a name, 'PRO'; card-verdict.ts:111 hands the gate null on purpose.) Both are asserted here.
 //
 // 🔴 MUTANT CONTRACT (each reddens `npm test` — the DoD's "ตัวพิสูจน์ว่ามีฟัน"):
 //   MV1  read `undetermined` as a free viewer (drop the guard, let null fall through)  → the 4 undetermined tests redden
@@ -17,9 +18,30 @@
 //   MV6  let a downgrade render as `buy` instead of `blocked`                          → the PRO→PLUS test reddens
 //   MV7  make `kind` depend on `today`                                                 → the clock-independence test reddens
 //   MV8  give the Free card a real verdict instead of freezing it                      → the free-card tests redden
-import { describe, it, expect } from 'vitest'
+//   MV9  the gate reads the DISPLAY tier for a legacy viewer (drop the `source === 'legacy'` nulling in
+//        card-verdict.ts)                                                              → the #358 seam block reddens
+//
+// 🔴 WHY A REAL-SEAM BLOCK EXISTS AT THE BOTTOM OF THIS FILE. Every row above hands `cardVerdictFor` an
+// object literal, and #358 Phase 1 shipped a regression straight through all of them: the resolver started
+// answering `tier: 'PRO'` for a valid legacy member (subscription.ts:26 LEGACY_TIER), so the real screen
+// showed that member `current` on the Pro card and `blocked` on the Plus card — no buy control on either
+// (PackageCard.tsx:184-204) — while this file stayed green, because its legacy fixture was still the
+// hand-written pre-#358 shape. Nothing in the repo bound what `resolveMembershipFromRows` RETURNS to what
+// `cardVerdictFor` CONSUMES. That binding is the last describe block, and it is the only assertion here
+// that would have gone red on the day.
+import { describe, it, expect, vi } from 'vitest'
 import { cardVerdictFor, type ViewerMembership } from '@/features/v2-shop/card-verdict'
 import { computeTier } from '@/lib/v2/tier'
+
+// lib/v2/subscription.ts opens a pg client at import time (lib/db/index.ts:10) for its LAZY caller only
+// (resolveSubscription); the PURE resolver used below touches neither. Same two mocks, same reason, as
+// scripts/member-subscription.test.ts:33-40.
+vi.mock('@/lib/db', () => ({ db: { select: () => ({ from: () => ({ where: async () => [] }) }) } }))
+vi.mock('@/lib/usage', () => ({
+  resolveMembership: async () => ({ isFree: true, reason: 'NO_PLAN', memberPayment: null }),
+}))
+import { resolveMembershipFromRows } from '@/lib/v2/subscription'
+import { classifyMembership, isNotExpired, MEMBER_PLAN } from '@/lib/usage-core'
 
 const TODAY = '2026-08-26'
 
@@ -27,8 +49,15 @@ const TODAY = '2026-08-26'
 const freeViewer: ViewerMembership = { isPaid: false, tier: null, expireAt: null }
 const plusUntil = (expireAt: string): ViewerMembership => ({ isPaid: true, tier: 'PLUS', expireAt })
 const proUntil = (expireAt: string): ViewerMembership => ({ isPaid: true, tier: 'PRO', expireAt })
-// paid, but their row predates the tier catalogue ⇒ no level NAME (purchase-gate.ts legacy branch)
-const legacyUntil = (expireAt: string): ViewerMembership => ({ isPaid: true, tier: null, expireAt })
+// Paid, but their membership lives on member_payment, which has no tier column. Since #358 Phase 1 the
+// resolver DECIDES the name 'PRO' for them (subscription.ts:26 LEGACY_TIER); `source: 'legacy'` is the only
+// field that says the name was decided rather than READ, and it is what keeps the gate from placing them on
+// the ladder (purchase-gate.ts:116-121 — never refuse someone we cannot place). This shape is not asserted
+// from memory: the last describe block builds it from the real resolver.
+const legacyUntil = (expireAt: string): ViewerMembership => ({ isPaid: true, tier: 'PRO', source: 'legacy', expireAt })
+// The pre-#358 shape: paid, no name at all. No writer produces it today, but it is the branch the fixture
+// above leans on, so it keeps being asserted on its own.
+const unnamedLegacyUntil = (expireAt: string): ViewerMembership => ({ isPaid: true, tier: null, expireAt })
 // a PLUS row that has run out: isPaid is the server's verdict and it says NOT paid. The NAME is still
 // there, which is exactly the trap — a screen reading the name would call this person a member.
 const lapsedPlus: ViewerMembership = { isPaid: false, tier: 'PLUS', expireAt: '2026-08-01' }
@@ -199,5 +228,111 @@ describe('#457 🔴 a logged-out visitor must keep the buy button they have toda
         today: TODAY,
       }),
     ).toEqual({ kind: 'undetermined', because: 'loading' })
+  })
+})
+
+describe('#358 Phase 1 🔴 the REAL resolver output, through the screen own mapping', () => {
+  // 🔴 THE GAP THIS BLOCK CLOSES. Every other row in this file is an object literal: it asserts what
+  // `cardVerdictFor` does with a shape a HUMAN typed. #358 Phase 1 changed the shape the SERVER produces —
+  // a valid legacy member went from `{ isPaid: true, tier: null }` to `{ isPaid: true, tier: 'PRO' }` — and
+  // no literal moved, so `npm test` stayed green (1060 passed) while the shop stopped selling to the ~17
+  // people the phase was for. So nothing below is typed by hand: the fixture is a member_payment ROW, and
+  // every shape after it is produced by the real functions the request path uses, in the same order:
+  //
+  //   member_payment row → classifyMembership (usage-core.ts:90, what pages/api/user.ts:90 calls)
+  //                      → resolveMembershipFromRows (subscription.ts:183, what pages/api/user.ts:86 calls)
+  //                      → computeTier (tier.ts:41, what useV2Tier gives ShopScreen)
+  //                      → the ShopScreen.tsx:59-71 mapping
+  //                      → cardVerdictFor
+  //
+  // ⚠️ WHAT IT STILL DOES NOT COVER: the mapping step is REPRODUCED here, not imported — ShopScreen builds
+  // that object inline in a component. Reverting ShopScreen.tsx alone (dropping `source` again) leaves this
+  // block green; scripts/shop-screen-mount.test.tsx row 5 is what reddens for that half.
+  const LEGACY_ROW = { planCode: MEMBER_PLAN, expireAt: '2027-03-01' }
+  const NOW = new Date('2026-08-26T05:00:00Z') // 12:00 in Bangkok on TODAY — same day either way
+  const V2_ROW = { id: 'sub-1', tierCode: 'PRO', status: 'ACTIVE', expireAt: '2027-06-30', createdAt: '2026-03-01T00:00:00.000Z' }
+
+  // pages/api/user.ts:86-100, verbatim in structure: the legacy half classified from the member_payment row
+  // the route already holds, with that row's expiry riding along.
+  const serverAnswerFor = (rows: typeof V2_ROW[], row: typeof LEGACY_ROW | null) =>
+    resolveMembershipFromRows(rows, TODAY, {
+      ...classifyMembership(row, NOW),
+      expireAt: row?.expireAt ?? null,
+    })
+
+  // ShopScreen.tsx:59-71 — the two hooks it reads, and the ViewerMembership it rebuilds from them.
+  const asTheShopScreenSeesIt = (server: ReturnType<typeof serverAnswerFor>, memberPaymentExpireAt: string | null) => {
+    const t = computeTier({
+      status: 'authed',
+      userId: 'u-358',
+      done: true,
+      errored: false,
+      user: { payment: { is_not_expired: isNotExpired(memberPaymentExpireAt, NOW) }, membership: server },
+    })
+    const membership: ViewerMembership =
+      t.isPaid == null
+        ? null
+        : { isPaid: t.isPaid, tier: t.tier, source: server.source ?? null, expireAt: server.expireAt ?? null }
+    return (planId: 'plus' | 'pro') =>
+      cardVerdictFor({ planId, determined: t.isPaid != null, loading: t.loading, membership, today: TODAY })
+  }
+
+  const legacyCard = asTheShopScreenSeesIt(serverAnswerFor([], LEGACY_ROW), LEGACY_ROW.expireAt)
+
+  it('the resolver really does hand this member a DECIDED name — the premise, stated so a revert is visible', () => {
+    // If #358 Phase 1 is ever rolled back this is the one test that says so by name, instead of the buy
+    // tests below quietly passing for the old reason and hiding that the phase is gone.
+    expect(serverAnswerFor([], LEGACY_ROW)).toEqual({
+      isPaid: true,
+      tier: 'PRO',
+      source: 'legacy',
+      expireAt: '2027-03-01',
+    })
+  })
+
+  it('🔴 and BOTH paid cards still offer a purchase — this is the regression', () => {
+    // Before the fix: pro → { kind: 'current' }, plus → { kind: 'blocked' }. PackageCard.tsx:184-195 and
+    // :196-204 render no control for either, so the member could buy nothing at all.
+    expect(legacyCard('pro').kind).toBe('buy')
+    expect(legacyCard('plus').kind).toBe('buy')
+  })
+
+  it('carries their remaining days onto whichever package they choose', () => {
+    // 2026-08-26 → 2027-03-01 = 187 days, the same count the door would carry (purchase-gate remainingDays).
+    expect(legacyCard('pro')).toEqual({ kind: 'buy', carriesDays: true, carryOverDays: 187 })
+    expect(legacyCard('plus')).toEqual({ kind: 'buy', carriesDays: true, carryOverDays: 187 })
+  })
+
+  it('is still never called an UPGRADE — the decided name is not a level we can rank them on', () => {
+    expect(legacyCard('pro').kind).not.toBe('upgrade')
+    expect(legacyCard('plus').kind).not.toBe('upgrade')
+  })
+
+  it('🔴 NEGATIVE CONTROL — a real v2 PRO member is still refused on both cards', () => {
+    // Without this, "everyone can buy" would pass the block above just as well, and the fix would read as
+    // "the gate was switched off". The two members reach `cardVerdictFor` with the SAME tier name 'PRO';
+    // only `source` differs, and that difference is the whole rule.
+    //
+    // 🔴 THE V2 MEMBER CARRIES A member_payment ROW TOO, and that is not fixture convenience — it is the
+    // only shape that exists. computeTier reads the paid verdict from `payment.is_not_expired`
+    // (tier.ts:22-24 isPaidMember), which is member_payment, NOT the v2 composite; a v2 row alone reads as
+    // NOT PAID all the way through this screen. Prod never has that shape because settlement keeps the
+    // member_payment shadow in step (lib/payment/repo.ts:210). Written down because building this control
+    // with `null` here produced `kind: 'buy'` and looked exactly like the fix failing.
+    // The two expiries differ on purpose: the answer must come from the v2 row, not from the shadow.
+    const v2Server = serverAnswerFor([V2_ROW], LEGACY_ROW)
+    const v2Card = asTheShopScreenSeesIt(v2Server, LEGACY_ROW.expireAt)
+    expect(v2Server).toEqual({ isPaid: true, tier: 'PRO', source: 'v2', expireAt: '2027-06-30' })
+    expect(v2Card('pro')).toEqual({ kind: 'current', expireAt: '2027-06-30' })
+    expect(v2Card('plus')).toEqual({ kind: 'blocked' })
+  })
+})
+
+describe('#358 Phase 1 — the pre-#358 legacy shape (paid, no name at all) still buys', () => {
+  // The branch legacyUntil now leans on, kept asserted in its own right: purchase-gate has no way to place
+  // an unnamed paid member either, and must not start refusing them if a source is ever missing.
+  it('may buy either package and is never refused', () => {
+    expect(verdict('plus', unnamedLegacyUntil('2027-03-01'))).toMatchObject({ kind: 'buy', carriesDays: true })
+    expect(verdict('pro', unnamedLegacyUntil('2027-03-01'))).toMatchObject({ kind: 'buy', carriesDays: true })
   })
 })

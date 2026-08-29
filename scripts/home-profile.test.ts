@@ -89,9 +89,13 @@ describe('#383 deriveHomeProfile — the named tier, reconciled', () => {
     expect(deriveHomeProfile({ payment: { is_not_expired: true }, membership: { tier: 'PRO' } }, SETTLED).tier).toBe('PRO')
     expect(deriveHomeProfile({ payment: { is_not_expired: true }, membership: { tier: 'PLUS' } }, SETTLED).tier).toBe('PLUS')
   })
-  // 🔴 The state EVERY member who pays today is in: paid through member_payment, no v2 row, no name.
-  // The badge says "สมาชิก" (#384). Reading this as free is the money bug.
-  it('🔴 legacy member (no membership key) → isPaid TRUE, tier null — never FREE, never "not paid"', () => {
+  // 🔴 Paid through member_payment, with NO membership key on the response at all. The badge says "สมาชิก"
+  // (#384). Reading this as free is the money bug.
+  // ⚠️ This used to be described as "the state EVERY member who pays today is in", and as "a legacy member".
+  // Neither holds since #358 Phase 1: /api/user now sends a valid legacy member `membership.tier: 'PRO'`
+  // (lib/v2/subscription.ts:26), which lands on the named case above. What is left here is a response that
+  // carries no membership composite at all.
+  it('🔴 no membership key on the response → isPaid TRUE, tier null — never FREE, never "not paid"', () => {
     const p = deriveHomeProfile({ payment: { is_not_expired: true } }, SETTLED)
     expect(p.isPaid).toBe(true)
     expect(p.tier).toBe(null)

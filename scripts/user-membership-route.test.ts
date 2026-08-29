@@ -102,12 +102,14 @@ beforeEach(() => reset())
 describe('#383 /api/user → membership composite', () => {
   // ① 🔴 THE CASE EVERY PAYING MEMBER IS IN TODAY. Also the MR1 detector: the row comes back snake_case
   // from `SELECT *`, so an unmapped hand-off classifies them as NO_PLAN and they read as free.
-  it('🔴 ① legacy member (member_payment only) → { isPaid: true, tier: null, source: "legacy" }', async () => {
+  it('🔴 ① legacy member (member_payment only) → { isPaid: true, tier: "PRO", source: "legacy" }', async () => {
     reset({ memberPayment: { user_id: 'u1', plan_code: 'MEMBER', expire_at: FUTURE } })
     const { code, body } = await call()
     expect(code).toBe(200)
-    // #365 — expireAt null on the legacy path: their expiry lives in member_payment, not in this seam's table. 🔴 null is NOT "expired" — isPaid answers that.
-    expect(body.membership).toEqual({ isPaid: true, tier: null, source: 'legacy', expireAt: null })
+    // #358 Phase 1 — they are PRO now (member_payment has no tier column; #352's closing criterion names
+    // it), and the DATE comes from the member_payment row this route ALREADY fetched in its batch above —
+    // no second read of that table. 🔴 null would still not mean "expired": isPaid answers that.
+    expect(body.membership).toEqual({ isPaid: true, tier: 'PRO', source: 'legacy', expireAt: FUTURE })
     // and the legacy flag the whole app already gates on is still true — the two never disagree here
     expect(body.payment.is_not_expired).toBe(true)
   })
@@ -138,14 +140,14 @@ describe('#383 /api/user → membership composite', () => {
 
   it('③ free user (no payment row, no v2 row) → { isPaid: false, tier: null, source: "none" }', async () => {
     const { body } = await call()
-    // #365 — expireAt null on the legacy path: their expiry lives in member_payment, not in this seam's table. 🔴 null is NOT "expired" — isPaid answers that.
+    // #365/#358 — no row anywhere, so no date. ⚠️ This case is source 'none', NOT "the legacy path", and since #358 Phase 1 a PAID legacy verdict DOES report member_payment.expire_at (lib/v2/subscription.ts:26 names them, the legacy arm of resolveMembershipFromRows dates them). 🔴 null is NOT "expired" — isPaid answers that.
     expect(body.membership).toEqual({ isPaid: false, tier: null, source: 'none', expireAt: null })
   })
 
   it('③b expired member → source "legacy", isPaid false (expiry is decided at READ time)', async () => {
     reset({ memberPayment: { user_id: 'u1', plan_code: 'MEMBER', expire_at: PAST } })
     const { body } = await call()
-    // #365 — expireAt null on the legacy path: their expiry lives in member_payment, not in this seam's table. 🔴 null is NOT "expired" — isPaid answers that.
+    // #365/#358 — an EXPIRED legacy row decided "not paid", and only a PAID legacy verdict reports a date (the legacy arm of resolveMembershipFromRows checks `isPaid === true`), so still no date here. ⚠️ The old wording — "their expiry lives in member_payment, not in this seam's table" — stopped being true at #358 Phase 1. 🔴 null is NOT "expired" — isPaid answers that.
     expect(body.membership).toEqual({ isPaid: false, tier: null, source: 'legacy', expireAt: null })
   })
 
@@ -155,8 +157,8 @@ describe('#383 /api/user → membership composite', () => {
       subRows: [subRow({ expireAt: PAST })],
     })
     const { body } = await call()
-    // #365 — expireAt null on the legacy path: their expiry lives in member_payment, not in this seam's table. 🔴 null is NOT "expired" — isPaid answers that.
-    expect(body.membership).toEqual({ isPaid: true, tier: null, source: 'legacy', expireAt: null })
+    // #358 Phase 1 — falling back now lands on PRO with the member_payment date, not on an unnamed tier.
+    expect(body.membership).toEqual({ isPaid: true, tier: 'PRO', source: 'legacy', expireAt: FUTURE })
   })
 
   // ④ 🔴 CONDITION ③ OF THE TICKET. The v2 table is the newest thing in this route; /api/user is what every
