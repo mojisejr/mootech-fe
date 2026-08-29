@@ -86,16 +86,17 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const membership: ResolvedMembership | null =
       subRows === null
         ? null
-        : resolveMembershipFromRows(
-            subRows,
-            bkkDateStr(now),
-            classifyMembership(
+        : resolveMembershipFromRows(subRows, bkkDateStr(now), {
+            ...classifyMembership(
               memberPayment
                 ? { planCode: memberPayment.plan_code, expireAt: memberPayment.expire_at }
                 : null,
               now,
             ),
-          )
+            // #358 Phase 1 — the legacy expiry, from the member_payment row ALREADY fetched in the batch
+            // above (same snake_case caveat: `expire_at`, not `expireAt`). No second read of the table.
+            expireAt: memberPayment ? (memberPayment.expire_at ?? null) : null,
+          })
 
     return res.status(200).json({
       ...user,

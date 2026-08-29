@@ -51,15 +51,17 @@ async function callUser(userId: string) {
 describe.skipIf(!TEST_URL)('#383 /api/user membership · real pg', () => {
   let sql: ReturnType<typeof postgres>
   let liveMember: string // real member_payment MEMBER row, not expired, and present in "user"
+  let liveMemberExpireAt: string // #358 — that row's expire_at, read from the fixture, never hard-coded
   let freeUser: string // real "user" row with NO member_payment row
 
   beforeAll(async () => {
     sql = postgres(TEST_URL as string, { max: 4, ssl: false })
     const today = bkkToday()
-    const [m] = await sql`SELECT mp.user_id FROM member_payment mp
+    const [m] = await sql`SELECT mp.user_id, mp.expire_at FROM member_payment mp
       JOIN "user" usr ON usr.user_id = mp.user_id
       WHERE mp.plan_code = 'MEMBER' AND mp.expire_at >= ${today} LIMIT 1`
     liveMember = m?.user_id
+    liveMemberExpireAt = String(m?.expire_at).slice(0, 10)
     const [f] = await sql`SELECT u.user_id FROM "user" u
       LEFT JOIN member_payment mp ON mp.user_id = u.user_id
       WHERE mp.user_id IS NULL LIMIT 1`
@@ -84,10 +86,12 @@ describe.skipIf(!TEST_URL)('#383 /api/user membership · real pg', () => {
 
   // ① The state EVERY paying member is in on the day this ships: a real, anonymized member_payment row and
   // no v2 row anywhere. If the snake_case→camelCase mapping in the route were wrong, this reads free.
-  it('🔴 ① a REAL live member (member_payment only) → isPaid true · tier null · source "legacy"', async () => {
+  it('🔴 ① a REAL live member (member_payment only) → isPaid true · tier "PRO" · source "legacy"', async () => {
     const { code, body } = await callUser(liveMember)
     expect(code).toBe(200)
-    expect(body.membership).toEqual({ isPaid: true, tier: null, source: 'legacy' })
+    // #358 Phase 1 — PRO, plus THEIR member_payment.expire_at. (The `expireAt` key itself has been in the
+    // response since #365; these three assertions did not carry it and so were stale before this change.)
+    expect(body.membership).toEqual({ isPaid: true, tier: 'PRO', source: 'legacy', expireAt: liveMemberExpireAt })
     expect(body.payment.is_not_expired).toBe(true)
   })
 
@@ -97,7 +101,7 @@ describe.skipIf(!TEST_URL)('#383 /api/user membership · real pg', () => {
     await sql`INSERT INTO member_subscription (id, user_id, tier_code, package_code, amount_satang, start_at, expire_at, status)
       VALUES (${ID_PREFIX + 'pro'}, ${liveMember}, 'PRO', 'V2_PRO_YEARLY', 159000, ${bkkToday()}, ${'2099-12-31'}, 'ACTIVE')`
     const { body } = await callUser(liveMember)
-    expect(body.membership).toEqual({ isPaid: true, tier: 'PRO', source: 'v2' })
+    expect(body.membership).toEqual({ isPaid: true, tier: 'PRO', source: 'v2', expireAt: '2099-12-31' })
   })
 
   // ③ Expiry is decided at READ time (no cron flips status), so a row that ended yesterday must not be
@@ -106,7 +110,7 @@ describe.skipIf(!TEST_URL)('#383 /api/user membership · real pg', () => {
     await sql`INSERT INTO member_subscription (id, user_id, tier_code, package_code, amount_satang, start_at, expire_at, status)
       VALUES (${ID_PREFIX + 'old'}, ${liveMember}, 'PRO', 'V2_PRO_YEARLY', 159000, ${'2020-01-01'}, ${'2020-12-31'}, 'ACTIVE')`
     const { body } = await callUser(liveMember)
-    expect(body.membership).toEqual({ isPaid: true, tier: null, source: 'legacy' })
+    expect(body.membership).toEqual({ isPaid: true, tier: 'PRO', source: 'legacy', expireAt: liveMemberExpireAt })
   })
 
   // ④ afterEach really did unwind ② and ③ — otherwise every later assertion here (and in any suite that
@@ -120,7 +124,7 @@ describe.skipIf(!TEST_URL)('#383 /api/user membership · real pg', () => {
 
   it('⑤ a real user with no payment row at all → isPaid false · tier null · source "none"', async () => {
     const { body } = await callUser(freeUser)
-    expect(body.membership).toEqual({ isPaid: false, tier: null, source: 'none' })
+    expect(body.membership).toEqual({ isPaid: false, tier: null, source: 'none', expireAt: null })
     expect(body.payment.is_not_expired).toBe(false)
   })
 })
