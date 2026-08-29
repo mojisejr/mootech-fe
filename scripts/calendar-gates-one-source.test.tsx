@@ -42,6 +42,10 @@ const h = vi.hoisted(() => ({
   liveV2Row: new Set<string>(),
   /** set to force the undetermined verdict — a v2 row whose tier_code we refused to understand. */
   undetermined: new Set<string>(),
+  /** a LIVE v2 row whose tier is FREE. Maps cleanly, passes 0006's CHECK, and is not paid.
+   *  ⇒ mojisejr/mootech-fe#525. Kept separate from `undetermined` because the CHECK stops that one
+   *  and does not stop this one, which is the whole difference that matters. */
+  freeV2Row: new Set<string>(),
 }))
 
 vi.mock('@/lib/v2/resolve-user', () => ({ resolveSessionUserId: vi.fn(async () => h.who) }))
@@ -59,6 +63,9 @@ vi.mock('@/lib/usage', () => ({
 vi.mock('@/lib/v2/subscription', () => ({
   resolveSubscription: vi.fn(async (userId: string) => {
     if (h.undetermined.has(userId)) return { isPaid: null, tier: null, source: 'v2', expireAt: null }
+    // A live row wins outright and the legacy branch is never consulted (lib/v2/subscription.ts:211), so
+    // this deliberately ignores memberPaymentValid — that shadowing IS the behaviour under test.
+    if (h.freeV2Row.has(userId)) return { isPaid: false, tier: 'FREE', source: 'v2', expireAt: null }
     if (h.liveV2Row.has(userId)) return { isPaid: true, tier: 'PRO', source: 'v2', expireAt: null }
     const legacy = h.memberPaymentValid.has(userId)
     return {
@@ -136,6 +143,7 @@ describe('#358 Phase 2 — both calendar gates decide from ONE source', () => {
     h.memberPaymentValid = new Set()
     h.liveV2Row = new Set()
     h.undetermined = new Set()
+    h.freeV2Row = new Set()
     n += 37 // push the cache keys well clear of the previous case
     vi.clearAllMocks()
   })
@@ -203,6 +211,26 @@ describe('#358 Phase 2 — both calendar gates decide from ONE source', () => {
     // the half that proves this is the DIVERGENT reading and not just "everything is refused":
     h.undetermined.delete(u)
     expect(await monthAllows(u), 'drop the unmappable row and the legacy member is served again').toBe(true)
+  })
+
+  // ⑥ 🔴 THE REACHABLE ONE. ⑤ above is the shape ตู๋ named, and 0006's CHECK really does stop it. This is
+  //    the same loss through a value the CHECK ADMITS: tier_code 'FREE' maps cleanly and is not paid
+  //    (lib/v2/tier.ts:124), and a live row never consults the legacy branch (lib/v2/subscription.ts:211).
+  //    So a paying legacy member is cancelled by a FREE row, and the write path copies that value straight
+  //    off payment_package — 6 such rows exist on testenv, inactive, one /ops toggle from being sold.
+  //    ลามุน photographed it: grid on d8643c3, nothing on this branch, header still saying "สมาชิก".
+  //    🔴 This test asserts TODAY's behaviour, which is a LOSS, and it is not the behaviour we want.
+  //    mojisejr/mootech-fe#525 holds the decision. When that is fixed, this test flips — and it flipping
+  //    is the point: it is the guard that will catch the fix landing.
+  it('⑥ a paying legacy member with a live FREE v2 row loses the month — reachable, and ticketed at #525', async () => {
+    const u = 'U-LEGACY-SHADOWED-BY-FREE'
+    h.memberPaymentValid.add(u)
+    h.freeV2Row.add(u)
+    expect(await monthAllows(u), 'the month gate refuses them — this is the regression #525 owns').toBe(false)
+    expect(await dayAllows(u), 'the day gate already refused them on main, which is why #525 predates #520').toBe(false)
+    // the half that proves this is the FREE row and not the fixture refusing everyone:
+    h.freeV2Row.delete(u)
+    expect(await monthAllows(u), 'drop the FREE row and the legacy member is served again').toBe(true)
   })
 
   // ④ The store the month gate used to read alone must no longer be able to answer for it on its own.

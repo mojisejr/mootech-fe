@@ -66,19 +66,43 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     // 🔴 #358 Phase 2 — ONE resolver for both calendar gates. This used to call `resolveMembership`
     // (lib/usage.ts:27), which reads member_payment and nothing else, while day-detail.ts:82 has always
     // called `resolveSubscription` (lib/v2/subscription.ts:220), which reads member_subscription first and
-    // only then falls back to that same member_payment read. Two gates on ONE feature, deciding from two
-    // stores. The disagreement runs in exactly one direction: a user holding a live member_subscription row
-    // with no valid member_payment row was PAID to the day gate and FREE to this one.
+    // only then falls back to that same member_payment read. Two gates on ONE feature, two stores.
     //
-    // No purchase made through this codebase can produce that state — lib/payment/repo.ts:729 inserts the
-    // subscription and :743 upserts the member_payment shadow inside one transaction, and the shadow's
-    // expiry is GREATEST (:760) so it can never expire first. So this fixes a LATENT split, not a live bug,
-    // and the user must see nothing change. It is done before Phase 3's three-level span ceiling on purpose:
-    // put a ceiling on top of two disagreeing sources and a failure cannot be attributed to either.
+    // 🔴 THE DISAGREEMENT RUNS BOTH WAYS. `resolveSubscription` is a superset over the STORES it reads but
+    // NOT over the VERDICTS: `isFree` is a boolean, `isPaid` is boolean | null, and a live v2 row is
+    // answered from that row ALONE — the legacy branch is never consulted (lib/v2/subscription.ts:211).
+    // Measured through both real handlers, and photographed on the real screen:
     //
-    // `isPaid === true` and not `!isFree`: isPaid is boolean | null, and null means a v2 row carried a
-    // tier_code we refused to understand. Only a literal true unlocks — the same fail-closed reading
-    // day-detail.ts:82 uses, so the two gates now also agree about the undetermined case.
+    //   live v2 row, no valid member_payment row     before: month FREE, day PAID   after: both PAID
+    //   valid member_payment PLUS a live v2 row
+    //   whose tier_code cannot be mapped             before: month PAID, day FREE   after: both REFUSE
+    //   valid member_payment PLUS a live FREE row    before: month PAID, day FREE   after: both REFUSE
+    //
+    // Rows 2 and 3 LOSE this calendar. Two earlier drafts of this comment said "the user sees nothing
+    // change"; both were false, and neither was caught by re-reading.
+    //
+    // 🔴 REACHABILITY, and this is where the second draft was wrong in a way that mattered:
+    //   row 1  UNREACHABLE by purchase. lib/payment/repo.ts:729 inserts the subscription and :743 upserts
+    //          the member_payment shadow in ONE transaction, expiry GREATEST at :760.
+    //   row 2  UNREACHABLE while 0006 is applied. lib/db/0006_member_subscription.sql:33 CHECKs
+    //          tier_code IN ('FREE','PLUS','PRO') and lib/v2/tier.ts:73 maps all three.
+    //          ⚠️ ? unknown whether prod carries 0006.
+    //   row 3  🔴 REACHABLE, and the CHECK does not stand in the way — 'FREE' is one of the values it
+    //          ADMITS. It maps cleanly and is not paid (lib/v2/tier.ts:124). The write path copies
+    //          tier_code off payment_package (catalog.ts:28 → charge-flow.ts:117 → provision.ts:109 →
+    //          repo.ts:732), and testenv carries 6 FREE-tier catalogue rows today, all inactive — one
+    //          /ops toggle from being sold (#377). Found with a camera, not by re-reading this comment.
+    //
+    // Row 3 is NOT introduced here: day-detail.ts:82 has always used this resolver, so that user is already
+    // refused day details on main. This route joining it turns half-broken into fully broken.
+    // Owned by mojisejr/mootech-fe#525, pinned by ⑥ in scripts/calendar-gates-one-source.test.tsx.
+    //
+    // Done before Phase 3's three-level span ceiling on purpose: put a ceiling on top of two disagreeing
+    // sources and a failure cannot be attributed to either.
+    //
+    // `isPaid === true` and not `!isFree`: only a literal true unlocks — the same fail-closed reading
+    // day-detail.ts:82 uses, so the two gates now agree about the undetermined case too. That agreement is
+    // row 2: a deliberate behaviour change, not a side effect.
     let paid = false
     try {
       paid = (await resolveSubscription(userId)).isPaid === true
