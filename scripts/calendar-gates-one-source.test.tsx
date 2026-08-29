@@ -51,6 +51,11 @@ const h = vi.hoisted(() => ({
 }))
 
 vi.mock('@/lib/v2/resolve-user', () => ({ resolveSessionUserId: vi.fn(async () => h.who) }))
+// #358 Phase 3 — this suite asks whether the two gates AGREE, which is a different question from how far
+// each level may scroll. Its months walk 2029-xx for cache isolation, so "now" is pinned there and its
+// paid verdicts are PRO (no wall). If the span ever became what decides a row here, the agreement being
+// measured would silently become an agreement about the span instead.
+vi.mock('@/lib/v2/clock', () => ({ currentMonthBkk: () => '2029-01' }))
 
 // lib/usage.ts:27 — one table, one row, classify. Nothing else.
 vi.mock('@/lib/usage', () => ({

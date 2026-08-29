@@ -17,6 +17,15 @@ export interface DayDetailResponse {
   cached?: boolean
   /** upstream unreachable/timeout → detail null but the request itself was ok. */
   degraded?: boolean
+  /** 🔴 #358 Phase 3 — the day is OUTSIDE what this level's package sells (pages/api/v2/day-detail.ts).
+   *  It arrives as `detail: null` exactly like the two states above, and it is a completely different
+   *  thing: those are "we broke", this is "you did not buy this month". ตู๋ B4 found it dropped right
+   *  here — the route emitted the field and the rebuild below discarded it, so the only thing separating
+   *  a paid wall from a crash never reached the client. ฟีม decided the arrow should INVITE AN UPGRADE,
+   *  and nothing that cannot be told apart from breakage can invite anything.
+   *  ⚠️ It stops at THIS layer today: useDayDetail caches `detail` alone, so the screen still cannot see
+   *  it. That half is mojisejr/mootech-fe#529 and is NOT claimed as done here. */
+  outOfSpan?: boolean
 }
 
 /**
@@ -45,6 +54,7 @@ export async function fetchDayDetail(
       detail: (data.detail as LibDayDetail | undefined) ?? null,
       ...(data.cached ? { cached: true } : {}),
       ...(data.degraded ? { degraded: true } : {}),
+      ...(data.outOfSpan ? { outOfSpan: true } : {}),
     }
   } catch {
     return fallback // network error / aborted / bad JSON → graceful, never throws

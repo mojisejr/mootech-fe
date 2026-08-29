@@ -88,3 +88,47 @@ export function isMonthReachable(tier: Tier, feature: SpanFeature, requestedMont
   if (span === null) return true
   return Math.abs(monthDistance(currentMonth, requestedMonth)) <= span - 1
 }
+
+
+// ── #358 Phase 3 — the ONE call both calendar routes make ────────────────────────────────────────────
+//
+// 🔴 WHY A COMBINED FUNCTION AND NOT TWO STEPS AT EACH ROUTE. Phase 2 existed because the month gate and
+// the day gate answered "is this person paid" from two different places. Handing each route a `tier` and
+// letting it call isMonthReachable itself would rebuild that seam one level up: two call sites, two
+// chances to pass a different feature, a different "today", or a different tier mapping. One function, one
+// copy of the rule, and the two routes cannot disagree even if someone edits only one of them.
+import { parseTierCode, type TierCode } from './tier'
+
+/** What the resolvers actually return (lib/v2/subscription.ts resolveSubscription). */
+export type MembershipVerdictLike = { isPaid: boolean | null; tier: TierCode | string | null }
+
+/**
+ * The level a verdict spends. The only place this mapping exists.
+ *
+ * 🔴 `isPaid: true` with `tier: null` spends PRO, and that is a DECISION rather than a fallthrough.
+ * Since Phase 1 a valid legacy member is NAMED 'PRO' (lib/v2/subscription.ts:26), so paid-with-no-name
+ * should be unreachable through the resolvers. If it happens anyway the two errors are not symmetric:
+ * reading it as FREE takes the calendar from somebody we KNOW paid — the exact damage
+ * mojisejr/mootech-fe#525 is open about — while reading it as PRO gives a broken row more than it bought.
+ * #352's closing criterion is that legacy members must not lose access, so this errs where that points.
+ * ⚠️ One line, one file, no call site to chase if ฟีม wants the other reading.
+ *
+ * `isPaid` false OR null both spend FREE. null means NOT DETERMINED and must never unlock, which is the
+ * same fail-closed reading pages/api/v2/day-detail.ts:82 has always used.
+ */
+export function entitlementTierOf(verdict: MembershipVerdictLike): Tier {
+  if (verdict.isPaid !== true) return 'FREE'
+  if (verdict.tier === null || verdict.tier === undefined) return 'PRO' // decision — see above
+  return parseTierCode(verdict.tier) ?? 'PRO' // an unmappable NAME must not cost a known-paid member access
+}
+
+/**
+ * May this person open this month? BOTH calendar routes call exactly this and neither restates any part
+ * of it. 'YYYY-MM' both sides.
+ *
+ * 🔴 This is the SERVER's answer. The screen hiding an arrow is layout, and layout is not a gate — #226
+ * closed a bug where the paid sections were trimmed only by the UI and curl read them anyway.
+ */
+export function calendarMonthReachable(verdict: MembershipVerdictLike, requestedMonth: string, currentMonth: string): boolean {
+  return isMonthReachable(entitlementTierOf(verdict), 'calendar', requestedMonth, currentMonth)
+}

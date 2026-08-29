@@ -30,6 +30,8 @@ import { toBaziInput, type FeCalcInput } from '@/lib/bazi-bridge/input'
 import { mapDayDetail, pickFreeDayDetail, type DayDetail } from '@/lib/v2-calendar/day-detail'
 import { resolveSessionUserId } from '@/lib/v2/resolve-user'
 import { resolveSubscription } from '@/lib/v2/subscription'
+import { calendarMonthReachable } from '@/lib/v2/entitlement'
+import { currentMonthBkk } from '@/lib/v2/clock'
 import { BAZI_BASE, BAZI_TIMEOUT_MS, fetchAlmanacDays, type AlmanacDay } from '@/lib/v2-calendar/month'
 
 type AlmanacDated = AlmanacDay & { date?: unknown }
@@ -77,11 +79,37 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   // The paid verdict comes from the v2 membership seam (#354) — the module whose header calls itself "the
   // ONE place that answers what tier is this user". `isPaid` is boolean | null there; only a literal true
   // unlocks, so an undetermined tier (an unrecognised tier_code) serves the FREE view rather than guessing.
-  let paid = false
+  let verdict: { isPaid: boolean | null; tier: string | null } = { isPaid: false, tier: null }
   try {
-    paid = (await resolveSubscription(userId)).isPaid === true
+    const v = await resolveSubscription(userId)
+    verdict = { isPaid: v.isPaid, tier: v.tier }
   } catch {
-    paid = false // cannot determine membership → free (fail closed; never serve paid content on an error)
+    verdict = { isPaid: false, tier: null } // cannot determine membership → free (fail closed)
+  }
+  const paid = verdict.isPaid === true
+
+  // ── #358 Phase 3 — THE SPAN, the same one call the month route makes ──────────────────────────────
+  //
+  // 🔴 THIS ROUTE IS WHY THE SPAN CANNOT SHIP ON THE MONTH GATE ALONE. Blocking only the month grid leaves
+  // this endpoint answering for any date a blocked person asks for — they curl it directly, one day at a
+  // time, and the wall is decoration. #226 closed exactly that shape once already, for the paid FIELDS.
+  //
+  // 🔴 A refusal here is a 200 with no detail, NOT the trimmed free view. The trim answers "you may look at
+  // this day but not the paid parts"; the span answers "this day is outside what your package sells at
+  // all". Serving the trim for an out-of-span date would sell FREE the whole calendar minus some fields.
+  // ⚠️ That is a real change for a FREE caller, who today gets the trimmed detail for ANY date. It is the
+  // decided product rule (ฟีมเคาะ 2026-08-24, ทาง A: Free = the current month), written here rather than
+  // left for someone to discover from a diff.
+  // 🔴 From `parsed`, NOT from `date`. parseDate matches on input.trim() (line 41), so ' 2026-08-14'
+  // passes the shape check while the raw string slices to ' 2026-0' — which is not a YYYY-MM, so
+  // monthDistance THROWS and the handler answers nothing at all. ตู๋ drove it through the real handler:
+  // free and plus got status 0 with no body, and PRO got 200 because isMonthReachable returns at
+  // `span === null` before monthDistance is ever reached. ⇒ the tier we exercise most is the one blind
+  // to it. pages/api/v2/calendar-month.ts:154 already built its month from `parsed`; this one had the
+  // parsed value in hand at line 69 and used the raw string beside it.
+  const wantedMonth = `${parsed.y}-${String(parsed.m).padStart(2, '0')}`
+  if (!calendarMonthReachable(verdict, wantedMonth, currentMonthBkk())) {
+    return res.status(200).json({ detail: null, outOfSpan: true })
   }
 
   const ac = new AbortController()
