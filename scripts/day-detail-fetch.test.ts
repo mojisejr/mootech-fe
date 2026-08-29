@@ -48,6 +48,21 @@ async function run() {
   ok('throw → detail null + degraded, never rejects', threw.detail === null && threw.degraded === true)
 
   globalThis.fetch = realFetch
+  // 🔴 #358 Phase 3 (ตู๋ B4) — an out-of-span refusal must SURVIVE this layer.
+  // The route answers { detail: null, outOfSpan: true } for a day outside what the level's package sells.
+  // Before this the rebuild dropped every key it did not name, so a paid wall reached the client as a bare
+  // `detail: null` — indistinguishable from "upstream died" and from "this profile has no birthday".
+  // ฟีม decided the arrow should INVITE AN UPGRADE, and a state that cannot be told apart from breakage
+  // cannot invite anything. Mutant: delete the `...(data.outOfSpan ? …)` spread → both lines below redden.
+  globalThis.fetch = (async () => ({ ok: true, json: async () => ({ detail: null, outOfSpan: true }) })) as unknown as typeof fetch
+  const span = await fetchDayDetail(person, '2029-01-05')
+  ok('outOfSpan survives the rebuild', span.outOfSpan === true && span.detail === null)
+  ok('an out-of-span answer is NOT degraded — that distinction is the whole field', span.degraded === undefined)
+  // CONTROL — an ordinary degraded answer must not sprout the flag, so the two above are about the wire
+  // and not about the rebuild setting it unconditionally.
+  globalThis.fetch = (async () => ({ ok: true, json: async () => ({ detail: null, degraded: true }) })) as unknown as typeof fetch
+  ok('a degraded answer does not fake outOfSpan', (await fetchDayDetail(person, '2029-01-06')).outOfSpan === undefined)
+
   console.log(`✅ day-detail-fetch.test.ts — ${pass} assertions passed`)
 }
 
