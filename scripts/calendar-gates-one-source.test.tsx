@@ -20,19 +20,21 @@
 // run in this lane. If those two files ever disagree, the DB one is right.
 //
 // 🔴 MUTANT CONTRACT (each reddens `npm test`):
-//   Fired 2026-08-29 against the committed baseline, results as measured and not as predicted:
-//   MP1  calendar-month goes back to resolveMembership   → ① v2-row-only + ④ + ⑤ redden (3 of 8). The other
-//        three rows of ① stay green, which is what makes it the DIVERGENT state and not a blanket failure.
-//        ⑤ reddening is the CORRECT result and I predicted green: ⑤ pins the direction where main ALLOWED
-//        and this branch refuses, so restoring main's resolver is exactly what must break it.
-//   MP2  calendar-month reads `isPaid` loosely (`!== false` instead of `=== true`)  → ③ + ⑤ (2 of 8)
-//   MP3  day-detail goes to resolveMembership instead     → ① v2-row-only + ⑤ (2 of 8), reddening from the
-//        other side and proving the table watches both routes, not just the one that changed
+//   Re-fired 2026-08-29 against the committed baseline after ⑥ was added. Every count below is from a run.
+//   MP1  calendar-month goes back to resolveMembership   → ① v2-row-only + ④ + ⑤ + ⑥  (4 of 9)
+//        The other three rows of ① stay green, which is what makes it the DIVERGENT state rather than a
+//        blanket failure. ⑤ and ⑥ redden because they pin the two directions where main ALLOWED and this
+//        branch refuses — restoring main's resolver is exactly what must break them.
+//   MP2  calendar-month reads `isPaid` loosely (`!== false` instead of `=== true`)  → ③ + ⑤  (2 of 9)
+//        ⑥ stays GREEN here, and that is the useful part: a FREE row answers isPaid `false`, not null, so
+//        a loose null-read cannot rescue it. ⑤ and ⑥ are different bugs and this separates them.
+//   MP3  day-detail goes to resolveMembership instead     → ① + ⑤ + ⑥  (3 of 9), reddening from the other
+//        side and proving the table watches both routes, not just the one that changed.
 //
-// 🔴 HOW THIS TABLE WAS FILLED IN, because it matters more than the numbers. Adding ⑤ changed three of the
-// four counts, and on the first pass I typed the new counts from reasoning and then fired. MP2 happened to
-// match; MP1 and MP3 did not. Every number above is now from a run, and the two places where my prediction
-// and the run disagreed are written down rather than quietly overwritten.
+// 🔴 HOW THIS TABLE WAS FILLED IN, because it matters more than the numbers. It has now been re-measured
+// twice, because both times a new case moved counts I would otherwise have left stale. On the first pass I
+// typed the new counts from reasoning and then fired: MP2 matched, MP1 and MP3 did not. Nothing here is a
+// prediction, and the places where my prediction lost to the run are written down rather than overwritten.
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 
 const h = vi.hoisted(() => ({
