@@ -100,7 +100,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   // ⚠️ That is a real change for a FREE caller, who today gets the trimmed detail for ANY date. It is the
   // decided product rule (ฟีมเคาะ 2026-08-24, ทาง A: Free = the current month), written here rather than
   // left for someone to discover from a diff.
-  const wantedMonth = (date as string).slice(0, 7)
+  // 🔴 From `parsed`, NOT from `date`. parseDate matches on input.trim() (line 41), so ' 2026-08-14'
+  // passes the shape check while the raw string slices to ' 2026-0' — which is not a YYYY-MM, so
+  // monthDistance THROWS and the handler answers nothing at all. ตู๋ drove it through the real handler:
+  // free and plus got status 0 with no body, and PRO got 200 because isMonthReachable returns at
+  // `span === null` before monthDistance is ever reached. ⇒ the tier we exercise most is the one blind
+  // to it. pages/api/v2/calendar-month.ts:154 already built its month from `parsed`; this one had the
+  // parsed value in hand at line 69 and used the raw string beside it.
+  const wantedMonth = `${parsed.y}-${String(parsed.m).padStart(2, '0')}`
   if (!calendarMonthReachable(verdict, wantedMonth, currentMonthBkk())) {
     return res.status(200).json({ detail: null, outOfSpan: true })
   }

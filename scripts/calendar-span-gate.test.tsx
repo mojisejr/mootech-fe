@@ -10,11 +10,16 @@
 // open is not a gate, and a test that only drove the month route would call it one.
 //
 // 🔴 MUTANT CONTRACT (each reddens `npm test`; fired for real, results in the PR):
-//   MS1  PLUS and PRO get the same span in lib/v2/entitlement.ts  → ③ and ④ redden (the levels stop differing)
-//   MS2  isMonthReachable uses `<= span` instead of `<= span - 1` → ② reddens (FREE reaches next month)
-//   MS3  the span check is deleted from calendar-month.ts          → ② and ③ redden
-//   MS4  the span check is deleted from day-detail.ts              → ⑤ reddens — the walk-around case
-//   MS5  entitlementTierOf maps a paid-but-unnamed verdict to FREE → ⑥ reddens (a legacy member loses it)
+//   Fired at the committed head, each with a `git diff --numstat` guard so a mutant that fails to apply
+//   cannot be read as a survivor. These are the MEASURED results — an earlier version of this block held
+//   my predictions for MS1, MS2 and MS3 and all three were wrong, while the PR body carried the real ones.
+//   ตู๋ caught the two copies disagreeing, and the file is the copy that outlives the PR.
+//   MS1  PLUS and PRO get the same span in lib/v2/entitlement.ts   → ④ ⑦        (2 of 7)
+//   MS2  isMonthReachable uses `<= span` instead of `<= span - 1`  → ② ③ ⑤ ⑦    (4 of 7)
+//   MS3  the span check is deleted from calendar-month.ts          → ② ③ ⑤ ⑦    (4 of 7)
+//   MS4  the span check is deleted from day-detail.ts              → ⑤ ONLY     (1 of 7) the walk-around
+//   MS5  entitlementTierOf maps a paid-but-unnamed verdict to FREE → ⑥          (1 of 7)
+//   SURVIVOR  a comment-only edit in the same block                → rc=0, 7 passed
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 
 const h = vi.hoisted(() => ({
@@ -129,6 +134,22 @@ describe('#358 Phase 3 — the calendar span is enforced at the server, on BOTH 
     expect(await dayInSpan('2026-09-14'), 'so a single day inside it must be too').toBe(false)
     // CONTROL — a day inside the span still answers, so ⑤ is not "the day route refuses everything"
     expect(await dayInSpan('2026-08-14'), 'a day in the current month still answers').toBe(true)
+  })
+
+  // 🔴 ⑧ ตู๋ B1 — parseDate matches on input.trim(), so a date with a leading space passes the shape check.
+  // The span then built its month by slicing the RAW string, giving ' 2026-0', and monthDistance threw:
+  // free and plus got status 0 with NO body at all, while PRO answered 200 because isMonthReachable
+  // returns at `span === null` before monthDistance is reached. The most-exercised tier was the blind one.
+  it('🔴 ⑧ a date with a leading space is answered, not thrown — for EVERY tier', async () => {
+    for (const [name, v] of [['free', AS.free], ['plus', AS.plus], ['pro', AS.pro]] as const) {
+      h.verdict = { ...v }
+      h.who = { ok: true, userId: `U-${seat++}` }
+      const res = makeRes()
+      await dayHandler({ method: 'POST', body: { person: PERSON, date: ' 2026-08-14' } } as never, res as never)
+      expect(res.statusCode, `${name} must get a response at all`).toBe(200)
+      expect(res.body, `${name} must get a body`).toBeDefined()
+      expect(res.body.outOfSpan, `${name}: 2026-08 is the current month, so it is in span`).not.toBe(true)
+    }
   })
 
   it('🔴 ⑥ a paid member with no level we can prove keeps the calendar — never downgraded to FREE', async () => {
