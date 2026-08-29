@@ -231,4 +231,32 @@ describe.skipIf(!TEST_URL)('member_subscription · real pg (#354)', () => {
     await sql`DELETE FROM member_subscription WHERE id = ${'sub-354-teeth'}`
     expect(await resolveSubscription(liveMember, NOW)).toEqual({ isPaid: true, tier: 'PRO', source: 'legacy', expireAt: liveMemberExpireAt })
   })
+
+  // ── #358 Phase 2 — THE PREMISE ────────────────────────────────────────────────────────────────────────
+  // scripts/calendar-gates-one-source.test.tsx runs in the default lane and proves the two calendar gates
+  // now agree for every combination of the two stores. To do that it MODELS the resolvers on top of a
+  // fixture of those stores. That model is a claim about code it does not execute, and a spec whose premise
+  // is a model is only as good as something else pinning the premise down. This is that something else.
+  //
+  // 🔴 It is the divergent state itself: a live member_subscription row and NO member_payment row. If this
+  // ever goes red, the mocked spec is describing a repo that no longer exists, and IT is the one to change.
+  it('🔴 #358 Phase 2 — the premise: with a v2 row and no member_payment row, the two resolvers DISAGREE', async () => {
+    const [spare] = await sql`SELECT usr.user_id FROM "user" usr
+      WHERE usr.user_id NOT IN (SELECT user_id FROM member_payment) LIMIT 1`
+    expect(spare, 'the testenv must hold a user with no member_payment row').toBeDefined()
+    const user = spare.user_id as string
+
+    await seed({ id: 'sub-358-p2', userId: user, tier: 'PRO', expireAt: '2030-12-31' })
+
+    // The store the OLD month gate read, alone: it cannot see this membership at all.
+    expect((await resolveMembership(user, NOW)).isFree, 'member_payment alone says FREE').toBe(true)
+    // The store both gates read now: paid, off the v2 row.
+    expect(await resolveSubscription(user, NOW)).toEqual({ isPaid: true, tier: 'PRO', source: 'v2', expireAt: '2030-12-31' })
+
+    // 🔴 CONTROL — take the v2 row away and the disagreement must VANISH. Without this, "they disagree"
+    // could just be resolveMembership answering FREE for a user who is in fact free, which it always would.
+    await sql`DELETE FROM member_subscription WHERE id = ${'sub-358-p2'}`
+    expect((await resolveMembership(user, NOW)).isFree).toBe(true)
+    expect((await resolveSubscription(user, NOW)).isPaid, 'now they agree — both say not paid').toBe(false)
+  })
 })
