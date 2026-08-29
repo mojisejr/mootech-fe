@@ -164,7 +164,7 @@ describe.skipIf(!TEST_URL)('#518 the door and the screen agree about a legacy me
     expect(rows.length, 'the test database must have a user holding neither table').toBe(1)
     legacyUser = rows[0].user_id as string
     // A valid legacy membership: a member_payment row and NO member_subscription row. This is the exact
-    // state of the 2 MANUAL_VIP accounts on prod that Phase 1 exists for (harness/457-capture-rows.mjs:35).
+    // state of the 2 MANUAL_VIP accounts on prod that Phase 1 exists for (harness/457-capture-rows.mjs:52).
     await sql`INSERT INTO member_payment (user_id, plan_code, package_code, create_at, start_at, expire_at)
               VALUES (${legacyUser}, 'MEMBER', 'MANUAL_VIP', ${today}, ${today}, ${addDaysStr(today, 100)})`
   })
