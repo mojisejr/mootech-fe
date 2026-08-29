@@ -124,7 +124,10 @@ describe.skipIf(!TEST_URL)('member_subscription · real pg (#354)', () => {
     ).rejects.toThrow(/foreign key|violates/i)
   })
 
-  it('every existing member_payment user reads EXACTLY as before (no v2 rows, no data moved)', async () => {
+  // ⚠️ The title used to be "reads EXACTLY as before". #358 Phase 1 broke that half: a VALID legacy member
+  // now reads tier 'PRO' + their own expire_at (lib/v2/subscription.ts:26), which is what the loop asserts.
+  // The paid/not-paid verdict and the source ARE still exactly as before, and no data moved.
+  it('every existing member_payment user keeps the SAME paid verdict and source — and a valid one now also reads tier PRO with their own expiry (no data moved)', async () => {
     const users = await sql`SELECT user_id FROM member_payment`
     // 🔴 #442 — this used to read `toBe(24)`, a snapshot of however many rows the dump happened to carry
     // the day #354 was written. The number MOVES on its own: settling a v2 payment writes a shadow

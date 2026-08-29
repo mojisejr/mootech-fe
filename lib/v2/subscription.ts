@@ -1,7 +1,7 @@
 // v2 membership READ seam (mootech-fe#354, Phase 2 of #352) — the ONE place that answers "what tier is
 // this user?" by reading the NEW member_subscription store FIRST and falling back to the legacy
-// member_payment store, so the 24 existing members keep reading exactly as before while new v2 rows take
-// precedence. This module only READS (the writer is Phase 3, #355).
+// member_payment store, so an existing member never drops to free while new v2 rows take precedence. This
+// module only READS (the writer is Phase 3, #355). ⚠️ NOT "the 24 existing members keep reading exactly as before" any more — see the note under LEGACY_TIER below.
 //
 // Two rules live here, both spelled out because the new table intentionally allows MANY rows per user:
 //   ① selection — of a user's rows, pick the ACTIVE one still valid today, newest first, DETERMINISTICALLY
@@ -24,6 +24,20 @@ export type MembershipSource = 'v2' | 'legacy' | 'none'
  *  column, so this is the product decision recorded in #352's closing criterion ("legacy members must not
  *  lose access; treat them as PRO"), written once here rather than re-typed at each call site. */
 export const LEGACY_TIER: TierCode = 'PRO'
+
+// 🔴 WHAT THAT DECISION CHANGED, AND THE NUMBER THAT CAME WITH IT — written here because this file's own
+// header used to promise the opposite ("the 24 existing members keep reading exactly as before"):
+//   · a VALID legacy member now reads `tier: 'PRO'` (:151) and carries their
+//     member_payment.expire_at (:203-204); both used to be null. Guards: the "#358 Phase 1" block in
+//     scripts/member-subscription.test.ts (main lane) and scripts/member-subscription-db.test.ts:130
+//     (DB-gated — it does NOT run in `npm test`).
+//   · 24 was a count of ROWS, never of people. Every v2 settlement upserts a shadow member_payment row with
+//     plan_code='MEMBER' (lib/payment/repo.ts:742-748), so that predicate counts v2 buyers too — and the
+//     legacy branch below only fires when NO live member_subscription row exists. Measured on prod
+//     2026-08-29: 25 rows carry plan_code='MEMBER' and 17 are still valid, but 15 of those 17 also hold a
+//     live v2 row, so 2 accounts actually reach this branch — the MANUAL_VIP pair named at
+//     harness/457-capture-rows.mjs:35. The denominator of any bigger number here is ROWS IN member_payment,
+//     never humans without a v2 subscription.
 
 /** The TIER verdict alone — what `resolveTierFromSources` can answer from a tier_code and a legacy row.
  *  Deliberately WITHOUT expire_at: that function is handed `{ tierCode }` and nothing else, and #365 is not

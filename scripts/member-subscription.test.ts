@@ -1,7 +1,7 @@
 // #354 — teeth for the v2 membership READ seam (lib/v2/subscription.ts + lib/v2/tier.ts additions).
 // PURE half only (no DB): the deterministic row-selection rule and the v2→legacy→free fallback. The DB
-// half (migration idempotency, 24-member parity, determinism on real pg, delete→fallback) lives in
-// scripts/member-subscription-db.test.ts, gated by TEST_DATABASE_URL.
+// half (migration idempotency, per-user parity across every member_payment row, determinism on real pg,
+// delete→fallback) lives in scripts/member-subscription-db.test.ts, gated by TEST_DATABASE_URL.
 //
 // Registered in vitest.config.mts `include` (APPEND-only). Named .test.ts (no JSX here) — the binding
 // condition is "the name is in `include`", not the extension (#353 / debt #212).
@@ -155,8 +155,10 @@ describe('resolveTierFromSources — v2 first, then legacy member_payment, then 
   })
 
   it('MD — no v2 row + a legacy MEMBER ⇒ paid (NOT free), tier PRO, source legacy', () => {
-    // #358 Phase 1 — the 17 still-valid member_payment members carry no tier column, and #352's closing
-    // criterion says they keep their access AS PRO. Before this they read `tier: null`.
+    // #358 Phase 1 — member_payment carries no tier column, and #352's closing criterion says these members
+    // keep their access AS PRO. Before this they read `tier: null`. 🔴 The population is 2 accounts on prod,
+    // not the 17 this comment used to name: 17 is the count of still-valid member_payment rows, 15 of which
+    // also hold a live v2 row and never reach this branch. See the block header further down for the working.
     expect(resolveTierFromSources({ subRow: null, legacy: legacyMember })).toEqual({
       isPaid: true,
       tier: 'PRO',
@@ -295,8 +297,13 @@ describe('#383 resolveMembershipFromRows — same verdict as the lazy path, with
 
 // ── #358 Phase 1 — a valid legacy member IS a PRO member, and their date travels ─────────────────────
 //
-// The measurement this exists for: 25 rows in member_payment carry plan_code='MEMBER', 17 of them still
-// valid today. member_payment has NO tier column, so before this they resolved to `tier: null` and
+// The measurement this exists for (prod, read-only, 2026-08-29): 25 rows in member_payment carry
+// plan_code='MEMBER' and 17 are still valid today. 🔴 THOSE 17 ARE ROWS, NOT THE POPULATION. Every v2
+// settlement upserts a shadow member_payment row with plan_code='MEMBER' (lib/payment/repo.ts:742-748), so
+// the predicate also counts v2 buyers, and the legacy branch only fires when NO live member_subscription
+// row exists. 15 of the 17 hold one, so 2 accounts actually land here — the MANUAL_VIP pair named at
+// harness/457-capture-rows.mjs:35.
+// member_payment has NO tier column, so before this they resolved to `tier: null` and
 // `expireAt: null` — a named-tier screen showed them nothing, and "ใช้ได้ถึง …" printed blank. #352's
 // closing criterion (product owner's, already decided) is that they must not lose access and are PRO.
 //
@@ -317,7 +324,8 @@ describe('#358 Phase 1 — a valid legacy member resolves to PRO, with their mem
   const LEGACY_EXPIRED = { isFree: true, reason: 'EXPIRED' as const, expireAt: '2024-01-01' }
   const LEGACY_NONE_358 = { isFree: true, reason: 'NO_PLAN' as const, expireAt: null }
 
-  // 🔴 ML1 — the whole point of Phase 1. 17 people are in exactly this state on production today.
+  // 🔴 ML1 — the whole point of Phase 1. 2 accounts are in exactly this state on production today (this
+  // comment used to say 17, which is the count of still-valid member_payment ROWS — see the block header).
   it('🔴 a VALID legacy member (no v2 row) → tier PRO · isPaid true · source legacy', () => {
     const r = resolveMembershipFromRows([], TODAY, LEGACY_VALID)
     expect(r.tier).toBe('PRO')

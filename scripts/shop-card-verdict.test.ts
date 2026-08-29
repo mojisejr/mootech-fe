@@ -6,7 +6,8 @@
 //
 // 🔴 THE MATRIX IS 5 ROWS, NOT 3. The ticket draws Free / PLUS / PRO. The two it does not draw are the two
 // that fail silently: `undetermined` (loading or error — guessing either way is wrong, tier.ts:35-39) and
-// the legacy member (paid, no level name — lib/v2/tier.ts:114). Both are asserted here.
+// the legacy member — paid, and with no PROVABLE level at the gate. (Since #358 Phase 1 the screen does
+// show them a name, 'PRO'; card-verdict.ts:111 hands the gate null on purpose.) Both are asserted here.
 //
 // 🔴 MUTANT CONTRACT (each reddens `npm test` — the DoD's "ตัวพิสูจน์ว่ามีฟัน"):
 //   MV1  read `undetermined` as a free viewer (drop the guard, let null fall through)  → the 4 undetermined tests redden
@@ -51,7 +52,7 @@ const proUntil = (expireAt: string): ViewerMembership => ({ isPaid: true, tier: 
 // Paid, but their membership lives on member_payment, which has no tier column. Since #358 Phase 1 the
 // resolver DECIDES the name 'PRO' for them (subscription.ts:26 LEGACY_TIER); `source: 'legacy'` is the only
 // field that says the name was decided rather than READ, and it is what keeps the gate from placing them on
-// the ladder (purchase-gate.ts:111-116 — never refuse someone we cannot place). This shape is not asserted
+// the ladder (purchase-gate.ts:116-121 — never refuse someone we cannot place). This shape is not asserted
 // from memory: the last describe block builds it from the real resolver.
 const legacyUntil = (expireAt: string): ViewerMembership => ({ isPaid: true, tier: 'PRO', source: 'legacy', expireAt })
 // The pre-#358 shape: paid, no name at all. No writer produces it today, but it is the branch the fixture

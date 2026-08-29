@@ -21,8 +21,12 @@ export type HomeProfile = {
    *  case does not reach a screen — but a caller that ever renders this profile OUTSIDE home must not
    *  assume `null` means "still loading". */
   isPaid: boolean | null
-  /** The named v2 tier. null means EITHER not-determined OR paid-with-no-name (a legacy member whose row
-   *  predates the catalog) — the two are told apart by `isPaid`: null vs true. Never guess FREE. */
+  /** The named v2 tier. null means EITHER not-determined OR paid-with-no-name — the two are told apart by
+   *  `isPaid`: null vs true. Never guess FREE.
+   *  ⚠️ paid-with-no-name USED to mean "a legacy member whose row predates the catalog". Since #358 Phase 1
+   *  a valid legacy member arrives already named 'PRO' (lib/v2/subscription.ts:26) and lands on the named
+   *  branch, so null here now means the /api/user membership composite was absent or unreadable — the case
+   *  scripts/home-profile.test.ts keeps as "membership null (server could not determine it)". */
   tier: TierCode | null
 }
 

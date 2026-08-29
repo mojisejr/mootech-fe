@@ -18,14 +18,18 @@ export function planFor(m: { isPaid?: boolean | null; tier?: string | null; expi
     // KNOWN not-paid. ❌ Never "หมดอายุ" — a free account never had a plan to expire.
     return { heading: 'Mumate Free', sub: 'ยังไม่ได้เป็นสมาชิก', level: null, isFree: true }
   }
-  // Paid. The NAME may still be unknown (a legacy member_payment row predates the v2 catalogue) — that must
-  // not undo "this person paid", and the word FREE must never reach a paying member's screen.
+  // Paid. The NAME may still be unknown — ⚠️ no longer because they are legacy: since #358 Phase 1 a valid legacy member arrives already named 'PRO' (lib/v2/subscription.ts:26), so this
+  // branch is now a paid viewer whose name did not reach us. Unknown must not undo "this person paid", and the word FREE must never reach a paying member's screen.
   const named = m.tier && m.tier !== 'FREE' ? m.tier : null
   const heading = named === 'PRO' ? 'Mumate Pro' : named === 'PLUS' ? 'Mumate +' : 'สมาชิก'
   const dateText = m.expireAt ? formatThaiDateAbbr(m.expireAt) : ''
   return {
     heading,
-    // No v2 date to show (legacy path) ⇒ say nothing about dates rather than invent or imply one.
+    // No date to show ⇒ say nothing about dates rather than invent or imply one.
+    // ⚠️ This is NOT "the legacy path" any more. Since #358 Phase 1 a VALID legacy member carries their
+    // member_payment.expire_at through this same field (lib/v2/subscription.ts:26 names them; the legacy
+    // arm of resolveMembershipFromRows attaches the date), so they land on the "ใช้ได้ถึง …" branch. What
+    // reaches this branch now is a paid viewer whose expiry did not reach us at all.
     sub: dateText ? `ใช้ได้ถึง ${dateText}` : 'สมาชิกปัจจุบัน',
     level: named ?? 'สมาชิก',
     isFree: false,

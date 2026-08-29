@@ -140,14 +140,14 @@ describe('#383 /api/user → membership composite', () => {
 
   it('③ free user (no payment row, no v2 row) → { isPaid: false, tier: null, source: "none" }', async () => {
     const { body } = await call()
-    // #365 — expireAt null on the legacy path: their expiry lives in member_payment, not in this seam's table. 🔴 null is NOT "expired" — isPaid answers that.
+    // #365/#358 — no row anywhere, so no date. ⚠️ This case is source 'none', NOT "the legacy path", and since #358 Phase 1 a PAID legacy verdict DOES report member_payment.expire_at (lib/v2/subscription.ts:26 names them, the legacy arm of resolveMembershipFromRows dates them). 🔴 null is NOT "expired" — isPaid answers that.
     expect(body.membership).toEqual({ isPaid: false, tier: null, source: 'none', expireAt: null })
   })
 
   it('③b expired member → source "legacy", isPaid false (expiry is decided at READ time)', async () => {
     reset({ memberPayment: { user_id: 'u1', plan_code: 'MEMBER', expire_at: PAST } })
     const { body } = await call()
-    // #365 — expireAt null on the legacy path: their expiry lives in member_payment, not in this seam's table. 🔴 null is NOT "expired" — isPaid answers that.
+    // #365/#358 — an EXPIRED legacy row decided "not paid", and only a PAID legacy verdict reports a date (the legacy arm of resolveMembershipFromRows checks `isPaid === true`), so still no date here. ⚠️ The old wording — "their expiry lives in member_payment, not in this seam's table" — stopped being true at #358 Phase 1. 🔴 null is NOT "expired" — isPaid answers that.
     expect(body.membership).toEqual({ isPaid: false, tier: null, source: 'legacy', expireAt: null })
   })
 

@@ -35,7 +35,7 @@ export type ViewerMembership = {
    *  resolves to tier 'PRO' — member_payment has no tier column, so that name is a product decision, not a
    *  row. Without this field the two are indistinguishable and the gate below refuses a legacy member on
    *  BOTH cards (PRO → 'current', PLUS → 'blocked'), which is the opposite of the rule stated at
-   *  purchase-gate.ts:111-116: never refuse someone we cannot place on the ladder.
+   *  purchase-gate.ts:116-121: never refuse someone we cannot place on the ladder.
    *  Optional/loose-typed for the same reason every field here is: the row may be absent or half-known. */
   source?: string | null
   expireAt?: string | null
@@ -94,7 +94,7 @@ export function cardVerdictFor(args: {
   // 🔴 THE DISPLAY READS THE TIER, THE GATE READS THE SOURCE.
   // #358 Phase 1 gave a valid legacy member the NAME 'PRO' (subscription.ts:26) so every named-tier screen
   // stops special-casing null — a display decision, and the right one. But `Entitlement.tier` is not a name
-  // to show, it is "the level we can PROVE they hold" (purchase-gate.ts:29), and for a legacy member there
+  // to show, it is "the level we can PROVE they hold" (purchase-gate.ts:31), and for a legacy member there
   // is no such level: member_payment has no tier column. Handing the decided name to the gate makes it
   // answer the placeable-member matrix (PRO→PRO = ALREADY_ON_THIS_TIER, PRO→PLUS = CANNOT_DOWNGRADE), so
   // both cards refuse and the 2 legacy members on prod can buy nothing at all (17 rows in member_payment

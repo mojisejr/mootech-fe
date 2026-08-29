@@ -71,9 +71,12 @@ describe('#384 headerBadge — the rule every header screen shares', () => {
     expect(headerBadge({ isPaid: false, tier: null }, { upgradeCta: false })).toEqual({ kind: 'none' })
   })
 
-  it('paid with no level name → "สมาชิก" (the state EVERY member is in today)', () => {
-    // goo #383: nobody has bought through the v2 lane yet, so every existing paying member arrives here.
-    // This is the main screenshot in the PR for that reason — it is not the edge case, it is the common one.
+  it('paid with no level name → "สมาชิก"', () => {
+    // ⚠️ NOT "the state EVERY member is in today" any more, which is what this title used to claim. When
+    // #383/#384 shipped, nobody had bought through the v2 lane, so every paying member arrived here unnamed
+    // and this was the main screenshot in that PR. Since #358 Phase 1 a valid legacy member resolves to
+    // 'PRO' (lib/v2/subscription.ts:26) and gets the PRO pill instead; what is left on this branch is a paid
+    // viewer whose NAME did not reach us — composite absent/unreadable, or the pre-#383 hook shape below.
     expect(headerBadge({ isPaid: true, tier: null }, { upgradeCta: true })).toEqual({ kind: 'tier', label: MEMBER_BADGE_LABEL })
     // and with no `tier` key at all — the shape the hook has BEFORE #383 merges.
     expect(headerBadge({ isPaid: true }, { upgradeCta: true })).toEqual({ kind: 'tier', label: MEMBER_BADGE_LABEL })
@@ -119,7 +122,9 @@ describe('#384 the header renders what the rule decided', () => {
     expect(screen.queryByTestId('header-upgrade')).toBeNull()
   })
 
-  it('a legacy member sees "สมาชิก"', async () => {
+  // was 'a legacy member sees "สมาชิก"' — since #358 Phase 1 a valid legacy member arrives named 'PRO'
+  // (lib/v2/subscription.ts:26) and sees PRO. This input is a paid viewer with no name on the response.
+  it('a paid viewer whose level name did not reach us sees "สมาชิก"', async () => {
     await renderHeader({ isPaid: true, tier: null })
     expect(screen.getByTestId('header-tier').textContent).toBe(MEMBER_BADGE_LABEL)
   })
