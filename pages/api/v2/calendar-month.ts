@@ -54,9 +54,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   // secret. Nothing that touches membership, the cache, or the upstream happens before this point.
   const who = await resolveSessionUserId(req, res)
   if (!who.ok) {
-    // Not signed in / no account yet / ambiguous identity → exactly the answer the old `!userId` branch
-    // gave (200 + allowed:false), so the screen needs no change. Fail closed, never a 4xx the UI must learn.
-    return res.status(200).json({ allowed: false, year: parsed.year, month: parsed.month, days: [] })
+    // Not signed in / no account yet / ambiguous identity → the same 200 + allowed:false the old `!userId`
+    // branch gave. Fail closed, never a 4xx the UI must learn.
+    // #530: `reason` names WHICH refusal this is. The sibling exit further down is 'out-of-span', and the
+    // screen's answer to the two is opposite — sign in again vs buy a bigger package.
+    return res.status(200).json({ allowed: false, reason: 'no-identity', year: parsed.year, month: parsed.month, days: [] })
   }
   const userId = who.userId
 
@@ -149,19 +151,40 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     // one copy, and pages/api/v2/day-detail.ts calls the same function with the same arguments. Phase 2's
     // lesson applied one level up: two routes asking one question, never two.
     //
-    // Refusal shape is the existing one (200 + allowed:false + empty days), so the screen needs no change
-    // and no upstream fortune call is paid for a month we are not going to return.
+    // Refusal shape is ADDITIVE to the existing one (200 + allowed:false + empty days) — a screen that
+    // reads neither field behaves exactly as before — and no upstream fortune call is paid for a month we
+    // are not going to return.
     //
-    // ⚠️ THIS REFUSAL IS INDISTINGUISHABLE FROM THE ONE AT :59, and that is a real gap, not a nicety.
-    // Line 59 refuses "we do not know who you are"; this one refuses "your package stops here". Both
-    // answer the same object, so the screen cannot tell an expired session from a sales moment — and the
-    // arrow ฟีม described pressing comes from THIS route. Not fixed here because adding a reason field is
-    // a response-shape change with a screen half, and ตู๋ confirmed no open issue covered it.
-    // ⇒ mojisejr/mootech-fe#530, the sibling of #529 on the day route. Do them together: one behaviour
-    //   split across two routes is exactly how the two calendar gates drifted apart before Phase 2.
+    // 🔴 #530 — `reason` is the whole point of this branch existing separately. The refusal at :59 says
+    // "we do not know who you are"; this one says "your package stops here". They used to answer a
+    // byte-identical object, so the screen could not tell an expired session from a sales moment, and the
+    // arrow ฟีม described pressing comes from THIS route. ฟีมเคาะ 2026-08-24: that press should INVITE AN
+    // UPGRADE, and nothing indistinguishable from "please sign in again" can invite anything.
+    //
+    // ⚠️ The two literals below are the ONLY two `allowed: false` exits in this file — checked, not
+    // assumed. Verify by running, from the repo root:
+    //     grep -cE '^ *(return .*)?allowed: false' pages/api/v2/calendar-month.ts     → 2
+    // and read both. If a third refusal is ever added it MUST name itself, or this field silently goes
+    // back to being unable to tell the two apart.
+    //
+    // 🔑 NO LINE NUMBERS, AND THE PATTERN IS ANCHORED AT `return`. Four versions of this one sentence were
+    // wrong before this one, each in a way the previous fix created:
+    //   1. named :59 — ตู๋ measured the exits at :61 and :169
+    //   2. corrected to :61 and :169 — and writing that two-line correction moved the second exit to :171,
+    //      so it was false the moment it was saved. A citation above the lines it cites moves them by
+    //      existing.
+    //   3. numbers replaced with `grep -c "allowed: false"`, claimed → 2. Measured 4: the prose in THIS
+    //      comment matches, so the check counted itself.
+    //   4. narrowed to `json({ allowed: false`. Still 4, for the same reason, one clause later.
+    //   5. anchored at `^ *return`, which fixed the self-counting — but saw ONLY the one-line form. ตู๋
+    //      pointed at the multi-line `return res.status(200).json({` further down THIS file (the allowed
+    //      exit) as the shape it would miss. Measured by rewriting one refusal into that form: the old
+    //      pattern found 1 of 2, the current one finds 2 of 2.
+    // ⇒ `^ *` plus an OPTIONAL `return` is what keeps it both self-exclusive and shape-agnostic: a comment
+    //   line starts with `//`, so it is still never counted, while `allowed: false` on its own line is.
     const wantedMonth = `${parsed.year}-${String(parsed.month).padStart(2, '0')}`
     if (!calendarMonthReachable(verdict, wantedMonth, currentMonthBkk())) {
-      return res.status(200).json({ allowed: false, year: parsed.year, month: parsed.month, days: [] })
+      return res.status(200).json({ allowed: false, reason: 'out-of-span', year: parsed.year, month: parsed.month, days: [] })
     }
   }
   // ────────────────────────────────────────────────────────────────────────────────────────────────

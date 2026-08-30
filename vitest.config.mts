@@ -119,6 +119,7 @@ export default defineConfig({
       'scripts/account-screen-mount.test.tsx', // #365 — จอประกอบจริง: ประวัติล้มแล้วต้องไม่พูดว่า 'ยังไม่มีรายการ' (ตู๋ R1/R2)
       'scripts/account-screen.test.tsx', // #365 — จอสิทธิ์ของฉัน: ป้ายพาไป · planFor · ตัวกรอง APPROVED · วันที่ พ.ศ.
       'scripts/vitest-include-drift.test.ts',
+      'scripts/calendar-refusal-reaches-screen.test.tsx',
     'scripts/payment-charge-route.test.ts', // #355 — route: session gate + client-ignored + fail-loud-before-charge
       'scripts/terminal-failure-agreement.test.ts', // #437 — isRefusedCharge (สร้าง charge) กับ isTerminalFailure (webhook) ต้องตอบเหมือนกัน
       'scripts/result-declined-rule.test.ts', // #438 — จอต้องพูดคำว่าธนาคารปฏิเสธได้ + ปุ่มต้องไม่พาไปหน้าตาย

@@ -120,7 +120,10 @@ describe('#391 /api/v2/calendar-month — the gate judges the session, with the 
     h.who = { ok: false, status: 401, error: 'not signed in' }
     const res = await call({ person: PERSON, month: '2027-03', userId: 'PAID-MEMBER-1' })
     expect(res.statusCode).toBe(200)
-    expect(res.body).toEqual({ allowed: false, year: 2027, month: 3, days: [] })
+    // #530 — the shape is now additive: same 200 + allowed:false + empty days, plus a field naming WHICH
+    // refusal it is. This one is 'no-identity'; the span refusal further down this file's route is
+    // 'out-of-span', and the screen's answer to the two is opposite (sign in again vs buy more).
+    expect(res.body).toEqual({ allowed: false, reason: 'no-identity', year: 2027, month: 3, days: [] })
     expect(h.fortuneCalls).toHaveLength(0)
   })
 
