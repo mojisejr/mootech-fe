@@ -49,15 +49,17 @@ describe('#358 Phase 4 — the span gate is not wrapped in anything', () => {
   })
 
   // 🔴 CONTROL — without this, a depthOf() that always returned 1 would pass the case above and look
-  // exactly like a clean result. This feeds it the shape we are trying to forbid and requires a different
-  // answer. It is the same source, wrapped in one `if`, so nothing but the nesting differs.
-  it('🔴 CONTROL — the same source wrapped in one flag reads as depth 2, so the measure can fail', () => {
+  // exactly like a clean result. This feeds it the shape we are trying to forbid and requires a DIFFERENT
+  // answer: same source, one extra `if`, nothing else changed.
+  //
+  // ⚠️ It asserts the DIFFERENCE, not the absolute 2. An earlier draft asserted 2 and went red under the
+  // very mutant this file exists to catch — wrapping the real route made the control's own answer 3, so a
+  // correct detector reported a broken control. A control must survive the mutation it is controlling for.
+  it('🔴 CONTROL — one extra wrap reads exactly one level deeper, so the measure can move', () => {
     const src = readFileSync(ROUTE, 'utf8')
-    const wrapped = src.replace(
-      '  if (!calendarMonthReachable(',
-      '  if (SOME_NEW_FLAG) {\n  if (!calendarMonthReachable(',
-    )
-    expect(depthOf(wrapped, 'if (!calendarMonthReachable(')).toBe(2)
+    const needle = 'if (!calendarMonthReachable('
+    const wrapped = src.replace('  ' + needle, '  if (SOME_NEW_FLAG) {\n  ' + needle)
+    expect(depthOf(wrapped, needle)).toBe(depthOf(src, needle) + 1)
   })
 
   it('🔴 the retired switch module is gone, and the route does not import it', () => {
