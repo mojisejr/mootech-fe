@@ -227,8 +227,24 @@ const NO_LEGACY: LegacyInput = { isFree: true, reason: 'NO_PLAN', expireAt: null
  *
  * This is the read-side twin of the fall-through in resolveTierFromSources: the two must agree about which
  * codes need member_payment, or the lazy caller starves the rule of the very input it now depends on. Kept
- * as one exported predicate rather than an inline condition so a test can hold them together, and so adding
- * a fourth tier_code has ONE place to consider.
+ * as one exported predicate rather than an inline condition so a test can hold them together.
+ *
+ * 🔴 ADDING A FOURTH tier_code MEANS TWO PLACES, NOT ONE. This predicate is the READ seam's copy. The
+ * purchase door holds a second, independent one:
+ *
+ *     lib/payment/repo.ts:478   const live = pickActiveSubscriptionRow(rows, today)
+ *     lib/payment/repo.ts:495   isPaid: true          ← unconditional for ANY live row, FREE included
+ *
+ * It never asks this function. ตู๋ probed both against testenv postgres on a real member holding a live
+ * FREE row and they answer differently about tier and expiry — at THIS head and at base 105206f alike, so
+ * the divergence predates #525 and is not something this file introduced. Do not "fix" it here: which one
+ * is right is a product decision about whether a corrupted row may still buy, and it is tracked at
+ * mojisejr/mootech-fe#514 together with the unmappable-tier_code case, which is the same two-holders shape
+ * with a different input.
+ *
+ * ⚠️ An earlier draft of this docblock said "ONE place to consider". That sentence would have sent the
+ * next person to edit this file alone and leave repo.ts:495 calling them paid — the very divergence #525
+ * closed, one file over.
  *
  *   PLUS / PRO    → true  (paid outright)
  *   unknown code  → true  (fails closed at :136 — deliberately not rescued by a legacy row)
