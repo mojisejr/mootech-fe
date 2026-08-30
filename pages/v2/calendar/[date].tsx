@@ -17,7 +17,7 @@ import Link from 'next/link'
 import { useRouter } from 'next/router'
 import { SHOP_HREF } from '@/features/v2-shop/upgrade-cta'
 import { v2RedirectIfUnauthed, isV2TeamPreview } from '@/lib/v2/gate'
-import { useDayDetail, useAdvancedMode, useReminders, useReminderDraft, menuStateForDay, type YamSlot } from '@/features/v2-calendar'
+import { useDayDetail, useAdvancedMode, useReminders, useReminderDraft, menuStateForDay, CalendarMenuState, type YamSlot } from '@/features/v2-calendar'
 import { CalendarShell } from '@/features/v2-calendar/components/CalendarShell'
 import { DayHeader } from '@/features/v2-calendar/components/day-detail/DayHeader'
 import { DayStrip } from '@/features/v2-calendar/components/day-detail/DayStrip'
@@ -201,8 +201,19 @@ export default function V2CalendarDayPage({ teamPreview }: { teamPreview: boolea
   // test case rather than left as a comment, so the day someone reorders those branches this line stops
   // being redundant and something reddens.
   if (bodyState !== 'ready' || !detail) {
+    // 🔴 THE BOTTOM BAR IS PART OF THE SCREEN, and this is the defect the pixels caught that the string
+    // assertions did not. `ctaLabel=""` is the sentinel Menubar.tsx:92 reads as "still loading", so it
+    // prints กำลังโหลด… — on a walled day whose fetch finished, that is the same lie in a second place,
+    // one bar below the card that just said the truth. The month screen shows NO bottom CTA in its walled
+    // state (CalendarMenuState.Normal), so the day screen now matches it: same behaviour, both routes.
+    // `loading` keeps the sentinel, because there the word is true.
+    const settled = bodyState !== 'loading'
     return (
-      <CalendarShell title="รายละเอียดวัน" menuState={menuState} ctaLabel="" onCta={() => {}}>
+      <CalendarShell
+        title="รายละเอียดวัน"
+        menuState={settled ? CalendarMenuState.Normal : menuState}
+        {...(settled ? {} : { ctaLabel: '', onCta: () => {} })}
+      >
         {bodyState === 'loading' && (
           <div data-testid="day-detail-pending" aria-live="polite" className="pointer-events-none absolute inset-x-0 top-1/3 grid place-items-center">
             <span className="size-8 animate-spin rounded-full border-[3px] border-v3-sapphire/20 border-t-v3-sapphire" />

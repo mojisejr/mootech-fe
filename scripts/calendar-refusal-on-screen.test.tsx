@@ -15,6 +15,7 @@
 //   R4  the sign-in card links to the shop instead of /v2/login                → the no-sales-pitch test reddens
 //   R5  the month page renders CalendarSkeleton for a NAMED refusal            → the month-arrow tests redden
 //   R6  the day page drops the upgrade branch and falls back to the spinner    → the day-wall test reddens
+//   R7  the settled day screen returns to ctaLabel='' (the loading sentinel)   → the no-lie-in-the-bar test reddens
 import React from 'react'
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, cleanup, waitFor } from '@testing-library/react'
@@ -218,6 +219,22 @@ describe('#529 the day screen — the wall that spun forever', () => {
     await waitFor(() => expect(screen.getByTestId('day-detail-unavailable')).toBeTruthy())
     expect(screen.queryByTestId('day-detail-pending')).toBeNull()
     expect(screen.queryByTestId('calendar-refusal')).toBeNull()
+  })
+
+  // 🔴 R7. THE PIXELS CAUGHT THIS ONE, NOT THE STRINGS. Every assertion above was green while the bottom
+  // bar still printed กำลังโหลด… on the walled day: `ctaLabel=""` is the sentinel Menubar.tsx:92 reads as
+  // "loading". So the card said "your package stops here" and the bar one row below said "still loading",
+  // and the whole point of this ticket is that the screen must not lie about what is happening.
+  // Encoded as a case rather than written in a comment, so a later refactor that reinstates the sentinel
+  // reddens instead of shipping quietly.
+  it.each([
+    ['a walled day', { detail: null, loading: false, outOfSpan: true }],
+    ['a failed day', { detail: null, loading: false, outOfSpan: false }],
+  ])('🔴 %s has finished loading, so no part of the screen may still say so', async (_n, seam) => {
+    dayState.value = seam as typeof dayState.value
+    const { container } = await mountDay()
+    await waitFor(() => expect(screen.queryByTestId('day-detail-pending')).toBeNull())
+    expect(container.textContent ?? '').not.toMatch(/กำลังโหลด/)
   })
 
   it('a fetch really in flight still gets the spinner — it is telling the truth now', async () => {
