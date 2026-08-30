@@ -64,7 +64,21 @@ export function useDayDetail(date: string): UseDayDetail {
   // Same determinants as the BFF cache key — dob edit → new signature → no cross-birth stale.
   const birthSig = useMemo(() => (person ? JSON.stringify(person) : ''), [person])
 
-  const [state, setState] = useState<{ detail: DayDetail | null; loading: boolean; outOfSpan: boolean }>({
+  // 🔴 THE STATE CARRIES THE DATE IT DESCRIBES (ตู๋, measured on mojisejr/mootech-fe#534's clean head).
+  //
+  // `date` is a PROP and this was a prop-less state, so on the render right after the caller selects a new
+  // day — before the effect below runs — React hands the screen the NEW date beside the PREVIOUS day's
+  // answer. ตู๋ measured it on the real screen: tapping from a walled day to a reachable one showed the
+  // upgrade card ON THE REACHABLE DAY in 1 of 3 renders after the tap. That is this pair of tickets' own
+  // defect arriving through the other door — a day that is fine, described as a paid wall.
+  //
+  // Stamping the date makes the mismatch REPRESENTABLE, so the reader below can refuse to answer for a day
+  // this state is not about. It also deletes a cross-file promise: features/v2-calendar/refusal-view.ts
+  // orders `outOfSpan` above `loading`, which was safe only because this hook happened never to set both —
+  // an invariant living in one file and relied upon in another, with nothing failing if it broke. A stale
+  // day now reads as `loading` here, so that ordering cannot be wrong whatever this hook does.
+  const [state, setState] = useState<{ date: string; detail: DayDetail | null; loading: boolean; outOfSpan: boolean }>({
+    date: '',
     detail: null,
     loading: true,
     outOfSpan: false,
@@ -85,7 +99,7 @@ export function useDayDetail(date: string): UseDayDetail {
   // The selected day's detail — anti-latch on [date].
   useEffect(() => {
     if (!date || !userId || !person) {
-      setState({ detail: null, loading: false, outOfSpan: false })
+      setState({ date, detail: null, loading: false, outOfSpan: false })
       return
     }
     const k = dayKey(userId, birthSig, date, paid)
@@ -95,20 +109,24 @@ export function useDayDetail(date: string): UseDayDetail {
     if (peeked !== undefined) {
       // #529 — an out-of-span day is out-of-span on a re-view too. The cache used to hold the detail
       // alone, so this branch could only ever answer "no detail" and the wall became a crash on every hit.
-      setState({ ...toState(peeked), loading: false })
+      setState({ date, ...toState(peeked), loading: false })
       return
     }
 
     let alive = true
-    setState({ detail: null, loading: true, outOfSpan: false }) // new day → clear old text; the ring (month cell) stays visible
+    setState({ date, detail: null, loading: true, outOfSpan: false }) // new day → clear old text; the ring (month cell) stays visible
     getDayDetail(k, () => fetchDayDetail(person, date).then(toCachedDay)).then((day) => {
       if (!alive) return // date changed / unmounted mid-flight → drop this stale response (THE anti-latch)
-      setState({ ...toState(day), loading: false })
+      setState({ date, ...toState(day), loading: false })
     })
     return () => {
       alive = false
     }
   }, [date, userId, birthSig, person, paid])
 
-  return state
+  // A state describing a DIFFERENT day is not an answer about this one. Reading it as `loading` is the
+  // honest translation — we are between the caller's choice and the effect that serves it — and it is the
+  // one reading that can never show a wall, or a fortune, belonging to the day before.
+  if (state.date !== date) return { detail: null, loading: true, outOfSpan: false }
+  return { detail: state.detail, loading: state.loading, outOfSpan: state.outOfSpan }
 }

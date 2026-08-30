@@ -222,6 +222,53 @@ describe('#529 — useDayDetail resolves THREE states, not two', () => {
     expect(spy.mock.calls.length).toBeGreaterThan(1)
   })
 
+  // 🔴 ตู๋'s find on μุน's clean head — the OTHER door to this pair of tickets' own defect. Tapping from a
+  // walled day to a reachable one showed the upgrade card ON THE REACHABLE DAY in 1 of 3 renders after the
+  // tap, because `date` is a prop and the answer was prop-less state. Asserted at the render immediately
+  // after the change, with NO waitFor, because waiting for the effect is precisely what hides it.
+  //
+  // ⚠️ EVERY RENDER IS RECORDED, not just the settled one. My first version of this test read
+  // `result.current` right after `rerender` and passed WITH THE FIX REMOVED — @testing-library wraps
+  // `rerender` in `act()`, which flushes the effect before control comes back, so the intermediate render
+  // is over by the time you can look at it. The bug lives in exactly that render. Recording each call of
+  // the hook is what makes it observable; asserting on `result.current` cannot see it at all.
+  it('🔴 changing the date never shows the PREVIOUS day\'s wall on the new day (ตู๋)', async () => {
+    vi.spyOn(fetchDay, 'fetchDayDetail').mockImplementation(async (_p: never, d: string) =>
+      d === '2029-01-01' ? { detail: null, outOfSpan: true } : { detail: null, degraded: true },
+    )
+    const seen: Array<{ date: string; outOfSpan: boolean }> = []
+    const { result, rerender } = renderHook(
+      ({ d }) => {
+        const r = useDayDetail(d)
+        seen.push({ date: d, outOfSpan: r.outOfSpan })
+        return r
+      },
+      { initialProps: { d: '2029-01-01' } },
+    )
+    await waitFor(() => expect(result.current.outOfSpan).toBe(true)) // the walled day, settled
+
+    seen.length = 0
+    rerender({ d: '2029-01-02' }) // the reachable day
+    await waitFor(() => expect(result.current.loading).toBe(false))
+
+    // THE ASSERTION: no render — not one, not the first — ever paired the new date with the old wall.
+    const stale = seen.filter((f) => f.date === '2029-01-02' && f.outOfSpan)
+    expect(stale).toEqual([])
+    expect(seen.length).toBeGreaterThan(0) // the recorder actually ran, so [] means clean, not empty
+    expect(result.current.outOfSpan).toBe(false)
+  })
+
+  // 🔴 CONTROL — the stamp must not make the hook answer `loading` forever. A day that settles must still
+  // settle, otherwise "never show a stale wall" is satisfied by never showing anything at all.
+  it('🔴 CONTROL — the date stamp still lets a day settle (not a permanent loading)', async () => {
+    vi.spyOn(fetchDay, 'fetchDayDetail').mockResolvedValue({ detail: null, outOfSpan: true })
+    const { result, rerender } = renderHook(({ d }) => useDayDetail(d), { initialProps: { d: '2029-03-01' } })
+    await waitFor(() => expect(result.current.loading).toBe(false))
+    rerender({ d: '2029-03-02' })
+    await waitFor(() => expect(result.current.loading).toBe(false))
+    expect(result.current.outOfSpan).toBe(true) // the NEW day's own answer, not the old one's
+  })
+
   // 🔴 CONTROL for both of the above — "never cache anything" would satisfy them and quietly delete the
   // whole point of this cache. A NORMAL day must still be served from memory without a second request.
   it('🔴 CONTROL — a normal day IS still cached: the second view does not re-fetch', async () => {

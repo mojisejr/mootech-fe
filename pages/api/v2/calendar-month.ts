@@ -163,7 +163,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     //
     // ⚠️ The two literals below are the ONLY two `allowed: false` exits in this file — checked, not
     // assumed. Verify by running, from the repo root:
-    //     grep -cE '^ *return .*allowed: false' pages/api/v2/calendar-month.ts     → 2
+    //     grep -cE '^ *(return .*)?allowed: false' pages/api/v2/calendar-month.ts     → 2
     // and read both. If a third refusal is ever added it MUST name itself, or this field silently goes
     // back to being unable to tell the two apart.
     //
@@ -176,8 +176,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     //   3. numbers replaced with `grep -c "allowed: false"`, claimed → 2. Measured 4: the prose in THIS
     //      comment matches, so the check counted itself.
     //   4. narrowed to `json({ allowed: false`. Still 4, for the same reason, one clause later.
-    // ⇒ `^ *return` is what makes it self-exclusive: a comment line can never start with `return`, so no
-    //   amount of explaining the check here can change what the check counts.
+    //   5. anchored at `^ *return`, which fixed the self-counting — but saw ONLY the one-line form. ตู๋
+    //      pointed at the multi-line `return res.status(200).json({` further down THIS file (the allowed
+    //      exit) as the shape it would miss. Measured by rewriting one refusal into that form: the old
+    //      pattern found 1 of 2, the current one finds 2 of 2.
+    // ⇒ `^ *` plus an OPTIONAL `return` is what keeps it both self-exclusive and shape-agnostic: a comment
+    //   line starts with `//`, so it is still never counted, while `allowed: false` on its own line is.
     const wantedMonth = `${parsed.year}-${String(parsed.month).padStart(2, '0')}`
     if (!calendarMonthReachable(verdict, wantedMonth, currentMonthBkk())) {
       return res.status(200).json({ allowed: false, reason: 'out-of-span', year: parsed.year, month: parsed.month, days: [] })
