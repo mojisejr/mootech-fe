@@ -36,13 +36,25 @@ function isLoveDomain(type: MatchingType): boolean {
   return type === 'LOVE'
 }
 
-// be's updateLoveMate/updateWorkVibes (user.service.ts:883 / :857): +10 used_point on the user row and a
-// log_activity row at -10 with activity_id 2. `used_point` is on screen today — pages/profile/index.tsx:556
-// renders {usedPoint}/{totalPoint} — so dropping this would make the same action move the counter on v1
-// and not on v2. Reproduced for parity; changing the points economy is #358's business, not a side effect
-// of moving a pipe.
-const MATCHING_ACTIVITY_ID = 2
+// be's updateLoveMate/updateWorkVibes: +10 used_point on the user row and a log_activity row at -10.
+// 🔴 The activity_id is NOT shared between them — ตู๋ caught this at review, I had read only one half:
+//   chinese-horoscope.service.ts:1121  LOVE                  → updateLoveMate  → activity_id 2 (user.service.ts:900)
+//   chinese-horoscope.service.ts:1199  BOSS/EMPLOYEE/FRIEND  → updateWorkVibes → activity_id 3 (user.service.ts:874)
+// It reaches a screen: pages/api/log-activity.ts:24 joins activity_id to activity.description and
+// pages/profile/activity/index.tsx:221 renders that name, so one constant would label three of the four
+// types as the fourth. scripts/matching-activity-id.test.ts holds the split.
+//
+// `used_point` is on screen today — pages/profile/index.tsx:556 renders {usedPoint}/{totalPoint} — so
+// dropping the +10 would make the same action move the counter on v1 and not on v2. Reproduced for
+// parity; changing the points economy is #358's business (recorded there), not a side effect of moving a pipe.
+const LOVE_ACTIVITY_ID = 2
+const WORK_ACTIVITY_ID = 3
 const MATCHING_POINT_COST = 10
+
+/** The point-log activity id for a matching type, split exactly as be splits it. */
+export function activityIdFor(type: MatchingType): number {
+  return isLoveDomain(type) ? LOVE_ACTIVITY_ID : WORK_ACTIVITY_ID
+}
 
 export type CalculateOutcome =
   | { ok: true; matchingId: string; result: unknown }
@@ -172,7 +184,7 @@ export async function runCalculateMatching(params: {
 
     await tx.insert(logActivity).values({
       createat: createAt,
-      activityId: MATCHING_ACTIVITY_ID,
+      activityId: activityIdFor(params.matchingType),
       point: -MATCHING_POINT_COST,
       userId: params.userId,
     })

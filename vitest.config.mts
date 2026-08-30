@@ -177,6 +177,7 @@ export default defineConfig({
       'scripts/bazi-pair-mapper.test.ts', // #357 — pure normalizers + rating band ported from mootech-be
       'scripts/bazi-pair-match-mapper.test.ts', // #357 — the live pair-match mapper + the frozen v1 result block
       'scripts/matching-quota-gate.test.ts', // #357 — ด่านโควตาดวงสมพงษ์ ต้องเป็นหน้าต่างปีปฏิทินเท่ากับ be
+      'scripts/matching-activity-id.test.ts', // #357 — ตู๋จับได้ว่า BOSS/EMPLOYEE/FRIEND ต้องเป็น activity 3 ไม่ใช่ 2
     ],
   },
   resolve: {
