@@ -125,9 +125,9 @@ export default defineConfig({
     'scripts/payment-charge-route.test.ts', // #355 — route: session gate + client-ignored + fail-loud-before-charge
       'scripts/terminal-failure-agreement.test.ts', // #437 — isRefusedCharge (สร้าง charge) กับ isTerminalFailure (webhook) ต้องตอบเหมือนกัน
       'scripts/result-declined-rule.test.ts', // #438 — จอต้องพูดคำว่าธนาคารปฏิเสธได้ + ปุ่มต้องไม่พาไปหน้าตาย
-      'scripts/qr-expiry-reaches-row.test.ts',
+      'scripts/qr-expiry-reaches-row.test.ts', // #455 slice 1 — วันหมดอายุเดินทางจาก Omise ถึงแถวถึงจอ
       'scripts/qr-expired-screen.test.ts', // #455 slice 2 — จอพูดเรื่องหมดอายุจากคำตอบ server ไม่ใช่นาฬิกาตัวเอง
-      'scripts/qr-expiry-row-db.test.ts', // #455 slice 1 — real pg: คอลัมน์ใหม่เขียนลงได้ อ่านกลับได้ แถวเก่าเป็น null // #455 slice 1 — วันหมดอายุเดินทางจาก Omise ถึงแถวถึงจอ
+      'scripts/qr-expiry-row-db.test.ts', // #455 slice 1 — real pg: คอลัมน์ใหม่เขียนลงได้ อ่านกลับได้ แถวเก่าเป็น null
       'scripts/promptpay-qr-expiry.test.ts', // #463 — QR มีอายุ 5 นาที ที่ Omise ไม่ใช่ค่าตั้งต้น 24 ชม.
       'scripts/rtl-cleanup-contract.test.tsx', // #451 ตัว A — ฟันของ setupFiles: ถอดบรรทัดนั้นออกแล้วต้องแดง
       'scripts/return-uri-3ds.test.ts', // #439 — return_uri ต่อ charge + เลนบัตรกับพร้อมเพย์ต้องไม่ขยับหากัน
@@ -176,10 +176,11 @@ export default defineConfig({
       'scripts/csp-payment-path.test.ts', // #493 — CSP อยู่บนเส้นจ่ายเงินเท่านั้น + ฟันของข้อตกลงเรื่อง GTM
       'scripts/bazi-pair-mapper.test.ts', // #357 — pure normalizers + rating band ported from mootech-be
       'scripts/bazi-pair-match-mapper.test.ts', // #357 — the live pair-match mapper + the frozen v1 result block
-      'scripts/matching-quota-gate.test.ts',
+      'scripts/matching-quota-gate.test.ts', // #357 — ด่านโควตาดวงสมพงษ์ ต้องเป็นหน้าต่างปีปฏิทินเท่ากับ be
       'scripts/compat-tier-quota.test.ts', // #358 Phase 6 — the tiered, monthly ดวงสมพงษ์ ceiling
-      'scripts/compat-quota-concurrency-db.test.ts', // #358 Phase 6 — the ceiling under a burst, real pg // #357 — ด่านโควตาดวงสมพงษ์ ต้องเป็นหน้าต่างปีปฏิทินเท่ากับ be
+      'scripts/compat-quota-concurrency-db.test.ts', // #358 Phase 6 — the ceiling under a burst, real pg
       'scripts/matching-activity-id.test.ts', // #357 — ตู๋จับได้ว่า BOSS/EMPLOYEE/FRIEND ต้องเป็น activity 3 ไม่ใช่ 2
+      'scripts/compat-readers-v2-lane.test.ts', // #541 ① the readers stay on the v2 lane
     ],
   },
   resolve: {
