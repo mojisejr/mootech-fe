@@ -1,5 +1,10 @@
-// features/v2-service/hooks/useQuota.ts — Phase 2 (#264), μุน's half: the client view of goo's
-// GET /api/quota.
+// features/v2-service/hooks/useQuota.ts — Phase 2 (#264), μุน's half: the client view of the quota route.
+//
+// 🔴 #358 Phase 6 REPOINTED THIS AT /api/v2/quota, and the URL is the whole change — the wire shape, the
+// view union and every consumer are untouched. It used to read /api/quota, which is v1's: 100 per YEAR,
+// capped for free users only. This is a v2 hook read by the v2 compatibility screen, so once Phase 6 made
+// the server refuse at 2/20/unlimited per MONTH, the old URL had the screen printing a number the server
+// would not honour. The v1 route still exists and still answers v1 exactly as before.
 //
 // WHY A 4-STATE UNION AND NOT `remaining: number | null`
 // The screen must never print a number it does not have. If a failed or in-flight read collapses into
@@ -62,7 +67,10 @@ export function useQuota(userId: string): Quotas & { refetch: () => void } {
     setQuotas((prev) => (prev === LOADING ? prev : prev)) // keep the last known numbers while refetching
     ;(async () => {
       try {
-        const res = await fetch(`/api/quota?user_id=${encodeURIComponent(userId)}`)
+        // No `user_id` on the wire: /api/v2/quota takes its subject from the signed session (#391). The
+        // `userId` argument still gates the call below, because a screen with no identity has nothing to
+        // ask about — but it is not what the server believes.
+        const res = await fetch('/api/v2/quota')
         if (!res.ok) throw new Error(`quota ${res.status}`)
         const body = (await res.json()) as { matching?: QuotaRemaining; friend?: QuotaRemaining }
         if (tokenRef.current !== token) return
