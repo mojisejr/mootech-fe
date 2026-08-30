@@ -133,4 +133,12 @@ export const API = {
     status: localApi('/v2/payment/status'),
     webhook: localApi('/v2/payment/webhook'),
   },
+  // v2 ดวงสมพงษ์ (#357) — NEW category, ADD-ONLY. The v1 `user_matching.*` above is untouched: v1 screens
+  // still go through mootech-be, and both lanes run side by side. Flipping v1 over is #247's job at launch.
+  // Same-origin (localApi → /api/v2/...); the caller is never named in the request — the session is.
+  v2_matching: {
+    calculate: localApi('/v2/matching/calculate'),
+    get: localApi('/v2/matching'),
+    get_detail: localApi('/v2/matching'), // + '/<matching_id>' — see api-v2-matching.ts
+  },
 }

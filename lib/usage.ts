@@ -98,6 +98,38 @@ export async function checkHeavenlySpiritUsage(userId: string, count: number, no
   })
 }
 
+// matching.isCheckUsage(user_id, MATCHING_LIMIT.FREE=100) — the GATE for ดูดวงสมพงษ์ (#357).
+// Faithful to mootech-be src/matching/matching.service.ts:41-92: only FREE users are limited (members
+// are never blocked), the membership code is NOT reflected (be leaves NO_PLAN/EXPIRED commented out at
+// :52-62, so the code stays SUCCESS until the ceiling trips), the OUT_OF_LIMIT message is the _ALL
+// variant (:86), and the count window is the calendar YEAR (:71-84) — yearWindow, never monthWindow.
+// `count` = the caller's user_matching rows inside that window; checkMatchingQuota below counts the
+// same table with the same window, so the number on screen and the gate cannot disagree.
+export async function checkMatchingUsage(userId: string, count: number, now?: Date): Promise<UsageResult> {
+  const m = await resolveMembership(userId, now)
+  return evaluateUsage({
+    reason: m.reason,
+    isFree: m.isFree,
+    count,
+    limitFree: FREE_MATCHING_LIMIT,
+    limitMember: FREE_MATCHING_LIMIT,
+    limitMode: 'free-only',
+    reflectMembershipCode: false,
+    outOfLimitMessage: AI_MSG.OUT_OF_LIMIT_ALL,
+  })
+}
+
+// Count the caller's user_matching rows in the SAME calendar-year window the gate uses. Kept next to
+// the gate so the two can never drift onto different windows.
+export async function countMatchingInYear(userId: string, now: Date = new Date()): Promise<number> {
+  const { start, end } = yearWindow(now)
+  const [row] = await db
+    .select({ n: sql<number>`count(*)::int` })
+    .from(userMatching)
+    .where(and(eq(userMatching.userId, userId), gte(userMatching.createAt, start), lte(userMatching.createAt, end)))
+  return row?.n ?? 0
+}
+
 // --- Phase 2 quota indicators (#264): remaining-quota reads for the pre-click indicator ------------
 // These report the REMAINDER (not a pass/fail code) using the SAME count windows the server gates on, so
 // the number on screen matches what the server would decide. The two quotas count different tables and
