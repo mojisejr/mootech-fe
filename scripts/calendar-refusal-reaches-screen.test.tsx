@@ -24,7 +24,6 @@ const h = vi.hoisted(() => ({
 }))
 vi.mock('@/lib/v2/resolve-user', () => ({ resolveSessionUserId: vi.fn(async () => h.who) }))
 vi.mock('@/lib/v2/clock', () => ({ currentMonthBkk: () => '2028-01' }))
-vi.mock('@/lib/v2-calendar/gate', () => ({ CALENDAR_MONTH_GATE_OPEN: false }))
 vi.mock('@/lib/v2/subscription', () => ({
   resolveSubscription: vi.fn(async () => ({
     isPaid: h.tier !== 'FREE',

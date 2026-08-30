@@ -120,7 +120,7 @@ export default defineConfig({
       'scripts/account-screen.test.tsx', // #365 — จอสิทธิ์ของฉัน: ป้ายพาไป · planFor · ตัวกรอง APPROVED · วันที่ พ.ศ.
       'scripts/vitest-include-drift.test.ts',
       'scripts/calendar-refusal-reaches-screen.test.tsx',
-      'scripts/calendar-month-gate-open-scope.test.tsx', // #358 Phase 4 — what CALENDAR_MONTH_GATE_OPEN actually switches off
+      'scripts/calendar-month-span-unconditional.test.tsx', // #358 Phase 4 — the span gate has no flag in front of it
       'scripts/calendar-refusal-on-screen.test.tsx', // #529 #530 — the SCREEN half: the two refusals a person actually reads
     'scripts/payment-charge-route.test.ts', // #355 — route: session gate + client-ignored + fail-loud-before-charge
       'scripts/terminal-failure-agreement.test.ts', // #437 — isRefusedCharge (สร้าง charge) กับ isTerminalFailure (webhook) ต้องตอบเหมือนกัน

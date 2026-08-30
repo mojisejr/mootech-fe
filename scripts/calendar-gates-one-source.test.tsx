@@ -119,9 +119,10 @@ vi.mock('@/lib/v2/subscription', async (importOriginal) => {
   }
 })
 
-// Only the upstream network is stubbed. The gate switch (lib/v2-calendar/gate) is deliberately NOT mocked,
-// so this exercises the value that actually ships — the same choice scripts/calendar-month-gate-closed.tsx
-// makes, and for the same reason.
+// Only the upstream network is stubbed. The entitlement table is deliberately NOT mocked, so this
+// exercises the values that actually ship — the same choice scripts/calendar-month-gate-closed.tsx makes,
+// and for the same reason. (Before #358 Phase 4 the unmocked thing named here was the gate switch,
+// lib/v2-calendar/gate, which no longer exists.)
 vi.mock('@/lib/v2-calendar/month', async (importOriginal) => {
   const actual = (await importOriginal()) as Record<string, unknown>
   return {

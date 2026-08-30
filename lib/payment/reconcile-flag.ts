@@ -17,7 +17,8 @@
 //
 // 🟡 MOVES TO app_setting when #362 lands — tracked in mootech-fe#410, not left as a hopeful comment.
 // (That is the #293 lesson: CALENDAR_MONTH_GATE_OPEN was documented everywhere, named TEMPORARY, and still
-//  sat wrong for 18 days because no ticket owned it.)
+//  sat wrong for 18 days because no ticket owned it. It was finally retired by #358 Phase 4 — the file it
+//  lived in, lib/v2-calendar/gate.ts, is gone, so do not go looking for it.)
 
 /** Values that mean "stop reconciling". Anything else — including an unset variable — keeps it running. */
 const OFF_VALUES = new Set(['off', 'false', '0', 'no', 'disabled'])
