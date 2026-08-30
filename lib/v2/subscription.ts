@@ -142,8 +142,20 @@ export function resolveTierFromSources(args: {
       )
       return { isPaid: null, tier: null, source: 'v2' }
     }
-    // tierIsPaid: FREE→false, PLUS/PRO→true. `=== true` so only a real paid tier unlocks.
-    return { isPaid: tierIsPaid(tier) === true, tier, source: 'v2' }
+      // tierIsPaid: FREE→false, PLUS/PRO→true. `=== true` so only a real paid tier unlocks.
+    if (tierIsPaid(tier) === true) return { isPaid: true, tier, source: 'v2' }
+    // #525 — a live row whose tier is KNOWN-not-paid must NOT shadow a paid legacy verdict. Before this,
+    // a `FREE` row returned not-paid outright and `legacy` was never read, so a member with a valid
+    // member_payment row lost both calendar routes (day-detail has read this resolver since
+    // pages/api/v2/day-detail.ts:82; #520 put the month gate on it too). :55 above already says "Never
+    // downgrade a known-paid user to free" — that sentence was written about a null NAME, and a FREE name
+    // does the same damage. So fall THROUGH to the legacy arm rather than answering from this row.
+    //
+    // 🔴 SCOPE, and why it is not the whole `isPaid !== true` class. An UNKNOWN tier_code keeps failing
+    // closed at :136 above: tier_code is the only signal on the v2 path, so garbage means we know nothing,
+    // and scripts/member-subscription.test.ts:377 pins that on purpose ("A legacy row sitting behind it
+    // must NOT rescue it into PRO"). KNOWN-not-paid and NOT-DETERMINED are different answers and only the
+    // first one is safe to look past. Widening this would delete that decision under cover of a bug fix.
   }
   // #358 Phase 1 — a VALID legacy member is PRO. member_payment carries no tier column, so the name is a
   // decision, not a read: #352's closing criterion says the legacy members keep their access and are
@@ -210,6 +222,40 @@ export function resolveMembershipFromRows(
 // says "no legacy evidence" and is only ever passed when a subRow exists.
 const NO_LEGACY: LegacyInput = { isFree: true, reason: 'NO_PLAN', expireAt: null }
 
+/**
+ * Does a live row's tier_code let resolveTierFromSources answer WITHOUT the legacy verdict? (#525)
+ *
+ * This is the read-side twin of the fall-through in resolveTierFromSources: the two must agree about which
+ * codes need member_payment, or the lazy caller starves the rule of the very input it now depends on. Kept
+ * as one exported predicate rather than an inline condition so a test can hold them together.
+ *
+ * 🔴 ADDING A FOURTH tier_code MEANS TWO PLACES, NOT ONE. This predicate is the READ seam's copy. The
+ * purchase door holds a second, independent one:
+ *
+ *     lib/payment/repo.ts:478   const live = pickActiveSubscriptionRow(rows, today)
+ *     lib/payment/repo.ts:495   isPaid: true          ← unconditional for ANY live row, FREE included
+ *
+ * It never asks this function. ตู๋ probed both against testenv postgres on a real member holding a live
+ * FREE row and they answer differently about tier and expiry — at THIS head and at base 105206f alike, so
+ * the divergence predates #525 and is not something this file introduced. Do not "fix" it here: which one
+ * is right is a product decision about whether a corrupted row may still buy, and it is tracked at
+ * mojisejr/mootech-fe#514 together with the unmappable-tier_code case, which is the same two-holders shape
+ * with a different input.
+ *
+ * ⚠️ An earlier draft of this docblock said "ONE place to consider". That sentence would have sent the
+ * next person to edit this file alone and leave repo.ts:495 calling them paid — the very divergence #525
+ * closed, one file over.
+ *
+ *   PLUS / PRO    → true  (paid outright)
+ *   unknown code  → true  (fails closed at :136 — deliberately not rescued by a legacy row)
+ *   FREE          → false (known-not-paid: must not shadow a paid legacy member)
+ */
+export function decidesWithoutLegacy(tierCode: string): boolean {
+  const tier = parseTierCode(tierCode)
+  if (tier === null) return true
+  return tierIsPaid(tier) === true
+}
+
 // The DB read: v2 store first. The SQL does ONLY the user narrowing (eq(userId)); the ENTIRE selection rule
 // — status, expiry-vs-today, and ordering — lives in the pure picker so it is ONE copy, exercised by the
 // main `npm test` lane, not split with a half in SQL that only a DB suite could watch (ตู๋ #369 B2; this is
@@ -227,9 +273,19 @@ export async function resolveSubscription(
     .from(memberSubscription)
     .where(eq(memberSubscription.userId, userId))
   const candidates = toSubRows(rows)
-  // Skip the legacy read entirely when a live v2 row already decides it (unchanged behaviour — the second
-  // query is a cost, and its answer would be discarded).
-  if (pickActiveSubscriptionRow(candidates, today)) {
+  // Skip the legacy read only when a live v2 row already decides it OUTRIGHT — that is, when the row's tier
+  // is one the pure rule answers from alone. The second query is a cost and its answer would be discarded.
+  //
+  // 🔴 #525 — "a live row exists" is NOT the same question as "a live row decides it". A live KNOWN-not-paid
+  // row (tier_code 'FREE') now falls THROUGH to the legacy arm inside resolveTierFromSources, and it can only
+  // fall through to something that was actually read. Skipping the member_payment query for such a row would
+  // hand the pure rule NO_LEGACY and reproduce the exact defect one level up — the rule would fall through to
+  // a placeholder that says "no legacy evidence" and answer free anyway.
+  //   PLUS / PRO      → decided here, legacy never needed         (unchanged)
+  //   UNKNOWN code    → fails closed at :136, legacy never needed  (unchanged — see the scope note there)
+  //   FREE            → must consult member_payment                (the change)
+  const live = pickActiveSubscriptionRow(candidates, today)
+  if (live && decidesWithoutLegacy(live.tierCode)) {
     return resolveMembershipFromRows(candidates, today, NO_LEGACY)
   }
   // resolveMembership already returns the whole member_payment row it read, so #358's legacy expire_at is

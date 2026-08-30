@@ -44,6 +44,7 @@ import {
   pickActiveSubscriptionRow,
   resolveTierFromSources,
   resolveMembershipFromRows,
+  decidesWithoutLegacy,
   resolveSubscription,
   toSubRows,
   type SubRow,
@@ -146,12 +147,53 @@ describe('resolveTierFromSources — v2 first, then legacy member_payment, then 
     expect(resolveTierFromSources({ subRow: { tierCode: 'PRO' }, legacy: legacyNone }).tier).toBe('PRO')
   })
 
-  it('ME — a v2 FREE-tier row is NOT paid (only a named non-free tier unlocks)', () => {
+  // 🔴 #525 — this case REVERSED. It used to assert { isPaid:false, tier:'FREE', source:'v2' }, i.e. that a
+  // live FREE row answered alone and the legacy member behind it was never consulted. That is the defect the
+  // ticket is about: a member holding a valid member_payment row lost BOTH calendar routes to a row that
+  // proves nothing about payment. lib/v2/subscription.ts:55 already said "Never downgrade a known-paid user
+  // to free"; it was written about a null NAME and never covered a FREE one.
+  it('🔴 #525 — a v2 FREE row does NOT shadow a paid legacy member: it falls through to the legacy verdict', () => {
     expect(resolveTierFromSources({ subRow: { tierCode: 'FREE' }, legacy: legacyMember })).toEqual({
-      isPaid: false,
-      tier: 'FREE',
-      source: 'v2',
+      isPaid: true,
+      tier: 'PRO',
+      source: 'legacy',
     })
+  })
+
+  // THE TEETH. Without these the case above passes for the wrong reason — "always answer paid" would satisfy
+  // it too. A FREE row must still be free when there is nothing paid behind it.
+  it('🔴 #525 control — a v2 FREE row with an EXPIRED legacy row behind it is still NOT paid', () => {
+    expect(resolveTierFromSources({ subRow: { tierCode: 'FREE' }, legacy: legacyExpired })).toEqual({
+      isPaid: false,
+      tier: null,
+      source: 'legacy',
+    })
+  })
+
+  it('🔴 #525 control — a v2 FREE row with NO legacy row at all is still NOT paid', () => {
+    expect(resolveTierFromSources({ subRow: { tierCode: 'FREE' }, legacy: legacyNone })).toEqual({
+      isPaid: false,
+      tier: null,
+      source: 'none',
+    })
+  })
+
+  // #525 — the read side must agree with the rule above about WHICH codes need member_payment, or the lazy
+  // caller starves the fall-through of its input (it skips the second query and passes NO_LEGACY). Pinning
+  // them together is the point: this is the pair that drifted apart in the defect.
+  it('🔴 #525 decidesWithoutLegacy agrees with the rule about who needs the legacy read', () => {
+    expect(decidesWithoutLegacy('PLUS')).toBe(true)
+    expect(decidesWithoutLegacy('PRO')).toBe(true)
+    expect(decidesWithoutLegacy('PLATINUM')).toBe(true) // unknown fails closed, legacy must NOT rescue it
+    expect(decidesWithoutLegacy('FREE')).toBe(false) // the one code that must consult member_payment
+    // and the agreement itself: whenever the predicate says "needs legacy", the rule's answer actually
+    // CHANGES with the legacy input — otherwise the extra query would be pointless.
+    for (const code of ['FREE', 'PLUS', 'PRO', 'PLATINUM']) {
+      const withMember = resolveTierFromSources({ subRow: { tierCode: code }, legacy: legacyMember })
+      const withNone = resolveTierFromSources({ subRow: { tierCode: code }, legacy: legacyNone })
+      const differs = JSON.stringify(withMember) !== JSON.stringify(withNone)
+      expect(differs).toBe(!decidesWithoutLegacy(code))
+    }
   })
 
   it('MD — no v2 row + a legacy MEMBER ⇒ paid (NOT free), tier PRO, source legacy', () => {
@@ -363,6 +405,27 @@ describe('#358 Phase 1 — a valid legacy member resolves to PRO, with their mem
     })
   })
 
+  // 🔴 #525 at the level the routes actually call. pages/api/v2/calendar-month.ts and day-detail.ts both go
+  // through resolveSubscription → resolveMembershipFromRows, so the fall-through has to survive the row
+  // mapping and the date rule too, not just the pure verdict.
+  it('🔴 #525 — a LIVE FREE row + a valid legacy member → paid PRO, dated from member_payment', () => {
+    const free = { ...proRow, tierCode: 'FREE', expireAt: '2030-06-30' }
+    const r = resolveMembershipFromRows([free], TODAY, LEGACY_VALID)
+    expect(r).toEqual({ isPaid: true, tier: 'PRO', source: 'legacy', expireAt: LEGACY_VALID.expireAt })
+    // the date must come from the row that DECIDED it — never the FREE row this member happens to hold
+    expect(r.expireAt).not.toBe('2030-06-30')
+  })
+
+  it('🔴 #525 control — a LIVE FREE row with NO paid legacy behind it is still free, and prints no date', () => {
+    const free = { ...proRow, tierCode: 'FREE', expireAt: '2030-06-30' }
+    expect(resolveMembershipFromRows([free], TODAY, LEGACY_EXPIRED)).toEqual({
+      isPaid: false,
+      tier: null,
+      source: 'legacy',
+      expireAt: null,
+    })
+  })
+
   // UNCHANGED — precedence. The negative halves are the teeth: PLUS must not be overwritten by PRO, and
   // the v2 row's date must not be replaced by member_payment's.
   it('a live v2 row still WINS over a legacy row (tier and date both come from v2)', () => {
@@ -456,6 +519,41 @@ describe('#358 Phase 1 — resolveSubscription threads the legacy expiry from it
   it('no rows anywhere → free/none, no date · and the read counter CAN move (control for ML7)', async () => {
     expect(await resolveSubscription('u1', NOW)).toEqual({ isPaid: false, tier: null, source: 'none', expireAt: null })
     // without this, ML7's `toBe(0)` would also pass against a counter that never increments at all.
+    expect(dbState.legacyReads).toBe(1)
+  })
+
+  // 🔴 #525 — the OTHER half of the fix, and the half nothing was watching. Reverting the call site to a
+  // bare `if (live)` left all 99 test files green: the pure rule kept its fall-through, but the caller
+  // handed it NO_LEGACY, so it fell through to a placeholder saying "no legacy evidence" and answered free
+  // anyway — the user-visible defect, fully restored, under a green suite. Same shape as ML7 above: the
+  // RETURN VALUE alone cannot see it, because the mock's legacy fixture is what makes the difference. So
+  // count the read, exactly as ML7 does.
+  it('🔴 #525 — a live FREE row DOES issue the member_payment read (the mutant that survived without this)', async () => {
+    dbState.subRows = [
+      { id: 'v2', tierCode: 'FREE', status: 'ACTIVE', expireAt: '2030-06-30', createdAt: new Date('2026-08-01T00:00:00Z') },
+    ]
+    dbState.legacy = {
+      isFree: false,
+      reason: 'MEMBER',
+      memberPayment: { userId: 'u1', planCode: 'MEMBER', expireAt: '2027-03-31' },
+    }
+    expect(dbState.legacyReads).toBe(0) // nothing read yet — so the 1 below is this call's, not a leftover
+    expect(await resolveSubscription('u1', NOW)).toEqual({
+      isPaid: true,
+      tier: 'PRO',
+      source: 'legacy',
+      expireAt: '2027-03-31', // the member's own date, NOT the FREE row's 2030-06-30
+    })
+    expect(dbState.legacyReads).toBe(1)
+  })
+
+  it('🔴 #525 control — a live FREE row with NO paid legacy stays free, and the read still happened', async () => {
+    dbState.subRows = [
+      { id: 'v2', tierCode: 'FREE', status: 'ACTIVE', expireAt: '2030-06-30', createdAt: new Date('2026-08-01T00:00:00Z') },
+    ]
+    dbState.legacy = { isFree: true, reason: 'EXPIRED', memberPayment: { userId: 'u1', planCode: 'MEMBER', expireAt: '2020-01-01' } }
+    // proves the read is not simply "always answer paid": same row, same query, opposite answer
+    expect(await resolveSubscription('u1', NOW)).toEqual({ isPaid: false, tier: null, source: 'legacy', expireAt: null })
     expect(dbState.legacyReads).toBe(1)
   })
 })
