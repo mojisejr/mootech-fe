@@ -86,9 +86,12 @@ export function useDayDetail(date: string): UseDayDetail {
   // orders `outOfSpan` above `loading`, which was safe only because this hook happened never to set both —
   // an invariant living in one file and relied upon in another, with nothing failing if it broke. A stale
   // day now reads as `loading` here, so that ordering cannot be wrong whatever this hook does.
-  const [state, setState] = useState<{ key: string; date: string; detail: DayDetail | null; loading: boolean; outOfSpan: boolean }>({
+  // 🔴 NO `date` FIELD HERE, DELIBERATELY (ตู๋). It was stamped one revision ago and then superseded by
+  // `key`, which contains the date along with the other three determinants. Leaving it would not waste
+  // bytes so much as invite the next reader to write `state.date !== date` again — the narrower check this
+  // one replaced, which passes for a tier flip.
+  const [state, setState] = useState<{ key: string; detail: DayDetail | null; loading: boolean; outOfSpan: boolean }>({
     key: '',
-    date: '',
     detail: null,
     loading: true,
     outOfSpan: false,
@@ -130,7 +133,7 @@ export function useDayDetail(date: string): UseDayDetail {
     // NOT-STARTED-YET (here). Splitting it also lets features/v2-calendar drop `identityResolved`, removing
     // another cross-file promise.
     if (!date) {
-      setState({ key: askedKey, date, detail: null, loading: false, outOfSpan: false }) // no day selected — settled
+      setState({ key: askedKey, detail: null, loading: false, outOfSpan: false }) // no day selected — settled
       return
     }
     // `userId` empty means NO ACCOUNT, which useV2User treats as known rather than pending
@@ -141,17 +144,17 @@ export function useDayDetail(date: string): UseDayDetail {
     // `loading = !done` alone would spin forever for everybody who is not signed in. The pending state is
     // `Boolean(userId) && !done`, and the branch order is how that is expressed here.
     if (!userId) {
-      setState({ key: askedKey, date, detail: null, loading: false, outOfSpan: false })
+      setState({ key: askedKey, detail: null, loading: false, outOfSpan: false })
       return
     }
     // Signed in, but the row is still in flight. NOT settled — and saying so is the whole fix.
     if (!identityDone) {
-      setState({ key: askedKey, date, detail: null, loading: true, outOfSpan: false })
+      setState({ key: askedKey, detail: null, loading: true, outOfSpan: false })
       return
     }
     // The row arrived. No usable birth profile now means exactly that, and it will not change by waiting.
     if (!person) {
-      setState({ key: askedKey, date, detail: null, loading: false, outOfSpan: false })
+      setState({ key: askedKey, detail: null, loading: false, outOfSpan: false })
       return
     }
     const k = askedKey
@@ -161,15 +164,15 @@ export function useDayDetail(date: string): UseDayDetail {
     if (peeked !== undefined) {
       // #529 — an out-of-span day is out-of-span on a re-view too. The cache used to hold the detail
       // alone, so this branch could only ever answer "no detail" and the wall became a crash on every hit.
-      setState({ key: askedKey, date, ...toState(peeked), loading: false })
+      setState({ key: askedKey, ...toState(peeked), loading: false })
       return
     }
 
     let alive = true
-    setState({ key: askedKey, date, detail: null, loading: true, outOfSpan: false }) // new day → clear old text; the ring (month cell) stays visible
+    setState({ key: askedKey, detail: null, loading: true, outOfSpan: false }) // new day → clear old text; the ring (month cell) stays visible
     getDayDetail(k, () => fetchDayDetail(person, date).then(toCachedDay)).then((day) => {
       if (!alive) return // date changed / unmounted mid-flight → drop this stale response (THE anti-latch)
-      setState({ key: askedKey, date, ...toState(day), loading: false })
+      setState({ key: askedKey, ...toState(day), loading: false })
     })
     return () => {
       alive = false

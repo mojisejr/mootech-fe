@@ -323,11 +323,16 @@ describe('#529 — useDayDetail resolves THREE states, not two', () => {
 
   // 🔴 ตู๋'s follow-up: the stamp must cover the WHOLE cache key, not just the date.
   //
-  // ⚠️ READ THIS BEFORE JUDGING THE TEST. Reverting the stamp to `date` alone does NOT redden anything
-  // else in this file, and that is honest rather than a weak test: useV2User refetches on `[userId]`
-  // alone today, so `paid` cannot flip under a fixed `userId` in the real app. This case reaches the state
-  // ANYWAY, through the mock, because the entire point of the wider stamp is the day somebody adds
-  // revalidation — which useV2User's own header argues for. It is the test that will redden on that day.
+  // ⚠️ READ THIS BEFORE JUDGING THE TEST. Reverting the stamp to `date` alone reddens **exactly this one
+  // case and nothing else** in the file — and that is the point, not a weakness. `useV2User` refetches on
+  // `[userId]` alone today, so `paid` cannot flip under a fixed `userId` in the real app; this case reaches
+  // that state through the mock on purpose, because the whole reason for the wider stamp is the day
+  // somebody adds revalidation, which useV2User's own header argues for.
+  //
+  // 🔴 SO DO NOT DELETE IT AS DEAD WEIGHT. An earlier draft of this note said the revert "does NOT redden
+  // anything else", which reads at a glance as "nothing goes red at all" — ตู๋ pointed out that a reader
+  // stopping there would conclude the test has no teeth and remove the one tooth that will catch that
+  // change. It is the only guard on this seam for a state the app cannot reach yet.
   it('🔴 a tier flip under a fixed date never shows the old tier\'s answer (ตู๋, future-proofing)', async () => {
     vi.spyOn(fetchDay, 'fetchDayDetail').mockImplementation(async () =>
       identity.paid ? { detail: null, degraded: true } : { detail: null, outOfSpan: true },
