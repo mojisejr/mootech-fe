@@ -1,6 +1,8 @@
 // features/v2-service/compatibility-recent.ts — ดวงสมพงศ์ ก้อน 2G, PURE (no React, no fetch).
-// The "ดูดวงสมพงศ์ล่าสุด" history list: normalise v1's UserMatchingGetApi response into typed items and
-// map the matching_type → a v2 chip label. Single source so the screen and its anchor agree.
+// The "ดูดวงสมพงศ์ล่าสุด" history list: normalise the history response into typed items and map the
+// matching_type → a v2 chip label. Single source so the screen and its anchor agree.
+// #357: the v2 hook now reads /api/v2/matching instead of mootech-be. This parser is UNCHANGED because
+// the wire shape is deliberately identical — a bare array of { id, type, user, friend }.
 //
 // Rule 4 (ไม่มีข้อมูล = ไม่แสดง): a missing friend name / picture is HIDDEN by the caller — NEVER the v1
 // fallback 'เพื่อน' or a default avatar. This module gives the caller undefined for absent fields (it does
@@ -30,8 +32,8 @@ export function matchTypeLabel(type: string | undefined): string | undefined {
   return TYPE_LABEL[type]
 }
 
-// Normalise whatever UserMatchingGetApi returns into a clean array. v1 returns the array directly on success,
-// or { error } on failure. Anything not an array (error object / null / unexpected) → [] with ok=false so the
+// Normalise whatever the history endpoint returns into a clean array. Both lanes return the array directly
+// on success, or { error } / a non-array on failure. Anything not an array (error object / null / unexpected) → [] with ok=false so the
 // screen shows an honest fallback, never an infinite spinner and never a fabricated row.
 export type RecentParse = { ok: boolean; items: RecentMatchItem[] }
 

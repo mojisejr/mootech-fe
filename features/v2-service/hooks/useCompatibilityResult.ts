@@ -10,8 +10,7 @@
 //   mascots: fetched once dayGanzhi is known; a missing ganzhi or a 404 → undefined/null (the
 //     screen hides that card — rule 4). Re-fetch is race-guarded by an alive flag.
 import { useEffect, useState } from 'react'
-import { UserMatchingCalculateWithStatusApi } from '@/constants/api/api-user-matching-calculate'
-import { UserMatchingGetDetailApi } from '@/constants/api/api-user-matching-get-detail'
+import { V2MatchingCalculateApi, V2MatchingGetDetailApi } from '@/constants/api/api-v2-matching'
 import {
   parseCompatibilityResult,
   applyCarriedBirth,
@@ -104,7 +103,7 @@ export function useCompatibilityResult(matchingId: string): UseCompatibilityResu
     setError(false)
     ;(async () => {
       try {
-        const resp = await UserMatchingGetDetailApi(matchingId)
+        const resp = await V2MatchingGetDetailApi(matchingId)
         if (!alive) return
         // merge the birthDate/time carried from the form (no re-fetch); no carry → header hides the line
         const parsed = applyCarriedBirth(parseCompatibilityResult(resp), recallCompatPersons(matchingId))
@@ -155,10 +154,16 @@ export function useCompatibilityResult(matchingId: string): UseCompatibilityResu
 }
 
 // --- calculate wrapper (goo's v1-wrap lane) -------------------------------------------------
-// The RESULT slice's side-effecting call: UserMatchingCalculateApi creates a log row + consumes
-// the user's matching quota, then returns { matching_id }. Takes the two CompatPerson from the form
-// (person1 = the user, person2 = the friend) — extracts the ids for the v1 call AND stashes their
-// birthDate/time so the result screen's header can show them without a re-fetch. Wrapped here so
+// The RESULT slice's side-effecting call: creates a log row + consumes the user's matching quota,
+// then returns { matching_id }. Takes the two CompatPerson from the form (person1 = the user,
+// person2 = the friend) and stashes their birthDate/time so the result screen's header can show
+// them without a re-fetch.
+//
+// 🔴 #357: this lane now calls the FE's own /api/v2/matching/*, not mootech-be. person1.id is still
+// REQUIRED as a precondition (the button is gated on both people existing) but is no longer SENT —
+// the server derives the caller from the signed session, because a client-supplied user_id is
+// forgeable (#252/#273/be#16). Only friend_id and matching_type travel; the tooth for that is
+// scripts/compat-calc-error-reasons.test.tsx. Wrapped here so
 // μุน's view-result button just awaits a typed result and navigates. ⚠️ μุน owns the button's client
 // state machine (guard double-tap so it fires ONCE, show loading, on error keep the user on the input
 // screen — do NOT navigate).
@@ -188,7 +193,7 @@ export async function calculateCompatibility(
   // generic copy) since the button is gated on both people existing, so this path is not user-reachable.
   if (!userId || !friendId) return { ok: false, reason: 'system', error: 'missing-person' }
 
-  const res = await UserMatchingCalculateWithStatusApi(userId, friendId, matchingType)
+  const res = await V2MatchingCalculateApi(friendId, matchingType)
 
   if (res.ok) {
     const data = res.data as { matching_id?: string } | null

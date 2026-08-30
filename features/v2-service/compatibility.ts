@@ -8,7 +8,8 @@
 //   colleague → "ดูดวงเพื่อนร่วมงาน"  → matching_type FRIEND
 //   anything else → null → caller redirects to /v2/service (NEVER silent — done-condition #1/#2, gate rule).
 //
-// matching_type is the value handed to v1's UserMatchingCalculateApi(user_id, friend_id, matching_type)
+// matching_type is the value handed to V2MatchingCalculateApi(friend_id, matching_type) (#357; it was
+// v1's UserMatchingCalculateApi(user_id, ...) before the lane moved off mootech-be)
 // in the RESULT slice; Slice 1 holds it as the locked contract and proves it (done-condition #2 = prove the
 // VALUE, not just the heading), but does NOT fire calculate (that endpoint has side effects — done-cond #9).
 
@@ -22,7 +23,7 @@ export type CompatibilityConfig = {
   kind: CompatibilityKind
   /** จอหัวเรื่อง — verbatim Figma 480:4549 / 636:18451 */
   title: string
-  /** value sent to UserMatchingCalculateApi in the result slice */
+  /** value sent to V2MatchingCalculateApi in the result slice */
   matchingType: MatchingType
 }
 

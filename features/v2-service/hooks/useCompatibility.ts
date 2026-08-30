@@ -8,7 +8,7 @@
 //     do NOT fabricate dob/time, do NOT strand) · no-userId → resolved{null}, loading OFF.
 //   person2 (the friend): null → set by selectFriend (μุน's wrapped modal) → cleared by clearFriend.
 //   button: canViewResult = person1 && person2 (done-cond #5: gray until BOTH; click while gray does nothing —
-//     enforced by μุน gating on this flag). Slice 1 does NOT fire UserMatchingCalculateApi (result slice; the
+//     enforced by μุน gating on this flag). Slice 1 does NOT fire the calculate call at all (result slice; the
 //     endpoint has side effects — done-cond #9). matchingType is HELD and proven (done-cond #2), not sent yet.
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useCookies } from 'react-cookie'
