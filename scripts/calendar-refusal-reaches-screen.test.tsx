@@ -154,8 +154,22 @@ const USER = {
   is_remember_time: true,
   payment: { is_not_expired: false },
 }
+// mutable so a test can put the user row in flight (ลามุน's case) or strip the birth profile (its control)
+//
+// ⚠️ `user` MUST be null while `done` is false. The real hook sets exactly that
+// (features/auth/hooks/useV2User.ts:73 `setState({ done: false, errored: false, user: null })`), and my
+// first version of this mock kept a full USER row alongside `done: false` — an identity that is
+// simultaneously pending and complete, which cannot happen. The in-flight branch was therefore never
+// reached and the mutant that deletes it stayed GREEN. A mock that cannot represent the state under test
+// is the same disease as a reader that summarises before comparing.
+const identity = { done: true, noBirth: false }
 vi.mock('@/features/auth/hooks/useV2User', () => ({
-  useV2User: () => ({ userId: 'U1', user: USER, done: true, errored: false }),
+  useV2User: () => ({
+    userId: 'U1',
+    user: !identity.done ? null : identity.noBirth ? { ...USER, dob: '', time: '' } : USER,
+    done: identity.done,
+    errored: false,
+  }),
 }))
 
 describe('#529 — useDayDetail resolves THREE states, not two', () => {
@@ -267,6 +281,49 @@ describe('#529 — useDayDetail resolves THREE states, not two', () => {
     rerender({ d: '2029-03-02' })
     await waitFor(() => expect(result.current.loading).toBe(false))
     expect(result.current.outOfSpan).toBe(true) // the NEW day's own answer, not the old one's
+  })
+
+  // 🔴 ลามุน's find, measured in a real browser and reproduced here at the hook. While the user row is in
+  // flight the hook used to answer SETTLED-with-nothing, which #534's screen renders as "the app failed".
+  // Every render is recorded for the same reason as the test above: act() flushes the effect before
+  // result.current can be read, and the offending render is the one that gets flushed.
+  it('🔴 while the user row is in flight the hook says LOADING, never settled-with-nothing (ลามุน)', async () => {
+    let releaseUser: (() => void) | null = null
+    const gate = new Promise<void>((r) => {
+      releaseUser = r
+    })
+    identity.done = false // the row has not arrived
+    vi.spyOn(fetchDay, 'fetchDayDetail').mockImplementation(async () => {
+      await gate
+      return { detail: null, degraded: true }
+    })
+
+    const seen: Array<{ loading: boolean; detail: unknown }> = []
+    const { result } = renderHook(() => {
+      const r = useDayDetail('2029-05-05')
+      seen.push({ loading: r.loading, detail: r.detail })
+      return r
+    })
+
+    // THE ASSERTION: not one render, while identity is pending, claimed to be finished with nothing.
+    const settledWithNothing = seen.filter((f) => !f.loading && f.detail === null)
+    expect(settledWithNothing).toEqual([])
+    expect(seen.length).toBeGreaterThan(0) // the recorder ran, so [] means clean rather than empty
+    expect(result.current.loading).toBe(true)
+
+    identity.done = true
+    releaseUser?.()
+  })
+
+  // 🔴 CONTROL — "always report loading" satisfies the case above and breaks everything else. A signed-in
+  // user with NO birth profile is genuinely settled and must still say so, or the screen spins forever.
+  it('🔴 CONTROL — a settled identity with no birth profile is settled, not loading', async () => {
+    identity.done = true
+    identity.noBirth = true
+    const { result } = renderHook(() => useDayDetail('2029-05-06'))
+    await waitFor(() => expect(result.current.loading).toBe(false))
+    expect(result.current.detail).toBeNull()
+    identity.noBirth = false
   })
 
   // 🔴 CONTROL for both of the above — "never cache anything" would satisfy them and quietly delete the

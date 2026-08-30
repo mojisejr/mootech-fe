@@ -54,7 +54,7 @@ function toState(day: CachedDay): { detail: DayDetail | null; outOfSpan: boolean
 
 export function useDayDetail(date: string): UseDayDetail {
   const hasMounted = useHasMounted()
-  const { userId, user } = useV2User()
+  const { userId, user, done: identityDone } = useV2User()
   const person = useMemo(() => (user && isBirthProfileComplete(user) ? userRowToFeCalcInput(user) : null), [user])
   // #226 — the reply is now TIER-SHAPED (the BFF trims the paid sections for a free caller), so the tier is
   // part of what identifies a cached day. Read from the SAME row `person` comes from, through the one frozen
@@ -98,7 +98,39 @@ export function useDayDetail(date: string): UseDayDetail {
 
   // The selected day's detail — anti-latch on [date].
   useEffect(() => {
-    if (!date || !userId || !person) {
+    // 🔴 THIS BRANCH USED TO ANSWER FOR TWO SITUATIONS THAT ARE NOT ALIKE (ลามุน, measured in a browser).
+    //
+    //   the user row has not arrived yet   STILL CHANGING  ⇒ `loading: false` is a lie
+    //   it arrived and has no birth date   SETTLED         ⇒ `loading: false` is correct
+    //
+    // Collapsed, the first one told the screen "we are done and there is nothing", one frame after identity
+    // resolved and before this effect had fetched anything. On `main` that state wore a spinner so nobody
+    // could see it was wrong; mojisejr/mootech-fe#534 gives it words, and the words say the app failed. She
+    // sampled every painted frame: with /api/user delayed 1500ms the failure copy appeared at 2000ms and
+    // was replaced at 2037ms. Her page-level guard shortens it 40x but cannot close it, because that guard
+    // reads `isPaid !== null`, which settles to false BEFORE the row lands.
+    //
+    // 🔑 Third shape of one family, all three found in a day: an answer older than the question the screen
+    // is asking — stale about the CACHE, stale about the DAY (both closed above), and stale about
+    // NOT-STARTED-YET (here). Splitting it also lets features/v2-calendar drop `identityResolved`, removing
+    // another cross-file promise.
+    if (!date) {
+      setState({ date, detail: null, loading: false, outOfSpan: false }) // no day selected — settled
+      return
+    }
+    // `userId` empty means NO ACCOUNT, which useV2User treats as known rather than pending
+    // (features/auth/hooks/useV2User.ts:64-69: no fetch is issued at all), so it is settled too.
+    if (!userId) {
+      setState({ date, detail: null, loading: false, outOfSpan: false })
+      return
+    }
+    // Signed in, but the row is still in flight. NOT settled — and saying so is the whole fix.
+    if (!identityDone) {
+      setState({ date, detail: null, loading: true, outOfSpan: false })
+      return
+    }
+    // The row arrived. No usable birth profile now means exactly that, and it will not change by waiting.
+    if (!person) {
       setState({ date, detail: null, loading: false, outOfSpan: false })
       return
     }
@@ -122,7 +154,7 @@ export function useDayDetail(date: string): UseDayDetail {
     return () => {
       alive = false
     }
-  }, [date, userId, birthSig, person, paid])
+  }, [date, userId, identityDone, birthSig, person, paid])
 
   // A state describing a DIFFERENT day is not an answer about this one. Reading it as `loading` is the
   // honest translation — we are between the caller's choice and the effect that serves it — and it is the
