@@ -15,6 +15,17 @@
 // using that pool would pass whether or not the lock exists, which is the `signal-passes-without-the-real-
 // thing` class exactly. Production is serverless: many instances, many connections. This file therefore
 // mocks @/lib/db with a pool of 10, so the burst below is a real one.
+// 🔴 MUTANT CONTRACT — measured 2026-08-30 against the testenv pg, numbers copied from the runs:
+//   MB1  the binding check removed entirely (this IS main's behaviour today)
+//        → ⑥ writes 20 rows against a ceiling of 2, and ④ writes 25 against 20.  2 of 7 red.
+//        ⇒ the defect this PR fixes is not hypothetical; it is reproduced here at 10x the ceiling.
+//   MB2  the advisory lock removed, the re-count KEPT
+//        → ⑥ writes 11 rows.  2 of 7 red.
+//        ⇒ 🔑 the re-count ALONE is not the fix. Without the lock the 20 transactions interleave between
+//          their own count and their own insert, and 11 of them win. The two halves are separately
+//          necessary, which is why neither is described as "the" mechanism above.
+// Each mutant asserts its target text exists before editing; the first attempt at MB1 was a no-op after a
+// re-indent and reported 7 passed, which is indistinguishable from a surviving mutant.
 import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from 'vitest'
 import { randomUUID } from 'node:crypto'
 import postgres from 'postgres'
