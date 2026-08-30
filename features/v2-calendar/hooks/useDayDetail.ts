@@ -39,8 +39,9 @@ export interface UseDayDetail {
   outOfSpan: boolean
 }
 
-/** #529 — response → the record the cache holds. `outOfSpan` is a property of (user, birth, date, tier)
- *  and so survives a hit; `cached`/`degraded` are facts about one request and deliberately do not. */
+/** #529 — response → the record the cache MAY hold. A walled day is never stored (isCacheableDay), so
+ *  `outOfSpan` reaches the screen from a live answer every time rather than from memory; `cached`/
+ *  `degraded` are facts about one request and are dropped here for the same reason. */
 function toCachedDay(r: DayDetailResponse): CachedDay {
   return { detail: r.detail, outOfSpan: r.outOfSpan === true }
 }

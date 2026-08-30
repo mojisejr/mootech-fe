@@ -112,9 +112,26 @@ async function run() {
   const kSpan = dayKey('user-D', 'sigD', '2027-01-01', false)
   const wall = await getDayDetail(kSpan, () => Promise.resolve(cached(null, true)))
   ok('out-of-span: the fetch result carries the flag', wall.detail === null && wall.outOfSpan === true)
-  ok('out-of-span: SURVIVES a peek (the cache-hit path the screen renders from)', peekDayDetail(kSpan)?.outOfSpan === true)
-  const wall2 = await getDayDetail(kSpan, () => Promise.resolve(cached(libDetail('SHOULD-NOT-RUN'))))
-  ok('out-of-span: survives a resolved-hit and does not re-fetch', wall2.outOfSpan === true && wall2.detail === null)
+
+  // 🔴 REVERSED by ตู๋ B1 on #533. This block first asserted the flag SURVIVED the cache. It must not:
+  // dayKey ends in a boolean while the calendar span has three values, so PLUS and PRO share a key. A
+  // remembered wall is therefore replayed at a member who has just upgraded past it. A walled day is now
+  // never written (isCacheableDay), so every reopen asks the server and cannot contradict it.
+  ok('out-of-span: is NOT written to the cache — a wall must never be replayed', !hasDayDetail(kSpan))
+  ok('out-of-span: peek is a MISS, so the next open re-fetches', peekDayDetail(kSpan) === undefined)
+  let refetches = 0
+  const wall2 = await getDayDetail(kSpan, () => { refetches += 1; return Promise.resolve(cached(null, true)) })
+  ok('out-of-span: reopening asks the server again and is STILL a wall', refetches === 1 && wall2.outOfSpan === true)
+  // and the server changing its mind (the PLUS→PRO upgrade) now reaches the caller
+  const afterUpgrade = await getDayDetail(kSpan, () => Promise.resolve(cached(libDetail('D-day'))))
+  ok('out-of-span: once the server says the wall is gone, the caller sees it', afterUpgrade.outOfSpan === false)
+
+  // 🔴 CONTROL — "never cache anything" would satisfy every line above and delete the point of this file.
+  const kNormal = dayKey('user-D', 'sigD', '2027-01-02', false)
+  let normalFetches = 0
+  await getDayDetail(kNormal, () => { normalFetches += 1; return Promise.resolve(cached(libDetail('D-normal'))) })
+  await getDayDetail(kNormal, () => { normalFetches += 1; return Promise.resolve(cached(libDetail('SHOULD-NOT-RUN'))) })
+  ok('CONTROL: a NORMAL day is still cached and does not re-fetch', normalFetches === 1 && hasDayDetail(kNormal))
 
   // 🔴 CONTROL — a GENUINE failure must still read as a failure, never as a paid wall (both DoDs ask for
   // this by name). Without it, "outOfSpan is true" above could be satisfied by a cache that flags

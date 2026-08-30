@@ -182,21 +182,65 @@ describe('#529 — useDayDetail resolves THREE states, not two', () => {
     expect(result.current.outOfSpan).toBe(false)
   })
 
-  // 🔴 THE DEFECT ITSELF. ตู๋ B4 found the flag dying at the cache boundary: the value stored was the
-  // detail alone, so the SECOND view of the same day could only ever answer "no detail". A cache returns
-  // what it holds, so this is the assertion that would have caught it.
-  it('🔴 out-of-span SURVIVES a cache hit — the exact boundary the flag died at', async () => {
+  // 🔴 THE TOOTH μุน ASKED FOR BY NAME, and the one neither of her instruments can grow: her page tests
+  // mock useDayDetail wholesale, so the cache cannot affect them, and her Eye Truth frames open a fresh
+  // context each time, so no cache hit ever occurs. Without this assertion her PR and mine go green
+  // together while the screen is broken.
+  //
+  // The sentence under test is hers verbatim: OPEN A WALLED DAY A SECOND TIME AND outOfSpan IS STILL TRUE.
+  // Deliberately NOT "and it did not re-fetch" — after ตู๋ B1 a walled day is never stored
+  // (day-detail-cache.ts isCacheableDay), so a second fetch is the mechanism, not a regression.
+  it('🔴 opening a WALLED day a SECOND time still reads out-of-span (μุน B1 / ตู๋ B1)', async () => {
     const spy = vi.spyOn(fetchDay, 'fetchDayDetail').mockResolvedValue({ detail: null, outOfSpan: true })
     const first = renderHook(() => useDayDetail('2028-07-01'))
     await waitFor(() => expect(first.result.current.loading).toBe(false))
     expect(first.result.current.outOfSpan).toBe(true)
 
-    // re-view the SAME day: served from cache, no second fetch, and still a wall rather than a crash
     const callsAfterFirst = spy.mock.calls.length
     const second = renderHook(() => useDayDetail('2028-07-01'))
     await waitFor(() => expect(second.result.current.loading).toBe(false))
-    expect(second.result.current.outOfSpan).toBe(true)
-    expect(spy.mock.calls.length).toBe(callsAfterFirst) // cache hit, not a refetch
+    expect(second.result.current.outOfSpan).toBe(true) // ← the assertion that matters
+    // and it asked the server again, which is WHY it cannot go stale: a walled day is never remembered,
+    // so a PLUS member who upgrades to PRO gets a fresh answer instead of the wall they saw before.
+    expect(spy.mock.calls.length).toBeGreaterThan(callsAfterFirst)
+  })
+
+  // 🔴 ตู๋ B1, the scenario itself: PLUS hits the wall, buys PRO, returns by soft navigation. Before this
+  // the shared key (…:paid) held outOfSpan:true for both levels and re-sold them what they had just bought.
+  it('🔴 a walled day STOPS being walled once the server changes its mind (the PLUS→PRO upgrade)', async () => {
+    const spy = vi
+      .spyOn(fetchDay, 'fetchDayDetail')
+      .mockResolvedValueOnce({ detail: null, outOfSpan: true }) // as PLUS
+      .mockResolvedValue({ detail: null, degraded: true }) // as PRO the wall is gone
+    const asPlus = renderHook(() => useDayDetail('2028-12-01'))
+    await waitFor(() => expect(asPlus.result.current.loading).toBe(false))
+    expect(asPlus.result.current.outOfSpan).toBe(true)
+
+    const asPro = renderHook(() => useDayDetail('2028-12-01')) // same key — dayKey ends in a boolean
+    await waitFor(() => expect(asPro.result.current.loading).toBe(false))
+    expect(asPro.result.current.outOfSpan).toBe(false)
+    expect(spy.mock.calls.length).toBeGreaterThan(1)
+  })
+
+  // 🔴 CONTROL for both of the above — "never cache anything" would satisfy them and quietly delete the
+  // whole point of this cache. A NORMAL day must still be served from memory without a second request.
+  it('🔴 CONTROL — a normal day IS still cached: the second view does not re-fetch', async () => {
+    // the full lib shape — the adapter reads it field by field, and a partial stub makes the promise
+    // reject, which leaves the hook stuck on loading and the failure looks like a cache miss instead
+    const detail = {
+      date: '2028-08-08', dayGanzhi: '甲子', overallPercent: 70, grade: 'B', summary: 'ok',
+      suitable: [], avoid: [], yams: [], compatAreas: [], advice: [], insight: '', dayDeity: '',
+      spirits: [], wanPhra: { isWanPhra: false, label: '' }, colors: [], gates: [],
+      dithi: { officer: '', officerDesc: '', jianchu: '' }, luckyDirection: '',
+    }
+    const spy = vi.spyOn(fetchDay, 'fetchDayDetail').mockResolvedValue({ detail: detail as never })
+    const first = renderHook(() => useDayDetail('2028-08-08'))
+    await waitFor(() => expect(first.result.current.loading).toBe(false))
+    const callsAfterFirst = spy.mock.calls.length
+    const second = renderHook(() => useDayDetail('2028-08-08'))
+    await waitFor(() => expect(second.result.current.loading).toBe(false))
+    expect(second.result.current.detail).not.toBeNull()
+    expect(spy.mock.calls.length).toBe(callsAfterFirst) // a real cache hit
   })
 
   // 🔴 CONTROL for the cache path — a cached FAILURE must not come back as a wall either.
