@@ -19,10 +19,15 @@
 // (scripts/calendar-view-state.test.ts). A ternary in JSX could only ever be checked by opening a browser
 // with a birth-date-less account, which nobody will do again after the day this is written.
 //
-// ⚠️ KNOWN GAP, stated rather than papered over: the three settled-empty causes are INDISTINGUISHABLE at
-// this seam — they are all `{month: null, loading: false}`. So `unavailable` can say that the calendar has
-// nothing to show, but not WHY, and writing "กรุณากรอกวันเกิด" here would be asserting a cause this layer
-// cannot see. Widening the seam with a `reason` is goo's lane; raised to บอง, not smuggled in.
+// ⚠️ KNOWN GAP, PARTLY CLOSED 2026-08-30 — read both halves before trusting either.
+// STILL TRUE HERE: the three settled-empty causes (anon · user-row errored · no birth profile) remain
+// INDISTINGUISHABLE at this seam — all three are `{month: null, loading: false}`. So `unavailable` still
+// says the calendar has nothing to show and not WHY, and writing "กรุณากรอกวันเกิด" here would still be
+// asserting a cause this layer cannot see.
+// NO LONGER TRUE: that NOTHING can say why. #533 widened the route and the hook with a named `refusal`
+// (#530), and the two causes it names never reach this function any more — pages/v2/calendar.tsx routes
+// them to CalendarRefusalCard through refusal-view.ts before the skeleton is considered. The widening
+// this comment asked for happened; what is left is the three above, which no field names yet.
 
 /** The three screens the calendar body can be in. There is no fourth — see the test's TOTAL assertion. */
 export type CalendarViewState =

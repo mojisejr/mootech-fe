@@ -51,6 +51,10 @@ const MEMBERSHIP_SITES = [
   'features/v2-calendar/components/upsell/PersonalCalendarUpsell.tsx',
   'features/v2-calendar/components/day-detail/YamTimes.tsx',
   'features/v2-calendar/tier-lock.ts',
+  // #529 #530 — the walled month and the walled day. Added with the site, not after it: the length
+  // assertion below exists so a new membership CTA cannot appear without the ledger noticing, and the
+  // way that guard fails is by staying green while the list quietly under-reports the surface.
+  'features/v2-calendar/components/refusal/CalendarRefusalCard.tsx',
 ] as const
 
 /** Controls that are NOT about membership — routing them at the pricing screen would offer to sell a plan
@@ -67,9 +71,9 @@ const MUST_NOT_LINK = [
 ] as const
 
 describe('#359 membership CTAs reach the shop', () => {
-  it('all four membership call sites reference the shared destination', () => {
+  it('all five membership call sites reference the shared destination', () => {
     // Surface size stated out loud: a shortened list must not read as "all sites pass".
-    expect(MEMBERSHIP_SITES).toHaveLength(4)
+    expect(MEMBERSHIP_SITES).toHaveLength(5)
     for (const rel of MEMBERSHIP_SITES) {
       const src = read(rel)
       expect(src, `${rel} lost its link to the shop`).toMatch(/SHOP_HREF|goToShop/)
