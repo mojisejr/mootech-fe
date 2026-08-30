@@ -11,6 +11,8 @@ import { DateSelector } from '@/features/v2-calendar/components/DateSelector'
 import { MonthGrid } from '@/features/v2-calendar/components/MonthGrid'
 import { CalendarSkeleton } from '@/features/v2-calendar/components/CalendarSkeleton'
 import { calendarViewState } from '@/features/v2-calendar/components/calendar-view-state'
+import { monthRefusalSurface } from '@/features/v2-calendar/refusal-view'
+import { CalendarRefusalCard } from '@/features/v2-calendar/components/refusal/CalendarRefusalCard'
 import { DailyFortuneCard } from '@/features/v2-shell/components/DailyFortuneCard'
 import { PersonalCalendarPromo } from '@/features/v2-calendar/components/upsell/PersonalCalendarPromo'
 import { useCalendarMonth, useDayDetail, CalendarMenuState } from '@/features/v2-calendar'
@@ -26,7 +28,7 @@ export const getServerSideProps: GetServerSideProps<{ teamPreview: boolean }> = 
 }
 
 export default function V2CalendarPage({ teamPreview }: { teamPreview: boolean }) {
-  const { month, loading, year, monthIndex, todayISO, selectedDate, selectDay, goPrev, goNext, goToday } = useCalendarMonth()
+  const { month, loading, refusal, year, monthIndex, todayISO, selectedDate, selectDay, goPrev, goNext, goToday } = useCalendarMonth()
   const router = useRouter()
   // Zone 4 — the paid rule lives once in goo's lib/v2/tier.ts; this page only reads the verdict.
   // `null` = not determined yet, and it is wrong to guess in EITHER direction, so both the pill and the
@@ -58,6 +60,10 @@ export default function V2CalendarPage({ teamPreview }: { teamPreview: boolean }
   // for THIS screen it is the same as having no month. Folding it in here keeps the rule total (and unit-
   // testable) instead of leaving a second, untested `|| !cardDay` guard next to it.
   const viewState = calendarViewState({ month: cardDay ? month : null, loading })
+  // #530 — the server named WHICH refusal this is; the rule for what that becomes on screen lives in
+  // refusal-view.ts, shared with the day screen (#529), so the two routes cannot answer differently.
+  // `null` for every other empty month, so all five existing causes keep the neutral face below.
+  const refusalSurface = monthRefusalSurface(refusal)
 
   return (
     <CalendarShell title="ปฏิทินดวง" menuState={CalendarMenuState.Normal}>
@@ -104,7 +110,14 @@ export default function V2CalendarPage({ teamPreview }: { teamPreview: boolean }
         {/* M-A — the body is a skeleton until a month is in hand. Rendered, not merely hidden, when ready:
             the card below dereferences `cardDay` on every prop, so a `hidden` column would still evaluate
             them and crash on the very states the skeleton exists for. */}
-        {viewState !== 'ready' && <CalendarSkeleton state={viewState} />}
+        {/* #530 — a NAMED refusal replaces the neutral notice, and only a named one. The month arrow
+            used to answer both "your package stops here" and "we cannot tell who you are" with
+            CalendarSkeleton's "ลองรีเฟรชอีกครั้ง หรือตรวจว่าโปรไฟล์มีวันเกิดครบแล้ว" — two instructions
+            that are wrong for both of them, on the screen we are trying to sell from.
+            The DateSelector above stays put in every state (selector-always), so the way back to a month
+            they CAN see is already on screen and this card points at it rather than adding a control. */}
+        {viewState !== 'ready' && refusalSurface && <CalendarRefusalCard surface={refusalSurface} />}
+        {viewState !== 'ready' && !refusalSurface && <CalendarSkeleton state={viewState} />}
 
         {viewState === 'ready' && month && cardDay && (
         <>

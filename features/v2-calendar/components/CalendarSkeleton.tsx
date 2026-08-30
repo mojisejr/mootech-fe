@@ -103,10 +103,13 @@ export function CalendarSkeleton({ state }: { state: 'loading' | 'unavailable' }
       </div>
       )}
 
-      {/* The settled-empty screen SAYS something. It cannot say WHY (all three causes look identical at
-          goo's seam — see calendar-view-state.ts), and inventing a cause here would be worse than being
-          plain: a wrong instruction ("กรอกวันเกิด") sends someone who is actually hitting a network error to
-          a settings page that will not help them. */}
+      {/* The settled-empty screen SAYS something. It cannot say WHY, and inventing a cause here would be
+          worse than being plain: a wrong instruction ("กรอกวันเกิด") sends someone who is actually hitting a
+          network error to a settings page that will not help them.
+          ⚠️ 2026-08-30 — "it cannot say why" is now about THIS component, not about the calendar. A refusal
+          the server NAMES (#530) never arrives here: pages/v2/calendar.tsx sends it to CalendarRefusalCard
+          instead. What still lands on this notice is the three causes nothing names yet — anon, a failed
+          user row, and a missing birth profile — which is why the copy stays this general. */}
       {!loading && (
         <div data-testid="calendar-unavailable" className="flex min-h-[320px] flex-col items-center justify-center gap-2 px-6 text-center">
           <span aria-hidden className="grid size-12 place-items-center rounded-full bg-white text-2xl shadow-[0_4px_14px_rgba(26,38,77,0.06)]">🗓️</span>

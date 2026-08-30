@@ -17,7 +17,7 @@ import Link from 'next/link'
 import { useRouter } from 'next/router'
 import { SHOP_HREF } from '@/features/v2-shop/upgrade-cta'
 import { v2RedirectIfUnauthed, isV2TeamPreview } from '@/lib/v2/gate'
-import { useDayDetail, useAdvancedMode, useReminders, useReminderDraft, menuStateForDay, type YamSlot } from '@/features/v2-calendar'
+import { useDayDetail, useAdvancedMode, useReminders, useReminderDraft, menuStateForDay, CalendarMenuState, type YamSlot } from '@/features/v2-calendar'
 import { CalendarShell } from '@/features/v2-calendar/components/CalendarShell'
 import { DayHeader } from '@/features/v2-calendar/components/day-detail/DayHeader'
 import { DayStrip } from '@/features/v2-calendar/components/day-detail/DayStrip'
@@ -40,6 +40,8 @@ import { usePwaCapability } from '@/lib/pwa/capability'
 import { requestPushSubscription } from '@/lib/pwa/subscribe'
 import { saveWithNotification, postPushSubscription } from '@/lib/pwa/persist-subscription'
 import { PersonalCalendarUpsell } from '@/features/v2-calendar/components/upsell/PersonalCalendarUpsell'
+import { dayBodyState } from '@/features/v2-calendar/refusal-view'
+import { CalendarRefusalCard } from '@/features/v2-calendar/components/refusal/CalendarRefusalCard'
 import { useClientTier } from '@/features/v2-shell/hooks/useClientTier'
 
 export const getServerSideProps: GetServerSideProps<{ teamPreview: boolean }> = async (ctx) => {
@@ -53,7 +55,7 @@ export const getServerSideProps: GetServerSideProps<{ teamPreview: boolean }> = 
 export default function V2CalendarDayPage({ teamPreview }: { teamPreview: boolean }) {
   const router = useRouter()
   const date = typeof router.query.date === 'string' ? router.query.date : ''
-  const { detail } = useDayDetail(date)
+  const { detail, loading: detailLoading, outOfSpan } = useDayDetail(date)
   // ฟีม: โหมดแอดวานซ์เปิดเป็นค่าเริ่มต้น (goo's useAdvancedMode default ON). Toggling OFF hides the 4
   // advanced-only sections (§5/§9/§12/§13) → the exact 3a normal frame (634:8194); toggling ON brings them back.
   const { advanced, toggle } = useAdvancedMode()
@@ -181,17 +183,66 @@ export default function V2CalendarDayPage({ teamPreview }: { teamPreview: boolea
     goToList,
   })
 
-  // goo · G-2 minimal compile-guard — NOT a designed loading state (that's มุน's M-D). useDayDetail now
-  // fetches async, so `detail` is null while it loads; every section below binds it (yams/pillars/percent).
-  // Early-return a bare spinner shell so the page compiles and isn't blank. No layout, no skeleton, no
-  // copy — M-D replaces this. Mirrors the existing isPaid===null spinner. (After all hooks — no hook-order break.)
-  if (!detail) {
+  // #529 — this used to read `if (!detail)` and return the spinner, full stop. Three different situations
+  // arrive here with `detail === null`, and only ONE of them has anything coming:
+  //
+  //   a day past what the package sells   fetch DONE, outOfSpan true   → spun forever, and it is a SALE
+  //   the upstream failed / no profile    fetch DONE, outOfSpan false  → spun forever
+  //   the fetch really is in flight       loading true                 → the spinner told the truth
+  //
+  // A spinner that never stops is worse than a blank screen (calendar-view-state.ts:16,
+  // CalendarSkeleton.tsx:9): blank reads as broken and the person leaves, a pulse reads as "any second
+  // now" and they sit and wait. So the three are separated, by the rule in refusal-view.ts that the month
+  // screen reads too. `dayBodyState` puts outOfSpan FIRST and fail-closed — see the note on it.
+  // #533 9fa30dc answers "the row has not arrived" as loading at the hook, so the page has nothing left
+  // to guess about identity here. The version of this line that guessed is described in refusal-view.ts.
+  const bodyState = dayBodyState({ detail, loading: detailLoading, outOfSpan })
+  // `|| !detail` is here for the COMPILER, not for the runtime: a state variable cannot narrow `detail`
+  // the way the old `if (!detail)` did, and every section below dereferences it. It can never fire on its
+  // own — dayBodyState answers 'ready' ONLY when detail is truthy — and that implication is pinned by a
+  // test case rather than left as a comment, so the day someone reorders those branches this line stops
+  // being redundant and something reddens.
+  if (bodyState !== 'ready' || !detail) {
+    // 🔴 THE BOTTOM BAR IS PART OF THE SCREEN, and this is the defect the pixels caught that the string
+    // assertions did not. `ctaLabel=""` is the sentinel Menubar.tsx:92 reads as "still loading", so it
+    // prints กำลังโหลด… — on a walled day whose fetch finished, that is the same lie in a second place,
+    // one bar below the card that just said the truth. The month screen shows NO bottom CTA in its walled
+    // state (CalendarMenuState.Normal), so the day screen now matches it: same behaviour, both routes.
+    // `loading` keeps the sentinel, because there the word is true.
+    const settled = bodyState !== 'loading'
     return (
-      <CalendarShell title="รายละเอียดวัน" menuState={menuState} ctaLabel="" onCta={() => {}}>
-        <div data-testid="day-detail-pending" aria-live="polite" className="pointer-events-none absolute inset-x-0 top-1/3 grid place-items-center">
-          <span className="size-8 animate-spin rounded-full border-[3px] border-v3-sapphire/20 border-t-v3-sapphire" />
-          <span className="sr-only">กำลังโหลดรายละเอียดวัน</span>
-        </div>
+      <CalendarShell
+        title="รายละเอียดวัน"
+        menuState={settled ? CalendarMenuState.Normal : menuState}
+        {...(settled ? {} : { ctaLabel: '', onCta: () => {} })}
+      >
+        {bodyState === 'loading' && (
+          <div data-testid="day-detail-pending" aria-live="polite" className="pointer-events-none absolute inset-x-0 top-1/3 grid place-items-center">
+            <span className="size-8 animate-spin rounded-full border-[3px] border-v3-sapphire/20 border-t-v3-sapphire" />
+            <span className="sr-only">กำลังโหลดรายละเอียดวัน</span>
+          </div>
+        )}
+        {/* The chrome stays: which day this is, is the first thing the person needs, and losing the header
+            on the walled day would make the upgrade card read as a page-level error again. */}
+        {bodyState === 'upgrade' && (
+          <div className="flex flex-col gap-4 px-4 pt-3">
+            <DayHeader membership={tier} />
+            <DayStrip date={date} />
+            <CalendarRefusalCard surface={{ kind: 'upgrade', scope: 'day' }} />
+          </div>
+        )}
+        {/* Settled, nothing to show, and NOT walled. It says so and stops drawing furniture — the same call
+            CalendarSkeleton.tsx makes for the month body. It must never borrow the sales card: #529's DoD
+            asks for a control proving a genuine failure still reads as a failure. */}
+        {bodyState === 'unavailable' && (
+          <div data-testid="day-detail-unavailable" className="flex min-h-[320px] flex-col items-center justify-center gap-2 px-6 text-center">
+            <span aria-hidden className="grid size-12 place-items-center rounded-full bg-white text-2xl shadow-[0_4px_14px_rgba(26,38,77,0.06)]">📄</span>
+            <p className="text-base font-bold leading-6 text-v3-navy [word-break:keep-all]">ยังแสดงรายละเอียดของวันนี้ไม่ได้ตอนนี้</p>
+            <p className="text-sm font-medium leading-6 text-v3-text-muted [word-break:keep-all]">
+              ลองรีเฟรชอีกครั้ง หรือกลับไปเลือกวันใหม่จากปฏิทิน
+            </p>
+          </div>
+        )}
       </CalendarShell>
     )
   }
