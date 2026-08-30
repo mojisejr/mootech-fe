@@ -17,4 +17,18 @@
 // ⚠️ WHOEVER OPENS THIS AGAIN: `true` here means every visitor gets a paid, personalised month. It is a
 // pricing decision, not a technical one — it needs ฟีม, and it needs a ticket holding it, or the next
 // person to notice will again be someone auditing something else.
+//
+// 🔴 AND IT NOW SWITCHES OFF MORE THAN IT DID IN AUGUST — read this before flipping it.
+// The `if (!CALENDAR_MONTH_GATE_OPEN)` block in pages/api/v2/calendar-month.ts grew: since #358 Phase 3
+// it also encloses the ENTITLEMENT SPAN check (`calendarMonthReachable`, lib/v2/entitlement.ts). So `true`
+// no longer means only "a non-member gets a month" — it means **nobody's package limit is enforced on the
+// month route at all**, and a FREE visitor can scroll to any month ever.
+// Verified structurally rather than by eye: the block opens at the `if` and closes 119 lines later, and
+// the span check sits inside it.
+//
+// 🔑 That widening happened without anyone deciding it. The switch was written to gate ONE thing, a later
+// ticket added a second thing inside its scope, and the switch silently acquired a second job — the same
+// shape as the debt this file's history is about, one level up. scripts/calendar-month-gate-open-scope.test.tsx
+// pins it: flip this to `true` and a FREE caller must still be refused a month outside their span. If that
+// spec ever goes red, the switch has grown a third job.
 export const CALENDAR_MONTH_GATE_OPEN = false

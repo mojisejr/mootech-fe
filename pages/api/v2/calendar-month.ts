@@ -84,17 +84,26 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     // only then falls back to that same member_payment read. Two gates on ONE feature, two stores.
     //
     // 🔴 THE DISAGREEMENT RUNS BOTH WAYS. `resolveSubscription` is a superset over the STORES it reads but
-    // NOT over the VERDICTS: `isFree` is a boolean, `isPaid` is boolean | null, and a live v2 row is
-    // answered from that row ALONE — the legacy branch is never consulted (lib/v2/subscription.ts:211).
+    // NOT over the VERDICTS: `isFree` is a boolean while `isPaid` is boolean | null.
     // Measured through both real handlers, and photographed on the real screen:
     //
     //   live v2 row, no valid member_payment row     before: month FREE, day PAID   after: both PAID
     //   valid member_payment PLUS a live v2 row
     //   whose tier_code cannot be mapped             before: month PAID, day FREE   after: both REFUSE
-    //   valid member_payment PLUS a live FREE row    before: month PAID, day FREE   after: both REFUSE
+    //   valid member_payment PLUS a live FREE row    before: month PAID, day FREE   after: both PAID
     //
-    // Rows 2 and 3 LOSE this calendar. Two earlier drafts of this comment said "the user sees nothing
-    // change"; both were false, and neither was caught by re-reading.
+    // Row 2 LOSES this calendar; it fails closed on purpose (an unmappable code means we know nothing).
+    // Two earlier drafts of this comment said "the user sees nothing change"; both were false, and neither
+    // was caught by re-reading.
+    //
+    // ⚠️ ROW 3 SAYS `after: both PAID`, AND THAT IS THE THIRD CORRECTION TO THIS BLOCK. It read
+    // `both REFUSE` until mojisejr/mootech-fe#525 shipped (20c0b09): a live KNOWN-not-paid row no longer
+    // answers alone — it falls through to the legacy verdict, because refusing a member who has paid was
+    // the defect. The sentence one line up that used to say "the legacy branch is never consulted" is gone
+    // for the same reason; it is still true for an UNMAPPABLE code and no longer true for `FREE`.
+    // 🔑 #525's own diff could not show this line becoming false. Nothing points from lib/v2/subscription.ts
+    // to this file; it was found by grepping the CLASS of claim afterwards, which is the only thing that
+    // has ever caught this family.
     //
     // 🔴 REACHABILITY, and this is where the second draft was wrong in a way that mattered:
     //   row 1  UNREACHABLE by purchase. lib/payment/repo.ts:729 inserts the subscription and :743 upserts

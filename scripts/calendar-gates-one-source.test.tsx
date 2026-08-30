@@ -28,6 +28,9 @@
 //   MP2  calendar-month reads `isPaid` loosely (`!== false` instead of `=== true`)  → ③ + ⑤  (2 of 9)
 //        ⑥ stays GREEN here, and that is the useful part: a FREE row answers isPaid `false`, not null, so
 //        a loose null-read cannot rescue it. ⑤ and ⑥ are different bugs and this separates them.
+//   ⚠️ THESE COUNTS PREDATE mojisejr/mootech-fe#525 (merged 20c0b09), which reversed ⑥ from asserting the
+//        loss to asserting the fix. Whoever re-fires MP1/MP2/MP3 must re-measure rather than trust the
+//        numbers above — a count taken before a case changed meaning is not a count of the same thing.
 //   MP3  day-detail goes to resolveMembership instead     → ① + ⑤ + ⑥  (3 of 9), reddening from the other
 //        side and proving the table watches both routes, not just the one that changed.
 //
@@ -67,22 +70,54 @@ vi.mock('@/lib/usage', () => ({
 }))
 
 // lib/v2/subscription.ts:220-243 — the v2 rows decide when one is live; otherwise the legacy verdict.
-vi.mock('@/lib/v2/subscription', () => ({
-  resolveSubscription: vi.fn(async (userId: string) => {
-    if (h.undetermined.has(userId)) return { isPaid: null, tier: null, source: 'v2', expireAt: null }
-    // A live row wins outright and the legacy branch is never consulted (lib/v2/subscription.ts:211), so
-    // this deliberately ignores memberPaymentValid — that shadowing IS the behaviour under test.
-    if (h.freeV2Row.has(userId)) return { isPaid: false, tier: 'FREE', source: 'v2', expireAt: null }
-    if (h.liveV2Row.has(userId)) return { isPaid: true, tier: 'PRO', source: 'v2', expireAt: null }
-    const legacy = h.memberPaymentValid.has(userId)
-    return {
-      isPaid: legacy,
-      tier: legacy ? 'PRO' : null,
-      source: legacy ? 'legacy' : 'none',
-      expireAt: null,
-    }
-  }),
-}))
+// 🔴 THE STUB CALLS THE REAL RULE. It used to restate it, and the copy went stale the moment
+// mojisejr/mootech-fe#525 shipped: it said "a live row wins outright and the legacy branch is never
+// consulted" and answered `FREE` regardless of the legacy row — which was true when written and became
+// the defect #525 removed. Every case in this file then asserted against a resolver the app no longer
+// had, and NOTHING here went red to say so. I found it by grepping the class of claim after that merge,
+// not by anything failing.
+//
+// So the stub now builds the two INPUTS from the fixture and hands them to the actual
+// `resolveTierFromSources` (pure, no I/O — importOriginal reaches it past this very mock). What stays
+// local is only which rows this user has; the RULE cannot drift again, because there is no second copy.
+// A mutant in that rule now reddens this file too, which was the whole point.
+//
+// ⚠️ THE COPY MOVED UP A LEVEL, IT DID NOT DISAPPEAR (ตู๋). The rule has one copy now; the INPUTS the rule
+// receives are still assembled by hand here, and that hand-written part is the same shape as the thing
+// that just rotted, one function higher. Concretely: this stub ALWAYS passes a legacy verdict, while the
+// real `resolveSubscription` decides whether to read `member_payment` at all (`decidesWithoutLegacy`) and
+// passes `NO_LEGACY` when it does not. So the stub is more generous than production, and the branch that
+// chooses between those two has NO representative in this file.
+// ⇒ measured, not feared: reverting that call site to a bare `if (live)` leaves this file 9/9 green while
+//   scripts/member-subscription.test.ts goes red on two cases. Not a hole — that half is the OTHER file's
+//   subject and is watched there, which is the right place for it. Named here so nobody reads
+//   "no second copy" as "nothing left to drift".
+//
+// 🔑 AND THE LINE THIS TECHNIQUE MUST NOT CROSS: the expected values below stay LITERALS. They are never
+// computed from the rule. That is exactly why a mutant in the rule can redden this file — a spec that
+// derived its expectations from the rule would agree with any rule, including a broken one.
+vi.mock('@/lib/v2/subscription', async (importOriginal) => {
+  const actual = (await importOriginal()) as typeof import('@/lib/v2/subscription')
+  return {
+    ...actual,
+    resolveSubscription: vi.fn(async (userId: string) => {
+      // the fixture's rows, expressed as the resolver's own two inputs
+      const subRow = h.undetermined.has(userId)
+        ? { tierCode: 'PLATINUM' } // a code the allow-list refuses — the undetermined case
+        : h.freeV2Row.has(userId)
+          ? { tierCode: 'FREE' }
+          : h.liveV2Row.has(userId)
+            ? { tierCode: 'PRO' }
+            : null
+      const legacyPaid = h.memberPaymentValid.has(userId)
+      const verdict = actual.resolveTierFromSources({
+        subRow,
+        legacy: { isFree: !legacyPaid, reason: legacyPaid ? 'MEMBER' : 'NO_PLAN' },
+      })
+      return { ...verdict, expireAt: null }
+    }),
+  }
+})
 
 // Only the upstream network is stubbed. The gate switch (lib/v2-calendar/gate) is deliberately NOT mocked,
 // so this exercises the value that actually ships — the same choice scripts/calendar-month-gate-closed.tsx
@@ -237,15 +272,26 @@ describe('#358 Phase 2 — both calendar gates decide from ONE source', () => {
   //    the resolver is willing to downgrade a known-paid member, which lib/v2/subscription.ts:55 says it
   //    intends never to do. mojisejr/mootech-fe#525 holds the decision. When that is fixed this test flips,
   //    and it flipping is the point: it is the guard that catches the fix landing.
-  it('⑥ a paying legacy member with a live FREE v2 row loses the month — latent, ticketed at #525', async () => {
+  // 🔴 ⑥ REVERSED by mojisejr/mootech-fe#525 (merged 20c0b09). It used to assert the LOSS — that a paying
+  // legacy member holding a live FREE row was refused BOTH calendar routes — and it named #525 as the
+  // ticket that owned the regression. That ticket is now closed and the behaviour is the opposite: a live
+  // KNOWN-not-paid row falls through to the legacy verdict instead of shadowing it.
+  //
+  // ⚠️ Left as a reversal rather than deleted. This pair of routes is the exact place the two gates
+  // disagreed before Phase 2, so the case that proved they BOTH refuse is the case that should now prove
+  // they BOTH serve — same user, same fixture, opposite expectation. Deleting it would remove the only
+  // spec in this file that exercises a member with rows in both stores at once.
+  it('⑥ a paying legacy member with a live FREE v2 row KEEPS the month (#525)', async () => {
     const u = 'U-LEGACY-SHADOWED-BY-FREE'
     h.memberPaymentValid.add(u)
     h.freeV2Row.add(u)
-    expect(await monthAllows(u), 'the month gate refuses them — this is the regression #525 owns').toBe(false)
-    expect(await dayAllows(u), 'the day gate already refused them on main, which is why #525 predates #520').toBe(false)
-    // the half that proves this is the FREE row and not the fixture refusing everyone:
-    h.freeV2Row.delete(u)
-    expect(await monthAllows(u), 'drop the FREE row and the legacy member is served again').toBe(true)
+    expect(await monthAllows(u), 'the FREE row must not cancel a paid legacy membership').toBe(true)
+    expect(await dayAllows(u), 'and the day gate agrees — one resolver, one answer').toBe(true)
+    // 🔴 the teeth: this must be the LEGACY row talking, not the fixture serving everybody. Take the
+    // paid legacy row away, leave the FREE row in place, and the same user must lose the month.
+    h.memberPaymentValid.delete(u)
+    expect(await monthAllows(u), 'a FREE row with nothing paid behind it is still free').toBe(false)
+    expect(await dayAllows(u), 'both routes agree in that direction too').toBe(false)
   })
 
   // ④ The store the month gate used to read alone must no longer be able to answer for it on its own.
