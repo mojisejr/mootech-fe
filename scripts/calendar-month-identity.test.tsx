@@ -3,12 +3,12 @@
 // ANCHOR: scripts/calendar-month-identity.test.tsx#calendar-month-gate-subject-is-the-session
 // Bug-class this owns: a gate whose SUBJECT comes from the request. calendar-month took `userId` from the
 // body and fed it to resolveMembership, so "is this person allowed" was answered about whoever the caller
-// named. It never fired only because CALENDAR_MONTH_GATE_OPEN is true and the whole branch is skipped —
-// safe by a switch, not by design, with mootech-fe#293 scheduled to throw that switch.
+// named. It never fired only because CALENDAR_MONTH_GATE_OPEN was true and the whole branch was skipped —
+// safe by a switch, not by design. #293 threw that switch and #358 Phase 4 deleted it.
 //
-// 🔴 THE POINT OF THIS FILE: almost every case below runs with the gate CLOSED — the world AFTER #293.
-// That branch previously had no test at all (the flag was a const inside the handler, unreachable from a
-// test), so "flipping it is safe" was a promise. Now it is a fixture.
+// 🔴 THE POINT OF THIS FILE: every case below runs in the world after #293 and #358 Phase 4 — there is no
+// switch any more, so the membership path is simply the path. That branch once had no test at all (the
+// flag was a const inside the handler, unreachable from a test), so "flipping it is safe" was a promise.
 //
 // 🔴 MUTANT CONTRACT (each reddens `npm test`):
 //   MG1  the route reads userId from the body again          → ① reddens (a free session + a paid id = paid month)
@@ -17,11 +17,10 @@
 //        check refuses the anonymous id anyway, so ③ was proving the GATE works, not the identity check.
 //        Found by running the mutant, not by reading the code (it survived the first version of this file).
 //   MG3  the fortune cache key stops following the session    → ④ reddens (two accounts share one month)
-//   MG4  the membership refusal is removed while the gate is closed → ① reddens
+//   MG4  the membership refusal is removed → ① reddens
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 
 const h = vi.hoisted(() => ({
-  gateOpen: false, // most cases run in the post-#293 world
   who: { ok: true, userId: 'SESSION-FREE' } as
     | { ok: true; userId: string }
     | { ok: false; status: 401 | 404 | 409; error: string },
@@ -34,11 +33,6 @@ vi.mock('@/lib/v2/resolve-user', () => ({ resolveSessionUserId: vi.fn(async () =
 // #358 Phase 3 — this suite is about WHOSE membership is checked, not the span. Same pinning as the
 // gate-closed suite, and its paid users resolve to PRO, so the span never decides an assertion here.
 vi.mock('@/lib/v2/clock', () => ({ currentMonthBkk: () => '2028-01' }))
-vi.mock('@/lib/v2-calendar/gate', () => ({
-  get CALENDAR_MONTH_GATE_OPEN() {
-    return h.gateOpen
-  },
-}))
 // #358 Phase 2 — the route now asks resolveSubscription, so the stub moved with it. Left as a full module
 // mock rather than a spread of the original: the original pulls @/lib/db, and a membership stub that can
 // still reach a database is not a stub. `isPaid` (boolean | null) replaces `isFree` (boolean) because that
@@ -87,9 +81,8 @@ async function call(body: unknown, method = 'POST') {
   return res
 }
 
-describe('#391 /api/v2/calendar-month — the gate judges the session, with the gate CLOSED', () => {
+describe('#391 /api/v2/calendar-month — the gate judges the session', () => {
   beforeEach(() => {
-    h.gateOpen = false
     h.who = { ok: true, userId: 'SESSION-FREE' }
     h.paidUsers = new Set(['PAID-MEMBER-1'])
     h.fortuneCalls = []
@@ -151,8 +144,12 @@ describe('#391 /api/v2/calendar-month — the gate judges the session, with the 
 
 describe('#391 the server fortune cache follows the session, not the request', () => {
   beforeEach(() => {
-    h.gateOpen = true // cache behaviour is visible in the open-gate world too
-    h.paidUsers = new Set(['PAID-MEMBER-1'])
+    // 🔴 BOTH accounts are PAID here, and that is a #358 Phase 4 change rather than a cosmetic one. These
+    // cases ask about the cache KEY, not about entitlement, so they need a month both callers may open.
+    // While the switch existed this suite ran with it OPEN, which skipped the span check; with the switch
+    // gone a FREE session reaches only the current month, and '2027-06' would be refused before the cache
+    // is ever consulted — the assertion would still pass while measuring nothing.
+    h.paidUsers = new Set(['PAID-MEMBER-1', 'SESSION-A', 'SESSION-B'])
     h.fortuneCalls = []
     vi.clearAllMocks()
   })
@@ -175,21 +172,23 @@ describe('#391 the server fortune cache follows the session, not the request', (
     expect(h.fortuneCalls).toHaveLength(2) // ← recomputed for B; B never read A's slot
   })
 
-  // Today's behaviour must not move: with the gate OPEN a free session still gets its month.
-  it('gate OPEN (today) → a free session still gets the personalised month', async () => {
+  // #358 Phase 3 sold FREE the CURRENT month, and Phase 4 left that as the only rule on this route.
+  it('a free session still gets the personalised month it paid nothing for — the current one', async () => {
     h.who = { ok: true, userId: 'SESSION-FREE' }
-    const res = await call({ person: PERSON, month: '2027-07' })
+    const res = await call({ person: PERSON, month: '2028-01' })
     expect(res.body.allowed).toBe(true)
   })
 
   // ⑤ 🔴 ADDED BECAUSE A MUTANT SURVIVED. MG2 (treat a failed resolve as some anonymous user instead of
-  // refusing) reddened NOTHING: with the gate CLOSED, case ③ was caught by the MEMBERSHIP check, not by
-  // the identity refusal — the gate was doing the identity gate's job and hiding its absence.
-  // Here the gate is OPEN, which is the world we are actually in TODAY, and the refusal is the only thing
-  // standing between an unauthenticated caller and a personalised month computed upstream.
-  it('🔴 ⑤ gate OPEN + no session → still refused, and the upstream is never called', async () => {
+  // refusing) reddened NOTHING: case ③ was caught by the MEMBERSHIP check, not by the identity refusal —
+  // one gate was doing the other's job and hiding its absence.
+  // 🔴 THE MONTH IS THE WHOLE FIXTURE. It asks for the CURRENT month, which a FREE tier may open, so the
+  // span gate cannot refuse it and the identity refusal is the only thing left standing between an
+  // unauthenticated caller and a personalised month computed upstream. It used to buy that isolation by
+  // flipping the switch open; #358 Phase 4 deleted the switch, so it buys it with the month instead.
+  it('🔴 ⑤ no session + a month FREE could otherwise open → still refused, upstream never called', async () => {
     h.who = { ok: false, status: 401, error: 'not signed in' }
-    const res = await call({ person: PERSON, month: '2027-09', userId: 'PAID-MEMBER-1' })
+    const res = await call({ person: PERSON, month: '2028-01', userId: 'PAID-MEMBER-1' })
     expect(res.body.allowed).toBe(false)
     expect(res.body.days).toEqual([])
     expect(h.fortuneCalls).toHaveLength(0)

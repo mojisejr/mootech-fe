@@ -1,11 +1,15 @@
-// #293 — the SHIPPED value of the gate, not a mocked one.
+// #293 — the SHIPPED behaviour of the paid-month gate, with nothing of the gate itself stubbed.
 //
 // ANCHOR: scripts/calendar-month-gate-closed.test.tsx#calendar-month-gate-is-closed-in-the-build-we-ship
-// Bug-class this owns: a gate that is closed in the tests and open in the build. scripts/calendar-month-
-// identity.test.tsx proves the CLOSED path is safe — but it proves it by mocking lib/v2-calendar/gate, so
-// every one of its cases would keep passing if someone set the real constant back to `true`. That is the
-// hole this file exists to cover: it imports NOTHING of the gate and never mocks it, so what it exercises
-// is whatever value ships.
+// Bug-class this owns: a gate that is closed in the tests and open in the build. When this file was
+// written the hole was literal — scripts/calendar-month-identity.test.tsx mocked lib/v2-calendar/gate, so
+// its cases would all have kept passing if someone set the real constant back to `true`.
+//
+// 🔴 #358 Phase 4 DELETED that constant, so no test can mock it any more and the hole is closed by
+// construction rather than by this file's vigilance. What survives, and why this file is still here: the
+// span in lib/v2/entitlement.ts is now the ONLY thing between a free session and a paid month, and it is
+// perfectly mockable. These cases stub the upstream network and nothing else, so what they exercise is the
+// entitlement table that actually ships.
 //
 // 🔴 THE CRITERION IS `fortuneCalls === 0`, NOT an empty response — the standard ตู๋ used to prove #391.
 // A route that computes the paid month and then returns `days: []` has still paid for it, still warmed
@@ -16,8 +20,10 @@
 // single-sided test. The paying member must still get their month in the same run.
 //
 // 🔴 MUTANT CONTRACT (each reddens `npm test`):
-//   MC1  CALENDAR_MONTH_GATE_OPEN goes back to `true`  → ① reddens (a free session gets a month again)
-//   MC2  the membership refusal inside the gate is removed → ① reddens
+//   MC1  FREE's span in lib/v2/entitlement.ts is widened → ① reddens (a free session gets a month again)
+//   MC1b any flag is re-introduced in front of the span → ① reddens here, and
+//        scripts/calendar-month-span-unconditional.test.tsx names the shape directly
+//   MC2  the membership refusal is removed → ① reddens
 //   MC3  the paid path breaks                          → ② reddens (the gate must not refuse everyone)
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 
@@ -43,7 +49,7 @@ vi.mock('@/lib/v2/subscription', () => ({
     expireAt: null,
   })),
 }))
-// Only the upstream network calls are stubbed. lib/v2-calendar/gate is deliberately NOT mocked.
+// Only the upstream network calls are stubbed. The entitlement table is deliberately NOT mocked.
 vi.mock('@/lib/v2-calendar/month', async (importOriginal) => {
   const actual = (await importOriginal()) as Record<string, unknown>
   return {
