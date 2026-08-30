@@ -10,13 +10,28 @@
 // user_matching rows, and the user_matching row is only inserted once bazi has answered. There is no
 // separate counter to get out of step.
 //
+// 🔴 #358 Phase 6 ADDED A SECOND QUOTA CHECK, and the two are not redundant:
+//   the check at step 1  is CHEAP and ADVISORY — it exists so a user who is already out never costs an
+//                        engine call. It cannot bind, because ~7s of engine call happens after it.
+//   the check at step 5  is the one that BINDS. It re-counts inside the write transaction, under a
+//                        per-user advisory lock, so concurrent presses queue and each one sees the rows
+//                        the previous one actually wrote.
+// Without the second, 20 simultaneous presses all read the same count and all insert — the shape
+// mootech-be#21 measured on prod, where 454 users ended up past their ceiling. Without the first, being
+// out of quota would still cost an engine call every time.
+// ⚠️ The cost is explicit: a burst CAN pay for engine calls whose rows are then refused. The alternative
+// — holding the lock across the engine call — serialises one user's presses at ~7s each while holding a
+// pooled connection, which trades a rare overspend for a routine connection famine.
+//
 // 🔴 be silently falls back to the legacy table compute when bazi fails (chinese-horoscope.service.ts:1085).
 // FE has no legacy tables and #357's DoD asks for the opposite — an error the user can tell apart from
 // "โควตาเต็ม". So `engine-down` and `quota` are DIFFERENT outcomes here, and only `quota` is the user's fault.
 import { and, eq, sql } from 'drizzle-orm'
 import { db } from '@/lib/db'
 import { logActivity, logLoveMate, logMatching, logWorkVibe, memberWithFriend, user, userMatching } from '@/lib/db/schema'
-import { AI_CODE, bkkTimestamp, checkMatchingUsage, countMatchingInYear } from '@/lib/usage'
+import { AI_MSG, bkkTimestamp } from '@/lib/usage'
+import { resolveSubscription } from '@/lib/v2/subscription'
+import { compatibilityCeilingFor, countCompatibilityInMonth, lockCompatibilityFor } from '@/lib/v2/compat-quota'
 import { BaziEngineError, fetchBaziPairMatch } from './bazi-client'
 import { mapPairMatchToComputeResult, toPairMatchRequest } from './bazi-pair-match.mapper'
 import type { MatchingType } from './bazi-pair.types'
@@ -63,6 +78,20 @@ export type CalculateOutcome =
   | { ok: false; kind: 'unusable-birth' }
   | { ok: false; kind: 'engine-down'; detail: string }
 
+/**
+ * Thrown INSIDE the write transaction when the binding quota check loses a race, purely to roll it back.
+ * It never escapes this module: `runCalculateMatching` converts it into the ordinary `quota` outcome, so
+ * a caller cannot tell a race from a plain refusal — and should not, because to the user they are the
+ * same event. A dedicated class rather than a flag alone, so an UNEXPECTED throw is never read as a
+ * refusal: the flag says which one we meant, the class proves it came from here.
+ */
+class QuotaRaceLost extends Error {
+  constructor() {
+    super('compatibility quota reached while this request was in flight')
+    this.name = 'QuotaRaceLost'
+  }
+}
+
 export async function runCalculateMatching(params: {
   userId: string
   friendId: string
@@ -71,11 +100,19 @@ export async function runCalculateMatching(params: {
 }): Promise<CalculateOutcome> {
   const now = params.now ?? new Date()
 
-  // 1. quota — counted and gated on the SAME calendar-year window be uses (lib/usage.ts).
-  const used = await countMatchingInYear(params.userId, now)
-  const gate = await checkMatchingUsage(params.userId, used, now)
-  if (gate.code !== AI_CODE.SUCCESS) {
-    return { ok: false, kind: 'quota', message: gate.message }
+  // 1. quota (advisory) — the LEVEL's monthly ceiling, from lib/v2/entitlement.ts via lib/v2/compat-quota.
+  // A membership we cannot read spends FREE: the same fail-closed reading pages/api/v2/calendar-month.ts
+  // and pages/api/v2/day-detail.ts:82 use, so a lookup outage never hands out a bigger allowance.
+  let verdict: { isPaid: boolean | null; tier: string | null } = { isPaid: false, tier: null }
+  try {
+    const v = await resolveSubscription(params.userId)
+    verdict = { isPaid: v.isPaid, tier: v.tier }
+  } catch {
+    verdict = { isPaid: false, tier: null }
+  }
+  const ceiling = compatibilityCeilingFor(verdict)
+  if (ceiling !== null && (await countCompatibilityInMonth(params.userId, now)) >= ceiling) {
+    return { ok: false, kind: 'quota', message: AI_MSG.OUT_OF_LIMIT_ALL }
   }
 
   // 2. the two people. 🔴 The friend is scoped to the CALLER — be read member_with_friend by id alone
@@ -126,69 +163,91 @@ export async function runCalculateMatching(params: {
   const friendRemembersTime = !!(friend.time && friend.time !== '')
   const resultJson = JSON.stringify(mapped)
 
-  await db.transaction(async (tx) => {
-    await tx.insert(userMatching).values({
-      id: matchingId,
-      userId: params.userId,
-      friendId: params.friendId,
-      matchingType: params.matchingType,
-      createAt,
-    })
+  // 5b. THE BINDING QUOTA CHECK. Everything from the lock to the commit is one serialised unit per user,
+  // so the count below already includes any row a concurrent press committed. Throwing rolls the whole
+  // transaction back: no user_matching row, no log rows, no points — the press simply did not happen.
+  let refusedByQuota = false
+  try {
+    await db.transaction(async (tx) => {
+      if (ceiling !== null) {
+        await lockCompatibilityFor(tx, params.userId)
+        if ((await countCompatibilityInMonth(params.userId, now, tx)) >= ceiling) {
+          refusedByQuota = true
+          throw new QuotaRaceLost()
+        }
+      }
 
-    await tx.insert(logMatching).values({
-      matchingId,
-      userId: params.userId,
-      createat: createAt,
-      type: params.matchingType,
-      name: me.name ?? '',
-      dob: me.dob,
-      time: me.time ?? '',
-      isRememberTime: meRemembersTime,
-      gender: me.gender ?? null,
-      yourName: friend.name ?? '',
-      yourDob: friend.dob,
-      yourTime: friend.time ?? '',
-      yourIsRememberTime: friendRemembersTime,
-      yourGender: friend.gender ?? null,
-      result: resultJson,
-      friendId: params.friendId,
-    })
+      await tx.insert(userMatching).values({
+        id: matchingId,
+        userId: params.userId,
+        friendId: params.friendId,
+        matchingType: params.matchingType,
+        createAt,
+      })
 
-    const mateRow = {
-      createat: createAt,
-      name: me.name ?? '',
-      dob: me.dob,
-      time: me.time ?? '',
-      isRememberTime: meRemembersTime,
-      gender: me.gender ?? null,
-      yourName: friend.name ?? '',
-      yourDob: friend.dob,
-      yourTime: friend.time ?? '',
-      yourIsRememberTime: friendRemembersTime,
-      yourGender: friend.gender ?? null,
-      // be passes only `result` (the v1 block) to these two log tables, NOT the whole compute object —
-      // chinese-horoscope.service.ts:1110 / :1197 send `baziLove.result`. Kept identical.
-      result: JSON.stringify(mapped.result),
-      userId: params.userId,
+      await tx.insert(logMatching).values({
+        matchingId,
+        userId: params.userId,
+        createat: createAt,
+        type: params.matchingType,
+        name: me.name ?? '',
+        dob: me.dob,
+        time: me.time ?? '',
+        isRememberTime: meRemembersTime,
+        gender: me.gender ?? null,
+        yourName: friend.name ?? '',
+        yourDob: friend.dob,
+        yourTime: friend.time ?? '',
+        yourIsRememberTime: friendRemembersTime,
+        yourGender: friend.gender ?? null,
+        result: resultJson,
+        friendId: params.friendId,
+      })
+
+      const mateRow = {
+        createat: createAt,
+        name: me.name ?? '',
+        dob: me.dob,
+        time: me.time ?? '',
+        isRememberTime: meRemembersTime,
+        gender: me.gender ?? null,
+        yourName: friend.name ?? '',
+        yourDob: friend.dob,
+        yourTime: friend.time ?? '',
+        yourIsRememberTime: friendRemembersTime,
+        yourGender: friend.gender ?? null,
+        // be passes only `result` (the v1 block) to these two log tables, NOT the whole compute object —
+        // chinese-horoscope.service.ts:1110 / :1197 send `baziLove.result`. Kept identical.
+        result: JSON.stringify(mapped.result),
+        userId: params.userId,
+      }
+      if (isLoveDomain(params.matchingType)) {
+        await tx.insert(logLoveMate).values(mateRow)
+      } else {
+        await tx.insert(logWorkVibe).values({ ...mateRow, type: params.matchingType })
+      }
+
+      await tx
+        .update(user)
+        .set({ usedPoint: sql`${user.usedPoint} + ${MATCHING_POINT_COST}` })
+        .where(eq(user.userId, params.userId))
+
+      await tx.insert(logActivity).values({
+        createat: createAt,
+        activityId: activityIdFor(params.matchingType),
+        point: -MATCHING_POINT_COST,
+        userId: params.userId,
+      })
+    })
+  } catch (e) {
+    // 🔴 Only OUR sentinel becomes a refusal. Anything else is a real database failure and must keep
+    // travelling: swallowing it here would report "โควตาเต็ม" for a dead connection, which is the #263
+    // bug (blaming the user's ceiling for our own outage) rebuilt one layer down.
+    if (refusedByQuota && e instanceof QuotaRaceLost) {
+      return { ok: false, kind: 'quota', message: AI_MSG.OUT_OF_LIMIT_ALL }
     }
-    if (isLoveDomain(params.matchingType)) {
-      await tx.insert(logLoveMate).values(mateRow)
-    } else {
-      await tx.insert(logWorkVibe).values({ ...mateRow, type: params.matchingType })
-    }
-
-    await tx
-      .update(user)
-      .set({ usedPoint: sql`${user.usedPoint} + ${MATCHING_POINT_COST}` })
-      .where(eq(user.userId, params.userId))
-
-    await tx.insert(logActivity).values({
-      createat: createAt,
-      activityId: activityIdFor(params.matchingType),
-      point: -MATCHING_POINT_COST,
-      userId: params.userId,
-    })
-  })
+    throw e
+  }
 
   return { ok: true, matchingId, result: mapped }
 }
