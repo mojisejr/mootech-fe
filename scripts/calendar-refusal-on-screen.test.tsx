@@ -16,7 +16,6 @@
 //   R5  the month page renders CalendarSkeleton for a NAMED refusal            → the month-arrow tests redden
 //   R6  the day page drops the upgrade branch and falls back to the spinner    → the day-wall test reddens
 //   R7  the settled day screen returns to ctaLabel='' (the loading sentinel)   → the no-lie-in-the-bar test reddens
-//   R8  'unavailable' is reachable again before the identity has settled       → the cold-load-flash tests redden
 import React from 'react'
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, cleanup, waitFor } from '@testing-library/react'
@@ -81,10 +80,10 @@ describe('#530 monthRefusalSurface — only a NAMED refusal changes the screen',
 // ────────────────────────────────────────────────────────────────────────────────────────────────
 describe('#529 dayBodyState — four states, and the failure one is the point', () => {
   const CASES: Array<[string, Parameters<typeof dayBodyState>[0], DayBodyState]> = [
-    ['a real detail in hand', { detail: { any: 1 }, loading: false, outOfSpan: false, identityResolved: true }, 'ready'],
-    ['the fetch is genuinely in flight', { detail: null, loading: true, outOfSpan: false, identityResolved: true }, 'loading'],
-    ['the day is past what the package sells', { detail: null, loading: false, outOfSpan: true, identityResolved: true }, 'upgrade'],
-    ['settled, nothing to show, not walled', { detail: null, loading: false, outOfSpan: false, identityResolved: true }, 'unavailable'],
+    ['a real detail in hand', { detail: { any: 1 }, loading: false, outOfSpan: false }, 'ready'],
+    ['the fetch is genuinely in flight', { detail: null, loading: true, outOfSpan: false }, 'loading'],
+    ['the day is past what the package sells', { detail: null, loading: false, outOfSpan: true }, 'upgrade'],
+    ['settled, nothing to show, not walled', { detail: null, loading: false, outOfSpan: false }, 'unavailable'],
   ]
   it.each(CASES)('%s → %s', (_name, input, expected) => {
     expect(dayBodyState(input)).toBe(expected)
@@ -92,12 +91,11 @@ describe('#529 dayBodyState — four states, and the failure one is the point', 
 
   // TOTAL — the same assertion calendar-view-state.test.ts makes for the month body. Surface size stated
   // out loud so a shortened table cannot read as "every state is covered".
-  it('the table above is the whole space: 2 x 2 x 2 x 2 inputs, never a fifth answer', () => {
+  it('the table above is the whole space: 2 x 2 x 2 inputs, never a fifth answer', () => {
     const seen = new Set<string>()
     for (const detail of [null, { any: 1 }]) {
       for (const loading of [true, false]) {
-        for (const outOfSpan of [true, false])
-          for (const identityResolved of [true, false]) seen.add(dayBodyState({ detail, loading, outOfSpan, identityResolved }))
+        for (const outOfSpan of [true, false]) seen.add(dayBodyState({ detail, loading, outOfSpan }))
       }
     }
     expect([...seen].sort()).toEqual(['loading', 'ready', 'unavailable', 'upgrade'])
@@ -106,7 +104,7 @@ describe('#529 dayBodyState — four states, and the failure one is the point', 
   // 🔴 R2. Fail closed. A response carrying BOTH a detail and the wall flag should not arise, but if it
   // ever does, painting the detail serves paid content past the wall. Refusing to sell is recoverable.
   it('🔴 outOfSpan wins over a detail that arrived anyway — never serve past the wall', () => {
-    expect(dayBodyState({ detail: { any: 1 }, loading: false, outOfSpan: true, identityResolved: true })).toBe('upgrade')
+    expect(dayBodyState({ detail: { any: 1 }, loading: false, outOfSpan: true })).toBe('upgrade')
   })
 
   // Pins the implication that lets pages/v2/calendar/[date].tsx write `bodyState !== 'ready' || !detail`
@@ -115,37 +113,23 @@ describe('#529 dayBodyState — four states, and the failure one is the point', 
   it("'ready' is answered ONLY when detail is truthy", () => {
     for (const loading of [true, false]) {
       for (const outOfSpan of [true, false]) {
-        for (const identityResolved of [true, false])
-          expect(dayBodyState({ detail: null, loading, outOfSpan, identityResolved })).not.toBe('ready')
+        expect(dayBodyState({ detail: null, loading, outOfSpan })).not.toBe('ready')
       }
     }
   })
 
-  // 🔴 R8. FOUND BY A FRAME-BY-FRAME TRACE, NOT BY A STILL FRAME AND NOT BY A STRING ASSERTION.
-  // useDayDetail reports "I have not started, the user row is not here yet" with the SAME three values as
-  // "I finished and found nothing". Every screenshot in the evidence set was taken after both had settled,
-  // so all of them were correct and none of them could see this: on a cold load the failure notice flashed
-  // at 507ms on a walled day and at 345ms on an ordinary one, between two spinners.
-  it('🔴 identity not settled yet is NOT a failure — it is the one state that may still change', () => {
-    expect(dayBodyState({ detail: null, loading: false, outOfSpan: false, identityResolved: false })).toBe('loading')
-  })
-
-  // The other half, so the fix cannot be "always say loading": once identity HAS settled, nothing-to-show
-  // must still say so out loud.
-  it('once identity settles, nothing-to-show still reads as a failure', () => {
-    expect(dayBodyState({ detail: null, loading: false, outOfSpan: false, identityResolved: true })).toBe('unavailable')
-  })
-
-  // A wall is a wall even before the identity settles — the flag can only have come from a real answer.
-  it('a wall outranks an unsettled identity', () => {
-    expect(dayBodyState({ detail: null, loading: false, outOfSpan: true, identityResolved: false })).toBe('upgrade')
-  })
+  // 🗄️ R8 LIVED HERE AND WAS REMOVED WITH THE PARAMETER IT GUARDED. It asserted that an unsettled
+  // identity is not a failure — true, and now enforced one layer down by mootech-fe#533 `9fa30dc`, which
+  // splits "the row has not arrived" from "it arrived with no birthday" inside useDayDetail. Keeping a
+  // copy here would have been a test for a state this screen can no longer be handed. The live tooth is
+  // "while the user row is in flight the hook says LOADING" in calendar-refusal-reaches-screen.test.tsx;
+  // reverting that branch reddens 4 cases, checked before this block was deleted rather than after.
 
   // 🔴 R3. THE BUG THIS TICKET IS ABOUT. Before refusal-view.ts the page tested `!detail` alone, so this
   // exact input returned the spinner and nothing was left to stop it. A pulse reads as "any second now"
   // and the person waits (calendar-view-state.ts:16). Settled must never answer 'loading'.
   it('🔴 settled-with-nothing must NOT answer loading — that is the forever spinner', () => {
-    expect(dayBodyState({ detail: null, loading: false, outOfSpan: false, identityResolved: true })).not.toBe('loading')
+    expect(dayBodyState({ detail: null, loading: false, outOfSpan: false })).not.toBe('loading')
   })
 })
 
@@ -258,16 +242,6 @@ describe('#529 the day screen — the wall that spun forever', () => {
     const { container } = await mountDay()
     await waitFor(() => expect(screen.queryByTestId('day-detail-pending')).toBeNull())
     expect(container.textContent ?? '').not.toMatch(/กำลังโหลด/)
-  })
-
-  // 🔴 R8 at the screen. Same three values out of useDayDetail, identity NOT settled — the state a cold
-  // load passes through on its way to anything else. It must not print the failure words.
-  it('🔴 while the user row is still in flight, the day screen must not announce a failure', async () => {
-    tierState.value = { isPaid: null, tier: null, loading: true }
-    dayState.value = { detail: null, loading: false, outOfSpan: false }
-    await mountDay()
-    await waitFor(() => expect(screen.getByTestId('day-detail-pending')).toBeTruthy())
-    expect(screen.queryByTestId('day-detail-unavailable')).toBeNull()
   })
 
   it('a fetch really in flight still gets the spinner — it is telling the truth now', async () => {

@@ -53,21 +53,6 @@ export type DayBodyInput = {
   loading: boolean
   /** useDayDetail's `outOfSpan` (#529) */
   outOfSpan: boolean
-  /**
-   * 🔴 Has the identity fetch SETTLED (useV2User `done || errored`)? This is not a nicety, it is the
-   * difference between two things `useDayDetail` reports identically.
-   *
-   * useDayDetail answers `{ detail: null, loading: false, outOfSpan: false }` for BOTH "settled and there
-   * is nothing" AND "the user row has not arrived yet, so I have not started" — its identity guard sets
-   * exactly that shape before any fetch. Without this field the second one reads as the first, and the
-   * screen shows a FAILURE notice during the first half-second of an ordinary page load.
-   *
-   * Measured, not theorised: a frame-by-frame trace of a cold load showed
-   * `spinner 10ms → failure 507ms → spinner 533ms → upgrade 569ms`, and the same flash on an ordinary
-   * (non-walled) day at 345ms. Nobody saw it before this ticket because the old `!detail` guard rendered
-   * the spinner for that state; giving the state its own honest words is what made the wrong word visible.
-   */
-  identityResolved: boolean
 }
 
 /**
@@ -89,6 +74,18 @@ export type DayBodyInput = {
  *  2. `detail` before `loading` — the same call calendar-view-state.ts:41 makes: data already on screen
  *     must not be replaced by a placeholder for it.
  *  3. `loading` — the spinner, which from here on only appears when something really is coming.
+ *  🗄️ THIS RULE BRIEFLY TOOK A FOURTH INPUT, `identityResolved`, AND IT IS GONE ON PURPOSE.
+ *     useDayDetail used to answer `{detail: null, loading: false}` for BOTH "the user row has not arrived"
+ *     and "it arrived with no birthday", so this file guessed the difference from `isPaid !== null` and
+ *     refused to say 'unavailable' while it looked unsettled. Measured in a browser, that guard cut the
+ *     wrong-word window from 1560ms to 37ms and could not close it — `isPaid` settles before the row lands.
+ *     mootech-fe#533 `9fa30dc` split the branch at the source instead, and the same trace now reads
+ *     `loading → upgrade` with the guard and WITHOUT it, identically. A parameter that changes no
+ *     measurement is not caution, it is a cross-file guess about another hook's timing, kept alive by
+ *     nothing. The teeth that hold the real rule live where the branch does — the case named "while the
+ *     user row is in flight the hook says LOADING" in scripts/calendar-refusal-reaches-screen.test.tsx,
+ *     verified here by reverting that branch and watching 4 tests go red.
+ *
  *  4. everything else — settled with nothing to show. THIS BRANCH IS NEW BEHAVIOUR AND IT IS THE POINT.
  *     Before this file, pages/v2/calendar/[date].tsx:188 tested `!detail` alone and returned the spinner,
  *     so a walled day AND a genuinely failed one both spun forever with nothing left to stop them. A
@@ -97,12 +94,8 @@ export type DayBodyInput = {
  *     second now" and they wait. #529's DoD asks for a control proving a genuine failure still reads as a
  *     failure; that control cannot pass while the failure case is an eternal spinner.
  */
-export function dayBodyState({ detail, loading, outOfSpan, identityResolved }: DayBodyInput): DayBodyState {
+export function dayBodyState({ detail, loading, outOfSpan }: DayBodyInput): DayBodyState {
   if (outOfSpan) return 'upgrade'
   if (detail) return 'ready'
-  // 4. before 'unavailable' can be reached, the identity must have SETTLED. "I have not started" and
-  //    "I finished and found nothing" arrive here as the same three values; saying the second out loud
-  //    while the first is true is how a normal page load grew a 24ms failure notice.
-  if (!identityResolved) return 'loading'
   return loading ? 'loading' : 'unavailable'
 }

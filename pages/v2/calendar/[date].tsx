@@ -194,22 +194,9 @@ export default function V2CalendarDayPage({ teamPreview }: { teamPreview: boolea
   // CalendarSkeleton.tsx:9): blank reads as broken and the person leaves, a pulse reads as "any second
   // now" and they sit and wait. So the three are separated, by the rule in refusal-view.ts that the month
   // screen reads too. `dayBodyState` puts outOfSpan FIRST and fail-closed — see the note on it.
-  // Has the identity question been ANSWERED? Read from `isPaid`, which this page ALREADY holds — the
-  // tier is null exactly while the user row is undetermined, and settles to true/false (anon included,
-  // which computeTier reads as known-free) the moment it is not.
-  //
-  // 🔴 Two earlier versions of this line were wrong, and both were caught by something other than my own
-  // reading, so the reasons are worth keeping:
-  //   `done || errored` from useV2User      — useV2User leaves `done` false FOREVER for a visitor with no
-  //                                           MEMBER_ID cookie, so this screen would have spun at them
-  //                                           permanently: the fix writing back the bug it exists to fix.
-  //   adding useV2User here at all          — it calls useCookies, so mounting this page began to require
-  //                                           a <CookiesProvider> it had never needed. 5 cases in
-  //                                           scripts/day-cta-tier-gate.test.tsx went red on the local gate.
-  // `isPaid` costs nothing new and cannot introduce a stuck screen: wherever it is null, the tier spinner
-  // below is already the whole body, so this branch cannot be the thing that strands anyone.
-  const identityResolved = isPaid !== null
-  const bodyState = dayBodyState({ detail, loading: detailLoading, outOfSpan, identityResolved })
+  // #533 9fa30dc answers "the row has not arrived" as loading at the hook, so the page has nothing left
+  // to guess about identity here. The version of this line that guessed is described in refusal-view.ts.
+  const bodyState = dayBodyState({ detail, loading: detailLoading, outOfSpan })
   // `|| !detail` is here for the COMPILER, not for the runtime: a state variable cannot narrow `detail`
   // the way the old `if (!detail)` did, and every section below dereferences it. It can never fire on its
   // own — dayBodyState answers 'ready' ONLY when detail is truthy — and that implication is pinned by a
