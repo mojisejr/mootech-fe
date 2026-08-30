@@ -177,7 +177,8 @@ export default defineConfig({
       'scripts/bazi-pair-mapper.test.ts', // #357 — pure normalizers + rating band ported from mootech-be
       'scripts/bazi-pair-match-mapper.test.ts', // #357 — the live pair-match mapper + the frozen v1 result block
       'scripts/matching-quota-gate.test.ts',
-      'scripts/compat-tier-quota.test.ts', // #358 Phase 6 — the tiered, monthly ดวงสมพงษ์ ceiling // #357 — ด่านโควตาดวงสมพงษ์ ต้องเป็นหน้าต่างปีปฏิทินเท่ากับ be
+      'scripts/compat-tier-quota.test.ts', // #358 Phase 6 — the tiered, monthly ดวงสมพงษ์ ceiling
+      'scripts/compat-quota-concurrency-db.test.ts', // #358 Phase 6 — the ceiling under a burst, real pg // #357 — ด่านโควตาดวงสมพงษ์ ต้องเป็นหน้าต่างปีปฏิทินเท่ากับ be
       'scripts/matching-activity-id.test.ts', // #357 — ตู๋จับได้ว่า BOSS/EMPLOYEE/FRIEND ต้องเป็น activity 3 ไม่ใช่ 2
     ],
   },

@@ -164,8 +164,11 @@ describe('DoD — the seam holds', () => {
   })
 })
 
-// 🔴 MUTANT CONTRACT — measured 2026-08-30, recorded after running each one:
-//   MQ1  monthWindow → yearWindow in compat-quota.ts        → the two window cases redden
-//   MQ2  FREE: 2 → 20 in entitlement.ts                     → the ceiling case and the indicator cases redden
-//   MQ3  the count filtered by matching_type                → the one-allowance case reddens
-//   MQ4  entitlementTierOf reading `isPaid !== false`       → the UNDETERMINED case reddens
+// 🔴 MUTANT CONTRACT — measured 2026-08-30, each one run and its count copied from the run:
+//   MQ1  monthWindow → yearWindow in compat-quota.ts   → 6 of 12 red
+//   MQ2  FREE: 2 → 20 in entitlement.ts                → 5 of 12 red
+//   MQ3  the count filtered by matching_type           → 1 of 12 red (the one-allowance case)
+//   MQ4  `isPaid !== true` → `isPaid === false`        → 1 of 12 red (the UNDETERMINED case)
+// Every mutant asserts its target string exists before editing, so a no-op edit can never be read as a
+// surviving mutant — that near-miss happened earlier tonight on the Phase 4 spec and the all-green result
+// was indistinguishable from a real one.
