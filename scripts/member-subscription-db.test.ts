@@ -232,6 +232,35 @@ describe.skipIf(!TEST_URL)('member_subscription · real pg (#354)', () => {
     expect(await resolveSubscription(liveMember, NOW)).toEqual({ isPaid: true, tier: 'PRO', source: 'legacy', expireAt: liveMemberExpireAt })
   })
 
+  // ── #525 — the defect itself, against a real postgres and a real member_payment row ─────────────────
+  // The unit lane proves the rule and the call site. This proves the thing the ticket is actually about:
+  // a person who paid, holding a live FREE-tier row, on a real database, is served like the member they
+  // are. It is the shape ลามุน photographed — header "สมาชิก", body telling them to check their own
+  // date of birth — reproduced at the resolver both calendar routes read.
+  it('🔴 #525 — a live FREE row does NOT cancel a paying legacy member (real DB)', async () => {
+    // liveMember holds a valid member_payment row, so this is a real paying person, not a fixture.
+    await seed({ id: 'sub-525', userId: liveMember, tier: 'FREE', expireAt: '2030-06-30' })
+    expect(await resolveSubscription(liveMember, NOW)).toEqual({
+      isPaid: true,
+      tier: 'PRO',
+      source: 'legacy',
+      expireAt: liveMemberExpireAt, // their own expiry — NOT the FREE row's 2030-06-30
+    })
+
+    // 🔴 CONTROL — the same row on a user with NO member_payment row must still be free. Without this,
+    // "paid" above could just be the resolver having stopped refusing anything at all.
+    const [spare] = await sql`SELECT usr.user_id FROM "user" usr
+      WHERE usr.user_id NOT IN (SELECT user_id FROM member_payment) LIMIT 1`
+    expect(spare, 'the testenv must hold a user with no member_payment row').toBeDefined()
+    await seed({ id: 'sub-525-ctl', userId: spare.user_id as string, tier: 'FREE', expireAt: '2030-06-30' })
+    expect(await resolveSubscription(spare.user_id as string, NOW)).toEqual({
+      isPaid: false,
+      tier: null,
+      source: 'none',
+      expireAt: null,
+    })
+  })
+
   // ── #358 Phase 2 — THE PREMISE ────────────────────────────────────────────────────────────────────────
   // scripts/calendar-gates-one-source.test.tsx runs in the default lane and proves the two calendar gates
   // now agree for every combination of the two stores. To do that it MODELS the resolvers on top of a
