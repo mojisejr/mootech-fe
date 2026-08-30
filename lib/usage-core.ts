@@ -71,6 +71,27 @@ export function bkkDateStr(now: Date = new Date()): string {
   }).format(now)
 }
 
+// Civil timestamp 'YYYY-MM-DD HH:mm:ss' in Asia/Bangkok — what NestJS MomentService formats and what
+// every legacy create_at/createAt column stores as a STRING (#357).
+// ⚠️ lib/payment/repo.ts:35 has a private copy of this function. It is deliberately left alone here
+// (touching the payment lane is out of #357's scope); if a third caller ever needs it, fold repo.ts
+// onto this one rather than adding a copy — the FREE_FRIEND_LIMIT note above is what hand-synced
+// copies cost us last time.
+export function bkkTimestamp(now: Date = new Date()): string {
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Bangkok',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: false,
+  }).formatToParts(now)
+  const p = (t: string) => parts.find((x) => x.type === t)?.value ?? '00'
+  return `${p('year')}-${p('month')}-${p('day')} ${p('hour')}:${p('minute')}:${p('second')}`
+}
+
 // Mirror NestJS isNotExpired: date-only compare, not-expired iff today <= expireDay.
 // expire_at is stored as 'YYYY-MM-DD' (member_payment.expire_at). Invalid/empty -> false.
 export function isNotExpired(expireAt: string | null | undefined, now: Date = new Date()): boolean {

@@ -1,7 +1,15 @@
 // features/v2-service/hooks/useCompatibilityRecent.ts — ดวงสมพงศ์ ก้อน 2G history hook.
-// Reads the user's past compatibility readings via v1 UserMatchingGetApi(user_id) (IMPORTED, never edited —
-// ironclad rule 1) and normalises them for the "ดูดวงสมพงศ์ล่าสุด" screen. μุน owns the screen; this is the
-// small read-seam that feeds it.
+// Reads the user's past compatibility readings and normalises them for the "ดูดวงสมพงศ์ล่าสุด" screen.
+// μุน owns the screen; this is the small read-seam that feeds it.
+//
+// 🔴 #357: the read moved from v1 UserMatchingGetApi(user_id) → mootech-be to V2MatchingGetApi() →
+// /api/v2/matching. The user_id ARGUMENT is gone: the server reads the caller from the signed session.
+//
+// ⚠️ The MEMBER_ID cookie gate below is KEPT deliberately, so this rewire changes routing and nothing
+// else. It is now belt-only — the server would serve the right history without it — and it reproduces
+// a known bug: mootech-fe#257 measured MEMBER_ID going missing from real browsers, and such a user
+// sees an empty history here even though they are signed in and have readings. Removing the gate is a
+// behaviour change that belongs to #257, not to a pipe move.
 //
 // State-table (charter completeness — EVERY outcome resolves, NEVER an infinite spinner):
 //   no userId (anon / cookie not hydrated yet) → resolved-empty {items:[]}, loading OFF, error OFF.
@@ -12,7 +20,7 @@
 import { useEffect, useState } from 'react'
 import { useCookies } from 'react-cookie'
 import { CookieKey } from '@/constants/cookie-key'
-import { UserMatchingGetApi } from '@/constants/api/api-user-matching-get'
+import { V2MatchingGetApi } from '@/constants/api/api-v2-matching'
 import { parseRecentMatches, type RecentMatchItem } from '../compatibility-recent'
 
 export type UseCompatibilityRecent = {
@@ -50,7 +58,7 @@ export function useCompatibilityRecent(): UseCompatibilityRecent {
     setError(false)
     ;(async () => {
       try {
-        const resp = await UserMatchingGetApi(userId)
+        const resp = await V2MatchingGetApi()
         if (!alive) return
         const { ok, items: parsed } = parseRecentMatches(resp)
         setItems(parsed)

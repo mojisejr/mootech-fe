@@ -174,6 +174,10 @@ export default defineConfig({
       'scripts/bazi-chat-launcher-exit.test.tsx', // #376 A2 — เฝ้าเงื่อนไข !open เท่านั้น · ❌ ไม่ใช่ด่านของ A2 (jsdom ไม่เดินแอนิเมชัน · มิวแทนต์ที่รอดเขียนไว้ในไฟล์); .tsx
       'scripts/v1-menu-package-closed.test.tsx', // #427 — เมนู 2 รายการที่พาไปหน้าขาย; .tsx
       'scripts/csp-payment-path.test.ts', // #493 — CSP อยู่บนเส้นจ่ายเงินเท่านั้น + ฟันของข้อตกลงเรื่อง GTM
+      'scripts/bazi-pair-mapper.test.ts', // #357 — pure normalizers + rating band ported from mootech-be
+      'scripts/bazi-pair-match-mapper.test.ts', // #357 — the live pair-match mapper + the frozen v1 result block
+      'scripts/matching-quota-gate.test.ts', // #357 — ด่านโควตาดวงสมพงษ์ ต้องเป็นหน้าต่างปีปฏิทินเท่ากับ be
+      'scripts/matching-activity-id.test.ts', // #357 — ตู๋จับได้ว่า BOSS/EMPLOYEE/FRIEND ต้องเป็น activity 3 ไม่ใช่ 2
     ],
   },
   resolve: {
