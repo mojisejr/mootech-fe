@@ -87,6 +87,14 @@ describe.skipIf(!TEST_URL)('#358 Phase 6 · ดวงสมพงษ์ quota un
     await sql`DELETE FROM log_work_vibe WHERE user_id LIKE 'p6t-%'`
     await sql`DELETE FROM user_matching WHERE user_id LIKE 'p6t-%'`
     await sql`DELETE FROM member_with_friend WHERE user_id LIKE 'p6t-%'`
+    // 🔴 member_payment / member_subscription are cleaned even though THIS file never writes them.
+    // Measured 2026-08-30: several sibling db suites seed themselves with `SELECT user_id FROM "user"
+    // LIMIT n` (discount-concurrency:80, discount-preview:35, member-subscription:77), so when the whole
+    // suite runs against one database they ADOPT the users this file creates and write rows against them.
+    // One such row outlived its user tonight and left an orphan. Cleaning by prefix is the cheap half of
+    // the fix; the fragility itself is a shared-fixture problem and is tracked separately.
+    await sql`DELETE FROM member_subscription WHERE user_id LIKE 'p6t-%'`
+    await sql`DELETE FROM member_payment WHERE user_id LIKE 'p6t-%'`
     await sql`DELETE FROM "user" WHERE user_id LIKE 'p6t-%'`
     await sql.end()
   })
