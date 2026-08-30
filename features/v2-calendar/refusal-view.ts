@@ -73,6 +73,15 @@ export type DayBodyInput = {
 /**
  * DAY (#529). ORDER IS THE DESIGN, so each step says why it sits where it does:
  *
+ *  0. 🔑 THE ORDER BELOW IS UNCONDITIONALLY SAFE, AND IT WAS NOT ALWAYS. Recorded because the thing that
+ *     made it conditional is gone, and a later reader has no way to discover that it was ever load-bearing.
+ *     Until mootech-fe#533 `0f23974`, `outOfSpan` before `loading` only differed from the reverse in the
+ *     state `loading && outOfSpan`, which nothing prevented — it merely never happened, because
+ *     useDayDetail cleared the flag before every fetch. That was a promise living in a different file from
+ *     the code leaning on it, and ตู๋ measured that breaking it stayed green in all three lanes. `0f23974`
+ *     stamps the date into the hook's own state and reads a mismatch as `loading` there, which deletes the
+ *     promise rather than documenting it. The order below now holds on its own.
+ *
  *  1. `outOfSpan` first — FAIL CLOSED. A response carrying both a detail and the wall flag is a
  *     contradiction that should not arise (the route answers `{ detail: null, outOfSpan: true }`), but if
  *     it ever does, painting the detail would serve paid content past the wall. Refusing to sell is
