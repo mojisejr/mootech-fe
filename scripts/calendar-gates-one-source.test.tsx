@@ -81,6 +81,21 @@ vi.mock('@/lib/usage', () => ({
 // `resolveTierFromSources` (pure, no I/O — importOriginal reaches it past this very mock). What stays
 // local is only which rows this user has; the RULE cannot drift again, because there is no second copy.
 // A mutant in that rule now reddens this file too, which was the whole point.
+//
+// ⚠️ THE COPY MOVED UP A LEVEL, IT DID NOT DISAPPEAR (ตู๋). The rule has one copy now; the INPUTS the rule
+// receives are still assembled by hand here, and that hand-written part is the same shape as the thing
+// that just rotted, one function higher. Concretely: this stub ALWAYS passes a legacy verdict, while the
+// real `resolveSubscription` decides whether to read `member_payment` at all (`decidesWithoutLegacy`) and
+// passes `NO_LEGACY` when it does not. So the stub is more generous than production, and the branch that
+// chooses between those two has NO representative in this file.
+// ⇒ measured, not feared: reverting that call site to a bare `if (live)` leaves this file 9/9 green while
+//   scripts/member-subscription.test.ts goes red on two cases. Not a hole — that half is the OTHER file's
+//   subject and is watched there, which is the right place for it. Named here so nobody reads
+//   "no second copy" as "nothing left to drift".
+//
+// 🔑 AND THE LINE THIS TECHNIQUE MUST NOT CROSS: the expected values below stay LITERALS. They are never
+// computed from the rule. That is exactly why a mutant in the rule can redden this file — a spec that
+// derived its expectations from the rule would agree with any rule, including a broken one.
 vi.mock('@/lib/v2/subscription', async (importOriginal) => {
   const actual = (await importOriginal()) as typeof import('@/lib/v2/subscription')
   return {
