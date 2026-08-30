@@ -5,6 +5,11 @@
 //   1. the WINDOW is the calendar YEAR — matching.service.ts:71-84 uses startOf('year')/endOf('year').
 //      A month window would let a free user run 100 EVERY MONTH. The bound parameters are read back out
 //      of the query, so swapping yearWindow → monthWindow turns this red.
+//      🔑 THIS FILE, not the DB run in the PR's parity comment, is what excludes a ROLLING 365-DAY
+//      window (ตู๋, review of #540). Measured from 2026-08-30 a rolling window gives the same two
+//      answers as the calendar year for those fixtures — fillers at 2025-06-15 fall outside it either
+//      way. Only the literal bounds asserted below tell them apart: a rolling window binds
+//      '2025-08-30 …' and turns the assertion red.
 //   2. only FREE users are limited — matching.service.ts:85 counts against the ceiling `if (isFree)`.
 //      A member past the ceiling must still pass.
 //   3. the refusal message is the _ALL variant (matching.service.ts:86), not the per-day one.
