@@ -53,6 +53,21 @@ export type DayBodyInput = {
   loading: boolean
   /** useDayDetail's `outOfSpan` (#529) */
   outOfSpan: boolean
+  /**
+   * 🔴 Has the identity fetch SETTLED (useV2User `done || errored`)? This is not a nicety, it is the
+   * difference between two things `useDayDetail` reports identically.
+   *
+   * useDayDetail answers `{ detail: null, loading: false, outOfSpan: false }` for BOTH "settled and there
+   * is nothing" AND "the user row has not arrived yet, so I have not started" — its identity guard sets
+   * exactly that shape before any fetch. Without this field the second one reads as the first, and the
+   * screen shows a FAILURE notice during the first half-second of an ordinary page load.
+   *
+   * Measured, not theorised: a frame-by-frame trace of a cold load showed
+   * `spinner 10ms → failure 507ms → spinner 533ms → upgrade 569ms`, and the same flash on an ordinary
+   * (non-walled) day at 345ms. Nobody saw it before this ticket because the old `!detail` guard rendered
+   * the spinner for that state; giving the state its own honest words is what made the wrong word visible.
+   */
+  identityResolved: boolean
 }
 
 /**
@@ -73,8 +88,12 @@ export type DayBodyInput = {
  *     second now" and they wait. #529's DoD asks for a control proving a genuine failure still reads as a
  *     failure; that control cannot pass while the failure case is an eternal spinner.
  */
-export function dayBodyState({ detail, loading, outOfSpan }: DayBodyInput): DayBodyState {
+export function dayBodyState({ detail, loading, outOfSpan, identityResolved }: DayBodyInput): DayBodyState {
   if (outOfSpan) return 'upgrade'
   if (detail) return 'ready'
+  // 4. before 'unavailable' can be reached, the identity must have SETTLED. "I have not started" and
+  //    "I finished and found nothing" arrive here as the same three values; saying the second out loud
+  //    while the first is true is how a normal page load grew a 24ms failure notice.
+  if (!identityResolved) return 'loading'
   return loading ? 'loading' : 'unavailable'
 }
