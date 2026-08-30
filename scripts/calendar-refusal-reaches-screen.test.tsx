@@ -162,11 +162,17 @@ const USER = {
 // simultaneously pending and complete, which cannot happen. The in-flight branch was therefore never
 // reached and the mutant that deletes it stayed GREEN. A mock that cannot represent the state under test
 // is the same disease as a reader that summarises before comparing.
-const identity = { done: true, noBirth: false }
+const USER_NO_BIRTH = { ...USER, dob: '', time: '' }
+const USER_PAID = { ...USER, payment: { is_not_expired: true } }
+const identity = { done: true, noBirth: false, anon: false, paid: false }
 vi.mock('@/features/auth/hooks/useV2User', () => ({
   useV2User: () => ({
-    userId: 'U1',
-    user: !identity.done ? null : identity.noBirth ? { ...USER, dob: '', time: '' } : USER,
+    userId: identity.anon ? '' : 'U1',
+    // ⚠️ STABLE REFERENCES, not fresh objects. useDayDetail memoises `person` on `[user]`, so returning a
+    // new object each render makes that memo change every render, which re-runs the effect, which
+    // re-renders — my first version of this mock hung the suite. A mock that cannot hold still cannot test
+    // a hook that depends on identity.
+    user: !identity.done ? null : identity.noBirth ? USER_NO_BIRTH : identity.paid ? USER_PAID : USER,
     done: identity.done,
     errored: false,
   }),
@@ -315,6 +321,51 @@ describe('#529 — useDayDetail resolves THREE states, not two', () => {
     releaseUser?.()
   })
 
+  // 🔴 ตู๋'s follow-up: the stamp must cover the WHOLE cache key, not just the date.
+  //
+  // ⚠️ READ THIS BEFORE JUDGING THE TEST. Reverting the stamp to `date` alone does NOT redden anything
+  // else in this file, and that is honest rather than a weak test: useV2User refetches on `[userId]`
+  // alone today, so `paid` cannot flip under a fixed `userId` in the real app. This case reaches the state
+  // ANYWAY, through the mock, because the entire point of the wider stamp is the day somebody adds
+  // revalidation — which useV2User's own header argues for. It is the test that will redden on that day.
+  it('🔴 a tier flip under a fixed date never shows the old tier\'s answer (ตู๋, future-proofing)', async () => {
+    vi.spyOn(fetchDay, 'fetchDayDetail').mockImplementation(async () =>
+      identity.paid ? { detail: null, degraded: true } : { detail: null, outOfSpan: true },
+    )
+    identity.paid = false
+    const seen: Array<{ paid: boolean; outOfSpan: boolean }> = []
+    const { result, rerender } = renderHook(() => {
+      const r = useDayDetail('2029-09-09')
+      seen.push({ paid: identity.paid, outOfSpan: r.outOfSpan })
+      return r
+    })
+    await waitFor(() => expect(result.current.outOfSpan).toBe(true)) // free: walled
+
+    seen.length = 0
+    identity.paid = true // they pay, and the row is revalidated in place — no remount, same date
+    rerender()
+    await waitFor(() => expect(result.current.loading).toBe(false))
+
+    // no render, once paid, still reported the free tier's wall
+    expect(seen.filter((f) => f.paid && f.outOfSpan)).toEqual([])
+    expect(seen.length).toBeGreaterThan(0)
+    identity.paid = false
+  })
+
+  // 🔴 ตู๋'s trap, pinned. useV2User sets `done: false` for an ANONYMOUS visitor as well — that is "no
+  // fetch was started", not "a fetch is running" — so a naive `loading = !done` spins forever for everyone
+  // who is not signed in. The branch order in the hook is what prevents it, and nothing else would.
+  it('🔴 an ANONYMOUS visitor settles, and never spins forever (ตู๋\'s trap)', async () => {
+    identity.done = false
+    identity.anon = true
+    const { result } = renderHook(() => useDayDetail('2029-06-06'))
+    await waitFor(() => expect(result.current.loading).toBe(false))
+    expect(result.current.detail).toBeNull()
+    expect(result.current.outOfSpan).toBe(false)
+    identity.anon = false
+    identity.done = true
+  })
+
   // 🔴 CONTROL — "always report loading" satisfies the case above and breaks everything else. A signed-in
   // user with NO birth profile is genuinely settled and must still say so, or the screen spins forever.
   it('🔴 CONTROL — a settled identity with no birth profile is settled, not loading', async () => {
@@ -323,6 +374,30 @@ describe('#529 — useDayDetail resolves THREE states, not two', () => {
     const { result } = renderHook(() => useDayDetail('2029-05-06'))
     await waitFor(() => expect(result.current.loading).toBe(false))
     expect(result.current.detail).toBeNull()
+    identity.noBirth = false
+  })
+
+  // 🔴 ตู๋: THE SAME DESTINATION, REACHED BY WALKING. The control above starts at `done: true`, so its
+  // effect runs once already in the final state and never travels the path the bug lives on. Removing
+  // `identityDone` from the dependency array leaves the whole suite green while a real signed-in user with
+  // no birth date spins forever: `person` recomputes to null, `useMemo` hands back the SAME reference, so
+  // `identityDone` is the only value that moved — and with it out of the deps the effect never re-runs to
+  // clear the `loading: true` this fix just introduced.
+  //
+  // 🔑 Third time today the same lesson moved one layer out: act() flushing the frame, a mock that could
+  // not represent the state, and now a test that starts where it should arrive. A spec that begins at the
+  // destination cannot see the road.
+  it('🔴 arriving at "no birth profile" by WALKING (done false → true) still settles (ตู๋)', async () => {
+    identity.done = false
+    identity.noBirth = true
+    const { result, rerender } = renderHook(() => useDayDetail('2029-07-07'))
+    expect(result.current.loading).toBe(true) // in flight, correctly
+
+    identity.done = true // the row lands, and it has no birth date
+    rerender()
+    await waitFor(() => expect(result.current.loading).toBe(false)) // ← hangs if the dep is dropped
+    expect(result.current.detail).toBeNull()
+    expect(result.current.outOfSpan).toBe(false)
     identity.noBirth = false
   })
 

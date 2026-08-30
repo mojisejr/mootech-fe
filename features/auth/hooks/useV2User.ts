@@ -6,6 +6,22 @@
 // cache: a persisted row goes stale and a paid user keeps seeing the free gate). This hook is the React
 // wrapper: cookie → getUser → { done, errored, user } for the pure computeTier reducer.
 //
+// 🔴 IF YOU ARE HERE TO ADD REVALIDATION, READ THIS FIRST (mojisejr/mootech-fe#529, ตู๋).
+// The header two lines up argues that a stored row goes stale and a paid user keeps seeing the free gate.
+// That is a real argument and it points straight at adding a refetch — which is why this note lives HERE,
+// on the file someone would edit, and not only in the file that depends on it.
+//
+// The effect below refetches on `[userId]` alone. Consumers rely on that: features/v2-calendar/hooks/
+// useDayDetail.ts derives its cache key from this row (tier + birth signature) and stamps that whole key
+// into its own state, so an answer for one identity can never be shown for another. It was written when
+// `paid` could not flip under a fixed `userId` — precisely the invariant a revalidate would remove.
+// ⇒ adding revalidation is fine; adding it WITHOUT checking that hook's key stamp is not. Nothing here
+//   will go red on its own.
+//
+// 🔴 `done: false` DOES NOT MEAN "a fetch is running". Line 67 sets it for an anonymous visitor too, where
+// no fetch is issued at all. A consumer writing `loading = !done` will spin forever for every signed-out
+// person; the pending state is `Boolean(userId) && !done`.
+//
 // Idempotent effect (same discipline as useV2Tier / useV2Home — the #175/#176 latch class): NO doneRef.
 // StrictMode double-invokes; each run owns its `alive`, the surviving run resolves. The `alive` guard sits
 // on EVERY resolution path (success-valid, success-error-shape, reject) so a fetch that settles AFTER the
