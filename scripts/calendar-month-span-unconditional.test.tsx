@@ -15,6 +15,13 @@
 // depth of the span comparison inside the handler. It catches re-wrapping in ANY conditional whatever the
 // flag is called, and it catches the old module coming back. It does NOT catch a flag pushed down INSIDE
 // lib/v2/entitlement.ts, which would be invisible here and belongs to that file's own specs.
+// 🔴 MUTANT CONTRACT — measured 2026-08-30, not asserted from reading:
+//   M1  the span comparison re-wrapped in `if (SOME_FLAG) {`  → 1 red here, control stays green
+//   M2  the comparison replaced by `if (false) {`             → 8 red across this file,
+//       calendar-month-gate-closed.test.tsx and calendar-span-gate.test.tsx
+//   M3  FREE's calendar span widened 1 → 99 in lib/v2/entitlement.ts → 4 red in the two suites above
+// ⚠️ M2 was first run with a stale indent and changed NOTHING, and the all-green result read exactly like
+// a surviving mutant. Every run above now asserts the target string exists before it edits.
 import { describe, it, expect } from 'vitest'
 import { existsSync, readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
