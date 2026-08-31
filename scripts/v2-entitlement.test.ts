@@ -75,13 +75,13 @@ describe('#358 the table must not drift from what the shop already sells', () =>
     const shop = readFileSync('features/v2-shop/packages.ts', 'utf8')
     // Free card
     expect(shop).toContain('ดวงสมพงษ์ การงาน, ความรัก 2 match')
-    expect(shop).toContain('ปฏิทินดวงเฉพาะบุคคล (1 เดือน)')
+    expect(shop).toContain('ปฏิทินดวงเฉพาะบุคคล เดือนปัจจุบัน (ดูสรุปรายวัน)')
     // Plus card
     expect(shop).toContain('ดวงสมพงษ์ การงาน, ความรัก 20 match')
-    expect(shop).toContain('ปฏิทินดวงเฉพาะบุคคล 1 ปีเต็ม')
+    expect(shop).toContain('ปฏิทินดวงเฉพาะบุคคล 1 ปีเต็ม (รายวันแบบเต็ม)')
     // Pro card
     expect(shop).toContain('ดวงสมพงษ์ การงาน, ความรัก ไม่จำกัด (Unlimited)')
-    expect(shop).toContain('ปฏิทินดวงเฉพาะบุคคล ไม่จำกัด (Unlimited)')
+    expect(shop).toContain('ปฏิทินดวงเฉพาะบุคคล ไม่จำกัด (รายวันแบบเต็ม)')
   })
 })
 
