@@ -187,11 +187,17 @@ type CompatFailure = CompatCalcErrorReason | 'navigate'
 // right and only the line-break was wrong, which is a thing no assertion on textContent can see. Choosing
 // the break here means the headline is always one line and the guidance is always the second.
 const CALC_ERROR_COPY: Record<CompatFailure, { tone: 'retry' | 'blocked'; lines: [string, string] }> = {
-  // ✓ verified in BE source, not assumed: the ceiling counts rows between moment().startOf('year') and
-  // .endOf('year') (mootech-be src/matching/matching.service.ts:71-84 — the locals are misleadingly named
-  // startOfDay/endOfDay). So the window really is the calendar year, and "ปีนี้" is safe to say. Drop those
-  // two words if that ever stops being true; the rest of the line stands on its own.
-  quota: { tone: 'blocked', lines: ['ใช้สิทธิ์ดูดวงสมพงศ์ครบแล้วสำหรับปีนี้', 'ดูผลที่เคยคำนวณไว้ได้ที่ "ดูดวงสมพงศ์ล่าสุด" ด้านล่าง'] },
+  // 🔴 THE WINDOW MOVED, AND THE PREVIOUS AUTHOR LEFT THE INSTRUCTION FOR THIS EXACT MOMENT. This line
+  // read "สำหรับปีนี้", justified by a verified BE fact: the ceiling counted rows between
+  // moment().startOf('year') and .endOf('year') (mootech-be matching.service.ts:71-84). That comment ended
+  // "drop those two words if that ever stops being true".
+  // mojisejr/mootech-fe#358 Phase 6 stopped it being true — the v2 lane counts a CALENDAR MONTH
+  // (lib/v2/compat-quota.ts, ฟีมเคาะ 2026-08-30 "ต่อเดือน ไม่สะสม") — so for eleven months of the year the
+  // old sentence sent someone away until January when they get more on the 1st.
+  // 🔑 The period word STAYS rather than being dropped, deliberately: at ZERO it says WHEN YOU GET MORE,
+  // which is relief. QuotaLine.tsx:8-12 makes the opposite call for the same word at a non-zero count,
+  // where it would be a deadline on what you have not spent. Same word, opposite job, decided by the number.
+  quota: { tone: 'blocked', lines: ['ใช้สิทธิ์ดูดวงสมพงศ์ครบแล้วสำหรับเดือนนี้', 'ดูผลที่เคยคำนวณไว้ได้ที่ "ดูดวงสมพงศ์ล่าสุด" ด้านล่าง'] },
   // "ไม่ใช่ข้อมูลของคุณผิด" is the house phrasing for our-fault failures (ElementResultScreen.tsx:403).
   // Without it people go and re-edit their friend's birth date, which was never the problem.
   // ✓ retrying here is free: BE writes the quota row only after a successful calculation
@@ -248,6 +254,14 @@ export function CompatibilityScreen({ config }: { config: CompatibilityConfig })
   // #263: was a boolean ("did it fail?"). Now it carries WHICH failure, because that is what decides the
   // words. null = no failure showing.
   const [calcError, setCalcError] = useState<CompatFailure | null>(null)
+
+  // #545 — "there is nothing left to fire this month", read from BOTH sources on purpose. The failed
+  // attempt is the certain one; the pre-click indicator is the one that is already true BEFORE any error
+  // exists, which is the case a user hits by spending their LAST allowance (the cooldown starts on the
+  // press, the refusal only exists on the next one).
+  const quotaSpent =
+    calcError === 'quota' ||
+    (quota.matching.state === 'known' && quota.matching.remaining === 0)
   // Fire-once latch. calculateCompatibility has NO in-flight guard of its own (it consumes the user's
   // matching quota + writes a log row), and the hook's comment hands that guard to THIS state machine.
   // A `calculating` state var alone is racy: a synchronous double-tap re-enters onViewResult before the
@@ -367,6 +381,19 @@ export function CompatibilityScreen({ config }: { config: CompatibilityConfig })
           {/* button — gray until BOTH people (done-cond #5). Fires the (side-effecting) calc ONCE (guarded by
               firingRef), then the whole form swaps to the loader. 2F/D31: the button no longer carries a
               loading state — the wait lives on the full-screen loader, never on this label. */}
+          {/* 🔴 mojisejr/mootech-fe#545 — THE COUNTDOWN IS SUPPRESSED ONCE THE ALLOWANCE IS GONE. The two
+              used to render together: the label said "รออีก 56 วินาที" directly above a message saying the
+              month's allowance was finished. One told you to wait, the other told you waiting was
+              pointless, in the same frame.
+              The countdown means "you may fire again in N seconds", which is only true when there is
+              something left to fire.
+              ⚠️ ONLY THE LABEL CHANGES. The button stays disabled by `cooldown.active` exactly as before —
+              the rate limit is real and #265's reason for it does not go away (its mutant U3 still
+              reddens). And the button is NOT additionally disabled on `quotaSpent`: that value comes from a
+              client indicator, and the server is the gate. Locking the control on a stale read would deny
+              a calculation someone is entitled to, which is worse than a press that gets an honest refusal.
+              The reason lives in #263's message immediately below, so a neutral label here is not the
+              silent grey button #263 removed. */}
           {/* #265 — during the cooldown the button carries its OWN reason and its own remaining time.
               A greyed-out control that will not say why is the same defect #263 removed one line below
               it: the screen knows something the person does not. Putting the countdown IN the label
@@ -390,7 +417,7 @@ export function CompatibilityScreen({ config }: { config: CompatibilityConfig })
               cooldown.active ? 'text-v3-text-body' : !c.canViewResult ? 'text-white' : '',
             ].join(' ')}
           >
-            {cooldown.active ? `รออีก ${cooldown.secondsLeft} วินาที` : 'ดูผลลัพธ์เลย'}
+            {cooldown.active && !quotaSpent ? `รออีก ${cooldown.secondsLeft} วินาที` : 'ดูผลลัพธ์เลย'}
           </button>
 
           {/* #264 — how many calculations are left, right where the decision is made (this is a fact about
