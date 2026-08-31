@@ -14,6 +14,7 @@ import { V2MatchingCalculateApi, V2MatchingGetDetailApi } from '@/constants/api/
 import {
   parseCompatibilityResult,
   applyCarriedBirth,
+  applyAccountPhotos,
   mascotGanzhiPair,
   type CarriedPersons,
   type CompatibilityResult,
@@ -105,8 +106,15 @@ export function useCompatibilityResult(matchingId: string): UseCompatibilityResu
       try {
         const resp = await V2MatchingGetDetailApi(matchingId)
         if (!alive) return
-        // merge the birthDate/time carried from the form (no re-fetch); no carry → header hides the line
-        const parsed = applyCarriedBirth(parseCompatibilityResult(resp), recallCompatPersons(matchingId))
+        // merge the birthDate/time carried from the form (no re-fetch); no carry → header hides the line,
+        // then fill any photo the carry did not supply from the account columns the route already sends
+        // (#554 — reaching this screen from the history list has no carry, so both hero circles used to
+        // fall back to the brand mark even when the account has a picture). Carry first, account second:
+        // the carried photo is the one the user just saw on the form and must not be overridden.
+        const parsed = applyAccountPhotos(
+          applyCarriedBirth(parseCompatibilityResult(resp), recallCompatPersons(matchingId)),
+          resp,
+        )
         setResult(parsed)
         setError(parsed === null) // couldn't parse / no pairMatch → error state, screen shows fallback
       } catch {

@@ -10,6 +10,7 @@
 //   · birthdate absent (history) → line hidden · name is the only always-present label
 // FLAGGED (in evidence, for ฟีม/goo at PR): the Figma's lead summary sentence has no contract source → omitted;
 //   hearts/emoji (2E-1) have no place in the Figma hero → omitted here; corner element sprites → pending assets.
+import { useState } from 'react'
 import Image from 'next/image'
 import { ScoreRing } from '@/features/v2-calendar/components/day-detail/ScoreRing'
 import type { CompatOverall, CompatResultPerson, CompatMascot, CompatDimension } from '../compatibility-result'
@@ -37,6 +38,11 @@ function HeroPerson({ person, mascot, roleLabel, testId }: {
 }) {
   const img = (mascot?.imageUrl ?? '').trim()
   const photo = (person?.imageProfile ?? '').trim()
+  // #554 — the photo can now be an ACCOUNT column (persons carry it from the get-detail route), not only a
+  // URL the form just uploaded. An account row can hold a stale/deleted path, and a broken <img> in the ring
+  // reads worse than the brand mark. Same guard as the top bar (TopBarAvatar.tsx:69,75,78).
+  const [broken, setBroken] = useState(false)
+  const showPhoto = !!photo && !broken
   const name = (person?.displayName ?? '').trim()
   const birth = formatCompatBirth(person?.birthDate ?? '', person?.time ?? '')
   return (
@@ -47,15 +53,16 @@ function HeroPerson({ person, mascot, roleLabel, testId }: {
           <Image src={img} alt={name || roleLabel} fill sizes="180px" style={{ objectFit: 'cover' }} />
         </span>
       ) : null}
-      {/* avatar circle — the real photo if the form carried one; otherwise a Mumate-logo fallback so the slot
-          is never empty (ฟีม 2026-08-03: teal-fill brand mark). Overlaps the mascot card's bottom when a mascot
-          exists; standalone otherwise. */}
+      {/* avatar circle — the person's real photo when there is one (the form's upload, else the account's
+          picture_url via #554); otherwise a Mumate-logo fallback so the slot is never empty (ฟีม 2026-08-03:
+          teal-fill brand mark, reaffirmed 2026-08-31: "ใครไม่มีรูป ก็ fallback"). Overlaps the mascot card's
+          bottom when a mascot exists; standalone otherwise. */}
       <span
-        data-testid={photo ? `${testId}-photo` : `${testId}-avatar-fallback`}
+        data-testid={showPhoto ? `${testId}-photo` : `${testId}-avatar-fallback`}
         className={`relative grid size-14 place-items-center overflow-hidden rounded-full ring-2 ring-v3-lime ${img ? '-mt-7' : 'mt-1'}`}
       >
-        {photo ? (
-          <Image src={photo} alt="" fill sizes="56px" style={{ objectFit: 'cover' }} />
+        {showPhoto ? (
+          <Image src={photo} alt="" fill sizes="56px" style={{ objectFit: 'cover' }} onError={() => setBroken(true)} />
         ) : (
           // eslint-disable-next-line @next/next/no-img-element -- local brand SVG (embedded raster); object-cover fills the teal edge-to-edge inside the ring
           <img src="/images/mumate/ic_logo_app.svg" alt="" className="size-full object-cover" />
