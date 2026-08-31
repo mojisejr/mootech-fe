@@ -11,7 +11,7 @@
 //        because applyCarriedBirth OVERWRITES imageProfile with the carried value (undefined included)
 //
 // .tsx = invisible to the pre-push tsx lane by extension, so it is registered in vitest.config.mts.
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { renderHook, waitFor } from '@testing-library/react'
 
 vi.mock('next/config', () => ({ default: () => ({ publicRuntimeConfig: {}, serverRuntimeConfig: {} }) }))
@@ -50,6 +50,10 @@ describe('#554 the result hook fills the hero photos from the route', () => {
     // the mascot effect fires on any dayGanzhi; answer 404 so it resolves to null and never hits the network
     vi.stubGlobal('fetch', vi.fn(async () => ({ ok: false, status: 404, json: async () => ({}) }) as any))
   })
+
+  // hand the global back. A stub left standing is the classic way one spec file reddens a LATER one, and
+  // this file is new to the suite — it must not be the reason anything else moves.
+  afterEach(() => vi.unstubAllGlobals())
 
   it('🔴 from the history list (no form carry) both people get their ACCOUNT photo, not the fallback', async () => {
     mockDetail.mockResolvedValue(detailResponse(ACCOUNT_A, ACCOUNT_B))
