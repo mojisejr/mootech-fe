@@ -13,6 +13,7 @@ import assert from 'node:assert/strict'
 import {
   parseCompatibilityResult,
   applyCarriedBirth,
+  applyAccountPhotos,
   mascotGanzhiPair,
   type CompatibilityResult,
 } from '../features/v2-service/compatibility-result'
@@ -136,6 +137,48 @@ t('no carry (direct-link / parked flow) → persons unchanged, birthDate undefin
 
 t('applyCarriedBirth on a null result stays null (no crash)', () => {
   assert.equal(applyCarriedBirth(null, { a: { dob: '1994-06-14' } }), null)
+})
+
+// --- #554: the hero's photo may come from the ACCOUNT columns the route already sends -----------
+// Bug this guards: the ONLY photo source used to be the sessionStorage carry written at calculate time,
+// so opening a result from the history list (no carry) fell back to the brand mark for BOTH people even
+// when the account had a picture. `pages/api/v2/matching/[id].ts:65-66` was already sending both.
+const withPhotos = { ...(getDetailResponse as object), user: { picture: 'https://cdn/u.png' }, friend: { picture: 'https://cdn/f.png' } }
+
+t('#554 no carry + account pictures → both people get their account photo', () => {
+  const r = applyCarriedBirth(parseCompatibilityResult(withPhotos), null)
+  const out = applyAccountPhotos(r, withPhotos) as CompatibilityResult
+  assert.equal(out.persons.a?.imageProfile, 'https://cdn/u.png')
+  assert.equal(out.persons.b?.imageProfile, 'https://cdn/f.png')
+  assert.equal(out.persons.a?.dayGanzhi, '己巳') // the rich data still rides along
+})
+
+t('#554 the carried form photo WINS over the account column (it is what the user just saw)', () => {
+  const carried = applyCarriedBirth(parseCompatibilityResult(withPhotos), {
+    a: { imageProfile: 'https://cdn/just-uploaded.png' },
+  })
+  const out = applyAccountPhotos(carried, withPhotos) as CompatibilityResult
+  assert.equal(out.persons.a?.imageProfile, 'https://cdn/just-uploaded.png') // not overridden
+  assert.equal(out.persons.b?.imageProfile, 'https://cdn/f.png') // b had no carry → account fills it
+})
+
+t('#554 empty / whitespace / null / non-string column → undefined (rule 4, never a blank <img>)', () => {
+  for (const bad of ['', '   ', null, undefined, 42, {}]) {
+    const resp = { ...(getDetailResponse as object), user: { picture: bad }, friend: { picture: bad } }
+    const out = applyAccountPhotos(applyCarriedBirth(parseCompatibilityResult(resp), null), resp) as CompatibilityResult
+    assert.equal(out.persons.a?.imageProfile, undefined, `picture=${JSON.stringify(bad)} must not become a photo`)
+    assert.equal(out.persons.b?.imageProfile, undefined, `picture=${JSON.stringify(bad)} must not become a photo`)
+  }
+})
+
+t('#554 CONTROL — user/friend present but EMPTY (the base fixture) returns the SAME object, untouched', () => {
+  const r = applyCarriedBirth(parseCompatibilityResult(getDetailResponse), null) as CompatibilityResult
+  const out = applyAccountPhotos(r, getDetailResponse)
+  assert.equal(out, r) // identity, not just deep-equal: nothing to add ⇒ no new object, no re-render
+})
+
+t('#554 applyAccountPhotos on a null result stays null (no crash)', () => {
+  assert.equal(applyAccountPhotos(null, withPhotos), null)
 })
 
 console.log(`\ncompatibility-result: ${pass} passed`)

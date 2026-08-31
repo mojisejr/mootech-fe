@@ -143,6 +143,55 @@ export function parseCompatibilityResult(getDetailResponse: unknown): Compatibil
 }
 
 /**
+ * Fill each person's photo from the ACCOUNT columns the get-detail route already returns
+ * (`pages/api/v2/matching/[id].ts:65-66` maps `u.picture_url` → `user.picture` and
+ * `f.picture_url` → `friend.picture`). PURE.
+ *
+ * WHY this exists (#554): before it, the hero's only photo source was the sessionStorage carry written
+ * by calculateCompatibility. Reaching a result from the history list or a direct link means no carry, so
+ * BOTH circles fell back to the brand mark even for an account that has a photo — which is what ฟีม saw
+ * on production. The route was already carrying both pictures and nothing read them.
+ *
+ * PRECEDENCE: the carried form photo WINS when present, so run this AFTER applyCarriedBirth. That photo
+ * is the one the user was looking at on the previous screen; the account column is the fallback source,
+ * not an override. A non-string / null / whitespace column is `undefined` (rule 4) — the screen then
+ * shows its own fallback rather than a blank or fabricated image.
+ */
+export function applyAccountPhotos(
+  result: CompatibilityResult | null,
+  getDetailResponse: unknown,
+): CompatibilityResult | null {
+  if (!result) return result
+  const resp = getDetailResponse as {
+    user?: { picture?: unknown } | null
+    friend?: { picture?: unknown } | null
+  } | null
+  const pick = (v: unknown): string | undefined => {
+    const s = typeof v === 'string' ? v.trim() : ''
+    return s ? s : undefined
+  }
+  const photoA = pick(resp?.user?.picture)
+  const photoB = pick(resp?.friend?.picture)
+  if (!photoA && !photoB) return result // nothing to add → the SAME object, no needless re-render
+
+  const fill = (
+    p: CompatResultPerson | undefined,
+    photo: string | undefined,
+  ): CompatResultPerson | undefined => {
+    if (!photo) return p
+    if (p?.imageProfile) return p // carried form photo wins
+    return { ...(p ?? {}), imageProfile: photo }
+  }
+  return {
+    ...result,
+    persons: {
+      a: fill(result.persons.a, photoA),
+      b: fill(result.persons.b, photoB),
+    },
+  }
+}
+
+/**
  * The two day-ganzhi that need mascots. Absent dayGanzhi → undefined (skip that mascot; never
  * fabricate a ganzhi). Empty string is treated as absent.
  */
