@@ -154,10 +154,46 @@ describe('#265 cooldown — กดรัวจากปุ่มเดียว�
     render(<CompatibilityScreen config={CONFIG} />)
     tap()
     await waitFor(() => expect(screen.getByTestId('compat-result-error')).toBeTruthy())
+    // 🔴 THE INTENT OF THIS CASE IS THE RATE LIMIT, and that is what `disabled` measures. It used to be
+    // measured through the button's LABEL as well, and mojisejr/mootech-fe#545 is what that cost: the
+    // label said "รออีก 56 วินาที" directly above a message saying the allowance was finished, so the
+    // screen gave two opposite instructions in one frame. The cooldown itself did not change — U3 in the
+    // mutant contract above still reddens — only the sentence the button prints.
     expect(button().disabled).toBe(true)
-    expect(button().textContent).toMatch(/รออีก/)
-    // …and #263's message is still the one explaining the failure; the button explains only the wait.
+    expect(button().textContent).not.toMatch(/รออีก/)
+    // …and #263's message is the one explaining WHY, which is why the button no longer needs to.
     expect(screen.getByTestId('compat-result-error').textContent).toContain('ใช้สิทธิ์ดูดวงสมพงศ์ครบแล้ว')
+  })
+
+  // #545 — the second half. A user who spends their LAST allowance starts a cooldown BEFORE any error
+  // exists to read, so `calcError` alone would still print the countdown for that one minute. The
+  // pre-click indicator is what already knows.
+  it('🔴 กดครั้งสุดท้ายของเดือน → ปุ่มไม่ชวนให้รอ ทั้งที่ยังไม่มีข้อความผิดพลาดขึ้นเลย', async () => {
+    vi.stubGlobal('fetch', vi.fn(() => Promise.resolve({
+      ok: true, status: 200,
+      json: async () => ({ matching: { unlimited: false, limit: 2, used: 2, remaining: 0 }, friend: undefined }),
+    })))
+    calculateCompatibility.mockResolvedValue({ ok: true, matchingId: 'M1' })
+    render(<CompatibilityScreen config={CONFIG} />)
+    await waitFor(() => expect(screen.queryByTestId('compat-quota-matching')).toBeNull()) // 0 left → no line
+    tap()
+    await waitFor(() => expect(button().disabled).toBe(true))
+    expect(button().textContent).not.toMatch(/รออีก/)
+  })
+
+  // 🔴 CONTROL — without this the two cases above would pass on a button that NEVER shows a countdown,
+  // which would delete #265's whole reason for putting it there. Same cooldown, allowance left, and the
+  // countdown must come back.
+  it('🔴 CONTROL — ยังมีสิทธิ์เหลือ → ปุ่มยังบอกเวลาที่เหลือเหมือนเดิม', async () => {
+    vi.stubGlobal('fetch', vi.fn(() => Promise.resolve({
+      ok: true, status: 200,
+      json: async () => ({ matching: { unlimited: false, limit: 2, used: 1, remaining: 1 }, friend: undefined }),
+    })))
+    calculateCompatibility.mockResolvedValue({ ok: true, matchingId: 'M1' })
+    render(<CompatibilityScreen config={CONFIG} />)
+    tap()
+    await waitFor(() => expect(button().disabled).toBe(true))
+    await waitFor(() => expect(button().textContent).toMatch(/รออีก \d+ วินาที/))
   })
 
   it('🔴 ถอยกลับมาหน้าเดิม (remount) → ยังนับต่อ ไม่รีเซ็ตเป็นนาทีใหม่', async () => {
