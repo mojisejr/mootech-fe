@@ -43,7 +43,7 @@ export function FirstRunScreen({
   step: number
   onBack?: () => void
   children: ReactNode
-  /** Pinned to the bottom when the content is short; pushed down when it is long. */
+  /** Sits under the content with a capped gap (<=48px); pushed below the fold when the content is long. */
   footer: ReactNode
   contentClassName?: string
 }) {
@@ -73,9 +73,18 @@ export function FirstRunScreen({
         <span className="size-6" />
       </div>
 
-      {/* content absorbs the free space so `footer` lands at the bottom on a short screen and is
-          pushed below the fold (scrollable) on the long one — same markup for all three. */}
-      <div className={cn('flex flex-1 flex-col', contentClassName)}>{children}</div>
+      {/* Content no longer absorbs ALL the free space. It used to (`flex-1`), which pinned `footer`
+          to the bottom on a short screen — measured on 02-intent-check at 393x852: the goal grid ends
+          at y=540 and the button started at y=760, a 220px void that reads as a gap nobody drew
+          (ฟีม, issue #563). The two long screens never had that void: their content already exceeds
+          the viewport, so `flex-1` had no free space to hand them. Proven, not assumed — before/after
+          box measurements for all three screens are in the PR.
+
+          Now the gap is CAPPED instead: the spacer takes whatever free space exists, up to 48px. On
+          04-pdpa and 05-ผลธาตุ there is none to take, so it collapses to 0 and neither screen moves. */}
+      <div className={cn('flex flex-col', contentClassName)}>{children}</div>
+
+      <div aria-hidden className="max-h-12 flex-1" />
 
       <div className="px-8 pt-6">{footer}</div>
     </FullBleedScreen>
