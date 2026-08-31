@@ -15,8 +15,8 @@
 import { and, eq, gte, lte, sql } from 'drizzle-orm'
 import { db } from '@/lib/db'
 import { userMatching } from '@/lib/db/schema'
-import { monthWindow, quotaRemaining, type QuotaRemaining } from '@/lib/usage-core'
-import { entitlementTierOf, monthlyQuotaFor, type MembershipVerdictLike } from '@/lib/v2/entitlement'
+import { monthWindow, monthResetAt, quotaRemaining, type QuotaRemaining } from '@/lib/usage-core'
+import { entitlementTierOf, monthlyQuotaFor, type MembershipVerdictLike, type Tier } from '@/lib/v2/entitlement'
 
 /** Anything with `.select()` — the pooled client, or a transaction handle so a count can run under a lock. */
 type Reader = Pick<typeof db, 'select'>
@@ -61,14 +61,33 @@ export async function countCompatibilityInMonth(userId: string, now: Date = new 
  * `ceiling` by the line above. Passing `false` picks `limitMember`, which is where that resolved ceiling
  * is. `limitFree` is unreachable and is 0 rather than a number a reader could mistake for a rule.
  */
+export type CompatQuotaView = QuotaRemaining & {
+  /**
+   * '2026-09-01' — the first day this allowance is back, from `monthResetAt`, which derives it from the
+   * SAME `monthWindow` the count above uses.
+   *
+   * 🔴 #557 — this field exists so the screen can stop typing the period by hand. The refusal used to read
+   * "ครบแล้วสำหรับปีนี้" with a comment above it citing a verified BE fact; the fact expired when #358
+   * Phase 6 moved this lane to a calendar month, and nothing made the sentence red. A DATE that travels
+   * from the window cannot drift from it: change the window and the sentence changes with it.
+   */
+  resetAt: string
+  /** Which ceiling this is — the screen may say WHY the number is what it is; it could not before. */
+  tier: Tier
+}
+
 export async function compatibilityQuotaView(
   verdict: MembershipVerdictLike,
   userId: string,
   now: Date = new Date(),
-): Promise<QuotaRemaining> {
+): Promise<CompatQuotaView> {
   const ceiling = compatibilityCeilingFor(verdict)
   const used = await countCompatibilityInMonth(userId, now)
-  return quotaRemaining({ isFree: false, used, limitFree: 0, limitMember: ceiling })
+  return {
+    ...quotaRemaining({ isFree: false, used, limitFree: 0, limitMember: ceiling }),
+    resetAt: monthResetAt(now),
+    tier: entitlementTierOf(verdict),
+  }
 }
 
 /**

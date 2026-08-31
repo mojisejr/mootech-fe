@@ -22,6 +22,10 @@
 //   U4  quota tone 'blocked' → 'retry'                         → tone/role case RED
 //   U5  navigate on !res.ok (drop the early return)            → every "อยู่หน้าเดิม" case RED
 //   U6  render a single shared string again                    → the all-different case RED
+//   U7  (#557) the quota case reads a constant again instead of compatQuotaBlockedLines(resetAt)
+//                                                              → "วันคืนสิทธิ์มาจากสาย" RED
+//   U8  (#557) no resetAt falls back to a period word ("เดือนนี้") instead of the history pointer
+//                                                              → "ไม่รู้วันก็ต้องไม่พูดถึงเวลา" RED
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, render, screen, waitFor } from '@testing-library/react'
 
@@ -57,6 +61,19 @@ vi.mock('react-cookie', () => ({ useCookies: () => [{ 'cookie-mumate-id': 'u-1' 
 // indicator renders and the copy assertions below see exactly what they saw before #264.
 vi.stubGlobal('fetch', vi.fn(() => Promise.resolve({ ok: false, status: 500, json: async () => ({}) })))
 
+// #557 — some cases below need the quota read to SUCCEED, because the sentence under test is built from a
+// field on that response. Call this before rendering to answer /api/v2/quota with a real wire value.
+// `matching` is shaped exactly as lib/v2/compat-quota.ts's CompatQuotaView serialises.
+const QUOTA_UNAVAILABLE = () => vi.stubGlobal('fetch', vi.fn(() => Promise.resolve({ ok: false, status: 500, json: async () => ({}) })))
+
+function quotaAnswers(matching: Record<string, unknown>) {
+  vi.stubGlobal('fetch', vi.fn(() => Promise.resolve({
+    ok: true,
+    status: 200,
+    json: async () => ({ matching, friend: { unlimited: false, limit: 20, used: 0, remaining: 20 } }),
+  })))
+}
+
 vi.mock('@/features/v2-service/hooks/useCompatibility', () => ({ useCompatibility: () => useCompatibility() }))
 
 import { CompatibilityScreen } from '@/features/v2-service/components/CompatibilityScreen'
@@ -72,6 +89,11 @@ const CONFIG = { matchingType: 'LOVE', title: 'เช็คความสมพ
 // lands. Clearing here keeps each case starting from "has not calculated yet", which is what they assert.
 beforeEach(() => {
   window.localStorage.clear()
+  // #557 — vi.stubGlobal OUTLIVES a test, so a case that made the quota read succeed would hand its wire
+  // value to every case after it. (It did: the "ไม่รู้วันก็ต้องไม่พูดถึงเวลา" case read 1 ม.ค. 2570 from
+  // the CONTROL above and failed for a reason it is not about.) Every test starts from "quota unreadable",
+  // which is what this file assumed before the reset date existed; quotaAnswers() opts a case out.
+  QUOTA_UNAVAILABLE()
 })
 
 afterEach(() => {
@@ -125,10 +147,37 @@ describe('#263 ดวงสมพงศ์ — คำต่างกันตา
   // ทั้งที่เขาได้สิทธิ์คืนวันที่ 1 ของเดือนถัดไป
   // 🔑 คำบอกช่วงเวลา "ยังอยู่" ❌ ไม่ได้ถูกตัดทิ้ง — ตอนเหลือศูนย์ มันบอกว่า "เมื่อไหร่จะได้เพิ่ม" ซึ่งเป็นการ
   // ปลอบ ต่างจากตอนยังเหลือ ซึ่ง QuotaLine.tsx:8-12 ตัดสินตรงข้ามด้วยเหตุผลว่ามันจะกลายเป็นเส้นตาย
-  it('🔴 บอกช่วงเวลาที่ถูกต้อง — เดือน ไม่ใช่ปี (คลาสของคำอ้างที่หมดอายุเพราะกฎเปลี่ยน)', async () => {
+  // 🔴 #557 — WAS: expect(text).toContain('เดือนนี้'). That assertion is deleted ON PURPOSE and this note
+  // stands in its place, because the thing it defended was itself the bug's last form. The sentence has
+  // been "ปีนี้" and then "เดือนนี้"; both were hand-typed period words, both were true the day they were
+  // written, and neither could go red when lib/v2/compat-quota.ts moved underneath them. A test pinning
+  // the CURRENT word would only have pinned the next stale one.
+  // ⇒ what is defended now is that the period comes FROM THE WIRE as a date. Move the window and this
+  // stays green without an edit; type a period word back into the screen and it goes red.
+  it('🔴 วันคืนสิทธิ์มาจากสาย ❌ ไม่ใช่คำที่พิมพ์ไว้ในจอ', async () => {
+    quotaAnswers({ unlimited: false, limit: 2, used: 2, remaining: 0, resetAt: '2026-09-01', tier: 'FREE' })
     const { text } = await messageFor({ reason: 'quota' })
-    expect(text).toContain('เดือนนี้')
+    expect(text).toContain('1 ก.ย. 2569') // formatThaiDateAbbr('2026-09-01'), Buddhist year
+    expect(text, 'คำบอกช่วงเวลาที่พิมพ์มือคือรูปเดิมของบั๊กนี้').not.toContain('เดือนนี้')
     expect(text, 'หน้าต่างเป็นรายเดือนตั้งแต่ #548 — คำว่าปีนี้บอกให้คนรอนานเกินจริงถึง 11 เดือน').not.toContain('ปีนี้')
+  })
+
+  // The control for the case above. Same screen, same failure, only the wire changes — so a green date
+  // test cannot be green because the string happened to be sitting in the component.
+  it('🔴 CONTROL — สายส่งวันคนละวัน จอต้องพูดคนละวัน', async () => {
+    quotaAnswers({ unlimited: false, limit: 20, used: 20, remaining: 0, resetAt: '2027-01-01', tier: 'PLUS' })
+    const { text } = await messageFor({ reason: 'quota' })
+    expect(text).toContain('1 ม.ค. 2570')
+    expect(text).not.toContain('ก.ย.')
+  })
+
+  it('🔴 ไม่รู้วันก็ต้องไม่พูดถึงเวลา — อ่านโควตาไม่ได้ ห้ามเดาช่วงเวลา', async () => {
+    // the module-level stub answers 500, i.e. the quota read failed → no resetAt reaches the screen
+    const { text } = await messageFor({ reason: 'quota' })
+    expect(text).toContain('ใช้สิทธิ์ดูดวงสมพงศ์ครบแล้ว')
+    expect(text).not.toContain('เดือนนี้')
+    expect(text).not.toContain('ปีนี้')
+    expect(text, 'ไม่มีวันที่ ⇒ ต้องชี้ทางออกแทน ไม่ใช่เงียบ').toContain('ดูดวงสมพงศ์ล่าสุด')
   })
 
   it('🔴 โควตาเต็มต้องไม่ชวนกดซ้ำ — การกดซ้ำคือสิ่งที่กินโควตาเพิ่ม (454 คนบน prod)', async () => {
@@ -137,11 +186,19 @@ describe('#263 ดวงสมพงศ์ — คำต่างกันตา
     expect(text).not.toContain('ลองใหม่')
   })
 
-  it('โควตาเต็ม: ชี้ทางออกไปที่ "ดูดวงสมพงศ์ล่าสุด" ที่มีอยู่แล้วบนจอ', async () => {
+  // #557 narrowed this: when the screen KNOWS the reset day, line 2 spends itself on the date instead of
+  // the pointer (two lines, three things to say — see the "authored as TWO lines" note in the screen).
+  // The way out does not disappear, it is the button that was always directly beneath this message, so
+  // the assertion that still matters is the BUTTON's presence — which is checked in both branches here.
+  it('โควตาเต็ม: ทางออก "ดูดวงสมพงศ์ล่าสุด" อยู่บนจอเสมอ ไม่ว่าจะรู้วันคืนสิทธิ์หรือไม่', async () => {
+    quotaAnswers({ unlimited: false, limit: 2, used: 2, remaining: 0, resetAt: '2026-09-01', tier: 'FREE' })
+    await messageFor({ reason: 'quota' })
+    expect(screen.getByText('ดูดวงสมพงศ์ล่าสุด'), 'รู้วันคืนสิทธิ์').toBeTruthy()
+    cleanup()
+    QUOTA_UNAVAILABLE()
     const { text } = await messageFor({ reason: 'quota' })
+    expect(screen.getByText('ดูดวงสมพงศ์ล่าสุด'), 'ไม่รู้วันคืนสิทธิ์').toBeTruthy()
     expect(text).toContain('ดูดวงสมพงศ์ล่าสุด')
-    // and that link really is on this screen — otherwise the copy points at nothing
-    expect(screen.getByText('ดูดวงสมพงศ์ล่าสุด')).toBeTruthy()
   })
 
   it('ระบบขัดข้อง: บอกว่าไม่ใช่ความผิดผู้ใช้ และกดซ้ำได้ (5xx ไม่กินโควตา)', async () => {

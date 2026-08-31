@@ -34,6 +34,7 @@ vi.mock('@/lib/db', async () => {
 })
 
 import { compatibilityCeilingFor, countCompatibilityInMonth, compatibilityQuotaView } from '@/lib/v2/compat-quota'
+import { monthResetAt, monthWindow } from '@/lib/usage-core'
 
 /** Pull the bound literals back out of the drizzle condition so the WINDOW is assertable. */
 function boundValues(cond: any): (string | number)[] {
@@ -107,26 +108,62 @@ describe('the window is the calendar MONTH, Asia/Bangkok', () => {
   })
 })
 
+// A fixed instant so `resetAt` is a value the test can name. Any moment in Bangkok's August 2026.
+const AUG = new Date('2026-08-15T05:00:00Z')
+
 describe('the indicator and the gate cannot disagree', () => {
   it('🔴 the remaining number comes from the SAME ceiling and the SAME count', async () => {
     state.count = 1
-    expect(await compatibilityQuotaView({ isPaid: false, tier: null }, 'u1')).toEqual({
-      unlimited: false, limit: 2, used: 1, remaining: 1,
+    expect(await compatibilityQuotaView({ isPaid: false, tier: null }, 'u1', AUG)).toEqual({
+      unlimited: false, limit: 2, used: 1, remaining: 1, resetAt: '2026-09-01', tier: 'FREE',
     })
   })
 
   it('a user already past the ceiling shows 0 left, never a negative', async () => {
     state.count = 7
-    expect(await compatibilityQuotaView({ isPaid: false, tier: null }, 'u1')).toEqual({
-      unlimited: false, limit: 2, used: 7, remaining: 0,
+    expect(await compatibilityQuotaView({ isPaid: false, tier: null }, 'u1', AUG)).toEqual({
+      unlimited: false, limit: 2, used: 7, remaining: 0, resetAt: '2026-09-01', tier: 'FREE',
     })
   })
 
   it('PRO has no number to show', async () => {
     state.count = 999
-    expect(await compatibilityQuotaView({ isPaid: true, tier: 'PRO' }, 'u1')).toEqual({
-      unlimited: true, used: 999,
+    expect(await compatibilityQuotaView({ isPaid: true, tier: 'PRO' }, 'u1', AUG)).toEqual({
+      unlimited: true, used: 999, resetAt: '2026-09-01', tier: 'PRO',
     })
+  })
+})
+
+// #557 — the screen may now say WHEN the allowance returns, so the date has to come from the same window
+// the counter uses. These assert the derivation, not a restatement of it.
+describe('#557 the reset day is the window\'s, not a second opinion', () => {
+  it('🔴 resetAt is the day AFTER the window the count runs in — one definition, not two', async () => {
+    state.count = 0
+    const view = await compatibilityQuotaView({ isPaid: false, tier: null }, 'u1', AUG)
+    const { end } = monthWindow(AUG) // last instant that still counts against this month
+    // Stated as a RELATION to the window, not as a literal: move the window and both sides of this move
+    // together, which is the whole reason resetAt is derived instead of computed a second time.
+    const nextDay = (ymd: string) => {
+      const d = new Date(`${ymd}T00:00:00Z`)
+      d.setUTCDate(d.getUTCDate() + 1)
+      return d.toISOString().slice(0, 10)
+    }
+    expect(view.resetAt).toBe(nextDay(end.slice(0, 10)))
+  })
+
+  it('December rolls the YEAR, not just the month', () => {
+    expect(monthResetAt(new Date('2026-12-31T16:00:00Z'))).toBe('2027-01-01') // 31 Dec 23:00 Bangkok
+  })
+
+  it('🔴 CONTROL — a different month gives a different day (so the value is not a constant)', () => {
+    expect(monthResetAt(new Date('2026-01-10T05:00:00Z'))).toBe('2026-02-01')
+    expect(monthResetAt(AUG)).toBe('2026-09-01')
+  })
+
+  it('tier travels too — the screen could not say WHY the number was 2 before this', async () => {
+    state.count = 0
+    expect((await compatibilityQuotaView({ isPaid: true, tier: 'PLUS' }, 'u1', AUG)).tier).toBe('PLUS')
+    expect((await compatibilityQuotaView({ isPaid: false, tier: null }, 'u1', AUG)).tier).toBe('FREE')
   })
 })
 

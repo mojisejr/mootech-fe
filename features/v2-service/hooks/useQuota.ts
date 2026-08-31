@@ -19,26 +19,49 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { QuotaRemaining } from '@/lib/usage-core'
 
+/**
+ * #557 — the two fields the ดวงสมพงษ์ quota carries and the เพิ่มเพื่อน quota does not.
+ *
+ * OPTIONAL on purpose. `friend` is v1's lifetime ceiling (#262): it has no window, so it has no reset day,
+ * and demanding one here would turn a perfectly good friend quota into 'unavailable'. A consumer that has
+ * no resetAt must say nothing about time rather than fall back to a period word — falling back is the
+ * hand-typed claim this ticket removes.
+ */
+export type QuotaWindow = { resetAt?: string; tier?: string }
+
 export type QuotaView =
   /** the request is in flight and has never resolved — show nothing, not a zero */
   | { state: 'loading' }
   /** we could not read it (network, 5xx, malformed) — show nothing at all, and never guess */
   | { state: 'unavailable' }
   /** this quota is not capped for this user (member, matching) — no number exists to show */
-  | { state: 'unlimited' }
-  | { state: 'known'; remaining: number; limit: number; used: number }
+  | ({ state: 'unlimited' } & QuotaWindow)
+  | ({ state: 'known'; remaining: number; limit: number; used: number } & QuotaWindow)
 
 export type Quotas = { matching: QuotaView; friend: QuotaView }
 
 const LOADING: Quotas = { matching: { state: 'loading' }, friend: { state: 'loading' } }
 const UNAVAILABLE: Quotas = { matching: { state: 'unavailable' }, friend: { state: 'unavailable' } }
 
+/**
+ * The window half of the wire value, kept only when it is really there. A malformed resetAt is DROPPED
+ * rather than passed on: the caller's "no date → say nothing about time" branch is the honest answer, and
+ * it is the same branch the friend quota takes.
+ */
+function windowOf(q: unknown): QuotaWindow {
+  const w = q as { resetAt?: unknown; tier?: unknown }
+  const out: QuotaWindow = {}
+  if (typeof w?.resetAt === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(w.resetAt)) out.resetAt = w.resetAt
+  if (typeof w?.tier === 'string' && w.tier) out.tier = w.tier
+  return out
+}
+
 /** Map one wire value → view. Anything not matching the contract is 'unavailable', never a number. */
 function toView(q: QuotaRemaining | undefined): QuotaView {
   if (!q || typeof q !== 'object') return { state: 'unavailable' }
-  if (q.unlimited === true) return { state: 'unlimited' }
+  if (q.unlimited === true) return { state: 'unlimited', ...windowOf(q) }
   if (q.unlimited === false && typeof q.remaining === 'number' && typeof q.limit === 'number') {
-    return { state: 'known', remaining: q.remaining, limit: q.limit, used: q.used }
+    return { state: 'known', remaining: q.remaining, limit: q.limit, used: q.used, ...windowOf(q) }
   }
   return { state: 'unavailable' }
 }

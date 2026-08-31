@@ -25,6 +25,7 @@ import { MemberWithFriendGetDetailApi } from '@/constants/api/api-member-with-fr
 import { friendDetailToEditForm, type EditFriendForm, type FriendEditDetail } from '../compatibility-api'
 import { useCompatibility, type CompatPerson } from '../hooks/useCompatibility'
 import { useQuota } from '../hooks/useQuota'
+import { compatQuotaBlockedLines } from './compat-quota-copy'
 import { useCalcCooldown } from '../hooks/useCalcCooldown'
 import { QuotaLine } from './QuotaLine'
 import { calculateCompatibility, type CompatCalcErrorReason } from '../hooks/useCompatibilityResult'
@@ -187,17 +188,13 @@ type CompatFailure = CompatCalcErrorReason | 'navigate'
 // right and only the line-break was wrong, which is a thing no assertion on textContent can see. Choosing
 // the break here means the headline is always one line and the guidance is always the second.
 const CALC_ERROR_COPY: Record<CompatFailure, { tone: 'retry' | 'blocked'; lines: [string, string] }> = {
-  // 🔴 THE WINDOW MOVED, AND THE PREVIOUS AUTHOR LEFT THE INSTRUCTION FOR THIS EXACT MOMENT. This line
-  // read "สำหรับปีนี้", justified by a verified BE fact: the ceiling counted rows between
-  // moment().startOf('year') and .endOf('year') (mootech-be matching.service.ts:71-84). That comment ended
-  // "drop those two words if that ever stops being true".
-  // mojisejr/mootech-fe#358 Phase 6 stopped it being true — the v2 lane counts a CALENDAR MONTH
-  // (lib/v2/compat-quota.ts, ฟีมเคาะ 2026-08-30 "ต่อเดือน ไม่สะสม") — so for eleven months of the year the
-  // old sentence sent someone away until January when they get more on the 1st.
-  // 🔑 The period word STAYS rather than being dropped, deliberately: at ZERO it says WHEN YOU GET MORE,
-  // which is relief. QuotaLine.tsx:8-12 makes the opposite call for the same word at a non-zero count,
-  // where it would be a deadline on what you have not spent. Same word, opposite job, decided by the number.
-  quota: { tone: 'blocked', lines: ['ใช้สิทธิ์ดูดวงสมพงศ์ครบแล้วสำหรับเดือนนี้', 'ดูผลที่เคยคำนวณไว้ได้ที่ "ดูดวงสมพงศ์ล่าสุด" ด้านล่าง'] },
+  // 🔴 #557 — THE LINES FOR `quota` ARE NO LONGER HERE. They are built by compatQuotaBlockedLines() from
+  // the reset date the server sends, because this entry is where the bug kept coming back: it read
+  // "สำหรับปีนี้" (justified by a BE fact that #358 Phase 6 retired), then "สำหรับเดือนนี้", and neither
+  // spelling could go red when the window under it moved. The placeholder below is never rendered — the
+  // render site calls the function — and exists so the Record still covers every CompatFailure and a new
+  // failure kind cannot be added without meeting this one.
+  quota: { tone: 'blocked', lines: compatQuotaBlockedLines() },
   // "ไม่ใช่ข้อมูลของคุณผิด" is the house phrasing for our-fault failures (ElementResultScreen.tsx:403).
   // Without it people go and re-edit their friend's birth date, which was never the problem.
   // ✓ retrying here is free: BE writes the quota row only after a successful calculation
@@ -438,8 +435,13 @@ export function CompatibilityScreen({ config }: { config: CompatibilityConfig })
                 CALC_ERROR_COPY[calcError].tone === 'blocked' ? 'text-v3-navy' : 'text-v3-error',
               ].join(' ')}
             >
-              {/* line 1 (bold) = WHAT happened · line 2 (normal) = what to do about it */}
-              {CALC_ERROR_COPY[calcError].lines.map((line, i) => (
+              {/* line 1 (bold) = WHAT happened · line 2 (normal) = what to do about it.
+                  #557: the quota case reads its second line from the wire (the day the allowance is back);
+                  every other case is a constant, because none of them is about time. */}
+              {(calcError === 'quota'
+                ? compatQuotaBlockedLines(quota.matching.state === 'known' ? quota.matching.resetAt : undefined)
+                : CALC_ERROR_COPY[calcError].lines
+              ).map((line, i) => (
                 <span key={line} className={i === 0 ? 'block font-bold' : 'block font-normal'}>{line}</span>
               ))}
             </p>
