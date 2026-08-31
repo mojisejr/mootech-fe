@@ -170,6 +170,22 @@ export function monthWindow(now: Date = new Date()): { start: string; end: strin
   return { start: `${ym}-01 00:00:00`, end: `${ym}-${String(lastDay).padStart(2, '0')} 23:59:59` }
 }
 
+/**
+ * The first day the monthly allowance is back — '2026-09-01' for any instant in Bangkok's August.
+ *
+ * 🔴 DERIVED FROM `monthWindow`, never computed alongside it. The two must agree by construction: the
+ * window's `end` is the last instant that still counts against this month, so the reset is the day after
+ * it. Computing "first of next month" independently would be a SECOND definition of the window, and #557
+ * exists precisely because a sentence about the window drifted away from the window itself.
+ *
+ * String in, string out (same discipline as lib/v2/thai-date.ts): no Date is constructed from the window
+ * string, so the answer cannot shift with the reader's timezone.
+ */
+export function monthResetAt(now: Date = new Date()): string {
+  const [y, m] = monthWindow(now).end.slice(0, 7).split('-').map(Number)
+  return m === 12 ? `${y + 1}-01-01` : `${y}-${String(m + 1).padStart(2, '0')}-01`
+}
+
 // Calendar-YEAR window, byte-for-byte what BE compares against (#264 trap). Mirrors
 // mootech-be src/matching/matching.service.ts:71-84:
 //   moment().startOf('year').format('YYYY-MM-DD 00:00:00')  ..  endOf('year').format('...23:59:59')
