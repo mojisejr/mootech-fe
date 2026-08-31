@@ -151,8 +151,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   //
   // 🔴 #358 Phase 3 — THE PAID-ONLY REFUSAL IS GONE FROM HERE, and that is the point of the phase, not a
   // side effect. It read `if (verdict.isPaid !== true) return allowed:false`, so a non-paying visitor got
-  // no month at all. The shop card has always sold FREE "ปฏิทินดวง 1 เดือน"
+  // no month at all. The shop card has always sold FREE a personalised month of its own
   // (features/v2-shop/packages.ts), so the route and the price list disagreed and the route won.
+  // ⚠️ That bullet's WORDING changed after this comment was written — it now reads "เดือนปัจจุบัน
+  // (ดูสรุปรายวัน)", because the old "(1 เดือน)" sounded like a full month's reading while a free day is
+  // trimmed at pages/api/v2/day-detail.ts. Quoted loosely here on purpose: a comment that copies a string
+  // verbatim goes stale the next time that string is edited, and this one already did.
   // ฟีมเคาะ 2026-08-29 ทาง A: honour the card. The SPAN below is now the only gate, and for FREE it
   // admits exactly the current month — which is the same refusal for every other month, reached by the
   // rule that was sold rather than by a boolean.

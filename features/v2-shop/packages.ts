@@ -60,7 +60,12 @@ export const PLANS: readonly Plan[] = [
     tagline: 'เริ่มต้นใช้งานและเรียนรู้พื้นฐาน',
     features: [
       'ดวงสมพงษ์ การงาน, ความรัก 2 match',
-      'ปฏิทินดวงเฉพาะบุคคล (1 เดือน)',
+      // 🔴 #358 — the DEPTH is named, not only the SPAN. Every other bullet on this card is a COUNT
+      // (2 match · 2 ครั้ง/วัน · 1 คำถาม/วัน), so a reader is primed to read a bare '(1 เดือน)' as a
+      // quantity and expect the full reading for a month. A free day is a SUMMARY:
+      // lib/v2-calendar/day-detail.ts FREE_DAY_DETAIL_FIELDS carries 12 of the 22 fields, and
+      // pages/api/v2/day-detail.ts trims the rest before the response is built.
+      'ปฏิทินดวงเฉพาะบุคคล เดือนปัจจุบัน (ดูสรุปรายวัน)',
       'เซียมซี / Oracle Card: 2 ครั้ง / วัน',
       'เชี่ยวมู chat (ชินแซ 24 ชม): 1 คำถาม / วัน',
     ],
@@ -72,7 +77,7 @@ export const PLANS: readonly Plan[] = [
     tagline: 'สำหรับคนใช้ประจำและสายมูระดับเริ่มต้น',
     features: [
       'ดวงสมพงษ์ การงาน, ความรัก 20 match',
-      'ปฏิทินดวงเฉพาะบุคคล 1 ปีเต็ม',
+      'ปฏิทินดวงเฉพาะบุคคล 1 ปีเต็ม (รายวันแบบเต็ม)',
       'เชี่ยวมู chat (ชินแซ 24 ชม): 5 คำถาม / วัน',
       'เซียมซี / Oracle Card: 10 ครั้ง / วัน',
     ],
@@ -87,7 +92,7 @@ export const PLANS: readonly Plan[] = [
     tagline: 'สำหรับสายมูตัวจริง หรือต้องการไกด์ไลน์ในช่วงการตัดสินใจครั้งใหญ่ของชีวิต',
     features: [
       'ดวงสมพงษ์ การงาน, ความรัก ไม่จำกัด (Unlimited)',
-      'ปฏิทินดวงเฉพาะบุคคล ไม่จำกัด (Unlimited)',
+      'ปฏิทินดวงเฉพาะบุคคล ไม่จำกัด (รายวันแบบเต็ม)',
       'เชี่ยวมู chat (ชินแซ 24 ชม): ไม่จำกัด (Unlimited)',
     ],
     codes: { monthly: 'V2_PRO_MONTHLY', annual: 'V2_PRO_YEARLY' },
