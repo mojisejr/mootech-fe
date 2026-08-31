@@ -171,6 +171,24 @@ describe('#263 ดวงสมพงศ์ — คำต่างกันตา
     expect(text).not.toContain('ก.ย.')
   })
 
+  // The guard that makes the case above safe lives in ONE place, lib/v2/thai-date.ts:23. This is its
+  // tooth from the screen's side: a server that sends rubbish must not put rubbish in front of a user,
+  // and must not silently become "no date at all" without the pointer line taking over.
+  it('🔴 สายส่งวันที่เพี้ยน จอต้องไม่โชว์ของเพี้ยน และต้องตกไปที่ทางออกแทน', async () => {
+    // 🔑 ONE broken field at a time. The first draft used '2026-13-45', which is a bad month AND a bad
+    // day — it went green while the month check was mutated away, because the DAY check caught it. A
+    // fixture that trips two guards cannot say which one is holding.
+    for (const bad of ['2026-13-01', '2026-01-45', 'ไม่ใช่วันที่', '']) {
+      cleanup()
+      quotaAnswers({ unlimited: false, limit: 2, used: 2, remaining: 0, resetAt: bad, tier: 'FREE' })
+      const { text } = await messageFor({ reason: 'quota' })
+      expect(text, `resetAt=${bad}`).toContain('ใช้สิทธิ์ดูดวงสมพงศ์ครบแล้ว')
+      expect(text, `resetAt=${bad} ไม่ใช่วันที่จริง ⇒ ห้ามพิมพ์ออกจอ`).not.toContain(bad || 'ได้สิทธิ์คืน')
+      expect(text, `resetAt=${bad} ⇒ ห้ามอ้างวันคืนสิทธิ์`).not.toContain('ได้สิทธิ์คืนวันที่')
+      expect(text, `resetAt=${bad} ⇒ ต้องชี้ทางออกแทน`).toContain('ดูดวงสมพงศ์ล่าสุด')
+    }
+  })
+
   it('🔴 ไม่รู้วันก็ต้องไม่พูดถึงเวลา — อ่านโควตาไม่ได้ ห้ามเดาช่วงเวลา', async () => {
     // the module-level stub answers 500, i.e. the quota read failed → no resetAt reaches the screen
     const { text } = await messageFor({ reason: 'quota' })
