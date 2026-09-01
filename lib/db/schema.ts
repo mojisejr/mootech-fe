@@ -1055,6 +1055,36 @@ export const userMatching = pgTable("user_matching", {
 	index("idx_user_matching_user_id").using("btree", table.userId.asc().nullsLast().op("text_ops")),
 ]);
 
+// ── colleague lane (mootech-fe#585) ────────────────────────────────────────────────
+// 🔴 These exist because `log_matching` is pair-shaped in its COLUMNS (`your_name`/`your_dob`/… are
+// singular and NOT NULL, :426-442). A colleague run compares up to three people in one press, so writing
+// it there would mean picking one friend and discarding the other two. ฟีม decided 2026-09-01: leave the
+// old table untouched, store the new thing here, keep the relationship and the safety identical.
+//
+// The meter row still goes into `userMatching` so `compat-quota.ts:46-52` counts this press with no
+// change on its side — it counts every row in the month and does not filter `matching_type`.
+export const workComparison = pgTable("work_comparison", {
+	matchingId: varchar("matching_id", { length: 36 }).primaryKey().notNull(),  // = userMatching.id
+	userId: text("user_id").notNull(),
+	/** the TRIMMED `comparison` block — never the ~7MB body bazi returns */
+	result: text().notNull(),
+	createAt: varchar("create_at", { length: 255 }).notNull(),
+}, (table) => [
+	index("idx_work_comparison_user_id").using("btree", table.userId.asc().nullsLast().op("text_ops")),
+]);
+
+// 1..3 rows per press. `slot` is the order the USER typed them ❌ NOT the rank — ranking lives inside
+// `workComparison.result` as `comparison.ranking` and must be read from there, never re-derived here.
+export const workComparisonCandidate = pgTable("work_comparison_candidate", {
+	matchingId: varchar("matching_id", { length: 36 }).notNull(),
+	slot: integer().notNull(),
+	friendId: text("friend_id").notNull(),
+	rankScore: doublePrecision("rank_score"),
+}, (table) => [
+	primaryKey({ columns: [table.matchingId, table.slot], name: "work_comparison_candidate_pkey" }),
+	index("idx_work_comparison_candidate_friend_id").using("btree", table.friendId.asc().nullsLast().op("text_ops")),
+]);
+
 export const userProvider = pgTable("user_provider", {
 	id: varchar({ length: 36 }).primaryKey().notNull(),
 	userId: text("user_id").notNull(),
