@@ -1,7 +1,7 @@
 // Figma Free-2 375:13285 `promo-personal-calendar` — the TALL upsell that stands in for the paid sections
 // on the day-detail screen. Free-2 shows it; Paid-2 does not (and Paid-2 has no อัพเกรด pill either).
 //
-// It replaces, for a free member: โหมดแอดวานซ์ · ความเข้ากัน 5 ด้าน · คำทำนายรายด้าน (+ the advanced-only
+// It replaces, for a free member: โหมดแอดวานซ์ · ความเข้ากันรายด้าน · คำทำนายรายด้าน (+ the advanced-only
 // sections those gate). Everything else on the screen — score card, ทิศ สีมงคล, เวลามงคล — free still gets.
 //
 // ONE NUMBER, NOT TWO (ฟีม 2026-08-04, คำถาม H): Figma writes 57% in the sentence and 75% in the left tile
