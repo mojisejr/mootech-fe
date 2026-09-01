@@ -377,7 +377,13 @@ export function CompatibilityScreen({ config }: { config: CompatibilityConfig })
                     data-testid={`compat-role-${r.value}`}
                     onClick={() => c.setRole(r.value)}
                     className={[
-                      'min-w-0 flex-1 truncate rounded-full px-3 py-2 text-[14px] leading-5 transition-none',
+                      // 🔴 WRAPS, and that is the point. Measured on the real route: "หุ้นส่วน / เพื่อน"
+                      // needs 98px and a third of a 320-wide screen gives 75 — `truncate` turned it into
+                      // "หุ้นส่วน / เ…" at 320 and 360, and cleared 393 by ONE pixel. Truncating the middle
+                      // option is worse than two lines: the word that survives is "หุ้นส่วน", so a user
+                      // looking for "เพื่อน" cannot see that this is where it lives.
+                      // ❌ Do not put `truncate` back without re-measuring at 320.
+                      'grid min-h-[44px] min-w-0 flex-1 place-items-center rounded-full px-2 py-1.5 text-center text-[13px] leading-[18px] transition-none',
                       on ? 'bg-v3-sapphire font-bold text-white' : 'bg-v3-ghost-white font-normal text-v3-text-body',
                     ].join(' ')}
                   >
