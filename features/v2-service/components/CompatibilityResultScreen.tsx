@@ -12,7 +12,7 @@ import Link from 'next/link'
 import { SectionCard } from '@/features/v2-calendar/components/day-detail/SectionCard'
 import { LoadingScreen } from '@/features/v2-shell/components/LoadingScreen'
 import { useCompatibilityResult } from '../hooks/useCompatibilityResult'
-import type { CompatResultPerson } from '../compatibility-result'
+import { compatibilityBackHref, type CompatResultPerson } from '../compatibility-result'
 import { COMPAT_CALC_LOADING } from './compat-loading-copy'
 import { CompatResultHero } from './CompatResultHero'
 import { CompatResultTabs, type CompatTab } from './CompatResultTabs'
@@ -54,6 +54,10 @@ export function CompatibilityResultScreen({ matchingId }: { matchingId: string }
   }
 
   const { overall, persons } = r.result
+  // #571 — back returns to the form screen this calculation was made on. The kind comes from the result
+  // (i.e. from the row), so it survives a refresh and a direct link; an unmappable type falls back to the
+  // hub, same as the empty state above.
+  const backHref = compatibilityBackHref(r.result.kind)
   const dims = r.result.dimensions ?? []
   const ei = r.result.elementInteraction
   const { mascotA, mascotB } = r
@@ -81,7 +85,7 @@ export function CompatibilityResultScreen({ matchingId }: { matchingId: string }
       <div className="relative z-10 mx-auto flex w-full max-w-md flex-col gap-4 px-4 pb-16 pt-[max(0.75rem,env(safe-area-inset-top))]">
         {/* header — D20: "ผลดวงสมพงศ์" (NOT "รายละเอียดวัน") */}
         <header className="flex items-center gap-2 py-1">
-          <Link href="/v2/service" aria-label="ย้อนกลับ" className="grid size-8 shrink-0 place-items-center rounded-full text-v3-navy"><BackChevron /></Link>
+          <Link href={backHref} aria-label="ย้อนกลับ" className="grid size-8 shrink-0 place-items-center rounded-full text-v3-navy"><BackChevron /></Link>
           <h1 data-testid="compat-result-title" className="min-w-0 flex-1 text-[22px] font-bold leading-8 text-v3-navy">ผลดวงสมพงศ์</h1>
         </header>
 
