@@ -38,17 +38,70 @@ export type CompatPerson = {
 // the enrichment: μุน passes the fields the modal DOES give (below), the hook fills dob/time by reading the
 // v1 friend-DETAIL (MemberWithFriendGetDetailApi — a member-with-friend READ, NOT a matching path, so
 // done-cond #6 stays clean; a GET, so done-cond #9 (no side effects) stays clean).
+//
+// 🔶 #570 widened this by TWO OPTIONAL fields, dob/time. The v1 modal still gives neither (its four fields are
+// unchanged above), so the select-from-list path behaves exactly as before. The CREATE path is different in
+// kind: v1's create echoes the whole saved row back, birth data included, so the friend who was just added is
+// already complete in hand. Passing them through means the new friend never renders a blank birthdate row,
+// not even for the moment the detail GET is in flight.
 export type SelectFriendInput = {
   id: string
   name: string
   surname?: string
   picture_url?: string
+  /** 'YYYY-MM-DD' — only the create path has this up front; the v1 modal does not */
+  dob?: string
+  /** 'HH:mm' — same */
+  time?: string
 }
 
-// The instant person2 (name + picture) shown the moment a friend is picked — dob/time blank until the detail
-// enriches them. PURE.
+// The instant person2 shown the moment a friend is picked. dob/time stay BLANK unless the caller already
+// holds them (create path) — absent means absent, never fabricated. PURE.
 export function friendInputToPerson(input: SelectFriendInput): CompatPerson {
-  return { id: input.id, name: input.name, dob: '', time: '', imageProfile: input.picture_url ?? '' }
+  return {
+    id: input.id,
+    name: input.name,
+    dob: input.dob ?? '',
+    time: input.time ?? '',
+    imageProfile: input.picture_url ?? '',
+  }
+}
+
+// --- #570: the row v1's CREATE endpoint answers with -------------------------------------------------
+// mootech-be `POST /member-with-friend` ends at member-with-friend.service.ts:142 `repository.save(entity)`,
+// which resolves to the saved row — so the generated primary key comes back with it
+// (member-with-friend-entity.model.ts:5-6, `@PrimaryGeneratedColumn('uuid') id`). Only the fields person2
+// needs are typed; everything else on that row is ignored on purpose.
+export type CreatedFriendRow = {
+  error?: unknown
+  id?: string | null
+  name?: string | null
+  surname?: string | null
+  picture_url?: string | null
+  dob?: string | null
+  time?: string | null
+}
+
+// Turn that row into the input selectFriend takes, or null when it cannot be trusted to identify anybody.
+// 🔴 The id is the ONLY hard requirement, and null here is not a detail: without an id there is no friend to
+// read a detail for and no value to send to calculate, so the honest answer is "not selected" — the caller
+// surfaces it. `fallbackName` is the name the user typed; it covers a row that echoes no name rather than
+// showing an empty row. PURE.
+export function createdFriendToSelectInput(
+  row: CreatedFriendRow | null | undefined,
+  fallbackName: string,
+): SelectFriendInput | null {
+  if (!row || row.error) return null
+  const id = typeof row.id === 'string' ? row.id.trim() : ''
+  if (!id) return null
+  return {
+    id,
+    name: row.name || fallbackName,
+    surname: row.surname ?? '',
+    picture_url: row.picture_url ?? '',
+    dob: row.dob ?? '',
+    time: row.time ?? '',
+  }
 }
 
 // The v1 friend-detail record — only the two fields the row-2 display needs are typed. Keys are 'dob'/'time',
