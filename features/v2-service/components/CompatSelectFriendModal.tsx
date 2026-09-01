@@ -19,13 +19,15 @@ import { QuotaLine } from './QuotaLine'
 // only the fields the list renders + maps (matches v1's item usage: id/name/surname/picture_url/is_disable).
 type FriendItem = { id: string; name: string; surname?: string; picture_url?: string | null; is_disable?: boolean }
 
-export function CompatSelectFriendModal({ onClose, onSelect, onAddNew, friendQuota }: {
+export function CompatSelectFriendModal({ onClose, onSelect, onAddNew, friendQuota, title }: {
   onClose: () => void
   onSelect: (input: SelectFriendInput) => void
   onAddNew: () => void
   /** #264 — how many more friends may be added. Passed in (not fetched here) so both indicators on this
    *  screen come from one read and cannot disagree. */
   friendQuota: QuotaView
+  /** #569 — the sheet borrows the screen's wording; the love screen has no "เพื่อน" to offer */
+  title: string
 }) {
   const [cookies] = useCookies([CookieKey.MEMBER_ID])
   const userId = (cookies[CookieKey.MEMBER_ID] as string) || ''
@@ -50,9 +52,9 @@ export function CompatSelectFriendModal({ onClose, onSelect, onAddNew, friendQuo
 
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-[rgba(33,33,33,0.6)]" onClick={onClose}>
-      <div className="flex max-h-[85vh] w-full max-w-md flex-col gap-4 overflow-hidden rounded-t-[28px] bg-v3-bg-cream px-5 pb-10 pt-3 font-ibm" onClick={(e) => e.stopPropagation()} role="dialog" aria-label="เลือกเพื่อน" data-testid="compat-select-modal">
+      <div className="flex max-h-[85vh] w-full max-w-md flex-col gap-4 overflow-hidden rounded-t-[28px] bg-v3-bg-cream px-5 pb-10 pt-3 font-ibm" onClick={(e) => e.stopPropagation()} role="dialog" aria-label={title} data-testid="compat-select-modal">
         <span aria-hidden className="mx-auto h-[5px] w-11 shrink-0 rounded-full bg-v3-border-warm-2" />
-        <h2 className="text-center text-[20px] font-bold leading-7 text-v3-navy">เลือกเพื่อน / คู่รัก</h2>
+        <h2 className="text-center text-[20px] font-bold leading-7 text-v3-navy">{title}</h2>
 
         {/* add-new — dashed "+" row, same language as the empty person-2 slot → opens the V3 AddFriendSheet */}
         <button type="button" onClick={onAddNew} data-testid="compat-select-add-new" className="flex h-[60px] w-full shrink-0 items-center gap-3 rounded-[56px] bg-v3-lemon-chiffon pl-2.5 pr-4 text-left">

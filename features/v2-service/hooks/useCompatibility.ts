@@ -45,6 +45,10 @@ export type UseCompatibility = {
   kind: CompatibilityKind
   title: string
   matchingType: MatchingType
+  /** #569 — the work role currently selected (colleague screen only; equals matchingType) */
+  role: MatchingType
+  /** #569 — change the work role. Only the colleague screen renders a control that calls this. */
+  setRole: (role: MatchingType) => void
   /** the current user, "คุณ" — real data (done-cond #3), never hardcoded */
   person1: CompatPerson | null
   /** the chosen friend/partner — null until μุน's wrapped modal calls selectFriend */
@@ -81,6 +85,16 @@ export function useCompatibility(config: CompatibilityConfig): UseCompatibility 
   const [cookies] = useCookies([CookieKey.MEMBER_ID, CookieKey.MEMBER_NAME])
   const userId = (cookies[CookieKey.MEMBER_ID] as string) || ''
   const cookieName = (cookies[CookieKey.MEMBER_NAME] as string) || ''
+
+  // #569 — which work role the user is looking at. `config.matchingType` is the DEFAULT, not the answer:
+  // the colleague screen offers three (COLLEAGUE_ROLES) and the love screen offers none, so the value that
+  // reaches calculateCompatibility has to be state, not a constant read off the config.
+  // Reset on kind change: /love and /colleague are the same component, and carrying BOSS into the love
+  // screen would send the engine a work relationship for a couple.
+  const [role, setRole] = useState<MatchingType>(config.matchingType)
+  useEffect(() => {
+    setRole(config.matchingType)
+  }, [config.kind, config.matchingType])
 
   const [person1, setPerson1] = useState<CompatPerson | null>(null)
   const [loadingPerson1, setLoadingPerson1] = useState<boolean>(true)
@@ -180,7 +194,9 @@ export function useCompatibility(config: CompatibilityConfig): UseCompatibility 
   return {
     kind: config.kind,
     title: config.title,
-    matchingType: config.matchingType,
+    matchingType: role,
+    role,
+    setRole,
     person1,
     person2,
     loadingPerson1,
