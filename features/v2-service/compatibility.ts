@@ -77,6 +77,35 @@ const CONFIG: Record<CompatibilityKind, CompatibilityConfig> = {
   },
 }
 
+// The INVERSE map: which screen does a stored matching_type belong to? (#571 — the result screen's back
+// button had `/v2/service` hardcoded because nothing on the page knew where the calculation came from.)
+//
+// 🔴 It lives HERE, beside CONFIG, and not in the result seam, because this file's header claims to be the
+// single source of truth for kind ↔ matching_type. A second table elsewhere is a second thing to update when
+// the roles change, and #569 just changed them.
+//
+// All three work roles answer 'colleague': after #569 the colleague screen is where a user picks BOSS or
+// EMPLOYEE (COLLEAGUE_ROLES above), so a row carrying either was created on that screen and belongs back on
+// it. That is a change from what compatibility-recent.ts:21-24 still assumes ("BOSS/EMPLOYEE are legacy-only")
+// — true when it was written, not true since #569 merged.
+//
+// Anything else — a value from a future role, a malformed row, a null column — is `null`, and the caller
+// sends the user to the hub. NEVER guessed as 'love': a wrong guess lands the user on a screen they did not
+// come from and looks like the app losing their place, which is the bug this fixes, mirrored.
+const KIND_OF_MATCHING_TYPE: Record<MatchingType, CompatibilityKind> = {
+  LOVE: 'love',
+  BOSS: 'colleague',
+  EMPLOYEE: 'colleague',
+  FRIEND: 'colleague',
+}
+
+export function compatibilityKindOfMatchingType(type: unknown): CompatibilityKind | null {
+  if (typeof type !== 'string') return null
+  // allow-list check for the same object-injection reason as resolveCompatibilityKind below
+  if (!Object.prototype.hasOwnProperty.call(KIND_OF_MATCHING_TYPE, type)) return null
+  return KIND_OF_MATCHING_TYPE[type as MatchingType]
+}
+
 // Resolve a raw route param to its config, or null for anything unknown. The explicit allow-list check
 // (not a bare `CONFIG[raw]`) closes an object-injection hole: 'constructor'/'__proto__' as [kind] must
 // resolve to null, not a truthy prototype member.
