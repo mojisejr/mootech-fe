@@ -7,7 +7,7 @@
 //
 // ANCHOR: scripts/compatibility.test.ts#compatibility-kind-gate-and-createfriend-gap
 import assert from 'node:assert/strict'
-import { resolveCompatibilityKind, COMPATIBILITY_KINDS } from '../features/v2-service/compatibility'
+import { resolveCompatibilityKind, COMPATIBILITY_KINDS, COLLEAGUE_ROLES, DEFAULT_COLLEAGUE_ROLE } from '../features/v2-service/compatibility'
 import {
   buildCreateFriendArgs,
   COMPAT_FRIEND_DEFAULTS,
@@ -35,12 +35,14 @@ function t(name: string, fn: () => void) {
 // ── kind gate — done-condition #1/#2: prove the VALUE (title + matching_type), not just "two kinds exist" ──
 t('love → "ดูดวงคู่รัก" + matching_type LOVE', () => {
   const c = resolveCompatibilityKind('love')
-  assert.deepEqual(c, { kind: 'love', title: 'ดูดวงคู่รัก', matchingType: 'LOVE' })
+  // #569 added pickLabel + hasRoles. deepEqual is kept ON PURPOSE (not loosened to a field check): it is
+  // what turned red when the contract grew, which is the whole reason to know the contract grew.
+  assert.deepEqual(c, { kind: 'love', title: 'ดูดวงคู่รัก', matchingType: 'LOVE', pickLabel: 'เลือกคู่รัก', hasRoles: false })
 })
 
 t('colleague → "ดูดวงเพื่อนร่วมงาน" + matching_type FRIEND', () => {
   const c = resolveCompatibilityKind('colleague')
-  assert.deepEqual(c, { kind: 'colleague', title: 'ดูดวงเพื่อนร่วมงาน', matchingType: 'FRIEND' })
+  assert.deepEqual(c, { kind: 'colleague', title: 'ดูดวงเพื่อนร่วมงาน', matchingType: 'FRIEND', pickLabel: 'เลือกเพื่อนร่วมงาน', hasRoles: true })
 })
 
 // the two kinds send DIFFERENT types (a mut that maps both to LOVE, or love→FRIEND, dies here)
@@ -158,5 +160,55 @@ t('mapUpdateFriendResult: http error status → system', () =>
   assert.equal((mapUpdateFriendResult({ ok: false, kind: 'http', status: 500, data: {} }) as any).reason, 'system'))
 t('mapUpdateFriendResult: no response → network (distinct reason, not one blob)', () =>
   assert.equal((mapUpdateFriendResult({ ok: false, kind: 'network', error: new Error('x') }) as any).reason, 'network'))
+
+// --- #569: the two screens stop sharing one label, and the colleague screen gains three work roles ------
+// Bug-class: (1) the love screen offering "เพื่อน", which is a choice it does not have; (2) a role list
+// whose values read the relationship BACKWARDS — the engine takes `boss` to mean *they* are the boss
+// (measured 2026-09-01: ourLabel "เรา (ลูกน้อง)"), so a list that pairs 'BOSS' with "ลูกน้อง" would send
+// the mirror image and still return a plausible-looking score. That is the failure nothing else can catch.
+
+t('#569 each kind carries its own picker wording — the love screen never says เพื่อน', () => {
+  const love = resolveCompatibilityKind('love')!
+  const colleague = resolveCompatibilityKind('colleague')!
+  assert.equal(love.pickLabel, 'เลือกคู่รัก')
+  assert.equal(colleague.pickLabel, 'เลือกเพื่อนร่วมงาน')
+  assert.ok(!love.pickLabel.includes('เพื่อน'), 'จอคู่รักต้องไม่เสนอคำว่าเพื่อน')
+  assert.notEqual(love.pickLabel, colleague.pickLabel, 'สองจอต้องไม่ใช้คำเดียวกันอีก')
+})
+
+t('#569 only the colleague screen offers roles', () => {
+  assert.equal(resolveCompatibilityKind('love')!.hasRoles, false)
+  assert.equal(resolveCompatibilityKind('colleague')!.hasRoles, true)
+})
+
+t('#569 🔴 role labels name THE OTHER PERSON, matching the direction the engine reads', () => {
+  const byValue = Object.fromEntries(COLLEAGUE_ROLES.map((r) => [r.value, r.label]))
+  // measured against /api/bazi/pair-match on 2026-09-01 — see COLLEAGUE_ROLES for the raw ourLabel/partnerLabel
+  assert.equal(byValue.BOSS, 'เจ้านาย', 'bazi boss ⇒ partnerLabel เจ้านาย')
+  assert.equal(byValue.EMPLOYEE, 'ลูกน้อง', 'bazi subordinate ⇒ partnerLabel ลูกน้อง')
+  assert.ok(byValue.FRIEND.includes('หุ้นส่วน'), 'bazi partner ⇒ partnerLabel หุ้นส่วน')
+  // the flip that would be invisible without this: BOSS↔EMPLOYEE swapped still typechecks and still scores
+  assert.notEqual(byValue.BOSS, byValue.EMPLOYEE)
+})
+
+t('#569 the three roles are the three WORK types, and LOVE is not among them', () => {
+  const values = COLLEAGUE_ROLES.map((r) => r.value).sort()
+  assert.deepEqual(values, ['BOSS', 'EMPLOYEE', 'FRIEND'])
+  assert.ok(!values.includes('LOVE' as never), 'ระดับความรักไม่ใช่บทบาทในที่ทำงาน')
+  assert.equal(new Set(values).size, 3, 'ห้ามมีค่าซ้ำ — ซ้ำแล้วจะมีปุ่มที่กดแล้วไม่เปลี่ยนอะไร')
+})
+
+t('#569 the colleague default is a real member of the list, and is the value that used to ship', () => {
+  assert.ok(COLLEAGUE_ROLES.some((r) => r.value === DEFAULT_COLLEAGUE_ROLE))
+  assert.equal(resolveCompatibilityKind('colleague')!.matchingType, DEFAULT_COLLEAGUE_ROLE)
+  assert.equal(DEFAULT_COLLEAGUE_ROLE, 'FRIEND', 'ค่าเดิมก่อน #569 คือ FRIEND — ค่าเริ่มต้นต้องไม่เปลี่ยนพฤติกรรมเดิม')
+})
+
+t('#569 CONTROL — the unknown-kind gate still refuses, roles did not widen it', () => {
+  for (const bad of ['boss', 'employee', 'friend', 'constructor', '__proto__', '']) {
+    assert.equal(resolveCompatibilityKind(bad), null, `${bad} ต้องไม่กลายเป็น route`)
+  }
+  assert.deepEqual([...COMPATIBILITY_KINDS], ['love', 'colleague'])
+})
 
 console.log(`\n${process.exitCode ? '❌ compatibility FAIL' : `✅ compatibility PASS (${pass})`}`)
