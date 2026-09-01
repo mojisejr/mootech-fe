@@ -185,8 +185,8 @@ export default defineConfig({
       'scripts/matching-activity-id.test.ts', // #357 — ตู๋จับได้ว่า BOSS/EMPLOYEE/FRIEND ต้องเป็น activity 3 ไม่ใช่ 2
       'scripts/compat-readers-v2-lane.test.ts', // #541 ① the readers stay on the v2 lane
       'scripts/compat-new-friend-selected.test.tsx', // #570 — WIRING: the friend just created becomes person2; .tsx
-      'scripts/compat-result-back-destination.test.tsx',
-      'scripts/work-comparison.test.ts', // #585 — colleague lane read model: trim / ranking-not-resort / 3 roles or say which is missing // #571 — pure map + WIRING: back returns to the form screen; .tsx
+      'scripts/compat-result-back-destination.test.tsx', // #571 — pure map + WIRING: back returns to the form screen; .tsx
+      'scripts/work-comparison.test.ts', // #585 — colleague lane read model: trim / ranking-not-resort / 3 roles or say which is missing
       'scripts/work-recent-href.test.ts', // #585 — which route a history card opens; pair vs work are not interchangeable
       'scripts/work-history-union-db.test.ts', // #585 — real pg: กิ่ง work ต้องไม่รับ DISTINCT ON ของเลนคู่
     ],
