@@ -13,7 +13,7 @@ import Link from 'next/link'
 import { useRouter } from 'next/router'
 import { Menubar } from '@/features/v2-shell/components/Menubar'
 import { useCompatibilityRecent } from '../hooks/useCompatibilityRecent'
-import { matchTypeLabel, recentCardTitle, type RecentMatchItem } from '../compatibility-recent'
+import { matchTypeLabel, recentCardTitle, recentHrefFor, type RecentMatchItem } from '../compatibility-recent'
 
 function BackChevron() {
   return (
@@ -33,14 +33,14 @@ function Avatar({ src, seed, className }: { src?: string | null; seed?: string |
   )
 }
 
-function RecentCard({ item, onOpen }: { item: RecentMatchItem; onOpen: (id: string) => void }) {
+function RecentCard({ item, onOpen }: { item: RecentMatchItem; onOpen: (item: RecentMatchItem) => void }) {
   const friendName = item.friend?.name ?? ''
   const typeLabel = matchTypeLabel(item.type) // undefined for legacy/unknown → chip hidden (D43)
   return (
     <button
       type="button"
       data-testid={`compat-recent-card-${item.id}`}
-      onClick={() => onOpen(item.id)}
+      onClick={() => onOpen(item)}
       className="flex w-full items-center gap-4 rounded-[16px] bg-white px-4 py-4 text-left"
     >
       {/* two overlapping avatars — คุณ (user) + เพื่อน (friend) */}
@@ -78,7 +78,9 @@ export function CompatibilityRecentScreen() {
   const r = useCompatibilityRecent()
   const router = useRouter()
   // D41: re-open the ALREADY-computed result — navigate only, NO re-calculate (no second quota hit).
-  const onOpen = (id: string) => router.push(`/v2/service/compatibility/result/${id}`)
+  // #585 — the destination depends on the LANE, which the server tells us. A work card sent to the pair
+  // route 404s (pages/api/v2/matching/[id].ts:54 requires a log_matching row this lane never writes).
+  const onOpen = (item: RecentMatchItem) => router.push(recentHrefFor(item))
 
   if (r.loading) {
     return (
