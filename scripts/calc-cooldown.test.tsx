@@ -55,7 +55,15 @@ import { CompatibilityScreen } from '@/features/v2-service/components/Compatibil
 const USER = 'u-1'
 const PERSON1 = { id: USER, name: 'ฟีม', dob: '1990-01-01', time: '08:00', gender: 'MALE' }
 const PERSON2 = { id: 'f-1', name: 'เพื่อน', dob: '1992-02-02', time: '09:00', gender: 'FEMALE' }
-const CONFIG = { matchingType: 'LOVE', title: 'เช็คความสมพงศ์', tagline: 'ด้านความรัก' } as never
+// #585 — fixed a fixture that had drifted from the real type. `tagline` was a plain string and there
+// was no `maxCandidates` at all, so this object stopped being a CompatibilityConfig the moment the
+// screen learned to compare more than one person — and `as never` is exactly what stops tsc saying so.
+// Repaired from the real love entry (compatibility.ts CONFIG.love), not invented here.
+const CONFIG = {
+  kind: 'love', title: 'เช็คความสมพงศ์', matchingType: 'LOVE', pickLabel: 'เลือกคู่รัก',
+  maxCandidates: 1,
+  tagline: ['เลือกโปรไฟล์สองโปรไฟล์เพื่อดูดวงสมพงศ์', 'ด้านความรักหรือมิตรภาพ'],
+} as never
 
 beforeEach(() => {
   vi.useFakeTimers({ shouldAdvanceTime: true })

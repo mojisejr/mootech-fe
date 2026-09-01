@@ -60,16 +60,45 @@ export type CompatibilityConfig = {
   /** the empty-state wording of the person-2 picker. #569: the love screen used to borrow the colleague
    *  screen's "เลือกเพื่อน / คู่รัก", which offered a choice it does not have. */
   pickLabel: string
+  /**
+   * How many OTHER people this screen compares against (#585 ก้อน 3).
+   *
+   * 🔴 It is a NUMBER on the config, not a `multi` boolean, because the two screens differ by a count and
+   * a boolean would have to be translated back into one at the render site. love = 1 keeps its single row
+   * through the very same code path as colleague = 3, so the one-person screen is not a special case that
+   * only gets exercised on the love route.
+   *
+   * The 3 mirrors colleague-candidates.MAX_CANDIDATES, which mirrors the ENGINE's own cap. See that file
+   * before changing it — the number is not ours.
+   */
+  maxCandidates: number
+  /** the two lines under the heading, verbatim from the frame. Two entries, not one string with a <br>,
+   *  because the break is authored — Thai has no word spaces, so letting it wrap on its own can split a
+   *  word mid-way and nothing in a textContent assertion can see that it happened. */
+  tagline: readonly [string, string]
 }
 
 const CONFIG: Record<CompatibilityKind, CompatibilityConfig> = {
-  love: { kind: 'love', title: 'ดูดวงคู่รัก', matchingType: 'LOVE', pickLabel: 'เลือกคู่รัก' },
+  love: {
+    kind: 'love',
+    title: 'ดูดวงคู่รัก',
+    matchingType: 'LOVE',
+    pickLabel: 'เลือกคู่รัก',
+    maxCandidates: 1,
+    tagline: ['เลือกโปรไฟล์สองโปรไฟล์เพื่อดูดวงสมพงศ์', 'ด้านความรักหรือมิตรภาพ'],
+  },
   colleague: {
     kind: 'colleague',
     title: 'ดูดวงเพื่อนร่วมงาน',
     // the widest single-pair reading, and what the screen sent before #585 removed the choice
     matchingType: 'FRIEND',
     pickLabel: 'เลือกเพื่อนร่วมงาน',
+    maxCandidates: 3,
+    // Figma 720:25502, transcribed from the rendered pixels at 3x — NOT from a layer name.
+    // ⚠️ The frame spells the word two ways in the same screen: the heading above reads "สมพงค์" and this
+    // line reads "สมพงษ์". Both are kept verbatim rather than harmonised here, because picking one would
+    // be this file inventing copy. Raised on the ticket.
+    tagline: ['ระบบจับคู่หลักวันแบบแม่นตามตำราคู่สมพงษ์', '(การงาน) แล้วจัดอันดับว่าใครเข้ากับเราดีที่สุด'],
   },
 }
 

@@ -38,12 +38,25 @@ t('love → "ดูดวงคู่รัก" + matching_type LOVE', () => {
   // #569 added pickLabel; #585 removed hasRoles with the picker. deepEqual is kept ON PURPOSE (not
   // loosened to a field check): it is
   // what turned red when the contract grew, which is the whole reason to know the contract grew.
-  assert.deepEqual(c, { kind: 'love', title: 'ดูดวงคู่รัก', matchingType: 'LOVE', pickLabel: 'เลือกคู่รัก' })
+  assert.deepEqual(c, {
+    kind: 'love', title: 'ดูดวงคู่รัก', matchingType: 'LOVE', pickLabel: 'เลือกคู่รัก',
+    // #585 — the love screen compares ONE person and says so in the contract, so "many people" is not a
+    // colleague-only special case bolted on at the render site.
+    maxCandidates: 1,
+    tagline: ['เลือกโปรไฟล์สองโปรไฟล์เพื่อดูดวงสมพงศ์', 'ด้านความรักหรือมิตรภาพ'],
+  })
 })
 
 t('colleague → "ดูดวงเพื่อนร่วมงาน" + matching_type FRIEND', () => {
   const c = resolveCompatibilityKind('colleague')
-  assert.deepEqual(c, { kind: 'colleague', title: 'ดูดวงเพื่อนร่วมงาน', matchingType: 'FRIEND', pickLabel: 'เลือกเพื่อนร่วมงาน' })
+  assert.deepEqual(c, {
+    kind: 'colleague', title: 'ดูดวงเพื่อนร่วมงาน', matchingType: 'FRIEND', pickLabel: 'เลือกเพื่อนร่วมงาน',
+    // 3 = the ENGINE's MAX_CANDIDATES, mirrored twice (colleague-candidates.ts holds the reason).
+    maxCandidates: 3,
+    // verbatim Figma 720:25502, read off the rendered pixels. The frame spells the word two ways in one
+    // screen (heading "สมพงค์", this line "สมพงษ์"); both are kept rather than harmonised here.
+    tagline: ['ระบบจับคู่หลักวันแบบแม่นตามตำราคู่สมพงษ์', '(การงาน) แล้วจัดอันดับว่าใครเข้ากับเราดีที่สุด'],
+  })
 })
 
 // the two kinds send DIFFERENT types (a mut that maps both to LOVE, or love→FRIEND, dies here)
