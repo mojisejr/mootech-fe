@@ -53,14 +53,35 @@ const WORK_ACTIVITY_ID = 3
 const MATCHING_POINT_COST = 10
 
 export type WorkCompareOutcome =
-  | { ok: true; matchingId: string; comparison: WorkComparison; entries: WorkEntry[] }
+  | { ok: true; matchingId: string; entries: WorkEntry[]; rankingComplete: boolean }
   | { ok: false; kind: 'quota'; message: string }
   | { ok: false; kind: 'no-friend' }
   | { ok: false; kind: 'unusable-birth' }
   | { ok: false; kind: 'too-many'; max: number }
   | { ok: false; kind: 'engine-down'; detail: string }
 
-class QuotaRaceLost extends Error {}
+/**
+ * The throw that carries "this press is refused because the ceiling was already reached".
+ *
+ * Exported ONLY so `isQuotaRefusal` can be tested in both directions. A spec that can assert the false
+ * cases but never the true one is satisfied by `return false`, which is a tooth with no bite.
+ */
+export class QuotaRaceLost extends Error {}
+
+/**
+ * Does this thrown value mean "the user is out of quota", or does it mean "our database broke"?
+ *
+ * 🔴 IT IS A NAMED FUNCTION SO IT CAN BE TESTED. The bug ตู๋ found on mootech-fe#593 was that this
+ * decision was one inline `if` on the FLAG alone. drizzle runs `rollback` inside its own catch and
+ * rethrows whatever that produces, so a failed rollback escapes as a connection error while the flag is
+ * already true — and the user is told "โควตาเต็ม" because our database died. That is the #263 shape.
+ *
+ * ⇒ BOTH halves are required: the flag says we decided to refuse, the type says this is the throw we
+ * made to carry that decision. Anything else must keep travelling.
+ */
+export function isQuotaRefusal(refusedByQuota: boolean, e: unknown): boolean {
+  return refusedByQuota && e instanceof QuotaRaceLost
+}
 
 /** what the pair lane's route substitutes when the hour is unknown (`pair-match/route.ts:119`) */
 const WORK_DEFAULT_BIRTH_TIME = '12:00'
@@ -85,6 +106,35 @@ function toRawInput(p: { gender?: string | null; dob?: string | null; time?: str
     },
     timeKnown: !!birthTime,
   }
+}
+
+/**
+ * The rows that go into `work_comparison_candidate`, built from ONE array in ONE place.
+ *
+ * 🔴 WHY THIS IS A FUNCTION AND NOT FOUR LINES INSIDE THE TRANSACTION. `slot` is the join key between a
+ * person and the reading the engine computed for them: the engine numbers its answers by the POSITION we
+ * sent the candidates in, and this is where that position becomes a stored fact. ตู๋ showed on
+ * mootech-fe#593 that reversing `slot` here left every test green — the set-equality gate in
+ * `buildWorkResult` compares SETS, and a swap preserves the set. So the gate catches a person going
+ * MISSING or an EXTRA one appearing; it cannot catch two people trading places.
+ *
+ * Pulling it out makes "the i-th row describes the i-th friend we sent" a single statement with teeth on
+ * it (scripts/work-comparison.test.ts), instead of a coincidence spread across two call sites.
+ */
+export function workCandidateRows(args: {
+  matchingId: string
+  /** friend ids in the order they were sent to the engine — index IS the slot */
+  friendIds: string[]
+  rankById: Map<number, number | undefined>
+  timeKnown: boolean[]
+}) {
+  return args.friendIds.map((friendId, slot) => ({
+    matchingId: args.matchingId,
+    slot, // the order the USER typed ❌ not the rank — rank lives in comparison.ranking
+    friendId,
+    rankScore: args.rankById.get(slot) ?? null,
+    timeKnown: args.timeKnown[slot] ?? true,
+  }))
 }
 
 export async function runWorkCompare(params: {
@@ -204,13 +254,7 @@ export async function runWorkCompare(params: {
       })
 
       await tx.insert(workComparisonCandidate).values(
-        friendIds.map((friendId, slot) => ({
-          matchingId,
-          slot, // the order the USER typed ❌ not the rank — rank lives in comparison.ranking
-          friendId,
-          rankScore: rankById.get(slot) ?? null,
-          timeKnown: timeKnown[slot],
-        })),
+        workCandidateRows({ matchingId, friendIds, rankById, timeKnown }),
       )
 
       await tx
@@ -228,9 +272,16 @@ export async function runWorkCompare(params: {
   } catch (e) {
     // 🔴 Only OUR sentinel becomes a refusal. Anything else is a real database failure and must keep
     // travelling — swallowing it would report "โควตาเต็ม" for a dead connection (#263 one layer down).
-    if (!refusedByQuota) throw e
+    //
+    // 🔴 BOTH HALVES, NOT JUST THE FLAG. ตู๋ caught this on mootech-fe#593: the flag alone is not the
+    // sentinel. drizzle's transaction wrapper runs `rollback` inside its own catch and rethrows whatever
+    // THAT produces — so if the rollback fails, the error escaping this block is a connection error while
+    // `refusedByQuota` is already true, and a dead database would have been reported to the user as
+    // "โควตาเต็ม". Exactly the #263 shape this comment claims to prevent, rebuilt one layer down.
+    // The pair lane has always checked both (`calculate-flow.ts:246`); this lane checked only the flag.
+    if (!isQuotaRefusal(refusedByQuota, e)) throw e
     return { ok: false, kind: 'quota', message: AI_MSG.OUT_OF_LIMIT_ALL }
   }
 
-  return { ok: true, matchingId, comparison, entries: built.entries }
+  return { ok: true, matchingId, entries: built.entries, rankingComplete: built.rankingComplete }
 }

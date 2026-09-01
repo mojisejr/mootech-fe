@@ -87,9 +87,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       matching_id: row.matchingId,
       create_at: row.createAt,
       // ONE list, already in ranking order, each entry carrying its own person. There is nothing to join.
+      // 🔴 The raw `comparison` is deliberately NOT here — see the note in ./index.ts.
       entries: built.entries,
-      // kept for debugging only — the screen must not read this to rank or to name anyone
-      comparison,
+      rankingComplete: built.rankingComplete,
     })
   } catch (e) {
     console.error('[v2][matching/work] read failed:', e)
