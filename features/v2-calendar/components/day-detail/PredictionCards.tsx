@@ -4,6 +4,7 @@
 import type { DayDetailArea } from '../../types'
 import { GradeBadge } from './GradeBadge'
 import { SectionCard } from './SectionCard'
+import { facetLabel, orderFacets } from './facet-order'
 import { gradeColors } from '../grade-colors'
 import { percentText } from '../percent-display'
 
@@ -13,7 +14,7 @@ function PredictionCard({ area, advice }: { area: DayDetailArea; advice: string[
   return (
     <div className="rounded-2xl px-3 py-2.5" style={{ backgroundColor: c.bg }}>
       <div className="flex items-center gap-2">
-        <p className="min-w-0 flex-1 text-sm font-bold text-v3-navy">{area.label}</p>
+        <p className="min-w-0 flex-1 text-sm font-bold text-v3-navy">{facetLabel(area)}</p>
         <span className="text-sm font-bold" style={{ color: pctColor }}>{percentText(area.percent)}%</span>
         <GradeBadge grade={area.grade ?? '—'} className="!min-w-[40px] !py-0.5 text-sm" />
       </div>
@@ -37,10 +38,11 @@ function PredictionCard({ area, advice }: { area: DayDetailArea; advice: string[
  */
 export function PredictionCards({ areas, advice }: { areas: DayDetailArea[]; advice: string[] }) {
   const mainKey = areas.find((a) => a.isStrength)?.key
+  const ordered = orderFacets(areas)
   return (
     <SectionCard title="คำทำนายรายด้าน" testId="day-prediction-cards">
       <div className="flex flex-col gap-3">
-        {areas.map((a) => (
+        {ordered.map((a) => (
           <PredictionCard key={a.key || a.label} area={a} advice={a.key === mainKey ? advice : []} />
         ))}
       </div>

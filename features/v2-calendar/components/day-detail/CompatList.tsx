@@ -9,6 +9,7 @@
 import type { DayDetailArea } from '../../types'
 import { GradeBadge } from './GradeBadge'
 import { SectionCard } from './SectionCard'
+import { facetLabel, orderFacets } from './facet-order'
 import { gradeColors } from '../grade-colors'
 import { percentText } from '../percent-display'
 
@@ -39,7 +40,7 @@ function CompatRow({ area }: { area: DayDetailArea }) {
       <HeartIcon />
       <div className="min-w-0 flex-1">
         <div className="flex items-start justify-between gap-2">
-          <p className="text-sm font-semibold leading-5 text-v3-navy">{area.label}</p>
+          <p className="text-sm font-semibold leading-5 text-v3-navy">{facetLabel(area)}</p>
           {area.isStrength && <StrengthPill />}
         </div>
         <div className="mt-1.5 flex items-center gap-2">
@@ -55,11 +56,13 @@ function CompatRow({ area }: { area: DayDetailArea }) {
 }
 
 export function CompatList({ areas, insight }: { areas: DayDetailArea[]; insight: string }) {
+  // both sections order the SAME way through the same pure helper, so §6 and §8 can never disagree
+  const ordered = orderFacets(areas)
   return (
-    <SectionCard title={`ความเข้ากัน ${areas.length} ด้าน`} info testId="day-compat-list">
+    <SectionCard title={`ความเข้ากัน ${ordered.length} ด้าน`} info testId="day-compat-list">
       <div className="flex flex-col gap-4">
-        {areas.map((a) => (
-          <CompatRow key={a.label} area={a} />
+        {ordered.map((a) => (
+          <CompatRow key={a.key || a.label} area={a} />
         ))}
       </div>
       {/* §7 — insight box */}
