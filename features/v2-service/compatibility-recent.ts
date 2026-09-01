@@ -14,6 +14,14 @@ export type RecentMatchItem = {
   id: string
   /** v1 matching_type; legacy history may carry BOSS/EMPLOYEE (ฟีม removed them from v2) */
   type?: string
+  /**
+   * Which lane produced this card — the server says so (pages/api/v2/matching/index.ts), the screen never
+   * guesses. 🔴 It decides WHICH ROUTE the card opens, and the two are not interchangeable: the pair
+   * reader is driven by `log_matching` (`pages/api/v2/matching/[id].ts:50,54`) and the colleague lane
+   * deliberately writes no row there (ฟีมเคาะ 2026-09-01), so a work card sent to the pair route 404s
+   * every time. An unknown/absent value falls back to 'pair', which is what every pre-#585 row is.
+   */
+  lane?: 'pair' | 'work' 
   user?: { picture?: string | null } | null
   friend?: { name?: string | null; picture?: string | null } | null
 }
@@ -53,4 +61,19 @@ export function recentCardTitle(friendName: string | null | undefined): string {
   const name = (friendName ?? '').trim()
   // MUT mut-fake-friend-name: return `คุณ & เพื่อน` on absent name (v1's rule-4 bug) → rule-4 check CAUGHT.
   return name ? `คุณ & ${name}` : 'คุณ'
+}
+
+/**
+ * Where a history card must navigate.
+ *
+ * 🔴 THE SCREEN MUST NOT BUILD THIS STRING ITSELF. It was one hard-coded template at
+ * `CompatibilityRecentScreen.tsx:81` before #585, and the moment a second lane existed that template
+ * became a silent 404 generator for half the list. One function, one place to be wrong, one place with
+ * teeth on it.
+ */
+export function recentHrefFor(item: Pick<RecentMatchItem, 'id' | 'lane'>): string {
+  const id = encodeURIComponent(String(item?.id ?? ''))
+  return item?.lane === 'work'
+    ? `/v2/service/compatibility/work/${id}`
+    : `/v2/service/compatibility/result/${id}`
 }

@@ -187,6 +187,8 @@ export default defineConfig({
       'scripts/compat-new-friend-selected.test.tsx', // #570 — WIRING: the friend just created becomes person2; .tsx
       'scripts/compat-result-back-destination.test.tsx',
       'scripts/work-comparison.test.ts', // #585 — colleague lane read model: trim / ranking-not-resort / 3 roles or say which is missing // #571 — pure map + WIRING: back returns to the form screen; .tsx
+      'scripts/work-recent-href.test.ts', // #585 — which route a history card opens; pair vs work are not interchangeable
+      'scripts/work-history-union-db.test.ts', // #585 — real pg: กิ่ง work ต้องไม่รับ DISTINCT ON ของเลนคู่
     ],
   },
   resolve: {
