@@ -8,6 +8,8 @@
 // send is `undefined` — NOT '' or 0 — so the screen decides to hide it. `dimensions` is passed
 // through VERBATIM: no cut, no add, no reorder, no default [] (love=5, colleague=4 as-is).
 
+import { compatibilityKindOfMatchingType, type CompatibilityKind } from './compatibility'
+
 /** One mascot card ("โปเตโต้"). Shape mirrors GET /api/bazi/mascot/[ganzhi]. */
 export type CompatMascot = {
   ganzhi: string
@@ -99,6 +101,9 @@ export type CompatibilityResult = {
   dimensions?: CompatDimension[]
   persons: { a?: CompatResultPerson; b?: CompatResultPerson }
   elementInteraction?: CompatElementInteraction
+  /** #571 — which form screen this calculation was made on, so the back button can return there.
+   *  `undefined` when the stored matching_type maps to no current screen; the caller then uses the hub. */
+  kind?: CompatibilityKind
 }
 
 // The BE (Slice 2B) stores `{ me, you, result, pairMatch }` as a JSON STRING in
@@ -189,6 +194,48 @@ export function applyAccountPhotos(
       b: fill(result.persons.b, photoB),
     },
   }
+}
+
+/**
+ * #571 — attach the screen this calculation was made on, read from the SAME get-detail response the rest of
+ * this file parses. `pages/api/v2/matching/[id].ts:43,68` already selects `um.matching_type AS type` and
+ * sends it; nothing on the client consumed it, so the result screen had no way to know where it came from
+ * and its back link was hardcoded to the hub.
+ *
+ * Shaped exactly like applyAccountPhotos above (#554): a pure step composed into the hook's parse chain,
+ * NOT a second fetch and NOT a read of the query string or referrer — both of those are gone on refresh and
+ * on a direct link, which is DoD row 3.
+ *
+ * Returns the SAME object when there is no usable kind, so an unmappable type causes no re-render and the
+ * screen keeps its hub fallback.
+ */
+export function applyMatchingKind(
+  result: CompatibilityResult | null,
+  getDetailResponse: unknown,
+): CompatibilityResult | null {
+  if (!result) return result
+  const resp = getDetailResponse as { type?: unknown } | null
+  const kind = compatibilityKindOfMatchingType(resp?.type)
+  if (!kind) return result
+  return { ...result, kind }
+}
+
+/** The hub — where the back button goes when we cannot say which screen this result came from. */
+export const COMPAT_HUB_HREF = '/v2/service'
+
+/**
+ * #571 — where the result screen's back button points. A known kind returns to that form screen (ฟีม: "ไปที่
+ * หน้าเช็คดวงสมพงศ์หน้าเดิม ทั้งของคู่รักและเพื่อนร่วมงาน"); anything else returns to the hub, which is the
+ * one destination that is never wrong.
+ *
+ * ⚠️ This is derived from the RESULT, so it is the same answer whether the user arrived from the form, from
+ * a refresh, from a direct link, or from the "ดูดวงสมพงศ์ล่าสุด" list. That last case is a deliberate
+ * choice and not an oversight: from the history list, back lands on the form screen for that kind rather
+ * than on the list. Recording it here because the alternative (remembering the referrer) is exactly the
+ * mechanism DoD row 3 rules out.
+ */
+export function compatibilityBackHref(kind: CompatibilityKind | undefined): string {
+  return kind ? `/v2/service/compatibility/${kind}` : COMPAT_HUB_HREF
 }
 
 /**

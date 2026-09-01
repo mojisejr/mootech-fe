@@ -16,6 +16,7 @@ import {
   applyCarriedBirth,
   applyAccountPhotos,
   mascotGanzhiPair,
+  applyMatchingKind,
   type CarriedPersons,
   type CompatibilityResult,
   type CompatMascot,
@@ -111,8 +112,14 @@ export function useCompatibilityResult(matchingId: string): UseCompatibilityResu
         // (#554 — reaching this screen from the history list has no carry, so both hero circles used to
         // fall back to the brand mark even when the account has a picture). Carry first, account second:
         // the carried photo is the one the user just saw on the form and must not be overridden.
-        const parsed = applyAccountPhotos(
-          applyCarriedBirth(parseCompatibilityResult(resp), recallCompatPersons(matchingId)),
+        // #571 — and finally record WHICH form screen this calculation was made on, from `resp.type`, so the
+        // back button has a destination. Last in the chain because it reads the response, not the result, so
+        // its position relative to the other two does not matter — kept last to leave them untouched.
+        const parsed = applyMatchingKind(
+          applyAccountPhotos(
+            applyCarriedBirth(parseCompatibilityResult(resp), recallCompatPersons(matchingId)),
+            resp,
+          ),
           resp,
         )
         setResult(parsed)
