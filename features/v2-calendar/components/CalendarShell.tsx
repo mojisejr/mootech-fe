@@ -37,7 +37,18 @@ export function CalendarShell({
       <Head>
         <title>{title ? `${title} · MuMate` : 'MuMate'}</title>
       </Head>
-      <div className="min-h-screen bg-v3-ghost-white">
+      {/* The IBM family is applied on the shell, not on each card. IBM Plex Sans Thai is loaded already
+          (styles/globals.css:5, all 7 weights) and the family exists (tailwind.config.ts:21), but the
+          calendar lane never asked for it, so most of it fell through to the browser default — which on
+          Thai is a LOOPED face, the thing ฟีม saw (issue #564).
+
+          The lane was MIXED, not uniformly unstyled: AppHeader and the promo card carry their own
+          font class and already rendered in IBM, while the bottom menu, the loading line and every
+          day-detail card did not. Measured, not assumed — a 4-line Thai string lays out at 224.55px
+          in IBM and 227.45px on the default chain, a 2.9px gap that separates the two cleanly.
+
+          One place, so a card added later inherits it instead of having to remember. */}
+      <div className="min-h-screen bg-v3-ghost-white font-ibm">
         <main className="mx-auto w-full max-w-md pb-32 pt-0">{children}</main>
         <CalendarMenu state={VARIANT[menuState]} ctaLabel={ctaLabel} ctaDisabled={ctaDisabled} onCta={onCta} />
       </div>
