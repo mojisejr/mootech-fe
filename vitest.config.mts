@@ -183,6 +183,7 @@ export default defineConfig({
       'scripts/compat-quota-concurrency-db.test.ts', // #358 Phase 6 — the ceiling under a burst, real pg
       'scripts/matching-activity-id.test.ts', // #357 — ตู๋จับได้ว่า BOSS/EMPLOYEE/FRIEND ต้องเป็น activity 3 ไม่ใช่ 2
       'scripts/compat-readers-v2-lane.test.ts', // #541 ① the readers stay on the v2 lane
+      'scripts/compat-new-friend-selected.test.tsx', // #570 — WIRING: the friend just created becomes person2; .tsx
     ],
   },
   resolve: {

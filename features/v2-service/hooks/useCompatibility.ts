@@ -6,7 +6,8 @@
 // State-table (charter completeness + too's adversary — EVERY outcome resolves, NEVER infinite-load):
 //   person1 (the current user, "คุณ"): loading → resolved{real row} · resolved{cookie-name only}(API error/throw:
 //     do NOT fabricate dob/time, do NOT strand) · no-userId → resolved{null}, loading OFF.
-//   person2 (the friend): null → set by selectFriend (μุน's wrapped modal) → cleared by clearFriend.
+//   person2 (the friend): null → set by selectFriend (μุน's wrapped modal, OR createFriend on success — #570)
+//     → cleared by clearFriend.
 //   button: canViewResult = person1 && person2 (done-cond #5: gray until BOTH; click while gray does nothing —
 //     enforced by μุน gating on this flag). Slice 1 does NOT fire the calculate call at all (result slice; the
 //     endpoint has side effects — done-cond #9). matchingType is HELD and proven (done-cond #2), not sent yet.
@@ -24,9 +25,11 @@ import {
   mapUpdateFriendResult,
   friendInputToPerson,
   applyFriendDetail,
+  createdFriendToSelectInput,
   type CompatPerson,
   type SelectFriendInput,
   type FriendDetail,
+  type CreatedFriendRow,
   type NewFriendForm,
   type EditFriendForm,
   type UpdateFriendResult,
@@ -34,8 +37,12 @@ import {
 
 export type { CompatPerson, SelectFriendInput }
 
+// #570 — `selected` says whether the friend who was just created also became person2. It is TRUE on every
+// normal create; it is false only when the created row came back with no usable id, which is the one case
+// where the screen genuinely cannot show the new person. Making it a field rather than an assumption is what
+// keeps that case from passing silently (the issue's DoD: say what is missing, do not swallow it).
 export type CreateFriendResult =
-  | { ok: true; friend: unknown }
+  | { ok: true; friend: unknown; selected: boolean }
   | { ok: false; error: unknown }
 
 // UpdateFriendResult + the failure classification live in compatibility-api (pure, unit-tested).
@@ -63,7 +70,8 @@ export type UseCompatibility = {
    *  fills dob/time by reading the friend detail. person2 appears instantly with name+picture. */
   selectFriend: (friend: SelectFriendInput) => void
   clearFriend: () => void
-  /** wraps v1 create-friend (surname/gender gap-filled + documented in compatibility-api) */
+  /** wraps v1 create-friend (surname/gender gap-filled + documented in compatibility-api). #570: on success
+   *  the created friend BECOMES person2 — the caller does not have to select them afterwards. */
   createFriend: (form: NewFriendForm) => Promise<CreateFriendResult>
   /** wraps v1 update-profile with STATUS (#266): edit an existing friend, returning a reason on failure.
    *  On ok the caller MUST re-read the friend (selectFriend again) so person2 reflects the new data before
@@ -165,19 +173,27 @@ export function useCompatibility(config: CompatibilityConfig): UseCompatibility 
     setLoadingPerson2(false)
   }, [])
 
+  // #570 — creating a friend also SELECTS them. ฟีม: "เมื่อกดบันทึกแล้ว รายชื่อจะมาอยู่ในช่องเลือกทันทีเลย".
+  // The placement lives here and not in the screen because person2 is this hook's state (see the seam note at
+  // the top of this file): a second call site that has to remember to place it is a call site that can forget,
+  // and forgetting is exactly the bug — the created friend was returned to the screen and dropped on the floor.
+  // It reuses selectFriend rather than calling setPerson2 directly, so the new friend goes through the SAME
+  // token race-guard and the same detail read as one picked from the list. One placement path, not two.
   const createFriend = useCallback(
     async (form: NewFriendForm): Promise<CreateFriendResult> => {
       if (!userId) return { ok: false, error: 'no-user' }
       try {
         // v1 call made HERE (client-only) so the pure adapter stays node-testable; args from the tested builder.
-        const res = (await MemberWithFriendCreateApi(...buildCreateFriendArgs(userId, form))) as { error?: unknown } | null
+        const res = (await MemberWithFriendCreateApi(...buildCreateFriendArgs(userId, form))) as CreatedFriendRow | null
         if (!res || res.error) return { ok: false, error: res?.error ?? 'create-failed' }
-        return { ok: true, friend: res }
+        const input = createdFriendToSelectInput(res, form.name)
+        if (input) selectFriend(input)
+        return { ok: true, friend: res, selected: input !== null }
       } catch (error) {
         return { ok: false, error }
       }
     },
-    [userId],
+    [userId, selectFriend],
   )
 
   // Edit an existing friend's profile (#266). Status-aware so a failed save says WHY, not one blob. The

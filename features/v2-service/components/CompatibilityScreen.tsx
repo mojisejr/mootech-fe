@@ -540,6 +540,10 @@ export function CompatibilityScreen({ config }: { config: CompatibilityConfig })
             // #264 — this is the one change that spends quota WITHOUT leaving the screen, so mount-time
             // loading cannot cover it: refetch or the next open shows a count that is one too generous.
             if (res.ok) quota.refetch()
+            // #570 — no c.selectFriend here ON PURPOSE. createFriend already made the new friend person2
+            // (useCompatibility.ts, and `res.selected` reports it), so selecting again from this side would
+            // be a second placement path racing the first. The sheet closes itself on res.ok and the row is
+            // already filled by then.
             return res
           }}
         />
