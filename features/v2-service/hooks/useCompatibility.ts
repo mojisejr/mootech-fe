@@ -52,10 +52,6 @@ export type UseCompatibility = {
   kind: CompatibilityKind
   title: string
   matchingType: MatchingType
-  /** #569 — the work role currently selected (colleague screen only; equals matchingType) */
-  role: MatchingType
-  /** #569 — change the work role. Only the colleague screen renders a control that calls this. */
-  setRole: (role: MatchingType) => void
   /** the current user, "คุณ" — real data (done-cond #3), never hardcoded */
   person1: CompatPerson | null
   /** the chosen friend/partner — null until μุน's wrapped modal calls selectFriend */
@@ -94,16 +90,9 @@ export function useCompatibility(config: CompatibilityConfig): UseCompatibility 
   const userId = (cookies[CookieKey.MEMBER_ID] as string) || ''
   const cookieName = (cookies[CookieKey.MEMBER_NAME] as string) || ''
 
-  // #569 — which work role the user is looking at. `config.matchingType` is the DEFAULT, not the answer:
-  // the colleague screen offers three (COLLEAGUE_ROLES) and the love screen offers none, so the value that
-  // reaches calculateCompatibility has to be state, not a constant read off the config.
-  // Reset on kind change: /love and /colleague are the same component, and carrying BOSS into the love
-  // screen would send the engine a work relationship for a couple.
-  const [role, setRole] = useState<MatchingType>(config.matchingType)
-  useEffect(() => {
-    setRole(config.matchingType)
-  }, [config.kind, config.matchingType])
-
+  // #585 — the work role is no longer state. It was state only because the colleague screen let the user
+  // change it mid-form; that picker is gone, so the value is whatever the screen's config says and there is
+  // nothing left to reset on a kind change.
   const [person1, setPerson1] = useState<CompatPerson | null>(null)
   const [loadingPerson1, setLoadingPerson1] = useState<boolean>(true)
   const [person2, setPerson2] = useState<CompatPerson | null>(null)
@@ -210,9 +199,7 @@ export function useCompatibility(config: CompatibilityConfig): UseCompatibility 
   return {
     kind: config.kind,
     title: config.title,
-    matchingType: role,
-    role,
-    setRole,
+    matchingType: config.matchingType,
     person1,
     person2,
     loadingPerson1,

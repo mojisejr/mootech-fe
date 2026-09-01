@@ -35,7 +35,7 @@ import {
   compatibilityBackHref,
   COMPAT_HUB_HREF,
 } from '@/features/v2-service/compatibility-result'
-import { compatibilityKindOfMatchingType, COLLEAGUE_ROLES } from '@/features/v2-service/compatibility'
+import { compatibilityKindOfMatchingType, WORK_MATCHING_TYPES } from '@/features/v2-service/compatibility'
 
 // ✓ SHAPE TRACED. pages/api/v2/matching/[id].ts:64-69 answers { user, friend, result, type } where `result`
 // is the JSON STRING stored in log_matching.result and the rich fields live under `.pairMatch`
@@ -68,12 +68,12 @@ describe('#571 pure — matching_type → หน้าที่ต้องก�
 
   it('สามบทบาทของเพื่อนร่วมงาน กลับไปจอเพื่อนร่วมงานทุกค่า', () => {
     expect(compatibilityKindOfMatchingType('LOVE')).toBe('love')
-    // Read from COLLEAGUE_ROLES itself, not from a list retyped here: adding a fourth role and forgetting
+    // Read from WORK_MATCHING_TYPES itself, not from a list retyped here: adding a fourth type and forgetting
     // the map turns THIS red rather than shipping a role that falls through to the hub.
-    for (const role of COLLEAGUE_ROLES) {
-      expect(compatibilityKindOfMatchingType(role.value)).toBe('colleague')
+    for (const value of WORK_MATCHING_TYPES) {
+      expect(compatibilityKindOfMatchingType(value)).toBe('colleague')
     }
-    expect(COLLEAGUE_ROLES.map((r) => r.value).sort()).toEqual(['BOSS', 'EMPLOYEE', 'FRIEND'])
+    expect([...WORK_MATCHING_TYPES].sort()).toEqual(['BOSS', 'EMPLOYEE', 'FRIEND'])
   })
 
   it('ค่าที่ไม่รู้จักกลับไป hub ❌ ไม่ใช่เดาเป็น love', () => {
@@ -102,9 +102,9 @@ describe('#571 wiring — ค่าเดินทางจาก route ถึ�
   })
 
   it('เข้าจากเพื่อนร่วมงาน แล้วปุ่มย้อนกลับชี้ที่จอเพื่อนร่วมงาน — ทั้งสามบทบาท', async () => {
-    for (const role of COLLEAGUE_ROLES) {
-      getDetail.mockResolvedValue(respFor(role.value))
-      const { result, unmount } = renderHook(() => useCompatibilityResult(`m-${role.value}`))
+    for (const value of WORK_MATCHING_TYPES) {
+      getDetail.mockResolvedValue(respFor(value))
+      const { result, unmount } = renderHook(() => useCompatibilityResult(`m-${value}`))
       await waitFor(() => expect(result.current.loading).toBe(false))
       expect(result.current.result!.kind).toBe('colleague')
       unmount()
