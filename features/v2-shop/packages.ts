@@ -59,10 +59,15 @@ export const PLANS: readonly Plan[] = [
     name: 'Mumate Free',
     tagline: 'เริ่มต้นใช้งานและเรียนรู้พื้นฐาน',
     features: [
-      'ดวงสมพงษ์ การงาน, ความรัก 2 match',
-      // 🔴 #358 — the DEPTH is named, not only the SPAN. Every other bullet on this card is a COUNT
-      // (2 match · 2 ครั้ง/วัน · 1 คำถาม/วัน), so a reader is primed to read a bare '(1 เดือน)' as a
-      // quantity and expect the full reading for a month. A free day is a SUMMARY:
+      // #573 — the ONLY line on this card that named a quantity without its cycle, so it read as one pool
+      // for the life of the package. The real ceiling is per CALENDAR MONTH with no carry-over
+      // (lib/v2/entitlement.ts:41 COUNT_PER_MONTH.compatibility, windowed by lib/v2/compat-quota.ts:11-14).
+      // The colon and the ' / เดือน' are borrowed from the two lines below rather than invented, so the card
+      // gains a consistent rate form instead of one bullet with a bespoke shape.
+      'ดวงสมพงษ์ การงาน, ความรัก: 2 match / เดือน',
+      // 🔴 #358 — the DEPTH is named, not only the SPAN. Every other bullet on this card is a RATE
+      // (2 match / เดือน · 2 ครั้ง / วัน · 1 คำถาม / วัน — the first of those became a rate in #573), so a
+      // reader is primed to read a bare '(1 เดือน)' as a quantity and expect the full reading for a month. A free day is a SUMMARY:
       // lib/v2-calendar/day-detail.ts FREE_DAY_DETAIL_FIELDS carries 12 of the 22 fields, and
       // pages/api/v2/day-detail.ts trims the rest before the response is built.
       'ปฏิทินดวงเฉพาะบุคคล เดือนปัจจุบัน (ดูสรุปรายวัน)',
@@ -76,7 +81,7 @@ export const PLANS: readonly Plan[] = [
     name: 'Mumate +',
     tagline: 'สำหรับคนใช้ประจำและสายมูระดับเริ่มต้น',
     features: [
-      'ดวงสมพงษ์ การงาน, ความรัก 20 match',
+      'ดวงสมพงษ์ การงาน, ความรัก: 20 match / เดือน', // #573 — same cycle, same shape as Free
       'ปฏิทินดวงเฉพาะบุคคล 1 ปีเต็ม (รายวันแบบเต็ม)',
       'เชี่ยวมู chat (ชินแซ 24 ชม): 5 คำถาม / วัน',
       'เซียมซี / Oracle Card: 10 ครั้ง / วัน',
@@ -91,6 +96,11 @@ export const PLANS: readonly Plan[] = [
     name: 'Mumate Pro',
     tagline: 'สำหรับสายมูตัวจริง หรือต้องการไกด์ไลน์ในช่วงการตัดสินใจครั้งใหญ่ของชีวิต',
     features: [
+      // #573 DECIDED: Pro is NOT touched, and this is a ruling, not an omission. lib/v2/entitlement.ts:41
+      // gives PRO `null` for compatibility — no monthly ceiling exists — so 'ไม่จำกัด / เดือน' would name a
+      // cycle that is not there, and a reader who has met the Free and + cards reads a cycle as a cap. The
+      // other two Pro bullets are bare 'ไม่จำกัด' for the same reason; changing one of the three would make
+      // this card internally uneven while making the set of cards look even.
       'ดวงสมพงษ์ การงาน, ความรัก ไม่จำกัด (Unlimited)',
       'ปฏิทินดวงเฉพาะบุคคล ไม่จำกัด (รายวันแบบเต็ม)',
       'เชี่ยวมู chat (ชินแซ 24 ชม): ไม่จำกัด (Unlimited)',

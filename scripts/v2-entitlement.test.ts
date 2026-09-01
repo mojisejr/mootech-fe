@@ -71,16 +71,22 @@ describe('#358 ปฏิทินดวง — a SPAN, not a count', () => {
 })
 
 describe('#358 the table must not drift from what the shop already sells', () => {
-  it('🔴 the shop card still says 2 / 20 / unlimited and 1 month / 1 year / unlimited', () => {
+  it('🔴 the shop card still says 2 / 20 per MONTH / unlimited, and 1 month / 1 year / unlimited', () => {
     const shop = readFileSync('features/v2-shop/packages.ts', 'utf8')
+    // #573 — the two counted lines now carry their cycle. That is not cosmetic to THIS test: the window is
+    // half of what COUNT_PER_MONTH means (lib/v2/compat-quota.ts:10-14 — "either one alone would be wrong"),
+    // and until #573 the card stated the number while staying silent about the window. Asserting the whole
+    // sentence makes this tooth cover both halves instead of one.
     // Free card
-    expect(shop).toContain('ดวงสมพงษ์ การงาน, ความรัก 2 match')
+    expect(shop).toContain('ดวงสมพงษ์ การงาน, ความรัก: 2 match / เดือน')
     expect(shop).toContain('ปฏิทินดวงเฉพาะบุคคล เดือนปัจจุบัน (ดูสรุปรายวัน)')
     // Plus card
-    expect(shop).toContain('ดวงสมพงษ์ การงาน, ความรัก 20 match')
+    expect(shop).toContain('ดวงสมพงษ์ การงาน, ความรัก: 20 match / เดือน')
     expect(shop).toContain('ปฏิทินดวงเฉพาะบุคคล 1 ปีเต็ม (รายวันแบบเต็ม)')
-    // Pro card
+    // Pro card — deliberately NO cycle: COUNT_PER_MONTH.compatibility.PRO is null, so there is no month to
+    // name. A ' / เดือน' appearing here would be a regression, not an improvement.
     expect(shop).toContain('ดวงสมพงษ์ การงาน, ความรัก ไม่จำกัด (Unlimited)')
+    expect(shop).not.toContain('ไม่จำกัด (Unlimited) / เดือน')
     expect(shop).toContain('ปฏิทินดวงเฉพาะบุคคล ไม่จำกัด (รายวันแบบเต็ม)')
   })
 })
