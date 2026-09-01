@@ -90,7 +90,11 @@ export function YamTimes({
   onViewList: () => void
 }) {
   return (
-    <SectionCard title="เวลามงคล" info>
+    <SectionCard
+      title="เวลามงคล"
+      // ฟีม's words, verbatim (#565).
+      info={<p>ใช้นัดหมายลูกค้า นัดประชุม พรีเซ็นงาน ส่งใบเสนอราคา ส่งอีเมล เข้าหาผู้ใหญ่ โทรติดต่อเรื่องสำคัญ ติดตามงานสำคัญ</p>}
+    >
       <div className="flex flex-col gap-2.5">
         {yams.map((yam) => (
           <div key={yam.id} className="flex items-center gap-3 rounded-2xl bg-v3-lemon-chiffon px-3.5 py-3">

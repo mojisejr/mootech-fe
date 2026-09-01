@@ -88,6 +88,7 @@ export default defineConfig({
       'scripts/quota-indicator-ui.test.tsx', // #264 — the UI half: what is shown when there IS no number; .tsx
       'scripts/calc-cooldown.test.tsx', // #265 — cooldown state machine; every guarantee lives in THIS lane; .tsx
       'scripts/edit-friend-ui.test.tsx', // #266 — edit-friend UI; refuses to open a blank form; .tsx
+      'scripts/day-detail-info-and-count.test.tsx', // #565 — ⓘ panel is a real control + the heading counts the rows it renders; .tsx
       'scripts/add-friend-copy.test.tsx', // #277 — ทุกคำในชีทเพิ่มเพื่อนบอกว่าเป็นข้อมูลของเพื่อน + ข้อความล้มที่ถูกอยู่แล้วต้องไม่โดนลบ
       'scripts/pwa-capability.test.tsx', // #285 — PWA capability tri-state (unknown≠false); .tsx (vitest-only)
       'scripts/reminder-logic.test.tsx', // #287 — reminder time/plan/adapter/identity (pure); .tsx

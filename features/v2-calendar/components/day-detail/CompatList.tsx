@@ -1,4 +1,7 @@
-// §6 "ความเข้ากัน 5 ด้าน" + §7 insight box. Each row: ♥ icon + area name + a grade-accent %-bar + % +
+// §6 "ความเข้ากัน N ด้าน" (N = areas.length) + §7 insight box.
+// The count in the heading comes from the data, never from a literal. It said five while the engine
+// sent four, and writing four in its place would only move the same bug one engine change to the
+// right — the same shape as the quota copy #557 had to fix. Each row: ♥ icon + area name + a grade-accent %-bar + % +
 // GradeBadge (+ ⭐จุดแข็ง on the day's strongest area). The bar fill colour IS the grade accent (shared
 // the shared 5-zone scale) — A± deep-green … D±/F deep-red — so the bar can't disagree with the badge.
 // §7 is the 💡 line. NOTE the bar is the one place a zone colour appears without the letter ON it; the
@@ -6,6 +9,7 @@
 import type { DayDetailArea } from '../../types'
 import { GradeBadge } from './GradeBadge'
 import { SectionCard } from './SectionCard'
+import { facetLabel, orderFacets } from './facet-order'
 import { gradeColors } from '../grade-colors'
 import { percentText } from '../percent-display'
 
@@ -30,11 +34,13 @@ function StrengthPill() {
 function CompatRow({ area }: { area: DayDetailArea }) {
   const accent = gradeColors(area.grade).accent
   return (
-    <div className="flex items-center gap-3">
+    // the testid exists so a test can COUNT what is on screen. Without it the count check would compare
+    // the heading against the same array the heading came from, which is true no matter what renders.
+    <div data-testid="day-compat-row" className="flex items-center gap-3">
       <HeartIcon />
       <div className="min-w-0 flex-1">
         <div className="flex items-start justify-between gap-2">
-          <p className="text-sm font-semibold leading-5 text-v3-navy">{area.label}</p>
+          <p className="text-sm font-semibold leading-5 text-v3-navy">{facetLabel(area)}</p>
           {area.isStrength && <StrengthPill />}
         </div>
         <div className="mt-1.5 flex items-center gap-2">
@@ -50,11 +56,13 @@ function CompatRow({ area }: { area: DayDetailArea }) {
 }
 
 export function CompatList({ areas, insight }: { areas: DayDetailArea[]; insight: string }) {
+  // both sections order the SAME way through the same pure helper, so §6 and §8 can never disagree
+  const ordered = orderFacets(areas)
   return (
-    <SectionCard title="ความเข้ากัน 5 ด้าน" info testId="day-compat-list">
+    <SectionCard title={`ความเข้ากัน ${ordered.length} ด้าน`} info testId="day-compat-list">
       <div className="flex flex-col gap-4">
-        {areas.map((a) => (
-          <CompatRow key={a.label} area={a} />
+        {ordered.map((a) => (
+          <CompatRow key={a.key || a.label} area={a} />
         ))}
       </div>
       {/* §7 — insight box */}

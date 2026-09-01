@@ -43,7 +43,28 @@ const NEUTRAL = '#464646'
  */
 export function LuckyColors({ colors, deity }: { colors: DayDetailColor[]; deity: string }) {
   return (
-    <SectionCard title="ทิศ สีมงคล" info testId="lucky-colors">
+    <SectionCard
+      title="ทิศ สีมงคล"
+      testId="lucky-colors"
+      // ฟีม's words, verbatim (#565). Three labelled lines rather than one paragraph: each one answers a
+      // different question, and the labels are what let a reader find the one they came for.
+      info={
+        <dl className="flex flex-col gap-2">
+          <div>
+            <dt className="font-bold text-v3-navy">สี</dt>
+            <dd>ใส่เสื้อสีมงคลเพื่อความราบรื่นในวันนี้</dd>
+          </div>
+          <div>
+            <dt className="font-bold text-v3-navy">ทิศ</dt>
+            <dd>ใช้เชิงฐานก่อนออกจากบ้าน ว่าท่าสิ่งใดในวันนี้ให้สำเร็จ หรือจะไปทิศมงคลนั้น เมื่อเทียบกับบ้านหรือที่ทำงาน</dd>
+          </div>
+          <div>
+            <dt className="font-bold text-v3-navy">เทพ</dt>
+            <dd>เมื่อมีปัญหาหรือต้องการความมั่นใจในความสำเร็จมากขึ้น ระหว่างวัน สามารถขอพรองค์ท่านที่ศาลเจ้า (ดีสุด)</dd>
+          </div>
+        </dl>
+      }
+    >
       <div className="flex flex-col gap-3">
         {colors.length === 0 && <p className="text-sm text-v3-text-muted">วันนี้ไม่มีข้อมูลสีมงคล</p>}
         {colors.map((c, i) => {
