@@ -25,6 +25,7 @@ import { MemberWithFriendGetDetailApi } from '@/constants/api/api-member-with-fr
 import { friendDetailToEditForm, type EditFriendForm, type FriendEditDetail } from '../compatibility-api'
 import { useCompatibility, type CompatPerson } from '../hooks/useCompatibility'
 import { useQuota } from '../hooks/useQuota'
+import { COLLEAGUE_ROLES } from '../compatibility'
 import { compatQuotaBlockedLines } from './compat-quota-copy'
 import { useCalcCooldown } from '../hooks/useCalcCooldown'
 import { QuotaLine } from './QuotaLine'
@@ -353,7 +354,47 @@ export function CompatibilityScreen({ config }: { config: CompatibilityConfig })
             ? <div data-testid="compat-person1" className="flex h-[64px] w-full items-center gap-3 rounded-[56px] bg-v3-ghost-white py-3 pl-3 pr-6"><span data-testid="compat-person1-loading" className="size-10 shrink-0 animate-pulse rounded-full bg-white/60" /><span className="h-4 w-40 animate-pulse rounded bg-white/60" /></div>
             : <ProfileRow person={c.person1} onEdit={() => setComingSoon('แก้ไขข้อมูลของคุณ')} testId="compat-person1" />}
 
-          {/* row 2 — เลือกเพื่อน/คู่รัก → wrapped v1 modal; filled → name+picture now, dob enriches (skeleton) */}
+          {/* #569 — which work role is this? Only the colleague screen has one; the love screen renders
+              nothing here. The label names THE OTHER PERSON ("เจ้านาย" = they are my boss) because that is
+              the direction the engine reads it in — see COLLEAGUE_ROLES in compatibility.ts, which carries
+              the measured ourLabel/partnerLabel for each value. Chips, not a dropdown: three short options
+              that must all be readable at once, and the choice changes the whole reading. */}
+          {config.hasRoles && (
+            <div
+              data-testid="compat-role-picker"
+              role="radiogroup"
+              aria-label="ดูความเข้ากันในฐานะอะไร"
+              className="flex w-full items-center gap-2"
+            >
+              {COLLEAGUE_ROLES.map((r) => {
+                const on = c.role === r.value
+                return (
+                  <button
+                    key={r.value}
+                    type="button"
+                    role="radio"
+                    aria-checked={on}
+                    data-testid={`compat-role-${r.value}`}
+                    onClick={() => c.setRole(r.value)}
+                    className={[
+                      // 🔴 WRAPS, and that is the point. Measured on the real route: "หุ้นส่วน / เพื่อน"
+                      // needs 98px and a third of a 320-wide screen gives 75 — `truncate` turned it into
+                      // "หุ้นส่วน / เ…" at 320 and 360, and cleared 393 by ONE pixel. Truncating the middle
+                      // option is worse than two lines: the word that survives is "หุ้นส่วน", so a user
+                      // looking for "เพื่อน" cannot see that this is where it lives.
+                      // ❌ Do not put `truncate` back without re-measuring at 320.
+                      'grid min-h-[44px] min-w-0 flex-1 place-items-center rounded-full px-2 py-1.5 text-center text-[13px] leading-[18px] transition-none',
+                      on ? 'bg-v3-sapphire font-bold text-white' : 'bg-v3-ghost-white font-normal text-v3-text-body',
+                    ].join(' ')}
+                  >
+                    {r.label}
+                  </button>
+                )
+              })}
+            </div>
+          )}
+
+          {/* row 2 — the person-2 picker → wrapped v1 modal; filled → name+picture now, dob enriches (skeleton) */}
           <ProfileRow
             person={c.person2}
             loadingDob={c.loadingPerson2}
@@ -362,7 +403,7 @@ export function CompatibilityScreen({ config }: { config: CompatibilityConfig })
             onPick={() => setSelectOpen(true)}
             editBusy={editLoading}
             testId="compat-person2"
-            emptyLabel="เลือกเพื่อน / คู่รัก"
+            emptyLabel={config.pickLabel}
           />
 
           {/* #266 — could not read the friend's current data. Said out loud instead of opening an empty
@@ -459,6 +500,7 @@ export function CompatibilityScreen({ config }: { config: CompatibilityConfig })
       {logoutOpen && <LogoutModal onClose={() => setLogoutOpen(false)} onConfirm={logout} />}
       {selectOpen && (
         <CompatSelectFriendModal
+          title={config.pickLabel}
           onClose={() => setSelectOpen(false)}
           onSelect={(input) => { c.selectFriend(input); setSelectOpen(false) }}
           onAddNew={() => { setSelectOpen(false); setAddOpen(true) }}
