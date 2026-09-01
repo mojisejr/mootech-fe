@@ -185,6 +185,7 @@ export default defineConfig({
       'scripts/matching-activity-id.test.ts', // #357 — ตู๋จับได้ว่า BOSS/EMPLOYEE/FRIEND ต้องเป็น activity 3 ไม่ใช่ 2
       'scripts/compat-readers-v2-lane.test.ts', // #541 ① the readers stay on the v2 lane
       'scripts/compat-new-friend-selected.test.tsx', // #570 — WIRING: the friend just created becomes person2; .tsx
+      'scripts/compat-result-back-destination.test.tsx', // #571 — pure map + WIRING: back returns to the form screen; .tsx
     ],
   },
   resolve: {
