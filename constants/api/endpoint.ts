@@ -140,5 +140,6 @@ export const API = {
     calculate: localApi('/v2/matching/calculate'),
     get: localApi('/v2/matching'),
     get_detail: localApi('/v2/matching'), // + '/<matching_id>' — see api-v2-matching.ts
+    work_detail: localApi('/v2/matching/work'), // + '/<matching_id>' — #585 colleague lane, ranked entries
   },
 }

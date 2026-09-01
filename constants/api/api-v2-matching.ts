@@ -35,3 +35,17 @@ export const V2MatchingGetDetailApi = async (matching_id: string) => {
     return { error }
   }
 }
+
+/**
+ * GET /api/v2/matching/work/<matching_id> — #585, the colleague lane's stored result.
+ *
+ * 🔴 STATUS-AWARE, unlike its single-pair sibling above. This route answers 404 for "no such result"
+ * and 5xx for "the stored readings do not line up with their people" (work/[id].ts refuses to serve a
+ * best-effort list rather than risk showing one person's reading under another's face). Those two are
+ * different sentences on screen, so collapsing them into `null` here would throw away the only thing
+ * that tells them apart — the same defect the love lane's 410-vs-5xx split exists to prevent.
+ */
+export const V2MatchingWorkGetDetailApi = async (matching_id: string): Promise<ApiResult> => {
+  const url = `${API.v2_matching.work_detail}/${encodeURIComponent(matching_id)}`
+  return callApiWithStatus(url, 'GET', '', {}, {})
+}

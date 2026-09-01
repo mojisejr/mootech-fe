@@ -106,6 +106,7 @@ export default defineConfig({
       'scripts/compat-calc-error-reasons.test.tsx', // #263 — calculateCompatibility failure-reason classification; .tsx
       'scripts/compat-error-copy-ui.test.tsx', // #263 — the UI half: four causes → four different sentences; .tsx
       'scripts/colleague-slots-ui.test.tsx', // #585 ก้อน 3 — the three co-worker slots, through the real screen
+      'scripts/work-result-ui.test.tsx', // #585 ก้อน 5 — colleague result: one order, two failure sentences
       'scripts/compat-result-photos.test.tsx', // #554 — WIRING: the result hook puts the route's account photos on persons; .tsx
       'scripts/quota-route.test.tsx', // #264 — /api/quota both-quota remaining + wiring; .tsx
       'scripts/quota-indicator-ui.test.tsx', // #264 — the UI half: what is shown when there IS no number; .tsx
