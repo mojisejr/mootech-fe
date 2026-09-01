@@ -77,8 +77,12 @@ export const PLANS: readonly Plan[] = [
       // lib/v2-calendar/day-detail.ts FREE_DAY_DETAIL_FIELDS carries 12 of the 22 fields, and
       // pages/api/v2/day-detail.ts trims the rest before the response is built.
       'ปฏิทินดวงเฉพาะบุคคล เดือนปัจจุบัน (ดูสรุปรายวัน)',
-      'เซียมซี / Oracle Card: 2 ครั้ง / วัน',
-      'เชี่ยวมู chat (ชินแซ 24 ชม): 1 คำถาม / วัน',
+      // #581 — every RATE bullet on every card carries \u00A0 through the whole 'N unit / period' run, for
+      // the reason measured in mojisejr/mootech-fe#573: a plain space strands the number at 320, and an NBSP
+      // on the number alone just moves the break onto the '/' at 360. The escapes are visible in source on
+      // purpose. Below is the whole class, not the two spots that happened to be noticed.
+      'เซียมซี / Oracle Card: 2\u00A0ครั้ง\u00A0/\u00A0วัน',
+      'เชี่ยวมู chat (ชินแซ 24 ชม): 1\u00A0คำถาม\u00A0/\u00A0วัน',
     ],
     codes: { monthly: null, annual: null },
   },
@@ -89,8 +93,8 @@ export const PLANS: readonly Plan[] = [
     features: [
       'ดวงสมพงษ์ การงาน, ความรัก: 20\u00A0match\u00A0/\u00A0เดือน', // #573 — same cycle + NBSP, same shape as Free
       'ปฏิทินดวงเฉพาะบุคคล 1 ปีเต็ม (รายวันแบบเต็ม)',
-      'เชี่ยวมู chat (ชินแซ 24 ชม): 5 คำถาม / วัน',
-      'เซียมซี / Oracle Card: 10 ครั้ง / วัน',
+      'เชี่ยวมู chat (ชินแซ 24 ชม): 5\u00A0คำถาม\u00A0/\u00A0วัน',
+      'เซียมซี / Oracle Card: 10\u00A0ครั้ง\u00A0/\u00A0วัน',
     ],
     codes: { monthly: 'V2_PLUS_MONTHLY', annual: 'V2_PLUS_YEARLY' },
     badge: { label: 'คุ้มค่าที่สุด', tone: 'pumpkin' },

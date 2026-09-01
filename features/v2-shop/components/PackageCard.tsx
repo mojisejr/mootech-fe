@@ -217,9 +217,24 @@ export function PackageCard({
                   What they have no PROVABLE level for is the gate, which is handed `tier: null` for them on
                   purpose (features/v2-shop/card-verdict.ts:111) so purchase-gate's legacy branch allows the
                   buy. Guard: scripts/shop-screen-mount.test.tsx '#457 row 5' asserts no 'อัปเกรดเป็น'. */}
-              {`${verdict.kind === 'upgrade' ? 'อัปเกรดเป็น' : 'สมัครแพ็กเกจ'} ${plan.name} ${
-                price.kind === 'ready' ? `${formatThb(price.amountThb)}${buttonSuffix}` : ''
-              }`.trim()}
+              {/* #581 — the price+unit sits in its own nowrap span. This is NOT the \u00A0 treatment used on
+                  the bullets (packages.ts): the break here lands on the '/' inside '\u0e3f790/\u0e1b\u0e35', and '/' is a
+                  break opportunity in its own right, so no space character can prevent it. Measured at 360:
+                  the button read '\u0e2a\u0e21\u0e31\u0e04\u0e23\u0e41\u0e1e\u0e47\u0e01\u0e40\u0e01\u0e08 Mumate + \u0e3f790/' with '\u0e1b\u0e35' alone on the next line —
+                  mojisejr/mootech-fe#517's original symptom, still live on the buy button.
+                  ⚠️ textContent is UNCHANGED by this split: the space before the price is emitted only when a
+                  price exists, which is exactly what the old `.trim()` achieved.
+                  🔴 The OUTER span is not decoration. Button is `inline-flex … gap-1`
+                  (components/ui/Button.tsx:130), so two sibling children become two flex items with a gap
+                  between them — measured at 360, that rendered the label as a two-column button reading
+                  'สมัครแพ็กเกจ Mumate' / '+' beside a floating '฿790/ปี'. Wrapping both in one span keeps the
+                  whole label a single flex item, so it flows as ordinary text again. */}
+              <span>
+                {`${verdict.kind === 'upgrade' ? 'อัปเกรดเป็น' : 'สมัครแพ็กเกจ'} ${plan.name}`}
+                {price.kind === 'ready' ? (
+                  <>{' '}<span className="whitespace-nowrap">{`${formatThb(price.amountThb)}${buttonSuffix}`}</span></>
+                ) : null}
+              </span>
             </Button>
           </Link>
         ) : (
