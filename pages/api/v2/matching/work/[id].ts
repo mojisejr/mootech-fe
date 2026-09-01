@@ -12,6 +12,7 @@ import { and, eq } from 'drizzle-orm'
 import { db } from '@/lib/db'
 import { workComparison, workComparisonCandidate, memberWithFriend } from '@/lib/db/schema'
 import { resolveSessionUserId } from '@/lib/v2/resolve-user'
+import { buildWorkResult, trimWorkResponse } from '@/features/v2-service/work-comparison'
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== 'GET') {
@@ -34,8 +35,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       .limit(1)
     if (!row) return res.status(404).json({ ok: false, error: 'not found' })
 
-    // The people, in the order the user typed them. The SCREEN must still order by comparison.ranking —
-    // this list exists to put a name and a face on each candidate index, not to rank them.
+    // The people. 🔴 This list is NOT handed to the screen on its own — it is joined to the readings here,
+    // on the server, by `buildWorkResult`. Handing the screen two arrays to line up by position was the
+    // defect มุน caught at review: a wrong join renders perfectly, with every name and picture present and
+    // the readings attached to the wrong people.
     const people = await db
       .select({
         slot: workComparisonCandidate.slot,
@@ -49,21 +52,42 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       .leftJoin(memberWithFriend, eq(memberWithFriend.id, workComparisonCandidate.friendId))
       .where(eq(workComparisonCandidate.matchingId, id))
 
-    let comparison: unknown = null
+    let parsed: unknown = null
     try {
-      comparison = JSON.parse(row.result)
+      parsed = JSON.parse(row.result)
     } catch {
       // A row we cannot parse is a 500, not an empty screen: the user paid a unit and the data is there.
       console.error('[v2][matching/work] unparseable result for', id)
       return res.status(500).json({ ok: false, error: 'stored result is unreadable' })
     }
 
+    // what we stored is already the trimmed block; re-running the normaliser keeps one shape in one place
+    const comparison = trimWorkResponse({ comparison: parsed })
+    const built = buildWorkResult(
+      comparison,
+      people.map((p) => ({
+        slot: p.slot,
+        friendId: p.friendId,
+        name: p.name,
+        surname: p.surname,
+        pictureUrl: p.pictureUrl,
+      })),
+    )
+    if (!built.ok) {
+      // 🔴 5xx, never a 200 with a best-effort list. "these readings belong to other people" must not be
+      // something a user can be shown.
+      console.error('[v2][matching/work] join refused for', id, built.reason, built.detail)
+      return res.status(500).json({ ok: false, error: 'stored result does not line up with its people' })
+    }
+
     return res.status(200).json({
       ok: true,
       matching_id: row.matchingId,
       create_at: row.createAt,
+      // ONE list, already in ranking order, each entry carrying its own person. There is nothing to join.
+      entries: built.entries,
+      // kept for debugging only — the screen must not read this to rank or to name anyone
       comparison,
-      candidates: people.sort((a, b) => a.slot - b.slot),
     })
   } catch (e) {
     console.error('[v2][matching/work] read failed:', e)

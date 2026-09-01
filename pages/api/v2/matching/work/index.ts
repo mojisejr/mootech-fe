@@ -39,8 +39,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const out = await runWorkCompare({ userId: who.userId, friendIds: raw.map(String) })
     if (out.ok) {
       // `matching_id` is the key the result route reads back; a 2xx without it is a contract violation.
-      // `comparison` is the TRIMMED block — the ~7MB engine body never leaves the server.
-      return res.status(200).json({ ok: true, matching_id: out.matchingId, comparison: out.comparison })
+      // `entries` is the SAME shape GET /api/v2/matching/work/[id] answers with — one list, already in
+      // ranking order, each entry carrying its own person — so the screen can render straight from the
+      // 8.4s call without a second round trip, and without ever joining two arrays by position.
+      // `comparison` is the TRIMMED block; the ~7MB engine body never leaves the server.
+      return res
+        .status(200)
+        .json({ ok: true, matching_id: out.matchingId, entries: out.entries, comparison: out.comparison })
     }
     switch (out.kind) {
       case 'quota':

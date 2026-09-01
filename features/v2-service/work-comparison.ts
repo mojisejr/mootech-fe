@@ -125,3 +125,102 @@ export function readRoles(candidate: WorkCandidate | null | undefined): WorkRole
   const roles = candidate?.roles ?? []
   return { roles, complete: roles.length === WORK_ROLE_COUNT, missing: Math.max(0, WORK_ROLE_COUNT - roles.length) }
 }
+
+// ── the merged read model (มุน caught this at review, mootech-fe#585) ───────────────────────────────
+//
+// 🔴 THE DEFECT SHE FOUND. The old contract handed the screen TWO arrays and asked it to join them:
+//   `comparison.candidates[]`  from the engine — carries `index` and the readings, and NO identity at all
+//   `candidates[]`             from our database — carries `slot`, the friend id, the name, the picture
+// Both were called "candidates", one level apart in the same payload, and the only thing tying a reading
+// to a human being was an integer describing a POSITION. TypeScript cannot see a mistake there: both are
+// arrays of objects. And when a position join goes wrong it does not crash — every name renders, every
+// picture renders, every score renders, and the readings simply belong to the wrong people. That is the
+// same shape as a tool returning a picture of a different place, looking perfectly normal, which cost us
+// an hour earlier the same day.
+//
+// ⇒ THE FIX IS NOT A WARNING COMMENT. The join happens ONCE, here, on the server, and the result is a
+// single list where a reading and a person are the same object. The screen cannot join them wrongly
+// because it is never handed two things to join.
+//
+// 🔴 AND THE JOIN FAILS LOUD. If the engine's index set and our slot set are not the same set, this
+// returns `ok: false` and the routes answer 5xx. Never a 200 with a best-effort list: "the readings are
+// for other people" must not be a thing a user can be shown.
+
+export type WorkPerson = {
+  slot: number
+  friendId: string
+  name?: string | null
+  surname?: string | null
+  pictureUrl?: string | null
+}
+
+export type WorkEntry = {
+  /** 1-based position in the engine's ranking — what the screen prints on the badge */
+  rank: number
+  /** the engine's `index`, which is also our `slot`; kept for debugging, NOT for joining anything */
+  slot: number
+  person: WorkPerson
+  rankScore?: number
+  grade?: string
+  ratingText?: string
+  emoji?: string
+  profile?: Record<string, unknown>
+  elementInteraction?: Record<string, unknown>
+  roles: WorkRole[]
+  /** false when the engine returned fewer than three readings — the screen must SAY so */
+  rolesComplete: boolean
+  rolesMissing: number
+}
+
+export type WorkResultBuild =
+  | { ok: true; entries: WorkEntry[] }
+  | { ok: false; reason: 'index-slot-mismatch'; detail: string }
+
+/**
+ * Join the engine's readings to the people they are about, in ranking order.
+ *
+ * Everything the screen needs is in the returned objects. There is no second list to line up.
+ */
+function uniqSorted(ns: number[]): number[] {
+  const out: number[] = []
+  for (const n of ns) if (!out.includes(n)) out.push(n)
+  return out.sort((a, b) => a - b)
+}
+
+export function buildWorkResult(comparison: WorkComparison | null, people: WorkPerson[]): WorkResultBuild {
+  const ranked = readRankedCandidates(comparison)
+  const bySlot = new Map(people.map((p) => [p.slot, p]))
+
+  const engineIdx = uniqSorted(ranked.map((c) => c.index))
+  const dbSlots = uniqSorted(people.map((p) => p.slot))
+  if (engineIdx.length !== dbSlots.length || engineIdx.some((n, i) => n !== dbSlots[i])) {
+    // ⚠️ Fail LOUD. A best-effort join here would hand someone another person's reading under their own
+    // name and photo, which is worse than an error page by a wide margin.
+    return {
+      ok: false,
+      reason: 'index-slot-mismatch',
+      detail: `engine index [${engineIdx.join(',')}] != stored slot [${dbSlots.join(',')}]`,
+    }
+  }
+
+  return {
+    ok: true,
+    entries: ranked.map((c, i) => {
+      const r = readRoles(c)
+      return {
+        rank: i + 1,
+        slot: c.index,
+        person: bySlot.get(c.index)!, // safe: the sets were just proven equal
+        rankScore: c.rankScore,
+        grade: c.grade,
+        ratingText: c.ratingText,
+        emoji: c.emoji,
+        profile: c.profile,
+        elementInteraction: c.elementInteraction,
+        roles: r.roles,
+        rolesComplete: r.complete,
+        rolesMissing: r.missing,
+      }
+    }),
+  }
+}

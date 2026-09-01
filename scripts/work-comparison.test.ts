@@ -111,3 +111,67 @@ describe('③ roles — three, or say which seat is empty', () => {
     expect(readRoles(undefined)).toEqual({ roles: [], complete: false, missing: 3 })
   })
 })
+
+// ── ④ the merged join (มุน caught the defect at review) ────────────────────────────────────────────
+//
+// 🔴 WHAT THIS PROTECTS. Before this, the screen received TWO arrays — the engine's readings (carrying
+// only `index`) and our people (carrying `slot`, name, picture) — and had to line them up by position.
+// A wrong line-up does not crash: every name, every picture, every score renders, and only the READINGS
+// belong to the wrong people. Nothing in TypeScript can see it, and nothing on screen looks broken.
+//
+// MUTANT CONTRACT
+//   B1  buildWorkResult joins by array position instead of by index→slot   → ② reddens
+//   B2  the set comparison is dropped (best-effort join)                    → ③ ④ redden
+//   B3  entries come back in candidate order instead of ranking order       → ① reddens
+//   B4  rank is 0-based                                                     → ① reddens
+import { buildWorkResult } from '@/features/v2-service/work-comparison'
+
+const person = (slot: number, name: string) => ({ slot, friendId: `f${slot}`, name, surname: 'x', pictureUrl: null })
+const PEOPLE = [person(0, 'เอ'), person(1, 'บี'), person(2, 'ซี')]
+
+describe('④ buildWorkResult — a reading and a person are ONE object', () => {
+  it('① เรียงตาม ranking และ rank เป็นเลข 1 2 3 ที่ขึ้นจอ', () => {
+    const t = trimWorkResponse(body())! // ranking [1,2,0]
+    const b = buildWorkResult(t, PEOPLE)
+    expect(b.ok).toBe(true)
+    if (!b.ok) return
+    expect(b.entries.map((e) => e.rank)).toEqual([1, 2, 3])
+    expect(b.entries.map((e) => e.slot)).toEqual([1, 2, 0])
+  })
+
+  it('🔴 ② คนที่ติดมากับคำทำนาย ต้องมาจาก index ❌ ไม่ใช่ตำแหน่งในอาเรย์ผลลัพธ์', () => {
+    const t = trimWorkResponse(body())! // ranking [1,2,0]
+    const b = buildWorkResult(t, PEOPLE)
+    if (!b.ok) throw new Error('expected ok')
+    // อันดับ 1 คือ index 1 ⇒ ต้องเป็น "บี" ❌ ไม่ใช่ "เอ" ซึ่งคือคนที่อยู่ตำแหน่งแรกของอาเรย์คน
+    expect(b.entries[0].person.name).toBe('บี')
+    expect(b.entries[1].person.name).toBe('ซี')
+    expect(b.entries[2].person.name).toBe('เอ')
+  })
+
+  it('🔴 ③ เซตไม่ตรงกัน = ปฏิเสธ ❌ ไม่ใช่ต่อเท่าที่ต่อได้', () => {
+    const t = trimWorkResponse(body())!
+    const b = buildWorkResult(t, [person(0, 'เอ'), person(1, 'บี')]) // ขาด slot 2
+    expect(b.ok).toBe(false)
+    if (b.ok) return
+    expect(b.reason).toBe('index-slot-mismatch')
+    expect(b.detail).toContain('0,1,2')
+  })
+
+  it('🔴 ④ จำนวนเท่ากันแต่คนละเซต ก็ต้องปฏิเสธ — จำนวนตรงคือเคสที่ไม่มีอะไรให้สะดุด', () => {
+    const t = trimWorkResponse(body())!
+    const b = buildWorkResult(t, [person(0, 'เอ'), person(1, 'บี'), person(7, 'ผิด')])
+    expect(b.ok, 'สาม == สาม แต่ 7 ไม่ใช่ 2 ⇒ ต้องไม่ผ่าน').toBe(false)
+  })
+
+  it('⑤ roles ที่ขาด เดินทางมาถึง entry ด้วย ไม่ได้หายระหว่าง join', () => {
+    const t = trimWorkResponse(body({
+      ranking: [0],
+      candidates: [{ index: 0, roles: [role('ตัวเรา → เจ้านาย')] }],
+    }))!
+    const b = buildWorkResult(t, [person(0, 'เอ')])
+    if (!b.ok) throw new Error('expected ok')
+    expect(b.entries[0].rolesComplete).toBe(false)
+    expect(b.entries[0].rolesMissing).toBe(2)
+  })
+})

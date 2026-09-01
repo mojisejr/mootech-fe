@@ -34,7 +34,7 @@ import { compatibilityCeilingFor, countCompatibilityInMonth, lockCompatibilityFo
 import { BaziEngineError } from './bazi-client'
 import { fetchBaziWork, MAX_CANDIDATES, type BaziRawInput } from './bazi-work-client'
 import { normalizeDate, normalizeGender, normalizeTime } from './bazi-pair.mapper'
-import { trimWorkResponse, readRankedCandidates, type WorkComparison } from '@/features/v2-service/work-comparison'
+import { trimWorkResponse, readRankedCandidates, buildWorkResult, type WorkComparison, type WorkEntry } from '@/features/v2-service/work-comparison'
 
 /**
  * The `matching_type` written on the meter row.
@@ -53,7 +53,7 @@ const WORK_ACTIVITY_ID = 3
 const MATCHING_POINT_COST = 10
 
 export type WorkCompareOutcome =
-  | { ok: true; matchingId: string; comparison: WorkComparison }
+  | { ok: true; matchingId: string; comparison: WorkComparison; entries: WorkEntry[] }
   | { ok: false; kind: 'quota'; message: string }
   | { ok: false; kind: 'no-friend' }
   | { ok: false; kind: 'unusable-birth' }
@@ -141,6 +141,21 @@ export async function runWorkCompare(params: {
     return { ok: false, kind: 'engine-down', detail: 'bazi work returned no comparison' }
   }
 
+  // 4b. 🔴 JOIN BEFORE WRITING, AND REFUSE HERE IF IT DOES NOT LINE UP.
+  // The readings carry only a position (`index`); the people carry a position (`slot`). If those two sets
+  // disagree, every downstream screen would show one person's reading under another person's name and
+  // photo — and it would look completely normal. Checking it AFTER the transaction would mean the user has
+  // already been charged for something we then refuse to show, so the check sits before the first insert:
+  // nothing written, no quota spent, and the failure reads as "we could not compute", which is true.
+  const people = friendIds.map((friendId, slot) => {
+    const f = ordered[slot]
+    return { slot, friendId, name: f?.name, surname: f?.surname, pictureUrl: f?.pictureUrl }
+  })
+  const built = buildWorkResult(comparison, people)
+  if (!built.ok) {
+    return { ok: false, kind: 'engine-down', detail: `${built.reason}: ${built.detail}` }
+  }
+
   // 5. the writes — one transaction, the binding quota check inside it under the per-user lock.
   const matchingId = crypto.randomUUID()
   const createAt = bkkTimestamp(now)
@@ -201,5 +216,5 @@ export async function runWorkCompare(params: {
     return { ok: false, kind: 'quota', message: AI_MSG.OUT_OF_LIMIT_ALL }
   }
 
-  return { ok: true, matchingId, comparison }
+  return { ok: true, matchingId, comparison, entries: built.entries }
 }
