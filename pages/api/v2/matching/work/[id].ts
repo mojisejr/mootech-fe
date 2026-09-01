@@ -44,6 +44,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         slot: workComparisonCandidate.slot,
         friendId: workComparisonCandidate.friendId,
         rankScore: workComparisonCandidate.rankScore,
+        timeKnown: workComparisonCandidate.timeKnown,
         name: memberWithFriend.name,
         surname: memberWithFriend.surname,
         pictureUrl: memberWithFriend.pictureUrl,
@@ -71,6 +72,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         name: p.name,
         surname: p.surname,
         pictureUrl: p.pictureUrl,
+        timeKnown: p.timeKnown,
       })),
     )
     if (!built.ok) {

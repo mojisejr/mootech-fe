@@ -33,7 +33,16 @@ export function getBaziWorkTimeoutMs(): number {
 
 export type BaziRawInput = {
   birthDate: string
-  birthTime: string
+  /**
+   * 🔴 OMIT THIS KEY when the hour is unknown — do NOT send `''`.
+   * The engine validates it as a string of length >= 1 and answers 400
+   * `{"error":"Invalid work payload.","details":[{"code":"too_small","path":["birthTime"]}]}`.
+   * The pair lane already knew this (`bazi-pair-match.mapper.ts:26-31` sets the key only when known, so the
+   * route applies its own noon default and marks timeKnown=false). Measured 2026-09-02 by firing the real
+   * endpoint: with `birthTime: ''` on one of three candidates the whole call is refused — one friend with
+   * no recorded hour would have made the feature unusable for that user, and nothing local would say why.
+   */
+  birthTime?: string
   gender: string
   province: string
   calendarSystem?: string
@@ -68,7 +77,12 @@ export async function fetchBaziWork(
       body: JSON.stringify(req),
       signal: ac.signal,
     })
-    if (!r.ok) throw new BaziEngineError(`bazi work HTTP ${r.status}`)
+    if (!r.ok) {
+      // 🔴 CARRY THE ENGINE'S OWN WORDS. `HTTP 400` alone sent me looking in the wrong place: the answer
+      // ("birthTime too small") was in the body all along, and reading it took one probe instead of three.
+      const body = await r.text().catch(() => '')
+      throw new BaziEngineError(`bazi work HTTP ${r.status}${body ? ` — ${body.slice(0, 300)}` : ''}`)
+    }
     return await r.json()
   } catch (e) {
     if (e instanceof BaziEngineError) throw e

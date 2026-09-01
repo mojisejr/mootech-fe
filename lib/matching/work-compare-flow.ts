@@ -62,15 +62,28 @@ export type WorkCompareOutcome =
 
 class QuotaRaceLost extends Error {}
 
-function toRawInput(p: { gender?: string | null; dob?: string | null; time?: string | null }): BaziRawInput | null {
+/** what the pair lane's route substitutes when the hour is unknown (`pair-match/route.ts:119`) */
+const WORK_DEFAULT_BIRTH_TIME = '12:00'
+
+function toRawInput(p: { gender?: string | null; dob?: string | null; time?: string | null }): { input: BaziRawInput; timeKnown: boolean } | null {
   const birthDate = normalizeDate(p?.dob ?? undefined)
   if (!birthDate) return null
+  const birthTime = normalizeTime(p?.time ?? undefined)
   return {
-    birthDate,
-    // ⚠️ '' when unknown — the engine applies its own default. Sending a made-up hour would move the score.
-    birthTime: normalizeTime(p?.time ?? undefined),
-    gender: normalizeGender(p?.gender ?? undefined),
-    province: 'กรุงเทพมหานคร',
+    input: {
+      birthDate,
+      // 🔴 NOON WHEN THE HOUR IS UNKNOWN, and the caller MUST carry `timeKnown` outward.
+      // Measured 2026-09-02 against the real endpoint: `/api/bazi/work` rejects both an omitted key
+      // (`expected string, received undefined`) and `''` (`too_small`). Its sibling `/api/bazi/pair-match`
+      // accepts an absent hour, substitutes noon itself, and reports `timeKnown:false`
+      // (`pair-match/route.ts:41,119,159`) — the work endpoint simply never got that mode.
+      // ⇒ we apply the SAME noon the pair lane has always applied, so the number is not a new invention,
+      // and we carry the flag ourselves because this endpoint will not.
+      birthTime: birthTime || WORK_DEFAULT_BIRTH_TIME,
+      gender: normalizeGender(p?.gender ?? undefined),
+      province: 'กรุงเทพมหานคร',
+    },
+    timeKnown: !!birthTime,
   }
 }
 
@@ -124,13 +137,15 @@ export async function runWorkCompare(params: {
 
   // 3. build the engine request. A birth date we cannot use = refuse; there is no legacy fallback here.
   const self = toRawInput({ gender: me.gender, dob: me.dob, time: me.time })
-  const candidates = ordered.map((f) => toRawInput({ gender: f.gender, dob: f.dob, time: f.time }))
-  if (!self || candidates.some((c) => !c)) return { ok: false, kind: 'unusable-birth' }
+  const mapped = ordered.map((f) => toRawInput({ gender: f.gender, dob: f.dob, time: f.time }))
+  if (!self || mapped.some((c) => !c)) return { ok: false, kind: 'unusable-birth' }
+  const candidates = (mapped as { input: BaziRawInput; timeKnown: boolean }[]).map((c) => c.input)
+  const timeKnown = (mapped as { input: BaziRawInput; timeKnown: boolean }[]).map((c) => c.timeKnown)
 
   // 4. the engine. Any failure = engine-down, nothing written, no quota spent.
   let comparison: WorkComparison | null
   try {
-    const raw = await fetchBaziWork({ self, candidates: candidates as BaziRawInput[] })
+    const raw = await fetchBaziWork({ self: self.input, candidates })
     comparison = trimWorkResponse(raw) // 🔴 the ~7MB body dies HERE, on the server
   } catch (e) {
     const detail = e instanceof BaziEngineError ? e.message : String((e as Error)?.message ?? e)
@@ -149,7 +164,7 @@ export async function runWorkCompare(params: {
   // nothing written, no quota spent, and the failure reads as "we could not compute", which is true.
   const people = friendIds.map((friendId, slot) => {
     const f = ordered[slot]
-    return { slot, friendId, name: f?.name, surname: f?.surname, pictureUrl: f?.pictureUrl }
+    return { slot, friendId, name: f?.name, surname: f?.surname, pictureUrl: f?.pictureUrl, timeKnown: timeKnown[slot] }
   })
   const built = buildWorkResult(comparison, people)
   if (!built.ok) {
@@ -194,6 +209,7 @@ export async function runWorkCompare(params: {
           slot, // the order the USER typed ❌ not the rank — rank lives in comparison.ranking
           friendId,
           rankScore: rankById.get(slot) ?? null,
+          timeKnown: timeKnown[slot],
         })),
       )
 

@@ -1080,6 +1080,8 @@ export const workComparisonCandidate = pgTable("work_comparison_candidate", {
 	slot: integer().notNull(),
 	friendId: text("friend_id").notNull(),
 	rankScore: doublePrecision("rank_score"),
+	/** false = no birth hour on file, so the reading was computed at noon (#585, migration 0015) */
+	timeKnown: boolean("time_known").notNull().default(true),
 }, (table) => [
 	primaryKey({ columns: [table.matchingId, table.slot], name: "work_comparison_candidate_pkey" }),
 	index("idx_work_comparison_candidate_friend_id").using("btree", table.friendId.asc().nullsLast().op("text_ops")),

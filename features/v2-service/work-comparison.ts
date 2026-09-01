@@ -152,6 +152,18 @@ export type WorkPerson = {
   name?: string | null
   surname?: string | null
   pictureUrl?: string | null
+  /**
+   * false when this person has no recorded birth hour, so the reading was computed at noon.
+   *
+   * 🔴 THE SCREEN MUST SHOW THIS. `/api/bazi/work` has no "unknown hour" mode — measured 2026-09-02:
+   * omitting `birthTime` is a 400 (`expected string, received undefined`) and `''` is a 400 too
+   * (`too_small`). Its sibling `/api/bazi/pair-match` DOES have one (optional key → noon →
+   * `timeKnown:false` in the response, `pair-match/route.ts:41,119,159`), and this endpoint simply never
+   * got it. So the BFF applies the same noon default the pair lane has always applied, and carries this
+   * flag because the engine will not carry it for us. Hiding it would mean printing a percentage derived
+   * from an hour nobody ever told us.
+   */
+  timeKnown: boolean
 }
 
 export type WorkEntry = {
