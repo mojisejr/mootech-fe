@@ -152,6 +152,18 @@ export type WorkPerson = {
   name?: string | null
   surname?: string | null
   pictureUrl?: string | null
+  /**
+   * false when this person has no recorded birth hour, so the reading was computed at noon.
+   *
+   * 🔴 THE SCREEN MUST SHOW THIS. `/api/bazi/work` has no "unknown hour" mode — measured 2026-09-02:
+   * omitting `birthTime` is a 400 (`expected string, received undefined`) and `''` is a 400 too
+   * (`too_small`). Its sibling `/api/bazi/pair-match` DOES have one (optional key → noon →
+   * `timeKnown:false` in the response, `pair-match/route.ts:41,119,159`), and this endpoint simply never
+   * got it. So the BFF applies the same noon default the pair lane has always applied, and carries this
+   * flag because the engine will not carry it for us. Hiding it would mean printing a percentage derived
+   * from an hour nobody ever told us.
+   */
+  timeKnown: boolean
 }
 
 export type WorkEntry = {
@@ -170,10 +182,25 @@ export type WorkEntry = {
   /** false when the engine returned fewer than three readings — the screen must SAY so */
   rolesComplete: boolean
   rolesMissing: number
+  /**
+   * false when THIS entry's position did not come from `comparison.ranking`.
+   *
+   * 🔴 THE DoD SAYS "แสดงอันดับจาก comparison.ranking ❌ ไม่ใช่เรียงเอง". `readRankedCandidates` appends
+   * anyone `ranking` forgot (losing a person off the screen is worse than showing them last), and before
+   * this flag existed the appended ones were stamped with a rank number exactly like the real ones — an
+   * order we invented, wearing the engine's clothes. ตู๋ caught it on mootech-fe#593.
+   * The screen must not print a rank badge for an entry whose rank we made up.
+   */
+  rankFromEngine: boolean
 }
 
 export type WorkResultBuild =
-  | { ok: true; entries: WorkEntry[] }
+  | {
+      ok: true
+      entries: WorkEntry[]
+      /** true only when `comparison.ranking` named every candidate — mirrors `rolesComplete` */
+      rankingComplete: boolean
+    }
   | { ok: false; reason: 'index-slot-mismatch'; detail: string }
 
 /**
@@ -203,14 +230,22 @@ export function buildWorkResult(comparison: WorkComparison | null, people: WorkP
     }
   }
 
+  const named = new Set((comparison?.ranking ?? []).filter((n) => bySlot.has(n)))
+
   return {
     ok: true,
+    rankingComplete: ranked.every((c) => named.has(c.index)),
     entries: ranked.map((c, i) => {
       const r = readRoles(c)
       return {
         rank: i + 1,
+        rankFromEngine: named.has(c.index),
         slot: c.index,
-        person: bySlot.get(c.index)!, // safe: the sets were just proven equal
+        // the sets were proven EQUAL, which means nobody is missing and nobody is extra — it does NOT
+        // mean nobody traded places. A swap preserves the set and walks straight through the gate above
+        // (ตู๋, mootech-fe#593). What keeps a swap from happening is that both sides are built from one
+        // array in one place: `workCandidateRows` in lib/matching/work-compare-flow.ts.
+        person: bySlot.get(c.index)!,
         rankScore: c.rankScore,
         grade: c.grade,
         ratingText: c.ratingText,

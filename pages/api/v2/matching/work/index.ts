@@ -2,8 +2,10 @@
 //
 // 🔴 ROUTE PRECEDENCE. `pages/api/v2/matching/[id].ts` also matches this path shape. Next resolves the
 // STATIC segment first, so `/api/v2/matching/work` lands here and never in `[id]` with id="work".
-// scripts/work-route.test.ts pins that, because the failure mode if it ever inverted is a 404 from the
-// pair reader rather than an error anyone would read as "the route moved".
+// ✓ observed in the build output, not assumed — `.next/server/pages-manifest.json` lists
+// `/api/v2/matching/work` and `/api/v2/matching/work/[id]` as their own entries alongside
+// `/api/v2/matching/[id]`. (An earlier version of this comment cited a spec file that was never written;
+// ตู๋ caught the dangling reference on mootech-fe#593.)
 //
 // 🔴 The request NEVER names its subject. The caller's user_id comes from the signed session only, and
 // every friend id is re-checked against that user inside the flow (#252/#273/be#16).
@@ -42,10 +44,15 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       // `entries` is the SAME shape GET /api/v2/matching/work/[id] answers with — one list, already in
       // ranking order, each entry carrying its own person — so the screen can render straight from the
       // 8.4s call without a second round trip, and without ever joining two arrays by position.
-      // `comparison` is the TRIMMED block; the ~7MB engine body never leaves the server.
+      //
+      // 🔴 THE RAW `comparison` IS NOT SENT. It used to ride along "for debugging", which put a second
+      // source of ranking and identity back in the payload with a comment asking people not to use it —
+      // and this file's own sibling says in as many words that a warning is not a gate
+      // (features/v2-service/work-comparison.ts). ตู๋ caught the contradiction on mootech-fe#593.
+      // The ~7MB engine body never leaves the server either way.
       return res
         .status(200)
-        .json({ ok: true, matching_id: out.matchingId, entries: out.entries, comparison: out.comparison })
+        .json({ ok: true, matching_id: out.matchingId, entries: out.entries, rankingComplete: out.rankingComplete })
     }
     switch (out.kind) {
       case 'quota':

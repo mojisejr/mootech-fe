@@ -175,3 +175,103 @@ describe('④ buildWorkResult — a reading and a person are ONE object', () => 
     expect(b.entries[0].rolesMissing).toBe(2)
   })
 })
+
+// ── ⑤ ของที่ตู๋จับได้ใน mootech-fe#593 ─────────────────────────────────────────────────────────────
+//
+// สองข้อนี้เป็นคนละกลไกกัน แต่มีรูปเดียวกัน: **ของที่เราแต่งขึ้นเอง ใส่เสื้อของเอนจิน**
+//   ③ ranking มาไม่ครบ → เราเติมคนที่หายต่อท้าย แล้วปั๊มเลขอันดับทับเหมือนกันหมด
+//   ② slot กลับด้านตอนเขียนลงฐานข้อมูล → ด่านเทียบ *เซต* มองไม่เห็น เพราะการสลับรักษาเซตไว้ครบ
+//
+// MUTANT CONTRACT
+//   C1  rankFromEngine เป็น true เสมอ                        → ② reddens
+//   C2  rankingComplete เป็น true เสมอ                       → ① reddens
+//   C3  workCandidateRows กลับด้าน slot (ท่าของตู๋)            → ③ reddens  ← ก่อนหน้านี้รอด
+//   C4  workCandidateRows ใช้ friendIds เรียงกลับด้าน          → ③ reddens
+import { workCandidateRows } from '@/lib/matching/work-compare-flow'
+
+describe('⑤ อันดับที่มาจากเอนจิน กับอันดับที่เราเติมเอง ต้องแยกออกจากกัน', () => {
+  it('① ranking เอ่ยถึงครบทุกคน ⇒ rankingComplete = true และทุกใบ rankFromEngine', () => {
+    const t = trimWorkResponse(body())! // ranking [1,2,0] ครบ 3
+    const b = buildWorkResult(t, PEOPLE)
+    if (!b.ok) throw new Error('expected ok')
+    expect(b.rankingComplete).toBe(true)
+    expect(b.entries.every((e) => e.rankFromEngine)).toBe(true)
+  })
+
+  it('🔴 ② ranking เอ่ยถึงคนเดียว ⇒ อีกสองใบต้องบอกว่าอันดับนี้เราเติมเอง', () => {
+    const t = trimWorkResponse(body({ ranking: [2] }))!
+    const b = buildWorkResult(t, PEOPLE)
+    if (!b.ok) throw new Error('expected ok')
+    expect(b.rankingComplete, 'ranking ไม่ครบ ⇒ ต้องไม่ใช่ complete').toBe(false)
+    // ใบแรกมาจากเอนจินจริง อีกสองใบเราเติม
+    expect(b.entries.map((e) => [e.slot, e.rankFromEngine])).toEqual([[2, true], [0, false], [1, false]])
+  })
+
+  it('② ranking ว่างเปล่า ⇒ ไม่มีใบไหนอ้างได้ว่าอันดับมาจากเอนจิน', () => {
+    const t = trimWorkResponse(body({ ranking: [] }))!
+    const b = buildWorkResult(t, PEOPLE)
+    if (!b.ok) throw new Error('expected ok')
+    expect(b.rankingComplete).toBe(false)
+    expect(b.entries.some((e) => e.rankFromEngine)).toBe(false)
+  })
+})
+
+describe('⑥ workCandidateRows — แถวที่ i ต้องเป็นเพื่อนคนที่ i ที่เราส่งเข้าเอนจิน', () => {
+  const rankById = new Map<number, number | undefined>([[0, 10], [1, 20], [2, 30]])
+
+  it('🔴 ③ slot ต้องเท่ากับตำแหน่งในอาเรย์ และ friendId ต้องเป็นคนที่ตำแหน่งนั้น', () => {
+    const rows = workCandidateRows({
+      matchingId: 'm1',
+      friendIds: ['fA', 'fB', 'fC'],
+      rankById,
+      timeKnown: [true, false, true],
+    })
+    // ปักทีละคู่ ⇒ ทั้งการกลับด้าน slot และการกลับด้าน friendIds ต่างก็แดง
+    expect(rows.map((r) => [r.slot, r.friendId])).toEqual([[0, 'fA'], [1, 'fB'], [2, 'fC']])
+    expect(rows.map((r) => r.rankScore)).toEqual([10, 20, 30])
+    expect(rows.map((r) => r.timeKnown)).toEqual([true, false, true])
+    expect(rows.every((r) => r.matchingId === 'm1')).toBe(true)
+  })
+
+  it('④ ไม่รู้ timeKnown ของ slot นั้น ⇒ ถือว่ารู้เวลา ❌ ไม่ใช่ undefined ลงคอลัมน์ NOT NULL', () => {
+    const rows = workCandidateRows({ matchingId: 'm1', friendIds: ['fA'], rankById, timeKnown: [] })
+    expect(rows[0].timeKnown).toBe(true)
+  })
+})
+
+// ── ⑦ ตัวตัดสินว่า "โควตาเต็ม" หรือ "ฐานข้อมูลเราพัง" (ตู๋ #593 ข้อ ①) ───────────────────────────────
+//
+// 🔴 ข้อนี้แตะเงินและแตะความไว้ใจ: ถ้าตอบผิด ผู้ใช้ที่ยังมีสิทธิ์เหลือจะถูกบอกว่าโควตาเต็ม
+// ทั้งที่ฐานข้อมูลของเราต่างหากที่ล่ม ⇒ เขาจะรอไปทั้งเดือนโดยไม่มีใครรู้ว่าเราพัง
+//
+// ทางที่มันเกิดจริง drizzle รัน rollback ใน catch ของตัวเองแล้วโยนสิ่งที่ rollback ให้ออกมา
+// ⇒ rollback ล้มเมื่อไหร่ ตัวที่หลุดออกมาคือ error ของคอนเนกชัน ในขณะที่ธงถูกตั้งไปแล้ว
+//
+// MUTANT CONTRACT
+//   Q1  ตัดเงื่อนไขชนิดทิ้ง เหลือแต่ธง (รูปเดิมก่อนแก้)   → ② reddens
+//   Q2  ตัดเงื่อนไขธงทิ้ง เหลือแต่ชนิด                    → ③ reddens
+import { isQuotaRefusal, QuotaRaceLost } from '@/lib/matching/work-compare-flow'
+
+describe('⑦ isQuotaRefusal — ต้องครบทั้งสองครึ่ง', () => {
+  // 🔑 คลาสที่หน้าตาเหมือนแต่คนละตัว — ถ้าตัวตัดสินเผลอเทียบด้วยชื่อหรือรูปร่าง ตัวนี้จะหลุด
+  class QuotaRaceLost2 extends Error {}
+
+  it('① ธงตั้ง + เป็น error ที่เราโยนเอง ⇒ ใช่ โควตาเต็ม  ← ขาดข้อนี้ มิวแทนต์ return false รอด', () => {
+    expect(isQuotaRefusal(true, new QuotaRaceLost())).toBe(true)
+  })
+
+  it('①b คลาสคนละตัวที่หน้าตาเหมือนกัน ต้องไม่ผ่าน', () => {
+    expect(isQuotaRefusal(true, new QuotaRaceLost2())).toBe(false)
+  })
+
+  it('🔴 ② ธงตั้ง แต่เป็น error คนละตัว (rollback ล้ม) ⇒ ต้องไม่ใช่โควตา', () => {
+    expect(isQuotaRefusal(true, new Error('Connection terminated'))).toBe(false)
+    expect(isQuotaRefusal(true, { code: 'ECONNRESET' })).toBe(false)
+    expect(isQuotaRefusal(true, undefined)).toBe(false)
+  })
+
+  it('③ ธงไม่ได้ตั้ง ⇒ ต้องไม่ใช่โควตา ไม่ว่า error จะเป็นอะไร', () => {
+    expect(isQuotaRefusal(false, new Error('anything'))).toBe(false)
+    expect(isQuotaRefusal(false, new QuotaRaceLost()), 'ตัวจริงแต่ธงไม่ได้ตั้ง ⇒ ยังไม่ใช่').toBe(false)
+  })
+})
