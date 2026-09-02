@@ -41,7 +41,7 @@ import Link from 'next/link'
 export function MateAIButton() {
   return (
     <Link
-      href="/v2/service"
+      href="/v2/chat"
       aria-label="Mate AI"
       data-testid="nav-mate-ai"
       className="relative flex h-[70px] w-[74px] shrink-0 items-center justify-center overflow-hidden rounded-2xl border-[5px] border-[rgba(216,143,169,0.4)] bg-v3-lime bg-clip-padding backdrop-blur-[6.8px]"
