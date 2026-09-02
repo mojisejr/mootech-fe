@@ -150,6 +150,12 @@ function RankedRow({ entry }: { entry: WorkEntry }) {
  * glyphs would put a money bag above a paragraph about a subordinate. Inventing three new glyphs is a
  * design decision that deserves the frame and ฟีม, not a guess made inside a chunk about completeness.
  * ⇒ heading and paragraph now, iconography as its own pass. Same reasoning as the PDF/แชร์ buttons below.
+ *
+ * `role.stageName` is carried by the contract and is NOT drawn here either, for the same reason. The love
+ * lane does render a stage (`CompatPersonDetail.tsx:9,13`) but it is the stage of a PERSON's day pillar,
+ * inside a subtitle that gives it context. This one is the stage of a role INTERACTION, and on its own it
+ * lands as a bare word — "เจ๊าะ" under "ลูกน้อง → ตัวเรา" — that the reader cannot do anything with.
+ * Giving it a label is a copy decision, not a completeness one.
  */
 function RoleSection({ role, index }: { role: WorkRole; index: number }) {
   const heading = (role.perspective ?? '').trim()
@@ -158,9 +164,6 @@ function RoleSection({ role, index }: { role: WorkRole; index: number }) {
       {/* the heading is the engine's own `perspective` string, verbatim — ฟีม ทาง ก. We do not paraphrase
           it: every paraphrase is a second place the relationship direction could go wrong. */}
       <h3 data-testid={`work-role-heading-${index}`} className="text-[15px] font-bold leading-6 text-v3-navy">{heading}</h3>
-      {role.stageName ? (
-        <p data-testid={`work-role-stage-${index}`} className="mt-1 text-[13px] font-bold leading-5 text-v3-sapphire">{role.stageName}</p>
-      ) : null}
       {role.narrative ? (
         <p data-testid={`work-role-narrative-${index}`} className="mt-2 whitespace-pre-line text-[15px] leading-[26px] text-v3-text-body">{role.narrative}</p>
       ) : null}
