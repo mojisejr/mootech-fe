@@ -214,6 +214,7 @@ export default defineConfig({
       'scripts/work-comparison.test.ts', // #585 — colleague lane read model: trim / ranking-not-resort / 3 roles or say which is missing
       'scripts/work-compare-callsite.test.ts', // #593 ① — ฟันที่ *จุดเรียก* ของตัวตัดสินโควตา/ฐานข้อมูลล่ม (มิวแทนต์ B ของตู๋รอดทุกไฟล์ที่มีอยู่)
       'scripts/work-compare-call.test.ts', // #585 ก้อน 4 — six meanings from one POST; 503 must never read as 410
+      'scripts/colleague-cap-agreement.test.ts', // #585 — three mirrors of the co-worker cap held equal (ตู๋, review of 589)
       'scripts/work-recent-href.test.ts', // #585 — which route a history card opens; pair vs work are not interchangeable
       'scripts/work-history-union-db.test.ts', // #585 — real pg: กิ่ง work ต้องไม่รับ DISTINCT ON ของเลนคู่
     ],

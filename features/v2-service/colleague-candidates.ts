@@ -9,7 +9,15 @@
 // THE CAP IS NOT OURS. `MAX_CANDIDATES = 3` is the engine's own constant —
 // bazi-sft-dataset origin/pdf-dev src/app/api/bazi/work/route.ts:13, and route.ts:36-38 answers 400
 // with "เปรียบเทียบได้สูงสุด 3 คน" above it. Figma draws exactly three slots for the same reason.
-// If the engine ever raises it, this constant is the one place that has to move.
+// 🔴 THIS IS NOT "THE ONE PLACE THAT HAS TO MOVE" — that is what this comment used to say, and it was
+// wrong. The cap is mirrored in THREE files: here (the screen's local refusal), `lib/matching/
+// bazi-work-client.ts:25` (what the route actually enforces), and `compatibility.ts:96` (`maxCandidates`,
+// which decides how many slots are drawn). ตู๋ measured the drift both ways while reviewing
+// mootech-fe#589: raising this one reddens the screen suite, raising the SERVER one reddens nothing.
+// A sentence claiming a single source of truth is worse than no sentence, because it tells the next
+// person the other two do not exist.
+// The copies stay — `bazi-work-client` reads `process.env` at module scope and belongs to the server
+// lane — and `scripts/colleague-cap-agreement.test.ts` now holds them equal instead of this comment.
 import type { CompatPerson } from './compatibility-api'
 
 /** the engine's cap, mirrored. See the note above before changing it. */

@@ -47,8 +47,19 @@ export type WorkCalcOutcome =
  * 🔴 400 IS TWO DIFFERENT THINGS AND ONLY ONE OF THEM IS THE USER'S. The route answers 400 both for
  * "more than three people" and for "friend_ids must be a non-empty array" (:34), and the second is a
  * request THIS code built wrong. Telling someone to remove a co-worker when the screen sent a malformed
- * body would send them to fix something that is not broken, so the two are split on the `max` field the
- * too-many branch attaches (:37,:63) — the only thing that distinguishes them on the wire.
+ * body would send them to fix something that is not broken, so the two are split on `max` — the only
+ * thing that distinguishes them on the wire.
+ *
+ * ⚠️ ONLY ONE OF THE ROUTE'S TWO too-many BRANCHES ATTACHES `max`, AND THE LOAD-BEARING ONE IS NOT THE
+ * ONE YOU WOULD GUESS. `pages/api/v2/matching/work/index.ts:37` (the early length guard) sends it;
+ * `:63` (the flow's own `too-many`) does NOT. That is harmless TODAY only because :36-38 runs first and
+ * shadows :63 for every request that could reach it. So the day someone deletes :36-38 as a duplicate of
+ * the flow check — which is exactly what it looks like — a genuine too-many arrives here as a 400 with no
+ * `max`, is read as `system`, and the user is told "ระบบขัดข้อง" instead of "เอาออกให้เหลือ 3 คน".
+ * ตู๋ found this reviewing mootech-fe#589. The repair belongs at :63, in the route, and is reported to
+ * บอง rather than worked around here: making this file guess from the message string would replace one
+ * silent misread with a more fragile one. Written down because the hazard is invisible from either file
+ * alone — it only exists in how the two branches overlap.
  */
 export function readWorkCompareResult(res: ApiResult): WorkCalcOutcome {
   if (res.ok) {
