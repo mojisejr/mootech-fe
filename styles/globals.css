@@ -138,3 +138,14 @@
   .v3-float-wide,
   .compat-sprite { animation: none; }
 }
+
+/* THE v3 card shadows — DESIGN.md v3 §"Card shadows" (calendar/payment/result) gives exactly TWO
+   levels, no invented in-betweens:
+   lg  0 4 30 rgba(26,38,77,.12) — hero / primary section cards
+   sm  0 4 14 rgba(26,38,77,.06) — inner cards, list rows, chips, chat bubbles */
+.v3-shadow-card {
+  box-shadow: 0 4px 30px rgba(26, 38, 77, 0.12);
+}
+.v3-shadow-line {
+  box-shadow: 0 4px 14px rgba(26, 38, 77, 0.06);
+}

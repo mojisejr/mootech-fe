@@ -29,7 +29,7 @@ const TASKS: Array<{ code: string; icon: string; title: string; sub: string; qi:
   { code: "referral_pro", icon: "👑", title: "ชวนเพื่อนอัปเกรด PRO", sub: "เพื่อนซื้อแพ็ก PRO", qi: 1000 },
 ]
 
-const CARD = "w-full rounded-[20px] bg-white p-5 shadow-[0_4px_15px_rgba(26,38,77,0.12)]"
+const CARD = "v3-shadow-card w-full rounded-[20px] bg-white p-5"
 
 export function QiScreen() {
   const [wallet, setWallet] = useState<Wallet | null>(null)
@@ -107,7 +107,7 @@ export function QiScreen() {
   }
 
   return (
-    <div className="font-ibm min-h-[100dvh] w-full bg-v3-bg-cream pb-10">
+    <div className="font-ibm min-h-[100dvh] w-full bg-white pb-10">
       <Head>
         <title>พลังชี่ของฉัน — Mumate</title>
       </Head>
@@ -146,7 +146,10 @@ export function QiScreen() {
         <div className="mx-4 mt-3 flex flex-col gap-4">
           {/* wallet hero */}
           <section className="rounded-[20px] bg-v3-sapphire p-5 text-white" data-testid="qi-wallet">
-            <p className="text-[12px] leading-4 text-white/80">ชี่สะสม</p>
+            <div className="flex items-start justify-between">
+              <p className="text-[12px] leading-4 text-white/80">ชี่สะสม</p>
+              <span aria-hidden className="v3-float-wide text-[26px] leading-none">🪙</span>
+            </div>
             <p className="text-[34px] font-black leading-10" data-testid="qi-balance">
               🪙 {wallet?.qi ?? 0}
             </p>

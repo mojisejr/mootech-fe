@@ -128,6 +128,9 @@ export function ChatScreen() {
       className="font-ibm flex h-[100dvh] w-full flex-col overflow-hidden"
       style={{
         background:
+          "radial-gradient(420px 220px at 15% 12%, rgba(255,255,255,0.75), transparent 70%)," +
+          "radial-gradient(520px 260px at 90% 30%, rgba(255,255,255,0.6), transparent 70%)," +
+          "radial-gradient(560px 300px at 50% 88%, rgba(255,235,240,0.8), transparent 72%)," +
           "linear-gradient(180deg, #CFE6FB 0%, #E7E9FB 34%, #F6E7F2 62%, #FBECEF 100%)",
       }}
     >
@@ -195,7 +198,7 @@ export function ChatScreen() {
       <div className="min-h-0 w-full flex-1 overflow-y-auto px-4">
         <div className="mx-auto flex w-full max-w-[430px] flex-col gap-2 pb-2">
           {/* greeting bubble (Figma copy — see TODO(figma-copy)) */}
-          <div data-testid="chat-greeting" className="max-w-[92%] self-start rounded-[18px] bg-white/95 px-4 py-3 text-[14px] leading-[22px] text-v3-navy shadow-[0_2px_10px_rgba(26,38,77,0.08)]">
+          <div data-testid="chat-greeting" className="max-w-[92%] self-start v3-shadow-line rounded-[18px] bg-white/95 px-4 py-3 text-[14px] leading-[22px] text-v3-navy">
             {GREETING}
           </div>
 
@@ -204,7 +207,7 @@ export function ChatScreen() {
               <div
                 key={t.id}
                 data-testid="chat-bubble-ai"
-                className="max-w-[92%] self-start whitespace-pre-line rounded-[18px] bg-white/95 px-4 py-3 text-[14px] leading-[22px] text-v3-navy shadow-[0_2px_10px_rgba(26,38,77,0.08)]"
+                className="max-w-[92%] self-start whitespace-pre-line v3-shadow-line rounded-[18px] bg-white/95 px-4 py-3 text-[14px] leading-[22px] text-v3-navy"
               >
                 {t.loading && !t.content ? <TypingDots /> : t.content}
               </div>
@@ -212,7 +215,7 @@ export function ChatScreen() {
               <div key={t.id} className="max-w-[85%] self-end">
                 <div
                   data-testid="chat-bubble-user"
-                  className="whitespace-pre-line rounded-[18px] bg-v3-sapphire px-4 py-3 text-[14px] leading-[22px] text-white shadow-[0_2px_10px_rgba(20,85,164,0.25)]"
+                  className="whitespace-pre-line v3-shadow-line rounded-[18px] bg-v3-sapphire px-4 py-3 text-[14px] leading-[22px] text-white"
                 >
                   {t.content}
                 </div>
@@ -272,7 +275,7 @@ export function ChatScreen() {
                   onClick={() => submit(c.question)}
                   disabled={busy}
                   data-testid="chat-chip-starter"
-                  className="rounded-full border border-white bg-white/70 px-3 py-[7px] text-[12px] font-medium leading-4 text-v3-navy shadow-[0_1px_6px_rgba(26,38,77,0.08)] backdrop-blur transition hover:bg-white active:scale-[0.98] disabled:opacity-50"
+                  className="rounded-full border border-white bg-white/70 px-3 py-[7px] text-[12px] font-medium leading-4 text-v3-navy v3-shadow-line backdrop-blur transition hover:bg-white active:scale-[0.98] disabled:opacity-50"
                 >
                   {c.label}
                 </button>
@@ -283,7 +286,7 @@ export function ChatScreen() {
                   key={q}
                   onClick={() => submit(q)}
                   disabled={busy}
-                  className="rounded-full border border-white bg-white/70 px-3 py-[7px] text-left text-[12px] font-medium leading-4 text-v3-navy shadow-[0_1px_6px_rgba(26,38,77,0.08)] backdrop-blur transition hover:bg-white active:scale-[0.98] disabled:opacity-50"
+                  className="rounded-full border border-white bg-white/70 px-3 py-[7px] text-left text-[12px] font-medium leading-4 text-v3-navy v3-shadow-line backdrop-blur transition hover:bg-white active:scale-[0.98] disabled:opacity-50"
                 >
                   {q}
                 </button>
@@ -296,7 +299,7 @@ export function ChatScreen() {
                   onClick={() => submit(q)}
                   disabled={busy}
                   data-testid="chat-chip-next"
-                  className="rounded-full border border-white bg-white/70 px-3 py-[7px] text-[12px] font-medium leading-4 text-v3-navy shadow-[0_1px_6px_rgba(26,38,77,0.08)] backdrop-blur transition hover:bg-white active:scale-[0.98] disabled:opacity-50"
+                  className="rounded-full border border-white bg-white/70 px-3 py-[7px] text-[12px] font-medium leading-4 text-v3-navy v3-shadow-line backdrop-blur transition hover:bg-white active:scale-[0.98] disabled:opacity-50"
                 >
                   {q}
                 </button>
@@ -316,7 +319,7 @@ export function ChatScreen() {
               data-testid="chat-mic"
               className={
                 (listening ? "bg-v3-error/10 text-v3-error ring-1 ring-v3-error/40" : "bg-white/80 text-v3-navy") +
-                " grid h-11 w-11 flex-none place-items-center rounded-full shadow-[0_2px_8px_rgba(26,38,77,0.10)] transition disabled:opacity-50"
+                " grid h-11 w-11 flex-none place-items-center v3-shadow-line rounded-full transition disabled:opacity-50"
               }
             >
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden>
@@ -325,7 +328,7 @@ export function ChatScreen() {
               </svg>
             </button>
           )}
-          <div className="flex h-11 min-w-0 flex-1 items-center rounded-full border border-white bg-white/85 px-4 shadow-[0_2px_8px_rgba(26,38,77,0.08)] backdrop-blur">
+          <div className="flex h-11 min-w-0 flex-1 items-center rounded-full border border-white bg-white/85 px-4 v3-shadow-line backdrop-blur">
             <input
               ref={inputRef}
               type="text"
@@ -348,7 +351,7 @@ export function ChatScreen() {
             disabled={busy || draft.trim().length === 0}
             aria-label="ส่งข้อความ"
             data-testid="chat-send"
-            className="grid h-11 w-11 flex-none place-items-center rounded-full bg-v3-sapphire text-white shadow-[0_2px_8px_rgba(20,85,164,0.35)] transition hover:bg-v3-sapphire-hover active:scale-[0.97] disabled:opacity-40"
+            className="grid h-11 w-11 flex-none place-items-center rounded-full bg-v3-sapphire text-white transition hover:bg-v3-sapphire-hover active:scale-[0.97] disabled:opacity-40"
           >
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden>
               <path d="m5 12 14-7-5.5 7L19 19 5 12Z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" />

@@ -178,7 +178,7 @@ export function DestinyScreen() {
   }
 
   return (
-    <div className="font-ibm min-h-[100dvh] w-full bg-v3-bg-cream pb-10">
+    <div className="font-ibm min-h-[100dvh] w-full bg-white pb-10">
       <Head>
         <title>ดวงของฉัน — Mumate</title>
       </Head>
@@ -207,7 +207,7 @@ export function DestinyScreen() {
       )}
 
       {!loading && guard === "not_authenticated" && (
-        <div className="mx-4 mt-4 rounded-[20px] bg-white p-5 text-center shadow-[0_4px_15px_rgba(26,38,77,0.12)]" data-testid="destiny-guard-auth">
+        <div className="mx-4 mt-4 rounded-[20px] bg-white p-5 text-center v3-shadow-card" data-testid="destiny-guard-auth">
           <p className="text-sm font-bold text-v3-navy">ไม่พบข้อมูลผู้ใช้</p>
           <Link href="/v2/login" className="mt-3 grid h-11 place-items-center rounded-full bg-v3-cyan text-sm font-bold text-white">
             เข้าสู่ระบบ
@@ -215,7 +215,7 @@ export function DestinyScreen() {
         </div>
       )}
       {!loading && guard === "profile_incomplete" && (
-        <div className="mx-4 mt-4 rounded-[20px] bg-white p-5 text-center shadow-[0_4px_15px_rgba(26,38,77,0.12)]" data-testid="destiny-guard-profile">
+        <div className="mx-4 mt-4 rounded-[20px] bg-white p-5 text-center v3-shadow-card" data-testid="destiny-guard-profile">
           <p className="text-sm font-bold text-v3-navy">ข้อมูลวันเกิดยังไม่ครบ</p>
           <p className="mt-1 text-[12px] leading-4 text-v3-text-body">กรอกวัน เวลา และที่เกิดให้ครบ เพื่อให้ระบบคำนวณดวงของคุณได้</p>
           <Link href="/v2/register" className="mt-3 grid h-11 place-items-center rounded-full bg-v3-cyan text-sm font-bold text-white">
@@ -268,7 +268,7 @@ export function DestinyScreen() {
             <button
               onClick={shareToday}
               data-testid="destiny-share"
-              className="flex h-[56px] min-w-0 flex-1 items-center justify-center gap-2 rounded-full bg-white text-[13px] font-bold text-v3-navy shadow-[0_4px_15px_rgba(26,38,77,0.12)] transition active:scale-[0.99]"
+              className="flex h-[56px] min-w-0 flex-1 items-center justify-center gap-2 rounded-full bg-white text-[13px] font-bold text-v3-navy v3-shadow-card transition active:scale-[0.99]"
             >
               <span aria-hidden>🪙</span> {shareState === "done" ? "รับ +10 QI แล้ว 🎉" : "แชร์สะสมวันนี้ รับ +10 QI"}
             </button>
@@ -276,7 +276,7 @@ export function DestinyScreen() {
               href="/v2/chat"
               aria-label="Mate AI"
               data-testid="destiny-mate-ai"
-              className="grid h-[56px] w-[64px] flex-none place-items-center rounded-full bg-v3-lime text-[11px] font-black text-v3-sapphire shadow-[0_4px_15px_rgba(26,38,77,0.12)]"
+              className="grid h-[56px] w-[64px] flex-none place-items-center rounded-full bg-v3-lime text-[11px] font-black text-v3-sapphire v3-shadow-card"
             >
               Mate AI
             </Link>
@@ -284,7 +284,7 @@ export function DestinyScreen() {
 
           <div className="mx-4 mt-4 flex flex-col gap-4">
             {/* ดวงจะส่งผล 8 ด้าน — ชิปเสา + จุดอ่อน 4 ด้าน */}
-            <section className="rounded-[20px] bg-white p-5 shadow-[0_4px_15px_rgba(26,38,77,0.12)]" data-testid="destiny-pillars">
+            <section className="rounded-[20px] bg-white p-5 v3-shadow-card" data-testid="destiny-pillars">
               <div className="flex items-center justify-between">
                 <h2 className="text-base font-bold text-v3-navy">ดวงจะส่งผล 8 ด้าน</h2>
                 <button
@@ -336,7 +336,7 @@ export function DestinyScreen() {
 
             {/* ธาตุของคุณ */}
             {summary && (
-              <section className="rounded-[20px] bg-white p-5 shadow-[0_4px_15px_rgba(26,38,77,0.12)]" data-testid="destiny-element">
+              <section className="rounded-[20px] bg-white p-5 v3-shadow-card" data-testid="destiny-element">
                 <h2 className="text-base font-bold text-v3-navy">ธาตุของคุณ</h2>
                 <p className="mt-1 text-[13px] font-bold text-v3-sapphire">
                   ธาตุ{summary.elementTh} · {summary.dayMaster} ({summary.dayGanzhi})
@@ -373,7 +373,7 @@ export function DestinyScreen() {
 
             {/* ธาตุสมดุล */}
             {analysis?.totalCounts && (
-              <section className="rounded-[20px] bg-white p-5 shadow-[0_4px_15px_rgba(26,38,77,0.12)]" data-testid="destiny-balance">
+              <section className="rounded-[20px] bg-white p-5 v3-shadow-card" data-testid="destiny-balance">
                 <h2 className="text-base font-bold text-v3-navy">ธาตุสมดุล</h2>
                 <div className="mt-3 grid grid-cols-5 gap-2">
                   {Object.entries(analysis.totalCounts).map(([k, count]) => (
@@ -398,7 +398,7 @@ export function DestinyScreen() {
 
             {/* อนาคตของคุณ (Life Path) */}
             {timeline && (
-              <section className="rounded-[20px] bg-white p-5 shadow-[0_4px_15px_rgba(26,38,77,0.12)]" data-testid="destiny-lifepath">
+              <section className="rounded-[20px] bg-white p-5 v3-shadow-card" data-testid="destiny-lifepath">
                 <div className="flex items-center justify-between">
                   <h2 className="text-base font-bold text-v3-navy">อนาคตของคุณ (Life Path)</h2>
                   {typeof timeline.currentAge === "number" && (
@@ -429,7 +429,7 @@ export function DestinyScreen() {
             )}
 
             {/* จองไว้ล่วงหน้า — ปลดล็อกรายบทด้วย 30 QI (วางบิล Day 3) */}
-            <section className="rounded-[20px] bg-white p-5 shadow-[0_4px_15px_rgba(26,38,77,0.12)]" data-testid="destiny-preorder">
+            <section className="rounded-[20px] bg-white p-5 v3-shadow-card" data-testid="destiny-preorder">
               <h2 className="text-base font-bold text-v3-navy">จองไว้ล่วงหน้า</h2>
               {["อ่านดวงสุขภาพเจาะลึก", "อ่านดวงการเงินเจาะลึก"].map((title) => (
                 <Link
