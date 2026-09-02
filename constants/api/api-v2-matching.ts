@@ -46,6 +46,24 @@ export const V2MatchingGetDetailApi = async (matching_id: string) => {
  * that tells them apart — the same defect the love lane's 410-vs-5xx split exists to prevent.
  */
 export const V2MatchingWorkGetDetailApi = async (matching_id: string): Promise<ApiResult> => {
-  const url = `${API.v2_matching.work_detail}/${encodeURIComponent(matching_id)}`
+  const url = `${API.v2_matching.work}/${encodeURIComponent(matching_id)}`
   return callApiWithStatus(url, 'GET', '', {}, {})
+}
+
+/**
+ * POST /api/v2/matching/work — #585 ก้อน 4, start a colleague comparison for up to three friends.
+ *
+ * 🔴 STATUS-AWARE, and it has to be: this route answers with SIX different meanings
+ * (200 / 400 too-many / 404 no-friend / 410 quota / 422 unusable-birth / 503 engine-down) and the screen
+ * says a different sentence for each. `callApi` would flatten all of them into a bare body and throw the
+ * status away, which is the shape that let a database failure read as "โควตาเต็ม" one layer down
+ * (mootech-fe#593). `readWorkCompareResult` in features/v2-service/work-compare-call.ts turns this result
+ * into which-of-the-five; the words live on the screen.
+ *
+ * ⚠️ SIDE-EFFECTING AND SLOW. It spends a matching quota unit and takes ~8.4s for three people (measured,
+ * mootech-fe#585). There is no in-flight guard here on purpose — the caller holds the fire-once latch,
+ * the same division the single-pair calculate uses.
+ */
+export const V2MatchingWorkCreateApi = async (friend_ids: string[]): Promise<ApiResult> => {
+  return callApiWithStatus(API.v2_matching.work, 'POST', '', { friend_ids }, {})
 }

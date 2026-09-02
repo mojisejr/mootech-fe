@@ -140,6 +140,10 @@ export const API = {
     calculate: localApi('/v2/matching/calculate'),
     get: localApi('/v2/matching'),
     get_detail: localApi('/v2/matching'), // + '/<matching_id>' — see api-v2-matching.ts
-    work_detail: localApi('/v2/matching/work'), // + '/<matching_id>' — #585 colleague lane, ranked entries
+    // #585 colleague lane. ONE value for both verbs, because it is one route in two shapes:
+    // POST here starts a comparison (ก้อน 4), GET + '/<matching_id>' reads a stored one back (ก้อน 5).
+    // It was named `work_detail` while only the GET existed; two constants holding the same string would
+    // be two things to keep in step for no gain.
+    work: localApi('/v2/matching/work'),
   },
 }

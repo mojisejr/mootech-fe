@@ -25,6 +25,8 @@ import { MemberWithFriendGetDetailApi } from '@/constants/api/api-member-with-fr
 import { friendDetailToEditForm, createdFriendToSelectInput, type EditFriendForm, type FriendEditDetail, type CreatedFriendRow } from '../compatibility-api'
 import { useCompatibility, type CompatPerson } from '../hooks/useCompatibility'
 import { useColleagueCandidates } from '../hooks/useColleagueCandidates'
+import { readWorkCompareResult, type WorkCalcFailure } from '../work-compare-call'
+import { V2MatchingWorkCreateApi } from '@/constants/api/api-v2-matching'
 import { useQuota } from '../hooks/useQuota'
 import { compatQuotaBlockedLines } from './compat-quota-copy'
 import { useCalcCooldown } from '../hooks/useCalcCooldown'
@@ -32,7 +34,7 @@ import { QuotaLine } from './QuotaLine'
 import { calculateCompatibility, type CompatCalcErrorReason } from '../hooks/useCompatibilityResult'
 import type { CompatibilityConfig } from '../compatibility'
 import { formatCompatBirth } from './compat-format'
-import { COMPAT_CALC_LOADING } from './compat-loading-copy'
+import { COMPAT_CALC_LOADING, workCalcLoading } from './compat-loading-copy'
 import { CompatSelectFriendModal } from './CompatSelectFriendModal'
 import { AddFriendSheet } from './AddFriendSheet'
 import { ComingSoonSheet } from './ComingSoonSheet'
@@ -187,7 +189,10 @@ function ProfileRow({ person, loadingDob, onEdit, onPick, onChangePerson, editBu
 //                                   and there is somewhere to go. Red here would read as "you did something
 //                                   wrong", and the only repair the screen offers is the retry we are
 //                                   trying to stop. v3-navy is the existing heading token — no new colour.
-type CompatFailure = CompatCalcErrorReason | 'navigate'
+// #585 ก้อน 4 — the colleague lane refuses for FIVE reasons the single-pair lane never had, and each
+// gets its own entry below. `WorkCalcFailure` already contains 'network' and 'system', which the pair
+// lane also produces, so the union does not double them up.
+type CompatFailure = CompatCalcErrorReason | 'navigate' | WorkCalcFailure
 
 // Every case is authored as TWO lines on purpose. At 393 the paragraph is ~345px of centred 14px Thai, and
 // a single long sentence wraps wherever it lands — the captured frames had it breaking mid-phrase
@@ -213,6 +218,29 @@ const CALC_ERROR_COPY: Record<CompatFailure, { tone: 'retry' | 'blocked'; lines:
   // things it does not know.
   network: { tone: 'retry', lines: ['เชื่อมต่อไม่ได้', 'ตรวจสัญญาณอินเทอร์เน็ตแล้วลองอีกครั้ง'] },
   navigate: { tone: 'blocked', lines: ['คำนวณเสร็จแล้ว แต่เปิดหน้าผลไม่สำเร็จ', 'ดูผลของคุณได้ที่ "ดูดวงสมพงศ์ล่าสุด" ด้านล่าง'] },
+
+  // ── #585 ก้อน 4, the colleague lane's own refusals ────────────────────────────────────────────────
+  //
+  // 🔴 `engine-down` IS THE REASON THIS BLOCK IS SPELLED OUT INSTEAD OF FOLDED INTO `system`. It is a
+  // retry — our fault, free to press again — and it must never share words with `quota`, which is a
+  // blocked. Those two reading the same is the defect mootech-fe#593 just removed one layer down, where a
+  // database failure reached the user as "โควตาเต็ม". Written as its own entry, with its own sentence, so
+  // that merging them is an edit somebody has to make on purpose and a test can see.
+  'engine-down': { tone: 'retry', lines: ['ระบบคำนวณไม่พร้อมใช้งานชั่วคราว', 'ไม่ใช่ข้อมูลของคุณผิด และยังไม่ถูกตัดสิทธิ์ ลองอีกครั้งได้เลย'] },
+
+  // Not `tone: 'retry'` — pressing again with the same list cannot work, so red-and-retry would be a lie.
+  // It names WHICH list to fix, because "ไม่พบเพื่อนร่วมงาน" alone leaves the person staring at three rows
+  // that all look fine.
+  'no-friend': { tone: 'blocked', lines: ['มีเพื่อนร่วมงานที่ไม่อยู่ในรายชื่อของคุณแล้ว', 'เอาคนนั้นออกแล้วเลือกใหม่จากรายชื่อ'] },
+
+  // 🔴 THE ONE CASE WHERE "ไม่ใช่ข้อมูลของคุณผิด" WOULD BE FALSE. The house phrasing for our-fault failures
+  // is deliberately absent: this one IS the user's data, they can complete it, and sending them away with
+  // "ไม่ใช่ข้อมูลของคุณผิด" would leave the only fixable failure on this screen looking unfixable.
+  'unusable-birth': { tone: 'blocked', lines: ['มีคนที่ยังไม่มีวันเกิดครบ', 'แก้วันเกิดของคนนั้นให้ครบก่อน แล้วกดใหม่'] },
+
+  // Reachable only if the screen sends more than the slots allow, so it is half ours — but the sentence
+  // that helps is still the one the user can act on.
+  'too-many': { tone: 'blocked', lines: ['เลือกได้สูงสุด 3 คน', 'เอาออกให้เหลือ 3 คนแล้วกดใหม่'] },
 }
 
 export function CompatibilityScreen({ config }: { config: CompatibilityConfig }) {
@@ -284,6 +312,41 @@ export function CompatibilityScreen({ config }: { config: CompatibilityConfig })
   // whole form with the loader (2F/D30) so the wait shows here — where the heavy work actually is — instead
   // of behind the button. On success navigate to the result route; on error KEEP the user on this screen,
   // release the latch, and surface it (D34 — never strand on the loader, never navigate to a blank result).
+  // #585 ก้อน 4 — the colleague lane's own press. It is a DIFFERENT call, a different wait and a different
+  // destination from the pair lane below, and it does not reuse `calculateCompatibility`: that function
+  // takes exactly two people and answers three failure reasons, while this one takes up to three and
+  // answers seven. Widening it would have made the pair lane carry five refusals it can never produce.
+  async function onCompareColleagues() {
+    if (firingRef.current || cooldown.active) return
+    const ids = candidates.chosen.map((p) => p.id).filter((id) => id !== '')
+    // Nothing selected is not a failure to announce — the button is already disabled for it, and this is
+    // the second-caller guard the pair lane's comment below describes.
+    if (ids.length === 0) return
+    firingRef.current = true
+    cooldown.start() // start at the PRESS, same reason as the pair lane: a failed calc still cools down
+    setCalculating(true)
+    setCalcError(null)
+    const outcome = readWorkCompareResult(await V2MatchingWorkCreateApi(ids))
+    if (!outcome.ok) {
+      firingRef.current = false
+      setCalculating(false)
+      setCalcError(outcome.reason)
+      return
+    }
+    try {
+      // ก้อน 5 built this route. Sending the user here before it existed is exactly why ฟีม ordered ก้อน 5
+      // ahead of this chunk — a button that leads to a 404 is worse than a button that is not wired yet.
+      const navigated = await router.push(`/v2/service/compatibility/work/${outcome.matchingId}`)
+      if (!navigated) throw new Error('navigation-prevented')
+    } catch {
+      firingRef.current = false
+      setCalculating(false)
+      // The quota is already spent and the result already exists server-side, so this is 'navigate', not
+      // a retry — identical reasoning to the pair lane.
+      setCalcError('navigate')
+    }
+  }
+
   async function onViewResult() {
     if (!c.canViewResult || firingRef.current || !c.person1 || !c.person2) return
     // #265 — checked HERE as well as on the button's `disabled`, because `disabled` is a RENDERING of the
@@ -331,7 +394,10 @@ export function CompatibilityScreen({ config }: { config: CompatibilityConfig })
   // component + copy means no content/copy swap across the two phases (the frame-level rAF trace in
   // run-compat-2f.ts checks role=status is present every frame across the handoff).
   if (calculating) {
-    return <LoadingScreen title={COMPAT_CALC_LOADING.title} subtitle={COMPAT_CALC_LOADING.subtitle} />
+    // #585 ก้อน 4 — the colleague lane names how many people are in flight; everything else about the
+    // wait, including ฟีม's verbatim subtitle, is the same screen the pair lane and the result route show.
+    const wait = config.maxCandidates > 1 ? workCalcLoading(candidates.chosen.length) : COMPAT_CALC_LOADING
+    return <LoadingScreen title={wait.title} subtitle={wait.subtitle} />
   }
 
   // #585 ก้อน 3 — ONE name for "the form is ready", so the button, its colour and its label can never
@@ -455,7 +521,7 @@ export function CompatibilityScreen({ config }: { config: CompatibilityConfig })
             data-testid="compat-view-result"
             disabled={!canProceed || cooldown.active}
             aria-disabled={!canProceed || cooldown.active}
-            onClick={onViewResult}
+            onClick={config.maxCandidates > 1 ? onCompareColleagues : onViewResult}
             className={[
               'w-full rounded-[100px] py-3.5 text-center font-poppins-v3 text-[16px] font-semibold transition-colors',
               canProceed && !cooldown.active ? 'bg-v3-sapphire text-white' : 'cursor-not-allowed bg-v3-disabled-bg',
