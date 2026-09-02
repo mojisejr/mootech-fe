@@ -89,9 +89,19 @@ export function useV2User(): V2User {
       setState({ done: false, errored: false, user: null }) // new identity → loading; never surface the old row
     }
     let alive = true
+    // #473 watchdog — a hung /api/user (or a hung identity check upstream of it) used to pin every
+    // card on "กำลังตรวจสอบสถานะสมาชิกของคุณ…" forever. After the grace window we settle the fetch as
+    // errored, which computeTier maps to `isPaid: null / loading: false` — the honest
+    // "ตอนนี้เราตรวจสอบสถานะสมาชิกของคุณไม่ได้ · ลองโหลดหน้านี้ใหม่อีกครั้ง" verdict with a reload
+    // escape. Fail-closed by design: unknown stays UNKNOWN, never a guessed free/paid (#384 class).
+    const watchdog = window.setTimeout(() => {
+      if (!alive) return
+      setState((prev) => (prev.done ? prev : { done: true, errored: true, user: null }))
+    }, 15000)
     getUser(userId, UserGetById)
       .then((u) => {
         if (!alive) return // unmounted / identity changed mid-flight → drop (covers logout-clears-cookie)
+        window.clearTimeout(watchdog)
         const row = u as V2UserRow | null
         if (!row || row.error || !row.user_id) {
           setState({ done: true, errored: true, user: null }) // could-not-determine — never a guessed free
@@ -100,10 +110,13 @@ export function useV2User(): V2User {
         setState({ done: true, errored: false, user: row })
       })
       .catch(() => {
-        if (alive) setState({ done: true, errored: true, user: null }) // transient throw → unknown, retryable
+        if (!alive) return
+        window.clearTimeout(watchdog)
+        setState({ done: true, errored: true, user: null }) // transient throw → unknown, retryable
       })
     return () => {
       alive = false
+      window.clearTimeout(watchdog)
     }
   }, [userId])
 
