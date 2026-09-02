@@ -134,6 +134,18 @@ export function AccountScreen() {
           <StatusCard plan={planFor(membership)} />
         )}
 
+        {/* ทางเข้า "ดวงของฉัน" — hub ผลดวงเต็มระบบ (Figma page ดวงฉัน, node 55349-3070) */}
+        <Link
+          href="/v2/destiny"
+          data-testid="account-destiny-entry"
+          className={`${CARD} font-ibm`}
+        >
+          <p className="text-base font-bold text-v3-navy">ดวงของฉัน</p>
+          <p className="text-[12px] leading-4 text-v3-text-body">
+            ครบทุกเรื่องที่ต้องรู้ วิเคราะห์รายด้าน จบในแพ็กเกจเดียว
+          </p>
+        </Link>
+
         <HistoryCard state={historyState({ done: historyDone, errored: historyErrored, rows })} onRetry={() => setAttempt((n) => n + 1)} />
 
         <section data-testid="account-footer-ask" className="mt-8 flex items-center gap-4 rounded-3xl bg-white/70 px-6 py-5">
