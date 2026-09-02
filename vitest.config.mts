@@ -145,6 +145,7 @@ export default defineConfig({
       'scripts/checkout-pay-mount.test.tsx', // #466 รอบ 3 — mount จริง: กดปุ่มจ่ายแล้วไปไหน (ตรวจพฤติกรรม ไม่ใช่คำศัพท์)
       'scripts/payment-webhook-verify.test.ts', // #355 — pure: Omise HMAC verify, fail-closed (main-lane money gate)
       'scripts/account-screen-mount.test.tsx', // #365 — จอประกอบจริง: ประวัติล้มแล้วต้องไม่พูดว่า 'ยังไม่มีรายการ' (ตู๋ R1/R2)
+      'scripts/destiny-screen-mount.test.tsx', // ดวงฉัน — mount จอ /v2/destiny ตรวจ element ครบตาม duang-chan-spec
       'scripts/account-screen.test.tsx', // #365 — จอสิทธิ์ของฉัน: ป้ายพาไป · planFor · ตัวกรอง APPROVED · วันที่ พ.ศ.
       'scripts/vitest-include-drift.test.ts',
       'scripts/calendar-refusal-reaches-screen.test.tsx',
