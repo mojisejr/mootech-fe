@@ -34,3 +34,13 @@ Read 2026-09-02 via browser at 33–101%. This is the **my-destiny premium hub**
 ## สถานะ
 - ยังไม่ได้ build — เป็นงานหลัก Day 2 (route ใหม่ เช่น `/v2/destiny` แทน /my-destiny v1)
 - สิ่งที่ต้องยืนยันตอน build: ชื่อ 3 แถบคะแนน (อ่านไม่คลีย์ที่ 77%), ข้อความในการ์ดย่อย ธาตุสมดุล, ตัวเลข/ปีบน Life Path
+
+## ASSETS ที่ต้อง export จาก Figma (สำหรับ build นี้)
+ตอนนี้ใช้ตัวแทน: icon domain = emoji (💼💰🤝📚) · BG = CSS gradient+radial clouds · มาสคอต hero = engine mascot ตาม dayGanzhi
+1. icon แถบคะแนน ×3 (ใน FIXED — การ์ดน้ำเงิน แถวคะแนน) → `public/images/v2/destiny/ic-domain-{1..3}.png` @2x
+2. มาสคอต 5 ธาตุ (SCROLLS → ธาตุของคุณ — ราตู้ไม้/ราทุจั่งไฟ/ราชูเป้ดิน/ราชินโลหะ/ราชัน้ำน้ำ) → `public/images/v2/destiny/el-{wood,fire,earth,metal,water}.png` @2x
+3. BG01/BG04 (image fills ของเฟรม) — ใช้ CSS จำลองแล้ว ถ้าได้ไฟล์จริงจะสวยกว่า
+4. art การ์ดน้ำเงิน (มาสคอตกลาง + กรอบ) — ตอนนี้ใช้ mascot จาก engine
+
+วิธี export เร็วสุด (designer 1 คลิก/ชิ้น): เลือก layer → แผง Export → PNG @2x
+(ทางเลือกอัตโนมัติ: restart session เพื่อโหลด Figma MCP tools แล้วใช้ get_image ตาม node-id)
