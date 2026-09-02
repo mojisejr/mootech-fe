@@ -52,6 +52,29 @@ const jsxAutomatic = {
 export default defineConfig({
   plugins: [jsxAutomatic],
   test: {
+    // #591 — 15s, not the 5s default. MEASURED, not guessed (2026-09-02).
+    //
+    // The suite is NOT slow: of 1,249 assertions exactly two run past 3s (17.9s and 9.1s — the git-sandbox
+    // specs, which carry their own budgets) and the third-slowest is 1.6s. So the default 5s was never
+    // being approached by ordinary tests.
+    //
+    // 🔴 WHAT ACTUALLY HAPPENS. On a BUSY machine, ordinary ~1s specs blow past 5s and die with
+    // "Test timed out in 5000ms", and WHICH file dies moves between runs — which reads like "the suite is
+    // flaky" and sends the next person hunting through their own diff. Measured on this box (8 logical
+    // cores, 4 performance):
+    //   quiet machine                 3 runs, 3 green
+    //   two suites at once, 5s        2 runs, 2 red — both timeouts
+    //   two suites at once, 15s       6 runs, 0 timeouts
+    //
+    // 15s tolerates a 9x slowdown of the slowest ordinary spec while still catching a genuinely hung test,
+    // because nothing legitimate lives between 1.6s and 15s.
+    //
+    // ⚠️ THIS DOES NOT MAKE THE SUITE SAFE TO RUN UNDER LOAD. A second mechanism survives it: a spec that
+    // depends on REAL elapsed time (the ComingSoon toast clears itself after 2,200ms — features/v2-shell/
+    // components/ComingSoon.tsx:38,47,70) still loses its race when the box is busy. That one fails as an
+    // ASSERTION, not a timeout, and is written up in mojisejr/mootech-fe#591. Do not run heavy jobs beside
+    // the gate and then read its answer.
+    testTimeout: 15000,
     environment: 'jsdom',
     setupFiles: ['scripts/vitest-setup-rtl.ts'],
     // ⚠️ UNION, never "pick a side". This list is a pass/fail condition: #214 and #218 each appended
