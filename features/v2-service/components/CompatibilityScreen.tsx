@@ -221,22 +221,29 @@ const CALC_ERROR_COPY: Record<CompatFailure, { tone: 'retry' | 'blocked'; lines:
 
   // ── #585 ก้อน 4, the colleague lane's own refusals ────────────────────────────────────────────────
   //
+  // 🔴 EVERY LINE BELOW IS SHORT BECAUSE IT WAS MEASURED, NOT BECAUSE IT READS SHORT. The two-line
+  // contract this Record is authored to (see the note above it) is invisible to textContent, so the first
+  // draft of these five was asserted green while three of them wrapped to a third visual line —
+  // engine-down at ALL THREE widths, breaking "ลองอีกครั้ง / ได้เลย" exactly like the frames #263 caught.
+  // `harness/585-measure-error-lines.mjs` counts client rects per line box at 320/360/393; the numbers are
+  // in the PR. Anyone editing these words runs it again, because reading them will not show this.
+  //
   // 🔴 `engine-down` IS THE REASON THIS BLOCK IS SPELLED OUT INSTEAD OF FOLDED INTO `system`. It is a
   // retry — our fault, free to press again — and it must never share words with `quota`, which is a
   // blocked. Those two reading the same is the defect mootech-fe#593 just removed one layer down, where a
   // database failure reached the user as "โควตาเต็ม". Written as its own entry, with its own sentence, so
   // that merging them is an edit somebody has to make on purpose and a test can see.
-  'engine-down': { tone: 'retry', lines: ['ระบบคำนวณไม่พร้อมใช้งานชั่วคราว', 'ไม่ใช่ข้อมูลของคุณผิด และยังไม่ถูกตัดสิทธิ์ ลองอีกครั้งได้เลย'] },
+  'engine-down': { tone: 'retry', lines: ['ระบบคำนวณไม่พร้อม สิทธิ์ของคุณยังอยู่', 'ไม่ใช่ข้อมูลของคุณผิด ลองอีกครั้งได้เลย'] },
 
   // Not `tone: 'retry'` — pressing again with the same list cannot work, so red-and-retry would be a lie.
   // It names WHICH list to fix, because "ไม่พบเพื่อนร่วมงาน" alone leaves the person staring at three rows
   // that all look fine.
-  'no-friend': { tone: 'blocked', lines: ['มีเพื่อนร่วมงานที่ไม่อยู่ในรายชื่อของคุณแล้ว', 'เอาคนนั้นออกแล้วเลือกใหม่จากรายชื่อ'] },
+  'no-friend': { tone: 'blocked', lines: ['มีคนที่ไม่อยู่ในรายชื่อของคุณแล้ว', 'เอาคนนั้นออกแล้วเลือกใหม่จากรายชื่อ'] },
 
   // 🔴 THE ONE CASE WHERE "ไม่ใช่ข้อมูลของคุณผิด" WOULD BE FALSE. The house phrasing for our-fault failures
   // is deliberately absent: this one IS the user's data, they can complete it, and sending them away with
   // "ไม่ใช่ข้อมูลของคุณผิด" would leave the only fixable failure on this screen looking unfixable.
-  'unusable-birth': { tone: 'blocked', lines: ['มีคนที่ยังไม่มีวันเกิดครบ', 'แก้วันเกิดของคนนั้นให้ครบก่อน แล้วกดใหม่'] },
+  'unusable-birth': { tone: 'blocked', lines: ['มีคนที่ยังไม่มีวันเกิดครบ', 'เติมวันเกิดให้ครบแล้วกดใหม่'] },
 
   // Reachable only if the screen sends more than the slots allow, so it is half ours — but the sentence
   // that helps is still the one the user can act on.
