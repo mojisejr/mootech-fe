@@ -27,53 +27,78 @@ export type CompatibilityKind = (typeof COMPATIBILITY_KINDS)[number]
 export type MatchingType = 'LOVE' | 'BOSS' | 'EMPLOYEE' | 'FRIEND'
 
 /**
- * The three work roles the colleague screen offers.
+ * 🔴 THE PICKER IS GONE (#585). The colleague screen used to make the user choose ONE of these three, and
+ * ฟีม rejected that with "มันผิดเลยครับ": the engine returns ALL THREE readings per person in a single
+ * /api/bazi/work call, so asking for a choice threw away two readings that were already computed.
  *
- * 🔴 READ THE DIRECTION BEFORE EDITING. The value names describe THE OTHER PERSON, not the caller. Measured
- * against the engine on 2026-09-01 by posting the same two people three times to
- * /api/bazi/pair-match and reading back `ourLabel` / `partnerLabel`:
+ * The DIRECTION table below is kept, not deleted, for two reasons that outlive the picker:
+ *   1. `user_matching` rows written before #585 still carry BOSS / EMPLOYEE / FRIEND, and the result
+ *      screen still has to map them back to the colleague kind (KIND_OF_MATCHING_TYPE below).
+ *   2. The direction is measured, not guessed, and a future reader mapping engine roles onto a screen
+ *      needs it. Losing it would cost another round of posting the same two people three times.
+ *
+ * Measured against the engine 2026-09-01 by posting the same two people three times to
+ * /api/bazi/pair-match and reading back `ourLabel` / `partnerLabel`. The value names describe THE OTHER
+ * PERSON, not the caller:
  *   BOSS      → bazi 'boss'         ourLabel "เรา (ลูกน้อง)"  partnerLabel "เจ้านาย"   ⇒ the OTHER is my boss
  *   EMPLOYEE  → bazi 'subordinate'  ourLabel "เรา"            partnerLabel "ลูกน้อง"   ⇒ the OTHER is my subordinate
  *   FRIEND    → bazi 'partner'      ourLabel "เรา"            partnerLabel "หุ้นส่วน"  ⇒ the OTHER is my partner
  * (mapping lives in mootech-be src/matching/bazi/bazi-pair.mapper.ts:35-46)
  *
- * The three are NOT cosmetic: same two people, different roles → different dimension keys, different
- * percentages and a different overall grade. Full output in mojisejr/mootech-fe#569. A label that reads
- * the direction backwards would send the engine the mirror image of what the user meant, and the numbers
- * would look perfectly plausible — which is why the direction is written here and not left to the screen.
+ * A label that reads the direction backwards would send the engine the mirror image of what the user
+ * meant, and the numbers would look perfectly plausible.
  */
-export type ColleagueRole = { value: MatchingType; label: string }
-export const COLLEAGUE_ROLES: readonly ColleagueRole[] = [
-  { value: 'BOSS', label: 'เจ้านาย' },
-  { value: 'FRIEND', label: 'หุ้นส่วน / เพื่อน' },
-  { value: 'EMPLOYEE', label: 'ลูกน้อง' },
-] as const
-
-/** The role the colleague screen starts on — the widest reading, and the value the screen used to send. */
-export const DEFAULT_COLLEAGUE_ROLE: MatchingType = 'FRIEND'
+export const WORK_MATCHING_TYPES = ['BOSS', 'FRIEND', 'EMPLOYEE'] as const
 
 export type CompatibilityConfig = {
   kind: CompatibilityKind
   /** จอหัวเรื่อง — verbatim Figma 480:4549 / 636:18451 */
   title: string
-  /** value sent to V2MatchingCalculateApi in the result slice — for `colleague` this is only the DEFAULT;
-   *  the screen may change it to another COLLEAGUE_ROLES value before the calculation fires. */
+  /** value sent to V2MatchingCalculateApi in the single-pair lane. Fixed per screen since #585 removed
+   *  the role picker — the screen no longer changes it. */
   matchingType: MatchingType
   /** the empty-state wording of the person-2 picker. #569: the love screen used to borrow the colleague
    *  screen's "เลือกเพื่อน / คู่รัก", which offered a choice it does not have. */
   pickLabel: string
-  /** true when this screen lets the user pick which work role they are looking at */
-  hasRoles: boolean
+  /**
+   * How many OTHER people this screen compares against (#585 ก้อน 3).
+   *
+   * 🔴 It is a NUMBER on the config, not a `multi` boolean, because the two screens differ by a count and
+   * a boolean would have to be translated back into one at the render site. love = 1 keeps its single row
+   * through the very same code path as colleague = 3, so the one-person screen is not a special case that
+   * only gets exercised on the love route.
+   *
+   * The 3 mirrors colleague-candidates.MAX_CANDIDATES, which mirrors the ENGINE's own cap. See that file
+   * before changing it — the number is not ours.
+   */
+  maxCandidates: number
+  /** the two lines under the heading, verbatim from the frame. Two entries, not one string with a <br>,
+   *  because the break is authored — Thai has no word spaces, so letting it wrap on its own can split a
+   *  word mid-way and nothing in a textContent assertion can see that it happened. */
+  tagline: readonly [string, string]
 }
 
 const CONFIG: Record<CompatibilityKind, CompatibilityConfig> = {
-  love: { kind: 'love', title: 'ดูดวงคู่รัก', matchingType: 'LOVE', pickLabel: 'เลือกคู่รัก', hasRoles: false },
+  love: {
+    kind: 'love',
+    title: 'ดูดวงคู่รัก',
+    matchingType: 'LOVE',
+    pickLabel: 'เลือกคู่รัก',
+    maxCandidates: 1,
+    tagline: ['เลือกโปรไฟล์สองโปรไฟล์เพื่อดูดวงสมพงศ์', 'ด้านความรักหรือมิตรภาพ'],
+  },
   colleague: {
     kind: 'colleague',
     title: 'ดูดวงเพื่อนร่วมงาน',
-    matchingType: DEFAULT_COLLEAGUE_ROLE,
+    // the widest single-pair reading, and what the screen sent before #585 removed the choice
+    matchingType: 'FRIEND',
     pickLabel: 'เลือกเพื่อนร่วมงาน',
-    hasRoles: true,
+    maxCandidates: 3,
+    // Figma 720:25502, transcribed from the rendered pixels at 3x — NOT from a layer name.
+    // ⚠️ The frame spells the word two ways in the same screen: the heading above reads "สมพงค์" and this
+    // line reads "สมพงษ์". Both are kept verbatim rather than harmonised here, because picking one would
+    // be this file inventing copy. Raised on the ticket.
+    tagline: ['ระบบจับคู่หลักวันแบบแม่นตามตำราคู่สมพงษ์', '(การงาน) แล้วจัดอันดับว่าใครเข้ากับเราดีที่สุด'],
   },
 }
 
@@ -85,7 +110,7 @@ const CONFIG: Record<CompatibilityKind, CompatibilityConfig> = {
 // the roles change, and #569 just changed them.
 //
 // All three work roles answer 'colleague': after #569 the colleague screen is where a user picks BOSS or
-// EMPLOYEE (COLLEAGUE_ROLES above), so a row carrying either was created on that screen and belongs back on
+// EMPLOYEE (WORK_MATCHING_TYPES above), so a row carrying either was created on that screen and belongs back on
 // it. That is a change from what compatibility-recent.ts:21-24 still assumes ("BOSS/EMPLOYEE are legacy-only")
 // — true when it was written, not true since #569 merged.
 //

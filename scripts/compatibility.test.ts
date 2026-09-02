@@ -7,7 +7,7 @@
 //
 // ANCHOR: scripts/compatibility.test.ts#compatibility-kind-gate-and-createfriend-gap
 import assert from 'node:assert/strict'
-import { resolveCompatibilityKind, COMPATIBILITY_KINDS, COLLEAGUE_ROLES, DEFAULT_COLLEAGUE_ROLE } from '../features/v2-service/compatibility'
+import { resolveCompatibilityKind, COMPATIBILITY_KINDS, WORK_MATCHING_TYPES, compatibilityKindOfMatchingType } from '../features/v2-service/compatibility'
 import {
   buildCreateFriendArgs,
   COMPAT_FRIEND_DEFAULTS,
@@ -35,14 +35,28 @@ function t(name: string, fn: () => void) {
 // ── kind gate — done-condition #1/#2: prove the VALUE (title + matching_type), not just "two kinds exist" ──
 t('love → "ดูดวงคู่รัก" + matching_type LOVE', () => {
   const c = resolveCompatibilityKind('love')
-  // #569 added pickLabel + hasRoles. deepEqual is kept ON PURPOSE (not loosened to a field check): it is
+  // #569 added pickLabel; #585 removed hasRoles with the picker. deepEqual is kept ON PURPOSE (not
+  // loosened to a field check): it is
   // what turned red when the contract grew, which is the whole reason to know the contract grew.
-  assert.deepEqual(c, { kind: 'love', title: 'ดูดวงคู่รัก', matchingType: 'LOVE', pickLabel: 'เลือกคู่รัก', hasRoles: false })
+  assert.deepEqual(c, {
+    kind: 'love', title: 'ดูดวงคู่รัก', matchingType: 'LOVE', pickLabel: 'เลือกคู่รัก',
+    // #585 — the love screen compares ONE person and says so in the contract, so "many people" is not a
+    // colleague-only special case bolted on at the render site.
+    maxCandidates: 1,
+    tagline: ['เลือกโปรไฟล์สองโปรไฟล์เพื่อดูดวงสมพงศ์', 'ด้านความรักหรือมิตรภาพ'],
+  })
 })
 
 t('colleague → "ดูดวงเพื่อนร่วมงาน" + matching_type FRIEND', () => {
   const c = resolveCompatibilityKind('colleague')
-  assert.deepEqual(c, { kind: 'colleague', title: 'ดูดวงเพื่อนร่วมงาน', matchingType: 'FRIEND', pickLabel: 'เลือกเพื่อนร่วมงาน', hasRoles: true })
+  assert.deepEqual(c, {
+    kind: 'colleague', title: 'ดูดวงเพื่อนร่วมงาน', matchingType: 'FRIEND', pickLabel: 'เลือกเพื่อนร่วมงาน',
+    // 3 = the ENGINE's MAX_CANDIDATES, mirrored twice (colleague-candidates.ts holds the reason).
+    maxCandidates: 3,
+    // verbatim Figma 720:25502, read off the rendered pixels. The frame spells the word two ways in one
+    // screen (heading "สมพงค์", this line "สมพงษ์"); both are kept rather than harmonised here.
+    tagline: ['ระบบจับคู่หลักวันแบบแม่นตามตำราคู่สมพงษ์', '(การงาน) แล้วจัดอันดับว่าใครเข้ากับเราดีที่สุด'],
+  })
 })
 
 // the two kinds send DIFFERENT types (a mut that maps both to LOVE, or love→FRIEND, dies here)
@@ -176,32 +190,34 @@ t('#569 each kind carries its own picker wording — the love screen never says 
   assert.notEqual(love.pickLabel, colleague.pickLabel, 'สองจอต้องไม่ใช้คำเดียวกันอีก')
 })
 
-t('#569 only the colleague screen offers roles', () => {
-  assert.equal(resolveCompatibilityKind('love')!.hasRoles, false)
-  assert.equal(resolveCompatibilityKind('colleague')!.hasRoles, true)
+t('#585 🔴 the role picker is gone — no screen advertises a role choice any more', () => {
+  // the picker's whole premise was that ONE of three readings had to be chosen. The engine returns all
+  // three per person in a single call, so the choice was throwing two away. `hasRoles` is deleted; this
+  // reads the config back as a whole so a re-added field cannot slip in unnoticed.
+  const love = resolveCompatibilityKind('love')!
+  const colleague = resolveCompatibilityKind('colleague')!
+  assert.ok(!('hasRoles' in love), 'จอคู่รักต้องไม่มีฟิลด์นี้กลับมา')
+  assert.ok(!('hasRoles' in colleague), 'จอเพื่อนร่วมงานต้องไม่มีฟิลด์นี้กลับมา')
 })
 
-t('#569 🔴 role labels name THE OTHER PERSON, matching the direction the engine reads', () => {
-  const byValue = Object.fromEntries(COLLEAGUE_ROLES.map((r) => [r.value, r.label]))
-  // measured against /api/bazi/pair-match on 2026-09-01 — see COLLEAGUE_ROLES for the raw ourLabel/partnerLabel
-  assert.equal(byValue.BOSS, 'เจ้านาย', 'bazi boss ⇒ partnerLabel เจ้านาย')
-  assert.equal(byValue.EMPLOYEE, 'ลูกน้อง', 'bazi subordinate ⇒ partnerLabel ลูกน้อง')
-  assert.ok(byValue.FRIEND.includes('หุ้นส่วน'), 'bazi partner ⇒ partnerLabel หุ้นส่วน')
-  // the flip that would be invisible without this: BOSS↔EMPLOYEE swapped still typechecks and still scores
-  assert.notEqual(byValue.BOSS, byValue.EMPLOYEE)
-})
-
-t('#569 the three roles are the three WORK types, and LOVE is not among them', () => {
-  const values = COLLEAGUE_ROLES.map((r) => r.value).sort()
+t('#585 the three WORK types survive the picker, because history rows still carry them', () => {
+  // 🔴 deleting the picker must NOT delete the vocabulary. Rows written before #585 hold BOSS / EMPLOYEE /
+  // FRIEND and the result screen still has to route them back to the colleague kind. Losing this list
+  // would make those rows unreachable, which is a silent data loss, not a UI simplification.
+  const values = [...WORK_MATCHING_TYPES].sort()
   assert.deepEqual(values, ['BOSS', 'EMPLOYEE', 'FRIEND'])
   assert.ok(!values.includes('LOVE' as never), 'ระดับความรักไม่ใช่บทบาทในที่ทำงาน')
-  assert.equal(new Set(values).size, 3, 'ห้ามมีค่าซ้ำ — ซ้ำแล้วจะมีปุ่มที่กดแล้วไม่เปลี่ยนอะไร')
+  assert.equal(new Set(values).size, 3, 'ห้ามมีค่าซ้ำ')
+  for (const v of WORK_MATCHING_TYPES) {
+    assert.equal(compatibilityKindOfMatchingType(v), 'colleague', `แถวเก่าที่เป็น ${v} ต้องกลับมาที่จอเพื่อนร่วมงาน`)
+  }
 })
 
-t('#569 the colleague default is a real member of the list, and is the value that used to ship', () => {
-  assert.ok(COLLEAGUE_ROLES.some((r) => r.value === DEFAULT_COLLEAGUE_ROLE))
-  assert.equal(resolveCompatibilityKind('colleague')!.matchingType, DEFAULT_COLLEAGUE_ROLE)
-  assert.equal(DEFAULT_COLLEAGUE_ROLE, 'FRIEND', 'ค่าเดิมก่อน #569 คือ FRIEND — ค่าเริ่มต้นต้องไม่เปลี่ยนพฤติกรรมเดิม')
+t('#585 the colleague screen still sends the value it shipped with, now as a fixed config', () => {
+  // the single-pair lane still exists and still takes ONE matching_type. Removing the picker must not
+  // change WHICH value that is, or every colleague row written from today reads as a different relationship.
+  assert.equal(resolveCompatibilityKind('colleague')!.matchingType, 'FRIEND')
+  assert.equal(resolveCompatibilityKind('love')!.matchingType, 'LOVE')
 })
 
 t('#569 CONTROL — the unknown-kind gate still refuses, roles did not widen it', () => {

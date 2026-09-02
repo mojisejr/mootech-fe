@@ -105,8 +105,10 @@ export default defineConfig({
       'scripts/call-api-with-status.test.tsx', // #263 — status-aware fetch path + callApi-unchanged guard; .tsx
       'scripts/compat-calc-error-reasons.test.tsx', // #263 — calculateCompatibility failure-reason classification; .tsx
       'scripts/compat-error-copy-ui.test.tsx', // #263 — the UI half: four causes → four different sentences; .tsx
+      'scripts/colleague-slots-ui.test.tsx', // #585 ก้อน 3 — the three co-worker slots, through the real screen
+      'scripts/work-result-ui.test.tsx', // #585 ก้อน 5 — colleague result: one order, two failure sentences
+      'scripts/work-compare-copy.test.tsx', // #585 ก้อน 4 — five causes must read as five sentences; .tsx
       'scripts/compat-result-photos.test.tsx', // #554 — WIRING: the result hook puts the route's account photos on persons; .tsx
-      'scripts/compat-role-picker.test.tsx', // #569 — WIRING: the picked work role is the one sent to calculate; .tsx
       'scripts/quota-route.test.tsx', // #264 — /api/quota both-quota remaining + wiring; .tsx
       'scripts/quota-indicator-ui.test.tsx', // #264 — the UI half: what is shown when there IS no number; .tsx
       'scripts/calc-cooldown.test.tsx', // #265 — cooldown state machine; every guarantee lives in THIS lane; .tsx
@@ -211,6 +213,8 @@ export default defineConfig({
       'scripts/compat-result-back-destination.test.tsx', // #571 — pure map + WIRING: back returns to the form screen; .tsx
       'scripts/work-comparison.test.ts', // #585 — colleague lane read model: trim / ranking-not-resort / 3 roles or say which is missing
       'scripts/work-compare-callsite.test.ts', // #593 ① — ฟันที่ *จุดเรียก* ของตัวตัดสินโควตา/ฐานข้อมูลล่ม (มิวแทนต์ B ของตู๋รอดทุกไฟล์ที่มีอยู่)
+      'scripts/work-compare-call.test.ts', // #585 ก้อน 4 — six meanings from one POST; 503 must never read as 410
+      'scripts/colleague-cap-agreement.test.ts', // #585 — three mirrors of the co-worker cap held equal (ตู๋, review of 589)
       'scripts/work-recent-href.test.ts', // #585 — which route a history card opens; pair vs work are not interchangeable
       'scripts/work-history-union-db.test.ts', // #585 — real pg: กิ่ง work ต้องไม่รับ DISTINCT ON ของเลนคู่
     ],

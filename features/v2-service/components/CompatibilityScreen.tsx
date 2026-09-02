@@ -22,17 +22,19 @@ import { useV2Logout } from '@/features/auth/hooks/useV2Logout'
 import { useCookies } from 'react-cookie'
 import { CookieKey } from '@/constants/cookie-key'
 import { MemberWithFriendGetDetailApi } from '@/constants/api/api-member-with-friend-get-detail'
-import { friendDetailToEditForm, type EditFriendForm, type FriendEditDetail } from '../compatibility-api'
+import { friendDetailToEditForm, createdFriendToSelectInput, type EditFriendForm, type FriendEditDetail, type CreatedFriendRow } from '../compatibility-api'
 import { useCompatibility, type CompatPerson } from '../hooks/useCompatibility'
+import { useColleagueCandidates } from '../hooks/useColleagueCandidates'
+import { readWorkCompareResult, type WorkCalcFailure } from '../work-compare-call'
+import { V2MatchingWorkCreateApi } from '@/constants/api/api-v2-matching'
 import { useQuota } from '../hooks/useQuota'
-import { COLLEAGUE_ROLES } from '../compatibility'
 import { compatQuotaBlockedLines } from './compat-quota-copy'
 import { useCalcCooldown } from '../hooks/useCalcCooldown'
 import { QuotaLine } from './QuotaLine'
 import { calculateCompatibility, type CompatCalcErrorReason } from '../hooks/useCompatibilityResult'
 import type { CompatibilityConfig } from '../compatibility'
 import { formatCompatBirth } from './compat-format'
-import { COMPAT_CALC_LOADING } from './compat-loading-copy'
+import { COMPAT_CALC_LOADING, workCalcLoading } from './compat-loading-copy'
 import { CompatSelectFriendModal } from './CompatSelectFriendModal'
 import { AddFriendSheet } from './AddFriendSheet'
 import { ComingSoonSheet } from './ComingSoonSheet'
@@ -58,14 +60,20 @@ function Sparkles() {
 function ProfileRow({ person, loadingDob, onEdit, onPick, onChangePerson, editBusy, testId, emptyLabel }: {
   person: CompatPerson | null
   loadingDob?: boolean
-  onEdit: () => void
+  /** #585 — optional: the three co-worker rows swap the PERSON in a slot and never edit their data, so
+   *  they pass no edit handler at all rather than one that opens something the frame does not show. */
+  onEdit?: () => void
   onPick?: () => void
   /** #266 — when present the row shows TWO actions, because it HAS two: pick a different person, and
    *  change this person's data. Absent (row 1) keeps the single control it always had. */
   onChangePerson?: () => void
   /** the friend's data is being read before the edit sheet can open — the control says so itself (#265) */
   editBusy?: boolean
-  testId: 'compat-person1' | 'compat-person2'
+  /** #585 — was the two-value union of the single-pair screen. Widened for the three co-worker slots,
+   *  whose ids are `compat-candidate-0..2`. Every child id is DERIVED from this one below, so three rows
+   *  can no longer answer to the same selector — a duplicate testid does not fail, it makes the first row
+   *  answer for all of them. */
+  testId: string
   emptyLabel?: string
 }) {
   if (!person) {
@@ -75,7 +83,7 @@ function ProfileRow({ person, loadingDob, onEdit, onPick, onChangePerson, editBu
         <span className="grid size-10 shrink-0 place-items-center rounded-full border border-dashed border-v3-sapphire bg-white text-v3-sapphire">
           <svg viewBox="0 0 18 18" className="size-[18px]" fill="none" aria-hidden><path d="M9 3.75v10.5M3.75 9h10.5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" /></svg>
         </span>
-        <span data-testid="compat-person2-empty" className="text-[16px] font-bold uppercase leading-6 text-v3-sapphire">{emptyLabel}</span>
+        <span data-testid={`${testId}-empty`} className="text-[16px] font-bold uppercase leading-6 text-v3-sapphire">{emptyLabel}</span>
       </button>
     )
   }
@@ -126,8 +134,8 @@ function ProfileRow({ person, loadingDob, onEdit, onPick, onChangePerson, editBu
       <div className="flex min-w-[148px] flex-1 flex-col justify-center gap-1 text-v3-navy">
         <p data-testid={`${testId}-name`} className="truncate text-[16px] font-bold leading-6">{person.name}</p>
         {loadingDob
-          ? <span data-testid="compat-person2-dob-loading" className="h-[14px] w-32 animate-pulse rounded bg-v3-ghost-white brightness-95" aria-hidden />
-          : <p data-testid={isP1 ? 'compat-person1-dob' : 'compat-person2-dob'} className="text-[14px] font-normal leading-[22px]">{formatCompatBirth(person.dob, person.time)}</p>}
+          ? <span data-testid={`${testId}-dob-loading`} className="h-[14px] w-32 animate-pulse rounded bg-v3-ghost-white brightness-95" aria-hidden />
+          : <p data-testid={`${testId}-dob`} className="text-[14px] font-normal leading-[22px]">{formatCompatBirth(person.dob, person.time)}</p>}
         {isP1 && <span data-testid="compat-person1-time" className="sr-only">{person.time}</span>}
       </div>
       {/* #266 — the label now matches what the control does. "แก้ไข" on this row used to open the
@@ -181,7 +189,10 @@ function ProfileRow({ person, loadingDob, onEdit, onPick, onChangePerson, editBu
 //                                   and there is somewhere to go. Red here would read as "you did something
 //                                   wrong", and the only repair the screen offers is the retry we are
 //                                   trying to stop. v3-navy is the existing heading token — no new colour.
-type CompatFailure = CompatCalcErrorReason | 'navigate'
+// #585 ก้อน 4 — the colleague lane refuses for FIVE reasons the single-pair lane never had, and each
+// gets its own entry below. `WorkCalcFailure` already contains 'network' and 'system', which the pair
+// lane also produces, so the union does not double them up.
+type CompatFailure = CompatCalcErrorReason | 'navigate' | WorkCalcFailure
 
 // Every case is authored as TWO lines on purpose. At 393 the paragraph is ~345px of centred 14px Thai, and
 // a single long sentence wraps wherever it lands — the captured frames had it breaking mid-phrase
@@ -207,6 +218,36 @@ const CALC_ERROR_COPY: Record<CompatFailure, { tone: 'retry' | 'blocked'; lines:
   // things it does not know.
   network: { tone: 'retry', lines: ['เชื่อมต่อไม่ได้', 'ตรวจสัญญาณอินเทอร์เน็ตแล้วลองอีกครั้ง'] },
   navigate: { tone: 'blocked', lines: ['คำนวณเสร็จแล้ว แต่เปิดหน้าผลไม่สำเร็จ', 'ดูผลของคุณได้ที่ "ดูดวงสมพงศ์ล่าสุด" ด้านล่าง'] },
+
+  // ── #585 ก้อน 4, the colleague lane's own refusals ────────────────────────────────────────────────
+  //
+  // 🔴 EVERY LINE BELOW IS SHORT BECAUSE IT WAS MEASURED, NOT BECAUSE IT READS SHORT. The two-line
+  // contract this Record is authored to (see the note above it) is invisible to textContent, so the first
+  // draft of these five was asserted green while three of them wrapped to a third visual line —
+  // engine-down at ALL THREE widths, breaking "ลองอีกครั้ง / ได้เลย" exactly like the frames #263 caught.
+  // `harness/585-measure-error-lines.mjs` counts client rects per line box at 320/360/393; the numbers are
+  // in the PR. Anyone editing these words runs it again, because reading them will not show this.
+  //
+  // 🔴 `engine-down` IS THE REASON THIS BLOCK IS SPELLED OUT INSTEAD OF FOLDED INTO `system`. It is a
+  // retry — our fault, free to press again — and it must never share words with `quota`, which is a
+  // blocked. Those two reading the same is the defect mootech-fe#593 just removed one layer down, where a
+  // database failure reached the user as "โควตาเต็ม". Written as its own entry, with its own sentence, so
+  // that merging them is an edit somebody has to make on purpose and a test can see.
+  'engine-down': { tone: 'retry', lines: ['ระบบคำนวณไม่พร้อม สิทธิ์ของคุณยังอยู่', 'ไม่ใช่ข้อมูลของคุณผิด ลองอีกครั้งได้เลย'] },
+
+  // Not `tone: 'retry'` — pressing again with the same list cannot work, so red-and-retry would be a lie.
+  // It names WHICH list to fix, because "ไม่พบเพื่อนร่วมงาน" alone leaves the person staring at three rows
+  // that all look fine.
+  'no-friend': { tone: 'blocked', lines: ['มีคนที่ไม่อยู่ในรายชื่อของคุณแล้ว', 'เอาคนนั้นออกแล้วเลือกใหม่จากรายชื่อ'] },
+
+  // 🔴 THE ONE CASE WHERE "ไม่ใช่ข้อมูลของคุณผิด" WOULD BE FALSE. The house phrasing for our-fault failures
+  // is deliberately absent: this one IS the user's data, they can complete it, and sending them away with
+  // "ไม่ใช่ข้อมูลของคุณผิด" would leave the only fixable failure on this screen looking unfixable.
+  'unusable-birth': { tone: 'blocked', lines: ['มีคนที่ยังไม่มีวันเกิดครบ', 'เติมวันเกิดให้ครบแล้วกดใหม่'] },
+
+  // Reachable only if the screen sends more than the slots allow, so it is half ours — but the sentence
+  // that helps is still the one the user can act on.
+  'too-many': { tone: 'blocked', lines: ['เลือกได้สูงสุด 3 คน', 'เอาออกให้เหลือ 3 คนแล้วกดใหม่'] },
 }
 
 export function CompatibilityScreen({ config }: { config: CompatibilityConfig }) {
@@ -214,6 +255,13 @@ export function CompatibilityScreen({ config }: { config: CompatibilityConfig })
   const { logout } = useV2Logout()
   const [logoutOpen, setLogoutOpen] = useState(false)
   const [selectOpen, setSelectOpen] = useState(false)
+  // #585 ก้อน 3 — WHICH slot is asking for a person, or null when nothing is asking. A boolean would not
+  // survive three rows: the modal has to hand the chosen friend back to the row that opened it, and with
+  // one flag every pick would land in the same place.
+  const [slotOpen, setSlotOpen] = useState<number | null>(null)
+  // Held for every kind so the hook's rules are not conditional; the love screen simply never renders the
+  // rows that read it (a hook behind an `if` is the one thing React forbids outright).
+  const candidates = useColleagueCandidates()
   const [addOpen, setAddOpen] = useState(false)
   // #266 — the edit flow, as three states rather than one boolean, because "loading the friend's data"
   // and "we could not load it" are NOT the same as "the sheet is open".
@@ -271,6 +319,41 @@ export function CompatibilityScreen({ config }: { config: CompatibilityConfig })
   // whole form with the loader (2F/D30) so the wait shows here — where the heavy work actually is — instead
   // of behind the button. On success navigate to the result route; on error KEEP the user on this screen,
   // release the latch, and surface it (D34 — never strand on the loader, never navigate to a blank result).
+  // #585 ก้อน 4 — the colleague lane's own press. It is a DIFFERENT call, a different wait and a different
+  // destination from the pair lane below, and it does not reuse `calculateCompatibility`: that function
+  // takes exactly two people and answers three failure reasons, while this one takes up to three and
+  // answers seven. Widening it would have made the pair lane carry five refusals it can never produce.
+  async function onCompareColleagues() {
+    if (firingRef.current || cooldown.active) return
+    const ids = candidates.chosen.map((p) => p.id).filter((id) => id !== '')
+    // Nothing selected is not a failure to announce — the button is already disabled for it, and this is
+    // the second-caller guard the pair lane's comment below describes.
+    if (ids.length === 0) return
+    firingRef.current = true
+    cooldown.start() // start at the PRESS, same reason as the pair lane: a failed calc still cools down
+    setCalculating(true)
+    setCalcError(null)
+    const outcome = readWorkCompareResult(await V2MatchingWorkCreateApi(ids))
+    if (!outcome.ok) {
+      firingRef.current = false
+      setCalculating(false)
+      setCalcError(outcome.reason)
+      return
+    }
+    try {
+      // ก้อน 5 built this route. Sending the user here before it existed is exactly why ฟีม ordered ก้อน 5
+      // ahead of this chunk — a button that leads to a 404 is worse than a button that is not wired yet.
+      const navigated = await router.push(`/v2/service/compatibility/work/${outcome.matchingId}`)
+      if (!navigated) throw new Error('navigation-prevented')
+    } catch {
+      firingRef.current = false
+      setCalculating(false)
+      // The quota is already spent and the result already exists server-side, so this is 'navigate', not
+      // a retry — identical reasoning to the pair lane.
+      setCalcError('navigate')
+    }
+  }
+
   async function onViewResult() {
     if (!c.canViewResult || firingRef.current || !c.person1 || !c.person2) return
     // #265 — checked HERE as well as on the button's `disabled`, because `disabled` is a RENDERING of the
@@ -318,8 +401,18 @@ export function CompatibilityScreen({ config }: { config: CompatibilityConfig })
   // component + copy means no content/copy swap across the two phases (the frame-level rAF trace in
   // run-compat-2f.ts checks role=status is present every frame across the handoff).
   if (calculating) {
-    return <LoadingScreen title={COMPAT_CALC_LOADING.title} subtitle={COMPAT_CALC_LOADING.subtitle} />
+    // #585 ก้อน 4 — the colleague lane names how many people are in flight; everything else about the
+    // wait, including ฟีม's verbatim subtitle, is the same screen the pair lane and the result route show.
+    const wait = config.maxCandidates > 1 ? workCalcLoading(candidates.chosen.length) : COMPAT_CALC_LOADING
+    return <LoadingScreen title={wait.title} subtitle={wait.subtitle} />
   }
+
+  // #585 ก้อน 3 — ONE name for "the form is ready", so the button, its colour and its label can never
+  // disagree about it. The three-slot screen is ready at ONE co-worker, not three: Figma 720:27747 draws
+  // the button ENABLED with a single slot filled and two still empty, so requiring all three would make
+  // the empty slots mandatory — the opposite of that frame.
+  const canProceed =
+    config.maxCandidates > 1 ? c.person1 !== null && candidates.canCompare : c.canViewResult
 
   return (
     <div data-testid="compat-screen" data-matching-type={c.matchingType} className="relative min-h-screen w-full overflow-x-hidden bg-v3-bg-cream font-ibm">
@@ -342,8 +435,13 @@ export function CompatibilityScreen({ config }: { config: CompatibilityConfig })
         <div className="flex flex-col items-center gap-2 px-6 pb-4 pt-8 text-center">
           <Sparkles />
           <h2 className="text-[32px] font-semibold uppercase leading-[1.5] text-v3-navy [word-break:break-word]">เช็คความสมพงศ์</h2>
-          <p className="text-[16px] font-normal leading-6 text-v3-text-body [word-break:break-word]">
-            เลือกโปรไฟล์สองโปรไฟล์เพื่อดูดวงสมพงศ์<br />ด้านความรักหรือมิตรภาพ
+          {/* #585 — the two lines come from the config, and they are two ELEMENTS, not one string with a
+              <br>. The break is authored to fall between words; Thai has no word spaces, so a line the
+              browser breaks on its own can split mid-word and every textContent assertion stays green
+              while it happens. Two spans mean the break is a thing the test can point at. */}
+          <p data-testid="compat-tagline" className="text-[16px] font-normal leading-6 text-v3-text-body [word-break:break-word]">
+            <span className="block">{config.tagline[0]}</span>
+            <span className="block">{config.tagline[1]}</span>
           </p>
         </div>
 
@@ -354,57 +452,45 @@ export function CompatibilityScreen({ config }: { config: CompatibilityConfig })
             ? <div data-testid="compat-person1" className="flex h-[64px] w-full items-center gap-3 rounded-[56px] bg-v3-ghost-white py-3 pl-3 pr-6"><span data-testid="compat-person1-loading" className="size-10 shrink-0 animate-pulse rounded-full bg-white/60" /><span className="h-4 w-40 animate-pulse rounded bg-white/60" /></div>
             : <ProfileRow person={c.person1} onEdit={() => setComingSoon('แก้ไขข้อมูลของคุณ')} testId="compat-person1" />}
 
-          {/* #569 — which work role is this? Only the colleague screen has one; the love screen renders
-              nothing here. The label names THE OTHER PERSON ("เจ้านาย" = they are my boss) because that is
-              the direction the engine reads it in — see COLLEAGUE_ROLES in compatibility.ts, which carries
-              the measured ourLabel/partnerLabel for each value. Chips, not a dropdown: three short options
-              that must all be readable at once, and the choice changes the whole reading. */}
-          {config.hasRoles && (
-            <div
-              data-testid="compat-role-picker"
-              role="radiogroup"
-              aria-label="ดูความเข้ากันในฐานะอะไร"
-              className="flex w-full items-center gap-2"
-            >
-              {COLLEAGUE_ROLES.map((r) => {
-                const on = c.role === r.value
-                return (
-                  <button
-                    key={r.value}
-                    type="button"
-                    role="radio"
-                    aria-checked={on}
-                    data-testid={`compat-role-${r.value}`}
-                    onClick={() => c.setRole(r.value)}
-                    className={[
-                      // 🔴 WRAPS, and that is the point. Measured on the real route: "หุ้นส่วน / เพื่อน"
-                      // needs 98px and a third of a 320-wide screen gives 75 — `truncate` turned it into
-                      // "หุ้นส่วน / เ…" at 320 and 360, and cleared 393 by ONE pixel. Truncating the middle
-                      // option is worse than two lines: the word that survives is "หุ้นส่วน", so a user
-                      // looking for "เพื่อน" cannot see that this is where it lives.
-                      // ❌ Do not put `truncate` back without re-measuring at 320.
-                      'grid min-h-[44px] min-w-0 flex-1 place-items-center rounded-full px-2 py-1.5 text-center text-[13px] leading-[18px] transition-none',
-                      on ? 'bg-v3-sapphire font-bold text-white' : 'bg-v3-ghost-white font-normal text-v3-text-body',
-                    ].join(' ')}
-                  >
-                    {r.label}
-                  </button>
-                )
-              })}
-            </div>
-          )}
+          {/* #585 — there used to be a three-chip role picker here. It is gone, not adjusted: the engine
+              returns all three work readings per person in one call, so making the user choose one threw
+              away two that were already computed. The measured direction table those chips depended on is
+              kept in compatibility.ts, because history rows still carry BOSS / EMPLOYEE / FRIEND. */}
 
           {/* row 2 — the person-2 picker → wrapped v1 modal; filled → name+picture now, dob enriches (skeleton) */}
-          <ProfileRow
-            person={c.person2}
-            loadingDob={c.loadingPerson2}
-            onEdit={openEditFriend}                 // #266 — now really edits THIS friend
-            onChangePerson={() => setSelectOpen(true)} // …and the old behaviour keeps its own, honest label
-            onPick={() => setSelectOpen(true)}
-            editBusy={editLoading}
-            testId="compat-person2"
-            emptyLabel={config.pickLabel}
-          />
+          {config.maxCandidates <= 1 ? (
+            <ProfileRow
+              person={c.person2}
+              loadingDob={c.loadingPerson2}
+              onEdit={openEditFriend}                 // #266 — now really edits THIS friend
+              onChangePerson={() => setSelectOpen(true)} // …and the old behaviour keeps its own, honest label
+              onPick={() => setSelectOpen(true)}
+              editBusy={editLoading}
+              testId="compat-person2"
+              emptyLabel={config.pickLabel}
+            />
+          ) : (
+            /* #585 ก้อน 3 — the three co-worker slots. ALWAYS `maxCandidates` rows, filled first, so an
+               empty form and a full one render through one code path (Figma draws three rows in both
+               720:25502 and 720:27969).
+               🔴 No `แก้ไข` on these rows, unlike row 1. Three of the four filled rows across the frames
+               carry only the chevron; the fourth (720:28009, the node the ticket names "กดแก้ไขเปลี่ยนคนได้")
+               carries only "แก้ไข" — and by that node's own name BOTH controls mean the same thing here:
+               open the picker for this slot. One affordance is built, the label difference is raised on
+               the ticket rather than guessed at. Editing a friend's DATA stays on the love row, where the
+               ticket put it. */
+            candidates.slots.map((slot) => (
+              <ProfileRow
+                key={slot.index}
+                person={slot.person}
+                loadingDob={slot.person ? candidates.isLoadingDetail(slot.person.id) : false}
+                onChangePerson={() => setSlotOpen(slot.index)}
+                onPick={() => setSlotOpen(slot.index)}
+                testId={`compat-candidate-${slot.index}`}
+                emptyLabel={config.pickLabel}
+              />
+            ))
+          )}
 
           {/* #266 — could not read the friend's current data. Said out loud instead of opening an empty
               form: an empty form looks like the friend HAS no data, and saving it would erase what is
@@ -440,19 +526,19 @@ export function CompatibilityScreen({ config }: { config: CompatibilityConfig })
           <button
             type="button"
             data-testid="compat-view-result"
-            disabled={!c.canViewResult || cooldown.active}
-            aria-disabled={!c.canViewResult || cooldown.active}
-            onClick={onViewResult}
+            disabled={!canProceed || cooldown.active}
+            aria-disabled={!canProceed || cooldown.active}
+            onClick={config.maxCandidates > 1 ? onCompareColleagues : onViewResult}
             className={[
               'w-full rounded-[100px] py-3.5 text-center font-poppins-v3 text-[16px] font-semibold transition-colors',
-              c.canViewResult && !cooldown.active ? 'bg-v3-sapphire text-white' : 'cursor-not-allowed bg-v3-disabled-bg',
+              canProceed && !cooldown.active ? 'bg-v3-sapphire text-white' : 'cursor-not-allowed bg-v3-disabled-bg',
               // The label only became load-bearing during the cooldown — it is the "why" and the "how much
               // longer". White on the #DDDDDD disabled fill measures ~1.4:1, so it was decoration you could
               // squint at; as information it has to be readable. v3-text-body on that fill is ~6.3:1.
               // (The other disabled state, "no friend chosen yet", keeps the old white — its label carries
               // nothing the user needs to read. That low contrast predates this ticket; reported, not
               // changed here, because it is a different reason for a different screen state.)
-              cooldown.active ? 'text-v3-text-body' : !c.canViewResult ? 'text-white' : '',
+              cooldown.active ? 'text-v3-text-body' : !canProceed ? 'text-white' : '',
             ].join(' ')}
           >
             {cooldown.active && !quotaSpent ? `รออีก ${cooldown.secondsLeft} วินาที` : 'ดูผลลัพธ์เลย'}
@@ -509,6 +595,24 @@ export function CompatibilityScreen({ config }: { config: CompatibilityConfig })
           friendQuota={quota.friend}
         />
       )}
+      {/* #585 ก้อน 3 — the SAME picker, opened by one of the three slots and handing the friend back to
+          that slot. Figma 720:25549 draws this list as an accordion INSIDE the form rather than a modal;
+          the chrome is deliberately still the v1 modal in this commit so the slots and the picker are two
+          reviewable changes instead of one. Named on the ticket, not left to be discovered.
+          🔴 Picking someone who already holds another slot MOVES them (setCandidateAt), it does not
+          duplicate them — nothing in 720:25549 marks a person as already chosen, so the screen cannot rely
+          on the user seeing it. */}
+      {slotOpen !== null && (
+        <CompatSelectFriendModal
+          title={config.pickLabel}
+          onClose={() => setSlotOpen(null)}
+          onSelect={(input) => { candidates.pickAt(slotOpen, input); setSlotOpen(null) }}
+          onAddNew={() => { setSlotOpen(null); setAddOpen(true) }}
+          // #264 — the friend allowance, shown where the decision to spend one is made. Both indicators
+          // read the SAME single fetch; two independent reads could disagree on screen at the same moment.
+          friendQuota={quota.friend}
+        />
+      )}
       {/* #266 — same sheet, edit mode: identical fields, so a second screen would only be a copy of the
           date/gender/time controls waiting to drift out of step with this one. */}
       {editForm && c.person2 && (
@@ -540,6 +644,17 @@ export function CompatibilityScreen({ config }: { config: CompatibilityConfig })
             // #264 — this is the one change that spends quota WITHOUT leaving the screen, so mount-time
             // loading cannot cover it: refetch or the next open shows a count that is one too generous.
             if (res.ok) quota.refetch()
+            // #585 ก้อน 3 — a friend created from the THREE-SLOT screen has to land in a slot. createFriend
+            // makes them `person2` (useCompatibility), and this screen does not render person2 at all when
+            // maxCandidates > 1 ⇒ without this the sheet would close on success and the new friend would be
+            // nowhere on screen: worse than the bug #570 fixed, because there the row was at least there.
+            // The SAME pure mapper the hook uses builds the input, so the two paths cannot describe the new
+            // friend differently. append() is a no-op when all three slots are taken, which is the honest
+            // outcome — the cap is the engine's.
+            if (res.ok && config.maxCandidates > 1) {
+              const input = createdFriendToSelectInput(res.friend as CreatedFriendRow, form.name)
+              if (input) candidates.append(input)
+            }
             // #570 — no c.selectFriend here ON PURPOSE. createFriend already made the new friend person2
             // (useCompatibility.ts, and `res.selected` reports it), so selecting again from this side would
             // be a second placement path racing the first. The sheet closes itself on res.ok and the row is
