@@ -9,12 +9,19 @@
 // The copies are deliberate and stay: `bazi-work-client` reads `process.env` at module scope and lives in
 // the server lane. What was missing is something that fails when they disagree.
 //
-// ⚠️ WHAT THIS CANNOT SEE, said plainly so it is not mistaken for more than it is. All three numbers are
-// mirrors of ONE upstream value — the engine's own cap at bazi-sft-dataset
-// `src/app/api/bazi/work/route.ts:13` (branch `pdf-dev`), which lives in a different repository this
-// suite cannot read. An agreement invariant over copies of one source can only catch the copies drifting
-// apart; the day the ENGINE raises its cap, all three stay equal, this stays green, and every one of them
-// is wrong together. That check would have to run against the other repo, and it does not exist.
+// 🔴 THE LITERAL 3 IN THE ASSERTION IS PINNED ON PURPOSE — DO NOT TIDY IT INTO `expect(SCREEN).toBe(SERVER)`.
+// That edit looks like it preserves the intent and does not: an agreement-only assertion goes GREEN when
+// all three copies are moved together, which is exactly what a well-meaning "raise the cap" change looks
+// like. With the literal pinned, moving all three still reddens, and whoever raises it has to come here
+// and say so. Fired both ways: one copy moved → RED (the failure names which one), all three moved → RED.
+//
+// ⚠️ WHAT THIS CANNOT SEE, and the earlier version of this note described the test as narrower than it is
+// (ตู๋ caught that reviewing mootech-fe#589 — the note claimed agreement-only while the code also pinned
+// the number). The real blind spot is UPSTREAM, not local: all three are mirrors of ONE value, the
+// engine's own cap at bazi-sft-dataset `src/app/api/bazi/work/route.ts:13` (branch `pdf-dev`), in a
+// repository this suite cannot read. The day the ENGINE raises its cap and we do not follow, all three
+// stay 3, all three still agree, this stays green — and every one of them is wrong together. Catching
+// that needs a check that runs against the other repo, and there is none.
 import { describe, expect, it } from 'vitest'
 import { MAX_CANDIDATES as SCREEN_CAP } from '@/features/v2-service/colleague-candidates'
 import { MAX_CANDIDATES as SERVER_CAP } from '@/lib/matching/bazi-work-client'
