@@ -1,4 +1,5 @@
 import { chromium } from 'playwright'
+import { evidenceDir } from './evidence-dir.mjs'
 const BASE='http://localhost:3210'
 const ENTRIES=[{rank:1,slot:0,person:{slot:0,friendId:'f-0',name:'กัสสรนาดี',surname:'',pictureUrl:'',timeKnown:true},rankScore:95,grade:'A',ratingText:'เข้ากันได้ดีมาก',roles:[{perspective:'ตัวเรา → เจ้านาย',stageName:'เจ๊าะ',narrative:'ก '.repeat(40)},{perspective:'ลูกน้อง → ตัวเรา',stageName:'เจ๊าะ',narrative:'ข '.repeat(40)},{perspective:'หุ้นส่วน/เพื่อนร่วมงาน',stageName:'เจ๊าะ',narrative:'ค '.repeat(40)}],rolesComplete:true,rolesMissing:0,rankFromEngine:true}]
 const b=await chromium.launch()
@@ -24,5 +25,5 @@ const m=await p.evaluate(()=>{
     coveredByBar: bars.some(e=>{const b=e.getBoundingClientRect();return lr&&lr.bottom>b.top&&lr.top<b.bottom})
   }})
 console.log(JSON.stringify(m,null,1))
-await p.screenshot({path:'/tmp/eye-585/viewport-bottom-393.png',fullPage:false})
+await p.screenshot({path:evidenceDir('585-work-result')+'/viewport-bottom-393.png',fullPage:false})
 await b.close()

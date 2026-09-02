@@ -5,11 +5,12 @@
 // (pages/api/v2/matching/work/[id].ts:85-92) and the role strings are the engine's literals
 // (bazi-sft-dataset src/lib/bazi/pair-matching.ts:191-193, branch pdf-dev).
 import { chromium } from 'playwright'
-import { mkdirSync } from 'node:fs'
+import { evidenceDir } from './evidence-dir.mjs'
 
 const BASE = 'http://localhost:3210'
-const OUT = process.env.OUT || '/tmp/eye-585'
-mkdirSync(OUT, { recursive: true })
+// the evidence root is a VALUE, imported — harness/evidence-dir.mjs exists because six harnesses that
+// spelled the path themselves put 9.91 MB of PNGs into a PR that .gitignore had no way to reach.
+const OUT = evidenceDir('585-work-result')
 
 const BOSS = { perspective: 'ตัวเรา → เจ้านาย', stageName: 'เจ๊าะ', narrative: 'ตัวเราทํางานร่วมกับหัวหน้า เจ้าของ ด้วยความยากลําบาก แต่ได้รับความไว้วางใจในระยะยาว' }
 const SUB = { perspective: 'ลูกน้อง → ตัวเรา', stageName: 'เจ๊าะ', narrative: 'ลูกน้องคนนี้ทำงานเร็วแต่ข้ามขั้นตอน ต้องวางกรอบให้ชัดตั้งแต่ต้น ไม่งั้นจะสร้างงานซ่อมตามหลัง' }
