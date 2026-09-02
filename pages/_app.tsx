@@ -4,6 +4,7 @@ import { SessionProvider } from "next-auth/react";
 import type { AppProps } from "next/app";
 import { CookiesProvider } from "react-cookie";
 import IdentitySelfHeal from "@/components/identity-self-heal";
+import AppErrorBoundary from "@/components/app-error-boundary";
 import Script from "next/script";
 import Head from "next/head";
 import { useEffect } from "react";
@@ -47,7 +48,11 @@ export default function App({ Component, pageProps: { session, ...pageProps } }:
               recovers a missing MEMBER_ID on deep-link entry so auth-gated pages
               don't hang on ScreenLoading. Renders null; runs before the page. */}
           <IdentitySelfHeal />
-          <Component {...pageProps} />
+          {/* #399 — a single render throw used to blank the whole app. The boundary keeps the
+              rest of the page recoverable (reload / home) and still logs the trace. */}
+          <AppErrorBoundary>
+            <Component {...pageProps} />
+          </AppErrorBoundary>
         </SessionProvider>
       </CookiesProvider>
     </>
