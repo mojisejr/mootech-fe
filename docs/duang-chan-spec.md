@@ -35,12 +35,37 @@ Read 2026-09-02 via browser at 33–101%. This is the **my-destiny premium hub**
 - ยังไม่ได้ build — เป็นงานหลัก Day 2 (route ใหม่ เช่น `/v2/destiny` แทน /my-destiny v1)
 - สิ่งที่ต้องยืนยันตอน build: ชื่อ 3 แถบคะแนน (อ่านไม่คลีย์ที่ 77%), ข้อความในการ์ดย่อย ธาตุสมดุล, ตัวเลข/ปีบน Life Path
 
-## ASSETS ที่ต้อง export จาก Figma (สำหรับ build นี้)
-ตอนนี้ใช้ตัวแทน: icon domain = emoji (💼💰🤝📚) · BG = CSS gradient+radial clouds · มาสคอต hero = engine mascot ตาม dayGanzhi
-1. icon แถบคะแนน ×3 (ใน FIXED — การ์ดน้ำเงิน แถวคะแนน) → `public/images/v2/destiny/ic-domain-{1..3}.png` @2x
-2. มาสคอต 5 ธาตุ (SCROLLS → ธาตุของคุณ — ราตู้ไม้/ราทุจั่งไฟ/ราชูเป้ดิน/ราชินโลหะ/ราชัน้ำน้ำ) → `public/images/v2/destiny/el-{wood,fire,earth,metal,water}.png` @2x
-3. BG01/BG04 (image fills ของเฟรม) — ใช้ CSS จำลองแล้ว ถ้าได้ไฟล์จริงจะสวยกว่า
-4. art การ์ดน้ำเงิน (มาสคอตกลาง + กรอบ) — ตอนนี้ใช้ mascot จาก engine
+## ASSETS ที่ต้อง export จาก Figma (สำหรับ build นี้) — ✅ เสร็จแล้ว 2026-09-02
 
-วิธี export เร็วสุด (designer 1 คลิก/ชิ้น): เลือก layer → แผง Export → PNG @2x
-(ทางเลือกอัตโนมัติ: restart session เพื่อโหลด Figma MCP tools แล้วใช้ get_image ตาม node-id)
+**แหล่งจริง = Google Drive "00_Mumate Character" ของ designer (baifern_itangle)** ไม่ใช่ Figma export
+(Drive ส่งมาเป็นไฟล์ master คุณภาพสูงกว่า) ไฟล์ใน `public/images/v2/destiny/`:
+
+| ไฟล์ | ที่มา | ขนาด | หมายเหตุ |
+|---|---|---|---|
+| el-wood/fire/earth/metal/water.png | Drive "ตัวละคร 5 ธาตุ" (wood/fire/earth/gold/water.png 1000px) ย่อเหลือ 256px | 256px พื้นโปร่ง | gold = ธาตุทอง/โลหะ → ตั้งชื่อ el-metal ตาม spec เดิม |
+| mascot-card@2x.png | Figma export node "11_จอ-น้ำ 1" @2x (ใน promo-personal-calendar) | 370×512 | ตัวหมายธาตุไม้บนเกาะ — art การ์ดน้ำเงิน (ยังใช้ mascot จาก engine เป็นหลัก, ไฟล์นี้เป็น fallback) |
+| ic-star.png | Drive icon/star.png | 135×136 | ดาวในป้าย "⭐อันดับ" ของแถวคะแนนแรก |
+| vip-crown.png | Drive icon/premium.png | 500×500 | มงกุฎ VIP (ใช้ทำ VIP gate 🔒) |
+| mate-ai@2x.png | Figma export instance "mascot" (Mate AI badge) @2x | 147×122 | มาสคอตนกฮูกปุ่ม Mate AI |
+| bg-destiny.jpg / bg-clouds.jpg | Drive BG/IMG_4274 / IMG_4272 ย่อ 800px→JPEG | 800×1108 | ฉากหลังท้องฟ้า (4274=ฟ้าฟองอากาศ, 4272=เมฆม่วง); ชุดเต็ม 50 ไฟล์อยู่ Downloads/mumate-assets/bg |
+| (staged) Card 58/59/60.jpg | Drive "Mascot Mumate" (การ์ดตัวละคร) | ~200KB JPEG | การ์ดตัวละครหมู/หมาย/ไก่ — รอใช้งานหน้า ร้านค้า/คอลเลกชัน |
+| (staged) fire.png 3MB | Drive icon/Fire.png | เต็ม | เวอร์ชันความละเอียดสูง |
+
+ยังขาดจาก design: glyph 💰 (สกิลเรียกทรัพย์) กับ 👥 (สกิลสัมพันธ์) ใน chip ขาว — ไม่มีใน Drive
+icon folder และไม่พบเป็น text/asset ใน Figma → ใช้ emoji ต่อไปก่อน รอ designer
+
+## COPY ที่ยืนยันแล้ว (จาก Find/zoom 2026-09-02)
+- แถบคะแนน: **สกิลเรียกทรัพย์** (การเงิน, 95% A, ป้าย ⭐อันดับ) · **สกิลสัมพันธ์** (เพื่อน, 55% C+) ·
+  แถวกลางอ่านไม่คลีย์ ("ตัวกิ๊บ"?) ใช้ป้าย engine ต่อ — รอ designer
+- ป้ายแชร์: **"แชร์ดวงวันนี้ รับ +10 QI"** (เดิมโค้ดเขียน "แชร์สะสมวันนี้" — แก้แล้ว)
+- คำอธิบายธาตุทอง (text layer จริง): "เป็นสายแฟร์สุด ๆ ชอบความยุติธรรม กล้าตัดสินใจ ซื่อสัตย์ตรงไปตรงมา
+  มีเหตุผล ชอบให้ทุกอย่าง "ชัด" ไม่ชอบจุกจิก"
+- คำอธิบายธาตุอื่น ๆ + ชื่อมาสคอตแถวธาตุ (ราตู้/ราถุง/ราฮุโพ/ราคติน/ราน้ำ) **ไม่มีเป็น text layer**
+  (outline เวกเตอร์ทั้งชุด — ค้น "รา"/"ตู้"/"สัมพันธ์" All pages ทั้ง final+V3 ไม่เจอ) → ทางเดียวคือ
+  designer ให้สตริง หรือใช้ data จาก engine ต่อไป
+
+## โครงสร้างเฟรม (สรุปจาก layer tree 2026-09-02)
+ดวงฉัน(55349-3070) → FIXED(Frame 2147223879 → F880: แชร์ผลดวงสมพงศ์+Navbar) · SCROLLS(Frame 2 →
+F833 → F834 → F840 → F842 → F843=navbar-in-scroll + mindful-moments-section → promo-personal-calendar
+(F872 → [art 11_จอ-น้ำ + F871 → profile-row] + Group 1 mascots) + Frame×4 (ส่วน 8 ด้าน/ธาตุ/สมดุล/life path)
++ what-next + referral-banner) · BG01 1

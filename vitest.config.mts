@@ -147,6 +147,8 @@ export default defineConfig({
       'scripts/account-screen-mount.test.tsx', // #365 — จอประกอบจริง: ประวัติล้มแล้วต้องไม่พูดว่า 'ยังไม่มีรายการ' (ตู๋ R1/R2)
       'scripts/destiny-screen-mount.test.tsx', // ดวงฉัน — mount จอ /v2/destiny ตรวจ element ครบตาม duang-chan-spec
       'scripts/account-screen.test.tsx', // #365 — จอสิทธิ์ของฉัน: ป้ายพาไป · planFor · ตัวกรอง APPROVED · วันที่ พ.ศ.
+      'scripts/vip-gate.test.tsx', // VipGate — template ล็อกฟีเจอร์ 🔒 3 สถานะ (paid/free/undetermined) ตามมีตติ้งทีม
+      'scripts/delete-account-screen.test.tsx', // ลบบัญชี — ปุ่มกันตัวเอง + 501 โชว์ตรงไปตรงมา (ขาหลังยังไม่มี)
       'scripts/vitest-include-drift.test.ts',
       'scripts/calendar-refusal-reaches-screen.test.tsx',
       'scripts/calendar-month-span-unconditional.test.tsx', // #358 Phase 4 — the span gate has no flag in front of it

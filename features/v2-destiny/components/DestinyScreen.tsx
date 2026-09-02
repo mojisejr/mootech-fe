@@ -46,11 +46,13 @@ type DestinyData = {
   } | null
 }
 
+// ป้ายตามดีไซน์ Figma: สกิลเรียกทรัพย์ (การเงิน) · สกิลสัมพันธ์ (เพื่อน) — แถวที่สองในดีไซน์
+// อ่านได้ไม่คลีย์ ("ตัวกิ๊บ") จึงยังใช้ป้าย engine ของ career/learning (ดู docs/duang-chan-spec.md)
 const DOMAIN_TH: Record<string, string> = {
   career: "การงาน",
   learning: "การเรียนรู้",
-  friends: "เพื่อน",
-  wealth: "การเงิน",
+  friends: "สกิลสัมพันธ์",
+  wealth: "สกิลเรียกทรัพย์",
 }
 const ELEMENT_TH: Record<string, string> = {
   wood: "ไม้",
@@ -58,6 +60,14 @@ const ELEMENT_TH: Record<string, string> = {
   earth: "ดิน",
   metal: "ทอง",
   water: "น้ำ",
+}
+// มาสคอต 5 ธาตุจาก designer (Drive "ตัวละคร 5 ธาตุ", 256px พื้นโปร่ง) — manifest ใน duang-chan-spec.md
+const ELEMENT_MASCOT: Record<string, string> = {
+  wood: "/images/v2/destiny/el-wood.png",
+  fire: "/images/v2/destiny/el-fire.png",
+  earth: "/images/v2/destiny/el-earth.png",
+  metal: "/images/v2/destiny/el-metal.png",
+  water: "/images/v2/destiny/el-water.png",
 }
 const PILLAR_LABEL: Record<string, string> = {
   year: "ปี",
@@ -228,9 +238,14 @@ export function DestinyScreen() {
         <>
           {/* FIXED — การ์ดน้ำเงิน: มาสคอต + ชื่อ + 3 แถบคะแนน A/B/C+ */}
           <section className="mx-4 mt-3 overflow-hidden rounded-[20px] bg-v3-sapphire p-5 text-white" data-testid="destiny-hero">
-            {mascotUrl && (
+            {mascotUrl ? (
               <span className="mx-auto block h-[170px] w-[170px] overflow-hidden rounded-[16px] bg-white/10">
                 <Image src={mascotUrl} alt="มาสคอตประจำวันเกิด" width={340} height={340} unoptimized className="h-full w-full object-contain" />
+              </span>
+            ) : (
+              // art การ์ดจากดีไซน์ (Figma "Mumate app_ final") — ใช้เมื่อ engine ไม่ส่งมาสคอต
+              <span className="mx-auto block h-[170px] w-[170px] overflow-hidden rounded-[16px] bg-white/10">
+                <Image src="/images/v2/destiny/mascot-card@2x.png" alt="มาสคอต Mumate" width={340} height={470} unoptimized className="h-full w-full object-cover" />
               </span>
             )}
             <p className="mt-3 text-center text-lg font-black leading-6">
@@ -241,7 +256,7 @@ export function DestinyScreen() {
             </p>
 
             <div className="mt-4 flex flex-col gap-3">
-              {topDomains.map((d) => (
+              {topDomains.map((d, i) => (
                 <div key={d.key} className="flex items-center gap-3">
                   <span className="grid h-9 w-9 flex-none place-items-center rounded-[10px] bg-white/15 text-[16px]">
                     {d.key === "career" ? "💼" : d.key === "wealth" ? "💰" : d.key === "friends" ? "🤝" : "📚"}
@@ -249,10 +264,21 @@ export function DestinyScreen() {
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center justify-between text-[12px] font-medium">
                       <span>{DOMAIN_TH[d.key] ?? d.key}</span>
-                      <span>{Math.round(d.score ?? 0)}%</span>
+                      {i === 0 ? (
+                        // ป้าย "อันดับ" เฉพาะแถวแรก ตามดีไซน์ (สกิลเรียกทรัพย์ 95% A)
+                        <span className="flex items-center gap-1 rounded-full bg-v3-lime px-2 py-[2px] text-[10px] font-black text-v3-sapphire">
+                          <Image src="/images/v2/destiny/ic-star.png" alt="" width={12} height={12} unoptimized />
+                          อันดับ
+                        </span>
+                      ) : (
+                        <span>{Math.round(d.score ?? 0)}%</span>
+                      )}
                     </div>
-                    <div className="mt-1 h-[6px] w-full rounded-full bg-white/20">
-                      <div className="h-[6px] rounded-full bg-v3-lime" style={{ width: `${Math.round(d.score ?? 0)}%` }} />
+                    <div className="mt-1 flex items-center gap-1">
+                      <div className="h-[6px] flex-1 rounded-full bg-white/20">
+                        <div className="h-[6px] rounded-full bg-v3-lime" style={{ width: `${Math.round(d.score ?? 0)}%` }} />
+                      </div>
+                      {i === 0 && <span className="text-[11px] text-white/80">{Math.round(d.score ?? 0)}%</span>}
                     </div>
                   </div>
                   <span className="grid h-7 w-9 flex-none place-items-center rounded-full bg-emerald-400 text-[12px] font-black text-emerald-950">
@@ -270,7 +296,7 @@ export function DestinyScreen() {
               data-testid="destiny-share"
               className="flex h-[56px] min-w-0 flex-1 items-center justify-center gap-2 rounded-full bg-white text-[13px] font-bold text-v3-navy v3-shadow-card transition active:scale-[0.99]"
             >
-              <span aria-hidden>🪙</span> {shareState === "done" ? "รับ +10 QI แล้ว 🎉" : "แชร์สะสมวันนี้ รับ +10 QI"}
+              <span aria-hidden>🪙</span> {shareState === "done" ? "รับ +10 QI แล้ว 🎉" : "แชร์ดวงวันนี้ รับ +10 QI"}
             </button>
             <Link
               href="/v2/chat"
@@ -378,6 +404,9 @@ export function DestinyScreen() {
                 <div className="mt-3 grid grid-cols-5 gap-2">
                   {Object.entries(analysis.totalCounts).map(([k, count]) => (
                     <div key={k} className="flex flex-col items-center rounded-[12px] border border-v3-border-card py-2">
+                      {ELEMENT_MASCOT[k] && (
+                        <Image src={ELEMENT_MASCOT[k]} alt="" width={40} height={40} unoptimized className="mb-1 h-10 w-10 object-contain" />
+                      )}
                       <span className="text-[11px] text-v3-text-muted">{ELEMENT_TH[k] ?? k}</span>
                       <span className="text-[15px] font-bold text-v3-navy">{count}</span>
                     </div>
@@ -443,7 +472,7 @@ export function DestinyScreen() {
                 </Link>
               ))}
               <p className="mt-2 text-[11px] leading-4 text-v3-text-muted">
-                TODO(figma-copy): ชื่อบทต้องมาจากรายการบทจริงของ engine — ยืนยันกับ design ตอนทำระบบ QI (Day 3)
+                ชื่อบทจากรายการจริงของ engine (/api/reading/*) แล้วผูกยอดผ่าน /api/qi/spend ตอนทำระบบ QI (Day 3)
               </p>
             </section>
 

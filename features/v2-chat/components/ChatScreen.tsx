@@ -11,8 +11,10 @@
 //   composer: 🎤 mic (Web Speech th-TH) · rounded input "พิมพ์ถามมา..." · sapphire send circle
 //   legal   : 2-line disclaimer — entertainment only, not medical advice
 //
-// TODO(figma-copy): the greeting/chips/link strings are transcribed from a 101% zoom — playful
-// persona-speak is hard to read at that size. Swap in the designer's exact strings when exported.
+// figma-copy (ตรวจแล้ว 2026-09-02): ค้น "มิวมาแล้ว"/"ดวงวันนี้" แบบ All pages ทั้งไฟล์ final และ
+// V3 — greeting/chips ไม่มีอยู่เป็น text layer ใน design (ถูก outline เป็นเวกเตอร์) จึงคง
+// best-effort transcription ด้านล่างไว้ รอ designer ยืนยันสตริงจริง (ประเด็นเดียวกับป้ายธาตุ
+// ใน duang-chan-spec.md)
 import Link from "next/link"
 import Image from "next/image"
 import { useEffect, useMemo, useRef, useState } from "react"
@@ -23,7 +25,7 @@ import { SHOP_HREF } from "@/features/v2-shop/upgrade-cta"
 const GREETING =
   "สวัสดีจ้าา~ มิวมาแล้วจ้าา~ มิวอ่านดวงของคุณมาแล้วนะะ มีอะไรสงสัยบอกมาได้เลยย ถามให้ปังในสิ่งที่สงสัยเลย มิวเองงค้า 💜"
 
-// TODO(figma-copy): exact strings off the node — best-effort transcription, confirm with design.
+// figma-copy (ตรวจแล้ว 2026-09-02): ไม่พบเป็น text layer ใน final/V3 — รอ designer ยืนยัน
 const STARTER_CHIPS = [
   { label: "ดวงวันนี้เป็นงัย 🌟", question: "ดวงวันนี้ของฉันเป็นอย่างไรบ้าง?" },
   { label: "ความสมพงษ์ 💖", question: "เรื่องความรักและคู่ครองที่เหมาะกับฉันเป็นแบบไหน?" },

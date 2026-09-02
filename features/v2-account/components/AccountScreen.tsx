@@ -158,6 +158,40 @@ export function AccountScreen() {
           </p>
         </Link>
 
+        {/* ตั้งค่าและความเป็นส่วนตัว — มีตติ้งทีม 2026-09-02 (team.mp4): แก้วันเกิด 1 ครั้งฟรี
+            (ครั้งถัดไปเสียเงิน — การเก็บสถานะ "ใช้สิทธิ์แล้ว" ต้องมีขาหลัง จึงโชว์เงื่อนไขไว้ตรงนี้ก่อน)
+            · PDPA/นโยบาย · ลบบัญชี (พัก 30 วัน) */}
+        <section data-testid="account-settings" className={`${CARD} font-ibm`}>
+          <p className="text-base font-bold text-v3-navy">ตั้งค่าและความเป็นส่วนตัว</p>
+          <Link href="/v2/register" data-testid="account-edit-birth" className="flex items-center justify-between gap-2">
+            <span>
+              <span className="block text-sm font-bold text-v3-navy">แก้วันเกิด</span>
+              <span className="block text-[12px] leading-4 text-v3-text-body">ฟรี 1 ครั้ง — ครั้งถัดไปมีค่าใช้จ่าย เพราะดวงเปลี่ยนทั้งหมด</span>
+            </span>
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden className="flex-none text-v3-text-muted">
+              <path d="m6 3.5 4.5 4.5L6 12.5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+          </Link>
+          <Link href="/privacy/policy" data-testid="account-privacy" className="flex items-center justify-between gap-2">
+            <span>
+              <span className="block text-sm font-bold text-v3-navy">นโยบายความเป็นส่วนตัว (PDPA)</span>
+              <span className="block text-[12px] leading-4 text-v3-text-body">ข้อมูลที่เราเก็บ วิธีใช้ และการถอนความยินยอม</span>
+            </span>
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden className="flex-none text-v3-text-muted">
+              <path d="m6 3.5 4.5 4.5L6 12.5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+          </Link>
+          <Link href="/v2/settings/delete-account" data-testid="account-delete-account" className="flex items-center justify-between gap-2">
+            <span>
+              <span className="block text-sm font-bold text-v3-pumpkin">ลบบัญชี</span>
+              <span className="block text-[12px] leading-4 text-v3-text-body">พักบัญชี 30 วัน ก่อนลบถาวร — เปลี่ยนใจได้ใน 30 วันนี้</span>
+            </span>
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden className="flex-none text-v3-text-muted">
+              <path d="m6 3.5 4.5 4.5L6 12.5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+          </Link>
+        </section>
+
         <HistoryCard state={historyState({ done: historyDone, errored: historyErrored, rows })} onRetry={() => setAttempt((n) => n + 1)} />
 
         <section data-testid="account-footer-ask" className="mt-8 flex items-center gap-4 rounded-3xl bg-white/70 px-6 py-5">

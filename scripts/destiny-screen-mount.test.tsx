@@ -103,7 +103,7 @@ describe("DestinyScreen (ดวงฉัน, node 55349-3070) — element comple
     expect(screen.getByText("ดวงของคุณ ธาตุไม้")).toBeTruthy()
     expect(screen.getByText("การงาน")).toBeTruthy()
     expect(screen.getByText("การเรียนรู้")).toBeTruthy()
-    expect(screen.getByText("เพื่อน")).toBeTruthy()
+    expect(screen.getByText("สกิลสัมพันธ์")).toBeTruthy() // ป้าย design-exact (เดิม เพื่อน)
     expect(screen.getByText("A")).toBeTruthy()
     expect(screen.getByText("B")).toBeTruthy()
     expect(screen.getByText("C+")).toBeTruthy()

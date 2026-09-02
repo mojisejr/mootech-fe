@@ -24,7 +24,7 @@
 //   what the pill LOOKS like   not here at all — 0 px² header drift is proven by pixel-diff, not by the DOM.
 import React from 'react'
 import { readFileSync, readdirSync } from 'node:fs'
-import { join } from 'node:path'
+import { join, sep } from 'node:path'
 import { describe, it, expect, vi, afterEach } from 'vitest'
 import { render, screen, cleanup } from '@testing-library/react'
 import { CookiesProvider } from 'react-cookie'
@@ -202,6 +202,8 @@ describe('#384 every screen that renders the shared header passes a membership',
     // screen to pass `tierLink={false}` — the LEVEL badge points here, so here it must not navigate. That
     // second wire has its own tooth in scripts/account-screen.test.tsx (A2b); this list guards `membership=`.
     { rel: 'features/v2-account/components/AccountScreen.tsx', cta: false },
+    // ลบบัญชี (2026-09-02) — คนที่กำลังจะลบบัญชีต้องไม่เจอข้อความขายของ; cta false ตาม notifications/checkout
+    { rel: 'pages/v2/settings/delete-account.tsx', cta: false },
   ] as const
 
   it('every screen in the list passes membership through', () => {
@@ -209,7 +211,7 @@ describe('#384 every screen that renders the shared header passes a membership',
     // silently. Was 7 (#363 checkout) → 8 with #365's /v2/account.
     // 🟠 The prose above/below this block said "six" while the assertion said 7 — the words drifted, the
     // number did not. Names updated to stop counting in two places.
-    expect(SCREENS).toHaveLength(8)
+    expect(SCREENS).toHaveLength(9)
     for (const { rel } of SCREENS) {
       expect(code(rel), `${rel} stopped passing membership`).toMatch(/membership=\{/)
     }
@@ -226,6 +228,7 @@ describe('#384 every screen that renders the shared header passes a membership',
       'pages/v2/shop/checkout.tsx',
       // #365 — จอ "สิทธิ์ของฉัน" already tells a free user they are free and offers ดูแพ็คเกจ in the card.
       'features/v2-account/components/AccountScreen.tsx',
+      'pages/v2/settings/delete-account.tsx',
     ])
     for (const { rel, cta } of SCREENS) {
       const hasFlag = /upgradeCta=\{false\}/.test(code(rel))
@@ -258,7 +261,7 @@ describe('#384 every screen that renders the shared header passes a membership',
     // itself a new call site, so it lands in this set and forces this list — and the wiring list below — to
     // be updated by whoever adds it.
     const sites = walk(root)
-      .map((f) => f.slice(root.length + 1))
+      .map((f) => f.slice(root.length + 1).split(sep).join('/')) // canonical '/' — path.sep differs on Windows
       .filter((f) => /<(AppHeader|HeaderTools|ServiceHeader|DayHeader)\b/.test(code(f)))
       .sort()
     expect(sites).toEqual(
@@ -273,6 +276,7 @@ describe('#384 every screen that renders the shared header passes a membership',
         'pages/v2/calendar.tsx',
         'pages/v2/calendar/[date].tsx', // renders <DayHeader/>
         'pages/v2/calendar/notifications.tsx',
+        'pages/v2/settings/delete-account.tsx', // ลบบัญชี — ใช้ AppHeader + membership (2026-09-02)
         'pages/v2/shop/checkout.tsx', // #363 — the checkout screen, added while this tooth was already in place
         'scripts/header-tier-badge.test.tsx', // this file renders one to assert on it
         'scripts/upgrade-cta-destinations.test.tsx', // #359 asserts the pill is a link

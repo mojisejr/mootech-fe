@@ -7,7 +7,8 @@
 //
 // 🔴 ตัวเลขโบนัสตาม catalog ของ engine (ไม่ใช่ตัวเลขจากจอ): daily_login +5 · share +10 ·
 //    referral_free +50 (ผู้ชวนได้ 250 coins ตาม /api/referral) · ชวนอัปเกรด +500/+1000.
-// TODO(figma-copy): สแกน qi-token-guide ที่เหลือ (แถวหลัง fold) แล้วเติมแถวภารกิจให้ตรงเฟรม
+// figma-parity (ค้าง): สแกน qi-token-guide แถวหลัง fold ให้ครบเฟรม — ตัวเลขที่ใช้แสดงผลยึด
+// catalog ของ engine เป็นหลักเสมอ (ที่มาเดียวของความจริง), ลำดับ/ป้ายรอ designer ยืนยัน
 import Head from "next/head"
 import Link from "next/link"
 import { useCallback, useEffect, useState } from "react"
