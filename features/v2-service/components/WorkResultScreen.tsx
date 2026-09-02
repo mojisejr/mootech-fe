@@ -25,7 +25,8 @@ import { TopBarAvatar } from '@/features/v2-shell/components/TopBarAvatar'
 import { LoadingScreen } from '@/features/v2-shell/components/LoadingScreen'
 import { gradeTier, TIER_COLOR, TIER_INK, pctWidth } from '../compat-result-parts'
 import { useWorkResult } from '../hooks/useWorkResult'
-import type { WorkEntry } from '../work-comparison'
+import type { WorkEntry, WorkRole } from '../work-comparison'
+import { orderRoles } from '../work-role-order'
 
 function BackChevron() {
   return (
@@ -117,19 +118,53 @@ function RankedRow({ entry }: { entry: WorkEntry }) {
     >
       <span className="relative shrink-0">
         <Avatar entry={entry} size={48} />
-        {/* the rank badge sits ON the avatar in the frame; it reads the engine's ranking, never the slot */}
-        <span
-          data-testid={`work-rank-badge-${entry.rank}`}
-          className="absolute -bottom-1 -right-1 grid size-5 place-items-center rounded-full bg-v3-sapphire text-[11px] font-bold text-white"
-        >
-          {entry.rank}
-        </span>
+        {/* 🔴 The badge prints the engine's ranking or it does not print at all. `rankFromEngine` is false
+            for anyone `comparison.ranking` never named: `readRankedCandidates` still shows them (losing a
+            person the user paid for is worse than showing them last) but their position is OURS. A number
+            in the engine's badge over an order we invented is the screen telling a confident lie, which is
+            what ตู๋ caught on mootech-fe#593 — the row stays, the claim goes. */}
+        {entry.rankFromEngine ? (
+          <span
+            data-testid={`work-rank-badge-${entry.rank}`}
+            className="absolute -bottom-1 -right-1 grid size-5 place-items-center rounded-full bg-v3-sapphire text-[11px] font-bold text-white"
+          >
+            {entry.rank}
+          </span>
+        ) : null}
       </span>
       <div className="flex min-w-0 flex-1 flex-col gap-1">
         <p className="truncate text-[15px] font-bold leading-5 text-v3-navy">{displayName(entry)}</p>
         <ScoreRow entry={entry} />
       </div>
     </li>
+  )
+}
+
+/**
+ * one of the three role readings — Figma 720:29221 draws each as an icon, a bold heading and a paragraph.
+ *
+ * 🔴 THE ICON IS LEFT OUT ON PURPOSE, and this comment is the only place that is visible from the code.
+ * The frame's three icons are a briefcase, an office block and a money bag, drawn for its sections
+ * การงาน / ธุรกิจ / การเงิน. ฟีม overruled those headings on 2026-09-01 (`work-comparison.ts:11-15`)
+ * because they name a domain of life while this content names a DIRECTION of a relationship. Keeping the
+ * glyphs would put a money bag above a paragraph about a subordinate. Inventing three new glyphs is a
+ * design decision that deserves the frame and ฟีม, not a guess made inside a chunk about completeness.
+ * ⇒ heading and paragraph now, iconography as its own pass. Same reasoning as the PDF/แชร์ buttons below.
+ */
+function RoleSection({ role, index }: { role: WorkRole; index: number }) {
+  const heading = (role.perspective ?? '').trim()
+  return (
+    <section data-testid={`work-role-${index}`} data-perspective={heading} className="mt-4 border-t border-v3-ghost-white pt-4 first:mt-0 first:border-0 first:pt-0">
+      {/* the heading is the engine's own `perspective` string, verbatim — ฟีม ทาง ก. We do not paraphrase
+          it: every paraphrase is a second place the relationship direction could go wrong. */}
+      <h3 data-testid={`work-role-heading-${index}`} className="text-[15px] font-bold leading-6 text-v3-navy">{heading}</h3>
+      {role.stageName ? (
+        <p data-testid={`work-role-stage-${index}`} className="mt-1 text-[13px] font-bold leading-5 text-v3-sapphire">{role.stageName}</p>
+      ) : null}
+      {role.narrative ? (
+        <p data-testid={`work-role-narrative-${index}`} className="mt-2 whitespace-pre-line text-[15px] leading-[26px] text-v3-text-body">{role.narrative}</p>
+      ) : null}
+    </section>
   )
 }
 
@@ -258,6 +293,14 @@ export function WorkResultScreen({ matchingId }: { matchingId: string }) {
             คำทำนายของคนนี้มาไม่ครบ ขาดอยู่ {open.rolesMissing} จาก 3 มุมมอง
           </p>
         ) : null}
+        {/* the three readings, in a seat order this screen fixes — see work-role-order.ts for why the
+            engine's array order is not it. `key` is the perspective so React does not reuse one role's
+            paragraph under another's heading when the open tab changes. */}
+        <div data-testid="work-roles" className="mt-4">
+          {orderRoles(open.roles).map((r, i) => (
+            <RoleSection key={`${open.rank}:${r.perspective ?? i}`} role={r} index={i + 1} />
+          ))}
+        </div>
       </section>
     </>,
   )

@@ -13,6 +13,18 @@
 //   R3  collapse 404 and 5xx into one message             → the two-failures-differ case RED
 //   R4  drop the rolesComplete branch                     → the missing-roles case RED
 //   R5  render the tab bar from entries[0] only           → the tab-count case RED
+//   R6  render `open.roles` as-is instead of orderRoles()  → 4 role cases RED
+//   R7  heading from the seat index, not the role's own    → skipped-middle + unknown-role RED
+//   R8  print the rank badge unconditionally               → the invented-rank case RED
+//   R9  drop unrecognised roles instead of appending them  → the unknown-role-kept case RED
+//
+// 🔴 THE R7 ROW IS NARROWER THAN IT LOOKS, and the number of red cases is the evidence. R7 is the exact
+// bug the seat order exists to prevent — a heading printed from a position instead of from the role in
+// hand — yet the two cases built on a COMPLETE person stay green under it, because for three roles in
+// seat order the position and the role agree. Only the person whose middle reading the engine skipped
+// separates them. A suite of complete fixtures would have called R7 dead and been wrong.
+// All four were fired at ก้อน 6 (2026-09-02) with the mutated line printed, so each is a mutant that
+// LANDED and was killed, not a mutant that never reached the file.
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, render, screen, waitFor } from '@testing-library/react'
 
@@ -28,11 +40,25 @@ vi.mock('@/constants/api/api-v2-matching', () => ({ V2MatchingWorkGetDetailApi: 
 
 import { WorkResultScreen } from '@/features/v2-service/components/WorkResultScreen'
 
+// 🔴 THE ROLE OBJECTS USED TO BE `[{}, {}, {}]`. Three empty objects satisfy `roles.length === 3` and
+// every ก้อน 5 assertion, so the fixture agreed with the screen while carrying none of the type the
+// screen actually reads. `rankFromEngine` was missing outright, which reads as `false` — under the ก้อน 6
+// badge rule that silently removed all three rank badges and not one case here noticed. Fixture repaired
+// from the source of the real strings, not from what the screen wanted to see:
+// bazi-sft-dataset `src/lib/bazi/pair-matching.ts:191-193` (branch `pdf-dev`).
+const BOSS = { perspective: 'ตัวเรา → เจ้านาย', stageName: 'เจ๊าะ', narrative: 'ตัวเราทํางานร่วมกับหัวหน้า' }
+const SUB = { perspective: 'ลูกน้อง → ตัวเรา', stageName: 'เจ๊าะ', narrative: 'สร้างความเสียหาย สร้างปัญหา' }
+const PARTNER = { perspective: 'หุ้นส่วน/เพื่อนร่วมงาน', stageName: 'เจ๊าะ', narrative: 'หุ้นส่วนที่ก่อความเสียหาย' }
+
 /** rank and slot disagree on purpose — see the header. */
 const ENTRIES = [
-  { rank: 1, slot: 0, person: { slot: 0, friendId: 'f-a', name: 'กัสสรนาดี', surname: '', pictureUrl: '' }, rankScore: 63.33, grade: 'B', ratingText: 'เข้ากันดี', roles: [{}, {}, {}], rolesComplete: true, rolesMissing: 0 },
-  { rank: 2, slot: 2, person: { slot: 2, friendId: 'f-b', name: 'ปินหยก', surname: '', pictureUrl: '' }, rankScore: 51.67, grade: 'C+', ratingText: 'พอไปได้', roles: [{}, {}, {}], rolesComplete: true, rolesMissing: 0 },
-  { rank: 3, slot: 1, person: { slot: 1, friendId: 'f-c', name: 'สมชาย', surname: '', pictureUrl: '' }, rankScore: 18.33, grade: 'F', ratingText: 'ยาก', roles: [{}, {}], rolesComplete: false, rolesMissing: 1 },
+  // 🔴 arrives SHUFFLED (partner, boss, sub). A fixture in seat order cannot tell "we ordered it" from
+  // "it arrived that way", which is the same blindness the header describes for rank vs slot.
+  { rank: 1, slot: 0, person: { slot: 0, friendId: 'f-a', name: 'กัสสรนาดี', surname: '', pictureUrl: '' }, rankScore: 63.33, grade: 'B', ratingText: 'เข้ากันดี', roles: [PARTNER, BOSS, SUB], rolesComplete: true, rolesMissing: 0, rankFromEngine: true },
+  { rank: 2, slot: 2, person: { slot: 2, friendId: 'f-b', name: 'ปินหยก', surname: '', pictureUrl: '' }, rankScore: 51.67, grade: 'C+', ratingText: 'พอไปได้', roles: [BOSS, SUB, PARTNER], rolesComplete: true, rolesMissing: 0, rankFromEngine: true },
+  // the engine skipped the SUBORDINATE reading — the middle seat, so a position-based screen would slide
+  // the partner's paragraph up under the subordinate's heading
+  { rank: 3, slot: 1, person: { slot: 1, friendId: 'f-c', name: 'สมชาย', surname: '', pictureUrl: '' }, rankScore: 18.33, grade: 'F', ratingText: 'ยาก', roles: [PARTNER, BOSS], rolesComplete: false, rolesMissing: 1, rankFromEngine: true },
 ] as never[]
 
 function answerOk(entries: unknown = ENTRIES) {
@@ -136,5 +162,93 @@ describe('#585 ก้อน 5 — the colleague result screen', () => {
     // person comparing screen to frame reads it as an omission and adds two buttons that do nothing.
     expect(screen.queryByText('บันทึก PDF')).toBeNull()
     expect(screen.queryByText('แชร์')).toBeNull()
+  })
+})
+
+describe('#585 ก้อน 6 — สามบทบาทต่อคน', () => {
+  it('สามบทบาทเรียงเป็นลำดับที่จอกำหนด ❌ ไม่ใช่ลำดับที่เอนจินส่งมา', async () => {
+    answerOk()
+    render(<WorkResultScreen matchingId="m-1" />)
+    const box = await screen.findByTestId('work-roles')
+    const sections = Array.from(box.querySelectorAll('section'))
+    // surface size first — "ครบ 3" over an empty box is a pass from measuring nothing
+    expect(sections).toHaveLength(3)
+    // 🔴 the discriminator: entry 1 ARRIVES as partner, boss, sub. Rendering the array as it came would
+    // read หุ้นส่วน, เจ้านาย, ลูกน้อง — a different array from the one asserted here.
+    expect(sections.map((el) => el.getAttribute('data-perspective'))).toEqual([
+      'ตัวเรา → เจ้านาย',
+      'ลูกน้อง → ตัวเรา',
+      'หุ้นส่วน/เพื่อนร่วมงาน',
+    ])
+  })
+
+  it('หัวข้อคือคำของเอนจินตรงตัว และย่อหน้าที่ตามมาเป็นของหัวข้อนั้นจริง', async () => {
+    answerOk()
+    render(<WorkResultScreen matchingId="m-1" />)
+    const box = await screen.findByTestId('work-roles')
+    // assert the PAIRING, not the presence of two correct strings somewhere on the screen: a heading
+    // over the wrong paragraph is the failure this whole seat order exists to prevent, and it passes
+    // any assertion that only asks "does this text appear".
+    const pairs = Array.from(box.querySelectorAll('section')).map((el) => [
+      el.querySelector('h3')?.textContent,
+      el.querySelector('[data-testid^="work-role-narrative-"]')?.textContent,
+    ])
+    expect(pairs).toEqual([
+      ['ตัวเรา → เจ้านาย', 'ตัวเราทํางานร่วมกับหัวหน้า'],
+      ['ลูกน้อง → ตัวเรา', 'สร้างความเสียหาย สร้างปัญหา'],
+      ['หุ้นส่วน/เพื่อนร่วมงาน', 'หุ้นส่วนที่ก่อความเสียหาย'],
+    ])
+  })
+
+  it('บทบาทที่หายไปตรงกลาง ต้องไม่ทำให้ย่อหน้าถัดไปเลื่อนขึ้นมาสวมหัวข้อของมัน', async () => {
+    answerOk()
+    render(<WorkResultScreen matchingId="m-1" />)
+    // สมชาย is rank 3 and the engine skipped his SUBORDINATE reading
+    ;(await screen.findByTestId('work-tab-3')).click()
+    await waitFor(async () => {
+      const box = await screen.findByTestId('work-roles')
+      expect(Array.from(box.querySelectorAll('section')).map((el) => [
+        el.getAttribute('data-perspective'),
+        el.querySelector('[data-testid^="work-role-narrative-"]')?.textContent,
+      ])).toEqual([
+        ['ตัวเรา → เจ้านาย', 'ตัวเราทํางานร่วมกับหัวหน้า'],
+        // 🔴 the partner keeps its OWN heading. Ordering by array position would print
+        // 'ลูกน้อง → ตัวเรา' above this paragraph, and the screen would look entirely normal.
+        ['หุ้นส่วน/เพื่อนร่วมงาน', 'หุ้นส่วนที่ก่อความเสียหาย'],
+      ])
+    })
+    // and the screen still SAYS one is missing — the seat order must not paper over the gap
+    expect(screen.getByTestId('work-roles-incomplete').textContent).toContain('ขาดอยู่ 1')
+  })
+
+  it('บทบาทที่จอไม่รู้จัก ต้องไม่หายไป มันไปต่อท้าย', async () => {
+    // the drift this file cannot prevent: the engine renames or adds a perspective. The cost must be
+    // the ORDER of that section, never its content.
+    const NEW = { perspective: 'ที่ปรึกษา → ตัวเรา', stageName: 'เจ๊าะ', narrative: 'คำของบทบาทใหม่' }
+    answerOk([{ ...(ENTRIES[0] as Record<string, unknown>), roles: [NEW, PARTNER, BOSS, SUB] }])
+    render(<WorkResultScreen matchingId="m-1" />)
+    const box = await screen.findByTestId('work-roles')
+    expect(Array.from(box.querySelectorAll('section')).map((el) => el.getAttribute('data-perspective'))).toEqual([
+      'ตัวเรา → เจ้านาย',
+      'ลูกน้อง → ตัวเรา',
+      'หุ้นส่วน/เพื่อนร่วมงาน',
+      'ที่ปรึกษา → ตัวเรา',
+    ])
+    expect(screen.getByText('คำของบทบาทใหม่')).toBeTruthy()
+  })
+
+  it('ป้ายอันดับพิมพ์เฉพาะอันดับที่มาจากเอนจิน ❌ ไม่พิมพ์ทับอันดับที่เราเติมเอง', async () => {
+    answerOk([
+      { ...(ENTRIES[0] as Record<string, unknown>), rankFromEngine: true },
+      { ...(ENTRIES[1] as Record<string, unknown>), rankFromEngine: false },
+    ])
+    render(<WorkResultScreen matchingId="m-1" />)
+    const list = await screen.findByTestId('work-ranked-list')
+    // both people are still ON the screen — dropping the row would be worse than dropping the badge
+    expect(list.querySelectorAll('li')).toHaveLength(2)
+    expect(screen.getByTestId('work-rank-badge-1').textContent).toBe('1')
+    // 🔴 rank 2's position is ours, so the engine's badge must not appear over it
+    expect(screen.queryByTestId('work-rank-badge-2')).toBeNull()
+    expect(screen.getByTestId('work-ranked-2')).toBeTruthy()
   })
 })
