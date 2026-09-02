@@ -146,6 +146,18 @@ export function AccountScreen() {
           </p>
         </Link>
 
+        {/* ทางเข้า "พลังชี่ของฉัน" — wallet + วิธีสะสม + referral (qi-token-guide) */}
+        <Link
+          href="/v2/qi"
+          data-testid="account-qi-entry"
+          className={`${CARD} font-ibm`}
+        >
+          <p className="text-base font-bold text-v3-navy">🪙 พลังชี่ของฉัน</p>
+          <p className="text-[12px] leading-4 text-v3-text-body">
+            สะสมชี่จากภารกิจรายวัน ชวนเพื่อน และแลกสิทธิ์อ่านดวงเจาะลึก
+          </p>
+        </Link>
+
         <HistoryCard state={historyState({ done: historyDone, errored: historyErrored, rows })} onRetry={() => setAttempt((n) => n + 1)} />
 
         <section data-testid="account-footer-ask" className="mt-8 flex items-center gap-4 rounded-3xl bg-white/70 px-6 py-5">

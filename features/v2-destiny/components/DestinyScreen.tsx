@@ -114,6 +114,7 @@ export function DestinyScreen() {
   const [loading, setLoading] = useState(true)
   const [guard, setGuard] = useState<"not_authenticated" | "profile_incomplete" | null>(null)
   const [showDomains, setShowDomains] = useState(false)
+  const [shareState, setShareState] = useState<"idle" | "done">("idle")
 
   useEffect(() => {
     let alive = true
@@ -161,6 +162,18 @@ export function DestinyScreen() {
       }
     } else if (typeof navigator !== "undefined" && navigator.clipboard) {
       await navigator.clipboard.writeText(payload.url).catch(() => {})
+    }
+    // แชร์สำเร็จ → รับ +10 QI (code "share" จาก engine catalog; capped เองถ้ารับไปแล้ว)
+    try {
+      await fetch("/api/qi-earn", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ code: "share" }),
+      })
+      setShareState("done")
+      window.setTimeout(() => setShareState("idle"), 4000)
+    } catch {
+      // ระบบ QI ล่ม — การแชร์ยังสำเร็จอยู่
     }
   }
 
@@ -257,7 +270,7 @@ export function DestinyScreen() {
               data-testid="destiny-share"
               className="flex h-[56px] min-w-0 flex-1 items-center justify-center gap-2 rounded-full bg-white text-[13px] font-bold text-v3-navy shadow-[0_4px_15px_rgba(26,38,77,0.12)] transition active:scale-[0.99]"
             >
-              <span aria-hidden>🪙</span> แชร์สะสมวันนี้ รับ +10 QI
+              <span aria-hidden>🪙</span> {shareState === "done" ? "รับ +10 QI แล้ว 🎉" : "แชร์สะสมวันนี้ รับ +10 QI"}
             </button>
             <Link
               href="/v2/chat"
