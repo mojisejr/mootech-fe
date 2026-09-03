@@ -5,6 +5,30 @@
 > AccountScreen (#365, ไม่มี design เดิม — ตอนนี้มี design แล้ว) · ลบบัญชี 1 หน้า (70b8d76) ·
 > deep link /invite + ช่องโค้ดบนหน้าสมัคร (4583e68/ca7facc)
 
+## ✅ สถานะ 2026-09-03 — ก้อน 1 + ก้อน 5.1 เชื่อม engine (pdf-dev) เสร็จ
+
+**เชื่อม BFF → engine ครบ 7 เส้น** (engine ยังเป็นที่มาเดียวของความจริง — จอไม่ hardcode ตัวเลข):
+`/api/qi-wallet` (+`?history=` 100) · `/api/qi-earn` · **`/api/qi-spend` (ใหม่)** ·
+**`/api/qi-catalog` (ใหม่)** · **`/api/qi-entitlements` (ใหม่)** · **`/api/missions` (ใหม่)** · `/api/referral`
+
+**หน้าจอใหม่/อัปเดต:**
+- 1.1 ✅ QiScreen รอบใหม่: แถวสะสม/แถวแลกสิทธิ์เรียงตาม catalog engine + ป้าย tier/เครดิตคงเหลือ
+  (figma-parity: `qi-guide - UX v2` ยังรออ่านเฟรมล่าสุด — โครง/ลำดับอาจขยับตาม design)
+- 1.2 ✅ `/v2/qi/missions` บอร์ดภารกิจ (กระจกของ GET /api/missions; ครบเป้า engine จ่ายเอง)
+- 1.3 ✅ `/v2/qi/history` ประวัติเต็ม 100 แถว + แปลง reason เป็นไทย (qi-model.ts)
+- 1.4 ✅ เช็คอินรายวันบน QiScreen — สถานะ "เช็คอินแล้ววันนี้" อ่านจากประวัติเขต Asia/Bangkok
+- 1.5 ✅ ชีต "ยืนยันใช้ N ชี่" + "ชี่ไม่พอ (ขาอีก N)" — 409 จาก engine → ชีตไม่พอ + reload ยอดจริง
+- 1.6 🔴 ซื้อชี่ (แพ็ก 200/500/1,200) — engine ยังไม่มี endpoint เงิน→ชี่ (catalog ไม่มีเส้น buy) รอขาหลัง
+- 5.1 ✅ `/v2/qi/referral` hub เต็ม: โค้ด+คัดลอก+แชร์ LINE (/invite/<code>) + นับเพื่อน + แถวโบนัส + ใช้โค้ด
+
+**ทดสอบ:** เทสต์ใหม่ 26 เคส (qi-model/missions-screen/qi-history-screen/qi-screen/referral-hub)
+· E2E จริงผ่าน dev server: earn(+5/+10) → wallet → spend 200 grant card_use=1 → spend 409 ไม่พอ
+· BFF ไม่มีตัวตน 401 ทุกเส้น · หน้าใหม่ 307 เด้ง gate เหมือนหน้า v2 เดิมทุกประการ
+
+**ค้างรอ (เดิม):** ก้อน 2 (ลบบัญชี 4 ขั้น — UI ล้วนรอ DELETE /user) · ก้อน 3 (3.4 นับสิทธิ์แก้วันเกิด ·
+3.5) · ก้อน 4 · ก้อน 6 states กลาง · 1.6 · figma-parity ทุกเฟรมที่สร้างจากลิสต์ชื่อ (Figma MCP ยังตาย — DCR 403)
+
+
 ## รายการเฟรม design ครบตามที่อ่านได้ (45)
 
 **Profile core:** profile-and-qi-wallet — UX v2 · profile — day one (0 QI) · my-plan ·
