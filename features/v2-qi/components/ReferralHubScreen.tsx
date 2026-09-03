@@ -144,6 +144,20 @@ export function ReferralHubScreen() {
               </p>
             </section>
 
+            {/* เฟรม `share-code — what the friend sees in LINE`: ตัวอย่างแชทที่เพื่อนจะได้รับ —
+                ข้อความตรงกับปุ่มแชร์ด้านบน (shareText เดียวกัน) กัน copy สองที่ไม่ตรงกัน */}
+            <section className={CARD} data-testid="referral-line-preview">
+              <h2 className="text-base font-bold text-v3-navy">สิ่งที่เพื่อนจะเห็นใน LINE</h2>
+              <div className="mt-3 rounded-[18px] rounded-tl-[4px] bg-v3-ghost-white p-3">
+                <p className="text-[13px] leading-5 text-v3-navy" data-testid="referral-line-text">
+                  {referral.code ? shareText() : "…"}
+                </p>
+              </div>
+              <p className="mt-2 text-[11px] leading-4 text-v3-text-muted">
+                เพื่อนกดลิงก์ → เห็นหน้าคำเชิญ → สมัครผ่านโค้ด ระบบนับเป็นการชวนให้อัตโนมัติ
+              </p>
+            </section>
+
             {/* สรุปผลชวน */}
             <section className={CARD} data-testid="referral-stats">
               <div className="flex items-center justify-between">

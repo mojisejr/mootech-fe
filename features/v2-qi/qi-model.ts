@@ -101,6 +101,40 @@ export function checkedInToday(history: WalletHistoryRow[] | undefined, today: s
   )
 }
 
+/** วันที่เช็คอินทั้งหมด (YYYY-MM-DD แบบ Bangkok) จากประวัติ — ใช้วาด strip/streak ของจอเช็คอิน */
+export function checkedInDays(history: WalletHistoryRow[] | undefined): Set<string> {
+  const days = new Set<string>()
+  for (const h of history ?? []) {
+    if (h.reason === "qi:earn:daily_login") days.add(bangkokDay(h.createdAt))
+  }
+  return days
+}
+
+/** วันก่อนหน้า (YYYY-MM-DD แบบ Bangkok) — ใช้ 12:00 UTC ของวันก่อนหน้า = 19:00 ไทย กลางวันเสมอ */
+function dayBefore(day: string): string {
+  const [y, m, d] = day.split("-").map(Number)
+  return bangkokDay(new Date(Date.UTC(y, m - 1, d - 1, 12)))
+}
+
+/** สตรีคเช็คอิน (วันต่อเนื่องนับถอยหลังจากวันอ้างอิง): ยังไม่เช็คอินวันนี้ = สตรีคยังไม่หัก
+ * (นับถอยหลังจาก "เมื่อวาน" ได้ถ้าวันนี้ยังว่าง — สตรีคตายเมื่อข้ามคืนโดยไม่เช็คอิน ไม่ใช่ตอนยังไม่กด) */
+export function checkinStreak(history: WalletHistoryRow[] | undefined, today: string): number {
+  const days = checkedInDays(history)
+  if (!days.has(today)) return streakFrom(days, dayBefore(today))
+  return streakFrom(days, today)
+}
+
+function streakFrom(days: Set<string>, startDay: string): number {
+  let count = 0
+  let cursor = startDay
+  while (days.has(cursor)) {
+    count += 1
+    cursor = dayBefore(cursor)
+    if (count > 366) break // กันวนไม่จบถ้าข้อมูลเพี้ยน
+  }
+  return count
+}
+
 const EARN_LABELS: Record<string, string> = {
   signup: "โบนัสสมัครใหม่",
   daily_login: "เช็คอินรายวัน",

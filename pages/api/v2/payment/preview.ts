@@ -37,7 +37,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   // lib/payment/charge-flow.ts, before any money moves — refusing here as well would only mean a client
   // that skips preview walks straight past the check, which is how a screen-shaped gate becomes no gate.
   // Same function, same answer, one copy of the rule.
-  const purchase = await decidePurchaseFor(who.userId, priced.tierCode, now)
+  // 🔴 QI PACK (buy-qi) อยู่นอก matrix สมาชิก — ซื้อได้ทุก tier, ไม่มี repurchase refusal
+  // (เหตุผลเดียวกับ charge-flow; อนุญาตตรงนี้เพื่อให้จอซื้อชี่รายงานราคาได้ครบไม่โดน 409)
+  const purchase =
+    priced.tierCode === 'QI'
+      ? ({ allow: true } as const)
+      : await decidePurchaseFor(who.userId, priced.tierCode, now)
 
   const expiresAt = new Date(now.getTime() + QUOTE_TTL_MS)
   const quoteId = await insertQuote({

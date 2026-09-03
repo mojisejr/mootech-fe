@@ -139,7 +139,15 @@ export function InsufficientQiSheet({
         >
           ไปทำภารกิจสะสมชี่
         </Link>
-        <button onClick={onClose} className="grid h-11 w-full place-items-center rounded-full border border-v3-border-card text-sm font-bold text-v3-navy">
+        {/* buy-qi (ก้อน 1.6) — ทางเลือกที่สอง: ซื้อแพ็กชี่ (ตามมีตติ้ง: CTA พาคนไม่อยากทำภารกิจไปหน้าจ่าย) */}
+        <Link
+          href="/v2/qi/buy"
+          data-testid="qi-insufficient-buy"
+          className="grid h-11 w-full place-items-center rounded-full border border-v3-border-card text-sm font-bold text-v3-navy"
+        >
+          ซื้อแพ็กชี่
+        </Link>
+        <button onClick={onClose} className="grid h-11 w-full place-items-center rounded-full text-sm font-bold text-v3-text-muted">
           ไว้ก่อน
         </button>
       </div>

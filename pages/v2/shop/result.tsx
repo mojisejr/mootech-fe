@@ -10,6 +10,7 @@ import { v2RedirectIfUnauthed } from '@/lib/v2/gate'
 import { ResultScreen } from '@/features/v2-shop/components/ResultScreen'
 import { RESULT_COPY, resolveResultState, tryAnotherHref, type ResultState } from '@/features/v2-shop/result-state'
 import { useChargeStatus } from '@/features/v2-shop/useChargeStatus'
+import { qiQtyOf } from '@/lib/payment/catalog'
 
 export const getServerSideProps: GetServerSideProps = async (ctx) => {
   ctx.res.setHeader('Cache-Control', 'no-store, must-revalidate')
@@ -34,6 +35,10 @@ export default function V2ResultPage() {
   // only ever read back out as words, so a stranger typing one in can make the page say a different plan
   // name and nothing else. The verdict itself still comes from `state`, which is checked against the union.
   const planName = typeof router.query.plan === 'string' ? router.query.plan : null
+  // buy-qi (ก้อน 1.6) — แพ็กชี่จบที่หน้าชี่ ไม่ใช่หน้าแพ็กเกจ: ปุ่ม done พากลับ /v2/qi และบอกจำนวนชี่
+  // ของแพ็ก (จาก QI_PACK_QTY server-side map — ไม่อ่านจาก URL นอกจากโค้ดแพ็กที่ตรวจแล้ว)
+  const qiQty = qiQtyOf(packageCode)
+  const qiLine = qiQty !== null ? `แพ็กชี่ ${qiQty.toLocaleString('th-TH')} ชี่` : null
   const { status, method, phase, qrDeadline, failureCode, check } = useChargeStatus({ chargeId: charge || null, orderId: order || null })
 
   // Glue only — the rule lives in result-state.ts next to the words it chooses between, so it can be tested
@@ -56,9 +61,11 @@ export default function V2ResultPage() {
         // one) ⇒ send them somewhere that works: the package list.
         onTryAnother={() => router.push(tryAnotherHref(packageCode))}
         planName={planName}
+        successLine={qiLine}
         // ฟีมเคาะ 2026-08-26: a refused purchase lands back on the package list. That falls out of the
         // existing rule — paid:false already goes to /v2/shop — so there is nothing special-cased here.
-        onDone={() => router.push(RESULT_COPY[state].paid ? '/v2' : '/v2/shop')}
+        // buy-qi: paid พากลับ /v2/qi (บ้านของชี่) แทน /v2 เพราะสิ่งที่ซื้อคือชี่ ไม่ใช่สมาชิก
+        onDone={() => router.push(RESULT_COPY[state].paid ? (qiQty !== null ? '/v2/qi' : '/v2') : '/v2/shop')}
       />
     </div>
   )

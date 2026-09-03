@@ -228,11 +228,14 @@ export default defineConfig({
       'scripts/colleague-cap-agreement.test.ts', // #585 — three mirrors of the co-worker cap held equal (ตู๋, review of 589)
       'scripts/work-recent-href.test.ts', // #585 — which route a history card opens; pair vs work are not interchangeable
       'scripts/work-history-union-db.test.ts', // #585 — real pg: กิ่ง work ต้องไม่รับ DISTINCT ON ของเลนคู่
-      'scripts/qi-model.test.ts', // ระบบชี่ (ก้อน 1) — ตัดรอบวันเขตไทย + reason ledger เป็นข้อความไทย
+      'scripts/qi-model.test.ts', // ระบบชี่ (ก้อน 1) — ตัดรอบวันเขตไทย + reason ledger เป็นข้อความไทย + สตรีคเช็คอิน
       'scripts/missions-screen.test.tsx', // ก้อน 1.2 — จอภารกิจเป็นกระจกของ GET /api/missions (error ≠ ข้อมูล 0)
       'scripts/qi-history-screen.test.tsx', // ก้อน 1.3 — ประวัติชี่เต็ม (ล้ม ≠ "ยังไม่มีรายการ" — บทเรียน #365)
       'scripts/qi-screen.test.tsx', // ก้อน 1.4/1.5 — เช็คอิน · แถวสะสมจาก catalog · ชีตใช้ชี่/ชี่ไม่พอ
       'scripts/referral-hub.test.tsx', // ก้อน 5.1 — hub ชวนเพื่อน (ลิงก์ /invite โค้ดจริง + ข้อความตาม engine)
+      'scripts/qi-buy-screen.test.tsx', // ก้อน 1.6 — จอเติมชี่ (ราคาจากแถวจริง · แพ็กปิดขายไม่มีทางเข้า checkout)
+      'scripts/qi-checkin-screen.test.tsx', // เฟรม check-in — states (สตรีคเขตไทย · เช็คอินแล้วปุ่มปิด)
+      'scripts/invite-landing.test.tsx', // เฟรม invite-landing (ยอมรับ → localStorage ก่อน register · โค้ดเน่าพูดตรง)
     ],
   },
   resolve: {

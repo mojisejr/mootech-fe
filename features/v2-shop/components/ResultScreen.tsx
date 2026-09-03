@@ -20,9 +20,11 @@ export type ResultScreenProps = {
   /** #466 — the plan to NAME in a refusal ("คุณเป็นสมาชิก Mumate + อยู่แล้ว"). Absent/unknown ⇒ the table's
    *  tier-less wording, which is still true. Ignored by the other seven states. */
   planName?: string | null
+  /** buy-qi: บรรทัดสิ่งที่ได้รับ ("แพ็กชี่ 200 ชี่") — โชว์เฉพาะสถานะ paid; สถานะอื่น/ไม่ส่ง = ไม่แสดง */
+  successLine?: string | null
 }
 
-export function ResultScreen({ state, onRetrySame, onTryAnother, onDone, planName }: ResultScreenProps) {
+export function ResultScreen({ state, onRetrySame, onTryAnother, onDone, planName, successLine }: ResultScreenProps) {
   // #466 — resultCopyFor returns RESULT_COPY[state] untouched for every state that does not name a plan,
   // so the "one audited table" property this file relies on is unchanged.
   const copy = resultCopyFor(state, planName)
@@ -48,6 +50,12 @@ export function ResultScreen({ state, onRetrySame, onTryAnother, onDone, planNam
       <p data-testid="result-body" className="max-w-sm text-center text-sm leading-[22px] text-v3-text-body">
         {copy.body}
       </p>
+      {/* buy-qi — ชื่อแพ็กที่ซื้อ โชว์เฉพาะเมื่อเงินเข้าแล้วจริง (paid), อย่างอื่นเงียบไว้ก่อน */}
+      {copy.paid && successLine ? (
+        <p data-testid="result-success-line" className="rounded-full bg-v3-lime px-4 py-1 text-[13px] font-black text-v3-navy">
+          {successLine}
+        </p>
+      ) : null}
 
       <div className="flex w-full max-w-sm flex-col gap-2">
         {copy.retry === 'same' && onRetrySame && (

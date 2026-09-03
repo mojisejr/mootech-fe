@@ -184,6 +184,14 @@ export function QiScreen() {
                   </>
                 ) : null}
               </div>
+              {/* buy-qi (ก้อน 1.6) — ทางเข้าเติมชี่จาก hero เสมอ */}
+              <Link
+                href="/v2/qi/buy"
+                data-testid="qi-topup-link"
+                className="mt-3 grid h-10 w-full place-items-center rounded-full bg-white/15 text-[13px] font-bold text-white"
+              >
+                เติมชี่
+              </Link>
               {/* team.mp4 2026-09 — @name โชว์จางๆ ใต้ชื่อ/สถานะเหมือน LINE (ยังไม่ตั้ง = ไม่แสดง) */}
               {displayName ? (
                 <p data-testid="qi-display-name" className="mt-1 text-[12px] leading-4 text-white/60">
@@ -192,14 +200,20 @@ export function QiScreen() {
               ) : null}
             </section>
 
-            {/* เช็คอินรายวัน (frame `check-in — reward moments`; สถานะอ่านจากประวัติวันนี้ — engine cap ให้อยู่แล้ว) */}
+            {/* เช็คอินรายวัน (frame `check-in — reward moments`; สถานะอ่านจากประวัติวันนี้ — engine cap ให้อยู่แล้ว)
+                จอเต็ม /v2/qi/checkin (เฟรม check-in — states): strip 7 วัน + สตรีค */}
             <section className={CARD} data-testid="qi-checkin">
               <div className="flex items-center gap-3">
                 <span className="grid h-10 w-10 flex-none place-items-center rounded-[12px] bg-v3-ghost-white text-[18px]" aria-hidden>
                   📅
                 </span>
                 <div className="min-w-0 flex-1">
-                  <p className="text-[14px] font-bold text-v3-navy">เช็คอินรายวัน</p>
+                  <p className="text-[14px] font-bold text-v3-navy">
+                    เช็คอินรายวัน{" "}
+                    <Link href="/v2/qi/checkin" data-testid="qi-checkin-link" className="text-[12px] font-bold text-v3-cyan">
+                      ดูสถานะ →
+                    </Link>
+                  </p>
                   <p className="text-[11px] leading-4 text-v3-text-muted">กลับมาทุกวัน รับ +5 ชี่</p>
                 </div>
                 <button
