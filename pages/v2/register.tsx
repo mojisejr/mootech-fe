@@ -6,6 +6,7 @@
 // Checkbox) into Lamun's RegisterView shell — styled composition is the designer's lane.
 import type { GetServerSideProps } from 'next'
 import { useRouter } from 'next/router'
+import { useState } from 'react'
 import { v2RedirectIfUnauthed } from '@/lib/v2/gate'
 import { useV2AuthGate } from '@/features/auth/hooks/useV2AuthGate'
 import { AuthLoadingGate } from '@/features/v2-shell/components/AuthLoadingGate'
@@ -13,6 +14,7 @@ import ScreenIdentityStuck from '@/components/screen-identity-stuck'
 import BirthDayInput from '@/components/birthday-input'
 import { RegisterView } from '@/features/auth/components/RegisterView'
 import { useV2ProfileForm } from '@/features/auth/hooks/useV2ProfileForm'
+import { useReferralApply } from '@/features/auth/hooks/use-referral-apply'
 import { Field } from '@/components/ui/input'
 import { Checkbox } from '@/components/ui/checkbox'
 import { PillTabs } from '@/components/ui/pill-tabs'
@@ -30,6 +32,20 @@ export default function V2RegisterPage() {
   // Slice 1 endpoint: after save → /v2 home (slice 2 wires the destiny result).
   const form = useV2ProfileForm(() => router.replace('/v2'))
 
+  // team.mp4 — หน้าสมัครเพิ่มช่อง "โค้ดผู้แนะนำ" (ไม่บังคับ): deep link /invite/MUMATE123 พามาพร้อม
+  // ?ref= แล้วเติมให้อัตโนมัติ; ยิง POST /api/referral **หลัง**บันทึกโปรไฟล์สำเร็จเท่านั้น
+  // (cookie-mumate-id ต้องพร้อม) และโค้ดล้ม ❌ ห้ามพังการสมัคร — ใส่ใหม่ได้ที่ /v2/qi
+  const applyReferral = useReferralApply()
+  const [referral, setReferral] = useState(() => {
+    const q = router.query.ref
+    const v = Array.isArray(q) ? q[0] : q
+    return typeof v === 'string' && /^[A-Za-z0-9]{4,32}$/.test(v) ? v : ''
+  })
+  const onSubmitWithReferral = async () => {
+    await form.onSubmit()
+    if (referral.trim()) await applyReferral(referral)
+  }
+
   // #246 — authed-but-no-MEMBER_ID limbo would spin AuthLoadingGate forever here too. Offer re-login.
   if (identityStuck) return <ScreenIdentityStuck callbackUrl="/v2" />
   if (showLoading || status !== 'authed') return <AuthLoadingGate />
@@ -38,7 +54,7 @@ export default function V2RegisterPage() {
   const timeError = !form.isTimeValid
 
   return (
-    <RegisterView onSubmit={form.onSubmit} submitting={form.submitting} canSubmit={form.canSubmit}>
+    <RegisterView onSubmit={onSubmitWithReferral} submitting={form.submitting} canSubmit={form.canSubmit}>
       <Field
         label="ชื่อ"
         placeholder="ใส่ชื่อของคุณ"
@@ -105,6 +121,13 @@ export default function V2RegisterPage() {
           เวลาเกิดไม่ถูกต้อง (ชั่วโมง 0–23, นาที 0–59)
         </p>
       ) : null}
+
+      <Field
+        label="โค้ดผู้แนะนำ (ไม่บังคับ)"
+        placeholder="เช่น MUMATE123"
+        value={referral}
+        onChange={(e) => setReferral(e.target.value)}
+      />
       {form.error ? (
         <p className="font-ibm text-xs leading-[18px] text-v3-error">{form.error}</p>
       ) : null}

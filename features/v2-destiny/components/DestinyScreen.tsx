@@ -476,9 +476,10 @@ export function DestinyScreen() {
               </p>
             </section>
 
-            {/* การ์ดชวนเพื่อน */}
+            {/* การ์ดชวนเพื่อน — ปลายทางจริงคือจอพลังชี่ (/v2/qi) ที่มีโค้ดแนะนำคัดลอก/ใช้โค้ดครบ
+                (เดิมชี้ coming-soon ทั้งที่ระบบ referral เดินจริงแล้ว) */}
             <Link
-              href="/v2/service/coming-soon?service=%E0%B8%8A%E0%B8%A7%E0%B8%99%E0%B9%80%E0%B8%9E%E0%B8%B7%E0%B9%88%E0%B8%AD%E0%B8%99"
+              href="/v2/qi"
               data-testid="destiny-referral"
               className="flex items-center justify-between rounded-[20px] bg-v3-sapphire/10 p-4"
             >

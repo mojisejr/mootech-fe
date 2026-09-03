@@ -35,6 +35,7 @@ import { SaveSheet } from '@/features/v2-calendar/components/day-detail/SaveShee
 import { InstallGuideSheet, type InstallGuideVariant } from '@/features/v2-calendar/components/InstallGuideSheet'
 import { notifyStateFrom } from '@/features/v2-calendar/notify-state'
 import { remindersLocked, dayReminderCta, yamReminderStatus } from '@/features/v2-calendar/tier-lock'
+import { useNowMinute } from '@/features/v2-calendar/hooks/use-now-minute'
 import { announceComingSoon, ComingSoonNotice } from '@/features/v2-shell/components/ComingSoon'
 import { usePwaCapability } from '@/lib/pwa/capability'
 import { requestPushSubscription } from '@/lib/pwa/subscribe'
@@ -132,10 +133,10 @@ export default function V2CalendarDayPage({ teamPreview }: { teamPreview: boolea
   // #326 — free/unknown ⇒ ปุ่มบอกว่าเป็นของสมาชิก และ **ไม่มีเส้นทางไปถึง draft.open** ⇒ ไม่มี POST
   // #343 — "ยามไหนของวันนี้ถูกเพิ่มแล้ว" (ไม่ใช่แค่ "วันนี้มีไหม") ⇒ ป้อนให้ทั้งปุ่มรายยาม ชีท และปุ่มแถบล่าง
   const addedYamIds = reminders.addedYamIdsFor(date)
-  // 🔴 `now` อ่านนาฬิกาจริงตอน render — จงใจให้อยู่ที่นี่ที่เดียว และ**ไม่มีฟันตัวไหนยิงผ่านเพจเพื่อทดสอบเวลา**
-  // ฟันของ "เลยเวลา" ยิงที่ `yamReminderStatus`/`dayReminderCta` ตรงๆ พร้อม `now` ที่ป้อนเอง — ฟันที่พึ่ง
-  // นาฬิกาผนังจะเขียว/แดงตามเวลาที่รัน ไม่ใช่ตามโค้ด
-  const now = new Date()
+  // 🔴 `now` อ่านจาก useNowMinute (#586): เดิมเป็น `new Date()` ตอน render เดียว — หน้าที่เปิดค้าง
+  // ข้ามช่วงเวลาแสดงสถานะปุ่มยามเก่า (ยามที่เพิ่งเลยเวลายังโชว์ว่ากดได้) hook อ่านใหม่ทุก 30 วิ +
+  // ตอนกลับมาดูแท็บ ฟันของ "เลยเวลา" ยังยิงที่ `yamReminderStatus`/`dayReminderCta` ด้วย `now` ที่ป้อนเอง
+  const now = useNowMinute()
   const statusFor = (yam: YamSlot) => yamReminderStatus({ yam, date, addedYamIds, now })
   const goToList = () => { void router.push('/v2/calendar/notifications') }
   // #359 — สถานะล็อกของ CTA แถบล่างพาไปหน้าแพ็กเกจ ❌ ไม่ประกาศ 'เร็วๆ นี้' อีกต่อไป

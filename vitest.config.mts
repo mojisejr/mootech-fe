@@ -153,6 +153,7 @@ export default defineConfig({
       'scripts/calendar-cards-mascot.test.tsx', // #555/#535 — การ์ดปฏิทิน×มาสคอต ไม่ครอบภาพ ไม่ทับข้อความ
       'scripts/calendar-day-tap-scroll.test.tsx', // #567 — จิ้มวันแล้วสไลด์ไปการ์ดข้อมูล
       'scripts/mate-ai-button-label.test.tsx', // #568 — ปุ่มเสี่ยวมู่ (ชื่อจอ+aria) identifier คงเดิม
+      'scripts/register-referral.test.tsx', // team.mp4 — ช่องโค้ดผู้แนะนำบนหน้าสมัคร + ยิงหลังบันทึก
       'scripts/vitest-include-drift.test.ts',
       'scripts/calendar-refusal-reaches-screen.test.tsx',
       'scripts/calendar-month-span-unconditional.test.tsx', // #358 Phase 4 — the span gate has no flag in front of it
