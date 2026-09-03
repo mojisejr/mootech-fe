@@ -204,6 +204,8 @@ describe('#384 every screen that renders the shared header passes a membership',
     { rel: 'features/v2-account/components/AccountScreen.tsx', cta: false },
     // ลบบัญชี (2026-09-02) — คนที่กำลังจะลบบัญชีต้องไม่เจอข้อความขายของ; cta false ตาม notifications/checkout
     { rel: 'pages/v2/settings/delete-account.tsx', cta: false },
+    // ตั้งค่า (2026-09-03) — จุดหมายปุ่ม ⚙ หน้าแชท; ไม่ใช่พื้นที่ขาย
+    { rel: 'pages/v2/settings/index.tsx', cta: false },
   ] as const
 
   it('every screen in the list passes membership through', () => {
@@ -211,7 +213,7 @@ describe('#384 every screen that renders the shared header passes a membership',
     // silently. Was 7 (#363 checkout) → 8 with #365's /v2/account.
     // 🟠 The prose above/below this block said "six" while the assertion said 7 — the words drifted, the
     // number did not. Names updated to stop counting in two places.
-    expect(SCREENS).toHaveLength(9)
+    expect(SCREENS).toHaveLength(10)
     for (const { rel } of SCREENS) {
       expect(code(rel), `${rel} stopped passing membership`).toMatch(/membership=\{/)
     }
@@ -229,6 +231,7 @@ describe('#384 every screen that renders the shared header passes a membership',
       // #365 — จอ "สิทธิ์ของฉัน" already tells a free user they are free and offers ดูแพ็คเกจ in the card.
       'features/v2-account/components/AccountScreen.tsx',
       'pages/v2/settings/delete-account.tsx',
+      'pages/v2/settings/index.tsx',
     ])
     for (const { rel, cta } of SCREENS) {
       const hasFlag = /upgradeCta=\{false\}/.test(code(rel))
@@ -277,6 +280,7 @@ describe('#384 every screen that renders the shared header passes a membership',
         'pages/v2/calendar/[date].tsx', // renders <DayHeader/>
         'pages/v2/calendar/notifications.tsx',
         'pages/v2/settings/delete-account.tsx', // ลบบัญชี — ใช้ AppHeader + membership (2026-09-02)
+        'pages/v2/settings/index.tsx', // ตั้งค่า — จุดหมายปุ่ม ⚙ (2026-09-03)
         'pages/v2/shop/checkout.tsx', // #363 — the checkout screen, added while this tooth was already in place
         'scripts/header-tier-badge.test.tsx', // this file renders one to assert on it
         'scripts/upgrade-cta-destinations.test.tsx', // #359 asserts the pill is a link

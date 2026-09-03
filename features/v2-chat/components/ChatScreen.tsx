@@ -50,11 +50,11 @@ function TypingDots() {
 }
 
 export function ChatScreen() {
-  const { turns, busy, guard, send, clear } = useBaziChatStream()
+  const { turns, busy, guard, send } = useBaziChatStream()
   const [draft, setDraft] = useState("")
   const [showAllQuestions, setShowAllQuestions] = useState(false)
-  const [confirmClear, setConfirmClear] = useState(false)
   const [speechSupported, setSpeechSupported] = useState(false)
+  const [voiceHint, setVoiceHint] = useState<string | null>(null)
   const [listening, setListening] = useState(false)
   const recognitionRef = useRef<any>(null)
   const bottomRef = useRef<HTMLDivElement | null>(null)
@@ -94,14 +94,24 @@ export function ChatScreen() {
     }
     const rec = new Ctor()
     rec.lang = "th-TH"
-    rec.interimResults = false
+    // แสดงคำที่พูด "สด" ระหว่างพูด (interim) — ไม่งั้นผู้ใช้พูดแล้วเหมือนกดไม่มีอะไรเกิดขึ้น
+    rec.interimResults = true
     rec.maxAlternatives = 1
     rec.onresult = (e: any) => {
-      const said: string = e?.results?.[0]?.[0]?.transcript ?? ""
-      if (said) setDraft((prev) => (prev ? `${prev} ${said}` : said))
+      let text = ""
+      for (let i = e.resultIndex; i < e.results.length; i++) {
+        text += e.results[i][0]?.transcript ?? ""
+      }
+      if (text.trim()) setDraft(text.trim())
     }
     rec.onend = () => setListening(false)
-    rec.onerror = () => setListening(false)
+    rec.onerror = (e: any) => {
+      setListening(false)
+      // ไม่ได้รับสิทธิ์ไมโครโฟน — ต้องบอกผู้ใช้ ❌ ไม่ใช่เงียบ (ปุ่มกดแล้วไม่ตอบ = สิ่งที่รีโปตกลงว่าไม่เอา)
+      if (e?.error === "not-allowed" || e?.error === "service-not-allowed") {
+        setVoiceHint("ไม่ได้รับอนุญาตให้ใช้ไมโครโฟน — เปิดสิทธิ์ที่เบราว์เซอร์แล้วลองใหม่")
+      }
+    }
     recognitionRef.current = rec
     setListening(true)
     rec.start()
@@ -115,16 +125,9 @@ export function ChatScreen() {
     inputRef.current?.focus()
   }
 
-  const onGear = () => {
-    if (turns.length === 0) return
-    if (!confirmClear) {
-      setConfirmClear(true)
-      window.setTimeout(() => setConfirmClear(false), 2500)
-      return
-    }
-    clear()
-    setConfirmClear(false)
-  }
+  // #team-mp4 — ⚙ พาไปหน้าตั้งค่า (/v2/settings) แทน double-press ล้างแชท:
+  // ล้างแชทเป็นของ in-memory เท่านั้น (unmount = หายอยู่แล้ว) และ "ปุ่มเฟืองต้องไปหน้า setting"
+  // ตามที่ทีมรายงาน 2026-09-03
 
   return (
     <div
@@ -159,29 +162,22 @@ export function ChatScreen() {
           พร้อมคุย
         </span>
         <div className="grow" />
-        <button
-          onClick={onGear}
-          aria-label={confirmClear ? "กดอีกครั้งเพื่อล้างประวัติแชท" : "ตั้งค่าแชท"}
-          title={confirmClear ? "กดอีกครั้งเพื่อล้างประวัติแชท" : "ล้างประวัติแชท"}
+        <Link
+          href="/v2/settings"
+          aria-label="ตั้งค่า"
+          title="ตั้งค่า"
           data-testid="chat-gear"
-          className={
-            (confirmClear ? "bg-white text-v3-error ring-1 ring-v3-error/40" : "text-v3-navy hover:bg-white/40") +
-            " grid h-9 w-9 flex-none place-items-center rounded-full transition"
-          }
+          className="grid h-9 w-9 flex-none place-items-center rounded-full text-v3-navy transition hover:bg-white/40"
         >
-          {confirmClear ? (
-            <span className="text-[10px] font-bold leading-none">ล้าง?</span>
-          ) : (
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden>
-              <path
-                d="M12 15.5A3.5 3.5 0 1 0 12 8.5a3.5 3.5 0 0 0 0 7Zm7.4-3.5c0 .5 0 .9-.1 1.3l2 1.6-1.9 3.2-2.4-.9c-.7.5-1.4 1-2.2 1.2l-.4 2.5h-3.8l-.4-2.5c-.8-.3-1.5-.7-2.2-1.2l-2.4.9-1.9-3.2 2-1.6a7 7 0 0 1 0-2.6l-2-1.6L5.6 5.9l2.4.9c.7-.5 1.4-1 2.2-1.2l.4-2.5h3.8l.4 2.5c.8.3 1.5.7 2.2 1.2l2.4-.9 1.9 3.2-2 1.6c.1.4.1.8.1 1.3Z"
-                stroke="currentColor"
-                strokeWidth="1.6"
-                strokeLinejoin="round"
-              />
-            </svg>
-          )}
-        </button>
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden>
+            <path
+              d="M12 15.5A3.5 3.5 0 1 0 12 8.5a3.5 3.5 0 0 0 0 7Zm7.4-3.5c0 .5 0 .9-.1 1.3l2 1.6-1.9 3.2-2.4-.9c-.7.5-1.4 1-2.2 1.2l-.4 2.5h-3.8l-.4-2.5c-.8-.3-1.5-.7-2.2-1.2l-2.4.9-1.9-3.2 2-1.6a7 7 0 0 1 0-2.6l-2-1.6L5.6 5.9l2.4.9c.7-.5 1.4-1 2.2-1.2l.4-2.5h3.8l.4 2.5c.8.3 1.5.7 2.2 1.2l2.4-.9 1.9 3.2-2 1.6c.1.4.1.8.1 1.3Z"
+              stroke="currentColor"
+              strokeWidth="1.6"
+              strokeLinejoin="round"
+            />
+          </svg>
+        </Link>
       </header>
 
       {/* mascot + link */}
@@ -303,7 +299,7 @@ export function ChatScreen() {
                   onClick={() => submit(q)}
                   disabled={busy}
                   data-testid="chat-chip-next"
-                  className="rounded-full border border-[#D88FA9] bg-white/70 px-3 py-[7px] text-[12px] font-medium leading-4 text-v3-navy backdrop-blur transition hover:bg-white active:scale-[0.98] disabled:opacity-50"
+                  className="flex-none whitespace-nowrap rounded-full border border-[#D88FA9] bg-white/70 px-3 py-[7px] text-[12px] font-medium leading-4 text-v3-navy backdrop-blur transition hover:bg-white active:scale-[0.98] disabled:opacity-50"
                 >
                   {q}
                 </button>
@@ -364,6 +360,12 @@ export function ChatScreen() {
           </button>
         </div>
       </div>
+
+      {voiceHint ? (
+        <p data-testid="chat-voice-hint" className="mx-auto w-full max-w-[430px] flex-none px-4 pb-1 text-center text-[11px] leading-4 text-v3-error">
+          {voiceHint}
+        </p>
+      ) : null}
 
       {/* disclaimer — Figma fine print under the composer */}
       <div data-testid="chat-disclaimer" className="mx-auto w-full max-w-[430px] flex-none px-6 pb-2 text-center text-[9px] leading-[13px] text-v3-text-muted">
