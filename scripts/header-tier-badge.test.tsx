@@ -206,6 +206,14 @@ describe('#384 every screen that renders the shared header passes a membership',
     { rel: 'pages/v2/settings/delete-account.tsx', cta: false },
     // ตั้งค่า (2026-09-03) — จุดหมายปุ่ม ⚙ หน้าแชท; ไม่ใช่พื้นที่ขาย
     { rel: 'pages/v2/settings/index.tsx', cta: false },
+    // ก้อน 3 (profile v2, 2026-09-03) — หน้าย่อยบัญชี/คำสั่งซื้อ; cta false (พื้นที่รายงานสิทธิ์ ไม่ใช่ขาย)
+    // rel ชี้ไฟล์ component เพราะหน้าเป็น glue-only (เทสต์ grep membership={ ในไฟล์ที่ AppHeader อยู่จริง)
+    { rel: 'features/v2-account/components/EditProfileScreen.tsx', cta: false },
+    { rel: 'features/v2-account/components/EditBirthScreen.tsx', cta: false },
+    { rel: 'features/v2-account/components/ConnectedScreen.tsx', cta: false },
+    { rel: 'features/v2-account/components/PlanScreen.tsx', cta: false },
+    { rel: 'features/v2-account/components/OrdersScreen.tsx', cta: false },
+    { rel: 'features/v2-account/components/OrderReceiptScreen.tsx', cta: false },
   ] as const
 
   it('every screen in the list passes membership through', () => {
@@ -213,7 +221,7 @@ describe('#384 every screen that renders the shared header passes a membership',
     // silently. Was 7 (#363 checkout) → 8 with #365's /v2/account.
     // 🟠 The prose above/below this block said "six" while the assertion said 7 — the words drifted, the
     // number did not. Names updated to stop counting in two places.
-    expect(SCREENS).toHaveLength(10)
+    expect(SCREENS).toHaveLength(16)
     for (const { rel } of SCREENS) {
       expect(code(rel), `${rel} stopped passing membership`).toMatch(/membership=\{/)
     }
@@ -232,6 +240,13 @@ describe('#384 every screen that renders the shared header passes a membership',
       'features/v2-account/components/AccountScreen.tsx',
       'pages/v2/settings/delete-account.tsx',
       'pages/v2/settings/index.tsx',
+      // ก้อน 3 (profile v2) — หน้าย่อยบัญชี/คำสั่งซื้อ
+      'features/v2-account/components/EditProfileScreen.tsx',
+      'features/v2-account/components/EditBirthScreen.tsx',
+      'features/v2-account/components/ConnectedScreen.tsx',
+      'features/v2-account/components/PlanScreen.tsx',
+      'features/v2-account/components/OrdersScreen.tsx',
+      'features/v2-account/components/OrderReceiptScreen.tsx',
     ])
     for (const { rel, cta } of SCREENS) {
       const hasFlag = /upgradeCta=\{false\}/.test(code(rel))
@@ -281,6 +296,12 @@ describe('#384 every screen that renders the shared header passes a membership',
         'pages/v2/calendar/notifications.tsx',
         'pages/v2/settings/delete-account.tsx', // ลบบัญชี — ใช้ AppHeader + membership (2026-09-02)
         'pages/v2/settings/index.tsx', // ตั้งค่า — จุดหมายปุ่ม ⚙ (2026-09-03)
+        'features/v2-account/components/EditProfileScreen.tsx', // ก้อน 3 — แก้ข้อมูลส่วนตัว (2026-09-03)
+        'features/v2-account/components/EditBirthScreen.tsx', // ก้อน 3 — แก้วันเกิด + โควตา (2026-09-03)
+        'features/v2-account/components/ConnectedScreen.tsx', // เฟรม account-login — connected (2026-09-03)
+        'features/v2-account/components/PlanScreen.tsx', // เฟรม my-plan (2026-09-03)
+        'features/v2-account/components/OrdersScreen.tsx', // เฟรม order-history (2026-09-03)
+        'features/v2-account/components/OrderReceiptScreen.tsx', // เฟรม order-receipt (2026-09-03)
         'pages/v2/shop/checkout.tsx', // #363 — the checkout screen, added while this tooth was already in place
         'scripts/header-tier-badge.test.tsx', // this file renders one to assert on it
         'scripts/upgrade-cta-destinations.test.tsx', // #359 asserts the pill is a link

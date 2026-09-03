@@ -38,6 +38,12 @@ function Row({ label, value, testId }: { label: string; value: string; testId: s
   )
 }
 
+const Chevron = () => (
+  <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden className="flex-none text-v3-text-muted">
+    <path d="m6 3.5 4.5 4.5L6 12.5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+  </svg>
+)
+
 function StatusCard({ plan }: { plan: Plan }) {
   return (
     <section data-testid="account-status" className={`${CARD} font-ibm`}>
@@ -70,6 +76,8 @@ export function AccountScreen() {
   // three states, and this flag is the one that keeps our failure from being reported as their fact.
   const [historyErrored, setHistoryErrored] = useState(false)
   const [attempt, setAttempt] = useState(0)
+  // profile-and-qi-wallet (ก้อน 3.1) — กระเป๋าชี่โชว์คู่แผนในจอเดียว; day-one = ชี่ 0 และไม่มีประวัติ
+  const [qiWallet, setQiWallet] = useState<{ qi?: number; coins?: number; level?: number | string; history?: unknown[] } | null>(null)
 
   useEffect(() => {
     let alive = true
@@ -83,6 +91,11 @@ export function AccountScreen() {
       // the user opened this page. Mark the card errored, leave the rest standing.
       .catch(() => { if (alive) { setHistoryErrored(true); setRows(null) } })
       .finally(() => { if (alive) setHistoryDone(true) })
+    // กระเป๋าชี่ — ล้มแล้วไม่ต้องบล็อกจอ (ส่วนแผนยังใช้ได้) แค่ไม่โชว์ hero
+    fetch('/api/qi-wallet')
+      .then((r) => (r.ok ? r.json() : Promise.reject(new Error(String(r.status)))))
+      .then((j) => { if (alive) setQiWallet(j) })
+      .catch(() => { if (alive) setQiWallet(null) })
     return () => { alive = false }
   }, [attempt])
 
@@ -134,6 +147,26 @@ export function AccountScreen() {
           <StatusCard plan={planFor(membership)} />
         )}
 
+        {/* กระเป๋าชี่ (เฟรม profile-and-qi-wallet + profile — day one) — ชี่ 0 และไม่มีประวัติ = มือใหม่ */}
+        {qiWallet ? (
+          <Link href="/v2/qi" data-testid="account-qi-wallet" className={`${CARD} font-ibm`}>
+            <div className="flex w-full items-center justify-between gap-3">
+              <div className="min-w-0">
+                <p className="text-[12px] leading-4 text-v3-text-muted">พลังชี่ของคุณ</p>
+                <p data-testid="account-qi-balance" className="text-[26px] font-black leading-8 text-v3-navy">
+                  {(qiWallet.qi ?? 0).toLocaleString('th-TH')} ชี่
+                </p>
+                <p className="text-[11px] leading-4 text-v3-text-muted">
+                  เหรียญ {qiWallet.coins ?? 0} · Level {qiWallet.level ?? 1}
+                </p>
+              </div>
+              <span className="flex-none rounded-full bg-v3-lime px-3 py-1 text-[12px] font-black text-v3-navy">
+                {(qiWallet.qi ?? 0) === 0 && !(qiWallet.history?.length) ? 'เริ่มสะสมชี่' : 'จัดการชี่ →'}
+              </span>
+            </div>
+          </Link>
+        ) : null}
+
         {/* ทางเข้า "ดวงของฉัน" — hub ผลดวงเต็มระบบ (Figma page ดวงฉัน, node 55349-3070) */}
         <Link
           href="/v2/destiny"
@@ -158,19 +191,44 @@ export function AccountScreen() {
           </p>
         </Link>
 
-        {/* ตั้งค่าและความเป็นส่วนตัว — มีตติ้งทีม 2026-09-02 (team.mp4): แก้วันเกิด 1 ครั้งฟรี
-            (ครั้งถัดไปเสียเงิน — การเก็บสถานะ "ใช้สิทธิ์แล้ว" ต้องมีขาหลัง จึงโชว์เงื่อนไขไว้ตรงนี้ก่อน)
-            · PDPA/นโยบาย · ลบบัญชี (พัก 30 วัน) */}
+        {/* แถวบัญชีครบชุด (เฟรม profile-and-qi-wallet / my-plan / edit-personal-info / edit-birth-data /
+            account-login — connected) — ทุกแถวมีหน้าจริง ❌ ปุ่มตาย (#587) */}
+        <section data-testid="account-links" className={`${CARD} font-ibm`}>
+          <Link href="/v2/account/plan" data-testid="account-plan-link" className="flex items-center justify-between gap-2 border-b border-v3-border-card">
+            <span className="py-4 text-sm font-bold text-v3-navy">แผนของฉัน</span>
+            <Chevron />
+          </Link>
+          <Link href="/v2/orders" data-testid="account-orders-link" className="flex items-center justify-between gap-2 border-b border-v3-border-card">
+            <span className="py-4 text-sm font-bold text-v3-navy">ประวัติคำสั่งซื้อและใบเสร็จ</span>
+            <Chevron />
+          </Link>
+          <Link href="/v2/qi/referral" data-testid="account-referral-link" className="flex items-center justify-between gap-2 border-b border-v3-border-card">
+            <span className="py-4 text-sm font-bold text-v3-navy">ชวนเพื่อนรับโบนัส</span>
+            <Chevron />
+          </Link>
+          <Link href="/v2/settings/edit-profile" data-testid="account-edit-profile" className="flex items-center justify-between gap-2 border-b border-v3-border-card">
+            <span className="py-4 text-sm font-bold text-v3-navy">แก้ไขข้อมูลส่วนตัว</span>
+            <Chevron />
+          </Link>
+          <Link href="/v2/settings/edit-birth" data-testid="account-edit-birth" className="flex items-center justify-between gap-2 border-b border-v3-border-card">
+            <span>
+              <span className="block py-4 text-sm font-bold text-v3-navy">แก้วันเกิด</span>
+              <span className="block pb-4 text-[12px] leading-4 text-v3-text-body -mt-4">ฟรี 1 ครั้ง — ครั้งถัดไปใช้ชี่ เพราะดวงเปลี่ยนทั้งหมด</span>
+            </span>
+            <Chevron />
+          </Link>
+          <Link href="/v2/settings/connected" data-testid="account-connected" className="flex items-center justify-between gap-2">
+            <span className="py-4 text-sm font-bold text-v3-navy">ช่องทางเข้าใช้งาน</span>
+            <Chevron />
+          </Link>
+        </section>
+
+        {/* ตั้งค่าและความเป็นส่วนตัว — มีตติ้งทีม 2026-09-02 (team.mp4) · PDPA/นโยบาย · ลบบัญชี (พัก 30 วัน) */}
         <section data-testid="account-settings" className={`${CARD} font-ibm`}>
           <p className="text-base font-bold text-v3-navy">ตั้งค่าและความเป็นส่วนตัว</p>
-          <Link href="/v2/register" data-testid="account-edit-birth" className="flex items-center justify-between gap-2">
-            <span>
-              <span className="block text-sm font-bold text-v3-navy">แก้วันเกิด</span>
-              <span className="block text-[12px] leading-4 text-v3-text-body">ฟรี 1 ครั้ง — ครั้งถัดไปมีค่าใช้จ่าย เพราะดวงเปลี่ยนทั้งหมด</span>
-            </span>
-            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden className="flex-none text-v3-text-muted">
-              <path d="m6 3.5 4.5 4.5L6 12.5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-            </svg>
+          <Link href="/v2/settings" data-testid="account-settings-link" className="flex items-center justify-between gap-2 border-b border-v3-border-card">
+            <span className="py-4 text-sm font-bold text-v3-navy">ตั้งค่า</span>
+            <Chevron />
           </Link>
           <Link href="/privacy/policy" data-testid="account-privacy" className="flex items-center justify-between gap-2">
             <span>
