@@ -78,11 +78,17 @@ export function AccountScreen() {
   const [attempt, setAttempt] = useState(0)
   // profile-and-qi-wallet (ก้อน 3.1) — กระเป๋าชี่โชว์คู่แผนในจอเดียว; day-one = ชี่ 0 และไม่มีประวัติ
   const [qiWallet, setQiWallet] = useState<{ qi?: number; coins?: number; level?: number | string; history?: unknown[] } | null>(null)
+  // ลบบัญชี pending (ก้อน 2) — โชว์แบนเนอร์ให้คนที่ขอลบไว้เห็นสถานะ + ทางยกเลิกทุกครั้งที่เข้าหน้า
+  const [deletePending, setDeletePending] = useState<string | null>(null)
 
   useEffect(() => {
     let alive = true
     setHistoryDone(false)
     setHistoryErrored(false)
+    fetch('/api/v2/account/delete')
+      .then((r) => (r.ok ? r.json() : Promise.reject(new Error(String(r.status)))))
+      .then((j) => { if (alive && j?.deletion?.purgeAt) setDeletePending(j.deletion.purgeAt) })
+      .catch(() => { if (alive) setDeletePending(null) })
     fetch('/api/v2/payment/status')
       // ❌ NOT `r.ok ? ... : { payments: [] }` — a 401/500 is not an empty history.
       .then((r) => (r.ok ? r.json() : Promise.reject(new Error(String(r.status)))))
@@ -146,6 +152,14 @@ export function AccountScreen() {
         ) : (
           <StatusCard plan={planFor(membership)} />
         )}
+
+        {/* แบนเนอร์บัญชีระหว่างพักลบ (เฟรม account-deletion — missing states) */}
+        {deletePending ? (
+          <Link href="/v2/settings/delete-account" data-testid="account-delete-pending" className={`${CARD} font-ibm border-2 border-v3-pumpkin`}>
+            <p className="text-sm font-bold text-v3-pumpkin">บัญชีอยู่ระหว่างพักลบ — ยกเลิกได้ถึง 30 วัน</p>
+            <p className="text-[12px] leading-4 text-v3-text-body">กดเพื่อดูสถานะหรือยกเลิกการลบ</p>
+          </Link>
+        ) : null}
 
         {/* กระเป๋าชี่ (เฟรม profile-and-qi-wallet + profile — day one) — ชี่ 0 และไม่มีประวัติ = มือใหม่ */}
         {qiWallet ? (

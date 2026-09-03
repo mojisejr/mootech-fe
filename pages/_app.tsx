@@ -23,6 +23,14 @@ export default function App({ Component, pageProps: { session, ...pageProps } }:
       console.error("[pwa] service worker registration failed", err);
     });
   }, []);
+
+  // ขนาดตัวอักษร (settings-text-size-sheet, ก้อน 4) — apply ค่าที่บันทึกในเครื่องตั้งแต่โหลดแอป
+  useEffect(() => {
+    const saved = Number(window.localStorage.getItem("v2:text-scale") ?? "1");
+    if (Number.isFinite(saved) && saved > 0 && saved !== 1) {
+      document.documentElement.style.zoom = String(saved);
+    }
+  }, []);
   return (
     <>
       {/* viewport-fit=cover is required for env(safe-area-inset-*) to resolve on notched

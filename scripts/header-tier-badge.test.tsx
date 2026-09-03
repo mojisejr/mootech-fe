@@ -214,6 +214,12 @@ describe('#384 every screen that renders the shared header passes a membership',
     { rel: 'features/v2-account/components/PlanScreen.tsx', cta: false },
     { rel: 'features/v2-account/components/OrdersScreen.tsx', cta: false },
     { rel: 'features/v2-account/components/OrderReceiptScreen.tsx', cta: false },
+    // ก้อน 4 (settings & privacy, 2026-09-03)
+    { rel: 'features/v2-settings/components/NotificationsScreen.tsx', cta: false },
+    { rel: 'features/v2-settings/components/ConsentScreen.tsx', cta: false },
+    { rel: 'features/v2-settings/components/DataExportScreen.tsx', cta: false },
+    { rel: 'features/v2-settings/components/FaqScreen.tsx', cta: false },
+    { rel: 'features/v2-settings/components/DocReaderScreen.tsx', cta: false },
   ] as const
 
   it('every screen in the list passes membership through', () => {
@@ -221,7 +227,7 @@ describe('#384 every screen that renders the shared header passes a membership',
     // silently. Was 7 (#363 checkout) → 8 with #365's /v2/account.
     // 🟠 The prose above/below this block said "six" while the assertion said 7 — the words drifted, the
     // number did not. Names updated to stop counting in two places.
-    expect(SCREENS).toHaveLength(16)
+    expect(SCREENS).toHaveLength(21)
     for (const { rel } of SCREENS) {
       expect(code(rel), `${rel} stopped passing membership`).toMatch(/membership=\{/)
     }
@@ -247,6 +253,12 @@ describe('#384 every screen that renders the shared header passes a membership',
       'features/v2-account/components/PlanScreen.tsx',
       'features/v2-account/components/OrdersScreen.tsx',
       'features/v2-account/components/OrderReceiptScreen.tsx',
+      // ก้อน 4 (settings & privacy)
+      'features/v2-settings/components/NotificationsScreen.tsx',
+      'features/v2-settings/components/ConsentScreen.tsx',
+      'features/v2-settings/components/DataExportScreen.tsx',
+      'features/v2-settings/components/FaqScreen.tsx',
+      'features/v2-settings/components/DocReaderScreen.tsx',
     ])
     for (const { rel, cta } of SCREENS) {
       const hasFlag = /upgradeCta=\{false\}/.test(code(rel))
@@ -302,6 +314,11 @@ describe('#384 every screen that renders the shared header passes a membership',
         'features/v2-account/components/PlanScreen.tsx', // เฟรม my-plan (2026-09-03)
         'features/v2-account/components/OrdersScreen.tsx', // เฟรม order-history (2026-09-03)
         'features/v2-account/components/OrderReceiptScreen.tsx', // เฟรม order-receipt (2026-09-03)
+        'features/v2-settings/components/NotificationsScreen.tsx', // ก้อน 4 — settings-notifications
+        'features/v2-settings/components/ConsentScreen.tsx', // ก้อน 4 — privacy-consent
+        'features/v2-settings/components/DataExportScreen.tsx', // ก้อน 4 — privacy-data-export
+        'features/v2-settings/components/FaqScreen.tsx', // ก้อน 4 — help-faq
+        'features/v2-settings/components/DocReaderScreen.tsx', // ก้อน 4 — document-reader template
         'pages/v2/shop/checkout.tsx', // #363 — the checkout screen, added while this tooth was already in place
         'scripts/header-tier-badge.test.tsx', // this file renders one to assert on it
         'scripts/upgrade-cta-destinations.test.tsx', // #359 asserts the pill is a link

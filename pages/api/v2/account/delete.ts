@@ -1,21 +1,31 @@
-// POST /api/v2/account/delete — ขอลบบัญชี (มีตติ้งทีม 2026-09-02: แจ้งสิ่งที่จะหาย + พักบัญชี
-// ~30 วันก่อนลบจริง) — 🔴 ตอนนี้ยังไม่มีขาหลัง: mootech-be ไม่มี endpoint ลบ user (และยังไม่มี
-// auth จริงฝั่ง BE ให้อ้าง) จึงตอบ 501 เสมอ หน้า UI จะโชว์สถานะ "ยังไม่เปิดใช้" อย่างตรงไปตรงมา
-// ห้ามเปลี่ยนเป็น 200 ลอย ๆ ทั้งที่ไม่มีอะไรถูกลบ (#384/#365 class — การโกหกสถานะคือบั๊กที่ repo นี้เคยเจอ)
+// /api/v2/account/delete — ลบบัญชีแบบ "พัก 30 วัน" (ผ่าน engine bazi-pdf-dev) — อัปเกรดจาก 501 จริงใส.
+//   POST   { reason? } → ขอลบ: pending, purge_at = +30 วัน (409 = มีคำขอรออยู่แล้ว)
+//   GET    → สถานะคำขอ ({deletion: {...} | null})
+//   DELETE → ยกเลิกการลบ (กลับมาใช้ได้ทันที)
+//   PATCH  { feedback } → feedback ของคนที่จะลบ (delete-05b)
+// identity = cookie-mumate-id → engine anonId (เช่นเดียวกับ qi/profile BFF ทุกเส้น)
 import type { NextApiRequest, NextApiResponse } from 'next'
-import { resolveSessionUserId } from '@/lib/v2/resolve-user'
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
-  if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' })
+  if (!['POST', 'GET', 'DELETE', 'PATCH'].includes(req.method ?? '')) {
+    return res.status(405).json({ error: 'Method not allowed' })
+  }
+  const rawId = req.cookies['cookie-mumate-id'] ?? ''
+  if (!UUID_RE.test(rawId)) return res.status(401).json({ code: 'not_authenticated' })
 
-  const who = await resolveSessionUserId(req, res)
-  if (!who.ok) return res.status(who.status).json({ error: who.error })
-
-  // TODO(BE): ต่อ mootech-be DELETE /user ที่ทำ soft-delete + grace 30 วัน แล้วเปลี่ยนบรรทัดนี้
-  // เป็นการเรียกจริง (พร้อมคงสิทธิ์ "กลับมาล็อกอินภายใน 30 วัน = ยกเลิกการลบ")
-  return res.status(501).json({
-    ok: false,
-    error: 'not_implemented',
-    message: 'ระบบลบบัญชียังไม่เปิดใช้งาน กรุณาลองใหม่ภายหลัง หรือติดต่อทีมงาน',
-  })
+  const base = process.env.BAZI_BASE_URL || 'http://localhost:3000'
+  try {
+    const query = `?anonId=${encodeURIComponent(rawId)}`
+    const upstream = await fetch(`${base}/api/account/delete${req.method === 'GET' || req.method === 'DELETE' ? query : ''}`, {
+      method: req.method,
+      headers: { 'Content-Type': 'application/json' },
+      body: ['POST', 'PATCH'].includes(req.method ?? '') ? JSON.stringify({ ...(req.body ?? {}), anonId: rawId }) : undefined,
+    })
+    const payload = await upstream.json().catch(() => ({}))
+    res.status(upstream.ok ? 200 : upstream.status).json(payload)
+  } catch {
+    res.status(502).json({ error: 'account delete unreachable' })
+  }
 }
