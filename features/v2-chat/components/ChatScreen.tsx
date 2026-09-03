@@ -32,8 +32,10 @@ const STARTER_CHIPS = [
   { label: "เลขนำโชครายวัน 🎴", question: "เลขนำโชคของฉันวันนี้คืออะไร?" },
 ]
 
-const DISCLAIMER =
-  "การแชทนี้อยู่เพียงเพื่อความบันเทิงเท่านั้น ไม่สามารถใช้แทนคำแนะนำทางการแพทย์ หรือคำแนะนำทางการเงินได้"
+const DISCLAIMER_LINES = [
+  "การแชทนี้อยู่เพียงเพื่อความบันเทิงเท่านั้น",
+  "ไม่สามารถใช้แทนคำแนะนำทางการแพทย์ หรือคำแนะนำทางการเงินได้",
+]
 
 const MASCOT_SRC = "/images/v2/mascot/01.webp"
 
@@ -129,11 +131,11 @@ export function ChatScreen() {
       data-testid="v2-chat-screen"
       className="font-ibm flex h-[100dvh] w-full flex-col overflow-hidden"
       style={{
+        // ตามเฟรม Figma: gradient + ภาพ BG01 (ฟ้า-เมฆ) เต็มจอ บนพื้น #F6ECF0
         background:
-          "radial-gradient(420px 220px at 15% 12%, rgba(255,255,255,0.75), transparent 70%)," +
-          "radial-gradient(520px 260px at 90% 30%, rgba(255,255,255,0.6), transparent 70%)," +
-          "radial-gradient(560px 300px at 50% 88%, rgba(255,235,240,0.8), transparent 72%)," +
-          "linear-gradient(180deg, #CFE6FB 0%, #E7E9FB 34%, #F6E7F2 62%, #FBECEF 100%)",
+          "linear-gradient(180deg, rgba(207,230,251,0.42) 0%, rgba(231,233,251,0.18) 34%, rgba(246,231,242,0.22) 62%, rgba(251,236,239,0.4) 100%)," +
+          "url('/images/v2/destiny/bg-destiny.jpg') center/cover no-repeat," +
+          "#F6ECF0",
       }}
     >
       {/* header — ← · Mate AI · ●ทำงานอยู่ · ⚙ (บีบคอลัมน์ 430 กลางจอเดียวกับเนื้อหา ตามเฟรมมือถือใน Figma) */}
@@ -154,7 +156,7 @@ export function ChatScreen() {
           className="flex items-center gap-1 rounded-full bg-emerald-100 px-2 py-[2px] text-[10px] font-medium leading-4 text-emerald-700"
         >
           <span className="h-[6px] w-[6px] rounded-full bg-emerald-500" aria-hidden />
-          ทำงานอยู่
+          พร้อมคุย
         </span>
         <div className="grow" />
         <button
@@ -209,7 +211,7 @@ export function ChatScreen() {
               <div
                 key={t.id}
                 data-testid="chat-bubble-ai"
-                className="max-w-[92%] self-start whitespace-pre-line v3-shadow-line rounded-[18px] bg-white/95 px-4 py-3 text-[14px] leading-[22px] text-v3-navy"
+                className="max-w-[92%] self-start whitespace-pre-line rounded-[18px] border border-[#D88FA9] bg-white px-4 py-3 text-[14px] leading-[22px] text-v3-navy shadow-[0_2px_8px_rgba(11,48,91,0.12),0_1px_4px_rgba(216,143,169,0.35)]"
               >
                 {t.loading && !t.content ? <TypingDots /> : t.content}
               </div>
@@ -269,7 +271,7 @@ export function ChatScreen() {
       {/* suggestion chips — starters first, then the canonical next questions */}
       {(showAllQuestions || !startersUsed || nextSuggestions.length > 0) && (
         <div className="w-full flex-none px-4 pb-1">
-          <div className="mx-auto flex w-full max-w-[430px] flex-wrap gap-2">
+          <div className="mx-auto flex w-full max-w-[430px] flex-nowrap gap-2 overflow-x-auto pb-1">
             {!startersUsed &&
               STARTER_CHIPS.map((c) => (
                 <button
@@ -277,7 +279,7 @@ export function ChatScreen() {
                   onClick={() => submit(c.question)}
                   disabled={busy}
                   data-testid="chat-chip-starter"
-                  className="rounded-full border border-[#D88FA9] bg-white/70 px-3 py-[7px] text-[12px] font-medium leading-4 text-v3-navy backdrop-blur transition hover:bg-white active:scale-[0.98] disabled:opacity-50"
+                  className="flex-none whitespace-nowrap rounded-full border border-[#D88FA9] bg-white/70 px-3 py-[7px] text-[12px] font-medium leading-4 text-v3-navy backdrop-blur transition hover:bg-white active:scale-[0.98] disabled:opacity-50"
                 >
                   {c.label}
                 </button>
@@ -288,7 +290,7 @@ export function ChatScreen() {
                   key={q}
                   onClick={() => submit(q)}
                   disabled={busy}
-                  className="rounded-full border border-[#D88FA9] bg-white/70 px-3 py-[7px] text-left text-[12px] font-medium leading-4 text-v3-navy backdrop-blur transition hover:bg-white active:scale-[0.98] disabled:opacity-50"
+                  className="flex-none whitespace-nowrap rounded-full border border-[#D88FA9] bg-white/70 px-3 py-[7px] text-left text-[12px] font-medium leading-4 text-v3-navy backdrop-blur transition hover:bg-white active:scale-[0.98] disabled:opacity-50"
                 >
                   {q}
                 </button>
@@ -364,9 +366,11 @@ export function ChatScreen() {
       </div>
 
       {/* disclaimer — Figma fine print under the composer */}
-      <p data-testid="chat-disclaimer" className="mx-auto w-full max-w-[430px] flex-none px-6 pb-2 text-center text-[9px] leading-[13px] text-v3-text-muted">
-        {DISCLAIMER}
-      </p>
+      <div data-testid="chat-disclaimer" className="mx-auto w-full max-w-[430px] flex-none px-6 pb-2 text-center text-[9px] leading-[13px] text-v3-text-muted">
+        {DISCLAIMER_LINES.map((line) => (
+          <p key={line}>{line}</p>
+        ))}
+      </div>
     </div>
   )
 }
