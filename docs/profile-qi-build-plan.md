@@ -5,7 +5,47 @@
 > AccountScreen (#365, ไม่มี design เดิม — ตอนนี้มี design แล้ว) · ลบบัญชี 1 หน้า (70b8d76) ·
 > deep link /invite + ช่องโค้ดบนหน้าสมัคร (4583e68/ca7facc)
 
-## ✅ สถานะ 2026-09-03 — ก้อน 1 + ก้อน 5.1 เชื่อม engine (pdf-dev) เสร็จ
+## ✅ สถานะ 2026-09-03 (ปิดวัน) — ทำครบ 6 ก้อน เชื่อม engine pdf-dev ทุกเฟรมในลิสต์
+
+**FE commits:** eb380cd (เฟส 1) · 8c883f0 (เฟส 2) · 7799a52 (เฟส 3-4) — บน feat/mumate-ai-chat ·
+**Engine commits:** 4ae4879 (grant+referral) · 6176086 (profile+โควตา) · 65c84a4 (privacy+ลบบัญชี) — บน pdf-dev
+
+**ทำเสร็จรอบนี้ (ต่อจากก้อน 1/5.1 ช่วงเช้า):**
+- เฟรม buy-qi ×2: ราง Omise v2 เดิม (QI_200/500/1200 ราคาชั่วคราว 59/129/299 — migration 0016) +
+  settle เลน QI → engine /api/qi/grant (secret QI_GRANT_SECRET, idempotent by charge_id,
+  first_buy_bonus +30, referral trigger) + /v2/qi/buy + result กลับ /v2/qi
+- เฟรม check-in — states: /v2/qi/checkin (strip 7 วันเขตไทย + สตรีค)
+- เฟรม invite-landing + share-code in LINE: /invite landing จริง (inviterName, ยอมรับ→localStorage)
+  + LINE preview บน hub + engine GET /api/referral?code=
+- เฟรม profile-and-qi-wallet + day one: /v2/account restyle (hero ชี่ + day-one + แถวครบ)
+- เฟรม my-plan / order-history / order-receipt: /v2/account/plan · /v2/orders · /v2/orders/[id]
+- เฟรม edit-personal-info / edit-birth-data ×4: engine 0041 (profile เต็ม+โควตาฟรี 1 ครั้ง+
+  correction request) + /v2/settings/edit-profile · /v2/settings/edit-birth (409→ชีตชี่ไม่พอ)
+- เฟรม account-login — connected: /v2/settings/connected (session provider + @name)
+- เฟรม settings ×6: settings UX v2 (แถวครบ) + ชีตภาษา/ขนาดตัวอักษร (zoom ทั้งแอป) + logout sheet +
+  settings-notifications (prefs 3 หมวด — engine 0042) 
+- เฟรม privacy-consent / privacy-data-export / help-faq / document-reader: /v2/privacy/consent
+  (บันทึก insert-only) · /v2/privacy/data-export (ดาวน์โหลด JSON จริง — engine /api/account/export) ·
+  /v2/help/faq + /v2/help/doc/[slug] (bazi_help_article seed 5 บทความ)
+- เฟรมลบบัญชี ×6: flow 4 ขั้นจริง (what-you-lose → alternatives → pending 30 วัน ยกเลิกได้ →
+  feedback sheet) + banner บน account — engine /api/account/delete + cron /api/cron/account-purge
+- เฟรม empty-states / loading & error: ProfileGate + สถานะครบทุกจอใหม่ (loading/error/empty แยกจริง)
+
+**ทดสอบ:** เทสต์ใหม่ทั้งหมด ~60 เคส (รวมเช้า) · ชุดเต็ม 1,395 ผ่าน แดง 9 = แดงเดิมของ branch ทุกตัว
+(พิสูจน์ด้วย stash แล้ว: charge-status/compat-readers×4/compat-tier-quota/consent-header/evidence-dir/public-env)
+· E2E จริงผ่าน dev server สองฝั่ง: earn/spend/grant(230→730)/409/โควตาแก้วันเกิด(free→100 ชี่)/
+consent/prefs/delete(POST→GET→cancel)/export/faq ผ่านทุกเส้น · tsc สะอาด · lint baseline
+
+**ของที่รอต่อ (ไม่ใช่งานโค้ดขาด):**
+- 🔴 Figma visual parity รอบละเอียด: โครง/ข้อมูล/flow ตรงตามเฟรมแล้ว แต่การวางแบบละเอียด (ระยะ/
+  ไอคอน/สำเนาเป๊ะ) ต้องเปิด Figma (Browser Use — MCP ยังตาย DCR 403) เทียบทีละเฟรมอีกรอบ
+- 🔴 ราคาแพ็กชี่ 59/129/299 เป็นค่าชั่วคราว — ทีมเคาะแล้วแก้ที่ payment_package ได้เลย
+- 🔴 purge ฝั่ง mootech-be (ข้อมูลสมาชิก v1) ยังไม่ถูกล้างตอนลบบัญชี — รอทีม BE
+- ⏳ 2C2P migration (มีตติ้ง) · LINE LIFF — งานใหญ่แยกตามเดิม
+
+---
+
+## สถานะช่วงเช้า (ก้อน 1 + 5.1) — เชื่อม BFF → engine ครบ 7 เส้น
 
 **เชื่อม BFF → engine ครบ 7 เส้น** (engine ยังเป็นที่มาเดียวของความจริง — จอไม่ hardcode ตัวเลข):
 `/api/qi-wallet` (+`?history=` 100) · `/api/qi-earn` · **`/api/qi-spend` (ใหม่)** ·
@@ -18,7 +58,7 @@
 - 1.3 ✅ `/v2/qi/history` ประวัติเต็ม 100 แถว + แปลง reason เป็นไทย (qi-model.ts)
 - 1.4 ✅ เช็คอินรายวันบน QiScreen — สถานะ "เช็คอินแล้ววันนี้" อ่านจากประวัติเขต Asia/Bangkok
 - 1.5 ✅ ชีต "ยืนยันใช้ N ชี่" + "ชี่ไม่พอ (ขาอีก N)" — 409 จาก engine → ชีตไม่พอ + reload ยอดจริง
-- 1.6 🔴 ซื้อชี่ (แพ็ก 200/500/1,200) — engine ยังไม่มี endpoint เงิน→ชี่ (catalog ไม่มีเส้น buy) รอขาหลัง
+- 1.6 ✅ (ทำแล้วตอนบ่าย — ดูสถานะปิดวันด้านบน): ซื้อชี่ผ่านราง Omise v2 + engine /api/qi/grant
 - 5.1 ✅ `/v2/qi/referral` hub เต็ม: โค้ด+คัดลอก+แชร์ LINE (/invite/<code>) + นับเพื่อน + แถวโบนัส + ใช้โค้ด
 
 **ทดสอบ:** เทสต์ใหม่ 26 เคส (qi-model/missions-screen/qi-history-screen/qi-screen/referral-hub)
