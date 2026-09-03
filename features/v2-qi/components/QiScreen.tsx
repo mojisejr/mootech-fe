@@ -115,12 +115,15 @@ export function QiScreen() {
   }
 
   return (
+    // เฟรม Figma เป็นมือถือ 393 — บนจอคอมบีบคอลัมน์กลาง max-w-md เหมือนหน้าอื่น (AccountScreen pattern)
+    // ❌ เดิมยืดเต็มจอ 1280 = แถวภารกิจ/hero กลายเป็นแนวนอนยาว (ที่ผู้ใช้รายงาน "ทำไมเป็นแนวนอน")
     <div className="font-ibm min-h-[100dvh] w-full bg-white pb-10">
+      <div className="mx-auto w-full max-w-md px-4">
       <Head>
         <title>พลังชี่ของฉัน — Mumate</title>
       </Head>
 
-      <header className="flex w-full items-center gap-2 px-4 pt-4">
+      <header className="flex w-full items-center gap-2 pt-4">
         <Link
           href="/v2"
           aria-label="ย้อนกลับ"
@@ -135,14 +138,14 @@ export function QiScreen() {
       </header>
 
       {loading && (
-        <div className="px-4 pt-4" data-testid="qi-loading">
+        <div className="pt-4" data-testid="qi-loading">
           <div className="h-[150px] w-full animate-pulse rounded-[20px] bg-v3-sapphire/20" />
           <div className="mt-3 h-[220px] w-full animate-pulse rounded-[20px] bg-white" />
         </div>
       )}
 
       {!loading && guard === "not_authenticated" && (
-        <div className="mx-4 mt-4 rounded-[20px] bg-white p-5 text-center shadow-[0_4px_15px_rgba(26,38,77,0.12)]" data-testid="qi-guard-auth">
+        <div className="mt-4 rounded-[20px] bg-white p-5 text-center shadow-[0_4px_15px_rgba(26,38,77,0.12)]" data-testid="qi-guard-auth">
           <p className="text-sm font-bold text-v3-navy">ไม่พบข้อมูลผู้ใช้</p>
           <Link href="/v2/login" className="mt-3 grid h-11 place-items-center rounded-full bg-v3-cyan text-sm font-bold text-white">
             เข้าสู่ระบบ
@@ -293,6 +296,7 @@ export function QiScreen() {
           )}
         </div>
       )}
+      </div>
     </div>
   )
 }
