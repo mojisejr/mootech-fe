@@ -154,6 +154,7 @@ export default defineConfig({
       'scripts/calendar-day-tap-scroll.test.tsx', // #567 — จิ้มวันแล้วสไลด์ไปการ์ดข้อมูล
       'scripts/mate-ai-button-label.test.tsx', // #568 — ปุ่มเสี่ยวมู่ (ชื่อจอ+aria) identifier คงเดิม
       'scripts/register-referral.test.tsx', // team.mp4 — ช่องโค้ดผู้แนะนำบนหน้าสมัคร + ยิงหลังบันทึก
+      'scripts/self-heal-retry.test.ts', // login ไม่สำเร็จจาก Render cold start — self-heal retry + timeout ไม่ signOut
       'scripts/vitest-include-drift.test.ts',
       'scripts/calendar-refusal-reaches-screen.test.tsx',
       'scripts/calendar-month-span-unconditional.test.tsx', // #358 Phase 4 — the span gate has no flag in front of it
