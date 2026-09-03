@@ -42,16 +42,23 @@ export function QiScreen() {
   const [refInput, setRefInput] = useState("")
   const [refMsg, setRefMsg] = useState<string | null>(null)
   const [copied, setCopied] = useState(false)
+  // team.mp4 2026-09 — @name โชว์จางๆ ใต้ Level/XP (เหมือน LINE); ยังไม่เคยตั้ง = null (ตั้งได้ที่หน้าสมัคร)
+  const [displayName, setDisplayName] = useState<string | null>(null)
 
   const load = useCallback(async () => {
     try {
-      const [w, r] = await Promise.all([
+      const [w, r, dn] = await Promise.all([
         fetch("/api/qi-wallet"),
         fetch("/api/referral"),
+        fetch("/api/v2/display-name"),
       ])
       if (w.status === 401 || r.status === 401) return setGuard("not_authenticated")
       if (w.ok) setWallet(await w.json())
       if (r.ok) setReferral(await r.json())
+      if (dn.ok) {
+        const j = (await dn.json().catch(() => ({}))) as { displayName?: string | null }
+        setDisplayName(typeof j.displayName === "string" && j.displayName ? j.displayName : null)
+      }
     } finally {
       setLoading(false)
     }
@@ -161,6 +168,12 @@ export function QiScreen() {
               <span>·</span>
               <span>XP {wallet?.xp ?? 0}</span>
             </div>
+            {/* team.mp4 2026-09 — @name โชว์จางๆ ใต้ชื่อ/สถานะเหมือน LINE (ยังไม่ตั้ง = ไม่แสดง) */}
+            {displayName ? (
+              <p data-testid="qi-display-name" className="mt-1 text-[12px] leading-4 text-white/60">
+                @{displayName}
+              </p>
+            ) : null}
           </section>
 
           {/* Qi Token คืออะไร */}
