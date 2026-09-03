@@ -231,7 +231,7 @@ describe('#265 cooldown — กดรัวจากปุ่มเดียว�
   it('🔴 ค่าที่เก็บไว้พัง/อยู่ในอนาคต → ปุ่มต้องไม่ถูกล็อกค้าง', async () => {
     // A dead button with no way out would be a worse bug than the one being fixed.
     for (const bad of ['not-a-number', String(Date.now() + 10 * 60_000), '-1', '']) {
-      window.localStorage.setItem(cooldownKey(USER), bad)
+      window.localStorage.setItem(cooldownKey(USER, 'love'), bad)
       render(<CompatibilityScreen config={CONFIG} />)
       await waitFor(() => expect(button().disabled).toBe(false))
       cleanup()
@@ -239,10 +239,53 @@ describe('#265 cooldown — กดรัวจากปุ่มเดียว�
   })
 
   it('cooldown ผูกกับผู้ใช้ — ไม่ตกทอดข้ามบัญชี', () => {
-    window.localStorage.setItem(cooldownKey('someone-else'), String(Date.now()))
+    window.localStorage.setItem(cooldownKey('someone-else', 'love'), String(Date.now()))
     render(<CompatibilityScreen config={CONFIG} />)
     expect(button().disabled).toBe(false)
-    expect(cooldownKey(USER)).not.toBe(cooldownKey('someone-else'))
+    expect(cooldownKey(USER, 'love')).not.toBe(cooldownKey('someone-else', 'love'))
+  })
+
+  // #588 — the couple screen and the colleague screen share this hook; a key bound to the userId alone
+  // let a press on ONE screen lock the OTHER screen's button for a minute.
+  // 🔴 MUTANT: revert cooldownKey to `compat:lastCalcAt:<userId>` (drop the scope) → both tests here redden.
+  const COLLEAGUE_CONFIG = {
+    kind: 'colleague', title: 'เช็คความสมพงศ์เพื่อนร่วมงาน', matchingType: 'COLLEAGUE', pickLabel: 'เลือกเพื่อนร่วมงาน',
+    maxCandidates: 1,
+    tagline: ['เลือกโปรไฟล์สองโปรไฟล์เพื่อดูดวงสมพงศ์', 'ด้านมิตรภาพในที่ทำงาน'],
+  } as never
+  const colleagueButton = () => screen.queryByTestId('compat-view-result') as HTMLButtonElement | null
+
+  it('🔴 #588 กดบนจอคู่รักแล้ว ปุ่มบนจอเพื่อนร่วมงานยังกดได้ทันที', async () => {
+    render(<CompatibilityScreen config={CONFIG} />)
+    tap()
+    await waitFor(() => expect(button().disabled).toBe(true))
+    cleanup()
+
+    render(<CompatibilityScreen config={COLLEAGUE_CONFIG} />)
+    await waitFor(() => expect(colleagueButton()).toBeTruthy())
+    expect(colleagueButton()!.disabled).toBe(false)
+    expect(colleagueButton()!.textContent).toBe('ดูผลลัพธ์เลย')
+  })
+
+  it('🔴 #588 กลับทาง — กดบนจอเพื่อนร่วมงานแล้วจอคู่รักไม่โดนล็อก และจอเดียวกันยังล็อก 60 วิ เหมือนเดิม', async () => {
+    render(<CompatibilityScreen config={COLLEAGUE_CONFIG} />)
+    tap()
+    await waitFor(() => expect(colleagueButton()!.disabled).toBe(true))
+    cleanup()
+    calculateCompatibility.mockClear() // นับเฉพาะยอดของจอคู่รักช่วงหลัง — colleague ยิงไปแล้ว 1 ก่อนหน้านี้
+
+    render(<CompatibilityScreen config={CONFIG} />)
+    await waitFor(() => expect(button().disabled).toBe(false))
+    // …เจตนาเดิมของ #265 ต้องไม่พัง: จอเดียวกัน กดซ้ำในนาทีเดียวยังติด cooldown
+    tap()
+    await waitFor(() => expect(calculateCompatibility).toHaveBeenCalledTimes(1))
+    await advance(COOLDOWN_MS + 500)
+    tap()
+    await waitFor(() => expect(calculateCompatibility).toHaveBeenCalledTimes(2))
+  })
+
+  it('🔴 #588 กุญแจต้องแยกตามจอ — คืนค่ากุญแจที่ผูก userId อย่างเดียวแล้วสองเทสต์บนต้องแดง', () => {
+    expect(cooldownKey(USER, 'love')).not.toBe(cooldownKey(USER, 'colleague'))
   })
 
   it('ไม่กลืนของเฟสก่อน: ข้อความ #263 ยังขึ้นตามสาเหตุเดิม', async () => {

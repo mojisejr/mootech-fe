@@ -4,6 +4,7 @@
 // routing (useCalendarMonth · dayCellTier · /v2/calendar/[date]) are untouched; NO network (mock hooks).
 import type { GetServerSideProps } from 'next'
 import { useRouter } from 'next/router'
+import { useRef } from 'react'
 import { v2RedirectIfUnauthed, isV2TeamPreview } from '@/lib/v2/gate'
 import { CalendarShell } from '@/features/v2-calendar/components/CalendarShell'
 import { AppHeader } from '@/features/v2-shell/components/AppHeader'
@@ -30,6 +31,15 @@ export const getServerSideProps: GetServerSideProps<{ teamPreview: boolean }> = 
 export default function V2CalendarPage({ teamPreview }: { teamPreview: boolean }) {
   const { month, loading, refusal, year, monthIndex, todayISO, selectedDate, selectDay, goPrev, goNext, goToday } = useCalendarMonth()
   const router = useRouter()
+  // #567 — จิ้มวันแล้วสไลด์ลงไปที่การ์ดข้อมูลของวันที่จิ้ม (ข้อมูลเปลี่ยนอยู่ใต้ตารางเดือน ผู้ใช้เคยต้อง
+  // เลื่อนเอง) — ครอบ selectDay ไว้ที่นี่ที่เดียวเพราะเป็นตัวถือลำดับ DOM; เรียก smooth เสมอ จอที่การ์ด
+  // อยู่ในสายตาอยู่แล้วจะแทบไม่ขยับ ส่วน negative control ของ DateSelector.tsx:54 (ชีทเลือกปี ลิสต์ตกต่ำ)
+  // เป็นอีกพื้นที่หนึ่ง ❌ ไม่เกี่ยวกับการจิ้มวัน
+  const fortuneCardRef = useRef<HTMLDivElement | null>(null)
+  const pickDay = (d: string) => {
+    selectDay(d)
+    fortuneCardRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+  }
   // Zone 4 — the paid rule lives once in goo's lib/v2/tier.ts; this page only reads the verdict.
   // `null` = not determined yet, and it is wrong to guess in EITHER direction, so both the pill and the
   // promo stay away until the tier is actually known. See the note on the promo below.
@@ -121,13 +131,16 @@ export default function V2CalendarPage({ teamPreview }: { teamPreview: boolean }
 
         {viewState === 'ready' && month && cardDay && (
         <>
-        <MonthGrid weeks={month.weeks} selectedDate={selectedDate} onSelect={selectDay} />
+        <MonthGrid weeks={month.weeks} selectedDate={selectedDate} onSelect={pickDay} />
 
         {/* Figma 375:11100 — the card and its CTA are ONE card; the CTA was a separate button below it. */}
         {/* goo · G-2 minimal compile-guard (NOT a designed loading state — M-B/M-D own the real one): the
             day-detail fetch is async so `detail` is null while it loads. The RING falls back to the month
             cell (cardDay) so grade/% are correct from the FIRST frame (จังหวะ-1, never blank); the TEXT
             (headline/suitable/avoid) is simply empty until the fetch lands (จังหวะ-2). No layout here. */}
+        {/* #567 — จิ้มวันแล้วต้องเห็นข้อมูลเปลี่ยน: การ์ดถูกสไลด์ขึ้นมาเอง (smooth) แทนให้ผู้ใช้เลื่อนเอง
+            เฉพาะเมื่อ viewState ready — สายที่ยังไม่ ready ไม่มีการ์ดให้เลื่อนไปหา */}
+        <div ref={fortuneCardRef}>
         <DailyFortuneCard
           variant="calendar"
           testId="calendar-daily-card"
@@ -151,6 +164,7 @@ export default function V2CalendarPage({ teamPreview }: { teamPreview: boolean }
             </button>
           }
         />
+        </div>
         </>
         )}
       </div>

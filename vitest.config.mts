@@ -149,6 +149,10 @@ export default defineConfig({
       'scripts/account-screen.test.tsx', // #365 — จอสิทธิ์ของฉัน: ป้ายพาไป · planFor · ตัวกรอง APPROVED · วันที่ พ.ศ.
       'scripts/vip-gate.test.tsx', // VipGate — template ล็อกฟีเจอร์ 🔒 3 สถานะ (paid/free/undetermined) ตามมีตติ้งทีม
       'scripts/delete-account-screen.test.tsx', // ลบบัญชี — ปุ่มกันตัวเอง + 501 โชว์ตรงไปตรงมา (ขาหลังยังไม่มี)
+      'scripts/use-now-minute.test.ts', // #586 — นาฬิกาจอปฏิทินเดินต่อ ไม่ค้างจาก render เดียว
+      'scripts/calendar-cards-mascot.test.tsx', // #555/#535 — การ์ดปฏิทิน×มาสคอต ไม่ครอบภาพ ไม่ทับข้อความ
+      'scripts/calendar-day-tap-scroll.test.tsx', // #567 — จิ้มวันแล้วสไลด์ไปการ์ดข้อมูล
+      'scripts/mate-ai-button-label.test.tsx', // #568 — ปุ่มเสี่ยวมู่ (ชื่อจอ+aria) identifier คงเดิม
       'scripts/vitest-include-drift.test.ts',
       'scripts/calendar-refusal-reaches-screen.test.tsx',
       'scripts/calendar-month-span-unconditional.test.tsx', // #358 Phase 4 — the span gate has no flag in front of it

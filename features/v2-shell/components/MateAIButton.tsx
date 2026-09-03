@@ -38,11 +38,15 @@
 import Image from 'next/image'
 import Link from 'next/link'
 
+// #568 (ฟีม): เปลี่ยนชื่อที่ผู้ใช้เห็นบนปุ่มเป็น "เสี่ยวมู่" แทน "Mate AI" — 🔴 เปลี่ยนเฉพาะข้อความจอ +
+// aria-label (accessible name ต้องตรงกับสิ่งที่เห็น) ❌ ห้ามเปลี่ยน identifier (MateAIButton / nav-mate-ai /
+// ชื่อไฟล์) ตามกติกาบ้าน — ทุกคอมเมนต์ที่อ้าง identifier จะตายเงียบถ้าเปลี่ยน
+// กราฟิกใหม่ที่ฟีมแนบมา (รูปที่ 11) ยังไม่มีไฟล์ asset ในรีโป — คงใช้ 01-nav.png เดิมจนกว่าจะได้ไฟล์จริง
 export function MateAIButton() {
   return (
     <Link
       href="/v2/chat"
-      aria-label="Mate AI"
+      aria-label="เสี่ยวมู่"
       data-testid="nav-mate-ai"
       className="relative flex h-[70px] w-[74px] shrink-0 items-center justify-center overflow-hidden rounded-2xl border-[5px] border-[rgba(216,143,169,0.4)] bg-v3-lime bg-clip-padding backdrop-blur-[6.8px]"
     >
@@ -54,7 +58,7 @@ export function MateAIButton() {
       </span>
       {/* label — INSIDE the tile (Figma y=3), above the mascot head. No slab: see the note above. */}
       <span data-testid="nav-mate-ai-label" className="absolute left-1/2 top-0 z-[1] -translate-x-1/2 whitespace-nowrap text-sm font-black leading-5">
-        <span className="bg-gradient-to-r from-v3-sapphire to-v3-mate-magenta bg-clip-text text-transparent">Mate AI</span>
+        <span className="bg-gradient-to-r from-v3-sapphire to-v3-mate-magenta bg-clip-text text-transparent">เสี่ยวมู่</span>
       </span>
     </Link>
   )

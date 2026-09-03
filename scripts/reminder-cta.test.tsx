@@ -71,6 +71,33 @@ describe('#341 · yamReminderStatus — เพิ่มแล้ว/เลยเ
   })
 })
 
+// ─── #586 · ยามคร่อมเที่ยงคืน — 子 "23:00-00:59" (ตัวเดียวในตารางที่ข้ามวัน) ─────────────
+// ฟีมรายงานว่า "ผ่านไปแล้วยังกดได้ ยามเดียวในตาราง" — ตรวจของจริงด้วย repro (2026-09-03):
+// ตรรกะ anchor ที่ start (computeFireAt → D 22:30 สำหรับยามนี้) ครอบข้ามเที่ยงคืนถูกต้องอยู่แล้ว
+// สิ่งที่ใบนี้แก้จริงคือ `now` บนหน้าที่ค้างจาก render เดียว (useNowMinute) ส่วนที่นี่คือฟันพิสูจน์ว่า
+// ตรรกะจับเคสข้ามเที่ยงคืนได้จริงทุกช่วง ด้วยเวลาที่ฉีดเข้าไป ❌ ไม่ใช่นาฬิกาจริง (ตามข้อบังคับของใบ)
+describe('#586 · ยามคร่อมเที่ยงคืน — 23:00-00:59', () => {
+  const MIDNIGHT = y('y5', '23:00-00:59')
+  const statusAt = (iso: string) =>
+    yamReminderStatus({ yam: MIDNIGHT, date: DATE, addedYamIds: [], now: new Date(iso) })
+
+  it('ยังไม่ถึง (20:00 ของวันเดิม) → addable', () => {
+    // 20:00 BKK = 13:00Z
+    expect(isYamPast(DATE, MIDNIGHT.window, new Date('2026-08-20T13:00:00Z'))).toBe(false)
+    expect(statusAt('2026-08-20T13:00:00Z')).toBe('addable')
+  })
+  it('เริ่มแล้วครึ่งแรก (23:30 ของวันเดิม) → past', () => {
+    // 23:30 BKK = 16:30Z — fire (22:30 BKK) ผ่านไปแล้ว
+    expect(isYamPast(DATE, MIDNIGHT.window, new Date('2026-08-20T16:30:00Z'))).toBe(true)
+    expect(statusAt('2026-08-20T16:30:00Z')).toBe('past')
+  })
+  it('🔴 ครึ่งหลังผ่านไปแล้วเต็มตัว (01:30 ของวันถัดไป) → past — เคสที่รายงานใน issue', () => {
+    // 01:30 วันถัดไป BKK = 18:30Z — ท้ายยาม (00:59) เลยมาแล้ว
+    expect(isYamPast(DATE, MIDNIGHT.window, new Date('2026-08-20T18:30:00Z'))).toBe(true)
+    expect(statusAt('2026-08-20T18:30:00Z')).toBe('past')
+  })
+})
+
 // ─── dayReminderCta — 7 สถานะ + precedence ──────────────────────────────────
 describe('#341 · dayReminderCta — ปุ่มแถบล่าง 7 สถานะ', () => {
   const base = {
