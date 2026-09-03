@@ -136,8 +136,8 @@ export function ChatScreen() {
           "linear-gradient(180deg, #CFE6FB 0%, #E7E9FB 34%, #F6E7F2 62%, #FBECEF 100%)",
       }}
     >
-      {/* header — ← · Mate AI · ●ทำงานอยู่ · ⚙ */}
-      <header className="flex w-full flex-none items-center gap-2 px-4 pt-4">
+      {/* header — ← · Mate AI · ●ทำงานอยู่ · ⚙ (บีบคอลัมน์ 430 กลางจอเดียวกับเนื้อหา ตามเฟรมมือถือใน Figma) */}
+      <header className="mx-auto flex w-full max-w-[430px] items-center gap-2 px-4 pt-4">
         <Link
           href="/v2"
           aria-label="ย้อนกลับ"
