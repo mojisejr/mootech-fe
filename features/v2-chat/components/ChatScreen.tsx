@@ -200,7 +200,7 @@ export function ChatScreen() {
       <div className="min-h-0 w-full flex-1 overflow-y-auto px-4">
         <div className="mx-auto flex w-full max-w-[430px] flex-col gap-2 pb-2">
           {/* greeting bubble (Figma copy — see TODO(figma-copy)) */}
-          <div data-testid="chat-greeting" className="max-w-[92%] self-start v3-shadow-line rounded-[18px] bg-white/95 px-4 py-3 text-[14px] leading-[22px] text-v3-navy">
+          <div data-testid="chat-greeting" className="max-w-[92%] self-start rounded-[18px] border border-[#D88FA9] bg-white px-4 py-3 text-[14px] leading-[22px] text-v3-navy shadow-[0_2px_8px_rgba(11,48,91,0.12),0_1px_4px_rgba(216,143,169,0.35)]">
             {GREETING}
           </div>
 
@@ -277,7 +277,7 @@ export function ChatScreen() {
                   onClick={() => submit(c.question)}
                   disabled={busy}
                   data-testid="chat-chip-starter"
-                  className="rounded-full border border-white bg-white/70 px-3 py-[7px] text-[12px] font-medium leading-4 text-v3-navy v3-shadow-line backdrop-blur transition hover:bg-white active:scale-[0.98] disabled:opacity-50"
+                  className="rounded-full border border-[#D88FA9] bg-white/70 px-3 py-[7px] text-[12px] font-medium leading-4 text-v3-navy backdrop-blur transition hover:bg-white active:scale-[0.98] disabled:opacity-50"
                 >
                   {c.label}
                 </button>
@@ -288,7 +288,7 @@ export function ChatScreen() {
                   key={q}
                   onClick={() => submit(q)}
                   disabled={busy}
-                  className="rounded-full border border-white bg-white/70 px-3 py-[7px] text-left text-[12px] font-medium leading-4 text-v3-navy v3-shadow-line backdrop-blur transition hover:bg-white active:scale-[0.98] disabled:opacity-50"
+                  className="rounded-full border border-[#D88FA9] bg-white/70 px-3 py-[7px] text-left text-[12px] font-medium leading-4 text-v3-navy backdrop-blur transition hover:bg-white active:scale-[0.98] disabled:opacity-50"
                 >
                   {q}
                 </button>
@@ -301,7 +301,7 @@ export function ChatScreen() {
                   onClick={() => submit(q)}
                   disabled={busy}
                   data-testid="chat-chip-next"
-                  className="rounded-full border border-white bg-white/70 px-3 py-[7px] text-[12px] font-medium leading-4 text-v3-navy v3-shadow-line backdrop-blur transition hover:bg-white active:scale-[0.98] disabled:opacity-50"
+                  className="rounded-full border border-[#D88FA9] bg-white/70 px-3 py-[7px] text-[12px] font-medium leading-4 text-v3-navy backdrop-blur transition hover:bg-white active:scale-[0.98] disabled:opacity-50"
                 >
                   {q}
                 </button>
@@ -355,8 +355,9 @@ export function ChatScreen() {
             data-testid="chat-send"
             className="grid h-11 w-11 flex-none place-items-center rounded-full bg-v3-sapphire text-white transition hover:bg-v3-sapphire-hover active:scale-[0.97] disabled:opacity-40"
           >
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden>
-              <path d="m5 12 14-7-5.5 7L19 19 5 12Z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" />
+            {/* Figma send-button: ลูกศรขวาสีเหลืองมะนาว E1FF00 บนวงกลม 1455A4 */}
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden>
+              <path d="M4 12h15M13 5.5 19.5 12 13 18.5" stroke="#E1FF00" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
             </svg>
           </button>
         </div>
