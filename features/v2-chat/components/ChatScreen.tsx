@@ -134,7 +134,7 @@ export function ChatScreen() {
         // ตามเฟรม Figma: gradient + ภาพ BG01 (ฟ้า-เมฆ) เต็มจอ บนพื้น #F6ECF0
         background:
           "linear-gradient(180deg, rgba(207,230,251,0.42) 0%, rgba(231,233,251,0.18) 34%, rgba(246,231,242,0.22) 62%, rgba(251,236,239,0.4) 100%)," +
-          "url('/images/v2/destiny/bg-destiny.jpg') center/cover no-repeat," +
+          "url('/images/v2/chat/bg-chat.jpg') center/cover no-repeat," +
           "#F6ECF0",
       }}
     >
