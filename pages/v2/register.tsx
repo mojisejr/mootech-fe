@@ -32,18 +32,33 @@ export default function V2RegisterPage() {
   // Slice 1 endpoint: after save → /v2 home (slice 2 wires the destiny result).
   const form = useV2ProfileForm(() => router.replace('/v2'))
 
-  // team.mp4 — หน้าสมัครเพิ่มช่อง "โค้ดผู้แนะนำ" (ไม่บังคับ): deep link /invite/MUMATE123 พามาพร้อม
-  // ?ref= แล้วเติมให้อัตโนมัติ; ยิง POST /api/referral **หลัง**บันทึกโปรไฟล์สำเร็จเท่านั้น
-  // (cookie-mumate-id ต้องพร้อม) และโค้ดล้ม ❌ ห้ามพังการสมัคร — ใส่ใหม่ได้ที่ /v2/qi
+  // team.mp4 — หน้าสมัครเพิ่มช่อง "โค้ดผู้แนะนำ" (ไม่บังคับ): deep link /invite/MUMATE123 เก็บโค้ดไว้
+  // (query ?ref= หรือ localStorage จากหน้า /invite สำหรับคนที่ยังไม่ล็อกอิน) แล้วยิง POST /api/referral
+  // **หลัง**บันทึกโปรไฟล์สำเร็จเท่านั้น (cookie-mumate-id ต้องพร้อม); โค้ดล้ม ❌ ห้ามพังการสมัคร —
+  // ใส่ใหม่ได้ที่ /v2/qi
   const applyReferral = useReferralApply()
   const [referral, setReferral] = useState(() => {
     const q = router.query.ref
     const v = Array.isArray(q) ? q[0] : q
-    return typeof v === 'string' && /^[A-Za-z0-9]{4,32}$/.test(v) ? v : ''
+    if (typeof v === 'string' && /^[A-Za-z0-9]{4,32}$/.test(v)) return v
+    // คนที่เข้าทาง /invite ตอนยังไม่ล็อกอิน — โค้ดรออยู่ใน storage จนมาถึงหน้านี้
+    try {
+      if (typeof window !== 'undefined') {
+        const saved = window.localStorage.getItem('v2:referral')
+        if (saved && /^[A-Za-z0-9]{4,32}$/.test(saved)) return saved
+      }
+    } catch { /* storage ปิด — ช่องว่างธรรมดา */ }
+    return ''
   })
   const onSubmitWithReferral = async () => {
     await form.onSubmit()
-    if (referral.trim()) await applyReferral(referral)
+    const code = referral.trim()
+    if (!code) return
+    const ok = await applyReferral(code)
+    // ใช้แล้วเอาออกจาก storage กันยิงซ้ำตอนกลับมาสมัคร/แก้ข้อมูลรอบหน้า; ไม่ ok ก็ทิ้งไว้ให้ลองที่ /v2/qi
+    if (ok) {
+      try { window.localStorage.removeItem('v2:referral') } catch { /* ไม่มีผลกับการสมัคร */ }
+    }
   }
 
   // #246 — authed-but-no-MEMBER_ID limbo would spin AuthLoadingGate forever here too. Offer re-login.

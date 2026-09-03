@@ -65,4 +65,12 @@ describe('#team-mp4 · หน้าสมัครรับ ?ref= มาเต�
     expect((input as HTMLInputElement).value).toBe('')
     fireEvent.change(input, { target: { value: 'MUMATE777' } })
     expect((input as HTMLInputElement).value).toBe('MUMATE777')
+  })
+
+  it('R5c โค้ดรอใน localStorage (จากหน้า /invite ตอนยังไม่ล็อกอิน) → เติมให้เอง', async () => {
+    window.localStorage.setItem('v2:referral', 'MUMATE555')
+    mountRegister({ query: {} })
+    const input = await waitForField()
+    expect((input as HTMLInputElement).value).toBe('MUMATE555')
+    window.localStorage.removeItem('v2:referral')
   })})
