@@ -10,6 +10,7 @@
 // figma-parity (ค้าง): สแกน qi-token-guide แถวหลัง fold ให้ครบเฟรม — ตัวเลขที่ใช้แสดงผลยึด
 // catalog ของ engine เป็นหลักเสมอ (ที่มาเดียวของความจริง), ลำดับ/ป้ายรอ designer ยืนยัน
 import Head from "next/head"
+import Image from "next/image"
 import Link from "next/link"
 import { useCallback, useEffect, useState } from "react"
 
@@ -159,10 +160,14 @@ export function QiScreen() {
           <section className="rounded-[20px] bg-v3-sapphire p-5 text-white" data-testid="qi-wallet">
             <div className="flex items-start justify-between">
               <p className="text-[12px] leading-4 text-white/80">ชี่สะสม</p>
-              <span aria-hidden className="v3-float-wide text-[26px] leading-none">🪙</span>
+              {/* #? 🪙 (U+1FA99) ไม่มีในฟอนต์ Windows 10 → กล่องโหว่; ใช้รูปเหรียญแทน */}
+              <span aria-hidden className="v3-float-wide block size-[26px]">
+                <Image src="/images/v2/zone2/coin.png" alt="" width={26} height={26} unoptimized className="size-full object-contain" />
+              </span>
             </div>
-            <p className="text-[34px] font-black leading-10" data-testid="qi-balance">
-              🪙 {wallet?.qi ?? 0}
+            <p className="flex items-center gap-2 text-[34px] font-black leading-10" data-testid="qi-balance">
+              <Image src="/images/v2/zone2/coin.png" alt="" width={30} height={30} unoptimized className="size-[30px] object-contain" />
+              {wallet?.qi ?? 0}
             </p>
             <div className="mt-2 flex items-center gap-3 text-[12px] text-white/85">
               <span>เหรียญ {wallet?.coins ?? 0}</span>

@@ -296,7 +296,10 @@ export function DestinyScreen() {
               data-testid="destiny-share"
               className="flex h-[56px] min-w-0 flex-1 items-center justify-center gap-2 rounded-full bg-white text-[13px] font-bold text-v3-navy v3-shadow-card transition active:scale-[0.99]"
             >
-              <span aria-hidden>🪙</span> {shareState === "done" ? "รับ +10 QI แล้ว 🎉" : "แชร์ดวงวันนี้ รับ +10 QI"}
+              <span aria-hidden className="flex items-center gap-2">
+                <Image src="/images/v2/zone2/coin.png" alt="" width={20} height={20} unoptimized className="size-5 object-contain" />
+                {shareState === "done" ? "รับ +10 QI แล้ว 🎉" : "แชร์ดวงวันนี้ รับ +10 QI"}
+              </span>
             </button>
             <Link
               href="/v2/chat"
