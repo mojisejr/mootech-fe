@@ -24,15 +24,6 @@ type Referral = { invitedCount?: number }
 const CHAT_COST = 30
 const TIER_LABEL: Record<string, string> = { free: "Free Tier", plus: "PLUS", pro: "PRO" }
 const ELEMENT_TH: Record<string, string> = { wood: "ไม้", metal: "ทอง", fire: "ไฟ", earth: "ดิน", water: "น้ำ" }
-// ฉากหลังตามธาตุ (คุมเองแทน bg ที่ baked ในการ์ด .jpg ซึ่งบางใบใส่ฉากผิดธาตุ) — sky→ground + glow
-const ELEMENT_SCENE: Record<string, { sky: string; ground: string; glow: string }> = {
-  ไม้: { sky: "#D3F0E1", ground: "#A6DC9E", glow: "rgba(140,220,150,0.55)" },
-  ไฟ: { sky: "#FFE1D4", ground: "#FFB49A", glow: "rgba(255,150,120,0.5)" },
-  ดิน: { sky: "#FBECCF", ground: "#E4C88C", glow: "rgba(230,190,120,0.5)" },
-  ทอง: { sky: "#FFF6D9", ground: "#E7D48D", glow: "rgba(235,210,120,0.5)" },
-  น้ำ: { sky: "#D8EDFB", ground: "#9FCFEE", glow: "rgba(130,190,235,0.5)" },
-}
-const DEFAULT_SCENE = ELEMENT_SCENE.ไม้
 
 /** นักษัตร (ปีเกิด) จากปี ค.ศ. ของ birthDate — สำหรับเลือกมาสคอต */
 function nakkasatFromBirth(birthDate?: string | null): string | null {
@@ -176,20 +167,10 @@ export function AccountScreen() {
                   <span className="inline-block rounded-full bg-[#FFF8F0] px-2.5 py-1 text-[12px] font-bold text-[#E5A93B]">{mascot.elementLabelTh} ({mascot.elementLabelEn})</span>
                   {element?.tagline ? <p className="mt-2 line-clamp-3 text-[12px] leading-[18px] text-[#717171]">{element.tagline}</p> : null}
                 </div>
-                {(() => {
-                  const scene = ELEMENT_SCENE[mascot.elementLabelTh] ?? DEFAULT_SCENE
-                  return (
-                    <span
-                      aria-hidden
-                      className="relative h-[138px] w-[126px] flex-none overflow-hidden rounded-[16px]"
-                      style={{ background: `linear-gradient(to bottom, ${scene.sky} 0%, ${scene.sky} 48%, ${scene.ground} 100%)` }}
-                    >
-                      <span className="absolute left-1/2 top-[46%] size-24 -translate-x-1/2 -translate-y-1/2 rounded-full blur-2xl" style={{ background: scene.glow }} />
-                      <span className="absolute bottom-3.5 left-1/2 h-2.5 w-14 -translate-x-1/2 rounded-[50%] bg-black/15 blur-[1px]" />
-                      <Image src={mascot.character} alt="" fill sizes="126px" className="object-contain object-bottom p-1.5 motion-safe:animate-mascot-float" />
-                    </span>
-                  )
-                })()}
+                {/* ใช้ card asset เดิม (ฉาก illustrated ต่อธาตุ) — ไฟล์ที่ฉากผิดธาตุ (เช่น 09_วอก-ไม้) ให้ทีมออกแบบแก้ทีหลัง */}
+                <span aria-hidden className="relative h-[138px] w-[126px] flex-none overflow-hidden rounded-[16px] motion-safe:animate-mascot-float">
+                  <Image src={mascot.card} alt="" fill sizes="126px" style={{ objectFit: "cover" }} />
+                </span>
               </div>
               <Link href="/v2/destiny" className="flex items-center gap-1 pt-1 text-[13px] font-medium text-v3-sapphire">
                 <span className="flex-1">ดูคำทำนายธาตุและแก้ไขข้อมูลเกิด</span>
