@@ -152,7 +152,10 @@ export function HeaderTools({ membership, upgradeCta = true, tierLink = true, on
       {badge.kind === 'upgrade' && <UpgradeBadge />}
       {badge.kind === 'tier' && <TierBadge label={badge.label} linked={tierLink} />}
       <TopBarBell variant="solid" href={bellHref} />
-      <TopBarAvatar variant="sapphire" name={avatarName} pictureUrl={avatarPictureUrl} onClick={onAvatar} />
+      {/* 🔴 avatar ปลายทางมีจริงแล้ว (2026-09-04): หน้าที่ไม่ส่ง onAvatar (ร้านค้า/checkout/ปฏิทิน/แจ้งเตือน)
+          เดิมตกไปที่ toast "โปรไฟล์กำลังจะมา เร็วๆ นี้" ซึ่งโกหกตั้งแต่ /v2/account เกิด — ตอนนี้ default
+          คือพาไปโปรไฟล์ ส่วน home/service ยังผูก onAvatar เปิดเมนูออกจากระบบเหมือนเดิม (ชนะเสมอเมื่อส่งมา) */}
+      <TopBarAvatar variant="sapphire" name={avatarName} pictureUrl={avatarPictureUrl} onClick={onAvatar} href={onAvatar ? undefined : '/v2/account'} />
     </div>
   )
 }
