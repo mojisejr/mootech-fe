@@ -167,8 +167,8 @@ export function AccountScreen() {
                   <span className="inline-block rounded-full bg-[#FFF8F0] px-2.5 py-1 text-[12px] font-bold text-[#E5A93B]">{mascot.elementLabelTh} ({mascot.elementLabelEn})</span>
                   {element?.tagline ? <p className="mt-2 line-clamp-3 text-[12px] leading-[18px] text-[#717171]">{element.tagline}</p> : null}
                 </div>
-                <span aria-hidden className="relative h-[110px] w-[80px] flex-none overflow-hidden rounded-[12px]">
-                  <Image src={mascot.character} alt="" fill sizes="80px" style={{ objectFit: "contain" }} />
+                <span aria-hidden className="relative h-[138px] w-[126px] flex-none overflow-hidden rounded-[16px] motion-safe:animate-mascot-float">
+                  <Image src={mascot.card} alt="" fill sizes="126px" style={{ objectFit: "cover" }} />
                 </span>
               </div>
               <Link href="/v2/destiny" className="flex items-center gap-1 pt-1 text-[13px] font-medium text-v3-sapphire">

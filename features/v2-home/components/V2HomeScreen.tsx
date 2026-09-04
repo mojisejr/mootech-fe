@@ -357,7 +357,9 @@ function ScoreRingCard({ fortune, loading }: { fortune: DailyFortune | null; loa
     <DailyFortuneCard
       variant="home"
       ring={{ grade: fortune.grade, percent: fortune.percent, verdict: fortune.verdict }}
-      headline={fortune.headline}
+      // strip a trailing "(เหมาะ NN%)" — the percent already lives in the donut, so the headline repeating
+      // it is redundant (Figma shows it only once). Non-matching headlines pass through unchanged.
+      headline={fortune.headline.replace(/\s*\(เหมาะ\s*\d+\s*%\)\s*$/, '').trim()}
       // #3: API "2026-06-01" → "1 มิถุนายน 2569" (พ.ศ.). If formatting fails, NEVER leak a raw ISO: a
       // malformed ISO-shaped string → hide; a non-ISO string (already formatted) → pass through.
       dateLine={formatThaiLongDate(fortune.date) || (/^\d{4}-\d{2}-\d{2}/.test(fortune.date) ? '' : fortune.date)}
