@@ -144,17 +144,17 @@ export default function V2SettingsPage() {
       </Group>
       <p className="px-2 pt-1.5 text-[11px] leading-4 text-v3-text-muted">วันเกิดและเวลาเกิดเป็นข้อมูลส่วนบุคคล คุณถอนความยินยอมได้ทุกเมื่อ</p>
 
+      {/* ช่วยเหลือ (เฟรมวางก่อน เกี่ยวกับ) */}
+      <Group title="ช่วยเหลือ">
+        <Row href="/v2/help/faq" testId="settings-help" title="ช่วยเหลือ / ติดต่อเรา" value="Line @mumate.co" />
+        <Row href="/v2/help/faq" testId="settings-faq" title="คำถามที่พบบ่อย" last />
+      </Group>
+
       {/* เกี่ยวกับ */}
       <Group title="เกี่ยวกับ">
         <Row href="/privacy/policy" testId="settings-privacy-policy" title="นโยบายความเป็นส่วนตัว (PDPA)" />
         <Row href="/terms" testId="settings-terms" title="ข้อกำหนดการใช้งาน" />
         <Row href="/v2/help/about" testId="settings-about" title="ข้อมูลบริษัท" last />
-      </Group>
-
-      {/* ช่วยเหลือ */}
-      <Group title="ช่วยเหลือ">
-        <Row href="/v2/help/faq" testId="settings-help" title="ช่วยเหลือ / ติดต่อเรา" value="Line @mumate.co" />
-        <Row href="/v2/help/faq" testId="settings-faq" title="คำถามที่พบบ่อย" last />
       </Group>
 
       {/* ออกจากระบบ + ลบบัญชีถาวร + เวอร์ชัน (เฟรม danger zone) */}

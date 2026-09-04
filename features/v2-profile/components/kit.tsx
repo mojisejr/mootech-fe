@@ -295,7 +295,7 @@ export function SheetShell({
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/30" onClick={onClose}>
       <div
-        className={`w-full max-w-md rounded-t-[28px] bg-white px-5 pb-10 pt-3 font-ibm ${className}`}
+        className={`w-full max-w-md rounded-t-[28px] bg-[#FAF7F4] px-5 pb-10 pt-3 font-ibm ${className}`}
         onClick={(e) => e.stopPropagation()}
         role="dialog"
         aria-label={label}

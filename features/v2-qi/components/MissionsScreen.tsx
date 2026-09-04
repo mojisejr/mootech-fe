@@ -207,7 +207,7 @@ export function MissionsScreen() {
               <div className="mt-3 h-[8px] w-full overflow-hidden rounded-full bg-white/25">
                 <div className="h-full rounded-full bg-v3-lime" style={{ width: `${dailyTotal ? Math.round((dailyDone / dailyTotal) * 100) : 0}%` }} />
               </div>
-              <p className="mt-2 text-[12px] text-white/85">ทำแล้ว {dailyDone} จาก {dailyTotal} การกิจรายวัน · รีเซ็ตอีก {h} ชม. {m} น.</p>
+              <p className="mt-2 text-[12px] text-white/85">ทำแล้ว {dailyDone} จาก {dailyTotal} ภารกิจรายวัน · รีเซ็ตอีก {h} ชม. {m} น.</p>
             </section>
 
             {/* แบนเนอร์คู่มือ QI */}

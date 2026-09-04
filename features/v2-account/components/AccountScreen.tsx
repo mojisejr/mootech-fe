@@ -273,6 +273,9 @@ export function AccountScreen() {
                 {["#63B05F", "#E5A93B", "#D75A3A"].map((c, i) => (
                   <span key={c} className="grid size-[30px] place-items-center rounded-full border-2 border-white text-[11px] font-black text-white" style={{ backgroundColor: c, marginLeft: i === 0 ? 0 : -10 }}>ธ</span>
                 ))}
+                {friends > 3 ? (
+                  <span className="grid size-[30px] place-items-center rounded-full border-2 border-white bg-v3-navy text-[10px] font-black text-v3-lime" style={{ marginLeft: -10 }}>+{friends - 3}</span>
+                ) : null}
               </span>
               <div className="min-w-0 flex-1">
                 <p className="text-[14px] font-medium text-v3-navy">เพื่อนของคุณ {friends} คน</p>

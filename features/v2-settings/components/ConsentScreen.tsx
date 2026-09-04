@@ -90,7 +90,8 @@ export function ConsentScreen() {
 
             {PURPOSES.map((p) => {
               const on = stateOf(p)
-              const showImpact = p.impact && (p.impact.always || !on)
+              // เฟรมโชว์กล่องผลกระทบเสมอเมื่อมี (กล่องแดง = พรีวิว "ถ้าปิดจะเกิดอะไร" แม้ตอนยังเปิด)
+              const showImpact = Boolean(p.impact)
               return (
                 <section key={p.kind} className="v3-shadow-card flex w-full flex-col gap-2 rounded-[18px] bg-white p-4" data-testid={`consent-card-${p.kind}`}>
                   <div className="flex items-center gap-3">
