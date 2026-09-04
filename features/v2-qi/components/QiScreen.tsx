@@ -55,14 +55,18 @@ const COMPARE = [
   { key: "pro", title: "Mumate Pro", price: "฿199/เดือน", desc: "ปลดล็อกไม่จำกัด", highlight: true },
 ]
 
-// วงจรความมั่งคั่ง (Growth Loop) — 6 ขั้นวางรอบมังกรกลาง (ตาม Figma 55271:8716)
-const LOOP: { t: string; pos: string }[] = [
-  { t: "1. ใช้ Qi", pos: "left-1/2 -translate-x-1/2 top-0" },
-  { t: "2. อยากมูต่อ", pos: "right-0 top-[24%]" },
-  { t: "3. แต้มหมด", pos: "right-0 top-[64%]" },
-  { t: "4. ชวนเพื่อน", pos: "left-1/2 -translate-x-1/2 bottom-0" },
-  { t: "5. ได้ Qi เพิ่ม", pos: "left-0 top-[64%]" },
-  { t: "6. มูเตลู", pos: "left-0 top-[24%]" },
+// วงจรความมั่งคั่ง (Growth Loop) — 6 ขั้นวางเป็นหกเหลี่ยมรอบมาสคอตกลาง (พิกัดในกล่อง 300px)
+const LOOP: { t: string; x: number; y: number }[] = [
+  { t: "1. ใช้ Qi", x: 150, y: 30 },
+  { t: "2. อยากมูต่อ", x: 250, y: 92 },
+  { t: "3. แต้มหมด", x: 250, y: 208 },
+  { t: "4. ชวนเพื่อน", x: 150, y: 270 },
+  { t: "5. ได้ Qi เพิ่ม", x: 50, y: 208 },
+  { t: "6. มูเตลู", x: 50, y: 92 },
+]
+// หัวลูกศรบนวงแหวน (จุดกึ่งกลางระหว่างขั้น) ชี้ตามเข็ม: [x, y, rotate°]
+const LOOP_ARROWS: [number, number, number][] = [
+  [214, 52, 30], [268, 150, 90], [214, 248, 150], [86, 248, 210], [32, 150, 270], [86, 52, 330],
 ]
 
 type SheetState = { kind: "confirm" | "insufficient"; line: QiSpendLine } | null
@@ -385,24 +389,30 @@ export function QiScreen() {
           <SectionCard className="!items-center !rounded-[20px]" testId="qi-growth">
             <h2 className="w-full text-[18px] font-bold text-v3-navy">วงจรความมั่งคั่ง (Growth Loop)</h2>
             <div className="relative my-2 size-[300px]">
-              <div className="absolute left-1/2 top-1/2 size-[86px] -translate-x-1/2 -translate-y-1/2 overflow-hidden rounded-[43px] border-4 border-[#FBEFF2]">
-                <Image src={loopMascot ?? "/images/v2/qi/growth-dragon.png"} alt="" fill sizes="86px" className="object-contain" />
+              {/* วงแหวนไหลเวียน (เส้นประ) + หัวลูกศรชี้ตามเข็ม — วาดด้วย SVG ให้เชื่อมต่อกันสวย */}
+              <svg viewBox="0 0 300 300" className="absolute inset-0 size-full" fill="none" aria-hidden>
+                <circle cx="150" cy="150" r="118" stroke="#1B9AAF" strokeWidth="2" strokeDasharray="2 8" strokeLinecap="round" opacity="0.5" />
+                {LOOP_ARROWS.map(([x, y, r], i) => (
+                  <g key={i} transform={`translate(${x} ${y}) rotate(${r})`}>
+                    <path d="M-4 -5.5 L6.5 0 L-4 5.5 Z" fill="#1B9AAF" />
+                  </g>
+                ))}
+              </svg>
+              {/* มาสคอตกลาง (ตามธาตุเจ้าของ) */}
+              <div className="absolute left-1/2 top-1/2 grid size-[94px] -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full bg-white shadow-[0_3px_14px_rgba(27,154,175,0.28)]">
+                <div className="size-[82px] overflow-hidden rounded-full border-2 border-[#DBF0F3] bg-[#F4FBFC]">
+                  <Image src={loopMascot ?? "/images/v2/qi/growth-dragon.png"} alt="" width={82} height={82} className="size-full object-contain" />
+                </div>
               </div>
+              {/* กล่อง 6 ขั้น วางบนวงแหวน (ขอบมนมีเงา) */}
               {LOOP.map((s) => (
-                <span key={s.t} className={`absolute ${s.pos} rounded-[10px] border-[1.5px] border-v3-cyan bg-[#EAF3FF] px-2 py-1 text-[12px] font-bold text-v3-navy`}>
+                <span
+                  key={s.t}
+                  className="absolute -translate-x-1/2 -translate-y-1/2 whitespace-nowrap rounded-full border-[1.5px] border-v3-cyan bg-white px-3 py-1.5 text-[12px] font-bold text-v3-navy shadow-[0_2px_7px_rgba(27,154,175,0.18)]"
+                  style={{ left: s.x, top: s.y }}
+                >
                   {s.t}
                 </span>
-              ))}
-              {/* ลูกศรวน (ตามเข็มนาฬิกา) เชื่อม 6 ขั้น (เฟรม rotate-cw/arrow-down/left/up-right) */}
-              {[
-                { c: "↻", pos: "left-[52%] top-[13%]" },
-                { c: "→", pos: "left-[30%] top-[14%]" },
-                { c: "↓", pos: "right-[8%] top-[42%]" },
-                { c: "←", pos: "left-[55%] bottom-[15%]" },
-                { c: "←", pos: "left-[30%] bottom-[15%]" },
-                { c: "↗", pos: "left-[7%] top-[42%]" },
-              ].map((a, i) => (
-                <span key={i} aria-hidden className={`absolute ${a.pos} text-[18px] font-black leading-none text-v3-cyan`}>{a.c}</span>
               ))}
             </div>
             <p className="text-center text-[13px] leading-5 text-v3-text-muted">หมุนเวียนพลังงานบวกไม่สิ้นสุด ยิ่งแชร์ ยิ่งส่งเสริมซึ่งกันและกัน</p>
