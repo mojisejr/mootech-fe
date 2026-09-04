@@ -5,15 +5,13 @@ import Head from 'next/head'
 import Link from 'next/link'
 import { useCallback, useEffect, useState } from 'react'
 
-import { AppHeader } from '@/features/v2-shell/components/AppHeader'
-import { useV2Tier } from '@/features/auth/hooks/useV2Tier'
+import { SkyBackdrop, SkyHeader } from '@/features/v2-profile/components/kit'
 
 const CARD = 'flex w-full flex-col rounded-[20px] bg-white p-5 drop-shadow-[0_4px_15px_rgba(26,38,77,0.12)]'
 
 type Article = { slug: string; title: string; body: string }
 
 export function FaqScreen() {
-  const tier = useV2Tier(false)
   const [articles, setArticles] = useState<Article[] | null>(null)
   const [loading, setLoading] = useState(true)
   const [failed, setFailed] = useState(false)
@@ -42,9 +40,10 @@ export function FaqScreen() {
   }, [load])
 
   return (
-    <div className="relative min-h-screen w-full overflow-x-hidden bg-v3-bg-cream font-ibm">
+    <div className="relative min-h-screen w-full overflow-x-hidden bg-white font-ibm">
+      <SkyBackdrop />
       <Head><title>ช่วยเหลือ · MuMate</title></Head>
-      <AppHeader testId="faq-header" title="ช่วยเหลือ" backHref="/v2/settings" membership={tier} upgradeCta={false} className="items-center py-4" />
+      <SkyHeader title="ช่วยเหลือ" backHref="/v2/settings" testId="faq" />
 
       <div className="mx-auto flex w-full max-w-md flex-col gap-3 px-4 pb-36 pt-2">
         {loading && <div aria-hidden className="h-[120px] w-full animate-pulse rounded-[20px] bg-white" data-testid="faq-loading" />}

@@ -9,9 +9,8 @@
 import Head from 'next/head'
 import Link from 'next/link'
 import { useCallback, useEffect, useState } from 'react'
-import { AppHeader } from '@/features/v2-shell/components/AppHeader'
+import { SkyBackdrop, SkyHeader } from '@/features/v2-profile/components/kit'
 import { Menubar } from '@/features/v2-shell/components/Menubar'
-import { useV2Tier } from '@/features/auth/hooks/useV2Tier'
 
 const CARD = 'flex w-full flex-col gap-3 rounded-[20px] bg-white p-5 drop-shadow-[0_4px_15px_rgba(26,38,77,0.12)]'
 
@@ -35,7 +34,6 @@ export default function DeleteAccountPage() {
   const [checked, setChecked] = useState(false)
   const [sending, setSending] = useState(false)
   // #384 — ทุกหน้าที่ใช้ AppHeader ต้องส่ง membership ตรง ๆ; หน้าลบบัญชีไม่ใช่พื้นที่ขาย (cta false)
-  const tier = useV2Tier(false)
   // สถานะ: idle → sending → pending (สำเร็จ) | notImplemented (501) | errored
   const [verdict, setVerdict] = useState<'idle' | 'sending' | 'pending' | 'notImplemented' | 'errored'>('idle')
   const [pendingInfo, setPendingInfo] = useState<{ requestedAt?: string; purgeAt?: string } | null>(null)
@@ -110,11 +108,12 @@ export default function DeleteAccountPage() {
   }
 
   return (
-    <div className="relative min-h-screen w-full overflow-x-hidden bg-v3-bg-cream font-ibm">
+    <div className="relative min-h-screen w-full overflow-x-hidden bg-white font-ibm">
+      <SkyBackdrop />
       <Head><title>ลบบัญชี · MuMate</title></Head>
 
       <div className="relative z-10 mx-auto flex w-full max-w-md flex-col px-4 pb-36 pt-[max(0.75rem,env(safe-area-inset-top))]">
-        <AppHeader testId="delete-header" title="ลบบัญชี" backHref="/v2/account" membership={tier} upgradeCta={false} className="items-center py-4" />
+        <SkyHeader title="ลบบัญชี" backHref="/v2/account" testId="delete" />
 
         {/* สถานะ pending (เฟรม delete-04 pending-recovery) — เข้าหน้าซ้ำเห็นสถานะ + ยกเลิกได้ */}
         {verdict === 'pending' && pendingInfo ? (

@@ -4,13 +4,11 @@
 import Head from 'next/head'
 import { useState } from 'react'
 
-import { AppHeader } from '@/features/v2-shell/components/AppHeader'
-import { useV2Tier } from '@/features/auth/hooks/useV2Tier'
+import { SkyBackdrop, SkyHeader } from '@/features/v2-profile/components/kit'
 
 const CARD = 'flex w-full flex-col gap-2 rounded-[20px] bg-white p-5 drop-shadow-[0_4px_15px_rgba(26,38,77,0.12)]'
 
 export function DataExportScreen() {
-  const tier = useV2Tier(false)
   const [state, setState] = useState<'idle' | 'working' | 'done' | 'failed'>('idle')
   const [sizeText, setSizeText] = useState<string | null>(null)
 
@@ -38,9 +36,10 @@ export function DataExportScreen() {
   }
 
   return (
-    <div className="relative min-h-screen w-full overflow-x-hidden bg-v3-bg-cream font-ibm">
+    <div className="relative min-h-screen w-full overflow-x-hidden bg-white font-ibm">
+      <SkyBackdrop />
       <Head><title>ส่งออกข้อมูลของฉัน · MuMate</title></Head>
-      <AppHeader testId="export-header" title="ส่งออกข้อมูลของฉัน" backHref="/v2/privacy/consent" membership={tier} upgradeCta={false} className="items-center py-4" />
+      <SkyHeader title="ส่งออกข้อมูลของฉัน" backHref="/v2/privacy/consent" testId="export" />
 
       <div className="mx-auto flex w-full max-w-md flex-col gap-4 px-4 pb-36 pt-2">
         <section className={CARD} data-testid="export-info">

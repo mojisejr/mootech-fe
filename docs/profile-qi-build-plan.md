@@ -5,6 +5,30 @@
 > AccountScreen (#365, ไม่มี design เดิม — ตอนนี้มี design แล้ว) · ลบบัญชี 1 หน้า (70b8d76) ·
 > deep link /invite + ช่องโค้ดบนหน้าสมัคร (4583e68/ca7facc)
 
+## ✅ Reskin ตาม Figma จริง 2026-09-04 — ปิด gap ภาษาภาพทั้งคลัสเตอร์
+
+เปิด Figma จริงผ่าน Browser Use (screen reader ของ Figma ยังเปิดค้างในบัญชี mootech co) เทียบรายเฟรม
+แล้ว reskin ทั้งคลัสเตอร์ "หน้า - profile" ด้วย design kit ใหม่ `features/v2-profile/components/kit.tsx`
+(SkyBackdrop BG01 · SkyHeader ลูกศร+ชื่อน้ำเงินหนา ไม่มี badge · SectionCard มุมมน 24 · MenuRow ไอคอนไทล์
++ ค่าปัจจุบันทางขวา · QuickAction · CoinStack จาก coin.png แทน 🪙 ที่เป็นกล่องโหว่บน Windows):
+
+- โปรไฟล์ = เฟรม profile-and-qi-wallet: hero ชี่+มาสคอต+ปุ่มเติมชี่ → quick actions 4 → แผน+มงกุฎ →
+  เมนู 9 แถวไอคอนไทล์ (ย้ายประวัติซื้อออกไป /v2/orders เต็มที่ตามเฟรม; fangs #365 ย้ายตามไป
+  orders-screen + mount test เขียนใหม่เป็นสัญญาของ hero ชี่)
+- ชี่ = qi-guide: hero น้ำเงิน 28px เหรียญใหญ่ + แถบ XP progress + แถวสะสมเป็นไอคอนไทล์
+- เติมชี่ = buy-qi: แบนเนอร์โบนัสไล่สี + การ์ดใหญ่ 3 ใบกองเหรียญ + badge คุ้มที่สุด (QI_1200)
+- เช็คอิน = check-in states: hero สตรีค + strip เหรียญทอง ✓/ขอบวันนี้/เทาอนาคต
+- settings = settings — UX v2: การ์ดโปรไฟล์บนสุด + แถวไอคอน + ค่าปัจจุบัน (ภาษา ไทย / ขนาด ปกติ)
+- ชวนเพื่อน = referral - hub: โค้ดใหญ่ + ปุ่ม LINE เขียวเด่น + 3 ขั้นตอน + สถิติ + preview + ใช้โค้ด
+- จอย่อยอีก 12 (edit×2/connected/plan/orders×2/notifications/consent/export/faq/doc/delete) สลับ
+  เป็น Sky ทั้งชุด — ถอนออกจาก SCREENS ของ header-tier-badge (21→7) พร้อมฟันกันการย้อนกลับ
+
+บั๊กที่แก้พร้อมกัน: ประวัติชี่แปลง `qi:spend:birth_edit`→"แลก แก้วันเกิด" + `qi:buy:QI_N`→"ซื้อแพ็กชี่ N ชี่"
+· checkout แพ็กชี่โชว์ "แพ็กชี่ 200 ชี่" + "ชี่เข้าบัญชีทันทีหลังชำระเงินสำเร็จ" แทนโค้ดดิบ/อายุ 1 ปี
+
+ตรวจ: tsc สะอาด · lint = baseline · ชุดเกี่ยว 116 เคสเขียว · ชุดเต็ม 1,391 ผ่าน (แดง 9 เดิม + flake #526
+ที่รันเดี่ยวเขียว) · ถ่ายเทียบ browser ครบ 6 จอหลัก + checkout ตามจริง
+
 ## ✅ สถานะ 2026-09-03 (ปิดวัน) — ทำครบ 6 ก้อน เชื่อม engine pdf-dev ทุกเฟรมในลิสต์
 
 **FE commits:** eb380cd (เฟส 1) · 8c883f0 (เฟส 2) · 7799a52 (เฟส 3-4) — บน feat/mumate-ai-chat ·

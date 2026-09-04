@@ -6,8 +6,7 @@ import Head from "next/head"
 import { useSession } from "next-auth/react"
 import { useEffect, useState } from "react"
 
-import { AppHeader } from "@/features/v2-shell/components/AppHeader"
-import { useV2Tier } from "@/features/auth/hooks/useV2Tier"
+import { SkyBackdrop, SkyHeader } from "@/features/v2-profile/components/kit"
 import { ProfileGate } from "./ProfileGate"
 
 const CARD = "flex w-full flex-col gap-3 rounded-[20px] bg-white p-5 drop-shadow-[0_4px_15px_rgba(26,38,77,0.12)]"
@@ -21,7 +20,6 @@ const PROVIDER_LABEL: Record<string, { name: string; mark: string }> = {
 }
 
 export function ConnectedScreen() {
-  const tier = useV2Tier(false)
   const { data: session, status: sessionStatus } = useSession()
   const [displayName, setDisplayName] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
@@ -54,9 +52,10 @@ export function ConnectedScreen() {
   const known = PROVIDER_LABEL[provider ?? ""]
 
   return (
-    <div className="relative min-h-screen w-full overflow-x-hidden bg-v3-bg-cream font-ibm">
+    <div className="relative min-h-screen w-full overflow-x-hidden bg-white font-ibm">
+      <SkyBackdrop />
       <Head><title>ช่องทางเข้าใช้งาน · MuMate</title></Head>
-      <AppHeader testId="connected-header" title="ช่องทางเข้าใช้งาน" backHref="/v2/account" membership={tier} upgradeCta={false} className="items-center py-4" />
+      <SkyHeader title="ช่องทางเข้าใช้งาน" backHref="/v2/account" testId="connected" />
 
       <div className="mx-auto flex w-full max-w-md flex-col gap-4 px-4 pb-36 pt-2">
         <ProfileGate loading={loading || sessionStatus === "loading"} kind={kind} onRetry={() => window.location.reload()} />

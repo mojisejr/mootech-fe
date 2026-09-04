@@ -73,68 +73,44 @@ const mount = () => render(<CookiesProvider>{React.createElement(AccountScreen)}
 beforeEach(() => vi.clearAllMocks())
 afterEach(() => { cleanup(); vi.unstubAllGlobals() })
 
-describe('#365 จอประกอบจริง · ประวัติโหลดไม่สำเร็จ (ตู๋ R2 · 2aac026)', () => {
-  // 🔴 B1 — the words a person reads, not the characters in the source file.
-  it('🔴 B1 status ตอบ 500 → เห็นการ์ด error และ ❌ ไม่มีคำว่า "ยังไม่มีรายการ" ที่ไหนเลยบนจอ', async () => {
-    stubFetch(() => ({ ok: false, status: 500, json: async () => ({ payments: [] }) }))
-    const { container } = mount()
+describe('จอโปรไฟล์ (reskin เฟรม profile-and-qi-wallet 2026-09-04) ประกอบจริง', () => {
+  // 🔴 บทเรียนเดิมย้ายบ้านแล้ว: "ประวัติซื้อล้ม ห้ามพูดว่า ยังไม่มีรายการ" — จอนี้ไม่มีการ์ดประวัติ
+  // inline อีกต่อไป (เฟรมใหม่ย้ายไป /v2/orders เต็มที่) ฟันคู่เดิมอยู่ที่ scripts/orders-screen.test.tsx
+  // (อ่านล้ม → error ❌ empty · ลองใหม่ยิงจริง) จอนี้เก็บฟันความจริงของ "แหล่งข้อมูลใหม่": กระเป๋าชี่
+  const stubQi = (ok: boolean, qi = 0) =>
+    vi.stubGlobal('fetch', vi.fn((input: RequestInfo | URL) => {
+      const url = String(input)
+      if (url.includes('/api/qi-wallet')) {
+        return Promise.resolve(ok
+          ? { ok: true, json: async () => ({ qi, coins: 0, xp: 0, level: 1, history: [] }) }
+          : { ok: false, status: 500, json: async () => ({}) } as Response)
+      }
+      return Promise.resolve({ ok: true, json: async () => USER } as Response)
+    }))
 
-    await waitFor(() => expect(screen.getByTestId('account-history-error')).toBeTruthy())
-    expect(screen.queryByTestId('account-history-empty')).toBeNull()
-    // the whole document, not just the card — this is the sentence that must not exist anywhere
-    expect(container.textContent).not.toContain('ยังไม่มีรายการ')
-    expect(container.textContent).toContain('โหลดประวัติการซื้อไม่สำเร็จ')
+  it('hero กระเป๋าชี่: engine ตอบ 500 → ซ่อน hero ❌ โชว์เลข 0 เป็นเรื่องจริง + จอที่เหลือยังยืน', async () => {
+    stubQi(false)
+    const { container } = mount()
+    await waitFor(() => expect(container.textContent).toContain('โปรไฟล์'))
+    await waitFor(() => expect(screen.queryByTestId('account-qi-wallet')).toBeNull())
+    expect(container.textContent).not.toContain('เริ่มสะสมชี่วันนี้') // day-one copy = ข้อเท็จจริงของข้อมูล ไม่ใช่ของความล้ม
   })
 
-  it('401 ก็ต้องเป็น error เหมือนกัน (ไม่ใช่แค่ 500) — ทุกทางที่ไม่ ok คือความล้มของเรา', async () => {
-    stubFetch(() => ({ ok: false, status: 401, json: async () => ({ payments: [] }) }))
+  it('engine ตอบสำเร็จ → hero โชว์ยอดจากคำตอบจริง + quick actions ครบ 4', async () => {
+    stubQi(true, 630)
     const { container } = mount()
-    await waitFor(() => expect(screen.getByTestId('account-history-error')).toBeTruthy())
-    expect(container.textContent).not.toContain('ยังไม่มีรายการ')
+    await waitFor(() => expect(screen.getByTestId('account-qi-balance').textContent).toContain('630'))
+    expect(container.textContent).toContain('พลังชี่สะสมของคุณ')
+    expect(screen.getByTestId('account-qa-missions').getAttribute('href')).toBe('/v2/qi/missions')
+    expect(screen.getByTestId('account-qa-history').getAttribute('href')).toBe('/v2/qi/history')
+    expect(screen.getByTestId('account-qa-referral').getAttribute('href')).toBe('/v2/qi/referral')
+    expect(screen.getByTestId('account-qa-redeem').getAttribute('href')).toBe('/v2/qi')
   })
 
-  it('fetch โยน exception ก็ต้องเป็น error ไม่ใช่ empty', async () => {
-    vi.stubGlobal('fetch', vi.fn((input: RequestInfo | URL) =>
-      String(input).includes('/payment/status')
-        ? Promise.reject(new Error('network'))
-        : Promise.resolve({ ok: true, json: async () => USER } as Response)))
+  it('แผนยังอ่านจาก useV2User เหมือนเดิม — PRO + วันหมดอายุโชว์ครบ', async () => {
+    stubQi(true, 0)
     const { container } = mount()
-    await waitFor(() => expect(screen.getByTestId('account-history-error')).toBeTruthy())
-    expect(container.textContent).not.toContain('ยังไม่มีรายการ')
-  })
-
-  // 🔴 B2 — ตู๋ R1: the old guard only proved the BUTTON EXISTED. An empty handler passed it.
-  it('🔴 B2 กด "ลองอีกครั้ง" แล้วต้องยิง /payment/status ใหม่จริง (ปุ่มเปล่าต้องแดง)', async () => {
-    let fail = true
-    const { calls } = stubFetch(() =>
-      fail
-        ? { ok: false, status: 500, json: async () => ({ payments: [] }) }
-        : { ok: true, json: async () => ({ payments: [{ packageCode: 'PRO_ANNUAL', tierCode: 'PRO', amountSatang: 129000, status: 'APPROVED', createdAt: '2026-07-14T03:00:00.000Z' }] }) })
-
-    mount()
-    await waitFor(() => expect(screen.getByTestId('account-history-error')).toBeTruthy())
-    const before = calls.filter((u) => u.includes('/payment/status')).length
-
-    fail = false
-    fireEvent.click(screen.getByTestId('account-history-retry'))
-
-    // it re-READ (not just re-rendered) …
-    await waitFor(() =>
-      expect(calls.filter((u) => u.includes('/payment/status')).length).toBeGreaterThan(before))
-    // … and the second answer actually reaches the card
-    await waitFor(() => expect(screen.getByTestId('account-history').textContent).toContain('Mumate Pro'))
-    expect(screen.queryByTestId('account-history-error')).toBeNull()
-  })
-
-  // the promise this PR makes out loud, asserted rather than described
-  it('การ์ดล้ม จอไม่ล้ม — ระดับกับวันหมดอายุยังอยู่ครบตอนประวัติพัง', async () => {
-    stubFetch(() => ({ ok: false, status: 500, json: async () => ({ payments: [] }) }))
-    const { container } = mount()
-    await waitFor(() => expect(screen.getByTestId('account-history-error')).toBeTruthy())
-    // the identity fetch settles on its own clock — wait for it rather than racing the history one
-    await waitFor(() => expect(screen.getByTestId('account-plan')).toBeTruthy())
-    expect(screen.getByTestId('account-plan').textContent).toBe('Mumate Pro')
+    await waitFor(() => expect(screen.getByTestId('account-plan').textContent).toBe('Mumate Pro'))
     expect(container.textContent).toContain('ใช้ได้ถึง 14 ก.ค. 2570')
-    expect(screen.getByTestId('account-history-error')).toBeTruthy() // still failed, side by side
   })
 })

@@ -7,8 +7,7 @@
 import Head from "next/head"
 import { useCallback, useEffect, useState } from "react"
 
-import { AppHeader } from "@/features/v2-shell/components/AppHeader"
-import { useV2Tier } from "@/features/auth/hooks/useV2Tier"
+import { SkyBackdrop, SkyHeader } from "@/features/v2-profile/components/kit"
 import { InsufficientQiSheet } from "@/features/v2-qi/components/QiSpendSheets"
 import { ProfileGate } from "./ProfileGate"
 
@@ -20,7 +19,6 @@ type ProfileResp = {
 }
 
 export function EditBirthScreen() {
-  const tier = useV2Tier(false)
   const [loading, setLoading] = useState(true)
   const [kind, setKind] = useState<"ok" | "not_authenticated" | "failed">("ok")
   const [quota, setQuota] = useState<ProfileResp["quota"] | null>(null)
@@ -120,9 +118,10 @@ export function EditBirthScreen() {
   const freeUsed = quota?.birthEditFreeUsed === true
 
   return (
-    <div className="relative min-h-screen w-full overflow-x-hidden bg-v3-bg-cream font-ibm">
+    <div className="relative min-h-screen w-full overflow-x-hidden bg-white font-ibm">
+      <SkyBackdrop />
       <Head><title>แก้วันเกิด · MuMate</title></Head>
-      <AppHeader testId="edit-birth-header" title="แก้วันเกิด" backHref="/v2/account" membership={tier} upgradeCta={false} className="items-center py-4" />
+      <SkyHeader title="แก้วันเกิด" backHref="/v2/account" testId="edit-birth" />
 
       <div className="mx-auto flex w-full max-w-md flex-col gap-4 px-4 pb-36 pt-2">
         <ProfileGate loading={loading} kind={kind} onRetry={() => void load()} />

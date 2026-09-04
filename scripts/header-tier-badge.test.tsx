@@ -197,29 +197,11 @@ describe('#384 every screen that renders the shared header passes a membership',
     // #363 — checkout. upgradeCta false: you are already buying; an "อัพเกรด" pill here would send the user
     // back to the shop mid-payment.
     { rel: 'pages/v2/shop/checkout.tsx', cta: false },
-    // #365 — จอ "สิทธิ์ของฉัน". cta false: this screen reports what you hold; opening a sales surface on the
-    // page a member came to for reassurance is the same mistake notifications closed. It is also the first
-    // screen to pass `tierLink={false}` — the LEVEL badge points here, so here it must not navigate. That
-    // second wire has its own tooth in scripts/account-screen.test.tsx (A2b); this list guards `membership=`.
-    { rel: 'features/v2-account/components/AccountScreen.tsx', cta: false },
-    // ลบบัญชี (2026-09-02) — คนที่กำลังจะลบบัญชีต้องไม่เจอข้อความขายของ; cta false ตาม notifications/checkout
-    { rel: 'pages/v2/settings/delete-account.tsx', cta: false },
-    // ตั้งค่า (2026-09-03) — จุดหมายปุ่ม ⚙ หน้าแชท; ไม่ใช่พื้นที่ขาย
-    { rel: 'pages/v2/settings/index.tsx', cta: false },
-    // ก้อน 3 (profile v2, 2026-09-03) — หน้าย่อยบัญชี/คำสั่งซื้อ; cta false (พื้นที่รายงานสิทธิ์ ไม่ใช่ขาย)
-    // rel ชี้ไฟล์ component เพราะหน้าเป็น glue-only (เทสต์ grep membership={ ในไฟล์ที่ AppHeader อยู่จริง)
-    { rel: 'features/v2-account/components/EditProfileScreen.tsx', cta: false },
-    { rel: 'features/v2-account/components/EditBirthScreen.tsx', cta: false },
-    { rel: 'features/v2-account/components/ConnectedScreen.tsx', cta: false },
-    { rel: 'features/v2-account/components/PlanScreen.tsx', cta: false },
-    { rel: 'features/v2-account/components/OrdersScreen.tsx', cta: false },
-    { rel: 'features/v2-account/components/OrderReceiptScreen.tsx', cta: false },
-    // ก้อน 4 (settings & privacy, 2026-09-03)
-    { rel: 'features/v2-settings/components/NotificationsScreen.tsx', cta: false },
-    { rel: 'features/v2-settings/components/ConsentScreen.tsx', cta: false },
-    { rel: 'features/v2-settings/components/DataExportScreen.tsx', cta: false },
-    { rel: 'features/v2-settings/components/FaqScreen.tsx', cta: false },
-    { rel: 'features/v2-settings/components/DocReaderScreen.tsx', cta: false },
+    // 🔴 reskin 2026-09-04 (Figma "- profile"): จอทั้งคลัสเตอร์โปรไฟล์/ชี่/settings ย้ายไปใช้ SkyHeader
+    // ของ features/v2-profile/components/kit (ลูกศร+ชื่อน้ำเงิน ไม่มี badge — ตามเฟรม) จึงถูกถอนออกจาก
+    // ลิสต์นี้ 14 จอ: AccountScreen, settings/index, delete-account, Edit×2, Connected, Plan, Orders×2,
+    // Notifications, Consent, DataExport, Faq, DocReader — ฟันกันการย้อนกลับอยู่ที่ walk ด้านล่าง
+    // (ไฟล์ไหนกลับไป render AppHeader ต้องโดนเตือนให้กลับมาลงลิสต์ที่นี่)
   ] as const
 
   it('every screen in the list passes membership through', () => {
@@ -227,7 +209,7 @@ describe('#384 every screen that renders the shared header passes a membership',
     // silently. Was 7 (#363 checkout) → 8 with #365's /v2/account.
     // 🟠 The prose above/below this block said "six" while the assertion said 7 — the words drifted, the
     // number did not. Names updated to stop counting in two places.
-    expect(SCREENS).toHaveLength(21)
+    expect(SCREENS).toHaveLength(7)
     for (const { rel } of SCREENS) {
       expect(code(rel), `${rel} stopped passing membership`).toMatch(/membership=\{/)
     }
@@ -242,23 +224,6 @@ describe('#384 every screen that renders the shared header passes a membership',
       'features/v2-shop/components/ShopScreen.tsx',
       'pages/v2/calendar/notifications.tsx',
       'pages/v2/shop/checkout.tsx',
-      // #365 — จอ "สิทธิ์ของฉัน" already tells a free user they are free and offers ดูแพ็คเกจ in the card.
-      'features/v2-account/components/AccountScreen.tsx',
-      'pages/v2/settings/delete-account.tsx',
-      'pages/v2/settings/index.tsx',
-      // ก้อน 3 (profile v2) — หน้าย่อยบัญชี/คำสั่งซื้อ
-      'features/v2-account/components/EditProfileScreen.tsx',
-      'features/v2-account/components/EditBirthScreen.tsx',
-      'features/v2-account/components/ConnectedScreen.tsx',
-      'features/v2-account/components/PlanScreen.tsx',
-      'features/v2-account/components/OrdersScreen.tsx',
-      'features/v2-account/components/OrderReceiptScreen.tsx',
-      // ก้อน 4 (settings & privacy)
-      'features/v2-settings/components/NotificationsScreen.tsx',
-      'features/v2-settings/components/ConsentScreen.tsx',
-      'features/v2-settings/components/DataExportScreen.tsx',
-      'features/v2-settings/components/FaqScreen.tsx',
-      'features/v2-settings/components/DocReaderScreen.tsx',
     ])
     for (const { rel, cta } of SCREENS) {
       const hasFlag = /upgradeCta=\{false\}/.test(code(rel))
@@ -296,7 +261,6 @@ describe('#384 every screen that renders the shared header passes a membership',
       .sort()
     expect(sites).toEqual(
       [
-        'features/v2-account/components/AccountScreen.tsx', // #365 — จอ "สิทธิ์ของฉัน"
         'features/v2-calendar/components/day-detail/DayHeader.tsx', // adapter → AppHeader (day detail)
         'features/v2-home/components/V2HomeScreen.tsx', // composes <HeaderTools/> directly (Structure A)
         'features/v2-service/components/ServiceHeader.tsx', // adapter → AppHeader (service hub)
@@ -306,19 +270,6 @@ describe('#384 every screen that renders the shared header passes a membership',
         'pages/v2/calendar.tsx',
         'pages/v2/calendar/[date].tsx', // renders <DayHeader/>
         'pages/v2/calendar/notifications.tsx',
-        'pages/v2/settings/delete-account.tsx', // ลบบัญชี — ใช้ AppHeader + membership (2026-09-02)
-        'pages/v2/settings/index.tsx', // ตั้งค่า — จุดหมายปุ่ม ⚙ (2026-09-03)
-        'features/v2-account/components/EditProfileScreen.tsx', // ก้อน 3 — แก้ข้อมูลส่วนตัว (2026-09-03)
-        'features/v2-account/components/EditBirthScreen.tsx', // ก้อน 3 — แก้วันเกิด + โควตา (2026-09-03)
-        'features/v2-account/components/ConnectedScreen.tsx', // เฟรม account-login — connected (2026-09-03)
-        'features/v2-account/components/PlanScreen.tsx', // เฟรม my-plan (2026-09-03)
-        'features/v2-account/components/OrdersScreen.tsx', // เฟรม order-history (2026-09-03)
-        'features/v2-account/components/OrderReceiptScreen.tsx', // เฟรม order-receipt (2026-09-03)
-        'features/v2-settings/components/NotificationsScreen.tsx', // ก้อน 4 — settings-notifications
-        'features/v2-settings/components/ConsentScreen.tsx', // ก้อน 4 — privacy-consent
-        'features/v2-settings/components/DataExportScreen.tsx', // ก้อน 4 — privacy-data-export
-        'features/v2-settings/components/FaqScreen.tsx', // ก้อน 4 — help-faq
-        'features/v2-settings/components/DocReaderScreen.tsx', // ก้อน 4 — document-reader template
         'pages/v2/shop/checkout.tsx', // #363 — the checkout screen, added while this tooth was already in place
         'scripts/header-tier-badge.test.tsx', // this file renders one to assert on it
         'scripts/upgrade-cta-destinations.test.tsx', // #359 asserts the pill is a link

@@ -5,9 +5,8 @@ import Head from "next/head"
 import Link from "next/link"
 import { useRouter } from "next/router"
 
-import { AppHeader } from "@/features/v2-shell/components/AppHeader"
+import { SkyBackdrop, SkyHeader } from "@/features/v2-profile/components/kit"
 import { Menubar } from "@/features/v2-shell/components/Menubar"
-import { useV2Tier } from "@/features/auth/hooks/useV2Tier"
 import { bkkCivilDate } from "../payment-history"
 import { bahtOf, statusWord, titleFor, usePaymentRows } from "./OrdersScreen"
 
@@ -23,15 +22,15 @@ function Row({ label, value, testId }: { label: string; value: string; testId: s
 }
 
 export function OrderReceiptScreen({ id }: { id: string }) {
-  const tier = useV2Tier(false)
   const router = useRouter()
   const { rows, done, errored, retry } = usePaymentRows()
   const row = rows?.find((r) => r.chargeId === id || (r.orderId && r.orderId === id)) ?? null
 
   return (
-    <div className="relative min-h-screen w-full overflow-x-hidden bg-v3-bg-cream font-ibm">
+    <div className="relative min-h-screen w-full overflow-x-hidden bg-white font-ibm">
+      <SkyBackdrop />
       <Head><title>ใบเสร็จ · MuMate</title></Head>
-      <AppHeader testId="receipt-header" title="ใบเสร็จ" backHref="/v2/orders" membership={tier} upgradeCta={false} className="items-center py-4" />
+      <SkyHeader title="ใบเสร็จ" backHref="/v2/orders" testId="receipt" />
 
       <div className="relative z-10 mx-auto flex w-full max-w-md flex-col gap-4 px-4 pb-36 pt-2">
         {!done && <div aria-hidden className="h-[180px] w-full animate-pulse rounded-[20px] bg-white" data-testid="receipt-loading" />}

@@ -3,10 +3,9 @@
 // (planFor — กติกาเดียวกับ AccountScreen ❌ คำนวณ tier ใหม่ในจอนี้)
 import Head from "next/head"
 import Link from "next/link"
-import { AppHeader } from "@/features/v2-shell/components/AppHeader"
+import { SkyBackdrop, SkyHeader } from "@/features/v2-profile/components/kit"
 import { Menubar } from "@/features/v2-shell/components/Menubar"
 import { useV2User } from "@/features/auth/hooks/useV2User"
-import { useV2Tier } from "@/features/auth/hooks/useV2Tier"
 import { SHOP_HREF } from "@/features/v2-shop/upgrade-cta"
 import { parseTierCode } from "@/lib/v2/tier"
 import type { MembershipLike } from "@/features/v2-shell/header-badge"
@@ -16,7 +15,6 @@ import { planFor, type Plan } from "../plan"
 const CARD = "flex w-full flex-col gap-3 rounded-[20px] bg-white p-5 drop-shadow-[0_4px_15px_rgba(26,38,77,0.12)]"
 
 export function PlanScreen() {
-  const tier = useV2Tier(false)
   const { user, done, errored } = useV2User()
   const membership = user?.membership ?? null
   const headerMembership: MembershipLike | null =
@@ -27,9 +25,10 @@ export function PlanScreen() {
   const features = plan ? PLANS.find((p) => p.id === (plan.level ?? "").toLowerCase())?.features ?? [] : []
 
   return (
-    <div className="relative min-h-screen w-full overflow-x-hidden bg-v3-bg-cream font-ibm">
+    <div className="relative min-h-screen w-full overflow-x-hidden bg-white font-ibm">
+      <SkyBackdrop />
       <Head><title>แผนของฉัน · MuMate</title></Head>
-      <AppHeader testId="plan-header" title="แผนของฉัน" backHref="/v2/account" membership={headerMembership} tierLink={false} upgradeCta={false} className="items-center py-4" />
+      <SkyHeader title="แผนของฉัน" backHref="/v2/account" testId="plan" />
 
       <div className="relative z-10 mx-auto flex w-full max-w-md flex-col gap-4 px-4 pb-36 pt-2">
         {undetermined ? (

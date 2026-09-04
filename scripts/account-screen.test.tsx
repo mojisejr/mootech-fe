@@ -85,10 +85,13 @@ describe('#365 ป้ายระดับ — ปลายทางมีจร
 describe('#365 การต่อสาย (SOURCE-LEVEL — ไม่ใช่ render)', () => {
   const read = code
 
-  // 🔴 A2b — the screen that IS the destination must opt out. Asserted on CODE because mounting AccountScreen
-  // pulls the whole identity stack; the value it carries is proven by the viewport strip, not here.
-  it('🔴 A2b AccountScreen ส่ง tierLink={false}', () => {
-    expect(read('features/v2-account/components/AccountScreen.tsx')).toMatch(/tierLink=\{false\}/)
+  // 🔴 A2b (อัปเดต reskin 2026-09-04) — เดิมจอนี้ render AppHeader แล้วต้องส่ง tierLink={false}:
+  // "ป้ายระดับพาไปที่หน้าตัวเอง = วนกลับ" ตอนนี้จอเดินตามเฟรม `profile-and-qi-wallet — UX v2` ซึ่ง
+  // หัวจอเป็น SkyHeader (ลูกศร+ชื่อ ไม่มี badge/กระดิ่ง/avatar) ป้ายจึงไม่มีที่จะวนอีก — ฟันใหม่คือ
+  // "ห้ามมีใครเอา header ขายของกลับมาใส่จอโปรไฟล์" (ลิสต์ SCREENS ของ header-tier-badge ถอนชื่อจอนี้
+  // ออกแล้ว และ walk ของไฟล์นั้นบังคับให้ลิสต์ตรงความจริงเสมอ)
+  it('🔴 A2b จอโปรไฟล์ (เฟรมใหม่) ต้องไม่ render header กลาง (AppHeader/HeaderTools)', () => {
+    expect(read('features/v2-account/components/AccountScreen.tsx')).not.toMatch(/<(AppHeader|HeaderTools)\b/)
   })
 
   it('หน้า /v2/account มีจริง และผ่านด่าน v2 เหมือนจอพี่น้อง', () => {

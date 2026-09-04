@@ -5,8 +5,7 @@ import Head from 'next/head'
 import Link from 'next/link'
 import { useCallback, useEffect, useState } from 'react'
 
-import { AppHeader } from '@/features/v2-shell/components/AppHeader'
-import { useV2Tier } from '@/features/auth/hooks/useV2Tier'
+import { SkyBackdrop, SkyHeader } from '@/features/v2-profile/components/kit'
 import { ProfileGate } from '@/features/v2-account/components/ProfileGate'
 
 const CARD = 'flex w-full flex-col rounded-[20px] bg-white p-5 drop-shadow-[0_4px_15px_rgba(26,38,77,0.12)]'
@@ -20,7 +19,6 @@ const CATEGORIES: Array<{ key: keyof Prefs; title: string; sub: string; testId: 
 ]
 
 export function NotificationsScreen() {
-  const tier = useV2Tier(false)
   const [prefs, setPrefs] = useState<Prefs | null>(null)
   const [loading, setLoading] = useState(true)
   const [kind, setKind] = useState<'ok' | 'not_authenticated' | 'failed'>('ok')
@@ -69,9 +67,10 @@ export function NotificationsScreen() {
   }
 
   return (
-    <div className="relative min-h-screen w-full overflow-x-hidden bg-v3-bg-cream font-ibm">
+    <div className="relative min-h-screen w-full overflow-x-hidden bg-white font-ibm">
+      <SkyBackdrop />
       <Head><title>การแจ้งเตือน · MuMate</title></Head>
-      <AppHeader testId="notifications-header" title="การแจ้งเตือน" backHref="/v2/settings" membership={tier} upgradeCta={false} className="items-center py-4" />
+      <SkyHeader title="การแจ้งเตือน" backHref="/v2/settings" testId="notifications" />
 
       <div className="mx-auto flex w-full max-w-md flex-col gap-4 px-4 pb-36 pt-2">
         <ProfileGate loading={loading} kind={kind} onRetry={() => void load()} />

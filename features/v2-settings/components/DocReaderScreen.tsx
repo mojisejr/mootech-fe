@@ -5,13 +5,11 @@ import Head from 'next/head'
 import Link from 'next/link'
 import { useCallback, useEffect, useState } from 'react'
 
-import { AppHeader } from '@/features/v2-shell/components/AppHeader'
-import { useV2Tier } from '@/features/auth/hooks/useV2Tier'
+import { SkyBackdrop, SkyHeader } from '@/features/v2-profile/components/kit'
 
 const CARD = 'flex w-full flex-col rounded-[20px] bg-white p-5 drop-shadow-[0_4px_15px_rgba(26,38,77,0.12)]'
 
 export function DocReaderScreen({ slug }: { slug: string }) {
-  const tier = useV2Tier(false)
   const [title, setTitle] = useState<string | null>(null)
   const [body, setBody] = useState<string | null>(null)
   const [state, setState] = useState<'loading' | 'ok' | 'notfound' | 'failed'>('loading')
@@ -46,9 +44,10 @@ export function DocReaderScreen({ slug }: { slug: string }) {
   }, [load])
 
   return (
-    <div className="relative min-h-screen w-full overflow-x-hidden bg-v3-bg-cream font-ibm">
+    <div className="relative min-h-screen w-full overflow-x-hidden bg-white font-ibm">
+      <SkyBackdrop />
       <Head><title>{title ?? 'เอกสาร'} · MuMate</title></Head>
-      <AppHeader testId="doc-header" title="เอกสาร" backHref="/v2/help/faq" membership={tier} upgradeCta={false} className="items-center py-4" />
+      <SkyHeader title="เอกสาร" backHref="/v2/help/faq" testId="doc" />
 
       <div className="mx-auto flex w-full max-w-md flex-col gap-4 px-4 pb-36 pt-2">
         {state === 'loading' && <div aria-hidden className="h-[180px] w-full animate-pulse rounded-[20px] bg-white" data-testid="doc-loading" />}

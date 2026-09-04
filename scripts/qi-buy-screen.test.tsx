@@ -14,8 +14,8 @@ vi.mock('next/router', () => ({
 
 const PACKS: Record<string, { package_code: string; amount: number; is_active: boolean }> = {
   QI_200: { package_code: 'QI_200', amount: 59, is_active: true },
-  QI_500: { package_code: 'QI_500', amount: 129, is_active: true },
-  QI_1200: { package_code: 'QI_1200', amount: 299, is_active: false }, // ปิดขายชั่วคราว
+  QI_500: { package_code: 'QI_500', amount: 129, is_active: false }, // ปิดขายชั่วคราว (เคส B2)
+  QI_1200: { package_code: 'QI_1200', amount: 299, is_active: true },
 }
 
 const fetchMock = vi.fn(async (url: string) => {
@@ -44,16 +44,18 @@ describe('จอเติมชี่ (buy-qi — select pack)', () => {
     expect(screen.getByText('฿299')).toBeTruthy()
     // โบนัสซื้อครั้งแรก (first_buy_bonus ของ engine)
     expect(screen.getByTestId('qi-buy-bonus').textContent).toContain('+30 ชี่')
+    // badge คุ้มที่สุดบนแพ็กใหญ่สุด (ตามเฟรม buy-qi — select pack)
+    expect(screen.getByText('คุ้มที่สุด')).toBeTruthy()
     // CTA = checkout เดิม ผูกโค้ดแพ็ก
     const cta = screen.getByTestId('qi-buy-cta-QI_200')
     expect(cta.getAttribute('href')).toBe('/v2/shop/checkout?package_code=QI_200')
-    expect(screen.getByTestId('qi-buy-cta-QI_500').getAttribute('href')).toBe('/v2/shop/checkout?package_code=QI_500')
+    expect(screen.getByTestId('qi-buy-cta-QI_1200').getAttribute('href')).toBe('/v2/shop/checkout?package_code=QI_1200')
   })
 
   it('B2 แพ็กปิดขาย ❌ ไม่มีลิงก์เข้า checkout — ปุ่มปิดพร้อมเหตุผล', async () => {
     render(<QiBuyScreen />)
-    await waitFor(() => expect(screen.getByTestId('qi-pack-QI_1200')).toBeTruthy())
-    expect(screen.queryByTestId('qi-buy-cta-QI_1200')).toBeNull()
+    await waitFor(() => expect(screen.getByTestId('qi-pack-QI_500')).toBeTruthy())
+    expect(screen.queryByTestId('qi-buy-cta-QI_500')).toBeNull()
     expect(screen.getByText('ปิดขายชั่วคราว')).toBeTruthy()
   })
 

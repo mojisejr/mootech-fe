@@ -6,9 +6,8 @@ import Head from "next/head"
 import Link from "next/link"
 import { useCallback, useEffect, useState } from "react"
 
-import { AppHeader } from "@/features/v2-shell/components/AppHeader"
+import { SkyBackdrop, SkyHeader } from "@/features/v2-profile/components/kit"
 import { Menubar } from "@/features/v2-shell/components/Menubar"
-import { useV2Tier } from "@/features/auth/hooks/useV2Tier"
 import { bkkCivilDate } from "../payment-history"
 
 const CARD = "flex w-full flex-col rounded-[20px] bg-white p-5 drop-shadow-[0_4px_15px_rgba(26,38,77,0.12)]"
@@ -88,13 +87,13 @@ function receiptHref(row: FullPaymentRow): string {
 }
 
 export function OrdersScreen() {
-  const tier = useV2Tier(false)
   const { rows, done, errored, retry } = usePaymentRows()
 
   return (
-    <div className="relative min-h-screen w-full overflow-x-hidden bg-v3-bg-cream font-ibm">
+    <div className="relative min-h-screen w-full overflow-x-hidden bg-white font-ibm">
+      <SkyBackdrop />
       <Head><title>ประวัติคำสั่งซื้อ · MuMate</title></Head>
-      <AppHeader testId="orders-header" title="ประวัติคำสั่งซื้อ" backHref="/v2/account" membership={tier} upgradeCta={false} className="items-center py-4" />
+      <SkyHeader title="ประวัติคำสั่งซื้อ" backHref="/v2/account" testId="orders" />
 
       <div className="relative z-10 mx-auto flex w-full max-w-md flex-col gap-3 px-4 pb-36 pt-2">
         {!done && (

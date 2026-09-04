@@ -19,6 +19,8 @@ export type Wallet = {
   coins?: number
   xp?: number
   level?: number | string
+  nextLevelXp?: number
+  levelStartXp?: number
   history?: WalletHistoryRow[]
 }
 
@@ -152,12 +154,18 @@ const SPEND_LABELS: Record<string, string> = {
   course_destiny: "คอร์สลิขิตชีวิต",
   plus_month: "แพ็กเกจ PLUS 1 เดือน",
   book_lifecode: "หนังสือ Life Code",
+  birth_edit: "แก้วันเกิด",
 }
 
 /** reason ดิบของ ledger → ข้อความไทยที่คนอ่านออก; ภารกิจอาจส่ง titles map (id → ชื่อ) มาเติม */
 export function reasonLabel(reason: string | null, missionTitles?: Map<string, string>): string {
   if (!reason) return "ภารกิจ"
   if (reason.startsWith("qi:earn:")) return EARN_LABELS[reason.slice(8)] ?? reason.slice(8)
+  if (reason.startsWith("qi:buy:")) {
+    // qi:buy:QI_200 — ปริมาณฝังใน package_code (catalog รับรองรูปแบบอยู่แล้ว)
+    const m = /^QI_(\d+)$/.exec(reason.slice(7))
+    return m ? `ซื้อแพ็กชี่ ${Number(m[1]).toLocaleString("th-TH")} ชี่` : "ซื้อแพ็กชี่"
+  }
   if (reason.startsWith("qi:spend:")) return `แลก ${SPEND_LABELS[reason.slice(9)] ?? reason.slice(9)}`
   if (reason.startsWith("qi:refund:")) return `คืนแต้ม — ${SPEND_LABELS[reason.slice(10)] ?? reason.slice(10)} ล้ม`
   if (reason.startsWith("mission:")) {
