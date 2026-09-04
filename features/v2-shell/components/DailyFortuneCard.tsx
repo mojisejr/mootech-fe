@@ -120,14 +120,21 @@ export const HOME_DATEROW_RESERVE = 'min-h-[48px] min-[360px]:min-h-6'
 // Home's pixels must not move in this PR, so the layout follows the variant instead of being unified.
 function Column({ heading, lines, tone, icon, home }: { heading: string; lines: string[]; tone: 'cyan' | 'pumpkin'; icon: 'check' | 'cross'; home: boolean }) {
   // empty-facet guard (goo รู2): a facet can arrive empty — render a graceful "—", never a bare icon.
-  const body = lines.map((l) => l.trim()).filter(Boolean)
+  // "/"-split (เอา / ออก, ตาม Figma): home passes the raw "a / b / c" string; break it into one item per
+  // line like the calendar adapter already does. Idempotent for already-split arrays (no "/" → unchanged).
+  const body = lines.flatMap((l) => l.split(/\s*\/\s*/)).map((l) => l.trim()).filter(Boolean)
   const list = body.length ? body : ['—']
   const toneClass = tone === 'cyan' ? 'text-v3-cyan' : 'text-v3-pumpkin'
   const glyph = <span aria-hidden className={`shrink-0 ${toneClass}`}>{icon === 'check' ? <CheckCircleIcon /> : <XCircleIcon />}</span>
   if (home) {
     return (
       <div className="min-w-0 flex-1">
-        <p className={`text-base font-bold leading-6 ${toneClass}`}>{heading}</p>
+        {/* Figma layout: icon + heading on one row, then one item per line below (no "/", no per-line
+            icon) — mirrors the calendar variant so home and ปฏิทิน read the same. */}
+        <p className={`flex items-center gap-1.5 text-base font-bold leading-6 ${toneClass}`}>
+          {glyph}
+          <span className="min-w-0">{heading}</span>
+        </p>
         {/* RESERVE 3 LINES (home only — the calendar variant below is untouched).
             The Zone-1 skeleton is a fixed height while this text is not, so every fortune whose facet
             wrapped to a different line count moved the whole page under the user's thumb at the moment
@@ -141,10 +148,11 @@ function Column({ heading, lines, tone, icon, home }: { heading: string; lines: 
             min-h, never line-clamp: a longer future fortune must GROW rather than be cut. That reopens
             the shift for that fortune, which is the honest trade — losing a line of someone's reading is
             worse than a jump, and the harness will show it if the text ever outgrows the reserve. */}
-        <p className={`mt-1 flex items-start gap-1.5 text-sm leading-[22px] text-v3-text-body ${HOME_FACET_RESERVE}`}>
-          <span className="mt-0.5 shrink-0">{glyph}</span>
-          <span data-testid="fortune-chip" className="min-w-0">{list.join(' ')}</span>
-        </p>
+        <div className={`mt-1 ${HOME_FACET_RESERVE}`}>
+          {list.map((line, i) => (
+            <p key={i} data-testid="fortune-chip" className="text-sm leading-[22px] text-v3-text-body">{line}</p>
+          ))}
+        </div>
       </div>
     )
   }

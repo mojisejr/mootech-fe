@@ -16,6 +16,46 @@
 // money lane is touched once per phase, not rewritten.
 import { parseTierCode, type TierCode } from '@/lib/v2/tier'
 
+// ── QI PACKS (buy-qi ก้อน 1.6) ────────────────────────────────────────────────────────────────────
+// แพ็กชี่ขายผ่านราง Omise v2 เดียวกับ Plus/Pro แต่ไม่ใช่สมาชิก: settle แล้ว "เครดิตชี่เข้า engine"
+// ไม่ใช่เขียน member_subscription (ดู settleAndProvision เลน QI). ปริมาณชี่ต่อแพ็ก = ข้อเท็จจริงของ
+// โค้ด (เหมือน catalog ของ engine) — แพ็กที่ไม่รู้จักต้อง fail loud ก่อนถึง till ทั้งที่ quote และตอน
+// grant; ราคา (amount) ยังมาจาก payment_package แถวจริงเสมอ (แก้ราคาที่ /ops โดยไม่ deploy).
+export const QI_PACK_CODES = ['QI_60', 'QI_200', 'QI_500', 'QI_1200'] as const
+export type QiPackCode = (typeof QI_PACK_CODES)[number]
+
+/** จำนวน QI ต่อ package_code — ตัวเลขจากจอ buy-qi (60/200/500/1,200); ราคาอยู่ใน DB (payment_package) */
+export const QI_PACK_QTY: Record<QiPackCode, number> = {
+  QI_60: 60,
+  QI_200: 200,
+  QI_500: 500,
+  QI_1200: 1200,
+}
+
+/** โบนัส QI แถมต่อแพ็ก (Figma buy-qi): 60→0 · 200→+20 · 500→+75 · 1,200→+250. เครดิตจริงตอน grant. */
+export const QI_PACK_BONUS: Record<QiPackCode, number> = {
+  QI_60: 0,
+  QI_200: 20,
+  QI_500: 75,
+  QI_1200: 250,
+}
+
+export function qiQtyOf(packageCode: string): number | null {
+  return (QI_PACK_CODES as readonly string[]).includes(packageCode)
+    ? QI_PACK_QTY[packageCode as QiPackCode]
+    : null
+}
+
+/** โบนัส QI แถมต่อแพ็ก (0 ถ้าไม่รู้จัก/ไม่มีโบนัส) */
+export function qiBonusOf(packageCode: string): number {
+  return (QI_PACK_CODES as readonly string[]).includes(packageCode)
+    ? QI_PACK_BONUS[packageCode as QiPackCode]
+    : 0
+}
+
+/** อัตรา VAT (แบบรวมในราคา — สกัดย้อนกลับ) สำหรับโชว์ในสรุปยอด/ใบเสร็จ. (#362 จะย้ายไป app_setting) */
+export const VAT_RATE = 0.07
+
 // The package row shape the catalog needs (subset of payment_package). Kept explicit so the pure function
 // never depends on the drizzle row type / DB.
 export type PackageRow = {
@@ -55,7 +95,8 @@ export function parseExpireSpec(expire: string): ExpireSpec {
 
 export type Quote = {
   packageCode: string
-  tierCode: TierCode
+  /** 'QI' = แพ็กชี่ (ไม่ใช่สมาชิก — เลน settle แยก); อื่น ๆ คือบันไดสมาชิกตามเดิม */
+  tierCode: TierCode | 'QI'
   amountSatang: number // what Omise charges (VAT-inclusive)
   vatSatang: number // VAT extracted from amountSatang (0 when rate is 0)
   expire: ExpireSpec
@@ -75,6 +116,13 @@ export function quotePackage(
     throw new UnsellablePackageError(pkg.packageCode, 'not on sale')
   }
 
+  // 🔴 QI pack: ไม่ใช่บันไดสมาชิก — ราคาตามปกติ แต่ tier เดินเป็น 'QI' (settle เลนอื่น).
+  // ปริมาณชี่ต้องรู้จัก ณ ที่นี่: โค้ดที่ไม่รู้จักห้ามถึง till (เงินห้ามวิ่งก่อนรู้ว่าขายอะไร)
+  const isQiPack = pkg.tierCode === 'QI'
+  if (isQiPack && qiQtyOf(pkg.packageCode) === null) {
+    throw new UnsellablePackageError(pkg.packageCode, 'QI pack without a known qi quantity')
+  }
+
   const tierCode = parseTierCode(pkg.tierCode)
   // 🔴 The `=== 'FREE'` half is load-bearing OUTSIDE this file, and its only pin is one row of one test.
   // A FREE tier passes 0006's CHECK and maps cleanly, so nothing downstream refuses it: a live FREE
@@ -87,7 +135,7 @@ export function quotePackage(
   // individually: `free` (:32) still throws on the amount check, `garbageTier` (:34) still throws on the
   // null half, and only :33 reddens. Delete :33 as a near-duplicate of :32 and MC1 keeps its name and its
   // green tick while no longer testing this clause at all.
-  if (tierCode === null || tierCode === 'FREE') {
+  if (!isQiPack && (tierCode === null || tierCode === 'FREE')) {
     throw new UnsellablePackageError(pkg.packageCode, 'no paid tier for it')
   }
 
@@ -109,7 +157,7 @@ export function quotePackage(
 
   return {
     packageCode: pkg.packageCode,
-    tierCode,
+    tierCode: isQiPack ? 'QI' : (tierCode as TierCode), // เงื่อนไข throw ด้านบนคือพยานว่า non-QI แล้วเป็น paid tier
     amountSatang,
     vatSatang,
     expire: parseExpireSpec(pkg.expire),

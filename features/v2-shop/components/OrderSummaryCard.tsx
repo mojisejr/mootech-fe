@@ -38,6 +38,8 @@ export type Quote = {
 
 export type OrderSummaryCardProps = {
   planName: string
+  /** แพ็กชี่ (tier QI) ไม่มี "อายุ" — ส่งบรรทัดนี้มาแทน "ใช้ได้ถึง …" ทั้งบรรทัด */
+  validLine?: string
   /** Already-formatted Thai date the plan runs to. The screen does not do calendar maths either. */
   validUntilText: string
   quote: Quote
@@ -62,7 +64,7 @@ function Row({ label, value, testId, valueClass = 'text-v3-navy' }: { label: str
   )
 }
 
-export function OrderSummaryCard({ planName, validUntilText, quote, onChangePlan, discount }: OrderSummaryCardProps) {
+export function OrderSummaryCard({ planName, validLine, validUntilText, quote, onChangePlan, discount }: OrderSummaryCardProps) {
   const hasCode = quote.codeApplied !== null && quote.discountSatang > 0
   // VAT 0 hides the WHOLE row (ticket ④) — "VAT 0% ฿0" is a line that makes a reader stop and wonder.
   const showVat = quote.vatPercent > 0
@@ -73,7 +75,7 @@ export function OrderSummaryCard({ planName, validUntilText, quote, onChangePlan
         <div className="flex min-w-0 flex-1 flex-col gap-1">
           <p data-testid="summary-plan" className="text-lg font-bold leading-6 text-v3-navy">{planName}</p>
           {/* ① — see the header note. */}
-          <p data-testid="summary-valid-until" className="text-sm leading-[22px] text-v3-text-body">ใช้ได้ถึง {validUntilText}</p>
+          <p data-testid="summary-valid-until" className="text-sm leading-[22px] text-v3-text-body">{validLine ?? `ใช้ได้ถึง ${validUntilText}`}</p>
         </div>
         <button type="button" data-testid="summary-change" onClick={onChangePlan} className="shrink-0 text-sm font-bold leading-5 text-v3-cyan">
           เปลี่ยน

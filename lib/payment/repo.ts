@@ -12,6 +12,7 @@ import { classifyMembership, bkkDateStr } from '@/lib/usage-core'
 import { parseTierCode, tierRank } from '@/lib/v2/tier'
 import { reserveCodeInTx, releaseRedemption, restoreRedemption, Refuse } from '@/lib/discount/repo'
 import type { TierCode } from '@/lib/v2/tier'
+import { grantQiPurchase, fireReferralUpgradeTrigger } from '@/lib/qi/grant'
 
 type Db = typeof defaultDb
 
@@ -225,6 +226,7 @@ export async function revokeByChargeId(
         status: v2Payment.status,
         failureCode: v2Payment.failureCode,
         prevMemberExpireAt: v2Payment.prevMemberExpireAt,
+        tierCode: v2Payment.tierCode,
       })
       .from(v2Payment)
       .where(eq(v2Payment.chargeId, chargeId))
@@ -237,6 +239,12 @@ export async function revokeByChargeId(
     if (pay.failureCode === REVERSED_CODE) return { revoked: false, shadowHandled: 'NONE' }
 
     await tx.update(v2Payment).set({ failureCode: REVERSED_CODE }).where(eq(v2Payment.id, pay.id))
+
+    // 🔴 QI PACK LANE — ไม่มีสมาชิกให้ถอน: เลน settle ของแพ็กชี่ไม่ได้เขียน member_* เลย (ดู settleAndProvision)
+    // ส่วนชี่ที่เข้าไปแล้วอาจถูกใช้ไปแล้ว การดึงคืนเป็นนโยบายที่ยังไม่ได้ตัดสิน (เหมือน "เงินคืนหรือเครดิต"
+    // ของเลนสมาชิก) — สิ่งที่แน่นอนคือเลนนี้ต้องไม่แตะ shadow และไม่ต้องรอมนุษย์ (NEEDS_HUMAN ใช้กับ
+    // member_payment เท่านั้น)
+    if (pay.tierCode === 'QI') return { revoked: true, shadowHandled: 'NONE' }
 
     // Only an ACTIVE row is moved, ON PURPOSE. If a later purchase already superseded this one the row is
     // 'REPLACED', which grants nothing anyway (lib/v2/subscription.ts:71 asks for ACTIVE), so there is
@@ -558,7 +566,15 @@ export async function settleAndProvision(
   now: Date = new Date(),
   db: Db = defaultDb,
 ): Promise<{ provisioned: boolean; outcome: SettleOutcome }> {
-  return db.transaction(async (tx) => {
+  // 🔴 QI PACK LANE — ต้องยิง HTTP ไปหา engine หลัง transaction จบเสมอ (ห้ามถือ transaction ข้าม network).
+  // รูปแบบเดิม `return db.transaction(...)` เลยถูกคลี่ออกเป็น settled = await …; แล้ว grant ข้างนอก.
+  const settled = await db.transaction(async (tx): Promise<{
+    provisioned: boolean
+    outcome: SettleOutcome
+    qiPurchase?: { userId: string; packageCode: string; chargeId: string }
+    /** เลนสมาชิก (PLUS/PRO) ที่รอบนี้เขียนสิทธิ์จริง — ใช้ยิงโบนัสผู้ชวนหลัง transaction */
+    membership?: { userId: string; tier: 'PLUS' | 'PRO' }
+  }> => {
     const approved = await tx
       .update(v2Payment)
       .set({ status: 'APPROVED' })
@@ -607,6 +623,18 @@ export async function settleAndProvision(
       if (!recovered) return { provisioned: false, outcome: 'ALREADY' } // lost a race to a concurrent delivery
       pay = recovered
       outcome = 'RECOVERED'
+    }
+
+    // ── 🔴 QI PACK LANE (buy-qi ก้อน 1.6) ──────────────────────────────────────────────────────
+    // แพ็กชี่ไม่ใช่สมาชิก: สิทธิ์อยู่ที่ engine ไม่ใช่ member_subscription/member_payment — เลนนี้
+    // จบที่การบันทึก APPROVED ข้างบน แล้วเครดิตชี่หลัง transaction จบ (ดูท้าย function).
+    // grant idempotent ด้วย ref=charge_id ฝั่ง engine — webhook ซ้ำ/recovery กี่ครั้งก็บวกครั้งเดียว.
+    if (pay.tierCode === 'QI') {
+      return {
+        provisioned: true,
+        outcome,
+        qiPurchase: { userId: pay.userId, packageCode: pay.packageCode, chargeId },
+      }
     }
 
     // Duration comes from the FROZEN terms on v2_payment (ตู๋ #370 B2) — NOT a fresh payment_package read,
@@ -789,6 +817,31 @@ export async function settleAndProvision(
       }
     }
 
-    return { provisioned: true, outcome }
+    return { provisioned: true, outcome, membership: { userId: pay.userId, tier: paidTier as 'PLUS' | 'PRO' } }
   })
+
+  // ออกจาก transaction ก่อนแล้วค่อยเรียก engine — และห้ามเงียบถ้ายิงไม่ผ่าน: เงินผูกกับ charge_id นี้แล้ว
+  // แต่ชี่ยังไม่เข้า ผู้ดู log ต้องเห็น chargeId เพื่อยิงซ้ำเองได้ (grant idempotent — ยิงซ้ำปลอดภัย)
+  if (settled.qiPurchase) {
+    const granted = await grantQiPurchase(settled.qiPurchase).catch((error: unknown) => {
+      console.error(
+        '[qi] ENGINE GRANT FAILED — ชี่ยังไม่เข้าผู้ซื้อ ยิงซ้ำได้ (idempotent):',
+        JSON.stringify(settled.qiPurchase),
+        error instanceof Error ? error.message : error,
+      )
+      return false
+    })
+    if (!granted) {
+      console.error(
+        `[qi] PENDING MANUAL RETRY — POST {BAZI_BASE_URL}/api/qi/grant ref=${settled.qiPurchase.chargeId}`,
+      )
+    }
+  }
+
+  // เลนสมาชิก: ผู้ซื้อที่เคยใช้โค้ดผู้ชวน → ผู้ชวนได้ referral_plus/pro (catalog ของ engine รอ trigger นี้)
+  if (settled.membership) {
+    await fireReferralUpgradeTrigger(settled.membership.userId, settled.membership.tier)
+  }
+
+  return { provisioned: settled.provisioned, outcome: settled.outcome }
 }

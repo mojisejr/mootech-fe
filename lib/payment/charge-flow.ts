@@ -63,7 +63,14 @@ export async function runChargeFlow(
   // 🔴 A closed button on the shop screen (มุน, mootech-fe#457) is NOT this gate. The button is what a
   // cooperative client does; this is what happens to everybody else. Both read the same decision function,
   // so they cannot disagree about who may buy what.
-  const purchase = await decidePurchaseFor(who.userId, priced.tierCode, now)
+  //
+  // 🔴 QI PACK (buy-qi) ไม่เข้า matrix สมาชิก — ชี่ซื้อได้ทุก tier (แม้เป็น PLUS/PRO อยู่แล้ว) และ
+  // ไม่มีทาง "ลดระดับ" ใคร: tier 'QI' อยู่นอกบันได FREE/PLUS/PRO โดยการออกแบบ (catalog.ts) เพราะฉนั้น
+  // คำตอบของประตูคืออนุญาตเสมอ — การบังคับสิทธิ์เกิดที่ settle เลน QI ซึ่งไม่แตะ member_* เลย
+  const purchase =
+    priced.tierCode === 'QI'
+      ? ({ allow: true } as const)
+      : await decidePurchaseFor(who.userId, priced.tierCode, now)
   if (!purchase.allow) {
     // 409, not 400: the request is well-formed and was legal to make — it conflicts with what this user
     // already holds. `reason` names the SITUATION so #457's screen can choose its own words for it.

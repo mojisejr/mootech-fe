@@ -1,0 +1,102 @@
+// scripts/qi-model.test.ts — teeth ของ helpers กลางระบบชี่ (features/v2-qi/qi-model.ts)
+//
+// สิ่งที่ต้องไม่พัง: การตัดรอบ "วัน" ต้องเป็นเขต Asia/Bangkok เสมอ (engine ตัดรอบ daily ด้วย
+// todayBangkok ฝั่งตัวเอง) — ถ้า FE เทียบวันที่ UTC ตรง ๆ จะโชว์ "เช็คอินแล้ว" ผิดวันช่วงหลังเที่ยงคืน
+import { describe, expect, it } from 'vitest'
+import { bangkokDay, checkedInToday, reasonLabel, todayBangkok } from '@/features/v2-qi/qi-model'
+
+const row = (reason: string | null, createdAt: string) => ({ id: 1, qiDelta: 5, reason, createdAt })
+
+describe('todayBangkok/bangkokDay — วันตัดรอบเป็นเขตไทยเสมอ', () => {
+  it('แปลง timestamp UTC ช่วงหลังเที่ยงคืนไทยเป็น "วันถัดไป" ตามเขตไทย', () => {
+    // 2026-09-03T18:00:00Z = 2026-09-04 01:00 น. ไทย — slice ตัวอักษรได้ 09-03 แต่ไทยคือ 09-04
+    expect(bangkokDay('2026-09-03T18:00:00.000Z')).toBe('2026-09-04')
+  })
+
+  it('todayBangkok ให้รูปแบบ YYYY-MM-DD', () => {
+    expect(todayBangkok(new Date('2026-09-03T00:30:00.000Z'))).toMatch(/^\d{4}-\d{2}-\d{2}$/)
+  })
+})
+
+describe('checkedInToday — สถานะเช็คอินอ่านจากประวัติวันนี้ (เขตไทย)', () => {
+  it('แถว daily_login ของ "วันนี้แบบไทย" (แม้ UTC ยังเป็นเมื่อวาน) นับว่าเช็คอินแล้ว', () => {
+    // 2026-09-02T18:30Z = 01:30 น. ไทยของวันที่ 3 — เทียบกับวันที่ 3 (ไทย) ต้องนับ
+    const history = [row('qi:earn:daily_login', '2026-09-02T18:30:00.000Z')]
+    expect(checkedInToday(history, '2026-09-03')).toBe(true)
+  })
+
+  it('แถว daily_login ของเมื่อวาน (ไทย) ยังไม่นับ — ต้องเช็คอินใหม่', () => {
+    const history = [row('qi:earn:daily_login', '2026-09-01T18:30:00.000Z')] // = 01:30 ไทย วันที่ 2
+    expect(checkedInToday(history, '2026-09-03')).toBe(false)
+  })
+
+  it('แถวอื่น (share/mission) ไม่นับเป็นเช็คอิน · ประวัติว่าง = ยังไม่เช็คอิน', () => {
+    expect(checkedInToday([row('qi:earn:share', '2026-09-03T00:00:00.000Z')], '2026-09-03')).toBe(false)
+    expect(checkedInToday([], '2026-09-03')).toBe(false)
+    expect(checkedInToday(undefined, '2026-09-03')).toBe(false)
+  })
+})
+
+describe('reasonLabel — reason ดิบของ ledger เป็นข้อความไทย', () => {
+  const titles = new Map([['checkin_mu', 'ภารกิจเช็คอินมู']])
+
+  it('qi:earn/spend/refund + referral อ่านออกเป็นภาษาคน', () => {
+    expect(reasonLabel('qi:earn:daily_login')).toBe('เช็คอินรายวัน')
+    expect(reasonLabel('qi:spend:chat_question')).toBe('แลก ถาม AI')
+    expect(reasonLabel('qi:refund:card_use')).toBe('คืนแต้ม — เปิดการ์ด/เสี่ยงทาย ล้ม')
+    expect(reasonLabel('referral:inviter')).toBe('เพื่อนใช้โค้ดของคุณ')
+    expect(reasonLabel('referral:referee')).toBe('ใช้โค้ดแนะนำสำเร็จ')
+  })
+
+  it('mission:<id> ใช้ชื่อจาก board ถ้าส่งมา, ไม่ส่งก็ยังอ่านออก', () => {
+    expect(reasonLabel('mission:checkin_mu', titles)).toBe('ภารกิจเช็คอินมู')
+    expect(reasonLabel('mission:checkin_mu')).toBe('ภารกิจ checkin_mu')
+  })
+
+  it('reason แปลก/ว่างไม่พัง', () => {
+    expect(reasonLabel(null)).toBe('ภารกิจ')
+    expect(reasonLabel('something_else')).toBe('something_else')
+  })
+})
+
+// ── สตรีคเช็คอิน (จอ /v2/qi/checkin) ──
+import { checkedInDays, checkinStreak } from '@/features/v2-qi/qi-model'
+
+const loginAt = (iso: string) => ({ id: 1, qiDelta: 5, reason: 'qi:earn:daily_login', createdAt: iso })
+
+describe('checkedInDays + checkinStreak — ตัดวันแบบไทยเสมอ', () => {
+  it('วันที่เช็คอิน (18:30Z = 01:30 ไทยวันถัดไป) นับเป็นวันไทย', () => {
+    // 18:30Z ของวัน X = 01:30 น. ไทยของวัน X+1
+    const hist = [
+      loginAt('2026-09-02T18:30:00.000Z'), // ไทย 09-03
+      loginAt('2026-09-01T18:30:00.000Z'), // ไทย 09-02
+      loginAt('2026-08-31T18:30:00.000Z'), // ไทย 09-01
+    ]
+    const days = checkedInDays(hist)
+    expect(days.has('2026-09-03')).toBe(true)
+    expect(days.has('2026-09-02')).toBe(true)
+    expect(days.has('2026-09-01')).toBe(true)
+    // สตรีคต่อเนื่อง 3 วันเมื่อวันนี้ (03) เช็คอินแล้ว: 01,02,03
+    expect(checkinStreak(hist, '2026-09-03')).toBe(3)
+  })
+
+  it('ยังไม่กดวันนี้แต่เมื่อวานกด → สตรีคยังนับจากเมื่อวาน (ไม่หัก)', () => {
+    // เช็คอินไทย 09-01, 09-02 — วันนี้ 09-03 ยังว่าง
+    const hist = [loginAt('2026-09-01T18:30:00.000Z'), loginAt('2026-08-31T18:30:00.000Z')]
+    expect(checkinStreak(hist, '2026-09-03')).toBe(2)
+  })
+
+  it('ขาดวัน → นับเฉพาะช่วงต่อเนื่องล่าสุด', () => {
+    // ไทย: เช็คอิน 08-31, 09-01 แล้วขาด 09-02, วันนี้ 09-03 ยังว่าง → สตรีค 0
+    const hist = [loginAt('2026-08-30T18:30:00.000Z'), loginAt('2026-08-31T18:30:00.000Z')]
+    expect(checkinStreak(hist, '2026-09-03')).toBe(0)
+    // วันนี้เช็คอินแล้วแต่เมื่อวานขาด → สตรีค 1
+    expect(checkinStreak([loginAt('2026-09-02T18:30:00.000Z')], '2026-09-03')).toBe(1)
+  })
+
+  it('แถวอื่น (share/spend) ไม่นับเป็นเช็คอิน', () => {
+    const hist = [{ id: 2, qiDelta: -30, reason: 'qi:spend:chat_question', createdAt: '2026-09-02T18:30:00.000Z' }]
+    expect(checkedInDays(hist).size).toBe(0)
+    expect(checkinStreak(hist, '2026-09-03')).toBe(0)
+  })
+})

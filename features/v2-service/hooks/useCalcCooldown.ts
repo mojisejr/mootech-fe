@@ -18,15 +18,19 @@ import { useCallback, useEffect, useState } from 'react'
 
 export const COOLDOWN_MS = 60_000
 
-/** Per-user, so signing in as someone else does not inherit a stranger's cooldown. */
-export function cooldownKey(userId: string): string {
-  return `compat:lastCalcAt:${userId || 'anon'}`
+/** Per-user, so signing in as someone else does not inherit a stranger's cooldown.
+ *  Per-SCOPE too (#588): the couple screen and the colleague screen share this hook, and a key bound
+ *  to the userId alone made one screen's press lock the OTHER screen's button for a minute. The scope
+ *  is the caller's screen kind ('love' | 'colleague' | …) — passed by CompatibilityScreen from the
+ *  same config the route validated, so the key and the on-screen title can never disagree. */
+export function cooldownKey(userId: string, scope: string): string {
+  return `compat:lastCalcAt:${scope || 'default'}:${userId || 'anon'}`
 }
 
-function readLastAt(userId: string): number {
+function readLastAt(userId: string, scope: string): number {
   if (typeof window === 'undefined') return 0
   try {
-    const raw = window.localStorage.getItem(cooldownKey(userId))
+    const raw = window.localStorage.getItem(cooldownKey(userId, scope))
     const n = raw ? Number(raw) : 0
     // A garbage or future-dated value must not lock the button forever: anything that is not a sane past
     // timestamp is treated as "never pressed" rather than trusted.
@@ -49,31 +53,32 @@ export type CalcCooldown = {
   start: () => void
 }
 
-export function useCalcCooldown(userId: string): CalcCooldown {
+export function useCalcCooldown(userId: string, scope: string): CalcCooldown {
   const [msLeft, setMsLeft] = useState(0)
 
-  // Read on mount and whenever the identity changes. This is what survives navigating to the result and
-  // coming back: the deadline is in storage, so the remount recomputes it instead of clearing it.
+  // Read on mount and whenever the identity OR the screen changes. This is what survives navigating to
+  // the result and coming back: the deadline is in storage, so the remount recomputes it instead of
+  // clearing it.
   useEffect(() => {
-    setMsLeft(remainingFrom(readLastAt(userId)))
-  }, [userId])
+    setMsLeft(remainingFrom(readLastAt(userId, scope)))
+  }, [userId, scope])
 
   useEffect(() => {
     if (msLeft <= 0) return
-    const id = setInterval(() => setMsLeft(remainingFrom(readLastAt(userId))), 250)
+    const id = setInterval(() => setMsLeft(remainingFrom(readLastAt(userId, scope))), 250)
     return () => clearInterval(id)
-  }, [msLeft, userId])
+  }, [msLeft, userId, scope])
 
   const start = useCallback(() => {
     const now = Date.now()
     try {
-      if (typeof window !== 'undefined') window.localStorage.setItem(cooldownKey(userId), String(now))
+      if (typeof window !== 'undefined') window.localStorage.setItem(cooldownKey(userId, scope), String(now))
     } catch {
       // Storage refused. The in-memory countdown below still runs for this mount, which is the case that
       // actually matters (rapid tapping); persistence across navigation is what is lost, not the guard.
     }
     setMsLeft(COOLDOWN_MS)
-  }, [userId])
+  }, [userId, scope])
 
   return { secondsLeft: Math.ceil(msLeft / 1000), active: msLeft > 0, start }
 }

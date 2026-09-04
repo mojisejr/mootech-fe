@@ -55,6 +55,24 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return res.status(400).json({ ok: false, error: 'goal must be one of the 6 first-run goals' })
   }
 
+  // DEV FALLBACK (แบบเดียวกับ DEV birth fallback ของ chat/bazi.ts): นอก production ถ้าไม่มี
+  // CONSENT_SECRET (ค่าอยู่บน Render dashboard ของทีม — env-inbox ที่ส่งมาไม่มี) ให้ประทับ
+  // onboarded_at/onboarding_goal ผ่าน DB ของ FE เอง — คอลัมน์เดียวกับที่ BE /consent เขียน
+  // ❌ production ยัง fail-closed: ไม่มี secret = 502 เหมือนเดิม ห้ามเขียนตรงเด็ดขาด
+  if (!process.env.CONSENT_SECRET && process.env.NODE_ENV !== 'production') {
+    try {
+      const { db } = await import('@/lib/db')
+      const now = new Date().toISOString()
+      await db.execute(
+        (await import('drizzle-orm')).sql`UPDATE "user" SET onboarded_at = ${now}, onboarding_goal = ${goal} WHERE user_id = ${userId}`,
+      )
+      return res.status(200).json({ ok: true, onboarded_at: now, onboarding_goal: goal })
+    } catch (dbErr) {
+      const message = dbErr instanceof Error ? dbErr.message : 'dev consent stamp failed'
+      return res.status(500).json({ ok: false, error: message })
+    }
+  }
+
   try {
     const ac = new AbortController()
     const timer = setTimeout(() => ac.abort(), BE_TIMEOUT_MS)

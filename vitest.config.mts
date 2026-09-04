@@ -145,7 +145,18 @@ export default defineConfig({
       'scripts/checkout-pay-mount.test.tsx', // #466 รอบ 3 — mount จริง: กดปุ่มจ่ายแล้วไปไหน (ตรวจพฤติกรรม ไม่ใช่คำศัพท์)
       'scripts/payment-webhook-verify.test.ts', // #355 — pure: Omise HMAC verify, fail-closed (main-lane money gate)
       'scripts/account-screen-mount.test.tsx', // #365 — จอประกอบจริง: ประวัติล้มแล้วต้องไม่พูดว่า 'ยังไม่มีรายการ' (ตู๋ R1/R2)
+      'scripts/destiny-screen-mount.test.tsx', // ดวงฉัน — mount จอ /v2/destiny ตรวจ element ครบตาม duang-chan-spec
       'scripts/account-screen.test.tsx', // #365 — จอสิทธิ์ของฉัน: ป้ายพาไป · planFor · ตัวกรอง APPROVED · วันที่ พ.ศ.
+      'scripts/vip-gate.test.tsx', // VipGate — template ล็อกฟีเจอร์ 🔒 3 สถานะ (paid/free/undetermined) ตามมีตติ้งทีม
+      'scripts/delete-account-screen.test.tsx', // ลบบัญชี — ปุ่มกันตัวเอง + 501 โชว์ตรงไปตรงมา (ขาหลังยังไม่มี)
+      'scripts/use-now-minute.test.ts', // #586 — นาฬิกาจอปฏิทินเดินต่อ ไม่ค้างจาก render เดียว
+      'scripts/calendar-cards-mascot.test.tsx', // #555/#535 — การ์ดปฏิทิน×มาสคอต ไม่ครอบภาพ ไม่ทับข้อความ
+      'scripts/calendar-day-tap-scroll.test.tsx', // #567 — จิ้มวันแล้วสไลด์ไปการ์ดข้อมูล
+      'scripts/mate-ai-button-label.test.tsx', // #568 — ปุ่มเสี่ยวมู่ (ชื่อจอ+aria) identifier คงเดิม
+      'scripts/register-referral.test.tsx', // team.mp4 — ช่องโค้ดผู้แนะนำบนหน้าสมัคร + ยิงหลังบันทึก
+      'scripts/self-heal-retry.test.ts', // login ไม่สำเร็จจาก Render cold start — self-heal retry + timeout ไม่ signOut
+      'scripts/display-name.test.tsx', // @name — ชื่อซ้ำหยุดก่อนบันทึก + จอพลังชี่โชว์จางๆ
+      'scripts/settings-page.test.tsx', // หน้าตั้งค่า — แถวครบ + logout ยืนยันก่อน
       'scripts/vitest-include-drift.test.ts',
       'scripts/calendar-refusal-reaches-screen.test.tsx',
       'scripts/calendar-month-span-unconditional.test.tsx', // #358 Phase 4 — the span gate has no flag in front of it
@@ -217,6 +228,18 @@ export default defineConfig({
       'scripts/colleague-cap-agreement.test.ts', // #585 — three mirrors of the co-worker cap held equal (ตู๋, review of 589)
       'scripts/work-recent-href.test.ts', // #585 — which route a history card opens; pair vs work are not interchangeable
       'scripts/work-history-union-db.test.ts', // #585 — real pg: กิ่ง work ต้องไม่รับ DISTINCT ON ของเลนคู่
+      'scripts/qi-model.test.ts', // ระบบชี่ (ก้อน 1) — ตัดรอบวันเขตไทย + reason ledger เป็นข้อความไทย + สตรีคเช็คอิน
+      'scripts/missions-screen.test.tsx', // ก้อน 1.2 — จอภารกิจเป็นกระจกของ GET /api/missions (error ≠ ข้อมูล 0)
+      'scripts/qi-history-screen.test.tsx', // ก้อน 1.3 — ประวัติชี่เต็ม (ล้ม ≠ "ยังไม่มีรายการ" — บทเรียน #365)
+      'scripts/qi-screen.test.tsx', // ก้อน 1.4/1.5 — เช็คอิน · แถวสะสมจาก catalog · ชีตใช้ชี่/ชี่ไม่พอ
+      'scripts/referral-hub.test.tsx', // ก้อน 5.1 — hub ชวนเพื่อน (ลิงก์ /invite โค้ดจริง + ข้อความตาม engine)
+      'scripts/qi-buy-screen.test.tsx', // ก้อน 1.6 — จอเติมชี่ (ราคาจากแถวจริง · แพ็กปิดขายไม่มีทางเข้า checkout)
+      'scripts/qi-checkin-screen.test.tsx', // เฟรม check-in — states (สตรีคเขตไทย · เช็คอินแล้วปุ่มปิด)
+      'scripts/invite-landing.test.tsx', // เฟรม invite-landing (ยอมรับ → localStorage ก่อน register · โค้ดเน่าพูดตรง)
+      'scripts/edit-profile-screen.test.tsx', // ก้อน 3 — edit-personal-info (PATCH engine · @name อ่านอย่างเดียว)
+      'scripts/edit-birth-screen.test.tsx', // ก้อน 3 — edit-birth-data ×4 (โควตา engine · 409→ชีตชี่ไม่พอ · correction sheet)
+      'scripts/orders-screen.test.tsx', // ก้อน 3 — order-history + order-receipt (APPROVED เท่านั้น = สำเร็จ · แพ็กชี่ตั้งชื่อถูก)
+      'scripts/settings-privacy-screens.test.tsx', // ก้อน 4 — notifications/consent/export/faq/doc (toggle ยิงจริง · ล้มพูดตรง)
     ],
   },
   resolve: {

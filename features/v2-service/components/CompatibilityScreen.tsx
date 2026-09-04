@@ -295,7 +295,10 @@ export function CompatibilityScreen({ config }: { config: CompatibilityConfig })
   const userId = (cookies[CookieKey.MEMBER_ID] as string) || ''
   const quota = useQuota(userId)
   // #265 — one minute between calculations, from the button that spends the quota.
-  const cooldown = useCalcCooldown(userId)
+  // #588 — scoped PER SCREEN (kind): a press on the colleague screen must not lock the couple screen's
+  // button for a minute; the kind comes from the same route-validated config, so key and title cannot
+  // disagree.
+  const cooldown = useCalcCooldown(userId, config.kind)
   const [calculating, setCalculating] = useState(false)
   // #263: was a boolean ("did it fail?"). Now it carries WHICH failure, because that is what decides the
   // words. null = no failure showing.

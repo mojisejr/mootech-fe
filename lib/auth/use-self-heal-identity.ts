@@ -35,6 +35,10 @@ const SELF_HEAL_DELAY_MS = 3000;
 // ScreenLoading with no recovery. On timeout the call rejects -> the catch releases
 // the guard, and my-destiny's escape hatch (Fix B″) offers re-login after 8s.
 const SELF_HEAL_CALL_TIMEOUT_MS = 10000;
+// #? login ไม่สำเร็จรอบแรกบน localhost/Render: free tier ตื่นช้า 30-60 วิ แล้ว call แรก timeout ที่
+// 10 วิ → เดิมจบที่ signOut กลับหน้า login (อาการ "login ไม่สำเร็จ" ที่ผู้ใช้เจอ 2026-09-03) — ตอนนี้
+// พอ timeout จะยิงซ้ำอีกครั้งด้วยหน้าต่างยาวพอสำหรับ cold start ก่อนยอมแพ้
+const SELF_HEAL_RETRY_TIMEOUT_MS = 70000;
 
 function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
   return Promise.race([
@@ -110,7 +114,7 @@ export function useSelfHealIdentity(): void {
       }
       healingRef.current = true;
       try {
-        const result: any = await withTimeout(
+        const call = () =>
           UserRegisterOrLogin(
             params.id_token,
             params.image,
@@ -118,9 +122,14 @@ export function useSelfHealIdentity(): void {
             params.refer_code,
             params.email,
             params.provider,
-          ),
-          SELF_HEAL_CALL_TIMEOUT_MS,
-        );
+          );
+        let result: any;
+        try {
+          result = await withTimeout(call(), SELF_HEAL_CALL_TIMEOUT_MS);
+        } catch {
+          // attempt 1 timeout (Render cold start ชนะ 10 วิ เสมอตอน server หลับ) — ยิงซ้ำหน้าต่างยาว
+          result = await withTimeout(call(), SELF_HEAL_RETRY_TIMEOUT_MS);
+        }
 
         if (result && result.ok === false) {
           // Genuine BE rejection — mirror home: clear identity + sign out.

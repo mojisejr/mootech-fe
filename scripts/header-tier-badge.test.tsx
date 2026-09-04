@@ -24,7 +24,7 @@
 //   what the pill LOOKS like   not here at all — 0 px² header drift is proven by pixel-diff, not by the DOM.
 import React from 'react'
 import { readFileSync, readdirSync } from 'node:fs'
-import { join } from 'node:path'
+import { join, sep } from 'node:path'
 import { describe, it, expect, vi, afterEach } from 'vitest'
 import { render, screen, cleanup } from '@testing-library/react'
 import { CookiesProvider } from 'react-cookie'
@@ -197,11 +197,11 @@ describe('#384 every screen that renders the shared header passes a membership',
     // #363 — checkout. upgradeCta false: you are already buying; an "อัพเกรด" pill here would send the user
     // back to the shop mid-payment.
     { rel: 'pages/v2/shop/checkout.tsx', cta: false },
-    // #365 — จอ "สิทธิ์ของฉัน". cta false: this screen reports what you hold; opening a sales surface on the
-    // page a member came to for reassurance is the same mistake notifications closed. It is also the first
-    // screen to pass `tierLink={false}` — the LEVEL badge points here, so here it must not navigate. That
-    // second wire has its own tooth in scripts/account-screen.test.tsx (A2b); this list guards `membership=`.
-    { rel: 'features/v2-account/components/AccountScreen.tsx', cta: false },
+    // 🔴 reskin 2026-09-04 (Figma "- profile"): จอทั้งคลัสเตอร์โปรไฟล์/ชี่/settings ย้ายไปใช้ SkyHeader
+    // ของ features/v2-profile/components/kit (ลูกศร+ชื่อน้ำเงิน ไม่มี badge — ตามเฟรม) จึงถูกถอนออกจาก
+    // ลิสต์นี้ 14 จอ: AccountScreen, settings/index, delete-account, Edit×2, Connected, Plan, Orders×2,
+    // Notifications, Consent, DataExport, Faq, DocReader — ฟันกันการย้อนกลับอยู่ที่ walk ด้านล่าง
+    // (ไฟล์ไหนกลับไป render AppHeader ต้องโดนเตือนให้กลับมาลงลิสต์ที่นี่)
   ] as const
 
   it('every screen in the list passes membership through', () => {
@@ -209,7 +209,7 @@ describe('#384 every screen that renders the shared header passes a membership',
     // silently. Was 7 (#363 checkout) → 8 with #365's /v2/account.
     // 🟠 The prose above/below this block said "six" while the assertion said 7 — the words drifted, the
     // number did not. Names updated to stop counting in two places.
-    expect(SCREENS).toHaveLength(8)
+    expect(SCREENS).toHaveLength(7)
     for (const { rel } of SCREENS) {
       expect(code(rel), `${rel} stopped passing membership`).toMatch(/membership=\{/)
     }
@@ -224,8 +224,6 @@ describe('#384 every screen that renders the shared header passes a membership',
       'features/v2-shop/components/ShopScreen.tsx',
       'pages/v2/calendar/notifications.tsx',
       'pages/v2/shop/checkout.tsx',
-      // #365 — จอ "สิทธิ์ของฉัน" already tells a free user they are free and offers ดูแพ็คเกจ in the card.
-      'features/v2-account/components/AccountScreen.tsx',
     ])
     for (const { rel, cta } of SCREENS) {
       const hasFlag = /upgradeCta=\{false\}/.test(code(rel))
@@ -258,12 +256,11 @@ describe('#384 every screen that renders the shared header passes a membership',
     // itself a new call site, so it lands in this set and forces this list — and the wiring list below — to
     // be updated by whoever adds it.
     const sites = walk(root)
-      .map((f) => f.slice(root.length + 1))
+      .map((f) => f.slice(root.length + 1).split(sep).join('/')) // canonical '/' — path.sep differs on Windows
       .filter((f) => /<(AppHeader|HeaderTools|ServiceHeader|DayHeader)\b/.test(code(f)))
       .sort()
     expect(sites).toEqual(
       [
-        'features/v2-account/components/AccountScreen.tsx', // #365 — จอ "สิทธิ์ของฉัน"
         'features/v2-calendar/components/day-detail/DayHeader.tsx', // adapter → AppHeader (day detail)
         'features/v2-home/components/V2HomeScreen.tsx', // composes <HeaderTools/> directly (Structure A)
         'features/v2-service/components/ServiceHeader.tsx', // adapter → AppHeader (service hub)

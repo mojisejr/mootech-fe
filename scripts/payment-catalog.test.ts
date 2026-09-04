@@ -6,7 +6,7 @@
 //   MC3  VAT stops being extracted backward (amount*rate/(1+rate))             → the VAT-7% test reddens
 //   MC4  a client code discount is trusted as-is instead of stubbed to 0       → the discount-ignored test reddens
 import { describe, it, expect } from 'vitest'
-import { quotePackage, parseExpireSpec, UnsellablePackageError, type PackageRow } from '@/lib/payment/catalog'
+import { quotePackage, parseExpireSpec, qiQtyOf, UnsellablePackageError, type PackageRow } from '@/lib/payment/catalog'
 
 // #377: the tier and the on-sale flag now come from the payment_package ROW (they used to be a hardcoded
 // map here). The teeth below are unchanged in meaning — only where the inputs come from moved.
@@ -85,5 +85,31 @@ describe('parseExpireSpec — strict single value+unit, matches v1', () => {
     for (const bad of ['1Y 6M', '1y', ' 1Y', '', 'Y', '1W']) {
       expect(() => parseExpireSpec(bad)).toThrow(UnsellablePackageError)
     }
+  })
+})
+
+// ── QI PACKS (buy-qi ก้อน 1.6) — tier 'QI' อยู่นอกบันไดสมาชิก: ราคาผ่านรางเดียวกัน, ปริมาณชี่ต้องรู้จัก ──
+describe('quotePackage — เลนแพ็กชี่ (tierCode QI)', () => {
+  const pack = (code: string, amount: number, overrides: Partial<PackageRow> = {}): PackageRow =>
+    ({ packageCode: code, planCode: 'MEMBER', amount, expire: '1Y', bufferDay: 0, tierCode: 'QI', isActive: true, ...overrides })
+
+  it('แพ็กที่รู้จัก ได้ tier QI + ราคา satang ตามแถวจริง', () => {
+    const q = quotePackage(pack('QI_200', 59))
+    expect(q.tierCode).toBe('QI')
+    expect(q.amountSatang).toBe(5900)
+    expect(qiQtyOf('QI_1200')).toBe(1200)
+  })
+
+  it('แพ็ก QI ที่ไม่รู้จัก THROWS — เงินห้ามวิ่งก่อนรู้ว่าขายอะไร', () => {
+    expect(() => quotePackage(pack('QI_999', 99))).toThrow(UnsellablePackageError)
+  })
+
+  it('แพ็ก QI ที่ปิดขายยัง THROWS ตามเดิม (isActive ตรวจก่อนปริมาณ)', () => {
+    expect(() => quotePackage(pack('QI_200', 59, { isActive: false }))).toThrow(UnsellablePackageError)
+  })
+
+  it('qiQtyOf — ไม่รู้จัก = null ไม่ใช่ 0 (0 ชี่ที่ถูกต้องจะทำให้ grant เงียบ ๆ ไม่เครดิต)', () => {
+    expect(qiQtyOf('QI_500')).toBe(500)
+    expect(qiQtyOf('V2_PRO_YEARLY')).toBeNull()
   })
 })

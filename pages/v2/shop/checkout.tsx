@@ -13,6 +13,7 @@ import { v2RedirectIfUnauthed, isV2TeamPreview } from '@/lib/v2/gate'
 import { AppHeader } from '@/features/v2-shell/components/AppHeader'
 import { useClientTier } from '@/features/v2-shell/hooks/useClientTier'
 import { OrderSummaryCard } from '@/features/v2-shop/components/OrderSummaryCard'
+import { qiQtyOf } from '@/lib/payment/catalog'
 import { PaymentMethodPicker, type PayMethod } from '@/features/v2-shop/components/PaymentMethodPicker'
 import { CardForm, type CardState } from '@/features/v2-shop/components/CardForm'
 import { useCheckout } from '@/features/v2-shop/useCheckout'
@@ -45,7 +46,14 @@ export default function V2CheckoutPage({ teamPreview }: { teamPreview: boolean }
   const [paying, setPaying] = useState(false)
 
   const plan = PLANS.find((p) => Object.values(p.codes).includes(packageCode))
-  const planName = plan ? `${plan.name} · ${packageCode.endsWith('YEARLY') ? 'รายปี' : 'รายเดือน'}` : packageCode
+  // 🔴 แพ็กชี่ (tier QI) — ห้ามโชว์โค้ดดิบ "QI_200" หรือ "อายุ 1 ปี" ที่ไม่มีความหมายกับชี่:
+  // ชี่ไม่มีวันหมด ชำระแล้วเข้าบัญชีทันที (จำนวนจาก QI_PACK_QTY เดียวกับ grant ฝั่ง engine)
+  const qiQty = qiQtyOf(packageCode)
+  const planName = plan
+    ? `${plan.name} · ${packageCode.endsWith('YEARLY') ? 'รายปี' : 'รายเดือน'}`
+    : qiQty !== null
+      ? `แพ็กชี่ ${qiQty.toLocaleString('th-TH')} ชี่`
+      : packageCode
 
   // 🔴 #466 round 2 — THE PAGE HOLDS NO ROUTING DECISION AT ALL ANY MORE (ตู๋, review of 983d3b0).
   // Round 1 moved WHERE a refusal goes into a pure function but left WHEN it is asked as a line of ordering
@@ -124,6 +132,7 @@ export default function V2CheckoutPage({ teamPreview }: { teamPreview: boolean }
           <OrderSummaryCard
             planName={planName}
             validUntilText="1 ปีนับจากวันที่ชำระเงิน"
+            {...(qiQty !== null ? { validLine: 'ชี่เข้าบัญชีทันทีหลังชำระเงินสำเร็จ' } : {})}
             quote={co.quote}
             onChangePlan={() => router.push('/v2/shop')}
             discount={{ state: co.codeState, value: co.code, onChange: co.setCode, onApply: co.applyCode, onClear: co.clearCode, errorText: co.codeError, busy: co.busy }}

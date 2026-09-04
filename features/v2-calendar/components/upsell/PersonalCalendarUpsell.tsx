@@ -73,8 +73,11 @@ export function PersonalCalendarUpsell({ percent, testId = 'calendar-upsell' }: 
       className="relative flex w-full flex-col items-center gap-3 overflow-hidden rounded-[22px] bg-v3-sapphire p-[18px] font-ibm"
     >
       <div aria-hidden className="pointer-events-none absolute inset-0 z-0 overflow-hidden">
-        <div data-testid="calendar-upsell-mu" className="v3-float absolute overflow-hidden" style={{ right: MU.right, top: MU.top, width: MU.w, height: MU.h, ['--sprite-rot' as string]: `${MU.rot}deg` }}>
-          <Image src="/images/v2/mascot/01-nav.png" alt="" width={76} height={105} className="absolute left-[-1.3%] top-[-3.89%] h-[113.07%] w-[100.05%] max-w-none" />
+        {/* #555 — กรอบน้ำเงินรอบมาสคอตที่ฟีมเจอ = ขอบตัดของภาพ: เดิมกล่องนี้ overflow-hidden แล้วดันรูป
+            เกิน 113% ด้วย offset ติดลบ ทำให้ขอบภาพถูกหั่นเป็นเส้นตรงเห็นบนพื้น sapphire — ตอนนี้ให้รูป
+            อยู่ในกล่องพอดี (object-contain ไม่ครอบ) สไปรต์ทั้งตัวลอยได้ไม่มีรอยตัด */}
+        <div data-testid="calendar-upsell-mu" className="v3-float absolute" style={{ right: MU.right, top: MU.top, width: MU.w, height: MU.h, ['--sprite-rot' as string]: `${MU.rot}deg` }}>
+          <Image src="/images/v2/mascot/01-nav.png" alt="" width={76} height={105} className="h-full w-full object-contain" />
         </div>
         {SPRITES_BEHIND.map((s) => (
           <SpriteImg key={s.key} s={s} />

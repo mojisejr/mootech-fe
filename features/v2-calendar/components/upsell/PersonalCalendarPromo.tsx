@@ -16,7 +16,10 @@ export function PersonalCalendarPromo({ testId = 'calendar-promo' }: { testId?: 
       data-testid={testId}
       className="relative flex w-full items-center gap-2.5 overflow-hidden rounded-2xl bg-v3-sapphire px-4 py-6 font-ibm shadow-[0px_6px_16px_0px_rgba(51,46,115,0.28)]"
     >
-      <div className="flex w-[209px] flex-col gap-1">
+      {/* #535 — ข้อความต้องอยู่ชั้นบนสุด: เดิมภาพนักษัตร (absolute วาดทีหลัง) ทับบล็อกข้อความที่
+          320/360 จนหัวข้อเหลือ "เปิดการใช้ง" — z-10 ทำให้ประโยคขายอ่านครบทุกความกว้าง (ที่ 393 เดิม
+          ทับกันแค่ขอบโปร่งของกล่องภาพ จอไม่เปลี่ยน) + drop-shadow กันตัวอักษรจมบนตัวละครสีอ่อน */}
+      <div className="relative z-10 flex w-[209px] flex-col gap-1 drop-shadow-[0_1px_2px_rgba(26,38,77,0.55)]">
         <p className="text-[16px] font-bold leading-6 text-white">
           เปิดการใช้งาน<span className="text-v3-lime">ปฏิทินเฉพาะฉัน</span>
         </p>
