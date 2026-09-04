@@ -64,7 +64,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       const { db } = await import('@/lib/db')
       const now = new Date().toISOString()
       await db.execute(
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         (await import('drizzle-orm')).sql`UPDATE "user" SET onboarded_at = ${now}, onboarding_goal = ${goal} WHERE user_id = ${userId}`,
       )
       return res.status(200).json({ ok: true, onboarded_at: now, onboarding_goal: goal })
