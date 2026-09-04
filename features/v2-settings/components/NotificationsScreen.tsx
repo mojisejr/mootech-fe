@@ -5,7 +5,7 @@ import Head from 'next/head'
 import Link from 'next/link'
 import { useCallback, useEffect, useState } from 'react'
 
-import { SkyBackdrop, SkyHeader } from '@/features/v2-profile/components/kit'
+import { SkyBackdrop, SkyHeader, Toggle } from '@/features/v2-profile/components/kit'
 import { ProfileGate } from '@/features/v2-account/components/ProfileGate'
 
 const CARD = 'flex w-full flex-col rounded-[20px] bg-white p-5 drop-shadow-[0_4px_15px_rgba(26,38,77,0.12)]'
@@ -24,6 +24,7 @@ export function NotificationsScreen() {
   const [kind, setKind] = useState<'ok' | 'not_authenticated' | 'failed'>('ok')
   const [pushState, setPushState] = useState<'unsupported' | NotificationPermission>('default')
   const [savingKey, setSavingKey] = useState<string | null>(null)
+  const [master, setMaster] = useState(true) // สวิตช์รวม (เครื่องนี้) — ปิดแล้วหรี่หมวดย่อย
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -72,7 +73,7 @@ export function NotificationsScreen() {
       <Head><title>การแจ้งเตือน · MuMate</title></Head>
       <SkyHeader title="การแจ้งเตือน" backHref="/v2/settings" testId="notifications" />
 
-      <div className="mx-auto flex w-full max-w-md flex-col gap-4 px-4 pb-36 pt-2">
+      <div className="relative z-10 mx-auto flex w-full max-w-md flex-col gap-4 px-4 pb-36 pt-2">
         <ProfileGate loading={loading} kind={kind} onRetry={() => void load()} />
 
         {!loading && kind === 'ok' && (
@@ -93,6 +94,17 @@ export function NotificationsScreen() {
               </Link>
             </section>
 
+            {/* สวิตช์รวม (เฟรม: เปิดการแจ้งเตือนทั้งหมด) */}
+            <section className={CARD} data-testid="notif-master">
+              <div className="flex items-center justify-between gap-3">
+                <div className="min-w-0 flex-1">
+                  <p className="text-[14px] font-bold text-v3-navy">เปิดการแจ้งเตือนทั้งหมด</p>
+                  <p className="text-[11px] leading-4 text-v3-text-muted">ปิดอันนี้จะไม่ได้รับอะไรเลย</p>
+                </div>
+                <Toggle on={master} onChange={setMaster} testId="notif-master-toggle" />
+              </div>
+            </section>
+
             <section className={CARD} data-testid="notif-categories">
               <p className="text-[13px] font-bold text-v3-navy">หมวดที่ต้องการรับ</p>
               <div className="flex flex-col divide-y divide-v3-border-card">
@@ -102,21 +114,16 @@ export function NotificationsScreen() {
                       <p className="text-[14px] font-bold text-v3-navy">{c.title}</p>
                       <p className="text-[11px] leading-4 text-v3-text-muted">{c.sub}</p>
                     </div>
-                    <button
-                      onClick={() => void toggle(c.key)}
-                      disabled={savingKey === c.key}
-                      data-testid={c.testId}
-                      aria-pressed={Boolean(prefs?.[c.key])}
-                      className={
-                        (prefs?.[c.key] ? 'bg-v3-cyan text-white' : 'border border-v3-border-card bg-white text-v3-text-muted') +
-                        ' h-9 w-16 flex-none rounded-full text-[12px] font-bold transition disabled:opacity-40'
-                      }
-                    >
-                      {prefs?.[c.key] ? 'เปิด' : 'ปิด'}
-                    </button>
+                    <Toggle
+                      on={Boolean(master && prefs?.[c.key])}
+                      disabled={savingKey === c.key || !master}
+                      onChange={() => void toggle(c.key)}
+                      testId={c.testId}
+                    />
                   </div>
                 ))}
               </div>
+              <p className="mt-1 text-[11px] leading-4 text-v3-text-muted">ช่องทางที่ได้รับ: แจ้งเตือนในแอป (Push) · LINE · อีเมล (เฉพาะใบเสร็จและเรื่องบัญชี)</p>
             </section>
           </>
         )}

@@ -21,14 +21,23 @@ import { parseTierCode, type TierCode } from '@/lib/v2/tier'
 // ไม่ใช่เขียน member_subscription (ดู settleAndProvision เลน QI). ปริมาณชี่ต่อแพ็ก = ข้อเท็จจริงของ
 // โค้ด (เหมือน catalog ของ engine) — แพ็กที่ไม่รู้จักต้อง fail loud ก่อนถึง till ทั้งที่ quote และตอน
 // grant; ราคา (amount) ยังมาจาก payment_package แถวจริงเสมอ (แก้ราคาที่ /ops โดยไม่ deploy).
-export const QI_PACK_CODES = ['QI_200', 'QI_500', 'QI_1200'] as const
+export const QI_PACK_CODES = ['QI_60', 'QI_200', 'QI_500', 'QI_1200'] as const
 export type QiPackCode = (typeof QI_PACK_CODES)[number]
 
-/** จำนวนชี่ต่อ package_code — ตัวเลขจากจอ buy-qi (200/500/1,200); ราคา 59/129/299 อยู่ใน DB (0011) */
+/** จำนวน QI ต่อ package_code — ตัวเลขจากจอ buy-qi (60/200/500/1,200); ราคาอยู่ใน DB (payment_package) */
 export const QI_PACK_QTY: Record<QiPackCode, number> = {
+  QI_60: 60,
   QI_200: 200,
   QI_500: 500,
   QI_1200: 1200,
+}
+
+/** โบนัส QI แถมต่อแพ็ก (Figma buy-qi): 60→0 · 200→+20 · 500→+75 · 1,200→+250. เครดิตจริงตอน grant. */
+export const QI_PACK_BONUS: Record<QiPackCode, number> = {
+  QI_60: 0,
+  QI_200: 20,
+  QI_500: 75,
+  QI_1200: 250,
 }
 
 export function qiQtyOf(packageCode: string): number | null {
@@ -36,6 +45,16 @@ export function qiQtyOf(packageCode: string): number | null {
     ? QI_PACK_QTY[packageCode as QiPackCode]
     : null
 }
+
+/** โบนัส QI แถมต่อแพ็ก (0 ถ้าไม่รู้จัก/ไม่มีโบนัส) */
+export function qiBonusOf(packageCode: string): number {
+  return (QI_PACK_CODES as readonly string[]).includes(packageCode)
+    ? QI_PACK_BONUS[packageCode as QiPackCode]
+    : 0
+}
+
+/** อัตรา VAT (แบบรวมในราคา — สกัดย้อนกลับ) สำหรับโชว์ในสรุปยอด/ใบเสร็จ. (#362 จะย้ายไป app_setting) */
+export const VAT_RATE = 0.07
 
 // The package row shape the catalog needs (subset of payment_package). Kept explicit so the pure function
 // never depends on the drizzle row type / DB.

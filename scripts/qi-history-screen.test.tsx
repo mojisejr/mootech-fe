@@ -49,14 +49,14 @@ describe('จอประวัติชี่', () => {
   it('โชว์ยอดรวม + ทุกแถวเป็นข้อความไทย เครื่องหมายตาม qiDelta', async () => {
     render(<QiHistoryScreen />)
     await waitFor(() => expect(screen.getByTestId('qi-history-list')).toBeTruthy())
-    expect(screen.getByTestId('qi-history-total').textContent).toBe('45 ชี่')
+    expect(screen.getByTestId('qi-history-total').textContent).toBe('45 QI')
     // mission:<id> แปลงเป็นชื่อจริงจาก board
     expect(screen.getByText('ภารกิจเช็คอินมู')).toBeTruthy()
     expect(screen.getByText('แลก ถาม AI')).toBeTruthy()
     expect(screen.getByText('เช็คอินรายวัน')).toBeTruthy()
     // บวก/ลบตาม ledger
     const deltas = screen.getAllByTestId('qi-history-delta').map((el) => el.textContent)
-    expect(deltas).toEqual(['+50 ชี่', '-30 ชี่', '+5 ชี่'])
+    expect(deltas).toEqual(['+50 QI', '-30 QI', '+5 QI'])
   })
 
   it('ประวัติว่างจริง (engine ตอบ []) → โชว์ empty ไม่ใช่ error', async () => {

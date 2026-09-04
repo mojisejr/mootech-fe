@@ -46,7 +46,7 @@ describe('จอประวัติคำสั่งซื้อ (order-histo
   it('O1/O2 โชว์ทุกแถว: แพ็กชี่ + สถานะตามจริง (สำเร็จ/ไม่สำเร็จ)', async () => {
     render(<CookiesProvider><OrdersScreen /></CookiesProvider>)
     await waitFor(() => expect(screen.getAllByTestId('orders-row').length).toBe(2))
-    expect(screen.getByText('แพ็กชี่ 200 ชี่')).toBeTruthy()
+    expect(screen.getByText('แพ็ก 200 QI + โบนัส 20')).toBeTruthy()
     expect(screen.getByText('Mumate Pro (สมาชิกรายปี)')).toBeTruthy()
     expect(screen.getByText('สำเร็จ')).toBeTruthy()
     expect(screen.getByText('ไม่สำเร็จ')).toBeTruthy()
@@ -75,7 +75,7 @@ describe('จอใบเสร็จ (order-receipt)', () => {
   it('เจอแถวด้วย chargeId → โชว์ยอด/วิธีชำระ/เลขที่ + สถานะตามจริง', async () => {
     render(<CookiesProvider><OrderReceiptScreen id="chg_1" /></CookiesProvider>)
     await waitFor(() => expect(screen.getByTestId('receipt-card')).toBeTruthy())
-    expect(screen.getByTestId('receipt-title').textContent).toBe('แพ็กชี่ 200 ชี่')
+    expect(screen.getByTestId('receipt-title').textContent).toBe('แพ็ก 200 QI')
     expect(screen.getByTestId('receipt-amount').textContent).toBe('฿59')
     expect(screen.getByTestId('receipt-method').textContent).toBe('พร้อมเพย์ QR')
     expect(screen.getByTestId('receipt-order').textContent).toBe('0000000001')

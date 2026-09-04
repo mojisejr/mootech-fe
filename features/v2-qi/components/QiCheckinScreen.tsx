@@ -1,14 +1,17 @@
 // features/v2-qi/components/QiCheckinScreen.tsx — จอ "เช็คอินรายวัน" เต็ม (/v2/qi/checkin)
-// เฟรม `check-in — reward moments` + `check-in — states`. Reskin 2026-09-04: การ์ดสตรีคน้ำเงินใหญ่ +
-// strip 7 วันเป็น "เหรียญ" วงกลมใหญ่ (วันที่ผ่าน = เหรียญทอง✓ · วันนี้ = ขอบไฮไลต์ · อนาคต = เทา).
-// ข้อมูลจริงทั้งหมดจาก engine (ประวัติ daily_login + ค่า +5 จาก catalog) — คิดวันแบบ Asia/Bangkok เท่านั้น
+// เฟรม `check-in — states` (55399:5535) + `check-in — reward moments` (55399:5704). ดีไซน์ = การ์ดเดียวจบ:
+// หัว "เช็คอินต่อเนื่อง n/7 วัน" + strip 7 วัน + ปุ่มหลัก navy เต็มกว้าง + แคปชันโบนัส +30 QI.
+// สถานะ A พร้อมเช็คอิน · B เช็คแล้ววันนี้ · C ครบ 7 วัน (celebration sheet) · D สตรีคขาด (banner) · E ผู้ใช้ใหม่.
+// ข้อมูลจริงทั้งหมดจาก engine (ประวัติ daily_login + ค่า +N จาก catalog) — คิดวันแบบ Asia/Bangkok เท่านั้น
 import Head from "next/head"
 import Image from "next/image"
 import Link from "next/link"
-import { useCallback, useEffect, useState } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
 
-import { SectionCard, SkyHeader, SkyScreen } from "@/features/v2-profile/components/kit"
-import { checkedInToday, checkinStreak, todayBangkok, checkedInDays, type QiCatalog, type Wallet } from "../qi-model"
+import { KitButton, SectionCard, SheetShell, SkyHeader, SkyScreen } from "@/features/v2-profile/components/kit"
+import { checkedInToday, checkinStreak, todayBangkok, checkedInDays, dayBefore, type QiCatalog, type Wallet } from "../qi-model"
+
+const WEEK_BONUS = 30 // โบนัสครบ 7 วัน (engine เป็นผู้ให้จริง — ค่านี้ใช้แสดงผล; ต่อ catalog ภายหลังได้)
 
 /** 7 วันย้อนหลัง (เก่า → ใหม่) แบบ Bangkok สำหรับ strip */
 function last7Days(today: string): string[] {
@@ -30,6 +33,11 @@ export function QiCheckinScreen() {
   const [guard, setGuard] = useState<"not_authenticated" | null>(null)
   const [busy, setBusy] = useState(false)
   const [justClaimed, setJustClaimed] = useState(false)
+  const [toast, setToast] = useState<string | null>(null)
+  const [celebrate, setCelebrate] = useState(false)
+  const [restoring, setRestoring] = useState(false)
+  const [restoreMsg, setRestoreMsg] = useState<string | null>(null)
+  const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const load = useCallback(async () => {
     try {
@@ -52,6 +60,42 @@ export function QiCheckinScreen() {
     void load()
   }, [load])
 
+  useEffect(() => () => { if (toastTimer.current) clearTimeout(toastTimer.current) }, [])
+
+  const today = todayBangkok()
+  const days = last7Days(today)
+  const claimed = checkedInDays(wallet?.history)
+  const done = justClaimed || checkedInToday(wallet?.history, today)
+  const streak = checkinStreak(wallet?.history, today)
+  const qi = dailyQi ?? 5
+
+  const isNew = claimed.size === 0 && !justClaimed
+  const weekProgress = streak === 0 ? 0 : ((streak - 1) % 7) + 1
+  const weekComplete = done && streak > 0 && streak % 7 === 0
+  const broke = !done && streak === 0 && claimed.size > 0
+  // กู้คืนได้เมื่อ "เมื่อวาน" ขาด แต่ "วันก่อนเมื่อวาน" เคยเช็คอิน (ช่องว่าง 1 วันที่ตัดสตรีค)
+  const yesterday = dayBefore(today)
+  const canRestore = !done && !claimed.has(yesterday) && claimed.has(dayBefore(yesterday))
+
+  const restore = async () => {
+    setRestoring(true)
+    setRestoreMsg(null)
+    try {
+      const res = await fetch("/api/qi-streak-restore", { method: "POST" })
+      if (res.ok) {
+        setToast("กู้คืนสตรีคแล้ว · เช็คอินวันนี้เพื่อไปต่อ")
+        if (toastTimer.current) clearTimeout(toastTimer.current)
+        toastTimer.current = setTimeout(() => setToast(null), 2600)
+        await load()
+      } else {
+        const j = (await res.json().catch(() => ({}))) as { error?: string }
+        setRestoreMsg(String(j.error ?? "กู้คืนไม่สำเร็จ"))
+      }
+    } finally {
+      setRestoring(false)
+    }
+  }
+
   const checkin = async () => {
     setBusy(true)
     try {
@@ -62,6 +106,14 @@ export function QiCheckinScreen() {
       })
       if (res.ok) {
         setJustClaimed(true)
+        const completedWeek = (streak + 1) % 7 === 0
+        if (completedWeek) {
+          setCelebrate(true)
+        } else {
+          setToast(`ได้รับ +${qi} QI แล้ว · เช็คอินต่อเนื่อง ${streak + 1} วัน`)
+          if (toastTimer.current) clearTimeout(toastTimer.current)
+          toastTimer.current = setTimeout(() => setToast(null), 2600)
+        }
         await load()
       }
     } finally {
@@ -69,11 +121,11 @@ export function QiCheckinScreen() {
     }
   }
 
-  const today = todayBangkok()
-  const days = last7Days(today)
-  const claimed = checkedInDays(wallet?.history)
-  const done = justClaimed || checkedInToday(wallet?.history, today)
-  const streak = checkinStreak(wallet?.history, today)
+  const caption = done
+    ? weekComplete
+      ? `รับโบนัสครบสัปดาห์แล้ว +${WEEK_BONUS} QI`
+      : `อีก ${7 - weekProgress} วันรับโบนัส +${WEEK_BONUS} QI`
+    : `ครบ 7 วันติดรับโบนัส +${WEEK_BONUS} QI`
 
   return (
     <SkyScreen>
@@ -82,14 +134,14 @@ export function QiCheckinScreen() {
 
       {loading && (
         <div className="mt-3" data-testid="qi-checkin-loading">
-          <div className="h-[190px] w-full animate-pulse rounded-[28px] bg-v3-sapphire/20" />
+          <div className="h-[240px] w-full animate-pulse rounded-[28px] bg-v3-sapphire/20" />
         </div>
       )}
 
       {!loading && guard === "not_authenticated" && (
         <div className="v3-shadow-card mt-4 rounded-[24px] bg-white p-5 text-center" data-testid="qi-checkin-guard-auth">
           <p className="text-sm font-bold text-v3-navy">ไม่พบข้อมูลผู้ใช้</p>
-          <Link href="/v2/login" className="mt-3 grid h-11 place-items-center rounded-full bg-v3-cyan text-sm font-bold text-white">
+          <Link href="/v2/login" className="mt-3 grid h-11 place-items-center rounded-full bg-v3-navy text-sm font-bold text-white">
             เข้าสู่ระบบ
           </Link>
         </div>
@@ -97,89 +149,115 @@ export function QiCheckinScreen() {
 
       {!loading && !guard && (
         <div className="mt-3 flex flex-col gap-4">
-          {/* hero สตรีค — การ์ดน้ำเงินใหญ่พร้อมเหรียญ (เฟรม check-in — reward moments) */}
-          <section className="relative overflow-hidden rounded-[28px] bg-v3-sapphire p-6 text-white" data-testid="qi-checkin-hero">
-            <span aria-hidden className="v3-float-wide absolute -right-2 -top-2 block size-[96px] opacity-90">
-              <Image src="/images/v2/zone2/coin.png" alt="" width={96} height={96} unoptimized className="size-full object-contain" />
-            </span>
-            <p className="text-[12px] leading-4 text-white/75">เช็คอินต่อเนื่อง</p>
-            <p className="text-[44px] font-black leading-[52px]" data-testid="qi-checkin-streak">
-              {streak} <span className="text-[16px] font-bold">วัน</span>
-            </p>
-            <p className="mt-1 text-[12px] leading-4 text-white/85">
-              {done ? "วันนี้เช็คอินแล้ว — กลับมาใหม่พรุ่งนี้" : "มาเช็คอินวันนี้เพื่อคุมสตรีคต่อ"}
-            </p>
-          </section>
-
-          {/* strip 7 วันแบบ "เหรียญ" (เฟรม check-in — states) */}
+          {/* การ์ดเช็คอินเดียวจบ (เฟรม check-in — states) */}
           <SectionCard>
-            <div className="flex items-center justify-between gap-1" data-testid="qi-checkin-strip">
-              {days.map((d) => {
-                const isDone = claimed.has(d)
+            <div className="flex items-center justify-between">
+              <p className="text-[15px] font-black text-v3-navy">เช็คอินต่อเนื่อง</p>
+              <p className="text-[12px] font-bold text-v3-text-muted">
+                {isNew ? "เริ่มสัปดาห์แรก" : (<><span data-testid="qi-checkin-streak">{weekProgress}</span> / 7 วัน</>)}
+              </p>
+            </div>
+
+            {/* สถานะ D — สตรีคขาด (เฟรม recovery-banner): กู้คืน 20 QI ได้ถ้าขาด 1 วัน (สัปดาห์ละครั้ง) */}
+            {(canRestore || broke) && (
+              <div className="mt-3 flex items-center gap-2.5 rounded-[12px] bg-[#FBECEC] px-3 py-2.5" data-testid="qi-checkin-recovery">
+                <p className="min-w-0 flex-1 text-[12px] leading-[18px] text-[#A83238]">
+                  {canRestore ? "ขาดไป 1 วัน สตรีคก่อนหน้าถูกรีเซ็ต" : "สตรีคขาด — เช็คอินวันนี้เริ่มนับใหม่"}
+                </p>
+                {canRestore && (
+                  <button
+                    onClick={() => void restore()}
+                    disabled={restoring}
+                    data-testid="qi-checkin-restore"
+                    className="flex-none rounded-full bg-white px-3 py-1.5 text-[10px] font-black text-[#A83238] disabled:opacity-50"
+                  >
+                    {restoring ? "..." : "กู้คืน 20 QI"}
+                  </button>
+                )}
+              </div>
+            )}
+            {restoreMsg && <p data-testid="qi-checkin-restore-msg" className="mt-1 text-[11px] font-bold text-v3-error">{restoreMsg}</p>}
+
+            {/* strip 7 วัน */}
+            <div className="mt-3 flex items-stretch gap-1.5" data-testid="qi-checkin-strip">
+              {days.map((d, i) => {
+                const isDone = claimed.has(d) || (justClaimed && d === today)
                 const isToday = d === today
                 const dayNum = Number(d.slice(8, 10))
+                const gift = isDone && i === 6 && weekComplete
                 return (
-                  <div key={d} className="flex flex-1 flex-col items-center gap-1">
-                    {isDone ? (
-                      // วันที่เช็คอินแล้ว = เหรียญทองมี ✓
-                      <span
-                        data-testid={`qi-checkin-day-${d}`}
-                        className="grid size-[46px] place-items-center rounded-full bg-gradient-to-b from-[#FFD54F] to-[#FFB300] text-[15px] font-black text-white shadow-[0_2px_8px_rgba(255,179,0,.45)]"
-                      >
-                        ✓
-                      </span>
-                    ) : isToday ? (
-                      // วันนี้ = ขอบไฮไลต์รอเหรียญ
-                      <span
-                        data-testid={`qi-checkin-day-${d}`}
-                        className="grid size-[46px] place-items-center rounded-full border-[3px] border-v3-cyan bg-v3-ghost-white text-[14px] font-black text-v3-cyan"
-                      >
-                        {dayNum}
-                      </span>
-                    ) : (
-                      // อนาคต = เทา
-                      <span
-                        data-testid={`qi-checkin-day-${d}`}
-                        className="grid size-[46px] place-items-center rounded-full bg-v3-ghost-white text-[14px] font-bold text-v3-text-muted"
-                      >
-                        {dayNum}
-                      </span>
-                    )}
-                    <span className={"text-[10px] " + (isToday ? "font-black text-v3-cyan" : "text-v3-text-muted")}>
-                      {isToday ? "วันนี้" : ""}
-                    </span>
-                  </div>
+                  <span
+                    key={d}
+                    data-testid={`qi-checkin-day-${d}`}
+                    className={
+                      "grid flex-1 place-items-center rounded-[11px] py-3 text-[13px] font-black " +
+                      (isDone
+                        ? "bg-[#ECF0FD] text-v3-sapphire"
+                        : isToday
+                          ? "bg-v3-cyan text-white"
+                          : "bg-[#F0F8F0] text-v3-cyan")
+                    }
+                  >
+                    {gift ? "🎁" : isDone ? "✓" : dayNum}
+                  </span>
                 )
               })}
             </div>
-          </SectionCard>
 
-          {/* ปุ่มเช็คอิน — สถานะตามเฟรม states */}
-          <SectionCard className="!p-3">
-            <div className="flex items-center gap-3">
-              <span aria-hidden className="grid size-11 flex-none place-items-center rounded-[14px] bg-[#E3F2FD] text-[20px]">📅</span>
-              <div className="min-w-0 flex-1">
-                <p className="text-[14px] font-bold text-v3-navy">เช็คอินวันนี้</p>
-                <p className="text-[11px] leading-4 text-v3-text-muted">รับ +{dailyQi ?? 5} ชี่ (วันละ 1 ครั้ง)</p>
-              </div>
-              <button
-                onClick={() => void checkin()}
-                disabled={done || busy}
-                data-testid="qi-checkin-btn"
-                className={
-                  (done ? "bg-v3-disabled-bg text-v3-text-muted" : "bg-v3-cyan text-white") +
-                  " grid h-10 flex-none place-items-center rounded-full px-4 text-[12px] font-bold transition disabled:cursor-default"
-                }
-              >
-                {done ? "เช็คอินแล้ว ✓" : busy ? "..." : "เช็คอิน"}
-              </button>
+            {/* ปุ่มหลัก navy เต็มกว้าง — สถานะ A/B/C/E */}
+            <div className="mt-4">
+              {done && !weekComplete ? (
+                <KitButton variant="ghost" disabled testId="qi-checkin-btn" className="!bg-[#FBF1F2] !h-12 !text-v3-text-muted">
+                  เช็คอินแล้ว · กลับมาพรุ่งนี้
+                </KitButton>
+              ) : weekComplete ? (
+                <KitButton onClick={() => setCelebrate(true)} testId="qi-checkin-btn">
+                  รับโบนัสครบสัปดาห์ +{WEEK_BONUS} QI
+                </KitButton>
+              ) : (
+                <KitButton onClick={() => void checkin()} disabled={busy} testId="qi-checkin-btn">
+                  {busy ? "กำลังบันทึก..." : isNew ? `เริ่มเช็คอินวันแรก รับ +${qi} QI` : `เช็คอินวันนี้ รับ +${qi} QI`}
+                </KitButton>
+              )}
             </div>
+
+            <p className="mt-2 text-center text-[11px] leading-4 text-v3-text-muted">{caption}</p>
+
+            {/* สถานะข้อความ (คงคีย์เดิม qi-checkin-hero ให้เทสต์อ้างอิงสถานะ) */}
+            <p className="mt-1 text-center text-[11px] leading-4 text-v3-text-muted" data-testid="qi-checkin-hero">
+              {done ? "วันนี้เช็คอินแล้ว — กลับมาใหม่พรุ่งนี้" : "มาเช็คอินวันนี้เพื่อคุมสตรีคต่อ"}
+            </p>
           </SectionCard>
 
           <p className="px-1 text-[11px] leading-4 text-v3-text-muted">
             ลืมเช็คอินวันหนึ่ง สตรีคจะเริ่มนับใหม่ — เปิดแอปทุกวันเพื่อสะสมให้ต่อเนื่อง
           </p>
         </div>
+      )}
+
+      {/* toast รับ QI (เฟรม reward moments) */}
+      {toast && (
+        <div className="fixed inset-x-0 bottom-24 z-40 mx-auto w-full max-w-md px-6" data-testid="qi-checkin-toast">
+          <div className="rounded-[16px] bg-v3-navy/95 px-4 py-3 text-center text-[13px] font-bold text-white shadow-lg">{toast}</div>
+        </div>
+      )}
+
+      {/* celebration ครบ 7 วัน (เฟรม reward moments) */}
+      {celebrate && (
+        <SheetShell label="ครบ 7 วัน" onClose={() => setCelebrate(false)}>
+          <div className="flex flex-col items-center gap-2 text-center">
+            <span aria-hidden className="grid size-16 place-items-center rounded-full bg-[#FBF3DE] text-[24px] font-black text-[#B8892B]">+{WEEK_BONUS}</span>
+            <h2 className="text-[20px] font-black text-v3-navy">ครบ 7 วันแล้ว! 🎉</h2>
+            <p className="text-[13px] leading-5 text-v3-text-muted">
+              รับโบนัส +{WEEK_BONUS} QI เข้ากระเป๋าแล้ว
+              {typeof wallet?.qi === "number" ? ` · ยอดรวมตอนนี้ ${wallet.qi.toLocaleString("th-TH")} QI` : ""}
+            </p>
+          </div>
+          <div className="mt-5 flex flex-col gap-2">
+            <KitButton href="/v2/qi" testId="qi-checkin-celebrate-cta">ใช้ QI ถามเซียนมูเลย</KitButton>
+            <KitButton variant="ghost" onClick={() => setCelebrate(false)}>เริ่มสัปดาห์ใหม่พรุ่งนี้</KitButton>
+          </div>
+        </SheetShell>
       )}
     </SkyScreen>
   )

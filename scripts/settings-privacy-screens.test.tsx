@@ -83,14 +83,14 @@ describe('settings-notifications', () => {
   it('N1 toggle "ข่าวสารและโปรโมชัน" → PUT updates:true แล้วปุ่มเปลี่ยนเป็น เปิด', async () => {
     render(wrap(<NotificationsScreen />))
     const btn = await waitFor(() => screen.getByTestId('notif-updates'))
-    expect(btn.textContent).toBe('ปิด')
+    expect(btn.getAttribute('aria-checked')).toBe('false')
     fireEvent.click(btn)
     await waitFor(() => {
       const put = fetchMock.mock.calls.find((c) => (c[1]?.method ?? '') === 'PUT')
       expect(put).toBeTruthy()
       expect(JSON.parse(String(put?.[1]?.body))).toMatchObject({ updates: true })
     })
-    await waitFor(() => expect(screen.getByTestId('notif-updates').textContent).toBe('เปิด'))
+    await waitFor(() => expect(screen.getByTestId('notif-updates').getAttribute('aria-checked')).toBe('true'))
   })
 
   it('โชว์สถานะ push ของเบราว์เซอร์ (default = ยังไม่ได้อนุญาต) + ทางไปจัดการยาม', async () => {
@@ -101,14 +101,42 @@ describe('settings-notifications', () => {
 })
 
 describe('privacy-consent', () => {
-  it('C1 ยังไม่เคยยินยอม → ปุ่มให้ความยินยอม POST pdpa แล้วสถานะเปลี่ยน + ประวัติโชว์', async () => {
+  it('C1 pdpa จำเป็น (ล็อกเปิด) + มี 5 วัตถุประสงค์ + แถวประวัติ', async () => {
     render(wrap(<ConsentScreen />))
-    fireEvent.click(await waitFor(() => screen.getByTestId('consent-accept')))
-    await waitFor(() => expect(screen.getByTestId('consent-msg').textContent).toContain('บันทึกความยินยอม'))
-    const post = fetchMock.mock.calls.find((c) => (c[1]?.method ?? '') === 'POST')
-    expect(JSON.parse(String(post?.[1]?.body))).toMatchObject({ kind: 'pdpa', version: '2026-09', accepted: true })
-    await waitFor(() => expect(screen.getByTestId('consent-state').textContent).toContain('ให้ความยินยอมอยู่'))
+    const pdpa = await waitFor(() => screen.getByTestId('consent-pdpa'))
+    expect(pdpa.getAttribute('aria-checked')).toBe('true')
+    expect(pdpa.getAttribute('aria-disabled')).toBe('true')
+    // ครบ 5 สวิตช์วัตถุประสงค์
     expect(screen.getByTestId('consent-history')).toBeTruthy()
+    expect(screen.getByTestId('consent-analytics')).toBeTruthy()
+    expect(screen.getByTestId('consent-marketing')).toBeTruthy()
+    expect(screen.getByTestId('consent-ads')).toBeTruthy()
+    expect(screen.getByTestId('consent-log')).toBeTruthy()
+  })
+
+  it('C2 ปิด "เก็บประวัติการดูดวง" → POST {kind:history, accepted:false} + กล่องผลกระทบสีแดงโผล่', async () => {
+    render(wrap(<ConsentScreen />))
+    const sw = await waitFor(() => screen.getByTestId('consent-history'))
+    expect(sw.getAttribute('aria-checked')).toBe('true') // ค่าเริ่มต้นเปิด
+    fireEvent.click(sw)
+    await waitFor(() => {
+      const post = fetchMock.mock.calls.find((c) => (c[1]?.method ?? '') === 'POST')
+      expect(post).toBeTruthy()
+      expect(JSON.parse(String(post?.[1]?.body))).toMatchObject({ kind: 'history', version: '2026-09', accepted: false })
+    })
+    await waitFor(() => expect(screen.getByTestId('consent-msg').textContent).toContain('ปิดความยินยอม'))
+    await waitFor(() => expect(screen.getByTestId('consent-impact-history')).toBeTruthy())
+  })
+
+  it('C3 marketing (ค่าเริ่มต้นปิด) → เปิดแล้วยิง POST accepted:true', async () => {
+    render(wrap(<ConsentScreen />))
+    const sw = await waitFor(() => screen.getByTestId('consent-marketing'))
+    expect(sw.getAttribute('aria-checked')).toBe('false')
+    fireEvent.click(sw)
+    await waitFor(() => {
+      const post = fetchMock.mock.calls.find((c) => (c[1]?.method ?? '') === 'POST' && String(c[1]?.body).includes('marketing'))
+      expect(JSON.parse(String(post?.[1]?.body))).toMatchObject({ kind: 'marketing', accepted: true })
+    })
   })
 })
 

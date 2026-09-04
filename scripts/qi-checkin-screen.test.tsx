@@ -53,7 +53,7 @@ describe('จอเช็คอินรายวัน (check-in — states)', 
     ]
     render(<QiCheckinScreen />)
     const btn = await waitFor(() => screen.getByTestId('qi-checkin-btn'))
-    expect(btn.textContent).toBe('เช็คอิน')
+    expect(btn.textContent).toContain('เช็คอินวันนี้')
     expect(screen.getByTestId(`qi-checkin-day-2026-09-02`).textContent).toBe('✓')
     fireEvent.click(btn)
     await waitFor(() => expect(fetchMock.mock.calls.some((c) => String(c[0]).includes('/api/qi-earn'))).toBe(true))
@@ -66,7 +66,7 @@ describe('จอเช็คอินรายวัน (check-in — states)', 
     ]
     render(<QiCheckinScreen />)
     const btn = await waitFor(() => screen.getByTestId('qi-checkin-btn'))
-    expect(btn.textContent).toBe('เช็คอินแล้ว ✓')
+    expect(btn.textContent).toContain('เช็คอินแล้ว')
     expect((btn as HTMLButtonElement).disabled).toBe(true)
     expect(screen.getByTestId('qi-checkin-streak').textContent).toContain('2')
     expect(screen.getByTestId('qi-checkin-hero').textContent).toContain('กลับมาใหม่พรุ่งนี้')

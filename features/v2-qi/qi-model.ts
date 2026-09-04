@@ -10,6 +10,8 @@ export type WalletHistoryRow = {
   id: number | string
   qiDelta: number
   reason: string | null
+  /** อ้างอิงเสริม — สำหรับ streak_restore = วันที่ (YYYY-MM-DD) ที่กู้คืน */
+  ref?: string | null
   createdAt: string
 }
 
@@ -32,20 +34,33 @@ export type Referral = {
   rewardPerInvite?: number
 }
 
+export type MissionCategory = "daily" | "once" | "longterm"
+
 export type Mission = {
   id: string
   title: string
   description: string
   period: "daily" | "once"
+  /** กลุ่มบนจอ mission-board (ทำได้ทุกวัน/ครั้งเดียวจบ/ระยะยาว) */
+  category: MissionCategory
   target: number
+  /** รางวัล QI (ชื่อ field เดิม rewardCoins — engine เครดิตเป็น qi แล้ว) */
   rewardCoins: number
   rewardXp: number
   count: number
   completed: boolean
   claimedAt: string | null
+  /** ปุ่ม "ทำเลย" → เส้นทางในแอป (เว้นว่าง = เสร็จเองจากที่อื่น เช่นเช็คอิน) */
+  actionHref?: string
 }
 
-export type MissionBoard = { anonId: string; date: string; missions: Mission[] }
+/** เป้าหมายระยะยาวที่คิดจาก referral (engine ส่งมาใน board.goals) */
+export type MissionGoals = {
+  referral: { invited: number; rewardPerInviteQi: number; earnedQi: number }
+  element: { target: number; collected: number; bonusQi: number; elements: { key: string; collected: boolean }[] }
+}
+
+export type MissionBoard = { anonId: string; date: string; missions: Mission[]; goals?: MissionGoals }
 
 export type QiEarnLine = {
   code: string
@@ -108,12 +123,14 @@ export function checkedInDays(history: WalletHistoryRow[] | undefined): Set<stri
   const days = new Set<string>()
   for (const h of history ?? []) {
     if (h.reason === "qi:earn:daily_login") days.add(bangkokDay(h.createdAt))
+    // กู้คืนสตรีค: แถวหักแต้ม qi:spend:streak_restore ถือ ref = วันที่ที่กู้ (นับเป็นวันเช็คอินย้อนหลัง)
+    else if (h.reason === "qi:spend:streak_restore" && h.ref) days.add(h.ref)
   }
   return days
 }
 
 /** วันก่อนหน้า (YYYY-MM-DD แบบ Bangkok) — ใช้ 12:00 UTC ของวันก่อนหน้า = 19:00 ไทย กลางวันเสมอ */
-function dayBefore(day: string): string {
+export function dayBefore(day: string): string {
   const [y, m, d] = day.split("-").map(Number)
   return bangkokDay(new Date(Date.UTC(y, m - 1, d - 1, 12)))
 }
@@ -164,7 +181,7 @@ export function reasonLabel(reason: string | null, missionTitles?: Map<string, s
   if (reason.startsWith("qi:buy:")) {
     // qi:buy:QI_200 — ปริมาณฝังใน package_code (catalog รับรองรูปแบบอยู่แล้ว)
     const m = /^QI_(\d+)$/.exec(reason.slice(7))
-    return m ? `ซื้อแพ็กชี่ ${Number(m[1]).toLocaleString("th-TH")} ชี่` : "ซื้อแพ็กชี่"
+    return m ? `ซื้อแพ็ก ${Number(m[1]).toLocaleString("th-TH")} QI` : "ซื้อแพ็ก QI"
   }
   if (reason.startsWith("qi:spend:")) return `แลก ${SPEND_LABELS[reason.slice(9)] ?? reason.slice(9)}`
   if (reason.startsWith("qi:refund:")) return `คืนแต้ม — ${SPEND_LABELS[reason.slice(10)] ?? reason.slice(10)} ล้ม`

@@ -110,8 +110,8 @@ describe('แถวสะสมจาก catalog ของ engine (ก้อน 
     render(<QiScreen />)
     await waitFor(() => expect(screen.getByTestId('qi-task-signup')).toBeTruthy())
     // ปุ่มรับ เรียงตาม catalog + ตัวเลขจาก engine (+50 ซ้ำ 2 แถว: signup และ referral_free)
-    expect(screen.getAllByText('+50').length).toBe(2)
-    expect(screen.getByText('+1000')).toBeTruthy()
+    expect(screen.getAllByText('+50 QI').length).toBe(2)
+    expect(screen.getByText('+1,000 QI')).toBeTruthy()
     // Q2: referral_free/pro = ลิงก์ "ไปชวน" ชี้ /v2/qi/referral — ไม่มีปุ่มกดรับ
     const free = screen.getByTestId('qi-task-referral_free')
     expect(free.tagName).toBe('A')
@@ -144,8 +144,8 @@ describe('ชีตใช้ชี่ / ชี่ไม่พอ (ก้อน 1
     const btn = await waitFor(() => screen.getByTestId('qi-redeem-matching_slot'))
     fireEvent.click(btn)
     await waitFor(() => expect(screen.getByTestId('qi-insufficient-title')).toBeTruthy())
-    expect(screen.getByTestId('qi-insufficient-short').textContent).toContain('ขาอีก 125 ชี่')
-    expect(screen.getByTestId('qi-insufficient-missions').getAttribute('href')).toBe('/v2/qi/missions')
+    expect(screen.getByTestId('qi-insufficient-title').textContent).toContain('ขาดอีก 125 QI')
+    expect(screen.getByTestId('qi-insufficient-share').getAttribute('href')).toBe('/v2/qi/missions')
     expect(posts().filter((c) => String(c[0]).includes('qi-spend')).length).toBe(0)
   })
 
@@ -153,8 +153,8 @@ describe('ชีตใช้ชี่ / ชี่ไม่พอ (ก้อน 1
     render(<QiScreen />)
     fireEvent.click(await waitFor(() => screen.getByTestId('qi-redeem-card_use')))
     await waitFor(() => expect(screen.getByTestId('qi-spend-title')).toBeTruthy())
-    expect(screen.getByTestId('qi-spend-price').textContent).toContain('ใช้ 10 ชี่')
-    expect(screen.getByTestId('qi-spend-price').textContent).toContain('คงเหลือ 15 ชี่')
+    expect(screen.getByTestId('qi-spend-price').textContent).toContain('10 QI')
+    expect(screen.getByTestId('qi-spend-breakdown').textContent).toContain('15 QI')
     fireEvent.click(screen.getByTestId('qi-spend-confirm'))
     await waitFor(() =>
       expect(postBodies().filter((b) => b.code === 'card_use').length).toBe(1),
@@ -173,6 +173,6 @@ describe('ชีตใช้ชี่ / ชี่ไม่พอ (ก้อน 1
     fireEvent.click(screen.getByTestId('qi-spend-confirm'))
     await waitFor(() => expect(screen.getByTestId('qi-insufficient-title')).toBeTruthy())
     // onInsufficient reload ยอด → โชว์ยอดขาตามยอดจริงล่าสุด (10 - 5)
-    await waitFor(() => expect(screen.getByTestId('qi-insufficient-short').textContent).toContain('ขาอีก 5 ชี่'))
+    await waitFor(() => expect(screen.getByTestId('qi-insufficient-title').textContent).toContain('ขาดอีก 5 QI'))
   })
 })

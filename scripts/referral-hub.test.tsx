@@ -54,14 +54,12 @@ beforeEach(() => {
 afterEach(() => cleanup())
 
 describe('จอชวนเพื่อน (referral hub)', () => {
-  it('โชว์โค้ด + จำนวนเพื่อน + โบนัสแถวชวนจาก catalog (50/500/1000)', async () => {
+  it('โชว์โค้ด + จำนวนเพื่อน (ชวนสำเร็จ) + ยอดที่ได้รับเป็น QI (50 QI/คน)', async () => {
     render(<ReferralHubScreen />)
     await waitFor(() => expect(screen.getByTestId('referral-code').textContent).toBe('MUMATE725'))
     expect(screen.getByTestId('referral-invited-count').textContent).toBe('2 คน')
-    expect(screen.getByTestId('referral-per-invite').textContent).toBe('+250 เหรียญ')
-    expect(screen.getByText('+50 ชี่')).toBeTruthy()
-    expect(screen.getByText('+500 ชี่')).toBeTruthy()
-    expect(screen.getByText('+1000 ชี่')).toBeTruthy()
+    // ได้รับแล้ว = 2 คน × 50 QI = 100 QI (ไม่มี goals จาก missions → คิดจาก invitedCount) — สกุลเงินเป็น QI ไม่ใช่ "เหรียญ"
+    expect(screen.getByTestId('referral-per-invite').textContent).toBe('100 QI')
   })
 
   it('R1 ลิงก์แชร์ LINE ต้องพาไป /invite/MUMATE725 พร้อมข้อความที่มีโค้ด', async () => {

@@ -50,10 +50,10 @@ describe('จอแก้ข้อมูลส่วนตัว (edit-personal-
     render(<CookiesProvider><EditProfileScreen /></CookiesProvider>)
     const first = await waitFor(() => screen.getByTestId('ep-first-name') as HTMLInputElement)
     expect(first.value).toBe('สมศรี')
-    expect(screen.getByTestId('ep-gender-FEMALE').className).toContain('bg-v3-cyan')
+    expect(screen.getByTestId('ep-gender-FEMALE').className).toContain('bg-v3-navy')
     expect(screen.getByTestId('ep-display-name').textContent).toContain('@somsri_m')
-    // @name ไม่มีช่องแก้ในจอนี้ (มีแค่ input ชื่อ/นามสกุล)
-    expect(screen.getAllByRole('textbox').length).toBe(2)
+    // @name ไม่มีช่องแก้ในจอนี้ (มีช่อง ชื่อ/นามสกุล/อีเมล = 3)
+    expect(screen.getAllByRole('textbox').length).toBe(3)
   })
 
   it('EP1 แก้ชื่อ+เพศ แล้วบันทึก → PATCH /api/profile ไม่มี field birth ❌ แตะโควตา', async () => {
@@ -65,7 +65,7 @@ describe('จอแก้ข้อมูลส่วนตัว (edit-personal-
     await waitFor(() => expect(screen.getByTestId('ep-msg').textContent).toBe('บันทึกแล้ว'))
     const bodies = patchBodies()
     expect(bodies.length).toBe(1)
-    expect(bodies[0]).toEqual({ firstName: 'สมศรี', lastName: 'ใจดี', gender: 'OTHER' })
+    expect(bodies[0]).toEqual({ firstName: 'สมศรี', lastName: 'ใจดี', gender: 'OTHER', email: '' })
     expect(bodies[0].birth).toBeUndefined()
   })
 

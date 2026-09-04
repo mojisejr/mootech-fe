@@ -71,7 +71,7 @@ describe('จอแก้วันเกิด (edit-birth-data ×4)', () => {
     freeUsed = true
     render(<CookiesProvider><EditBirthScreen /></CookiesProvider>)
     await waitFor(() => expect(screen.getByTestId('eb-quota').textContent).toContain('ใช้สิทธิ์แก้ฟรีไปแล้ว'))
-    expect(screen.getByTestId('eb-save').textContent).toBe('ยืนยันแก้ (ใช้ 100 ชี่)')
+    expect(screen.getByTestId('eb-save').textContent).toBe('ยืนยันแก้ (ใช้ 100 QI)')
   })
 
   it('EB2 หักชี่ไม่สำเร็จ (409) → ชีตชี่ไม่พอโชว์ยอดขาจากยอดจริง (30 ชี่)', async () => {
@@ -80,7 +80,7 @@ describe('จอแก้วันเกิด (edit-birth-data ×4)', () => {
     render(<CookiesProvider><EditBirthScreen /></CookiesProvider>)
     fireEvent.click(await waitFor(() => screen.getByTestId('eb-save')))
     await waitFor(() => expect(screen.getByTestId('qi-insufficient-title')).toBeTruthy())
-    expect(screen.getByTestId('qi-insufficient-short').textContent).toContain('ขาอีก 70 ชี่')
+    expect(screen.getByTestId('qi-insufficient-title').textContent).toContain('ขาดอีก 70 QI')
     expect(screen.getByTestId('qi-insufficient-buy').getAttribute('href')).toBe('/v2/qi/buy')
   })
 

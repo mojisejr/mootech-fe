@@ -19,7 +19,6 @@ import { HeaderTools } from '@/features/v2-shell/components/AppHeader'
 import type { MembershipLike } from '@/features/v2-shell/header-badge'
 import { TopBarBell } from '@/features/v2-shell/components/TopBarBell'
 import { DailyFortuneCard, HOME_FACET_RESERVE, HOME_DATEROW_RESERVE } from '@/features/v2-shell/components/DailyFortuneCard'
-import { LogoutModal } from '@/features/v2-shell/components/LogoutModal'
 
 // Zone 1 daily-fortune (bazi /api/home). goo wires useHomeFortune() → this shape; I compose against it.
 export type DailyFortune = {
@@ -100,8 +99,7 @@ const PROFILE_FALLBACK: Profile = { pictureUrl: null }
 
 const HERO_FALLBACK = '/images/v2/mascot/01.webp'
 
-export function V2HomeScreen({ greeting, mascotCharacter, onLogout, fortune, fortuneLoading, element, profile, membership, loading }: V2HomeScreenProps) {
-  const [logoutOpen, setLogoutOpen] = useState(false)
+export function V2HomeScreen({ greeting, mascotCharacter, fortune, fortuneLoading, element, profile, membership, loading }: V2HomeScreenProps) {
   return (
     // page bg = bg-cream (Figma Lemon Chiffon) — the CONTINUOUS ground the whole scroll sits on
     <div className="relative min-h-screen w-full overflow-x-hidden bg-v3-bg-cream font-ibm">
@@ -114,7 +112,7 @@ export function V2HomeScreen({ greeting, mascotCharacter, onLogout, fortune, for
 
       {/* ── content column: 393 primary, centred + capped, safe-area top, clears the fixed nav ── */}
       <div className="relative z-10 mx-auto flex w-full max-w-md flex-col px-4 pb-36 pt-[max(0.75rem,env(safe-area-inset-top))]">
-        <Greeting name={greeting.name} mascotCharacter={mascotCharacter} onAvatarTap={() => setLogoutOpen(true)} element={element} profile={profile ?? PROFILE_FALLBACK} membership={membership} loading={loading} />
+        <Greeting name={greeting.name} mascotCharacter={mascotCharacter} element={element} profile={profile ?? PROFILE_FALLBACK} membership={membership} loading={loading} />
         {/* `fortuneLoading` is the WHOLE truth for this card, and that is a deliberate arrangement.
             It briefly wasn't: while the user row was in flight the hook reported loading=false with no
             fortune, so the card fell through to its empty state and announced "ยังไม่มีข้อมูลดวงวันนี้"
@@ -136,7 +134,6 @@ export function V2HomeScreen({ greeting, mascotCharacter, onLogout, fortune, for
       </div>
 
       <CalendarMenu state="default" />
-      {logoutOpen && <LogoutModal onClose={() => setLogoutOpen(false)} onConfirm={onLogout} />}
     </div>
   )
 }
@@ -154,7 +151,7 @@ function MascotImg({ src }: { src: string }) {
 // the name beside the right cluster → guaranteed cut. So: row1 = the "สวัสดีคุณ" LABEL (small, faded — a tag,
 // not a headline) + the tools (badge/bell/avatar, no long text so they never squeeze anyone); row2 = the
 // name at FULL width, bold, wrapping up to 2 lines (never truncated); row3 = the element line (unchanged).
-function Greeting({ name, mascotCharacter, onAvatarTap, element, profile, membership, loading }: { name: string; mascotCharacter: string; onAvatarTap: () => void; element: ElementInfo; profile: Profile; membership?: MembershipLike | null; loading: HomeScreenLoading }) {
+function Greeting({ name, mascotCharacter, element, profile, membership, loading }: { name: string; mascotCharacter: string; element: ElementInfo; profile: Profile; membership?: MembershipLike | null; loading: HomeScreenLoading }) {
   return (
     // Home composes the shared right cluster DIRECTLY (<HeaderTools/>) instead of <AppHeader/>'s row.
     // Reason, found by looking at the render rather than the diff: AppHeader lays title and tools side by
@@ -175,7 +172,6 @@ function Greeting({ name, mascotCharacter, onAvatarTap, element, profile, member
             membership={membership}
             avatarName={name}
             avatarPictureUrl={profile.pictureUrl}
-            onAvatar={onAvatarTap}
           />
         )}
       </div>
@@ -185,7 +181,7 @@ function Greeting({ name, mascotCharacter, onAvatarTap, element, profile, member
           read the cookie, and a zero-height heading there would collapse the header and move everything
           below it on the very next frame — the layout jump this whole card exists to remove. */}
       {name
-        ? <h1 data-testid="greeting-name" className="line-clamp-2 break-words text-2xl font-bold leading-8 text-v3-navy">{name}</h1>
+        ? <Link href="/v2/account" className="block w-fit"><h1 data-testid="greeting-name" className="line-clamp-2 break-words text-2xl font-bold leading-8 text-v3-navy">{name}</h1></Link>
         : <Skeleton className="my-1 h-6 w-40 rounded" />}
       <ElementLine mascotCharacter={mascotCharacter} element={element} loading={loading.mascot} />
     </header>
