@@ -19,7 +19,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
   const base = process.env.BAZI_BASE_URL || "http://localhost:3000"
   try {
-    const upstream = await fetch(`${base}/api/profile`, {
+    const url =
+      req.method === "GET"
+        ? `${base}/api/profile?anonId=${encodeURIComponent(rawId)}`
+        : `${base}/api/profile`
+    const upstream = await fetch(url, {
       method: req.method,
       headers: { "Content-Type": "application/json" },
       body:
