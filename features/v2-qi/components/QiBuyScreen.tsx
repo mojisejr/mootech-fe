@@ -3,6 +3,7 @@
 // Mumate Pro upsell + ลิงก์ทำภารกิจฟรี + สรุปยอด (โบนัส/VAT/ยอดชำระ) + ปุ่มไปชำระเงินติดล่าง.
 // จำนวน QI จาก QI_PACK_QTY + โบนัส QI_PACK_BONUS (fail-loud) · ราคาจาก /api/payment-package (แถวจริง).
 import Head from "next/head"
+import Image from "next/image"
 import Link from "next/link"
 import { useEffect, useMemo, useState } from "react"
 
@@ -105,10 +106,13 @@ export function QiBuyScreen() {
 
       {!loading && !failed && (
         <div className="mt-3 flex flex-col gap-4 pb-24">
-          {/* ยอดคงเหลือ */}
-          <section className="flex items-center justify-between rounded-[24px] bg-v3-sapphire px-5 py-4 text-white" data-testid="qi-buy-balance">
-            <p className="text-[13px] text-white/85">ยอดคงเหลือปัจจุบัน</p>
-            <p className="text-[22px] font-black text-v3-lime">{(balance ?? 0).toLocaleString("th-TH")} QI</p>
+          {/* ยอดคงเหลือ — เหรียญ 氣 + ยอด (เฟรม current-balance) */}
+          <section className="flex items-center gap-3 rounded-[24px] bg-v3-sapphire px-4 py-4 text-white" data-testid="qi-buy-balance">
+            <Image src="/images/v2/qi/qi-coin.png" alt="" width={48} height={48} className="size-12 flex-none rounded-full" />
+            <div className="min-w-0 flex-1">
+              <p className="text-[13px] text-white/85">ยอดคงเหลือปัจจุบัน</p>
+              <p className="text-[18px] font-black text-v3-lime">{(balance ?? 0).toLocaleString("th-TH")} QI</p>
+            </div>
           </section>
 
           <div>

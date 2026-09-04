@@ -136,8 +136,8 @@ export function AccountScreen() {
         {/* หัวจอ: ย้อน + avatar + ชื่อ + ธาตุ · tier + ปุ่มตั้งค่า› */}
         <header className="flex items-center gap-2 pt-[max(0.9rem,env(safe-area-inset-top))]" data-testid="account-header">
           <BackButton fallbackHref="/v2" testId="account-back" />
-          <span aria-hidden className="relative size-11 flex-none overflow-hidden rounded-full bg-white shadow-[0_2px_8px_rgba(26,38,77,.15)]">
-            <Image src={mascot?.character ?? "/images/v2/mascot/01-nav.png"} alt="" fill sizes="44px" style={{ objectFit: "cover" }} />
+          <span aria-hidden className="grid size-11 flex-none place-items-center rounded-full bg-v3-sapphire text-[18px] font-black text-white shadow-[0_2px_8px_rgba(26,38,77,.15)]">
+            {name.slice(0, 1)}
           </span>
           <div className="min-w-0 flex-1">
             <p className="truncate text-[22px] font-black leading-7 text-v3-navy" data-testid="account-greeting">{name}</p>

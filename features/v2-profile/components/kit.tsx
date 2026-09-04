@@ -312,9 +312,9 @@ export function SheetShell({
 export function CoinStack({ size = 34 }: { size?: number }) {
   return (
     <span aria-hidden className="relative block" style={{ width: size + 14, height: size + 22 }}>
-      <Image src="/images/v2/zone2/coin.png" alt="" width={size} height={size} unoptimized className="absolute left-0 top-0 -rotate-12 object-contain" style={{ width: size, height: size }} />
-      <Image src="/images/v2/zone2/coin.png" alt="" width={size} height={size} unoptimized className="absolute right-0 top-2 rotate-12 object-contain" style={{ width: size, height: size }} />
-      <Image src="/images/v2/zone2/coin.png" alt="" width={size} height={size} unoptimized className="absolute bottom-0 left-1/2 -translate-x-1/2 object-contain" style={{ width: size, height: size }} />
+      <Image src="/images/v2/qi/qi-coin.png" alt="" width={size} height={size} unoptimized className="absolute left-0 top-0 -rotate-12 object-contain" style={{ width: size, height: size }} />
+      <Image src="/images/v2/qi/qi-coin.png" alt="" width={size} height={size} unoptimized className="absolute right-0 top-2 rotate-12 object-contain" style={{ width: size, height: size }} />
+      <Image src="/images/v2/qi/qi-coin.png" alt="" width={size} height={size} unoptimized className="absolute bottom-0 left-1/2 -translate-x-1/2 object-contain" style={{ width: size, height: size }} />
     </span>
   )
 }
