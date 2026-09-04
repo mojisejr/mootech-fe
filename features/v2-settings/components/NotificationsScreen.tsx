@@ -1,6 +1,7 @@
 // features/v2-settings/components/NotificationsScreen.tsx — /v2/settings/notifications
-// เฟรม `settings-notifications`: หมวดแจ้งเตือน 3 หมวดจาก engine (GET/PUT prefs) + สถานะ PWA push
-// (สิทธิ์เบราว์เซอร์ — อ่าน Notification.permission ตรง ๆ) + ทางไปจัดการแจ้งเตือนยาม/ปฏิทิน
+// เฟรม `settings-notifications`: 6 หมวดตาม Figma (~12 สวิตช์) + สถานะ PWA push + ทางไปจัดการยาม/ปฏิทิน
+//   • 3 คีย์เชื่อม engine จริง (GET/PUT /api/notification-prefs): dailyFortune, reminders, updates
+//   • ที่เหลือเก็บใน localStorage ต่ออุปกรณ์ (ยังไม่มี backend รองรับ) — behave เหมือนสวิตช์จริง
 import Head from 'next/head'
 import Link from 'next/link'
 import { useCallback, useEffect, useState } from 'react'
@@ -9,22 +10,103 @@ import { SkyBackdrop, SkyHeader, Toggle } from '@/features/v2-profile/components
 import { ProfileGate } from '@/features/v2-account/components/ProfileGate'
 
 const CARD = 'flex w-full flex-col rounded-[20px] bg-white p-5 drop-shadow-[0_4px_15px_rgba(26,38,77,0.12)]'
+const LOCAL_STORE = 'mumate:notif-prefs-v1'
 
 type Prefs = { dailyFortune?: boolean; reminders?: boolean; updates?: boolean }
+type LocalPrefs = {
+  master: boolean
+  streakRisk: boolean
+  friendJoined: boolean
+  qiLow: boolean
+  billing: boolean
+  newLogin: boolean
+  features: boolean
+  channelPush: boolean
+  channelLine: boolean
+  channelEmail: boolean
+}
+const LOCAL_DEFAULTS: LocalPrefs = {
+  master: true,
+  streakRisk: true,
+  friendJoined: true,
+  qiLow: false,
+  billing: true,
+  newLogin: true,
+  features: false,
+  channelPush: true,
+  channelLine: true,
+  channelEmail: true,
+}
 
-const CATEGORIES: Array<{ key: keyof Prefs; title: string; sub: string; testId: string }> = [
-  { key: 'dailyFortune', title: 'ดวงรายวัน', sub: 'แจ้งดวงประจำวันของคุณทุกเช้า', testId: 'notif-daily' },
-  { key: 'reminders', title: 'การเตือน/ยามที่บันทึกไว้', sub: 'แจ้งเตือนเวลายามและกิจกรรมที่บันทึก', testId: 'notif-reminders' },
-  { key: 'updates', title: 'ข่าวสารและโปรโมชัน', sub: 'แพ็กเกจใหม่ โบนัส และกิจกรรม (ปิดไว้ตามค่าเริ่มต้น)', testId: 'notif-updates' },
+type Item =
+  | { title: string; sub?: string; src: 'server'; key: keyof Prefs; testId: string }
+  | { title: string; sub?: string; src: 'local'; key: keyof Omit<LocalPrefs, 'master'>; testId: string }
+type Group = { title: string; testId: string; items: Item[] }
+
+const GROUPS: Group[] = [
+  {
+    title: 'ดวงและการเช็คอิน',
+    testId: 'notif-group-fortune',
+    items: [
+      { title: 'ดวงประจำวัน', sub: 'ส่งทุกเช้าเวลา 07:00 น.', src: 'server', key: 'dailyFortune', testId: 'notif-daily' },
+      { title: 'เตือนเช็คอิน', sub: 'กันลืมเช็คอินช่วงเย็น 20:00 น.', src: 'server', key: 'reminders', testId: 'notif-reminders' },
+      { title: 'ใกล้เสียสถิติต่อเนื่อง', sub: 'เตือนเมื่อใกล้ขาดวันเช็คอิน', src: 'local', key: 'streakRisk', testId: 'notif-streakrisk' },
+    ],
+  },
+  {
+    title: 'พลังชี่และรางวัล',
+    testId: 'notif-group-qi',
+    items: [
+      { title: 'เพื่อนสมัครสำเร็จ', sub: 'เมื่อเพื่อนที่คุณชวนเริ่มใช้งาน', src: 'local', key: 'friendJoined', testId: 'notif-friend' },
+      { title: 'QI ใกล้หมด', sub: 'เตือนเมื่อเหลือ QI น้อย', src: 'local', key: 'qiLow', testId: 'notif-qilow' },
+    ],
+  },
+  {
+    title: 'บัญชีและการชำระเงิน',
+    testId: 'notif-group-billing',
+    items: [
+      { title: 'ใบเสร็จและการต่ออายุ', sub: 'ใบเสร็จและแจ้งก่อนแพ็กเกจหมดอายุ', src: 'local', key: 'billing', testId: 'notif-billing' },
+      { title: 'เข้าสู่ระบบจากอุปกรณ์ใหม่', sub: 'แจ้งเพื่อความปลอดภัยของบัญชี', src: 'local', key: 'newLogin', testId: 'notif-newlogin' },
+    ],
+  },
+  {
+    title: 'ข่าวสารและโปรโมชัน',
+    testId: 'notif-group-news',
+    items: [
+      { title: 'โปรโมชันและส่วนลด', sub: 'แพ็กเกจใหม่ โบนัส และดีลพิเศษ', src: 'server', key: 'updates', testId: 'notif-updates' },
+      { title: 'ฟีเจอร์ใหม่', sub: 'อัปเดตฟีเจอร์และบริการใหม่ ๆ', src: 'local', key: 'features', testId: 'notif-features' },
+    ],
+  },
+  {
+    title: 'ช่องทางที่ได้รับ',
+    testId: 'notif-group-channels',
+    items: [
+      { title: 'แจ้งเตือนในแอป (Push)', src: 'local', key: 'channelPush', testId: 'notif-ch-push' },
+      { title: 'LINE', sub: 'ส่งผ่าน LINE Official ของ MuMate', src: 'local', key: 'channelLine', testId: 'notif-ch-line' },
+      { title: 'อีเมล', sub: 'เฉพาะใบเสร็จและเรื่องบัญชี', src: 'local', key: 'channelEmail', testId: 'notif-ch-email' },
+    ],
+  },
 ]
+
+function readLocal(): LocalPrefs {
+  try {
+    const raw = typeof window !== 'undefined' ? window.localStorage.getItem(LOCAL_STORE) : null
+    if (raw) return { ...LOCAL_DEFAULTS, ...(JSON.parse(raw) as Partial<LocalPrefs>) }
+  } catch {
+    /* ignore */
+  }
+  return { ...LOCAL_DEFAULTS }
+}
 
 export function NotificationsScreen() {
   const [prefs, setPrefs] = useState<Prefs | null>(null)
+  const [local, setLocal] = useState<LocalPrefs>(LOCAL_DEFAULTS)
   const [loading, setLoading] = useState(true)
   const [kind, setKind] = useState<'ok' | 'not_authenticated' | 'failed'>('ok')
   const [pushState, setPushState] = useState<'unsupported' | NotificationPermission>('default')
   const [savingKey, setSavingKey] = useState<string | null>(null)
-  const [master, setMaster] = useState(true) // สวิตช์รวม (เครื่องนี้) — ปิดแล้วหรี่หมวดย่อย
+
+  const master = local.master
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -47,11 +129,21 @@ export function NotificationsScreen() {
 
   useEffect(() => {
     void load()
+    setLocal(readLocal())
     if (typeof Notification !== 'undefined') setPushState(Notification.permission)
     else setPushState('unsupported')
   }, [load])
 
-  const toggle = async (key: keyof Prefs) => {
+  const saveLocal = (next: LocalPrefs) => {
+    setLocal(next)
+    try {
+      window.localStorage.setItem(LOCAL_STORE, JSON.stringify(next))
+    } catch {
+      /* ignore */
+    }
+  }
+
+  const toggleServer = async (key: keyof Prefs) => {
     if (!prefs) return
     setSavingKey(key)
     const next = { ...prefs, [key]: !prefs[key] }
@@ -65,6 +157,14 @@ export function NotificationsScreen() {
     } finally {
       setSavingKey(null)
     }
+  }
+
+  const isOn = (it: Item): boolean =>
+    Boolean(master && (it.src === 'server' ? prefs?.[it.key] : local[it.key]))
+
+  const onToggle = (it: Item) => {
+    if (it.src === 'server') void toggleServer(it.key)
+    else saveLocal({ ...local, [it.key]: !local[it.key] })
   }
 
   return (
@@ -98,33 +198,38 @@ export function NotificationsScreen() {
             <section className={CARD} data-testid="notif-master">
               <div className="flex items-center justify-between gap-3">
                 <div className="min-w-0 flex-1">
-                  <p className="text-[14px] font-bold text-v3-navy">เปิดการแจ้งเตือนทั้งหมด</p>
+                  <p className="text-[15px] font-bold text-v3-navy">เปิดการแจ้งเตือนทั้งหมด</p>
                   <p className="text-[11px] leading-4 text-v3-text-muted">ปิดอันนี้จะไม่ได้รับอะไรเลย</p>
                 </div>
-                <Toggle on={master} onChange={setMaster} testId="notif-master-toggle" />
+                <Toggle on={master} onChange={(v) => saveLocal({ ...local, master: v })} testId="notif-master-toggle" />
               </div>
             </section>
 
-            <section className={CARD} data-testid="notif-categories">
-              <p className="text-[13px] font-bold text-v3-navy">หมวดที่ต้องการรับ</p>
-              <div className="flex flex-col divide-y divide-v3-border-card">
-                {CATEGORIES.map((c) => (
-                  <div key={c.key} className="flex items-center justify-between gap-3 py-3">
-                    <div className="min-w-0 flex-1">
-                      <p className="text-[14px] font-bold text-v3-navy">{c.title}</p>
-                      <p className="text-[11px] leading-4 text-v3-text-muted">{c.sub}</p>
+            {GROUPS.map((g) => (
+              <section key={g.testId} className={CARD} data-testid={g.testId}>
+                <p className="mb-1 text-[13px] font-black text-v3-navy">{g.title}</p>
+                <div className="flex flex-col divide-y divide-v3-border-card">
+                  {g.items.map((it) => (
+                    <div key={it.testId} className="flex items-center justify-between gap-3 py-3">
+                      <div className="min-w-0 flex-1">
+                        <p className={`text-[14px] font-bold ${master ? 'text-v3-navy' : 'text-v3-text-muted'}`}>{it.title}</p>
+                        {it.sub ? <p className="text-[11px] leading-4 text-v3-text-muted">{it.sub}</p> : null}
+                      </div>
+                      <Toggle
+                        on={isOn(it)}
+                        disabled={!master || savingKey === it.key}
+                        onChange={() => onToggle(it)}
+                        testId={it.testId}
+                      />
                     </div>
-                    <Toggle
-                      on={Boolean(master && prefs?.[c.key])}
-                      disabled={savingKey === c.key || !master}
-                      onChange={() => void toggle(c.key)}
-                      testId={c.testId}
-                    />
-                  </div>
-                ))}
-              </div>
-              <p className="mt-1 text-[11px] leading-4 text-v3-text-muted">ช่องทางที่ได้รับ: แจ้งเตือนในแอป (Push) · LINE · อีเมล (เฉพาะใบเสร็จและเรื่องบัญชี)</p>
-            </section>
+                  ))}
+                </div>
+              </section>
+            ))}
+
+            <p className="px-1 text-[11px] leading-4 text-v3-text-muted">
+              บางหมวดยังบันทึกไว้ในเครื่องนี้ก่อน — ระบบส่งจริงจะซิงก์ให้เมื่อพร้อม
+            </p>
           </>
         )}
       </div>

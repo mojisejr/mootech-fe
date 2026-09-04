@@ -201,10 +201,8 @@ export function AccountScreen() {
                     <span className="text-[16px] font-black text-v3-lime">QI</span>
                   </p>
                 </div>
-                <span aria-hidden className="grid size-16 flex-none place-items-center rounded-full bg-[rgba(216,143,169,0.22)]">
-                  <span className="size-12 overflow-hidden rounded-full border-2 border-v3-sapphire">
-                    <Image src="/images/v2/qi/qi-orb.png" alt="" width={48} height={48} className="size-full object-cover" />
-                  </span>
+                <span aria-hidden className="grid size-16 flex-none place-items-center rounded-full bg-white/10">
+                  <Image src="/images/v2/qi/qi-coin.png" alt="" width={56} height={56} unoptimized className="size-14 object-contain drop-shadow" />
                 </span>
               </div>
               <p className="mt-3 text-[13px] leading-[18px] text-white/90">พอถามเซียนมู AI ได้อีก {asks} ครั้ง หรือเปิดไพ่ได้ {cards} ครั้ง</p>

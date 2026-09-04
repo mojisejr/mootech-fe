@@ -52,7 +52,7 @@ export function BackButton({
   )
 }
 
-/** สวิตช์เปิด/ปิดสไตล์ iOS (เฟรม toggle-on/off/locked 48×29) — เปิด = cyan */
+/** สวิตช์เปิด/ปิดสไตล์ iOS (เฟรม toggle-on/off/locked 48×29) — เปิด = sapphire (ตาม Figma) */
 export function Toggle({ on, onChange, disabled, locked, testId }: { on: boolean; onChange?: (v: boolean) => void; disabled?: boolean; locked?: boolean; testId?: string }) {
   const off = Boolean(disabled || locked)
   return (
@@ -64,7 +64,7 @@ export function Toggle({ on, onChange, disabled, locked, testId }: { on: boolean
       disabled={off}
       data-testid={testId}
       onClick={() => !off && onChange?.(!on)}
-      className={`relative inline-flex h-[29px] w-12 flex-none items-center rounded-full transition-colors ${on ? 'bg-v3-cyan' : 'bg-v3-border-card'} ${off ? 'opacity-60' : ''}`}
+      className={`relative inline-flex h-[29px] w-12 flex-none items-center rounded-full transition-colors ${on ? 'bg-v3-sapphire' : 'bg-v3-border-card'} ${off ? 'opacity-60' : ''}`}
     >
       <span className={`absolute top-[3px] size-[23px] rounded-full bg-white shadow transition-all ${on ? 'left-[22px]' : 'left-[3px]'}`} />
     </button>
