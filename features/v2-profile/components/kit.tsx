@@ -308,13 +308,25 @@ export function SheetShell({
   )
 }
 
-/** กองเหรียญ 3 ลูกซ้อน (ใช้ coin.png — 🪙 เป็นกล่องโหว่บน Windows 10) */
-export function CoinStack({ size = 34 }: { size?: number }) {
+/** เหรียญ 氣 ซ้อนแนวนอนตามจำนวน (count) — ใช้ qi-coin.png วงกลมโปร่ง ไม่มีกรอบ */
+export function CoinStack({ size = 34, count = 3 }: { size?: number; count?: number }) {
+  const n = Math.max(1, count)
+  const step = Math.round(size * 0.58) // ระยะเลื่อน (ซ้อนกันราว 42%)
+  const width = size + (n - 1) * step
   return (
-    <span aria-hidden className="relative block" style={{ width: size + 14, height: size + 22 }}>
-      <Image src="/images/v2/qi/qi-coin.png" alt="" width={size} height={size} unoptimized className="absolute left-0 top-0 -rotate-12 object-contain" style={{ width: size, height: size }} />
-      <Image src="/images/v2/qi/qi-coin.png" alt="" width={size} height={size} unoptimized className="absolute right-0 top-2 rotate-12 object-contain" style={{ width: size, height: size }} />
-      <Image src="/images/v2/qi/qi-coin.png" alt="" width={size} height={size} unoptimized className="absolute bottom-0 left-1/2 -translate-x-1/2 object-contain" style={{ width: size, height: size }} />
+    <span aria-hidden className="relative inline-block flex-none" style={{ width, height: size }}>
+      {Array.from({ length: n }).map((_, i) => (
+        <Image
+          key={i}
+          src="/images/v2/qi/qi-coin.png"
+          alt=""
+          width={size}
+          height={size}
+          unoptimized
+          className="absolute top-0 object-contain drop-shadow-sm"
+          style={{ left: i * step, width: size, height: size, zIndex: n - i }}
+        />
+      ))}
     </span>
   )
 }

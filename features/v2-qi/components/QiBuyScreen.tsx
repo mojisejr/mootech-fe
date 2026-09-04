@@ -118,7 +118,7 @@ export function QiBuyScreen() {
           <div>
             <p className="mb-2 px-1 text-[15px] font-black text-v3-navy">เลือกแพ็ก QI</p>
             <div className="flex flex-col gap-2" data-testid="qi-buy-packs">
-              {info.map((p) => {
+              {info.map((p, i) => {
                 const on = selected === p.code
                 return (
                   <button
@@ -140,7 +140,7 @@ export function QiBuyScreen() {
                       <span className={"grid size-5 flex-none place-items-center rounded-full border-2 " + (on ? "border-v3-lime" : "border-v3-border-card")}>
                         {on ? <span className="size-2.5 rounded-full bg-v3-lime" /> : null}
                       </span>
-                      <CoinStack size={20} />
+                      <CoinStack size={26} count={Math.min(i + 1, 4)} />
                       <div className="min-w-0 flex-1">
                         <p className={"flex flex-wrap items-center gap-1.5 text-[16px] font-black " + (on ? "text-white" : "text-v3-navy")}>
                           {p.qty.toLocaleString("th-TH")} QI
