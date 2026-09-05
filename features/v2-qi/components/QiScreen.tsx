@@ -47,15 +47,27 @@ const COMPARE = [
 
 type SheetState = { kind: "confirm" | "insufficient"; line: QiSpendLine } | null
 
-function CoinBadge({ style }: { style: React.CSSProperties }) {
+// เหรียญ QI เล็ก ๆ ลอยรอบ orb (ฟีม 2026-09-05: เดิมเป็นวงกลมทอง "$" → เปลี่ยนเป็นเหรียญ 氣 จริง + ลอยขึ้นลง).
+// `delay` ทำให้แต่ละเหรียญ bob คนละจังหวะ (ไม่ขยับพร้อมกันจนดูแข็ง). ปิดเมื่อ prefers-reduced-motion.
+function CoinBadge({ style, delay = 0 }: { style: React.CSSProperties; delay?: number }) {
   return (
-    <span
+    <img
+      src="/images/v2/qi/qi-coin.png"
+      alt=""
       aria-hidden
-      className="absolute grid place-items-center rounded-full border-[1.5px] border-white bg-[#E5A93B] font-black text-white shadow-[0px_2px_2px_rgba(0,0,0,0.13)]"
-      style={style}
-    >
-      $
-    </span>
+      className="qi-coin-float absolute object-contain drop-shadow-[0px_2px_3px_rgba(0,0,0,0.18)]"
+      style={{ ...style, animationDelay: `${delay}s` }}
+    />
+  )
+}
+
+function CoinFloatStyle() {
+  return (
+    <style dangerouslySetInnerHTML={{ __html: `
+    @keyframes qi-coin-float{0%,100%{transform:translateY(0)}50%{transform:translateY(-7px)}}
+    .qi-coin-float{animation:qi-coin-float 2.6s ease-in-out infinite;will-change:transform}
+    @media(prefers-reduced-motion:reduce){.qi-coin-float{animation:none!important}}
+  ` }} />
   )
 }
 
@@ -142,10 +154,11 @@ export function QiScreen() {
               QI คือแต้มสะสมจากกิจกรรมดี ๆ ใช้ปลดล็อกฟีเจอร์ดูดวงและของรางวัลต่าง ๆ ในแอป
             </p>
             <div className="relative size-[160px]">
-              <CoinBadge style={{ left: 8, top: 20, width: 24, height: 24, fontSize: 12, borderRadius: 12 }} />
-              <CoinBadge style={{ right: 4, top: 44, width: 28, height: 28, fontSize: 14, borderRadius: 14 }} />
-              <CoinBadge style={{ left: 2, top: 112, width: 20, height: 20, fontSize: 10, borderRadius: 10 }} />
-              <CoinBadge style={{ right: 18, top: 128, width: 26, height: 26, fontSize: 13, borderRadius: 13 }} />
+              <CoinFloatStyle />
+              <CoinBadge delay={0} style={{ left: 8, top: 20, width: 24, height: 24 }} />
+              <CoinBadge delay={0.5} style={{ right: 4, top: 44, width: 28, height: 28 }} />
+              <CoinBadge delay={1} style={{ left: 2, top: 112, width: 20, height: 20 }} />
+              <CoinBadge delay={1.4} style={{ right: 18, top: 128, width: 26, height: 26 }} />
               <div className="absolute left-1/2 top-1/2 grid size-[120px] -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full bg-[rgba(245,165,42,0.28)]" style={{ boxShadow: "0px 0px 15px rgba(245,165,42,0.4)" }}>
                 <div className="size-[96px] overflow-hidden rounded-full border-[3px] border-[#6F1BAF]" style={{ boxShadow: "0px 0px 32px rgba(111,27,175,0.3)" }}>
                   <Image src="/images/v2/qi/qi-orb.png" alt="" width={96} height={96} className="size-full object-cover" />
