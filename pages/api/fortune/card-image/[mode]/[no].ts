@@ -5,6 +5,7 @@ import type { NextApiRequest, NextApiResponse } from "next"
 const ENDPOINT: Record<string, string> = {
   oracle: "oracle-cards",
   divine: "divine-cards",
+  sage: "fortune-sage",
 }
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {

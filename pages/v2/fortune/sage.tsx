@@ -133,13 +133,16 @@ export default function FortuneSagePage() {
 
       {phase === "result" && stick && (
         <div className="mt-3 flex flex-col gap-3" data-testid="sage-result">
-          {/* ภาพผล — รูปหน้าแรก (base) + รูปหัวเซี่ยงแซจริงทับถ้าโหลดได้ */}
-          <span className="relative grid h-52 w-full place-items-center overflow-hidden rounded-[24px] bg-[#F3F4FB]">
+          {/* ภาพผล — ใบเซียมซีจริง (โปสเตอร์เต็มใบ จาก engine) ทับบนถ้วย (fallback ถ้าใบโหลดไม่ขึ้น) */}
+          <span className="relative grid aspect-square w-full place-items-center overflow-hidden rounded-[24px] bg-[#F3F4FB]" data-testid="sage-slip">
             <span className="relative z-0 h-48 w-64"><Image src="/images/v2/fortune/sage-cup.png" alt="" fill sizes="256px" className="object-contain" /></span>
-            {stick.imageUrl
-              ? // eslint-disable-next-line @next/next/no-img-element
-                <img src={stick.imageUrl} alt="" className="absolute inset-0 z-10 size-full object-cover" />
-              : null}
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={`/api/fortune/card-image/sage/${stick.no}`}
+              alt={`เซียมซีใบที่ ${stick.no}`}
+              className="absolute inset-0 z-10 size-full object-cover"
+              onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none" }}
+            />
           </span>
 
           {/* การ์ดครีม: หัวที่ + pillar + nayin + องค์เทพ */}

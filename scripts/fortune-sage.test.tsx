@@ -50,6 +50,9 @@ describe('เซียมซีเสี่ยงทาย', () => {
     fireEvent.click(screen.getByTestId('sage-draw'))
     await waitFor(() => expect(screen.getByTestId('sage-result')).toBeTruthy(), { timeout: 3000 })
     expect(screen.getByTestId('sage-pillar').textContent).toBe('辛亥')
+    // ใบเซียมซีดึงจาก engine (proxy) ตามเลขหัว ไม่พึ่ง stick.imageUrl (supabase)
+    const slip = screen.getByTestId('sage-slip').querySelector('img[src="/api/fortune/card-image/sage/48"]')
+    expect(slip).toBeTruthy()
     expect(screen.getByText('นิสัยและพฤติกรรม')).toBeTruthy()
     expect(screen.getByText('การงาน')).toBeTruthy()
     // toggle ความรัก: ค่าเริ่ม = หญิง
