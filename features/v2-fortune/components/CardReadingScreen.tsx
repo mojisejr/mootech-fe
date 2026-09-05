@@ -20,9 +20,10 @@ export type FortuneCard = {
 }
 type Slot = { position: number; weight: number; role: string; no: number }
 
-const THEME: Record<"oracle" | "divine", { backClass: string; glyph: string }> = {
-  oracle: { backClass: "bg-gradient-to-b from-[#2AA7B8] to-[#127687] text-white", glyph: "☯" },
-  divine: { backClass: "bg-gradient-to-b from-[#3D5AB5] to-[#20306F] text-[#FFE9A8]", glyph: "✦" },
+// รูปหลังไพ่จริง (export จาก Figma deck-cover) + สีเรืองเมื่อเลือก/ตอนโหลด
+const THEME: Record<"oracle" | "divine", { back: string; ring: string }> = {
+  oracle: { back: "/images/v2/fortune/oracle-back.png", ring: "ring-[#127687]" },
+  divine: { back: "/images/v2/fortune/divine-back.png", ring: "ring-[#20306F]" },
 }
 
 function shuffle(n: number): number[] {
@@ -120,7 +121,9 @@ export function CardReadingScreen({
         <div className="mt-8 flex flex-col items-center gap-4 text-center" data-testid="cards-loading">
           <div className="flex items-end gap-2">
             {[0, 1, 2].map((i) => (
-              <span key={i} className={"grid aspect-[3/4] w-16 place-items-center rounded-[12px] text-2xl " + theme.backClass + (i === 1 ? " -mb-2 scale-110" : "")}>{theme.glyph}</span>
+              <span key={i} className={"relative aspect-[3/4] w-16 overflow-hidden rounded-[12px] shadow-md " + (i === 1 ? "-mb-2 scale-110" : "")}>
+                <Image src={theme.back} alt="" fill sizes="64px" className="object-cover" />
+              </span>
             ))}
           </div>
           <p className="text-[18px] font-black text-v3-navy">กำลังเปิดไพ่ให้คุณ</p>
@@ -168,10 +171,10 @@ export function CardReadingScreen({
                   type="button"
                   onClick={() => toggle(idx)}
                   data-testid={`cards-tile-${idx}`}
-                  className={"relative grid aspect-[3/4] place-items-center rounded-[10px] transition " + theme.backClass + (on ? " ring-2 ring-v3-lime scale-[0.96]" : "")}
+                  className={"relative aspect-[3/4] overflow-hidden rounded-[10px] transition " + (on ? "ring-2 ring-v3-lime scale-[0.96]" : "")}
                 >
-                  <span aria-hidden className="text-[16px] leading-none">{theme.glyph}</span>
-                  <span aria-hidden className="mt-0.5 text-[9px] font-bold opacity-70">{idx + 1}</span>
+                  <Image src={theme.back} alt="" fill sizes="90px" className="object-cover" />
+                  <span aria-hidden className="absolute bottom-0.5 right-1 rounded bg-black/25 px-1 text-[9px] font-bold text-white">{idx + 1}</span>
                   {on ? <span className="absolute -right-1 -top-1 grid size-5 place-items-center rounded-full bg-v3-lime text-[11px] font-black text-v3-navy">{order + 1}</span> : null}
                 </button>
               )
@@ -189,11 +192,12 @@ export function CardReadingScreen({
           <div className="grid grid-cols-3 gap-2">
             {cards.map((c) => (
               <div key={c.no} className="flex flex-col items-center gap-1">
-                <span className={"relative flex aspect-[3/4] w-full items-center justify-center overflow-hidden rounded-[12px] " + theme.backClass}>
+                <span className="relative flex aspect-[3/4] w-full items-center justify-center overflow-hidden rounded-[12px]">
+                  <Image src={theme.back} alt="" fill sizes="110px" className="object-cover" />
                   {c.imageUrl
                     ? // eslint-disable-next-line @next/next/no-img-element
                       <img src={c.imageUrl} alt={c.name} className="absolute inset-0 size-full object-cover" />
-                    : <span className="px-1 text-center text-[10px] font-bold leading-tight">{c.name}</span>}
+                    : <span className="relative z-10 mx-1 rounded bg-black/40 px-1 py-0.5 text-center text-[9px] font-bold leading-tight text-white">{c.name}</span>}
                 </span>
                 {weightByNo.has(c.no) ? <span className="rounded-full bg-[#EAF3FF] px-2 py-[1px] text-[10px] font-black text-v3-sapphire">น้ำหนัก {weightByNo.get(c.no)}%</span> : null}
                 <p className="text-center text-[10px] font-bold leading-tight text-v3-navy">#{c.no} {c.name}</p>
@@ -213,7 +217,7 @@ export function CardReadingScreen({
           {cards.map((c, i) => (
             <section key={c.no} className="v3-shadow-card flex flex-col gap-2 rounded-[24px] bg-white p-5">
               <div className="flex flex-wrap items-center gap-2">
-                <span className={"grid size-8 flex-none place-items-center rounded-[8px] text-[13px] " + theme.backClass}>{theme.glyph}</span>
+                <span className="relative size-8 flex-none overflow-hidden rounded-[8px]"><Image src={theme.back} alt="" fill sizes="32px" className="object-cover" /></span>
                 <p className="text-[14px] font-black text-v3-navy">#{c.no} {c.name} · {c.keyword}</p>
                 {weightByNo.has(c.no) ? <span className="rounded-full bg-[#EAF3FF] px-2 py-[1px] text-[10px] font-black text-v3-sapphire">น้ำหนัก {weightByNo.get(c.no)}%</span> : null}
               </div>
