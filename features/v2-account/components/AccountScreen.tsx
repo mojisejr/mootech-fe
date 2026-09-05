@@ -17,7 +17,7 @@ import { checkedInToday, checkinStreak, reasonLabel, todayBangkok, type MissionB
 import { bkkCivilDate } from "../payment-history"
 import { planFor, type Plan } from "../plan"
 
-type Profile = { firstName?: string | null; displayName?: string | null; birthDate?: string | null; birthTime?: string | null }
+type Profile = { firstName?: string | null; displayName?: string | null; birthDate?: string | null; birthTime?: string | null; hasAvatar?: boolean | null; avatarUpdatedAt?: string | null }
 type ElementSummary = { elementTh?: string | null; tagline?: string | null; traits?: string[] } | null
 type Referral = { invitedCount?: number }
 
@@ -136,8 +136,13 @@ export function AccountScreen() {
         {/* หัวจอ: ย้อน + avatar + ชื่อ + ธาตุ · tier + ปุ่มตั้งค่า› */}
         <header className="flex items-center gap-2 pt-[max(0.9rem,env(safe-area-inset-top))]" data-testid="account-header">
           <BackButton fallbackHref="/v2" testId="account-back" />
-          <span aria-hidden className="grid size-11 flex-none place-items-center rounded-full bg-v3-sapphire text-[18px] font-black text-white shadow-[0_2px_8px_rgba(26,38,77,.15)]">
-            {name.slice(0, 1)}
+          <span aria-hidden className="relative grid size-11 flex-none place-items-center overflow-hidden rounded-full bg-v3-sapphire text-[18px] font-black text-white shadow-[0_2px_8px_rgba(26,38,77,.15)]">
+            {profile?.hasAvatar ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={`/api/v2/avatar?t=${encodeURIComponent(profile.avatarUpdatedAt ?? "")}`} alt="" className="absolute inset-0 size-full object-cover" />
+            ) : (
+              name.slice(0, 1)
+            )}
           </span>
           <div className="min-w-0 flex-1">
             <p className="truncate text-[22px] font-black leading-7 text-v3-navy" data-testid="account-greeting">{name}</p>
