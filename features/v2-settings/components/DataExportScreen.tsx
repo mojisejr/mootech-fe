@@ -103,10 +103,21 @@ export function DataExportScreen() {
 
         {state === 'requested' ? (
           <section className="rounded-[16px] bg-[#ECF0FD] p-4" data-testid="export-requested">
-            <p className="text-[13px] font-bold text-v3-navy">สถานะ: กำลังรวบรวมข้อมูล</p>
-            <p className="text-[12px] leading-[18px] text-v3-text-body">
-              เมื่อไฟล์พร้อมเราจะส่งไปที่ {email || 'อีเมลของคุณ'} ภายใน 30 วัน — ไม่ต้องเปิดหน้านี้ค้างไว้
-            </p>
+            {pending?.status === 'emailed' ? (
+              <>
+                <p className="text-[13px] font-bold text-v3-navy">ส่งไฟล์ไปที่อีเมลแล้ว</p>
+                <p className="text-[12px] leading-[18px] text-v3-text-body">
+                  เราส่งไฟล์ข้อมูลไปที่ {email || 'อีเมลของคุณ'} แล้ว — ตรวจกล่องจดหมาย (รวมโฟลเดอร์สแปม)
+                </p>
+              </>
+            ) : (
+              <>
+                <p className="text-[13px] font-bold text-v3-navy">สถานะ: กำลังรวบรวมข้อมูล</p>
+                <p className="text-[12px] leading-[18px] text-v3-text-body">
+                  เมื่อไฟล์พร้อมเราจะส่งไปที่ {email || 'อีเมลของคุณ'} ภายใน 30 วัน — ไม่ต้องเปิดหน้านี้ค้างไว้
+                </p>
+              </>
+            )}
           </section>
         ) : (
           <KitButton onClick={() => void requestExport()} disabled={!email || state === 'working'} testId="export-run">

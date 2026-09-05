@@ -1,11 +1,12 @@
-// scripts/qi-screen.test.tsx — จอพลังชี่ (/v2/qi) รอบใหม่: เช็คอินรายวัน (1.4) · แถวสะสมจาก
-// catalog ของ engine (1.1) · ชีตยืนยันใช้ชี่/ชี่ไม่พอ (1.5) · ทางเข้าจอย่อย missions/history/referral
+// scripts/qi-screen.test.tsx — จอ "คู่มือพลังชี่" (/v2/qi) = read-mostly guide (เฟรม 55399:7219):
+//   earn list = ข้อมูล (ไม่มีปุ่มรับรายบรรทัด — รับจริงที่เช็คอิน/ภารกิจ) · spend list = แตะเพื่อแลก (ชีตยืนยัน)
+//   · ปุ่มท้าย = เช็คอิน/ภารกิจ · ลิงก์ออกจอย่อย missions/history/referral
 //
 // 🔴 MUTANT CONTRACT:
-//   Q1 เช็คอินแล้ววันนี้ → ปุ่มต้อง disabled ❌ กดได้อีก (ยิง POST ซ้ำ)
-//   Q2 เส้น per_referral ต้องเป็นลิงก์ "ไปชวน" ❌ ปุ่มกดรับ (engine ตอบ 400 — เส้นนี้เดินเองตามการชวน)
-//   Q3 ชี่ไม่พอ → ต้องเปิด InsufficientQiSheet ❌ ส่ง spend ไปให้ engine ตบ 409 เอง
-//   Q4 แลกสำเร็จ → ยอดชี่ต้องอัปเดตตามค่าที่ engine ตอบ
+//   Q1 เช็คอินแล้ววันนี้ → ปุ่มท้ายเป็นลิงก์ (ไม่ยิง POST ซ้ำ); ยังไม่เช็คอิน → กดยิง daily_login
+//   Q2 earn list เป็นข้อมูลล้วน — ห้ามมีปุ่ม "รับ" รายบรรทัด (รับจริงที่จอเช็คอิน/ภารกิจ)
+//   Q3 ชี่ไม่พอ → เปิด InsufficientQiSheet ❌ ยิง spend ให้ engine ตบ 409
+//   Q4 แลกสำเร็จ → ยอดชี่อัปเดตตามค่าที่ engine ตอบ
 import React from 'react'
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, cleanup, fireEvent, waitFor } from '@testing-library/react'
@@ -36,8 +37,7 @@ const CATALOG = {
     { code: 'matching_slot', qi: 150, grant: { type: 'credit', kind: 'matching_slot', credits: 1 }, title: '+1 ช่องจับคู่สมพงษ์ (ถาวร)', note: 'เพิ่มช่องบันทึกดวงสำหรับจับคู่/สมพงษ์อย่างถาวร 1 ช่อง' },
   ],
 }
-const REFERRAL = { anonId: 'u', code: 'MUMATE725', inviteUrl: 'mumate.com/invite/MUMATE725', invitedCount: 2, rewardPerInvite: 250 }
-const ENTITLEMENTS = { anonId: 'u', qi: 25, tier: 'plus', credits: { card_use: 1, chat_question: 0, matching_slot: 2 }, owned: [] }
+const REFERRAL = { anonId: 'u', code: 'MUMATE725', inviteUrl: 'mumate.com/invite/MUMATE725', invitedCount: 2, rewardPerInvite: 50 }
 
 let walletQi = 25
 let walletHistory: Array<{ id: number; qiDelta: number; reason: string; createdAt: string }> = []
@@ -56,9 +56,7 @@ const fetchMock = vi.fn(async (url: string, init?: { method?: string; body?: str
     }
   }
   if (u.includes('/api/qi-catalog')) return { ok: true, status: 200, json: async () => CATALOG }
-  if (u.includes('/api/qi-entitlements')) return { ok: true, status: 200, json: async () => ENTITLEMENTS }
   if (u.includes('/api/referral') && method === 'GET') return { ok: true, status: 200, json: async () => REFERRAL }
-  if (u.includes('/api/v2/display-name')) return { ok: true, status: 200, json: async () => ({ displayName: null }) }
   if (u.includes('/api/qi-earn')) return { ok: earnStatus === 200, status: earnStatus, json: async () => earnPayload }
   if (u.includes('/api/qi-spend')) {
     // จำลองฝั่ง engine เปลี่ยนยอดจริง: สำเร็จ → หักตาม spentQi · 409 → ยอดจริงเหลือ 5 (จอ stale)
@@ -85,56 +83,41 @@ beforeEach(() => {
 })
 afterEach(() => cleanup())
 
-describe('เช็คอินรายวัน (ก้อน 1.4)', () => {
-  it('ยังไม่เช็คอิน → กดแล้วยิง POST /api/qi-earn code=daily_login', async () => {
+describe('เช็คอินจากปุ่มท้ายคู่มือ (ก้อน 1.4)', () => {
+  it('ยังไม่เช็คอิน → ปุ่มท้ายกดแล้วยิง POST /api/qi-earn code=daily_login', async () => {
     render(<QiScreen />)
-    const btn = await waitFor(() => screen.getByTestId('qi-checkin-btn'))
-    expect(btn.textContent).toBe('เช็คอิน')
+    const btn = await waitFor(() => screen.getByTestId('qi-cta-checkin'))
+    expect(btn.tagName).toBe('BUTTON')
     fireEvent.click(btn)
     await waitFor(() => expect(postBodies()).toContainEqual({ code: 'daily_login' }))
   })
 
-  it('Q1 เช็คอินแล้ววันนี้ (แถว daily_login เป็นวันที่ 3 ไทย — UTC ยังเมื่อวานก็นับ) → ปุ่ม disabled ไม่ยิง POST', async () => {
+  it('Q1 เช็คอินแล้ววันนี้ → ปุ่มท้ายเป็นลิงก์ไปภารกิจ ไม่ยิง POST', async () => {
     walletHistory = [{ id: 1, qiDelta: 5, reason: 'qi:earn:daily_login', createdAt: '2026-09-02T18:30:00.000Z' }]
     render(<QiScreen />)
-    const btn = await waitFor(() => screen.getByTestId('qi-checkin-btn'))
-    expect(btn.textContent).toBe('เช็คอินแล้ว ✓')
-    expect((btn as HTMLButtonElement).disabled).toBe(true)
-    fireEvent.click(btn)
+    const cta = await waitFor(() => screen.getByTestId('qi-cta-checkin'))
+    expect(cta.tagName).toBe('A')
+    expect(cta.getAttribute('href')).toBe('/v2/qi/missions')
     await waitFor(() => expect(posts().length).toBe(0))
   })
 })
 
-describe('แถวสะสมจาก catalog ของ engine (ก้อน 1.1)', () => {
-  it('เส้นกดรับเอง (daily/once) มีปุ่มรับ — เส้น per_referral Q2 ต้องเป็นลิงก์ไปหน้าชวนเพื่อน', async () => {
+describe('คู่มือ earn/spend + ทางเข้าจอย่อย (ก้อน 1.1)', () => {
+  it('Q2 earn list เป็นข้อมูลล้วน (ไม่มีปุ่ม "รับ") + จำนวนจาก engine', async () => {
     render(<QiScreen />)
-    await waitFor(() => expect(screen.getByTestId('qi-task-signup')).toBeTruthy())
-    // ปุ่มรับ เรียงตาม catalog + ตัวเลขจาก engine (+50 ซ้ำ 2 แถว: signup และ referral_free)
-    expect(screen.getAllByText('+50 QI').length).toBe(2)
-    expect(screen.getByText('+1,000 QI')).toBeTruthy()
-    // Q2: referral_free/pro = ลิงก์ "ไปชวน" ชี้ /v2/qi/referral — ไม่มีปุ่มกดรับ
-    const free = screen.getByTestId('qi-task-referral_free')
-    expect(free.tagName).toBe('A')
-    expect(free.getAttribute('href')).toBe('/v2/qi/referral')
-    expect(screen.getAllByRole('button', { name: 'รับ' }).length).toBe(3) // signup · daily_login · share
-    const pro = screen.getByTestId('qi-task-referral_pro')
-    expect(pro.getAttribute('href')).toBe('/v2/qi/referral')
+    await waitFor(() => expect(screen.getByTestId('qi-earn-signup')).toBeTruthy())
+    expect(screen.getByTestId('qi-earn-signup').textContent).toContain('+50 QI')
+    expect(screen.getByTestId('qi-earn-referral_pro').textContent).toContain('+1,000 QI')
+    // คู่มือ = อ่านอย่างเดียว: ห้ามมีปุ่ม "รับ" รายบรรทัด (รับจริงที่เช็คอิน/ภารกิจ)
+    expect(screen.queryAllByRole('button', { name: 'รับ' }).length).toBe(0)
   })
 
-  it('ทางเข้าจอย่อย: ภารกิจ / ประวัติ / ชวนเพื่อน + เคลื่อนไหวล่าสุดย่อ 3 แถว', async () => {
-    walletHistory = [
-      { id: 3, qiDelta: 50, reason: 'mission:checkin_mu', createdAt: '2026-09-03T02:00:00.000Z' },
-      { id: 2, qiDelta: -30, reason: 'qi:spend:chat_question', createdAt: '2026-09-02T10:00:00.000Z' },
-      { id: 1, qiDelta: 5, reason: 'qi:earn:daily_login', createdAt: '2026-09-02T01:30:00.000Z' },
-    ]
+  it('ทางเข้าจอย่อย: ภารกิจ / ประวัติ / ชวนเพื่อน', async () => {
     render(<QiScreen />)
     await waitFor(() => expect(screen.getByTestId('qi-missions-link')).toBeTruthy())
     expect(screen.getByTestId('qi-missions-link').getAttribute('href')).toBe('/v2/qi/missions')
     expect(screen.getByTestId('qi-history-link').getAttribute('href')).toBe('/v2/qi/history')
     expect(screen.getByTestId('qi-referral-link').getAttribute('href')).toBe('/v2/qi/referral')
-    // ย่อ 3 แถว + โค้ดแนะนำโชว์
-    expect(screen.getByTestId('qi-referral-code').textContent).toBe('MUMATE725')
-    expect(screen.getAllByTestId('qi-history').length).toBeGreaterThan(0)
   })
 })
 
@@ -159,7 +142,7 @@ describe('ชีตใช้ชี่ / ชี่ไม่พอ (ก้อน 1
     await waitFor(() =>
       expect(postBodies().filter((b) => b.code === 'card_use').length).toBe(1),
     )
-    // ยอดบน hero เปลี่ยนเป็นค่าที่ engine ตอบ (qi=15)
+    // ยอดบนการ์ดเปลี่ยนเป็นค่าที่ engine ตอบ (qi=15)
     await waitFor(() => expect(screen.getByTestId('qi-balance').textContent).toContain('15'))
   })
 

@@ -60,11 +60,13 @@ Figma 55399:7219 = **read-only guide** (earn/spend เป็นลิสต์�
 (`getAllByRole('button',{name:'รับ'}).length===3`, redeem sheets, referral code). การแปลงเป็น guide เต็ม = ลบฟีเจอร์
 ที่ทำงาน + พังเทสต์ → **เป็น product decision (ฟีม) ไม่ใช่ parity bug**. รอบนี้ทำแค่ alignment ที่ปลอดภัย.
 
-## ยังเหลือ (polish / decision)
-- qi-guide → guide เต็ม = รอ ฟีม เคาะ (deliberate divergence ข้างบน)
+## chunk 8 — 2 flagged items DONE (ผู้ใช้เคาะ "ทำทั้งคู่")
+- **qi-guide → converted to Figma read-only guide** (55399:7219): earn list = informational (ไม่มีปุ่ม "รับ" — รับจริงที่เช็คอิน/ภารกิจ); spend list = แตะเพื่อ redeem ได้ (คงฟีเจอร์ — เป็นทางเดียว redeem catalog นอกจาก birth-edit) แสดง "−N QI" แดง; balance card เรียบ+chevron; drop XP/Level/Growth-Loop/Qi-Token card/referral-code card; referral = ลิงก์ไป hub; footer CTA = เช็คอิน/ภารกิจ. **qi-screen.test เขียนใหม่ทั้งไฟล์ (7 เขียว)** ตาม guide contract. (browser verify ติด HMR/pane flakiness — เชื่อเทสต์ตาม memory)
+- **DataExport email delivery WIRED** (engine): `src/lib/account/data-export-email.ts` — Resend REST via fetch (ไม่ลง dep) + CSV builder; route POST refactor (แยก `collectExport()`) → พยายามส่งอีเมลทันที: สำเร็จ→status=emailed+deliveredAt+emailPipelineReady:true; ไม่มี `RESEND_API_KEY`→collecting+deliveryNote:"no_provider" (honest, ไม่อ้างว่าส่ง). FE status card สะท้อนจริง (emailed→"ส่งแล้ว" · collecting→"กำลังรวบรวม"). ทดสอบ endpoint จริง: no_provider ✓. **เหลือแค่ตั้ง env `RESEND_API_KEY`+`RESEND_FROM` = ส่งจริงได้ทันที.**
+
+## ยังเหลือ (polish / data-driven)
 - invite landing redesign เต็ม (logo/hero/3-feature/badge — copy บั๊กแก้แล้ว) · per-screen empty states (qi-history/referral/saved/filtered)
 - referral friend list (data-driven) · my-plan quota badges + "฿318 upsell" (data-driven)
-- 🔴 DataExport email delivery จริง = รอเลือก email provider + credentials (engine พร้อมรับคำขอแล้ว)
 - **qi-guide v2 layout** (55399:7219) — rebuild ใหญ่ + judgment (โค้ดมี interactive extras ตั้งใจ per comment)
 - **referral**: friend list (data-driven) + rules link (FE เล็ก)
 - **per-screen empty states**: qi-history / referral / saved-reading / filtered-orders
