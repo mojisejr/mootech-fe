@@ -57,28 +57,37 @@ describe('จอแก้วันเกิด (edit-birth-data ×4)', () => {
     render(<CookiesProvider><EditBirthScreen /></CookiesProvider>)
     const date = await waitFor(() => screen.getByTestId('eb-date') as HTMLInputElement)
     expect(date.value).toBe('1995-06-15')
+    // row โชว์วันที่แบบไทย (เดือนเต็ม + พ.ศ.)
+    expect(screen.getByText('15 มิถุนายน 2538')).toBeTruthy()
     expect(screen.getByTestId('eb-quota').textContent).toContain('ยังไม่ได้ใช้')
-    expect(screen.getByTestId('eb-save').textContent).toBe('ยืนยันแก้วันเกิด')
+    expect(screen.getByTestId('eb-save').textContent).toBe('บันทึกการเปลี่ยนแปลง')
     const unknown = screen.getByTestId('eb-time-unknown') as HTMLInputElement
     expect(unknown.checked).toBe(true)
+    // dirty-gate: ยังไม่แก้อะไร ปุ่มต้อง disabled
+    expect((screen.getByTestId('eb-save') as HTMLButtonElement).disabled).toBe(true)
+    // จังหวัด = dropdown; เลือกจังหวัด → dirty → ปุ่มใช้ได้
+    fireEvent.change(screen.getByTestId('eb-province'), { target: { value: 'ตรัง' } })
+    expect((screen.getByTestId('eb-save') as HTMLButtonElement).disabled).toBe(false)
     fireEvent.click(screen.getByTestId('eb-save'))
     await waitFor(() => expect(screen.getByTestId('eb-msg').textContent).toContain('ใช้สิทธิ์แก้ฟรี'))
     const bodies = fetchMock.mock.calls.filter((c) => (c[1]?.method ?? '') === 'PATCH').map((c) => JSON.parse(String(c[1]?.body)))
-    expect(bodies[0]).toMatchObject({ birth: '1995-06-15', timeUnknown: true })
+    expect(bodies[0]).toMatchObject({ birth: '1995-06-15', timeUnknown: true, birthProvince: 'ตรัง' })
   })
 
   it('EB1 สิทธิ์ฟรีหมด → ป้ายใช้แล้ว + ปุ่มบอกราคา 100 ชี่', async () => {
     freeUsed = true
     render(<CookiesProvider><EditBirthScreen /></CookiesProvider>)
     await waitFor(() => expect(screen.getByTestId('eb-quota').textContent).toContain('ใช้สิทธิ์แก้ฟรีไปแล้ว'))
-    expect(screen.getByTestId('eb-save').textContent).toBe('ยืนยันแก้ (ใช้ 100 QI)')
+    expect(screen.getByTestId('eb-save').textContent).toBe('บันทึกการเปลี่ยนแปลง (ใช้ 100 QI)')
   })
 
   it('EB2 หักชี่ไม่สำเร็จ (409) → ชีตชี่ไม่พอโชว์ยอดขาจากยอดจริง (30 ชี่)', async () => {
     freeUsed = true
     patchStatus = 409
     render(<CookiesProvider><EditBirthScreen /></CookiesProvider>)
-    fireEvent.click(await waitFor(() => screen.getByTestId('eb-save')))
+    // ต้องแก้ก่อน (dirty) ปุ่มถึงกดได้
+    fireEvent.change(await waitFor(() => screen.getByTestId('eb-province')), { target: { value: 'ตรัง' } })
+    fireEvent.click(screen.getByTestId('eb-save'))
     await waitFor(() => expect(screen.getByTestId('qi-insufficient-title')).toBeTruthy())
     expect(screen.getByTestId('qi-insufficient-title').textContent).toContain('ขาดอีก 70 QI')
     expect(screen.getByTestId('qi-insufficient-buy').getAttribute('href')).toBe('/v2/qi/buy')

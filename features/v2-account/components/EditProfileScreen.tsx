@@ -124,21 +124,24 @@ export function EditProfileScreen() {
                 <span className="text-[13px] font-bold text-v3-navy">นามสกุล</span>
                 <input value={lastName} onChange={(e) => setLastName(e.target.value)} placeholder="เช่น ใจดี" data-testid="ep-last-name" className={INPUT} />
               </label>
-              <div className="flex flex-col gap-1">
+              <label className="flex flex-col gap-1">
                 <span className="text-[13px] font-bold text-v3-navy">เพศ</span>
-                <div className="flex gap-2" data-testid="ep-genders">
-                  {GENDERS.map((g) => (
-                    <button
-                      key={g.code}
-                      onClick={() => setGender(gender === g.code ? null : g.code)}
-                      data-testid={`ep-gender-${g.code}`}
-                      className={(gender === g.code ? "bg-v3-navy text-white" : "border border-v3-border-card text-v3-navy") + " h-11 flex-1 rounded-[14px] text-[13px] font-bold"}
-                    >
-                      {g.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
+                <span className="relative block">
+                  <select
+                    value={gender ?? ""}
+                    onChange={(e) => setGender(e.target.value || null)}
+                    data-testid="ep-gender"
+                    className={INPUT + " w-full appearance-none pr-10 " + (gender ? "text-v3-navy" : "text-v3-placeholder")}
+                  >
+                    <option value="">เลือกเพศ</option>
+                    {GENDERS.map((g) => (
+                      <option key={g.code} value={g.code} className="text-v3-navy">{g.label}</option>
+                    ))}
+                  </select>
+                  <svg aria-hidden width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="pointer-events-none absolute inset-y-0 right-4 my-auto text-v3-text-muted"><path d="m6 9 6 6 6-6" /></svg>
+                </span>
+                <span className="text-[11px] leading-4 text-v3-text-muted">ใช้ประกอบคำทำนาย</span>
+              </label>
               <label className="flex flex-col gap-1">
                 <span className="text-[13px] font-bold text-v3-navy">อีเมล</span>
                 <input value={email} onChange={(e) => setEmail(e.target.value)} type="email" inputMode="email" placeholder="เช่น you@example.com" data-testid="ep-email" className={INPUT} />
