@@ -243,6 +243,8 @@ export default defineConfig({
       'scripts/fortune-sage.test.tsx', // โหมดเซียน — เซียมซีเสี่ยงทาย (เสี่ยง→ผล 6 หมวด · toggle รัก · 402 · แชร์ earn)
       'scripts/fortune-cards.test.tsx', // โหมดเซียน — oracle/divine (เปิดการ์ด: เลือก 3→เปิด→ผล+น้ำหนัก% · สุ่ม · 402)
       'scripts/one-book-screen.test.tsx', // บริการ one-book (Your Life Code) — hero/ราคา/CTA ไลน์ + accordion 15 ด้าน
+      'scripts/sinsae-screen.test.tsx', // บริการ sinsae (ดูดวงส่วนตัว กับซินแส) — 3 แพ็ก + trust bar + CTA ไลน์
+
       'scripts/sacred-map-screen.test.tsx', // บริการ sacred-map — ธาตุ→ทิศ/สีมงคล (เบญจธาตุ) + empty state
       'scripts/manifest-screen.test.tsx', // บริการ manifest — goals+tasks+progress+checkin (ต่อ engine)
     ],

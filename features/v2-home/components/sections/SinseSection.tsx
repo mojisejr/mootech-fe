@@ -1,6 +1,6 @@
 import React from 'react'
 import Link from 'next/link'
-import { comingSoonHrefById } from '@/features/v2-service/services'
+import { hrefById } from '@/features/v2-service/services'
 
 // ── Zone 5 — ทักซินแส / section-mascot (Figma 333:6989, home 333:6545 "Frame 7") ─────────────────────
 // A FULL-BLEED sapphire card: Figma Dev Mode = Width **Fill (393px)** (edge-to-edge on the 393 frame), so it
@@ -27,7 +27,7 @@ export function SinseSection() {
               ~30 other places in the repo already say. This button is about to hand the user to a service
               whose card is spelled the other way; two spellings across one tap is the reason it matters. */}
           <Link
-            href={comingSoonHrefById('sinsae')}
+            href={hrefById('sinsae')}
             className="mt-1 inline-block w-[148px] rounded-full bg-v3-lime px-6 py-2 text-center text-sm font-semibold uppercase leading-5 text-v3-sapphire"
           >
             ทักซินแสเพื่อจอง
