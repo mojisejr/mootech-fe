@@ -60,6 +60,7 @@ export function PajeuSection() {
           </>
         }
         cta={{ variant: 'tertiary', label: 'ดูรายละเอียดเพิ่มเติม', href: comingSoonHrefById('pajeu') }}
+        bgImage="/images/v2/home/bg/pajeu.jpg"
       />
     </section>
   )

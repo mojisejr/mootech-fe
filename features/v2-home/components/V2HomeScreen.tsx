@@ -557,7 +557,10 @@ function SianSection() {
       <HabitCard
         // 112x120.8 keeps roughly the visual weight of the 97.94x142.46 rectangle it replaces (same area at
         // the artwork's own 536:578 ratio) — a near-square book at the old WIDTH would have read as smaller.
-        art={{ src: '/images/v2/home/%E0%B8%A0%E0%B8%B2%E0%B8%9E%E0%B8%AB%E0%B8%99%E0%B8%B1%E0%B8%87%E0%B8%AA%E0%B8%B7%E0%B8%AD.webp', w: 112, h: 120.8 }}
+        // Enlarged (ฟีม, "ขยาย icon ทั้ง 4") together with the 3 mini-card icons: w 112→132 AND the cap lifted
+        // to 46% (the 38% default was already clipping it ~106px), so the cover actually grows on the card.
+        art={{ src: '/images/v2/home/%E0%B8%A0%E0%B8%B2%E0%B8%9E%E0%B8%AB%E0%B8%99%E0%B8%B1%E0%B8%87%E0%B8%AA%E0%B8%B7%E0%B8%AD.webp', w: 132, h: 142.4 }}
+        artMaxWidth="46%"
         // the card's mascots stay: the 水 printed on the cover is visibly smaller than the card's own, so the
         // two read as foreground and background (ฟีม's call after seeing the real route).
         smallMascotAt={{ xPct: 56, yPct: -14 }}
@@ -570,13 +573,20 @@ function SianSection() {
           </>
         }
         cta={{ variant: 'primary', label: 'ซื้อเลย', href: hrefById('one-book') }}
+        bgImage="/images/v2/home/bg/book.jpg"
       />
-      {/* 3 property cards (pastel-blue) */}
+      {/* 3 property cards — ภาพพื้นหลังต่อบริการ (จาก Drive) + scrim ขาวจางให้ตัวหนังสืออ่านออก */}
       <div className="flex w-full gap-2">
         {SIAN_CARDS.map((c) => (
-          <Link key={c.icon} href={hrefById(c.serviceId)} className="flex flex-1 self-stretch rounded-2xl bg-v3-pastel-blue p-4">
-            <div className="flex flex-1 flex-col justify-start gap-2">
-              <img src={`/images/v2/home/sian/${c.icon}.png`} alt="" aria-hidden className="size-9 object-contain" />
+          <Link
+            key={c.icon}
+            href={hrefById(c.serviceId)}
+            className="relative flex flex-1 self-stretch overflow-hidden rounded-2xl p-4"
+            style={{ backgroundImage: `url(/images/v2/home/bg/${c.icon}.jpg)`, backgroundSize: 'cover', backgroundPosition: 'center' }}
+          >
+            <div aria-hidden className="pointer-events-none absolute inset-0 bg-white/45" />
+            <div className="relative z-[1] flex flex-1 flex-col justify-start gap-2">
+              <img src={`/images/v2/home/sian/${c.icon}.png`} alt="" aria-hidden className="size-14 object-contain" />
               <p className="text-sm font-semibold uppercase leading-5 text-v3-navy">
                 {c.lines.map((l) => (
                   <span key={l} className="block leading-5">{l}</span>

@@ -31,17 +31,22 @@ export type HabitCardCta = { variant: 'primary' | 'tertiary'; label: string; hre
 /** the illustration in the frame slot. `w`/`h` are the painted size — measured per card, not shared. */
 export type HabitCardArt = { src: string; w: number; h: number; alt?: string }
 
-export function HabitCard({ title, desc, cta, animate = true, art, showMascots = true, smallMascotAt = { xPct: 62, yPct: -6 } }: {
+export function HabitCard({ title, desc, cta, animate = true, art, showMascots = true, smallMascotAt = { xPct: 62, yPct: -6 }, bgImage, artMaxWidth = '38%' }: {
   title: React.ReactNode
   desc: React.ReactNode
   cta: HabitCardCta
   animate?: boolean
   art?: HabitCardArt
+  /** cap on the artwork column as a share of the card. Default 38%; the หนังสือ card lifts it so its
+   *  cover reads larger without touching ปาจื่อ (which keeps 38%). */
+  artMaxWidth?: string
   /** the card's own two mascots. false when the artwork already carries one at the same weight. */
   showMascots?: boolean
   /** where the small mascot sits ON the artwork, as a fraction of the ARTWORK box (0,0 = its top-left).
    *  Anchored to the art rather than to the card — see the note above the slot. */
   smallMascotAt?: { xPct: number; yPct: number }
+  /** ภาพพื้นหลังการ์ด (cover). ถ้ามี ใช้แทน gradient + วาง scrim ขาวจางเพื่อให้ตัวหนังสืออ่านออก */
+  bgImage?: string
 }) {
   // With no mascots there is nothing overhanging the left edge, so the 40px inset that existed to make room
   // for the big one is just a dent — and that card needs the width for its landscape artwork.
@@ -49,8 +54,12 @@ export function HabitCard({ title, desc, cta, animate = true, art, showMascots =
   return (
     <div
       className={`relative flex w-full items-center gap-6 overflow-hidden rounded-[24px] py-6 ${pad}`}
-      style={{ backgroundImage: 'linear-gradient(130.11deg, #B0CFFD 16.95%, #C6EEF2 81.1%)' }}
+      style={bgImage
+        ? { backgroundImage: `url(${bgImage})`, backgroundSize: 'cover', backgroundPosition: 'center' }
+        : { backgroundImage: 'linear-gradient(130.11deg, #B0CFFD 16.95%, #C6EEF2 81.1%)' }}
     >
+      {/* scrim: ให้ข้อความ (navy) บนภาพพื้นหลังอ่านออก โดยยังเห็นฉากด้านหลัง */}
+      {bgImage ? <div aria-hidden className="pointer-events-none absolute inset-0 bg-white/35" /> : null}
       {/* big mascot (water-rooster hero) — bottom-left, clipped. left is %-of-card (−55/361), exact @393.
           the hc-big animation wrapper does ONLY scale+y so it composes cleanly with the inner static flip/rotate. */}
       {showMascots && (
@@ -79,7 +88,7 @@ export function HabitCard({ title, desc, cta, animate = true, art, showMascots =
           the BEFORE shots overflow at no width — so that was mine to fix, not a pre-existing crack. The cap
           is a share of the CARD rather than another breakpoint: the artwork gives width back to the copy
           exactly when the screen is narrow, which is when the copy needs it. */}
-      <div className={`relative z-[1] min-w-0 ${art ? 'shrink' : 'shrink-0'}`} style={art ? { flexBasis: art.w, width: art.w, maxWidth: '38%' } : undefined}>
+      <div className={`relative z-[1] min-w-0 ${art ? 'shrink' : 'shrink-0'}`} style={art ? { flexBasis: art.w, width: art.w, maxWidth: artMaxWidth } : undefined}>
         <div className={art ? (animate ? 'hc-float' : '') : (animate ? 'hc-frame' : 'rotate-[-9.15deg]')}>
           {art ? (
             <img
