@@ -75,6 +75,8 @@ export function CardReadingScreen({
   // weight จาก engine อาจเป็นสัดส่วน (0.5) หรือเปอร์เซ็นต์ (50) — normalize เป็น % จำนวนเต็ม
   const weightByNo = useMemo(() => new Map(slots.map((s) => [s.no, Math.round(s.weight <= 1 ? s.weight * 100 : s.weight)])), [slots])
   const proseParas = useMemo(() => prose.split("\n\n").map((p) => p.trim()).filter(Boolean), [prose])
+  // รูปหน้าไพ่: ดึงจาก engine ผ่าน BFF proxy (engine = source เดียว, ไม่พึ่ง Supabase/public)
+  const faceUrl = (no: number) => `/api/fortune/card-image/${mode}/${no}`
 
   const predict = async (cardNos?: number[]) => {
     setPhase("loading")
@@ -214,7 +216,7 @@ export function CardReadingScreen({
                   <Image src={theme.back} alt="" fill sizes="110px" className="object-cover" />
                   <span className="absolute inset-x-1 bottom-1 z-0 rounded bg-black/40 px-1 py-0.5 text-center text-[9px] font-bold leading-tight text-white">{c.name}</span>
                   {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={`/images/v2/fortune/faces/${mode}/${c.no}.jpg`} alt={c.name} loading="lazy" className="absolute inset-0 z-10 size-full object-cover" onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none" }} />
+                  <img src={faceUrl(c.no)} alt={c.name} loading="lazy" className="absolute inset-0 z-10 size-full object-cover" onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none" }} />
                 </span>
                 {weightByNo.has(c.no) ? <span className="rounded-full bg-[#FCE9F0] px-2 py-[1px] text-[10px] font-black text-[#B0568A]">น้ำหนัก {weightByNo.get(c.no)}%</span> : null}
                 <p className="text-center text-[10px] font-bold leading-tight text-v3-navy">#{c.no} {c.name}</p>
@@ -237,7 +239,7 @@ export function CardReadingScreen({
                 {/* ไอคอนเล็ก = รูปหน้าไพ่ (เหมือนด้านบน) แบบไม่ตัด */}
                 <span className="relative size-9 flex-none overflow-hidden rounded-[8px] bg-v3-ghost-white">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={`/images/v2/fortune/faces/${mode}/${c.no}.jpg`} alt="" loading="lazy" className="absolute inset-0 size-full object-contain" onError={(e) => { (e.currentTarget as HTMLImageElement).style.visibility = "hidden" }} />
+                  <img src={faceUrl(c.no)} alt="" loading="lazy" className="absolute inset-0 size-full object-contain" onError={(e) => { (e.currentTarget as HTMLImageElement).style.visibility = "hidden" }} />
                 </span>
                 <p className="text-[14px] font-black text-v3-navy">#{c.no} {c.name} · {c.keyword}</p>
                 {weightByNo.has(c.no) ? <span className="rounded-full bg-[#FCE9F0] px-2 py-[1px] text-[10px] font-black text-[#B0568A]">น้ำหนัก {weightByNo.get(c.no)}%</span> : null}
