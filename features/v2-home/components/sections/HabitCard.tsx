@@ -137,15 +137,30 @@ export function HabitCard({ title, desc, cta, animate = true, art, showMascots =
             this is invisible at 393 — the label fits one line — and wrong at 360/320, where
             "ดูรายละเอียดเพิ่มเติม" wraps to two and goes ragged-left inside a centred pill. The 393-only
             diff said 0; the viewport set is what caught it. */}
-        {cta.variant === 'primary' ? (
-          <Link href={cta.href} className="inline-block rounded-full bg-v3-sapphire px-6 py-2 text-center text-sm font-semibold uppercase leading-5 text-v3-lime">{cta.label}</Link>
-        ) : (
-          <Link href={cta.href} className="inline-block rounded-full border border-v3-sapphire px-6 py-2 text-center text-sm font-semibold uppercase leading-5 text-v3-sapphire">{cta.label}</Link>
-        )}
+        <HabitCardCtaLink
+          href={cta.href}
+          // primary = navy fill + white label (Figma home "ซื้อเลย", 333:6545 — not the sapphire+lime
+          // design-system Primary Button; these home cards use their own navy pill). tertiary = navy outline.
+          className={cta.variant === 'primary'
+            ? 'inline-block rounded-full bg-v3-navy px-6 py-2 text-center text-sm font-semibold uppercase leading-5 text-white'
+            : 'inline-block rounded-full border border-v3-sapphire px-6 py-2 text-center text-sm font-semibold uppercase leading-5 text-v3-sapphire'}
+        >
+          {cta.label}
+        </HabitCardCtaLink>
       </div>
       {animate && <HabitCardMotion />}
     </div>
   )
+}
+
+// CTA anchor: an external destination (LINE/http) must be a real <a> with target+rel — next/link would try
+// to client-route it. Internal hrefs stay on next/link for prefetch. (Same split one-book uses for its LINE CTA.)
+function HabitCardCtaLink({ href, className, children }: { href: string; className: string; children: React.ReactNode }) {
+  const external = /^https?:\/\//.test(href)
+  if (external) {
+    return <a href={href} target="_blank" rel="noopener noreferrer" className={className}>{children}</a>
+  }
+  return <Link href={href} className={className}>{children}</Link>
 }
 
 // The cohort keyframes. Base (static-rest) transforms live on the classes so prefers-reduced-motion → the

@@ -1,6 +1,9 @@
 import React from 'react'
 import { HabitCard } from './HabitCard'
-import { comingSoonHrefById } from '@/features/v2-service/services'
+
+// ฟีม 2026-09-05: the ปาจื่อ CTA now sells straight to LINE (same OA as one-book's "สั่งซื้อ") — label
+// "ซื้อเลย", primary button, opens the Mumate LINE chat. Kept in sync with OneBookScreen's LINE_ORDER_URL.
+const LINE_ORDER_URL = 'https://line.me/R/ti/p/@082cvuiy?ts=09151109&oat_content=url'
 
 // ── Zone 6 — เรียนปาจื่อ (mindful-moments-section · Figma 375:14147) ──────────────────────────────────
 // Reuses the shared <HabitCard/> (Figma 375:14151 === Zone 4's 333:6889 — pixel-identical card, motion and all).
@@ -30,7 +33,10 @@ export function PajeuSection() {
         // เพิ่มเติม" wrapped, which the BEFORE shot proves it did not. 112 gives the copy back the 175px it
         // had. The card drops its 40px left inset (no mascot overhangs it now), which is what pays for the
         // landscape width without taking it from the text.
-        art={{ src: '/images/v2/home/%E0%B9%80%E0%B8%A3%E0%B8%B5%E0%B8%A2%E0%B8%99%E0%B8%9B%E0%B8%B2%E0%B8%88%E0%B8%B7%E0%B9%88%E0%B8%AD.webp', w: 112, h: 85.8 }}
+        // Enlarged to Figma weight (ฟีม "ขยาย icon รูปใหญ่หน่อย"): the art was capped at ~106px by the default
+        // 38% share; w 112→150 + a 44% cap lets the illustration read at ~137px like the Figma card.
+        art={{ src: '/images/v2/home/%E0%B9%80%E0%B8%A3%E0%B8%B5%E0%B8%A2%E0%B8%99%E0%B8%9B%E0%B8%B2%E0%B8%88%E0%B8%B7%E0%B9%88%E0%B8%AD.webp', w: 150, h: 114.9 }}
+        artMaxWidth="44%"
         // its 水 is full-body, centre-frame and nearly the same size as the card's own, which reads as the
         // same picture pasted twice rather than as a composition (ฟีม, from the real route).
         showMascots={false}
@@ -59,7 +65,7 @@ export function PajeuSection() {
             พร้อมต่อยอดความรู้
           </>
         }
-        cta={{ variant: 'tertiary', label: 'ดูรายละเอียดเพิ่มเติม', href: comingSoonHrefById('pajeu') }}
+        cta={{ variant: 'primary', label: 'ซื้อเลย', href: LINE_ORDER_URL }}
         bgImage="/images/v2/home/bg/pajeu.jpg"
       />
     </section>

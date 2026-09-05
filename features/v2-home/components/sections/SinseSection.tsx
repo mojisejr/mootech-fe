@@ -2,16 +2,15 @@ import React from 'react'
 import Link from 'next/link'
 import { comingSoonHrefById } from '@/features/v2-service/services'
 
-// ── Zone 5 — ทักซินแส / section-mascot (Figma 333:6989) ───────────────────────────────────────────────
-// A FULL-BLEED sapphire banner (393-wide in Figma, so it breaks out of the page's px-4 with -mx-4): a left text
-// block (title · 2-line desc · lime Secondary CTA), the big water-owl mascot overflowing bottom/right (STATIC —
-// reuses zone4/mascot-sian.png, image-verified as the same source as Zone 4's mascot), a small fire sprite that
-// is the ONLY animated element (loop 2000ms · same cadence as the rest of the home motion), and a cream
-// white-mound wave at the bottom that transitions the sapphire into the cream page. Replaces the text-only
-// SinseCard placeholder.
+// ── Zone 5 — ทักซินแส / section-mascot (Figma 333:6989, home 333:6545) ───────────────────────────────
+// An INSET sapphire card — same left/right margins as the other home cards (page px-4), rounded 24px on all
+// four corners (ฟีม 2026-09-05: "ขอบใน figma กับที่เราทำไม่เหมือนกัน" — the built version was a full-bleed
+// -mx-4 banner with a cream white-mound wave at the bottom; Figma is a plain inset rounded card, no mound).
+// A left text block (title · 2-line desc · lime Secondary CTA), the big water-owl mascot overflowing
+// bottom/right (STATIC — reuses zone4/mascot-sian.png), and a small fire sprite (the ONLY animated element).
 export function SinseSection() {
   return (
-    <section className="relative -mx-4 mb-6 w-[calc(100%+2rem)] overflow-hidden rounded-[24px] bg-v3-sapphire">
+    <section className="relative mb-6 w-full overflow-hidden rounded-[24px] bg-v3-sapphire">
       <div className="relative h-[196px]">
         {/* text block — Figma frame at (24,40), 217 wide */}
         <div className="absolute left-6 top-10 z-10 flex w-[217px] flex-col gap-2">
@@ -48,12 +47,6 @@ export function SinseSection() {
           className="z5-fire pointer-events-none absolute left-[181px] top-[19.9px] z-[2] h-[58px] w-[49px] max-w-none"
         />
 
-        {/* white-mound wave — Figma "Frame 7" at the card bottom, full-bleed cream, transitions sapphire → page */}
-        <div aria-hidden className="absolute inset-x-0 bottom-[-1px] z-[1] h-7 text-v3-bg-cream">
-          <svg viewBox="0 0 451 27" preserveAspectRatio="none" className="h-full w-full" fill="currentColor">
-            <path d="M0 27 V10 Q112 -6 225 8 T451 10 V27 Z" />
-          </svg>
-        </div>
       </div>
 
       {/* fire-sprite flicker — transform-only (scale/rotate/y), CLS-safe. base on the class so reduced-motion
