@@ -240,6 +240,8 @@ export default defineConfig({
       'scripts/edit-birth-screen.test.tsx', // ก้อน 3 — edit-birth-data ×4 (โควตา engine · 409→ชีตชี่ไม่พอ · correction sheet)
       'scripts/orders-screen.test.tsx', // ก้อน 3 — order-history + order-receipt (APPROVED เท่านั้น = สำเร็จ · แพ็กชี่ตั้งชื่อถูก)
       'scripts/settings-privacy-screens.test.tsx', // ก้อน 4 — notifications/consent/export/faq/doc (toggle ยิงจริง · ล้มพูดตรง)
+      'scripts/fortune-sage.test.tsx', // โหมดเซียน — เซียมซีเสี่ยงทาย (เสี่ยง→ผล 6 หมวด · toggle รัก · 402 · แชร์ earn)
+      'scripts/fortune-cards.test.tsx', // โหมดเซียน — oracle/divine (เปิดการ์ด: เลือก 3→เปิด→ผล+น้ำหนัก% · สุ่ม · 402)
     ],
   },
   resolve: {

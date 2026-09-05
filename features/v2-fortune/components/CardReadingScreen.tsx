@@ -4,7 +4,7 @@
 import Head from "next/head"
 import Image from "next/image"
 import Link from "next/link"
-import { useMemo, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 
 import { KitButton, SkyHeader, SkyScreen } from "@/features/v2-profile/components/kit"
 import { Menubar } from "@/features/v2-shell/components/Menubar"
@@ -60,8 +60,16 @@ export function CardReadingScreen({
   const [prose, setProse] = useState<string>("")
   const [error, setError] = useState<string | null>(null)
   const [quotaOut, setQuotaOut] = useState(false)
+  const [balance, setBalance] = useState<number | null>(null)
 
   const deck = useMemo(() => shuffle(deckCount), [deckCount])
+
+  // ยอด QI (โชว์ chip ในหัวจอเลือกไพ่ ตามเฟรม)
+  useEffect(() => {
+    let alive = true
+    fetch("/api/qi-wallet").then((r) => (r.ok ? r.json() : null)).then((j) => { if (alive && typeof j?.qi === "number") setBalance(j.qi) }).catch(() => {})
+    return () => { alive = false }
+  }, [])
 
   // น้ำหนัก% ต่อเลขไพ่ + คำทำนายรายใบ (engineProse = ย่อหน้าเรียงตามลำดับ slot/card)
   // weight จาก engine อาจเป็นสัดส่วน (0.5) หรือเปอร์เซ็นต์ (50) — normalize เป็น % จำนวนเต็ม
@@ -114,7 +122,13 @@ export function CardReadingScreen({
         title={headerTitle}
         backHref={phase === "pick" ? undefined : backHref}
         testId="fortune-cards"
-        right={phase === "result" ? <span className="rounded-full bg-[#FCE9F0] px-3 py-1 text-[11px] font-bold text-[#B0568A]">ใช้ไป 10 QI</span> : undefined}
+        right={
+          phase === "result"
+            ? <span className="rounded-full bg-[#FCE9F0] px-3 py-1 text-[11px] font-bold text-[#B0568A]">ใช้ไป 10 QI</span>
+            : phase === "pick" && balance !== null
+              ? <span className="rounded-full bg-[#EAF3FF] px-3 py-1 text-[11px] font-black text-v3-sapphire" data-testid="cards-balance">{balance.toLocaleString("th-TH")} QI</span>
+              : undefined
+        }
       />
 
       {phase === "loading" && (
