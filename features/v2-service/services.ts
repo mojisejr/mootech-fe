@@ -50,7 +50,7 @@ export const SERVICES = [
   { id: 'one-book', title: 'หนังสือเล่มเดียวในโลก', desc: DESC_FORTUNE, href: comingSoonHref('หนังสือเล่มเดียวในโลก'), image: ART('03_หนังสือเล่มเดียวในโลก.png') },
   { id: 'oracle-kiang', title: 'เสี่ยงไพ่ออราเคิลเคี้ยงคุง', desc: DESC_FORTUNE, href: comingSoonHref('เสี่ยงไพ่ออราเคิลเคี้ยงคุง'), image: ART('04_เสี่ยงไพ่ออราเคิลเคี้ยงคุง.png') },
   { id: 'spirit-heaven', title: 'เสี่ยงไพ่จิตวิญญาณแดนสวรรค์', desc: DESC_FORTUNE, href: comingSoonHref('เสี่ยงไพ่จิตวิญญาณแดนสวรรค์'), image: ART('05_เสี่ยงไพ่จิตวิญญาณแดนสวรรค์.png') },
-  { id: 'sian', title: 'เสี่ยงเซียนเสี่ยงทาย', desc: DESC_FORTUNE, href: comingSoonHref('เสี่ยงเซียนเสี่ยงทาย'), image: ART('06_เสี่ยงเซียนเสี่ยงทาย.png') },
+  { id: 'sian', title: 'เสี่ยงเซียนเสี่ยงทาย', desc: DESC_FORTUNE, href: '/v2/fortune/sage', image: ART('06_เสี่ยงเซียนเสี่ยงทาย.png') },
   { id: 'sinsae', title: 'ดูดวงส่วนตัว กับซินแส', desc: DESC_FORTUNE, href: comingSoonHref('ดูดวงส่วนตัว กับซินแส'), image: ART('07_ดูดวงส่วนตัวกับซินแส.png') },
   { id: 'manifest', title: 'มานิเฟส', desc: DESC_FORTUNE, href: comingSoonHref('มานิเฟส'), image: ART('08_มานิเฟส.png') },
   // filename says ปฎิทิน (ฎ ชฎา), the title says ปฏิทิน (ฏ ปฏัก) — different letters. Mapped by id on purpose.
@@ -82,6 +82,10 @@ export type ServiceId = (typeof SERVICES)[number]['id']
 const COMING_SOON_BY_ID = Object.fromEntries(SERVICES.map((s) => [s.id, comingSoonHref(s.title)])) as Record<ServiceId, string>
 
 export const comingSoonHrefById = (id: ServiceId): string => COMING_SOON_BY_ID[id]
+
+/** ปลายทางจริงของบริการตาม id — route จริงถ้า build แล้ว (services.ts `href`), ไม่งั้นตกไป coming-soon */
+const HREF_BY_ID = Object.fromEntries(SERVICES.map((s) => [s.id, s.href])) as Record<ServiceId, string>
+export const hrefById = (id: ServiceId): string => HREF_BY_ID[id]
 
 /** what the hub actually renders. Kept as a derived list so `SERVICES` stays the full catalog — the
  *  hidden row is still inspectable, and un-hiding it is deleting one field, not re-typing a service. */

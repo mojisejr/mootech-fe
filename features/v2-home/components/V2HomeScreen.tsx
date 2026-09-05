@@ -14,7 +14,7 @@ import { HabitCard } from './sections/HabitCard'
 import { PajeuSection } from './sections/PajeuSection'
 import { SinseSection } from './sections/SinseSection'
 import { CalendarMenu } from './CalendarMenu'
-import { comingSoonHrefById, type ServiceId } from '@/features/v2-service/services'
+import { comingSoonHrefById, hrefById, type ServiceId } from '@/features/v2-service/services'
 import { HeaderTools } from '@/features/v2-shell/components/AppHeader'
 import type { MembershipLike } from '@/features/v2-shell/header-badge'
 import { TopBarBell } from '@/features/v2-shell/components/TopBarBell'
@@ -573,7 +573,7 @@ function SianSection() {
       {/* 3 property cards (pastel-blue) */}
       <div className="flex w-full gap-2">
         {SIAN_CARDS.map((c) => (
-          <Link key={c.icon} href={comingSoonHrefById(c.serviceId)} className="flex flex-1 self-stretch rounded-2xl bg-v3-pastel-blue p-4">
+          <Link key={c.icon} href={hrefById(c.serviceId)} className="flex flex-1 self-stretch rounded-2xl bg-v3-pastel-blue p-4">
             <div className="flex flex-1 flex-col justify-start gap-2">
               <img src={`/images/v2/zone4/${c.icon}.svg`} alt="" aria-hidden className="size-8" />
               <p className="text-sm font-semibold uppercase leading-5 text-v3-navy">
