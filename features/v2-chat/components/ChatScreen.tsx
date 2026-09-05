@@ -22,8 +22,33 @@ import { useBaziChatStream } from "../useBaziChatStream"
 import { SUGGESTED_QUESTIONS } from "@/constants/suggested-questions"
 import { SHOP_HREF } from "@/features/v2-shop/upgrade-cta"
 
-const GREETING =
-  "สวัสดีจ้าา~ มิวมาแล้วจ้าา~ มิวอ่านดวงของคุณมาแล้วนะะ มีอะไรสงสัยบอกมาได้เลยย ถามให้ปังในสิ่งที่สงสัยเลย มิวเองงค้า 💜"
+// เพอร์โซนา 2 แบบ (เสี่ยวมู่ ชาย / เสี่ยวมี่ หญิง) × 4 ท่าตามอารมณ์คำตอบ
+type PersonaKey = "mu" | "mi"
+type Mood = "greet" | "happy" | "think" | "special"
+const PERSONA_KEY = "mumate-chat-persona"
+const P = (k: PersonaKey) => `/images/v2/mascot/personas/${k}`
+const PERSONAS: Record<PersonaKey, { name: string; greeting: string; poses: Record<Mood, string> }> = {
+  mu: {
+    name: "เสี่ยวมู่",
+    greeting: "สวัสดีครับ~ เสี่ยวมู่มาแล้วครับ ผมอ่านดวงของคุณมาเรียบร้อย มีอะไรสงสัยถามมาได้เลยครับ 💙",
+    // special = ยิ้มขยิบตา (approve/อบอุ่น)
+    poses: { greet: `${P("mu")}/greet.png`, happy: `${P("mu")}/happy.png`, think: `${P("mu")}/think.png`, special: `${P("mu")}/special.png` },
+  },
+  mi: {
+    name: "เสี่ยวมี่",
+    greeting: "สวัสดีค่ะ~ เสี่ยวมี่มาแล้วค่ะ มี่อ่านดวงของคุณมาแล้วนะคะ มีอะไรสงสัยบอกมี่ได้เลยค่ะ 💜",
+    // special = ทำมือหัวใจ (เรื่องรัก)
+    poses: { greet: `${P("mi")}/greet.png`, happy: `${P("mi")}/happy.png`, think: `${P("mi")}/think.png`, special: `${P("mi")}/love.png` },
+  },
+}
+
+// เดาอารมณ์จากบริบทคำถาม+คำตอบ → เลือกท่ามาสคอต
+function classifyMood(text: string): Mood {
+  const t = text.toLowerCase()
+  if (/รัก|คู่ครอง|แฟน|สมพงษ์|ความรัก|หัวใจ|คนรู้ใจ|เนื้อคู่|ครอบครัว/.test(t)) return "special"
+  if (/ระวัง|ปัญหา|ยาก|เสี่ยง|ระมัดระวัง|พิจารณา|ไม่แน่|อุปสรรค|หนี้|เตือน|วิเคราะห์|ซับซ้อน/.test(t)) return "think"
+  return "happy"
+}
 
 // figma-copy (ตรวจแล้ว 2026-09-02): ไม่พบเป็น text layer ใน final/V3 — รอ designer ยืนยัน
 const STARTER_CHIPS = [
@@ -37,8 +62,6 @@ const DISCLAIMER_LINES = [
   "ไม่สามารถใช้แทนคำแนะนำทางการแพทย์ หรือคำแนะนำทางการเงินได้",
 ]
 
-const MASCOT_SRC = "/images/v2/mascot/01.webp"
-
 function TypingDots() {
   return (
     <span className="inline-flex items-center gap-1 py-1" data-testid="chat-typing">
@@ -50,8 +73,27 @@ function TypingDots() {
 }
 
 export function ChatScreen() {
-  const { turns, busy, guard, send } = useBaziChatStream()
+  const [persona, setPersona] = useState<PersonaKey>("mu")
+  useEffect(() => {
+    try { const v = localStorage.getItem(PERSONA_KEY); if (v === "mi" || v === "mu") setPersona(v) } catch { /* ignore */ }
+  }, [])
+  const choosePersona = (p: PersonaKey) => {
+    setPersona(p)
+    try { localStorage.setItem(PERSONA_KEY, p) } catch { /* ignore */ }
+    try { window.dispatchEvent(new CustomEvent("mumate-persona-change", { detail: p })) } catch { /* ignore */ }
+  }
+  const activePersona = PERSONAS[persona]
+  const { turns, busy, guard, send } = useBaziChatStream(persona)
   const [draft, setDraft] = useState("")
+  // ท่ามาสคอตตามบริบทคำตอบล่าสุด: ยังไม่คุย=ทักทาย · กำลังคิด=think · ตอบแล้ว=เดาจากเนื้อหา
+  const mood: Mood = useMemo(() => {
+    if (busy) return "think"
+    const lastAi = [...turns].reverse().find((t) => t.role === "assistant" && !t.loading && t.content.trim())
+    if (!lastAi) return "greet"
+    const lastUser = [...turns].reverse().find((t) => t.role === "user")
+    return classifyMood(`${lastUser?.content ?? ""} ${lastAi.content}`)
+  }, [turns, busy])
+  const mascotSrc = activePersona.poses[mood]
   const [showAllQuestions, setShowAllQuestions] = useState(false)
   const [speechSupported, setSpeechSupported] = useState(false)
   const [voiceHint, setVoiceHint] = useState<string | null>(null)
@@ -153,7 +195,7 @@ export function ChatScreen() {
             <path d="M12.5 4.5 7 10l5.5 5.5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
           </svg>
         </Link>
-        <h1 className="text-lg font-black leading-6 text-v3-navy">Mate AI</h1>
+        <h1 className="text-lg font-black leading-6 text-v3-navy">Mumate Chat</h1>
         <span
           data-testid="chat-online"
           className="flex items-center gap-1 rounded-full bg-emerald-100 px-2 py-[2px] text-[10px] font-medium leading-4 text-emerald-700"
@@ -180,10 +222,34 @@ export function ChatScreen() {
         </Link>
       </header>
 
+      {/* เลือกคุยกับใคร — เสี่ยวมู่ (ชาย) / เสี่ยวมี่ (หญิง) */}
+      <div className="mx-auto mt-2 flex w-full max-w-[430px] items-center gap-2 px-4" data-testid="chat-persona">
+        {(["mu", "mi"] as PersonaKey[]).map((k) => {
+          const p = PERSONAS[k]
+          const on = persona === k
+          return (
+            <button
+              key={k}
+              type="button"
+              onClick={() => choosePersona(k)}
+              data-testid={`chat-persona-${k}`}
+              aria-pressed={on}
+              className={"flex flex-1 items-center justify-center gap-2 rounded-full border px-3 py-1.5 text-[13px] font-bold transition " + (on ? "border-transparent bg-v3-sapphire text-white shadow-[0_2px_8px_rgba(20,85,164,.25)]" : "border-v3-border-card bg-white/70 text-v3-navy")}
+            >
+              <span className="relative size-6 flex-none overflow-hidden rounded-full bg-white/70">
+                <Image src={p.poses.greet} alt="" fill sizes="24px" style={{ objectFit: "contain" }} />
+              </span>
+              {p.name}
+              {on ? <span className="text-[11px]">✓</span> : null}
+            </button>
+          )
+        })}
+      </div>
+
       {/* mascot + link */}
       <div className="flex w-full flex-none flex-col items-center gap-1 pb-1 pt-2">
         <span className="v3-float relative block h-[190px] w-[170px]">
-          <Image src={MASCOT_SRC} alt="มาสคอตมิว" fill sizes="200px" style={{ objectFit: "contain" }} priority />
+          <Image src={mascotSrc} alt={`มาสคอต${activePersona.name}`} fill sizes="200px" style={{ objectFit: "contain" }} priority />
         </span>
         <button
           onClick={() => setShowAllQuestions((v) => !v)}
@@ -199,7 +265,7 @@ export function ChatScreen() {
         <div className="mx-auto flex w-full max-w-[430px] flex-col gap-2 pb-2">
           {/* greeting bubble (Figma copy — see TODO(figma-copy)) */}
           <div data-testid="chat-greeting" className="max-w-[92%] self-start rounded-[18px] border border-[#D88FA9] bg-white px-4 py-3 text-[14px] leading-[22px] text-v3-navy shadow-[0_2px_8px_rgba(11,48,91,0.12),0_1px_4px_rgba(216,143,169,0.35)]">
-            {GREETING}
+            {activePersona.greeting}
           </div>
 
           {turns.map((t) =>

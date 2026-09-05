@@ -9,7 +9,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { SkyBackdrop, SkyHeader, Toggle } from '@/features/v2-profile/components/kit'
 import { ProfileGate } from '@/features/v2-account/components/ProfileGate'
 
-const CARD = 'flex w-full flex-col rounded-[20px] bg-white p-5 drop-shadow-[0_4px_15px_rgba(26,38,77,0.12)]'
+const CARD = 'flex w-full flex-col rounded-[24px] bg-white p-5 drop-shadow-[0_4px_15px_rgba(26,38,77,0.12)]'
 const LOCAL_STORE = 'mumate:notif-prefs-v1'
 
 type Prefs = { dailyFortune?: boolean; reminders?: boolean; updates?: boolean }
@@ -54,11 +54,11 @@ const GROUPS: Group[] = [
     ],
   },
   {
-    title: 'พลังชี่และรางวัล',
+    title: 'พลังชี่และเพื่อน',
     testId: 'notif-group-qi',
     items: [
       { title: 'เพื่อนสมัครสำเร็จ', sub: 'เมื่อเพื่อนที่คุณชวนเริ่มใช้งาน', src: 'local', key: 'friendJoined', testId: 'notif-friend' },
-      { title: 'QI ใกล้หมด', sub: 'เตือนเมื่อเหลือ QI น้อย', src: 'local', key: 'qiLow', testId: 'notif-qilow' },
+      { title: 'QI ใกล้หมด', sub: 'เตือนเมื่อเหลือน้อยกว่า 30 QI', src: 'local', key: 'qiLow', testId: 'notif-qilow' },
     ],
   },
   {

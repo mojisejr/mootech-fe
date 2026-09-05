@@ -47,16 +47,16 @@ export const SERVICES = [
   // ดวงสมพงศ์ Slice 1: these two now enter the real compatibility flow (was comingSoonHref).
   { id: 'couple', title: 'ดูดวงคู่รัก', desc: DESC_FORTUNE, href: '/v2/service/compatibility/love', image: ART('01_ดูดวงคู่รัก.png') },
   { id: 'coworker', title: 'ดูดวงเพื่อนร่วมงาน', desc: DESC_FORTUNE, href: '/v2/service/compatibility/colleague', image: ART('02_ดูดวงเพื่อนร่วมงาน.png') },
-  { id: 'one-book', title: 'หนังสือเล่มเดียวในโลก', desc: DESC_FORTUNE, href: comingSoonHref('หนังสือเล่มเดียวในโลก'), image: ART('03_หนังสือเล่มเดียวในโลก.png') },
-  { id: 'oracle-kiang', title: 'เสี่ยงไพ่ออราเคิลเคี้ยงคุง', desc: DESC_FORTUNE, href: comingSoonHref('เสี่ยงไพ่ออราเคิลเคี้ยงคุง'), image: ART('04_เสี่ยงไพ่ออราเคิลเคี้ยงคุง.png') },
-  { id: 'spirit-heaven', title: 'เสี่ยงไพ่จิตวิญญาณแดนสวรรค์', desc: DESC_FORTUNE, href: comingSoonHref('เสี่ยงไพ่จิตวิญญาณแดนสวรรค์'), image: ART('05_เสี่ยงไพ่จิตวิญญาณแดนสวรรค์.png') },
-  { id: 'sian', title: 'เสี่ยงเซียนเสี่ยงทาย', desc: DESC_FORTUNE, href: comingSoonHref('เสี่ยงเซียนเสี่ยงทาย'), image: ART('06_เสี่ยงเซียนเสี่ยงทาย.png') },
-  { id: 'sinsae', title: 'ดูดวงส่วนตัว กับซินแส', desc: DESC_FORTUNE, href: comingSoonHref('ดูดวงส่วนตัว กับซินแส'), image: ART('07_ดูดวงส่วนตัวกับซินแส.png') },
-  { id: 'manifest', title: 'มานิเฟส', desc: DESC_FORTUNE, href: comingSoonHref('มานิเฟส'), image: ART('08_มานิเฟส.png') },
+  { id: 'one-book', title: 'หนังสือเล่มเดียวในโลก', desc: DESC_FORTUNE, href: '/v2/service/one-book', image: ART('03_หนังสือเล่มเดียวในโลก.png') },
+  { id: 'oracle-kiang', title: 'เสี่ยงไพ่ออราเคิลเคี้ยงคุง', desc: DESC_FORTUNE, href: '/v2/fortune/oracle', image: ART('04_เสี่ยงไพ่ออราเคิลเคี้ยงคุง.png') },
+  { id: 'spirit-heaven', title: 'เสี่ยงไพ่จิตวิญญาณแดนสวรรค์', desc: DESC_FORTUNE, href: '/v2/fortune/divine', image: ART('05_เสี่ยงไพ่จิตวิญญาณแดนสวรรค์.png') },
+  { id: 'sian', title: 'เสี่ยงเซียนเสี่ยงทาย', desc: DESC_FORTUNE, href: '/v2/fortune/sage', image: ART('06_เสี่ยงเซียนเสี่ยงทาย.png') },
+  { id: 'sinsae', title: 'ดูดวงส่วนตัว กับซินแส', desc: DESC_FORTUNE, href: '/v2/service/sinsae', image: ART('07_ดูดวงส่วนตัวกับซินแส.png') },
+  { id: 'manifest', title: 'มานิเฟส', desc: DESC_FORTUNE, href: '/v2/service/manifest', image: ART('08_มานิเฟส.png') },
   // filename says ปฎิทิน (ฎ ชฎา), the title says ปฏิทิน (ฏ ปฏัก) — different letters. Mapped by id on purpose.
   { id: 'calendar', title: 'ปฏิทิน', desc: DESC_CALENDAR, href: '/v2/calendar', image: ART('09_ปฎิทิน.png') },
   { id: 'healing-circles', title: 'Healing Circles', desc: DESC_CALENDAR, href: comingSoonHref('Healing Circles'), hiddenUntilArt: true },
-  { id: 'sacred-map', title: 'แผนที่ศักดิ์สิทธิ์', desc: DESC_PLAN, href: comingSoonHref('แผนที่ศักดิ์สิทธิ์'), image: ART('10_แผนที่ศักดิ์สิทธิ์.png') },
+  { id: 'sacred-map', title: 'แผนที่ศักดิ์สิทธิ์', desc: DESC_PLAN, href: '/v2/service/sacred-map', image: ART('10_แผนที่ศักดิ์สิทธิ์.png') },
   { id: 'shop', title: 'ร้านค้าของเรา', desc: DESC_PLAN, href: '/v2/shop', image: ART('11_ร้านค้าของเรา.png') },
   // #13, added 2026-08-08 — NOT from the Figma 12. The home screen (Zone 6) has been selling this since
   // #157, but it existed nowhere in the catalog, so its CTA had no name to send anywhere. Hidden for the
@@ -82,6 +82,10 @@ export type ServiceId = (typeof SERVICES)[number]['id']
 const COMING_SOON_BY_ID = Object.fromEntries(SERVICES.map((s) => [s.id, comingSoonHref(s.title)])) as Record<ServiceId, string>
 
 export const comingSoonHrefById = (id: ServiceId): string => COMING_SOON_BY_ID[id]
+
+/** ปลายทางจริงของบริการตาม id — route จริงถ้า build แล้ว (services.ts `href`), ไม่งั้นตกไป coming-soon */
+const HREF_BY_ID = Object.fromEntries(SERVICES.map((s) => [s.id, s.href])) as Record<ServiceId, string>
+export const hrefById = (id: ServiceId): string => HREF_BY_ID[id]
 
 /** what the hub actually renders. Kept as a derived list so `SERVICES` stays the full catalog — the
  *  hidden row is still inspectable, and un-hiding it is deleting one field, not re-typing a service. */

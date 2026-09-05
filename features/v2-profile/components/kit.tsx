@@ -77,15 +77,19 @@ export function SkyHeader({
   title,
   backHref = '/v2',
   testId,
+  right,
 }: {
   title: string
   backHref?: string
   testId?: string
+  /** เนื้อหาชิดขวาของหัวจอ (เช่น badge "ใช้ไป 10 QI") */
+  right?: React.ReactNode
 }) {
   return (
     <header className="flex w-full items-center gap-2 pt-[max(0.9rem,env(safe-area-inset-top))]">
       <BackButton fallbackHref={backHref} testId={testId ? `${testId}-back` : undefined} />
-      <h1 className="text-lg font-black leading-6 text-v3-navy">{title}</h1>
+      <h1 className="min-w-0 flex-1 truncate text-lg font-black leading-6 text-v3-navy">{title}</h1>
+      {right ? <span className="flex-none">{right}</span> : null}
     </header>
   )
 }

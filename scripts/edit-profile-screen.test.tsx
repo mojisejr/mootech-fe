@@ -50,23 +50,55 @@ describe('จอแก้ข้อมูลส่วนตัว (edit-personal-
     render(<CookiesProvider><EditProfileScreen /></CookiesProvider>)
     const first = await waitFor(() => screen.getByTestId('ep-first-name') as HTMLInputElement)
     expect(first.value).toBe('สมศรี')
-    expect(screen.getByTestId('ep-gender-FEMALE').className).toContain('bg-v3-navy')
-    expect(screen.getByTestId('ep-display-name').textContent).toContain('@somsri_m')
-    // @name ไม่มีช่องแก้ในจอนี้ (มีช่อง ชื่อ/นามสกุล/อีเมล = 3)
-    expect(screen.getAllByRole('textbox').length).toBe(3)
+    // เพศ = dropdown (prefill FEMALE)
+    expect((screen.getByTestId('ep-gender') as HTMLSelectElement).value).toBe('FEMALE')
+    // @name แก้ได้ในจอนี้แล้ว (prefill จาก engine)
+    expect((screen.getByTestId('ep-handle') as HTMLInputElement).value).toBe('somsri_m')
+    // ช่อง text = @name/ชื่อ/นามสกุล/อีเมล = 4
+    expect(screen.getAllByRole('textbox').length).toBe(4)
+    // avatar อัปโหลดได้ (มีปุ่ม + input file)
+    expect(screen.getByTestId('ep-avatar-input')).toBeTruthy()
   })
 
   it('EP1 แก้ชื่อ+เพศ แล้วบันทึก → PATCH /api/profile ไม่มี field birth ❌ แตะโควตา', async () => {
     render(<CookiesProvider><EditProfileScreen /></CookiesProvider>)
     const last = await waitFor(() => screen.getByTestId('ep-last-name') as HTMLInputElement)
     fireEvent.change(last, { target: { value: 'ใจดี' } })
-    fireEvent.click(screen.getByTestId('ep-gender-OTHER'))
+    fireEvent.change(screen.getByTestId('ep-gender'), { target: { value: 'OTHER' } })
     fireEvent.click(screen.getByTestId('ep-save'))
     await waitFor(() => expect(screen.getByTestId('ep-msg').textContent).toBe('บันทึกแล้ว'))
     const bodies = patchBodies()
     expect(bodies.length).toBe(1)
     expect(bodies[0]).toEqual({ firstName: 'สมศรี', lastName: 'ใจดี', gender: 'OTHER', email: '' })
     expect(bodies[0].birth).toBeUndefined()
+  })
+
+  it('EP2 แก้ @name เป็นชื่อซ้ำ → 409 โชว์ error + ไม่ยิง PATCH โปรไฟล์', async () => {
+    fetchMock.mockImplementation(async (url: string, init?: { method?: string }) => {
+      const u = String(url)
+      if (u.includes('/api/profile') && (init?.method ?? 'GET') === 'GET') return { ok: true, status: 200, json: async () => PROFILE }
+      if (u.includes('/api/v2/display-name')) return { ok: false, status: 409, json: async () => ({ error: 'display_name_taken' }) }
+      if (u.includes('/api/profile')) return { ok: true, status: 200, json: async () => ({ ok: true }) }
+      return { ok: true, status: 200, json: async () => ({}) }
+    })
+    render(<CookiesProvider><EditProfileScreen /></CookiesProvider>)
+    const handle = await waitFor(() => screen.getByTestId('ep-handle') as HTMLInputElement)
+    fireEvent.change(handle, { target: { value: 'taken_name' } })
+    fireEvent.click(screen.getByTestId('ep-save'))
+    await waitFor(() => expect(screen.getByTestId('ep-handle-err').textContent).toContain('มีคนใช้แล้ว'))
+    // display-name ไม่ผ่าน → ต้องไม่ยิง PATCH โปรไฟล์
+    expect(patchBodies().length).toBe(0)
+  })
+
+  it('EP3 อัปโหลด avatar → POST /api/v2/avatar + รูปโชว์', async () => {
+    render(<CookiesProvider><EditProfileScreen /></CookiesProvider>)
+    const input = await waitFor(() => screen.getByTestId('ep-avatar-input') as HTMLInputElement)
+    const file = new File(['x'], 'me.png', { type: 'image/png' })
+    fireEvent.change(input, { target: { files: [file] } })
+    await waitFor(() =>
+      expect(fetchMock.mock.calls.some((c) => String(c[0]).includes('/api/v2/avatar') && (c[1]?.method ?? '') === 'POST')).toBe(true),
+    )
+    await waitFor(() => expect(screen.getByAltText('รูปโปรไฟล์')).toBeTruthy())
   })
 
   it('บันทึกล้ม → ข้อความของ engine โชว์ตรง ๆ', async () => {

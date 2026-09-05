@@ -231,12 +231,20 @@ export function QiHistoryScreen() {
             </div>
 
             {shown.length === 0 ? (
-              <section className="v3-shadow-card w-full rounded-[24px] bg-white p-5" data-testid="qi-history-empty">
-                <p className="text-center text-[13px] leading-5 text-v3-text-body">
+              <section className="v3-shadow-card flex w-full flex-col items-center gap-2 rounded-[24px] bg-white p-6 text-center" data-testid="qi-history-empty">
+                <span aria-hidden className="grid size-11 place-items-center rounded-full bg-[#ECF0FD] text-v3-sapphire">
+                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M12 8v4l3 2" /><circle cx="12" cy="12" r="9" /></svg>
+                </span>
+                <p className="text-[13px] leading-5 text-v3-text-body">
                   {history.length === 0
                     ? "ยังไม่มีรายการเคลื่อนไหว เริ่มสะสม QI ได้จากการเช็คอินรายวันและทำภารกิจ"
                     : "เดือนนี้ยังไม่มีรายการในหมวดนี้"}
                 </p>
+                {history.length === 0 ? (
+                  <Link href="/v2/qi/checkin" className="mt-1 grid h-11 w-full max-w-[240px] place-items-center rounded-full bg-v3-sapphire text-[14px] font-bold uppercase text-v3-lime">
+                    เช็คอินรับ +5 QI
+                  </Link>
+                ) : null}
               </section>
             ) : (
               <div className="flex flex-col gap-4" data-testid="qi-history-list">

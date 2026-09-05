@@ -1,17 +1,14 @@
 // features/v2-service/components/ServiceHubScreen.tsx — "บริการทั้งหมด" (Figma node 333:7519).
-// 12 catalog cards + shared top-bar + bottom Menubar. No fetch beyond the page-level v2 gate; the only
-// state is the logout-confirm the avatar opens (ฟีม: service avatar behaves like home — opens the logout
-// menu). Bell + avatar are the SHARED TopBar* components (bell → notifications, avatar → logout).
+// 12 catalog cards + shared top-bar + bottom Menubar. No fetch beyond the page-level v2 gate.
+// Bell + avatar are the SHARED TopBar* components (bell → notifications, avatar → /v2/account โปรไฟล์
+// เหมือนทุกหน้า). เดิม service avatar เปิดเมนูออกจากระบบ — เปลี่ยนให้ไปโปรไฟล์เพื่อความสอดคล้อง (logout อยู่ที่ /v2/settings).
 //
 // Layout mirrors home's shell PATTERN (own bg-cream ground + BG01 hero fade + centred max-w column that
 // clears the fixed nav) — NOT AppShell, whose bg is ghost-white (== the card colour) which would flatten
 // the cards. Cards sit on cream (#FAF7F4, the Figma BG stop) so the ghost-white surfaces read distinctly.
-import { useState } from 'react'
 import Head from 'next/head'
 import Image from 'next/image'
 import { Menubar } from '@/features/v2-shell/components/Menubar'
-import { LogoutModal } from '@/features/v2-shell/components/LogoutModal'
-import { useV2Logout } from '@/features/auth/hooks/useV2Logout'
 import { useClientTier } from '@/features/v2-shell/hooks/useClientTier'
 import { VISIBLE_SERVICES } from '../services'
 import { ServiceHeader } from './ServiceHeader'
@@ -20,9 +17,7 @@ import { ServiceCard } from './ServiceCard'
 // teamPreview (issue #225): drilled one level from pages/v2/service.tsx's getServerSideProps so the ?tier=
 // override can key off the v2 gate on prod. Default false = free behaviour if ever rendered without it.
 export function ServiceHubScreen({ teamPreview = false }: { teamPreview?: boolean }) {
-  // avatar → logout menu (same as home). useV2Logout is goo's action hook; Lamun owns the confirm UI.
-  const [logoutOpen, setLogoutOpen] = useState(false)
-  const { logout } = useV2Logout()
+  // avatar → /v2/account (โปรไฟล์) เหมือนทุกหน้า — ไม่เปิดเมนูออกจากระบบแล้ว (logout อยู่ที่ตั้งค่า)
   // Zone 4 — this screen shipped with the อัพเกรด pill hardcoded on, because it had no tier to read. It
   // does now. NOTE this one is an inference, flagged as such: Figma has a free/paid pair for the two
   // calendar screens and both say "paid has no pill", but there is no paid frame for บริการทั้งหมด. The
@@ -44,7 +39,7 @@ export function ServiceHubScreen({ teamPreview = false }: { teamPreview?: boolea
 
       {/* content column: 393 primary, centred + capped, clears the fixed Menubar */}
       <div className="relative z-10 mx-auto flex w-full max-w-md flex-col px-4 pb-36 pt-[max(0.75rem,env(safe-area-inset-top))]">
-        <ServiceHeader onAvatar={() => setLogoutOpen(true)} membership={tier} />
+        <ServiceHeader membership={tier} />
         <div data-testid="service-hub-list" className="flex flex-col gap-2">
           {/* VISIBLE_SERVICES, not SERVICES: Healing Circles has no delivered art and is hidden until it
               does (ฟีม 2026-08-05). The catalog row still exists — see services.ts. The first two cards
@@ -56,7 +51,6 @@ export function ServiceHubScreen({ teamPreview = false }: { teamPreview?: boolea
       </div>
 
       <Menubar />
-      {logoutOpen && <LogoutModal onClose={() => setLogoutOpen(false)} onConfirm={logout} />}
     </div>
   )
 }

@@ -33,7 +33,7 @@ export function QiCheckinScreen() {
   const [guard, setGuard] = useState<"not_authenticated" | null>(null)
   const [busy, setBusy] = useState(false)
   const [justClaimed, setJustClaimed] = useState(false)
-  const [toast, setToast] = useState<string | null>(null)
+  const [toast, setToast] = useState<{ title: string; sub?: string } | null>(null)
   const [celebrate, setCelebrate] = useState(false)
   const [restoring, setRestoring] = useState(false)
   const [restoreMsg, setRestoreMsg] = useState<string | null>(null)
@@ -76,6 +76,14 @@ export function QiCheckinScreen() {
   // กู้คืนได้เมื่อ "เมื่อวาน" ขาด แต่ "วันก่อนเมื่อวาน" เคยเช็คอิน (ช่องว่าง 1 วันที่ตัดสตรีค)
   const yesterday = dayBefore(today)
   const canRestore = !done && !claimed.has(yesterday) && claimed.has(dayBefore(yesterday))
+  // จำนวนวันสตรีคที่จะเสียถ้าไม่กู้คืน — นับวันเช็คอินต่อเนื่องก่อนช่องว่าง (สำหรับ banner สถานะ D)
+  const lostStreak = (() => {
+    if (!canRestore) return 0
+    let n = 0
+    let cur = dayBefore(yesterday)
+    while (claimed.has(cur)) { n += 1; cur = dayBefore(cur) }
+    return n
+  })()
 
   const restore = async () => {
     setRestoring(true)
@@ -83,7 +91,7 @@ export function QiCheckinScreen() {
     try {
       const res = await fetch("/api/qi-streak-restore", { method: "POST" })
       if (res.ok) {
-        setToast("กู้คืนสตรีคแล้ว · เช็คอินวันนี้เพื่อไปต่อ")
+        setToast({ title: "กู้คืนสตรีคแล้ว", sub: "เช็คอินวันนี้เพื่อไปต่อ" })
         if (toastTimer.current) clearTimeout(toastTimer.current)
         toastTimer.current = setTimeout(() => setToast(null), 2600)
         await load()
@@ -106,11 +114,18 @@ export function QiCheckinScreen() {
       })
       if (res.ok) {
         setJustClaimed(true)
-        const completedWeek = (streak + 1) % 7 === 0
+        const newStreak = streak + 1
+        const completedWeek = newStreak % 7 === 0
         if (completedWeek) {
           setCelebrate(true)
         } else {
-          setToast(`ได้รับ +${qi} QI แล้ว · เช็คอินต่อเนื่อง ${streak + 1} วัน`)
+          const remain = 7 - (((newStreak - 1) % 7) + 1)
+          setToast({
+            title: `ได้รับ +${qi} QI แล้ว`,
+            sub: remain > 0
+              ? `เช็คอินต่อเนื่อง ${newStreak} วัน · อีก ${remain} วันรับ +${WEEK_BONUS} QI`
+              : `เช็คอินต่อเนื่อง ${newStreak} วัน`,
+          })
           if (toastTimer.current) clearTimeout(toastTimer.current)
           toastTimer.current = setTimeout(() => setToast(null), 2600)
         }
@@ -162,7 +177,7 @@ export function QiCheckinScreen() {
             {(canRestore || broke) && (
               <div className="mt-3 flex items-center gap-2.5 rounded-[12px] bg-[#FBECEC] px-3 py-2.5" data-testid="qi-checkin-recovery">
                 <p className="min-w-0 flex-1 text-[12px] leading-[18px] text-[#A83238]">
-                  {canRestore ? "ขาดไป 1 วัน สถิติต่อเนื่องถูกรีเซ็ต" : "สตรีคขาด — เช็คอินวันนี้เริ่มนับใหม่"}
+                  {canRestore ? `ขาดไป 1 วัน สถิติ ${lostStreak} วันถูกรีเซ็ต` : "สตรีคขาด — เช็คอินวันนี้เริ่มนับใหม่"}
                 </p>
                 {canRestore && (
                   <button
@@ -235,10 +250,16 @@ export function QiCheckinScreen() {
         </div>
       )}
 
-      {/* toast รับ QI (เฟรม reward moments) */}
+      {/* toast รับ QI (เฟรม reward moments) — เหรียญ + 2 บรรทัด */}
       {toast && (
         <div className="fixed inset-x-0 bottom-24 z-40 mx-auto w-full max-w-md px-6" data-testid="qi-checkin-toast">
-          <div className="rounded-[16px] bg-v3-navy/95 px-4 py-3 text-center text-[13px] font-bold text-white shadow-lg">{toast}</div>
+          <div className="flex items-center gap-3 rounded-[16px] bg-v3-navy/95 px-4 py-3 text-left text-white shadow-lg">
+            <Image src="/images/v2/qi/qi-coin.png" alt="" width={32} height={32} className="size-8 flex-none rounded-full" />
+            <div className="min-w-0 flex-1">
+              <p className="text-[13px] font-bold leading-5">{toast.title}</p>
+              {toast.sub ? <p className="text-[11px] leading-4 text-white/80">{toast.sub}</p> : null}
+            </div>
+          </div>
         </div>
       )}
 
@@ -252,6 +273,12 @@ export function QiCheckinScreen() {
               รับโบนัส +{WEEK_BONUS} QI เข้ากระเป๋าแล้ว
               {typeof wallet?.qi === "number" ? ` · ยอดรวมตอนนี้ ${wallet.qi.toLocaleString("th-TH")} QI` : ""}
             </p>
+            {/* strip 7 วัน ครบ ✓ ทั้งแถว */}
+            <div className="mt-3 flex w-full items-stretch gap-1.5">
+              {Array.from({ length: 7 }).map((_, i) => (
+                <span key={i} className="grid flex-1 place-items-center rounded-[11px] bg-[#ECF0FD] py-2.5 text-[13px] font-black text-v3-sapphire">✓</span>
+              ))}
+            </div>
           </div>
           <div className="mt-5 flex flex-col gap-2">
             <KitButton href="/v2/qi" testId="qi-checkin-celebrate-cta">ใช้ QI ถามเซียนมูเลย</KitButton>

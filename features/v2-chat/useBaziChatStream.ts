@@ -25,11 +25,14 @@ export type ChatGuardCode = "not_authenticated" | "profile_incomplete" | "OUT_OF
 let seq = 0
 const nextId = () => `m_${++seq}`
 
-export function useBaziChatStream() {
+export function useBaziChatStream(persona: "mu" | "mi" = "mu") {
   const [turns, setTurns] = useState<ChatTurn[]>([])
   const [busy, setBusy] = useState(false)
   const [guard, setGuard] = useState<ChatGuardCode | null>(null)
   const abortRef = useRef<AbortController | null>(null)
+  // persona ล่าสุด (ผู้ใช้สลับได้ระหว่างแชท) — ใช้ ref เพื่อไม่ต้อง re-create send
+  const personaRef = useRef(persona)
+  useEffect(() => { personaRef.current = persona }, [persona])
 
   useEffect(() => () => abortRef.current?.abort(), [])
 
@@ -70,6 +73,7 @@ export function useBaziChatStream() {
                 })),
                 { role: "user", content: msg },
               ],
+              persona: personaRef.current,
             }),
             signal: controller.signal,
           },

@@ -10,6 +10,7 @@ import { Menubar } from "@/features/v2-shell/components/Menubar"
 import { useV2User } from "@/features/auth/hooks/useV2User"
 import { SHOP_HREF } from "@/features/v2-shop/upgrade-cta"
 import { PLANS } from "@/features/v2-shop/packages"
+import type { Entitlements } from "@/features/v2-qi/qi-model"
 import { planFor, type Plan } from "../plan"
 
 const CARD = "v3-shadow-card flex w-full flex-col gap-3 rounded-[24px] bg-white p-5"
@@ -20,13 +21,19 @@ const UPGRADE = [
   { id: "pro", name: "Mumate Pro", tagline: "สำหรับสายมูตัวจริง ปลดล็อกทุกฟีเจอร์", code: "V2_PRO_YEARLY", badge: "แนะนำ 🔥", badgeTone: "bg-v3-error" },
 ] as const
 
+const PRO_MONTHLY = 199 // ราคาอ้างอิง Pro/เดือน (เฟรม my-plan upsell "฿318 · ประหยัด ฿119")
+const bkkMonthKey = (iso: string) => new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Bangkok", year: "numeric", month: "2-digit" }).format(new Date(iso))
+
 export function PlanScreen() {
   const { user, done, errored } = useV2User()
   const [prices, setPrices] = useState<Record<string, number | null>>({})
   const [selected, setSelected] = useState<string>("pro")
+  const [spentQiBaht, setSpentQiBaht] = useState(0) // ยอดจ่ายค่าแพ็ก QI เดือนนี้ (บาท) — สำหรับ upsell ตัวเลขจริง
+  const [ent, setEnt] = useState<Entitlements | null>(null) // สิทธิ์ + โควตาวันนี้ (badge เหลือ N/limit)
 
   useEffect(() => {
     let alive = true
+    fetch("/api/qi-entitlements").then((x) => (x.ok ? x.json() : null)).then((j) => { if (alive) setEnt(j) }).catch(() => {})
     Promise.all(
       UPGRADE.map(async (u) => {
         const r = await fetch(`/api/payment-package?code=${u.code}`).then((x) => (x.ok ? x.json() : null)).catch(() => null)
@@ -34,6 +41,19 @@ export function PlanScreen() {
         return [u.id, r?.is_active && amount ? amount : null] as const
       }),
     ).then((pairs) => { if (alive) setPrices(Object.fromEntries(pairs)) })
+    // ยอดซื้อแพ็ก QI (สำเร็จ) เดือนนี้ → upsell "เดือนนี้จ่ายค่า QI ไป ฿N"
+    fetch("/api/v2/payment/status")
+      .then((x) => (x.ok ? x.json() : null))
+      .then((j) => {
+        if (!alive) return
+        const rows: Array<{ tierCode?: string; status?: string; amountSatang?: number; createdAt?: string }> = Array.isArray(j?.payments) ? j.payments : []
+        const nowKey = bkkMonthKey(new Date().toISOString())
+        const sat = rows
+          .filter((r) => r.tierCode === "QI" && r.status === "APPROVED" && r.createdAt && bkkMonthKey(r.createdAt) === nowKey)
+          .reduce((s, r) => s + (r.amountSatang ?? 0), 0)
+        setSpentQiBaht(Math.round(sat / 100))
+      })
+      .catch(() => {})
     return () => { alive = false }
   }, [])
 
@@ -79,11 +99,43 @@ export function PlanScreen() {
           </section>
         ) : null}
 
-        {/* แบนเนอร์ upsell (โชว์เมื่อยังไม่ Pro) */}
+        {/* โควตาวันนี้ — badge เหลือ N/limit ต่อฟีเจอร์ (data จริงจาก entitlements/quota) */}
+        {ent?.quota && (
+          <section className={CARD} data-testid="plan-quota">
+            <p className="text-[15px] font-bold text-v3-navy">โควตาวันนี้</p>
+            {([
+              { key: "card", label: "เปิดไพ่ / เสี่ยงทาย", q: ent.quota.card, credit: ent.credits?.card_use ?? 0 },
+              { key: "chat", label: "ถามเซียนมู AI", q: ent.quota.chat, credit: ent.credits?.chat_question ?? 0 },
+            ] as const).map(({ key, label, q, credit }) => {
+              if (!q) return null
+              const remaining = Math.max(0, q.limit - q.used)
+              const out = remaining === 0
+              return (
+                <div key={key} className="flex items-center justify-between gap-3" data-testid={`plan-quota-${key}`}>
+                  <span className="text-[13px] text-v3-text-body">{label}</span>
+                  <span className={`flex-none rounded-full px-2.5 py-[2px] text-[11px] font-black ${out && credit === 0 ? "bg-[#FDECEC] text-[#A83238]" : "bg-[#E3F8D1] text-[#3F8F52]"}`}>
+                    {out && credit === 0 ? "ใช้ครบแล้ววันนี้" : out ? `เหลือ ${credit} ครั้ง (ที่แลกไว้)` : `เหลือ ${remaining}/${q.limit} วันนี้`}
+                  </span>
+                </div>
+              )
+            })}
+          </section>
+        )}
+
+        {/* แบนเนอร์ upsell (โชว์เมื่อยังไม่ Pro) — ตัวเลขจริงจากยอดซื้อ QI เดือนนี้ถ้ามี */}
         {!isPaid && (
           <div className="rounded-[20px] bg-[#EAF3FF] px-4 py-4 text-v3-sapphire" data-testid="plan-upsell">
-            <p className="text-[14px] font-black">อยากใช้ไม่จำกัด?</p>
-            <p className="mt-1 text-[12px] leading-4">Mumate Pro ฿199 ใช้ดวง/แชท/ปฏิทินได้ไม่จำกัด ประหยัดกว่าเติม QI ทีละแพ็กเมื่อใช้บ่อย</p>
+            {spentQiBaht > PRO_MONTHLY ? (
+              <>
+                <p className="text-[14px] font-black">เดือนนี้คุณจ่ายค่า QI ไปแล้ว ฿{spentQiBaht.toLocaleString("th-TH")}</p>
+                <p className="mt-1 text-[12px] leading-4">Mumate Pro ฿{PRO_MONTHLY}/เดือน ใช้ดวง/แชท/ปฏิทินได้ไม่จำกัด — ประหยัดกว่าเดือนละ ฿{(spentQiBaht - PRO_MONTHLY).toLocaleString("th-TH")}</p>
+              </>
+            ) : (
+              <>
+                <p className="text-[14px] font-black">อยากใช้ไม่จำกัด?</p>
+                <p className="mt-1 text-[12px] leading-4">Mumate Pro ฿{PRO_MONTHLY}/เดือน ใช้ดวง/แชท/ปฏิทินได้ไม่จำกัด ประหยัดกว่าเติม QI ทีละแพ็กเมื่อใช้บ่อย</p>
+              </>
+            )}
           </div>
         )}
 

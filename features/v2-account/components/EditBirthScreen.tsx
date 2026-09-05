@@ -8,10 +8,22 @@ import { useCallback, useEffect, useState } from "react"
 
 import { KitButton, NoticeBanner, SheetShell, SkyBackdrop, SkyHeader } from "@/features/v2-profile/components/kit"
 import { InsufficientQiSheet } from "@/features/v2-qi/components/QiSpendSheets"
+import { TH_PROVINCES } from "@/lib/th/provinces"
+import { thaiDateFull, thaiTimeLabel } from "@/lib/th/thai-date"
 import { ProfileGate } from "./ProfileGate"
 
 const CARD = "v3-shadow-card flex w-full flex-col gap-3 rounded-[24px] bg-white p-5"
 const INPUT = "h-12 rounded-[14px] border border-v3-border-input bg-white px-4 text-[14px] outline-none focus:border-v3-navy"
+// row แบบ picker: โชว์ค่าไทย + chevron; native input โปร่งใสทับไว้เพื่อเด้ง picker ของ OS
+const PICKER_ROW = "flex h-12 w-full items-center justify-between rounded-[14px] border border-v3-border-input bg-white px-4 text-[14px]"
+
+function ChevronDown() {
+  return (
+    <svg aria-hidden width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="flex-none text-v3-text-muted">
+      <path d="m6 9 6 6 6-6" />
+    </svg>
+  )
+}
 
 type ProfileResp = {
   profile?: { birthDate?: string | null; birthTime?: string | null; timeUnknown?: boolean | null; birthProvince?: string | null } | null
@@ -52,7 +64,7 @@ export function EditBirthScreen() {
       const j = (await res.json()) as ProfileResp
       setQuota(j.quota ?? null)
       setCurrent(j.profile ?? null)
-      setBirth(j.profile?.birthDate ?? "")
+      setBirth((j.profile?.birthDate ?? "").slice(0, 10))
       setBirthTime(j.profile?.birthTime ?? "")
       setProvince(j.profile?.birthProvince ?? "")
       setTimeUnknown(j.profile?.timeUnknown ?? false)
@@ -112,6 +124,12 @@ export function EditBirthScreen() {
 
   const priceQi = quota?.birthEditPriceQi ?? 100
   const freeUsed = quota?.birthEditFreeUsed === true
+  // dirty-gate: ปุ่มบันทึกใช้ได้เมื่อมีการแก้ไขจากค่าปัจจุบันในระบบ (ตาม Figma)
+  const dirty =
+    birth !== ((current?.birthDate ?? "").slice(0, 10)) ||
+    birthTime !== (current?.birthTime ?? "") ||
+    timeUnknown !== (current?.timeUnknown ?? false) ||
+    province !== (current?.birthProvince ?? "")
 
   return (
     <div className="relative min-h-screen w-full overflow-x-hidden bg-white font-ibm">
@@ -144,23 +162,50 @@ export function EditBirthScreen() {
                   ปัจจุบันในระบบ: {current.birthDate}{current.timeUnknown ? " (ไม่ทราบเวลาเกิด)" : current.birthTime ? ` ${current.birthTime}` : ""}
                 </p>
               ) : null}
+              {/* วันเกิด — row ไทย + native date picker ทับ */}
               <label className="flex flex-col gap-1">
                 <span className="text-[13px] font-bold text-v3-navy">วันเกิด</span>
-                <input type="date" value={birth} onChange={(e) => setBirth(e.target.value)} data-testid="eb-date" className={INPUT} />
+                <span className="relative block">
+                  <span className={PICKER_ROW}>
+                    <span className={birth ? "text-v3-navy" : "text-v3-placeholder"}>{birth ? thaiDateFull(birth) : "เลือกวันเกิด"}</span>
+                    <ChevronDown />
+                  </span>
+                  <input type="date" value={birth} onChange={(e) => setBirth(e.target.value)} data-testid="eb-date" aria-label="วันเกิด" className="absolute inset-0 size-full cursor-pointer opacity-0" />
+                </span>
               </label>
-              <label className="flex items-center gap-2">
-                <input type="checkbox" checked={timeUnknown} onChange={(e) => setTimeUnknown(e.target.checked)} data-testid="eb-time-unknown" className="size-4" />
-                <span className="text-[13px] text-v3-navy">ไม่ทราบเวลาเกิด</span>
-              </label>
-              {!timeUnknown && (
-                <label className="flex flex-col gap-1">
-                  <span className="text-[13px] font-bold text-v3-navy">เวลาเกิด</span>
-                  <input type="time" value={birthTime} onChange={(e) => setBirthTime(e.target.value)} data-testid="eb-time" className={INPUT} />
+
+              {/* เวลาเกิด — row ไทย + native time picker ทับ (หรือ "ไม่ทราบเวลา") */}
+              <label className="flex flex-col gap-1">
+                <span className="text-[13px] font-bold text-v3-navy">เวลาเกิด</span>
+                {timeUnknown ? (
+                  <span className={PICKER_ROW + " text-v3-text-muted"}>ไม่ทราบเวลาเกิด</span>
+                ) : (
+                  <span className="relative block">
+                    <span className={PICKER_ROW}>
+                      <span className={birthTime ? "text-v3-navy" : "text-v3-placeholder"}>{birthTime ? thaiTimeLabel(birthTime) : "เลือกเวลาเกิด"}</span>
+                      <ChevronDown />
+                    </span>
+                    <input type="time" value={birthTime} onChange={(e) => setBirthTime(e.target.value)} data-testid="eb-time" aria-label="เวลาเกิด" className="absolute inset-0 size-full cursor-pointer opacity-0" />
+                  </span>
+                )}
+                <label className="mt-1 flex items-center gap-2">
+                  <input type="checkbox" checked={timeUnknown} onChange={(e) => setTimeUnknown(e.target.checked)} data-testid="eb-time-unknown" className="size-4" />
+                  <span className="text-[12px] leading-4 text-v3-text-muted">ถ้าไม่ทราบเวลาเกิดชัด เลือก “ไม่ทราบเวลา” ได้ ระบบจะคำนวณแบบหยาบ</span>
                 </label>
-              )}
+              </label>
+
+              {/* จังหวัดที่เกิด — dropdown 77 จังหวัด */}
               <label className="flex flex-col gap-1">
                 <span className="text-[13px] font-bold text-v3-navy">จังหวัดที่เกิด</span>
-                <input value={province} onChange={(e) => setProvince(e.target.value)} placeholder="เช่น กรุงเทพมหานคร" data-testid="eb-province" className={INPUT} />
+                <span className="relative block">
+                  <select value={province} onChange={(e) => setProvince(e.target.value)} data-testid="eb-province" className={PICKER_ROW + " w-full appearance-none pr-10 outline-none focus:border-v3-navy " + (province ? "text-v3-navy" : "text-v3-placeholder")}>
+                    <option value="">เลือกจังหวัด</option>
+                    {TH_PROVINCES.map((p) => (
+                      <option key={p} value={p} className="text-v3-navy">{p}</option>
+                    ))}
+                  </select>
+                  <span className="pointer-events-none absolute inset-y-0 right-4 flex items-center"><ChevronDown /></span>
+                </span>
                 <span className="text-[11px] leading-4 text-v3-text-muted">ใช้คำนวณเวลาสุริยคติให้แม่นขึ้น (แก้ได้อิสระ ไม่ใช้โควตา)</span>
               </label>
               {freeUsed && walletQiNow !== null && (
@@ -169,9 +214,10 @@ export function EditBirthScreen() {
                 </p>
               )}
               {msg && <p data-testid="eb-msg" className="text-[12px] font-bold text-v3-sapphire">{msg}</p>}
-              <KitButton onClick={() => void save()} disabled={saving || !birth} testId="eb-save">
-                {saving ? "กำลังบันทึก..." : freeUsed ? `ยืนยันแก้ (ใช้ ${priceQi} QI)` : "ยืนยันแก้วันเกิด"}
+              <KitButton onClick={() => void save()} disabled={saving || !birth || !dirty} testId="eb-save">
+                {saving ? "กำลังบันทึก..." : freeUsed ? `บันทึกการเปลี่ยนแปลง (ใช้ ${priceQi} QI)` : "บันทึกการเปลี่ยนแปลง"}
               </KitButton>
+              <p className="text-center text-[11px] leading-4 text-v3-text-muted">{dirty ? "ตรวจสอบข้อมูลให้ถูกต้องก่อนบันทึก" : "อัปเดตใช้งานได้เมื่อมีการแก้ไข"}</p>
             </section>
 
             {/* คำขอพิจารณา */}

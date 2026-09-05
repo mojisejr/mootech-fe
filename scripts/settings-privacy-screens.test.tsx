@@ -42,11 +42,15 @@ const fetchMock = vi.fn(async (url: string, init?: { method?: string; body?: str
     consentRows = [{ kind: body.kind, version: body.version, accepted: body.accepted, createdAt: new Date().toISOString() }, ...consentRows]
     return { ok: true, status: 200, json: async () => ({ ok: true }) }
   }
+  if (u.includes('/api/profile')) return { ok: true, status: 200, json: async () => ({ profile: { email: 'me@example.com' } }) }
   if (u.includes('/api/account-export')) {
-    // จอใช้ res.text() อ่านทั้งไฟล์ — mock ต้องมี text() ไม่ใช่แค่ json()
-    return exportOk
-      ? { ok: true, status: 200, text: async () => JSON.stringify({ anonId: 'u' }), json: async () => ({ anonId: 'u' }) }
-      : { ok: false, status: 502, text: async () => '', json: async () => ({}) }
+    // async-email: POST = ขอส่งออก (202 collecting) · GET ?status=1 = สถานะล่าสุด
+    if (method === 'POST') {
+      return exportOk
+        ? { ok: true, status: 202, json: async () => ({ request: { status: 'collecting', requestedAt: 't' } }) }
+        : { ok: false, status: 502, json: async () => ({}) }
+    }
+    return { ok: true, status: 200, json: async () => ({ request: null }) }
   }
   if (u.includes('/api/faq')) {
     // ?slug= → บทความเดี่ยว (DocReader); ไม่มี slug → ลิสต์ (FaqScreen)
@@ -141,22 +145,24 @@ describe('privacy-consent', () => {
 })
 
 describe('privacy-data-export', () => {
-  it('ส่งออกสำเร็จ → โชว์ดาวน์โหลดเรียบร้อย', async () => {
-    // jsdom ไม่มี URL.createObjectURL — ต้อง stub ก่อน (จอจะเรียกตอนดาวน์โหลด)
-    const created = vi.fn(() => 'blob:mock')
-    vi.stubGlobal('URL', Object.assign(URL, { createObjectURL: created, revokeObjectURL: vi.fn() }))
+  it('ขอส่งออก (async-email) → โชว์สถานะกำลังรวบรวม (ไม่บอกว่าส่งแล้ว)', async () => {
     render(wrap(<DataExportScreen />))
-    fireEvent.click(screen.getByTestId('export-run'))
-    await waitFor(() => expect(screen.getByTestId('export-done')).toBeTruthy())
-    expect(created).toHaveBeenCalled()
+    // ปุ่มพร้อมเมื่อโหลดอีเมลผู้ใช้เสร็จ (mock /api/profile คืน email)
+    const btn = await waitFor(() => screen.getByTestId('export-run') as HTMLButtonElement)
+    expect(btn.disabled).toBe(false)
+    fireEvent.click(btn)
+    await waitFor(() => expect(screen.getByTestId('export-requested')).toBeTruthy())
+    // ต้องไม่มีข้อความอ้างว่า "ส่งแล้ว/ดาวน์โหลดเรียบร้อย"
+    expect(screen.queryByText(/ส่งแล้ว|ดาวน์โหลดเรียบร้อย/)).toBeNull()
   })
 
-  it('E2 export ล้ม → โชว์ failed ❌ "เรียบร้อย"', async () => {
+  it('E2 คำขอล้ม → โชว์ failed ไม่โชว์ requested', async () => {
     exportOk = false
     render(wrap(<DataExportScreen />))
-    fireEvent.click(screen.getByTestId('export-run'))
+    const btn = await waitFor(() => screen.getByTestId('export-run') as HTMLButtonElement)
+    fireEvent.click(btn)
     await waitFor(() => expect(screen.getByTestId('export-failed')).toBeTruthy())
-    expect(screen.queryByTestId('export-done')).toBeNull()
+    expect(screen.queryByTestId('export-requested')).toBeNull()
   })
 })
 

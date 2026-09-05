@@ -61,12 +61,14 @@ export default async function handler(
     return
   }
 
-  const body = req.body as { messages?: ChatMessage[]; birth?: DevBirthProfile }
+  const body = req.body as { messages?: ChatMessage[]; birth?: DevBirthProfile; persona?: string }
   const messages = body?.messages
   if (!Array.isArray(messages) || messages.length === 0) {
     res.status(400).json({ error: "messages[] is required" })
     return
   }
+  // ลูกค้าเลือกคุยกับใคร: mu=เสี่ยวมู่(ชาย) · mi=เสี่ยวมี่(หญิง) — ส่งต่อให้ engine รู้
+  const persona: "mu" | "mi" = body?.persona === "mi" ? "mi" : "mu"
 
   // 0) resolve birth SERVER-SIDE from the logged-in identity (immutable)
   let feInput: FeCalcInput | null = null
@@ -153,6 +155,7 @@ export default async function handler(
       body: JSON.stringify({
         messages,
         baziConsult: { rawInput, calculatedState },
+        persona,
       }),
     })
   } catch {

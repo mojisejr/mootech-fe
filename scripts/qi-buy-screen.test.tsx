@@ -41,7 +41,7 @@ describe('จอซื้อ QI (buy-qi — select pack)', () => {
     expect(screen.getByTestId('qi-pack-QI_60').textContent).toContain('60 QI')
     expect(screen.getByTestId('qi-pack-QI_60').textContent).toContain('฿35')
     expect(screen.getByTestId('qi-pack-QI_1200').textContent).toContain('฿449')
-    expect(screen.getByTestId('qi-pack-QI_500').textContent).toContain('โบนัส +75')
+    expect(screen.getByTestId('qi-pack-QI_500').textContent).toContain('แถม +75')
     // สรุป default = QI_500: รวม 575 QI, VAT ฿14, ปุ่ม → checkout ของ QI_500
     expect(screen.getByTestId('qi-buy-total').textContent).toBe('575 QI')
     expect(screen.getByTestId('qi-buy-vat').textContent).toBe('฿14')

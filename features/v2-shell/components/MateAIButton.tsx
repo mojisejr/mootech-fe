@@ -35,30 +35,59 @@
 // MOTION — not invented. `get_motion_context` on this node returns y[0,-7,0] · scale[1,1.03,1] · rotate[0,-2,2,0]
 // · 2s · cubic-bezier(.45,0,.55,1) · infinite — the SAME track as the ดวงสมพงศ์ sprites (#160), so it is the one
 // shared `.v3-float` in globals.css, which also honours prefers-reduced-motion.
+'use client'
 import Image from 'next/image'
 import Link from 'next/link'
+import { useEffect, useState } from 'react'
+
+// ปุ่มแชทสลับ เสี่ยวมู่ ↔ เสี่ยวมี่ อัตโนมัติ (เฟดออก-เฟดเข้า) ไม่ผูกกับ persona ที่เลือกในแชท
+const NAV_ROTATION: Array<{ name: string; avatar: string }> = [
+  { name: 'เสี่ยวมู่', avatar: '/images/v2/mascot/personas/mu/greet.png' },
+  { name: 'เสี่ยวมี่', avatar: '/images/v2/mascot/personas/mi/greet.png' },
+]
+const SWAP_MS = 4200
+const FADE_MS = 380
+
+/** วนสลับ index ทุก SWAP_MS พร้อมสถานะ visible สำหรับเฟด (เคารพ reduced-motion → ไม่วน) */
+function useAutoRotate() {
+  const [i, setI] = useState(0)
+  const [visible, setVisible] = useState(true)
+  useEffect(() => {
+    const reduce = typeof window !== 'undefined'
+      && window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches
+    if (reduce) return
+    const id = setInterval(() => {
+      setVisible(false) // เฟดออก
+      window.setTimeout(() => { setI((x) => (x + 1) % NAV_ROTATION.length); setVisible(true) }, FADE_MS) // สลับ + เฟดเข้า
+    }, SWAP_MS)
+    return () => clearInterval(id)
+  }, [])
+  return { info: NAV_ROTATION[i], visible }
+}
 
 // #568 (ฟีม): เปลี่ยนชื่อที่ผู้ใช้เห็นบนปุ่มเป็น "เสี่ยวมู่" แทน "Mate AI" — 🔴 เปลี่ยนเฉพาะข้อความจอ +
 // aria-label (accessible name ต้องตรงกับสิ่งที่เห็น) ❌ ห้ามเปลี่ยน identifier (MateAIButton / nav-mate-ai /
 // ชื่อไฟล์) ตามกติกาบ้าน — ทุกคอมเมนต์ที่อ้าง identifier จะตายเงียบถ้าเปลี่ยน
 // กราฟิกใหม่ที่ฟีมแนบมา (รูปที่ 11) ยังไม่มีไฟล์ asset ในรีโป — คงใช้ 01-nav.png เดิมจนกว่าจะได้ไฟล์จริง
 export function MateAIButton() {
+  const { info, visible } = useAutoRotate()
+  const fade = { opacity: visible ? 1 : 0, transition: `opacity ${FADE_MS}ms ease-in-out` }
   return (
     <Link
       href="/v2/chat"
-      aria-label="เสี่ยวมู่"
+      aria-label={info.name}
       data-testid="nav-mate-ai"
       className="relative flex h-[70px] w-[74px] shrink-0 items-center justify-center overflow-hidden rounded-2xl border-[5px] border-[rgba(216,143,169,0.4)] bg-v3-lime bg-clip-padding backdrop-blur-[6.8px]"
     >
       {/* mascot — head-aligned; the bottom overhangs the tile and is clipped by it (Figma's own behaviour) */}
-      <span aria-hidden data-testid="nav-mate-ai-mascot" className="pointer-events-none absolute left-1/2 top-[12px] h-[67px] w-[56px] -translate-x-1/2">
+      <span aria-hidden data-testid="nav-mate-ai-mascot" className="pointer-events-none absolute left-1/2 top-[12px] h-[67px] w-[56px] -translate-x-1/2" style={fade}>
         <span className="v3-float absolute inset-0 block">
-          <Image src="/images/v2/mascot/01-nav.png" alt="" fill sizes="64px" style={{ objectFit: 'contain', objectPosition: 'top' }} />
+          <Image src={info.avatar} alt="" fill sizes="64px" style={{ objectFit: 'contain', objectPosition: 'top' }} />
         </span>
       </span>
       {/* label — INSIDE the tile (Figma y=3), above the mascot head. No slab: see the note above. */}
-      <span data-testid="nav-mate-ai-label" className="absolute left-1/2 top-0 z-[1] -translate-x-1/2 whitespace-nowrap text-sm font-black leading-5">
-        <span className="bg-gradient-to-r from-v3-sapphire to-v3-mate-magenta bg-clip-text text-transparent">เสี่ยวมู่</span>
+      <span data-testid="nav-mate-ai-label" className="absolute left-1/2 top-0 z-[1] -translate-x-1/2 whitespace-nowrap text-sm font-black leading-5" style={fade}>
+        <span className="bg-gradient-to-r from-v3-sapphire to-v3-mate-magenta bg-clip-text text-transparent">{info.name}</span>
       </span>
     </Link>
   )

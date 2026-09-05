@@ -1,14 +1,15 @@
 import React from 'react'
 import Link from 'next/link'
-import { comingSoonHrefById } from '@/features/v2-service/services'
+import { hrefById } from '@/features/v2-service/services'
 
-// ── Zone 5 — ทักซินแส / section-mascot (Figma 333:6989) ───────────────────────────────────────────────
-// A FULL-BLEED sapphire banner (393-wide in Figma, so it breaks out of the page's px-4 with -mx-4): a left text
-// block (title · 2-line desc · lime Secondary CTA), the big water-owl mascot overflowing bottom/right (STATIC —
-// reuses zone4/mascot-sian.png, image-verified as the same source as Zone 4's mascot), a small fire sprite that
-// is the ONLY animated element (loop 2000ms · same cadence as the rest of the home motion), and a cream
-// white-mound wave at the bottom that transitions the sapphire into the cream page. Replaces the text-only
-// SinseCard placeholder.
+// ── Zone 5 — ทักซินแส / section-mascot (Figma 333:6989, home 333:6545 "Frame 7") ─────────────────────
+// A FULL-BLEED sapphire card: Figma Dev Mode = Width **Fill (393px)** (edge-to-edge on the 393 frame), so it
+// breaks out of the page's px-4 with -mx-4. Rounded 24px on all four corners (cream shows in the corner
+// notches at the screen edges, exactly like the frame). ฟีม 2026-09-05 "ขอบไม่เหมือนกัน": the ONLY real gap
+// was the cream white-mound WAVE the built version drew at the bottom — Figma has none, just the rounded
+// bottom corners. (Earlier I also made it inset by mistake; reverted — Fill 393px is full-bleed.)
+// A left text block (title · 2-line desc · lime Secondary CTA), the big water-owl mascot overflowing
+// bottom/right (STATIC — reuses zone4/mascot-sian.png), and a small fire sprite (the ONLY animated element).
 export function SinseSection() {
   return (
     <section className="relative -mx-4 mb-6 w-[calc(100%+2rem)] overflow-hidden rounded-[24px] bg-v3-sapphire">
@@ -26,7 +27,7 @@ export function SinseSection() {
               ~30 other places in the repo already say. This button is about to hand the user to a service
               whose card is spelled the other way; two spellings across one tap is the reason it matters. */}
           <Link
-            href={comingSoonHrefById('sinsae')}
+            href={hrefById('sinsae')}
             className="mt-1 inline-block w-[148px] rounded-full bg-v3-lime px-6 py-2 text-center text-sm font-semibold uppercase leading-5 text-v3-sapphire"
           >
             ทักซินแสเพื่อจอง
@@ -48,12 +49,6 @@ export function SinseSection() {
           className="z5-fire pointer-events-none absolute left-[181px] top-[19.9px] z-[2] h-[58px] w-[49px] max-w-none"
         />
 
-        {/* white-mound wave — Figma "Frame 7" at the card bottom, full-bleed cream, transitions sapphire → page */}
-        <div aria-hidden className="absolute inset-x-0 bottom-[-1px] z-[1] h-7 text-v3-bg-cream">
-          <svg viewBox="0 0 451 27" preserveAspectRatio="none" className="h-full w-full" fill="currentColor">
-            <path d="M0 27 V10 Q112 -6 225 8 T451 10 V27 Z" />
-          </svg>
-        </div>
       </div>
 
       {/* fire-sprite flicker — transform-only (scale/rotate/y), CLS-safe. base on the class so reduced-motion

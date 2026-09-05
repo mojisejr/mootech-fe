@@ -106,14 +106,15 @@ export function QiBuyScreen() {
 
       {!loading && !failed && (
         <div className="mt-3 flex flex-col gap-4 pb-24">
-          {/* ยอดคงเหลือ — เหรียญ 氣 + ยอด (เฟรม current-balance) */}
-          <section className="flex items-center gap-3 rounded-[24px] bg-v3-sapphire px-4 py-4 text-white" data-testid="qi-buy-balance">
+          {/* ยอดคงเหลือ — เหรียญ 氣 + ยอด (เฟรม current-balance) — แตะดูประวัติได้ */}
+          <Link href="/v2/qi/history" className="flex items-center gap-3 rounded-[24px] bg-v3-sapphire px-4 py-4 text-white" data-testid="qi-buy-balance">
             <Image src="/images/v2/qi/qi-coin.png" alt="" width={48} height={48} className="size-12 flex-none rounded-full" />
             <div className="min-w-0 flex-1">
               <p className="text-[13px] text-white/85">ยอดคงเหลือปัจจุบัน</p>
               <p className="text-[18px] font-black text-v3-lime">{(balance ?? 0).toLocaleString("th-TH")} QI</p>
             </div>
-          </section>
+            <svg width="18" height="18" viewBox="0 0 16 16" fill="none" aria-hidden className="flex-none text-white/70"><path d="m6 3.5 4.5 4.5L6 12.5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" /></svg>
+          </Link>
 
           <div>
             <p className="mb-2 px-1 text-[15px] font-black text-v3-navy">เลือกแพ็ก QI</p>
@@ -128,7 +129,7 @@ export function QiBuyScreen() {
                     onClick={() => setSelected(p.code)}
                     data-testid={`qi-pack-${p.code}`}
                     className={
-                      "relative flex w-full flex-col overflow-hidden rounded-[18px] text-left transition " +
+                      "relative flex w-full flex-col overflow-hidden rounded-[24px] text-left transition " +
                       (on ? "bg-v3-navy text-white ring-2 ring-v3-lime" : "border border-v3-border-card bg-white") +
                       (p.active ? "" : " opacity-50")
                     }
@@ -144,7 +145,7 @@ export function QiBuyScreen() {
                       <div className="min-w-0 flex-1">
                         <p className={"flex flex-wrap items-center gap-1.5 text-[16px] font-black " + (on ? "text-white" : "text-v3-navy")}>
                           {p.qty.toLocaleString("th-TH")} QI
-                          {p.bonus > 0 ? <span className="rounded-full bg-[#E3F8D1] px-2 py-[1px] text-[10px] font-black text-[#63B05F]">โบนัส +{p.bonus}</span> : null}
+                          {p.bonus > 0 ? <span className="rounded-full bg-[#E3F8D1] px-2 py-[1px] text-[10px] font-black text-[#63B05F]">แถม +{p.bonus}</span> : null}
                         </p>
                         <p className={"text-[11px] " + (on ? "text-white/80" : "text-v3-text-muted")}>
                           {p.active ? `ถามเซียนมูได้ ${p.asks} ครั้ง` : "ปิดขายชั่วคราว"}

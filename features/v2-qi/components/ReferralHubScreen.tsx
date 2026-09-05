@@ -195,9 +195,30 @@ export function ReferralHubScreen() {
               })}
             </div>
             <p className="mt-1 text-[12px] leading-[18px] text-v3-text-muted">
-              ธาตุของเพื่อนคำนวณจากวันเกิด{missing.length && missing.length < 5 ? ` ตอนนี้ยังขาด${missing.join(" ")}` : ""}
+              ธาตุของเพื่อนคำนวณจากวันเกิด{missing.length && missing.length < 5 ? ` ตอนนี้ยังขาด${missing.join(" และ ")}` : ""}
             </p>
           </SectionCard>
+
+          {/* เพื่อนที่ชวน (รายชื่อ + โบนัสต่อคน) */}
+          {referral.friends && referral.friends.length > 0 ? (
+            <SectionCard className="!rounded-[18px]" testId="referral-friends">
+              <h2 className="text-[16px] font-bold text-v3-navy">เพื่อนที่ชวน</h2>
+              <ul className="mt-2 flex flex-col divide-y divide-v3-border-card">
+                {referral.friends.map((f, i) => (
+                  <li key={i} className="flex items-center gap-3 py-2.5">
+                    <span aria-hidden className="grid size-9 flex-none place-items-center rounded-full bg-[#EAF3FF] text-[13px] font-black text-v3-sapphire">
+                      {f.name.replace(/^@/, "").slice(0, 1).toUpperCase()}
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-[14px] font-medium text-v3-navy">{f.name}</p>
+                      {f.joinedAt ? <p className="text-[11px] leading-4 text-v3-text-muted">{new Date(f.joinedAt).toLocaleDateString("th-TH", { day: "numeric", month: "short", year: "numeric" })}</p> : null}
+                    </div>
+                    <span className="flex-none text-[13px] font-black text-[#63B05F]">+{(f.rewardQi ?? REWARD_INVITER).toLocaleString("th-TH")} QI</span>
+                  </li>
+                ))}
+              </ul>
+            </SectionCard>
+          ) : null}
 
           {/* กรอกโค้ดเพื่อน (ฟีเจอร์จริง) */}
           <SectionCard className="!rounded-[18px]" testId="referral-apply">
