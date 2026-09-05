@@ -534,10 +534,11 @@ function SomphongKeyframes() {
 // `lines` is DISPLAY copy, broken to fit a narrow card — it is not the service name and must never be
 // joined back into one ("เสี่ยงไพ่ออราเคิลเคี้ยงคุง" has no space where the line break is). `serviceId`
 // is what travels; the title comes from the catalog. See comingSoonHrefById.
+// ไอคอนภาพจริงต่อบริการ (public/images/v2/home/sian/*.png): oracle=ไพ่, spirit=ดาว, sian=เซียมซี
 const SIAN_CARDS: { icon: string; lines: string[]; serviceId: ServiceId }[] = [
-  { icon: 'icon-oracle', lines: ['เสี่ยงไพ่', 'ออราเคิล', 'เคี้ยงคุง'], serviceId: 'oracle-kiang' },
-  { icon: 'icon-spirit', lines: ['เสี่ยงไพ่', 'จิตวิญญาณ', 'แดนสวรรค์'], serviceId: 'spirit-heaven' },
-  { icon: 'icon-sian', lines: ['เสี่ยงเซียน', 'เสี่ยงทาย'], serviceId: 'sian' },
+  { icon: 'oracle', lines: ['เสี่ยงไพ่', 'ออราเคิล', 'เคี้ยงคุง'], serviceId: 'oracle-kiang' },
+  { icon: 'spirit', lines: ['เสี่ยงไพ่', 'จิตวิญญาณ', 'แดนสวรรค์'], serviceId: 'spirit-heaven' },
+  { icon: 'sian', lines: ['เสี่ยงเซียน', 'เสี่ยงทาย'], serviceId: 'sian' },
 ]
 
 function SianSection() {
@@ -575,7 +576,7 @@ function SianSection() {
         {SIAN_CARDS.map((c) => (
           <Link key={c.icon} href={hrefById(c.serviceId)} className="flex flex-1 self-stretch rounded-2xl bg-v3-pastel-blue p-4">
             <div className="flex flex-1 flex-col justify-start gap-2">
-              <img src={`/images/v2/zone4/${c.icon}.svg`} alt="" aria-hidden className="size-8" />
+              <img src={`/images/v2/home/sian/${c.icon}.png`} alt="" aria-hidden className="size-9 object-contain" />
               <p className="text-sm font-semibold uppercase leading-5 text-v3-navy">
                 {c.lines.map((l) => (
                   <span key={l} className="block leading-5">{l}</span>
