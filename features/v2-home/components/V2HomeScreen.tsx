@@ -14,7 +14,7 @@ import { HabitCard } from './sections/HabitCard'
 import { PajeuSection } from './sections/PajeuSection'
 import { SinseSection } from './sections/SinseSection'
 import { CalendarMenu } from './CalendarMenu'
-import { comingSoonHrefById, hrefById, type ServiceId } from '@/features/v2-service/services'
+import { hrefById, type ServiceId } from '@/features/v2-service/services'
 import { HeaderTools } from '@/features/v2-shell/components/AppHeader'
 import type { MembershipLike } from '@/features/v2-shell/header-badge'
 import { TopBarBell } from '@/features/v2-shell/components/TopBarBell'
@@ -403,7 +403,7 @@ function ManifestCard({ mascotCharacter, element, loading }: { mascotCharacter: 
             readable. spelling: ปรารถนา (Figma's ปราถนา is a typo).
             A1: now goes to the shared เร็วๆ นี้ page as มานิเฟส — the service exists in the catalog, the
             feature does not, so the honest destination is the one that says so by name. */}
-        <Link href={comingSoonHrefById('manifest')} className="inline-block whitespace-nowrap rounded-full bg-v3-sapphire px-6 py-2 text-center text-sm font-semibold uppercase leading-5 text-v3-lime">เพิ่มความปรารถนาของคุณ</Link>
+        <Link href={hrefById('manifest')} className="inline-block whitespace-nowrap rounded-full bg-v3-sapphire px-6 py-2 text-center text-sm font-semibold uppercase leading-5 text-v3-lime">เพิ่มความปรารถนาของคุณ</Link>
       </div>
       {/* mascot from the chart — right-anchored + rotated + overflowing (clipped). pointer-events-none so a
           tap passes through to the button. onError → hero fallback (like MascotImg).
@@ -568,7 +568,7 @@ function SianSection() {
             รวบรวมเป็นหนังสือส่วนตัว
           </>
         }
-        cta={{ variant: 'primary', label: 'ซื้อเลย', href: comingSoonHrefById('one-book') }}
+        cta={{ variant: 'primary', label: 'ซื้อเลย', href: hrefById('one-book') }}
       />
       {/* 3 property cards (pastel-blue) */}
       <div className="flex w-full gap-2">

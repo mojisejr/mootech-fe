@@ -2,6 +2,7 @@
 // ต่อ ENGINE: /api/manifest/goals + /checkin (ผ่าน BFF /api/v2/manifest/*). ไม่มีเฟรม Figma → ออกแบบเองตามภาษาแอป.
 // ตั้งเป้าหมาย + คำยืนยัน(affirmation) + ภารกิจรายวัน → ติ๊กเช็คอินให้ครบ, มี progress ต่อเป้าหมาย.
 import Head from "next/head"
+import Image from "next/image"
 import { useCallback, useEffect, useMemo, useState } from "react"
 
 import { SkyBackdrop, SkyHeader, KitButton } from "@/features/v2-profile/components/kit"
@@ -82,7 +83,9 @@ export function ManifestScreen() {
       <div className="relative z-10 mx-auto flex w-full max-w-md flex-1 flex-col gap-4 px-4 pb-40 pt-2">
         {/* HERO */}
         <section className="flex flex-col items-center gap-2 text-center" data-testid="manifest-hero">
-          <p className="text-[36px]">🌙</p>
+          <span className="relative block h-[150px] w-[172px]">
+            <Image src="/images/v2/features/manifest/hero.png" alt="มานิเฟส" fill sizes="172px" className="object-contain" priority />
+          </span>
           <h1 className="text-[22px] font-black leading-7 text-v3-navy">ตั้งเป้าหมาย แล้วดึงดูดให้เป็นจริง</h1>
           <p className="max-w-xs text-[13px] leading-5 text-v3-text-body">ตั้งใจให้ชัด เขียนคำยืนยัน (affirmation) แล้วทำภารกิจเล็ก ๆ ทุกวัน — จักรวาลจัดสรรให้</p>
         </section>
