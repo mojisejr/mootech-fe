@@ -47,7 +47,7 @@ export const SERVICES = [
   // ดวงสมพงศ์ Slice 1: these two now enter the real compatibility flow (was comingSoonHref).
   { id: 'couple', title: 'ดูดวงคู่รัก', desc: DESC_FORTUNE, href: '/v2/service/compatibility/love', image: ART('01_ดูดวงคู่รัก.png') },
   { id: 'coworker', title: 'ดูดวงเพื่อนร่วมงาน', desc: DESC_FORTUNE, href: '/v2/service/compatibility/colleague', image: ART('02_ดูดวงเพื่อนร่วมงาน.png') },
-  { id: 'one-book', title: 'หนังสือเล่มเดียวในโลก', desc: DESC_FORTUNE, href: comingSoonHref('หนังสือเล่มเดียวในโลก'), image: ART('03_หนังสือเล่มเดียวในโลก.png') },
+  { id: 'one-book', title: 'หนังสือเล่มเดียวในโลก', desc: DESC_FORTUNE, href: '/v2/service/one-book', image: ART('03_หนังสือเล่มเดียวในโลก.png') },
   { id: 'oracle-kiang', title: 'เสี่ยงไพ่ออราเคิลเคี้ยงคุง', desc: DESC_FORTUNE, href: '/v2/fortune/oracle', image: ART('04_เสี่ยงไพ่ออราเคิลเคี้ยงคุง.png') },
   { id: 'spirit-heaven', title: 'เสี่ยงไพ่จิตวิญญาณแดนสวรรค์', desc: DESC_FORTUNE, href: '/v2/fortune/divine', image: ART('05_เสี่ยงไพ่จิตวิญญาณแดนสวรรค์.png') },
   { id: 'sian', title: 'เสี่ยงเซียนเสี่ยงทาย', desc: DESC_FORTUNE, href: '/v2/fortune/sage', image: ART('06_เสี่ยงเซียนเสี่ยงทาย.png') },

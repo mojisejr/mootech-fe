@@ -236,12 +236,13 @@ export default defineConfig({
       'scripts/qi-buy-screen.test.tsx', // ก้อน 1.6 — จอเติมชี่ (ราคาจากแถวจริง · แพ็กปิดขายไม่มีทางเข้า checkout)
       'scripts/qi-checkin-screen.test.tsx', // เฟรม check-in — states (สตรีคเขตไทย · เช็คอินแล้วปุ่มปิด)
       'scripts/invite-landing.test.tsx', // เฟรม invite-landing (ยอมรับ → localStorage ก่อน register · โค้ดเน่าพูดตรง)
-      'scripts/edit-profile-screen.test.tsx', // ก้อน 3 — edit-personal-info (PATCH engine · @name อ่านอย่างเดียว)
+      'scripts/edit-profile-screen.test.tsx', // ก้อน 3 — edit-personal-info (PATCH engine · @name แก้ได้ + avatar อัปโหลด)
       'scripts/edit-birth-screen.test.tsx', // ก้อน 3 — edit-birth-data ×4 (โควตา engine · 409→ชีตชี่ไม่พอ · correction sheet)
       'scripts/orders-screen.test.tsx', // ก้อน 3 — order-history + order-receipt (APPROVED เท่านั้น = สำเร็จ · แพ็กชี่ตั้งชื่อถูก)
       'scripts/settings-privacy-screens.test.tsx', // ก้อน 4 — notifications/consent/export/faq/doc (toggle ยิงจริง · ล้มพูดตรง)
       'scripts/fortune-sage.test.tsx', // โหมดเซียน — เซียมซีเสี่ยงทาย (เสี่ยง→ผล 6 หมวด · toggle รัก · 402 · แชร์ earn)
       'scripts/fortune-cards.test.tsx', // โหมดเซียน — oracle/divine (เปิดการ์ด: เลือก 3→เปิด→ผล+น้ำหนัก% · สุ่ม · 402)
+      'scripts/one-book-screen.test.tsx', // บริการ one-book (Your Life Code) — hero/ราคา/CTA ไลน์ + accordion 15 ด้าน
     ],
   },
   resolve: {
