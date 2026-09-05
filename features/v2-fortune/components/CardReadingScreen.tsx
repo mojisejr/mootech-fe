@@ -207,11 +207,13 @@ export function CardReadingScreen({
             {cards.map((c) => (
               <div key={c.no} className="flex flex-col items-center gap-1">
                 <span className="relative flex aspect-[3/4] w-full items-center justify-center overflow-hidden rounded-[12px]">
+                  {/* หลังไพ่ + ชื่อ = เลเยอร์ล่าง (fallback ถ้าโหลดรูปหน้าไพ่ไม่ได้) · หน้าไพ่จริงทับเมื่อโหลดสำเร็จ */}
                   <Image src={theme.back} alt="" fill sizes="110px" className="object-cover" />
+                  <span className="absolute inset-x-1 bottom-1 z-0 rounded bg-black/40 px-1 py-0.5 text-center text-[9px] font-bold leading-tight text-white">{c.name}</span>
                   {c.imageUrl
                     ? // eslint-disable-next-line @next/next/no-img-element
-                      <img src={c.imageUrl} alt={c.name} className="absolute inset-0 size-full object-cover" />
-                    : <span className="relative z-10 mx-1 rounded bg-black/40 px-1 py-0.5 text-center text-[9px] font-bold leading-tight text-white">{c.name}</span>}
+                      <img src={c.imageUrl} alt={c.name} className="absolute inset-0 z-10 size-full object-cover" />
+                    : null}
                 </span>
                 {weightByNo.has(c.no) ? <span className="rounded-full bg-[#EAF3FF] px-2 py-[1px] text-[10px] font-black text-v3-sapphire">น้ำหนัก {weightByNo.get(c.no)}%</span> : null}
                 <p className="text-center text-[10px] font-bold leading-tight text-v3-navy">#{c.no} {c.name}</p>
