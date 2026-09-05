@@ -99,12 +99,14 @@ export default function FortuneSagePage() {
 
       {phase === "loading" && (
         <div className="mt-10 flex flex-col items-center gap-4 text-center" data-testid="sage-loading">
-          <span aria-hidden className="grid h-56 w-40 place-items-center overflow-hidden rounded-[24px] bg-gradient-to-b from-[#1A2140] to-[#0B0F22]">
-            <Image src="/images/v2/qi/qi-orb.png" alt="" width={84} height={84} className="size-20 animate-pulse rounded-full object-cover" />
-          </span>
+          {/* effect ตอนรอ: แสงเรืองเต้น + รูปลอย */}
+          <div className="relative grid size-56 place-items-center">
+            <span aria-hidden className="absolute size-40 rounded-full bg-v3-lime/40 blur-2xl animate-fortune-glow" />
+            <span className="v3-float relative size-52"><Image src="/images/v2/fortune/sage-cup.png" alt="" fill sizes="208px" className="object-contain" /></span>
+          </div>
           <p className="text-[18px] font-black text-v3-navy">กำลังสุ่มเซียมซีให้คุณ</p>
           <p className="max-w-xs text-[13px] leading-5 text-v3-text-body">มาร่วมสร้างบันทึกทางใจ และค้นพบความสงบไปกับพวกเรา</p>
-          <span aria-hidden className="mt-1 h-1.5 w-40 overflow-hidden rounded-full bg-v3-ghost-white"><span className="block h-full w-2/3 animate-pulse rounded-full bg-v3-lime" /></span>
+          <span aria-hidden className="mt-1 h-1.5 w-48 overflow-hidden rounded-full bg-v3-ghost-white"><span className="block h-full w-1/3 rounded-full bg-v3-lime animate-fortune-shimmer" /></span>
         </div>
       )}
 
@@ -114,14 +116,14 @@ export default function FortuneSagePage() {
             <p className="text-[15px] font-black text-v3-navy">ตั้งจิตให้เป็นสมาธิ 1 นาที</p>
             <p className="text-[13px] leading-5 text-v3-text-body">ขอตั้งจิตอธิษฐานถามคำถามที่อยากได้คำตอบ</p>
           </div>
-          {/* การ์ดภาพเซียมซี (ยังเป็น placeholder ในดีไซน์) + ปุ่มเสี่ยงโพ */}
-          <section className="flex flex-col items-center gap-4 overflow-hidden rounded-[24px] bg-gradient-to-b from-[#1A2140] to-[#0B0F22] p-6">
-            <span aria-hidden className="mt-6 grid size-28 place-items-center rounded-full bg-white/5">
-              <Image src="/images/v2/qi/qi-orb.png" alt="" width={92} height={92} className="size-24 rounded-full object-cover opacity-90" />
+          {/* การ์ดภาพเซียมซี (รูปหน้าแรก) + ปุ่มเสี่ยงโพ */}
+          <section className="v3-shadow-card flex flex-col items-center gap-3 rounded-[24px] bg-white p-5">
+            <span className="v3-float relative h-48 w-full max-w-[300px]">
+              <Image src="/images/v2/fortune/sage-cup.png" alt="" fill sizes="300px" className="object-contain" />
             </span>
-            <p className="mb-6 mt-2 text-center text-[12px] text-white/60">ตั้งจิตให้นิ่ง แล้วกดเสี่ยงโพเพื่อรับคำทำนาย</p>
-            {quotaOut && <p className="text-center text-[12px] font-bold text-[#FFD48A]" data-testid="sage-quota">โควตาเสี่ยงทายวันนี้หมด — แลก 10 QI ที่หน้าพลังชี่</p>}
-            {error && <p data-testid="sage-error" className="text-center text-[12px] font-bold text-[#FF9B9B]">{error}</p>}
+            <p className="text-center text-[12px] text-v3-text-muted">ตั้งจิตให้นิ่ง แล้วกดเสี่ยงโพเพื่อรับคำทำนาย</p>
+            {quotaOut && <p className="text-center text-[12px] font-bold text-[#8A5A0C]" data-testid="sage-quota">โควตาเสี่ยงทายวันนี้หมด — แลก 10 QI ที่หน้าพลังชี่</p>}
+            {error && <p data-testid="sage-error" className="text-center text-[12px] font-bold text-v3-error">{error}</p>}
             <KitButton onClick={() => void draw()} testId="sage-draw">กดเพื่อเสี่ยงโพ</KitButton>
           </section>
           {quotaOut && <Link href="/v2/qi" className="text-center text-[13px] font-bold text-v3-sapphire">เติม/แลก QI ที่หน้าพลังชี่ →</Link>}
@@ -131,12 +133,13 @@ export default function FortuneSagePage() {
 
       {phase === "result" && stick && (
         <div className="mt-3 flex flex-col gap-3" data-testid="sage-result">
-          {/* ภาพผล (placeholder ถ้าไม่มี imageUrl) */}
-          <span className="grid h-52 w-full place-items-center overflow-hidden rounded-[24px] bg-gradient-to-b from-[#1A2140] to-[#0B0F22]">
+          {/* ภาพผล — รูปหน้าแรก (base) + รูปหัวเซี่ยงแซจริงทับถ้าโหลดได้ */}
+          <span className="relative grid h-52 w-full place-items-center overflow-hidden rounded-[24px] bg-[#F3F4FB]">
+            <span className="v3-float relative z-0 h-48 w-64"><Image src="/images/v2/fortune/sage-cup.png" alt="" fill sizes="256px" className="object-contain" /></span>
             {stick.imageUrl
               ? // eslint-disable-next-line @next/next/no-img-element
-                <img src={stick.imageUrl} alt="" className="size-full object-cover" />
-              : <Image src="/images/v2/qi/qi-orb.png" alt="" width={80} height={80} className="size-20 rounded-full object-cover opacity-90" />}
+                <img src={stick.imageUrl} alt="" className="absolute inset-0 z-10 size-full object-cover" />
+              : null}
           </span>
 
           {/* การ์ดครีม: หัวที่ + pillar + nayin + องค์เทพ */}

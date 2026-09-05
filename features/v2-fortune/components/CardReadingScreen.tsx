@@ -132,17 +132,19 @@ export function CardReadingScreen({
       />
 
       {phase === "loading" && (
-        <div className="mt-8 flex flex-col items-center gap-4 text-center" data-testid="cards-loading">
-          <div className="flex items-end gap-2">
+        <div className="mt-10 flex flex-col items-center gap-4 text-center" data-testid="cards-loading">
+          {/* effect ตอนรอ: แสงเรืองเต้น + ไพ่ลอย */}
+          <div className="relative flex items-end justify-center gap-2">
+            <span aria-hidden className="pointer-events-none absolute left-1/2 top-1/2 -z-10 size-44 -translate-x-1/2 -translate-y-1/2 rounded-full bg-v3-lime/30 blur-2xl animate-fortune-glow" />
             {[0, 1, 2].map((i) => (
-              <span key={i} className={"relative aspect-[3/4] w-16 overflow-hidden rounded-[12px] shadow-md " + (i === 1 ? "-mb-2 scale-110" : "")}>
+              <span key={i} className={"v3-float relative aspect-[3/4] w-16 overflow-hidden rounded-[12px] shadow-md " + (i === 1 ? "-mb-2 scale-110" : "")} style={{ animationDelay: `${i * 0.18}s` }}>
                 <Image src={theme.back} alt="" fill sizes="64px" className="object-cover" />
               </span>
             ))}
           </div>
           <p className="text-[18px] font-black text-v3-navy">กำลังเปิดไพ่ให้คุณ</p>
           <p className="max-w-xs text-[13px] leading-5 text-v3-text-body">มาร่วมสร้างบันทึกทางใจ และค้นพบความสงบไปกับพวกเรา</p>
-          <span aria-hidden className="mt-1 h-1.5 w-40 overflow-hidden rounded-full bg-v3-ghost-white"><span className="block h-full w-2/3 animate-pulse rounded-full bg-v3-lime" /></span>
+          <span aria-hidden className="mt-1 h-1.5 w-48 overflow-hidden rounded-full bg-v3-ghost-white"><span className="block h-full w-1/3 rounded-full bg-v3-lime animate-fortune-shimmer" /></span>
         </div>
       )}
 
