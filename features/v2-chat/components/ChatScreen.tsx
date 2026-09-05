@@ -195,7 +195,7 @@ export function ChatScreen() {
             <path d="M12.5 4.5 7 10l5.5 5.5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
           </svg>
         </Link>
-        <h1 className="text-lg font-black leading-6 text-v3-navy">Mate AI</h1>
+        <h1 className="text-lg font-black leading-6 text-v3-navy">มูเมทแชท</h1>
         <span
           data-testid="chat-online"
           className="flex items-center gap-1 rounded-full bg-emerald-100 px-2 py-[2px] text-[10px] font-medium leading-4 text-emerald-700"

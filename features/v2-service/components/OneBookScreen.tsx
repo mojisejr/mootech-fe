@@ -9,7 +9,7 @@ import { useState } from "react"
 import { SkyBackdrop, SkyHeader } from "@/features/v2-profile/components/kit"
 import { Menubar } from "@/features/v2-shell/components/Menubar"
 
-const LINE_ORDER_URL = "https://lin.ee/mumate"
+const LINE_ORDER_URL = "https://line.me/R/ti/p/@082cvuiy?ts=09151109&oat_content=url"
 const CARD = "v3-shadow-card w-full rounded-[24px] bg-white p-5"
 
 /** จุดเด่น 6 อย่างที่ "รู้รหัสชีวิตแล้วจะรู้" (IG slide 2) */

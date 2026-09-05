@@ -23,7 +23,7 @@ describe('จอ Your Life Code (one-book)', () => {
     expect(screen.getByText(/ไม่ใช้ AI/)).toBeTruthy()
     // CTA เป็นลิงก์ไป LINE OA (บริการสั่งทำ ไม่ใช่ checkout ในแอป)
     const cta = screen.getByTestId('one-book-order') as HTMLAnchorElement
-    expect(cta.getAttribute('href')).toBe('https://lin.ee/mumate')
+    expect(cta.getAttribute('href')).toBe('https://line.me/R/ti/p/@082cvuiy?ts=09151109&oat_content=url')
   })
 
   it('มีครบ 15 ด้าน + accordion เปิด/ปิดได้', () => {
