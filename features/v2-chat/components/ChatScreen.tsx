@@ -22,21 +22,32 @@ import { useBaziChatStream } from "../useBaziChatStream"
 import { SUGGESTED_QUESTIONS } from "@/constants/suggested-questions"
 import { SHOP_HREF } from "@/features/v2-shop/upgrade-cta"
 
-// เพอร์โซนา 2 แบบ — ลูกค้าเลือกคุยกับใคร (ส่ง persona ให้ engine ปรับชื่อ+น้ำเสียง)
+// เพอร์โซนา 2 แบบ (เสี่ยวมู่ ชาย / เสี่ยวมี่ หญิง) × 4 ท่าตามอารมณ์คำตอบ
 type PersonaKey = "mu" | "mi"
+type Mood = "greet" | "happy" | "think" | "special"
 const PERSONA_KEY = "mumate-chat-persona"
-const PERSONAS: Record<PersonaKey, { name: string; mascot: string; greeting: string }> = {
+const P = (k: PersonaKey) => `/images/v2/mascot/personas/${k}`
+const PERSONAS: Record<PersonaKey, { name: string; greeting: string; poses: Record<Mood, string> }> = {
   mu: {
     name: "เสี่ยวมู่",
-    mascot: "/images/v2/mascot/01.webp",
     greeting: "สวัสดีครับ~ เสี่ยวมู่มาแล้วครับ ผมอ่านดวงของคุณมาเรียบร้อย มีอะไรสงสัยถามมาได้เลยครับ 💙",
+    // special = ยิ้มขยิบตา (approve/อบอุ่น)
+    poses: { greet: `${P("mu")}/greet.png`, happy: `${P("mu")}/happy.png`, think: `${P("mu")}/think.png`, special: `${P("mu")}/special.png` },
   },
   mi: {
     name: "เสี่ยวมี่",
-    // TODO(art): ยังไม่มีอาร์ตเสี่ยวมี่ (ผู้หญิง) จริง — ใช้มาสคอตอีกท่าไปก่อน
-    mascot: "/images/v2/mascot/2-03.webp",
     greeting: "สวัสดีค่ะ~ เสี่ยวมี่มาแล้วค่ะ มี่อ่านดวงของคุณมาแล้วนะคะ มีอะไรสงสัยบอกมี่ได้เลยค่ะ 💜",
+    // special = ทำมือหัวใจ (เรื่องรัก)
+    poses: { greet: `${P("mi")}/greet.png`, happy: `${P("mi")}/happy.png`, think: `${P("mi")}/think.png`, special: `${P("mi")}/love.png` },
   },
+}
+
+// เดาอารมณ์จากบริบทคำถาม+คำตอบ → เลือกท่ามาสคอต
+function classifyMood(text: string): Mood {
+  const t = text.toLowerCase()
+  if (/รัก|คู่ครอง|แฟน|สมพงษ์|ความรัก|หัวใจ|คนรู้ใจ|เนื้อคู่|ครอบครัว/.test(t)) return "special"
+  if (/ระวัง|ปัญหา|ยาก|เสี่ยง|ระมัดระวัง|พิจารณา|ไม่แน่|อุปสรรค|หนี้|เตือน|วิเคราะห์|ซับซ้อน/.test(t)) return "think"
+  return "happy"
 }
 
 // figma-copy (ตรวจแล้ว 2026-09-02): ไม่พบเป็น text layer ใน final/V3 — รอ designer ยืนยัน
@@ -69,10 +80,20 @@ export function ChatScreen() {
   const choosePersona = (p: PersonaKey) => {
     setPersona(p)
     try { localStorage.setItem(PERSONA_KEY, p) } catch { /* ignore */ }
+    try { window.dispatchEvent(new CustomEvent("mumate-persona-change", { detail: p })) } catch { /* ignore */ }
   }
   const activePersona = PERSONAS[persona]
   const { turns, busy, guard, send } = useBaziChatStream(persona)
   const [draft, setDraft] = useState("")
+  // ท่ามาสคอตตามบริบทคำตอบล่าสุด: ยังไม่คุย=ทักทาย · กำลังคิด=think · ตอบแล้ว=เดาจากเนื้อหา
+  const mood: Mood = useMemo(() => {
+    if (busy) return "think"
+    const lastAi = [...turns].reverse().find((t) => t.role === "assistant" && !t.loading && t.content.trim())
+    if (!lastAi) return "greet"
+    const lastUser = [...turns].reverse().find((t) => t.role === "user")
+    return classifyMood(`${lastUser?.content ?? ""} ${lastAi.content}`)
+  }, [turns, busy])
+  const mascotSrc = activePersona.poses[mood]
   const [showAllQuestions, setShowAllQuestions] = useState(false)
   const [speechSupported, setSpeechSupported] = useState(false)
   const [voiceHint, setVoiceHint] = useState<string | null>(null)
@@ -216,7 +237,7 @@ export function ChatScreen() {
               className={"flex flex-1 items-center justify-center gap-2 rounded-full border px-3 py-1.5 text-[13px] font-bold transition " + (on ? "border-transparent bg-v3-sapphire text-white shadow-[0_2px_8px_rgba(20,85,164,.25)]" : "border-v3-border-card bg-white/70 text-v3-navy")}
             >
               <span className="relative size-6 flex-none overflow-hidden rounded-full bg-white/70">
-                <Image src={p.mascot} alt="" fill sizes="24px" style={{ objectFit: "contain" }} />
+                <Image src={p.poses.greet} alt="" fill sizes="24px" style={{ objectFit: "contain" }} />
               </span>
               {p.name}
               {on ? <span className="text-[11px]">✓</span> : null}
@@ -228,7 +249,7 @@ export function ChatScreen() {
       {/* mascot + link */}
       <div className="flex w-full flex-none flex-col items-center gap-1 pb-1 pt-2">
         <span className="v3-float relative block h-[190px] w-[170px]">
-          <Image src={activePersona.mascot} alt={`มาสคอต${activePersona.name}`} fill sizes="200px" style={{ objectFit: "contain" }} priority />
+          <Image src={mascotSrc} alt={`มาสคอต${activePersona.name}`} fill sizes="200px" style={{ objectFit: "contain" }} priority />
         </span>
         <button
           onClick={() => setShowAllQuestions((v) => !v)}
