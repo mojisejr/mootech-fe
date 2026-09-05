@@ -93,6 +93,9 @@ export type Entitlements = {
   tier?: "free" | "plus" | "pro"
   credits?: { card_use?: number; chat_question?: number; matching_slot?: number }
   owned?: Array<{ kind: string; sku: string }>
+  freeLimit?: { card?: number; chat?: number }
+  /** ใช้ไปแล้ววันนี้ + เพดาน ต่อฟีเจอร์ (สำหรับ badge "เหลือ N/limit วันนี้") */
+  quota?: { card?: { used: number; limit: number }; chat?: { used: number; limit: number } }
 }
 
 /** วันที่แบบ Asia/Bangkok (YYYY-MM-DD) จาก timestamp — engine ตัดรอบ daily ด้วยเขตเวลาเดียวกันนี้

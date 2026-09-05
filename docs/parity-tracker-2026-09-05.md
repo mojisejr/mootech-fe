@@ -70,8 +70,12 @@ Figma 55399:7219 = **read-only guide** (earn/spend เป็นลิสต์�
 - **my-plan upsell ฿318** (data-driven): PlanScreen ดึงยอดซื้อแพ็ก QI สำเร็จเดือนนี้จาก /api/v2/payment/status → "เดือนนี้จ่ายค่า QI ไป ฿N · Pro ฿199 ประหยัด ฿(N−199)" (มียอด) / generic (ไม่มี)
 - **referral friend list** (engine+FE): engine referral GET join redemptions→profiles → `friends:[{name,joinedAt,rewardQi}]`; FE ReferralHubScreen เพิ่ม section "เพื่อนที่ชวน" (avatar+ชื่อ+วันที่+ "+50 QI"). + join " และ ".
 
-## ✅ ครบทุก parity item (ยกเว้น product/infra decisions)
-- คงเหลือเป็น decision จริง: DataExport email = ตั้ง `RESEND_API_KEY`+`RESEND_FROM` (engine พร้อม); my-plan **per-feature quota badges** (เหลือ 1/2 ต่อสิทธิ์) = ต้อง entitlement quota รายฟีเจอร์จาก engine (ยังไม่มี endpoint) — flag; saved-reading empty = ยังไม่มีจอ bookmark ในขอบเขต
+## chunk 10 — 3 ก้อนใหญ่สุดท้าย
+- **(A) my-plan quota badges DONE** (data-driven): engine `quota.ts` เพิ่ม `usageToday()` + entitlements route คืน `quota:{card,chat:{used,limit}}` (จาก `baziFeatureQuota` + FREE_LIMIT ต่อ tier); FE PlanScreen โชว์ section "โควตาวันนี้" (เหลือ N/limit · ใช้ครบแล้ววันนี้ · เหลือ N ครั้งที่แลกไว้). tsc + endpoint verified (browser render ติด HMR stale — เชื่อ endpoint+tsc ตาม memory).
+- **(B) saved-reading empty = OUT OF SCOPE** — engine มี `bazi/saved-charts` แต่ **ไม่มีจอ FE bookmark** → ต้องสร้างจอใหม่ = ฟีเจอร์ใหม่ (ผู้ใช้จะทำแยก). ไม่สร้างในรอบ parity.
+- **(C) DataExport email = code DONE, รอ credential** — engine ส่งผ่าน Resend พร้อมแล้ว (chunk 8) เหลือแค่ตั้ง `RESEND_API_KEY`+`RESEND_FROM` (สร้าง account/key เองไม่ได้).
+
+## สรุป: parity เสร็จหมดเท่าที่ build ได้ — เหลือแค่ (B) จอใหม่ (ฟีเจอร์ใหม่) + (C) ใส่ Resend key
 - **qi-guide v2 layout** (55399:7219) — rebuild ใหญ่ + judgment (โค้ดมี interactive extras ตั้งใจ per comment)
 - **referral**: friend list (data-driven) + rules link (FE เล็ก)
 - **per-screen empty states**: qi-history / referral / saved-reading / filtered-orders

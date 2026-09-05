@@ -10,6 +10,7 @@ import { Menubar } from "@/features/v2-shell/components/Menubar"
 import { useV2User } from "@/features/auth/hooks/useV2User"
 import { SHOP_HREF } from "@/features/v2-shop/upgrade-cta"
 import { PLANS } from "@/features/v2-shop/packages"
+import type { Entitlements } from "@/features/v2-qi/qi-model"
 import { planFor, type Plan } from "../plan"
 
 const CARD = "v3-shadow-card flex w-full flex-col gap-3 rounded-[24px] bg-white p-5"
@@ -28,9 +29,11 @@ export function PlanScreen() {
   const [prices, setPrices] = useState<Record<string, number | null>>({})
   const [selected, setSelected] = useState<string>("pro")
   const [spentQiBaht, setSpentQiBaht] = useState(0) // ยอดจ่ายค่าแพ็ก QI เดือนนี้ (บาท) — สำหรับ upsell ตัวเลขจริง
+  const [ent, setEnt] = useState<Entitlements | null>(null) // สิทธิ์ + โควตาวันนี้ (badge เหลือ N/limit)
 
   useEffect(() => {
     let alive = true
+    fetch("/api/qi-entitlements").then((x) => (x.ok ? x.json() : null)).then((j) => { if (alive) setEnt(j) }).catch(() => {})
     Promise.all(
       UPGRADE.map(async (u) => {
         const r = await fetch(`/api/payment-package?code=${u.code}`).then((x) => (x.ok ? x.json() : null)).catch(() => null)
@@ -95,6 +98,29 @@ export function PlanScreen() {
             ) : null}
           </section>
         ) : null}
+
+        {/* โควตาวันนี้ — badge เหลือ N/limit ต่อฟีเจอร์ (data จริงจาก entitlements/quota) */}
+        {ent?.quota && (
+          <section className={CARD} data-testid="plan-quota">
+            <p className="text-[15px] font-bold text-v3-navy">โควตาวันนี้</p>
+            {([
+              { key: "card", label: "เปิดไพ่ / เสี่ยงทาย", q: ent.quota.card, credit: ent.credits?.card_use ?? 0 },
+              { key: "chat", label: "ถามเซียนมู AI", q: ent.quota.chat, credit: ent.credits?.chat_question ?? 0 },
+            ] as const).map(({ key, label, q, credit }) => {
+              if (!q) return null
+              const remaining = Math.max(0, q.limit - q.used)
+              const out = remaining === 0
+              return (
+                <div key={key} className="flex items-center justify-between gap-3" data-testid={`plan-quota-${key}`}>
+                  <span className="text-[13px] text-v3-text-body">{label}</span>
+                  <span className={`flex-none rounded-full px-2.5 py-[2px] text-[11px] font-black ${out && credit === 0 ? "bg-[#FDECEC] text-[#A83238]" : "bg-[#E3F8D1] text-[#3F8F52]"}`}>
+                    {out && credit === 0 ? "ใช้ครบแล้ววันนี้" : out ? `เหลือ ${credit} ครั้ง (ที่แลกไว้)` : `เหลือ ${remaining}/${q.limit} วันนี้`}
+                  </span>
+                </div>
+              )
+            })}
+          </section>
+        )}
 
         {/* แบนเนอร์ upsell (โชว์เมื่อยังไม่ Pro) — ตัวเลขจริงจากยอดซื้อ QI เดือนนี้ถ้ามี */}
         {!isPaid && (
