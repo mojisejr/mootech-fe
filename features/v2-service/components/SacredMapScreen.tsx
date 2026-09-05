@@ -49,10 +49,18 @@ const CHECKIN_KEY = "mumate-sacred-checkin"
 const SAVED_KEY = "mumate-sacred-saved"
 const CARD = "v3-shadow-card w-full rounded-[24px] bg-white p-4"
 
+// พิกัดที่ใช้ปักหมุดได้จริง — ต้องอยู่ในกรอบประเทศไทย (กัน seed เสีย เช่น 0,0 ไปโผล่แอฟริกา)
+function isValidCoord(lat: number, lng: number): boolean {
+  return Number.isFinite(lat) && Number.isFinite(lng) && lat >= 5.5 && lat <= 21 && lng >= 97 && lng <= 106
+}
+
 function mapsLink(loc: SacredLocation): string {
   if (loc.googleMapUrl && loc.googleMapUrl.trim()) return loc.googleMapUrl.trim()
-  const q = encodeURIComponent(`${loc.name ?? ""} ${loc.lat},${loc.lng}`.trim())
-  return `https://www.google.com/maps/search/?api=1&query=${q}`
+  // พิกัดเสีย → ค้นด้วยชื่อ+จังหวัด แทน (ไม่ยิง 0,0)
+  const q = isValidCoord(loc.lat, loc.lng)
+    ? `${loc.name ?? ""} ${loc.lat},${loc.lng}`.trim()
+    : [loc.name, loc.province].filter(Boolean).join(" ")
+  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(q)}`
 }
 /** รูป: เสิร์ฟจาก engine (base64) ถ้ามี ไม่งั้น fallback imageUrl เดิม (supabase) */
 function imageSrc(loc: SacredLocation): string | null {
@@ -94,7 +102,7 @@ export function SacredMapScreen() {
   const visible = useMemo(() => (onlySaved ? locations.filter((l) => saved.has(l.id)) : locations), [locations, onlySaved, saved])
   const pins = useMemo(
     () => visible
-      .filter((l) => Number.isFinite(l.lat) && Number.isFinite(l.lng))
+      .filter((l) => isValidCoord(l.lat, l.lng))
       .map((l) => ({ id: l.id, name: l.name, deity: l.deity, lat: l.lat, lng: l.lng, element: l.element })),
     [visible],
   )
