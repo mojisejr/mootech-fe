@@ -84,6 +84,11 @@ Figma 55399:7219 = **read-only guide** (earn/spend เป็นลิสต์�
 - 🔴 **DataExport async-email** (BE — architecture gap จริง: ต้อง export-request + email pipeline)
 - **data-driven**: my-plan quota badges + "฿318 upsell" (AccountScreen upsell ก็ใช้ตัวนี้), order masked card ••••4242
 
+## chunk 11 — 2 เฟรม edit ปิดจ็อบ (2026-09-05, commit `0c7504f`)
+- **edit-birth (55399:5934):** native date/time → **row ค่าไทย** (เดือนเต็ม+พ.ศ. "20 มีนาคม 2535" / "08:30 น.") มี chevron + native `<input type=date/time>` โปร่งใสทับ (คง testid `eb-date`/`eb-time` + native picker ของ OS); **จังหวัด** free-text → **dropdown 77 จังหวัด** (`lib/th/provinces.ts`); ปุ่ม "ยืนยันแก้…" → **"บันทึกการเปลี่ยนแปลง"** + **dirty-gate** (disabled จนแก้) + footer note "อัปเดตใช้งานได้เมื่อมีการแก้ไข"; helper เวลาเกิดตาม Figma. helper: `lib/th/thai-date.ts` (`thaiDateFull`/`thaiTimeLabel`).
+- **edit-profile (55399:6052):** เพศ 3 ปุ่ม → **dropdown** + helper "ใช้ประกอบคำทำนาย". (avatar upload / displayName edit ยังเป็น BE-blocked flag เดิม)
+- เทสต์ 2 ไฟล์อัปเดตตาม contract ใหม่ (dirty-gate ต้องแก้ก่อน save, dropdown เพศ/จังหวัด) — 7 เขียว · tsc ✅ · **verify live ทั้ง 2 จอ** (edit-birth pink 100 QI + row ไทย + dropdown เชียงใหม่→ปุ่ม enable; edit-profile เพศ dropdown "หญิง"). **กอง A/B parity = ปิดครบทุกเฟรม FE-fixable แล้ว** (เหลือแต่ BE-blocked flags + saved-reading จอใหม่ + Resend key).
+
 ## รายเฟรม (สรุปจาก sweep)
 
 **M / ตรงแล้ว:** #1 account · connected · order-history · consent(5-purpose) · notifications(เหลือ copy จิ๋ว) · settings index · referral hub (50/30 QI ยืนยันถูก)
