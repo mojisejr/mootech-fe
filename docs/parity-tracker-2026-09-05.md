@@ -64,9 +64,14 @@ Figma 55399:7219 = **read-only guide** (earn/spend เป็นลิสต์�
 - **qi-guide → converted to Figma read-only guide** (55399:7219): earn list = informational (ไม่มีปุ่ม "รับ" — รับจริงที่เช็คอิน/ภารกิจ); spend list = แตะเพื่อ redeem ได้ (คงฟีเจอร์ — เป็นทางเดียว redeem catalog นอกจาก birth-edit) แสดง "−N QI" แดง; balance card เรียบ+chevron; drop XP/Level/Growth-Loop/Qi-Token card/referral-code card; referral = ลิงก์ไป hub; footer CTA = เช็คอิน/ภารกิจ. **qi-screen.test เขียนใหม่ทั้งไฟล์ (7 เขียว)** ตาม guide contract. (browser verify ติด HMR/pane flakiness — เชื่อเทสต์ตาม memory)
 - **DataExport email delivery WIRED** (engine): `src/lib/account/data-export-email.ts` — Resend REST via fetch (ไม่ลง dep) + CSV builder; route POST refactor (แยก `collectExport()`) → พยายามส่งอีเมลทันที: สำเร็จ→status=emailed+deliveredAt+emailPipelineReady:true; ไม่มี `RESEND_API_KEY`→collecting+deliveryNote:"no_provider" (honest, ไม่อ้างว่าส่ง). FE status card สะท้อนจริง (emailed→"ส่งแล้ว" · collecting→"กำลังรวบรวม"). ทดสอบ endpoint จริง: no_provider ✓. **เหลือแค่ตั้ง env `RESEND_API_KEY`+`RESEND_FROM` = ส่งจริงได้ทันที.**
 
-## ยังเหลือ (polish / data-driven)
-- invite landing redesign เต็ม (logo/hero/3-feature/badge — copy บั๊กแก้แล้ว) · per-screen empty states (qi-history/referral/saved/filtered)
-- referral friend list (data-driven) · my-plan quota badges + "฿318 upsell" (data-driven)
+## chunk 9 — งานที่เหลือ DONE
+- **invite landing redesign** (55399:5838): logo + hero (referral/hero.png) + การ์ด sapphire "รับ 30 QI ฟรี" + code chip + badge "พร้อมใช้" + "Mumate ทำอะไรได้บ้าง" 3-feature + "สมัครด้วย LINE รับ 30 QI" (line-icon) + login link + footer note. คง dead/unknown/loading states + testids. เทสต์อัปเดต (assert "รับ 30 QI" แทนรางวัลผู้ชวน).
+- **qi-history empty** เพิ่มไอคอน + CTA "เช็คอินรับ +5 QI" (→/v2/qi/checkin)
+- **my-plan upsell ฿318** (data-driven): PlanScreen ดึงยอดซื้อแพ็ก QI สำเร็จเดือนนี้จาก /api/v2/payment/status → "เดือนนี้จ่ายค่า QI ไป ฿N · Pro ฿199 ประหยัด ฿(N−199)" (มียอด) / generic (ไม่มี)
+- **referral friend list** (engine+FE): engine referral GET join redemptions→profiles → `friends:[{name,joinedAt,rewardQi}]`; FE ReferralHubScreen เพิ่ม section "เพื่อนที่ชวน" (avatar+ชื่อ+วันที่+ "+50 QI"). + join " และ ".
+
+## ✅ ครบทุก parity item (ยกเว้น product/infra decisions)
+- คงเหลือเป็น decision จริง: DataExport email = ตั้ง `RESEND_API_KEY`+`RESEND_FROM` (engine พร้อม); my-plan **per-feature quota badges** (เหลือ 1/2 ต่อสิทธิ์) = ต้อง entitlement quota รายฟีเจอร์จาก engine (ยังไม่มี endpoint) — flag; saved-reading empty = ยังไม่มีจอ bookmark ในขอบเขต
 - **qi-guide v2 layout** (55399:7219) — rebuild ใหญ่ + judgment (โค้ดมี interactive extras ตั้งใจ per comment)
 - **referral**: friend list (data-driven) + rules link (FE เล็ก)
 - **per-screen empty states**: qi-history / referral / saved-reading / filtered-orders

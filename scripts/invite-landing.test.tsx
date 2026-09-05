@@ -39,11 +39,12 @@ beforeEach(() => {
 afterEach(() => cleanup())
 
 describe('หน้าคำเชิญ (invite-landing)', () => {
-  it('โค้ดใช้ได้ → landing โชว์ชื่อผู้ชวน + โค้ด + โบนัสคู่', async () => {
+  it('โค้ดใช้ได้ → landing โชว์ชื่อผู้ชวน + โค้ด + รับ 30 QI ฟรี', async () => {
     render(<InvitePage />)
     await waitFor(() => expect(screen.getByTestId('invite-title').textContent).toContain('somsri_m'))
     expect(screen.getByTestId('invite-code').textContent).toBe('MUMATE725')
-    expect(screen.getByText(/เพื่อนที่ชวนคุณได้รับ \+50 QI/)).toBeTruthy()
+    // ผู้เปิดลิงก์เห็นรางวัลของตัวเอง (+30 QI) — ไม่ใช่รางวัลผู้ชวน
+    expect(screen.getByTestId('invite-title').textContent).toContain('30 QI')
   })
 
   it('I1 กดยอมรับ → เก็บโค้ดลง localStorage แล้วพาไป /v2/register?ref=', async () => {

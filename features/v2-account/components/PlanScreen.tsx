@@ -20,10 +20,14 @@ const UPGRADE = [
   { id: "pro", name: "Mumate Pro", tagline: "สำหรับสายมูตัวจริง ปลดล็อกทุกฟีเจอร์", code: "V2_PRO_YEARLY", badge: "แนะนำ 🔥", badgeTone: "bg-v3-error" },
 ] as const
 
+const PRO_MONTHLY = 199 // ราคาอ้างอิง Pro/เดือน (เฟรม my-plan upsell "฿318 · ประหยัด ฿119")
+const bkkMonthKey = (iso: string) => new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Bangkok", year: "numeric", month: "2-digit" }).format(new Date(iso))
+
 export function PlanScreen() {
   const { user, done, errored } = useV2User()
   const [prices, setPrices] = useState<Record<string, number | null>>({})
   const [selected, setSelected] = useState<string>("pro")
+  const [spentQiBaht, setSpentQiBaht] = useState(0) // ยอดจ่ายค่าแพ็ก QI เดือนนี้ (บาท) — สำหรับ upsell ตัวเลขจริง
 
   useEffect(() => {
     let alive = true
@@ -34,6 +38,19 @@ export function PlanScreen() {
         return [u.id, r?.is_active && amount ? amount : null] as const
       }),
     ).then((pairs) => { if (alive) setPrices(Object.fromEntries(pairs)) })
+    // ยอดซื้อแพ็ก QI (สำเร็จ) เดือนนี้ → upsell "เดือนนี้จ่ายค่า QI ไป ฿N"
+    fetch("/api/v2/payment/status")
+      .then((x) => (x.ok ? x.json() : null))
+      .then((j) => {
+        if (!alive) return
+        const rows: Array<{ tierCode?: string; status?: string; amountSatang?: number; createdAt?: string }> = Array.isArray(j?.payments) ? j.payments : []
+        const nowKey = bkkMonthKey(new Date().toISOString())
+        const sat = rows
+          .filter((r) => r.tierCode === "QI" && r.status === "APPROVED" && r.createdAt && bkkMonthKey(r.createdAt) === nowKey)
+          .reduce((s, r) => s + (r.amountSatang ?? 0), 0)
+        setSpentQiBaht(Math.round(sat / 100))
+      })
+      .catch(() => {})
     return () => { alive = false }
   }, [])
 
@@ -79,11 +96,20 @@ export function PlanScreen() {
           </section>
         ) : null}
 
-        {/* แบนเนอร์ upsell (โชว์เมื่อยังไม่ Pro) */}
+        {/* แบนเนอร์ upsell (โชว์เมื่อยังไม่ Pro) — ตัวเลขจริงจากยอดซื้อ QI เดือนนี้ถ้ามี */}
         {!isPaid && (
           <div className="rounded-[20px] bg-[#EAF3FF] px-4 py-4 text-v3-sapphire" data-testid="plan-upsell">
-            <p className="text-[14px] font-black">อยากใช้ไม่จำกัด?</p>
-            <p className="mt-1 text-[12px] leading-4">Mumate Pro ฿199 ใช้ดวง/แชท/ปฏิทินได้ไม่จำกัด ประหยัดกว่าเติม QI ทีละแพ็กเมื่อใช้บ่อย</p>
+            {spentQiBaht > PRO_MONTHLY ? (
+              <>
+                <p className="text-[14px] font-black">เดือนนี้คุณจ่ายค่า QI ไปแล้ว ฿{spentQiBaht.toLocaleString("th-TH")}</p>
+                <p className="mt-1 text-[12px] leading-4">Mumate Pro ฿{PRO_MONTHLY}/เดือน ใช้ดวง/แชท/ปฏิทินได้ไม่จำกัด — ประหยัดกว่าเดือนละ ฿{(spentQiBaht - PRO_MONTHLY).toLocaleString("th-TH")}</p>
+              </>
+            ) : (
+              <>
+                <p className="text-[14px] font-black">อยากใช้ไม่จำกัด?</p>
+                <p className="mt-1 text-[12px] leading-4">Mumate Pro ฿{PRO_MONTHLY}/เดือน ใช้ดวง/แชท/ปฏิทินได้ไม่จำกัด ประหยัดกว่าเติม QI ทีละแพ็กเมื่อใช้บ่อย</p>
+              </>
+            )}
           </div>
         )}
 

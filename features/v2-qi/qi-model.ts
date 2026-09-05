@@ -26,12 +26,14 @@ export type Wallet = {
   history?: WalletHistoryRow[]
 }
 
+export type ReferralFriend = { name: string; joinedAt?: string | null; rewardQi?: number }
 export type Referral = {
   anonId?: string
   code?: string
   inviteUrl?: string
   invitedCount?: number
   rewardPerInvite?: number
+  friends?: ReferralFriend[]
 }
 
 export type MissionCategory = "daily" | "once" | "longterm"
