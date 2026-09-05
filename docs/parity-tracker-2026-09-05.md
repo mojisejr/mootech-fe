@@ -50,11 +50,21 @@ tsc ✅ · result/catalog tests เขียว (58 เคส)
 
 tsc ✅ · settings-privacy tests อัปเดต+เขียว · engine POST/status ทดสอบจริงผ่าน (:3002) · browser ✅
 
-## ยังเหลือ (ทำต่อ)
-- **qi-guide v2 layout** (55399:7219) — rebuild + judgment (interactive extras ตั้งใจ)
-- referral rules link + friend list (data-driven) · invite landing redesign · per-screen empty states · missions micro-copy
-- data-driven: my-plan quota badges + "฿318 upsell"
-- 🔴 flag: DataExport email delivery จริง = รอเลือก email provider + credentials (engine พร้อมรับแล้ว)
+| **chunk 7 — qi-guide + micro-copy** | | |
+| qi-guide | QiScreen | hero copy → Figma ("คู่มือสะสมและใช้พลังชี่" + subtitle) · comparison "ทางไหนคุ้มกับคุณ" → stacked list + badge "คุ้มสุด" |
+| missions/account | MissionsScreen, AccountScreen | "ยังขาด" join " " → " และ " |
+
+### ⚠️ qi-guide = deliberate divergence (flag ผู้ใช้/ฟีม)
+Figma 55399:7219 = **read-only guide** (earn/spend เป็นลิสต์ไม่มีปุ่ม, ไม่มี Growth Loop/referral/activity).
+โค้ด QiScreen = **interactive hub** (earn "รับ"/spend redeem/referral/checkin) — **มีคอมเมนต์กำกับ + qi-screen.test ล็อกไว้ ~10 assertion**
+(`getAllByRole('button',{name:'รับ'}).length===3`, redeem sheets, referral code). การแปลงเป็น guide เต็ม = ลบฟีเจอร์
+ที่ทำงาน + พังเทสต์ → **เป็น product decision (ฟีม) ไม่ใช่ parity bug**. รอบนี้ทำแค่ alignment ที่ปลอดภัย.
+
+## ยังเหลือ (polish / decision)
+- qi-guide → guide เต็ม = รอ ฟีม เคาะ (deliberate divergence ข้างบน)
+- invite landing redesign เต็ม (logo/hero/3-feature/badge — copy บั๊กแก้แล้ว) · per-screen empty states (qi-history/referral/saved/filtered)
+- referral friend list (data-driven) · my-plan quota badges + "฿318 upsell" (data-driven)
+- 🔴 DataExport email delivery จริง = รอเลือก email provider + credentials (engine พร้อมรับคำขอแล้ว)
 - **qi-guide v2 layout** (55399:7219) — rebuild ใหญ่ + judgment (โค้ดมี interactive extras ตั้งใจ per comment)
 - **referral**: friend list (data-driven) + rules link (FE เล็ก)
 - **per-screen empty states**: qi-history / referral / saved-reading / filtered-orders

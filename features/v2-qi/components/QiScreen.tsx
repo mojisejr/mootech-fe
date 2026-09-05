@@ -50,9 +50,9 @@ const spendThumb = (code: string) => `/images/v2/qi/${SPEND_THUMB[code] ?? "burn
 const SPEND_BAHT: Record<string, number> = { course_destiny: 499, book_lifecode: 1890, plus_month: 790 }
 
 const COMPARE = [
-  { key: "free", title: "ฟรี", price: "0 บาท", desc: "สะสม QI จากกิจกรรม", highlight: false },
-  { key: "once", title: "ซื้อเป็นครั้ง", price: "เริ่ม ฿35", desc: "เติม QI ตามต้องการ", highlight: false },
-  { key: "pro", title: "Mumate Pro", price: "฿199/เดือน", desc: "ปลดล็อกไม่จำกัด", highlight: true },
+  { key: "free", title: "สะสมฟรีอย่างเดียว", price: "0 บาท", desc: "เช็คอิน ทำภารกิจ ชวนเพื่อน — ค่อย ๆ สะสม", highlight: false },
+  { key: "once", title: "ซื้อ QI เป็นแพ็ก", price: "เริ่ม ฿35", desc: "เติมเมื่ออยากใช้ทันที ไม่ผูกมัดรายเดือน", highlight: false },
+  { key: "pro", title: "Mumate Pro", price: "฿199 / เดือน", desc: "ถ้าถามเซียนมูเกิน 20 ครั้ง/เดือน คุ้มกว่าซื้อ QI", highlight: true },
 ]
 
 // วงจรความมั่งคั่ง (Growth Loop) — 6 ขั้นวางเป็นหกเหลี่ยมรอบมาสคอตกลาง (พิกัดในกล่อง 300px)
@@ -213,11 +213,12 @@ export function QiScreen() {
 
       {!loading && !guard && (
         <div className="mt-2 flex flex-col gap-5">
-          {/* hero: orb 氣 + เหรียญลอย + หัวข้อแบรนด์ */}
+          {/* hero: orb 氣 + เหรียญลอย + หัวข้อแบรนด์ (เฟรม qi-guide v2) */}
           <section className="flex flex-col items-center gap-3 pt-1 text-center">
-            <h2 className="text-[26px] font-black leading-9 text-v3-navy">
-              คู่มือสะสม &amp; ใช้<br />พลังชี่เปลี่ยนชีวิต
-            </h2>
+            <h2 className="text-[26px] font-black leading-9 text-v3-navy">คู่มือสะสมและใช้พลังชี่</h2>
+            <p className="max-w-xs text-[13px] leading-5 text-v3-text-body">
+              QI คือแต้มสะสมจากกิจกรรมดี ๆ ใช้ปลดล็อกฟีเจอร์ดูดวงและของรางวัลต่าง ๆ ในแอป
+            </p>
             <div className="relative size-[180px]">
               <CoinBadge style={{ left: 8, top: 20, width: 24, height: 24, fontSize: 12, borderRadius: 12 }} />
               <CoinBadge style={{ right: 4, top: 44, width: 28, height: 28, fontSize: 14, borderRadius: 14 }} />
@@ -418,21 +419,26 @@ export function QiScreen() {
             <p className="text-center text-[13px] leading-5 text-v3-text-muted">หมุนเวียนพลังงานบวกไม่สิ้นสุด ยิ่งแชร์ ยิ่งส่งเสริมซึ่งกันและกัน</p>
           </SectionCard>
 
-          {/* ทางไหนคุ้มกับคุณ */}
+          {/* ทางไหนคุ้มกับคุณ — ลิสต์แนวตั้ง + badge "คุ้มสุด" ที่ Pro (เฟรม compare) */}
           <SectionCard className="!rounded-[20px]" testId="qi-compare">
             <h2 className="text-[18px] font-bold text-v3-navy">ทางไหนคุ้มกับคุณ</h2>
-            <div className="mt-3 grid grid-cols-3 gap-2">
+            <div className="mt-3 flex flex-col gap-2">
               {COMPARE.map((c) => (
                 <div
                   key={c.key}
                   className={
-                    "flex flex-col items-center gap-1 rounded-[16px] px-2 py-3 text-center " +
+                    "relative flex items-center gap-3 rounded-[16px] px-4 py-3 " +
                     (c.highlight ? "bg-v3-navy text-white" : "border border-v3-border-card bg-white")
                   }
                 >
-                  <p className={"text-[12px] font-black " + (c.highlight ? "text-white" : "text-v3-navy")}>{c.title}</p>
-                  <p className={"text-[13px] font-black " + (c.highlight ? "text-v3-lime" : "text-v3-navy")}>{c.price}</p>
-                  <p className={"text-[10px] leading-3 " + (c.highlight ? "text-white/80" : "text-v3-text-muted")}>{c.desc}</p>
+                  <div className="min-w-0 flex-1">
+                    <p className={"flex items-center gap-2 text-[14px] font-black " + (c.highlight ? "text-white" : "text-v3-navy")}>
+                      {c.title}
+                      {c.highlight ? <span className="rounded-full bg-v3-lime px-2 py-[1px] text-[10px] font-black text-v3-navy">คุ้มสุด</span> : null}
+                    </p>
+                    <p className={"mt-0.5 text-[11px] leading-4 " + (c.highlight ? "text-white/80" : "text-v3-text-muted")}>{c.desc}</p>
+                  </div>
+                  <p className={"flex-none text-[15px] font-black " + (c.highlight ? "text-v3-lime" : "text-v3-navy")}>{c.price}</p>
                 </div>
               ))}
             </div>

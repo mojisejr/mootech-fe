@@ -311,7 +311,7 @@ export function MissionsScreen() {
                     <p className="text-[10px] text-v3-text-muted">
                       เก็บได้ {goals.element.collected} จาก {goals.element.target} ธาตุ
                       {goals.element.collected < goals.element.target
-                        ? ` · ยังขาด${goals.element.elements.filter((e) => !e.collected).map((e) => ELEMENT_META[e.key]?.label ?? e.key).join(" ")}`
+                        ? ` · ยังขาด${goals.element.elements.filter((e) => !e.collected).map((e) => ELEMENT_META[e.key]?.label ?? e.key).join(" และ ")}`
                         : " · ครบแล้ว รับโบนัสอัตโนมัติ"}
                     </p>
                   </div>

@@ -286,7 +286,7 @@ export function AccountScreen() {
                 {friends > 0 ? (
                   <>
                     <p className="text-[14px] font-medium text-v3-navy">เพื่อนของคุณ {friends} คน</p>
-                    <p className="text-[12px] leading-[18px] text-v3-text-body">เก็บครบ 5 ธาตุรับ 1,000 QI{missingElements.length ? ` · ยังขาด${missingElements.join(" ")}` : ""}</p>
+                    <p className="text-[12px] leading-[18px] text-v3-text-body">เก็บครบ 5 ธาตุรับ 1,000 QI{missingElements.length ? ` · ยังขาด${missingElements.join(" และ ")}` : ""}</p>
                   </>
                 ) : (
                   <>
