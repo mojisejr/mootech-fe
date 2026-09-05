@@ -16,7 +16,7 @@ export default function OracleCardsPage() {
     <CardReadingScreen
       mode="oracle"
       title="เสี่ยงไพ่ออราเคิลเคี้ยงคุง"
-      intro="ตั้งจิตอธิษฐานถึงสิ่งที่อยากรู้ แล้วเลือกไพ่ 3 ใบ (หรือให้สุ่มก็ได้) เพื่อรับคำทำนายจากไพ่ออราเคิลเคี้ยงคุง"
+      resultTitle="ผลไพ่ออราเคิล"
       introArt="/images/v2/features/04_เสี่ยงไพ่ออราเคิลเคี้ยงคุง.png"
       endpoint="/api/fortune/oracle"
       deckCount={120}

@@ -16,7 +16,7 @@ export default function DivineCardsPage() {
     <CardReadingScreen
       mode="divine"
       title="เสี่ยงไพ่จิตวิญญาณแดนสวรรค์"
-      intro="ตั้งจิตให้สงบ เชื่อมกับจิตวิญญาณแดนสวรรค์ แล้วเลือกไพ่ 3 ใบ (หรือให้สุ่มก็ได้) เพื่อรับคำทำนาย"
+      resultTitle="ผลไพ่จิตวิญญาณ"
       introArt="/images/v2/features/05_เสี่ยงไพ่จิตวิญญาณแดนสวรรค์.png"
       endpoint="/api/fortune/divine"
       deckCount={80}
