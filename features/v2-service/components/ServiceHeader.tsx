@@ -12,13 +12,14 @@
 import { AppHeader } from '@/features/v2-shell/components/AppHeader'
 import type { MembershipLike } from '@/features/v2-shell/header-badge'
 
-export function ServiceHeader({ onAvatar, membership }: { onAvatar: () => void; membership: MembershipLike }) {
+// avatar ไม่ส่ง onAvatar แล้ว → AppHeader ให้ default พาไป /v2/account (โปรไฟล์) เหมือนทุกหน้า
+// (เดิม service เปิดเมนูออกจากระบบ ซึ่งไม่สอดคล้อง — logout อยู่ที่ /v2/settings)
+export function ServiceHeader({ membership }: { membership: MembershipLike }) {
   return (
     <AppHeader
       testId="service-header"
       title="บริการทั้งหมด"
       membership={membership}
-      onAvatar={onAvatar}
       className="items-center py-4"
     />
   )
