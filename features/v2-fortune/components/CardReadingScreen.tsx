@@ -137,7 +137,7 @@ export function CardReadingScreen({
           <div className="relative flex items-end justify-center gap-2">
             <span aria-hidden className="pointer-events-none absolute left-1/2 top-1/2 -z-10 size-44 -translate-x-1/2 -translate-y-1/2 rounded-full bg-v3-lime/30 blur-2xl animate-fortune-glow" />
             {[0, 1, 2].map((i) => (
-              <span key={i} className={"v3-float relative aspect-[3/4] w-16 overflow-hidden rounded-[12px] shadow-md " + (i === 1 ? "-mb-2 scale-110" : "")} style={{ animationDelay: `${i * 0.18}s` }}>
+              <span key={i} className={"animate-fortune-breathe relative aspect-[3/4] w-16 overflow-hidden rounded-[12px] shadow-md " + (i === 1 ? "-mb-2 scale-110" : "")} style={{ animationDelay: `${i * 0.18}s` }}>
                 <Image src={theme.back} alt="" fill sizes="64px" className="object-cover" />
               </span>
             ))}
@@ -154,17 +154,18 @@ export function CardReadingScreen({
             <p className="text-[15px] font-black text-v3-navy">ตั้งจิตให้เป็นสมาธิ 1 นาที</p>
             <p className="text-[13px] leading-5 text-v3-text-body">ขอตั้งจิตอธิษฐานถามคำถามที่อยากได้คำตอบ</p>
           </div>
-          <section className="v3-shadow-card flex flex-col items-center gap-4 rounded-[24px] bg-white p-5">
-            <span className="v3-float relative aspect-[350/504] w-full max-w-[260px]">
-              <Image src={introArt} alt="" fill sizes="260px" className="object-contain drop-shadow-lg" />
+          {/* การ์ด deck เต็มใบ + ปุ่มทับขอบล่าง (ตาม Figma) */}
+          <div className="relative mx-auto w-full max-w-[300px] pb-3">
+            <span className="relative block aspect-[350/504] w-full">
+              <Image src={introArt} alt="" fill sizes="300px" className="object-contain drop-shadow-[0_8px_24px_rgba(26,38,77,0.25)]" priority />
             </span>
-            {quotaOut && <p className="text-center text-[12px] font-bold text-[#8A5A0C]" data-testid="cards-quota">โควตาเปิดไพ่วันนี้หมด — แลก 10 QI ที่หน้าพลังชี่</p>}
-            {error && <p data-testid="cards-error" className="text-center text-[12px] font-bold text-v3-error">{error}</p>}
-            <div className="flex w-full gap-2">
-              <button onClick={() => void predict()} data-testid="cards-random" className="grid h-12 flex-1 place-items-center rounded-full border border-v3-sapphire bg-white text-[14px] font-bold text-v3-sapphire">กดเพื่อเสี่ยงโพ</button>
-              <KitButton onClick={() => setPhase("pick")} testId="cards-goto-pick" className="flex-1">เลือกเอง 3 ใบ</KitButton>
+            <div className="absolute inset-x-3 bottom-1 flex gap-2">
+              <button onClick={() => void predict()} data-testid="cards-random" className="grid h-11 flex-1 place-items-center rounded-full bg-white text-[13px] font-bold text-v3-sapphire shadow-md">กดเพื่อเสี่ยงโพ</button>
+              <KitButton onClick={() => setPhase("pick")} testId="cards-goto-pick" className="flex-1 !h-11 shadow-md">เลือกเอง 3 ใบ</KitButton>
             </div>
-          </section>
+          </div>
+          {quotaOut && <p className="text-center text-[12px] font-bold text-[#8A5A0C]" data-testid="cards-quota">โควตาเปิดไพ่วันนี้หมด — แลก 10 QI ที่หน้าพลังชี่</p>}
+          {error && <p data-testid="cards-error" className="text-center text-[12px] font-bold text-v3-error">{error}</p>}
           {quotaOut && <Link href="/v2/qi" className="text-center text-[13px] font-bold text-v3-sapphire">เติม/แลก QI ที่หน้าพลังชี่ →</Link>}
           <p className="text-center text-[11px] text-v3-text-muted">ใช้โควตาเปิดการ์ดวันละ 1 ครั้ง (ฟรี) — เกินแล้วแลกด้วย QI</p>
         </div>
@@ -215,7 +216,7 @@ export function CardReadingScreen({
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img src={`/images/v2/fortune/faces/${mode}/${c.no}.jpg`} alt={c.name} loading="lazy" className="absolute inset-0 z-10 size-full object-cover" onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none" }} />
                 </span>
-                {weightByNo.has(c.no) ? <span className="rounded-full bg-[#EAF3FF] px-2 py-[1px] text-[10px] font-black text-v3-sapphire">น้ำหนัก {weightByNo.get(c.no)}%</span> : null}
+                {weightByNo.has(c.no) ? <span className="rounded-full bg-[#FCE9F0] px-2 py-[1px] text-[10px] font-black text-[#B0568A]">น้ำหนัก {weightByNo.get(c.no)}%</span> : null}
                 <p className="text-center text-[10px] font-bold leading-tight text-v3-navy">#{c.no} {c.name}</p>
                 <p className="text-center text-[9px] leading-tight text-v3-text-muted">{c.keyword}</p>
               </div>
@@ -233,9 +234,13 @@ export function CardReadingScreen({
           {cards.map((c, i) => (
             <section key={c.no} className="v3-shadow-card flex flex-col gap-2 rounded-[24px] bg-white p-5">
               <div className="flex flex-wrap items-center gap-2">
-                <span className="relative size-8 flex-none overflow-hidden rounded-[8px]"><Image src={theme.back} alt="" fill sizes="32px" className="object-cover" /></span>
+                {/* ไอคอนเล็ก = รูปหน้าไพ่ (เหมือนด้านบน) แบบไม่ตัด */}
+                <span className="relative size-9 flex-none overflow-hidden rounded-[8px] bg-v3-ghost-white">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={`/images/v2/fortune/faces/${mode}/${c.no}.jpg`} alt="" loading="lazy" className="absolute inset-0 size-full object-contain" onError={(e) => { (e.currentTarget as HTMLImageElement).style.visibility = "hidden" }} />
+                </span>
                 <p className="text-[14px] font-black text-v3-navy">#{c.no} {c.name} · {c.keyword}</p>
-                {weightByNo.has(c.no) ? <span className="rounded-full bg-[#EAF3FF] px-2 py-[1px] text-[10px] font-black text-v3-sapphire">น้ำหนัก {weightByNo.get(c.no)}%</span> : null}
+                {weightByNo.has(c.no) ? <span className="rounded-full bg-[#FCE9F0] px-2 py-[1px] text-[10px] font-black text-[#B0568A]">น้ำหนัก {weightByNo.get(c.no)}%</span> : null}
               </div>
               <p className="text-[13px] leading-[22px] text-v3-text-body">{proseParas[i] || c.book1 || c.meaning}</p>
             </section>

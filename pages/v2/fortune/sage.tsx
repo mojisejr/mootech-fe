@@ -102,7 +102,7 @@ export default function FortuneSagePage() {
           {/* effect ตอนรอ: แสงเรืองเต้น + รูปลอย */}
           <div className="relative grid size-56 place-items-center">
             <span aria-hidden className="absolute size-40 rounded-full bg-v3-lime/40 blur-2xl animate-fortune-glow" />
-            <span className="v3-float relative size-52"><Image src="/images/v2/fortune/sage-loading.png" alt="" fill sizes="208px" className="object-contain" /></span>
+            <span className="animate-fortune-breathe relative size-52"><Image src="/images/v2/fortune/sage-loading.png" alt="" fill sizes="208px" className="object-contain" /></span>
           </div>
           <p className="text-[18px] font-black text-v3-navy">กำลังสุ่มเซียมซีให้คุณ</p>
           <p className="max-w-xs text-[13px] leading-5 text-v3-text-body">มาร่วมสร้างบันทึกทางใจ และค้นพบความสงบไปกับพวกเรา</p>
@@ -118,7 +118,7 @@ export default function FortuneSagePage() {
           </div>
           {/* การ์ดภาพเซียมซี (รูปหน้าแรก) + ปุ่มเสี่ยงโพ */}
           <section className="v3-shadow-card flex flex-col items-center gap-3 rounded-[24px] bg-white p-5">
-            <span className="v3-float relative h-48 w-full max-w-[300px]">
+            <span className="relative h-48 w-full max-w-[300px]">
               <Image src="/images/v2/fortune/sage-cup.png" alt="" fill sizes="300px" className="object-contain" />
             </span>
             <p className="text-center text-[12px] text-v3-text-muted">ตั้งจิตให้นิ่ง แล้วกดเสี่ยงโพเพื่อรับคำทำนาย</p>
@@ -135,7 +135,7 @@ export default function FortuneSagePage() {
         <div className="mt-3 flex flex-col gap-3" data-testid="sage-result">
           {/* ภาพผล — รูปหน้าแรก (base) + รูปหัวเซี่ยงแซจริงทับถ้าโหลดได้ */}
           <span className="relative grid h-52 w-full place-items-center overflow-hidden rounded-[24px] bg-[#F3F4FB]">
-            <span className="v3-float relative z-0 h-48 w-64"><Image src="/images/v2/fortune/sage-cup.png" alt="" fill sizes="256px" className="object-contain" /></span>
+            <span className="relative z-0 h-48 w-64"><Image src="/images/v2/fortune/sage-cup.png" alt="" fill sizes="256px" className="object-contain" /></span>
             {stick.imageUrl
               ? // eslint-disable-next-line @next/next/no-img-element
                 <img src={stick.imageUrl} alt="" className="absolute inset-0 z-10 size-full object-cover" />

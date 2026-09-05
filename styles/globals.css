@@ -144,13 +144,20 @@
   100% { transform: translateX(230%); }
 }
 .animate-fortune-shimmer { animation: fortune-shimmer 1.25s ease-in-out infinite; }
+/* breathe = ย่อ/ขยายเบา ๆ (ไม่ลอยขึ้นลงเหมือน mascot) สำหรับ subject ตอนรอ */
+@keyframes fortune-breathe {
+  0%, 100% { transform: scale(1); }
+  50%      { transform: scale(1.06); }
+}
+.animate-fortune-breathe { animation: fortune-breathe 2s ease-in-out infinite; will-change: transform; }
 
 @media (prefers-reduced-motion: reduce) {
   .v3-float,
   .v3-float-wide,
   .compat-sprite,
   .animate-fortune-glow,
-  .animate-fortune-shimmer { animation: none; }
+  .animate-fortune-shimmer,
+  .animate-fortune-breathe { animation: none; }
 }
 
 /* THE v3 card shadows — DESIGN.md v3 §"Card shadows" (calendar/payment/result) gives exactly TWO
