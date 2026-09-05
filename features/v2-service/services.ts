@@ -52,7 +52,7 @@ export const SERVICES = [
   { id: 'spirit-heaven', title: 'เสี่ยงไพ่จิตวิญญาณแดนสวรรค์', desc: DESC_FORTUNE, href: '/v2/fortune/divine', image: ART('05_เสี่ยงไพ่จิตวิญญาณแดนสวรรค์.png') },
   { id: 'sian', title: 'เสี่ยงเซียนเสี่ยงทาย', desc: DESC_FORTUNE, href: '/v2/fortune/sage', image: ART('06_เสี่ยงเซียนเสี่ยงทาย.png') },
   { id: 'sinsae', title: 'ดูดวงส่วนตัว กับซินแส', desc: DESC_FORTUNE, href: comingSoonHref('ดูดวงส่วนตัว กับซินแส'), image: ART('07_ดูดวงส่วนตัวกับซินแส.png') },
-  { id: 'manifest', title: 'มานิเฟส', desc: DESC_FORTUNE, href: comingSoonHref('มานิเฟส'), image: ART('08_มานิเฟส.png') },
+  { id: 'manifest', title: 'มานิเฟส', desc: DESC_FORTUNE, href: '/v2/service/manifest', image: ART('08_มานิเฟส.png') },
   // filename says ปฎิทิน (ฎ ชฎา), the title says ปฏิทิน (ฏ ปฏัก) — different letters. Mapped by id on purpose.
   { id: 'calendar', title: 'ปฏิทิน', desc: DESC_CALENDAR, href: '/v2/calendar', image: ART('09_ปฎิทิน.png') },
   { id: 'healing-circles', title: 'Healing Circles', desc: DESC_CALENDAR, href: comingSoonHref('Healing Circles'), hiddenUntilArt: true },

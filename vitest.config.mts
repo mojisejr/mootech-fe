@@ -244,6 +244,7 @@ export default defineConfig({
       'scripts/fortune-cards.test.tsx', // โหมดเซียน — oracle/divine (เปิดการ์ด: เลือก 3→เปิด→ผล+น้ำหนัก% · สุ่ม · 402)
       'scripts/one-book-screen.test.tsx', // บริการ one-book (Your Life Code) — hero/ราคา/CTA ไลน์ + accordion 15 ด้าน
       'scripts/sacred-map-screen.test.tsx', // บริการ sacred-map — ธาตุ→ทิศ/สีมงคล (เบญจธาตุ) + empty state
+      'scripts/manifest-screen.test.tsx', // บริการ manifest — goals+tasks+progress+checkin (ต่อ engine)
     ],
   },
   resolve: {
