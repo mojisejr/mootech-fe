@@ -2,15 +2,17 @@ import React from 'react'
 import Link from 'next/link'
 import { comingSoonHrefById } from '@/features/v2-service/services'
 
-// ── Zone 5 — ทักซินแส / section-mascot (Figma 333:6989, home 333:6545) ───────────────────────────────
-// An INSET sapphire card — same left/right margins as the other home cards (page px-4), rounded 24px on all
-// four corners (ฟีม 2026-09-05: "ขอบใน figma กับที่เราทำไม่เหมือนกัน" — the built version was a full-bleed
-// -mx-4 banner with a cream white-mound wave at the bottom; Figma is a plain inset rounded card, no mound).
+// ── Zone 5 — ทักซินแส / section-mascot (Figma 333:6989, home 333:6545 "Frame 7") ─────────────────────
+// A FULL-BLEED sapphire card: Figma Dev Mode = Width **Fill (393px)** (edge-to-edge on the 393 frame), so it
+// breaks out of the page's px-4 with -mx-4. Rounded 24px on all four corners (cream shows in the corner
+// notches at the screen edges, exactly like the frame). ฟีม 2026-09-05 "ขอบไม่เหมือนกัน": the ONLY real gap
+// was the cream white-mound WAVE the built version drew at the bottom — Figma has none, just the rounded
+// bottom corners. (Earlier I also made it inset by mistake; reverted — Fill 393px is full-bleed.)
 // A left text block (title · 2-line desc · lime Secondary CTA), the big water-owl mascot overflowing
 // bottom/right (STATIC — reuses zone4/mascot-sian.png), and a small fire sprite (the ONLY animated element).
 export function SinseSection() {
   return (
-    <section className="relative mb-6 w-full overflow-hidden rounded-[24px] bg-v3-sapphire">
+    <section className="relative -mx-4 mb-6 w-[calc(100%+2rem)] overflow-hidden rounded-[24px] bg-v3-sapphire">
       <div className="relative h-[196px]">
         {/* text block — Figma frame at (24,40), 217 wide */}
         <div className="absolute left-6 top-10 z-10 flex w-[217px] flex-col gap-2">
