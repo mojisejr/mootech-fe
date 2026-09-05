@@ -88,14 +88,11 @@ export function OneBookScreen() {
       <SkyHeader title="หนังสือเล่มเดียวในโลก" backHref="/v2/service" testId="one-book" />
 
       <div className="relative z-10 mx-auto flex w-full max-w-md flex-1 flex-col gap-4 px-4 pb-40 pt-2">
-        {/* HERO */}
-        <section className="flex flex-col items-center gap-3 text-center" data-testid="one-book-hero">
-          <span className="rounded-full bg-white/80 px-3 py-1 text-[12px] font-bold text-v3-sapphire">ดูดวงแบบ Introvert · ไม่ต้องคุยกับใคร</span>
-          <span className="relative block w-full max-w-[240px] overflow-hidden rounded-[18px] shadow-[0_10px_30px_rgba(26,38,77,.18)]">
-            <Image src="/images/v2/features/one-book/cover.jpg" alt="Your Life Code — คู่มือดวงจีนเฉพาะบุคคล" width={444} height={630} className="h-auto w-full" priority />
+        {/* HERO — รูปโปสเตอร์เต็ม (ไม่ crop) */}
+        <section className="flex flex-col items-center gap-3" data-testid="one-book-hero">
+          <span className="relative block w-full overflow-hidden rounded-[20px] shadow-[0_10px_30px_rgba(26,38,77,.15)]">
+            <Image src="/images/v2/features/one-book/hero.jpg" alt="Your Life Code — ถอดรหัสชีวิตจากวันเกิดของคุณ · คู่มือดวงจีนเฉพาะบุคคล" width={1000} height={1000} className="h-auto w-full" priority />
           </span>
-          <h1 className="mt-1 text-[24px] font-black leading-8 text-v3-navy">ถอดรหัสชีวิต<br />จากวันเกิดของคุณ</h1>
-          <p className="text-[14px] leading-6 text-v3-text-body">คู่มือดวงจีน <b className="text-v3-navy">เฉพาะบุคคล</b> ที่มีเพียงเล่มเดียวในโลก — รวมทุกด้านของชีวิตไว้ให้เปิดอ่านเองได้เงียบ ๆ</p>
           <div className="flex flex-wrap items-center justify-center gap-2">
             {["ไม่คุย", "ไม่โทร", "ไม่เสียเวลา"].map((t) => (
               <span key={t} className="rounded-full bg-white px-3 py-1 text-[12px] font-bold text-v3-sapphire shadow-[0_2px_8px_rgba(26,38,77,.08)]">{t}</span>
