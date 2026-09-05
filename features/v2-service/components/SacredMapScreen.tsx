@@ -3,11 +3,18 @@
 // กรองตามธาตุประจำตัว (จาก element-summary) + ความต้องการ + เช็คอิน. ไม่มีเฟรม Figma → ออกแบบเองตามภาษาแอป.
 import Head from "next/head"
 import Link from "next/link"
+import dynamic from "next/dynamic"
 import { useCallback, useEffect, useMemo, useState } from "react"
 
 import { SkyBackdrop, SkyHeader } from "@/features/v2-profile/components/kit"
 import { Menubar } from "@/features/v2-shell/components/Menubar"
 import { normalizeElement } from "@/lib/personalization"
+
+// Leaflet ต้องการ window → โหลด client-side เท่านั้น
+const SacredMapLeaflet = dynamic(() => import("./SacredMapLeaflet"), {
+  ssr: false,
+  loading: () => <div className="h-56 w-full animate-pulse rounded-[20px] bg-v3-ghost-white" />,
+})
 
 type SacredLocation = {
   id: string
@@ -19,6 +26,8 @@ type SacredLocation = {
   lat: number
   lng: number
   direction: string | null
+  rasiUpper: string | null
+  rasiLower: string | null
   element: string | null
   needs: string[]
   worshipGuide: string | null
@@ -66,6 +75,13 @@ export function SacredMapScreen() {
 
   const elementEn = useMemo(() => normalizeElement(elementTh)?.en.toLowerCase() ?? null, [elementTh])
   const elMeta = elementEn ? EL[elementEn] : null
+
+  const pins = useMemo(
+    () => locations
+      .filter((l) => Number.isFinite(l.lat) && Number.isFinite(l.lng))
+      .map((l) => ({ id: l.id, name: l.name, deity: l.deity, lat: l.lat, lng: l.lng, element: l.element })),
+    [locations],
+  )
 
   // ธาตุประจำตัว (best-effort) — resolve ก่อน แล้วค่อยโหลดรายการครั้งแรก (กัน double-fetch/แข่งกัน)
   useEffect(() => {
@@ -164,6 +180,13 @@ export function SacredMapScreen() {
           </div>
         </section>
 
+        {/* MAP (Leaflet) — เหมือนหน้า engine */}
+        {!loading && pins.length > 0 ? (
+          <section className="v3-shadow-card overflow-hidden rounded-[20px]" data-testid="sacred-map-map" style={{ height: 224 }}>
+            <SacredMapLeaflet pins={pins} />
+          </section>
+        ) : null}
+
         {/* LIST */}
         {loading ? (
           <div className="h-40 w-full animate-pulse rounded-[24px] bg-v3-ghost-white" data-testid="sacred-map-loading" />
@@ -182,6 +205,12 @@ export function SacredMapScreen() {
               const done = checkedIn.has(loc.id)
               return (
                 <article key={loc.id} className={CARD} data-testid="sacred-map-item">
+                  {loc.imageUrl ? (
+                    <span className="mb-3 block aspect-[16/9] w-full overflow-hidden rounded-[14px] bg-v3-ghost-white">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={loc.imageUrl} alt={loc.name} loading="lazy" className="size-full object-cover" onError={(e) => { (e.currentTarget.parentElement as HTMLElement).style.display = "none" }} />
+                    </span>
+                  ) : null}
                   <div className="flex items-start justify-between gap-2">
                     <div className="min-w-0">
                       <p className="text-[15px] font-black leading-5 text-v3-navy">{loc.name}</p>
@@ -192,6 +221,8 @@ export function SacredMapScreen() {
                   </div>
 
                   {loc.description ? <p className="mt-2 text-[13px] leading-5 text-v3-text-body">{loc.description}</p> : null}
+                  {(loc.rasiUpper || loc.rasiLower) ? <p className="mt-1 text-[12px] text-v3-text-muted">ตัวแทนราศี: {[loc.rasiUpper, loc.rasiLower].filter(Boolean).join(" / ")}</p> : null}
+                  {loc.address ? <p className="mt-0.5 text-[12px] text-v3-text-muted">📍 {loc.address}</p> : null}
 
                   {loc.needs?.length ? (
                     <div className="mt-2 flex flex-wrap gap-1.5">
