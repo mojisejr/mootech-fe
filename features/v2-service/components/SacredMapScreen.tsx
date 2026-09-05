@@ -3,6 +3,7 @@
 // แผนที่ Leaflet + หมุดสีธาตุ + การ์ด + โมดัลรายละเอียด (โพยการมู/บันทึก/เช็คอิน/ตั้งเตือน/แชร์)
 // รูปเสิร์ฟจาก engine (base64 ใน DB) ผ่าน /api/v2/sacred-map/image/[id] — ไม่พึ่ง Supabase.
 import Head from "next/head"
+import Image from "next/image"
 import Link from "next/link"
 import dynamic from "next/dynamic"
 import { useCallback, useEffect, useMemo, useState } from "react"
@@ -33,6 +34,7 @@ type SacredLocation = {
   worshipGuide: string | null
   imageUrl: string | null
   hasImage?: boolean
+  updatedAt?: string | null
   googleMapUrl: string | null
   checkinCount: number
 }
@@ -64,7 +66,8 @@ function mapsLink(loc: SacredLocation): string {
 }
 /** รูป: เสิร์ฟจาก engine (base64) ถ้ามี ไม่งั้น fallback imageUrl เดิม (supabase) */
 function imageSrc(loc: SacredLocation): string | null {
-  if (loc.hasImage) return `/api/v2/sacred-map/image/${encodeURIComponent(loc.id)}`
+  // ?v=updatedAt = cache-bust เมื่อรูปในDBเปลี่ยน (เลี่ยงเบราว์เซอร์ค้างรูปเก่า)
+  if (loc.hasImage) return `/api/v2/sacred-map/image/${encodeURIComponent(loc.id)}?v=${encodeURIComponent(loc.updatedAt ?? "")}`
   return loc.imageUrl || null
 }
 /** ตั้งเตือน = สร้าง event บน Google Calendar (เตือนไปไหว้) */
@@ -184,7 +187,9 @@ export function SacredMapScreen() {
       <div className="relative z-10 mx-auto flex w-full max-w-md flex-1 flex-col gap-4 px-4 pb-40 pt-2">
         {/* HERO */}
         <section className="flex flex-col items-center gap-2 text-center" data-testid="sacred-map-hero">
-          <p className="text-[36px]">🧭</p>
+          <span className="relative block h-[140px] w-[110px]">
+            <Image src="/images/v2/features/sacred-map/hero.png" alt="แผนที่ศักดิ์สิทธิ์" fill sizes="110px" className="object-contain" priority />
+          </span>
           <h1 className="text-[22px] font-black leading-7 text-v3-navy">สถานที่ศักดิ์สิทธิ์เสริมดวง</h1>
           <p className="max-w-xs text-[13px] leading-5 text-v3-text-body">รวมสถานที่ศักดิ์สิทธิ์ที่คัดมาแล้ว เลือกไหว้ให้ตรงธาตุและเรื่องที่อยากเสริม</p>
         </section>
