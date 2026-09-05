@@ -17,7 +17,7 @@ export default function DivineCardsPage() {
       mode="divine"
       title="เสี่ยงไพ่จิตวิญญาณแดนสวรรค์"
       resultTitle="ผลไพ่จิตวิญญาณ"
-      introArt="/images/v2/features/05_เสี่ยงไพ่จิตวิญญาณแดนสวรรค์.png"
+      introArt="/images/v2/fortune/divine-back.png"
       endpoint="/api/fortune/divine"
       deckCount={80}
     />

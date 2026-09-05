@@ -17,7 +17,7 @@ export default function OracleCardsPage() {
       mode="oracle"
       title="เสี่ยงไพ่ออราเคิลเคี้ยงคุง"
       resultTitle="ผลไพ่ออราเคิล"
-      introArt="/images/v2/features/04_เสี่ยงไพ่ออราเคิลเคี้ยงคุง.png"
+      introArt="/images/v2/fortune/oracle-back.png"
       endpoint="/api/fortune/oracle"
       deckCount={120}
     />

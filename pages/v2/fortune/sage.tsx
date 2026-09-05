@@ -102,7 +102,7 @@ export default function FortuneSagePage() {
           {/* effect ตอนรอ: แสงเรืองเต้น + รูปลอย */}
           <div className="relative grid size-56 place-items-center">
             <span aria-hidden className="absolute size-40 rounded-full bg-v3-lime/40 blur-2xl animate-fortune-glow" />
-            <span className="v3-float relative size-52"><Image src="/images/v2/fortune/sage-cup.png" alt="" fill sizes="208px" className="object-contain" /></span>
+            <span className="v3-float relative size-52"><Image src="/images/v2/fortune/sage-loading.png" alt="" fill sizes="208px" className="object-contain" /></span>
           </div>
           <p className="text-[18px] font-black text-v3-navy">กำลังสุ่มเซียมซีให้คุณ</p>
           <p className="max-w-xs text-[13px] leading-5 text-v3-text-body">มาร่วมสร้างบันทึกทางใจ และค้นพบความสงบไปกับพวกเรา</p>

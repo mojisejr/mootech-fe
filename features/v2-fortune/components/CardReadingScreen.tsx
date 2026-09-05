@@ -155,8 +155,8 @@ export function CardReadingScreen({
             <p className="text-[13px] leading-5 text-v3-text-body">ขอตั้งจิตอธิษฐานถามคำถามที่อยากได้คำตอบ</p>
           </div>
           <section className="v3-shadow-card flex flex-col items-center gap-4 rounded-[24px] bg-white p-5">
-            <span className="relative h-56 w-40 overflow-hidden rounded-[16px]">
-              <Image src={introArt} alt="" fill sizes="160px" className="object-cover" />
+            <span className="v3-float relative aspect-[350/504] w-full max-w-[260px]">
+              <Image src={introArt} alt="" fill sizes="260px" className="object-contain drop-shadow-lg" />
             </span>
             {quotaOut && <p className="text-center text-[12px] font-bold text-[#8A5A0C]" data-testid="cards-quota">โควตาเปิดไพ่วันนี้หมด — แลก 10 QI ที่หน้าพลังชี่</p>}
             {error && <p data-testid="cards-error" className="text-center text-[12px] font-bold text-v3-error">{error}</p>}
@@ -209,13 +209,11 @@ export function CardReadingScreen({
             {cards.map((c) => (
               <div key={c.no} className="flex flex-col items-center gap-1">
                 <span className="relative flex aspect-[3/4] w-full items-center justify-center overflow-hidden rounded-[12px]">
-                  {/* หลังไพ่ + ชื่อ = เลเยอร์ล่าง (fallback ถ้าโหลดรูปหน้าไพ่ไม่ได้) · หน้าไพ่จริงทับเมื่อโหลดสำเร็จ */}
+                  {/* หลังไพ่ + ชื่อ = เลเยอร์ล่าง (fallback ถ้าหน้าไพ่หาย) · หน้าไพ่จริง (เสิร์ฟ local) ทับเมื่อโหลดได้ */}
                   <Image src={theme.back} alt="" fill sizes="110px" className="object-cover" />
                   <span className="absolute inset-x-1 bottom-1 z-0 rounded bg-black/40 px-1 py-0.5 text-center text-[9px] font-bold leading-tight text-white">{c.name}</span>
-                  {c.imageUrl
-                    ? // eslint-disable-next-line @next/next/no-img-element
-                      <img src={c.imageUrl} alt={c.name} className="absolute inset-0 z-10 size-full object-cover" />
-                    : null}
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={`/images/v2/fortune/faces/${mode}/${c.no}.jpg`} alt={c.name} loading="lazy" className="absolute inset-0 z-10 size-full object-cover" onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none" }} />
                 </span>
                 {weightByNo.has(c.no) ? <span className="rounded-full bg-[#EAF3FF] px-2 py-[1px] text-[10px] font-black text-v3-sapphire">น้ำหนัก {weightByNo.get(c.no)}%</span> : null}
                 <p className="text-center text-[10px] font-bold leading-tight text-v3-navy">#{c.no} {c.name}</p>
