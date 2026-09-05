@@ -8,6 +8,7 @@ import { useRouter } from 'next/router'
 import type { GetServerSideProps } from 'next'
 import { v2RedirectIfUnauthed } from '@/lib/v2/gate'
 import { ResultScreen } from '@/features/v2-shop/components/ResultScreen'
+import { QiBuySuccess } from '@/features/v2-shop/components/QiBuySuccess'
 import { RESULT_COPY, resolveResultState, tryAnotherHref, type ResultState } from '@/features/v2-shop/result-state'
 import { useChargeStatus } from '@/features/v2-shop/useChargeStatus'
 import { qiQtyOf } from '@/lib/payment/catalog'
@@ -38,13 +39,24 @@ export default function V2ResultPage() {
   // buy-qi (ก้อน 1.6) — แพ็กชี่จบที่หน้าชี่ ไม่ใช่หน้าแพ็กเกจ: ปุ่ม done พากลับ /v2/qi และบอกจำนวนชี่
   // ของแพ็ก (จาก QI_PACK_QTY server-side map — ไม่อ่านจาก URL นอกจากโค้ดแพ็กที่ตรวจแล้ว)
   const qiQty = qiQtyOf(packageCode)
-  const qiLine = qiQty !== null ? `แพ็กชี่ ${qiQty.toLocaleString('th-TH')} ชี่` : null
+  const qiLine = qiQty !== null ? `แพ็ก ${qiQty.toLocaleString('th-TH')} QI` : null
   const { status, method, phase, qrDeadline, failureCode, check } = useChargeStatus({ chargeId: charge || null, orderId: order || null })
 
   // Glue only — the rule lives in result-state.ts next to the words it chooses between, so it can be tested
   // without a router. That is not tidiness: the branch this ticket adds was missing precisely because the
   // only way to exercise the old nested ternary was to render this page.
   const state: ResultState = resolveResultState({ status, method, claimed, phase, qrDeadline, failureCode })
+
+  // buy-qi (เฟรม success): เมื่อเงินเข้าแล้วจริง + เป็นแพ็ก QI → จอ success เฉพาะ QI (ยอดใหม่/delta/ใบเสร็จ).
+  // สถานะอื่น (กำลังจ่าย/ถูกปฏิเสธ/QR หมดอายุ ฯลฯ) ยังใช้ ResultScreen ที่ copy/retry ถูก audit ไว้แล้ว.
+  if (RESULT_COPY[state].paid && qiQty !== null) {
+    return (
+      <div className="flex min-h-screen w-full flex-col justify-center bg-v3-bg-cream">
+        <Head><title>เติม QI สำเร็จ · MuMate</title></Head>
+        <QiBuySuccess packageCode={packageCode} charge={charge} order={order} />
+      </div>
+    )
+  }
 
   return (
     // Centred for the same reason as the QR screen: top-aligned, the outcome sat above half a phone of

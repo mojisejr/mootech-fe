@@ -3,6 +3,7 @@
 // อ่านแถวด้วย chargeId (หรือ orderId). REJECT = "ไม่สำเร็จ" ไม่มีทางอ่านเป็นซื้อสำเร็จ (กติกา #365).
 import Head from "next/head"
 import Link from "next/link"
+import { useState } from "react"
 
 import { KitButton, SkyBackdrop, SkyHeader } from "@/features/v2-profile/components/kit"
 import { Menubar } from "@/features/v2-shell/components/Menubar"
@@ -24,6 +25,27 @@ function Row({ label, value, testId, strong, green }: { label: string; value: st
 export function OrderReceiptScreen({ id }: { id: string }) {
   const { rows, done, errored, retry } = usePaymentRows()
   const row = rows?.find((r) => r.chargeId === id || (r.orderId && r.orderId === id)) ?? null
+
+  const [resending, setResending] = useState(false)
+  const [resendMsg, setResendMsg] = useState<string | null>(null)
+  // ส่งใบเสร็จซ้ำ — ยิง endpoint จริง ถ้ายังไม่มี BE (404/ไม่ ok) แจ้งตรง ๆ ว่าใบเสร็จส่งอัตโนมัติทางอีเมลแล้ว
+  const resend = async () => {
+    if (!row) return
+    setResending(true)
+    setResendMsg(null)
+    try {
+      const res = await fetch("/api/v2/payment/resend-receipt", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ chargeId: row.chargeId, orderId: row.orderId }),
+      })
+      setResendMsg(res.ok ? "ส่งใบเสร็จไปที่อีเมลของคุณแล้ว" : "ใบเสร็จส่งอัตโนมัติทางอีเมลหลังชำระเงินแล้ว — ตรวจกล่องจดหมายได้เลย")
+    } catch {
+      setResendMsg("ใบเสร็จส่งอัตโนมัติทางอีเมลหลังชำระเงินแล้ว — ตรวจกล่องจดหมายได้เลย")
+    } finally {
+      setResending(false)
+    }
+  }
 
   const st = row ? statusWord(row.status) : null
   const qi = row ? qiReceivedOf(row) : null
@@ -58,7 +80,7 @@ export function OrderReceiptScreen({ id }: { id: string }) {
             <div className="flex flex-col items-center gap-2 pt-2 text-center">
               <p className="text-[40px] font-black leading-[46px] text-v3-navy" data-testid="receipt-amount">{bahtOf(row.amountSatang)}</p>
               <div className="flex items-center gap-2">
-                <span className={"rounded-full px-3 py-1 text-[12px] font-black " + (st.paid ? "bg-[#E3F4F7] text-[#14707E]" : "bg-v3-ghost-white text-v3-text-muted")} data-testid="receipt-status">{st.text}</span>
+                <span className={"rounded-full px-3 py-1 text-[12px] font-black " + (st.refunded ? "bg-[#FDECEC] text-[#A83238]" : st.paid ? "bg-[#E3F4F7] text-[#14707E]" : "bg-v3-ghost-white text-v3-text-muted")} data-testid="receipt-status">{st.text}</span>
                 <span className="text-[12px] text-v3-text-muted" data-testid="receipt-date">{bkkCivilDate(row.createdAt)}</span>
               </div>
               <p className="text-[13px] font-bold text-v3-navy" data-testid="receipt-title">{titleFor(row)}</p>
@@ -90,11 +112,21 @@ export function OrderReceiptScreen({ id }: { id: string }) {
               <p className="text-[11px] leading-4 text-v3-text-muted">ใบกำกับภาษีฉบับเต็มส่งไปที่อีเมลของคุณหลังชำระเงินสำเร็จ · QI ที่ซื้อแล้วขอคืนเป็นเงินสดไม่ได้ ยกเว้นกรณีระบบขัดข้อง</p>
             </section>
 
-            {/* actions — 2 ปุ่มเรียงข้างกัน (เฟรม actions): หลัก + ghost */}
-            <div className="flex gap-2">
-              <KitButton href="/v2/help/faq" testId="receipt-help" className="flex-1">ขอความช่วยเหลือ</KitButton>
-              <KitButton variant="outline" href="/v2/orders" testId="receipt-back" className="flex-1">กลับประวัติคำสั่งซื้อ</KitButton>
-            </div>
+            {/* actions (เฟรม actions): หลัก = ส่งใบเสร็จอีกครั้ง · รอง = ขอความช่วยเหลือ */}
+            {st.paid ? (
+              <div className="flex flex-col gap-2">
+                <KitButton onClick={() => void resend()} disabled={resending} testId="receipt-resend">
+                  {resending ? "กำลังส่ง..." : "ส่งใบเสร็จอีกครั้ง"}
+                </KitButton>
+                {resendMsg && <p data-testid="receipt-resend-msg" className="text-center text-[12px] font-bold text-v3-sapphire">{resendMsg}</p>}
+                <KitButton variant="outline" href="/v2/help/faq" testId="receipt-help">ขอความช่วยเหลือ</KitButton>
+              </div>
+            ) : (
+              <div className="flex gap-2">
+                <KitButton href="/v2/help/faq" testId="receipt-help" className="flex-1">ขอความช่วยเหลือ</KitButton>
+                <KitButton variant="outline" href="/v2/orders" testId="receipt-back" className="flex-1">กลับประวัติคำสั่งซื้อ</KitButton>
+              </div>
+            )}
           </>
         )}
       </div>

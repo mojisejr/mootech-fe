@@ -55,10 +55,12 @@ export function titleWithBonus(row: FullPaymentRow): string {
   return q && q.bonus > 0 ? `${base} + โบนัส ${q.bonus.toLocaleString("th-TH")}` : base
 }
 
-export function statusWord(status: string): { text: string; paid: boolean } {
-  if (status === "APPROVED") return { text: "สำเร็จ", paid: true }
-  if (status === "REJECT") return { text: "ไม่สำเร็จ", paid: false }
-  return { text: "รอตรวจสอบ", paid: false }
+export function statusWord(status: string): { text: string; paid: boolean; refunded: boolean } {
+  const s = status.toUpperCase()
+  if (s === "APPROVED") return { text: "สำเร็จ", paid: true, refunded: false }
+  if (s === "REJECT") return { text: "ไม่สำเร็จ", paid: false, refunded: false }
+  if (s.includes("REFUND") || s.includes("REVERS")) return { text: "คืนเงินแล้ว", paid: false, refunded: true }
+  return { text: "รอตรวจสอบ", paid: false, refunded: false }
 }
 
 export function bahtOf(amountSatang: number): string {
@@ -167,7 +169,7 @@ export function OrdersScreen() {
                           </div>
                           <div className="flex flex-none flex-col items-end gap-1">
                             <span className="text-[14px] font-black text-v3-navy">{bahtOf(row.amountSatang)}</span>
-                            <span className={"rounded-full px-2 py-[1px] text-[10px] font-black " + (st.paid ? "bg-[#E3F4F7] text-[#14707E]" : "bg-v3-ghost-white text-v3-text-muted")}>{st.text}</span>
+                            <span className={"rounded-full px-2 py-[1px] text-[10px] font-black " + (st.refunded ? "bg-[#FDECEC] text-[#A83238]" : st.paid ? "bg-[#E3F4F7] text-[#14707E]" : "bg-v3-ghost-white text-v3-text-muted")}>{st.text}</span>
                           </div>
                         </Link>
                       </li>

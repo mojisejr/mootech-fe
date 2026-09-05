@@ -151,7 +151,7 @@ export function AccountScreen() {
         </header>
 
         {deletePending && (
-          <Link href="/v2/settings/delete-account" data-testid="account-delete-pending" className="v3-shadow-card mt-4 flex w-full flex-col rounded-[20px] border-2 border-v3-pumpkin bg-white p-4">
+          <Link href="/v2/settings/delete-account" data-testid="account-delete-pending" className="v3-shadow-card mt-4 flex w-full flex-col rounded-[24px] border-2 border-v3-pumpkin bg-white p-4">
             <p className="text-[14px] font-bold text-v3-pumpkin">บัญชีอยู่ระหว่างพักลบ — ยกเลิกได้</p>
             <p className="text-[12px] leading-4 text-v3-text-body">กดเพื่อดูสถานะหรือยกเลิกการลบ</p>
           </Link>
@@ -160,7 +160,7 @@ export function AccountScreen() {
         <div className="mt-3 flex flex-col gap-3">
           {/* การ์ดธาตุของคุณ — ขาว + badge ในสุด + มาสคอต (เฟรม user-profile-card) */}
           {mascot ? (
-            <section className="v3-shadow-card flex flex-col gap-3 rounded-[20px] bg-white p-4" data-testid="account-element">
+            <section className="v3-shadow-card flex flex-col gap-3 rounded-[24px] bg-white p-4" data-testid="account-element">
               <p className="text-[16px] font-bold text-v3-navy">ธาตุของคุณ</p>
               <div className="flex items-center gap-3 rounded-[16px] bg-[#F6ECF0] p-3">
                 <div className="min-w-0 flex-1">
@@ -178,7 +178,7 @@ export function AccountScreen() {
               </Link>
             </section>
           ) : profile && !profile.birthDate ? (
-            <Link href="/v2/settings/edit-birth" data-testid="account-element-empty" className="v3-shadow-card flex items-center gap-3 rounded-[20px] bg-white p-4">
+            <Link href="/v2/settings/edit-birth" data-testid="account-element-empty" className="v3-shadow-card flex items-center gap-3 rounded-[24px] bg-white p-4">
               <IconTile tone="purple">🔮</IconTile>
               <div className="min-w-0 flex-1">
                 <p className="text-[14px] font-bold text-v3-navy">กรอกวันเกิดเพื่อดูธาตุประจำตัว</p>
@@ -190,7 +190,7 @@ export function AccountScreen() {
 
           {/* การ์ด QI (ฟ้า) — ยอดคงเหลือ + orb 氣 + ปุ่ม (เฟรม balance-hero-card) */}
           {wallet ? (
-            <section className="rounded-[20px] bg-v3-sapphire p-5 text-white" data-testid="account-qi-wallet">
+            <section className="rounded-[24px] bg-v3-sapphire p-5 text-white" data-testid="account-qi-wallet">
               <div className="flex items-center justify-between gap-3">
                 <div className="min-w-0">
                   <div className="flex items-center gap-1.5">
@@ -215,10 +215,10 @@ export function AccountScreen() {
           ) : null}
 
           {/* เช็คอินต่อเนื่อง — ช่องสี่เหลี่ยม + footer โบนัส (เฟรม daily-checkin-card) */}
-          <SectionCard testId="account-checkin" className="!rounded-[20px] gap-3">
+          <SectionCard testId="account-checkin" className="!rounded-[24px] gap-3">
             <div className="flex items-center justify-between">
               <p className="text-[16px] font-bold text-v3-navy">เช็คอินต่อเนื่อง</p>
-              <p className="text-[13px] text-v3-text-body">{streak === 0 ? 0 : ((streak - 1) % 7) + 1} / 7 วัน</p>
+              <p className="text-[13px] text-v3-text-body">{streak === 0 ? "เริ่มสัปดาห์แรก" : `${((streak - 1) % 7) + 1} / 7 วัน`}</p>
             </div>
             <div className="flex items-stretch gap-1.5">
               {days.map((d) => {
@@ -227,7 +227,7 @@ export function AccountScreen() {
                 const bg = isDone ? "bg-[#ECF0FD] text-v3-sapphire" : isToday ? "bg-v3-cyan text-white" : "bg-[#F0F8F0] text-v3-cyan"
                 return (
                   <span key={d} className={`grid flex-1 place-items-center rounded-[11px] py-3 text-[13px] font-bold ${bg}`}>
-                    {isDone ? CHECK_SM : Number(d.slice(8, 10))}
+                    {isDone ? CHECK_SM : isToday ? <span className="text-[10px] leading-none">วันนี้</span> : Number(d.slice(8, 10))}
                   </span>
                 )
               })}
@@ -265,22 +265,37 @@ export function AccountScreen() {
           )}
 
           {/* การ์ดรวม: เพื่อน + แผน (เฟรม nav-list-card) */}
-          <section className="v3-shadow-card flex w-full flex-col overflow-hidden rounded-[20px] bg-white">
+          <section className="v3-shadow-card flex w-full flex-col overflow-hidden rounded-[24px] bg-white">
             {/* แถวเพื่อน / 5 ธาตุ */}
             <Link href="/v2/qi/referral" data-testid="account-friends" className="flex items-center gap-3 px-4 py-3.5">
-              <span aria-hidden className="flex flex-none items-center">
-                {["#63B05F", "#E5A93B", "#D75A3A"].map((c, i) => (
-                  <span key={c} className="grid size-[30px] place-items-center rounded-full border-2 border-white text-[11px] font-black text-white" style={{ backgroundColor: c, marginLeft: i === 0 ? 0 : -10 }}>ธ</span>
-                ))}
-                {friends > 3 ? (
-                  <span className="grid size-[30px] place-items-center rounded-full border-2 border-white bg-v3-navy text-[10px] font-black text-v3-lime" style={{ marginLeft: -10 }}>+{friends - 3}</span>
-                ) : null}
-              </span>
+              {friends > 0 ? (
+                <span aria-hidden className="flex flex-none items-center">
+                  {["#63B05F", "#E5A93B", "#D75A3A"].map((c, i) => (
+                    <span key={c} className="grid size-[30px] place-items-center rounded-full border-2 border-white text-[11px] font-black text-white" style={{ backgroundColor: c, marginLeft: i === 0 ? 0 : -10 }}>ธ</span>
+                  ))}
+                  {friends > 3 ? (
+                    <span className="grid size-[30px] place-items-center rounded-full border-2 border-white bg-v3-navy text-[10px] font-black text-v3-lime" style={{ marginLeft: -10 }}>+{friends - 3}</span>
+                  ) : null}
+                </span>
+              ) : (
+                <span aria-hidden className="grid size-[38px] flex-none place-items-center rounded-full bg-[#EAF3FF] text-v3-sapphire">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M19 8v6M22 11h-6" /></svg>
+                </span>
+              )}
               <div className="min-w-0 flex-1">
-                <p className="text-[14px] font-medium text-v3-navy">เพื่อนของคุณ {friends} คน</p>
-                <p className="text-[12px] leading-[18px] text-v3-text-body">เก็บครบ 5 ธาตุรับ 1,000 QI{missingElements.length ? ` · ยังขาด${missingElements.join(" ")}` : ""}</p>
+                {friends > 0 ? (
+                  <>
+                    <p className="text-[14px] font-medium text-v3-navy">เพื่อนของคุณ {friends} คน</p>
+                    <p className="text-[12px] leading-[18px] text-v3-text-body">เก็บครบ 5 ธาตุรับ 1,000 QI{missingElements.length ? ` · ยังขาด${missingElements.join(" ")}` : ""}</p>
+                  </>
+                ) : (
+                  <>
+                    <p className="text-[14px] font-medium text-v3-navy">สะสมเพื่อนให้ครบ 5 ธาตุ</p>
+                    <p className="text-[12px] leading-[18px] text-v3-text-body">ชวนเพื่อนคนแรก รับ 50 QI</p>
+                  </>
+                )}
               </div>
-              {goals ? <span className="flex-none rounded-full bg-[#EAF3FF] px-2.5 py-1 text-[11px] font-black text-v3-sapphire">{goals.element.collected}/5</span> : null}
+              {goals && friends > 0 ? <span className="flex-none rounded-full bg-[#EAF3FF] px-2.5 py-1 text-[11px] font-black text-v3-sapphire">{goals.element.collected}/5</span> : null}
               <span className="flex-none text-[16px] font-bold text-v3-text-muted">›</span>
             </Link>
             {/* แถวแผน / upsell */}
@@ -305,25 +320,37 @@ export function AccountScreen() {
             )}
           </section>
 
-          {/* ความเคลื่อนไหวล่าสุด — มีวันที่กำกับ (เฟรม recent-activity-card) */}
-          {history.length > 0 && (
+          {/* ความเคลื่อนไหวล่าสุด — มีวันที่กำกับ (เฟรม recent-activity-card) + empty state วันแรก */}
+          {wallet && (
             <div data-testid="account-activity">
               <div className="mb-2 flex items-center justify-between px-1">
                 <p className="text-[16px] font-black text-v3-navy">ความเคลื่อนไหวล่าสุด</p>
-                <Link href="/v2/qi/history" data-testid="account-activity-link" className="text-[13px] font-bold text-v3-sapphire">ดูทั้งหมด ›</Link>
+                {history.length > 0 && (
+                  <Link href="/v2/qi/history" data-testid="account-activity-link" className="text-[13px] font-bold text-v3-sapphire">ดูทั้งหมด ›</Link>
+                )}
               </div>
-              <SectionCard className="!rounded-[20px] !p-0">
-                <ul className="flex flex-col divide-y divide-v3-border-card">
-                  {history.slice(0, 3).map((h) => (
-                    <li key={h.id} className="flex items-center justify-between gap-3 px-4 py-2.5">
-                      <div className="min-w-0 flex-1">
-                        <p className="truncate text-[14px] leading-[22px] text-v3-navy">{reasonLabel(h.reason)}</p>
-                        <p className="text-[12px] leading-[18px] text-v3-text-muted">{bkkCivilDate(h.createdAt)}</p>
-                      </div>
-                      <span className={"flex-none text-[14px] font-bold " + (h.qiDelta > 0 ? "text-[#63B05F]" : "text-[#E08586]")}>{h.qiDelta > 0 ? "+" : ""}{h.qiDelta} QI</span>
-                    </li>
-                  ))}
-                </ul>
+              <SectionCard className="!rounded-[24px] !p-0">
+                {history.length > 0 ? (
+                  <ul className="flex flex-col divide-y divide-v3-border-card">
+                    {history.slice(0, 3).map((h) => (
+                      <li key={h.id} className="flex items-center justify-between gap-3 px-4 py-2.5">
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate text-[14px] leading-[22px] text-v3-navy">{reasonLabel(h.reason)}</p>
+                          <p className="text-[12px] leading-[18px] text-v3-text-muted">{bkkCivilDate(h.createdAt)}</p>
+                        </div>
+                        <span className={"flex-none text-[14px] font-bold " + (h.qiDelta > 0 ? "text-[#63B05F]" : "text-[#E08586]")}>{h.qiDelta > 0 ? "+" : ""}{h.qiDelta} QI</span>
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <div data-testid="account-activity-empty" className="flex flex-col items-center gap-1.5 px-4 py-8 text-center">
+                    <span aria-hidden className="mb-1 grid size-11 place-items-center rounded-full bg-[#ECF0FD] text-v3-sapphire">
+                      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M12 8v4l3 2" /><circle cx="12" cy="12" r="9" /></svg>
+                    </span>
+                    <p className="text-[14px] font-bold text-v3-navy">ยังไม่มีความเคลื่อนไหว</p>
+                    <p className="text-[12px] leading-[18px] text-v3-text-muted">ทุกครั้งที่ได้รับหรือใช้ QI รายการจะขึ้นที่นี่</p>
+                  </div>
+                )}
               </SectionCard>
             </div>
           )}

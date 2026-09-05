@@ -174,12 +174,14 @@ export default function V2SettingsPage() {
 
       {confirmLogout && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 px-6" onClick={() => setConfirmLogout(false)}>
-          <div className="w-full max-w-sm rounded-[24px] bg-white p-6 font-ibm" onClick={(e) => e.stopPropagation()} role="dialog" aria-label="ออกจากระบบ" data-testid="settings-logout-sheet">
-            <p className="text-[16px] font-bold text-v3-navy">ออกจากระบบ MuMate ใช่ไหม?</p>
-            <p className="mt-1 text-[13px] leading-5 text-v3-text-body">QI และข้อมูลของคุณยังอยู่ครบ เข้าสู่ระบบใหม่เมื่อไรก็ได้</p>
-            <div className="mt-4 flex flex-col gap-2">
-              <button onClick={() => { void logout() }} data-testid="settings-logout-confirm" className="h-12 w-full rounded-full bg-v3-error text-sm font-bold text-white">ออกจากระบบ</button>
-              <button onClick={() => setConfirmLogout(false)} data-testid="settings-logout-cancel" className="h-11 w-full rounded-full border border-v3-border-card text-sm font-bold text-v3-navy">ยกเลิก</button>
+          <div className="w-full max-w-sm rounded-[24px] bg-white p-6 text-center font-ibm" onClick={(e) => e.stopPropagation()} role="dialog" aria-label="ออกจากระบบ" data-testid="settings-logout-sheet">
+            <p className="text-[18px] font-bold text-v3-navy">ออกจากระบบ?</p>
+            <p className="mt-2 text-[13px] leading-5 text-v3-text-body">
+              ยอด{qi !== null ? ` ${qi.toLocaleString('th-TH')} ` : ' '}QI สถิติเช็คอิน และข้อมูลของคุณยังอยู่ครบ เข้าสู่ระบบใหม่เมื่อไรก็ได้
+            </p>
+            <div className="mt-5 flex gap-3">
+              <button onClick={() => setConfirmLogout(false)} data-testid="settings-logout-cancel" className="h-12 flex-1 rounded-full border border-v3-border-card text-sm font-bold text-v3-navy">ยกเลิก</button>
+              <button onClick={() => { void logout() }} data-testid="settings-logout-confirm" className="h-12 flex-1 rounded-full bg-v3-error text-sm font-bold text-white">ออกจากระบบ</button>
             </div>
           </div>
         </div>
@@ -187,32 +189,47 @@ export default function V2SettingsPage() {
 
       {langOpen && (
         <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/30" onClick={() => setLangOpen(false)}>
-          <div className="w-full max-w-md rounded-t-[28px] bg-white p-6 pb-10 font-ibm" onClick={(e) => e.stopPropagation()} role="dialog" aria-label="ภาษา" data-testid="settings-language-sheet">
+          <div className="w-full max-w-md rounded-t-[28px] bg-white px-5 pb-10 pt-3 font-ibm" onClick={(e) => e.stopPropagation()} role="dialog" aria-label="ภาษา" data-testid="settings-language-sheet">
+            <span aria-hidden className="mx-auto mb-4 block h-1 w-10 rounded-full bg-v3-border-card" />
             <p className="text-[16px] font-bold text-v3-navy">ภาษา</p>
-            <div className="mt-3 flex flex-col gap-2">
-              {LANGUAGES.map((l) => (
-                <div key={l.code} data-testid={`settings-language-${l.code}`} className={'flex h-11 items-center justify-between rounded-full border border-v3-border-card px-4 text-sm font-bold ' + (l.available ? 'text-v3-navy' : 'text-v3-text-muted')}>
-                  <span>{l.label}</span>
-                  <span className="text-[11px] text-v3-text-muted">{l.available ? 'ใช้งานอยู่' : 'เร็วๆ นี้'}</span>
+            <div className="mt-3 overflow-hidden rounded-[18px] border border-v3-border-card">
+              {LANGUAGES.map((l, i) => (
+                <div key={l.code} data-testid={`settings-language-${l.code}`} className={`flex h-[52px] items-center justify-between px-4 ${i === LANGUAGES.length - 1 ? '' : 'border-b border-v3-border-card'} ${l.available ? 'bg-[#ECF0FD]' : 'bg-white'}`}>
+                  <span className={`text-[15px] ${l.available ? 'font-bold text-v3-navy' : 'text-v3-text-muted'}`}>{l.label}</span>
+                  {l.available ? (
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#1455A4" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="M20 6 9 17l-5-5" /></svg>
+                  ) : (
+                    <span className="text-[11px] text-v3-text-muted">เร็วๆ นี้</span>
+                  )}
                 </div>
               ))}
             </div>
+            <p className="mt-3 text-[11px] leading-4 text-v3-text-muted">เปลี่ยนแล้วมีผลทันที — ตอนนี้รองรับภาษาไทย ภาษาอื่นกำลังจะมา</p>
           </div>
         </div>
       )}
 
       {textOpen && (
         <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/30" onClick={() => setTextOpen(false)}>
-          <div className="w-full max-w-md rounded-t-[28px] bg-white p-6 pb-10 font-ibm" onClick={(e) => e.stopPropagation()} role="dialog" aria-label="ขนาดตัวอักษร" data-testid="settings-text-sheet">
+          <div className="w-full max-w-md rounded-t-[28px] bg-white px-5 pb-10 pt-3 font-ibm" onClick={(e) => e.stopPropagation()} role="dialog" aria-label="ขนาดตัวอักษร" data-testid="settings-text-sheet">
+            <span aria-hidden className="mx-auto mb-4 block h-1 w-10 rounded-full bg-v3-border-card" />
             <p className="text-[16px] font-bold text-v3-navy">ขนาดตัวอักษร</p>
-            <div className="mt-3 grid grid-cols-4 gap-2">
-              {TEXT_SCALES.map((s) => (
-                <button key={s.value} onClick={() => pickScale(s.value)} data-testid={`settings-text-${s.value}`} className={(scale === s.value ? 'bg-v3-cyan text-white' : 'border border-v3-border-card text-v3-navy') + ' grid h-11 place-items-center rounded-full text-[13px] font-bold'}>
-                  {s.label}
+            {/* การ์ดตัวอย่าง — เรนเดอร์ตามสเกลที่เลือกสด ๆ */}
+            <div className="mt-3 rounded-[16px] bg-[#F7F9FC] p-4">
+              <p className="text-[11px] text-v3-text-muted">ตัวอย่าง</p>
+              <p className="mt-1 font-bold text-v3-navy" style={{ fontSize: 15 * scale, lineHeight: 1.5 }}>วันนี้ดวงดีมาก เหมาะกับการเริ่มต้นสิ่งใหม่</p>
+            </div>
+            <div className="mt-3 overflow-hidden rounded-[18px] border border-v3-border-card">
+              {TEXT_SCALES.map((s, i) => (
+                <button key={s.value} onClick={() => pickScale(s.value)} data-testid={`settings-text-${s.value}`} className={`flex w-full items-center justify-between px-4 py-3 text-left ${i === TEXT_SCALES.length - 1 ? '' : 'border-b border-v3-border-card'} ${scale === s.value ? 'bg-[#ECF0FD]' : 'bg-white'}`}>
+                  <span className={`font-bold ${scale === s.value ? 'text-v3-navy' : 'text-v3-navy'}`} style={{ fontSize: 15 * s.value }}>{s.label}</span>
+                  {scale === s.value ? (
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#1455A4" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="M20 6 9 17l-5-5" /></svg>
+                  ) : null}
                 </button>
               ))}
             </div>
-            <p className="mt-2 text-[11px] leading-4 text-v3-text-muted">บันทึกไว้ในเครื่องนี้ — เปลี่ยนอุปกรณ์ต้องตั้งใหม่</p>
+            <p className="mt-3 text-[11px] leading-4 text-v3-text-muted">บันทึกไว้ในเครื่องนี้ — เปลี่ยนอุปกรณ์ต้องตั้งใหม่</p>
           </div>
         </div>
       )}

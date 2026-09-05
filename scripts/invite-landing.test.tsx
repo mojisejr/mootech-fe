@@ -43,7 +43,7 @@ describe('หน้าคำเชิญ (invite-landing)', () => {
     render(<InvitePage />)
     await waitFor(() => expect(screen.getByTestId('invite-title').textContent).toContain('somsri_m'))
     expect(screen.getByTestId('invite-code').textContent).toBe('MUMATE725')
-    expect(screen.getByText(/เพื่อนที่ชวนได้ \+250/)).toBeTruthy()
+    expect(screen.getByText(/เพื่อนที่ชวนคุณได้รับ \+50 QI/)).toBeTruthy()
   })
 
   it('I1 กดยอมรับ → เก็บโค้ดลง localStorage แล้วพาไป /v2/register?ref=', async () => {

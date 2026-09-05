@@ -134,14 +134,14 @@ export default function InvitePage() {
         {state === "ready" && (
           <>
             <h1 data-testid="invite-title" className="mt-3 text-lg font-black leading-6 text-v3-navy">
-              {inviterName ? `คุณ ${inviterName} ชวนคุณมาสะสมชี่` : "เพื่อนของคุณชวนคุณมาสะสมชี่"}
+              {inviterName ? `คุณ ${inviterName} ชวนคุณมาสะสม QI` : "เพื่อนของคุณชวนคุณมาสะสม QI"}
             </h1>
             <p className="mt-1 text-[13px] leading-5 text-v3-text-body">
               สมัครด้วยโค้ด <span data-testid="invite-code" className="font-black tracking-wider text-v3-navy">{code}</span>
-              {" "}รับโบนัสทันที +100 เหรียญ
+              {" "}รับโบนัสทันที +30 QI
             </p>
             <div className="mt-4 rounded-[16px] bg-v3-ghost-white p-3 text-left">
-              <p className="text-[11px] leading-4 text-v3-text-muted">รางวัลคู่: เพื่อนที่ชวนได้ +250 เหรียญ · คุณได้ +100 เหรียญ</p>
+              <p className="text-[11px] leading-4 text-v3-text-muted">รางวัลคู่: คุณได้รับ +30 QI · เพื่อนที่ชวนคุณได้รับ +50 QI</p>
             </div>
             <button
               onClick={accept}

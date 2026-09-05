@@ -29,6 +29,19 @@ const GENDERS: Array<{ code: string; label: string }> = [
   { code: "OTHER", label: "อื่น ๆ" },
 ]
 
+const TH_MONTHS = ["ม.ค.", "ก.พ.", "มี.ค.", "เม.ย.", "พ.ค.", "มิ.ย.", "ก.ค.", "ส.ค.", "ก.ย.", "ต.ค.", "พ.ย.", "ธ.ค."]
+
+/** "1984-01-15" → "15 ม.ค. 2527" (พ.ศ.) ; คืน ISO เดิมถ้า parse ไม่ได้ */
+function thaiBirthLabel(birthDate?: string | null, birthTime?: string | null, timeUnknown?: boolean | null): string {
+  if (!birthDate) return "ยังไม่ได้ระบุ"
+  const [y, m, d] = birthDate.slice(0, 10).split("-").map(Number)
+  const dateTh = Number.isFinite(y) && Number.isFinite(m) && Number.isFinite(d) && m >= 1 && m <= 12
+    ? `${d} ${TH_MONTHS[m - 1]} ${y + 543}`
+    : birthDate
+  const timeTh = timeUnknown ? " (ไม่ทราบเวลา)" : birthTime ? `, ${birthTime} น.` : ""
+  return `${dateTh}${timeTh}`
+}
+
 export function EditProfileScreen() {
   const [profile, setProfile] = useState<Profile | null>(null)
   const [loading, setLoading] = useState(true)
@@ -141,7 +154,7 @@ export function EditProfileScreen() {
                 <span>
                   <span className="block text-[13px] font-bold text-v3-navy">วันเกิดและเวลาเกิด</span>
                   <span className="block text-[12px] leading-4 text-v3-text-body">
-                    {profile?.birthDate ? `${profile.birthDate}${profile.birthTime ? `, ${profile.birthTime} น.` : ""}${profile.timeUnknown ? " (ไม่ทราบเวลา)" : ""}` : "ยังไม่ได้ระบุ"}
+                    {thaiBirthLabel(profile?.birthDate, profile?.birthTime, profile?.timeUnknown)}
                   </span>
                 </span>
                 <span className="flex-none text-[12px] font-bold text-v3-pumpkin">แก้ในหน้าอื่น ›</span>

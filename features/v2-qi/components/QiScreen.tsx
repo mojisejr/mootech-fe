@@ -531,7 +531,15 @@ export function QiScreen() {
         />
       )}
       {sheet?.kind === "insufficient" && (
-        <InsufficientQiSheet line={sheet.line} balance={balance} onClose={() => setSheet(null)} />
+        <InsufficientQiSheet
+          line={sheet.line}
+          balance={balance}
+          onClose={() => setSheet(null)}
+          hints={{
+            checkinQi: catalog?.earn.find((e) => e.code === "daily_login")?.qi,
+            shareQi: catalog?.earn.find((e) => e.code === "share")?.qi,
+          }}
+        />
       )}
     </SkyScreen>
   )
