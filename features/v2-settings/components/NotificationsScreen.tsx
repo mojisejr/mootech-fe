@@ -108,6 +108,15 @@ export function NotificationsScreen() {
 
   const master = local.master
 
+  // ครบภารกิจ enable_notif (best-effort, engine กันซ้ำเอง) — เมื่อเปิดแจ้งเตือนช่องใดช่องหนึ่งจริง
+  const reportNotifEnabled = useCallback(() => {
+    void fetch('/api/missions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ missionId: 'enable_notif' }),
+    }).catch(() => {})
+  }, [])
+
   const load = useCallback(async () => {
     setLoading(true)
     setKind('ok')
@@ -121,11 +130,16 @@ export function NotificationsScreen() {
         setKind('failed')
         return
       }
-      setPrefs((await res.json()) as Prefs)
+      const p = (await res.json()) as Prefs
+      setPrefs(p)
+      // เคยเปิดไว้แล้ว (หรืออนุญาต push บนเบราว์เซอร์) → นับภารกิจให้เลย
+      if (p.dailyFortune || p.reminders || p.updates || (typeof Notification !== 'undefined' && Notification.permission === 'granted')) {
+        reportNotifEnabled()
+      }
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [reportNotifEnabled])
 
   useEffect(() => {
     void load()
@@ -153,7 +167,10 @@ export function NotificationsScreen() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(next),
       })
-      if (res.ok) setPrefs(next)
+      if (res.ok) {
+        setPrefs(next)
+        if (next[key]) reportNotifEnabled() // เพิ่งเปิดช่องนี้ → นับภารกิจ
+      }
     } finally {
       setSavingKey(null)
     }

@@ -10,7 +10,7 @@ import { useCallback, useEffect, useState } from "react"
 
 import { AmountPill, IconTile, SkyScreen } from "@/features/v2-profile/components/kit"
 import { QiHeader } from "./QiHeader"
-import { checkedInToday, todayBangkok, type Mission, type MissionBoard, type Wallet } from "../qi-model"
+import { checkedInToday, sharedToday, todayBangkok, type Mission, type MissionBoard, type Wallet } from "../qi-model"
 
 const CHECKIN_QI = 5 // = daily_login ใน catalog engine (แสดงผล; รางวัลจริงมาจากจอเช็คอิน)
 
@@ -158,10 +158,15 @@ export function MissionsScreen() {
   const longterm = missions.filter((m) => m.category === "longterm")
   const goals = board?.goals
 
-  const didCheckin = checkedInToday(wallet?.history, todayBangkok())
-  const dailyDone = (didCheckin ? 1 : 0) + daily.filter((m) => m.completed).length
+  const today = todayBangkok()
+  const didCheckin = checkedInToday(wallet?.history, today)
+  const didShare = sharedToday(wallet?.history, today)
+  // share_fortune จ่ายผ่านเส้น earn "share" แล้ว → derive สถานะเสร็จจากประวัติ (ไม่จ่ายซ้ำ),
+  // เหมือนเช็คอินที่ derive จาก daily_login. mission อื่นใช้สถานะจาก engine ตามปกติ.
+  const isDone = (m: Mission) => m.completed || (m.id === "share_fortune" && didShare)
+  const dailyDone = (didCheckin ? 1 : 0) + daily.filter(isDone).length
   const dailyTotal = 1 + daily.length
-  const remainingQi = (didCheckin ? 0 : CHECKIN_QI) + daily.filter((m) => !m.completed).reduce((s, m) => s + m.rewardCoins, 0)
+  const remainingQi = (didCheckin ? 0 : CHECKIN_QI) + daily.filter((m) => !isDone(m)).reduce((s, m) => s + m.rewardCoins, 0)
   const onceDone = once.filter((m) => m.completed).length
   const { h, m } = untilBangkokMidnight()
 
@@ -233,12 +238,12 @@ export function MissionsScreen() {
                     title={m.title}
                     desc={m.description}
                     rewardQi={m.rewardCoins}
-                    done={m.completed}
-                    claimed={Boolean(m.claimedAt)}
-                    href={m.completed ? undefined : m.actionHref}
+                    done={isDone(m)}
+                    claimed={Boolean(m.claimedAt) || (m.id === "share_fortune" && didShare)}
+                    href={isDone(m) ? undefined : m.actionHref}
                     count={m.count}
                     target={m.target}
-                    note={m.id === "share_fortune" && !m.completed ? "+50 QI เพิ่ม เมื่อมีคนสมัครจากที่คุณแชร์" : undefined}
+                    note={m.id === "share_fortune" && !isDone(m) ? "+50 QI เพิ่ม เมื่อมีคนสมัครจากที่คุณแชร์" : undefined}
                   />
                 ))}
               </div>

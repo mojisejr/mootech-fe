@@ -56,6 +56,17 @@ export function ConnectedScreen() {
   }, [])
 
   const provider = typeof session?.provider === "string" ? session.provider : null
+
+  // เชื่อม LINE = วิธีล็อกอินหลัก → ครบภารกิจ connect_line (best-effort, engine กันซ้ำเอง)
+  useEffect(() => {
+    if (provider !== "line") return
+    void fetch("/api/missions", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ missionId: "connect_line" }),
+    }).catch(() => {})
+  }, [provider])
+
   const known = provider ? PROVIDER[provider] : undefined
   const email = typeof session?.user?.email === "string" && session.user.email ? session.user.email : null
   const backup = BACKUP.filter((b) => b.key !== provider)

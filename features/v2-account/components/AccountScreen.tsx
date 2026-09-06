@@ -18,6 +18,12 @@ import { bkkCivilDate } from "../payment-history"
 import { planFor, type Plan } from "../plan"
 
 type Profile = { firstName?: string | null; displayName?: string | null; birthDate?: string | null; birthTime?: string | null; hasAvatar?: boolean | null; avatarUpdatedAt?: string | null }
+// สรุปสิทธิ์จาก /api/qi-entitlements — ใช้คิด "ยังถาม/เปิดไพ่ได้อีกกี่ครั้ง" ให้ตรง (ฟรี + credit + QI)
+type Entitlements = {
+  tier?: "free" | "plus" | "pro"
+  credits?: { card_use?: number; chat_question?: number }
+  quota?: { card?: { used: number; limit: number }; chat?: { used: number; limit: number } }
+}
 type ElementSummary = { elementTh?: string | null; tagline?: string | null; traits?: string[] } | null
 type Referral = { invitedCount?: number }
 
@@ -52,6 +58,7 @@ const CHECK_SM = <svg width="12" height="12" viewBox="0 0 24 24" fill="none" str
 export function AccountScreen() {
   const { user } = useV2User()
   const [wallet, setWallet] = useState<Wallet | null>(null)
+  const [ent, setEnt] = useState<Entitlements | null>(null)
   const [profile, setProfile] = useState<Profile | null>(null)
   const [element, setElement] = useState<ElementSummary>(null)
   const [board, setBoard] = useState<MissionBoard | null>(null)
@@ -61,14 +68,16 @@ export function AccountScreen() {
   const [attempt, setAttempt] = useState(0)
 
   const load = useCallback(async () => {
-    const [w, p, m, r, del] = await Promise.all([
+    const [w, p, m, r, del, e] = await Promise.all([
       fetch("/api/qi-wallet?history=100").then((x) => (x.ok ? x.json() : null)).catch(() => null),
       fetch("/api/profile").then((x) => (x.ok ? x.json() : null)).catch(() => null),
       fetch("/api/missions").then((x) => (x.ok ? x.json() : null)).catch(() => null),
       fetch("/api/referral").then((x) => (x.ok ? x.json() : null)).catch(() => null),
       fetch("/api/v2/account/delete").then((x) => (x.ok ? x.json() : null)).catch(() => null),
+      fetch("/api/qi-entitlements").then((x) => (x.ok ? x.json() : null)).catch(() => null),
     ])
     setWallet(w)
+    setEnt(e)
     const prof: Profile | null = p?.profile ?? null
     setProfile(prof)
     setBoard(m)
@@ -107,8 +116,13 @@ export function AccountScreen() {
   const today = todayBangkok()
   const done = checkedInToday(history, today)
   const streak = checkinStreak(history, today)
-  const asks = Math.floor(balance / CHAT_COST)
-  const cards = Math.floor(balance / 10) // เปิดไพ่/เสี่ยงทาย = 10 QI (card_use)
+  // ยังทำได้อีกกี่ครั้ง = โควตาฟรีที่เหลือวันนี้ + credit ที่ซื้อไว้ + (QI ÷ ราคา).
+  // สมาชิกจ่ายเงิน (plus/pro) แชทไม่จำกัด → โชว์ "ไม่จำกัด".
+  const freeLeft = (f: "card" | "chat") => Math.max(0, (ent?.quota?.[f]?.limit ?? 0) - (ent?.quota?.[f]?.used ?? 0))
+  const chatUnlimited = ent?.tier === "plus" || ent?.tier === "pro"
+  const asksNum = freeLeft("chat") + (ent?.credits?.chat_question ?? 0) + Math.floor(balance / CHAT_COST)
+  const cards = freeLeft("card") + (ent?.credits?.card_use ?? 0) + Math.floor(balance / 10) // เปิดไพ่ = 10 QI (card_use)
+  const asks = chatUnlimited ? "ไม่จำกัด" : asksNum
 
   const mascot = useMemo(() => {
     if (!profile?.birthDate) return null
@@ -211,7 +225,7 @@ export function AccountScreen() {
                   <Image src="/images/v2/qi/qi-coin.png" alt="" width={56} height={56} unoptimized className="size-14 object-contain drop-shadow" />
                 </span>
               </div>
-              <p className="mt-3 text-[13px] leading-[18px] text-white/90">พอถามเซียนมู AI ได้อีก {asks} ครั้ง หรือเปิดไพ่ได้ {cards} ครั้ง</p>
+              <p className="mt-3 text-[13px] leading-[18px] text-white/90">{chatUnlimited ? <>ถามเซียนมู AI ได้ไม่จำกัด · เปิดไพ่ได้อีก {cards} ครั้ง</> : <>พอถามเซียนมู AI ได้อีก {asks} ครั้ง หรือเปิดไพ่ได้ {cards} ครั้ง</>}</p>
               <div className="mt-3 flex gap-2">
                 <Link href="/v2/qi/buy" data-testid="qi-topup-link" className="grid h-11 flex-1 place-items-center rounded-full bg-v3-lime text-[14px] font-black uppercase text-v3-navy">ซื้อ QI เพิ่ม</Link>
                 <Link href="/v2/qi/history" data-testid="account-qi-history" className="grid h-11 flex-1 place-items-center rounded-full border border-white/60 text-[14px] font-bold uppercase text-white">ประวัติการใช้</Link>
