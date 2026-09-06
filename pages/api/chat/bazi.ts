@@ -19,11 +19,6 @@ import {
   type FeCalcInput,
 } from "@/lib/bazi-bridge/input"
 import type { DevBirthProfile } from "@/dev-access/birth-adapter"
-import {
-  fetchBalance,
-  consumeCredit,
-  creditEnforced,
-} from "@/lib/credit/wallet-client"
 
 export const config = {
   api: {
@@ -101,20 +96,25 @@ export default async function handler(
     return
   }
 
-  // Credit gate — AI_GENERAL wallet (shared with the old Mate chat). Members are
-  // unlimited. The dev playground path (no resolvable userId) is exempt by design.
-  let walletUnlimited = false
+  // QI gate — ถามได้ฟรีต่อวันตาม tier (free 3 · plus 30 · pro 100) → หมดแล้วหัก 30 ชี่/คำถาม.
+  // เช็คก่อน "ไม่หัก" (หักจริงหลังตอบสำเร็จด้านล่าง) — ชี่ไม่พอ → 402. dev playground (ไม่มี userId) ยกเว้น.
   if (userId) {
-    const bal = await fetchBalance(userId)
-    if (bal) {
-      walletUnlimited = bal.unlimited
-      if (creditEnforced() && !bal.unlimited && (bal.balance ?? 0) <= 0) {
+    try {
+      const chk = await fetch(`${base}/api/qi/feature-check`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ anonId: userId, feature: "chat" }),
+      })
+      const info = (await chk.json().catch(() => null)) as { affordable?: boolean; cost?: number } | null
+      if (chk.ok && info && info.affordable === false) {
         res.status(402).json({
           code: "OUT_OF_LIMIT",
-          message: "เครดิตคำถาม AI หมดแล้ว กรุณาเติมเครดิตเพื่อถามต่อ",
+          message: `ชี่ไม่พอถาม AI (ใช้ ${info.cost ?? 30} ชี่ต่อคำถามเมื่อโควตาฟรีหมด) — เติมชี่เพื่อถามต่อ`,
         })
         return
       }
+    } catch {
+      // ระบบเช็คล้ม → ไม่บล็อกผู้ใช้ (fail-open) เพราะเป็นความผิดพลาดฝั่งเรา ไม่ใช่ชี่หมด
     }
   }
 
@@ -199,11 +199,13 @@ export default async function handler(
     res.end()
   }
 
-  // Deduct exactly one credit only on a successful, non-empty answer. Members are
-  // unlimited and never charged. Best-effort: a failed consume never affects the
-  // already-delivered answer. (Idempotency across client retries is handled by the
-  // BE wallet floor at 0; a per-turn key is a future refinement.)
-  if (userId && gotContent && !walletUnlimited) {
-    await consumeCredit(userId)
+  // หักชี่ 1 ครั้ง เฉพาะเมื่อตอบสำเร็จและมีเนื้อหา (ฟรีวันนี้ → QI). best-effort:
+  // ถ้าหักล้มก็ไม่กระทบคำตอบที่ส่งไปแล้ว. เขตไทยรีเซ็ตโควตาฟรีรายวันเองที่ engine.
+  if (userId && gotContent) {
+    await fetch(`${base}/api/qi/feature-consume`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ anonId: userId, feature: "chat" }),
+    }).catch(() => {})
   }
 }

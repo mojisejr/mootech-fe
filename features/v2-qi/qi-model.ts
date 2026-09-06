@@ -123,6 +123,14 @@ export function checkedInToday(history: WalletHistoryRow[] | undefined, today: s
   )
 }
 
+/** แชร์ดวงวันนี้แล้วหรือยัง — ดูจากประวัติ: แถว `qi:earn:share` วันนี้ (Bangkok).
+ * ใช้ derive สถานะ mission share_fortune บนบอร์ด โดยไม่จ่ายซ้ำ (รางวัลมาจากเส้น earn share แล้ว
+ * เหมือนที่เช็คอิน derive จาก daily_login) */
+export function sharedToday(history: WalletHistoryRow[] | undefined, today: string): boolean {
+  if (!history?.length) return false
+  return history.some((h) => h.reason === "qi:earn:share" && bangkokDay(h.createdAt) === today)
+}
+
 /** วันที่เช็คอินทั้งหมด (YYYY-MM-DD แบบ Bangkok) จากประวัติ — ใช้วาด strip/streak ของจอเช็คอิน */
 export function checkedInDays(history: WalletHistoryRow[] | undefined): Set<string> {
   const days = new Set<string>()

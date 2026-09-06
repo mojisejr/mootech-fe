@@ -6,9 +6,11 @@ import Head from "next/head"
 import Image from "next/image"
 import Link from "next/link"
 import { useCallback, useEffect, useMemo, useState } from "react"
+import { useCookies } from "react-cookie"
 
 import { Menubar } from "@/features/v2-shell/components/Menubar"
 import { useV2User } from "@/features/auth/hooks/useV2User"
+import { CookieKey } from "@/constants/cookie-key"
 import { SHOP_HREF } from "@/features/v2-shop/upgrade-cta"
 import { BackButton, IconTile, KitButton, SectionCard, SkyBackdrop } from "@/features/v2-profile/components/kit"
 import { iconFor } from "@/features/v2-qi/components/MissionsScreen"
@@ -18,6 +20,12 @@ import { bkkCivilDate } from "../payment-history"
 import { planFor, type Plan } from "../plan"
 
 type Profile = { firstName?: string | null; displayName?: string | null; birthDate?: string | null; birthTime?: string | null; hasAvatar?: boolean | null; avatarUpdatedAt?: string | null }
+// สรุปสิทธิ์จาก /api/qi-entitlements — ใช้คิด "ยังถาม/เปิดไพ่ได้อีกกี่ครั้ง" ให้ตรง (ฟรี + credit + QI)
+type Entitlements = {
+  tier?: "free" | "plus" | "pro"
+  credits?: { card_use?: number; chat_question?: number }
+  quota?: { card?: { used: number; limit: number }; chat?: { used: number; limit: number } }
+}
 type ElementSummary = { elementTh?: string | null; tagline?: string | null; traits?: string[] } | null
 type Referral = { invitedCount?: number }
 
@@ -51,29 +59,38 @@ const CHECK_SM = <svg width="12" height="12" viewBox="0 0 24 24" fill="none" str
 
 export function AccountScreen() {
   const { user } = useV2User()
+  // ตัวตน LINE (ชื่อ+รูปจริง) จาก cookie ที่ตั้งตอน login — เหมือนที่หน้าหลักใช้ ให้ /account ตรงกัน
+  const [cookies] = useCookies([CookieKey.MEMBER_NAME, CookieKey.MEMBER_IMAGE])
+  const lineName = typeof cookies[CookieKey.MEMBER_NAME] === "string" ? cookies[CookieKey.MEMBER_NAME] : null
+  const linePhoto = typeof cookies[CookieKey.MEMBER_IMAGE] === "string" ? cookies[CookieKey.MEMBER_IMAGE] : null
   const [wallet, setWallet] = useState<Wallet | null>(null)
+  const [ent, setEnt] = useState<Entitlements | null>(null)
   const [profile, setProfile] = useState<Profile | null>(null)
   const [element, setElement] = useState<ElementSummary>(null)
   const [board, setBoard] = useState<MissionBoard | null>(null)
   const [referral, setReferral] = useState<Referral | null>(null)
   const [deletePending, setDeletePending] = useState<string | null>(null)
   const [busyCheckin, setBusyCheckin] = useState(false)
+  const [loaded, setLoaded] = useState(false) // wallet/profile โหลดเสร็จ — กันปุ่มเช็คอิน flash ก่อนรู้สถานะจริง
   const [attempt, setAttempt] = useState(0)
 
   const load = useCallback(async () => {
-    const [w, p, m, r, del] = await Promise.all([
+    const [w, p, m, r, del, e] = await Promise.all([
       fetch("/api/qi-wallet?history=100").then((x) => (x.ok ? x.json() : null)).catch(() => null),
       fetch("/api/profile").then((x) => (x.ok ? x.json() : null)).catch(() => null),
       fetch("/api/missions").then((x) => (x.ok ? x.json() : null)).catch(() => null),
       fetch("/api/referral").then((x) => (x.ok ? x.json() : null)).catch(() => null),
       fetch("/api/v2/account/delete").then((x) => (x.ok ? x.json() : null)).catch(() => null),
+      fetch("/api/qi-entitlements").then((x) => (x.ok ? x.json() : null)).catch(() => null),
     ])
     setWallet(w)
+    setEnt(e)
     const prof: Profile | null = p?.profile ?? null
     setProfile(prof)
     setBoard(m)
     setReferral(r)
     setDeletePending(del?.deletion?.purgeAt ?? null)
+    setLoaded(true)
     if (prof?.birthDate) {
       fetch("/api/bazi/element-summary", {
         method: "POST",
@@ -107,8 +124,13 @@ export function AccountScreen() {
   const today = todayBangkok()
   const done = checkedInToday(history, today)
   const streak = checkinStreak(history, today)
-  const asks = Math.floor(balance / CHAT_COST)
-  const cards = Math.floor(balance / 10) // เปิดไพ่/เสี่ยงทาย = 10 QI (card_use)
+  // ยังทำได้อีกกี่ครั้ง = โควตาฟรีที่เหลือวันนี้ + credit ที่ซื้อไว้ + (QI ÷ ราคา).
+  // สมาชิกจ่ายเงิน (plus/pro) แชทไม่จำกัด → โชว์ "ไม่จำกัด".
+  const freeLeft = (f: "card" | "chat") => Math.max(0, (ent?.quota?.[f]?.limit ?? 0) - (ent?.quota?.[f]?.used ?? 0))
+  const chatUnlimited = ent?.tier === "plus" || ent?.tier === "pro"
+  const asksNum = freeLeft("chat") + (ent?.credits?.chat_question ?? 0) + Math.floor(balance / CHAT_COST)
+  const cards = freeLeft("card") + (ent?.credits?.card_use ?? 0) + Math.floor(balance / 10) // เปิดไพ่ = 10 QI (card_use)
+  const asks = chatUnlimited ? "ไม่จำกัด" : asksNum
 
   const mascot = useMemo(() => {
     if (!profile?.birthDate) return null
@@ -124,7 +146,8 @@ export function AccountScreen() {
   const claimedSet = new Set(history.filter((h) => h.reason === "qi:earn:daily_login").map((h) => h.createdAt.slice(0, 10)))
   const missingElements = goals ? goals.element.elements.filter((e) => !e.collected).map((e) => ELEMENT_TH[e.key] ?? e.key) : []
 
-  const name = profile?.firstName || "ผู้ใช้ MuMate"
+  // ชื่อ: ชื่อจริงที่ตั้งเอง (engine) → ชื่อ LINE → generic
+  const name = profile?.firstName || lineName || "ผู้ใช้ MuMate"
   const tierKey = membership?.tier ?? "free"
   const isPaid = plan?.isFree === false
 
@@ -138,8 +161,13 @@ export function AccountScreen() {
           <BackButton fallbackHref="/v2" testId="account-back" />
           <span aria-hidden className="relative grid size-11 flex-none place-items-center overflow-hidden rounded-full bg-v3-sapphire text-[18px] font-black text-white shadow-[0_2px_8px_rgba(26,38,77,.15)]">
             {profile?.hasAvatar ? (
+              // รูปที่ผู้ใช้อัปโหลดเอง (engine) มาก่อน
               // eslint-disable-next-line @next/next/no-img-element
               <img src={`/api/v2/avatar?t=${encodeURIComponent(profile.avatarUpdatedAt ?? "")}`} alt="" className="absolute inset-0 size-full object-cover" />
+            ) : linePhoto ? (
+              // ไม่มีรูปอัปโหลด → ใช้รูป LINE (เหมือนหน้าหลัก)
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={linePhoto} alt="" referrerPolicy="no-referrer" className="absolute inset-0 size-full object-cover" />
             ) : (
               name.slice(0, 1)
             )}
@@ -211,7 +239,7 @@ export function AccountScreen() {
                   <Image src="/images/v2/qi/qi-coin.png" alt="" width={56} height={56} unoptimized className="size-14 object-contain drop-shadow" />
                 </span>
               </div>
-              <p className="mt-3 text-[13px] leading-[18px] text-white/90">พอถามเซียนมู AI ได้อีก {asks} ครั้ง หรือเปิดไพ่ได้ {cards} ครั้ง</p>
+              <p className="mt-3 text-[13px] leading-[18px] text-white/90">{chatUnlimited ? <>ถามเซียนมู AI ได้ไม่จำกัด · เปิดไพ่ได้อีก {cards} ครั้ง</> : <>พอถามเซียนมู AI ได้อีก {asks} ครั้ง หรือเปิดไพ่ได้ {cards} ครั้ง</>}</p>
               <div className="mt-3 flex gap-2">
                 <Link href="/v2/qi/buy" data-testid="qi-topup-link" className="grid h-11 flex-1 place-items-center rounded-full bg-v3-lime text-[14px] font-black uppercase text-v3-navy">ซื้อ QI เพิ่ม</Link>
                 <Link href="/v2/qi/history" data-testid="account-qi-history" className="grid h-11 flex-1 place-items-center rounded-full border border-white/60 text-[14px] font-bold uppercase text-white">ประวัติการใช้</Link>
@@ -237,8 +265,8 @@ export function AccountScreen() {
                 )
               })}
             </div>
-            <KitButton onClick={() => void checkin()} disabled={done || busyCheckin} testId="account-checkin-btn">
-              {done ? "เช็คอินแล้ว · กลับมาพรุ่งนี้" : busyCheckin ? "กำลังบันทึก..." : "เช็คอินวันนี้ รับ +5 QI"}
+            <KitButton onClick={() => void checkin()} disabled={!loaded || done || busyCheckin} testId="account-checkin-btn">
+              {!loaded ? "กำลังโหลด..." : done ? "เช็คอินแล้ว · กลับมาพรุ่งนี้" : busyCheckin ? "กำลังบันทึก..." : "เช็คอินวันนี้ รับ +5 QI"}
             </KitButton>
             <p className="text-center text-[11px] text-v3-text-muted">ครบ 7 วันรับโบนัส +30 QI</p>
           </SectionCard>

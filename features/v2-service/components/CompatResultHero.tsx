@@ -42,6 +42,7 @@ function HeroPerson({ person, mascot, roleLabel, testId }: {
   // URL the form just uploaded. An account row can hold a stale/deleted path, and a broken <img> in the ring
   // reads worse than the brand mark. Same guard as the top bar (TopBarAvatar.tsx:69,75,78).
   const [broken, setBroken] = useState(false)
+  const [mascotLoaded, setMascotLoaded] = useState(false)
   const showPhoto = !!photo && !broken
   const name = (person?.displayName ?? '').trim()
   const birth = formatCompatBirth(person?.birthDate ?? '', person?.time ?? '')
@@ -49,8 +50,8 @@ function HeroPerson({ person, mascot, roleLabel, testId }: {
     <div data-testid={testId} className="flex min-w-0 flex-1 flex-col items-center gap-1 text-center">
       {/* mascot illustration card (scenic) — hidden until goo's image arrives */}
       {img ? (
-        <span data-testid={`${testId}-mascot`} className="relative aspect-[3/4] w-full overflow-hidden rounded-2xl bg-white/10">
-          <Image src={img} alt={name || roleLabel} fill sizes="180px" style={{ objectFit: 'cover' }} />
+        <span data-testid={`${testId}-mascot`} className={`relative aspect-[3/4] w-full overflow-hidden rounded-2xl bg-white/10 ${mascotLoaded ? '' : 'animate-pulse'}`}>
+          <Image src={img} alt={name || roleLabel} fill sizes="180px" style={{ objectFit: 'cover' }} onLoadingComplete={() => setMascotLoaded(true)} onError={() => setMascotLoaded(true)} />
         </span>
       ) : null}
       {/* avatar circle — the person's real photo when there is one (the form's upload, else the account's
