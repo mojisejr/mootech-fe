@@ -6,9 +6,11 @@ import Head from "next/head"
 import Image from "next/image"
 import Link from "next/link"
 import { useCallback, useEffect, useMemo, useState } from "react"
+import { useCookies } from "react-cookie"
 
 import { Menubar } from "@/features/v2-shell/components/Menubar"
 import { useV2User } from "@/features/auth/hooks/useV2User"
+import { CookieKey } from "@/constants/cookie-key"
 import { SHOP_HREF } from "@/features/v2-shop/upgrade-cta"
 import { BackButton, IconTile, KitButton, SectionCard, SkyBackdrop } from "@/features/v2-profile/components/kit"
 import { iconFor } from "@/features/v2-qi/components/MissionsScreen"
@@ -57,6 +59,10 @@ const CHECK_SM = <svg width="12" height="12" viewBox="0 0 24 24" fill="none" str
 
 export function AccountScreen() {
   const { user } = useV2User()
+  // ตัวตน LINE (ชื่อ+รูปจริง) จาก cookie ที่ตั้งตอน login — เหมือนที่หน้าหลักใช้ ให้ /account ตรงกัน
+  const [cookies] = useCookies([CookieKey.MEMBER_NAME, CookieKey.MEMBER_IMAGE])
+  const lineName = typeof cookies[CookieKey.MEMBER_NAME] === "string" ? cookies[CookieKey.MEMBER_NAME] : null
+  const linePhoto = typeof cookies[CookieKey.MEMBER_IMAGE] === "string" ? cookies[CookieKey.MEMBER_IMAGE] : null
   const [wallet, setWallet] = useState<Wallet | null>(null)
   const [ent, setEnt] = useState<Entitlements | null>(null)
   const [profile, setProfile] = useState<Profile | null>(null)
@@ -138,7 +144,8 @@ export function AccountScreen() {
   const claimedSet = new Set(history.filter((h) => h.reason === "qi:earn:daily_login").map((h) => h.createdAt.slice(0, 10)))
   const missingElements = goals ? goals.element.elements.filter((e) => !e.collected).map((e) => ELEMENT_TH[e.key] ?? e.key) : []
 
-  const name = profile?.firstName || "ผู้ใช้ MuMate"
+  // ชื่อ: ชื่อจริงที่ตั้งเอง (engine) → ชื่อ LINE → generic
+  const name = profile?.firstName || lineName || "ผู้ใช้ MuMate"
   const tierKey = membership?.tier ?? "free"
   const isPaid = plan?.isFree === false
 
@@ -152,8 +159,13 @@ export function AccountScreen() {
           <BackButton fallbackHref="/v2" testId="account-back" />
           <span aria-hidden className="relative grid size-11 flex-none place-items-center overflow-hidden rounded-full bg-v3-sapphire text-[18px] font-black text-white shadow-[0_2px_8px_rgba(26,38,77,.15)]">
             {profile?.hasAvatar ? (
+              // รูปที่ผู้ใช้อัปโหลดเอง (engine) มาก่อน
               // eslint-disable-next-line @next/next/no-img-element
               <img src={`/api/v2/avatar?t=${encodeURIComponent(profile.avatarUpdatedAt ?? "")}`} alt="" className="absolute inset-0 size-full object-cover" />
+            ) : linePhoto ? (
+              // ไม่มีรูปอัปโหลด → ใช้รูป LINE (เหมือนหน้าหลัก)
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={linePhoto} alt="" referrerPolicy="no-referrer" className="absolute inset-0 size-full object-cover" />
             ) : (
               name.slice(0, 1)
             )}
