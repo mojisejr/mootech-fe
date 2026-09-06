@@ -71,6 +71,7 @@ export function AccountScreen() {
   const [referral, setReferral] = useState<Referral | null>(null)
   const [deletePending, setDeletePending] = useState<string | null>(null)
   const [busyCheckin, setBusyCheckin] = useState(false)
+  const [loaded, setLoaded] = useState(false) // wallet/profile โหลดเสร็จ — กันปุ่มเช็คอิน flash ก่อนรู้สถานะจริง
   const [attempt, setAttempt] = useState(0)
 
   const load = useCallback(async () => {
@@ -89,6 +90,7 @@ export function AccountScreen() {
     setBoard(m)
     setReferral(r)
     setDeletePending(del?.deletion?.purgeAt ?? null)
+    setLoaded(true)
     if (prof?.birthDate) {
       fetch("/api/bazi/element-summary", {
         method: "POST",
@@ -263,8 +265,8 @@ export function AccountScreen() {
                 )
               })}
             </div>
-            <KitButton onClick={() => void checkin()} disabled={done || busyCheckin} testId="account-checkin-btn">
-              {done ? "เช็คอินแล้ว · กลับมาพรุ่งนี้" : busyCheckin ? "กำลังบันทึก..." : "เช็คอินวันนี้ รับ +5 QI"}
+            <KitButton onClick={() => void checkin()} disabled={!loaded || done || busyCheckin} testId="account-checkin-btn">
+              {!loaded ? "กำลังโหลด..." : done ? "เช็คอินแล้ว · กลับมาพรุ่งนี้" : busyCheckin ? "กำลังบันทึก..." : "เช็คอินวันนี้ รับ +5 QI"}
             </KitButton>
             <p className="text-center text-[11px] text-v3-text-muted">ครบ 7 วันรับโบนัส +30 QI</p>
           </SectionCard>
