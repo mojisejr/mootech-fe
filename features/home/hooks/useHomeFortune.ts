@@ -68,6 +68,17 @@ export function useHomeFortune(user: HomeUser | null, userLoading: boolean): { f
         if (alive) {
           setFortune(data.fortune ?? null)
           setPersona(data.persona ?? null)
+          // อ่านคำทำนายประจำวันสำเร็จ → รายงานภารกิจ read_fortune (รายวัน) + first_reading (ครั้งเดียว).
+          // best-effort · engine กันซ้ำ/รีเซ็ตรายวันเอง (idempotent) → ยิงทุกครั้งที่การ์ดขึ้นได้ปลอดภัย.
+          if (data.fortune) {
+            for (const missionId of ["read_fortune", "first_reading"]) {
+              void fetch('/api/missions', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ missionId }),
+              }).catch(() => {})
+            }
+          }
         }
       } catch {
         if (alive) {

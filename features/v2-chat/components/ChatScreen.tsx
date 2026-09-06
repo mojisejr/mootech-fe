@@ -20,7 +20,6 @@ import Image from "next/image"
 import { useEffect, useMemo, useRef, useState } from "react"
 import { useBaziChatStream } from "../useBaziChatStream"
 import { SUGGESTED_QUESTIONS } from "@/constants/suggested-questions"
-import { SHOP_HREF } from "@/features/v2-shop/upgrade-cta"
 
 // เพอร์โซนา 2 แบบ (เสี่ยวมู่ ชาย / เสี่ยวมี่ หญิง) × 4 ท่าตามอารมณ์คำตอบ
 type PersonaKey = "mu" | "mi"
@@ -292,13 +291,13 @@ export function ChatScreen() {
           {/* guard cards */}
           {guard === "OUT_OF_LIMIT" && (
             <div data-testid="chat-guard-credit" className="w-full rounded-[18px] bg-white p-4 text-center shadow-[0_2px_10px_rgba(26,38,77,0.10)]">
-              <p className="text-[13px] font-bold leading-5 text-v3-navy">เครดิตคำถาม AI หมดแล้ว</p>
-              <p className="mt-1 text-[12px] leading-4 text-v3-text-body">เติมเครดิตหรืออัปเกรดแพ็กเกจเพื่อคุยกับมิวต่อได้เลย</p>
+              <p className="text-[13px] font-bold leading-5 text-v3-navy">ชี่ไม่พอถาม AI แล้ว</p>
+              <p className="mt-1 text-[12px] leading-4 text-v3-text-body">เติมชี่หรืออัปเกรดแพ็กเกจ (โควตาฟรีมากขึ้น) เพื่อคุยกับมิวต่อได้เลย</p>
               <Link
-                href={SHOP_HREF}
+                href="/v2/qi/buy"
                 className="mt-3 grid h-11 w-full place-items-center rounded-full bg-v3-cyan text-sm font-bold text-white"
               >
-                เติมเครดิต / ดูแพ็คเกจ
+                เติมชี่ / ดูแพ็คเกจ
               </Link>
             </div>
           )}

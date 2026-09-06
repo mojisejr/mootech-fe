@@ -61,6 +61,8 @@ export function CardReadingScreen({
   const [error, setError] = useState<string | null>(null)
   const [quotaOut, setQuotaOut] = useState(false)
   const [balance, setBalance] = useState<number | null>(null)
+  // ที่มาของการเปิดครั้งนี้ (จาก engine): free=ฟรีวันนี้ · qi=หัก N ชี่ · credit=ใช้เครดิต
+  const [qiInfo, setQiInfo] = useState<{ source: "free" | "credit" | "qi"; cost: number } | null>(null)
 
   const deck = useMemo(() => shuffle(deckCount), [deckCount])
 
@@ -89,13 +91,18 @@ export function CardReadingScreen({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(cardNos ? { cardNos } : { random: true }),
       })
-      const j = (await res.json().catch(() => ({}))) as { cards?: FortuneCard[]; slots?: Slot[]; engineProse?: string; error?: { message?: string } }
+      const j = (await res.json().catch(() => ({}))) as { cards?: FortuneCard[]; slots?: Slot[]; engineProse?: string; qi?: { source: "free" | "credit" | "qi"; cost: number } | null; error?: { message?: string } }
       await new Promise((r) => setTimeout(r, Math.max(0, 1900 - (Date.now() - started))))
       if (res.status === 402) { setQuotaOut(true); setPhase("intro"); return }
       if (!res.ok || !j.cards?.length) { setError(j.error?.message ?? "เปิดไพ่ไม่สำเร็จ ลองใหม่อีกครั้ง"); setPhase(cardNos ? "pick" : "intro"); return }
       setCards(j.cards)
       setSlots(j.slots ?? [])
       setProse(j.engineProse ?? "")
+      setQiInfo(j.qi ?? null)
+      // ดูดวงครั้งแรก / อ่านดวงวันนี้ → รายงานภารกิจ (best-effort, engine กันซ้ำ/รีเซ็ตรายวันเอง)
+      void fetch("/api/missions", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ missionId: "first_reading" }) }).catch(() => {})
+      // อัปเดตยอด QI ที่โชว์ (เผื่อครั้งนี้หักชี่)
+      fetch("/api/qi-wallet").then((r) => (r.ok ? r.json() : null)).then((w) => { if (typeof w?.qi === "number") setBalance(w.qi) }).catch(() => {})
       setPhase("result")
     } catch {
       setError("เชื่อมต่อไม่สำเร็จ ลองใหม่อีกครั้ง")
@@ -126,7 +133,7 @@ export function CardReadingScreen({
         testId="fortune-cards"
         right={
           phase === "result"
-            ? <span className="rounded-full bg-[#FCE9F0] px-3 py-1 text-[11px] font-bold text-[#B0568A]">ใช้ไป 10 QI</span>
+            ? <span className="rounded-full bg-[#FCE9F0] px-3 py-1 text-[11px] font-bold text-[#B0568A]">{qiInfo?.source === "qi" ? `ใช้ไป ${qiInfo.cost} QI` : qiInfo?.source === "credit" ? "ใช้เครดิต" : "ฟรีวันนี้"}</span>
             : phase === "pick" && balance !== null
               ? <span className="rounded-full bg-[#EAF3FF] px-3 py-1 text-[11px] font-black text-v3-sapphire" data-testid="cards-balance">{balance.toLocaleString("th-TH")} QI</span>
               : undefined

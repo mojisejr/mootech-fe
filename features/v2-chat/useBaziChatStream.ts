@@ -96,7 +96,7 @@ export function useBaziChatStream(persona: "mu" | "mi" = "mu") {
             content:
               prev.content ||
               (res.status === 402
-                ? "เครดิตคำถาม AI หมดแล้ว เติมเครดิตเพื่อถามต่อได้เลย"
+                ? "ชี่ไม่พอถาม AI แล้ว เติมชี่เพื่อถามต่อได้เลย"
                 : "เกิดข้อผิดพลาด ลองใหม่อีกครั้งนะคะ"),
           }))
           return
