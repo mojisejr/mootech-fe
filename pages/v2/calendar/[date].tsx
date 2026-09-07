@@ -31,6 +31,7 @@ import { MyChart } from '@/features/v2-calendar/components/day-detail/MyChart'
 import { Dithi } from '@/features/v2-calendar/components/day-detail/Dithi'
 import { EightGates } from '@/features/v2-calendar/components/day-detail/EightGates'
 import { EightDeities } from '@/features/v2-calendar/components/day-detail/EightDeities'
+import { Patrons } from '@/features/v2-calendar/components/day-detail/Patrons'
 import { SaveSheet } from '@/features/v2-calendar/components/day-detail/SaveSheet'
 import { InstallGuideSheet, type InstallGuideVariant } from '@/features/v2-calendar/components/InstallGuideSheet'
 import { notifyStateFrom } from '@/features/v2-calendar/notify-state'
@@ -319,6 +320,8 @@ export default function V2CalendarDayPage({ teamPreview }: { teamPreview: boolea
         {/* เงื่อนไขคือ `gates` (paid) ❌ ไม่ใช่ `luckyDirection` ซึ่งเป็นของฟรีหลัง #226 */}
         {advanced && detail.gates && <EightGates gates={detail.gates} luckyDirection={detail.luckyDirection} />}
         {advanced && detail.spirits && <EightDeities deities={detail.spirits} />}
+        {/* [advanced] กุ๊ยนั้ง 貴人 — almanac.patrons (paid: ไม่อยู่ใน allow-list ฟรี) · gafiw 2026-09-07 */}
+        {advanced && detail.patrons && <Patrons patrons={detail.patrons} />}
         {/* #343 — **ย้าย** ลิงก์นี้ลงมา ❌ ไม่ได้เพิ่มอันที่สอง (ของเดิมอยู่บนสุด ใต้กล่องคะแนน)
             เหตุผล: จังหวะที่ลิงก์นี้มีความหมายคือ "เพิ่งบันทึกเสร็จ" ซึ่งสายตาอยู่ที่ปุ่มแถบล่าง
             ตำแหน่งเดิมอยู่เหนือจอไปหลายส่วน ⇒ ผู้ใช้ต้องเลื่อนกลับขึ้นไปหาสิ่งที่ตัวเองเพิ่งทำ */}

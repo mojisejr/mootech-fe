@@ -29,6 +29,7 @@ const PROSE = 'ไพ่หลัก (น้ำหนัก 50%) — ...\n\nข�
 
 let predictStatus = 200
 let lastBody: Record<string, unknown> = {}
+let spendBodies: Array<Record<string, unknown>> = []
 const fetchMock = vi.fn(async (url: string, init?: { method?: string; body?: string }) => {
   const u = String(url)
   if (u.includes('/api/fortune/oracle')) {
@@ -38,6 +39,12 @@ const fetchMock = vi.fn(async (url: string, init?: { method?: string; body?: str
       : { ok: false, status: 402, json: async () => ({ error: { message: 'quota' } }) }
   }
   if (u.includes('/api/qi-earn')) return { ok: true, status: 200, json: async () => ({ ok: true }) }
+  if (u.includes('/api/qi-spend')) {
+    // แลก card_use สำเร็จ → engine มีเครดิตให้ครั้งถัดไป → predict ผ่าน
+    spendBodies.push(JSON.parse(String(init?.body ?? '{}')))
+    predictStatus = 200
+    return { ok: true, status: 200, json: async () => ({ code: 'card_use', spentQi: 10, qi: 90 }) }
+  }
   return { ok: true, status: 200, json: async () => ({}) }
 })
 vi.stubGlobal('fetch', fetchMock)
@@ -49,7 +56,7 @@ const renderOracle = () =>
     <CardReadingScreen mode="oracle" title="เสี่ยงไพ่ออราเคิลเคี้ยงคุง" resultTitle="ผลไพ่ออราเคิล" introArt="/x.png" endpoint="/api/fortune/oracle" deckCount={12} />,
   )
 
-beforeEach(() => { predictStatus = 200; lastBody = {}; fetchMock.mockClear() })
+beforeEach(() => { predictStatus = 200; lastBody = {}; spendBodies = []; fetchMock.mockClear() })
 afterEach(() => cleanup())
 
 describe('เสี่ยงไพ่ (oracle/divine)', () => {
@@ -94,6 +101,17 @@ describe('เสี่ยงไพ่ (oracle/divine)', () => {
     fireEvent.click(screen.getByTestId('cards-random'))
     await waitFor(() => expect(screen.getByTestId('cards-quota')).toBeTruthy(), { timeout: 3000 })
     expect(screen.queryByTestId('cards-result')).toBeNull()
+  })
+
+  it('FC4b 402 → ปุ่ม "แลก 10 QI แล้วเปิดไพ่เลย" ตรงหน้า: ยิง /api/qi-spend card_use แล้วเปิดต่อทันที', async () => {
+    predictStatus = 402
+    renderOracle()
+    fireEvent.click(screen.getByTestId('cards-random'))
+    const btn = await waitFor(() => screen.getByTestId('cards-redeem'), { timeout: 3000 })
+    fireEvent.click(btn)
+    await waitFor(() => expect(spendBodies).toContainEqual({ code: 'card_use' }))
+    await waitFor(() => expect(screen.getByTestId('cards-result')).toBeTruthy(), { timeout: 4000 })
+    expect(screen.queryByTestId('cards-quota')).toBeNull()
   })
 
   it('FC5 น้ำหนัก 50 จาก engine → แสดง "50%" ไม่ใช่ "5000%"', async () => {

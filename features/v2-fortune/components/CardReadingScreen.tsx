@@ -77,8 +77,37 @@ export function CardReadingScreen({
   // weight จาก engine อาจเป็นสัดส่วน (0.5) หรือเปอร์เซ็นต์ (50) — normalize เป็น % จำนวนเต็ม
   const weightByNo = useMemo(() => new Map(slots.map((s) => [s.no, Math.round(s.weight <= 1 ? s.weight * 100 : s.weight)])), [slots])
   const proseParas = useMemo(() => prose.split("\n\n").map((p) => p.trim()).filter(Boolean), [prose])
-  // รูปหน้าไพ่: ดึงจาก engine ผ่าน BFF proxy (engine = source เดียว, ไม่พึ่ง Supabase/public)
-  const faceUrl = (no: number) => `/api/fortune/card-image/${mode}/${no}`
+  // รูปหน้าไพ่: ไฟล์ใน FE เอง (/public/images/v2/fortune/cards/<deck>/<no>.jpg — คัดลอกจาก engine card-faces/
+  // 2026-09-07 เพราะบน prod เส้น engine ดึงรูปไม่ขึ้น) · โหลดไม่ได้ค่อยถอยไป proxy engine ครั้งเดียว
+  const faceUrl = (no: number) => `/images/v2/fortune/cards/${mode}/${no}.jpg`
+  const faceFallback = (e: React.SyntheticEvent<HTMLImageElement>, no: number, hide: "display" | "visibility") => {
+    const img = e.currentTarget
+    if (!img.dataset.fallback) {
+      img.dataset.fallback = "1"
+      img.src = `/api/fortune/card-image/${mode}/${no}`
+      return
+    }
+    if (hide === "display") img.style.display = "none"
+    else img.style.visibility = "hidden"
+  }
+
+  // 402 = ฟรีหมด + เครดิตหมด + ชี่ไม่พอ (engine หักชี่ให้เองเมื่อพอ) — ปุ่มแลกตรงนี้: แลก card_use 1 ครั้งด้วยชี่ แล้วเปิดต่อทันที
+  const [redeeming, setRedeeming] = useState(false)
+  const [redeemMsg, setRedeemMsg] = useState<string | null>(null)
+  const redeemAndRetry = async () => {
+    setRedeeming(true)
+    setRedeemMsg(null)
+    try {
+      const res = await fetch("/api/qi-spend", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ code: "card_use" }) })
+      const j = (await res.json().catch(() => ({}))) as { qi?: number; error?: string }
+      if (!res.ok) { setRedeemMsg(res.status === 409 ? "ชี่ไม่พอ — เติมชี่ก่อน" : String(j.error ?? "แลกไม่สำเร็จ ลองใหม่")); return }
+      if (typeof j.qi === "number") setBalance(j.qi)
+      setQuotaOut(false)
+      await predict()
+    } finally {
+      setRedeeming(false)
+    }
+  }
 
   const predict = async (cardNos?: number[]) => {
     setPhase("loading")
@@ -173,7 +202,13 @@ export function CardReadingScreen({
               <KitButton onClick={() => setPhase("pick")} testId="cards-goto-pick" className="flex-1 !h-11 shadow-md">เลือกเอง 3 ใบ</KitButton>
             </div>
           </div>
-          {quotaOut && <p className="text-center text-[12px] font-bold text-[#8A5A0C]" data-testid="cards-quota">โควตาเปิดไพ่วันนี้หมด — แลก 10 QI ที่หน้าพลังชี่</p>}
+          {quotaOut && <p className="text-center text-[12px] font-bold text-[#8A5A0C]" data-testid="cards-quota">โควตาเปิดไพ่วันนี้หมด — แลก 10 QI เพื่อเปิดต่อได้เลย</p>}
+          {quotaOut && (
+            <button type="button" onClick={() => void redeemAndRetry()} disabled={redeeming} data-testid="cards-redeem" className="grid h-12 w-full place-items-center rounded-full bg-v3-sapphire text-[15px] font-bold uppercase text-v3-lime disabled:opacity-40">
+              {redeeming ? "กำลังแลก..." : `แลก 10 QI แล้วเปิดไพ่เลย${balance !== null ? ` (มี ${balance.toLocaleString("th-TH")} QI)` : ""}`}
+            </button>
+          )}
+          {redeemMsg && <p className="text-center text-[12px] font-bold text-v3-error">{redeemMsg}</p>}
           {error && <p data-testid="cards-error" className="text-center text-[12px] font-bold text-v3-error">{error}</p>}
           {quotaOut && <Link href="/v2/qi" className="text-center text-[13px] font-bold text-v3-sapphire">เติม/แลก QI ที่หน้าพลังชี่ →</Link>}
           <p className="text-center text-[11px] text-v3-text-muted">ใช้โควตาเปิดการ์ดวันละ 1 ครั้ง (ฟรี) — เกินแล้วแลกด้วย QI</p>
@@ -223,7 +258,7 @@ export function CardReadingScreen({
                   <Image src={theme.back} alt="" fill sizes="110px" className="object-cover" />
                   <span className="absolute inset-x-1 bottom-1 z-0 rounded bg-black/40 px-1 py-0.5 text-center text-[9px] font-bold leading-tight text-white">{c.name}</span>
                   {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={faceUrl(c.no)} alt={c.name} loading="lazy" className="absolute inset-0 z-10 size-full object-cover" onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none" }} />
+                  <img src={faceUrl(c.no)} alt={c.name} loading="lazy" className="absolute inset-0 z-10 size-full object-cover" onError={(e) => faceFallback(e, c.no, "display")} />
                 </span>
                 {weightByNo.has(c.no) ? <span className="rounded-full bg-[#FCE9F0] px-2 py-[1px] text-[10px] font-black text-[#B0568A]">น้ำหนัก {weightByNo.get(c.no)}%</span> : null}
                 <p className="text-center text-[10px] font-bold leading-tight text-v3-navy">#{c.no} {c.name}</p>
@@ -246,7 +281,7 @@ export function CardReadingScreen({
                 {/* ไอคอนเล็ก = รูปหน้าไพ่ (เหมือนด้านบน) แบบไม่ตัด */}
                 <span className="relative size-9 flex-none overflow-hidden rounded-[8px] bg-v3-ghost-white">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={faceUrl(c.no)} alt="" loading="lazy" className="absolute inset-0 size-full object-contain" onError={(e) => { (e.currentTarget as HTMLImageElement).style.visibility = "hidden" }} />
+                  <img src={faceUrl(c.no)} alt="" loading="lazy" className="absolute inset-0 size-full object-contain" onError={(e) => faceFallback(e, c.no, "visibility")} />
                 </span>
                 <p className="text-[14px] font-black text-v3-navy">#{c.no} {c.name} · {c.keyword}</p>
                 {weightByNo.has(c.no) ? <span className="rounded-full bg-[#FCE9F0] px-2 py-[1px] text-[10px] font-black text-[#B0568A]">น้ำหนัก {weightByNo.get(c.no)}%</span> : null}

@@ -59,6 +59,23 @@ export default function FortuneSagePage() {
   // ที่มาของการเปิดครั้งนี้ (จาก engine): free=ฟรีวันนี้ · qi=หัก N QI · credit=ใช้เครดิต — ป้ายต้องตามจริง ไม่ hardcode
   const [qiInfo, setQiInfo] = useState<{ source: "free" | "credit" | "qi"; cost: number } | null>(null)
 
+  // 402 = ฟรีหมด + เครดิตหมด + ชี่ไม่พอ — แลก card_use ด้วยชี่ตรงนี้แล้วเสี่ยงต่อทันที (ไม่ต้องไปหน้าพลังชี่)
+  const [redeeming, setRedeeming] = useState(false)
+  const [redeemMsg, setRedeemMsg] = useState<string | null>(null)
+  const redeemAndRetry = async () => {
+    setRedeeming(true)
+    setRedeemMsg(null)
+    try {
+      const res = await fetch("/api/qi-spend", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ code: "card_use" }) })
+      const j = (await res.json().catch(() => ({}))) as { error?: string }
+      if (!res.ok) { setRedeemMsg(res.status === 409 ? "ชี่ไม่พอ — เติมชี่ก่อน" : String(j.error ?? "แลกไม่สำเร็จ ลองใหม่")); return }
+      setQuotaOut(false)
+      await draw()
+    } finally {
+      setRedeeming(false)
+    }
+  }
+
   const draw = async () => {
     setPhase("loading")
     setError(null)
@@ -125,7 +142,13 @@ export default function FortuneSagePage() {
               <Image src="/images/v2/fortune/sage-cup.png" alt="" fill sizes="300px" className="object-contain" />
             </span>
             <p className="text-center text-[12px] text-v3-text-muted">ตั้งจิตให้นิ่ง แล้วกดเสี่ยงโพเพื่อรับคำทำนาย</p>
-            {quotaOut && <p className="text-center text-[12px] font-bold text-[#8A5A0C]" data-testid="sage-quota">โควตาเสี่ยงทายวันนี้หมด — แลก 10 QI ที่หน้าพลังชี่</p>}
+            {quotaOut && <p className="text-center text-[12px] font-bold text-[#8A5A0C]" data-testid="sage-quota">โควตาเสี่ยงทายวันนี้หมด — แลก 10 QI เพื่อเสี่ยงต่อได้เลย</p>}
+            {quotaOut && (
+              <button type="button" onClick={() => void redeemAndRetry()} disabled={redeeming} data-testid="sage-redeem" className="grid h-12 w-full place-items-center rounded-full bg-v3-sapphire text-[15px] font-bold uppercase text-v3-lime disabled:opacity-40">
+                {redeeming ? "กำลังแลก..." : "แลก 10 QI แล้วเสี่ยงโพเลย"}
+              </button>
+            )}
+            {redeemMsg && <p className="text-center text-[12px] font-bold text-v3-error">{redeemMsg}</p>}
             {error && <p data-testid="sage-error" className="text-center text-[12px] font-bold text-v3-error">{error}</p>}
             <KitButton onClick={() => void draw()} testId="sage-draw">กดเพื่อเสี่ยงโพ</KitButton>
           </section>
@@ -141,10 +164,15 @@ export default function FortuneSagePage() {
             <span className="relative z-0 h-48 w-64"><Image src="/images/v2/fortune/sage-cup.png" alt="" fill sizes="256px" className="object-contain" /></span>
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
-              src={`/api/fortune/card-image/sage/${stick.no}`}
+              src={`/images/v2/fortune/cards/sage/${stick.no}.jpg`}
               alt={`เซียมซีใบที่ ${stick.no}`}
               className="absolute inset-0 z-10 size-full object-cover"
-              onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none" }}
+              onError={(e) => {
+                // ไฟล์ใน FE ไม่มี → ถอยไป proxy engine ครั้งเดียว แล้วค่อยซ่อน
+                const img = e.currentTarget
+                if (!img.dataset.fallback) { img.dataset.fallback = "1"; img.src = `/api/fortune/card-image/sage/${stick.no}`; return }
+                img.style.display = "none"
+              }}
             />
           </span>
 

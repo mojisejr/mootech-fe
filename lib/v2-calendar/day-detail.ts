@@ -36,6 +36,7 @@ export type DayDetail = {
   dayPillars: { day: DayDetailPillar | null; month: DayDetailPillar | null; year: DayDetailPillar | null } // ①
   ownerPillars: Record<string, unknown> // person.fourPillars (raw block: year/month/day/hour)
   gates: DayDetailGate[] // raw — no good/bad level (ตำราไม่มี)
+  patrons: string[] // กุ๊ยนั้ง 貴人 — almanac.patrons[].zodiac ("คนเกิดปีวอก") ดิบ · gafiw 2026-09-07 ขอโชว์ในโหมดแอดวานซ์
   colors: DayDetailColor[] // raw Thai names — no hex (งานดีไซน์)
 }
 
@@ -99,7 +100,8 @@ export function mapDayDetail(mvd: unknown, almanacDay: unknown): DayDetail {
       return { id: str(yy.code), window: str(yy.range), label: [str(yy.god), str(yy.meaning)].filter(Boolean).join(' · ') }
     }),
     dithi: { officer: str(a.officer), officerDesc: str(a.officerDesc), jianchu: [str(jc.name), str(jc.meaning)].filter(Boolean).join(' · ') },
-    luckyDirection: str(m.luckyDirection), // ทิศมงคล ดิบ (man-vs-day day, lucky_dir) — ❌ ไม่แปลงเป็นทิศย่อ/องศา/ไอคอน (งานมุน)
+    // ทิศมงคล ดิบ — man-vs-day ก่อน, ไม่มีค่อยเอาจาก almanac day (2026-09-07: man-vs-day ส่งว่างมา ทำให้ chip+เข็มทิศหายทั้งจอ)
+    luckyDirection: str(m.luckyDirection) || str(a.luckyDirection),
     dayDeity: str(a.deity),
     spirits: arr(a.spirits).map((s) => {
       const ss = s as { name?: unknown; keywords?: unknown }
@@ -112,6 +114,7 @@ export function mapDayDetail(mvd: unknown, almanacDay: unknown): DayDetail {
       const gg = g as { name?: unknown; direction?: unknown; meaning?: unknown }
       return { name: str(gg.name), direction: str(gg.direction), meaning: str(gg.meaning) }
     }),
+    patrons: arr(a.patrons).map((p) => str((p as { zodiac?: unknown }).zodiac)).filter((z) => z !== ''),
     colors: arr(a.colors).map((c) => {
       const cc = c as { element?: unknown; colors?: unknown }
       return { element: str(cc.element), colors: str(cc.colors) }
