@@ -117,3 +117,16 @@ describe('#565 B · the heading counts the rows it renders', () => {
     expect(claimed).toBe(rows.length)
   })
 })
+
+// ฟีม สไลด์ 15 (2026-09): ⓘ ของ "ความเข้ากัน N ด้าน" ต้องกดได้และมีคำอธิบาย 4 ด้าน + เกรดไม่ดี (เดิมเป็น glyph เปล่า)
+describe('CompatList ⓘ — คำอธิบาย 4 ด้านจากฟีม', () => {
+  afterEach(cleanup)
+  it('กด ⓘ แล้วเห็นหัวข้อครบ 4 ด้าน + "เกรดไม่ดี"', () => {
+    const areas: DayDetailArea[] = ['outside', 'workplace', 'companions', 'home'].map((key) => ({ key, label: key, percent: 50, grade: 'B', isStrength: false }) as DayDetailArea)
+    render(<CompatList areas={areas} insight="" />)
+    fireEvent.click(screen.getByTestId('section-info-toggle'))
+    const text = screen.getByTestId('section-info-panel').textContent ?? ''
+    for (const head of ['ไปหาลูกค้า', 'ที่ทำงาน', 'เพื่อน / หุ้นส่วน', 'บ้าน / คุมลูกน้อง', 'เกรดไม่ดี']) expect(text).toContain(head)
+    expect(text).toContain('เหมาะกับการคุมทีม')
+  })
+})

@@ -109,6 +109,8 @@ export default defineConfig({
       'scripts/work-result-ui.test.tsx', // #585 ก้อน 5 — colleague result: one order, two failure sentences
       'scripts/work-compare-copy.test.tsx', // #585 ก้อน 4 — five causes must read as five sentences; .tsx
       'scripts/compat-result-photos.test.tsx', // #554 — WIRING: the result hook puts the route's account photos on persons; .tsx
+      'scripts/compat-role-picker.test.tsx', // สไลด์ 9 (2026-09-07) — role chips on the colleague screen + chosen-role-first on the work result; .tsx
+      'scripts/chart-table-card.test.tsx', // Figma 720:32490 ตารางดวงจีน — 5 pillars coloured by element, luck tables, legend; .tsx
       'scripts/quota-route.test.tsx', // #264 — /api/quota both-quota remaining + wiring; .tsx
       'scripts/quota-indicator-ui.test.tsx', // #264 — the UI half: what is shown when there IS no number; .tsx
       'scripts/calc-cooldown.test.tsx', // #265 — cooldown state machine; every guarantee lives in THIS lane; .tsx

@@ -3,6 +3,7 @@
 // an optional cyan ⓘ info glyph, and a chevron that collapses the body. Toggle is INSTANT (no transition)
 // → nothing animates off-screen (the long-frame battery rule is satisfied by construction, not by pausing).
 import { useId, useState, type ReactNode } from 'react'
+import { Reveal } from '@/features/v2-shell/components/Reveal'
 
 function InfoDot() {
   // ⓘ — cyan action glyph (DESIGN.md: info icon = cyan #1B9AAF).
@@ -43,7 +44,7 @@ export function SectionCard({
   const hasInfoText = info !== true && info != null && info !== false
 
   return (
-    <section data-testid={testId} className="rounded-[20px] bg-white px-4 py-5 shadow-[0_4px_14px_rgba(26,38,77,0.06)]">
+    <Reveal as="section" testId={testId} className="rounded-[20px] bg-white px-4 py-5 shadow-[0_4px_14px_rgba(26,38,77,0.06)]">
       {/* The header used to be ONE button with the ⓘ inside it. A button inside a button is invalid HTML
           and the inner one never receives the click, so the ⓘ could not become a control without this
           split. Title and chevron are one control; the ⓘ is its own. */}
@@ -103,6 +104,6 @@ export function SectionCard({
         </div>
       )}
       {open && <div className="mt-3.5">{children}</div>}
-    </section>
+    </Reveal>
   )
 }

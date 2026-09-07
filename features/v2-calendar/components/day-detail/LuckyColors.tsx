@@ -56,7 +56,7 @@ export function LuckyColors({ colors, deity }: { colors: DayDetailColor[]; deity
           </div>
           <div>
             <dt className="font-bold text-v3-navy">ทิศ</dt>
-            <dd>ใช้เชิงฐานก่อนออกจากบ้าน ว่าท่าสิ่งใดในวันนี้ให้สำเร็จ หรือจะไปทิศมงคลนั้น เมื่อเทียบกับบ้านหรือที่ทำงาน</dd>
+            <dd>ใช้อธิษฐานก่อนออกจากบ้านว่า จะทำสิ่งใดในวันนี้ให้สำเร็จ หรือจะไปทิศมงคลนั้น เมื่อเทียบกับบ้าน หรือที่ทำงาน</dd>
           </div>
           <div>
             <dt className="font-bold text-v3-navy">เทพ</dt>

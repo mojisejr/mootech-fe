@@ -50,6 +50,44 @@ export type MatchingType = 'LOVE' | 'BOSS' | 'EMPLOYEE' | 'FRIEND'
  */
 export const WORK_MATCHING_TYPES = ['BOSS', 'FRIEND', 'EMPLOYEE'] as const
 
+
+/**
+ * ฟีม 2026-09-07 (สไลด์ 9): หน้าเพื่อนร่วมงานต้อง "เลือกได้ว่าจะดู เจ้านาย / หุ้นส่วน-เพื่อน / ลูกน้อง ก่อนกดดูผลลัพธ์".
+ * #585 เอา chip ชุดนี้ออกเพราะ engine (`/api/bazi/work`) คืนคำอ่านครบ 3 มุมมองต่อคนในครั้งเดียว — เราไม่ยิงซ้ำ
+ * และไม่ทิ้งคำอ่านอีกสอง: บทบาทที่เลือกถูกส่งไปหน้าผลลัพธ์ (`?role=`) ให้ชูคำอ่านมุมมองนั้นขึ้นก่อนและติดป้าย
+ * "มุมมองที่คุณเลือก" ส่วนอีกสองมุมมองยังอยู่ถัดลงไป.
+ *
+ * ทิศทางของค่า = "อีกคนเป็นอะไรกับเรา" (วัดกับ engine 2026-09-01, #569): BOSS = เขาเป็นเจ้านายเรา →
+ * perspective "ตัวเรา → เจ้านาย" · EMPLOYEE = เขาเป็นลูกน้องเรา → "ลูกน้อง → ตัวเรา" · FRIEND = หุ้นส่วน/เพื่อน →
+ * "หุ้นส่วน/เพื่อนร่วมงาน" (ข้อความ perspective ตรงกับ work-role-order.ts WORK_ROLE_ORDER).
+ */
+export type ColleagueRole = {
+  value: MatchingType
+  label: string
+  /** ข้อความ perspective ของคำอ่านมุมมองนั้น (ตรง work-role-order.ts) */
+  perspective: string
+  /** relationship ที่ engine ใช้คำนวณแยกบทบาท (`/api/bazi/work` body.relationship) */
+  relationship: 'boss' | 'partner' | 'subordinate'
+  /** ป้ายช่องว่างของแต่ละ slot เมื่อเลือกบทบาทนี้ ("เลือกเจ้านาย" …) — ฟีม: ตัวเลือกต้องเปลี่ยนตามหมวดหมู่ */
+  pickLabel: string
+}
+export const COLLEAGUE_ROLES: readonly ColleagueRole[] = [
+  { value: 'BOSS', label: 'เจ้านาย', perspective: 'ตัวเรา → เจ้านาย', relationship: 'boss', pickLabel: 'เลือกเจ้านาย' },
+  { value: 'FRIEND', label: 'หุ้นส่วน', perspective: 'หุ้นส่วน/เพื่อนร่วมงาน', relationship: 'partner', pickLabel: 'เลือกหุ้นส่วน' },
+  { value: 'EMPLOYEE', label: 'ลูกน้อง', perspective: 'ลูกน้อง → ตัวเรา', relationship: 'subordinate', pickLabel: 'เลือกลูกน้อง' },
+] as const
+/** ค่าเริ่มต้น = มุมมองที่กว้างสุด และเป็นค่าที่หน้าจอส่งอยู่แล้วก่อน #569 */
+export const DEFAULT_COLLEAGUE_ROLE: MatchingType = 'FRIEND'
+/** อ่าน `?role=` จาก query ให้ปลอดภัย — ค่าที่ไม่รู้จัก/ไม่มี = null (หน้าผลลัพธ์ไม่ชูมุมมองไหน) */
+export function parseColleagueRole(raw: unknown): ColleagueRole | null {
+  const v = Array.isArray(raw) ? raw[0] : raw
+  return COLLEAGUE_ROLES.find((r) => r.value === v) ?? null
+}
+/** บทบาทจาก relationship ที่ engine เก็บไว้ในผลลัพธ์ ('boss'|'partner'|'subordinate') — ผลเก่าแบบเส้นรวม = null */
+export function colleagueRoleOfRelationship(rel: unknown): ColleagueRole | null {
+  return COLLEAGUE_ROLES.find((r) => r.relationship === rel) ?? null
+}
+
 export type CompatibilityConfig = {
   kind: CompatibilityKind
   /** จอหัวเรื่อง — verbatim Figma 480:4549 / 636:18451 */

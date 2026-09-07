@@ -13,6 +13,7 @@ import { useClientTier } from '@/features/v2-shell/hooks/useClientTier'
 import { VISIBLE_SERVICES } from '../services'
 import { ServiceHeader } from './ServiceHeader'
 import { ServiceCard } from './ServiceCard'
+import { Reveal } from '@/features/v2-shell/components/Reveal'
 
 // teamPreview (issue #225): drilled one level from pages/v2/service.tsx's getServerSideProps so the ?tier=
 // override can key off the v2 gate on prod. Default false = free behaviour if ever rendered without it.
@@ -45,7 +46,9 @@ export function ServiceHubScreen({ teamPreview = false }: { teamPreview?: boolea
               does (ฟีม 2026-08-05). The catalog row still exists — see services.ts. The first two cards
               are above the fold on every phone, so their art loads eagerly and the other nine defer. */}
           {VISIBLE_SERVICES.map((s, i) => (
-            <ServiceCard key={s.id} data={s} eagerArt={i < 2} />
+            <Reveal key={s.id} delay={(i % 3) * 60}>
+              <ServiceCard data={s} eagerArt={i < 2} />
+            </Reveal>
           ))}
         </div>
       </div>

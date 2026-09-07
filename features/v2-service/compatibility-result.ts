@@ -51,6 +51,8 @@ export type CompatResultPerson = {
    * undefined → the hero shows the mascot alone, no fabricated photo (rule 4, same as the birthdate line).
    */
   imageProfile?: string
+  /** ตารางดวงจีน (Figma 720:32490) — engine แนบมาที่ persons.a/b.chart ตั้งแต่ 2026-09-07; ผลเก่าไม่มี → จอใช้ตารางสี่เสาเดิม */
+  chart?: unknown
 }
 
 /** The birth fields carried forward from the calculate step (a slim slice of Slice 1's CompatPerson). */

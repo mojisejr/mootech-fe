@@ -33,6 +33,7 @@ const { getWork } = vi.hoisted(() => ({ getWork: vi.fn() }))
 vi.mock('next/config', () => ({ default: () => ({ publicRuntimeConfig: {}, serverRuntimeConfig: {} }) }))
 vi.mock('next/router', () => ({ useRouter: () => ({ push: vi.fn(), query: {}, pathname: '/v2/service/compatibility/work/[id]' }) }))
 vi.mock('@/features/v2-shell/components/Menubar', () => ({ Menubar: () => null }))
+vi.mock('@/features/v2-shell/components/MateAIButton', () => ({ MateAIButton: () => null }))
 vi.mock('@/features/v2-shell/components/TopBarBell', () => ({ TopBarBell: () => null }))
 vi.mock('@/features/v2-shell/components/TopBarAvatar', () => ({ TopBarAvatar: () => null }))
 vi.mock('@/features/v2-shell/components/LoadingScreen', () => ({ LoadingScreen: () => <div data-testid="loading" /> }))
@@ -154,14 +155,13 @@ describe('#585 ก้อน 5 — the colleague result screen', () => {
     await screen.findByTestId('work-result-failed')
   })
 
-  it('ปุ่ม บันทึก PDF กับ แชร์ ไม่ถูกวาด ตามที่ฟีมเคาะข้อ ④', async () => {
+  // 2026-09-07: ผู้ใช้เคาะให้วาดปุ่มตาม Figma 720:26015 — แชร์ = Web Share, PDF = บอก "เร็ว ๆ นี้" จนกว่ามี API
+  it('ปุ่ม บันทึก PDF กับ แชร์ ถูกวาดตาม Figma (PDF ยังไม่มี API → บอกเร็ว ๆ นี้)', async () => {
     answerOk()
     render(<WorkResultScreen matchingId="m-1" />)
-    await screen.findByTestId('work-tabs')
-    // they ARE in Figma 720:29221. Not drawing them is a decision, so it gets a test — otherwise the next
-    // person comparing screen to frame reads it as an omission and adds two buttons that do nothing.
-    expect(screen.queryByText('บันทึก PDF')).toBeNull()
-    expect(screen.queryByText('แชร์')).toBeNull()
+    await screen.findByTestId('work-ranked-list')
+    expect(screen.getByTestId('work-pdf').textContent).toContain('บันทึก PDF')
+    expect(screen.getByTestId('work-share').textContent).toContain('แชร์')
   })
 })
 

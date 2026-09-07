@@ -19,7 +19,13 @@ import { CompatResultTabs, type CompatTab } from './CompatResultTabs'
 import { CompatDimensionCard } from './CompatDimensionCard'
 import { CompatElementInteractionCard } from './CompatElementInteractionCard'
 import { CompatFourPillarsTable } from './CompatFourPillarsTable'
+import { ChartTableCard } from './ChartTableCard'
+import { readChartTable } from '../chart-table'
 import { CompatPersonDetail } from './CompatPersonDetail'
+import { ResultActionBar } from './ResultActionBar'
+import { ComingSoonNotice } from '@/features/v2-shell/components/ComingSoon'
+import { TopBarBell } from '@/features/v2-shell/components/TopBarBell'
+import { TopBarAvatar } from '@/features/v2-shell/components/TopBarAvatar'
 
 function BackChevron() {
   return (
@@ -36,6 +42,8 @@ function personHasDetail(p?: CompatResultPerson): boolean {
 export function CompatibilityResultScreen({ matchingId }: { matchingId: string }) {
   const r = useCompatibilityResult(matchingId)
   const [activeTab, setActiveTab] = useState('overview')
+  // Figma 636:18819: toggle base สีเทา = ปิดเป็นค่าเริ่มต้น; เปิดแล้วโชว์ตารางดวงจีน
+  const [advanced, setAdvanced] = useState(false)
 
   // D17/2F — the SAME loader/copy the form showed, so form → result is one continuous screen.
   if (r.loading) {
@@ -63,15 +71,16 @@ export function CompatibilityResultScreen({ matchingId }: { matchingId: string }
   const { mascotA, mascotB } = r
 
   // D47 — which sections have data → which tabs to show (never an empty tab)
-  const hasOverview = !!(overall?.ratingText)
+  // Figma 636:18819 — แท็บ 3 อัน (ภาพรวม → hero · ความเข้ากัน · ทำนายพื้นฐาน) + toggle แอดวานซ์ (= ตารางดวงจีน)
   const hasDims = dims.length > 0
-  const hasElement = !!(ei && (ei.summaryTh || ei.aElementTh || ei.bElementTh)) || !!(persons?.a?.fourPillars || persons?.b?.fourPillars)
+  const chartA = readChartTable(persons?.a?.chart)
+  const chartB = readChartTable(persons?.b?.chart)
+  const hasElement = !!(ei && (ei.summaryTh || ei.aElementTh || ei.bElementTh)) || !!(persons?.a?.fourPillars || persons?.b?.fourPillars) || !!(chartA || chartB)
   const hasPeople = personHasDetail(persons?.a) || personHasDetail(persons?.b)
   const tabs: CompatTab[] = [
-    hasOverview ? { key: 'overview', label: 'ภาพรวม' } : null,
-    hasDims ? { key: 'dims', label: 'รายมิติ' } : null,
-    hasElement ? { key: 'element', label: 'ธาตุ & เสา' } : null,
-    hasPeople ? { key: 'people', label: 'รายคน' } : null,
+    { key: 'overview', label: 'ภาพรวม' },
+    hasDims ? { key: 'dims', label: 'ความเข้ากัน' } : null,
+    hasPeople ? { key: 'people', label: 'ทำนายพื้นฐาน' } : null,
   ].filter((t): t is CompatTab => t !== null)
 
   const onTab = (key: string) => {
@@ -82,70 +91,89 @@ export function CompatibilityResultScreen({ matchingId }: { matchingId: string }
 
   return (
     <div data-testid="compat-result-screen" data-state="ready" className="relative min-h-screen w-full overflow-x-hidden bg-v3-bg-cream font-ibm">
-      <div className="relative z-10 mx-auto flex w-full max-w-md flex-col gap-4 px-4 pb-16 pt-[max(0.75rem,env(safe-area-inset-top))]">
-        {/* header — D20: "ผลดวงสมพงศ์" (NOT "รายละเอียดวัน") */}
+      <ComingSoonNotice />
+      <div className="relative z-10 mx-auto flex w-full max-w-md flex-col gap-4 px-4 pb-32 pt-[max(0.75rem,env(safe-area-inset-top))]">
         <header className="flex items-center gap-2 py-1">
           <Link href={backHref} aria-label="ย้อนกลับ" className="grid size-8 shrink-0 place-items-center rounded-full text-v3-navy"><BackChevron /></Link>
-          <h1 data-testid="compat-result-title" className="min-w-0 flex-1 text-[22px] font-bold leading-8 text-v3-navy">ผลดวงสมพงศ์</h1>
+          <h1 data-testid="compat-result-title" className="min-w-0 flex-1 text-[24px] font-bold leading-8 text-v3-navy">ผลดวงสมพงศ์</h1>
+          <TopBarBell variant="solid" href="/v2/calendar/notifications" />
+          <TopBarAvatar variant="sapphire" />
         </header>
 
-        {/* 3C hero — score + tagline + highlights + the two people as mascot cards (replaces chips + score card) */}
-        <CompatResultHero overall={overall} persons={persons} dimensions={dims} mascotA={mascotA} mascotB={mascotB} />
+        {/* hero — donut + headline + สรุป + สองคน (Figma 636:18819 §promo-personal-calendar) */}
+        <CompatResultHero overall={overall} persons={persons} mascotA={mascotA} mascotB={mascotB} />
 
-        {/* D47 tabs — only sections that have data; < 2 → no bar. Sticky so they stay usable while scrolling. */}
-        {tabs.length >= 2 ? (
-          <div className="sticky top-0 z-20 -mx-4 bg-v3-bg-cream/95 px-4 py-2 backdrop-blur-sm">
+        {/* การ์ดขาว r16 py24 gap24: toggle แอดวานซ์ + Pill Tabs (sticky ให้กดได้ระหว่างเลื่อน) */}
+        <div className="sticky top-0 z-20 -mx-4 bg-v3-bg-cream/95 px-4 py-2 backdrop-blur-sm">
+          <div className="flex flex-col gap-4 rounded-2xl bg-white p-4">
+            <div className="flex items-center justify-between rounded-[50px] bg-[#ECF0FD] p-4">
+              <span className="text-[16px] font-bold leading-6 text-[#0B305B]">เปิดโหมดแอดวานซ์</span>
+              <button
+                type="button"
+                role="switch"
+                aria-checked={advanced}
+                data-testid="compat-advanced-toggle"
+                onClick={() => setAdvanced((v) => !v)}
+                className="relative h-5 w-9 shrink-0 rounded-xl p-0.5 transition-colors"
+                style={{ backgroundColor: advanced ? '#1455A4' : '#E5E7EB' }}
+              >
+                <span className={`block size-4 rounded-full bg-white shadow transition-transform ${advanced ? 'translate-x-4' : ''}`} />
+              </button>
+            </div>
             <CompatResultTabs tabs={tabs} active={activeTab} onSelect={onTab} />
           </div>
-        ) : null}
+        </div>
 
-        {/* ภาพรวม — overall.ratingText (the white personality card, unchanged from 2E-1) */}
-        {overall?.ratingText ? (
-          <SectionCard title="ภาพรวม" info>
-            <p data-testid="compat-result-overview" className="whitespace-pre-line text-[15px] leading-[26px] text-v3-text-body">{overall.ratingText}</p>
-          </SectionCard>
-        ) : null}
-
-        {/* รายมิติ (D22) — Zone 2: ONE SectionCard holds all the dimension ROWS (Figma 636:19532); the rows
-            are no longer individual white cards (that read as a card inside a card). */}
+        {/* ความเข้ากัน N ด้าน (Figma: การ์ด r16 py24 px16 gap24 เงา · header 18 + ⓘ) */}
         {hasDims ? (
-          <section id="compat-sec-dims" data-testid="compat-sec-dims" className="scroll-mt-16">
+          <section id="compat-sec-dims" data-testid="compat-sec-dims" className="scroll-mt-28">
             <SectionCard title={`ความเข้ากัน ${dims.length} ด้าน`} info>
-              <div className="flex flex-col gap-5">
+              <div className="flex flex-col gap-6">
                 {dims.map((d, i) => <CompatDimensionCard key={d.key ?? i} dimension={d} />)}
               </div>
             </SectionCard>
           </section>
         ) : null}
 
-        {/* ธาตุ & เสา (D45 + D44; D23: timeKnown=false → ยาม "—") — Zone 3: one SectionCard; the two pillar
-            panels carry the side tint (ตัวเรา #ECF0FC / เขา #F9F4F0, Figma 636:22150). */}
-        {hasElement ? (
-          <section id="compat-sec-element" data-testid="compat-sec-element" className="scroll-mt-16">
-            <SectionCard title="เทียบสี่เสาของทั้งสองฝ่าย">
+        {/* คำทำนายพื้นฐาน (Figma: การ์ด r20 py24 px16 gap16 · pc ×2 + อ่านเพิ่ม) */}
+        {hasPeople ? (
+          <section id="compat-sec-people" data-testid="compat-sec-people" className="scroll-mt-28">
+            <SectionCard title="คำทำนายพื้นฐาน">
               <div className="flex flex-col gap-4">
-                <CompatElementInteractionCard interaction={ei} />
-                <CompatFourPillarsTable person={persons?.a} roleLabel="ตัวเรา" side="self" />
-                <CompatFourPillarsTable person={persons?.b} roleLabel="เขา" side="other" />
+                <CompatPersonDetail person={persons?.a} roleLabel="คุณ" side="self" mascot={mascotA} />
+                <CompatPersonDetail person={persons?.b} roleLabel="เขา" side="other" mascot={mascotB} />
               </div>
             </SectionCard>
           </section>
         ) : null}
 
-        {/* รายคน (D21 per-person; มาสคอต moved to the hero) — Zone 4. NOTE: Figma 636:22328's header text
-            reads "เทียบสี่เสาของทั้งสองฝ่าย", identical to Zone 3, while its content is per-person — a
-            copy-paste artifact in the file. ฟีม ruled 2026-08-03: use "รายคน" (matches the tab). */}
-        {hasPeople ? (
-          <section id="compat-sec-people" data-testid="compat-sec-people" className="scroll-mt-16">
-            <SectionCard title="รายคน">
+        {/* โหมดแอดวานซ์ = ตารางดวงจีน (Figma 776:9730): ปฏิกิริยาธาตุ + การ์ดคนละใบ (5 เสา ลงสีธาตุ, วัยจร/ปีจร กางได้)
+            ผลเก่าที่ engine ยังไม่แนบ chart → ตารางสี่เสาเดิม (ไม่เดาข้อมูล) */}
+        {advanced && hasElement ? (
+          <section id="compat-sec-element" data-testid="compat-sec-element" className="scroll-mt-28">
+            <SectionCard title="ตารางดวงจีน">
               <div className="flex flex-col gap-4">
-                <CompatPersonDetail person={persons?.a} roleLabel="ตัวเรา" side="self" />
-                <CompatPersonDetail person={persons?.b} roleLabel="เขา" side="other" />
+                <CompatElementInteractionCard interaction={ei} />
+                {chartA ? (
+                  <ChartTableCard testId="chart-table-a" roleLabel="คุณ" side="self" chart={chartA} person={{ name: persons?.a?.displayName, pictureUrl: persons?.a?.imageProfile, mascotUrl: mascotA?.imageUrl, timeKnown: persons?.a?.timeKnown }} />
+                ) : (
+                  <CompatFourPillarsTable person={persons?.a} roleLabel="ตัวเรา" side="self" />
+                )}
+                {chartB ? (
+                  <ChartTableCard testId="chart-table-b" roleLabel="เขา" side="other" chart={chartB} person={{ name: persons?.b?.displayName, pictureUrl: persons?.b?.imageProfile, mascotUrl: mascotB?.imageUrl, timeKnown: persons?.b?.timeKnown }} />
+                ) : (
+                  <CompatFourPillarsTable person={persons?.b} roleLabel="เขา" side="other" />
+                )}
               </div>
             </SectionCard>
           </section>
         ) : null}
+        {advanced && !hasElement ? (
+          <p data-testid="compat-chart-unavailable" className="text-center text-[13px] text-v3-text-muted">ผลนี้ยังไม่มีตารางดวงจีน — คำนวณใหม่เพื่อดูสี่เสาและวัยจร</p>
+        ) : null}
       </div>
+
+      <ResultActionBar shareText="ผลดวงสมพงศ์ของฉันจาก Mumate" testIdPrefix="compat" />
     </div>
   )
 }

@@ -140,6 +140,8 @@ export function AccountScreen() {
   }, [profile, element])
 
   const daily = (board?.missions ?? []).filter((m) => m.category === "daily").slice(0, 2)
+  // mission:<id> → ชื่อภารกิจจริง (ไม่งั้นฟีดโชว์ "ภารกิจ first_reading" ดิบ ๆ — บั๊กที่เห็นบน prod 2026-09-07)
+  const missionTitles = useMemo(() => new Map((board?.missions ?? []).map((m) => [m.id, m.title])), [board])
   const goals = board?.goals
   const friends = referral?.invitedCount ?? goals?.referral.invited ?? 0
   const days = last7(today)
@@ -368,7 +370,7 @@ export function AccountScreen() {
                     {history.slice(0, 3).map((h) => (
                       <li key={h.id} className="flex items-center justify-between gap-3 px-4 py-2.5">
                         <div className="min-w-0 flex-1">
-                          <p className="truncate text-[14px] leading-[22px] text-v3-navy">{reasonLabel(h.reason)}</p>
+                          <p className="truncate text-[14px] leading-[22px] text-v3-navy">{reasonLabel(h.reason, missionTitles)}</p>
                           <p className="text-[12px] leading-[18px] text-v3-text-muted">{bkkCivilDate(h.createdAt)}</p>
                         </div>
                         <span className={"flex-none text-[14px] font-bold " + (h.qiDelta > 0 ? "text-[#63B05F]" : "text-[#E08586]")}>{h.qiDelta > 0 ? "+" : ""}{h.qiDelta} QI</span>

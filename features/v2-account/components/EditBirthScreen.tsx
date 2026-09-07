@@ -95,7 +95,7 @@ export function EditBirthScreen() {
         setMsg(
           j.birthEditMode === "free"
             ? "บันทึกแล้ว — ใช้สิทธิ์แก้ฟรี 1 ครั้งของคุณ (ครั้งถัดไปมีค่าใช้จ่าย)"
-            : `บันทึกแล้ว — หัก ${quota?.birthEditPriceQi ?? 100} QI ดวงของคุณจะอัปเดตตามวันเกิดใหม่`,
+            : `บันทึกแล้ว — หัก ${quota?.birthEditPriceQi ?? 150} QI ดวงของคุณจะอัปเดตตามวันเกิดใหม่`,
         )
         await load()
       } else if (res.status === 409) {
@@ -122,7 +122,7 @@ export function EditBirthScreen() {
     if (res.ok) { setSheetOpen(false); setReason(""); await load() }
   }
 
-  const priceQi = quota?.birthEditPriceQi ?? 100
+  const priceQi = quota?.birthEditPriceQi ?? 150
   const freeUsed = quota?.birthEditFreeUsed === true
   // dirty-gate: ปุ่มบันทึกใช้ได้เมื่อมีการแก้ไขจากค่าปัจจุบันในระบบ (ตาม Figma)
   const dirty =

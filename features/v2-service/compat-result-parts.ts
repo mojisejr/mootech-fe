@@ -99,16 +99,17 @@ export function elementTint(fg: string): string {
 export type WuXing = { hanzi: string; bg: string; fg: string }
 const NEUTRAL: WuXing = { hanzi: '', bg: '#EEF1F4', fg: '#464646' }
 // glyph colours: น้ำ/ดิน = Figma-sampled (636:22150) · ไม้/ไฟ/ทอง = ฟีม-ruled 2026-08-03. Tiles all derived.
-const GLYPH: Record<string, { hanzi: string; fg: string }> = {
-  'ไม้': { hanzi: '木', fg: '#4CBD32' },
-  'ไฟ': { hanzi: '火', fg: '#D94C4C' },
-  'ดิน': { hanzi: '土', fg: '#CC9E4C' }, // Figma-sampled
-  'ทอง': { hanzi: '金', fg: '#D9B84C' },
-  'โลหะ': { hanzi: '金', fg: '#D9B84C' },
-  'น้ำ': { hanzi: '水', fg: '#4C8CE6' }, // Figma-sampled
+// สี = Figma variables "สีธาตุ/<ธาตุ>/ตัวอักษร" + "/พื้นหลัง" (อ่านผ่าน MCP get_variable_defs 2026-09-07) — ชุดเดียวกับ chart-table.ts
+const GLYPH: Record<string, { hanzi: string; fg: string; bg: string }> = {
+  'ไม้': { hanzi: '木', fg: '#2E7D32', bg: '#E8F5E9' },
+  'ไฟ': { hanzi: '火', fg: '#E53935', bg: '#FCE4EC' },
+  'ดิน': { hanzi: '土', fg: '#8D6E63', bg: '#F9F4F0' },
+  'ทอง': { hanzi: '金', fg: '#818181', bg: '#EEEEEE' },
+  'โลหะ': { hanzi: '金', fg: '#818181', bg: '#EEEEEE' },
+  'น้ำ': { hanzi: '水', fg: '#1B9AAF', bg: '#ECF0FD' },
 }
 const WUXING: Record<string, WuXing> = Object.fromEntries(
-  Object.entries(GLYPH).map(([k, v]) => [k, { hanzi: v.hanzi, bg: elementTint(v.fg), fg: v.fg }]),
+  Object.entries(GLYPH).map(([k, v]) => [k, { hanzi: v.hanzi, bg: v.bg, fg: v.fg }]),
 )
 export function wuxing(elementTh?: string | null): WuXing {
   const k = (elementTh ?? '').trim()

@@ -27,6 +27,10 @@ vi.mock('@/constants/api/api-v2-matching', () => ({
   V2MatchingCalculateApi: vi.fn(),
 }))
 vi.mock('next/config', () => ({ default: () => ({ publicRuntimeConfig: {}, serverRuntimeConfig: {} }) }))
+// 2026-09-07 — จอผลมี TopBar (bell/avatar) + ปุ่มลอย + Mate AI ตาม Figma 636:18819; chrome พวกนี้ไม่ใช่สิ่งที่ไฟล์นี้วัด
+vi.mock('@/features/v2-shell/components/TopBarBell', () => ({ TopBarBell: () => null }))
+vi.mock('@/features/v2-shell/components/TopBarAvatar', () => ({ TopBarAvatar: () => null }))
+vi.mock('@/features/v2-shell/components/MateAIButton', () => ({ MateAIButton: () => null }))
 
 import { useCompatibilityResult } from '@/features/v2-service/hooks/useCompatibilityResult'
 import { CompatibilityResultScreen } from '@/features/v2-service/components/CompatibilityResultScreen'

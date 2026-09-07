@@ -108,9 +108,9 @@ t('form-mode (4) has NO Mate AI; states 1-3 do', () => {
   assert.equal(menuHasMateAi(CalendarMenuState.PrimaryAction), true)
   assert.equal(menuHasMateAi(CalendarMenuState.Saved), true)
 })
-t('day menu-state: has-reminder → Saved(3), else PrimaryAction(2)', () => {
-  assert.equal(menuStateForDay(true), CalendarMenuState.Saved)
-  assert.equal(menuStateForDay(false), CalendarMenuState.PrimaryAction)
+t('day menu-state: ฟีม สไลด์ 8 — หน้ารายละเอียดวันใช้เมนูปกติเสมอ (ไม่มีปุ่มแถบล่าง "เพิ่มลงปฏิทิน")', () => {
+  assert.equal(menuStateForDay(true), CalendarMenuState.Normal)
+  assert.equal(menuStateForDay(false), CalendarMenuState.Normal)
 })
 
 // ── month-grid — deterministic, weeks of 7, correct real-day count ────────────────────────────────

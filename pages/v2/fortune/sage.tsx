@@ -56,6 +56,8 @@ export default function FortuneSagePage() {
   const [error, setError] = useState<string | null>(null)
   const [quotaOut, setQuotaOut] = useState(false)
   const [loveGender, setLoveGender] = useState<"female" | "male">("female")
+  // ที่มาของการเปิดครั้งนี้ (จาก engine): free=ฟรีวันนี้ · qi=หัก N QI · credit=ใช้เครดิต — ป้ายต้องตามจริง ไม่ hardcode
+  const [qiInfo, setQiInfo] = useState<{ source: "free" | "credit" | "qi"; cost: number } | null>(null)
 
   const draw = async () => {
     setPhase("loading")
@@ -64,11 +66,12 @@ export default function FortuneSagePage() {
     const started = Date.now()
     try {
       const res = await fetch("/api/fortune/sage", { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" })
-      const j = (await res.json().catch(() => ({}))) as { stick?: Stick; error?: { message?: string } }
+      const j = (await res.json().catch(() => ({}))) as { stick?: Stick; qi?: { source: "free" | "credit" | "qi"; cost: number } | null; error?: { message?: string } }
       await new Promise((r) => setTimeout(r, Math.max(0, 1800 - (Date.now() - started))))
       if (res.status === 402) { setQuotaOut(true); setPhase("intro"); return }
       if (!res.ok || !j.stick) { setError(j.error?.message ?? "เสี่ยงทายไม่สำเร็จ ลองใหม่อีกครั้ง"); setPhase("intro"); return }
       setStick(j.stick)
+      setQiInfo(j.qi ?? null)
       setPhase("result")
     } catch {
       setError("เชื่อมต่อไม่สำเร็จ ลองใหม่อีกครั้ง")
@@ -94,7 +97,7 @@ export default function FortuneSagePage() {
         title={phase === "result" ? "ผลเซียมซี" : "เซียมซีเสี่ยงทาย"}
         backHref="/v2/service"
         testId="fortune-sage"
-        right={phase === "result" ? <span className="rounded-full bg-[#FCE9F0] px-3 py-1 text-[11px] font-bold text-[#B0568A]">ใช้ไป 10 QI</span> : undefined}
+        right={phase === "result" && qiInfo ? <span data-testid="sage-qi-source" className="rounded-full bg-[#FCE9F0] px-3 py-1 text-[11px] font-bold text-[#B0568A]">{qiInfo.source === "qi" ? `ใช้ไป ${qiInfo.cost} QI` : qiInfo.source === "credit" ? "ใช้เครดิต" : "ฟรีวันนี้"}</span> : undefined}
       />
 
       {phase === "loading" && (

@@ -19,14 +19,14 @@ import type { WorkEntry } from '../work-comparison'
 export type WorkResultState =
   | { status: 'loading' }
   /** the id resolved and the server handed back a list already in ranking order */
-  | { status: 'ready'; matchingId: string; createAt: string; entries: WorkEntry[] }
+  | { status: 'ready'; matchingId: string; createAt: string; entries: WorkEntry[]; relationship: string | null; selfChart: unknown }
   /** 404 — there is no such result (a stale link, someone else's id, a deleted row) */
   | { status: 'missing' }
   /** 5xx, a network failure, or a body we cannot read — OUR problem, said as ours */
   | { status: 'failed' }
 
 /** narrow the wire body without trusting it: an `entries` that is not an array is a failure, not empty */
-function readEntries(data: unknown): { matchingId: string; createAt: string; entries: WorkEntry[] } | null {
+function readEntries(data: unknown): { matchingId: string; createAt: string; entries: WorkEntry[]; relationship: string | null; selfChart: unknown } | null {
   if (!data || typeof data !== 'object') return null
   const d = data as Record<string, unknown>
   if (d.ok !== true || !Array.isArray(d.entries)) return null
@@ -34,6 +34,8 @@ function readEntries(data: unknown): { matchingId: string; createAt: string; ent
     matchingId: typeof d.matching_id === 'string' ? d.matching_id : '',
     createAt: typeof d.create_at === 'string' ? d.create_at : '',
     entries: d.entries as WorkEntry[],
+    relationship: typeof d.relationship === 'string' ? d.relationship : null,
+    selfChart: d.selfChart ?? null,
   }
 }
 

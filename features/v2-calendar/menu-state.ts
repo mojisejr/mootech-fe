@@ -39,8 +39,11 @@ export function menuHasMateAi(state: CalendarMenuState): boolean {
  * "บันทึกแล้ว" (3), otherwise "มีปุ่มหลัก" (2). The transition 2→3 happens after a save commits — that
  * wiring is the Phase-5 seam; this selector is the pure mapping it uses.
  */
-export function menuStateForDay(hasReminder: boolean): CalendarMenuState {
-  return hasReminder ? CalendarMenuState.Saved : CalendarMenuState.PrimaryAction
+// ฟีม (สไลด์ 8, 2026-09): หน้ารายละเอียดวันใช้ "เมนูเหมือนเดิม" (4 แท็บ + Mate AI) — เอาปุ่มแถบล่าง
+// "เพิ่มลงปฏิทิน เพื่อแจ้งเตือน" / "✓ บันทึกแล้ว" ออก ให้เพิ่มเตือนจากปุ่มรายยามใน §11 อย่างเดียว.
+// พารามิเตอร์คงไว้ (caller เดิมยังส่ง) แต่ไม่มีผลกับผลลัพธ์แล้ว — ชีทที่เปิดอยู่ยังเป็น FormMode ผ่าน draft.menuState.
+export function menuStateForDay(_hasReminder: boolean): CalendarMenuState {
+  return CalendarMenuState.Normal
 }
 
 /** Label for logs/anchors — never user-facing copy (that's Lamun's). */

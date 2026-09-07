@@ -38,7 +38,9 @@ export default function V2CalendarPage({ teamPreview }: { teamPreview: boolean }
   const fortuneCardRef = useRef<HTMLDivElement | null>(null)
   const pickDay = (d: string) => {
     selectDay(d)
-    fortuneCardRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+    // ฟีม สไลด์ 4: จิ้มวันแล้ว "หน้าจะสไลด์ข้อมูลด้านล่างขึ้นมา" — ต้อง block:'start' ให้การ์ดเลื่อนขึ้นมาอยู่บนสุด
+    // ('nearest' เดิมแค่ให้เห็นขอบการ์ด ถ้าโผล่อยู่ล่างจอบางส่วนก็ไม่ขยับเลย = อาการที่ฟีมเจอ)
+    fortuneCardRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
   }
   // Zone 4 — the paid rule lives once in goo's lib/v2/tier.ts; this page only reads the verdict.
   // `null` = not determined yet, and it is wrong to guess in EITHER direction, so both the pill and the
@@ -140,7 +142,7 @@ export default function V2CalendarPage({ teamPreview }: { teamPreview: boolean }
             (headline/suitable/avoid) is simply empty until the fetch lands (จังหวะ-2). No layout here. */}
         {/* #567 — จิ้มวันแล้วต้องเห็นข้อมูลเปลี่ยน: การ์ดถูกสไลด์ขึ้นมาเอง (smooth) แทนให้ผู้ใช้เลื่อนเอง
             เฉพาะเมื่อ viewState ready — สายที่ยังไม่ ready ไม่มีการ์ดให้เลื่อนไปหา */}
-        <div ref={fortuneCardRef}>
+        <div ref={fortuneCardRef} className="scroll-mt-3">
         <DailyFortuneCard
           variant="calendar"
           testId="calendar-daily-card"

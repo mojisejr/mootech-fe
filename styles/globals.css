@@ -170,3 +170,9 @@
 .v3-shadow-line {
   box-shadow: 0 4px 14px rgba(26, 38, 77, 0.06);
 }
+
+/* v2 reveal — เลื่อนขึ้นเข้ามาตอนสกรอลล์ถึง (features/v2-shell/components/Reveal.tsx · ฟีม สไลด์ 13)
+   คลาสถูกใส่เฉพาะเมื่อมี IntersectionObserver จริง → SSR/ไม่มี JS มองเห็นทันที · reduced-motion ไม่ขยับ */
+.v2-reveal { opacity: 0; transform: translateY(18px); transition: opacity .55s cubic-bezier(.22,.61,.36,1), transform .55s cubic-bezier(.22,.61,.36,1); transition-delay: var(--reveal-delay, 0ms); will-change: opacity, transform; }
+.v2-reveal.is-in { opacity: 1; transform: none; }
+@media (prefers-reduced-motion: reduce) { .v2-reveal { opacity: 1; transform: none; transition: none; } }

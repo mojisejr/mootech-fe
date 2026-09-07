@@ -32,7 +32,7 @@ import { compatQuotaBlockedLines } from './compat-quota-copy'
 import { useCalcCooldown } from '../hooks/useCalcCooldown'
 import { QuotaLine } from './QuotaLine'
 import { calculateCompatibility, type CompatCalcErrorReason } from '../hooks/useCompatibilityResult'
-import type { CompatibilityConfig } from '../compatibility'
+import { COLLEAGUE_ROLES, DEFAULT_COLLEAGUE_ROLE, type CompatibilityConfig, type MatchingType } from '../compatibility'
 import { formatCompatBirth } from './compat-format'
 import { COMPAT_CALC_LOADING, workCalcLoading } from './compat-loading-copy'
 import { CompatSelectFriendModal } from './CompatSelectFriendModal'
@@ -79,11 +79,13 @@ function ProfileRow({ person, loadingDob, onEdit, onPick, onChangePerson, editBu
   if (!person) {
     // empty state (person2 only) — lemon-chiffon pill, dashed "+" circle, sapphire uppercase CTA
     return (
-      <button type="button" onClick={onPick} data-testid={testId} className="flex h-[60px] w-full items-center gap-3 overflow-hidden rounded-[56px] bg-v3-lemon-chiffon pl-2.5 pr-4 text-left">
-        <span className="grid size-10 shrink-0 place-items-center rounded-full border border-dashed border-v3-sapphire bg-white text-v3-sapphire">
+      // Figma 720:25502 profile-row (ว่าง): h74 · r56 · bg #F9F4F0 · pl10 pr16 · วงกลม dashed 40 · label 16 bold #1455A4 · chevron 20
+      <button type="button" onClick={onPick} data-testid={testId} className="flex h-[74px] w-full items-center gap-3 overflow-hidden rounded-[56px] bg-[#F9F4F0] pl-2.5 pr-4 text-left">
+        <span className="grid size-10 shrink-0 place-items-center rounded-full border border-dashed border-[#1455A4] bg-white text-[#1455A4]">
           <svg viewBox="0 0 18 18" className="size-[18px]" fill="none" aria-hidden><path d="M9 3.75v10.5M3.75 9h10.5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" /></svg>
         </span>
-        <span data-testid={`${testId}-empty`} className="text-[16px] font-bold uppercase leading-6 text-v3-sapphire">{emptyLabel}</span>
+        <span data-testid={`${testId}-empty`} className="min-w-0 flex-1 truncate text-[16px] font-bold uppercase leading-6 text-[#1455A4]">{emptyLabel}</span>
+        <svg viewBox="0 0 20 20" className="size-5 shrink-0 text-[#0B305B]" fill="none" aria-hidden><path d="m6 8 4 4 4-4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" /></svg>
       </button>
     )
   }
@@ -121,8 +123,9 @@ function ProfileRow({ person, loadingDob, onEdit, onPick, onChangePerson, editBu
     // (The month figures are ตู๋'s, from reviewing this PR, re-run by me and agreeing to 0.1px. My own
     // first list of "wide" months was arrived at by counting glyphs and had มี.ค. in it — it is 146.3px,
     // one of the narrowest. Character count is not width.)
-    <section data-testid={testId} className={`flex w-full flex-wrap items-center overflow-hidden rounded-[56px] bg-v3-ghost-white py-3 pl-3 ${onChangePerson ? 'gap-x-2 gap-y-1 pr-2' : 'gap-x-3 gap-y-1 pr-6'}`}>
-      <span className="relative grid size-10 shrink-0 place-items-center overflow-hidden rounded-full bg-v3-sapphire text-sm font-bold text-white">
+    // Figma 720:27969 profile-row: ตัวเรา bg #ECF0FD pl12 pr24 · คนอื่น bg #F9F4F0 pl10 pr16 · h74 · r56 · gap12
+    <section data-testid={testId} className={`flex min-h-[74px] w-full flex-wrap items-center overflow-hidden rounded-[56px] py-2 ${isP1 ? 'bg-[#ECF0FD] pl-3' : 'bg-[#F9F4F0] pl-2.5'} ${onChangePerson ? 'gap-x-2 gap-y-1 pr-2' : isP1 ? 'gap-x-3 gap-y-1 pr-6' : 'gap-x-3 gap-y-1 pr-4'}`}>
+      <span className="relative grid size-10 shrink-0 place-items-center overflow-hidden rounded-full bg-[#DAE2FF] text-[16px] font-bold text-[#3758F9]">
         {person.imageProfile
           ? <Image src={person.imageProfile} alt="" fill sizes="40px" style={{ objectFit: 'cover' }} />
           : <span>{person.name.trim().charAt(0) || '?'}</span>}
@@ -299,6 +302,11 @@ export function CompatibilityScreen({ config }: { config: CompatibilityConfig })
   // button for a minute; the kind comes from the same route-validated config, so key and title cannot
   // disagree.
   const cooldown = useCalcCooldown(userId, config.kind)
+  // สไลด์ 9 — บทบาทที่เลือกบนจอเพื่อนร่วมงาน (state ของจอ ไม่ใช่ของ hook: ไม่เปลี่ยนคำขอไป engine)
+  const [role, setRole] = useState<MatchingType>(DEFAULT_COLLEAGUE_ROLE)
+  const roleDef = COLLEAGUE_ROLES.find((r) => r.value === role) ?? COLLEAGUE_ROLES[1]
+  // จอเพื่อนร่วมงาน: ป้ายช่อง/หัวชีทเปลี่ยนตามบทบาท ("เลือกเจ้านาย" …); จอคู่รักใช้ป้ายจาก config เหมือนเดิม
+  const pickLabel = config.maxCandidates > 1 ? roleDef.pickLabel : config.pickLabel
   const [calculating, setCalculating] = useState(false)
   // #263: was a boolean ("did it fail?"). Now it carries WHICH failure, because that is what decides the
   // words. null = no failure showing.
@@ -336,7 +344,8 @@ export function CompatibilityScreen({ config }: { config: CompatibilityConfig })
     cooldown.start() // start at the PRESS, same reason as the pair lane: a failed calc still cools down
     setCalculating(true)
     setCalcError(null)
-    const outcome = readWorkCompareResult(await V2MatchingWorkCreateApi(ids))
+    // ฟีม 2026-09-07: ส่งบทบาทไปให้ engine คำนวณแยก (BOSS/FRIEND/EMPLOYEE → boss/partner/subordinate ที่ BFF)
+    const outcome = readWorkCompareResult(await V2MatchingWorkCreateApi(ids, role as 'BOSS' | 'FRIEND' | 'EMPLOYEE'))
     if (!outcome.ok) {
       firingRef.current = false
       setCalculating(false)
@@ -455,10 +464,32 @@ export function CompatibilityScreen({ config }: { config: CompatibilityConfig })
             ? <div data-testid="compat-person1" className="flex h-[64px] w-full items-center gap-3 rounded-[56px] bg-v3-ghost-white py-3 pl-3 pr-6"><span data-testid="compat-person1-loading" className="size-10 shrink-0 animate-pulse rounded-full bg-white/60" /><span className="h-4 w-40 animate-pulse rounded bg-white/60" /></div>
             : <ProfileRow person={c.person1} onEdit={() => setComingSoon('แก้ไขข้อมูลของคุณ')} testId="compat-person1" />}
 
-          {/* #585 — there used to be a three-chip role picker here. It is gone, not adjusted: the engine
-              returns all three work readings per person in one call, so making the user choose one threw
-              away two that were already computed. The measured direction table those chips depended on is
-              kept in compatibility.ts, because history rows still carry BOSS / EMPLOYEE / FRIEND. */}
+          {/* ฟีม 2026-09-07 (สไลด์ 9) — chip เลือกบทบาทกลับมา (เฉพาะจอเพื่อนร่วมงาน). ไม่เปลี่ยนการยิง engine
+              (ยังได้ครบ 3 มุมมองต่อคนตาม #585) แต่ส่ง `?role=` ไปหน้าผลลัพธ์ให้ชูมุมมองที่เลือกขึ้นก่อน. ป้ายบอก
+              "อีกคนเป็นอะไรกับเรา" — ทิศทางอยู่ใน COLLEAGUE_ROLES (compatibility.ts). */}
+          {config.maxCandidates > 1 && (
+            <div data-testid="compat-role-picker" role="radiogroup" aria-label="ดูความเข้ากันในฐานะอะไร" className="flex w-full items-center gap-2">
+              {COLLEAGUE_ROLES.map((r) => {
+                const on = role === r.value
+                return (
+                  <button
+                    key={r.value}
+                    type="button"
+                    role="radio"
+                    aria-checked={on}
+                    data-testid={`compat-role-${r.value}`}
+                    onClick={() => setRole(r.value)}
+                    className={[
+                      'min-w-0 flex-1 whitespace-nowrap rounded-full px-2 py-2 text-[13px] leading-5 transition-none',
+                      on ? 'bg-v3-sapphire font-bold text-white' : 'bg-v3-ghost-white font-normal text-v3-text-body',
+                    ].join(' ')}
+                  >
+                    {r.label}
+                  </button>
+                )
+              })}
+            </div>
+          )}
 
           {/* row 2 — the person-2 picker → wrapped v1 modal; filled → name+picture now, dob enriches (skeleton) */}
           {config.maxCandidates <= 1 ? (
@@ -470,7 +501,7 @@ export function CompatibilityScreen({ config }: { config: CompatibilityConfig })
               onPick={() => setSelectOpen(true)}
               editBusy={editLoading}
               testId="compat-person2"
-              emptyLabel={config.pickLabel}
+              emptyLabel={pickLabel}
             />
           ) : (
             /* #585 ก้อน 3 — the three co-worker slots. ALWAYS `maxCandidates` rows, filled first, so an
@@ -490,7 +521,7 @@ export function CompatibilityScreen({ config }: { config: CompatibilityConfig })
                 onChangePerson={() => setSlotOpen(slot.index)}
                 onPick={() => setSlotOpen(slot.index)}
                 testId={`compat-candidate-${slot.index}`}
-                emptyLabel={config.pickLabel}
+                emptyLabel={pickLabel}
               />
             ))
           )}
@@ -533,8 +564,8 @@ export function CompatibilityScreen({ config }: { config: CompatibilityConfig })
             aria-disabled={!canProceed || cooldown.active}
             onClick={config.maxCandidates > 1 ? onCompareColleagues : onViewResult}
             className={[
-              'w-full rounded-[100px] py-3.5 text-center font-poppins-v3 text-[16px] font-semibold transition-colors',
-              canProceed && !cooldown.active ? 'bg-v3-sapphire text-white' : 'cursor-not-allowed bg-v3-disabled-bg',
+              'w-full rounded-[100px] py-3.5 text-center text-[16px] font-bold uppercase leading-6 transition-colors',
+              canProceed && !cooldown.active ? 'bg-[#1455A4] text-[#E1FF00]' : 'cursor-not-allowed bg-[#DDDDDD]',
               // The label only became load-bearing during the cooldown — it is the "why" and the "how much
               // longer". White on the #DDDDDD disabled fill measures ~1.4:1, so it was decoration you could
               // squint at; as information it has to be readable. v3-text-body on that fill is ~6.3:1.
@@ -589,7 +620,7 @@ export function CompatibilityScreen({ config }: { config: CompatibilityConfig })
       {logoutOpen && <LogoutModal onClose={() => setLogoutOpen(false)} onConfirm={logout} />}
       {selectOpen && (
         <CompatSelectFriendModal
-          title={config.pickLabel}
+          title={pickLabel}
           onClose={() => setSelectOpen(false)}
           onSelect={(input) => { c.selectFriend(input); setSelectOpen(false) }}
           onAddNew={() => { setSelectOpen(false); setAddOpen(true) }}
@@ -607,7 +638,7 @@ export function CompatibilityScreen({ config }: { config: CompatibilityConfig })
           on the user seeing it. */}
       {slotOpen !== null && (
         <CompatSelectFriendModal
-          title={config.pickLabel}
+          title={pickLabel}
           onClose={() => setSlotOpen(null)}
           onSelect={(input) => { candidates.pickAt(slotOpen, input); setSlotOpen(null) }}
           onAddNew={() => { setSlotOpen(null); setAddOpen(true) }}

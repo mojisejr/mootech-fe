@@ -23,10 +23,17 @@
 // ⇒ read the count, and say which seat is empty. Never renumber.
 
 export type WorkRole = { perspective: string; stageName?: string; narrative?: string }
+/** มิติของบทบาท (เส้นแยกบทบาท 2026-09-07) — `lines[].text` คือคำอ่านที่จอ Figma วาดเป็นบล็อก การงาน/ธุรกิจ/การเงิน */
+export type WorkFacetLine = { slot?: string; code?: string; name?: string; text?: string }
+export type WorkFacet = { key: string; label?: string; percent?: number; grade?: string; ratingText?: string; emoji?: string; isMain?: boolean; lines: WorkFacetLine[] }
 
 export type WorkCandidate = {
   index: number
   rankScore?: number
+  /** มิติหลักของบทบาท (เส้นแยกบทบาท) — ป้าย/เกรดที่จอโชว์มาจากตรงนี้เมื่อมี */
+  roleFacet?: { key?: string; label?: string; percent?: number; grade?: string; ratingText?: string; emoji?: string }
+  /** ทุกมิติของบทบาท (4 รายการ) — ผลเก่าแบบเส้นรวมไม่มี → [] */
+  facets?: WorkFacet[]
   grade?: string
   ratingText?: string
   emoji?: string
@@ -37,6 +44,11 @@ export type WorkCandidate = {
 
 export type WorkComparison = {
   self?: Record<string, unknown>
+  /** 'boss' | 'partner' | 'subordinate' เมื่อคำนวณแยกบทบาท; ไม่มี = ผลเก่าแบบเส้นรวม (#585) */
+  relationship?: string
+  relationshipLabel?: string
+  /** ตารางดวงจีนของทุกคน (engine 2026-09-07) — self + candidates[index] */
+  charts?: { self?: unknown; candidates?: unknown[] }
   ranking: number[]
   candidates: WorkCandidate[]
   sisingReference?: Record<string, unknown>
@@ -60,6 +72,9 @@ export function trimWorkResponse(body: unknown): WorkComparison | null {
   if (!Array.isArray(c.candidates)) return null
   return {
     self: c.self,
+    relationship: typeof c.relationship === 'string' ? c.relationship : undefined,
+    relationshipLabel: typeof c.relationshipLabel === 'string' ? c.relationshipLabel : undefined,
+    charts: c.charts && typeof c.charts === 'object' ? { self: (c.charts as { self?: unknown }).self, candidates: Array.isArray((c.charts as { candidates?: unknown[] }).candidates) ? (c.charts as { candidates?: unknown[] }).candidates : [] } : undefined,
     ranking: Array.isArray(c.ranking) ? c.ranking.filter((n) => Number.isInteger(n)) : [],
     candidates: c.candidates.map((x, i) => normaliseCandidate(x, i)),
     sisingReference: c.sisingReference,
@@ -70,15 +85,35 @@ function normaliseCandidate(x: unknown, fallbackIndex: number): WorkCandidate {
   const o = (x ?? {}) as Record<string, unknown>
   const match = (o.match ?? {}) as Record<string, unknown>
   const forward = (match.forward ?? {}) as Record<string, unknown>
+  // เส้นแยกบทบาท: เกรด/ข้อความมาจากมิติหลักของบทบาท (roleFacet) ไม่ใช่ forward รวม
+  const rf = (o.roleFacet && typeof o.roleFacet === 'object' ? o.roleFacet : null) as Record<string, unknown> | null
+  const roleFacet = rf
+    ? { key: strOrUndef(rf.key), label: strOrUndef(rf.label), percent: numOrUndef(rf.percent), grade: strOrUndef(rf.grade), ratingText: strOrUndef(rf.ratingText), emoji: strOrUndef(rf.emoji) }
+    : undefined
   return {
     index: Number.isInteger(o.index) ? (o.index as number) : fallbackIndex,
-    rankScore: typeof o.rankScore === 'number' ? o.rankScore : numOrUndef(forward.percent),
-    grade: strOrUndef(forward.grade),
-    ratingText: strOrUndef(forward.ratingText),
-    emoji: strOrUndef(forward.emoji),
+    rankScore: typeof o.rankScore === 'number' ? o.rankScore : numOrUndef(roleFacet?.percent ?? forward.percent),
+    roleFacet,
+    grade: roleFacet?.grade ?? strOrUndef(forward.grade),
+    ratingText: roleFacet?.ratingText ?? strOrUndef(forward.ratingText),
+    emoji: roleFacet?.emoji ?? strOrUndef(forward.emoji),
     profile: o.profile as Record<string, unknown> | undefined,
     elementInteraction: o.elementInteraction as Record<string, unknown> | undefined,
     roles: Array.isArray(o.roles) ? (o.roles as WorkRole[]).filter((r) => !!r && typeof r.perspective === 'string') : [],
+    facets: Array.isArray(o.facets)
+      ? (o.facets as Record<string, unknown>[])
+          .filter((f) => !!f && typeof f.key === 'string')
+          .map((f) => ({
+            key: f.key as string,
+            label: strOrUndef(f.label),
+            percent: numOrUndef(f.percent),
+            grade: strOrUndef(f.grade),
+            ratingText: strOrUndef(f.ratingText),
+            emoji: strOrUndef(f.emoji),
+            isMain: f.isMain === true,
+            lines: Array.isArray(f.lines) ? (f.lines as WorkFacetLine[]).filter((l) => !!l && typeof l === 'object') : [],
+          }))
+      : [],
   }
 }
 
@@ -179,6 +214,10 @@ export type WorkEntry = {
   profile?: Record<string, unknown>
   elementInteraction?: Record<string, unknown>
   roles: WorkRole[]
+  /** มิติของบทบาท (เส้นแยกบทบาท) — [] สำหรับผลเก่า → จอ fallback ไป roles */
+  facets?: WorkFacet[]
+  /** ตารางดวงจีนของคนนี้ (จาก comparison.charts.candidates[index]) — ผลเก่าไม่มี */
+  chart?: unknown
   /** false when the engine returned fewer than three readings — the screen must SAY so */
   rolesComplete: boolean
   rolesMissing: number
@@ -197,6 +236,10 @@ export type WorkEntry = {
 export type WorkResultBuild =
   | {
       ok: true
+      /** บทบาทที่ใช้คำนวณ ('boss'|'partner'|'subordinate') — undefined สำหรับผลเก่าแบบเส้นรวม */
+      relationship?: string
+      /** ตารางดวงจีนของ "คุณ" (comparison.charts.self) */
+      selfChart?: unknown
       entries: WorkEntry[]
       /** true only when `comparison.ranking` named every candidate — mirrors `rolesComplete` */
       rankingComplete: boolean
@@ -234,6 +277,8 @@ export function buildWorkResult(comparison: WorkComparison | null, people: WorkP
 
   return {
     ok: true,
+    relationship: comparison?.relationship,
+    selfChart: comparison?.charts?.self,
     rankingComplete: ranked.every((c) => named.has(c.index)),
     entries: ranked.map((c, i) => {
       const r = readRoles(c)
@@ -253,6 +298,8 @@ export function buildWorkResult(comparison: WorkComparison | null, people: WorkP
         profile: c.profile,
         elementInteraction: c.elementInteraction,
         roles: r.roles,
+        facets: c.facets ?? [],
+        chart: comparison?.charts?.candidates?.[c.index],
         rolesComplete: r.complete,
         rolesMissing: r.missing,
       }

@@ -12,6 +12,7 @@ import { useRouter } from 'next/router'
 import { formatThaiLongDate } from '@/utils/formate-date-thai'
 import { HabitCard } from './sections/HabitCard'
 import { PajeuSection } from './sections/PajeuSection'
+import { Reveal } from '@/features/v2-shell/components/Reveal'
 import { SinseSection } from './sections/SinseSection'
 import { CalendarMenu } from './CalendarMenu'
 import { hrefById, type ServiceId } from '@/features/v2-service/services'
@@ -127,10 +128,11 @@ export function V2HomeScreen({ greeting, mascotCharacter, fortune, fortuneLoadin
             gone turns it CLAIMED ✗. One owner for the rule, one tooth watching it. */}
         <ScoreRingCard fortune={fortune} loading={fortuneLoading} />
         <ManifestCard mascotCharacter={mascotCharacter} element={element} loading={loading.mascot} />
-        <SomphongSection />
-        <SianSection />
-        <SinseSection />
-        <PajeuSection />
+        {/* ฟีม สไลด์ 13: โซนล่างเลื่อนขึ้นเข้ามาตอนสกรอลล์ถึง (Reveal = IO + CSS, reduced-motion → นิ่ง) */}
+        <Reveal><SomphongSection /></Reveal>
+        <Reveal><SianSection /></Reveal>
+        <Reveal><SinseSection /></Reveal>
+        <Reveal><PajeuSection /></Reveal>
       </div>
 
       <CalendarMenu state="default" />

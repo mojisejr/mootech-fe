@@ -49,7 +49,9 @@ export type BaziRawInput = {
   timezone?: string
 }
 
-export type BaziWorkRequest = { self: BaziRawInput; candidates: BaziRawInput[] }
+/** บทบาทที่ engine จัดอันดับแยกได้ (`/api/bazi/work` body.relationship) — ฟีม 2026-09-07: คนละเส้น ไม่รวมกัน */
+export type BaziWorkRelationship = 'boss' | 'partner' | 'subordinate'
+export type BaziWorkRequest = { self: BaziRawInput; candidates: BaziRawInput[]; relationship?: BaziWorkRelationship }
 
 /**
  * POST /api/bazi/work.
