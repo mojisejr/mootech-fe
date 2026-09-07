@@ -55,7 +55,7 @@ export function SectionCard({
           aria-expanded={open}
           className="flex min-w-0 items-center gap-2 text-left"
         >
-          <h2 className="text-base font-bold text-v3-navy">{title}</h2>
+          <h2 className="text-[18px] font-bold leading-6 text-v3-navy">{title}</h2>
         </button>
         {info ? (
           hasInfoText ? (
@@ -98,7 +98,7 @@ export function SectionCard({
         <div
           id={infoId}
           data-testid="section-info-panel"
-          className="mt-3 rounded-2xl bg-v3-ghost-white px-3.5 py-3 text-[13px] leading-[22px] text-v3-text-body"
+          className="mt-3 rounded-2xl bg-v3-ghost-white px-3.5 py-3 text-sm leading-[22px] text-v3-text-body"
         >
           {info}
         </div>

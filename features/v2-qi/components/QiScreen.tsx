@@ -17,7 +17,7 @@ import { useCallback, useEffect, useState } from "react"
 
 import { SpendConfirmSheet, InsufficientQiSheet } from "./QiSpendSheets"
 import { SkyHeader, SkyScreen } from "@/features/v2-profile/components/kit"
-import { checkedInToday, todayBangkok, type QiCatalog, type QiSpendLine, type Referral, type Wallet } from "../qi-model"
+import { checkedInToday, todayBangkok, type MissionBoard, type QiCatalog, type QiSpendLine, type Referral, type Wallet } from "../qi-model"
 
 const G = "/images/v2/qi/guide"
 // ไอคอนเส้นตามเฟรม (earn: check-circle / sun / send / rocket / user-plus / glyph-5 · spend: sparkles / message / heart / cap / book)
@@ -44,6 +44,26 @@ const SPEND_ICON: Record<string, string> = {
   birth_edit: "sun",
 }
 const earnIcon = (code: string) => `${G}/${EARN_ICON[code] ?? "check-circle"}.svg`
+// แถวที่เฟรมมีแต่ catalog ไม่มี code แยก — มาจากภารกิจ (engine MISSION_DEFS ผ่าน /api/missions): จำนวน QI = rewardCoins จริง
+// วางแทรกตามลำดับเฟรม: หลัง daily_login (streak_7, read_fortune) · ไม่มี board = ไม่แสดง ไม่เดาตัวเลข
+const MISSION_ROWS: Array<{ id: string; after: string; icon: string; title: string; note: string }> = [
+  { id: "streak_7", after: "daily_login", icon: "check-circle", title: "เช็คอินครบ 7 วันติด", note: "นับใหม่ทุกสัปดาห์ ขาดวันเดียวเริ่มใหม่" },
+  { id: "read_fortune", after: "streak_7", icon: "sun", title: "อ่านดวงวันนี้", note: "เปิดอ่านคำทำนายประจำวันให้จบ" },
+]
+type EarnRow = { key: string; icon: string; title: string; note: string | null; qi: number; testId: string }
+export function earnRows(catalog: QiCatalog | null, board: MissionBoard | null): EarnRow[] {
+  const rows: EarnRow[] = (catalog?.earn ?? []).map((l) => ({
+    key: l.code, icon: earnIcon(l.code), title: EARN_COPY[l.code]?.title ?? l.title, note: EARN_COPY[l.code]?.note ?? l.note ?? null, qi: l.qi, testId: `qi-earn-${l.code}`,
+  }))
+  for (const m of MISSION_ROWS) {
+    const def = (Array.isArray(board?.missions) ? board.missions : []).find((x) => x.id === m.id)
+    if (!def) continue
+    const row: EarnRow = { key: `mission:${m.id}`, icon: `${G}/${m.icon}.svg`, title: m.title, note: m.note, qi: def.rewardCoins, testId: `qi-earn-mission-${m.id}` }
+    const at = rows.findIndex((r) => r.key === m.after || r.key === `mission:${m.after}`)
+    rows.splice(at >= 0 ? at + 1 : rows.length, 0, row)
+  }
+  return rows
+}
 const spendIcon = (code: string) => `${G}/${SPEND_ICON[code] ?? "sparkles"}.svg`
 
 // copy ตามเฟรม (ชื่อ/หมายเหตุ) — จำนวน QI ยังมาจาก catalog ของ engine เสมอ; code ที่เฟรมไม่มีใช้ข้อความ engine
@@ -132,6 +152,7 @@ export function QiScreen() {
   const [wallet, setWallet] = useState<Wallet | null>(null)
   const [, setReferral] = useState<Referral | null>(null)
   const [catalog, setCatalog] = useState<QiCatalog | null>(null)
+  const [board, setBoard] = useState<MissionBoard | null>(null)
   const [loading, setLoading] = useState(true)
   const [guard, setGuard] = useState<"not_authenticated" | null>(null)
   const [busyCheckin, setBusyCheckin] = useState(false)
@@ -139,7 +160,7 @@ export function QiScreen() {
 
   const load = useCallback(async () => {
     try {
-      const [w, r, c] = await Promise.all([fetch("/api/qi-wallet"), fetch("/api/referral"), fetch("/api/qi-catalog")])
+      const [w, r, c, m] = await Promise.all([fetch("/api/qi-wallet"), fetch("/api/referral"), fetch("/api/qi-catalog"), fetch("/api/missions").catch(() => null)])
       if (w.status === 401) {
         setGuard("not_authenticated")
         return
@@ -147,6 +168,7 @@ export function QiScreen() {
       if (w.ok) setWallet(await w.json())
       if (r.ok) setReferral(await r.json())
       if (c.ok) setCatalog(await c.json())
+      if (m?.ok) setBoard((await m.json().catch(() => null)) as MissionBoard | null)
     } finally {
       setLoading(false)
     }
@@ -229,8 +251,8 @@ export function QiScreen() {
               <Link href="/v2/qi/missions" data-testid="qi-missions-link" className="text-[13px] leading-[18px] text-v3-sapphire">ทำเลย ›</Link>
             </div>
             <ListCard>
-              {(catalog?.earn ?? []).map((line) => (
-                <Row key={line.code} testId={`qi-earn-${line.code}`} icon={earnIcon(line.code)} iconBg="#E3F8D1" title={EARN_COPY[line.code]?.title ?? line.title} note={EARN_COPY[line.code]?.note ?? line.note} right={<Amount qi={line.qi} kind="earn" />} />
+              {earnRows(catalog, board).map((r) => (
+                <Row key={r.key} testId={r.testId} icon={r.icon} iconBg="#E3F8D1" title={r.title} note={r.note} right={<Amount qi={r.qi} kind="earn" />} />
               ))}
               {!catalog && <div className="h-[64px] w-full animate-pulse bg-v3-ghost-white" />}
             </ListCard>

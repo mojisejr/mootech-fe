@@ -290,7 +290,7 @@ export function WorkResultScreen({ matchingId }: { matchingId: string }) {
         </header>
         {children}
       </div>
-      <ResultActionBar shareText="ผลดวงสมพงศ์เพื่อนร่วมงานของฉันจาก Mumate" testIdPrefix="work" />
+      <ResultActionBar shareText="ผลดวงสมพงศ์เพื่อนร่วมงานของฉันจาก Mumate" testIdPrefix="work" inline={false} />
     </div>
   )
 
@@ -342,8 +342,8 @@ export function WorkResultScreen({ matchingId }: { matchingId: string }) {
       <section data-testid="work-hero" className="relative mx-4 flex flex-col gap-7 overflow-hidden rounded-[22px] bg-[#1455A4] px-4 pb-6 pt-[34px]">
         <div className="flex flex-col items-center gap-3 text-center">
           <span data-testid="work-hero-mascot" className="relative block h-[84px] w-[67px]">
-            {/* มาสคอตหัวการ์ด = cutout โปร่ง (Figma asset) — การ์ดมาสคอตจาก API มีพื้นหลัง ใช้ในแถวแทน */}
-            <Image src="/images/v2/mascot/01.webp" alt="" fill sizes="67px" style={{ objectFit: 'contain' }} />
+            {/* มาสคอตหัวการ์ด = cutout จากเฟรม Figma 720:29221 (download_assets 2026-09-07) — การ์ดมาสคอตจาก API มีพื้นหลัง ใช้ในแถวแทน */}
+            <Image src="/images/v2/compat/work/hero-mascot.png" alt="" fill sizes="67px" style={{ objectFit: 'contain' }} />
           </span>
           <h2 data-testid="work-hero-title" data-role={chosenRole?.value ?? ''} className="text-[20px] font-bold leading-7 text-white">
             <span className="block">{heroTitle}</span>
@@ -359,6 +359,8 @@ export function WorkResultScreen({ matchingId }: { matchingId: string }) {
           ))}
         </ol>
       </section>
+      {/* ปุ่ม PDF/แชร์ ใต้การ์ด hero ตามเฟรม (720:26015) — ตัวลอยล่างเหลือแค่ Mate AI */}
+      <div className="mx-4 mt-3"><ResultActionBar shareText="ผลดวงสมพงศ์เพื่อนร่วมงานของฉันจาก Mumate" testIdPrefix="work" inline /></div>
 
       {/* การ์ดขาว: toggle แอดวานซ์ · Pill Tabs · การ์ดคนที่เปิด */}
       <section className="mx-4 mt-4 flex flex-col gap-6 rounded-2xl bg-white py-6">

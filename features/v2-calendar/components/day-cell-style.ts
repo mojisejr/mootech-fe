@@ -20,7 +20,7 @@
 // on the same cell, so they are two independent facts about one day. A shipped version once treated them as
 // exclusive and was wrong; keeping the border out of this function is what stops that from returning.
 import { DAY_CELL_COLORS, SELECTED } from './grade-colors'
-import type { DayCellTier } from '../types'
+import { gradeStep } from '@/lib/v2/grade-scale'
 
 /** every colour a day cell paints, for one (tier, selected) pair. */
 export type DayCellStyle = {
@@ -40,12 +40,13 @@ const RESTING_GANZHI_TEXT = '#1455A4'
 
 /**
  * The rule, in one place: when a cell is selected, EVERY value comes from the sapphire set — never a mix.
- * When it is not, the background and the percent follow its tier and the other two rest on their fixed inks.
+ * When it is not, the background and the percent follow the cell's GRADE STEP (Figma 375:16710 — ten tints,
+ * one per grade, not the old 3-tier percent ramp) and the other two rest on their fixed inks.
  */
-export function dayCellStyle(tier: DayCellTier, selected: boolean): DayCellStyle {
+export function dayCellStyle(grade: string, selected: boolean): DayCellStyle {
   if (selected) {
     return { bg: SELECTED.fill, dayText: SELECTED.text, ganzhiText: SELECTED.text, pctText: SELECTED.text }
   }
-  const t = DAY_CELL_COLORS[tier]
+  const t = DAY_CELL_COLORS[gradeStep(grade)]
   return { bg: t.tint, dayText: RESTING_DAY_TEXT, ganzhiText: RESTING_GANZHI_TEXT, pctText: t.text }
 }

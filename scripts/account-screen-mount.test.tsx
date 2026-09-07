@@ -20,7 +20,7 @@ vi.mock('@/features/auth/hooks/useV2User', () => ({
 
 import { AccountScreen } from '@/features/v2-account/components/AccountScreen'
 
-function stubAll({ walletOk = true, qi = 0, history = [] as unknown[] } = {}) {
+function stubAll({ walletOk = true, qi = 0, history = [] as unknown[], invitedCount = 0, goals = null as unknown, pack = null as unknown } = {}) {
   vi.stubGlobal('fetch', vi.fn((input: RequestInfo | URL) => {
     const url = String(input)
     if (url.includes('/api/qi-wallet')) {
@@ -29,8 +29,9 @@ function stubAll({ walletOk = true, qi = 0, history = [] as unknown[] } = {}) {
         : { ok: false, status: 500, json: async () => ({}) }) as Response)
     }
     if (url.includes('/api/profile')) return Promise.resolve({ ok: true, json: async () => ({ profile: null }) } as Response)
-    if (url.includes('/api/missions')) return Promise.resolve({ ok: true, json: async () => ({ missions: [], goals: null }) } as Response)
-    if (url.includes('/api/referral')) return Promise.resolve({ ok: true, json: async () => ({ invitedCount: 0 }) } as Response)
+    if (url.includes('/api/missions')) return Promise.resolve({ ok: true, json: async () => ({ missions: [], goals }) } as Response)
+    if (url.includes('/api/referral')) return Promise.resolve({ ok: true, json: async () => ({ invitedCount }) } as Response)
+    if (url.includes('/api/payment-package')) return Promise.resolve(pack ? { ok: true, json: async () => pack } as Response : { ok: false, status: 404, json: async () => ({}) } as Response)
     if (url.includes('/api/v2/account/delete')) return Promise.resolve({ ok: true, json: async () => ({ deletion: null }) } as Response)
     return Promise.resolve({ ok: true, json: async () => ({}) } as Response)
   }))
@@ -65,5 +66,46 @@ describe('จอโปรไฟล์ (แดชบอร์ด) ประกอ
     const { container } = mount()
     await waitFor(() => expect(screen.getByTestId('account-plan-name').textContent).toBe('Mumate Pro'))
     expect(container.textContent).toContain('ใช้ได้ถึง 14 ก.ค. 2570')
+  })
+
+  // 2026-09-07 Figma parity (55399:5007) — แถวเพื่อน: avatar stack 34px + วง "+N" + badge เก็บแล้ว/5 + copy ตามเฟรม
+  it('แถวเพื่อน: 8 คน → 3 วง + "+5" · badge 3/5 · "ยังขาดไฟและทอง"', async () => {
+    const goals = { referral: { invited: 8 }, element: { collected: 3, elements: [
+      { key: 'wood', collected: true }, { key: 'water', collected: true }, { key: 'earth', collected: true }, { key: 'fire', collected: false }, { key: 'metal', collected: false } ] } }
+    stubAll({ invitedCount: 8, goals })
+    mount()
+    await waitFor(() => expect(screen.getByTestId('account-friends-badge').textContent).toBe('3/5'))
+    const stack = screen.getByTestId('account-friends-stack')
+    expect(stack.children).toHaveLength(4)
+    expect(stack.lastElementChild?.textContent).toBe('+5')
+    expect(screen.getByTestId('account-friends').textContent).toContain('เพื่อนของคุณ 8 คน')
+    expect(screen.getByTestId('account-friends').textContent).toContain('เก็บครบ 5 ธาตุรับ 1,000 QI · ยังขาดไฟและทอง')
+  })
+})
+
+// แถว Pro (55399:5020) ต้องใช้ผู้ใช้ FREE — mock useV2User ข้างบนเป็น PRO จึงแยกไฟล์ไม่ได้ ใช้ doMock+re-import แทน
+describe('แถว Mumate Pro ประหยัด ฿ (ผู้ใช้ฟรี)', () => {
+  const month = new Date().toISOString().slice(0, 7)
+  const spend = (qi: number) => ({ id: `s${qi}`, reason: 'qi:spend:chat_question', qiDelta: -qi, createdAt: `${month}-03T05:00:00.000Z` })
+  async function mountFree(opts: Parameters<typeof stubAll>[0]) {
+    vi.resetModules()
+    vi.doMock('@/features/auth/hooks/useV2User', () => ({
+      useV2User: () => ({ userId: 'u-free', done: true, errored: false, user: { user_id: 'u-free', membership: { isPaid: false, tier: 'FREE', source: 'v2', expireAt: null } } }),
+    }))
+    const { AccountScreen: Free } = await import('@/features/v2-account/components/AccountScreen')
+    stubAll(opts)
+    render(<CookiesProvider>{React.createElement(Free)}</CookiesProvider>)
+  }
+  it('จ่าย 360 QI ที่ ฿0.8833/QI (QI_60 = ฿53) → "เดือนนี้จ่ายค่า QI ไป ฿318" · "ประหยัด ฿119" · badge แนะนำ → ร้านค้า', async () => {
+    await mountFree({ history: [spend(200), spend(160), { id: 'e', reason: 'qi:earn:daily_login', qiDelta: 5, createdAt: `${month}-03T05:00:00.000Z` }], pack: { amount: 53, is_active: true } })
+    await waitFor(() => expect(screen.getByTestId('account-plan-name').textContent).toBe('เดือนนี้จ่ายค่า QI ไป ฿318'))
+    expect(screen.getByTestId('account-plan-sub').textContent).toBe('Pro ฿199 ใช้ไม่จำกัด ประหยัด ฿119')
+    expect(screen.getByTestId('account-shop-cta').textContent).toBe('แนะนำ')
+    expect(screen.getByTestId('account-plan').getAttribute('href')).toBe('/v2/shop')
+  })
+  it('ไม่รู้ราคาแพ็ก / ไม่มีรายจ่าย → ไม่แต่งตัวเลข: ชื่อแผน + "Pro ฿199 ใช้ไม่จำกัด" เฉย ๆ', async () => {
+    await mountFree({ history: [spend(200)], pack: null })
+    await waitFor(() => expect(screen.getByTestId('account-plan-name').textContent).toBe('Mumate Free'))
+    expect(screen.getByTestId('account-plan-sub').textContent).toBe('Pro ฿199 ใช้ไม่จำกัด')
   })
 })

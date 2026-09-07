@@ -32,8 +32,8 @@ export function Dithi({ dithi }: { dithi: DayDetailDithi }) {
         <dl className="flex flex-col gap-2.5">
           {rows.map((r) => (
             <div key={r.label} data-testid="dithi-row" className="flex items-baseline gap-3">
-              <dt className="w-[68px] shrink-0 text-xs font-semibold text-v3-text-muted">{r.label}</dt>
-              <dd className="min-w-0 flex-1 text-sm leading-6 text-v3-text-body">{r.value}</dd>
+              <dt className="w-[68px] shrink-0 text-sm font-semibold text-v3-text-muted">{r.label}</dt>
+              <dd className="min-w-0 flex-1 text-base leading-6 text-v3-text-body">{r.value}</dd>
             </div>
           ))}
         </dl>

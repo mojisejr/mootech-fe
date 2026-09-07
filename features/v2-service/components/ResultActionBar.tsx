@@ -19,9 +19,21 @@ export async function shareResult(text: string) {
   }
 }
 
-export function ResultActionBar({ shareText, testIdPrefix = 'work' }: { shareText: string; testIdPrefix?: string }) {
+/**
+ * inline=true  → แถวปุ่ม PDF/แชร์ วางในเนื้อหา (ใต้การ์ด hero ตามเฟรม 720:29221) ไม่มี Mate AI
+ * inline=false → ตัวลอยติดล่าง: เหลือแค่ Mate AI (ปุ่มคู่ย้ายขึ้นไป inline แล้ว — ไม่โชว์ซ้ำ 2 ที่)
+ * ไม่ส่ง inline → พฤติกรรมเดิม (ปุ่มคู่ + Mate AI ลอยล่าง) สำหรับหน้าคู่รักที่ยังใช้แบบเดิม
+ */
+export function ResultActionBar({ shareText, testIdPrefix = 'work', inline }: { shareText: string; testIdPrefix?: string; inline?: boolean }) {
+  if (inline === false) {
+    return (
+      <div className="fixed inset-x-0 bottom-0 z-40 mx-auto flex max-w-md items-center justify-end px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-2">
+        <MateAIButton />
+      </div>
+    )
+  }
   return (
-    <div className="fixed inset-x-0 bottom-0 z-40 mx-auto flex max-w-md items-center gap-2 px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-2">
+    <div className={inline ? 'flex items-center gap-2' : 'fixed inset-x-0 bottom-0 z-40 mx-auto flex max-w-md items-center gap-2 px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-2'}>
       <div className="flex min-w-0 flex-1 items-center gap-1">
         <button
           type="button"
@@ -42,7 +54,7 @@ export function ResultActionBar({ shareText, testIdPrefix = 'work' }: { shareTex
           แชร์
         </button>
       </div>
-      <MateAIButton />
+      {inline ? null : <MateAIButton />}
     </div>
   )
 }

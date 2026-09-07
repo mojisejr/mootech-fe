@@ -25,7 +25,7 @@ function HeartIcon() {
 
 function StrengthPill() {
   return (
-    <span className="inline-flex items-center gap-1 rounded-full bg-[#EAF7E9] px-2 py-1 text-xs font-bold text-[#2E7D32]">
+    <span className="inline-flex items-center gap-1 rounded-full bg-[#EAF7E9] px-2 py-[3px] text-sm font-semibold leading-5 text-[#2E7D32]">
       <span aria-hidden>⭐</span>จุดแข็ง
     </span>
   )
@@ -40,7 +40,7 @@ function CompatRow({ area }: { area: DayDetailArea }) {
       <HeartIcon />
       <div className="min-w-0 flex-1">
         <div className="flex items-start justify-between gap-2">
-          <p className="text-sm font-semibold leading-5 text-v3-navy">{facetLabel(area)}</p>
+          <p className="text-base font-semibold leading-6 text-v3-text-body">{facetLabel(area)}</p>
           {area.isStrength && <StrengthPill />}
         </div>
         <div className="mt-1.5 flex items-center gap-2">
@@ -48,7 +48,7 @@ function CompatRow({ area }: { area: DayDetailArea }) {
             <span className="block h-full rounded-full" style={{ width: typeof area.percent === 'number' ? `${Math.max(0, Math.min(100, area.percent))}%` : '0%', backgroundColor: accent }} />
           </span>
           <span className="w-9 shrink-0 text-right text-xs font-bold text-v3-text-body">{percentText(area.percent)}%</span>
-          <GradeBadge grade={area.grade ?? '—'} className="!min-w-[40px] !py-0.5 text-sm" />
+          <GradeBadge grade={area.grade ?? '—'} className="!min-w-[48px]" />
         </div>
       </div>
     </div>

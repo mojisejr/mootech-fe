@@ -672,6 +672,7 @@ export function CompatibilityScreen({ config }: { config: CompatibilityConfig })
 
       {addOpen && (
         <AddFriendSheet
+          title={pickLabel}
           onClose={() => setAddOpen(false)}
           onCreate={async (form) => {
             const res = await c.createFriend(form)
