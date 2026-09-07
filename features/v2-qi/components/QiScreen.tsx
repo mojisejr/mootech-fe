@@ -222,11 +222,11 @@ export function QiScreen() {
         <div className="mt-2 flex flex-col gap-5 pb-2">
           {/* hero — การ์ดภาพมาสคอต (ทีมส่งใน Drive "เหรียญ Qi") + orb 60 + หัว 24 + คำอธิบาย 12 */}
           <section data-testid="qi-hero" className="flex flex-col items-center overflow-hidden rounded-[22px] bg-white text-center">
-            <span className="relative block h-[168px] w-full">
-              <Image src={`${G}/hero-mascots.jpg`} alt="" fill sizes="393px" priority className="object-cover object-[50%_35%]" />
+            {/* รูปมาสคอตเต็มความสูง (4:3 ของไฟล์ 800×600) — ผู้ใช้ 2026-09-07: เอา orb กลางออก ขยายรูปลงมาแทน */}
+            <span className="relative block aspect-[4/3] w-full">
+              <Image src={`${G}/hero-mascots.jpg`} alt="" fill sizes="393px" priority className="object-cover" />
             </span>
-            <div className="-mt-[30px] flex flex-col items-center gap-3.5 px-5 pb-6">
-              <span className="block rounded-full bg-white p-[3px] shadow-[0_2px_8px_rgba(11,48,91,0.15)]"><Orb size={60} /></span>
+            <div className="flex flex-col items-center gap-3.5 px-5 pb-6 pt-4">
               <h2 className="text-[24px] font-bold leading-8 text-v3-navy">คู่มือสะสมและใช้พลังชี่</h2>
               <p className="text-[12px] leading-[18px] text-v3-text-body">QI คือแต้มพลังงานในแอป สะสมฟรีได้ทุกวัน หรือซื้อเพิ่มก็ได้ ใช้แลกบริการดูดวงทั้งหมด</p>
             </div>
