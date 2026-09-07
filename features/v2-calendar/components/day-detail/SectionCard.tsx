@@ -3,6 +3,7 @@
 // an optional cyan ⓘ info glyph, and a chevron that collapses the body. Toggle is INSTANT (no transition)
 // → nothing animates off-screen (the long-frame battery rule is satisfied by construction, not by pausing).
 import { useId, useState, type ReactNode } from 'react'
+import { Reveal } from '@/features/v2-shell/components/Reveal'
 
 function InfoDot() {
   // ⓘ — cyan action glyph (DESIGN.md: info icon = cyan #1B9AAF).
@@ -43,7 +44,7 @@ export function SectionCard({
   const hasInfoText = info !== true && info != null && info !== false
 
   return (
-    <section data-testid={testId} className="rounded-[20px] bg-white px-4 py-5 shadow-[0_4px_14px_rgba(26,38,77,0.06)]">
+    <Reveal as="section" testId={testId} className="rounded-[20px] bg-white px-4 py-5 shadow-[0_4px_14px_rgba(26,38,77,0.06)]">
       {/* The header used to be ONE button with the ⓘ inside it. A button inside a button is invalid HTML
           and the inner one never receives the click, so the ⓘ could not become a control without this
           split. Title and chevron are one control; the ⓘ is its own. */}
@@ -54,7 +55,7 @@ export function SectionCard({
           aria-expanded={open}
           className="flex min-w-0 items-center gap-2 text-left"
         >
-          <h2 className="text-base font-bold text-v3-navy">{title}</h2>
+          <h2 className="text-[18px] font-bold leading-6 text-v3-navy">{title}</h2>
         </button>
         {info ? (
           hasInfoText ? (
@@ -87,7 +88,7 @@ export function SectionCard({
         </button>
       </div>
       {/* hairline under the header (Figma: faint dashed rule) */}
-      <div className="mt-2.5 border-b border-dashed border-[#EBD9C8]" />
+      <div className="mt-2.5 border-b border-dashed border-v3-divider-dashed" />
       {/* The explanation is an INLINE panel, not a floating popover. components/calculator/BadgeMarker.tsx
           is the floating one and #416 recorded what it costs: it positions with window.innerWidth and was
           tuned at 390 only, so it has to be re-checked at every width forever. A panel in normal flow
@@ -97,12 +98,12 @@ export function SectionCard({
         <div
           id={infoId}
           data-testid="section-info-panel"
-          className="mt-3 rounded-2xl bg-v3-ghost-white px-3.5 py-3 text-[13px] leading-[22px] text-v3-text-body"
+          className="mt-3 rounded-2xl bg-v3-ghost-white px-3.5 py-3 text-sm leading-[22px] text-v3-text-body"
         >
           {info}
         </div>
       )}
       {open && <div className="mt-3.5">{children}</div>}
-    </section>
+    </Reveal>
   )
 }

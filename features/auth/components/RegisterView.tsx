@@ -30,7 +30,7 @@ export function RegisterView({
   return (
     <div className="flex min-h-screen flex-col bg-v3-ghost-white">
       <form
-        className="mx-auto flex w-full max-w-md flex-1 flex-col px-8 pb-8 pt-8"
+        className="mx-auto flex w-full max-w-md flex-1 flex-col px-8 pb-10 pt-6"
         onSubmit={(e) => {
           e.preventDefault()
           if (canSubmit && !submitting) onSubmit()
@@ -44,7 +44,7 @@ export function RegisterView({
         </h1>
 
         {/* avatar */}
-        <div className="mt-6 flex justify-center">
+        <div className="mt-8 flex justify-center">
           <AvatarUpload previewSrc={avatarPreviewSrc} onSelectFile={onSelectAvatar} />
         </div>
 
@@ -52,10 +52,10 @@ export function RegisterView({
         <div className="mt-8 flex flex-col gap-5">{children}</div>
 
         {/* safety reassurance */}
-        <SafetyBlock className="mt-6" />
+        <SafetyBlock className="mt-5" />
 
         {/* footer submit */}
-        <div className="mt-auto pt-8">
+        <div className="mt-auto pt-5">
           <Button
             type="submit"
             loading={submitting}

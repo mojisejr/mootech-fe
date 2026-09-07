@@ -4,8 +4,7 @@
 // place, so the ring · badge · %-bar · calendar cell never hardcode a hex apart from here (frame done-condition
 // 6: "ระบบเกรด = component ตัวเดียว ไม่มี hardcode สีกระจาย" — now 13 levels via 5 zones). Every value below is copied verbatim from
 // mootech-fe/DESIGN.md — NOT eyeballed from Figma. If a needed color isn't here, add it to DESIGN.md first (ฟีม A3).
-import type { DayCellTier } from '../types'
-import { gradeTier, TIER_COLOR, TIER_SOFT, TIER_INK } from '@/lib/v2/grade-scale'
+import { gradeTier, TIER_COLOR, TIER_SOFT, TIER_INK, GRADE_STEP_COLOR, GRADE_STEPS, type GradeStep } from '@/lib/v2/grade-scale'
 
 /**
  * DESIGN.md §GRADE — the grade's card bg + accent + badge ink, for ANY of the 13 wire levels.
@@ -27,12 +26,15 @@ export function gradeColors(grade?: string | null): { bg: string; accent: string
   return { bg: TIER_SOFT[tier], accent: TIER_COLOR[tier], badgeText: TIER_INK[tier] }
 }
 
-/** DESIGN.md §CALENDAR day-cell (3-tier) — cell tint + %-text. goo's dayCellTier(percent) picks the tier. */
-export const DAY_CELL_COLORS: Record<DayCellTier, { tint: string; text: string }> = {
-  good: { tint: '#E2F4F6', text: '#0B7A8C' },
-  medium: { tint: '#FEF1E0', text: '#B47E35' },
-  bad: { tint: '#FEE7E4', text: '#CD3D2E' },
-}
+/**
+ * Calendar day-cell — cell tint + %-text per GRADE STEP (Figma month grid 375:16710 paints every cell off the
+ * ten `Grade color bg/…` / `Grade color/…` variables; parity audit 2026-09-07 "สีช่องวัน 10 ขั้นตามเกรด").
+ * Replaced the 3-tier percent ramp (#E2F4F6/#FEF1E0/#FEE7E4), which was never in the node. The step comes
+ * from the cell's `grade` (gradeStep), not from the percent — the percent→grade mapping is bazi's.
+ */
+export const DAY_CELL_COLORS: Record<GradeStep, { tint: string; text: string }> = Object.fromEntries(
+  GRADE_STEPS.map((s) => [s, { tint: GRADE_STEP_COLOR[s].bg, text: GRADE_STEP_COLOR[s].ink }]),
+) as Record<GradeStep, { tint: string; text: string }>
 
 /** Calendar markers (DESIGN.md): selected-day / วันพระ ring — #9D85DA (≠ Accent/Purple #AF9CE0). */
 export const CALENDAR_MARKER = '#9D85DA'

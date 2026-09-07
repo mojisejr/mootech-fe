@@ -64,6 +64,6 @@ export const V2MatchingWorkGetDetailApi = async (matching_id: string): Promise<A
  * mootech-fe#585). There is no in-flight guard here on purpose — the caller holds the fire-once latch,
  * the same division the single-pair calculate uses.
  */
-export const V2MatchingWorkCreateApi = async (friend_ids: string[]): Promise<ApiResult> => {
-  return callApiWithStatus(API.v2_matching.work, 'POST', '', { friend_ids }, {})
+export const V2MatchingWorkCreateApi = async (friend_ids: string[], role?: 'BOSS' | 'FRIEND' | 'EMPLOYEE'): Promise<ApiResult> => {
+  return callApiWithStatus(API.v2_matching.work, 'POST', '', role ? { friend_ids, role } : { friend_ids }, {})
 }

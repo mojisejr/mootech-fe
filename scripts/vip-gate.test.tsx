@@ -7,7 +7,7 @@
 //                                                           → "undetermined" แดง
 import React from 'react'
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { render, screen, cleanup } from '@testing-library/react'
+import { render, screen, fireEvent, cleanup } from '@testing-library/react'
 
 vi.mock('next/config', () => ({ default: () => ({ publicRuntimeConfig: {}, serverRuntimeConfig: {} }) }))
 vi.mock('next/router', () => ({
@@ -55,6 +55,24 @@ describe('VipGate', () => {
     expect(screen.getByText(/ดูย้อนหลัง/)).toBeTruthy()
     const cta = screen.getByTestId('vip-cta') as HTMLAnchorElement
     expect(cta.getAttribute('href')).toBe('/v2/shop')
+    expect(screen.queryByText('เนื้อหาลับ')).toBeNull()
+  })
+
+  it('V2b free + variant="section" (เฟรม 720:29221) → header ชื่อ + ไอคอนล็อก ไม่โชว์เนื้อหา; แตะ header จึงกางกรอบมงกุฎ/ปุ่มปลดล็อก', () => {
+    membershipState.isPaid = false
+    render(
+      <VipGate label="ตารางดวงจีน" testId="vip" variant="section">
+        <p>เนื้อหาลับ</p>
+      </VipGate>,
+    )
+    const locked = screen.getByTestId('vip-locked')
+    expect(locked.getAttribute('data-variant')).toBe('section')
+    expect(screen.getByTestId('vip-header').textContent).toContain('ตารางดวงจีน')
+    expect(locked.querySelector('img[src*="lock.svg"]')).toBeTruthy()
+    expect(screen.queryByTestId('vip-cta')).toBeNull()
+    expect(screen.queryByText('เนื้อหาลับ')).toBeNull()
+    fireEvent.click(screen.getByTestId('vip-header'))
+    expect((screen.getByTestId('vip-cta') as HTMLAnchorElement).getAttribute('href')).toBe('/v2/shop')
     expect(screen.queryByText('เนื้อหาลับ')).toBeNull()
   })
 

@@ -15,7 +15,9 @@ const LINE_ORDER_URL = 'https://line.me/R/ti/p/@082cvuiy?ts=09151109&oat_content
 // gradient, both mascots, the CSS book-frame, the 3-piece cohort motion — comes from HabitCard unchanged.
 export function PajeuSection() {
   return (
-    <section className="mb-6 flex w-full flex-col items-center gap-2">
+    // Figma 375:14147: bg WHITE, full-bleed, px-16 py-32, flush against the sapphire ซินแส band above it. The
+    // pb-36 is the fixed-Menubar clearance the page column used to carry (white runs under the nav, as in Figma).
+    <section className="-mx-4 flex w-[calc(100%+2rem)] flex-col items-center gap-2 bg-white px-4 py-8 pb-36">
       {/* section-header (Figma 375:14148 — left-aligned, 361 wide, 84 tall) */}
       <div className="flex w-full flex-col gap-2 pb-2">
         <h2 className="text-xl font-bold leading-7 text-v3-navy">เรียนอ่านดวง</h2>
@@ -37,6 +39,7 @@ export function PajeuSection() {
         // 38% share; w 112→150 + a 44% cap lets the illustration read at ~137px like the Figma card.
         art={{ src: '/images/v2/home/%E0%B9%80%E0%B8%A3%E0%B8%B5%E0%B8%A2%E0%B8%99%E0%B8%9B%E0%B8%B2%E0%B8%88%E0%B8%B7%E0%B9%88%E0%B8%AD.webp', w: 150, h: 114.9 }}
         artMaxWidth="44%"
+        padX="px-4"
         // its 水 is full-body, centre-frame and nearly the same size as the card's own, which reads as the
         // same picture pasted twice rather than as a composition (ฟีม, from the real route).
         showMascots={false}

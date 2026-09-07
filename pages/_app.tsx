@@ -3,6 +3,7 @@ import "@/styles/what-if.css";
 import "leaflet/dist/leaflet.css";
 import { SessionProvider } from "next-auth/react";
 import type { AppProps } from "next/app";
+import { useRouter } from "next/router";
 import { CookiesProvider } from "react-cookie";
 import IdentitySelfHeal from "@/components/identity-self-heal";
 import AppErrorBoundary from "@/components/app-error-boundary";
@@ -11,6 +12,10 @@ import Head from "next/head";
 import { useEffect } from "react";
 
 export default function App({ Component, pageProps: { session, ...pageProps } }: AppProps) {
+  // v2 (Mumate redesign) ใช้ IBM Plex Sans Thai เป็นฟอนต์ root ตาม Figma — ครอบด้วย display:contents (ไม่กระทบ layout,
+  // font-family สืบทอดผ่านได้) เฉพาะเส้นทาง /v2 เพื่อไม่แตะหน้า v1 ที่ยังใช้ Prompt/Sarabun
+  const { pathname } = useRouter();
+  const isV2 = pathname === "/v2" || pathname.startsWith("/v2/");
   const gtm = "GTM-MLZC4FRC";
 
   // PWA (#285): register the Serwist-built service worker. Only in production — the SW is `disable`d
@@ -60,7 +65,9 @@ export default function App({ Component, pageProps: { session, ...pageProps } }:
           {/* #399 — a single render throw used to blank the whole app. The boundary keeps the
               rest of the page recoverable (reload / home) and still logs the trace. */}
           <AppErrorBoundary>
-            <Component {...pageProps} />
+            <div className={isV2 ? "contents font-ibm" : "contents"}>
+              <Component {...pageProps} />
+            </div>
           </AppErrorBoundary>
         </SessionProvider>
       </CookiesProvider>

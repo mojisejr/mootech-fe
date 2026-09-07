@@ -169,7 +169,7 @@ export function OrdersScreen() {
                           </div>
                           <div className="flex flex-none flex-col items-end gap-1">
                             <span className="text-[14px] font-black text-v3-navy">{bahtOf(row.amountSatang)}</span>
-                            <span className={"rounded-full px-2 py-[1px] text-[10px] font-black " + (st.refunded ? "bg-[#FDECEC] text-[#A83238]" : st.paid ? "bg-[#E3F4F7] text-[#14707E]" : "bg-v3-ghost-white text-v3-text-muted")}>{st.text}</span>
+                            <span className={"rounded-full px-2 py-[1px] text-[10px] font-black " + (st.refunded ? "bg-v3-danger-bg text-v3-danger-text" : st.paid ? "bg-v3-paid-bg text-v3-paid-text" : "bg-v3-ghost-white text-v3-text-muted")}>{st.text}</span>
                           </div>
                         </Link>
                       </li>

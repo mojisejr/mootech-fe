@@ -17,7 +17,9 @@
 import type { NextApiRequest, NextApiResponse } from 'next'
 import { resolveSessionUserId } from '@/lib/v2/resolve-user'
 import { runWorkCompare } from '@/lib/matching/work-compare-flow'
-import { MAX_CANDIDATES } from '@/lib/matching/bazi-work-client'
+import { MAX_CANDIDATES, type BaziWorkRelationship } from '@/lib/matching/bazi-work-client'
+import { resolveRelationship } from '@/lib/matching/bazi-pair.mapper'
+import type { MatchingType } from '@/lib/matching/bazi-pair.types'
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== 'POST') {
@@ -28,8 +30,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   const who = await resolveSessionUserId(req, res)
   if (!who.ok) return res.status(who.status).json({ ok: false, error: who.error })
 
-  const body = (req.body ?? {}) as { friend_ids?: unknown }
+  const body = (req.body ?? {}) as { friend_ids?: unknown; role?: unknown }
   const raw = body.friend_ids
+  // บทบาท (BOSS / FRIEND / EMPLOYEE — ค่าเดียวกับ matching_type เดิม) → relationship ของ engine; ไม่ส่ง = เส้นรวมเดิม
+  const roleRaw = body.role
+  if (roleRaw !== undefined && !(roleRaw === 'BOSS' || roleRaw === 'FRIEND' || roleRaw === 'EMPLOYEE')) {
+    return res.status(400).json({ ok: false, error: 'role must be BOSS | FRIEND | EMPLOYEE' })
+  }
+  const relationship = roleRaw === undefined ? undefined : (resolveRelationship(roleRaw as MatchingType).relationship as BaziWorkRelationship)
   if (!Array.isArray(raw) || raw.length === 0) {
     return res.status(400).json({ ok: false, error: 'friend_ids must be a non-empty array' })
   }
@@ -38,7 +46,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 
   try {
-    const out = await runWorkCompare({ userId: who.userId, friendIds: raw.map(String) })
+    const out = await runWorkCompare({ userId: who.userId, friendIds: raw.map(String), relationship })
     if (out.ok) {
       // `matching_id` is the key the result route reads back; a 2xx without it is a contract violation.
       // `entries` is the SAME shape GET /api/v2/matching/work/[id] answers with — one list, already in

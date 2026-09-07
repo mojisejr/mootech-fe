@@ -35,14 +35,17 @@ const THAI_MONTHS = ['มกราคม', 'กุมภาพันธ์', '�
 // so these mirror the route date (not draft state — no invented state).
 function DateDisplay({ date }: { date: string }) {
   const [y, m, d] = date.split('-').map(Number)
-  const box = 'flex flex-1 items-center justify-between rounded-2xl border border-black/10 bg-white px-3 py-2'
-  const cap = 'text-[10px] font-medium text-v3-text-body/60'
+  // Figma 375:13316 date boxes — white · border #E0DEDB · r14 · py9 · shadow 0/3/10 rgba(26,38,77,.06)
+  // · caption 11 regular #464646 · value 15 bold navy
+  const box = 'flex flex-1 items-center justify-between rounded-[14px] border border-v3-border-warm bg-white px-3 py-[9px] shadow-[0px_3px_10px_0px_rgba(26,38,77,0.06)]'
+  const cap = 'text-[11px] leading-4 text-v3-text-body'
+  const val = 'text-[15px] font-bold leading-5 text-v3-navy'
   const chev = <span aria-hidden className="text-v3-navy/40">▾</span>
   return (
     <div className="flex gap-2">
-      <span className={box}><span><span className={cap}>วัน</span><br /><span className="text-sm font-bold text-v3-navy">{d || '—'}</span></span>{chev}</span>
-      <span className={box}><span><span className={cap}>เดือน</span><br /><span className="text-sm font-bold text-v3-navy">{m ? THAI_MONTHS[m - 1] : '—'}</span></span>{chev}</span>
-      <span className={box}><span><span className={cap}>ปี (พ.ศ.)</span><br /><span className="text-sm font-bold text-v3-navy">{y ? y + 543 : '—'}</span></span>{chev}</span>
+      <span className={box}><span><span className={cap}>วัน</span><br /><span className={val}>{d || '—'}</span></span>{chev}</span>
+      <span className={box}><span><span className={cap}>เดือน</span><br /><span className={val}>{m ? THAI_MONTHS[m - 1] : '—'}</span></span>{chev}</span>
+      <span className={box}><span><span className={cap}>ปี (พ.ศ.)</span><br /><span className={val}>{y ? y + 543 : '—'}</span></span>{chev}</span>
     </div>
   )
 }
@@ -82,9 +85,11 @@ export function SaveSheet({
   // `saving` keeps the sapphire fill (work in progress) instead of the grey disabled fill (dead button) —
   // so the `disabled:` variants are left OUT of the class list in that branch rather than overridden,
   // which a plain utility could never win against (:disabled has the higher specificity).
+  // Figma 375:13316 save — sapphire pill (r100 · py14) with the LIME label (#E1FF00 · 16 bold), the v3
+  // accent that is allowed only on a button label (tailwind.config: 'lime').
   const saveTone = saving
-    ? 'bg-v3-sapphire/70 text-white'
-    : 'bg-v3-sapphire text-white disabled:bg-neutral-300 disabled:text-white/80'
+    ? 'bg-v3-sapphire/70 text-v3-lime'
+    : 'bg-v3-sapphire text-v3-lime disabled:bg-neutral-300 disabled:text-white/80'
   const saveLabel = saving
     ? 'กำลังบันทึก…'
     : failed
@@ -102,28 +107,31 @@ export function SaveSheet({
     <div className="fixed inset-0 z-50" data-testid="save-sheet">
       {/* backdrop — click = cancel (→ idle, menu stays 2) */}
       <button type="button" aria-label="ปิด" data-testid="sheet-backdrop" onClick={draft.cancel} className="absolute inset-0 bg-black/40" />
-      <div className="absolute inset-x-0 bottom-0 mx-auto flex max-h-[88vh] w-full max-w-md flex-col overflow-hidden rounded-t-[24px] bg-v3-ghost-white">
-        <button type="button" aria-label="ปิด" onClick={draft.cancel} className="mx-auto mt-2 h-1.5 w-10 rounded-full bg-neutral-300" />
-        <p className="pb-1 pt-2 text-center text-lg font-extrabold text-v3-navy">บันทึกลงปฏิทิน เพื่อแจ้งเตือน</p>
+      {/* Figma 375:13316 sheet — #FAF7F4 · r-t28 · px20 · gap18 · handle 44×5 #E5E3E0 · title 20 bold navy */}
+      <div className="absolute inset-x-0 bottom-0 mx-auto flex max-h-[88vh] w-full max-w-md flex-col overflow-hidden rounded-t-[28px] bg-v3-bg-cream font-ibm">
+        <button type="button" aria-label="ปิด" onClick={draft.cancel} className="mx-auto mt-3 h-[5px] w-11 rounded-full bg-v3-border-warm-2" />
+        <p className="pb-2 pt-3 text-[20px] font-bold leading-7 text-v3-navy px-5">บันทึกลงปฏิทิน เพื่อแจ้งเตือน</p>
 
-        <div className="flex flex-col gap-3 overflow-y-auto px-4 pb-3">
+        <div className="flex flex-col gap-[18px] overflow-y-auto px-5 pb-3">
           <DateDisplay date={date} />
 
           {/* โน้ต */}
-          <div className="rounded-2xl bg-white p-4 shadow-sm">
-            <p className="mb-2 text-sm font-bold text-v3-navy">โน้ต</p>
+          {/* card: white · r18 · p16 · shadow 0/4/14 rgba(26,38,77,.06) · heading 18 bold navy · input h52 px20 16 */}
+          <div className="rounded-[18px] bg-white p-4 shadow-[0px_4px_14px_0px_rgba(26,38,77,0.06)]">
+            <p className="mb-2 text-[18px] font-bold leading-6 text-v3-navy">โน้ต</p>
             <input
               type="text"
               value={d.note ?? ''}
               onChange={(e) => draft.setNote(e.target.value)}
               placeholder="ระบุสิ่งที่ต้องการโน้ต"
-              className="w-full rounded-full border border-black/10 px-4 py-2.5 text-sm text-v3-navy placeholder:text-v3-placeholder focus:outline-none focus:ring-2 focus:ring-v3-sapphire/30"
+              className="h-[52px] w-full rounded-full border border-v3-border-input bg-white px-5 text-[16px] text-v3-text-filled placeholder:text-v3-slate-muted focus:outline-none focus:ring-2 focus:ring-v3-sapphire/30"
             />
           </div>
 
           {/* เลือกยาม */}
-          <div className="rounded-2xl bg-white p-4 shadow-sm">
-            <p className="mb-3 text-sm font-bold text-v3-navy">เลือกยามที่จะให้เตือน</p>
+          <div className="rounded-[18px] bg-white p-4 shadow-[0px_4px_14px_0px_rgba(26,38,77,0.06)]">
+            <p className="mb-4 text-[18px] font-bold leading-6 text-v3-navy">เลือกยามที่จะให้เตือน</p>
+            {/* Figma yam rows — #F9F4F0 · r12 · p16 · gap16; selected #ECF0FD + time in cyan */}
             <div className="flex flex-col gap-2">
               {yams.map((yam) => {
                 const status = statusFor(yam)
@@ -139,7 +147,7 @@ export function SaveSheet({
                     key={yam.id}
                     data-testid={`sheet-yam-${yam.id}`}
                     data-yam-status={status}
-                    className={`flex items-center gap-3 rounded-2xl px-3 py-3 ${locked ? 'bg-v3-lemon-chiffon/50' : checked ? 'bg-v3-pastel-blue/40 cursor-pointer' : 'bg-v3-lemon-chiffon cursor-pointer'}`}
+                    className={`flex items-center gap-4 rounded-[12px] p-4 ${locked ? 'bg-v3-lemon-chiffon/50' : checked ? 'bg-v3-ghost-white cursor-pointer' : 'bg-v3-lemon-chiffon cursor-pointer'}`}
                   >
                     <input
                       type="checkbox"
@@ -152,11 +160,11 @@ export function SaveSheet({
                       {checked && <svg viewBox="0 0 16 16" className="size-4" fill="none"><path d="M3.5 8.5l3 3 6-6.5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /></svg>}
                     </span>
                     <span className="min-w-0 flex-1">
-                      <span className={`block text-sm font-bold ${past ? 'text-v3-text-muted' : checked ? 'text-v3-cyan' : 'text-v3-navy'}`}>{yam.window}</span>
-                      <span className="block truncate text-xs text-v3-text-body">{yam.label}</span>
+                      <span className={`block text-[16px] font-bold leading-6 ${past ? 'text-v3-text-muted' : checked ? 'text-v3-cyan' : 'text-v3-navy'}`}>{yam.window}</span>
+                      <span className="block truncate text-[14px] leading-[22px] text-v3-text-body">{yam.label}</span>
                     </span>
                     {note && (
-                      <span data-testid={`sheet-yam-note-${yam.id}`} className="shrink-0 text-xs font-bold text-v3-text-muted">
+                      <span data-testid={`sheet-yam-note-${yam.id}`} className="shrink-0 text-[12px] font-bold text-v3-text-muted">
                         {note}
                       </span>
                     )}
@@ -174,7 +182,7 @@ export function SaveSheet({
               • else     → "บันทึก"
             When the device can't ring (denied/needs-install/unsupported) a line under the button says so and
             offers the install/permission guide — the 6-state truth that used to live on the removed toggle. */}
-        <div className="border-t border-black/5 bg-v3-ghost-white px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-3">
+        <div className="bg-v3-bg-cream px-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] pt-3">
           <button
             type="button"
             data-testid="sheet-save"
@@ -183,7 +191,7 @@ export function SaveSheet({
             disabled={!draft.canCommit || saving}
             aria-busy={saving}
             onClick={onSave}
-            className={`flex h-[52px] w-full items-center justify-center gap-2 rounded-2xl text-base font-bold ${saveTone}`}
+            className={`flex h-[52px] w-full items-center justify-center gap-2 rounded-full text-[16px] font-bold ${saveTone}`}
           >
             {saving && <span aria-hidden data-testid="sheet-save-spinner" className="size-5 shrink-0 animate-spin rounded-full border-[3px] border-white/30 border-t-white" />}
             {saveLabel}

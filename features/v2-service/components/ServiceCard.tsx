@@ -15,12 +15,12 @@ import Link from 'next/link'
 import type { ServiceCardData } from '../services'
 import { ServiceCardArt } from './ServiceCardArt'
 
-// Inline arrow (ooui:arrow-next-ltr) — matches the project's "icons live local, no icon-lib" convention
-// (see Menubar). 13px to match Figma.
+// Inline arrow — the EXACT Figma export of ooui:arrow-next-ltr (626:5840): 13px box, 11.05×8.54 leaf centred,
+// painted with currentColor (Figma fill #1B9AAF = the cyan the label already carries). Local, no icon-lib.
 function ArrowNext() {
   return (
-    <svg aria-hidden="true" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M5 12h14M13 6l6 6-6 6" />
+    <svg aria-hidden="true" width="13" height="13" viewBox="0 0 13 13" fill="currentColor" className="shrink-0">
+      <path transform="translate(0.975 2.23)" d="M11.05 3.81095V4.71575L7.3528 8.5397L6.4194 7.6362L9.0545 4.91335H0V3.61335H9.04995L6.4194 0.9061L7.3515 0L11.05 3.81095Z" />
     </svg>
   )
 }
@@ -31,10 +31,10 @@ export function ServiceCard({ data, eagerArt = false }: { data: ServiceCardData;
       href={data.href}
       data-testid={`service-card-${data.id}`}
       // min-h, not h: Thai copy that needs another line grows the card instead of being clipped (ฟีม
-      // 2026-08-05). shadow-card-soft is the sanctioned card elevation, and it is load-bearing here —
-      // the art ground #FBF6FA sits only 6/255 from the page cream #FAF7F4, so without a shadow the card
-      // has no edge left to see (the old #ECF0FD surface was 14/255 away and could stand on its own).
-      className="relative flex min-h-[148px] w-full overflow-hidden rounded-3xl bg-v3-art-canvas p-6 font-ibm shadow-card-soft transition-shadow hover:shadow-custom focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-v3-focus-border"
+      // 2026-08-05). No shadow: Figma 626:4763 draws the card flat on the WHITE hub ground (the earlier
+      // shadow-card-soft existed to lift it off the cream ground the hub no longer uses).
+      // Figma habit-card (626:4763): 361×148, r24, p-24, NO elevation — the art's own ground is the edge.
+      className="relative flex min-h-[148px] w-full overflow-hidden rounded-3xl bg-v3-art-canvas p-6 font-ibm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-v3-focus-border"
     >
       <ServiceCardArt src={data.image} eager={eagerArt} />
 

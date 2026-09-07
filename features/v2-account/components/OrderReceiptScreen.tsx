@@ -17,7 +17,7 @@ function Row({ label, value, testId, strong, green }: { label: string; value: st
   return (
     <div className="flex w-full items-start justify-between gap-3 text-[13px]">
       <p className="leading-[22px] text-v3-text-body">{label}</p>
-      <p data-testid={testId} className={"break-all text-right leading-[22px] " + (green ? "font-black text-[#63B05F]" : strong ? "font-black text-v3-navy" : "font-bold text-v3-navy")}>{value}</p>
+      <p data-testid={testId} className={"break-all text-right leading-[22px] " + (green ? "font-black text-v3-qi-earn" : strong ? "font-black text-v3-navy" : "font-bold text-v3-navy")}>{value}</p>
     </div>
   )
 }
@@ -80,7 +80,7 @@ export function OrderReceiptScreen({ id }: { id: string }) {
             <div className="flex flex-col items-center gap-2 pt-2 text-center">
               <p className="text-[40px] font-black leading-[46px] text-v3-navy" data-testid="receipt-amount">{bahtOf(row.amountSatang)}</p>
               <div className="flex items-center gap-2">
-                <span className={"rounded-full px-3 py-1 text-[12px] font-black " + (st.refunded ? "bg-[#FDECEC] text-[#A83238]" : st.paid ? "bg-[#E3F4F7] text-[#14707E]" : "bg-v3-ghost-white text-v3-text-muted")} data-testid="receipt-status">{st.text}</span>
+                <span className={"rounded-full px-3 py-1 text-[12px] font-black " + (st.refunded ? "bg-v3-danger-bg text-v3-danger-text" : st.paid ? "bg-v3-paid-bg text-v3-paid-text" : "bg-v3-ghost-white text-v3-text-muted")} data-testid="receipt-status">{st.text}</span>
                 <span className="text-[12px] text-v3-text-muted" data-testid="receipt-date">{bkkCivilDate(row.createdAt)}</span>
               </div>
               <p className="text-[13px] font-bold text-v3-navy" data-testid="receipt-title">{titleFor(row)}</p>

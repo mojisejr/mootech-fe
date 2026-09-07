@@ -109,18 +109,20 @@ export function DiscountCodeField({ variant = 'inline', state, value, onChange, 
 
       {isSuccess && (
         <div data-testid="discount-chip" className="flex w-full items-center gap-2 rounded-pill border border-v3-success-border bg-v3-success-bg px-3 py-2">
-          <span aria-hidden className="grid size-4 shrink-0 place-items-center rounded-lg bg-v3-success-border text-[10px] font-bold text-white">✓</span>
-          <span className="text-sm font-bold text-v3-success-text">{value}</span>
+          {/* 55162:450 — a bare 13px bold tick in success-text, not a filled disc. */}
+          <span aria-hidden className="shrink-0 text-[13px] font-bold leading-none text-v3-success-text">✓</span>
+          <span className="text-[13px] font-bold text-v3-success-text">{value}</span>
           <span className="h-px min-w-0 flex-1" />
-          <span data-testid="discount-saved" className="text-sm font-bold text-v3-success-text">−{savedText}</span>
-          <button type="button" data-testid="discount-clear" onClick={onClear} aria-label="เอาโค้ดส่วนลดออก" className="text-sm font-medium text-v3-success-text">
+          <span data-testid="discount-saved" className="text-[13px] font-bold text-v3-success-text">−{savedText}</span>
+          <button type="button" data-testid="discount-clear" onClick={onClear} aria-label="เอาโค้ดส่วนลดออก" className="text-[13px] font-medium text-v3-success-text">
             ✕
           </button>
         </div>
       )}
 
+      {/* 55162:455 / 55162:597 — helper lines are 12px in the instance. */}
       {(isSuccess || isError) && (
-        <p id="discount-helper" data-testid="discount-helper" role={isError ? 'alert' : 'status'} className="flex items-center gap-1 text-[13px] leading-normal">
+        <p id="discount-helper" data-testid="discount-helper" role={isError ? 'alert' : 'status'} className="flex items-center gap-1 text-xs leading-normal">
           {isSuccess ? (
             <>
               <span aria-hidden>✨</span>
@@ -128,7 +130,7 @@ export function DiscountCodeField({ variant = 'inline', state, value, onChange, 
             </>
           ) : (
             <>
-              <span aria-hidden className="size-3.5 shrink-0 rounded-[7px] bg-v3-error" />
+              <span aria-hidden className="size-3 shrink-0 rounded-md bg-v3-error" />
               <span className="text-v3-error-legacy">{errorText || DISCOUNT_ERROR_FALLBACK}</span>
             </>
           )}

@@ -6,19 +6,11 @@ import { cn } from '@/lib/utils/cn'
 // 110px circle placeholder + 32px sapphire camera badge (radius 16, 2px white border, icon 16).
 // Presentational: `previewSrc` shows the chosen image; `onSelectFile` fires with the picked File.
 // goo can wire this to the existing ModalImageCrop flow, or use the raw file directly.
-function CameraIcon() {
-  return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-      <path
-        d="M9 3.5 7.8 5.5H5A2 2 0 0 0 3 7.5v9a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-9a2 2 0 0 0-2-2h-2.8L15 3.5H9Z"
-        stroke="#fff"
-        strokeWidth="1.6"
-        strokeLinejoin="round"
-      />
-      <circle cx="12" cy="12.5" r="3.2" stroke="#fff" strokeWidth="1.6" />
-    </svg>
-  )
-}
+//
+// Assets are the Figma exports (public/images/v2/onboarding): avatar-placeholder.png is the
+// 302:291 "Avatar Placeholder" raster (220px source → 110px box), camera.svg is the 302:327 glyph.
+const AVATAR_PLACEHOLDER = '/images/v2/onboarding/avatar-placeholder.png'
+const CAMERA_ICON = '/images/v2/onboarding/camera.svg'
 
 export function AvatarUpload({
   previewSrc,
@@ -48,12 +40,14 @@ export function AvatarUpload({
             className="h-full w-full object-cover"
           />
         ) : (
-          <span
+          <Image
+            src={AVATAR_PLACEHOLDER}
+            alt=""
             aria-hidden="true"
-            className="flex h-full w-full items-center justify-center text-3xl text-v3-placeholder"
-          >
-            👤
-          </span>
+            width={110}
+            height={110}
+            className="h-full w-full object-cover"
+          />
         )}
       </button>
 
@@ -62,7 +56,7 @@ export function AvatarUpload({
         aria-hidden="true"
         className="absolute bottom-0 right-0 flex h-8 w-8 items-center justify-center rounded-2xl border-2 border-white bg-v3-sapphire"
       >
-        <CameraIcon />
+        <Image src={CAMERA_ICON} alt="" width={16} height={16} className="size-4" />
       </span>
 
       <input

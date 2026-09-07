@@ -25,7 +25,7 @@ function HeartIcon() {
 
 function StrengthPill() {
   return (
-    <span className="inline-flex items-center gap-1 rounded-full bg-[#EAF7E9] px-2 py-1 text-xs font-bold text-[#2E7D32]">
+    <span className="inline-flex items-center gap-1 rounded-full bg-[#EAF7E9] px-2 py-[3px] text-sm font-semibold leading-5 text-v3-grade-a">
       <span aria-hidden>⭐</span>จุดแข็ง
     </span>
   )
@@ -40,7 +40,7 @@ function CompatRow({ area }: { area: DayDetailArea }) {
       <HeartIcon />
       <div className="min-w-0 flex-1">
         <div className="flex items-start justify-between gap-2">
-          <p className="text-sm font-semibold leading-5 text-v3-navy">{facetLabel(area)}</p>
+          <p className="text-base font-semibold leading-6 text-v3-text-body">{facetLabel(area)}</p>
           {area.isStrength && <StrengthPill />}
         </div>
         <div className="mt-1.5 flex items-center gap-2">
@@ -48,28 +48,53 @@ function CompatRow({ area }: { area: DayDetailArea }) {
             <span className="block h-full rounded-full" style={{ width: typeof area.percent === 'number' ? `${Math.max(0, Math.min(100, area.percent))}%` : '0%', backgroundColor: accent }} />
           </span>
           <span className="w-9 shrink-0 text-right text-xs font-bold text-v3-text-body">{percentText(area.percent)}%</span>
-          <GradeBadge grade={area.grade ?? '—'} className="!min-w-[40px] !py-0.5 text-sm" />
+          <GradeBadge grade={area.grade ?? '—'} className="!min-w-[48px]" />
         </div>
       </div>
     </div>
   )
 }
 
-export function CompatList({ areas, insight }: { areas: DayDetailArea[]; insight: string }) {
+// ⓘ คำอธิบาย 4 ด้าน + เกรดไม่ดี — copy จากฟีม (สไลด์ 15 "คำอธิบายตัว i", 2026-09) ตามลำดับที่โชว์บนจอ
+function CompatInfo() {
+  return (
+    <dl className="flex flex-col gap-2">
+      <div>
+        <dt className="font-bold text-v3-navy">ไปหาลูกค้า / ออกสื่อ / งานสังคม / ต่างถิ่น</dt>
+        <dd>เกรดดี → เหมาะกับการเจรจา สื่อสาร ออกสื่อ พบปะผู้คน ขอความช่วยเหลือจากผู้ใหญ่ อบรม สัมมนา ประชาสัมพันธ์ หรือเดินทางไปต่างถิ่น เพื่อเปิดโอกาสและสร้างผลลัพธ์ที่ดี</dd>
+      </div>
+      <div>
+        <dt className="font-bold text-v3-navy">ที่ทำงาน / สถานศึกษา / พ่อแม่ / หัวหน้า</dt>
+        <dd>เกรดดี → เหมาะกับการทำงาน พูดคุย เจรจา และใช้ชีวิตร่วมกับคนกลุ่มนี้ รวมถึงการเดินทางไปทำงานหรือสถานศึกษา ซึ่งมีแนวโน้มส่งผลดีตามมา</dd>
+      </div>
+      <div>
+        <dt className="font-bold text-v3-navy">เพื่อน / หุ้นส่วน / พี่น้อง / คู่ครอง</dt>
+        <dd>เกรดดี → เหมาะกับการพูดคุย เจรจา ทำกิจกรรม และใช้เวลาร่วมกับคนกลุ่มนี้ เพื่อให้เกิดผลลัพธ์ที่ดี</dd>
+      </div>
+      <div>
+        <dt className="font-bold text-v3-navy">บ้าน / คุมลูกน้อง</dt>
+        <dd>เกรดดี → เหมาะกับการคุมทีม เคลียร์ปัญหา คุยงานกับลูกน้อง รวมถึงจัดบ้าน จัดห้อง และทำงานเบื้องหลัง</dd>
+      </div>
+      <div>
+        <dt className="font-bold text-v3-navy">เกรดไม่ดี</dt>
+        <dd>ควรหลีกเลี่ยงการพบปะ พูดคุย ทำกิจกรรม หรือใช้เวลาอยู่กับกลุ่มคนและสถานที่ที่อยู่ในหมวดนั้น เพราะอาจทำให้เกิดผลลัพธ์ที่ไม่เป็นไปตามที่ต้องการ</dd>
+      </div>
+    </dl>
+  )
+}
+
+export function CompatList({ areas, insight: _insight }: { areas: DayDetailArea[]; insight?: string }) {
   // both sections order the SAME way through the same pure helper, so §6 and §8 can never disagree
   const ordered = orderFacets(areas)
   return (
-    <SectionCard title={`ความเข้ากัน ${ordered.length} ด้าน`} info testId="day-compat-list">
+    <SectionCard title={`ความเข้ากัน ${ordered.length} ด้าน`} info={<CompatInfo />} testId="day-compat-list">
       <div className="flex flex-col gap-4">
         {ordered.map((a) => (
           <CompatRow key={a.key || a.label} area={a} />
         ))}
       </div>
-      {/* §7 — insight box */}
-      <div className="mt-4 flex gap-2 rounded-xl bg-v3-lemon-chiffon px-3 py-3 text-sm leading-5 text-v3-text-body">
-        <span aria-hidden>💡</span>
-        <p>{insight}</p>
-      </div>
+      {/* §7 insight box ("💡 ดิถีเรา (ทอง) มองเขา (ไม้) เป็น …") ถูกตัดออก — ฟีม สไลด์ 15 "ตัดออก" + Kittipon 2026-09-07.
+          prop `insight` ยังรับไว้ให้ caller/adapter เดิมไม่พัง แต่ไม่วาดแล้ว */}
     </SectionCard>
   )
 }

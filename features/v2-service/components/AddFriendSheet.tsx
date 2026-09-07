@@ -1,4 +1,5 @@
-// features/v2-service/components/AddFriendSheet.tsx — the "add a friend" bottom sheet, Figma 636:18533.
+// features/v2-service/components/AddFriendSheet.tsx — the "add a friend" bottom sheet, Figma 720:25691 (sheet
+// "เลือกเพื่อนร่วมงาน"; earlier draft 636:18533).
 // Collects the birth info the compatibility calc needs and calls goo's createFriend (which wraps v1's
 // MemberWithFriendCreateApi). Slice 1: create-only (v1 has no LINE/FB import — those 3 rows are shown
 // DISABLED, not hidden). No new API, no calc.
@@ -9,14 +10,19 @@
 //    silently. Added per ฟีม's order. Default is the VISIBLE pre-highlighted MALE (user SEES it + can change
 //    → the value is never a hidden backend default — บอง's brake on `form.gender || MALE`). The value SENT is
 //    always what the user sees/picks.
-//  • Figma title reads "เพียงเเค่" (double สระเอ, a typo) → CORRECTED to "เพียงแค่" by ฟีม's ruling (2026-07-29),
-//    a deliberate divergence from Figma like ซินแส #145. Figma still shows the typo.
+//  • Title (2026-09-07, frame 720:25691): "เลือกเพื่อนร่วมงาน" 20/28 bold navy, centred. The frame is the
+//    colleague screen; the couple screen should pass its own pickLabel via `title` (CompatibilityScreen).
+//  • Figma name placeholder reads "ใส่ชื่อของคุณ" — kept as "ใส่ชื่อเพื่อน"/"ชื่อเพื่อน" (#277: the form is about
+//    the FRIEND; "ของคุณ" invites the user to enter their own data). Deliberate divergence.
+//  • Facebook / Invite / Contacts rows: drawn per Figma (white h64 r24, icon tile, chevron) but there is no
+//    backend → each is a ComingSoonAction (ฟีม 2026-08-06 แบบ ก: a control that answers "เร็วๆ นี้"), never faked.
 //  • surname is not in the Figma form → sent '' (goo documents in buildCreateFriendArgs).
 //  • image upload: the affordance is rendered; wiring the file→URL upload needs v1's upload endpoint — NOT in
 //    Slice 1, so imageProfile is sent '' for now (flagged; the row is honest, not a dead-silent control).
 import { useState } from 'react'
 import type { NewFriendForm, Gender, EditFriendForm } from '../compatibility-api'
 import type { CreateFriendResult, UpdateFriendResult } from '../hooks/useCompatibility'
+import { ComingSoonAction } from '@/features/v2-shell/components/ComingSoon'
 
 // goo's NewFriendForm (#149) now carries `gender` (required union, no fallback) — the form IS NewFriendForm.
 type AddFriendForm = NewFriendForm
@@ -26,7 +32,17 @@ const TH_MONTHS = ['มกราคม', 'กุมภาพันธ์', 'ม�
 function Label({ children }: { children: React.ReactNode }) {
   return <span className="text-[14px] font-semibold leading-5 text-v3-text-body">{children}</span>
 }
-const inputCls = 'h-[52px] w-full rounded-[100px] border border-v3-border-input bg-white px-5 text-[16px] font-normal leading-6 text-v3-text-filled placeholder:text-[#94A3B8] outline-none focus:border-v3-sapphire'
+const inputCls = 'h-[52px] w-full rounded-[100px] border border-v3-border-input bg-white px-5 text-[16px] font-normal leading-6 text-v3-text-filled placeholder:text-v3-slate-muted outline-none focus:border-v3-sapphire'
+// dropdown fields (วว / ดด / ปปปป in the frame carry a 20px chevron at the right edge): native <select> with
+// the arrow drawn by us so the three boxes read the same on iOS and Android.
+const selectCls = `${inputCls} appearance-none bg-no-repeat pr-11 [background-position:right_16px_center] [background-size:20px_20px] invalid:text-v3-slate-muted`
+const CHEVRON_BG = { backgroundImage: "url(\"data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='20' height='20' viewBox='0 0 24 24' fill='none' stroke='%23464646' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='m6 9 6 6 6-6'/></svg>\")" } as const
+// The three "connect an account" rows (frame 720:25759): drawn as in Figma, answered by ComingSoonAction.
+const CONNECT_OPTIONS = [
+  { label: 'Facebook Friends', bg: 'bg-[#1A78F2]', id: 'facebook' },
+  { label: 'Invite Friends', bg: 'bg-v3-cyan', id: 'invite' },
+  { label: 'Find Contacts', bg: 'bg-[#8C6BD9]', id: 'contacts' },
+] as const
 
 // #266 — EDIT MODE. The sheet keeps one set of fields for both jobs; a separate edit screen would be a
 // second copy of the day/month/year + gender + "จำไม่ได้" controls, and copies drift.
@@ -55,10 +71,12 @@ function splitBirthDay(iso: string): { day: string; month: string; yearBE: strin
   return { day: String(Number(m[3])), month: String(Number(m[2])), yearBE: String(Number(m[1]) + 543) }
 }
 
-export function AddFriendSheet({ onClose, onCreate, edit }: {
+export function AddFriendSheet({ onClose, onCreate, edit, title = 'เลือกเพื่อนร่วมงาน' }: {
   onClose: () => void
   onCreate?: (form: AddFriendForm) => Promise<CreateFriendResult>
   edit?: EditFriendMode
+  /** create-mode heading — the screen's pickLabel ("เลือกเพื่อนร่วมงาน" / "เลือกคู่รัก" …). Frame 720:25691 default. */
+  title?: string
 }) {
   const initialDate = splitBirthDay(edit?.initial.birthDay ?? '')
   const [name, setName] = useState(edit?.initial.name ?? '')
@@ -119,7 +137,7 @@ export function AddFriendSheet({ onClose, onCreate, edit }: {
       <div className="flex max-h-[90vh] w-full max-w-md flex-col gap-[18px] overflow-y-auto rounded-t-[28px] bg-v3-bg-cream px-5 pb-10 pt-3 font-ibm" onClick={(e) => e.stopPropagation()} role="dialog" aria-label={edit ? 'แก้ไขข้อมูลเพื่อน' : 'เพิ่มเพื่อน'} data-testid="add-friend-sheet">
         <span aria-hidden className="mx-auto h-[5px] w-11 shrink-0 rounded-full bg-v3-border-warm-2" />
         <h2 className="text-center text-[20px] font-bold leading-7 text-v3-navy">
-          {edit ? 'แก้ไขข้อมูลเพื่อน' : <>เริ่มต้นดูดวงเพียงแค่ใส่<br />วันเดือน ปี เกิด</>}
+          {edit ? 'แก้ไขข้อมูลเพื่อน' : title}
         </h2>
 
         <div className="flex w-full flex-col gap-5">
@@ -131,14 +149,14 @@ export function AddFriendSheet({ onClose, onCreate, edit }: {
           <div className="flex w-full items-start gap-1">
             <div className="flex min-w-0 flex-1 flex-col gap-2">
               <Label>วันเกิด</Label>
-              <select value={day} onChange={(e) => setDay(e.target.value)} className={inputCls} data-testid="add-friend-day">
+              <select value={day} onChange={(e) => setDay(e.target.value)} required className={selectCls} style={CHEVRON_BG} data-testid="add-friend-day">
                 <option value="" disabled>วว</option>
                 {Array.from({ length: 31 }, (_, i) => <option key={i + 1} value={String(i + 1)}>{i + 1}</option>)}
               </select>
             </div>
             <div className="flex min-w-0 flex-1 flex-col gap-2">
               <Label>เดือนเกิด</Label>
-              <select value={month} onChange={(e) => setMonth(e.target.value)} className={inputCls} data-testid="add-friend-month">
+              <select value={month} onChange={(e) => setMonth(e.target.value)} required className={selectCls} style={CHEVRON_BG} data-testid="add-friend-month">
                 <option value="" disabled>ดด</option>
                 {TH_MONTHS.map((m, i) => <option key={i + 1} value={String(i + 1)}>{m}</option>)}
               </select>
@@ -193,16 +211,17 @@ export function AddFriendSheet({ onClose, onCreate, edit }: {
             <p className="text-[14px] font-normal leading-[22px] text-v3-text-detail">ข้อมูลที่คุณให้มา เราใช้แค่คำนวณดวงเท่านั้น ไม่เปิดเผย ไม่แชร์ เก็บไว้อย่างปลอดภัย</p>
           </div>
 
-          {/* upload affordance — file→URL wiring deferred (FLAG); honest, not a dead control */}
-          <button type="button" onClick={() => setError(false)} className="flex w-full items-center gap-3 overflow-hidden rounded-3xl bg-v3-ghost-white py-3 pl-3 pr-4 text-left" data-testid="add-friend-upload" aria-disabled title="อัพโหลดรูป (เร็วๆ นี้)">
+          {/* upload affordance (frame 720:25751) — file→URL wiring deferred (FLAG): drawn per Figma, answers "เร็วๆ นี้" */}
+          <ComingSoonAction testId="add-friend-upload" label="อัพโหลดรูป (เร็วๆ นี้)" message="อัพโหลดรูปจะเปิดให้ใช้เร็วๆ นี้"
+            className="flex w-full items-center gap-3 overflow-hidden rounded-3xl bg-v3-ghost-white py-3 pl-3 pr-4 text-left">
             <span className="grid size-10 shrink-0 place-items-center rounded-full border border-dashed border-v3-sapphire bg-white text-v3-sapphire">
               <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="M12 15V4M8 8l4-4 4 4" /><path d="M4 15v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3" /></svg>
             </span>
-            <span className="flex min-w-0 flex-col">
+            <span className="flex min-w-0 flex-col gap-1">
               <span className="text-[16px] font-bold uppercase leading-6 text-v3-sapphire">อัพโหลดรูป</span>
               <span className="truncate text-[14px] font-normal leading-[22px] text-v3-text-detail">Drag &amp; drop or click to upload</span>
             </span>
-          </button>
+          </ComingSoonAction>
 
           {/* #266 — in edit mode the failure says WHICH failure (goo's seam carries the reason), in the
               same shape #263 gave the calculation: bold what happened, then what to do. Create keeps its
@@ -228,21 +247,18 @@ export function AddFriendSheet({ onClose, onCreate, edit }: {
         {/* create-only: connecting an account is a way to ADD friends, meaningless while editing one */}
         {!edit && <p className="text-center text-[16px] font-normal leading-6 text-[#9EA8B8]">หรือเชื่อมต่อบัญชี</p>}
 
-        {/* 3 account-connect options — DISABLED (not hidden): no backend (done-cond #12). */}
+        {/* 3 account-connect options (frame 720:25759) — no backend (done-cond #12): drawn per Figma, each a
+            ComingSoonAction so the tap ANSWERS instead of a dead/greyed row. */}
         <div className={`w-full flex-col gap-2 ${edit ? 'hidden' : 'flex'}`}>
-          {[
-            { label: 'Facebook Friends', bg: 'bg-[#1A78F2]', id: 'facebook' },
-            { label: 'Invite Friends', bg: 'bg-v3-cyan', id: 'invite' },
-            { label: 'Find Contacts', bg: 'bg-[#8C6BD9]', id: 'contacts' },
-          ].map((o) => (
-            <div key={o.id} data-testid={`connect-${o.id}`} aria-disabled title="ยังไม่เปิดให้ใช้งาน"
-              className="flex h-16 w-full cursor-not-allowed items-center gap-3.5 overflow-hidden rounded-3xl bg-white px-3.5 opacity-50">
+          {CONNECT_OPTIONS.map((o) => (
+            <ComingSoonAction key={o.id} testId={`connect-${o.id}`} label={`${o.label} (เร็วๆ นี้)`} message="เชื่อมต่อบัญชีจะเปิดให้ใช้เร็วๆ นี้"
+              className="flex h-16 w-full items-center gap-3.5 overflow-hidden rounded-3xl bg-white px-3.5 text-left">
               <span className={`grid size-9 shrink-0 place-items-center rounded-[10px] ${o.bg} text-white`} aria-hidden>
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden><circle cx="12" cy="8" r="4" /><path d="M4 20c0-4 4-6 8-6s8 2 8 6" /></svg>
               </span>
               <span className="flex-1 text-[14px] font-normal leading-[22px] text-v3-text-body">{o.label}</span>
-              <span className="text-[12px] font-medium text-v3-text-muted">ยังไม่เปิด</span>
-            </div>
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#464646" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden className="shrink-0"><path d="m9 6 6 6-6 6" /></svg>
+            </ComingSoonAction>
           ))}
         </div>
       </div>

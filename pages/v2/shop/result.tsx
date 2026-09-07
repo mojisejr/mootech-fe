@@ -9,6 +9,7 @@ import type { GetServerSideProps } from 'next'
 import { v2RedirectIfUnauthed } from '@/lib/v2/gate'
 import { ResultScreen } from '@/features/v2-shop/components/ResultScreen'
 import { QiBuySuccess } from '@/features/v2-shop/components/QiBuySuccess'
+import { PlanPaySuccess } from '@/features/v2-shop/components/PlanPaySuccess'
 import { RESULT_COPY, resolveResultState, tryAnotherHref, type ResultState } from '@/features/v2-shop/result-state'
 import { useChargeStatus } from '@/features/v2-shop/useChargeStatus'
 import { qiQtyOf } from '@/lib/payment/catalog'
@@ -54,6 +55,18 @@ export default function V2ResultPage() {
       <div className="flex min-h-screen w-full flex-col justify-center bg-v3-bg-cream">
         <Head><title>เติม QI สำเร็จ · MuMate</title></Head>
         <QiBuySuccess packageCode={packageCode} charge={charge} order={order} />
+      </div>
+    )
+  }
+
+  // 402:22087 — a settled MEMBERSHIP purchase gets the receipt-card success screen (the QI twin above does
+  // the same for packs). ALREADY_PAID is `paid` too and lands here on purpose: the card it shows is the
+  // one payment that exists, which is exactly what that state is trying to say.
+  if (RESULT_COPY[state].paid && qiQty === null) {
+    return (
+      <div className="flex min-h-screen w-full flex-col bg-v3-bg-cream">
+        <Head><title>ชำระเงินสำเร็จ · MuMate</title></Head>
+        <PlanPaySuccess packageCode={packageCode} charge={charge} order={order} />
       </div>
     )
   }

@@ -21,11 +21,12 @@ const STICK = {
 }
 
 let sageStatus = 200
+let sageQi: { source: 'free' | 'credit' | 'qi'; cost: number } | null = null
 const fetchMock = vi.fn(async (url: string, init?: { method?: string; body?: string }) => {
   const u = String(url)
   if (u.includes('/api/fortune/sage')) {
     return sageStatus === 200
-      ? { ok: true, status: 200, json: async () => ({ stick: STICK, question: null, topic: null }) }
+      ? { ok: true, status: 200, json: async () => ({ stick: STICK, question: null, topic: null, qi: sageQi }) }
       : { ok: false, status: 402, json: async () => ({ error: { message: 'quota' } }) }
   }
   if (u.includes('/api/qi-earn')) return { ok: true, status: 200, json: async () => ({ ok: true }) }
@@ -35,7 +36,7 @@ vi.stubGlobal('fetch', fetchMock)
 
 import FortuneSagePage from '@/pages/v2/fortune/sage'
 
-beforeEach(() => { sageStatus = 200; fetchMock.mockClear() })
+beforeEach(() => { sageStatus = 200; sageQi = null; fetchMock.mockClear() })
 afterEach(() => cleanup())
 
 describe('เซียมซีเสี่ยงทาย', () => {
@@ -51,7 +52,7 @@ describe('เซียมซีเสี่ยงทาย', () => {
     await waitFor(() => expect(screen.getByTestId('sage-result')).toBeTruthy(), { timeout: 3000 })
     expect(screen.getByTestId('sage-pillar').textContent).toBe('辛亥')
     // ใบเซียมซีดึงจาก engine (proxy) ตามเลขหัว ไม่พึ่ง stick.imageUrl (supabase)
-    const slip = screen.getByTestId('sage-slip').querySelector('img[src="/api/fortune/card-image/sage/48"]')
+    const slip = screen.getByTestId('sage-slip').querySelector('img[src="/images/v2/fortune/cards/sage/48.jpg"]')
     expect(slip).toBeTruthy()
     expect(screen.getByText('นิสัยและพฤติกรรม')).toBeTruthy()
     expect(screen.getByText('การงาน')).toBeTruthy()
@@ -79,5 +80,26 @@ describe('เซียมซีเสี่ยงทาย', () => {
     const earn = fetchMock.mock.calls.find((c) => String(c[0]).includes('/api/qi-earn'))
     expect(earn).toBeTruthy()
     expect(JSON.parse(String(earn![1]?.body)).code).toBe('share')
+  })
+
+  // บั๊ก prod 2026-09-07: header เคย hardcode "ใช้ไป 10 QI" ทั้งที่ engine ตัดโควตาฟรี (ยอด QI ไม่ลด) — ป้ายต้องตาม qi.source
+  it('FS5 ป้ายที่มาของการเสี่ยง: free → "ฟรีวันนี้", qi → "ใช้ไป N QI", ไม่มี qi → ไม่มีป้าย', async () => {
+    sageQi = { source: 'free', cost: 0 }
+    render(<FortuneSagePage />)
+    fireEvent.click(screen.getByTestId('sage-draw'))
+    expect((await screen.findByTestId('sage-qi-source', {}, { timeout: 4000 })).textContent).toBe('ฟรีวันนี้')
+    cleanup()
+
+    sageQi = { source: 'qi', cost: 10 }
+    render(<FortuneSagePage />)
+    fireEvent.click(screen.getByTestId('sage-draw'))
+    expect((await screen.findByTestId('sage-qi-source', {}, { timeout: 4000 })).textContent).toBe('ใช้ไป 10 QI')
+    cleanup()
+
+    sageQi = null
+    render(<FortuneSagePage />)
+    fireEvent.click(screen.getByTestId('sage-draw'))
+    await screen.findByTestId('sage-pillar', {}, { timeout: 4000 })
+    expect(screen.queryByTestId('sage-qi-source')).toBeNull()
   })
 })

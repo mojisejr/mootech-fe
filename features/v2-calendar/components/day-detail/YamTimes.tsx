@@ -99,8 +99,8 @@ export function YamTimes({
         {yams.map((yam) => (
           <div key={yam.id} className="flex items-center gap-3 rounded-2xl bg-v3-lemon-chiffon px-3.5 py-3">
             <div className="min-w-0 flex-1">
-              <p className="text-sm font-bold text-v3-navy">{yam.window}</p>
-              <p className="mt-0.5 truncate text-xs font-medium text-v3-text-body">{yam.label}</p>
+              <p className="text-base font-bold leading-6 text-v3-navy">{yam.window}</p>
+              <p className="mt-1 truncate text-base font-normal leading-6 text-v3-text-body">{yam.label}</p>
             </div>
             {locked ? (
               // ❌ ไม่ใช่ `disabled` — React กรองคลิกบน element ที่ disabled ทิ้งที่ชั้น fiber ⇒ ตัวกันใน handler

@@ -32,7 +32,7 @@ import { AI_MSG, bkkTimestamp } from '@/lib/usage'
 import { resolveSubscription } from '@/lib/v2/subscription'
 import { compatibilityCeilingFor, countCompatibilityInMonth, lockCompatibilityFor } from '@/lib/v2/compat-quota'
 import { BaziEngineError } from './bazi-client'
-import { fetchBaziWork, MAX_CANDIDATES, type BaziRawInput } from './bazi-work-client'
+import { fetchBaziWork, MAX_CANDIDATES, type BaziRawInput, type BaziWorkRelationship } from './bazi-work-client'
 import { normalizeDate, normalizeGender, normalizeTime } from './bazi-pair.mapper'
 import { trimWorkResponse, readRankedCandidates, buildWorkResult, type WorkComparison, type WorkEntry } from '@/features/v2-service/work-comparison'
 
@@ -141,6 +141,8 @@ export async function runWorkCompare(params: {
   userId: string
   /** friend ids in the order the user typed them — becomes `slot` 0..n */
   friendIds: string[]
+  /** บทบาทที่ผู้ใช้เลือกบนจอ (ฟีม 2026-09-07) → engine คำนวณแยกบทบาท; ไม่ส่ง = เส้นรวมเดิม (#585) */
+  relationship?: BaziWorkRelationship
   now?: Date
 }): Promise<WorkCompareOutcome> {
   const now = params.now ?? new Date()
@@ -195,7 +197,7 @@ export async function runWorkCompare(params: {
   // 4. the engine. Any failure = engine-down, nothing written, no quota spent.
   let comparison: WorkComparison | null
   try {
-    const raw = await fetchBaziWork({ self: self.input, candidates })
+    const raw = await fetchBaziWork({ self: self.input, candidates, ...(params.relationship ? { relationship: params.relationship } : {}) })
     comparison = trimWorkResponse(raw) // 🔴 the ~7MB body dies HERE, on the server
   } catch (e) {
     const detail = e instanceof BaziEngineError ? e.message : String((e as Error)?.message ?? e)

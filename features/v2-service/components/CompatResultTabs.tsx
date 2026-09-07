@@ -1,5 +1,5 @@
 // features/v2-service/components/CompatResultTabs.tsx — ดวงสมพงศ์ Zone 1 · pill tabs (Figma 636:19319).
-// ONE pill container (#ECF0FC) holding equal-width tabs; the active tab is a sapphire pill with LIME text,
+// ONE pill container (#ECF0FD = v3-ghost-white, re-sampled 636:18819 §Pill Tabs 2026-09-07) holding equal-width tabs; the active tab is a sapphire pill with LIME text,
 // inactive tabs are transparent with sapphire text. Colours sampled from the node, not guessed.
 //
 // WIDTH (ฟีม 2026-08-03): tabs are flex-1 with a min-width, so at @393 the 4 tabs fill the container exactly
@@ -17,7 +17,7 @@ export function CompatResultTabs({ tabs, active, onSelect }: { tabs: CompatTab[]
     <nav
       data-testid="compat-result-tabs"
       aria-label="ส่วนของผลดวงสมพงศ์"
-      className="no-scrollbar flex items-center overflow-x-auto rounded-full bg-[#ECF0FC] p-2"
+      className="no-scrollbar flex w-full items-center overflow-x-auto rounded-[50px] bg-v3-ghost-white p-2"
     >
       {tabs.map((t) => {
         const isActive = t.key === active
@@ -30,7 +30,7 @@ export function CompatResultTabs({ tabs, active, onSelect }: { tabs: CompatTab[]
             aria-current={isActive ? 'true' : undefined}
             onClick={() => onSelect(t.key)}
             className={[
-              'h-10 min-w-[86.25px] flex-1 whitespace-nowrap rounded-full px-2 text-[16px] font-bold transition-colors',
+              'h-10 min-w-[86.25px] flex-1 whitespace-nowrap rounded-[50px] px-2 py-2 text-[16px] font-bold leading-6 transition-colors',
               isActive ? 'bg-v3-sapphire text-v3-lime' : 'bg-transparent text-v3-sapphire',
             ].join(' ')}
           >

@@ -20,7 +20,7 @@ import React from 'react'
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { describe, it, expect, vi, afterEach } from 'vitest'
-import { render, screen, cleanup } from '@testing-library/react'
+import { render, screen, cleanup, fireEvent, waitFor } from '@testing-library/react'
 import { AddFriendSheet } from '@/features/v2-service/components/AddFriendSheet'
 
 vi.mock('next/router', () => ({ useRouter: () => ({ query: {}, isReady: true, push: vi.fn() }) }))
@@ -83,5 +83,38 @@ describe('#277 whose data is this form about', () => {
     const src = readFileSync(join(process.cwd(), 'features/v2-service/components/AddFriendSheet.tsx'), 'utf8')
       .replace(/\/\*[\s\S]*?\*\//g, '').replace(/\{\/\*[\s\S]*?\*\/\}/g, '')
     expect(src).not.toMatch(/edit \?[^}]*เพศดั้งเดิม/)
+  })
+})
+
+// 2026-09-07 Figma parity — frame 720:25691 ("เลือกเพื่อนร่วมงาน" sheet)
+describe('frame 720:25691 parity', () => {
+  it('create-mode title defaults to the frame title "เลือกเพื่อนร่วมงาน" and takes the screen pickLabel', () => {
+    render(<AddFriendSheet onClose={vi.fn()} onCreate={vi.fn()} />)
+    expect(screen.getByRole('heading').textContent).toBe('เลือกเพื่อนร่วมงาน')
+    cleanup()
+    render(<AddFriendSheet onClose={vi.fn()} onCreate={vi.fn()} title="เลือกคู่รัก" />)
+    expect(screen.getByRole('heading').textContent).toBe('เลือกคู่รัก')
+    cleanup()
+    render(<AddFriendSheet onClose={vi.fn()} onCreate={vi.fn()} edit={EDIT} title="เลือกคู่รัก" />)
+    expect(screen.getByRole('heading').textContent).toBe('แก้ไขข้อมูลเพื่อน')
+  })
+
+  it('Facebook / Invite / Contacts + upload are drawn per Figma but ANSWER "เร็วๆ นี้" (no backend, not faked)', async () => {
+    render(<AddFriendSheet onClose={vi.fn()} onCreate={vi.fn()} />)
+    for (const id of ['connect-facebook', 'connect-invite', 'connect-contacts', 'add-friend-upload']) {
+      const el = screen.getByTestId(id)
+      expect(el.tagName, id).toBe('BUTTON')
+      expect(el.getAttribute('data-coming-soon'), id).toBe('true')
+      expect(el.className, id).not.toContain('opacity-50')
+    }
+    expect(screen.getByTestId('add-friend-sheet').textContent).not.toContain('ยังไม่เปิด')
+    fireEvent.click(screen.getByTestId('connect-facebook'))
+    await waitFor(() => expect(screen.getByTestId('coming-soon-toast').textContent).toContain('เร็วๆ นี้'))
+    expect(screen.getByText('หรือเชื่อมต่อบัญชี')).toBeTruthy()
+  })
+
+  it('edit mode hides the connect rows (adding friends is meaningless while editing one)', () => {
+    render(<AddFriendSheet onClose={vi.fn()} onCreate={vi.fn()} edit={EDIT} />)
+    expect(screen.queryByText('หรือเชื่อมต่อบัญชี')).toBeNull()
   })
 })

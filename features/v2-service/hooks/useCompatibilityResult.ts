@@ -72,7 +72,7 @@ export type UseCompatibilityResult = {
   loadingMascots: boolean
 }
 
-async function fetchMascot(ganzhi: string): Promise<CompatMascot | null> {
+export async function fetchMascot(ganzhi: string): Promise<CompatMascot | null> {
   try {
     const r = await fetch(`/api/bazi/mascot/${encodeURIComponent(ganzhi)}`)
     if (!r.ok) return null

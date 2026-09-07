@@ -88,3 +88,6 @@ harness/.tmp/
 public/sw.js
 public/sw.js.map
 public/swe-worker-*.js
+
+# local agent tooling
+.claude/

@@ -91,12 +91,13 @@ export function ShopScreen({ teamPreview = false }: { teamPreview?: boolean } = 
             where not knowing it costs them money twice. */}
         <AppHeader testId="shop-header" title="เลือกแพ็คเกจที่ใช่" membership={tier} upgradeCta={false} className="items-center py-4" />
 
-        <p data-testid="shop-intro" className="text-sm leading-6 text-v3-text-body">
+        {/* 636:12531 — Body/Regular-Medium 14/20. */}
+        <p data-testid="shop-intro" className="text-sm font-medium leading-5 text-v3-text-body">
           ทุกแพ็คเกจออกแบบมาเพื่อคุณโดยเฉพาะ เลือกแผนที่ตอบโจทย์ไลฟ์สไตล์และเป้าหมายของคุณ
           อัปเกรดเมื่อพร้อม จ่ายครั้งเดียว ไม่ต่ออายุอัตโนมัติ
         </p>
 
-        <div className="mt-5">
+        <div className="mt-8">
           <PillTabs
             variant="calendar"
             ariaLabel="เลือกรอบการชำระเงิน"
@@ -106,7 +107,8 @@ export function ShopScreen({ teamPreview = false }: { teamPreview?: boolean } = 
           />
         </div>
 
-        <div data-testid="shop-plan-list" className="mt-5 flex flex-col gap-5">
+        {/* 997:2633 Cards-Stack — 8px between cards, 8px under the pill tabs. */}
+        <div data-testid="shop-plan-list" className="mt-2 flex flex-col gap-2">
           {PLANS.map((plan) => (
             <PackageCard
               key={plan.id}
@@ -124,10 +126,11 @@ export function ShopScreen({ teamPreview = false }: { teamPreview?: boolean } = 
         </div>
 
         {/* Footer ask + mascot — in flow (not absolutely positioned), so it cannot land on a control. */}
-        <section data-testid="shop-footer-ask" className="mt-8 flex items-center gap-4 rounded-3xl bg-white/70 px-6 py-5">
-          <div className="flex-1">
-            <p className="text-base font-bold leading-6 text-v3-navy">มีคำถามเกี่ยวกับดวงชะตา?</p>
-            <p className="mt-1 text-sm leading-5 text-v3-text-body">ให้เราคอยดูแลเคียงข้างคุณทุกเวลา</p>
+        {/* 997:2786 Mascot-Area — cream@60% · 20px radius · 16 padding · 14 bold + 12 regular. */}
+        <section data-testid="shop-footer-ask" className="mt-8 flex items-center gap-4 rounded-[20px] bg-v3-bg-cream/60 p-4">
+          <div className="flex flex-1 flex-col gap-1">
+            <p className="text-sm font-bold leading-normal text-v3-navy">มีคำถามเกี่ยวกับดวงชะตา?</p>
+            <p className="text-xs leading-normal text-v3-text-body">ให้เราคอยดูแลเคียงข้างคุณทุกเวลา</p>
           </div>
           {/* data-testid is the anchor e2e/v2-shop.spec.ts measures against — the mascot must never overlap
               anything tappable, at any viewport, at any scroll position. */}

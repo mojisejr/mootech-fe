@@ -123,7 +123,8 @@ export default function V2CheckoutPage({ teamPreview }: { teamPreview: boolean }
   return (
     <div className="relative min-h-screen w-full overflow-x-hidden bg-v3-bg-cream font-ibm">
       <Head><title>ชำระเงิน · MuMate</title></Head>
-      <div className="relative z-10 mx-auto flex w-full max-w-md flex-col gap-4 px-4 pb-36 pt-[max(0.75rem,env(safe-area-inset-top))]">
+      {/* 55159:5301 Main Content — 20px between the header, the two cards and the button group. */}
+      <div className="relative z-10 mx-auto flex w-full max-w-md flex-col gap-5 px-4 pb-36 pt-[max(0.75rem,env(safe-area-inset-top))]">
         <AppHeader testId="checkout-header" title="ชำระเงิน" backHref="/v2/shop" membership={tier} upgradeCta={false} className="items-center py-4" />
 
         {co.fatal && <p data-testid="checkout-fatal" role="alert" className="rounded-2xl bg-white p-5 text-sm text-v3-text-body">ตอนนี้ยังดึงราคาไม่ได้ ลองใหม่อีกครั้ง</p>}
@@ -139,26 +140,36 @@ export default function V2CheckoutPage({ teamPreview }: { teamPreview: boolean }
           />
         )}
 
+        {/* 55159:5346 Payment Card Box — H3 18/24 title, a hairline under it, then the picker + form. */}
         <section className="flex w-full flex-col gap-4 rounded-[20px] bg-white p-4 drop-shadow-[0_4px_15px_rgba(26,38,77,0.12)]">
-          <h2 className="text-base font-bold leading-6 text-v3-navy">วิธีชำระเงิน</h2>
+          <h2 className="text-lg font-bold leading-6 text-v3-navy">วิธีชำระเงิน</h2>
+          <hr className="w-full border-t border-v3-border-card" />
           <PaymentMethodPicker value={method} onChange={setMethod} />
           {method === 'card' && <CardForm value={card} onChange={setCard} validation={validation} />}
         </section>
 
-        <button
-          type="button"
-          data-testid="checkout-pay"
-          disabled={!ready || paying}
-          onClick={pay}
-          className="w-full rounded-pill bg-v3-sapphire px-5 py-4 text-base font-bold text-white disabled:opacity-50"
-        >
-          {paying ? 'กำลังดำเนินการ…' : `ชำระเงิน ${co.quote ? formatSatang(co.quote.amountSatang) : ''}`.trim()}
-        </button>
+        {/* 55159:5548 — Primary Buttons (sapphire · lime 16/24 bold) + 16px + the reassurance line. */}
+        <div className="flex w-full flex-col items-center gap-4">
+          <button
+            type="button"
+            data-testid="checkout-pay"
+            disabled={!ready || paying}
+            onClick={pay}
+            className="w-full rounded-pill bg-v3-sapphire px-5 py-[14px] text-base font-bold leading-6 text-v3-lime disabled:opacity-50"
+          >
+            {paying ? 'กำลังดำเนินการ…' : `ชำระเงิน ${co.quote ? formatSatang(co.quote.amountSatang) : ''}`.trim()}
+          </button>
 
-        {/* 55159:5551-5555 — the reassurance line under the button. */}
-        <p data-testid="checkout-secured" className="flex items-center justify-center gap-1.5 text-xs leading-4 text-v3-text-muted">
-          <span aria-hidden>🛡</span> Secured by OMISE
-        </p>
+          {/* 55159:5551-5555 — shield 16 · "Secured by" 12/16 medium #BFBFBF · Omise wordmark 56×12.
+              Both marks are the frame's own exports (public/images/v2/shop), not redrawn. */}
+          <p data-testid="checkout-secured" className="flex items-center justify-center gap-1.5 text-xs font-medium leading-4 text-[#BFBFBF]">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/images/v2/shop/icon-shield.svg" alt="" width={16} height={16} className="size-4 shrink-0" />
+            <span>Secured by</span>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/images/v2/shop/omise-logo.png" alt="Omise" width={56} height={12} className="h-3 w-14 shrink-0 object-contain" />
+          </p>
+        </div>
       </div>
     </div>
   )

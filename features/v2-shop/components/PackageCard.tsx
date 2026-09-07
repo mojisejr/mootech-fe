@@ -29,40 +29,46 @@ const BADGE_TONE = {
   error: 'bg-v3-error text-white',
 } as const
 
-// 🔴 DRAWN HERE, not exported from Figma. The design puts a gradient disc + crown beside every plan name,
-// but `public/images/v2/` has no such asset and node 636:11973's children are flattened, so there is
-// nothing to download. This is a stand-in with the right shape and the right tokens — NOT the artwork.
-// Asked in #359; swap it for the real export the moment design delivers one.
+// 997:2773 — read via get_design_context: the mark is a 38px Sapphire→#9D85DA gradient disc with the TEXT
+// "👑" (16px, white) inside. It is an emoji glyph in the frame, not artwork, so rendering the same glyph is
+// the faithful reproduction — nothing is redrawn here.
 function PlanMark() {
   return (
     <span
       aria-hidden
-      data-testid="plan-mark-placeholder"
-      className="grid size-9 shrink-0 place-items-center rounded-full bg-gradient-to-br from-v3-sapphire to-[#9D85DA]"
+      data-testid="plan-mark"
+      className="grid size-[38px] shrink-0 place-items-center overflow-hidden rounded-full bg-gradient-to-r from-v3-sapphire to-[#9D85DA] text-base leading-none text-white"
     >
-      <svg viewBox="0 0 24 24" className="size-5" fill="none">
-        <path d="M4 17.5 3 7l5 4 4-6 4 6 5-4-1 10.5H4Z" fill="#E1FF00" />
-      </svg>
+      👑
     </span>
   )
 }
 
+// 997:2644 — Pacific Cyan 20px disc (radius 10) holding the frame's 10×10 check export.
 function CheckIcon() {
   return (
-    <span aria-hidden className="mt-0.5 grid size-5 shrink-0 place-items-center rounded-full bg-v3-sapphire">
-      <svg viewBox="0 0 20 20" className="size-3" fill="none">
-        <path d="M5 10.5 8.5 14 15 6.5" stroke="#FFFFFF" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />
-      </svg>
+    <span aria-hidden className="grid size-5 shrink-0 place-items-center rounded-[10px] bg-v3-cyan">
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img src="/images/v2/shop/check-tick.svg" alt="" width={10} height={10} className="size-2.5" />
     </span>
   )
+}
+
+// 997:2634 / 997:2665 / 997:2709 — each card carries its own elevation in the frame; not one shared shadow.
+const CARD_SHADOW: Record<string, string> = {
+  free: 'shadow-[0_8px_12px_rgba(26,38,77,0.08)]',
+  plus: 'shadow-[0_12px_30px_rgba(26,38,77,0.10)]',
+  pro: 'shadow-[0_16px_40px_rgba(26,38,77,0.14)]',
 }
 
 /** "ตกเพียงวันละ 2.1 บาทเท่านั้น" — derived from the SERVER price, truncated to 1dp like the design
  *  (790/365 = 2.16 → 2.1 · 1590/365 = 4.35 → 4.3). Truncated, not rounded: a per-day figure that rounds UP
- *  would advertise a price higher than the arithmetic supports. */
-function perDayText(amountThb: number): string {
+ *  would advertise a price higher than the arithmetic supports.
+ *  Two spellings, both the frame's: Plus says "ตกเพียงวันละ" (997:2676), Pro says "ตกวันละ" (997:2725). */
+function perDayText(amountThb: number, planId: string): string {
   const perDay = Math.floor((amountThb / 365) * 10) / 10
-  return `ตกเพียงวันละ ${perDay.toLocaleString('th-TH', { minimumFractionDigits: 1, maximumFractionDigits: 1 })} บาทเท่านั้น`
+  const n = perDay.toLocaleString('th-TH', { minimumFractionDigits: 1, maximumFractionDigits: 1 })
+  return planId === 'pro' ? `ตกวันละ ${n} บาทเท่านั้น` : `ตกเพียงวันละ ${n} บาทเท่านั้น`
 }
 
 // 🔴 THE CARD NOW HAS TWO INDEPENDENT AXES AND THEY MUST NOT BE COLLAPSED (#457):
@@ -99,39 +105,53 @@ export function PackageCard({
   return (
     <section
       data-testid={`plan-card-${plan.id}`}
-      className={cn('rounded-3xl bg-white px-6 py-6 shadow-[0_4px_16px_rgba(11,48,91,0.06)]', className)}
+      className={cn('flex flex-col gap-5 rounded-3xl bg-white p-6', CARD_SHADOW[plan.id] ?? CARD_SHADOW.free, className)}
     >
-      <header className="flex items-start gap-3">
-        <PlanMark />
-        <h2 className="flex-1 pt-1 text-xl font-bold leading-7 text-v3-navy">{plan.name}</h2>
-        {plan.badge ? (
-          <span
-            data-testid={`plan-badge-${plan.id}`}
-            className={cn('shrink-0 rounded-full px-3 py-1 text-xs font-semibold leading-5', BADGE_TONE[plan.badge.tone])}
-          >
-            {plan.badge.label}
-          </span>
-        ) : null}
-      </header>
+      {/* 997:2635 / 2668 / 2771 — mark + name (20 on Free, 22 on the paid cards) · badge right · 13px tagline. */}
+      <div className="flex flex-col gap-2">
+        <header className="flex items-center justify-between gap-2">
+          <div className="flex min-w-0 items-center gap-1.5">
+            <PlanMark />
+            <h2 className={cn('font-bold leading-normal text-v3-navy', plan.id === 'free' ? 'text-xl' : 'text-[22px]')}>{plan.name}</h2>
+          </div>
+          {plan.badge ? (
+            <span
+              data-testid={`plan-badge-${plan.id}`}
+              className={cn('shrink-0 rounded-[30px] px-4 py-1.5 text-[11px] font-bold leading-normal', BADGE_TONE[plan.badge.tone])}
+            >
+              {plan.badge.label}
+            </span>
+          ) : null}
+        </header>
+        <p className="text-[13px] leading-normal text-v3-text-body">{plan.tagline}</p>
+      </div>
 
-      <p className="mt-2 text-sm leading-5 text-v3-text-body">{plan.tagline}</p>
-
-      <hr className="my-5 border-0 border-t border-v3-border-warm" />
+      <hr className="border-0 border-t border-v3-border-warm" />
 
       {/* Price block — one number, and it came from the server. */}
-      <div data-testid={`plan-price-${plan.id}`} className="min-h-[3.25rem]">
+      {/* 997:2639 / 2672 / 2718 — 32px bold amount; Free's unit 14 regular, the paid units 16 medium; the
+          cyan 14 semibold line under it (Pro's carries "ประหยัด 2 เดือน •" when the annual tab is on). */}
+      <div data-testid={`plan-price-${plan.id}`} className="flex min-h-[3.25rem] flex-col gap-0.5">
         {plan.id === 'free' ? (
-          <p className="flex items-baseline gap-1">
-            <span className="text-3xl font-bold leading-9 text-v3-navy">฿0</span>
-            <span className="text-sm leading-5 text-v3-text-body">/ ตลอดชีพ (Lifetime)</span>
+          <p className="flex items-baseline gap-1 text-v3-navy">
+            <span className="text-[32px] font-bold leading-normal">฿0</span>
+            <span className="text-sm leading-normal">/ ตลอดชีพ (Lifetime)</span>
           </p>
         ) : price.kind === 'ready' ? (
           <>
-            <p className="flex items-baseline gap-1">
-              <span className="text-3xl font-bold leading-9 text-v3-navy">{formatThb(price.amountThb)}</span>
-              <span className="text-sm leading-5 text-v3-text-body">{priceSuffix}</span>
+            <p className="flex items-baseline gap-1 text-v3-navy">
+              <span className="text-[32px] font-bold leading-normal">{formatThb(price.amountThb)}</span>
+              <span className="text-base font-medium leading-normal">{priceSuffix}</span>
             </p>
-            <p className="mt-1 text-sm font-semibold leading-5 text-v3-cyan">{perDayText(price.amountThb)}</p>
+            <p className="flex flex-wrap items-center gap-2 text-sm font-semibold leading-5 text-v3-cyan">
+              {plan.id === 'pro' && period === 'annual' ? (
+                <>
+                  <span>ประหยัด 2 เดือน</span>
+                  <span aria-hidden className="text-xs font-normal text-v3-text-body">•</span>
+                </>
+              ) : null}
+              <span>{perDayText(price.amountThb, plan.id)}</span>
+            </p>
           </>
         ) : price.kind === 'loading' ? (
           <p className="text-sm leading-5 text-v3-text-muted">กำลังโหลดราคา…</p>
@@ -146,16 +166,16 @@ export function PackageCard({
         )}
       </div>
 
-      <ul className="mt-5 flex flex-col gap-3">
+      <ul className="flex flex-col gap-3">
         {plan.features.map((f) => (
-          <li key={f} className="flex items-start gap-3 text-sm leading-5 text-v3-text-body">
+          <li key={f} className="flex items-center gap-3 text-sm leading-5 text-v3-text-body">
             <CheckIcon />
-            <span>{f}</span>
+            <span className="min-w-0 flex-1">{f}</span>
           </li>
         ))}
       </ul>
 
-      <div className="mt-6">
+      <div>
         {plan.id === 'free' || verdict.kind === 'free-card' ? (
           // Free's button leaves the shop for the app — it must never reach checkout (DoD).
           <Link href="/v2" data-testid="plan-cta-free" className="block rounded-full">
@@ -258,7 +278,7 @@ export function PackageCard({
           they already paid for will not upgrade. It appears ONLY when days actually follow them, so it can
           never become a decoration that is true on every card. */}
       {verdict.kind === 'upgrade' || (verdict.kind === 'buy' && verdict.carriesDays) ? (
-        <p data-testid={`plan-carry-note-${plan.id}`} className="mt-3 text-center text-sm font-semibold leading-5 text-v3-cyan">
+        <p data-testid={`plan-carry-note-${plan.id}`} className="text-center text-sm font-semibold leading-5 text-v3-cyan">
           วันที่เหลือของแพ็กเกจปัจจุบันจะถูกบวกให้ ไม่หายไป
         </p>
       ) : null}
@@ -269,7 +289,8 @@ export function PackageCard({
           just refused to offer. Same family as the card's other rule: never say words that imply an action
           this card does not have. */}
       {plan.id !== 'free' && (verdict.kind === 'buy' || verdict.kind === 'upgrade') ? (
-        <p data-testid={`plan-legal-${plan.id}`} className="mt-3 text-center text-xs leading-[18px] text-v3-text-muted">
+        // 997:2844 — Body/Caption 9px, 16 line-height, Text/Secondary, centred.
+        <p data-testid={`plan-legal-${plan.id}`} className="text-center text-[9px] leading-4 text-v3-text-body">
           เมื่อชำระเงินเรียบร้อยแล้ว ถือว่ายอมรับ{' '}
           <TextLink type="legal" size="small" href="/privacy/policy">
             นโยบายความเป็นส่วนตัว

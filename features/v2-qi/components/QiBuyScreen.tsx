@@ -13,7 +13,7 @@ import { QI_PACK_CODES, VAT_RATE, qiBonusOf, qiQtyOf } from "@/lib/payment/catal
 type PackRow = { package_code?: string; amount?: number | string; is_active?: boolean }
 const TAG: Record<string, string> = { QI_500: "ยอดนิยม", QI_1200: "คุ้มที่สุด" }
 // ริบบิ้นเต็มกว้างด้านบนการ์ด (เฟรม): ยอดนิยม = เหลืองมะนาว/navy · คุ้มที่สุด = ม่วงอ่อน/ม่วง
-const RIBBON: Record<string, string> = { QI_500: "bg-[#CDDC39] text-v3-navy", QI_1200: "bg-[#F1E8FA] text-[#6F1BAF]" }
+const RIBBON: Record<string, string> = { QI_500: "bg-v3-grade-cplus text-v3-navy", QI_1200: "bg-v3-purple-bg text-v3-purple" }
 const CHAT_COST = 30 // chat_question — ใช้คำนวณ "ถามเซียนได้ N ครั้ง"
 const thb = (n: number) => `฿${n.toLocaleString("th-TH", { maximumFractionDigits: 2 })}`
 
@@ -145,7 +145,7 @@ export function QiBuyScreen() {
                       <div className="min-w-0 flex-1">
                         <p className={"flex flex-wrap items-center gap-1.5 text-[16px] font-black " + (on ? "text-white" : "text-v3-navy")}>
                           {p.qty.toLocaleString("th-TH")} QI
-                          {p.bonus > 0 ? <span className="rounded-full bg-[#E3F8D1] px-2 py-[1px] text-[10px] font-black text-[#63B05F]">แถม +{p.bonus}</span> : null}
+                          {p.bonus > 0 ? <span className="rounded-full bg-v3-qi-earn-bg px-2 py-[1px] text-[10px] font-black text-v3-qi-earn">แถม +{p.bonus}</span> : null}
                         </p>
                         <p className={"text-[11px] " + (on ? "text-white/80" : "text-v3-text-muted")}>
                           {p.active ? `ถามเซียนมูได้ ${p.asks} ครั้ง` : "ปิดขายชั่วคราว"}
@@ -154,7 +154,7 @@ export function QiBuyScreen() {
                       <div className="flex-none text-right">
                         <p className={"text-[17px] font-black " + (on ? "text-v3-lime" : "text-v3-navy")}>{p.amount !== null ? thb(p.amount) : "—"}</p>
                         {p.active && p.total > 0 && p.amount ? <p className={"text-[10px] " + (on ? "text-white/70" : "text-v3-text-muted")}>{thb(Math.round((p.amount / p.total) * 100) / 100)}/QI</p> : null}
-                        {p.savings > 0 ? <p className="text-[10px] font-bold text-[#63B05F]">ประหยัด {p.savings}%</p> : null}
+                        {p.savings > 0 ? <p className="text-[10px] font-bold text-v3-qi-earn">ประหยัด {p.savings}%</p> : null}
                       </div>
                     </div>
                   </button>
@@ -167,13 +167,13 @@ export function QiBuyScreen() {
           <p className="px-1 text-[11px] leading-4 text-v3-text-muted">QI ที่ซื้อไม่มีวันหมดอายุ และใช้ร่วมกับ QI ที่ได้จากภารกิจได้</p>
 
           {/* Mumate Pro upsell (เฟรม: พื้นฟ้าอมเขียว + ตัวม่วง) */}
-          <Link href="/v2/shop" className="flex items-center gap-3 rounded-[16px] bg-[#E3F4F7] px-4 py-3" data-testid="qi-buy-pro">
-            <span aria-hidden className="grid size-10 flex-none place-items-center rounded-[12px] bg-[#FCE9F0] text-[18px]">💬</span>
+          <Link href="/v2/shop" className="flex items-center gap-3 rounded-[16px] bg-v3-paid-bg px-4 py-3" data-testid="qi-buy-pro">
+            <span aria-hidden className="grid size-10 flex-none place-items-center rounded-[12px] bg-v3-qi-spend-bg text-[18px]">💬</span>
             <div className="min-w-0 flex-1">
-              <p className="text-[13px] font-bold text-[#6F1BAF]">ใช้บ่อยกว่านี้? Mumate Pro ฿199 / เดือน</p>
-              <p className="text-[11px] leading-4 text-[#6F1BAF]/80">ถ้าถามเซียนมูเกิน 20 ครั้งต่อเดือน สมัครคุ้มกว่าซื้อ QI</p>
+              <p className="text-[13px] font-bold text-v3-purple">ใช้บ่อยกว่านี้? Mumate Pro ฿199 / เดือน</p>
+              <p className="text-[11px] leading-4 text-v3-purple/80">ถ้าถามเซียนมูเกิน 20 ครั้งต่อเดือน สมัครคุ้มกว่าซื้อ QI</p>
             </div>
-            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden className="flex-none text-[#6F1BAF]"><path d="m6 3.5 4.5 4.5L6 12.5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" /></svg>
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden className="flex-none text-v3-purple"><path d="m6 3.5 4.5 4.5L6 12.5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" /></svg>
           </Link>
 
           <Link href="/v2/qi/missions" data-testid="qi-buy-free" className="px-1 text-center text-[12px] font-bold text-v3-cyan">
@@ -182,7 +182,7 @@ export function QiBuyScreen() {
 
           {/* สรุปยอด */}
           {sel && sel.amount !== null && (
-            <section className="flex flex-col gap-2 rounded-[16px] bg-[#FBF1F2] px-4 py-4 text-[13px]" data-testid="qi-buy-summary">
+            <section className="flex flex-col gap-2 rounded-[16px] bg-v3-blush-tint px-4 py-4 text-[13px]" data-testid="qi-buy-summary">
               <div className="flex items-center justify-between">
                 <span className="text-v3-text-body">{sel.qty.toLocaleString("th-TH")} QI{sel.bonus > 0 ? ` + โบนัส ${sel.bonus} QI` : ""}</span>
                 <span className="font-black text-v3-navy" data-testid="qi-buy-total">{sel.total.toLocaleString("th-TH")} QI</span>

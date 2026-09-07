@@ -33,6 +33,7 @@ const { getWork } = vi.hoisted(() => ({ getWork: vi.fn() }))
 vi.mock('next/config', () => ({ default: () => ({ publicRuntimeConfig: {}, serverRuntimeConfig: {} }) }))
 vi.mock('next/router', () => ({ useRouter: () => ({ push: vi.fn(), query: {}, pathname: '/v2/service/compatibility/work/[id]' }) }))
 vi.mock('@/features/v2-shell/components/Menubar', () => ({ Menubar: () => null }))
+vi.mock('@/features/v2-shell/components/MateAIButton', () => ({ MateAIButton: () => null }))
 vi.mock('@/features/v2-shell/components/TopBarBell', () => ({ TopBarBell: () => null }))
 vi.mock('@/features/v2-shell/components/TopBarAvatar', () => ({ TopBarAvatar: () => null }))
 vi.mock('@/features/v2-shell/components/LoadingScreen', () => ({ LoadingScreen: () => <div data-testid="loading" /> }))
@@ -154,14 +155,13 @@ describe('#585 ก้อน 5 — the colleague result screen', () => {
     await screen.findByTestId('work-result-failed')
   })
 
-  it('ปุ่ม บันทึก PDF กับ แชร์ ไม่ถูกวาด ตามที่ฟีมเคาะข้อ ④', async () => {
+  // 2026-09-07: ผู้ใช้เคาะให้วาดปุ่มตาม Figma 720:26015 — แชร์ = Web Share, PDF = บอก "เร็ว ๆ นี้" จนกว่ามี API
+  it('ปุ่ม บันทึก PDF กับ แชร์ ถูกวาดตาม Figma (PDF ยังไม่มี API → บอกเร็ว ๆ นี้)', async () => {
     answerOk()
     render(<WorkResultScreen matchingId="m-1" />)
-    await screen.findByTestId('work-tabs')
-    // they ARE in Figma 720:29221. Not drawing them is a decision, so it gets a test — otherwise the next
-    // person comparing screen to frame reads it as an omission and adds two buttons that do nothing.
-    expect(screen.queryByText('บันทึก PDF')).toBeNull()
-    expect(screen.queryByText('แชร์')).toBeNull()
+    await screen.findByTestId('work-ranked-list')
+    expect(screen.getByTestId('work-pdf').textContent).toContain('บันทึก PDF')
+    expect(screen.getByTestId('work-share').textContent).toContain('แชร์')
   })
 })
 
@@ -250,5 +250,54 @@ describe('#585 ก้อน 6 — สามบทบาทต่อคน', () =
     // 🔴 rank 2's position is ours, so the engine's badge must not appear over it
     expect(screen.queryByTestId('work-rank-badge-2')).toBeNull()
     expect(screen.getByTestId('work-ranked-2')).toBeTruthy()
+  })
+})
+
+// 2026-09-07 — ผลแบบแยกบทบาท (engine `relationship` + `facets` ต่อคน): จอต้องวาดเหมือนหน้าคู่รัก
+//   R10 ทิ้ง readingOrder (isMain ไม่ขึ้นก่อน)      → the main-first case RED
+//   R11 วาด facets เป็น RoleSection แทน dims/readings → the dims case RED
+describe('บทบาทแยกเส้น — ความเข้ากัน N ด้าน + คำทำนายรายด้าน', () => {
+  const line = (t: string) => ({ label: 'ก้าน', text: t })
+  const FACETS = [
+    { key: 'entourage', label: 'ทำงานกับบริวารเจ้านาย', percent: 45, grade: 'C', ratingText: 'ต้องพยายาม', isMain: false, lines: [line('บริวาร-ก้าน'), line('บริวาร-กิ่ง')] },
+    { key: 'business', label: 'ส่งเสริมธุรกิจเจ้านาย', percent: 68.33, grade: 'B', ratingText: 'ไปได้ดี', isMain: true, lines: [line('ธุรกิจ-ก้าน')] },
+    { key: 'customer', label: 'การเงิน', percent: 70, grade: 'B+', ratingText: '', isMain: false, lines: [] },
+  ]
+  const ENTRY = [{ ...ENTRIES[0], roles: [], rolesComplete: true, rolesMissing: 0, facets: FACETS }]
+
+  it('มิติหลักของบทบาทขึ้นก่อน และ % ถูกปัดเป็นจำนวนเต็ม', async () => {
+    answerOk(ENTRY)
+    render(<WorkResultScreen matchingId="m-1" />)
+    const dims = await screen.findByTestId('work-dims')
+    const cards = Array.from(dims.querySelectorAll('[data-testid="compat-dim-card"]'))
+    // การเงินไม่มีทั้ง lines และ ratingText → ถูกตัด
+    expect(cards).toHaveLength(2)
+    expect(cards[0].getAttribute('data-main')).toBe('true')
+    expect(cards[0].textContent).toContain('68%')
+    expect(screen.queryByTestId('work-roles')).toBeNull()
+  })
+
+  it('คำทำนายรายด้านใช้หัว Figma + ชื่อมิติเป็นบรรทัดรอง และโชว์คำอ่านครบทุกบรรทัด (Figma 720:32490 ไม่มีย่อ)', async () => {
+    answerOk(ENTRY)
+    render(<WorkResultScreen matchingId="m-1" />)
+    const readings = await screen.findByTestId('work-readings')
+    expect(screen.getByTestId('work-reading-heading-1').textContent).toBe('ธุรกิจ')
+    expect(screen.getByTestId('work-reading-heading-2').textContent).toBe('บริวาร')
+    expect(readings.textContent).toContain('ทำงานกับบริวารเจ้านาย')
+    expect(screen.getByTestId('work-reading-text-2').textContent).toBe('บริวาร-ก้านบริวาร-กิ่ง')
+    expect(Array.from(readings.querySelectorAll('button')).some((b) => b.textContent?.includes('อ่านเพิ่ม'))).toBe(false)
+  })
+
+  it('hero: มาสคอตกลาง + ไฮไลต์ + นิสัยของคุณจาก engine (ไม่มี = ไม่วาดบรรทัด)', async () => {
+    getWork.mockResolvedValue({ ok: true, status: 200, data: { ok: true, matching_id: 'm-1', create_at: '2026-09-02', entries: ENTRY, relationship: 'boss', selfProfile: { nisai: ['คุณเป็นคนใส่ใจภาพลักษณ์', 'บรรทัดสอง'] } } })
+    render(<WorkResultScreen matchingId="m-1" />)
+    expect((await screen.findByTestId('work-hero-trait')).textContent).toBe('คุณเป็นคนใส่ใจภาพลักษณ์')
+    expect(screen.getByTestId('work-hero-mascot')).toBeTruthy()
+    expect(screen.getByTestId('work-hero-title').textContent).toContain('เจ้านาย')
+    cleanup()
+    answerOk(ENTRY)
+    render(<WorkResultScreen matchingId="m-1" />)
+    await screen.findByTestId('work-hero')
+    expect(screen.queryByTestId('work-hero-trait')).toBeNull()
   })
 })

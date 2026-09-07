@@ -109,6 +109,8 @@ export default defineConfig({
       'scripts/work-result-ui.test.tsx', // #585 ก้อน 5 — colleague result: one order, two failure sentences
       'scripts/work-compare-copy.test.tsx', // #585 ก้อน 4 — five causes must read as five sentences; .tsx
       'scripts/compat-result-photos.test.tsx', // #554 — WIRING: the result hook puts the route's account photos on persons; .tsx
+      'scripts/compat-role-picker.test.tsx', // สไลด์ 9 (2026-09-07) — role chips on the colleague screen + chosen-role-first on the work result; .tsx
+      'scripts/chart-table-card.test.tsx', // Figma 720:32490 ตารางดวงจีน — 5 pillars coloured by element, luck tables, legend; .tsx
       'scripts/quota-route.test.tsx', // #264 — /api/quota both-quota remaining + wiring; .tsx
       'scripts/quota-indicator-ui.test.tsx', // #264 — the UI half: what is shown when there IS no number; .tsx
       'scripts/calc-cooldown.test.tsx', // #265 — cooldown state machine; every guarantee lives in THIS lane; .tsx
@@ -132,6 +134,7 @@ export default defineConfig({
       'scripts/coming-soon-toast.test.tsx', // #323 — อายุของ toast เป็นของ store โมดูล ไม่ใช่ของปุ่ม; .tsx
       'scripts/day-cta-tier-gate.test.tsx', // #326 — CTA แถบล่างเป็นสถานะล็อกสำหรับ free + ฟันชั้นผู้เรียก; .tsx
       'scripts/save-sheet-state.test.tsx', // #342 — ชีทอ่าน draft.state: กำลังบันทึก/ล้ม; .tsx
+      'scripts/notifications-figma-parity.test.tsx', // Figma 636:10221 — หน้าแจ้งเตือนทั้งหมด: header/status/push/event copy; .tsx
       'scripts/reminder-cta.test.tsx', // #341 — ยาม 3 สถานะ + ปุ่มแถบล่าง 7 สถานะ (pure) + open preselect/addedYamIdsFor; .tsx
       'scripts/resolve-user.test.tsx', // #353 — teeth for lib/v2/resolve-user.ts (identity home) + first-run-reset parity
       'scripts/member-subscription.test.ts', // #354 — pure: deterministic row-select + v2→legacy→free fallback

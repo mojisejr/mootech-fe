@@ -15,7 +15,8 @@ import { SHOP_HREF } from "@/features/v2-shop/upgrade-cta"
 import { BackButton, IconTile, KitButton, SectionCard, SkyBackdrop } from "@/features/v2-profile/components/kit"
 import { iconFor } from "@/features/v2-qi/components/MissionsScreen"
 import { resolveMascot, toNakkasat } from "@/lib/personalization"
-import { checkedInToday, checkinStreak, reasonLabel, todayBangkok, type MissionBoard, type Wallet } from "@/features/v2-qi/qi-model"
+import { bangkokDay, checkedInToday, checkinStreak, reasonLabel, todayBangkok, type MissionBoard, type Wallet } from "@/features/v2-qi/qi-model"
+import { qiBonusOf, qiQtyOf } from "@/lib/payment/catalog"
 import { bkkCivilDate } from "../payment-history"
 import { planFor, type Plan } from "../plan"
 
@@ -30,6 +31,9 @@ type ElementSummary = { elementTh?: string | null; tagline?: string | null; trai
 type Referral = { invitedCount?: number }
 
 const CHAT_COST = 30
+// ราคา Mumate Pro รายเดือนที่ใช้เทียบในแถว "ประหยัด ฿" (เฟรม row-mumate-pro) — ตัวเลขเดียวกับ QiScreen/QiBuyScreen
+const PRO_MONTHLY_THB = 199
+const thb = (n: number) => `฿${Math.round(n).toLocaleString("th-TH")}`
 const TIER_LABEL: Record<string, string> = { free: "Free Tier", plus: "PLUS", pro: "PRO" }
 const ELEMENT_TH: Record<string, string> = { wood: "ไม้", metal: "ทอง", fire: "ไฟ", earth: "ดิน", water: "น้ำ" }
 
@@ -73,17 +77,26 @@ export function AccountScreen() {
   const [busyCheckin, setBusyCheckin] = useState(false)
   const [loaded, setLoaded] = useState(false) // wallet/profile โหลดเสร็จ — กันปุ่มเช็คอิน flash ก่อนรู้สถานะจริง
   const [attempt, setAttempt] = useState(0)
+  // ฿ ต่อ 1 QI จากแพ็กเริ่มต้น (QI_60) — แหล่งเดียวกับจอซื้อ QI; null = ยังไม่รู้ราคา → ไม่แต่งตัวเลขเอง
+  const [qiRate, setQiRate] = useState<number | null>(null)
 
   const load = useCallback(async () => {
-    const [w, p, m, r, del, e] = await Promise.all([
+    const [w, p, m, r, del, e, pack] = await Promise.all([
       fetch("/api/qi-wallet?history=100").then((x) => (x.ok ? x.json() : null)).catch(() => null),
       fetch("/api/profile").then((x) => (x.ok ? x.json() : null)).catch(() => null),
       fetch("/api/missions").then((x) => (x.ok ? x.json() : null)).catch(() => null),
       fetch("/api/referral").then((x) => (x.ok ? x.json() : null)).catch(() => null),
       fetch("/api/v2/account/delete").then((x) => (x.ok ? x.json() : null)).catch(() => null),
       fetch("/api/qi-entitlements").then((x) => (x.ok ? x.json() : null)).catch(() => null),
+      fetch("/api/payment-package?code=QI_60").then((x) => (x.ok ? x.json() : null)).catch(() => null),
     ])
     setWallet(w)
+    {
+      const a = pack?.amount
+      const amount = typeof a === "number" ? a : typeof a === "string" ? Number(a) : NaN
+      const total = (qiQtyOf("QI_60") ?? 0) + qiBonusOf("QI_60")
+      setQiRate(Number.isFinite(amount) && amount > 0 && total > 0 ? amount / total : null)
+    }
     setEnt(e)
     const prof: Profile | null = p?.profile ?? null
     setProfile(prof)
@@ -140,10 +153,17 @@ export function AccountScreen() {
   }, [profile, element])
 
   const daily = (board?.missions ?? []).filter((m) => m.category === "daily").slice(0, 2)
+  // mission:<id> → ชื่อภารกิจจริง (ไม่งั้นฟีดโชว์ "ภารกิจ first_reading" ดิบ ๆ — บั๊กที่เห็นบน prod 2026-09-07)
+  const missionTitles = useMemo(() => new Map((board?.missions ?? []).map((m) => [m.id, m.title])), [board])
   const goals = board?.goals
   const friends = referral?.invitedCount ?? goals?.referral.invited ?? 0
   const days = last7(today)
   const claimedSet = new Set(history.filter((h) => h.reason === "qi:earn:daily_login").map((h) => h.createdAt.slice(0, 10)))
+  // แถว Pro (เฟรม row-mumate-pro): "เดือนนี้จ่ายค่า QI ไป ฿X · Pro ฿199 ใช้ไม่จำกัด ประหยัด ฿Y" — คิดจาก ledger
+  // qi:spend:* ของเดือนนี้ (เวลาไทย) × ราคาต่อ QI ของแพ็กเริ่มต้น; ไม่มีรายจ่าย/ไม่รู้ราคา → ไม่โชว์ตัวเลขที่ไม่มีที่มา
+  const spentQiThisMonth = history.reduce((sum, h) => ((h.reason ?? "").startsWith("qi:spend:") && bangkokDay(h.createdAt).slice(0, 7) === today.slice(0, 7) ? sum - h.qiDelta : sum), 0)
+  const spentThb = qiRate !== null && spentQiThisMonth > 0 ? spentQiThisMonth * qiRate : null
+  const proSaving = spentThb !== null && spentThb > PRO_MONTHLY_THB ? spentThb - PRO_MONTHLY_THB : null
   const missingElements = goals ? goals.element.elements.filter((e) => !e.collected).map((e) => ELEMENT_TH[e.key] ?? e.key) : []
 
   // ชื่อ: ชื่อจริงที่ตั้งเอง (engine) → ชื่อ LINE → generic
@@ -173,7 +193,7 @@ export function AccountScreen() {
             )}
           </span>
           <div className="min-w-0 flex-1">
-            <p className="truncate text-[22px] font-black leading-7 text-v3-navy" data-testid="account-greeting">{name}</p>
+            <p className="truncate text-[24px] font-bold leading-8 text-v3-navy" data-testid="account-greeting">{name}</p>
             <p className="text-[13px] leading-[18px] text-v3-text-body">
               {mascot ? `${mascot.elementLabelTh} · ` : ""}{TIER_LABEL[tierKey] ?? tierKey}
             </p>
@@ -193,19 +213,19 @@ export function AccountScreen() {
         <div className="mt-3 flex flex-col gap-3">
           {/* การ์ดธาตุของคุณ — ขาว + badge ในสุด + มาสคอต (เฟรม user-profile-card) */}
           {mascot ? (
-            <section className="v3-shadow-card flex flex-col gap-3 rounded-[24px] bg-white p-4" data-testid="account-element">
+            <section className="v3-shadow-card flex flex-col gap-3 rounded-[20px] bg-white p-4" data-testid="account-element">
               <p className="text-[16px] font-bold text-v3-navy">ธาตุของคุณ</p>
-              <div className="flex items-center gap-3 rounded-[16px] bg-[#F6ECF0] p-3">
+              <div className="flex items-center gap-3 rounded-[16px] bg-v3-rose-tint p-3">
                 <div className="min-w-0 flex-1">
                   <span className="inline-block rounded-full bg-[#FFF8F0] px-2.5 py-1 text-[12px] font-bold text-[#E5A93B]">{mascot.elementLabelTh} ({mascot.elementLabelEn})</span>
-                  {element?.tagline ? <p className="mt-2 line-clamp-3 text-[12px] leading-[18px] text-[#717171]">{element.tagline}</p> : null}
+                  {element?.tagline ? <p className="mt-2 line-clamp-3 text-[12px] leading-[18px] text-v3-dropdown-label">{element.tagline}</p> : null}
                 </div>
                 {/* ใช้ card asset เดิม (ฉาก illustrated ต่อธาตุ) — ไฟล์ที่ฉากผิดธาตุ (เช่น 09_วอก-ไม้) ให้ทีมออกแบบแก้ทีหลัง */}
-                <span aria-hidden className="relative h-[138px] w-[126px] flex-none overflow-hidden rounded-[16px] motion-safe:animate-mascot-float">
-                  <Image src={mascot.card} alt="" fill sizes="126px" style={{ objectFit: "cover" }} />
+                <span aria-hidden className="relative h-[110px] w-[80px] flex-none overflow-hidden rounded-[12px] motion-safe:animate-mascot-float">
+                  <Image src={mascot.card} alt="" fill sizes="80px" style={{ objectFit: "cover" }} />
                 </span>
               </div>
-              <Link href="/v2/destiny" className="flex items-center gap-1 pt-1 text-[13px] font-medium text-v3-sapphire">
+              <Link href="/v2/destiny" className="flex items-center gap-1 pb-1 pt-3 text-[13px] leading-[18px] text-v3-sapphire">
                 <span className="flex-1">ดูคำทำนายธาตุและแก้ไขข้อมูลเกิด</span>
                 <span>›</span>
               </Link>
@@ -223,32 +243,35 @@ export function AccountScreen() {
 
           {/* การ์ด QI (ฟ้า) — ยอดคงเหลือ + orb 氣 + ปุ่ม (เฟรม balance-hero-card) */}
           {wallet ? (
-            <section className="rounded-[24px] bg-v3-sapphire p-5 text-white" data-testid="account-qi-wallet">
+            <section className="rounded-[20px] bg-v3-sapphire p-5 text-white" data-testid="account-qi-wallet">
               <div className="flex items-center justify-between gap-3">
                 <div className="min-w-0">
                   <div className="flex items-center gap-1.5">
                     <p className="text-[13px] text-white/90">ยอดคงเหลือ</p>
-                    <Link href="/v2/qi" aria-label="คู่มือพลังชี่" className="grid size-[18px] flex-none place-items-center rounded-[9px] bg-white/90 text-[11px] font-black leading-none text-v3-navy">?</Link>
+                    <Link href="/v2/qi" aria-label="คู่มือพลังชี่" className="grid size-[18px] flex-none place-items-center rounded-[9px] bg-v3-rose-tint text-[11px] font-bold leading-none text-v3-text-body">?</Link>
                   </div>
                   <p className="mt-1 flex items-baseline gap-1.5">
                     <span className="text-[30px] font-black leading-none text-v3-lime" data-testid="account-qi-balance">{balance.toLocaleString("th-TH")}</span>
                     <span className="text-[16px] font-black text-v3-lime">QI</span>
                   </p>
                 </div>
-                <span aria-hidden className="grid size-16 flex-none place-items-center rounded-full bg-white/10">
-                  <Image src="/images/v2/qi/qi-coin.png" alt="" width={56} height={56} unoptimized className="size-14 object-contain drop-shadow" />
+                {/* glow-aura 64 (rgba(216,143,169,.2)) → inner-glow 48 ขอบ sapphire 2px (เฟรม 55399:4944) */}
+                <span aria-hidden className="grid size-16 flex-none place-items-center rounded-full bg-[rgba(216,143,169,0.2)]">
+                  <span className="relative size-12 overflow-hidden rounded-full border-2 border-v3-sapphire">
+                    <Image src="/images/v2/account/qi-glow-aura.png" alt="" fill sizes="48px" unoptimized className="object-cover" />
+                  </span>
                 </span>
               </div>
               <p className="mt-3 text-[13px] leading-[18px] text-white/90">{chatUnlimited ? <>ถามเซียนมู AI ได้ไม่จำกัด · เปิดไพ่ได้อีก {cards} ครั้ง</> : <>พอถามเซียนมู AI ได้อีก {asks} ครั้ง หรือเปิดไพ่ได้ {cards} ครั้ง</>}</p>
               <div className="mt-3 flex gap-2">
-                <Link href="/v2/qi/buy" data-testid="qi-topup-link" className="grid h-11 flex-1 place-items-center rounded-full bg-v3-lime text-[14px] font-black uppercase text-v3-navy">ซื้อ QI เพิ่ม</Link>
-                <Link href="/v2/qi/history" data-testid="account-qi-history" className="grid h-11 flex-1 place-items-center rounded-full border border-white/60 text-[14px] font-bold uppercase text-white">ประวัติการใช้</Link>
+                <Link href="/v2/qi/buy" data-testid="qi-topup-link" className="grid h-11 flex-1 place-items-center rounded-full bg-v3-lime text-[14px] font-semibold uppercase text-v3-sapphire">ซื้อ QI เพิ่ม</Link>
+                <Link href="/v2/qi/history" data-testid="account-qi-history" className="grid h-11 flex-1 place-items-center rounded-full border border-v3-placeholder text-[14px] font-semibold uppercase text-white">ประวัติการใช้</Link>
               </div>
             </section>
           ) : null}
 
           {/* เช็คอินต่อเนื่อง — ช่องสี่เหลี่ยม + footer โบนัส (เฟรม daily-checkin-card) */}
-          <SectionCard testId="account-checkin" className="!rounded-[24px] gap-3">
+          <SectionCard testId="account-checkin" className="!rounded-[20px] gap-3">
             <div className="flex items-center justify-between">
               <p className="text-[16px] font-bold text-v3-navy">เช็คอินต่อเนื่อง</p>
               <p className="text-[13px] text-v3-text-body">{streak === 0 ? "เริ่มสัปดาห์แรก" : `${((streak - 1) % 7) + 1} / 7 วัน`}</p>
@@ -257,10 +280,10 @@ export function AccountScreen() {
               {days.map((d) => {
                 const isDone = claimedSet.has(d) || (done && d === today)
                 const isToday = d === today
-                const bg = isDone ? "bg-[#ECF0FD] text-v3-sapphire" : isToday ? "bg-v3-cyan text-white" : "bg-[#F0F8F0] text-v3-cyan"
+                const bg = isDone ? "bg-v3-ghost-white text-v3-sapphire" : isToday ? "bg-v3-cyan text-white" : "bg-v3-grade-b-bg text-v3-cyan"
                 return (
                   <span key={d} className={`grid flex-1 place-items-center rounded-[11px] py-3 text-[13px] font-bold ${bg}`}>
-                    {isDone ? CHECK_SM : isToday ? <span className="text-[10px] leading-none">วันนี้</span> : Number(d.slice(8, 10))}
+                    {isDone ? CHECK_SM : Number(d.slice(8, 10))}
                   </span>
                 )
               })}
@@ -275,21 +298,21 @@ export function AccountScreen() {
           {daily.length > 0 && (
             <div data-testid="account-missions">
               <div className="mb-2 flex items-center justify-between px-1">
-                <p className="text-[16px] font-black text-v3-navy">ทำภารกิจรับพลังชี่เพิ่ม</p>
-                <Link href="/v2/qi/missions" data-testid="account-missions-link" className="text-[13px] font-bold text-v3-sapphire">ดูทั้งหมด ›</Link>
+                <p className="text-[16px] font-bold leading-6 text-v3-navy">ทำภารกิจรับพลังชี่เพิ่ม</p>
+                <Link href="/v2/qi/missions" data-testid="account-missions-link" className="text-[13px] leading-[18px] text-v3-sapphire">ดูทั้งหมด ›</Link>
               </div>
               <div className="flex gap-2">
                 {daily.map((mn) => {
                   const ic = iconFor(mn.id)
                   return (
                     <Link key={mn.id} href={mn.actionHref ?? "/v2/qi/missions"} className="v3-shadow-line flex flex-1 flex-col items-center gap-2.5 rounded-[16px] bg-white p-3 text-center">
-                      <span aria-hidden className="grid size-9 flex-none place-items-center rounded-[12px] bg-[#E3F8D1] text-[#3F8F52]">
+                      <span aria-hidden className="grid size-9 flex-none place-items-center rounded-[12px] bg-v3-qi-earn-bg text-v3-qi-earn-icon">
                         {mn.completed ? (
                           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6 9 17l-5-5" /></svg>
                         ) : ic.icon}
                       </span>
-                      <p className="text-[14px] font-bold leading-5 text-v3-navy">{mn.title}</p>
-                      <p className="text-[14px] font-bold text-[#63B05F]">+{mn.rewardCoins} QI</p>
+                      <p className="text-[16px] font-bold leading-6 text-v3-navy">{mn.title}</p>
+                      <p className="text-[14px] font-bold leading-5 text-v3-qi-earn">+{mn.rewardCoins} QI</p>
                     </Link>
                   )
                 })}
@@ -299,37 +322,38 @@ export function AccountScreen() {
 
           {/* การ์ดรวม: เพื่อน + แผน (เฟรม nav-list-card) */}
           <section className="v3-shadow-card flex w-full flex-col overflow-hidden rounded-[24px] bg-white">
-            {/* แถวเพื่อน / 5 ธาตุ */}
+            {/* แถวเพื่อน / 5 ธาตุ (เฟรม row 55399:5007): avatar stack 34px ขอบขาว 2 ซ้อน -12 + วง "+N" + badge 3/5 */}
             <Link href="/v2/qi/referral" data-testid="account-friends" className="flex items-center gap-3 px-4 py-3.5">
               {friends > 0 ? (
-                <span aria-hidden className="flex flex-none items-center">
-                  {["#63B05F", "#E5A93B", "#D75A3A"].map((c, i) => (
-                    <span key={c} className="grid size-[30px] place-items-center rounded-full border-2 border-white text-[11px] font-black text-white" style={{ backgroundColor: c, marginLeft: i === 0 ? 0 : -10 }}>ธ</span>
+                // ยังไม่มีรูป/ชื่อเพื่อนจาก /api/referral (ให้แค่ invitedCount) → วงสีธาตุ+ตัวย่อ "ธ" แทนรูปจริง ไม่ปั้นรูปปลอม
+                <span aria-hidden data-testid="account-friends-stack" className="flex flex-none items-center">
+                  {["#63B05F", "#E5A93B", "#D75A3A"].slice(0, Math.min(friends, 3)).map((c, i) => (
+                    <span key={c} className="grid size-[34px] place-items-center rounded-full border-2 border-white text-[12px] font-black text-white" style={{ backgroundColor: c, marginLeft: i === 0 ? 0 : -12 }}>ธ</span>
                   ))}
                   {friends > 3 ? (
-                    <span className="grid size-[30px] place-items-center rounded-full border-2 border-white bg-v3-navy text-[10px] font-black text-v3-lime" style={{ marginLeft: -10 }}>+{friends - 3}</span>
+                    <span className="grid size-[34px] place-items-center rounded-full border-2 border-white text-[13px] font-bold text-v3-lime" style={{ marginLeft: -12, backgroundColor: "rgba(11,48,91,0.6)" }}>+{friends - 3}</span>
                   ) : null}
                 </span>
               ) : (
-                <span aria-hidden className="grid size-[38px] flex-none place-items-center rounded-full bg-[#EAF3FF] text-v3-sapphire">
+                <span aria-hidden className="grid size-[38px] flex-none place-items-center rounded-full bg-v3-sky-tint text-v3-sapphire">
                   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M19 8v6M22 11h-6" /></svg>
                 </span>
               )}
-              <div className="min-w-0 flex-1">
+              <div className="flex min-w-0 flex-1 flex-col gap-0.5">
                 {friends > 0 ? (
                   <>
-                    <p className="text-[14px] font-medium text-v3-navy">เพื่อนของคุณ {friends} คน</p>
-                    <p className="text-[12px] leading-[18px] text-v3-text-body">เก็บครบ 5 ธาตุรับ 1,000 QI{missingElements.length ? ` · ยังขาด${missingElements.join(" และ ")}` : ""}</p>
+                    <p className="text-[14px] font-medium leading-5 text-v3-navy">เพื่อนของคุณ {friends} คน</p>
+                    <p className="text-[12px] leading-[18px] text-v3-text-body">เก็บครบ 5 ธาตุรับ 1,000 QI{missingElements.length ? ` · ยังขาด${missingElements.join("และ")}` : ""}</p>
                   </>
                 ) : (
                   <>
-                    <p className="text-[14px] font-medium text-v3-navy">สะสมเพื่อนให้ครบ 5 ธาตุ</p>
+                    <p className="text-[14px] font-medium leading-5 text-v3-navy">สะสมเพื่อนให้ครบ 5 ธาตุ</p>
                     <p className="text-[12px] leading-[18px] text-v3-text-body">ชวนเพื่อนคนแรก รับ 50 QI</p>
                   </>
                 )}
               </div>
-              {goals && friends > 0 ? <span className="flex-none rounded-full bg-[#EAF3FF] px-2.5 py-1 text-[11px] font-black text-v3-sapphire">{goals.element.collected}/5</span> : null}
-              <span className="flex-none text-[16px] font-bold text-v3-text-muted">›</span>
+              {goals && friends > 0 ? <span data-testid="account-friends-badge" className="flex-none rounded-full bg-v3-sky-tint px-2.5 py-[5px] text-[9px] font-bold leading-none text-v3-sapphire">{goals.element.collected}/5</span> : null}
+              <span className="flex-none text-[16px] font-bold leading-6 text-v3-text-note">›</span>
             </Link>
             {/* แถวแผน / upsell */}
             {isPaid ? (
@@ -342,42 +366,44 @@ export function AccountScreen() {
                 <span data-testid="account-plan-link" className="flex-none text-[13px] font-bold text-v3-cyan">จัดการ ›</span>
               </Link>
             ) : (
-              <div data-testid="account-plan" className="flex items-center gap-3 border-t border-v3-border-card bg-[#F7F0FC] px-4 py-3.5 text-[#6F1BAF]">
+              <Link href={SHOP_HREF} data-testid="account-plan" className="flex items-center gap-3 border-t border-v3-border-card bg-[#F7F0FC] px-4 py-3.5 text-v3-purple">
                 <span aria-hidden className="grid size-[38px] flex-none place-items-center rounded-[12px] bg-[#EADCF7] text-[18px]">👑</span>
-                <div className="min-w-0 flex-1">
-                  <p className="text-[14px] font-medium" data-testid="account-plan-name">{plan?.heading ?? "แผนของคุณ"}</p>
-                  <p className="text-[12px] leading-[18px] opacity-85" data-testid="account-plan-sub">{plan?.sub ?? "กำลังโหลด…"}</p>
+                <div className="flex min-w-0 flex-1 flex-col gap-[3px]">
+                  {/* เฟรม: "เดือนนี้จ่ายค่า QI ไป ฿318 / Pro ฿199 ใช้ไม่จำกัด ประหยัด ฿119" — ตัวเลขจาก ledger จริง ไม่มี → ชื่อแผน */}
+                  <p className="text-[14px] font-medium leading-5" data-testid="account-plan-name">{spentThb !== null ? `เดือนนี้จ่ายค่า QI ไป ${thb(spentThb)}` : plan?.heading ?? "แผนของคุณ"}</p>
+                  <p className="text-[12px] leading-[18px] opacity-85" data-testid="account-plan-sub">{`Pro ${thb(PRO_MONTHLY_THB)} ใช้ไม่จำกัด`}{proSaving !== null ? ` ประหยัด ${thb(proSaving)}` : ""}</p>
                 </div>
-                <Link href={SHOP_HREF} data-testid="account-shop-cta" className="grid h-9 flex-none place-items-center rounded-full bg-[#6F1BAF] px-4 text-[12px] font-bold text-white">อัปเกรด</Link>
-              </div>
+                <span data-testid="account-shop-cta" className="flex-none rounded-full bg-v3-purple px-[9px] py-1 text-[9px] font-bold leading-none text-white">แนะนำ</span>
+                <span className="flex-none text-[16px] font-bold leading-6">›</span>
+              </Link>
             )}
           </section>
 
           {/* ความเคลื่อนไหวล่าสุด — มีวันที่กำกับ (เฟรม recent-activity-card) + empty state วันแรก */}
           {wallet && (
             <div data-testid="account-activity">
-              <div className="mb-2 flex items-center justify-between px-1">
-                <p className="text-[16px] font-black text-v3-navy">ความเคลื่อนไหวล่าสุด</p>
+              <SectionCard className="!rounded-[20px] !p-0">
+              <div className="flex items-center justify-between px-4 pb-2 pt-4">
+                <p className="text-[16px] font-bold leading-6 text-v3-navy">ความเคลื่อนไหวล่าสุด</p>
                 {history.length > 0 && (
-                  <Link href="/v2/qi/history" data-testid="account-activity-link" className="text-[13px] font-bold text-v3-sapphire">ดูทั้งหมด ›</Link>
+                  <Link href="/v2/qi/history" data-testid="account-activity-link" className="text-[13px] leading-[18px] text-v3-sapphire">ดูทั้งหมด ›</Link>
                 )}
               </div>
-              <SectionCard className="!rounded-[24px] !p-0">
                 {history.length > 0 ? (
-                  <ul className="flex flex-col divide-y divide-v3-border-card">
+                  <ul className="flex flex-col divide-y divide-v3-border-card pb-2">
                     {history.slice(0, 3).map((h) => (
                       <li key={h.id} className="flex items-center justify-between gap-3 px-4 py-2.5">
                         <div className="min-w-0 flex-1">
-                          <p className="truncate text-[14px] leading-[22px] text-v3-navy">{reasonLabel(h.reason)}</p>
+                          <p className="truncate text-[14px] leading-[22px] text-v3-navy">{reasonLabel(h.reason, missionTitles)}</p>
                           <p className="text-[12px] leading-[18px] text-v3-text-muted">{bkkCivilDate(h.createdAt)}</p>
                         </div>
-                        <span className={"flex-none text-[14px] font-bold " + (h.qiDelta > 0 ? "text-[#63B05F]" : "text-[#E08586]")}>{h.qiDelta > 0 ? "+" : ""}{h.qiDelta} QI</span>
+                        <span className={"flex-none text-[14px] font-semibold leading-5 " + (h.qiDelta > 0 ? "text-v3-qi-earn" : "text-v3-qi-spend")}>{h.qiDelta > 0 ? "+" : ""}{h.qiDelta} QI</span>
                       </li>
                     ))}
                   </ul>
                 ) : (
                   <div data-testid="account-activity-empty" className="flex flex-col items-center gap-1.5 px-4 py-8 text-center">
-                    <span aria-hidden className="mb-1 grid size-11 place-items-center rounded-full bg-[#ECF0FD] text-v3-sapphire">
+                    <span aria-hidden className="mb-1 grid size-11 place-items-center rounded-full bg-v3-ghost-white text-v3-sapphire">
                       <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M12 8v4l3 2" /><circle cx="12" cy="12" r="9" /></svg>
                     </span>
                     <p className="text-[14px] font-bold text-v3-navy">ยังไม่มีความเคลื่อนไหว</p>

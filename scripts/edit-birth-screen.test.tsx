@@ -59,7 +59,7 @@ describe('จอแก้วันเกิด (edit-birth-data ×4)', () => {
     expect(date.value).toBe('1995-06-15')
     // row โชว์วันที่แบบไทย (เดือนเต็ม + พ.ศ.)
     expect(screen.getByText('15 มิถุนายน 2538')).toBeTruthy()
-    expect(screen.getByTestId('eb-quota').textContent).toContain('ยังไม่ได้ใช้')
+    expect(screen.getByTestId('eb-quota').textContent).toContain('แก้ได้ฟรีอีก 1 ครั้ง')
     expect(screen.getByTestId('eb-save').textContent).toBe('บันทึกการเปลี่ยนแปลง')
     const unknown = screen.getByTestId('eb-time-unknown') as HTMLInputElement
     expect(unknown.checked).toBe(true)
@@ -78,6 +78,11 @@ describe('จอแก้วันเกิด (edit-birth-data ×4)', () => {
     freeUsed = true
     render(<CookiesProvider><EditBirthScreen /></CookiesProvider>)
     await waitFor(() => expect(screen.getByTestId('eb-quota').textContent).toContain('ใช้สิทธิ์แก้ฟรีไปแล้ว'))
+    // เฟรม B: ช่องล็อก + ปุ่ม "ปลดล็อกการแก้ไข · N QI" ก่อน — ยังไม่มี eb-save จนกว่าจะปลดล็อก (UI-only)
+    expect(screen.getByTestId('eb-date-locked')).toBeTruthy()
+    expect(screen.queryByTestId('eb-save')).toBeNull()
+    expect(screen.getByTestId('eb-unlock').textContent).toContain('ปลดล็อกการแก้ไข · 100 QI')
+    fireEvent.click(screen.getByTestId('eb-unlock'))
     expect(screen.getByTestId('eb-save').textContent).toBe('บันทึกการเปลี่ยนแปลง (ใช้ 100 QI)')
   })
 
@@ -86,7 +91,8 @@ describe('จอแก้วันเกิด (edit-birth-data ×4)', () => {
     patchStatus = 409
     render(<CookiesProvider><EditBirthScreen /></CookiesProvider>)
     // ต้องแก้ก่อน (dirty) ปุ่มถึงกดได้
-    fireEvent.change(await waitFor(() => screen.getByTestId('eb-province')), { target: { value: 'ตรัง' } })
+    fireEvent.click(await waitFor(() => screen.getByTestId('eb-unlock')))
+    fireEvent.change(screen.getByTestId('eb-province'), { target: { value: 'ตรัง' } })
     fireEvent.click(screen.getByTestId('eb-save'))
     await waitFor(() => expect(screen.getByTestId('qi-insufficient-title')).toBeTruthy())
     expect(screen.getByTestId('qi-insufficient-title').textContent).toContain('ขาดอีก 70 QI')

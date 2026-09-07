@@ -122,15 +122,24 @@ export function CardForm({
   // Measured from Figma 402:21464 on three fields, and from the rendered route (mootech-fe#502).
   const TONE = 'checkout' as const
 
+  // 55159:5364 Input field is 72px tall: 20 label + 8 gap + a 44px pill (py-10 px-16, 14/20 text).
+  // The kit pill is the app-wide 52px (DESIGN.md §6); the `!` overrides shrink THIS form only, without
+  // touching the primitive every other Field in the app renders through.
+  const SIZE = {
+    containerClassName: '!h-11 !px-4 !py-2.5',
+    className: '!text-sm !leading-5',
+  }
+
   const field = (k: CardField) => {
     const reason = reasonFor(k)
     // The CVC length is the brand's, so the sentence carries the number rather than describing it.
     const words = reason ? SAYS[reason].replace('N', String(cvcLengthFor(brand))) : undefined
-    return { error: reason != null, helper: words, onBlur: blur(k), tone: TONE }
+    return { error: reason != null, helper: words, onBlur: blur(k), tone: TONE, ...SIZE }
   }
 
   return (
-    <div data-testid="card-form" className="flex w-full flex-col gap-4">
+    // 55159:5363 — 14px between fields; 12px between the two half-width fields.
+    <div data-testid="card-form" className="flex w-full flex-col gap-3.5">
       <Field
         label="ชื่อบนบัตร"
         data-testid="card-name"
@@ -181,8 +190,9 @@ export function CardForm({
 
       {/* 🔴 Present, faded, unticked and INERT — see the header. `disabled` also keeps it out of the tab order,
           so it cannot be switched on by keyboard either. */}
-      <div className={cn('flex items-center gap-2 opacity-50')}>
-        <input data-testid="card-renewal" type="checkbox" checked={false} disabled readOnly aria-label={RENEWAL_LABEL} className="size-4 rounded border-v3-border-checkbox" />
+      <div className={cn('flex items-center gap-3 opacity-50')}>
+        {/* 55159:5541 Checkbox — 20px, 4px radius. Unticked and inert on purpose (header note). */}
+        <input data-testid="card-renewal" type="checkbox" checked={false} disabled readOnly aria-label={RENEWAL_LABEL} className="size-5 rounded border-v3-border-checkbox" />
         <span className="text-sm leading-5 text-v3-text-body">{RENEWAL_LABEL}</span>
         <span data-testid="card-renewal-soon" className="rounded-full bg-v3-ghost-white px-2 py-0.5 text-xs text-v3-sapphire">เร็วๆ นี้</span>
       </div>

@@ -182,6 +182,8 @@ export interface DayDetail {
   dayDeity: string
   /** 8 เทพ 八神 + คีย์เวิร์ด — almanac.spirits[]. OPTIONAL — paid (#226). */
   spirits?: DayDetailSpirit[]
+  /** กุ๊ยนั้ง 貴人 — ปีนักษัตรของคนอุปถัมภ์วันนี้ (almanac.patrons[].zodiac ดิบ). OPTIONAL — paid. */
+  patrons?: string[]
   /** แถววันพระ (ค่ำ/เดือน) — almanac.thaiLunar. */
   wanPhra: { isWanPhra: boolean; label: string }
   // กอง 2 (ส่งดิบ — ❌ ห้ามแปลง/ตีความ; ตำราไม่มีเกณฑ์ = แปลง=แต่งตำรา; μุน ตัดสินการแสดงผล):

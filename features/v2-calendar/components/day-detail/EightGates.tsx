@@ -22,11 +22,25 @@
 // what the mark means. It is not a claim about that gate.
 import type { DayDetailGate } from '../../types'
 import { SectionCard } from './SectionCard'
-import { SELECTED } from '../grade-colors'
 import { DIR_CELL, CENTER, DIR_LABEL_TH, normalizeDirection, placeGates, type Direction } from './gate-compass'
 
-function GateCell({ direction, gate, lucky }: { direction: Direction; gate: DayDetailGate; lucky: boolean }) {
+// สีต่อประตูตามเฟรม Figma 634:8752 (design context 2026-09-07 — ผู้ใช้สั่ง "อย่าลืมใส่สีด้วยนะ" ทับคำตัดสิน M-D เดิม):
+//   開休生 = teal #E7F6F8/#1B9AAF · 傷杜死驚 = แดง #FDECE9/#CD3D2E · 景 = ส้ม #FEF3E5/#B47E35 · ไม่รู้จัก = #F5F7FB navy
+export const GATE_TINT: Record<string, { bg: string; ink: string }> = {
+  '開': { bg: '#E7F6F8', ink: '#1B9AAF' },
+  '休': { bg: '#E7F6F8', ink: '#1B9AAF' },
+  '生': { bg: '#E7F6F8', ink: '#1B9AAF' },
+  '景': { bg: '#FEF3E5', ink: '#B47E35' },
+  '傷': { bg: '#FDECE9', ink: '#CD3D2E' },
+  '杜': { bg: '#FDECE9', ink: '#CD3D2E' },
+  '死': { bg: '#FDECE9', ink: '#CD3D2E' },
+  '驚': { bg: '#FDECE9', ink: '#CD3D2E' },
+}
+const GATE_DEFAULT = { bg: '#F5F7FB', ink: '#0B305B' }
+
+function GateCell({ direction, gate }: { direction: Direction; gate: DayDetailGate }) {
   const cell = DIR_CELL[direction]
+  const tint = GATE_TINT[gate.name.trim()] ?? GATE_DEFAULT
   return (
     <div
       data-testid="gate-cell"
@@ -35,14 +49,14 @@ function GateCell({ direction, gate, lucky }: { direction: Direction; gate: DayD
       style={{
         gridRow: cell.row,
         gridColumn: cell.col,
-        backgroundColor: lucky ? SELECTED.fill : '#F5F7FB',
-        color: lucky ? SELECTED.text : '#0B305B',
+        backgroundColor: tint.bg,
+        color: tint.ink,
       }}
       className="flex flex-col items-center gap-1 rounded-2xl px-1 py-3 leading-none"
     >
-      <span className="text-[10px] font-semibold opacity-70">{DIR_LABEL_TH[direction]}</span>
+      <span className="text-[10px] font-bold text-v3-text-body">{direction}</span>
       <span className="text-2xl font-extrabold">{gate.name}</span>
-      <span className="text-[11px] font-medium opacity-90">{gate.meaning}</span>
+      <span className="text-[14px] font-medium text-v3-navy">{gate.meaning}</span>
     </div>
   )
 }
@@ -54,18 +68,31 @@ export function EightGates({ gates, luckyDirection }: { gates: DayDetailGate[]; 
     <SectionCard title="8 ประตู 八門 · ทิศประจำวัน" testId="eight-gates">
       <div data-testid="gate-board" className="grid grid-cols-3 grid-rows-3 gap-2">
         {placed.map((p) => (
-          <GateCell key={p.direction} direction={p.direction} gate={p.gate} lucky={p.direction === lucky} />
+          <GateCell key={p.direction} direction={p.direction} gate={p.gate} />
         ))}
-        {/* the centre is not a ninth gate — ฟีม cut 財 because the classics have eight. It is where the
-            reader stands, which is what makes the other eight readable as directions at all. */}
-        <div
-          data-testid="gate-center"
-          style={{ gridRow: CENTER.row, gridColumn: CENTER.col }}
-          className="flex flex-col items-center justify-center gap-1 rounded-2xl border border-dashed border-v3-sapphire/30 px-1 py-3 leading-none"
-        >
-          <span aria-hidden className="text-lg">📍</span>
-          <span className="text-[10px] font-semibold text-v3-sapphire">คุณอยู่นี่</span>
-        </div>
+        {/* ช่องกลาง = ทิศมงคล (財 โชคลาภ) ของวัน ตามเฟรม Figma 634:8752 compass-center (bg #1455A4 · "ทิศ W" 10 bold ·
+            財 16 bold · "โชคลาภ" 14). ไม่ใช่ประตูที่ 9 — เป็นค่า luckyDirection (lucky_dir จากตำรา) คนละฟิลด์กับ 8 ประตู */}
+        {lucky ? (
+          <div
+            data-testid="gate-center"
+            data-lucky={lucky}
+            style={{ gridRow: CENTER.row, gridColumn: CENTER.col }}
+            className="flex flex-col items-center justify-center gap-px rounded-[14px] bg-v3-sapphire px-1 py-2.5 leading-none text-white"
+          >
+            <span className="text-[10px] font-bold">ทิศ {lucky}</span>
+            <span className="text-[16px] font-bold leading-6">財</span>
+            <span className="text-[14px] leading-[22px]">โชคลาภ</span>
+          </div>
+        ) : (
+          <div
+            data-testid="gate-center"
+            style={{ gridRow: CENTER.row, gridColumn: CENTER.col }}
+            className="flex flex-col items-center justify-center gap-1 rounded-2xl border border-dashed border-v3-sapphire/30 px-1 py-3 leading-none"
+          >
+            <span aria-hidden className="text-lg">📍</span>
+            <span className="text-[10px] font-semibold text-v3-sapphire">คุณอยู่นี่</span>
+          </div>
+        )}
       </div>
 
       <p className="mt-3 text-[11px] leading-5 text-v3-text-muted">
@@ -73,8 +100,7 @@ export function EightGates({ gates, luckyDirection }: { gates: DayDetailGate[]; 
         {lucky && (
           <>
             {' · '}
-            <span className="font-semibold text-v3-sapphire">ช่องสีน้ำเงิน = ทิศมงคลของวัน</span>
-            {' (ไม่ได้แปลว่าประตูนั้นดี)'}
+            <span className="font-semibold text-v3-sapphire">ช่องกลาง 財 = ทิศมงคล (โชคลาภ) ของวัน</span>
           </>
         )}
       </p>
@@ -82,13 +108,13 @@ export function EightGates({ gates, luckyDirection }: { gates: DayDetailGate[]; 
       {/* A gate whose direction could not be read must be SEEN, not silently missing from the board — a
           board with seven cells looks complete to anyone who does not count. */}
       {unplaced.length > 0 && (
-        <div data-testid="gate-unplaced" className="mt-3 rounded-xl bg-[#FEF1E0] px-3 py-2">
-          <p className="text-[11px] font-semibold leading-5 text-[#B47E35]">
+        <div data-testid="gate-unplaced" className="mt-3 rounded-xl bg-v3-cal-medium-bg px-3 py-2">
+          <p className="text-[11px] font-semibold leading-5 text-v3-cal-medium">
             วางบนเข็มทิศไม่ได้ {unplaced.length} ประตู (ทิศซ้ำหรืออ่านไม่ออก)
           </p>
           <ul className="mt-1 flex flex-wrap gap-x-3 gap-y-1">
             {unplaced.map((g, i) => (
-              <li key={`${g.name}-${i}`} className="text-[11px] leading-5 text-[#B47E35]">
+              <li key={`${g.name}-${i}`} className="text-[11px] leading-5 text-v3-cal-medium">
                 {g.name} · {g.direction || '—'}
               </li>
             ))}

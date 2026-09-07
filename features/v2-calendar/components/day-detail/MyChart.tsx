@@ -10,16 +10,16 @@ const COL_LABELS = ['ปี', 'เดือน', 'วัน', 'ยาม']
 function PillarBlock({ column, layers, bg }: { column: PillarColumn; layers: 1 | 3; bg: string }) {
   return (
     <div className="rounded-2xl p-3" style={{ backgroundColor: bg }}>
-      <p className="mb-2 text-xs font-bold tracking-wide text-v3-navy/70">{column.label}</p>
+      <p className="mb-2 text-sm font-semibold leading-5 text-v3-text-body">{column.label}</p>
       <div className="grid grid-cols-4 gap-2">
         {column.cells.map((cell, i) => (
           <div key={i} className="flex flex-col items-center rounded-xl bg-white px-1 py-2 leading-none">
-            <span className="text-[10px] font-medium text-v3-text-body/60">{COL_LABELS[i]}</span>
-            <span data-testid={`${column.kind}-stem-${i}`} className="mt-1 text-2xl font-extrabold text-v3-navy">{cell.stem}</span>
+            <span className="text-[9px] font-normal text-v3-text-body">{COL_LABELS[i]}</span>
+            <span data-testid={`${column.kind}-stem-${i}`} className="mt-1 text-base font-bold text-v3-sapphire">{cell.stem}</span>
             {layers === 3 && (
               <>
-                <span className="mt-1 text-2xl font-extrabold text-v3-navy">{cell.branch}</span>
-                <span className="mt-1 text-[10px] font-medium text-v3-text-body/70">{cell.element || '—'}</span>
+                <span className="mt-1 text-base font-bold text-v3-navy">{cell.branch}</span>
+                <span className="mt-1 text-[8px] font-normal text-v3-text-body">{cell.element || '—'}</span>
               </>
             )}
           </div>

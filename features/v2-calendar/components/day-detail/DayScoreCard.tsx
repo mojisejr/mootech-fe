@@ -56,12 +56,12 @@ export function DayScoreCard({ detail }: { detail: DayDetail }) {
     >
       <ScoreRing grade={detail.grade} percent={detail.percent} />
 
-      <p className="mt-4 text-lg font-extrabold leading-6 text-v3-navy">{detail.summary}</p>
-      <p className="mt-2 text-sm font-bold text-v3-navy">วันนี้ · {thaiDate(detail.date)}</p>
+      <p className="mt-4 text-[20px] font-bold leading-7 text-v3-navy">{detail.summary}</p>
+      <p className="mt-2 text-sm font-bold leading-5 text-v3-navy">วันนี้ · {thaiDate(detail.date)}</p>
 
       {/* chips: ganzhi (lime pill) + fortune tags */}
-      <div className="mt-3 flex flex-wrap items-center justify-center gap-x-2 gap-y-1 text-sm font-semibold text-v3-navy">
-        <span className="rounded-md bg-v3-lime px-2 py-0.5 font-bold text-v3-navy">{detail.ganzhi}</span>
+      <div className="mt-3 flex flex-wrap items-center justify-center gap-x-2 gap-y-1 text-sm font-normal leading-[22px] text-v3-text-body">
+        <span className="rounded-full bg-v3-sapphire px-2 py-[3px] text-[11px] font-bold leading-none text-white">{detail.ganzhi}</span>
         {chips.map((c, i) => (
           <span key={i} className="flex items-center gap-2">
             <span className="text-v3-navy/40">·</span>
@@ -72,8 +72,8 @@ export function DayScoreCard({ detail }: { detail: DayDetail }) {
 
       {/* วันพระ row */}
       {detail.wanPhra?.isWanPhra && (
-        <div className="mt-3 flex flex-wrap items-center justify-center gap-2 text-xs font-medium text-v3-navy/80">
-          <span className="rounded-full border border-v3-navy/30 bg-white/50 px-2.5 py-1 font-semibold">🙏 วันพระ</span>
+        <div className="mt-3 flex flex-wrap items-center justify-center gap-2 text-sm font-normal leading-[22px] text-v3-text-body">
+          <span className="rounded-full bg-[#F1EFFA] px-[9px] py-1 text-[10px] font-bold leading-none text-v3-accent-purple">🙏 วันพระ</span>
           <span>{[detail.wanPhra.label, detail.dayDeity].filter(Boolean).join(' · ')}</span>
         </div>
       )}

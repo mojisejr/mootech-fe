@@ -56,7 +56,7 @@ export function LuckyColors({ colors, deity }: { colors: DayDetailColor[]; deity
           </div>
           <div>
             <dt className="font-bold text-v3-navy">ทิศ</dt>
-            <dd>ใช้เชิงฐานก่อนออกจากบ้าน ว่าท่าสิ่งใดในวันนี้ให้สำเร็จ หรือจะไปทิศมงคลนั้น เมื่อเทียบกับบ้านหรือที่ทำงาน</dd>
+            <dd>ใช้อธิษฐานก่อนออกจากบ้านว่า จะทำสิ่งใดในวันนี้ให้สำเร็จ หรือจะไปทิศมงคลนั้น เมื่อเทียบกับบ้าน หรือที่ทำงาน</dd>
           </div>
           <div>
             <dt className="font-bold text-v3-navy">เทพ</dt>
@@ -72,18 +72,18 @@ export function LuckyColors({ colors, deity }: { colors: DayDetailColor[]; deity
           const ink = el ? ELEMENT_COLOR[el] : NEUTRAL
           return (
             <div key={`${c.element}-${i}`} data-testid="lucky-color-row" data-element={c.element} className="flex items-baseline justify-between gap-3">
-              <span className="flex shrink-0 items-center gap-1.5 text-sm font-medium" style={{ color: NEUTRAL }}>
+              <span className="flex shrink-0 items-center gap-1.5 text-base font-normal leading-6 text-v3-text-body">
                 {/* the dot carries the ELEMENT; the words stay neutral so no ink contradicts a colour name */}
                 <span aria-hidden className="size-2.5 rounded-full" style={{ backgroundColor: ink }} />
                 ธาตุ{c.element}
               </span>
-              <span className="text-right text-base font-bold leading-6" style={{ color: NEUTRAL }}>{c.colors}</span>
+              <span className="text-right text-base font-bold leading-6 text-v3-text-body">{c.colors}</span>
             </div>
           )
         })}
-        <div className="flex items-center justify-between gap-3 border-t border-dashed border-[#EBD9C8] pt-3">
-          <span className="text-sm font-medium text-v3-text-body">เทพประจำวัน</span>
-          <span className="text-base font-bold text-v3-sapphire">{deity || '—'}</span>
+        <div className="flex items-center justify-between gap-3 border-t border-dashed border-v3-divider-dashed pt-3">
+          <span className="text-base font-normal leading-6 text-v3-text-body">เทพประจำวัน</span>
+          <span className="text-base font-bold leading-6 text-v3-sapphire">{deity || '—'}</span>
         </div>
       </div>
     </SectionCard>

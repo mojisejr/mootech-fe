@@ -216,7 +216,7 @@ export function QiHistoryScreen() {
             </section>
 
             {/* แท็บกรอง */}
-            <div className="flex rounded-full bg-[#FBF1F2] p-1 text-[13px] font-bold" data-testid="qi-history-tabs">
+            <div className="flex rounded-full bg-v3-blush-tint p-1 text-[13px] font-bold" data-testid="qi-history-tabs">
               {([["all", "ทั้งหมด"], ["earn", "ได้รับ"], ["spend", "ใช้ไป"]] as const).map(([k, label]) => (
                 <button
                   key={k}
@@ -232,7 +232,7 @@ export function QiHistoryScreen() {
 
             {shown.length === 0 ? (
               <section className="v3-shadow-card flex w-full flex-col items-center gap-2 rounded-[24px] bg-white p-6 text-center" data-testid="qi-history-empty">
-                <span aria-hidden className="grid size-11 place-items-center rounded-full bg-[#ECF0FD] text-v3-sapphire">
+                <span aria-hidden className="grid size-11 place-items-center rounded-full bg-v3-ghost-white text-v3-sapphire">
                   <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M12 8v4l3 2" /><circle cx="12" cy="12" r="9" /></svg>
                 </span>
                 <p className="text-[13px] leading-5 text-v3-text-body">

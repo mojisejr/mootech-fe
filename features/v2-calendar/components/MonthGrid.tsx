@@ -10,33 +10,35 @@
 // i.e. the grade letter sat in the exact slot Figma draws the 干支 in, and the 干支 — which `CalendarDay`
 // has carried since goo's Phase 0 — was never rendered at all. Figma's grid shows NO grade letter anywhere.
 //
-// TIERS are goo's `dayCellTier(percent)` (DESIGN.md §CALENDAR: ≥60 / 40–59 / <40) and the hexes are the
-// existing DAY_CELL_COLORS. Both match the node exactly (#E2F4F6/#0B7A8C · #FEF1E0/#B47E35 · #FEE7E4/#CD3D2E),
-// which is the good kind of surprise: the system was right and only the markup had drifted.
+// CELL COLOUR is the cell's GRADE STEP (Figma 375:16710: ten `Grade color bg/…` tints + matching `Grade
+// color/…` %-ink, one per grade — parity audit 2026-09-07). It used to be goo's `dayCellTier(percent)` 3-tier
+// ramp; that ramp is not in the node. The grade is on the cell already (CalendarDay.grade, non-null).
 //
 // SELECTED + วันพระ COMPOSE. Figma's day-14 cell (368:9929) carries the sapphire fill AND the #9D85DA
 // border at the same time, so "today" must not erase the วันพระ marker — they are different facts about the
 // same day. The shipped version treated them as exclusive.
-import { dayCellTier, type CalendarDay } from '@/features/v2-calendar'
+import type { CalendarDay } from '@/features/v2-calendar'
 import { DAY_CELL_COLORS, CALENDAR_MARKER } from './grade-colors'
 import { dayCellStyle } from './day-cell-style'
 import { percentText } from './percent-display'
 
 const THAI_DOW = ['อา', 'จ', 'อ', 'พ', 'พฤ', 'ศ', 'ส']
 
-// Figma legend (368:10025): swatch 14×14 r5 + 9px caption. The วันพระ swatch is white with the marker border,
-// i.e. the legend explains the BORDER, not a fill — the shipped legend used a dot and said "วันนี้".
+// Figma legend (368:10025 / 375:16710): swatch 14×14 r5 + 9px caption. The three percent bands are shown with
+// ONE representative step each — the node paints them #F1F8E8 (B-) · #FFF3E0 (C) · #FFEBEE (D) — so the
+// legend reads as a green/orange/red key even though the cells carry all ten. The วันพระ swatch is white
+// with the marker border, i.e. the legend explains the BORDER, not a fill.
 const LEGEND: { label: string; bg: string; border?: string }[] = [
-  { label: '≥60% วันดี', bg: DAY_CELL_COLORS.good.tint },
-  { label: '40–59%', bg: DAY_CELL_COLORS.medium.tint },
-  { label: '<40% ระวัง', bg: DAY_CELL_COLORS.bad.tint },
+  { label: '≥60% วันดี', bg: DAY_CELL_COLORS['B-'].tint },
+  { label: '40–59%', bg: DAY_CELL_COLORS['C'].tint },
+  { label: '<40% ระวัง', bg: DAY_CELL_COLORS['D'].tint },
   { label: 'วันพระ', bg: '#FFFFFF', border: CALENDAR_MARKER },
 ]
 
 function DayCell({ cell, selected, onSelect }: { cell: CalendarDay; selected: boolean; onSelect: (date: string) => void }) {
   // selection is a MODE — every colour moves together. See day-cell-style.ts for why this is one
   // call and not four ternaries (it is the invariant DESIGN.md §GRADE rests on, and it had no live guard).
-  const style = dayCellStyle(dayCellTier(cell.percent), selected)
+  const style = dayCellStyle(cell.grade, selected)
   return (
     <button
       type="button"

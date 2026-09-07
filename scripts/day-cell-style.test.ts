@@ -12,7 +12,8 @@
 //                    is sapphire" — all four, because a half-applied mode is dark ink on a sapphire fill.
 //   TIER-RESPECTED — when NOT selected, the background and the percent follow the cell's tier.
 //   NO-BLEED       — the sapphire values never leak into an unselected cell.
-//   TOTAL          — all three tiers are covered in both states; no tier falls through.
+//   TOTAL          — all TEN grade steps are covered in both states; no step falls through.
+//                    (was three percent tiers — the cell now colours by grade step, Figma 375:16710.)
 //
 // TEETH
 //   • mut-selected-tint   — #mut-selected-tint · let the selected cell keep its tier tint → SELECTED-MODE
@@ -21,12 +22,12 @@
 //                           SELECTED-MODE trips on that value alone (the bug a bg-only check cannot see).
 //   • mut-tier-ignored    — #mut-tier-ignored · return a fixed tint for unselected cells → TIER-RESPECTED trips.
 //
-// VERIFY-THE-INSTRUMENT: the three tiers must not already share a tint, or TIER-RESPECTED would pass no
+// VERIFY-THE-INSTRUMENT: the ten steps must not already share a tint, or TIER-RESPECTED would pass no
 // matter what the function returned. That is asserted first, before any tier-dependent claim is trusted.
 import assert from 'node:assert'
 import { dayCellStyle } from '../features/v2-calendar/components/day-cell-style'
 import { DAY_CELL_COLORS, SELECTED } from '../features/v2-calendar/components/grade-colors'
-import type { DayCellTier } from '../features/v2-calendar/types'
+import { GRADE_STEPS, gradeStep } from '../lib/v2/grade-scale'
 
 let pass = 0
 const ok = (name: string, cond: boolean, detail = '') => {
@@ -34,12 +35,16 @@ const ok = (name: string, cond: boolean, detail = '') => {
   pass += 1
 }
 
-const TIERS: DayCellTier[] = ['good', 'medium', 'bad']
+// the ten Figma steps — dayCellStyle takes the WIRE grade, so the step letter is what goes in
+const TIERS = [...GRADE_STEPS]
 
-// ── VERIFY-THE-INSTRUMENT — if the tiers already looked alike, TIER-RESPECTED would be vacuous ──
+// ── VERIFY-THE-INSTRUMENT — if the steps already looked alike, TIER-RESPECTED would be vacuous ──
 console.log('— instrument check —')
 const tints = TIERS.map((t) => DAY_CELL_COLORS[t].tint)
-ok('the three tiers have distinct tints (else TIER-RESPECTED proves nothing)', new Set(tints).size === 3, tints.join(' '))
+ok('the ten steps have distinct tints (else TIER-RESPECTED proves nothing)', new Set(tints).size === TIERS.length, tints.join(' '))
+// the 13-level wire folds onto the ten steps without a hole: A+/A- → A, F → D-
+ok('wire A+ / A- fold onto step A', gradeStep('A+') === 'A' && gradeStep('A-') === 'A')
+ok('wire F folds onto step D-', gradeStep('F') === 'D-')
 ok('sapphire fill differs from every tier tint (else SELECTED-MODE proves nothing)', !tints.includes(SELECTED.fill), SELECTED.fill)
 
 // ── SELECTED-MODE — every value, not just the background ── #mut-selected-tint #mut-half-mode
@@ -73,6 +78,6 @@ for (const tier of TIERS) {
 }
 // distinct tiers must stay distinguishable when unselected — the grid is a comparison surface
 const restingBgs = TIERS.map((t) => dayCellStyle(t, false).bg)
-ok('TOTAL: the three unselected tiers still paint three different backgrounds', new Set(restingBgs).size === 3, restingBgs.join(' '))
+ok('TOTAL: the ten unselected steps still paint ten different backgrounds', new Set(restingBgs).size === TIERS.length, restingBgs.join(' '))
 
 console.log(`\n✅ day-cell-style.test.ts — ${pass} assertions passed`)

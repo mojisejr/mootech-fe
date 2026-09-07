@@ -14,13 +14,17 @@ import Link from "next/link"
 import { useEffect, useMemo, useState } from "react"
 import { SHOP_HREF } from "@/features/v2-shop/upgrade-cta"
 
+// engine `element-summary` returns advice as OBJECTS ({key,label,text}), not strings — the earlier
+// `advice: string[]` typing was wrong and rendering the object as a React child crashed the whole page
+// (React #31). Accept both shapes so a future string payload still renders.
+type AdviceItem = string | { key?: string; label?: string; text?: string }
 type ElementSummary = {
   dayMaster: string
   dayGanzhi: string
   elementTh: string
   tagline: string
   traits: string[]
-  advice: string[]
+  advice: AdviceItem[]
 }
 type LifeTimeline = {
   currentAge: number
@@ -385,9 +389,15 @@ export function DestinyScreen() {
                   <>
                     <p className="mt-3 text-[12px] font-bold text-v3-navy">คำแนะนำ</p>
                     <ul className="mt-1 list-disc pl-5 text-[13px] leading-[20px] text-v3-text-body">
-                      {summary.advice.map((t) => (
-                        <li key={t}>{t}</li>
-                      ))}
+                      {summary.advice.map((a, i) => {
+                        const item = typeof a === "string" ? { text: a } : a
+                        return (
+                          <li key={item.key ?? i}>
+                            {item.label ? <span className="font-medium text-v3-navy">{item.label}: </span> : null}
+                            {item.text ?? ""}
+                          </li>
+                        )
+                      })}
                     </ul>
                   </>
                 )}

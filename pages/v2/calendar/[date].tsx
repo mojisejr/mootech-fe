@@ -11,7 +11,7 @@
 // one import away. The gate positions in particular were 14 July's fortune, so a future "just reuse the
 // frozen list" would ship an inverted compass. History lives in git (last touched 9cf9bdf) and the
 // per-decision reasons live in the ledger entry + each component's header.
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import type { GetServerSideProps } from 'next'
 import Link from 'next/link'
 import { useRouter } from 'next/router'
@@ -31,6 +31,7 @@ import { MyChart } from '@/features/v2-calendar/components/day-detail/MyChart'
 import { Dithi } from '@/features/v2-calendar/components/day-detail/Dithi'
 import { EightGates } from '@/features/v2-calendar/components/day-detail/EightGates'
 import { EightDeities } from '@/features/v2-calendar/components/day-detail/EightDeities'
+import { Patrons } from '@/features/v2-calendar/components/day-detail/Patrons'
 import { SaveSheet } from '@/features/v2-calendar/components/day-detail/SaveSheet'
 import { InstallGuideSheet, type InstallGuideVariant } from '@/features/v2-calendar/components/InstallGuideSheet'
 import { notifyStateFrom } from '@/features/v2-calendar/notify-state'
@@ -60,6 +61,16 @@ export default function V2CalendarDayPage({ teamPreview }: { teamPreview: boolea
   // ฟีม: โหมดแอดวานซ์เปิดเป็นค่าเริ่มต้น (goo's useAdvancedMode default ON). Toggling OFF hides the 4
   // advanced-only sections (§5/§9/§12/§13) → the exact 3a normal frame (634:8194); toggling ON brings them back.
   const { advanced, toggle } = useAdvancedMode()
+  // ฟีม (สไลด์ 17): กดเปิดแอดวานซ์แล้วให้จอเลื่อนลงไปส่วน Advance เอง — เฉพาะตอน "เปิด" (ปิดไม่ต้องเลื่อน)
+  const advancedRef = useRef<HTMLDivElement | null>(null)
+  const toggleAndReveal = () => {
+    const turningOn = !advanced
+    toggle()
+    if (turningOn) {
+      // รอให้ §5 mount ก่อนหนึ่งเฟรม แล้วค่อยเลื่อน (ไม่งั้น anchor ยังอยู่ตำแหน่งเดิมก่อน section โผล่)
+      requestAnimationFrame(() => advancedRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }))
+    }
+  }
   // Zone 4 — the gate. Until this shipped, this screen had no tier logic at all: every section Figma marks
   // paid (ความเข้ากัน 5 ด้าน · คำทำนายรายด้าน · โหมดแอดวานซ์ and the four advanced-only sections behind it)
   // rendered for everyone, including members who never paid.
@@ -286,8 +297,9 @@ export default function V2CalendarDayPage({ teamPreview }: { teamPreview: boolea
             🔑 หลังใบนี้ การมีอยู่ของฟิลด์ = คำตัดสินของเซิร์ฟเวอร์อยู่แล้ว จอไม่ต้องเดาซ้ำ
             ⚠️ เงื่อนไขต้องเป็นฟิลด์ที่ **paid เท่านั้น** — `dithi` กับ `luckyDirection` เป็นของฟรีหลัง #226
             (การ์ดคะแนนใช้) ⇒ ใช้มันเป็นเงื่อนไข = โชว์หัวข้อที่ขายเงินให้คนใช้ฟรี */}
-        {detail.compatAreas && <AdvancedToggle on={advanced} onToggle={toggle} />}
-        {/* §5 [advanced] — ดวงของฉัน (binds goo's detail.pillars) */}
+        {detail.compatAreas && <AdvancedToggle on={advanced} onToggle={toggleAndReveal} />}
+        {/* §5 [advanced] — ดวงของฉัน (binds goo's detail.pillars) · ห่อด้วย anchor ให้ toggle เลื่อนมาหา (ฟีม สไลด์ 17) */}
+        <div ref={advancedRef} data-testid="day-advanced-anchor" className="scroll-mt-4" />
         {advanced && detail.pillars && <MyChart pillars={detail.pillars} />}
         {/* Figma Free-2 375:11286 puts the upsell exactly here — after the score card, before ทิศ สีมงคล —
             standing in for the three sections below it. The percent is the SAME one the ring shows. */}
@@ -308,6 +320,8 @@ export default function V2CalendarDayPage({ teamPreview }: { teamPreview: boolea
         {/* เงื่อนไขคือ `gates` (paid) ❌ ไม่ใช่ `luckyDirection` ซึ่งเป็นของฟรีหลัง #226 */}
         {advanced && detail.gates && <EightGates gates={detail.gates} luckyDirection={detail.luckyDirection} />}
         {advanced && detail.spirits && <EightDeities deities={detail.spirits} />}
+        {/* [advanced] กุ๊ยนั้ง 貴人 — almanac.patrons (paid: ไม่อยู่ใน allow-list ฟรี) · gafiw 2026-09-07 */}
+        {advanced && detail.patrons && <Patrons patrons={detail.patrons} />}
         {/* #343 — **ย้าย** ลิงก์นี้ลงมา ❌ ไม่ได้เพิ่มอันที่สอง (ของเดิมอยู่บนสุด ใต้กล่องคะแนน)
             เหตุผล: จังหวะที่ลิงก์นี้มีความหมายคือ "เพิ่งบันทึกเสร็จ" ซึ่งสายตาอยู่ที่ปุ่มแถบล่าง
             ตำแหน่งเดิมอยู่เหนือจอไปหลายส่วน ⇒ ผู้ใช้ต้องเลื่อนกลับขึ้นไปหาสิ่งที่ตัวเองเพิ่งทำ */}

@@ -28,13 +28,10 @@ export const METHODS: MethodDef[] = [
   { id: 'cashapp', label: 'Cash App', enabled: false }, // drawn (55159:5359) — we do not sell it
 ]
 
+// 55159:5352 Icons/credit-card — the frame's own export, 24×24 leaf inside the 36×36 chip.
 function CardGlyph() {
-  return (
-    <svg viewBox="0 0 24 24" className="size-6" fill="none" aria-hidden>
-      <rect x="2" y="5" width="20" height="14" rx="2.5" stroke="currentColor" strokeWidth="1.8" />
-      <path d="M2 10h20" stroke="currentColor" strokeWidth="1.8" />
-    </svg>
-  )
+  // eslint-disable-next-line @next/next/no-img-element
+  return <img src="/images/v2/shop/icon-credit-card.svg" alt="" width={24} height={24} className="size-6" aria-hidden />
 }
 
 // A QR mark, not a brand mark — see the header note.

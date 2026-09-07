@@ -33,10 +33,12 @@
 // This matters more than it looks: real per-facet data shows two scale-adjacent grades sharing one card on
 // 69–88% of days (มุน 13 days / บอง 8 cards), so an unreadable ramp would be on screen almost every day.
 //
-// ⚠️ NOT the calendar day-cell tint. That is a separate 3-tier system (DAY_CELL_COLORS) and stays separate
-// on purpose — see DESIGN.md §GRADE. The grid answers "which days this month are good" by comparison
-// across 30 cells; this scale answers "how good is the selected day" as a single readout. They never paint
-// the same day at once because the selected cell is overridden with the sapphire fill (MonthGrid).
+// ⚠️ NOT the calendar day-cell tint. The grid paints the TEN-STEP scale below (GRADE_STEP_COLOR — Figma
+// 375:16710 draws every cell off the "Grade color / Grade color bg" variables, parity audit 2026-09-07),
+// while the badge/ring/bar on the day page paint the 5 zones. The grid answers "which days this month are
+// good" by comparison across 30 cells; this scale answers "how good is the selected day" as a single
+// readout. They never paint the same day at once because the selected cell is overridden with the
+// sapphire fill (MonthGrid).
 
 /** The five zones. Ordered best → poor. */
 export type GradeTier = 'best' | 'good' | 'fair' | 'weak' | 'poor'
@@ -83,4 +85,49 @@ export const TIER_INK: Record<GradeTier, string> = {
   fair: '#374151',
   weak: '#FFFFFF',
   poor: '#FFFFFF',
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// THE TEN-STEP SCALE — Figma "Grade Card Previews" 636:21251 + month grid 375:16710
+// ─────────────────────────────────────────────────────────────────────────────
+// Figma names these as variables (`Grade color/70-79 B Good` = #66BB6A, `Grade color bg/70-79 B Good` =
+// #F0F8F0, …) and paints every calendar day cell off them (parity audit docs/figma-parity-audit-2026-09-07.md,
+// "สีช่องวัน 10 ขั้นตามเกรด"). The five zones above are a SUBSET of this table (A · B · C+ · C- · D-), so
+// nothing on the day page moves; the month grid is the only consumer of the full ten.
+//
+// The ΔE argument at the top of this file still holds — neighbouring steps are close — which is why the
+// grid keeps the grade letter OUT of the cell and prints the percent in the step's ink instead: the ink
+// on a pale tint is what separates B- from C+ at a glance, not the tint alone.
+
+/** The ten Figma steps, best → poor. The wire's A+/A-/F have no step of their own (see gradeStep). */
+export type GradeStep = 'A' | 'B+' | 'B' | 'B-' | 'C+' | 'C' | 'C-' | 'D+' | 'D' | 'D-'
+
+/** Ordered best → poor, for anything that has to walk the scale (tests, legends). */
+export const GRADE_STEPS: readonly GradeStep[] = ['A', 'B+', 'B', 'B-', 'C+', 'C', 'C-', 'D+', 'D', 'D-']
+
+/**
+ * Wire grade (13 levels, lib/v2/api-grade.ts) → Figma step (10). A+/A- fold into A, F into D-; an unknown
+ * or empty grade lands on D- rather than throwing inside a render (same posture as gradeTier).
+ */
+export function gradeStep(grade?: string | null): GradeStep {
+  const g = (grade ?? '').trim().toUpperCase()
+  const letter = g.charAt(0)
+  if (letter === 'A') return 'A'
+  const sign = g.charAt(1) === '+' ? '+' : g.charAt(1) === '-' ? '-' : ''
+  if (letter === 'B' || letter === 'C' || letter === 'D') return `${letter}${sign}` as GradeStep
+  return 'D-' // F and anything unrecognised
+}
+
+/** cell tint (`Grade color bg/…`) + ink (`Grade color/…`) per step — copied from the Figma variables verbatim. */
+export const GRADE_STEP_COLOR: Record<GradeStep, { bg: string; ink: string }> = {
+  'A': { bg: '#E8F5E9', ink: '#2E7D32' }, // 90-100 A  Excellent
+  'B+': { bg: '#EDF7ED', ink: '#43A047' }, // 80-89  B+ Very Good
+  'B': { bg: '#F0F8F0', ink: '#66BB6A' }, // 70-79  B  Good
+  'B-': { bg: '#F1F8E8', ink: '#8BC34A' }, // 60-69  B- Above Average
+  'C+': { bg: '#F9FBE7', ink: '#CDDC39' }, // 50-59  C+ Average+
+  'C': { bg: '#FFF3E0', ink: '#FFA726' }, // 45-49  C  Average
+  'C-': { bg: '#FFF0E1', ink: '#F57C00' }, // 40-44  C- Below Average
+  'D+': { bg: '#FBE9E7', ink: '#E64A19' }, // 35-39  D+ Poor
+  'D': { bg: '#FFEBEE', ink: '#D32F2F' }, // 25-34  D  Very Poor
+  'D-': { bg: '#FCE4EC', ink: '#B71C1C' }, // 0-24   D- Critical
 }

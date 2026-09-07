@@ -88,6 +88,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       create_at: row.createAt,
       // ONE list, already in ranking order, each entry carrying its own person. There is nothing to join.
       // 🔴 The raw `comparison` is deliberately NOT here — see the note in ./index.ts.
+      relationship: built.relationship ?? null,
+      selfChart: built.selfChart ?? null,
+      selfProfile: built.selfProfile ?? null,
       entries: built.entries,
       rankingComplete: built.rankingComplete,
     })

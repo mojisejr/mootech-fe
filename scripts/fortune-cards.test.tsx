@@ -28,16 +28,24 @@ const SLOTS = [
 const PROSE = 'ไพ่หลัก (น้ำหนัก 50%) — ...\n\nขยายชุดที่ 1 (30%) — ...\n\nขยายชุดที่ 2 (20%) — ...'
 
 let predictStatus = 200
+let cardsOut: unknown[] = CARDS
 let lastBody: Record<string, unknown> = {}
+let spendBodies: Array<Record<string, unknown>> = []
 const fetchMock = vi.fn(async (url: string, init?: { method?: string; body?: string }) => {
   const u = String(url)
   if (u.includes('/api/fortune/oracle')) {
     lastBody = JSON.parse(String(init?.body ?? '{}'))
     return predictStatus === 200
-      ? { ok: true, status: 200, json: async () => ({ source: 'engine', cards: CARDS, slots: SLOTS, engineProse: PROSE }) }
+      ? { ok: true, status: 200, json: async () => ({ source: 'engine', cards: cardsOut, slots: SLOTS, engineProse: PROSE }) }
       : { ok: false, status: 402, json: async () => ({ error: { message: 'quota' } }) }
   }
   if (u.includes('/api/qi-earn')) return { ok: true, status: 200, json: async () => ({ ok: true }) }
+  if (u.includes('/api/qi-spend')) {
+    // แลก card_use สำเร็จ → engine มีเครดิตให้ครั้งถัดไป → predict ผ่าน
+    spendBodies.push(JSON.parse(String(init?.body ?? '{}')))
+    predictStatus = 200
+    return { ok: true, status: 200, json: async () => ({ code: 'card_use', spentQi: 10, qi: 90 }) }
+  }
   return { ok: true, status: 200, json: async () => ({}) }
 })
 vi.stubGlobal('fetch', fetchMock)
@@ -49,7 +57,7 @@ const renderOracle = () =>
     <CardReadingScreen mode="oracle" title="เสี่ยงไพ่ออราเคิลเคี้ยงคุง" resultTitle="ผลไพ่ออราเคิล" introArt="/x.png" endpoint="/api/fortune/oracle" deckCount={12} />,
   )
 
-beforeEach(() => { predictStatus = 200; lastBody = {}; fetchMock.mockClear() })
+beforeEach(() => { predictStatus = 200; cardsOut = CARDS; lastBody = {}; spendBodies = []; fetchMock.mockClear() })
 afterEach(() => cleanup())
 
 describe('เสี่ยงไพ่ (oracle/divine)', () => {
@@ -88,12 +96,33 @@ describe('เสี่ยงไพ่ (oracle/divine)', () => {
     expect(lastBody.random).toBe(true)
   })
 
+  it('FC3b รูปหน้าไพ่มาจาก database (card.imageUrl = Supabase URL) — ไม่ใช่ไฟล์ในโปรเจกต์', async () => {
+    cardsOut = CARDS.map((c, i) => ({ ...c, imageUrl: `https://x.supabase.co/storage/v1/object/public/oracle-cards/cards/${c.no}.jpg?i=${i}` }))
+    renderOracle()
+    fireEvent.click(screen.getByTestId('cards-random'))
+    await waitFor(() => expect(screen.getByTestId('cards-result')).toBeTruthy(), { timeout: 3000 })
+    const imgs = Array.from(screen.getByTestId('cards-result').querySelectorAll('img')) as HTMLImageElement[]
+    expect(imgs.some((i) => i.getAttribute('src')?.includes('supabase.co/storage'))).toBe(true)
+    expect(imgs.some((i) => i.getAttribute('src')?.includes('/images/v2/fortune/cards/'))).toBe(false)
+  })
+
   it('FC4 402 → quota ไม่โชว์ผล', async () => {
     predictStatus = 402
     renderOracle()
     fireEvent.click(screen.getByTestId('cards-random'))
     await waitFor(() => expect(screen.getByTestId('cards-quota')).toBeTruthy(), { timeout: 3000 })
     expect(screen.queryByTestId('cards-result')).toBeNull()
+  })
+
+  it('FC4b 402 → ปุ่ม "แลก 10 QI แล้วเปิดไพ่เลย" ตรงหน้า: ยิง /api/qi-spend card_use แล้วเปิดต่อทันที', async () => {
+    predictStatus = 402
+    renderOracle()
+    fireEvent.click(screen.getByTestId('cards-random'))
+    const btn = await waitFor(() => screen.getByTestId('cards-redeem'), { timeout: 3000 })
+    fireEvent.click(btn)
+    await waitFor(() => expect(spendBodies).toContainEqual({ code: 'card_use' }))
+    await waitFor(() => expect(screen.getByTestId('cards-result')).toBeTruthy(), { timeout: 4000 })
+    expect(screen.queryByTestId('cards-quota')).toBeNull()
   })
 
   it('FC5 น้ำหนัก 50 จาก engine → แสดง "50%" ไม่ใช่ "5000%"', async () => {

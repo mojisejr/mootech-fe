@@ -1,5 +1,5 @@
 // features/v2-account/components/EditBirthScreen.tsx — /v2/settings/edit-birth (เฟรม edit-birth-data ×4)
-// สถานะฟรี (banner เขียว) · ใช้สิทธิ์แล้ว (banner ชมพู + ราคา + ยอดคงเหลือหลังแก้) · ฟอร์ม · คำขอพิจารณา (ชีต).
+// A ฟรี (banner เขียว 1/1) · B ใช้สิทธิ์แล้ว (ช่องล็อก + "ปลดล็อก · N QI" + ยอดหลังแก้) · C กรอกผิดจริง (การ์ดฟ้า → ชีตแจ้งแก้).
 // 🔴 โควตาตัดสินที่ engine เท่านั้น (GET quota + PATCH). PATCH แต้มไม่พอ → 409 → InsufficientQiSheet.
 // หมายเหตุ: เฟรมมี "จังหวัดที่เกิด" + "ปลดล็อก" + correction ผ่าน LINE — backend ยังไม่รองรับจังหวัด/ลิงก์ LINE
 //   → ทำตามโมเดลจริง (ฟอร์มวันเกิด/เวลา + คำขอพิจารณาในแอป), สไตล์ตามเฟรม.
@@ -12,17 +12,17 @@ import { TH_PROVINCES } from "@/lib/th/provinces"
 import { thaiDateFull, thaiTimeLabel } from "@/lib/th/thai-date"
 import { ProfileGate } from "./ProfileGate"
 
-const CARD = "v3-shadow-card flex w-full flex-col gap-3 rounded-[24px] bg-white p-5"
-const INPUT = "h-12 rounded-[14px] border border-v3-border-input bg-white px-4 text-[14px] outline-none focus:border-v3-navy"
-// row แบบ picker: โชว์ค่าไทย + chevron; native input โปร่งใสทับไว้เพื่อเด้ง picker ของ OS
-const PICKER_ROW = "flex h-12 w-full items-center justify-between rounded-[14px] border border-v3-border-input bg-white px-4 text-[14px]"
+// เฟรม form-card: ขาว + ขอบ border/default + r20 + p18 gap16 (ไม่มีเงา)
+const CARD = "flex w-full flex-col gap-4 rounded-[20px] border border-v3-border-input bg-white p-[18px]"
+// row แบบ picker: โชว์ค่าไทย + "⌄"; native input โปร่งใสทับไว้เพื่อเด้ง picker ของ OS
+const PICKER_ROW = "flex h-[52px] w-full items-center gap-2 rounded-[14px] border border-v3-border-input bg-white px-4 text-[14px] leading-[22px]"
+// input-locked (เฟรม 55399:5995): พื้น bg/subtle + ตัวหนังสือ muted + ป้าย "ล็อก"
+const LOCKED_ROW = "flex h-[52px] w-full items-center gap-2 rounded-[14px] border border-v3-border-input bg-v3-rose-tint px-4 text-[14px] leading-[22px] text-v3-text-note"
+const LABEL = "text-[12px] font-medium leading-4 text-v3-text-body"
+const HINT = "text-[9px] leading-[13px] text-v3-text-note"
 
 function ChevronDown() {
-  return (
-    <svg aria-hidden width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="flex-none text-v3-text-muted">
-      <path d="m6 9 6 6 6-6" />
-    </svg>
-  )
+  return <span aria-hidden className="flex-none text-[14px] leading-none text-v3-text-note">⌄</span>
 }
 
 type ProfileResp = {
@@ -47,6 +47,8 @@ export function EditBirthScreen() {
   const [sheetOpen, setSheetOpen] = useState(false)
   const [reason, setReason] = useState("")
   const [reqMsg, setReqMsg] = useState<string | null>(null)
+  // สถานะ B (เฟรม 55399:5976): ใช้สิทธิ์ฟรีแล้ว → ช่องล็อกจนกด "ปลดล็อกการแก้ไข · N QI" (UI-only; หัก QI จริงตอน PATCH เหมือนเดิม)
+  const [unlocked, setUnlocked] = useState(false)
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -95,7 +97,7 @@ export function EditBirthScreen() {
         setMsg(
           j.birthEditMode === "free"
             ? "บันทึกแล้ว — ใช้สิทธิ์แก้ฟรี 1 ครั้งของคุณ (ครั้งถัดไปมีค่าใช้จ่าย)"
-            : `บันทึกแล้ว — หัก ${quota?.birthEditPriceQi ?? 100} QI ดวงของคุณจะอัปเดตตามวันเกิดใหม่`,
+            : `บันทึกแล้ว — หัก ${quota?.birthEditPriceQi ?? 150} QI ดวงของคุณจะอัปเดตตามวันเกิดใหม่`,
         )
         await load()
       } else if (res.status === 409) {
@@ -122,7 +124,7 @@ export function EditBirthScreen() {
     if (res.ok) { setSheetOpen(false); setReason(""); await load() }
   }
 
-  const priceQi = quota?.birthEditPriceQi ?? 100
+  const priceQi = quota?.birthEditPriceQi ?? 150
   const freeUsed = quota?.birthEditFreeUsed === true
   // dirty-gate: ปุ่มบันทึกใช้ได้เมื่อมีการแก้ไขจากค่าปัจจุบันในระบบ (ตาม Figma)
   const dirty =
@@ -131,13 +133,18 @@ export function EditBirthScreen() {
     timeUnknown !== (current?.timeUnknown ?? false) ||
     province !== (current?.birthProvince ?? "")
 
+  const locked = freeUsed && !unlocked
+  const currentLabel = current?.birthDate
+    ? `${thaiDateFull(current.birthDate.slice(0, 10))}${current.timeUnknown ? " (ไม่ทราบเวลา)" : current.birthTime ? `, ${thaiTimeLabel(current.birthTime)}` : ""}`
+    : "ยังไม่ได้ระบุ"
+
   return (
     <div className="relative min-h-screen w-full overflow-x-hidden bg-white font-ibm">
       <SkyBackdrop />
       <Head><title>แก้วันเกิด · MuMate</title></Head>
       <SkyHeader title="ข้อมูลวันเกิดและธาตุ" backHref="/v2/account" testId="edit-birth" />
 
-      <div className="relative z-10 mx-auto flex w-full max-w-md flex-col gap-4 px-4 pb-36 pt-2">
+      <div className="relative z-10 mx-auto flex w-full max-w-md flex-col gap-4 px-4 pb-6 pt-2">
         <ProfileGate loading={loading} kind={kind} onRetry={() => void load()} />
 
         {!loading && kind === "ok" && (
@@ -146,106 +153,170 @@ export function EditBirthScreen() {
               <NoticeBanner tone="blue" testId="eb-pending" title="มีคำขอพิจารณารอทีมดูอยู่" sub={`“${quota.pendingCorrection.reason}”`} />
             ) : null}
 
-            {/* สถานะโควตา — เขียว(ฟรี) / ชมพู(ใช้แล้ว) */}
-            <NoticeBanner
-              tone={freeUsed ? "pink" : "green"}
-              testId="eb-quota"
-              title={freeUsed ? "ใช้สิทธิ์แก้ฟรีไปแล้ว" : "แก้ได้ฟรีอีก 1 ครั้ง — ยังไม่ได้ใช้"}
-              sub={freeUsed ? `ครั้งถัดไปใช้ ${priceQi} QI (ดวงเปลี่ยนทั้งหมดเมื่อวันเกิดเปลี่ยน)` : "สิทธิ์ฟรี 1 ครั้งตลอดชีพ — ครั้งถัดไปใช้ QI"}
-              right={<span className="rounded-full bg-white/70 px-2 py-[2px] text-[11px] font-black">{freeUsed ? `${priceQi} QI` : "1/1"}</span>}
-            />
+            {/* สถานะโควตา — A ฟรี (เฟรม state-free-quota 55399:5947) / B ใช้แล้ว (state-quota-used 55399:5989) */}
+            {freeUsed ? (
+              <div className="flex w-full flex-col gap-[3px] rounded-[18px] border border-v3-border-input bg-v3-rose-tint px-4 py-3.5" data-testid="eb-quota">
+                <p className="text-[14px] font-medium leading-5 text-v3-navy">ใช้สิทธิ์แก้ฟรีไปแล้ว</p>
+                <p className="text-[12px] leading-[18px] text-v3-text-body">เปลี่ยนวันเกิดอีกครั้งใช้ {priceQi} QI เพราะระบบต้องคำนวณดวงใหม่ทั้งหมด</p>
+              </div>
+            ) : (
+              <div className="flex w-full items-center gap-2.5 rounded-[18px] border border-[#C8E8A8] bg-v3-qi-earn-bg px-[18px] py-4 text-v3-qi-earn" data-testid="eb-quota">
+                <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+                  <p className="text-[14px] font-medium leading-5">แก้ได้ฟรีอีก 1 ครั้ง</p>
+                  <p className="text-[12px] leading-[18px] opacity-85">ใช้สำหรับกรณีกรอกผิด หลังจากนั้นการเปลี่ยนวันเกิดจะมีค่าใช้จ่าย</p>
+                </div>
+                <span className="flex-none rounded-full bg-white px-2.5 py-[5px] text-[9px] font-bold leading-none">1 / 1</span>
+              </div>
+            )}
 
-            {/* ฟอร์ม */}
+            {/* ฟอร์ม (เฟรม form-card) — ล็อกเมื่อใช้สิทธิ์ฟรีแล้วและยังไม่ปลดล็อก */}
             <section className={CARD} data-testid="eb-form">
-              {current?.birthDate ? (
-                <p className="text-[11px] text-v3-text-muted" data-testid="eb-current">
-                  ปัจจุบันในระบบ: {current.birthDate}{current.timeUnknown ? " (ไม่ทราบเวลาเกิด)" : current.birthTime ? ` ${current.birthTime}` : ""}
-                </p>
-              ) : null}
               {/* วันเกิด — row ไทย + native date picker ทับ */}
-              <label className="flex flex-col gap-1">
-                <span className="text-[13px] font-bold text-v3-navy">วันเกิด</span>
-                <span className="relative block">
-                  <span className={PICKER_ROW}>
-                    <span className={birth ? "text-v3-navy" : "text-v3-placeholder"}>{birth ? thaiDateFull(birth) : "เลือกวันเกิด"}</span>
-                    <ChevronDown />
-                  </span>
-                  <input type="date" value={birth} onChange={(e) => setBirth(e.target.value)} data-testid="eb-date" aria-label="วันเกิด" className="absolute inset-0 size-full cursor-pointer opacity-0" />
-                </span>
-              </label>
-
-              {/* เวลาเกิด — row ไทย + native time picker ทับ (หรือ "ไม่ทราบเวลา") */}
-              <label className="flex flex-col gap-1">
-                <span className="text-[13px] font-bold text-v3-navy">เวลาเกิด</span>
-                {timeUnknown ? (
-                  <span className={PICKER_ROW + " text-v3-text-muted"}>ไม่ทราบเวลาเกิด</span>
+              <label className="flex flex-col gap-1.5">
+                <span className={LABEL}>วันเกิด</span>
+                {locked ? (
+                  <span className={LOCKED_ROW} data-testid="eb-date-locked"><span className="min-w-0 flex-1">{birth ? thaiDateFull(birth) : "—"}</span><span className="flex-none">ล็อก</span></span>
                 ) : (
                   <span className="relative block">
                     <span className={PICKER_ROW}>
-                      <span className={birthTime ? "text-v3-navy" : "text-v3-placeholder"}>{birthTime ? thaiTimeLabel(birthTime) : "เลือกเวลาเกิด"}</span>
+                      <span className={"min-w-0 flex-1 " + (birth ? "text-v3-navy" : "text-v3-placeholder")}>{birth ? thaiDateFull(birth) : "เลือกวันเกิด"}</span>
+                      <ChevronDown />
+                    </span>
+                    <input type="date" value={birth} onChange={(e) => setBirth(e.target.value)} data-testid="eb-date" aria-label="วันเกิด" className="absolute inset-0 size-full cursor-pointer opacity-0" />
+                  </span>
+                )}
+              </label>
+
+              {/* เวลาเกิด — row ไทย + native time picker ทับ (หรือ "ไม่ทราบเวลา") */}
+              <label className="flex flex-col gap-1.5">
+                <span className={LABEL}>เวลาเกิด</span>
+                {locked ? (
+                  <span className={LOCKED_ROW}><span className="min-w-0 flex-1">{timeUnknown ? "ไม่ทราบเวลา" : birthTime ? thaiTimeLabel(birthTime) : "—"}</span><span className="flex-none">ล็อก</span></span>
+                ) : timeUnknown ? (
+                  <span className={PICKER_ROW + " text-v3-text-note"}>ไม่ทราบเวลา</span>
+                ) : (
+                  <span className="relative block">
+                    <span className={PICKER_ROW}>
+                      <span className={"min-w-0 flex-1 " + (birthTime ? "text-v3-navy" : "text-v3-placeholder")}>{birthTime ? thaiTimeLabel(birthTime) : "เลือกเวลาเกิด"}</span>
                       <ChevronDown />
                     </span>
                     <input type="time" value={birthTime} onChange={(e) => setBirthTime(e.target.value)} data-testid="eb-time" aria-label="เวลาเกิด" className="absolute inset-0 size-full cursor-pointer opacity-0" />
                   </span>
                 )}
-                <label className="mt-1 flex items-center gap-2">
-                  <input type="checkbox" checked={timeUnknown} onChange={(e) => setTimeUnknown(e.target.checked)} data-testid="eb-time-unknown" className="size-4" />
-                  <span className="text-[12px] leading-4 text-v3-text-muted">ถ้าไม่ทราบเวลาเกิดชัด เลือก “ไม่ทราบเวลา” ได้ ระบบจะคำนวณแบบหยาบ</span>
-                </label>
+                {!locked && (
+                  <label className="flex items-center gap-2">
+                    <input type="checkbox" checked={timeUnknown} onChange={(e) => setTimeUnknown(e.target.checked)} data-testid="eb-time-unknown" className="size-4 accent-v3-sapphire" />
+                    <span className="text-[12px] leading-4 text-v3-text-body">ไม่ทราบเวลา</span>
+                  </label>
+                )}
+                <span className={HINT}>ถ้าไม่ทราบเวลาแน่ชัด เลือก &quot;ไม่ทราบเวลา&quot; ได้ ระบบจะคำนวณแบบหยาบ</span>
               </label>
 
               {/* จังหวัดที่เกิด — dropdown 77 จังหวัด */}
-              <label className="flex flex-col gap-1">
-                <span className="text-[13px] font-bold text-v3-navy">จังหวัดที่เกิด</span>
-                <span className="relative block">
-                  <select value={province} onChange={(e) => setProvince(e.target.value)} data-testid="eb-province" className={PICKER_ROW + " w-full appearance-none pr-10 outline-none focus:border-v3-navy " + (province ? "text-v3-navy" : "text-v3-placeholder")}>
-                    <option value="">เลือกจังหวัด</option>
-                    {TH_PROVINCES.map((p) => (
-                      <option key={p} value={p} className="text-v3-navy">{p}</option>
-                    ))}
-                  </select>
-                  <span className="pointer-events-none absolute inset-y-0 right-4 flex items-center"><ChevronDown /></span>
-                </span>
-                <span className="text-[11px] leading-4 text-v3-text-muted">ใช้คำนวณเวลาสุริยคติให้แม่นขึ้น (แก้ได้อิสระ ไม่ใช้โควตา)</span>
+              <label className="flex flex-col gap-1.5">
+                <span className={LABEL}>จังหวัดที่เกิด</span>
+                {locked ? (
+                  <span className={LOCKED_ROW}><span className="min-w-0 flex-1">{province || "—"}</span><span className="flex-none">ล็อก</span></span>
+                ) : (
+                  <span className="relative block">
+                    <select value={province} onChange={(e) => setProvince(e.target.value)} data-testid="eb-province" className={PICKER_ROW + " w-full appearance-none pr-10 outline-none focus:border-v3-navy " + (province ? "text-v3-navy" : "text-v3-placeholder")}>
+                      <option value="">เลือกจังหวัด</option>
+                      {TH_PROVINCES.map((p) => (
+                        <option key={p} value={p} className="text-v3-navy">{p}</option>
+                      ))}
+                    </select>
+                    <span className="pointer-events-none absolute inset-y-0 right-4 flex items-center"><ChevronDown /></span>
+                  </span>
+                )}
+                <span className={HINT}>ใช้คำนวณเวลาสุริยคติให้แม่นขึ้น</span>
               </label>
-              {freeUsed && walletQiNow !== null && (
-                <p className="rounded-[12px] bg-v3-ghost-white px-3 py-2 text-[12px] text-v3-navy">
-                  ยอดของคุณ {walletQiNow.toLocaleString("th-TH")} QI · เหลือ {Math.max(0, walletQiNow - priceQi).toLocaleString("th-TH")} QI หลังแก้
-                </p>
-              )}
               {msg && <p data-testid="eb-msg" className="text-[12px] font-bold text-v3-sapphire">{msg}</p>}
-              <KitButton onClick={() => void save()} disabled={saving || !birth || !dirty} testId="eb-save">
-                {saving ? "กำลังบันทึก..." : freeUsed ? `บันทึกการเปลี่ยนแปลง (ใช้ ${priceQi} QI)` : "บันทึกการเปลี่ยนแปลง"}
-              </KitButton>
-              <p className="text-center text-[11px] leading-4 text-v3-text-muted">{dirty ? "ตรวจสอบข้อมูลให้ถูกต้องก่อนบันทึก" : "อัปเดตใช้งานได้เมื่อมีการแก้ไข"}</p>
             </section>
 
-            {/* คำขอพิจารณา */}
-            <section className={CARD} data-testid="eb-correction">
-              <p className="text-[13px] font-bold text-v3-navy">กรอกผิดตั้งแต่แรก?</p>
-              <p className="text-[12px] leading-4 text-v3-text-body">ถ้าระบบบันทึกวันเกิดไม่ตรง หรือมีเหตุพิเศษ ให้ทีมช่วยพิจารณาได้ (ไม่หัก QI)</p>
-              <KitButton variant="outline" onClick={() => setSheetOpen(true)} testId="eb-correction-open">แจ้งแก้ข้อมูลไม่ถูกต้อง</KitButton>
-              {reqMsg && <p data-testid="eb-correction-msg" className="text-[12px] font-bold text-v3-sapphire">{reqMsg}</p>}
-            </section>
+            {/* สถานะ C (เฟรม state-correction-request 55399:7821): ทางออกสำหรับคนที่กรอกผิดจริง — โชว์เมื่อยังมีสิทธิ์ฟรีหรือปลดล็อกแล้ว */}
+            {!locked && (
+              <section className="flex w-full flex-col gap-3 rounded-[18px] border border-[#C9DDF5] bg-v3-sky-tint px-[18px] py-4 text-v3-sapphire" data-testid="eb-correction">
+                <p className="text-[14px] font-medium leading-5">กรอกผิดตั้งแต่แรกใช่ไหม</p>
+                <p className="text-[12px] leading-[18px] opacity-85">ถ้าวันเกิดที่บันทึกไว้ไม่ถูกต้อง คุณขอแก้ได้โดยไม่เสีย QI แจ้งทีมงานได้เลย ทีมงานจะตรวจสอบและแก้ให้ภายใน 3 วันทำการ</p>
+                <button type="button" onClick={() => setSheetOpen(true)} data-testid="eb-correction-open" className="grid h-12 w-full place-items-center rounded-full border border-v3-border-input bg-white text-[14px] font-semibold uppercase text-v3-text-body">
+                  แจ้งแก้ข้อมูลที่ไม่ถูกต้อง
+                </button>
+                {reqMsg && <p data-testid="eb-correction-msg" className="text-[12px] font-bold text-v3-sapphire">{reqMsg}</p>}
+              </section>
+            )}
+
+            {/* sticky-footer — A/ฟรี: บันทึก (ดับจนแก้) · B/ล็อก: ปลดล็อก · N QI + ยอดหลังแก้ + ลิงก์แจ้งแก้ */}
+            <div className="sticky bottom-0 z-20 -mx-4 flex flex-col gap-2 bg-gradient-to-t from-white via-white/95 to-white/0 px-4 pb-[max(1.75rem,env(safe-area-inset-bottom))] pt-3.5">
+              {locked ? (
+                <>
+                  <KitButton onClick={() => setUnlocked(true)} testId="eb-unlock">ปลดล็อกการแก้ไข · {priceQi} QI</KitButton>
+                  {walletQiNow !== null && (
+                    <p className="text-center text-[9px] leading-[13px] text-v3-text-note" data-testid="eb-after">
+                      ยอดของคุณ {walletQiNow.toLocaleString("th-TH")} QI · เหลือ {Math.max(0, walletQiNow - priceQi).toLocaleString("th-TH")} QI หลังแก้
+                    </p>
+                  )}
+                  <button type="button" onClick={() => setSheetOpen(true)} data-testid="eb-correction-open" className="text-center text-[13px] leading-[18px] text-v3-sapphire underline">
+                    กรอกผิดตั้งแต่แรก? แจ้งแก้ข้อมูลที่ไม่ถูกต้อง
+                  </button>
+                  {reqMsg && <p data-testid="eb-correction-msg" className="text-center text-[12px] font-bold text-v3-sapphire">{reqMsg}</p>}
+                </>
+              ) : (
+                <>
+                  <KitButton onClick={() => void save()} disabled={saving || !birth || !dirty} testId="eb-save" className={!dirty ? "!bg-v3-rose-tint !text-v3-text-note !opacity-100" : ""}>
+                    {saving ? "กำลังบันทึก..." : freeUsed ? `บันทึกการเปลี่ยนแปลง (ใช้ ${priceQi} QI)` : "บันทึกการเปลี่ยนแปลง"}
+                  </KitButton>
+                  {freeUsed && walletQiNow !== null ? (
+                    <p className="text-center text-[9px] leading-[13px] text-v3-text-note" data-testid="eb-after">
+                      ยอดของคุณ {walletQiNow.toLocaleString("th-TH")} QI · เหลือ {Math.max(0, walletQiNow - priceQi).toLocaleString("th-TH")} QI หลังแก้
+                    </p>
+                  ) : (
+                    <p className="text-center text-[9px] leading-[13px] text-v3-text-note">ปุ่มจะใช้งานได้เมื่อมีการแก้ไข</p>
+                  )}
+                </>
+              )}
+            </div>
           </>
         )}
       </div>
 
-      {/* ชีตคำขอพิจารณา */}
+      {/* ชีตแจ้งแก้ข้อมูลที่ไม่ถูกต้อง (เฟรม correction request sheet 55399:6022) */}
       {sheetOpen && (
-        <SheetShell label="แจ้งแก้ข้อมูลไม่ถูกต้อง" onClose={() => setSheetOpen(false)}>
-          <h2 className="text-[18px] font-bold text-v3-navy" data-testid="eb-correction-title">แจ้งแก้ข้อมูลไม่ถูกต้อง</h2>
-          <p className="mt-1 text-[13px] leading-5 text-v3-text-body">เล่าเหตุผลของคุณ — ทีมจะตรวจสอบและติดต่อกลับ (ไม่หัก QI)</p>
+        <SheetShell label="แจ้งแก้ข้อมูลที่ไม่ถูกต้อง" onClose={() => setSheetOpen(false)}>
+          <h2 className="text-[18px] font-bold leading-6 text-v3-navy" data-testid="eb-correction-title">แจ้งแก้ข้อมูลที่ไม่ถูกต้อง</h2>
+          <p className="mt-2 text-[12px] leading-[18px] text-v3-text-body">ถ้าวันเกิดที่บันทึกไว้ไม่ตรงกับความจริง คุณขอแก้ได้โดยไม่เสีย QI</p>
+          <div className="mt-4 flex flex-col rounded-[16px] bg-v3-rose-tint px-4 py-1.5">
+            <div className="flex items-center gap-2.5 py-[11px]">
+              <span className="min-w-0 flex-1 text-[12px] leading-[18px] text-v3-text-body">ที่บันทึกไว้ตอนนี้</span>
+              <span className="flex-none text-[13px] font-bold text-v3-text-note">{currentLabel}</span>
+            </div>
+            <div className="flex items-center gap-2.5 py-[11px]">
+              <span className="min-w-0 flex-1 text-[12px] leading-[18px] text-v3-text-body">ที่ถูกต้องคือ</span>
+              <span className="flex-none text-[13px] font-bold text-v3-sapphire">กรอกด้านล่าง</span>
+            </div>
+          </div>
+          <div className="mt-4 flex flex-col gap-2.5">
+            <p className="text-[12px] font-medium leading-4 text-v3-text-note">ขั้นตอนหลังจากนี้</p>
+            {["เล่าข้อมูลที่ถูกต้องและเหตุผลในช่องด้านล่าง", "ทีมงานตรวจสอบภายใน 3 วันทำการ", "แก้ให้แล้วคำนวณดวงใหม่โดยไม่หัก QI"].map((t, i) => (
+              <div key={t} className="flex items-center gap-2.5">
+                <span className="grid size-[22px] flex-none place-items-center rounded-full bg-v3-sky-tint text-[9px] font-bold text-v3-sapphire">{i + 1}</span>
+                <span className="min-w-0 flex-1 text-[12px] leading-[18px] text-v3-text-body">{t}</span>
+              </div>
+            ))}
+          </div>
           <textarea
             value={reason}
             onChange={(e) => setReason(e.target.value)}
-            placeholder="เช่น สมัครผิดวัน ขอแก้เป็นวันที่ถูกต้อง"
+            placeholder="เช่น สมัครผิดวัน วันเกิดที่ถูกต้องคือ 15 มกราคม 2527"
             data-testid="eb-correction-reason"
-            rows={4}
-            className="mt-3 w-full rounded-[16px] border border-v3-border-input bg-white p-4 text-[14px] outline-none placeholder:text-v3-placeholder"
+            rows={3}
+            className="mt-4 w-full rounded-[14px] border border-v3-border-input bg-white px-4 py-3 text-[14px] leading-[22px] outline-none placeholder:text-v3-placeholder"
           />
-          <div className="mt-3">
-            <KitButton onClick={() => void requestCorrection()} disabled={!reason.trim()} testId="eb-correction-send">ส่งคำขอ</KitButton>
+          <p className="mt-3 rounded-[12px] bg-v3-danger-bg px-3.5 py-[11px] text-[9px] leading-[13px] text-v3-danger-text">
+            ใช้ได้เฉพาะกรณีข้อมูลไม่ถูกต้องจริง ไม่ใช่การเปลี่ยนไปดูดวงให้คนอื่น ทีมงานขอสงวนสิทธิ์ในการตรวจสอบ
+          </p>
+          <div className="mt-4 flex flex-col gap-2">
+            <KitButton onClick={() => void requestCorrection()} disabled={!reason.trim()} testId="eb-correction-send">ส่งคำขอแก้ไข</KitButton>
+            <button type="button" onClick={() => setSheetOpen(false)} className="grid h-12 w-full place-items-center rounded-full bg-white text-[16px] font-bold uppercase text-v3-sapphire">ยกเลิกการแก้ไข</button>
           </div>
         </SheetShell>
       )}

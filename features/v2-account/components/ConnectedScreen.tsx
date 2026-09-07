@@ -93,7 +93,7 @@ export function ConnectedScreen() {
                       {email ? `${email} · ` : ""}วิธีเข้าสู่ระบบหลัก
                     </p>
                   </div>
-                  <span className="flex-none rounded-full bg-[#E8F5E9] px-3 py-1 text-[11px] font-black text-[#1B7F3B]" data-testid="connected-badge">ใช้อยู่</span>
+                  <span className="flex-none rounded-full bg-v3-grade-a-bg px-3 py-1 text-[11px] font-black text-v3-badge-green" data-testid="connected-badge">ใช้อยู่</span>
                 </div>
               ) : (
                 <p className="text-[13px] leading-5 text-v3-text-body" data-testid="connected-unknown">
@@ -116,7 +116,7 @@ export function ConnectedScreen() {
                     <div className="min-w-0 flex-1">
                       <p className="text-[14px] font-bold text-v3-navy">{b.name}</p>
                       <p className="text-[11px] leading-4 text-v3-text-muted">ยังไม่ได้เชื่อม</p>
-                      <span className="mt-1 inline-block rounded-full bg-[#E3F8D1] px-2 py-[2px] text-[11px] font-black text-[#63B05F]">+10 QI</span>
+                      <span className="mt-1 inline-block rounded-full bg-v3-qi-earn-bg px-2 py-[2px] text-[11px] font-black text-v3-qi-earn">+10 QI</span>
                     </div>
                     <span className="flex-none rounded-full bg-v3-ghost-white px-3 py-1.5 text-[11px] font-bold text-v3-text-muted" title="เปิดให้ใช้เร็ว ๆ นี้">เร็ว ๆ นี้</span>
                   </div>

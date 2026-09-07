@@ -31,7 +31,8 @@ describe('#363 the screen cannot contradict the table', () => {
       render(<ResultScreen state={s} {...all} />)
       const paid = RESULT_COPY[s].paid
       expect(screen.getByTestId('result-screen').getAttribute('data-paid'), s).toBe(paid ? '1' : '0')
-      expect(screen.getByTestId('result-mark').textContent, `${s} mark`).toBe(s === 'PAYING' ? '…' : paid ? '✓' : '!')
+      // Figma 375:20499 / 402:22087 — in flight = the mascot export, paid = check-circle export, else "!".
+      expect(screen.getByTestId('result-mark').getAttribute('data-mark'), `${s} mark`).toBe(s === 'PAYING' ? 'paying' : paid ? 'paid' : 'failed')
       cleanup()
     }
   })
@@ -89,7 +90,7 @@ describe('#363 the screen cannot contradict the table', () => {
     for (const s of REFUSED_STATES) {
       render(<ResultScreen state={s} {...all} />)
       expect(screen.getByTestId('result-screen').getAttribute('data-paid'), s).toBe('0')
-      expect(screen.getByTestId('result-mark').textContent, `${s} mark`).toBe('!')
+      expect(screen.getByTestId('result-mark').getAttribute('data-mark'), `${s} mark`).toBe('failed')
       cleanup()
     }
   })

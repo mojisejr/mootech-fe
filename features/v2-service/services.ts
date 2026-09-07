@@ -36,33 +36,47 @@ export type ServiceCardData = {
  *  silently attach itself to the wrong service. */
 const ART = (file: string) => `/images/v2/features/${file}`
 
-const DESC_FORTUNE = ['วิเคราะห์ดวงชะตาเชิงลึก', 'รวบรวมเป็นหนังสือส่วนตัว']
-const DESC_CALENDAR = ['วางแผนชีวิตตามจังหวะดวงดาว เลือกวันดี เลี่ยงวันไม่ดี', 'พร้อมแจ้งเตือนกิจกรรมมงคลที่เหมาะกับคุณโดยเฉพาะ']
-const DESC_PLAN = ['วางแผนชีวิตตามจังหวะดวงดาว เลือกวันดี เลี่ยงวันไม่ดี']
+// คำอธิบายรายบริการ — เคยใช้ DESC_FORTUNE ก้อนเดียวกันทั้ง 8 การ์ด ("วิเคราะห์ดวงชะตาเชิงลึก / รวบรวมเป็นหนังสือ
+// ส่วนตัว") ซึ่งเป็น copy ของ "หนังสือเล่มเดียวในโลก" — บน prod ทุกการ์ดเลยพูดเรื่องหนังสือ (เจอ 2026-09-07).
+// แต่ละบรรทัดคือ 1 บรรทัดบนการ์ด — สั้นพอไม่ตัดคำบนจอ 375
+const DESC_COUPLE = ['เช็คความเข้ากันของคุณกับคู่รัก', 'จากปาจื้อทั้งสองคน พร้อมคำแนะนำ']
+const DESC_COWORKER = ['เทียบดวงคนร่วมงานได้ถึง 3 คน', 'จัดอันดับว่าใครเข้ากับคุณที่สุด']
+const DESC_ONE_BOOK = ['วิเคราะห์ดวงชะตาเชิงลึก', 'รวบรวมเป็นหนังสือส่วนตัว']
+const DESC_ORACLE = ['เปิดไพ่ออราเคิล 3 ใบ', 'รับข้อความชี้ทางจากจักรวาล']
+const DESC_SPIRIT = ['ไพ่จิตวิญญาณจากแดนสวรรค์', 'ฟังเสียงภายในเพื่อคำตอบของใจ']
+const DESC_SIAN = ['ตั้งจิตอธิษฐานแล้วเสี่ยงเซียมซี', 'รับคำทำนายรายด้านทันที']
+const DESC_SINSAE = ['ปรึกษาซินแสตัวจริงแบบตัวต่อตัว', 'วางแผนชีวิตจากดวงของคุณ']
+const DESC_MANIFEST = ['ตั้งเป้าหมาย เขียนคำยืนยัน', 'ทำภารกิจเล็ก ๆ ทุกวันให้เป็นจริง']
+const DESC_LEARN = ['คอร์สปาจื่อออนไลน์ 15 บทเรียน', 'ปูพื้นฐาน อ่านดวงได้ด้วยตัวเอง']
+// ปฏิทิน · Healing Circles · แผนที่ · ร้านค้า — verbatim Figma 626:2962 (2026-09-07). แผนที่/ร้านค้า เคยยืม copy ปฏิทิน (DESC_PLAN).
+const DESC_CALENDAR = ['วางแผนชีวิตตามจังหวะดวงดาว', 'เลือกวันดี พร้อมแจ้งวันมงคล']
+const DESC_HEALING = ['พื้นที่ปลอดภัยให้ทุกคนได้แบ่งปัน', 'ความรู้สึกรับฟังซึ่งกันและกัน']
+const DESC_SACRED = ['แผนที่ศักดิ์สิทธิ์ที่รวบรวมสถานที่', 'พลังงานสูงพร้อมนำภายในที่ลึกซึ้ง']
+const DESC_SHOP = ['เลือกสรรสินค้าเสริมพลังกาย', 'ใจ และจิตวิญญาณ']
 
 /** the shared "เร็วๆ นี้" destination, carrying the service name so that page names what the user tapped */
 export const comingSoonHref = (title: string): string => `/v2/service/coming-soon?service=${encodeURIComponent(title)}`
 
 export const SERVICES = [
   // ดวงสมพงศ์ Slice 1: these two now enter the real compatibility flow (was comingSoonHref).
-  { id: 'couple', title: 'ดูดวงคู่รัก', desc: DESC_FORTUNE, href: '/v2/service/compatibility/love', image: ART('01_ดูดวงคู่รัก.png') },
-  { id: 'coworker', title: 'ดูดวงเพื่อนร่วมงาน', desc: DESC_FORTUNE, href: '/v2/service/compatibility/colleague', image: ART('02_ดูดวงเพื่อนร่วมงาน.png') },
-  { id: 'one-book', title: 'หนังสือเล่มเดียวในโลก', desc: DESC_FORTUNE, href: '/v2/service/one-book', image: ART('03_หนังสือเล่มเดียวในโลก.png') },
-  { id: 'oracle-kiang', title: 'เสี่ยงไพ่ออราเคิลเคี้ยงคุง', desc: DESC_FORTUNE, href: '/v2/fortune/oracle', image: ART('04_เสี่ยงไพ่ออราเคิลเคี้ยงคุง.png') },
-  { id: 'spirit-heaven', title: 'เสี่ยงไพ่จิตวิญญาณแดนสวรรค์', desc: DESC_FORTUNE, href: '/v2/fortune/divine', image: ART('05_เสี่ยงไพ่จิตวิญญาณแดนสวรรค์.png') },
-  { id: 'sian', title: 'เสี่ยงเซียนเสี่ยงทาย', desc: DESC_FORTUNE, href: '/v2/fortune/sage', image: ART('06_เสี่ยงเซียนเสี่ยงทาย.png') },
-  { id: 'sinsae', title: 'ดูดวงส่วนตัว กับซินแส', desc: DESC_FORTUNE, href: '/v2/service/sinsae', image: ART('07_ดูดวงส่วนตัวกับซินแส.png') },
-  { id: 'manifest', title: 'มานิเฟส', desc: DESC_FORTUNE, href: '/v2/service/manifest', image: ART('08_มานิเฟส.png') },
+  { id: 'couple', title: 'ดูดวงคู่รัก', desc: DESC_COUPLE, href: '/v2/service/compatibility/love', image: ART('01_ดูดวงคู่รัก.png') },
+  { id: 'coworker', title: 'ดูดวงเพื่อนร่วมงาน', desc: DESC_COWORKER, href: '/v2/service/compatibility/colleague', image: ART('02_ดูดวงเพื่อนร่วมงาน.png') },
+  { id: 'one-book', title: 'หนังสือเล่มเดียวในโลก', desc: DESC_ONE_BOOK, href: '/v2/service/one-book', image: ART('03_หนังสือเล่มเดียวในโลก.png') },
+  { id: 'oracle-kiang', title: 'เสี่ยงไพ่ออราเคิลเคี้ยงคุง', desc: DESC_ORACLE, href: '/v2/fortune/oracle', image: ART('04_เสี่ยงไพ่ออราเคิลเคี้ยงคุง.png') },
+  { id: 'spirit-heaven', title: 'เสี่ยงไพ่จิตวิญญาณแดนสวรรค์', desc: DESC_SPIRIT, href: '/v2/fortune/divine', image: ART('05_เสี่ยงไพ่จิตวิญญาณแดนสวรรค์.png') },
+  { id: 'sian', title: 'เสี่ยงเซียนเสี่ยงทาย', desc: DESC_SIAN, href: '/v2/fortune/sage', image: ART('06_เสี่ยงเซียนเสี่ยงทาย.png') },
+  { id: 'sinsae', title: 'ดูดวงส่วนตัว กับซินแส', desc: DESC_SINSAE, href: '/v2/service/sinsae', image: ART('07_ดูดวงส่วนตัวกับซินแส.png') },
+  { id: 'manifest', title: 'มานิเฟส', desc: DESC_MANIFEST, href: '/v2/service/manifest', image: ART('08_มานิเฟส.png') },
   // filename says ปฎิทิน (ฎ ชฎา), the title says ปฏิทิน (ฏ ปฏัก) — different letters. Mapped by id on purpose.
   { id: 'calendar', title: 'ปฏิทิน', desc: DESC_CALENDAR, href: '/v2/calendar', image: ART('09_ปฎิทิน.png') },
-  { id: 'healing-circles', title: 'Healing Circles', desc: DESC_CALENDAR, href: comingSoonHref('Healing Circles'), hiddenUntilArt: true },
-  { id: 'sacred-map', title: 'แผนที่ศักดิ์สิทธิ์', desc: DESC_PLAN, href: '/v2/service/sacred-map', image: ART('10_แผนที่ศักดิ์สิทธิ์.png') },
-  { id: 'shop', title: 'ร้านค้าของเรา', desc: DESC_PLAN, href: '/v2/shop', image: ART('11_ร้านค้าของเรา.png') },
+  { id: 'healing-circles', title: 'Healing Circles', desc: DESC_HEALING, href: comingSoonHref('Healing Circles'), hiddenUntilArt: true },
+  { id: 'sacred-map', title: 'แผนที่ศักดิ์สิทธิ์', desc: DESC_SACRED, href: '/v2/service/sacred-map', image: ART('10_แผนที่ศักดิ์สิทธิ์.png') },
+  { id: 'shop', title: 'ร้านค้าของเรา', desc: DESC_SHOP, href: '/v2/shop', image: ART('11_ร้านค้าของเรา.png') },
   // #13, added 2026-08-08 — NOT from the Figma 12. The home screen (Zone 6) has been selling this since
   // #157, but it existed nowhere in the catalog, so its CTA had no name to send anywhere. Hidden for the
   // same reason as Healing Circles: the card art is 1128×463 full-card, and the only ปาจื่อ image we have
   // is the 569×436 illustration inside the blue home card — a different spec, not a substitute.
-  { id: 'pajeu', title: 'เรียนปาจื่อออนไลน์', desc: DESC_FORTUNE, href: comingSoonHref('เรียนปาจื่อออนไลน์'), hiddenUntilArt: true },
+  { id: 'pajeu', title: 'เรียนปาจื่อออนไลน์', desc: DESC_LEARN, href: comingSoonHref('เรียนปาจื่อออนไลน์'), hiddenUntilArt: true },
 ] as const satisfies readonly ServiceCardData[]
 
 /** Every id that exists, derived from the catalog itself — not a second list to keep in sync.

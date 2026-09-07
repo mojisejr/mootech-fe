@@ -14,14 +14,14 @@ function PredictionCard({ area, advice }: { area: DayDetailArea; advice: string[
   return (
     <div className="rounded-2xl px-3 py-2.5" style={{ backgroundColor: c.bg }}>
       <div className="flex items-center gap-2">
-        <p className="min-w-0 flex-1 text-sm font-bold text-v3-navy">{facetLabel(area)}</p>
-        <span className="text-sm font-bold" style={{ color: pctColor }}>{percentText(area.percent)}%</span>
-        <GradeBadge grade={area.grade ?? '—'} className="!min-w-[40px] !py-0.5 text-sm" />
+        <p className="min-w-0 flex-1 text-base font-bold leading-6 text-v3-navy">{facetLabel(area)}</p>
+        <span className="text-sm font-normal leading-[22px]" style={{ color: pctColor }}>{percentText(area.percent)}%</span>
+        <GradeBadge grade={area.grade ?? '—'} className="!min-w-[48px]" />
       </div>
       {advice.length > 0 && (
         <ul className="mt-1.5 space-y-0.5">
           {advice.map((line, i) => (
-            <li key={i} className="text-[13px] leading-[22px] text-[#71717A]">{line}</li>
+            <li key={i} className="text-sm leading-[22px] text-v3-text-muted">{line}</li>
           ))}
         </ul>
       )}
