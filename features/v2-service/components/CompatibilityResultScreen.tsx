@@ -9,6 +9,7 @@
 // รายคน (D21). Rule 4 everywhere: an absent field/section hides.
 import { useState } from 'react'
 import Link from 'next/link'
+import { VipGate } from '@/features/v2-shell/components/VipGate'
 import { SectionCard } from '@/features/v2-calendar/components/day-detail/SectionCard'
 import { LoadingScreen } from '@/features/v2-shell/components/LoadingScreen'
 import { useCompatibilityResult } from '../hooks/useCompatibilityResult'
@@ -151,6 +152,7 @@ export function CompatibilityResultScreen({ matchingId }: { matchingId: string }
             ผลเก่าที่ engine ยังไม่แนบ chart → ตารางสี่เสาเดิม (ไม่เดาข้อมูล) */}
         {advanced && hasElement ? (
           <section id="compat-sec-element" data-testid="compat-sec-element" className="scroll-mt-28">
+            <VipGate label="ตารางดวงจีน" description="ปฏิกิริยาธาตุ สี่เสา วัยจร และปีจรของทั้งคู่ — เฉพาะสมาชิก" testId="compat-chart-gate">
             <SectionCard title="ตารางดวงจีน">
               <div className="flex flex-col gap-4">
                 <CompatElementInteractionCard interaction={ei} />
@@ -166,6 +168,7 @@ export function CompatibilityResultScreen({ matchingId }: { matchingId: string }
                 )}
               </div>
             </SectionCard>
+            </VipGate>
           </section>
         ) : null}
         {advanced && !hasElement ? (

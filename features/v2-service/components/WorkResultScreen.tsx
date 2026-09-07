@@ -21,7 +21,8 @@ import { LoadingScreen } from '@/features/v2-shell/components/LoadingScreen'
 import { ComingSoonNotice } from '@/features/v2-shell/components/ComingSoon'
 import { ResultActionBar } from './ResultActionBar'
 import { gradeTier, TIER_COLOR, TIER_INK, TIER_SOFT, pctWidth } from '../compat-result-parts'
-import { useWorkResult } from '../hooks/useWorkResult'
+import { useWorkResult, useWorkMascots, dayGanzhiOfChart } from '../hooks/useWorkResult'
+import { VipGate } from '@/features/v2-shell/components/VipGate'
 import type { WorkEntry, WorkFacet, WorkRole } from '../work-comparison'
 import { orderRoles } from '../work-role-order'
 import { colleagueRoleOfRelationship } from '../compatibility'
@@ -29,7 +30,7 @@ import { ChartTableCard } from './ChartTableCard'
 import { CompatDimensionCard } from './CompatDimensionCard'
 import { CompatElementInteractionCard } from './CompatElementInteractionCard'
 import { SectionCard } from '@/features/v2-calendar/components/day-detail/SectionCard'
-import type { CompatDimension, CompatElementInteraction } from '../compatibility-result'
+import type { CompatDimension, CompatElementInteraction, CompatMascot } from '../compatibility-result'
 import { CHART_ELEMENT_SOFT, CHART_PILL_INK, readChartTable, type ChartTable } from '../chart-table'
 import { formatCompatBirth } from './compat-format'
 
@@ -121,11 +122,14 @@ function ScoreRow({ entry }: { entry: WorkEntry }) {
 }
 
 /** แถวคนหนึ่งคน — ใช้ทั้งในรายการอันดับ (p8) และการ์ดคนที่เปิด (p16 + ชิปธาตุ) */
-function PersonRow({ entry, chart, pad, elementChip, testId, badgeTestId, dataAttrs }: {
+function PersonRow({ entry, chart, pad, elementChip = true, mascot, testId, badgeTestId, dataAttrs }: {
   entry: WorkEntry
   chart: ChartTable | null
   pad: 'p-2' | 'p-4'
+  /** ชิปธาตุในแถวชื่อ — Figma 720:29221 วาดทุกแถว (name-row + PillWrapper) */
   elementChip?: boolean
+  /** มาสคอตตามวัน-กานจือ (ไทล์ซ้าย r16 สูงเท่าแถว) — ไม่มี = ไม่วาด ไม่เดา */
+  mascot?: CompatMascot | null
   testId: string
   /** testid ของป้ายอันดับ — รายการอันดับใช้ `work-rank-badge-N` (สัญญาเดิม), การ์ดคนที่เปิดใช้ชื่ออื่นกันซ้ำ */
   badgeTestId: string
@@ -135,7 +139,13 @@ function PersonRow({ entry, chart, pad, elementChip, testId, badgeTestId, dataAt
   const birth = birthLineOf(chart, entry.person.timeKnown !== false)
   const element = (chart?.dayElement ?? '').trim()
   return (
-    <div data-testid={testId} {...dataAttrs} className={`flex flex-col gap-1 rounded-2xl ${pad}`} style={{ backgroundColor: TIER_SOFT[tier] }}>
+    <div data-testid={testId} {...dataAttrs} className={`flex items-stretch gap-3 rounded-2xl ${pad}`} style={{ backgroundColor: TIER_SOFT[tier] }}>
+      {mascot?.imageUrl ? (
+        <span data-testid={`${testId}-mascot`} className="relative w-[52px] shrink-0 self-stretch overflow-hidden rounded-2xl bg-white/40">
+          <Image src={mascot.imageUrl} alt="" fill sizes="56px" style={{ objectFit: 'cover' }} />
+        </span>
+      ) : null}
+      <div className="flex min-w-0 flex-1 flex-col gap-2">
       <div className="flex items-center gap-3">
         <Avatar entry={entry} showRank badgeTestId={badgeTestId} />
         <div className="flex min-w-0 flex-1 flex-col">
@@ -151,6 +161,7 @@ function PersonRow({ entry, chart, pad, elementChip, testId, badgeTestId, dataAt
         </div>
       </div>
       <ScoreRow entry={entry} />
+      </div>
     </div>
   )
 }
@@ -204,8 +215,6 @@ export function facetLines(f: WorkFacet): string[] {
 }
 
 function ReadingBlock({ title, subtitle, icon, lead, lines, index }: { title: string; subtitle?: string; icon?: string; lead?: string; lines: string[]; index: number }) {
-  const [open, setOpen] = useState(false)
-  const shown = open ? lines : lines.slice(0, 1)
   return (
     <section data-testid={`work-reading-${index}`} data-title={title} className="flex flex-col gap-2">
       <div className="flex items-center gap-3">
@@ -219,14 +228,8 @@ function ReadingBlock({ title, subtitle, icon, lead, lines, index }: { title: st
       </div>
       {lead ? <p className="whitespace-pre-line text-[14px] font-medium leading-[22px]" style={{ color: INK_BODY }}>{lead}</p> : null}
       <div data-testid={`work-reading-text-${index}`} className="flex flex-col gap-2">
-        {shown.map((t, i) => <p key={i} className="whitespace-pre-line text-[14px] leading-[22px]" style={{ color: INK_BODY }}>{t}</p>)}
+        {lines.map((t, i) => <p key={i} className="whitespace-pre-line text-[14px] leading-[22px]" style={{ color: INK_BODY }}>{t}</p>)}
       </div>
-      {lines.length > 1 ? (
-        <button type="button" aria-expanded={open} onClick={() => setOpen((v) => !v)} className="flex items-center gap-1 self-start text-[14px] font-medium leading-5 text-[#1B9AAF]">
-          {open ? 'ย่อ' : 'อ่านเพิ่ม'}
-          <svg viewBox="0 0 16 16" className={`size-[13px] ${open ? '-rotate-90' : 'rotate-90'}`} fill="none" aria-hidden><path d="M4 8h8m0 0-3-3m3 3-3 3" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" /></svg>
-        </button>
-      ) : null}
     </section>
   )
 }
@@ -261,6 +264,7 @@ function RoleSection({ role, index, chosen = false }: { role: WorkRole; index: n
 export function WorkResultScreen({ matchingId }: { matchingId: string }) {
   const router = useRouter()
   const state = useWorkResult(matchingId)
+  const mascots = useWorkMascots(state)
   // which tab is open, by RANK (1-based) — not by array position, so the value stays meaningful if the
   // list is ever re-fetched, and not by slot, which is debug-only.
   const [openRank, setOpenRank] = useState(1)
@@ -325,22 +329,32 @@ export function WorkResultScreen({ matchingId }: { matchingId: string }) {
   const openChart = chartOf(open)
   const facets = (open.facets ?? []).filter((f) => facetLines(f).length > 0 || (f.ratingText ?? '').trim())
   const heroTitle = chosenRole ? chosenRole.label : 'เพื่อนร่วมงาน'
+  const mascotOf = (chart: unknown) => {
+    const k = dayGanzhiOfChart(chart)
+    return k ? mascots[k] ?? null : null
+  }
+  const selfMascot = mascotOf(state.selfChart)
+  const selfTrait = (state.selfProfile?.nisai?.[0] ?? '').trim()
 
   return shell(
     <>
       {/* hero — Figma 720:29221: การ์ด #1455A4 r22 · title + มาสคอต · แถวอันดับในการ์ด */}
-      <section data-testid="work-hero" className="relative mx-4 overflow-hidden rounded-[22px] bg-[#1455A4] px-4 pb-6 pt-[34px]">
-        <div className="pointer-events-none absolute right-3 top-2 h-[84px] w-[67px]">
-          <Image src="/images/v2/mascot/01.webp" alt="" fill sizes="67px" style={{ objectFit: 'contain' }} />
+      <section data-testid="work-hero" className="relative mx-4 flex flex-col gap-7 overflow-hidden rounded-[22px] bg-[#1455A4] px-4 pb-6 pt-[34px]">
+        <div className="flex flex-col items-center gap-3 text-center">
+          <span data-testid="work-hero-mascot" className="relative block h-[84px] w-[67px]">
+            {/* มาสคอตหัวการ์ด = cutout โปร่ง (Figma asset) — การ์ดมาสคอตจาก API มีพื้นหลัง ใช้ในแถวแทน */}
+            <Image src="/images/v2/mascot/01.webp" alt="" fill sizes="67px" style={{ objectFit: 'contain' }} />
+          </span>
+          <h2 data-testid="work-hero-title" data-role={chosenRole?.value ?? ''} className="text-[20px] font-bold leading-7 text-white">
+            <span className="block">{heroTitle}</span>
+            <span className="block">ที่<span className="text-[#E1FF00]">เข้ากับคุณได้ดีที่สุด</span>ตามลำดับ</span>
+          </h2>
+          {selfTrait ? <p data-testid="work-hero-trait" className="text-[14px] leading-[22px] text-white">{selfTrait}</p> : null}
         </div>
-        <h2 data-testid="work-hero-title" data-role={chosenRole?.value ?? ''} className="pr-[72px] text-[22px] font-bold leading-8 text-white">
-          <span className="block">{heroTitle}</span>
-          <span className="block">ที่เข้ากับคุณได้ดีที่สุดตามลำดับ</span>
-        </h2>
-        <ol data-testid="work-ranked-list" className="mt-7 flex flex-col gap-1">
+        <ol data-testid="work-ranked-list" className="flex flex-col gap-2">
           {entries.map((e) => (
             <li key={e.person.friendId || e.rank} data-testid={`work-ranked-${e.rank}`} data-slot={e.slot}>
-              <PersonRow entry={e} chart={chartOf(e)} pad="p-2" testId={`work-ranked-${e.rank}-card`} badgeTestId={`work-rank-badge-${e.rank}`} />
+              <PersonRow entry={e} chart={chartOf(e)} mascot={mascotOf(e.chart)} pad="p-2" testId={`work-ranked-${e.rank}-card`} badgeTestId={`work-rank-badge-${e.rank}`} />
             </li>
           ))}
         </ol>
@@ -369,7 +383,7 @@ export function WorkResultScreen({ matchingId }: { matchingId: string }) {
           })}
         </nav>
         <div className="px-4">
-          <PersonRow entry={open} chart={openChart} pad="p-4" elementChip testId="work-person" badgeTestId="work-person-rank-badge" dataAttrs={{ 'data-open-rank': open.rank }} />
+          <PersonRow entry={open} chart={openChart} mascot={mascotOf(open.chart)} pad="p-4" testId="work-person" badgeTestId="work-person-rank-badge" dataAttrs={{ 'data-open-rank': open.rank }} />
         </div>
       </section>
 
@@ -420,23 +434,27 @@ export function WorkResultScreen({ matchingId }: { matchingId: string }) {
 
       {/* โหมดแอดวานซ์ = ตารางดวงจีน (Figma 720:32490 §ตารางดวงจีน) — คุณ + คนที่เปิดแท็บ */}
       {advanced && (selfChart || openChart) ? (
-        <section data-testid="work-chart-section" className="mx-4 mt-4 rounded-2xl bg-white px-4 py-5 shadow-[0_4px_14px_rgba(26,38,77,0.06)]">
+        <div className="mx-4 mt-4">
+        <VipGate label="ตารางดวงจีน" description="ปฏิกิริยาธาตุ สี่เสา วัยจร และปีจรของทุกคน — เฉพาะสมาชิก" testId="work-chart-gate">
+        <section data-testid="work-chart-section" className="rounded-2xl bg-white px-4 py-5 shadow-[0_4px_14px_rgba(26,38,77,0.06)]">
           <h2 className="text-base font-bold" style={{ color: INK_NAVY }}>ตารางดวงจีน</h2>
           <div className="mt-2.5 border-b border-dashed border-[#EBD9C8]" />
           <div className="mt-3.5 flex flex-col gap-4">
             <CompatElementInteractionCard interaction={open.elementInteraction as CompatElementInteraction | undefined} />
-            {selfChart ? <ChartTableCard testId="chart-table-self" roleLabel="คุณ" side="self" chart={selfChart} person={{ name: 'คุณ' }} /> : null}
+            {selfChart ? <ChartTableCard testId="chart-table-self" roleLabel="คุณ" side="self" chart={selfChart} person={{ name: 'คุณ', mascotUrl: selfMascot?.imageUrl }} /> : null}
             {openChart ? (
               <ChartTableCard
                 testId="chart-table-open"
                 roleLabel="เขา"
                 side="other"
                 chart={openChart}
-                person={{ name: displayName(open), pictureUrl: open.person.pictureUrl, initials: initialsOf(open.person.name), timeKnown: open.person.timeKnown !== false, rank: open.rank }}
+                person={{ name: displayName(open), pictureUrl: open.person.pictureUrl, initials: initialsOf(open.person.name), mascotUrl: mascotOf(open.chart)?.imageUrl, timeKnown: open.person.timeKnown !== false, rank: open.rank }}
               />
             ) : null}
           </div>
         </section>
+        </VipGate>
+        </div>
       ) : null}
       {advanced && !selfChart && !openChart ? (
         <p data-testid="work-chart-unavailable" className="mx-4 mt-4 text-center text-[13px] text-v3-text-muted">ผลนี้คำนวณก่อนมีตารางดวงจีน — คำนวณใหม่เพื่อดูสี่เสาและวัยจร</p>

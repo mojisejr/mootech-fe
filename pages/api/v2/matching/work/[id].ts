@@ -90,6 +90,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       // 🔴 The raw `comparison` is deliberately NOT here — see the note in ./index.ts.
       relationship: built.relationship ?? null,
       selfChart: built.selfChart ?? null,
+      selfProfile: built.selfProfile ?? null,
       entries: built.entries,
       rankingComplete: built.rankingComplete,
     })

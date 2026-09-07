@@ -14,19 +14,22 @@
 // that still knows.
 import { useEffect, useState } from 'react'
 import { V2MatchingWorkGetDetailApi } from '@/constants/api/api-v2-matching'
-import type { WorkEntry } from '../work-comparison'
+import type { WorkEntry, WorkSelfProfile } from '../work-comparison'
+import type { CompatMascot } from '../compatibility-result'
+import { readChartTable } from '../chart-table'
+import { fetchMascot } from './useCompatibilityResult'
 
 export type WorkResultState =
   | { status: 'loading' }
   /** the id resolved and the server handed back a list already in ranking order */
-  | { status: 'ready'; matchingId: string; createAt: string; entries: WorkEntry[]; relationship: string | null; selfChart: unknown }
+  | { status: 'ready'; matchingId: string; createAt: string; entries: WorkEntry[]; relationship: string | null; selfChart: unknown; selfProfile: WorkSelfProfile | null }
   /** 404 — there is no such result (a stale link, someone else's id, a deleted row) */
   | { status: 'missing' }
   /** 5xx, a network failure, or a body we cannot read — OUR problem, said as ours */
   | { status: 'failed' }
 
 /** narrow the wire body without trusting it: an `entries` that is not an array is a failure, not empty */
-function readEntries(data: unknown): { matchingId: string; createAt: string; entries: WorkEntry[]; relationship: string | null; selfChart: unknown } | null {
+function readEntries(data: unknown): { matchingId: string; createAt: string; entries: WorkEntry[]; relationship: string | null; selfChart: unknown; selfProfile: WorkSelfProfile | null } | null {
   if (!data || typeof data !== 'object') return null
   const d = data as Record<string, unknown>
   if (d.ok !== true || !Array.isArray(d.entries)) return null
@@ -36,7 +39,37 @@ function readEntries(data: unknown): { matchingId: string; createAt: string; ent
     entries: d.entries as WorkEntry[],
     relationship: typeof d.relationship === 'string' ? d.relationship : null,
     selfChart: d.selfChart ?? null,
+    selfProfile: d.selfProfile && typeof d.selfProfile === 'object' ? (d.selfProfile as WorkSelfProfile) : null,
   }
+}
+
+/** วัน-กานจือ (ก้านวัน+กิ่งวัน) ของตารางดวง — ใช้เลือกมาสคอต (GET /api/bazi/mascot/[ganzhi]) เหมือนหน้าคู่รัก */
+export function dayGanzhiOfChart(chart: unknown): string | null {
+  const c = readChartTable(chart)
+  if (!c) return null
+  const d = c.pillars.day
+  return d.stem && d.branch ? `${d.stem}${d.branch}` : null
+}
+
+/** มาสคอตของทุกคนในผล (คุณ + ผู้สมัคร) keyed ด้วยวัน-กานจือ — ไม่มี chart (ผลเก่า) = ไม่มีมาสคอต ไม่เดา */
+export function useWorkMascots(state: WorkResultState): Record<string, CompatMascot | null> {
+  const keys = state.status === 'ready'
+    ? Array.from(new Set([dayGanzhiOfChart(state.selfChart), ...state.entries.map((e) => dayGanzhiOfChart(e.chart))].filter((k): k is string => !!k)))
+    : []
+  const keyStr = keys.join('|')
+  const [mascots, setMascots] = useState<Record<string, CompatMascot | null>>({})
+  useEffect(() => {
+    if (!keyStr) return
+    let alive = true
+    ;(async () => {
+      const found = await Promise.all(keyStr.split('|').map(async (k) => [k, await fetchMascot(k)] as const))
+      if (alive) setMascots(Object.fromEntries(found))
+    })()
+    return () => {
+      alive = false
+    }
+  }, [keyStr])
+  return mascots
 }
 
 export function useWorkResult(matchingId: string): WorkResultState {

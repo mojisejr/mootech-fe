@@ -49,9 +49,23 @@ export type WorkComparison = {
   relationshipLabel?: string
   /** ตารางดวงจีนของทุกคน (engine 2026-09-07) — self + candidates[index] */
   charts?: { self?: unknown; candidates?: unknown[] }
+  /** นิสัยของ "คุณ" จาก engine (2026-09-07) — hero ใช้บรรทัดแรก */
+  selfProfile?: WorkSelfProfile
   ranking: number[]
   candidates: WorkCandidate[]
   sisingReference?: Record<string, unknown>
+}
+
+export type WorkSelfProfile = { dayGanzhi?: string; elementTh?: string; stageTh?: string | null; nisai?: string[] }
+function readSelfProfile(x: unknown): WorkSelfProfile | undefined {
+  if (!x || typeof x !== 'object') return undefined
+  const o = x as Record<string, unknown>
+  return {
+    dayGanzhi: typeof o.dayGanzhi === 'string' ? o.dayGanzhi : undefined,
+    elementTh: typeof o.elementTh === 'string' ? o.elementTh : undefined,
+    stageTh: typeof o.stageTh === 'string' ? o.stageTh : null,
+    nisai: Array.isArray(o.nisai) ? o.nisai.filter((t): t is string => typeof t === 'string') : [],
+  }
 }
 
 /** How many roles the engine promises per person. */
@@ -75,6 +89,7 @@ export function trimWorkResponse(body: unknown): WorkComparison | null {
     relationship: typeof c.relationship === 'string' ? c.relationship : undefined,
     relationshipLabel: typeof c.relationshipLabel === 'string' ? c.relationshipLabel : undefined,
     charts: c.charts && typeof c.charts === 'object' ? { self: (c.charts as { self?: unknown }).self, candidates: Array.isArray((c.charts as { candidates?: unknown[] }).candidates) ? (c.charts as { candidates?: unknown[] }).candidates : [] } : undefined,
+    selfProfile: readSelfProfile(c.selfProfile),
     ranking: Array.isArray(c.ranking) ? c.ranking.filter((n) => Number.isInteger(n)) : [],
     candidates: c.candidates.map((x, i) => normaliseCandidate(x, i)),
     sisingReference: c.sisingReference,
@@ -240,6 +255,8 @@ export type WorkResultBuild =
       relationship?: string
       /** ตารางดวงจีนของ "คุณ" (comparison.charts.self) */
       selfChart?: unknown
+      /** นิสัยของ "คุณ" (comparison.selfProfile) — ผลเก่าไม่มี */
+      selfProfile?: WorkSelfProfile
       entries: WorkEntry[]
       /** true only when `comparison.ranking` named every candidate — mirrors `rolesComplete` */
       rankingComplete: boolean
@@ -279,6 +296,7 @@ export function buildWorkResult(comparison: WorkComparison | null, people: WorkP
     ok: true,
     relationship: comparison?.relationship,
     selfChart: comparison?.charts?.self,
+    selfProfile: comparison?.selfProfile,
     rankingComplete: ranked.every((c) => named.has(c.index)),
     entries: ranked.map((c, i) => {
       const r = readRoles(c)

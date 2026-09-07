@@ -277,17 +277,27 @@ describe('บทบาทแยกเส้น — ความเข้าก�
     expect(screen.queryByTestId('work-roles')).toBeNull()
   })
 
-  it('คำทำนายรายด้านใช้หัว Figma + ชื่อมิติเป็นบรรทัดรอง และ "อ่านเพิ่ม" กางบรรทัดที่เหลือ', async () => {
+  it('คำทำนายรายด้านใช้หัว Figma + ชื่อมิติเป็นบรรทัดรอง และโชว์คำอ่านครบทุกบรรทัด (Figma 720:32490 ไม่มีย่อ)', async () => {
     answerOk(ENTRY)
     render(<WorkResultScreen matchingId="m-1" />)
     const readings = await screen.findByTestId('work-readings')
     expect(screen.getByTestId('work-reading-heading-1').textContent).toBe('ธุรกิจ')
     expect(screen.getByTestId('work-reading-heading-2').textContent).toBe('บริวาร')
     expect(readings.textContent).toContain('ทำงานกับบริวารเจ้านาย')
-    const second = screen.getByTestId('work-reading-text-2')
-    expect(second.textContent).toBe('บริวาร-ก้าน')
-    const more = Array.from(readings.querySelectorAll('button')).find((b) => b.textContent?.includes('อ่านเพิ่ม'))!
-    more.click()
-    await waitFor(() => expect(screen.getByTestId('work-reading-text-2').textContent).toContain('บริวาร-กิ่ง'))
+    expect(screen.getByTestId('work-reading-text-2').textContent).toBe('บริวาร-ก้านบริวาร-กิ่ง')
+    expect(Array.from(readings.querySelectorAll('button')).some((b) => b.textContent?.includes('อ่านเพิ่ม'))).toBe(false)
+  })
+
+  it('hero: มาสคอตกลาง + ไฮไลต์ + นิสัยของคุณจาก engine (ไม่มี = ไม่วาดบรรทัด)', async () => {
+    getWork.mockResolvedValue({ ok: true, status: 200, data: { ok: true, matching_id: 'm-1', create_at: '2026-09-02', entries: ENTRY, relationship: 'boss', selfProfile: { nisai: ['คุณเป็นคนใส่ใจภาพลักษณ์', 'บรรทัดสอง'] } } })
+    render(<WorkResultScreen matchingId="m-1" />)
+    expect((await screen.findByTestId('work-hero-trait')).textContent).toBe('คุณเป็นคนใส่ใจภาพลักษณ์')
+    expect(screen.getByTestId('work-hero-mascot')).toBeTruthy()
+    expect(screen.getByTestId('work-hero-title').textContent).toContain('เจ้านาย')
+    cleanup()
+    answerOk(ENTRY)
+    render(<WorkResultScreen matchingId="m-1" />)
+    await screen.findByTestId('work-hero')
+    expect(screen.queryByTestId('work-hero-trait')).toBeNull()
   })
 })
