@@ -77,14 +77,17 @@ export function CardReadingScreen({
   // weight จาก engine อาจเป็นสัดส่วน (0.5) หรือเปอร์เซ็นต์ (50) — normalize เป็น % จำนวนเต็ม
   const weightByNo = useMemo(() => new Map(slots.map((s) => [s.no, Math.round(s.weight <= 1 ? s.weight * 100 : s.weight)])), [slots])
   const proseParas = useMemo(() => prose.split("\n\n").map((p) => p.trim()).filter(Boolean), [prose])
-  // รูปหน้าไพ่: ไฟล์ใน FE เอง (/public/images/v2/fortune/cards/<deck>/<no>.jpg — คัดลอกจาก engine card-faces/
-  // 2026-09-07 เพราะบน prod เส้น engine ดึงรูปไม่ขึ้น) · โหลดไม่ได้ค่อยถอยไป proxy engine ครั้งเดียว
-  const faceUrl = (no: number) => `/images/v2/fortune/cards/${mode}/${no}.jpg`
+  // รูปหน้าไพ่: เรียกจาก database — engine predict ส่ง card.imageUrl (Supabase Storage public URL,
+  // oracle 120/120 · divine 80/80) มาให้ตรง ๆ. โหลด URL นั้นไม่ได้ค่อยถอยไปไฟล์ใน FE ครั้งเดียว แล้วซ่อน
+  // (2026-09-07 ผู้ใช้: เรียกรูปจาก database ไม่ commit ไฟล์การ์ดในโปรเจกต์)
+  const localFace = (no: number) => `/images/v2/fortune/cards/${mode}/${no}.jpg`
+  const faceUrl = (c: FortuneCard) => (c.imageUrl?.trim() ? c.imageUrl : localFace(c.no))
   const faceFallback = (e: React.SyntheticEvent<HTMLImageElement>, no: number, hide: "display" | "visibility") => {
     const img = e.currentTarget
-    if (!img.dataset.fallback) {
+    const local = localFace(no)
+    if (!img.dataset.fallback && !img.src.endsWith(local)) {
       img.dataset.fallback = "1"
-      img.src = `/api/fortune/card-image/${mode}/${no}`
+      img.src = local
       return
     }
     if (hide === "display") img.style.display = "none"
@@ -258,7 +261,7 @@ export function CardReadingScreen({
                   <Image src={theme.back} alt="" fill sizes="110px" className="object-cover" />
                   <span className="absolute inset-x-1 bottom-1 z-0 rounded bg-black/40 px-1 py-0.5 text-center text-[9px] font-bold leading-tight text-white">{c.name}</span>
                   {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={faceUrl(c.no)} alt={c.name} loading="lazy" className="absolute inset-0 z-10 size-full object-cover" onError={(e) => faceFallback(e, c.no, "display")} />
+                  <img src={faceUrl(c)} alt={c.name} loading="lazy" className="absolute inset-0 z-10 size-full object-cover" onError={(e) => faceFallback(e, c.no, "display")} />
                 </span>
                 {weightByNo.has(c.no) ? <span className="rounded-full bg-[#FCE9F0] px-2 py-[1px] text-[10px] font-black text-[#B0568A]">น้ำหนัก {weightByNo.get(c.no)}%</span> : null}
                 <p className="text-center text-[10px] font-bold leading-tight text-v3-navy">#{c.no} {c.name}</p>
@@ -281,7 +284,7 @@ export function CardReadingScreen({
                 {/* ไอคอนเล็ก = รูปหน้าไพ่ (เหมือนด้านบน) แบบไม่ตัด */}
                 <span className="relative size-9 flex-none overflow-hidden rounded-[8px] bg-v3-ghost-white">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={faceUrl(c.no)} alt="" loading="lazy" className="absolute inset-0 size-full object-contain" onError={(e) => faceFallback(e, c.no, "visibility")} />
+                  <img src={faceUrl(c)} alt="" loading="lazy" className="absolute inset-0 size-full object-contain" onError={(e) => faceFallback(e, c.no, "visibility")} />
                 </span>
                 <p className="text-[14px] font-black text-v3-navy">#{c.no} {c.name} · {c.keyword}</p>
                 {weightByNo.has(c.no) ? <span className="rounded-full bg-[#FCE9F0] px-2 py-[1px] text-[10px] font-black text-[#B0568A]">น้ำหนัก {weightByNo.get(c.no)}%</span> : null}
