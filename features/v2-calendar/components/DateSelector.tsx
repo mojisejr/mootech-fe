@@ -38,7 +38,7 @@ const CARD = 'flex h-[62px] shrink-0 items-center rounded-[15px] border border-v
 
 function Chevron() {
   return (
-    <svg viewBox="0 0 20 20" className="size-5 shrink-0 text-[#4B5563]" fill="none" aria-hidden>
+    <svg viewBox="0 0 20 20" className="size-5 shrink-0 text-v3-text-body-alt" fill="none" aria-hidden>
       <path d="M5 7.5 10 12.5 15 7.5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   )

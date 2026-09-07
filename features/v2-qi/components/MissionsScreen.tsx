@@ -88,7 +88,7 @@ function ActionRow({
   return (
     <div className="flex flex-col gap-2 px-4 py-3.5" data-testid={testId}>
       <div className="flex items-center gap-3">
-        <span aria-hidden className="grid size-9 flex-none place-items-center rounded-[12px] bg-[#E3F8D1] text-[#3F8F52]">{done ? CHECK : icon}</span>
+        <span aria-hidden className="grid size-9 flex-none place-items-center rounded-[12px] bg-v3-qi-earn-bg text-v3-qi-earn-icon">{done ? CHECK : icon}</span>
         <div className="min-w-0 flex-1">
           <p className="text-[14px] font-bold text-v3-navy">{title}</p>
           <p className="text-[11px] leading-4 text-v3-text-muted">{desc}</p>
@@ -114,7 +114,7 @@ function ActionRow({
           </p>
         </div>
       )}
-      {note ? <p className="text-[10px] font-bold text-[#1B7F3B]">{note}</p> : null}
+      {note ? <p className="text-[10px] font-bold text-v3-badge-green">{note}</p> : null}
     </div>
   )
 }
@@ -278,7 +278,7 @@ export function MissionsScreen() {
                         <p className="text-[14px] font-bold text-v3-navy">เพื่อนสมัครจากลิงก์ของคุณ</p>
                         <p className="text-[11px] leading-4 text-v3-text-muted">นับเมื่อเพื่อนกรอกวันเกิดและเช็คอินครั้งแรก</p>
                       </div>
-                      <span className="flex-none rounded-full bg-[#E8F5E9] px-3 py-1 text-[11px] font-black text-[#1B7F3B]">+{goals.referral.rewardPerInviteQi} QI / คน</span>
+                      <span className="flex-none rounded-full bg-v3-grade-a-bg px-3 py-1 text-[11px] font-black text-v3-badge-green">+{goals.referral.rewardPerInviteQi} QI / คน</span>
                     </div>
                     <div className="h-[6px] w-full overflow-hidden rounded-full bg-v3-ghost-white">
                       <div className="h-full rounded-full bg-v3-sapphire" style={{ width: `${Math.min(100, goals.referral.invited * 20)}%` }} />
@@ -296,7 +296,7 @@ export function MissionsScreen() {
                         <p className="text-[14px] font-bold text-v3-navy">สะสมเพื่อนครบ 5 ธาตุ</p>
                         <p className="text-[11px] leading-4 text-v3-text-muted">ธาตุของเพื่อนคำนวณจากวันเกิด · เลือกไม่ได้</p>
                       </div>
-                      <span className="flex-none rounded-full bg-[#E8F5E9] px-3 py-1 text-[11px] font-black text-[#1B7F3B]">+{goals.element.bonusQi.toLocaleString("th-TH")} QI</span>
+                      <span className="flex-none rounded-full bg-v3-grade-a-bg px-3 py-1 text-[11px] font-black text-v3-badge-green">+{goals.element.bonusQi.toLocaleString("th-TH")} QI</span>
                     </div>
                     <div className="flex items-start justify-between gap-1">
                       {goals.element.elements.map((e) => {

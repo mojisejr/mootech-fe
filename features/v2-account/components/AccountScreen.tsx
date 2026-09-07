@@ -215,10 +215,10 @@ export function AccountScreen() {
           {mascot ? (
             <section className="v3-shadow-card flex flex-col gap-3 rounded-[24px] bg-white p-4" data-testid="account-element">
               <p className="text-[16px] font-bold text-v3-navy">ธาตุของคุณ</p>
-              <div className="flex items-center gap-3 rounded-[16px] bg-[#F6ECF0] p-3">
+              <div className="flex items-center gap-3 rounded-[16px] bg-v3-rose-tint p-3">
                 <div className="min-w-0 flex-1">
                   <span className="inline-block rounded-full bg-[#FFF8F0] px-2.5 py-1 text-[12px] font-bold text-[#E5A93B]">{mascot.elementLabelTh} ({mascot.elementLabelEn})</span>
-                  {element?.tagline ? <p className="mt-2 line-clamp-3 text-[12px] leading-[18px] text-[#717171]">{element.tagline}</p> : null}
+                  {element?.tagline ? <p className="mt-2 line-clamp-3 text-[12px] leading-[18px] text-v3-dropdown-label">{element.tagline}</p> : null}
                 </div>
                 {/* ใช้ card asset เดิม (ฉาก illustrated ต่อธาตุ) — ไฟล์ที่ฉากผิดธาตุ (เช่น 09_วอก-ไม้) ให้ทีมออกแบบแก้ทีหลัง */}
                 <span aria-hidden className="relative h-[138px] w-[126px] flex-none overflow-hidden rounded-[16px] motion-safe:animate-mascot-float">
@@ -277,7 +277,7 @@ export function AccountScreen() {
               {days.map((d) => {
                 const isDone = claimedSet.has(d) || (done && d === today)
                 const isToday = d === today
-                const bg = isDone ? "bg-[#ECF0FD] text-v3-sapphire" : isToday ? "bg-v3-cyan text-white" : "bg-[#F0F8F0] text-v3-cyan"
+                const bg = isDone ? "bg-v3-ghost-white text-v3-sapphire" : isToday ? "bg-v3-cyan text-white" : "bg-v3-grade-b-bg text-v3-cyan"
                 return (
                   <span key={d} className={`grid flex-1 place-items-center rounded-[11px] py-3 text-[13px] font-bold ${bg}`}>
                     {isDone ? CHECK_SM : isToday ? <span className="text-[10px] leading-none">วันนี้</span> : Number(d.slice(8, 10))}
@@ -303,13 +303,13 @@ export function AccountScreen() {
                   const ic = iconFor(mn.id)
                   return (
                     <Link key={mn.id} href={mn.actionHref ?? "/v2/qi/missions"} className="v3-shadow-line flex flex-1 flex-col items-center gap-2.5 rounded-[16px] bg-white p-3 text-center">
-                      <span aria-hidden className="grid size-9 flex-none place-items-center rounded-[12px] bg-[#E3F8D1] text-[#3F8F52]">
+                      <span aria-hidden className="grid size-9 flex-none place-items-center rounded-[12px] bg-v3-qi-earn-bg text-v3-qi-earn-icon">
                         {mn.completed ? (
                           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6 9 17l-5-5" /></svg>
                         ) : ic.icon}
                       </span>
                       <p className="text-[14px] font-bold leading-5 text-v3-navy">{mn.title}</p>
-                      <p className="text-[14px] font-bold text-[#63B05F]">+{mn.rewardCoins} QI</p>
+                      <p className="text-[14px] font-bold text-v3-qi-earn">+{mn.rewardCoins} QI</p>
                     </Link>
                   )
                 })}
@@ -332,7 +332,7 @@ export function AccountScreen() {
                   ) : null}
                 </span>
               ) : (
-                <span aria-hidden className="grid size-[38px] flex-none place-items-center rounded-full bg-[#EAF3FF] text-v3-sapphire">
+                <span aria-hidden className="grid size-[38px] flex-none place-items-center rounded-full bg-v3-sky-tint text-v3-sapphire">
                   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M19 8v6M22 11h-6" /></svg>
                 </span>
               )}
@@ -349,8 +349,8 @@ export function AccountScreen() {
                   </>
                 )}
               </div>
-              {goals && friends > 0 ? <span data-testid="account-friends-badge" className="flex-none rounded-full bg-[#EAF3FF] px-2.5 py-[5px] text-[9px] font-bold leading-none text-v3-sapphire">{goals.element.collected}/5</span> : null}
-              <span className="flex-none text-[16px] font-bold leading-6 text-[#8C8C8C]">›</span>
+              {goals && friends > 0 ? <span data-testid="account-friends-badge" className="flex-none rounded-full bg-v3-sky-tint px-2.5 py-[5px] text-[9px] font-bold leading-none text-v3-sapphire">{goals.element.collected}/5</span> : null}
+              <span className="flex-none text-[16px] font-bold leading-6 text-v3-text-note">›</span>
             </Link>
             {/* แถวแผน / upsell */}
             {isPaid ? (
@@ -363,14 +363,14 @@ export function AccountScreen() {
                 <span data-testid="account-plan-link" className="flex-none text-[13px] font-bold text-v3-cyan">จัดการ ›</span>
               </Link>
             ) : (
-              <Link href={SHOP_HREF} data-testid="account-plan" className="flex items-center gap-3 border-t border-v3-border-card bg-[#F7F0FC] px-4 py-3.5 text-[#6F1BAF]">
+              <Link href={SHOP_HREF} data-testid="account-plan" className="flex items-center gap-3 border-t border-v3-border-card bg-[#F7F0FC] px-4 py-3.5 text-v3-purple">
                 <span aria-hidden className="grid size-[38px] flex-none place-items-center rounded-[12px] bg-[#EADCF7] text-[18px]">👑</span>
                 <div className="flex min-w-0 flex-1 flex-col gap-[3px]">
                   {/* เฟรม: "เดือนนี้จ่ายค่า QI ไป ฿318 / Pro ฿199 ใช้ไม่จำกัด ประหยัด ฿119" — ตัวเลขจาก ledger จริง ไม่มี → ชื่อแผน */}
                   <p className="text-[14px] font-medium leading-5" data-testid="account-plan-name">{spentThb !== null ? `เดือนนี้จ่ายค่า QI ไป ${thb(spentThb)}` : plan?.heading ?? "แผนของคุณ"}</p>
                   <p className="text-[12px] leading-[18px] opacity-85" data-testid="account-plan-sub">{`Pro ${thb(PRO_MONTHLY_THB)} ใช้ไม่จำกัด`}{proSaving !== null ? ` ประหยัด ${thb(proSaving)}` : ""}</p>
                 </div>
-                <span data-testid="account-shop-cta" className="flex-none rounded-full bg-[#6F1BAF] px-[9px] py-1 text-[9px] font-bold leading-none text-white">แนะนำ</span>
+                <span data-testid="account-shop-cta" className="flex-none rounded-full bg-v3-purple px-[9px] py-1 text-[9px] font-bold leading-none text-white">แนะนำ</span>
                 <span className="flex-none text-[16px] font-bold leading-6">›</span>
               </Link>
             )}
@@ -394,13 +394,13 @@ export function AccountScreen() {
                           <p className="truncate text-[14px] leading-[22px] text-v3-navy">{reasonLabel(h.reason, missionTitles)}</p>
                           <p className="text-[12px] leading-[18px] text-v3-text-muted">{bkkCivilDate(h.createdAt)}</p>
                         </div>
-                        <span className={"flex-none text-[14px] font-bold " + (h.qiDelta > 0 ? "text-[#63B05F]" : "text-[#E08586]")}>{h.qiDelta > 0 ? "+" : ""}{h.qiDelta} QI</span>
+                        <span className={"flex-none text-[14px] font-bold " + (h.qiDelta > 0 ? "text-v3-qi-earn" : "text-v3-qi-spend")}>{h.qiDelta > 0 ? "+" : ""}{h.qiDelta} QI</span>
                       </li>
                     ))}
                   </ul>
                 ) : (
                   <div data-testid="account-activity-empty" className="flex flex-col items-center gap-1.5 px-4 py-8 text-center">
-                    <span aria-hidden className="mb-1 grid size-11 place-items-center rounded-full bg-[#ECF0FD] text-v3-sapphire">
+                    <span aria-hidden className="mb-1 grid size-11 place-items-center rounded-full bg-v3-ghost-white text-v3-sapphire">
                       <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M12 8v4l3 2" /><circle cx="12" cy="12" r="9" /></svg>
                     </span>
                     <p className="text-[14px] font-bold text-v3-navy">ยังไม่มีความเคลื่อนไหว</p>

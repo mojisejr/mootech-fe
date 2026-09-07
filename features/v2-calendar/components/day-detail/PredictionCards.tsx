@@ -21,7 +21,7 @@ function PredictionCard({ area, advice }: { area: DayDetailArea; advice: string[
       {advice.length > 0 && (
         <ul className="mt-1.5 space-y-0.5">
           {advice.map((line, i) => (
-            <li key={i} className="text-sm leading-[22px] text-[#71717A]">{line}</li>
+            <li key={i} className="text-sm leading-[22px] text-v3-text-muted">{line}</li>
           ))}
         </ul>
       )}

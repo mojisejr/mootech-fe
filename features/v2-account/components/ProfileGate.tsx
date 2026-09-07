@@ -33,7 +33,7 @@ export function ProfileGate({
   if (kind === "failed") {
     return (
       <div className="mt-4 rounded-[24px] bg-white p-5 text-center shadow-[0_4px_15px_rgba(26,38,77,0.12)]" data-testid="profile-gate-error">
-        <span aria-hidden className="mx-auto mb-2 grid size-11 place-items-center rounded-full bg-[#FDECEC] text-[#A83238]">
+        <span aria-hidden className="mx-auto mb-2 grid size-11 place-items-center rounded-full bg-v3-danger-bg text-v3-danger-text">
           <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M12 9v4M12 17h.01" /><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z" /></svg>
         </span>
         <p className="text-sm font-bold text-v3-navy">{title}</p>

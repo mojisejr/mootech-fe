@@ -107,8 +107,8 @@ export function CompatibilityResultScreen({ matchingId }: { matchingId: string }
         {/* การ์ดขาว r16 py24 gap24: toggle แอดวานซ์ + Pill Tabs (sticky ให้กดได้ระหว่างเลื่อน) */}
         <div className="sticky top-0 z-20 -mx-4 bg-v3-bg-cream/95 px-4 py-2 backdrop-blur-sm">
           <div className="flex flex-col gap-4 rounded-2xl bg-white p-4">
-            <div className="flex items-center justify-between rounded-[50px] bg-[#ECF0FD] p-4">
-              <span className="text-[16px] font-bold leading-6 text-[#0B305B]">เปิดโหมดแอดวานซ์</span>
+            <div className="flex items-center justify-between rounded-[50px] bg-v3-ghost-white p-4">
+              <span className="text-[16px] font-bold leading-6 text-v3-navy">เปิดโหมดแอดวานซ์</span>
               <button
                 type="button"
                 role="switch"
@@ -152,7 +152,7 @@ export function CompatibilityResultScreen({ matchingId }: { matchingId: string }
             ผลเก่าที่ engine ยังไม่แนบ chart → ตารางสี่เสาเดิม (ไม่เดาข้อมูล) */}
         {advanced && hasElement ? (
           <section id="compat-sec-element" data-testid="compat-sec-element" className="scroll-mt-28">
-            <VipGate label="ตารางดวงจีน" description="ปฏิกิริยาธาตุ สี่เสา วัยจร และปีจรของทั้งคู่ — เฉพาะสมาชิก" testId="compat-chart-gate">
+            <VipGate label="ตารางดวงจีน" description="ปฏิกิริยาธาตุ สี่เสา วัยจร และปีจรของทั้งคู่ — เฉพาะสมาชิก" testId="compat-chart-gate" variant="section">
             <SectionCard title="ตารางดวงจีน">
               <div className="flex flex-col gap-4">
                 <CompatElementInteractionCard interaction={ei} />

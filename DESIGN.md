@@ -188,7 +188,7 @@ success-text    #3B6D11   ชื่อโค้ด · −฿ยอด · บร�
 
 | | ตอบคำถามอะไร | การเข้ารหัส |
 |---|---|---|
-| **CALENDAR day-cell** (ข้างล่าง) | *"เดือนนี้วันไหนดี"* — เทียบกัน 30 ช่อง | 3 ระดับ ฟ้า/ส้ม/แดง = แผนที่ความร้อน |
+| **CALENDAR day-cell** (ข้างล่าง) | *"เดือนนี้วันไหนดี"* — เทียบกัน 30 ช่อง | 10 ขั้นตามเกรด (Figma variables `Grade color bg/…`) = แผนที่ความร้อนละเอียด (2026-09-07 เปลี่ยนจาก 3 ระดับ) |
 | **GRADE** (อันนี้) | *"วันที่เลือกดีแค่ไหน"* — ค่าเดี่ยว | 5 โซน + ตัวอักษร = หน้าปัด |
 
 เฉดของสองระบบไม่ตรงกัน **8 จาก 13 เกรด** (`D+ C+ B- B B+ A- A A+`) — และ**เป็นแบบนี้อยู่แล้วก่อนการเปลี่ยนครั้งนี้**
@@ -197,12 +197,22 @@ success-text    #3B6D11   ชื่อโค้ด · −฿ยอด · บร�
 
 🔒 **มีด่านเฝ้าข้อนี้**: ช่องที่ถูกเลือกต้องเป็นแซฟไฟร์ ไม่ใช่สี tier — ถ้าวันหลังมีคนแก้ เหตุผลข้างบนจะพังเงียบๆ
 
-### Semantic scale — CALENDAR day-cell (3-tier) `✓`
-| Tier | Cell tint | %-text |
-|---|---|---|
-| Good ≥60% | `#E2F4F6` | `#0B7A8C` |
-| Medium 40–59% | `#FEF1E0` | `#B47E35` |
-| Bad <40% | `#FEE7E4` | `#CD3D2E` |
+### Semantic scale — CALENDAR day-cell (10-step, by grade) `✓`
+ที่มา: Figma `636:21251` Grade Card Previews + `375:16710` month grid (design context 2026-09-07). โค้ด: `lib/v2/grade-scale.ts` `GRADE_STEP_COLOR` → `features/v2-calendar/components/grade-colors.ts` `DAY_CELL_COLORS`. เกรด 13 ของ engine พับเป็น 10 ขั้น (A+/A- → A, F → D-).
+| ขั้น | ช่วง % | Cell tint | %-text |
+|---|---|---|---|
+| A | 90–100 | `#E8F5E9` | `#2E7D32` |
+| B+ | 80–89 | `#EDF7ED` | `#43A047` |
+| B | 70–79 | `#F0F8F0` | `#66BB6A` |
+| B- | 60–69 | `#F1F8E8` | `#8BC34A` |
+| C+ | 50–59 | `#F9FBE7` | `#CDDC39` |
+| C | 45–49 | `#FFF3E0` | `#FFA726` |
+| C- | 40–44 | `#FFF0E1` | `#F57C00` |
+| D+ | 35–39 | `#FBE9E7` | `#E64A19` |
+| D | 25–34 | `#FFEBEE` | `#D32F2F` |
+| D- | 0–24 | `#FCE4EC` | `#B71C1C` |
+
+Legend ใต้ตาราง = B- / C / D tints ("≥60% วันดี", "40–59%", "<40% ระวัง"). ช่องที่เลือกยังเป็นแซฟไฟร์ทับสีเกรดเสมอ (ด่านเดิม).
 
 Calendar markers: selected-day / วันพระ ring `#9D85DA` (≠ Accent/Purple `#AF9CE0`).
 
@@ -352,7 +362,7 @@ box `24×24` r`4` · check 16. Unselected `1px #C2C2C2` → hover/focus `1px #14
 **Calendar**
 - **Grade Card** (`636-21251`): w329 r16 pad12H/10V gap5, bg = grade tint. Header: title Bold16/24 (flex-1) + `%` in grade color + badge pill (w48 pad10H/3V r100 fill=grade, label Bold16 white [C+ dark]). Desc Regular14/22 `#71717A`.
 - **Bottom Sheet** (`636-10221`): bg `#F9F4F0` top-r28, pad pt32/px16/pb120, gap18, no scrim (sits on cyan). Header title H1 white + close btn (40 r44 `#1190A5`). Success banner `#0B305B` + shadow. Notif cards: white/`#E5E3E0` border r20 + shadow, app-chip `#1455A4`, Google chip `#EAF0FA`.
-- **Calendar grid / day cell**: grid card white r20 pad16 gap14 + shadow. Cell flex-1 r11 py3, tint by 3-tier. day# Bold13 `#0B305B` + ganzhi Regular8 `#1455A4` + %Bold12. Selected: `#1455A4` fill + 1.6px `#9D85DA` ring, white text. Legend swatches r5.
+- **Calendar grid / day cell**: grid card white r20 pad16 gap14 + shadow. Cell flex-1 r11 py3, tint by 10-step grade (see Semantic scale). day# Bold13 `#0B305B` + ganzhi Regular8 `#1455A4` + %Bold12. Selected: `#1455A4` fill + 1.6px `#9D85DA` ring, white text. Legend swatches r5.
 
 **Payment**
 - **Price summary card** (`402-21909`): white r20 pad16 gap16 + shadow. Rows label/amount justify-between, `#E0DEDB` dividers, total Bold16 amount `#1455A4`. Plan avatar 38px gradient (`#1455A4→#9D85DA`) 👑 + "เปลี่ยน" link.
@@ -460,7 +470,7 @@ mascot ผสม 2 แกน เพื่อให้ตรงกับ "ธา�
 | fonts | "3 fonts" (IBM/Poppins/Chonburi) | **IBM Plex + Poppins + Inter** (+Noto บน my-destiny, Chonburi decorative) |
 | element hex | deferred to elements.ts | **2 palettes** (bright icon + WCAG text) documented |
 | bg | flat ghost-white only | **ghost-white + cream + photo BG0-4** |
-| semantic scale | — | **grade 10-step + calendar 3-tier** |
+| semantic scale | — | **grade 10-step (card) + calendar day-cell 10-step by grade** |
 | Button | primary only | **+ secondary/tertiary/colored-CTA/link** |
 | radius | 6 steps | **13 steps** (8/11/12/14/20/24/28/44/56/104/128) |
 | components | 6 primitives | **+ ~20 component specs** |

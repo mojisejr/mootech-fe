@@ -23,12 +23,12 @@ export function CompatDimensionCard({ dimension, tone: toneProp }: { dimension: 
   return (
     <section data-testid="compat-dim-card" data-main={dimension.isMain ? 'true' : undefined} className="flex flex-col gap-2">
       <div className="flex items-center gap-3">
-        <span className="grid size-14 shrink-0 place-items-center rounded-[10px] bg-[#EAF0FA]">
+        <span className="grid size-14 shrink-0 place-items-center rounded-[10px] bg-v3-sapphire-tint">
           <Image src="/images/v2/compat/work/reading-1.svg" alt="" width={27} height={27} className="size-[27px]" />
         </span>
         <div className="flex min-w-0 flex-1 flex-col gap-1">
           <div className="flex flex-wrap items-center gap-x-1.5 gap-y-1">
-            {label ? <p className="text-[16px] font-semibold leading-6" style={{ color: INK_BODY }}>{label}</p> : null}
+            {label ? <p className="text-[16px] font-semibold leading-6 text-v3-text-body">{label}</p> : null}
             {tone ? (
               <span data-testid="compat-dim-tone" className="shrink-0 rounded-[100px] px-[7px] py-[3px] text-[14px] font-semibold leading-4" style={{ color: TONE_INK[tone] }}>
                 {TONE_TEXT[tone]}
@@ -56,7 +56,7 @@ export function CompatDimensionCard({ dimension, tone: toneProp }: { dimension: 
       {sising && (sising.nameTh || sising.summary) ? (
         <div data-testid="compat-dim-sising" className="flex items-start gap-2 rounded-2xl bg-v3-ghost-white px-3 py-2.5">
           <span aria-hidden className="text-[18px]">🐯</span>
-          <p className="text-[13px] leading-5" style={{ color: INK_BODY }}>
+          <p className="text-[13px] leading-5 text-v3-text-body">
             {sising.nameTh ? <span className="font-bold text-v3-navy">สิ่งชี้นำสัญลักษณ์: {sising.nameTh}</span> : null}
             {sising.summary ? <span className="block">{sising.summary}</span> : null}
           </p>

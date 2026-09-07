@@ -84,14 +84,14 @@ export function SpendConfirmSheet({
       </div>
 
       {/* สรุปการหัก 3 แถว (ยอดปัจจุบัน / ค่าบริการ / ยอดหลังหัก) — ค่าจริงจาก wallet ไม่ใช่ mock */}
-      <dl className="mt-4 flex flex-col gap-3 rounded-[16px] bg-[#FBF1F2] px-4 py-4 text-[14px]" data-testid="qi-spend-breakdown">
+      <dl className="mt-4 flex flex-col gap-3 rounded-[16px] bg-v3-blush-tint px-4 py-4 text-[14px]" data-testid="qi-spend-breakdown">
         <div className="flex items-center justify-between">
           <dt className="text-v3-text-body">ยอดปัจจุบัน</dt>
           <dd className="font-black text-v3-navy">{balance.toLocaleString("th-TH")} QI</dd>
         </div>
         <div className="flex items-center justify-between">
           <dt className="text-v3-text-body">ค่าบริการครั้งนี้</dt>
-          <dd className="font-black text-[#E08586]" data-testid="qi-spend-price">−{line.qi.toLocaleString("th-TH")} QI</dd>
+          <dd className="font-black text-v3-qi-spend" data-testid="qi-spend-price">−{line.qi.toLocaleString("th-TH")} QI</dd>
         </div>
         <div className="flex items-center justify-between border-t border-black/5 pt-3">
           <dt className="text-v3-text-body">ยอดหลังหัก</dt>
@@ -195,7 +195,7 @@ export function InsufficientQiSheet({
       </div>
 
       {freeSum >= short && short > 0 && (
-        <p className="mt-3 text-center text-[12px] font-bold text-[#14707E]">
+        <p className="mt-3 text-center text-[12px] font-bold text-v3-paid-text">
           ทำภารกิจฟรีสองอย่างข้างบนได้ {freeSum.toLocaleString("th-TH")} QI พอดี
         </p>
       )}

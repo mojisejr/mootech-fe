@@ -54,9 +54,9 @@ function GateCell({ direction, gate }: { direction: Direction; gate: DayDetailGa
       }}
       className="flex flex-col items-center gap-1 rounded-2xl px-1 py-3 leading-none"
     >
-      <span className="text-[10px] font-bold text-[#464646]">{direction}</span>
+      <span className="text-[10px] font-bold text-v3-text-body">{direction}</span>
       <span className="text-2xl font-extrabold">{gate.name}</span>
-      <span className="text-[14px] font-medium text-[#0B305B]">{gate.meaning}</span>
+      <span className="text-[14px] font-medium text-v3-navy">{gate.meaning}</span>
     </div>
   )
 }
@@ -108,13 +108,13 @@ export function EightGates({ gates, luckyDirection }: { gates: DayDetailGate[]; 
       {/* A gate whose direction could not be read must be SEEN, not silently missing from the board — a
           board with seven cells looks complete to anyone who does not count. */}
       {unplaced.length > 0 && (
-        <div data-testid="gate-unplaced" className="mt-3 rounded-xl bg-[#FEF1E0] px-3 py-2">
-          <p className="text-[11px] font-semibold leading-5 text-[#B47E35]">
+        <div data-testid="gate-unplaced" className="mt-3 rounded-xl bg-v3-cal-medium-bg px-3 py-2">
+          <p className="text-[11px] font-semibold leading-5 text-v3-cal-medium">
             วางบนเข็มทิศไม่ได้ {unplaced.length} ประตู (ทิศซ้ำหรืออ่านไม่ออก)
           </p>
           <ul className="mt-1 flex flex-wrap gap-x-3 gap-y-1">
             {unplaced.map((g, i) => (
-              <li key={`${g.name}-${i}`} className="text-[11px] leading-5 text-[#B47E35]">
+              <li key={`${g.name}-${i}`} className="text-[11px] leading-5 text-v3-cal-medium">
                 {g.name} · {g.direction || '—'}
               </li>
             ))}

@@ -28,7 +28,7 @@ export function CompatPersonDetail({ person, roleLabel, side = 'self', mascot }:
     <section data-testid="compat-person-detail" data-side={side} className="flex flex-col gap-3.5 rounded-[20px] px-4 py-[18px]" style={{ backgroundColor: SIDE_TINT[side] }}>
       <div className="flex items-center gap-3.5">
         {photo ? (
-          <span className={`relative block size-10 shrink-0 overflow-hidden rounded-full ${side === 'self' ? 'ring-[2px] ring-[#E1FF00]' : ''}`}>
+          <span className={`relative block size-10 shrink-0 overflow-hidden rounded-full ${side === 'self' ? 'ring-[2px] ring-v3-lime' : ''}`}>
             <Image src={photo} alt="" fill sizes="40px" style={{ objectFit: 'cover' }} />
           </span>
         ) : (
@@ -36,12 +36,12 @@ export function CompatPersonDetail({ person, roleLabel, side = 'self', mascot }:
         )}
         <div className="flex min-w-0 flex-1 flex-col gap-1">
           <p className="flex flex-wrap items-center gap-1">
-            <span className="truncate text-[15px] font-bold leading-5 text-[#0B305B]">{name}</span>
+            <span className="truncate text-[15px] font-bold leading-5 text-v3-navy">{name}</span>
             {element ? (
               <span data-testid="compat-person-element" className="rounded-[100px] px-2 py-[2px] text-[12px] font-bold leading-4" style={{ backgroundColor: CHART_ELEMENT_SOFT[element] ?? '#EEF1F4', color: CHART_PILL_INK[element] ?? INK_BODY }}>ธาตุ{element}</span>
             ) : null}
           </p>
-          {birth ? <p className="text-[14px] leading-[22px]" style={{ color: INK_BODY }}>{birth}</p> : null}
+          {birth ? <p className="text-[14px] leading-[22px] text-v3-text-body">{birth}</p> : null}
         </div>
         {mascotUrl ? (
           <span className="relative h-[70px] w-[51px] shrink-0 overflow-hidden rounded-2xl">
@@ -51,14 +51,14 @@ export function CompatPersonDetail({ person, roleLabel, side = 'self', mascot }:
       </div>
       {traits.length ? (
         <>
-          <div className="border-b border-dashed border-[#EBD9C8]" />
+          <div className="border-b border-dashed border-v3-divider-dashed" />
           <div data-testid="compat-person-nisai" className="flex flex-col gap-2">
             {shown.map((t, i) => (
-              <p key={i} className="whitespace-pre-line text-[14px] leading-[22px]" style={{ color: INK_BODY }}>{t}</p>
+              <p key={i} className="whitespace-pre-line text-[14px] leading-[22px] text-v3-text-body">{t}</p>
             ))}
           </div>
           {traits.length > 1 ? (
-            <button type="button" data-testid="compat-person-more" aria-expanded={open} onClick={() => setOpen((v) => !v)} className="flex items-center gap-1 self-start text-[14px] font-medium leading-5 text-[#1B9AAF]">
+            <button type="button" data-testid="compat-person-more" aria-expanded={open} onClick={() => setOpen((v) => !v)} className="flex items-center gap-1 self-start text-[14px] font-medium leading-5 text-v3-cyan">
               {open ? 'ย่อ' : 'อ่านเพิ่ม'}
               <svg viewBox="0 0 16 16" className={`size-[13px] ${open ? '-rotate-90' : 'rotate-90'}`} fill="none" aria-hidden><path d="M4 8h8m0 0-3-3m3 3-3 3" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" /></svg>
             </button>

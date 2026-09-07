@@ -25,7 +25,7 @@ function HeartIcon() {
 
 function StrengthPill() {
   return (
-    <span className="inline-flex items-center gap-1 rounded-full bg-[#EAF7E9] px-2 py-[3px] text-sm font-semibold leading-5 text-[#2E7D32]">
+    <span className="inline-flex items-center gap-1 rounded-full bg-[#EAF7E9] px-2 py-[3px] text-sm font-semibold leading-5 text-v3-grade-a">
       <span aria-hidden>⭐</span>จุดแข็ง
     </span>
   )

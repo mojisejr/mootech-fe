@@ -266,7 +266,7 @@ export function EditProfileScreen() {
             </section>
 
             {/* วันเกิด — ล็อก (แก้หน้าอื่น มีโควตา) */}
-            <section className="rounded-[24px] bg-[#FCE4EC] p-4" data-testid="ep-birth-link">
+            <section className="rounded-[24px] bg-v3-grade-dminus-bg p-4" data-testid="ep-birth-link">
               <Link href="/v2/settings/edit-birth" data-testid="ep-to-birth" className="flex items-center justify-between gap-2">
                 <span>
                   <span className="block text-[13px] font-bold text-v3-navy">วันเกิดและเวลาเกิด</span>

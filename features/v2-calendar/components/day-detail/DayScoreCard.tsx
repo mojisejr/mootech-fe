@@ -73,7 +73,7 @@ export function DayScoreCard({ detail }: { detail: DayDetail }) {
       {/* วันพระ row */}
       {detail.wanPhra?.isWanPhra && (
         <div className="mt-3 flex flex-wrap items-center justify-center gap-2 text-sm font-normal leading-[22px] text-v3-text-body">
-          <span className="rounded-full bg-[#F1EFFA] px-[9px] py-1 text-[10px] font-bold leading-none text-[#AF9CE0]">🙏 วันพระ</span>
+          <span className="rounded-full bg-[#F1EFFA] px-[9px] py-1 text-[10px] font-bold leading-none text-v3-accent-purple">🙏 วันพระ</span>
           <span>{[detail.wanPhra.label, detail.dayDeity].filter(Boolean).join(' · ')}</span>
         </div>
       )}

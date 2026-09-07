@@ -135,6 +135,30 @@ const config: Config = {
           'grade-dplus': '#E64A19', 'grade-dplus-bg': '#FBE9E7',
           'grade-d': '#D32F2F',   'grade-d-bg': '#FFEBEE',
           'grade-dminus': '#B71C1C', 'grade-dminus-bg': '#FCE4EC',
+          // ── Parity sweep (feat/figma-parity-profile-qi): hexes that were hand-copied ≥3× across v2-qi /
+          // v2-calendar / v2-account / v2-service result screens, promoted so each lives in ONE place. ──
+          'purple': '#6F1BAF',          // alias of mate-purple — Pro/upgrade accent (Figma QI guide "ทางไหนคุ้มกับคุณ", Plan)
+          'purple-bg': '#F1E8FA',       // "ใช้บ่อยคุ้มสุด" badge fill (Figma QI guide / QI buy ribbon)
+          'qi-earn': '#63B05F',         // +QI chip ink, referral counts, collected-element ring (Figma QI guide earn chip)
+          'qi-earn-bg': '#E3F8D1',      // earn icon-slot 36 r12 + chip fill (Figma QI guide)
+          'qi-earn-icon': '#3F8F52',    // glyph tint on qi-earn-bg (Missions / Account / Plan)
+          'qi-spend': '#E08586',        // −QI chip ink (Figma QI guide spend chip)
+          'qi-spend-bg': '#FCE9F0',     // spend chip fill (Figma QI guide)
+          'rose-tint': '#F6ECF0',       // spend icon-slot / mascot card fill (Figma QI guide, Account)
+          'blush-tint': '#FBF1F2',      // QI summary box / history tab track (Figma QI buy, QI history)
+          'sky-tint': '#EAF3FF',        // sapphire-ink round chips (Referral hub, Account, Plan upsell)
+          'sapphire-tint': '#EAF0FA',   // reading-block icon-slot 56 r10, patron chips, 天/地 deity (Figma 720:26015)
+          'teal-tint': '#E7F6F8',       // 開休生 gate / 符合 deity chip fill (Figma 634:8752), ink = cyan
+          'red-tint': '#FDECE9',        // 傷杜死驚 gate / 蛇 deity chip fill (Figma 634:8752), ink = cal-bad
+          'amber-tint': '#FEF3E5',      // 景 gate / 雀 deity chip fill (Figma 634:8752), ink = cal-medium
+          'accent-purple': '#AF9CE0',   // Figma "Accent/Purple" — 陰 deity ink, วันพระ pill ink (≠ cal-marker)
+          'paid-bg': '#E3F4F7',         // paid-status chip / Pro link fill (Orders, Receipt, QI buy)
+          'paid-text': '#14707E',       // paid-status chip ink / QI spend confirm note
+          'danger-bg': '#FDECEC',       // refunded chip / profile-gate icon fill (Orders, Receipt, Plan, ProfileGate)
+          'danger-text': '#A83238',     // refunded chip ink / check-in recovery text
+          'badge-green': '#1B7F3B',     // "+N QI" reward pill ink on grade-a-bg (Missions, Connected)
+          'text-note': '#8C8C8C',       // 9-px row note (Figma QI guide) / account chevron
+          'divider-dashed': '#EBD9C8',  // dashed section divider (Lucky colours, Section card, result cards)
         },
         background: "var(--background)",
         foreground: "var(--foreground)",

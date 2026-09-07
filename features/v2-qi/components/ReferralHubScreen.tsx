@@ -160,7 +160,7 @@ export function ReferralHubScreen() {
           <section className="flex items-center rounded-[18px] border border-v3-border-card bg-white py-4 text-center" data-testid="referral-stats">
             <div className="flex-1 px-1">
               <p className="text-[12px] text-v3-text-body">ชวนสำเร็จ</p>
-              <p className="text-[14px] font-semibold text-[#63B05F]" data-testid="referral-invited-count">{invited.toLocaleString("th-TH")} คน</p>
+              <p className="text-[14px] font-semibold text-v3-qi-earn" data-testid="referral-invited-count">{invited.toLocaleString("th-TH")} คน</p>
             </div>
             <div className="h-[34px] w-px bg-v3-border-card" />
             <div className="flex-1 px-1">
@@ -170,7 +170,7 @@ export function ReferralHubScreen() {
             <div className="h-[34px] w-px bg-v3-border-card" />
             <div className="flex-1 px-1">
               <p className="text-[12px] text-v3-text-body">ได้รับแล้ว</p>
-              <p className="text-[14px] font-semibold text-[#63B05F]" data-testid="referral-per-invite">{earnedQi.toLocaleString("th-TH")} QI</p>
+              <p className="text-[14px] font-semibold text-v3-qi-earn" data-testid="referral-per-invite">{earnedQi.toLocaleString("th-TH")} QI</p>
             </div>
           </section>
 
@@ -178,7 +178,7 @@ export function ReferralHubScreen() {
           <SectionCard className="!rounded-[18px]" testId="referral-element-goal">
             <div className="flex items-center justify-between">
               <h2 className="text-[16px] font-bold text-v3-navy">สะสมเพื่อนครบ 5 ธาตุ</h2>
-              <span className="rounded-[10px] bg-[#E3F8D1] px-2.5 py-1 text-[14px] font-semibold text-[#63B05F]">+1,000 QI</span>
+              <span className="rounded-[10px] bg-v3-qi-earn-bg px-2.5 py-1 text-[14px] font-semibold text-v3-qi-earn">+1,000 QI</span>
             </div>
             <div className="mt-2 flex items-start justify-between">
               {ELEMENTS.map((e) => {
@@ -206,14 +206,14 @@ export function ReferralHubScreen() {
               <ul className="mt-2 flex flex-col divide-y divide-v3-border-card">
                 {referral.friends.map((f, i) => (
                   <li key={i} className="flex items-center gap-3 py-2.5">
-                    <span aria-hidden className="grid size-9 flex-none place-items-center rounded-full bg-[#EAF3FF] text-[13px] font-black text-v3-sapphire">
+                    <span aria-hidden className="grid size-9 flex-none place-items-center rounded-full bg-v3-sky-tint text-[13px] font-black text-v3-sapphire">
                       {f.name.replace(/^@/, "").slice(0, 1).toUpperCase()}
                     </span>
                     <div className="min-w-0 flex-1">
                       <p className="truncate text-[14px] font-medium text-v3-navy">{f.name}</p>
                       {f.joinedAt ? <p className="text-[11px] leading-4 text-v3-text-muted">{new Date(f.joinedAt).toLocaleDateString("th-TH", { day: "numeric", month: "short", year: "numeric" })}</p> : null}
                     </div>
-                    <span className="flex-none text-[13px] font-black text-[#63B05F]">+{(f.rewardQi ?? REWARD_INVITER).toLocaleString("th-TH")} QI</span>
+                    <span className="flex-none text-[13px] font-black text-v3-qi-earn">+{(f.rewardQi ?? REWARD_INVITER).toLocaleString("th-TH")} QI</span>
                   </li>
                 ))}
               </ul>

@@ -34,7 +34,6 @@ import type { CompatDimension, CompatElementInteraction, CompatMascot } from '..
 import { CHART_ELEMENT_SOFT, CHART_PILL_INK, readChartTable, type ChartTable } from '../chart-table'
 import { formatCompatBirth } from './compat-format'
 
-const INK_NAVY = '#0B305B'
 const INK_BODY = '#464646'
 
 function BackChevron() {
@@ -150,14 +149,14 @@ function PersonRow({ entry, chart, pad, elementChip = true, mascot, testId, badg
         <Avatar entry={entry} showRank badgeTestId={badgeTestId} />
         <div className="flex min-w-0 flex-1 flex-col">
           <p className="flex flex-wrap items-center gap-x-1.5 gap-y-1">
-            <span data-testid={`${testId}-name`} className="truncate text-[15px] font-bold leading-5" style={{ color: INK_NAVY }}>{displayName(entry)}</span>
+            <span data-testid={`${testId}-name`} className="truncate text-[15px] font-bold leading-5 text-v3-navy">{displayName(entry)}</span>
             {elementChip && element ? (
               <span data-testid={`${testId}-element`} className="rounded-full px-2 py-[2px] text-[12px] font-bold leading-4" style={{ backgroundColor: CHART_ELEMENT_SOFT[element] ?? '#EEF1F4', color: CHART_PILL_INK[element] ?? INK_BODY }}>
                 ธาตุ{element}
               </span>
             ) : null}
           </p>
-          {birth ? <p data-testid={`${testId}-birth`} className="text-[14px] leading-5" style={{ color: INK_BODY }}>{birth}</p> : null}
+          {birth ? <p data-testid={`${testId}-birth`} className="text-[14px] leading-5 text-v3-text-body">{birth}</p> : null}
         </div>
       </div>
       <ScoreRow entry={entry} />
@@ -169,8 +168,8 @@ function PersonRow({ entry, chart, pad, elementChip = true, mascot, testId, badg
 /** #ECF0FD r50 p16 · "เปิดโหมดแอดวานซ์" 16 · Toggle 36×20 (base #E5E7EB / on #1455A4, thumb 16) */
 function AdvancedToggle({ on, onToggle }: { on: boolean; onToggle: () => void }) {
   return (
-    <div className="flex items-center justify-between rounded-[50px] bg-[#ECF0FD] p-4">
-      <span className="text-[16px] font-bold leading-6" style={{ color: INK_NAVY }}>เปิดโหมดแอดวานซ์</span>
+    <div className="flex items-center justify-between rounded-[50px] bg-v3-ghost-white p-4">
+      <span className="text-[16px] font-bold leading-6 text-v3-navy">เปิดโหมดแอดวานซ์</span>
       <button
         type="button"
         role="switch"
@@ -218,17 +217,17 @@ function ReadingBlock({ title, subtitle, icon, lead, lines, index }: { title: st
   return (
     <section data-testid={`work-reading-${index}`} data-title={title} className="flex flex-col gap-2">
       <div className="flex items-center gap-3">
-        <span className="grid size-14 shrink-0 place-items-center rounded-[10px] bg-[#EAF0FA]">
+        <span className="grid size-14 shrink-0 place-items-center rounded-[10px] bg-v3-sapphire-tint">
           {icon ? <Image src={icon} alt="" width={27} height={27} className="size-[27px]" /> : null}
         </span>
         <div className="flex min-w-0 flex-1 flex-col">
-          <h3 data-testid={`work-reading-heading-${index}`} className="text-[16px] font-semibold leading-6" style={{ color: INK_BODY }}>{title}</h3>
+          <h3 data-testid={`work-reading-heading-${index}`} className="text-[16px] font-semibold leading-6 text-v3-text-body">{title}</h3>
           {subtitle ? <p className="text-[12px] leading-4 text-v3-text-muted">{subtitle}</p> : null}
         </div>
       </div>
-      {lead ? <p className="whitespace-pre-line text-[14px] font-medium leading-[22px]" style={{ color: INK_BODY }}>{lead}</p> : null}
+      {lead ? <p className="whitespace-pre-line text-[14px] font-medium leading-[22px] text-v3-text-body">{lead}</p> : null}
       <div data-testid={`work-reading-text-${index}`} className="flex flex-col gap-2">
-        {lines.map((t, i) => <p key={i} className="whitespace-pre-line text-[14px] leading-[22px]" style={{ color: INK_BODY }}>{t}</p>)}
+        {lines.map((t, i) => <p key={i} className="whitespace-pre-line text-[14px] leading-[22px] text-v3-text-body">{t}</p>)}
       </div>
     </section>
   )
@@ -246,14 +245,14 @@ function RoleSection({ role, index, chosen = false }: { role: WorkRole; index: n
   return (
     <section data-testid={`work-role-${index}`} data-perspective={heading} data-chosen={chosen ? 'true' : undefined} className="flex flex-col gap-2">
       <div className="flex items-center gap-3">
-        <span className="grid size-14 shrink-0 place-items-center rounded-[10px] bg-[#EAF0FA]"><Image src={READING_DEFAULT.icon} alt="" width={27} height={27} className="size-[27px]" /></span>
+        <span className="grid size-14 shrink-0 place-items-center rounded-[10px] bg-v3-sapphire-tint"><Image src={READING_DEFAULT.icon} alt="" width={27} height={27} className="size-[27px]" /></span>
         <div className="flex min-w-0 flex-1 flex-col">
-          <h3 data-testid={`work-role-heading-${index}`} className="text-[16px] font-semibold leading-6" style={{ color: INK_BODY }}>{heading}</h3>
+          <h3 data-testid={`work-role-heading-${index}`} className="text-[16px] font-semibold leading-6 text-v3-text-body">{heading}</h3>
           {chosen ? <span data-testid="work-role-chosen" className="text-[12px] font-bold text-v3-sapphire">มุมมองที่คุณเลือก</span> : null}
         </div>
       </div>
       {role.narrative ? (
-        <p data-testid={`work-role-narrative-${index}`} className="whitespace-pre-line text-[14px] leading-[22px]" style={{ color: INK_BODY }}>{role.narrative}</p>
+        <p data-testid={`work-role-narrative-${index}`} className="whitespace-pre-line text-[14px] leading-[22px] text-v3-text-body">{role.narrative}</p>
       ) : (
         <p data-testid={`work-role-missing-${index}`} className="text-[14px] leading-[22px] text-v3-text-muted">ยังไม่มีคำอ่านสำหรับมุมมองนี้</p>
       )}
@@ -281,10 +280,10 @@ export function WorkResultScreen({ matchingId }: { matchingId: string }) {
       <ComingSoonNotice />
       <div className="mx-auto w-full max-w-[430px] pb-32">
         <header className="flex items-center gap-2 px-4 pb-6 pt-4">
-          <button type="button" aria-label="ย้อนกลับ" data-testid="work-back" onClick={() => router.push('/v2/service/compatibility/recent')} className="grid size-8 place-items-center" style={{ color: INK_NAVY }}>
+          <button type="button" aria-label="ย้อนกลับ" data-testid="work-back" onClick={() => router.push('/v2/service/compatibility/recent')} className="grid size-8 place-items-center text-v3-navy">
             <BackChevron />
           </button>
-          <h1 data-testid="work-title" className="min-w-0 flex-1 truncate text-[24px] font-bold leading-8" style={{ color: INK_NAVY }}>ผลความสมพงศ์</h1>
+          <h1 data-testid="work-title" className="min-w-0 flex-1 truncate text-[24px] font-bold leading-8 text-v3-navy">ผลความสมพงศ์</h1>
           <TopBarBell />
           <TopBarAvatar />
         </header>
@@ -339,7 +338,7 @@ export function WorkResultScreen({ matchingId }: { matchingId: string }) {
   return shell(
     <>
       {/* hero — Figma 720:29221: การ์ด #1455A4 r22 · title + มาสคอต · แถวอันดับในการ์ด */}
-      <section data-testid="work-hero" className="relative mx-4 flex flex-col gap-7 overflow-hidden rounded-[22px] bg-[#1455A4] px-4 pb-6 pt-[34px]">
+      <section data-testid="work-hero" className="relative mx-4 flex flex-col gap-7 overflow-hidden rounded-[22px] bg-v3-sapphire px-4 pb-6 pt-[34px]">
         <div className="flex flex-col items-center gap-3 text-center">
           <span data-testid="work-hero-mascot" className="relative block h-[84px] w-[67px]">
             {/* มาสคอตหัวการ์ด = cutout จากเฟรม Figma 720:29221 (download_assets 2026-09-07) — การ์ดมาสคอตจาก API มีพื้นหลัง ใช้ในแถวแทน */}
@@ -347,7 +346,7 @@ export function WorkResultScreen({ matchingId }: { matchingId: string }) {
           </span>
           <h2 data-testid="work-hero-title" data-role={chosenRole?.value ?? ''} className="text-[20px] font-bold leading-7 text-white">
             <span className="block">{heroTitle}</span>
-            <span className="block">ที่<span className="text-[#E1FF00]">เข้ากับคุณได้ดีที่สุด</span>ตามลำดับ</span>
+            <span className="block">ที่<span className="text-v3-lime">เข้ากับคุณได้ดีที่สุด</span>ตามลำดับ</span>
           </h2>
           {selfTrait ? <p data-testid="work-hero-trait" className="text-[14px] leading-[22px] text-white">{selfTrait}</p> : null}
         </div>
@@ -366,7 +365,7 @@ export function WorkResultScreen({ matchingId }: { matchingId: string }) {
       <section className="mx-4 mt-4 flex flex-col gap-6 rounded-2xl bg-white py-6">
         <div className="px-4"><AdvancedToggle on={advanced} onToggle={() => setAdvanced((v) => !v)} /></div>
         {/* tabs — same array, same order. data-rank so a test can prove the ORDER, not just the names. */}
-        <nav data-testid="work-tabs" className="mx-4 flex items-center rounded-[50px] bg-[#ECF0FD] p-2" aria-label="เลือกคนที่จะดูรายละเอียด">
+        <nav data-testid="work-tabs" className="mx-4 flex items-center rounded-[50px] bg-v3-ghost-white p-2" aria-label="เลือกคนที่จะดูรายละเอียด">
           {entries.map((e) => {
             const active = e.rank === open.rank
             return (
@@ -377,7 +376,7 @@ export function WorkResultScreen({ matchingId }: { matchingId: string }) {
                 data-rank={e.rank}
                 aria-pressed={active}
                 onClick={() => setOpenRank(e.rank)}
-                className={['h-10 min-w-0 flex-1 truncate rounded-[50px] px-2 text-[16px] font-bold leading-6', active ? 'bg-[#1455A4] text-[#E1FF00]' : 'text-[#1455A4]'].join(' ')}
+                className={['h-10 min-w-0 flex-1 truncate rounded-[50px] px-2 text-[16px] font-bold leading-6', active ? 'bg-v3-sapphire text-v3-lime' : 'text-v3-sapphire'].join(' ')}
               >
                 {displayName(e)}
               </button>
@@ -395,7 +394,7 @@ export function WorkResultScreen({ matchingId }: { matchingId: string }) {
           <SectionCard title={`ความเข้ากัน ${facets.length} ด้าน`}>
             <div className="flex flex-col gap-6">
               {open.ratingText ? (
-                <p data-testid="work-person-summary" className="whitespace-pre-line text-[14px] leading-[22px]" style={{ color: INK_BODY }}>{open.ratingText}</p>
+                <p data-testid="work-person-summary" className="whitespace-pre-line text-[14px] leading-[22px] text-v3-text-body">{open.ratingText}</p>
               ) : null}
               {facetsToDimensions(readingOrder(facets)).map((d, i) => <CompatDimensionCard key={d.key ?? i} dimension={d} />)}
             </div>
@@ -416,10 +415,10 @@ export function WorkResultScreen({ matchingId }: { matchingId: string }) {
               <>
                 {/* ผลเก่าแบบเส้นรวม (#585) — engine ไม่มี facets ให้: คงคำอ่าน 3 มุมมองเดิม และบอกเมื่อมาไม่ครบ */}
                 {open.ratingText ? (
-                  <p data-testid="work-person-summary" className="whitespace-pre-line text-[14px] leading-[22px]" style={{ color: INK_BODY }}>{open.ratingText}</p>
+                  <p data-testid="work-person-summary" className="whitespace-pre-line text-[14px] leading-[22px] text-v3-text-body">{open.ratingText}</p>
                 ) : null}
                 {!open.rolesComplete ? (
-                  <p role="status" data-testid="work-roles-incomplete" className="rounded-xl bg-v3-lemon-chiffon px-3 py-2 text-[14px] leading-[22px]" style={{ color: INK_BODY }}>
+                  <p role="status" data-testid="work-roles-incomplete" className="rounded-xl bg-v3-lemon-chiffon px-3 py-2 text-[14px] leading-[22px] text-v3-text-body">
                     คำทำนายของคนนี้มาไม่ครบ ขาดอยู่ {open.rolesMissing} จาก 3 มุมมอง
                   </p>
                 ) : null}
@@ -437,10 +436,10 @@ export function WorkResultScreen({ matchingId }: { matchingId: string }) {
       {/* โหมดแอดวานซ์ = ตารางดวงจีน (Figma 720:32490 §ตารางดวงจีน) — คุณ + คนที่เปิดแท็บ */}
       {advanced && (selfChart || openChart) ? (
         <div className="mx-4 mt-4">
-        <VipGate label="ตารางดวงจีน" description="ปฏิกิริยาธาตุ สี่เสา วัยจร และปีจรของทุกคน — เฉพาะสมาชิก" testId="work-chart-gate">
+        <VipGate label="ตารางดวงจีน" description="ปฏิกิริยาธาตุ สี่เสา วัยจร และปีจรของทุกคน — เฉพาะสมาชิก" testId="work-chart-gate" variant="section">
         <section data-testid="work-chart-section" className="rounded-2xl bg-white px-4 py-5 shadow-[0_4px_14px_rgba(26,38,77,0.06)]">
-          <h2 className="text-base font-bold" style={{ color: INK_NAVY }}>ตารางดวงจีน</h2>
-          <div className="mt-2.5 border-b border-dashed border-[#EBD9C8]" />
+          <h2 className="text-base font-bold text-v3-navy">ตารางดวงจีน</h2>
+          <div className="mt-2.5 border-b border-dashed border-v3-divider-dashed" />
           <div className="mt-3.5 flex flex-col gap-4">
             <CompatElementInteractionCard interaction={open.elementInteraction as CompatElementInteraction | undefined} />
             {selfChart ? <ChartTableCard testId="chart-table-self" roleLabel="คุณ" side="self" chart={selfChart} person={{ name: 'คุณ', mascotUrl: selfMascot?.imageUrl }} /> : null}

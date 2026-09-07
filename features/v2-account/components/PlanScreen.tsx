@@ -113,7 +113,7 @@ export function PlanScreen() {
               return (
                 <div key={key} className="flex items-center justify-between gap-3" data-testid={`plan-quota-${key}`}>
                   <span className="text-[13px] text-v3-text-body">{label}</span>
-                  <span className={`flex-none rounded-full px-2.5 py-[2px] text-[11px] font-black ${out && credit === 0 ? "bg-[#FDECEC] text-[#A83238]" : "bg-[#E3F8D1] text-[#3F8F52]"}`}>
+                  <span className={`flex-none rounded-full px-2.5 py-[2px] text-[11px] font-black ${out && credit === 0 ? "bg-v3-danger-bg text-v3-danger-text" : "bg-v3-qi-earn-bg text-v3-qi-earn-icon"}`}>
                     {out && credit === 0 ? "ใช้ครบแล้ววันนี้" : out ? `เหลือ ${credit} ครั้ง (ที่แลกไว้)` : `เหลือ ${remaining}/${q.limit} วันนี้`}
                   </span>
                 </div>
@@ -124,7 +124,7 @@ export function PlanScreen() {
 
         {/* แบนเนอร์ upsell (โชว์เมื่อยังไม่ Pro) — ตัวเลขจริงจากยอดซื้อ QI เดือนนี้ถ้ามี */}
         {!isPaid && (
-          <div className="rounded-[20px] bg-[#EAF3FF] px-4 py-4 text-v3-sapphire" data-testid="plan-upsell">
+          <div className="rounded-[20px] bg-v3-sky-tint px-4 py-4 text-v3-sapphire" data-testid="plan-upsell">
             {spentQiBaht > PRO_MONTHLY ? (
               <>
                 <p className="text-[14px] font-black">เดือนนี้คุณจ่ายค่า QI ไปแล้ว ฿{spentQiBaht.toLocaleString("th-TH")}</p>
@@ -153,10 +153,10 @@ export function PlanScreen() {
                   type="button"
                   onClick={() => setSelected(u.id)}
                   data-testid={`plan-select-${u.id}`}
-                  className={"relative flex w-full items-center gap-3 rounded-[18px] px-4 py-3 text-left " + (on ? "bg-white ring-2 ring-[#6F1BAF] v3-shadow-card" : "border border-v3-border-card bg-white")}
+                  className={"relative flex w-full items-center gap-3 rounded-[18px] px-4 py-3 text-left " + (on ? "bg-white ring-2 ring-v3-purple v3-shadow-card" : "border border-v3-border-card bg-white")}
                 >
-                  <span className={"grid size-5 flex-none place-items-center rounded-full border-2 " + (on ? "border-[#6F1BAF]" : "border-v3-border-card")}>
-                    {on ? <span className="size-2.5 rounded-full bg-[#6F1BAF]" /> : null}
+                  <span className={"grid size-5 flex-none place-items-center rounded-full border-2 " + (on ? "border-v3-purple" : "border-v3-border-card")}>
+                    {on ? <span className="size-2.5 rounded-full bg-v3-purple" /> : null}
                   </span>
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2">

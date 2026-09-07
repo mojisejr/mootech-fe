@@ -176,7 +176,7 @@ export function QiCheckinScreen() {
             {/* สถานะ D — สตรีคขาด (เฟรม recovery-banner): กู้คืน 20 QI ได้ถ้าขาด 1 วัน (สัปดาห์ละครั้ง) */}
             {(canRestore || broke) && (
               <div className="mt-3 flex items-center gap-2.5 rounded-[12px] bg-[#FBECEC] px-3 py-2.5" data-testid="qi-checkin-recovery">
-                <p className="min-w-0 flex-1 text-[12px] leading-[18px] text-[#A83238]">
+                <p className="min-w-0 flex-1 text-[12px] leading-[18px] text-v3-danger-text">
                   {canRestore ? `ขาดไป 1 วัน สถิติ ${lostStreak} วันถูกรีเซ็ต` : "สตรีคขาด — เช็คอินวันนี้เริ่มนับใหม่"}
                 </p>
                 {canRestore && (
@@ -184,7 +184,7 @@ export function QiCheckinScreen() {
                     onClick={() => void restore()}
                     disabled={restoring}
                     data-testid="qi-checkin-restore"
-                    className="flex-none rounded-full bg-white px-3 py-1.5 text-[10px] font-black text-[#A83238] disabled:opacity-50"
+                    className="flex-none rounded-full bg-white px-3 py-1.5 text-[10px] font-black text-v3-danger-text disabled:opacity-50"
                   >
                     {restoring ? "..." : "กู้คืน 20 QI"}
                   </button>
@@ -207,10 +207,10 @@ export function QiCheckinScreen() {
                     className={
                       "grid flex-1 place-items-center rounded-[11px] py-3 text-[13px] font-black " +
                       (isDone
-                        ? "bg-[#ECF0FD] text-v3-sapphire"
+                        ? "bg-v3-ghost-white text-v3-sapphire"
                         : isToday
                           ? "bg-v3-cyan text-white"
-                          : "bg-[#F0F8F0] text-v3-cyan")
+                          : "bg-v3-grade-b-bg text-v3-cyan")
                     }
                   >
                     {gift ? "🎁" : isDone ? "✓" : dayNum}
@@ -222,7 +222,7 @@ export function QiCheckinScreen() {
             {/* ปุ่มหลัก navy เต็มกว้าง — สถานะ A/B/C/E */}
             <div className="mt-4">
               {done && !weekComplete ? (
-                <KitButton variant="ghost" disabled testId="qi-checkin-btn" className="!bg-[#FBF1F2] !h-12 !text-v3-text-muted">
+                <KitButton variant="ghost" disabled testId="qi-checkin-btn" className="!bg-v3-blush-tint !h-12 !text-v3-text-muted">
                   เช็คอินแล้ว · กลับมาพรุ่งนี้
                 </KitButton>
               ) : weekComplete ? (
@@ -276,7 +276,7 @@ export function QiCheckinScreen() {
             {/* strip 7 วัน ครบ ✓ ทั้งแถว */}
             <div className="mt-3 flex w-full items-stretch gap-1.5">
               {Array.from({ length: 7 }).map((_, i) => (
-                <span key={i} className="grid flex-1 place-items-center rounded-[11px] bg-[#ECF0FD] py-2.5 text-[13px] font-black text-v3-sapphire">✓</span>
+                <span key={i} className="grid flex-1 place-items-center rounded-[11px] bg-v3-ghost-white py-2.5 text-[13px] font-black text-v3-sapphire">✓</span>
               ))}
             </div>
           </div>

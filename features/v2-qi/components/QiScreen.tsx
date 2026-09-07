@@ -94,13 +94,11 @@ const COMPARE = [
 
 type SheetState = { kind: "confirm" | "insufficient"; line: QiSpendLine } | null
 
-const NAVY = "#0B305B"
-const MUTED = "#8C8C8C"
 const BORDER = "#E6E1DD"
 
 function Orb({ size = 60 }: { size?: number }) {
   return (
-    <span aria-hidden className="relative flex-none overflow-hidden rounded-full" style={{ width: size, height: size }}>
+    <span aria-hidden className="relative block flex-none overflow-hidden rounded-full" style={{ width: size, height: size }}>
       <Image src={`${G}/orb.png`} alt="" fill sizes={`${size}px`} className="object-cover" />
     </span>
   )
@@ -117,7 +115,7 @@ function Chevron() {
 function Amount({ qi, kind }: { qi: number; kind: "earn" | "spend" }) {
   const earn = kind === "earn"
   return (
-    <span className="flex-none rounded-[10px] px-2.5 py-[5px] text-[14px] font-semibold leading-5 whitespace-nowrap" style={{ backgroundColor: earn ? "#E3F8D1" : "#FCE9F0", color: earn ? "#63B05F" : "#E08586" }}>
+    <span className={"flex-none rounded-[10px] px-2.5 py-[5px] text-[14px] font-semibold leading-5 whitespace-nowrap " + (earn ? "bg-v3-qi-earn-bg text-v3-qi-earn" : "bg-v3-qi-spend-bg text-v3-qi-spend")}>
       {earn ? "+" : "-"}{qi.toLocaleString("th-TH")} QI
     </span>
   )
@@ -130,8 +128,8 @@ function Row({ icon, iconBg, title, note, right, testId, onClick }: { icon: stri
         <img src={icon} alt="" aria-hidden className="size-[22px]" />
       </span>
       <span className="flex min-w-0 flex-1 flex-col gap-[2px] text-left">
-        <span className="truncate text-[14px] font-medium leading-5" style={{ color: NAVY }}>{title}</span>
-        {note ? <span className="truncate text-[9px] leading-3" style={{ color: MUTED }}>{note}</span> : null}
+        <span className="truncate text-[14px] font-medium leading-5 text-v3-navy">{title}</span>
+        {note ? <span className="truncate text-[9px] leading-3 text-v3-text-note">{note}</span> : null}
       </span>
       {right}
     </>
@@ -228,9 +226,9 @@ export function QiScreen() {
               <Image src={`${G}/hero-mascots.jpg`} alt="" fill sizes="393px" priority className="object-cover object-[50%_35%]" />
             </span>
             <div className="-mt-[30px] flex flex-col items-center gap-3.5 px-5 pb-6">
-              <span className="rounded-full bg-white p-[3px] shadow-[0_2px_8px_rgba(11,48,91,0.15)]"><Orb size={60} /></span>
-              <h2 className="text-[24px] font-bold leading-8" style={{ color: NAVY }}>คู่มือสะสมและใช้พลังชี่</h2>
-              <p className="text-[12px] leading-[18px] text-[#464646]">QI คือแต้มพลังงานในแอป สะสมฟรีได้ทุกวัน หรือซื้อเพิ่มก็ได้ ใช้แลกบริการดูดวงทั้งหมด</p>
+              <span className="block rounded-full bg-white p-[3px] shadow-[0_2px_8px_rgba(11,48,91,0.15)]"><Orb size={60} /></span>
+              <h2 className="text-[24px] font-bold leading-8 text-v3-navy">คู่มือสะสมและใช้พลังชี่</h2>
+              <p className="text-[12px] leading-[18px] text-v3-text-body">QI คือแต้มพลังงานในแอป สะสมฟรีได้ทุกวัน หรือซื้อเพิ่มก็ได้ ใช้แลกบริการดูดวงทั้งหมด</p>
             </div>
           </section>
 
@@ -247,7 +245,7 @@ export function QiScreen() {
           {/* สะสมพลังชี่ฟรี */}
           <section className="flex flex-col gap-2.5" data-testid="qi-tasks">
             <div className="flex items-center">
-              <h2 className="flex-1 text-[18px] font-bold leading-6" style={{ color: NAVY }}>สะสมพลังชี่ฟรี</h2>
+              <h2 className="flex-1 text-[18px] font-bold leading-6 text-v3-navy">สะสมพลังชี่ฟรี</h2>
               <Link href="/v2/qi/missions" data-testid="qi-missions-link" className="text-[13px] leading-[18px] text-v3-sapphire">ทำเลย ›</Link>
             </div>
             <ListCard>
@@ -256,12 +254,12 @@ export function QiScreen() {
               ))}
               {!catalog && <div className="h-[64px] w-full animate-pulse bg-v3-ghost-white" />}
             </ListCard>
-            <p className="text-[9px] leading-3" style={{ color: MUTED }}>ทำครบทุกอย่างได้ราว {dailyFree.toLocaleString("th-TH")} QI ต่อวัน โดยไม่ต้องจ่ายเงิน</p>
+            <p className="text-[9px] leading-3 text-v3-text-note">ทำครบทุกอย่างได้ราว {dailyFree.toLocaleString("th-TH")} QI ต่อวัน โดยไม่ต้องจ่ายเงิน</p>
           </section>
 
           {/* ใช้พลังชี่แลกอะไรได้บ้าง — แตะเพื่อแลก */}
           <section className="flex flex-col gap-2.5" data-testid="qi-redeem">
-            <h2 className="text-[18px] font-bold leading-6" style={{ color: NAVY }}>ใช้พลังชี่แลกอะไรได้บ้าง</h2>
+            <h2 className="text-[18px] font-bold leading-6 text-v3-navy">ใช้พลังชี่แลกอะไรได้บ้าง</h2>
             <ListCard>
               {(catalog?.spend ?? []).map((line) => (
                 <Row
@@ -278,7 +276,7 @@ export function QiScreen() {
               {!catalog && <div className="h-[64px] w-full animate-pulse bg-v3-ghost-white" />}
             </ListCard>
             {chatQi > 0 && cardQi > 0 ? (
-              <p className="text-[9px] leading-3" style={{ color: MUTED }}>
+              <p className="text-[9px] leading-3 text-v3-text-note">
                 ยอด {balance.toLocaleString("th-TH")} QI ของคุณ = ถามเซียนมูได้ {Math.floor(balance / chatQi).toLocaleString("th-TH")} ครั้ง หรือเปิดไพ่ได้ {Math.floor(balance / cardQi).toLocaleString("th-TH")} ครั้ง
               </p>
             ) : null}
@@ -286,18 +284,18 @@ export function QiScreen() {
 
           {/* ทางไหนคุ้มกับคุณ */}
           <section className="flex flex-col gap-2.5" data-testid="qi-compare">
-            <h2 className="text-[18px] font-bold leading-6" style={{ color: NAVY }}>ทางไหนคุ้มกับคุณ</h2>
+            <h2 className="text-[18px] font-bold leading-6 text-v3-navy">ทางไหนคุ้มกับคุณ</h2>
             {COMPARE.map((c) => (
               <div key={c.key} className="flex flex-col gap-1.5 rounded-[16px] bg-white px-4 py-3.5" style={{ border: c.highlight ? "2px solid #6F1BAF" : `1px solid ${BORDER}` }}>
-                <div className="flex items-center gap-2 text-[14px] leading-5" style={{ color: NAVY }}>
+                <div className="flex items-center gap-2 text-[14px] leading-5 text-v3-navy">
                   <span className="flex-1 font-medium">{c.title}</span>
-                  {c.highlight ? <span className="rounded-[8px] bg-[#F1E8FA] px-[7px] py-[3px] text-[9px] font-bold leading-3 text-[#6F1BAF]">ใช้บ่อยคุ้มสุด</span> : null}
+                  {c.highlight ? <span className="rounded-[8px] bg-v3-purple-bg px-[7px] py-[3px] text-[9px] font-bold leading-3 text-v3-purple">ใช้บ่อยคุ้มสุด</span> : null}
                   <span className="font-semibold whitespace-nowrap">{c.price}</span>
                 </div>
-                <p className="text-[12px] leading-[18px] text-[#464646]">{c.desc}</p>
+                <p className="text-[12px] leading-[18px] text-v3-text-body">{c.desc}</p>
               </div>
             ))}
-            <p className="text-[9px] leading-3" style={{ color: MUTED }}>QI ไม่มีวันหมดอายุ และ QI ที่ได้ฟรีกับที่ซื้อใช้ร่วมกันได้</p>
+            <p className="text-[9px] leading-3 text-v3-text-note">QI ไม่มีวันหมดอายุ และ QI ที่ได้ฟรีกับที่ซื้อใช้ร่วมกันได้</p>
           </section>
 
           {/* ทางเข้าจอย่อย: ชวนเพื่อน / เติม QI (นอกเฟรม แต่เป็นฟีเจอร์จริง — แถวเล็กใต้ตาราง) */}

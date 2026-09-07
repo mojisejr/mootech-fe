@@ -23,7 +23,7 @@ export function Patrons({ patrons }: { patrons: string[] }) {
           {patrons.map((p, i) => {
             const z = zodiacOf(p)
             return (
-              <li key={`${p}-${i}`} data-testid="patron-chip" className="flex items-center gap-2 rounded-full bg-[#EAF0FA] py-2 pl-3 pr-4 text-sm font-bold text-v3-sapphire">
+              <li key={`${p}-${i}`} data-testid="patron-chip" className="flex items-center gap-2 rounded-full bg-v3-sapphire-tint py-2 pl-3 pr-4 text-sm font-bold text-v3-sapphire">
                 {z ? <span aria-hidden className="text-lg leading-none">{ZODIAC_EMOJI[z]}</span> : null}
                 {p}
               </li>

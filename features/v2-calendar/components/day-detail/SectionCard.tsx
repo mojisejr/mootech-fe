@@ -88,7 +88,7 @@ export function SectionCard({
         </button>
       </div>
       {/* hairline under the header (Figma: faint dashed rule) */}
-      <div className="mt-2.5 border-b border-dashed border-[#EBD9C8]" />
+      <div className="mt-2.5 border-b border-dashed border-v3-divider-dashed" />
       {/* The explanation is an INLINE panel, not a floating popover. components/calculator/BadgeMarker.tsx
           is the floating one and #416 recorded what it costs: it positions with window.innerWidth and was
           tuned at 390 only, so it has to be re-checked at every width forever. A panel in normal flow
