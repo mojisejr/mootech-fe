@@ -7,18 +7,23 @@
 import type { CompatElementInteraction } from '../compatibility-result'
 import { wuxing } from '../compat-result-parts'
 import { chartInk } from '../chart-table'
+import { ElementPill } from './CompatResultHero'
 import { useId } from 'react'
 
+// Figma 636:18819 §flow/chip (parity 2026-09-07): tile 56 r16 (bg = glyph at 16%, hanzi 24 bold) · gap6 ·
+// role 15 bold #0B305B · element-pill 12 bold (same PillWrapper as the hero / person cards)
 function ElementChip({ elementTh, roleLabel }: { elementTh?: string | null; roleLabel: string }) {
   const wx = wuxing(elementTh)
   const th = (elementTh ?? '').trim()
   return (
-    <div className="flex flex-col items-center gap-1">
-      <span data-testid="compat-element-chip" className="grid size-16 place-items-center rounded-2xl text-[26px] font-bold" style={{ backgroundColor: wx.bg, color: wx.fg }}>
+    <div className="flex flex-col items-center gap-1.5">
+      <span data-testid="compat-element-chip" className="grid size-14 place-items-center rounded-2xl text-[24px] font-bold" style={{ backgroundColor: wx.bg, color: wx.fg }}>
         {wx.hanzi || th.charAt(0) || '—'}
       </span>
-      <span className="text-[13px] font-bold text-v3-navy">{roleLabel}</span>
-      {th ? <span className="text-[12px] text-v3-text-body">ธาตุ{th}</span> : null}
+      <span className="flex flex-col items-center gap-0.5">
+        <span className="text-[15px] font-bold text-v3-navy">{roleLabel}</span>
+        <ElementPill elementTh={th} />
+      </span>
     </div>
   )
 }
@@ -55,18 +60,19 @@ export function CompatElementInteractionCard({ interaction }: { interaction?: Co
 
   return (
     <section data-testid="compat-element-interaction" className="flex flex-col gap-4">
-      <p className="text-[16px] font-bold text-v3-navy">ปฏิกิริยาธาตุ</p>
+      {/* Figma: หัว 16 bold #1F2937 (= v3-text-price) · flow gap4 · arr: ป้ายบน 15 bold · ลูกศร 40×16 · ป้ายล่าง 14/22 #94A3B8 */}
+      <p className="text-[16px] font-bold text-v3-text-price">ปฏิกิริยาธาตุ</p>
       {hasElements ? (
-        <div className="flex items-center justify-between gap-2">
+        <div className="flex items-start justify-center gap-1">
           <ElementChip elementTh={i?.aElementTh} roleLabel="ตัวเรา" />
-          <div className="flex flex-1 flex-col items-center gap-0.5 px-1">
+          <div className="flex min-w-0 flex-1 flex-col items-center gap-0.5 px-1">
             {/* ผู้ใช้เคาะ 2026-09-07: ลูกศร+ป้ายบนไล่สีตามธาตุ เรา → เขา (Figma เดิมเป็น cyan ตายตัว) */}
-            {relLabel ? <span data-testid="compat-element-rel" className="text-center text-[13px] font-semibold" style={{ color: inkB }}>{relLabel}</span> : null}
-            <svg viewBox="0 0 48 12" className="h-3 w-12" fill="none" aria-hidden data-testid="compat-element-arrow">
+            {relLabel ? <span data-testid="compat-element-rel" className="text-center text-[15px] font-bold" style={{ color: inkB }}>{relLabel}</span> : null}
+            <svg viewBox="0 0 40 16" className="h-4 w-10" fill="none" aria-hidden data-testid="compat-element-arrow">
               <defs><linearGradient id={gradId} x1="0" x2="1" y1="0" y2="0"><stop offset="0" stopColor={inkA} /><stop offset="1" stopColor={inkB} /></linearGradient></defs>
-              <path d="M0 6h44m0 0-5-4m5 4-5 4" stroke={`url(#${gradId})`} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+              <path d="M1 8h34m0 0-6-6m6 6-6 6" stroke={`url(#${gradId})`} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
             </svg>
-            {relKind ? <span className="text-[12px] text-v3-text-muted">{relKind}</span> : null}
+            {relKind ? <span className="text-center text-[14px] leading-[22px] text-v3-slate-muted">{relKind}</span> : null}
           </div>
           <ElementChip elementTh={i?.bElementTh} roleLabel="เขา" />
         </div>

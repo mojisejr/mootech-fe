@@ -102,17 +102,18 @@ const HERO_FALLBACK = '/images/v2/mascot/01.webp'
 
 export function V2HomeScreen({ greeting, mascotCharacter, fortune, fortuneLoading, element, profile, membership, loading }: V2HomeScreenProps) {
   return (
-    // page bg = bg-cream (Figma Lemon Chiffon) — the CONTINUOUS ground the whole scroll sits on
-    <div className="relative min-h-screen w-full overflow-x-hidden bg-v3-bg-cream font-ibm">
+    // page bg = Figma Home 333:6545 fill #F9F4F0 (v3-lemon-chiffon) — the CONTINUOUS ground the whole scroll sits on
+    <div className="relative min-h-screen w-full overflow-x-hidden bg-v3-lemon-chiffon font-ibm">
       {/* ── BG CONTINUITY: BG01 hero at the top, gradient-faded INTO bg-cream. Below the fade there is
           only the page colour, so there is no seam anywhere across the ~2229px scroll. ── */}
-      <div aria-hidden className="pointer-events-none absolute inset-x-0 top-0 h-[440px] select-none">
+      {/* Figma "BG01 1": 393×365, fade rgba(249,244,240,0) @69.178% → #F9F4F0 */}
+      <div aria-hidden className="pointer-events-none absolute inset-x-0 top-0 h-[365px] select-none">
         <Image src="/images/v2/bg/BG01.png" alt="" fill priority sizes="100vw" style={{ objectFit: 'cover', objectPosition: 'top center' }} />
-        <div className="absolute inset-0 bg-gradient-to-b from-transparent via-v3-bg-cream/40 to-v3-bg-cream" />
+        <div className="absolute inset-0 bg-gradient-to-b from-[rgba(249,244,240,0)] from-[69.178%] to-v3-lemon-chiffon" />
       </div>
 
       {/* ── content column: 393 primary, centred + capped, safe-area top, clears the fixed nav ── */}
-      <div className="relative z-10 mx-auto flex w-full max-w-md flex-col px-4 pb-36 pt-[max(0.75rem,env(safe-area-inset-top))]">
+      <div className="relative z-10 mx-auto flex w-full max-w-md flex-col px-4 pt-[max(0.75rem,env(safe-area-inset-top))]">
         <Greeting name={greeting.name} mascotCharacter={mascotCharacter} element={element} profile={profile ?? PROFILE_FALLBACK} membership={membership} loading={loading} />
         {/* `fortuneLoading` is the WHOLE truth for this card, and that is a deliberate arrangement.
             It briefly wasn't: while the user row was in flight the hook reported loading=false with no
@@ -166,7 +167,8 @@ function Greeting({ name, mascotCharacter, element, profile, membership, loading
     // cyan + r8 with a cyan glow. Correct pixels, and the UI still never computes the payment rule — but as
     // of #384 the input is `membership` (composed by the PAGE from the user row) rather than the boolean
     // `profile.showUpgrade`, because that boolean could not say "ไม่รู้" and so said "ยังไม่จ่าย" on error.
-    <header data-testid="home-header" className="flex flex-col gap-1.5 py-4 font-ibm">
+    // Figma header row (333:6545): px-24 py-16 → px-2 on top of the column's px-4.
+    <header data-testid="home-header" className="flex flex-col gap-1.5 px-2 py-4 font-ibm">
       <div className="flex items-center gap-2">
         <p className="min-w-0 flex-1 truncate text-sm font-medium leading-5 text-v3-text-muted">สวัสดีคุณ</p>
         {loading.profile ? <HeaderToolsSkeleton /> : (
@@ -251,8 +253,8 @@ function ElementLine({ mascotCharacter, element, loading }: { mascotCharacter: s
   // moment the chart lands — the same reveal-by-surprise the grey block exists to prevent.
   if (loading) {
     return (
-      <div data-testid="element-line-skeleton" className="flex items-start gap-1.5">
-        <Skeleton className="h-8 w-7 shrink-0 rounded" />
+      <div data-testid="element-line-skeleton" className="flex items-start gap-1">
+        <Skeleton className="h-8 w-[26px] shrink-0 rounded" />
         <Skeleton className="mt-1 h-4 w-48 max-w-full rounded" />
       </div>
     )
@@ -260,8 +262,9 @@ function ElementLine({ mascotCharacter, element, loading }: { mascotCharacter: s
   if (!element.elementTh) return null
   return (
     // items-start: mascot stays top-aligned with line 1 when the text wraps to 2 lines on narrow screens.
-    <div className="flex items-start gap-1.5">
-      <span className="relative h-8 w-7 shrink-0">
+    <div className="flex items-start gap-1">
+      {/* Figma Mascot 26×32, gap 4 */}
+      <span className="relative h-8 w-[26px] shrink-0">
         {/* missing-file safety (goo caught: characters/ empty → path 404s): fall back to static hero */}
         <MascotImg src={mascotCharacter} />
       </span>
@@ -346,7 +349,8 @@ function FortuneSkeleton({ empty }: { empty: boolean }) {
 function ScoreRingCard({ fortune, loading }: { fortune: DailyFortune | null; loading: boolean }) {
   if (loading || !fortune) {
     return (
-      <section data-testid="zone1-skeleton" className="mb-8 flex flex-col gap-4 rounded-[28px] bg-gradient-to-b from-white to-v3-cyan/20 p-6 shadow-sm">
+      // Figma daily-session-card: r28, white → #C1E6F8 (v3-pastel-sky), p-24, gap 16; 8px to the manifest card below.
+      <section data-testid="zone1-skeleton" className="mb-2 flex flex-col gap-4 rounded-[28px] bg-gradient-to-b from-white to-v3-pastel-sky p-6">
         <FortuneSkeleton empty={!loading && !fortune} />
       </section>
     )
@@ -355,7 +359,10 @@ function ScoreRingCard({ fortune, loading }: { fortune: DailyFortune | null; loa
   // render — same ground, same verdict-coloured arc, same one-line columns, same "เปิดปฏิทินของฉัน" link).
   // ปฏิทินดวง renders the same component with Figma's calendar variant, so the two screens can no longer
   // drift the way home's card and the calendar's little local card already had.
+  // The shared card hardcodes mb-8; Figma puts 8px between this card and the manifest card (the 32px sits
+  // BELOW the manifest card). Overridden from outside — DailyFortuneCard is shared with ปฏิทินดวง.
   return (
+    <div className="mb-2 [&>section]:mb-0">
     <DailyFortuneCard
       variant="home"
       ring={{ grade: fortune.grade, percent: fortune.percent, verdict: fortune.verdict }}
@@ -369,6 +376,7 @@ function ScoreRingCard({ fortune, loading }: { fortune: DailyFortune | null; loa
       suitable={[fortune.best.text]}
       avoid={[fortune.worst.text]}
     />
+    </div>
   )
 }
 
@@ -414,7 +422,8 @@ function ManifestCard({ mascotCharacter, element, loading }: { mascotCharacter: 
         ? <div aria-hidden data-testid="manifest-mascot-skeleton" className="pointer-events-none absolute right-[-5.8%] top-[-22px] z-[1] aspect-[187/217] w-[52%] rotate-[7deg] animate-pulse rounded-2xl bg-black/5" />
         : <ManifestMascot src={mascotCharacter} />}
       {/* coin — decorative, bottom-right, gentle 2s float. pointer-events-none. reduced-motion → still. */}
-      <Image src="/images/v2/zone2/coin.png" alt="" width={56} height={56} aria-hidden className="zone2-coin pointer-events-none absolute bottom-[-12px] right-[7%] z-[5] size-[56px]" />
+      {/* Figma illustration 65×65 at (306,97) on the 361-wide card → right −10px, ~6px above the bottom edge */}
+      <Image src="/images/v2/zone2/coin.png" alt="" width={65} height={65} aria-hidden className="zone2-coin pointer-events-none absolute bottom-[6px] right-[-10px] z-[5] size-[65px]" />
       <style dangerouslySetInnerHTML={{ __html: `@keyframes zone2-coin{0%{transform:rotate(0) scale(1) translateY(0)}25%{transform:rotate(-3deg) scale(1.03) translateY(-3px)}50%{transform:rotate(0) scale(1.05) translateY(-6px)}75%{transform:rotate(3deg) scale(1.03) translateY(-3px)}100%{transform:rotate(0) scale(1) translateY(0)}}.zone2-coin{animation:zone2-coin 2s cubic-bezier(.45,0,.55,1) infinite;transform-origin:center}@media(prefers-reduced-motion:reduce){.zone2-coin{animation:none}}` }} />
     </section>
   )
@@ -441,7 +450,7 @@ const charSrc = (n: string) => `/images/v2/characters/${n}.webp`
 
 function SomphongSection() {
   return (
-    <section className="relative -mx-4 mb-6 overflow-hidden px-4 py-14">
+    <section className="relative -mx-4 overflow-hidden px-4 py-14">
       <Image src="/images/v2/zone3/section-bg.jpg" alt="" fill priority sizes="100vw" aria-hidden className="pointer-events-none -z-10 object-cover" />
       {/* white mound: top (flipped vertical) + bottom — full-bleed, overflowing both edges */}
       <SomphongMound className="top-0 -scale-y-100" />
@@ -471,7 +480,8 @@ function SomphongSection() {
           </div>
         </SomphongCard>
       </div>
-      <Link href="/v2/service" className="mx-auto mt-4 block w-fit rounded-full border border-[#1455A4] px-6 py-2 text-center text-sm font-semibold uppercase leading-5 text-[#1455A4]">ดูบริการทั้งหมด</Link>
+      {/* Figma: 8px from the card row to the tertiary CTA */}
+      <Link href="/v2/service" className="mx-auto mt-2 block w-fit rounded-full border border-v3-sapphire px-6 py-2 text-center text-sm font-semibold uppercase leading-5 text-v3-sapphire">ดูบริการทั้งหมด</Link>
       <SomphongKeyframes />
     </section>
   )
@@ -480,7 +490,7 @@ function SomphongSection() {
 // full-bleed white wave (reuses the WhiteMoundDivider shape), 451px wide overflowing both edges.
 function SomphongMound({ className }: { className: string }) {
   return (
-    <div aria-hidden className={`pointer-events-none absolute inset-x-0 z-0 h-7 w-[451px] max-w-none -translate-x-[29px] text-v3-bg-cream ${className}`}>
+    <div aria-hidden className={`pointer-events-none absolute inset-x-0 z-0 h-7 w-[451px] max-w-none -translate-x-[29px] text-v3-lemon-chiffon ${className}`}>
       <svg viewBox="0 0 451 27" preserveAspectRatio="none" className="h-full w-full" fill="currentColor"><path d="M0 27 V10 Q112 -6 225 8 T451 10 V27 Z" /></svg>
     </div>
   )
@@ -545,7 +555,8 @@ const SIAN_CARDS: { icon: string; lines: string[]; serviceId: ServiceId }[] = [
 
 function SianSection() {
   return (
-    <section className="mb-6 flex w-full flex-col items-center gap-2">
+    // Figma 333:6885: bg WHITE, full-bleed, px-16 py-32, gap 8 — flush against ดวงสมพงค์ above and ซินแส below.
+    <section className="-mx-4 flex w-[calc(100%+2rem)] flex-col items-center gap-2 bg-white px-4 py-8">
       {/* section-header (left) */}
       <div className="flex w-full flex-col gap-2 pb-2">
         <h2 className="text-xl font-bold leading-7 text-v3-navy">โหมดเซียน</h2>
@@ -587,9 +598,10 @@ function SianSection() {
             style={{ backgroundImage: `url(/images/v2/home/bg/${c.icon}.jpg)`, backgroundSize: 'cover', backgroundPosition: 'center' }}
           >
             <div aria-hidden className="pointer-events-none absolute inset-0 bg-white/45" />
-            <div className="relative z-[1] flex flex-1 flex-col justify-start gap-2">
-              <img src={`/images/v2/home/sian/${c.icon}.png`} alt="" aria-hidden className="size-14 object-contain" />
-              <p className="text-sm font-semibold uppercase leading-5 text-v3-navy">
+            {/* Figma "Property Type": p-16, gap 10, items-center, 67px icon, 14/20 SemiBold navy CENTRED uppercase */}
+            <div className="relative z-[1] flex flex-1 flex-col items-center justify-start gap-2.5">
+              <img src={`/images/v2/home/sian/${c.icon}.png`} alt="" aria-hidden className="size-[67px] object-contain" />
+              <p className="w-full text-center text-sm font-semibold uppercase leading-5 text-v3-navy">
                 {c.lines.map((l) => (
                   <span key={l} className="block leading-5">{l}</span>
                 ))}
@@ -611,7 +623,7 @@ function SianSection() {
 // ── White-mound wave divider (rebuilt as SVG — Figma "White Mound") ──────────────────────────────
 function WhiteMoundDivider() {
   return (
-    <div aria-hidden className="my-2 -mx-4 h-7 w-[calc(100%+2rem)] text-v3-bg-cream">
+    <div aria-hidden className="my-2 -mx-4 h-7 w-[calc(100%+2rem)] text-v3-lemon-chiffon">
       <svg viewBox="0 0 451 27" preserveAspectRatio="none" className="h-full w-full" fill="currentColor">
         <path d="M0 27 V10 Q112 -6 225 8 T451 10 V27 Z" />
       </svg>

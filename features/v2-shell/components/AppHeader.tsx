@@ -69,6 +69,10 @@ export type AppHeaderProps = {
   avatarPictureUrl?: string | null
   /** right: where the bell goes (default = the full notifications page, ฟีม 2026-07-29) */
   bellHref?: string
+  /** right: may THIS screen show the bell? Screen policy like `upgradeCta` — the notifications screen passes
+   *  false because the bell's destination IS that screen (Figma 636:10221 draws title + close chip only, and
+   *  with the bell the 24px title wraps at 375px). Default true. */
+  bell?: boolean
   /** page chrome + vertical alignment. NOTE alignment lives here on purpose: the base class list must not
    *  also set `items-*`, or a caller passing `items-center` would race it in the stylesheet (whichever
    *  Tailwind emits last wins — not whichever you wrote last). */
@@ -144,14 +148,14 @@ function BackLink({ href }: { href: string }) {
 // THE right cluster, exported on its own — because it is the actual shared thing (see the note at the top).
 // home needs it INSIDE its first row while its name and element line keep the full column width, so it
 // composes this directly instead of the <AppHeader/> row; every other screen gets it via <AppHeader/>.
-export function HeaderTools({ membership, upgradeCta = true, tierLink = true, onAvatar, avatarName, avatarPictureUrl = null, bellHref = '/v2/calendar/notifications' }:
-  Pick<AppHeaderProps, 'membership' | 'upgradeCta' | 'tierLink' | 'onAvatar' | 'avatarName' | 'avatarPictureUrl' | 'bellHref'>) {
+export function HeaderTools({ membership, upgradeCta = true, tierLink = true, onAvatar, avatarName, avatarPictureUrl = null, bellHref = '/v2/calendar/notifications', bell = true }:
+  Pick<AppHeaderProps, 'membership' | 'upgradeCta' | 'tierLink' | 'onAvatar' | 'avatarName' | 'avatarPictureUrl' | 'bellHref' | 'bell'>) {
   const badge = headerBadge(membership, { upgradeCta })
   return (
     <div data-testid="header-tools" className="flex shrink-0 items-center gap-2">
       {badge.kind === 'upgrade' && <UpgradeBadge />}
       {badge.kind === 'tier' && <TierBadge label={badge.label} linked={tierLink} />}
-      <TopBarBell variant="solid" href={bellHref} />
+      {bell && <TopBarBell variant="solid" href={bellHref} />}
       {/* 🔴 avatar ปลายทางมีจริงแล้ว (2026-09-04): หน้าที่ไม่ส่ง onAvatar (ร้านค้า/checkout/ปฏิทิน/แจ้งเตือน)
           เดิมตกไปที่ toast "โปรไฟล์กำลังจะมา เร็วๆ นี้" ซึ่งโกหกตั้งแต่ /v2/account เกิด — ตอนนี้ default
           คือพาไปโปรไฟล์ ส่วน home/service ยังผูก onAvatar เปิดเมนูออกจากระบบเหมือนเดิม (ชนะเสมอเมื่อส่งมา) */}
@@ -172,6 +176,7 @@ export function AppHeader({
   avatarName,
   avatarPictureUrl = null,
   bellHref = '/v2/calendar/notifications',
+  bell = true,
   className = 'items-start px-4 pb-6 pt-4',
   testId = 'app-header',
 }: AppHeaderProps) {
@@ -186,7 +191,7 @@ export function AppHeader({
         </div>
       )}
       {/* THE right cluster — order and sizes are the invariant run-app-header.ts owns */}
-      <HeaderTools membership={membership} upgradeCta={upgradeCta} tierLink={tierLink} onAvatar={onAvatar} avatarName={avatarName} avatarPictureUrl={avatarPictureUrl} bellHref={bellHref} />
+      <HeaderTools membership={membership} upgradeCta={upgradeCta} tierLink={tierLink} onAvatar={onAvatar} avatarName={avatarName} avatarPictureUrl={avatarPictureUrl} bellHref={bellHref} bell={bell} />
     </header>
   )
 }

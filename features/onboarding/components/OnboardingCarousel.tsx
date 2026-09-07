@@ -65,7 +65,7 @@ export function OnboardingCarousel({ onComplete }: { onComplete: () => void }) {
               className="h-auto w-full"
             />
           )}
-          <h1 className="text-balance font-ibm text-lg font-bold leading-7 text-v3-text-title sm:text-xl sm:leading-8">
+          <h1 className="text-balance font-ibm text-xl font-bold leading-7 text-v3-text-body">
             {step.lines.map((line) => (
               // explicit per-line breaks = graceful Thai wrapping (no mid-word auto-break)
               <span key={line} className="block [word-break:keep-all]">

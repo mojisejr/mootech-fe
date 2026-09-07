@@ -20,7 +20,8 @@ export function ServiceHeader({ membership }: { membership: MembershipLike }) {
       testId="service-header"
       title="บริการทั้งหมด"
       membership={membership}
-      className="items-center py-4"
+      // Figma 626:7624: px-24 py-16, items-start (px-2 on top of the column's px-4)
+      className="items-start px-2 py-4"
     />
   )
 }

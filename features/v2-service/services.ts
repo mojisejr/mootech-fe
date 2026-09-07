@@ -48,8 +48,11 @@ const DESC_SIAN = ['ตั้งจิตอธิษฐานแล้วเส
 const DESC_SINSAE = ['ปรึกษาซินแสตัวจริงแบบตัวต่อตัว', 'วางแผนชีวิตจากดวงของคุณ']
 const DESC_MANIFEST = ['ตั้งเป้าหมาย เขียนคำยืนยัน', 'ทำภารกิจเล็ก ๆ ทุกวันให้เป็นจริง']
 const DESC_LEARN = ['คอร์สปาจื่อออนไลน์ 15 บทเรียน', 'ปูพื้นฐาน อ่านดวงได้ด้วยตัวเอง']
-const DESC_CALENDAR = ['วางแผนชีวิตตามจังหวะดวงดาว เลือกวันดี เลี่ยงวันไม่ดี', 'พร้อมแจ้งเตือนกิจกรรมมงคลที่เหมาะกับคุณโดยเฉพาะ']
-const DESC_PLAN = ['วางแผนชีวิตตามจังหวะดวงดาว เลือกวันดี เลี่ยงวันไม่ดี']
+// ปฏิทิน · Healing Circles · แผนที่ · ร้านค้า — verbatim Figma 626:2962 (2026-09-07). แผนที่/ร้านค้า เคยยืม copy ปฏิทิน (DESC_PLAN).
+const DESC_CALENDAR = ['วางแผนชีวิตตามจังหวะดวงดาว', 'เลือกวันดี พร้อมแจ้งวันมงคล']
+const DESC_HEALING = ['พื้นที่ปลอดภัยให้ทุกคนได้แบ่งปัน', 'ความรู้สึกรับฟังซึ่งกันและกัน']
+const DESC_SACRED = ['แผนที่ศักดิ์สิทธิ์ที่รวบรวมสถานที่', 'พลังงานสูงพร้อมนำภายในที่ลึกซึ้ง']
+const DESC_SHOP = ['เลือกสรรสินค้าเสริมพลังกาย', 'ใจ และจิตวิญญาณ']
 
 /** the shared "เร็วๆ นี้" destination, carrying the service name so that page names what the user tapped */
 export const comingSoonHref = (title: string): string => `/v2/service/coming-soon?service=${encodeURIComponent(title)}`
@@ -66,9 +69,9 @@ export const SERVICES = [
   { id: 'manifest', title: 'มานิเฟส', desc: DESC_MANIFEST, href: '/v2/service/manifest', image: ART('08_มานิเฟส.png') },
   // filename says ปฎิทิน (ฎ ชฎา), the title says ปฏิทิน (ฏ ปฏัก) — different letters. Mapped by id on purpose.
   { id: 'calendar', title: 'ปฏิทิน', desc: DESC_CALENDAR, href: '/v2/calendar', image: ART('09_ปฎิทิน.png') },
-  { id: 'healing-circles', title: 'Healing Circles', desc: DESC_CALENDAR, href: comingSoonHref('Healing Circles'), hiddenUntilArt: true },
-  { id: 'sacred-map', title: 'แผนที่ศักดิ์สิทธิ์', desc: DESC_PLAN, href: '/v2/service/sacred-map', image: ART('10_แผนที่ศักดิ์สิทธิ์.png') },
-  { id: 'shop', title: 'ร้านค้าของเรา', desc: DESC_PLAN, href: '/v2/shop', image: ART('11_ร้านค้าของเรา.png') },
+  { id: 'healing-circles', title: 'Healing Circles', desc: DESC_HEALING, href: comingSoonHref('Healing Circles'), hiddenUntilArt: true },
+  { id: 'sacred-map', title: 'แผนที่ศักดิ์สิทธิ์', desc: DESC_SACRED, href: '/v2/service/sacred-map', image: ART('10_แผนที่ศักดิ์สิทธิ์.png') },
+  { id: 'shop', title: 'ร้านค้าของเรา', desc: DESC_SHOP, href: '/v2/shop', image: ART('11_ร้านค้าของเรา.png') },
   // #13, added 2026-08-08 — NOT from the Figma 12. The home screen (Zone 6) has been selling this since
   // #157, but it existed nowhere in the catalog, so its CTA had no name to send anywhere. Hidden for the
   // same reason as Healing Circles: the card art is 1128×463 full-card, and the only ปาจื่อ image we have

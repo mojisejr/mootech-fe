@@ -47,13 +47,12 @@ function BackChevron() {
   )
 }
 function Sparkles() {
-  // Figma ✨ (480:5356) — a 2-star sparkle. Inline (project convention: icons local, no lib).
-  return (
-    <svg viewBox="0 0 37 37" className="size-[37px]" fill="none" aria-hidden>
-      <path d="M23 6l2.2 5.8L31 14l-5.8 2.2L23 22l-2.2-5.8L15 14l5.8-2.2L23 6Z" fill="#1B9AAF" />
-      <path d="M11 19l1.3 3.5L16 24l-3.7 1.5L11 29l-1.3-3.5L6 24l3.7-1.5L11 19Z" fill="#E1FF00" stroke="#1B9AAF" strokeWidth="0.8" />
-    </svg>
-  )
+  // Figma 480:5356 "Sparkles" 37×37 — exported asset (animated GIF from the file), never redrawn.
+  return <img src="/images/v2/compat/sparkles.gif" alt="" width={37} height={37} className="size-[37px] object-cover" aria-hidden />
+}
+function RowChevron({ className = '' }: { className?: string }) {
+  // Figma "Component" 20×20 chevron asset (720:24144 / 720:27790) — the same glyph on empty and filled rows.
+  return <img src="/images/v2/compat/chevron.svg" alt="" width={20} height={20} className={`size-5 shrink-0 ${className}`} aria-hidden />
 }
 
 // one profile row — Figma 636:18668 (filled) / 636:17787 (empty). `variant` picks the surface + empty CTA.
@@ -79,13 +78,14 @@ function ProfileRow({ person, loadingDob, onEdit, onPick, onChangePerson, editBu
   if (!person) {
     // empty state (person2 only) — lemon-chiffon pill, dashed "+" circle, sapphire uppercase CTA
     return (
-      // Figma 720:25502 profile-row (ว่าง): h74 · r56 · bg #F9F4F0 · pl10 pr16 · วงกลม dashed 40 · label 16 bold #1455A4 · chevron 20
-      <button type="button" onClick={onPick} data-testid={testId} className="flex h-[74px] w-full items-center gap-3 overflow-hidden rounded-[56px] bg-[#F9F4F0] pl-2.5 pr-4 text-left">
+      // Figma 636:17787 / 720:25539 profile-row (ว่าง): h60 (py10) · r56 · bg #F9F4F0 · pl10 pr16 · วงกลม dashed 40 · label 16 bold #1455A4 · chevron 20
+      // (แถวที่มีคนแล้วสูง 74 — แถวว่างเตี้ยกว่าตามเฟรม ไม่ใช่ 74 เท่ากันหมด)
+      <button type="button" onClick={onPick} data-testid={testId} className="flex h-[60px] w-full items-center gap-3 overflow-hidden rounded-[56px] bg-[#F9F4F0] py-2.5 pl-2.5 pr-4 text-left">
         <span className="grid size-10 shrink-0 place-items-center rounded-full border border-dashed border-[#1455A4] bg-white text-[#1455A4]">
           <svg viewBox="0 0 18 18" className="size-[18px]" fill="none" aria-hidden><path d="M9 3.75v10.5M3.75 9h10.5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" /></svg>
         </span>
         <span data-testid={`${testId}-empty`} className="min-w-0 flex-1 truncate text-[16px] font-bold uppercase leading-6 text-[#1455A4]">{emptyLabel}</span>
-        <svg viewBox="0 0 20 20" className="size-5 shrink-0 text-[#0B305B]" fill="none" aria-hidden><path d="m6 8 4 4 4-4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" /></svg>
+        <RowChevron />
       </button>
     )
   }
@@ -152,7 +152,18 @@ function ProfileRow({ person, loadingDob, onEdit, onPick, onChangePerson, editBu
           `w-full` forced the wrap by itself — the row could never put the actions beside the text no matter
           how much room there was, so the layout needed a viewport rule to undo it. */}
       <div className="ml-auto flex shrink-0 items-center">
-        {onChangePerson && (
+        {/* Figma 720:27784 / 720:28016 — a FILLED co-worker row carries only the 20px chevron on the right
+            (same asset as the empty row); the love row (#266) keeps its two text labels because it has two
+            actions. Both keep the `-change` testid + an accessible name. */}
+        {onChangePerson && !onEdit && (
+          <button
+            type="button" onClick={onChangePerson} data-testid={`${testId}-change`} aria-label="เปลี่ยนคน"
+            className="grid min-h-[44px] min-w-[44px] place-items-center"
+          >
+            <RowChevron />
+          </button>
+        )}
+        {onChangePerson && onEdit && (
           <button
             type="button" onClick={onChangePerson} data-testid={`${testId}-change`}
             className="grid min-h-[44px] min-w-[44px] place-items-center text-[14px] font-bold leading-5 text-v3-text-muted"
@@ -160,6 +171,7 @@ function ProfileRow({ person, loadingDob, onEdit, onPick, onChangePerson, editBu
             เปลี่ยน
           </button>
         )}
+        {onEdit && (
         <button
           type="button" onClick={onEdit} disabled={editBusy} aria-disabled={editBusy}
           data-testid={`${testId}-edit`}
@@ -170,6 +182,7 @@ function ProfileRow({ person, loadingDob, onEdit, onPick, onChangePerson, editBu
         >
           {editBusy ? 'กำลังโหลด…' : 'แก้ไข'}
         </button>
+        )}
       </div>
     </section>
   )

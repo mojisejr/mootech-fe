@@ -27,6 +27,19 @@ import { MateAIButton } from './MateAIButton'
 export type MenubarState = 'default' | 'primary-cta' | 'saved' | 'form'
 
 const ICON = 'h-4 w-4 shrink-0'
+// CTA-state glyphs — the exact Figma exports (469:3625 solar:calendar-bold · 469:3665 ic:round-check), 24px box,
+// painted with currentColor so they take the lime label colour.
+const IconCalendarBold = () => (
+  <svg viewBox="0 0 24 24" className="size-6 shrink-0" fill="currentColor" aria-hidden>
+    <path d="M7.75 2.5a.75.75 0 0 0-1.5 0v1.58c-1.44.115-2.384.397-3.078 1.092c-.695.694-.977 1.639-1.093 3.078h19.842c-.116-1.44-.398-2.384-1.093-3.078c-.694-.695-1.639-.977-3.078-1.093V2.5a.75.75 0 0 0-1.5 0v1.513C15.585 4 14.839 4 14 4h-4c-.839 0-1.585 0-2.25.013z" />
+    <path fillRule="evenodd" clipRule="evenodd" d="M2 12c0-.839 0-1.585.013-2.25h19.974C22 10.415 22 11.161 22 12v2c0 3.771 0 5.657-1.172 6.828C19.656 22 17.771 22 14 22h-4c-3.771 0-5.657 0-6.828-1.172C2 19.657 2 17.771 2 14zm15 2a1 1 0 1 0 0-2a1 1 0 0 0 0 2m0 4a1 1 0 1 0 0-2a1 1 0 0 0 0 2m-4-5a1 1 0 1 1-2 0a1 1 0 0 1 2 0m0 4a1 1 0 1 1-2 0a1 1 0 0 1 2 0m-6-3a1 1 0 1 0 0-2a1 1 0 0 0 0 2m0 4a1 1 0 1 0 0-2a1 1 0 0 0 0 2" />
+  </svg>
+)
+const IconRoundCheck = () => (
+  <svg viewBox="0 0 24 24" className="size-6 shrink-0" fill="currentColor" aria-hidden>
+    <path d="M8.795 15.875L5.325 12.405a.997.997 0 1 0-1.41 1.41l4.18 4.18c.39.39 1.02.39 1.41 0l10.58-10.58a.997.997 0 1 0-1.41-1.41z" />
+  </svg>
+)
 const IconHome = () => (
   <svg viewBox="0 0 14.3333 15.0094" className={ICON} fill="currentColor" aria-hidden>
     <path fillRule="evenodd" clipRule="evenodd" d="M8.81267 0.618337C7.8702 -0.206112 6.46313 -0.206113 5.52066 0.618337L1.08173 4.50134C0.39432 5.10266 0 5.97151 0 6.88478V12.5094C0 13.8902 1.11929 15.0094 2.5 15.0094H11.8333C13.2141 15.0094 14.3333 13.8902 14.3333 12.5094V6.88478C14.3333 5.97151 13.939 5.10266 13.2516 4.50135L8.81267 0.618337ZM4.60777 9.05931C4.48921 8.80991 4.19092 8.70384 3.94153 8.82238C3.69213 8.94098 3.58607 9.23924 3.70464 9.48864C4.01596 10.1435 4.50663 10.6966 5.11969 11.0838C5.73275 11.471 6.44307 11.6764 7.16813 11.6761C7.89327 11.6758 8.6034 11.4699 9.21613 11.0822C9.82887 10.6946 10.3191 10.141 10.6299 9.48598C10.7483 9.23644 10.642 8.93824 10.3925 8.81991C10.1431 8.70151 9.84487 8.80778 9.72647 9.05731C9.49673 9.54151 9.1344 9.95064 8.68147 10.2372C8.2286 10.5237 7.70367 10.6759 7.16773 10.6761C6.6318 10.6763 6.1068 10.5245 5.65368 10.2383C5.20055 9.95218 4.83788 9.54331 4.60777 9.05931Z" />
@@ -101,7 +114,7 @@ export function Menubar({ state = 'default', ctaLabel, ctaDisabled = false, onCt
           backdrop-blur 6.8px) — the same pair the Mate AI tile carries, so the two halves of the bar can never
           drift apart again. Was border-4 + the default blur. */}
       {state === 'default' ? (
-        <ul className="flex h-[70px] min-w-0 flex-1 items-stretch gap-1 rounded-2xl border-[5px] border-[rgba(216,143,169,0.4)] bg-v3-nav-dark bg-clip-padding p-2 backdrop-blur-[6.8px] max-[383px]:gap-0.5 max-[383px]:p-1">
+        <ul className="flex h-[70px] min-w-0 flex-1 items-stretch gap-2 rounded-2xl border-[5px] border-[rgba(216,143,169,0.4)] bg-v3-nav-dark bg-clip-padding p-2 backdrop-blur-[6.8px] max-[383px]:gap-1 max-[383px]:p-1">
           {TABS.map((tab) => {
             const active = isActive(pathname, tab.href)
             return (
@@ -110,8 +123,10 @@ export function Menubar({ state = 'default', ctaLabel, ctaDisabled = false, onCt
                   href={tab.href}
                   aria-current={active ? 'page' : undefined}
                   className={[
-                    'flex h-full flex-col items-center justify-center gap-1 whitespace-nowrap rounded-2xl px-1 text-[14px] font-semibold leading-5 transition-colors max-[383px]:px-0 max-[383px]:text-[12px] max-[339px]:text-[11px]',
-                    active ? 'bg-v3-sapphire text-v3-lime' : 'text-v3-nav-label-off',
+                    // Figma Menu (461:3097): 58×54 tab · py-8 · gap 2 · SemiBold 14/20 · default #FAF7F4 on the bar ·
+                    // hover navy + white (461:3278/3287/3291/3294) · focus sapphire + lime, backdrop-blur 5px (461:3093).
+                    'flex h-full flex-col items-center justify-center gap-0.5 whitespace-nowrap rounded-2xl px-1 py-2 text-[14px] font-semibold leading-5 transition-colors max-[383px]:px-0 max-[383px]:text-[12px] max-[339px]:text-[11px]',
+                    active ? 'bg-v3-sapphire text-v3-lime backdrop-blur-[5px]' : 'text-v3-nav-label-off hover:bg-v3-navy hover:text-white',
                   ].join(' ')}
                 >
                   <span aria-hidden>{tab.icon}</span>
@@ -149,11 +164,17 @@ export function Menubar({ state = 'default', ctaLabel, ctaDisabled = false, onCt
           onClick={onCta}
           disabled={ctaLabel === '' || ctaDisabled}
           aria-busy={ctaLabel === '' || undefined}
-          className="flex h-[70px] min-w-0 flex-1 items-center justify-center rounded-2xl bg-v3-sapphire px-4 text-center text-sm font-bold leading-tight text-white [text-wrap:balance] disabled:opacity-60"
+          // Figma 469:3653 / 469:3669: sapphire slot · 24px glyph (calendar / round-check) + IBM Plex Sans Thai Bold
+          // 18/24 in LIME, gap 8, the same 5px pink border + 6.8px blur as the tab bar. Steps to 16px under 384 so
+          // the widest #343 label still fits on two balanced lines.
+          className="flex h-[70px] min-w-0 flex-1 items-center justify-center gap-2 rounded-2xl border-[5px] border-[rgba(216,143,169,0.4)] bg-v3-sapphire bg-clip-padding px-4 text-center text-[18px] font-bold leading-6 text-v3-lime backdrop-blur-[6.8px] [text-wrap:balance] disabled:opacity-60 max-[383px]:text-base max-[383px]:leading-5"
         >
-          {ctaLabel === ''
-            ? 'กำลังโหลด…'
-            : (ctaLabel ?? (state === 'saved' ? '✓ คุณบันทึกลงปฏิทินแล้ว' : 'เพิ่มลงปฏิทิน เพื่อแจ้งเตือน'))}
+          {ctaLabel !== '' && (state === 'saved' ? <IconRoundCheck /> : <IconCalendarBold />)}
+          <span className="min-w-0">
+            {ctaLabel === ''
+              ? 'กำลังโหลด…'
+              : (ctaLabel ?? (state === 'saved' ? '✓ คุณบันทึกลงปฏิทินแล้ว' : 'เพิ่มลงปฏิทิน เพื่อแจ้งเตือน'))}
+          </span>
         </button>
       )}
       <MateAIButton />

@@ -3,9 +3,9 @@
 // Bell + avatar are the SHARED TopBar* components (bell → notifications, avatar → /v2/account โปรไฟล์
 // เหมือนทุกหน้า). เดิม service avatar เปิดเมนูออกจากระบบ — เปลี่ยนให้ไปโปรไฟล์เพื่อความสอดคล้อง (logout อยู่ที่ /v2/settings).
 //
-// Layout mirrors home's shell PATTERN (own bg-cream ground + BG01 hero fade + centred max-w column that
-// clears the fixed nav) — NOT AppShell, whose bg is ghost-white (== the card colour) which would flatten
-// the cards. Cards sit on cream (#FAF7F4, the Figma BG stop) so the ghost-white surfaces read distinctly.
+// Layout mirrors home's shell PATTERN (own ground + BG01 hero fade + centred max-w column that clears the
+// fixed nav) — NOT AppShell. Ground is WHITE per Figma 333:7519 / 626:2786 (re-read 2026-09-07; it shipped
+// cream for a while): the cards carry their own #FBF6FA art ground and sit flat, no shadow, as drawn.
 import Head from 'next/head'
 import Image from 'next/image'
 import { Menubar } from '@/features/v2-shell/components/Menubar'
@@ -27,7 +27,8 @@ export function ServiceHubScreen({ teamPreview = false }: { teamPreview?: boolea
   const tier = useClientTier(teamPreview)
 
   return (
-    <div className="relative min-h-screen w-full overflow-x-hidden bg-v3-bg-cream font-ibm">
+    // Figma services (333:7519 / 626:2786): ground is WHITE; BG01 365 tall fading to white at 50.131%.
+    <div className="relative min-h-screen w-full overflow-x-hidden bg-white font-ibm">
       <Head>
         <title>บริการทั้งหมด · MuMate</title>
       </Head>
@@ -35,7 +36,7 @@ export function ServiceHubScreen({ teamPreview = false }: { teamPreview?: boolea
       {/* BG01 hero fading into the cream ground — same continuity pattern as home (no seam). */}
       <div aria-hidden className="pointer-events-none absolute inset-x-0 top-0 h-[365px] select-none">
         <Image src="/images/v2/bg/BG01.png" alt="" fill priority sizes="100vw" style={{ objectFit: 'cover', objectPosition: 'top center' }} />
-        <div className="absolute inset-0 bg-gradient-to-b from-transparent via-v3-bg-cream/40 to-v3-bg-cream" />
+        <div className="absolute inset-0 bg-gradient-to-b from-[rgba(255,255,255,0)] to-white to-[50.131%]" />
       </div>
 
       {/* content column: 393 primary, centred + capped, clears the fixed Menubar */}

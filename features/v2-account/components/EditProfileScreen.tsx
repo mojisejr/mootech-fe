@@ -9,8 +9,11 @@ import { useCallback, useEffect, useRef, useState } from "react"
 import { KitButton, SkyBackdrop, SkyHeader } from "@/features/v2-profile/components/kit"
 import { ProfileGate } from "./ProfileGate"
 
-const CARD = "v3-shadow-card flex w-full flex-col gap-3 rounded-[24px] bg-white p-5"
-const INPUT = "h-12 rounded-[14px] border border-v3-border-input bg-white px-4 text-[14px] outline-none focus:border-v3-navy placeholder:text-v3-placeholder"
+// เฟรม form-card: ขาว + ขอบ border/default + r20 + p18 (ไม่มีเงา)
+const CARD = "flex w-full flex-col gap-4 rounded-[20px] border border-v3-border-input bg-white p-[18px]"
+const INPUT = "h-[52px] rounded-[14px] border border-v3-border-input bg-white px-4 text-[14px] leading-[22px] text-v3-navy outline-none focus:border-v3-navy placeholder:text-v3-placeholder"
+const LABEL = "text-[12px] font-medium leading-4 text-v3-text-body"
+const HINT = "text-[9px] leading-[13px] text-v3-text-note"
 
 type Profile = {
   displayName?: string | null
@@ -180,18 +183,18 @@ export function EditProfileScreen() {
       <Head><title>แก้ไขข้อมูลส่วนตัว · MuMate</title></Head>
       <SkyHeader title="แก้ไขข้อมูลส่วนตัว" backHref="/v2/account" testId="edit-profile" />
 
-      <div className="relative z-10 mx-auto flex w-full max-w-md flex-col gap-4 px-4 pb-36 pt-2">
+      <div className="relative z-10 mx-auto flex w-full max-w-md flex-col gap-4 px-4 pb-6 pt-2">
         <ProfileGate loading={loading} kind={kind} onRetry={() => void load()} />
 
         {!loading && kind === "ok" && (
           <>
-            {/* avatar — อัปโหลดรูปเองได้ (fallback = ตัวย่อชื่อตามธาตุ) */}
-            <div className="flex flex-col items-center gap-1 pt-1">
+            {/* avatar-block (เฟรม 55399:6065): วง 88 พื้น brand/bg + ตัวย่อ sapphire 24 bold + "เปลี่ยนรูปโปรไฟล์" 13 brand */}
+            <div className="flex flex-col items-center gap-2.5 pt-1">
               <button
                 type="button"
                 onClick={() => fileRef.current?.click()}
                 data-testid="ep-avatar-btn"
-                className="relative grid size-20 place-items-center overflow-hidden rounded-full bg-v3-ghost-white text-[30px] font-black text-v3-navy shadow-[0_2px_10px_rgba(26,38,77,.15)]"
+                className="relative grid size-[88px] place-items-center overflow-hidden rounded-full bg-v3-sky-tint text-[24px] font-bold leading-8 text-v3-sapphire"
                 aria-label="เปลี่ยนรูปโปรไฟล์"
               >
                 {hasAvatar ? (
@@ -202,22 +205,18 @@ export function EditProfileScreen() {
                 )}
                 {avatarBusy ? (
                   <span className="absolute inset-0 grid place-items-center bg-black/40 text-[11px] font-bold text-white">กำลังอัป…</span>
-                ) : (
-                  <span aria-hidden className="absolute bottom-0 right-0 grid size-6 place-items-center rounded-full border-2 border-white bg-v3-cyan text-white">
-                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
-                  </span>
-                )}
+                ) : null}
               </button>
               <input ref={fileRef} type="file" accept="image/*" hidden data-testid="ep-avatar-input" onChange={onPickAvatar} />
-              <button type="button" onClick={() => fileRef.current?.click()} className="text-[13px] font-bold text-v3-cyan" data-testid="ep-avatar-change">เปลี่ยนรูปโปรไฟล์</button>
-              <p className="text-[11px] text-v3-text-muted">อัปโหลดได้เอง หรือใช้ตัวย่อชื่อตามธาตุ</p>
+              <button type="button" onClick={() => fileRef.current?.click()} className="text-[13px] leading-[18px] text-v3-sapphire" data-testid="ep-avatar-change">เปลี่ยนรูปโปรไฟล์</button>
             </div>
 
+            {/* form-card (เฟรม 55399:6069): ขาว ขอบ border/default r20 p18 gap16 · label 12 medium · hint 9 muted */}
             <section className={CARD} data-testid="ep-form">
-              <label className="flex flex-col gap-1">
-                <span className="text-[13px] font-bold text-v3-navy">ชื่อที่แสดง (@name)</span>
+              <label className="flex flex-col gap-1.5">
+                <span className={LABEL}>ชื่อที่แสดง</span>
                 <span className="relative block">
-                  <span className="pointer-events-none absolute inset-y-0 left-4 flex items-center text-[14px] text-v3-text-muted">@</span>
+                  <span className="pointer-events-none absolute inset-y-0 left-4 flex items-center text-[14px] text-v3-text-note">@</span>
                   <input
                     value={handle}
                     onChange={(e) => { setHandle(e.target.value.trim()); setHandleErr(null) }}
@@ -228,18 +227,18 @@ export function EditProfileScreen() {
                 </span>
                 {handleErr
                   ? <span className="text-[11px] leading-4 text-v3-error" data-testid="ep-handle-err">{handleErr}</span>
-                  : <span className="text-[11px] leading-4 text-v3-text-muted">ใช้แสดงในแอปและตอนถามเพื่อน · ตั้งไม่ซ้ำกับคนอื่น (ไทย/อังกฤษ/ตัวเลข/_/. 4-24)</span>}
+                  : <span className={HINT}>ใช้แสดงในแอปและตอนที่เพื่อนเห็นคำเชิญของคุณ</span>}
               </label>
-              <label className="flex flex-col gap-1">
-                <span className="text-[13px] font-bold text-v3-navy">ชื่อจริง</span>
+              <label className="flex flex-col gap-1.5">
+                <span className={LABEL}>ชื่อจริง</span>
                 <input value={firstName} onChange={(e) => setFirstName(e.target.value)} placeholder="เช่น สมชาย" data-testid="ep-first-name" className={INPUT} />
               </label>
-              <label className="flex flex-col gap-1">
-                <span className="text-[13px] font-bold text-v3-navy">นามสกุล</span>
+              <label className="flex flex-col gap-1.5">
+                <span className={LABEL}>นามสกุล</span>
                 <input value={lastName} onChange={(e) => setLastName(e.target.value)} placeholder="เช่น ใจดี" data-testid="ep-last-name" className={INPUT} />
               </label>
-              <label className="flex flex-col gap-1">
-                <span className="text-[13px] font-bold text-v3-navy">เพศ</span>
+              <label className="flex flex-col gap-1.5">
+                <span className={LABEL}>เพศ</span>
                 <span className="relative block">
                   <select
                     value={gender ?? ""}
@@ -252,32 +251,36 @@ export function EditProfileScreen() {
                       <option key={g.code} value={g.code} className="text-v3-navy">{g.label}</option>
                     ))}
                   </select>
-                  <svg aria-hidden width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="pointer-events-none absolute inset-y-0 right-4 my-auto text-v3-text-muted"><path d="m6 9 6 6 6-6" /></svg>
+                  <span aria-hidden className="pointer-events-none absolute inset-y-0 right-4 flex items-center text-[14px] text-v3-text-note">⌄</span>
                 </span>
-                <span className="text-[11px] leading-4 text-v3-text-muted">ใช้ประกอบคำทำนาย</span>
+                <span className={HINT}>ใช้ปรับสำนวนคำทำนาย</span>
               </label>
-              <label className="flex flex-col gap-1">
-                <span className="text-[13px] font-bold text-v3-navy">อีเมล</span>
+              <label className="flex flex-col gap-1.5">
+                <span className={LABEL}>อีเมล</span>
                 <input value={email} onChange={(e) => setEmail(e.target.value)} type="email" inputMode="email" placeholder="เช่น you@example.com" data-testid="ep-email" className={INPUT} />
-                <span className="text-[11px] leading-4 text-v3-text-muted">ใช้ส่งใบเสร็จและไฟล์ข้อมูลของคุณ</span>
+                <span className={HINT}>ใช้ส่งใบเสร็จและไฟล์ข้อมูลของคุณ</span>
               </label>
               {msg && <p data-testid="ep-msg" className="text-[12px] font-bold text-v3-sapphire">{msg}</p>}
-              <KitButton onClick={() => void save()} disabled={saving} testId="ep-save">{saving ? "กำลังบันทึก..." : "บันทึก"}</KitButton>
             </section>
 
-            {/* วันเกิด — ล็อก (แก้หน้าอื่น มีโควตา) */}
-            <section className="rounded-[24px] bg-v3-grade-dminus-bg p-4" data-testid="ep-birth-link">
-              <Link href="/v2/settings/edit-birth" data-testid="ep-to-birth" className="flex items-center justify-between gap-2">
-                <span>
-                  <span className="block text-[13px] font-bold text-v3-navy">วันเกิดและเวลาเกิด</span>
-                  <span className="block text-[12px] leading-4 text-v3-text-body">
+            {/* linked-card (เฟรม 55399:6086): วันเกิดล็อก — ช่องพื้น bg/subtle + "แก้ในหน้าอื่น ›" 9 brand + hint 9 */}
+            <section className={CARD} data-testid="ep-birth-link">
+              <div className="flex flex-col gap-1.5">
+                <span className={LABEL}>วันเกิดและเวลาเกิด</span>
+                <Link href="/v2/settings/edit-birth" data-testid="ep-to-birth" className="flex h-[52px] w-full items-center gap-2 rounded-[14px] border border-v3-border-input bg-v3-rose-tint px-4">
+                  <span className="min-w-0 flex-1 truncate text-[14px] leading-[22px] text-v3-text-note">
                     {thaiBirthLabel(profile?.birthDate, profile?.birthTime, profile?.timeUnknown)}
                   </span>
-                </span>
-                <span className="flex-none text-[12px] font-bold text-v3-pumpkin">แก้ในหน้าอื่น ›</span>
-              </Link>
-              <p className="mt-2 text-[11px] leading-4 text-v3-text-muted">แยกไปอีกหน้าเพราะแก้กระทบคำทำนายทั้งแอป (มีโควตา)</p>
+                  <span className="flex-none text-[9px] leading-none text-v3-sapphire">แก้ในหน้าอื่น ›</span>
+                </Link>
+                <span className={HINT}>แยกไปอีกหน้าเพราะการแก้กระทบคำทำนายทั้งแอป</span>
+              </div>
             </section>
+
+            {/* sticky-footer (เฟรม 55399:6093): ปุ่มบันทึกเต็มกว้าง */}
+            <div className="sticky bottom-0 z-20 -mx-4 bg-gradient-to-t from-white via-white/95 to-white/0 px-4 pb-[max(1.75rem,env(safe-area-inset-bottom))] pt-3.5">
+              <KitButton onClick={() => void save()} disabled={saving} testId="ep-save">{saving ? "กำลังบันทึก..." : "บันทึก"}</KitButton>
+            </div>
           </>
         )}
       </div>

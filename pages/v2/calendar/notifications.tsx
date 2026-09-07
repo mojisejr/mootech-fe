@@ -168,6 +168,7 @@ export default function V2CalendarNotificationsPage({ teamPreview }: { teamPrevi
           testId="notifications-header"
           membership={tier}
           upgradeCta={false}
+          bell={false}
           className="items-center px-4 pb-6 pt-4"
           left={
             <div className="flex min-w-0 flex-1 items-center gap-2">

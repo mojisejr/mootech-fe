@@ -43,7 +43,7 @@ export function mountHook() {
 /** รอช่องโค้ดผู้แนะนำโผล่ (หาด้วย placeholder — Field ผูก label ไม่ครบทุกเคส) */
 export async function waitForField() {
   return await waitFor(
-    () => screen.getByPlaceholderText('เช่น MUMATE123'),
+    () => screen.getByPlaceholderText('ใส่ Code'),
     { timeout: 3000 },
   )
 }

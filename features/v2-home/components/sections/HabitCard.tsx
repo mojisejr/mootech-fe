@@ -31,7 +31,7 @@ export type HabitCardCta = { variant: 'primary' | 'tertiary'; label: string; hre
 /** the illustration in the frame slot. `w`/`h` are the painted size — measured per card, not shared. */
 export type HabitCardArt = { src: string; w: number; h: number; alt?: string }
 
-export function HabitCard({ title, desc, cta, animate = true, art, showMascots = true, smallMascotAt = { xPct: 62, yPct: -6 }, bgImage, artMaxWidth = '38%' }: {
+export function HabitCard({ title, desc, cta, animate = true, art, showMascots = true, smallMascotAt = { xPct: 62, yPct: -6 }, bgImage, artMaxWidth = '38%', padX }: {
   title: React.ReactNode
   desc: React.ReactNode
   cta: HabitCardCta
@@ -47,10 +47,12 @@ export function HabitCard({ title, desc, cta, animate = true, art, showMascots =
   smallMascotAt?: { xPct: number; yPct: number }
   /** ภาพพื้นหลังการ์ด (cover). ถ้ามี ใช้แทน gradient + วาง scrim ขาวจางเพื่อให้ตัวหนังสืออ่านออก */
   bgImage?: string
+  /** horizontal padding override — Figma draws โหมดเซียน at p-24 (333:6889) but เรียนปาจื่อ at px-16 py-24 (375:14151) */
+  padX?: string
 }) {
   // With no mascots there is nothing overhanging the left edge, so the 40px inset that existed to make room
   // for the big one is just a dent — and that card needs the width for its landscape artwork.
-  const pad = showMascots ? 'pl-10 pr-6' : 'px-6'
+  const pad = padX ?? (showMascots ? 'pl-10 pr-6' : 'px-6')
   return (
     <div
       className={`relative flex w-full items-center gap-6 overflow-hidden rounded-[24px] py-6 ${pad}`}
@@ -139,10 +141,11 @@ export function HabitCard({ title, desc, cta, animate = true, art, showMascots =
             diff said 0; the viewport set is what caught it. */}
         <HabitCardCtaLink
           href={cta.href}
-          // primary = navy fill + white label (Figma home "ซื้อเลย", 333:6545 — not the sapphire+lime
-          // design-system Primary Button; these home cards use their own navy pill). tertiary = navy outline.
+          // primary = sapphire fill + LIME label: Figma "Primary Buttons" on both home cards (333:6545 →
+          // bg #1455A4, text #E1FF00, px-24 py-8, r100). It shipped navy+white for a while — re-read off the
+          // node 2026-09-07, not a screenshot. tertiary = sapphire outline.
           className={cta.variant === 'primary'
-            ? 'inline-block rounded-full bg-v3-navy px-6 py-2 text-center text-sm font-semibold uppercase leading-5 text-white'
+            ? 'inline-block rounded-full bg-v3-sapphire px-6 py-2 text-center text-sm font-semibold uppercase leading-5 text-v3-lime'
             : 'inline-block rounded-full border border-v3-sapphire px-6 py-2 text-center text-sm font-semibold uppercase leading-5 text-v3-sapphire'}
         >
           {cta.label}

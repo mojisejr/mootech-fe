@@ -12,7 +12,7 @@ import { hrefById } from '@/features/v2-service/services'
 // bottom/right (STATIC — reuses zone4/mascot-sian.png), and a small fire sprite (the ONLY animated element).
 export function SinseSection() {
   return (
-    <section className="relative -mx-4 mb-6 w-[calc(100%+2rem)] overflow-hidden rounded-[24px] bg-v3-sapphire">
+    <section className="relative -mx-4 w-[calc(100%+2rem)] overflow-hidden rounded-[24px] bg-v3-sapphire">
       <div className="relative h-[196px]">
         {/* text block — Figma frame at (24,40), 217 wide */}
         <div className="absolute left-6 top-10 z-10 flex w-[217px] flex-col gap-2">

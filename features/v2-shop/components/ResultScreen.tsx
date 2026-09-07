@@ -7,6 +7,7 @@
 //   • the action offered comes from `retry`, so "ลองอีกครั้ง" cannot appear on a state where trying again
 //     sends the user in a circle (a declined card).
 import { RESULT_COPY, resultCopyFor, type ResultState } from '../result-state'
+import Image from 'next/image'
 import { cn } from '@/lib/utils/cn'
 
 export type ResultScreenProps = {
@@ -31,25 +32,50 @@ export function ResultScreen({ state, onRetrySame, onTryAnother, onDone, planNam
   const inFlight = state === 'PAYING'
 
   return (
-    <div data-testid="result-screen" data-state={state} data-paid={copy.paid ? '1' : '0'} className="flex w-full flex-col items-center gap-4 px-4 py-10 font-ibm">
-      {/* The mark is derived from `paid`, not from the state's name — see the header. */}
+    // 375:20499 / 402:22087 — cream ground, 24px column, everything centred; 14px between mark, words, card.
+    <div data-testid="result-screen" data-state={state} data-paid={copy.paid ? '1' : '0'} className="flex w-full flex-col items-center gap-3.5 px-6 py-10 font-ibm">
+      {/* The mark is derived from `paid`, not from the state's name — see the header.
+          in flight → the frame's mascot export (300:2754, 72×90) · paid → check-circle 64 (402:22134) ·
+          anything else → a plain "!" disc (no frame draws a failure, so nothing is invented for it). */}
       <span
         aria-hidden
         data-testid="result-mark"
+        data-mark={inFlight ? 'paying' : copy.paid ? 'paid' : 'failed'}
         className={cn(
-          'grid size-16 place-items-center rounded-full text-3xl',
-          inFlight ? 'bg-v3-ghost-white text-v3-sapphire' : copy.paid ? 'bg-v3-success-bg text-v3-success-text' : 'bg-v3-ghost-white text-v3-navy',
+          'grid place-items-center',
+          inFlight
+            ? 'h-[90px] w-[72px]'
+            : copy.paid
+              ? 'size-16'
+              : 'size-16 rounded-full bg-v3-ghost-white text-3xl text-v3-navy',
         )}
       >
-        {inFlight ? '…' : copy.paid ? '✓' : '!'}
+        {inFlight ? (
+          <Image src="/images/v2/shop/mascot-processing.png" alt="" width={72} height={90} className="h-[90px] w-[72px] object-contain" />
+        ) : copy.paid ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src="/images/v2/shop/check-circle.svg" alt="" width={64} height={64} className="size-16" />
+        ) : (
+          '!'
+        )}
       </span>
 
-      <h1 data-testid="result-title" role="status" aria-live="polite" className="text-center text-2xl font-bold leading-8 text-v3-navy">
-        {copy.title}
-      </h1>
-      <p data-testid="result-body" className="max-w-sm text-center text-sm leading-[22px] text-v3-text-body">
-        {copy.body}
-      </p>
+      {/* 402:22287 / 375:20503 — title 24 bold Sapphire; the line under it Pacific Cyan (16/24 bold in
+          flight, 20/30 bold once paid). Words come from the table; only their colour is decided here. */}
+      <div className="flex w-full flex-col gap-1 text-center">
+        <h1 data-testid="result-title" role="status" aria-live="polite" className="text-2xl font-bold leading-normal text-v3-sapphire">
+          {copy.title}
+        </h1>
+        <p
+          data-testid="result-body"
+          className={cn(
+            'mx-auto max-w-sm font-bold text-v3-cyan',
+            copy.paid && !inFlight ? 'text-xl leading-[30px] tracking-[0.2px]' : 'text-base leading-6',
+          )}
+        >
+          {copy.body}
+        </p>
+      </div>
       {/* buy-qi — ชื่อแพ็กที่ซื้อ โชว์เฉพาะเมื่อเงินเข้าแล้วจริง (paid), อย่างอื่นเงียบไว้ก่อน */}
       {copy.paid && successLine ? (
         <p data-testid="result-success-line" className="rounded-full bg-v3-lime px-4 py-1 text-[13px] font-black text-v3-navy">
@@ -57,9 +83,9 @@ export function ResultScreen({ state, onRetrySame, onTryAnother, onDone, planNam
         </p>
       ) : null}
 
-      <div className="flex w-full max-w-sm flex-col gap-2">
+      <div className="flex w-full max-w-sm flex-col gap-2 pt-0.5">
         {copy.retry === 'same' && onRetrySame && (
-          <button type="button" data-testid="result-retry-same" onClick={onRetrySame} className="w-full rounded-pill bg-v3-sapphire px-5 py-3 text-sm font-medium text-white">
+          <button type="button" data-testid="result-retry-same" onClick={onRetrySame} className="w-full rounded-pill bg-v3-sapphire px-5 py-[14px] text-base font-bold leading-6 text-v3-lime">
             ตรวจสอบอีกครั้ง
           </button>
         )}
@@ -67,7 +93,7 @@ export function ResultScreen({ state, onRetrySame, onTryAnother, onDone, planNam
           // 🔴 NOT "ตรวจสอบอีกครั้ง". The gateway told us this QR is dead — asking again cannot revive it.
           // Same destination as "เลือกวิธีชำระเงินอื่น" (the package's checkout, which mints a new charge),
           // different words, because the words are the part that was wrong.
-          <button type="button" data-testid="result-new-qr" onClick={onTryAnother} className="w-full rounded-pill bg-v3-sapphire px-5 py-3 text-sm font-medium text-white">
+          <button type="button" data-testid="result-new-qr" onClick={onTryAnother} className="w-full rounded-pill bg-v3-sapphire px-5 py-[14px] text-base font-bold leading-6 text-v3-lime">
             ขอ QR ใหม่
           </button>
         )}
@@ -75,13 +101,13 @@ export function ResultScreen({ state, onRetrySame, onTryAnother, onDone, planNam
           // 🔴 NOT "ขอ QR ใหม่". This screen is reached by card payers too — a reversal is not a QR story.
           // Same destination as the other two (the package's checkout), different words, because the words
           // are what the reader acts on.
-          <button type="button" data-testid="result-buy-again" onClick={onTryAnother} className="w-full rounded-pill bg-v3-sapphire px-5 py-3 text-sm font-medium text-white">
+          <button type="button" data-testid="result-buy-again" onClick={onTryAnother} className="w-full rounded-pill bg-v3-sapphire px-5 py-[14px] text-base font-bold leading-6 text-v3-lime">
             ซื้ออีกครั้ง
           </button>
         )}
         {copy.retry === 'different' && onTryAnother && (
           // 🔴 NOT "ลองอีกครั้ง". The same card will be declined again; the way forward is another method.
-          <button type="button" data-testid="result-try-another" onClick={onTryAnother} className="w-full rounded-pill bg-v3-sapphire px-5 py-3 text-sm font-medium text-white">
+          <button type="button" data-testid="result-try-another" onClick={onTryAnother} className="w-full rounded-pill bg-v3-sapphire px-5 py-[14px] text-base font-bold leading-6 text-v3-lime">
             เลือกวิธีชำระเงินอื่น
           </button>
         )}
@@ -91,8 +117,8 @@ export function ResultScreen({ state, onRetrySame, onTryAnother, onDone, planNam
             data-testid="result-done"
             onClick={onDone}
             className={cn(
-              'w-full rounded-pill px-5 py-3 text-sm font-medium',
-              copy.retry === 'none' ? 'bg-v3-sapphire text-white' : 'border-[1.5px] border-v3-sapphire bg-white text-v3-sapphire',
+              'w-full rounded-pill px-5 py-[14px] text-base font-bold leading-6',
+              copy.retry === 'none' ? 'bg-v3-sapphire text-v3-lime' : 'border-[1.5px] border-v3-sapphire bg-white text-v3-sapphire',
             )}
           >
             {copy.paid ? 'เริ่มใช้งาน' : 'กลับหน้าแพ็กเกจ'}

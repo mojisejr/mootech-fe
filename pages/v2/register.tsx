@@ -143,32 +143,39 @@ export default function V2RegisterPage() {
         <BirthDayInput dob={f.birthDay} onChangeDate={f.setBirthDay} />
       </div>
 
-      <Checkbox
-        checked={f.isRememberTimeBirth}
-        onChange={f.setIsRememberTimeBirth}
-        label="ทราบเวลาเกิด"
-      />
-
+      {/* Figma 308:127 "เวลาเกิด" (one ชั่วโมง:นาที pill) + 588:10499 "จำไม่ได้" checkbox. The form hook
+          keeps hour/minute as two values (its validation reads them separately), so the pair stays —
+          under the Figma group label — and the checkbox is the Figma wording bound to the INVERSE of
+          isRememberTimeBirth. State/validation untouched. */}
       {f.isRememberTimeBirth ? (
-        <div className="grid grid-cols-2 gap-4">
-          <Field
-            label="ชั่วโมง"
-            placeholder="ชม. (0–23)"
-            inputMode="numeric"
-            value={f.timeHourBirth}
-            error={timeError}
-            onChange={(e) => f.setTimeHourBirth(e.target.value)}
-          />
-          <Field
-            label="นาที"
-            placeholder="นาที (0–59)"
-            inputMode="numeric"
-            value={f.timeMinuteBirth}
-            error={timeError}
-            onChange={(e) => f.setTimeMinuteBirth(e.target.value)}
-          />
+        <div className="flex flex-col gap-2">
+          <span className="font-ibm text-sm font-semibold leading-5 text-v3-text-body-alt">เวลาเกิด</span>
+          <div className="grid grid-cols-2 gap-4">
+            <Field
+              aria-label="ชั่วโมง"
+              placeholder="ชม. (0–23)"
+              inputMode="numeric"
+              value={f.timeHourBirth}
+              error={timeError}
+              onChange={(e) => f.setTimeHourBirth(e.target.value)}
+            />
+            <Field
+              aria-label="นาที"
+              placeholder="นาที (0–59)"
+              inputMode="numeric"
+              value={f.timeMinuteBirth}
+              error={timeError}
+              onChange={(e) => f.setTimeMinuteBirth(e.target.value)}
+            />
+          </div>
         </div>
       ) : null}
+
+      <Checkbox
+        checked={!f.isRememberTimeBirth}
+        onChange={(v) => f.setIsRememberTimeBirth(!v)}
+        label="จำไม่ได้"
+      />
 
       {timeError ? (
         <p className="font-ibm text-xs leading-[18px] text-v3-error">
@@ -193,8 +200,8 @@ export default function V2RegisterPage() {
       ) : null}
 
       <Field
-        label="โค้ดผู้แนะนำ (ไม่บังคับ)"
-        placeholder="เช่น MUMATE123"
+        label="ใส่ Code เพื่อนเเนะนำ"
+        placeholder="ใส่ Code"
         value={referral}
         onChange={(e) => setReferral(e.target.value)}
       />

@@ -193,7 +193,7 @@ export function AccountScreen() {
             )}
           </span>
           <div className="min-w-0 flex-1">
-            <p className="truncate text-[22px] font-black leading-7 text-v3-navy" data-testid="account-greeting">{name}</p>
+            <p className="truncate text-[24px] font-bold leading-8 text-v3-navy" data-testid="account-greeting">{name}</p>
             <p className="text-[13px] leading-[18px] text-v3-text-body">
               {mascot ? `${mascot.elementLabelTh} · ` : ""}{TIER_LABEL[tierKey] ?? tierKey}
             </p>
@@ -213,7 +213,7 @@ export function AccountScreen() {
         <div className="mt-3 flex flex-col gap-3">
           {/* การ์ดธาตุของคุณ — ขาว + badge ในสุด + มาสคอต (เฟรม user-profile-card) */}
           {mascot ? (
-            <section className="v3-shadow-card flex flex-col gap-3 rounded-[24px] bg-white p-4" data-testid="account-element">
+            <section className="v3-shadow-card flex flex-col gap-3 rounded-[20px] bg-white p-4" data-testid="account-element">
               <p className="text-[16px] font-bold text-v3-navy">ธาตุของคุณ</p>
               <div className="flex items-center gap-3 rounded-[16px] bg-v3-rose-tint p-3">
                 <div className="min-w-0 flex-1">
@@ -221,11 +221,11 @@ export function AccountScreen() {
                   {element?.tagline ? <p className="mt-2 line-clamp-3 text-[12px] leading-[18px] text-v3-dropdown-label">{element.tagline}</p> : null}
                 </div>
                 {/* ใช้ card asset เดิม (ฉาก illustrated ต่อธาตุ) — ไฟล์ที่ฉากผิดธาตุ (เช่น 09_วอก-ไม้) ให้ทีมออกแบบแก้ทีหลัง */}
-                <span aria-hidden className="relative h-[138px] w-[126px] flex-none overflow-hidden rounded-[16px] motion-safe:animate-mascot-float">
-                  <Image src={mascot.card} alt="" fill sizes="126px" style={{ objectFit: "cover" }} />
+                <span aria-hidden className="relative h-[110px] w-[80px] flex-none overflow-hidden rounded-[12px] motion-safe:animate-mascot-float">
+                  <Image src={mascot.card} alt="" fill sizes="80px" style={{ objectFit: "cover" }} />
                 </span>
               </div>
-              <Link href="/v2/destiny" className="flex items-center gap-1 pt-1 text-[13px] font-medium text-v3-sapphire">
+              <Link href="/v2/destiny" className="flex items-center gap-1 pb-1 pt-3 text-[13px] leading-[18px] text-v3-sapphire">
                 <span className="flex-1">ดูคำทำนายธาตุและแก้ไขข้อมูลเกิด</span>
                 <span>›</span>
               </Link>
@@ -243,32 +243,35 @@ export function AccountScreen() {
 
           {/* การ์ด QI (ฟ้า) — ยอดคงเหลือ + orb 氣 + ปุ่ม (เฟรม balance-hero-card) */}
           {wallet ? (
-            <section className="rounded-[24px] bg-v3-sapphire p-5 text-white" data-testid="account-qi-wallet">
+            <section className="rounded-[20px] bg-v3-sapphire p-5 text-white" data-testid="account-qi-wallet">
               <div className="flex items-center justify-between gap-3">
                 <div className="min-w-0">
                   <div className="flex items-center gap-1.5">
                     <p className="text-[13px] text-white/90">ยอดคงเหลือ</p>
-                    <Link href="/v2/qi" aria-label="คู่มือพลังชี่" className="grid size-[18px] flex-none place-items-center rounded-[9px] bg-white/90 text-[11px] font-black leading-none text-v3-navy">?</Link>
+                    <Link href="/v2/qi" aria-label="คู่มือพลังชี่" className="grid size-[18px] flex-none place-items-center rounded-[9px] bg-v3-rose-tint text-[11px] font-bold leading-none text-v3-text-body">?</Link>
                   </div>
                   <p className="mt-1 flex items-baseline gap-1.5">
                     <span className="text-[30px] font-black leading-none text-v3-lime" data-testid="account-qi-balance">{balance.toLocaleString("th-TH")}</span>
                     <span className="text-[16px] font-black text-v3-lime">QI</span>
                   </p>
                 </div>
-                <span aria-hidden className="grid size-16 flex-none place-items-center rounded-full bg-white/10">
-                  <Image src="/images/v2/qi/qi-coin.png" alt="" width={56} height={56} unoptimized className="size-14 object-contain drop-shadow" />
+                {/* glow-aura 64 (rgba(216,143,169,.2)) → inner-glow 48 ขอบ sapphire 2px (เฟรม 55399:4944) */}
+                <span aria-hidden className="grid size-16 flex-none place-items-center rounded-full bg-[rgba(216,143,169,0.2)]">
+                  <span className="relative size-12 overflow-hidden rounded-full border-2 border-v3-sapphire">
+                    <Image src="/images/v2/account/qi-glow-aura.png" alt="" fill sizes="48px" unoptimized className="object-cover" />
+                  </span>
                 </span>
               </div>
               <p className="mt-3 text-[13px] leading-[18px] text-white/90">{chatUnlimited ? <>ถามเซียนมู AI ได้ไม่จำกัด · เปิดไพ่ได้อีก {cards} ครั้ง</> : <>พอถามเซียนมู AI ได้อีก {asks} ครั้ง หรือเปิดไพ่ได้ {cards} ครั้ง</>}</p>
               <div className="mt-3 flex gap-2">
-                <Link href="/v2/qi/buy" data-testid="qi-topup-link" className="grid h-11 flex-1 place-items-center rounded-full bg-v3-lime text-[14px] font-black uppercase text-v3-navy">ซื้อ QI เพิ่ม</Link>
-                <Link href="/v2/qi/history" data-testid="account-qi-history" className="grid h-11 flex-1 place-items-center rounded-full border border-white/60 text-[14px] font-bold uppercase text-white">ประวัติการใช้</Link>
+                <Link href="/v2/qi/buy" data-testid="qi-topup-link" className="grid h-11 flex-1 place-items-center rounded-full bg-v3-lime text-[14px] font-semibold uppercase text-v3-sapphire">ซื้อ QI เพิ่ม</Link>
+                <Link href="/v2/qi/history" data-testid="account-qi-history" className="grid h-11 flex-1 place-items-center rounded-full border border-v3-placeholder text-[14px] font-semibold uppercase text-white">ประวัติการใช้</Link>
               </div>
             </section>
           ) : null}
 
           {/* เช็คอินต่อเนื่อง — ช่องสี่เหลี่ยม + footer โบนัส (เฟรม daily-checkin-card) */}
-          <SectionCard testId="account-checkin" className="!rounded-[24px] gap-3">
+          <SectionCard testId="account-checkin" className="!rounded-[20px] gap-3">
             <div className="flex items-center justify-between">
               <p className="text-[16px] font-bold text-v3-navy">เช็คอินต่อเนื่อง</p>
               <p className="text-[13px] text-v3-text-body">{streak === 0 ? "เริ่มสัปดาห์แรก" : `${((streak - 1) % 7) + 1} / 7 วัน`}</p>
@@ -280,7 +283,7 @@ export function AccountScreen() {
                 const bg = isDone ? "bg-v3-ghost-white text-v3-sapphire" : isToday ? "bg-v3-cyan text-white" : "bg-v3-grade-b-bg text-v3-cyan"
                 return (
                   <span key={d} className={`grid flex-1 place-items-center rounded-[11px] py-3 text-[13px] font-bold ${bg}`}>
-                    {isDone ? CHECK_SM : isToday ? <span className="text-[10px] leading-none">วันนี้</span> : Number(d.slice(8, 10))}
+                    {isDone ? CHECK_SM : Number(d.slice(8, 10))}
                   </span>
                 )
               })}
@@ -295,8 +298,8 @@ export function AccountScreen() {
           {daily.length > 0 && (
             <div data-testid="account-missions">
               <div className="mb-2 flex items-center justify-between px-1">
-                <p className="text-[16px] font-black text-v3-navy">ทำภารกิจรับพลังชี่เพิ่ม</p>
-                <Link href="/v2/qi/missions" data-testid="account-missions-link" className="text-[13px] font-bold text-v3-sapphire">ดูทั้งหมด ›</Link>
+                <p className="text-[16px] font-bold leading-6 text-v3-navy">ทำภารกิจรับพลังชี่เพิ่ม</p>
+                <Link href="/v2/qi/missions" data-testid="account-missions-link" className="text-[13px] leading-[18px] text-v3-sapphire">ดูทั้งหมด ›</Link>
               </div>
               <div className="flex gap-2">
                 {daily.map((mn) => {
@@ -308,8 +311,8 @@ export function AccountScreen() {
                           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6 9 17l-5-5" /></svg>
                         ) : ic.icon}
                       </span>
-                      <p className="text-[14px] font-bold leading-5 text-v3-navy">{mn.title}</p>
-                      <p className="text-[14px] font-bold text-v3-qi-earn">+{mn.rewardCoins} QI</p>
+                      <p className="text-[16px] font-bold leading-6 text-v3-navy">{mn.title}</p>
+                      <p className="text-[14px] font-bold leading-5 text-v3-qi-earn">+{mn.rewardCoins} QI</p>
                     </Link>
                   )
                 })}
@@ -379,22 +382,22 @@ export function AccountScreen() {
           {/* ความเคลื่อนไหวล่าสุด — มีวันที่กำกับ (เฟรม recent-activity-card) + empty state วันแรก */}
           {wallet && (
             <div data-testid="account-activity">
-              <div className="mb-2 flex items-center justify-between px-1">
-                <p className="text-[16px] font-black text-v3-navy">ความเคลื่อนไหวล่าสุด</p>
+              <SectionCard className="!rounded-[20px] !p-0">
+              <div className="flex items-center justify-between px-4 pb-2 pt-4">
+                <p className="text-[16px] font-bold leading-6 text-v3-navy">ความเคลื่อนไหวล่าสุด</p>
                 {history.length > 0 && (
-                  <Link href="/v2/qi/history" data-testid="account-activity-link" className="text-[13px] font-bold text-v3-sapphire">ดูทั้งหมด ›</Link>
+                  <Link href="/v2/qi/history" data-testid="account-activity-link" className="text-[13px] leading-[18px] text-v3-sapphire">ดูทั้งหมด ›</Link>
                 )}
               </div>
-              <SectionCard className="!rounded-[24px] !p-0">
                 {history.length > 0 ? (
-                  <ul className="flex flex-col divide-y divide-v3-border-card">
+                  <ul className="flex flex-col divide-y divide-v3-border-card pb-2">
                     {history.slice(0, 3).map((h) => (
                       <li key={h.id} className="flex items-center justify-between gap-3 px-4 py-2.5">
                         <div className="min-w-0 flex-1">
                           <p className="truncate text-[14px] leading-[22px] text-v3-navy">{reasonLabel(h.reason, missionTitles)}</p>
                           <p className="text-[12px] leading-[18px] text-v3-text-muted">{bkkCivilDate(h.createdAt)}</p>
                         </div>
-                        <span className={"flex-none text-[14px] font-bold " + (h.qiDelta > 0 ? "text-v3-qi-earn" : "text-v3-qi-spend")}>{h.qiDelta > 0 ? "+" : ""}{h.qiDelta} QI</span>
+                        <span className={"flex-none text-[14px] font-semibold leading-5 " + (h.qiDelta > 0 ? "text-v3-qi-earn" : "text-v3-qi-spend")}>{h.qiDelta > 0 ? "+" : ""}{h.qiDelta} QI</span>
                       </li>
                     ))}
                   </ul>
