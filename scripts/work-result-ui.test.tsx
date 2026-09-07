@@ -252,3 +252,42 @@ describe('#585 ก้อน 6 — สามบทบาทต่อคน', () =
     expect(screen.getByTestId('work-ranked-2')).toBeTruthy()
   })
 })
+
+// 2026-09-07 — ผลแบบแยกบทบาท (engine `relationship` + `facets` ต่อคน): จอต้องวาดเหมือนหน้าคู่รัก
+//   R10 ทิ้ง readingOrder (isMain ไม่ขึ้นก่อน)      → the main-first case RED
+//   R11 วาด facets เป็น RoleSection แทน dims/readings → the dims case RED
+describe('บทบาทแยกเส้น — ความเข้ากัน N ด้าน + คำทำนายรายด้าน', () => {
+  const line = (t: string) => ({ label: 'ก้าน', text: t })
+  const FACETS = [
+    { key: 'entourage', label: 'ทำงานกับบริวารเจ้านาย', percent: 45, grade: 'C', ratingText: 'ต้องพยายาม', isMain: false, lines: [line('บริวาร-ก้าน'), line('บริวาร-กิ่ง')] },
+    { key: 'business', label: 'ส่งเสริมธุรกิจเจ้านาย', percent: 68.33, grade: 'B', ratingText: 'ไปได้ดี', isMain: true, lines: [line('ธุรกิจ-ก้าน')] },
+    { key: 'customer', label: 'การเงิน', percent: 70, grade: 'B+', ratingText: '', isMain: false, lines: [] },
+  ]
+  const ENTRY = [{ ...ENTRIES[0], roles: [], rolesComplete: true, rolesMissing: 0, facets: FACETS }]
+
+  it('มิติหลักของบทบาทขึ้นก่อน และ % ถูกปัดเป็นจำนวนเต็ม', async () => {
+    answerOk(ENTRY)
+    render(<WorkResultScreen matchingId="m-1" />)
+    const dims = await screen.findByTestId('work-dims')
+    const cards = Array.from(dims.querySelectorAll('[data-testid="compat-dim-card"]'))
+    // การเงินไม่มีทั้ง lines และ ratingText → ถูกตัด
+    expect(cards).toHaveLength(2)
+    expect(cards[0].getAttribute('data-main')).toBe('true')
+    expect(cards[0].textContent).toContain('68%')
+    expect(screen.queryByTestId('work-roles')).toBeNull()
+  })
+
+  it('คำทำนายรายด้านใช้หัว Figma + ชื่อมิติเป็นบรรทัดรอง และ "อ่านเพิ่ม" กางบรรทัดที่เหลือ', async () => {
+    answerOk(ENTRY)
+    render(<WorkResultScreen matchingId="m-1" />)
+    const readings = await screen.findByTestId('work-readings')
+    expect(screen.getByTestId('work-reading-heading-1').textContent).toBe('ธุรกิจ')
+    expect(screen.getByTestId('work-reading-heading-2').textContent).toBe('บริวาร')
+    expect(readings.textContent).toContain('ทำงานกับบริวารเจ้านาย')
+    const second = screen.getByTestId('work-reading-text-2')
+    expect(second.textContent).toBe('บริวาร-ก้าน')
+    const more = Array.from(readings.querySelectorAll('button')).find((b) => b.textContent?.includes('อ่านเพิ่ม'))!
+    more.click()
+    await waitFor(() => expect(screen.getByTestId('work-reading-text-2').textContent).toContain('บริวาร-กิ่ง'))
+  })
+})

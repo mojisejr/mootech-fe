@@ -26,6 +26,10 @@ import type { WorkEntry, WorkFacet, WorkRole } from '../work-comparison'
 import { orderRoles } from '../work-role-order'
 import { colleagueRoleOfRelationship } from '../compatibility'
 import { ChartTableCard } from './ChartTableCard'
+import { CompatDimensionCard } from './CompatDimensionCard'
+import { CompatElementInteractionCard } from './CompatElementInteractionCard'
+import { SectionCard } from '@/features/v2-calendar/components/day-detail/SectionCard'
+import type { CompatDimension, CompatElementInteraction } from '../compatibility-result'
 import { CHART_ELEMENT_SOFT, CHART_PILL_INK, readChartTable, type ChartTable } from '../chart-table'
 import { formatCompatBirth } from './compat-format'
 
@@ -176,17 +180,32 @@ function AdvancedToggle({ on, onToggle }: { on: boolean; onToggle: () => void })
 const READING_OF: Record<string, { title: string; icon: string }> = {
   business: { title: 'ธุรกิจ', icon: '/images/v2/compat/work/reading-2.svg' },
   customer: { title: 'การเงิน', icon: '/images/v2/compat/work/reading-3.svg' },
+  entourage: { title: 'บริวาร', icon: '/images/v2/compat/work/reading-1.svg' },
 }
 const READING_DEFAULT = { title: 'การงาน', icon: '/images/v2/compat/work/reading-1.svg' }
+/** ลำดับบล็อกคำทำนาย: มิติหลักของบทบาทก่อน แล้วตามด้วยลำดับที่ engine ให้ */
+export function readingOrder(facets: WorkFacet[]): WorkFacet[] {
+  return [...facets].sort((a, b) => Number(!!b.isMain) - Number(!!a.isMain))
+}
+/** facets ของบทบาท → แถวมิติแบบเดียวกับหน้าคู่รัก (CompatDimensionCard) */
+export function facetsToDimensions(facets: WorkFacet[]): CompatDimension[] {
+  return facets.map((f) => ({ key: f.key, label: f.label, percent: f.percent == null ? null : Math.round(f.percent), grade: f.grade, ratingText: f.ratingText, emoji: f.emoji, isMain: f.isMain }))
+}
 export function readingOf(key: string): { title: string; icon: string } {
   return READING_OF[key] ?? READING_DEFAULT
 }
 /** เนื้อคำอ่านของมิติ = คำทำนายรายแท่ง (ก้าน/กิ่ง/สี่ซิ้ง) ต่อกัน — ว่าง = ไม่วาดบล็อก */
 export function facetNarrative(f: WorkFacet): string {
-  return f.lines.map((l) => (l.text ?? '').trim()).filter(Boolean).join('\n')
+  return facetLines(f).join('\n')
+}
+/** คำอ่านรายแท่ง (ก้าน / กิ่ง / สี่ซิ้ง) ของมิติ — ว่างถูกตัด */
+export function facetLines(f: WorkFacet): string[] {
+  return f.lines.map((l) => (l.text ?? '').trim()).filter(Boolean)
 }
 
-function ReadingBlock({ title, subtitle, icon, text, index }: { title: string; subtitle?: string; icon?: string; text: string; index: number }) {
+function ReadingBlock({ title, subtitle, icon, lead, lines, index }: { title: string; subtitle?: string; icon?: string; lead?: string; lines: string[]; index: number }) {
+  const [open, setOpen] = useState(false)
+  const shown = open ? lines : lines.slice(0, 1)
   return (
     <section data-testid={`work-reading-${index}`} data-title={title} className="flex flex-col gap-2">
       <div className="flex items-center gap-3">
@@ -198,7 +217,16 @@ function ReadingBlock({ title, subtitle, icon, text, index }: { title: string; s
           {subtitle ? <p className="text-[12px] leading-4 text-v3-text-muted">{subtitle}</p> : null}
         </div>
       </div>
-      <p data-testid={`work-reading-text-${index}`} className="whitespace-pre-line text-[14px] leading-[22px]" style={{ color: INK_BODY }}>{text}</p>
+      {lead ? <p className="whitespace-pre-line text-[14px] font-medium leading-[22px]" style={{ color: INK_BODY }}>{lead}</p> : null}
+      <div data-testid={`work-reading-text-${index}`} className="flex flex-col gap-2">
+        {shown.map((t, i) => <p key={i} className="whitespace-pre-line text-[14px] leading-[22px]" style={{ color: INK_BODY }}>{t}</p>)}
+      </div>
+      {lines.length > 1 ? (
+        <button type="button" aria-expanded={open} onClick={() => setOpen((v) => !v)} className="flex items-center gap-1 self-start text-[14px] font-medium leading-5 text-[#1B9AAF]">
+          {open ? 'ย่อ' : 'อ่านเพิ่ม'}
+          <svg viewBox="0 0 16 16" className={`size-[13px] ${open ? '-rotate-90' : 'rotate-90'}`} fill="none" aria-hidden><path d="M4 8h8m0 0-3-3m3 3-3 3" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" /></svg>
+        </button>
+      ) : null}
     </section>
   )
 }
@@ -295,7 +323,7 @@ export function WorkResultScreen({ matchingId }: { matchingId: string }) {
   const selfChart = readChartTable(state.selfChart)
   const chartOf = (e: WorkEntry) => readChartTable(e.chart)
   const openChart = chartOf(open)
-  const facets = (open.facets ?? []).filter((f) => facetNarrative(f))
+  const facets = (open.facets ?? []).filter((f) => facetLines(f).length > 0 || (f.ratingText ?? '').trim())
   const heroTitle = chosenRole ? chosenRole.label : 'เพื่อนร่วมงาน'
 
   return shell(
@@ -345,31 +373,49 @@ export function WorkResultScreen({ matchingId }: { matchingId: string }) {
         </div>
       </section>
 
-      {/* คำอ่าน — Figma 720:26015 */}
-      <section data-testid="work-readings" className="mx-4 mt-4 flex flex-col gap-6 rounded-2xl bg-white p-4 shadow-[0_4px_30px_rgba(26,38,77,0.12)]">
-        {open.ratingText ? (
-          <p data-testid="work-person-summary" className="whitespace-pre-line text-[14px] leading-[22px]" style={{ color: INK_BODY }}>{open.ratingText}</p>
-        ) : null}
-        {facets.length > 0 ? (
-          facets.map((f, i) => {
-            const r = readingOf(f.key)
-            return <ReadingBlock key={f.key} index={i + 1} title={r.title} subtitle={f.label} icon={r.icon} text={facetNarrative(f)} />
-          })
-        ) : (
-          <>
-            {/* ผลเก่าแบบเส้นรวม (#585) — engine ไม่มี facets ให้: คงคำอ่าน 3 มุมมองเดิม และบอกเมื่อมาไม่ครบ */}
-            {!open.rolesComplete ? (
-              <p role="status" data-testid="work-roles-incomplete" className="rounded-xl bg-v3-lemon-chiffon px-3 py-2 text-[14px] leading-[22px]" style={{ color: INK_BODY }}>
-                คำทำนายของคนนี้มาไม่ครบ ขาดอยู่ {open.rolesMissing} จาก 3 มุมมอง
-              </p>
-            ) : null}
-            <div data-testid="work-roles" data-chosen-role={chosenRole?.value ?? ''} className="flex flex-col gap-6">
-              {roleOrderWithChosen(orderRoles(open.roles), chosenRole?.perspective).map((r, i) => (
-                <RoleSection key={`${open.rank}:${r.perspective ?? i}`} role={r} index={i + 1} chosen={!!chosenRole && (r.perspective ?? '').trim() === chosenRole.perspective} />
-              ))}
+      {/* ความเข้ากัน N ด้าน — มิติของบทบาทที่เลือก แบบเดียวกับหน้าคู่รัก (Figma 636:18819 §Grade color) */}
+      {facets.length > 0 ? (
+        <section data-testid="work-dims" className="mx-4 mt-4">
+          <SectionCard title={`ความเข้ากัน ${facets.length} ด้าน`}>
+            <div className="flex flex-col gap-6">
+              {open.ratingText ? (
+                <p data-testid="work-person-summary" className="whitespace-pre-line text-[14px] leading-[22px]" style={{ color: INK_BODY }}>{open.ratingText}</p>
+              ) : null}
+              {facetsToDimensions(readingOrder(facets)).map((d, i) => <CompatDimensionCard key={d.key ?? i} dimension={d} />)}
             </div>
-          </>
-        )}
+          </SectionCard>
+        </section>
+      ) : null}
+
+      {/* คำทำนายรายด้าน — Figma 720:26015: บล็อกไอคอน 56 + หัว 16 semibold + เนื้อ 14 lh22 ("อ่านเพิ่ม" กางคำอ่าน ก้าน/กิ่ง/สี่ซิ้ง) */}
+      <section data-testid="work-readings" className="mx-4 mt-4">
+        <SectionCard title={facets.length > 0 ? 'คำทำนายรายด้าน' : 'คำทำนายพื้นฐาน'}>
+          <div className="flex flex-col gap-6">
+            {facets.length > 0 ? (
+              readingOrder(facets).map((f, i) => {
+                const r = readingOf(f.key)
+                return <ReadingBlock key={f.key} index={i + 1} title={r.title} subtitle={f.label} icon={r.icon} lead={f.ratingText} lines={facetLines(f)} />
+              })
+            ) : (
+              <>
+                {/* ผลเก่าแบบเส้นรวม (#585) — engine ไม่มี facets ให้: คงคำอ่าน 3 มุมมองเดิม และบอกเมื่อมาไม่ครบ */}
+                {open.ratingText ? (
+                  <p data-testid="work-person-summary" className="whitespace-pre-line text-[14px] leading-[22px]" style={{ color: INK_BODY }}>{open.ratingText}</p>
+                ) : null}
+                {!open.rolesComplete ? (
+                  <p role="status" data-testid="work-roles-incomplete" className="rounded-xl bg-v3-lemon-chiffon px-3 py-2 text-[14px] leading-[22px]" style={{ color: INK_BODY }}>
+                    คำทำนายของคนนี้มาไม่ครบ ขาดอยู่ {open.rolesMissing} จาก 3 มุมมอง
+                  </p>
+                ) : null}
+                <div data-testid="work-roles" data-chosen-role={chosenRole?.value ?? ''} className="flex flex-col gap-6">
+                  {roleOrderWithChosen(orderRoles(open.roles), chosenRole?.perspective).map((r, i) => (
+                    <RoleSection key={`${open.rank}:${r.perspective ?? i}`} role={r} index={i + 1} chosen={!!chosenRole && (r.perspective ?? '').trim() === chosenRole.perspective} />
+                  ))}
+                </div>
+              </>
+            )}
+          </div>
+        </SectionCard>
       </section>
 
       {/* โหมดแอดวานซ์ = ตารางดวงจีน (Figma 720:32490 §ตารางดวงจีน) — คุณ + คนที่เปิดแท็บ */}
@@ -378,6 +424,7 @@ export function WorkResultScreen({ matchingId }: { matchingId: string }) {
           <h2 className="text-base font-bold" style={{ color: INK_NAVY }}>ตารางดวงจีน</h2>
           <div className="mt-2.5 border-b border-dashed border-[#EBD9C8]" />
           <div className="mt-3.5 flex flex-col gap-4">
+            <CompatElementInteractionCard interaction={open.elementInteraction as CompatElementInteraction | undefined} />
             {selfChart ? <ChartTableCard testId="chart-table-self" roleLabel="คุณ" side="self" chart={selfChart} person={{ name: 'คุณ' }} /> : null}
             {openChart ? (
               <ChartTableCard
