@@ -142,7 +142,9 @@ export default function V2HomePage(props: Props) {
   return (
     <>
       <V2Entry />
-      {props.teamAuthed && <TeamPreviewResetBadge />}
+      {/* #Bug4 — เดิมโชว์ทุกครั้งที่มี cookie team-preview → หลุดขึ้น production ให้ผู้ใช้จริงเห็น (badge นี้ reset
+          first-run บน prod). จำกัดให้ขึ้นเฉพาะ non-production ด้วย (dev/preview เท่านั้น) จนกว่า #248 จะลบทิ้งจริง */}
+      {props.teamAuthed && process.env.NODE_ENV !== 'production' && <TeamPreviewResetBadge />}
     </>
   )
 }

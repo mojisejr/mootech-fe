@@ -601,6 +601,9 @@ export function DestinyScreen({ previewData }: { previewData?: DestinyData } = {
     } else if (typeof navigator !== "undefined" && navigator.clipboard) {
       await navigator.clipboard.writeText(payload.url).catch(() => {})
     }
+    // #Bug3 — เคยรับ +10 QI แล้วในเซสชันนี้ ⇒ แชร์ซ้ำได้ แต่ไม่ยิง qi-earn อีก (server กันซ้ำอยู่แล้ว แต่ที่ผู้ใช้
+    // เห็นว่า "กดรับได้เรื่อยๆ" คือปุ่มมันเด้งกลับเป็น "รับ +10 QI" — จึงคงสถานะ "รับแล้ว" ไว้ ไม่ revert)
+    if (shareState === "done") return
     // แชร์สำเร็จ → รับ +10 QI (code "share" จาก engine catalog; capped เองถ้ารับไปแล้ว)
     try {
       await fetch("/api/qi-earn", {
@@ -608,8 +611,7 @@ export function DestinyScreen({ previewData }: { previewData?: DestinyData } = {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ code: "share" }),
       })
-      setShareState("done")
-      window.setTimeout(() => setShareState("idle"), 4000)
+      setShareState("done") // ค้างเป็น "รับ +10 QI แล้ว" — เดิม revert หลัง 4 วิ ทำให้ดูเหมือนกดรับซ้ำได้
     } catch {
       // ระบบ QI ล่ม — การแชร์ยังสำเร็จอยู่
     }

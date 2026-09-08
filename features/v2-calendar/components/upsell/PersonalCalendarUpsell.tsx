@@ -121,7 +121,9 @@ export function PersonalCalendarUpsell({ percent, testId = 'calendar-upsell' }: 
           เปิดการใช้งานปฏิทินเฉพาะฉัน
         </Link>
 
-        <p className="w-full text-center text-[14px] font-normal leading-[22px] text-white">เริ่มต้น ฿99/เดือน · ยกเลิกได้ทุกเมื่อ</p>
+        {/* #Bug1 — เดิม "฿99/เดือน · ยกเลิกได้ทุกเมื่อ" แต่ shop เปิดขายเฉพาะ "รายปี" (รายเดือน = ยังไม่เปิดขาย)
+            ⇒ กดแล้วตัน + ราคาไม่ตรง (฿790/ปี). ใช้ถ้อยคำแบบรายปี จ่ายครั้งเดียว ให้ตรงของจริง ไม่ผูกตัวเลขที่ดริฟต์ได้ */}
+        <p className="w-full text-center text-[14px] font-normal leading-[22px] text-white">ปลดล็อกด้วยแพ็กเกจรายปี · จ่ายครั้งเดียว ไม่ต่ออายุอัตโนมัติ</p>
       </div>
 
       {/* the four Figma draws AFTER the copy — the fire lands on the CTA's left end, in front of the lime */}
