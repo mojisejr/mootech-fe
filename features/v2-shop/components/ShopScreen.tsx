@@ -40,7 +40,7 @@ function todayInBangkok(): string {
 
 const PERIOD_TABS = [
   { label: 'รายเดือน', value: 'monthly' },
-  { label: 'รายปี (คุ้มกว่า 2 เดือน)', value: 'annual' },
+  { label: 'รายปี', sub: 'คุ้มกว่า 2 เดือน', value: 'annual' },
 ]
 
 export function ShopScreen({ teamPreview = false }: { teamPreview?: boolean } = {}) {
@@ -101,6 +101,7 @@ export function ShopScreen({ teamPreview = false }: { teamPreview?: boolean } = 
           <PillTabs
             variant="calendar"
             ariaLabel="เลือกรอบการชำระเงิน"
+            className="w-full"
             items={PERIOD_TABS}
             value={period}
             onChange={(v) => setPeriod(v as BillingPeriod)}

@@ -8,7 +8,12 @@ import Link from 'next/link'
 import { useEffect, useState } from 'react'
 import { v2RedirectIfUnauthed } from '@/lib/v2/gate'
 import { useV2Logout } from '@/features/auth/hooks/useV2Logout'
+import { useV2User } from '@/features/auth/hooks/useV2User'
 import { SkyHeader, SkyScreen } from '@/features/v2-profile/components/kit'
+
+// #Bug — "แพ็กเกจของฉัน" เคย hardcode "Free Tier" ⇒ ผู้ใช้ PRO เห็นไม่ตรงกับหน้า account. อ่าน tier จริง
+// จาก useV2User (แหล่งเดียวกับ AccountScreen). null/ยังไม่รู้ = ไม่เดา (ไม่โชว์ค่า) กันโชว์ค่าผิดซ้ำรอยเดิม
+const TIER_LABEL: Record<string, string> = { free: 'Free Tier', plus: 'PLUS', pro: 'PRO' }
 
 const APP_VERSION = 'Mumate v2.1.0'
 
@@ -85,6 +90,7 @@ function Group({ title, children }: { title?: string; children: React.ReactNode 
 
 export default function V2SettingsPage() {
   const { logout } = useV2Logout()
+  const { user } = useV2User()
   const [confirmLogout, setConfirmLogout] = useState(false)
   const [langOpen, setLangOpen] = useState(false)
   const [textOpen, setTextOpen] = useState(false)
@@ -109,6 +115,8 @@ export default function V2SettingsPage() {
 
   const scaleLabel = TEXT_SCALES.find((s) => s.value === scale)?.label ?? 'ปกติ'
   const lineValue = profile?.displayName ? `@${profile.displayName}` : 'LINE'
+  const tier = user?.membership?.tier
+  const membershipValue = tier ? (TIER_LABEL[tier] ?? tier) : undefined // ยังไม่รู้ tier → ไม่โชว์ค่า (ไม่เดา)
 
   return (
     <SkyScreen>
@@ -120,7 +128,7 @@ export default function V2SettingsPage() {
         <Row href="/v2/settings/connected" testId="settings-connected" title="เข้าสู่ระบบด้วย LINE" value={lineValue} />
         <Row href="/v2/settings/edit-profile" testId="settings-profile" title="แก้ไขข้อมูลส่วนตัว" />
         <Row href="/v2/settings/edit-birth" testId="settings-birth" title="ข้อมูลวันเกิดและธาตุ" sub="แก้แล้วคำทำนายทั้งแอปจะเปลี่ยน" />
-        <Row href="/v2/account" testId="settings-membership" title="แพ็กเกจของฉัน" value="Free Tier" last />
+        <Row href="/v2/account" testId="settings-membership" title="แพ็กเกจของฉัน" value={membershipValue} last />
       </Group>
 
       {/* พลังชี่ */}

@@ -96,7 +96,8 @@ export default async function handler(
     return
   }
 
-  // QI gate — ถามได้ฟรีต่อวันตาม tier (free 3 · plus 30 · pro 100) → หมดแล้วหัก 30 ชี่/คำถาม.
+  // QI gate — โควตาฟรี/วันตาม tier (จริงตาม engine quota.ts: free 1/วัน · plus & pro = ไม่จำกัด) →
+  // free เกินโควตาแล้วหัก 30 ชี่/คำถาม (plus/pro ไม่หักเลย). [เดิม comment เขียน 3/30/100 ผิด]
   // เช็คก่อน "ไม่หัก" (หักจริงหลังตอบสำเร็จด้านล่าง) — ชี่ไม่พอ → 402. dev playground (ไม่มี userId) ยกเว้น.
   if (userId) {
     try {

@@ -8,6 +8,7 @@
 // Unchanged below the hero: tabs (D47) · ภาพรวม (overall.ratingText) · รายมิติ (D22) · ธาตุ&เสา (D45+D44) ·
 // รายคน (D21). Rule 4 everywhere: an absent field/section hides.
 import { useState } from 'react'
+import Head from 'next/head'
 import Link from 'next/link'
 import { VipGate } from '@/features/v2-shell/components/VipGate'
 import { SectionCard } from '@/features/v2-calendar/components/day-detail/SectionCard'
@@ -92,13 +93,14 @@ export function CompatibilityResultScreen({ matchingId }: { matchingId: string }
 
   return (
     <div data-testid="compat-result-screen" data-state="ready" className="relative min-h-screen w-full overflow-x-hidden bg-v3-bg-cream font-ibm">
+      <Head><title>ผลดวงสมพงศ์ · MuMate</title></Head>
       <ComingSoonNotice />
       <div className="relative z-10 mx-auto flex w-full max-w-md flex-col gap-4 px-4 pb-32 pt-[max(0.75rem,env(safe-area-inset-top))]">
         <header className="flex items-center gap-2 py-1">
           <Link href={backHref} aria-label="ย้อนกลับ" className="grid size-8 shrink-0 place-items-center rounded-full text-v3-navy"><BackChevron /></Link>
           <h1 data-testid="compat-result-title" className="min-w-0 flex-1 text-[24px] font-bold leading-8 text-v3-navy">ผลดวงสมพงศ์</h1>
           <TopBarBell variant="solid" href="/v2/calendar/notifications" />
-          <TopBarAvatar variant="sapphire" />
+          <TopBarAvatar variant="sapphire" href="/v2/account" />
         </header>
 
         {/* hero — donut + headline + สรุป + สองคน (Figma 636:18819 §promo-personal-calendar) */}

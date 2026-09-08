@@ -95,9 +95,15 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   const readingVal = val(reading) as { chapters?: Chapter[] } | null
   const chapters = Array.isArray(readingVal?.chapters) ? readingVal!.chapters! : []
   const chap = (id: string): Box[] => chapters.find((c) => c?.id === id)?.boxes ?? []
+  // 🔴 box[0] ของทุก chapter คือ "ภาพรวม" (คำอธิบายหัวข้อ generic เช่น "อาชีพ/ธุรกิจที่เสริมดวง...") ไม่ใช่คำทำนายจริง
+  // — เนื้อหาจริงอยู่ box[1]+ (verified กับ engine newdata-reading). เดิม default หยิบ box แรก ⇒ personality/work/love
+  // โชว์คำอธิบาย generic แทนคำทำนาย. เมื่อไม่ระบุ match ให้ข้ามกล่อง "ภาพรวม" แล้วเอากล่องเนื้อหาจริงกล่องแรก.
+  const hasBody = (b?: Box) => typeof b?.body === "string" && b.body.trim().length > 0
   const bodyText = (boxes: Box[], match?: string): string | null => {
-    const pick = match ? boxes.find((b) => b?.title?.includes(match) && b?.body) : boxes.find((b) => b?.body)
-    const t = pick?.body ?? boxes.find((b) => b?.body)?.body
+    const pick = match
+      ? boxes.find((b) => b?.title?.includes(match) && hasBody(b))
+      : (boxes.find((b) => hasBody(b) && b?.title !== "ภาพรวม") ?? boxes.find((b) => hasBody(b)))
+    const t = pick?.body
     return typeof t === "string" && t.trim() ? t.trim() : null
   }
   const foundation = chap("chart_foundation")

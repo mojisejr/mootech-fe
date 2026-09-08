@@ -8,6 +8,7 @@ import Link from "next/link"
 import { useCallback, useEffect, useState } from "react"
 
 import { KitButton } from "@/features/v2-profile/components/kit"
+import { useDragScroll } from "@/features/v2-service/hooks/useDragScroll"
 import { Menubar } from "@/features/v2-shell/components/Menubar"
 import { TopBarBell } from "@/features/v2-shell/components/TopBarBell"
 import { TopBarAvatar } from "@/features/v2-shell/components/TopBarAvatar"
@@ -218,6 +219,7 @@ export function ManifestScreen({ previewData }: { previewData?: ManifestPreview 
   const [element, setElement] = useState<ElementInfo>(previewData?.element ?? null)
   const [loading, setLoading] = useState(!previewData)
   const [creating, setCreating] = useState(false)
+  const { ref: carouselRef, dragHandlers } = useDragScroll<HTMLDivElement>() // #Bug2 — ปัดขวาได้จริงบนมือถือ
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -289,7 +291,7 @@ export function ManifestScreen({ previewData }: { previewData?: ManifestPreview 
                   เขียนสิ่งที่อยากให้เกิดขึ้นเป็นประโยคที่เกิดขึ้นแล้ว แล้วกลับมาอ่านทุกวันจนจิตคุ้นชินกับภาพนั้น
                 </p>
               </div>
-              <div className="mt-4 -mx-4 flex snap-x snap-mandatory gap-3 overflow-x-auto px-4 pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden" data-testid="manifest-carousel">
+              <div ref={carouselRef} {...dragHandlers} className="mt-4 -mx-4 flex cursor-grab snap-x snap-mandatory gap-3 overflow-x-auto px-4 pb-1 [-ms-overflow-style:none] [scrollbar-width:none] active:cursor-grabbing [&::-webkit-scrollbar]:hidden" data-testid="manifest-carousel">
                 {goals.map((g) => (
                   <article key={g.id} className="relative w-[86%] shrink-0 snap-center overflow-hidden rounded-[16px] bg-white text-v3-navy" data-testid="manifest-goal">
                     <Link href={`/v2/service/manifest/${g.id}`} className="block">

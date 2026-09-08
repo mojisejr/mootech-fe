@@ -45,6 +45,9 @@ export function PlanPaySuccess({ packageCode, charge, order }: { packageCode: st
   const planName = planNameForTier(tier) ?? planNameForTier(packageCode.replace(/^V2_/, '').replace(/_(YEARLY|MONTHLY)$/, '')) ?? 'Mumate'
   const period = packageCode.endsWith('MONTHLY') ? 'รายเดือน' : 'รายปี'
   const expire = user?.membership?.expireAt ? formatThaiDateAbbr(user.membership.expireAt.slice(0, 10)) : ''
+  // เริ่มวันไหน–หมดวันไหน (ผู้ใช้ขอ): แพ็ก v2 buffer_day=0 ⇒ start = วันที่ซื้อ (วันนี้ เวลาไทย). แสดงคู่กับ "ใช้ได้ถึง".
+  const startDay = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Bangkok' }) // 'YYYY-MM-DD'
+  const start = formatThaiDateAbbr(startDay)
 
   return (
     <div data-testid="plan-pay-success" className="mx-auto flex w-full max-w-md flex-col items-center gap-3.5 px-6 pb-8 pt-[90px] font-ibm">
@@ -65,7 +68,7 @@ export function PlanPaySuccess({ packageCode, charge, order }: { packageCode: st
         <div className="flex w-full items-center gap-2.5">
           <div className="flex min-w-0 flex-1 flex-col gap-px">
             <p className="text-lg font-bold leading-6 text-v3-navy">{`${planName} · ${period}`}</p>
-            {expire ? <p className="text-sm leading-[22px] text-v3-text-body">ใช้ได้ถึง {expire}</p> : null}
+            {expire ? <p className="text-sm leading-[22px] text-v3-text-body">เริ่ม {start} · ใช้ได้ถึง {expire}</p> : null}
           </div>
           <span className="shrink-0 rounded-pill bg-[#E7F6F8] px-2 py-1 text-[9px] font-bold leading-none text-v3-cyan">ใช้งานอยู่</span>
         </div>

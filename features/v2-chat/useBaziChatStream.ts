@@ -23,12 +23,39 @@ export type ChatTurn = {
 export type ChatGuardCode = "not_authenticated" | "profile_incomplete" | "OUT_OF_LIMIT"
 
 let seq = 0
-const nextId = () => `m_${++seq}`
+// รวม Date.now() ด้วย → id ไม่ชนกับ id ที่ restore มาจากเซสชันก่อน (seq เริ่ม 0 ใหม่ทุกครั้งที่โหลดหน้า)
+const nextId = () => `m_${Date.now().toString(36)}_${++seq}`
+
+// #Bug — ประวัติแชทหายเมื่อออกจากหน้าแล้วกลับมา (turns อยู่ใน state เท่านั้น). เก็บบทสนทนาลง localStorage
+// ต่อเครื่อง แล้ว restore ตอน mount. (ประวัติข้ามอุปกรณ์/ดูย้อนหลังหลายบทต้องมี backend — คนละงาน)
+const HISTORY_KEY = "mumate-chat-history"
+const MAX_TURNS = 40
 
 export function useBaziChatStream(persona: "mu" | "mi" = "mu") {
   const [turns, setTurns] = useState<ChatTurn[]>([])
   const [busy, setBusy] = useState(false)
   const [guard, setGuard] = useState<ChatGuardCode | null>(null)
+
+  // restore ครั้งเดียวหลัง mount (client only) — กัน hydration mismatch: server เรนเดอร์ว่าง, client เติมหลัง mount
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(HISTORY_KEY)
+      if (!raw) return
+      const saved = JSON.parse(raw) as ChatTurn[]
+      if (Array.isArray(saved) && saved.length > 0) {
+        setTurns(saved.filter((t) => t && t.content).map((t) => ({ ...t, loading: false })))
+      }
+    } catch { /* localStorage ปิด/เสีย → เริ่มบทสนทนาใหม่ */ }
+  }, [])
+
+  // persist เฉพาะ turn ที่จบแล้ว (ไม่บันทึกระหว่างสตรีม)
+  useEffect(() => {
+    if (busy) return
+    try {
+      const done = turns.filter((t) => !t.loading && t.content).slice(-MAX_TURNS)
+      if (done.length > 0) localStorage.setItem(HISTORY_KEY, JSON.stringify(done))
+    } catch { /* ignore */ }
+  }, [turns, busy])
   const abortRef = useRef<AbortController | null>(null)
   // persona ล่าสุด (ผู้ใช้สลับได้ระหว่างแชท) — ใช้ ref เพื่อไม่ต้อง re-create send
   const personaRef = useRef(persona)
@@ -159,6 +186,7 @@ export function useBaziChatStream(persona: "mu" | "mi" = "mu") {
     setTurns([])
     setGuard(null)
     setBusy(false)
+    try { localStorage.removeItem(HISTORY_KEY) } catch { /* ignore */ }
   }, [])
 
   return { turns, busy, guard, send, clear }

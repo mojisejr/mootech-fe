@@ -345,13 +345,17 @@ function LifePathCard({ lifePath }: { lifePath: LifePath }) {
 // วัฏจักรเสริม (生) wood→fire→earth→metal→water→wood · วัฏจักรข่ม (克) wood→earth→water→fire→metal→wood
 const GEN: Record<string, string> = { wood: "fire", fire: "earth", earth: "metal", metal: "water", water: "wood" }
 const CTRL: Record<string, string> = { wood: "earth", earth: "water", water: "fire", fire: "metal", metal: "wood" }
-// ความสัมพันธ์ของ other เทียบ self → ป้ายบทบาท (map จากตัวอย่าง Figma ธาตุทอง)
+// ความสัมพันธ์ของ other เทียบ self (day master) → ป้ายบทบาทตามหลักปาจื้อ 5 ความสัมพันธ์
+//   比劫 same (ธาตุเดียวกัน) = พี่น้อง/เพื่อน/หุ้นส่วน · 食伤 output (self เสริม other) = แสดงออก/เรียน/ลงทุน
+//   财 wealth (self ข่ม other) = ทรัพย์/โชคลาภ · 官杀 power (other ข่ม self) = หน้าที่การงาน/ตำแหน่ง
+//   印 resource (other เสริม self) = ผู้สนับสนุน/ส่งเสริม
+//   🔴 เดิมป้ายสลับกันหมด (ก็อปจากตัวอย่าง Figma ธาตุทองมาแปะผิด key) ⇒ ธาตุ丙(ไฟ) โชว์บทบาทผิดทุกช่อง
 const RELATION_ROLE: Record<string, string> = {
-  same: "เรียน/ทำงาน/ลงทุน",
-  wealth: "เพื่อน/พี่น้อง/หุ้นส่วน",
+  same: "เพื่อน/พี่น้อง/หุ้นส่วน",
+  output: "เรียน/ทำงาน/ลงทุน",
+  wealth: "โชคลาภ",
   power: "หน้าที่การงาน",
-  resource: "โชคลาภ",
-  output: "ผู้สนับสนุน/ส่งเสริม",
+  resource: "ผู้สนับสนุน/ส่งเสริม",
 }
 function relationRole(self: string | undefined, other: string): string {
   if (!self) return ""
@@ -402,6 +406,11 @@ function SectionHeader({
   )
 }
 
+// engine ส่งคำทำนายมาพร้อม markdown ดิบ (**bold**) — จอนี้เป็น plain text จึงต้องถอดออก ไม่งั้นเห็น "**...**"
+function stripMd(s: string | null | undefined): string {
+  return (s ?? "").replace(/\*\*/g, "").replace(/__/g, "").trim()
+}
+
 // การ์ด "ทำนายพื้นฐาน" (collapsible): บุคลิก/นิสัย/ความรัก/การเรียน + อาชีพเด่น + ข้อควรระวัง
 function PredictionCard({ summary, prediction, cautions, occupations }: { summary: ElementSummary; prediction?: Prediction | null; cautions?: string[] | null; occupations?: string[] }) {
   const [open, setOpen] = useState(true)
@@ -428,7 +437,7 @@ function PredictionCard({ summary, prediction, cautions, occupations }: { summar
           {blocks.map((b) => (
             <div key={b.title} className="rounded-[20px] bg-[#ecf0fd] p-[18px]">
               <p className="text-[18px] font-bold leading-6 text-v3-navy">{b.title}</p>
-              <p className="mt-3 text-[14px] leading-[21px] text-[#888]">{b.text}</p>
+              <p className="mt-3 text-[14px] leading-[21px] text-[#888]">{stripMd(b.text)}</p>
             </div>
           ))}
           <div className="rounded-[20px] bg-[#ecf0fd] p-[18px]">
@@ -563,8 +572,16 @@ export function DestinyScreen({ previewData }: { previewData?: DestinyData } = {
   // ข้อควรระวัง "ตามดวง": ใช้ของ engine (newdata-reading) ก่อน; ไม่มี → derive จากดวงจริง
   // (ธาตุที่พร่อง + ปีที่ควรระวังจาก life-timeline) แทนข้อความ generic
   const cautionList: string[] = (() => {
+    // 🔴 engine ส่ง cautions มายาวมาก + มีก้อน "ช่วงวัยจร/พยากรณ์รายปี" หลุดมาปน (ควรอยู่ใน Life Path)
+    // + ติด markdown **bold** ดิบ ⇒ หน้า destiny ต้องโชว์แค่ "สรุป": แตกเป็นข้อย่อย ตัด noise ตัดความยาว จำกัดจำนวน
     const fromEngine = data?.cautions ?? []
-    if (fromEngine.length > 0) return fromEngine
+    const NOISE = /ช่วงวัย|ยุคทอง|ยุคจร|พยากรณ์รายปี|เฝ้าระวัง อายุ|ปีปัจจุบัน|เกรด \d|พ\.ศ\.|ค\.ศ\.|→|อายุ \d/
+    const clean = fromEngine
+      .flatMap((c) => (typeof c === "string" ? c.split(/\s*·\s*/) : []))
+      .map((s) => s.replace(/\*\*/g, "").trim())
+      .filter((s) => s.length > 0 && !NOISE.test(s))
+      .map((s) => (s.length > 140 ? s.slice(0, 140).replace(/\s+\S*$/, "") + "…" : s))
+    if (clean.length > 0) return clean.slice(0, 4)
     const out: string[] = []
     const missing = data?.calculatedState?.elementAnalysis?.missingElements ?? []
     if (missing.length > 0) out.push(`ธาตุที่ยังพร่อง: ${missing.map((e) => ELEMENT_TH[e] ?? e).join(" · ")} — ควรเสริมให้สมดุล`)
@@ -601,6 +618,9 @@ export function DestinyScreen({ previewData }: { previewData?: DestinyData } = {
     } else if (typeof navigator !== "undefined" && navigator.clipboard) {
       await navigator.clipboard.writeText(payload.url).catch(() => {})
     }
+    // #Bug3 — เคยรับ +10 QI แล้วในเซสชันนี้ ⇒ แชร์ซ้ำได้ แต่ไม่ยิง qi-earn อีก (server กันซ้ำอยู่แล้ว แต่ที่ผู้ใช้
+    // เห็นว่า "กดรับได้เรื่อยๆ" คือปุ่มมันเด้งกลับเป็น "รับ +10 QI" — จึงคงสถานะ "รับแล้ว" ไว้ ไม่ revert)
+    if (shareState === "done") return
     // แชร์สำเร็จ → รับ +10 QI (code "share" จาก engine catalog; capped เองถ้ารับไปแล้ว)
     try {
       await fetch("/api/qi-earn", {
@@ -608,8 +628,7 @@ export function DestinyScreen({ previewData }: { previewData?: DestinyData } = {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ code: "share" }),
       })
-      setShareState("done")
-      window.setTimeout(() => setShareState("idle"), 4000)
+      setShareState("done") // ค้างเป็น "รับ +10 QI แล้ว" — เดิม revert หลัง 4 วิ ทำให้ดูเหมือนกดรับซ้ำได้
     } catch {
       // ระบบ QI ล่ม — การแชร์ยังสำเร็จอยู่
     }
