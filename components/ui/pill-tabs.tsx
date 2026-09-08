@@ -1,7 +1,7 @@
 import { useRef, type KeyboardEvent } from 'react'
 import { cn } from '@/lib/utils/cn'
 
-export type PillTabItem = { label: string; value: string }
+export type PillTabItem = { label: string; value: string; sub?: string }
 export type PillTabsVariant = 'neutral' | 'calendar'
 
 // PillTabs — V3 segmented tab control (DESIGN.md §6 "Tab / Pill Tabs", node 375-10888).
@@ -92,7 +92,7 @@ export function PillTabs({
               // base segment — transparent border reserves the 2px so focus recolors,
               // never resizes (no layout shift). NO text color here — set exactly once
               // per state branch below so two text-* utilities never collide (cn no-dedupe).
-              'flex-1 rounded-full border-2 border-transparent px-3 py-2 text-center font-poppins-v3 text-sm font-semibold transition-colors outline-none',
+              'flex-1 whitespace-nowrap rounded-full border-2 border-transparent px-3 py-2 text-center font-poppins-v3 text-sm font-semibold transition-colors outline-none',
               // focus border: neutral = #222 · calendar = sapphire
               isCalendar
                 ? 'focus-visible:border-v3-sapphire'
@@ -110,7 +110,14 @@ export function PillTabs({
                     'bg-transparent text-v3-shade-02 hover:bg-v3-tab-focus focus-visible:bg-v3-tab-focus',
             )}
           >
-            {item.label}
+            {item.sub ? (
+              <span className="flex flex-col items-center leading-tight">
+                <span>{item.label}</span>
+                <span className="text-[10px] font-medium opacity-80">{item.sub}</span>
+              </span>
+            ) : (
+              item.label
+            )}
           </button>
         )
       })}
