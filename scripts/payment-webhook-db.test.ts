@@ -35,6 +35,11 @@ const M0010 = readFileSync(resolve('lib/db/0010_v2_payment_failure.sql'), 'utf8'
 // the table by hand, and there is nothing that enforces it — so the list is checked by running them.
 const M0011 = readFileSync(resolve('lib/db/0011_v2_payment_qr_expiry.sql'), 'utf8')
 const M0012 = readFileSync(resolve('lib/db/0012_v2_payment_prev_member_expire.sql'), 'utf8')
+// 🔴 #605 G1 — 0019 adds v2_payment.qi_granted_at, and schema.ts selects every column, so a rebuilt
+// table WITHOUT it makes every schema-wide select in this suite fail with 42703. This hand-maintained
+// list is the drift trap that caused it: each new v2_payment ALTER must be added to three suites, and
+// nothing fails until someone actually runs them — which, being skipIf(!TEST_DATABASE_URL), is rarely.
+const M0019 = readFileSync(resolve('lib/db/0019_v2_payment_qi_granted_at.sql'), 'utf8')
 const SECRET = Buffer.from('whsec_test_355').toString('base64')
 const TS = '1755766800'
 const NOW = new Date()
@@ -83,6 +88,7 @@ describe.skipIf(!TEST_URL)('payment webhook · real pg (#355)', () => {
     await sql.unsafe(M0010) // #437 — failure_code/failure_message (schema-wide select needs them)
     await sql.unsafe(M0011) // #455 — charge_expires_at (schema-wide select needs it)
     await sql.unsafe(M0012) // #484 — prev_member_expire_at (schema-wide select needs it)
+    await sql.unsafe(M0019) // #605 G1 — qi_granted_at (schema-wide select needs it)
     const rows = await sql`SELECT user_id FROM "user"
       WHERE user_id NOT IN (SELECT user_id FROM member_payment) LIMIT 4`
     users = rows.map((r) => r.user_id as string)
@@ -225,7 +231,22 @@ describe.skipIf(!TEST_URL)('payment webhook · real pg (#355)', () => {
     // GREATEST still holds: the shadow is never SHORTENED. It may now move forward, because the purchase
     // genuinely added time — a mutant that shortens it below the legacy date still reddens here.
     expect(dateOf(mp.expire_at) >= '2027-12-31').toBe(true)
-    expect(dateOf(mp.expire_at)).toBe(addDaysStr('2027-12-31', 31)) // Dec 31 + the 1M package = 2028-01-31
+    // 🔴 A '1M' PACKAGE IS A CALENDAR MONTH, NOT 31 DAYS — and this line used to say 31.
+    // provision.ts computeExpireDate uses addMonths from TODAY, so the span a buyer gets is 30 days in
+    // September, 31 in October, 28 in February. Hard-coding 31 made this assertion pass only in the
+    // seven 31-day months and fail in the other five, for code that was behaving correctly. It went
+    // unnoticed because this suite is skipIf(!TEST_DATABASE_URL) and the pre-push lane never runs it —
+    // it first reddened on 2026-09-08, in a 30-day month, the day someone actually ran it (#605 slice 3).
+    // The sibling assertion above already had the right shape and even says why: "pure computeExpireDate
+    // so a mutant that settles on +1M reddens in EVERY month."
+    // The CLAIM is unchanged and still bites: legacy expiry + exactly the span the package grants. A
+    // mutant that drops the carry-over lands on the package span alone and reddens here.
+    const monthSpanDays = Math.round(
+      (Date.parse(`${computeExpireDate(bkk(NOW), 0, { value: 1, unit: 'M' })}T00:00:00Z`) -
+        Date.parse(`${bkk(NOW)}T00:00:00Z`)) /
+        86_400_000,
+    )
+    expect(dateOf(mp.expire_at)).toBe(addDaysStr('2027-12-31', monthSpanDays))
 
     // and a fresh subscription row was still recorded for this purchase
     const subs = await sql`SELECT id, expire_at FROM member_subscription WHERE user_id = ${users[2]}`

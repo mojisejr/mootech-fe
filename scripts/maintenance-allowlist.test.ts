@@ -82,6 +82,30 @@ t('a non-auth api (/api/user) is still rewritten to maintenance', () => {
   assert.equal(isRewrittenToMaintenance(middleware(mkReq('/api/user'))), true)
 })
 
+// ── #605/#606 B2: the Vercel crons must NOT be swallowed by the maintenance gate ──
+// A rewrite to /maintenance answers HTTP 200, so Vercel's cron log would record success while nothing
+// ran. The reconciler is the only thing that recovers a paid charge whose webhook was lost, and the
+// cutover turns maintenance on exactly while the team is making test payments.
+// These carry NO bypass cookie on purpose: Vercel's scheduler has no cookies. It authenticates with
+// CRON_SECRET at the route (pages/api/cron/reconcile-payment.ts:26), which this must not replace.
+t('#B2 /api/cron/reconcile-payment passes the maintenance gate (else it 200s the maintenance page)', () => {
+  assert.equal(isPassThrough(middleware(mkReq('/api/cron/reconcile-payment'))), true)
+})
+
+t('#B2 /api/cron/push-reminders passes the maintenance gate', () => {
+  assert.equal(isPassThrough(middleware(mkReq('/api/cron/push-reminders'))), true)
+})
+
+// Prefix, not a free pass for anything with "cron" in it. The allowlist is `/api/cron/` with the
+// trailing slash, so a look-alike outside that directory stays gated.
+t('#B2 a look-alike path outside /api/cron/ is still gated', () => {
+  assert.equal(isRewrittenToMaintenance(middleware(mkReq('/api/cronjobs'))), true)
+})
+
+t('#B2 a page path merely starting with /cron is still gated', () => {
+  assert.equal(isRewrittenToMaintenance(middleware(mkReq('/cron/anything'))), true)
+})
+
 // ── bypass cookie still works for the rest of the app ──
 t('valid bypass cookie passes the app through', () => {
   assert.equal(isPassThrough(middleware(mkReq('/', 'mnt_bypass=testkey'))), true)

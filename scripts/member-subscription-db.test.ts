@@ -36,6 +36,7 @@ const MIGRATION10 = readFileSync(resolve('lib/db/0010_v2_payment_failure.sql'), 
 // has to land in every hand-built fixture, and nothing enforces that — running them is the only check.
 const MIGRATION11 = readFileSync(resolve('lib/db/0011_v2_payment_qr_expiry.sql'), 'utf8')
 const MIGRATION12 = readFileSync(resolve('lib/db/0012_v2_payment_prev_member_expire.sql'), 'utf8')
+const MIGRATION19 = readFileSync(resolve('lib/db/0019_v2_payment_qi_granted_at.sql'), 'utf8')
 const NOW = new Date()
 
 function bkk(now: Date): string {
@@ -66,6 +67,8 @@ describe.skipIf(!TEST_URL)('member_subscription · real pg (#354)', () => {
     await sql.unsafe(MIGRATION10) // #437 — failure_code/failure_message
     await sql.unsafe(MIGRATION11)
     await sql.unsafe(MIGRATION12)
+    await sql.unsafe(MIGRATION19) // #605 G1 — qi_granted_at; this suite rebuilds v2_payment too, so it must
+    // not leave the table behind without the column for whichever suite runs next
     const today = bkk(NOW)
     const [m] = await sql`SELECT mp.user_id, mp.expire_at FROM member_payment mp
       JOIN "user" usr ON usr.user_id = mp.user_id

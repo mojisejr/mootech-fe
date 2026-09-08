@@ -54,7 +54,10 @@ const M0010 = readFileSync(resolve('lib/db/0010_v2_payment_failure.sql'), 'utf8'
 // The pattern is the point: an ALTER that lands in schema.ts must land in every fixture that builds
 // the table by hand, and there is nothing that enforces it — so the list is checked by running them.
 const M0011 = readFileSync(resolve('lib/db/0011_v2_payment_qr_expiry.sql'), 'utf8')
+// #605 G1 proved that paragraph the hard way: 0019 landed in schema.ts, this list did not get it,
+// and every schema-wide select here died with 42703 the first time anyone ran the suite.
 const M0012 = readFileSync(resolve('lib/db/0012_v2_payment_prev_member_expire.sql'), 'utf8')
+const M0019 = readFileSync(resolve('lib/db/0019_v2_payment_qi_granted_at.sql'), 'utf8')
 const SECRET = 'cron-secret-360'
 
 function callCron(auth?: string) {
@@ -82,6 +85,7 @@ describe.skipIf(!TEST_URL)('#360 reconcile cron · real pg', () => {
     await sql.unsafe(M0010) // #437 — failure_code/failure_message (schema-wide select needs them)
     await sql.unsafe(M0011) // #455 — charge_expires_at (schema-wide select needs it)
     await sql.unsafe(M0012) // #484 — prev_member_expire_at (schema-wide select needs it)
+    await sql.unsafe(M0019) // #605 G1 — qi_granted_at (schema-wide select needs it)
     const rows = await sql`SELECT user_id FROM "user" WHERE user_id NOT IN (SELECT user_id FROM member_payment) LIMIT 4`
     users = rows.map((r) => r.user_id as string)
     expect(users.length, 'fixture: need 4 member_payment-free users').toBeGreaterThan(3)

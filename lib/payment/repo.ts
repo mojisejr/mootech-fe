@@ -416,6 +416,67 @@ export async function listUnsettledPayments(
     .where(and(eq(v2Payment.status, 'PENDING'), gte(v2Payment.createdAt, since)))
 }
 
+/**
+ * #605 G1 — the QI purchases that were PAID but carry no record of reaching the engine.
+ *
+ * 🔴 THIS IS THE COMPANION TO listUnsettledPayments, NOT A COPY OF IT. That one asks "did the money
+ * arrive?" and only ever looks at PENDING (reconcile.ts:53). This one asks "did the goods leave?" and
+ * only ever looks at APPROVED — the two sets are disjoint by construction, so the reconciler can run
+ * both passes without either seeing the other's rows.
+ *
+ * 🔴 NO TIME WINDOW, deliberately, unlike the PENDING pass. That pass windows because an unpaid row goes
+ * stale: after seven days nobody is going to pay it. A row here is the opposite — the customer ALREADY
+ * PAID and did not receive what they bought. Dropping it after seven days would make the money
+ * permanent and the goods permanently missing, which is the exact bug this column exists to end.
+ * The partial index (0019) covers this predicate, so an empty result costs an index probe.
+ *
+ * Cost of getting the predicate wrong is bounded in one direction only: an extra row here means one
+ * redundant engine call that the engine dedups on `ref`, while a missing row means a customer who paid
+ * and never gets their QI.
+ */
+export async function listUngrantedQiPurchases(
+  db: Db = defaultDb,
+): Promise<Array<{ userId: string; packageCode: string; chargeId: string }>> {
+  return db
+    .select({
+      userId: v2Payment.userId,
+      packageCode: v2Payment.packageCode,
+      chargeId: v2Payment.chargeId,
+    })
+    .from(v2Payment)
+    .where(
+      and(
+        eq(v2Payment.status, 'APPROVED'),
+        eq(v2Payment.tierCode, 'QI'),
+        sql`${v2Payment.qiGrantedAt} is null`,
+      ),
+    )
+}
+
+/**
+ * #605 G1 — record that the engine confirmed this QI purchase. Idempotent and monotonic: the predicate
+ * includes `qi_granted_at IS NULL`, so a second call after a concurrent one changes nothing and the
+ * first confirmation's timestamp is the one that stands.
+ *
+ * Returns whether THIS call was the one that wrote. A false is not an error — it means someone else
+ * already recorded it — so no caller may treat it as a failed grant.
+ */
+export async function markQiGranted(chargeId: string, db: Db = defaultDb): Promise<boolean> {
+  const rows = await db
+    .update(v2Payment)
+    .set({ qiGrantedAt: new Date() })
+    .where(
+      and(
+        eq(v2Payment.chargeId, chargeId),
+        eq(v2Payment.status, 'APPROVED'),
+        eq(v2Payment.tierCode, 'QI'),
+        sql`${v2Payment.qiGrantedAt} is null`,
+      ),
+    )
+    .returning({ id: v2Payment.id })
+  return rows.length > 0
+}
+
 export async function listUserPayments(userId: string, db: Db = defaultDb) {
   return db
     .select({
@@ -831,9 +892,30 @@ export async function settleAndProvision(
       )
       return false
     })
-    if (!granted) {
+    if (granted) {
+      // 🔴 #605 G1 — the ONLY writer of qi_granted_at on the happy path. Until this lands the row still
+      // reads as unrepaired, which is the honest state: the money moved and we do not yet have it
+      // written down that the goods did.
+      //
+      // 🔴 A FAILURE HERE MUST NOT LOOK LIKE A FAILED GRANT, and it must not throw either. The QI is
+      // already credited; all that is missing is our note of it. Leaving the row NULL makes the
+      // reconciler retry, the engine dedups on ref = charge_id, and the retry writes the note instead.
+      // Throwing would instead surface to the webhook as a settle failure for a charge that fully
+      // succeeded. Losing the note is recoverable; a false alarm on settled money is not.
+      await markQiGranted(settled.qiPurchase.chargeId).catch((error: unknown) => {
+        console.error(
+          '[qi] granted but could not record qi_granted_at — the reconciler will retry and the engine will dedup:',
+          settled.qiPurchase?.chargeId,
+          error instanceof Error ? error.message : error,
+        )
+      })
+    } else {
+      // #605 G1 — no longer a dead end. The row stays qi_granted_at IS NULL, which is exactly what
+      // listUngrantedQiPurchases selects, so /api/cron/reconcile-payment picks it up within 15 minutes.
+      // The manual command stays printed because a human may want it sooner than the next cron tick.
       console.error(
-        `[qi] PENDING MANUAL RETRY — POST {BAZI_BASE_URL}/api/qi/grant ref=${settled.qiPurchase.chargeId}`,
+        `[qi] QUEUED FOR RETRY — the reconciler will retry this within 15 minutes. To do it by hand: ` +
+          `POST {BAZI_BASE_URL}/api/qi/grant ref=${settled.qiPurchase.chargeId}`,
       )
     }
   }
