@@ -282,7 +282,27 @@ function redirectWhatIfFirstVisit(req: NextRequest): NextResponse | null {
   return noStore(NextResponse.redirect(new URL('/what-if', req.url)));
 }
 
+// 🔴 #605/#606 B1' — THE PAYMENT-LANE CSP IS ATTACHED HERE, AT THE ONE POINT EVERY RESPONSE PASSES
+// THROUGH, and no longer inside the `if (v2)` branch below.
+//
+// It used to hang off guardV2's return value, which quietly made the CSP depend on a GATE rather than on
+// the REQUEST. That coupling is what pushed the #247 launch change into keeping guardV2 alive and
+// returning next() for everything — the comment it left behind said so: returning null "would drop the
+// CSP on the payment path and break the Omise iframe". The cost was that /v2 could then never reach the
+// maintenance gate below (the MAINTENANCE_MODE check in route()) — the single outer gate that #606's
+// step order depends on. So the launch either keeps the CSP or keeps maintenance able to cover /v2,
+// and it must keep both.
+//
+// Attaching it out here decouples them: withPaymentLaneCsp keys on the REQUEST path (see its own note),
+// so a maintenance rewrite is covered too, and guardV2 is free to return null at launch without taking
+// the payment lane's CSP with it. Behaviour today is identical — every PAYMENT_LANE_PREFIXES path is
+// under /v2 and therefore already passed through guardV2 — which is exactly what makes it safe to move
+// now, before the launch change needs it.
 export function middleware(req: NextRequest) {
+  return withPaymentLaneCsp(req, route(req));
+}
+
+function route(req: NextRequest): NextResponse {
   // Glass Box gate first — independent of maintenance mode.
   const glassBox = guardGlassBox(req);
   if (glassBox) return glassBox;
@@ -299,10 +319,12 @@ export function middleware(req: NextRequest) {
   if (ops) return ops;
 
   // MuMate v2 preview gate — team-only, independent of maintenance mode.
+  // 🔴 While this gate is configured, a /v2 request stops here and never reaches the maintenance gate
+  // below. That is the state #606 describes. When the gate is removed at launch (#606 B3) this returns
+  // null, /v2 falls through to maintenance as that plan requires, and the payment-lane CSP is unaffected
+  // because it is now attached in middleware() rather than to this return value.
   const v2 = guardV2(req);
-  // guardV2 has seven exits (:165 :168 :170 :173 :175 :178 :181) and a v2 request never reaches the
-  // end of this file, so the CSP is attached here — the one point every v2 response passes through.
-  if (v2) return withPaymentLaneCsp(req, v2);
+  if (v2) return v2;
 
   // Maintenance off -> behave normally (normal caching resumes).
   // (While maintenance is on, every gated response below uses the module-level noStore so the
@@ -325,10 +347,22 @@ export function middleware(req: NextRequest) {
   // This does NOT expose the app: every real page stays gated, so a user who
   // logs in still only sees /maintenance without a valid bypass cookie — only
   // the login handshake is allowed to complete. (#mootech-maint-gate-incognito-login)
+  //
+  // 🔴 #605/#606 B2 — `/api/cron/` IS IN THIS LIST AND MUST STAY. Both Vercel crons (vercel.json:
+  // push-reminders every minute, reconcile-payment every 15) are matched by the matcher at the bottom of
+  // this file. Without this line they are rewritten to /maintenance and answer **HTTP 200**, so Vercel's
+  // cron log records success while nothing runs. The reconciler is the ONLY thing that recovers a paid
+  // charge whose webhook was lost — and the cutover turns maintenance on precisely while the team is
+  // making test payments, which is the worst possible window to lose it.
+  // This costs no security: pages/api/cron/reconcile-payment.ts:26 refuses any caller without
+  // CRON_SECRET, and :10-12 states that secret gate IS the whole security boundary for that endpoint.
+  // Prefix, not exact match: there are two cron routes and more may be added; a missing one fails
+  // silently and by answering 200, which is the failure mode with no symptom.
   if (
     pathname === '/maintenance' ||
     pathname === '/api/health' ||
     pathname.startsWith('/api/auth') ||
+    pathname.startsWith('/api/cron/') ||
     pathname === '/auth/error'
   ) {
     return noStore(NextResponse.next());

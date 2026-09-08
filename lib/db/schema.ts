@@ -783,6 +783,15 @@ export const v2Payment = pgTable("v2_payment", {
 	// itself uses. NULL = the row predates 0012, or there was no shadow row then — NEVER "no entitlement":
 	// a reversal on a NULL row hands the member_payment side to a human and writes nothing over it.
 	prevMemberExpireAt: text("prev_member_expire_at"),
+	// 🔴 #605 G1 (0019 ALTER) — WHEN the engine confirmed this QI purchase was credited. QI packs only.
+	// The money and the goods live on opposite sides of a network call here: settleAndProvision writes
+	// APPROVED inside its transaction and calls the engine AFTER it, so "paid" and "credited" can disagree
+	// and nothing in this table used to record which. NULL is NOT "the grant failed" — it is "no record of
+	// a successful grant", which for a tier_code='QI' row makes it a repair candidate the reconciler
+	// retries. That retry is only safe because the engine dedups on ref = charge_id (lib/qi/grant.ts:3-4);
+	// remove that idempotency and this column turns into a double-credit machine.
+	// A membership row stays NULL forever: its provisioning is a write in the same transaction.
+	qiGrantedAt: timestamp("qi_granted_at", { withTimezone: true }),
 	// discount linkage (#361, 0008 ALTER) — NULL/0 when no code was used.
 	codeId: varchar("code_id", { length: 36 }).references(() => discountCode.id),
 	discountSatang: integer("discount_satang").default(0).notNull(),

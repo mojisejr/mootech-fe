@@ -14,12 +14,27 @@
 //           e2e/v2-csp-teeth.spec.ts, which loads an off-list script in a real Chromium and asserts it
 //           is refused. Do not read a green here as "the lane is protected".
 //
-// MUTANTS RUN, not imagined (2026-08-28, both restored after):
+// 🔴 THE CALL SITE MOVED (#605/#606 B1', 2026-09-08). `withPaymentLaneCsp` is no longer attached to
+// guardV2's return value; it wraps the whole of `middleware()`, so the header now depends on the
+// REQUEST path rather than on which gate answered. The reason is in middleware.ts: while the CSP hung
+// off the gate, removing the gate at launch would have removed the CSP with it, which is why the #247
+// change kept guardV2 alive returning next() and thereby made it impossible for /v2 to ever reach the
+// maintenance gate — the single outer gate #606's step order depends on.
+//
+// ⚠️ NO TEST HERE DISTINGUISHES THE OLD CALL SITE FROM THE NEW ONE, and that is not an oversight:
+// every PAYMENT_LANE_PREFIXES path is under /v2, so today every one of them exits through guardV2 and
+// both placements produce identical headers. That identity is precisely what made the move safe to do
+// before it was needed. The difference becomes observable only once guardV2 returns null at launch.
+//
+// MUTANTS RUN, not imagined (1 and 2: 2026-08-28 · 3: 2026-09-08, all restored after):
 //   1. delete the `withPaymentLaneCsp(...)` call at the guardV2 call site → 12 failed | 9 passed.
 //      The 9 survivors are the absence-assertions further down; that is expected and is why they
 //      carry their own warning.
 //   2. widen script-src with 'unsafe-inline' → 1 failed | 20 passed, and the one that died is
 //      "script-src has no unsafe-inline", i.e. it died for the reason it claims to guard.
+//   3. delete the `withPaymentLaneCsp(...)` call at its NEW home wrapping middleware() → 14 failed |
+//      9 passed. Same 9 survivors. This is the re-run that proves the move did not leave the header
+//      unguarded: whichever site holds the call, deleting it still reddens this file.
 import { describe, it, expect, beforeAll } from 'vitest'
 
 // The middleware reads these at call time; set them before it is imported so the v2 surface is
