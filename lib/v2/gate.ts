@@ -22,11 +22,13 @@ export function isV2Authenticated(
 // is missing. Defense in depth — middleware already redirects unauthenticated /v2/* to /v2, but each
 // page re-checking (per the ops-gate review discipline) means the gate holds even if the matcher or
 // middleware order ever changes. Returns a redirect object, or null when authenticated.
+// #247 launch: preview gate ถูกเอาออกแล้ว — /v2 เปิดให้ทุกคน (auth จริงคือ Google/Line ฝั่ง client)
+// เดิม redirect ไป /v2 เมื่อไม่มี cookie; ตอนนี้ผ่านตลอด ส่วนสิทธิ์ team-preview (tier override)
+// ยังผูกกับ cookie ผ่าน isV2TeamPreview เหมือนเดิม จึงไม่ถูกเปิดให้ทุกคน
 export function v2RedirectIfUnauthed(
-  req: NextApiRequest | { cookies: Partial<Record<string, string>> },
+  _req: NextApiRequest | { cookies: Partial<Record<string, string>> },
 ): { redirect: { destination: string; permanent: false } } | null {
-  if (isV2Authenticated(req)) return null
-  return { redirect: { destination: '/v2', permanent: false } }
+  return null
 }
 
 // getServerSideProps helper (issue #225): is this request an authenticated team-preview session? Same

@@ -6,7 +6,7 @@
 import type { GetServerSideProps } from 'next'
 import { isPaidMember } from '@/lib/v2/tier'
 import { useRouter } from 'next/router'
-import { isV2Authenticated } from '@/lib/v2/gate'
+import { isV2TeamPreview } from '@/lib/v2/gate'
 import { useV2AuthGate } from '@/features/auth/hooks/useV2AuthGate'
 import type { AuthStatus } from '@/lib/auth/resolve-auth'
 import { useV2Home } from '@/features/auth/hooks/useV2Home'
@@ -17,23 +17,18 @@ import { resolveGreetingElementTh } from '@/lib/personalization/compute-source'
 import { AuthLoadingGate } from '@/features/v2-shell/components/AuthLoadingGate'
 import ScreenIdentityStuck from '@/components/screen-identity-stuck'
 import { HomeSkeleton } from '@/features/v2-home/components/HomeSkeleton'
-import { V2GateForm } from '@/features/v2-shell/components/V2GateForm'
 import { OnboardingCarousel } from '@/features/onboarding/components/OnboardingCarousel'
 import { V2HomeScreen } from '@/features/v2-home/components/V2HomeScreen'
 // 🔴 TEMPORARY (#249) — #248 removes this import and its one <TeamPreviewResetBadge /> below.
 import { TeamPreviewResetBadge } from '@/features/v2-team-preview/TeamPreviewResetBadge'
 
-type Props =
-  | { teamAuthed: false; gateError: string | null }
-  | { teamAuthed: true }
+type Props = { teamAuthed: boolean }
 
+// #247 launch: preview gate เอาออกแล้ว — /v2 เปิดให้ทุกคน (ไม่ render passkey form อีก)
+// teamAuthed = มี cookie team-preview ไหม → ใช้แค่คุมสิทธิ์ tier override + ปุ่ม reset ของทีม
 export const getServerSideProps: GetServerSideProps<Props> = async (ctx) => {
   ctx.res.setHeader('Cache-Control', 'no-store, must-revalidate')
-  if (!isV2Authenticated(ctx.req)) {
-    const gateError = typeof ctx.query.gate_error === 'string' ? ctx.query.gate_error : null
-    return { props: { teamAuthed: false, gateError } }
-  }
-  return { props: { teamAuthed: true } }
+  return { props: { teamAuthed: isV2TeamPreview(ctx.req) } }
 }
 
 function V2Entry() {
@@ -143,17 +138,11 @@ function V2HomeRoute({ status }: { status: AuthStatus }) {
 }
 
 export default function V2HomePage(props: Props) {
-  if (!props.teamAuthed) {
-    return <V2GateForm gateError={props.gateError} />
-  }
-  // 🔴 TEMPORARY (#249): the team's reset control is mounted HERE, inside the `teamAuthed` branch,
-  // so it exists only for a request the SERVER already verified against V2_PREVIEW_KEY — it is not
-  // conditional on anything the client could flip. /v2 is also the one screen the team always comes
-  // back to, so the control is findable without anyone being told a URL. #248 deletes these lines.
+  // #247: ไม่มี passkey gate แล้ว — render แอปจริงเสมอ; ปุ่ม reset ของทีมโชว์เฉพาะ session ที่มี cookie ทีม
   return (
     <>
       <V2Entry />
-      <TeamPreviewResetBadge />
+      {props.teamAuthed && <TeamPreviewResetBadge />}
     </>
   )
 }

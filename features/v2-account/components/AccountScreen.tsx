@@ -61,21 +61,23 @@ function last7(today: string): string[] {
 const CHEVRON = <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden className="flex-none text-v3-text-muted"><path d="m6 3.5 4.5 4.5L6 12.5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" /></svg>
 const CHECK_SM = <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6 9 17l-5-5" /></svg>
 
-export function AccountScreen() {
+// preview: เฉพาะหน้า dev (/dev-access/account-preview) — ป้อน wallet/board/ent ตรง ๆ ไม่ยิง API
+type AccountPreview = { wallet?: Wallet | null; board?: MissionBoard | null; ent?: Entitlements | null }
+export function AccountScreen({ preview }: { preview?: AccountPreview } = {}) {
   const { user } = useV2User()
   // ตัวตน LINE (ชื่อ+รูปจริง) จาก cookie ที่ตั้งตอน login — เหมือนที่หน้าหลักใช้ ให้ /account ตรงกัน
   const [cookies] = useCookies([CookieKey.MEMBER_NAME, CookieKey.MEMBER_IMAGE])
   const lineName = typeof cookies[CookieKey.MEMBER_NAME] === "string" ? cookies[CookieKey.MEMBER_NAME] : null
   const linePhoto = typeof cookies[CookieKey.MEMBER_IMAGE] === "string" ? cookies[CookieKey.MEMBER_IMAGE] : null
-  const [wallet, setWallet] = useState<Wallet | null>(null)
-  const [ent, setEnt] = useState<Entitlements | null>(null)
+  const [wallet, setWallet] = useState<Wallet | null>(preview?.wallet ?? null)
+  const [ent, setEnt] = useState<Entitlements | null>(preview?.ent ?? null)
   const [profile, setProfile] = useState<Profile | null>(null)
   const [element, setElement] = useState<ElementSummary>(null)
-  const [board, setBoard] = useState<MissionBoard | null>(null)
+  const [board, setBoard] = useState<MissionBoard | null>(preview?.board ?? null)
   const [referral, setReferral] = useState<Referral | null>(null)
   const [deletePending, setDeletePending] = useState<string | null>(null)
   const [busyCheckin, setBusyCheckin] = useState(false)
-  const [loaded, setLoaded] = useState(false) // wallet/profile โหลดเสร็จ — กันปุ่มเช็คอิน flash ก่อนรู้สถานะจริง
+  const [loaded, setLoaded] = useState(!!preview) // wallet/profile โหลดเสร็จ — กันปุ่มเช็คอิน flash ก่อนรู้สถานะจริง
   const [attempt, setAttempt] = useState(0)
   // ฿ ต่อ 1 QI จากแพ็กเริ่มต้น (QI_60) — แหล่งเดียวกับจอซื้อ QI; null = ยังไม่รู้ราคา → ไม่แต่งตัวเลขเอง
   const [qiRate, setQiRate] = useState<number | null>(null)
@@ -118,7 +120,7 @@ export function AccountScreen() {
     }
   }, [])
 
-  useEffect(() => { void load() }, [load, attempt])
+  useEffect(() => { if (preview) return; void load() }, [load, attempt, preview])
 
   const checkin = async () => {
     setBusyCheckin(true)
@@ -248,18 +250,18 @@ export function AccountScreen() {
                 <div className="min-w-0">
                   <div className="flex items-center gap-1.5">
                     <p className="text-[13px] text-white/90">ยอดคงเหลือ</p>
-                    <Link href="/v2/qi" aria-label="คู่มือพลังชี่" className="grid size-[18px] flex-none place-items-center rounded-[9px] bg-v3-rose-tint text-[11px] font-bold leading-none text-v3-text-body">?</Link>
+                    <Link href="/v2/qi" aria-label="คู่มือพลังชี่" data-testid="account-qi-guide" className="grid size-5 flex-none place-items-center rounded-full bg-v3-rose-tint text-[12px] font-bold leading-none text-v3-text-body">
+                      <span className="translate-y-[0.5px]">?</span>
+                    </Link>
                   </div>
                   <p className="mt-1 flex items-baseline gap-1.5">
                     <span className="text-[30px] font-black leading-none text-v3-lime" data-testid="account-qi-balance">{balance.toLocaleString("th-TH")}</span>
                     <span className="text-[16px] font-black text-v3-lime">QI</span>
                   </p>
                 </div>
-                {/* glow-aura 64 (rgba(216,143,169,.2)) → inner-glow 48 ขอบ sapphire 2px (เฟรม 55399:4944) */}
+                {/* เหรียญ QI จริง (qi-coin) ในวง glow-aura */}
                 <span aria-hidden className="grid size-16 flex-none place-items-center rounded-full bg-[rgba(216,143,169,0.2)]">
-                  <span className="relative size-12 overflow-hidden rounded-full border-2 border-v3-sapphire">
-                    <Image src="/images/v2/account/qi-glow-aura.png" alt="" fill sizes="48px" unoptimized className="object-cover" />
-                  </span>
+                  <Image src="/images/v2/qi/qi-coin.png" alt="" width={52} height={52} sizes="52px" unoptimized className="size-12 object-contain" />
                 </span>
               </div>
               <p className="mt-3 text-[13px] leading-[18px] text-white/90">{chatUnlimited ? <>ถามเซียนมู AI ได้ไม่จำกัด · เปิดไพ่ได้อีก {cards} ครั้ง</> : <>พอถามเซียนมู AI ได้อีก {asks} ครั้ง หรือเปิดไพ่ได้ {cards} ครั้ง</>}</p>

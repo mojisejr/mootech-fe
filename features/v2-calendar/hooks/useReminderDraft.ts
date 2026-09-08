@@ -29,6 +29,8 @@ export interface UseReminderDraft {
   toggleYam: (yamId: string) => void
   toggleDest: (dest: ReminderDestination) => void
   setNote: (note: string) => void
+  /** ตั้งเวลาเอง (free-time reminder) — set the HH:MM the user picked; '' clears it. */
+  setCustomTime: (customTime: string) => void
   /** Commit the draft: editing→saving, run `save`, then saving→saved (true) / saving→error (false).
    *  NO-OP unless editing + committable; the `saving` latch makes a 2nd commit a no-op (double-submit).
    *  #287: `save` is the real network call (POST) injected by the page — the STATES/guards are unchanged
@@ -41,7 +43,7 @@ export interface UseReminderDraft {
 // #286: destinations เริ่มต้นเป็น [] ❌ ไม่ใช่ ['mumate'] — ค่าเดิมทำให้ผู้ใช้ 'เลือก' ปลายทางที่เขา
 // ไม่ได้เลือก และเป็นปลายทางที่ระบบยังส่งไม่ได้ด้วย (ไม่มี PWA จนถึง #285) ⇒ บันทึกแล้วขึ้นชิป
 // 'มู่เมท' ในรายการโดยไม่มีอะไรจะดัง. แตะบรรทัดนี้บรรทัดเดียวตามที่ใบระบุ — ที่เหลือเป็นของ goo
-const EMPTY_DRAFT: ReminderDraft = { date: '', selectedYamIds: [], destinations: [], note: '' }
+const EMPTY_DRAFT: ReminderDraft = { date: '', selectedYamIds: [], destinations: [], note: '', customTime: '' }
 
 export function useReminderDraft(): UseReminderDraft {
   const [state, setState] = useState<SaveFlowState>('idle')
@@ -80,6 +82,11 @@ export function useReminderDraft(): UseReminderDraft {
     setState((s) => saveFlowNext(s, 'setNote'))
   }, [])
 
+  const setCustomTime = useCallback((customTime: string) => {
+    setDraft((d) => ({ ...d, customTime }))
+    setState((s) => saveFlowNext(s, 'setCustomTime'))
+  }, [])
+
   const commit = useCallback(
     async (save: () => Promise<boolean>) => {
       // Start allowed from `editing` (first attempt) or `error` (retry — same button re-clicked). The
@@ -116,5 +123,5 @@ export function useReminderDraft(): UseReminderDraft {
     [state],
   )
 
-  return { state, draft, canCommit, menuState, open, toggleYam, toggleDest, setNote, commit, cancel, dismiss }
+  return { state, draft, canCommit, menuState, open, toggleYam, toggleDest, setNote, setCustomTime, commit, cancel, dismiss }
 }

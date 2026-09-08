@@ -16,6 +16,7 @@ export interface ReminderDTO {
   yamId: string
   yamLabel: string
   window: string
+  note?: string | null
   destinations: ReminderDestination[]
   fireAtUtc: string
 }
@@ -29,6 +30,7 @@ export function toReminder(dto: ReminderDTO, now: Date): Reminder {
     yamId: dto.yamId,
     yamLabel: dto.yamLabel,
     window: dto.window,
+    note: dto.note ?? null,
     destinations: dto.destinations,
     fireAtUtc: dto.fireAtUtc,
     group: fired ? 'past' : 'upcoming',

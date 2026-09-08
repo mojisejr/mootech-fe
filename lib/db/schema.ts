@@ -1151,6 +1151,9 @@ export const reminder = pgTable("reminder", {
 	// and an unquoted `window` column fails with a syntax error on raw SQL — caught applying 0005 to a real
 	// pg. The TS field stays `window` (API/DTO/client unchanged); only the physical column name differs.
 	window: varchar("yam_window", { length: 16 }).notNull(), // "HH:MM-HH:MM" — display only
+	// 0006 — the user's โน้ต from the save sheet (was DROPPED before). NULLABLE: existing rows = no note.
+	// Deploy order: migration 0006 BEFORE this code (the insert references the column).
+	note: text("note"),
 	destinations: json("destinations").$type<string[]>().notNull(),
 	fireAtUtc: timestamp("fire_at_utc", { withTimezone: true }).notNull(),
 	// #288's send-marker, added NOW so prod is migrated ONCE (บอง 2026-08-16): NULL = not yet sent,

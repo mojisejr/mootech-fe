@@ -59,7 +59,8 @@ describe('#363 the dependency this hook has on someone else\'s query', () => {
     // The hook can only find a charge that is actually in the response. If this query ever gains a limit, a
     // user with enough older payments stops finding their new one and the screen waits forever with no error.
     // This is a tooth on a file this feature does not own, and it is here on purpose: the DEPENDENCY is ours.
-    const src = readFileSync(join(process.cwd(), 'lib/payment/repo.ts'), 'utf8')
+    // normalize CRLF → LF so the `\n}\n` function-end slice works on a Windows checkout (autocrlf) too.
+    const src = readFileSync(join(process.cwd(), 'lib/payment/repo.ts'), 'utf8').replace(/\r\n/g, '\n')
     const fn = src.slice(src.indexOf('export async function listUserPayments'))
     const body = fn.slice(0, fn.indexOf('\n}\n') + 1)
     expect(body).toContain('orderBy(desc(v2Payment.createdAt))') // newest first is what the comment assumes

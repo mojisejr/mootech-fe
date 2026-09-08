@@ -65,7 +65,9 @@ function closureOf(entry: string): string[] {
       if (next) queue.push(next)
     }
   }
-  return [...seen].map((f) => relative(ROOT, f))
+  // forward slashes so the V1_MATCHING/V2_MATCHING module patterns match on Windows too (relative() yields
+  // backslash paths there, and every pattern here is written with '/').
+  return [...seen].map((f) => relative(ROOT, f).replace(/\\/g, '/'))
 }
 
 const READERS = [

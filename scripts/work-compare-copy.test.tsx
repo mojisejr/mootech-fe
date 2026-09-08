@@ -114,7 +114,7 @@ describe('#585 ก้อน 4 — the press, the wait and the five sentences', (
     await pickOneAndPress()
     await waitFor(() => expect(workCreate).toHaveBeenCalledTimes(1))
     // the ARGUMENT, not just that something fired: sending the wrong ids is a screen that looks fine
-    expect(workCreate).toHaveBeenCalledWith(['f-1'])
+    expect(workCreate).toHaveBeenCalledWith(['f-1'], 'FRIEND') // friend_ids + role (V2MatchingWorkCreateApi 2nd arg)
   })
 
   it('สำเร็จแล้วพาไปจอผลเพื่อนร่วมงาน ❌ ไม่ใช่จอคู่รัก', async () => {
