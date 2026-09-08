@@ -1,21 +1,46 @@
-// features/v2-service/components/ManifestScreen.tsx — /v2/service/manifest (มานิเฟส)
-// ต่อ ENGINE: /api/manifest/goals + /checkin (ผ่าน BFF /api/v2/manifest/*). ไม่มีเฟรม Figma → ออกแบบเองตามภาษาแอป.
-// ตั้งเป้าหมาย + คำยืนยัน(affirmation) + ภารกิจรายวัน → ติ๊กเช็คอินให้ครบ, มี progress ต่อเป้าหมาย.
+// features/v2-service/components/ManifestScreen.tsx — /v2/service/manifest ("สมุดแมนิเฟสต์")
+// Design: Figma "Mumate app_ final" node 55512-729 (proto 55512-755) — onboarding: header +
+// hero (3 ขั้น) + การ์ดธาตุประจำเดือน. Data: /api/v2/manifest/goals + /checkin (goals/checkin),
+// element จาก /api/profile → /api/bazi/element-summary. เขียนเลยตอนนี้ → CreateGoalModal เดิม.
 import Head from "next/head"
 import Image from "next/image"
-import { useCallback, useEffect, useMemo, useState } from "react"
+import Link from "next/link"
+import { useCallback, useEffect, useState } from "react"
 
-import { SkyBackdrop, SkyHeader, KitButton } from "@/features/v2-profile/components/kit"
+import { KitButton } from "@/features/v2-profile/components/kit"
 import { Menubar } from "@/features/v2-shell/components/Menubar"
+import { TopBarBell } from "@/features/v2-shell/components/TopBarBell"
+import { TopBarAvatar } from "@/features/v2-shell/components/TopBarAvatar"
 
 type Task = { id: string; title: string; targetCount: number; isDaily: boolean; doneCount: number }
 type Goal = {
   id: string; title: string; affirmation: string | null; imageUrl: string | null
   status: string; tasks: Task[]; progress: { done: number; target: number; percent: number }
 }
+type ElementInfo = { elementTh: string } | null
+type ManifestPreview = { goals?: Goal[]; element?: ElementInfo }
 
 const CARD = "v3-shadow-card w-full rounded-[24px] bg-white p-5"
 const MAX_GOALS = 5
+
+const ELEMENT_MASCOT: Record<string, string> = {
+  ไม้: "/images/v2/destiny/el-wood.png",
+  ไฟ: "/images/v2/destiny/el-fire.png",
+  ดิน: "/images/v2/destiny/el-earth.png",
+  ทอง: "/images/v2/destiny/el-metal.png",
+  น้ำ: "/images/v2/destiny/el-water.png",
+}
+// ธาตุที่ "เสริม" (สร้าง) ธาตุเรา: น้ำ→ไม้→ไฟ→ดิน→ทอง→น้ำ
+const RESOURCE_OF: Record<string, string> = { ไม้: "น้ำ", ไฟ: "ไม้", ดิน: "ไฟ", ทอง: "ดิน", น้ำ: "ทอง" }
+// 2 หมวดที่ธาตุแต่ละธาตุส่งเสริมเป็นพิเศษ (ตาม Figma: ธาตุไม้ → การงาน/การเรียนรู้)
+const CATEGORIES = ["การงาน", "การเรียนรู้", "การเงิน", "ความรัก", "สุขภาพ"]
+const ELEMENT_FAVORED: Record<string, string[]> = {
+  ไม้: ["การงาน", "การเรียนรู้"],
+  ไฟ: ["ความรัก", "การงาน"],
+  ดิน: ["การเงิน", "สุขภาพ"],
+  ทอง: ["การเงิน", "การงาน"],
+  น้ำ: ["การเรียนรู้", "ความรัก"],
+}
 
 function todayBangkok(): string {
   return new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Bangkok", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date())
@@ -30,9 +55,74 @@ function writeCheckedToday(ids: Set<string>) {
   try { localStorage.setItem("mumate-manifest-checked", JSON.stringify({ date: todayBangkok(), ids: Array.from(ids) })) } catch { /* ignore */ }
 }
 
-export function ManifestScreen() {
-  const [goals, setGoals] = useState<Goal[]>([])
-  const [loading, setLoading] = useState(true)
+// การ์ดฮีโร่ onboarding (Figma) — 3 ขั้น + ปุ่มเขียน + มาสคอต
+function OnboardingHero({ onWrite }: { onWrite: () => void }) {
+  const steps = [
+    { n: 1, t: "เลือก 3 ด้านที่อยากเปลี่ยน", s: "ราศีของคุณจะช่วยแนะนำ" },
+    { n: 2, t: "เขียนและใส่รูปให้แต่ละข้อ", s: "เขียนเป็นประโยคที่เกิดขึ้นแล้ว เช่น “ฉันได้งานที่ใช่” จะช่วยให้จิตจดจ่อกับภาพปลายทางมากกว่าความอยาก" },
+    { n: 3, t: "กลับมาอ่านทุกวัน", s: "ใช้เวลาราว 1 นาที รับ +5 QI" },
+  ]
+  return (
+    <section className="relative overflow-hidden rounded-[24px] bg-v3-sapphire px-4 pb-6 pt-6 text-white" data-testid="manifest-hero">
+      <Image src="/images/v2/features/manifest/hero.png" alt="" width={110} height={96} unoptimized className="pointer-events-none absolute right-2 top-2 h-24 w-auto object-contain" />
+      <div className="relative text-center">
+        <h1 className="text-[20px] font-black leading-7">สมุดแมนิเฟสต์<br />ของคุณรอภาพแรกอยู่</h1>
+        <p className="mx-auto mt-2 max-w-[300px] text-[12px] leading-[18px] text-white/90">
+          แมนิเฟสต์คือการเขียนสิ่งที่อยากให้เกิดขึ้นเป็นประโยคที่เกิดขึ้นแล้ว แล้วกลับมาอ่านทุกวันจนจิตคุ้นชินกับภาพนั้น
+        </p>
+      </div>
+      <div className="relative mt-4 flex flex-col gap-2">
+        {steps.map((st) => (
+          <div key={st.n} className="flex items-start gap-3 rounded-[16px] bg-white p-3.5">
+            <span className="grid size-6 flex-none place-items-center rounded-full bg-v3-sapphire/10 text-[12px] font-black text-v3-sapphire">{st.n}</span>
+            <div className="min-w-0 flex-1">
+              <p className="text-[15px] font-bold leading-5 text-v3-navy">{st.t}</p>
+              <p className="mt-0.5 text-[12px] leading-4 text-v3-text-muted">{st.s}</p>
+            </div>
+          </div>
+        ))}
+      </div>
+      <div className="relative mt-4 flex items-center justify-center">
+        <Image src="/images/v2/destiny/el-fire.png" alt="" width={64} height={64} unoptimized className="pointer-events-none absolute left-2 bottom-[-6px] h-14 w-14 object-contain drop-shadow" />
+        <button onClick={onWrite} data-testid="manifest-write" className="grid h-11 w-[220px] place-items-center rounded-full bg-v3-lime text-[15px] font-black text-v3-sapphire">
+          เขียนเลยตอนนี้
+        </button>
+      </div>
+    </section>
+  )
+}
+
+// การ์ดธาตุประจำเดือน (Figma) — insight + 5 หมวด (2 แรก highlight)
+function ElementInsightCard({ element }: { element: ElementInfo }) {
+  const el = element?.elementTh ?? "ไม้"
+  const resource = RESOURCE_OF[el] ?? "น้ำ"
+  const favored = ELEMENT_FAVORED[el] ?? ["การงาน", "การเรียนรู้"]
+  return (
+    <section className="rounded-[24px] bg-[#eef7f0] p-5" data-testid="manifest-element">
+      <div className="flex items-center gap-2">
+        <Image src={ELEMENT_MASCOT[el] ?? ELEMENT_MASCOT["ไม้"]} alt="" width={40} height={44} unoptimized className="h-11 w-9 object-contain" />
+        <p className="text-[16px] font-bold text-v3-navy">ธาตุ{el}ของคุณเดือนนี้</p>
+      </div>
+      <p className="mt-2 text-[13px] leading-[20px] text-v3-text-body">
+        ธาตุ{el}กำลังได้รับการเสริมจากธาตุ{resource}ช่วงกลางเดือน เป็นจังหวะที่เหมาะกับการตั้งจิตเรื่องการเริ่มต้นใหม่
+      </p>
+      <div className="mt-3 flex flex-wrap gap-2">
+        {CATEGORIES.map((c) => {
+          const on = favored.includes(c)
+          return (
+            <span key={c} className={`rounded-full px-3 py-1.5 text-[12px] font-semibold ${on ? "bg-[#3E9B4A] text-white" : "border border-[#3E9B4A]/40 text-[#3E9B4A]"}`}>{c}</span>
+          )
+        })}
+      </div>
+      <p className="mt-3 text-[11px] leading-4 text-v3-text-muted">สองหมวดแรกคือหมวดที่ธาตุคุณส่งเสริมเป็นพิเศษ ไม่ใช่หมวดอื่นเลือกเองได้</p>
+    </section>
+  )
+}
+
+export function ManifestScreen({ previewData }: { previewData?: ManifestPreview } = {}) {
+  const [goals, setGoals] = useState<Goal[]>(previewData?.goals ?? [])
+  const [element, setElement] = useState<ElementInfo>(previewData?.element ?? null)
+  const [loading, setLoading] = useState(!previewData)
   const [checkedToday, setCheckedToday] = useState<Set<string>>(new Set())
   const [creating, setCreating] = useState(false)
 
@@ -42,9 +132,22 @@ export function ManifestScreen() {
       const j = await fetch("/api/v2/manifest/goals").then((x) => (x.ok ? x.json() : null))
       setGoals(Array.isArray(j?.goals) ? j.goals.filter((g: Goal) => g.status !== "archived") : [])
     } catch { setGoals([]) } finally { setLoading(false) }
+    // ธาตุประจำตัว: profile → element-summary
+    try {
+      const prof = await fetch("/api/profile").then((x) => (x.ok ? x.json() : null))
+      const birthDate = prof?.profile?.birthDate
+      if (birthDate) {
+        const e = await fetch("/api/bazi/element-summary", {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ person: { birthDate, birthTime: prof.profile.birthTime ?? undefined } }),
+        }).then((x) => (x.ok ? x.json() : null))
+        const elTh = e?.summary?.elementTh ?? e?.elementTh
+        if (elTh) setElement({ elementTh: elTh })
+      }
+    } catch { /* ธาตุเป็น optional — ไม่มีก็ยังใช้ค่า default ได้ */ }
   }, [])
 
-  useEffect(() => { setCheckedToday(readCheckedToday()); void load() }, [load])
+  useEffect(() => { if (previewData) return; setCheckedToday(readCheckedToday()); void load() }, [load, previewData])
 
   const activeCount = goals.filter((g) => g.status === "active").length
 
@@ -53,7 +156,6 @@ export function ManifestScreen() {
     const next = new Set(checkedToday)
     if (wasDone) next.delete(task.id); else next.add(task.id)
     setCheckedToday(next); writeCheckedToday(next)
-    // ปรับ progress แบบ optimistic
     setGoals((gs) => gs.map((g) => {
       if (g.id !== goalId) return g
       const tasks = g.tasks.map((t) => t.id === task.id ? { ...t, doneCount: Math.max(0, Math.min(t.targetCount, t.doneCount + (wasDone ? -1 : 1))) } : t)
@@ -75,79 +177,68 @@ export function ManifestScreen() {
   }
 
   return (
-    <div className="relative flex min-h-screen w-full flex-col overflow-x-hidden bg-v3-bg-cream font-ibm">
-      <SkyBackdrop height={440} />
-      <Head><title>มานิเฟส · ตั้งเป้าหมาย & คำยืนยัน · MuMate</title></Head>
-      <SkyHeader title="มานิเฟส" backHref="/v2/service" testId="manifest" />
+    <div className="font-ibm min-h-[100dvh] w-full bg-v3-ghost-white">
+      <Head><title>สมุดแมนิเฟสต์ · MuMate</title></Head>
+      <div className="relative mx-auto min-h-[100dvh] w-full max-w-md overflow-hidden bg-v3-ghost-white pb-32">
+        {/* header — สมุดแมนิเฟสต์ + อัพเกรด + กระดิ่ง + avatar (Figma) */}
+        <header className="flex w-full items-center gap-2 px-4 pt-4">
+          <h1 className="flex-1 text-[20px] font-black leading-7 text-v3-navy">สมุดแมนิเฟสต์</h1>
+          <Link href="/v2/shop" className="grid h-8 flex-none place-items-center rounded-full bg-v3-lime px-3 text-[13px] font-black text-v3-sapphire">อัพเกรด</Link>
+          <TopBarBell variant="solid" href="/v2/calendar/notifications" />
+          <TopBarAvatar variant="sapphire" href="/v2/account" />
+        </header>
 
-      <div className="relative z-10 mx-auto flex w-full max-w-md flex-1 flex-col gap-4 px-4 pb-40 pt-2">
-        {/* HERO */}
-        <section className="flex flex-col items-center gap-2 text-center" data-testid="manifest-hero">
-          <span className="relative block h-[150px] w-[172px]">
-            <Image src="/images/v2/features/manifest/hero.png" alt="มานิเฟส" fill sizes="172px" className="object-contain" priority />
-          </span>
-          <h1 className="text-[22px] font-black leading-7 text-v3-navy">ตั้งเป้าหมาย แล้วดึงดูดให้เป็นจริง</h1>
-          <p className="max-w-xs text-[13px] leading-5 text-v3-text-body">ตั้งใจให้ชัด เขียนคำยืนยัน (affirmation) แล้วทำภารกิจเล็ก ๆ ทุกวัน — จักรวาลจัดสรรให้</p>
-        </section>
-
-        {loading ? (
-          <div className="h-40 w-full animate-pulse rounded-[24px] bg-v3-ghost-white" data-testid="manifest-loading" />
-        ) : goals.length === 0 ? (
-          <section className={CARD + " text-center"} data-testid="manifest-empty">
-            <p className="text-[32px]">✨</p>
-            <p className="mt-1 text-[15px] font-black text-v3-navy">ยังไม่มีเป้าหมาย</p>
-            <p className="mt-1 text-[13px] leading-5 text-v3-text-body">เริ่มจากสิ่งที่อยากให้เกิดขึ้นในชีวิต แล้วมาเช็คอินทุกวันกัน</p>
-            <div className="mt-4"><KitButton onClick={() => setCreating(true)} testId="manifest-add">+ สร้างเป้าหมายแรก</KitButton></div>
-          </section>
-        ) : (
-          <>
-            <section className="flex flex-col gap-3" data-testid="manifest-list">
-              {goals.map((g) => (
-                <article key={g.id} className={CARD} data-testid="manifest-goal">
-                  <div className="flex items-start justify-between gap-2">
-                    <p className="text-[16px] font-black leading-6 text-v3-navy">{g.title}</p>
-                    <button type="button" onClick={() => void deleteGoal(g.id)} aria-label="ลบเป้าหมาย" data-testid="manifest-delete" className="flex-none text-[12px] text-v3-text-muted">ลบ</button>
-                  </div>
-                  {g.affirmation ? <p className="mt-1 rounded-[12px] bg-[#F3EEFF] px-3 py-2 text-[13px] leading-5 text-[#6B4FA0]">“{g.affirmation}”</p> : null}
-
-                  {/* progress */}
-                  <div className="mt-3">
-                    <div className="mb-1 flex items-center justify-between text-[11px] text-v3-text-muted">
-                      <span>ความคืบหน้า</span><span>{g.progress.percent}%</span>
+        <div className="mt-3 flex flex-col gap-4 px-4">
+          {loading ? (
+            <div className="h-[420px] w-full animate-pulse rounded-[24px] bg-v3-ghost-white" data-testid="manifest-loading" />
+          ) : goals.length === 0 ? (
+            <OnboardingHero onWrite={() => setCreating(true)} />
+          ) : (
+            <>
+              <section className="flex flex-col gap-3" data-testid="manifest-list">
+                {goals.map((g) => (
+                  <article key={g.id} className={CARD} data-testid="manifest-goal">
+                    <div className="flex items-start justify-between gap-2">
+                      <p className="text-[16px] font-black leading-6 text-v3-navy">{g.title}</p>
+                      <button type="button" onClick={() => void deleteGoal(g.id)} aria-label="ลบเป้าหมาย" data-testid="manifest-delete" className="flex-none text-[12px] text-v3-text-muted">ลบ</button>
                     </div>
-                    <div className="h-2 w-full overflow-hidden rounded-full bg-v3-ghost-white">
-                      <div className="h-full rounded-full bg-v3-sapphire transition-all" style={{ width: `${g.progress.percent}%` }} />
+                    {g.affirmation ? <p className="mt-1 rounded-[12px] bg-[#F3EEFF] px-3 py-2 text-[13px] leading-5 text-[#6B4FA0]">“{g.affirmation}”</p> : null}
+                    <div className="mt-3">
+                      <div className="mb-1 flex items-center justify-between text-[11px] text-v3-text-muted">
+                        <span>ความคืบหน้า</span><span>{g.progress.percent}%</span>
+                      </div>
+                      <div className="h-2 w-full overflow-hidden rounded-full bg-v3-ghost-white">
+                        <div className="h-full rounded-full bg-v3-sapphire transition-all" style={{ width: `${g.progress.percent}%` }} />
+                      </div>
                     </div>
-                  </div>
+                    {g.tasks.length ? (
+                      <div className="mt-3 flex flex-col gap-2">
+                        {g.tasks.map((t) => {
+                          const done = checkedToday.has(t.id)
+                          return (
+                            <button key={t.id} type="button" onClick={() => void toggleTask(g.id, t)} data-testid="manifest-task" className="flex items-center gap-3 rounded-[12px] border border-v3-border-card bg-white px-3 py-2 text-left">
+                              <span className={"grid size-6 flex-none place-items-center rounded-full border-2 " + (done ? "border-transparent bg-[#3E9B4A] text-white" : "border-v3-border-card text-transparent")}>✓</span>
+                              <span className="min-w-0 flex-1">
+                                <span className={"block text-[13px] font-bold " + (done ? "text-v3-text-muted line-through" : "text-v3-navy")}>{t.title}</span>
+                                <span className="block text-[11px] text-v3-text-muted">{t.isDaily ? "ทำทุกวัน" : "ครั้งเดียว"} · {t.doneCount}/{t.targetCount}</span>
+                              </span>
+                            </button>
+                          )
+                        })}
+                      </div>
+                    ) : <p className="mt-2 text-[12px] text-v3-text-muted">ยังไม่มีภารกิจในเป้าหมายนี้</p>}
+                  </article>
+                ))}
+              </section>
+              {activeCount < MAX_GOALS ? (
+                <KitButton variant="outline" onClick={() => setCreating(true)} testId="manifest-add">+ เขียนแมนิเฟสต์ใหม่</KitButton>
+              ) : <p className="text-center text-[12px] text-v3-text-muted">เขียนครบ {MAX_GOALS} ข้อแล้ว โฟกัสให้สำเร็จก่อนนะ</p>}
+            </>
+          )}
 
-                  {/* daily tasks */}
-                  {g.tasks.length ? (
-                    <div className="mt-3 flex flex-col gap-2">
-                      {g.tasks.map((t) => {
-                        const done = checkedToday.has(t.id)
-                        return (
-                          <button key={t.id} type="button" onClick={() => void toggleTask(g.id, t)} data-testid="manifest-task" className="flex items-center gap-3 rounded-[12px] border border-v3-border-card bg-white px-3 py-2 text-left">
-                            <span className={"grid size-6 flex-none place-items-center rounded-full border-2 " + (done ? "border-transparent bg-[#3E9B4A] text-white" : "border-v3-border-card text-transparent")}>✓</span>
-                            <span className="min-w-0 flex-1">
-                              <span className={"block text-[13px] font-bold " + (done ? "text-v3-text-muted line-through" : "text-v3-navy")}>{t.title}</span>
-                              <span className="block text-[11px] text-v3-text-muted">{t.isDaily ? "ทำทุกวัน" : "ครั้งเดียว"} · {t.doneCount}/{t.targetCount}</span>
-                            </span>
-                          </button>
-                        )
-                      })}
-                    </div>
-                  ) : <p className="mt-2 text-[12px] text-v3-text-muted">ยังไม่มีภารกิจในเป้าหมายนี้</p>}
-                </article>
-              ))}
-            </section>
-
-            {activeCount < MAX_GOALS ? (
-              <KitButton variant="outline" onClick={() => setCreating(true)} testId="manifest-add">+ สร้างเป้าหมายใหม่</KitButton>
-            ) : <p className="text-center text-[12px] text-v3-text-muted">มีเป้าหมายครบ {MAX_GOALS} ข้อแล้ว โฟกัสให้สำเร็จก่อนนะ</p>}
-          </>
-        )}
-
-        <p className="px-2 text-center text-[11px] leading-4 text-v3-text-muted">มานิเฟสเพื่อจัดระเบียบใจและลงมือทำ ผลลัพธ์ขึ้นกับความตั้งใจของคุณ</p>
+          {/* การ์ดธาตุประจำเดือน */}
+          {!loading && <ElementInsightCard element={element} />}
+        </div>
       </div>
 
       {creating ? <CreateGoalModal onClose={() => setCreating(false)} onCreated={() => { setCreating(false); void load() }} /> : null}
@@ -186,7 +277,7 @@ function CreateGoalModal({ onClose, onCreated }: { onClose: () => void; onCreate
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/45 sm:items-center sm:p-4" onClick={onClose} data-testid="manifest-create">
       <div className="max-h-[90vh] w-full max-w-md overflow-y-auto rounded-t-[24px] bg-white p-5 sm:rounded-[24px]" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between">
-          <h2 className="text-[18px] font-black text-v3-navy">สร้างเป้าหมายใหม่</h2>
+          <h2 className="text-[18px] font-black text-v3-navy">เขียนแมนิเฟสต์</h2>
           <button type="button" onClick={onClose} className="text-[16px] font-bold text-v3-text-muted">✕</button>
         </div>
         <label className="mt-3 block">
@@ -210,7 +301,7 @@ function CreateGoalModal({ onClose, onCreated }: { onClose: () => void; onCreate
           </div>
         </div>
         {err ? <p className="mt-3 text-[12px] font-bold text-v3-error" data-testid="manifest-create-err">{err}</p> : null}
-        <div className="mt-4"><KitButton onClick={() => void submit()} disabled={saving} testId="manifest-create-submit">{saving ? "กำลังสร้าง..." : "สร้างเป้าหมาย"}</KitButton></div>
+        <div className="mt-4"><KitButton onClick={() => void submit()} disabled={saving} testId="manifest-create-submit">{saving ? "กำลังบันทึก..." : "บันทึกแมนิเฟสต์"}</KitButton></div>
       </div>
     </div>
   )
