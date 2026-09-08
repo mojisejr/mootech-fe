@@ -13,6 +13,8 @@
 // 🔴 MUTANT CONTRACT — measured, listed at the bottom of this file with what actually reddened.
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { execSync } from 'node:child_process'
+import { readFileSync } from 'node:fs'
+import { join } from 'node:path'
 
 const state: { count: number; wheres: any[] } = { count: 0, wheres: [] }
 
@@ -171,16 +173,22 @@ describe('DoD — the seam holds', () => {
   // 🔴 #358's closing criterion (ตู๋ ④): adding a feature must touch the entitlement table and NOTHING
   // else. Asserted by grep rather than by promise: every ceiling literal must live in that one file.
   it('🔴 no ceiling number for compatibility is written anywhere but lib/v2/entitlement.ts', () => {
-    const hits = execSync(
-      "git grep -lE \"compatibility: *\\{|'compatibility'\" -- lib pages features || true",
-      { encoding: 'utf8' },
-    )
+    // git grep exits 1 with no matches (throws in execSync) — and `|| true` is a POSIX-shell-ism that
+    // fails under cmd.exe on Windows; catch instead so the command is shell-independent. Read matched
+    // files with readFileSync (not `cat`, which does not exist on Windows).
+    let out = ''
+    try {
+      out = execSync("git grep -lE \"compatibility: *\\{|'compatibility'\" -- lib pages features", { encoding: 'utf8' })
+    } catch {
+      out = '' // no matches (or git grep non-zero) → nothing to police
+    }
+    const hits = out
       .split('\n')
       .filter(Boolean)
       .filter((f) => f !== 'lib/v2/entitlement.ts')
     // Files may NAME the feature (that is how they ask); what none of them may do is carry its numbers.
     for (const f of hits) {
-      const src = execSync(`cat ${f}`, { encoding: 'utf8' })
+      const src = readFileSync(join(process.cwd(), f), 'utf8')
       expect(src, `${f} restates a ceiling`).not.toMatch(/FREE: *2\b|PLUS: *20\b/)
     }
   })
@@ -190,10 +198,13 @@ describe('DoD — the seam holds', () => {
   // Phase 6 nothing calls them, and this is the assertion that says so out loud: wiring either back into a
   // route would silently restore the 100-per-year rule on a lane that now sells 2 per month.
   it('🔴 the v1 matching gate has no caller in lib/ or pages/ — it is a mirror, not a door', () => {
-    const callers = execSync(
-      "git grep -lE 'checkMatchingUsage|countMatchingInYear' -- lib pages || true",
-      { encoding: 'utf8' },
-    )
+    let out = ''
+    try {
+      out = execSync("git grep -lE 'checkMatchingUsage|countMatchingInYear' -- lib pages", { encoding: 'utf8' })
+    } catch {
+      out = '' // no matches → no callers, which is exactly the assertion
+    }
+    const callers = out
       .split('\n')
       .filter(Boolean)
       .filter((f) => f !== 'lib/usage.ts')

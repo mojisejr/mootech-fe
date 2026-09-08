@@ -87,13 +87,22 @@ describe('evidenceDir — the one place that decides where harness output lands'
     const target = join(REPO, 'harness', '.tmp-symlink-spec-target')
     rmSync(root, { recursive: true, force: true })
     mkdirSync(target, { recursive: true })
+    // Creating a symlink needs elevated privileges / Developer Mode on Windows — skip (not fail) the
+    // assertion where the OS forbids it; the guard being tested is platform-independent and runs on POSIX CI.
+    let linked = false
     try {
       symlinkSync(target, root)
-      expect(() => evidenceDir('shot')).toThrow(/symlink/)
+      linked = true
+    } catch (e) {
+      const code = (e as NodeJS.ErrnoException).code
+      if (code !== 'EPERM' && code !== 'ENOSYS') throw e
+    }
+    try {
+      if (linked) expect(() => evidenceDir('shot')).toThrow(/symlink/)
     } finally {
-      rmSync(root, { force: true })          // removes the LINK, not the target
+      rmSync(root, { recursive: true, force: true })   // removes the LINK (or dir), not the target's contents
       rmSync(target, { recursive: true, force: true })
-      mkdirSync(root, { recursive: true })   // put the real directory back
+      mkdirSync(root, { recursive: true })             // put the real directory back
     }
   })
 })

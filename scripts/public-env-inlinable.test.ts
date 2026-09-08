@@ -36,7 +36,9 @@ const SCANNED_ROOTS = ['lib', 'pages', 'features', 'components'] as const
 
 function walk(dir: string): string[] {
   return readdirSync(dir, { withFileTypes: true }).flatMap((e) => {
-    const p = join(dir, e.name)
+    // normalize to forward slashes so the `startsWith('lib/')` scope check below is OS-independent (Windows
+    // join() would yield 'lib\\…' and the check would wrongly report the root as unscanned).
+    const p = join(dir, e.name).replace(/\\/g, '/')
     if (e.isDirectory()) return walk(p)
     return /\.tsx?$/.test(p) ? [p] : []
   })

@@ -82,13 +82,24 @@ describe('BFF /api/v2/onboarding → BE /consent carries x-consent-secret (#16 c
   })
 
   it('never omits the header key even when CONSENT_SECRET is unset (fail-closed at BE, not silently dropped here)', async () => {
+    // The handler only reaches the BE call when the secret is set OR NODE_ENV is production — a non-prod
+    // deploy without the secret takes the local-DB fallback (onboarding.ts) and never calls BE. To exercise
+    // "BE call with an empty header key" (the case this owns), force production with the secret unset.
+    const PREV_NODE_ENV = process.env.NODE_ENV
+    process.env.NODE_ENV = 'production'
     delete process.env.CONSENT_SECRET
-    const res = makeRes()
-    await handler(makeReq({ goal: 'finance' }), res as never) // #252: no user_id — the session decides
+    try {
+      const res = makeRes()
+      await handler(makeReq({ goal: 'finance' }), res as never) // #252: no user_id — the session decides
 
-    const [, opts] = fetchMock.mock.calls[0] as [string, RequestInit]
-    const headers = opts.headers as Record<string, string>
-    expect(headers).toHaveProperty('x-consent-secret')
+      const [, opts] = fetchMock.mock.calls[0] as [string, RequestInit]
+      const headers = opts.headers as Record<string, string>
+      expect(headers).toHaveProperty('x-consent-secret')
+      expect(headers['x-consent-secret']).toBe('') // key present, empty ⇒ BE fail-closes; FE never drops it
+    } finally {
+      if (PREV_NODE_ENV === undefined) delete process.env.NODE_ENV
+      else process.env.NODE_ENV = PREV_NODE_ENV
+    }
   })
 
   it('does not call BE at all when goal is invalid (validation still runs before the secret call)', async () => {
