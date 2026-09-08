@@ -1,0 +1,12 @@
+-- 0006 · reminder.note — persist the user's โน้ต on a reminder (mootech-fe · calendar)
+-- HAND-AUTHORED per the DRIZZLE WORKFLOW CONTRACT (schema.ts header): reviewed, applied BY HAND on
+-- the operator's schedule — NEVER via drizzle push. Deploy ORDER: apply this migration FIRST, then ship
+-- the code that reads/writes `note` (the insert references the column).
+--
+-- 🔴 prod = Supabase soxsccdlsycaevusndro — applying requires ฟีม (CLAUDE.md), same as 0005.
+-- ADDITIVE + idempotent: one NULLABLE column on goo's own `reminder` table (from 0005). No ALTER on any
+-- pgloader'd table, no backfill needed (existing rows keep note = NULL = "no note", which reads correctly).
+--
+-- Until 0005 the โน้ต the user typed in the save sheet was DROPPED (SaveReminderInput carried no note).
+-- This column is where it lands — for both ยาม reminders and ตั้งเวลาเอง (free-time) reminders.
+ALTER TABLE reminder ADD COLUMN IF NOT EXISTS note text;

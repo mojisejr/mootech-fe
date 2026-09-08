@@ -8,6 +8,8 @@ export interface SaveReminderInput {
   yams: { yamId: string; yamLabel: string; window: string }[]
   /** ตั้งเวลาเอง (free-time) — user-picked "HH:MM" + optional note. Server models each as a synthetic ยาม. */
   custom?: { time: string; note?: string }[]
+  /** โน้ตของการแจ้งเตือน (ใช้กับทุก row ที่บันทึกครั้งนี้). */
+  note?: string
   destinations: string[]
 }
 

@@ -25,6 +25,7 @@ function toDTO(r: Row) {
     yamId: r.yamId,
     yamLabel: r.yamLabel,
     window: r.window,
+    note: r.note ?? null,
     destinations: r.destinations,
     fireAtUtc: r.fireAtUtc.toISOString(),
   }
@@ -54,6 +55,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         date: typeof body.date === 'string' ? body.date : '',
         yams: Array.isArray(body.yams) ? body.yams : [],
         custom: Array.isArray(body.custom) ? body.custom : [],
+        note: typeof body.note === 'string' ? body.note : undefined,
         destinations: Array.isArray(body.destinations) ? body.destinations : [],
       }
       const plan = planReminderCommit(input, new Date())
@@ -76,6 +78,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
               yamId: r.yamId,
               yamLabel: r.yamLabel,
               window: r.window,
+              note: r.note ?? null,
               destinations: r.destinations,
               fireAtUtc: r.fireAtUtc,
             })),

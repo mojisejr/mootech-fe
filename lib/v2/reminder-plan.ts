@@ -20,8 +20,10 @@ export interface CommitInput {
   date: string // "YYYY-MM-DD" (ยาม START's BKK day)
   yams: YamInput[]
   /** free-time reminders — modelled as synthetic ยาม rows (id `c<HHMM>`, window "HH:MM-HH:MM") so the DB
-   *  schema, DTO, cron and list are all unchanged. Fire is the EXACT time (no 30-min lead). */
+   *  schema (except `note`), DTO, cron and list are all unchanged. Fire is the EXACT time (no 30-min lead). */
   custom?: CustomInput[]
+  /** the sheet's โน้ต — applied to every planned row (ยาม + custom). A per-custom note overrides it. */
+  note?: string
   destinations: string[]
 }
 
@@ -37,6 +39,7 @@ export interface PlannedRow {
   yamId: string
   yamLabel: string
   window: string
+  note?: string
   destinations: string[]
   fireAtUtc: Date
 }
@@ -65,6 +68,7 @@ export function planReminderCommit(input: CommitInput, now: Date = new Date()): 
 
   const rows: PlannedRow[] = []
   const pastYamIds: string[] = []
+  const sheetNote = (input.note ?? '').trim() || undefined
 
   // ── free-time reminders (ตั้งเวลาเอง) — synthetic ยาม, fire = exact time (no lead). Same atomic rules. ──
   for (const c of custom) {
@@ -83,8 +87,9 @@ export function planReminderCommit(input: CommitInput, now: Date = new Date()): 
     }
     rows.push({
       yamId: id,
-      yamLabel: (c.note ?? '').trim() || CUSTOM_DEFAULT_LABEL,
+      yamLabel: CUSTOM_DEFAULT_LABEL, // "ตั้งเวลาเอง" type label; the user's text lives in `note`
       window: `${t}-${t}`, // start==end ⇒ display shows the single time; not re-parsed after insert
+      note: (c.note ?? '').trim() || sheetNote,
       destinations: input.destinations,
       fireAtUtc: fireAt,
     })
@@ -106,6 +111,7 @@ export function planReminderCommit(input: CommitInput, now: Date = new Date()): 
       yamId: yam.yamId,
       yamLabel: yam.yamLabel,
       window: yam.window,
+      note: sheetNote,
       destinations: input.destinations,
       fireAtUtc: fireAt,
     })

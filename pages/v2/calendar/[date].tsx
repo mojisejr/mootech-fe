@@ -157,7 +157,7 @@ export default function V2CalendarDayPage({ teamPreview }: { teamPreview: boolea
         let ok = false
         return draft
           .commit(async () => {
-            const outcome = await reminders.save({ date, yams, custom, destinations: ['mumate'] })
+            const outcome = await reminders.save({ date, yams, custom, note: note || undefined, destinations: ['mumate'] })
             ok = outcome.ok
             return outcome.ok
           })

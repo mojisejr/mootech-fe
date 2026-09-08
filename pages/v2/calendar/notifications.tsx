@@ -51,6 +51,15 @@ function spacedWindow(w: string): string {
 
 const hasGoogle = (r: Reminder) => r.destinations.includes('google')
 
+// ตั้งเวลาเอง (free-time) rows are stored as a synthetic ยาม id `c<HHMM>` (reminder-plan.ts).
+const isCustom = (r: Reminder) => /^c\d{3,4}$/.test(r.yamId)
+// custom window is "HH:MM-HH:MM" with start==end ⇒ show the single time; ยาม windows keep the range.
+function displayWindow(r: Reminder): string {
+  const [a, b] = r.window.split('-')
+  if (a && b && a.trim() === b.trim()) return a.trim()
+  return spacedWindow(r.window)
+}
+
 // Figma 636:10241 — the push-notification preview: white/92 · border #E5E3E0 · r20 · shadow 0/6/18 rgba(26,38,77,.1)
 function PushPreview({ r }: { r: Reminder }) {
   return (
@@ -75,8 +84,9 @@ function ReminderRow({ r, onCancel }: { r: Reminder; onCancel?: (id: string) => 
       <div className="flex items-center gap-2.5">
         <span aria-hidden className="h-[38px] w-1 shrink-0 rounded-full bg-v3-sapphire" />
         <div className="min-w-0 flex-1">
-          <p className="text-[16px] font-bold leading-6 text-v3-text-price">🔮 ยามมงคล — {r.yamLabel}</p>
-          <p className="mt-0.5 text-[14px] leading-[22px] text-v3-text-body">{thaiEventDate(r.date)} · {spacedWindow(r.window)}</p>
+          <p className="text-[16px] font-bold leading-6 text-v3-text-price">{isCustom(r) ? '⏰ ตั้งเวลาเอง' : `🔮 ยามมงคล — ${r.yamLabel}`}</p>
+          <p className="mt-0.5 text-[14px] leading-[22px] text-v3-text-body">{thaiEventDate(r.date)} · {displayWindow(r)}</p>
+          {r.note ? <p data-testid="notif-note" className="mt-0.5 text-[14px] leading-[22px] text-v3-navy">“{r.note}”</p> : null}
         </div>
         {onCancel && (
           <button

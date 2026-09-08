@@ -95,19 +95,36 @@ describe('reminder-plan · ตั้งเวลาเอง (custom) modelled a
     expect(customYamId('07:30')!.length).toBeLessThanOrEqual(8)
   })
 
-  it('a future custom time plans one row: id c<HHMM>, window "HH:MM-HH:MM", note→label, exact fire', () => {
+  it('a future custom time plans one row: id c<HHMM>, window "HH:MM-HH:MM", note in note-field, exact fire', () => {
     const plan = planReminderCommit({ date: '2026-08-20', yams: [], custom: [{ time: '08:00', note: 'โทรหาลูกค้า' }], destinations: ['mumate'] }, now)
     expect(plan.ok).toBe(true)
     if (plan.ok) {
       expect(plan.rows).toHaveLength(1)
-      expect(plan.rows[0]).toMatchObject({ yamId: 'c0800', yamLabel: 'โทรหาลูกค้า', window: '08:00-08:00' })
+      expect(plan.rows[0]).toMatchObject({ yamId: 'c0800', yamLabel: 'แจ้งเตือนที่ตั้งเอง', note: 'โทรหาลูกค้า', window: '08:00-08:00' })
       expect(plan.rows[0].fireAtUtc.toISOString()).toBe('2026-08-20T01:00:00.000Z') // 08:00 BKK, no lead
     }
   })
 
-  it('empty note falls back to a default label', () => {
-    const plan = planReminderCommit({ date: '2026-08-20', yams: [], custom: [{ time: '08:00' }], destinations: ['mumate'] }, now)
-    if (plan.ok) expect(plan.rows[0].yamLabel).toBe('แจ้งเตือนที่ตั้งเอง')
+  it('custom uses a stable type label; the sheet note applies when no per-custom note', () => {
+    const plan = planReminderCommit({ date: '2026-08-20', yams: [], custom: [{ time: '08:00' }], note: 'โน้ตรวม', destinations: ['mumate'] }, now)
+    if (plan.ok) {
+      expect(plan.rows[0].yamLabel).toBe('แจ้งเตือนที่ตั้งเอง')
+      expect(plan.rows[0].note).toBe('โน้ตรวม')
+    }
+  })
+
+  it('ยาม reminders persist the sheet note (0006) on every planned row', () => {
+    const plan = planReminderCommit(
+      { date: '2026-08-20', yams: [{ yamId: 'y3', yamLabel: 'ยาม y3', window: '05:00-06:59' }], note: '  ประชุมทีม  ', destinations: ['mumate'] },
+      now,
+    )
+    if (plan.ok) {
+      expect(plan.rows[0].yamLabel).toBe('ยาม y3') // label unchanged
+      expect(plan.rows[0].note).toBe('ประชุมทีม') // trimmed, stored separately
+    }
+    // no note → undefined (not empty string)
+    const plan2 = planReminderCommit({ date: '2026-08-20', yams: [{ yamId: 'y3', yamLabel: 'ยาม y3', window: '05:00-06:59' }], destinations: ['mumate'] }, now)
+    if (plan2.ok) expect(plan2.rows[0].note).toBeUndefined()
   })
 
   it('custom OR yam satisfies the ≥1 guard (custom-only is committable)', () => {

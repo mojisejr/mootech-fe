@@ -216,6 +216,8 @@ export interface Reminder {
   yamId: string
   yamLabel: string
   window: string
+  /** โน้ตที่ผู้ใช้พิมพ์ตอนตั้งเตือน (0006) — null/undefined = ไม่มีโน้ต. */
+  note?: string | null
   destinations: ReminderDestination[]
   /** absolute notify instant, ISO 8601 UTC (#287). The server's source of truth for time; `group`
    *  below is DERIVED from this by reminder-adapter, never stored server-side.
