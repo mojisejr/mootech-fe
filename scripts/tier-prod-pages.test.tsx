@@ -20,6 +20,7 @@ import { getServerSideProps as serviceGSSP } from '../pages/v2/service'
 import { getServerSideProps as dayGSSP } from '../pages/v2/calendar/[date]'
 
 const KEY = 'test-passkey'
+const REDIRECT_TO_GATE = { redirect: { destination: '/v2', permanent: false } }
 
 // Minimal GetServerSidePropsContext — these pages read ctx.req.cookies and call ctx.res.setHeader.
 function ctx(cookies: Record<string, string>) {
@@ -39,15 +40,13 @@ describe.each(PAGES)('pages/v2/$name — SENDS teamPreview from the gate (#225 c
     vi.stubEnv('V2_PREVIEW_KEY', KEY)
     expect(await gssp(ctx({ [V2_COOKIE]: KEY }))).toEqual({ props: { teamPreview: true } })
   })
-  // #247 — the gate is open: no cookie no longer redirects, the page renders with teamPreview:false, so a
-  // non-team visitor sees /v2 but gets NO tier override (?tier= still dies without the cookie).
-  it('no cookie → { props: { teamPreview: false } } (renders, but no team-preview tier override)', async () => {
+  it('🔴 no cookie → redirect to /v2 (?tier= can never reach the hook without the gate)', async () => {
     vi.stubEnv('V2_PREVIEW_KEY', KEY)
-    expect(await gssp(ctx({}))).toEqual({ props: { teamPreview: false } })
+    expect(await gssp(ctx({}))).toEqual(REDIRECT_TO_GATE)
   })
-  // fail-closed on the OVERRIDE (not the page): unconfigured passkey ⇒ isV2TeamPreview false ⇒ teamPreview:false.
-  it('V2_PREVIEW_KEY unset + cookie present → { props: { teamPreview: false } } (override self-death at launch)', async () => {
+  // fail-closed: unconfigured passkey ⇒ nobody is a team member ⇒ redirect, so ?tier= dies at launch.
+  it('fail-closed: V2_PREVIEW_KEY unset + cookie present → redirect (self-death at launch)', async () => {
     vi.stubEnv('V2_PREVIEW_KEY', undefined)
-    expect(await gssp(ctx({ [V2_COOKIE]: KEY }))).toEqual({ props: { teamPreview: false } })
+    expect(await gssp(ctx({ [V2_COOKIE]: KEY }))).toEqual(REDIRECT_TO_GATE)
   })
 })
