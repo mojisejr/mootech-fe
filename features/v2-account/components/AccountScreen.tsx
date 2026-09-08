@@ -250,7 +250,9 @@ export function AccountScreen({ preview }: { preview?: AccountPreview } = {}) {
                 <div className="min-w-0">
                   <div className="flex items-center gap-1.5">
                     <p className="text-[13px] text-white/90">ยอดคงเหลือ</p>
-                    <Link href="/v2/qi" aria-label="คู่มือพลังชี่" className="grid size-[18px] flex-none place-items-center rounded-[9px] bg-v3-rose-tint text-[11px] font-bold leading-none text-v3-text-body">?</Link>
+                    <Link href="/v2/qi" aria-label="คู่มือพลังชี่" data-testid="account-qi-guide" className="grid size-5 flex-none place-items-center rounded-full bg-v3-rose-tint text-[12px] font-bold leading-none text-v3-text-body">
+                      <span className="translate-y-[0.5px]">?</span>
+                    </Link>
                   </div>
                   <p className="mt-1 flex items-baseline gap-1.5">
                     <span className="text-[30px] font-black leading-none text-v3-lime" data-testid="account-qi-balance">{balance.toLocaleString("th-TH")}</span>
