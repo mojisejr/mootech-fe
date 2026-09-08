@@ -120,7 +120,7 @@ function OnboardingHero({ onWrite }: { onWrite: () => void }) {
       ))}
       <Image src="/images/v2/mascot/01-nav.png" alt="" width={96} height={114} unoptimized className="v3-float pointer-events-none absolute right-2 top-1 h-24 w-auto object-contain" />
       <div className="relative text-center">
-        <h1 className="text-[20px] font-black leading-7">สมุดแมนิเฟสต์<br />ของคุณรอภาพแรกอยู่</h1>
+        <h1 className="text-[20px] font-black leading-7 text-v3-lime">สมุดแมนิเฟสต์<br />ของคุณรอภาพแรกอยู่</h1>
         <p className="mx-auto mt-2 max-w-[300px] text-[12px] leading-[18px] text-white/90">
           แมนิเฟสต์คือการเขียนสิ่งที่อยากให้เกิดขึ้นเป็นประโยคที่เกิดขึ้นแล้ว แล้วกลับมาอ่านทุกวันจนจิตคุ้นชินกับภาพนั้น
         </p>
@@ -284,7 +284,7 @@ export function ManifestScreen({ previewData }: { previewData?: ManifestPreview 
                 </span>
               ))}
               <div className="relative text-center">
-                <h2 className="text-[18px] font-black leading-6">สมุดแมนิเฟสต์ของคุณ</h2>
+                <h2 className="text-[18px] font-black leading-6 text-v3-lime">สมุดแมนิเฟสต์ของคุณ</h2>
                 <p className="mx-auto mt-1 max-w-[300px] text-[12px] leading-[18px] text-white/90">
                   เขียนสิ่งที่อยากให้เกิดขึ้นเป็นประโยคที่เกิดขึ้นแล้ว แล้วกลับมาอ่านทุกวันจนจิตคุ้นชินกับภาพนั้น
                 </p>

@@ -55,9 +55,10 @@ export function ManifestHistoryScreen({ previewData }: { previewData?: HistoryPr
         <div className="flex flex-col gap-4 px-4 pt-3">
           {/* streak card */}
           <section className="relative overflow-hidden rounded-[20px] bg-v3-sapphire p-5 text-center text-white">
-            <Image src="/images/v2/destiny/el-fire.png" alt="" width={44} height={44} unoptimized className="v3-float absolute left-3 top-4 h-10 w-10 object-contain" />
-            <Image src="/images/v2/destiny/el-wood.png" alt="" width={44} height={44} unoptimized className="v3-float absolute right-3 top-6 h-10 w-10 object-contain" style={{ animationDelay: ".4s" }} />
-            <p className="text-[40px] font-black leading-none">{streak.current}</p>
+            <Image src="/images/v2/destiny/el-fire.png" alt="" width={40} height={40} unoptimized className="v3-float absolute left-3 top-3 h-9 w-9 object-contain" />
+            <Image src="/images/v2/destiny/el-water.png" alt="" width={36} height={36} unoptimized className="v3-float absolute left-4 bottom-4 h-8 w-8 object-contain" style={{ animationDelay: ".6s" }} />
+            <Image src="/images/v2/mascot/01-nav.png" alt="" width={56} height={64} unoptimized className="v3-float absolute right-2 top-2 h-14 w-auto object-contain" style={{ animationDelay: ".3s" }} />
+            <p className="text-[40px] font-black leading-none text-v3-lime">{streak.current}</p>
             <p className="mt-1 text-[14px] font-bold">วันติดต่อกัน</p>
             <p className="mx-auto mt-2 inline-block rounded-full bg-white/15 px-3 py-1 text-[11px]">
               {toGo > 0 ? `อีก ${toGo} วันแตะสถิติสูงสุด (${streak.best})` : `แตะสถิติสูงสุดแล้ว (${streak.best})`}
