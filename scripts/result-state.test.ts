@@ -60,7 +60,7 @@ describe('#363/#423/#466/#455 the thirteen states, enumerated', () => {
   it('every line tells the reader whether trying again could work', () => {
     for (const s of STATES) {
       const c = RESULT_COPY[s]
-      expect(['same', 'different', 'new-qr', 'buy-again', 'none']).toContain(c.retry)
+      expect(['same', 'different', 'new-qr', 'new-qr-or-check', 'buy-again', 'none']).toContain(c.retry)
       // The generic sentence that is true of all six and useful in none (#347/#263).
       expect(c.body, `${s} falls back to a non-answer`).not.toMatch(/เกิดข้อผิดพลาด|ผิดพลาดบางอย่าง|ลองใหม่อีกครั้งภายหลัง/)
       expect(c.title.length).toBeGreaterThan(0)
@@ -74,7 +74,13 @@ describe('#363/#423/#466/#455 the thirteen states, enumerated', () => {
     expect(RESULT_COPY.CARD_DECLINED.retry).toBe('different')
     // Our own connectivity: the same action genuinely can work on the next press.
     expect(RESULT_COPY.OFFLINE.retry).toBe('same')
-    expect(RESULT_COPY.QR_MAYBE_EXPIRED.retry).toBe('same')
+    // 🔴 #480 — was 'same', and 'same' was HALF true. Checking again genuinely can work here (the
+    // reconciler may still settle it), which is why 'same' was defensible — but the row's sentence also
+    // says "ขอ QR ใหม่ได้เลย", and 'same' drew no such button. The row does not know which of two people
+    // is reading it, so its advice has to be both: check (free, for whoever already paid) and a fresh QR
+    // (for whoever did not). Pinned by value, not by "is it in the union", so a future edit that quietly
+    // drops one of the two actions reddens here as well as in the class tooth.
+    expect(RESULT_COPY.QR_MAYBE_EXPIRED.retry).toBe('new-qr-or-check')
     // Nothing to retry once it is settled or in flight.
     expect(RESULT_COPY.APPROVED.retry).toBe('none')
     expect(RESULT_COPY.ALREADY_PAID.retry).toBe('none')

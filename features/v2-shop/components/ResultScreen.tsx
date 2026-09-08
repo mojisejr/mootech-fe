@@ -97,6 +97,34 @@ export function ResultScreen({ state, onRetrySame, onTryAnother, onDone, planNam
             ขอ QR ใหม่
           </button>
         )}
+        {/* 🔴 #480 — THE ONE ROW THAT OFFERS TWO ACTIONS, because it is the one row that does not know
+            which of two people is reading it: someone who never paid and needs a fresh QR, or someone
+            whose money already left and whose row the reconciler is still working through. The sentence
+            has addressed both since ฟีม เคาะทาง C (2026-08-24); only the buttons were missing.
+
+            🔴 ORDER IS THE SAFETY DECISION, AND IT DELIBERATELY DOES NOT FOLLOW THE SENTENCE.
+            The sentence leads with the unpaid case because it is the more common one. The FILLED button
+            leads with checking because the two mistakes do not cost the same: an unpaid user who presses
+            "ตรวจสอบอีกครั้ง" first loses a tap, while a paid user who presses "ขอ QR ใหม่" first can pay
+            TWICE. This repo already made that trade once, in RECONCILING: "asking again is free, paying
+            again is not." Both buttons are full width and plainly labelled, so the reader who wants the
+            other one is not hunting for it — they are just not led into it. */}
+        {copy.retry === 'new-qr-or-check' && (
+          <>
+            {onRetrySame && (
+              <button type="button" data-testid="result-retry-same" onClick={onRetrySame} className="w-full rounded-pill bg-v3-sapphire px-5 py-[14px] text-base font-bold leading-6 text-v3-lime">
+                ตรวจสอบอีกครั้ง
+              </button>
+            )}
+            {onTryAnother && (
+              // Same destination as the other 'new QR' routes (the package's checkout, which mints a new
+              // charge). Outlined, not filled — see the order note above.
+              <button type="button" data-testid="result-new-qr" onClick={onTryAnother} className="w-full rounded-pill border-[1.5px] border-v3-sapphire bg-white px-5 py-[14px] text-base font-bold leading-6 text-v3-sapphire">
+                ขอ QR ใหม่
+              </button>
+            )}
+          </>
+        )}
         {copy.retry === 'buy-again' && onTryAnother && (
           // 🔴 NOT "ขอ QR ใหม่". This screen is reached by card payers too — a reversal is not a QR story.
           // Same destination as the other two (the package's checkout), different words, because the words
