@@ -98,7 +98,7 @@ export function CompatibilityResultScreen({ matchingId }: { matchingId: string }
           <Link href={backHref} aria-label="ย้อนกลับ" className="grid size-8 shrink-0 place-items-center rounded-full text-v3-navy"><BackChevron /></Link>
           <h1 data-testid="compat-result-title" className="min-w-0 flex-1 text-[24px] font-bold leading-8 text-v3-navy">ผลดวงสมพงศ์</h1>
           <TopBarBell variant="solid" href="/v2/calendar/notifications" />
-          <TopBarAvatar variant="sapphire" />
+          <TopBarAvatar variant="sapphire" href="/v2/account" />
         </header>
 
         {/* hero — donut + headline + สรุป + สองคน (Figma 636:18819 §promo-personal-calendar) */}

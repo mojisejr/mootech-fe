@@ -284,8 +284,8 @@ export function WorkResultScreen({ matchingId }: { matchingId: string }) {
             <BackChevron />
           </button>
           <h1 data-testid="work-title" className="min-w-0 flex-1 truncate text-[24px] font-bold leading-8 text-v3-navy">ผลความสมพงศ์</h1>
-          <TopBarBell />
-          <TopBarAvatar />
+          <TopBarBell variant="solid" href="/v2/calendar/notifications" />
+          <TopBarAvatar variant="sapphire" href="/v2/account" />
         </header>
         {children}
       </div>
