@@ -61,7 +61,12 @@ const mountScreen = async () => {
 }
 
 describe("DestinyScreen (ดวงฉัน, node 55349-3070)", () => {
-  beforeEach(() => vi.stubGlobal("ResizeObserver", ResizeObserverStub))
+  beforeEach(() => {
+    vi.stubGlobal("ResizeObserver", ResizeObserverStub)
+    // previewData skips the /api/destiny load, but the screen still fires mascot/qi-earn effects — stub
+    // fetch benignly so no real/undefined fetch hangs (that was an intermittent 15s timeout under load).
+    vi.stubGlobal("fetch", vi.fn(async () => new Response("{}", { status: 200, headers: { "Content-Type": "application/json" } })) as unknown as typeof fetch)
+  })
   afterEach(() => { cleanup(); vi.unstubAllGlobals() })
 
   it("hero: มาสคอต + ชื่อธาตุ + ปุ่มแชร์ +10 QI + Mate AI (D1)", async () => {
