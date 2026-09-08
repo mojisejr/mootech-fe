@@ -17,8 +17,39 @@ type Goal = {
   id: string; title: string; affirmation: string | null; imageUrl: string | null
   status: string; tasks: Task[]; progress: { done: number; target: number; percent: number }
 }
-type ElementInfo = { elementTh: string } | null
+type ElementInfo = { elementTh: string; dayGanzhi?: string } | null
 type ManifestPreview = { goals?: Goal[]; element?: ElementInfo }
+
+// วัฏจักรธาตุ (ไทย): เสริม(生) ไม้→ไฟ→ดิน→ทอง→น้ำ→ไม้ · ข่ม(克) ไม้→ดิน→น้ำ→ไฟ→ทอง→ไม้
+const EL_GEN: Record<string, string> = { ไม้: "ไฟ", ไฟ: "ดิน", ดิน: "ทอง", ทอง: "น้ำ", น้ำ: "ไม้" }
+const EL_CTRL: Record<string, string> = { ไม้: "ดิน", ดิน: "น้ำ", น้ำ: "ไฟ", ไฟ: "ทอง", ทอง: "ไม้" }
+// ธาตุประจำเดือน (ตามเดือนสุริยคติโดยประมาณ) — 60-card ของเดือนมาจาก engine mascot ตาม ganzhi
+const MONTH_ELEMENT: Record<number, string> = { 1: "ดิน", 2: "ไม้", 3: "ไม้", 4: "ดิน", 5: "ไฟ", 6: "ไฟ", 7: "ดิน", 8: "ทอง", 9: "ทอง", 10: "ดิน", 11: "น้ำ", 12: "น้ำ" }
+// insight คำนวนจากความสัมพันธ์ ธาตุคน (self) กับ ธาตุเดือนนี้ (month) — เปลี่ยนทุกเดือน/แต่ละคน
+function monthInsight(self: string, month: string): string {
+  if (self === month) return `ธาตุ${self}ของคุณได้พลังหนุนเต็มที่ในเดือนนี้ เป็นจังหวะเหมาะกับการลงมือทำสิ่งที่ตั้งใจ`
+  if (EL_GEN[month] === self) return `ธาตุ${self}กำลังได้รับการเสริมจากธาตุ${month}ในเดือนนี้ เป็นจังหวะที่เหมาะกับการตั้งจิตเรื่องการเริ่มต้นใหม่`
+  if (EL_GEN[self] === month) return `ธาตุ${self}ได้ปลดปล่อยพลังผ่านธาตุ${month}ในเดือนนี้ เหมาะกับการสร้างสรรค์และแสดงออก`
+  if (EL_CTRL[self] === month) return `ธาตุ${self}ได้จัดการธาตุ${month}ในเดือนนี้ เหมาะกับการวางแผนและเรื่องทรัพย์สิน`
+  if (EL_CTRL[month] === self) return `เดือนนี้ธาตุ${month}เข้ามากำกับธาตุ${self}ของคุณ เหมาะกับการฝึกวินัยและความรับผิดชอบ`
+  return `ธาตุ${self}ของคุณกำลังเปลี่ยนผ่านในเดือนนี้ เหมาะกับการตั้งจิตอย่างมีสติ`
+}
+
+// มาสคอตสัตว์ธาตุ (60-card) จาก engine ตาม ganzhi — โชว์ el fallback ก่อน แล้ว preload ตัวจริงสลับเมื่อโหลดได้
+function MonthMascot({ ganzhi, elementTh }: { ganzhi?: string; elementTh: string }) {
+  const fallback = ELEMENT_MASCOT[elementTh] ?? ELEMENT_MASCOT["ไม้"]
+  const [src, setSrc] = useState(fallback)
+  useEffect(() => {
+    if (!ganzhi) return
+    let alive = true
+    const url = `/api/bazi-mascot?ganzhi=${encodeURIComponent(ganzhi)}`
+    const img = new window.Image()
+    img.onload = () => alive && setSrc(url)
+    img.src = url
+    return () => { alive = false }
+  }, [ganzhi])
+  return <Image src={src} alt="" width={56} height={56} unoptimized className="h-14 w-14 flex-none object-contain" />
+}
 
 const CARD = "v3-shadow-card w-full rounded-[24px] bg-white p-5"
 const MAX_GOALS = 5
@@ -30,8 +61,6 @@ const ELEMENT_MASCOT: Record<string, string> = {
   ทอง: "/images/v2/destiny/el-metal.png",
   น้ำ: "/images/v2/destiny/el-water.png",
 }
-// ธาตุที่ "เสริม" (สร้าง) ธาตุเรา: น้ำ→ไม้→ไฟ→ดิน→ทอง→น้ำ
-const RESOURCE_OF: Record<string, string> = { ไม้: "น้ำ", ไฟ: "ไม้", ดิน: "ไฟ", ทอง: "ดิน", น้ำ: "ทอง" }
 // 2 หมวดที่ธาตุแต่ละธาตุส่งเสริมเป็นพิเศษ (ตาม Figma: ธาตุไม้ → การงาน/การเรียนรู้)
 const CATEGORIES = ["การงาน", "การเรียนรู้", "การเงิน", "ความรัก", "สุขภาพ"]
 const ELEMENT_FAVORED: Record<string, string[]> = {
@@ -108,16 +137,17 @@ function OnboardingHero({ onWrite }: { onWrite: () => void }) {
 // การ์ดธาตุประจำเดือน (Figma) — insight + 5 หมวด (2 แรก highlight)
 function ElementInsightCard({ element }: { element: ElementInfo }) {
   const el = element?.elementTh ?? "ไม้"
-  const resource = RESOURCE_OF[el] ?? "น้ำ"
+  const monthEl = MONTH_ELEMENT[new Date().getMonth() + 1] ?? "น้ำ"
   const favored = ELEMENT_FAVORED[el] ?? ["การงาน", "การเรียนรู้"]
   return (
     <section className="rounded-[24px] bg-[#eef7f0] p-5" data-testid="manifest-element">
       <div className="flex items-center gap-2">
-        <Image src={ELEMENT_MASCOT[el] ?? ELEMENT_MASCOT["ไม้"]} alt="" width={40} height={44} unoptimized className="h-11 w-9 object-contain" />
+        {/* สัตว์ธาตุ (60-card) ตาม ganzhi ของคุณจาก engine */}
+        <MonthMascot ganzhi={element?.dayGanzhi} elementTh={el} />
         <p className="text-[16px] font-bold text-v3-navy">ธาตุ{el}ของคุณเดือนนี้</p>
       </div>
       <p className="mt-2 text-[13px] leading-[20px] text-v3-text-body">
-        ธาตุ{el}กำลังได้รับการเสริมจากธาตุ{resource}ช่วงกลางเดือน เป็นจังหวะที่เหมาะกับการตั้งจิตเรื่องการเริ่มต้นใหม่
+        {monthInsight(el, monthEl)}
       </p>
       <div className="mt-3 flex flex-wrap gap-2">
         {CATEGORIES.map((c) => {
@@ -154,8 +184,8 @@ export function ManifestScreen({ previewData }: { previewData?: ManifestPreview 
           method: "POST", headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ person: { birthDate, birthTime: prof.profile.birthTime ?? undefined } }),
         }).then((x) => (x.ok ? x.json() : null))
-        const elTh = e?.summary?.elementTh ?? e?.elementTh
-        if (elTh) setElement({ elementTh: elTh })
+        const s = e?.summary ?? e
+        if (s?.elementTh) setElement({ elementTh: s.elementTh, dayGanzhi: s.dayGanzhi })
       }
     } catch { /* ธาตุเป็น optional — ไม่มีก็ยังใช้ค่า default ได้ */ }
   }, [])
