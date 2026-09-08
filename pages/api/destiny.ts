@@ -35,6 +35,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 
   let feInput: ReturnType<typeof userRowToFeCalcInput>
+  let avatarUrl: string | null = null
   try {
     const row = rowsOf(
       await db.execute(sql`SELECT * FROM "user" WHERE user_id = ${userId} LIMIT 1`),
@@ -48,6 +49,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return
     }
     feInput = userRowToFeCalcInput(row)
+    avatarUrl = typeof row.picture_url === "string" ? row.picture_url : null
   } catch {
     res.status(500).json({ error: "profile lookup failed" })
     return
@@ -64,15 +66,18 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return r.json()
   }
 
-  // 5 engine reads in parallel — a failure in one lane degrades that lane to null
+  // engine reads in parallel — a failure in one lane degrades that lane to null
   // (the screen renders what it has); only the pillar chart is load-bearing.
-  const [elementSummary, lifeTimeline, strengthScore, domainPower, calculated] =
+  // newdata-reading = คำทำนายพื้นฐานตามดวง (chapters); response ~1MB + ช้า → ยอมให้ degrade เป็น null
+  const [elementSummary, lifeTimeline, lifePath, strengthScore, domainPower, calculated, reading] =
     await Promise.allSettled([
       post("/api/bazi/element-summary", { person: rawInput }),
       post("/api/bazi/life-timeline", { person: rawInput }),
+      post("/api/bazi/life-path", { person: rawInput }),
       post("/api/bazi/strength-score", rawInput),
       post("/api/bazi/domain-power", rawInput),
       post("/api/bazi/calculate", rawInput),
+      post("/api/reading/newdata-reading", rawInput),
     ])
 
   const val = <T,>(r: PromiseSettledResult<T>): T | null =>
@@ -83,11 +88,45 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       ? (val(calculated) as { calculatedState?: unknown }).calculatedState ?? null
       : null
 
+  // คำทำนายพื้นฐานตามดวง: ดึง body จาก chapter ตาม id (ดู engine chapter-newdata-map)
+  // defensive: shape ไม่ตรง/ว่าง → null แล้วให้ FE fallback ไป element-summary
+  type Box = { title?: string; body?: string }
+  type Chapter = { id?: string; boxes?: Box[] }
+  const readingVal = val(reading) as { chapters?: Chapter[] } | null
+  const chapters = Array.isArray(readingVal?.chapters) ? readingVal!.chapters! : []
+  const chap = (id: string): Box[] => chapters.find((c) => c?.id === id)?.boxes ?? []
+  const bodyText = (boxes: Box[], match?: string): string | null => {
+    const pick = match ? boxes.find((b) => b?.title?.includes(match) && b?.body) : boxes.find((b) => b?.body)
+    const t = pick?.body ?? boxes.find((b) => b?.body)?.body
+    return typeof t === "string" && t.trim() ? t.trim() : null
+  }
+  const foundation = chap("chart_foundation")
+  const prediction = {
+    personality: bodyText(foundation),
+    habit: bodyText(foundation, "นิสัย"),
+    love: bodyText(chap("love_partner")),
+    work: bodyText(chap("career_potential")),
+  }
+  // ข้อควรระวัง: เก็บ box ที่ title มี "ระวัง" จากทุก chapter
+  const cautions: string[] = []
+  for (const c of chapters) {
+    for (const b of c?.boxes ?? []) {
+      if (b?.body && b?.title?.includes("ระวัง")) cautions.push(b.body.trim())
+    }
+  }
+  // เทพประจำวัน: ชื่อเทพจาก chapter guardian_deities (box แรก) — title เป็นชื่อเทพ
+  const deity = chap("guardian_deities")[0]?.title?.trim() || null
+
   res.status(200).json({
+    avatarUrl,
     elementSummary: val(elementSummary),
     lifeTimeline: val(lifeTimeline),
+    lifePath: val(lifePath),
     strengthScore: val(strengthScore),
     domainPower: val(domainPower),
     calculatedState,
+    prediction,
+    cautions: cautions.slice(0, 4),
+    deity,
   })
 }
