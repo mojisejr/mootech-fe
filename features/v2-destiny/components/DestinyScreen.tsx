@@ -533,6 +533,13 @@ export function DestinyScreen({ previewData }: { previewData?: DestinyData } = {
         if (!res.ok) throw new Error(String(res.status))
         const j = (await res.json()) as DestinyData
         if (alive) setData(j)
+        // อ่านดวงสำเร็จ → บันทึกภารกิจ "อ่านดวงวันนี้" (read_fortune); engine cap วันละครั้ง (period daily)
+        // fire-and-forget: ไม่บล็อกจอ, ล้มก็ไม่กระทบการอ่าน
+        void fetch("/api/missions", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ missionId: "read_fortune" }),
+        }).catch(() => {})
       } catch {
         if (alive) setGuard("profile_incomplete") // ไม่รู้สถานะ → ไม่เดาสิทธิ์ (#384 class)
       } finally {

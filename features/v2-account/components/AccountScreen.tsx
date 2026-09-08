@@ -255,11 +255,9 @@ export function AccountScreen() {
                     <span className="text-[16px] font-black text-v3-lime">QI</span>
                   </p>
                 </div>
-                {/* glow-aura 64 (rgba(216,143,169,.2)) → inner-glow 48 ขอบ sapphire 2px (เฟรม 55399:4944) */}
+                {/* เหรียญ QI จริง (qi-coin) ในวง glow-aura */}
                 <span aria-hidden className="grid size-16 flex-none place-items-center rounded-full bg-[rgba(216,143,169,0.2)]">
-                  <span className="relative size-12 overflow-hidden rounded-full border-2 border-v3-sapphire">
-                    <Image src="/images/v2/account/qi-glow-aura.png" alt="" fill sizes="48px" unoptimized className="object-cover" />
-                  </span>
+                  <Image src="/images/v2/qi/qi-coin.png" alt="" width={52} height={52} sizes="52px" unoptimized className="size-12 object-contain" />
                 </span>
               </div>
               <p className="mt-3 text-[13px] leading-[18px] text-white/90">{chatUnlimited ? <>ถามเซียนมู AI ได้ไม่จำกัด · เปิดไพ่ได้อีก {cards} ครั้ง</> : <>พอถามเซียนมู AI ได้อีก {asks} ครั้ง หรือเปิดไพ่ได้ {cards} ครั้ง</>}</p>
