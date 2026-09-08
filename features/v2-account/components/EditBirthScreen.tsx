@@ -10,6 +10,9 @@ import { KitButton, NoticeBanner, SheetShell, SkyBackdrop, SkyHeader } from "@/f
 import { InsufficientQiSheet } from "@/features/v2-qi/components/QiSpendSheets"
 import { TH_PROVINCES } from "@/lib/th/provinces"
 import { thaiDateFull, thaiTimeLabel } from "@/lib/th/thai-date"
+import { useCookies } from "react-cookie"
+import { CookieKey } from "@/constants/cookie-key"
+import { ChineseHoroscopeCalculate } from "@/constants/api/api-chinese-horoscope"
 import { ProfileGate } from "./ProfileGate"
 
 // เฟรม form-card: ขาว + ขอบ border/default + r20 + p18 gap16 (ไม่มีเงา)
@@ -26,7 +29,7 @@ function ChevronDown() {
 }
 
 type ProfileResp = {
-  profile?: { birthDate?: string | null; birthTime?: string | null; timeUnknown?: boolean | null; birthProvince?: string | null } | null
+  profile?: { birthDate?: string | null; birthTime?: string | null; timeUnknown?: boolean | null; birthProvince?: string | null; gender?: string | null } | null
   quota?: { birthEditFreeUsed?: boolean; birthEditPriceQi?: number; pendingCorrection?: { reason: string } | null }
 }
 
@@ -40,6 +43,9 @@ export function EditBirthScreen() {
   const [birthTime, setBirthTime] = useState("")
   const [province, setProvince] = useState("")
   const [timeUnknown, setTimeUnknown] = useState(false)
+  const [gender, setGender] = useState<string>("") // เก็บ gender ปัจจุบันไว้ recompute chart (ไม่เปลี่ยนตอนแก้วันเกิด)
+  // #Bug2 — หลังแก้วันเกิดต้อง recompute chart ฝั่ง FE user row ด้วย (มินต์ result_code ใหม่ → หน้าแรก self-heal)
+  const [cookies] = useCookies([CookieKey.MEMBER_ID, CookieKey.MEMBER_NAME, CookieKey.MEMBER_IMAGE])
   const [saving, setSaving] = useState(false)
   const [msg, setMsg] = useState<string | null>(null)
   const [insufficient, setInsufficient] = useState(false)
@@ -70,6 +76,7 @@ export function EditBirthScreen() {
       setBirthTime(j.profile?.birthTime ?? "")
       setProvince(j.profile?.birthProvince ?? "")
       setTimeUnknown(j.profile?.timeUnknown ?? false)
+      setGender(j.profile?.gender ?? "")
       // ยอด QI ปัจจุบัน สำหรับ preview "เหลือหลังแก้" (สถานะเสียเงิน) — best-effort
       if (j.quota?.birthEditFreeUsed) {
         fetch("/api/qi-wallet").then((r) => (r.ok ? r.json() : null)).then((w) => setWalletQiNow(typeof w?.qi === "number" ? w.qi : null)).catch(() => {})
@@ -94,6 +101,19 @@ export function EditBirthScreen() {
       })
       const j = (await res.json().catch(() => ({}))) as { error?: string; birthEditMode?: string }
       if (res.ok) {
+        // 🔴 #Bug2 — engine profile (birthDate) อัปเดตแล้ว แต่ "ธาตุ/หน้าแรก" คำนวณจาก FE user row (dob + result_code)
+        // ผ่าน ChineseHoroscopeGet. ต้อง recompute chart ฝั่ง FE ด้วย (เหมือน register) ไม่งั้น result_code เดิม →
+        // หน้าแรกโชว์ธาตุเก่า. best-effort (try/catch): ถ้าล้ม engine ก็บันทึกแล้ว — worst case = เท่าเดิม ไม่แย่ลง.
+        // (ธาตุ = เสาวันเกิด ขึ้นกับ "วันเกิด" เท่านั้น — gender ที่ map เป็น binary ไม่กระทบธาตุ)
+        try {
+          const userId = (cookies[CookieKey.MEMBER_ID] as string) ?? ""
+          if (userId) {
+            const time = timeUnknown ? "" : birthTime || ""
+            const g = gender === "FEMALE" ? "FEMALE" : "MALE"
+            const name = (cookies[CookieKey.MEMBER_NAME] as string) ?? ""
+            await ChineseHoroscopeCalculate(userId, name, birth, time, g, cookies[CookieKey.MEMBER_IMAGE] ?? "", "", name, "")
+          }
+        } catch { /* recompute ล้ม → ธาตุจะอัปเดตช้า แต่วันเกิดใน engine บันทึกแล้ว */ }
         setMsg(
           j.birthEditMode === "free"
             ? "บันทึกแล้ว — ใช้สิทธิ์แก้ฟรี 1 ครั้งของคุณ (ครั้งถัดไปมีค่าใช้จ่าย)"
