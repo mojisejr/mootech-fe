@@ -180,6 +180,34 @@ export function SaveSheet({
             </div>
           </div>
 
+          {/* ตั้งเวลาเอง (free-time reminder) — ไม่ต้องผูกกับยาม. ใช้ช่อง "โน้ต" ด้านบนเป็นข้อความแจ้งเตือน.
+              เวลาที่ตั้ง = เวลาที่จะเตือนจริง (ไม่ลบ 30 นาทีเหมือนยาม). ปลดล็อกปุ่มบันทึกได้เองแม้ไม่ติ๊กยาม. */}
+          <div className="rounded-[18px] bg-white p-4 shadow-[0px_4px_14px_0px_rgba(26,38,77,0.06)]">
+            <p className="mb-1 text-[18px] font-bold leading-6 text-v3-navy">ตั้งเวลาเอง</p>
+            <p className="mb-3 text-[13px] leading-5 text-v3-text-body">อยากให้เตือนเวลาอื่นนอกเหนือจากยาม? เลือกเวลาได้เลย (ใช้ข้อความจากช่องโน้ต)</p>
+            <div className="flex items-center gap-3 rounded-[12px] bg-v3-ghost-white p-3">
+              <span className="grid size-9 place-items-center rounded-full bg-v3-sapphire text-white">
+                <svg width="18" height="18" viewBox="0 0 20 20" fill="none" aria-hidden>
+                  <circle cx="10" cy="10.5" r="6.5" stroke="currentColor" strokeWidth="1.6" />
+                  <path d="M10 7v3.5l2.2 1.3" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+              </span>
+              <span className="min-w-0 flex-1 text-[15px] font-bold leading-5 text-v3-navy">เวลาแจ้งเตือน</span>
+              <input
+                type="time"
+                data-testid="custom-time"
+                value={d.customTime ?? ''}
+                onChange={(e) => draft.setCustomTime(e.target.value)}
+                className="rounded-[10px] border border-v3-border-input bg-white px-3 py-1.5 text-[15px] font-bold text-v3-navy focus:outline-none focus:ring-2 focus:ring-v3-sapphire/30"
+              />
+            </div>
+            {d.customTime ? (
+              <button type="button" data-testid="custom-time-clear" onClick={() => draft.setCustomTime('')} className="mt-2 text-[13px] font-bold text-v3-cyan underline">
+                ล้างเวลาที่ตั้งเอง
+              </button>
+            ) : null}
+          </div>
+
           {/* เพิ่มปฏิทินภายนอก — Mumate (push) · Google · Apple. Google/Apple เป็น client-side ทั้งคู่
               (#298 เอาออกเพราะไม่มี backend — แต่ทั้งคู่ไม่ต้องมี: เปิด template URL / ดาวน์โหลด .ics) */}
           <ExternalCalendarSection value={external} onToggle={onToggleExternal} />

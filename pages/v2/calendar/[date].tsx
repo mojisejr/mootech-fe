@@ -121,10 +121,17 @@ export default function V2CalendarDayPage({ teamPreview }: { teamPreview: boolea
       return { yamId, yamLabel: yam?.label ?? yamId, window: yam?.window ?? '' }
     })
 
-    // เพิ่มปฏิทินภายนอก — ยิง google/apple ในจังหวะ user gesture (ก่อน await ใดๆ) ไม่งั้น popup/download โดนบล็อก.
-    // ทั้งคู่เป็น client-side ล้วน (ไม่ผ่าน backend) จึงไม่ผูกกับผล POST ของ mumate.
+    // ตั้งเวลาเอง (free-time) — สร้าง payload ถ้าผู้ใช้เลือกเวลาเอง (ใช้โน้ตเป็นข้อความ)
     const note = (draft.draft.note ?? '').trim()
-    const events = yams.map((y) => ({ title: note || y.yamLabel, details: `${y.yamLabel} · เวลามงคลจาก MuMate`, date, window: y.window }))
+    const customTime = (draft.draft.customTime ?? '').trim()
+    const custom = customTime ? [{ time: customTime, note: note || undefined }] : undefined
+
+    // เพิ่มปฏิทินภายนอก — ยิง google/apple ในจังหวะ user gesture (ก่อน await ใดๆ) ไม่งั้น popup/download โดนบล็อก.
+    // ทั้งคู่เป็น client-side ล้วน (ไม่ผ่าน backend) จึงไม่ผูกกับผล POST ของ mumate. รวม event ของเวลาที่ตั้งเองด้วย.
+    const events = [
+      ...yams.map((y) => ({ title: note || y.yamLabel, details: `${y.yamLabel} · เวลามงคลจาก MuMate`, date, window: y.window })),
+      ...(customTime ? [{ title: note || 'แจ้งเตือนที่ตั้งเอง', details: 'แจ้งเตือนที่ตั้งเอง · MuMate', date, window: `${customTime}-${customTime}` }] : []),
+    ]
     if (external.google) {
       for (const ev of events) {
         const url = googleCalendarUrl(ev)
@@ -150,7 +157,7 @@ export default function V2CalendarDayPage({ teamPreview }: { teamPreview: boolea
         let ok = false
         return draft
           .commit(async () => {
-            const outcome = await reminders.save({ date, yams, destinations: ['mumate'] })
+            const outcome = await reminders.save({ date, yams, custom, destinations: ['mumate'] })
             ok = outcome.ok
             return outcome.ok
           })

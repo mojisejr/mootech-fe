@@ -15,17 +15,19 @@ const YAMS: YamSlot[] = [
 export default function SaveSheetPreviewPage() {
   const [note, setNote] = useState('')
   const [selected, setSelected] = useState<string[]>(['y1'])
+  const [customTime, setCustomTime] = useState('')
   const [external, setExternal] = useState<Record<ReminderDestination, boolean>>({ mumate: true, google: true, apple: false })
 
   const draft = {
     state: 'editing',
-    draft: { date: '2026-07-14', selectedYamIds: selected, destinations: [], note },
-    canCommit: selected.length > 0,
+    draft: { date: '2026-07-14', selectedYamIds: selected, destinations: [], note, customTime },
+    canCommit: selected.length > 0 || /^\d{1,2}:\d{2}$/.test(customTime),
     menuState: 4,
     open: () => {},
     toggleYam: (id: string) => setSelected((s) => (s.includes(id) ? s.filter((x) => x !== id) : [...s, id])),
     toggleDest: () => {},
     setNote,
+    setCustomTime,
     commit: async () => {},
     cancel: () => {},
     dismiss: () => {},

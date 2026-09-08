@@ -1,8 +1,8 @@
 // #287 — teeth on the PURE reminder logic (goo). No DB: time math, commit plan, adapter derivation,
 // and the identity-ambiguity refusal. .test.tsx = vitest-only lane (invisible to ci.yml's tsx glob).
 import { describe, it, expect } from 'vitest'
-import { computeFireAt, isFireTimePast, windowStart, REMINDER_LEAD_MINUTES } from '@/lib/v2/reminder-time'
-import { planReminderCommit } from '@/lib/v2/reminder-plan'
+import { computeFireAt, computeCustomFireAt, normalizeTime, isFireTimePast, windowStart, REMINDER_LEAD_MINUTES } from '@/lib/v2/reminder-time'
+import { planReminderCommit, customYamId } from '@/lib/v2/reminder-plan'
 import { toReminderList, type ReminderDTO } from '@/features/v2-calendar/hooks/reminder-adapter'
 import { resolveUserFromRows } from '@/lib/v2/resolve-user'
 
@@ -66,6 +66,60 @@ describe('reminder-plan · atomic batch + reject-in-the-past', () => {
       now,
     )
     expect(plan).toMatchObject({ ok: false, status: 422, pastYamIds: ['y3'] })
+  })
+})
+
+describe('reminder-time · free-time (ตั้งเวลาเอง) fires at the EXACT time, no 30-min lead', () => {
+  it('07:30 BKK → 00:30Z that day (no lead subtracted)', () => {
+    expect(computeCustomFireAt('2026-07-14', '07:30')?.toISOString()).toBe('2026-07-14T00:30:00.000Z')
+  })
+  it('accepts single-digit hour, pads it', () => {
+    expect(normalizeTime('7:30')).toBe('07:30')
+    expect(computeCustomFireAt('2026-07-14', '7:30')?.toISOString()).toBe('2026-07-14T00:30:00.000Z')
+  })
+  it('rejects malformed / out-of-range time', () => {
+    expect(computeCustomFireAt('2026-07-14', '25:00')).toBeNull()
+    expect(computeCustomFireAt('2026-07-14', '07:60')).toBeNull()
+    expect(computeCustomFireAt('2026-02-30', '07:30')).toBeNull() // impossible date
+    expect(normalizeTime('7:5')).toBeNull() // ambiguous minute
+  })
+})
+
+describe('reminder-plan · ตั้งเวลาเอง (custom) modelled as a synthetic ยาม', () => {
+  const now = new Date('2026-08-16T00:00:00Z') // 07:00 BKK on 08-16
+
+  it('custom id is `c`+HHMM and fits varchar(8)', () => {
+    expect(customYamId('07:30')).toBe('c0730')
+    expect(customYamId('7:30')).toBe('c0730')
+    expect(customYamId('bad')).toBeNull()
+    expect(customYamId('07:30')!.length).toBeLessThanOrEqual(8)
+  })
+
+  it('a future custom time plans one row: id c<HHMM>, window "HH:MM-HH:MM", note→label, exact fire', () => {
+    const plan = planReminderCommit({ date: '2026-08-20', yams: [], custom: [{ time: '08:00', note: 'โทรหาลูกค้า' }], destinations: ['mumate'] }, now)
+    expect(plan.ok).toBe(true)
+    if (plan.ok) {
+      expect(plan.rows).toHaveLength(1)
+      expect(plan.rows[0]).toMatchObject({ yamId: 'c0800', yamLabel: 'โทรหาลูกค้า', window: '08:00-08:00' })
+      expect(plan.rows[0].fireAtUtc.toISOString()).toBe('2026-08-20T01:00:00.000Z') // 08:00 BKK, no lead
+    }
+  })
+
+  it('empty note falls back to a default label', () => {
+    const plan = planReminderCommit({ date: '2026-08-20', yams: [], custom: [{ time: '08:00' }], destinations: ['mumate'] }, now)
+    if (plan.ok) expect(plan.rows[0].yamLabel).toBe('แจ้งเตือนที่ตั้งเอง')
+  })
+
+  it('custom OR yam satisfies the ≥1 guard (custom-only is committable)', () => {
+    expect(planReminderCommit({ date: '2026-08-20', yams: [], custom: [{ time: '08:00' }], destinations: ['mumate'] }, now).ok).toBe(true)
+    // neither → still 400
+    expect(planReminderCommit({ date: '2026-08-20', yams: [], custom: [], destinations: ['mumate'] }, now)).toMatchObject({ ok: false, status: 400 })
+  })
+
+  it('a past custom time fails the whole batch (422), same atomic rule as ยาม', () => {
+    // now = 07:00 BKK 08-16; 05:00 same day is past.
+    const plan = planReminderCommit({ date: '2026-08-16', yams: [], custom: [{ time: '05:00' }], destinations: ['mumate'] }, now)
+    expect(plan).toMatchObject({ ok: false, status: 422, pastYamIds: ['c0500'] })
   })
 })
 

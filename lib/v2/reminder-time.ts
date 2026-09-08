@@ -77,6 +77,36 @@ export function computeFireAt(date: string, window: string): Date | null {
 }
 
 /**
+ * "H:MM" / "HH:MM" → zero-padded "HH:MM", or null if malformed / out of range. Same strict-minute rule as
+ * windowStart (a single-digit minute is AMBIGUOUS → reject, never pad-guess). Used by the free-time reminder.
+ */
+export function normalizeTime(time: string): string | null {
+  const m = /^(\d{1,2}):(\d{2})$/.exec(time.trim());
+  if (!m) return null;
+  const hh = Number(m[1]);
+  const mm = Number(m[2]);
+  if (hh > 23 || mm > 59) return null;
+  return `${String(hh).padStart(2, '0')}:${String(mm).padStart(2, '0')}`;
+}
+
+/**
+ * The absolute UTC instant for a FREE-TIME reminder (ตั้งเวลาเอง) — the EXACT wall time the user picked,
+ * NOT 30 min before (that lead is a ยาม-specific rule: fire before the auspicious window opens). A custom
+ * reminder means "ring me at 07:30", so fire == 07:30 Bangkok. Round-trip validated like computeFireAt.
+ * Returns null if date/time is malformed or not a real calendar moment.
+ */
+export function computeCustomFireAt(date: string, time: string): Date | null {
+  const d = date.trim();
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(d)) return null;
+  const t = normalizeTime(time);
+  if (t === null) return null;
+  const instant = new Date(`${d}T${t}:00${BANGKOK_OFFSET}`);
+  if (Number.isNaN(instant.getTime())) return null;
+  if (bangkokDate(instant) !== d || bangkokTime(instant) !== t) return null;
+  return instant; // no lead — the user picked the exact notify time
+}
+
+/**
  * Has the notify instant already passed? The ③ "ตั้งย้อนหลัง = ปฏิเสธ" guard. A reminder whose fire
  * time is now-or-past must NOT be saved (a saved reminder MUST mean a scheduled push — else the screen
  * lies). `now` is injectable so the test is deterministic.

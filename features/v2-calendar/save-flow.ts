@@ -22,10 +22,12 @@ export type SaveFlowState =
 /** The draft the sheet binds to (screen 5). Pure client-truth until committed. */
 export interface ReminderDraft {
   date: string
-  /** ยาม ที่ติ๊ก (checkbox 5 ช่วง) — at least 1 required to commit. */
+  /** ยาม ที่ติ๊ก (checkbox 5 ช่วง) — at least 1 required to commit (OR a customTime set). */
   selectedYamIds: string[]
   destinations: ReminderDestination[]
   note?: string
+  /** ตั้งเวลาเอง — "HH:MM" the user picked (free-time reminder). Empty/undefined = not set. */
+  customTime?: string
 }
 
 /** Actions that drive the machine. */
@@ -34,6 +36,7 @@ export type SaveFlowAction =
   | { type: 'toggleYam'; yamId: string } //    editing → editing (draft change)
   | { type: 'toggleDest'; dest: ReminderDestination }
   | { type: 'setNote'; note: string }
+  | { type: 'setCustomTime'; customTime: string }
   | { type: 'commit' } //                      editing → saving (guard: ≥1 ยาม)
   | { type: 'resolve' } //                     saving → saved (mock: immediate; API: on 2xx)
   | { type: 'reject' } //                      saving → error (API-time only)
@@ -55,6 +58,7 @@ export const SAVE_FLOW_TRANSITIONS: Record<
     toggleYam: 'editing',
     toggleDest: 'editing',
     setNote: 'editing',
+    setCustomTime: 'editing',
     commit: 'saving', // guarded by hasCommittableDraft() — see useReminderDraft
     cancel: 'idle',
   },
@@ -70,9 +74,15 @@ export function saveFlowNext(state: SaveFlowState, action: SaveFlowAction['type'
   return SAVE_FLOW_TRANSITIONS[state][action] ?? state
 }
 
-/** Commit guard: cannot save an empty ยาม selection (input-boundary case). */
+/** Commit guard: need at least one ยาม ticked OR a well-formed custom time (ตั้งเวลาเอง). */
 export function hasCommittableDraft(draft: ReminderDraft): boolean {
-  return draft.selectedYamIds.length > 0
+  return draft.selectedYamIds.length > 0 || hasValidCustomTime(draft)
+}
+
+/** A custom time that parses to HH:MM (loose client check — the planner is the authority on past/range). */
+export function hasValidCustomTime(draft: ReminderDraft): boolean {
+  const t = (draft.customTime ?? '').trim()
+  return /^\d{1,2}:\d{2}$/.test(t)
 }
 
 // ── ด่านเวลา (goo · #287) — the client half of ③ "ตั้งย้อนหลัง = ปฏิเสธ". The SERVER also rejects (422),

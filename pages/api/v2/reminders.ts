@@ -53,6 +53,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       const input: CommitInput = {
         date: typeof body.date === 'string' ? body.date : '',
         yams: Array.isArray(body.yams) ? body.yams : [],
+        custom: Array.isArray(body.custom) ? body.custom : [],
         destinations: Array.isArray(body.destinations) ? body.destinations : [],
       }
       const plan = planReminderCommit(input, new Date())
