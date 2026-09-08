@@ -30,6 +30,9 @@ import { ExternalCalendarSection } from './ExternalCalendarSection'
 export const SHEET_YAM_ADDED_NOTE = 'เพิ่มแล้ว'
 export const SHEET_YAM_PAST_NOTE = 'เลยเวลา'
 
+// เพิ่มปฏิทินภายนอก default (mumate+google เปิด, apple ปิด) — ใช้เมื่อผู้เรียกไม่ส่ง `external` (เทสต์เดิม)
+const DEFAULT_EXTERNAL: Record<ReminderDestination, boolean> = { mumate: true, google: true, apple: false }
+
 const THAI_MONTHS = ['มกราคม', 'กุมภาพันธ์', 'มีนาคม', 'เมษายน', 'พฤษภาคม', 'มิถุนายน', 'กรกฎาคม', 'สิงหาคม', 'กันยายน', 'ตุลาคม', 'พฤศจิกายน', 'ธันวาคม']
 
 // static display of the date (วัน/เดือน/ปี พ.ศ.) — the sheet is for THIS day; changing date is out of scope,
@@ -59,8 +62,8 @@ export function SaveSheet({
   notify,
   onShowGuide,
   statusFor,
-  external,
-  onToggleExternal,
+  external = DEFAULT_EXTERNAL,
+  onToggleExternal = () => {},
 }: {
   date: string
   yams: YamSlot[]
@@ -69,9 +72,10 @@ export function SaveSheet({
   /** สถานะแจ้งเตือนของเครื่อง — เพจอ่านจาก usePwaCapability() แล้วส่งลงมา (ชีทไม่เรียก hook เอง) */
   notify: NotifyState
   onShowGuide: (variant: 'install' | 'permission') => void
-  /** เพิ่มปฏิทินภายนอก — สถานะ toggle 3 ปลายทาง (เพจถือ truth · ชีทแค่วาด) */
-  external: Record<ReminderDestination, boolean>
-  onToggleExternal: (d: ReminderDestination) => void
+  /** เพิ่มปฏิทินภายนอก — สถานะ toggle 3 ปลายทาง (เพจถือ truth · ชีทแค่วาด). OPTIONAL: มี default ให้
+   *  ผู้เรียก/เทสต์เดิมที่ไม่ส่ง prop นี้ไม่พัง (ExternalCalendarSection อ่าน value[key] จึงต้องไม่ undefined) */
+  external?: Record<ReminderDestination, boolean>
+  onToggleExternal?: (d: ReminderDestination) => void
   /** #343 — สถานะของยามนี้ · ยามที่ `past`/`added` ติ๊กไม่ได้ แต่ **ยังเห็นอยู่**
    *  🔴 นี่คือด่านที่ปิดอาการหลักของใบร่ม #340: ก่อนหน้านี้ `yams.map` วาดทุกตัวเป็น checkbox โดยไม่กรอง
    *  แต่ฝั่งเซิร์ฟเวอร์เป็น all-or-nothing (`lib/v2/reminder-plan.ts`) ⇒ ติ๊กยามที่เลยเวลาปนกับยามที่ดี
