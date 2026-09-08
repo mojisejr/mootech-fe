@@ -291,19 +291,19 @@ export function ManifestScreen({ previewData }: { previewData?: ManifestPreview 
               </div>
               <div className="mt-4 -mx-4 flex snap-x snap-mandatory gap-3 overflow-x-auto px-4 pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden" data-testid="manifest-carousel">
                 {goals.map((g) => (
-                  <article key={g.id} className="w-[86%] shrink-0 snap-center overflow-hidden rounded-[16px] bg-white text-v3-navy" data-testid="manifest-goal">
-                    {g.imageUrl ? (
-                      <span className="block h-[150px] w-full overflow-hidden">
-                        <Image src={g.imageUrl} alt="" width={480} height={300} unoptimized className="h-full w-full object-cover" />
-                      </span>
-                    ) : null}
-                    <div className="flex items-start gap-2 p-3">
-                      <div className="min-w-0 flex-1">
+                  <article key={g.id} className="relative w-[86%] shrink-0 snap-center overflow-hidden rounded-[16px] bg-white text-v3-navy" data-testid="manifest-goal">
+                    <Link href={`/v2/service/manifest/${g.id}`} className="block">
+                      {g.imageUrl ? (
+                        <span className="block h-[150px] w-full overflow-hidden">
+                          <Image src={g.imageUrl} alt="" width={480} height={300} unoptimized className="h-full w-full object-cover" />
+                        </span>
+                      ) : null}
+                      <div className="p-3 pr-10">
                         {g.category ? <span className="inline-block rounded-full bg-[#3E9B4A] px-2 py-0.5 text-[11px] font-semibold text-white">{g.category}</span> : null}
                         <p className="mt-1 text-[14px] font-bold leading-5">{g.affirmation || g.title}</p>
                       </div>
-                      <button type="button" onClick={() => void deleteGoal(g.id)} aria-label="ลบความปรารถนา" data-testid="manifest-delete" className="flex-none text-[12px] text-v3-text-muted">ลบ</button>
-                    </div>
+                    </Link>
+                    <button type="button" onClick={() => void deleteGoal(g.id)} aria-label="ลบความปรารถนา" data-testid="manifest-delete" className="absolute bottom-3 right-3 text-[12px] text-v3-text-muted">ลบ</button>
                   </article>
                 ))}
               </div>
