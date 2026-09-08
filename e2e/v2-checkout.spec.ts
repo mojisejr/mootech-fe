@@ -113,8 +113,23 @@ test.describe("#363 checkout — browser truth", () => {
     await page.getByTestId("method-promptpay").click();
     await page.getByTestId("checkout-pay").click();
     await page.waitForURL(/\/v2\/shop\/result\?/, { timeout: 15000 });
-    await expect(page.getByTestId("result-screen")).toHaveAttribute("data-paid", "1");
-    await expect(page.getByTestId("result-title")).toHaveText("ชำระเงินสำเร็จ");
+    // 🔴 UPDATED 2026-09-09 — this asserted `result-screen` + data-paid=1 and went red. It was NOT a
+    // regression: Figma parity batch 3 (f4c9319) split the paid outcome onto its own screens, and
+    // pages/v2/shop/result.tsx now branches three ways —
+    //     paid + QI pack  → QiBuySuccess    (data-testid "qi-buy-success")
+    //     paid + plan     → PlanPaySuccess  (data-testid "plan-pay-success")   ← this test's path
+    //     everything else → ResultScreen    (data-testid "result-screen")
+    // The old assertion could therefore only ever be satisfied by a NON-paid state, which is the exact
+    // opposite of what the test is named for. It went unnoticed because these specs are not in any
+    // automated lane — they are run by hand, and nobody had since the rebuild.
+    await expect(page.getByTestId("plan-pay-success")).toBeVisible();
+    await expect(page.getByTestId("plan-pay-success-title")).toHaveText("ชำระเงินสำเร็จ");
+    // The receipt card is WHY this screen replaced the generic one: it names the plan and the dates.
+    // Without it this is a success page that tells the buyer nothing about what they just bought.
+    await expect(page.getByTestId("plan-pay-success-card")).toBeVisible();
+    // And the generic screen must not be on the page at the same time — two outcome screens at once
+    // would mean the branch above fell through rather than chose.
+    await expect(page.getByTestId("result-screen")).toHaveCount(0);
   });
 
   test("🔴 a typed ?state=APPROVED does not make the screen claim payment", async ({ page }) => {
