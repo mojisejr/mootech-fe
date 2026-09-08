@@ -308,7 +308,7 @@ export function ManifestScreen({ previewData }: { previewData?: ManifestPreview 
                 ))}
               </div>
               {activeCount < MAX_GOALS ? (
-                <button onClick={() => setCreating(true)} data-testid="manifest-add" className="relative z-20 mt-4 grid h-11 w-full place-items-center rounded-full bg-v3-lime text-[15px] font-black text-v3-sapphire">เพิ่มความปรารถนา</button>
+                <button onClick={() => setCreating(true)} data-testid="manifest-add" className="relative z-20 mx-auto mt-4 grid h-11 w-[62%] place-items-center rounded-full bg-v3-lime text-[15px] font-black text-v3-sapphire">เพิ่มความปรารถนา</button>
               ) : <p className="mt-3 text-center text-[12px] text-white/80">เขียนครบ {MAX_GOALS} ข้อแล้ว โฟกัสให้สำเร็จก่อนนะ</p>}
             </section>
           )}
