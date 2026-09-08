@@ -27,6 +27,7 @@ import { getServerSideProps as homeGSSP } from '../pages/v2/home-preview'
 import { getServerSideProps as menuGSSP } from '../pages/v2/menu-preview'
 
 const KEY = 'test-passkey'
+const REDIRECT_TO_GATE = { redirect: { destination: '/v2', permanent: false } }
 
 // Minimal GetServerSidePropsContext — the guard only reads ctx.req.cookies.
 function ctx(cookies: Record<string, string>) {
@@ -62,20 +63,18 @@ describe('lib/v2/gate — isV2Authenticated / v2RedirectIfUnauthed', () => {
     vi.stubEnv('V2_PREVIEW_KEY', undefined)
     expect(isV2Authenticated({ cookies: { [V2_COOKIE]: KEY } })).toBe(false)
   })
-  // #247 — the preview gate was REMOVED: v2RedirectIfUnauthed now returns null for EVERYONE (/v2 is open;
-  // real auth is Google/Line on the client). isV2Authenticated stays strict above because team-preview
-  // (tier override) still keys off the cookie. So the redirect helper no longer gates — it always passes.
+  // and the page-level consequence of the same hole: unconfigured + no cookie must REDIRECT, not render.
+  it('fail-closed TEETH (page): key unset + no cookie → redirect (not null)', () => {
+    vi.stubEnv('V2_PREVIEW_KEY', undefined)
+    expect(v2RedirectIfUnauthed({ cookies: {} })).toEqual(REDIRECT_TO_GATE)
+  })
   it('v2RedirectIfUnauthed: authed → null (no redirect)', () => {
     vi.stubEnv('V2_PREVIEW_KEY', KEY)
     expect(v2RedirectIfUnauthed({ cookies: { [V2_COOKIE]: KEY } })).toBe(null)
   })
-  it('v2RedirectIfUnauthed: unauthed → null too (gate open since #247, not a redirect)', () => {
+  it('v2RedirectIfUnauthed: unauthed → redirect to /v2', () => {
     vi.stubEnv('V2_PREVIEW_KEY', KEY)
-    expect(v2RedirectIfUnauthed({ cookies: {} })).toBe(null)
-  })
-  it('v2RedirectIfUnauthed: key unset + no cookie → null (open, no longer fail-closed at the page)', () => {
-    vi.stubEnv('V2_PREVIEW_KEY', undefined)
-    expect(v2RedirectIfUnauthed({ cookies: {} })).toBe(null)
+    expect(v2RedirectIfUnauthed({ cookies: {} })).toEqual(REDIRECT_TO_GATE)
   })
 })
 
@@ -86,31 +85,31 @@ const PAGES: Array<{ name: string; gssp: typeof firstRunGSSP }> = [
   { name: 'menu-preview', gssp: menuGSSP },
 ]
 
-describe.each(PAGES)('pages/v2/$name — open since #247 (gate removed), never 404 on prod', ({ gssp }) => {
+describe.each(PAGES)('pages/v2/$name — visibility owned by the gate, not NODE_ENV', ({ gssp }) => {
   beforeEach(() => vi.unstubAllEnvs())
 
-  it('no cookie → renders ({ props: {} }) — gate open, not a redirect, not 404', async () => {
+  it('no cookie → redirect to /v2 (NOT a rendered page, NOT 404)', async () => {
     vi.stubEnv('V2_PREVIEW_KEY', KEY)
-    expect(await gssp(ctx({}))).toEqual({ props: {} })
+    expect(await gssp(ctx({}))).toEqual(REDIRECT_TO_GATE)
   })
-  it('wrong cookie → renders ({ props: {} })', async () => {
+  it('wrong cookie → redirect to /v2', async () => {
     vi.stubEnv('V2_PREVIEW_KEY', KEY)
-    expect(await gssp(ctx({ [V2_COOKIE]: 'nope' }))).toEqual({ props: {} })
+    expect(await gssp(ctx({ [V2_COOKIE]: 'nope' }))).toEqual(REDIRECT_TO_GATE)
   })
-  it('correct cookie → { props: {} } (renders)', async () => {
+  it('correct cookie → { props: {} } (the page renders — no more notFound)', async () => {
     vi.stubEnv('V2_PREVIEW_KEY', KEY)
     expect(await gssp(ctx({ [V2_COOKIE]: KEY }))).toEqual({ props: {} })
   })
 
-  // env-INDEPENDENT: the old prod `notFound` is gone (#220) and the gate redirect is gone (#247).
-  it('🔴 prod + correct cookie → renders (reverting to notFound turns this RED)', async () => {
+  // The behaviour is env-INDEPENDENT now (the whole point of #220): the door is the gate, not NODE_ENV.
+  it('🔴 prod + correct cookie → renders (was 404 before #220 — reverting to notFound turns this RED)', async () => {
     vi.stubEnv('NODE_ENV', 'production')
     vi.stubEnv('V2_PREVIEW_KEY', KEY)
     expect(await gssp(ctx({ [V2_COOKIE]: KEY }))).toEqual({ props: {} })
   })
-  it('prod + no cookie → still renders (gate open; re-adding a redirect turns this RED)', async () => {
+  it('🔴 prod + no cookie → still redirect, never leaks (dropping the guard turns this RED)', async () => {
     vi.stubEnv('NODE_ENV', 'production')
     vi.stubEnv('V2_PREVIEW_KEY', KEY)
-    expect(await gssp(ctx({}))).toEqual({ props: {} })
+    expect(await gssp(ctx({}))).toEqual(REDIRECT_TO_GATE)
   })
 })

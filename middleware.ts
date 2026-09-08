@@ -32,7 +32,7 @@ const OPS_COOKIE = 'ops_access';
 //   not a `?key=` link — so this guard only checks the cookie/env at the edge. `/v2` itself renders
 //   the gate form (getServerSideProps) when the cookie is missing/invalid. Fail closed:
 //   unconfigured = the whole /v2 preview surface (pages + BFF) is hidden.
-// #247: preview gate ถูกเอาออกแล้ว — guardV2 ปล่อยผ่านทุก v2 (คง CSP) ไม่เช็ค V2_PREVIEW_KEY/cookie อีก
+const V2_COOKIE = 'v2_access';
 
 function noStore(res: NextResponse): NextResponse {
   res.headers.set('Cache-Control', 'no-store, must-revalidate');
@@ -224,6 +224,17 @@ function withPaymentLaneCsp(req: NextRequest, res: NextResponse): NextResponse {
 // getServerSideProps can render the gate form when unauthenticated. Every OTHER /api/v2/* route is
 // a data endpoint denied here without a valid cookie (defense in depth — each such route should
 // also re-check the cookie itself). Fail closed: no key configured -> whole surface hidden.
+// ⛔ DO NOT REMOVE THIS GATE UNTIL mojisejr/mootech-fe#605 IS CLOSED. It was removed once, on
+// 2026-09-08, inside c959aa8 ("rebuild /v2/destiny") as one bullet among twelve files, and reached
+// production at 20:24 +07 that day. What that opened: Omise v2 is still in TEST mode and NOTHING in
+// lib/payment checks the mode, so any visitor who can sign in with Google/LINE could pay with an
+// Omise test card and receive a REAL member_subscription row / REAL engine QI. Verified no one did
+// (`select count(*) from v2_payment where created_at > '2026-09-08 20:24+07'` → 0) before this revert.
+//
+// The removal is CORRECT — but it is step 3 of mojisejr/mootech-fe#606, and #606 gates itself on #605:
+// a real charge must settle and the buyer must actually receive what they paid for FIRST. When that day
+// comes, follow #606 B3 (make the gate open only when V2_PREVIEW_KEY is UNSET, so launch is one variable
+// and not a code change) — do not delete these lines by hand again.
 function guardV2(req: NextRequest): NextResponse | null {
   const { pathname } = req.nextUrl;
   const isV2 = pathname === '/v2' || pathname.startsWith('/v2/') || pathname.startsWith('/api/v2');
@@ -240,13 +251,21 @@ function guardV2(req: NextRequest): NextResponse | null {
   // closed on a missing signing secret — this exemption only skips the COOKIE gate, not the signature.
   if (pathname === '/api/v2/payment/webhook') return noStore(NextResponse.next());
 
-  // #247 launch: preview gate ถูกเอาออก — /v2 (และ /api/v2) เปิดให้ทุกคนผ่าน edge ได้เลย
-  // auth จริงอยู่ที่ระดับ route/ฝั่ง client (Google/Line + cookie-mumate-id) ไม่พึ่ง gate นี้อีก
-  // สิทธิ์ team-preview (tier override) ยังผูก cookie v2_access ผ่าน lib/v2/gate → ไม่ถูกเปิดให้ทุกคน
-  //
-  // คืนค่า next() (ไม่ใช่ null) โดยตั้งใจ: ผู้เรียกที่ :283 ห่อ payment-lane CSP ให้ทุก v2 response
-  // ที่ guardV2 คืนค่า non-null — ถ้าคืน null v2 จะหลุด CSP เส้นทางจ่ายเงิน (Omise iframe) พัง
-  return noStore(NextResponse.next());
+  const key = process.env.V2_PREVIEW_KEY;
+  if (!key) return noStore(NextResponse.rewrite(new URL('/maintenance', req.url)));
+
+  if (pathname === '/api/v2/login') return noStore(NextResponse.next());
+
+  const authenticated = req.cookies.get(V2_COOKIE)?.value === key;
+  if (authenticated) return noStore(NextResponse.next());
+
+  if (pathname === '/v2') return noStore(NextResponse.next());
+
+  if (pathname.startsWith('/api/v2')) {
+    return noStore(NextResponse.json({ error: { message: 'Not authenticated' } }, { status: 401 }));
+  }
+
+  return noStore(NextResponse.redirect(new URL('/v2', req.url)));
 }
 
 function redirectWhatIfFirstVisit(req: NextRequest): NextResponse | null {
