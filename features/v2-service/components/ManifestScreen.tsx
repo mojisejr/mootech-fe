@@ -270,15 +270,28 @@ export function ManifestScreen({ previewData }: { previewData?: ManifestPreview 
             <OnboardingHero onWrite={() => setCreating(true)} />
           ) : (
             <section className="relative overflow-hidden rounded-[24px] bg-v3-sapphire px-4 pb-5 pt-6 text-white" data-testid="manifest-list">
-              <div className="text-center">
+              {/* มาสคอตธาตุลอย (ล่างใกล้ปุ่ม) + ขยับ */}
+              {(
+                [
+                  { el: "el-fire", cls: "left-1 bottom-14 h-11 w-11", d: "0s" },
+                  { el: "el-earth", cls: "left-16 bottom-12 h-7 w-7", d: ".4s" },
+                  { el: "el-water", cls: "left-28 bottom-14 h-8 w-8", d: ".8s" },
+                  { el: "el-wood", cls: "right-1 bottom-12 h-12 w-12", d: ".3s" },
+                ] as const
+              ).map((m) => (
+                <span key={m.el} aria-hidden className={`v3-float pointer-events-none absolute z-10 ${m.cls}`} style={{ animationDelay: m.d }}>
+                  <Image src={`/images/v2/destiny/${m.el}.png`} alt="" width={48} height={48} unoptimized className="h-full w-full object-contain drop-shadow" />
+                </span>
+              ))}
+              <div className="relative text-center">
                 <h2 className="text-[18px] font-black leading-6">สมุดแมนิเฟสต์ของคุณ</h2>
                 <p className="mx-auto mt-1 max-w-[300px] text-[12px] leading-[18px] text-white/90">
                   เขียนสิ่งที่อยากให้เกิดขึ้นเป็นประโยคที่เกิดขึ้นแล้ว แล้วกลับมาอ่านทุกวันจนจิตคุ้นชินกับภาพนั้น
                 </p>
               </div>
-              <div className="mt-4 flex flex-col gap-3">
+              <div className="mt-4 -mx-4 flex snap-x snap-mandatory gap-3 overflow-x-auto px-4 pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden" data-testid="manifest-carousel">
                 {goals.map((g) => (
-                  <article key={g.id} className="overflow-hidden rounded-[16px] bg-white text-v3-navy" data-testid="manifest-goal">
+                  <article key={g.id} className="w-[86%] shrink-0 snap-center overflow-hidden rounded-[16px] bg-white text-v3-navy" data-testid="manifest-goal">
                     {g.imageUrl ? (
                       <span className="block h-[150px] w-full overflow-hidden">
                         <Image src={g.imageUrl} alt="" width={480} height={300} unoptimized className="h-full w-full object-cover" />
@@ -295,7 +308,7 @@ export function ManifestScreen({ previewData }: { previewData?: ManifestPreview 
                 ))}
               </div>
               {activeCount < MAX_GOALS ? (
-                <button onClick={() => setCreating(true)} data-testid="manifest-add" className="mt-4 grid h-11 w-full place-items-center rounded-full bg-v3-lime text-[15px] font-black text-v3-sapphire">เพิ่มความปรารถนา</button>
+                <button onClick={() => setCreating(true)} data-testid="manifest-add" className="relative z-20 mt-4 grid h-11 w-full place-items-center rounded-full bg-v3-lime text-[15px] font-black text-v3-sapphire">เพิ่มความปรารถนา</button>
               ) : <p className="mt-3 text-center text-[12px] text-white/80">เขียนครบ {MAX_GOALS} ข้อแล้ว โฟกัสให้สำเร็จก่อนนะ</p>}
             </section>
           )}
