@@ -194,8 +194,9 @@ export function ChatScreen() {
             <path d="M12.5 4.5 7 10l5.5 5.5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
           </svg>
         </Link>
-        {/* ฟีม (สไลด์ 14): หัวจอใช้ชื่อเพอร์โซนา "เสี่ยวมู่/เสี่ยวมี่" แทน Mate AI/Mumate Chat — ตามตัวที่ผู้ใช้เลือก */}
-        <h1 data-testid="chat-title" className="text-lg font-black leading-6 text-v3-navy">{activePersona.name}</h1>
+        {/* เจ้าของสั่ง 2026-09-08: หัวจอเป็นชื่อแบรนด์ "Mumate Chat" (แทนชื่อเพอร์โซนา เสี่ยวมู่/เสี่ยวมี่ ตามสไลด์ 14 เดิม)
+            — ตัวเพอร์โซนาที่เลือกยังโชว์ที่ toggle + มาสคอต + คำทักทายด้านล่างอยู่ */}
+        <h1 data-testid="chat-title" className="text-lg font-black leading-6 text-v3-navy">Mumate Chat</h1>
         <span
           data-testid="chat-online"
           className="flex items-center gap-1 rounded-full bg-emerald-100 px-2 py-[2px] text-[10px] font-medium leading-4 text-emerald-700"

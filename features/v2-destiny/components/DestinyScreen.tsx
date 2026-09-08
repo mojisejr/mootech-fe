@@ -406,6 +406,11 @@ function SectionHeader({
   )
 }
 
+// engine ส่งคำทำนายมาพร้อม markdown ดิบ (**bold**) — จอนี้เป็น plain text จึงต้องถอดออก ไม่งั้นเห็น "**...**"
+function stripMd(s: string | null | undefined): string {
+  return (s ?? "").replace(/\*\*/g, "").replace(/__/g, "").trim()
+}
+
 // การ์ด "ทำนายพื้นฐาน" (collapsible): บุคลิก/นิสัย/ความรัก/การเรียน + อาชีพเด่น + ข้อควรระวัง
 function PredictionCard({ summary, prediction, cautions, occupations }: { summary: ElementSummary; prediction?: Prediction | null; cautions?: string[] | null; occupations?: string[] }) {
   const [open, setOpen] = useState(true)
@@ -432,7 +437,7 @@ function PredictionCard({ summary, prediction, cautions, occupations }: { summar
           {blocks.map((b) => (
             <div key={b.title} className="rounded-[20px] bg-[#ecf0fd] p-[18px]">
               <p className="text-[18px] font-bold leading-6 text-v3-navy">{b.title}</p>
-              <p className="mt-3 text-[14px] leading-[21px] text-[#888]">{b.text}</p>
+              <p className="mt-3 text-[14px] leading-[21px] text-[#888]">{stripMd(b.text)}</p>
             </div>
           ))}
           <div className="rounded-[20px] bg-[#ecf0fd] p-[18px]">
