@@ -6,7 +6,7 @@ import Head from "next/head"
 import Image from "next/image"
 import Link from "next/link"
 import { useRouter } from "next/router"
-import { useEffect, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 
 import { TopBarBell } from "@/features/v2-shell/components/TopBarBell"
 import { TopBarAvatar } from "@/features/v2-shell/components/TopBarAvatar"
@@ -43,6 +43,29 @@ export function ManifestReadScreen({ previewData }: { previewData?: ReadPreview 
 
   const g = goals[idx]
   useEffect(() => { if (g) setNote(g.affirmation || g.title) }, [g])
+
+  // swipe carousel — เลื่อนแนวนอนสลับ manifest, sync idx กับ scroll
+  const scrollRef = useRef<HTMLDivElement>(null)
+  const didInit = useRef(false)
+  useEffect(() => {
+    if (didInit.current) return
+    const el = scrollRef.current
+    if (el && goals.length > 0) {
+      el.scrollLeft = idx * el.clientWidth
+      didInit.current = true
+    }
+  }, [goals, idx])
+  const onScroll = () => {
+    const el = scrollRef.current
+    if (!el || el.clientWidth === 0) return
+    const i = Math.round(el.scrollLeft / el.clientWidth)
+    if (i !== idx && i >= 0 && i < goals.length) setIdx(i)
+  }
+  const goToDot = (i: number) => {
+    const el = scrollRef.current
+    if (el) el.scrollTo({ left: i * el.clientWidth, behavior: "smooth" })
+    else setIdx(i)
+  }
 
   const save = async () => {
     setBusy(true); setMsg(null)
@@ -86,27 +109,34 @@ export function ManifestReadScreen({ previewData }: { previewData?: ReadPreview 
         {!g ? (
           <p className="px-4 pt-10 text-center text-[14px] text-v3-text-muted">ไม่พบความปรารถนานี้</p>
         ) : (
-          <div className="flex flex-col gap-4 px-4 pt-3">
+          <div className="pt-3">
             {/* page dots */}
             {goals.length > 1 && (
               <div className="flex justify-center gap-1.5">
                 {goals.map((x, i) => (
-                  <button key={x.id} aria-label={`ไปข้อ ${i + 1}`} onClick={() => setIdx(i)} className={`h-1.5 rounded-full transition-all ${i === idx ? "w-4 bg-v3-sapphire" : "w-1.5 bg-v3-border-card"}`} />
+                  <button key={x.id} aria-label={`ไปข้อ ${i + 1}`} onClick={() => goToDot(i)} className={`h-1.5 rounded-full transition-all ${i === idx ? "w-4 bg-v3-sapphire" : "w-1.5 bg-v3-border-card"}`} />
                 ))}
               </div>
             )}
 
-            <div className="text-center">
-              {g.category ? <span className="inline-block rounded-full bg-[#3E9B4A] px-3 py-1 text-[12px] font-semibold text-white">{g.category}</span> : null}
-              <p className="mt-2 text-[20px] font-black leading-7 text-v3-navy">{g.affirmation || g.title}</p>
+            {/* swipe carousel — ปัดสลับ manifest */}
+            <div ref={scrollRef} onScroll={onScroll} className="mt-3 flex snap-x snap-mandatory overflow-x-auto [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden" data-testid="manifest-read-carousel">
+              {goals.map((x) => (
+                <div key={x.id} className="w-full shrink-0 snap-center px-4">
+                  <div className="text-center">
+                    {x.category ? <span className="inline-block rounded-full bg-[#3E9B4A] px-3 py-1 text-[12px] font-semibold text-white">{x.category}</span> : null}
+                    <p className="mt-2 text-[20px] font-black leading-7 text-v3-navy">{x.affirmation || x.title}</p>
+                  </div>
+                  {x.imageUrl ? (
+                    <span className="mt-3 block h-[220px] w-full overflow-hidden rounded-[20px]">
+                      <Image src={x.imageUrl} alt="" width={480} height={440} unoptimized className="h-full w-full object-cover" />
+                    </span>
+                  ) : null}
+                </div>
+              ))}
             </div>
 
-            {g.imageUrl ? (
-              <span className="block h-[220px] w-full overflow-hidden rounded-[20px]">
-                <Image src={g.imageUrl} alt="" width={480} height={440} unoptimized className="h-full w-full object-cover" />
-              </span>
-            ) : null}
-
+            <div className="mt-4 flex flex-col gap-4 px-4">
             {/* mood */}
             <section className="rounded-[20px] bg-v3-sapphire p-5 text-white">
               <p className="text-center text-[16px] font-black">คุณรู้สึกอย่างไรตอนนี้?</p>
@@ -136,6 +166,7 @@ export function ManifestReadScreen({ previewData }: { previewData?: ReadPreview 
             {msg ? <p className="text-center text-[13px] font-bold text-v3-sapphire">{msg}</p> : null}
 
             <button onClick={() => void complete()} disabled={busy} className="grid h-11 w-full place-items-center rounded-full bg-v3-lime text-[15px] font-black text-v3-sapphire disabled:opacity-60">ความปรารถนาเป็นจริงแล้ว</button>
+            </div>
           </div>
         )}
       </div>
