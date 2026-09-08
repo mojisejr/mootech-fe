@@ -64,7 +64,20 @@ function OnboardingHero({ onWrite }: { onWrite: () => void }) {
   ]
   return (
     <section className="relative overflow-hidden rounded-[24px] bg-v3-sapphire px-4 pb-6 pt-6 text-white" data-testid="manifest-hero">
-      <Image src="/images/v2/features/manifest/hero.png" alt="" width={110} height={96} unoptimized className="pointer-events-none absolute right-2 top-2 h-24 w-auto object-contain" />
+      {/* มาสคอตธาตุลอย + ขยับ (.v3-float) รอบการ์ด */}
+      {(
+        [
+          { el: "el-water", cls: "left-1 top-4 h-8 w-8", d: "0s" },
+          { el: "el-earth", cls: "left-3 top-24 h-7 w-7", d: ".5s" },
+          { el: "el-metal", cls: "right-24 bottom-2 h-8 w-8", d: "1s" },
+          { el: "el-wood", cls: "right-2 bottom-4 h-9 w-9", d: ".3s" },
+        ] as const
+      ).map((m) => (
+        <span key={m.el} aria-hidden className={`v3-float pointer-events-none absolute z-10 ${m.cls}`} style={{ animationDelay: m.d }}>
+          <Image src={`/images/v2/destiny/${m.el}.png`} alt="" width={40} height={40} unoptimized className="h-full w-full object-contain drop-shadow" />
+        </span>
+      ))}
+      <Image src="/images/v2/features/manifest/hero.png" alt="" width={110} height={96} unoptimized className="v3-float pointer-events-none absolute right-2 top-2 h-24 w-auto object-contain" />
       <div className="relative text-center">
         <h1 className="text-[20px] font-black leading-7">สมุดแมนิเฟสต์<br />ของคุณรอภาพแรกอยู่</h1>
         <p className="mx-auto mt-2 max-w-[300px] text-[12px] leading-[18px] text-white/90">
@@ -83,7 +96,7 @@ function OnboardingHero({ onWrite }: { onWrite: () => void }) {
         ))}
       </div>
       <div className="relative mt-4 flex items-center justify-center">
-        <Image src="/images/v2/destiny/el-fire.png" alt="" width={64} height={64} unoptimized className="pointer-events-none absolute left-2 bottom-[-6px] h-14 w-14 object-contain drop-shadow" />
+        <Image src="/images/v2/destiny/el-fire.png" alt="" width={64} height={64} unoptimized className="v3-float pointer-events-none absolute left-2 bottom-[-6px] h-14 w-14 object-contain drop-shadow" />
         <button onClick={onWrite} data-testid="manifest-write" className="grid h-11 w-[220px] place-items-center rounded-full bg-v3-lime text-[15px] font-black text-v3-sapphire">
           เขียนเลยตอนนี้
         </button>
