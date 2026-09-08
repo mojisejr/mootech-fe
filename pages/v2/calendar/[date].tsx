@@ -18,6 +18,8 @@ import { useRouter } from 'next/router'
 import { SHOP_HREF } from '@/features/v2-shop/upgrade-cta'
 import { v2RedirectIfUnauthed, isV2TeamPreview } from '@/lib/v2/gate'
 import { useDayDetail, useAdvancedMode, useReminders, useReminderDraft, menuStateForDay, CalendarMenuState, type YamSlot } from '@/features/v2-calendar'
+import type { ReminderDestination } from '@/features/v2-calendar/types'
+import { googleCalendarUrl, buildIcs, downloadIcs } from '@/lib/v2/external-calendar'
 import { CalendarShell } from '@/features/v2-calendar/components/CalendarShell'
 import { DayHeader } from '@/features/v2-calendar/components/day-detail/DayHeader'
 import { DayStrip } from '@/features/v2-calendar/components/day-detail/DayStrip'
@@ -89,6 +91,10 @@ export default function V2CalendarDayPage({ teamPreview }: { teamPreview: boolea
   // (ชีทไม่เรียก hook เอง ⇒ unit test ป้อนครบ 6 สถานะได้โดยไม่ต้องมีเบราว์เซอร์)
   const notify = notifyStateFrom(usePwaCapability())
   const [guide, setGuide] = useState<InstallGuideVariant | null>(null)
+  // เพิ่มปฏิทินภายนอก (Figma 375:11286) — 3 ปลายทาง. mumate = in-app push (POST เดิม); google/apple = client-side
+  // (เปิด template URL / ดาวน์โหลด .ics · lib/v2/external-calendar) ⇒ ไม่แตะ backend. ค่าเริ่มต้นตามดีไซน์.
+  const [external, setExternal] = useState<Record<ReminderDestination, boolean>>({ mumate: true, google: true, apple: false })
+  const onToggleExternal = (d: ReminderDestination) => setExternal((s) => ({ ...s, [d]: !s[d] }))
 
   // #343 — ปุ่มรายยาม **เปิดชีทโดยติ๊กยามนั้นไว้ให้** ❌ ไม่ยิง POST ทันทีเหมือนเดิม
   //
@@ -114,6 +120,27 @@ export default function V2CalendarDayPage({ teamPreview }: { teamPreview: boolea
       const yam = detail?.yams.find((y) => y.id === yamId) // fires past the render guard (detail set); ?. narrows the earlier closure
       return { yamId, yamLabel: yam?.label ?? yamId, window: yam?.window ?? '' }
     })
+
+    // เพิ่มปฏิทินภายนอก — ยิง google/apple ในจังหวะ user gesture (ก่อน await ใดๆ) ไม่งั้น popup/download โดนบล็อก.
+    // ทั้งคู่เป็น client-side ล้วน (ไม่ผ่าน backend) จึงไม่ผูกกับผล POST ของ mumate.
+    const note = (draft.draft.note ?? '').trim()
+    const events = yams.map((y) => ({ title: note || y.yamLabel, details: `${y.yamLabel} · เวลามงคลจาก MuMate`, date, window: y.window }))
+    if (external.google) {
+      for (const ev of events) {
+        const url = googleCalendarUrl(ev)
+        if (url) window.open(url, '_blank', 'noopener,noreferrer')
+      }
+    }
+    if (external.apple) {
+      const ics = buildIcs(events)
+      if (ics) downloadIcs(ics, `mumate-${date}.ics`)
+    }
+
+    // ไม่ติ๊ก Mumate ⇒ ไม่ยิง push / ไม่ขอ permission — แค่ปิดชีทว่าเสร็จ (external ทำงานไปแล้วข้างบน)
+    if (!external.mumate) {
+      void draft.commit(async () => true)
+      return
+    }
     void saveWithNotification({
       notify,
       requestSubscription: () => requestPushSubscription(),
@@ -341,6 +368,8 @@ export default function V2CalendarDayPage({ teamPreview }: { teamPreview: boolea
           notify={notify}
           onShowGuide={setGuide}
           statusFor={statusFor}
+          external={external}
+          onToggleExternal={onToggleExternal}
         />
       )}
       {/* ชีทสอนติดตั้ง/เปิดสิทธิ์ — เปิดทับจากในชีทตั้งเตือน จึงต้องอยู่ชั้นเหนือมัน

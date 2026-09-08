@@ -19,10 +19,11 @@
 // at [date].tsx:112 (`ok = outcome.ok`) and nothing stores it, so the sheet CANNOT know which of the 5 it
 // was. It says only what it can prove. Splitting the copy per reason needs the kind carried down first
 // (#341/#343) — the sheet must never guess a cause it wasn't told.
-import type { YamSlot } from '../../types'
+import type { YamSlot, ReminderDestination } from '../../types'
 import type { UseReminderDraft } from '../../hooks/useReminderDraft'
 import type { YamReminderStatus } from '../../tier-lock'
 import { guideVariantFor, NOTIFY_REASON, type NotifyState } from '../../notify-state'
+import { ExternalCalendarSection } from './ExternalCalendarSection'
 
 // #343 — เหตุที่ติ๊กไม่ได้ ต้องเขียนไว้ข้างตัวมันเอง ❌ ไม่ใช่พึ่งสีจางให้ผู้ใช้เดาเอง
 // (สีจาง = "ทำไมกดไม่ได้" ไม่มีคำตอบ · และผู้ใช้ที่แยกสีไม่ออกไม่เห็นความต่างเลย)
@@ -58,6 +59,8 @@ export function SaveSheet({
   notify,
   onShowGuide,
   statusFor,
+  external,
+  onToggleExternal,
 }: {
   date: string
   yams: YamSlot[]
@@ -66,6 +69,9 @@ export function SaveSheet({
   /** สถานะแจ้งเตือนของเครื่อง — เพจอ่านจาก usePwaCapability() แล้วส่งลงมา (ชีทไม่เรียก hook เอง) */
   notify: NotifyState
   onShowGuide: (variant: 'install' | 'permission') => void
+  /** เพิ่มปฏิทินภายนอก — สถานะ toggle 3 ปลายทาง (เพจถือ truth · ชีทแค่วาด) */
+  external: Record<ReminderDestination, boolean>
+  onToggleExternal: (d: ReminderDestination) => void
   /** #343 — สถานะของยามนี้ · ยามที่ `past`/`added` ติ๊กไม่ได้ แต่ **ยังเห็นอยู่**
    *  🔴 นี่คือด่านที่ปิดอาการหลักของใบร่ม #340: ก่อนหน้านี้ `yams.map` วาดทุกตัวเป็น checkbox โดยไม่กรอง
    *  แต่ฝั่งเซิร์ฟเวอร์เป็น all-or-nothing (`lib/v2/reminder-plan.ts`) ⇒ ติ๊กยามที่เลยเวลาปนกับยามที่ดี
@@ -173,6 +179,10 @@ export function SaveSheet({
               })}
             </div>
           </div>
+
+          {/* เพิ่มปฏิทินภายนอก — Mumate (push) · Google · Apple. Google/Apple เป็น client-side ทั้งคู่
+              (#298 เอาออกเพราะไม่มี backend — แต่ทั้งคู่ไม่ต้องมี: เปิด template URL / ดาวน์โหลด .ics) */}
+          <ExternalCalendarSection value={external} onToggle={onToggleExternal} />
         </div>
 
         {/* sticky save — disabled via goo's canCommit (≥1 ยาม; no hand-written guard).
