@@ -10,6 +10,7 @@
 //    create only; no self-edit API is wired). Rendered per Figma; wired to a placeholder "เร็วๆ นี้" sheet so
 //    it is honest (never a dead-silent button), pending บอง's call on where self-edit lands.
 import { useRef, useState } from 'react'
+import Head from 'next/head'
 import Image from 'next/image'
 import Link from 'next/link'
 import { useRouter } from 'next/router'
@@ -441,6 +442,7 @@ export function CompatibilityScreen({ config }: { config: CompatibilityConfig })
 
   return (
     <div data-testid="compat-screen" data-matching-type={c.matchingType} className="relative min-h-screen w-full overflow-x-hidden bg-v3-bg-cream font-ibm">
+      <Head><title>{c.title} · MuMate</title></Head>
       {/* BG01 hero fading into the ground (same continuity pattern as home/service) */}
       <div aria-hidden className="pointer-events-none absolute inset-x-0 top-0 h-[365px] select-none">
         <Image src="/images/v2/bg/BG01.png" alt="" fill priority sizes="100vw" style={{ objectFit: 'cover', objectPosition: 'top center' }} />

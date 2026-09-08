@@ -15,6 +15,7 @@ import Image from 'next/image'
 import Link from 'next/link'
 import { useRouter } from 'next/router'
 import { useState } from 'react'
+import Head from 'next/head'
 import { TopBarBell } from '@/features/v2-shell/components/TopBarBell'
 import { TopBarAvatar } from '@/features/v2-shell/components/TopBarAvatar'
 import { LoadingScreen } from '@/features/v2-shell/components/LoadingScreen'
@@ -277,6 +278,7 @@ export function WorkResultScreen({ matchingId }: { matchingId: string }) {
 
   const shell = (children: React.ReactNode) => (
     <div data-testid="work-result-screen" className="relative min-h-screen w-full overflow-x-hidden bg-v3-bg-cream font-ibm">
+      <Head><title>ผลความสมพงศ์ · MuMate</title></Head>
       <ComingSoonNotice />
       <div className="mx-auto w-full max-w-[430px] pb-32">
         <header className="flex items-center gap-2 px-4 pb-6 pt-4">
