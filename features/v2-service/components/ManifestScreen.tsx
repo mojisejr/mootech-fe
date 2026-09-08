@@ -352,10 +352,13 @@ function CreateGoalModal({ onClose, onCreated }: { onClose: () => void; onCreate
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ imageBase64: dataUrl, mime }),
       })
-      const j = (await r.json().catch(() => ({}))) as { url?: string }
+      const j = (await r.json().catch(() => ({}))) as { url?: string; error?: string; code?: string }
       if (r.ok && j.url) setPhoto(j.url)
-      else setErr("อัปโหลดรูปไม่สำเร็จ")
-    } catch { setErr("อ่าน/ย่อรูปไม่สำเร็จ") } finally { setUploading(false) }
+      else if (r.status === 401) setErr("กรุณาเข้าสู่ระบบก่อน")
+      else setErr(`อัปโหลดไม่สำเร็จ (${r.status}${j.error || j.code ? `: ${j.error ?? j.code}` : ""})`)
+    } catch (e) {
+      setErr(`อ่าน/ย่อรูปไม่สำเร็จ${e instanceof Error ? `: ${e.message}` : ""}`)
+    } finally { setUploading(false) }
   }
 
   const submit = async () => {

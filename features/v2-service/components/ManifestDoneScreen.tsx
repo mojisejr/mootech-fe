@@ -8,7 +8,7 @@ import { useRouter } from "next/router"
 import { useEffect, useState } from "react"
 
 type Goal = { id: string; title: string; affirmation: string | null; createdAt?: string; status: string }
-type DonePreview = { affirmation: string; startedAt?: string; reads?: number }
+type DonePreview = { affirmation: string; startedAt?: string; reads?: number; balance?: number }
 
 function thaiDate(iso?: string): string {
   if (!iso) return "-"
@@ -21,18 +21,21 @@ export function ManifestDoneScreen({ previewData }: { previewData?: DonePreview 
   const [affirmation, setAffirmation] = useState(previewData?.affirmation ?? "")
   const [startedAt, setStartedAt] = useState<string | undefined>(previewData?.startedAt)
   const [reads, setReads] = useState<number>(previewData?.reads ?? 0)
+  const [balance, setBalance] = useState<number | null>(previewData?.balance ?? null)
 
   useEffect(() => {
     if (previewData) return
     void (async () => {
       try {
-        const [gj, ej] = await Promise.all([
+        const [gj, ej, wj] = await Promise.all([
           fetch("/api/v2/manifest/goals").then((x) => (x.ok ? x.json() : null)).catch(() => null),
           fetch("/api/v2/manifest/entry").then((x) => (x.ok ? x.json() : null)).catch(() => null),
+          fetch("/api/qi-wallet").then((x) => (x.ok ? x.json() : null)).catch(() => null),
         ])
         const g = (gj?.goals ?? []).find((x: Goal) => x.id === id)
         if (g) { setAffirmation(g.affirmation || g.title); setStartedAt(g.createdAt) }
         setReads(Array.isArray(ej?.entries) ? ej.entries.length : 0)
+        if (typeof wj?.qi === "number") setBalance(wj.qi)
       } catch { /* ignore */ }
     })()
   }, [previewData, id])
@@ -66,6 +69,9 @@ export function ManifestDoneScreen({ previewData }: { previewData?: DonePreview 
       </div>
 
       <div className="fixed inset-x-0 bottom-0 z-30 mx-auto w-full max-w-md px-4 py-3">
+        <p className="mb-3 rounded-[12px] bg-[#eef7f0] px-4 py-2.5 text-center text-[13px] font-bold text-[#3E9B4A]">
+          <span className="text-[15px]">+5 QI</span> เข้ากระเป๋าแล้ว{typeof balance === "number" ? ` · ยอดรวม ${balance.toLocaleString("th-TH")} QI` : ""}
+        </p>
         <Link href="/v2/service/manifest" className="grid h-12 w-full place-items-center rounded-full bg-v3-sapphire text-[15px] font-black text-white">กลับสู่สมุด</Link>
       </div>
     </div>
