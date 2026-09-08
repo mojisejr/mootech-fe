@@ -14,8 +14,34 @@ import { TopBarAvatar } from "@/features/v2-shell/components/TopBarAvatar"
 
 type Task = { id: string; title: string; targetCount: number; isDaily: boolean; doneCount: number }
 type Goal = {
-  id: string; title: string; affirmation: string | null; imageUrl: string | null
+  id: string; title: string; affirmation: string | null; imageUrl: string | null; category?: string | null
   status: string; tasks: Task[]; progress: { done: number; target: number; percent: number }
+}
+
+// ย่อรูปฝั่ง client (canvas) ก่อนอัปโหลด → dataURL jpeg (คุมขนาดไฟล์ที่เก็บใน storage)
+function resizeImage(file: File, maxEdge = 1080, quality = 0.82): Promise<{ dataUrl: string; mime: string }> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onerror = () => reject(new Error("read failed"))
+    reader.onload = () => {
+      const img = new window.Image()
+      img.onerror = () => reject(new Error("decode failed"))
+      img.onload = () => {
+        const scale = Math.min(1, maxEdge / Math.max(img.width, img.height))
+        const w = Math.round(img.width * scale)
+        const h = Math.round(img.height * scale)
+        const canvas = document.createElement("canvas")
+        canvas.width = w
+        canvas.height = h
+        const ctx = canvas.getContext("2d")
+        if (!ctx) return reject(new Error("no canvas"))
+        ctx.drawImage(img, 0, 0, w, h)
+        resolve({ dataUrl: canvas.toDataURL("image/jpeg", quality), mime: "image/jpeg" })
+      }
+      img.src = String(reader.result ?? "")
+    }
+    reader.readAsDataURL(file)
+  })
 }
 type ElementInfo = { elementTh: string; dayGanzhi?: string } | null
 type ManifestPreview = { goals?: Goal[]; element?: ElementInfo }
@@ -51,7 +77,6 @@ function MonthMascot({ ganzhi, elementTh }: { ganzhi?: string; elementTh: string
   return <Image src={src} alt="" width={56} height={56} unoptimized className="h-14 w-14 flex-none object-contain" />
 }
 
-const CARD = "v3-shadow-card w-full rounded-[24px] bg-white p-5"
 const MAX_GOALS = 5
 
 const ELEMENT_MASCOT: Record<string, string> = {
@@ -69,19 +94,6 @@ const ELEMENT_FAVORED: Record<string, string[]> = {
   ดิน: ["การเงิน", "สุขภาพ"],
   ทอง: ["การเงิน", "การงาน"],
   น้ำ: ["การเรียนรู้", "ความรัก"],
-}
-
-function todayBangkok(): string {
-  return new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Bangkok", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date())
-}
-function readCheckedToday(): Set<string> {
-  try {
-    const raw = JSON.parse(localStorage.getItem("mumate-manifest-checked") || "{}") as { date?: string; ids?: string[] }
-    return raw.date === todayBangkok() ? new Set(raw.ids ?? []) : new Set()
-  } catch { return new Set() }
-}
-function writeCheckedToday(ids: Set<string>) {
-  try { localStorage.setItem("mumate-manifest-checked", JSON.stringify({ date: todayBangkok(), ids: Array.from(ids) })) } catch { /* ignore */ }
 }
 
 // การ์ดฮีโร่ onboarding (Figma) — 3 ขั้น + ปุ่มเขียน + มาสคอต
@@ -162,11 +174,49 @@ function ElementInsightCard({ element }: { element: ElementInfo }) {
   )
 }
 
+// ตั้งเวลาแมนิเฟสต์ (07:00 + แจ้งเตือนทุกวัน) — เก็บค่าไว้ local + ขอสิทธิ์แจ้งเตือน
+// TODO(push): ต่อ schedule จริงกับ calendar push infra (kind=manifest) — pass ถัดไป
+function ReminderCard() {
+  const [time, setTime] = useState("07:00")
+  const [on, setOn] = useState(false)
+  useEffect(() => {
+    try {
+      const raw = JSON.parse(localStorage.getItem("mumate-manifest-reminder") || "{}") as { time?: string; on?: boolean }
+      if (raw.time) setTime(raw.time)
+      if (typeof raw.on === "boolean") setOn(raw.on)
+    } catch { /* ignore */ }
+  }, [])
+  const persist = (t: string, o: boolean) => {
+    try { localStorage.setItem("mumate-manifest-reminder", JSON.stringify({ time: t, on: o })) } catch { /* ignore */ }
+  }
+  const toggle = async () => {
+    const next = !on
+    setOn(next); persist(time, next)
+    if (next && typeof window !== "undefined" && "Notification" in window && Notification.permission === "default") {
+      try { await Notification.requestPermission() } catch { /* ignore */ }
+    }
+  }
+  return (
+    <section className="rounded-[24px] bg-white p-5 v3-shadow-card" data-testid="manifest-reminder">
+      <p className="text-[16px] font-bold text-v3-navy">ตั้งเวลาแมนิเฟสต์</p>
+      <p className="mt-1 text-[12px] leading-4 text-v3-text-muted">คนที่ตั้งเวลาอ่านต่อเนื่องได้นานกว่าถึง 3 เท่า</p>
+      <div className="mt-3 flex items-center justify-between rounded-[16px] bg-v3-ghost-white px-4 py-3">
+        <div>
+          <input type="time" value={time} onChange={(e) => { setTime(e.target.value); persist(e.target.value, on) }} className="bg-transparent text-[20px] font-black text-v3-navy outline-none" data-testid="manifest-reminder-time" />
+          <p className="text-[11px] text-v3-text-muted">แจ้งเตือนทุกวัน</p>
+        </div>
+        <button type="button" role="switch" aria-checked={on} onClick={() => void toggle()} data-testid="manifest-reminder-toggle" className={`relative h-7 w-12 flex-none rounded-full transition ${on ? "bg-v3-cyan" : "bg-v3-border-card"}`}>
+          <span className={`absolute top-0.5 size-6 rounded-full bg-white transition-all ${on ? "left-[22px]" : "left-0.5"}`} />
+        </button>
+      </div>
+    </section>
+  )
+}
+
 export function ManifestScreen({ previewData }: { previewData?: ManifestPreview } = {}) {
   const [goals, setGoals] = useState<Goal[]>(previewData?.goals ?? [])
   const [element, setElement] = useState<ElementInfo>(previewData?.element ?? null)
   const [loading, setLoading] = useState(!previewData)
-  const [checkedToday, setCheckedToday] = useState<Set<string>>(new Set())
   const [creating, setCreating] = useState(false)
 
   const load = useCallback(async () => {
@@ -190,27 +240,9 @@ export function ManifestScreen({ previewData }: { previewData?: ManifestPreview 
     } catch { /* ธาตุเป็น optional — ไม่มีก็ยังใช้ค่า default ได้ */ }
   }, [])
 
-  useEffect(() => { if (previewData) return; setCheckedToday(readCheckedToday()); void load() }, [load, previewData])
+  useEffect(() => { if (previewData) return; void load() }, [load, previewData])
 
   const activeCount = goals.filter((g) => g.status === "active").length
-
-  const toggleTask = async (goalId: string, task: Task) => {
-    const wasDone = checkedToday.has(task.id)
-    const next = new Set(checkedToday)
-    if (wasDone) next.delete(task.id); else next.add(task.id)
-    setCheckedToday(next); writeCheckedToday(next)
-    setGoals((gs) => gs.map((g) => {
-      if (g.id !== goalId) return g
-      const tasks = g.tasks.map((t) => t.id === task.id ? { ...t, doneCount: Math.max(0, Math.min(t.targetCount, t.doneCount + (wasDone ? -1 : 1))) } : t)
-      const done = tasks.reduce((s, t) => s + t.doneCount, 0)
-      const target = tasks.reduce((s, t) => s + t.targetCount, 0)
-      return { ...g, tasks, progress: { done, target, percent: target ? Math.round((done / target) * 100) : 0 } }
-    }))
-    await fetch("/api/v2/manifest/checkin", {
-      method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ taskId: task.id, done: !wasDone }),
-    }).catch(() => {})
-  }
 
   const deleteGoal = async (id: string) => {
     setGoals((gs) => gs.filter((g) => g.id !== id))
@@ -237,50 +269,47 @@ export function ManifestScreen({ previewData }: { previewData?: ManifestPreview 
           ) : goals.length === 0 ? (
             <OnboardingHero onWrite={() => setCreating(true)} />
           ) : (
-            <>
-              <section className="flex flex-col gap-3" data-testid="manifest-list">
+            <section className="relative overflow-hidden rounded-[24px] bg-v3-sapphire px-4 pb-5 pt-6 text-white" data-testid="manifest-list">
+              <div className="text-center">
+                <h2 className="text-[18px] font-black leading-6">สมุดแมนิเฟสต์ของคุณ</h2>
+                <p className="mx-auto mt-1 max-w-[300px] text-[12px] leading-[18px] text-white/90">
+                  เขียนสิ่งที่อยากให้เกิดขึ้นเป็นประโยคที่เกิดขึ้นแล้ว แล้วกลับมาอ่านทุกวันจนจิตคุ้นชินกับภาพนั้น
+                </p>
+              </div>
+              <div className="mt-4 flex flex-col gap-3">
                 {goals.map((g) => (
-                  <article key={g.id} className={CARD} data-testid="manifest-goal">
-                    <div className="flex items-start justify-between gap-2">
-                      <p className="text-[16px] font-black leading-6 text-v3-navy">{g.title}</p>
-                      <button type="button" onClick={() => void deleteGoal(g.id)} aria-label="ลบเป้าหมาย" data-testid="manifest-delete" className="flex-none text-[12px] text-v3-text-muted">ลบ</button>
+                  <article key={g.id} className="overflow-hidden rounded-[16px] bg-white text-v3-navy" data-testid="manifest-goal">
+                    {g.imageUrl ? (
+                      <span className="block h-[150px] w-full overflow-hidden">
+                        <Image src={g.imageUrl} alt="" width={480} height={300} unoptimized className="h-full w-full object-cover" />
+                      </span>
+                    ) : null}
+                    <div className="flex items-start gap-2 p-3">
+                      <div className="min-w-0 flex-1">
+                        {g.category ? <span className="inline-block rounded-full bg-[#3E9B4A] px-2 py-0.5 text-[11px] font-semibold text-white">{g.category}</span> : null}
+                        <p className="mt-1 text-[14px] font-bold leading-5">{g.affirmation || g.title}</p>
+                      </div>
+                      <button type="button" onClick={() => void deleteGoal(g.id)} aria-label="ลบความปรารถนา" data-testid="manifest-delete" className="flex-none text-[12px] text-v3-text-muted">ลบ</button>
                     </div>
-                    {g.affirmation ? <p className="mt-1 rounded-[12px] bg-[#F3EEFF] px-3 py-2 text-[13px] leading-5 text-[#6B4FA0]">“{g.affirmation}”</p> : null}
-                    <div className="mt-3">
-                      <div className="mb-1 flex items-center justify-between text-[11px] text-v3-text-muted">
-                        <span>ความคืบหน้า</span><span>{g.progress.percent}%</span>
-                      </div>
-                      <div className="h-2 w-full overflow-hidden rounded-full bg-v3-ghost-white">
-                        <div className="h-full rounded-full bg-v3-sapphire transition-all" style={{ width: `${g.progress.percent}%` }} />
-                      </div>
-                    </div>
-                    {g.tasks.length ? (
-                      <div className="mt-3 flex flex-col gap-2">
-                        {g.tasks.map((t) => {
-                          const done = checkedToday.has(t.id)
-                          return (
-                            <button key={t.id} type="button" onClick={() => void toggleTask(g.id, t)} data-testid="manifest-task" className="flex items-center gap-3 rounded-[12px] border border-v3-border-card bg-white px-3 py-2 text-left">
-                              <span className={"grid size-6 flex-none place-items-center rounded-full border-2 " + (done ? "border-transparent bg-[#3E9B4A] text-white" : "border-v3-border-card text-transparent")}>✓</span>
-                              <span className="min-w-0 flex-1">
-                                <span className={"block text-[13px] font-bold " + (done ? "text-v3-text-muted line-through" : "text-v3-navy")}>{t.title}</span>
-                                <span className="block text-[11px] text-v3-text-muted">{t.isDaily ? "ทำทุกวัน" : "ครั้งเดียว"} · {t.doneCount}/{t.targetCount}</span>
-                              </span>
-                            </button>
-                          )
-                        })}
-                      </div>
-                    ) : <p className="mt-2 text-[12px] text-v3-text-muted">ยังไม่มีภารกิจในเป้าหมายนี้</p>}
                   </article>
                 ))}
-              </section>
+              </div>
               {activeCount < MAX_GOALS ? (
-                <KitButton variant="outline" onClick={() => setCreating(true)} testId="manifest-add">+ เขียนแมนิเฟสต์ใหม่</KitButton>
-              ) : <p className="text-center text-[12px] text-v3-text-muted">เขียนครบ {MAX_GOALS} ข้อแล้ว โฟกัสให้สำเร็จก่อนนะ</p>}
-            </>
+                <button onClick={() => setCreating(true)} data-testid="manifest-add" className="mt-4 grid h-11 w-full place-items-center rounded-full bg-v3-lime text-[15px] font-black text-v3-sapphire">เพิ่มความปรารถนา</button>
+              ) : <p className="mt-3 text-center text-[12px] text-white/80">เขียนครบ {MAX_GOALS} ข้อแล้ว โฟกัสให้สำเร็จก่อนนะ</p>}
+            </section>
           )}
 
           {/* การ์ดธาตุประจำเดือน */}
           {!loading && <ElementInsightCard element={element} />}
+
+          {/* ตั้งเวลาแมนิเฟสต์ */}
+          {!loading && <ReminderCard />}
+
+          {/* ปุ่มล่าง — เพิ่มความปรารถนา (เมื่อยังไม่ครบ 5) */}
+          {!loading && goals.length > 0 && activeCount < MAX_GOALS && (
+            <KitButton onClick={() => setCreating(true)} testId="manifest-add-bottom">+ เพิ่มความปรารถนาของคุณ</KitButton>
+          )}
         </div>
       </div>
 
@@ -290,61 +319,89 @@ export function ManifestScreen({ previewData }: { previewData?: ManifestPreview 
   )
 }
 
+// "เพิ่มความปรารถนา" — เขียนประโยค (เกิดขึ้นแล้ว) + เลือกหมวด + แนบรูป (ย่อ+อัปโหลด → URL)
 function CreateGoalModal({ onClose, onCreated }: { onClose: () => void; onCreated: () => void }) {
-  const [title, setTitle] = useState("")
-  const [affirmation, setAffirmation] = useState("")
-  const [tasks, setTasks] = useState<string[]>([""])
+  const [text, setText] = useState("")
+  const [category, setCategory] = useState<string>(CATEGORIES[0])
+  const [photo, setPhoto] = useState<string | null>(null)
+  const [uploading, setUploading] = useState(false)
   const [saving, setSaving] = useState(false)
   const [err, setErr] = useState<string | null>(null)
 
+  const onPick = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    e.target.value = ""
+    if (!file) return
+    setUploading(true); setErr(null)
+    try {
+      const { dataUrl, mime } = await resizeImage(file)
+      const r = await fetch("/api/v2/manifest/photo", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ imageBase64: dataUrl, mime }),
+      })
+      const j = (await r.json().catch(() => ({}))) as { url?: string }
+      if (r.ok && j.url) setPhoto(j.url)
+      else setErr("อัปโหลดรูปไม่สำเร็จ")
+    } catch { setErr("อ่าน/ย่อรูปไม่สำเร็จ") } finally { setUploading(false) }
+  }
+
   const submit = async () => {
-    if (!title.trim()) { setErr("ใส่ชื่อเป้าหมายก่อนนะ"); return }
+    if (!text.trim()) { setErr("เขียนความปรารถนาก่อนนะ"); return }
     setSaving(true); setErr(null)
     try {
       const res = await fetch("/api/v2/manifest/goals", {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          title: title.trim(),
-          affirmation: affirmation.trim() || undefined,
-          tasks: tasks.map((t) => t.trim()).filter(Boolean).map((t) => ({ title: t, targetCount: 30, isDaily: true })),
+          title: text.trim().slice(0, 120),
+          affirmation: text.trim(),
+          category,
+          imageUrl: photo ?? undefined,
         }),
       })
       if (res.ok) { onCreated(); return }
       const j = await res.json().catch(() => ({}))
-      setErr(res.status === 409 ? String(j.error ?? "มีเป้าหมายครบแล้ว") : "สร้างไม่สำเร็จ")
+      setErr(res.status === 409 ? String(j.error ?? "มีความปรารถนาครบ 5 ข้อแล้ว") : "บันทึกไม่สำเร็จ")
     } finally { setSaving(false) }
   }
 
-  const INPUT = "h-11 w-full rounded-[14px] border border-v3-border-input bg-white px-3 text-[14px] outline-none focus:border-v3-navy"
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/45 sm:items-center sm:p-4" onClick={onClose} data-testid="manifest-create">
       <div className="max-h-[90vh] w-full max-w-md overflow-y-auto rounded-t-[24px] bg-white p-5 sm:rounded-[24px]" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between">
-          <h2 className="text-[18px] font-black text-v3-navy">เขียนแมนิเฟสต์</h2>
+          <h2 className="text-[18px] font-black text-v3-navy">เพิ่มความปรารถนา</h2>
           <button type="button" onClick={onClose} className="text-[16px] font-bold text-v3-text-muted">✕</button>
         </div>
+
         <label className="mt-3 block">
-          <span className="text-[13px] font-bold text-v3-navy">เป้าหมาย</span>
-          <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="เช่น มีเงินเก็บ 1 แสน" data-testid="manifest-title" className={INPUT + " mt-1"} />
+          <span className="text-[13px] font-bold text-v3-navy">เขียนเป็นประโยคที่เกิดขึ้นแล้ว</span>
+          <textarea value={text} onChange={(e) => setText(e.target.value)} rows={2} placeholder="เช่น ฉันได้งานที่ใช่ และมีทีมที่เข้าใจกัน" data-testid="manifest-title" className="mt-1 w-full rounded-[14px] border border-v3-border-input bg-white p-3 text-[14px] outline-none focus:border-v3-navy" />
         </label>
-        <label className="mt-3 block">
-          <span className="text-[13px] font-bold text-v3-navy">คำยืนยัน (affirmation)</span>
-          <textarea value={affirmation} onChange={(e) => setAffirmation(e.target.value)} rows={2} placeholder="เช่น ฉันเป็นคนที่เงินไหลมาหาเสมอ" className="mt-1 w-full rounded-[14px] border border-v3-border-input bg-white p-3 text-[14px] outline-none focus:border-v3-navy" />
-        </label>
+
         <div className="mt-3">
-          <span className="text-[13px] font-bold text-v3-navy">ภารกิจรายวัน</span>
-          <div className="mt-1 flex flex-col gap-2">
-            {tasks.map((t, i) => (
-              <div key={i} className="flex items-center gap-2">
-                <input value={t} onChange={(e) => setTasks((xs) => xs.map((x, j) => (j === i ? e.target.value : x)))} placeholder={`ภารกิจที่ ${i + 1} เช่น เก็บเงินวันละ 50 บาท`} data-testid="manifest-task-input" className={INPUT} />
-                {tasks.length > 1 ? <button type="button" onClick={() => setTasks((xs) => xs.filter((_, j) => j !== i))} className="flex-none text-[13px] text-v3-text-muted">ลบ</button> : null}
-              </div>
+          <span className="text-[13px] font-bold text-v3-navy">หมวด</span>
+          <div className="mt-1 flex flex-wrap gap-2">
+            {CATEGORIES.map((c) => (
+              <button key={c} type="button" onClick={() => setCategory(c)} className={`rounded-full px-3 py-1.5 text-[12px] font-semibold ${category === c ? "bg-[#3E9B4A] text-white" : "border border-[#3E9B4A]/40 text-[#3E9B4A]"}`}>{c}</button>
             ))}
-            {tasks.length < 5 ? <button type="button" onClick={() => setTasks((xs) => [...xs, ""])} className="w-fit text-[13px] font-bold text-v3-cyan">+ เพิ่มภารกิจ</button> : null}
           </div>
         </div>
+
+        <div className="mt-3">
+          <span className="text-[13px] font-bold text-v3-navy">รูปภาพ (ไม่บังคับ)</span>
+          <label className="mt-1 flex h-40 cursor-pointer items-center justify-center overflow-hidden rounded-[16px] border border-dashed border-v3-border-input bg-v3-ghost-white" data-testid="manifest-photo-pick">
+            <input type="file" accept="image/*" className="hidden" onChange={onPick} />
+            {uploading ? (
+              <span className="text-[13px] text-v3-text-muted">กำลังอัปโหลด…</span>
+            ) : photo ? (
+              <Image src={photo} alt="" width={400} height={160} unoptimized className="h-full w-full object-cover" />
+            ) : (
+              <span className="text-[13px] text-v3-text-muted">+ แตะเพื่อเลือกรูป</span>
+            )}
+          </label>
+        </div>
+
         {err ? <p className="mt-3 text-[12px] font-bold text-v3-error" data-testid="manifest-create-err">{err}</p> : null}
-        <div className="mt-4"><KitButton onClick={() => void submit()} disabled={saving} testId="manifest-create-submit">{saving ? "กำลังบันทึก..." : "บันทึกแมนิเฟสต์"}</KitButton></div>
+        <div className="mt-4"><KitButton onClick={() => void submit()} disabled={saving || uploading} testId="manifest-create-submit">{saving ? "กำลังบันทึก..." : "บันทึกความปรารถนา"}</KitButton></div>
       </div>
     </div>
   )
