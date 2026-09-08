@@ -106,7 +106,7 @@ function OnboardingHero({ onWrite }: { onWrite: () => void }) {
           <Image src={`/images/v2/destiny/${m.el}.png`} alt="" width={40} height={40} unoptimized className="h-full w-full object-contain drop-shadow" />
         </span>
       ))}
-      <Image src="/images/v2/features/manifest/hero.png" alt="" width={110} height={96} unoptimized className="v3-float pointer-events-none absolute right-2 top-2 h-24 w-auto object-contain" />
+      <Image src="/images/v2/mascot/01-nav.png" alt="" width={96} height={114} unoptimized className="v3-float pointer-events-none absolute right-2 top-1 h-24 w-auto object-contain" />
       <div className="relative text-center">
         <h1 className="text-[20px] font-black leading-7">สมุดแมนิเฟสต์<br />ของคุณรอภาพแรกอยู่</h1>
         <p className="mx-auto mt-2 max-w-[300px] text-[12px] leading-[18px] text-white/90">
