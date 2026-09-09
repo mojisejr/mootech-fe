@@ -68,12 +68,30 @@ export type ChargeEvent = {
   orderId: string | null
   paid: boolean
   status: string
+  /**
+   * 🔴 #484 slice 6 — ON A REFUND EVENT THE `data` OBJECT IS THE REFUND, NOT THE CHARGE. `data.id` is the
+   * refund's own id (`rfnd_…`) and `data.status` is the refund's lifecycle word (`closed`), so every field
+   * above is about the wrong object and no predicate that reads them can be right. `data.charge` is the
+   * ONLY field carrying the charge id, and it was never read — one of the two reasons a real refund on
+   * production took nothing back on 2026-09-09.
+   * Null on every charge event.
+   */
+  refundOfChargeId: string | null
+  /** Satang returned by this refund, from `data.amount`. Null on every charge event. */
+  refundSatang: number | null
 }
 
 export function parseChargeEvent(rawBody: Buffer): ChargeEvent {
   const evt = JSON.parse(rawBody.toString('utf8')) as {
     key?: unknown
-    data?: { id?: unknown; paid?: unknown; status?: unknown; metadata?: { orderId?: unknown } }
+    data?: {
+      id?: unknown
+      paid?: unknown
+      status?: unknown
+      charge?: unknown
+      amount?: unknown
+      metadata?: { orderId?: unknown }
+    }
   }
   const data = evt?.data ?? {}
   // 🔴 #371 — orderId was being thrown away on every single delivery. We attach it to EVERY charge we
@@ -88,6 +106,11 @@ export function parseChargeEvent(rawBody: Buffer): ChargeEvent {
     orderId: typeof meta.orderId === 'string' && meta.orderId.trim() !== '' ? meta.orderId.trim() : null,
     paid: data.paid === true,
     status: typeof data.status === 'string' ? data.status : '',
+    // Read unconditionally rather than only for `refund.*` keys: a charge event never carries `charge` or a
+    // top-level `amount` shaped like this, and reading without branching means a future refund event key we
+    // have not seen still arrives with its charge id attached instead of silently losing it.
+    refundOfChargeId: typeof data.charge === 'string' && data.charge !== '' ? data.charge : null,
+    refundSatang: typeof data.amount === 'number' && Number.isFinite(data.amount) ? data.amount : null,
   }
 }
 
@@ -121,6 +144,31 @@ export function isTerminalFailure(evt: ChargeEvent): boolean {
 // `expired` never granted anything, so there is nothing for them to take back.
 export function isReversal(evt: ChargeEvent): boolean {
   return evt.status === 'reversed' && !!evt.chargeId
+}
+
+// 🔴 #484 slice 6 — THE EVENT #484 WAS ACTUALLY ABOUT, which its code never handled.
+//
+// Omise sends TWO different things and they are not the same event:
+//   charge.reverse   an AUTHORIZATION was released before capture ⇒ the charge's own status becomes
+//                    'reversed' ⇒ isReversal above, which is correct for it and is left alone
+//   refund.create    money that was captured went BACK ⇒ the charge stays 'successful' forever, with the
+//                    refund nested inside it ⇒ nothing above can ever see it
+//
+// #484's ticket was written about the second and its implementation shipped the first. The ticket said so
+// itself, under a heading called "What I could NOT establish": whether Omise ever sends `reversed` for our
+// charges was never checked, and it asked for somebody to check before deciding how hard to work on it.
+// Nobody did for two weeks, and the answer — measured with a real 35 baht refund on production on
+// 2026-09-09 — is that it does not. The charge read back `successful` and nothing on our side moved.
+//
+// It stayed invisible because revokeByChargeId is reachable only from the webhook route, and until
+// 19:27 on 2026-09-09 no webhook had ever been ACCEPTED by this endpoint in any mode (see webhook-verify).
+// The signature defect was hiding this one.
+//
+// Prefix rather than an exact `refund.create`: Omise lists only that key today, and tolerating a sibling
+// costs nothing because revokeByChargeId is idempotent — it returns early once failure_code is already the
+// reversed code, which scripts/reversal-revoke-db.test.ts covers as "a second delivery changes nothing".
+export function isRefund(evt: ChargeEvent): boolean {
+  return evt.key.startsWith('refund.') && !!evt.refundOfChargeId && evt.refundSatang !== null
 }
 
 // 🔴 #437 — the SAME question asked of a charge we just created, instead of an event that arrived later.

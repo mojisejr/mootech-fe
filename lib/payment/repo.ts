@@ -214,10 +214,19 @@ export async function abandonByChargeId(
 //                        not thrown away with it.
 // If prev_member_expire_at is NULL the row predates 0012: the v2 lane is still revoked, and the shadow is
 // left ALONE and logged loudly. Guessing a date there would silently shorten a membership someone paid for.
+// 🔴 #484 slice 6 — `refundedSatang` GATES THE WHOLE THING ON A FULL REFUND.
+// The owner's decision of 2026-09-09: a full refund revokes, anything less revokes nothing and says so.
+// This is NOT partial-refund support — the product cannot issue one, and nothing here lets it. It is the
+// one comparison that stops a mistyped smaller number from taking a paid month away from somebody.
+// The figure to compare against is already on the row: amount_satang, written when the charge was created,
+// and read inside this same transaction — so deciding fullness asks Omise for nothing.
+// Pass `undefined` (a charge.reverse, which returns the whole authorization) and no gate is applied, which
+// is why #484's original branch is untouched by this change.
 export async function revokeByChargeId(
   chargeId: string,
+  opts: { refundedSatang?: number | null } = {},
   db: Db = defaultDb,
-): Promise<{ revoked: boolean; shadowHandled: 'RESTORED' | 'CLEARED' | 'NEEDS_HUMAN' | 'NONE' }> {
+): Promise<{ revoked: boolean; shadowHandled: 'RESTORED' | 'CLEARED' | 'NEEDS_HUMAN' | 'NONE'; partial?: true }> {
   return db.transaction(async (tx) => {
     const [pay] = await tx
       .select({
@@ -227,6 +236,7 @@ export async function revokeByChargeId(
         failureCode: v2Payment.failureCode,
         prevMemberExpireAt: v2Payment.prevMemberExpireAt,
         tierCode: v2Payment.tierCode,
+        amountSatang: v2Payment.amountSatang,
       })
       .from(v2Payment)
       .where(eq(v2Payment.chargeId, chargeId))
@@ -237,6 +247,16 @@ export async function revokeByChargeId(
     // Already done. Re-delivery of the same reversal must not run the shadow restore a second time, or a
     // purchase made between the two deliveries would be undone by the second one.
     if (pay.failureCode === REVERSED_CODE) return { revoked: false, shadowHandled: 'NONE' }
+
+    // 🔴 Partial refund: change NOTHING — not the entitlement and not failure_code. Writing the reversed
+    // code here would make the row read "this payment came back" when most of the money did not, and the
+    // early return above would then refuse the FULL refund if one followed. Answering `partial` lets the
+    // caller log it for a human, which is the same shape as NEEDS_HUMAN below: when we cannot decide
+    // safely, say so loudly rather than guess.
+    const refunded = opts.refundedSatang
+    if (typeof refunded === 'number' && refunded < pay.amountSatang) {
+      return { revoked: false, shadowHandled: 'NONE', partial: true }
+    }
 
     await tx.update(v2Payment).set({ failureCode: REVERSED_CODE }).where(eq(v2Payment.id, pay.id))
 

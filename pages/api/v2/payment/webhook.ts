@@ -7,7 +7,7 @@
 // signature"). We read the raw stream ourselves.
 import type { NextApiRequest, NextApiResponse } from 'next'
 import { omiseGateway } from '@/lib/payment/omise-gateway'
-import { parseChargeEvent, isSettleable, isTerminalFailure, isReversal } from '@/lib/payment/gateway'
+import { parseChargeEvent, isSettleable, isTerminalFailure, isReversal, isRefund } from '@/lib/payment/gateway'
 import { settleAndProvision, abandonByChargeId, revokeByChargeId } from '@/lib/payment/repo'
 import { describeSignatureHeader } from '@/lib/payment/webhook-verify'
 
@@ -92,12 +92,53 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
     // The discount hold still has to come off, exactly as any other terminal end (#372 ③ layer 2).
     await abandonByChargeId(evt.chargeId!)
+  } else if (isRefund(evt)) {
+    // 🔴 #484 slice 6 — THE BRANCH THAT WAS MISSING, and whose absence let a real refund on production take
+    // nothing back on 2026-09-09. A refund arrives as `refund.create` carrying the REFUND object, so the
+    // charge id is on `data.charge` and every predicate above reads the wrong fields: `status` is the
+    // refund's `closed`, never `reversed`, so isReversal cannot fire; `paid` is absent, so isTerminalFailure
+    // sees a status it does not recognise and correctly does nothing.
+    //
+    // The revoke itself is unchanged and already trustworthy — revokeByChargeId carries twelve
+    // database-backed tests. What was broken is the pipe to it, not the machinery behind it.
+    const chargeId = evt.refundOfChargeId!
+    const { revoked, shadowHandled, partial } = await revokeByChargeId(chargeId, { refundedSatang: evt.refundSatang })
+    if (partial) {
+      // Nothing was changed, deliberately. The product cannot issue a partial refund, so one arriving means
+      // a human typed a smaller number in the dashboard — and taking a whole paid month away over that would
+      // be worse than doing nothing. Loud, because doing nothing silently is what this ticket exists to end.
+      console.warn(
+        `[v2/payment/webhook] 🔴 PARTIAL REFUND — charge=${chargeId} refunded=${evt.refundSatang} satang, ` +
+          `which is less than the charge. NOTHING was revoked and the entitlement still stands. If this ` +
+          `refund was meant to end the membership, it has to be completed or handled by hand.`,
+      )
+    } else if (revoked && shadowHandled === 'NEEDS_HUMAN') {
+      console.warn(`[v2/payment/webhook] #484 refund handled, member_payment left for a human — charge=${chargeId}`)
+    } else if (!revoked) {
+      // Not ours, already reversed, or never APPROVED. Named rather than silent: a refund we cannot act on
+      // is exactly the case somebody will be looking for in this log later.
+      console.warn(`[v2/payment/webhook] refund changed nothing — charge=${chargeId}. Not ours, not APPROVED, or already reversed.`)
+    }
+    // Same as every other terminal end: the discount hold comes off (#372 ③ layer 2).
+    await abandonByChargeId(chargeId)
   } else if (isTerminalFailure(evt) && evt.chargeId) {
     // 🔴 The charge ENDED without succeeding (failed/expired/reversed) ⇒ free its discount hold now instead
     // of waiting for the quote to expire (#372 ③ layer 2). An event that is merely not-finished-yet
     // (pending, or anything we don't recognise) falls through and changes nothing — releasing a slot that
     // can still be paid would let one code be spent twice.
     await abandonByChargeId(evt.chargeId)
+  } else {
+    // 🔴 #484 slice 6 — AN ACCEPTED DELIVERY THAT MATCHES NOTHING IS NO LONGER SILENT.
+    // Before this line, a webhook that was received, understood as no-action and answered 200 was
+    // indistinguishable from one that never arrived. That is the shape that hid the refund defect for two
+    // weeks: the only way to find it was to poll the database for five minutes and then read the charge back
+    // from Omise. One line would have said it. No PII — the event key, the ids we already log elsewhere, and
+    // the status word.
+    console.info(
+      `[v2/payment/webhook] no branch matched — key=${evt.key || '(none)'} status=${evt.status || '(none)'} ` +
+        `charge=${evt.chargeId ?? '(none)'} refundOf=${evt.refundOfChargeId ?? '(none)'} paid=${evt.paid}. ` +
+        `Accepted and no action taken.`,
+    )
   }
 
   return res.status(200).json({ received: true })
