@@ -6,7 +6,7 @@ import type { NextApiRequest, NextApiResponse } from 'next'
 import { eq } from 'drizzle-orm'
 import { db } from '@/lib/db'
 import { dashboardUsers } from '@/lib/db/schema'
-import { opsCookieHeader } from '@/lib/ops/gate'
+import { opsCookieHeader, opsUserCookieHeader } from '@/lib/ops/gate'
 
 function redirectWithError(res: NextApiResponse, reason: string) {
   res.writeHead(303, { Location: `/ops?gate_error=${encodeURIComponent(reason)}` })
@@ -65,7 +65,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   await notifyDiscord(user.name)
 
-  res.setHeader('Set-Cookie', opsCookieHeader(key))
+  res.setHeader('Set-Cookie', [opsCookieHeader(key), opsUserCookieHeader(userId)])
   res.writeHead(303, { Location: '/ops' })
   res.end()
 }

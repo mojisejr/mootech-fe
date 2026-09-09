@@ -97,7 +97,7 @@ describe('quotePackage — เลนแพ็กชี่ (tierCode QI)', () => 
     const q = quotePackage(pack('QI_200', 59))
     expect(q.tierCode).toBe('QI')
     expect(q.amountSatang).toBe(5900)
-    expect(qiQtyOf('QI_1200')).toBe(1200)
+    expect(qiQtyOf('QI_1200')).toBe(2100)
   })
 
   it('แพ็ก QI ที่ไม่รู้จัก THROWS — เงินห้ามวิ่งก่อนรู้ว่าขายอะไร', () => {
@@ -109,7 +109,7 @@ describe('quotePackage — เลนแพ็กชี่ (tierCode QI)', () => 
   })
 
   it('qiQtyOf — ไม่รู้จัก = null ไม่ใช่ 0 (0 ชี่ที่ถูกต้องจะทำให้ grant เงียบ ๆ ไม่เครดิต)', () => {
-    expect(qiQtyOf('QI_500')).toBe(500)
+    expect(qiQtyOf('QI_500')).toBe(900)
     expect(qiQtyOf('V2_PRO_YEARLY')).toBeNull()
   })
 })

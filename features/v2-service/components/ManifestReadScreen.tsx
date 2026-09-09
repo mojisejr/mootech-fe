@@ -15,6 +15,8 @@ type Goal = { id: string; title: string; affirmation: string | null; imageUrl: s
 type ReadPreview = { goals: Goal[]; goalId?: string }
 
 const MOODS = ["😞", "😕", "🙂", "😊", "😍"]
+// รูป default เมื่อ goal ยังไม่ได้อัปโหลดรูป — ให้หน้าดูครบเหมือน Figma (ไม่ปล่อยช่องรูปว่าง)
+const DEFAULT_MANIFEST_IMAGE = "/images/v2/features/manifest/hero.png"
 
 export function ManifestReadScreen({ previewData }: { previewData?: ReadPreview } = {}) {
   const router = useRouter()
@@ -36,25 +38,26 @@ export function ManifestReadScreen({ previewData }: { previewData?: ReadPreview 
       .catch(() => setGoals([]))
   }, [previewData])
 
+  // swipe carousel — เลื่อนแนวนอนสลับ manifest, sync idx กับ scroll
+  const scrollRef = useRef<HTMLDivElement>(null)
+  const didInit = useRef(false)
+  // init ครั้งเดียวเมื่อ goals+goalId พร้อม: เลือก goal ที่ "กดมา" (ไม่ใช่ตัวแรกเสมอ) แล้วเลื่อน carousel ไปที่นั้น.
+  // เดิมแยก 2 effect → setIdx (async) ยังไม่ทันอัปเดต ตอน effect เลื่อนอ่าน idx (ยังเป็น 0) + didInit ล็อก →
+  // กดการ์ดไหนก็เด้งไป goal แรก และเลื่อนถัดไปไม่ได้. รวมเป็น effect เดียว ใช้ target ที่คำนวณสดจาก goalId.
   useEffect(() => {
-    const i = goals.findIndex((g) => g.id === goalId)
-    if (i >= 0) setIdx(i)
+    if (didInit.current || goals.length === 0) return
+    const i = goals.findIndex((x) => x.id === goalId)
+    const target = i >= 0 ? i : 0
+    setIdx(target)
+    didInit.current = true
+    requestAnimationFrame(() => {
+      const el = scrollRef.current
+      if (el && el.clientWidth > 0) el.scrollLeft = target * el.clientWidth
+    })
   }, [goals, goalId])
 
   const g = goals[idx]
   useEffect(() => { if (g) setNote(g.affirmation || g.title) }, [g])
-
-  // swipe carousel — เลื่อนแนวนอนสลับ manifest, sync idx กับ scroll
-  const scrollRef = useRef<HTMLDivElement>(null)
-  const didInit = useRef(false)
-  useEffect(() => {
-    if (didInit.current) return
-    const el = scrollRef.current
-    if (el && goals.length > 0) {
-      el.scrollLeft = idx * el.clientWidth
-      didInit.current = true
-    }
-  }, [goals, idx])
   const onScroll = () => {
     const el = scrollRef.current
     if (!el || el.clientWidth === 0) return
@@ -84,6 +87,12 @@ export function ManifestReadScreen({ previewData }: { previewData?: ReadPreview 
     if (!g) return
     setBusy(true); setMsg(null)
     try {
+      // กดสำเร็จให้ "นับ" วันนี้ด้วย: บันทึก entry ของวันนี้ก่อนปิด goal → ขึ้นใน history + นับ streak
+      // (entry เป็น idempotent ต่อวัน — ถ้าบันทึกวันนี้ไปแล้วจะไม่ซ้ำ/ไม่แจก QI ซ้ำ). best-effort ไม่บล็อกการปิด goal
+      await fetch("/api/v2/manifest/entry", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ mood: mood ?? undefined, note: note.trim() || undefined }),
+      }).catch(() => {})
       const r = await fetch("/api/v2/manifest/goals", {
         method: "PATCH", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ id: g.id, status: "done" }),
@@ -127,11 +136,9 @@ export function ManifestReadScreen({ previewData }: { previewData?: ReadPreview 
                     {x.category ? <span className="inline-block rounded-full bg-[#3E9B4A] px-3 py-1 text-[12px] font-semibold text-white">{x.category}</span> : null}
                     <p className="mt-2 text-[20px] font-black leading-7 text-v3-navy">{x.affirmation || x.title}</p>
                   </div>
-                  {x.imageUrl ? (
-                    <span className="mt-3 block h-[220px] w-full overflow-hidden rounded-[20px]">
-                      <Image src={x.imageUrl} alt="" width={480} height={440} unoptimized className="h-full w-full object-cover" />
-                    </span>
-                  ) : null}
+                  <span className="mt-3 block h-[220px] w-full overflow-hidden rounded-[20px]">
+                    <Image src={x.imageUrl || DEFAULT_MANIFEST_IMAGE} alt="" width={480} height={440} unoptimized className="h-full w-full object-cover" />
+                  </span>
                 </div>
               ))}
             </div>
@@ -142,8 +149,8 @@ export function ManifestReadScreen({ previewData }: { previewData?: ReadPreview 
               <p className="text-center text-[16px] font-black">คุณรู้สึกอย่างไรตอนนี้?</p>
               <div className="mt-3 flex justify-between">
                 {MOODS.map((m, i) => (
-                  <button key={i} onClick={() => setMood(i + 1)} aria-label={`อารมณ์ ${i + 1}`} className={`grid size-11 place-items-center rounded-full border-2 text-[22px] transition ${mood === i + 1 ? "border-v3-lime bg-white/15" : "border-white/40"}`}>
-                    {m}
+                  <button key={i} onClick={() => setMood(i + 1)} aria-label={`อารมณ์ ${i + 1}`} className={`grid place-items-center p-1 leading-none transition-transform ${mood === i + 1 ? "scale-[1.35]" : "scale-100"}`}>
+                    <span className="block text-[34px] leading-none">{m}</span>
                   </button>
                 ))}
               </div>

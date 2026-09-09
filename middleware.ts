@@ -358,11 +358,20 @@ function route(req: NextRequest): NextResponse {
   // CRON_SECRET, and :10-12 states that secret gate IS the whole security boundary for that endpoint.
   // Prefix, not exact match: there are two cron routes and more may be added; a missing one fails
   // silently and by answering 200, which is the failure mode with no symptom.
+  // 🔴 #606 B1 — the Omise webhook MUST be allowed here too, not only inside guardV2 (:252). The launch
+  // (#606) DELETES guardV2; once it is gone the webhook falls through to THIS gate, and without this line
+  // it is rewritten to /maintenance and answers **HTTP 200** → Omise reads 2xx as "delivered" and never
+  // retries → a card was charged and nobody is provisioned, with no failed-delivery queue to notice. The
+  // cutover turns maintenance on exactly while the team makes test payments — the worst window to lose it.
+  // Exact === (never startsWith), mirroring :252: only this one literal is unauthenticated here; the route
+  // itself fails closed on a bad HMAC signature (pages/api/v2/payment/webhook.ts:33), so opening the path
+  // costs no security. Kept alongside :252 so the webhook survives BOTH phases (guardV2 active, and removed).
   if (
     pathname === '/maintenance' ||
     pathname === '/api/health' ||
     pathname.startsWith('/api/auth') ||
     pathname.startsWith('/api/cron/') ||
+    pathname === '/api/v2/payment/webhook' ||
     pathname === '/auth/error'
   ) {
     return noStore(NextResponse.next());

@@ -26,29 +26,29 @@ beforeEach(() => {
   PACKS = {
     QI_60: { package_code: 'QI_60', amount: 35, is_active: true },
     QI_200: { package_code: 'QI_200', amount: 99, is_active: true },
-    QI_500: { package_code: 'QI_500', amount: 219, is_active: true },
-    QI_1200: { package_code: 'QI_1200', amount: 449, is_active: true },
+    QI_500: { package_code: 'QI_500', amount: 249, is_active: true },
+    QI_1200: { package_code: 'QI_1200', amount: 499, is_active: true },
   }
   fetchMock.mockClear()
 })
 afterEach(() => cleanup())
 
 describe('จอซื้อ QI (buy-qi — select pack)', () => {
-  it('B1 โชว์ 4 แพ็ก + สรุป/ปุ่มไปชำระตามแพ็กที่เลือก (default QI_500 = 575 QI, ฿219)', async () => {
+  it('B1 โชว์ 4 แพ็ก + สรุป/ปุ่มไปชำระตามแพ็กที่เลือก (default QI_500 = 1,160 QI, ฿249)', async () => {
     render(<QiBuyScreen />)
     await waitFor(() => expect(screen.getByTestId('qi-pack-QI_60')).toBeTruthy())
-    // จำนวน QI + ราคา + โบนัส จากแถวจริง/catalog
-    expect(screen.getByTestId('qi-pack-QI_60').textContent).toContain('60 QI')
+    // จำนวน QI + ราคา + โบนัส จากแถวจริง/catalog (ตารางราคาพี่พล 2026-09)
+    expect(screen.getByTestId('qi-pack-QI_60').textContent).toContain('90 QI')
     expect(screen.getByTestId('qi-pack-QI_60').textContent).toContain('฿35')
-    expect(screen.getByTestId('qi-pack-QI_1200').textContent).toContain('฿449')
-    expect(screen.getByTestId('qi-pack-QI_500').textContent).toContain('แถม +75')
-    // สรุป default = QI_500: รวม 575 QI, VAT ฿14, ปุ่ม → checkout ของ QI_500
-    expect(screen.getByTestId('qi-buy-total').textContent).toBe('575 QI')
-    expect(screen.getByTestId('qi-buy-vat').textContent).toBe('฿14')
+    expect(screen.getByTestId('qi-pack-QI_1200').textContent).toContain('฿499')
+    expect(screen.getByTestId('qi-pack-QI_500').textContent).toContain('แถม +260')
+    // สรุป default = QI_500: รวม 900 + โบนัส 260 = 1,160 QI, VAT ฿16 (249 incl 7%), ปุ่ม → checkout QI_500
+    expect(screen.getByTestId('qi-buy-total').textContent).toBe('1,160 QI')
+    expect(screen.getByTestId('qi-buy-vat').textContent).toBe('฿16')
     expect(screen.getByTestId('qi-buy-cta').getAttribute('href')).toBe('/v2/shop/checkout?package_code=QI_500')
-    // เลือกแพ็กอื่น → สรุป/ปุ่มอัปเดต (1,200 + โบนัส 250 = 1,450)
+    // เลือกแพ็กอื่น → สรุป/ปุ่มอัปเดต (2,100 + โบนัส 816 = 2,916)
     fireEvent.click(screen.getByTestId('qi-pack-QI_1200'))
-    expect(screen.getByTestId('qi-buy-total').textContent).toBe('1,450 QI')
+    expect(screen.getByTestId('qi-buy-total').textContent).toBe('2,916 QI')
     expect(screen.getByTestId('qi-buy-cta').getAttribute('href')).toBe('/v2/shop/checkout?package_code=QI_1200')
   })
 

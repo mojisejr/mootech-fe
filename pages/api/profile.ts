@@ -76,6 +76,24 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       }
     }
 
+    // A1: แก้วันเกิดสำเร็จฝั่ง engine → sync กลับ legacy `user` (dob/time/is_remember_time) ด้วย
+    // เพราะ destiny/chat ยังอ่านจาก user table อยู่ — ไม่งั้นแก้แล้วธาตุไม่เปลี่ยน. best-effort ไม่ให้ล้มคำตอบ
+    if (req.method === "PATCH" && upstream.ok) {
+      const birth = typeof req.body?.birth === "string" ? req.body.birth : ""
+      if (/^\d{4}-\d{2}-\d{2}$/.test(birth)) {
+        const timeUnknown = req.body?.timeUnknown === true
+        const bt = typeof req.body?.birthTime === "string" ? req.body.birthTime : ""
+        const time = timeUnknown || !/^\d{2}:\d{2}$/.test(bt) ? null : bt
+        try {
+          await db.execute(
+            sql`UPDATE "user" SET dob = ${birth}, "time" = ${time}, is_remember_time = ${!timeUnknown} WHERE user_id = ${rawId}`,
+          )
+        } catch {
+          /* legacy sync best-effort — engine เป็นแหล่งหลักแล้ว (mergeEngineBirth) */
+        }
+      }
+    }
+
     res.status(upstream.ok ? 200 : upstream.status).json(payload)
   } catch {
     res.status(502).json({ error: "profile unreachable" })

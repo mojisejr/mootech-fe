@@ -17,6 +17,7 @@
 // ใน duang-chan-spec.md)
 import Link from "next/link"
 import Image from "next/image"
+import { useRouter } from "next/router"
 import { useEffect, useMemo, useRef, useState } from "react"
 import { useBaziChatStream } from "../useBaziChatStream"
 import { SUGGESTED_QUESTIONS } from "@/constants/suggested-questions"
@@ -73,6 +74,13 @@ function TypingDots() {
 
 export function ChatScreen() {
   const [persona, setPersona] = useState<PersonaKey>("mu")
+  const router = useRouter()
+  // A2: ปุ่มออกจาก chat กลับ "หน้าที่มา" (เช่นเปิด chat จากปฏิทิน → กลับปฏิทิน) ไม่ใช่เด้งหน้าแรกเสมอ.
+  // มี history ในแอป → back; เปิด chat ตรง ๆ (ไม่มี history) → fallback /v2.
+  const goBack = () => {
+    if (typeof window !== "undefined" && window.history.length > 1) router.back()
+    else void router.push("/v2")
+  }
   useEffect(() => {
     try { const v = localStorage.getItem(PERSONA_KEY); if (v === "mi" || v === "mu") setPersona(v) } catch { /* ignore */ }
   }, [])
@@ -184,8 +192,9 @@ export function ChatScreen() {
     >
       {/* header — ← · Mate AI · ●ทำงานอยู่ · ⚙ (บีบคอลัมน์ 430 กลางจอเดียวกับเนื้อหา ตามเฟรมมือถือใน Figma) */}
       <header className="mx-auto flex w-full max-w-[430px] items-center gap-2 px-4 pt-4">
-        <Link
-          href="/v2"
+        <button
+          type="button"
+          onClick={goBack}
           aria-label="ย้อนกลับ"
           data-testid="chat-back"
           className="grid h-9 w-9 flex-none place-items-center rounded-full text-v3-navy hover:bg-white/40"
@@ -193,7 +202,7 @@ export function ChatScreen() {
           <svg width="20" height="20" viewBox="0 0 20 20" fill="none" aria-hidden>
             <path d="M12.5 4.5 7 10l5.5 5.5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
           </svg>
-        </Link>
+        </button>
         {/* เจ้าของสั่ง 2026-09-08: หัวจอเป็นชื่อแบรนด์ "Mumate Chat" (แทนชื่อเพอร์โซนา เสี่ยวมู่/เสี่ยวมี่ ตามสไลด์ 14 เดิม)
             — ตัวเพอร์โซนาที่เลือกยังโชว์ที่ toggle + มาสคอต + คำทักทายด้านล่างอยู่ */}
         <h1 data-testid="chat-title" className="text-lg font-black leading-6 text-v3-navy">Mumate Chat</h1>

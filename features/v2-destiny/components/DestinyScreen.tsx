@@ -12,6 +12,7 @@ import Head from "next/head"
 import Image from "next/image"
 import Link from "next/link"
 import { useEffect, useState } from "react"
+import { getDestinyCache, setDestinyCache } from "@/features/v2-destiny/destiny-cache"
 import {
   CartesianGrid,
   Line,
@@ -66,7 +67,7 @@ type Prediction = {
   love: string | null
   work: string | null
 }
-type DestinyData = {
+export type DestinyData = {
   avatarUrl?: string | null
   prediction?: Prediction | null
   cautions?: string[] | null
@@ -85,6 +86,13 @@ type DestinyData = {
       missingElements?: string[]
     }
   } | null
+  // อาชีพ/การเงิน จากตาราง B (用神): doElement = ธาตุที่ "ควรทำ" อาชีพ (ธาตุที่ควรเสริม ไม่ใช่ธาตุประจำตัว)
+  careerFinance?: {
+    career?: { doElement?: string | null; avoidElement?: string | null; occupations?: string | null; context?: string | null; essence?: string | null } | null
+    finance?: { essence?: string | null } | null
+  } | null
+  // วันดีเดือนนี้ (top 3) จาก man-vs-day
+  goodDays?: Array<{ date?: string | null; dayOfMonth?: number | null; weekday?: string | null; percent?: number | null; grade?: string | null }> | null
 }
 
 // ป้ายตามดีไซน์ Figma: สกิลเรียกทรัพย์ (การเงิน) · สกิลสัมพันธ์ (เพื่อน) — แถวที่สองในดีไซน์
@@ -113,6 +121,8 @@ const ELEMENT_CAREERS: Record<string, string[]> = {
   metal: ["การเงิน", "โลหะ", "เทคโนโลยี", "ยานยนต์", "อัญมณี", "เครื่องมือแพทย์", "เครื่องจักร"],
   water: ["การค้า", "โลจิสติกส์", "ท่องเที่ยว", "สื่อสาร", "ประมง", "เครื่องดื่ม", "การเงินระหว่างประเทศ"],
 }
+// ธาตุไทย → key อังกฤษของ ELEMENT_CAREERS (engine career-finance คืนธาตุไทย เช่น "ไฟ")
+const EL_TH_TO_EN: Record<string, string> = { "ไม้": "wood", "ไฟ": "fire", "ดิน": "earth", "ทอง": "metal", "น้ำ": "water" }
 // ลำดับแถว hero ตายตัวตาม Figma (เรียกทรัพย์ → ตัวท็อป → อินฟลู → เรียนรู้) ไม่ sort ตามคะแนน
 const DOMAIN_ORDER = ["wealth", "career", "friends", "learning"]
 // หยิน/หยาง จากราศีวัน (甲乙丙丁戊己庚辛壬癸) — คู่ = หยิน
@@ -533,6 +543,14 @@ export function DestinyScreen({ previewData }: { previewData?: DestinyData } = {
 
   useEffect(() => {
     if (previewData) return
+    // client cache: กลับเข้าหน้าดวงซ้ำใน session เดิม → ใช้ผลเดิม ไม่ยิง /api/destiny ใหม่
+    // (ล้างเมื่อแก้วันเกิด/logout — ดู destiny-cache.ts). server ก็มี DB cache ต่อวันเวลาเกิดอีกชั้น
+    const cachedData = getDestinyCache()
+    if (cachedData) {
+      setData(cachedData)
+      setLoading(false)
+      return
+    }
     let alive = true
     ;(async () => {
       try {
@@ -541,7 +559,7 @@ export function DestinyScreen({ previewData }: { previewData?: DestinyData } = {
         if (res.status === 409) return setGuard("profile_incomplete")
         if (!res.ok) throw new Error(String(res.status))
         const j = (await res.json()) as DestinyData
-        if (alive) setData(j)
+        if (alive) { setData(j); setDestinyCache(j) }
         // อ่านดวงสำเร็จ → บันทึกภารกิจ "อ่านดวงวันนี้" (read_fortune); engine cap วันละครั้ง (period daily)
         // fire-and-forget: ไม่บล็อกจอ, ล้มก็ไม่กระทบการอ่าน
         void fetch("/api/missions", {
@@ -568,6 +586,13 @@ export function DestinyScreen({ previewData }: { previewData?: DestinyData } = {
   // สีมงคล = ธาตุอุปถัมภ์ (favorable) → hex ตาม engine READING_COLORS
   const favTh = lifePath?.favorableElementsTh ?? data?.lifeTimeline?.favorableElementsTh ?? []
   const luckyColors = favTh.map((n) => LUCKY_HEX_TH[n]).filter(Boolean)
+  // อาชีพ: ใช้ "ธาตุที่ควรทำ" จากตาราง B (用神) — engine /api/reading/career-finance — ไม่ใช่ธาตุประจำตัว
+  // (ดิถีอ่อน+น้ำเยอะ → ควรทำไฟ ไม่ใช่ดิน). engine คืนธาตุไทย → map เป็น key อังกฤษของ ELEMENT_CAREERS.
+  // fallback ธาตุประจำตัวเดิม (CHAR_ELEMENT = อังกฤษอยู่แล้ว) เมื่อ lane นี้ล่ม
+  const careerDoElement =
+    (data?.careerFinance?.career?.doElement ? EL_TH_TO_EN[data.careerFinance.career.doElement] : "") ||
+    CHAR_ELEMENT[summary?.dayMaster?.[0] ?? ""] ||
+    ""
 
   // ข้อควรระวัง "ตามดวง": ใช้ของ engine (newdata-reading) ก่อน; ไม่มี → derive จากดวงจริง
   // (ธาตุที่พร่อง + ปีที่ควรระวังจาก life-timeline) แทนข้อความ generic
@@ -875,12 +900,32 @@ export function DestinyScreen({ previewData }: { previewData?: DestinyData } = {
                 summary={summary}
                 prediction={data?.prediction ?? null}
                 cautions={cautionList}
-                occupations={ELEMENT_CAREERS[CHAR_ELEMENT[summary.dayMaster?.[0] ?? ""] ?? ""] ?? []}
+                occupations={ELEMENT_CAREERS[careerDoElement] ?? []}
               />
             )}
 
             {/* สีมงคล สิ่งศักดิ์สิทธิ์ (Figma 55349:3303) */}
             <LuckyCard colors={luckyColors} deity={data?.deity ?? null} />
+
+            {/* วันดีเดือนนี้ (top 3) — man-vs-day รายเดือน (ปฏิทินส่วนตัว) */}
+            {Array.isArray(data?.goodDays) && data!.goodDays!.length > 0 && (
+              <section className="rounded-[20px] bg-white p-4 shadow-sm" data-testid="destiny-good-days">
+                <h3 className="text-[15px] font-bold text-v3-navy">วันดีเดือนนี้</h3>
+                <p className="mt-0.5 text-[11px] text-v3-text-note">3 วันที่ดวงคุณส่งเสริมที่สุดในเดือนนี้</p>
+                <div className="mt-3 flex flex-col gap-2">
+                  {data!.goodDays!.map((d, i) => (
+                    <div key={i} className="flex items-center justify-between rounded-[12px] bg-v3-qi-earn-bg px-3 py-2">
+                      <span className="text-[13px] font-medium text-v3-navy">
+                        {d.weekday ? `${d.weekday} ` : ""}{d.dayOfMonth != null ? `${d.dayOfMonth}` : (d.date ?? "")}
+                      </span>
+                      <span className="text-[12px] font-bold text-v3-qi-earn">
+                        {d.grade ?? (d.percent != null ? `${d.percent}%` : "")}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </section>
+            )}
 
             {/* เส้นทางชีวิต (Life Path) — recharts + แท็บ ทั้งหมด/5ปี/1ปี/1เดือน (Figma 55349:3332) */}
             {lifePath && lifePath.series && <LifePathCard lifePath={lifePath} />}

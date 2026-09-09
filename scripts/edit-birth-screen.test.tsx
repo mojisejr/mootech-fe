@@ -99,13 +99,11 @@ describe('จอแก้วันเกิด (edit-birth-data ×4)', () => {
     expect(screen.getByTestId('qi-insufficient-buy').getAttribute('href')).toBe('/v2/qi/buy')
   })
 
-  it('EB3 correction request sheet → POST เหตุผลถึง engine + สถานะรอพิจารณาโชว์หลังโหลดใหม่', async () => {
+  // EB3 (correction-request free path) ถูกถอดออกทั้งหมด 2026-09: ปิดช่องแก้ฟรีถาวร —
+  // หลังใช้สิทธิ์ฟรี 1 ครั้งแล้ว มีทางเดียวคือจ่าย QI (ปุ่มปลดล็อก). ไม่มีชีตแจ้งทีมอีก
+  it('EB3 removed: ไม่มีช่องทางแจ้งแก้ฟรี (correction sheet) แล้ว', async () => {
     render(<CookiesProvider><EditBirthScreen /></CookiesProvider>)
-    fireEvent.click(await waitFor(() => screen.getByTestId('eb-correction-open')))
-    fireEvent.change(screen.getByTestId('eb-correction-reason'), { target: { value: 'กรอกผิดวัน' } })
-    fireEvent.click(screen.getByTestId('eb-correction-send'))
-    await waitFor(() => expect(screen.getByTestId('eb-correction-msg').textContent).toContain('ส่งคำขอแล้ว'))
-    const posts = fetchMock.mock.calls.filter((c) => (c[1]?.method ?? '') === 'POST').map((c) => JSON.parse(String(c[1]?.body)))
-    expect(posts[0]).toMatchObject({ reason: 'กรอกผิดวัน' })
+    await waitFor(() => expect(screen.getByTestId('eb-quota')).toBeTruthy())
+    expect(screen.queryByTestId('eb-correction-open')).toBeNull()
   })
 })

@@ -14,6 +14,7 @@ import {
   userRowToFeCalcInput,
   isBirthProfileComplete,
 } from "@/lib/bazi-bridge/input"
+import { mergeEngineBirth } from "@/lib/bazi-bridge/engine-birth"
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 const rowsOf = (r: any): any[] => (Array.isArray(r) ? r : r?.rows ?? [])
@@ -48,7 +49,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       res.status(409).json({ code: "profile_incomplete" })
       return
     }
-    feInput = userRowToFeCalcInput(row)
+    // A1: ให้วันเกิดที่ผู้ใช้แก้ล่าสุด (engine bazi_user_profile) ชนะ legacy user.dob ก่อนคำนวณดวง
+    const merged = await mergeEngineBirth(userId, row)
+    feInput = userRowToFeCalcInput(merged)
     avatarUrl = typeof row.picture_url === "string" ? row.picture_url : null
   } catch {
     res.status(500).json({ error: "profile lookup failed" })
@@ -56,6 +59,26 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 
   const { rawInput } = toBaziInput(feInput)
+
+  // cache ต่อผู้ใช้ keyed ด้วยวันเวลาเกิด: ไม่เปลี่ยน = คืน payload เดิม ไม่ยิง engine ซ้ำ (0021_destiny_cache).
+  // birthKey ครอบทุก field ที่ป้อน engine (วัน/เวลา/เพศ/จังหวัด) — แก้อันไหนก็ miss แล้วคำนวณใหม่.
+  // + เดือนปัจจุบัน: payload มี "วันดีเดือนนี้" (goodDays) → เดือนใหม่ต้อง miss แล้วคำนวณใหม่ ไม่งั้นได้วันดีเก่า.
+  const now = new Date()
+  const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`
+  const birthKey = [rawInput.birthDate, rawInput.birthTime, rawInput.gender, rawInput.province, currentMonth].join("|")
+  try {
+    const cached = rowsOf(
+      await db.execute(sql`SELECT payload FROM "bazi_destiny_cache" WHERE user_id = ${userId} AND birth_key = ${birthKey} LIMIT 1`),
+    )[0]
+    if (cached?.payload) {
+      // avatarUrl ดึงสดเสมอ (เปลี่ยนได้อิสระจากดวง); ส่วนที่มาจาก engine ใช้ของที่ cache ไว้
+      res.status(200).json({ avatarUrl, ...(cached.payload as Record<string, unknown>) })
+      return
+    }
+  } catch {
+    /* cache อ่านไม่ได้ → คำนวณสดต่อ (best-effort ไม่ให้จอพัง) */
+  }
+
   const post = async (path: string, body: unknown) => {
     const r = await fetch(`${base}${path}`, {
       method: "POST",
@@ -68,8 +91,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   // engine reads in parallel — a failure in one lane degrades that lane to null
   // (the screen renders what it has); only the pillar chart is load-bearing.
-  // newdata-reading = คำทำนายพื้นฐานตามดวง (chapters); response ~1MB + ช้า → ยอมให้ degrade เป็น null
-  const [elementSummary, lifeTimeline, lifePath, strengthScore, domainPower, calculated, reading] =
+  // reading-essence = ใจความ 15 บทเฉพาะที่ใช้ (payload เล็ก แทน newdata-reading ~1MB);
+  // career-finance = อาชีพ/การเงิน (用神) แหล่งเดียว; man-vs-day(month) = วันดีเดือนนี้
+  const [elementSummary, lifeTimeline, lifePath, strengthScore, domainPower, calculated, essence, careerFin, monthDays] =
     await Promise.allSettled([
       post("/api/bazi/element-summary", { person: rawInput }),
       post("/api/bazi/life-timeline", { person: rawInput }),
@@ -77,7 +101,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       post("/api/bazi/strength-score", rawInput),
       post("/api/bazi/domain-power", rawInput),
       post("/api/bazi/calculate", rawInput),
-      post("/api/reading/newdata-reading", rawInput),
+      post("/api/reading/reading-essence", rawInput),
+      post("/api/reading/career-finance", rawInput),
+      post("/api/bazi/man-vs-day", { person: rawInput, month: currentMonth }),
     ])
 
   const val = <T,>(r: PromiseSettledResult<T>): T | null =>
@@ -88,43 +114,31 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       ? (val(calculated) as { calculatedState?: unknown }).calculatedState ?? null
       : null
 
-  // คำทำนายพื้นฐานตามดวง: ดึง body จาก chapter ตาม id (ดู engine chapter-newdata-map)
-  // defensive: shape ไม่ตรง/ว่าง → null แล้วให้ FE fallback ไป element-summary
-  type Box = { title?: string; body?: string }
-  type Chapter = { id?: string; boxes?: Box[] }
-  const readingVal = val(reading) as { chapters?: Chapter[] } | null
-  const chapters = Array.isArray(readingVal?.chapters) ? readingVal!.chapters! : []
-  const chap = (id: string): Box[] => chapters.find((c) => c?.id === id)?.boxes ?? []
-  // 🔴 box[0] ของทุก chapter คือ "ภาพรวม" (คำอธิบายหัวข้อ generic เช่น "อาชีพ/ธุรกิจที่เสริมดวง...") ไม่ใช่คำทำนายจริง
-  // — เนื้อหาจริงอยู่ box[1]+ (verified กับ engine newdata-reading). เดิม default หยิบ box แรก ⇒ personality/work/love
-  // โชว์คำอธิบาย generic แทนคำทำนาย. เมื่อไม่ระบุ match ให้ข้ามกล่อง "ภาพรวม" แล้วเอากล่องเนื้อหาจริงกล่องแรก.
-  const hasBody = (b?: Box) => typeof b?.body === "string" && b.body.trim().length > 0
-  const bodyText = (boxes: Box[], match?: string): string | null => {
-    const pick = match
-      ? boxes.find((b) => b?.title?.includes(match) && hasBody(b))
-      : (boxes.find((b) => hasBody(b) && b?.title !== "ภาพรวม") ?? boxes.find((b) => hasBody(b)))
-    const t = pick?.body
-    return typeof t === "string" && t.trim() ? t.trim() : null
-  }
-  const foundation = chap("chart_foundation")
+  // คำทำนายจาก reading-essence (engine สกัดใจความให้แล้ว); work มาจาก career-finance แหล่งเดียว
+  type EssenceResp = { prediction?: { personality?: string | null; habit?: string | null; love?: string | null }; cautions?: string[]; deity?: string | null }
+  type CareerResp = { career?: { essence?: string | null } | null }
+  const essenceVal = val(essence) as EssenceResp | null
+  const careerVal = val(careerFin) as CareerResp | null
   const prediction = {
-    personality: bodyText(foundation),
-    habit: bodyText(foundation, "นิสัย"),
-    love: bodyText(chap("love_partner")),
-    work: bodyText(chap("career_potential")),
+    personality: essenceVal?.prediction?.personality ?? null,
+    habit: essenceVal?.prediction?.habit ?? null,
+    love: essenceVal?.prediction?.love ?? null,
+    work: careerVal?.career?.essence ?? null, // อาชีพแหล่งเดียว (career-finance)
   }
-  // ข้อควรระวัง: เก็บ box ที่ title มี "ระวัง" จากทุก chapter
-  const cautions: string[] = []
-  for (const c of chapters) {
-    for (const b of c?.boxes ?? []) {
-      if (b?.body && b?.title?.includes("ระวัง")) cautions.push(b.body.trim())
-    }
-  }
-  // เทพประจำวัน: ชื่อเทพจาก chapter guardian_deities (box แรก) — title เป็นชื่อเทพ
-  const deity = chap("guardian_deities")[0]?.title?.trim() || null
+  const cautions = Array.isArray(essenceVal?.cautions) ? essenceVal!.cautions! : []
+  const deity = essenceVal?.deity ?? null
 
-  res.status(200).json({
-    avatarUrl,
+  // วันดีเดือนนี้: top 3 วันคะแนนสูงสุดจาก man-vs-day (เฉพาะใจความ ไม่เอาทั้งเดือน)
+  type MonthDay = { date?: string; dayOfMonth?: number; weekday?: string; overallPercent?: number | null; grade?: string | null }
+  const monthVal = val(monthDays) as { days?: MonthDay[] } | null
+  const goodDays = (Array.isArray(monthVal?.days) ? monthVal!.days! : [])
+    .filter((d) => typeof d.overallPercent === "number")
+    .sort((a, b) => (b.overallPercent as number) - (a.overallPercent as number))
+    .slice(0, 3)
+    .map((d) => ({ date: d.date ?? null, dayOfMonth: d.dayOfMonth ?? null, weekday: d.weekday ?? null, percent: d.overallPercent ?? null, grade: d.grade ?? null }))
+
+  // ก้อน engine-derived ที่ cache ได้ (ไม่รวม avatarUrl — ดึงสดทุกครั้ง)
+  const engineOut = {
     elementSummary: val(elementSummary),
     lifeTimeline: val(lifeTimeline),
     lifePath: val(lifePath),
@@ -134,5 +148,23 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     prediction,
     cautions: cautions.slice(0, 4),
     deity,
-  })
+    careerFinance: val(careerFin), // { career:{doElement,avoidElement,occupations,context,essence}, finance:{essence} }
+    goodDays, // [{date,dayOfMonth,weekday,percent,grade}] top 3 วันดีเดือนนี้
+  }
+
+  // เก็บลง cache (ทับแถวเดิมของ user เมื่อ birthKey เปลี่ยน) — เฉพาะเมื่อดวงคำนวณได้จริง
+  // (calculatedState ว่าง = engine ล่มบางส่วน → อย่า cache ผลพร่อง). best-effort ไม่บล็อกคำตอบ.
+  if (calculatedState) {
+    try {
+      await db.execute(
+        sql`INSERT INTO "bazi_destiny_cache" (user_id, birth_key, payload, updated_at)
+            VALUES (${userId}, ${birthKey}, ${JSON.stringify(engineOut)}::jsonb, now())
+            ON CONFLICT (user_id) DO UPDATE SET birth_key = EXCLUDED.birth_key, payload = EXCLUDED.payload, updated_at = now()`,
+      )
+    } catch {
+      /* cache เขียนไม่ได้ → ปล่อยผ่าน (ยังตอบผู้ใช้ได้) */
+    }
+  }
+
+  res.status(200).json({ avatarUrl, ...engineOut })
 }
