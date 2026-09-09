@@ -145,24 +145,23 @@ describe('#455 คำของ QR_EXPIRED — ถูกบอกแล้ว จ
     )
     expect(promises.length, 'ต้องมีอย่างน้อยหนึ่งแถวที่พูดประโยคนี้ ไม่งั้นฟันนี้ตรวจศูนย์แถว').toBeGreaterThan(0)
 
-    // 🔴 ช่องว่างที่รู้อยู่ ❌ ไม่ใช่ข้อยกเว้นเพื่อให้เขียว — QR_MAYBE_EXPIRED พูดประโยคนี้อยู่บน main
-    // มาก่อน slice นี้ และมันสัญญา **สองปุ่ม** (ขอ QR ใหม่ + ตรวจสอบอีกครั้ง) โดยมีให้จริงปุ่มเดียว
-    // การแก้มันคือการออกแบบปุ่มของจอที่ ship ไปแล้ว ซึ่งไม่ใช่ slice นี้ ⇒ แยกใบ
-    const KNOWN_GAP: Partial<Record<ResultState, string>> = {
-      // เลขนี้เขียนหลังเปิดใบจริงแล้ว — ฉบับแรกเขียน #479 จากการเดา ของจริงคือ #480
-      QR_MAYBE_EXPIRED: 'mojisejr/mootech-fe#480',
-    }
+    // 🔴 ว่างแล้ว — QR_MAYBE_EXPIRED ถูกซ่อมใน mojisejr/mootech-fe#480 (retry: 'new-qr-or-check' ⇒ สองปุ่มจริง)
+    // กลไกยังอยู่ ❌ ไม่ลบทิ้ง: assertion ข้างล่างบังคับให้รายการนี้หมดอายุเอง ⇒ ถ้าใครเติมชื่อกลับเข้ามา
+    // โดยที่แถวนั้นถูกซ่อมแล้ว มันจะแดงทันที และรายการยกเว้นเน่าค้างอยู่ไม่ได้
+    const KNOWN_GAP: Partial<Record<ResultState, string>> = {}
 
     for (const s of promises) {
       if (KNOWN_GAP[s]) continue
-      expect(['new-qr', 'different'], `${s} สัญญา QR ใหม่ แต่ retry=${RESULT_COPY[s].retry}`)
+      // 'new-qr-or-check' นับเป็นการทำตามสัญญา (#480): มันวาดปุ่ม "ขอ QR ใหม่" จริง และวาด
+      // "ตรวจสอบอีกครั้ง" เพิ่มให้คนที่จ่ายไปแล้ว ❌ ไม่ใช่การเลี่ยงฟันตัวนี้
+      expect(['new-qr', 'new-qr-or-check', 'different'], `${s} สัญญา QR ใหม่ แต่ retry=${RESULT_COPY[s].retry}`)
         .toContain(RESULT_COPY[s].retry)
     }
 
     // 🔑 ทำให้รายการยกเว้น **หมดอายุเอง**: ถ้าใครซ่อมแถวที่อยู่ในรายการ บรรทัดนี้จะแดงทันที
     // และบังคับให้ลบชื่อออกจากรายการ ⇒ รายการยกเว้นเน่าค้างอยู่ไม่ได้
     for (const s of Object.keys(KNOWN_GAP) as ResultState[]) {
-      expect(['new-qr', 'different'], `${s} ถูกซ่อมแล้ว (${KNOWN_GAP[s]}) — ลบออกจาก KNOWN_GAP ได้`)
+      expect(['new-qr', 'new-qr-or-check', 'different'], `${s} ถูกซ่อมแล้ว (${KNOWN_GAP[s]}) — ลบออกจาก KNOWN_GAP ได้`)
         .not.toContain(RESULT_COPY[s].retry)
     }
   })

@@ -50,7 +50,7 @@ export type ResultCopy = {
   /** one line under it, in the user's terms. */
   body: string
   /** 🔴 can pressing again plausibly change the outcome? Drives which action the screen offers. */
-  retry: 'same' | 'different' | 'new-qr' | 'buy-again' | 'none'
+  retry: 'same' | 'different' | 'new-qr' | 'new-qr-or-check' | 'buy-again' | 'none'
   /** true only when the user's money has actually moved. Exactly ONE state may set this. */
   paid: boolean
 }
@@ -135,9 +135,27 @@ export const RESULT_COPY: Record<ResultState, ResultCopy> = {
     // whose money already left and whose row the cron is still working on for another seven days. Address
     // only the first and the second pays twice; address only the second and the first is stuck. So the
     // sentence carries both, in that order — the unpaid case first because it is the common one.
+    //
+    // 🔴 'new-qr-or-check' — TWO BUTTONS, BECAUSE THE SENTENCE NAMES TWO ACTIONS (#480, caught in a photo).
+    // This row said "ขอ QR ใหม่ได้เลย" AND "กดตรวจสอบอีกครั้งได้" while `retry: 'same'` drew only the
+    // second one, so the reader who needed the first was told to press a button that was not there. It is
+    // #471's class exactly, and the class tooth in scripts/qr-expired-screen.test.ts carried this row as a
+    // KNOWN_GAP until now.
+    //
+    // 🔴 IT IS NOT THE SAME FIX AS QR_EXPIRED'S. That row KNOWS the QR is dead, so checking again is
+    // pointless and 'new-qr' alone is honest. This row does not know — which is the entire reason it
+    // speaks to two people — so removing either action would strand one of them. Dropping the paid half
+    // is specifically forbidden by the ticket: that is the half who would otherwise pay twice.
     title: 'QR นี้อาจหมดอายุแล้ว',
-    body: 'ถ้ายังไม่ได้จ่าย ขอ QR ใหม่ได้เลย · ถ้าจ่ายไปแล้ว ไม่ต้องจ่ายซ้ำ ระบบยังตามให้อยู่ กดตรวจสอบอีกครั้งได้',
-    retry: 'same',
+    // 🔴 จบที่ 'กดตรวจสอบอีกครั้ง' ❌ ไม่ใช่ 'ระบบยังตามให้อยู่ กดตรวจสอบอีกครั้งได้' — ตัดสองคำท้ายทิ้ง
+    // เพราะภาพที่ 393 (ความกว้างจอหลัก) แสดงว่า 'ได้' ตกไปอยู่บรรทัดที่สามตัวเดียว. นี่คือโรคเดียวกับที่
+    // QR_EXPIRED เจอและแก้ไปแล้วด้วยการตัด 'อยู่' ทิ้ง — ไทยไม่มีช่องว่างระหว่างคำ เบราว์เซอร์ตัดด้วย
+    // พจนานุกรม และ assertion บน textContent มองไม่เห็นว่าบรรทัดถูกตัดตรงไหน ⇒ เห็นได้จากภาพเท่านั้น
+    // (mojisejr/mootech-fe#414 เป็นคลาสเดียวกัน · จับได้ตอนถ่ายภาพตาม DoD ของ #480)
+    // 🔴 ความหมายไม่หายสักครึ่ง: 'ระบบยังตามให้' ยังบอกคนที่จ่ายแล้วว่าไม่ต้องทำอะไร และประโยคจบลงบน
+    // คำเดียวกับป้ายปุ่มพอดี ('ตรวจสอบอีกครั้ง') ⇒ ประโยคชี้ไปที่ปุ่มตรง ๆ ไม่ต้องให้ผู้อ่านแปลอีกชั้น
+    body: 'ถ้ายังไม่ได้จ่าย ขอ QR ใหม่ได้เลย · ถ้าจ่ายไปแล้ว ไม่ต้องจ่ายซ้ำ ระบบยังตามให้ กดตรวจสอบอีกครั้ง',
+    retry: 'new-qr-or-check',
     paid: false,
   },
   PAYMENT_REVERSED: {

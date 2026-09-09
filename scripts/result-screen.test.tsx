@@ -107,6 +107,43 @@ describe('#363 the screen cannot contradict the table', () => {
     }
   })
 
+  it('🔴 #480 — the row that does not know who is reading it draws BOTH actions', () => {
+    render(<ResultScreen state="QR_MAYBE_EXPIRED" {...all} />)
+    // The unpaid reader's way out. Its absence IS #480: the sentence said "ขอ QR ใหม่ได้เลย" and the
+    // screen drew only the check button, so the person who needed a fresh QR had nothing to press.
+    expect(screen.getByTestId('result-new-qr').textContent).toBe('ขอ QR ใหม่')
+    // The paid reader's way out. Removing THIS half is what the ticket forbids — it is the half who
+    // would otherwise pay twice.
+    expect(screen.getByTestId('result-retry-same').textContent).toBe('ตรวจสอบอีกครั้ง')
+    // …and the safe one leads. See the order note in ResultScreen: an unpaid user who checks first loses
+    // a tap; a paid user who asks for a new QR first can pay twice.
+    const order = screen.getAllByRole('button').map((b) => b.getAttribute('data-testid'))
+    expect(order.indexOf('result-retry-same')).toBeLessThan(order.indexOf('result-new-qr'))
+    cleanup()
+  })
+
+  it('🔴 #471/#480 class — a sentence that names an action must come with a button that performs it', () => {
+    // 🔑 result-state.test.ts and qr-expired-screen.test.ts audit the TABLE. This is the same class at the
+    // SCREEN, which is where both bugs actually lived: the words were right, the arrangement did not draw
+    // what they promised. Every unit test was green in both cases; only a photograph caught them.
+    const NAMED: Array<{ phrase: string; testid: string }> = [
+      { phrase: 'ขอ QR ใหม่', testid: 'result-new-qr' },
+      { phrase: 'ตรวจสอบอีกครั้ง', testid: 'result-retry-same' },
+    ]
+    let checked = 0
+    for (const s of STATES) {
+      for (const { phrase, testid } of NAMED) {
+        if (!RESULT_COPY[s].body.includes(phrase)) continue
+        render(<ResultScreen state={s} {...all} />)
+        expect(screen.queryByTestId(testid), `${s} พูดว่า "${phrase}" แต่จอไม่มีปุ่มนั้น`).not.toBeNull()
+        cleanup()
+        checked += 1
+      }
+    }
+    // Without this the loop could silently check nothing — the failure mode that let #480 sit on main.
+    expect(checked, 'ไม่มีแถวไหนถูกตรวจเลย — ฟันตัวนี้กำลังวัดศูนย์แถว').toBeGreaterThan(0)
+  })
+
   it('MU8 — the plan is named when the screen is told which one, and never a raw code when it is not', () => {
     render(<ResultScreen state="ALREADY_ON_THIS_TIER" planName="Mumate +" {...all} />)
     expect(screen.getByTestId('result-title').textContent).toContain('Mumate +')
