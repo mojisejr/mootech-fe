@@ -110,7 +110,7 @@ export const omiseGateway: PaymentGateway = {
       receipt: 'true',
       'metadata[orderId]': orderId,
       // #463 — on the CHARGE, like webhook_endpoints[] above; the source carries no lifetime of its own.
-      // Computed AFTER /sources so the 5 minutes start when the QR exists, not when we began asking for it.
+      // Computed AFTER /sources so the lifetime starts when the QR exists, not when we began asking for it.
       ...promptPayExpiryFields(new Date()),
       ...(process.env.OMISE_RETURN_URI ? { return_uri: process.env.OMISE_RETURN_URI } : {}),
     })

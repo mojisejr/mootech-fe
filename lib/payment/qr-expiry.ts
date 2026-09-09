@@ -18,8 +18,30 @@
 // into four places that then drifted apart. One exported constant, one caller — a second copy of this
 // number is the bug, not the convenience.
 
-/** ฟีมเคาะ 2026-08-26: a PromptPay QR is scannable for 5 minutes and then it is not. */
-export const PROMPTPAY_QR_TTL_MS = 5 * 60 * 1000
+/**
+ * ฟีมเคาะ 2026-09-09: a PromptPay QR is scannable for 15 minutes and then it is not.
+ *
+ * 🔴 IT WAS FIVE, AND FIVE NEVER WORKED ONCE. Read off the production rows on 2026-09-09, every real
+ * PromptPay charge this product has ever taken:
+ *
+ *   2026-08-25 11:30   expired            charge_expires_at NULL   ← Omise's 24h default
+ *   2026-08-26 13:43   APPROVED           charge_expires_at NULL   ← Omise's 24h default
+ *   2026-09-03 12:08   gateway_expired    charge_expires_at 12:13:27
+ *   2026-09-05 22:20   gateway_expired    charge_expires_at 22:25:27
+ *
+ * The only success was created while the lifetime was still the 24-hour default. Every charge that has
+ * ever carried a five-minute `expires_at` expired: 0 for 2. Five minutes is the window a buyer has to
+ * open a banking app, find PromptPay, scan, confirm, and let the transfer clear — and twice it was not
+ * enough. #463 shortened this from 24 hours for a real reason (a payable instrument left lying around in
+ * someone's photo roll), and that reason is unchanged; 15 minutes is still two orders of magnitude under
+ * the default while being a window a person can actually make.
+ *
+ * 🔑 It matches the quote TTL (pages/api/v2/payment/preview.ts) and the reconciler's grace window on
+ * purpose — not because they must agree, but because a buyer who is inside one is inside all of them.
+ * The QR still dies well before RECONCILE_HORIZON_MS (grace + one cron period), so a QR that expires can
+ * never be mistaken for a repair that is still pending.
+ */
+export const PROMPTPAY_QR_TTL_MS = 15 * 60 * 1000
 
 /** Omise's documented ceiling for `expires_at`. Ours must stay under it. */
 export const OMISE_MAX_EXPIRY_MS = 24 * 60 * 60 * 1000
