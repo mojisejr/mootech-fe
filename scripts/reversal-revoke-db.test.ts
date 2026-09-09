@@ -10,6 +10,12 @@
 //                             ⇒ "a reversal ends the v2 lane" fails: status stays ACTIVE
 //   pages/api/v2/payment/webhook.ts   the `isReversal(evt)` branch
 //                             ⇒ "a reversal arriving with paid:true still reaches us" fails: nothing moves
+//   pages/api/v2/payment/webhook.ts   the `isRefund(evt)` branch          (#484 slice 6)
+//                             ⇒ "a FULL refund ends the v2 lane" fails: the entitlement stays ACTIVE, which
+//                                is exactly what a real 35 baht refund did on production on 2026-09-09
+//   lib/payment/repo.ts       the partial-refund guard inside revokeByChargeId
+//                             ⇒ "a PARTIAL refund changes NOTHING" fails: a paid month is taken away over
+//                                a smaller number somebody typed in the dashboard
 // The second one is the assertion that matters most: isTerminalFailure returns false the moment
 // `paid === true` (gateway.ts:109), so without its own branch a reversal that reports itself as paid
 // falls through the entire handler silently — which is the bug this ticket is about, one layer earlier
@@ -32,6 +38,12 @@ const M0008 = readFileSync(resolve('lib/db/0008_discount_code.sql'), 'utf8')
 const M0010 = readFileSync(resolve('lib/db/0010_v2_payment_failure.sql'), 'utf8')
 const M0011 = readFileSync(resolve('lib/db/0011_v2_payment_qr_expiry.sql'), 'utf8')
 const M0012 = readFileSync(resolve('lib/db/0012_v2_payment_prev_member_expire.sql'), 'utf8')
+// 🔴 0019 was missing here and this suite could not run at all: settleAndProvision returns every column of
+// v2_payment, so a single absent ALTER makes it fail with 42703 before any assertion is reached. The slice 3
+// closeout of 2026-09-08 added 0019 to three suites and predicted in writing that the next v2_payment ALTER
+// would break the rest the same way, with nobody knowing until somebody ran them. This is that, one file
+// later. The list is still hand-maintained and still has nothing enforcing it.
+const M0019 = readFileSync(resolve('lib/db/0019_v2_payment_qi_granted_at.sql'), 'utf8')
 const SECRET = Buffer.from('whsec_test_484').toString('base64')
 const TS = '1755766800'
 const NOW = new Date()
@@ -47,6 +59,19 @@ function reversalEvent(chargeId: string, paid = true) {
 }
 function completeEvent(chargeId: string) {
   return Buffer.from(JSON.stringify({ key: 'charge.complete', data: { id: chargeId, status: 'successful', paid: true } }), 'utf8')
+}
+// 🔴 #484 slice 6 — the shape Omise ACTUALLY sends for a refund, taken from the account's own response to
+// rfnd_68ymhs6wskczqmp67us on 2026-09-09. `data` is the REFUND object: the charge id is on `data.charge`,
+// `data.id` is the refund's own id, and `data.status` is the refund's word `closed` — never `reversed`.
+// The seeded row is 50000 satang, so 50000 is a FULL refund and anything below it is partial.
+function refundEvent(chargeId: string, amount = 50000) {
+  return Buffer.from(
+    JSON.stringify({
+      key: 'refund.create',
+      data: { object: 'refund', id: 'rfnd_' + chargeId, charge: chargeId, amount, currency: 'THB', status: 'closed', voided: true },
+    }),
+    'utf8',
+  )
 }
 function statusEvent(chargeId: string, status: string) {
   return Buffer.from(JSON.stringify({ key: 'charge.complete', data: { id: chargeId, status, paid: false } }), 'utf8')
@@ -86,6 +111,7 @@ describe.skipIf(!TEST_URL)('#484 a reversed charge takes the entitlement with it
     await sql.unsafe(M0010)
     await sql.unsafe(M0011)
     await sql.unsafe(M0012)
+    await sql.unsafe(M0019)
     const rows = await sql`SELECT user_id FROM "user"
       WHERE user_id NOT IN (SELECT user_id FROM member_payment) LIMIT 4`
     users = rows.map((r) => r.user_id as string)
@@ -270,6 +296,78 @@ describe.skipIf(!TEST_URL)('#484 a reversed charge takes the entitlement with it
       await sql.unsafe('DELETE FROM v2_payment;')
       await sql`DELETE FROM member_payment WHERE user_id = ${users[0]}`
     }
+  })
+
+  // ── #484 slice 6: the event the ticket was actually about ────────────────────────────────────────
+  // A real refund on production took nothing back on 2026-09-09 because nothing routed refund.create.
+  // These drive the ROUTE, so they cover the pipe as well as the machinery.
+
+  it('🔴 a FULL refund ends the v2 lane — the case that silently did nothing on production', async () => {
+    await seedPending('F1', users[0])
+    await fire(completeEvent('F1'))
+    expect(await subStatuses(users[0])).toEqual(['ACTIVE'])
+
+    const out = await fire(refundEvent('F1'))
+    expect(out.status).toBe(200)
+    expect(await subStatuses(users[0])).toEqual(['EXPIRED'])
+    const [pay] = await sql`SELECT failure_code FROM v2_payment WHERE charge_id = 'F1'`
+    expect(pay.failure_code).toBe('gateway_reversed')
+  })
+
+  it('a full refund restores the shadow exactly as a reversal does — same machinery, new pipe', async () => {
+    const before = '2027-01-31'
+    await sql`INSERT INTO member_payment (user_id, plan_code, package_code, create_at, start_at, expire_at)
+              VALUES (${users[1]}, 'MEMBER', 'LEGACY', ${bkk(NOW)}, ${bkk(NOW)}, ${before})`
+    await seedPending('F2', users[1])
+    await fire(completeEvent('F2'))
+    expect(await shadowOf(users[1])).not.toBe(before) // settlement pushed it forward
+    await fire(refundEvent('F2'))
+    expect(await shadowOf(users[1])).toBe(before)
+  })
+
+  it('🔴 a PARTIAL refund changes NOTHING — not the entitlement, and not failure_code', async () => {
+    await seedPending('F3', users[0])
+    await fire(completeEvent('F3'))
+
+    const out = await fire(refundEvent('F3', 10000)) // 10000 of 50000
+    expect(out.status).toBe(200)
+    expect(await subStatuses(users[0])).toEqual(['ACTIVE'])
+    // failure_code MUST stay null: writing it would both misdescribe the row and make the early-return
+    // refuse the full refund if one followed.
+    const [pay] = await sql`SELECT failure_code FROM v2_payment WHERE charge_id = 'F3'`
+    expect(pay.failure_code).toBeNull()
+  })
+
+  it('a partial refund does not poison the full one that follows it', async () => {
+    await seedPending('F4', users[0])
+    await fire(completeEvent('F4'))
+    await fire(refundEvent('F4', 10000))
+    expect(await subStatuses(users[0])).toEqual(['ACTIVE'])
+
+    await fire(refundEvent('F4', 50000))
+    expect(await subStatuses(users[0])).toEqual(['EXPIRED'])
+  })
+
+  it('a refund larger than the charge still revokes — never less than full is the rule, not exactly', async () => {
+    await seedPending('F5', users[0])
+    await fire(completeEvent('F5'))
+    await fire(refundEvent('F5', 60000))
+    expect(await subStatuses(users[0])).toEqual(['EXPIRED'])
+  })
+
+  it('a second delivery of the same refund changes nothing', async () => {
+    await seedPending('F6', users[0])
+    await fire(completeEvent('F6'))
+    await fire(refundEvent('F6'))
+    await fire(refundEvent('F6'))
+    expect(await subStatuses(users[0])).toEqual(['EXPIRED'])
+  })
+
+  it('a refund for a charge that is not ours is accepted and changes nothing', async () => {
+    const out = await fire(refundEvent('NOT_OURS'))
+    expect(out.status).toBe(200)
+    const rows = await sql`SELECT 1 FROM v2_payment WHERE charge_id = 'NOT_OURS'`
+    expect(rows.length).toBe(0)
   })
 
   it('#371 is untouched: a duplicate charge.complete after a reversal does NOT grant again', async () => {
