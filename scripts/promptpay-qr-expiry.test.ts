@@ -1,12 +1,20 @@
-// #463 — teeth for "a PromptPay QR is scannable for 5 minutes, then it is not".
+// #463 — teeth for "a PromptPay QR is scannable for its lifetime, then it is not".
+//
+// ⏱ THE LIFETIME MOVED, THE TEETH DID NOT. ฟีมเคาะ 15 minutes on 2026-09-09 after the production rows
+// showed five minutes was 0 for 2 — see the comment on PROMPTPAY_QR_TTL_MS for the four rows. The
+// literals below stay LITERAL on purpose: reading the constant back would make MU6 untestable, because
+// a test that asks "is it whatever the constant says" agrees with every value the constant could hold.
 //
 // 🔴 MUTANT CONTRACT. A "signature" here is WHAT THE FAILURE SAYS, not which tests go red. The set of
 // reddened tests is the coarser thing and it does not separate every mutant; the assertion message does,
 // and that is the line a person actually reads when a test breaks. It is NOT "exactly one test reddens":
 // removing the field entirely (MU1) necessarily breaks every test that reads its value.
-// Fired 2026-08-26 at 09ca614 — sets, then the message that identifies each:
+// Fired 2026-08-26 at 09ca614, and MU6 re-fired 2026-09-09 after the lifetime moved to 15 minutes:
+// putting the constant back to 5 minutes reddens exactly {charge-carries, starts-when} with
+// "expected 300000 to be 900000" — the set the contract predicts, and a message that still names the
+// duration rather than the field. Sets, then the message that identifies each:
 //   MU1 → {charge-carries, starts-when}   "expected null to be truthy"        ← field gone
-//   MU6 → {charge-carries, starts-when}   "expected 420000 to be 300000"      ← field there, duration wrong
+//   MU6 → {charge-carries, starts-when}   "expected 420000 to be 900000"      ← field there, duration wrong
 //   MU2 → {charge-carries, source-has-none, starts-when}                      ← only mutant that reddens source-has-none
 //   MU3 → {starts-when}      MU4 → {ceiling}      MU5 → {zero-or-negative}
 // ⚠️ MU1 and MU6 share a SET and that is fine — they do not share a message, so the debugger is never
@@ -19,13 +27,13 @@
 //   MU2  move the spread onto the /sources POST instead of /charges
 //          → "the source carries no lifetime of its own" reddens
 //   MU3  hoist the spread above the /sources await (compute before the QR exists)
-//          → "the 5 minutes start when the QR exists" reddens
+//          → "the lifetime starts when the QR exists" reddens
 //   MU4  raise PROMPTPAY_QR_TTL_MS above Omise's 24h ceiling / drop that guard
 //          → "refuses a TTL past Omise's ceiling" reddens
 //   MU5  drop the non-positive guard
 //          → "refuses a TTL that is zero or negative" reddens
-//   MU6  change 5 minutes to any other duration
-//          → "exactly five minutes" reddens
+//   MU6  change 15 minutes to any other duration
+//          → "exactly fifteen minutes" reddens
 //
 // 🔑 WHY THESE ASSERT ON A PARSED TIMESTAMP AND NOT ON THE PRESENCE OF A FIELD. ตู๋ killed three
 // mutant tests on 2026-08-26 for checking spelling instead of behaviour — a spec that only asks
@@ -70,7 +78,7 @@ afterEach(() => {
 })
 
 describe('#463 the QR we hand out stops working', () => {
-  it('🔴 the charge carries expires_at, and it is exactly five minutes out (MU1, MU6)', async () => {
+  it('🔴 the charge carries expires_at, and it is exactly fifteen minutes out (MU1, MU6)', async () => {
     withKeys()
     vi.useFakeTimers()
     const t0 = new Date('2026-08-26T18:00:00.000Z')
@@ -85,7 +93,7 @@ describe('#463 the QR we hand out stops working', () => {
     expect(raw).toBeTruthy()
     // Behaviour, not spelling: parse it and measure the distance from the clock we pinned.
     const delta = new Date(String(raw)).getTime() - t0.getTime()
-    expect(delta).toBe(5 * 60 * 1000)
+    expect(delta).toBe(15 * 60 * 1000)
   })
 
   it('🔴 the source carries no lifetime of its own (MU2)', async () => {
@@ -102,7 +110,7 @@ describe('#463 the QR we hand out stops working', () => {
     expect(source.form.get('expires_at')).toBeNull()
   })
 
-  it('🔴 the 5 minutes start when the QR exists, not when we began asking (MU3)', async () => {
+  it('🔴 the lifetime starts when the QR exists, not when we began asking (MU3)', async () => {
     withKeys()
     vi.useFakeTimers()
     const t0 = new Date('2026-08-26T18:00:00.000Z')
@@ -116,8 +124,8 @@ describe('#463 the QR we hand out stops working', () => {
 
     const raw = String(calls[1].form.get('expires_at'))
     const delta = new Date(raw).getTime() - t0.getTime()
-    // Computed after the source: 30s of latency + the 5 minute lifetime. Hoisting the call gives 5 min flat.
-    expect(delta).toBe(30_000 + 5 * 60 * 1000)
+    // Computed after the source: 30s of latency + the lifetime. Hoisting the call gives the lifetime flat.
+    expect(delta).toBe(30_000 + 15 * 60 * 1000)
   })
 
   it('🔴 a charge whose QR already expired cannot be produced by this code path', async () => {
