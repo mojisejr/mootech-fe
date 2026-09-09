@@ -9,6 +9,7 @@ import type { NextApiRequest, NextApiResponse } from 'next'
 import { omiseGateway } from '@/lib/payment/omise-gateway'
 import { parseChargeEvent, isSettleable, isTerminalFailure, isReversal } from '@/lib/payment/gateway'
 import { settleAndProvision, abandonByChargeId, revokeByChargeId } from '@/lib/payment/repo'
+import { describeSignatureHeader } from '@/lib/payment/webhook-verify'
 
 export const config = { api: { bodyParser: false } }
 
@@ -29,8 +30,21 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' })
 
   const raw = await readRawBody(req)
+  const sig = header(req, 'omise-signature')
+  const sigTs = header(req, 'omise-signature-timestamp')
   // Fail closed: a bad/missing signature is rejected before we parse or act. No PII logged.
-  if (!omiseGateway.verifyWebhook(raw, header(req, 'omise-signature'), header(req, 'omise-signature-timestamp'))) {
+  if (!omiseGateway.verifyWebhook(raw, sig, sigTs)) {
+    // 🔴 #355 — the line that would have made 2026-09-09 a ten-minute diagnosis instead of a two-hour one.
+    // Seven deliveries answered 401 in silence while the reconciler quietly rescued each charge, and the
+    // question nobody could answer was how many signatures the header carried. It carried two, because the
+    // secret had been rolled. This prints the SHAPE only — length and comma count — never the signature,
+    // never the secret, never anything about the payer.
+    console.error(
+      `[v2/payment/webhook] 🔴 401 invalid signature — signature ${describeSignatureHeader(sig)}, ` +
+        `timestamp ${sigTs ? 'present' : 'absent'}, body ${raw.length} bytes. A header with parts>1 means ` +
+        `the webhook secret was rolled and both halves are being sent; parts=1 means the value we hold is ` +
+        `not the one this account signs with.`,
+    )
     return res.status(401).json({ error: 'invalid signature' })
   }
 
