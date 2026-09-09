@@ -106,6 +106,22 @@ t('#B2 a page path merely starting with /cron is still gated', () => {
   assert.equal(isRewrittenToMaintenance(middleware(mkReq('/cron/anything'))), true)
 })
 
+// ── #606 B1: the Omise webhook must pass the maintenance gate too (survives guardV2 deletion at launch) ──
+// Without this, once #606 removes guardV2 the webhook falls to the maintenance gate, is rewritten to
+// /maintenance and answers HTTP 200 → Omise reads 2xx as delivered and never retries → money taken,
+// nobody provisioned. Exact match, not prefix: only this one literal is unauthenticated.
+t('#B1 /api/v2/payment/webhook passes the maintenance gate (else Omise 200s the maintenance page)', () => {
+  assert.equal(isPassThrough(middleware(mkReq('/api/v2/payment/webhook'))), true)
+})
+
+t('#B1 a look-alike /api/v2/payment/webhookX is still gated (exact match, not prefix)', () => {
+  assert.equal(isRewrittenToMaintenance(middleware(mkReq('/api/v2/payment/webhookX'))), true)
+})
+
+t('#B1 /api/v2/payment/webhook/extra is still gated (exact match, not prefix)', () => {
+  assert.equal(isRewrittenToMaintenance(middleware(mkReq('/api/v2/payment/webhook/extra'))), true)
+})
+
 // ── bypass cookie still works for the rest of the app ──
 t('valid bypass cookie passes the app through', () => {
   assert.equal(isPassThrough(middleware(mkReq('/', 'mnt_bypass=testkey'))), true)

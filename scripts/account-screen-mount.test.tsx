@@ -96,16 +96,16 @@ describe('แถว Mumate Pro ประหยัด ฿ (ผู้ใช้ฟ�
     stubAll(opts)
     render(<CookiesProvider>{React.createElement(Free)}</CookiesProvider>)
   }
-  it('จ่าย 360 QI ที่ ฿0.8833/QI (QI_60 = ฿53) → "เดือนนี้จ่ายค่า QI ไป ฿318" · "ประหยัด ฿119" · badge แนะนำ → ร้านค้า', async () => {
+  it('จ่าย 360 QI ที่ ฿0.5889/QI (QI_60 = ฿53 / 90 QI) → "เดือนนี้จ่ายค่า QI ไป ฿212" · "ประหยัด ฿13" · badge แนะนำ → ร้านค้า', async () => {
     await mountFree({ history: [spend(200), spend(160), { id: 'e', reason: 'qi:earn:daily_login', qiDelta: 5, createdAt: `${month}-03T05:00:00.000Z` }], pack: { amount: 53, is_active: true } })
-    await waitFor(() => expect(screen.getByTestId('account-plan-name').textContent).toBe('เดือนนี้จ่ายค่า QI ไป ฿318'))
-    expect(screen.getByTestId('account-plan-sub').textContent).toBe('Pro ฿199 ใช้ไม่จำกัด ประหยัด ฿119')
+    await waitFor(() => expect(screen.getByTestId('account-plan-name').textContent).toBe('เดือนนี้จ่ายค่า QI ไป ฿212'))
+    expect(screen.getByTestId('account-plan-sub').textContent).toBe('Mumate Pro ฿199/เดือน หรือ Mumate+ ฿790/ปี ใช้ไม่จำกัด ประหยัด ฿13')
     expect(screen.getByTestId('account-shop-cta').textContent).toBe('แนะนำ')
     expect(screen.getByTestId('account-plan').getAttribute('href')).toBe('/v2/shop')
   })
   it('ไม่รู้ราคาแพ็ก / ไม่มีรายจ่าย → ไม่แต่งตัวเลข: ชื่อแผน + "Pro ฿199 ใช้ไม่จำกัด" เฉย ๆ', async () => {
     await mountFree({ history: [spend(200)], pack: null })
     await waitFor(() => expect(screen.getByTestId('account-plan-name').textContent).toBe('Mumate Free'))
-    expect(screen.getByTestId('account-plan-sub').textContent).toBe('Pro ฿199 ใช้ไม่จำกัด')
+    expect(screen.getByTestId('account-plan-sub').textContent).toBe('Mumate Pro ฿199/เดือน หรือ Mumate+ ฿790/ปี ใช้ไม่จำกัด')
   })
 })

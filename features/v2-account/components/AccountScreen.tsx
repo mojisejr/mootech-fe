@@ -373,7 +373,7 @@ export function AccountScreen({ preview }: { preview?: AccountPreview } = {}) {
                 <div className="flex min-w-0 flex-1 flex-col gap-[3px]">
                   {/* เฟรม: "เดือนนี้จ่ายค่า QI ไป ฿318 / Pro ฿199 ใช้ไม่จำกัด ประหยัด ฿119" — ตัวเลขจาก ledger จริง ไม่มี → ชื่อแผน */}
                   <p className="text-[14px] font-medium leading-5" data-testid="account-plan-name">{spentThb !== null ? `เดือนนี้จ่ายค่า QI ไป ${thb(spentThb)}` : plan?.heading ?? "แผนของคุณ"}</p>
-                  <p className="text-[12px] leading-[18px] opacity-85" data-testid="account-plan-sub">{`Pro ${thb(PRO_MONTHLY_THB)} ใช้ไม่จำกัด`}{proSaving !== null ? ` ประหยัด ${thb(proSaving)}` : ""}</p>
+                  <p className="text-[12px] leading-[18px] opacity-85" data-testid="account-plan-sub">{`Mumate Pro ${thb(PRO_MONTHLY_THB)}/เดือน หรือ Mumate+ ฿790/ปี ใช้ไม่จำกัด`}{proSaving !== null ? ` ประหยัด ${thb(proSaving)}` : ""}</p>
                 </div>
                 <span data-testid="account-shop-cta" className="flex-none rounded-full bg-v3-purple px-[9px] py-1 text-[9px] font-bold leading-none text-white">แนะนำ</span>
                 <span className="flex-none text-[16px] font-bold leading-6">›</span>

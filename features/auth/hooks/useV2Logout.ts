@@ -11,6 +11,7 @@ import { clearDayDetailCache } from '@/features/v2-calendar/hooks/day-detail-cac
 import { clearMonthCache } from '@/features/v2-calendar/hooks/month-cache'
 import { clearChartCache } from '@/features/auth/hooks/chart-cache'
 import { clearSummaryCache } from '@/features/v2-first-run/hooks/summary-cache'
+import { clearDestinyCache } from '@/features/v2-destiny/destiny-cache'
 
 // Every cookie that carries identity/display — MEMBER_ID is identity-truth, the rest are satellites.
 // LOGIN_PROVIDER must go too, else a stale `=DEV` marker would make the self-heal skip re-registration.
@@ -39,6 +40,7 @@ export function useV2Logout(): V2Logout {
     clearMonthCache() // and the persisted (localStorage) month cache — next person on this machine starts clean (DoD #6)
     clearChartCache() // and the in-memory home chart cache (P3 DoD#5) — next identity gets no stale mascot
     clearSummaryCache() // and the first-run reading prefetch (#233 C3) — next identity gets no stale reading
+    clearDestinyCache() // and the in-memory destiny/ดวง cache — next identity gets no stale chart
     // signOut settles the next-auth session; land back on the /v2 preview entry, not the legacy "/".
     signOut({ callbackUrl: '/v2' })
   }, [removeCookie])

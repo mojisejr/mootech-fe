@@ -170,7 +170,7 @@ export function QiBuyScreen() {
           <Link href="/v2/shop" className="flex items-center gap-3 rounded-[16px] bg-v3-paid-bg px-4 py-3" data-testid="qi-buy-pro">
             <span aria-hidden className="grid size-10 flex-none place-items-center rounded-[12px] bg-v3-qi-spend-bg text-[18px]">💬</span>
             <div className="min-w-0 flex-1">
-              <p className="text-[13px] font-bold text-v3-purple">ใช้บ่อยกว่านี้? Mumate Pro ฿199 / เดือน</p>
+              <p className="text-[13px] font-bold text-v3-purple">ใช้บ่อยกว่านี้? Mumate Pro ฿199/เดือน หรือ Mumate+ ฿790/ปี ใช้ไม่จำกัด</p>
               <p className="text-[11px] leading-4 text-v3-purple/80">ถ้าถามเซียนมูเกิน 20 ครั้งต่อเดือน สมัครคุ้มกว่าซื้อ QI</p>
             </div>
             <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden className="flex-none text-v3-purple"><path d="m6 3.5 4.5 4.5L6 12.5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" /></svg>

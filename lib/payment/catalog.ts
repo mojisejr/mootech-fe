@@ -24,20 +24,21 @@ import { parseTierCode, type TierCode } from '@/lib/v2/tier'
 export const QI_PACK_CODES = ['QI_60', 'QI_200', 'QI_500', 'QI_1200'] as const
 export type QiPackCode = (typeof QI_PACK_CODES)[number]
 
-/** จำนวน QI ต่อ package_code — ตัวเลขจากจอ buy-qi (60/200/500/1,200); ราคาอยู่ใน DB (payment_package) */
+/** จำนวน QI ต่อ package_code (ตารางราคาพี่พล 2026-09: ฿35→90 · ฿99→300 · ฿249→900 · ฿499→2,100).
+ *  package_code คงเดิมเพื่อไม่ให้ charge เก่า/แถว payment_package กำพร้า; ราคาอยู่ใน DB (payment_package). */
 export const QI_PACK_QTY: Record<QiPackCode, number> = {
-  QI_60: 60,
-  QI_200: 200,
-  QI_500: 500,
-  QI_1200: 1200,
+  QI_60: 90,
+  QI_200: 300,
+  QI_500: 900,
+  QI_1200: 2100,
 }
 
-/** โบนัส QI แถมต่อแพ็ก (Figma buy-qi): 60→0 · 200→+20 · 500→+75 · 1,200→+250. เครดิตจริงตอน grant. */
+/** โบนัส QI แถมต่อแพ็ก (ตารางพี่พล 2026-09): ฿35→+0 · ฿99→+45 · ฿249→+260 · ฿499→+816. เครดิตจริงตอน grant. */
 export const QI_PACK_BONUS: Record<QiPackCode, number> = {
   QI_60: 0,
-  QI_200: 20,
-  QI_500: 75,
-  QI_1200: 250,
+  QI_200: 45,
+  QI_500: 260,
+  QI_1200: 816,
 }
 
 export function qiQtyOf(packageCode: string): number | null {

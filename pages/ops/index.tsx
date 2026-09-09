@@ -145,7 +145,13 @@ export default function OpsPage(props: Props) {
           <HeroStrip overall={overall} />
 
           {/* #377 — the first /ops screen that WRITES: package price + on-sale, no deploy needed. */}
-          <nav className="text-sm">
+          <nav className="flex flex-wrap gap-x-5 gap-y-1 text-sm">
+            <Link className="underline" href="/ops/users">
+              จัดการผู้ใช้ (tier / QI / วันเกิด) →
+            </Link>
+            <Link className="underline" href="/ops/analytics">
+              Analytics (รายได้ / QI / แชท) →
+            </Link>
             <Link className="underline" href="/ops/packages">
               จัดการแพ็กเกจ (ราคา / เปิด-ปิดขาย) →
             </Link>

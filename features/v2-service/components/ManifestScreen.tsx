@@ -80,6 +80,9 @@ function MonthMascot({ ganzhi, elementTh }: { ganzhi?: string; elementTh: string
 
 const MAX_GOALS = 5
 
+// รูป default เมื่อ goal ยังไม่ได้อัปโหลดรูป (การ์ด list + หน้า read) — ให้ดูครบเหมือน Figma ไม่ปล่อยว่าง
+const DEFAULT_MANIFEST_IMAGE = "/images/v2/features/manifest/hero.png"
+
 const ELEMENT_MASCOT: Record<string, string> = {
   ไม้: "/images/v2/destiny/el-wood.png",
   ไฟ: "/images/v2/destiny/el-fire.png",
@@ -225,7 +228,9 @@ export function ManifestScreen({ previewData }: { previewData?: ManifestPreview 
     setLoading(true)
     try {
       const j = await fetch("/api/v2/manifest/goals").then((x) => (x.ok ? x.json() : null))
-      setGoals(Array.isArray(j?.goals) ? j.goals.filter((g: Goal) => g.status !== "archived") : [])
+      // แสดงเฉพาะ goal ที่ยัง active — เอา "done" (สำเร็จแล้ว) + "archived" ออกจากหน้าแรก
+      // (goal ที่สำเร็จย้ายไปดูที่ประวัติ/หน้าสำเร็จ ไม่ค้างในสมุด)
+      setGoals(Array.isArray(j?.goals) ? j.goals.filter((g: Goal) => g.status !== "archived" && g.status !== "done") : [])
     } catch { setGoals([]) } finally { setLoading(false) }
     // ธาตุประจำตัว: profile → element-summary
     try {
@@ -295,11 +300,9 @@ export function ManifestScreen({ previewData }: { previewData?: ManifestPreview 
                 {goals.map((g) => (
                   <article key={g.id} className="relative w-[86%] shrink-0 snap-center overflow-hidden rounded-[16px] bg-white text-v3-navy" data-testid="manifest-goal">
                     <Link href={`/v2/service/manifest/${g.id}`} className="block">
-                      {g.imageUrl ? (
-                        <span className="block h-[150px] w-full overflow-hidden">
-                          <Image src={g.imageUrl} alt="" width={480} height={300} unoptimized className="h-full w-full object-cover" />
-                        </span>
-                      ) : null}
+                      <span className="block h-[150px] w-full overflow-hidden">
+                        <Image src={g.imageUrl || DEFAULT_MANIFEST_IMAGE} alt="" width={480} height={300} unoptimized className="h-full w-full object-cover" />
+                      </span>
                       <div className="p-3 pr-10">
                         {g.category ? <span className="inline-block rounded-full bg-[#3E9B4A] px-2 py-0.5 text-[11px] font-semibold text-white">{g.category}</span> : null}
                         <p className="mt-1 text-[14px] font-bold leading-5">{g.affirmation || g.title}</p>

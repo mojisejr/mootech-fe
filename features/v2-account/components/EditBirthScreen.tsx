@@ -6,13 +6,14 @@
 import Head from "next/head"
 import { useCallback, useEffect, useState } from "react"
 
-import { KitButton, NoticeBanner, SheetShell, SkyBackdrop, SkyHeader } from "@/features/v2-profile/components/kit"
+import { KitButton, SkyBackdrop, SkyHeader } from "@/features/v2-profile/components/kit"
 import { InsufficientQiSheet } from "@/features/v2-qi/components/QiSpendSheets"
 import { TH_PROVINCES } from "@/lib/th/provinces"
 import { thaiDateFull, thaiTimeLabel } from "@/lib/th/thai-date"
 import { useCookies } from "react-cookie"
 import { CookieKey } from "@/constants/cookie-key"
 import { ChineseHoroscopeCalculate } from "@/constants/api/api-chinese-horoscope"
+import { clearDestinyCache } from "@/features/v2-destiny/destiny-cache"
 import { ProfileGate } from "./ProfileGate"
 
 // เฟรม form-card: ขาว + ขอบ border/default + r20 + p18 gap16 (ไม่มีเงา)
@@ -50,9 +51,6 @@ export function EditBirthScreen() {
   const [msg, setMsg] = useState<string | null>(null)
   const [insufficient, setInsufficient] = useState(false)
   const [walletQi, setWalletQi] = useState(0)
-  const [sheetOpen, setSheetOpen] = useState(false)
-  const [reason, setReason] = useState("")
-  const [reqMsg, setReqMsg] = useState<string | null>(null)
   // สถานะ B (เฟรม 55399:5976): ใช้สิทธิ์ฟรีแล้ว → ช่องล็อกจนกด "ปลดล็อกการแก้ไข · N QI" (UI-only; หัก QI จริงตอน PATCH เหมือนเดิม)
   const [unlocked, setUnlocked] = useState(false)
 
@@ -101,6 +99,8 @@ export function EditBirthScreen() {
       })
       const j = (await res.json().catch(() => ({}))) as { error?: string; birthEditMode?: string }
       if (res.ok) {
+        // วันเกิดเปลี่ยน → ดวงต้องคำนวณใหม่: ล้าง client cache (server ก็ miss เองเพราะ birthKey เปลี่ยน)
+        clearDestinyCache()
         // 🔴 #Bug2 — engine profile (birthDate) อัปเดตแล้ว แต่ "ธาตุ/หน้าแรก" คำนวณจาก FE user row (dob + result_code)
         // ผ่าน ChineseHoroscopeGet. ต้อง recompute chart ฝั่ง FE ด้วย (เหมือน register) ไม่งั้น result_code เดิม →
         // หน้าแรกโชว์ธาตุเก่า. best-effort (try/catch): ถ้าล้ม engine ก็บันทึกแล้ว — worst case = เท่าเดิม ไม่แย่ลง.
@@ -132,18 +132,6 @@ export function EditBirthScreen() {
     }
   }
 
-  const requestCorrection = async () => {
-    if (!reason.trim()) return
-    const res = await fetch("/api/profile", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ reason: reason.trim() }),
-    })
-    const j = (await res.json().catch(() => ({}))) as { error?: string }
-    setReqMsg(res.ok ? "ส่งคำขอแล้ว — ทีมจะติดต่อกลับ" : String(j.error ?? "ส่งไม่สำเร็จ"))
-    if (res.ok) { setSheetOpen(false); setReason(""); await load() }
-  }
-
   const priceQi = quota?.birthEditPriceQi ?? 150
   const freeUsed = quota?.birthEditFreeUsed === true
   // dirty-gate: ปุ่มบันทึกใช้ได้เมื่อมีการแก้ไขจากค่าปัจจุบันในระบบ (ตาม Figma)
@@ -154,9 +142,6 @@ export function EditBirthScreen() {
     province !== (current?.birthProvince ?? "")
 
   const locked = freeUsed && !unlocked
-  const currentLabel = current?.birthDate
-    ? `${thaiDateFull(current.birthDate.slice(0, 10))}${current.timeUnknown ? " (ไม่ทราบเวลา)" : current.birthTime ? `, ${thaiTimeLabel(current.birthTime)}` : ""}`
-    : "ยังไม่ได้ระบุ"
 
   return (
     <div className="relative min-h-screen w-full overflow-x-hidden bg-white font-ibm">
@@ -169,10 +154,6 @@ export function EditBirthScreen() {
 
         {!loading && kind === "ok" && (
           <>
-            {quota?.pendingCorrection ? (
-              <NoticeBanner tone="blue" testId="eb-pending" title="มีคำขอพิจารณารอทีมดูอยู่" sub={`“${quota.pendingCorrection.reason}”`} />
-            ) : null}
-
             {/* สถานะโควตา — A ฟรี (เฟรม state-free-quota 55399:5947) / B ใช้แล้ว (state-quota-used 55399:5989) */}
             {freeUsed ? (
               <div className="flex w-full flex-col gap-[3px] rounded-[18px] border border-v3-border-input bg-v3-rose-tint px-4 py-3.5" data-testid="eb-quota">
@@ -253,19 +234,7 @@ export function EditBirthScreen() {
               {msg && <p data-testid="eb-msg" className="text-[12px] font-bold text-v3-sapphire">{msg}</p>}
             </section>
 
-            {/* สถานะ C (เฟรม state-correction-request 55399:7821): ทางออกสำหรับคนที่กรอกผิดจริง — โชว์เมื่อยังมีสิทธิ์ฟรีหรือปลดล็อกแล้ว */}
-            {!locked && (
-              <section className="flex w-full flex-col gap-3 rounded-[18px] border border-[#C9DDF5] bg-v3-sky-tint px-[18px] py-4 text-v3-sapphire" data-testid="eb-correction">
-                <p className="text-[14px] font-medium leading-5">กรอกผิดตั้งแต่แรกใช่ไหม</p>
-                <p className="text-[12px] leading-[18px] opacity-85">ถ้าวันเกิดที่บันทึกไว้ไม่ถูกต้อง คุณขอแก้ได้โดยไม่เสีย QI แจ้งทีมงานได้เลย ทีมงานจะตรวจสอบและแก้ให้ภายใน 3 วันทำการ</p>
-                <button type="button" onClick={() => setSheetOpen(true)} data-testid="eb-correction-open" className="grid h-12 w-full place-items-center rounded-full border border-v3-border-input bg-white text-[14px] font-semibold uppercase text-v3-text-body">
-                  แจ้งแก้ข้อมูลที่ไม่ถูกต้อง
-                </button>
-                {reqMsg && <p data-testid="eb-correction-msg" className="text-[12px] font-bold text-v3-sapphire">{reqMsg}</p>}
-              </section>
-            )}
-
-            {/* sticky-footer — A/ฟรี: บันทึก (ดับจนแก้) · B/ล็อก: ปลดล็อก · N QI + ยอดหลังแก้ + ลิงก์แจ้งแก้ */}
+            {/* sticky-footer — A/ฟรี: บันทึก (ดับจนแก้) · B/ล็อก: ปลดล็อก · N QI + ยอดหลังแก้ */}
             <div className="sticky bottom-0 z-20 -mx-4 flex flex-col gap-2 bg-gradient-to-t from-white via-white/95 to-white/0 px-4 pb-[max(1.75rem,env(safe-area-inset-bottom))] pt-3.5">
               {locked ? (
                 <>
@@ -275,10 +244,6 @@ export function EditBirthScreen() {
                       ยอดของคุณ {walletQiNow.toLocaleString("th-TH")} QI · เหลือ {Math.max(0, walletQiNow - priceQi).toLocaleString("th-TH")} QI หลังแก้
                     </p>
                   )}
-                  <button type="button" onClick={() => setSheetOpen(true)} data-testid="eb-correction-open" className="text-center text-[13px] leading-[18px] text-v3-sapphire underline">
-                    กรอกผิดตั้งแต่แรก? แจ้งแก้ข้อมูลที่ไม่ถูกต้อง
-                  </button>
-                  {reqMsg && <p data-testid="eb-correction-msg" className="text-center text-[12px] font-bold text-v3-sapphire">{reqMsg}</p>}
                 </>
               ) : (
                 <>
@@ -298,48 +263,6 @@ export function EditBirthScreen() {
           </>
         )}
       </div>
-
-      {/* ชีตแจ้งแก้ข้อมูลที่ไม่ถูกต้อง (เฟรม correction request sheet 55399:6022) */}
-      {sheetOpen && (
-        <SheetShell label="แจ้งแก้ข้อมูลที่ไม่ถูกต้อง" onClose={() => setSheetOpen(false)}>
-          <h2 className="text-[18px] font-bold leading-6 text-v3-navy" data-testid="eb-correction-title">แจ้งแก้ข้อมูลที่ไม่ถูกต้อง</h2>
-          <p className="mt-2 text-[12px] leading-[18px] text-v3-text-body">ถ้าวันเกิดที่บันทึกไว้ไม่ตรงกับความจริง คุณขอแก้ได้โดยไม่เสีย QI</p>
-          <div className="mt-4 flex flex-col rounded-[16px] bg-v3-rose-tint px-4 py-1.5">
-            <div className="flex items-center gap-2.5 py-[11px]">
-              <span className="min-w-0 flex-1 text-[12px] leading-[18px] text-v3-text-body">ที่บันทึกไว้ตอนนี้</span>
-              <span className="flex-none text-[13px] font-bold text-v3-text-note">{currentLabel}</span>
-            </div>
-            <div className="flex items-center gap-2.5 py-[11px]">
-              <span className="min-w-0 flex-1 text-[12px] leading-[18px] text-v3-text-body">ที่ถูกต้องคือ</span>
-              <span className="flex-none text-[13px] font-bold text-v3-sapphire">กรอกด้านล่าง</span>
-            </div>
-          </div>
-          <div className="mt-4 flex flex-col gap-2.5">
-            <p className="text-[12px] font-medium leading-4 text-v3-text-note">ขั้นตอนหลังจากนี้</p>
-            {["เล่าข้อมูลที่ถูกต้องและเหตุผลในช่องด้านล่าง", "ทีมงานตรวจสอบภายใน 3 วันทำการ", "แก้ให้แล้วคำนวณดวงใหม่โดยไม่หัก QI"].map((t, i) => (
-              <div key={t} className="flex items-center gap-2.5">
-                <span className="grid size-[22px] flex-none place-items-center rounded-full bg-v3-sky-tint text-[9px] font-bold text-v3-sapphire">{i + 1}</span>
-                <span className="min-w-0 flex-1 text-[12px] leading-[18px] text-v3-text-body">{t}</span>
-              </div>
-            ))}
-          </div>
-          <textarea
-            value={reason}
-            onChange={(e) => setReason(e.target.value)}
-            placeholder="เช่น สมัครผิดวัน วันเกิดที่ถูกต้องคือ 15 มกราคม 2527"
-            data-testid="eb-correction-reason"
-            rows={3}
-            className="mt-4 w-full rounded-[14px] border border-v3-border-input bg-white px-4 py-3 text-[14px] leading-[22px] outline-none placeholder:text-v3-placeholder"
-          />
-          <p className="mt-3 rounded-[12px] bg-v3-danger-bg px-3.5 py-[11px] text-[9px] leading-[13px] text-v3-danger-text">
-            ใช้ได้เฉพาะกรณีข้อมูลไม่ถูกต้องจริง ไม่ใช่การเปลี่ยนไปดูดวงให้คนอื่น ทีมงานขอสงวนสิทธิ์ในการตรวจสอบ
-          </p>
-          <div className="mt-4 flex flex-col gap-2">
-            <KitButton onClick={() => void requestCorrection()} disabled={!reason.trim()} testId="eb-correction-send">ส่งคำขอแก้ไข</KitButton>
-            <button type="button" onClick={() => setSheetOpen(false)} className="grid h-12 w-full place-items-center rounded-full bg-white text-[16px] font-bold uppercase text-v3-sapphire">ยกเลิกการแก้ไข</button>
-          </div>
-        </SheetShell>
-      )}
 
       {insufficient && (
         <InsufficientQiSheet

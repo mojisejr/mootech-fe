@@ -180,6 +180,7 @@ export default defineConfig({
       'scripts/discount-concurrency-db.test.ts', // #361 — real pg (skipIf !TEST_DATABASE_URL): quota gate under parallel load + release
       'scripts/discount-preview-db.test.ts', // #361 real pg: preview-charge quote contract + legacy-code answers
       'scripts/ops-packages.test.ts', // #377 — pure: what /ops may change (price + on-sale only)
+      'scripts/ops-validators.test.ts', // /ops admin — pure validators (tier / QI / birth)
       'scripts/package-tier-db.test.ts', // #377 — real pg (skipIf !TEST_DATABASE_URL): tier/NOT NULL trap + ops-edit→sale-lane loop
       'scripts/shop-package-mapping.test.ts', // #359 — shop plan→package_code mapping + catalog agreement
       'scripts/shop-card-verdict.test.ts', // #457 — การ์ดแต่ละใบพูดกับผู้ใช้แต่ละสถานะให้ถูก (ฟังก์ชันบริสุทธิ์)

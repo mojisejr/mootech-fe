@@ -18,6 +18,7 @@ import {
   isBirthProfileComplete,
   type FeCalcInput,
 } from "@/lib/bazi-bridge/input"
+import { mergeEngineBirth } from "@/lib/bazi-bridge/engine-birth"
 import type { DevBirthProfile } from "@/dev-access/birth-adapter"
 
 export const config = {
@@ -79,7 +80,8 @@ export default async function handler(
           res.status(409).json({ code: "profile_incomplete" })
           return
         }
-        feInput = userRowToFeCalcInput(row)
+        // A1: วันเกิดที่แก้ล่าสุด (engine bazi_user_profile) ชนะ legacy user.dob
+        feInput = userRowToFeCalcInput(await mergeEngineBirth(userId, row))
       }
     } catch {
       res.status(500).json({ error: "profile lookup failed" })
