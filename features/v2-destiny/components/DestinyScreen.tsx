@@ -679,9 +679,16 @@ export function DestinyScreen({ previewData }: { previewData?: DestinyData } = {
       {/* header — ← · ดวงของฉัน (แบบ FIXED ใน Figma; bell/avatar ใช้ cluster เดิมของ /v2) */}
       <header className="flex w-full items-center gap-2 px-4 pt-4">
         <Link
-          href="/v2"
+          href="/v2/account"
           aria-label="ย้อนกลับ"
           data-testid="destiny-back"
+          onClick={(e) => {
+            // ย้อนไปหน้าก่อนหน้าจริง (เข้า destiny มาจาก /v2/account) — ไม่กระโดดไปหน้าแรก. href คง fallback เปิดตรง/รีเฟรช
+            if (typeof window !== "undefined" && window.history.length > 1) {
+              e.preventDefault()
+              window.history.back()
+            }
+          }}
           className="grid h-9 w-9 flex-none place-items-center rounded-full text-v3-navy hover:bg-black/5"
         >
           <svg width="20" height="20" viewBox="0 0 20 20" fill="none" aria-hidden>

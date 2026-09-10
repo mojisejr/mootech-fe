@@ -140,7 +140,20 @@ function TierBadge({ label, linked }: { label: string; linked: boolean }) {
 
 function BackLink({ href }: { href: string }) {
   return (
-    <Link href={href} aria-label="ย้อนกลับ" data-testid="header-back" className="-ml-1 grid size-9 shrink-0 place-items-center rounded-full text-v3-navy">
+    // ย้อนไปหน้าก่อนหน้าจริง (browser history) เมื่อมีประวัติในแอป — href เป็น fallback ตอนเปิดลิงก์ตรง/รีเฟรช/คลิกขวา.
+    // แก้จุดนี้ครอบ AppHeader ทุกหน้าที่ส่ง backHref (calendar day-detail, shop checkout) พร้อมกัน.
+    <Link
+      href={href}
+      aria-label="ย้อนกลับ"
+      data-testid="header-back"
+      onClick={(e) => {
+        if (typeof window !== "undefined" && window.history.length > 1) {
+          e.preventDefault()
+          window.history.back()
+        }
+      }}
+      className="-ml-1 grid size-9 shrink-0 place-items-center rounded-full text-v3-navy"
+    >
       <svg viewBox="0 0 20 20" className="size-6" fill="none" aria-hidden>
         <path d="M12.5 5 7.5 10l5 5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
       </svg>
