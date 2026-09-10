@@ -91,7 +91,7 @@ function LayerRow({ l, defaultOpen }: { l: HoneycombLayer; defaultOpen?: boolean
   return (
     <div className="rounded-[16px] bg-white p-4 v3-shadow-card" data-testid="honeycomb-layer">
       <button type="button" onClick={() => setOpen((o) => !o)} className="flex w-full items-center gap-3 text-left">
-        <span className="grid size-9 flex-none place-items-center rounded-full bg-v3-sapphire text-[14px] font-black text-white">{l.layerNo}</span>
+        <span className="grid size-10 flex-none place-items-center rounded-[14px] bg-[#EAF7EA] text-[16px] font-black text-[#3E7E3A]">{l.layerNo}</span>
         <span className="min-w-0 flex-1">
           <span className="block text-[15px] font-black text-v3-navy">ชั้น {l.layerNo} · {l.digitString}</span>
           <span className={"mt-0.5 inline-block rounded-full px-2 py-[1px] text-[11px] font-bold " + ZONE_PILL[l.zone]}>{ZONE_LABEL[l.zone]}</span>
