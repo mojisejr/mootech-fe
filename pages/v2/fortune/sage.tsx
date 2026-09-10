@@ -62,6 +62,8 @@ export default function FortuneSagePage() {
   // 402 = ฟรีหมด + เครดิตหมด + ชี่ไม่พอ — แลก card_use ด้วยชี่ตรงนี้แล้วเสี่ยงต่อทันที (ไม่ต้องไปหน้าพลังชี่)
   const [redeeming, setRedeeming] = useState(false)
   const [redeemMsg, setRedeemMsg] = useState<string | null>(null)
+  // แชร์ = รับ +10 QI วันละ 1 ครั้ง — อ่านผลจริงเพื่อบอกให้ตรง (ได้/เต็มโควตาแล้ว)
+  const [shareState, setShareState] = useState<"idle" | "done" | "capped">("idle")
   const redeemAndRetry = async () => {
     setRedeeming(true)
     setRedeemMsg(null)
@@ -96,9 +98,18 @@ export default function FortuneSagePage() {
     }
   }
 
-  const share = () => {
-    // แชร์ = รับ +10 QI (earn "share" ที่ engine, daily-capped) + เปิด native share
-    void fetch("/api/qi-earn", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ code: "share" }) }).catch(() => {})
+  const share = async () => {
+    // แชร์ = รับ +10 QI (earn "share" ที่ engine, daily-capped) — อ่านผลจริงมาบอกบนปุ่ม + เปิด native share
+    if (shareState === "idle") {
+      try {
+        const r = await fetch("/api/qi-earn", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ code: "share" }) })
+        const j = (r.ok ? await r.json().catch(() => ({})) : {}) as { awarded?: boolean; capped?: boolean }
+        if (j.awarded) setShareState("done")
+        else if (j.capped) setShareState("capped")
+      } catch {
+        /* QI ล่ม — คง idle ให้ลองใหม่ได้ */
+      }
+    }
     const url = typeof window !== "undefined" ? window.location.href : ""
     const text = stick ? `เสี่ยงเซียมซีได้ ${stick.pillar} · ${stick.nayin} — เสี่ยงทายกับ Mumate` : "เสี่ยงทายกับ Mumate"
     if (typeof navigator !== "undefined" && navigator.share) void navigator.share({ title: "เซียมซีเสี่ยงทาย", text, url }).catch(() => {})
@@ -208,7 +219,7 @@ export default function FortuneSagePage() {
             <KitButton onClick={share} testId="sage-share">
               <span className="inline-flex items-center gap-2">
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="18" cy="5" r="3" /><circle cx="6" cy="12" r="3" /><circle cx="18" cy="19" r="3" /><path d="m8.6 13.5 6.8 4M15.4 6.5l-6.8 4" /></svg>
-                แชร์ผลนี้ รับ +10 QI
+                {shareState === "done" ? "รับ +10 QI แล้ว 🎉" : shareState === "capped" ? "วันนี้รับ +10 QI ไปแล้ว" : "แชร์ผลนี้ รับ +10 QI"}
               </span>
             </KitButton>
             <button onClick={() => { setStick(null); setPhase("intro") }} data-testid="sage-again" className="grid h-12 w-full place-items-center rounded-full border border-v3-border-card bg-white text-[15px] font-bold text-v3-navy">

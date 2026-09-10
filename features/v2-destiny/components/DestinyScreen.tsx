@@ -539,7 +539,7 @@ export function DestinyScreen({ previewData }: { previewData?: DestinyData } = {
   const [loading, setLoading] = useState(!previewData)
   const [guard, setGuard] = useState<"not_authenticated" | "profile_incomplete" | null>(null)
   const [showDomains, setShowDomains] = useState(false)
-  const [shareState, setShareState] = useState<"idle" | "done">("idle")
+  const [shareState, setShareState] = useState<"idle" | "done" | "capped">("idle")
 
   useEffect(() => {
     if (previewData) return
@@ -643,19 +643,22 @@ export function DestinyScreen({ previewData }: { previewData?: DestinyData } = {
     } else if (typeof navigator !== "undefined" && navigator.clipboard) {
       await navigator.clipboard.writeText(payload.url).catch(() => {})
     }
-    // #Bug3 — เคยรับ +10 QI แล้วในเซสชันนี้ ⇒ แชร์ซ้ำได้ แต่ไม่ยิง qi-earn อีก (server กันซ้ำอยู่แล้ว แต่ที่ผู้ใช้
-    // เห็นว่า "กดรับได้เรื่อยๆ" คือปุ่มมันเด้งกลับเป็น "รับ +10 QI" — จึงคงสถานะ "รับแล้ว" ไว้ ไม่ revert)
-    if (shareState === "done") return
-    // แชร์สำเร็จ → รับ +10 QI (code "share" จาก engine catalog; capped เองถ้ารับไปแล้ว)
+    // รู้ผลของวันนี้แล้ว (รับ/เต็มโควตา) ⇒ ไม่ยิง qi-earn ซ้ำ (แชร์เองยังทำได้ตามปกติด้านบน)
+    if (shareState === "done" || shareState === "capped") return
+    // แชร์ = รับ +10 QI วันละ 1 ครั้ง (code "share"). อ่านผลจริงจาก engine แล้วบอกให้ตรง — ได้จริง = "รับแล้ว",
+    // เต็มโควตาแล้ว (capped) = "วันนี้รับไปแล้ว" (ฟีม dect โทเคน Qi: กันความสับสนว่ากดแล้วไม่ได้ QI)
     try {
-      await fetch("/api/qi-earn", {
+      const r = await fetch("/api/qi-earn", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ code: "share" }),
       })
-      setShareState("done") // ค้างเป็น "รับ +10 QI แล้ว" — เดิม revert หลัง 4 วิ ทำให้ดูเหมือนกดรับซ้ำได้
+      const j = (r.ok ? await r.json().catch(() => ({})) : {}) as { awarded?: boolean; capped?: boolean }
+      if (j.awarded) setShareState("done")
+      else if (j.capped) setShareState("capped")
+      // อื่น ๆ (error/ไม่ทราบผล) — คงสถานะ idle ให้ลองใหม่ได้
     } catch {
-      // ระบบ QI ล่ม — การแชร์ยังสำเร็จอยู่
+      // ระบบ QI ล่ม — การแชร์ยังสำเร็จอยู่ (คง idle ให้กดรับใหม่ได้)
     }
   }
 
@@ -827,7 +830,7 @@ export function DestinyScreen({ previewData }: { previewData?: DestinyData } = {
                   <circle cx="18" cy="19" r="2.4" stroke="currentColor" strokeWidth="1.8" />
                   <path d="m8.1 10.9 7.8-4.4M8.1 13.1l7.8 4.4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
                 </svg>
-                {shareState === "done" ? "รับ +10 QI แล้ว 🎉" : "แชร์ผลทำนายนี้ รับ +10 QI"}
+                {shareState === "done" ? "รับ +10 QI แล้ว 🎉" : shareState === "capped" ? "วันนี้รับ +10 QI ไปแล้ว" : "แชร์ผลทำนายนี้ รับ +10 QI"}
               </span>
             </button>
             {/* ปุ่ม Mate AI จริง — persona เสี่ยวมู่↔เสี่ยวมี่ วนสลับ + มาสคอต (reuse ตัวเดียวกับ nav) */}
