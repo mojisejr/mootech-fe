@@ -103,9 +103,17 @@ export function OneBookScreen() {
       <div className="relative z-10 mx-auto flex w-full max-w-md flex-1 flex-col gap-5 px-4 pb-28 pt-1">
         {/* HERO */}
         <section className="relative flex flex-col items-center gap-4 overflow-hidden rounded-[24px] bg-v3-sapphire px-5 pb-6 pt-5 text-center text-white" data-testid="one-book-hero">
-          <span className="relative block w-[62%] max-w-[220px] overflow-hidden rounded-[14px] shadow-[0_10px_30px_rgba(0,0,0,.25)]">
-            <Image src="/images/v2/features/one-book/hero.jpg" alt="YOUR LIFE CODE · คู่มือดวงจีนเฉพาะบุคคล" width={600} height={600} className="h-auto w-full" priority />
-          </span>
+          <div className="relative flex w-full items-end justify-center pt-1">
+            <span className="pointer-events-none absolute bottom-0 left-1 z-0 w-[26%] max-w-[92px] select-none">
+              <Image src="/images/v2/referral/mascot-wood.png" alt="" width={200} height={200} className="h-auto w-full" />
+            </span>
+            <span className="relative z-10 block w-[52%] max-w-[190px]">
+              <Image src="/images/v2/features/one-book/book.png" alt="YOUR LIFE CODE · คู่มือดวงจีนเฉพาะบุคคล" width={536} height={578} className="h-auto w-full drop-shadow-[0_12px_26px_rgba(0,0,0,.32)]" priority />
+            </span>
+            <span className="pointer-events-none absolute bottom-0 right-1 z-0 w-[26%] max-w-[92px] select-none">
+              <Image src="/images/v2/referral/mascot-fire.png" alt="" width={200} height={200} className="h-auto w-full" />
+            </span>
+          </div>
           <div>
             <h1 className="text-[24px] font-black leading-8">คู่มือระดับ 1 ของชีวิตคุณ</h1>
             <p className="text-[15px] font-bold tracking-wide text-v3-lime">YOUR LIFE CODE</p>
