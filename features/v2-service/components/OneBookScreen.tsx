@@ -108,29 +108,25 @@ export function OneBookScreen() {
           testId="one-book"
           right={<span className="flex items-center gap-2"><TopBarBell variant="solid" href="/v2/calendar/notifications" /><TopBarAvatar variant="sapphire" href="/v2/account" /></span>}
         />
-        {/* HERO */}
-        <section className="relative flex flex-col items-center gap-4 overflow-hidden rounded-[24px] bg-v3-sapphire px-5 pb-6 pt-5 text-center text-white" data-testid="one-book-hero">
-          <div className="relative flex w-full items-end justify-center pt-1">
-            <span className="pointer-events-none absolute bottom-0 left-1 z-0 w-[26%] max-w-[92px] select-none">
-              <Image src="/images/v2/referral/mascot-wood.png" alt="" width={200} height={200} className="h-auto w-full" />
-            </span>
-            <span className="relative z-10 block w-[52%] max-w-[190px]">
-              <Image src="/images/v2/features/one-book/book.png" alt="YOUR LIFE CODE · คู่มือดวงจีนเฉพาะบุคคล" width={536} height={578} className="h-auto w-full drop-shadow-[0_12px_26px_rgba(0,0,0,.32)]" priority />
-            </span>
-            <span className="pointer-events-none absolute bottom-0 right-1 z-0 w-[26%] max-w-[92px] select-none">
-              <Image src="/images/v2/referral/mascot-fire.png" alt="" width={200} height={200} className="h-auto w-full" />
-            </span>
+        {/* HERO — หนังสือตั้งทับขอบบนกรอบน้ำเงิน (ครึ่งบนโผล่พ้นกรอบ) + glow ด้านหลัง */}
+        <section className="relative mt-[68px]" data-testid="one-book-hero">
+          <div className="pointer-events-none absolute -top-[68px] left-1/2 z-10 flex w-[48%] max-w-[180px] -translate-x-1/2 justify-center select-none">
+            <span aria-hidden className="absolute left-1/2 top-[55%] -z-10 size-44 -translate-x-1/2 -translate-y-1/2 rounded-full bg-white/25 blur-2xl" />
+            <span aria-hidden className="absolute left-1/2 top-[55%] -z-10 size-28 -translate-x-1/2 -translate-y-1/2 rounded-full bg-v3-lime/25 blur-xl" />
+            <Image src="/images/v2/features/one-book/book.png" alt="YOUR LIFE CODE · คู่มือดวงจีนเฉพาะบุคคล" width={536} height={578} className="h-auto w-full drop-shadow-[0_18px_34px_rgba(0,0,0,.4)]" priority />
           </div>
-          <div>
-            <h1 className="text-[24px] font-black leading-8">คู่มือระดับ 1 ของชีวิตคุณ</h1>
-            <p className="text-[15px] font-bold tracking-wide text-v3-lime">YOUR LIFE CODE</p>
+          <div className="flex flex-col items-center gap-3 rounded-[24px] bg-v3-sapphire px-5 pb-6 pt-[104px] text-center text-white">
+            <div>
+              <h1 className="text-[27px] font-black leading-9 text-v3-lime">คู่มือระดับ 1 ของชีวิตคุณ</h1>
+              <p className="text-[18px] font-black tracking-[0.14em] text-white">YOUR LIFE CODE</p>
+            </div>
+            <p className="text-[13px] leading-5 text-white/85">หนังสือเล่มเดียวในโลกที่คำนวณจากวันเดือนปี<br />และเวลาเกิดของคุณ ไม่ซ้ำกับใคร</p>
+            <p className="flex items-baseline justify-center gap-2">
+              <span className="text-[16px] font-medium text-white/50 line-through">฿2,890</span>
+              <span className="text-[32px] font-black text-v3-lime">฿1,890</span>
+            </p>
+            <OrderCta testId="one-book-order-hero" />
           </div>
-          <p className="text-[13px] leading-5 text-white/85">หนังสือเล่มเดียวในโลกที่คำนวณจากวันเดือนปีและเวลาเกิดของคุณ ไม่ซ้ำกับใคร</p>
-          <p className="flex items-baseline justify-center gap-2">
-            <span className="text-[16px] font-medium text-white/50 line-through">฿2,890</span>
-            <span className="text-[30px] font-black text-v3-lime">฿1,890</span>
-          </p>
-          <OrderCta testId="one-book-order-hero" />
         </section>
 
         {/* STATS */}
@@ -145,7 +141,7 @@ export function OneBookScreen() {
 
         {/* PAIN POINTS */}
         <section className="flex flex-col gap-3">
-          <h2 className="text-center text-[18px] font-black leading-7 text-v3-navy">เคยเป็นแบบนี้ไหม<br />แต่ยังตัดสินใจผิดซ้ำ ๆ</h2>
+          <h2 className="text-center text-[18px] font-black leading-7 text-v3-navy">เคยเป็นแบบนี้ไหม<br />ทั้งที่รู้ตัวเองดีแล้ว<br />แต่ยังตัดสินใจผิดซ้ำ ๆ</h2>
           {PAINS.map(([t, s]) => (
             <div key={t} className="flex items-start gap-3 rounded-2xl bg-white p-4 v3-shadow-card">
               <span aria-hidden className="mt-0.5 flex-none text-v3-pumpkin">
