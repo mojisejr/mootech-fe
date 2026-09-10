@@ -8,6 +8,7 @@ import { SkyBackdrop, SkyHeader } from "@/features/v2-profile/components/kit"
 import { Menubar } from "@/features/v2-shell/components/Menubar"
 import { TopBarBell } from "@/features/v2-shell/components/TopBarBell"
 import { TopBarAvatar } from "@/features/v2-shell/components/TopBarAvatar"
+import { getDayEntry, getLastEntry, putDayEntry } from "@/features/v2-service/daily-reading-cache"
 
 // ── shapes (ตรงกับ engine PhoneReading) ──
 type PairMeaning = { pair: string; feeling: string; work: string; money: string; love: string; analysis: string }
@@ -53,21 +54,8 @@ function buildEngineText(r: PhoneReading): string {
 }
 
 // มาสคอตธาตุ — วางเฉพาะ "แถบบน" รอบหัวมาสคอตหลัก (ไม่ทับช่องกรอก/ปุ่ม) ตาม Figma
-// ── แคชผลรายวัน (ทำนายแล้ววันนั้นดูซ้ำได้ ไม่หัก QI ใหม่; ข้ามวัน = หมดอายุ ต้องทำนายใหม่) ──
+// แคชผลรายวันแยกตามเบอร์ (ดู [[daily-reading-cache]]) — เบอร์ที่ทำนายแล้ววันนี้ดูซ้ำฟรี, ข้ามวัน = คำนวณใหม่
 const CACHE_KEY = "mumate-phone-reading"
-type CachedReading = { date: string; phoneDigits: string; reading: PhoneReading; narration: string | null }
-function bkkToday(): string {
-  try { return new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Bangkok" }).format(new Date()) } catch { return new Date().toISOString().slice(0, 10) }
-}
-function readCache(): CachedReading | null {
-  try {
-    const raw = localStorage.getItem(CACHE_KEY)
-    if (!raw) return null
-    const c = JSON.parse(raw) as CachedReading
-    return c?.date === bkkToday() && c.reading?.pairs?.length ? c : null
-  } catch { return null }
-}
-function writeCache(c: CachedReading) { try { localStorage.setItem(CACHE_KEY, JSON.stringify(c)) } catch { /* ignore */ } }
 
 const HERO_MASCOTS = [
   { src: "/images/v2/referral/mascot-fire.png", cls: "left-1 top-[-40px] h-12 w-12" },
@@ -132,9 +120,9 @@ export function PhoneReadingScreen() {
   const canSubmit = phone.replace(/\D/g, "").length >= 9
   const QI_COST = 10
 
-  // กลับเข้าหน้า → ถ้าทำนายไปแล้ววันนี้ โชว์ผลเดิม (ไม่หัก QI ใหม่)
+  // กลับเข้าหน้า → ถ้าทำนายไปแล้ววันนี้ โชว์ผลล่าสุด (ไม่หัก QI ใหม่)
   useEffect(() => {
-    const c = readCache()
+    const c = getLastEntry<PhoneReading>(CACHE_KEY)
     if (c) { setReading(c.reading); setNarration(c.narration); setPhone(c.phoneDigits); setPhase("result") }
   }, [])
 
@@ -156,9 +144,9 @@ export function PhoneReadingScreen() {
   const submit = async () => {
     if (!canSubmit || phase === "loading") return
     const digits = phone.replace(/\D/g, "")
-    // เบอร์เดิม + วันเดียวกัน → ดูผลเดิมซ้ำ ไม่หัก QI ใหม่
-    const cached = readCache()
-    if (cached && cached.phoneDigits === digits) {
+    // เบอร์นี้ทำนายแล้ววันนี้ → ดูผลเดิมซ้ำ ไม่หัก QI / ไม่คำนวณใหม่
+    const cached = getDayEntry<PhoneReading>(CACHE_KEY, digits)
+    if (cached) {
       setReading(cached.reading); setNarration(cached.narration); setNarrating(false); setError(null); setNeedQi(false); setTab("pairs"); setPhase("result")
       return
     }
@@ -179,7 +167,7 @@ export function PhoneReadingScreen() {
         setPhase("intro"); return
       }
       setReading(j); setPhase("result"); setNarrating(true)
-      writeCache({ date: bkkToday(), phoneDigits: digits, reading: j, narration: null }) // แคชทันที (กันหักซ้ำแม้ AI ยังไม่เสร็จ)
+      putDayEntry<PhoneReading>(CACHE_KEY, digits, j, null) // แคชทันที (กันหักซ้ำแม้ AI ยังไม่เสร็จ)
       void fetch("/api/v2/narrate", {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ engineText: buildEngineText(j), domainLabel: "ทำนายเบอร์มือถือ", feature: "phone_reading" }),
@@ -188,7 +176,7 @@ export function PhoneReadingScreen() {
         .then((n) => {
           const text = typeof n?.text === "string" ? n.text : null
           setNarration(text)
-          writeCache({ date: bkkToday(), phoneDigits: digits, reading: j, narration: text }) // อัปเดตแคชพร้อมภาพรวม
+          putDayEntry<PhoneReading>(CACHE_KEY, digits, j, text) // อัปเดตแคชพร้อมภาพรวม
         })
         .catch(() => setNarration(null))
         .finally(() => setNarrating(false))

@@ -8,6 +8,7 @@ import { SkyBackdrop, SkyHeader } from "@/features/v2-profile/components/kit"
 import { Menubar } from "@/features/v2-shell/components/Menubar"
 import { TopBarBell } from "@/features/v2-shell/components/TopBarBell"
 import { TopBarAvatar } from "@/features/v2-shell/components/TopBarAvatar"
+import { getDayEntry, getLastEntry, putDayEntry } from "@/features/v2-service/daily-reading-cache"
 
 type PairMeaning = { pair: string; feeling: string; work: string; money: string; love: string; analysis: string }
 type HoneycombPair = { pair: string; key: string; a: number; b: number; meaning: PairMeaning }
@@ -22,20 +23,8 @@ const ZONE_PILL: Record<Zone, string> = { self: "bg-v3-lime/20 text-v3-navy", ne
 // ชั้น N → โซน (1-4 ตัวเรา, 5-6 คนใกล้ตัว, 7-11 คนห่างตัว)
 function zoneOfLayer(n: number): Zone { return n <= 4 ? "self" : n <= 6 ? "near" : "far" }
 
+// แคชผลรายวันแยกตามเบอร์ (ดู [[daily-reading-cache]]) — เบอร์ที่ทำนายแล้ววันนี้ดูซ้ำฟรี, ข้ามวัน = คำนวณใหม่
 const CACHE_KEY = "mumate-honeycomb-reading"
-type CachedReading = { date: string; phoneDigits: string; reading: HoneycombReading; narration: string | null }
-function bkkToday(): string {
-  try { return new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Bangkok" }).format(new Date()) } catch { return new Date().toISOString().slice(0, 10) }
-}
-function readCache(): CachedReading | null {
-  try {
-    const raw = localStorage.getItem(CACHE_KEY)
-    if (!raw) return null
-    const c = JSON.parse(raw) as CachedReading
-    return c?.date === bkkToday() && c.reading?.layers?.length ? c : null
-  } catch { return null }
-}
-function writeCache(c: CachedReading) { try { localStorage.setItem(CACHE_KEY, JSON.stringify(c)) } catch { /* ignore */ } }
 
 function buildEngineText(r: HoneycombReading): string {
   const lines: string[] = [`เบอร์ ${r.normalized} (พีระมิดรังผึ้ง)`]
@@ -137,7 +126,7 @@ export function HoneycombScreen() {
   const QI_COST = 10
 
   useEffect(() => {
-    const c = readCache()
+    const c = getLastEntry<HoneycombReading>(CACHE_KEY)
     if (c) { setReading(c.reading); setNarration(c.narration); setPhone(c.phoneDigits); setPhase("result") }
   }, [])
 
@@ -152,8 +141,9 @@ export function HoneycombScreen() {
   const submit = async () => {
     if (!canSubmit || phase === "loading") return
     const digits = phone.replace(/\D/g, "")
-    const cached = readCache()
-    if (cached && cached.phoneDigits === digits) {
+    // เบอร์นี้ทำนายแล้ววันนี้ → ดูผลเดิมซ้ำ ไม่หัก QI / ไม่คำนวณใหม่
+    const cached = getDayEntry<HoneycombReading>(CACHE_KEY, digits)
+    if (cached) {
       setReading(cached.reading); setNarration(cached.narration); setNarrating(false); setError(null); setNeedQi(false); setPhase("result")
       return
     }
@@ -173,7 +163,7 @@ export function HoneycombScreen() {
         setPhase("intro"); return
       }
       setReading(j); setPhase("result"); setNarrating(true)
-      writeCache({ date: bkkToday(), phoneDigits: digits, reading: j, narration: null })
+      putDayEntry<HoneycombReading>(CACHE_KEY, digits, j, null)
       void fetch("/api/v2/narrate", {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ engineText: buildEngineText(j), domainLabel: "ทำนายเบอร์รังผึ้ง (เบอร์ปิรามิด)", feature: "phone_reading" }),
@@ -182,7 +172,7 @@ export function HoneycombScreen() {
         .then((n) => {
           const text = typeof n?.text === "string" ? n.text : null
           setNarration(text)
-          writeCache({ date: bkkToday(), phoneDigits: digits, reading: j, narration: text })
+          putDayEntry<HoneycombReading>(CACHE_KEY, digits, j, text)
         })
         .catch(() => setNarration(null))
         .finally(() => setNarrating(false))
