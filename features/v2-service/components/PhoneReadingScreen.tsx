@@ -3,6 +3,7 @@
 // กรอกเบอร์ → engine ตามโหมด + ภาพรวม AI. คิด 10 QI/ครั้ง + แคชผลรายวันแยกตามเบอร์ + back กลับหน้ากรอก.
 // Figma 55666-1122 (ธรรมดา) + 55666-2096 (รังผึ้ง).
 import Head from "next/head"
+import Link from "next/link"
 import { useEffect, useMemo, useState } from "react"
 
 import { SkyBackdrop, SkyHeader } from "@/features/v2-profile/components/kit"
@@ -268,7 +269,7 @@ export function PhoneReadingScreen({ initialMode = "normal" }: { initialMode?: M
                 {phase === "loading" ? "กำลังทำนาย..." : cd.active ? `รออีก ${cd.secondsLeft} วินาที` : "ทำนายเบอร์นี้"}
               </button>
               {error && <p className="mt-2 text-[12px] font-bold text-v3-lime" data-testid="phone-error">{error}</p>}
-              {needQi && <a href="/v2/qi" className="mt-2 inline-grid h-9 place-items-center rounded-full bg-white px-5 text-[13px] font-bold text-v3-sapphire" data-testid="phone-buy-qi">เติม QI</a>}
+              {needQi && <Link href="/v2/qi" className="mt-2 inline-grid h-9 place-items-center rounded-full bg-white px-5 text-[13px] font-bold text-v3-sapphire" data-testid="phone-buy-qi">เติม QI</Link>}
               <p className="mt-3 text-[11px] font-bold text-v3-lime">ใช้ {QI_COST} QI ต่อการทำนาย</p>
               <p className="mt-0.5 text-[11px] text-white/70">ระบบจะตัดรหัสประเทศ 0 หรือ 66 ออกให้อัตโนมัติ</p>
             </section>
