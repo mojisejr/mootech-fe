@@ -26,6 +26,7 @@
 // the feature — "what colour should I wear today" — is already answered by the names. Raised, not shipped.
 import type { DayDetailColor } from '../../types'
 import { SectionCard } from './SectionCard'
+import { directionLabelTH } from './gate-compass'
 import { ELEMENT_COLOR, ELEMENT_LABEL_TH, type BaziElement } from '@/lib/calculator/elements'
 
 /** ไม้/ไฟ/ดิน/ทอง/น้ำ → the enum, by inverting the canonical Thai labels (no second list to drift). */
@@ -37,11 +38,12 @@ const TH_TO_ELEMENT: Record<string, BaziElement> = Object.fromEntries(
 const NEUTRAL = '#464646'
 
 /**
- * A ทิศมงคล row was added here and then REMOVED (มุน 2026-08-06, on บอง's duplication warning): the score
- * card already carries the direction as a chip on the same screen, so this would have been a third surface
- * for one value. The section keeps Figma's title; the direction it names is shown above it.
+ * ทิศมงคล row: removed 2026-08-06 (duplication with the score-card chip), RESTORED 2026-09-10 (ฟีม สไลด์ 7
+ * "ขาดทิศมงคล"): the card is titled "ทิศ สีมงคล" but showed only สี — the missing ทิศ read as a bug. It now
+ * leads the card, matching the title order (ทิศ → สี → เทพ).
  */
-export function LuckyColors({ colors, deity }: { colors: DayDetailColor[]; deity: string }) {
+export function LuckyColors({ colors, deity, direction }: { colors: DayDetailColor[]; deity: string; direction: string }) {
+  const dirTh = directionLabelTH(direction)
   return (
     <SectionCard
       title="ทิศ สีมงคล"
@@ -66,6 +68,13 @@ export function LuckyColors({ colors, deity }: { colors: DayDetailColor[]; deity
       }
     >
       <div className="flex flex-col gap-3">
+        {/* ทิศมงคล — นำการ์ดตามชื่อหัวข้อ "ทิศ สีมงคล" (ฟีม สไลด์ 7) */}
+        {dirTh && (
+          <div className="flex items-center justify-between gap-3 border-b border-dashed border-v3-divider-dashed pb-3">
+            <span className="text-base font-normal leading-6 text-v3-text-body">ทิศมงคล</span>
+            <span className="text-base font-bold leading-6 text-v3-sapphire">{dirTh}</span>
+          </div>
+        )}
         {colors.length === 0 && <p className="text-sm text-v3-text-muted">วันนี้ไม่มีข้อมูลสีมงคล</p>}
         {colors.map((c, i) => {
           const el = TH_TO_ELEMENT[c.element?.trim()]

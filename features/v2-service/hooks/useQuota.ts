@@ -20,7 +20,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import type { QuotaRemaining } from '@/lib/usage-core'
 
 /**
- * #557 — the field the ดวงสมพงษ์ quota carries and the เพิ่มเพื่อน quota does not.
+ * #557 — the field the ดวงสมพงศ์ quota carries and the เพิ่มเพื่อน quota does not.
  *
  * OPTIONAL on purpose. `friend` is v1's lifetime ceiling (#262): it has no window, so it has no reset day,
  * and demanding one here would turn a perfectly good friend quota into 'unavailable'. A consumer with no

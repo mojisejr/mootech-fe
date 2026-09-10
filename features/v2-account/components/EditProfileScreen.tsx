@@ -5,7 +5,9 @@
 import Head from "next/head"
 import Link from "next/link"
 import { useCallback, useEffect, useRef, useState } from "react"
+import { useCookies } from "react-cookie"
 
+import { CookieKey } from "@/constants/cookie-key"
 import { KitButton, SkyBackdrop, SkyHeader } from "@/features/v2-profile/components/kit"
 import { ProfileGate } from "./ProfileGate"
 
@@ -64,6 +66,7 @@ export function EditProfileScreen() {
   const [profile, setProfile] = useState<Profile | null>(null)
   const [loading, setLoading] = useState(true)
   const [kind, setKind] = useState<"ok" | "not_authenticated" | "failed">("ok")
+  const [, setCookie] = useCookies([CookieKey.MEMBER_NAME])
   const [firstName, setFirstName] = useState("")
   const [lastName, setLastName] = useState("")
   const [gender, setGender] = useState<string | null>(null)
@@ -140,6 +143,10 @@ export function EditProfileScreen() {
       })
       const j = (await res.json().catch(() => ({}))) as { error?: string }
       if (res.ok) {
+        // Slide 7 — ชื่อที่โชว์บนหน้าแรก (greeting) อ่านจาก cookie MEMBER_NAME (useV2Home) ไม่ได้ตามชื่อที่แก้.
+        // sync cookie ให้ตรงกับชื่อล่าสุด (ชื่อจริง → @name เป็น fallback) ทันทีที่บันทึก → หน้าแรกอัปเดตตาม.
+        const nextName = firstName.trim() || nextHandle || (profile?.displayName ?? "")
+        if (nextName) setCookie(CookieKey.MEMBER_NAME, nextName, { path: "/", sameSite: true })
         setMsg("บันทึกแล้ว")
         await load()
       } else {

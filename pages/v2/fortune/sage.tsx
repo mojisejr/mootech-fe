@@ -1,5 +1,5 @@
 // pages/v2/fortune/sage.tsx — เซียมซีเสี่ยงทาย (fortune-sage) เฟรม 55449:240
-// flow: intro (ตั้งจิต + กดเพื่อเสี่ยงโพ) → loading → ผลเซียมซี (หัวเซี่ยงแซ + 6 หมวด). ต่อ engine /api/fortune-sage/predict.
+// flow: intro (ตั้งจิต + กดเพื่อเสี่ยงทาย) → loading → ผลเซียมซี (หัวเซี่ยงแซ + 6 หมวด). ต่อ engine /api/fortune-sage/predict.
 // โควตา: ตัด "card" ที่ engine (qiGate) — 402 = หมด → ชวนเติม/แลกที่ /v2/qi. แชร์ผล = ได้ +10 QI (earn "share").
 import Head from "next/head"
 import Image from "next/image"
@@ -10,6 +10,7 @@ import type { GetServerSideProps } from "next"
 import { v2RedirectIfUnauthed } from "@/lib/v2/gate"
 import { KitButton, SkyHeader, SkyScreen } from "@/features/v2-profile/components/kit"
 import { Menubar } from "@/features/v2-shell/components/Menubar"
+import { useActionCooldown } from "@/lib/useActionCooldown"
 
 export const getServerSideProps: GetServerSideProps = async (ctx) => {
   ctx.res.setHeader("Cache-Control", "no-store, must-revalidate")
@@ -51,6 +52,7 @@ function splitLove(text: string): { male: string; female: string } | null {
 }
 
 export default function FortuneSagePage() {
+  const cd = useActionCooldown("fortune:sage") // กันบอทยิงรัว 10 วิ
   const [phase, setPhase] = useState<"intro" | "loading" | "result">("intro")
   const [stick, setStick] = useState<Stick | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -62,6 +64,8 @@ export default function FortuneSagePage() {
   // 402 = ฟรีหมด + เครดิตหมด + ชี่ไม่พอ — แลก card_use ด้วยชี่ตรงนี้แล้วเสี่ยงต่อทันที (ไม่ต้องไปหน้าพลังชี่)
   const [redeeming, setRedeeming] = useState(false)
   const [redeemMsg, setRedeemMsg] = useState<string | null>(null)
+  // แชร์ = รับ +10 QI วันละ 1 ครั้ง — อ่านผลจริงเพื่อบอกให้ตรง (ได้/เต็มโควตาแล้ว)
+  const [shareState, setShareState] = useState<"idle" | "done" | "capped">("idle")
   const redeemAndRetry = async () => {
     setRedeeming(true)
     setRedeemMsg(null)
@@ -70,13 +74,15 @@ export default function FortuneSagePage() {
       const j = (await res.json().catch(() => ({}))) as { error?: string }
       if (!res.ok) { setRedeemMsg(res.status === 409 ? "ชี่ไม่พอ — เติมชี่ก่อน" : String(j.error ?? "แลกไม่สำเร็จ ลองใหม่")); return }
       setQuotaOut(false)
-      await draw()
+      await draw({ bypassCooldown: true })
     } finally {
       setRedeeming(false)
     }
   }
 
-  const draw = async () => {
+  const draw = async (opts?: { bypassCooldown?: boolean }) => {
+    // กันบอทยิงรัว/กดรัว 10 วิ (ข้ามตอน redeem+retry ที่จ่าย QI เอง)
+    if (!opts?.bypassCooldown && !cd.begin()) return
     setPhase("loading")
     setError(null)
     setQuotaOut(false)
@@ -93,12 +99,23 @@ export default function FortuneSagePage() {
     } catch {
       setError("เชื่อมต่อไม่สำเร็จ ลองใหม่อีกครั้ง")
       setPhase("intro")
+    } finally {
+      if (!opts?.bypassCooldown) cd.end()
     }
   }
 
-  const share = () => {
-    // แชร์ = รับ +10 QI (earn "share" ที่ engine, daily-capped) + เปิด native share
-    void fetch("/api/qi-earn", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ code: "share" }) }).catch(() => {})
+  const share = async () => {
+    // แชร์ = รับ +10 QI (earn "share" ที่ engine, daily-capped) — อ่านผลจริงมาบอกบนปุ่ม + เปิด native share
+    if (shareState === "idle") {
+      try {
+        const r = await fetch("/api/qi-earn", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ code: "share" }) })
+        const j = (r.ok ? await r.json().catch(() => ({})) : {}) as { awarded?: boolean; capped?: boolean }
+        if (j.awarded) setShareState("done")
+        else if (j.capped) setShareState("capped")
+      } catch {
+        /* QI ล่ม — คง idle ให้ลองใหม่ได้ */
+      }
+    }
     const url = typeof window !== "undefined" ? window.location.href : ""
     const text = stick ? `เสี่ยงเซียมซีได้ ${stick.pillar} · ${stick.nayin} — เสี่ยงทายกับ Mumate` : "เสี่ยงทายกับ Mumate"
     if (typeof navigator !== "undefined" && navigator.share) void navigator.share({ title: "เซียมซีเสี่ยงทาย", text, url }).catch(() => {})
@@ -108,7 +125,7 @@ export default function FortuneSagePage() {
   const love = stick ? splitLove(stick.topics.love) : null
 
   return (
-    <SkyScreen>
+    <SkyScreen bgImage="/images/v2/fortune/sage-bg.png">
       <Head><title>{phase === "result" ? "ผลเซียมซี" : "เซียมซีเสี่ยงทาย"} · MuMate</title></Head>
       <SkyHeader
         title={phase === "result" ? "ผลเซียมซี" : "เซียมซีเสี่ยงทาย"}
@@ -136,24 +153,24 @@ export default function FortuneSagePage() {
             <p className="text-[15px] font-black text-v3-navy">ตั้งจิตให้เป็นสมาธิ 1 นาที</p>
             <p className="text-[13px] leading-5 text-v3-text-body">ขอตั้งจิตอธิษฐานถามคำถามที่อยากได้คำตอบ</p>
           </div>
-          {/* การ์ดภาพเซียมซี (รูปหน้าแรก) + ปุ่มเสี่ยงโพ */}
+          {/* การ์ดภาพเซียมซี (รูปหน้าแรก) + ปุ่มเสี่ยงทาย */}
           <section className="v3-shadow-card flex flex-col items-center gap-3 rounded-[24px] bg-white p-5">
             <span className="relative h-48 w-full max-w-[300px]">
               <Image src="/images/v2/fortune/sage-cup.png" alt="" fill sizes="300px" className="object-contain" />
             </span>
-            <p className="text-center text-[12px] text-v3-text-muted">ตั้งจิตให้นิ่ง แล้วกดเสี่ยงโพเพื่อรับคำทำนาย</p>
+            <p className="text-center text-[12px] text-v3-text-muted">ตั้งจิตให้นิ่ง แล้วกดเสี่ยงทายเพื่อรับคำทำนาย</p>
             {quotaOut && <p className="text-center text-[12px] font-bold text-[#8A5A0C]" data-testid="sage-quota">โควตาเสี่ยงทายวันนี้หมด — แลก 10 QI เพื่อเสี่ยงต่อได้เลย</p>}
             {quotaOut && (
               <button type="button" onClick={() => void redeemAndRetry()} disabled={redeeming} data-testid="sage-redeem" className="grid h-12 w-full place-items-center rounded-full bg-v3-sapphire text-[15px] font-bold uppercase text-v3-lime disabled:opacity-40">
-                {redeeming ? "กำลังแลก..." : "แลก 10 QI แล้วเสี่ยงโพเลย"}
+                {redeeming ? "กำลังแลก..." : "แลก 10 QI แล้วเสี่ยงทายเลย"}
               </button>
             )}
             {redeemMsg && <p className="text-center text-[12px] font-bold text-v3-error">{redeemMsg}</p>}
             {error && <p data-testid="sage-error" className="text-center text-[12px] font-bold text-v3-error">{error}</p>}
-            <KitButton onClick={() => void draw()} testId="sage-draw">กดเพื่อเสี่ยงโพ</KitButton>
+            <KitButton onClick={() => void draw()} disabled={cd.active} testId="sage-draw">{cd.active ? `รออีก ${cd.secondsLeft} วินาที` : "กดเพื่อเสี่ยงทาย"}</KitButton>
           </section>
           {quotaOut && <Link href="/v2/qi" className="text-center text-[13px] font-bold text-v3-sapphire">เติม/แลก QI ที่หน้าพลังชี่ →</Link>}
-          <p className="text-center text-[11px] text-v3-text-muted">ใช้โควตาเปิดการ์ดวันละ 1 ครั้ง (ฟรี) — เกินแล้วแลกด้วย QI</p>
+          <p className="text-center text-[11px] text-v3-text-muted">ใช้โควตาเสี่ยงทายวันละ 1 ครั้ง (ฟรี) — เกินแล้วแลกด้วย QI</p>
         </div>
       )}
 
@@ -208,7 +225,7 @@ export default function FortuneSagePage() {
             <KitButton onClick={share} testId="sage-share">
               <span className="inline-flex items-center gap-2">
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="18" cy="5" r="3" /><circle cx="6" cy="12" r="3" /><circle cx="18" cy="19" r="3" /><path d="m8.6 13.5 6.8 4M15.4 6.5l-6.8 4" /></svg>
-                แชร์ผลนี้ รับ +10 QI
+                {shareState === "done" ? "รับ +10 QI แล้ว 🎉" : shareState === "capped" ? "วันนี้รับ +10 QI ไปแล้ว" : "แชร์ผลนี้ รับ +10 QI"}
               </span>
             </KitButton>
             <button onClick={() => { setStick(null); setPhase("intro") }} data-testid="sage-again" className="grid h-12 w-full place-items-center rounded-full border border-v3-border-card bg-white text-[15px] font-bold text-v3-navy">

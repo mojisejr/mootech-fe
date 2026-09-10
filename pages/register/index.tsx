@@ -726,7 +726,7 @@ const [imageSrc, setImageSrc] = useState<string | null>(null);
             <div className='w-full flex flex-wrap justify-center mt-4'>
               <span className='w-full flex justify-center text-[#F3FCA2] text-[32px] font-semibold'>รอซักครู่น้าาา</span>
               <span className='w-full flex justify-center text-white text-[32px] font-semibold'>ระบบกำลังประมวลผล</span>
-              <span className='w-full flex justify-center text-white text-[16px] font-normal text-center '>หลังจากนั้นคุณสามารถเอาดวงไปดูความสมพงค์<br/>และความเข้ากันของงานได้</span>
+              <span className='w-full flex justify-center text-white text-[16px] font-normal text-center '>หลังจากนั้นคุณสามารถเอาดวงไปดูความสมพงศ์<br/>และความเข้ากันของงานได้</span>
 
   
 

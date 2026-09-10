@@ -64,7 +64,7 @@ function Shell({ children, state }: { children: React.ReactNode; state: string }
     <div data-testid="compat-recent-screen" data-state={state} className="relative min-h-screen w-full overflow-x-hidden bg-v3-bg-cream font-ibm">
       <div className="relative z-10 mx-auto flex w-full max-w-md flex-col gap-4 px-4 pb-36 pt-[max(0.75rem,env(safe-area-inset-top))]">
         <header className="flex items-center gap-2 py-1">
-          <Link href="/v2/service" aria-label="ย้อนกลับ" className="grid size-8 shrink-0 place-items-center rounded-full text-v3-navy"><BackChevron /></Link>
+          <Link href="/v2/service" aria-label="ย้อนกลับ" onClick={(e) => { if (typeof window !== "undefined" && window.history.length > 1) { e.preventDefault(); window.history.back() } }} className="grid size-8 shrink-0 place-items-center rounded-full text-v3-navy"><BackChevron /></Link>
           <h1 className="min-w-0 flex-1 text-[22px] font-bold leading-8 text-v3-navy">ดูดวงสมพงศ์ล่าสุด</h1>
         </header>
         {children}

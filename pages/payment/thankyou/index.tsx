@@ -177,8 +177,8 @@ if (window?.Omise && omiseKey) {
                                     />
 
                                   </div>
-                                  <span className='w-full flex flex-wrap justify-center text-[#6B7280] text-center  text-[18px] font-normal mt-6'>ชำระสำเร็จเเล้ว</span>
-                                  <span className='w-full flex flex-wrap justify-center text-[#1B9AAF] text-center leading-10 text-[28px]  mt-2 font-semibold'>ขอบคุณที่ให้ Mumate ดูเเล</span>
+                                  <span className='w-full flex flex-wrap justify-center text-[#6B7280] text-center  text-[18px] font-normal mt-6'>ชำระสำเร็จแล้ว</span>
+                                  <span className='w-full flex flex-wrap justify-center text-[#1B9AAF] text-center leading-10 text-[28px]  mt-2 font-semibold'>ขอบคุณที่ให้ Mumate ดูแล</span>
 
 
                           

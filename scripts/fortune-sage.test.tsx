@@ -1,6 +1,6 @@
 // scripts/fortune-sage.test.tsx — เซียมซีเสี่ยงทาย (/v2/fortune/sage)
 // 🔴 CONTRACT:
-//   FS1 intro ไม่มี topic chips (ตาม Figma) + ปุ่ม "กดเพื่อเสี่ยงโพ"
+//   FS1 intro ไม่มี topic chips (ตาม Figma) + ปุ่ม "กดเพื่อเสี่ยงทาย"
 //   FS2 กดเสี่ยง → POST /api/fortune/sage → ผล: pillar + 6 หมวด + toggle รัก หญิง/ชาย
 //   FS3 402 (โควตา/ชี่หมด) → โชว์ quota ไม่โชว์ผล
 //   FS4 แชร์ → ยิง /api/qi-earn code=share (รับ +10 QI)
@@ -36,13 +36,13 @@ vi.stubGlobal('fetch', fetchMock)
 
 import FortuneSagePage from '@/pages/v2/fortune/sage'
 
-beforeEach(() => { sageStatus = 200; sageQi = null; fetchMock.mockClear() })
+beforeEach(() => { sageStatus = 200; sageQi = null; fetchMock.mockClear(); try { localStorage.clear() } catch { /* cooldown ต่อเคส */ } })
 afterEach(() => cleanup())
 
 describe('เซียมซีเสี่ยงทาย', () => {
-  it('FS1 intro: มีปุ่มเสี่ยงโพ ไม่มี topic chips', () => {
+  it('FS1 intro: มีปุ่มเสี่ยงทาย ไม่มี topic chips', () => {
     render(<FortuneSagePage />)
-    expect(screen.getByTestId('sage-draw').textContent).toContain('กดเพื่อเสี่ยงโพ')
+    expect(screen.getByTestId('sage-draw').textContent).toContain('กดเพื่อเสี่ยงทาย')
     expect(screen.queryByTestId('sage-topics')).toBeNull()
   })
 
@@ -88,13 +88,13 @@ describe('เซียมซีเสี่ยงทาย', () => {
     render(<FortuneSagePage />)
     fireEvent.click(screen.getByTestId('sage-draw'))
     expect((await screen.findByTestId('sage-qi-source', {}, { timeout: 4000 })).textContent).toBe('ฟรีวันนี้')
-    cleanup()
+    cleanup(); try { localStorage.clear() } catch { /* รีเซ็ตคูลดาวน์ก่อน draw รอบถัดไป */ }
 
     sageQi = { source: 'qi', cost: 10 }
     render(<FortuneSagePage />)
     fireEvent.click(screen.getByTestId('sage-draw'))
     expect((await screen.findByTestId('sage-qi-source', {}, { timeout: 4000 })).textContent).toBe('ใช้ไป 10 QI')
-    cleanup()
+    cleanup(); try { localStorage.clear() } catch { /* รีเซ็ตคูลดาวน์ */ }
 
     sageQi = null
     render(<FortuneSagePage />)

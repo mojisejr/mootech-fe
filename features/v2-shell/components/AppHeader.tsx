@@ -43,6 +43,9 @@ import { headerBadge, type MembershipLike } from '../header-badge'
 export type AppHeaderProps = {
   /** left: the page title (Heading/H1 24/32 navy — Figma) */
   title?: string
+  /** left: override the title's class list (size/wrap). Default = 24/32 bold navy, break-words. Service
+   *  passes a smaller nowrap variant so "บริการทั้งหมด" stays on one line beside the right cluster. */
+  titleClassName?: string
   /** left: optional second line under the title (Body 14/20 #464646 — Figma) */
   subtitle?: string
   /** left: a custom block that replaces title/subtitle entirely (home's Structure A greeting) */
@@ -137,7 +140,20 @@ function TierBadge({ label, linked }: { label: string; linked: boolean }) {
 
 function BackLink({ href }: { href: string }) {
   return (
-    <Link href={href} aria-label="ย้อนกลับ" data-testid="header-back" className="-ml-1 grid size-9 shrink-0 place-items-center rounded-full text-v3-navy">
+    // ย้อนไปหน้าก่อนหน้าจริง (browser history) เมื่อมีประวัติในแอป — href เป็น fallback ตอนเปิดลิงก์ตรง/รีเฟรช/คลิกขวา.
+    // แก้จุดนี้ครอบ AppHeader ทุกหน้าที่ส่ง backHref (calendar day-detail, shop checkout) พร้อมกัน.
+    <Link
+      href={href}
+      aria-label="ย้อนกลับ"
+      data-testid="header-back"
+      onClick={(e) => {
+        if (typeof window !== "undefined" && window.history.length > 1) {
+          e.preventDefault()
+          window.history.back()
+        }
+      }}
+      className="-ml-1 grid size-9 shrink-0 place-items-center rounded-full text-v3-navy"
+    >
       <svg viewBox="0 0 20 20" className="size-6" fill="none" aria-hidden>
         <path d="M12.5 5 7.5 10l5 5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
       </svg>
@@ -166,6 +182,7 @@ export function HeaderTools({ membership, upgradeCta = true, tierLink = true, on
 
 export function AppHeader({
   title,
+  titleClassName = 'break-words text-[24px] font-bold leading-8 text-v3-navy',
   subtitle,
   left,
   backHref,
@@ -186,7 +203,7 @@ export function AppHeader({
       {left ?? (
         // Figma 375:11274 — title 24/32 bold navy, subtitle 14/20 medium #464646, 8px apart.
         <div className="flex min-w-0 flex-1 flex-col gap-2">
-          {title && <h1 data-testid="header-title" className="break-words text-[24px] font-bold leading-8 text-v3-navy">{title}</h1>}
+          {title && <h1 data-testid="header-title" className={titleClassName}>{title}</h1>}
           {subtitle && <p data-testid="header-subtitle" className="text-[14px] font-medium leading-5 text-v3-text-body">{subtitle}</p>}
         </div>
       )}

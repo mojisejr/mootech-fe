@@ -76,8 +76,8 @@ const EARN_COPY: Record<string, { title: string; note: string }> = {
 }
 const SPEND_COPY: Record<string, string> = {
   card_use: "เปิดไพ่ / เซียมซี",
-  chat_question: "ถามเซียนมู (AI Chat)",
-  matching_slot: "เพิ่มช่องดวงสมพงษ์ถาวร",
+  chat_question: "ถามเซียนมู่ (AI Chat)",
+  matching_slot: "เพิ่มช่องดวงสมพงศ์ถาวร",
   course_destiny: "คอร์สเรียนดูดวงชะตา",
   book_lifecode: "Life Code Book",
 }
@@ -89,7 +89,7 @@ const SPEND_NOTE: Record<string, string> = { plus_month: "เหมาะกั�
 const COMPARE = [
   { key: "free", title: "สะสมฟรีอย่างเดียว", price: "ฟรี", desc: "เหมาะถ้าดูดวงสัปดาห์ละ 1-2 ครั้ง ใช้เวลาสะสมหน่อยแต่ไม่เสียเงิน", highlight: false },
   { key: "once", title: "ซื้อ QI เป็นครั้ง", price: "เริ่ม ฿35", desc: "เหมาะถ้าอยากดูเป็นช่วง ๆ ไม่ผูกมัดรายเดือน", highlight: false },
-  { key: "pro", title: "Mumate Pro", price: "฿199 / เดือน", desc: "เหมาะถ้าถามเซียนมูเกิน 20 ครั้งต่อเดือน ถูกกว่าซื้อ QI ชัดเจน", highlight: true },
+  { key: "pro", title: "Mumate Pro", price: "฿199 / เดือน", desc: "เหมาะถ้าถามเซียนมู่เกิน 20 ครั้งต่อเดือน ถูกกว่าซื้อ QI ชัดเจน", highlight: true },
 ]
 
 type SheetState = { kind: "confirm" | "insufficient"; line: QiSpendLine } | null
@@ -224,7 +224,7 @@ export function QiScreen() {
           <section data-testid="qi-hero" className="flex flex-col items-center overflow-hidden rounded-[22px] bg-white text-center">
             {/* รูปมาสคอตเต็มความสูง (4:3 ของไฟล์ 800×600) — ผู้ใช้ 2026-09-07: เอา orb กลางออก ขยายรูปลงมาแทน */}
             <span className="relative block aspect-[4/3] w-full">
-              <Image src={`${G}/hero-mascots.jpg`} alt="" fill sizes="393px" priority className="object-cover" />
+              <Image src={`${G}/hero-mascots.png`} alt="" fill sizes="393px" priority className="object-cover" />
             </span>
             <div className="flex flex-col items-center gap-3.5 px-5 pb-6 pt-4">
               <h2 className="text-[24px] font-bold leading-8 text-v3-navy">คู่มือสะสมและใช้พลังชี่</h2>
@@ -277,7 +277,7 @@ export function QiScreen() {
             </ListCard>
             {chatQi > 0 && cardQi > 0 ? (
               <p className="text-[9px] leading-3 text-v3-text-note">
-                ยอด {balance.toLocaleString("th-TH")} QI ของคุณ = ถามเซียนมูได้ {Math.floor(balance / chatQi).toLocaleString("th-TH")} ครั้ง หรือเปิดไพ่ได้ {Math.floor(balance / cardQi).toLocaleString("th-TH")} ครั้ง
+                ยอด {balance.toLocaleString("th-TH")} QI ของคุณ = ถามเซียนมู่ได้ {Math.floor(balance / chatQi).toLocaleString("th-TH")} ครั้ง หรือเปิดไพ่ได้ {Math.floor(balance / cardQi).toLocaleString("th-TH")} ครั้ง
               </p>
             ) : null}
           </section>

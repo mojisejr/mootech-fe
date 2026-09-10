@@ -97,7 +97,19 @@ export function CompatibilityResultScreen({ matchingId }: { matchingId: string }
       <ComingSoonNotice />
       <div className="relative z-10 mx-auto flex w-full max-w-md flex-col gap-4 px-4 pb-32 pt-[max(0.75rem,env(safe-area-inset-top))]">
         <header className="flex items-center gap-2 py-1">
-          <Link href={backHref} aria-label="ย้อนกลับ" className="grid size-8 shrink-0 place-items-center rounded-full text-v3-navy"><BackChevron /></Link>
+          {/* slide 3 (ฟีม 2026-09-10): ย้อนไป "หน้าก่อนหน้า" จริง (หน้ากรอกดวงสมพงศ์) เมื่อมีประวัติในแอป —
+              ไม่ใช่กระโดดไปหน้าบริการ. href={backHref} คงไว้เป็น fallback ตอนเปิดลิงก์ตรง/รีเฟรช (ไม่มีประวัติ). */}
+          <Link
+            href={backHref}
+            aria-label="ย้อนกลับ"
+            onClick={(e) => {
+              if (typeof window !== 'undefined' && window.history.length > 1) {
+                e.preventDefault()
+                window.history.back()
+              }
+            }}
+            className="grid size-8 shrink-0 place-items-center rounded-full text-v3-navy"
+          ><BackChevron /></Link>
           <h1 data-testid="compat-result-title" className="min-w-0 flex-1 text-[24px] font-bold leading-8 text-v3-navy">ผลดวงสมพงศ์</h1>
           <TopBarBell variant="solid" href="/v2/calendar/notifications" />
           <TopBarAvatar variant="sapphire" href="/v2/account" />

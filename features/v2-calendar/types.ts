@@ -123,6 +123,8 @@ export interface DayDetailArea {
   grade: string | null
   /** ⭐ จุดแข็ง — the main facet (isMain). */
   isStrength: boolean
+  /** คำอธิบายรายด้าน (facets[].lines[].text จาก engine) — ทุก facet มีของตัวเอง (ฟีม สไลด์ 4). */
+  lines: string[]
 }
 /** 八神 — one of the 8 spirits + its keywords. */
 export interface DayDetailSpirit {

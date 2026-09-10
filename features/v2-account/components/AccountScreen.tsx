@@ -168,8 +168,9 @@ export function AccountScreen({ preview }: { preview?: AccountPreview } = {}) {
   const proSaving = spentThb !== null && spentThb > PRO_MONTHLY_THB ? spentThb - PRO_MONTHLY_THB : null
   const missingElements = goals ? goals.element.elements.filter((e) => !e.collected).map((e) => ELEMENT_TH[e.key] ?? e.key) : []
 
-  // ชื่อ: ชื่อจริงที่ตั้งเอง (engine) → ชื่อ LINE → generic
-  const name = profile?.firstName || lineName || "ผู้ใช้ MuMate"
+  // ชื่อ: ชื่อจริงที่ตั้งเอง (engine) → @name (displayName) → ชื่อ LINE → generic
+  // Slide 7 — เพิ่ม displayName: ผู้ใช้ที่ตั้ง @name แต่ไม่ได้กรอกชื่อจริง จะได้เห็นชื่อที่ตั้ง ไม่ค้างชื่อ LINE เดิม
+  const name = profile?.firstName || profile?.displayName || lineName || "ผู้ใช้ MuMate"
   const tierKey = membership?.tier ?? "free"
   const isPaid = plan?.isFree === false
 
@@ -264,7 +265,7 @@ export function AccountScreen({ preview }: { preview?: AccountPreview } = {}) {
                   <Image src="/images/v2/qi/qi-coin.png" alt="" width={52} height={52} sizes="52px" unoptimized className="size-12 object-contain" />
                 </span>
               </div>
-              <p className="mt-3 text-[13px] leading-[18px] text-white/90">{chatUnlimited ? <>ถามเซียนมู AI ได้ไม่จำกัด · เปิดไพ่ได้อีก {cards} ครั้ง</> : <>พอถามเซียนมู AI ได้อีก {asks} ครั้ง หรือเปิดไพ่ได้ {cards} ครั้ง</>}</p>
+              <p className="mt-3 text-[13px] leading-[18px] text-white/90">{chatUnlimited ? <>ถามเซียนมู่ AI ได้ไม่จำกัด · เปิดไพ่ได้อีก {cards} ครั้ง</> : <>พอถามเซียนมู่ AI ได้อีก {asks} ครั้ง หรือเปิดไพ่ได้ {cards} ครั้ง</>}</p>
               <div className="mt-3 flex gap-2">
                 <Link href="/v2/qi/buy" data-testid="qi-topup-link" className="grid h-11 flex-1 place-items-center rounded-full bg-v3-lime text-[14px] font-semibold uppercase text-v3-sapphire">ซื้อ QI เพิ่ม</Link>
                 <Link href="/v2/qi/history" data-testid="account-qi-history" className="grid h-11 flex-1 place-items-center rounded-full border border-v3-placeholder text-[14px] font-semibold uppercase text-white">ประวัติการใช้</Link>

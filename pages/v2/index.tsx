@@ -12,7 +12,8 @@ import type { AuthStatus } from '@/lib/auth/resolve-auth'
 import { useV2Home } from '@/features/auth/hooks/useV2Home'
 import { useV2Logout } from '@/features/auth/hooks/useV2Logout'
 import { useHomeFortune } from '@/features/home/hooks/useHomeFortune'
-import { useMascotFromCompute } from '@/lib/personalization/use-mascot'
+import { useMascot } from '@/lib/personalization/use-mascot'
+import { animalFromCompute } from '@/lib/personalization/mascot'
 import { resolveGreetingElementTh } from '@/lib/personalization/compute-source'
 import { AuthLoadingGate } from '@/features/v2-shell/components/AuthLoadingGate'
 import ScreenIdentityStuck from '@/components/screen-identity-stuck'
@@ -71,8 +72,6 @@ function V2HomeRoute({ status }: { status: AuthStatus }) {
   // a second UserGetById.
   const { redirecting, greeting, computeSource, profile, user, loading } = useV2Home(status)
   const { logout } = useV2Logout()
-  const mascot = useMascotFromCompute(computeSource)
-  const mascotCharacter = mascot?.character ?? '/images/v2/mascot/01.webp'
   // Zone 1 — daily-fortune + persona data seam. Called unconditionally (before the loading branch) so
   // hook order is stable; graceful by design (no user / bazi error → fortune/persona=null → cards show
   // fallback). Consumes the shared `user` (no second fetch). ONE BFF call returns both fortune and persona.
@@ -82,23 +81,14 @@ function V2HomeRoute({ status }: { status: AuthStatus }) {
   // compose `fortuneLoading || loading.profile` as a belt.
   const { fortune, persona, loading: fortuneLoading } = useHomeFortune(user, loading.profile)
 
-  // Split-brain guard (too's wire review): the ธาตุ TEXT binds the MASCOT's element (compute, for
-  // visual consistency with the character), while the strength band comes from bazi's persona — two
-  // different compute engines. If bazi's persona.elementTh disagrees with the mascot's, the band would
-  // describe a DIFFERENT element than the text/character shows. We keep the UI consistent with the
-  // mascot (never mislabel the character), but surface the divergence in dev so a compute mismatch is
-  // caught rather than silently shipped. persona.elementTh is forwarded precisely to enable this check.
-  if (
-    process.env.NODE_ENV !== 'production' &&
-    mascot?.elementTh &&
-    persona?.elementTh &&
-    mascot.elementTh !== persona.elementTh
-  ) {
-    // eslint-disable-next-line no-console
-    console.warn(
-      `[home ธาตุ] element split-brain: mascot=${mascot.elementTh} (mootech-be) vs persona=${persona.elementTh} (bazi) — the "${persona.strengthLabel}" band was computed for the persona element, not the one shown`,
-    )
-  }
+  // Mascot glyph = `${นักษัตร}-${ธาตุ}`. The year นักษัตร comes from the compute payload (the birth-year
+  // zodiac — unambiguous, both engines agree), but the day-master ธาตุ comes ONLY from bazi's persona
+  // (pdf-dev — the SAME engine as หน้า "ดวงของฉัน"), never from the mootech-be compute element. This
+  // keeps the glyph, the ธาตุ text and the card gradient on ONE engine's element, tracks edit-birth
+  // live, and never flashes the stale/other-engine element. While persona is still loading the element
+  // is null → useMascot returns null → the neutral 01.webp fallback shows (not a wrong-element mascot).
+  const mascot = useMascot(animalFromCompute(computeSource), persona?.elementTh ?? null)
+  const mascotCharacter = mascot?.character ?? '/images/v2/mascot/01.webp'
 
   // Gate ONLY on an active redirect (no-chart user → /v2/register): render nothing home-shaped while that
   // route change is in flight so home does not flash. The data-loading wait is GONE — a settled-authed

@@ -288,7 +288,7 @@ function ElementLine({ mascotCharacter, element, loading }: { mascotCharacter: s
 // rule, date row, dashed rule, two facet columns — using that card's own wrappers and line-heights.
 //
 // It did not, before this card. It drew the donut and two short bars and stopped, so the loading card
-// stood 184px shorter than the loaded one and EVERY landmark below it — the manifest CTA, both ดวงสมพงค์
+// stood 184px shorter than the loaded one and EVERY landmark below it — the manifest CTA, both ดวงสมพงศ์
 // cards, โหมดเซียน — slid down 184px the instant the fortune arrived (measured once with harness/archive/skeleton-shift.ts — 🗄️ archived by #321, nothing runs it automatically
 // @393). Nobody had seen it, because until this PR home never showed this skeleton: the full-screen white
 // gate covered the whole wait, and the short skeleton only ever flashed behind it. Removing the gate is
@@ -439,7 +439,7 @@ function ManifestMascot({ src }: { src: string }) {
   )
 }
 
-// ── Zone 3: ดวงสมพงค์ (mindful-moments-section, Figma 421:826) ──────────────────────────────────────
+// ── Zone 3: ดวงสมพงศ์ (mindful-moments-section, Figma 421:826) ──────────────────────────────────────
 // Full-bleed bubble bg + white mounds top/bottom · 2 cards (love=pink / colleague=purple) with mascots
 // FIXED per Figma (NOT the user's chart — unlike Zone 2) + radial circles + a beating heart. Heavy 2s-loop
 // animation (10 mascots) with a prefers-reduced-motion guard. Destinations not wired (ฟีม: UI เป๊ะก่อน).
@@ -455,7 +455,7 @@ function SomphongSection() {
       {/* white mound: top (flipped vertical) + bottom — full-bleed, overflowing both edges */}
       <SomphongMound className="top-0 -scale-y-100" />
       <SomphongMound className="bottom-0" />
-      <h2 className="text-xl font-bold leading-7 text-[#0B305B]">ดวงสมพงค์</h2>
+      <h2 className="text-xl font-bold leading-7 text-[#0B305B]">ดวงสมพงศ์</h2>
       {/* 2 FIXED lines per Figma (was one long flowing string) */}
       <p className="mt-2 text-sm font-medium leading-5 text-[#464646]">
         เช็คความเข้ากันของคุณกับคนพิเศษ ดูดวงคู่ครอง
@@ -555,7 +555,7 @@ const SIAN_CARDS: { icon: string; lines: string[]; serviceId: ServiceId }[] = [
 
 function SianSection() {
   return (
-    // Figma 333:6885: bg WHITE, full-bleed, px-16 py-32, gap 8 — flush against ดวงสมพงค์ above and ซินแส below.
+    // Figma 333:6885: bg WHITE, full-bleed, px-16 py-32, gap 8 — flush against ดวงสมพงศ์ above and ซินแส below.
     <section className="-mx-4 flex w-[calc(100%+2rem)] flex-col items-center gap-2 bg-white px-4 py-8">
       {/* section-header (left) */}
       <div className="flex w-full flex-col gap-2 pb-2">
@@ -572,7 +572,7 @@ function SianSection() {
         // the artwork's own 536:578 ratio) — a near-square book at the old WIDTH would have read as smaller.
         // Enlarged (ฟีม, "ขยาย icon ทั้ง 4") together with the 3 mini-card icons: w 112→132 AND the cap lifted
         // to 46% (the 38% default was already clipping it ~106px), so the cover actually grows on the card.
-        art={{ src: '/images/v2/home/%E0%B8%A0%E0%B8%B2%E0%B8%9E%E0%B8%AB%E0%B8%99%E0%B8%B1%E0%B8%87%E0%B8%AA%E0%B8%B7%E0%B8%AD.webp', w: 132, h: 142.4 }}
+        art={{ src: '/images/v2/home/%E0%B8%A0%E0%B8%B2%E0%B8%9E%E0%B8%AB%E0%B8%99%E0%B8%B1%E0%B8%87%E0%B8%AA%E0%B8%B7%E0%B8%AD.png', w: 132, h: 142.4 }}
         artMaxWidth="46%"
         // the card's mascots stay: the 水 printed on the cover is visibly smaller than the card's own, so the
         // two read as foreground and background (ฟีม's call after seeing the real route).
@@ -586,7 +586,7 @@ function SianSection() {
           </>
         }
         cta={{ variant: 'primary', label: 'ซื้อเลย', href: hrefById('one-book') }}
-        bgImage="/images/v2/home/bg/book.jpg"
+        bgImage="/images/v2/home/bg/book.png"
       />
       {/* 3 property cards — ภาพพื้นหลังต่อบริการ (จาก Drive) + scrim ขาวจางให้ตัวหนังสืออ่านออก */}
       <div className="flex w-full gap-2">
@@ -595,7 +595,7 @@ function SianSection() {
             key={c.icon}
             href={hrefById(c.serviceId)}
             className="relative flex flex-1 self-stretch overflow-hidden rounded-2xl p-4"
-            style={{ backgroundImage: `url(/images/v2/home/bg/${c.icon}.jpg)`, backgroundSize: 'cover', backgroundPosition: 'center' }}
+            style={{ backgroundImage: `url(/images/v2/home/bg/${c.icon}.png)`, backgroundSize: 'cover', backgroundPosition: 'center' }}
           >
             <div aria-hidden className="pointer-events-none absolute inset-0 bg-white/45" />
             {/* Figma "Property Type": p-16, gap 10, items-center, 67px icon, 14/20 SemiBold navy CENTRED uppercase */}

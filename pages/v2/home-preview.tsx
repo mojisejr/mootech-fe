@@ -24,7 +24,7 @@ const ELEMENTS: Record<string, ElementInfo> = {
 
 // date = RAW ISO (what bazi /api/home actually returns) → the component formats it to พ.ศ. (#3).
 const FORTUNES: Record<string, DailyFortune> = {
-  good: { percent: 88, grade: 'A', verdict: 'good', headline: 'วันนี้ดวงดีมาก เเค่เริ่มก็สำเร็จเเล้ว', date: '2026-06-01', best: { text: 'เริ่มต้นโปรเจกต์ใหม่ ติดต่อเจรจาเรื่องการเงิน' }, worst: { text: 'การตัดสินใจด้วยอารมณ์' } },
+  good: { percent: 88, grade: 'A', verdict: 'good', headline: 'วันนี้ดวงดีมาก แค่เริ่มก็สำเร็จแล้ว', date: '2026-06-01', best: { text: 'เริ่มต้นโปรเจกต์ใหม่ ติดต่อเจรจาเรื่องการเงิน' }, worst: { text: 'การตัดสินใจด้วยอารมณ์' } },
   neutral: { percent: 62, grade: 'C+', verdict: 'neutral', headline: 'วันนี้ทรงตัว ค่อยเป็นค่อยไป', date: '2026-11-15', best: { text: 'งานประจำที่คุ้นเคย' }, worst: { text: 'การเดินทางไกลยามวิกาล' } },
   caution: { percent: 34, grade: 'D', verdict: 'caution', headline: 'วันนี้ควรระมัดระวังเป็นพิเศษในทุกการตัดสินใจ', date: '2026-02-28', best: { text: 'พักผ่อน ทำสมาธิ อยู่กับตัวเอง' }, worst: { text: 'เซ็นสัญญา ลงทุนก้อนใหญ่ การเดินทางไกล' } },
   // goo รู1 — out-of-range pct (bad data). Component must clamp arc AND label to ≤100.

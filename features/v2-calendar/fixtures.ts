@@ -148,10 +148,10 @@ export function mockDayDetail(date: string): DayDetail {
     ],
     // ── ครึ่งล่าง (G-4) — illustrative. Real values arrive from the day-detail pipe (mapDayDetail). กอง 1: ──
     compatAreas: [
-      { key: 'home', label: 'ในบ้าน', percent: 68, grade: 'B', isStrength: true },
-      { key: 'companions', label: 'มิตรสหาย', percent: 55, grade: 'C+', isStrength: false },
-      { key: 'workplace', label: 'ที่ทำงาน', percent: 72, grade: 'B', isStrength: false },
-      { key: 'outside', label: 'นอกบ้าน', percent: 48, grade: 'C', isStrength: false },
+      { key: 'home', label: 'ในบ้าน', percent: 68, grade: 'B', isStrength: true, lines: ['อยู่บ้านสบายใจ เหมาะจัดบ้าน', 'พูดคุยกับคนในครอบครัว'] },
+      { key: 'companions', label: 'มิตรสหาย', percent: 55, grade: 'C+', isStrength: false, lines: ['นัดเพื่อนได้ แต่เลี่ยงเรื่องเงิน'] },
+      { key: 'workplace', label: 'ที่ทำงาน', percent: 72, grade: 'B', isStrength: false, lines: ['เริ่มงานใหม่ช่วงเช้าได้ผลดี'] },
+      { key: 'outside', label: 'นอกบ้าน', percent: 48, grade: 'C', isStrength: false, lines: ['ระวังการเดินทางไกล'] },
     ],
     advice: [
       'เริ่มงานใหม่ช่วงเช้าได้ผลดี',

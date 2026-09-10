@@ -22,7 +22,7 @@ type Look = { code?: string; inviterName?: string | null }
 const FEATURES: { title: string; sub: string; icon: React.ReactNode; tone: string }[] = [
   { title: "ดวงประจำวัน", sub: "อ่านฟรีทุกวัน ไม่ต้องจ่าย", tone: "bg-[#FDF3E0] text-[#E5A93B]", icon: (<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="4" /><path d="M12 2v2M12 20v2M4 12H2M22 12h-2M5 5l1.5 1.5M17.5 17.5 19 19M19 5l-1.5 1.5M6.5 17.5 5 19" /></svg>) },
   { title: "เปิดไพ่และเซียมซี", sub: "10 QI ต่อครั้ง", tone: "bg-[#F3E9FA] text-[#6F1BAF]", icon: (<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="4" y="3" width="12" height="17" rx="2" /><path d="M18 6l2 .7a2 2 0 0 1 1.2 2.5l-3 9" /></svg>) },
-  { title: "ถามเซียนมู AI", sub: "30 QI ต่อครั้ง", tone: "bg-[#E3F4F7] text-[#14707E]", icon: (<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" /></svg>) },
+  { title: "ถามเซียนมู่ AI", sub: "30 QI ต่อครั้ง", tone: "bg-[#E3F4F7] text-[#14707E]", icon: (<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" /></svg>) },
 ]
 
 export default function InvitePage() {
@@ -127,7 +127,7 @@ export default function InvitePage() {
             <h1 data-testid="invite-title" className="text-[20px] font-black leading-7 text-v3-lime">
               {inviterName ? `คุณ ${inviterName} ชวนคุณ — รับ 30 QI ฟรี` : "รับ 30 QI ฟรีทันทีที่สมัคร"}
             </h1>
-            <p className="mt-1 text-[13px] leading-5 text-white/90">พอสมัครเสร็จ เปิดไพ่ได้ 3 ครั้ง หรือถามเซียนมูได้ 1 ครั้ง โดยไม่ต้องจ่ายอะไร</p>
+            <p className="mt-1 text-[13px] leading-5 text-white/90">พอสมัครเสร็จ เปิดไพ่ได้ 3 ครั้ง หรือถามเซียนมู่ได้ 1 ครั้ง โดยไม่ต้องจ่ายอะไร</p>
             <div className="mt-4 flex items-center justify-between gap-3 rounded-[16px] bg-white px-4 py-3 text-left">
               <div className="min-w-0">
                 <p data-testid="invite-code" className="truncate text-[16px] font-black tracking-wider text-v3-navy">{code}</p>

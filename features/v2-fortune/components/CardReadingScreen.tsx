@@ -8,6 +8,7 @@ import { useEffect, useMemo, useState } from "react"
 
 import { KitButton, SkyHeader, SkyScreen } from "@/features/v2-profile/components/kit"
 import { Menubar } from "@/features/v2-shell/components/Menubar"
+import { useActionCooldown } from "@/lib/useActionCooldown"
 
 export type FortuneCard = {
   no: number
@@ -21,9 +22,9 @@ export type FortuneCard = {
 type Slot = { position: number; weight: number; role: string; no: number }
 
 // รูปหลังไพ่จริง (export จาก Figma deck-cover) + สีเรืองเมื่อเลือก/ตอนโหลด
-const THEME: Record<"oracle" | "divine", { back: string; ring: string }> = {
-  oracle: { back: "/images/v2/fortune/oracle-back.png", ring: "ring-[#127687]" },
-  divine: { back: "/images/v2/fortune/divine-back.png", ring: "ring-[#20306F]" },
+const THEME: Record<"oracle" | "divine", { back: string; ring: string; bg: string }> = {
+  oracle: { back: "/images/v2/fortune/oracle-back.png", ring: "ring-[#127687]", bg: "/images/v2/fortune/oracle-bg.png" },
+  divine: { back: "/images/v2/fortune/divine-back.png", ring: "ring-[#20306F]", bg: "/images/v2/fortune/divine-bg.png" },
 }
 
 function shuffle(n: number): number[] {
@@ -53,6 +54,7 @@ export function CardReadingScreen({
   backHref?: string
 }) {
   const theme = THEME[mode]
+  const cd = useActionCooldown(`fortune:${mode}`) // กันบอทยิงรัว 10 วิ
   const [phase, setPhase] = useState<"intro" | "pick" | "loading" | "result">("intro")
   const [picked, setPicked] = useState<number[]>([])
   const [cards, setCards] = useState<FortuneCard[]>([])
@@ -63,6 +65,8 @@ export function CardReadingScreen({
   const [balance, setBalance] = useState<number | null>(null)
   // ที่มาของการเปิดครั้งนี้ (จาก engine): free=ฟรีวันนี้ · qi=หัก N ชี่ · credit=ใช้เครดิต
   const [qiInfo, setQiInfo] = useState<{ source: "free" | "credit" | "qi"; cost: number } | null>(null)
+  // แชร์ = รับ +10 QI วันละ 1 ครั้ง — อ่านผลจริงเพื่อบอกให้ตรง (ได้/เต็มโควตาแล้ว) ไม่ให้ผู้ใช้งงว่ากดแล้วไม่ได้ QI
+  const [shareState, setShareState] = useState<"idle" | "done" | "capped">("idle")
 
   const deck = useMemo(() => shuffle(deckCount), [deckCount])
 
@@ -106,13 +110,15 @@ export function CardReadingScreen({
       if (!res.ok) { setRedeemMsg(res.status === 409 ? "ชี่ไม่พอ — เติมชี่ก่อน" : String(j.error ?? "แลกไม่สำเร็จ ลองใหม่")); return }
       if (typeof j.qi === "number") setBalance(j.qi)
       setQuotaOut(false)
-      await predict()
+      await predict(undefined, { bypassCooldown: true })
     } finally {
       setRedeeming(false)
     }
   }
 
-  const predict = async (cardNos?: number[]) => {
+  const predict = async (cardNos?: number[], opts?: { bypassCooldown?: boolean }) => {
+    // กันบอทยิงรัว/กดรัว 10 วิ (ข้ามได้ตอน redeem+retry ที่ผู้ใช้จ่าย QI เอง)
+    if (!opts?.bypassCooldown && !cd.begin()) return
     setPhase("loading")
     setError(null)
     setQuotaOut(false)
@@ -139,6 +145,8 @@ export function CardReadingScreen({
     } catch {
       setError("เชื่อมต่อไม่สำเร็จ ลองใหม่อีกครั้ง")
       setPhase(cardNos ? "pick" : "intro")
+    } finally {
+      if (!opts?.bypassCooldown) cd.end()
     }
   }
 
@@ -146,8 +154,18 @@ export function CardReadingScreen({
   const openPicked = () => { if (picked.length === 3) void predict(picked.map((i) => deck[i])) }
   const reset = () => { setPicked([]); setCards([]); setSlots([]); setProse(""); setPhase("intro") }
 
-  const share = () => {
-    void fetch("/api/qi-earn", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ code: "share" }) }).catch(() => {})
+  const share = async () => {
+    // ยิง earn เฉพาะเมื่อยังไม่รู้ผลของวันนี้ แล้วอ่านผลจริง (awarded/capped) มาบอกบนปุ่ม
+    if (shareState === "idle") {
+      try {
+        const r = await fetch("/api/qi-earn", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ code: "share" }) })
+        const j = (r.ok ? await r.json().catch(() => ({})) : {}) as { awarded?: boolean; capped?: boolean }
+        if (j.awarded) setShareState("done")
+        else if (j.capped) setShareState("capped")
+      } catch {
+        /* QI ล่ม — คง idle ให้ลองใหม่ได้ */
+      }
+    }
     const url = typeof window !== "undefined" ? window.location.href : ""
     const text = cards.length ? `เปิดไพ่ได้ ${cards.map((c) => c.name).join(" · ")} — ${title} กับ Mumate` : `${title} กับ Mumate`
     if (typeof navigator !== "undefined" && navigator.share) void navigator.share({ title, text, url }).catch(() => {})
@@ -157,7 +175,7 @@ export function CardReadingScreen({
   const headerTitle = phase === "result" ? resultTitle : phase === "pick" ? "เลือกไพ่ 3 ใบ" : title
 
   return (
-    <SkyScreen>
+    <SkyScreen bgImage={theme.bg}>
       <Head><title>{headerTitle} · MuMate</title></Head>
       <SkyHeader
         title={headerTitle}
@@ -201,7 +219,7 @@ export function CardReadingScreen({
               <Image src={introArt} alt="" fill sizes="300px" className="object-contain drop-shadow-[0_8px_24px_rgba(26,38,77,0.25)]" priority />
             </span>
             <div className="absolute inset-x-3 bottom-1 flex gap-2">
-              <button onClick={() => void predict()} data-testid="cards-random" className="grid h-11 flex-1 place-items-center rounded-full bg-white text-[13px] font-bold text-v3-sapphire shadow-md">กดเพื่อเสี่ยงโพ</button>
+              <button onClick={() => void predict()} disabled={cd.active} data-testid="cards-random" className="grid h-11 flex-1 place-items-center rounded-full bg-white text-[13px] font-bold text-v3-sapphire shadow-md disabled:opacity-50">{cd.active ? `รออีก ${cd.secondsLeft} วิ` : "กดเพื่อเสี่ยงทาย"}</button>
               <KitButton onClick={() => setPhase("pick")} testId="cards-goto-pick" className="flex-1 !h-11 shadow-md">เลือกเอง 3 ใบ</KitButton>
             </div>
           </div>
@@ -245,7 +263,7 @@ export function CardReadingScreen({
             })}
           </div>
           <div className="fixed inset-x-0 bottom-0 z-30 mx-auto w-full max-w-md border-t border-v3-border-card bg-white/95 px-4 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3 backdrop-blur">
-            <KitButton onClick={openPicked} disabled={picked.length !== 3} testId="cards-open">เปิดไพ่ทั้ง 3 ใบ · 10 QI</KitButton>
+            <KitButton onClick={openPicked} disabled={picked.length !== 3 || cd.active} testId="cards-open">{cd.active ? `รออีก ${cd.secondsLeft} วิ` : "เปิดไพ่ทั้ง 3 ใบ · 10 QI"}</KitButton>
           </div>
         </div>
       )}
@@ -301,7 +319,7 @@ export function CardReadingScreen({
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" /></svg>
               </span>
               <span className="min-w-0 flex-1">
-                <span className="block text-[13px] font-bold text-v3-navy">ถามเซียนมูเรื่องไพ่ชุดนี้</span>
+                <span className="block text-[13px] font-bold text-v3-navy">ถามเซียนมู่เรื่องไพ่ชุดนี้</span>
                 <span className="block text-[11px] text-v3-text-muted">คุยเจาะลึกกับ AI · 30 QI ต่อคำถาม</span>
               </span>
               <span className="flex-none text-[16px] font-bold text-v3-text-muted">›</span>
@@ -312,7 +330,7 @@ export function CardReadingScreen({
             <KitButton onClick={share} testId="cards-share">
               <span className="inline-flex items-center gap-2">
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="18" cy="5" r="3" /><circle cx="6" cy="12" r="3" /><circle cx="18" cy="19" r="3" /><path d="m8.6 13.5 6.8 4M15.4 6.5l-6.8 4" /></svg>
-                แชร์ผลนี้ รับ +10 QI
+                {shareState === "done" ? "รับ +10 QI แล้ว 🎉" : shareState === "capped" ? "วันนี้รับ +10 QI ไปแล้ว" : "แชร์ผลนี้ รับ +10 QI"}
               </span>
             </KitButton>
             <button onClick={reset} data-testid="cards-again" className="grid h-12 w-full place-items-center rounded-full border border-v3-border-card bg-white text-[15px] font-bold text-v3-navy">เสี่ยงอีกครั้ง · 10 QI</button>

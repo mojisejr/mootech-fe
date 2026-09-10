@@ -7,7 +7,7 @@
 // field map is followed exactly.
 import { parseApiGrade } from '@/lib/v2/api-grade'
 
-export type DayDetailArea = { key: string; label: string; percent: number | null; grade: string | null; isStrength: boolean }
+export type DayDetailArea = { key: string; label: string; percent: number | null; grade: string | null; isStrength: boolean; lines: string[] }
 export type DayDetailPillar = { stem: string; branch: string; ganzhi: string; element: string }
 export type DayDetailYam = { id: string; window: string; label: string }
 export type DayDetailSpirit = { name: string; keywords: string[] }
@@ -82,14 +82,17 @@ export function mapDayDetail(mvd: unknown, almanacDay: unknown): DayDetail {
     suitable: splitList(byKey(summaryItems, 'best')),
     avoid: splitList(byKey(summaryItems, 'worst')),
     insight: str(er.summaryTh),
+    // ทุก facet มี lines[] ของตัวเองจาก engine (man-vs-day) — เดิมดึงเฉพาะ main facet มาเป็น advice แล้วทิ้งที่เหลือ.
+    // ฟีม สไลด์ 4 (2026-09-10): หัวข้ออื่นก็ต้องมีคำอธิบายเหมือนกัน → เก็บ lines ต่อ facet ไว้ให้การ์ดย่อ/ขยายรายด้าน.
     compatAreas: facets.map((f) => {
-      const fa = f as { key?: unknown; label?: unknown; percent?: unknown; grade?: unknown; isMain?: unknown }
+      const fa = f as { key?: unknown; label?: unknown; percent?: unknown; grade?: unknown; isMain?: unknown; lines?: unknown }
       return {
         key: str(fa.key),
         label: str(fa.label),
         percent: num(fa.percent),
         grade: parseApiGrade(fa.grade),
         isStrength: fa.isMain === true,
+        lines: arr(fa.lines).map((l) => str((l as { text?: unknown }).text)).filter((t) => t !== ''),
       }
     }),
     advice: arr(mainFacet.lines)

@@ -40,7 +40,7 @@ export function LoginView({
           {/* heading */}
           <div className="flex flex-col gap-2.5 text-center">
             <h1 className="font-ibm text-2xl font-bold leading-8 text-v3-text-title">
-              ยินดีต้อนรับสู่ มิวเมท
+              ยินดีต้อนรับสู่ มูเมท
             </h1>
             <p className="font-ibm text-[15px] leading-[22px] text-v3-text-body">
               มาร่วมสร้างบันทึกทางใจ

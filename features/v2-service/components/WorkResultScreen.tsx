@@ -282,7 +282,7 @@ export function WorkResultScreen({ matchingId }: { matchingId: string }) {
       <ComingSoonNotice />
       <div className="mx-auto w-full max-w-[430px] pb-32">
         <header className="flex items-center gap-2 px-4 pb-6 pt-4">
-          <button type="button" aria-label="ย้อนกลับ" data-testid="work-back" onClick={() => router.push('/v2/service/compatibility/recent')} className="grid size-8 place-items-center text-v3-navy">
+          <button type="button" aria-label="ย้อนกลับ" data-testid="work-back" onClick={() => { if (typeof window !== "undefined" && window.history.length > 1) router.back(); else router.push('/v2/service/compatibility/recent') }} className="grid size-8 place-items-center text-v3-navy">
             <BackChevron />
           </button>
           <h1 data-testid="work-title" className="min-w-0 flex-1 truncate text-[24px] font-bold leading-8 text-v3-navy">ผลความสมพงศ์</h1>

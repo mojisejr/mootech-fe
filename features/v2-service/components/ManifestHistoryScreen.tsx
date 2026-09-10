@@ -44,7 +44,7 @@ export function ManifestHistoryScreen({ previewData }: { previewData?: HistoryPr
       <Head><title>ประวัติย้อนหลัง · MuMate</title></Head>
       <div className="relative mx-auto min-h-[100dvh] w-full max-w-md overflow-hidden bg-v3-ghost-white pb-28">
         <header className="flex w-full items-center gap-2 px-4 pt-4">
-          <Link href="/v2/service/manifest" aria-label="ย้อนกลับ" className="grid h-9 w-9 flex-none place-items-center rounded-full text-v3-navy hover:bg-black/5">
+          <Link href="/v2/service/manifest" aria-label="ย้อนกลับ" onClick={(e) => { if (typeof window !== "undefined" && window.history.length > 1) { e.preventDefault(); window.history.back() } }} className="grid h-9 w-9 flex-none place-items-center rounded-full text-v3-navy hover:bg-black/5">
             <svg width="20" height="20" viewBox="0 0 20 20" fill="none" aria-hidden><path d="M12.5 4.5 7 10l5.5 5.5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /></svg>
           </Link>
           <h1 className="flex-1 text-lg font-black leading-6 text-v3-navy">ประวัติย้อนหลัง</h1>

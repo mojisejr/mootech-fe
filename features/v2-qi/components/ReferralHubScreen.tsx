@@ -1,7 +1,7 @@
 // features/v2-qi/components/ReferralHubScreen.tsx — จอ "ชวนเพื่อน" เต็ม (/v2/qi/referral).
 // เฟรม `referral - hub` (55399:7106): hero (ภาพ + โค้ด dashed + คัดลอก) → ช่องแชร์ (LINE/FB/ลิงก์/เพิ่มเติม)
 // → สรุป 3 ค่า (ชวนสำเร็จ/รอเริ่มใช้/ได้รับแล้ว) → เป้า 5 ธาตุ (มาสคอต+เครื่องหมายสำเร็จ) → กรอกโค้ดเพื่อน.
-// รางวัลจริง: ผู้ชวน +50 QI · เพื่อน +30 QI (เมื่อเพื่อนกรอกวันเกิด+เช็คอินครั้งแรก). ข้อมูลเป้าจาก /api/missions.
+// รางวัลจริง (ตรงกับ engine /api/referral): ผู้ชวน +50 QI · เพื่อน +30 QI ทันทีที่เพื่อนกรอกโค้ดสำเร็จ. ข้อมูลเป้าจาก /api/missions.
 import Head from "next/head"
 import Image from "next/image"
 import Link from "next/link"
@@ -93,7 +93,6 @@ export function ReferralHubScreen() {
   const goals = board?.goals
   const invited = goals?.referral.invited ?? referral?.invitedCount ?? 0
   const earnedQi = goals?.referral.earnedQi ?? invited * REWARD_INVITER
-  const pending = Math.max(0, (referral?.invitedCount ?? invited) - invited)
   const collectedKeys = new Set((goals?.element.elements ?? []).filter((e) => e.collected).map((e) => e.key))
   const missing = ELEMENTS.filter((e) => !collectedKeys.has(e.key)).map((e) => e.label)
 
@@ -131,7 +130,7 @@ export function ReferralHubScreen() {
             </span>
             <h2 className="text-center text-[20px] font-bold leading-7 text-v3-lime">ชวนเพื่อน รับคนละ {REWARD_INVITER} QI</h2>
             <p className="text-center text-[12px] leading-[18px] text-white/90">
-              เพื่อนที่สมัครใหม่รับ {REWARD_FRIEND} QI ทันที ส่วนคุณรับ {REWARD_INVITER} QI เมื่อเพื่อนกรอกวันเกิดและเช็คอินครั้งแรก
+              เพื่อนที่สมัครใหม่รับ {REWARD_FRIEND} QI และคุณรับ {REWARD_INVITER} QI ทันทีที่เพื่อนกรอกโค้ดของคุณสำเร็จ
             </p>
             <div className="flex w-full items-center gap-2 rounded-[14px] border border-dashed border-white/50 bg-white py-2 pl-4 pr-2">
               <span className="min-w-0 flex-1 truncate text-[14px] font-semibold tracking-wider text-v3-navy" data-testid="referral-code">{referral.code ?? "······"}</span>
@@ -156,21 +155,17 @@ export function ReferralHubScreen() {
             </Channel>
           </div>
 
-          {/* สรุป 3 ค่า */}
+          {/* สรุป 2 ค่า — เพื่อนที่กรอกโค้ดสำเร็จ + Qi ที่ได้รวม. (ตัด "รอเพื่อนเริ่มใช้" ออก: engine
+              นับ "ชวนสำเร็จ" = จำนวนคนกรอกโค้ดทันที ไม่มีสถานะกลาง ค่านั้นเลยเป็น 0 เสมอและทำให้ผู้ใช้งง) */}
           <section className="flex items-center rounded-[18px] border border-v3-border-card bg-white py-4 text-center" data-testid="referral-stats">
             <div className="flex-1 px-1">
               <p className="text-[12px] text-v3-text-body">ชวนสำเร็จ</p>
-              <p className="text-[14px] font-semibold text-v3-qi-earn" data-testid="referral-invited-count">{invited.toLocaleString("th-TH")} คน</p>
-            </div>
-            <div className="h-[34px] w-px bg-v3-border-card" />
-            <div className="flex-1 px-1">
-              <p className="text-[12px] text-v3-text-body">รอเพื่อนเริ่มใช้</p>
-              <p className="text-[16px] font-bold text-v3-text-muted">{pending.toLocaleString("th-TH")} คน</p>
+              <p className="text-[16px] font-bold text-v3-qi-earn" data-testid="referral-invited-count">{invited.toLocaleString("th-TH")} คน</p>
             </div>
             <div className="h-[34px] w-px bg-v3-border-card" />
             <div className="flex-1 px-1">
               <p className="text-[12px] text-v3-text-body">ได้รับแล้ว</p>
-              <p className="text-[14px] font-semibold text-v3-qi-earn" data-testid="referral-per-invite">{earnedQi.toLocaleString("th-TH")} QI</p>
+              <p className="text-[16px] font-bold text-v3-qi-earn" data-testid="referral-per-invite">{earnedQi.toLocaleString("th-TH")} QI</p>
             </div>
           </section>
 

@@ -92,7 +92,7 @@ export function PlanScreen() {
                 ))}
               </ul>
             )}
-            <p className="text-[11px] leading-4 text-v3-text-muted">โควตารายวัน/รายเดือนรีเซ็ตตามรอบ · ดวงสมพงษ์และปฏิทินนับตามรอบสมัคร</p>
+            <p className="text-[11px] leading-4 text-v3-text-muted">โควตารายวัน/รายเดือนรีเซ็ตตามรอบ · ดวงสมพงศ์และปฏิทินนับตามรอบสมัคร</p>
             {plan.isFree ? (
               <Link href={SHOP_HREF} data-testid="plan-shop-cta" className="grid h-12 w-full place-items-center rounded-full bg-v3-sapphire text-base font-bold uppercase text-v3-lime">ดูแพ็คเกจ</Link>
             ) : null}
@@ -105,7 +105,7 @@ export function PlanScreen() {
             <p className="text-[15px] font-bold text-v3-navy">โควตาวันนี้</p>
             {([
               { key: "card", label: "เปิดไพ่ / เสี่ยงทาย", q: ent.quota.card, credit: ent.credits?.card_use ?? 0 },
-              { key: "chat", label: "ถามเซียนมู AI", q: ent.quota.chat, credit: ent.credits?.chat_question ?? 0 },
+              { key: "chat", label: "ถามเซียนมู่ AI", q: ent.quota.chat, credit: ent.credits?.chat_question ?? 0 },
             ] as const).map(({ key, label, q, credit }) => {
               if (!q) return null
               const remaining = Math.max(0, q.limit - q.used)

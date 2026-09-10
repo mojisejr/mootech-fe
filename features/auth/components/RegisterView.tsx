@@ -38,7 +38,7 @@ export function RegisterView({
       >
         {/* header */}
         <h1 className="text-center font-ibm text-2xl font-bold leading-8 text-v3-text-title">
-          เริ่มต้นดูดวงเพียงเเค่ใส่
+          เริ่มต้นดูดวงเพียงแค่ใส่
           <br />
           วันเดือน ปี เกิด
         </h1>

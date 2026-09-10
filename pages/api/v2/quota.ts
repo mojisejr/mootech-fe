@@ -40,7 +40,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       verdict = { isPaid: false, tier: null }
     }
 
-    // `friend` is UNCHANGED and deliberately still v1's rule: #358 governs ดวงสมพงษ์ and ปฏิทินดวง only,
+    // `friend` is UNCHANGED and deliberately still v1's rule: #358 governs ดวงสมพงศ์ and ปฏิทินดวง only,
     // and เพิ่มเพื่อน has one lifetime ceiling for everybody (#262). Reusing the v1 reader is what keeps
     // that true rather than restating it.
     const [matching, friend] = await Promise.all([

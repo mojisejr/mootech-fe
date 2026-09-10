@@ -341,7 +341,7 @@ export default function MatchingPage() {
 
                   <span className='w-full flex flex-wrap justify-center text-[#1B9AAF] text-[48px] font-semibold'>ดวงสมพงศ์</span>
                   <span className='w-full flex flex-wrap justify-center text-center text-[#444444] text-[16px]'>
-                    เลือกโปรไฟล์สองโปรไฟล์เพื่อดูดวงสมพงศ์<br/>ด้านความความรักหรือมิตรภาพ
+                    เลือกโปรไฟล์สองโปรไฟล์เพื่อดูดวงสมพงศ์<br/>ด้านความรักหรือมิตรภาพ
                   </span>
                 </div>
 

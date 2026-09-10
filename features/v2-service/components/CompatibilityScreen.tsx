@@ -4,7 +4,7 @@
 // (differ only in row 2 + the button colour), NOT two screens.
 //
 // DELIBERATE divergences from Figma, by ฟีม's ruling (2026-07-29) — recorded here + in evidence, like ซินแส #145:
-//  • hero "เช็คความสมพงค์" (Figma, ค์) → "เช็คความสมพงศ์" (ศ์) · tagline "ด้านความความรัก" (Figma, doubled
+//  • hero "เช็คความสมพงศ์" (Figma, ค์) → "เช็คความสมพงศ์" (ศ์) · tagline "ด้านความความรัก" (Figma, doubled
 //    "ความ") → "ด้านความรัก". Figma still shows the typos; these strings INTENTIONALLY differ, ฟีม-ordered.
 //  • person1 "แก้ไข" (edit your own birth info) is in the Figma but NOT in Slice 1's real-work list (select +
 //    create only; no self-edit API is wired). Rendered per Figma; wired to a placeholder "เร็วๆ นี้" sheet so
@@ -452,7 +452,7 @@ export function CompatibilityScreen({ config }: { config: CompatibilityConfig })
       <div className="relative z-10 mx-auto flex w-full max-w-md flex-col px-4 pb-36 pt-[max(0.75rem,env(safe-area-inset-top))]">
         {/* header — back · title · shared TopBar bell(→ full notifications) + avatar(→ logout) */}
         <header className="flex items-center gap-2 py-2">
-          <Link href="/v2/service" aria-label="ย้อนกลับ" className="grid size-8 shrink-0 place-items-center rounded-full text-v3-navy"><BackChevron /></Link>
+          <Link href="/v2/service" aria-label="ย้อนกลับ" onClick={(e) => { if (typeof window !== "undefined" && window.history.length > 1) { e.preventDefault(); window.history.back() } }} className="grid size-8 shrink-0 place-items-center rounded-full text-v3-navy"><BackChevron /></Link>
           <h1 data-testid="compat-title" className="min-w-0 flex-1 truncate text-[24px] font-bold leading-8 text-v3-navy">{c.title}</h1>
           <TopBarBell variant="solid" href="/v2/calendar/notifications" />
           <TopBarAvatar variant="sapphire" onClick={() => setLogoutOpen(true)} />

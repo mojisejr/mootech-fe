@@ -148,7 +148,7 @@ export function QiBuyScreen() {
                           {p.bonus > 0 ? <span className="rounded-full bg-v3-qi-earn-bg px-2 py-[1px] text-[10px] font-black text-v3-qi-earn">แถม +{p.bonus}</span> : null}
                         </p>
                         <p className={"text-[11px] " + (on ? "text-white/80" : "text-v3-text-muted")}>
-                          {p.active ? `ถามเซียนมูได้ ${p.asks} ครั้ง` : "ปิดขายชั่วคราว"}
+                          {p.active ? `ถามเซียนมู่ได้ ${p.asks} ครั้ง` : "ปิดขายชั่วคราว"}
                         </p>
                       </div>
                       <div className="flex-none text-right">
@@ -171,7 +171,7 @@ export function QiBuyScreen() {
             <span aria-hidden className="grid size-10 flex-none place-items-center rounded-[12px] bg-v3-qi-spend-bg text-[18px]">💬</span>
             <div className="min-w-0 flex-1">
               <p className="text-[13px] font-bold text-v3-purple">ใช้บ่อยกว่านี้? Mumate Pro ฿199/เดือน หรือ Mumate+ ฿790/ปี ใช้ไม่จำกัด</p>
-              <p className="text-[11px] leading-4 text-v3-purple/80">ถ้าถามเซียนมูเกิน 20 ครั้งต่อเดือน สมัครคุ้มกว่าซื้อ QI</p>
+              <p className="text-[11px] leading-4 text-v3-purple/80">ถ้าถามเซียนมู่เกิน 20 ครั้งต่อเดือน สมัครคุ้มกว่าซื้อ QI</p>
             </div>
             <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden className="flex-none text-v3-purple"><path d="m6 3.5 4.5 4.5L6 12.5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" /></svg>
           </Link>

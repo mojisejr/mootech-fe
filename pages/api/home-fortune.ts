@@ -13,6 +13,9 @@
 // — we do NOT reimplement gradeForPercent to avoid drift). Still graceful: a missing field degrades, never 5xx.
 import type { NextApiRequest, NextApiResponse } from 'next'
 import { toBaziInput, type FeCalcInput } from '@/lib/bazi-bridge/input'
+import { mergeEngineBirth } from '@/lib/bazi-bridge/engine-birth'
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
 const BAZI_BASE = process.env.BAZI_BASE_URL || 'http://localhost:3000'
 if (/bazichart\.mumate\.co/i.test(BAZI_BASE)) {
@@ -100,7 +103,17 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   if (!person) return res.status(200).json({ fortune: null, persona: null }) // no birth data → graceful skip
 
   try {
-    const { rawInput } = toBaziInput(person) // reuse the FE→bazi person mapper (birthDate/time/gender/province)
+    // A1 — persona/ธาตุ ต้องมาจากวันเกิดที่ "แก้ล่าสุด" (engine bazi_user_profile) เหมือนหน้า "ดวงของฉัน"
+    // (/api/destiny ก็ mergeEngineBirth). client ส่ง person จาก legacy user row; ถ้ามี cookie identity
+    // ให้ทับ dob/time ด้วยค่า engine ก่อนคำนวณ — ไม่งั้นหน้าหลักโชว์ธาตุจากวันเกิดเก่า (legacy) ที่ไม่ตรง
+    // ดวงของฉัน และแก้วันเกิดแล้วไม่ตาม. best-effort: ไม่มีแถว engine → คืน person เดิม (ไม่พังจอ).
+    let effectivePerson: FeCalcInput = person
+    const rawId = req.cookies['cookie-mumate-id'] ?? ''
+    if (UUID_RE.test(rawId)) {
+      const merged = await mergeEngineBirth(rawId, person)
+      effectivePerson = { ...person, dob: merged.dob ?? person.dob, time: merged.time ?? person.time }
+    }
+    const { rawInput } = toBaziInput(effectivePerson) // reuse the FE→bazi person mapper (birthDate/time/gender/province)
     const ac = new AbortController()
     const timer = setTimeout(() => ac.abort(), BAZI_TIMEOUT_MS)
     const r = await fetch(`${BAZI_BASE}/api/home`, {

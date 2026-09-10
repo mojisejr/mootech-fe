@@ -604,7 +604,7 @@ const [imageSrc, setImageSrc] = useState<string | null>(null);
                           <span className="w-full justify-center font-bold text-[#444444] text-[16px] mt-2 flex">How to earn</span>
 
                           <span className="w-full justify-center  text-moumate_gray text-[16px] mt-2 flex text-center">
-                              ขั้นตอนการรับสิทธิเเละการใช้งาน
+                              ขั้นตอนการรับสิทธิและการใช้งาน
                           </span>
 
 

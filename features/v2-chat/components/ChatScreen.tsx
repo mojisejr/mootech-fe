@@ -18,7 +18,25 @@
 import Link from "next/link"
 import Image from "next/image"
 import { useRouter } from "next/router"
-import { useEffect, useMemo, useRef, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+
+// สถานะโควตาแชท (จาก /api/chat/quota) — บอกว่าคุยจากอะไร/เหลือกี่/ชี่เท่าไร
+type ChatQuota = {
+  qi: number | null
+  unlimited: boolean
+  nextSource: "free" | "credit" | "qi" | null
+  cost: number
+  freeRemaining: number
+  affordable: boolean
+}
+function quotaSourceText(q: ChatQuota): string {
+  if (q.unlimited) return "แชทไม่จำกัด (สมาชิก)"
+  if (!q.affordable) return "Qi ไม่พอ — ถามต่อไม่ได้"
+  if (q.nextSource === "free") return `ฟรีวันนี้เหลือ ${q.freeRemaining} ครั้ง`
+  if (q.nextSource === "credit") return "ใช้เครดิตแชท (ฟรีวันนี้หมดแล้ว)"
+  if (q.nextSource === "qi") return `ถามต่อหัก ${q.cost} Qi/ครั้ง (ฟรีวันนี้หมดแล้ว)`
+  return ""
+}
 import { useBaziChatStream } from "../useBaziChatStream"
 import { SUGGESTED_QUESTIONS } from "@/constants/suggested-questions"
 
@@ -45,7 +63,7 @@ const PERSONAS: Record<PersonaKey, { name: string; greeting: string; poses: Reco
 // เดาอารมณ์จากบริบทคำถาม+คำตอบ → เลือกท่ามาสคอต
 function classifyMood(text: string): Mood {
   const t = text.toLowerCase()
-  if (/รัก|คู่ครอง|แฟน|สมพงษ์|ความรัก|หัวใจ|คนรู้ใจ|เนื้อคู่|ครอบครัว/.test(t)) return "special"
+  if (/รัก|คู่ครอง|แฟน|สมพงศ์|ความรัก|หัวใจ|คนรู้ใจ|เนื้อคู่|ครอบครัว/.test(t)) return "special"
   if (/ระวัง|ปัญหา|ยาก|เสี่ยง|ระมัดระวัง|พิจารณา|ไม่แน่|อุปสรรค|หนี้|เตือน|วิเคราะห์|ซับซ้อน/.test(t)) return "think"
   return "happy"
 }
@@ -53,7 +71,7 @@ function classifyMood(text: string): Mood {
 // figma-copy (ตรวจแล้ว 2026-09-02): ไม่พบเป็น text layer ใน final/V3 — รอ designer ยืนยัน
 const STARTER_CHIPS = [
   { label: "ดวงวันนี้เป็นงัย 🌟", question: "ดวงวันนี้ของฉันเป็นอย่างไรบ้าง?" },
-  { label: "ความสมพงษ์ 💖", question: "เรื่องความรักและคู่ครองที่เหมาะกับฉันเป็นแบบไหน?" },
+  { label: "ความสมพงศ์ 💖", question: "เรื่องความรักและคู่ครองที่เหมาะกับฉันเป็นแบบไหน?" },
   { label: "เลขนำโชครายวัน 🎴", question: "เลขนำโชคของฉันวันนี้คืออะไร?" },
 ]
 
@@ -91,6 +109,27 @@ export function ChatScreen() {
   }
   const activePersona = PERSONAS[persona]
   const { turns, busy, guard, send } = useBaziChatStream(persona)
+
+  // แถบโควตาแชท: โหลดตอนเข้า + รีเฟรชทุกครั้งที่ถามจบ (busy true→false) เพื่อโชว์ชี่/ฟรีที่หักไปทันที
+  const [quota, setQuota] = useState<ChatQuota | null>(null)
+  const loadQuota = useCallback(async () => {
+    try {
+      const r = await fetch("/api/chat/quota")
+      if (r.ok) setQuota((await r.json()) as ChatQuota)
+    } catch { /* เงียบ — แถบแค่ซ่อน */ }
+  }, [])
+  useEffect(() => { void loadQuota() }, [loadQuota])
+  const prevBusy = useRef(false)
+  useEffect(() => {
+    const was = prevBusy.current
+    prevBusy.current = busy
+    // reconcile หลังตอบจบ — หน่วง 1.2s เพราะ engine หักชี่แบบ fire-and-forget "หลัง" ปิดสตรีม
+    // (pages/api/chat/bazi.ts) ถ้า fetch เร็วไปจะได้ยอดเก่าแล้วเด้งกลับ; optimistic โชว์ยอดใหม่ไว้แล้ว
+    if (was && !busy) {
+      const t = setTimeout(() => void loadQuota(), 1200)
+      return () => clearTimeout(t)
+    }
+  }, [busy, loadQuota])
   const [draft, setDraft] = useState("")
   // ท่ามาสคอตตามบริบทคำตอบล่าสุด: ยังไม่คุย=ทักทาย · กำลังคิด=think · ตอบแล้ว=เดาจากเนื้อหา
   const mood: Mood = useMemo(() => {
@@ -169,6 +208,14 @@ export function ChatScreen() {
   const submit = (override?: string) => {
     const msg = (override ?? draft).trim()
     if (!msg || busy) return
+    // หักโควตา/เหรียญให้เห็น "ทันที" ตอนกดส่ง (optimistic) — ตรงกับที่ engine หักฝั่งเซิร์ฟเวอร์ระหว่างสตรีม
+    // แล้วค่อย sync ยอดจริงเมื่อตอบจบ (busy true→false → loadQuota) เพื่อแก้ให้ตรงเป๊ะ + เปลี่ยนแหล่งถัดไป
+    setQuota((q) => {
+      if (!q || q.unlimited) return q
+      if (q.nextSource === "free" && q.freeRemaining > 0) return { ...q, freeRemaining: q.freeRemaining - 1 }
+      if (q.nextSource === "qi" && typeof q.qi === "number") return { ...q, qi: Math.max(0, q.qi - q.cost) }
+      return q
+    })
     void send(msg)
     setDraft("")
     inputRef.current?.focus()
@@ -231,6 +278,32 @@ export function ChatScreen() {
           </svg>
         </Link>
       </header>
+
+      {/* แถบโควตาแชท — ชี่คงเหลือ + คุยจากอะไร (ฟรีรายวัน/เครดิต/หักชี่) ให้ผู้ใช้รู้ว่าหักจากไหน */}
+      {quota && (
+        <div className="mx-auto mt-2 flex w-full max-w-[430px] items-center gap-2 px-4" data-testid="chat-quota">
+          <span className="flex items-center gap-1 rounded-full bg-white/80 px-2.5 py-[3px] text-[11px] font-bold text-v3-navy shadow-[0_1px_4px_rgba(11,48,91,0.10)]">
+            <Image src="/images/v2/qi/guide/orb.png" alt="Qi" width={14} height={14} className="inline-block" /> {quota.qi ?? "—"} Qi
+          </span>
+          <span
+            className={
+              "rounded-full px-2.5 py-[3px] text-[11px] font-medium shadow-[0_1px_4px_rgba(11,48,91,0.08)] " +
+              (quota.unlimited
+                ? "bg-emerald-100 text-emerald-700"
+                : !quota.affordable
+                  ? "bg-rose-100 text-rose-700"
+                  : quota.nextSource === "free"
+                    ? "bg-emerald-100 text-emerald-700"
+                    : "bg-amber-100 text-amber-700")
+            }
+          >
+            {quotaSourceText(quota)}
+          </span>
+          {!quota.unlimited && !quota.affordable && (
+            <Link href="/v2/qi/buy" className="ml-auto rounded-full bg-v3-cyan px-3 py-[3px] text-[11px] font-bold text-white">เติม Qi</Link>
+          )}
+        </div>
+      )}
 
       {/* เลือกคุยกับใคร — เสี่ยวมู่ (ชาย) / เสี่ยวมี่ (หญิง) */}
       <div className="mx-auto mt-2 flex w-full max-w-[430px] items-center gap-2 px-4" data-testid="chat-persona">
