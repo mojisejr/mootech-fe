@@ -54,6 +54,7 @@ const DESC_HEALING = ['พื้นที่ปลอดภัยให้ทุ
 const DESC_SACRED = ['แผนที่ศักดิ์สิทธิ์ที่รวบรวมสถานที่', 'พลังงานสูงพร้อมนำภายในที่ลึกซึ้ง']
 const DESC_SHOP = ['เลือกสรรสินค้าเสริมพลังกาย', 'ใจ และจิตวิญญาณ']
 const DESC_PHONE = ['ถอดพลังตัวเลขในเบอร์ของคุณ', 'เสริมดวงเงิน งาน และความรัก']
+const DESC_HONEYCOMB = ['ถอดรหัสเบอร์แบบปิรามิดรังผึ้ง', 'อ่านพลังตัวเรา–ใกล้ตัว–ไกลตัว']
 
 /** the shared "เร็วๆ นี้" destination, carrying the service name so that page names what the user tapped */
 export const comingSoonHref = (title: string): string => `/v2/service/coming-soon?service=${encodeURIComponent(title)}`
@@ -74,7 +75,10 @@ export const SERVICES = [
   { id: 'sacred-map', title: 'แผนที่ศักดิ์สิทธิ์', desc: DESC_SACRED, href: '/v2/service/sacred-map', image: ART('10_แผนที่ศักดิ์สิทธิ์.png') },
   // ดูดวงเบอร์มือถือ — มีอาร์ตเต็มใบแล้ว (12_เบอร์มือถือ.png) จึงแสดงได้จริง (ไม่ hidden). ยังไม่มีหน้า
   // เฉพาะ → ส่งไป coming-soon ที่ชื่อบริการ. ฟีมสั่งให้อยู่ "ก่อนร้านค้า" (2026-09-10).
-  { id: 'phone-number', title: 'ดูดวงเบอร์มือถือ', desc: DESC_PHONE, href: comingSoonHref('ดูดวงเบอร์มือถือ'), image: ART('12_เบอร์มือถือ.png') },
+  { id: 'phone-number', title: 'ดูดวงเบอร์มือถือ', desc: DESC_PHONE, href: '/v2/service/phone-number', image: ART('12_เบอร์มือถือ.png') },
+  // เบอร์รังผึ้ง (Honeycomb) — หน้า/engine พร้อมแล้ว (/v2/service/honeycomb) แต่ยังไม่มีอาร์ตการ์ด →
+  // hiddenUntilArt จนกว่าจะได้ภาพจาก Drive (แล้วใส่ image: ART('13_เบอร์รังผึ้ง.png') + เอา hidden ออก).
+  { id: 'honeycomb', title: 'เบอร์รังผึ้ง', desc: DESC_HONEYCOMB, href: '/v2/service/honeycomb', hiddenUntilArt: true },
   { id: 'shop', title: 'ร้านค้าของเรา', desc: DESC_SHOP, href: '/v2/shop', image: ART('11_ร้านค้าของเรา.png') },
   // #13, added 2026-08-08 — NOT from the Figma 12. The home screen (Zone 6) has been selling this since
   // #157, but it existed nowhere in the catalog, so its CTA had no name to send anywhere. Hidden for the
