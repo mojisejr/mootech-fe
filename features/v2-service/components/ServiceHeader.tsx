@@ -19,6 +19,8 @@ export function ServiceHeader({ membership }: { membership: MembershipLike }) {
     <AppHeader
       testId="service-header"
       title="บริการทั้งหมด"
+      // เล็กลงจาก 24→20 + ไม่ตัดบรรทัด: "บริการทั้งหมด" ยาวสุดในบรรดาหัวข้อ shared header ที่ 375 เคยตก 2 บรรทัด
+      titleClassName="whitespace-nowrap text-[20px] font-bold leading-7 text-v3-navy"
       membership={membership}
       // Figma 626:7624: px-24 py-16, items-start (px-2 on top of the column's px-4)
       className="items-start px-2 py-4"

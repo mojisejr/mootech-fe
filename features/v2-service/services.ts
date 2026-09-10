@@ -39,7 +39,7 @@ const ART = (file: string) => `/images/v2/features/${file}`
 // คำอธิบายรายบริการ — เคยใช้ DESC_FORTUNE ก้อนเดียวกันทั้ง 8 การ์ด ("วิเคราะห์ดวงชะตาเชิงลึก / รวบรวมเป็นหนังสือ
 // ส่วนตัว") ซึ่งเป็น copy ของ "หนังสือเล่มเดียวในโลก" — บน prod ทุกการ์ดเลยพูดเรื่องหนังสือ (เจอ 2026-09-07).
 // แต่ละบรรทัดคือ 1 บรรทัดบนการ์ด — สั้นพอไม่ตัดคำบนจอ 375
-const DESC_COUPLE = ['เช็คความเข้ากันของคุณกับคู่รัก', 'จากปาจื้อทั้งสองคน พร้อมคำแนะนำ']
+const DESC_COUPLE = ['เช็คความเข้ากันของคุณกับคู่รัก', 'จากปาจื้อทั้งคู่ พร้อมคำแนะนำ']
 const DESC_COWORKER = ['เทียบดวงคนร่วมงานได้ถึง 3 คน', 'จัดอันดับว่าใครเข้ากับคุณที่สุด']
 const DESC_ONE_BOOK = ['วิเคราะห์ดวงชะตาเชิงลึก', 'รวบรวมเป็นหนังสือส่วนตัว']
 const DESC_ORACLE = ['เปิดไพ่ออราเคิล 3 ใบ', 'รับข้อความชี้ทางจากจักรวาล']
@@ -53,6 +53,7 @@ const DESC_CALENDAR = ['วางแผนชีวิตตามจังห�
 const DESC_HEALING = ['พื้นที่ปลอดภัยให้ทุกคนได้แบ่งปัน', 'ความรู้สึกรับฟังซึ่งกันและกัน']
 const DESC_SACRED = ['แผนที่ศักดิ์สิทธิ์ที่รวบรวมสถานที่', 'พลังงานสูงพร้อมนำภายในที่ลึกซึ้ง']
 const DESC_SHOP = ['เลือกสรรสินค้าเสริมพลังกาย', 'ใจ และจิตวิญญาณ']
+const DESC_PHONE = ['ถอดพลังตัวเลขในเบอร์ของคุณ', 'เสริมดวงเงิน งาน และความรัก']
 
 /** the shared "เร็วๆ นี้" destination, carrying the service name so that page names what the user tapped */
 export const comingSoonHref = (title: string): string => `/v2/service/coming-soon?service=${encodeURIComponent(title)}`
@@ -72,6 +73,9 @@ export const SERVICES = [
   { id: 'healing-circles', title: 'Healing Circles', desc: DESC_HEALING, href: comingSoonHref('Healing Circles'), hiddenUntilArt: true },
   { id: 'sacred-map', title: 'แผนที่ศักดิ์สิทธิ์', desc: DESC_SACRED, href: '/v2/service/sacred-map', image: ART('10_แผนที่ศักดิ์สิทธิ์.png') },
   { id: 'shop', title: 'ร้านค้าของเรา', desc: DESC_SHOP, href: '/v2/shop', image: ART('11_ร้านค้าของเรา.png') },
+  // #12 ดูดวงเบอร์มือถือ — มีอาร์ตเต็มใบแล้ว (12_เบอร์มือถือ.png) จึงแสดงได้จริง (ไม่ hidden). ยังไม่มีหน้า
+  // เฉพาะ → ส่งไป coming-soon ที่ชื่อบริการ (ตาม comingSoonHref) จนกว่าจะสร้างหน้า.
+  { id: 'phone-number', title: 'ดูดวงเบอร์มือถือ', desc: DESC_PHONE, href: comingSoonHref('ดูดวงเบอร์มือถือ'), image: ART('12_เบอร์มือถือ.png') },
   // #13, added 2026-08-08 — NOT from the Figma 12. The home screen (Zone 6) has been selling this since
   // #157, but it existed nowhere in the catalog, so its CTA had no name to send anywhere. Hidden for the
   // same reason as Healing Circles: the card art is 1128×463 full-card, and the only ปาจื่อ image we have

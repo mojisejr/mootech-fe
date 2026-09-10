@@ -38,8 +38,10 @@ export function ServiceCard({ data, eagerArt = false }: { data: ServiceCardData;
     >
       <ServiceCardArt src={data.image} eager={eagerArt} />
 
-      <div className="relative z-10 flex w-[47%] flex-col gap-2">
-        <h3 className="text-[18px] font-bold leading-6 text-v3-navy [word-break:break-word]">{data.title}</h3>
+      {/* copy column: กว้าง 56% (เดิม 47%) — อาร์ตชุดใหม่ (Drive 2026-09-10) มาสคอตชิดขว่ากว่าเดิม เว้นซ้าย
+          ~58-70% ว่าง จึงขยายคอลัมน์ข้อความให้ desc 2 บรรทัดพอดีตาม Figma (ก่อนหน้านี้ 47% บีบจนตัดเป็น 3-4 บรรทัด) */}
+      <div className="relative z-10 flex w-[68%] flex-col gap-2 pr-1">
+        <h3 className="text-[16px] font-bold leading-6 text-v3-navy [word-break:break-word]">{data.title}</h3>
         <div className="text-[14px] font-medium leading-5 text-v3-text-body [word-break:break-word]">
           {data.desc.map((line, i) => (
             <p key={i}>{line}</p>

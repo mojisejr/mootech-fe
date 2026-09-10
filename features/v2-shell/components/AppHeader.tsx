@@ -43,6 +43,9 @@ import { headerBadge, type MembershipLike } from '../header-badge'
 export type AppHeaderProps = {
   /** left: the page title (Heading/H1 24/32 navy — Figma) */
   title?: string
+  /** left: override the title's class list (size/wrap). Default = 24/32 bold navy, break-words. Service
+   *  passes a smaller nowrap variant so "บริการทั้งหมด" stays on one line beside the right cluster. */
+  titleClassName?: string
   /** left: optional second line under the title (Body 14/20 #464646 — Figma) */
   subtitle?: string
   /** left: a custom block that replaces title/subtitle entirely (home's Structure A greeting) */
@@ -166,6 +169,7 @@ export function HeaderTools({ membership, upgradeCta = true, tierLink = true, on
 
 export function AppHeader({
   title,
+  titleClassName = 'break-words text-[24px] font-bold leading-8 text-v3-navy',
   subtitle,
   left,
   backHref,
@@ -186,7 +190,7 @@ export function AppHeader({
       {left ?? (
         // Figma 375:11274 — title 24/32 bold navy, subtitle 14/20 medium #464646, 8px apart.
         <div className="flex min-w-0 flex-1 flex-col gap-2">
-          {title && <h1 data-testid="header-title" className="break-words text-[24px] font-bold leading-8 text-v3-navy">{title}</h1>}
+          {title && <h1 data-testid="header-title" className={titleClassName}>{title}</h1>}
           {subtitle && <p data-testid="header-subtitle" className="text-[14px] font-medium leading-5 text-v3-text-body">{subtitle}</p>}
         </div>
       )}
