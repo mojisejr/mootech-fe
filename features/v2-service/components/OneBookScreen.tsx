@@ -141,7 +141,10 @@ export function OneBookScreen() {
 
         {/* PAIN POINTS */}
         <section className="flex flex-col gap-3">
-          <h2 className="text-center text-[18px] font-black leading-7 text-v3-navy">เคยเป็นแบบนี้ไหม<br />ทั้งที่รู้ตัวเองดีแล้ว<br />แต่ยังตัดสินใจผิดซ้ำ ๆ</h2>
+          <h2 className="text-center text-[21px] font-black leading-8">
+            <span className="text-v3-cyan">เคยเป็นแบบนี้ไหม</span><br />
+            <span className="text-v3-navy">ทั้งที่รู้ตัวเองดีแล้ว<br />แต่ยังตัดสินใจผิดซ้ำ ๆ</span>
+          </h2>
           {PAINS.map(([t, s]) => (
             <div key={t} className="flex items-start gap-3 rounded-2xl bg-white p-4 v3-shadow-card">
               <span aria-hidden className="mt-0.5 flex-none text-v3-pumpkin">
