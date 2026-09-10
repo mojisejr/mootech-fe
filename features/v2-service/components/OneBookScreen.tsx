@@ -157,18 +157,18 @@ export function OneBookScreen() {
         </section>
 
         {/* NOT JUST FORTUNE — full-bleed สีน้ำเงิน + มาสคอตนกน้ำ/ไฟ ด้านขวา (เหมือนการ์ดซินแสหน้าแรก) */}
-        <section className="relative -mx-4 w-[calc(100%+2rem)] overflow-hidden rounded-[24px] bg-v3-sapphire px-6 py-6 text-white">
+        <section className="relative -mx-4 w-[calc(100%+2rem)] overflow-hidden bg-v3-sapphire px-6 py-6 text-white">
           {/* มาสคอตนกน้ำ ล้นขวา-ล่าง (reuse zone4/mascot-sian.png) */}
           <div className="pointer-events-none absolute right-0 bottom-[-14px] z-0 h-[164px] w-[164px] overflow-hidden">
-            <img src="/images/v2/zone4/mascot-sian.png" alt="" aria-hidden className="absolute left-1/2 top-1/2 w-[164px] max-w-none -translate-x-1/2 -translate-y-1/2" />
+            <img src="/images/v2/zone4/mascot-sian.png" alt="" aria-hidden className="one-float absolute left-1/2 top-1/2 w-[164px] max-w-none -translate-x-1/2 -translate-y-1/2" />
           </div>
           {/* ไฟ (สไปรต์เดียวกับหน้าแรก) */}
-          <img src="/images/v2/zone5/sprite-fire.png" alt="" aria-hidden className="pointer-events-none absolute right-[110px] top-6 z-[1] h-[46px] w-[39px] max-w-none" />
+          <img src="/images/v2/zone5/sprite-fire.png" alt="" aria-hidden className="one-fire pointer-events-none absolute right-[110px] top-6 z-[1] h-[46px] w-[39px] max-w-none" />
           <div className="relative z-10 flex flex-col gap-2.5">
-            <h2 className="max-w-[80%] text-[19px] font-black leading-7">เพราะคุณไม่ใช่แค่ “คำทำนาย”<br />และไม่ใช่แค่ “ดวงชะตา”</h2>
+            <h2 className="max-w-[80%] text-[19px] font-black leading-7">เพราะคุณไม่ใช่แค่ <span className="text-v3-lime">“คำทำนาย”</span><br />และไม่ใช่แค่ <span className="text-v3-lime">“ดวงชะตา”</span></h2>
             <p className="text-[13px] font-bold">YOUR LIFE CODE</p>
             <p className="max-w-[66%] text-[13px] leading-5 text-white/85">ไม่ได้บอกว่าอนาคตจะเป็นยังไง แต่บอกว่าคุณถูกออกแบบมาแบบไหน และควรเดินด้วยจังหวะของใคร</p>
-            <a href={LINE_ORDER_URL} target="_blank" rel="noopener noreferrer" className="relative z-20 mt-1 grid h-11 w-[76%] place-items-center rounded-full bg-v3-lime px-4 text-[14px] font-bold text-v3-navy">สั่งซื้อเลย YOUR LIFE CODE</a>
+            <a href={LINE_ORDER_URL} target="_blank" rel="noopener noreferrer" className="relative z-20 mt-1 grid h-11 w-full place-items-center rounded-full bg-v3-lime px-4 text-[14px] font-bold text-v3-navy">สั่งซื้อเลย YOUR LIFE CODE</a>
           </div>
         </section>
 
@@ -248,25 +248,20 @@ export function OneBookScreen() {
           </div>
         </section>
 
-        {/* TODAY PRICE BAND */}
+        {/* TODAY PRICE BAND — มาสคอต 5 ธาตุ ล้อมกรอบ + ขยับได้ (effect) */}
         <section className="relative flex flex-col items-center gap-3 overflow-hidden rounded-[24px] bg-v3-sapphire px-5 py-6 text-center text-white">
-          <p className="text-[13px] text-white/80">รวมมูลค่า ฿4,969</p>
-          <p className="text-[26px] font-black text-v3-lime">วันนี้เพียง ฿1,890</p>
-          <OrderCta />
-        </section>
-
-        {/* PREVIEW */}
-        <section className="flex flex-col gap-3">
-          <h2 className="text-center text-[18px] font-black text-v3-sapphire">ดูตัวอย่างหน้าจริงในเล่ม</h2>
-          <div className="flex gap-3">
-            {["ตาราง 8 ช่อง", "บุคลิกและจุดแข็ง", "แผนที่ชีวิต 10 ปี"].map((t) => (
-              <div key={t} className="flex flex-1 flex-col items-center gap-2">
-                <div className="aspect-[3/4] w-full rounded-xl border border-v3-border-card bg-white" />
-                <span className="text-center text-[11px] leading-4 text-v3-text-muted">{t}</span>
-              </div>
-            ))}
+          <img src="/images/v2/referral/mascot-wood.png" alt="" aria-hidden className="one-float pointer-events-none absolute left-1 top-2 z-0 h-14 w-14" />
+          <img src="/images/v2/referral/mascot-fire.png" alt="" aria-hidden className="one-float pointer-events-none absolute right-1 top-2 z-0 h-14 w-14" style={{ animationDelay: "0.4s" }} />
+          <img src="/images/v2/referral/mascot-earth.png" alt="" aria-hidden className="one-float pointer-events-none absolute -bottom-1 left-1 z-0 h-14 w-14" style={{ animationDelay: "0.8s" }} />
+          <img src="/images/v2/referral/mascot-water.png" alt="" aria-hidden className="one-float pointer-events-none absolute -bottom-1 right-1 z-0 h-14 w-14" style={{ animationDelay: "1.2s" }} />
+          <div className="relative z-10 flex w-full flex-col items-center gap-3">
+            <p className="text-[13px] text-white/80">รวมมูลค่า ฿4,969</p>
+            <p className="text-[26px] font-black text-v3-lime">วันนี้เพียง ฿1,890</p>
+            <OrderCta />
           </div>
         </section>
+
+        {/* PREVIEW — ปิดไว้ก่อน ยังไม่มีรูปตัวอย่างหน้าจริง (ฟีม 2026-09-10) */}
 
         {/* FITS */}
         <section className={CARD}>
@@ -327,6 +322,15 @@ export function OneBookScreen() {
         <a href={LINE_ORDER_URL} target="_blank" rel="noopener noreferrer" data-testid="one-book-order" className="grid h-[52px] min-w-0 flex-1 place-items-center rounded-full bg-v3-sapphire text-[15px] font-bold text-white v3-shadow-card">สั่งซื้อเลย</a>
         <span className="flex-none"><MateAIButton /></span>
       </div>
+
+      {/* effect ไอคอน/มาสคอต ในหน้านี้ (ลอยเบา ๆ + ไฟกระพริบ) — transform-only, ปิดเมื่อ reduce motion */}
+      <style dangerouslySetInnerHTML={{ __html: `
+@keyframes one-float{0%,100%{transform:translateY(0) rotate(0deg)}50%{transform:translateY(-6px) rotate(-2deg)}}
+.one-float{animation:one-float 2.6s ease-in-out infinite;will-change:transform}
+@keyframes one-fire{0%,100%{transform:rotate(0deg) scale(1)}25%{transform:rotate(-4deg) scale(1.06,.96)}50%{transform:rotate(0deg) scale(.97,1.05)}75%{transform:rotate(4deg) scale(1.04,.98)}}
+.one-fire{animation:one-fire 2s cubic-bezier(.45,0,.55,1) infinite;transform-origin:bottom center;will-change:transform}
+@media(prefers-reduced-motion:reduce){.one-float,.one-fire{animation:none!important}}
+` }} />
     </div>
   )
 }
