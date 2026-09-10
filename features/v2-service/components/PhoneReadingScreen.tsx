@@ -70,10 +70,10 @@ function readCache(): CachedReading | null {
 function writeCache(c: CachedReading) { try { localStorage.setItem(CACHE_KEY, JSON.stringify(c)) } catch { /* ignore */ } }
 
 const HERO_MASCOTS = [
-  { src: "/images/v2/referral/mascot-fire.png", cls: "left-1 top-[-40px] h-12 w-12 -rotate-6" },
+  { src: "/images/v2/referral/mascot-fire.png", cls: "left-1 top-[-40px] h-12 w-12" },
   { src: "/images/v2/referral/mascot-earth.png", cls: "right-2 top-[-46px] h-11 w-11" },
-  { src: "/images/v2/referral/mascot-wood.png", cls: "right-1 top-11 h-11 w-11 rotate-3" },
-  { src: "/images/v2/referral/mascot-water.png", cls: "left-1 top-11 h-11 w-11 -rotate-3" },
+  { src: "/images/v2/referral/mascot-wood.png", cls: "right-1 top-11 h-11 w-11" },
+  { src: "/images/v2/referral/mascot-water.png", cls: "left-1 top-11 h-11 w-11" },
 ]
 
 // การ์ดคู่เลขแบบพับได้
@@ -230,9 +230,9 @@ export function PhoneReadingScreen() {
             <section className="relative mt-20 rounded-[24px] bg-v3-sapphire px-6 pb-6 pt-32 text-center" data-testid="phone-intro">
               {/* มาสคอตหลัก โผล่เหนือขอบบนการ์ดเข้าไปในท้องฟ้า */}
               <img src="/images/v2/mascot/01.webp" alt="" aria-hidden className="pointer-events-none absolute left-1/2 top-[-96px] z-10 h-[210px] w-[210px] -translate-x-1/2 object-contain drop-shadow-[0_12px_22px_rgba(0,0,0,.28)]" />
-              {HERO_MASCOTS.map((mm, i) => <img key={i} src={mm.src} alt="" aria-hidden className={"pointer-events-none absolute z-10 object-contain " + mm.cls} />)}
+              {HERO_MASCOTS.map((mm, i) => <img key={i} src={mm.src} alt="" aria-hidden style={{ animationDelay: `${i * 0.4}s` }} className={"phone-float pointer-events-none absolute z-10 object-contain " + mm.cls} />)}
 
-              <h1 className="text-[22px] font-black text-white">กรอกเบอร์มือถือเลยจ้า</h1>
+              <h1 className="text-[22px] font-black text-v3-lime">กรอกเบอร์มือถือเลยจ้า</h1>
               <p className="mt-1.5 text-[13px] leading-5 text-white/85">อ่านจากคู่เลขที่ติดกัน โดยคู่ท้าย ๆ มีน้ำหนักมากที่สุด</p>
               <input
                 inputMode="numeric"
@@ -249,7 +249,8 @@ export function PhoneReadingScreen() {
               </button>
               {error && <p className="mt-2 text-[12px] font-bold text-v3-lime" data-testid="phone-error">{error}</p>}
               {needQi && <a href="/v2/qi" className="mt-2 inline-grid h-9 place-items-center rounded-full bg-white px-5 text-[13px] font-bold text-v3-sapphire" data-testid="phone-buy-qi">เติม QI</a>}
-              <p className="mt-3 text-[11px] text-white/70">ใช้ {QI_COST} QI ต่อการทำนาย · ระบบจะตัดรหัสประเทศ 0 หรือ 66 ออกให้อัตโนมัติ</p>
+              <p className="mt-3 text-[11px] font-bold text-v3-lime">ใช้ {QI_COST} QI ต่อการทำนาย</p>
+              <p className="mt-0.5 text-[11px] text-white/70">ระบบจะตัดรหัสประเทศ 0 หรือ 66 ออกให้อัตโนมัติ</p>
             </section>
 
             {/* อ่านยังไง */}
@@ -262,7 +263,7 @@ export function PhoneReadingScreen() {
                   "คู่สุดท้ายมีน้ำหนักมากที่สุด 100%",
                 ].map((t, i) => (
                   <div key={i} className="flex items-start gap-3">
-                    <span className="grid size-6 flex-none place-items-center rounded-full bg-v3-lime text-[12px] font-black text-v3-navy">{i + 1}</span>
+                    <span className="grid size-6 flex-none place-items-center rounded-full bg-v3-sapphire text-[12px] font-black text-white">{i + 1}</span>
                     <p className="text-[13px] leading-6 text-v3-text-body">{t}</p>
                   </div>
                 ))}
@@ -275,17 +276,18 @@ export function PhoneReadingScreen() {
           <div className="flex flex-col gap-4" data-testid="phone-result">
             {/* การ์ดสรุป + เลขเรียง */}
             <section className="rounded-[24px] bg-v3-sapphire p-5 text-center text-white">
-              <p className="text-[15px] font-black">✨ ดูผลการทำนายเลย ✨</p>
-              <div className="mt-3 flex flex-wrap justify-center gap-1.5">
+              <p className="text-[26px] leading-none text-v3-lime">✦✦</p>
+              <p className="mt-2 text-[20px] font-black text-v3-lime">ดูผลการทำนายเลย</p>
+              <div className="mt-4 flex flex-wrap justify-center gap-1.5">
                 {digits.map((d, i) => {
                   const isClosing = i >= digits.length - closingLen
                   return (
-                    <span key={i} className={"grid size-9 place-items-center rounded-lg text-[16px] font-black " + (isClosing ? "bg-v3-lime text-v3-navy" : "bg-white/15 text-white")}>{d}</span>
+                    <span key={i} className={"grid size-10 place-items-center rounded-[10px] text-[17px] font-black " + (isClosing ? "bg-v3-lime text-v3-navy" : "bg-white text-v3-navy")}>{d}</span>
                   )
                 })}
               </div>
-              <p className="mt-3 text-[12px] leading-5 text-white/85">คู่ปิดท้าย {reading.closing.pair} มีน้ำหนักมากที่สุดต่อคำทำนายรวม</p>
-              <button type="button" onClick={reset} data-testid="phone-again" className="mt-3 rounded-full bg-white/15 px-5 py-2 text-[13px] font-bold text-white">ดูทำนายเบอร์อื่น</button>
+              <p className="mt-4 text-[12px] leading-5 text-white/85">คู่ปิดท้าย {reading.closing.pair} มีน้ำหนักมากที่สุดต่อคำทำนายรวม</p>
+              <button type="button" onClick={reset} data-testid="phone-again" className="mt-4 rounded-full bg-v3-lime px-6 py-2.5 text-[14px] font-black text-v3-navy">ดูทำนายเบอร์อื่น</button>
             </section>
 
             {/* ภาพรวม (AI) */}
@@ -323,8 +325,14 @@ export function PhoneReadingScreen() {
                     </div>
                   ))}
                 </div>
+                <p className="mt-3 text-[12px] leading-5 text-v3-text-muted">เลขที่ซ้ำมากจะให้อิทธิพลต่อเบอร์มากตามไปด้วย</p>
               </section>
             )}
+
+            {/* หมายเหตุ (แสดงทุกแท็บ) */}
+            <div className="rounded-[14px] bg-[#FBEAF0] p-3 text-center">
+              <p className="text-[12px] leading-5 text-[#9B5273]">คำทำนายมีไว้เพื่อเป็นแนวทางในการไตร่ตรอง<br />ไม่ใช่คำแนะนำทางการแพทย์ การเงิน หรือกฎหมาย</p>
+            </div>
 
             {/* actions */}
             <div className="grid grid-cols-2 gap-2">
@@ -336,6 +344,11 @@ export function PhoneReadingScreen() {
       </div>
 
       <Menubar />
+      <style>{`
+        @keyframes phoneFloat { 0%,100%{ transform: translateY(0) } 50%{ transform: translateY(-8px) } }
+        .phone-float { animation: phoneFloat 2.6s ease-in-out infinite; }
+        @media (prefers-reduced-motion: reduce) { .phone-float { animation: none !important } }
+      `}</style>
     </div>
   )
 }
