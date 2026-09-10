@@ -37,7 +37,7 @@ export function PajeuSection() {
         // landscape width without taking it from the text.
         // Enlarged to Figma weight (ฟีม "ขยาย icon รูปใหญ่หน่อย"): the art was capped at ~106px by the default
         // 38% share; w 112→150 + a 44% cap lets the illustration read at ~137px like the Figma card.
-        art={{ src: '/images/v2/home/%E0%B9%80%E0%B8%A3%E0%B8%B5%E0%B8%A2%E0%B8%99%E0%B8%9B%E0%B8%B2%E0%B8%88%E0%B8%B7%E0%B9%88%E0%B8%AD.webp', w: 150, h: 114.9 }}
+        art={{ src: '/images/v2/home/%E0%B9%80%E0%B8%A3%E0%B8%B5%E0%B8%A2%E0%B8%99%E0%B8%9B%E0%B8%B2%E0%B8%88%E0%B8%B7%E0%B9%88%E0%B8%AD.png', w: 150, h: 114.9 }}
         artMaxWidth="44%"
         padX="px-4"
         // its 水 is full-body, centre-frame and nearly the same size as the card's own, which reads as the
@@ -69,7 +69,7 @@ export function PajeuSection() {
           </>
         }
         cta={{ variant: 'primary', label: 'ซื้อเลย', href: LINE_ORDER_URL }}
-        bgImage="/images/v2/home/bg/pajeu.jpg"
+        bgImage="/images/v2/home/bg/pajeu.png"
       />
     </section>
   )

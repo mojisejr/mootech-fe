@@ -572,7 +572,7 @@ function SianSection() {
         // the artwork's own 536:578 ratio) — a near-square book at the old WIDTH would have read as smaller.
         // Enlarged (ฟีม, "ขยาย icon ทั้ง 4") together with the 3 mini-card icons: w 112→132 AND the cap lifted
         // to 46% (the 38% default was already clipping it ~106px), so the cover actually grows on the card.
-        art={{ src: '/images/v2/home/%E0%B8%A0%E0%B8%B2%E0%B8%9E%E0%B8%AB%E0%B8%99%E0%B8%B1%E0%B8%87%E0%B8%AA%E0%B8%B7%E0%B8%AD.webp', w: 132, h: 142.4 }}
+        art={{ src: '/images/v2/home/%E0%B8%A0%E0%B8%B2%E0%B8%9E%E0%B8%AB%E0%B8%99%E0%B8%B1%E0%B8%87%E0%B8%AA%E0%B8%B7%E0%B8%AD.png', w: 132, h: 142.4 }}
         artMaxWidth="46%"
         // the card's mascots stay: the 水 printed on the cover is visibly smaller than the card's own, so the
         // two read as foreground and background (ฟีม's call after seeing the real route).
@@ -586,7 +586,7 @@ function SianSection() {
           </>
         }
         cta={{ variant: 'primary', label: 'ซื้อเลย', href: hrefById('one-book') }}
-        bgImage="/images/v2/home/bg/book.jpg"
+        bgImage="/images/v2/home/bg/book.png"
       />
       {/* 3 property cards — ภาพพื้นหลังต่อบริการ (จาก Drive) + scrim ขาวจางให้ตัวหนังสืออ่านออก */}
       <div className="flex w-full gap-2">
@@ -595,7 +595,7 @@ function SianSection() {
             key={c.icon}
             href={hrefById(c.serviceId)}
             className="relative flex flex-1 self-stretch overflow-hidden rounded-2xl p-4"
-            style={{ backgroundImage: `url(/images/v2/home/bg/${c.icon}.jpg)`, backgroundSize: 'cover', backgroundPosition: 'center' }}
+            style={{ backgroundImage: `url(/images/v2/home/bg/${c.icon}.png)`, backgroundSize: 'cover', backgroundPosition: 'center' }}
           >
             <div aria-hidden className="pointer-events-none absolute inset-0 bg-white/45" />
             {/* Figma "Property Type": p-16, gap 10, items-center, 67px icon, 14/20 SemiBold navy CENTRED uppercase */}
