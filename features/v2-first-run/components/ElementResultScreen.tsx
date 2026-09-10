@@ -355,7 +355,7 @@ export function ElementResultScreen({
           {facets ? (
             <>
               <p className="mt-3 font-ibm text-sm leading-[22px] text-v3-text-body">
-                ธาตุที่ส่งผลในเเต่ละด้านของคุณ วิเคราะห์ธาตุในเเต่ละด้าน
+                ธาตุที่ส่งผลในแต่ละด้านของคุณ วิเคราะห์ธาตุในแต่ละด้าน
               </p>
               <dl className="mt-3" data-testid="facet-list">
                 {facets.map(({ label, element }) => {

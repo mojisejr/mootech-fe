@@ -200,7 +200,7 @@ export default function V2RegisterPage() {
       ) : null}
 
       <Field
-        label="ใส่ Code เพื่อนเเนะนำ"
+        label="ใส่ Code เพื่อนแนะนำ"
         placeholder="ใส่ Code"
         value={referral}
         onChange={(e) => setReferral(e.target.value)}

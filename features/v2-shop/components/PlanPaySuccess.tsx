@@ -20,7 +20,7 @@ import { formatThaiDateAbbr } from '@/lib/v2/thai-date'
 import { RESULT_COPY } from '../result-state'
 import { planNameForTier } from '../packages'
 
-export const PLAN_SUCCESS_SUBTITLE = 'ขอบคุณที่ให้ Mumate ดูเเล'
+export const PLAN_SUCCESS_SUBTITLE = 'ขอบคุณที่ให้ Mumate ดูแล'
 
 export function PlanPaySuccess({ packageCode, charge, order }: { packageCode: string; charge: string; order: string }) {
   const { user } = useV2User()
