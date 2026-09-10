@@ -1,7 +1,6 @@
 // features/v2-service/components/SacredMapScreen.tsx — /v2/service/sacred-map (แผนที่ศักดิ์สิทธิ์)
 // ต่อ ENGINE: /api/sacred-map (ผ่าน BFF /api/v2/sacred-map) — directory สถานที่ศักดิ์สิทธิ์ verified
-// แผนที่ Leaflet + หมุดสีธาตุ + การ์ด + โมดัลรายละเอียด (โพยการมู/บันทึก/เช็คอิน/ตั้งเตือน/แชร์)
-// รูปเสิร์ฟจาก engine (base64 ใน DB) ผ่าน /api/v2/sacred-map/image/[id] — ไม่พึ่ง Supabase.
+// รายการ + แผนที่ Leaflet + ฟอร์มเสนอที่ (→ pending รอแอดมิน). รายละเอียด = หน้าแยก /v2/service/sacred-map/[id]
 import Head from "next/head"
 import Link from "next/link"
 import dynamic from "next/dynamic"
@@ -9,115 +8,66 @@ import { useCallback, useEffect, useMemo, useState } from "react"
 
 import { SkyBackdrop, SkyHeader } from "@/features/v2-profile/components/kit"
 import { Menubar } from "@/features/v2-shell/components/Menubar"
+import {
+  EL, NEED_OPTIONS, SAVED_KEY, fmtKm, haversineKm, imageSrc, isValidCoord, readSet,
+  type SacredLocation,
+} from "@/features/v2-service/sacred-map-shared"
 
 const SacredMapLeaflet = dynamic(() => import("./SacredMapLeaflet"), {
   ssr: false,
   loading: () => <div className="h-56 w-full animate-pulse rounded-[20px] bg-v3-ghost-white" />,
 })
 
-type SacredLocation = {
-  id: string
-  name: string
-  deity: string | null
-  description: string | null
-  province: string | null
-  address: string | null
-  lat: number
-  lng: number
-  direction: string | null
-  rasiUpper: string | null
-  rasiLower: string | null
-  element: string | null
-  needs: string[]
-  worshipGuide: string | null
-  imageUrl: string | null
-  hasImage?: boolean
-  updatedAt?: string | null
-  googleMapUrl: string | null
-  checkinCount: number
-}
-
-const EL: Record<string, { th: string; color: string }> = {
-  wood: { th: "ไม้", color: "#22c55e" },
-  fire: { th: "ไฟ", color: "#ef4444" },
-  earth: { th: "ดิน", color: "#eab308" },
-  metal: { th: "ทอง", color: "#94a3b8" },
-  water: { th: "น้ำ", color: "#3b82f6" },
-}
-const NEED_OPTIONS = ["การงาน", "เงิน", "รัก", "สุขภาพ", "โชคลาภ", "จิตใจ"] as const
-const CHECKIN_KEY = "mumate-sacred-checkin"
-const SAVED_KEY = "mumate-sacred-saved"
 const CARD = "v3-shadow-card w-full rounded-[24px] bg-white p-4"
 
-// พิกัดที่ใช้ปักหมุดได้จริง — ต้องอยู่ในกรอบประเทศไทย (กัน seed เสีย เช่น 0,0 ไปโผล่แอฟริกา)
-function isValidCoord(lat: number, lng: number): boolean {
-  return Number.isFinite(lat) && Number.isFinite(lng) && lat >= 5.5 && lat <= 21 && lng >= 97 && lng <= 106
-}
-
-function mapsLink(loc: SacredLocation): string {
-  if (loc.googleMapUrl && loc.googleMapUrl.trim()) return loc.googleMapUrl.trim()
-  // พิกัดเสีย → ค้นด้วยชื่อ+จังหวัด แทน (ไม่ยิง 0,0)
-  const q = isValidCoord(loc.lat, loc.lng)
-    ? `${loc.name ?? ""} ${loc.lat},${loc.lng}`.trim()
-    : [loc.name, loc.province].filter(Boolean).join(" ")
-  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(q)}`
-}
-/** รูป: เสิร์ฟจาก engine (base64) ถ้ามี ไม่งั้น fallback imageUrl เดิม (supabase) */
-function imageSrc(loc: SacredLocation): string | null {
-  // ?v=updatedAt = cache-bust เมื่อรูปในDBเปลี่ยน (เลี่ยงเบราว์เซอร์ค้างรูปเก่า)
-  if (loc.hasImage) return `/api/v2/sacred-map/image/${encodeURIComponent(loc.id)}?v=${encodeURIComponent(loc.updatedAt ?? "")}`
-  return loc.imageUrl || null
-}
-/** ตั้งเตือน = สร้าง event บน Google Calendar (เตือนไปไหว้) */
-function calendarLink(loc: SacredLocation): string {
-  const text = encodeURIComponent(`ไปไหว้ ${loc.name}`)
-  const details = encodeURIComponent(`${loc.deity ? loc.deity + "\n" : ""}${mapsLink(loc)}`)
-  const location = encodeURIComponent(loc.address || loc.province || "")
-  return `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${text}&details=${details}&location=${location}`
-}
-function FilterPill({ active, onClick, testId, children }: { active: boolean; onClick: () => void; testId?: string; children: React.ReactNode }) {
+function FilterPill({ active, onClick, testId, color, children }: { active: boolean; onClick: () => void; testId?: string; color?: string; children: React.ReactNode }) {
+  // ธาตุ (มี color): active = พื้นสีธาตุ ตัวขาว / inactive = พื้นขาว ตัวอักษรสีธาตุ. ทั่วไป (ไม่มี color): active = lime.
+  const style = color ? (active ? { background: color, color: "#fff" } : { background: "#fff", color }) : undefined
+  const cls = color ? "" : active ? "bg-v3-lime text-v3-navy" : "bg-white text-v3-navy"
   return (
-    <button type="button" onClick={onClick} data-testid={testId} className={"rounded-full px-3 py-1 text-[12px] font-bold " + (active ? "bg-v3-lime text-v3-navy" : "bg-white text-v3-navy")}>
+    <button type="button" onClick={onClick} data-testid={testId} style={style} className={"rounded-full px-3 py-1 text-[12px] font-bold " + cls}>
       {children}
     </button>
   )
 }
 
-function readSet(key: string): Set<string> {
-  try {
-    const raw = localStorage.getItem(key)
-    return new Set(raw ? (JSON.parse(raw) as string[]) : [])
-  } catch {
-    return new Set()
-  }
-}
-
 export function SacredMapScreen() {
-  // ฟิลเตอร์ธาตุแบบเลือกเองได้ทุกธาตุ (en key) หรือ null = ทั้งหมด (ตาม Figma)
   const [elementFilter, setElementFilter] = useState<string | null>(null)
   const [need, setNeed] = useState<string | null>(null)
   const [onlySaved, setOnlySaved] = useState(false)
   const [locations, setLocations] = useState<SacredLocation[]>([])
   const [loading, setLoading] = useState(true)
   const [unavailable, setUnavailable] = useState(false)
-  const [checkedIn, setCheckedIn] = useState<Set<string>>(new Set())
   const [saved, setSaved] = useState<Set<string>>(new Set())
   const [bootstrapped, setBootstrapped] = useState(false)
-  const [selectedId, setSelectedId] = useState<string | null>(null)
+  const [userPos, setUserPos] = useState<{ lat: number; lng: number } | null>(null)
+
+  // ฟอร์มเสนอสถานที่
+  const [submitOpen, setSubmitOpen] = useState(false)
+  const emptyForm = { name: "", deity: "", province: "", address: "", element: "", needs: [] as string[], worshipGuide: "", googleMapUrl: "", contact: "", lat: null as number | null, lng: null as number | null }
+  const [form, setForm] = useState(emptyForm)
+  const [submitState, setSubmitState] = useState<"idle" | "sending" | "done" | "error">("idle")
+  const [submitMsg, setSubmitMsg] = useState("")
+  const [pinState, setPinState] = useState<"idle" | "asking">("idle")
 
   const visible = useMemo(() => (onlySaved ? locations.filter((l) => saved.has(l.id)) : locations), [locations, onlySaved, saved])
   const pins = useMemo(
-    () => visible
-      .filter((l) => isValidCoord(l.lat, l.lng))
-      .map((l) => ({ id: l.id, name: l.name, deity: l.deity, lat: l.lat, lng: l.lng, element: l.element })),
+    () => visible.filter((l) => isValidCoord(l.lat, l.lng)).map((l) => ({ id: l.id, name: l.name, deity: l.deity, lat: l.lat, lng: l.lng, element: l.element })),
     [visible],
   )
-  const selected = useMemo(() => locations.find((l) => l.id === selectedId) ?? null, [locations, selectedId])
 
   useEffect(() => {
-    setCheckedIn(readSet(CHECKIN_KEY))
     setSaved(readSet(SAVED_KEY))
     setBootstrapped(true)
+  }, [])
+
+  useEffect(() => {
+    if (typeof navigator === "undefined" || !navigator.geolocation) return
+    navigator.geolocation.getCurrentPosition(
+      (p) => setUserPos({ lat: p.coords.latitude, lng: p.coords.longitude }),
+      () => {},
+      { enableHighAccuracy: false, timeout: 8000, maximumAge: 300000 },
+    )
   }, [])
 
   const load = useCallback(async () => {
@@ -130,8 +80,7 @@ export function SacredMapScreen() {
       setLocations(Array.isArray(j?.locations) ? j.locations : [])
       setUnavailable(!!j?.unavailable)
     } catch {
-      setLocations([])
-      setUnavailable(true)
+      setLocations([]); setUnavailable(true)
     } finally {
       setLoading(false)
     }
@@ -139,31 +88,45 @@ export function SacredMapScreen() {
 
   useEffect(() => { if (bootstrapped) void load() }, [bootstrapped, load])
 
-  const checkin = async (id: string) => {
-    if (checkedIn.has(id)) return
-    const next = new Set(checkedIn).add(id)
-    setCheckedIn(next)
-    try { localStorage.setItem(CHECKIN_KEY, JSON.stringify(Array.from(next))) } catch { /* ignore */ }
-    setLocations((ls) => ls.map((l) => (l.id === id ? { ...l, checkinCount: l.checkinCount + 1 } : l)))
-    await fetch("/api/v2/sacred-map", {
-      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id }),
-    }).catch(() => {})
+  // ── ฟอร์มเสนอสถานที่ ──
+  const openSubmit = () => { setForm(emptyForm); setSubmitState("idle"); setSubmitMsg(""); setSubmitOpen(true) }
+  const setF = <K extends keyof typeof form>(k: K, v: (typeof form)[K]) => setForm((f) => ({ ...f, [k]: v }))
+  const parseCoordsFromUrl = (url: string): { lat: number; lng: number } | null => {
+    const pats = [/@(-?\d+\.\d+),(-?\d+\.\d+)/, /[?&]q=(-?\d+\.\d+),(-?\d+\.\d+)/, /!3d(-?\d+\.\d+)!4d(-?\d+\.\d+)/, /[?&]ll=(-?\d+\.\d+),(-?\d+\.\d+)/]
+    for (const p of pats) { const mm = url.match(p); if (mm) return { lat: parseFloat(mm[1]), lng: parseFloat(mm[2]) } }
+    return null
   }
-
-  const toggleSave = (id: string) => {
-    setSaved((prev) => {
-      const next = new Set(prev)
-      if (next.has(id)) next.delete(id); else next.add(id)
-      try { localStorage.setItem(SAVED_KEY, JSON.stringify(Array.from(next))) } catch { /* ignore */ }
-      return next
-    })
+  const onMapUrlChange = (url: string) => {
+    const c = parseCoordsFromUrl(url)
+    setForm((f) => ({ ...f, googleMapUrl: url, ...(c ? { lat: c.lat, lng: c.lng } : {}) }))
   }
-
-  const share = (loc: SacredLocation) => {
-    const url = mapsLink(loc)
-    const text = `${loc.name}${loc.deity ? " · " + loc.deity : ""}`
-    if (typeof navigator !== "undefined" && navigator.share) void navigator.share({ title: loc.name, text, url }).catch(() => {})
-    else if (typeof navigator !== "undefined" && navigator.clipboard) void navigator.clipboard.writeText(`${text} ${url}`).catch(() => {})
+  const usePinLocation = () => {
+    if (typeof navigator === "undefined" || !navigator.geolocation) return
+    setPinState("asking")
+    navigator.geolocation.getCurrentPosition(
+      (p) => { setForm((f) => ({ ...f, lat: p.coords.latitude, lng: p.coords.longitude })); setPinState("idle") },
+      () => setPinState("idle"),
+      { enableHighAccuracy: true, timeout: 8000 },
+    )
+  }
+  const submitLocation = async () => {
+    if (!form.name.trim()) { setSubmitState("error"); setSubmitMsg("กรุณากรอกชื่อสถานที่"); return }
+    if (form.lat === null || form.lng === null) { setSubmitState("error"); setSubmitMsg("กรุณาปักตำแหน่ง (ใช้ตำแหน่งของฉัน หรือวางลิงก์ Google Maps)"); return }
+    setSubmitState("sending"); setSubmitMsg("")
+    try {
+      const body = {
+        name: form.name.trim(), deity: form.deity.trim() || null, province: form.province.trim() || null,
+        address: form.address.trim() || null, element: form.element || null, needs: form.needs,
+        worshipGuide: form.worshipGuide.trim() || null, googleMapUrl: form.googleMapUrl.trim() || null,
+        lat: form.lat, lng: form.lng, submitterContact: form.contact.trim() || null,
+      }
+      const res = await fetch("/api/v2/sacred-map/submit", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) })
+      const j = await res.json().catch(() => ({}))
+      if (res.ok && j?.ok) setSubmitState("done")
+      else { setSubmitState("error"); setSubmitMsg(j?.error?.message || "ส่งไม่สำเร็จ ลองใหม่อีกครั้ง") }
+    } catch {
+      setSubmitState("error"); setSubmitMsg("เชื่อมต่อไม่สำเร็จ ลองใหม่อีกครั้ง")
+    }
   }
 
   return (
@@ -175,16 +138,17 @@ export function SacredMapScreen() {
           title="แผนที่สถานที่ศักดิ์สิทธิ์"
           backHref="/v2/service"
           testId="sacred-map"
-          right={<Link href="/v2/chat" data-testid="sacred-map-suggest" className="rounded-full bg-v3-sapphire px-3 py-1.5 text-[12px] font-bold text-white">+ เสนอที่</Link>}
+          right={<button type="button" onClick={openSubmit} data-testid="sacred-map-suggest" className="rounded-full bg-v3-sapphire px-3 py-1.5 text-[12px] font-bold text-white">+ เสนอที่</button>}
         />
-        {/* FILTER CARD (Figma: การ์ดน้ำเงิน — ธาตุ + เรื่องที่ขอ, เลือก = lime) */}
+        {/* FILTER CARD */}
         <section className="rounded-[24px] bg-v3-sapphire p-5 text-white" data-testid="sacred-map-filters">
           <h2 className="text-center text-[16px] font-black">ค้นหาสถานที่ศักดิ์สิทธิ์</h2>
+          <div className="mt-3 border-t border-dashed border-white/35" />
           <p className="mt-4 text-[12px] font-bold text-white/80">ธาตุ</p>
           <div className="mt-1.5 flex flex-wrap gap-2">
             <FilterPill active={elementFilter === null} onClick={() => setElementFilter(null)}>ทั้งหมด</FilterPill>
             {(["wood", "fire", "earth", "metal", "water"] as const).map((k) => (
-              <FilterPill key={k} active={elementFilter === k} onClick={() => setElementFilter(elementFilter === k ? null : k)}>{EL[k].th}</FilterPill>
+              <FilterPill key={k} active={elementFilter === k} color={EL[k].color} onClick={() => setElementFilter(elementFilter === k ? null : k)}>{EL[k].th}</FilterPill>
             ))}
           </div>
           <p className="mt-4 text-[12px] font-bold text-white/80">เรื่องที่ขอ</p>
@@ -203,7 +167,7 @@ export function SacredMapScreen() {
         {/* MAP */}
         {!loading && pins.length > 0 ? (
           <section className="v3-shadow-card overflow-hidden rounded-[20px]" data-testid="sacred-map-map" style={{ height: 224 }}>
-            <SacredMapLeaflet pins={pins} onSelect={(id) => setSelectedId(id)} />
+            <SacredMapLeaflet pins={pins} onSelect={(id) => { const l = locations.find((x) => x.id === id); window.location.href = `/v2/service/sacred-map/${l?.slug || id}` }} />
           </section>
         ) : null}
 
@@ -217,7 +181,7 @@ export function SacredMapScreen() {
             <p className="text-[32px]">🙏</p>
             <p className="mt-1 text-[15px] font-black text-v3-navy">{unavailable ? "ยังเชื่อมต่อไม่ได้" : onlySaved ? "ยังไม่มีที่บันทึกไว้" : "ยังไม่มีสถานที่ในตัวกรองนี้"}</p>
             <p className="mt-1 text-[13px] leading-5 text-v3-text-body">
-              {unavailable ? "ลองใหม่อีกครั้งภายหลัง" : onlySaved ? "แตะ ☆ บันทึก ในสถานที่ที่สนใจ" : "ลองเปลี่ยนตัวกรอง หรือปิด “กรองตามธาตุคุณ” เพื่อดูทั้งหมด"}
+              {unavailable ? "ลองใหม่อีกครั้งภายหลัง" : onlySaved ? "แตะ ☆ บันทึก ในสถานที่ที่สนใจ" : "ลองเปลี่ยนตัวกรอง หรือปิด “เฉพาะที่บันทึก” เพื่อดูทั้งหมด"}
             </p>
           </section>
         ) : (
@@ -225,8 +189,9 @@ export function SacredMapScreen() {
             {visible.map((loc) => {
               const m = loc.element ? EL[loc.element] : null
               const img = imageSrc(loc)
+              const dist = userPos && isValidCoord(loc.lat, loc.lng) ? haversineKm(userPos, loc) : null
               return (
-                <button key={loc.id} type="button" onClick={() => setSelectedId(loc.id)} className={CARD + " flex gap-3 text-left"} data-testid="sacred-map-item">
+                <Link key={loc.id} href={`/v2/service/sacred-map/${loc.slug || loc.id}`} className={CARD + " flex gap-3 text-left"} data-testid="sacred-map-item">
                   <span className="relative size-16 flex-none overflow-hidden rounded-[12px] bg-v3-ghost-white">
                     {img ? (
                       // eslint-disable-next-line @next/next/no-img-element
@@ -234,88 +199,119 @@ export function SacredMapScreen() {
                     ) : <span className="grid size-full place-items-center text-[22px]">🙏</span>}
                   </span>
                   <span className="min-w-0 flex-1">
-                    <span className="flex items-center gap-1.5">
-                      <span className="min-w-0 flex-1 truncate text-[14px] font-black text-v3-navy">{loc.name}</span>
-                      {m ? <span className="flex-none rounded-full px-2 py-[1px] text-[10px] font-black text-white" style={{ background: m.color }}>ธาตุ{m.th}</span> : null}
+                    <span className="flex items-start gap-1.5">
+                      <span className="min-w-0 flex-1 text-[14px] font-black leading-5 text-v3-navy">{loc.name}</span>
+                      {m ? <span className="flex-none rounded-full px-2 py-[2px] text-[10px] font-bold" style={{ background: m.color + "22", color: m.color }}>{m.th}</span> : null}
                     </span>
-                    {loc.deity ? <span className="block truncate text-[12px] text-v3-text-body">🙏 {loc.deity}</span> : null}
-                    <span className="block truncate text-[11px] text-v3-text-muted">{[loc.province, loc.direction].filter(Boolean).join(" · ")}</span>
+                    {loc.deity ? <span className="block truncate text-[12px] text-v3-text-body">{loc.deity}</span> : null}
                     {loc.needs?.length ? (
                       <span className="mt-1 flex flex-wrap gap-1">
-                        {loc.needs.slice(0, 3).map((n) => <span key={n} className="rounded-full bg-[#EAF3FF] px-1.5 py-[1px] text-[10px] font-bold text-v3-sapphire">{n}</span>)}
+                        {loc.needs.slice(0, 3).map((n) => <span key={n} className="rounded-full bg-[#FBEAF0] px-2 py-[1px] text-[10px] font-bold text-[#B14A6C]">{n}</span>)}
                       </span>
                     ) : null}
                     <span className="mt-1 flex items-center gap-2 text-[11px] text-v3-text-muted">
-                      {loc.province ? <span>{loc.province}</span> : null}
-                      {loc.checkinCount > 0 ? <span className="rounded-full bg-[#EAF7EA] px-2 py-[1px] font-bold text-[#3E7E3A]">เช็คอิน {loc.checkinCount}</span> : null}
+                      <span className="truncate">{[loc.province, dist ? fmtKm(dist) : null].filter(Boolean).join(" · ")}</span>
+                      {loc.checkinCount > 0 ? <span className="ml-auto flex-none rounded-full bg-[#EAF7EA] px-2 py-[1px] font-bold text-[#3E7E3A]">เช็คอิน {loc.checkinCount}</span> : null}
                     </span>
                   </span>
-                  <span className="flex-none self-center text-[16px] text-v3-text-muted">›</span>
-                </button>
+                </Link>
               )
             })}
           </section>
         )}
 
         <p className="px-2 text-center text-[11px] leading-4 text-v3-text-muted">
-          รู้จักสถานที่ศักดิ์สิทธิ์ที่ควรมี? <Link href="/v2/chat" className="font-bold text-v3-cyan">แนะนำกับเราได้</Link>
+          รู้จักสถานที่ศักดิ์สิทธิ์ที่ควรมี? <button type="button" onClick={openSubmit} className="font-bold text-v3-cyan">เสนอให้เราได้</button>
         </p>
       </div>
 
-      {/* DETAIL MODAL */}
-      {selected ? (
-        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/45 p-0 sm:items-center sm:p-4" onClick={() => setSelectedId(null)} data-testid="sacred-map-detail">
-          <div className="max-h-[90vh] w-full max-w-md overflow-y-auto rounded-t-[24px] bg-white sm:rounded-[24px]" onClick={(e) => e.stopPropagation()}>
-            {(() => {
-              const loc = selected
-              const m = loc.element ? EL[loc.element] : null
-              const img = imageSrc(loc)
-              const isSaved = saved.has(loc.id)
-              const done = checkedIn.has(loc.id)
-              return (
-                <>
-                  <div className="relative">
-                    {img ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img src={img} alt={loc.name} className="aspect-[16/9] w-full object-cover" onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none" }} />
-                    ) : <div className="grid aspect-[16/9] w-full place-items-center bg-v3-ghost-white text-[40px]">🙏</div>}
-                    <button type="button" onClick={() => setSelectedId(null)} data-testid="sacred-map-detail-close" className="absolute right-3 top-3 grid size-8 place-items-center rounded-full bg-white/90 text-[16px] font-bold text-v3-navy shadow">✕</button>
+      {/* SUBMIT SHEET — เสนอสถานที่ (เข้าคิว pending รอแอดมิน) */}
+      {submitOpen ? (
+        <div className="fixed inset-0 z-[60] flex items-end justify-center bg-black/45" onClick={() => setSubmitOpen(false)} data-testid="sacred-map-submit">
+          <div className="max-h-[92vh] w-full max-w-md overflow-y-auto rounded-t-[24px] bg-white" onClick={(e) => e.stopPropagation()}>
+            <div className="sticky top-0 flex items-center justify-between border-b border-v3-border-card bg-white px-5 py-4">
+              <h2 className="text-[17px] font-black text-v3-navy">เสนอสถานที่ศักดิ์สิทธิ์</h2>
+              <button type="button" onClick={() => setSubmitOpen(false)} data-testid="sacred-map-submit-close" className="grid size-8 place-items-center rounded-full bg-v3-ghost-white text-[16px] font-bold text-v3-navy">✕</button>
+            </div>
+
+            {submitState === "done" ? (
+              <div className="flex flex-col items-center gap-2 p-8 text-center" data-testid="sacred-map-submit-done">
+                <span className="text-[44px]">🙏</span>
+                <p className="text-[16px] font-black text-v3-navy">ส่งให้ทีมงานตรวจแล้ว</p>
+                <p className="text-[13px] leading-5 text-v3-text-body">ขอบคุณที่ช่วยแบ่งปัน สถานที่จะขึ้นแสดงบนแผนที่หลังแอดมินยืนยันความถูกต้อง</p>
+                <button type="button" onClick={() => setSubmitOpen(false)} className="mt-3 grid h-11 w-full place-items-center rounded-full bg-v3-sapphire text-[14px] font-bold text-white">เรียบร้อย</button>
+              </div>
+            ) : (
+              <div className="flex flex-col gap-3 p-5">
+                <label className="flex flex-col gap-1">
+                  <span className="text-[12px] font-bold text-v3-navy">ชื่อสถานที่ <span className="text-v3-error">*</span></span>
+                  <input value={form.name} onChange={(e) => setF("name", e.target.value)} data-testid="sacred-map-submit-name" placeholder="เช่น ศาลเจ้าพ่อเสือ (เสาชิงช้า)" className="w-full rounded-xl border border-v3-border-card px-3 py-2 text-[14px] text-v3-navy outline-none focus:border-v3-sapphire" />
+                </label>
+                <label className="flex flex-col gap-1">
+                  <span className="text-[12px] font-bold text-v3-navy">เทพ / สิ่งศักดิ์สิทธิ์</span>
+                  <input value={form.deity} onChange={(e) => setF("deity", e.target.value)} placeholder="เช่น เจ้าพ่อเสือ (ตั่วเหล่าเอี๊ย)" className="w-full rounded-xl border border-v3-border-card px-3 py-2 text-[14px] text-v3-navy outline-none focus:border-v3-sapphire" />
+                </label>
+                <div className="grid grid-cols-2 gap-2">
+                  <label className="flex flex-col gap-1">
+                    <span className="text-[12px] font-bold text-v3-navy">จังหวัด</span>
+                    <input value={form.province} onChange={(e) => setF("province", e.target.value)} placeholder="กรุงเทพมหานคร" className="w-full rounded-xl border border-v3-border-card px-3 py-2 text-[14px] text-v3-navy outline-none focus:border-v3-sapphire" />
+                  </label>
+                  <label className="flex flex-col gap-1">
+                    <span className="text-[12px] font-bold text-v3-navy">ธาตุ</span>
+                    <select value={form.element} onChange={(e) => setF("element", e.target.value)} className="w-full rounded-xl border border-v3-border-card px-3 py-2 text-[14px] text-v3-navy outline-none focus:border-v3-sapphire">
+                      <option value="">— ไม่ระบุ —</option>
+                      {(["wood", "fire", "earth", "metal", "water"] as const).map((k) => <option key={k} value={k}>{EL[k].th}</option>)}
+                    </select>
+                  </label>
+                </div>
+                <label className="flex flex-col gap-1">
+                  <span className="text-[12px] font-bold text-v3-navy">ที่อยู่</span>
+                  <input value={form.address} onChange={(e) => setF("address", e.target.value)} placeholder="ถนน แขวง เขต" className="w-full rounded-xl border border-v3-border-card px-3 py-2 text-[14px] text-v3-navy outline-none focus:border-v3-sapphire" />
+                </label>
+
+                <div className="flex flex-col gap-1.5">
+                  <span className="text-[12px] font-bold text-v3-navy">ขอพรเรื่อง</span>
+                  <div className="flex flex-wrap gap-2">
+                    {NEED_OPTIONS.map((n) => {
+                      const on = form.needs.includes(n)
+                      return (
+                        <button key={n} type="button" onClick={() => setF("needs", on ? form.needs.filter((x) => x !== n) : [...form.needs, n])}
+                          className={"rounded-full px-3 py-1 text-[12px] font-bold " + (on ? "bg-v3-sapphire text-white" : "bg-v3-ghost-white text-v3-navy")}>{n}</button>
+                      )
+                    })}
                   </div>
-                  <div className="flex flex-col gap-3 p-5">
-                    <div className="flex items-start justify-between gap-2">
-                      <h2 className="text-[19px] font-black leading-6 text-v3-navy">{loc.name}</h2>
-                      {m ? <span className="flex-none rounded-full px-2 py-[2px] text-[11px] font-black text-white" style={{ background: m.color }}>ธาตุ{m.th}</span> : null}
-                    </div>
-                    {loc.deity ? <p className="text-[14px] font-bold text-v3-text-body">🙏 {loc.deity}</p> : null}
-                    {loc.description ? <p className="text-[13px] leading-5 text-v3-text-body">{loc.description}</p> : null}
+                </div>
 
-                    <div className="grid grid-cols-2 gap-x-3 gap-y-2">
-                      {loc.direction ? <div><p className="text-[11px] text-v3-text-muted">ทิศมงคล</p><p className="text-[13px] font-bold text-v3-navy">{loc.direction}</p></div> : null}
-                      {(loc.rasiUpper || loc.rasiLower) ? <div><p className="text-[11px] text-v3-text-muted">ตัวแทนราศี</p><p className="text-[13px] font-bold text-v3-navy">{[loc.rasiUpper, loc.rasiLower].filter(Boolean).join(" / ")}</p></div> : null}
-                      {loc.province ? <div><p className="text-[11px] text-v3-text-muted">จังหวัด</p><p className="text-[13px] font-bold text-v3-navy">{loc.province}</p></div> : null}
-                      {loc.address ? <div className="col-span-2"><p className="text-[11px] text-v3-text-muted">ที่อยู่</p><p className="text-[13px] text-v3-text-body">{loc.address}</p></div> : null}
-                      {loc.needs?.length ? <div><p className="text-[11px] text-v3-text-muted">ช่วยเรื่อง</p><p className="text-[13px] font-bold text-v3-navy">{loc.needs.join(" · ")}</p></div> : null}
-                      <div><p className="text-[11px] text-v3-text-muted">เช็คอินแล้ว</p><p className="text-[13px] font-bold text-v3-navy">{loc.checkinCount} ครั้ง</p></div>
-                    </div>
+                <label className="flex flex-col gap-1">
+                  <span className="text-[12px] font-bold text-v3-navy">ของไหว้ / วิธีสักการะ</span>
+                  <textarea value={form.worshipGuide} onChange={(e) => setF("worshipGuide", e.target.value)} rows={2} placeholder="เช่น ไข่ต้ม หมูสามชั้น จุดธูป 18 ดอก" className="w-full resize-none rounded-xl border border-v3-border-card px-3 py-2 text-[14px] leading-5 text-v3-navy outline-none focus:border-v3-sapphire" />
+                </label>
 
-                    {loc.worshipGuide ? (
-                      <div className="rounded-[14px] border border-[#EAD9AE] bg-[#FBF7EC] p-3">
-                        <p className="text-[13px] font-black text-[#B08A3B]">โพยการมู</p>
-                        <p className="mt-1 whitespace-pre-line text-[13px] leading-5 text-v3-text-body">{loc.worshipGuide}</p>
-                      </div>
-                    ) : null}
-
-                    <div className="grid grid-cols-2 gap-2">
-                      <a href={mapsLink(loc)} target="_blank" rel="noopener noreferrer" className="col-span-2 grid h-11 place-items-center rounded-full bg-v3-sapphire text-[14px] font-bold uppercase text-v3-lime" data-testid="sacred-map-detail-maps">🗺 เปิด Google Maps</a>
-                      <button type="button" onClick={() => toggleSave(loc.id)} data-testid="sacred-map-detail-save" className={"grid h-11 place-items-center rounded-full border text-[13px] font-bold " + (isSaved ? "border-transparent bg-[#FFF3E0] text-[#C77800]" : "border-v3-border-card bg-white text-v3-navy")}>{isSaved ? "★ บันทึกแล้ว" : "☆ บันทึก"}</button>
-                      <button type="button" onClick={() => void checkin(loc.id)} disabled={done} data-testid="sacred-map-detail-checkin" className={"grid h-11 place-items-center rounded-full border text-[13px] font-bold " + (done ? "border-transparent bg-[#EAF7EA] text-[#3E7E3A]" : "border-v3-border-card bg-white text-v3-navy")}>{done ? "✓ เช็คอินแล้ว" : "📍 เช็คอิน"}</button>
-                      <a href={calendarLink(loc)} target="_blank" rel="noopener noreferrer" className="grid h-11 place-items-center rounded-full border border-v3-border-card bg-white text-[13px] font-bold text-v3-navy" data-testid="sacred-map-detail-remind">⏰ ตั้งเตือน</a>
-                      <button type="button" onClick={() => share(loc)} className="grid h-11 place-items-center rounded-full border border-v3-border-card bg-white text-[13px] font-bold text-v3-navy" data-testid="sacred-map-detail-share">↗ แชร์</button>
-                    </div>
+                {/* ตำแหน่ง (จำเป็น) */}
+                <div className="flex flex-col gap-1.5 rounded-xl bg-v3-ghost-white p-3">
+                  <span className="text-[12px] font-bold text-v3-navy">ตำแหน่ง <span className="text-v3-error">*</span></span>
+                  <input value={form.googleMapUrl} onChange={(e) => onMapUrlChange(e.target.value)} data-testid="sacred-map-submit-mapurl" placeholder="วางลิงก์ Google Maps ที่นี่" className="w-full rounded-xl border border-v3-border-card px-3 py-2 text-[13px] text-v3-navy outline-none focus:border-v3-sapphire" />
+                  <div className="flex items-center gap-2">
+                    <button type="button" onClick={usePinLocation} data-testid="sacred-map-submit-pin" className="flex-none rounded-full border border-v3-sapphire px-3 py-1.5 text-[12px] font-bold text-v3-sapphire">📍 {pinState === "asking" ? "กำลังปัก…" : "ใช้ตำแหน่งของฉัน"}</button>
+                    {form.lat !== null && form.lng !== null ? (
+                      <span className="text-[11px] font-bold text-[#3E7E3A]">✓ ปักแล้ว ({form.lat.toFixed(4)}, {form.lng.toFixed(4)})</span>
+                    ) : <span className="text-[11px] text-v3-text-muted">ยังไม่ได้ปักตำแหน่ง</span>}
                   </div>
-                </>
-              )
-            })()}
+                </div>
+
+                <label className="flex flex-col gap-1">
+                  <span className="text-[12px] font-bold text-v3-navy">ช่องทางติดต่อกลับ (ถ้ามี)</span>
+                  <input value={form.contact} onChange={(e) => setF("contact", e.target.value)} placeholder="LINE / เบอร์โทร เผื่อทีมงานสอบถามเพิ่ม" className="w-full rounded-xl border border-v3-border-card px-3 py-2 text-[14px] text-v3-navy outline-none focus:border-v3-sapphire" />
+                </label>
+
+                {submitState === "error" && submitMsg ? <p className="text-[12px] font-bold text-v3-error" data-testid="sacred-map-submit-error">{submitMsg}</p> : null}
+
+                <button type="button" onClick={() => void submitLocation()} disabled={submitState === "sending"} data-testid="sacred-map-submit-send" className="mt-1 grid h-12 w-full place-items-center rounded-full bg-v3-sapphire text-[15px] font-bold text-white disabled:opacity-50">
+                  {submitState === "sending" ? "กำลังส่ง…" : "ส่งให้แอดมินตรวจ"}
+                </button>
+                <p className="text-center text-[11px] leading-4 text-v3-text-muted">สถานที่จะแสดงบนแผนที่หลังทีมงานยืนยันความถูกต้อง</p>
+              </div>
+            )}
           </div>
         </div>
       ) : null}
