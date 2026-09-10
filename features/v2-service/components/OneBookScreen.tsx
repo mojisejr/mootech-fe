@@ -158,23 +158,24 @@ export function OneBookScreen() {
 
         {/* NOT JUST FORTUNE — full-bleed สีน้ำเงิน + มาสคอตนกน้ำ/ไฟ ด้านขวา (เหมือนการ์ดซินแสหน้าแรก) */}
         <section className="relative -mx-4 w-[calc(100%+2rem)] overflow-hidden bg-v3-sapphire px-6 py-6 text-white">
-          {/* มาสคอตนกน้ำ ล้นขวา-ล่าง (reuse zone4/mascot-sian.png) */}
-          <div className="pointer-events-none absolute right-0 bottom-[-14px] z-0 h-[164px] w-[164px] overflow-hidden">
-            <img src="/images/v2/zone4/mascot-sian.png" alt="" aria-hidden className="one-float absolute left-1/2 top-1/2 w-[164px] max-w-none -translate-x-1/2 -translate-y-1/2" />
-          </div>
+          {/* มาสคอตนกน้ำ ล้นขวา-ล่าง (reuse zone4/mascot-sian.png) — ต้องเห็นชัด, ปุ่มทับแค่ขอบซ้ายของมัน */}
+          <img src="/images/v2/zone4/mascot-sian.png" alt="" aria-hidden className="one-float pointer-events-none absolute -right-3 bottom-[-6px] z-[5] h-[150px] w-[150px] max-w-none object-contain" />
           {/* ไฟ (สไปรต์เดียวกับหน้าแรก) */}
-          <img src="/images/v2/zone5/sprite-fire.png" alt="" aria-hidden className="one-fire pointer-events-none absolute right-[110px] top-6 z-[1] h-[46px] w-[39px] max-w-none" />
+          <img src="/images/v2/zone5/sprite-fire.png" alt="" aria-hidden className="one-fire pointer-events-none absolute right-[118px] top-6 z-[6] h-[46px] w-[39px] max-w-none" />
           <div className="relative z-10 flex flex-col gap-2.5">
-            <h2 className="max-w-[80%] text-[19px] font-black leading-7">เพราะคุณไม่ใช่แค่ <span className="text-v3-lime">“คำทำนาย”</span><br />และไม่ใช่แค่ <span className="text-v3-lime">“ดวงชะตา”</span></h2>
+            <h2 className="max-w-[78%] text-[19px] font-black leading-7">เพราะคุณไม่ใช่แค่ <span className="text-v3-lime">“คำทำนาย”</span><br />และไม่ใช่แค่ <span className="text-v3-lime">“ดวงชะตา”</span></h2>
             <p className="text-[13px] font-bold">YOUR LIFE CODE</p>
-            <p className="max-w-[66%] text-[13px] leading-5 text-white/85">ไม่ได้บอกว่าอนาคตจะเป็นยังไง แต่บอกว่าคุณถูกออกแบบมาแบบไหน และควรเดินด้วยจังหวะของใคร</p>
-            <a href={LINE_ORDER_URL} target="_blank" rel="noopener noreferrer" className="relative z-20 mt-1 grid h-11 w-full place-items-center rounded-full bg-v3-lime px-4 text-[14px] font-bold text-v3-navy">สั่งซื้อเลย YOUR LIFE CODE</a>
+            <p className="max-w-[64%] text-[13px] leading-5 text-white/85">ไม่ได้บอกว่าอนาคตจะเป็นยังไง แต่บอกว่าคุณถูกออกแบบมาแบบไหน และควรเดินด้วยจังหวะของใคร</p>
+            <a href={LINE_ORDER_URL} target="_blank" rel="noopener noreferrer" className="relative z-20 mt-1 grid h-11 w-[72%] place-items-center rounded-full bg-v3-lime px-4 text-[14px] font-bold text-v3-navy">สั่งซื้อเลย YOUR LIFE CODE</a>
           </div>
         </section>
 
         {/* 3 SCIENCES */}
         <section className="flex flex-col gap-3">
-          <h2 className="text-center text-[18px] font-black leading-7 text-v3-sapphire">ไม่ใช่คำทำนายลอย ๆ<br />ศาสตร์เก่าแก่ + การคำนวณที่ตรวจสอบย้อนกลับได้</h2>
+          <h2 className="text-center text-[18px] font-black leading-7">
+            <span className="text-v3-cyan">ไม่ใช่คำทำนายลอย ๆ</span><br />
+            <span className="text-v3-navy">ศาสตร์เก่าแก่ + การคำนวณ<br />ที่ตรวจสอบย้อนกลับได้</span>
+          </h2>
           {SCIENCES.map(([t, s]) => (
             <div key={t} className="flex items-center gap-3 rounded-2xl bg-white p-4 v3-shadow-card">
               <span className="relative size-14 flex-none"><Image src="/images/v2/home/sian/oracle.png" alt="" fill sizes="56px" className="object-contain" /></span>
@@ -250,10 +251,10 @@ export function OneBookScreen() {
 
         {/* TODAY PRICE BAND — มาสคอต 5 ธาตุ ล้อมกรอบ + ขยับได้ (effect) */}
         <section className="relative flex flex-col items-center gap-3 overflow-hidden rounded-[24px] bg-v3-sapphire px-5 py-6 text-center text-white">
-          <img src="/images/v2/referral/mascot-wood.png" alt="" aria-hidden className="one-float pointer-events-none absolute left-1 top-2 z-0 h-14 w-14" />
-          <img src="/images/v2/referral/mascot-fire.png" alt="" aria-hidden className="one-float pointer-events-none absolute right-1 top-2 z-0 h-14 w-14" style={{ animationDelay: "0.4s" }} />
-          <img src="/images/v2/referral/mascot-earth.png" alt="" aria-hidden className="one-float pointer-events-none absolute -bottom-1 left-1 z-0 h-14 w-14" style={{ animationDelay: "0.8s" }} />
-          <img src="/images/v2/referral/mascot-water.png" alt="" aria-hidden className="one-float pointer-events-none absolute -bottom-1 right-1 z-0 h-14 w-14" style={{ animationDelay: "1.2s" }} />
+          <img src="/images/v2/referral/mascot-wood.png" alt="" aria-hidden className="one-float pointer-events-none absolute left-1 top-2 z-20 h-14 w-14" />
+          <img src="/images/v2/referral/mascot-fire.png" alt="" aria-hidden className="one-float pointer-events-none absolute right-1 top-2 z-20 h-14 w-14" style={{ animationDelay: "0.4s" }} />
+          <img src="/images/v2/referral/mascot-earth.png" alt="" aria-hidden className="one-float pointer-events-none absolute -bottom-1 left-1 z-20 h-14 w-14" style={{ animationDelay: "0.8s" }} />
+          <img src="/images/v2/referral/mascot-water.png" alt="" aria-hidden className="one-float pointer-events-none absolute -bottom-1 right-1 z-20 h-14 w-14" style={{ animationDelay: "1.2s" }} />
           <div className="relative z-10 flex w-full flex-col items-center gap-3">
             <p className="text-[13px] text-white/80">รวมมูลค่า ฿4,969</p>
             <p className="text-[26px] font-black text-v3-lime">วันนี้เพียง ฿1,890</p>
@@ -307,13 +308,17 @@ export function OneBookScreen() {
           </div>
         </section>
 
-        {/* FINAL CTA */}
-        <section className="flex flex-col items-center gap-3 rounded-[24px] bg-v3-sapphire px-5 py-7 text-center text-white">
-          <h2 className="text-[22px] font-black leading-8">พร้อมอ่านคู่มือ<br />ของตัวเองหรือยัง</h2>
-          <p className="text-[14px] font-bold text-v3-lime">YOUR LIFE CODE</p>
+        {/* FINAL CTA — full-bleed ไม่มีขอบ + title สลับสี (ไลม์/ขาว) + บรรทัดรับประกันท้าย */}
+        <section className="-mx-4 flex w-[calc(100%+2rem)] flex-col items-center gap-3 bg-v3-sapphire px-6 py-8 text-center text-white">
+          <h2 className="text-[24px] font-black leading-8">
+            <span className="text-v3-lime">พร้อมอ่านคู่มือ</span><br />
+            <span className="text-white">ของตัวเองหรือยัง</span>
+          </h2>
+          <p className="text-[15px] font-black tracking-[0.14em] text-white">YOUR LIFE CODE</p>
           <p className="text-[12px] leading-5 text-white/80">คำนวณจากวันเดือนปีและเวลาเกิดของคุณ ไม่ซ้ำกับใครในโลก</p>
-          <p className="flex items-baseline justify-center gap-2"><span className="text-[15px] text-white/50 line-through">฿2,890</span><span className="text-[26px] font-black text-v3-lime">฿1,890</span></p>
+          <p className="flex items-baseline justify-center gap-2"><span className="text-[15px] text-white/50 line-through">฿2,890</span><span className="text-[28px] font-black text-v3-lime">฿1,890</span></p>
           <OrderCta />
+          <p className="text-[11px] leading-4 text-white/70">จัดส่งฟรีทั่วไทย · รับประกันคืนเงิน 30 วัน · ผลิตภายใน 7 วันทำการ</p>
         </section>
       </div>
 
