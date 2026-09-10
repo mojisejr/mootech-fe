@@ -79,14 +79,25 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     /* cache อ่านไม่ได้ → คำนวณสดต่อ (best-effort ไม่ให้จอพัง) */
   }
 
+  // perf: timeout ต่อ engine-call — เดิม 9-call allSettled ไม่มี timeout = ถ้า lane ไหนค้าง (เช่น
+  // reading-essence/career-finance) ทั้งหน้าดวงรอไม่จบ. ให้ lane ที่ช้าเกิน 15s ล้ม แล้ว degrade เป็น null
+  // (val() คืน null → จอเรนเดอร์เท่าที่มี) แทนที่จะแขวนทั้งคำขอ.
+  const CALL_TIMEOUT_MS = 15000
   const post = async (path: string, body: unknown) => {
-    const r = await fetch(`${base}${path}`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
-    })
-    if (!r.ok) throw new Error(`${path} failed (${r.status})`)
-    return r.json()
+    const ac = new AbortController()
+    const timer = setTimeout(() => ac.abort(), CALL_TIMEOUT_MS)
+    try {
+      const r = await fetch(`${base}${path}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+        signal: ac.signal,
+      })
+      if (!r.ok) throw new Error(`${path} failed (${r.status})`)
+      return await r.json()
+    } finally {
+      clearTimeout(timer)
+    }
   }
 
   // engine reads in parallel — a failure in one lane degrades that lane to null

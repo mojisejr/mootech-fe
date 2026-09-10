@@ -201,7 +201,7 @@ export function CardReadingScreen({
               <Image src={introArt} alt="" fill sizes="300px" className="object-contain drop-shadow-[0_8px_24px_rgba(26,38,77,0.25)]" priority />
             </span>
             <div className="absolute inset-x-3 bottom-1 flex gap-2">
-              <button onClick={() => void predict()} data-testid="cards-random" className="grid h-11 flex-1 place-items-center rounded-full bg-white text-[13px] font-bold text-v3-sapphire shadow-md">กดเพื่อเสี่ยงโพ</button>
+              <button onClick={() => void predict()} data-testid="cards-random" className="grid h-11 flex-1 place-items-center rounded-full bg-white text-[13px] font-bold text-v3-sapphire shadow-md">กดเพื่อเสี่ยงทาย</button>
               <KitButton onClick={() => setPhase("pick")} testId="cards-goto-pick" className="flex-1 !h-11 shadow-md">เลือกเอง 3 ใบ</KitButton>
             </div>
           </div>

@@ -168,8 +168,9 @@ export function AccountScreen({ preview }: { preview?: AccountPreview } = {}) {
   const proSaving = spentThb !== null && spentThb > PRO_MONTHLY_THB ? spentThb - PRO_MONTHLY_THB : null
   const missingElements = goals ? goals.element.elements.filter((e) => !e.collected).map((e) => ELEMENT_TH[e.key] ?? e.key) : []
 
-  // ชื่อ: ชื่อจริงที่ตั้งเอง (engine) → ชื่อ LINE → generic
-  const name = profile?.firstName || lineName || "ผู้ใช้ MuMate"
+  // ชื่อ: ชื่อจริงที่ตั้งเอง (engine) → @name (displayName) → ชื่อ LINE → generic
+  // Slide 7 — เพิ่ม displayName: ผู้ใช้ที่ตั้ง @name แต่ไม่ได้กรอกชื่อจริง จะได้เห็นชื่อที่ตั้ง ไม่ค้างชื่อ LINE เดิม
+  const name = profile?.firstName || profile?.displayName || lineName || "ผู้ใช้ MuMate"
   const tierKey = membership?.tier ?? "free"
   const isPaid = plan?.isFree === false
 

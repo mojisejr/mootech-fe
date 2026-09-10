@@ -1,6 +1,6 @@
 // scripts/fortune-cards.test.tsx — เสี่ยงไพ่ oracle/divine (CardReadingScreen)
 // 🔴 CONTRACT:
-//   FC1 intro: 2 ปุ่ม (กดเพื่อเสี่ยงโพ / เลือกเอง 3 ใบ)
+//   FC1 intro: 2 ปุ่ม (กดเพื่อเสี่ยงทาย / เลือกเอง 3 ใบ)
 //   FC2 เปิดการ์ด: เลือกเอง → กริดครบ deck → แตะ 3 ใบ → เปิด → POST cardNos → ผล 3 ใบ + น้ำหนัก%
 //   FC3 หยิบสุ่ม → POST random → ผล
 //   FC4 402 → quota ไม่โชว์ผล
@@ -61,9 +61,9 @@ beforeEach(() => { predictStatus = 200; cardsOut = CARDS; lastBody = {}; spendBo
 afterEach(() => cleanup())
 
 describe('เสี่ยงไพ่ (oracle/divine)', () => {
-  it('FC1 intro: 2 ปุ่ม เสี่ยงโพ / เลือกเอง 3 ใบ', () => {
+  it('FC1 intro: 2 ปุ่ม เสี่ยงทาย / เลือกเอง 3 ใบ', () => {
     renderOracle()
-    expect(screen.getByTestId('cards-random').textContent).toContain('กดเพื่อเสี่ยงโพ')
+    expect(screen.getByTestId('cards-random').textContent).toContain('กดเพื่อเสี่ยงทาย')
     expect(screen.getByTestId('cards-goto-pick').textContent).toContain('เลือกเอง 3 ใบ')
   })
 

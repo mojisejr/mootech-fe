@@ -1,5 +1,5 @@
 // pages/v2/fortune/sage.tsx — เซียมซีเสี่ยงทาย (fortune-sage) เฟรม 55449:240
-// flow: intro (ตั้งจิต + กดเพื่อเสี่ยงโพ) → loading → ผลเซียมซี (หัวเซี่ยงแซ + 6 หมวด). ต่อ engine /api/fortune-sage/predict.
+// flow: intro (ตั้งจิต + กดเพื่อเสี่ยงทาย) → loading → ผลเซียมซี (หัวเซี่ยงแซ + 6 หมวด). ต่อ engine /api/fortune-sage/predict.
 // โควตา: ตัด "card" ที่ engine (qiGate) — 402 = หมด → ชวนเติม/แลกที่ /v2/qi. แชร์ผล = ได้ +10 QI (earn "share").
 import Head from "next/head"
 import Image from "next/image"
@@ -136,24 +136,24 @@ export default function FortuneSagePage() {
             <p className="text-[15px] font-black text-v3-navy">ตั้งจิตให้เป็นสมาธิ 1 นาที</p>
             <p className="text-[13px] leading-5 text-v3-text-body">ขอตั้งจิตอธิษฐานถามคำถามที่อยากได้คำตอบ</p>
           </div>
-          {/* การ์ดภาพเซียมซี (รูปหน้าแรก) + ปุ่มเสี่ยงโพ */}
+          {/* การ์ดภาพเซียมซี (รูปหน้าแรก) + ปุ่มเสี่ยงทาย */}
           <section className="v3-shadow-card flex flex-col items-center gap-3 rounded-[24px] bg-white p-5">
             <span className="relative h-48 w-full max-w-[300px]">
               <Image src="/images/v2/fortune/sage-cup.png" alt="" fill sizes="300px" className="object-contain" />
             </span>
-            <p className="text-center text-[12px] text-v3-text-muted">ตั้งจิตให้นิ่ง แล้วกดเสี่ยงโพเพื่อรับคำทำนาย</p>
+            <p className="text-center text-[12px] text-v3-text-muted">ตั้งจิตให้นิ่ง แล้วกดเสี่ยงทายเพื่อรับคำทำนาย</p>
             {quotaOut && <p className="text-center text-[12px] font-bold text-[#8A5A0C]" data-testid="sage-quota">โควตาเสี่ยงทายวันนี้หมด — แลก 10 QI เพื่อเสี่ยงต่อได้เลย</p>}
             {quotaOut && (
               <button type="button" onClick={() => void redeemAndRetry()} disabled={redeeming} data-testid="sage-redeem" className="grid h-12 w-full place-items-center rounded-full bg-v3-sapphire text-[15px] font-bold uppercase text-v3-lime disabled:opacity-40">
-                {redeeming ? "กำลังแลก..." : "แลก 10 QI แล้วเสี่ยงโพเลย"}
+                {redeeming ? "กำลังแลก..." : "แลก 10 QI แล้วเสี่ยงทายเลย"}
               </button>
             )}
             {redeemMsg && <p className="text-center text-[12px] font-bold text-v3-error">{redeemMsg}</p>}
             {error && <p data-testid="sage-error" className="text-center text-[12px] font-bold text-v3-error">{error}</p>}
-            <KitButton onClick={() => void draw()} testId="sage-draw">กดเพื่อเสี่ยงโพ</KitButton>
+            <KitButton onClick={() => void draw()} testId="sage-draw">กดเพื่อเสี่ยงทาย</KitButton>
           </section>
           {quotaOut && <Link href="/v2/qi" className="text-center text-[13px] font-bold text-v3-sapphire">เติม/แลก QI ที่หน้าพลังชี่ →</Link>}
-          <p className="text-center text-[11px] text-v3-text-muted">ใช้โควตาเปิดการ์ดวันละ 1 ครั้ง (ฟรี) — เกินแล้วแลกด้วย QI</p>
+          <p className="text-center text-[11px] text-v3-text-muted">ใช้โควตาเสี่ยงทายวันละ 1 ครั้ง (ฟรี) — เกินแล้วแลกด้วย QI</p>
         </div>
       )}
 

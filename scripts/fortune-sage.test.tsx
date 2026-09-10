@@ -1,6 +1,6 @@
 // scripts/fortune-sage.test.tsx — เซียมซีเสี่ยงทาย (/v2/fortune/sage)
 // 🔴 CONTRACT:
-//   FS1 intro ไม่มี topic chips (ตาม Figma) + ปุ่ม "กดเพื่อเสี่ยงโพ"
+//   FS1 intro ไม่มี topic chips (ตาม Figma) + ปุ่ม "กดเพื่อเสี่ยงทาย"
 //   FS2 กดเสี่ยง → POST /api/fortune/sage → ผล: pillar + 6 หมวด + toggle รัก หญิง/ชาย
 //   FS3 402 (โควตา/ชี่หมด) → โชว์ quota ไม่โชว์ผล
 //   FS4 แชร์ → ยิง /api/qi-earn code=share (รับ +10 QI)
@@ -40,9 +40,9 @@ beforeEach(() => { sageStatus = 200; sageQi = null; fetchMock.mockClear() })
 afterEach(() => cleanup())
 
 describe('เซียมซีเสี่ยงทาย', () => {
-  it('FS1 intro: มีปุ่มเสี่ยงโพ ไม่มี topic chips', () => {
+  it('FS1 intro: มีปุ่มเสี่ยงทาย ไม่มี topic chips', () => {
     render(<FortuneSagePage />)
-    expect(screen.getByTestId('sage-draw').textContent).toContain('กดเพื่อเสี่ยงโพ')
+    expect(screen.getByTestId('sage-draw').textContent).toContain('กดเพื่อเสี่ยงทาย')
     expect(screen.queryByTestId('sage-topics')).toBeNull()
   })
 
