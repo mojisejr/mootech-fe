@@ -87,7 +87,7 @@ function Stars() {
 function OrderCta({ label = "สั่งซื้อเลย", testId }: { label?: string; testId?: string }) {
   return (
     <a href={LINE_ORDER_URL} target="_blank" rel="noopener noreferrer" data-testid={testId}
-      className="grid h-12 w-full place-items-center rounded-full bg-v3-grade-yellow text-[15px] font-bold text-v3-navy">
+      className="grid h-12 w-full place-items-center rounded-full bg-v3-lime text-[15px] font-bold text-v3-navy">
       {label}
     </a>
   )
@@ -168,13 +168,13 @@ export function OneBookScreen() {
             <h2 className="max-w-[80%] text-[19px] font-black leading-7">เพราะคุณไม่ใช่แค่ “คำทำนาย”<br />และไม่ใช่แค่ “ดวงชะตา”</h2>
             <p className="text-[13px] font-bold">YOUR LIFE CODE</p>
             <p className="max-w-[66%] text-[13px] leading-5 text-white/85">ไม่ได้บอกว่าอนาคตจะเป็นยังไง แต่บอกว่าคุณถูกออกแบบมาแบบไหน และควรเดินด้วยจังหวะของใคร</p>
-            <a href={LINE_ORDER_URL} target="_blank" rel="noopener noreferrer" className="relative z-20 mt-1 grid h-11 w-[76%] place-items-center rounded-full bg-v3-grade-yellow px-4 text-[14px] font-bold text-v3-navy">สั่งซื้อเลย YOUR LIFE CODE</a>
+            <a href={LINE_ORDER_URL} target="_blank" rel="noopener noreferrer" className="relative z-20 mt-1 grid h-11 w-[76%] place-items-center rounded-full bg-v3-lime px-4 text-[14px] font-bold text-v3-navy">สั่งซื้อเลย YOUR LIFE CODE</a>
           </div>
         </section>
 
         {/* 3 SCIENCES */}
         <section className="flex flex-col gap-3">
-          <h2 className="text-center text-[18px] font-black leading-7 text-v3-navy">ไม่ใช่คำทำนายลอย ๆ<br />ศาสตร์เก่าแก่ + การคำนวณที่ตรวจสอบย้อนกลับได้</h2>
+          <h2 className="text-center text-[18px] font-black leading-7 text-v3-sapphire">ไม่ใช่คำทำนายลอย ๆ<br />ศาสตร์เก่าแก่ + การคำนวณที่ตรวจสอบย้อนกลับได้</h2>
           {SCIENCES.map(([t, s]) => (
             <div key={t} className="flex items-center gap-3 rounded-2xl bg-white p-4 v3-shadow-card">
               <span className="relative size-14 flex-none"><Image src="/images/v2/home/sian/oracle.png" alt="" fill sizes="56px" className="object-contain" /></span>
@@ -185,7 +185,7 @@ export function OneBookScreen() {
 
         {/* 5 ELEMENTS */}
         <section className={CARD} data-testid="one-book-elements">
-          <h2 className="text-center text-[18px] font-black text-v3-navy">คน 5 ธาตุ ต่างกันยังไง</h2>
+          <h2 className="text-center text-[18px] font-black text-v3-sapphire">คน 5 ธาตุ ต่างกันยังไง</h2>
           <div className="mt-3 flex flex-col gap-2.5">
             {ELEMENTS.map((e) => (
               <div key={e.key} className="flex items-center gap-3">
@@ -203,7 +203,7 @@ export function OneBookScreen() {
         {/* 15 TOPICS */}
         <section className={CARD} data-testid="one-book-topics">
           <p className="text-center text-[12px] text-v3-text-muted">ข้างในมีอะไร</p>
-          <h2 className="text-center text-[18px] font-black text-v3-navy">15 หัวข้อ ครบทุกมิติชีวิต</h2>
+          <h2 className="text-center text-[18px] font-black text-v3-sapphire">15 หัวข้อ ครบทุกมิติชีวิต</h2>
           <div className="mt-3 flex flex-col divide-y divide-v3-border-card">
             {TOPICS.map((t, i) => (
               <div key={t} className="flex items-center gap-3 py-2.5">
@@ -216,7 +216,7 @@ export function OneBookScreen() {
 
         {/* PRICE COMPARE */}
         <section className={CARD}>
-          <h2 className="text-center text-[18px] font-black leading-7 text-v3-navy">ปีที่ผ่านมาคุณจ่ายค่าดูดวง<br />ไปแล้วเท่าไหร่</h2>
+          <h2 className="text-center text-[18px] font-black leading-7 text-v3-sapphire">ปีที่ผ่านมาคุณจ่ายค่าดูดวง<br />ไปแล้วเท่าไหร่</h2>
           <div className="mt-3 flex flex-col gap-2">
             {SPENT.map(([t, p]) => (
               <div key={t} className="flex items-center justify-between border-b border-dashed border-v3-divider-dashed pb-2 text-[13px]"><span className="text-v3-text-body">{t}</span><span className="font-bold text-v3-navy">{p}</span></div>
@@ -228,7 +228,7 @@ export function OneBookScreen() {
 
         {/* INCLUDED */}
         <section className={CARD}>
-          <h2 className="text-center text-[18px] font-black text-v3-navy">YOUR LIFE CODE ให้อะไรบ้าง</h2>
+          <h2 className="text-center text-[18px] font-black text-v3-sapphire">YOUR LIFE CODE ให้อะไรบ้าง</h2>
           <div className="mt-3 flex flex-col gap-2">
             {INCLUDED.map(([t, p]) => (
               <div key={t} className="flex items-center justify-between border-b border-dashed border-v3-divider-dashed pb-2 text-[13px] last:border-0"><span className="text-v3-text-body">{t}</span><span className="font-bold text-v3-navy">{p}</span></div>
@@ -257,7 +257,7 @@ export function OneBookScreen() {
 
         {/* PREVIEW */}
         <section className="flex flex-col gap-3">
-          <h2 className="text-center text-[18px] font-black text-v3-navy">ดูตัวอย่างหน้าจริงในเล่ม</h2>
+          <h2 className="text-center text-[18px] font-black text-v3-sapphire">ดูตัวอย่างหน้าจริงในเล่ม</h2>
           <div className="flex gap-3">
             {["ตาราง 8 ช่อง", "บุคลิกและจุดแข็ง", "แผนที่ชีวิต 10 ปี"].map((t) => (
               <div key={t} className="flex flex-1 flex-col items-center gap-2">
@@ -270,7 +270,7 @@ export function OneBookScreen() {
 
         {/* FITS */}
         <section className={CARD}>
-          <h2 className="text-center text-[18px] font-black text-v3-navy">เล่มนี้เหมาะกับคุณ ถ้า</h2>
+          <h2 className="text-center text-[18px] font-black text-v3-sapphire">เล่มนี้เหมาะกับคุณ ถ้า</h2>
           <div className="mt-3 flex flex-col gap-2">
             {FITS.map((t) => (
               <div key={t} className="flex items-center gap-3 rounded-full bg-v3-ghost-white px-3 py-2">
@@ -283,7 +283,7 @@ export function OneBookScreen() {
 
         {/* REVIEWS */}
         <section className="flex flex-col gap-3">
-          <h2 className="text-center text-[18px] font-black text-v3-navy">เสียงจากคนที่ได้อ่านแล้ว</h2>
+          <h2 className="text-center text-[18px] font-black text-v3-sapphire">เสียงจากคนที่ได้อ่านแล้ว</h2>
           {REVIEWS.map(([r, who]) => (
             <div key={who} className="rounded-2xl bg-white p-4 v3-shadow-card">
               <Stars />
@@ -295,7 +295,7 @@ export function OneBookScreen() {
 
         {/* FAQ */}
         <section className={CARD} data-testid="one-book-faq">
-          <h2 className="text-center text-[18px] font-black text-v3-navy">คำถามที่พบบ่อย</h2>
+          <h2 className="text-center text-[18px] font-black text-v3-sapphire">คำถามที่พบบ่อย</h2>
           <div className="mt-2 flex flex-col divide-y divide-v3-border-card">
             {FAQ.map(([q, a], i) => {
               const open = faq === i
