@@ -1,212 +1,306 @@
 // features/v2-service/components/OneBookScreen.tsx — /v2/service/one-book
-// "Your Life Code — คู่มือดวงจีนเฉพาะบุคคล" (บริการ one-book / หนังสือเล่มเดียวในโลก)
-// ไม่มีเฟรมใน Figma → ออกแบบเองตามคอนเทนต์การตลาด (IG carousel) + ภาษาดีไซน์ของแอป (SkyBackdrop/kit).
-// วิเคราะห์โดยซินแส (คนจริง ไม่ใช้ AI) → บริการแบบสั่งทำ; CTA "สั่งจองเลย" ไปที่ LINE OA.
+// "YOUR LIFE CODE — คู่มือดวงจีนเฉพาะบุคคล" (หนังสือเล่มเดียวในโลก). Rebuild ตาม Figma 55666-3969 (2026-09-10):
+// hero book → stats → pain points → "ไม่ใช่คำทำนาย" → 3 ศาสตร์ → คน 5 ธาตุ → 15 หัวข้อ → เทียบราคา →
+// ได้อะไรบ้าง+ของแถม → วันนี้ ฿1,890 → ตัวอย่าง 3 หน้า → เหมาะกับคุณ → รีวิว → FAQ → CTA + แถบล่างฟิกซ์.
+// วิเคราะห์โดยซินแส (สั่งทำ) → ทุก CTA ไป LINE OA. asset: book hero เดิม + มาสคอต 5 ธาตุ (referral/*).
 import Head from "next/head"
 import Image from "next/image"
 import { useState } from "react"
 
 import { SkyBackdrop, SkyHeader } from "@/features/v2-profile/components/kit"
-import { Menubar } from "@/features/v2-shell/components/Menubar"
+import { MateAIButton } from "@/features/v2-shell/components/MateAIButton"
 
 const LINE_ORDER_URL = "https://line.me/R/ti/p/@082cvuiy?ts=09151109&oat_content=url"
 const CARD = "v3-shadow-card w-full rounded-[24px] bg-white p-5"
 
-/** จุดเด่น 6 อย่างที่ "รู้รหัสชีวิตแล้วจะรู้" (IG slide 2) */
-const KNOW = [
-  { icon: "briefcase", text: "งานแบบไหนเหมาะกับคุณ" },
-  { icon: "coins", text: "หาเงินจากอะไรได้ดีที่สุด" },
-  { icon: "heart", text: "ความสัมพันธ์แบบใดส่งเสริมชีวิต" },
-  { icon: "rocket", text: "พรสวรรค์ที่ซ่อนอยู่ในตัวคุณ" },
-  { icon: "run", text: "ช่วงเวลาไหนควรรีบคว้าโอกาส" },
-  { icon: "clock", text: "ช่วงเวลาไหนควรรอไปก่อน" },
+const PAINS = [
+  ["ทุ่มเทเต็มที่แต่ผลลัพธ์ไม่มา", "ทำเยอะกว่าคนอื่น แต่ได้น้อยกว่า"],
+  ["ตัดสินใจครั้งใหญ่แล้วพลาดทุกที", "เปลี่ยนงาน ลงทุน ย้ายบ้าน ผิดจังหวะเสมอ"],
+  ["เก่งแต่ไม่มีใครเห็น", "ผลงานดีแต่โอกาสไปตกที่คนอื่น"],
+  ["เหนื่อยกับความสัมพันธ์เดิม ๆ", "เจอคนแบบเดิมซ้ำแล้วซ้ำอีก"],
+  ["เงินเข้าเยอะแต่ไม่เหลือ", "หาได้มากขึ้นแต่เก็บไม่อยู่"],
+  ["รู้สึกว่าตัวเองยังไม่ใช่", "ทำได้ทุกอย่าง แต่ไม่รู้ว่าอะไรคือของเรา"],
 ] as const
 
-/** 6 "รหัส" หลักในคู่มือ (IG slide 3) */
-const CODES = [
-  { en: "Life Direction", th: "ทิศทางชีวิต", tone: "teal" },
-  { en: "Career Code", th: "การงาน", tone: "blue" },
-  { en: "Wealth Code", th: "การเงิน", tone: "gold" },
-  { en: "Relationship Code", th: "ความรัก", tone: "pink" },
-  { en: "Talent Code", th: "พรสวรรค์", tone: "amber" },
-  { en: "Timing Code", th: "จังหวะชีวิต", tone: "green" },
+const SCIENCES = [
+  ["ปาจื๋อ (BaZi) ตาราง 8 ช่อง", "คำนวณจากปี เดือน วัน และยามเกิดของคุณ ไม่ใช่แค่ราศี"],
+  ["เบญจธาตุและความสัมพันธ์", "ดูว่าธาตุไหนเสริมคุณ ธาตุไหนบั่นทอน และควรใช้ธาตุใดนำ"],
+  ["วัฏจักรและช่วงวัย", "บอกจังหวะขึ้นลงของชีวิตเป็นช่วง ๆ ไม่ใช่ดวงรายวัน"],
 ] as const
 
-const CODE_TONE: Record<string, string> = {
-  teal: "bg-[#E3F4F7] text-[#127687]",
-  blue: "bg-[#EAF3FF] text-v3-sapphire",
-  gold: "bg-[#FBF3DE] text-[#B08A3B]",
-  pink: "bg-[#FCE9F0] text-[#B0568A]",
-  amber: "bg-[#FFF3E0] text-[#C77800]",
-  green: "bg-[#EAF7EA] text-[#4E9A4A]",
-}
+const ELEMENTS = [
+  { key: "wood", label: "ธาตุไม้", trait: "เติบโต ริเริ่ม ชอบเริ่มสิ่งใหม่", tone: "bg-[#EAF7EA] text-[#4E9A4A]" },
+  { key: "fire", label: "ธาตุไฟ", trait: "ร้อนแรง ดึงดูดคน ตัดสินใจไว", tone: "bg-[#FCE9F0] text-[#B0568A]" },
+  { key: "earth", label: "ธาตุดิน", trait: "มั่นคง อดทน เป็นที่พึ่งของคนอื่น", tone: "bg-[#FBF3DE] text-[#B08A3B]" },
+  { key: "metal", label: "ธาตุทอง", trait: "ละเอียด มีวินัย ชอบความถูกต้อง", tone: "bg-[#F1F1F4] text-[#6B6B76]" },
+  { key: "water", label: "ธาตุน้ำ", trait: "ยืดหยุ่น ปรับตัวเก่ง คิดลึก", tone: "bg-[#EAF3FF] text-v3-sapphire" },
+] as const
 
-/** 15 ด้านที่วิเคราะห์เต็ม — หัวข้อ + ประโยคชวนอ่าน (verbatim จากคอนเทนต์) */
-const CHAPTERS: Array<{ t: string; hook: string }> = [
-  { t: "พื้นฐานดวงชะตาที่ถูกกำหนด", hook: "ทำไมบางเรื่องเราถึงอดทนไม่ได้ ทั้งที่คนอื่นมองว่าเรื่องนิดเดียว — เผยรหัสจิตวิทยาที่ซ่อนในวันเกิดคุณ" },
-  { t: "อาชีพ / ธุรกิจ ที่ควรทำ และไม่ควรทำ", hook: "ขยันแทบตายแต่ไม่เคยรวยขึ้น? เช็กด่วนว่าคุณกำลังทำอาชีพที่ ‘พิฆาตดวงชะตา’ ตัวเองอยู่หรือเปล่า" },
-  { t: "โชคลาภที่ถูกทาง โอกาสรวยอยู่แค่เอื้อม", hook: "เปิดช่องทางขุมทรัพย์ตามพลังธาตุ ที่เปลี่ยนคนเก็บเงินไม่อยู่ ให้มีเงินเก็บหลักล้าน" },
-  { t: "ผู้อุปถัมภ์ที่พร้อมช่วยเหลือคือใคร", hook: "รู้ไหมว่าคุณมี ‘กัลยาณมิตรสายเปย์’ รอหนุนหลังอยู่ แค่ต้องหาเขาให้เจอ" },
-  { t: "พรสวรรค์ที่คุณค้นหามาตลอดชีวิต", hook: "คุณอาจกำลังทิ้งเงินหมื่นเงินแสน ถ้ายังไม่รู้ว่ามี ‘พรสวรรค์ลับ’ ซ่อนอยู่ในดวงชะตา" },
-  { t: "ครอบครัว พื้นฐานสำคัญของชีวิต", hook: "ทำไมยิ่งคุยยิ่งไม่เข้าใจกัน? ถอดรหัสคลื่นพลังงานในบ้าน ปรับจุดเดียวชีวิตครอบครัวเปลี่ยน" },
-  { t: "ความรัก / คู่ครองที่เหมาะสม", hook: "อกหักซ้ำ ๆ เพราะเจอผิดคน? เช็กดวงคู่แท้ก่อนเสียเวลาให้คนผิด ๆ อีกต่อไป" },
-  { t: "เพื่อนแท้ ศัตรู คือใคร และควรทำอย่างไร", hook: "คนที่ยิ้มให้วันนี้…หวังดีจริงไหม? สแกนพลังงานรอบตัว ใครคือมิตรพาเจริญ ใครคือคนพาพัง" },
-  { t: "หุ้นส่วนควรมีหรือไม่ / ลุยเดี่ยวดีกว่า", hook: "ก่อนเซ็นสัญญาร่วมทุน เช็กก่อนว่าดวงคุณเหมาะกับ ‘ลุยเดี่ยว’ หรือ ‘จับมือแล้วรวย’" },
-  { t: "ลูกน้อง บริวารที่ทำให้ธุรกิจรุ่งเรือง", hook: "เปิดเทคนิคคัดคนเข้าทีมตามพลังธาตุ ให้ทำงานแทนเราได้เต็มร้อย" },
-  { t: "การเรียนที่ตรงสาย ช่วยให้ร่ำรวยขึ้น", hook: "อย่าเสียเวลาเรียนสิ่งที่ไม่ได้ใช้ เปิดวิชาที่ถูกโฉลกกับดวงคุณ ต่อยอดทำเงินได้ไวที่สุด" },
-  { t: "ช่วงอายุที่ดี และช่วงที่ควรระวัง", hook: "ก่อนเปลี่ยนงานหรือลงทุนใหญ่ เช็ก ‘ไทม์ไลน์จังหวะชีวิต’ ว่าปีนี้ควรเหยียบคันเร่งหรือแตะเบรก" },
-  { t: "การดูแลสุขภาพ เตรียมความพร้อม", hook: "นอนเท่าไหร่ก็ไม่พอ? เช็กจุดอ่อนของร่างกายตามธาตุเจ้าเรือน ก่อนจะสายเกินแก้" },
-  { t: "สี และทิศมงคล (สีกระเป๋า / สีรถ)", hook: "มูตามคนอื่นแล้วไม่เห็นผล เพราะสีและทิศมงคลของคุณไม่เหมือนใคร — เผยสีดูดทรัพย์เฉพาะบุคคล" },
-  { t: "องค์เทพที่คุ้มครองดวง หนุนให้สำเร็จ", hook: "ไหว้พระมาทั่วแต่ยังติดขัด? รู้จัก ‘องค์เทพประจำตัว’ ที่พร้อมคุ้มครองดวงคุณโดยเฉพาะ" },
+const TOPICS = [
+  "พื้นฐานบุคลิกและตัวตนที่แท้จริง", "จุดแข็งที่ควรใช้ให้เต็มที่", "จุดอ่อนที่ต้องระวัง",
+  "อาชีพและงานที่เหมาะกับธาตุคุณ", "จังหวะการเงินและการลงทุน", "แบบแผนความรักและคู่ที่เหมาะ",
+  "ความสัมพันธ์ในครอบครัว", "สุขภาพและอวัยวะที่ควรดูแล", "ปีที่ควรรุกและปีที่ควรตั้งรับ",
+  "สีและทิศมงคลเฉพาะคุณ", "สิ่งศักดิ์สิทธิ์ที่คุ้มครองดวงชะตา", "คนที่ควรคบและควรเลี่ยง",
+  "ช่วงวัยที่ดวงเปลี่ยน", "วิธีเสริมดวงด้วยธาตุที่ขาด", "แผนที่ชีวิต 10 ปีข้างหน้า",
 ]
 
-const PLANS = [
-  { id: "standard", name: "Standard", detail: "ไฟล์ PDF (30+ หน้า) อ่านซ้ำได้ตลอดชีพ", price: "1,890", note: "", best: false },
-  { id: "premium", name: "Premium", detail: "เล่มปกอ่อน พิมพ์สี A5 + ไฟล์ PDF", price: "2,390", note: "🚚 จัดส่งฟรี", best: true },
+const SPENT = [
+  ["ดูดวงกับหมอดู 3 ครั้ง", "฿4,500"],
+  ["ดูดวงออนไลน์ 8 ครั้ง", "฿2,400"],
+  ["เครื่องรางและของเสริมดวง", "฿1,100"],
 ] as const
 
-function KnowIcon({ name }: { name: string }) {
-  const common = { width: 20, height: 20, viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: 1.8, strokeLinecap: "round" as const, strokeLinejoin: "round" as const }
-  switch (name) {
-    case "briefcase": return <svg {...common}><rect x="2" y="7" width="20" height="14" rx="2" /><path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" /></svg>
-    case "coins": return <svg {...common}><circle cx="8" cy="8" r="5" /><path d="M15 6a5 5 0 1 1 0 10M6 18h12" /></svg>
-    case "heart": return <svg {...common}><path d="M20.8 5.6a5 5 0 0 0-7.1 0L12 7.3l-1.7-1.7a5 5 0 1 0-7.1 7.1L12 21.5l8.8-8.8a5 5 0 0 0 0-7.1z" /></svg>
-    case "rocket": return <svg {...common}><path d="M4.5 16.5c-1.5 1.3-2 5-2 5s3.7-.5 5-2M9 12l3 3M14.5 4.5c3-1 6 2 5 5l-7 7-4-4z" /></svg>
-    case "run": return <svg {...common}><circle cx="13" cy="4" r="2" /><path d="M4 17l4-1 2-4 4 3v5M14 8l3 2 3-1" /></svg>
-    case "clock": return <svg {...common}><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 2" /></svg>
-    default: return null
-  }
+const INCLUDED = [
+  ["หนังสือเฉพาะคุณ 40+ หน้า", "฿2,890"],
+  ["BaZi Life Matrix ออนไลน์", "฿499"],
+  ["อัปเดตดวงประจำปี 1 ปี", "฿990"],
+  ["ปรึกษาซินแสทางแชท 1 ครั้ง", "฿590"],
+] as const
+
+const FITS = [
+  "กำลังจะตัดสินใจเรื่องใหญ่ในปีนี้", "เบื่อการดูดวงที่ฟังแล้วลืม",
+  "อยากรู้ว่าตัวเองเหมาะกับงานแบบไหน", "กำลังหาจังหวะลงทุนหรือเปลี่ยนงาน",
+  "อยากเข้าใจตัวเองมากขึ้น", "อยากมีคู่มือที่กลับมาอ่านได้ตลอด",
+]
+
+const REVIEWS = [
+  ["อ่านแล้วเข้าใจว่าทำไมตัวเองเปลี่ยนงานบ่อย ไม่ใช่เพราะไม่อดทน แต่เพราะเลือกงานที่ขัดกับธาตุตัวเอง", "คุณแพรวา · ธาตุไม้"],
+  ["ชอบตรงที่มีตารางคำนวณให้ดูด้วย ไม่ใช่แค่บอกว่าดวงดีหรือไม่ดี ตรวจสอบย้อนกลับได้", "คุณบอส · ธาตุทอง"],
+  ["ส่วนแผนที่ชีวิต 10 ปีทำให้วางแผนได้จริง รู้ว่าปีไหนควรรุก ปีไหนควรอยู่นิ่ง", "คุณมิ้นท์ · ธาตุน้ำ"],
+] as const
+
+const FAQ = [
+  ["ต้องรู้เวลาเกิดแม่นแค่ไหน", "ยิ่งแม่นยิ่งดี (ระดับชั่วโมง) แต่ถ้าจำได้คร่าว ๆ ก็วิเคราะห์ได้ ทีมงานจะช่วยปรับให้เหมาะที่สุด"],
+  ["ใช้เวลาผลิตกี่วัน", "ปกติ 3–5 วันทำการหลังยืนยันข้อมูลวันเวลาเกิด (ซินแสวิเคราะห์เอง ไม่ใช่ AI)"],
+  ["ถ้าไม่พอใจขอคืนเงินได้ไหม", "เป็นงานวิเคราะห์เฉพาะบุคคล จึงเริ่มผลิตหลังชำระ ทักไลน์เพื่อสอบถามเงื่อนไขก่อนสั่งได้"],
+  ["ต่างจากดูดวงกับหมอดูยังไง", "ได้เป็นเล่มคู่มือที่กลับมาอ่านซ้ำได้ตลอดชีพ คำนวณจากดวงจริงของคุณ ไม่ใช่คำทำนายจำ ๆ"],
+  ["ซื้อเป็นของขวัญให้คนอื่นได้ไหม", "ได้ เพียงแจ้งวันเวลาเกิดของผู้รับ เหมาะเป็นของขวัญพิเศษเฉพาะบุคคล"],
+  ["ข้อมูลวันเกิดปลอดภัยไหม", "ใช้เพื่อคำนวณดวงของคุณเท่านั้น ไม่เปิดเผยต่อบุคคลอื่น"],
+]
+
+function Stars() {
+  return <span className="text-[14px] tracking-[2px] text-v3-pumpkin">★★★★★</span>
+}
+
+function OrderCta({ label = "สั่งซื้อเลย", testId }: { label?: string; testId?: string }) {
+  return (
+    <a href={LINE_ORDER_URL} target="_blank" rel="noopener noreferrer" data-testid={testId}
+      className="grid h-12 w-full place-items-center rounded-full bg-v3-grade-yellow text-[15px] font-bold text-v3-navy">
+      {label}
+    </a>
+  )
 }
 
 export function OneBookScreen() {
-  const [open, setOpen] = useState<number | null>(0)
+  const [faq, setFaq] = useState<number | null>(null)
 
   return (
     <div className="relative flex min-h-screen w-full flex-col overflow-x-hidden bg-v3-bg-cream font-ibm">
-      <SkyBackdrop height={520} />
+      <SkyBackdrop height={420} />
       <Head><title>Your Life Code · คู่มือดวงจีนเฉพาะบุคคล · MuMate</title></Head>
-      <SkyHeader title="หนังสือเล่มเดียวในโลก" backHref="/v2/service" testId="one-book" />
+      <SkyHeader title="Your life code" backHref="/v2/service" testId="one-book" />
 
-      <div className="relative z-10 mx-auto flex w-full max-w-md flex-1 flex-col gap-4 px-4 pb-40 pt-2">
-        {/* HERO — รูปโปสเตอร์เต็ม (ไม่ crop) */}
-        <section className="flex flex-col items-center gap-3" data-testid="one-book-hero">
-          <span className="relative block w-full overflow-hidden rounded-[20px] shadow-[0_10px_30px_rgba(26,38,77,.15)]">
-            <Image src="/images/v2/features/one-book/hero.jpg" alt="Your Life Code — ถอดรหัสชีวิตจากวันเกิดของคุณ · คู่มือดวงจีนเฉพาะบุคคล" width={1000} height={1000} className="h-auto w-full" priority />
+      <div className="relative z-10 mx-auto flex w-full max-w-md flex-1 flex-col gap-5 px-4 pb-28 pt-1">
+        {/* HERO */}
+        <section className="relative flex flex-col items-center gap-4 overflow-hidden rounded-[24px] bg-v3-sapphire px-5 pb-6 pt-5 text-center text-white" data-testid="one-book-hero">
+          <span className="relative block w-[62%] max-w-[220px] overflow-hidden rounded-[14px] shadow-[0_10px_30px_rgba(0,0,0,.25)]">
+            <Image src="/images/v2/features/one-book/hero.jpg" alt="YOUR LIFE CODE · คู่มือดวงจีนเฉพาะบุคคล" width={600} height={600} className="h-auto w-full" priority />
           </span>
-          <div className="flex flex-wrap items-center justify-center gap-2">
-            {["ไม่คุย", "ไม่โทร", "ไม่เสียเวลา"].map((t) => (
-              <span key={t} className="rounded-full bg-white px-3 py-1 text-[12px] font-bold text-v3-sapphire shadow-[0_2px_8px_rgba(26,38,77,.08)]">{t}</span>
+          <div>
+            <h1 className="text-[24px] font-black leading-8">คู่มือระดับ 1 ของชีวิตคุณ</h1>
+            <p className="text-[15px] font-bold tracking-wide text-v3-lime">YOUR LIFE CODE</p>
+          </div>
+          <p className="text-[13px] leading-5 text-white/85">หนังสือเล่มเดียวในโลกที่คำนวณจากวันเดือนปีและเวลาเกิดของคุณ ไม่ซ้ำกับใคร</p>
+          <p className="flex items-baseline justify-center gap-2">
+            <span className="text-[16px] font-medium text-white/50 line-through">฿2,890</span>
+            <span className="text-[30px] font-black text-v3-lime">฿1,890</span>
+          </p>
+          <OrderCta testId="one-book-order-hero" />
+        </section>
+
+        {/* STATS */}
+        <section className={`${CARD} flex items-center justify-around text-center`} data-testid="one-book-stats">
+          {[["15", "หัวข้อชีวิต"], ["11", "ศาสตร์ที่ใช้คำนวณ"], ["40+", "หน้าเฉพาะคุณ"]].map(([n, l]) => (
+            <div key={l} className="flex flex-col">
+              <span className="text-[22px] font-black text-v3-sapphire">{n}</span>
+              <span className="text-[12px] text-v3-text-muted">{l}</span>
+            </div>
+          ))}
+        </section>
+
+        {/* PAIN POINTS */}
+        <section className="flex flex-col gap-3">
+          <h2 className="text-center text-[18px] font-black leading-7 text-v3-navy">เคยเป็นแบบนี้ไหม<br />แต่ยังตัดสินใจผิดซ้ำ ๆ</h2>
+          {PAINS.map(([t, s]) => (
+            <div key={t} className="flex items-start gap-3 rounded-2xl bg-white p-4 v3-shadow-card">
+              <span className="mt-0.5 grid size-6 flex-none place-items-center rounded-full bg-v3-pumpkin/15 text-[13px]">🙁</span>
+              <div><p className="text-[14px] font-bold text-v3-navy">{t}</p><p className="text-[12px] leading-5 text-v3-text-muted">{s}</p></div>
+            </div>
+          ))}
+          <p className="text-center text-[13px] font-bold leading-5 text-v3-sapphire">ถ้าตอบว่าใช่มากกว่า 3 ข้อ<br />แปลว่าคุณกำลังฝืนแบบแผนของตัวเองอยู่</p>
+        </section>
+
+        {/* NOT JUST FORTUNE */}
+        <section className="flex flex-col gap-3 rounded-[24px] bg-v3-sapphire p-5 text-white">
+          <h2 className="text-[18px] font-black leading-7">เพราะคุณไม่ใช่แค่ “คำทำนาย”<br />และไม่ใช่แค่ “ดวงชะตา”</h2>
+          <p className="text-[13px] font-bold text-v3-lime">YOUR LIFE CODE</p>
+          <p className="text-[13px] leading-5 text-white/85">ไม่ได้บอกว่าอนาคตจะเป็นยังไง แต่บอกว่าคุณถูกออกแบบมาแบบไหน และควรเดินด้วยจังหวะของใคร</p>
+          <OrderCta label="สั่งซื้อเลย YOUR LIFE CODE" />
+        </section>
+
+        {/* 3 SCIENCES */}
+        <section className="flex flex-col gap-3">
+          <h2 className="text-center text-[18px] font-black leading-7 text-v3-navy">ไม่ใช่คำทำนายลอย ๆ<br />ศาสตร์เก่าแก่ + การคำนวณที่ตรวจสอบย้อนกลับได้</h2>
+          {SCIENCES.map(([t, s]) => (
+            <div key={t} className="flex items-start gap-3 rounded-2xl bg-white p-4 v3-shadow-card">
+              <span className="grid size-11 flex-none place-items-center rounded-xl bg-[#EAF3FF] text-[20px]">🀄</span>
+              <div><p className="text-[15px] font-bold text-v3-navy">{t}</p><p className="text-[12px] leading-5 text-v3-text-muted">{s}</p></div>
+            </div>
+          ))}
+        </section>
+
+        {/* 5 ELEMENTS */}
+        <section className={CARD} data-testid="one-book-elements">
+          <h2 className="text-center text-[18px] font-black text-v3-navy">คน 5 ธาตุ ต่างกันยังไง</h2>
+          <div className="mt-3 flex flex-col gap-2.5">
+            {ELEMENTS.map((e) => (
+              <div key={e.key} className="flex items-center gap-3">
+                <span className="relative size-11 flex-none overflow-hidden rounded-full bg-v3-ghost-white">
+                  <Image src={`/images/v2/referral/mascot-${e.key}.png`} alt="" fill sizes="44px" className="object-contain" />
+                </span>
+                <span className={`rounded-full px-2 py-0.5 text-[12px] font-bold ${e.tone}`}>{e.label}</span>
+                <span className="min-w-0 flex-1 text-[13px] leading-5 text-v3-text-body">{e.trait}</span>
+              </div>
             ))}
-            <span className="rounded-full bg-v3-pumpkin px-3 py-1 text-[12px] font-black text-white">ได้ไฟล์อ่าน</span>
           </div>
+          <p className="mt-3 text-center text-[12px] leading-5 text-v3-sapphire">หนังสือของคุณจะบอกว่าคุณเป็นธาตุอะไร และควรใช้ธาตุไหนช่วยเสริม</p>
         </section>
 
-        {/* CREDIBILITY */}
-        <section className={CARD} data-testid="one-book-cred">
-          <div className="flex flex-col gap-3">
-            <div className="flex items-start gap-3">
-              <span className="grid size-9 flex-none place-items-center rounded-full bg-[#E3F4F7] text-[#127687]"><KnowIcon name="heart" /></span>
-              <p className="text-[14px] leading-5 text-v3-text-body">วิเคราะห์โดย <b className="text-v3-navy">ซินแสเซียนปลาน้อย</b><br /><span className="text-[12px] text-v3-text-muted">Co-Founder of Mumate</span></p>
-            </div>
-            <div className="flex items-start gap-3">
-              <span className="grid size-9 flex-none place-items-center rounded-full bg-[#EAF3FF] text-[13px] font-black text-v3-sapphire">20+</span>
-              <p className="text-[14px] leading-5 text-v3-text-body"><b className="text-v3-navy">20+ ปี</b> แห่งประสบการณ์ดูดวงจีน</p>
-            </div>
-            <div className="flex items-start gap-3">
-              <span className="grid size-9 flex-none place-items-center rounded-full bg-[#FBF3DE] text-[16px]">☯</span>
-              <p className="text-[14px] leading-5 text-v3-text-body">ใช้ศาสตร์จีนโบราณ <b className="text-v3-navy">BaZi กว่า 3,000 ปี</b></p>
-            </div>
-            <p className="rounded-[12px] bg-v3-ghost-white px-3 py-2 text-center text-[12px] font-bold text-v3-navy">✅ วิเคราะห์โดยซินแสจริง — ไม่ใช้ AI ในการวิเคราะห์</p>
-          </div>
-        </section>
-
-        {/* KNOW — ถ้ารู้รหัสชีวิต จะรู้ว่า */}
-        <section className={CARD} data-testid="one-book-know">
-          <p className="text-[16px] font-black text-v3-navy">ถ้าคุณรู้ “รหัสชีวิต” ของตัวเอง จะรู้ว่า…</p>
-          <div className="mt-3 grid grid-cols-1 gap-2.5">
-            {KNOW.map((k) => (
-              <div key={k.text} className="flex items-center gap-3">
-                <span className="grid size-8 flex-none place-items-center rounded-full bg-[#E3F4F7] text-[#127687]"><KnowIcon name={k.icon} /></span>
-                <p className="text-[13px] leading-5 text-v3-text-body">{k.text}</p>
+        {/* 15 TOPICS */}
+        <section className={CARD} data-testid="one-book-topics">
+          <p className="text-center text-[12px] text-v3-text-muted">ข้างในมีอะไร</p>
+          <h2 className="text-center text-[18px] font-black text-v3-navy">15 หัวข้อ ครบทุกมิติชีวิต</h2>
+          <div className="mt-3 flex flex-col divide-y divide-v3-border-card">
+            {TOPICS.map((t, i) => (
+              <div key={t} className="flex items-center gap-3 py-2.5">
+                <span className="grid size-6 flex-none place-items-center rounded-full bg-v3-lime text-[12px] font-black text-v3-navy">{i + 1}</span>
+                <span className="text-[13px] leading-5 text-v3-text-body">{t}</span>
               </div>
             ))}
           </div>
         </section>
 
-        {/* CODES — ภายในคู่มือ */}
-        <section className={CARD} data-testid="one-book-codes">
-          <p className="text-[16px] font-black text-v3-navy">ภายในคู่มือกว่า 30 หน้า</p>
-          <p className="text-[13px] leading-5 text-v3-text-muted">ปลดล็อกระบบชีวิตของคุณ ผ่าน 6 รหัสหลัก</p>
-          <div className="mt-3 grid grid-cols-2 gap-2.5">
-            {CODES.map((c) => (
-              <div key={c.en} className={`flex flex-col gap-0.5 rounded-[16px] p-3 ${CODE_TONE[c.tone]}`}>
-                <span className="text-[13px] font-black leading-4">{c.en}</span>
-                <span className="text-[12px] font-bold opacity-90">{c.th}</span>
+        {/* PRICE COMPARE */}
+        <section className={CARD}>
+          <h2 className="text-center text-[18px] font-black leading-7 text-v3-navy">ปีที่ผ่านมาคุณจ่ายค่าดูดวง<br />ไปแล้วเท่าไหร่</h2>
+          <div className="mt-3 flex flex-col gap-2">
+            {SPENT.map(([t, p]) => (
+              <div key={t} className="flex items-center justify-between border-b border-dashed border-v3-divider-dashed pb-2 text-[13px]"><span className="text-v3-text-body">{t}</span><span className="font-bold text-v3-navy">{p}</span></div>
+            ))}
+            <div className="flex items-center justify-between pt-1"><span className="text-[14px] font-bold text-v3-navy">รวมที่จ่ายไปแล้ว</span><span className="text-[20px] font-black text-v3-pumpkin">฿8,000</span></div>
+          </div>
+          <p className="mt-3 text-center text-[12px] leading-5 text-v3-text-muted">ได้คำตอบเป็นครั้ง ๆ ที่จำไม่ได้ว่าใครบอกอะไร และไม่มีอะไรให้กลับมาอ่าน</p>
+        </section>
+
+        {/* INCLUDED */}
+        <section className={CARD}>
+          <h2 className="text-center text-[18px] font-black text-v3-navy">YOUR LIFE CODE ให้อะไรบ้าง</h2>
+          <div className="mt-3 flex flex-col gap-2">
+            {INCLUDED.map(([t, p]) => (
+              <div key={t} className="flex items-center justify-between border-b border-dashed border-v3-divider-dashed pb-2 text-[13px] last:border-0"><span className="text-v3-text-body">{t}</span><span className="font-bold text-v3-navy">{p}</span></div>
+            ))}
+          </div>
+          <div className="mt-3 flex items-center gap-3 rounded-2xl bg-[#F3E5F5] p-3">
+            <span className="relative size-14 flex-none overflow-hidden rounded-xl bg-white/60">
+              <Image src="/images/v2/referral/mascot-water.png" alt="" fill sizes="56px" className="object-contain" />
+            </span>
+            <div>
+              <p className="text-[11px] font-bold text-v3-purple">ของแถมส่งวันนี้</p>
+              <p className="text-[14px] font-black text-v3-navy">BaZi Life Matrix ออนไลน์</p>
+              <p className="text-[12px] leading-4 text-v3-text-body">ตารางธาตุแบบโต้ตอบได้ เปิดดูบนมือถือได้ตลอดชีวิต มูลค่า ฿499</p>
+            </div>
+          </div>
+        </section>
+
+        {/* TODAY PRICE BAND */}
+        <section className="relative flex flex-col items-center gap-3 overflow-hidden rounded-[24px] bg-v3-sapphire px-5 py-6 text-center text-white">
+          <p className="text-[13px] text-white/80">รวมมูลค่า ฿4,969</p>
+          <p className="text-[26px] font-black text-v3-lime">วันนี้เพียง ฿1,890</p>
+          <OrderCta />
+        </section>
+
+        {/* PREVIEW */}
+        <section className="flex flex-col gap-3">
+          <h2 className="text-center text-[18px] font-black text-v3-navy">ดูตัวอย่างหน้าจริงในเล่ม</h2>
+          <div className="flex gap-3">
+            {["ตาราง 8 ช่อง", "บุคลิกและจุดแข็ง", "แผนที่ชีวิต 10 ปี"].map((t) => (
+              <div key={t} className="flex flex-1 flex-col items-center gap-2">
+                <div className="aspect-[3/4] w-full rounded-xl border border-v3-border-card bg-white" />
+                <span className="text-center text-[11px] leading-4 text-v3-text-muted">{t}</span>
               </div>
             ))}
           </div>
-          <p className="mt-3 text-center text-[12px] leading-5 text-v3-text-muted">PDF 30+ หน้า · อ่านซ้ำได้ตลอดชีพ · มีเพียงเล่มเดียวในโลก</p>
         </section>
 
-        {/* CHAPTERS — 15 ด้าน (accordion) */}
-        <section className={CARD} data-testid="one-book-chapters">
-          <p className="text-[16px] font-black text-v3-navy">อ่านลึกครบ 15 ด้านของชีวิต</p>
+        {/* FITS */}
+        <section className={CARD}>
+          <h2 className="text-center text-[18px] font-black text-v3-navy">เล่มนี้เหมาะกับคุณ ถ้า</h2>
+          <div className="mt-3 flex flex-col gap-2">
+            {FITS.map((t) => (
+              <div key={t} className="flex items-center gap-3 rounded-full bg-v3-ghost-white px-3 py-2">
+                <span className="grid size-5 flex-none place-items-center rounded-full bg-[#EAF7EA] text-[11px] text-[#4E9A4A]">✓</span>
+                <span className="text-[13px] text-v3-text-body">{t}</span>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        {/* REVIEWS */}
+        <section className="flex flex-col gap-3">
+          <h2 className="text-center text-[18px] font-black text-v3-navy">เสียงจากคนที่ได้อ่านแล้ว</h2>
+          {REVIEWS.map(([r, who]) => (
+            <div key={who} className="rounded-2xl bg-white p-4 v3-shadow-card">
+              <Stars />
+              <p className="mt-1 text-[13px] leading-5 text-v3-text-body">{r}</p>
+              <p className="mt-1 text-[11px] text-v3-text-muted">{who}</p>
+            </div>
+          ))}
+        </section>
+
+        {/* FAQ */}
+        <section className={CARD} data-testid="one-book-faq">
+          <h2 className="text-center text-[18px] font-black text-v3-navy">คำถามที่พบบ่อย</h2>
           <div className="mt-2 flex flex-col divide-y divide-v3-border-card">
-            {CHAPTERS.map((c, i) => {
-              const isOpen = open === i
+            {FAQ.map(([q, a], i) => {
+              const open = faq === i
               return (
-                <div key={c.t} className="py-2">
-                  <button
-                    type="button"
-                    onClick={() => setOpen(isOpen ? null : i)}
-                    data-testid={`one-book-ch-${i}`}
-                    className="flex w-full items-center gap-3 text-left"
-                    aria-expanded={isOpen}
-                  >
-                    <span className="grid size-7 flex-none place-items-center rounded-full bg-v3-sapphire text-[12px] font-black text-white">{i + 1}</span>
-                    <span className="min-w-0 flex-1 text-[14px] font-bold leading-5 text-v3-navy">{c.t}</span>
-                    <svg aria-hidden width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={`flex-none text-v3-text-muted transition-transform ${isOpen ? "rotate-180" : ""}`}><path d="m6 9 6 6 6-6" /></svg>
+                <div key={q} className="py-1">
+                  <button type="button" onClick={() => setFaq(open ? null : i)} aria-expanded={open} className="flex w-full items-center gap-2 py-2 text-left">
+                    <span className="min-w-0 flex-1 text-[14px] font-medium text-v3-navy">{q}</span>
+                    <svg aria-hidden width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={`flex-none text-v3-text-muted transition-transform ${open ? "rotate-180" : ""}`}><path d="m6 9 6 6 6-6" /></svg>
                   </button>
-                  {isOpen ? <p className="mt-1.5 pl-10 pr-1 text-[13px] leading-[21px] text-v3-text-body">{c.hook}</p> : null}
+                  {open && <p className="pb-2 text-[13px] leading-5 text-v3-text-body">{a}</p>}
                 </div>
               )
             })}
           </div>
         </section>
 
-        {/* PRICING */}
-        <section data-testid="one-book-pricing" className="flex flex-col gap-3">
-          <p className="px-1 text-[16px] font-black text-v3-navy">เลือกแพ็กเกจของคุณ</p>
-          {PLANS.map((p) => (
-            <div key={p.id} className={`relative flex items-center justify-between gap-3 rounded-[20px] border-2 bg-white p-4 ${p.best ? "border-v3-sapphire" : "border-v3-border-card"}`}>
-              {p.best ? <span className="absolute -top-2 right-4 rounded-full bg-v3-sapphire px-2 py-[2px] text-[10px] font-black text-white">แนะนำ</span> : null}
-              <div className="min-w-0">
-                <p className="text-[15px] font-black text-v3-navy">{p.name}</p>
-                <p className="text-[12px] leading-4 text-v3-text-body">{p.detail}</p>
-                {p.note ? <p className="mt-0.5 text-[12px] font-bold text-v3-cyan">{p.note}</p> : null}
-              </div>
-              <div className="flex-none text-right">
-                <p className="text-[20px] font-black leading-6 text-v3-navy">{p.price}</p>
-                <p className="text-[11px] text-v3-text-muted">บาท</p>
-              </div>
-            </div>
-          ))}
+        {/* FINAL CTA */}
+        <section className="flex flex-col items-center gap-3 rounded-[24px] bg-v3-sapphire px-5 py-7 text-center text-white">
+          <h2 className="text-[22px] font-black leading-8">พร้อมอ่านคู่มือ<br />ของตัวเองหรือยัง</h2>
+          <p className="text-[14px] font-bold text-v3-lime">YOUR LIFE CODE</p>
+          <p className="text-[12px] leading-5 text-white/80">คำนวณจากวันเดือนปีและเวลาเกิดของคุณ ไม่ซ้ำกับใครในโลก</p>
+          <p className="flex items-baseline justify-center gap-2"><span className="text-[15px] text-white/50 line-through">฿2,890</span><span className="text-[26px] font-black text-v3-lime">฿1,890</span></p>
+          <OrderCta />
         </section>
-
-        {/* CTA — บริการสั่งทำ (วิเคราะห์โดยซินแส) → ทักไลน์ */}
-        <a
-          href={LINE_ORDER_URL}
-          target="_blank"
-          rel="noopener noreferrer"
-          data-testid="one-book-order"
-          className="mt-1 grid h-12 w-full place-items-center rounded-full bg-v3-sapphire text-[15px] font-bold uppercase text-v3-lime transition"
-        >
-          สั่งจองเลย · ทักไลน์เพื่อสั่งทำ
-        </a>
-        <p className="text-center text-[11px] leading-4 text-v3-text-muted">อ่านซ้ำและใช้วางแผนได้ตลอดชีพ ครบทุกด้านในชีวิต</p>
       </div>
 
-      <Menubar />
+      {/* แถบล่างฟิกซ์: สั่งซื้อเลย + Mate AI (ตาม Figma) */}
+      <div className="fixed inset-x-0 bottom-0 z-40 mx-auto flex max-w-md items-center gap-2 px-4 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-2">
+        <a href={LINE_ORDER_URL} target="_blank" rel="noopener noreferrer" data-testid="one-book-order" className="grid h-[52px] min-w-0 flex-1 place-items-center rounded-full bg-v3-sapphire text-[15px] font-bold text-white v3-shadow-card">สั่งซื้อเลย</a>
+        <span className="flex-none"><MateAIButton /></span>
+      </div>
     </div>
   )
 }
