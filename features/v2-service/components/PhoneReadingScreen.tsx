@@ -276,13 +276,16 @@ export function PhoneReadingScreen() {
           <div className="flex flex-col gap-4" data-testid="phone-result">
             {/* การ์ดสรุป + เลขเรียง */}
             <section className="rounded-[24px] bg-v3-sapphire p-5 text-center text-white">
-              <p className="text-[26px] leading-none text-v3-lime">✦✦</p>
+              <svg viewBox="0 0 48 32" className="mx-auto h-8 w-12" aria-hidden fill="#F5C518">
+                <path d="M30 2c1 6 3 8 9 9-6 1-8 3-9 9-1-6-3-8-9-9 6-1 8-3 9-9Z" />
+                <path d="M13 14c.6 3.5 1.8 4.7 5.3 5.3-3.5.6-4.7 1.8-5.3 5.3-.6-3.5-1.8-4.7-5.3-5.3 3.5-.6 4.7-1.8 5.3-5.3Z" />
+              </svg>
               <p className="mt-2 text-[20px] font-black text-v3-lime">ดูผลการทำนายเลย</p>
-              <div className="mt-4 flex flex-wrap justify-center gap-1.5">
+              <div className="mt-4 flex flex-nowrap justify-center gap-1">
                 {digits.map((d, i) => {
                   const isClosing = i >= digits.length - closingLen
                   return (
-                    <span key={i} className={"grid size-10 place-items-center rounded-[10px] text-[17px] font-black " + (isClosing ? "bg-v3-lime text-v3-navy" : "bg-white text-v3-navy")}>{d}</span>
+                    <span key={i} className={"grid h-9 w-7 flex-none place-items-center rounded-[9px] text-[15px] font-black " + (isClosing ? "bg-v3-lime text-v3-navy" : "bg-white text-v3-navy")}>{d}</span>
                   )
                 })}
               </div>
