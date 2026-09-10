@@ -108,7 +108,7 @@ export default function FortuneSagePage() {
   const love = stick ? splitLove(stick.topics.love) : null
 
   return (
-    <SkyScreen>
+    <SkyScreen bgImage="/images/v2/fortune/sage-bg.png">
       <Head><title>{phase === "result" ? "ผลเซียมซี" : "เซียมซีเสี่ยงทาย"} · MuMate</title></Head>
       <SkyHeader
         title={phase === "result" ? "ผลเซียมซี" : "เซียมซีเสี่ยงทาย"}

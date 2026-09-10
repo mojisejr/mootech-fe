@@ -72,10 +72,10 @@ export const SERVICES = [
   { id: 'calendar', title: 'ปฏิทิน', desc: DESC_CALENDAR, href: '/v2/calendar', image: ART('09_ปฎิทิน.png') },
   { id: 'healing-circles', title: 'Healing Circles', desc: DESC_HEALING, href: comingSoonHref('Healing Circles'), hiddenUntilArt: true },
   { id: 'sacred-map', title: 'แผนที่ศักดิ์สิทธิ์', desc: DESC_SACRED, href: '/v2/service/sacred-map', image: ART('10_แผนที่ศักดิ์สิทธิ์.png') },
-  { id: 'shop', title: 'ร้านค้าของเรา', desc: DESC_SHOP, href: '/v2/shop', image: ART('11_ร้านค้าของเรา.png') },
-  // #12 ดูดวงเบอร์มือถือ — มีอาร์ตเต็มใบแล้ว (12_เบอร์มือถือ.png) จึงแสดงได้จริง (ไม่ hidden). ยังไม่มีหน้า
-  // เฉพาะ → ส่งไป coming-soon ที่ชื่อบริการ (ตาม comingSoonHref) จนกว่าจะสร้างหน้า.
+  // ดูดวงเบอร์มือถือ — มีอาร์ตเต็มใบแล้ว (12_เบอร์มือถือ.png) จึงแสดงได้จริง (ไม่ hidden). ยังไม่มีหน้า
+  // เฉพาะ → ส่งไป coming-soon ที่ชื่อบริการ. ฟีมสั่งให้อยู่ "ก่อนร้านค้า" (2026-09-10).
   { id: 'phone-number', title: 'ดูดวงเบอร์มือถือ', desc: DESC_PHONE, href: comingSoonHref('ดูดวงเบอร์มือถือ'), image: ART('12_เบอร์มือถือ.png') },
+  { id: 'shop', title: 'ร้านค้าของเรา', desc: DESC_SHOP, href: '/v2/shop', image: ART('11_ร้านค้าของเรา.png') },
   // #13, added 2026-08-08 — NOT from the Figma 12. The home screen (Zone 6) has been selling this since
   // #157, but it existed nowhere in the catalog, so its CTA had no name to send anywhere. Hidden for the
   // same reason as Healing Circles: the card art is 1128×463 full-card, and the only ปาจื่อ image we have

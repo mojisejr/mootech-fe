@@ -94,11 +94,20 @@ export function SkyHeader({
   )
 }
 
-/** โครงจอของคลัสเตอร์โปรไฟล์: ขาว + ท้องฟ้าบน + คอลัมน์กลาง 393 */
-export function SkyScreen({ children, menubar }: { children: ReactNode; menubar?: ReactNode }) {
+/** โครงจอของคลัสเตอร์โปรไฟล์: ขาว + ท้องฟ้าบน + คอลัมน์กลาง 393.
+ *  bgImage (ตัวเลือก): ฉากพื้นหลังเต็มจอแทน SkyBackdrop — ใช้กับหน้าเปิดไพ่ (oracle/divine/sage) ที่มีภาพ
+ *  ท้องฟ้า/ภูเขาของตัวเอง (Drive main). fixed + object-cover + ไล่ขาวด้านล่างให้เนื้อหาอ่านออก. */
+export function SkyScreen({ children, menubar, bgImage }: { children: ReactNode; menubar?: ReactNode; bgImage?: string }) {
   return (
     <div className="relative min-h-[100dvh] w-full overflow-x-hidden bg-white font-ibm">
-      <SkyBackdrop />
+      {bgImage ? (
+        <div aria-hidden className="pointer-events-none fixed inset-0 z-0 select-none">
+          <img src={bgImage} alt="" className="h-full w-full object-cover object-top" />
+          <div className="absolute inset-0 bg-gradient-to-b from-transparent via-white/20 to-white/80" />
+        </div>
+      ) : (
+        <SkyBackdrop />
+      )}
       <div className="relative z-10 mx-auto flex w-full max-w-md flex-col px-4 pb-36">{children}</div>
       {menubar}
     </div>

@@ -21,9 +21,9 @@ export type FortuneCard = {
 type Slot = { position: number; weight: number; role: string; no: number }
 
 // รูปหลังไพ่จริง (export จาก Figma deck-cover) + สีเรืองเมื่อเลือก/ตอนโหลด
-const THEME: Record<"oracle" | "divine", { back: string; ring: string }> = {
-  oracle: { back: "/images/v2/fortune/oracle-back.png", ring: "ring-[#127687]" },
-  divine: { back: "/images/v2/fortune/divine-back.png", ring: "ring-[#20306F]" },
+const THEME: Record<"oracle" | "divine", { back: string; ring: string; bg: string }> = {
+  oracle: { back: "/images/v2/fortune/oracle-back.png", ring: "ring-[#127687]", bg: "/images/v2/fortune/oracle-bg.png" },
+  divine: { back: "/images/v2/fortune/divine-back.png", ring: "ring-[#20306F]", bg: "/images/v2/fortune/divine-bg.png" },
 }
 
 function shuffle(n: number): number[] {
@@ -157,7 +157,7 @@ export function CardReadingScreen({
   const headerTitle = phase === "result" ? resultTitle : phase === "pick" ? "เลือกไพ่ 3 ใบ" : title
 
   return (
-    <SkyScreen>
+    <SkyScreen bgImage={theme.bg}>
       <Head><title>{headerTitle} · MuMate</title></Head>
       <SkyHeader
         title={headerTitle}
