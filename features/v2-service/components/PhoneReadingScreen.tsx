@@ -10,6 +10,7 @@ import { Menubar } from "@/features/v2-shell/components/Menubar"
 import { TopBarBell } from "@/features/v2-shell/components/TopBarBell"
 import { TopBarAvatar } from "@/features/v2-shell/components/TopBarAvatar"
 import { getDayEntry, getLastEntry, putDayEntry } from "@/features/v2-service/daily-reading-cache"
+import { useActionCooldown } from "@/lib/useActionCooldown"
 import {
   LayerRow, Pyramid, buildHoneycombEngineText, type HoneycombReading,
 } from "@/features/v2-service/components/honeycomb-parts"
@@ -137,6 +138,7 @@ export function PhoneReadingScreen({ initialMode = "normal" }: { initialMode?: M
   const canSubmit = phone.replace(/\D/g, "").length >= 9
   const QI_COST = 10
   const cfg = MODE[mode]
+  const cd = useActionCooldown(`reading:${mode}`) // กันบอทยิงรัว 10 วิ ต่อโหมด (คู่ดวงใช้ 60 วิแยกต่างหาก)
 
   const rankedPairs = useMemo(() => (pReading ? [...pReading.pairs].sort((a, b) => b.weight - a.weight) : []), [pReading])
 
@@ -172,10 +174,12 @@ export function PhoneReadingScreen({ initialMode = "normal" }: { initialMode?: M
     const m = mode
     const c = MODE[m]
     const digits = phone.replace(/\D/g, "")
-    // เบอร์นี้ทำนายโหมดนี้แล้ววันนี้ → ดูซ้ำฟรี (ไม่หัก/ไม่คำนวณใหม่)
+    // เบอร์นี้ทำนายโหมดนี้แล้ววันนี้ → ดูซ้ำฟรี (ไม่หัก/ไม่คำนวณใหม่ ไม่ติดคูลดาวน์)
     const cached = m === "normal" ? getDayEntry<PhoneReading>(c.cacheKey, digits) : getDayEntry<HoneycombReading>(c.cacheKey, digits)
     if (cached) { showResult(m, cached.reading, cached.narration); return }
 
+    // กันบอทยิงรัว/กดรัว — เฉพาะการคำนวณจริง (เสีย QI + ยิง engine)
+    if (!cd.begin()) return
     setPhase("loading"); setError(null); setNeedQi(false)
     try {
       const spend = await fetch("/api/qi-spend", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ code: c.spendCode }) })
@@ -202,6 +206,8 @@ export function PhoneReadingScreen({ initialMode = "normal" }: { initialMode?: M
         .finally(() => setNarrating(false))
     } catch {
       setError("เชื่อมต่อไม่สำเร็จ ลองใหม่อีกครั้ง"); setPhase("intro")
+    } finally {
+      cd.end() // ปลดล็อก firing (คูลดาวน์ 10 วิ ยังเดินต่อ)
     }
   }
 
@@ -257,9 +263,9 @@ export function PhoneReadingScreen({ initialMode = "normal" }: { initialMode?: M
                 data-testid="phone-input"
                 className="mt-4 w-full rounded-full bg-white px-5 py-3.5 text-center text-[16px] font-bold tracking-[0.12em] text-v3-navy outline-none placeholder:font-medium placeholder:tracking-normal placeholder:text-v3-text-muted"
               />
-              <button type="button" onClick={() => void submit()} disabled={!canSubmit || phase === "loading"} data-testid="phone-submit"
+              <button type="button" onClick={() => void submit()} disabled={!canSubmit || phase === "loading" || cd.active} data-testid="phone-submit"
                 className="mt-3 grid w-full place-items-center rounded-full bg-v3-lime py-3.5 text-[16px] font-black text-v3-navy disabled:opacity-50">
-                {phase === "loading" ? "กำลังทำนาย..." : "ทำนายเบอร์นี้"}
+                {phase === "loading" ? "กำลังทำนาย..." : cd.active ? `รออีก ${cd.secondsLeft} วินาที` : "ทำนายเบอร์นี้"}
               </button>
               {error && <p className="mt-2 text-[12px] font-bold text-v3-lime" data-testid="phone-error">{error}</p>}
               {needQi && <a href="/v2/qi" className="mt-2 inline-grid h-9 place-items-center rounded-full bg-white px-5 text-[13px] font-bold text-v3-sapphire" data-testid="phone-buy-qi">เติม QI</a>}

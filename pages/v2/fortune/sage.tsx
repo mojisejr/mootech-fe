@@ -10,6 +10,7 @@ import type { GetServerSideProps } from "next"
 import { v2RedirectIfUnauthed } from "@/lib/v2/gate"
 import { KitButton, SkyHeader, SkyScreen } from "@/features/v2-profile/components/kit"
 import { Menubar } from "@/features/v2-shell/components/Menubar"
+import { useActionCooldown } from "@/lib/useActionCooldown"
 
 export const getServerSideProps: GetServerSideProps = async (ctx) => {
   ctx.res.setHeader("Cache-Control", "no-store, must-revalidate")
@@ -51,6 +52,7 @@ function splitLove(text: string): { male: string; female: string } | null {
 }
 
 export default function FortuneSagePage() {
+  const cd = useActionCooldown("fortune:sage") // กันบอทยิงรัว 10 วิ
   const [phase, setPhase] = useState<"intro" | "loading" | "result">("intro")
   const [stick, setStick] = useState<Stick | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -72,13 +74,15 @@ export default function FortuneSagePage() {
       const j = (await res.json().catch(() => ({}))) as { error?: string }
       if (!res.ok) { setRedeemMsg(res.status === 409 ? "ชี่ไม่พอ — เติมชี่ก่อน" : String(j.error ?? "แลกไม่สำเร็จ ลองใหม่")); return }
       setQuotaOut(false)
-      await draw()
+      await draw({ bypassCooldown: true })
     } finally {
       setRedeeming(false)
     }
   }
 
-  const draw = async () => {
+  const draw = async (opts?: { bypassCooldown?: boolean }) => {
+    // กันบอทยิงรัว/กดรัว 10 วิ (ข้ามตอน redeem+retry ที่จ่าย QI เอง)
+    if (!opts?.bypassCooldown && !cd.begin()) return
     setPhase("loading")
     setError(null)
     setQuotaOut(false)
@@ -95,6 +99,8 @@ export default function FortuneSagePage() {
     } catch {
       setError("เชื่อมต่อไม่สำเร็จ ลองใหม่อีกครั้ง")
       setPhase("intro")
+    } finally {
+      if (!opts?.bypassCooldown) cd.end()
     }
   }
 
@@ -161,7 +167,7 @@ export default function FortuneSagePage() {
             )}
             {redeemMsg && <p className="text-center text-[12px] font-bold text-v3-error">{redeemMsg}</p>}
             {error && <p data-testid="sage-error" className="text-center text-[12px] font-bold text-v3-error">{error}</p>}
-            <KitButton onClick={() => void draw()} testId="sage-draw">กดเพื่อเสี่ยงทาย</KitButton>
+            <KitButton onClick={() => void draw()} disabled={cd.active} testId="sage-draw">{cd.active ? `รออีก ${cd.secondsLeft} วินาที` : "กดเพื่อเสี่ยงทาย"}</KitButton>
           </section>
           {quotaOut && <Link href="/v2/qi" className="text-center text-[13px] font-bold text-v3-sapphire">เติม/แลก QI ที่หน้าพลังชี่ →</Link>}
           <p className="text-center text-[11px] text-v3-text-muted">ใช้โควตาเสี่ยงทายวันละ 1 ครั้ง (ฟรี) — เกินแล้วแลกด้วย QI</p>

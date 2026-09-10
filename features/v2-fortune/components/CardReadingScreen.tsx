@@ -8,6 +8,7 @@ import { useEffect, useMemo, useState } from "react"
 
 import { KitButton, SkyHeader, SkyScreen } from "@/features/v2-profile/components/kit"
 import { Menubar } from "@/features/v2-shell/components/Menubar"
+import { useActionCooldown } from "@/lib/useActionCooldown"
 
 export type FortuneCard = {
   no: number
@@ -53,6 +54,7 @@ export function CardReadingScreen({
   backHref?: string
 }) {
   const theme = THEME[mode]
+  const cd = useActionCooldown(`fortune:${mode}`) // กันบอทยิงรัว 10 วิ
   const [phase, setPhase] = useState<"intro" | "pick" | "loading" | "result">("intro")
   const [picked, setPicked] = useState<number[]>([])
   const [cards, setCards] = useState<FortuneCard[]>([])
@@ -108,13 +110,15 @@ export function CardReadingScreen({
       if (!res.ok) { setRedeemMsg(res.status === 409 ? "ชี่ไม่พอ — เติมชี่ก่อน" : String(j.error ?? "แลกไม่สำเร็จ ลองใหม่")); return }
       if (typeof j.qi === "number") setBalance(j.qi)
       setQuotaOut(false)
-      await predict()
+      await predict(undefined, { bypassCooldown: true })
     } finally {
       setRedeeming(false)
     }
   }
 
-  const predict = async (cardNos?: number[]) => {
+  const predict = async (cardNos?: number[], opts?: { bypassCooldown?: boolean }) => {
+    // กันบอทยิงรัว/กดรัว 10 วิ (ข้ามได้ตอน redeem+retry ที่ผู้ใช้จ่าย QI เอง)
+    if (!opts?.bypassCooldown && !cd.begin()) return
     setPhase("loading")
     setError(null)
     setQuotaOut(false)
@@ -141,6 +145,8 @@ export function CardReadingScreen({
     } catch {
       setError("เชื่อมต่อไม่สำเร็จ ลองใหม่อีกครั้ง")
       setPhase(cardNos ? "pick" : "intro")
+    } finally {
+      if (!opts?.bypassCooldown) cd.end()
     }
   }
 
@@ -213,7 +219,7 @@ export function CardReadingScreen({
               <Image src={introArt} alt="" fill sizes="300px" className="object-contain drop-shadow-[0_8px_24px_rgba(26,38,77,0.25)]" priority />
             </span>
             <div className="absolute inset-x-3 bottom-1 flex gap-2">
-              <button onClick={() => void predict()} data-testid="cards-random" className="grid h-11 flex-1 place-items-center rounded-full bg-white text-[13px] font-bold text-v3-sapphire shadow-md">กดเพื่อเสี่ยงทาย</button>
+              <button onClick={() => void predict()} disabled={cd.active} data-testid="cards-random" className="grid h-11 flex-1 place-items-center rounded-full bg-white text-[13px] font-bold text-v3-sapphire shadow-md disabled:opacity-50">{cd.active ? `รออีก ${cd.secondsLeft} วิ` : "กดเพื่อเสี่ยงทาย"}</button>
               <KitButton onClick={() => setPhase("pick")} testId="cards-goto-pick" className="flex-1 !h-11 shadow-md">เลือกเอง 3 ใบ</KitButton>
             </div>
           </div>
@@ -257,7 +263,7 @@ export function CardReadingScreen({
             })}
           </div>
           <div className="fixed inset-x-0 bottom-0 z-30 mx-auto w-full max-w-md border-t border-v3-border-card bg-white/95 px-4 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3 backdrop-blur">
-            <KitButton onClick={openPicked} disabled={picked.length !== 3} testId="cards-open">เปิดไพ่ทั้ง 3 ใบ · 10 QI</KitButton>
+            <KitButton onClick={openPicked} disabled={picked.length !== 3 || cd.active} testId="cards-open">{cd.active ? `รออีก ${cd.secondsLeft} วิ` : "เปิดไพ่ทั้ง 3 ใบ · 10 QI"}</KitButton>
           </div>
         </div>
       )}
