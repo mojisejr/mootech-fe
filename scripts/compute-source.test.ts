@@ -57,9 +57,15 @@ t('fallback: computeSource FULLY null + persona element → row renders from per
   assert.equal(resolveGreetingElementTh(null, 'ดิน'), 'ดิน')
 })
 
-t('fallback: compute element present → PREFERRED over persona (mascot-consistent)', () => {
-  const cs = toComputeSource(wrapped) // resolves to EARTH → ดิน
-  assert.equal(resolveGreetingElementTh(cs, 'ไม้'), 'ดิน') // compute wins; persona ignored
+t('persona (pdf-dev) is the ONLY source — compute element is never used', () => {
+  const cs = toComputeSource(wrapped) // mootech-be compute resolves to EARTH → ดิน
+  assert.equal(resolveGreetingElementTh(cs, 'ไม้'), 'ไม้') // persona wins; compute ignored
+})
+
+t('persona blank/whitespace/null → null (row hidden, NEVER the mootech-be element)', () => {
+  const cs = toComputeSource(wrapped) // compute would be ดิน — must be ignored
+  assert.equal(resolveGreetingElementTh(cs, '   '), null)
+  assert.equal(resolveGreetingElementTh(cs, null), null)
 })
 
 t('fallback: neither source has an element → null (row hidden — correct, no chart)', () => {

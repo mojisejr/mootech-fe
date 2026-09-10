@@ -198,6 +198,11 @@ export function reasonLabel(reason: string | null, missionTitles?: Map<string, s
   }
   if (reason.startsWith("qi:spend:")) return `แลก ${SPEND_LABELS[reason.slice(9)] ?? reason.slice(9)}`
   if (reason.startsWith("qi:refund:")) return `คืนแต้ม — ${SPEND_LABELS[reason.slice(10)] ?? reason.slice(10)} ล้ม`
+  // แอดมินปรับแต้มมือ (engine ส่ง reason "qi:ops:adjust" หรือ "qi:ops:adjust:<หมายเหตุ>") — โชว์แค่หมายเหตุ
+  if (reason.startsWith("qi:ops:adjust")) {
+    const note = reason.slice("qi:ops:adjust".length).replace(/^:/, "").trim()
+    return note || "ปรับโดยแอดมิน"
+  }
   if (reason.startsWith("mission:")) {
     const id = reason.slice(8)
     return missionTitles?.get(id) ?? `ภารกิจ ${id}`

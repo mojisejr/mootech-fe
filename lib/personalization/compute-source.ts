@@ -1,15 +1,20 @@
-import { resolveMascotFromCompute, type ComputeMascotSource } from '@/lib/personalization/mascot'
+import { type ComputeMascotSource } from '@/lib/personalization/mascot'
 
-// The greeting ธาตุ element string. Prefer the compute/mascot element (matches the character shown),
-// else fall back to bazi's persona element. CRITICAL: the persona path (/api/user → home-fortune BFF →
-// bazi) is INDEPENDENT of the compute path (ChineseHoroscopeGet → NEXT_PUBLIC_BACKEND_URL), so this
-// fallback renders the row even when the compute chain is FULLY null (e.g. a misconfigured backend
-// URL), not merely when the `.data` envelope was undefined. null only when NEITHER source has it.
+// The greeting ธาตุ element string — the day-master element the home header shows.
+// SOURCE OF TRUTH = bazi's persona (pdf-dev, the SAME engine as หน้า "ดวงของฉัน" via /api/destiny),
+// computed live from the current user row each home load. It does NOT fall back to the mootech-be
+// compute (ChineseHoroscopeGet → NEXT_PUBLIC_BACKEND_URL): the two engines disagree on the day-master
+// element (different solar-term/time handling) AND the mootech-be chart is served via a `result_code`
+// pointer that goes STALE after an edit-birth — so the compute value could be WRONG and mismatch
+// ดวงของฉัน. Showing a stale/other-engine element even for one frame is worse than showing none, so
+// while persona is still loading (or the engine is down) this returns null and the row stays hidden.
+// `_computeSource` is kept only for call-site compatibility and is intentionally unused.
 export function resolveGreetingElementTh(
-  computeSource: ComputeMascotSource | null,
+  _computeSource: ComputeMascotSource | null,
   personaElementTh: string | null | undefined,
 ): string | null {
-  return resolveMascotFromCompute(computeSource)?.elementTh ?? personaElementTh ?? null
+  const persona = typeof personaElementTh === 'string' ? personaElementTh.trim() : ''
+  return persona || null
 }
 
 // Map the raw ChineseHoroscopeGet response into the shape resolveMascotFromCompute reads.
