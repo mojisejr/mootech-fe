@@ -76,10 +76,9 @@ export const SERVICES = [
   // ดูดวงเบอร์มือถือ — มีอาร์ตเต็มใบ (12_เบอร์มือถือ.png) + หน้าจริง /v2/service/phone-number (rebuild
   // ตาม Figma + คิด 10 QI + แคชรายวัน). อยู่ "ก่อนร้านค้า" (ฟีม 2026-09-10).
   { id: 'phone-number', title: 'ดูดวงเบอร์มือถือ', desc: DESC_PHONE, href: '/v2/service/phone-number', image: ART('12_เบอร์มือถือ.png') },
-  // เบอร์รังผึ้ง (Honeycomb) — หน้า/engine พร้อมแล้ว (/v2/service/honeycomb). แสดงการ์ดเลย (ฟีมสั่ง 2026-09-10)
-  // ยังไม่มีอาร์ตเต็มใบ → ServiceCardArt คืน null การ์ดเป็นพื้นเรียบ+ข้อความ (placeholder, ไม่ใช่รูปแตก).
-  // ได้ภาพจาก Drive เมื่อไหร่ → ใส่ image: ART('13_เบอร์รังผึ้ง.png').
-  { id: 'honeycomb', title: 'เบอร์รังผึ้ง', desc: DESC_HONEYCOMB, href: '/v2/service/honeycomb' },
+  // เบอร์รังผึ้ง (Honeycomb) — ไม่แยกการ์ดแล้ว: เป็น "โหมด" ในหน้าดูเบอร์มือถือ (สลับธรรมดา/รังผึ้ง) ฟีม 2026-09-10.
+  // เก็บ entry ไว้ (hidden) เพื่อคง route /v2/service/honeycomb + ServiceId 'honeycomb'; ไม่โชว์การ์ดในฮับ.
+  { id: 'honeycomb', title: 'เบอร์รังผึ้ง', desc: DESC_HONEYCOMB, href: '/v2/service/honeycomb', hiddenUntilArt: true },
   { id: 'shop', title: 'ร้านค้าของเรา', desc: DESC_SHOP, href: '/v2/shop', image: ART('11_ร้านค้าของเรา.png') },
   // #13, added 2026-08-08 — NOT from the Figma 12. The home screen (Zone 6) has been selling this since
   // #157, but it existed nowhere in the catalog, so its CTA had no name to send anywhere. Hidden for the
