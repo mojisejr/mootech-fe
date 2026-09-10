@@ -36,7 +36,7 @@ vi.stubGlobal('fetch', fetchMock)
 
 import FortuneSagePage from '@/pages/v2/fortune/sage'
 
-beforeEach(() => { sageStatus = 200; sageQi = null; fetchMock.mockClear() })
+beforeEach(() => { sageStatus = 200; sageQi = null; fetchMock.mockClear(); try { localStorage.clear() } catch { /* cooldown ต่อเคส */ } })
 afterEach(() => cleanup())
 
 describe('เซียมซีเสี่ยงทาย', () => {
@@ -88,13 +88,13 @@ describe('เซียมซีเสี่ยงทาย', () => {
     render(<FortuneSagePage />)
     fireEvent.click(screen.getByTestId('sage-draw'))
     expect((await screen.findByTestId('sage-qi-source', {}, { timeout: 4000 })).textContent).toBe('ฟรีวันนี้')
-    cleanup()
+    cleanup(); try { localStorage.clear() } catch { /* รีเซ็ตคูลดาวน์ก่อน draw รอบถัดไป */ }
 
     sageQi = { source: 'qi', cost: 10 }
     render(<FortuneSagePage />)
     fireEvent.click(screen.getByTestId('sage-draw'))
     expect((await screen.findByTestId('sage-qi-source', {}, { timeout: 4000 })).textContent).toBe('ใช้ไป 10 QI')
-    cleanup()
+    cleanup(); try { localStorage.clear() } catch { /* รีเซ็ตคูลดาวน์ */ }
 
     sageQi = null
     render(<FortuneSagePage />)

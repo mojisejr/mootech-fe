@@ -57,7 +57,7 @@ const renderOracle = () =>
     <CardReadingScreen mode="oracle" title="เสี่ยงไพ่ออราเคิลเคี้ยงคุง" resultTitle="ผลไพ่ออราเคิล" introArt="/x.png" endpoint="/api/fortune/oracle" deckCount={12} />,
   )
 
-beforeEach(() => { predictStatus = 200; cardsOut = CARDS; lastBody = {}; spendBodies = []; fetchMock.mockClear() })
+beforeEach(() => { predictStatus = 200; cardsOut = CARDS; lastBody = {}; spendBodies = []; fetchMock.mockClear(); try { localStorage.clear() } catch { /* cooldown ต่อเคส */ } })
 afterEach(() => cleanup())
 
 describe('เสี่ยงไพ่ (oracle/divine)', () => {
