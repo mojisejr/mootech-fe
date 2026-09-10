@@ -63,7 +63,7 @@ const PERSONAS: Record<PersonaKey, { name: string; greeting: string; poses: Reco
 // เดาอารมณ์จากบริบทคำถาม+คำตอบ → เลือกท่ามาสคอต
 function classifyMood(text: string): Mood {
   const t = text.toLowerCase()
-  if (/รัก|คู่ครอง|แฟน|สมพงษ์|ความรัก|หัวใจ|คนรู้ใจ|เนื้อคู่|ครอบครัว/.test(t)) return "special"
+  if (/รัก|คู่ครอง|แฟน|สมพงศ์|ความรัก|หัวใจ|คนรู้ใจ|เนื้อคู่|ครอบครัว/.test(t)) return "special"
   if (/ระวัง|ปัญหา|ยาก|เสี่ยง|ระมัดระวัง|พิจารณา|ไม่แน่|อุปสรรค|หนี้|เตือน|วิเคราะห์|ซับซ้อน/.test(t)) return "think"
   return "happy"
 }
@@ -71,7 +71,7 @@ function classifyMood(text: string): Mood {
 // figma-copy (ตรวจแล้ว 2026-09-02): ไม่พบเป็น text layer ใน final/V3 — รอ designer ยืนยัน
 const STARTER_CHIPS = [
   { label: "ดวงวันนี้เป็นงัย 🌟", question: "ดวงวันนี้ของฉันเป็นอย่างไรบ้าง?" },
-  { label: "ความสมพงษ์ 💖", question: "เรื่องความรักและคู่ครองที่เหมาะกับฉันเป็นแบบไหน?" },
+  { label: "ความสมพงศ์ 💖", question: "เรื่องความรักและคู่ครองที่เหมาะกับฉันเป็นแบบไหน?" },
   { label: "เลขนำโชครายวัน 🎴", question: "เลขนำโชคของฉันวันนี้คืออะไร?" },
 ]
 

@@ -70,7 +70,7 @@ export const PLANS: readonly Plan[] = [
       //   NBSP after the number 360 wraps 'ความรัก: 2 match /' / 'เดือน'   — the mojisejr/mootech-fe#517 shape exactly
       //   NBSP through the rate 320·360·393 all break before '2', never inside it
       // textContent is identical in all three cases, which is why no assertion could have found this.
-      'ดวงสมพงษ์ การงาน, ความรัก: 2\u00A0match\u00A0/\u00A0เดือน',
+      'ดวงสมพงศ์ การงาน, ความรัก: 2\u00A0match\u00A0/\u00A0เดือน',
       // 🔴 #358 — the DEPTH is named, not only the SPAN. Every other bullet on this card is a RATE
       // (2 match / เดือน · 2 ครั้ง / วัน · 1 คำถาม / วัน — the first of those became a rate in #573), so a
       // reader is primed to read a bare '(1 เดือน)' as a quantity and expect the full reading for a month. A free day is a SUMMARY:
@@ -91,7 +91,7 @@ export const PLANS: readonly Plan[] = [
     name: 'Mumate +',
     tagline: 'สำหรับคนใช้ประจำและสายมูระดับเริ่มต้น',
     features: [
-      'ดวงสมพงษ์ การงาน, ความรัก: 20\u00A0match\u00A0/\u00A0เดือน', // #573 — same cycle + NBSP, same shape as Free
+      'ดวงสมพงศ์ การงาน, ความรัก: 20\u00A0match\u00A0/\u00A0เดือน', // #573 — same cycle + NBSP, same shape as Free
       'ปฏิทินดวงเฉพาะบุคคล 1 ปีเต็ม (รายวันแบบเต็ม)',
       'เชี่ยวมู chat (ชินแซ 24 ชม): 5\u00A0คำถาม\u00A0/\u00A0วัน',
       'เซียมซี / Oracle Card: 10\u00A0ครั้ง\u00A0/\u00A0วัน',
@@ -111,7 +111,7 @@ export const PLANS: readonly Plan[] = [
       // cycle that is not there, and a reader who has met the Free and + cards reads a cycle as a cap. The
       // other two Pro bullets are bare 'ไม่จำกัด' for the same reason; changing one of the three would make
       // this card internally uneven while making the set of cards look even.
-      'ดวงสมพงษ์ การงาน, ความรัก ไม่จำกัด (Unlimited)',
+      'ดวงสมพงศ์ การงาน, ความรัก ไม่จำกัด (Unlimited)',
       'ปฏิทินดวงเฉพาะบุคคล ไม่จำกัด (รายวันแบบเต็ม)',
       'เชี่ยวมู chat (ชินแซ 24 ชม): ไม่จำกัด (Unlimited)',
     ],

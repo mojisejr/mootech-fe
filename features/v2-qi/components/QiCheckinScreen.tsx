@@ -281,7 +281,7 @@ export function QiCheckinScreen() {
             </div>
           </div>
           <div className="mt-5 flex flex-col gap-2">
-            <KitButton href="/v2/qi" testId="qi-checkin-celebrate-cta">ใช้ QI ถามเซียนมูเลย</KitButton>
+            <KitButton href="/v2/qi" testId="qi-checkin-celebrate-cta">ใช้ QI ถามเซียนมู่เลย</KitButton>
             <KitButton variant="ghost" onClick={() => setCelebrate(false)}>เริ่มสัปดาห์ใหม่พรุ่งนี้</KitButton>
           </div>
         </SheetShell>

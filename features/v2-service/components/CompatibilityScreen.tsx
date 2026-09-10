@@ -4,7 +4,7 @@
 // (differ only in row 2 + the button colour), NOT two screens.
 //
 // DELIBERATE divergences from Figma, by ฟีม's ruling (2026-07-29) — recorded here + in evidence, like ซินแส #145:
-//  • hero "เช็คความสมพงค์" (Figma, ค์) → "เช็คความสมพงศ์" (ศ์) · tagline "ด้านความความรัก" (Figma, doubled
+//  • hero "เช็คความสมพงศ์" (Figma, ค์) → "เช็คความสมพงศ์" (ศ์) · tagline "ด้านความความรัก" (Figma, doubled
 //    "ความ") → "ด้านความรัก". Figma still shows the typos; these strings INTENTIONALLY differ, ฟีม-ordered.
 //  • person1 "แก้ไข" (edit your own birth info) is in the Figma but NOT in Slice 1's real-work list (select +
 //    create only; no self-edit API is wired). Rendered per Figma; wired to a placeholder "เร็วๆ นี้" sheet so

@@ -21,7 +21,7 @@ import {
   type Tier,
 } from '@/lib/v2/entitlement'
 
-describe('#358 ดวงสมพงษ์ — counted per month, three different answers', () => {
+describe('#358 ดวงสมพงศ์ — counted per month, three different answers', () => {
   it('🔴 PLUS and PRO are not the same as FREE', () => {
     expect(monthlyQuotaFor('FREE', 'compatibility')).toBe(2)
     expect(monthlyQuotaFor('PLUS', 'compatibility')).toBe(20)
@@ -78,14 +78,14 @@ describe('#358 the table must not drift from what the shop already sells', () =>
     // and until #573 the card stated the number while staying silent about the window. Asserting the whole
     // sentence makes this tooth cover both halves instead of one.
     // Free card
-    expect(shop).toContain(String.raw`ดวงสมพงษ์ การงาน, ความรัก: 2\u00A0match\u00A0/\u00A0เดือน`)
+    expect(shop).toContain(String.raw`ดวงสมพงศ์ การงาน, ความรัก: 2\u00A0match\u00A0/\u00A0เดือน`)
     expect(shop).toContain('ปฏิทินดวงเฉพาะบุคคล เดือนปัจจุบัน (ดูสรุปรายวัน)')
     // Plus card
-    expect(shop).toContain(String.raw`ดวงสมพงษ์ การงาน, ความรัก: 20\u00A0match\u00A0/\u00A0เดือน`)
+    expect(shop).toContain(String.raw`ดวงสมพงศ์ การงาน, ความรัก: 20\u00A0match\u00A0/\u00A0เดือน`)
     expect(shop).toContain('ปฏิทินดวงเฉพาะบุคคล 1 ปีเต็ม (รายวันแบบเต็ม)')
     // Pro card — deliberately NO cycle: COUNT_PER_MONTH.compatibility.PRO is null, so there is no month to
     // name. A ' / เดือน' appearing here would be a regression, not an improvement.
-    expect(shop).toContain('ดวงสมพงษ์ การงาน, ความรัก ไม่จำกัด (Unlimited)')
+    expect(shop).toContain('ดวงสมพงศ์ การงาน, ความรัก ไม่จำกัด (Unlimited)')
     expect(shop).not.toContain('ไม่จำกัด (Unlimited) / เดือน')
     expect(shop).toContain('ปฏิทินดวงเฉพาะบุคคล ไม่จำกัด (รายวันแบบเต็ม)')
   })

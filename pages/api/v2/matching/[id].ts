@@ -1,4 +1,4 @@
-// GET /api/v2/matching/<matching_id> — one ดวงสมพงษ์ result (#357). Replaces v1 GET /user-matching/detail.
+// GET /api/v2/matching/<matching_id> — one ดวงสมพงศ์ result (#357). Replaces v1 GET /user-matching/detail.
 //
 // 🔴 be looked the row up by matching_id ALONE (matching.service.ts:311-327, controller.ts:35) with no
 // ownership predicate, so anyone holding an id could read someone else's reading — names, birth dates and

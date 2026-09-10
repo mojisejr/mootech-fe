@@ -133,10 +133,10 @@ const CONFIG: Record<CompatibilityKind, CompatibilityConfig> = {
     pickLabel: 'เลือกเพื่อนร่วมงาน',
     maxCandidates: 3,
     // Figma 720:25502, transcribed from the rendered pixels at 3x — NOT from a layer name.
-    // ⚠️ The frame spells the word two ways in the same screen: the heading above reads "สมพงค์" and this
-    // line reads "สมพงษ์". Both are kept verbatim rather than harmonised here, because picking one would
+    // ⚠️ The frame spells the word two ways in the same screen: the heading above reads "สมพงศ์" and this
+    // line reads "สมพงศ์". Both are kept verbatim rather than harmonised here, because picking one would
     // be this file inventing copy. Raised on the ticket.
-    tagline: ['ระบบจับคู่หลักวันแบบแม่นตามตำราคู่สมพงษ์', '(การงาน) แล้วจัดอันดับว่าใครเข้ากับเราดีที่สุด'],
+    tagline: ['ระบบจับคู่หลักวันแบบแม่นตามตำราคู่สมพงศ์', '(การงาน) แล้วจัดอันดับว่าใครเข้ากับเราดีที่สุด'],
   },
 }
 

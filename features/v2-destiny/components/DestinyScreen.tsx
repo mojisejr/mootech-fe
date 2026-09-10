@@ -504,12 +504,12 @@ function LuckyCard({ colors, deity }: { colors?: string[]; deity?: string | null
   )
 }
 
-// การ์ด "ดูดวงด้านอื่นต่อ" — คู่รัก/เพื่อนร่วมงาน/ถามเซียนมู (แทน จองไว้ล่วงหน้าเดิม)
+// การ์ด "ดูดวงด้านอื่นต่อ" — คู่รัก/เพื่อนร่วมงาน/ถามเซียนมู่ (แทน จองไว้ล่วงหน้าเดิม)
 function MoreReadingsCard() {
   const rows = [
     { title: "ดูดวงคู่รัก", sub: "เทียบธาตุกับคนที่คุณสนใจ", href: "/v2/service", icon: "/images/v2/mascot/personas/mi/love.png", tint: "#fbecec", pad: false },
     { title: "ดูดวงเพื่อนร่วมงาน", sub: "ดูว่าทำงานกับใครแล้วรุ่ง", href: "/v2/service", icon: "/images/v2/destiny/icons/friends.svg", tint: "#eaf0fa", pad: true },
-    { title: "ถามเซียนมูเรื่องนี้ต่อ", sub: "ถามลึกกว่าที่อ่านไปได้ที", href: "/v2/chat", icon: "/images/v2/mascot/personas/mu/greet.png", tint: "#eef7f0", pad: false },
+    { title: "ถามเซียนมู่เรื่องนี้ต่อ", sub: "ถามลึกกว่าที่อ่านไปได้ที", href: "/v2/chat", icon: "/images/v2/mascot/personas/mu/greet.png", tint: "#eef7f0", pad: false },
   ]
   return (
     <section className="rounded-[20px] bg-white p-5 v3-shadow-card" data-testid="destiny-more">
@@ -664,7 +664,7 @@ export function DestinyScreen({ previewData }: { previewData?: DestinyData } = {
 
   return (
     <div
-      className="font-ibm mx-auto min-h-[100dvh] w-full max-w-md overflow-hidden bg-white pb-10"
+      className="font-ibm mx-auto min-h-[100dvh] w-full max-w-md overflow-hidden bg-white pb-28"
       style={{
         backgroundImage: "url(/images/v2/destiny/bg-top.png)",
         backgroundRepeat: "no-repeat",
@@ -816,29 +816,6 @@ export function DestinyScreen({ previewData }: { previewData?: DestinyData } = {
           </section>
           </div>
 
-          {/* ป้ายปักหมุด: แชร์วันนี้รับ +10 QI + ปุ่ม Mate AI */}
-          <div className="mx-4 mt-3 flex items-center gap-2" data-testid="destiny-share-pill">
-            <button
-              onClick={shareToday}
-              data-testid="destiny-share"
-              className="flex h-[56px] min-w-0 flex-1 items-center justify-center gap-2 rounded-full bg-v3-sapphire text-[13px] font-bold text-v3-lime v3-shadow-card transition active:scale-[0.99]"
-            >
-              <span aria-hidden className="flex items-center gap-2">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" className="text-v3-lime">
-                  <circle cx="18" cy="5" r="2.4" stroke="currentColor" strokeWidth="1.8" />
-                  <circle cx="6" cy="12" r="2.4" stroke="currentColor" strokeWidth="1.8" />
-                  <circle cx="18" cy="19" r="2.4" stroke="currentColor" strokeWidth="1.8" />
-                  <path d="m8.1 10.9 7.8-4.4M8.1 13.1l7.8 4.4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-                </svg>
-                {shareState === "done" ? "รับ +10 QI แล้ว 🎉" : shareState === "capped" ? "วันนี้รับ +10 QI ไปแล้ว" : "แชร์ผลทำนายนี้ รับ +10 QI"}
-              </span>
-            </button>
-            {/* ปุ่ม Mate AI จริง — persona เสี่ยวมู่↔เสี่ยวมี่ วนสลับ + มาสคอต (reuse ตัวเดียวกับ nav) */}
-            <span data-testid="destiny-mate-ai" className="flex-none">
-              <MateAIButton />
-            </span>
-          </div>
-
           <div className="mx-4 mt-4 flex flex-col gap-4">
             {/* ดวงจะส่งผล 8 ด้าน — ชิปเสา + จุดอ่อน 4 ด้าน */}
             <section className="rounded-[20px] bg-white p-5 v3-shadow-card" data-testid="destiny-pillars">
@@ -933,7 +910,7 @@ export function DestinyScreen({ previewData }: { previewData?: DestinyData } = {
             {/* เส้นทางชีวิต (Life Path) — recharts + แท็บ ทั้งหมด/5ปี/1ปี/1เดือน (Figma 55349:3332) */}
             {lifePath && lifePath.series && <LifePathCard lifePath={lifePath} />}
 
-            {/* ดูดวงด้านอื่นต่อ — คู่รัก/เพื่อนร่วมงาน/ถามเซียนมู (Figma what-next) */}
+            {/* ดูดวงด้านอื่นต่อ — คู่รัก/เพื่อนร่วมงาน/ถามเซียนมู่ (Figma what-next) */}
             <MoreReadingsCard />
 
             {/* การ์ดชวนเพื่อน — ปลายทางจริงคือจอพลังชี่ (/v2/qi) ที่มีโค้ดแนะนำคัดลอก/ใช้โค้ดครบ
@@ -952,6 +929,33 @@ export function DestinyScreen({ previewData }: { previewData?: DestinyData } = {
                 <path d="m6 3.5 4.5 4.5L6 12.5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
               </svg>
             </Link>
+          </div>
+
+          {/* แถบล่างฟิกซ์ที่ขอบจอ (ฟีม 2026-09-10): แชร์ +10 QI + ปุ่มเสี่ยวมู่ — แทนตำแหน่ง Menubar (หน้านี้ไม่มี
+              Menubar), เนื้อหาเลื่อนลอดใต้. มิเรอร์คลาส fixed ของ Menubar (inset-x-0 bottom-0 z-40 mx-auto max-w-md). */}
+          <div
+            className="fixed inset-x-0 bottom-0 z-40 mx-auto flex max-w-md items-center gap-2 px-4 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-2"
+            data-testid="destiny-share-pill"
+          >
+            <button
+              onClick={shareToday}
+              data-testid="destiny-share"
+              className="flex h-[56px] min-w-0 flex-1 items-center justify-center gap-2 rounded-full bg-v3-sapphire text-[13px] font-bold text-v3-lime v3-shadow-card transition active:scale-[0.99]"
+            >
+              <span aria-hidden className="flex items-center gap-2">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" className="text-v3-lime">
+                  <circle cx="18" cy="5" r="2.4" stroke="currentColor" strokeWidth="1.8" />
+                  <circle cx="6" cy="12" r="2.4" stroke="currentColor" strokeWidth="1.8" />
+                  <circle cx="18" cy="19" r="2.4" stroke="currentColor" strokeWidth="1.8" />
+                  <path d="m8.1 10.9 7.8-4.4M8.1 13.1l7.8 4.4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+                </svg>
+                {shareState === "done" ? "รับ +10 QI แล้ว 🎉" : shareState === "capped" ? "วันนี้รับ +10 QI ไปแล้ว" : "แชร์ผลทำนายนี้ รับ +10 QI"}
+              </span>
+            </button>
+            {/* ปุ่ม Mate AI จริง — persona เสี่ยวมู่↔เสี่ยวมี่ วนสลับ + มาสคอต (reuse ตัวเดียวกับ nav) */}
+            <span data-testid="destiny-mate-ai" className="flex-none">
+              <MateAIButton />
+            </span>
           </div>
         </>
       )}

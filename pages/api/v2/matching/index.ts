@@ -1,4 +1,4 @@
-// GET /api/v2/matching — the caller's ดวงสมพงษ์ history (#357, colleague lane added by #585).
+// GET /api/v2/matching — the caller's ดวงสมพงศ์ history (#357, colleague lane added by #585).
 //
 // 🔴 be took user_id from the QUERY STRING (matching.controller.ts:29), so any caller could list any
 // account's history. Here the list is always the session's own; there is no user_id parameter to pass.

@@ -313,7 +313,7 @@ export function CardReadingScreen({
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" /></svg>
               </span>
               <span className="min-w-0 flex-1">
-                <span className="block text-[13px] font-bold text-v3-navy">ถามเซียนมูเรื่องไพ่ชุดนี้</span>
+                <span className="block text-[13px] font-bold text-v3-navy">ถามเซียนมู่เรื่องไพ่ชุดนี้</span>
                 <span className="block text-[11px] text-v3-text-muted">คุยเจาะลึกกับ AI · 30 QI ต่อคำถาม</span>
               </span>
               <span className="flex-none text-[16px] font-bold text-v3-text-muted">›</span>

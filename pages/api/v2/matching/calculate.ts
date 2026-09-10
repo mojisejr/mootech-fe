@@ -1,4 +1,4 @@
-// POST /api/v2/matching/calculate — ดวงสมพงษ์, computed on FE against the bazi engine (#357).
+// POST /api/v2/matching/calculate — ดวงสมพงศ์, computed on FE against the bazi engine (#357).
 // Replaces the v1 hop through mootech-be POST /user-matching. v1's route stays live and untouched.
 //
 // 🔴 The request NEVER names its subject. be took user_id from the body (matching.controller.ts:13), and

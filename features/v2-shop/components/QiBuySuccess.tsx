@@ -62,7 +62,7 @@ export function QiBuySuccess({ packageCode, charge, order }: { packageCode: stri
         ) : (
           <span className="mt-3 inline-block rounded-full bg-white/15 px-3 py-1 text-[12px] font-bold text-white">เพิ่มขึ้น {delta.toLocaleString("th-TH")} QI</span>
         )}
-        <p className="mt-3 text-[13px] leading-[18px] text-white/90">พอถามเซียนมู AI ได้อีก {asks} ครั้ง หรือเปิดไพ่ได้ {cards} ครั้ง</p>
+        <p className="mt-3 text-[13px] leading-[18px] text-white/90">พอถามเซียนมู่ AI ได้อีก {asks} ครั้ง หรือเปิดไพ่ได้ {cards} ครั้ง</p>
       </section>
 
       {/* ใบเสร็จย่อ */}
@@ -77,7 +77,7 @@ export function QiBuySuccess({ packageCode, charge, order }: { packageCode: stri
       ) : null}
 
       <div className="flex w-full flex-col gap-2">
-        <KitButton href="/v2/chat" testId="qi-success-chat">ถามเซียนมูเลย</KitButton>
+        <KitButton href="/v2/chat" testId="qi-success-chat">ถามเซียนมู่เลย</KitButton>
         <Link href="/v2/qi" data-testid="qi-success-wallet" className="grid h-12 w-full place-items-center rounded-full border border-v3-sapphire bg-white text-[15px] font-bold text-v3-sapphire">
           ดูพลังชี่ของฉัน
         </Link>

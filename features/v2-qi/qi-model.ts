@@ -180,7 +180,7 @@ const EARN_LABELS: Record<string, string> = {
 const SPEND_LABELS: Record<string, string> = {
   card_use: "เปิดการ์ด/เสี่ยงทาย",
   chat_question: "ถาม AI",
-  matching_slot: "ช่องจับคู่สมพงษ์",
+  matching_slot: "ช่องจับคู่สมพงศ์",
   course_destiny: "คอร์สลิขิตชีวิต",
   plus_month: "แพ็กเกจ PLUS 1 เดือน",
   book_lifecode: "หนังสือ Life Code",

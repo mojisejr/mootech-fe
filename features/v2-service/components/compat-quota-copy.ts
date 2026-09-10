@@ -1,4 +1,4 @@
-// features/v2-service/components/compat-quota-copy.ts — the ดวงสมพงษ์ refusal, built from the wire.
+// features/v2-service/components/compat-quota-copy.ts — the ดวงสมพงศ์ refusal, built from the wire.
 //
 // 🔴 WHY THIS IS A FUNCTION AND NOT A STRING (#557). The line it replaces was a constant that named the
 // period by hand: first "สำหรับปีนี้", then "สำหรับเดือนนี้". Both were true when typed and neither could

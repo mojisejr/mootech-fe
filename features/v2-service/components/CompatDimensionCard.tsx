@@ -1,6 +1,6 @@
 // features/v2-service/components/CompatDimensionCard.tsx — 1 มิติใน "ความเข้ากัน N ด้าน" (Figma 636:18819 §Grade color)
 // สเปก design context (MCP 2026-09-07):
-//   แถว: ไอคอน 56 #EAF0FA r10 (asset "ดวงสมพงค์" 26.8 = dim-icon-1..3.svg, วนตามลำดับมิติ) · label 16 semibold #464646
+//   แถว: ไอคอน 56 #EAF0FA r10 (asset "ดวงสมพงศ์" 26.8 = dim-icon-1..3.svg, วนตามลำดับมิติ) · label 16 semibold #464646
 //   · Tag 14 semibold/20 (⭐ จุดแข็ง #2E7D32 บน rgba(46,125,50,.14) / ⚠️ ต้องดูแล #B71C1C บน rgba(183,28,28,.14), px7 py3 r100)
 //   Bar Row: bar h10 #EAECEF fill สีเกรด · % 14 REGULAR/22 สีเกรด · badge เกรด w48 px14 py4 r100 (16 bold, ตัวขาว / C+ #374151)
 //   กล่องเหตุผล (gap4 จากแถว): พื้นตามเกรด (TIER_SOFT) · px12 py10 · r16 · bullet list 14/22 #464646 (ratingText แยกบรรทัด = 1 bullet)
@@ -12,7 +12,7 @@ const INK_BODY = '#464646'
 const TONE_INK: Record<'strong' | 'watch', string> = { strong: '#2E7D32', watch: '#B71C1C' }
 // Figma Tag bg = the ink at 14% (sampled: rgba(46,125,50,0.14) / rgba(183,28,28,0.14))
 const TONE_BG: Record<'strong' | 'watch', string> = { strong: 'rgba(46,125,50,0.14)', watch: 'rgba(183,28,28,0.14)' }
-// Figma 636:18819 draws three distinct "ดวงสมพงค์" glyphs across the five rows (img · img1 · img2); the file
+// Figma 636:18819 draws three distinct "ดวงสมพงศ์" glyphs across the five rows (img · img1 · img2); the file
 // binds none of them to a dimension key, so the icon is picked by ROW INDEX (0,1,2,0,1…) — decoration, not data.
 const DIM_ICONS = ['dim-icon-1.svg', 'dim-icon-2.svg', 'dim-icon-3.svg'] as const
 
