@@ -224,7 +224,7 @@ export function QiScreen() {
           <section data-testid="qi-hero" className="flex flex-col items-center overflow-hidden rounded-[22px] bg-white text-center">
             {/* รูปมาสคอตเต็มความสูง (4:3 ของไฟล์ 800×600) — ผู้ใช้ 2026-09-07: เอา orb กลางออก ขยายรูปลงมาแทน */}
             <span className="relative block aspect-[4/3] w-full">
-              <Image src={`${G}/hero-mascots.jpg`} alt="" fill sizes="393px" priority className="object-cover" />
+              <Image src={`${G}/hero-mascots.png`} alt="" fill sizes="393px" priority className="object-cover" />
             </span>
             <div className="flex flex-col items-center gap-3.5 px-5 pb-6 pt-4">
               <h2 className="text-[24px] font-bold leading-8 text-v3-navy">คู่มือสะสมและใช้พลังชี่</h2>

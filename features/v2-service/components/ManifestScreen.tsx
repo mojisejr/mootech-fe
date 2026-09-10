@@ -203,7 +203,7 @@ function ReminderCard() {
   return (
     <section className="rounded-[24px] bg-white p-5 v3-shadow-card" data-testid="manifest-reminder">
       <p className="text-[16px] font-bold text-v3-navy">ตั้งเวลาแมนิเฟสต์</p>
-      <p className="mt-1 text-[12px] leading-4 text-v3-text-muted">คนที่ตั้งเวลาอ่านต่อเนื่องได้นานกว่าถึง 3 เท่า</p>
+      <p className="mt-1 text-[12px] leading-4 text-v3-text-muted">คนที่ตั้งเวลาอ่าน ทำต่อเนื่องได้นานกว่าถึง 3 เท่า</p>
       <div className="mt-3 flex items-center justify-between rounded-[16px] bg-v3-ghost-white px-4 py-3">
         <div>
           <input type="time" value={time} onChange={(e) => { setTime(e.target.value); persist(e.target.value, on) }} className="bg-transparent text-[20px] font-black text-v3-navy outline-none" data-testid="manifest-reminder-time" />
