@@ -158,14 +158,14 @@ export function OneBookScreen() {
 
         {/* NOT JUST FORTUNE — full-bleed สีน้ำเงิน + มาสคอตนกน้ำ/ไฟ ด้านขวา (เหมือนการ์ดซินแสหน้าแรก) */}
         <section className="relative -mx-4 w-[calc(100%+2rem)] overflow-hidden bg-v3-sapphire px-6 py-6 text-white">
-          {/* มาสคอตนกน้ำ ล้นขวา-ล่าง (reuse zone4/mascot-sian.png) — ต้องเห็นชัด, ปุ่มทับแค่ขอบซ้ายของมัน */}
-          <img src="/images/v2/zone4/mascot-sian.png" alt="" aria-hidden className="one-float pointer-events-none absolute -right-3 bottom-[-6px] z-[5] h-[150px] w-[150px] max-w-none object-contain" />
+          {/* มาสคอตเซียนมู่ (mascot/01.webp — ตัวเดียวกับ Figma) ล้นขวา-ล่าง, ปุ่มทับแค่ขอบซ้ายของมัน */}
+          <img src="/images/v2/mascot/01.webp" alt="" aria-hidden className="one-float pointer-events-none absolute -right-3 bottom-[-6px] z-[5] h-[158px] w-[158px] max-w-none object-contain" />
           {/* ไฟ (สไปรต์เดียวกับหน้าแรก) */}
-          <img src="/images/v2/zone5/sprite-fire.png" alt="" aria-hidden className="one-fire pointer-events-none absolute right-[118px] top-6 z-[6] h-[46px] w-[39px] max-w-none" />
+          <img src="/images/v2/zone5/sprite-fire.png" alt="" aria-hidden className="one-fire pointer-events-none absolute right-[60px] top-6 z-[6] h-[46px] w-[39px] max-w-none" />
           <div className="relative z-10 flex flex-col gap-2.5">
             <h2 className="max-w-[78%] text-[19px] font-black leading-7">เพราะคุณไม่ใช่แค่ <span className="text-v3-lime">“คำทำนาย”</span><br />และไม่ใช่แค่ <span className="text-v3-lime">“ดวงชะตา”</span></h2>
             <p className="text-[13px] font-bold">YOUR LIFE CODE</p>
-            <p className="max-w-[64%] text-[13px] leading-5 text-white/85">ไม่ได้บอกว่าอนาคตจะเป็นยังไง แต่บอกว่าคุณถูกออกแบบมาแบบไหน และควรเดินด้วยจังหวะของใคร</p>
+            <p className="max-w-[66%] text-[13px] leading-5 text-white/85">ไม่ได้บอกว่าอนาคตจะเป็นยังไง<br />แต่บอกว่าคุณถูกออกแบบมาแบบไหน<br />และควรเดินด้วยจังหวะของใคร</p>
             <a href={LINE_ORDER_URL} target="_blank" rel="noopener noreferrer" className="relative z-20 mt-1 grid h-11 w-[72%] place-items-center rounded-full bg-v3-lime px-4 text-[14px] font-bold text-v3-navy">สั่งซื้อเลย YOUR LIFE CODE</a>
           </div>
         </section>
