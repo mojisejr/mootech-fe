@@ -156,19 +156,19 @@ export function OneBookScreen() {
           <p className="text-center text-[13px] font-bold leading-5 text-v3-sapphire">ถ้าตอบว่าใช่มากกว่า 3 ข้อ<br />แปลว่าคุณกำลังฝืนแบบแผนของตัวเองอยู่</p>
         </section>
 
-        {/* NOT JUST FORTUNE — มาสคอต+ไฟ ด้านขวา (เหมือนการ์ดซินแสหน้าแรก) */}
-        <section className="relative overflow-hidden rounded-[24px] bg-v3-sapphire p-5 text-white">
+        {/* NOT JUST FORTUNE — full-bleed สีน้ำเงิน + มาสคอตนกน้ำ/ไฟ ด้านขวา (เหมือนการ์ดซินแสหน้าแรก) */}
+        <section className="relative -mx-4 w-[calc(100%+2rem)] overflow-hidden rounded-[24px] bg-v3-sapphire px-6 py-6 text-white">
           {/* มาสคอตนกน้ำ ล้นขวา-ล่าง (reuse zone4/mascot-sian.png) */}
-          <div className="pointer-events-none absolute -right-3 bottom-[-16px] z-0 h-[150px] w-[150px] overflow-hidden">
-            <img src="/images/v2/zone4/mascot-sian.png" alt="" aria-hidden className="absolute left-1/2 top-1/2 w-[150px] max-w-none -translate-x-1/2 -translate-y-1/2" />
+          <div className="pointer-events-none absolute right-0 bottom-[-14px] z-0 h-[164px] w-[164px] overflow-hidden">
+            <img src="/images/v2/zone4/mascot-sian.png" alt="" aria-hidden className="absolute left-1/2 top-1/2 w-[164px] max-w-none -translate-x-1/2 -translate-y-1/2" />
           </div>
           {/* ไฟ (สไปรต์เดียวกับหน้าแรก) */}
-          <img src="/images/v2/zone5/sprite-fire.png" alt="" aria-hidden className="pointer-events-none absolute right-[96px] top-7 z-[1] h-[46px] w-[39px] max-w-none" />
-          <div className="relative z-10 flex flex-col gap-3">
-            <h2 className="max-w-[72%] text-[18px] font-black leading-7">เพราะคุณไม่ใช่แค่ “คำทำนาย”<br />และไม่ใช่แค่ “ดวงชะตา”</h2>
-            <p className="text-[13px] font-bold text-v3-lime">YOUR LIFE CODE</p>
-            <p className="max-w-[64%] text-[13px] leading-5 text-white/85">ไม่ได้บอกว่าอนาคตจะเป็นยังไง แต่บอกว่าคุณถูกออกแบบมาแบบไหน และควรเดินด้วยจังหวะของใคร</p>
-            <a href={LINE_ORDER_URL} target="_blank" rel="noopener noreferrer" className="mt-1 inline-grid h-11 w-fit place-items-center rounded-full bg-v3-grade-yellow px-6 text-[14px] font-bold text-v3-navy">สั่งซื้อเลย YOUR LIFE CODE</a>
+          <img src="/images/v2/zone5/sprite-fire.png" alt="" aria-hidden className="pointer-events-none absolute right-[110px] top-6 z-[1] h-[46px] w-[39px] max-w-none" />
+          <div className="relative z-10 flex flex-col gap-2.5">
+            <h2 className="max-w-[80%] text-[19px] font-black leading-7">เพราะคุณไม่ใช่แค่ “คำทำนาย”<br />และไม่ใช่แค่ “ดวงชะตา”</h2>
+            <p className="text-[13px] font-bold">YOUR LIFE CODE</p>
+            <p className="max-w-[66%] text-[13px] leading-5 text-white/85">ไม่ได้บอกว่าอนาคตจะเป็นยังไง แต่บอกว่าคุณถูกออกแบบมาแบบไหน และควรเดินด้วยจังหวะของใคร</p>
+            <a href={LINE_ORDER_URL} target="_blank" rel="noopener noreferrer" className="relative z-20 mt-1 grid h-11 w-[76%] place-items-center rounded-full bg-v3-grade-yellow px-4 text-[14px] font-bold text-v3-navy">สั่งซื้อเลย YOUR LIFE CODE</a>
           </div>
         </section>
 
