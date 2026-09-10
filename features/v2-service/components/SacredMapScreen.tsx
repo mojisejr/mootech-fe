@@ -3,14 +3,12 @@
 // แผนที่ Leaflet + หมุดสีธาตุ + การ์ด + โมดัลรายละเอียด (โพยการมู/บันทึก/เช็คอิน/ตั้งเตือน/แชร์)
 // รูปเสิร์ฟจาก engine (base64 ใน DB) ผ่าน /api/v2/sacred-map/image/[id] — ไม่พึ่ง Supabase.
 import Head from "next/head"
-import Image from "next/image"
 import Link from "next/link"
 import dynamic from "next/dynamic"
 import { useCallback, useEffect, useMemo, useState } from "react"
 
 import { SkyBackdrop, SkyHeader } from "@/features/v2-profile/components/kit"
 import { Menubar } from "@/features/v2-shell/components/Menubar"
-import { normalizeElement } from "@/lib/personalization"
 
 const SacredMapLeaflet = dynamic(() => import("./SacredMapLeaflet"), {
   ssr: false,
@@ -77,6 +75,14 @@ function calendarLink(loc: SacredLocation): string {
   const location = encodeURIComponent(loc.address || loc.province || "")
   return `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${text}&details=${details}&location=${location}`
 }
+function FilterPill({ active, onClick, testId, children }: { active: boolean; onClick: () => void; testId?: string; children: React.ReactNode }) {
+  return (
+    <button type="button" onClick={onClick} data-testid={testId} className={"rounded-full px-3 py-1 text-[12px] font-bold " + (active ? "bg-v3-lime text-v3-navy" : "bg-white text-v3-navy")}>
+      {children}
+    </button>
+  )
+}
+
 function readSet(key: string): Set<string> {
   try {
     const raw = localStorage.getItem(key)
@@ -87,8 +93,8 @@ function readSet(key: string): Set<string> {
 }
 
 export function SacredMapScreen() {
-  const [elementTh, setElementTh] = useState<string | null>(null)
-  const [byElement, setByElement] = useState(true)
+  // ฟิลเตอร์ธาตุแบบเลือกเองได้ทุกธาตุ (en key) หรือ null = ทั้งหมด (ตาม Figma)
+  const [elementFilter, setElementFilter] = useState<string | null>(null)
   const [need, setNeed] = useState<string | null>(null)
   const [onlySaved, setOnlySaved] = useState(false)
   const [locations, setLocations] = useState<SacredLocation[]>([])
@@ -98,9 +104,6 @@ export function SacredMapScreen() {
   const [saved, setSaved] = useState<Set<string>>(new Set())
   const [bootstrapped, setBootstrapped] = useState(false)
   const [selectedId, setSelectedId] = useState<string | null>(null)
-
-  const elementEn = useMemo(() => normalizeElement(elementTh)?.en.toLowerCase() ?? null, [elementTh])
-  const elMeta = elementEn ? EL[elementEn] : null
 
   const visible = useMemo(() => (onlySaved ? locations.filter((l) => saved.has(l.id)) : locations), [locations, onlySaved, saved])
   const pins = useMemo(
@@ -114,28 +117,13 @@ export function SacredMapScreen() {
   useEffect(() => {
     setCheckedIn(readSet(CHECKIN_KEY))
     setSaved(readSet(SAVED_KEY))
-    void (async () => {
-      try {
-        const p = await fetch("/api/profile").then((x) => (x.ok ? x.json() : null)).catch(() => null)
-        const bd: string | null = p?.profile?.birthDate ?? null
-        if (bd) {
-          const j = await fetch("/api/bazi/element-summary", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ person: { birthDate: bd, birthTime: p?.profile?.birthTime ?? undefined } }),
-          }).then((x) => (x.ok ? x.json() : null)).catch(() => null)
-          setElementTh(j?.summary?.elementTh ?? null)
-        }
-      } finally {
-        setBootstrapped(true)
-      }
-    })()
+    setBootstrapped(true)
   }, [])
 
   const load = useCallback(async () => {
     setLoading(true)
     const qs = new URLSearchParams()
-    if (byElement && elementEn) qs.set("element", elementEn)
+    if (elementFilter) qs.set("element", elementFilter)
     if (need) qs.set("need", need)
     try {
       const j = await fetch(`/api/v2/sacred-map${qs.toString() ? `?${qs}` : ""}`).then((x) => (x.ok ? x.json() : null))
@@ -147,7 +135,7 @@ export function SacredMapScreen() {
     } finally {
       setLoading(false)
     }
-  }, [byElement, elementEn, need])
+  }, [elementFilter, need])
 
   useEffect(() => { if (bootstrapped) void load() }, [bootstrapped, load])
 
@@ -182,47 +170,31 @@ export function SacredMapScreen() {
     <div className="relative flex min-h-screen w-full flex-col overflow-x-hidden bg-v3-bg-cream font-ibm">
       <SkyBackdrop height={420} />
       <Head><title>แผนที่ศักดิ์สิทธิ์ · สถานที่เสริมดวงของคุณ · MuMate</title></Head>
-      <SkyHeader title="แผนที่ศักดิ์สิทธิ์" backHref="/v2/service" testId="sacred-map" />
-
       <div className="relative z-10 mx-auto flex w-full max-w-md flex-1 flex-col gap-4 px-4 pb-40 pt-2">
-        {/* HERO */}
-        <section className="flex flex-col items-center gap-2 text-center" data-testid="sacred-map-hero">
-          <span className="relative block h-[140px] w-[110px]">
-            <Image src="/images/v2/features/sacred-map/hero.png" alt="แผนที่ศักดิ์สิทธิ์" fill sizes="110px" className="object-contain" priority />
-          </span>
-          <h1 className="text-[22px] font-black leading-7 text-v3-navy">สถานที่ศักดิ์สิทธิ์เสริมดวง</h1>
-          <p className="max-w-xs text-[13px] leading-5 text-v3-text-body">รวมสถานที่ศักดิ์สิทธิ์ที่คัดมาแล้ว เลือกไหว้ให้ตรงธาตุและเรื่องที่อยากเสริม</p>
-        </section>
-
-        {/* FILTERS */}
-        <section className={CARD} data-testid="sacred-map-filters">
-          {elMeta ? (
-            <button
-              type="button"
-              onClick={() => setByElement((v) => !v)}
-              data-testid="sacred-map-toggle-element"
-              className={"flex w-full items-center justify-between rounded-[14px] border px-3 py-2 text-[13px] font-bold " + (byElement ? "border-transparent text-white" : "border-v3-border-card bg-white text-v3-navy")}
-              style={byElement ? { background: elMeta.color } : undefined}
-            >
-              <span>{byElement ? `กรองตามธาตุคุณ: ธาตุ${elMeta.th}` : `แสดงทุกธาตุ · ธาตุคุณ = ${elMeta.th}`}</span>
-              <span className="text-[11px] opacity-90">{byElement ? "แตะเพื่อดูทุกธาตุ" : "แตะเพื่อกรอง"}</span>
-            </button>
-          ) : null}
-          <div className="mt-3 flex flex-wrap gap-2">
-            <button type="button" onClick={() => setNeed(null)} className={"rounded-full px-3 py-1 text-[12px] font-bold " + (need === null ? "bg-v3-sapphire text-white" : "bg-v3-ghost-white text-v3-navy")}>ทั้งหมด</button>
-            {NEED_OPTIONS.map((n) => (
-              <button
-                key={n}
-                type="button"
-                onClick={() => setNeed(need === n ? null : n)}
-                data-testid={`sacred-map-need-${n}`}
-                className={"rounded-full px-3 py-1 text-[12px] font-bold " + (need === n ? "bg-v3-sapphire text-white" : "bg-v3-ghost-white text-v3-navy")}
-              >
-                {n}
-              </button>
+        <SkyHeader
+          title="แผนที่สถานที่ศักดิ์สิทธิ์"
+          backHref="/v2/service"
+          testId="sacred-map"
+          right={<Link href="/v2/chat" data-testid="sacred-map-suggest" className="rounded-full bg-v3-sapphire px-3 py-1.5 text-[12px] font-bold text-white">+ เสนอที่</Link>}
+        />
+        {/* FILTER CARD (Figma: การ์ดน้ำเงิน — ธาตุ + เรื่องที่ขอ, เลือก = lime) */}
+        <section className="rounded-[24px] bg-v3-sapphire p-5 text-white" data-testid="sacred-map-filters">
+          <h2 className="text-center text-[16px] font-black">ค้นหาสถานที่ศักดิ์สิทธิ์</h2>
+          <p className="mt-4 text-[12px] font-bold text-white/80">ธาตุ</p>
+          <div className="mt-1.5 flex flex-wrap gap-2">
+            <FilterPill active={elementFilter === null} onClick={() => setElementFilter(null)}>ทั้งหมด</FilterPill>
+            {(["wood", "fire", "earth", "metal", "water"] as const).map((k) => (
+              <FilterPill key={k} active={elementFilter === k} onClick={() => setElementFilter(elementFilter === k ? null : k)}>{EL[k].th}</FilterPill>
             ))}
           </div>
-          <label className="mt-3 flex items-center gap-2 text-[12px] font-bold text-v3-navy">
+          <p className="mt-4 text-[12px] font-bold text-white/80">เรื่องที่ขอ</p>
+          <div className="mt-1.5 flex flex-wrap gap-2">
+            <FilterPill active={need === null} onClick={() => setNeed(null)}>ทั้งหมด</FilterPill>
+            {NEED_OPTIONS.map((n) => (
+              <FilterPill key={n} active={need === n} testId={`sacred-map-need-${n}`} onClick={() => setNeed(need === n ? null : n)}>{n}</FilterPill>
+            ))}
+          </div>
+          <label className="mt-4 flex items-center gap-2 text-[12px] font-bold">
             <input type="checkbox" checked={onlySaved} onChange={(e) => setOnlySaved(e.target.checked)} data-testid="sacred-map-only-saved" className="size-4" />
             เฉพาะที่บันทึก {saved.size > 0 ? `(${saved.size})` : ""}
           </label>
@@ -234,6 +206,8 @@ export function SacredMapScreen() {
             <SacredMapLeaflet pins={pins} onSelect={(id) => setSelectedId(id)} />
           </section>
         ) : null}
+
+        <h2 className="px-1 pt-1 text-[18px] font-black text-v3-navy">สถานที่ทั้งหมด</h2>
 
         {/* LIST */}
         {loading ? (
@@ -271,6 +245,10 @@ export function SacredMapScreen() {
                         {loc.needs.slice(0, 3).map((n) => <span key={n} className="rounded-full bg-[#EAF3FF] px-1.5 py-[1px] text-[10px] font-bold text-v3-sapphire">{n}</span>)}
                       </span>
                     ) : null}
+                    <span className="mt-1 flex items-center gap-2 text-[11px] text-v3-text-muted">
+                      {loc.province ? <span>{loc.province}</span> : null}
+                      {loc.checkinCount > 0 ? <span className="rounded-full bg-[#EAF7EA] px-2 py-[1px] font-bold text-[#3E7E3A]">เช็คอิน {loc.checkinCount}</span> : null}
+                    </span>
                   </span>
                   <span className="flex-none self-center text-[16px] text-v3-text-muted">›</span>
                 </button>

@@ -9,6 +9,8 @@ import { useState } from "react"
 
 import { SkyBackdrop, SkyHeader } from "@/features/v2-profile/components/kit"
 import { MateAIButton } from "@/features/v2-shell/components/MateAIButton"
+import { TopBarBell } from "@/features/v2-shell/components/TopBarBell"
+import { TopBarAvatar } from "@/features/v2-shell/components/TopBarAvatar"
 
 const LINE_ORDER_URL = "https://line.me/R/ti/p/@082cvuiy?ts=09151109&oat_content=url"
 const CARD = "v3-shadow-card w-full rounded-[24px] bg-white p-5"
@@ -98,9 +100,14 @@ export function OneBookScreen() {
     <div className="relative flex min-h-screen w-full flex-col overflow-x-hidden bg-v3-bg-cream font-ibm">
       <SkyBackdrop height={420} />
       <Head><title>Your Life Code · คู่มือดวงจีนเฉพาะบุคคล · MuMate</title></Head>
-      <SkyHeader title="Your life code" backHref="/v2/service" testId="one-book" />
 
       <div className="relative z-10 mx-auto flex w-full max-w-md flex-1 flex-col gap-5 px-4 pb-28 pt-1">
+        <SkyHeader
+          title="Your life code"
+          backHref="/v2/service"
+          testId="one-book"
+          right={<span className="flex items-center gap-2"><TopBarBell variant="solid" href="/v2/calendar/notifications" /><TopBarAvatar variant="sapphire" href="/v2/account" /></span>}
+        />
         {/* HERO */}
         <section className="relative flex flex-col items-center gap-4 overflow-hidden rounded-[24px] bg-v3-sapphire px-5 pb-6 pt-5 text-center text-white" data-testid="one-book-hero">
           <div className="relative flex w-full items-end justify-center pt-1">
@@ -141,7 +148,9 @@ export function OneBookScreen() {
           <h2 className="text-center text-[18px] font-black leading-7 text-v3-navy">เคยเป็นแบบนี้ไหม<br />แต่ยังตัดสินใจผิดซ้ำ ๆ</h2>
           {PAINS.map(([t, s]) => (
             <div key={t} className="flex items-start gap-3 rounded-2xl bg-white p-4 v3-shadow-card">
-              <span className="mt-0.5 grid size-6 flex-none place-items-center rounded-full bg-v3-pumpkin/15 text-[13px]">🙁</span>
+              <span aria-hidden className="mt-0.5 flex-none text-v3-pumpkin">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="9" /><path d="M8.5 15.5c.9-1.2 2.1-1.8 3.5-1.8s2.6.6 3.5 1.8" strokeLinecap="round" /><path d="M9 9.5h.01M15 9.5h.01" strokeLinecap="round" /></svg>
+              </span>
               <div><p className="text-[14px] font-bold text-v3-navy">{t}</p><p className="text-[12px] leading-5 text-v3-text-muted">{s}</p></div>
             </div>
           ))}
@@ -160,8 +169,8 @@ export function OneBookScreen() {
         <section className="flex flex-col gap-3">
           <h2 className="text-center text-[18px] font-black leading-7 text-v3-navy">ไม่ใช่คำทำนายลอย ๆ<br />ศาสตร์เก่าแก่ + การคำนวณที่ตรวจสอบย้อนกลับได้</h2>
           {SCIENCES.map(([t, s]) => (
-            <div key={t} className="flex items-start gap-3 rounded-2xl bg-white p-4 v3-shadow-card">
-              <span className="grid size-11 flex-none place-items-center rounded-xl bg-[#EAF3FF] text-[20px]">🀄</span>
+            <div key={t} className="flex items-center gap-3 rounded-2xl bg-white p-4 v3-shadow-card">
+              <span className="relative size-14 flex-none"><Image src="/images/v2/home/sian/oracle.png" alt="" fill sizes="56px" className="object-contain" /></span>
               <div><p className="text-[15px] font-bold text-v3-navy">{t}</p><p className="text-[12px] leading-5 text-v3-text-muted">{s}</p></div>
             </div>
           ))}
@@ -218,15 +227,17 @@ export function OneBookScreen() {
               <div key={t} className="flex items-center justify-between border-b border-dashed border-v3-divider-dashed pb-2 text-[13px] last:border-0"><span className="text-v3-text-body">{t}</span><span className="font-bold text-v3-navy">{p}</span></div>
             ))}
           </div>
-          <div className="mt-3 flex items-center gap-3 rounded-2xl bg-[#F3E5F5] p-3">
-            <span className="relative size-14 flex-none overflow-hidden rounded-xl bg-white/60">
-              <Image src="/images/v2/referral/mascot-water.png" alt="" fill sizes="56px" className="object-contain" />
-            </span>
-            <div>
-              <p className="text-[11px] font-bold text-v3-purple">ของแถมส่งวันนี้</p>
-              <p className="text-[14px] font-black text-v3-navy">BaZi Life Matrix ออนไลน์</p>
-              <p className="text-[12px] leading-4 text-v3-text-body">ตารางธาตุแบบโต้ตอบได้ เปิดดูบนมือถือได้ตลอดชีวิต มูลค่า ฿499</p>
-            </div>
+        </section>
+
+        {/* ของแถม BaZi Life Matrix — กล่องแยก, ใช้ภาพเดียวกับกล่อง BaZi Life Matrix บนหน้าแรก */}
+        <section className="flex items-center gap-3 overflow-hidden rounded-[24px] bg-gradient-to-br from-[#F3E9FB] to-[#E7F0FF] p-4 v3-shadow-card" data-testid="one-book-bonus">
+          <span className="relative size-20 flex-none">
+            <Image src="/images/v2/home/%E0%B9%80%E0%B8%A3%E0%B8%B5%E0%B8%A2%E0%B8%99%E0%B8%9B%E0%B8%B2%E0%B8%88%E0%B8%B7%E0%B9%88%E0%B8%AD.png" alt="BaZi Life Matrix" fill sizes="80px" className="object-contain" />
+          </span>
+          <div className="min-w-0">
+            <p className="inline-block rounded-full bg-v3-purple/15 px-2 py-0.5 text-[11px] font-bold text-v3-purple">ของแถมส่งวันนี้</p>
+            <p className="mt-1 text-[15px] font-black text-v3-navy">BaZi Life Matrix ออนไลน์</p>
+            <p className="text-[12px] leading-5 text-v3-text-body">ตารางธาตุแบบโต้ตอบได้ เปิดดูบนมือถือได้ตลอดชีวิต มูลค่า ฿499</p>
           </div>
         </section>
 
