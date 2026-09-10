@@ -63,14 +63,16 @@ export default function V2CalendarDayPage({ teamPreview }: { teamPreview: boolea
   // ฟีม: โหมดแอดวานซ์เปิดเป็นค่าเริ่มต้น (goo's useAdvancedMode default ON). Toggling OFF hides the 4
   // advanced-only sections (§5/§9/§12/§13) → the exact 3a normal frame (634:8194); toggling ON brings them back.
   const { advanced, toggle } = useAdvancedMode()
-  // ฟีม (สไลด์ 17): กดเปิดแอดวานซ์แล้วให้จอเลื่อนลงไปส่วน Advance เอง — เฉพาะตอน "เปิด" (ปิดไม่ต้องเลื่อน)
+  // ฟีม (สไลด์ 5, ทบทวน 2026-09-10): กดเปิดแอดวานซ์แล้วให้จอเลื่อนลงไปที่ "ดิถีวันนี้ ก่อเกิด" (Dithi) เอง
+  // — เฉพาะตอน "เปิด" (ปิดไม่ต้องเลื่อน). เดิมเลื่อนไปหัวบล็อกแอดวานซ์ (บน §5 MyChart) ผู้ใช้อยากให้ไปที่ Dithi.
   const advancedRef = useRef<HTMLDivElement | null>(null)
+  const dithiRef = useRef<HTMLDivElement | null>(null)
   const toggleAndReveal = () => {
     const turningOn = !advanced
     toggle()
     if (turningOn) {
-      // รอให้ §5 mount ก่อนหนึ่งเฟรม แล้วค่อยเลื่อน (ไม่งั้น anchor ยังอยู่ตำแหน่งเดิมก่อน section โผล่)
-      requestAnimationFrame(() => advancedRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }))
+      // รอ section mount ก่อนหนึ่งเฟรม แล้วค่อยเลื่อน — เป้าหมายหลักคือ Dithi (ถ้ามี jianchu) ไม่งั้นถอยไปหัวแอดวานซ์
+      requestAnimationFrame(() => (dithiRef.current ?? advancedRef.current)?.scrollIntoView({ behavior: 'smooth', block: 'start' }))
     }
   }
   // Zone 4 — the gate. Until this shipped, this screen had no tier logic at all: every section Figma marks
@@ -344,9 +346,9 @@ export default function V2CalendarDayPage({ teamPreview }: { teamPreview: boolea
         )}
         {/* §9 [advanced] — ดิถีวันนี้ · สะสม · เงื่อนไขคือ jianchu (ครึ่งที่ขายเงินของ dithi)
             ❌ ไม่ใช่ `detail.dithi` ทั้งก้อน ซึ่งผู้ใช้ฟรีก็มี (officer ไปเป็นชิปบนการ์ดคะแนน) */}
-        {advanced && detail.dithi?.jianchu && <Dithi dithi={detail.dithi} />}
+        {advanced && detail.dithi?.jianchu && <div ref={dithiRef} className="scroll-mt-4"><Dithi dithi={detail.dithi} /></div>}
         {/* every tier gets these two — Free-2 draws them in full */}
-        <LuckyColors colors={detail.luckyColors} deity={detail.dayDeity} />
+        <LuckyColors colors={detail.luckyColors} deity={detail.dayDeity} direction={detail.luckyDirection} />
         {/* #316 — ตัดสินด้วย remindersLocked(isPaid) ไม่ใช่ `free` (fail-closed · null = ล็อก)
             ตรรกะอยู่ที่ features/v2-calendar/tier-lock.ts เพราะไฟล์ page นี้ unit test แตะไม่ได้ */}
         <YamTimes yams={detail.yams} onAdd={addYam} locked={remindersLocked(isPaid)} statusFor={statusFor} onViewList={goToList} />

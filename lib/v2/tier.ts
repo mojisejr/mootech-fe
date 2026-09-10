@@ -14,12 +14,18 @@ import type { AuthStatus } from '@/lib/auth/resolve-auth'
 
 export type TierSource = {
   payment?: { is_not_expired?: boolean | null } | null
-  // #383 — the v2 membership composite from /api/user. Carries the NAME only; the paid verdict above is
-  // untouched by it (see the precedence note in lib/home/profile.ts for why the legacy flag wins).
-  membership?: { tier?: string | null } | null
+  // #383 — the v2 membership composite from /api/user. `isPaid` is the COMPLETE verdict (resolveMembershipFromRows
+  // already MERGES the v2 subscription row with the legacy member_payment row), `tier` its name.
+  membership?: { tier?: string | null; isPaid?: boolean | null } | null
 } | null
 
+// ฟีม สไลด์ 7b (2026-09-10): a member granted PRO via the v2 subscription (e.g. หลังบ้าน /ops) has NO legacy
+// member_payment row, so the legacy-only check locked them out of paid features (เพิ่มปฏิทิน ฯลฯ) despite being
+// PRO. The `/api/user` `membership.isPaid` composite already reconciles v2 + legacy (#525), so trust it when
+// determined; fall back to the legacy flag only when the composite is absent (membership === null = v2 lookup
+// failed). Strict `=== true` on both — a non-boolean can never silently unlock (mutant-guarded by v2-tier.test).
 export function isPaidMember(source: TierSource): boolean {
+  if (source?.membership?.isPaid === true) return true
   return source?.payment?.is_not_expired === true
 }
 
