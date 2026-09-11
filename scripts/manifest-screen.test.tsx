@@ -4,7 +4,7 @@
 // CookiesProvider wraps every render — TopBarAvatar → useMemberIdentity → useCookies needs it (react-cookie).
 import React from 'react'
 import { describe, it, expect, afterEach, vi, beforeEach } from 'vitest'
-import { render, screen, cleanup, waitFor } from '@testing-library/react'
+import { render, screen, cleanup, waitFor, fireEvent } from '@testing-library/react'
 import { CookiesProvider } from 'react-cookie'
 
 vi.mock('next/router', () => ({
@@ -47,5 +47,28 @@ describe('จอสมุดแมนิเฟสต์ (rebuilt)', () => {
     mount({ goals: [], element: ELEMENT })
     await waitFor(() => expect(screen.getByTestId('manifest-hero')).toBeTruthy())
     expect(screen.getByTestId('manifest-write')).toBeTruthy()
+  })
+
+  it('P3-18: กด "ลบ" ต้องถามยืนยันก่อน (ไม่ลบทันที) — ยกเลิกแล้วไม่ยิง DELETE', async () => {
+    mount({ goals: [GOAL], element: ELEMENT })
+    await waitFor(() => expect(screen.getByTestId('manifest-goal')).toBeTruthy())
+    fireEvent.click(screen.getByTestId('manifest-delete'))
+    expect(screen.getByTestId('manifest-delete-confirm')).toBeTruthy()
+    // ยังไม่มี DELETE ถูกยิง
+    expect(fetchMock.mock.calls.some((c) => (c[1] as { method?: string } | undefined)?.method === 'DELETE')).toBe(false)
+    fireEvent.click(screen.getByTestId('manifest-delete-cancel'))
+    expect(screen.queryByTestId('manifest-delete-confirm')).toBeNull()
+    expect(fetchMock.mock.calls.some((c) => (c[1] as { method?: string } | undefined)?.method === 'DELETE')).toBe(false)
+  })
+
+  it('P3-18: ยืนยันลบ → ยิง DELETE /api/v2/manifest/goals + เอาการ์ดออก', async () => {
+    mount({ goals: [GOAL], element: ELEMENT })
+    await waitFor(() => expect(screen.getByTestId('manifest-goal')).toBeTruthy())
+    fireEvent.click(screen.getByTestId('manifest-delete'))
+    fireEvent.click(screen.getByTestId('manifest-delete-confirm-btn'))
+    await waitFor(() => expect(screen.queryByTestId('manifest-goal')).toBeNull())
+    const del = fetchMock.mock.calls.find((c) => (c[1] as { method?: string } | undefined)?.method === 'DELETE')
+    expect(del).toBeTruthy()
+    expect(String(del?.[0])).toContain('/api/v2/manifest/goals')
   })
 })
