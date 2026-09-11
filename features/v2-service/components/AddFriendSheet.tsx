@@ -19,15 +19,25 @@
 //  • surname is not in the Figma form → sent '' (goo documents in buildCreateFriendArgs).
 //  • image upload: the affordance is rendered; wiring the file→URL upload needs v1's upload endpoint — NOT in
 //    Slice 1, so imageProfile is sent '' for now (flagged; the row is honest, not a dead-silent control).
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { NewFriendForm, Gender, EditFriendForm } from '../compatibility-api'
 import type { CreateFriendResult, UpdateFriendResult } from '../hooks/useCompatibility'
 import { ComingSoonAction } from '@/features/v2-shell/components/ComingSoon'
+// callApiUpload / API โหลดแบบ dynamic ในตอนอัปโหลดเท่านั้น — constants/api/endpoint เรียก next/config getConfig()
+// ตั้งแต่ import ทำให้ไฟล์นี้รันใต้ node/vitest ไม่ได้ (เหตุผลเดียวกับที่ compatibility-api เว้น constants/api)
 
 // goo's NewFriendForm (#149) now carries `gender` (required union, no fallback) — the form IS NewFriendForm.
 type AddFriendForm = NewFriendForm
 
 const TH_MONTHS = ['มกราคม', 'กุมภาพันธ์', 'มีนาคม', 'เมษายน', 'พฤษภาคม', 'มิถุนายน', 'กรกฎาคม', 'สิงหาคม', 'กันยายน', 'ตุลาคม', 'พฤศจิกายน', 'ธันวาคม']
+// ปีเกิด (พ.ศ.) เป็น dropdown: ปีปัจจุบันย้อนหลัง 120 ปี — value/label เป็น พ.ศ. (ตรงกับ state ที่เก็บ พ.ศ.)
+const CURRENT_YEAR_BE = new Date().getFullYear() + 543
+const YEAR_OPTIONS_BE = Array.from({ length: 121 }, (_, i) => CURRENT_YEAR_BE - i)
+// จำนวนวันจริงในเดือน/ปีนั้น ๆ (ค.ศ.) — day 0 ของเดือนถัดไป = วันสุดท้ายของเดือนนี้ (คุม 31 ก.พ., 29 ก.พ. ปีอธิกสุรทิน)
+function daysInMonth(monthCE: number, yearCE: number): number {
+  if (!monthCE || !yearCE) return 31
+  return new Date(yearCE, monthCE, 0).getDate()
+}
 
 function Label({ children }: { children: React.ReactNode }) {
   return <span className="text-[14px] font-semibold leading-5 text-v3-text-body">{children}</span>
@@ -92,10 +102,59 @@ export function AddFriendSheet({ onClose, onCreate, edit, title = 'เลือ�
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState(false)
   const [saveReason, setSaveReason] = useState<'system' | 'network' | null>(null)
+  // N2 — รูปเพื่อน: อัปไฟล์ไป object-storage ได้ s3_key (เดียวกับ modal-image-crop) แล้วส่งเป็น picture_url ตอน create.
+  // preview เป็น object-URL ฝั่ง client เพื่อโชว์ทันที (ไม่ยิงอ่านกลับ). edit mode: ดู FLAG ท้ายไฟล์.
+  const [imageKey, setImageKey] = useState('') // s3_key ที่อัปแล้ว → imageProfile
+  const [imagePreview, setImagePreview] = useState('') // object URL สำหรับแสดง
+  const [uploading, setUploading] = useState(false)
+  const [uploadError, setUploadError] = useState(false)
+  const fileRef = useRef<HTMLInputElement>(null)
 
-  // required to enable บันทึก: name + full birthdate. time optional (จำไม่ได้).
-  const dobValid = /^\d{1,2}$/.test(day) && !!month && /^\d{4}$/.test(yearBE)
-  const canSave = name.trim().length > 0 && dobValid && !saving
+  // ปิด sheet ด้วย Escape (P1-5) — เดิมปิดได้แค่แตะ backdrop
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [onClose])
+
+  // N3 — validate วันตามเดือน/ปีจริง (คุม 31 ก.พ.): day ต้องไม่เกินจำนวนวันของเดือน/ปีที่เลือก
+  const yearCE = /^\d{4}$/.test(yearBE) ? Number(yearBE) - 543 : 0
+  const maxDay = daysInMonth(Number(month), yearCE)
+  const dayValid = /^\d{1,2}$/.test(day) && Number(day) >= 1 && Number(day) <= maxDay
+  const dobValid = dayValid && !!month && /^\d{4}$/.test(yearBE)
+  const dateOutOfRange = !!day && !!month && /^\d{4}$/.test(yearBE) && !dayValid
+  const canSave = name.trim().length > 0 && dobValid && !saving && !uploading
+
+  // N3 — เวลาเกิดเป็น select ชั่วโมง 0–23 + นาที 0–59 (state `time` = 'HH:mm', เก็บ zero-padded)
+  // แปลงเป็นเลขไม่มี 0 นำ ให้ตรงกับ option value (String(h)); '07' → '7'
+  const [rawH = '', rawM = ''] = time ? time.split(':') : []
+  const hourStr = rawH === '' ? '' : String(Number(rawH))
+  const minuteStr = rawM === '' ? '' : String(Number(rawM))
+  const setHour = (h: string) => setTime(h === '' ? '' : `${h.padStart(2, '0')}:${(minuteStr || '0').padStart(2, '0')}`)
+  const setMinute = (m: string) => setTime(`${(hourStr || '0').padStart(2, '0')}:${m.padStart(2, '0')}`)
+
+  async function onPickImage(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    e.target.value = '' // ให้เลือกไฟล์เดิมซ้ำได้
+    if (!file) return
+    setUploading(true); setUploadError(false)
+    try {
+      const [{ callApiUpload }, { API }] = await Promise.all([import('@/utils/fetch'), import('@/constants/api/endpoint')])
+      const formData = new FormData()
+      formData.append('file', file)
+      const res = await callApiUpload(API.object_storage.upload, 'POST', '', formData)
+      if (res?.s3_key) {
+        setImageKey(res.s3_key)
+        setImagePreview(URL.createObjectURL(file))
+      } else {
+        setUploadError(true)
+      }
+    } catch {
+      setUploadError(true)
+    } finally {
+      setUploading(false)
+    }
+  }
 
   async function submit() {
     if (!canSave) return
@@ -106,7 +165,7 @@ export function AddFriendSheet({ onClose, onCreate, edit, title = 'เลือ�
       birthDay,
       time: noTime ? '' : time,
       isRememberTime: !noTime,
-      imageProfile: '', // upload wiring deferred (see FLAG) — never a fabricated URL
+      imageProfile: imageKey, // N2: s3_key จากการอัปโหลด ('' ถ้าไม่ได้เลือกรูป) → v1 create's picture_url
       gender, // the VISIBLE selection (done-cond #13: the value SENT is what the user sees)
     }
     if (edit) {
@@ -134,8 +193,13 @@ export function AddFriendSheet({ onClose, onCreate, edit, title = 'เลือ�
 
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-[rgba(33,33,33,0.6)]" onClick={onClose}>
-      <div className="flex max-h-[90vh] w-full max-w-md flex-col gap-[18px] overflow-y-auto rounded-t-[28px] bg-v3-bg-cream px-5 pb-10 pt-3 font-ibm" onClick={(e) => e.stopPropagation()} role="dialog" aria-label={edit ? 'แก้ไขข้อมูลเพื่อน' : 'เพิ่มเพื่อน'} data-testid="add-friend-sheet">
+      <div className="relative flex max-h-[90vh] w-full max-w-md flex-col gap-[18px] overflow-y-auto rounded-t-[28px] bg-v3-bg-cream px-5 pb-10 pt-3 font-ibm" onClick={(e) => e.stopPropagation()} role="dialog" aria-label={edit ? 'แก้ไขข้อมูลเพื่อน' : 'เพิ่มเพื่อน'} data-testid="add-friend-sheet">
         <span aria-hidden className="mx-auto h-[5px] w-11 shrink-0 rounded-full bg-v3-border-warm-2" />
+        {/* P1-5 — ปุ่มปิด (เดิมปิดได้แค่แตะ backdrop / Escape) */}
+        <button type="button" onClick={onClose} aria-label="ปิด" data-testid="add-friend-close"
+          className="absolute right-4 top-4 grid size-8 place-items-center rounded-full bg-white/70 text-v3-text-body">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="M18 6 6 18M6 6l12 12" /></svg>
+        </button>
         <h2 className="text-center text-[20px] font-bold leading-7 text-v3-navy">
           {edit ? 'แก้ไขข้อมูลเพื่อน' : title}
         </h2>
@@ -163,13 +227,32 @@ export function AddFriendSheet({ onClose, onCreate, edit, title = 'เลือ�
             </div>
             <div className="flex min-w-0 flex-1 flex-col gap-2">
               <Label>ปีเกิด (พ.ศ.)</Label>
-              <input value={yearBE} onChange={(e) => setYearBE(e.target.value.replace(/\D/g, '').slice(0, 4))} inputMode="numeric" placeholder="ปปปป" className={inputCls} data-testid="add-friend-year" />
+              <select value={yearBE} onChange={(e) => setYearBE(e.target.value)} required className={selectCls} style={CHEVRON_BG} data-testid="add-friend-year">
+                <option value="" disabled>ปปปป</option>
+                {YEAR_OPTIONS_BE.map((y) => <option key={y} value={String(y)}>{y}</option>)}
+              </select>
             </div>
           </div>
+          {/* N3/P1-10 — วันที่ไม่มีจริง (เช่น 31 ก.พ.) */}
+          {dateOutOfRange && (
+            <p role="alert" data-testid="add-friend-date-error" className="text-[13px] font-medium text-v3-error">
+              วันที่เลือกไม่มีอยู่จริงในเดือนนี้ กรุณาเลือกใหม่
+            </p>
+          )}
 
           <div className="flex flex-col gap-2">
             <Label>เวลาเกิด</Label>
-            <input value={time} onChange={(e) => setTime(e.target.value)} disabled={noTime} placeholder="ชั่วโมง:นาที" className={`${inputCls} disabled:bg-v3-disabled-bg/40`} data-testid="add-friend-time" />
+            <div className="flex items-center gap-2">
+              <select value={hourStr} onChange={(e) => setHour(e.target.value)} disabled={noTime} required className={`${selectCls} disabled:bg-v3-disabled-bg/40`} style={CHEVRON_BG} data-testid="add-friend-hour" aria-label="ชั่วโมง">
+                <option value="" disabled>ชม.</option>
+                {Array.from({ length: 24 }, (_, h) => <option key={h} value={String(h)}>{String(h).padStart(2, '0')}</option>)}
+              </select>
+              <span className="text-[16px] font-semibold text-v3-text-body">:</span>
+              <select value={minuteStr} onChange={(e) => setMinute(e.target.value)} disabled={noTime} required className={`${selectCls} disabled:bg-v3-disabled-bg/40`} style={CHEVRON_BG} data-testid="add-friend-minute" aria-label="นาที">
+                <option value="" disabled>นาที</option>
+                {Array.from({ length: 60 }, (_, m) => <option key={m} value={String(m)}>{String(m).padStart(2, '0')}</option>)}
+              </select>
+            </div>
           </div>
 
           <button type="button" onClick={() => setNoTime((v) => !v)} className="flex items-center gap-2" data-testid="add-friend-notime">
@@ -211,17 +294,27 @@ export function AddFriendSheet({ onClose, onCreate, edit, title = 'เลือ�
             <p className="text-[14px] font-normal leading-[22px] text-v3-text-detail">ข้อมูลที่คุณให้มา เราใช้แค่คำนวณดวงเท่านั้น ไม่เปิดเผย ไม่แชร์ เก็บไว้อย่างปลอดภัย</p>
           </div>
 
-          {/* upload affordance (frame 720:25751) — file→URL wiring deferred (FLAG): drawn per Figma, answers "เร็วๆ นี้" */}
-          <ComingSoonAction testId="add-friend-upload" label="อัพโหลดรูป (เร็วๆ นี้)" message="อัพโหลดรูปจะเปิดให้ใช้เร็วๆ นี้"
-            className="flex w-full items-center gap-3 overflow-hidden rounded-3xl bg-v3-ghost-white py-3 pl-3 pr-4 text-left">
-            <span className="grid size-10 shrink-0 place-items-center rounded-full border border-dashed border-v3-sapphire bg-white text-v3-sapphire">
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="M12 15V4M8 8l4-4 4 4" /><path d="M4 15v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3" /></svg>
+          {/* N2 — อัพโหลดรูปเพื่อน (frame 720:25751): เลือกไฟล์ → object-storage → s3_key → ส่งเป็น picture_url ตอน create.
+              🔴 FLAG (edit mode): EditFriendForm ไม่มี imageProfile และ sheet นี้จงใจไม่ถือ friendId (ดู EditFriendMode)
+              การเซฟรูปตอนแก้ไขต้องยิง MemberWithFriendUpdateApi(friendId, s3_key) จากฝั่ง caller — อยู่นอกขอบเขตไฟล์นี้ */}
+          <input ref={fileRef} type="file" accept="image/*" hidden data-testid="add-friend-upload-input" onChange={onPickImage} />
+          <button type="button" onClick={() => fileRef.current?.click()} disabled={uploading} data-testid="add-friend-upload"
+            className="flex w-full items-center gap-3 overflow-hidden rounded-3xl bg-v3-ghost-white py-3 pl-3 pr-4 text-left disabled:opacity-60">
+            <span className="grid size-10 shrink-0 place-items-center overflow-hidden rounded-full border border-dashed border-v3-sapphire bg-white text-v3-sapphire">
+              {imagePreview ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={imagePreview} alt="รูปเพื่อน" className="size-full object-cover" />
+              ) : (
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="M12 15V4M8 8l4-4 4 4" /><path d="M4 15v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3" /></svg>
+              )}
             </span>
             <span className="flex min-w-0 flex-col gap-1">
               <span className="text-[16px] font-bold uppercase leading-6 text-v3-sapphire">อัพโหลดรูป</span>
-              <span className="truncate text-[14px] font-normal leading-[22px] text-v3-text-detail">Drag &amp; drop or click to upload</span>
+              <span className="truncate text-[14px] font-normal leading-[22px] text-v3-text-detail">
+                {uploading ? 'กำลังอัปโหลด…' : uploadError ? 'อัปโหลดไม่สำเร็จ ลองอีกครั้ง' : imagePreview ? 'อัปโหลดแล้ว · แตะเพื่อเปลี่ยนรูป' : 'แตะเพื่อเลือกรูป'}
+              </span>
             </span>
-          </ComingSoonAction>
+          </button>
 
           {/* #266 — in edit mode the failure says WHICH failure (goo's seam carries the reason), in the
               same shape #263 gave the calculation: bold what happened, then what to do. Create keeps its

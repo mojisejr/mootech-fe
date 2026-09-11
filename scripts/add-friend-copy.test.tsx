@@ -99,18 +99,42 @@ describe('frame 720:25691 parity', () => {
     expect(screen.getByRole('heading').textContent).toBe('แก้ไขข้อมูลเพื่อน')
   })
 
-  it('Facebook / Invite / Contacts + upload are drawn per Figma but ANSWER "เร็วๆ นี้" (no backend, not faked)', async () => {
+  it('Facebook / Invite / Contacts are drawn per Figma but ANSWER "เร็วๆ นี้" (no backend, not faked)', async () => {
     render(<AddFriendSheet onClose={vi.fn()} onCreate={vi.fn()} />)
-    for (const id of ['connect-facebook', 'connect-invite', 'connect-contacts', 'add-friend-upload']) {
+    for (const id of ['connect-facebook', 'connect-invite', 'connect-contacts']) {
       const el = screen.getByTestId(id)
       expect(el.tagName, id).toBe('BUTTON')
       expect(el.getAttribute('data-coming-soon'), id).toBe('true')
       expect(el.className, id).not.toContain('opacity-50')
     }
+    // N2: อัพโหลดรูปเป็นปุ่มจริงแล้ว (เลือกไฟล์ได้) ไม่ใช่ ComingSoon อีกต่อไป
+    const upload = screen.getByTestId('add-friend-upload')
+    expect(upload.getAttribute('data-coming-soon')).toBeNull()
     expect(screen.getByTestId('add-friend-sheet').textContent).not.toContain('ยังไม่เปิด')
     fireEvent.click(screen.getByTestId('connect-facebook'))
     await waitFor(() => expect(screen.getByTestId('coming-soon-toast').textContent).toContain('เร็วๆ นี้'))
     expect(screen.getByText('หรือเชื่อมต่อบัญชี')).toBeTruthy()
+  })
+
+  it('N3/P1-10: วันที่ไม่มีจริง (31 ก.พ.) ถูกบล็อก บันทึกกดไม่ได้ + ขึ้น error; วันจริงเปิดใช้ได้', () => {
+    render(<AddFriendSheet onClose={vi.fn()} onCreate={vi.fn()} />)
+    fireEvent.change(screen.getByTestId('add-friend-name'), { target: { value: 'ปาล์ม' } })
+    fireEvent.change(screen.getByTestId('add-friend-year'), { target: { value: '2537' } }) // 1994 (ไม่อธิกสุรทิน)
+    fireEvent.change(screen.getByTestId('add-friend-month'), { target: { value: '2' } }) // กุมภาพันธ์
+    fireEvent.change(screen.getByTestId('add-friend-day'), { target: { value: '31' } })
+    expect(screen.getByTestId('add-friend-date-error')).toBeTruthy()
+    expect((screen.getByTestId('add-friend-save') as HTMLButtonElement).disabled).toBe(true)
+    // แก้เป็นวันที่มีจริง → error หาย, บันทึกกดได้
+    fireEvent.change(screen.getByTestId('add-friend-day'), { target: { value: '28' } })
+    expect(screen.queryByTestId('add-friend-date-error')).toBeNull()
+    expect((screen.getByTestId('add-friend-save') as HTMLButtonElement).disabled).toBe(false)
+  })
+
+  it('P1-5: กดปุ่มปิด (✕) เรียก onClose', () => {
+    const onClose = vi.fn()
+    render(<AddFriendSheet onClose={onClose} onCreate={vi.fn()} />)
+    fireEvent.click(screen.getByTestId('add-friend-close'))
+    expect(onClose).toHaveBeenCalled()
   })
 
   it('edit mode hides the connect rows (adding friends is meaningless while editing one)', () => {

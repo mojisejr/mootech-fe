@@ -115,8 +115,9 @@ describe('#266 แก้ไขข้อมูลเพื่อน — ป้า
     expect((screen.getByTestId('add-friend-name') as HTMLInputElement).value).toBe('ปาล์ม')
     expect((screen.getByTestId('add-friend-day') as HTMLSelectElement).value).toBe('12')
     expect((screen.getByTestId('add-friend-month') as HTMLSelectElement).value).toBe('5')
-    expect((screen.getByTestId('add-friend-year') as HTMLInputElement).value).toBe('2537') // 1994 + 543
-    expect((screen.getByTestId('add-friend-time') as HTMLInputElement).value).toBe('07:30')
+    expect((screen.getByTestId('add-friend-year') as HTMLSelectElement).value).toBe('2537') // 1994 + 543
+    expect((screen.getByTestId('add-friend-hour') as HTMLSelectElement).value).toBe('7')
+    expect((screen.getByTestId('add-friend-minute') as HTMLSelectElement).value).toBe('30')
     expect(screen.getByTestId('add-friend-gender-FEMALE').getAttribute('aria-pressed')).toBe('true')
   })
 
@@ -124,7 +125,8 @@ describe('#266 แก้ไขข้อมูลเพื่อน — ป้า
     // The data-loss case: the form has never collected a surname, so anything that rebuilds the payload
     // from the visible fields alone silently blanks a friend's real surname on every save.
     await openEdit()
-    fireEvent.change(screen.getByTestId('add-friend-time'), { target: { value: '09:45' } })
+    fireEvent.change(screen.getByTestId('add-friend-hour'), { target: { value: '9' } })
+    fireEvent.change(screen.getByTestId('add-friend-minute'), { target: { value: '45' } })
     await act(async () => { save() })
     await waitFor(() => expect(updateFriendProfile).toHaveBeenCalled())
     expect(sentForm().surname).toBe('ศรีสุข')
@@ -134,11 +136,12 @@ describe('#266 แก้ไขข้อมูลเพื่อน — ป้า
   it('🔴 เพื่อนที่ไม่เคยกรอกเวลา → เติมย้อนหลังได้ และค่าที่ "ส่งออก" ต้องเปลี่ยนจริง', async () => {
     getDetail.mockResolvedValue({ ...DETAIL, time: '', is_remember_time: false })
     await openEdit()
-    // opens with "จำไม่ได้" on and the time field disabled
-    expect((screen.getByTestId('add-friend-time') as HTMLInputElement).disabled).toBe(true)
+    // opens with "จำไม่ได้" on and the time selects disabled
+    expect((screen.getByTestId('add-friend-hour') as HTMLSelectElement).disabled).toBe(true)
 
     fireEvent.click(screen.getByTestId('add-friend-notime')) // untick
-    fireEvent.change(screen.getByTestId('add-friend-time'), { target: { value: '06:15' } })
+    fireEvent.change(screen.getByTestId('add-friend-hour'), { target: { value: '6' } })
+    fireEvent.change(screen.getByTestId('add-friend-minute'), { target: { value: '15' } })
     await act(async () => { save() })
     await waitFor(() => expect(updateFriendProfile).toHaveBeenCalled())
     // asserted on what leaves the screen, not on the checkbox's own state
