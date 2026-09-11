@@ -142,6 +142,12 @@ export interface DayDetailColor {
   element: string
   colors: string
 }
+/** วันมงคล/วันพิเศษ — ดาววันจากปฏิทินซินแส (name + ดี/ร้าย + กิจกรรม). */
+export interface DayDetailStar {
+  name: string
+  polarity: string
+  activity: string
+}
 /** ดิถี — ข้อความล้วน (❌ ไม่แปลงเป็นโทนดี/ร้าย — การตีความ ไม่ใช่ข้อมูล). */
 export interface DayDetailDithi {
   /** ชิปบนการ์ดคะแนน — ทุก tier เห็น. */
@@ -201,6 +207,10 @@ export interface DayDetail {
    * bazi (8 ประตู 開休生傷杜景死驚) ไม่มี 財 (คำสั่งฟีม; ตัดโดยตั้งใจ ไม่ใช่ลืม).
    */
   luckyDirection: string
+  /** วันมงคล + วันพิเศษ (ความรัก/ลาภสวรรค์/หมอเทพ/ฟ้าอภัย) — almanac.dayStars. */
+  specialDays?: DayDetailStar[]
+  /** ทิศร้าย (เลี่ยง) — almanac.dayDirections.bad. */
+  badDirection?: string
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

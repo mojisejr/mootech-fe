@@ -37,5 +37,7 @@ export function libDayDetailToFeature(lib: LibDayDetail): DayDetail {
     gates: lib.gates, // RAW, no good/bad level
     dithi: lib.dithi,
     luckyDirection: lib.luckyDirection, // RAW ทิศ text
+    specialDays: lib.specialDays, // วันมงคล/วันพิเศษ (ดาววัน)
+    badDirection: lib.badDirection, // ทิศร้าย
   }
 }
