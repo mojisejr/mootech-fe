@@ -9,6 +9,7 @@ import Link from "next/link"
 import { useCallback, useEffect, useState } from "react"
 
 import { AmountPill, IconTile, SkyScreen } from "@/features/v2-profile/components/kit"
+import { Menubar } from "@/features/v2-shell/components/Menubar"
 import { QiHeader } from "./QiHeader"
 import { checkedInToday, sharedToday, todayBangkok, type Mission, type MissionBoard, type Wallet } from "../qi-model"
 
@@ -173,7 +174,7 @@ export function MissionsScreen() {
   const balance = typeof wallet?.qi === "number" ? wallet.qi : null
 
   return (
-    <SkyScreen>
+    <SkyScreen menubar={<Menubar />}>
       <QiHeader
         title="ภารกิจรับ QI"
         testId="missions"

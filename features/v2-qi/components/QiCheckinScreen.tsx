@@ -9,6 +9,7 @@ import Link from "next/link"
 import { useCallback, useEffect, useRef, useState } from "react"
 
 import { KitButton, SectionCard, SheetShell, SkyHeader, SkyScreen } from "@/features/v2-profile/components/kit"
+import { Menubar } from "@/features/v2-shell/components/Menubar"
 import { checkedInToday, checkinStreak, todayBangkok, checkedInDays, dayBefore, type QiCatalog, type Wallet } from "../qi-model"
 
 const WEEK_BONUS = 30 // โบนัสครบ 7 วัน (engine เป็นผู้ให้จริง — ค่านี้ใช้แสดงผล; ต่อ catalog ภายหลังได้)
@@ -143,7 +144,7 @@ export function QiCheckinScreen() {
     : `ครบ 7 วันติดรับโบนัส +${WEEK_BONUS} QI`
 
   return (
-    <SkyScreen>
+    <SkyScreen menubar={<Menubar />}>
       <Head><title>เช็คอินรายวัน · MuMate</title></Head>
       <SkyHeader title="เช็คอินรายวัน" testId="qi-checkin-screen" />
 

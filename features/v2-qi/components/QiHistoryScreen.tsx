@@ -8,6 +8,7 @@ import Link from "next/link"
 import { useCallback, useEffect, useMemo, useState } from "react"
 
 import { AmountPill, IconTile, KitButton, SkyScreen } from "@/features/v2-profile/components/kit"
+import { Menubar } from "@/features/v2-shell/components/Menubar"
 import { QiHeader } from "./QiHeader"
 import { bangkokDay, reasonLabel, todayBangkok, type MissionBoard, type Wallet, type WalletHistoryRow } from "../qi-model"
 
@@ -169,7 +170,7 @@ export function QiHistoryScreen() {
   )
 
   return (
-    <SkyScreen>
+    <SkyScreen menubar={<Menubar />}>
       <QiHeader title="ประวัติ QI" testId="qi-history" right={!loading && !guard && !failed ? monthPicker : undefined} />
 
         {loading && (
