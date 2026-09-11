@@ -251,7 +251,9 @@ export default defineConfig({
       'scripts/sinsae-screen.test.tsx', // บริการ sinsae (ดูดวงส่วนตัว กับซินแส) — 3 แพ็ก + trust bar + CTA ไลน์
 
       'scripts/sacred-map-screen.test.tsx', // บริการ sacred-map — ธาตุ→ทิศ/สีมงคล (เบญจธาตุ) + empty state
+      'scripts/sacred-travel-dur.test.ts', // P3-16 — fmtDur เวลาเดินทางเป็น ชม./นาที (ไม่โชว์นาทีดิบเป็นพัน)
       'scripts/manifest-screen.test.tsx', // บริการ manifest — goals+tasks+progress+checkin (ต่อ engine)
+      'scripts/compat-format.test.ts', // P3-17 — formatCompatBirth delegate + toBuddhistYear/toGregorianYear
     ],
   },
   resolve: {
