@@ -7,7 +7,7 @@ import Image from "next/image"
 import Link from "next/link"
 import { useCallback, useEffect, useState } from "react"
 
-import { KitButton } from "@/features/v2-profile/components/kit"
+import { BackButton, KitButton } from "@/features/v2-profile/components/kit"
 import { useDragScroll } from "@/features/v2-service/hooks/useDragScroll"
 import { Menubar } from "@/features/v2-shell/components/Menubar"
 import { TopBarBell } from "@/features/v2-shell/components/TopBarBell"
@@ -265,6 +265,7 @@ export function ManifestScreen({ previewData }: { previewData?: ManifestPreview 
       <div className="relative mx-auto min-h-[100dvh] w-full max-w-md overflow-hidden bg-v3-ghost-white pb-32">
         {/* header — สมุดแมนิเฟสต์ + อัพเกรด + กระดิ่ง + avatar (Figma) */}
         <header className="flex w-full items-center gap-2 px-4 pt-4">
+          <BackButton fallbackHref="/v2/service" testId="manifest-back" />
           <h1 className="flex-1 text-[20px] font-black leading-7 text-v3-navy">สมุดแมนิเฟสต์</h1>
           <Link href="/v2/shop" className="grid h-8 flex-none place-items-center rounded-full bg-v3-lime px-3 text-[13px] font-black text-v3-sapphire">อัพเกรด</Link>
           <TopBarBell variant="solid" href="/v2/calendar/notifications" />

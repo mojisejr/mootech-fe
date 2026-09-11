@@ -83,29 +83,20 @@ export function AccountScreen({ preview }: { preview?: AccountPreview } = {}) {
   const [qiRate, setQiRate] = useState<number | null>(null)
 
   const load = useCallback(async () => {
-    const [w, p, m, r, del, e, pack] = await Promise.all([
-      fetch("/api/qi-wallet?history=100").then((x) => (x.ok ? x.json() : null)).catch(() => null),
-      fetch("/api/profile").then((x) => (x.ok ? x.json() : null)).catch(() => null),
-      fetch("/api/missions").then((x) => (x.ok ? x.json() : null)).catch(() => null),
-      fetch("/api/referral").then((x) => (x.ok ? x.json() : null)).catch(() => null),
-      fetch("/api/v2/account/delete").then((x) => (x.ok ? x.json() : null)).catch(() => null),
-      fetch("/api/qi-entitlements").then((x) => (x.ok ? x.json() : null)).catch(() => null),
-      fetch("/api/payment-package?code=QI_60").then((x) => (x.ok ? x.json() : null)).catch(() => null),
+    const getJson = (url: string) => fetch(url).then((x) => (x.ok ? x.json() : null)).catch(() => null)
+    // ครึ่งที่จำเป็นต่อการวาดจอ (ยอด/โปรไฟล์/สิทธิ์) — วาดทันทีที่ 3 ตัวนี้มา ไม่รอที่เหลือ
+    // history=10 พอ (จอโชว์ 3 แถวล่าสุด) — เดิม 100 ทำ payload/คิวรีบวมโดยเปล่าประโยชน์
+    const [w, p, e] = await Promise.all([
+      getJson("/api/qi-wallet?history=10"),
+      getJson("/api/profile"),
+      getJson("/api/qi-entitlements"),
     ])
     setWallet(w)
-    {
-      const a = pack?.amount
-      const amount = typeof a === "number" ? a : typeof a === "string" ? Number(a) : NaN
-      const total = (qiQtyOf("QI_60") ?? 0) + qiBonusOf("QI_60")
-      setQiRate(Number.isFinite(amount) && amount > 0 && total > 0 ? amount / total : null)
-    }
     setEnt(e)
     const prof: Profile | null = p?.profile ?? null
     setProfile(prof)
-    setBoard(m)
-    setReferral(r)
-    setDeletePending(del?.deletion?.purgeAt ?? null)
     setLoaded(true)
+    // ธาตุของคุณ (bazi compute หนัก ~timeout 12s) — ยิงหลังได้ profile ไม่บล็อกจอ
     if (prof?.birthDate) {
       fetch("/api/bazi/element-summary", {
         method: "POST",
@@ -118,6 +109,21 @@ export function AccountScreen({ preview }: { preview?: AccountPreview } = {}) {
     } else {
       setElement(null)
     }
+    // ครึ่งที่ไม่บล็อกการวาดจอ (ภารกิจ/ชวนเพื่อน/สถานะลบบัญชี/เรตราคา) — เติมทีหลัง section null-guard เอง
+    void Promise.all([
+      getJson("/api/missions"),
+      getJson("/api/referral"),
+      getJson("/api/v2/account/delete"),
+      getJson("/api/payment-package?code=QI_60"),
+    ]).then(([m, r, del, pack]) => {
+      setBoard(m)
+      setReferral(r)
+      setDeletePending(del?.deletion?.purgeAt ?? null)
+      const a = pack?.amount
+      const amount = typeof a === "number" ? a : typeof a === "string" ? Number(a) : NaN
+      const total = (qiQtyOf("QI_60") ?? 0) + qiBonusOf("QI_60")
+      setQiRate(Number.isFinite(amount) && amount > 0 && total > 0 ? amount / total : null)
+    })
   }, [])
 
   useEffect(() => { if (preview) return; void load() }, [load, attempt, preview])
