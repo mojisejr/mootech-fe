@@ -27,6 +27,15 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     if (req.method === "GET") {
       const upstream = await fetch(`${base}/api/profile/avatar?anonId=${encodeURIComponent(rawId)}`)
       if (!upstream.ok) {
+        // ยังไม่ได้อัพโหลดรูปเอง → ใช้รูปตั้งต้นจาก LINE (cookie-mumate-image) เพื่อให้ทุกหน้าโชว์รูปเดียวกัน
+        // ทำที่ชั้น server เพื่อให้จอ shell เรียก /api/v2/avatar ที่เดียว ไม่ต้องรู้ว่ามีรูปอัพโหลดหรือไม่
+        const lineRaw = req.cookies["cookie-mumate-image"] ?? ""
+        const lineUrl = (() => { try { return decodeURIComponent(lineRaw) } catch { return lineRaw } })()
+        if (/^https:\/\//i.test(lineUrl)) {
+          res.setHeader("Cache-Control", "private, max-age=0, must-revalidate")
+          res.redirect(302, lineUrl)
+          return
+        }
         res.status(upstream.status).json({ error: "ยังไม่มีรูปโปรไฟล์" })
         return
       }
