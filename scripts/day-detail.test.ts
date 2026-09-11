@@ -52,6 +52,11 @@ const ALMANAC_DAY = {
   gates: Array.from({ length: 8 }, (_, i) => ({ name: `G${i}`, direction: 'E', meaning: 'เปิด' })),
   colors: [{ element: 'ทอง', colors: 'ขาว' }, { element: 'น้ำ', colors: 'ฟ้า น้ำเงิน' }],
   luckyHours: [{ code: 'B8', range: '1:00-2:59', god: 'เหง็กอ๋วง', meaning: 'ดี' }],
+  dayStars: [
+    { name: 'วันมงคล', polarity: 'good', activity: 'ตั้งศาล ขึ้นบ้านใหม่' },
+    { name: 'วันความรัก', polarity: 'good', activity: 'เสริมเสน่ห์' },
+  ],
+  dayDirections: { fortune: 'SE', patrons: [{ degree: '30', zodiac: 'ฉลู' }], bad: 'S' },
 }
 
 const d = mapDayDetail(MVD, ALMANAC_DAY)
@@ -66,6 +71,10 @@ ok('avoid ← summaryItems key=worst, SPLIT into a list', Array.isArray(d.avoid)
 ok('suitable/avoid survive UI .slice().map() — no TypeError', (() => { try { d.suitable.slice(0, 2).map((s) => s.trim()); d.avoid.slice(0, 2).map((s) => s.trim()); return true } catch { return false } })())
 ok('absent best/worst → [] (not a bare string, Column empty-guards it)', (() => { const e = mapDayDetail({ ...MVD, summaryItems: [] }, ALMANAC_DAY); return Array.isArray(e.suitable) && e.suitable.length === 0 })())
 ok('insight ← elementRelation.summaryTh', d.insight === 'ธาตุของวันเสริมดิถีคุณ')
+// วันมงคล/วันพิเศษ (almanac.dayStars) + ทิศร้าย (almanac.dayDirections.bad)
+ok('specialDays ← almanac.dayStars (วันมงคล + วันพิเศษ)', d.specialDays.length === 2 && d.specialDays[0].name === 'วันมงคล' && d.specialDays[1].name === 'วันความรัก')
+ok('badDirection ← almanac.dayDirections.bad', d.badDirection === 'S')
+ok('absent dayStars → [] (ไม่ throw)', (() => { const e = mapDayDetail(MVD, { ...ALMANAC_DAY, dayStars: undefined, dayDirections: undefined }); return Array.isArray(e.specialDays) && e.specialDays.length === 0 && e.badDirection === '' })())
 ok('compatAreas ← facets (4), isStrength=isMain', d.compatAreas.length === 4 && d.compatAreas[0].isStrength === true && d.compatAreas[1].isStrength === false)
 ok('compatAreas carry facet grade pass-through', d.compatAreas[1].grade === 'C+')
 ok('advice ← MAIN facet lines[].text (3 บรรทัด)', d.advice.length === 3 && d.advice[0] === 'บรรทัด 1')

@@ -13,6 +13,7 @@ export type DayDetailYam = { id: string; window: string; label: string }
 export type DayDetailSpirit = { name: string; keywords: string[] }
 export type DayDetailGate = { name: string; direction: string; meaning: string }
 export type DayDetailColor = { element: string; colors: string }
+export type DayDetailStar = { name: string; polarity: string; activity: string }
 
 export type DayDetail = {
   date: string
@@ -38,6 +39,8 @@ export type DayDetail = {
   gates: DayDetailGate[] // raw — no good/bad level (ตำราไม่มี)
   patrons: string[] // กุ๊ยนั้ง 貴人 — almanac.patrons[].zodiac ("คนเกิดปีวอก") ดิบ · gafiw 2026-09-07 ขอโชว์ในโหมดแอดวานซ์
   colors: DayDetailColor[] // raw Thai names — no hex (งานดีไซน์)
+  specialDays: DayDetailStar[] // almanac.dayStars — วันมงคล + วันพิเศษ (ความรัก/ลาภสวรรค์/หมอเทพ/ฟ้าอภัย)
+  badDirection: string // almanac.dayDirections.bad — ทิศร้าย (เลี่ยง)
 }
 
 const str = (v: unknown, d = ''): string => (typeof v === 'string' ? v : d)
@@ -122,6 +125,15 @@ export function mapDayDetail(mvd: unknown, almanacDay: unknown): DayDetail {
       const cc = c as { element?: unknown; colors?: unknown }
       return { element: str(cc.element), colors: str(cc.colors) }
     }),
+    // วันมงคล/วันพิเศษ + ทิศร้าย — a (almanac day) ก่อน, ไม่มีค่อยเอาจาก man-vs-day almanac
+    specialDays: arr(a.dayStars ?? (m.almanac as { dayStars?: unknown } | undefined)?.dayStars).map((s) => {
+      const ss = s as { name?: unknown; polarity?: unknown; activity?: unknown }
+      return { name: str(ss.name), polarity: str(ss.polarity), activity: str(ss.activity) }
+    }),
+    badDirection: str(
+      (a.dayDirections as { bad?: unknown } | undefined)?.bad ??
+        ((m.almanac as { dayDirections?: { bad?: unknown } } | undefined)?.dayDirections?.bad),
+    ),
   }
 }
 
@@ -161,6 +173,8 @@ export const FREE_DAY_DETAIL_FIELDS = [
   // section) and shows a "ทิศมงคล …" chip from this field via its own prop. Grepping the PAGE cannot see a
   // field a COMPONENT reads — the sweep has to follow the tree.
   'luckyDirection',
+  'specialDays', // วันมงคล/วันพิเศษ — แท็กวันระดับ header (ฟรี)
+  'badDirection', // ทิศร้าย — คู่กับ luckyDirection (ฟรี)
 ] as const satisfies readonly (keyof DayDetail)[]
 
 /** The free-tier view of a day. Paid fields are ABSENT (not null, not empty) — a caller cannot tell a

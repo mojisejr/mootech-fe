@@ -42,8 +42,9 @@ const NEUTRAL = '#464646'
  * "ขาดทิศมงคล"): the card is titled "ทิศ สีมงคล" but showed only สี — the missing ทิศ read as a bug. It now
  * leads the card, matching the title order (ทิศ → สี → เทพ).
  */
-export function LuckyColors({ colors, deity, direction }: { colors: DayDetailColor[]; deity: string; direction: string }) {
+export function LuckyColors({ colors, deity, direction, badDirection }: { colors: DayDetailColor[]; deity: string; direction: string; badDirection?: string }) {
   const dirTh = directionLabelTH(direction)
+  const badTh = badDirection ? directionLabelTH(badDirection) : ''
   return (
     <SectionCard
       title="ทิศ สีมงคล"
@@ -73,6 +74,12 @@ export function LuckyColors({ colors, deity, direction }: { colors: DayDetailCol
           <div className="flex items-center justify-between gap-3 border-b border-dashed border-v3-divider-dashed pb-3">
             <span className="text-base font-normal leading-6 text-v3-text-body">ทิศมงคล</span>
             <span className="text-base font-bold leading-6 text-v3-sapphire">{dirTh}</span>
+          </div>
+        )}
+        {badTh && (
+          <div className="flex items-center justify-between gap-3 border-b border-dashed border-v3-divider-dashed pb-3" data-testid="bad-direction">
+            <span className="text-base font-normal leading-6 text-v3-text-body">ทิศร้าย (เลี่ยง)</span>
+            <span className="text-base font-bold leading-6 text-v3-error">{badTh}</span>
           </div>
         )}
         {colors.length === 0 && <p className="text-sm text-v3-text-muted">วันนี้ไม่มีข้อมูลสีมงคล</p>}

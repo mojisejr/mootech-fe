@@ -19,6 +19,11 @@ import { mergeEngineBirth } from "@/lib/bazi-bridge/engine-birth"
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 const rowsOf = (r: any): any[] => (Array.isArray(r) ? r : r?.rows ?? [])
 
+// เวอร์ชันของ "ก้อนผลดวงที่ cache" — bump เมื่อ engine เพิ่ม/แก้ฟิลด์ใน payload (เช่น elementNisai)
+// ต่อเข้า birthKey → ผลเก่าที่ cache ก่อน bump จะ miss แล้วคำนวณใหม่เองทันที ไม่ต้องล้างตาราง cache มือ.
+// v2 (2026-09-11): เพิ่ม elementAnalysis.elementNisai (นิสัย 5 ธาตุ แข็ง/อ่อน) ลงหน้าดวง.
+const CACHE_VERSION = "v2"
+
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== "POST") {
     res.status(405).json({ error: "Method not allowed" })
@@ -65,7 +70,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   // + เดือนปัจจุบัน: payload มี "วันดีเดือนนี้" (goodDays) → เดือนใหม่ต้อง miss แล้วคำนวณใหม่ ไม่งั้นได้วันดีเก่า.
   const now = new Date()
   const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`
-  const birthKey = [rawInput.birthDate, rawInput.birthTime, rawInput.gender, rawInput.province, currentMonth].join("|")
+  const birthKey = [CACHE_VERSION, rawInput.birthDate, rawInput.birthTime, rawInput.gender, rawInput.province, currentMonth].join("|")
   try {
     const cached = rowsOf(
       await db.execute(sql`SELECT payload FROM "bazi_destiny_cache" WHERE user_id = ${userId} AND birth_key = ${birthKey} LIMIT 1`),

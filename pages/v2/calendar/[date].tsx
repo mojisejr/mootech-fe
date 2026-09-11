@@ -28,6 +28,7 @@ import { AdvancedToggle } from '@/features/v2-calendar/components/day-detail/Adv
 import { CompatList } from '@/features/v2-calendar/components/day-detail/CompatList'
 import { PredictionCards } from '@/features/v2-calendar/components/day-detail/PredictionCards'
 import { LuckyColors } from '@/features/v2-calendar/components/day-detail/LuckyColors'
+import { SpecialDays } from '@/features/v2-calendar/components/day-detail/SpecialDays'
 import { YamTimes } from '@/features/v2-calendar/components/day-detail/YamTimes'
 import { MyChart } from '@/features/v2-calendar/components/day-detail/MyChart'
 import { Dithi } from '@/features/v2-calendar/components/day-detail/Dithi'
@@ -347,8 +348,10 @@ export default function V2CalendarDayPage({ teamPreview }: { teamPreview: boolea
         {/* §9 [advanced] — ดิถีวันนี้ · สะสม · เงื่อนไขคือ jianchu (ครึ่งที่ขายเงินของ dithi)
             ❌ ไม่ใช่ `detail.dithi` ทั้งก้อน ซึ่งผู้ใช้ฟรีก็มี (officer ไปเป็นชิปบนการ์ดคะแนน) */}
         {advanced && detail.dithi?.jianchu && <div ref={dithiRef} className="scroll-mt-4"><Dithi dithi={detail.dithi} /></div>}
+        {/* วันมงคล/วันพิเศษ (ทุก tier) — ดาววันจากปฏิทินซินแส */}
+        {detail.specialDays && detail.specialDays.length > 0 && <SpecialDays specialDays={detail.specialDays} />}
         {/* every tier gets these two — Free-2 draws them in full */}
-        <LuckyColors colors={detail.luckyColors} deity={detail.dayDeity} direction={detail.luckyDirection} />
+        <LuckyColors colors={detail.luckyColors} deity={detail.dayDeity} direction={detail.luckyDirection} badDirection={detail.badDirection} />
         {/* #316 — ตัดสินด้วย remindersLocked(isPaid) ไม่ใช่ `free` (fail-closed · null = ล็อก)
             ตรรกะอยู่ที่ features/v2-calendar/tier-lock.ts เพราะไฟล์ page นี้ unit test แตะไม่ได้ */}
         <YamTimes yams={detail.yams} onAdd={addYam} locked={remindersLocked(isPaid)} statusFor={statusFor} onViewList={goToList} />
