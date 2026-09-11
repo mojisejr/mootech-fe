@@ -183,19 +183,22 @@ export function PhoneReadingScreen({ initialMode = "normal" }: { initialMode?: M
     if (!cd.begin()) return
     setPhase("loading"); setError(null); setNeedQi(false)
     try {
-      const spend = await fetch("/api/qi-spend", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ code: c.spendCode }) })
-      if (!spend.ok) {
-        if (spend.status === 409) { setError(`แต้ม QI ไม่พอ (ใช้ ${QI_COST} QI ต่อการทำนาย)`); setNeedQi(true) }
-        else if (spend.status === 401) setError("กรุณาเข้าสู่ระบบก่อนใช้งาน")
-        else setError("หักแต้ม QI ไม่สำเร็จ ลองใหม่อีกครั้ง")
-        setPhase("intro"); return
-      }
+      // P0-1: อ่านก่อน หัก QI ทีหลัง — reading endpoint เป็น stateless ไม่แตะ QI ดังนั้นถ้าคำนวณล้ม/ถูก
+      // reject (4xx) จะยังไม่มีการหักแต้ม (เดิม spend→read ทำให้เสีย QI ฟรีเมื่อทำนายล้ม)
       const res = await fetch(c.endpoint, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ phoneNumber: phone }) })
       const j = (await res.json().catch(() => ({}))) as (PhoneReading & HoneycombReading) & { error?: string | { message?: string } }
       const ok = res.ok && (m === "normal" ? !!j.pairs?.length : !!j.layers?.length)
       if (!ok) {
         const msg = typeof j.error === "string" ? j.error : j.error?.message
         setError(msg || "ทำนายเบอร์ไม่สำเร็จ ลองใหม่อีกครั้ง"); setPhase("intro"); return
+      }
+      // คำนวณสำเร็จแล้วค่อยหัก QI — ถ้าแต้มไม่พอ (409) จะไม่โชว์ผล (ยังไม่ได้จ่าย)
+      const spend = await fetch("/api/qi-spend", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ code: c.spendCode }) })
+      if (!spend.ok) {
+        if (spend.status === 409) { setError(`แต้ม QI ไม่พอ (ใช้ ${QI_COST} QI ต่อการทำนาย)`); setNeedQi(true) }
+        else if (spend.status === 401) setError("กรุณาเข้าสู่ระบบก่อนใช้งาน")
+        else setError("หักแต้ม QI ไม่สำเร็จ ลองใหม่อีกครั้ง")
+        setPhase("intro"); return
       }
       showResult(m, j, null); setNarrating(true)
       putDayEntry(c.cacheKey, digits, j, null)
