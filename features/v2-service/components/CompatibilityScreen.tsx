@@ -681,6 +681,11 @@ export function CompatibilityScreen({ config }: { config: CompatibilityConfig })
               }
               return res
             },
+            onDelete: async () => {
+              const res = await c.deleteFriend(c.person2!.id)
+              if (res.ok) setEditForm(null) // deleteFriend เคลียร์ person2 ให้แล้ว
+              return res
+            },
           }}
         />
       )}

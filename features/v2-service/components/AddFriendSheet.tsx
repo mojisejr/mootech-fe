@@ -65,6 +65,8 @@ const CONNECT_OPTIONS = [
 export type EditFriendMode = {
   initial: EditFriendForm
   onSave: (form: EditFriendForm) => Promise<UpdateFriendResult>
+  /** ลบเพื่อนคนนี้ (optional) — มีปุ่ม "ลบเพื่อน" ในโหมดแก้ไขเมื่อ caller ส่ง onDelete มา */
+  onDelete?: () => Promise<UpdateFriendResult>
 }
 
 // Save-failure copy in the vocabulary #263 set for this whole line: name what happened, then say what to
@@ -110,6 +112,18 @@ export function AddFriendSheet({ onClose, onCreate, edit, title = 'เลือ�
   const [uploading, setUploading] = useState(false)
   const [uploadError, setUploadError] = useState(false)
   const fileRef = useRef<HTMLInputElement>(null)
+  const [confirmingDelete, setConfirmingDelete] = useState(false) // N2: ยืนยันก่อนลบเพื่อน
+  const [deleting, setDeleting] = useState(false)
+  const [deleteError, setDeleteError] = useState(false)
+
+  async function onConfirmDelete() {
+    if (!edit?.onDelete) return
+    setDeleting(true); setDeleteError(false)
+    const res = await edit.onDelete()
+    setDeleting(false)
+    if (res.ok) setConfirmingDelete(false) // caller ปิด sheet เอง
+    else setDeleteError(true)
+  }
 
   // ปิด sheet ด้วย Escape (P1-5) — เดิมปิดได้แค่แตะ backdrop
   useEffect(() => {
@@ -336,6 +350,14 @@ export function AddFriendSheet({ onClose, onCreate, edit, title = 'เลือ�
             className={`w-full rounded-[100px] py-3.5 text-center text-[16px] font-bold uppercase text-white ${canSave ? 'bg-v3-sapphire' : 'cursor-not-allowed bg-v3-disabled-bg'}`}>
             {saving ? 'กำลังบันทึก…' : edit ? 'บันทึกการแก้ไข' : 'บันทึก'}
           </button>
+
+          {/* N2 — ลบเพื่อนคนนี้ (เฉพาะโหมดแก้ไข และเมื่อ caller ส่ง onDelete มา) */}
+          {edit?.onDelete && (
+            <button type="button" onClick={() => setConfirmingDelete(true)} data-testid="add-friend-delete"
+              className="w-full py-1 text-center text-[15px] font-bold text-v3-error">
+              ลบเพื่อนคนนี้
+            </button>
+          )}
         </div>
 
         {/* create-only: connecting an account is a way to ADD friends, meaningless while editing one */}
@@ -355,6 +377,23 @@ export function AddFriendSheet({ onClose, onCreate, edit, title = 'เลือ�
             </ComingSoonAction>
           ))}
         </div>
+
+        {/* N2 — ยืนยันก่อนลบเพื่อน (destructive) */}
+        {confirmingDelete && (
+          <div className="absolute inset-0 z-10 grid place-items-center rounded-t-[28px] bg-black/40 px-6" role="dialog" aria-modal="true" aria-label="ยืนยันการลบเพื่อน" onClick={() => !deleting && setConfirmingDelete(false)}>
+            <div className="w-full max-w-sm rounded-[24px] bg-white p-6 text-center" onClick={(e) => e.stopPropagation()} data-testid="add-friend-delete-confirm">
+              <p className="text-[17px] font-bold text-v3-navy">ลบเพื่อนคนนี้?</p>
+              <p className="mt-2 text-[14px] leading-[22px] text-v3-text-detail">ข้อมูลเพื่อนคนนี้จะถูกลบ กู้คืนไม่ได้</p>
+              {deleteError && <p role="alert" className="mt-2 text-[13px] font-medium text-v3-error">ลบไม่สำเร็จ ลองใหม่อีกครั้ง</p>}
+              <div className="mt-5 flex gap-3">
+                <button type="button" onClick={() => setConfirmingDelete(false)} disabled={deleting} data-testid="add-friend-delete-cancel"
+                  className="flex-1 rounded-full border border-v3-border-dropdown py-3 text-[15px] font-bold text-v3-navy disabled:opacity-50">ยกเลิก</button>
+                <button type="button" onClick={onConfirmDelete} disabled={deleting} data-testid="add-friend-delete-confirm-btn"
+                  className="flex-1 rounded-full bg-v3-error py-3 text-[15px] font-bold text-white disabled:opacity-60">{deleting ? 'กำลังลบ…' : 'ลบเพื่อน'}</button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   )

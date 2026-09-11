@@ -4,7 +4,7 @@
 // and limits free=20/member=20; if over limit, isRunAi=false and rows past index getLimit(true)=20 are
 // flagged is_disable. Member friends (member_id != '') resolve their profile from the `user` table.
 import type { NextApiRequest, NextApiResponse } from 'next'
-import { eq, asc } from 'drizzle-orm'
+import { eq, and, asc } from 'drizzle-orm'
 import { db } from '@/lib/db'
 import { memberWithFriend, user } from '@/lib/db/schema'
 import { checkMemberWithFriendUsage, AI_CODE, FREE_FRIEND_LIMIT } from '@/lib/usage'
@@ -12,6 +12,22 @@ import { checkMemberWithFriendUsage, AI_CODE, FREE_FRIEND_LIMIT } from '@/lib/us
 const FREE_LIMIT = FREE_FRIEND_LIMIT // free friend ceiling (#262: 1 → 20); single source in usage-core
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
+  // DELETE /member-with-friend?user_id=..&id=.. — ลบเพื่อน (scope ที่ user_id + row id: ลบได้เฉพาะของตัวเอง)
+  if (req.method === 'DELETE') {
+    try {
+      const userId = (req.query.user_id as string) ?? ''
+      const id = ((req.query.id as string) || (req.query.friend_id as string)) ?? ''
+      if (!userId || !id) return res.status(400).json({ error: 'user_id and id are required' })
+      const deleted = await db
+        .delete(memberWithFriend)
+        .where(and(eq(memberWithFriend.id, id), eq(memberWithFriend.userId, userId)))
+        .returning({ id: memberWithFriend.id })
+      if (deleted.length === 0) return res.status(404).json({ error: 'friend not found' })
+      return res.status(200).json({ ok: true, id })
+    } catch (e: any) {
+      return res.status(500).json({ error: e?.message ?? 'internal error' })
+    }
+  }
   if (req.method !== 'GET') return res.status(405).json({ error: 'Method not allowed' })
   try {
     const userId = (req.query.user_id as string) ?? ''

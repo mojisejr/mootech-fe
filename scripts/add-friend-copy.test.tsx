@@ -137,6 +137,21 @@ describe('frame 720:25691 parity', () => {
     expect(onClose).toHaveBeenCalled()
   })
 
+  it('N2: ปุ่มลบเพื่อนโชว์เฉพาะเมื่อ caller ส่ง onDelete; ต้องยืนยันก่อนลบ แล้วเรียก onDelete', async () => {
+    // ไม่มี onDelete → ไม่มีปุ่มลบ
+    render(<AddFriendSheet onClose={vi.fn()} onCreate={vi.fn()} edit={EDIT} />)
+    expect(screen.queryByTestId('add-friend-delete')).toBeNull()
+    cleanup()
+    // มี onDelete → มีปุ่มลบ + ยืนยันก่อน
+    const onDelete = vi.fn(async () => ({ ok: true as const }))
+    render(<AddFriendSheet onClose={vi.fn()} onCreate={vi.fn()} edit={{ ...EDIT, onDelete }} />)
+    fireEvent.click(screen.getByTestId('add-friend-delete'))
+    expect(screen.getByTestId('add-friend-delete-confirm')).toBeTruthy()
+    expect(onDelete).not.toHaveBeenCalled() // ยังไม่ยืนยัน
+    fireEvent.click(screen.getByTestId('add-friend-delete-confirm-btn'))
+    await waitFor(() => expect(onDelete).toHaveBeenCalledTimes(1))
+  })
+
   it('edit mode hides the connect rows (adding friends is meaningless while editing one)', () => {
     render(<AddFriendSheet onClose={vi.fn()} onCreate={vi.fn()} edit={EDIT} />)
     expect(screen.queryByText('หรือเชื่อมต่อบัญชี')).toBeNull()
