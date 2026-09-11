@@ -108,13 +108,15 @@ export function PlanScreen() {
               { key: "chat", label: "ถามเซียนมู่ AI", q: ent.quota.chat, credit: ent.credits?.chat_question ?? 0 },
             ] as const).map(({ key, label, q, credit }) => {
               if (!q) return null
+              // P2-12: limit < 0 = ไม่จำกัด (entitlements คืน -1 สำหรับ chat ของ plus/pro) — โชว์ "ไม่จำกัด"
+              const unlimited = q.limit < 0
               const remaining = Math.max(0, q.limit - q.used)
-              const out = remaining === 0
+              const out = !unlimited && remaining === 0
               return (
                 <div key={key} className="flex items-center justify-between gap-3" data-testid={`plan-quota-${key}`}>
                   <span className="text-[13px] text-v3-text-body">{label}</span>
                   <span className={`flex-none rounded-full px-2.5 py-[2px] text-[11px] font-black ${out && credit === 0 ? "bg-v3-danger-bg text-v3-danger-text" : "bg-v3-qi-earn-bg text-v3-qi-earn-icon"}`}>
-                    {out && credit === 0 ? "ใช้ครบแล้ววันนี้" : out ? `เหลือ ${credit} ครั้ง (ที่แลกไว้)` : `เหลือ ${remaining}/${q.limit} วันนี้`}
+                    {unlimited ? "ไม่จำกัด" : out && credit === 0 ? "ใช้ครบแล้ววันนี้" : out ? `เหลือ ${credit} ครั้ง (ที่แลกไว้)` : `เหลือ ${remaining}/${q.limit} วันนี้`}
                   </span>
                 </div>
               )

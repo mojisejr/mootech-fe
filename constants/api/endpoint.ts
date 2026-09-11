@@ -106,6 +106,7 @@ export const API = {
     update: backendURLGenerator('/member-with-friend'),
     update_profile: backendURLGenerator('/member-with-friend/profile'),
     new_friend: backendURLGenerator('/member-with-friend/new-friend'),
+    delete: localApi('/member-with-friend'), // MIGRATED -> pages/api/member-with-friend/index.ts (DELETE branch)
   },
   user_matching: {
     calculate: backendURLGenerator('/user-matching'),

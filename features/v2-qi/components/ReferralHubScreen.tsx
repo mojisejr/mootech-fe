@@ -86,7 +86,11 @@ export function ReferralHubScreen() {
     setRefMsg(null)
     const res = await fetch("/api/referral", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ code }) })
     const j = (await res.json().catch(() => ({}))) as { error?: string }
-    setRefMsg(res.ok ? `รับโบนัสสำเร็จ! คุณได้ +${REWARD_FRIEND} QI` : String(j.error ?? "โค้ดไม่ถูกต้อง หรือใช้ไปแล้ว"))
+    // P1-6: อย่าโชว์ข้อความดิบภาษาอังกฤษจาก server (house rule) — server คืนไทยอยู่แล้วสำหรับเคสที่รู้จัก
+    // (โค้ดไม่ถูกต้อง/ไม่พบโค้ด/ใช้โค้ดตัวเอง/ใช้ไปแล้ว) ที่เหลือ (payload/unknown) ตกลง fallback ไทย
+    const serverMsg = typeof j.error === "string" ? j.error : ""
+    const errMsg = !serverMsg || /[A-Za-z]/.test(serverMsg) ? "โค้ดไม่ถูกต้อง หรือใช้ไปแล้ว" : serverMsg
+    setRefMsg(res.ok ? `รับโบนัสสำเร็จ! คุณได้ +${REWARD_FRIEND} QI` : errMsg)
     if (res.ok) { setRefInput(""); await load() }
   }
 

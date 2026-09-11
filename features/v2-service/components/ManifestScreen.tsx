@@ -222,6 +222,7 @@ export function ManifestScreen({ previewData }: { previewData?: ManifestPreview 
   const [element, setElement] = useState<ElementInfo>(previewData?.element ?? null)
   const [loading, setLoading] = useState(!previewData)
   const [creating, setCreating] = useState(false)
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null) // P3-18: ยืนยันก่อนลบความปรารถนา
   const { ref: carouselRef, dragHandlers } = useDragScroll<HTMLDivElement>() // #Bug2 — ปัดขวาได้จริงบนมือถือ
 
   const load = useCallback(async () => {
@@ -308,7 +309,7 @@ export function ManifestScreen({ previewData }: { previewData?: ManifestPreview 
                         <p className="mt-1 text-[14px] font-bold leading-5">{g.affirmation || g.title}</p>
                       </div>
                     </Link>
-                    <button type="button" onClick={() => void deleteGoal(g.id)} aria-label="ลบความปรารถนา" data-testid="manifest-delete" className="absolute bottom-3 right-3 text-[12px] text-v3-text-muted">ลบ</button>
+                    <button type="button" onClick={() => setConfirmDeleteId(g.id)} aria-label="ลบความปรารถนา" data-testid="manifest-delete" className="absolute bottom-3 right-3 text-[12px] text-v3-text-muted">ลบ</button>
                   </article>
                 ))}
               </div>
@@ -332,6 +333,22 @@ export function ManifestScreen({ previewData }: { previewData?: ManifestPreview 
       </div>
 
       {creating ? <CreateGoalModal onClose={() => setCreating(false)} onCreated={() => { setCreating(false); void load() }} /> : null}
+      {/* P3-18: ยืนยันก่อนลบความปรารถนา (เดิมลบทันทีไม่มีถาม) — pattern เดียวกับ LogoutModal */}
+      {confirmDeleteId ? (
+        <div className="fixed inset-0 z-50 grid place-items-center bg-black/40 px-6" role="dialog" aria-modal="true" aria-label="ยืนยันการลบความปรารถนา" onClick={() => setConfirmDeleteId(null)}>
+          <div className="w-full max-w-sm rounded-[24px] bg-white p-6 text-center" onClick={(e) => e.stopPropagation()} data-testid="manifest-delete-confirm">
+            <p className="text-[17px] font-bold text-v3-navy">ลบความปรารถนานี้?</p>
+            <p className="mt-2 text-[14px] leading-[22px] text-v3-text-detail">เมื่อลบแล้วจะกู้คืนไม่ได้</p>
+            <div className="mt-5 flex gap-3">
+              <button type="button" onClick={() => setConfirmDeleteId(null)} data-testid="manifest-delete-cancel"
+                className="flex-1 rounded-full border border-v3-border-dropdown py-3 text-[15px] font-bold text-v3-navy">ยกเลิก</button>
+              <button type="button" data-testid="manifest-delete-confirm-btn"
+                onClick={() => { const id = confirmDeleteId; setConfirmDeleteId(null); void deleteGoal(id) }}
+                className="flex-1 rounded-full bg-v3-pumpkin py-3 text-[15px] font-bold text-white">ลบ</button>
+            </div>
+          </div>
+        </div>
+      ) : null}
       <Menubar />
     </div>
   )

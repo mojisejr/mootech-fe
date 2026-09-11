@@ -61,12 +61,14 @@ const CARD_SHADOW: Record<string, string> = {
   pro: 'shadow-[0_16px_40px_rgba(26,38,77,0.14)]',
 }
 
-/** "ตกเพียงวันละ 2.1 บาทเท่านั้น" — derived from the SERVER price, truncated to 1dp like the design
- *  (790/365 = 2.16 → 2.1 · 1590/365 = 4.35 → 4.3). Truncated, not rounded: a per-day figure that rounds UP
- *  would advertise a price higher than the arithmetic supports.
+/** "ตกเพียงวันละ 2.1 บาทเท่านั้น" — derived from the SERVER price, truncated to 1dp like the design.
+ *  P1-9: หารตาม billing period จริง — รายปี ÷365, รายเดือน ÷30 (เดิม ÷365 เสมอ ทำให้ราคารายเดือน
+ *  ต่ำผิด ~12 เท่า). Truncated, not rounded: a per-day figure that rounds UP would advertise a price
+ *  higher than the arithmetic supports.
  *  Two spellings, both the frame's: Plus says "ตกเพียงวันละ" (997:2676), Pro says "ตกวันละ" (997:2725). */
-function perDayText(amountThb: number, planId: string): string {
-  const perDay = Math.floor((amountThb / 365) * 10) / 10
+const DAYS_IN_PERIOD: Record<BillingPeriod, number> = { annual: 365, monthly: 30 }
+function perDayText(amountThb: number, planId: string, period: BillingPeriod): string {
+  const perDay = Math.floor((amountThb / DAYS_IN_PERIOD[period]) * 10) / 10
   const n = perDay.toLocaleString('th-TH', { minimumFractionDigits: 1, maximumFractionDigits: 1 })
   return planId === 'pro' ? `ตกวันละ ${n} บาทเท่านั้น` : `ตกเพียงวันละ ${n} บาทเท่านั้น`
 }
@@ -150,7 +152,7 @@ export function PackageCard({
                   <span aria-hidden className="text-xs font-normal text-v3-text-body">•</span>
                 </>
               ) : null}
-              <span>{perDayText(price.amountThb, plan.id)}</span>
+              <span>{perDayText(price.amountThb, plan.id, period)}</span>
             </p>
           </>
         ) : price.kind === 'loading' ? (

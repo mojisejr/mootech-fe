@@ -4,11 +4,18 @@
 // rendered string rather than a parsed fragment — a `/(\d+)/` on the output would have read '14' from both
 // a correct and a wrong month, which is the class of instrument that certifies its own bug.
 //
-// 🟠 SECOND COPY, KNOWN, NOT FIXED HERE: features/v2-service/components/compat-format.ts:5 has its own
-// TH_MONTHS_ABBR. It should delegate to this file — but it has ZERO tests (git grep formatCompatBirth over
-// scripts/ = 0 hits), so refactoring it inside this ticket would be unprotected surgery on a shipped screen
-// for a change #365 does not need. Ticket instead of detour, per the rule in scripts/member-subscription.test.ts.
-const TH_MONTHS_ABBR = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.']
+// P3-17: ไฟล์นี้เป็นบ้านเดียวของการแปลง ค.ศ.↔พ.ศ. (เลข 543) และชื่อเดือนย่อไทย ให้ทั้งแอปใช้ร่วมกัน
+// (เดิม compat-format.ts:5 มี TH_MONTHS_ABBR ซ้ำ — ตอนนี้ delegate มาที่นี่แล้ว + มี test คุม)
+export const TH_MONTHS_ABBR = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.']
+
+/** ค.ศ. → พ.ศ. (บ้านเดียวของ +543 ไม่ให้เลขนี้กระจายทั่วแอป) */
+export function toBuddhistYear(ceYear: number): number {
+  return ceYear + 543
+}
+/** พ.ศ. → ค.ศ. */
+export function toGregorianYear(beYear: number): number {
+  return beYear - 543
+}
 
 /**
  * '2027-07-14' → '14 ก.ค. 2570'. Returns '' for anything that is not a real 'YYYY-MM-DD' — the caller then
@@ -26,5 +33,5 @@ export function formatThaiDateAbbr(iso: string): string {
   if (monthIdx < 0 || monthIdx > 11) return ''
   const day = Number(m[3])
   if (day < 1 || day > 31) return ''
-  return `${day} ${TH_MONTHS_ABBR[monthIdx]} ${Number(m[1]) + 543}`
+  return `${day} ${TH_MONTHS_ABBR[monthIdx]} ${toBuddhistYear(Number(m[1]))}`
 }

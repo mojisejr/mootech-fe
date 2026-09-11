@@ -65,7 +65,8 @@ test.describe("#266 — แก้ไขข้อมูลเพื่อน (bro
     await expect(page.getByTestId("add-friend-name")).toHaveValue("ปาล์ม");
     await expect(page.getByTestId("add-friend-year")).toHaveValue("2537"); // 1994 + 543
 
-    await page.getByTestId("add-friend-time").fill("09:45");
+    await page.getByTestId("add-friend-hour").selectOption("9");
+    await page.getByTestId("add-friend-minute").selectOption("45");
     await page.getByTestId("add-friend-save").click();
     await expect(page.getByTestId("add-friend-sheet")).toHaveCount(0);
 

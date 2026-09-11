@@ -164,7 +164,7 @@ export default function V2CalendarNotificationsPage({ teamPreview }: { teamPrevi
   }
 
   return (
-    <CalendarShell title="การแจ้งเตือน" menuState={CalendarMenuState.Saved}>
+    <CalendarShell title="การแจ้งเตือน" menuState={CalendarMenuState.Normal}>
       {/* Figma 636:10222 — teal ground behind the header; the cream sheet below rounds over it (r-t28). */}
       <div className="bg-v3-cyan">
         {/* #384 — this screen was the sixth <AppHeader/> and the only one that passed NO tier at all, so it

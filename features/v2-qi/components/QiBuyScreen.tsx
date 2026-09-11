@@ -15,6 +15,7 @@ const TAG: Record<string, string> = { QI_500: "ยอดนิยม", QI_1200: 
 // ริบบิ้นเต็มกว้างด้านบนการ์ด (เฟรม): ยอดนิยม = เหลืองมะนาว/navy · คุ้มที่สุด = ม่วงอ่อน/ม่วง
 const RIBBON: Record<string, string> = { QI_500: "bg-v3-grade-cplus text-v3-navy", QI_1200: "bg-v3-purple-bg text-v3-purple" }
 const CHAT_COST = 30 // chat_question — ใช้คำนวณ "ถามเซียนได้ N ครั้ง"
+const CARD_COST = 10 // card_use (เปิดไพ่/เซียมซี) — โชว์ทางเลือก "หรือเปิดไพ่ได้ M ครั้ง" ให้ตรงแพลน (เลือกอย่างใดอย่างหนึ่ง)
 const thb = (n: number) => `฿${n.toLocaleString("th-TH", { maximumFractionDigits: 2 })}`
 
 export function QiBuyScreen() {
@@ -73,9 +74,10 @@ export function QiBuyScreen() {
       const amount = amountOf(code)
       const active = Boolean(rows[code]?.is_active) && amount !== null && amount > 0
       const asks = Math.floor(total / CHAT_COST)
+      const cards = Math.floor(total / CARD_COST)
       const savings = base && amount ? Math.max(0, Math.round((1 - amount / total / base) * 100)) : 0
       const perAsk = amount && asks > 0 ? amount / asks : null
-      return { code, qty, bonus, total, amount, active, asks, savings, perAsk }
+      return { code, qty, bonus, total, amount, active, asks, cards, savings, perAsk }
     })
   }, [rows])
 
@@ -148,7 +150,7 @@ export function QiBuyScreen() {
                           {p.bonus > 0 ? <span className="rounded-full bg-v3-qi-earn-bg px-2 py-[1px] text-[10px] font-black text-v3-qi-earn">แถม +{p.bonus}</span> : null}
                         </p>
                         <p className={"text-[11px] " + (on ? "text-white/80" : "text-v3-text-muted")}>
-                          {p.active ? `ถามเซียนมู่ได้ ${p.asks} ครั้ง` : "ปิดขายชั่วคราว"}
+                          {p.active ? `ถามเซียนมู่ได้ ${p.asks} ครั้ง หรือเปิดไพ่ได้ ${p.cards} ครั้ง` : "ปิดขายชั่วคราว"}
                         </p>
                       </div>
                       <div className="flex-none text-right">

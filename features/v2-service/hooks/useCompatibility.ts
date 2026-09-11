@@ -18,6 +18,7 @@ import { UserGetById } from '@/constants/api/api-user-get'
 import { MemberWithFriendCreateApi } from '@/constants/api/api-member-with-friend-create'
 import { MemberWithFriendGetDetailApi } from '@/constants/api/api-member-with-friend-get-detail'
 import { MemberWithFriendUpdateProfileWithStatusApi } from '@/constants/api/api-member-with-friend-update-profile'
+import { MemberWithFriendDeleteApi } from '@/constants/api/api-member-with-friend-delete'
 import type { CompatibilityConfig, CompatibilityKind, MatchingType } from '../compatibility'
 import {
   buildCreateFriendArgs,
@@ -73,6 +74,8 @@ export type UseCompatibility = {
    *  On ok the caller MUST re-read the friend (selectFriend again) so person2 reflects the new data before
    *  the next calc — the detail is a fresh GET (no cache), so a re-select fully refreshes it. */
   updateFriendProfile: (friendId: string, form: EditFriendForm) => Promise<UpdateFriendResult>
+  /** ลบเพื่อน: DELETE ฝั่ง server (scope user_id+id) แล้วเคลียร์ person2 เมื่อสำเร็จ. status-aware. */
+  deleteFriend: (friendId: string) => Promise<UpdateFriendResult>
 }
 
 // The current-user row from UserGetById (/api/user). Only the fields Slice 1 reads are typed.
@@ -196,6 +199,19 @@ export function useCompatibility(config: CompatibilityConfig): UseCompatibility 
     [],
   )
 
+  // ลบเพื่อน (#N2/P3-18): ลบแถว member_with_friend ของ user แล้วเคลียร์ person2 เมื่อสำเร็จ
+  const deleteFriend = useCallback(
+    async (friendId: string): Promise<UpdateFriendResult> => {
+      if (!friendId) return { ok: false, reason: 'system', error: 'no-friend-id' }
+      if (!userId) return { ok: false, reason: 'system', error: 'no-user' }
+      const res = await MemberWithFriendDeleteApi(userId, friendId)
+      const mapped = mapUpdateFriendResult(res)
+      if (mapped.ok) clearFriend()
+      return mapped
+    },
+    [userId, clearFriend],
+  )
+
   return {
     kind: config.kind,
     title: config.title,
@@ -209,5 +225,6 @@ export function useCompatibility(config: CompatibilityConfig): UseCompatibility 
     clearFriend,
     createFriend,
     updateFriendProfile,
+    deleteFriend,
   }
 }

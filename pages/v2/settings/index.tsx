@@ -160,9 +160,9 @@ export default function V2SettingsPage() {
 
       {/* เกี่ยวกับ */}
       <Group title="เกี่ยวกับ">
-        <Row href="/privacy/policy" testId="settings-privacy-policy" title="นโยบายความเป็นส่วนตัว (PDPA)" />
-        <Row href="/terms" testId="settings-terms" title="ข้อกำหนดการใช้งาน" />
-        <Row href="/v2/help/about" testId="settings-about" title="ข้อมูลบริษัท" last />
+        <Row href="/v2/help/doc/privacy-and-deletion" testId="settings-privacy-policy" title="นโยบายความเป็นส่วนตัว (PDPA)" />
+        <Row href="/v2/help/doc/terms" testId="settings-terms" title="ข้อกำหนดการใช้งาน" />
+        <Row href="/v2/help/doc/about" testId="settings-about" title="ข้อมูลบริษัท" last />
       </Group>
 
       {/* ออกจากระบบ + ลบบัญชีถาวร + เวอร์ชัน (เฟรม danger zone) */}

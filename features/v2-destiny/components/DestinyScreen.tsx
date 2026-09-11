@@ -186,9 +186,11 @@ const PILLAR_LABEL: Record<string, string> = {
   year: "ปี",
   month: "เดือน",
   day: "วัน",
-  hour: "เวลา",
+  hour: "ยาม",
   mingGong: "ลัคนา",
 }
+// ลำดับเสาดวงคงที่: ลัคนา | ยาม | วัน | เดือน | ปี (freeze เดียวกับ lib/calculator/map-pillars.ts)
+const PILLAR_ORDER = ["mingGong", "hour", "day", "month", "year"] as const
 
 function gradeOf(score: number): string {
   if (score >= 90) return "A"
@@ -829,10 +831,9 @@ export function DestinyScreen({ previewData }: { previewData?: DestinyData } = {
               <h2 className="text-base font-bold text-v3-navy">ดวงจะส่งผล 8 ด้าน</h2>
               <div className="mt-3 grid grid-cols-5 gap-2">
                 {pillars
-                  ? Object.entries(pillars)
-                      .slice(0, 4)
-                      .concat(mingGong ? [["mingGong", mingGong]] : [])
-                      .map(([key, p]) => (
+                  ? PILLAR_ORDER.map((key) => ({ key, p: key === "mingGong" ? mingGong : pillars[key] }))
+                      .filter((e): e is { key: (typeof PILLAR_ORDER)[number]; p: { stem: string; branch: string } } => Boolean(e.p))
+                      .map(({ key, p }) => (
                         <div key={key} className="flex flex-col items-center rounded-[12px] border border-v3-border-card py-2">
                           <span className="text-[10px] text-v3-text-muted">{PILLAR_LABEL[key] ?? key}</span>
                           <span className="text-[15px] font-bold leading-5" style={{ color: inkOf(p.stem) ?? "#0b305b" }}>{p.stem}</span>

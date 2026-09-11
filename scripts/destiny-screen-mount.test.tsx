@@ -78,10 +78,17 @@ describe("DestinyScreen (ดวงฉัน, node 55349-3070)", () => {
     expect(screen.getByText(/แชร์ผลทำนายนี้/)).toBeTruthy()
   })
 
-  it("ชิปเสา 5 ตัว: ปี เดือน วัน เวลา ลัคนา + ปุ่มโชว์จุดอ่อน (D3)", async () => {
+  it("ชิปเสา 5 ตัว เรียงลำดับ ลัคนา ยาม วัน เดือน ปี + ปุ่มโชว์จุดอ่อน (D3)", async () => {
     await mountScreen()
-    expect(screen.getByTestId("destiny-pillars")).toBeTruthy()
-    for (const p of ["ปี", "เดือน", "วัน", "เวลา", "ลัคนา"]) expect(screen.getByText(p)).toBeTruthy()
+    const pillars = screen.getByTestId("destiny-pillars")
+    expect(pillars).toBeTruthy()
+    const expected = ["ลัคนา", "ยาม", "วัน", "เดือน", "ปี"]
+    for (const p of expected) expect(screen.getByText(p)).toBeTruthy()
+    // ต้องเรียงตามลำดับที่กำหนด ไม่ใช่แค่มีครบ
+    const labels = Array.from(pillars.querySelectorAll("span"))
+      .map((el) => el.textContent?.trim())
+      .filter((t) => t && expected.includes(t))
+    expect(labels).toEqual(expected)
     expect(screen.getByTestId("destiny-weakness-toggle")).toBeTruthy()
   })
 

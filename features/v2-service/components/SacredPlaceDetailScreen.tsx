@@ -9,7 +9,7 @@ import { Menubar } from "@/features/v2-shell/components/Menubar"
 import { TopBarBell } from "@/features/v2-shell/components/TopBarBell"
 import { TopBarAvatar } from "@/features/v2-shell/components/TopBarAvatar"
 import {
-  CHECKIN_KEY, EL, SAVED_KEY, TRAVEL, calendarLink, dirLink, estMin, fmtKm,
+  CHECKIN_KEY, EL, SAVED_KEY, TRAVEL, calendarLink, dirLink, estMin, fmtDur, fmtKm,
   haversineKm, imageSrc, isValidCoord, mapsLink, readSet, type SacredLocation,
 } from "@/features/v2-service/sacred-map-shared"
 
@@ -166,7 +166,7 @@ export function SacredPlaceDetailScreen({ loc }: { loc: SacredLocation }) {
                     className={"flex flex-col items-center gap-0.5 rounded-[14px] border py-2.5 " + (on ? "border-v3-sapphire bg-[#EAF3FF]" : "border-v3-border-card bg-white")}>
                     <span className="text-[20px] leading-none">{t.icon}</span>
                     <span className={"text-[12px] font-bold " + (on ? "text-v3-sapphire" : "text-v3-navy")}>{t.th}</span>
-                    {dist ? <span className="text-[11px] text-v3-text-muted">~{estMin(dist, t.kmh)} นาที</span> : null}
+                    {dist ? <span className="text-[11px] text-v3-text-muted">~{fmtDur(estMin(dist, t.kmh))}</span> : null}
                   </button>
                 )
               })}

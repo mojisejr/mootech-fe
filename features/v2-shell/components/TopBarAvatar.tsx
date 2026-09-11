@@ -34,7 +34,6 @@
 // blue helmet and orange ears, which are what make the character recognisable at that size — the face alone
 // reads as a cream blob. 1.6× anchored to the top keeps face AND ears inside the circle.
 import { ComingSoonAction } from './ComingSoon'
-import Image from 'next/image'
 import Link from 'next/link'
 import { useState } from 'react'
 import { useMemberIdentity } from '../hooks/useMemberIdentity'
@@ -66,16 +65,23 @@ type TopBarAvatarProps = {
 // interactive sapphire avatar — owns its own image-broken state (a picture_url that 404s falls back to the
 // MASCOT: never a broken image, and never a letter).
 function SapphireAvatar({ name = '', pictureUrl, onClick, href, label = 'โปรไฟล์' }: Omit<TopBarAvatarProps, 'variant'>) {
-  const [broken, setBroken] = useState(false)
   const identity = useMemberIdentity()
+  // รูปโปรไฟล์ที่ผู้ใช้อัพโหลดเอง (เก็บที่ engine ตาม cookie-mumate-id) มาก่อนเสมอ — จึงเปลี่ยนรูปแล้ว
+  // เห็นทั้งแอป ไม่ใช่แค่หน้าโปรไฟล์. /api/v2/avatar จะ 302 ไปรูป LINE ให้เองถ้ายังไม่ได้อัพโหลด (ชั้น server)
+  // client fallback: /api/v2/avatar → รูป LINE (เผื่อ route ล่ม) → มาสคอต. ใช้ <img> ธรรมดา ไม่ใช่ next/image
+  // เพราะ route ตรวจ cookie — ตัว optimizer ของ next/image ไม่ส่ง cookie ผู้ใช้ไป (จะได้รูปผิด/404).
   // an explicitly-passed prop WINS over the cookie — home passes avatarPictureUrl and must not regress.
-  // `??` and not `||`: '' is a value a caller chose to pass, and folding it into "absent" is the same
-  // guessing-at-the-seam that produced the "F". goo's hook already returns null (never '') for an empty cookie.
-  const photo = pictureUrl ?? identity.pictureUrl
-  const showImg = !!photo && !broken
+  const lineUrl = pictureUrl ?? identity.pictureUrl
+  const sources = ['/api/v2/avatar', ...(lineUrl ? [lineUrl] : [])]
+  const [srcIdx, setSrcIdx] = useState(0)
+  const src = sources[srcIdx]
+  const showImg = !!src
   const alt = name.trim() || identity.name.trim()
   const inner = showImg
-    ? <Image src={photo as string} alt={alt} fill sizes="40px" style={{ objectFit: 'cover' }} onError={() => setBroken(true)} />
+    ? (
+      // eslint-disable-next-line @next/next/no-img-element -- ต้องส่ง cookie ไป /api/v2/avatar (next/image optimizer ไม่ส่ง)
+      <img src={src} alt={alt} className="absolute inset-0 h-full w-full" style={{ objectFit: 'cover' }} onError={() => setSrcIdx((i) => i + 1)} />
+    )
     : (
       // eslint-disable-next-line @next/next/no-img-element -- the zoom/offset crop cannot be expressed with
       // next/image fill + objectPosition, and the file is 63 KB already in cache on most screens.
