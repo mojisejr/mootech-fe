@@ -26,7 +26,7 @@ const fetchMock = vi.fn(async (url: string, init?: { method?: string; body?: str
       json: async () => ({
         anonId: 'u',
         profile: { displayName: 'x', birthDate: '1995-06-15', birthTime: null, timeUnknown: true },
-        quota: { birthEditFreeUsed: freeUsed, birthEditPriceQi: 100, pendingCorrection: null },
+        quota: { birthEditFreeUsed: freeUsed, birthEditPriceQi: 150, pendingCorrection: null },
       }),
     }
   }
@@ -74,16 +74,16 @@ describe('จอแก้วันเกิด (edit-birth-data ×4)', () => {
     expect(bodies[0]).toMatchObject({ birth: '1995-06-15', timeUnknown: true, birthProvince: 'ตรัง' })
   })
 
-  it('EB1 สิทธิ์ฟรีหมด → ป้ายใช้แล้ว + ปุ่มบอกราคา 100 ชี่', async () => {
+  it('EB1 สิทธิ์ฟรีหมด → ป้ายใช้แล้ว + ปุ่มบอกราคา 150 ชี่', async () => {
     freeUsed = true
     render(<CookiesProvider><EditBirthScreen /></CookiesProvider>)
     await waitFor(() => expect(screen.getByTestId('eb-quota').textContent).toContain('ใช้สิทธิ์แก้ฟรีไปแล้ว'))
     // เฟรม B: ช่องล็อก + ปุ่ม "ปลดล็อกการแก้ไข · N QI" ก่อน — ยังไม่มี eb-save จนกว่าจะปลดล็อก (UI-only)
     expect(screen.getByTestId('eb-date-locked')).toBeTruthy()
     expect(screen.queryByTestId('eb-save')).toBeNull()
-    expect(screen.getByTestId('eb-unlock').textContent).toContain('ปลดล็อกการแก้ไข · 100 QI')
+    expect(screen.getByTestId('eb-unlock').textContent).toContain('ปลดล็อกการแก้ไข · 150 QI')
     fireEvent.click(screen.getByTestId('eb-unlock'))
-    expect(screen.getByTestId('eb-save').textContent).toBe('บันทึกการเปลี่ยนแปลง (ใช้ 100 QI)')
+    expect(screen.getByTestId('eb-save').textContent).toBe('บันทึกการเปลี่ยนแปลง (ใช้ 150 QI)')
   })
 
   it('EB2 หักชี่ไม่สำเร็จ (409) → ชีตชี่ไม่พอโชว์ยอดขาจากยอดจริง (30 ชี่)', async () => {
@@ -95,7 +95,7 @@ describe('จอแก้วันเกิด (edit-birth-data ×4)', () => {
     fireEvent.change(screen.getByTestId('eb-province'), { target: { value: 'ตรัง' } })
     fireEvent.click(screen.getByTestId('eb-save'))
     await waitFor(() => expect(screen.getByTestId('qi-insufficient-title')).toBeTruthy())
-    expect(screen.getByTestId('qi-insufficient-title').textContent).toContain('ขาดอีก 70 QI')
+    expect(screen.getByTestId('qi-insufficient-title').textContent).toContain('ขาดอีก 120 QI')
     expect(screen.getByTestId('qi-insufficient-buy').getAttribute('href')).toBe('/v2/qi/buy')
   })
 
