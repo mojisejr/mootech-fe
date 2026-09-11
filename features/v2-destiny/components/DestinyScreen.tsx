@@ -84,6 +84,8 @@ export type DestinyData = {
       totalCounts?: Record<string, number>
       dominantElements?: string[]
       missingElements?: string[]
+      /** นิสัย 5 ธาตุ แข็ง/อ่อน ต่อธาตุ (engine เป็นแหล่งเดียว — nisai-by-element) */
+      elementNisai?: { element: string; tier: "strong" | "weak"; text: string }[]
     }
   } | null
   // อาชีพ/การเงิน จากตาราง B (用神): doElement = ธาตุที่ "ควรทำ" อาชีพ (ธาตุที่ควรเสริม ไม่ใช่ธาตุประจำตัว)
@@ -861,6 +863,7 @@ export function DestinyScreen({ previewData }: { previewData?: DestinyData } = {
                       {ELEMENT_ROW_ORDER.map((el) => {
                         const dmEl = CHAR_ELEMENT[summary.dayMaster?.[0] ?? ""]
                         const count = analysis?.totalCounts?.[el]
+                        const nisai = analysis?.elementNisai?.find((n) => n.element === el)
                         return (
                           <div key={el} className="flex items-center gap-3">
                             <span className="grid h-12 w-12 flex-none place-items-center overflow-hidden rounded-[14px]" style={{ backgroundColor: ELEMENT_TINT[el] }}>
@@ -872,6 +875,9 @@ export function DestinyScreen({ previewData }: { previewData?: DestinyData } = {
                                 {typeof count === "number" ? <span className="ml-1 text-[13px] font-normal text-v3-text-muted">({count})</span> : null}
                               </p>
                               <p className="text-[13px] leading-5 text-[#888]">{relationRole(dmEl, el)}</p>
+                              {nisai ? (
+                                <p className="mt-0.5 text-[12px] leading-[18px] text-v3-text-body" data-testid={`destiny-nisai-${el}`}>{nisai.text}</p>
+                              ) : null}
                             </div>
                           </div>
                         )
