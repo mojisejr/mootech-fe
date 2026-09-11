@@ -23,6 +23,7 @@ import { useEffect, useRef, useState } from 'react'
 import type { NewFriendForm, Gender, EditFriendForm } from '../compatibility-api'
 import type { CreateFriendResult, UpdateFriendResult } from '../hooks/useCompatibility'
 import { ComingSoonAction } from '@/features/v2-shell/components/ComingSoon'
+import { toBuddhistYear, toGregorianYear } from '@/lib/v2/thai-date'
 // callApiUpload / API โหลดแบบ dynamic ในตอนอัปโหลดเท่านั้น — constants/api/endpoint เรียก next/config getConfig()
 // ตั้งแต่ import ทำให้ไฟล์นี้รันใต้ node/vitest ไม่ได้ (เหตุผลเดียวกับที่ compatibility-api เว้น constants/api)
 
@@ -31,7 +32,7 @@ type AddFriendForm = NewFriendForm
 
 const TH_MONTHS = ['มกราคม', 'กุมภาพันธ์', 'มีนาคม', 'เมษายน', 'พฤษภาคม', 'มิถุนายน', 'กรกฎาคม', 'สิงหาคม', 'กันยายน', 'ตุลาคม', 'พฤศจิกายน', 'ธันวาคม']
 // ปีเกิด (พ.ศ.) เป็น dropdown: ปีปัจจุบันย้อนหลัง 120 ปี — value/label เป็น พ.ศ. (ตรงกับ state ที่เก็บ พ.ศ.)
-const CURRENT_YEAR_BE = new Date().getFullYear() + 543
+const CURRENT_YEAR_BE = toBuddhistYear(new Date().getFullYear())
 const YEAR_OPTIONS_BE = Array.from({ length: 121 }, (_, i) => CURRENT_YEAR_BE - i)
 // จำนวนวันจริงในเดือน/ปีนั้น ๆ (ค.ศ.) — day 0 ของเดือนถัดไป = วันสุดท้ายของเดือนนี้ (คุม 31 ก.พ., 29 ก.พ. ปีอธิกสุรทิน)
 function daysInMonth(monthCE: number, yearCE: number): number {
@@ -78,7 +79,7 @@ const SAVE_ERROR_COPY: Record<'system' | 'network', [string, string]> = {
 function splitBirthDay(iso: string): { day: string; month: string; yearBE: string } {
   const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso ?? '')
   if (!m) return { day: '', month: '', yearBE: '' } // unparseable → blanks the user can fill, never a guess
-  return { day: String(Number(m[3])), month: String(Number(m[2])), yearBE: String(Number(m[1]) + 543) }
+  return { day: String(Number(m[3])), month: String(Number(m[2])), yearBE: String(toBuddhistYear(Number(m[1]))) }
 }
 
 export function AddFriendSheet({ onClose, onCreate, edit, title = 'เลือกเพื่อนร่วมงาน' }: {
@@ -118,7 +119,7 @@ export function AddFriendSheet({ onClose, onCreate, edit, title = 'เลือ�
   }, [onClose])
 
   // N3 — validate วันตามเดือน/ปีจริง (คุม 31 ก.พ.): day ต้องไม่เกินจำนวนวันของเดือน/ปีที่เลือก
-  const yearCE = /^\d{4}$/.test(yearBE) ? Number(yearBE) - 543 : 0
+  const yearCE = /^\d{4}$/.test(yearBE) ? toGregorianYear(Number(yearBE)) : 0
   const maxDay = daysInMonth(Number(month), yearCE)
   const dayValid = /^\d{1,2}$/.test(day) && Number(day) >= 1 && Number(day) <= maxDay
   const dobValid = dayValid && !!month && /^\d{4}$/.test(yearBE)
@@ -159,7 +160,7 @@ export function AddFriendSheet({ onClose, onCreate, edit, title = 'เลือ�
   async function submit() {
     if (!canSave) return
     setSaving(true); setError(false)
-    const birthDay = `${Number(yearBE) - 543}-${month.padStart(2, '0')}-${day.padStart(2, '0')}` // BE→CE 'YYYY-MM-DD'
+    const birthDay = `${toGregorianYear(Number(yearBE))}-${month.padStart(2, '0')}-${day.padStart(2, '0')}` // BE→CE 'YYYY-MM-DD'
     const form: AddFriendForm = {
       name: name.trim(),
       birthDay,
