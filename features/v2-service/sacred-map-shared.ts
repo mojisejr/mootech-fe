@@ -72,6 +72,12 @@ export const TRAVEL: { key: "transit" | "driving" | "walking"; th: string; icon:
   { key: "walking", th: "เดิน", icon: "🚶", kmh: 4.8 },
 ]
 export function estMin(km: number, kmh: number): number { return Math.max(1, Math.round((km / kmh) * 60 * 1.3)) }
+// ฟอร์แมตนาที → อ่านง่าย: "45 นาที" · "2 ชม." · "2 ชม. 5 นาที" (P3-16: เดิมโชว์นาทีดิบ สถานที่ไกลได้ "2400 นาที")
+export function fmtDur(min: number): string {
+  if (min < 60) return `${min} นาที`
+  const h = Math.floor(min / 60), m = min % 60
+  return m ? `${h} ชม. ${m} นาที` : `${h} ชม.`
+}
 export function dirLink(loc: SacredLocation, mode: string, from: { lat: number; lng: number } | null): string {
   const dest = isValidCoord(loc.lat, loc.lng) ? `${loc.lat},${loc.lng}` : encodeURIComponent([loc.name, loc.province].filter(Boolean).join(" "))
   const origin = from ? `&origin=${from.lat},${from.lng}` : ""
