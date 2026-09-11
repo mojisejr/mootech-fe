@@ -50,7 +50,18 @@ const FIXTURE = {
       day: { stem: "甲", branch: "子" }, hour: { stem: "庚", branch: "午" },
     },
     mingGong: { stem: "壬", branch: "寅" },
-    elementAnalysis: { totalCounts: { wood: 3, fire: 1, earth: 2, metal: 1, water: 1 }, dominantElements: ["wood"], missingElements: ["metal"] },
+    elementAnalysis: {
+      totalCounts: { wood: 3, fire: 1, earth: 2, metal: 1, water: 1 },
+      dominantElements: ["wood"],
+      missingElements: ["metal"],
+      elementNisai: [
+        { element: "wood", tier: "strong", text: "เมตตาธรรมและการเติบโต — strong-wood" },
+        { element: "fire", tier: "weak", text: "มารยาทและวัฒนธรรม — weak-fire" },
+        { element: "earth", tier: "strong", text: "สัจจะและความเชื่อถือ — strong-earth" },
+        { element: "metal", tier: "weak", text: "ความยุติธรรม — weak-metal" },
+        { element: "water", tier: "weak", text: "สติปัญญา — weak-water" },
+      ],
+    },
   },
 }
 
@@ -98,6 +109,10 @@ describe("DestinyScreen (ดวงฉัน, node 55349-3070)", () => {
     // destiny-domains ซ่อนอยู่หลังปุ่ม "โชว์จุดอ่อนของ 5 ด้าน" — กดก่อนถึงจะโผล่
     fireEvent.click(screen.getByTestId("destiny-weakness-toggle"))
     await waitFor(() => expect(screen.getByTestId("destiny-domains")).toBeTruthy())
+    // นิสัย 5 ธาตุ แข็ง/อ่อน ต่อธาตุ (engine เป็นแหล่งเดียว) โชว์ใต้แต่ละแถว
+    expect(screen.getByTestId("destiny-nisai-wood").textContent).toContain("strong-wood")
+    expect(screen.getByTestId("destiny-nisai-fire").textContent).toContain("weak-fire")
+    expect(screen.getByTestId("destiny-nisai-water").textContent).toContain("weak-water")
   })
 
   it("Life Path: การ์ด + กราฟ + แท็บช่วงเวลา (D4)", async () => {
