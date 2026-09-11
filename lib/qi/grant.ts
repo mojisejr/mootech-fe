@@ -27,7 +27,7 @@ export async function grantQiPurchase(ref: QiPurchaseRef): Promise<boolean> {
     console.error(`[qi] unknown QI package_code ${ref.packageCode} — ยิง grant ไม่ได้ (ควรโดน catalog ตัดตั้งแต่ quote)`)
     return false
   }
-  // ปริมาณ QI ที่เครดิตจริง = จำนวนแพ็ก + โบนัสรายแพ็ก (Figma +20/+75/+250) — โบนัสซื้อครั้งแรก +30
+  // ปริมาณ QI ที่เครดิตจริง = จำนวนแพ็ก + โบนัสรายแพ็ก (2026-09: +0/+45/+260/+816) — โบนัสซื้อครั้งแรก +30
   // engine บวกให้เองแยกต่างหาก (once ต่อบัญชี)
   const qi = qty + qiBonusOf(ref.packageCode)
   const upstream = await fetch(`${ENGINE_BASE}/api/qi/grant`, {
