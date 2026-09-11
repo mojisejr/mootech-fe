@@ -53,9 +53,10 @@ t('colleague → "ดูดวงเพื่อนร่วมงาน" + matc
     kind: 'colleague', title: 'ดูดวงเพื่อนร่วมงาน', matchingType: 'FRIEND', pickLabel: 'เลือกเพื่อนร่วมงาน',
     // 3 = the ENGINE's MAX_CANDIDATES, mirrored twice (colleague-candidates.ts holds the reason).
     maxCandidates: 3,
-    // verbatim Figma 720:25502, read off the rendered pixels. The frame spells the word two ways in one
-    // screen (heading "สมพงค์", this line "สมพงษ์"); both are kept rather than harmonised here.
-    tagline: ['ระบบจับคู่หลักวันแบบแม่นตามตำราคู่สมพงษ์', '(การงาน) แล้วจัดอันดับว่าใครเข้ากับเราดีที่สุด'],
+    // verbatim Figma 720:25502 — mirrors the SHIPPED source (compatibility.ts:139), which spells it
+    // "สมพงศ์" (ศ) consistently with the love entry the customer already sees. This assertion tracks that
+    // source spelling; drift to "สมพงษ์"/"สมพงค์" is a test typo, not a copy change.
+    tagline: ['ระบบจับคู่หลักวันแบบแม่นตามตำราคู่สมพงศ์', '(การงาน) แล้วจัดอันดับว่าใครเข้ากับเราดีที่สุด'],
   })
 })
 
