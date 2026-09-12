@@ -28,6 +28,7 @@ import {
   DIR_CELL, CENTER, placeGates, cellElementTint, GATE_ELEMENT, ELEMENT_TINT,
   DIR_LABEL_TH, type Direction,
 } from './gate-compass'
+import { GATE_PHRASES } from './gate-phrases'
 
 // สีของ chip อักษรประตูในลิสต์คีย์เวิร์ด = สีตามธาตุของประตูนั้น (五行 ของ 八門) — ให้ตรงกับสีธาตุบนเข็มทิศ.
 const gateChipTint = (glyph: string): { bg: string; ink: string } => {
@@ -35,7 +36,7 @@ const gateChipTint = (glyph: string): { bg: string; ink: string } => {
   return el ? { bg: ELEMENT_TINT[el].bg, ink: ELEMENT_TINT[el].ink } : { bg: '#F5F7FB', ink: '#0B305B' }
 }
 
-function GateCell({ direction, gate, highlight }: { direction: Direction; gate: DayDetailGate; highlight?: boolean }) {
+function GateCell({ direction, gate, rank }: { direction: Direction; gate: DayDetailGate; rank?: 'top' | 'near' }) {
   const cell = DIR_CELL[direction]
   // สีพื้น/เฉด = ธาตุของทิศ (เข้มขึ้นเมื่อธาตุ ประตู+เทพ+ทิศ ตรงกัน — cellElementTint). ⚡ = พลังแรง.
   const tint = cellElementTint(direction, gate.name, gate.deity)
@@ -49,7 +50,8 @@ function GateCell({ direction, gate, highlight }: { direction: Direction; gate: 
       data-testid="gate-cell"
       data-dir={direction}
       data-strong={tint.strong ? '1' : undefined}
-      data-match={highlight ? '1' : undefined}
+      data-match={rank ? '1' : undefined}
+      data-rank={rank}
       // explicit coordinates — the whole point. Source order is now irrelevant to where this paints.
       style={{
         gridRow: cell.row,
@@ -58,7 +60,7 @@ function GateCell({ direction, gate, highlight }: { direction: Direction; gate: 
         color: tint.ink,
       }}
       className={`relative flex flex-col items-center gap-0.5 rounded-2xl px-1 py-3 leading-none transition-shadow${
-        highlight ? ' ring-2 ring-offset-1 ring-v3-sapphire' : ''
+        rank === 'top' ? ' ring-2 ring-offset-1 ring-v3-sapphire' : rank === 'near' ? ' ring-1 ring-v3-sapphire/40' : ''
       }`}
     >
       {/* ผู้ใช้ 2026-09-12: "พลังแรง" บอกด้วยสีเข้มขึ้น (bgStrong) อย่างเดียว — ไม่มีไอคอน ⚡ */}
@@ -84,22 +86,40 @@ function sharesSubstring(a: string, b: string, min = 3): boolean {
   return false
 }
 
-/** สร้างดัชนีค้นหาจากประตูที่วางบนเข็มทิศ + จับคู่ query แบบ substring สองทาง + คำใกล้เคียง (แชร์คำ ≥3 ตัว). */
+type SearchRow = { direction: Direction; gate: DayDetailGate; score: number }
+
+// ให้ "น้ำหนัก" ต่อประตู 1 ช่องจาก query (ผู้ใช้ 2026-09-12: "น้ำหนักไปทางไหนก็เป็นอันนั้น แต่แนะนำใกล้เคียงด้วย"):
+//   100 = ตรงวลีที่คนมักถามเป๊ะ (GATE_PHRASES)      · 70 = วลีนั้นมี query หรือ query มีวลี (เจตนาชัด)
+//    50 = ความหมาย/คีย์เวิร์ดตรงสองทาง               · 20 = แชร์คำ ≥3 ตัว (ใกล้เคียง — ตัวสำรอง)
+// คืนคะแนนสูงสุดที่แมตช์ได้ → ประตูคะแนนสูงสุด = "แนะนำ", ที่เหลือ = "ใกล้เคียง".
+function scoreGate(gate: DayDetailGate, nq: string): number {
+  const phrases = (GATE_PHRASES[gate.name.trim()] ?? []).map(normSearch)
+  for (const p of phrases) if (p === nq) return 100
+  let best = 0
+  for (const p of phrases) if (p && (p.includes(nq) || nq.includes(p))) best = Math.max(best, 70)
+  const words = [gate.meaning, ...(gate.keywords ?? [])].map(normSearch).filter(Boolean)
+  for (const w of words) if (w.includes(nq) || nq.includes(w)) best = Math.max(best, 50)
+  if (best < 20) {
+    for (const t of [...phrases, ...words]) if (sharesSubstring(nq, t)) { best = Math.max(best, 20); break }
+  }
+  return best
+}
+
+/** ค้นหาแบบให้คะแนน+จัดอันดับ: ประตูคะแนนสูงสุด = แนะนำ, ที่เหลือ = ใกล้เคียง. */
 function useGateSearch(placed: { direction: Direction; gate: DayDetailGate }[], query: string) {
   return useMemo(() => {
     const nq = normSearch(query)
-    if (!nq) return { active: false, dirs: new Set<Direction>(), rows: [] as { direction: Direction; gate: DayDetailGate }[] }
-    const rows: { direction: Direction; gate: DayDetailGate }[] = []
-    const dirs = new Set<Direction>()
+    if (!nq) return { active: false, dirs: new Set<Direction>(), topDirs: new Set<Direction>(), rows: [] as SearchRow[] }
+    const rows: SearchRow[] = []
     for (const p of placed) {
-      const hay = [p.gate.meaning, ...(p.gate.keywords ?? [])].map(normSearch).filter(Boolean)
-      // เจอเมื่อ keyword/ความหมาย มี query, หรือ query มี keyword, หรือแชร์คำยาว ≥3 ตัว (คำใกล้เคียง)
-      if (hay.some((h) => h.includes(nq) || nq.includes(h) || sharesSubstring(nq, h))) {
-        rows.push({ direction: p.direction, gate: p.gate })
-        dirs.add(p.direction)
-      }
+      const score = scoreGate(p.gate, nq)
+      if (score > 0) rows.push({ direction: p.direction, gate: p.gate, score })
     }
-    return { active: true, dirs, rows }
+    rows.sort((a, b) => b.score - a.score)
+    const top = rows.length ? rows[0].score : 0
+    const dirs = new Set(rows.map((r) => r.direction))
+    const topDirs = new Set(rows.filter((r) => r.score === top).map((r) => r.direction))
+    return { active: true, dirs, topDirs, rows }
   }, [placed, query])
 }
 
@@ -112,11 +132,17 @@ function GateSearch({
   query: string
   setQuery: (v: string) => void
 }) {
-  const { active, rows } = useGateSearch(placed, query)
-  // ชิปแนะนำ = คีย์เวิร์ดจากประตูของวันนี้ (สูงสุด 8) — คลิกเพื่อค้นด้วยคำนั้น
+  const { active, rows, topDirs } = useGateSearch(placed, query)
+  const topRows = rows.filter((r) => topDirs.has(r.direction))
+  const nearRows = rows.filter((r) => !topDirs.has(r.direction))
+  // ชิปแนะนำ = วลีที่คนมักถาม (GATE_PHRASES) ของประตูวันนี้ — คลิกเพื่อค้นด้วยคำนั้น (ผู้ใช้: สร้างคำที่คนมักถาม)
   const suggestions = useMemo(() => {
     const set = new Set<string>()
-    for (const p of placed) for (const k of p.gate.keywords ?? []) { if (k) set.add(k); if (set.size >= 8) break }
+    for (const p of placed) {
+      const ph = GATE_PHRASES[p.gate.name.trim()] ?? []
+      if (ph[0]) set.add(ph[0]) // วลีเด่นของแต่ละประตู (ให้ครอบคลุมหลายประตู)
+      if (set.size >= 8) break
+    }
     return Array.from(set).slice(0, 8)
   }, [placed])
   const notFound = active && rows.length === 0
@@ -134,13 +160,19 @@ function GateSearch({
         />
       </div>
       {active && rows.length > 0 && (
-        <ul data-testid="gate-search-hit" className="mt-2 flex flex-col gap-1">
-          {rows.map((r, i) => (
-            <li key={`${r.direction}-${i}`} className="text-xs leading-5 text-v3-navy">
-              ควรไปทิศ <b>{DIR_LABEL_TH[r.direction]}</b> ({r.direction}) · ประตู <b>{r.gate.meaning || r.gate.name}</b>
-            </li>
+        <div data-testid="gate-search-hit" className="mt-2 flex flex-col gap-1.5">
+          {topRows.map((r, i) => (
+            <div key={`top-${r.direction}-${i}`} className="flex items-start gap-1.5 text-xs leading-5 text-v3-navy">
+              <span className="mt-px shrink-0 rounded bg-v3-sapphire px-1.5 py-0.5 text-[10px] font-bold leading-none text-white">แนะนำ</span>
+              <span>ควรไปทิศ <b>{DIR_LABEL_TH[r.direction]}</b> ({r.direction}) · ประตู <b>{r.gate.meaning || r.gate.name}</b></span>
+            </div>
           ))}
-        </ul>
+          {nearRows.length > 0 && (
+            <p className="text-[11px] leading-5 text-v3-text-muted">
+              ใกล้เคียง: {nearRows.map((r) => `${DIR_LABEL_TH[r.direction]} (ประตู${r.gate.meaning || r.gate.name})`).join(' · ')}
+            </p>
+          )}
+        </div>
       )}
       {notFound && (
         <p data-testid="gate-search-empty" className="mt-2 text-xs leading-5 text-v3-text-body">
@@ -171,7 +203,7 @@ function GateSearch({
 export function EightGates({ gates }: { gates: DayDetailGate[] }) {
   const { placed, unplaced } = placeGates(gates)
   const [query, setQuery] = useState('')
-  const { dirs: matchedDirs } = useGateSearch(placed, query)
+  const { dirs: matchedDirs, topDirs } = useGateSearch(placed, query)
   // แสดงเฉพาะประตูที่มีคีย์เวิร์ด (engine ส่ง gate-keyword.json มา) — ก่อน engine deploy = ว่าง → ซ่อนลิสต์เงียบๆ
   const gatesWithKeywords = gates.filter((g) => (g.keywords?.length ?? 0) > 0)
   return (
@@ -184,7 +216,7 @@ export function EightGates({ gates }: { gates: DayDetailGate[] }) {
 
       <div data-testid="gate-board" className="grid grid-cols-3 grid-rows-3 gap-2">
         {placed.map((p) => (
-          <GateCell key={p.direction} direction={p.direction} gate={p.gate} highlight={matchedDirs.has(p.direction)} />
+          <GateCell key={p.direction} direction={p.direction} gate={p.gate} rank={topDirs.has(p.direction) ? 'top' : matchedDirs.has(p.direction) ? 'near' : undefined} />
         ))}
         {/* ช่องกลาง = "คุณ" (ผู้ดู) — ซินแส 2026-09-12: ตำราไม่มีประตูที่ 9 และช่องกลางคือ "ตัวเรา" ที่ยืนอยู่กลางเข็มทิศ.
             ทิศมงคล (財/โชคลาภ) ย้ายไปแสดงในการ์ด "ทิศ สีมงคล" แล้ว จึงไม่ซ้ำที่นี่ */}
