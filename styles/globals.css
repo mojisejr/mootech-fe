@@ -9,6 +9,19 @@
 @tailwind components;
 @tailwind utilities;
 
+@layer base {
+  /* ตัดปัญหา "บรรทัดสุดท้ายเหลือคำเดียว" (orphan/widow) — ผู้ใช้ 2026-09-12: "คำสุดท้ายขึ้นบรรทัดใหม่คำเดียวไม่สวย"
+     - body: text-wrap: pretty สำหรับข้อความยาว (ช่วยเลี่ยง orphan ในภาษาที่มีเว้นวรรค)
+     - หัวข้อ (h1-h6): text-wrap: balance เกลี่ยบรรทัดให้เท่ากัน — ได้ผลกับไทยที่ pretty ไม่ช่วย (เทสแล้ว)
+     text-wrap ถ่ายทอดลงลูก ไม่ทำให้ล้น; เบราว์เซอร์เก่าที่ไม่รองรับจะข้ามเงียบ ๆ (ไม่พัง) */
+  body {
+    text-wrap: pretty;
+  }
+  h1, h2, h3, h4, h5, h6 {
+    text-wrap: balance;
+  }
+}
+
 
 @layer components {
   input[type='range'].slider {

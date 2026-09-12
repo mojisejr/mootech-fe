@@ -130,10 +130,11 @@ export function HabitCard({ title, desc, cta, animate = true, art, showMascots =
           </div>
         )}
       </div>
-      {/* text column */}
+      {/* text column — text-balance: เกลี่ยบรรทัดให้เท่ากัน ไม่ให้คำสุดท้ายตกบรรทัดเดียว (ผู้ใช้ 2026-09-12)
+          คอลัมน์นี้แคบบนมือถือ (ราว 127px) หัวข้อ/คำอธิบายไทยยาวจึงต้องตัด 2 บรรทัด — balance ทำให้ตัดสวย */}
       <div className="z-[1] flex min-w-px flex-1 flex-col items-start gap-2">
-        <div className="text-base font-bold leading-6 text-v3-navy">{title}</div>
-        <div className="text-sm font-medium leading-5 text-v3-text-body">{desc}</div>
+        <div className="text-base font-bold leading-6 text-v3-navy [text-wrap:balance]">{title}</div>
+        <div className="text-sm font-medium leading-5 text-v3-text-body [text-wrap:balance]">{desc}</div>
         {/* was <button>: same classes + `inline-block text-center`, because an <a> is inline (loses the
             padded box) AND does not inherit the UA's `text-align:center` for buttons. Without text-center
             this is invisible at 393 — the label fits one line — and wrong at 360/320, where
