@@ -33,7 +33,7 @@ export function ResultActionBar({ shareText, testIdPrefix = 'work', inline }: { 
           type="button"
           data-testid={`${testIdPrefix}-pdf`}
           onClick={() => announceComingSoon('บันทึกเป็น PDF กำลังจะมา เร็ว ๆ นี้')}
-          className="flex h-14 min-w-0 flex-1 items-center justify-center gap-2 rounded-[100px] bg-v3-cyan text-[16px] font-bold text-v3-lime shadow-[0_6px_14px_rgba(27,154,175,0.24)]"
+          className={`flex ${inline ? 'h-14' : 'h-[70px]'} min-w-0 flex-1 items-center justify-center gap-2 rounded-[100px] bg-v3-cyan text-[16px] font-bold text-v3-lime shadow-[0_6px_14px_rgba(27,154,175,0.24)]`}
         >
           <Image src="/images/v2/compat/work/pdf.svg" alt="" width={20} height={20} className="size-5" />
           บันทึก PDF
@@ -42,7 +42,7 @@ export function ResultActionBar({ shareText, testIdPrefix = 'work', inline }: { 
           type="button"
           data-testid={`${testIdPrefix}-share`}
           onClick={() => void shareResult(shareText)}
-          className="flex h-14 min-w-0 flex-1 items-center justify-center gap-2 rounded-[100px] bg-v3-sapphire text-[16px] font-bold text-v3-lime shadow-[0_6px_14px_rgba(20,85,164,0.24)]"
+          className={`flex ${inline ? 'h-14' : 'h-[70px]'} min-w-0 flex-1 items-center justify-center gap-2 rounded-[100px] bg-v3-sapphire text-[16px] font-bold text-v3-lime shadow-[0_6px_14px_rgba(20,85,164,0.24)]`}
         >
           <Image src="/images/v2/compat/work/share.svg" alt="" width={20} height={20} className="size-5" />
           แชร์
