@@ -943,7 +943,7 @@ export function DestinyScreen({ previewData }: { previewData?: DestinyData } = {
             <button
               onClick={shareToday}
               data-testid="destiny-share"
-              className="flex h-[56px] min-w-0 flex-1 items-center justify-center gap-2 rounded-full bg-v3-sapphire text-[13px] font-bold text-v3-lime v3-shadow-card transition active:scale-[0.99]"
+              className="flex h-[70px] min-w-0 flex-1 items-center justify-center gap-2 rounded-full bg-v3-sapphire text-[13px] font-bold text-v3-lime v3-shadow-card transition active:scale-[0.99]"
             >
               <span aria-hidden className="flex items-center gap-2">
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" className="text-v3-lime">
