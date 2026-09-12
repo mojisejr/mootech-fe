@@ -75,7 +75,8 @@ ok('insight ← elementRelation.summaryTh', d.insight === 'ธาตุของ
 ok('specialDays ← almanac.dayStars (วันมงคล + วันพิเศษ)', d.specialDays.length === 2 && d.specialDays[0].name === 'วันมงคล' && d.specialDays[1].name === 'วันความรัก')
 ok('badDirection ← almanac.dayDirections.bad', d.badDirection === 'S')
 ok('absent dayStars → [] (ไม่ throw)', (() => { const e = mapDayDetail(MVD, { ...ALMANAC_DAY, dayStars: undefined, dayDirections: undefined }); return Array.isArray(e.specialDays) && e.specialDays.length === 0 && e.badDirection === '' })())
-ok('compatAreas ← facets (4), isStrength=isMain', d.compatAreas.length === 4 && d.compatAreas[0].isStrength === true && d.compatAreas[1].isStrength === false)
+// isStrength = ด้านคะแนนสูงสุด (ไม่ใช่ isMain). fixture: day 20.5 · wealth 55 · work 60 · health 48 → work(index 2) สูงสุด
+ok('compatAreas ← facets (4), จุดแข็ง = แถวคะแนนสูงสุด (work 60%) เท่านั้น 1 แถว', d.compatAreas.length === 4 && d.compatAreas[2].isStrength === true && d.compatAreas[0].isStrength === false && d.compatAreas.filter((a) => a.isStrength).length === 1)
 ok('compatAreas carry facet grade pass-through', d.compatAreas[1].grade === 'C+')
 ok('advice ← MAIN facet lines[].text (3 บรรทัด)', d.advice.length === 3 && d.advice[0] === 'บรรทัด 1')
 ok('yams ← luckyHours (code→id · range→window · god+meaning→label)', d.yams.length === 1 && d.yams[0].id === 'B8' && d.yams[0].window === '1:00-2:59' && d.yams[0].label === 'เหง็กอ๋วง · ดี')

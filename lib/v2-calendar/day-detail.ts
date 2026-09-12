@@ -87,17 +87,25 @@ export function mapDayDetail(mvd: unknown, almanacDay: unknown): DayDetail {
     insight: str(er.summaryTh),
     // ทุก facet มี lines[] ของตัวเองจาก engine (man-vs-day) — เดิมดึงเฉพาะ main facet มาเป็น advice แล้วทิ้งที่เหลือ.
     // ฟีม สไลด์ 4 (2026-09-10): หัวข้ออื่นก็ต้องมีคำอธิบายเหมือนกัน → เก็บ lines ต่อ facet ไว้ให้การ์ดย่อ/ขยายรายด้าน.
-    compatAreas: facets.map((f) => {
-      const fa = f as { key?: unknown; label?: unknown; percent?: unknown; grade?: unknown; isMain?: unknown; lines?: unknown }
-      return {
-        key: str(fa.key),
-        label: str(fa.label),
-        percent: num(fa.percent),
-        grade: parseApiGrade(fa.grade),
-        isStrength: fa.isMain === true,
-        lines: arr(fa.lines).map((l) => str((l as { text?: unknown }).text)).filter((t) => t !== ''),
-      }
-    }),
+    // จุดแข็ง = ด้านที่ "คะแนนสูงสุด" (ผู้ใช้ 2026-09-12): เดิมผูกกับ isMain ของ engine = ด้านหลัก/คู่ครอง
+    // ตายตัว จึงไปเกาะแถว 50% ทั้งที่อีกแถว 95% — ป้าย "จุดแข็ง" ต้องหมายถึงด้านที่แรงที่สุด. mark แถวแรกที่ถึง max.
+    // (isMain ยังใช้เลือก advice = mainFacet ด้านบน ไม่กระทบ)
+    compatAreas: (() => {
+      const pct = facets.map((f) => num((f as { percent?: unknown }).percent))
+      const maxPct = pct.reduce<number | null>((mx, p) => (p !== null && (mx === null || p > mx) ? p : mx), null)
+      const strengthIdx = maxPct === null ? -1 : pct.findIndex((p) => p === maxPct)
+      return facets.map((f, i) => {
+        const fa = f as { key?: unknown; label?: unknown; percent?: unknown; grade?: unknown; lines?: unknown }
+        return {
+          key: str(fa.key),
+          label: str(fa.label),
+          percent: num(fa.percent),
+          grade: parseApiGrade(fa.grade),
+          isStrength: i === strengthIdx,
+          lines: arr(fa.lines).map((l) => str((l as { text?: unknown }).text)).filter((t) => t !== ''),
+        }
+      })
+    })(),
     advice: arr(mainFacet.lines)
       .map((l) => str((l as { text?: unknown }).text))
       .filter((t) => t !== ''),
