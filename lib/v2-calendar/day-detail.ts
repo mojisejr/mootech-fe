@@ -111,7 +111,9 @@ export function mapDayDetail(mvd: unknown, almanacDay: unknown): DayDetail {
       .filter((t) => t !== ''),
     yams: arr(a.luckyHours ?? (m.almanac as { luckyHours?: unknown } | undefined)?.luckyHours).map((y) => {
       const yy = y as { code?: unknown; range?: unknown; god?: unknown; meaning?: unknown }
-      return { id: str(yy.code), window: str(yy.range), label: [str(yy.god), str(yy.meaning)].filter(Boolean).join(' · ') }
+      // ผู้ใช้ 2026-09-12 ("เอาแต่คำแปล · ตัดคำจีน"): label เหลือแต่ "ความหมายไทย" — ตัดชื่อสำเนียงจีน (god:
+      // กิ่งก่าย/เทียนเต๊า/แซเล้ง ฯลฯ) ออก. fallback เป็น god เฉพาะกรณี meaning ว่าง (ยังต้องมีอะไรให้อ่าน)
+      return { id: str(yy.code), window: str(yy.range), label: str(yy.meaning) || str(yy.god) }
     }),
     // jianchu = ความหมายไทยล้วน — ตัด jc.name (ชื่อ 建除 สำเนียงแต้จิ๋ว เช่น "เตีย/เกี๋ยง" = คำจีนทับศัพท์)
     // ออกตามที่ผู้ใช้สั่ง 2026-09-12 ("ตัดคำจีน"): bullet "วันนี้มีความหมาย" เหลือแต่ความหมาย ไม่มีคำอ่านจีน

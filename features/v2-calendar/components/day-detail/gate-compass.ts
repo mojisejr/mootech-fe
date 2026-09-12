@@ -133,6 +133,65 @@ export function directionLabelTH(raw: string | null | undefined): string {
   return d ? DIR_LABEL_TH[d] : (raw ?? '').trim()
 }
 
+// ─────────────────────────────────────────────────────────────────────────────────────────────────────────
+// สีตามธาตุของทิศ + ความเข้มตามการตรงกันของพลัง (ผู้ใช้/ซินแส 2026-09-12)
+//
+// คนละมิติกับ "ดี/ร้าย" ที่ตำราไม่มีสำหรับ 8 ประตู — อันนี้คือ "ธาตุของทิศ" (五行 ประจำทิศ คงที่) เป็นสีพื้นช่อง
+// และถ้าธาตุของ ประตู(八門) + เทพ(十神) + ทิศ ตรงกันทั้งสาม = พลังเสริมกัน → เฉดเข้มขึ้น (bgStrong) + ป้าย "พลังแรง".
+// สีพื้นมาจาก "ทิศ" เท่านั้น (ตามรูปวาดมือ: E/SE เขียว, S แดง, NE/SW น้ำตาล, W/NW ขาว-เทา, N ดำ-น้ำเงิน);
+// GATE_TINT เดิม (สีตามหมวดประตู) ถูกแทนที่ด้วยสีธาตุทิศนี้. ชื่อเทพยังทาสีด้วย SPIRIT_STYLE.ink (พลังเทพ) ตามเดิม.
+export type ElementTh = 'ไม้' | 'ไฟ' | 'ดิน' | 'ทอง' | 'น้ำ'
+
+/** ธาตุประจำทิศ (คงที่) — 五行 ของทิศทั้ง 8 ตามฮวงจุ้ยธรรมชาติ (ทิศไม่หมุน; ประตู/เทพหมุนเข้าช่อง). */
+export const DIR_ELEMENT: Record<Direction, ElementTh> = {
+  E: 'ไม้', SE: 'ไม้',
+  S: 'ไฟ',
+  SW: 'ดิน', NE: 'ดิน',
+  W: 'ทอง', NW: 'ทอง',
+  N: 'น้ำ',
+}
+
+/** ธาตุ → เฉดสี 2 ระดับ. base = ปกติ, strong = เมื่อพลังตรงกันทั้งสาม (เข้มขึ้น). ink = สีตัวอักษรประตู. */
+export const ELEMENT_TINT: Record<ElementTh, { bg: string; bgStrong: string; ink: string }> = {
+  'ไม้': { bg: '#EAF7EC', bgStrong: '#BFE6C9', ink: '#2C8A4B' }, // เขียว (wood)
+  'ไฟ': { bg: '#FDECE9', bgStrong: '#F5BEB5', ink: '#CD3D2E' }, // แดง (fire)
+  'ดิน': { bg: '#FEF3E5', bgStrong: '#EFD3A9', ink: '#B47E35' }, // น้ำตาล/ครีม (earth)
+  'ทอง': { bg: '#F3F4F6', bgStrong: '#D6DBE1', ink: '#5B6570' }, // ขาว-เทา (metal)
+  'น้ำ': { bg: '#EAEFF6', bgStrong: '#BFCFE6', ink: '#2A3F5F' }, // ดำ-น้ำเงิน (water)
+}
+
+/** ธาตุของ 8 ประตู 八門 (五行 คลาสสิก). */
+export const GATE_ELEMENT: Record<string, ElementTh> = {
+  '開': 'ทอง', '驚': 'ทอง', // 金
+  '休': 'น้ำ', // 水
+  '生': 'ดิน', '死': 'ดิน', // 土
+  '傷': 'ไม้', '杜': 'ไม้', // 木
+  '景': 'ไฟ', // 火
+}
+
+/** ธาตุของ 10 เทพ 十神/八神 (五行 คลาสสิก) — เจ้าของยืนยัน "ทำตามนั้น" 2026-09-12 (ใช้ค่าคลาสสิก คุมความเข้มของสี). */
+export const DEITY_ELEMENT: Record<string, ElementTh> = {
+  '符': 'ดิน', '陳': 'ดิน', '地': 'ดิน', // 值符/勾陳/九地 = 土
+  '蛇': 'ไฟ', '雀': 'ไฟ', // 螣蛇/朱雀 = 火
+  '陰': 'ทอง', '虎': 'ทอง', '天': 'ทอง', // 太陰/白虎/九天 = 金
+  '合': 'ไม้', // 六合 = 木
+  '玄': 'น้ำ', // 玄武 = 水
+}
+
+/** สีพื้น/เฉด ของช่องประตูหนึ่งช่อง: พื้นตามธาตุทิศ, เข้มขึ้นเมื่อธาตุ ประตู+เทพ+ทิศ ตรงกันทั้งสาม. */
+export function cellElementTint(
+  direction: Direction,
+  gateGlyph: string | null | undefined,
+  deityGlyph: string | null | undefined,
+): { bg: string; ink: string; element: ElementTh; strong: boolean } {
+  const element = DIR_ELEMENT[direction]
+  const t = ELEMENT_TINT[element]
+  const gateEl = gateGlyph ? GATE_ELEMENT[gateGlyph.trim()] : undefined
+  const deityEl = deityGlyph ? DEITY_ELEMENT[deityGlyph.trim()] : undefined
+  const strong = gateEl === element && deityEl === element
+  return { bg: strong ? t.bgStrong : t.bg, ink: t.ink, element, strong }
+}
+
 export type PlacedGate = { direction: Direction; cell: Cell; gate: DayDetailGate }
 
 /**
