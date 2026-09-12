@@ -11,6 +11,7 @@
 import type { DayDetailSpirit } from '../../types'
 import { SectionCard } from './SectionCard'
 import { DEITY_ELEMENT, ELEMENT_TINT } from './gate-compass'
+import { DEITY_INFO } from './gate-deity-info'
 
 // ชื่อแต้จิ๋วของ 10 เทพ (ตามเอกสารซินแส 2026-09-12) — ที/ตี่/เหี่ยงบู้/แปะโฮ่ว/ฮะ/อิม/จั๊ว/ฮู้/กาวทิ้ง/จูเฉียก.
 const SPIRIT_TH: Record<string, string> = {
@@ -34,22 +35,29 @@ export function EightDeities({ deities }: { deities: DayDetailSpirit[] }) {
     <SectionCard title="10 เทพ 十神 · คีย์เวิร์ด · เรื่องราว" testId="eight-deities">
       <ul className="flex flex-col gap-3.5">
         {deities.length === 0 && <li className="text-sm text-v3-text-muted">วันนี้ไม่มีข้อมูล 10 เทพ</li>}
-        {deities.map((d, i) => (
-          <li key={`${d.name}-${i}`} data-testid="deity-row" className="flex items-start gap-3">
-            <span
-              aria-hidden
-              data-testid="deity-glyph"
-              className="grid size-9 shrink-0 place-items-center rounded-[10px] text-[16px] font-bold leading-none"
-              style={{ backgroundColor: (SPIRIT_STYLE[d.name.trim()] ?? { bg: '#EAF0FA' }).bg, color: (SPIRIT_STYLE[d.name.trim()] ?? { ink: '#1455A4' }).ink }}
-            >
-              {d.name.trim().slice(0, 1)}
-            </span>
-            <div className="min-w-0 flex-1">
-              <p className="text-sm font-bold text-v3-navy">{SPIRIT_STYLE[d.name.trim()]?.th ?? d.name}</p>
-              <p className="mt-0.5 text-xs leading-5 text-v3-text-body">{d.keywords.join(' · ')}</p>
-            </div>
-          </li>
-        ))}
+        {deities.map((d, i) => {
+          const glyph = d.name.trim()
+          const style = SPIRIT_STYLE[glyph]
+          const info = DEITY_INFO[glyph]
+          // 3 บันทัดตามเอกสารซินแส (2026-09-12): ชื่อเทพ(แต้จิ๋ว) / keyword / ความหมาย. fallback = keywords จาก engine
+          return (
+            <li key={`${glyph}-${i}`} data-testid="deity-row" className="flex items-start gap-3">
+              <span
+                aria-hidden
+                data-testid="deity-glyph"
+                className="grid size-9 shrink-0 place-items-center rounded-[10px] text-[16px] font-bold leading-none"
+                style={{ backgroundColor: style?.bg ?? '#F2F4F6', color: style?.ink ?? '#8B929B' }}
+              >
+                {glyph.slice(0, 1)}
+              </span>
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-bold" style={style ? { color: style.ink } : undefined}>{info?.teochew ?? style?.th ?? d.name}</p>
+                {info?.keyword && <p className="text-xs font-semibold text-v3-navy">{info.keyword}</p>}
+                <p className="mt-0.5 text-xs leading-5 text-v3-text-body">{(info?.meanings ?? d.keywords).join(' · ')}</p>
+              </div>
+            </li>
+          )
+        })}
       </ul>
     </SectionCard>
   )

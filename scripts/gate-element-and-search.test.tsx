@@ -73,7 +73,7 @@ describe('B · ช่องค้นหาบนตารางประตู',
   it('คำมั่วที่ไม่ตรง key → โชว์ "ไม่พบ" + ชิปวลีที่คนมักถาม, คลิกชิปแล้วค้นด้วยคำนั้น', () => {
     render(<EightGates gates={GATES} />)
     const input = screen.getByLabelText('ค้นหาว่าควรไปทิศไหน') as HTMLInputElement
-    fireEvent.change(input, { target: { value: 'zzzzzไม่มีจริง' } })
+    fireEvent.change(input, { target: { value: 'zxcvbnmqwerty' } }) // ล้วน latin — ไม่แชร์คำกับความหมายไทยใด
     expect(screen.getByTestId('gate-search-empty')).toBeTruthy()
     // ชิปแนะนำ = วลีเด่นของแต่ละประตู (GATE_PHRASES) — 開 = "เปิดบริษัท"
     const chip = screen.getByRole('button', { name: 'เปิดบริษัท' })

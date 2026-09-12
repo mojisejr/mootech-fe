@@ -29,6 +29,7 @@ import {
   DIR_LABEL_TH, type Direction,
 } from './gate-compass'
 import { GATE_PHRASES } from './gate-phrases'
+import { GATE_INFO } from './gate-deity-info'
 
 // สีของ chip อักษรประตูในลิสต์คีย์เวิร์ด = สีตามธาตุของประตูนั้น (五行 ของ 八門) — ให้ตรงกับสีธาตุบนเข็มทิศ.
 const gateChipTint = (glyph: string): { bg: string; ink: string } => {
@@ -95,11 +96,14 @@ type SearchRow = { direction: Direction; gate: DayDetailGate; score: number }
 //    50 = ความหมาย/คีย์เวิร์ดตรงสองทาง               · 20 = แชร์คำ ≥3 ตัว (ใกล้เคียง — ตัวสำรอง)
 // คืนคะแนนสูงสุดที่แมตช์ได้ → ประตูคะแนนสูงสุด = "แนะนำ", ที่เหลือ = "ใกล้เคียง".
 function scoreGate(gate: DayDetailGate, nq: string): number {
-  const phrases = (GATE_PHRASES[gate.name.trim()] ?? []).map(normSearch)
+  const glyph = gate.name.trim()
+  const phrases = (GATE_PHRASES[glyph] ?? []).map(normSearch)
   for (const p of phrases) if (p === nq) return 100
   let best = 0
   for (const p of phrases) if (p && (p.includes(nq) || nq.includes(p))) best = Math.max(best, 70)
-  const words = [gate.meaning, ...(gate.keywords ?? [])].map(normSearch).filter(Boolean)
+  // ความหมาย/keyword ตามเอกสารซินแส (GATE_INFO) — ให้ค้นหาสอดคล้องกับความหมายจริงของประตู
+  const info = GATE_INFO[glyph]
+  const words = [info?.keyword ?? '', ...(info?.meanings ?? []), ...(gate.keywords ?? [])].map(normSearch).filter(Boolean)
   for (const w of words) if (w.includes(nq) || nq.includes(w)) best = Math.max(best, 50)
   if (best < 20) {
     for (const t of [...phrases, ...words]) if (sharesSubstring(nq, t)) { best = Math.max(best, 20); break }
@@ -212,8 +216,8 @@ export function EightGates({ gates }: { gates: DayDetailGate[] }) {
   const { placed, unplaced } = placeGates(gates)
   const [query, setQuery] = useState('')
   const { dirs: matchedDirs, topDirs } = useGateSearch(placed, query)
-  // แสดงเฉพาะประตูที่มีคีย์เวิร์ด (engine ส่ง gate-keyword.json มา) — ก่อน engine deploy = ว่าง → ซ่อนลิสต์เงียบๆ
-  const gatesWithKeywords = gates.filter((g) => (g.keywords?.length ?? 0) > 0)
+  // ลิสต์คีย์เวิร์ด = ประตูที่รู้จัก (มีใน GATE_INFO — เนื้อหาคงที่ FE-side ตามเอกสารซินแส)
+  const gatesWithInfo = gates.filter((g) => GATE_INFO[g.name?.trim()])
   return (
     <SectionCard title="ประตู · เทพ · ทิศ · ประจำวัน" testId="eight-gates">
       {/* ข้อ 4: หัวข้อรวม "ประตู · เทพ · ทิศ · ประจำวัน" (SectionCard title) เหนือ subtitle เดิม + ช่องค้นหา */}
@@ -242,26 +246,29 @@ export function EightGates({ gates }: { gates: DayDetailGate[] }) {
         · พื้นช่องคือธาตุของทิศ · ช่องสีเข้มกว่า = ธาตุ ประตู·เทพ·ทิศ ตรงกัน (พลังแรง)
       </p>
 
-      {/* "8 ประตู · คีย์เวิร์ด · การกระทำ" — ลิสต์ใต้เข็มทิศ เหมือน "10 เทพ · คีย์เวิร์ด" (ผู้ใช้ 2026-09-12).
-          chip = อักษรจีนประตู (สีตามธาตุของประตู) · ชื่อไทยประตูทาสีธาตุ · คีย์เวิร์ดจาก engine (gate-keyword.json). */}
-      {gatesWithKeywords.length > 0 && (
+      {/* "8 ประตู · คีย์เวิร์ด · การกระทำ" — 3 บันทัดตามเอกสารซินแส (2026-09-12): ชื่อประตู(แต้จิ๋ว) / keyword /
+          ความหมาย. chip = อักษรจีนประตู สีตามธาตุประตู. เนื้อหาจาก GATE_INFO (คงที่ FE-side). */}
+      {gatesWithInfo.length > 0 && (
         <div className="mt-4 border-t border-dashed border-v3-divider-dashed pt-4">
           <p className="mb-3 text-sm font-bold text-v3-navy">8 ประตู 八門 · คีย์เวิร์ด · การกระทำ</p>
           <ul className="flex flex-col gap-3.5">
-            {gatesWithKeywords.map((g, i) => {
-              const tint = gateChipTint(g.name)
+            {gatesWithInfo.map((g, i) => {
+              const glyph = g.name.trim()
+              const tint = gateChipTint(glyph)
+              const info = GATE_INFO[glyph]
               return (
-                <li key={`${g.name}-${i}`} data-testid="gate-keyword-row" className="flex items-start gap-3">
+                <li key={`${glyph}-${i}`} data-testid="gate-keyword-row" className="flex items-start gap-3">
                   <span
                     aria-hidden
                     className="grid size-9 shrink-0 place-items-center rounded-[10px] text-[16px] font-bold leading-none"
                     style={{ backgroundColor: tint.bg, color: tint.ink }}
                   >
-                    {g.name.trim()}
+                    {glyph}
                   </span>
                   <div className="min-w-0 flex-1">
-                    <p className="text-sm font-bold" style={{ color: tint.ink }}>{g.meaning}</p>
-                    <p className="mt-0.5 text-xs leading-5 text-v3-text-body">{(g.keywords ?? []).join(' · ')}</p>
+                    <p className="text-sm font-bold" style={{ color: tint.ink }}>ประตู{info.teochew}</p>
+                    <p className="text-xs font-semibold text-v3-navy">{info.keyword}</p>
+                    <p className="mt-0.5 text-xs leading-5 text-v3-text-body">{info.meanings.join(' · ')}</p>
                   </div>
                 </li>
               )
