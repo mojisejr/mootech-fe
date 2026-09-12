@@ -36,6 +36,9 @@ const h = vi.hoisted(() => ({
 }))
 
 vi.mock('@/lib/v2/resolve-user', () => ({ resolveSessionUserId: vi.fn(async () => h.who) }))
+// day-detail มี DB cache (0026) best-effort — mock db ให้ execute คืน rows ว่าง (cache miss) เพื่อให้เทส
+// วัด compute + in-memory Map ตามเดิม (ไม่ต่อ Postgres จริง)
+vi.mock('@/lib/db', () => ({ db: { execute: vi.fn(async () => ({ rows: [] })) } }))
 // #358 Phase 3 — this suite is about the paid-field TRIM, not the span, and its dates are 2027-01-xx
 // (chosen so the module-level cache never collides). Pinning "now" to that month keeps every case
 // in span so the span gate never fires here and these assertions keep measuring what they name.

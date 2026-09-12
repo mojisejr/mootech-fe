@@ -54,6 +54,7 @@ const h = vi.hoisted(() => ({
 }))
 
 vi.mock('@/lib/v2/resolve-user', () => ({ resolveSessionUserId: vi.fn(async () => h.who) }))
+vi.mock('@/lib/db', () => ({ db: { execute: vi.fn(async () => ({ rows: [] })) } }))
 // #358 Phase 3 — this suite asks whether the two gates AGREE, which is a different question from how far
 // each level may scroll. Its months walk 2029-xx for cache isolation, so "now" is pinned there and its
 // paid verdicts are PRO (no wall). If the span ever became what decides a row here, the agreement being
