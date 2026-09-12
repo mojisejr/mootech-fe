@@ -58,24 +58,27 @@ describe('B · ช่องค้นหาบนตารางประตู',
     expect(screen.getByTestId('gate-search-hit').textContent).toContain('ตะวันออก')
   })
 
-  it('คำใกล้เคียงที่แชร์คำ ≥3 ตัว → เจอ (เช่น "ขอเงิน" ↔ "เงินทองงอกเงย" ของประตู 生 ทิศ SE)', () => {
+  it('วลีที่คนมักถาม → ประตูที่ตรงเป็น "แนะนำ" (data-rank=top) + บอกทิศ ("ขอเงิน" → 生 ทิศ SE)', () => {
     render(<EightGates gates={GATES} />)
     const input = screen.getByLabelText('ค้นหาว่าควรไปทิศไหน')
-    fireEvent.change(input, { target: { value: 'ขอเงิน' } })
+    fireEvent.change(input, { target: { value: 'ขอเงิน' } }) // ตรงวลี GATE_PHRASES ของ 生
     const cellSE = document.querySelector('[data-testid="gate-cell"][data-dir="SE"]')
     expect(cellSE?.getAttribute('data-match')).toBe('1')
-    expect(screen.getByTestId('gate-search-hit').textContent).toContain('อาคเนย์')
+    expect(cellSE?.getAttribute('data-rank')).toBe('top') // น้ำหนักไปทาง 生 = แนะนำ
+    const hit = screen.getByTestId('gate-search-hit').textContent
+    expect(hit).toContain('แนะนำ')
+    expect(hit).toContain('อาคเนย์')
   })
 
-  it('คำมั่วที่ไม่ตรง key → โชว์ "ไม่พบ" + ชิปแนะนำ, คลิกชิปแล้วค้นด้วยคำนั้น', () => {
+  it('คำมั่วที่ไม่ตรง key → โชว์ "ไม่พบ" + ชิปวลีที่คนมักถาม, คลิกชิปแล้วค้นด้วยคำนั้น', () => {
     render(<EightGates gates={GATES} />)
     const input = screen.getByLabelText('ค้นหาว่าควรไปทิศไหน') as HTMLInputElement
-    fireEvent.change(input, { target: { value: 'zzzzzไม่มีจริง' } })
+    fireEvent.change(input, { target: { value: 'zxcvbnmqwerty' } }) // ล้วน latin — ไม่แชร์คำกับความหมายไทยใด
     expect(screen.getByTestId('gate-search-empty')).toBeTruthy()
-    // ชิปแนะนำ = คีย์เวิร์ดของวันนี้ — คลิกแล้ว input เปลี่ยนเป็นคำนั้น
-    const chip = screen.getByRole('button', { name: 'โอกาสใหม่' })
+    // ชิปแนะนำ = วลีเด่นของแต่ละประตู (GATE_PHRASES) — 開 = "เปิดบริษัท"
+    const chip = screen.getByRole('button', { name: 'เปิดบริษัท' })
     fireEvent.click(chip)
-    expect(input.value).toBe('โอกาสใหม่')
+    expect(input.value).toBe('เปิดบริษัท')
     expect(screen.getByTestId('gate-search-hit')).toBeTruthy()
   })
 
