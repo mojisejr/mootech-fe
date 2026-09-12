@@ -161,15 +161,16 @@ function GateSearch({
       </div>
       {active && rows.length > 0 && (
         <div data-testid="gate-search-hit" className="mt-2 flex flex-col gap-1.5">
+          {/* ซินแส 2026-09-12: ชื่อประตูในผลค้นหาใช้ "ตัวอักษรจีน" (八門) ตามชาร์ตต้นฉบับ ไม่ใช่คำแปลไทย */}
           {topRows.map((r, i) => (
             <div key={`top-${r.direction}-${i}`} className="flex items-start gap-1.5 text-xs leading-5 text-v3-navy">
               <span className="mt-px shrink-0 rounded bg-v3-sapphire px-1.5 py-0.5 text-[10px] font-bold leading-none text-white">แนะนำ</span>
-              <span>ควรไปทิศ <b>{DIR_LABEL_TH[r.direction]}</b> ({r.direction}) · ประตู <b>{r.gate.meaning || r.gate.name}</b></span>
+              <span>ควรไปทิศ <b>{DIR_LABEL_TH[r.direction]}</b> ({r.direction}) · ประตู <b>{r.gate.name || r.gate.meaning}</b></span>
             </div>
           ))}
           {nearRows.length > 0 && (
             <p className="text-[11px] leading-5 text-v3-text-muted">
-              ใกล้เคียง: {nearRows.map((r) => `${DIR_LABEL_TH[r.direction]} (ประตู${r.gate.meaning || r.gate.name})`).join(' · ')}
+              ใกล้เคียง: {nearRows.map((r) => `${DIR_LABEL_TH[r.direction]} (ประตู${r.gate.name || r.gate.meaning})`).join(' · ')}
             </p>
           )}
         </div>
