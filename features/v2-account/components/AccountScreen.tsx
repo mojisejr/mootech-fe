@@ -61,6 +61,16 @@ function last7(today: string): string[] {
 const CHEVRON = <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden className="flex-none text-v3-text-muted"><path d="m6 3.5 4.5 4.5L6 12.5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" /></svg>
 const CHECK_SM = <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6 9 17l-5-5" /></svg>
 
+// สปินเนอร์หมุน (loading) — ใช้ระหว่างการ์ดโหลด (ผู้ใช้ 2026-09-12: อยากได้แบบหมุน ๆ)
+function Spinner({ className = "size-6 text-v3-sapphire" }: { className?: string }) {
+  return (
+    <svg className={`animate-spin ${className}`} viewBox="0 0 24 24" fill="none" aria-hidden>
+      <circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="3" opacity="0.2" />
+      <path d="M21 12a9 9 0 0 0-9-9" stroke="currentColor" strokeWidth="3" strokeLinecap="round" />
+    </svg>
+  )
+}
+
 // preview: เฉพาะหน้า dev (/dev-access/account-preview) — ป้อน wallet/board/ent ตรง ๆ ไม่ยิง API
 type AccountPreview = { wallet?: Wallet | null; board?: MissionBoard | null; ent?: Entitlements | null }
 export function AccountScreen({ preview }: { preview?: AccountPreview } = {}) {
@@ -253,17 +263,10 @@ export function AccountScreen({ preview }: { preview?: AccountPreview } = {}) {
               {CHEVRON}
             </Link>
           ) : (!loaded || elementLoading) ? (
-            /* skeleton การ์ดธาตุ ระหว่าง bazi compute (ช้าได้) — บอกชัดว่ากำลังโหลด ไม่ใช่การ์ดหาย */
-            <section className="v3-shadow-card flex flex-col gap-3 rounded-[20px] bg-white p-4" data-testid="account-element-skeleton" aria-busy="true">
-              <div className="h-5 w-28 animate-pulse rounded bg-[#E9EEF5]" />
-              <div className="flex items-center gap-3 rounded-[16px] bg-[#F4F6FA] p-3">
-                <div className="min-w-0 flex-1 space-y-2">
-                  <div className="h-6 w-32 animate-pulse rounded-full bg-[#E9EEF5]" />
-                  <div className="h-3 w-full animate-pulse rounded bg-[#E9EEF5]" />
-                  <div className="h-3 w-2/3 animate-pulse rounded bg-[#E9EEF5]" />
-                </div>
-                <div className="h-[110px] w-[80px] flex-none animate-pulse rounded-[12px] bg-[#E9EEF5]" />
-              </div>
+            /* สปินเนอร์หมุน การ์ดธาตุ ระหว่าง bazi compute (ช้าได้) — บอกชัดว่ากำลังโหลด ไม่ใช่การ์ดหาย */
+            <section className="v3-shadow-card grid h-[150px] place-items-center gap-2 rounded-[20px] bg-white" data-testid="account-element-skeleton" aria-busy="true">
+              <Spinner className="size-7 text-v3-sapphire" />
+              <span className="text-[12px] text-v3-text-muted">กำลังคำนวณธาตุ…</span>
             </section>
           ) : null}
 
@@ -295,15 +298,9 @@ export function AccountScreen({ preview }: { preview?: AccountPreview } = {}) {
               </div>
             </section>
           ) : !loaded ? (
-            /* skeleton การ์ด QI ระหว่างโหลด — บอกชัดว่ากำลังโหลด ไม่ใช่จอว่างเหมือนบั๊ก */
-            <section className="rounded-[20px] bg-v3-sapphire p-5" data-testid="account-qi-skeleton" aria-busy="true">
-              <div className="h-3 w-24 animate-pulse rounded bg-white/25" />
-              <div className="mt-2 h-8 w-40 animate-pulse rounded bg-white/25" />
-              <div className="mt-3 h-3 w-56 animate-pulse rounded bg-white/20" />
-              <div className="mt-4 flex gap-2">
-                <div className="h-11 flex-1 animate-pulse rounded-full bg-white/25" />
-                <div className="h-11 flex-1 animate-pulse rounded-full bg-white/15" />
-              </div>
+            /* สปินเนอร์หมุน การ์ด QI ระหว่างโหลด — บอกชัดว่ากำลังโหลด (ผู้ใช้ 2026-09-12: ชอบแบบหมุน ๆ) */
+            <section className="grid h-[168px] place-items-center rounded-[20px] bg-v3-sapphire" data-testid="account-qi-skeleton" aria-busy="true">
+              <Spinner className="size-7 text-white" />
             </section>
           ) : null}
 
