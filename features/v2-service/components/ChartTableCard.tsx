@@ -3,7 +3,7 @@
 //   การ์ด: bg ตัวเรา #ECF0FD / เขา #F9F4F0 · p16 · r14 · gap16
 //   header: Avatar 40 (ตัวเรา: ring lime #E1FF00 · เขา: ตัวย่อบน #DAE2FF สี #3758F9 + rank-badge #66BB6A 22px) ·
 //           ชื่อ 15px #0B305B · element-pill (bg/ink = variables สีธาตุ) 12px · วันเกิด 14px #464646 · มาสคอต 51×70 r16
-//   คอลัมน์ ×5 (ปี เดือน วัน ยาม ลัคนา): gap8 · py7 r10 · หัว 14px #464646 · ก้าน/กิ่ง 16px สีตามธาตุของตัวเอง · ธาตุก้าน 14px #464646
+//   คอลัมน์ ×5 (ลัคนา ยาม วัน เดือน ปี — ซินแส 2026-09-12): gap8 · py7 r10 · หัว 14px #464646 · ก้าน/กิ่ง 16px สีตามธาตุของตัวเอง · ธาตุก้าน 14px #464646
 //   ปุ่ม: bg #D4DDFC · ตัว #1455A4 14px · px16 py8 · r32 · ไอคอนลูกศร 13px → "โชว์ตารางวัยจร ปีจร"
 //   วัยจร/ปีจร (758:3239 / 758:2527): bg #294F74 r24 px20 pt20 pb24 gap14 · หัว 20px bold ขาว ·
 //           cell 80×130 ขาว r10 px6 py8 · age-badge bg #E3EDF5 ตัว #294F74 13px bold r8 · glyph 16px bold · pill นักษัตร bg #EEE ตัว #555 11px
@@ -130,13 +130,13 @@ export function ChartTableCard({ person, chart, roleLabel, side = 'self', testId
       </div>
       <div className="border-b border-dashed border-[#EBD9C8]" />
 
-      {/* 5 คอลัมน์ */}
+      {/* 5 คอลัมน์ — เรียง ลัคนา·ยาม·วัน·เดือน·ปี ให้ตรงกับหน้าดวงของฉัน (ซินแส 2026-09-12) */}
       <div className="flex items-stretch gap-2">
-        <PillarColumn head="ปี" pillar={chart.pillars.year} testId={`${testId}-pillar-year`} />
-        <PillarColumn head="เดือน" pillar={chart.pillars.month} testId={`${testId}-pillar-month`} />
-        <PillarColumn head="วัน" pillar={chart.pillars.day} testId={`${testId}-pillar-day`} />
-        <PillarColumn head="ยาม" pillar={chart.pillars.hour} unknown={hourUnknown} testId={`${testId}-pillar-hour`} />
         <PillarColumn head="ลัคนา" pillar={chart.pillars.ascendant} unknown={hourUnknown || !chart.pillars.ascendant} testId={`${testId}-pillar-ascendant`} />
+        <PillarColumn head="ยาม" pillar={chart.pillars.hour} unknown={hourUnknown} testId={`${testId}-pillar-hour`} />
+        <PillarColumn head="วัน" pillar={chart.pillars.day} testId={`${testId}-pillar-day`} />
+        <PillarColumn head="เดือน" pillar={chart.pillars.month} testId={`${testId}-pillar-month`} />
+        <PillarColumn head="ปี" pillar={chart.pillars.year} testId={`${testId}-pillar-year`} />
       </div>
       {hourUnknown ? <p className="text-[12px] text-v3-text-muted">* ไม่ทราบเวลาเกิด — เสายามและลัคนาจึงไม่แสดง</p> : null}
 

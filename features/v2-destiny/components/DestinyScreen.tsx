@@ -103,7 +103,7 @@ export type DestinyData = {
 const DOMAIN_TH: Record<string, string> = {
   wealth: "สกิลเรียกทรัพย์",
   career: "ตัวท็อป",
-  friends: "สกัลอินฟลู",
+  friends: "สกิลอินฟลู",
   learning: "สกิลเรียนรู้",
 }
 // ไอคอน 4 ด้านจริงจาก Figma (svg export node 55349:3105/3130/3142/3154)

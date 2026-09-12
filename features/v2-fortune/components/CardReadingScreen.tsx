@@ -289,11 +289,7 @@ export function CardReadingScreen({
           </div>
           <p className="px-1 text-center text-[11px] leading-4 text-v3-text-muted">น้ำหนักคือสัดส่วนที่ไพ่แต่ละใบมีต่อคำทำนายรวม รวมกันได้ 100%</p>
 
-          {/* สรุปคำทำนายนี้ */}
-          <section className="flex flex-col gap-1 rounded-[24px] bg-[#EAF3FF] p-5" data-testid="cards-summary">
-            <span className="w-fit text-[13px] font-black text-v3-sapphire">สรุปคำทำนายนี้</span>
-            <p className="text-[13px] leading-[22px] text-v3-text-body">{cards[0].meaning}</p>
-          </section>
+          {/* §"สรุปคำทำนายนี้" เอาออก (ซินแส 2026-09-12) — เดิมโชว์ cards[0].meaning ซึ่งว่างได้/ซ้ำกับรายใบ */}
 
           {/* รายใบ */}
           {cards.map((c, i) => (

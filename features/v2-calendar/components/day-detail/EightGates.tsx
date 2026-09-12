@@ -22,7 +22,7 @@
 // what the mark means. It is not a claim about that gate.
 import type { DayDetailGate } from '../../types'
 import { SectionCard } from './SectionCard'
-import { DIR_CELL, CENTER, DIR_LABEL_TH, normalizeDirection, placeGates, type Direction } from './gate-compass'
+import { DIR_CELL, CENTER, placeGates, type Direction } from './gate-compass'
 
 // สีต่อประตูตามเฟรม Figma 634:8752 (design context 2026-09-07 — ผู้ใช้สั่ง "อย่าลืมใส่สีด้วยนะ" ทับคำตัดสิน M-D เดิม):
 //   開休生 = teal #E7F6F8/#1B9AAF · 傷杜死驚 = แดง #FDECE9/#CD3D2E · 景 = ส้ม #FEF3E5/#B47E35 · ไม่รู้จัก = #F5F7FB navy
@@ -61,48 +61,27 @@ function GateCell({ direction, gate }: { direction: Direction; gate: DayDetailGa
   )
 }
 
-export function EightGates({ gates, luckyDirection }: { gates: DayDetailGate[]; luckyDirection?: string }) {
+export function EightGates({ gates }: { gates: DayDetailGate[] }) {
   const { placed, unplaced } = placeGates(gates)
-  const lucky = normalizeDirection(luckyDirection)
   return (
     <SectionCard title="8 ประตู 八門 · ทิศประจำวัน" testId="eight-gates">
       <div data-testid="gate-board" className="grid grid-cols-3 grid-rows-3 gap-2">
         {placed.map((p) => (
           <GateCell key={p.direction} direction={p.direction} gate={p.gate} />
         ))}
-        {/* ช่องกลาง = ทิศมงคล (財 โชคลาภ) ของวัน ตามเฟรม Figma 634:8752 compass-center (bg #1455A4 · "ทิศ W" 10 bold ·
-            財 16 bold · "โชคลาภ" 14). ไม่ใช่ประตูที่ 9 — เป็นค่า luckyDirection (lucky_dir จากตำรา) คนละฟิลด์กับ 8 ประตู */}
-        {lucky ? (
-          <div
-            data-testid="gate-center"
-            data-lucky={lucky}
-            style={{ gridRow: CENTER.row, gridColumn: CENTER.col }}
-            className="flex flex-col items-center justify-center gap-px rounded-[14px] bg-v3-sapphire px-1 py-2.5 leading-none text-white"
-          >
-            <span className="text-[10px] font-bold">ทิศ {lucky}</span>
-            <span className="text-[16px] font-bold leading-6">財</span>
-            <span className="text-[14px] leading-[22px]">โชคลาภ</span>
-          </div>
-        ) : (
-          <div
-            data-testid="gate-center"
-            style={{ gridRow: CENTER.row, gridColumn: CENTER.col }}
-            className="flex flex-col items-center justify-center gap-1 rounded-2xl border border-dashed border-v3-sapphire/30 px-1 py-3 leading-none"
-          >
-            <span aria-hidden className="text-lg">📍</span>
-            <span className="text-[10px] font-semibold text-v3-sapphire">คุณอยู่นี่</span>
-          </div>
-        )}
+        {/* ช่องกลาง = "คุณ" (ผู้ดู) — ซินแส 2026-09-12: ตำราไม่มีประตูที่ 9 และช่องกลางคือ "ตัวเรา" ที่ยืนอยู่กลางเข็มทิศ.
+            ทิศมงคล (財/โชคลาภ) ย้ายไปแสดงในการ์ด "ทิศ สีมงคล" แล้ว จึงไม่ซ้ำที่นี่ */}
+        <div
+          data-testid="gate-center"
+          style={{ gridRow: CENTER.row, gridColumn: CENTER.col }}
+          className="flex flex-col items-center justify-center gap-px rounded-[14px] bg-v3-sapphire px-1 py-2.5 leading-none text-white"
+        >
+          <span className="text-[18px] font-bold leading-6">คุณ</span>
+        </div>
       </div>
 
       <p className="mt-3 text-[11px] leading-5 text-v3-text-muted">
-        วางตามทิศที่ตำราระบุของวันนั้น — ประตูย้ายทิศทุกวัน
-        {lucky && (
-          <>
-            {' · '}
-            <span className="font-semibold text-v3-sapphire">ช่องกลาง 財 = ทิศมงคล (โชคลาภ) ของวัน</span>
-          </>
-        )}
+        วางตามทิศที่ตำราระบุของวันนั้น — ประตู/เทพย้ายทิศทุกวัน · ทิศใต้อยู่บน ทิศเหนืออยู่ล่าง (ฮวงจุ้ยธรรมชาติ)
       </p>
 
       {/* A gate whose direction could not be read must be SEEN, not silently missing from the board — a

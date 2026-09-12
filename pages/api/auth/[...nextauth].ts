@@ -84,6 +84,24 @@ export const authOptions: NextAuthOptions = {
       return session;
     },
   },
+  // Session cookie SameSite=None (ซินแส/iPad 2026-09-12): NextAuth ค่าเริ่ม session-token เป็น SameSite=Lax
+  // ซึ่ง iPad Safari/LINE webview ทำหล่นในบริบท cross-site → ปฏิทัน (getServerSession) เห็น no-identity แม้
+  // หน้าอื่นยังล็อกอินอยู่ (ใช้ MEMBER_ID). ตั้ง session-token เป็น None+Secure เฉพาะ prod (https) ให้ cookie
+  // เดินทางข้าม context ได้; dev คง Lax ไม่ Secure เพื่อให้ล็อกอิน localhost (http) ยังทำงาน. แตะเฉพาะ
+  // session-token — ไม่ยุ่ง csrf/callback เพื่อไม่กระทบ handshake ตอนล็อกอิน. (verify บน iPad จริงก่อน; ถ้าไม่หาย
+  // ค่อยไป fallback MEMBER_ID #391)
+  useSecureCookies: !isDev,
+  cookies: {
+    sessionToken: {
+      name: `${!isDev ? "__Secure-" : ""}next-auth.session-token`,
+      options: {
+        httpOnly: true,
+        sameSite: !isDev ? "none" : "lax",
+        path: "/",
+        secure: !isDev,
+      },
+    },
+  },
   // กำหนด secret
   secret: process.env.NEXTAUTH_SECRET,
   // คุณสามารถกำหนดหน้าสำหรับ Sign in, Sign out, Error ได้
