@@ -10,22 +10,24 @@
 // — five identical chips that read as a font bug. A character count is not a character.
 import type { DayDetailSpirit } from '../../types'
 import { SectionCard } from './SectionCard'
+import { DEITY_ELEMENT, ELEMENT_TINT } from './gate-compass'
 
-// ชิปอักษร + สี. ชื่อไทยของเทพ = ตามเอกสารซินแส 十神 (FIXเงื่อนไขปฏิทิน, 2026-09-12) — เป็นสำเนียงแต้จิ๋วของซินแส
-// (ที/ตี่/เหี่ยงบู้/แปะโฮ่ว/ฮะ/อิม/จั๊ว/ฮู้/กาวทิ้ง/จูเฉียก) แทนสำเนียงจีนกลางเดิมของ Figma เพื่อให้ตรงตำรา
-// และตรงกับชื่อเทพที่โชว์ในตารางประตู (EightGates). pipe ส่ง name เป็นอักษรจีนตัวเดียว — ไม่รู้จัก = ชิปน้ำเงินอ่อน + ชื่อดิบ
-export const SPIRIT_STYLE: Record<string, { th: string; bg: string; ink: string }> = {
-  '天': { th: 'ที', bg: '#EAF0FA', ink: '#1455A4' },
-  '地': { th: 'ตี่', bg: '#EAF0FA', ink: '#1455A4' },
-  '玄': { th: 'เหี่ยงบู้', bg: '#EEF0F3', ink: '#464646' },
-  '虎': { th: 'แปะโฮ่ว', bg: '#FDECE9', ink: '#CD3D2E' },
-  '合': { th: 'ฮะ', bg: '#E7F6F8', ink: '#1B9AAF' },
-  '陰': { th: 'อิม', bg: '#F1EFFA', ink: '#AF9CE0' },
-  '蛇': { th: 'จั๊ว', bg: '#FDECE9', ink: '#CD3D2E' },
-  '符': { th: 'ฮู้', bg: '#E7F6F8', ink: '#1B9AAF' },
-  '陳': { th: 'กาวทิ้ง', bg: '#EEF0F3', ink: '#464646' },
-  '雀': { th: 'จูเฉียก', bg: '#FEF3E5', ink: '#B47E35' },
+// ชื่อแต้จิ๋วของ 10 เทพ (ตามเอกสารซินแส 2026-09-12) — ที/ตี่/เหี่ยงบู้/แปะโฮ่ว/ฮะ/อิม/จั๊ว/ฮู้/กาวทิ้ง/จูเฉียก.
+const SPIRIT_TH: Record<string, string> = {
+  '天': 'ที', '地': 'ตี่', '玄': 'เหี่ยงบู้', '虎': 'แปะโฮ่ว', '合': 'ฮะ',
+  '陰': 'อิม', '蛇': 'จั๊ว', '符': 'ฮู้', '陳': 'กาวทิ้ง', '雀': 'จูเฉียก',
 }
+
+// สีของเทพ = สีตาม "ธาตุของเทพ" (เอกสารซินแส: 符/陳/地=ดิน→เหลือง · 蛇/雀=ไฟ→แดง · 陰/虎/天=ทอง→ขาว-เงิน ·
+// 合=ไม้→เขียว · 玄=น้ำ→ฟ้า). ดึงจาก DEITY_ELEMENT × ELEMENT_TINT (แหล่งเดียว) ให้ตรงกับพื้นช่อง/ตัวประตูเสมอ.
+// pipe ส่ง name เป็นอักษรจีนตัวเดียว — ไม่รู้จัก = เงิน-เทา + ชื่อดิบ.
+export const SPIRIT_STYLE: Record<string, { th: string; bg: string; ink: string }> = Object.fromEntries(
+  Object.entries(SPIRIT_TH).map(([glyph, th]) => {
+    const el = DEITY_ELEMENT[glyph]
+    const t = el ? ELEMENT_TINT[el] : { bg: '#F2F4F6', ink: '#8B929B' }
+    return [glyph, { th, bg: t.bg, ink: t.ink }]
+  }),
+)
 
 export function EightDeities({ deities }: { deities: DayDetailSpirit[] }) {
   return (

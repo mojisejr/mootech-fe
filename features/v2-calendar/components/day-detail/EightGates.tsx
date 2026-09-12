@@ -44,7 +44,8 @@ function GateCell({ direction, gate, rank }: { direction: Direction; gate: DayDe
   // ทาสีตามพลังเทพ (SPIRIT_STYLE.ink); อักษรจีนประตูอยู่ล่าง. ไม่มี deity → ใช้ความหมายประตู + สีธาตุทิศ.
   const deityStyle = gate.deity ? SPIRIT_STYLE[gate.deity.trim()] : undefined
   const leadName = deityStyle?.th ?? gate.deity?.trim() ?? gate.meaning
-  const leadInk = deityStyle?.ink ?? tint.ink
+  const leadInk = deityStyle?.ink ?? tint.ink // ชื่อเทพ = สีตามธาตุเทพ (เอกสารซินแส)
+  const gateInk = gateChipTint(gate.name).ink // ตัวประตู = สีตามธาตุประตู (เอกสารซินแส)
   return (
     <div
       data-testid="gate-cell"
@@ -66,7 +67,7 @@ function GateCell({ direction, gate, rank }: { direction: Direction; gate: DayDe
       {/* ผู้ใช้ 2026-09-12: "พลังแรง" บอกด้วยสีเข้มขึ้น (bgStrong) อย่างเดียว — ไม่มีไอคอน ⚡ */}
       <span className="text-[10px] font-bold text-v3-text-body">{direction}</span>
       <span className="text-[15px] font-extrabold leading-tight" style={{ color: leadInk }}>{leadName}</span>
-      <span className="text-xl font-bold leading-none" style={{ color: tint.ink }}>{gate.name}</span>
+      <span className="text-xl font-bold leading-none" style={{ color: gateInk }}>{gate.name}</span>
     </div>
   )
 }
