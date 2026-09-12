@@ -58,6 +58,15 @@ describe('B · ช่องค้นหาบนตารางประตู',
     expect(screen.getByTestId('gate-search-hit').textContent).toContain('ตะวันออก')
   })
 
+  it('คำใกล้เคียงที่แชร์คำ ≥3 ตัว → เจอ (เช่น "ขอเงิน" ↔ "เงินทองงอกเงย" ของประตู 生 ทิศ SE)', () => {
+    render(<EightGates gates={GATES} />)
+    const input = screen.getByLabelText('ค้นหาว่าควรไปทิศไหน')
+    fireEvent.change(input, { target: { value: 'ขอเงิน' } })
+    const cellSE = document.querySelector('[data-testid="gate-cell"][data-dir="SE"]')
+    expect(cellSE?.getAttribute('data-match')).toBe('1')
+    expect(screen.getByTestId('gate-search-hit').textContent).toContain('อาคเนย์')
+  })
+
   it('คำมั่วที่ไม่ตรง key → โชว์ "ไม่พบ" + ชิปแนะนำ, คลิกชิปแล้วค้นด้วยคำนั้น', () => {
     render(<EightGates gates={GATES} />)
     const input = screen.getByLabelText('ค้นหาว่าควรไปทิศไหน') as HTMLInputElement

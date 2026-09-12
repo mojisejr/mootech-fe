@@ -74,7 +74,19 @@ function GateCell({ direction, gate, highlight }: { direction: Direction; gate: 
 // ── ข้อ 8: ช่องค้นหาบนตารางประตู — พิมพ์สิ่งที่จะทำ (เช่น "เปิดบริษัท") → เน้นประตู/บอกทิศที่ควรไป ─────────
 const normSearch = (s: string) => s.trim().toLowerCase().replace(/\s+/g, '')
 
-/** สร้างดัชนีค้นหาจากประตูที่วางบนเข็มทิศ + จับคู่ query แบบ substring/สองทาง (เจอคำใกล้เคียง). */
+/** แชร์ substring ยาว ≥ min ตัวอักษร — ช่วยจับคำใกล้เคียงแบบไม่ต้องตรงเป๊ะ (ภาษาไทยไม่มีเว้นวรรค).
+ *  เช่น "ขอเงิน" ↔ "เงินทองงอกเงย" (แชร์ "เงิน"), "เปิดบริษัท" ↔ "เปิด". */
+function sharesSubstring(a: string, b: string, min = 3): boolean {
+  if (a.length < min || b.length < min) return false
+  for (let i = 0; i + min <= a.length; i++) {
+    for (let len = min; i + len <= a.length; len++) {
+      if (b.includes(a.slice(i, i + len))) return true
+    }
+  }
+  return false
+}
+
+/** สร้างดัชนีค้นหาจากประตูที่วางบนเข็มทิศ + จับคู่ query แบบ substring สองทาง + คำใกล้เคียง (แชร์คำ ≥3 ตัว). */
 function useGateSearch(placed: { direction: Direction; gate: DayDetailGate }[], query: string) {
   return useMemo(() => {
     const nq = normSearch(query)
@@ -83,8 +95,8 @@ function useGateSearch(placed: { direction: Direction; gate: DayDetailGate }[], 
     const dirs = new Set<Direction>()
     for (const p of placed) {
       const hay = [p.gate.meaning, ...(p.gate.keywords ?? [])].map(normSearch).filter(Boolean)
-      // เจอเมื่อ keyword/ความหมาย มี query อยู่ หรือ query มี keyword อยู่ (จับคำใกล้เคียงสองทาง)
-      if (hay.some((h) => h.includes(nq) || nq.includes(h))) {
+      // เจอเมื่อ keyword/ความหมาย มี query, หรือ query มี keyword, หรือแชร์คำยาว ≥3 ตัว (คำใกล้เคียง)
+      if (hay.some((h) => h.includes(nq) || nq.includes(h) || sharesSubstring(nq, h))) {
         rows.push({ direction: p.direction, gate: p.gate })
         dirs.add(p.direction)
       }
