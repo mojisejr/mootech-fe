@@ -12,6 +12,7 @@ import { useDragScroll } from "@/features/v2-service/hooks/useDragScroll"
 import { Menubar } from "@/features/v2-shell/components/Menubar"
 import { TopBarBell } from "@/features/v2-shell/components/TopBarBell"
 import { TopBarAvatar } from "@/features/v2-shell/components/TopBarAvatar"
+import { useV2Tier } from "@/features/auth/hooks/useV2Tier"
 
 type Task = { id: string; title: string; targetCount: number; isDaily: boolean; doneCount: number }
 type Goal = {
@@ -218,6 +219,9 @@ function ReminderCard() {
 }
 
 export function ManifestScreen({ previewData }: { previewData?: ManifestPreview } = {}) {
+  // header badge — ตาม tier จริง (ผู้ใช้ 2026-09-12: PRO ไม่ควรเห็น "อัพเกรด"). isPaid: false=ฟรี→อัพเกรด,
+  // true=จ่ายแล้ว→โชว์ระดับ (PRO/PLUS), null=ยังไม่รู้→ไม่โชว์อะไร (ไม่เดา — เหมือน header-badge ทั้งแอป)
+  const { isPaid, tier } = useV2Tier()
   const [goals, setGoals] = useState<Goal[]>(previewData?.goals ?? [])
   const [element, setElement] = useState<ElementInfo>(previewData?.element ?? null)
   const [loading, setLoading] = useState(!previewData)
@@ -267,7 +271,12 @@ export function ManifestScreen({ previewData }: { previewData?: ManifestPreview 
         <header className="flex w-full items-center gap-2 px-4 pt-4">
           <BackButton fallbackHref="/v2/service" testId="manifest-back" />
           <h1 className="flex-1 text-[20px] font-black leading-7 text-v3-navy">สมุดแมนิเฟสต์</h1>
-          <Link href="/v2/shop" className="grid h-8 flex-none place-items-center rounded-full bg-v3-lime px-3 text-[13px] font-black text-v3-sapphire">อัพเกรด</Link>
+          {isPaid === false && (
+            <Link href="/v2/shop" className="grid h-8 flex-none place-items-center rounded-full bg-v3-lime px-3 text-[13px] font-black text-v3-sapphire">อัพเกรด</Link>
+          )}
+          {isPaid === true && (
+            <span className="grid h-8 flex-none place-items-center rounded-full bg-v3-lime px-3 text-[13px] font-black text-v3-sapphire">{tier === "PLUS" ? "PLUS" : "PRO"}</span>
+          )}
           <TopBarBell variant="solid" href="/v2/calendar/notifications" />
           <TopBarAvatar variant="sapphire" href="/v2/account" />
         </header>
