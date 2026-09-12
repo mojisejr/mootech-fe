@@ -84,8 +84,8 @@ describe('เสี่ยงไพ่ (oracle/divine)', () => {
     // ส่ง cardNos ครบ 3
     expect(Array.isArray(lastBody.cardNos)).toBe(true)
     expect((lastBody.cardNos as number[]).length).toBe(3)
-    // ผลมี 3 ใบ (section "สรุปคำทำนายนี้" ถูกเอาออกแล้ว — ซินแส 2026-09-12)
-    expect(screen.queryByTestId('cards-summary')).toBeNull()
+    // ผลมี 3 ใบ + สรุป (ใจความไพ่หลัก = cards[0].meaning; ต้องไม่ว่าง)
+    expect(screen.getByTestId('cards-summary').textContent).toContain('สรุปใบหลัก')
     expect(screen.getByText('#11 ไพ่หนึ่ง · พลัง')).toBeTruthy()
   })
 

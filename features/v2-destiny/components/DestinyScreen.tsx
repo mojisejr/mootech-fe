@@ -25,6 +25,7 @@ import {
 import { MateAIButton } from "@/features/v2-shell/components/MateAIButton"
 import { TopBarBell } from "@/features/v2-shell/components/TopBarBell"
 import { TopBarAvatar } from "@/features/v2-shell/components/TopBarAvatar"
+import { shareAsInvite } from "@/lib/v2/share-invite"
 
 // engine `element-summary` returns advice as OBJECTS ({key,label,text}), not strings — the earlier
 // `advice: string[]` typing was wrong and rendering the object as a React child crashed the whole page
@@ -633,20 +634,8 @@ export function DestinyScreen({ previewData }: { previewData?: DestinyData } = {
   const mascotUrl = summary ? `/api/bazi-mascot?ganzhi=${encodeURIComponent(summary.dayGanzhi)}` : null
 
   const shareToday = async () => {
-    const payload = {
-      title: "Mumate — ดวงของฉันวันนี้",
-      text: "ดูดวงของฉันด้วย Mumate",
-      url: typeof window !== "undefined" ? window.location.origin : "",
-    }
-    if (typeof navigator !== "undefined" && navigator.share) {
-      try {
-        await navigator.share(payload)
-      } catch {
-        // ผู้ใช้ยกเลิกแชร์ — ไม่เป็นอะไร
-      }
-    } else if (typeof navigator !== "undefined" && navigator.clipboard) {
-      await navigator.clipboard.writeText(payload.url).catch(() => {})
-    }
+    // แชร์ = ลิงก์เชิญเพื่อนของ user เอง (คนสมัคร → user ได้ QI) + แนบภาพมาสคอตธาตุของวัน (ผู้ใช้ 2026-09-12)
+    await shareAsInvite({ title: "Mumate — ดวงของฉันวันนี้", text: "ดูดวงของฉันด้วย Mumate", imageUrl: mascotUrl })
     // รู้ผลของวันนี้แล้ว (รับ/เต็มโควตา) ⇒ ไม่ยิง qi-earn ซ้ำ (แชร์เองยังทำได้ตามปกติด้านบน)
     if (shareState === "done" || shareState === "capped") return
     // แชร์ = รับ +10 QI วันละ 1 ครั้ง (code "share"). อ่านผลจริงจาก engine แล้วบอกให้ตรง — ได้จริง = "รับแล้ว",

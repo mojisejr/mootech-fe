@@ -5,18 +5,12 @@
 import Image from 'next/image'
 import { MateAIButton } from '@/features/v2-shell/components/MateAIButton'
 import { announceComingSoon } from '@/features/v2-shell/components/ComingSoon'
+import { shareAsInvite } from '@/lib/v2/share-invite'
 
+// แชร์ผล = ลิงก์เชิญเพื่อนของ user เอง (คนสมัคร → user ได้ QI) แทน url หน้าปัจจุบันที่ติด v2 gate (ผู้ใช้ 2026-09-12)
 export async function shareResult(text: string) {
-  const url = typeof window !== 'undefined' ? window.location.href : ''
-  try {
-    if (typeof navigator !== 'undefined' && navigator.share) await navigator.share({ title: 'ผลความสมพงศ์', text, url })
-    else if (typeof navigator !== 'undefined' && navigator.clipboard) {
-      await navigator.clipboard.writeText(url)
-      announceComingSoon('คัดลอกลิงก์แล้ว')
-    }
-  } catch {
-    /* ผู้ใช้ยกเลิกแชร์ — เงียบ */
-  }
+  const r = await shareAsInvite({ title: 'ผลความสมพงศ์', text })
+  if (r === 'copied') announceComingSoon('คัดลอกลิงก์แล้ว')
 }
 
 /**
