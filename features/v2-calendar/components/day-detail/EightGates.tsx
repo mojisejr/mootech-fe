@@ -43,8 +43,9 @@ function GateCell({ direction, gate, rank }: { direction: Direction; gate: DayDe
   // ผู้ใช้ 2026-09-12: "เอาชื่อ(เทพ)ขึ้นก่อนตัวอักษรจีน และชื่อไทยใส่สีตามพลัง" — ชื่อเทพ 十神 นำหน้า (บน),
   // ทาสีตามพลังเทพ (SPIRIT_STYLE.ink); อักษรจีนประตูอยู่ล่าง. ไม่มี deity → ใช้ความหมายประตู + สีธาตุทิศ.
   const deityStyle = gate.deity ? SPIRIT_STYLE[gate.deity.trim()] : undefined
-  const leadName = deityStyle?.th ?? gate.deity?.trim() ?? gate.meaning
-  const leadInk = deityStyle?.ink ?? tint.ink // ชื่อเทพ = สีตามธาตุเทพ (เอกสารซินแส)
+  // ซินแส 2026-09-12: เทพในตารางเข็มทิศเป็น "ตัวอักษรจีน" (符/天/地) ไม่ใช่คำแต้จิ๋ว — ทาสีตามธาตุเทพ
+  const leadName = gate.deity?.trim() || gate.meaning
+  const leadInk = deityStyle?.ink ?? tint.ink // เทพ = สีตามธาตุเทพ (เอกสารซินแส)
   const gateInk = gateChipTint(gate.name).ink // ตัวประตู = สีตามธาตุประตู (เอกสารซินแส)
   return (
     <div
