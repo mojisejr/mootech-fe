@@ -82,6 +82,24 @@ describe('B · ช่องค้นหาบนตารางประตู',
     expect(screen.getByTestId('gate-search-hit')).toBeTruthy()
   })
 
+  it('คำยาว/หลายคำที่จับใจความไม่ชัด → ไม่ตีตรา "แนะนำ" ทุกทิศ (แก้บั๊กเลือกหมด)', () => {
+    render(<EightGates gates={GATES} />)
+    const input = screen.getByLabelText('ค้นหาว่าควรไปทิศไหน')
+    fireEvent.change(input, { target: { value: 'รักษาอาการป่วยให้หายเร็ว' } })
+    // ต้องไม่มีช่องไหนเป็น top (แนะนำ) — ไม่ใช่ขึ้นแนะนำหมดทั้งกระดาน
+    expect(document.querySelectorAll('[data-testid="gate-cell"][data-rank="top"]').length).toBe(0)
+    expect(screen.getByTestId('gate-search-empty')).toBeTruthy()
+  })
+
+  it('เน้น 3 ประตูมงคล (開/生/景) → ค้นเจอประตูมงคลติดป้าย "มงคล" ("ขอเงิน" → 生)', () => {
+    render(<EightGates gates={GATES} />)
+    const input = screen.getByLabelText('ค้นหาว่าควรไปทิศไหน')
+    fireEvent.change(input, { target: { value: 'ขอเงิน' } }) // 生 = ประตูมงคล (การเงิน)
+    const top = screen.getByTestId('gate-search-top')
+    expect(top.getAttribute('data-auspicious')).toBe('1')
+    expect(top.textContent).toContain('มงคล')
+  })
+
   it('input ว่าง → ไม่มีช่องไหนถูกเน้น (ไม่ active)', () => {
     render(<EightGates gates={GATES} />)
     expect(document.querySelector('[data-testid="gate-cell"][data-match="1"]')).toBeNull()
