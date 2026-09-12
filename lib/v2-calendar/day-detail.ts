@@ -11,7 +11,7 @@ export type DayDetailArea = { key: string; label: string; percent: number | null
 export type DayDetailPillar = { stem: string; branch: string; ganzhi: string; element: string }
 export type DayDetailYam = { id: string; window: string; label: string }
 export type DayDetailSpirit = { name: string; keywords: string[] }
-export type DayDetailGate = { name: string; direction: string; meaning: string; deity?: string }
+export type DayDetailGate = { name: string; direction: string; meaning: string; keywords: string[]; deity?: string }
 export type DayDetailColor = { element: string; colors: string }
 export type DayDetailStar = { name: string; polarity: string; activity: string }
 
@@ -113,7 +113,9 @@ export function mapDayDetail(mvd: unknown, almanacDay: unknown): DayDetail {
       const yy = y as { code?: unknown; range?: unknown; god?: unknown; meaning?: unknown }
       return { id: str(yy.code), window: str(yy.range), label: [str(yy.god), str(yy.meaning)].filter(Boolean).join(' · ') }
     }),
-    dithi: { officer: str(a.officer), officerDesc: str(a.officerDesc), jianchu: [str(jc.name), str(jc.meaning)].filter(Boolean).join(' · ') },
+    // jianchu = ความหมายไทยล้วน — ตัด jc.name (ชื่อ 建除 สำเนียงแต้จิ๋ว เช่น "เตีย/เกี๋ยง" = คำจีนทับศัพท์)
+    // ออกตามที่ผู้ใช้สั่ง 2026-09-12 ("ตัดคำจีน"): bullet "วันนี้มีความหมาย" เหลือแต่ความหมาย ไม่มีคำอ่านจีน
+    dithi: { officer: str(a.officer), officerDesc: str(a.officerDesc), jianchu: str(jc.meaning) },
     // ทิศมงคล ดิบ — man-vs-day ก่อน, ไม่มีค่อยเอาจาก almanac day (2026-09-07: man-vs-day ส่งว่างมา ทำให้ chip+เข็มทิศหายทั้งจอ)
     luckyDirection: str(m.luckyDirection) || str(a.luckyDirection),
     dayDeity: str(a.deity),
@@ -125,8 +127,8 @@ export function mapDayDetail(mvd: unknown, almanacDay: unknown): DayDetail {
     dayPillars: { day: pillar(a.dayPillar), month: pillar(a.monthPillar), year: pillar(a.yearPillar) },
     ownerPillars: ((m.person ?? {}) as { fourPillars?: unknown }).fourPillars as Record<string, unknown> ?? {},
     gates: arr(a.gates).map((g) => {
-      const gg = g as { name?: unknown; direction?: unknown; meaning?: unknown; deity?: unknown }
-      return { name: str(gg.name), direction: str(gg.direction), meaning: str(gg.meaning), deity: str(gg.deity) }
+      const gg = g as { name?: unknown; direction?: unknown; meaning?: unknown; keywords?: unknown; deity?: unknown }
+      return { name: str(gg.name), direction: str(gg.direction), meaning: str(gg.meaning), keywords: arr(gg.keywords).map((k) => str(k)), deity: str(gg.deity) }
     }),
     patrons: arr(a.patrons).map((p) => str((p as { zodiac?: unknown }).zodiac)).filter((z) => z !== ''),
     colors: arr(a.colors).map((c) => {

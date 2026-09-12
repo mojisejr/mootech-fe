@@ -72,7 +72,7 @@ export function LuckyColors({ colors, deity, direction, badDirection }: { colors
         {/* ทิศมงคล — นำการ์ดตามชื่อหัวข้อ "ทิศ สีมงคล" (ฟีม สไลด์ 7) */}
         {dirTh && (
           <div className="flex items-center justify-between gap-3 border-b border-dashed border-v3-divider-dashed pb-3">
-            <span className="text-base font-normal leading-6 text-v3-text-body">ทิศมงคล</span>
+            <span className="text-base font-normal leading-6 text-v3-text-body">ทิศโชคลาภ</span>
             <span className="text-base font-bold leading-6 text-v3-sapphire">{dirTh}</span>
           </div>
         )}

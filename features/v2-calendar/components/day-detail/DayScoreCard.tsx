@@ -29,7 +29,7 @@ export function DayScoreCard({ detail }: { detail: DayDetail }) {
   // "NE" is not a word a Thai reader uses — the raw compass code was showing on the chip until the render
   // was actually looked at. Labelled too: a lone direction on a fortune card does not say what it is FOR.
   const luckyDir = directionLabelTH(detail.luckyDirection)
-  const chips = [detail.dithi?.officer, luckyDir ? `ทิศมงคล ${luckyDir}` : ''].filter((c): c is string => !!c?.trim())
+  const chips = [detail.dithi?.officer, luckyDir ? `ทิศโชคลาภ ${luckyDir}` : ''].filter((c): c is string => !!c?.trim())
   return (
     <div
       data-testid="day-score"

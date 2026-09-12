@@ -136,6 +136,8 @@ export interface DayDetailGate {
   name: string
   direction: string
   meaning: string
+  /** คีย์เวิร์ดของประตู 八門 — โชว์ลิสต์ "8 ประตู · คีย์เวิร์ด" ใต้เข็มทิศ (เหมือน 10 เทพ). */
+  keywords?: string[]
   deity?: string
 }
 /** สีมงคล — ธาตุ → ชื่อสีไทย ดิบ (❌ no hex; งานดีไซน์ μุน). */
