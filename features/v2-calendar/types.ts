@@ -131,11 +131,12 @@ export interface DayDetailSpirit {
   name: string
   keywords: string[]
 }
-/** 8 ประตู — ชื่อ+ทิศ+ความหมาย ดิบ (❌ no good/bad level — ตำราไม่มี). */
+/** 8 ประตู — ชื่อ+ทิศ+ความหมาย ดิบ (❌ no good/bad level — ตำราไม่มี). deity = เทพ 十神 ช่องทิศเดียวกัน (โชว์ในช่องตาราง). */
 export interface DayDetailGate {
   name: string
   direction: string
   meaning: string
+  deity?: string
 }
 /** สีมงคล — ธาตุ → ชื่อสีไทย ดิบ (❌ no hex; งานดีไซน์ μุน). */
 export interface DayDetailColor {

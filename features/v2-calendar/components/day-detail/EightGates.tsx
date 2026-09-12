@@ -22,6 +22,7 @@
 // what the mark means. It is not a claim about that gate.
 import type { DayDetailGate } from '../../types'
 import { SectionCard } from './SectionCard'
+import { SPIRIT_STYLE } from './EightDeities'
 import { DIR_CELL, CENTER, placeGates, type Direction } from './gate-compass'
 
 // สีต่อประตูตามเฟรม Figma 634:8752 (design context 2026-09-07 — ผู้ใช้สั่ง "อย่าลืมใส่สีด้วยนะ" ทับคำตัดสิน M-D เดิม):
@@ -54,9 +55,13 @@ function GateCell({ direction, gate }: { direction: Direction; gate: DayDetailGa
       }}
       className="flex flex-col items-center gap-1 rounded-2xl px-1 py-3 leading-none"
     >
+      {/* ซินแส 2026-09-12 (ข้อ 2.3): โชว์ "ชื่อเทพ" ของช่องทิศนี้แทนคำแปลประตู — เทพ 十神 หมุนมากับประตูทุกวัน.
+          ไม่มี deity (นอกช่วงข้อมูลคี้มึ้ง) → fallback ความหมายประตูเดิม */}
       <span className="text-[10px] font-bold text-v3-text-body">{direction}</span>
       <span className="text-2xl font-extrabold">{gate.name}</span>
-      <span className="text-[14px] font-medium text-v3-navy">{gate.meaning}</span>
+      <span className="text-[14px] font-medium text-v3-navy">
+        {(gate.deity && (SPIRIT_STYLE[gate.deity.trim()]?.th ?? gate.deity.trim())) || gate.meaning}
+      </span>
     </div>
   )
 }
