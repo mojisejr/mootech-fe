@@ -9,6 +9,7 @@ import { useCallback, useEffect, useMemo, useState } from "react"
 import { useCookies } from "react-cookie"
 
 import { Menubar } from "@/features/v2-shell/components/Menubar"
+import { Spinner } from "@/features/v2-shell/components/Spinner"
 import { useV2User } from "@/features/auth/hooks/useV2User"
 import { CookieKey } from "@/constants/cookie-key"
 import { SHOP_HREF } from "@/features/v2-shop/upgrade-cta"
@@ -60,16 +61,6 @@ function last7(today: string): string[] {
 
 const CHEVRON = <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden className="flex-none text-v3-text-muted"><path d="m6 3.5 4.5 4.5L6 12.5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" /></svg>
 const CHECK_SM = <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6 9 17l-5-5" /></svg>
-
-// สปินเนอร์หมุน (loading) — ใช้ระหว่างการ์ดโหลด (ผู้ใช้ 2026-09-12: อยากได้แบบหมุน ๆ)
-function Spinner({ className = "size-6 text-v3-sapphire" }: { className?: string }) {
-  return (
-    <svg className={`animate-spin ${className}`} viewBox="0 0 24 24" fill="none" aria-hidden>
-      <circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="3" opacity="0.2" />
-      <path d="M21 12a9 9 0 0 0-9-9" stroke="currentColor" strokeWidth="3" strokeLinecap="round" />
-    </svg>
-  )
-}
 
 // preview: เฉพาะหน้า dev (/dev-access/account-preview) — ป้อน wallet/board/ent ตรง ๆ ไม่ยิง API
 type AccountPreview = { wallet?: Wallet | null; board?: MissionBoard | null; ent?: Entitlements | null }

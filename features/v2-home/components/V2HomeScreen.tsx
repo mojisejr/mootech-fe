@@ -19,7 +19,8 @@ import { hrefById, type ServiceId } from '@/features/v2-service/services'
 import { HeaderTools } from '@/features/v2-shell/components/AppHeader'
 import type { MembershipLike } from '@/features/v2-shell/header-badge'
 import { TopBarBell } from '@/features/v2-shell/components/TopBarBell'
-import { DailyFortuneCard, HOME_FACET_RESERVE, HOME_DATEROW_RESERVE } from '@/features/v2-shell/components/DailyFortuneCard'
+import { DailyFortuneCard } from '@/features/v2-shell/components/DailyFortuneCard'
+import { Spinner } from '@/features/v2-shell/components/Spinner'
 
 // Zone 1 daily-fortune (bazi /api/home). goo wires useHomeFortune() → this shape; I compose against it.
 export type DailyFortune = {
@@ -79,8 +80,8 @@ export type HomeScreenLoading = { profile: boolean; mascot: boolean }
 
 // ── the grey block ────────────────────────────────────────────────────────────────────────────────
 // ONE primitive for every "this zone's data is not in yet" hole, so a skeleton can never drift into
-// looking like content. Same ground + same pulse as FortuneSkeleton (which shipped first and is the model
-// the card points at) — a screen with two different greys reads as two different states.
+// looking like content — one grey, so a screen with two different greys can't read as two different states.
+// (The hero fortune card is the exception: it loads with a spinner, not this grey — see ScoreRingCard.)
 //
 // It is a BLOCK, never a stand-in that resembles the real thing: ฟีม chose one clean reveal over
 // fallback-then-swap, and the way a fallback sneaks back in is by looking plausible. Grey cannot.
@@ -284,74 +285,28 @@ function ElementLine({ mascotCharacter, element, loading }: { mascotCharacter: s
 // verdict → ring colour. good=green(teal) · neutral=yellow · caution=orange. (Figma's lime donut is
 // replaced by a verdict-coloured arc — the lime bg would hide a lime/neutral arc; verdict must read.)
 // (VERDICT_ARC moved into the shared <DailyFortuneCard/> with the donut it colours — one place, not two.)
-// The Zone-1 skeleton MIRRORS <DailyFortuneCard variant="home"/> row for row — donut + headline, dashed
-// rule, date row, dashed rule, two facet columns — using that card's own wrappers and line-heights.
-//
-// It did not, before this card. It drew the donut and two short bars and stopped, so the loading card
-// stood 184px shorter than the loaded one and EVERY landmark below it — the manifest CTA, both ดวงสมพงศ์
-// cards, โหมดเซียน — slid down 184px the instant the fortune arrived (measured once with harness/archive/skeleton-shift.ts — 🗄️ archived by #321, nothing runs it automatically
-// @393). Nobody had seen it, because until this PR home never showed this skeleton: the full-screen white
-// gate covered the whole wait, and the short skeleton only ever flashed behind it. Removing the gate is
-// what put it on the main path — so it is this PR's to fix, even though the code predates it.
-//
-// Row-for-row, not a magic height: the real card's text is variable-length (a 1-line or 2-line headline, a
-// 1–3 line facet), so no fixed number could be right for every fortune. Mirroring its STRUCTURE means the
-// two heights track each other when either changes, instead of agreeing once and drifting apart at the
-// next edit. The residual on the standard fortune is measured and reported in the PR, not rounded to zero.
-function SkeletonBar({ className }: { className: string }) {
-  return <span className={`block rounded bg-v3-border-card ${className}`} />
-}
-
-function FortuneSkeleton({ empty }: { empty: boolean }) {
-  return (
-    <div className="flex animate-pulse flex-col gap-4" data-testid="zone1-skeleton-body">
-      {/* donut + headline — the real row is `flex items-center gap-4`, headline text-lg/leading-6 ×2 lines */}
-      <div className="flex items-center gap-4">
-        <span className="block size-[90px] shrink-0 rounded-full bg-v3-border-card" />
-        <div className="min-w-0 flex-1 space-y-2">
-          <SkeletonBar className="h-6 w-full" />
-          <SkeletonBar className="h-6 w-3/5" />
-        </div>
-      </div>
-      <hr className="border-dashed border-v3-border-card" />
-      {/* date row — real: `flex items-center gap-4 text-base leading-6` (date + "เปิดปฏิทินของฉัน") */}
-      <div className={`flex items-center gap-4 ${HOME_DATEROW_RESERVE}`}>
-        <SkeletonBar className="h-6 min-w-0 flex-1" />
-        <SkeletonBar className="h-6 w-[124px] shrink-0" />
-      </div>
-      <hr className="border-dashed border-v3-border-card" />
-      {/* two facet columns — real: heading leading-6, then a line at mt-1 leading-[22px], divider between */}
-      <div className="flex items-stretch gap-4">
-        {/* the facet columns wear the CARD'S OWN reserve class (HOME_FACET_RESERVE), not a copy of its
-            pixel value. Heights that must agree should be the same string in one place — a hand-copied
-            66px here is a value that stays right until the day someone tunes the card and not this. */}
-        <div className="min-w-0 flex-1">
-          <SkeletonBar className="h-6 w-24" />
-          <div className={`mt-1 space-y-1 ${HOME_FACET_RESERVE}`}>
-            <SkeletonBar className="h-[22px] w-full" />
-            <SkeletonBar className="h-[22px] w-4/5" />
-          </div>
-        </div>
-        <div className="self-stretch border-l border-dashed border-v3-border-card" />
-        <div className="min-w-0 flex-1">
-          <SkeletonBar className="h-6 w-20" />
-          <div className={`mt-1 space-y-1 ${HOME_FACET_RESERVE}`}>
-            <SkeletonBar className="h-[22px] w-full" />
-            <SkeletonBar className="h-[22px] w-3/5" />
-          </div>
-        </div>
-      </div>
-      {empty && <p className="mt-4 text-center text-sm font-medium text-v3-text-muted">ยังไม่มีข้อมูลดวงวันนี้</p>}
-    </div>
-  )
-}
-
+// LOADING = a centred spinner (ผู้ใช้ 2026-09-12: "เป็นหมุน ๆ" เหมือน /account) inside the card's own frame,
+// with a min-height so the manifest CTA + ดวงสมพงศ์ cards below don't jump when the fortune arrives. The old
+// row-for-row grey skeleton (FortuneSkeleton) was replaced — one loading language across home + /account.
 function ScoreRingCard({ fortune, loading }: { fortune: DailyFortune | null; loading: boolean }) {
   if (loading || !fortune) {
+    // ผู้ใช้ 2026-09-12: อยากให้ตอนโหลด "เป็นหมุน ๆ" เหมือน /account แทน skeleton บล็อกเทา.
+    // การ์ดคงกรอบ Figma เดิม (r28, white→v3-pastel-sky, p-24, min-h กันการ์ดล่างขยับ) แต่ข้างในเป็นสปินเนอร์กลาง.
+    const empty = !loading && !fortune
     return (
-      // Figma daily-session-card: r28, white → #C1E6F8 (v3-pastel-sky), p-24, gap 16; 8px to the manifest card below.
-      <section data-testid="zone1-skeleton" className="mb-2 flex flex-col gap-4 rounded-[28px] bg-gradient-to-b from-white to-v3-pastel-sky p-6">
-        <FortuneSkeleton empty={!loading && !fortune} />
+      <section
+        data-testid="zone1-skeleton"
+        aria-busy={!empty}
+        className="mb-2 grid min-h-[232px] place-items-center gap-2 rounded-[28px] bg-gradient-to-b from-white to-v3-pastel-sky p-6 text-center"
+      >
+        {empty ? (
+          <p className="text-sm font-medium text-v3-text-muted">ยังไม่มีข้อมูลดวงวันนี้</p>
+        ) : (
+          <>
+            <Spinner className="size-8 text-v3-sapphire" />
+            <span className="text-[12px] text-v3-text-muted">กำลังดูดวงวันนี้…</span>
+          </>
+        )}
       </section>
     )
   }
