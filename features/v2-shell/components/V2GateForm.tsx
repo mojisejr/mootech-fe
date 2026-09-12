@@ -19,6 +19,16 @@ export function V2GateForm({ gateError }: V2GateFormProps) {
       <Head>
         <title>MuMate · preview</title>
         <meta name="robots" content="noindex" />
+        {/* OG แบรนด์ (ซินแส 2026-09-12): แชร์ลิงก์ /v2 ที่ยังติด gate จะโดน redirect มาหน้านี้ → scraper เห็นการ์ดนี้.
+            เดิมไม่มี og เลย จึงขึ้น "MuMate · preview". ใส่การ์ดแบรนด์แทน. รูปชี้ prod (asset เดียวทุก deployment). */}
+        <meta property="og:type" content="website" />
+        <meta property="og:title" content="MuMate — ดูดวงจีน ปฏิทินมงคล" />
+        <meta property="og:description" content="ปฏิทินดวงจีน ดูดวงรายวัน ฤกษ์ดี วันมงคล เปิดไพ่ และถามเซียนมู่ AI" />
+        <meta property="og:image" content="https://bazichart.mumate.co/images/v2/mascot/01-nav.png" />
+        <meta property="og:site_name" content="MuMate" />
+        <meta name="twitter:card" content="summary" />
+        <meta name="twitter:title" content="MuMate — ดูดวงจีน ปฏิทินมงคล" />
+        <meta name="twitter:image" content="https://bazichart.mumate.co/images/v2/mascot/01-nav.png" />
       </Head>
       <div className="flex min-h-screen items-center justify-center bg-v3-ghost-white px-4">
         <form
