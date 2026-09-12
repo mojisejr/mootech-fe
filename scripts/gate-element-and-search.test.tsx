@@ -82,13 +82,22 @@ describe('B · ช่องค้นหาบนตารางประตู',
     expect(screen.getByTestId('gate-search-hit')).toBeTruthy()
   })
 
-  it('คำยาว/หลายคำที่จับใจความไม่ชัด → ไม่ตีตรา "แนะนำ" ทุกทิศ (แก้บั๊กเลือกหมด)', () => {
+  it('คำยาว/หลายคำที่แชร์แค่คำทั่วไป (ความ/ชีวิต) → ไม่ตีตรา "แนะนำ" ทุกทิศ (แก้บั๊กเลือกหมด)', () => {
     render(<EightGates gates={GATES} />)
     const input = screen.getByLabelText('ค้นหาว่าควรไปทิศไหน')
-    fireEvent.change(input, { target: { value: 'รักษาอาการป่วยให้หายเร็ว' } })
-    // ต้องไม่มีช่องไหนเป็น top (แนะนำ) — ไม่ใช่ขึ้นแนะนำหมดทั้งกระดาน
+    fireEvent.change(input, { target: { value: 'อยากมีความสุขในชีวิต' } })
+    // แชร์แค่คำทั่วไป (คะแนน 20) → ไม่ถึงเกณฑ์ "จับใจความได้จริง" → ไม่มีช่องไหนเป็น top
     expect(document.querySelectorAll('[data-testid="gate-cell"][data-rank="top"]').length).toBe(0)
     expect(screen.getByTestId('gate-search-empty')).toBeTruthy()
+  })
+
+  it('เติมวลีสุขภาพ → "รักษาอาการป่วย" จับใจความเข้าประตู 生 (การดูแลสุขภาพ) ได้', () => {
+    render(<EightGates gates={GATES} />)
+    const input = screen.getByLabelText('ค้นหาว่าควรไปทิศไหน')
+    fireEvent.change(input, { target: { value: 'รักษาอาการป่วย' } })
+    const cellSE = document.querySelector('[data-testid="gate-cell"][data-dir="SE"]') // 生 อยู่ SE ใน fixture
+    expect(cellSE?.getAttribute('data-rank')).toBe('top')
+    expect(screen.getByTestId('gate-search-top').textContent).toContain('อาคเนย์')
   })
 
   it('เน้น 3 ประตูมงคล (開/生/景) → ค้นเจอประตูมงคลติดป้าย "มงคล" ("ขอเงิน" → 生)', () => {
