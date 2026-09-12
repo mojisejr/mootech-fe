@@ -63,7 +63,7 @@ async function fetchFortuneDay(rawInput: unknown, date: string, signal: AbortSig
 // อื่น — 0026). ผล 1 วันของ birth คงที่ deterministic → เก็บได้ยาว. best-effort: ยังไม่ migrate → ใช้ Map อย่างเดียว.
 const dayCache = new Map<string, DayDetail>()
 const DAY_CACHE_MAX = 512
-const DAY_CACHE_VERSION = 'v1' // bump เมื่อรูป DayDetail เปลี่ยน
+const DAY_CACHE_VERSION = 'v2' // bump เมื่อรูป DayDetail เปลี่ยน (v2: yam label ตัดคำจีน god เหลือแต่ meaning)
 const dayCacheKey = (userId: string, rawInput: unknown, date: string) => `${userId}:${JSON.stringify(rawInput)}:${date}`
 const rowsOf = (r: unknown): Record<string, unknown>[] =>
   (Array.isArray(r) ? r : (r as { rows?: Record<string, unknown>[] })?.rows ?? []) as Record<string, unknown>[]
