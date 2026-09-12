@@ -81,6 +81,8 @@ export function AccountScreen({ preview }: { preview?: AccountPreview } = {}) {
   const [attempt, setAttempt] = useState(0)
   // ฿ ต่อ 1 QI จากแพ็กเริ่มต้น (QI_60) — แหล่งเดียวกับจอซื้อ QI; null = ยังไม่รู้ราคา → ไม่แต่งตัวเลขเอง
   const [qiRate, setQiRate] = useState<number | null>(null)
+  // ธาตุ (bazi compute หนัก) โหลดหลังจอวาด — flag ให้โชว์ skeleton ระหว่างรอ (ไม่งั้นการ์ดโผล่มาเฉย ๆ ดูเหมือนบั๊ก)
+  const [elementLoading, setElementLoading] = useState(false)
 
   const load = useCallback(async () => {
     const getJson = (url: string) => fetch(url).then((x) => (x.ok ? x.json() : null)).catch(() => null)
@@ -96,8 +98,9 @@ export function AccountScreen({ preview }: { preview?: AccountPreview } = {}) {
     const prof: Profile | null = p?.profile ?? null
     setProfile(prof)
     setLoaded(true)
-    // ธาตุของคุณ (bazi compute หนัก ~timeout 12s) — ยิงหลังได้ profile ไม่บล็อกจอ
+    // ธาตุของคุณ (bazi compute หนัก ~timeout 12s) — ยิงหลังได้ profile ไม่บล็อกจอ; โชว์ skeleton ระหว่างรอ
     if (prof?.birthDate) {
+      setElementLoading(true)
       fetch("/api/bazi/element-summary", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -106,6 +109,7 @@ export function AccountScreen({ preview }: { preview?: AccountPreview } = {}) {
         .then((x) => (x.ok ? x.json() : null))
         .then((j) => setElement(j?.summary ?? null))
         .catch(() => setElement(null))
+        .finally(() => setElementLoading(false))
     } else {
       setElement(null)
     }
@@ -248,6 +252,19 @@ export function AccountScreen({ preview }: { preview?: AccountPreview } = {}) {
               </div>
               {CHEVRON}
             </Link>
+          ) : (!loaded || elementLoading) ? (
+            /* skeleton การ์ดธาตุ ระหว่าง bazi compute (ช้าได้) — บอกชัดว่ากำลังโหลด ไม่ใช่การ์ดหาย */
+            <section className="v3-shadow-card flex flex-col gap-3 rounded-[20px] bg-white p-4" data-testid="account-element-skeleton" aria-busy="true">
+              <div className="h-5 w-28 animate-pulse rounded bg-[#E9EEF5]" />
+              <div className="flex items-center gap-3 rounded-[16px] bg-[#F4F6FA] p-3">
+                <div className="min-w-0 flex-1 space-y-2">
+                  <div className="h-6 w-32 animate-pulse rounded-full bg-[#E9EEF5]" />
+                  <div className="h-3 w-full animate-pulse rounded bg-[#E9EEF5]" />
+                  <div className="h-3 w-2/3 animate-pulse rounded bg-[#E9EEF5]" />
+                </div>
+                <div className="h-[110px] w-[80px] flex-none animate-pulse rounded-[12px] bg-[#E9EEF5]" />
+              </div>
+            </section>
           ) : null}
 
           {/* การ์ด QI (ฟ้า) — ยอดคงเหลือ + orb 氣 + ปุ่ม (เฟรม balance-hero-card) */}
@@ -275,6 +292,17 @@ export function AccountScreen({ preview }: { preview?: AccountPreview } = {}) {
               <div className="mt-3 flex gap-2">
                 <Link href="/v2/qi/buy" data-testid="qi-topup-link" className="grid h-11 flex-1 place-items-center rounded-full bg-v3-lime text-[14px] font-semibold uppercase text-v3-sapphire">ซื้อ QI เพิ่ม</Link>
                 <Link href="/v2/qi/history" data-testid="account-qi-history" className="grid h-11 flex-1 place-items-center rounded-full border border-v3-placeholder text-[14px] font-semibold uppercase text-white">ประวัติการใช้</Link>
+              </div>
+            </section>
+          ) : !loaded ? (
+            /* skeleton การ์ด QI ระหว่างโหลด — บอกชัดว่ากำลังโหลด ไม่ใช่จอว่างเหมือนบั๊ก */
+            <section className="rounded-[20px] bg-v3-sapphire p-5" data-testid="account-qi-skeleton" aria-busy="true">
+              <div className="h-3 w-24 animate-pulse rounded bg-white/25" />
+              <div className="mt-2 h-8 w-40 animate-pulse rounded bg-white/25" />
+              <div className="mt-3 h-3 w-56 animate-pulse rounded bg-white/20" />
+              <div className="mt-4 flex gap-2">
+                <div className="h-11 flex-1 animate-pulse rounded-full bg-white/25" />
+                <div className="h-11 flex-1 animate-pulse rounded-full bg-white/15" />
               </div>
             </section>
           ) : null}
