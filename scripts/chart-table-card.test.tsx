@@ -31,6 +31,9 @@ describe('ChartTableCard', () => {
   it('5 เสา (รวมลัคนา) ก้าน/กิ่งลงสีตามธาตุของตัวเอง + ชิปธาตุดิถี + วันเกิด พ.ศ.', () => {
     render(<ChartTableCard testId="ct" roleLabel="คุณ" chart={CHART} person={{ name: 'คุณ' }} />)
     for (const k of ['year', 'month', 'day', 'hour', 'ascendant']) expect(screen.getByTestId(`ct-pillar-${k}`)).toBeTruthy()
+    // ลำดับซ้าย→ขวา = ลัคนา·ยาม·วัน·เดือน·ปี (ซินแส 2026-09-12) — ตรงกับหน้าดวงของฉัน
+    const order = screen.getAllByTestId(/^ct-pillar-(year|month|day|hour|ascendant)$/).map((e) => e.getAttribute('data-testid'))
+    expect(order).toEqual(['ct-pillar-ascendant', 'ct-pillar-hour', 'ct-pillar-day', 'ct-pillar-month', 'ct-pillar-year'])
     const year = screen.getByTestId('ct-pillar-year')
     const spans = year.querySelectorAll('span')
     expect(spans[1].textContent).toBe('己')

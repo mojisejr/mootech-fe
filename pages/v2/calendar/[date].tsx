@@ -357,7 +357,7 @@ export default function V2CalendarDayPage({ teamPreview }: { teamPreview: boolea
         <YamTimes yams={detail.yams} onAdd={addYam} locked={remindersLocked(isPaid)} statusFor={statusFor} onViewList={goToList} />
         {/* §12/§13 [advanced] — 8 ประตู · 8 เทพ */}
         {/* เงื่อนไขคือ `gates` (paid) ❌ ไม่ใช่ `luckyDirection` ซึ่งเป็นของฟรีหลัง #226 */}
-        {advanced && detail.gates && <EightGates gates={detail.gates} luckyDirection={detail.luckyDirection} />}
+        {advanced && detail.gates && <EightGates gates={detail.gates} />}
         {advanced && detail.spirits && <EightDeities deities={detail.spirits} />}
         {/* [advanced] กุ๊ยนั้ง 貴人 — almanac.patrons (paid: ไม่อยู่ใน allow-list ฟรี) · gafiw 2026-09-07 */}
         {advanced && detail.patrons && <Patrons patrons={detail.patrons} />}

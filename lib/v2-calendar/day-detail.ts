@@ -11,7 +11,7 @@ export type DayDetailArea = { key: string; label: string; percent: number | null
 export type DayDetailPillar = { stem: string; branch: string; ganzhi: string; element: string }
 export type DayDetailYam = { id: string; window: string; label: string }
 export type DayDetailSpirit = { name: string; keywords: string[] }
-export type DayDetailGate = { name: string; direction: string; meaning: string }
+export type DayDetailGate = { name: string; direction: string; meaning: string; deity?: string }
 export type DayDetailColor = { element: string; colors: string }
 export type DayDetailStar = { name: string; polarity: string; activity: string }
 
@@ -117,8 +117,8 @@ export function mapDayDetail(mvd: unknown, almanacDay: unknown): DayDetail {
     dayPillars: { day: pillar(a.dayPillar), month: pillar(a.monthPillar), year: pillar(a.yearPillar) },
     ownerPillars: ((m.person ?? {}) as { fourPillars?: unknown }).fourPillars as Record<string, unknown> ?? {},
     gates: arr(a.gates).map((g) => {
-      const gg = g as { name?: unknown; direction?: unknown; meaning?: unknown }
-      return { name: str(gg.name), direction: str(gg.direction), meaning: str(gg.meaning) }
+      const gg = g as { name?: unknown; direction?: unknown; meaning?: unknown; deity?: unknown }
+      return { name: str(gg.name), direction: str(gg.direction), meaning: str(gg.meaning), deity: str(gg.deity) }
     }),
     patrons: arr(a.patrons).map((p) => str((p as { zodiac?: unknown }).zodiac)).filter((z) => z !== ''),
     colors: arr(a.colors).map((c) => {

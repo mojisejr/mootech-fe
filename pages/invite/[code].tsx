@@ -7,6 +7,7 @@
 // รออยู่จนถึงหน้าสมัครจริง (register-referral อ่านคีย์นี้)
 //
 // สถานะ: loading → ready (มีชื่อผู้ชวนถ้ามี @name) · โค้ดเน่า/หมดอายุ → แจ้งตรง ๆ + ทางสมัครปกติ.
+import type { GetServerSideProps } from "next"
 import Head from "next/head"
 import Image from "next/image"
 import Link from "next/link"
@@ -19,20 +20,54 @@ const CODE_RE = /^[A-Za-z0-9]{4,32}$/
 
 type Look = { code?: string; inviterName?: string | null }
 
+// SSR OG card (ซินแส 2026-09-12): /invite ไม่โดน v2 gate → scraper เข้าถึงได้ แต่เดิมไม่มี og:* เลย
+// (card ขึ้น "MuMate · preview"). ดึงชื่อผู้ชวนฝั่ง server แล้วปล่อย og ให้ FB/LINE ทำ rich preview.
+type InviteSSR = { ssrCode: string; ssrInviterName: string | null; origin: string }
+
+export const getServerSideProps: GetServerSideProps<InviteSSR> = async (ctx) => {
+  const raw = ctx.params?.code
+  const ssrCode = (Array.isArray(raw) ? raw[0] : raw ?? "").trim()
+  const proto = (ctx.req.headers["x-forwarded-proto"] as string)?.split(",")[0] || "https"
+  const host = ctx.req.headers.host ?? ""
+  const origin = `${proto}://${host}`
+  let ssrInviterName: string | null = null
+  const upper = ssrCode.toUpperCase()
+  if (/^MUMATE\d{3}$/.test(upper)) {
+    try {
+      const base = process.env.BAZI_BASE_URL || "http://localhost:3000"
+      const r = await fetch(`${base}/api/referral?code=${encodeURIComponent(upper)}`)
+      if (r.ok) {
+        const j = (await r.json()) as { inviterName?: string | null }
+        ssrInviterName = typeof j.inviterName === "string" && j.inviterName ? j.inviterName : null
+      }
+    } catch {
+      /* best-effort — การ์ดยังขึ้นแบบทั่วไปได้ถ้าดึงชื่อไม่ได้ */
+    }
+  }
+  ctx.res.setHeader("Cache-Control", "public, max-age=300, s-maxage=600")
+  return { props: { ssrCode, ssrInviterName, origin } }
+}
+
 const FEATURES: { title: string; sub: string; icon: React.ReactNode; tone: string }[] = [
   { title: "ดวงประจำวัน", sub: "อ่านฟรีทุกวัน ไม่ต้องจ่าย", tone: "bg-[#FDF3E0] text-[#E5A93B]", icon: (<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="4" /><path d="M12 2v2M12 20v2M4 12H2M22 12h-2M5 5l1.5 1.5M17.5 17.5 19 19M19 5l-1.5 1.5M6.5 17.5 5 19" /></svg>) },
   { title: "เปิดไพ่และเซียมซี", sub: "10 QI ต่อครั้ง", tone: "bg-[#F3E9FA] text-[#6F1BAF]", icon: (<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="4" y="3" width="12" height="17" rx="2" /><path d="M18 6l2 .7a2 2 0 0 1 1.2 2.5l-3 9" /></svg>) },
   { title: "ถามเซียนมู่ AI", sub: "30 QI ต่อครั้ง", tone: "bg-[#E3F4F7] text-[#14707E]", icon: (<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" /></svg>) },
 ]
 
-export default function InvitePage() {
+export default function InvitePage({ ssrCode = "", ssrInviterName = null, origin = "" }: Partial<InviteSSR>) {
   const router = useRouter()
   const { code: rawCode } = router.query
-  const code = Array.isArray(rawCode) ? rawCode[0] : rawCode
+  const code = (Array.isArray(rawCode) ? rawCode[0] : rawCode) ?? ssrCode
   const valid = typeof code === "string" && CODE_RE.test(code)
 
   const [state, setState] = useState<"loading" | "ready" | "dead" | "unknown">("loading")
-  const [inviterName, setInviterName] = useState<string | null>(null)
+  const [inviterName, setInviterName] = useState<string | null>(ssrInviterName)
+
+  // OG (SSR) — ใช้ค่าจาก server เพื่อให้ scraper เห็น meta ตรงกับผู้ชวน
+  const ogTitle = ssrInviterName ? `คุณ ${ssrInviterName} ชวนคุณใช้ MuMate — รับ 30 QI ฟรี` : "MuMate — รับ 30 QI ฟรีเมื่อสมัคร"
+  const ogDesc = "ปฏิทินดวงจีน ดูดวงรายวัน เปิดไพ่ และถามเซียนมู่ AI — สมัครผ่านลิงก์นี้รับ 30 QI ฟรีทันที"
+  const ogImage = `${origin}/images/v2/referral/hero.png`
+  const pageUrl = `${origin}/invite/${encodeURIComponent(ssrCode)}`
 
   useEffect(() => {
     if (!code) return // router ยัง hydrate ไม่เสร็จ
@@ -79,7 +114,18 @@ export default function InvitePage() {
   return (
     <div className="font-ibm flex min-h-[100dvh] w-full flex-col items-center bg-v3-bg-cream px-4 pb-10 pt-[max(1rem,env(safe-area-inset-top))]">
       <Head>
-        <title>คำเชิญสมัคร MuMate</title>
+        <title>{ogTitle}</title>
+        <meta name="description" content={ogDesc} />
+        <meta property="og:type" content="website" />
+        <meta property="og:title" content={ogTitle} />
+        <meta property="og:description" content={ogDesc} />
+        <meta property="og:image" content={ogImage} />
+        <meta property="og:url" content={pageUrl} />
+        <meta property="og:site_name" content="MuMate" />
+        <meta name="twitter:card" content="summary_large_image" />
+        <meta name="twitter:title" content={ogTitle} />
+        <meta name="twitter:description" content={ogDesc} />
+        <meta name="twitter:image" content={ogImage} />
       </Head>
 
       {/* โลโก้ */}

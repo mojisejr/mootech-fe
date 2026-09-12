@@ -1,5 +1,5 @@
 // features/v2-service/components/CompatFourPillarsTable.tsx — ดวงสมพงศ์ 2E-2 · D44 "สี่เสา" for one person.
-// Figma 636:18819: a 4-column grid ปี · เดือน · วัน · ยาม; each column = stem (ก้าน) over branch (กิ่ง) with the
+// Figma 636:18819: a 4-column grid ยาม · วัน · เดือน · ปี (ซินแส 2026-09-12); each column = stem (ก้าน) over branch (กิ่ง) with the
 // element (ธาตุ) label beneath. D23/D44: timeKnown === false → the ยาม (hour) column shows "—" for all three
 // (never invented). Rule 4: no fourPillars → render null.
 import type { CompatResultPerson, CompatPillar } from '../compatibility-result'
@@ -36,11 +36,12 @@ export function CompatFourPillarsTable({ person, roleLabel, side = 'self' }: { p
       <p className="text-[14px] font-bold text-v3-navy">
         {roleLabel}{dayGanzhi ? <span className="font-normal text-v3-text-body"> · หลักวัน {dayGanzhi}</span> : null}
       </p>
+      {/* เรียง ยาม·วัน·เดือน·ปี (ซินแส 2026-09-12) — legacy fallback ไม่มีข้อมูลลัคนา จึงมี 4 เสา */}
       <div className="flex items-stretch gap-2">
-        <Column head="ปี" pillar={fp.year} />
-        <Column head="เดือน" pillar={fp.month} />
-        <Column head="วัน" pillar={fp.day} />
         <Column head="ยาม" pillar={fp.hour} unknown={hourUnknown} />
+        <Column head="วัน" pillar={fp.day} />
+        <Column head="เดือน" pillar={fp.month} />
+        <Column head="ปี" pillar={fp.year} />
       </div>
       {hourUnknown ? <p data-testid="compat-pillar-hour-unknown" className="text-[12px] text-v3-text-muted">* ไม่ทราบเวลาเกิด — เสายามจึงไม่แสดง</p> : null}
     </section>

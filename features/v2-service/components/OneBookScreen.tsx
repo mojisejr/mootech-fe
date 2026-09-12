@@ -115,7 +115,8 @@ export function OneBookScreen() {
             <span aria-hidden className="absolute left-1/2 top-[55%] -z-10 size-28 -translate-x-1/2 -translate-y-1/2 rounded-full bg-v3-lime/25 blur-xl" />
             <Image src="/images/v2/features/one-book/book.png" alt="YOUR LIFE CODE · คู่มือดวงจีนเฉพาะบุคคล" width={536} height={578} className="h-auto w-full drop-shadow-[0_18px_34px_rgba(0,0,0,.4)]" priority />
           </div>
-          <div className="flex flex-col items-center gap-3 rounded-[24px] bg-v3-sapphire px-5 pb-6 pt-[104px] text-center text-white">
+          {/* pt เผื่อรูปหนังสือ+มาสคอต (book.png) ที่ล้นขึ้นบน ไม่ให้ทับหัวข้อ (ผู้ใช้ 2026-09-12: รูปทับตัวหนังสือ) */}
+          <div className="flex flex-col items-center gap-3 rounded-[24px] bg-v3-sapphire px-5 pb-6 pt-[122px] text-center text-white">
             <div>
               <h1 className="text-[27px] font-black leading-9 text-v3-lime">คู่มือระดับ 1 ของชีวิตคุณ</h1>
               <p className="text-[18px] font-black tracking-[0.14em] text-white">YOUR LIFE CODE</p>

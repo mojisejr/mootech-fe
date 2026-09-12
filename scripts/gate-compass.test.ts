@@ -9,9 +9,9 @@
 //
 // TWO LAYERS, by design (บอง 2026-08-06 trimmed this from four — see gate-compass.ts for what was left out
 // and the condition that brings it back).
-//   A · COMPASS-TRUTH — the table agrees with what a compass MEANS. A bijection check would NOT catch this:
-//       the inverted table is also a perfect bijection. So north must be UP, east must be RIGHT, and every
-//       pair of opposites must reflect through the centre.
+//   A · COMPASS-TRUTH — the table agrees with what the LUOPAN means (south-up, 南上北下 — shifu 2026-09-12).
+//       A bijection check would NOT catch this: the inverted table is also a perfect bijection. So south must
+//       be UP, west must be RIGHT, and every pair of opposites must reflect through the centre.
 //   B · NOTHING-LOST — all 8 place, an unreadable or duplicated direction surfaces instead of vanishing.
 //
 // TEETH
@@ -43,17 +43,19 @@ ok('the 8 cells are 8 DISTINCT cells (else "every gate has a cell" proves nothin
 ok('no gate is placed in the centre — that is where the reader stands',
   !DIRECTIONS.some((d) => key(DIR_CELL[d]) === key(CENTER)))
 
-// ── A · COMPASS-TRUTH — the table must mean what a compass means ── #mut-compass-inverted
-console.log('\n— A · COMPASS-TRUTH: north is up, east is right, opposites reflect —')
-// north half on the top row, south half on the bottom; west column left, east column right.
-for (const d of ['NW', 'N', 'NE'] as Direction[]) ok(`${d} is on the TOP row`, DIR_CELL[d].row === 1, key(DIR_CELL[d]))
-for (const d of ['SW', 'S', 'SE'] as Direction[]) ok(`${d} is on the BOTTOM row`, DIR_CELL[d].row === 3, key(DIR_CELL[d]))
-for (const d of ['NW', 'W', 'SW'] as Direction[]) ok(`${d} is in the LEFT column`, DIR_CELL[d].col === 1, key(DIR_CELL[d]))
-for (const d of ['NE', 'E', 'SE'] as Direction[]) ok(`${d} is in the RIGHT column`, DIR_CELL[d].col === 3, key(DIR_CELL[d]))
-ok('N is directly above the centre', DIR_CELL.N.col === CENTER.col && DIR_CELL.N.row < CENTER.row)
-ok('S is directly below the centre', DIR_CELL.S.col === CENTER.col && DIR_CELL.S.row > CENTER.row)
-ok('W is directly left of the centre', DIR_CELL.W.row === CENTER.row && DIR_CELL.W.col < CENTER.col)
-ok('E is directly right of the centre', DIR_CELL.E.row === CENTER.row && DIR_CELL.E.col > CENTER.col)
+// ── A · COMPASS-TRUTH — the table must mean what the LUOPAN means ── #mut-compass-inverted
+// SOUTH-UP (南上北下), the shifu's feng-shui frame (2026-09-12) — NOT the Western north-up map. This table is
+// the 180° reflection of a Western grid: south half on top, north half on the bottom, EAST on the LEFT, WEST
+// on the RIGHT. A north-up table (the old shipped layout) is now exactly what these assertions REFUSE.
+console.log('\n— A · COMPASS-TRUTH: south is up, west is right (luopan), opposites reflect —')
+for (const d of ['SW', 'S', 'SE'] as Direction[]) ok(`${d} is on the TOP row`, DIR_CELL[d].row === 1, key(DIR_CELL[d]))
+for (const d of ['NW', 'N', 'NE'] as Direction[]) ok(`${d} is on the BOTTOM row`, DIR_CELL[d].row === 3, key(DIR_CELL[d]))
+for (const d of ['NE', 'E', 'SE'] as Direction[]) ok(`${d} is in the LEFT column`, DIR_CELL[d].col === 1, key(DIR_CELL[d]))
+for (const d of ['NW', 'W', 'SW'] as Direction[]) ok(`${d} is in the RIGHT column`, DIR_CELL[d].col === 3, key(DIR_CELL[d]))
+ok('S is directly above the centre', DIR_CELL.S.col === CENTER.col && DIR_CELL.S.row < CENTER.row)
+ok('N is directly below the centre', DIR_CELL.N.col === CENTER.col && DIR_CELL.N.row > CENTER.row)
+ok('E is directly left of the centre', DIR_CELL.E.row === CENTER.row && DIR_CELL.E.col < CENTER.col)
+ok('W is directly right of the centre', DIR_CELL.W.row === CENTER.row && DIR_CELL.W.col > CENTER.col)
 // every opposite pair reflects through the centre — the property the 180° bug violates on all four axes
 const OPPOSITES: [Direction, Direction][] = [['N', 'S'], ['E', 'W'], ['NE', 'SW'], ['NW', 'SE']]
 for (const [a, b] of OPPOSITES) {

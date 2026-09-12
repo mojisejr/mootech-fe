@@ -72,18 +72,27 @@ export type Cell = { row: 1 | 2 | 3; col: 1 | 2 | 3 }
 export const CENTER: Cell = { row: 2, col: 2 }
 
 /**
- * The one table. North is up, east is right — the same convention as every map the reader has ever seen,
- * which is exactly what the test asserts rather than merely checking the eight entries are distinct.
+ * The one table. SOUTH is up, NORTH is down — the Chinese luopan / feng-shui convention the shifu requires
+ * (南上北下), NOT the Western map. So this table is the 180° point reflection of a Western north-up grid:
+ * south half on top, north half on the bottom, EAST on the LEFT, WEST on the RIGHT. The reader's fixed frame:
+ *     SE  S  SW
+ *     E   ·  W        (· = the centre, where the reader stands — no gate)
+ *     NE  N  NW
+ * ⚠️ HISTORY (มุน/ตู๋ 2026-08 → shifu 2026-09-12): earlier this table was north-up and the test called the
+ * 180° reflection "the shipped bug". The shifu then specified the luopan orientation is the correct one for
+ * this feature (ฮวงจุ้ยธรรมชาติจักรวาล — ทิศใต้อยู่บน ทิศเหนืออยู่ล่าง เสมอ), so what was once the bug is now
+ * the intended layout, and the north-up table is now what the test refuses. The gates/deities still ROTATE
+ * daily by their `direction` data; only the fixed screen-frame changed. The test asserts this orientation.
  */
 export const DIR_CELL: Record<Direction, Cell> = {
-  NW: { row: 1, col: 1 },
-  N: { row: 1, col: 2 },
-  NE: { row: 1, col: 3 },
-  W: { row: 2, col: 1 },
-  E: { row: 2, col: 3 },
-  SW: { row: 3, col: 1 },
-  S: { row: 3, col: 2 },
-  SE: { row: 3, col: 3 },
+  SE: { row: 1, col: 1 },
+  S: { row: 1, col: 2 },
+  SW: { row: 1, col: 3 },
+  E: { row: 2, col: 1 },
+  W: { row: 2, col: 3 },
+  NE: { row: 3, col: 1 },
+  N: { row: 3, col: 2 },
+  NW: { row: 3, col: 3 },
 }
 
 /**

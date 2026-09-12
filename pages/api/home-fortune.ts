@@ -12,10 +12,18 @@
 // else facets by percent; grade ← fortune.grade (bazi is the single source of the ratingJson thresholds
 // — we do NOT reimplement gradeForPercent to avoid drift). Still graceful: a missing field degrades, never 5xx.
 import type { NextApiRequest, NextApiResponse } from 'next'
+import { sql } from 'drizzle-orm'
+import { db } from '@/lib/db'
+import { bkkDateStr } from '@/lib/usage-core'
 import { toBaziInput, type FeCalcInput } from '@/lib/bazi-bridge/input'
 import { mergeEngineBirth } from '@/lib/bazi-bridge/engine-birth'
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+
+// bump เมื่อเปลี่ยนรูป payload { fortune, persona } → ผลเก่าที่ cache miss แล้วคำนวณใหม่เอง (0022_home_fortune_cache)
+const CACHE_VERSION = 'v1'
+const rowsOf = (r: unknown): Record<string, unknown>[] =>
+  (Array.isArray(r) ? r : (r as { rows?: Record<string, unknown>[] })?.rows ?? []) as Record<string, unknown>[]
 
 const BAZI_BASE = process.env.BAZI_BASE_URL || 'http://localhost:3000'
 if (/bazichart\.mumate\.co/i.test(BAZI_BASE)) {
@@ -102,14 +110,30 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   const { person, anonId } = (req.body ?? {}) as { person?: FeCalcInput; anonId?: string }
   if (!person) return res.status(200).json({ fortune: null, persona: null }) // no birth data → graceful skip
 
+  // §cache (0022): ผลดวงวันนี้ของคนเดิม ในวันเดียวกัน = เท่ากันเสมอ → คืนทันที ไม่ยิง engine (mergeEngineBirth + bazi) ซ้ำ.
+  // key ผูก birth (แก้วันเกิด → miss) + วันที่ Bangkok (ขึ้นวันใหม่ → miss). cache เฉพาะผู้ใช้ที่มี cookie identity.
+  const rawId = req.cookies['cookie-mumate-id'] ?? ''
+  const hasUser = UUID_RE.test(rawId)
+  const p = person as FeCalcInput & { gender?: string | null; place_name?: string | null }
+  const cacheKey = [CACHE_VERSION, p.dob ?? '', p.time ?? '', p.gender ?? '', p.place_name ?? '', bkkDateStr(new Date())].join('|')
+  if (hasUser) {
+    try {
+      const cached = rowsOf(await db.execute(
+        sql`SELECT payload FROM "bazi_home_fortune_cache" WHERE user_id = ${rawId} AND cache_key = ${cacheKey} LIMIT 1`,
+      ))[0]
+      if (cached?.payload) return res.status(200).json(cached.payload as Record<string, unknown>)
+    } catch {
+      /* cache อ่านไม่ได้ (ยังไม่ได้ migrate ฯลฯ) → คำนวณสดตามปกติ */
+    }
+  }
+
   try {
     // A1 — persona/ธาตุ ต้องมาจากวันเกิดที่ "แก้ล่าสุด" (engine bazi_user_profile) เหมือนหน้า "ดวงของฉัน"
     // (/api/destiny ก็ mergeEngineBirth). client ส่ง person จาก legacy user row; ถ้ามี cookie identity
     // ให้ทับ dob/time ด้วยค่า engine ก่อนคำนวณ — ไม่งั้นหน้าหลักโชว์ธาตุจากวันเกิดเก่า (legacy) ที่ไม่ตรง
     // ดวงของฉัน และแก้วันเกิดแล้วไม่ตาม. best-effort: ไม่มีแถว engine → คืน person เดิม (ไม่พังจอ).
     let effectivePerson: FeCalcInput = person
-    const rawId = req.cookies['cookie-mumate-id'] ?? ''
-    if (UUID_RE.test(rawId)) {
+    if (hasUser) {
       const merged = await mergeEngineBirth(rawId, person)
       effectivePerson = { ...person, dob: merged.dob ?? person.dob, time: merged.time ?? person.time }
     }
@@ -127,7 +151,20 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     clearTimeout(timer)
     if (!r.ok) return res.status(200).json({ fortune: null, persona: null }) // bazi 4xx/5xx → graceful
     const data = (await r.json()) as { fortune?: unknown; persona?: unknown }
-    return res.status(200).json({ fortune: normalize(data.fortune), persona: normalizePersona(data.persona) })
+    const out = { fortune: normalize(data.fortune), persona: normalizePersona(data.persona) }
+    // เก็บ cache เฉพาะเมื่อดวงคำนวณได้จริง (ไม่ cache ค่า null จาก engine ขัดข้องชั่วคราว) — best-effort
+    if (hasUser && out.fortune) {
+      try {
+        await db.execute(
+          sql`INSERT INTO "bazi_home_fortune_cache" (user_id, cache_key, payload, updated_at)
+              VALUES (${rawId}, ${cacheKey}, ${JSON.stringify(out)}::jsonb, now())
+              ON CONFLICT (user_id) DO UPDATE SET cache_key = EXCLUDED.cache_key, payload = EXCLUDED.payload, updated_at = now()`,
+        )
+      } catch {
+        /* เขียน cache ไม่ได้ (ยังไม่ได้ migrate ฯลฯ) → ข้าม ไม่กระทบผล */
+      }
+    }
+    return res.status(200).json(out)
   } catch {
     return res.status(200).json({ fortune: null, persona: null }) // timeout/unreachable → graceful
   }

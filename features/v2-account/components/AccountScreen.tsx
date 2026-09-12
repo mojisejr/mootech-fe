@@ -257,7 +257,7 @@ export function AccountScreen({ preview }: { preview?: AccountPreview } = {}) {
                 <div className="min-w-0">
                   <div className="flex items-center gap-1.5">
                     <p className="text-[13px] text-white/90">ยอดคงเหลือ</p>
-                    <Link href="/v2/qi" aria-label="คู่มือพลังชี่" data-testid="account-qi-guide" className="grid size-5 flex-none place-items-center rounded-full bg-v3-rose-tint text-[12px] font-bold leading-none text-v3-text-body">
+                    <Link href="/v2/qi" aria-label="คู่มือพลังชี่" data-testid="account-qi-guide" className="grid size-4 flex-none place-items-center rounded-full bg-v3-rose-tint text-[10px] font-bold leading-none text-v3-text-body">
                       <span className="translate-y-[0.5px]">?</span>
                     </Link>
                   </div>
@@ -266,9 +266,9 @@ export function AccountScreen({ preview }: { preview?: AccountPreview } = {}) {
                     <span className="text-[16px] font-black text-v3-lime">QI</span>
                   </p>
                 </div>
-                {/* เหรียญ QI จริง (qi-coin) ในวง glow-aura */}
-                <span aria-hidden className="grid size-16 flex-none place-items-center rounded-full bg-[rgba(216,143,169,0.2)]">
-                  <Image src="/images/v2/qi/qi-coin.png" alt="" width={52} height={52} sizes="52px" unoptimized className="size-12 object-contain" />
+                {/* เหรียญ QI จริง (qi-coin) ในวง glow-aura — ขยายเหรียญให้เด่นขึ้น (ผู้ใช้ 2026-09-12) */}
+                <span aria-hidden className="grid size-[72px] flex-none place-items-center rounded-full bg-[rgba(216,143,169,0.2)]">
+                  <Image src="/images/v2/qi/qi-coin.png" alt="" width={64} height={64} sizes="64px" unoptimized className="size-16 object-contain" />
                 </span>
               </div>
               <p className="mt-3 text-[13px] leading-[18px] text-white/90">{chatUnlimited ? <>ถามเซียนมู่ AI ได้ไม่จำกัด · เปิดไพ่ได้อีก {cards} ครั้ง</> : <>พอถามเซียนมู่ AI ได้อีก {asks} ครั้ง หรือเปิดไพ่ได้ {cards} ครั้ง</>}</p>
