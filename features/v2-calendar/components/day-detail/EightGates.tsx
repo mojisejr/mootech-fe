@@ -161,16 +161,21 @@ function GateSearch({
       </div>
       {active && rows.length > 0 && (
         <div data-testid="gate-search-hit" className="mt-2 flex flex-col gap-1.5">
-          {/* ซินแส 2026-09-12: ชื่อประตูในผลค้นหาใช้ "ตัวอักษรจีน" (八門) ตามชาร์ตต้นฉบับ ไม่ใช่คำแปลไทย */}
-          {topRows.map((r, i) => (
-            <div key={`top-${r.direction}-${i}`} className="flex items-start gap-1.5 text-xs leading-5 text-v3-navy">
-              <span className="mt-px shrink-0 rounded bg-v3-sapphire px-1.5 py-0.5 text-[10px] font-bold leading-none text-white">แนะนำ</span>
-              <span>ควรไปทิศ <b>{DIR_LABEL_TH[r.direction]}</b> ({r.direction}) · ประตู <b>{r.gate.name || r.gate.meaning}</b></span>
-            </div>
-          ))}
+          {/* ซินแส 2026-09-12: ผลค้นหาอ้างถึง "10 เทพที่ลงประตู" เป็นคำแต้จิ๋ว (ฮู้/ที/ตี่) + สีตามเทพ
+              (SPIRIT_STYLE) — ไม่ใช่คำแปลไทยของประตู */}
+          {topRows.map((r, i) => {
+            const st = r.gate.deity ? SPIRIT_STYLE[r.gate.deity.trim()] : undefined
+            const deityTh = st?.th ?? r.gate.deity?.trim() ?? r.gate.name
+            return (
+              <div key={`top-${r.direction}-${i}`} className="flex items-start gap-1.5 text-xs leading-5 text-v3-navy">
+                <span className="mt-px shrink-0 rounded bg-v3-sapphire px-1.5 py-0.5 text-[10px] font-bold leading-none text-white">แนะนำ</span>
+                <span>ควรไปทิศ <b>{DIR_LABEL_TH[r.direction]}</b> ({r.direction}) · เทพ <b style={st ? { color: st.ink } : undefined}>{deityTh}</b></span>
+              </div>
+            )
+          })}
           {nearRows.length > 0 && (
             <p className="text-[11px] leading-5 text-v3-text-muted">
-              ใกล้เคียง: {nearRows.map((r) => `${DIR_LABEL_TH[r.direction]} (ประตู${r.gate.name || r.gate.meaning})`).join(' · ')}
+              ใกล้เคียง: {nearRows.map((r) => `${DIR_LABEL_TH[r.direction]} (เทพ${(r.gate.deity ? SPIRIT_STYLE[r.gate.deity.trim()]?.th : undefined) ?? r.gate.deity?.trim() ?? r.gate.name})`).join(' · ')}
             </p>
           )}
         </div>
