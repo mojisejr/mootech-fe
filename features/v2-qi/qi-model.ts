@@ -185,6 +185,9 @@ const SPEND_LABELS: Record<string, string> = {
   plus_month: "แพ็กเกจ PLUS 1 เดือน",
   book_lifecode: "หนังสือ Life Code",
   birth_edit: "แก้วันเกิด",
+  // ดูดวงเบอร์ — ชื่อเดียวกับการ์ดบริการ (services.ts) เพื่อไม่ให้ history โชว์ code ดิบ (ผู้ใช้ 2026-09-12)
+  phone_reading: "ดูดวงเบอร์มือถือ",
+  honeycomb_reading: "ดูดวงเบอร์รังผึ้ง",
 }
 
 /** reason ดิบของ ledger → ข้อความไทยที่คนอ่านออก; ภารกิจอาจส่ง titles map (id → ชื่อ) มาเติม */

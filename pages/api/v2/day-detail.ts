@@ -26,6 +26,8 @@
 // paid would keep getting the free shape until the entry expired. Storing the full day and deciding per
 // response makes the upgrade visible on the very next request, with no recompute.
 import type { NextApiRequest, NextApiResponse } from 'next'
+import { sql } from 'drizzle-orm'
+import { db } from '@/lib/db'
 import { toBaziInput, type FeCalcInput } from '@/lib/bazi-bridge/input'
 import { mapDayDetail, pickFreeDayDetail, type DayDetail } from '@/lib/v2-calendar/day-detail'
 import { resolveSessionUserId } from '@/lib/v2/resolve-user'
@@ -57,9 +59,14 @@ async function fetchFortuneDay(rawInput: unknown, date: string, signal: AbortSig
 }
 
 // day-detail cache per (user, birth-signature, date) — deterministic in the birth input + date.
+// 2 ชั้น: in-memory Map (เร็วสุด แต่หายตอน cold start) + ตาราง DB bazi_day_detail_cache (ทน cold start/instance
+// อื่น — 0026). ผล 1 วันของ birth คงที่ deterministic → เก็บได้ยาว. best-effort: ยังไม่ migrate → ใช้ Map อย่างเดียว.
 const dayCache = new Map<string, DayDetail>()
 const DAY_CACHE_MAX = 512
+const DAY_CACHE_VERSION = 'v1' // bump เมื่อรูป DayDetail เปลี่ยน
 const dayCacheKey = (userId: string, rawInput: unknown, date: string) => `${userId}:${JSON.stringify(rawInput)}:${date}`
+const rowsOf = (r: unknown): Record<string, unknown>[] =>
+  (Array.isArray(r) ? r : (r as { rows?: Record<string, unknown>[] })?.rows ?? []) as Record<string, unknown>[]
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' })
@@ -117,10 +124,29 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   try {
     const { rawInput } = toBaziInput(person)
     const key = dayCacheKey(userId, rawInput, date as string)
-    const cached = dayCache.get(key)
-    if (cached) {
+    const dbKey = `${DAY_CACHE_VERSION}|${key}`
+
+    // ชั้น 1: in-memory Map (เร็วสุด)
+    const mem = dayCache.get(key)
+    if (mem) {
       clearTimeout(timer)
-      return res.status(200).json({ detail: paid ? cached : pickFreeDayDetail(cached), cached: true })
+      return res.status(200).json({ detail: paid ? mem : pickFreeDayDetail(mem), cached: true })
+    }
+    // ชั้น 2: DB (ทน cold start) — best-effort, ล้มก็คำนวณสด
+    let durable: DayDetail | undefined
+    try {
+      const row = rowsOf(await db.execute(
+        sql`SELECT payload FROM "bazi_day_detail_cache" WHERE cache_key = ${dbKey} LIMIT 1`,
+      ))[0]
+      if (row?.payload) durable = row.payload as DayDetail
+    } catch {
+      /* cache อ่านไม่ได้ (ยังไม่ migrate ฯลฯ) → คำนวณสด */
+    }
+    if (durable) {
+      clearTimeout(timer)
+      if (dayCache.size >= DAY_CACHE_MAX) dayCache.clear()
+      dayCache.set(key, durable) // อุ่น mem
+      return res.status(200).json({ detail: paid ? durable : pickFreeDayDetail(durable), cached: true })
     }
 
     const [mvd, almanacDays] = await Promise.all([
@@ -133,6 +159,16 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const detail = mapDayDetail(mvd, almanacDay)
     if (dayCache.size >= DAY_CACHE_MAX) dayCache.clear()
     dayCache.set(key, detail) // FULL — see the header: the trim is a per-response view, never a stored one
+    // เขียน DB best-effort (ทน cold start) — ล้มก็ไม่กระทบผล
+    try {
+      await db.execute(
+        sql`INSERT INTO "bazi_day_detail_cache" (cache_key, payload, updated_at)
+            VALUES (${dbKey}, ${JSON.stringify(detail)}::jsonb, now())
+            ON CONFLICT (cache_key) DO UPDATE SET payload = EXCLUDED.payload, updated_at = now()`,
+      )
+    } catch {
+      /* เขียน cache ไม่ได้ → ข้าม */
+    }
     return res.status(200).json({ detail: paid ? detail : pickFreeDayDetail(detail) })
   } catch {
     clearTimeout(timer)

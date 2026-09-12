@@ -10,12 +10,20 @@
 // from the mascot compute ONLY (same source as home greeting). The caller compares the two and LOGS a mismatch —
 // it never silently switches to this one. So the proxy forwards elementTh untouched; the caller decides.
 import type { NextApiRequest, NextApiResponse } from 'next'
+import { sql } from 'drizzle-orm'
+import { db } from '@/lib/db'
 
 const BAZI_BASE = process.env.BAZI_BASE_URL || 'http://localhost:3000'
 if (/bazichart\.mumate\.co/i.test(BAZI_BASE)) {
   throw new Error(`[GUARDRAIL] BAZI_BASE_URL points at old prod (${BAZI_BASE}).`)
 }
 const BAZI_TIMEOUT_MS = 12000
+
+// §cache (0025) — element-summary เป็น birth-deterministic → เก็บไว้ ข้ามการคำนวณ chart ซ้ำทุกครั้งที่เข้า /account
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+const CACHE_VERSION = 'v1' // bump เมื่อเปลี่ยนรูป payload ({ summary })
+const rowsOf = (r: unknown): Record<string, unknown>[] =>
+  (Array.isArray(r) ? r : (r as { rows?: Record<string, unknown>[] })?.rows ?? []) as Record<string, unknown>[]
 
 /** The bazi person input this screen sends. birthDate is the only required field (bazi defaults the rest). */
 export type ElementSummaryPerson = {
@@ -78,6 +86,22 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return res.status(200).json({ summary: null, reason: 'unavailable' } satisfies ElementSummaryResult)
   }
 
+  // §cache read (0025): birth-deterministic → คืนทันทีไม่ยิง engine. identity = cookie-mumate-id, key ผูก
+  // birthDate+birthTime (ไม่มี term วันที่). best-effort: ยังไม่ migrate → คำนวณสด (try/catch กลืน error)
+  const rawId = req.cookies['cookie-mumate-id'] ?? ''
+  const hasUser = UUID_RE.test(rawId)
+  const cacheKey = [CACHE_VERSION, person.birthDate, person.birthTime ?? ''].join('|')
+  if (hasUser) {
+    try {
+      const cached = rowsOf(await db.execute(
+        sql`SELECT payload FROM "bazi_element_summary_cache" WHERE user_id = ${rawId} AND cache_key = ${cacheKey} LIMIT 1`,
+      ))[0]
+      if (cached?.payload) return res.status(200).json(cached.payload as ElementSummaryResult)
+    } catch {
+      /* cache อ่านไม่ได้ (ยังไม่ migrate ฯลฯ) → คำนวณสด */
+    }
+  }
+
   try {
     const ac = new AbortController()
     const timer = setTimeout(() => ac.abort(), BAZI_TIMEOUT_MS)
@@ -91,7 +115,20 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     // 4xx/5xx = we could not find out (contract/backend failure) → `error`, never a "nothing here" lie.
     if (!r.ok) return res.status(200).json({ summary: null, reason: 'error' } satisfies ElementSummaryResult)
     const data = (await r.json()) as unknown // a parse throw lands in catch below → also `error`
-    return res.status(200).json(summaryFromBaziResponse(data))
+    const result = summaryFromBaziResponse(data)
+    // เก็บ cache เฉพาะเมื่อได้ summary จริง (ไม่ cache null/error ชั่วคราว) — best-effort
+    if (hasUser && result.summary) {
+      try {
+        await db.execute(
+          sql`INSERT INTO "bazi_element_summary_cache" (user_id, cache_key, payload, updated_at)
+              VALUES (${rawId}, ${cacheKey}, ${JSON.stringify(result)}::jsonb, now())
+              ON CONFLICT (user_id) DO UPDATE SET cache_key = EXCLUDED.cache_key, payload = EXCLUDED.payload, updated_at = now()`,
+        )
+      } catch {
+        /* เขียน cache ไม่ได้ → ข้าม */
+      }
+    }
+    return res.status(200).json(result)
   } catch {
     // timeout / unreachable / parse failure → `error` (transient; a retry might succeed). Never throw at the user.
     return res.status(200).json({ summary: null, reason: 'error' } satisfies ElementSummaryResult)
