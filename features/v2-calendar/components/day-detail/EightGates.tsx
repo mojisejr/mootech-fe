@@ -42,6 +42,11 @@ const GATE_DEFAULT = { bg: '#F5F7FB', ink: '#0B305B' }
 function GateCell({ direction, gate }: { direction: Direction; gate: DayDetailGate }) {
   const cell = DIR_CELL[direction]
   const tint = GATE_TINT[gate.name.trim()] ?? GATE_DEFAULT
+  // ผู้ใช้ 2026-09-12: "เอาชื่อ(เทพ)ขึ้นก่อนตัวอักษรจีน และชื่อไทยใส่สีตามพลัง" — ชื่อเทพ 十神 นำหน้า (บน),
+  // ทาสีตามพลังเทพ (SPIRIT_STYLE.ink); อักษรจีนประตูอยู่ล่าง. ไม่มี deity → ใช้ความหมายประตู + สีประตู.
+  const deityStyle = gate.deity ? SPIRIT_STYLE[gate.deity.trim()] : undefined
+  const leadName = deityStyle?.th ?? gate.deity?.trim() ?? gate.meaning
+  const leadInk = deityStyle?.ink ?? tint.ink
   return (
     <div
       data-testid="gate-cell"
@@ -53,21 +58,19 @@ function GateCell({ direction, gate }: { direction: Direction; gate: DayDetailGa
         backgroundColor: tint.bg,
         color: tint.ink,
       }}
-      className="flex flex-col items-center gap-1 rounded-2xl px-1 py-3 leading-none"
+      className="flex flex-col items-center gap-0.5 rounded-2xl px-1 py-3 leading-none"
     >
-      {/* ซินแส 2026-09-12 (ข้อ 2.3): โชว์ "ชื่อเทพ" ของช่องทิศนี้แทนคำแปลประตู — เทพ 十神 หมุนมากับประตูทุกวัน.
-          ไม่มี deity (นอกช่วงข้อมูลคี้มึ้ง) → fallback ความหมายประตูเดิม */}
       <span className="text-[10px] font-bold text-v3-text-body">{direction}</span>
-      <span className="text-2xl font-extrabold">{gate.name}</span>
-      <span className="text-[14px] font-medium text-v3-navy">
-        {(gate.deity && (SPIRIT_STYLE[gate.deity.trim()]?.th ?? gate.deity.trim())) || gate.meaning}
-      </span>
+      <span className="text-[15px] font-extrabold leading-tight" style={{ color: leadInk }}>{leadName}</span>
+      <span className="text-xl font-bold leading-none" style={{ color: tint.ink }}>{gate.name}</span>
     </div>
   )
 }
 
 export function EightGates({ gates }: { gates: DayDetailGate[] }) {
   const { placed, unplaced } = placeGates(gates)
+  // แสดงเฉพาะประตูที่มีคีย์เวิร์ด (engine ส่ง gate-keyword.json มา) — ก่อน engine deploy = ว่าง → ซ่อนลิสต์เงียบๆ
+  const gatesWithKeywords = gates.filter((g) => (g.keywords?.length ?? 0) > 0)
   return (
     <SectionCard title="8 ประตู 八門 · ทิศประจำวัน" testId="eight-gates">
       <div data-testid="gate-board" className="grid grid-cols-3 grid-rows-3 gap-2">
@@ -88,6 +91,34 @@ export function EightGates({ gates }: { gates: DayDetailGate[] }) {
       <p className="mt-3 text-[11px] leading-5 text-v3-text-muted">
         วางตามทิศที่ตำราระบุของวันนั้น — ประตู/เทพย้ายทิศทุกวัน · ทิศใต้อยู่บน ทิศเหนืออยู่ล่าง (ฮวงจุ้ยธรรมชาติ)
       </p>
+
+      {/* "8 ประตู · คีย์เวิร์ด" — ลิสต์ใต้เข็มทิศ เหมือน "10 เทพ · คีย์เวิร์ด" (ผู้ใช้ 2026-09-12).
+          chip = อักษรจีนประตู (สีตามพลังประตู GATE_TINT) · ชื่อไทยประตูทาสีตามพลัง · คีย์เวิร์ดจาก engine (gate-keyword.json). */}
+      {gatesWithKeywords.length > 0 && (
+        <div className="mt-4 border-t border-dashed border-v3-divider-dashed pt-4">
+          <p className="mb-3 text-sm font-bold text-v3-navy">8 ประตู 八門 · คีย์เวิร์ด</p>
+          <ul className="flex flex-col gap-3.5">
+            {gatesWithKeywords.map((g, i) => {
+              const tint = GATE_TINT[g.name.trim()] ?? GATE_DEFAULT
+              return (
+                <li key={`${g.name}-${i}`} data-testid="gate-keyword-row" className="flex items-start gap-3">
+                  <span
+                    aria-hidden
+                    className="grid size-9 shrink-0 place-items-center rounded-[10px] text-[16px] font-bold leading-none"
+                    style={{ backgroundColor: tint.bg, color: tint.ink }}
+                  >
+                    {g.name.trim()}
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-bold" style={{ color: tint.ink }}>{g.meaning}</p>
+                    <p className="mt-0.5 text-xs leading-5 text-v3-text-body">{(g.keywords ?? []).join(' · ')}</p>
+                  </div>
+                </li>
+              )
+            })}
+          </ul>
+        </div>
+      )}
 
       {/* A gate whose direction could not be read must be SEEN, not silently missing from the board — a
           board with seven cells looks complete to anyone who does not count. */}

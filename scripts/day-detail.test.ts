@@ -49,7 +49,7 @@ const ALMANAC_DAY = {
   officer: 'สะสาง',
   officerDesc: 'อับโชค เสียหาย',
   jianchu: { name: 'เตีย', meaning: 'มัดจำ จองจำ' },
-  gates: Array.from({ length: 8 }, (_, i) => ({ name: `G${i}`, direction: 'E', meaning: 'เปิด' })),
+  gates: Array.from({ length: 8 }, (_, i) => ({ name: `G${i}`, direction: 'E', meaning: 'เปิด', keywords: ['คีย์1', 'คีย์2'] })),
   colors: [{ element: 'ทอง', colors: 'ขาว' }, { element: 'น้ำ', colors: 'ฟ้า น้ำเงิน' }],
   luckyHours: [{ code: 'B8', range: '1:00-2:59', god: 'เหง็กอ๋วง', meaning: 'ดี' }],
   dayStars: [
@@ -85,10 +85,12 @@ ok('spirits ← 8 เทพ + keywords', d.spirits.length === 8 && d.spirits[0].
 ok('wanPhra ← thaiLunar.isWanPhra + label', d.wanPhra.isWanPhra === false && d.wanPhra.label === 'แรม ๗ ค่ำ เดือน ๘-๘')
 ok('dayPillars ← almanac day/month/year (with element)', d.dayPillars.day?.element === 'metal' && d.dayPillars.month?.element === 'wood' && d.dayPillars.year?.element === 'fire')
 ok('ownerPillars ← person.fourPillars (raw block)', JSON.stringify(d.ownerPillars) === JSON.stringify(MVD.person.fourPillars))
-ok('dithi ← officer + officerDesc + jianchu', d.dithi.officer === 'สะสาง' && d.dithi.jianchu === 'เตีย · มัดจำ จองจำ')
+// jianchu = ความหมายไทยล้วน — ตัดชื่อ 建除 สำเนียงจีน (jc.name 'เตีย') ออก (ผู้ใช้ 2026-09-12 "ตัดคำจีน")
+ok('dithi ← officer + officerDesc + jianchu(ความหมายล้วน ไม่มีคำจีน)', d.dithi.officer === 'สะสาง' && d.dithi.jianchu === 'มัดจำ จองจำ')
 // G-3 chips: officer (dithi) + luckyDirection, RAW; the 財 chip is cut (bazi's 8 gates have no 財).
 ok('luckyDirection ← man-vs-day (raw ทิศมงคล, a chip; 財 cut)', d.luckyDirection === 'ทิศ E')
 ok('gates ← 8 raw, NO good/bad level added (ตำราไม่มี)', d.gates.length === 8 && !('level' in d.gates[0]) && d.gates[0].name === 'G0')
+ok('gates ← keywords ไหลจาก engine (gate-keyword.json)', d.gates[0].keywords.length === 2 && d.gates[0].keywords[0] === 'คีย์1')
 ok('colors ← raw Thai names, NO hex (งานดีไซน์)', d.colors[0].colors === 'ขาว' && !/^#/.test(d.colors[0].colors))
 
 // trim size — the whole point of the pipe
