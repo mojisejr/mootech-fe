@@ -29,7 +29,7 @@ export const SPIRIT_STYLE: Record<string, { th: string; bg: string; ink: string 
 
 export function EightDeities({ deities }: { deities: DayDetailSpirit[] }) {
   return (
-    <SectionCard title="10 เทพ 十神 · คีย์เวิร์ด" testId="eight-deities">
+    <SectionCard title="10 เทพ 十神 · คีย์เวิร์ด · เรื่องราว" testId="eight-deities">
       <ul className="flex flex-col gap-3.5">
         {deities.length === 0 && <li className="text-sm text-v3-text-muted">วันนี้ไม่มีข้อมูล 10 เทพ</li>}
         {deities.map((d, i) => (
