@@ -61,9 +61,7 @@ function GateCell({ direction, gate, highlight }: { direction: Direction; gate: 
         highlight ? ' ring-2 ring-offset-1 ring-v3-sapphire' : ''
       }`}
     >
-      {tint.strong && (
-        <span className="absolute right-1 top-1 text-[9px] leading-none" title="ธาตุ ประตู·เทพ·ทิศ ตรงกัน — พลังแรง" aria-label="พลังแรง">⚡</span>
-      )}
+      {/* ผู้ใช้ 2026-09-12: "พลังแรง" บอกด้วยสีเข้มขึ้น (bgStrong) อย่างเดียว — ไม่มีไอคอน ⚡ */}
       <span className="text-[10px] font-bold text-v3-text-body">{direction}</span>
       <span className="text-[15px] font-extrabold leading-tight" style={{ color: leadInk }}>{leadName}</span>
       <span className="text-xl font-bold leading-none" style={{ color: tint.ink }}>{gate.name}</span>
@@ -145,22 +143,25 @@ function GateSearch({
         </ul>
       )}
       {notFound && (
-        <div data-testid="gate-search-empty" className="mt-2">
-          <p className="text-xs leading-5 text-v3-text-body">ไม่พบคำนี้ — ลองคำใกล้เคียง</p>
-          {suggestions.length > 0 && (
-            <div className="mt-1.5 flex flex-wrap gap-1.5">
-              {suggestions.map((s) => (
-                <button
-                  key={s}
-                  type="button"
-                  onClick={() => setQuery(s)}
-                  className="rounded-full bg-v3-cal-medium-bg px-2.5 py-1 text-[11px] leading-none text-v3-navy"
-                >
-                  {s}
-                </button>
-              ))}
-            </div>
-          )}
+        <p data-testid="gate-search-empty" className="mt-2 text-xs leading-5 text-v3-text-body">
+          ไม่พบคำนี้ — ลองแตะคำแนะนำด้านล่าง หรือพิมพ์ให้ใกล้เคียงขึ้น
+        </p>
+      )}
+      {/* ผู้ใช้ 2026-09-12: "คำแนะนำไม่มีเลยถ้าไม่ใช่คีย์ ใช้ยาก" → โชว์ชิปคำค้นตลอด (แม้ยังไม่พิมพ์)
+          เพื่อให้กดใช้ได้ทันทีโดยไม่ต้องเดาคีย์เวิร์ด */}
+      {suggestions.length > 0 && (
+        <div className="mt-2 flex flex-wrap items-center gap-1.5">
+          <span className="text-[11px] font-semibold text-v3-text-muted">ลองค้นหา:</span>
+          {suggestions.map((s) => (
+            <button
+              key={s}
+              type="button"
+              onClick={() => setQuery(s)}
+              className="rounded-full bg-v3-cal-medium-bg px-2.5 py-1 text-[11px] leading-none text-v3-navy"
+            >
+              {s}
+            </button>
+          ))}
         </div>
       )}
     </div>
@@ -198,7 +199,7 @@ export function EightGates({ gates }: { gates: DayDetailGate[] }) {
 
       <p className="mt-3 text-[11px] leading-5 text-v3-text-muted">
         วางตามทิศที่ตำราระบุของวันนั้น — ประตู/เทพย้ายทิศทุกวัน · ทิศใต้อยู่บน ทิศเหนืออยู่ล่าง (ฮวงจุ้ยธรรมชาติ)
-        · พื้นช่องคือธาตุของทิศ · ⚡ = ธาตุ ประตู·เทพ·ทิศ ตรงกัน (พลังแรง)
+        · พื้นช่องคือธาตุของทิศ · ช่องสีเข้มกว่า = ธาตุ ประตู·เทพ·ทิศ ตรงกัน (พลังแรง)
       </p>
 
       {/* "8 ประตู · คีย์เวิร์ด · การกระทำ" — ลิสต์ใต้เข็มทิศ เหมือน "10 เทพ · คีย์เวิร์ด" (ผู้ใช้ 2026-09-12).
