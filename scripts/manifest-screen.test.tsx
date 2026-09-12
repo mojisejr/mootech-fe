@@ -11,6 +11,11 @@ vi.mock('next/router', () => ({
   useRouter: () => ({ push: vi.fn(), replace: vi.fn(), query: {}, pathname: '/v2/service/manifest', isReady: true, asPath: '/v2/service/manifest' }),
 }))
 
+// header badge อ่าน tier จาก useV2Tier (ต่อ /api/user) — mock ให้เป็นฟรีในเทส (ไม่แตะเครือข่ายจริง)
+vi.mock('@/features/auth/hooks/useV2Tier', () => ({
+  useV2Tier: () => ({ isPaid: false, tier: 'FREE', loading: false }),
+}))
+
 // The ธาตุ card's mascot image fetches on its own; keep fetch benign so nothing rejects unhandled.
 const fetchMock = vi.fn(async () => ({ ok: true, status: 200, json: async () => ({}) }))
 vi.stubGlobal('fetch', fetchMock)
