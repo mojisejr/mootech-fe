@@ -61,6 +61,16 @@ function last7(today: string): string[] {
 const CHEVRON = <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden className="flex-none text-v3-text-muted"><path d="m6 3.5 4.5 4.5L6 12.5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" /></svg>
 const CHECK_SM = <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6 9 17l-5-5" /></svg>
 
+// สปินเนอร์หมุน (loading) — ใช้ระหว่างการ์ดโหลด (ผู้ใช้ 2026-09-12: อยากได้แบบหมุน ๆ)
+function Spinner({ className = "size-6 text-v3-sapphire" }: { className?: string }) {
+  return (
+    <svg className={`animate-spin ${className}`} viewBox="0 0 24 24" fill="none" aria-hidden>
+      <circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="3" opacity="0.2" />
+      <path d="M21 12a9 9 0 0 0-9-9" stroke="currentColor" strokeWidth="3" strokeLinecap="round" />
+    </svg>
+  )
+}
+
 // preview: เฉพาะหน้า dev (/dev-access/account-preview) — ป้อน wallet/board/ent ตรง ๆ ไม่ยิง API
 type AccountPreview = { wallet?: Wallet | null; board?: MissionBoard | null; ent?: Entitlements | null }
 export function AccountScreen({ preview }: { preview?: AccountPreview } = {}) {
@@ -81,6 +91,8 @@ export function AccountScreen({ preview }: { preview?: AccountPreview } = {}) {
   const [attempt, setAttempt] = useState(0)
   // ฿ ต่อ 1 QI จากแพ็กเริ่มต้น (QI_60) — แหล่งเดียวกับจอซื้อ QI; null = ยังไม่รู้ราคา → ไม่แต่งตัวเลขเอง
   const [qiRate, setQiRate] = useState<number | null>(null)
+  // ธาตุ (bazi compute หนัก) โหลดหลังจอวาด — flag ให้โชว์ skeleton ระหว่างรอ (ไม่งั้นการ์ดโผล่มาเฉย ๆ ดูเหมือนบั๊ก)
+  const [elementLoading, setElementLoading] = useState(false)
 
   const load = useCallback(async () => {
     const getJson = (url: string) => fetch(url).then((x) => (x.ok ? x.json() : null)).catch(() => null)
@@ -96,8 +108,9 @@ export function AccountScreen({ preview }: { preview?: AccountPreview } = {}) {
     const prof: Profile | null = p?.profile ?? null
     setProfile(prof)
     setLoaded(true)
-    // ธาตุของคุณ (bazi compute หนัก ~timeout 12s) — ยิงหลังได้ profile ไม่บล็อกจอ
+    // ธาตุของคุณ (bazi compute หนัก ~timeout 12s) — ยิงหลังได้ profile ไม่บล็อกจอ; โชว์ skeleton ระหว่างรอ
     if (prof?.birthDate) {
+      setElementLoading(true)
       fetch("/api/bazi/element-summary", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -106,6 +119,7 @@ export function AccountScreen({ preview }: { preview?: AccountPreview } = {}) {
         .then((x) => (x.ok ? x.json() : null))
         .then((j) => setElement(j?.summary ?? null))
         .catch(() => setElement(null))
+        .finally(() => setElementLoading(false))
     } else {
       setElement(null)
     }
@@ -248,6 +262,12 @@ export function AccountScreen({ preview }: { preview?: AccountPreview } = {}) {
               </div>
               {CHEVRON}
             </Link>
+          ) : (!loaded || elementLoading) ? (
+            /* สปินเนอร์หมุน การ์ดธาตุ ระหว่าง bazi compute (ช้าได้) — บอกชัดว่ากำลังโหลด ไม่ใช่การ์ดหาย */
+            <section className="v3-shadow-card grid h-[150px] place-items-center gap-2 rounded-[20px] bg-white" data-testid="account-element-skeleton" aria-busy="true">
+              <Spinner className="size-7 text-v3-sapphire" />
+              <span className="text-[12px] text-v3-text-muted">กำลังคำนวณธาตุ…</span>
+            </section>
           ) : null}
 
           {/* การ์ด QI (ฟ้า) — ยอดคงเหลือ + orb 氣 + ปุ่ม (เฟรม balance-hero-card) */}
@@ -276,6 +296,11 @@ export function AccountScreen({ preview }: { preview?: AccountPreview } = {}) {
                 <Link href="/v2/qi/buy" data-testid="qi-topup-link" className="grid h-11 flex-1 place-items-center rounded-full bg-v3-lime text-[14px] font-semibold uppercase text-v3-sapphire">ซื้อ QI เพิ่ม</Link>
                 <Link href="/v2/qi/history" data-testid="account-qi-history" className="grid h-11 flex-1 place-items-center rounded-full border border-v3-placeholder text-[14px] font-semibold uppercase text-white">ประวัติการใช้</Link>
               </div>
+            </section>
+          ) : !loaded ? (
+            /* สปินเนอร์หมุน การ์ด QI ระหว่างโหลด — บอกชัดว่ากำลังโหลด (ผู้ใช้ 2026-09-12: ชอบแบบหมุน ๆ) */
+            <section className="grid h-[168px] place-items-center rounded-[20px] bg-v3-sapphire" data-testid="account-qi-skeleton" aria-busy="true">
+              <Spinner className="size-7 text-white" />
             </section>
           ) : null}
 

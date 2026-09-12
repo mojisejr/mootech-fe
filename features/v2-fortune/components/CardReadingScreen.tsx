@@ -9,6 +9,7 @@ import { useEffect, useMemo, useState } from "react"
 import { KitButton, SkyHeader, SkyScreen } from "@/features/v2-profile/components/kit"
 import { Menubar } from "@/features/v2-shell/components/Menubar"
 import { useActionCooldown } from "@/lib/useActionCooldown"
+import { shareAsInvite } from "@/lib/v2/share-invite"
 
 export type FortuneCard = {
   no: number
@@ -166,10 +167,9 @@ export function CardReadingScreen({
         /* QI ล่ม — คง idle ให้ลองใหม่ได้ */
       }
     }
-    const url = typeof window !== "undefined" ? window.location.href : ""
+    // แชร์ = ลิงก์เชิญเพื่อนของ user เอง (คนสมัคร → user ได้ QI) + แนบภาพไพ่หลัก (ผู้ใช้ 2026-09-12)
     const text = cards.length ? `เปิดไพ่ได้ ${cards.map((c) => c.name).join(" · ")} — ${title} กับ Mumate` : `${title} กับ Mumate`
-    if (typeof navigator !== "undefined" && navigator.share) void navigator.share({ title, text, url }).catch(() => {})
-    else if (typeof navigator !== "undefined" && navigator.clipboard) void navigator.clipboard.writeText(`${text} ${url}`).catch(() => {})
+    void shareAsInvite({ title, text, imageUrl: cards[0] ? faceUrl(cards[0]) : null })
   }
 
   const headerTitle = phase === "result" ? resultTitle : phase === "pick" ? "เลือกไพ่ 3 ใบ" : title
@@ -289,7 +289,17 @@ export function CardReadingScreen({
           </div>
           <p className="px-1 text-center text-[11px] leading-4 text-v3-text-muted">น้ำหนักคือสัดส่วนที่ไพ่แต่ละใบมีต่อคำทำนายรวม รวมกันได้ 100%</p>
 
-          {/* §"สรุปคำทำนายนี้" เอาออก (ซินแส 2026-09-12) — เดิมโชว์ cards[0].meaning ซึ่งว่างได้/ซ้ำกับรายใบ */}
+          {/* สรุปคำทำนายนี้ — ใจความจากไพ่หลัก (น้ำหนักสูงสุด = ใบแรก). เดิมโชว์ cards[0].meaning ตรง ๆ ซึ่ง
+              "ว่างได้" จน section หายไป (ผู้ใช้: ต้องมีสรุปเหมือนไพ่อีกอัน) → fallback ให้ไม่ว่าง: meaning → prose ใบแรก → book1 */}
+          {(() => {
+            const summaryText = (cards[0]?.meaning?.trim() || proseParas[0] || cards[0]?.book1 || "").trim()
+            return summaryText ? (
+              <section className="flex flex-col gap-1 rounded-[24px] bg-[#EAF3FF] p-5" data-testid="cards-summary">
+                <span className="w-fit text-[13px] font-black text-v3-sapphire">สรุปคำทำนายนี้</span>
+                <p className="text-[13px] leading-[22px] text-v3-text-body">{summaryText}</p>
+              </section>
+            ) : null
+          })()}
 
           {/* รายใบ */}
           {cards.map((c, i) => (
