@@ -78,8 +78,8 @@ function GateCell({ direction, gate, rank }: { direction: Direction; gate: DayDe
 const normSearch = (s: string) => s.trim().toLowerCase().replace(/\s+/g, '')
 
 /** แชร์ substring ยาว ≥ min ตัวอักษร — ช่วยจับคำใกล้เคียงแบบไม่ต้องตรงเป๊ะ (ภาษาไทยไม่มีเว้นวรรค).
- *  เช่น "ขอเงิน" ↔ "เงินทองงอกเงย" (แชร์ "เงิน"), "เปิดบริษัท" ↔ "เปิด". */
-function sharesSubstring(a: string, b: string, min = 3): boolean {
+ *  min=4 กันเศษคำสั้นที่พบบ่อย (การ/ที่/งาน/ความ) ไปแมตช์มั่ว. เช่น "ขอเงิน"↔"เงิน", "เปิดบริษัท"↔"เปิด". */
+function sharesSubstring(a: string, b: string, min = 4): boolean {
   if (a.length < min || b.length < min) return false
   for (let i = 0; i + min <= a.length; i++) {
     for (let len = min; i + len <= a.length; len++) {
@@ -111,21 +111,32 @@ function scoreGate(gate: DayDetailGate, nq: string): number {
   return best
 }
 
-/** ค้นหาแบบให้คะแนน+จัดอันดับ: ประตูคะแนนสูงสุด = แนะนำ, ที่เหลือ = ใกล้เคียง. */
+const MEANINGFUL_SCORE = 50 // คะแนน "ตรงคำ/ความหมายจริง" (ไม่ใช่แค่แชร์เศษคำ 20)
+const MAX_SHOWN = 4 // ไม่โชว์ผลเกิน 4 ทิศ (กันรก)
+
+/** ค้นหาแบบให้คะแนน+จัดอันดับ. "แนะนำ" = ประตูคะแนนสูงสุดที่ "จับใจความได้จริง" (≥50) และไม่กว้างเกิน (≤3 ทิศ
+ *  คะแนนสูงสุดเท่ากัน) — ถ้าเจอแต่คำใกล้เคียงเลือน ๆ (สูงสุด<50) หรือกว้างไปหมด = ถือว่า "ไม่ชัด" (strong=false)
+ *  ไม่ตีตราแนะนำ/ไม่ไฮไลต์ทั้งกระดาน (แก้บั๊ก: พิมพ์หลายคำแล้วขึ้นแนะนำหมดทุกทิศ). */
 function useGateSearch(placed: { direction: Direction; gate: DayDetailGate }[], query: string) {
   return useMemo(() => {
     const nq = normSearch(query)
-    if (!nq) return { active: false, dirs: new Set<Direction>(), topDirs: new Set<Direction>(), rows: [] as SearchRow[] }
-    const rows: SearchRow[] = []
+    const empty = { active: false, strong: false, dirs: new Set<Direction>(), topDirs: new Set<Direction>(), rows: [] as SearchRow[] }
+    if (!nq) return empty
+    const all: SearchRow[] = []
     for (const p of placed) {
       const score = scoreGate(p.gate, nq)
-      if (score > 0) rows.push({ direction: p.direction, gate: p.gate, score })
+      if (score > 0) all.push({ direction: p.direction, gate: p.gate, score })
     }
-    rows.sort((a, b) => b.score - a.score)
-    const top = rows.length ? rows[0].score : 0
+    all.sort((a, b) => b.score - a.score)
+    const max = all.length ? all[0].score : 0
+    const topTies = all.filter((r) => r.score === max)
+    // "จับใจความได้จริง": คะแนนสูงสุดต้องเป็นระดับตรงคำ (≥50) และประตูที่ได้สูงสุดต้องไม่เกิน 3 (ไม่กำกวมทั้งกระดาน)
+    const strong = max >= MEANINGFUL_SCORE && topTies.length <= 3
+    const rows = all.slice(0, MAX_SHOWN)
+    if (!strong) return { active: true, strong: false, dirs: new Set<Direction>(), topDirs: new Set<Direction>(), rows: [] as SearchRow[] }
+    const topDirs = new Set(topTies.map((r) => r.direction))
     const dirs = new Set(rows.map((r) => r.direction))
-    const topDirs = new Set(rows.filter((r) => r.score === top).map((r) => r.direction))
-    return { active: true, dirs, topDirs, rows }
+    return { active: true, strong: true, dirs, topDirs, rows }
   }, [placed, query])
 }
 
@@ -188,7 +199,7 @@ function GateSearch({
       )}
       {notFound && (
         <p data-testid="gate-search-empty" className="mt-2 text-xs leading-5 text-v3-text-body">
-          ไม่พบคำนี้ — ลองแตะคำแนะนำด้านล่าง หรือพิมพ์ให้ใกล้เคียงขึ้น
+          ยังจับใจความไม่ชัด — ลองพิมพ์ให้กระชับ/เจาะจงขึ้น เช่น “ขอเงิน” “ฟ้องร้อง” หรือแตะคำแนะนำด้านล่าง
         </p>
       )}
       {/* ผู้ใช้ 2026-09-12: "คำแนะนำไม่มีเลยถ้าไม่ใช่คีย์ ใช้ยาก" → โชว์ชิปคำค้นตลอด (แม้ยังไม่พิมพ์)
