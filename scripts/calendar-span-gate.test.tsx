@@ -33,6 +33,7 @@ const h = vi.hoisted(() => ({
 }))
 
 vi.mock('@/lib/v2/resolve-user', () => ({ resolveSessionUserId: vi.fn(async () => h.who) }))
+vi.mock('@/lib/db', () => ({ db: { execute: vi.fn(async () => ({ rows: [] })) } }))
 vi.mock('@/lib/v2/subscription', () => ({ resolveSubscription: vi.fn(async () => h.verdict) }))
 // "now" is pinned so the span has a fixed origin. lib/v2/clock is the smallest surface that does it —
 // freezing the global clock would leak across vitest's shared worker pool (mootech-fe#523).
