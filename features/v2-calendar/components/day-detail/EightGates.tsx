@@ -95,19 +95,26 @@ type SearchRow = { direction: Direction; gate: DayDetailGate; score: number }
 //   100 = ตรงวลีที่คนมักถามเป๊ะ (GATE_PHRASES)      · 70 = วลีนั้นมี query หรือ query มีวลี (เจตนาชัด)
 //    50 = ความหมาย/คีย์เวิร์ดตรงสองทาง               · 20 = แชร์คำ ≥3 ตัว (ใกล้เคียง — ตัวสำรอง)
 // คืนคะแนนสูงสุดที่แมตช์ได้ → ประตูคะแนนสูงสุด = "แนะนำ", ที่เหลือ = "ใกล้เคียง".
+// 3 ประตูมงคล (ซินแส 2026-09-12: "ไหว้ 3 ทิศ · เน้น ไค แซ เก้ง") — โอกาส/การเงิน/ชื่อเสียง.
+// ได้โบนัสจัดอันดับเล็กน้อย: ชนะเมื่อคะแนนเท่ากัน (ขึ้น "แนะนำ" ก่อน) แต่ไม่ข้ามชั้น (ยังไม่แย่งประตูที่ตรงกว่า).
+export const AUSPICIOUS_GATES = new Set(['開', '生', '景'])
+const AUSPICIOUS_BONUS = 5
+
 function scoreGate(gate: DayDetailGate, nq: string): number {
   const glyph = gate.name.trim()
   const phrases = (GATE_PHRASES[glyph] ?? []).map(normSearch)
-  for (const p of phrases) if (p === nq) return 100
   let best = 0
-  for (const p of phrases) if (p && (p.includes(nq) || nq.includes(p))) best = Math.max(best, 70)
+  for (const p of phrases) if (p === nq) best = 100
+  if (best < 70) for (const p of phrases) if (p && (p.includes(nq) || nq.includes(p))) { best = 70; break }
   // ความหมาย/keyword ตามเอกสารซินแส (GATE_INFO) — ให้ค้นหาสอดคล้องกับความหมายจริงของประตู
   const info = GATE_INFO[glyph]
   const words = [info?.keyword ?? '', ...(info?.meanings ?? []), ...(gate.keywords ?? [])].map(normSearch).filter(Boolean)
-  for (const w of words) if (w.includes(nq) || nq.includes(w)) best = Math.max(best, 50)
+  if (best < 50) for (const w of words) if (w.includes(nq) || nq.includes(w)) { best = 50; break }
   if (best < 20) {
-    for (const t of [...phrases, ...words]) if (sharesSubstring(nq, t)) { best = Math.max(best, 20); break }
+    for (const t of [...phrases, ...words]) if (sharesSubstring(nq, t)) { best = 20; break }
   }
+  // เน้น 3 ประตูมงคล: บวกโบนัสเป็นตัวตัดสินภายในชั้นเดียวกัน (ห่างชั้น ≥20 จึงไม่ข้ามชั้น)
+  if (best > 0 && AUSPICIOUS_GATES.has(glyph)) best += AUSPICIOUS_BONUS
   return best
 }
 
@@ -183,9 +190,11 @@ function GateSearch({
           {topRows.map((r, i) => {
             const st = r.gate.deity ? SPIRIT_STYLE[r.gate.deity.trim()] : undefined
             const deityTh = st?.th ?? r.gate.deity?.trim() ?? r.gate.name
+            const auspicious = AUSPICIOUS_GATES.has(r.gate.name.trim())
             return (
-              <div key={`top-${r.direction}-${i}`} className="flex items-start gap-1.5 text-xs leading-5 text-v3-navy">
+              <div key={`top-${r.direction}-${i}`} data-testid="gate-search-top" data-auspicious={auspicious ? '1' : undefined} className="flex items-start gap-1.5 text-xs leading-5 text-v3-navy">
                 <span className="mt-px shrink-0 rounded bg-v3-sapphire px-1.5 py-0.5 text-[10px] font-bold leading-none text-white">แนะนำ</span>
+                {auspicious && <span className="mt-px shrink-0 rounded px-1.5 py-0.5 text-[10px] font-bold leading-none" style={{ backgroundColor: '#E6F5EA', color: '#2E9E52' }}>มงคล</span>}
                 <span>ควรไปทิศ <b>{DIR_LABEL_TH[r.direction]}</b> ({r.direction}) · เทพ <b style={st ? { color: st.ink } : undefined}>{deityTh}</b></span>
               </div>
             )
