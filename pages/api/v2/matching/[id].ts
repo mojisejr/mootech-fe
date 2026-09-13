@@ -10,6 +10,7 @@ import type { NextApiRequest, NextApiResponse } from 'next'
 import { sql } from 'drizzle-orm'
 import { db } from '@/lib/db'
 import { resolveSessionUserId } from '@/lib/v2/resolve-user'
+import { mergeEngineBirth } from '@/lib/bazi-bridge/engine-birth'
 
 type Row = {
   result: string | null
@@ -75,12 +76,18 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     if (!row) return res.status(404).json({ ok: false, error: 'not found' })
 
     // ตัวเรา (person A) = เจ้าของผลนี้ (บังคับด้วย lm.user_id = who.userId) → ส่งค่า "ปัจจุบัน" ของโปรไฟล์ตัวเอง
-    // เพื่อให้จอผลอัปเดตตามที่ผู้ใช้แก้วันเกิด/รูป (#7): รูปดึงจาก /api/v2/avatar (viewer-scoped, มี fallback LINE),
-    // วันเกิด/เวลา จาก user row ปัจจุบัน. ส่วนเพื่อน (person B) คงค่าที่บันทึกไว้ตามเดิม
-    const selfBirthDate = toBirthDate(row.user_dob)
+    // เพื่อให้จอผลอัปเดตตามที่ผู้ใช้แก้วันเกิด/รูป: รูปดึงจาก /api/v2/avatar (viewer-scoped, มี fallback LINE).
+    // #1 (2026-09-13): วันเกิด/เวลา ต้องเป็น "วันที่บันทึกในโปรไฟล์" = engine bazi_user_profile ชนะ legacy user.dob
+    // (mergeEngineBirth — แหล่งเดียวกับหน้าโปรไฟล์/ดวงของฉัน/แชท) ไม่ใช่ user.dob ดิบที่อาจ sync ไม่ตรง
+    const mergedSelf = await mergeEngineBirth(who.userId, {
+      dob: toBirthDate(row.user_dob) ?? '',
+      time: typeof row.user_time === 'string' ? row.user_time.slice(0, 5) : '',
+      is_remember_time: row.user_is_remember_time,
+    })
+    const selfBirthDate = /^\d{4}-\d{2}-\d{2}$/.test(mergedSelf.dob ?? '') ? mergedSelf.dob : null
     const selfTime =
-      row.user_is_remember_time !== false && typeof row.user_time === 'string' && /^\d{2}:\d{2}/.test(row.user_time)
-        ? row.user_time.slice(0, 5)
+      mergedSelf.is_remember_time !== false && typeof mergedSelf.time === 'string' && /^\d{2}:\d{2}/.test(mergedSelf.time)
+        ? mergedSelf.time.slice(0, 5)
         : null
     return res.status(200).json({
       user: {
