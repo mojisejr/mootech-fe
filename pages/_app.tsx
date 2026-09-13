@@ -7,6 +7,8 @@ import { useRouter } from "next/router";
 import { CookiesProvider } from "react-cookie";
 import IdentitySelfHeal from "@/components/identity-self-heal";
 import AppErrorBoundary from "@/components/app-error-boundary";
+// side-effect: ดัก `beforeinstallprompt` ตั้งแต่แอปโหลด (event ยิงครั้งเดียวก่อน component mount) — #install
+import "@/lib/pwa/use-install-prompt";
 import Script from "next/script";
 import Head from "next/head";
 import { useEffect } from "react";
