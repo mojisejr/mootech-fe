@@ -21,6 +21,7 @@ import type { MembershipLike } from '@/features/v2-shell/header-badge'
 import { TopBarBell } from '@/features/v2-shell/components/TopBarBell'
 import { DailyFortuneCard } from '@/features/v2-shell/components/DailyFortuneCard'
 import { Spinner } from '@/features/v2-shell/components/Spinner'
+import { InstallPromptSheet } from './InstallPromptSheet'
 
 // Zone 1 daily-fortune (bazi /api/home). goo wires useHomeFortune() → this shape; I compose against it.
 export type DailyFortune = {
@@ -138,6 +139,9 @@ export function V2HomeScreen({ greeting, mascotCharacter, fortune, fortuneLoadin
       </div>
 
       <CalendarMenu state="default" />
+
+      {/* #install — ป็อปอัปชวนติดตั้งแอปที่หน้าแรก (เด้งครั้งเดียว จำการปิด 7 วัน ซ่อนถ้าติดตั้งแล้ว/ติดตั้งไม่ได้) */}
+      <InstallPromptSheet />
     </div>
   )
 }
