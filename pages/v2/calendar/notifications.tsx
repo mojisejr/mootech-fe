@@ -26,6 +26,7 @@ import { notifyStateFrom } from '@/features/v2-calendar/notify-state'
 import { usePwaCapability, CAPABILITY_CHANGED } from '@/lib/pwa/capability'
 import { requestPushSubscription } from '@/lib/pwa/subscribe'
 import { postPushSubscription } from '@/lib/pwa/persist-subscription'
+import { InstallAppCard } from '@/features/v2-calendar/components/InstallAppCard'
 
 export const getServerSideProps: GetServerSideProps = async (ctx) => {
   ctx.res.setHeader('Cache-Control', 'no-store, must-revalidate')
@@ -241,6 +242,10 @@ export default function V2CalendarNotificationsPage({ teamPreview }: { teamPrevi
         {/* แถบสถานะมาก่อนสรุปยอด — ถ้าแจ้งเตือนปิดอยู่ ยอด "5 ยาม" ข้างล่างคือตัวเลขที่จะไม่เกิดขึ้น
             ⇒ ผู้ใช้ต้องอ่านเงื่อนไขก่อนอ่านตัวเลข · แสดงทุกสถานะรวมทั้งตอนไม่มีรายการ */}
         <NotifyStatusBar state={notify} onShowGuide={setGuide} onEnable={onEnable} />
+
+        {/* #install — ให้ผู้ใช้ติดตั้ง MuMate เป็นแอป (Android: native prompt · iOS: สอน Add-to-Home) เพื่อให้
+            แจ้งเตือนเด้งเหมือนแอปและทำงานแม้ปิดจอ. การ์ดซ่อนตัวเองเมื่อรันในแอปที่ติดตั้งแล้ว (แสดงยืนยันแทน). */}
+        <InstallAppCard />
 
         {/* ปุ่มทดสอบแจ้งเตือน (debug) — ยิง push เข้าเครื่องนี้ทันที ข้าม cron เพื่อเช็คว่าเครื่อง/สิทธิ์พร้อมไหม */}
         <div className="flex flex-col gap-1.5">
