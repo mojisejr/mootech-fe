@@ -15,6 +15,7 @@ import type { Buffer } from 'node:buffer'
 import type { ChargeEvent, PaymentGateway } from './gateway'
 import { parseChargeEvent } from './gateway'
 import { omiseGateway } from './omise-gateway'
+import { beamGateway, beamWebhookCodec } from './beam-gateway'
 
 export const GATEWAY_NAMES = ['omise', 'beam'] as const
 export type GatewayName = (typeof GATEWAY_NAMES)[number]
@@ -55,11 +56,10 @@ export function gatewayNameFromEnv(): GatewayName {
  * The adapter for a NAME — what the reconciler needs, because each v2_payment row remembers the gateway
  * that created it (0027) and must be asked about at THAT provider, never at whichever one is current.
  *
- * 'beam' resolves through a lazy require so that a build with PAYMENT_GATEWAY unset never loads Beam
- * code at all, and so slice 1 can ship the seam before the adapter exists: until slice 2 lands, asking
- * for 'beam' throws GatewayNotInstalledError. The reconciler treats a throw here as "unreachable" (the
- * row is left alone), and the charge routes surface it as a 500 — loud, on the first request, and only
- * for an operator who set the variable to a gateway this build does not carry.
+ * GatewayNotInstalledError is kept for the general case (a name this file knows whose adapter a given
+ * build does not carry): the reconciler treats a throw here as "unreachable" (the row is left alone),
+ * and the charge routes surface it as a 500 — loud, on the first request, and only for an operator who
+ * set the variable to a gateway this build does not carry. Since slice 2 both names resolve.
  */
 export function gatewayFor(name: GatewayName): PaymentGateway {
   switch (name) {
@@ -75,10 +75,10 @@ export function selectGateway(): PaymentGateway {
   return gatewayFor(gatewayNameFromEnv())
 }
 
-// Slice 2 replaces this body with `return beamGateway` from './beam-gateway'. Kept as a function rather
-// than an import so the Omise-only build has no import edge to Beam at all.
+// Slice 2 installed the adapter. The static import is fine: beam-gateway.ts reads its env lazily (only
+// when a Beam call is made), so an Omise-only deploy pays nothing for carrying it.
 function loadBeam(): PaymentGateway {
-  throw new GatewayNotInstalledError('beam')
+  return beamGateway
 }
 
 /** A header lookup the webhook routes hand in, so the codec never touches the Next request itself. */
@@ -106,7 +106,6 @@ export function webhookCodecFor(name: GatewayName): WebhookCodec {
   }
 }
 
-// Slice 2 replaces this body with the Beam codec (X-Beam-Signature over the raw body, X-Beam-Event).
 function loadBeamWebhook(): WebhookCodec {
-  throw new GatewayNotInstalledError('beam')
+  return beamWebhookCodec
 }
