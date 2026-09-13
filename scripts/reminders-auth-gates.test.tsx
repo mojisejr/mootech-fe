@@ -62,7 +62,16 @@ const h = vi.hoisted(() => {
     reason: state.isFree ? 'NO_PLAN' : 'MEMBER',
     memberPayment: null,
   }))
-  return { state, captured, db, getServerSession, resolveMembership }
+  // #354/#358 — reminders.ts ย้ายด่านมาใช้ resolveSubscription (v2-aware, ตัวเดียวกับที่จอปฏิทินล็อกปุ่มด้วย
+  // remindersLocked = isPaid !== true) แทน resolveMembership (member_payment เท่านั้น). driver ยังเป็น
+  // state.isFree ตัวเดิม: free → isPaid:false (ล็อก), paid → isPaid:true.
+  const resolveSubscription = vi.fn(async () => ({
+    isPaid: state.isFree ? false : true,
+    tier: state.isFree ? null : 'PRO',
+    source: state.isFree ? 'none' : 'legacy',
+    expireAt: null,
+  }))
+  return { state, captured, db, getServerSession, resolveMembership, resolveSubscription }
 })
 
 vi.mock('next-auth/next', () => ({ getServerSession: h.getServerSession }))
@@ -70,6 +79,7 @@ vi.mock('next-auth/next', () => ({ getServerSession: h.getServerSession }))
 vi.mock('@/pages/api/auth/[...nextauth]', () => ({ authOptions: {}, default: () => undefined }))
 vi.mock('@/lib/db', () => ({ db: h.db }))
 vi.mock('@/lib/usage', () => ({ resolveMembership: h.resolveMembership }))
+vi.mock('@/lib/v2/subscription', () => ({ resolveSubscription: h.resolveSubscription }))
 // Make the drizzle operators inspectable so a where-clause's user_id scope is observable. sql (used by
 // resolve-user's db.execute) and everything else stay real.
 vi.mock('drizzle-orm', async (orig) => {

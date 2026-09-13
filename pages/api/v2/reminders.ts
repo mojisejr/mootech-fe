@@ -12,7 +12,7 @@ import { and, eq, inArray } from 'drizzle-orm'
 import { db } from '@/lib/db'
 import { reminder } from '@/lib/db/schema'
 import { resolveSessionUserId } from '@/lib/v2/resolve-user'
-import { resolveMembership } from '@/lib/usage'
+import { resolveSubscription } from '@/lib/v2/subscription'
 import { planReminderCommit, type CommitInput } from '@/lib/v2/reminder-plan'
 import { scheduleReminderPush } from '@/lib/push/qstash'
 
@@ -39,9 +39,16 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   // Membership gate — paid only. GET is gated too: a free user has no reminders to read anyway, and
   // gating everything keeps the paid boundary in one place.
-  const membership = await resolveMembership(userId)
-  if (membership.isFree) {
-    return res.status(403).json({ ok: false, error: 'เฉพาะสมาชิก', reason: membership.reason })
+  //
+  // 🔴 ต้องใช้ resolveSubscription (v2-aware) ตัวเดียวกับที่จอปฏิทินล็อกปุ่มเตือน
+  // (features/v2-calendar/tier-lock.ts remindersLocked = isPaid !== true). ของเดิมใช้ resolveMembership
+  // ซึ่งอ่านแค่ member_payment (legacy) → สมาชิกที่ซื้อผ่าน v2 (member_subscription, #354/#358) ตกเป็น
+  // NO_PLAN ทั้งที่จ่ายเงินแล้ว: UI ปลดล็อกปุ่มให้ (resolveSubscription) แต่ POST โดน 403 ที่นี่ = "บันทึกเตือนไม่ได้".
+  // fail-closed: isPaid === null (ตัดสินไม่ได้) = ล็อก เช่นเดียวกับ remindersLocked.
+  const membership = await resolveSubscription(userId)
+  if (membership.isPaid !== true) {
+    const reason = membership.isPaid === null ? 'UNDETERMINED' : 'NO_PLAN'
+    return res.status(403).json({ ok: false, error: 'เฉพาะสมาชิก', reason })
   }
 
   try {
