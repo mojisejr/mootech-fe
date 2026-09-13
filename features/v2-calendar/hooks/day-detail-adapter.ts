@@ -39,5 +39,7 @@ export function libDayDetailToFeature(lib: LibDayDetail): DayDetail {
     luckyDirection: lib.luckyDirection, // RAW ทิศ text
     specialDays: lib.specialDays, // วันมงคล/วันพิเศษ (ดาววัน)
     badDirection: lib.badDirection, // ทิศร้าย
+    yearFortune: lib.yearFortune, // ดวงประจำปี (คี้มึ้ง) — sub-shape ตรงกัน pass through
+    monthFortune: lib.monthFortune, // ดวงประจำเดือน (คี้มึ้ง)
   }
 }

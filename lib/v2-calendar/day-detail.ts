@@ -12,6 +12,8 @@ export type DayDetailPillar = { stem: string; branch: string; ganzhi: string; el
 export type DayDetailYam = { id: string; window: string; label: string }
 export type DayDetailSpirit = { name: string; keywords: string[] }
 export type DayDetailGate = { name: string; direction: string; meaning: string; keywords: string[]; deity?: string }
+// ดวงประจำปี/เดือน (奇門 คี้มึ้ง) จากเอกสารซินแส — ทิศโชคลาภ/ทิศร้าย/เทพ/คี้มึ้ง + ตาราง 8 ประตู
+export type DayDetailQimen = { caishenDir: string; badDir: string; deity: string; kimeng: string; gates: DayDetailGate[] }
 export type DayDetailColor = { element: string; colors: string }
 export type DayDetailStar = { name: string; polarity: string; activity: string }
 
@@ -41,6 +43,8 @@ export type DayDetail = {
   colors: DayDetailColor[] // raw Thai names — no hex (งานดีไซน์)
   specialDays: DayDetailStar[] // almanac.dayStars — วันมงคล + วันพิเศษ (ความรัก/ลาภสวรรค์/หมอเทพ/ฟ้าอภัย)
   badDirection: string // almanac.dayDirections.bad — ทิศร้าย (เลี่ยง)
+  yearFortune: DayDetailQimen | null // ดวงประจำปี (คี้มึ้ง) — almanac.yearInfo · โชว์การ์ด "ดวงประจำปี/เดือน" (แอดวานซ์)
+  monthFortune: DayDetailQimen | null // ดวงประจำเดือน — almanac.monthInfo
 }
 
 const str = (v: unknown, d = ''): string => (typeof v === 'string' ? v : d)
@@ -60,6 +64,21 @@ function pillar(v: unknown): DayDetailPillar | null {
   const p = v as { stem?: unknown; branch?: unknown; ganzhi?: unknown; element?: unknown } | null
   if (!p || typeof p.ganzhi !== 'string') return null
   return { stem: str(p.stem), branch: str(p.branch), ganzhi: p.ganzhi, element: str(p.element) }
+}
+
+// ดวงประจำปี/เดือน (奇門 คี้มึ้ง): map almanac.yearInfo/monthInfo → DayDetailQimen. null เมื่อไม่มีข้อมูลจริง
+// (ทิศร้าย = asuraDir/อสูร engine คำนวณเอง; caishen/deity/kimeng/gates มาจากคี้มึ้งเอกสารซินแส)
+function qimenInfo(v: unknown): DayDetailQimen | null {
+  const q = v as { caishenDir?: unknown; asuraDir?: unknown; deity?: unknown; kimeng?: unknown; gates?: unknown } | null
+  if (!q) return null
+  const gates = arr(q.gates).map((g) => {
+    const gg = g as { name?: unknown; direction?: unknown; meaning?: unknown; keywords?: unknown; deity?: unknown }
+    return { name: str(gg.name), direction: str(gg.direction), meaning: str(gg.meaning), keywords: arr(gg.keywords).map((k) => str(k)), deity: str(gg.deity) }
+  })
+  const caishenDir = str(q.caishenDir), badDir = str(q.asuraDir), deity = str(q.deity), kimeng = str(q.kimeng)
+  // ไม่มีข้อมูลที่ควรโชว์เลย → null (การ์ดซ่อนไป ตาม rule 4)
+  if (gates.length === 0 && !caishenDir && !deity && !kimeng) return null
+  return { caishenDir, badDir, deity, kimeng, gates }
 }
 
 /** map raw man-vs-day(day) + the rich almanac day-object → the lean DayDetail the screen needs. */
@@ -146,6 +165,9 @@ export function mapDayDetail(mvd: unknown, almanacDay: unknown): DayDetail {
       (a.dayDirections as { bad?: unknown } | undefined)?.bad ??
         ((m.almanac as { dayDirections?: { bad?: unknown } } | undefined)?.dayDirections?.bad),
     ),
+    // ดวงประจำปี/เดือน (คี้มึ้ง) — a (almanac day) ก่อน, ไม่มีค่อยเอาจาก man-vs-day almanac
+    yearFortune: qimenInfo(a.yearInfo ?? (m.almanac as { yearInfo?: unknown } | undefined)?.yearInfo),
+    monthFortune: qimenInfo(a.monthInfo ?? (m.almanac as { monthInfo?: unknown } | undefined)?.monthInfo),
   }
 }
 
