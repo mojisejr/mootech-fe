@@ -145,6 +145,14 @@ export interface DayDetailColor {
   element: string
   colors: string
 }
+/** ดวงประจำปี/เดือน (奇門 คี้มึ้ง) — ทิศโชคลาภ/ทิศร้าย/เทพ/คี้มึ้ง + ตาราง 8 ประตู (เอกสารซินแส). */
+export interface DayDetailQimen {
+  caishenDir: string
+  badDir: string
+  deity: string
+  kimeng: string
+  gates: DayDetailGate[]
+}
 /** วันมงคล/วันพิเศษ — ดาววันจากปฏิทินซินแส (name + ดี/ร้าย + กิจกรรม). */
 export interface DayDetailStar {
   name: string
@@ -214,6 +222,10 @@ export interface DayDetail {
   specialDays?: DayDetailStar[]
   /** ทิศร้าย (เลี่ยง) — almanac.dayDirections.bad. */
   badDirection?: string
+  /** ดวงประจำปี (คี้มึ้ง) — almanac.yearInfo. OPTIONAL — paid/แอดวานซ์. */
+  yearFortune?: DayDetailQimen | null
+  /** ดวงประจำเดือน (คี้มึ้ง) — almanac.monthInfo. OPTIONAL — paid/แอดวานซ์. */
+  monthFortune?: DayDetailQimen | null
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

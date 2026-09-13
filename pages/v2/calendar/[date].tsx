@@ -33,6 +33,7 @@ import { YamTimes } from '@/features/v2-calendar/components/day-detail/YamTimes'
 import { MyChart } from '@/features/v2-calendar/components/day-detail/MyChart'
 import { Dithi } from '@/features/v2-calendar/components/day-detail/Dithi'
 import { EightGates } from '@/features/v2-calendar/components/day-detail/EightGates'
+import { YearMonthFortune } from '@/features/v2-calendar/components/day-detail/YearMonthFortune'
 import { EightDeities } from '@/features/v2-calendar/components/day-detail/EightDeities'
 import { Patrons } from '@/features/v2-calendar/components/day-detail/Patrons'
 import { SaveSheet } from '@/features/v2-calendar/components/day-detail/SaveSheet'
@@ -358,6 +359,10 @@ export default function V2CalendarDayPage({ teamPreview }: { teamPreview: boolea
         {/* §12/§13 [advanced] — 8 ประตู · 8 เทพ */}
         {/* เงื่อนไขคือ `gates` (paid) ❌ ไม่ใช่ `luckyDirection` ซึ่งเป็นของฟรีหลัง #226 */}
         {advanced && detail.gates && <EightGates gates={detail.gates} />}
+        {/* [advanced] ดวงประจำปี/เดือน (คี้มึ้ง 奇門) — ทิศโชคลาภ/ทิศร้าย/เทพ/คี้มึ้ง + ตาราง 8 ประตู ปี/เดือน (เอกสารซินแส 2026-09-13) */}
+        {advanced && (detail.yearFortune || detail.monthFortune) && (
+          <YearMonthFortune year={detail.yearFortune ?? null} month={detail.monthFortune ?? null} />
+        )}
         {advanced && detail.spirits && <EightDeities deities={detail.spirits} />}
         {/* [advanced] กุ๊ยนั้ง 貴人 — almanac.patrons (paid: ไม่อยู่ใน allow-list ฟรี) · gafiw 2026-09-07 */}
         {advanced && detail.patrons && <Patrons patrons={detail.patrons} />}
