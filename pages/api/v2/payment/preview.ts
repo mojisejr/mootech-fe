@@ -10,6 +10,7 @@ import { resolveSessionUserId } from '@/lib/v2/resolve-user'
 import { priceFor } from '@/lib/discount/preview-flow'
 import { insertQuote } from '@/lib/discount/repo'
 import { decidePurchaseFor } from '@/lib/payment/repo'
+import { gatewayNameFromEnv, selectGateway } from '@/lib/payment/select-gateway'
 
 // A quote is only good for a short while — the price it froze (VAT, code status, code quota) can move.
 export const QUOTE_TTL_MS = 15 * 60 * 1000
@@ -66,6 +67,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     vatPercent: priced.vatPercent,
     codeApplied: priced.code ? priced.code.code : null,
     expiresAt: expiresAt.toISOString(),
+    // Beam lane slice 4 — which gateway will take this quote and how a card is entered for it. Read at
+    // request time from PAYMENT_GATEWAY (select-gateway.ts), so a flip or a rollback reaches the screen on
+    // the next quote without a rebuild. A client that ignores both behaves exactly as before (Omise).
+    gateway: gatewayNameFromEnv(),
+    cardEntry: selectGateway().cardEntry ?? 'token',
     // #456 — { allow: true, carryOverDays } | { allow: false, reason }. A client that ignores this field
     // behaves exactly as before and is still refused at charge; it is here so the screen does not have to
     // find out by trying to pay.

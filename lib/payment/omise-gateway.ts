@@ -72,6 +72,7 @@ function readOutcome(json: Record<string, unknown>): Pick<ChargeResult, 'status'
 }
 
 export const omiseGateway: PaymentGateway = {
+  cardEntry: 'token', // omise.js tokenises in the browser; the route requires the token
   async createCardCharge({ amountSatang, token, email, orderId, packageCode }): Promise<ChargeResult> {
     // #374 — resolved BEFORE the POST so a misconfigured endpoint fails here, never after a card is charged.
     const webhook = webhookEndpointFields()

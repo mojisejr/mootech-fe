@@ -40,6 +40,17 @@ const GOOD: CardState = { name: 'David Watson', number: '4242424242424242', expi
 const EMPTY: CardState = { name: '', number: '', expiry: '', cvc: '' }
 
 // ── the gate ─────────────────────────────────────────────────────────────────────────────────────────
+// Beam lane slice 4 — a HOSTED card entry (Beam Payment Links) has no form to validate: the card is typed
+// on the gateway's page. A quote is all it takes; an empty form must not block it.
+check('hosted card entry: an EMPTY form can be submitted once the quote exists', () => {
+  assert.equal(payReady({ hasQuote: true, loading: false, method: 'card', card: EMPTY, now: NOW, cardEntry: 'hosted' }), true)
+  assert.equal(payReady({ hasQuote: false, loading: false, method: 'card', card: EMPTY, now: NOW, cardEntry: 'hosted' }), false)
+})
+
+check("token card entry (Omise, and the default when absent) still validates the form", () => {
+  assert.equal(payReady({ hasQuote: true, loading: false, method: 'card', card: EMPTY, now: NOW, cardEntry: 'token' }), false)
+})
+
 check('a good card can be submitted', () => {
   assert.equal(ready(GOOD, 'card'), true)
 })

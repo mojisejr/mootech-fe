@@ -9,7 +9,14 @@ import { selectGateway } from '@/lib/payment/select-gateway'
 // so a provider switch or a rollback is an env change, and a name this build does not know fails loud on
 // the first charge instead of quietly charging through Omise.
 export default function handler(req: NextApiRequest, res: NextApiResponse) {
-  return runChargeFlow(req, res, 'card', ({ amountSatang, token, email, orderId, packageCode }) =>
-    selectGateway().createCardCharge({ amountSatang, token: token as string, email, orderId, packageCode }),
+  const gw = selectGateway()
+  return runChargeFlow(
+    req,
+    res,
+    'card',
+    ({ amountSatang, token, email, orderId, packageCode }) =>
+      gw.createCardCharge({ amountSatang, token: token as string, email, orderId, packageCode }),
+    // slice 4 — a hosted-card gateway (Beam Payment Links) takes no token; Omise still requires one.
+    { cardEntry: gw.cardEntry ?? 'token' },
   )
 }

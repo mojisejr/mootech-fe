@@ -174,6 +174,7 @@ async function resolveLinkCharge(paymentLinkId: string): Promise<BeamJson | null
 }
 
 export const beamGateway: PaymentGateway = {
+  cardEntry: 'hosted', // Payment Links: the card is entered on Beam's page, never ours
   async createCardCharge({ amountSatang, email, orderId, packageCode }): Promise<ChargeResult> {
     // The customer is on BEAM's page; without a redirect back they finish on Beam's success screen and
     // never reach /v2/shop/result. So the return origin is REQUIRED here (Omise's card path could omit

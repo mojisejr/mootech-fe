@@ -18,6 +18,8 @@ export type PayReadyInput = {
   card: CardState
   /** The caller's clock. Never read from one here — see the CardForm props for what that default cost. */
   now: Date
+  /** Beam lane slice 4 — 'hosted' means there is no card form to validate: a quote is all it takes. */
+  cardEntry?: 'token' | 'hosted'
 }
 
 /**
@@ -26,8 +28,9 @@ export type PayReadyInput = {
  * for PromptPay (there are no boxes). Both lanes are asserted, because a fix for one that silently
  * breaks the other is the shape this ticket family keeps producing.
  */
-export function payReady({ hasQuote, loading, method, card, now }: PayReadyInput): boolean {
+export function payReady({ hasQuote, loading, method, card, now, cardEntry }: PayReadyInput): boolean {
   if (!hasQuote || loading) return false
   if (method === 'promptpay') return true
+  if (cardEntry === 'hosted') return true // the card is entered on the gateway's page, not here
   return validateCard(card, now).ok
 }

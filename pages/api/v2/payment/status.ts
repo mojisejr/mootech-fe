@@ -21,6 +21,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       tierCode: r.tierCode,
       amountSatang: r.amountSatang,
       method: r.method,
+      gateway: r.gateway,
       status: r.status,
       // #455 slice 3 — REJECT has two causes and the screen has to tell them apart.
       // Match EXACTLY, not by prefix. The producer is one line, lib/payment/reconcile-run.ts:102:
