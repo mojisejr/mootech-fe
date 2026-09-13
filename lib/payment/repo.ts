@@ -129,6 +129,10 @@ export async function insertPendingReserved(
     quoteId: string | null
     discountSatang: number
     codeId: string | null
+    /** 0027 — which provider will hold this charge ('omise' | 'beam'). Optional so every existing caller
+     *  and fixture keeps compiling; absent ⇒ the column's own DEFAULT 'omise' applies, which is also what
+     *  every row written before 0027 means. */
+    gateway?: string
   },
   reserve: null | { codeId: string; vatPercent: number; maxUsePerUser: number | null },
   db: Db = defaultDb,
@@ -423,7 +427,7 @@ export async function abandonPending(
 export async function listUnsettledPayments(
   since: Date,
   db: Db = defaultDb,
-): Promise<Array<{ id: string; chargeId: string; orderId: string; status: string; createdAt: Date }>> {
+): Promise<Array<{ id: string; chargeId: string; orderId: string; status: string; createdAt: Date; gateway: string }>> {
   return db
     .select({
       id: v2Payment.id,
@@ -431,6 +435,8 @@ export async function listUnsettledPayments(
       orderId: v2Payment.orderId,
       status: v2Payment.status,
       createdAt: v2Payment.createdAt,
+      // 0027 — so the reconciler asks the provider that HOLDS the charge, not whichever one is current.
+      gateway: v2Payment.gateway,
     })
     .from(v2Payment)
     .where(and(eq(v2Payment.status, 'PENDING'), gte(v2Payment.createdAt, since)))

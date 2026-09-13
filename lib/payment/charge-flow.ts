@@ -9,6 +9,7 @@ import { priceFor } from '@/lib/discount/preview-flow'
 import { getQuote } from '@/lib/discount/repo'
 import type { ChargeResult } from './gateway'
 import { isRefusedCharge } from './gateway'
+import { gatewayNameFromEnv } from './select-gateway'
 
 export function makeOrderId(): string {
   // parity with v1: 10 random decimal digits (crypto.randomInt)
@@ -117,9 +118,14 @@ export async function runChargeFlow(
   // id is attached after Omise accepts.
   // ONE orderId for both the stored row and Omise's metadata — they are the same reference (v1 parity).
   const orderId = makeOrderId()
+  // 0027 — the row remembers WHICH gateway will hold this charge, read from the same variable the route's
+  // selectGateway() reads, so the reconciler later asks the right provider. Resolved here, BEFORE the
+  // reserve, so an unknown PAYMENT_GATEWAY value fails loud with no row and no discount hold written.
+  const gateway = gatewayNameFromEnv()
   const reserved = await insertPendingReserved(
     {
       userId: who.userId,
+      gateway,
       packageCode: priced.packageCode,
       tierCode: priced.tierCode,
       amountSatang: priced.amountSatang,

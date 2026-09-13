@@ -14,7 +14,7 @@
 import type { NextApiRequest, NextApiResponse } from 'next'
 import { db } from '@/lib/db'
 import { isAuthorized } from '@/lib/push/authorize'
-import { omiseGateway } from '@/lib/payment/omise-gateway'
+import { gatewayFor, gatewayNameFrom } from '@/lib/payment/select-gateway'
 import {
   listUnsettledPayments,
   settleAndProvision,
@@ -54,7 +54,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   const summary = await runReconcile({
     listUnsettled: (since) => listUnsettledPayments(since, db),
-    retrieveCharge: (chargeId) => omiseGateway.retrieveCharge(chargeId),
+    // 0027 — ask the provider that HOLDS the charge (the row says which), never whichever gateway this
+    // deploy currently charges through. gatewayNameFrom() of a row value this build does not know, or
+    // gatewayFor() of an adapter not installed, throws — runReconcile counts that as unreachable and
+    // leaves the row PENDING, which is the only honest answer for a provider we could not ask.
+    retrieveCharge: (chargeId, gateway) => gatewayFor(gatewayNameFrom(gateway)).retrieveCharge(chargeId),
     settle: (chargeId) => settleAndProvision(chargeId),
     // #455 slice 3 — the same abandon path the webhook uses, reached from the cron for the expiry case
     // that never produces a webhook at all.

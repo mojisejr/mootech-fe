@@ -27,6 +27,9 @@ export type ReconcileCandidate = {
   orderId: string
   status: string
   createdAt: Date
+  /** 0027 — the provider that holds this charge ('omise' | 'beam'). Optional here so the pure rule and
+   *  every fixture that predates the column keep working; absent means 'omise' (the column's DEFAULT). */
+  gateway?: string
 }
 
 export type ReconcileWindow = {

@@ -40,6 +40,8 @@ const M0012 = readFileSync(resolve('lib/db/0012_v2_payment_prev_member_expire.sq
 // list is the drift trap that caused it: each new v2_payment ALTER must be added to three suites, and
 // nothing fails until someone actually runs them — which, being skipIf(!TEST_DATABASE_URL), is rarely.
 const M0019 = readFileSync(resolve('lib/db/0019_v2_payment_qi_granted_at.sql'), 'utf8')
+// Beam lane slice 1 — 0027 adds v2_payment.gateway; schema.ts selects every column, so a rebuilt table needs it.
+const M0027 = readFileSync(resolve('lib/db/0027_v2_payment_gateway.sql'), 'utf8')
 const SECRET = Buffer.from('whsec_test_355').toString('base64')
 const TS = '1755766800'
 const NOW = new Date()
@@ -89,6 +91,7 @@ describe.skipIf(!TEST_URL)('payment webhook · real pg (#355)', () => {
     await sql.unsafe(M0011) // #455 — charge_expires_at (schema-wide select needs it)
     await sql.unsafe(M0012) // #484 — prev_member_expire_at (schema-wide select needs it)
     await sql.unsafe(M0019) // #605 G1 — qi_granted_at (schema-wide select needs it)
+    await sql.unsafe(M0027) // Beam lane slice 1 — gateway column (schema-wide select needs it)
     const rows = await sql`SELECT user_id FROM "user"
       WHERE user_id NOT IN (SELECT user_id FROM member_payment) LIMIT 4`
     users = rows.map((r) => r.user_id as string)
