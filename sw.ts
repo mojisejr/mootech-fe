@@ -60,14 +60,20 @@ self.addEventListener("push", (event) => {
       body = event.data.text() || body;
     }
   }
-  event.waitUntil(
-    self.registration.showNotification(title, {
-      body,
-      icon: "/icons/icon-192.png",
-      badge: "/icons/icon-192.png",
-      data: { url },
-    }),
-  );
+  // LINE-style heads-up: สั่น + ค้างบนจอจนกว่าผู้ใช้จะแตะ (ไม่หายเองใน 2-3 วิ) + re-alert ถ้ามาใหม่.
+  // vibrate/renotify ไม่มีใน NotificationOptions ของ TS (นอก base spec) แต่ทำงานจริงบน Android Chrome →
+  // cast เพิ่มเฉพาะสองฟิลด์นี้. tag คงที่ = อันใหม่แทนที่อันเก่า (renotify ปลุกซ้ำ) กันสแปมค้างจอหลายใบ.
+  const options = {
+    body,
+    icon: "/icons/icon-192.png",
+    badge: "/icons/icon-192.png",
+    requireInteraction: true,
+    tag: "mumate-reminder",
+    data: { url },
+  } as NotificationOptions & { vibrate?: number[]; renotify?: boolean };
+  options.vibrate = [300, 120, 300];
+  options.renotify = true;
+  event.waitUntil(self.registration.showNotification(title, options));
 });
 
 self.addEventListener("notificationclick", (event) => {

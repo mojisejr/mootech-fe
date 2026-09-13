@@ -157,10 +157,17 @@ export default function V2CalendarNotificationsPage({ teamPreview }: { teamPrevi
         // จังหวะที่ 1 — ยิงทั้ง granted และ denied: 'denied' ก็เป็นความจริงใหม่ที่แถบต้องสะท้อน
         document.dispatchEvent(new Event(CAPABILITY_CHANGED))
         // ค่อยไปสร้าง subscription จริง (ใช้ตัวเดิมของ goo · idempotent · reuse ของเดิมถ้ามี)
-        // ⚠️ ยังไม่ได้ส่งขึ้น server — `postPushSubscription` เกิดที่ #303 ซึ่งยังไม่ merge (เขียนไว้ในใบ)
         return requestPushSubscription()
       })
-      .then(() => document.dispatchEvent(new Event(CAPABILITY_CHANGED))) // จังหวะที่ 2
+      .then(async (r) => {
+        // 🔴 ต้อง POST ขึ้น server ตรงนี้ ไม่งั้น push_subscription ว่างเปล่า → #288/QStash ไม่มีปลายทางให้ยิง
+        // (บั๊กเดิม: onEnable สร้าง subscription บนเครื่องแต่ไม่เคยส่งขึ้น server → กด "เปิด" แล้วไม่เคยได้แจ้งเตือน).
+        // เส้นทางเดียวกับ onTestPush ใช้ persist อยู่แล้ว.
+        if (r && r.ok) {
+          await postPushSubscription(r.subscription, typeof navigator !== 'undefined' ? navigator.userAgent : undefined)
+        }
+        document.dispatchEvent(new Event(CAPABILITY_CHANGED)) // จังหวะที่ 2
+      })
       .catch(() => document.dispatchEvent(new Event(CAPABILITY_CHANGED))) // ล้มก็ต้องอ่านค่าใหม่ ไม่ค้างคำโกหก
   }
 
