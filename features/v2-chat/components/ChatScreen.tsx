@@ -241,6 +241,24 @@ export function ChatScreen() {
     }
   }, [])
 
+  // #5 (2026-09-13): มาสคอต ย่อ/ขยายได้เอง (กดพับเก็บเพื่ออ่านเต็มจอ) — จำสถานะไว้ใน localStorage
+  const [mascotOpen, setMascotOpen] = useState(true)
+  useEffect(() => {
+    try {
+      const v = window.localStorage.getItem("mumate:chat:mascotOpen")
+      if (v === "0") setMascotOpen(false)
+    } catch {
+      /* localStorage ใช้ไม่ได้ → ค่าเริ่มต้น เปิดไว้ */
+    }
+  }, [])
+  const toggleMascot = useCallback(() => {
+    setMascotOpen((v) => {
+      const next = !v
+      try { window.localStorage.setItem("mumate:chat:mascotOpen", next ? "1" : "0") } catch { /* ไม่เป็นไร */ }
+      return next
+    })
+  }, [])
+
   return (
     <div
       data-testid="v2-chat-screen"
@@ -347,26 +365,40 @@ export function ChatScreen() {
         })}
       </div>
 
-      {/* mascot + messages — มาสคอตเล็กลงและวางแบบ absolute หลังข้อความ (ซ้อนได้) เพื่อเพิ่มพื้นที่อ่าน
-          (เจ้าของ 2026-09-13): ข้อความ (z-10, พื้นทึบ) เลื่อนทับมาสคอต (z-0) ได้ */}
-      <div className="relative min-h-0 w-full flex-1">
-        {/* mascot overlay + link */}
-        <div className="pointer-events-none absolute inset-x-0 top-0 z-0 flex flex-col items-center gap-1 pt-2">
+      {/* mascot — ย่อ/ขยายได้เอง (เจ้าของ 2026-09-13): พับเก็บมาสคอตเพื่ออ่านข้อความได้เต็มจอ, กดขยายเพื่อโชว์ */}
+      <div className="flex w-full flex-none flex-col items-center gap-1 pt-2">
+        {mascotOpen && (
           <span className="v3-float relative block h-[128px] w-[118px]">
             <Image src={mascotSrc} alt={`มาสคอต${activePersona.name}`} fill sizes="140px" style={{ objectFit: "contain" }} priority />
           </span>
+        )}
+        <div className="flex items-center gap-3">
           <button
             onClick={() => setShowAllQuestions((v) => !v)}
             data-testid="chat-capabilities"
-            className="pointer-events-auto text-[12px] font-medium leading-4 text-v3-cyan underline underline-offset-2"
+            className="text-[12px] font-medium leading-4 text-v3-cyan underline underline-offset-2"
           >
             {showAllQuestions ? "ซ่อนรายการคำถาม" : "ดูสิ่งที่มิวน้อยทำได้"}
           </button>
+          <button
+            type="button"
+            onClick={toggleMascot}
+            data-testid="chat-mascot-toggle"
+            aria-label={mascotOpen ? "ย่อมาสคอต" : "ขยายมาสคอต"}
+            aria-expanded={mascotOpen}
+            className="flex items-center gap-1 rounded-full bg-white/70 px-2.5 py-[3px] text-[11px] font-medium text-v3-navy v3-shadow-line backdrop-blur"
+          >
+            {mascotOpen ? "ย่อ" : "ขยาย"}
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" aria-hidden className={mascotOpen ? "" : "rotate-180"}>
+              <path d="M6 15l6-6 6 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+          </button>
         </div>
+      </div>
 
-        {/* messages */}
-        <div className="relative z-10 h-full w-full overflow-y-auto px-4">
-          <div className="mx-auto flex w-full max-w-[430px] flex-col gap-2 pb-2 pt-[172px]">
+      {/* messages */}
+      <div className="min-h-0 w-full flex-1 overflow-y-auto px-4">
+        <div className="mx-auto flex w-full max-w-[430px] flex-col gap-2 pb-2 pt-2">
           {/* greeting bubble (Figma copy — see TODO(figma-copy)) */}
           <div data-testid="chat-greeting" className="max-w-[92%] self-start rounded-[18px] border border-[#D88FA9] bg-white px-4 py-3 text-[14px] leading-[22px] text-v3-navy shadow-[0_2px_8px_rgba(11,48,91,0.12),0_1px_4px_rgba(216,143,169,0.35)]">
             {activePersona.greeting}
@@ -433,7 +465,6 @@ export function ChatScreen() {
           </div>
           <div ref={bottomRef} />
         </div>
-      </div>
 
       {/* suggestion chips — starters first, then the canonical next questions */}
       {(showAllQuestions || !startersUsed || nextSuggestions.length > 0) && (
