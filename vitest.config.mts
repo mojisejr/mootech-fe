@@ -167,6 +167,10 @@ export default defineConfig({
       'scripts/calendar-month-span-unconditional.test.tsx', // #358 Phase 4 — the span gate has no flag in front of it
       'scripts/calendar-refusal-on-screen.test.tsx', // #529 #530 — the SCREEN half: the two refusals a person actually reads
     'scripts/payment-charge-route.test.ts', // #355 — route: session gate + client-ignored + fail-loud-before-charge
+      'scripts/select-gateway.test.ts', // Beam lane slice 1 — PAYMENT_GATEWAY unset = Omise byte for byte; unknown name fails loud; beam not installed yet
+      'scripts/webhook-beam-gate.test.ts', // Beam lane slice 1 — /api/v2/payment/webhook-beam passes guardV2 AND the maintenance allow-list (exact match)
+      'scripts/reconcile-gateway-routing.test.ts', // Beam lane slice 1 — reconciler asks the provider on the row (0027); a provider it cannot ask = unreachable
+      'scripts/webhook-beam-route.test.ts', // Beam lane slice 1 — the Beam webhook shell answers 503 (never 200) until the adapter is installed
       'scripts/terminal-failure-agreement.test.ts', // #437 — isRefusedCharge (สร้าง charge) กับ isTerminalFailure (webhook) ต้องตอบเหมือนกัน
       'scripts/result-declined-rule.test.ts', // #438 — จอต้องพูดคำว่าธนาคารปฏิเสธได้ + ปุ่มต้องไม่พาไปหน้าตาย
       'scripts/qr-expiry-reaches-row.test.ts', // #455 slice 1 — วันหมดอายุเดินทางจาก Omise ถึงแถวถึงจอ

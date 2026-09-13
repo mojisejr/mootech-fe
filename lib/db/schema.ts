@@ -792,6 +792,12 @@ export const v2Payment = pgTable("v2_payment", {
 	// remove that idempotency and this column turns into a double-credit machine.
 	// A membership row stays NULL forever: its provisioning is a write in the same transaction.
 	qiGrantedAt: timestamp("qi_granted_at", { withTimezone: true }),
+	// 🔴 Beam lane slice 1 (0027 ALTER) — WHICH GATEWAY holds this charge: 'omise' | 'beam' (the names
+	// lib/payment/select-gateway.ts knows). Written at reserve time from PAYMENT_GATEWAY, so the
+	// reconciler can ask the RIGHT provider about a PENDING row instead of asking Omise about a Beam id
+	// and reading its honest "I do not know this charge" as "not paid yet" forever. DEFAULT 'omise' ⇒
+	// every row that predates 0027 is correctly attributed without a backfill. Free text, no CHECK.
+	gateway: text().default('omise').notNull(),
 	// discount linkage (#361, 0008 ALTER) — NULL/0 when no code was used.
 	codeId: varchar("code_id", { length: 36 }).references(() => discountCode.id),
 	discountSatang: integer("discount_satang").default(0).notNull(),

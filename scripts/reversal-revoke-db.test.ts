@@ -44,6 +44,8 @@ const M0012 = readFileSync(resolve('lib/db/0012_v2_payment_prev_member_expire.sq
 // would break the rest the same way, with nobody knowing until somebody ran them. This is that, one file
 // later. The list is still hand-maintained and still has nothing enforcing it.
 const M0019 = readFileSync(resolve('lib/db/0019_v2_payment_qi_granted_at.sql'), 'utf8')
+// Beam lane slice 1 — 0027 adds v2_payment.gateway; schema.ts selects every column, so a rebuilt table needs it.
+const M0027 = readFileSync(resolve('lib/db/0027_v2_payment_gateway.sql'), 'utf8')
 const SECRET = Buffer.from('whsec_test_484').toString('base64')
 const TS = '1755766800'
 const NOW = new Date()
@@ -112,6 +114,7 @@ describe.skipIf(!TEST_URL)('#484 a reversed charge takes the entitlement with it
     await sql.unsafe(M0011)
     await sql.unsafe(M0012)
     await sql.unsafe(M0019)
+    await sql.unsafe(M0027) // Beam lane slice 1 — gateway column (schema-wide select needs it)
     const rows = await sql`SELECT user_id FROM "user"
       WHERE user_id NOT IN (SELECT user_id FROM member_payment) LIMIT 4`
     users = rows.map((r) => r.user_id as string)

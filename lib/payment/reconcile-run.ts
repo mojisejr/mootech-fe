@@ -17,15 +17,21 @@ import { isRefusedCharge } from './gateway'
 
 export type ReconcileDeps = {
   listUnsettled: (since: Date) => Promise<
-    Array<{ id: string; chargeId: string; orderId: string; status: string; createdAt: Date }>
+    Array<{ id: string; chargeId: string; orderId: string; status: string; createdAt: Date; gateway?: string }>
   >
   // 🔴 #455 slice 3 widened this by ONE optional field. The real adapter (omise-gateway.ts readOutcome)
   // has always returned failureCode; this type simply did not ask for it, because #360 only needed to know
   // "paid or not". It stays OPTIONAL so a fake gateway in a test may omit it, and so that absent reads as
   // "the gateway did not say" — never as a verdict. Same rule the other three optional fields on
   // ChargeResult carry (gateway.ts).
+  // 0027 — the SECOND argument names the provider that holds the charge, from the row. A dep that
+  // ignores it (every fixture written before the column, and the Omise-only world) still behaves exactly
+  // as before; the cron passes it to gatewayFor() so a Beam row is never asked about at Omise. A throw
+  // from that lookup (adapter not installed, unknown name) is caught below as "unreachable" — the row is
+  // left alone for the next run, never abandoned on the strength of a provider we could not ask.
   retrieveCharge: (
     chargeId: string,
+    gateway?: string,
   ) => Promise<{ chargeId: string; paid: boolean; status: string; failureCode?: string | null } | null>
   /**
    * 🔴 TAKES ONLY THE charge_id — deliberately. #371 added an order_id recovery path to settleAndProvision,
@@ -74,7 +80,7 @@ export async function runReconcile(
   for (const row of candidates) {
     let charge: Awaited<ReturnType<ReconcileDeps['retrieveCharge']>>
     try {
-      charge = await deps.retrieveCharge(row.chargeId)
+      charge = await deps.retrieveCharge(row.chargeId, row.gateway)
     } catch {
       // 🔴 "cannot ask" is NOT "not paid" — leave the row exactly as it is and try again next run.
       summary.unreachable += 1

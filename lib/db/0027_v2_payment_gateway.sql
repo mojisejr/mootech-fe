@@ -1,0 +1,21 @@
+-- 0027 · v2_payment: remember WHICH GATEWAY created this charge (Beam Checkout lane, CIEL
+-- workstream mootech-fe-beam-gateway-001 slice 1).
+-- HAND-AUTHORED per the DRIZZLE WORKFLOW CONTRACT (schema.ts header): reviewed, applied BY HAND on
+-- dev → then prod (operator-gated). NEVER run blind / via drizzle push.
+--
+-- 🔴 Applying to prod requires ฟีม. ADDITIVE ONLY — one NOT NULL column with a DEFAULT, so every
+-- existing row reads 'omise' the moment the ALTER lands and no backfill is needed. No CHECK, no FK,
+-- no DROP, nothing rewritten. IF NOT EXISTS ⇒ re-running is safe.
+--
+-- WHY THIS EXISTS — a second gateway is about to sit behind lib/payment/gateway.ts, and the reconciler
+-- (pages/api/cron/reconcile-payment.ts) asks ONE adapter about every PENDING row. Without this column
+-- it would ask Omise about a Beam charge id, Omise would answer null (it does not know the charge),
+-- and reconcile-run.ts would — correctly — leave the row PENDING "until the gateway knows it", which
+-- for a foreign id is never. The row would sit there until the 7-day window dropped it. The column is
+-- the honest fix; inferring the gateway from the id's prefix would work today and break silently the
+-- day a prefix changes.
+--
+-- Values are the PAYMENT_GATEWAY names lib/payment/select-gateway.ts knows: 'omise' | 'beam'. Kept as
+-- free text (no CHECK) on purpose: a third gateway must not need a migration to be recorded, and the
+-- selector fails loud at request time on a name it does not know.
+ALTER TABLE "v2_payment" ADD COLUMN IF NOT EXISTS "gateway" text NOT NULL DEFAULT 'omise';

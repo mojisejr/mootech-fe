@@ -58,6 +58,8 @@ const M0011 = readFileSync(resolve('lib/db/0011_v2_payment_qr_expiry.sql'), 'utf
 // and every schema-wide select here died with 42703 the first time anyone ran the suite.
 const M0012 = readFileSync(resolve('lib/db/0012_v2_payment_prev_member_expire.sql'), 'utf8')
 const M0019 = readFileSync(resolve('lib/db/0019_v2_payment_qi_granted_at.sql'), 'utf8')
+// Beam lane slice 1 — 0027 adds v2_payment.gateway; schema.ts selects every column, so a rebuilt table needs it.
+const M0027 = readFileSync(resolve('lib/db/0027_v2_payment_gateway.sql'), 'utf8')
 const SECRET = 'cron-secret-360'
 
 function callCron(auth?: string) {
@@ -86,6 +88,7 @@ describe.skipIf(!TEST_URL)('#360 reconcile cron · real pg', () => {
     await sql.unsafe(M0011) // #455 — charge_expires_at (schema-wide select needs it)
     await sql.unsafe(M0012) // #484 — prev_member_expire_at (schema-wide select needs it)
     await sql.unsafe(M0019) // #605 G1 — qi_granted_at (schema-wide select needs it)
+    await sql.unsafe(M0027) // Beam lane slice 1 — gateway column (schema-wide select needs it)
     const rows = await sql`SELECT user_id FROM "user" WHERE user_id NOT IN (SELECT user_id FROM member_payment) LIMIT 4`
     users = rows.map((r) => r.user_id as string)
     expect(users.length, 'fixture: need 4 member_payment-free users').toBeGreaterThan(3)
@@ -166,6 +169,34 @@ describe.skipIf(!TEST_URL)('#360 reconcile cron · real pg', () => {
     expect(h.retrieveCalls.length, 'an unauthorized call must not even reach the gateway').toBe(0)
     const [pay] = await sql`SELECT status FROM v2_payment WHERE id = 'r360-d'`
     expect(pay.status).toBe('PENDING')
+  })
+
+  // Beam lane slice 1 — 0027: a row remembers its gateway, and the cron asks THAT provider. In this build
+  // the Beam adapter is not installed, so a Beam row must count as unreachable: never asked at Omise
+  // (the mock above IS Omise), never abandoned, never settled — it waits for the build that carries Beam.
+  it('🔴 0027 a row whose gateway is beam is NOT asked about at Omise and survives PENDING', async () => {
+    await sql`INSERT INTO v2_payment (id, user_id, package_code, tier_code, amount_satang, vat_satang, expire, buffer_day, method, charge_id, order_id, status, gateway, created_at)
+              VALUES ('r027-beam', ${users[0]}, 'MONTHLY', 'PLUS', 50000, 0, '1M', 0, 'promptpay', 'ch_beam_row', 'ORD-r027-beam', 'PENDING', 'beam', now() - interval '60 minutes')`
+    await seed('r027-omise', 'chrg_omise_row', users[1])
+    h.paidCharges.add('ch_beam_row') // even if Omise's mock WOULD say paid for this id, it must never be asked
+    h.paidCharges.add('chrg_omise_row')
+
+    const out = await callCron(`Bearer ${SECRET}`)
+    expect(out.code).toBe(200)
+    expect(h.retrieveCalls, 'the Beam row must not reach the Omise adapter').toEqual(['chrg_omise_row'])
+    expect(out.body.unreachable).toBe(1)
+    expect(out.body.provisioned).toBe(1)
+    const rows = await sql`SELECT id, status, gateway FROM v2_payment WHERE id IN ('r027-beam','r027-omise') ORDER BY id`
+    expect(rows).toEqual([
+      { id: 'r027-beam', status: 'PENDING', gateway: 'beam' },
+      { id: 'r027-omise', status: 'APPROVED', gateway: 'omise' },
+    ])
+  })
+
+  it('0027 a row inserted without naming a gateway reads omise (the DEFAULT covers every pre-0027 row)', async () => {
+    await seed('r027-default', 'chrg_default', users[2])
+    const [row] = await sql`SELECT gateway FROM v2_payment WHERE id = 'r027-default'`
+    expect(row.gateway).toBe('omise')
   })
 
   it('🔴 ⑤ an UNREACHABLE gateway is not read as "not paid" — the row survives for the next run', async () => {
