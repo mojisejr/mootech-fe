@@ -57,12 +57,14 @@ export default async function handler(
     return
   }
 
-  const body = req.body as { messages?: ChatMessage[]; birth?: DevBirthProfile; persona?: string }
+  const body = req.body as { messages?: ChatMessage[]; birth?: DevBirthProfile; persona?: string; baziTopicHint?: string }
   const messages = body?.messages
   if (!Array.isArray(messages) || messages.length === 0) {
     res.status(400).json({ error: "messages[] is required" })
     return
   }
+  // #6: topic hint จากการกดชิปคำถาม — ส่งต่อให้ engine เพื่อ pin หัวข้อ ไม่ให้ triage ปัดเป็น off_topic
+  const baziTopicHint = typeof body?.baziTopicHint === "string" && body.baziTopicHint.trim() ? body.baziTopicHint.trim() : undefined
   // ลูกค้าเลือกคุยกับใคร: mu=เสี่ยวมู่(ชาย) · mi=เสี่ยวมี่(หญิง) — ส่งต่อให้ engine รู้
   const persona: "mu" | "mi" = body?.persona === "mi" ? "mi" : "mu"
 
@@ -159,6 +161,7 @@ export default async function handler(
         messages,
         baziConsult: { rawInput, calculatedState },
         persona,
+        ...(baziTopicHint ? { baziTopicHint } : {}),
       }),
     })
   } catch {

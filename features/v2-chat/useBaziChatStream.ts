@@ -68,7 +68,7 @@ export function useBaziChatStream(persona: "mu" | "mi" = "mu") {
   }, [])
 
   const send = useCallback(
-    async (text: string) => {
+    async (text: string, topicHint?: string) => {
       const msg = text.trim()
       if (!msg || busy) return
 
@@ -101,6 +101,8 @@ export function useBaziChatStream(persona: "mu" | "mi" = "mu") {
                 { role: "user", content: msg },
               ],
               persona: personaRef.current,
+              // #6: ส่ง topic hint จากการกดชิป → engine route ตรงหัวข้อ ไม่ปัดเป็น off_topic
+              ...(topicHint ? { baziTopicHint: topicHint } : {}),
             }),
             signal: controller.signal,
           },

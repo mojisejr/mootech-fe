@@ -1,11 +1,17 @@
 // features/v2-service/components/ResultActionBar.tsx — แถวลอยติดล่างของหน้าผลสมพงศ์ (Figma 720:26015 / 636:18819 §Frame2147223879)
 //   "บันทึก PDF" bg #1B9AAF · "แชร์" bg #1455A4 · h56 · r100 · ไอคอน 20 (asset จาก Figma) + 16 bold #E1FF00 · เงา 0 6 14 (สี .24)
 //   + Mate AI (MateAIButton) ทางขวา — ไม่มี 4 แท็บ (Figma วาดเฉพาะ Navbar Mate AI)
-// ผู้ใช้เคาะ 2026-09-07: ทำ UI ตาม Figma — แชร์ = Web Share API (fallback คัดลอกลิงก์) · PDF = "เร็ว ๆ นี้" จนกว่าจะมี API
+// ผู้ใช้เคาะ 2026-09-07: ทำ UI ตาม Figma — แชร์ = Web Share API (fallback คัดลอกลิงก์)
+// PDF (2026-09-13): บันทึกจริงด้วย window.print() (แบบเดียวกับหน้าดูเบอร์ PhoneReadingScreen) — ผู้ใช้เลือก "บันทึกเป็น PDF" ในไดอะล็อกพิมพ์
 import Image from 'next/image'
 import { MateAIButton } from '@/features/v2-shell/components/MateAIButton'
 import { announceComingSoon } from '@/features/v2-shell/components/ComingSoon'
 import { shareAsInvite } from '@/lib/v2/share-invite'
+
+// บันทึก PDF = เปิดไดอะล็อกพิมพ์ของเบราว์เซอร์ (มี "Save as PDF") — เหมือนหน้าดูเบอร์
+function savePdf() {
+  if (typeof window !== 'undefined') window.print()
+}
 
 // แชร์ผล = ลิงก์เชิญเพื่อนของ user เอง (คนสมัคร → user ได้ QI) แทน url หน้าปัจจุบันที่ติด v2 gate (ผู้ใช้ 2026-09-12)
 export async function shareResult(text: string) {
@@ -32,7 +38,7 @@ export function ResultActionBar({ shareText, testIdPrefix = 'work', inline }: { 
         <button
           type="button"
           data-testid={`${testIdPrefix}-pdf`}
-          onClick={() => announceComingSoon('บันทึกเป็น PDF กำลังจะมา เร็ว ๆ นี้')}
+          onClick={savePdf}
           className={`flex ${inline ? 'h-14' : 'h-[70px]'} min-w-0 flex-1 items-center justify-center gap-2 rounded-[100px] bg-v3-cyan text-[16px] font-bold text-v3-lime shadow-[0_6px_14px_rgba(27,154,175,0.24)]`}
         >
           <Image src="/images/v2/compat/work/pdf.svg" alt="" width={20} height={20} className="size-5" />

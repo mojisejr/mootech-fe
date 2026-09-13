@@ -41,7 +41,31 @@ export function resolveUserFromRows(rows: Array<{ user_id?: unknown }>): Resolve
   return { ok: true, userId: distinct[0] }
 }
 
-/** Read the caller's user_id from their signed session. 401 if not signed in, 404/409 per the rows. */
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+
+/**
+ * Fallback identity (#391, 2026-09-13): some browsers (Samsung Internet tracking-prevention / Secret Mode,
+ * และ webview บางตัว) ทิ้ง cookie `__Secure-next-auth.session-token` (SameSite=None; Secure) ทำให้
+ * getServerSession ว่าง → ปฏิทิน/แจ้งเตือนขึ้น "ยืนยันตัวตนไม่ได้" ทั้งที่หน้าอื่น (ที่อ่าน MEMBER_ID) ยังล็อกอินอยู่.
+ *
+ * 🔴 `cookie-mumate-id` (= CookieKey.MEMBER_ID) ตั้งฝั่ง client ไม่ใช่ httpOnly → ปลอมได้. จึงยอมรับเป็น
+ * fallback เฉพาะเมื่อ (1) รูปแบบเป็น UUID และ (2) มี user แถวนั้นจริงในฐานข้อมูล — ใช้แค่ "ระบุตัวผู้ใช้ที่
+ * สมัครแล้ว" เท่านั้น ไม่ยกระดับสิทธิ์ใด ๆ. นี่เป็น identity เดียวกับที่ /api/v2/avatar, /api/profile, /api/chat/bazi
+ * ใช้อยู่แล้ว.
+ */
+async function resolveMemberIdFallback(req: NextApiRequest): Promise<ResolvedIdentity> {
+  const raw = (req.cookies?.['cookie-mumate-id'] ?? '').trim()
+  if (!UUID_RE.test(raw)) return { ok: false, status: 401, error: 'not signed in' }
+  try {
+    const rows = rowsOf(await db.execute(sql`SELECT user_id FROM "user" WHERE user_id = ${raw} LIMIT 1`))
+    return resolveUserFromRows(rows)
+  } catch {
+    return { ok: false, status: 401, error: 'not signed in' }
+  }
+}
+
+/** Read the caller's user_id from their signed session. 401 if not signed in, 404/409 per the rows.
+ *  If the session cookie is missing (e.g. dropped by the browser), fall back to the MEMBER_ID cookie (#391). */
 export async function resolveSessionUserId(
   req: NextApiRequest,
   res: NextApiResponse,
@@ -52,7 +76,7 @@ export async function resolveSessionUserId(
 
   const providerId = (session?.providerId ?? '').trim()
   const provider = (session?.provider ?? '').trim()
-  if (!providerId || !provider) return { ok: false, status: 401, error: 'not signed in' }
+  if (!providerId || !provider) return resolveMemberIdFallback(req)
 
   const rows = rowsOf(
     await db.execute(
@@ -60,5 +84,6 @@ export async function resolveSessionUserId(
           WHERE id_token = ${providerId} AND lower(provider) = lower(${provider})`,
     ),
   )
+  // session ถูกต้อง → เชื่อผลตามแถว (404 = ไม่มีบัญชี, 409 = กำกวม) ไม่ fallback (fallback ใช้เฉพาะกรณี "ไม่มี session")
   return resolveUserFromRows(rows)
 }

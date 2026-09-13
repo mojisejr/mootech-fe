@@ -154,12 +154,14 @@ export const DIR_ELEMENT: Record<Direction, ElementTh> = {
 /** ธาตุ → เฉดสี ตามตารางซินแส (เอกสาร 10 เทพ/8 ประตู 2026-09-12): ไม้=เขียว · ไฟ=แดง · ดิน=เหลือง ·
  *  ทอง=ขาว(เงิน-เทา ให้อ่านออก) · น้ำ=ฟ้า. base=ปกติ, strong=ธาตุ ประตู+เทพ+ทิศ ตรงกันทั้งสาม (เข้มขึ้น).
  *  ink = สีตัวอักษร/ชื่อ (ใช้ร่วมทั้งพื้นช่องตามทิศ, ตัวประตูตามธาตุประตู, ชื่อเทพตามธาตุเทพ). */
+// เน้นสีพื้นให้เข้มขึ้น (เจ้าของ 2026-09-13): base เข้มขึ้นเล็กน้อย, bgStrong (ธาตุตรงกันทั้งสาม = ขอพรสำเร็จมากขึ้น)
+// เข้มชัดให้ต่างจากช่องปกติอย่างเห็นได้ชัด. ink ปรับให้ยังอ่านออกบนพื้นที่เข้มขึ้น.
 export const ELEMENT_TINT: Record<ElementTh, { bg: string; bgStrong: string; ink: string }> = {
-  'ไม้': { bg: '#E6F5EA', bgStrong: '#B7E3C4', ink: '#2E9E52' }, // เขียว (wood)
-  'ไฟ': { bg: '#FDEAE7', bgStrong: '#F6BEB4', ink: '#D93B2B' }, // แดง (fire)
-  'ดิน': { bg: '#FBF4D3', bgStrong: '#F0E09B', ink: '#B8901A' }, // เหลือง/ทอง (earth)
-  'ทอง': { bg: '#F2F4F6', bgStrong: '#D8DCE1', ink: '#8B929B' }, // ขาว-เงิน (metal)
-  'น้ำ': { bg: '#E4F1FB', bgStrong: '#BBD9F2', ink: '#2B7DC4' }, // ฟ้า (water)
+  'ไม้': { bg: '#CDEBD6', bgStrong: '#86CE9E', ink: '#1F7A3D' }, // เขียว (wood)
+  'ไฟ': { bg: '#FBD5CE', bgStrong: '#EF9B8C', ink: '#C22E1E' }, // แดง (fire)
+  'ดิน': { bg: '#F7E9AE', bgStrong: '#E6CB63', ink: '#8F6E10' }, // เหลือง/ทอง (earth)
+  'ทอง': { bg: '#E4E8EC', bgStrong: '#BFC6CE', ink: '#6B7280' }, // ขาว-เงิน (metal)
+  'น้ำ': { bg: '#CBE4F7', bgStrong: '#8FC2EC', ink: '#1F6BB0' }, // ฟ้า (water)
 }
 
 /** ธาตุของ 8 ประตู 八門 (五行 คลาสสิก). */
