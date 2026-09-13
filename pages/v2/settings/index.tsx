@@ -10,6 +10,9 @@ import { v2RedirectIfUnauthed } from '@/lib/v2/gate'
 import { useV2Logout } from '@/features/auth/hooks/useV2Logout'
 import { useV2User } from '@/features/auth/hooks/useV2User'
 import { SkyHeader, SkyScreen } from '@/features/v2-profile/components/kit'
+import { usePwaInstall } from '@/lib/pwa/use-install-prompt'
+import { usePwaCapability } from '@/lib/pwa/capability'
+import { InstallGuideSheet } from '@/features/v2-calendar/components/InstallGuideSheet'
 
 // #Bug — "แพ็กเกจของฉัน" เคย hardcode "Free Tier" ⇒ ผู้ใช้ PRO เห็นไม่ตรงกับหน้า account. อ่าน tier จริง
 // จาก useV2User (แหล่งเดียวกับ AccountScreen). null/ยังไม่รู้ = ไม่เดา (ไม่โชว์ค่า) กันโชว์ค่าผิดซ้ำรอยเดิม
@@ -91,6 +94,14 @@ function Group({ title, children }: { title?: string; children: React.ReactNode 
 export default function V2SettingsPage() {
   const { logout } = useV2Logout()
   const { user } = useV2User()
+  // #install — ทางเข้าติดตั้งแอป "ถาวร" (ป็อปอัปหน้าแรกกด "ไว้ก่อน" แล้วหาย → ที่นี่หาเจอตลอด)
+  const { canInstall, installed, promptInstall } = usePwaInstall()
+  const { needsInstall } = usePwaCapability()
+  const [installGuideOpen, setInstallGuideOpen] = useState(false)
+  const onInstallApp = () => {
+    if (canInstall) { void promptInstall(); return } // Android/Chromium → native dialog
+    setInstallGuideOpen(true) // iOS / อื่น ๆ → สอนมือ
+  }
   const [confirmLogout, setConfirmLogout] = useState(false)
   const [langOpen, setLangOpen] = useState(false)
   const [textOpen, setTextOpen] = useState(false)
@@ -139,6 +150,11 @@ export default function V2SettingsPage() {
 
       {/* การใช้งาน */}
       <Group title="การใช้งาน">
+        {installed ? (
+          <Row testId="settings-install-app" title="แอป MuMate" value="ติดตั้งแล้ว" />
+        ) : (
+          <Row onClick={onInstallApp} testId="settings-install-app" title="ติดตั้งแอป MuMate" sub="เพิ่มลงหน้าจอโฮม แจ้งเตือนเด้งเหมือนแอป ทำงานแม้ปิดจอ" />
+        )}
         <Row href="/v2/settings/notifications" testId="settings-notifications" title="การแจ้งเตือน" />
         <Row href="/v2/orders" testId="settings-orders" title="ประวัติการสั่งซื้อ" />
         <Row onClick={() => setLangOpen(true)} testId="settings-language" title="ภาษา" value="ไทย" />
@@ -241,6 +257,8 @@ export default function V2SettingsPage() {
           </div>
         </div>
       )}
+
+      {installGuideOpen && <InstallGuideSheet variant="install" onClose={() => setInstallGuideOpen(false)} />}
     </SkyScreen>
   )
 }

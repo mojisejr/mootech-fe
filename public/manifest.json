@@ -1,9 +1,9 @@
 {
-  "name": "MuMate มู่เมท",
+  "name": "MuMate มูเมท",
   "short_name": "MuMate",
   "description": "ปฏิทินดวงและแจ้งเตือนยามมงคล",
   "lang": "th",
-  "start_url": "/",
+  "start_url": "/v2",
   "scope": "/",
   "display": "standalone",
   "orientation": "portrait",
