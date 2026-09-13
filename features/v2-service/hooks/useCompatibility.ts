@@ -123,11 +123,26 @@ export function useCompatibility(config: CompatibilityConfig): UseCompatibility 
           // rather than fabricating them or stranding row 1 on a spinner. done-cond #3 stays honest.
           setPerson1({ id: userId, name: cookieName, dob: '', time: '', imageProfile: '' })
         } else {
+          // #1 (2026-09-13): วันเกิดตัวเรา ต้องเป็น "วันที่บันทึกในโปรไฟล์" = /api/profile (engine ชนะ legacy)
+          // เหมือนหน้าโปรไฟล์/ดวงของฉัน — ไม่ใช่ user.dob ดิบที่อาจ sync ไม่ตรง. fallback = user.dob เมื่อดึงไม่ได้
+          let dob = u.dob || ''
+          let time = u.time || ''
+          try {
+            const prof = await fetch('/api/profile').then((r) => (r.ok ? r.json() : null))
+            const pb = typeof prof?.profile?.birthDate === 'string' ? prof.profile.birthDate.slice(0, 10) : ''
+            if (/^\d{4}-\d{2}-\d{2}$/.test(pb)) {
+              dob = pb
+              time = prof.profile.timeUnknown ? '' : (typeof prof.profile.birthTime === 'string' ? prof.profile.birthTime.slice(0, 5) : '')
+            }
+          } catch {
+            /* โปรไฟล์ดึงไม่ได้ → ใช้ค่า legacy จาก user เดิม */
+          }
+          if (!alive) return
           setPerson1({
             id: userId,
             name: u.name || cookieName,
-            dob: u.dob || '',
-            time: u.time || '',
+            dob,
+            time,
             // #7 (2026-09-13): รูปตัวเราดึงจาก /api/v2/avatar (รูปที่อัปโหลดล่าสุด, fallback LINE) แทน picture_url
             // ที่ไม่อัปเดตตอนเปลี่ยนรูป — /api/v2/avatar ผูกกับ cookie ผู้ใช้ปัจจุบัน = ตัวเราเสมอ
             imageProfile: '/api/v2/avatar',

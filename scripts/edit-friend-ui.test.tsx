@@ -102,11 +102,11 @@ describe('#266 แก้ไขข้อมูลเพื่อน — ป้า
     expect(getDetail).toHaveBeenCalledWith('f-1')
   })
 
-  it('แถวบน (ข้อมูลตัวเอง) ไม่ถูกต่อสาย — ยังเป็น "เร็วๆ นี้" ตามที่ใบสั่ง', async () => {
+  it('แถวบน (ข้อมูลตัวเอง) แก้วันเกิดที่นี่ไม่ได้ — ไม่มีปุ่มแก้ไข (แก้ที่หน้าโปรไฟล์เท่านั้น) #2', async () => {
     render(<CompatibilityScreen config={CONFIG} />)
-    fireEvent.click(screen.getByTestId('compat-person1-edit'))
-    await waitFor(() => expect(screen.getByTestId('coming-soon-label').textContent).toBe('แก้ไขข้อมูลของคุณ'))
-    expect(screen.queryByTestId('add-friend-sheet')).toBeNull()
+    await waitFor(() => expect(screen.getByTestId('compat-person1')).toBeTruthy())
+    // #2 (2026-09-13): วันเกิดตัวเราต้องมาจากโปรไฟล์อย่างเดียว → ห้ามมีปุ่ม "แก้ไข" บนแถวตัวเอง
+    expect(screen.queryByTestId('compat-person1-edit')).toBeNull()
     expect(updateFriendProfile).not.toHaveBeenCalled()
   })
 

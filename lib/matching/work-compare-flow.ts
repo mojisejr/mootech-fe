@@ -31,6 +31,7 @@ import { logActivity, memberWithFriend, user, userMatching, workComparison, work
 import { AI_MSG, bkkTimestamp } from '@/lib/usage'
 import { resolveSubscription } from '@/lib/v2/subscription'
 import { compatibilityCeilingFor, countCompatibilityInMonth, lockCompatibilityFor } from '@/lib/v2/compat-quota'
+import { mergeEngineBirth } from '@/lib/bazi-bridge/engine-birth'
 import { BaziEngineError } from './bazi-client'
 import { fetchBaziWork, MAX_CANDIDATES, type BaziRawInput, type BaziWorkRelationship } from './bazi-work-client'
 import { normalizeDate, normalizeGender, normalizeTime } from './bazi-pair.mapper'
@@ -188,7 +189,10 @@ export async function runWorkCompare(params: {
   const ordered = friendIds.map((id) => byId.get(id)!)
 
   // 3. build the engine request. A birth date we cannot use = refuse; there is no legacy fallback here.
-  const self = toRawInput({ gender: me.gender, dob: me.dob, time: me.time })
+  // #1 (2026-09-13): วันเกิดตัวเราต้องมาจากที่บันทึกในโปรไฟล์ (engine bazi_user_profile ชนะ legacy user.dob)
+  // เหมือน chat/destiny/home — ไม่งั้นเพื่อนร่วมงาน/เจ้านายคำนวณจากวันเกิดเก่าที่ไม่ตรงโปรไฟล์
+  const meMerged = await mergeEngineBirth(params.userId, { dob: me.dob, time: me.time })
+  const self = toRawInput({ gender: me.gender, dob: meMerged.dob, time: meMerged.time })
   const mapped = ordered.map((f) => toRawInput({ gender: f.gender, dob: f.dob, time: f.time }))
   if (!self || mapped.some((c) => !c)) return { ok: false, kind: 'unusable-birth' }
   const candidates = (mapped as { input: BaziRawInput; timeKnown: boolean }[]).map((c) => c.input)

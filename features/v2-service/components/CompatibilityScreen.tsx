@@ -450,12 +450,13 @@ export function CompatibilityScreen({ config }: { config: CompatibilityConfig })
       </div>
 
       <div className="relative z-10 mx-auto flex w-full max-w-md flex-col px-4 pb-36 pt-[max(0.75rem,env(safe-area-inset-top))]">
-        {/* header — back · title · shared TopBar bell(→ full notifications) + avatar(→ logout) */}
+        {/* header — back · title · shared TopBar bell(→ full notifications) + avatar(→ โปรไฟล์)
+            #3 (2026-09-13): avatar ต้องพาไปโปรไฟล์ (/v2/account) เหมือนจอผลลัพธ์/บริการอื่น — เดิมเปิดเมนูออกจากระบบ */}
         <header className="flex items-center gap-2 py-2">
           <Link href="/v2/service" aria-label="ย้อนกลับ" onClick={(e) => { if (typeof window !== "undefined" && window.history.length > 1) { e.preventDefault(); window.history.back() } }} className="grid size-8 shrink-0 place-items-center rounded-full text-v3-navy"><BackChevron /></Link>
           <h1 data-testid="compat-title" className="min-w-0 flex-1 truncate text-[24px] font-bold leading-8 text-v3-navy">{c.title}</h1>
           <TopBarBell variant="solid" href="/v2/calendar/notifications" />
-          <TopBarAvatar variant="sapphire" onClick={() => setLogoutOpen(true)} />
+          <TopBarAvatar variant="sapphire" href="/v2/account" />
         </header>
 
         {/* hero — sparkles + heading + tagline (verbatim Figma; spelling flagged in the header comment) */}
@@ -475,9 +476,11 @@ export function CompatibilityScreen({ config }: { config: CompatibilityConfig })
         {/* the two rows + button + link */}
         <div className="flex flex-col items-center gap-3 px-6">
           {/* row 1 — คุณ (real user). loading → skeleton the whole row's name */}
+          {/* #2 (2026-09-13): แถวตัวเรา (person1) ต้องแก้วันเกิดที่นี่ไม่ได้ — วันเกิดมาจากโปรไฟล์อย่างเดียว
+              (แก้ที่หน้าโปรไฟล์เท่านั้น) จึงไม่ส่ง onEdit = ไม่มีปุ่ม "แก้ไข" บนแถวนี้ */}
           {c.loadingPerson1
             ? <div data-testid="compat-person1" className="flex h-[64px] w-full items-center gap-3 rounded-[56px] bg-v3-ghost-white py-3 pl-3 pr-6"><span data-testid="compat-person1-loading" className="size-10 shrink-0 animate-pulse rounded-full bg-white/60" /><span className="h-4 w-40 animate-pulse rounded bg-white/60" /></div>
-            : <ProfileRow person={c.person1} onEdit={() => setComingSoon('แก้ไขข้อมูลของคุณ')} testId="compat-person1" />}
+            : <ProfileRow person={c.person1} testId="compat-person1" />}
 
           {/* ฟีม 2026-09-07 (สไลด์ 9) — chip เลือกบทบาทกลับมา (เฉพาะจอเพื่อนร่วมงาน). ไม่เปลี่ยนการยิง engine
               (ยังได้ครบ 3 มุมมองต่อคนตาม #585) แต่ส่ง `?role=` ไปหน้าผลลัพธ์ให้ชูมุมมองที่เลือกขึ้นก่อน. ป้ายบอก
