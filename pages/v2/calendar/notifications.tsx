@@ -25,6 +25,7 @@ import { NotifyStatusBar } from '@/features/v2-calendar/components/NotifyStatusB
 import { notifyStateFrom } from '@/features/v2-calendar/notify-state'
 import { usePwaCapability, CAPABILITY_CHANGED } from '@/lib/pwa/capability'
 import { requestPushSubscription } from '@/lib/pwa/subscribe'
+import { postPushSubscription } from '@/lib/pwa/persist-subscription'
 
 export const getServerSideProps: GetServerSideProps = async (ctx) => {
   ctx.res.setHeader('Cache-Control', 'no-store, must-revalidate')
@@ -163,6 +164,38 @@ export default function V2CalendarNotificationsPage({ teamPreview }: { teamPrevi
       .catch(() => document.dispatchEvent(new Event(CAPABILITY_CHANGED))) // ล้มก็ต้องอ่านค่าใหม่ ไม่ค้างคำโกหก
   }
 
+  // ── ปุ่มทดสอบแจ้งเตือน (debug): subscribe เครื่องนี้ + ยิง push ทันที (ข้าม cron) เพื่อแยกปัญหาให้ชัด ──
+  const [testMsg, setTestMsg] = useState<string | null>(null)
+  const [testing, setTesting] = useState(false)
+  const reasonTh: Record<string, string> = {
+    denied: 'เครื่องบล็อกการแจ้งเตือน — เปิดสิทธิ์ในตั้งค่าเบราว์เซอร์ก่อน (Brave มักปิด push เป็นค่าเริ่มต้น)',
+    dismissed: 'ยังไม่ได้เลือกอนุญาต — ลองกดใหม่แล้วเลือก "อนุญาต"',
+    'needs-install': 'iOS ต้อง Add to Home Screen (ติดตั้งเป็นแอป) ก่อนถึงจะรับแจ้งเตือนได้',
+    unsupported: 'เบราว์เซอร์นี้ไม่รองรับ web push (เช่น LINE/webview) — ลอง Chrome/Samsung Internet',
+    'missing-vapid': 'ระบบตั้งค่า VAPID ไม่ครบ (แจ้งทีม)',
+    'no-registration': 'service worker ยังไม่พร้อม — รีเฟรชแล้วลองใหม่',
+    error: 'สร้าง subscription ไม่สำเร็จ ลองใหม่',
+  }
+  const onTestPush = () => {
+    // gesture-critical: requestPushSubscription ต้องเป็นคำสั่งแรก (subscribe.ts:7-8) — ห้าม await ก่อน
+    setTesting(true)
+    setTestMsg(null)
+    requestPushSubscription()
+      .then(async (r) => {
+        document.dispatchEvent(new Event(CAPABILITY_CHANGED))
+        if (!r.ok) { setTestMsg('❌ ' + (reasonTh[r.reason] ?? r.reason)); return }
+        const stored = await postPushSubscription(r.subscription, typeof navigator !== 'undefined' ? navigator.userAgent : undefined)
+        if (!stored) { setTestMsg('❌ บันทึกอุปกรณ์ไม่สำเร็จ (ลองใหม่)'); return }
+        const resp = await fetch('/api/v2/push/test', { method: 'POST', credentials: 'same-origin' })
+          .then((x) => x.json()).catch(() => null)
+        if (resp?.ok && resp.sent > 0) setTestMsg('✅ ส่งแล้ว! ดูการแจ้งเตือนบนเครื่อง (ลองปิดหน้าจอ/สลับแอป) — ถ้าเด้ง แปลว่าเครื่องพร้อม เหลือแค่ cron')
+        else if (resp?.noDevice) setTestMsg('⚠️ ยังไม่มีอุปกรณ์ที่ subscribe')
+        else setTestMsg('❌ ส่งไม่สำเร็จ: ' + (resp ? JSON.stringify(resp) : 'เซิร์ฟเวอร์ไม่ตอบ'))
+      })
+      .catch(() => setTestMsg('❌ เกิดข้อผิดพลาด ลองใหม่'))
+      .finally(() => setTesting(false))
+  }
+
   return (
     <CalendarShell title="การแจ้งเตือน" menuState={CalendarMenuState.Normal}>
       {/* Figma 636:10222 — teal ground behind the header; the cream sheet below rounds over it (r-t28). */}
@@ -201,6 +234,22 @@ export default function V2CalendarNotificationsPage({ teamPreview }: { teamPrevi
         {/* แถบสถานะมาก่อนสรุปยอด — ถ้าแจ้งเตือนปิดอยู่ ยอด "5 ยาม" ข้างล่างคือตัวเลขที่จะไม่เกิดขึ้น
             ⇒ ผู้ใช้ต้องอ่านเงื่อนไขก่อนอ่านตัวเลข · แสดงทุกสถานะรวมทั้งตอนไม่มีรายการ */}
         <NotifyStatusBar state={notify} onShowGuide={setGuide} onEnable={onEnable} />
+
+        {/* ปุ่มทดสอบแจ้งเตือน (debug) — ยิง push เข้าเครื่องนี้ทันที ข้าม cron เพื่อเช็คว่าเครื่อง/สิทธิ์พร้อมไหม */}
+        <div className="flex flex-col gap-1.5">
+          <button
+            type="button"
+            onClick={onTestPush}
+            disabled={testing}
+            data-testid="notif-test-push"
+            className="flex items-center justify-center gap-2 rounded-2xl border border-v3-sapphire/30 bg-white py-3 text-sm font-bold text-v3-sapphire disabled:opacity-50"
+          >
+            🔔 {testing ? 'กำลังส่ง…' : 'ส่งแจ้งเตือนทดสอบเดี๋ยวนี้'}
+          </button>
+          {testMsg ? (
+            <p data-testid="notif-test-result" className="px-1 text-[12px] leading-5 text-v3-text-body">{testMsg}</p>
+          ) : null}
+        </div>
 
         {/* Figma 636:10235 — status card: navy · r16 · px14 py13 · gap10 · shadow 0/8/20 rgba(0,0,0,.25)
             hidden in the empty state (no "0 ยาม" above "ยังไม่มีการแจ้งเตือน") */}
