@@ -47,6 +47,14 @@ export type ReconcileDeps = {
    * discount hold. This is a THIRD door onto one existing path, not a second implementation.
    */
   abandon: (chargeId: string, reason: string | null) => Promise<{ released: boolean }>
+  /**
+   * Beam lane slice 3 — OPTIONAL. When the gateway answers with a DIFFERENT canonical id than the one we
+   * asked with (a Payment Link row `link:<id>` whose PAID charge is `ch_…`), the row is bound to the real
+   * id before settling, so refunds and later reads work by the id the gateway will use from now on. A dep
+   * that omits it (every fixture before slice 3, and Omise, whose ids never change) behaves exactly as
+   * before: settle is called with the row's own id.
+   */
+  rebind?: (fromChargeId: string, toChargeId: string) => Promise<{ rebound: boolean }>
 }
 
 export type ReconcileSummary = {
@@ -115,7 +123,19 @@ export async function runReconcile(
       continue // includes the null case: the gateway does not know it (yet)
     }
     summary.confirmedPaid += 1
-    const res = await deps.settle(row.chargeId)
+    let settleId = row.chargeId
+    if (charge && charge.chargeId && charge.chargeId !== row.chargeId && deps.rebind) {
+      try {
+        const { rebound } = await deps.rebind(row.chargeId, charge.chargeId)
+        if (rebound) settleId = charge.chargeId
+      } catch {
+        // a bind that fails (unique clash, DB blip) leaves the row for the next run — never settle a row
+        // under an id the gateway will not recognise later.
+        summary.unreachable += 1
+        continue
+      }
+    }
+    const res = await deps.settle(settleId)
     if (res.provisioned) summary.provisioned += 1
   }
   return summary

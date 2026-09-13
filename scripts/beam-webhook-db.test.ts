@@ -1,4 +1,4 @@
-// Beam lane slice 2 — the MONEY PATH through the Beam door against a REAL postgres: a signed Beam
+// Beam lane slices 2–3 — the MONEY PATH through the Beam door against a REAL postgres: a signed Beam
 // delivery → /api/v2/payment/webhook-beam → the shared dispatcher → settle / revoke, and the reconciler
 // asking Beam (fetch stubbed) about a Beam row. Like every db suite it is `describe.skipIf(!TEST_DATABASE_URL)`
 // and does not run in the pre-push lane; run it against the testenv pg, ONE FILE AT A TIME (the suites
@@ -226,5 +226,81 @@ describe.skipIf(!TEST_URL)('Beam webhook + reconciler · real pg', () => {
     const out = await callCron()
     expect(out.body).toMatchObject({ provisioned: 0, abandoned: 0 })
     expect(await row('ch_j')).toMatchObject({ status: 'PENDING' })
+  })
+
+  // ── slice 3 · Payment Links: the row holds link:<id> until Beam mints the charge ──
+  const seedLink = (linkId: string, userId: string, status = 'PENDING', ageMin = 60) =>
+    sql`INSERT INTO v2_payment (id, user_id, package_code, tier_code, amount_satang, vat_satang, expire, buffer_day, method, charge_id, order_id, status, gateway, created_at)
+        VALUES (${'v2p-' + linkId}, ${userId}, 'MONTHLY', 'PLUS', 50000, 0, '1M', 0, 'card', ${'link:' + linkId}, ${'ord-' + linkId}, ${status}, 'beam', now() - ${ageMin + ' minutes'}::interval)`
+  const rowById = async (id: string) => (await sql`SELECT status, charge_id, failure_code FROM v2_payment WHERE id = ${id}`)[0]
+
+  it('🔴 ⑪ webhook: charge.succeeded (source PAYMENT_LINK, referenceId = our order) REBINDS the link row to ch_ and settles', async () => {
+    await seedLink('L1', users[0])
+    const body = Buffer.from(JSON.stringify({ chargeId: 'ch_L1', referenceId: 'ord-L1', status: 'SUCCEEDED', source: 'PAYMENT_LINK', sourceId: 'L1', amount: 50000, currency: 'THB', failureCode: '' }))
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const out = await fire(body, 'charge.succeeded')
+    warn.mockRestore()
+    expect(out.status).toBe(200)
+    expect(await rowById('v2p-L1')).toMatchObject({ status: 'APPROVED', charge_id: 'ch_L1' })
+    expect(await subs(users[0])).toBe(1)
+  })
+
+  it('⑫ payment_link.paid itself changes nothing (the charge event is the settling one) — 200, row untouched', async () => {
+    await seedLink('L2', users[1])
+    const info = vi.spyOn(console, 'info').mockImplementation(() => {})
+    const out = await fire(Buffer.from(JSON.stringify({ paymentLinkId: 'L2', status: 'PAID', order: { referenceId: 'ord-L2', netAmount: 50000 } })), 'payment_link.paid')
+    info.mockRestore()
+    expect(out.status).toBe(200)
+    expect(await rowById('v2p-L2')).toMatchObject({ status: 'PENDING', charge_id: 'link:L2' })
+  })
+
+  it('🔴 ⑬ a refund on a link-originated charge revokes, because the row was rebound to ch_ (not left as link:)', async () => {
+    await seedLink('L3', users[2])
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    await fire(Buffer.from(JSON.stringify({ chargeId: 'ch_L3', referenceId: 'ord-L3', status: 'SUCCEEDED', source: 'PAYMENT_LINK', amount: 50000 })), 'charge.succeeded')
+    const out = await fire(refund('ch_L3', 'ord-L3', 50000), 'refund.succeeded')
+    warn.mockRestore()
+    expect(out.status).toBe(200)
+    expect(await rowById('v2p-L3')).toMatchObject({ status: 'APPROVED', charge_id: 'ch_L3', failure_code: 'gateway_reversed' })
+  })
+
+  it('🔴 ⑭ reconciler: link PAID ⇒ asks Beam for the charge, REBINDS, settles (webhook never came)', async () => {
+    await seedLink('L4', users[3])
+    process.env.BEAM_MERCHANT_ID = 'm_test'
+    process.env.BEAM_API_KEY = 'k_test'
+    const urls: string[] = []
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (url: string) => {
+        urls.push(url)
+        if (url.includes('/api/v1/payment-links/L4')) return new Response(JSON.stringify({ id: 'L4', status: 'PAID' }), { status: 200 })
+        if (url.includes('source_in=PAYMENT_LINK&sourceId=L4')) return new Response(JSON.stringify({ data: [{ chargeId: 'ch_L4', status: 'SUCCEEDED' }], totalCount: 1 }), { status: 200 })
+        return new Response('{}', { status: 404 })
+      }),
+    )
+    const out = await callCron()
+    expect(out.body.provisioned).toBe(1)
+    expect(await rowById('v2p-L4')).toMatchObject({ status: 'APPROVED', charge_id: 'ch_L4' })
+    expect(await subs(users[3])).toBe(1)
+  })
+
+  it('⑮ reconciler: link EXPIRED ⇒ REJECT gateway_expired (nobody paid the hosted page)', async () => {
+    await seedLink('L5', users[0])
+    process.env.BEAM_MERCHANT_ID = 'm_test'
+    process.env.BEAM_API_KEY = 'k_test'
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify({ id: 'L5', status: 'EXPIRED' }), { status: 200 })))
+    const out = await callCron()
+    expect(out.body.abandoned).toBe(1)
+    expect(await rowById('v2p-L5')).toMatchObject({ status: 'REJECT', failure_code: 'gateway_expired', charge_id: 'link:L5' })
+  })
+
+  it('⑯ recovery guard intact: a row bound to a REAL charge is never adopted by another charge’s success (AMBIGUOUS)', async () => {
+    await seed('ch_real', users[1]) // bound to ch_real
+    const err = vi.spyOn(console, 'error').mockImplementation(() => {})
+    const out = await fire(Buffer.from(JSON.stringify({ chargeId: 'ch_other', referenceId: 'ord-ch_real', status: 'SUCCEEDED', amount: 50000 })), 'charge.succeeded')
+    err.mockRestore()
+    expect(out.status).toBe(200)
+    expect(await row('ch_real')).toMatchObject({ status: 'PENDING' })
+    expect(await subs(users[1])).toBe(0)
   })
 })
