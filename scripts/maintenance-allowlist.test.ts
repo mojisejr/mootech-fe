@@ -122,6 +122,15 @@ t('#B1 /api/v2/payment/webhook/extra is still gated (exact match, not prefix)', 
   assert.equal(isRewrittenToMaintenance(middleware(mkReq('/api/v2/payment/webhook/extra'))), true)
 })
 
+// ── Beam Checkout lane slice 1: the SECOND webhook route gets the same door, same exact-match rule ──
+t('Beam · /api/v2/payment/webhook-beam passes the maintenance gate (else Beam 200s the maintenance page)', () => {
+  assert.equal(isPassThrough(middleware(mkReq('/api/v2/payment/webhook-beam'))), true)
+})
+
+t('Beam · /api/v2/payment/webhook-beam/extra is still gated (exact match, not prefix)', () => {
+  assert.equal(isRewrittenToMaintenance(middleware(mkReq('/api/v2/payment/webhook-beam/extra'))), true)
+})
+
 // ── bypass cookie still works for the rest of the app ──
 t('valid bypass cookie passes the app through', () => {
   assert.equal(isPassThrough(middleware(mkReq('/', 'mnt_bypass=testkey'))), true)

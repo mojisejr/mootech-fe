@@ -226,10 +226,12 @@ function withPaymentLaneCsp(req: NextRequest, res: NextResponse): NextResponse {
 // also re-check the cookie itself). Fail closed: no key configured -> whole surface hidden.
 // ⛔ DO NOT REMOVE THIS GATE UNTIL mojisejr/mootech-fe#605 IS CLOSED. It was removed once, on
 // 2026-09-08, inside c959aa8 ("rebuild /v2/destiny") as one bullet among twelve files, and reached
-// production at 20:24 +07 that day. What that opened: Omise v2 is still in TEST mode and NOTHING in
-// lib/payment checks the mode, so any visitor who can sign in with Google/LINE could pay with an
-// Omise test card and receive a REAL member_subscription row / REAL engine QI. Verified no one did
-// (`select count(*) from v2_payment where created_at > '2026-09-08 20:24+07'` → 0) before this revert.
+// production at 20:24 +07 that day. What that opened AT THE TIME: Omise v2 was still in TEST mode and
+// NOTHING in lib/payment checks the mode, so any visitor who could sign in with Google/LINE could pay
+// with an Omise test card and receive a REAL member_subscription row / REAL engine QI. Verified no one
+// did (`select count(*) from v2_payment where created_at > '2026-09-08 20:24+07'` → 0) before this revert.
+// (Owner statement 2026-09-13: Omise v2 on production now runs LIVE keys and has been proven end to end.
+// The gate stays for the reason #606 gives — launch order — not because of test mode any more.)
 //
 // The removal is CORRECT — but it is step 3 of mojisejr/mootech-fe#606, and #606 gates itself on #605:
 // a real charge must settle and the buyer must actually receive what they paid for FIRST. When that day
@@ -250,6 +252,10 @@ function guardV2(req: NextRequest): NextResponse | null {
   // here is this one literal; `/webhookX` or `/webhook/extra` must still 401. The route itself fails
   // closed on a missing signing secret — this exemption only skips the COOKIE gate, not the signature.
   if (pathname === '/api/v2/payment/webhook') return noStore(NextResponse.next());
+  // Same exemption for the Beam Checkout webhook (pages/api/v2/payment/webhook-beam.ts) — a second
+  // provider's machine, same reasoning, same exact-match rule. Both paths stay open together so a delivery
+  // that arrives after PAYMENT_GATEWAY flips (either direction) still reaches its own route.
+  if (pathname === '/api/v2/payment/webhook-beam') return noStore(NextResponse.next());
 
   const key = process.env.V2_PREVIEW_KEY;
   if (!key) return noStore(NextResponse.rewrite(new URL('/maintenance', req.url)));
@@ -372,6 +378,7 @@ function route(req: NextRequest): NextResponse {
     pathname.startsWith('/api/auth') ||
     pathname.startsWith('/api/cron/') ||
     pathname === '/api/v2/payment/webhook' ||
+    pathname === '/api/v2/payment/webhook-beam' || // Beam Checkout webhook — mirrors the Omise line above
     pathname === '/auth/error'
   ) {
     return noStore(NextResponse.next());
