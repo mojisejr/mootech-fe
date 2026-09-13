@@ -38,7 +38,7 @@ function quotaSourceText(q: ChatQuota): string {
   return ""
 }
 import { useBaziChatStream } from "../useBaziChatStream"
-import { SUGGESTED_QUESTIONS } from "@/constants/suggested-questions"
+import { SUGGESTED_QUESTIONS, SUGGESTED_QUESTION_ITEMS } from "@/constants/suggested-questions"
 
 // เพอร์โซนา 2 แบบ (เสี่ยวมู่ ชาย / เสี่ยวมี่ หญิง) × 4 ท่าตามอารมณ์คำตอบ
 type PersonaKey = "mu" | "mi"
@@ -69,9 +69,9 @@ function classifyMood(text: string): Mood {
 }
 
 // figma-copy (ตรวจแล้ว 2026-09-02): ไม่พบเป็น text layer ใน final/V3 — รอ designer ยืนยัน
-const STARTER_CHIPS = [
-  { label: "ดวงวันนี้เป็นงัย 🌟", question: "ดวงวันนี้ของฉันเป็นอย่างไรบ้าง?" },
-  { label: "ความสมพงศ์ 💖", question: "เรื่องความรักและคู่ครองที่เหมาะกับฉันเป็นแบบไหน?" },
+const STARTER_CHIPS: { label: string; question: string; topicId?: string }[] = [
+  { label: "ดวงวันนี้เป็นงัย 🌟", question: "ดวงวันนี้ของฉันเป็นอย่างไรบ้าง?", topicId: "turning_points" },
+  { label: "ความสมพงศ์ 💖", question: "เรื่องความรักและคู่ครองที่เหมาะกับฉันเป็นแบบไหน?", topicId: "love_partner" },
   { label: "เลขนำโชครายวัน 🎴", question: "เลขนำโชคของฉันวันนี้คืออะไร?" },
 ]
 
@@ -205,7 +205,7 @@ export function ChatScreen() {
     rec.start()
   }
 
-  const submit = (override?: string) => {
+  const submit = (override?: string, topicHint?: string) => {
     const msg = (override ?? draft).trim()
     if (!msg || busy) return
     // หักโควตา/เหรียญให้เห็น "ทันที" ตอนกดส่ง (optimistic) — ตรงกับที่ engine หักฝั่งเซิร์ฟเวอร์ระหว่างสตรีม
@@ -216,7 +216,7 @@ export function ChatScreen() {
       if (q.nextSource === "qi" && typeof q.qi === "number") return { ...q, qi: Math.max(0, q.qi - q.cost) }
       return q
     })
-    void send(msg)
+    void send(msg, topicHint)
     setDraft("")
     inputRef.current?.focus()
   }
@@ -225,11 +225,29 @@ export function ChatScreen() {
   // ล้างแชทเป็นของ in-memory เท่านั้น (unmount = หายอยู่แล้ว) และ "ปุ่มเฟืองต้องไปหน้า setting"
   // ตามที่ทีมรายงาน 2026-09-03
 
+  // #chat-vh (Samsung/Android 2026-09-13): เมื่อคีย์บอร์ดเด้ง 100dvh ไม่ยุบตาม visual viewport บนบางเบราว์เซอร์
+  // (Samsung Internet) จึงเหลือช่องขาว (#F6ECF0) ใต้ composer. ผูกความสูงจริงจาก visualViewport แทน.
+  const [screenH, setScreenH] = useState<string>("100dvh")
+  useEffect(() => {
+    const vv = typeof window !== "undefined" ? window.visualViewport : null
+    if (!vv) return
+    const apply = () => setScreenH(`${Math.round(vv.height)}px`)
+    apply()
+    vv.addEventListener("resize", apply)
+    vv.addEventListener("scroll", apply)
+    return () => {
+      vv.removeEventListener("resize", apply)
+      vv.removeEventListener("scroll", apply)
+    }
+  }, [])
+
   return (
     <div
       data-testid="v2-chat-screen"
       className="font-ibm flex h-[100dvh] w-full flex-col overflow-hidden"
       style={{
+        // #chat-vh: ความสูงจริงตาม visual viewport (fallback 100dvh ก่อน effect ทำงาน / เบราว์เซอร์ไม่มี visualViewport)
+        height: screenH,
         // ตามเฟรม Figma: gradient + ภาพ BG01 (ฟ้า-เมฆ) เต็มจอ บนพื้น #F6ECF0
         background:
           "linear-gradient(180deg, rgba(207,230,251,0.42) 0%, rgba(231,233,251,0.18) 34%, rgba(246,231,242,0.22) 62%, rgba(251,236,239,0.4) 100%)," +
@@ -329,23 +347,26 @@ export function ChatScreen() {
         })}
       </div>
 
-      {/* mascot + link */}
-      <div className="flex w-full flex-none flex-col items-center gap-1 pb-1 pt-2">
-        <span className="v3-float relative block h-[190px] w-[170px]">
-          <Image src={mascotSrc} alt={`มาสคอต${activePersona.name}`} fill sizes="200px" style={{ objectFit: "contain" }} priority />
-        </span>
-        <button
-          onClick={() => setShowAllQuestions((v) => !v)}
-          data-testid="chat-capabilities"
-          className="text-[12px] font-medium leading-4 text-v3-cyan underline underline-offset-2"
-        >
-          {showAllQuestions ? "ซ่อนรายการคำถาม" : "ดูสิ่งที่มิวน้อยทำได้"}
-        </button>
-      </div>
+      {/* mascot + messages — มาสคอตเล็กลงและวางแบบ absolute หลังข้อความ (ซ้อนได้) เพื่อเพิ่มพื้นที่อ่าน
+          (เจ้าของ 2026-09-13): ข้อความ (z-10, พื้นทึบ) เลื่อนทับมาสคอต (z-0) ได้ */}
+      <div className="relative min-h-0 w-full flex-1">
+        {/* mascot overlay + link */}
+        <div className="pointer-events-none absolute inset-x-0 top-0 z-0 flex flex-col items-center gap-1 pt-2">
+          <span className="v3-float relative block h-[128px] w-[118px]">
+            <Image src={mascotSrc} alt={`มาสคอต${activePersona.name}`} fill sizes="140px" style={{ objectFit: "contain" }} priority />
+          </span>
+          <button
+            onClick={() => setShowAllQuestions((v) => !v)}
+            data-testid="chat-capabilities"
+            className="pointer-events-auto text-[12px] font-medium leading-4 text-v3-cyan underline underline-offset-2"
+          >
+            {showAllQuestions ? "ซ่อนรายการคำถาม" : "ดูสิ่งที่มิวน้อยทำได้"}
+          </button>
+        </div>
 
-      {/* messages */}
-      <div className="min-h-0 w-full flex-1 overflow-y-auto px-4">
-        <div className="mx-auto flex w-full max-w-[430px] flex-col gap-2 pb-2">
+        {/* messages */}
+        <div className="relative z-10 h-full w-full overflow-y-auto px-4">
+          <div className="mx-auto flex w-full max-w-[430px] flex-col gap-2 pb-2 pt-[172px]">
           {/* greeting bubble (Figma copy — see TODO(figma-copy)) */}
           <div data-testid="chat-greeting" className="max-w-[92%] self-start rounded-[18px] border border-[#D88FA9] bg-white px-4 py-3 text-[14px] leading-[22px] text-v3-navy shadow-[0_2px_8px_rgba(11,48,91,0.12),0_1px_4px_rgba(216,143,169,0.35)]">
             {activePersona.greeting}
@@ -409,8 +430,9 @@ export function ChatScreen() {
               </Link>
             </div>
           )}
+          </div>
+          <div ref={bottomRef} />
         </div>
-        <div ref={bottomRef} />
       </div>
 
       {/* suggestion chips — starters first, then the canonical next questions */}
@@ -421,7 +443,7 @@ export function ChatScreen() {
               STARTER_CHIPS.map((c) => (
                 <button
                   key={c.label}
-                  onClick={() => submit(c.question)}
+                  onClick={() => submit(c.question, c.topicId)}
                   disabled={busy}
                   data-testid="chat-chip-starter"
                   className="flex-none whitespace-nowrap rounded-full border border-[#D88FA9] bg-white/70 px-3 py-[7px] text-[12px] font-medium leading-4 text-v3-navy backdrop-blur transition hover:bg-white active:scale-[0.98] disabled:opacity-50"
@@ -430,14 +452,14 @@ export function ChatScreen() {
                 </button>
               ))}
             {showAllQuestions &&
-              SUGGESTED_QUESTIONS.map((q) => (
+              SUGGESTED_QUESTION_ITEMS.map((item) => (
                 <button
-                  key={q}
-                  onClick={() => submit(q)}
+                  key={item.q}
+                  onClick={() => submit(item.q, item.topicId)}
                   disabled={busy}
                   className="flex-none whitespace-nowrap rounded-full border border-[#D88FA9] bg-white/70 px-3 py-[7px] text-left text-[12px] font-medium leading-4 text-v3-navy backdrop-blur transition hover:bg-white active:scale-[0.98] disabled:opacity-50"
                 >
-                  {q}
+                  {item.q}
                 </button>
               ))}
             {startersUsed &&
@@ -516,8 +538,12 @@ export function ChatScreen() {
         </p>
       ) : null}
 
-      {/* disclaimer — Figma fine print under the composer */}
-      <div data-testid="chat-disclaimer" className="mx-auto w-full max-w-[430px] flex-none px-6 pb-2 text-center text-[9px] leading-[13px] text-v3-text-muted">
+      {/* disclaimer — Figma fine print under the composer (+ safe-area inset กันโดนแถบ home ล่างบนมือถือ) */}
+      <div
+        data-testid="chat-disclaimer"
+        className="mx-auto w-full max-w-[430px] flex-none px-6 pb-2 text-center text-[9px] leading-[13px] text-v3-text-muted"
+        style={{ paddingBottom: "calc(0.5rem + env(safe-area-inset-bottom))" }}
+      >
         {DISCLAIMER_LINES.map((line) => (
           <p key={line}>{line}</p>
         ))}

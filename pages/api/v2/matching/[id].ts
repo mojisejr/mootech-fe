@@ -17,9 +17,19 @@ type Row = {
   user_name: string | null
   user_surname: string | null
   user_picture_url: string | null
+  user_dob: Date | string | null
+  user_time: string | null
+  user_is_remember_time: boolean | null
   friend_name: string | null
   friend_surname: string | null
   friend_picture_url: string | null
+}
+
+/** dob (Date|string) → 'YYYY-MM-DD' | null */
+function toBirthDate(v: Date | string | null): string | null {
+  if (v instanceof Date) return v.toISOString().slice(0, 10)
+  if (typeof v === 'string' && /^\d{4}-\d{2}-\d{2}/.test(v)) return v.slice(0, 10)
+  return null
 }
 
 const rowsOf = (r: unknown): Row[] => (Array.isArray(r) ? (r as Row[]) : ((r as { rows?: Row[] })?.rows ?? []))
@@ -44,6 +54,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
              u.name             AS user_name,
              u.surname          AS user_surname,
              u.picture_url      AS user_picture_url,
+             u.dob              AS user_dob,
+             u."time"           AS user_time,
+             u.is_remember_time AS user_is_remember_time,
              f.name             AS friend_name,
              f.surname          AS friend_surname,
              f.picture_url      AS friend_picture_url
@@ -61,8 +74,22 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     // confirm that an id exists, which is the thing worth not leaking.
     if (!row) return res.status(404).json({ ok: false, error: 'not found' })
 
+    // ตัวเรา (person A) = เจ้าของผลนี้ (บังคับด้วย lm.user_id = who.userId) → ส่งค่า "ปัจจุบัน" ของโปรไฟล์ตัวเอง
+    // เพื่อให้จอผลอัปเดตตามที่ผู้ใช้แก้วันเกิด/รูป (#7): รูปดึงจาก /api/v2/avatar (viewer-scoped, มี fallback LINE),
+    // วันเกิด/เวลา จาก user row ปัจจุบัน. ส่วนเพื่อน (person B) คงค่าที่บันทึกไว้ตามเดิม
+    const selfBirthDate = toBirthDate(row.user_dob)
+    const selfTime =
+      row.user_is_remember_time !== false && typeof row.user_time === 'string' && /^\d{2}:\d{2}/.test(row.user_time)
+        ? row.user_time.slice(0, 5)
+        : null
     return res.status(200).json({
-      user: { name: row.user_name, user_surname: row.user_surname, picture: row.user_picture_url },
+      user: {
+        name: row.user_name,
+        user_surname: row.user_surname,
+        picture: '/api/v2/avatar',
+        birthDate: selfBirthDate,
+        time: selfTime,
+      },
       friend: { name: row.friend_name, user_surname: row.friend_surname, picture: row.friend_picture_url },
       result: row.result,
       type: row.type,

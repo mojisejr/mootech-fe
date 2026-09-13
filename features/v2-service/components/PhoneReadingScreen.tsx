@@ -12,6 +12,7 @@ import { TopBarBell } from "@/features/v2-shell/components/TopBarBell"
 import { TopBarAvatar } from "@/features/v2-shell/components/TopBarAvatar"
 import { getDayEntry, getLastEntry, putDayEntry } from "@/features/v2-service/daily-reading-cache"
 import { useActionCooldown } from "@/lib/useActionCooldown"
+import { shareAsInvite } from "@/lib/v2/share-invite"
 import {
   LayerRow, Pyramid, buildHoneycombEngineText, type HoneycombReading,
 } from "@/features/v2-service/components/honeycomb-parts"
@@ -221,8 +222,8 @@ export function PhoneReadingScreen({ initialMode = "normal" }: { initialMode?: M
     const norm = resultMode === "normal" ? pReading?.normalized : hReading?.normalized
     if (!norm) return
     const text = `${MODE[resultMode].label} · เบอร์ ${norm}\n${narration ? narration.slice(0, 160) : ""}…\nทำนายเบอร์ของคุณที่ MuMate`
-    if (typeof navigator !== "undefined" && navigator.share) void navigator.share({ title: "ทำนายเบอร์มือถือ", text }).catch(() => {})
-    else if (typeof navigator !== "undefined") void navigator.clipboard?.writeText(text).catch(() => {})
+    // แชร์ผ่าน shareAsInvite เพื่อให้มี url (ลิงก์เชิญของ user) ติดไปด้วย + fallback คัดลอกใส่ url (2026-09-13)
+    void shareAsInvite({ title: "ทำนายเบอร์มือถือ", text })
   }
 
   const digits = pReading ? pReading.normalized.split("") : []

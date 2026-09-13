@@ -15,6 +15,7 @@ import {
   parseCompatibilityResult,
   applyCarriedBirth,
   applyAccountPhotos,
+  applyAccountSelf,
   mascotGanzhiPair,
   applyMatchingKind,
   type CarriedPersons,
@@ -115,9 +116,13 @@ export function useCompatibilityResult(matchingId: string): UseCompatibilityResu
         // #571 — and finally record WHICH form screen this calculation was made on, from `resp.type`, so the
         // back button has a destination. Last in the chain because it reads the response, not the result, so
         // its position relative to the other two does not matter — kept last to leave them untouched.
+        // #7 — applyAccountSelf LAST: SELF (person A) ยึดค่าปัจจุบันจากโปรไฟล์ (วันเกิด/เวลา/รูป) ทับ carry/บัญชี
         const parsed = applyMatchingKind(
-          applyAccountPhotos(
-            applyCarriedBirth(parseCompatibilityResult(resp), recallCompatPersons(matchingId)),
+          applyAccountSelf(
+            applyAccountPhotos(
+              applyCarriedBirth(parseCompatibilityResult(resp), recallCompatPersons(matchingId)),
+              resp,
+            ),
             resp,
           ),
           resp,

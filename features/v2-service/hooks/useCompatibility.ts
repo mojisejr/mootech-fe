@@ -128,7 +128,9 @@ export function useCompatibility(config: CompatibilityConfig): UseCompatibility 
             name: u.name || cookieName,
             dob: u.dob || '',
             time: u.time || '',
-            imageProfile: u.picture_url || '',
+            // #7 (2026-09-13): รูปตัวเราดึงจาก /api/v2/avatar (รูปที่อัปโหลดล่าสุด, fallback LINE) แทน picture_url
+            // ที่ไม่อัปเดตตอนเปลี่ยนรูป — /api/v2/avatar ผูกกับ cookie ผู้ใช้ปัจจุบัน = ตัวเราเสมอ
+            imageProfile: '/api/v2/avatar',
           })
         }
       } catch {

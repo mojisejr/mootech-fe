@@ -1,4 +1,4 @@
-// [advanced] "กุ๊ยนั้ง 貴人 · คนอุปถัมภ์วันนี้" — ปีนักษัตรของคนที่ตำราบอกว่าเป็นผู้อุปถัมภ์ (貴人) ในวันนั้น
+// [advanced] "กุ้ยนั้ง 貴人 · คนอุปถัมภ์วันนี้" — ปีนักษัตรของคนที่ตำราบอกว่าเป็นผู้อุปถัมภ์ (貴人) ในวันนั้น
 // ข้อมูล = almanac.patrons[].zodiac ดิบ ("คนเกิดปีวอก") จาก engine — ไม่มีในเฟรม Figma 634:8752; gafiw ขอเพิ่มในโหมด
 // แอดวานซ์ (2026-09-07) สไตล์ตาม SectionCard เดียวกับส่วนอื่น ไม่แปล/ไม่จัดอันดับ
 import { SectionCard } from './SectionCard'
@@ -12,12 +12,12 @@ const zodiacOf = (label: string) => Object.keys(ZODIAC_EMOJI).find((z) => label.
 export function Patrons({ patrons }: { patrons: string[] }) {
   return (
     <SectionCard
-      title="กุ๊ยนั้ง 貴人 · คนอุปถัมภ์วันนี้"
+      title="กุ้ยนั้ง 貴人 · คนอุปถัมภ์วันนี้"
       testId="patrons"
-      info={<p>คนที่เกิดปีนักษัตรเหล่านี้เป็น “กุ๊ยนั้ง” (ผู้อุปถัมภ์) ของวันนี้ตามตำรา — ติดต่อ ขอความช่วยเหลือ หรือร่วมงานกับคนกลุ่มนี้จะราบรื่นกว่า</p>}
+      info={<p>คนที่เกิดปีนักษัตรเหล่านี้เป็น “กุ้ยนั้ง” (ผู้อุปถัมภ์) ของวันนี้ตามตำรา — ติดต่อ ขอความช่วยเหลือ หรือร่วมงานกับคนกลุ่มนี้จะราบรื่นกว่า</p>}
     >
       {patrons.length === 0 ? (
-        <p className="text-sm text-v3-text-muted">วันนี้ไม่มีข้อมูลกุ๊ยนั้ง</p>
+        <p className="text-sm text-v3-text-muted">วันนี้ไม่มีข้อมูลกุ้ยนั้ง</p>
       ) : (
         <ul className="flex flex-wrap gap-2">
           {patrons.map((p, i) => {

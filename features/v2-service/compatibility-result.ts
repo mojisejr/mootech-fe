@@ -199,6 +199,46 @@ export function applyAccountPhotos(
 }
 
 /**
+ * #7 (2026-09-13) — SELF (person A) birthdate must reflect the user's CURRENT profile, not the frozen
+ * calc-time carry. The get-detail route emits the owner's current `user.birthDate`/`user.time`; person A is
+ * always the result's owner (route enforces lm.user_id = session user), so overriding A's birth line with
+ * these current values makes couple/coworker/boss screens update when the user edits their birthdate.
+ * Person B (friend) is left untouched. PURE. Run this LAST so current self birth wins over the carry.
+ *
+ * NOTE: the PHOTO is intentionally NOT overridden here — the self photo is already kept current upstream
+ * (the picker carries /api/v2/avatar, and applyAccountPhotos fills it from the route on the no-carry path),
+ * and #554's "carried form photo wins" rule must stay intact.
+ */
+export function applyAccountSelf(
+  result: CompatibilityResult | null,
+  getDetailResponse: unknown,
+): CompatibilityResult | null {
+  if (!result) return result
+  const resp = getDetailResponse as {
+    user?: { birthDate?: unknown; time?: unknown } | null
+  } | null
+  const str = (v: unknown): string | undefined => {
+    const s = typeof v === 'string' ? v.trim() : ''
+    return s ? s : undefined
+  }
+  const birthDate = str(resp?.user?.birthDate)
+  const time = str(resp?.user?.time)
+  if (!birthDate && !time) return result
+  const a = result.persons.a
+  return {
+    ...result,
+    persons: {
+      ...result.persons,
+      a: {
+        ...(a ?? {}),
+        ...(birthDate ? { birthDate } : null),
+        ...(time ? { time } : null),
+      },
+    },
+  }
+}
+
+/**
  * #571 — attach the screen this calculation was made on, read from the SAME get-detail response the rest of
  * this file parses. `pages/api/v2/matching/[id].ts:43,68` already selects `um.matching_type AS type` and
  * sends it; nothing on the client consumed it, so the result screen had no way to know where it came from

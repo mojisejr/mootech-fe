@@ -50,11 +50,19 @@ export function CompatElementInteractionCard({ interaction }: { interaction?: Co
   const i = interaction
   const a = (i?.aElementTh ?? '').trim()
   const b = (i?.bElementTh ?? '').trim()
-  const { top: relLabel, bottom: relKind } = relationArrowLabels(i?.aToB?.relation, a, b)
+  const relation = (i?.aToB?.relation ?? '').trim()
+  const { top: relLabel, bottom: relKind } = relationArrowLabels(relation, a, b)
   const hasElements = !!(a || b)
   const inkA = chartInk(a)
   const inkB = chartInk(b)
   const gradId = useId()
+  // ทิศลูกศรต้องชี้จาก "ผู้กระทำ → ผู้รับ": resource (เขาส่งเสริมเรา) และ power (เขาข่มเรา) ไหลจาก เขา(B,ขวา) → เรา(A,ซ้าย)
+  // จึงต้องชี้กลับไปทางซ้าย. ส่วน output/wealth/same ไหลจาก เรา(A,ซ้าย) → เขา(B,ขวา) ชี้ขวาตามเดิม.
+  // gradient อิงตำแหน่งแนวนอน (A ซ้าย=inkA, B ขวา=inkB) เหมือนเดิมทั้งสองกรณี — สลับแค่หัวลูกศร.
+  const arrowReversed = relation === 'resource' || relation === 'power'
+  const arrowPath = arrowReversed
+    ? 'M39 8H5m0 0 6-6m-6 6 6 6' // หัวชี้ซ้าย (เขา → เรา)
+    : 'M1 8h34m0 0-6-6m6 6-6 6' // หัวชี้ขวา (เรา → เขา)
   // ย่อหน้าสรุป "ดิถีเรา (ไฟ) มองเขา (ไม้) เป็น…" ของ engine ถูกตัดออก (ฟีม สไลด์ 15 "ตัดออก" + ผู้ใช้ย้ำ 2026-09-07)
   if (!hasElements) return null
 
@@ -70,7 +78,7 @@ export function CompatElementInteractionCard({ interaction }: { interaction?: Co
             {relLabel ? <span data-testid="compat-element-rel" className="text-center text-[15px] font-bold" style={{ color: inkB }}>{relLabel}</span> : null}
             <svg viewBox="0 0 40 16" className="h-4 w-10" fill="none" aria-hidden data-testid="compat-element-arrow">
               <defs><linearGradient id={gradId} x1="0" x2="1" y1="0" y2="0"><stop offset="0" stopColor={inkA} /><stop offset="1" stopColor={inkB} /></linearGradient></defs>
-              <path d="M1 8h34m0 0-6-6m6 6-6 6" stroke={`url(#${gradId})`} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+              <path d={arrowPath} stroke={`url(#${gradId})`} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
             </svg>
             {relKind ? <span className="text-center text-[14px] leading-[22px] text-v3-slate-muted">{relKind}</span> : null}
           </div>
