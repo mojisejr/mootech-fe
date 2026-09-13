@@ -14,6 +14,7 @@ import { reminder } from '@/lib/db/schema'
 import { resolveSessionUserId } from '@/lib/v2/resolve-user'
 import { resolveMembership } from '@/lib/usage'
 import { planReminderCommit, type CommitInput } from '@/lib/v2/reminder-plan'
+import { scheduleReminderPush } from '@/lib/push/qstash'
 
 type Row = typeof reminder.$inferSelect
 
@@ -97,6 +98,16 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             ),
           )
       })
+      // #push-qstash (2026-09-13): จอง one-shot push ตรงเวลาแต่ละใบ (path นี้ paid-only อยู่แล้ว).
+      // idempotent ต่อ reminderId → onConflict/retry ไม่จองซ้อน. best-effort: ล้ม/ไม่มี token → ไม่ทำให้บันทึกล้ม.
+      // ต้อง await (serverless อาจจบก่อนงาน async ที่ไม่ await เสร็จ) แต่ห่อ catch ไม่ให้ล้มการบันทึก.
+      const proto = (req.headers['x-forwarded-proto'] as string | undefined) || 'https'
+      const origin = req.headers.host ? `${proto}://${req.headers.host}` : ''
+      if (origin) {
+        await Promise.all(
+          rows.map((r) => scheduleReminderPush({ reminderId: r.id, fireAt: r.fireAtUtc, origin }).catch(() => null)),
+        )
+      }
       return res.status(201).json({ ok: true, reminders: rows.map(toDTO) })
     }
 
