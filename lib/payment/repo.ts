@@ -287,6 +287,9 @@ export async function revokeByChargeId(
     // ของเลนสมาชิก) — สิ่งที่แน่นอนคือเลนนี้ต้องไม่แตะ shadow และไม่ต้องรอมนุษย์ (NEEDS_HUMAN ใช้กับ
     // member_payment เท่านั้น)
     if (pay.tierCode === 'QI') return { revoked: true, shadowHandled: 'NONE' }
+    // 🔴 SINSAE BOOKING LANE — เช่นเดียวกับ QI: การจองไม่ได้เขียน member_* → ไม่มีสมาชิกให้ถอน. การคืนเงิน/ยกเลิก
+    // คิวเป็นเรื่องที่คุยกับซินแสทางไลน์; เลนนี้แค่ mark REVERSED (ข้างบน) ไม่แตะ shadow และไม่รอมนุษย์.
+    if (pay.tierCode === 'SINSAE') return { revoked: true, shadowHandled: 'NONE' }
 
     // Only an ACTIVE row is moved, ON PURPOSE. If a later purchase already superseded this one the row is
     // 'REPLACED', which grants nothing anyway (lib/v2/subscription.ts:71 asks for ACTIVE), so there is
@@ -745,6 +748,13 @@ export async function settleAndProvision(
         outcome,
         qiPurchase: { userId: pay.userId, packageCode: pay.packageCode, chargeId },
       }
+    }
+
+    // ── 🔴 SINSAE BOOKING LANE (#3 ซินแสนุ้ย 2026-09-14) ─────────────────────────────────────────
+    // จองซินแสไม่ใช่สมาชิกและไม่ใช่ชี่: เลนนี้จบที่การบันทึก APPROVED ข้างบน (v2_payment แถวนี้ = หลักฐาน
+    // การจอง) — ไม่เขียน member_subscription/member_payment และไม่เครดิตชี่. ยืนยันวันเวลากับซินแสทางไลน์.
+    if (pay.tierCode === 'SINSAE') {
+      return { provisioned: true, outcome }
     }
 
     // Duration comes from the FROZEN terms on v2_payment (ตู๋ #370 B2) — NOT a fresh payment_package read,

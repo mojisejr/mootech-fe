@@ -34,13 +34,18 @@ describe('จอ ดูดวงส่วนตัว กับซินแส (
     expect(screen.getByTestId('sinsae-trust')).toBeTruthy()
   })
 
-  it('ทุกปุ่มจองเป็นลิงก์ไป LINE OA (บริการจอง ไม่ใช่ checkout ในแอป)', () => {
+  it('ปุ่มจอง = checkout จ่ายเงินจริง (SINSAE_*) + ลิงก์ไลน์ "สอบถามก่อน" แยก (#3)', () => {
     render(<SinsaeScreen />)
     const line = 'https://line.me/R/ti/p/@082cvuiy?ts=09151109&oat_content=url'
+    const codes: Record<string, string> = { unlock: 'SINSAE_30', deepdive: 'SINSAE_60', levelup: 'SINSAE_90' }
     for (const id of ['unlock', 'deepdive', 'levelup']) {
-      const cta = screen.getByTestId(`sinsae-book-${id}`) as HTMLAnchorElement
-      expect(cta.getAttribute('href')).toBe(line)
-      expect(cta.getAttribute('target')).toBe('_blank')
+      // จองเลย → checkout ในแอป (จ่ายจริงผ่านราง payment)
+      const book = screen.getByTestId(`sinsae-book-${id}`) as HTMLAnchorElement
+      expect(book.getAttribute('href')).toBe(`/v2/shop/checkout?package_code=${codes[id]}`)
+      // สอบถามก่อน → LINE OA (ทางเลือก)
+      const ask = screen.getByTestId(`sinsae-ask-${id}`) as HTMLAnchorElement
+      expect(ask.getAttribute('href')).toBe(line)
+      expect(ask.getAttribute('target')).toBe('_blank')
     }
   })
 

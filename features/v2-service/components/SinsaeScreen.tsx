@@ -1,17 +1,20 @@
 // features/v2-service/components/SinsaeScreen.tsx — /v2/service/sinsae
 // "ดูดวงส่วนตัว กับซินแส" — บริการปรึกษาดวงตัวต่อตัวกับซินแส (คนจริง ไม่ใช้ AI).
 // ไม่มีเฟรมใน Figma → ออกแบบเองตามคอนเทนต์การตลาด (ตาราง 3 แพ็กเกจ + แถบความน่าเชื่อถือ) + ภาษาดีไซน์ของแอป.
-// เป็นบริการแบบจอง → ทุก CTA ไปที่ LINE OA เดียวกับ one-book (ทักเพื่อจองรอบ).
+// #3 (ซินแสนุ้ย 2026-09-14): CTA เปลี่ยนเป็น "จ่ายเงินจริง" → ไป checkout (PromptPay/บัตร) ด้วย package_code
+// SINSAE_* แล้วค่อยทักไลน์ยืนยันวันเวลา (ยังคงลิงก์ไลน์ "สอบถามก่อน" ไว้เป็นทางเลือก).
 import Head from "next/head"
+import Link from "next/link"
 
 import { SkyBackdrop, SkyHeader } from "@/features/v2-profile/components/kit"
 import { Menubar } from "@/features/v2-shell/components/Menubar"
-
-const LINE_ORDER_URL = "https://line.me/R/ti/p/@082cvuiy?ts=09151109&oat_content=url"
+import { LINE_ORDER_URL } from "@/features/v2-service/line-order"
 
 type Tone = "teal" | "sapphire"
 type Tier = {
   id: string
+  /** package_code ในราง payment (tier SINSAE) — ราคาจริงมาจาก payment_package/DB */
+  code: string
   icon: "lock" | "fire" | "rocket"
   name: string
   price: string
@@ -26,6 +29,7 @@ type Tier = {
 const TIERS: Tier[] = [
   {
     id: "unlock",
+    code: "SINSAE_30",
     icon: "lock",
     name: "Unlock!",
     price: "690",
@@ -38,6 +42,7 @@ const TIERS: Tier[] = [
   },
   {
     id: "deepdive",
+    code: "SINSAE_60",
     icon: "fire",
     name: "Deep Dive!",
     price: "1,190",
@@ -52,6 +57,7 @@ const TIERS: Tier[] = [
   },
   {
     id: "levelup",
+    code: "SINSAE_90",
     icon: "rocket",
     name: "Level Up!",
     price: "2,890",
@@ -157,14 +163,21 @@ export function SinsaeScreen() {
                 ))}
               </ul>
 
+              <Link
+                href={`/v2/shop/checkout?package_code=${encodeURIComponent(t.code)}`}
+                data-testid={`sinsae-book-${t.id}`}
+                className={`mt-1 grid h-11 w-full place-items-center rounded-full text-[14px] font-bold ${t.best ? "bg-v3-sapphire text-v3-lime" : "border border-v3-sapphire text-v3-sapphire"}`}
+              >
+                จองเลย · ชำระเงิน {t.price} บาท
+              </Link>
               <a
                 href={LINE_ORDER_URL}
                 target="_blank"
                 rel="noopener noreferrer"
-                data-testid={`sinsae-book-${t.id}`}
-                className={`mt-1 grid h-11 w-full place-items-center rounded-full text-[14px] font-bold uppercase ${t.best ? "bg-v3-sapphire text-v3-lime" : "border border-v3-sapphire text-v3-sapphire"}`}
+                data-testid={`sinsae-ask-${t.id}`}
+                className="grid h-8 w-full place-items-center text-[12px] font-medium text-v3-text-muted underline underline-offset-2"
               >
-                จองเลย · ทักไลน์
+                หรือทักไลน์สอบถามก่อนจอง
               </a>
             </div>
           ))}
@@ -189,7 +202,7 @@ export function SinsaeScreen() {
         </section>
 
         <p className="text-center text-[11px] leading-4 text-v3-text-muted">
-          กดจองแล้วทักไลน์เพื่อยืนยันรอบและวันเวลา — วิเคราะห์โดยซินแสจริง
+          ชำระเงินแล้วทักไลน์เพื่อยืนยันรอบและวันเวลา — วิเคราะห์โดยซินแสจริง
         </p>
       </div>
 

@@ -6,7 +6,7 @@
 //   MC3  VAT stops being extracted backward (amount*rate/(1+rate))             → the VAT-7% test reddens
 //   MC4  a client code discount is trusted as-is instead of stubbed to 0       → the discount-ignored test reddens
 import { describe, it, expect } from 'vitest'
-import { quotePackage, parseExpireSpec, qiQtyOf, UnsellablePackageError, type PackageRow } from '@/lib/payment/catalog'
+import { quotePackage, parseExpireSpec, qiQtyOf, sinsaeMinutesOf, UnsellablePackageError, type PackageRow } from '@/lib/payment/catalog'
 
 // #377: the tier and the on-sale flag now come from the payment_package ROW (they used to be a hardcoded
 // map here). The teeth below are unchanged in meaning — only where the inputs come from moved.
@@ -111,5 +111,32 @@ describe('quotePackage — เลนแพ็กชี่ (tierCode QI)', () => 
   it('qiQtyOf — ไม่รู้จัก = null ไม่ใช่ 0 (0 ชี่ที่ถูกต้องจะทำให้ grant เงียบ ๆ ไม่เครดิต)', () => {
     expect(qiQtyOf('QI_500')).toBe(900)
     expect(qiQtyOf('V2_PRO_YEARLY')).toBeNull()
+  })
+})
+
+// ── SINSAE BOOKING (#3 ซินแสนุ้ย) — tier 'SINSAE' อยู่นอกบันไดสมาชิก/ชี่: ราคาผ่านรางเดียวกัน, นาทีต้องรู้จัก ──
+describe('quotePackage — เลนจองซินแส (tierCode SINSAE)', () => {
+  const pack = (code: string, amount: number, overrides: Partial<PackageRow> = {}): PackageRow =>
+    ({ packageCode: code, planCode: 'MEMBER', amount, expire: '1D', bufferDay: 0, tierCode: 'SINSAE', isActive: true, ...overrides })
+
+  it('แพ็กจองที่รู้จัก ได้ tier SINSAE + ราคา satang ตามแถวจริง (ไม่ตกไปเลนสมาชิก)', () => {
+    const q = quotePackage(pack('SINSAE_60', 1190))
+    expect(q.tierCode).toBe('SINSAE')
+    expect(q.amountSatang).toBe(119000)
+    expect(sinsaeMinutesOf('SINSAE_90')).toBe(90)
+  })
+
+  it('แพ็กจองที่ไม่รู้จัก THROWS — เงินห้ามวิ่งก่อนรู้ว่าจองอะไร', () => {
+    expect(() => quotePackage(pack('SINSAE_999', 999))).toThrow(UnsellablePackageError)
+  })
+
+  it('แพ็กจองที่ปิดขายยัง THROWS (isActive ตรวจก่อนระยะเวลา)', () => {
+    expect(() => quotePackage(pack('SINSAE_60', 1190, { isActive: false }))).toThrow(UnsellablePackageError)
+  })
+
+  it('sinsaeMinutesOf — ไม่รู้จัก = null (กันจองแพ็กที่ไม่มีระยะเวลา)', () => {
+    expect(sinsaeMinutesOf('SINSAE_30')).toBe(30)
+    expect(sinsaeMinutesOf('QI_200')).toBeNull()
+    expect(sinsaeMinutesOf('V2_PRO_YEARLY')).toBeNull()
   })
 })

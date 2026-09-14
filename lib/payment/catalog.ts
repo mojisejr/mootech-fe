@@ -54,6 +54,31 @@ export function qiBonusOf(packageCode: string): number {
     : 0
 }
 
+// ── SINSAE BOOKING (จองปรึกษาซินแสตัวต่อตัว) — #3 (ซินแสนุ้ย 2026-09-14) ────────────────────────────
+// จองซินแส "ไม่ใช่สมาชิก และไม่ใช่ชี่": จ่ายผ่านรางเดียวกับ Plus/Pro/QI (Omise/PromptPay) แต่ settle แล้ว
+// ไม่ให้ tier และไม่เครดิตชี่ — v2_payment แถว APPROVED (tier_code='SINSAE') คือ "หลักฐานการจอง"; นัดวันเวลา
+// จริงกับซินแสทางไลน์ (โปสเตอร์: "กดจองแล้วทักไลน์เพื่อยืนยันรอบ"). นาที/ป้าย = ข้อเท็จจริงของโค้ด (เหมือน
+// QI qty) — โค้ดที่ไม่รู้จักต้อง fail loud ก่อนถึง till; ราคา (amount) มาจาก payment_package เสมอ (แก้ที่ /ops).
+export const SINSAE_PACK_CODES = ['SINSAE_30', 'SINSAE_60', 'SINSAE_90'] as const
+export type SinsaePackCode = (typeof SINSAE_PACK_CODES)[number]
+export const SINSAE_MINUTES: Record<SinsaePackCode, number> = { SINSAE_30: 30, SINSAE_60: 60, SINSAE_90: 90 }
+/** ชื่อแพ็กจองที่โชว์บนสรุปยอด/ใบเสร็จ (ตรงโปสเตอร์ 3 แพ็ก) */
+export const SINSAE_LABEL: Record<SinsaePackCode, string> = {
+  SINSAE_30: 'Unlock! · 30 นาที',
+  SINSAE_60: 'Deep Dive! · 60 นาที',
+  SINSAE_90: 'Level Up! · 90 นาที',
+}
+export function sinsaeMinutesOf(packageCode: string): number | null {
+  return (SINSAE_PACK_CODES as readonly string[]).includes(packageCode)
+    ? SINSAE_MINUTES[packageCode as SinsaePackCode]
+    : null
+}
+export function sinsaeLabelOf(packageCode: string): string | null {
+  return (SINSAE_PACK_CODES as readonly string[]).includes(packageCode)
+    ? SINSAE_LABEL[packageCode as SinsaePackCode]
+    : null
+}
+
 /** อัตรา VAT (แบบรวมในราคา — สกัดย้อนกลับ) สำหรับโชว์ในสรุปยอด/ใบเสร็จ. (#362 จะย้ายไป app_setting) */
 export const VAT_RATE = 0.07
 
@@ -96,8 +121,8 @@ export function parseExpireSpec(expire: string): ExpireSpec {
 
 export type Quote = {
   packageCode: string
-  /** 'QI' = แพ็กชี่ (ไม่ใช่สมาชิก — เลน settle แยก); อื่น ๆ คือบันไดสมาชิกตามเดิม */
-  tierCode: TierCode | 'QI'
+  /** 'QI' = แพ็กชี่ · 'SINSAE' = จองซินแส (ทั้งคู่ไม่ใช่สมาชิก — เลน settle แยก); อื่น ๆ คือบันไดสมาชิกตามเดิม */
+  tierCode: TierCode | 'QI' | 'SINSAE'
   amountSatang: number // what Omise charges (VAT-inclusive)
   vatSatang: number // VAT extracted from amountSatang (0 when rate is 0)
   expire: ExpireSpec
@@ -124,6 +149,12 @@ export function quotePackage(
     throw new UnsellablePackageError(pkg.packageCode, 'QI pack without a known qi quantity')
   }
 
+  // 🔴 SINSAE booking: เช่นเดียวกับ QI — ไม่ใช่บันไดสมาชิก. ระยะเวลา (นาที) ต้องรู้จัก ณ ที่นี้ ไม่งั้น fail loud.
+  const isSinsaePack = pkg.tierCode === 'SINSAE'
+  if (isSinsaePack && sinsaeMinutesOf(pkg.packageCode) === null) {
+    throw new UnsellablePackageError(pkg.packageCode, 'SINSAE booking without a known duration')
+  }
+
   const tierCode = parseTierCode(pkg.tierCode)
   // 🔴 The `=== 'FREE'` half is load-bearing OUTSIDE this file, and its only pin is one row of one test.
   // A FREE tier passes 0006's CHECK and maps cleanly, so nothing downstream refuses it: a live FREE
@@ -136,7 +167,7 @@ export function quotePackage(
   // individually: `free` (:32) still throws on the amount check, `garbageTier` (:34) still throws on the
   // null half, and only :33 reddens. Delete :33 as a near-duplicate of :32 and MC1 keeps its name and its
   // green tick while no longer testing this clause at all.
-  if (!isQiPack && (tierCode === null || tierCode === 'FREE')) {
+  if (!isQiPack && !isSinsaePack && (tierCode === null || tierCode === 'FREE')) {
     throw new UnsellablePackageError(pkg.packageCode, 'no paid tier for it')
   }
 
@@ -158,7 +189,7 @@ export function quotePackage(
 
   return {
     packageCode: pkg.packageCode,
-    tierCode: isQiPack ? 'QI' : (tierCode as TierCode), // เงื่อนไข throw ด้านบนคือพยานว่า non-QI แล้วเป็น paid tier
+    tierCode: isQiPack ? 'QI' : isSinsaePack ? 'SINSAE' : (tierCode as TierCode), // throw ด้านบนคือพยานว่า non-QI/non-SINSAE แล้วเป็น paid tier
     amountSatang,
     vatSatang,
     expire: parseExpireSpec(pkg.expire),

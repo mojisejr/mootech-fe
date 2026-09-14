@@ -8,6 +8,7 @@ import { useState } from "react"
 import { KitButton, SkyBackdrop, SkyHeader } from "@/features/v2-profile/components/kit"
 import { Menubar } from "@/features/v2-shell/components/Menubar"
 import { VAT_RATE } from "@/lib/payment/catalog"
+import { LINE_ORDER_URL } from "@/features/v2-service/line-order"
 import { bkkCivilDate } from "../payment-history"
 import { bahtOf, methodWord, qiReceivedOf, statusWord, titleFor, usePaymentRows } from "./OrdersScreen"
 
@@ -115,6 +116,18 @@ export function OrderReceiptScreen({ id }: { id: string }) {
             {/* actions (เฟรม actions): หลัก = ส่งใบเสร็จอีกครั้ง · รอง = ขอความช่วยเหลือ */}
             {st.paid ? (
               <div className="flex flex-col gap-2">
+                {/* จองซินแส: ปุ่มหลัก = ทักไลน์ยืนยันคิว (คนจริงคุยวันเวลา) */}
+                {row.tierCode === "SINSAE" ? (
+                  <a
+                    href={LINE_ORDER_URL}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    data-testid="receipt-sinsae-line"
+                    className="grid h-[52px] w-full place-items-center rounded-pill bg-v3-sapphire text-base font-bold text-v3-lime"
+                  >
+                    ทักไลน์ยืนยันวันเวลา
+                  </a>
+                ) : null}
                 <KitButton onClick={() => void resend()} disabled={resending} testId="receipt-resend">
                   {resending ? "กำลังส่ง..." : "ส่งใบเสร็จอีกครั้ง"}
                 </KitButton>

@@ -10,9 +10,10 @@ import { v2RedirectIfUnauthed } from '@/lib/v2/gate'
 import { ResultScreen } from '@/features/v2-shop/components/ResultScreen'
 import { QiBuySuccess } from '@/features/v2-shop/components/QiBuySuccess'
 import { PlanPaySuccess } from '@/features/v2-shop/components/PlanPaySuccess'
+import { SinsaeBookingSuccess } from '@/features/v2-shop/components/SinsaeBookingSuccess'
 import { RESULT_COPY, resolveResultState, tryAnotherHref, type ResultState } from '@/features/v2-shop/result-state'
 import { useChargeStatus } from '@/features/v2-shop/useChargeStatus'
-import { qiQtyOf } from '@/lib/payment/catalog'
+import { qiQtyOf, sinsaeMinutesOf } from '@/lib/payment/catalog'
 
 export const getServerSideProps: GetServerSideProps = async (ctx) => {
   ctx.res.setHeader('Cache-Control', 'no-store, must-revalidate')
@@ -41,12 +42,25 @@ export default function V2ResultPage() {
   // ของแพ็ก (จาก QI_PACK_QTY server-side map — ไม่อ่านจาก URL นอกจากโค้ดแพ็กที่ตรวจแล้ว)
   const qiQty = qiQtyOf(packageCode)
   const qiLine = qiQty !== null ? `แพ็ก ${qiQty.toLocaleString('th-TH')} QI` : null
+  // จองซินแส (tier SINSAE) — จบที่หน้า success ของตัวเอง (ใบเสร็จย่อ + ทักไลน์) ไม่ใช่หน้าสมาชิก/ชี่
+  const isSinsae = sinsaeMinutesOf(packageCode) !== null
   const { status, method, phase, qrDeadline, failureCode, check } = useChargeStatus({ chargeId: charge || null, orderId: order || null })
 
   // Glue only — the rule lives in result-state.ts next to the words it chooses between, so it can be tested
   // without a router. That is not tidiness: the branch this ticket adds was missing precisely because the
   // only way to exercise the old nested ternary was to render this page.
   const state: ResultState = resolveResultState({ status, method, claimed, phase, qrDeadline, failureCode })
+
+  // จองซินแส (tier SINSAE): เงินเข้าจริงแล้ว → หน้า "จองสำเร็จ" (ใบเสร็จย่อ + ทักไลน์ยืนยันคิว).
+  // ต้องเช็คก่อนเลนสมาชิก เพราะ qiQty เป็น null สำหรับ SINSAE เช่นกัน (ไม่งั้นจะตกไป PlanPaySuccess).
+  if (RESULT_COPY[state].paid && isSinsae) {
+    return (
+      <div className="flex min-h-screen w-full flex-col bg-v3-bg-cream">
+        <Head><title>จองสำเร็จ · MuMate</title></Head>
+        <SinsaeBookingSuccess packageCode={packageCode} charge={charge} order={order} />
+      </div>
+    )
+  }
 
   // buy-qi (เฟรม success): เมื่อเงินเข้าแล้วจริง + เป็นแพ็ก QI → จอ success เฉพาะ QI (ยอดใหม่/delta/ใบเสร็จ).
   // สถานะอื่น (กำลังจ่าย/ถูกปฏิเสธ/QR หมดอายุ ฯลฯ) ยังใช้ ResultScreen ที่ copy/retry ถูก audit ไว้แล้ว.

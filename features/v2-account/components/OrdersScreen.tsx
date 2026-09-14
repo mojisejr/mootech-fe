@@ -7,7 +7,7 @@ import { useCallback, useEffect, useMemo, useState } from "react"
 
 import { SkyBackdrop, SkyHeader } from "@/features/v2-profile/components/kit"
 import { Menubar } from "@/features/v2-shell/components/Menubar"
-import { qiBonusOf, qiQtyOf } from "@/lib/payment/catalog"
+import { qiBonusOf, qiQtyOf, sinsaeLabelOf } from "@/lib/payment/catalog"
 import { bkkCivilDate } from "../payment-history"
 
 const CARD = "v3-shadow-card flex w-full flex-col rounded-[24px] bg-white p-5"
@@ -37,6 +37,10 @@ export function titleFor(row: FullPaymentRow): string {
   if (row.tierCode === "QI") {
     const qty = qiQtyOf(row.packageCode) ?? Number(row.packageCode.replace(/[^\d]/g, ""))
     return Number.isFinite(qty) && qty > 0 ? `แพ็ก ${qty.toLocaleString("th-TH")} QI` : row.packageCode
+  }
+  if (row.tierCode === "SINSAE") {
+    const label = sinsaeLabelOf(row.packageCode)
+    return label ? `จองซินแส · ${label}` : "จองปรึกษาซินแส"
   }
   return TIER_WORD[row.tierCode] ?? row.packageCode
 }
