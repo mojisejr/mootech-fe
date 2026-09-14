@@ -113,7 +113,9 @@ export function OneBookScreen() {
           <div className="pointer-events-none absolute -top-[68px] left-1/2 z-10 flex w-[48%] max-w-[180px] -translate-x-1/2 justify-center select-none">
             <span aria-hidden className="absolute left-1/2 top-[55%] -z-10 size-44 -translate-x-1/2 -translate-y-1/2 rounded-full bg-white/25 blur-2xl" />
             <span aria-hidden className="absolute left-1/2 top-[55%] -z-10 size-28 -translate-x-1/2 -translate-y-1/2 rounded-full bg-v3-lime/25 blur-xl" />
-            <Image src="/images/v2/features/one-book/book.png" alt="YOUR LIFE CODE · คู่มือดวงจีนเฉพาะบุคคล" width={536} height={578} className="h-auto w-full drop-shadow-[0_18px_34px_rgba(0,0,0,.4)]" priority />
+            {/* #4 (ซินแสนุ้ย 2026-09-14): เอาเงาดำหนัก (drop-shadow 40%) ออก — asset ขอบซ้ายชิด (มาสคอตในรูป)
+                เงาเลย clip เป็นขอบดำ. มี glow ขาว/ไลม์ด้านหลัง (บน) ให้มิติอยู่แล้ว */}
+            <Image src="/images/v2/features/one-book/book.png" alt="YOUR LIFE CODE · คู่มือดวงจีนเฉพาะบุคคล" width={536} height={578} className="h-auto w-full" priority />
           </div>
           {/* pt เผื่อรูปหนังสือ+มาสคอต (book.png) ที่ล้นขึ้นบน ไม่ให้ทับหัวข้อ (ผู้ใช้ 2026-09-12: รูปทับตัวหนังสือ) */}
           <div className="flex flex-col items-center gap-3 rounded-[24px] bg-v3-sapphire px-5 pb-6 pt-[122px] text-center text-white">

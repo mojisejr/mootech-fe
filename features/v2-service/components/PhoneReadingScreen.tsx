@@ -254,7 +254,9 @@ export function PhoneReadingScreen({ initialMode = "normal" }: { initialMode?: M
             </div>
 
             <section className="relative mt-16 rounded-[24px] bg-v3-sapphire px-6 pb-6 pt-32 text-center" data-testid="phone-intro">
-              <img src="/images/v2/mascot/01.webp" alt="" aria-hidden className="pointer-events-none absolute left-1/2 top-[-96px] z-10 h-[210px] w-[210px] -translate-x-1/2 object-contain drop-shadow-[0_12px_22px_rgba(0,0,0,.28)]" />
+              {/* #1 (ซินแสนุ้ย 2026-09-14): เอา drop-shadow ออก — asset 01.webp งานชิดขอบบน/ล่าง (ไม่มี padding โปร่ง)
+                  เงาดำเลย render เป็นแถบดำบน/ล่าง. ตัวเดียวกันที่อื่นไม่มีเงา = ไม่มีแถบ */}
+              <img src="/images/v2/mascot/01.webp" alt="" aria-hidden className="pointer-events-none absolute left-1/2 top-[-96px] z-10 h-[210px] w-[210px] -translate-x-1/2 object-contain" />
               {HERO_MASCOTS.map((mm, i) => <img key={i} src={mm.src} alt="" aria-hidden style={{ animationDelay: `${i * 0.4}s` }} className={"phone-float pointer-events-none absolute z-10 object-contain " + mm.cls} />)}
 
               <h1 className="whitespace-pre-line text-[22px] font-black leading-7 text-v3-lime">{cfg.title}</h1>

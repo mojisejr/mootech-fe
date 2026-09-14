@@ -30,6 +30,8 @@ export type ServiceCardData = {
    *  (12 services, 11 files), so ฟีม ruled it hidden for now. The row STAYS here — it is hidden, not
    *  deleted — and hiding it means nothing links to that service any more: logged as A2, not silent. */
   hiddenUntilArt?: boolean
+  /** true = href เป็นลิงก์ภายนอก (เปิดแท็บใหม่) เช่น LINE shop — ServiceCard เรนเดอร์ <a target=_blank> แทน <Link> */
+  external?: boolean
 }
 
 /** `/images/v2/features/*` — art lives under the id it belongs to, so a renamed file can never
@@ -79,7 +81,7 @@ export const SERVICES = [
   // เบอร์รังผึ้ง (Honeycomb) — ไม่แยกการ์ดแล้ว: เป็น "โหมด" ในหน้าดูเบอร์มือถือ (สลับธรรมดา/รังผึ้ง) ฟีม 2026-09-10.
   // เก็บ entry ไว้ (hidden) เพื่อคง route /v2/service/honeycomb + ServiceId 'honeycomb'; ไม่โชว์การ์ดในฮับ.
   { id: 'honeycomb', title: 'เบอร์รังผึ้ง', desc: DESC_HONEYCOMB, href: '/v2/service/honeycomb', hiddenUntilArt: true },
-  { id: 'shop', title: 'ร้านค้าของเรา', desc: DESC_SHOP, href: '/v2/shop', image: ART('11_ร้านค้าของเรา.png') },
+  { id: 'shop', title: 'ร้านค้าของเรา', desc: DESC_SHOP, href: 'https://shop.line.me/@mumate.co', external: true, image: ART('11_ร้านค้าของเรา.png') },
   // #13, added 2026-08-08 — NOT from the Figma 12. The home screen (Zone 6) has been selling this since
   // #157, but it existed nowhere in the catalog, so its CTA had no name to send anywhere. Hidden for the
   // same reason as Healing Circles: the card art is 1128×463 full-card, and the only ปาจื่อ image we have
