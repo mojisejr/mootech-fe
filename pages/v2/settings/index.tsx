@@ -153,7 +153,7 @@ export default function V2SettingsPage() {
         {installed ? (
           <Row testId="settings-install-app" title="แอป MuMate" value="ติดตั้งแล้ว" />
         ) : (
-          <Row onClick={onInstallApp} testId="settings-install-app" title="ติดตั้งแอป MuMate" sub="เพิ่มลงหน้าจอโฮม แจ้งเตือนเด้งเหมือนแอป ทำงานแม้ปิดจอ" />
+          <Row onClick={onInstallApp} testId="settings-install-app" title="ติดตั้งแอป MuMate · รับ 30 QI" sub="เพิ่มลงหน้าจอโฮม แจ้งเตือนเด้งเหมือนแอป ทำงานแม้ปิดจอ · โบนัสติดตั้ง +30 QI ครั้งเดียว" />
         )}
         <Row href="/v2/settings/notifications" testId="settings-notifications" title="การแจ้งเตือน" />
         <Row href="/v2/orders" testId="settings-orders" title="ประวัติการสั่งซื้อ" />

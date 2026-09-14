@@ -12,6 +12,7 @@
 import { useEffect, useState } from 'react'
 import Image from 'next/image'
 import { usePwaInstall } from '@/lib/pwa/use-install-prompt'
+import { useInstallReward } from '@/lib/pwa/use-install-reward'
 import { usePwaCapability } from '@/lib/pwa/capability'
 import { InstallGuideSheet } from '@/features/v2-calendar/components/InstallGuideSheet'
 
@@ -38,6 +39,8 @@ export function InstallPromptSheet() {
   const [dismissed, setDismissed] = useState(false)
   const [guideOpen, setGuideOpen] = useState(false)
   const [busy, setBusy] = useState(false)
+  // ยิงรับรางวัลติดตั้ง +30 QI ทันทีเมื่อเปิดเป็นแอปที่ติดตั้งแล้ว (idempotent ฝั่ง engine) — โฮมคือหน้าแรกที่ landing
+  useInstallReward()
 
   useEffect(() => {
     // หน่วงเล็กน้อยให้หน้าแรกโผล่ก่อน แล้วค่อยเชิญ (ไม่กระโดดใส่ทันทีที่เข้า)
@@ -103,6 +106,10 @@ export function InstallPromptSheet() {
           <p className="mt-2 text-center text-sm font-medium leading-6 text-v3-text-body">
             เพิ่มลงหน้าจอโฮม แล้วแจ้งเตือนยามมงคลจะเด้งเหมือนแอปทั่วไป — ทำงานแม้ปิดหน้าจอ ไม่ต้องเปิดเว็บค้างไว้
           </p>
+          {/* โบนัสติดตั้งครั้งแรก +30 QI (ครั้งเดียวต่อบัญชี) */}
+          <p className="mt-3 rounded-2xl bg-v3-lime/25 px-3 py-2 text-center text-[13px] font-bold text-v3-navy">
+            🎁 ติดตั้งครั้งแรกรับ <span className="text-v3-sapphire">+30 QI</span> ฟรี · ครั้งเดียวต่อบัญชี
+          </p>
 
           <button
             type="button"
@@ -112,7 +119,7 @@ export function InstallPromptSheet() {
             className="mt-5 flex h-[52px] w-full items-center justify-center gap-2 rounded-2xl bg-v3-sapphire text-base font-bold text-white disabled:opacity-50"
           >
             <span aria-hidden>📲</span>
-            {busy ? 'กำลังเปิดตัวติดตั้ง…' : canInstall ? 'ติดตั้งเลย' : 'ดูวิธีติดตั้ง'}
+            {busy ? 'กำลังเปิดตัวติดตั้ง…' : canInstall ? 'ติดตั้งเลย · รับ 30 QI' : 'ดูวิธีติดตั้ง · รับ 30 QI'}
           </button>
           <button
             type="button"
