@@ -45,6 +45,7 @@ export type DayDetail = {
   badDirection: string // almanac.dayDirections.bad — ทิศร้าย (เลี่ยง)
   yearFortune: DayDetailQimen | null // ดวงประจำปี (คี้มึ้ง) — almanac.yearInfo · โชว์การ์ด "ดวงประจำปี/เดือน" (แอดวานซ์)
   monthFortune: DayDetailQimen | null // ดวงประจำเดือน — almanac.monthInfo
+  shirtColors: { navin: string; colors: string[] } | null // สีเสื้อประจำวัน — almanac.shirtColors (納音 + โทนสี)
 }
 
 const str = (v: unknown, d = ''): string => (typeof v === 'string' ? v : d)
@@ -168,6 +169,17 @@ export function mapDayDetail(mvd: unknown, almanacDay: unknown): DayDetail {
     // ดวงประจำปี/เดือน (คี้มึ้ง) — a (almanac day) ก่อน, ไม่มีค่อยเอาจาก man-vs-day almanac
     yearFortune: qimenInfo(a.yearInfo ?? (m.almanac as { yearInfo?: unknown } | undefined)?.yearInfo),
     monthFortune: qimenInfo(a.monthInfo ?? (m.almanac as { monthInfo?: unknown } | undefined)?.monthInfo),
+    // สีเสื้อประจำวัน (納音 + โทนสี) — a (almanac day) ก่อน, ไม่มีค่อยเอาจาก man-vs-day almanac
+    shirtColors: (() => {
+      const s = (a.shirtColors ?? (m.almanac as { shirtColors?: unknown } | undefined)?.shirtColors) as
+        | { navin?: unknown; colors?: unknown }
+        | null
+        | undefined
+      if (!s || typeof s !== 'object') return null
+      const colors = arr(s.colors).map((c) => str(c)).filter((c) => c !== '')
+      const navin = str(s.navin)
+      return navin || colors.length ? { navin, colors } : null
+    })(),
   }
 }
 

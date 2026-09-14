@@ -41,5 +41,6 @@ export function libDayDetailToFeature(lib: LibDayDetail): DayDetail {
     badDirection: lib.badDirection, // ทิศร้าย
     yearFortune: lib.yearFortune, // ดวงประจำปี (คี้มึ้ง) — sub-shape ตรงกัน pass through
     monthFortune: lib.monthFortune, // ดวงประจำเดือน (คี้มึ้ง)
+    shirtColors: lib.shirtColors, // สีเสื้อประจำวัน (納音 + โทนสี)
   }
 }

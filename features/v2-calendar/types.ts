@@ -226,6 +226,8 @@ export interface DayDetail {
   yearFortune?: DayDetailQimen | null
   /** ดวงประจำเดือน (คี้มึ้ง) — almanac.monthInfo. OPTIONAL — paid/แอดวานซ์. */
   monthFortune?: DayDetailQimen | null
+  /** สีเสื้อประจำวัน (納音 + โทนสี) — almanac.shirtColors. OPTIONAL — paid/แอดวานซ์. */
+  shirtColors?: { navin: string; colors: string[] } | null
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
