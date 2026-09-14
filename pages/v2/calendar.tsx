@@ -150,6 +150,8 @@ export default function V2CalendarPage({ teamPreview }: { teamPreview: boolean }
           headline={detail?.summary ?? ''}
           dateLine={`${cardDay.date === todayISO ? 'วันนี้ · ' : ''}${formatThaiLongDate(cardDay.date) || `วันที่ ${cardDay.day}`}`}
           ganzhi={detail?.ganzhi ?? cardDay.ganzhi}
+          monthGanzhi={detail?.monthGanzhi}
+          yearGanzhi={detail?.yearGanzhi}
           wanPhra={cardDay.isBuddhistDay}
           suitable={detail?.suitable.slice(0, 2) ?? []}
           avoid={detail?.avoid.slice(0, 2) ?? []}
