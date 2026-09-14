@@ -111,8 +111,26 @@ export async function insertPending(
 //
 // Failure paths: a refusal (FULL/PER_USER) rolls the whole txn back — no v2_payment row, used_count intact.
 // If the CHARGE then fails, the caller calls abandonPending() to release the reservation and mark the row.
-export function placeholderChargeId(paymentId: string): string {
-  return `pending:${paymentId}`
+// The provisional shapes (`pending:<row id>`, `link:<paymentLinkId>`) live in charge-id.ts so an adapter can
+// mint one without importing the database; re-exported here because this is where callers have always
+// found placeholderChargeId.
+export { placeholderChargeId, linkChargeId, isProvisionalChargeId } from './charge-id'
+import { placeholderChargeId, isProvisionalChargeId, isLinkChargeId } from './charge-id'
+
+/**
+ * Beam lane slice 3 — bind a provisional `link:<id>` row to the real charge id BEFORE settling, on the
+ * reconciler's path (the webhook path does the same inside settleAndProvision's order_id recovery).
+ * Refuses to touch an APPROVED row or a row that is not provisional; the UNIQUE index on charge_id makes a
+ * double bind impossible (it would throw, and runReconcile counts that row unreachable).
+ */
+export async function rebindChargeId(fromChargeId: string, toChargeId: string, db: Db = defaultDb): Promise<{ rebound: boolean }> {
+  if (!isLinkChargeId(fromChargeId) || fromChargeId === toChargeId) return { rebound: false }
+  const rows = await db
+    .update(v2Payment)
+    .set({ chargeId: toChargeId })
+    .where(and(eq(v2Payment.chargeId, fromChargeId), ne(v2Payment.status, 'APPROVED')))
+    .returning({ id: v2Payment.id })
+  return { rebound: rows.length === 1 }
 }
 
 export async function insertPendingReserved(
@@ -697,9 +715,12 @@ export async function settleAndProvision(
       if (candidates.length > 1) return { provisioned: false, outcome: 'AMBIGUOUS' }
       const [cand] = candidates
       if (cand.status === 'APPROVED') return { provisioned: false, outcome: 'ALREADY' }
-      // Only a row still holding its placeholder may adopt this charge id. A row already bound to a REAL
-      // charge belongs to that charge; taking it would move one person's payment onto another's record.
-      if (cand.chargeId !== placeholderChargeId(cand.id)) {
+      // Only a row still holding a PROVISIONAL id may adopt this charge id — `pending:<id>` (#371) or, since
+      // the Beam lane, `link:<paymentLinkId>` (a hosted-page card purchase whose charge Beam has just minted;
+      // its `charge.succeeded` carries our orderId in referenceId and this is where the row learns its
+      // `ch_…`). A row already bound to a REAL charge belongs to that charge; taking it would move one
+      // person's payment onto another's record.
+      if (!isProvisionalChargeId(cand.chargeId, cand.id)) {
         return { provisioned: false, outcome: 'AMBIGUOUS' }
       }
       const [recovered] = await tx

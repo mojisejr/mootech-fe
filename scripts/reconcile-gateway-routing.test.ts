@@ -10,6 +10,8 @@
 //   MR2  a throw from the gateway lookup is treated as "not paid"      → 'unreachable' case fails
 //        (the row would be abandoned/left on the strength of a provider we could not ask)
 //   MR3  listUnsettledPayments stops selecting `gateway`               → covered by reconcile-cron-db (real pg)
+//   MR4  (slice 3) settle called with the row id after the gateway named another → 'rebind' case fails
+//   MR5  (slice 3) a failed rebind still settles                            → 'rebind throws' case fails
 import { describe, it, expect } from 'vitest'
 import { runReconcile, type ReconcileDeps } from '../lib/payment/reconcile-run'
 import { gatewayFor, gatewayNameFrom } from '../lib/payment/select-gateway'
@@ -81,6 +83,48 @@ describe('runReconcile passes the row gateway to retrieveCharge', () => {
   it('control: a dep written before 0027 that ignores the second argument still works unchanged', async () => {
     const { d, settled } = deps([{ chargeId: 'chrg_1', gateway: 'omise' }], async (chargeId) => ({ chargeId, paid: true, status: 'successful' }))
     await runReconcile(d, NOW)
+    expect(settled).toEqual(['chrg_1'])
+  })
+
+  it('🔴 slice 3 · rebind: the gateway answers with a DIFFERENT canonical id ⇒ rebind(row, new) then settle(new)', async () => {
+    const rebinds: Array<[string, string]> = []
+    const { d, settled } = deps([{ chargeId: 'link:L1', gateway: 'beam' }], async () => ({ chargeId: 'ch_L1', paid: true, status: 'successful' }))
+    d.rebind = async (from, to) => {
+      rebinds.push([from, to])
+      return { rebound: true }
+    }
+    const summary = await runReconcile(d, NOW)
+    expect(rebinds).toEqual([['link:L1', 'ch_L1']])
+    expect(settled).toEqual(['ch_L1'])
+    expect(summary).toMatchObject({ confirmedPaid: 1, provisioned: 1, unreachable: 0 })
+  })
+
+  it('slice 3 · rebind reports rebound:false (row already bound / not provisional) ⇒ settle under the row id', async () => {
+    const { d, settled } = deps([{ chargeId: 'link:L1', gateway: 'beam' }], async () => ({ chargeId: 'ch_L1', paid: true, status: 'successful' }))
+    d.rebind = async () => ({ rebound: false })
+    await runReconcile(d, NOW)
+    expect(settled).toEqual(['link:L1'])
+  })
+
+  it('🔴 slice 3 · a rebind that THROWS counts the row unreachable — nothing is settled under an id the gateway will not recognise', async () => {
+    const { d, settled } = deps([{ chargeId: 'link:L1', gateway: 'beam' }], async () => ({ chargeId: 'ch_L1', paid: true, status: 'successful' }))
+    d.rebind = async () => {
+      throw new Error('unique clash')
+    }
+    const summary = await runReconcile(d, NOW)
+    expect(settled).toEqual([])
+    expect(summary).toMatchObject({ confirmedPaid: 1, provisioned: 0, unreachable: 1 })
+  })
+
+  it('slice 3 · same id back (Omise, or a Beam ch_ row) ⇒ rebind is never consulted', async () => {
+    const rebinds: string[] = []
+    const { d, settled } = deps([{ chargeId: 'chrg_1', gateway: 'omise' }], async (id) => ({ chargeId: id, paid: true, status: 'successful' }))
+    d.rebind = async (from) => {
+      rebinds.push(from)
+      return { rebound: true }
+    }
+    await runReconcile(d, NOW)
+    expect(rebinds).toEqual([])
     expect(settled).toEqual(['chrg_1'])
   })
 })

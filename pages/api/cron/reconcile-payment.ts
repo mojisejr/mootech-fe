@@ -19,6 +19,7 @@ import {
   listUnsettledPayments,
   settleAndProvision,
   abandonByChargeId,
+  rebindChargeId,
   listUngrantedQiPurchases,
   markQiGranted,
 } from '@/lib/payment/repo'
@@ -63,6 +64,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     // #455 slice 3 — the same abandon path the webhook uses, reached from the cron for the expiry case
     // that never produces a webhook at all.
     abandon: (chargeId, reason) => abandonByChargeId(chargeId, reason, db),
+    // Beam lane slice 3 — a Payment Link row learns its real charge id here when the webhook never came.
+    rebind: (from, to) => rebindChargeId(from, to, db),
   })
 
   // 🔴 #605 G1 — THE SECOND PASS: money settled, goods never left. Runs AFTER the PENDING pass on

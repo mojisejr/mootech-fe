@@ -27,14 +27,25 @@
 //     and comes back on every webhook and GET, so #371's order_id recovery keeps working.
 //   • `x-beam-idempotency-key` (12 h) is set to the orderId: a retried POST after a timeout cannot create
 //     a second charge for the same order.
-//   • Cards do NOT go through this adapter's `createCardCharge` with a token: owner decision D1 (ข) puts
-//     cards on Beam Payment Links (hosted page), which slice 3 adds here. Until then `createCardCharge`
-//     throws a named error BEFORE any network call — charge-flow's catch releases the hold and the route
-//     answers 500, loud, only on a build where somebody selected Beam and tried a card too early.
+//   • CARDS GO THROUGH BEAM PAYMENT LINKS (owner decision D1 = ข, 2026-09-13), not through a card token:
+//     Beam's token endpoint cannot capture CVV, so a `CARD_TOKEN` charge would need the CVV to pass
+//     through our server (PCI SAQ D). A Payment Link is Beam's hosted page: `createCardCharge` creates a
+//     single-use link (card only) and returns its `url` as `authorizeUri`, which pay-destination.ts
+//     already opens as a top-level navigation (the page sets X-Frame-Options: DENY, so an iframe was
+//     never an option). The `token` argument is ignored — no card data ever reaches this process.
+//     The row holds `link:<id>` (repo.linkChargeId) until Beam mints the charge: `charge.succeeded`
+//     arrives with `source: PAYMENT_LINK` and our orderId in `referenceId`, and settleAndProvision's
+//     order_id recovery rebinds the row to the real `ch_…` (repo.isProvisionalChargeId). The reconciler
+//     path does the same through `retrieveCharge('link:…')` + runReconcile's rebind hook.
 import type { PaymentGateway, ChargeResult, ChargeEvent } from './gateway'
 import { PROMPTPAY_QR_TTL_MS } from './qr-expiry'
 import { verifyBeamSignature } from './beam-webhook-verify'
+import { cardReturnUri, cardReturnOrigin, CARD_RETURN_ORIGIN_ENV } from './return-uri'
+import { linkChargeId, isLinkChargeId, linkIdOf } from './charge-id'
 import type { HeaderReader, WebhookCodec } from './select-gateway'
+
+/** A hosted card page that nobody paid within this window is not coming back; same TTL as the QR. */
+export const PAYMENT_LINK_TTL_MS = PROMPTPAY_QR_TTL_MS
 
 export const BEAM_PRODUCTION_API = 'https://api.beamcheckout.com'
 export const BEAM_PLAYGROUND_API = 'https://playground.api.beamcheckout.com'
@@ -43,12 +54,6 @@ export class BeamConfigError extends Error {
   constructor(name: string) {
     super(`${name} is not configured`) // fail loud before any charge, same as OMISE_SECRET_KEY
     this.name = 'BeamConfigError'
-  }
-}
-export class BeamCardNotAvailableError extends Error {
-  constructor() {
-    super('Beam card charges arrive in slice 3 (Payment Links); this build cannot take a card through Beam')
-    this.name = 'BeamCardNotAvailableError'
   }
 }
 export class BeamApiError extends Error {
@@ -140,9 +145,87 @@ function str(v: unknown): string | null {
   return typeof v === 'string' && v !== '' ? v : null
 }
 
+// ── Payment Link status → the port's words ───────────────────────────────────────────────────────────
+// Beam:  ACTIVE | PAID | EXPIRED | DISABLED | VOIDED | REFUNDED
+// A PAID (or REFUNDED — it was paid first) link is answered through its CHARGE (see retrieveCharge), so
+// the reconciler learns the `ch_…` id. The rest map onto words the reconciler already acts on.
+export function mapLinkStatus(link: unknown): { paid: boolean; status: string } {
+  switch (link) {
+    case 'PAID':
+    case 'REFUNDED':
+      return { paid: true, status: 'successful' }
+    case 'EXPIRED':
+      return { paid: false, status: 'expired' }
+    case 'DISABLED':
+    case 'VOIDED':
+      return { paid: false, status: 'failed' }
+    case 'ACTIVE':
+      return { paid: false, status: 'pending' }
+    default:
+      return { paid: false, status: typeof link === 'string' ? link.toLowerCase() : '' }
+  }
+}
+
+/** The SUCCEEDED charge behind a paid link, or null if Beam lists none (yet). */
+async function resolveLinkCharge(paymentLinkId: string): Promise<BeamJson | null> {
+  const list = await beamGet(`/api/v1/charges?source_in=PAYMENT_LINK&sourceId=${encodeURIComponent(paymentLinkId)}&limit=100`)
+  const data = Array.isArray(list?.data) ? (list!.data as BeamJson[]) : []
+  return data.find((c) => c.status === 'SUCCEEDED') ?? null
+}
+
 export const beamGateway: PaymentGateway = {
-  async createCardCharge() {
-    throw new BeamCardNotAvailableError()
+  async createCardCharge({ amountSatang, email, orderId, packageCode }): Promise<ChargeResult> {
+    // The customer is on BEAM's page; without a redirect back they finish on Beam's success screen and
+    // never reach /v2/shop/result. So the return origin is REQUIRED here (Omise's card path could omit
+    // it because the bank page returned to us anyway). Reuses the validated origin the Omise card lane
+    // uses — https, no localhost/IP — under its existing env name; unset ⇒ fail before any link exists.
+    const origin = cardReturnOrigin()
+    if (!origin) throw new BeamConfigError(`${CARD_RETURN_ORIGIN_ENV} (card return origin, required for a Payment Link)`)
+    const redirectUrl = cardReturnUri({ orderId, packageCode: packageCode ?? '' }) as string
+    const cancel = new URL('/v2/shop/checkout', origin)
+    if (packageCode) cancel.searchParams.set('package_code', packageCode)
+    const expiresAt = new Date(Date.now() + PAYMENT_LINK_TTL_MS).toISOString()
+
+    const json = await beamPost(
+      '/api/v1/payment-links',
+      {
+        order: {
+          currency: 'THB',
+          netAmount: amountSatang, // integer satang; Beam's minimum is 100 (1 THB) and every package is above it
+          referenceId: orderId,
+          ...(packageCode ? { description: packageCode } : {}),
+        },
+        redirectUrl,
+        cancelUrl: cancel.toString(),
+        expiresAt,
+        collectPhoneNumber: false,
+        collectDeliveryAddress: false,
+        // card ONLY on this page — PromptPay has its own in-app path, and the other methods are out of
+        // scope. Sending linkSettings replaces the account defaults for this link, per Beam's docs.
+        linkSettings: {
+          card: { isEnabled: true },
+          cardInstallments: { isEnabled: false },
+          qrPromptPay: { isEnabled: false },
+          eWallets: { isEnabled: false },
+          mobileBanking: { isEnabled: false },
+          buyNowPayLater: { isEnabled: false },
+        },
+        ...(email ? { customer: { email } } : {}),
+      },
+      `link:${orderId}`,
+    )
+    const id = str(json.id)
+    const url = str(json.url)
+    if (!id || !url) throw new BeamApiError('POST /api/v1/payment-links', 201, 'no_link_in_response', null)
+    return {
+      chargeId: linkChargeId(id),
+      authorizeUri: url, // pay-destination.ts:116 → top-level navigation to Beam's hosted card page
+      expiresAt, // ours: Beam echoes no expiry on create; the reconciler abandons after it
+      paid: false,
+      status: 'pending',
+      failureCode: null,
+      failureMessage: null,
+    }
   },
 
   async createPromptPayCharge({ amountSatang, email, orderId }): Promise<ChargeResult> {
@@ -177,6 +260,21 @@ export const beamGateway: PaymentGateway = {
   },
 
   async retrieveCharge(chargeId: string) {
+    if (isLinkChargeId(chargeId)) {
+      // A Payment Link row: ask about the LINK, and when it is paid, answer with the CHARGE behind it so
+      // runReconcile can rebind the row to the real id before settling.
+      const linkId = linkIdOf(chargeId)
+      const link = await beamGet(`/api/v1/payment-links/${encodeURIComponent(linkId)}`)
+      if (!link) return null
+      const mapped = mapLinkStatus(link.status)
+      if (!mapped.paid) return { chargeId, paid: false, status: mapped.status, failureCode: null }
+      const paidCharge = await resolveLinkCharge(linkId)
+      if (!paidCharge) {
+        // Beam says PAID but lists no SUCCEEDED charge yet — eventual consistency; not paid, not failed.
+        return { chargeId, paid: false, status: 'pending', failureCode: null }
+      }
+      return { chargeId: str(paidCharge.chargeId) ?? chargeId, paid: true, status: 'successful', failureCode: null }
+    }
     const json = await beamGet(`/api/v1/charges/${encodeURIComponent(chargeId)}`)
     if (!json) return null
     const mapped = mapBeamStatus(json.status)
@@ -205,7 +303,11 @@ export const beamGateway: PaymentGateway = {
 //   refund.failed     → key 'refund.failed' with refundSatang NULL  ⇒ matches nothing (logged) — a refund
 //                       that FAILED must never revoke; isRefund requires refundSatang, so nulling it is
 //                       the guard, and it is tested.
-//   payment_link.paid → slice 3 (cards). Until then it carries no chargeId and matches nothing (logged).
+//   payment_link.paid → deliberately NO action: the link's own `charge.succeeded` follows (source
+//                       PAYMENT_LINK, referenceId = our orderId) and THAT is what settles and rebinds the
+//                       row through settleAndProvision's order_id recovery. Settling on the link event
+//                       too would leave the row APPROVED under `link:…` and make the charge event look
+//                       like money outside our books. So it carries no chargeId and matches nothing.
 //   anything else     → key passthrough, no chargeId ⇒ "no branch matched" log line, 200.
 export function parseBeamEvent(rawBody: Buffer, header: HeaderReader): ChargeEvent {
   const body = JSON.parse(rawBody.toString('utf8')) as BeamJson
