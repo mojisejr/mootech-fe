@@ -18,20 +18,21 @@
 // border at the same time, so "today" must not erase the วันพระ marker — they are different facts about the
 // same day. The shipped version treated them as exclusive.
 import type { CalendarDay } from '@/features/v2-calendar'
-import { DAY_CELL_COLORS, CALENDAR_MARKER } from './grade-colors'
+import { CALENDAR_MARKER } from './grade-colors'
 import { dayCellStyle } from './day-cell-style'
 import { percentText } from './percent-display'
+import { ELEMENT_COLOR } from '@/lib/calculator/elements'
 
 const THAI_DOW = ['อา', 'จ', 'อ', 'พ', 'พฤ', 'ศ', 'ส']
 
-// Figma legend (368:10025 / 375:16710): swatch 14×14 r5 + 9px caption. The three percent bands are shown with
-// ONE representative step each — the node paints them #F1F8E8 (B-) · #FFF3E0 (C) · #FFEBEE (D) — so the
-// legend reads as a green/orange/red key even though the cells carry all ten. The วันพระ swatch is white
-// with the marker border, i.e. the legend explains the BORDER, not a fill.
+// legend — ซินแสนุ้ย 2026-09-14 (รูป 8a): พื้นช่องเปลี่ยนจาก "สีเกรดคะแนน" เป็น "สีธาตุของก้านวัน" แล้ว
+// → legend อธิบายธาตุ (คะแนนดี/ร้ายดูจากตัวเลข %). swatch = สีธาตุ (ELEMENT_COLOR). วันพระ = อธิบาย BORDER.
 const LEGEND: { label: string; bg: string; border?: string }[] = [
-  { label: '≥60% วันดี', bg: DAY_CELL_COLORS['B-'].tint },
-  { label: '40–59%', bg: DAY_CELL_COLORS['C'].tint },
-  { label: '<40% ระวัง', bg: DAY_CELL_COLORS['D'].tint },
+  { label: 'ไม้', bg: ELEMENT_COLOR.WOOD },
+  { label: 'ไฟ', bg: ELEMENT_COLOR.FIRE },
+  { label: 'ดิน', bg: ELEMENT_COLOR.EARTH },
+  { label: 'ทอง', bg: ELEMENT_COLOR.METAL },
+  { label: 'น้ำ', bg: ELEMENT_COLOR.WATER },
   { label: 'วันพระ', bg: '#FFFFFF', border: CALENDAR_MARKER },
 ]
 
