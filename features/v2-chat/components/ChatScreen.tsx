@@ -38,6 +38,7 @@ function quotaSourceText(q: ChatQuota): string {
   return ""
 }
 import { useBaziChatStream } from "../useBaziChatStream"
+import { isGoodDayQuestion, parseThaiDates, shortThaiDate } from "../good-day-dates"
 import { SUGGESTED_QUESTIONS, SUGGESTED_QUESTION_ITEMS } from "@/constants/suggested-questions"
 
 // เพอร์โซนา 2 แบบ (เสี่ยวมู่ ชาย / เสี่ยวมี่ หญิง) × 4 ท่าตามอารมณ์คำตอบ
@@ -58,6 +59,32 @@ const PERSONAS: Record<PersonaKey, { name: string; greeting: string; poses: Reco
     // special = ทำมือหัวใจ (เรื่องรัก)
     poses: { greet: `${P("mi")}/greet.png`, happy: `${P("mi")}/happy.png`, think: `${P("mi")}/think.png`, special: `${P("mi")}/love.png` },
   },
+}
+
+// แชทตั้งเตือนจากวันมงคล (ซินแสนุ้ย 2026-09-14): ถ้าเป็นคำถาม "วันไหนดี" และคำตอบมีวันจริง → ขึ้นปุ่ม 🔔
+// ต่อวัน กดไปหน้ารายละเอียดวันนั้นเพื่อตั้งเตือน (ใช้ SaveSheet เดิม). answer = คำตอบเสี่ยวมู่, question = คำถามผู้ใช้ก่อนหน้า
+function GoodDayReminders({ answer, question }: { answer: string; question: string }) {
+  if (!isGoodDayQuestion(question)) return null
+  const dates = parseThaiDates(answer)
+  if (dates.length === 0) return null
+  return (
+    <div data-testid="chat-good-day-reminders" className="rounded-[16px] border border-v3-sapphire/25 bg-v3-sapphire/[0.05] px-3.5 py-3">
+      <p className="text-[12px] font-bold text-v3-sapphire">🔔 ตั้งเตือนวันมงคลที่แนะนำ</p>
+      <div className="mt-2 flex flex-wrap gap-1.5">
+        {dates.map((iso) => (
+          <Link
+            key={iso}
+            href={`/v2/calendar/${iso}`}
+            className="flex items-center gap-1 rounded-full border border-v3-sapphire/40 bg-white px-2.5 py-1 text-[12px] font-bold text-v3-sapphire"
+          >
+            <span aria-hidden>🔔</span>
+            {shortThaiDate(iso)}
+          </Link>
+        ))}
+      </div>
+      <p className="mt-1.5 text-[11px] leading-4 text-v3-text-muted">แตะวันเพื่อไปเลือกยามและตั้งแจ้งเตือน</p>
+    </div>
+  )
 }
 
 // เดาอารมณ์จากบริบทคำถาม+คำตอบ → เลือกท่ามาสคอต
@@ -404,14 +431,18 @@ export function ChatScreen() {
             {activePersona.greeting}
           </div>
 
-          {turns.map((t) =>
+          {turns.map((t, i) =>
             t.role === "assistant" ? (
-              <div
-                key={t.id}
-                data-testid="chat-bubble-ai"
-                className="max-w-[92%] self-start whitespace-pre-line rounded-[18px] border border-[#D88FA9] bg-white px-4 py-3 text-[14px] leading-[22px] text-v3-navy shadow-[0_2px_8px_rgba(11,48,91,0.12),0_1px_4px_rgba(216,143,169,0.35)]"
-              >
-                {t.loading && !t.content ? <TypingDots /> : t.content}
+              <div key={t.id} className="flex max-w-[92%] flex-col gap-2 self-start">
+                <div
+                  data-testid="chat-bubble-ai"
+                  className="whitespace-pre-line rounded-[18px] border border-[#D88FA9] bg-white px-4 py-3 text-[14px] leading-[22px] text-v3-navy shadow-[0_2px_8px_rgba(11,48,91,0.12),0_1px_4px_rgba(216,143,169,0.35)]"
+                >
+                  {t.loading && !t.content ? <TypingDots /> : t.content}
+                </div>
+                {!t.loading && t.content.trim() && (
+                  <GoodDayReminders answer={t.content} question={turns.slice(0, i).reverse().find((x) => x.role === "user")?.content ?? ""} />
+                )}
               </div>
             ) : (
               <div key={t.id} className="max-w-[85%] self-end">
