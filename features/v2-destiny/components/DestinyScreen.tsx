@@ -725,21 +725,7 @@ export function DestinyScreen({ previewData }: { previewData?: DestinyData } = {
       {!loading && data && (
         <>
           {/* การ์ดน้ำเงิน (Figma promo-personal-calendar 55349:3091): การ์ดมาสคอต + avatar ริมไลม์ + ชื่อ + 4 แถบเกรด */}
-          <div className="relative mx-4 mt-3">
-            {/* มาสคอตธาตุลอยรอบการ์ด (ขยับด้วย .v3-float) — Figma "Group 1 mascots" */}
-            {(
-              [
-                { el: "fire", cls: "left-0 top-2 h-11 w-11", d: "0s" },
-                { el: "earth", cls: "left-1 top-24 h-8 w-8", d: ".6s" },
-                { el: "water", cls: "left-6 top-40 h-7 w-7", d: "1.2s" },
-                { el: "metal", cls: "left-0 top-52 h-12 w-12", d: ".9s" },
-                { el: "wood", cls: "right-0 top-48 h-14 w-14", d: ".3s" },
-              ] as const
-            ).map((m) => (
-              <span key={m.el} aria-hidden className={`v3-float pointer-events-none absolute z-10 ${m.cls}`} style={{ animationDelay: m.d }}>
-                <Image src={ELEMENT_MASCOT[m.el]} alt="" width={56} height={56} unoptimized className="h-full w-full object-contain drop-shadow" />
-              </span>
-            ))}
+          <div className="mx-4 mt-3">
           <section className="relative z-0 flex flex-col items-center gap-7 overflow-hidden rounded-[22px] bg-v3-sapphire px-4 pb-6 pt-8 text-white" data-testid="destiny-hero">
             {/* การ์ดมาสคอต (art) — avatar ผู้ใช้ซ้อนคาบล่าง */}
             <div className="flex w-full flex-col items-center">
@@ -747,13 +733,18 @@ export function DestinyScreen({ previewData }: { previewData?: DestinyData } = {
                 <MascotImage src={mascotUrl} alt="มาสคอตประจำวันเกิด" className="h-full w-full object-cover" />
               </span>
               <span className="-mt-6 grid h-16 w-16 place-items-center overflow-hidden rounded-full border-2 border-v3-lime bg-v3-sapphire">
-                <Image
-                  src={data?.avatarUrl || MASCOT_FALLBACK}
+                {/* #1 (ซินแสนุ้ย 2026-09-14): รูปที่ผู้ใช้อัปโหลดอยู่ที่ engine avatar store → อ่าน /api/v2/avatar
+                    (แหล่งเดียวกับ avatar มุมขวาบน) ไม่ใช่ data.avatarUrl (= user.picture_url รูป LINE เก่า).
+                    fallback: avatarUrl (LINE) → MASCOT_FALLBACK ถ้าโหลดไม่ได้ (กันลูปด้วย dataset.fb). */}
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src="/api/v2/avatar"
                   alt="รูปโปรไฟล์"
-                  width={64}
-                  height={64}
-                  unoptimized
                   className="h-full w-full object-cover"
+                  onError={(e) => {
+                    const t = e.currentTarget
+                    if (!t.dataset.fb) { t.dataset.fb = '1'; t.src = data?.avatarUrl || MASCOT_FALLBACK }
+                  }}
                 />
               </span>
             </div>
@@ -817,6 +808,29 @@ export function DestinyScreen({ previewData }: { previewData?: DestinyData } = {
             </div>
           </section>
           </div>
+
+          {/* #2 (ซินแสนุ้ย 2026-09-14): "ธาตุในดวง" โชว์ตามจำนวนจริง (totalCounts) — มีธาตุไหนกี่ตัวก็โชว์เท่านั้น
+              แบบเรียงเป็นแถวไม่ทับกัน/ไม่ทับการ์ด (แทนมาสคอตลอย 5 ตัว hardcode เดิมที่ซ้อนทับดวง) */}
+          {analysis?.totalCounts && ELEMENT_ROW_ORDER.some((el) => (analysis.totalCounts?.[el] ?? 0) > 0) && (
+            <section className="mx-4 mt-3 rounded-[18px] bg-white p-4 v3-shadow-card" data-testid="destiny-elements">
+              <p className="mb-3 text-[13px] font-bold text-v3-navy">ธาตุในดวงของคุณ</p>
+              <div className="flex flex-wrap items-end justify-center gap-x-4 gap-y-3">
+                {ELEMENT_ROW_ORDER.filter((el) => (analysis.totalCounts?.[el] ?? 0) > 0).map((el) => {
+                  const n = analysis.totalCounts?.[el] ?? 0
+                  return (
+                    <div key={el} className="flex flex-col items-center gap-1" data-testid={`destiny-element-${el}`}>
+                      <div className="flex max-w-[120px] flex-wrap items-end justify-center gap-0.5">
+                        {Array.from({ length: n }).map((_, i) => (
+                          <Image key={i} src={ELEMENT_MASCOT[el]} alt="" width={26} height={26} unoptimized className="h-[26px] w-[26px] object-contain drop-shadow" />
+                        ))}
+                      </div>
+                      <span className="text-[11px] font-bold" style={{ color: ELEMENT_INK[el] }}>ธาตุ{ELEMENT_TH[el]} ×{n}</span>
+                    </div>
+                  )
+                })}
+              </div>
+            </section>
+          )}
 
           <div className="mx-4 mt-4 flex flex-col gap-4">
             {/* ดวงจะส่งผล 8 ด้าน — ชิปเสา + จุดอ่อน 4 ด้าน */}
