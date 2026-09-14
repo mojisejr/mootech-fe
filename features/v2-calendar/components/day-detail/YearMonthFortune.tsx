@@ -66,9 +66,9 @@ export function YearMonthFortune({ year, month }: { year: DayDetailQimen | null;
   if (!year && !month) return null
   return (
     <SectionCard
-      title="ดวงประจำปี / เดือน"
+      title="ประตู · เทพ · ทิศ · ปี/เดือน"
       testId="year-month-fortune"
-      info={<p>เสาปี/เดือน (ราศีบน-ล่าง) · ทิศโชคลาภ · ทิศร้าย · เทพ และตาราง 8 ประตู (奇門) ระดับปีและเดือน ตามเอกสารซินแส — ใช้เสริมกับดวงรายวัน</p>}
+      info={<p>เสาปี/เดือน (ราศีบน-ล่าง) · ทิศโชคลาภ · ทิศร้าย · เทพ และตาราง 8 ประตู (奇門) ระดับปีและเดือน ตามเอกสารซินแส — ใช้เสริมกับ "ประตู · เทพ · ทิศ · ประจำวัน"</p>}
     >
       <div className="flex flex-col gap-5">
         {year ? <FortuneBlock label="ประจำปี" q={year} /> : null}

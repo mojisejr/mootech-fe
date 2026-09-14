@@ -229,7 +229,8 @@ export function AccountScreen({ preview }: { preview?: AccountPreview } = {}) {
           {mascot ? (
             <section className="v3-shadow-card flex flex-col gap-3 rounded-[20px] bg-white p-4" data-testid="account-element">
               <p className="text-[16px] font-bold text-v3-navy">ธาตุของคุณ</p>
-              <div className="flex items-center gap-3 rounded-[16px] bg-v3-rose-tint p-3">
+              {/* ซินแสนุ้ย 2026-09-14 (รูป 3): กดที่การ์ดธาตุ/ชื่อ → เข้าหน้าดูดวงของเราเอง (/v2/destiny) */}
+              <Link href="/v2/destiny" data-testid="account-element-tappable" className="flex items-center gap-3 rounded-[16px] bg-v3-rose-tint p-3 transition-opacity active:opacity-80">
                 <div className="min-w-0 flex-1">
                   <span className="inline-block rounded-full bg-[#FFF8F0] px-2.5 py-1 text-[12px] font-bold text-[#E5A93B]">{mascot.elementLabelTh} ({mascot.elementLabelEn})</span>
                   {element?.tagline ? <p className="mt-2 line-clamp-3 text-[12px] leading-[18px] text-v3-dropdown-label">{element.tagline}</p> : null}
@@ -238,10 +239,11 @@ export function AccountScreen({ preview }: { preview?: AccountPreview } = {}) {
                 <span aria-hidden className="relative h-[110px] w-[80px] flex-none overflow-hidden rounded-[12px] motion-safe:animate-mascot-float">
                   <Image src={mascot.card} alt="" fill sizes="80px" style={{ objectFit: "cover" }} />
                 </span>
-              </div>
-              <Link href="/v2/destiny" className="flex items-center gap-1 pb-1 pt-3 text-[13px] leading-[18px] text-v3-sapphire">
-                <span className="flex-1">ดูคำทำนายธาตุและแก้ไขข้อมูลเกิด</span>
-                <span>›</span>
+              </Link>
+              {/* ซินแสนุ้ย 2026-09-14 (รูป 4): ทำให้ดูกดได้ชัด — กรอบ+พื้นจาง+chevron เหมือนปุ่ม */}
+              <Link href="/v2/destiny" className="flex items-center justify-between gap-1 rounded-[14px] border border-v3-sapphire/30 bg-v3-sapphire/[0.06] px-4 py-3 text-[13px] font-bold text-v3-sapphire transition-colors active:bg-v3-sapphire/10">
+                <span>ดูคำทำนายธาตุและแก้ไขข้อมูลเกิด</span>
+                <span aria-hidden className="text-[16px] leading-none">›</span>
               </Link>
             </section>
           ) : profile && !profile.birthDate ? (

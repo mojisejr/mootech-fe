@@ -106,7 +106,7 @@ describe("DestinyScreen (ดวงฉัน, node 55349-3070)", () => {
   it("จุดอ่อน 5 ด้าน (โชว์เมื่อกดปุ่ม) + ธาตุมงคล (D2)", async () => {
     await mountScreen()
     expect(screen.getByTestId("destiny-lucky")).toBeTruthy()
-    // destiny-domains ซ่อนอยู่หลังปุ่ม "โชว์จุดอ่อนของ 5 ด้าน" — กดก่อนถึงจะโผล่
+    // destiny-domains ซ่อนอยู่หลังปุ่ม "จุดแข็ง-จุดอ่อน 5 ด้าน" — กดก่อนถึงจะโผล่
     fireEvent.click(screen.getByTestId("destiny-weakness-toggle"))
     await waitFor(() => expect(screen.getByTestId("destiny-domains")).toBeTruthy())
     // นิสัย 5 ธาตุ แข็ง/อ่อน ต่อธาตุ (engine เป็นแหล่งเดียว) โชว์ใต้แต่ละแถว

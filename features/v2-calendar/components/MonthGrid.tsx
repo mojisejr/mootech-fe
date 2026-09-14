@@ -38,7 +38,7 @@ const LEGEND: { label: string; bg: string; border?: string }[] = [
 function DayCell({ cell, selected, onSelect }: { cell: CalendarDay; selected: boolean; onSelect: (date: string) => void }) {
   // selection is a MODE — every colour moves together. See day-cell-style.ts for why this is one
   // call and not four ternaries (it is the invariant DESIGN.md §GRADE rests on, and it had no live guard).
-  const style = dayCellStyle(cell.grade, selected)
+  const style = dayCellStyle(cell.grade, selected, cell.ganzhi)
   return (
     <button
       type="button"
