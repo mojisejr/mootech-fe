@@ -34,6 +34,9 @@ export type DailyFortuneCardProps = {
   dateAside?: ReactNode
   /** calendar only — 干支 chip + its meta text, and the วันพระ chip when the day is one */
   ganzhi?: string
+  /** เสาเดือน/ปีเต็ม (干支) — โชว์คู่วัน (ซินแสนุ้ย 2026-09-14, รูป 8b) */
+  monthGanzhi?: string
+  yearGanzhi?: string
   ganzhiMeta?: string
   wanPhra?: boolean
   wanPhraDetail?: string
@@ -197,8 +200,11 @@ export function DailyFortuneCard(p: DailyFortuneCardProps) {
         <div className="flex flex-col gap-2">
           <p data-testid="fortune-date" className="text-[14px] font-bold leading-5 text-v3-navy">{p.dateLine}</p>
           {p.ganzhi && (
-            <span className="flex items-center gap-1.5">
-              <span data-testid="fortune-ganzhi" className="rounded-full bg-v3-sapphire px-2 py-[3px] text-[11px] font-bold leading-none text-white">{p.ganzhi}</span>
+            <span className="flex flex-wrap items-center gap-1.5">
+              {/* 干支 วัน/เดือน/ปี (ซินแสนุ้ย 2026-09-14 รูป 8b — วัน=หลัก, เดือน/ปี=เสริม) */}
+              <span data-testid="fortune-ganzhi" className="rounded-full bg-v3-sapphire px-2 py-[3px] text-[11px] font-bold leading-none text-white">วัน {p.ganzhi}</span>
+              {p.monthGanzhi && <span className="rounded-full bg-v3-sapphire-tint px-2 py-[3px] text-[11px] font-bold leading-none text-v3-sapphire">เดือน {p.monthGanzhi}</span>}
+              {p.yearGanzhi && <span className="rounded-full bg-v3-sapphire-tint px-2 py-[3px] text-[11px] font-bold leading-none text-v3-sapphire">ปี {p.yearGanzhi}</span>}
               {p.ganzhiMeta && <span className="text-[11px] leading-none text-v3-text-body">{p.ganzhiMeta}</span>}
             </span>
           )}
