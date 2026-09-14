@@ -687,7 +687,7 @@ export const paymentPackage = pgTable("payment_package", {
 	tierCode: text("tier_code").notNull(),
 	isActive: boolean("is_active").default(false).notNull(),
 }, (table) => [
-	check("payment_package_tier_code_check", sql`${table.tierCode} IN ('FREE','PLUS','PRO')`),
+	check("payment_package_tier_code_check", sql`${table.tierCode} IN ('FREE','PLUS','PRO','QI','SINSAE')`),
 ]);
 
 export const paymentPlan = pgTable("payment_plan", {
@@ -807,7 +807,7 @@ export const v2Payment = pgTable("v2_payment", {
 	uniqueIndex("uq_v2_payment_charge_id").on(table.chargeId),
 	index("idx_v2_payment_user_id").on(table.userId),
 	// CHECK mirrors 0007 (Postgres names an inline column CHECK <table>_<column>_check, so these agree).
-	check("v2_payment_tier_code_check", sql`${table.tierCode} IN ('FREE','PLUS','PRO')`),
+	check("v2_payment_tier_code_check", sql`${table.tierCode} IN ('FREE','PLUS','PRO','QI','SINSAE')`),
 	check("v2_payment_method_check", sql`${table.method} IN ('card','promptpay')`),
 	check("v2_payment_status_check", sql`${table.status} IN ('PENDING','APPROVED','REJECT')`),
 	check("v2_payment_expire_check", sql`${table.expire} ~ '^[0-9]+[DMY]$'`),

@@ -73,8 +73,10 @@ export async function runChargeFlow(
   // 🔴 QI PACK (buy-qi) ไม่เข้า matrix สมาชิก — ชี่ซื้อได้ทุก tier (แม้เป็น PLUS/PRO อยู่แล้ว) และ
   // ไม่มีทาง "ลดระดับ" ใคร: tier 'QI' อยู่นอกบันได FREE/PLUS/PRO โดยการออกแบบ (catalog.ts) เพราะฉนั้น
   // คำตอบของประตูคืออนุญาตเสมอ — การบังคับสิทธิ์เกิดที่ settle เลน QI ซึ่งไม่แตะ member_* เลย
+  // 🔴 QI/SINSAE ไม่เข้า matrix สมาชิก — ซื้อ/จองได้ทุก tier และซ้ำได้ (ไม่มีทาง "ลดระดับ" ใคร): ทั้งคู่อยู่นอก
+  // บันได FREE/PLUS/PRO โดยการออกแบบ (catalog.ts) → ประตูอนุญาตเสมอ; การบังคับสิทธิ์เกิดที่ settle เลนแยก.
   const purchase =
-    priced.tierCode === 'QI'
+    priced.tierCode === 'QI' || priced.tierCode === 'SINSAE'
       ? ({ allow: true } as const)
       : await decidePurchaseFor(who.userId, priced.tierCode, now)
   if (!purchase.allow) {
