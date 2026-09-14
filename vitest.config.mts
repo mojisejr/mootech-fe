@@ -170,7 +170,11 @@ export default defineConfig({
       'scripts/select-gateway.test.ts', // Beam lane slice 1 — PAYMENT_GATEWAY unset = Omise byte for byte; unknown name fails loud; beam not installed yet
       'scripts/webhook-beam-gate.test.ts', // Beam lane slice 1 — /api/v2/payment/webhook-beam passes guardV2 AND the maintenance allow-list (exact match)
       'scripts/reconcile-gateway-routing.test.ts', // Beam lane slice 1 — reconciler asks the provider on the row (0027); a provider it cannot ask = unreachable
-      'scripts/webhook-beam-route.test.ts', // Beam lane slice 1 — the Beam webhook shell answers 503 (never 200) until the adapter is installed
+      'scripts/webhook-beam-route.test.ts', // Beam lane — the Beam webhook route: 401/400/200 + dispatch, fail-closed on a missing key
+      'scripts/beam-webhook-verify.test.ts', // Beam lane slice 2 — Beam's PUBLISHED signature vector verifies; tamper/re-serialise/other key/missing → false
+      'scripts/beam-event-parse.test.ts', // Beam lane slice 2 — Beam events → ChargeEvent; body status decides, refund.failed never revokes
+      'scripts/beam-gateway.test.ts', // Beam lane slice 2 — PromptPay create request/response mapping, retrieve mapping, fail-loud config, no card yet
+      'scripts/beam-webhook-db.test.ts', // Beam lane slice 2 — real pg (skipIf !TEST_DATABASE_URL): Beam door → settle/revoke; reconciler asks Beam; duplicates, out-of-order, late success
       'scripts/terminal-failure-agreement.test.ts', // #437 — isRefusedCharge (สร้าง charge) กับ isTerminalFailure (webhook) ต้องตอบเหมือนกัน
       'scripts/result-declined-rule.test.ts', // #438 — จอต้องพูดคำว่าธนาคารปฏิเสธได้ + ปุ่มต้องไม่พาไปหน้าตาย
       'scripts/qr-expiry-reaches-row.test.ts', // #455 slice 1 — วันหมดอายุเดินทางจาก Omise ถึงแถวถึงจอ

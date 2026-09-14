@@ -7,7 +7,7 @@
 //   MR2  an unknown name falls back instead of throwing        → the typo case fails (money through a
 //                                                                provider nobody chose)
 //   MR3  gatewayFor('omise') stops returning the Omise adapter → the identity case fails
-//   MR4  'beam' silently returns Omise before slice 2 installs → the not-installed case fails
+//   MR4  'beam' resolves to anything but the Beam adapter      → the beam case fails
 import { describe, it, expect, afterEach } from 'vitest'
 import {
   gatewayNameFrom,
@@ -20,6 +20,7 @@ import {
   DEFAULT_GATEWAY,
 } from '../lib/payment/select-gateway'
 import { omiseGateway } from '../lib/payment/omise-gateway'
+import { beamGateway, beamWebhookCodec } from '../lib/payment/beam-gateway'
 
 const saved = process.env.PAYMENT_GATEWAY
 afterEach(() => {
@@ -91,10 +92,14 @@ describe('gatewayFor / webhookCodecFor — by NAME, for the reconciler and the w
     expect(evt).toMatchObject({ key: 'charge.complete', chargeId: 'chrg_x', paid: true, status: 'successful', orderId: '1' })
   })
 
-  it("🔴 slice 1: 'beam' is a KNOWN name whose adapter is NOT installed yet — it throws, it does not hand back Omise", () => {
-    expect(() => gatewayFor('beam')).toThrow(GatewayNotInstalledError)
-    expect(() => webhookCodecFor('beam')).toThrow(GatewayNotInstalledError)
+  it("'beam' resolves to the Beam adapter and the Beam webhook codec (installed in slice 2)", () => {
+    expect(gatewayFor('beam')).toBe(beamGateway)
+    expect(webhookCodecFor('beam')).toBe(beamWebhookCodec)
     process.env.PAYMENT_GATEWAY = 'beam'
-    expect(() => selectGateway()).toThrow(GatewayNotInstalledError)
+    expect(selectGateway()).toBe(beamGateway)
+  })
+
+  it('GatewayNotInstalledError still exists for a future name whose adapter a build lacks', () => {
+    expect(new GatewayNotInstalledError('beam').message).toMatch(/not installed/)
   })
 })
