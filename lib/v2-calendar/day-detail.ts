@@ -38,6 +38,7 @@ export type DayDetail = {
   dayDeity: string // almanac.deity  ①
   spirits: DayDetailSpirit[] // almanac.spirits (8 เทพ)  ①
   wanPhra: { isWanPhra: boolean; label: string } // almanac.thaiLunar  ①
+  solarTerm: { nameTh: string; time: string; isMonthChange: boolean } | null // วันเปลี่ยนสารท (節/氣) — ป้ายบนการ์ด (รูป 8c)
   dayPillars: { day: DayDetailPillar | null; month: DayDetailPillar | null; year: DayDetailPillar | null } // ①
   ownerPillars: Record<string, unknown> // person.fourPillars (raw block: year/month/day/hour)
   gates: DayDetailGate[] // raw — no good/bad level (ตำราไม่มี)
@@ -151,6 +152,14 @@ export function mapDayDetail(mvd: unknown, almanacDay: unknown): DayDetail {
       return { name: str(ss.name), keywords: arr(ss.keywords).map((k) => str(k)) }
     }),
     wanPhra: { isWanPhra: tl.isWanPhra === true, label: str(tl.label) },
+    // วันเปลี่ยนสารท (節/氣) จาก almanac.solarTerm — ป้ายบนการ์ดคะแนน (รูป 8c). null = ไม่ใช่วันสารท
+    solarTerm: (() => {
+      const s = a.solarTerm as { nameTh?: unknown; name?: unknown; time?: unknown; isMonthChange?: unknown } | null | undefined
+      if (!s || typeof s !== 'object') return null
+      const nameTh = str(s.nameTh) || str(s.name)
+      if (!nameTh) return null
+      return { nameTh, time: str(s.time), isMonthChange: s.isMonthChange === true }
+    })(),
     dayPillars: { day: pillar(a.dayPillar), month: pillar(a.monthPillar), year: pillar(a.yearPillar) },
     ownerPillars: ((m.person ?? {}) as { fourPillars?: unknown }).fourPillars as Record<string, unknown> ?? {},
     gates: arr(a.gates).map((g) => {
@@ -219,6 +228,7 @@ export const FREE_DAY_DETAIL_FIELDS = [
   'yams',
   'dayDeity',
   'wanPhra',
+  'solarTerm', // วันเปลี่ยนสารท — ข้อมูลปฏิทินทั่วไป (ฟรี)
   'colors',
   // 🔴 luckyDirection IS free — corrected after a proper sweep. My first pass called it paid-only because
   // its only match in pages/v2/calendar/[date].tsx is `<EightGates …>` under `{paid && advanced && …}`.

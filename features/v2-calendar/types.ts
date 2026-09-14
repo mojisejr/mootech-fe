@@ -209,6 +209,8 @@ export interface DayDetail {
   patrons?: string[]
   /** แถววันพระ (ค่ำ/เดือน) — almanac.thaiLunar. */
   wanPhra: { isWanPhra: boolean; label: string }
+  /** วันเปลี่ยนสารท (節/氣) — ป้ายบนการ์ด (ซินแสนุ้ย 2026-09-14, รูป 8c). null = ไม่ใช่วันสารท */
+  solarTerm?: { nameTh: string; time: string; isMonthChange: boolean } | null
   // กอง 2 (ส่งดิบ — ❌ ห้ามแปลง/ตีความ; ตำราไม่มีเกณฑ์ = แปลง=แต่งตำรา; μุน ตัดสินการแสดงผล):
   /** สีมงคล — ชื่อสีไทย ❌ ไม่แปลงเป็นรหัสสี (งานดีไซน์ μุน). */
   luckyColors: DayDetailColor[]

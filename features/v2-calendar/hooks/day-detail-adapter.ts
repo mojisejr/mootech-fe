@@ -35,6 +35,7 @@ export function libDayDetailToFeature(lib: LibDayDetail): DayDetail {
     spirits: lib.spirits,
     patrons: lib.patrons,
     wanPhra: lib.wanPhra,
+    solarTerm: lib.solarTerm, // วันเปลี่ยนสารท (รูป 8c)
     luckyColors: lib.colors, // RAW Thai names
     gates: lib.gates, // RAW, no good/bad level
     dithi: lib.dithi,

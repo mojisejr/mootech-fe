@@ -79,6 +79,18 @@ export function DayScoreCard({ detail }: { detail: DayDetail }) {
           <span>{[detail.wanPhra.label, detail.dayDeity].filter(Boolean).join(' · ')}</span>
         </div>
       )}
+
+      {/* วันเปลี่ยนสารท (ซินแสนุ้ย 2026-09-14 รูป 8c) — ป้ายง่าย: ชื่อสารท + เวลา (+ เปลี่ยนเดือนถ้า 節) */}
+      {detail.solarTerm && (
+        <div className="mt-2 flex flex-wrap items-center justify-center gap-2 text-sm font-normal leading-[22px] text-v3-text-body">
+          <span className="rounded-full bg-[#FFF3E0] px-[9px] py-1 text-[10px] font-bold leading-none text-[#B45309]">🔆 วันเปลี่ยนสารท</span>
+          <span>
+            {detail.solarTerm.nameTh}
+            {detail.solarTerm.time ? ` · ${detail.solarTerm.time} น.` : ''}
+            {detail.solarTerm.isMonthChange ? ' · เปลี่ยนเดือน' : ''}
+          </span>
+        </div>
+      )}
     </div>
   )
 }
