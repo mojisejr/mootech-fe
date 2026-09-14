@@ -99,19 +99,28 @@ type SearchRow = { direction: Direction; gate: DayDetailGate; score: number }
 // ได้โบนัสจัดอันดับเล็กน้อย: ชนะเมื่อคะแนนเท่ากัน (ขึ้น "แนะนำ" ก่อน) แต่ไม่ข้ามชั้น (ยังไม่แย่งประตูที่ตรงกว่า).
 export const AUSPICIOUS_GATES = new Set(['開', '生', '景'])
 const AUSPICIOUS_BONUS = 5
+// #4 (ซินแสนุ้ย 2026-09-14): พิมพ์ตัวเดียว ("อ") ไม่ควรเด้งทิศทันที — ต้องเสนอคำก่อน.
+// MIN_MATCH_LEN = อย่างน้อยกี่ตัวอักษรจึงจะเริ่มจับ substring (กัน 1 ตัวอักษรไปแมตช์ทุกวลี).
+const MIN_MATCH_LEN = 2
+// MIN_STRONG_LEN = พิมพ์ยาวพอ (เจาะจง) จึงจะ "เด้งทิศ" จาก substring — สั้นกว่านี้ให้โชว์คำเสนอ.
+// ตรงวลีเป๊ะ (max≥100) ข้ามเงื่อนไขความยาวเสมอ (เช่นแตะชิปคำเสนอ → ค้นด้วยวลีเต็ม → เด้งทิศ).
+const MIN_STRONG_LEN = 4
 
 function scoreGate(gate: DayDetailGate, nq: string): number {
   const glyph = gate.name.trim()
   const phrases = (GATE_PHRASES[glyph] ?? []).map(normSearch)
   let best = 0
   for (const p of phrases) if (p === nq) best = 100
-  if (best < 70) for (const p of phrases) if (p && (p.includes(nq) || nq.includes(p))) { best = 70; break }
-  // ความหมาย/keyword ตามเอกสารซินแส (GATE_INFO) — ให้ค้นหาสอดคล้องกับความหมายจริงของประตู
-  const info = GATE_INFO[glyph]
-  const words = [info?.keyword ?? '', ...(info?.meanings ?? []), ...(gate.keywords ?? [])].map(normSearch).filter(Boolean)
-  if (best < 50) for (const w of words) if (w.includes(nq) || nq.includes(w)) { best = 50; break }
-  if (best < 20) {
-    for (const t of [...phrases, ...words]) if (sharesSubstring(nq, t)) { best = 20; break }
+  // substring tiers (70/50/20): ข้ามถ้า query สั้นเกิน MIN_MATCH_LEN (กันพิมพ์ 1 ตัวอักษรแล้วแมตช์มั่ว → เด้งทิศ)
+  if (nq.length >= MIN_MATCH_LEN) {
+    if (best < 70) for (const p of phrases) if (p && (p.includes(nq) || nq.includes(p))) { best = 70; break }
+    // ความหมาย/keyword ตามเอกสารซินแส (GATE_INFO) — ให้ค้นหาสอดคล้องกับความหมายจริงของประตู
+    const info = GATE_INFO[glyph]
+    const words = [info?.keyword ?? '', ...(info?.meanings ?? []), ...(gate.keywords ?? [])].map(normSearch).filter(Boolean)
+    if (best < 50) for (const w of words) if (w.includes(nq) || nq.includes(w)) { best = 50; break }
+    if (best < 20) {
+      for (const t of [...phrases, ...words]) if (sharesSubstring(nq, t)) { best = 20; break }
+    }
   }
   // เน้น 3 ประตูมงคล: บวกโบนัสเป็นตัวตัดสินภายในชั้นเดียวกัน (ห่างชั้น ≥20 จึงไม่ข้ามชั้น)
   if (best > 0 && AUSPICIOUS_GATES.has(glyph)) best += AUSPICIOUS_BONUS
@@ -138,7 +147,8 @@ function useGateSearch(placed: { direction: Direction; gate: DayDetailGate }[], 
     const max = all.length ? all[0].score : 0
     const topTies = all.filter((r) => r.score === max)
     // "จับใจความได้จริง": คะแนนสูงสุดต้องเป็นระดับตรงคำ (≥50) และประตูที่ได้สูงสุดต้องไม่เกิน 3 (ไม่กำกวมทั้งกระดาน)
-    const strong = max >= MEANINGFUL_SCORE && topTies.length <= 3
+    // #4: เด้งทิศเฉพาะตรงวลีเป๊ะ (max≥100) หรือพิมพ์เจาะจงพอ (≥ MIN_STRONG_LEN) — พิมพ์สั้นให้โชว์คำเสนอแทน
+    const strong = max >= MEANINGFUL_SCORE && topTies.length <= 3 && (max >= 100 || nq.length >= MIN_STRONG_LEN)
     const rows = all.slice(0, MAX_SHOWN)
     if (!strong) return { active: true, strong: false, dirs: new Set<Direction>(), topDirs: new Set<Direction>(), rows: [] as SearchRow[] }
     const topDirs = new Set(topTies.map((r) => r.direction))
@@ -160,15 +170,31 @@ function GateSearch({
   const topRows = rows.filter((r) => topDirs.has(r.direction))
   const nearRows = rows.filter((r) => !topDirs.has(r.direction))
   // ชิปแนะนำ = วลีที่คนมักถาม (GATE_PHRASES) ของประตูวันนี้ — คลิกเพื่อค้นด้วยคำนั้น (ผู้ใช้: สร้างคำที่คนมักถาม)
+  // #4/#5 (ซินแสนุ้ย 2026-09-14): ถ้าพิมพ์อยู่ → เสนอ "คำที่เกี่ยวข้อง" ที่มีคำที่พิมพ์ก่อน (เช่น "อ" → ออกรถ/ออกสื่อ/ขอเงิน)
+  // ยังไม่พิมพ์ / พิมพ์แล้วไม่ตรงคำไหน → fallback วลีเด่นของแต่ละประตู (มีชิปให้กดเสมอ)
+  const nqSuggest = normSearch(query)
   const suggestions = useMemo(() => {
     const set = new Set<string>()
-    for (const p of placed) {
-      const ph = GATE_PHRASES[p.gate.name.trim()] ?? []
-      if (ph[0]) set.add(ph[0]) // วลีเด่นของแต่ละประตู (ให้ครอบคลุมหลายประตู)
-      if (set.size >= 8) break
+    if (nqSuggest) {
+      for (const p of placed) {
+        for (const ph of GATE_PHRASES[p.gate.name.trim()] ?? []) {
+          if (normSearch(ph).includes(nqSuggest)) set.add(ph)
+          if (set.size >= 8) break
+        }
+        if (set.size >= 8) break
+      }
+    }
+    if (set.size === 0) {
+      for (const p of placed) {
+        const ph = GATE_PHRASES[p.gate.name.trim()] ?? []
+        if (ph[0]) set.add(ph[0]) // วลีเด่นของแต่ละประตู (ให้ครอบคลุมหลายประตู)
+        if (set.size >= 8) break
+      }
     }
     return Array.from(set).slice(0, 8)
-  }, [placed])
+  }, [placed, nqSuggest])
+  // ป้ายชิป: ตอนพิมพ์แล้วมีคำตรง → "คำที่เกี่ยวข้อง", ไม่งั้น "ลองค้นหา"
+  const suggestLabel = nqSuggest && suggestions.some((s) => normSearch(s).includes(nqSuggest)) ? 'คำที่เกี่ยวข้อง' : 'ลองค้นหา'
   const notFound = active && rows.length === 0
   return (
     <div data-testid="gate-search" className="mb-3">
@@ -208,14 +234,16 @@ function GateSearch({
       )}
       {notFound && (
         <p data-testid="gate-search-empty" className="mt-2 text-xs leading-5 text-v3-text-body">
-          ยังจับใจความไม่ชัด — ลองพิมพ์ให้กระชับ/เจาะจงขึ้น เช่น “ขอเงิน” “ฟ้องร้อง” หรือแตะคำแนะนำด้านล่าง
+          {nqSuggest.length < MIN_STRONG_LEN
+            ? 'พิมพ์ต่อให้เจาะจง เช่น “ออกรถ” “ขอเงิน” หรือแตะคำที่เกี่ยวข้องด้านล่าง'
+            : 'ยังจับใจความไม่ชัด — ลองพิมพ์ให้กระชับ/เจาะจงขึ้น เช่น “ขอเงิน” “ฟ้องร้อง” หรือแตะคำแนะนำด้านล่าง'}
         </p>
       )}
       {/* ผู้ใช้ 2026-09-12: "คำแนะนำไม่มีเลยถ้าไม่ใช่คีย์ ใช้ยาก" → โชว์ชิปคำค้นตลอด (แม้ยังไม่พิมพ์)
           เพื่อให้กดใช้ได้ทันทีโดยไม่ต้องเดาคีย์เวิร์ด */}
       {suggestions.length > 0 && (
         <div className="mt-2 flex flex-wrap items-center gap-1.5">
-          <span className="text-[11px] font-semibold text-v3-text-muted">ลองค้นหา:</span>
+          <span className="text-[11px] font-semibold text-v3-text-muted">{suggestLabel}:</span>
           {suggestions.map((s) => (
             <button
               key={s}

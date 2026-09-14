@@ -63,10 +63,13 @@ self.addEventListener("push", (event) => {
   // LINE-style heads-up: สั่น + ค้างบนจอจนกว่าผู้ใช้จะแตะ (ไม่หายเองใน 2-3 วิ) + re-alert ถ้ามาใหม่.
   // vibrate/renotify ไม่มีใน NotificationOptions ของ TS (นอก base spec) แต่ทำงานจริงบน Android Chrome →
   // cast เพิ่มเฉพาะสองฟิลด์นี้. tag คงที่ = อันใหม่แทนที่อันเก่า (renotify ปลุกซ้ำ) กันสแปมค้างจอหลายใบ.
+  // icon = วงใหญ่สีเต็ม (เสี่ยวมู่) · badge = ไอคอนเล็กบน status bar. #2 (ซินแสนุ้ย 2026-09-14):
+  // badge ต้องเป็น "ภาพขาวโปร่ง" (Android ใช้แค่ alpha) — เดิมใช้ icon-192 (สี่เหลี่ยมทึบ) → กลายเป็นวงขาวตัน.
+  // badge-mono.png = silhouette เสี่ยวมู่ขาวโปร่ง 96px.
   const options = {
     body,
     icon: "/icons/icon-192.png",
-    badge: "/icons/icon-192.png",
+    badge: "/icons/badge-mono.png",
     requireInteraction: true,
     tag: "mumate-reminder",
     data: { url },
