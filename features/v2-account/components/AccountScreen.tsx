@@ -20,6 +20,7 @@ import { bangkokDay, checkedInToday, checkinStreak, reasonLabel, todayBangkok, t
 import { qiBonusOf, qiQtyOf } from "@/lib/payment/catalog"
 import { bkkCivilDate } from "../payment-history"
 import { planFor, type Plan } from "../plan"
+import { InstallAppCard } from "./InstallAppCard"
 
 type Profile = { firstName?: string | null; displayName?: string | null; birthDate?: string | null; birthTime?: string | null; hasAvatar?: boolean | null; avatarUpdatedAt?: string | null }
 // สรุปสิทธิ์จาก /api/qi-entitlements — ใช้คิด "ยังถาม/เปิดไพ่ได้อีกกี่ครั้ง" ให้ตรง (ฟรี + credit + QI)
@@ -320,6 +321,9 @@ export function AccountScreen({ preview }: { preview?: AccountPreview } = {}) {
             </KitButton>
             <p className="text-center text-[11px] text-v3-text-muted">ครบ 7 วันรับโบนัส +30 QI</p>
           </SectionCard>
+
+          {/* ติดตั้งแอปลงหน้าจอ (ที่ถาวร — ป็อปอัปหน้าแรกหายแล้วหาที่นี่ได้) + โบนัส 30 QI ครั้งเดียว */}
+          <InstallAppCard />
 
           {/* ภารกิจ — ไอคอนจริงต่อภารกิจ + จัดกลาง (เฟรม quick-earn-section) */}
           {daily.length > 0 && (
