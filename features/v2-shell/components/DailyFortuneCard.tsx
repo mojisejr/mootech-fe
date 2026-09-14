@@ -16,6 +16,19 @@
 // my own initiative, inside an unrelated PR. It is a real question (the two cards genuinely disagree) and it
 // belongs to him — logged, not silently decided.
 import type { ReactNode } from 'react'
+import { nayinElement } from '@/lib/bazi-bridge/nayin'
+import { ELEMENT_COLOR } from '@/lib/calculator/elements'
+
+// ชิป 干支 พื้นสีตามธาตุนับอิม 納音 + ตัวอักษรขาว (เอกสารซินแส). แมปไม่ได้ → พื้น sapphire สำรอง.
+function NayinPill({ label, ganzhi, testId }: { label: string; ganzhi: string; testId?: string }) {
+  const el = nayinElement(ganzhi)
+  const bg = el ? ELEMENT_COLOR[el] : '#1455A4'
+  return (
+    <span data-testid={testId} className="rounded-full px-2 py-[3px] text-[11px] font-bold leading-none text-white" style={{ backgroundColor: bg }}>
+      {label} {ganzhi}
+    </span>
+  )
+}
 
 export type FortuneRing = {
   grade: string
@@ -201,10 +214,10 @@ export function DailyFortuneCard(p: DailyFortuneCardProps) {
           <p data-testid="fortune-date" className="text-[14px] font-bold leading-5 text-v3-navy">{p.dateLine}</p>
           {p.ganzhi && (
             <span className="flex flex-wrap items-center gap-1.5">
-              {/* 干支 วัน/เดือน/ปี (ซินแสนุ้ย 2026-09-14 รูป 8b — วัน=หลัก, เดือน/ปี=เสริม) */}
-              <span data-testid="fortune-ganzhi" className="rounded-full bg-v3-sapphire px-2 py-[3px] text-[11px] font-bold leading-none text-white">วัน {p.ganzhi}</span>
-              {p.monthGanzhi && <span className="rounded-full bg-v3-sapphire-tint px-2 py-[3px] text-[11px] font-bold leading-none text-v3-sapphire">เดือน {p.monthGanzhi}</span>}
-              {p.yearGanzhi && <span className="rounded-full bg-v3-sapphire-tint px-2 py-[3px] text-[11px] font-bold leading-none text-v3-sapphire">ปี {p.yearGanzhi}</span>}
+              {/* 干支 วัน/เดือน/ปี พื้นสีตามธาตุนับอิม 納音 ของแต่ละเสา (ซินแสนุ้ย 2026-09-14) */}
+              <NayinPill label="วัน" ganzhi={p.ganzhi} testId="fortune-ganzhi" />
+              {p.monthGanzhi && <NayinPill label="เดือน" ganzhi={p.monthGanzhi} />}
+              {p.yearGanzhi && <NayinPill label="ปี" ganzhi={p.yearGanzhi} />}
               {p.ganzhiMeta && <span className="text-[11px] leading-none text-v3-text-body">{p.ganzhiMeta}</span>}
             </span>
           )}
