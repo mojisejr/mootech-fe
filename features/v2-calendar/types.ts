@@ -147,6 +147,7 @@ export interface DayDetailColor {
 }
 /** ดวงประจำปี/เดือน (奇門 คี้มึ้ง) — ทิศโชคลาภ/ทิศร้าย/เทพ/คี้มึ้ง + ตาราง 8 ประตู (เอกสารซินแส). */
 export interface DayDetailQimen {
+  pillar: string // เสาเต็ม (干支 เช่น 丙午/丁酉) — ราศีบน(ก้าน)+ล่าง(กิ่ง)
   caishenDir: string
   badDir: string
   deity: string
@@ -226,6 +227,8 @@ export interface DayDetail {
   yearFortune?: DayDetailQimen | null
   /** ดวงประจำเดือน (คี้มึ้ง) — almanac.monthInfo. OPTIONAL — paid/แอดวานซ์. */
   monthFortune?: DayDetailQimen | null
+  /** สีเสื้อประจำวัน (納音 + โทนสี) — almanac.shirtColors. OPTIONAL — paid/แอดวานซ์. */
+  shirtColors?: { navin: string; colors: string[] } | null
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

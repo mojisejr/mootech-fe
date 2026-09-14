@@ -28,6 +28,7 @@ import { AdvancedToggle } from '@/features/v2-calendar/components/day-detail/Adv
 import { CompatList } from '@/features/v2-calendar/components/day-detail/CompatList'
 import { PredictionCards } from '@/features/v2-calendar/components/day-detail/PredictionCards'
 import { LuckyColors } from '@/features/v2-calendar/components/day-detail/LuckyColors'
+import { ShirtColors } from '@/features/v2-calendar/components/day-detail/ShirtColors'
 import { SpecialDays } from '@/features/v2-calendar/components/day-detail/SpecialDays'
 import { YamTimes } from '@/features/v2-calendar/components/day-detail/YamTimes'
 import { MyChart } from '@/features/v2-calendar/components/day-detail/MyChart'
@@ -353,19 +354,20 @@ export default function V2CalendarDayPage({ teamPreview }: { teamPreview: boolea
         {detail.specialDays && detail.specialDays.length > 0 && <SpecialDays specialDays={detail.specialDays} />}
         {/* every tier gets these two — Free-2 draws them in full */}
         <LuckyColors colors={detail.luckyColors} deity={detail.dayDeity} direction={detail.luckyDirection} badDirection={detail.badDirection} />
+        {/* สีเสื้อประจำวัน (納音/นับอิม) — ตัวอักษรขาว พื้นสีตามธาตุ (เอกสารซินแส). paid: shirtColors ไม่อยู่ใน allow-list ฟรี → free ได้ null → การ์ดซ่อนตัวเอง */}
+        <ShirtColors shirtColors={detail.shirtColors} />
+        {/* [advanced] กุ้ยนั้ง 貴人 — ย้ายขึ้นเหนือ "เวลามงคล" (ซินแสนุ้ย 2026-09-14, รูป 2). paid: patrons ไม่อยู่ allow-list ฟรี */}
+        {advanced && detail.patrons && <Patrons patrons={detail.patrons} />}
         {/* #316 — ตัดสินด้วย remindersLocked(isPaid) ไม่ใช่ `free` (fail-closed · null = ล็อก)
             ตรรกะอยู่ที่ features/v2-calendar/tier-lock.ts เพราะไฟล์ page นี้ unit test แตะไม่ได้ */}
         <YamTimes yams={detail.yams} onAdd={addYam} locked={remindersLocked(isPaid)} statusFor={statusFor} onViewList={goToList} />
-        {/* §12/§13 [advanced] — 8 ประตู · 8 เทพ */}
-        {/* เงื่อนไขคือ `gates` (paid) ❌ ไม่ใช่ `luckyDirection` ซึ่งเป็นของฟรีหลัง #226 */}
-        {advanced && detail.gates && <EightGates gates={detail.gates} />}
-        {/* [advanced] ดวงประจำปี/เดือน (คี้มึ้ง 奇門) — ทิศโชคลาภ/ทิศร้าย/เทพ/คี้มึ้ง + ตาราง 8 ประตู ปี/เดือน (เอกสารซินแส 2026-09-13) */}
+        {/* [advanced] ประตู·เทพ·ทิศ·ปี/เดือน (คี้มึ้ง 奇門) — ย้ายขึ้นเหนือ "ประจำวัน" (ซินแสนุ้ย 2026-09-14, รูป 1) */}
         {advanced && (detail.yearFortune || detail.monthFortune) && (
           <YearMonthFortune year={detail.yearFortune ?? null} month={detail.monthFortune ?? null} />
         )}
+        {/* §12/§13 [advanced] — 8 ประตู ประจำวัน · 8 เทพ · เงื่อนไข `gates` (paid) ไม่ใช่ luckyDirection (ฟรีหลัง #226) */}
+        {advanced && detail.gates && <EightGates gates={detail.gates} />}
         {advanced && detail.spirits && <EightDeities deities={detail.spirits} />}
-        {/* [advanced] กุ๊ยนั้ง 貴人 — almanac.patrons (paid: ไม่อยู่ใน allow-list ฟรี) · gafiw 2026-09-07 */}
-        {advanced && detail.patrons && <Patrons patrons={detail.patrons} />}
         {/* #343 — **ย้าย** ลิงก์นี้ลงมา ❌ ไม่ได้เพิ่มอันที่สอง (ของเดิมอยู่บนสุด ใต้กล่องคะแนน)
             เหตุผล: จังหวะที่ลิงก์นี้มีความหมายคือ "เพิ่งบันทึกเสร็จ" ซึ่งสายตาอยู่ที่ปุ่มแถบล่าง
             ตำแหน่งเดิมอยู่เหนือจอไปหลายส่วน ⇒ ผู้ใช้ต้องเลื่อนกลับขึ้นไปหาสิ่งที่ตัวเองเพิ่งทำ */}

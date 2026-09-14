@@ -117,10 +117,11 @@ export function normalizeDirection(raw: string | null | undefined): Direction | 
   return (DIRECTIONS as readonly string[]).includes(up) ? (up as Direction) : null
 }
 
-/** Thai names for the eight points — the board is read by a Thai speaker, not by a compass rose. */
+/** Thai names for the eight points — the board is read by a Thai speaker, not by a compass rose.
+ *  ซินแสนุ้ย (2026-09-14): ไม่เอาชื่อลม (อีสาน/อาคเนย์/หรดี/พายัพ) → ใช้แบบเต็ม "…เฉียง…" อ่านเข้าใจง่ายกว่า. */
 export const DIR_LABEL_TH: Record<Direction, string> = {
-  N: 'เหนือ', NE: 'อีสาน', E: 'ตะวันออก', SE: 'อาคเนย์',
-  S: 'ใต้', SW: 'หรดี', W: 'ตะวันตก', NW: 'พายัพ',
+  N: 'เหนือ', NE: 'ตะวันออกเฉียงเหนือ', E: 'ตะวันออก', SE: 'ตะวันออกเฉียงใต้',
+  S: 'ใต้', SW: 'ตะวันตกเฉียงใต้', W: 'ตะวันตก', NW: 'ตะวันตกเฉียงเหนือ',
 }
 
 /**

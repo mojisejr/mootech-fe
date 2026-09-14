@@ -606,9 +606,11 @@ export function DestinyScreen({ previewData }: { previewData?: DestinyData } = {
     // + ติด markdown **bold** ดิบ ⇒ หน้า destiny ต้องโชว์แค่ "สรุป": แตกเป็นข้อย่อย ตัด noise ตัดความยาว จำกัดจำนวน
     const fromEngine = data?.cautions ?? []
     const NOISE = /ช่วงวัย|ยุคทอง|ยุคจร|พยากรณ์รายปี|เฝ้าระวัง อายุ|ปีปัจจุบัน|เกรด \d|พ\.ศ\.|ค\.ศ\.|→|อายุ \d/
+    // ซินแสนุ้ย 2026-09-14 (รูป 7): "เอาแต่ความหมาย ไม่ต้องโชว์หัว" (กะโง้ว / ระกา×มะเมีย / เถาะ×ระกา)
+    // engine ประกอบเป็น "**ชื่อปะทะ** คำอธิบาย" (blockToParagraph) → ตัดหัวข้อ **...** นำหน้าออก เหลือเฉพาะคำอธิบาย.
     const clean = fromEngine
-      .flatMap((c) => (typeof c === "string" ? c.split(/\s*·\s*/) : []))
-      .map((s) => s.replace(/\*\*/g, "").trim())
+      .flatMap((c) => (typeof c === "string" ? c.split(/\n{2,}|\s*·\s*/) : [])) // แตกทั้งย่อหน้า (\n\n) และ "·"
+      .map((s) => s.replace(/^\s*\*\*[^*]+\*\*\s*/, "").replace(/\*\*/g, "").trim()) // ตัด **หัวข้อ** นำหน้า แล้วลบ ** ที่เหลือ
       .filter((s) => s.length > 0 && !NOISE.test(s))
       .map((s) => (s.length > 140 ? s.slice(0, 140).replace(/\s+\S*$/, "") + "…" : s))
     if (clean.length > 0) return clean.slice(0, 4)
@@ -840,7 +842,7 @@ export function DestinyScreen({ previewData }: { previewData?: DestinyData } = {
                   data-testid="destiny-weakness-toggle"
                   className="grid h-10 w-full place-items-center text-[12px] font-medium text-v3-sapphire"
                 >
-                  {showDomains ? "ซ่อนจุดอ่อนของ 5 ด้าน ↑" : "โชว์จุดอ่อนของ 5 ด้าน ↓"}
+                  {showDomains ? "จุดแข็ง-จุดอ่อน 5 ด้าน ↑" : "จุดแข็ง-จุดอ่อน 5 ด้าน ↓"}
                 </button>
                 {showDomains && summary && (
                   <div className="px-4 pb-4 pt-1" data-testid="destiny-domains">
