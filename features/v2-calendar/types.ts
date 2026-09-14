@@ -174,6 +174,9 @@ export interface DayDetail {
   date: string
   day: number
   ganzhi: string
+  /** เสาเดือน/ปีเต็ม (干支) — โชว์คู่วันบนการ์ดคะแนน (ซินแสนุ้ย 2026-09-14, รูป 8b) */
+  monthGanzhi?: string
+  yearGanzhi?: string
   percent: number
   /** bazi's letter grade — 13-level RAW string (card ring; M-C's gradeColors/gradeTier colours it). NON-null:
    * the day-detail adapter maps a real, computed day (grade tracks percent) → always present. */

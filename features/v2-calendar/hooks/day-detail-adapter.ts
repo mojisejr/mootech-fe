@@ -19,6 +19,8 @@ export function libDayDetailToFeature(lib: LibDayDetail): DayDetail {
     date: lib.date,
     day: Number(lib.date.slice(8, 10)) || 0,
     ganzhi: lib.dayGanzhi,
+    monthGanzhi: lib.monthGanzhi, // เสาเดือน/ปี — โชว์คู่วันบนการ์ดคะแนน (รูป 8b)
+    yearGanzhi: lib.yearGanzhi,
     percent: lib.overallPercent ?? 0, // degraded-only fallback (a selected day has a score)
     grade: lib.grade ?? '', // degraded-only fallback (grade tracks percent)
     summary: lib.summary,

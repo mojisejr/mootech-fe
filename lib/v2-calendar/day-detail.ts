@@ -20,6 +20,8 @@ export type DayDetailStar = { name: string; polarity: string; activity: string }
 export type DayDetail = {
   date: string
   dayGanzhi: string
+  monthGanzhi: string // เสาเดือนเต็ม (干支) — โชว์คู่วัน/ปี บนการ์ดคะแนน (ซินแสนุ้ย 2026-09-14, รูป 8b)
+  yearGanzhi: string // เสาปีเต็ม (干支)
   overallPercent: number | null
   grade: string | null // bazi pass-through (ApiGrade|null), never re-derived
   verdict: string
@@ -98,6 +100,9 @@ export function mapDayDetail(mvd: unknown, almanacDay: unknown): DayDetail {
   return {
     date: str(m.date),
     dayGanzhi: str(m.dayGanzhi),
+    // เสาเดือน/ปีเต็ม (干支) จาก almanac (แหล่งเดียวกับ dayPillars) — โชว์คู่วันบนการ์ดคะแนน (รูป 8b)
+    monthGanzhi: str((a.monthPillar as { ganzhi?: unknown } | undefined)?.ganzhi),
+    yearGanzhi: str((a.yearPillar as { ganzhi?: unknown } | undefined)?.ganzhi),
     overallPercent: num(m.overallPercent),
     grade: parseApiGrade(m.grade), // F1 (ตู๋ #178): validate 13, null→null, นอกลิสต์ throw (loud)
     verdict: str(m.verdict),
@@ -204,6 +209,8 @@ export function mapDayDetail(mvd: unknown, almanacDay: unknown): DayDetail {
 export const FREE_DAY_DETAIL_FIELDS = [
   'date',
   'dayGanzhi',
+  'monthGanzhi', // เสาเดือน/ปี — ข้อมูลปฏิทินทั่วไป โชว์บนการ์ดคะแนนทุก tier (รูป 8b)
+  'yearGanzhi',
   'overallPercent',
   'grade',
   'summary',
