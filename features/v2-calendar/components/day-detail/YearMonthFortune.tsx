@@ -57,7 +57,10 @@ function FortuneBlock({ label, q }: { label: string; q: DayDetailQimen }) {
             ))}
           </ul>
         </div>
-      ) : null}
+      ) : (
+        // เสาที่ยังไม่มีตารางประตูระดับปี/เดือน (นอกช่วงที่กรอกข้อมูล) — โชว์หมายเหตุจาง ๆ ไม่ให้การ์ดดูค้าง
+        <p className="text-[12px] text-v3-text-muted">ตารางประตู (奇門) ของเสานี้ยังไม่พร้อมให้บริการ</p>
+      )}
     </div>
   )
 }
