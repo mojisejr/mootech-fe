@@ -449,7 +449,7 @@ function SomphongSection() {
 // full-bleed white wave (reuses the WhiteMoundDivider shape), 451px wide overflowing both edges.
 function SomphongMound({ className }: { className: string }) {
   return (
-    <div aria-hidden className={`pointer-events-none absolute inset-x-0 z-0 h-7 w-[451px] max-w-none -translate-x-[29px] text-v3-lemon-chiffon ${className}`}>
+    <div aria-hidden className={`pointer-events-none absolute inset-x-0 z-0 h-7 w-full text-v3-lemon-chiffon ${className}`}>
       <svg viewBox="0 0 451 27" preserveAspectRatio="none" className="h-full w-full" fill="currentColor"><path d="M0 27 V10 Q112 -6 225 8 T451 10 V27 Z" /></svg>
     </div>
   )
