@@ -34,6 +34,10 @@ export type Quote = {
   codeApplied: string | null
   /** Not sent today. When the money lane learns the annual saving, this row lights up on its own. */
   annualSavingSatang?: number
+  /** Beam lane slice 4 — which gateway takes this quote ('omise' | 'beam'); absent ⇒ omise (older server). */
+  gateway?: string
+  /** 'token' (card form on our page, Omise) | 'hosted' (the buyer is sent to the gateway's page, Beam). */
+  cardEntry?: 'token' | 'hosted'
 }
 
 export type OrderSummaryCardProps = {

@@ -19,6 +19,8 @@ export type FullPaymentRow = {
   tierCode: string
   amountSatang: number
   method: string
+  /** Beam lane slice 4 — 'omise' | 'beam'; absent on an older server ⇒ Omise. */
+  gateway?: string
   status: string
   failureCode: string | null
   createdAt: string

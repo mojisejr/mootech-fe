@@ -21,6 +21,10 @@ export async function runChargeFlow(
   res: NextApiResponse,
   method: 'card' | 'promptpay',
   create: (args: { amountSatang: number; token?: string; email: string; orderId: string; packageCode: string }) => Promise<ChargeResult>,
+  // Beam lane slice 4 — 'hosted' (Beam Payment Links) means the card is entered on the gateway's page, so
+  // a card request carries NO token and must not be refused for lacking one. Absent ⇒ 'token' (Omise),
+  // the rule every request before this lane obeyed.
+  opts: { cardEntry?: 'token' | 'hosted' } = {},
 ): Promise<void> {
   if (req.method !== 'POST') {
     res.status(405).json({ error: 'Method not allowed' })
@@ -41,7 +45,8 @@ export async function runChargeFlow(
   // 🔴 body.user_id / body.amount / body.discount / body.percent are DELIBERATELY IGNORED — the amount and
   // the discount are computed server-side. body.code is only a STRING key the server looks up itself.
   const codeStr = typeof body.code === 'string' && body.code.trim() !== '' ? body.code.trim() : null
-  if (!packageCode || (method === 'card' && !token)) {
+  const tokenRequired = method === 'card' && (opts.cardEntry ?? 'token') === 'token'
+  if (!packageCode || (tokenRequired && !token)) {
     res.status(400).json({ error: 'missing token or package_code' })
     return
   }

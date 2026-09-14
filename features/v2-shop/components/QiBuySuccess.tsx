@@ -3,6 +3,7 @@
 // ยอดใหม่อ่านจาก /api/qi-wallet (ความจริงเดียว), delta = qty+bonus ของแพ็ก, ก่อน = ใหม่−delta.
 import Link from "next/link"
 import { useEffect, useState } from "react"
+import { gatewayLabel } from '../gateway-label'
 
 import { KitButton } from "@/features/v2-profile/components/kit"
 import { qiBonusOf, qiQtyOf } from "@/lib/payment/catalog"
@@ -72,7 +73,7 @@ export function QiBuySuccess({ packageCode, charge, order }: { packageCode: stri
           <div className="flex items-center justify-between"><span className="text-v3-text-body">ยอดชำระ</span><b className="text-v3-navy">{bahtOf(row.amountSatang)}</b></div>
           <div className="flex items-center justify-between"><span className="text-v3-text-body">วิธีชำระ</span><b className="text-v3-navy">{methodWord(row.method)}</b></div>
           {row.orderId ? <div className="flex items-center justify-between gap-3"><span className="text-v3-text-body">เลขที่ใบเสร็จ</span><b className="break-all text-right text-v3-navy">{row.orderId}</b></div> : null}
-          <p className="mt-1 text-[11px] leading-4 text-v3-text-muted">ส่งใบเสร็จไปที่อีเมลของคุณแล้ว · ออกโดย Omise</p>
+          <p className="mt-1 text-[11px] leading-4 text-v3-text-muted">ส่งใบเสร็จไปที่อีเมลของคุณแล้ว · ออกโดย {gatewayLabel(row?.gateway)}</p>
         </section>
       ) : null}
 

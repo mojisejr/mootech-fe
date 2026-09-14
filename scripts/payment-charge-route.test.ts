@@ -29,6 +29,7 @@ const h = vi.hoisted(() => {
   // #437 — the gateway's own verdict is now part of what it returns. Default: it said nothing (the shape
   // every pre-#437 test relied on), so ABSENT must keep reading as "not finished yet", never as refused.
   const gatewayAnswer = { value: {} as Record<string, unknown> }
+  const cardEntry = { value: undefined as undefined | 'token' | 'hosted' }
   const createCardCharge = vi.fn(async (args: Record<string, unknown>) => {
     captured.chargeArgs.push(args)
     return { chargeId: 'chrg_test_1', ...gatewayAnswer.value }
@@ -48,11 +49,19 @@ const h = vi.hoisted(() => {
       | { allow: false; reason: string },
   }
   const decidePurchaseFor = vi.fn(async () => purchaseDecision.value)
-  return { state, captured, createCardCharge, insertPendingReserved, gatewayAnswer, abandonPending, recordChargeFailure, purchaseDecision, decidePurchaseFor }
+  return { state, captured, createCardCharge, insertPendingReserved, gatewayAnswer, cardEntry, abandonPending, recordChargeFailure, purchaseDecision, decidePurchaseFor }
 })
 
 vi.mock('@/lib/v2/resolve-user', () => ({ resolveSessionUserId: vi.fn(async () => h.state.session) }))
-vi.mock('@/lib/payment/omise-gateway', () => ({ omiseGateway: { createCardCharge: h.createCardCharge } }))
+vi.mock('@/lib/payment/omise-gateway', () => ({
+  omiseGateway: {
+    createCardCharge: h.createCardCharge,
+    // Beam lane slice 4 — undefined ⇒ 'token' (every pre-slice-4 spec); a hosted case sets it.
+    get cardEntry() {
+      return h.cardEntry.value
+    },
+  },
+}))
 vi.mock('@/lib/payment/repo', () => ({
   getPackage: vi.fn(async () => h.state.pkg),
   getUserEmail: vi.fn(async () => 'user@example.com'),
@@ -103,6 +112,7 @@ beforeEach(() => {
   h.abandonPending.mockClear()
   h.recordChargeFailure.mockClear()
   h.gatewayAnswer.value = {}
+  h.cardEntry.value = undefined
   h.purchaseDecision.value = { allow: true, carryOverDays: 0 }
   h.decidePurchaseFor.mockClear()
 })
@@ -294,5 +304,30 @@ describe('webhook route config', () => {
     // A mutant that drops `export const config = { api: { bodyParser: false } }` reddens here. (The runtime
     // effect itself only shows under a live Next server; this pins the declaration that produces it.)
     expect(webhookConfig?.api?.bodyParser).toBe(false)
+  })
+
+  // ── Beam lane slice 4 — hosted card entry (Beam Payment Links) ──
+  it('slice 4 · cardEntry hosted: a card request WITHOUT a token is accepted and the gateway is called without one', async () => {
+    h.cardEntry.value = 'hosted'
+    h.gatewayAnswer.value = { authorizeUri: 'https://playground-pay.beamcheckout.com/m/abc' }
+    const { p, out } = invoke({ package_code: 'MONTHLY' })
+    await p
+    expect(out.status).toBe(200)
+    expect(h.createCardCharge).toHaveBeenCalledTimes(1)
+    expect(h.captured.chargeArgs[0].token).toBeUndefined()
+    expect((out.body as { authorizeUri?: string }).authorizeUri).toBe('https://playground-pay.beamcheckout.com/m/abc')
+  })
+
+  it('slice 4 · cardEntry token (and absent): a card request without a token is still 400 and nothing is reserved', async () => {
+    for (const v of ['token', undefined] as const) {
+      h.cardEntry.value = v
+      h.createCardCharge.mockClear()
+      h.insertPendingReserved.mockClear()
+      const { p, out } = invoke({ package_code: 'MONTHLY' })
+      await p
+      expect(out.status).toBe(400)
+      expect(h.insertPendingReserved).not.toHaveBeenCalled()
+      expect(h.createCardCharge).not.toHaveBeenCalled()
+    }
   })
 })

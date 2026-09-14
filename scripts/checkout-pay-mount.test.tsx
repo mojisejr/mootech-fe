@@ -202,3 +202,61 @@ describe('#466 MP2 — ปุ่มจ่ายต้องยังล็อก
     await waitFor(() => expect((screen.getByTestId('checkout-pay') as HTMLButtonElement).disabled).toBe(false))
   })
 })
+
+// ── Beam lane slice 4 — a HOSTED card entry (Beam Payment Links): no card form, no tokeniser, external hop ──
+const HOSTED_QUOTE = { ...QUOTE, gateway: 'beam', cardEntry: 'hosted' as const }
+function serveHosted(charge: { status: number; body: unknown }) {
+  return vi.fn(async (url: RequestInfo | URL) => {
+    const u = String(url)
+    if (u.includes('/api/v2/payment/preview')) return { ok: true, status: 200, json: async () => HOSTED_QUOTE } as unknown as Response
+    return { ok: charge.status >= 200 && charge.status < 300, status: charge.status, json: async () => charge.body } as unknown as Response
+  })
+}
+
+describe('Beam slice 4 — hosted card entry', () => {
+  it('🔴 no card form is drawn, the hosted note names the gateway, and Pay is enabled on the quote alone', async () => {
+    vi.stubGlobal('fetch', serveHosted({ status: 200, body: {} }))
+    render(
+      <CookiesProvider>
+        <CheckoutPage teamPreview={false} />
+      </CookiesProvider>,
+    )
+    await screen.findByTestId('checkout-pay')
+    await waitFor(() => expect(screen.queryByTestId('hosted-card-note')).not.toBeNull())
+    expect(screen.queryByTestId('card-form')).toBeNull()
+    expect(screen.getByTestId('hosted-card-note').textContent).toMatch(/Beam Checkout/)
+    expect(screen.getByTestId('checkout-gateway-mark').textContent).toBe('Beam Checkout')
+    await waitFor(() => expect(payBtn().disabled).toBe(false))
+  })
+
+  it('🔴 Pay posts to /api/v2/payment/charge WITHOUT a token and follows authorizeUri as an external destination', async () => {
+    const fetchMock = serveHosted({ status: 200, body: { chargeId: 'link:rGtqz6DafS', status: 'PENDING', amountSatang: 79000, discountSatang: 0, authorizeUri: 'https://playground-pay.beamcheckout.com/m/rGtqz6DafS' } })
+    vi.stubGlobal('fetch', fetchMock)
+    const { createCardToken } = await import('@/features/v2-shop/omise-token')
+    ;(createCardToken as unknown as { mockClear: () => void }).mockClear()
+    // window.location.href assignment is jsdom "navigation not implemented" — capture through a setter.
+    const assigned: string[] = []
+    const loc = window.location
+    Object.defineProperty(window, 'location', { configurable: true, value: { ...loc, set href(v: string) { assigned.push(v) }, get href() { return loc.href } } })
+    try {
+      render(
+        <CookiesProvider>
+          <CheckoutPage teamPreview={false} />
+        </CookiesProvider>,
+      )
+      await screen.findByTestId('checkout-pay')
+      await waitFor(() => expect(payBtn().disabled).toBe(false))
+      fireEvent.click(payBtn())
+      await waitFor(() => expect(assigned).toEqual(['https://playground-pay.beamcheckout.com/m/rGtqz6DafS']))
+    } finally {
+      Object.defineProperty(window, 'location', { configurable: true, value: loc })
+    }
+    const chargeCall = fetchMock.mock.calls.find(([u]) => String(u).includes('/api/v2/payment/charge'))
+    expect(chargeCall).toBeDefined()
+    const body = JSON.parse(String((chargeCall![1] as RequestInit).body))
+    expect(body.token).toBeUndefined()
+    expect(body.package_code).toBe('V2_PLUS_YEARLY')
+    expect(createCardToken).not.toHaveBeenCalled()
+    expect(push).not.toHaveBeenCalled()
+  })
+})

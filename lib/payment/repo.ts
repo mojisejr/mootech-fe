@@ -530,6 +530,8 @@ export async function listUserPayments(userId: string, db: Db = defaultDb) {
       tierCode: v2Payment.tierCode,
       amountSatang: v2Payment.amountSatang,
       method: v2Payment.method,
+      // Beam lane slice 4 — which gateway holds the charge, so a receipt can name the right issuer.
+      gateway: v2Payment.gateway,
       status: v2Payment.status,
       createdAt: v2Payment.createdAt,
       // #455 — the screen cannot know when a QR died unless we carry it. NULL for card rows and for any

@@ -23,6 +23,7 @@ import { payReady } from '@/features/v2-shop/pay-ready'
 import { formatSatang } from '@/features/v2-shop/usePackagePrice'
 import { PLANS, planNameForTier } from '@/features/v2-shop/packages'
 import { payDestination, tokenizationFailedDestination, type PayBody, type PayLane } from '@/features/v2-shop/pay-destination'
+import { gatewayLabel } from '@/features/v2-shop/gateway-label'
 
 export const getServerSideProps: GetServerSideProps = async (ctx) => {
   ctx.res.setHeader('Cache-Control', 'no-store, must-revalidate')
@@ -70,7 +71,9 @@ export default function V2CheckoutPage({ teamPreview }: { teamPreview: boolean }
         quote_id: co.quote.quoteId,
         ...(co.quote.codeApplied ? { code: co.quote.codeApplied } : {}),
       }
-      if (lane === 'card') {
+      // slice 4 — a hosted-card gateway (Beam) takes no token: the buyer enters the card on Beam's page,
+      // which the server answers as authorizeUri and payDestination opens as an external destination.
+      if (lane === 'card' && !hostedCard) {
         const [mm, yy] = card.expiry.split('/')
         body.token = await createCardToken({
           name: card.name, number: card.number,
@@ -117,8 +120,11 @@ export default function V2CheckoutPage({ teamPreview }: { teamPreview: boolean }
   // 🔴 `payReady` is IMPORTED, not written out here (ตู๋, review r1 B2). The first version inlined this
   // condition and the test inlined its own copy, so deleting the rule from this page kept every lane
   // green. Sharing the function makes that deletion a compile error instead of a silent pass.
+  // slice 4 — read from the quote (server-decided per request), never from a build-time constant.
+  const hostedCard = co.quote?.cardEntry === 'hosted'
+  const issuer = gatewayLabel(co.quote?.gateway)
   const validation = validateCard(card, now)
-  const ready = payReady({ hasQuote: !!co.quote, loading: co.loading, method, card, now })
+  const ready = payReady({ hasQuote: !!co.quote, loading: co.loading, method, card, now, cardEntry: co.quote?.cardEntry })
 
   return (
     <div className="relative min-h-screen w-full overflow-x-hidden bg-v3-bg-cream font-ibm">
@@ -145,7 +151,12 @@ export default function V2CheckoutPage({ teamPreview }: { teamPreview: boolean }
           <h2 className="text-lg font-bold leading-6 text-v3-navy">วิธีชำระเงิน</h2>
           <hr className="w-full border-t border-v3-border-card" />
           <PaymentMethodPicker value={method} onChange={setMethod} />
-          {method === 'card' && <CardForm value={card} onChange={setCard} validation={validation} />}
+          {method === 'card' && !hostedCard && <CardForm value={card} onChange={setCard} validation={validation} />}
+          {method === 'card' && hostedCard && (
+            <p data-testid="hosted-card-note" className="text-sm leading-5 text-v3-text-body">
+              กดชำระเงินแล้วระบบจะพาไปกรอกบัตรบนหน้าชำระเงินที่ปลอดภัยของ {issuer} จากนั้นจะพากลับมาที่นี่
+            </p>
+          )}
         </section>
 
         {/* 55159:5548 — Primary Buttons (sapphire · lime 16/24 bold) + 16px + the reassurance line. */}
@@ -166,8 +177,12 @@ export default function V2CheckoutPage({ teamPreview }: { teamPreview: boolean }
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src="/images/v2/shop/icon-shield.svg" alt="" width={16} height={16} className="size-4 shrink-0" />
             <span>Secured by</span>
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/images/v2/shop/omise-logo.png" alt="Omise" width={56} height={12} className="h-3 w-14 shrink-0 object-contain" />
+            {co.quote?.gateway === 'beam' ? (
+              <span data-testid="checkout-gateway-mark" className="font-semibold">Beam Checkout</span>
+            ) : (
+              /* eslint-disable-next-line @next/next/no-img-element */
+              <img src="/images/v2/shop/omise-logo.png" alt="Omise" width={56} height={12} className="h-3 w-14 shrink-0 object-contain" />
+            )}
           </p>
         </div>
       </div>

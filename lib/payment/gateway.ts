@@ -30,6 +30,15 @@ export type ChargeResult = {
 }
 
 export interface PaymentGateway {
+  /**
+   * Beam lane slice 4 — HOW A CARD IS ENTERED for this gateway. 'token' (Omise, the default when absent):
+   * the browser tokenises the card and POSTs the token; the route requires it. 'hosted' (Beam Payment
+   * Links): no card data is ever entered on our page — createCardCharge returns a page to send the buyer
+   * to as authorizeUri, so the route must NOT demand a token and the screen must not draw a card form.
+   * Reported to the client through /api/v2/payment/preview so the choice is made at runtime, per deploy,
+   * from PAYMENT_GATEWAY — never baked into the bundle.
+   */
+  cardEntry?: 'token' | 'hosted'
   createCardCharge(args: {
     amountSatang: number
     token: string

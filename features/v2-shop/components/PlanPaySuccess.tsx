@@ -19,6 +19,7 @@ import { bahtOf, methodWord, type FullPaymentRow } from '@/features/v2-account/c
 import { formatThaiDateAbbr } from '@/lib/v2/thai-date'
 import { RESULT_COPY } from '../result-state'
 import { planNameForTier } from '../packages'
+import { gatewayLabel } from '../gateway-label'
 
 export const PLAN_SUCCESS_SUBTITLE = 'ขอบคุณที่ให้ Mumate ดูแล'
 
@@ -87,7 +88,11 @@ export function PlanPaySuccess({ packageCode, charge, order }: { packageCode: st
         <hr className="w-full border-t border-v3-border-card" />
         <p className="flex items-center justify-center gap-[5px] text-[9px] leading-none text-v3-text-muted">
           <span>ส่งใบเสร็จไปที่อีเมลแล้ว · ออกโดย</span>
-          <Image src="/images/v2/shop/omise-logo.png" alt="Omise" width={56} height={12} className="h-3 w-14 object-contain" />
+          {gatewayLabel(row?.gateway) === 'Beam Checkout' ? (
+            <span data-testid="plan-pay-success-issuer" className="font-semibold">Beam Checkout</span>
+          ) : (
+            <Image src="/images/v2/shop/omise-logo.png" alt="Omise" width={56} height={12} className="h-3 w-14 object-contain" />
+          )}
         </p>
       </section>
 
