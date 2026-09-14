@@ -26,20 +26,13 @@ function ArrowNext() {
 }
 
 export function ServiceCard({ data, eagerArt = false }: { data: ServiceCardData; eagerArt?: boolean }) {
-  return (
-    <Link
-      href={data.href}
-      data-testid={`service-card-${data.id}`}
-      // min-h, not h: Thai copy that needs another line grows the card instead of being clipped (ฟีม
-      // 2026-08-05). No shadow: Figma 626:4763 draws the card flat on the WHITE hub ground (the earlier
-      // shadow-card-soft existed to lift it off the cream ground the hub no longer uses).
-      // Figma habit-card (626:4763): 361×148, r24, p-24, NO elevation — the art's own ground is the edge.
-      className="relative flex min-h-[148px] w-full overflow-hidden rounded-3xl bg-v3-art-canvas p-6 font-ibm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-v3-focus-border"
-    >
+  // min-h, not h: Thai copy that needs another line grows the card instead of being clipped (ฟีม
+  // 2026-08-05). No shadow: Figma 626:4763 draws the card flat on the WHITE hub ground.
+  const className = "relative flex min-h-[148px] w-full overflow-hidden rounded-3xl bg-v3-art-canvas p-6 font-ibm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-v3-focus-border"
+  const inner = (
+    <>
       <ServiceCardArt src={data.image} eager={eagerArt} />
-
-      {/* copy column: กว้าง 56% (เดิม 47%) — อาร์ตชุดใหม่ (Drive 2026-09-10) มาสคอตชิดขว่ากว่าเดิม เว้นซ้าย
-          ~58-70% ว่าง จึงขยายคอลัมน์ข้อความให้ desc 2 บรรทัดพอดีตาม Figma (ก่อนหน้านี้ 47% บีบจนตัดเป็น 3-4 บรรทัด) */}
+      {/* copy column: กว้าง 68% — อาร์ตมาสคอตชิดขวา เว้นซ้ายให้ desc 2 บรรทัดพอดี */}
       <div className="relative z-10 flex w-[68%] flex-col gap-2 pr-1">
         <h3 className="text-[16px] font-bold leading-6 text-v3-navy [word-break:break-word]">{data.title}</h3>
         <div className="text-[14px] font-medium leading-5 text-v3-text-body [word-break:break-word]">
@@ -52,6 +45,16 @@ export function ServiceCard({ data, eagerArt = false }: { data: ServiceCardData;
           <ArrowNext />
         </span>
       </div>
+    </>
+  )
+  // #3 (ซินแสนุ้ย 2026-09-14): การ์ด "ร้านค้าของเรา" ลิงก์ออก LINE shop → เปิดแท็บใหม่ (<a> ไม่ใช่ <Link>)
+  return data.external ? (
+    <a href={data.href} target="_blank" rel="noopener noreferrer" data-testid={`service-card-${data.id}`} className={className}>
+      {inner}
+    </a>
+  ) : (
+    <Link href={data.href} data-testid={`service-card-${data.id}`} className={className}>
+      {inner}
     </Link>
   )
 }
