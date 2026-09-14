@@ -4,6 +4,20 @@
 import type { DayDetail } from '../../types'
 import { directionLabelTH } from './gate-compass'
 import { ScoreRing } from './ScoreRing'
+import { nayinElement } from '@/lib/bazi-bridge/nayin'
+import { ELEMENT_COLOR } from '@/lib/calculator/elements'
+
+// ชิป 干支 พื้นสีตามธาตุนับอิม 納音 ของเสานั้น + ตัวอักษรขาว (เอกสารซินแส "ตัวอักษรขาว พื้นตามสีนับอิม").
+// เสาที่แมป納音ไม่ได้ → พื้น sapphire สำรอง.
+function GanzhiPill({ label, ganzhi }: { label: string; ganzhi: string }) {
+  const el = nayinElement(ganzhi)
+  const bg = el ? ELEMENT_COLOR[el] : '#1455A4'
+  return (
+    <span className="rounded-full px-2.5 py-[3px] text-[11px] font-bold leading-none text-white" style={{ backgroundColor: bg }}>
+      {label} {ganzhi}
+    </span>
+  )
+}
 
 const THAI_DOW_FULL = ['อาทิตย์', 'จันทร์', 'อังคาร', 'พุธ', 'พฤหัสบดี', 'ศุกร์', 'เสาร์']
 const THAI_MONTHS = ['มกราคม', 'กุมภาพันธ์', 'มีนาคม', 'เมษายน', 'พฤษภาคม', 'มิถุนายน', 'กรกฎาคม', 'สิงหาคม', 'กันยายน', 'ตุลาคม', 'พฤศจิกายน', 'ธันวาคม']
@@ -59,18 +73,23 @@ export function DayScoreCard({ detail }: { detail: DayDetail }) {
       <p className="mt-4 text-[20px] font-bold leading-7 text-v3-navy">{detail.summary}</p>
       <p className="mt-2 text-sm font-bold leading-5 text-v3-navy">วันนี้ · {thaiDate(detail.date)}</p>
 
-      {/* chips: 干支 วัน/เดือน/ปี (ซินแสนุ้ย 2026-09-14 รูป 8b — วัน=หลัก, เดือน/ปี=เสริม) + fortune tags */}
-      <div className="mt-3 flex flex-wrap items-center justify-center gap-x-2 gap-y-1 text-sm font-normal leading-[22px] text-v3-text-body">
-        <span className="rounded-full bg-v3-sapphire px-2 py-[3px] text-[11px] font-bold leading-none text-white">วัน {detail.ganzhi}</span>
-        {detail.monthGanzhi ? <span className="rounded-full bg-v3-sapphire-tint px-2 py-[3px] text-[11px] font-bold leading-none text-v3-sapphire">เดือน {detail.monthGanzhi}</span> : null}
-        {detail.yearGanzhi ? <span className="rounded-full bg-v3-sapphire-tint px-2 py-[3px] text-[11px] font-bold leading-none text-v3-sapphire">ปี {detail.yearGanzhi}</span> : null}
-        {chips.map((c, i) => (
-          <span key={i} className="flex items-center gap-2">
-            <span className="text-v3-navy/40">·</span>
-            {c}
-          </span>
-        ))}
+      {/* แถว 1 — 干支 วัน/เดือน/ปี พื้นสีตามธาตุนับอิม 納音 ของแต่ละเสา + ตัวอักษรขาว (ซินแสนุ้ย 2026-09-14 รูป 8b) */}
+      <div className="mt-3 flex flex-wrap items-center justify-center gap-1.5">
+        <GanzhiPill label="วัน" ganzhi={detail.ganzhi} />
+        {detail.monthGanzhi ? <GanzhiPill label="เดือน" ganzhi={detail.monthGanzhi} /> : null}
+        {detail.yearGanzhi ? <GanzhiPill label="ปี" ganzhi={detail.yearGanzhi} /> : null}
       </div>
+      {/* แถว 2 — คำทำนาย/ทิศ (สูญสิ้น · ทิศโชคลาภ …) แยกบรรทัดให้อ่านง่าย */}
+      {chips.length > 0 && (
+        <div className="mt-2 flex flex-wrap items-center justify-center gap-x-2 gap-y-1 text-sm font-normal leading-[22px] text-v3-text-body">
+          {chips.map((c, i) => (
+            <span key={i} className="flex items-center gap-2">
+              {i > 0 && <span className="text-v3-navy/40">·</span>}
+              {c}
+            </span>
+          ))}
+        </div>
+      )}
 
       {/* วันพระ row */}
       {detail.wanPhra?.isWanPhra && (
