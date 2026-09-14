@@ -18,28 +18,26 @@
 // border at the same time, so "today" must not erase the วันพระ marker — they are different facts about the
 // same day. The shipped version treated them as exclusive.
 import type { CalendarDay } from '@/features/v2-calendar'
-import { CALENDAR_MARKER } from './grade-colors'
+import { DAY_CELL_COLORS, CALENDAR_MARKER } from './grade-colors'
 import { dayCellStyle } from './day-cell-style'
 import { percentText } from './percent-display'
-import { ELEMENT_COLOR } from '@/lib/calculator/elements'
 
 const THAI_DOW = ['อา', 'จ', 'อ', 'พ', 'พฤ', 'ศ', 'ส']
 
-// legend — ซินแสนุ้ย 2026-09-14 (รูป 8a): พื้นช่องเปลี่ยนจาก "สีเกรดคะแนน" เป็น "สีธาตุของก้านวัน" แล้ว
-// → legend อธิบายธาตุ (คะแนนดี/ร้ายดูจากตัวเลข %). swatch = สีธาตุ (ELEMENT_COLOR). วันพระ = อธิบาย BORDER.
+// Figma legend (368:10025 / 375:16710): swatch 14×14 r5 + 9px caption. สามช่วงคะแนนโชว์ด้วยสเต็ปตัวแทน
+// (B- เขียว · C ส้ม · D แดง) แม้ช่องจริงจะไล่ครบสิบเกรด. วันพระ = อธิบาย BORDER ไม่ใช่พื้น.
+// (ย้อนจาก 8a element-colors — ซินแสนุ้ย 2026-09-14 "สีเดิมสวยแล้ว")
 const LEGEND: { label: string; bg: string; border?: string }[] = [
-  { label: 'ไม้', bg: ELEMENT_COLOR.WOOD },
-  { label: 'ไฟ', bg: ELEMENT_COLOR.FIRE },
-  { label: 'ดิน', bg: ELEMENT_COLOR.EARTH },
-  { label: 'ทอง', bg: ELEMENT_COLOR.METAL },
-  { label: 'น้ำ', bg: ELEMENT_COLOR.WATER },
+  { label: '≥60% วันดี', bg: DAY_CELL_COLORS['B-'].tint },
+  { label: '40–59%', bg: DAY_CELL_COLORS['C'].tint },
+  { label: '<40% ระวัง', bg: DAY_CELL_COLORS['D'].tint },
   { label: 'วันพระ', bg: '#FFFFFF', border: CALENDAR_MARKER },
 ]
 
 function DayCell({ cell, selected, onSelect }: { cell: CalendarDay; selected: boolean; onSelect: (date: string) => void }) {
   // selection is a MODE — every colour moves together. See day-cell-style.ts for why this is one
   // call and not four ternaries (it is the invariant DESIGN.md §GRADE rests on, and it had no live guard).
-  const style = dayCellStyle(cell.grade, selected, cell.ganzhi)
+  const style = dayCellStyle(cell.grade, selected)
   return (
     <button
       type="button"
