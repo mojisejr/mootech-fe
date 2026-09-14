@@ -13,7 +13,7 @@ export type DayDetailYam = { id: string; window: string; label: string }
 export type DayDetailSpirit = { name: string; keywords: string[] }
 export type DayDetailGate = { name: string; direction: string; meaning: string; keywords: string[]; deity?: string }
 // ดวงประจำปี/เดือน (奇門 คี้มึ้ง) จากเอกสารซินแส — ทิศโชคลาภ/ทิศร้าย/เทพ/คี้มึ้ง + ตาราง 8 ประตู
-export type DayDetailQimen = { caishenDir: string; badDir: string; deity: string; kimeng: string; gates: DayDetailGate[] }
+export type DayDetailQimen = { pillar: string; caishenDir: string; badDir: string; deity: string; kimeng: string; gates: DayDetailGate[] }
 export type DayDetailColor = { element: string; colors: string }
 export type DayDetailStar = { name: string; polarity: string; activity: string }
 
@@ -70,16 +70,16 @@ function pillar(v: unknown): DayDetailPillar | null {
 // ดวงประจำปี/เดือน (奇門 คี้มึ้ง): map almanac.yearInfo/monthInfo → DayDetailQimen. null เมื่อไม่มีข้อมูลจริง
 // (ทิศร้าย = asuraDir/อสูร engine คำนวณเอง; caishen/deity/kimeng/gates มาจากคี้มึ้งเอกสารซินแส)
 function qimenInfo(v: unknown): DayDetailQimen | null {
-  const q = v as { caishenDir?: unknown; asuraDir?: unknown; deity?: unknown; kimeng?: unknown; gates?: unknown } | null
+  const q = v as { pillar?: unknown; caishenDir?: unknown; asuraDir?: unknown; deity?: unknown; kimeng?: unknown; gates?: unknown } | null
   if (!q) return null
   const gates = arr(q.gates).map((g) => {
     const gg = g as { name?: unknown; direction?: unknown; meaning?: unknown; keywords?: unknown; deity?: unknown }
     return { name: str(gg.name), direction: str(gg.direction), meaning: str(gg.meaning), keywords: arr(gg.keywords).map((k) => str(k)), deity: str(gg.deity) }
   })
-  const caishenDir = str(q.caishenDir), badDir = str(q.asuraDir), deity = str(q.deity), kimeng = str(q.kimeng)
+  const pillar = str(q.pillar), caishenDir = str(q.caishenDir), badDir = str(q.asuraDir), deity = str(q.deity), kimeng = str(q.kimeng)
   // ไม่มีข้อมูลที่ควรโชว์เลย → null (การ์ดซ่อนไป ตาม rule 4)
-  if (gates.length === 0 && !caishenDir && !deity && !kimeng) return null
-  return { caishenDir, badDir, deity, kimeng, gates }
+  if (gates.length === 0 && !caishenDir && !deity && !kimeng && !pillar) return null
+  return { pillar, caishenDir, badDir, deity, kimeng, gates }
 }
 
 /** map raw man-vs-day(day) + the rich almanac day-object → the lean DayDetail the screen needs. */

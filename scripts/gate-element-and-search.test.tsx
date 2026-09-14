@@ -67,7 +67,7 @@ describe('B · ช่องค้นหาบนตารางประตู',
     expect(cellSE?.getAttribute('data-rank')).toBe('top') // น้ำหนักไปทาง 生 = แนะนำ
     const hit = screen.getByTestId('gate-search-hit').textContent
     expect(hit).toContain('แนะนำ')
-    expect(hit).toContain('อาคเนย์')
+    expect(hit).toContain('ตะวันออก/ใต้')
   })
 
   it('คำมั่วที่ไม่ตรง key → โชว์ "ไม่พบ" + ชิปวลีที่คนมักถาม, คลิกชิปแล้วค้นด้วยคำนั้น', () => {
@@ -97,7 +97,7 @@ describe('B · ช่องค้นหาบนตารางประตู',
     fireEvent.change(input, { target: { value: 'รักษาอาการป่วย' } })
     const cellSE = document.querySelector('[data-testid="gate-cell"][data-dir="SE"]') // 生 อยู่ SE ใน fixture
     expect(cellSE?.getAttribute('data-rank')).toBe('top')
-    expect(screen.getByTestId('gate-search-top').textContent).toContain('อาคเนย์')
+    expect(screen.getByTestId('gate-search-top').textContent).toContain('ตะวันออก/ใต้')
   })
 
   it('เน้น 3 ประตูมงคล (開/生/景) → ค้นเจอประตูมงคลติดป้าย "มงคล" ("ขอเงิน" → 生)', () => {

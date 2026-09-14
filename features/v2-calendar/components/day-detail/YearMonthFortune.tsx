@@ -1,17 +1,31 @@
-// การ์ด "ดวงประจำปี / เดือน" (奇門 คี้มึ้ง) — เอกสารซินแสนุ้ย (2026-09-13)
-// โชว์ ทิศโชคลาภ/ทิศร้าย/เทพ/คี้มึ้ง (ค่าสั้น) + ตาราง 8 ประตูระดับปีและเดือน เสริมดวงรายวัน
+// การ์ด "ดวงประจำปี / เดือน" (奇門 คี้มึ้ง) — เอกสารซินแสนุ้ย (2026-09-13, ปรับ 2026-09-14)
+// โชว์ เสาเต็มปี/เดือน (ราศีบน+ล่าง) · ทิศโชคลาภ/ทิศร้าย/เทพ + ตาราง 8 ประตูระดับปีและเดือน เสริมดวงรายวัน
 // ข้อมูลมาจาก almanac.yearInfo/monthInfo → mapDayDetail → detail.yearFortune/monthFortune (แอดวานซ์)
+//
+// ซินแสนุ้ย 2026-09-14: (A) ทาสีตัวอักษร ประตู(八門)/เทพ(十神) ตามธาตุ · (C) โชว์เสาเต็ม 丙午/丁酉 (ราศีบน+ล่าง)
+// ไม่ใช่แค่คี้มึ้ง(ก้าน). ตัวหนังสือไทย(ทิศ) คงสีปกติตามรูปวาดมือ ("ภาษาไทย ปกติ").
 import { SectionCard } from './SectionCard'
-import { directionLabelTH } from './gate-compass'
+import { directionLabelTH, GATE_ELEMENT, DEITY_ELEMENT, ELEMENT_TINT, type ElementTh } from './gate-compass'
 import type { DayDetailQimen } from '@/features/v2-calendar/types'
 
+// ก้านสวรรค์ (天干) → ธาตุ — ทาสีเสาเต็ม/คี้มึ้งตามธาตุของก้าน
+const STEM_ELEMENT: Record<string, ElementTh> = {
+  甲: 'ไม้', 乙: 'ไม้', 丙: 'ไฟ', 丁: 'ไฟ', 戊: 'ดิน', 己: 'ดิน',
+  庚: 'ทอง', 辛: 'ทอง', 壬: 'น้ำ', 癸: 'น้ำ',
+}
+const inkOf = (el?: ElementTh): string | undefined => (el ? ELEMENT_TINT[el].ink : undefined)
+
 function FortuneBlock({ label, q }: { label: string; q: DayDetailQimen }) {
+  const pillar = q.pillar || q.kimeng // เสาเต็ม (丙午) — fallback คี้มึ้ง(ก้าน) ถ้า engine เก่ายังไม่ส่ง pillar
+  const stemEl = pillar ? STEM_ELEMENT[pillar.charAt(0)] : undefined
   return (
     <div className="flex flex-col gap-2.5" data-testid={`ymf-block-${label}`}>
       <div className="flex flex-wrap items-center gap-2">
         <span className="rounded-full bg-v3-sapphire px-3 py-1 text-[13px] font-bold text-white">{label}</span>
-        {q.kimeng ? (
-          <span className="rounded-full bg-v3-sapphire-tint px-2.5 py-1 text-[12px] font-bold text-v3-sapphire">คี้มึ้ง · {q.kimeng}</span>
+        {pillar ? (
+          <span className="rounded-full bg-v3-sapphire-tint px-3 py-1 text-[16px] font-bold leading-none" style={{ color: inkOf(stemEl) }}>
+            {pillar}
+          </span>
         ) : null}
       </div>
       <div className="flex flex-wrap gap-2 text-[13px]">
@@ -31,9 +45,14 @@ function FortuneBlock({ label, q }: { label: string; q: DayDetailQimen }) {
           <ul className="grid grid-cols-2 gap-1.5">
             {q.gates.map((g) => (
               <li key={g.name} className="flex items-center gap-2 rounded-lg bg-v3-ghost-white px-2.5 py-1.5 text-[12px]">
-                <span className="text-[15px] font-bold leading-none text-v3-navy">{g.name}</span>
+                {/* A: ตัวประตู 八門 สีตามธาตุประตู */}
+                <span className="text-[15px] font-bold leading-none" style={{ color: inkOf(GATE_ELEMENT[g.name.trim()]) ?? '#1B2A4A' }}>{g.name}</span>
+                {/* ทิศ = ตัวหนังสือไทย สีปกติ (ตามรูปวาดมือ "ภาษาไทย ปกติ") */}
                 <span className="text-v3-text-body">{directionLabelTH(g.direction)}</span>
-                {g.deity ? <span className="ml-auto font-bold text-v3-sapphire">{g.deity}</span> : null}
+                {/* A: ชื่อเทพ 十神 สีตามธาตุเทพ */}
+                {g.deity ? (
+                  <span className="ml-auto text-[15px] font-bold leading-none" style={{ color: inkOf(DEITY_ELEMENT[g.deity.trim()]) ?? '#1B62B3' }}>{g.deity}</span>
+                ) : null}
               </li>
             ))}
           </ul>
@@ -49,7 +68,7 @@ export function YearMonthFortune({ year, month }: { year: DayDetailQimen | null;
     <SectionCard
       title="ดวงประจำปี / เดือน"
       testId="year-month-fortune"
-      info={<p>ทิศโชคลาภ · ทิศร้าย · เทพ · คี้มึ้ง (奇門) และตาราง 8 ประตูระดับปีและเดือน ตามเอกสารซินแส — ใช้เสริมกับดวงรายวัน</p>}
+      info={<p>เสาปี/เดือน (ราศีบน-ล่าง) · ทิศโชคลาภ · ทิศร้าย · เทพ และตาราง 8 ประตู (奇門) ระดับปีและเดือน ตามเอกสารซินแส — ใช้เสริมกับดวงรายวัน</p>}
     >
       <div className="flex flex-col gap-5">
         {year ? <FortuneBlock label="ประจำปี" q={year} /> : null}
