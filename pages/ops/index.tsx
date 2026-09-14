@@ -155,6 +155,9 @@ export default function OpsPage(props: Props) {
             <Link className="underline" href="/ops/packages">
               จัดการแพ็กเกจ (ราคา / เปิด-ปิดขาย) →
             </Link>
+            <Link className="underline" href="/ops/discounts">
+              โค้ดส่วนลด (สร้าง / พัก) →
+            </Link>
           </nav>
 
           <section>
