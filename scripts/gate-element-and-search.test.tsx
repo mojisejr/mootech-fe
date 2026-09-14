@@ -7,7 +7,7 @@
 //
 // .tsx เพื่อให้ vitest.config include เห็น (เลนเก่า scripts/*.test.ts จะไม่รัน)
 import { afterEach, describe, expect, it } from 'vitest'
-import { cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, within } from '@testing-library/react'
 import { cellElementTint, ELEMENT_TINT } from '@/features/v2-calendar/components/day-detail/gate-compass'
 import { EightGates } from '@/features/v2-calendar/components/day-detail/EightGates'
 import type { DayDetailGate } from '@/features/v2-calendar/types'
@@ -107,6 +107,21 @@ describe('B · ช่องค้นหาบนตารางประตู',
     const top = screen.getByTestId('gate-search-top')
     expect(top.getAttribute('data-auspicious')).toBe('1')
     expect(top.textContent).toContain('มงคล')
+  })
+
+  it('พิมพ์ตัวอักษรเดียว ("อ") → ไม่เด้งทิศ แต่เสนอ "คำที่เกี่ยวข้อง" ที่มีตัวอักษรนั้น (#4/#5 ซินแสนุ้ย 2026-09-14)', () => {
+    render(<EightGates gates={GATES} />)
+    const input = screen.getByLabelText('ค้นหาว่าควรไปทิศไหน')
+    fireEvent.change(input, { target: { value: 'อ' } })
+    // 1 ตัวอักษรต้องไม่ทำให้ช่องไหนเป็น "แนะนำ" และไม่มีบรรทัดบอกทิศ
+    expect(document.querySelectorAll('[data-testid="gate-cell"][data-rank="top"]').length).toBe(0)
+    expect(screen.queryByTestId('gate-search-hit')).toBeNull()
+    // แทนที่ด้วยชิป "คำที่เกี่ยวข้อง" — ทุกชิปต้องมีตัวอักษรที่พิมพ์ (query-aware)
+    const search = screen.getByTestId('gate-search')
+    expect(search.textContent).toContain('คำที่เกี่ยวข้อง')
+    const chips = within(search).getAllByRole('button') // เฉพาะชิปในช่องค้นหา (ไม่รวมปุ่มหัวการ์ด)
+    expect(chips.length).toBeGreaterThan(0)
+    for (const c of chips) expect(c.textContent).toContain('อ')
   })
 
   it('input ว่าง → ไม่มีช่องไหนถูกเน้น (ไม่ active)', () => {
