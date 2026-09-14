@@ -85,11 +85,15 @@ export function SkyHeader({
   /** เนื้อหาชิดขวาของหัวจอ (เช่น badge "ใช้ไป 10 QI") */
   right?: React.ReactNode
 }) {
+  // ซินแสนุ้ย 2026-09-14: หลายหน้าวาง SkyHeader "นอก" คอลัมน์ max-w-md → บนจอกว้าง ปุ่มกลับหลุดไปชิดขอบซ้ายจอ.
+  // ครอบเนื้อในด้วย mx-auto max-w-md ให้หัวจอ "ติดขอบบน" + อยู่กับคอนเทนต์เสมอ (คอลัมน์ ≤ max-w-md อยู่แล้วจึงไม่กระทบ).
   return (
-    <header className="relative z-10 flex w-full items-center gap-2 pt-[max(0.9rem,env(safe-area-inset-top))]">
-      <BackButton fallbackHref={backHref} testId={testId ? `${testId}-back` : undefined} />
-      <h1 className="min-w-0 flex-1 truncate text-lg font-black leading-6 text-v3-navy">{title}</h1>
-      {right ? <span className="flex-none">{right}</span> : null}
+    <header className="relative z-10 w-full pt-[max(0.9rem,env(safe-area-inset-top))]">
+      <div className="mx-auto flex w-full max-w-md items-center gap-2">
+        <BackButton fallbackHref={backHref} testId={testId ? `${testId}-back` : undefined} />
+        <h1 className="min-w-0 flex-1 truncate text-lg font-black leading-6 text-v3-navy">{title}</h1>
+        {right ? <span className="flex-none">{right}</span> : null}
+      </div>
     </header>
   )
 }
