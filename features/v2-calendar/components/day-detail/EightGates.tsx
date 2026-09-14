@@ -68,7 +68,8 @@ function GateCell({ direction, gate, rank }: { direction: Direction; gate: DayDe
     >
       {/* ผู้ใช้ 2026-09-12: "พลังแรง" บอกด้วยสีเข้มขึ้น (bgStrong) อย่างเดียว — ไม่มีไอคอน ⚡ */}
       <span className="text-[10px] font-bold text-v3-text-body">{direction}</span>
-      <span className="text-[15px] font-extrabold leading-tight" style={{ color: leadInk }}>{leadName}</span>
+      {/* ซินแสนุ้ย 2026-09-14: ตัวอักษรประตู/เทพ ต้องขนาดเท่ากัน (เดิม lead 15px ไม่เท่ากับ gate 20px) */}
+      <span className="text-xl font-bold leading-none" style={{ color: leadInk }}>{leadName}</span>
       <span className="text-xl font-bold leading-none" style={{ color: gateInk }}>{gate.name}</span>
     </div>
   )
