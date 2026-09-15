@@ -52,6 +52,11 @@ vi.mock('@/lib/v2/subscription', () => ({
       : { isPaid: false, tier: null, source: 'none' }
   }),
 }))
+// 2026-09-15 (#692) — day-detail ตอนนี้เช็ค owned "calendar" grant เพิ่มจาก tier (paid = isPaid===true ||
+// ownsCalendar). เทสชุดนี้วัด "การตัดฟิลด์ตาม tier" ล้วน ๆ → mock ownsCalendar เป็น false เพื่อไม่ให้ fetch
+// ของมันไปโดน global.fetch catch-all (เพิ่ม h.mvdCalls ทำ assertion "did not recompute" แดง) และไม่เปลี่ยน paid.
+// สิทธิ์ปฏิทินแบบ grant มีเทสของตัวเองแยกต่างหาก.
+vi.mock('@/lib/v2/calendar-access', () => ({ ownsCalendar: vi.fn(async () => false) }))
 // Stub only the two network calls + the mapper's raw input; parseDate / the cache / pickFreeDayDetail stay REAL.
 vi.mock('@/lib/v2-calendar/month', async (importOriginal) => {
   const actual = (await importOriginal()) as Record<string, unknown>
