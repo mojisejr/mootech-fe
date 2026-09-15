@@ -27,35 +27,31 @@ export type ShareCardProps = {
   skills?: ShareSkill[] // แถบสกิล 4 ด้าน (เฉพาะจอดวงธาตุ) — ไม่ส่ง = ไม่วาด
 }
 
-// clamp ข้อความสรุป: ไทยไม่มีเว้นวรรคระหว่างคำ → ตัดยาก, ใช้ตัดตรง ๆ + … เมื่อยาวเกิน (การ์ดโตตามเนื้อ ไม่ clip)
-function clampSummary(s: string, max = 300): string {
-  const t = (s ?? "").trim()
-  return t.length <= max ? t : t.slice(0, max).trimEnd() + "…"
-}
-
 export const ShareCard = forwardRef<HTMLDivElement, ShareCardProps>(function ShareCard(
   { title, subtitle, summary, images, tag, skills },
   ref,
 ) {
   const imgs = images.filter((u) => typeof u === "string" && u.length > 0).slice(0, 3)
+  // #359 รอบ 12: ไม่บีบรูป — ≤2 ใบใหญ่, 3 ใบ (ไพ่) เล็กลงให้พอดีกว้าง
+  const box = imgs.length >= 3 ? { w: 150, h: 196 } : imgs.length === 2 ? { w: 182, h: 236 } : { w: 210, h: 272 }
   return (
     <div
       ref={ref}
       data-testid="share-card"
-      // พอร์ตเทรต 4:5 (กว้าง 540 → 1080×1350 หลัง html2canvas scale 2). สีสำรอง navy เผื่อภาพ bg โหลดไม่ได้
-      style={{ width: 540, backgroundColor: "#0b2a65" }}
-      className="relative overflow-hidden rounded-[28px] font-ibm text-white"
+      // พอร์ตเทรต 4:5 (กว้าง 540 → 1080×1350 หลัง html2canvas scale 2). #359 รอบ 12: ภาพ bg ฉาก (ไม่มี overlay น้ำเงิน)
+      // → ตัวอักษรใช้โทนเข้ม (navy) ให้อ่านออกบนพื้นสว่าง. สีสำรอง = ฟ้าอ่อน เผื่อภาพโหลดไม่ทัน
+      style={{ width: 540, backgroundColor: "#cfe6f5" }}
+      className="relative rounded-[28px] font-ibm"
     >
-      {/* พื้นหลังภาพแบรนด์ + overlay น้ำเงินไล่เฉด (ตัวอักษรขาวยังอ่านออก) */}
+      {/* พื้นหลังภาพฉากแบรนด์ (ไม่มี overlay). rounded ทุกชั้น = ไม่ต้อง overflow-hidden (กัน justify-center + เนื้อยาว โดน clip) */}
       {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img src="/images/v2/bg/BG01.png" alt="" crossOrigin="anonymous" className="absolute inset-0 h-full w-full object-cover" />
-      <div className="absolute inset-0" style={{ background: "linear-gradient(180deg, rgba(18,72,155,0.80) 0%, rgba(11,42,101,0.93) 100%)" }} />
+      <img src="/images/v2/destiny/bg-destiny.jpg" alt="" crossOrigin="anonymous" className="absolute inset-0 h-full w-full rounded-[28px] object-cover" />
 
-      <div className="relative z-10 flex min-h-[675px] w-full flex-col items-center px-8 py-10">
+      <div className="relative z-10 flex min-h-[675px] w-full flex-col items-center justify-center px-8 py-10" style={{ color: "#0b305b" }}>
         <div className="mb-4 flex items-center gap-2">
           <span className="text-[24px] font-black tracking-tight">Mumate</span>
           {tag ? (
-            <span style={{ backgroundColor: "rgba(255,255,255,0.16)" }} className="rounded-full px-3 py-1 text-[13px] font-bold">
+            <span style={{ backgroundColor: "#0b305b", color: "#fff" }} className="rounded-full px-3 py-1 text-[13px] font-bold">
               {tag}
             </span>
           ) : null}
@@ -66,8 +62,8 @@ export const ShareCard = forwardRef<HTMLDivElement, ShareCardProps>(function Sha
             {imgs.map((src, i) => (
               <span
                 key={i}
-                style={{ backgroundColor: "rgba(255,255,255,0.10)" }}
-                className="block h-[184px] w-[140px] overflow-hidden rounded-[16px]"
+                style={{ backgroundColor: "rgba(255,255,255,0.55)", width: box.w, height: box.h }}
+                className="block shrink-0 overflow-hidden rounded-[16px] shadow-[0_4px_14px_rgba(11,48,91,0.18)]"
               >
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img src={src} alt="" crossOrigin="anonymous" className="h-full w-full object-cover" />
@@ -78,12 +74,12 @@ export const ShareCard = forwardRef<HTMLDivElement, ShareCardProps>(function Sha
 
         <p className="text-center text-[26px] font-black leading-tight">{title}</p>
         {subtitle ? (
-          <p style={{ color: "#FFD84D" }} className="mt-1.5 text-center text-[17px] font-black">
+          <p style={{ color: "#1455A4" }} className="mt-1.5 text-center text-[17px] font-black">
             {subtitle}
           </p>
         ) : null}
-        <p style={{ color: "rgba(255,255,255,0.92)" }} className="mt-3 max-w-[440px] text-center text-[16px] leading-relaxed">
-          {clampSummary(summary)}
+        <p style={{ color: "#243449" }} className="mt-3 max-w-[440px] text-center text-[16px] font-medium leading-relaxed">
+          {(summary ?? "").trim()}
         </p>
 
         {skills && skills.length > 0 ? (
@@ -93,7 +89,7 @@ export const ShareCard = forwardRef<HTMLDivElement, ShareCardProps>(function Sha
                 <span className="w-[132px] shrink-0 truncate text-[15px] font-bold">
                   {s.label}{s.top ? " ⭐" : ""}
                 </span>
-                <span style={{ backgroundColor: "rgba(255,255,255,0.22)" }} className="block h-[10px] flex-1 overflow-hidden rounded-full">
+                <span style={{ backgroundColor: "rgba(11,48,91,0.15)" }} className="block h-[10px] flex-1 overflow-hidden rounded-full">
                   <span className="block h-full rounded-full" style={{ width: `${s.percent}%`, backgroundColor: s.color }} />
                 </span>
                 <span className="w-[38px] shrink-0 text-right text-[14px] font-bold">{s.percent}%</span>
@@ -105,7 +101,7 @@ export const ShareCard = forwardRef<HTMLDivElement, ShareCardProps>(function Sha
           </div>
         ) : null}
 
-        <div style={{ backgroundColor: "rgba(255,255,255,0.16)" }} className="mt-6 rounded-full px-4 py-1.5 text-[14px] font-bold">
+        <div style={{ backgroundColor: "#0b305b", color: "#fff" }} className="mt-6 rounded-full px-4 py-1.5 text-[14px] font-bold">
           bazichart.mumate.co
         </div>
       </div>
