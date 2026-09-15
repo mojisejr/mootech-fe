@@ -19,7 +19,7 @@ export type PriceResult =
       // that is not a named PAID tier before returning, so `string` was always wider than the value. The
       // repurchase gate compares this against the ladder and must not be handed an unplaceable string.
       // 'QI' (buy-qi) / 'SINSAE' (จองซินแส) อยู่นอกบันไดสมาชิก — ประตูซื้อ (charge-flow) ต้องไม่ส่งเข้า matrix สมาชิก.
-      tierCode: TierCode | 'QI' | 'SINSAE'
+      tierCode: TierCode | 'QI' | 'SINSAE' | 'BOOK'
       expire: string
       bufferDay: number
       listSatang: number

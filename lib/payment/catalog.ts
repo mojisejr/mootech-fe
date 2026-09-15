@@ -79,6 +79,24 @@ export function sinsaeLabelOf(packageCode: string): string | null {
     : null
 }
 
+// ── BOOK ORDER (สั่งซื้อหนังสือ Your Life Code) — #3 (ซินแสนุ้ย 2026-09-15) ──────────────────────────
+// ขายหนังสือผ่านราง Omise/PromptPay v2 เดียวกับ SINSAE/ชี่ แต่ settle เลนของตัวเอง — v2_payment แถว APPROVED
+// (tier_code='BOOK') = หลักฐานการสั่งซื้อ; รายละเอียดจัดส่งเก็บใน book_order (ผูก charge_id). ไม่ให้ tier/ชี่.
+// 2 รูปแบบ: PDF (ไฟล์) / PHYSICAL (เล่มปกอ่อน A5 พิมพ์สี + PDF, มีค่าส่ง).
+export const BOOK_PACK_CODES = ['BOOK_PDF', 'BOOK_PHYSICAL'] as const
+export type BookPackCode = (typeof BOOK_PACK_CODES)[number]
+export const BOOK_FORMAT: Record<BookPackCode, 'PDF' | 'PHYSICAL'> = { BOOK_PDF: 'PDF', BOOK_PHYSICAL: 'PHYSICAL' }
+export const BOOK_LABEL: Record<BookPackCode, string> = {
+  BOOK_PDF: 'ไฟล์ PDF',
+  BOOK_PHYSICAL: 'เล่มปกอ่อน A5 พิมพ์สี + PDF',
+}
+export function bookFormatOf(packageCode: string): 'PDF' | 'PHYSICAL' | null {
+  return (BOOK_PACK_CODES as readonly string[]).includes(packageCode) ? BOOK_FORMAT[packageCode as BookPackCode] : null
+}
+export function bookLabelOf(packageCode: string): string | null {
+  return (BOOK_PACK_CODES as readonly string[]).includes(packageCode) ? BOOK_LABEL[packageCode as BookPackCode] : null
+}
+
 /** อัตรา VAT (แบบรวมในราคา — สกัดย้อนกลับ) สำหรับโชว์ในสรุปยอด/ใบเสร็จ. (#362 จะย้ายไป app_setting) */
 export const VAT_RATE = 0.07
 
@@ -121,8 +139,8 @@ export function parseExpireSpec(expire: string): ExpireSpec {
 
 export type Quote = {
   packageCode: string
-  /** 'QI' = แพ็กชี่ · 'SINSAE' = จองซินแส (ทั้งคู่ไม่ใช่สมาชิก — เลน settle แยก); อื่น ๆ คือบันไดสมาชิกตามเดิม */
-  tierCode: TierCode | 'QI' | 'SINSAE'
+  /** 'QI'=แพ็กชี่ · 'SINSAE'=จองซินแส · 'BOOK'=สั่งซื้อหนังสือ (ทั้งหมดไม่ใช่สมาชิก — เลน settle แยก); อื่น ๆ คือบันไดสมาชิก */
+  tierCode: TierCode | 'QI' | 'SINSAE' | 'BOOK'
   amountSatang: number // what Omise charges (VAT-inclusive)
   vatSatang: number // VAT extracted from amountSatang (0 when rate is 0)
   expire: ExpireSpec
@@ -155,6 +173,12 @@ export function quotePackage(
     throw new UnsellablePackageError(pkg.packageCode, 'SINSAE booking without a known duration')
   }
 
+  // 🔴 BOOK order: ไม่ใช่บันไดสมาชิก (เหมือน QI/SINSAE). รูปแบบ (PDF/PHYSICAL) ต้องรู้จัก ณ ที่นี้ ไม่งั้น fail loud.
+  const isBookPack = pkg.tierCode === 'BOOK'
+  if (isBookPack && bookFormatOf(pkg.packageCode) === null) {
+    throw new UnsellablePackageError(pkg.packageCode, 'BOOK order without a known format')
+  }
+
   const tierCode = parseTierCode(pkg.tierCode)
   // 🔴 The `=== 'FREE'` half is load-bearing OUTSIDE this file, and its only pin is one row of one test.
   // A FREE tier passes 0006's CHECK and maps cleanly, so nothing downstream refuses it: a live FREE
@@ -167,7 +191,7 @@ export function quotePackage(
   // individually: `free` (:32) still throws on the amount check, `garbageTier` (:34) still throws on the
   // null half, and only :33 reddens. Delete :33 as a near-duplicate of :32 and MC1 keeps its name and its
   // green tick while no longer testing this clause at all.
-  if (!isQiPack && !isSinsaePack && (tierCode === null || tierCode === 'FREE')) {
+  if (!isQiPack && !isSinsaePack && !isBookPack && (tierCode === null || tierCode === 'FREE')) {
     throw new UnsellablePackageError(pkg.packageCode, 'no paid tier for it')
   }
 
@@ -189,7 +213,7 @@ export function quotePackage(
 
   return {
     packageCode: pkg.packageCode,
-    tierCode: isQiPack ? 'QI' : isSinsaePack ? 'SINSAE' : (tierCode as TierCode), // throw ด้านบนคือพยานว่า non-QI/non-SINSAE แล้วเป็น paid tier
+    tierCode: isQiPack ? 'QI' : isSinsaePack ? 'SINSAE' : isBookPack ? 'BOOK' : (tierCode as TierCode), // throw ด้านบน = พยานว่า non-QI/SINSAE/BOOK แล้วเป็น paid tier
     amountSatang,
     vatSatang,
     expire: parseExpireSpec(pkg.expire),

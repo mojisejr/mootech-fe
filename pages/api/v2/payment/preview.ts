@@ -42,7 +42,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   // (เหตุผลเดียวกับ charge-flow; อนุญาตตรงนี้เพื่อให้จอซื้อชี่รายงานราคาได้ครบไม่โดน 409)
   // 🔴 QI / SINSAE อยู่นอก matrix สมาชิก — ซื้อ/จองได้ทุก tier ไม่มี repurchase refusal (เหตุผลเดียวกับ charge-flow)
   const purchase =
-    priced.tierCode === 'QI' || priced.tierCode === 'SINSAE'
+    priced.tierCode === 'QI' || priced.tierCode === 'SINSAE' || priced.tierCode === 'BOOK'
       ? ({ allow: true } as const)
       : await decidePurchaseFor(who.userId, priced.tierCode, now)
 

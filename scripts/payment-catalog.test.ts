@@ -6,7 +6,7 @@
 //   MC3  VAT stops being extracted backward (amount*rate/(1+rate))             → the VAT-7% test reddens
 //   MC4  a client code discount is trusted as-is instead of stubbed to 0       → the discount-ignored test reddens
 import { describe, it, expect } from 'vitest'
-import { quotePackage, parseExpireSpec, qiQtyOf, sinsaeMinutesOf, UnsellablePackageError, type PackageRow } from '@/lib/payment/catalog'
+import { quotePackage, parseExpireSpec, qiQtyOf, sinsaeMinutesOf, bookFormatOf, UnsellablePackageError, type PackageRow } from '@/lib/payment/catalog'
 
 // #377: the tier and the on-sale flag now come from the payment_package ROW (they used to be a hardcoded
 // map here). The teeth below are unchanged in meaning — only where the inputs come from moved.
@@ -138,5 +138,32 @@ describe('quotePackage — เลนจองซินแส (tierCode SINSAE)',
     expect(sinsaeMinutesOf('SINSAE_30')).toBe(30)
     expect(sinsaeMinutesOf('QI_200')).toBeNull()
     expect(sinsaeMinutesOf('V2_PRO_YEARLY')).toBeNull()
+  })
+})
+
+// ── BOOK ORDER (#3 ซินแสนุ้ย 2026-09-15) — tier 'BOOK' นอกบันไดสมาชิก/ชี่: PDF 1,890 / เล่ม 2,390 ──
+describe('quotePackage — เลนสั่งซื้อหนังสือ (tierCode BOOK)', () => {
+  const pack = (code: string, amount: number, overrides: Partial<PackageRow> = {}): PackageRow =>
+    ({ packageCode: code, planCode: 'MEMBER', amount, expire: '1D', bufferDay: 0, tierCode: 'BOOK', isActive: true, ...overrides })
+
+  it('แพ็กหนังสือที่รู้จัก ได้ tier BOOK + ราคา satang ตามแถวจริง (ไม่ตกไปเลนสมาชิก)', () => {
+    expect(quotePackage(pack('BOOK_PDF', 1890)).tierCode).toBe('BOOK')
+    expect(quotePackage(pack('BOOK_PDF', 1890)).amountSatang).toBe(189000)
+    expect(quotePackage(pack('BOOK_PHYSICAL', 2390)).amountSatang).toBe(239000)
+  })
+
+  it('แพ็กหนังสือที่ไม่รู้จัก THROWS — เงินห้ามวิ่งก่อนรู้ว่าซื้อรูปแบบไหน', () => {
+    expect(() => quotePackage(pack('BOOK_XYZ', 999))).toThrow(UnsellablePackageError)
+  })
+
+  it('แพ็กหนังสือที่ปิดขายยัง THROWS (isActive ตรวจก่อน)', () => {
+    expect(() => quotePackage(pack('BOOK_PDF', 1890, { isActive: false }))).toThrow(UnsellablePackageError)
+  })
+
+  it('bookFormatOf — map รูปแบบ, ไม่รู้จัก = null', () => {
+    expect(bookFormatOf('BOOK_PDF')).toBe('PDF')
+    expect(bookFormatOf('BOOK_PHYSICAL')).toBe('PHYSICAL')
+    expect(bookFormatOf('SINSAE_60')).toBeNull()
+    expect(bookFormatOf('QI_200')).toBeNull()
   })
 })

@@ -26,10 +26,9 @@ describe('จอ Your Life Code (one-book)', () => {
     expect(screen.getAllByText(/฿1,890/).length).toBeGreaterThan(0)
   })
 
-  it('CTA สั่งซื้อ → ลิงก์ไป LINE OA (บริการสั่งทำ ไม่ใช่ checkout ในแอป)', () => {
+  it('CTA สั่งซื้อ → ฟอร์มสั่งซื้อในแอป (#3 ซินแสนุ้ย 2026-09-15: จ่ายเงินในแอป ไม่ทักไลน์แล้ว)', () => {
     render(<OneBookScreen />)
     const cta = screen.getByTestId('one-book-order') as HTMLAnchorElement
-    expect(cta.getAttribute('href')).toBe('https://line.me/R/ti/p/@082cvuiy?ts=09151109&oat_content=url')
-    expect(cta.getAttribute('target')).toBe('_blank')
+    expect(cta.getAttribute('href')).toBe('/v2/service/one-book/order')
   })
 })
