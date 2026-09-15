@@ -6,6 +6,8 @@ import type { AppProps } from "next/app";
 import { useRouter } from "next/router";
 import { CookiesProvider } from "react-cookie";
 import IdentitySelfHeal from "@/components/identity-self-heal";
+import AnalyticsIdentity from "@/components/analytics-identity";
+import { ANALYTICS_CONSENT_COOKIE, ANALYTICS_STORAGE_DEFAULT } from "@/lib/analytics/consent";
 import AppErrorBoundary from "@/components/app-error-boundary";
 // side-effect: ดัก `beforeinstallprompt` ตั้งแต่แอปโหลด (event ยิงครั้งเดียวก่อน component mount) — #install
 import "@/lib/pwa/use-install-prompt";
@@ -50,9 +52,22 @@ export default function App({ Component, pageProps: { session, ...pageProps } }:
         />
       </Head>
 
+      {/* Analytics (CIEL mootech-ga4-instrumentation-001). Three things happen BEFORE the GTM loader, in
+          this order, because the Google tag reads them once at Initialization and never again:
+            1. `gtag` shim — consent commands must be pushed as an Arguments object; a plain array is ignored.
+            2. consent default — the app's own model is opt-out (ConsentScreen 'analytics' def: true), so
+               analytics_storage starts at ANALYTICS_STORAGE_DEFAULT and drops to denied only when the
+               member's stored choice (cookie mumate-ca, written by /api/v2/analytics/identity) says '0'.
+            3. identity — if the keyed user_id cookie (mumate-aid) is present, push user_id + member_state so
+               this very page view is attributed to the person, not the cookie. The values are read from
+               document.cookie synchronously; nothing waits on a network call.
+          The payment lane never sees any of this: its CSP (middleware.ts, #493) blocks the inline loader. */}
       <Script id="gtm" strategy="afterInteractive">{`
-        (function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
-        new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],
+        (function(w,d,s,l,i){w[l]=w[l]||[];w.gtag=w.gtag||function(){w[l].push(arguments)};
+        var c=d.cookie,m=c.match(/(?:^|;\\s*)${ANALYTICS_CONSENT_COOKIE}=([01])/);
+        w.gtag('consent','default',{analytics_storage:(m?m[1]==='1':${ANALYTICS_STORAGE_DEFAULT === "granted"})?'granted':'denied'});
+        var a=c.match(/(?:^|;\\s*)mumate-aid=([0-9a-f]{32})/);if(a){w[l].push({user_id:a[1],member_state:'member'});}
+        w[l].push({'gtm.start':new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],
         j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
         'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
         })(window,document,'script','dataLayer','${gtm}');
@@ -64,6 +79,8 @@ export default function App({ Component, pageProps: { session, ...pageProps } }:
               recovers a missing MEMBER_ID on deep-link entry so auth-gated pages
               don't hang on ScreenLoading. Renders null; runs before the page. */}
           <IdentitySelfHeal />
+          {/* Analytics identity: watches the member id land and sends login + user_id once per login. */}
+          <AnalyticsIdentity />
           {/* #399 — a single render throw used to blank the whole app. The boundary keeps the
               rest of the page recoverable (reload / home) and still logs the trace. */}
           <AppErrorBoundary>

@@ -15,6 +15,7 @@ type Analytics = {
   revenueByDay: { day: string; orders: number; satang: number }[]
   revenueByPackage: { package_code: string; tier_code: string; orders: number; satang: number }[]
   tierDistribution: { tier_code: string; members: number }[]
+  members?: { total: number; newToday: number; new7d: number }
   engine: {
     qiEconomy?: { category: string; txns: number; qi_in: number; qi_out: number }[]
     chat?: { byPersona?: { persona: string; replies: number }[]; topTopics?: { topic_id: string; replies: number }[] }
@@ -58,6 +59,13 @@ export default function OpsAnalytics({ authenticated }: Props) {
                 <thead><tr style={{ textAlign: 'left', color: '#777' }}><th>แพ็ก</th><th>tier</th><th>ออร์เดอร์</th><th>รายได้</th></tr></thead>
                 <tbody>{a.revenueByPackage.map((r) => (<tr key={r.package_code} style={{ borderTop: '1px solid #eee' }}><td><code>{r.package_code}</code></td><td>{r.tier_code}</td><td>{r.orders}</td><td>฿{baht(r.satang)}</td></tr>))}</tbody>
               </table>
+            </div>
+
+            <div style={box} data-testid="ops-members">
+              <strong>สมาชิก v2 ทั้งหมด</strong> <span style={{ fontSize: 12, color: '#777' }}>(ผ่าน first-run แล้ว · ตัวหารของ % DAU ใน GA)</span>
+              <div style={{ fontSize: 24, fontWeight: 800 }}>{a.members ? a.members.total.toLocaleString('th-TH') : '—'}
+                <span style={{ fontSize: 13, color: '#777' }}> · วันนี้ +{a.members?.newToday ?? '—'} · 7 วัน +{a.members?.new7d ?? '—'}</span>
+              </div>
             </div>
 
             <div style={box}>

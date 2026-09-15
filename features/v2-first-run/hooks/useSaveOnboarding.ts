@@ -1,4 +1,6 @@
 import { useState } from 'react'
+import { track } from '@/lib/analytics/track'
+import { CookieKey } from '@/constants/cookie-key'
 import type { GoalId } from '../components/IntentCheckScreen'
 
 export type SaveState = 'idle' | 'saving' | 'done' | 'error'
@@ -34,6 +36,9 @@ export function useSaveOnboarding(): { save: (goal: GoalId) => Promise<boolean>;
         return false
       }
       setState('done')
+      // GA `sign_up` — the v2 "member" definition is exactly this write (user.onboarded_at), so this is
+      // the one place the event belongs. Carries the login provider only; never the goal, never who.
+      track('sign_up', { method: loginMethodFromCookie() })
       return true
     } catch {
       setState('error')
@@ -42,4 +47,12 @@ export function useSaveOnboarding(): { save: (goal: GoalId) => Promise<boolean>;
   }
 
   return { save, state }
+}
+
+const KNOWN_METHODS = new Set(['line', 'google', 'facebook'])
+function loginMethodFromCookie(): string {
+  if (typeof document === 'undefined') return 'unknown'
+  const m = document.cookie.match(new RegExp(`(?:^|;\\s*)${CookieKey.LOGIN_PROVIDER}=([^;]*)`))
+  const v = decodeURIComponent(m?.[1] ?? '').toLowerCase()
+  return KNOWN_METHODS.has(v) ? v : 'unknown'
 }

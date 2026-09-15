@@ -7,6 +7,8 @@ import { useCallback, useEffect, useState } from 'react'
 
 import { SkyBackdrop, SkyHeader, Toggle } from '@/features/v2-profile/components/kit'
 import { ProfileGate } from '@/features/v2-account/components/ProfileGate'
+import { applyAnalyticsConsent } from '@/lib/analytics/consent'
+import { track } from '@/lib/analytics/track'
 
 type Consent = { kind: string; version: string; accepted: boolean; createdAt: string }
 const CONSENT_VERSION = '2026-09'
@@ -67,6 +69,15 @@ export function ConsentScreen() {
         body: JSON.stringify({ kind: p.kind, version: CONSENT_VERSION, accepted }),
       })
       setMsg(res.ok ? (accepted ? 'บันทึกความยินยอมแล้ว' : 'ปิดความยินยอมแล้ว — บริการบางส่วนอาจได้รับผลกระทบ') : 'บันทึกไม่สำเร็จ ลองใหม่')
+      if (res.ok && p.kind === 'analytics') {
+        // The switch now governs the Google tag (CIEL mootech-ga4-instrumentation-001, D5): persist the
+        // choice in the first-party cookie pages/_app.tsx reads on every load, update consent mode in
+        // this tab right away, and record the change itself — the event carries the new state only.
+        // Order matters: when turning OFF, the event must go out before consent drops.
+        if (!accepted) track('consent_update', { analytics: false })
+        applyAnalyticsConsent(accepted)
+        if (accepted) track('consent_update', { analytics: true })
+      }
       if (res.ok) await load()
     } finally {
       setBusyKind(null)
