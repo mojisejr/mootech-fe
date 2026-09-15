@@ -189,3 +189,11 @@
 .v2-reveal { opacity: 0; transform: translateY(18px); transition: opacity .55s cubic-bezier(.22,.61,.36,1), transform .55s cubic-bezier(.22,.61,.36,1); transition-delay: var(--reveal-delay, 0ms); will-change: opacity, transform; }
 .v2-reveal.is-in { opacity: 1; transform: none; }
 @media (prefers-reduced-motion: reduce) { .v2-reveal { opacity: 1; transform: none; transition: none; } }
+
+/* พิมพ์เป็น PDF (window.print) — ซ่อน chrome (เมนู/ปุ่มลอย/การ์ดแชร์ซ่อน/พื้นหลัง) เหลือเฉพาะเนื้อผล
+   + คงสีการ์ด (print-color-adjust) + พื้นขาว. คลาส .no-print ใส่ที่คอมโพเนนต์ chrome (#359 รอบ 11) */
+@media print {
+  .no-print { display: none !important; }
+  html, body { background: #fff !important; }
+  * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+}

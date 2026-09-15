@@ -22,7 +22,9 @@ type Look = { code?: string; inviterName?: string | null }
 
 // SSR OG card (ซินแส 2026-09-12): /invite ไม่โดน v2 gate → scraper เข้าถึงได้ แต่เดิมไม่มี og:* เลย
 // (card ขึ้น "MuMate · preview"). ดึงชื่อผู้ชวนฝั่ง server แล้วปล่อย og ให้ FB/LINE ทำ rich preview.
-type InviteSSR = { ssrCode: string; ssrInviterName: string | null; origin: string }
+// #359 รอบ 13: พารามิเตอร์การ์ดแชร์เฉพาะผล (t/s/d/g/m) ที่ติดมากับลิงก์ → ใช้ทำ og:image เฉพาะบุคคล
+type ShareOg = { t?: string; s?: string; d?: string; g?: string; m?: string }
+type InviteSSR = { ssrCode: string; ssrInviterName: string | null; origin: string; share: ShareOg }
 
 export const getServerSideProps: GetServerSideProps<InviteSSR> = async (ctx) => {
   const raw = ctx.params?.code
@@ -44,8 +46,12 @@ export const getServerSideProps: GetServerSideProps<InviteSSR> = async (ctx) => 
       /* best-effort — การ์ดยังขึ้นแบบทั่วไปได้ถ้าดึงชื่อไม่ได้ */
     }
   }
+  // เก็บ share params (การ์ดเฉพาะผล) จาก query — ส่งต่อให้ og:image เฉพาะบุคคล
+  const q = ctx.query
+  const str = (v: unknown): string => (typeof v === "string" ? v : Array.isArray(v) ? (v[0] ?? "") : "")
+  const share: ShareOg = { t: str(q.t), s: str(q.s), d: str(q.d), g: str(q.g), m: str(q.m) }
   ctx.res.setHeader("Cache-Control", "public, max-age=300, s-maxage=600")
-  return { props: { ssrCode, ssrInviterName, origin } }
+  return { props: { ssrCode, ssrInviterName, origin, share } }
 }
 
 const FEATURES: { title: string; sub: string; icon: React.ReactNode; tone: string }[] = [
@@ -54,7 +60,7 @@ const FEATURES: { title: string; sub: string; icon: React.ReactNode; tone: strin
   { title: "ถามเซียนมู่ AI", sub: "30 QI ต่อครั้ง", tone: "bg-[#E3F4F7] text-[#14707E]", icon: (<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" /></svg>) },
 ]
 
-export default function InvitePage({ ssrCode = "", ssrInviterName = null, origin = "" }: Partial<InviteSSR>) {
+export default function InvitePage({ ssrCode = "", ssrInviterName = null, origin = "", share = {} }: Partial<InviteSSR>) {
   const router = useRouter()
   const { code: rawCode } = router.query
   const code = (Array.isArray(rawCode) ? rawCode[0] : rawCode) ?? ssrCode
@@ -64,9 +70,15 @@ export default function InvitePage({ ssrCode = "", ssrInviterName = null, origin
   const [inviterName, setInviterName] = useState<string | null>(ssrInviterName)
 
   // OG (SSR) — ใช้ค่าจาก server เพื่อให้ scraper เห็น meta ตรงกับผู้ชวน
-  const ogTitle = ssrInviterName ? `คุณ ${ssrInviterName} ชวนคุณใช้ MuMate — รับ 30 QI ฟรี` : "MuMate — รับ 30 QI ฟรีเมื่อสมัคร"
-  const ogDesc = "ปฏิทินดวงจีน ดูดวงรายวัน เปิดไพ่ และถามเซียนมู่ AI — สมัครผ่านลิงก์นี้รับ 30 QI ฟรีทันที"
-  const ogImage = `${origin}/images/v2/referral/hero.png`
+  // #359 รอบ 13: ถ้าลิงก์พก share params (t/d/...) → og:image = การ์ดเฉพาะผล (/api/og/share), ไม่งั้นใช้รูปแบรนด์เดิม
+  const hasShare = !!(share.t || share.d)
+  const ogTitle = share.t
+    ? share.t
+    : ssrInviterName ? `คุณ ${ssrInviterName} ชวนคุณใช้ MuMate — รับ 30 QI ฟรี` : "MuMate — รับ 30 QI ฟรีเมื่อสมัคร"
+  const ogDesc = share.d || "ปฏิทินดวงจีน ดูดวงรายวัน เปิดไพ่ และถามเซียนมู่ AI — สมัครผ่านลิงก์นี้รับ 30 QI ฟรีทันที"
+  const ogImage = hasShare
+    ? `${origin}/api/og/share?${new URLSearchParams(Object.entries(share).filter(([, v]) => v) as [string, string][]).toString()}`
+    : `${origin}/images/v2/referral/hero.png`
   const pageUrl = `${origin}/invite/${encodeURIComponent(ssrCode)}`
 
   useEffect(() => {

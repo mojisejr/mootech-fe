@@ -376,7 +376,7 @@ export function PhoneReadingScreen({ initialMode = "normal" }: { initialMode?: M
             </div>
 
             {/* #359 รอบ 10: ปุ่ม PDF/แชร์ ดีไซน์มาตรฐาน (teal/น้ำเงิน rounded) เหมือนหน้าแชร์อื่น ๆ */}
-            <ResultActionBar shareText={shareText} shareTitle="ทำนายเบอร์มือถือ" testIdPrefix="phone" inline getShareFile={() => captureShareImage(shareCardRef.current)} />
+            <ResultActionBar shareText={shareText} shareTitle="ทำนายเบอร์มือถือ" testIdPrefix="phone" inline og={{ title: shareNumber, summary: shareSummary, tag: MODE[resultMode].label, image: "/images/v2/mascot/personas/mu/greet.png" }} getShareFile={() => captureShareImage(shareCardRef.current)} />
           </div>
         )}
       </div>

@@ -94,7 +94,7 @@ export function Menubar({ state = 'default', ctaLabel, ctaDisabled = false, onCt
   if (state === 'form') {
     const loading = ctaLabel === ''
     return (
-      <nav aria-label="เมนูหลัก" className={NAV}>
+      <nav aria-label="เมนูหลัก" className={`${NAV} no-print`}>
         <button
           type="button"
           onClick={onCta}

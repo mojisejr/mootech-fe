@@ -12,7 +12,6 @@ import { KitButton, SkyHeader, SkyScreen } from "@/features/v2-profile/component
 import { Menubar } from "@/features/v2-shell/components/Menubar"
 import { useActionCooldown } from "@/lib/useActionCooldown"
 import { shareAsInvite } from "@/lib/v2/share-invite"
-import { captureShareImage } from "@/lib/v2/share-card"
 import { ShareCard, ShareStage } from "@/features/v2-share/components/ShareCard"
 
 export const getServerSideProps: GetServerSideProps = async (ctx) => {
@@ -123,8 +122,12 @@ export default function FortuneSagePage() {
       }
     }
     const text = stick ? `เสี่ยงเซียมซีได้ ${stick.pillar} · ${stick.nayin} — เสี่ยงทายกับ Mumate` : "เสี่ยงทายกับ Mumate"
-    const file = await captureShareImage(shareCardRef.current)
-    void shareAsInvite({ title: "เซียมซีเสี่ยงทาย", text, file })
+    // #359 รอบ 13: แชร์เป็นลิงก์ + og:image เฉพาะผล
+    void shareAsInvite({
+      title: "เซียมซีเสี่ยงทาย",
+      text,
+      og: stick ? { title: `เซียมซีใบที่ ${stick.no}`, subtitle: `${stick.pillar} · ${stick.nayin}`, summary: stick.personality ?? "", tag: "เซียมซี", image: `/images/v2/fortune/cards/sage/${stick.no}.jpg` } : { title: "เซียมซีเสี่ยงทาย", tag: "เซียมซี" },
+    })
   }
 
   const love = stick ? splitLove(stick.topics.love) : null

@@ -12,7 +12,7 @@ import type { ReactNode } from 'react'
 /** พื้นท้องฟ้า BG01 ด้านบน + ไล่เฟดลงขาว (สูง ~ครึ่งจอแรกตามเฟรม) */
 export function SkyBackdrop({ height = 460 }: { height?: number }) {
   return (
-    <div aria-hidden className="pointer-events-none absolute inset-x-0 top-0 select-none" style={{ height }}>
+    <div aria-hidden className="no-print pointer-events-none absolute inset-x-0 top-0 select-none" style={{ height }}>
       <Image src="/images/v2/bg/BG01.png" alt="" fill priority sizes="100vw" style={{ objectFit: 'cover', objectPosition: 'top center' }} />
       {/* เฟดลงพื้นขาวแบบเบา ๆ ให้เมฆ BG01 โผล่ให้เห็นตามเฟรม (ไม่ล้างเป็นขาวเร็วเกิน) */}
       <div className="absolute inset-0 bg-gradient-to-b from-transparent from-[55%] to-white" />

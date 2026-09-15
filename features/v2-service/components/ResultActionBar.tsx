@@ -6,7 +6,7 @@
 import Image from 'next/image'
 import { MateAIButton } from '@/features/v2-shell/components/MateAIButton'
 import { announceComingSoon } from '@/features/v2-shell/components/ComingSoon'
-import { shareAsInvite } from '@/lib/v2/share-invite'
+import { shareAsInvite, type ShareOgParams } from '@/lib/v2/share-invite'
 
 // บันทึก PDF = เปิดไดอะล็อกพิมพ์ของเบราว์เซอร์ (มี "Save as PDF") — เหมือนหน้าดูเบอร์
 function savePdf() {
@@ -15,8 +15,8 @@ function savePdf() {
 
 // แชร์ผล = ลิงก์เชิญเพื่อนของ user เอง (คนสมัคร → user ได้ QI) แทน url หน้าปัจจุบันที่ติด v2 gate (ผู้ใช้ 2026-09-12)
 // #6 (2026-09-15): แนบภาพการ์ดเฉพาะบุคคล (file) ได้ ถ้าจอส่งมา
-export async function shareResult(text: string, file?: File | null, title = 'ผลความสมพงศ์') {
-  const r = await shareAsInvite({ title, text, file })
+export async function shareResult(text: string, file?: File | null, title = 'ผลความสมพงศ์', og?: ShareOgParams | null) {
+  const r = await shareAsInvite({ title, text, file, og })
   if (r === 'copied') announceComingSoon('คัดลอกลิงก์แล้ว')
 }
 
@@ -25,16 +25,16 @@ export async function shareResult(text: string, file?: File | null, title = 'ผ
  * inline=false → ตัวลอยติดล่าง: เหลือแค่ Mate AI (ปุ่มคู่ย้ายขึ้นไป inline แล้ว — ไม่โชว์ซ้ำ 2 ที่)
  * ไม่ส่ง inline → พฤติกรรมเดิม (ปุ่มคู่ + Mate AI ลอยล่าง) สำหรับหน้าคู่รักที่ยังใช้แบบเดิม
  */
-export function ResultActionBar({ shareText, shareTitle, testIdPrefix = 'work', inline, getShareFile }: { shareText: string; shareTitle?: string; testIdPrefix?: string; inline?: boolean; getShareFile?: () => Promise<File | null> }) {
+export function ResultActionBar({ shareText, shareTitle, testIdPrefix = 'work', inline, getShareFile, og }: { shareText: string; shareTitle?: string; testIdPrefix?: string; inline?: boolean; getShareFile?: () => Promise<File | null>; og?: ShareOgParams | null }) {
   if (inline === false) {
     return (
-      <div className="fixed inset-x-0 bottom-0 z-40 mx-auto flex max-w-md items-center justify-end px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-2">
+      <div className="no-print fixed inset-x-0 bottom-0 z-40 mx-auto flex max-w-md items-center justify-end px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-2">
         <MateAIButton />
       </div>
     )
   }
   return (
-    <div className={inline ? 'flex items-center gap-2' : 'fixed inset-x-0 bottom-0 z-40 mx-auto flex max-w-md items-center gap-2 px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-2'}>
+    <div className={inline ? 'no-print flex items-center gap-2' : 'no-print fixed inset-x-0 bottom-0 z-40 mx-auto flex max-w-md items-center gap-2 px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-2'}>
       <div className="flex min-w-0 flex-1 items-center gap-1">
         <button
           type="button"
@@ -48,7 +48,7 @@ export function ResultActionBar({ shareText, shareTitle, testIdPrefix = 'work', 
         <button
           type="button"
           data-testid={`${testIdPrefix}-share`}
-          onClick={() => void (async () => shareResult(shareText, getShareFile ? await getShareFile() : null, shareTitle))()}
+          onClick={() => void (async () => shareResult(shareText, og ? null : getShareFile ? await getShareFile() : null, shareTitle, og))()}
           className={`flex ${inline ? 'h-14' : 'h-[70px]'} min-w-0 flex-1 items-center justify-center gap-2 rounded-[100px] bg-v3-sapphire text-[16px] font-bold text-v3-lime shadow-[0_6px_14px_rgba(20,85,164,0.24)]`}
         >
           <Image src="/images/v2/compat/work/share.svg" alt="" width={20} height={20} className="size-5" />
