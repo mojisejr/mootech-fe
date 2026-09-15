@@ -21,8 +21,9 @@ const PROVIDER: Record<string, ProviderMeta> = {
   twitter: { name: "X", tone: "ghost", icon: <span className="text-[14px] font-black text-v3-navy">X</span> },
   dev: { name: "Dev Login", tone: "ghost", icon: <span className="text-[13px]">🛠</span> },
 }
-// วิธีสำรองตามเฟรม — key ไม่ซ้ำกับ provider ปัจจุบันจะถูกโชว์
+// ช่องทาง "เชื่อมต่อ" — ซินแสนุ้ย 2026-09-15: ใส่ LINE ไว้ด้วย (โชว์ "ใช้อยู่") เพื่อไม่ให้เข้าใจผิดว่ามีแต่ Google
 const BACKUP: Array<{ key: string } & ProviderMeta> = [
+  { key: "line", name: "LINE", tone: "green", icon: CHAT },
   { key: "google", name: "Google", tone: "blue", icon: <span className="text-[15px] font-black text-[#4285F4]">G</span> },
   { key: "apple", name: "Apple", tone: "ghost", icon: <span className="text-[15px] font-black text-v3-navy">A</span> },
   { key: "phone", name: "เบอร์โทรศัพท์", tone: "teal", icon: PHONE },
@@ -69,7 +70,8 @@ export function ConnectedScreen() {
 
   const known = provider ? PROVIDER[provider] : undefined
   const email = typeof session?.user?.email === "string" && session.user.email ? session.user.email : null
-  const backup = BACKUP.filter((b) => b.key !== provider)
+  // โชว์ทุกช่องทาง (LINE + สำรอง) — ช่องที่ตรงกับ provider ปัจจุบัน = "ใช้อยู่", ที่เหลือ = "ยังไม่ได้เชื่อม"
+  const backup = BACKUP
 
   return (
     <div className="relative min-h-screen w-full overflow-x-hidden bg-white font-ibm">
@@ -82,7 +84,9 @@ export function ConnectedScreen() {
 
         {!loading && kind === "ok" && sessionStatus !== "loading" && (
           <>
-            {/* วิธีเข้าสู่ระบบปัจจุบัน */}
+            {/* การเชื่อมบัญชีปัจจุบัน */}
+            <div>
+              <p className="mb-2 px-1 text-[12px] font-medium text-v3-text-muted">การเชื่อมบัญชีปัจจุบัน</p>
             <section className={CARD} data-testid="connected-current">
               {known ? (
                 <div className="flex items-center gap-3">
@@ -106,21 +110,30 @@ export function ConnectedScreen() {
                 </p>
               ) : null}
             </section>
+            </div>
 
-            {/* วิธีสำรอง — การ์ดเดียวมีเส้นแบ่งในตัว, ไม่มีไอคอน (เฟรม list) */}
+            {/* เชื่อมต่อ — การ์ดเดียวมีเส้นแบ่งในตัว, LINE โชว์ "ใช้อยู่" + สำรองอื่น "เร็ว ๆ นี้" */}
             <div>
-              <p className="mb-2 px-1 text-[12px] font-medium text-v3-text-muted">เพิ่มวิธีเข้าสู่ระบบสำรอง</p>
+              <p className="mb-2 px-1 text-[12px] font-medium text-v3-text-muted">เชื่อมต่อ</p>
               <div className="flex flex-col divide-y divide-v3-border-card overflow-hidden rounded-[18px] border border-v3-border-card bg-white" data-testid="connected-backup">
-                {backup.map((b) => (
-                  <div key={b.key} className="flex items-center gap-3 px-4 py-3.5">
-                    <div className="min-w-0 flex-1">
-                      <p className="text-[14px] font-bold text-v3-navy">{b.name}</p>
-                      <p className="text-[11px] leading-4 text-v3-text-muted">ยังไม่ได้เชื่อม</p>
-                      <span className="mt-1 inline-block rounded-full bg-v3-qi-earn-bg px-2 py-[2px] text-[11px] font-black text-v3-qi-earn">+10 QI</span>
+                {backup.map((b) => {
+                  const connected = b.key === provider
+                  return (
+                    <div key={b.key} className="flex items-center gap-3 px-4 py-3.5">
+                      <IconTile tone={b.tone}>{b.icon}</IconTile>
+                      <div className="min-w-0 flex-1">
+                        <p className="text-[14px] font-bold text-v3-navy">{b.name}</p>
+                        <p className="text-[11px] leading-4 text-v3-text-muted">{connected ? "เชื่อมแล้ว" : "ยังไม่ได้เชื่อม"}</p>
+                        {!connected && <span className="mt-1 inline-block rounded-full bg-v3-qi-earn-bg px-2 py-[2px] text-[11px] font-black text-v3-qi-earn">+10 QI</span>}
+                      </div>
+                      {connected ? (
+                        <span className="flex-none rounded-full bg-v3-grade-a-bg px-3 py-1 text-[11px] font-black text-v3-badge-green">ใช้อยู่</span>
+                      ) : (
+                        <span className="flex-none rounded-full bg-v3-ghost-white px-3 py-1.5 text-[11px] font-bold text-v3-text-muted" title="เปิดให้ใช้เร็ว ๆ นี้">เร็ว ๆ นี้</span>
+                      )}
                     </div>
-                    <span className="flex-none rounded-full bg-v3-ghost-white px-3 py-1.5 text-[11px] font-bold text-v3-text-muted" title="เปิดให้ใช้เร็ว ๆ นี้">เร็ว ๆ นี้</span>
-                  </div>
-                ))}
+                  )
+                })}
               </div>
             </div>
 

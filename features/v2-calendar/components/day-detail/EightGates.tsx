@@ -30,6 +30,7 @@ import {
 } from './gate-compass'
 import { GATE_PHRASES } from './gate-phrases'
 import { GATE_INFO } from './gate-deity-info'
+import { GateDetailPopup } from './GateDetailPopup'
 
 // สีของ chip อักษรประตูในลิสต์คีย์เวิร์ด = สีตามธาตุของประตูนั้น (五行 ของ 八門) — ให้ตรงกับสีธาตุบนเข็มทิศ.
 const gateChipTint = (glyph: string): { bg: string; ink: string } => {
@@ -37,7 +38,7 @@ const gateChipTint = (glyph: string): { bg: string; ink: string } => {
   return el ? { bg: ELEMENT_TINT[el].bg, ink: ELEMENT_TINT[el].ink } : { bg: '#F5F7FB', ink: '#0B305B' }
 }
 
-function GateCell({ direction, gate, rank }: { direction: Direction; gate: DayDetailGate; rank?: 'top' | 'near' }) {
+function GateCell({ direction, gate, rank, onOpen }: { direction: Direction; gate: DayDetailGate; rank?: 'top' | 'near'; onOpen: () => void }) {
   const cell = DIR_CELL[direction]
   // สีพื้น/เฉด = ธาตุของทิศ (เข้มขึ้นเมื่อธาตุ ประตู+เทพ+ทิศ ตรงกัน — cellElementTint). ⚡ = พลังแรง.
   const tint = cellElementTint(direction, gate.name, gate.deity)
@@ -49,7 +50,10 @@ function GateCell({ direction, gate, rank }: { direction: Direction; gate: DayDe
   const leadInk = deityStyle?.ink ?? tint.ink // เทพ = สีตามธาตุเทพ (เอกสารซินแส)
   const gateInk = gateChipTint(gate.name).ink // ตัวประตู = สีตามธาตุประตู (เอกสารซินแส)
   return (
-    <div
+    <button
+      type="button"
+      onClick={onOpen}
+      aria-label={`ดูรายละเอียดประตู ${gate.name} ทิศ ${direction}`}
       data-testid="gate-cell"
       data-dir={direction}
       data-strong={tint.strong ? '1' : undefined}
@@ -62,15 +66,16 @@ function GateCell({ direction, gate, rank }: { direction: Direction; gate: DayDe
         backgroundColor: tint.bg,
         color: tint.ink,
       }}
-      className={`relative flex flex-col items-center gap-0.5 rounded-2xl px-1 py-3 leading-none transition-shadow${
+      className={`relative flex cursor-pointer flex-col items-center gap-0.5 rounded-2xl px-1 py-3 leading-none transition-shadow${
         rank === 'top' ? ' ring-2 ring-offset-1 ring-v3-sapphire' : rank === 'near' ? ' ring-1 ring-v3-sapphire/40' : ''
       }`}
     >
       {/* ผู้ใช้ 2026-09-12: "พลังแรง" บอกด้วยสีเข้มขึ้น (bgStrong) อย่างเดียว — ไม่มีไอคอน ⚡ */}
       <span className="text-[10px] font-bold text-v3-text-body">{direction}</span>
-      <span className="text-[15px] font-extrabold leading-tight" style={{ color: leadInk }}>{leadName}</span>
+      {/* ซินแสนุ้ย 2026-09-14: ตัวอักษรประตู/เทพ ต้องขนาดเท่ากัน (เดิม lead 15px ไม่เท่ากับ gate 20px) */}
+      <span className="text-xl font-bold leading-none" style={{ color: leadInk }}>{leadName}</span>
       <span className="text-xl font-bold leading-none" style={{ color: gateInk }}>{gate.name}</span>
-    </div>
+    </button>
   )
 }
 
@@ -263,6 +268,7 @@ function GateSearch({
 export function EightGates({ gates }: { gates: DayDetailGate[] }) {
   const { placed, unplaced } = placeGates(gates)
   const [query, setQuery] = useState('')
+  const [detail, setDetail] = useState<{ direction: Direction; gate: DayDetailGate } | null>(null)
   const { dirs: matchedDirs, topDirs } = useGateSearch(placed, query)
   // ลิสต์คีย์เวิร์ด = ประตูที่รู้จัก (มีใน GATE_INFO — เนื้อหาคงที่ FE-side ตามเอกสารซินแส)
   const gatesWithInfo = gates.filter((g) => GATE_INFO[g.name?.trim()])
@@ -276,7 +282,7 @@ export function EightGates({ gates }: { gates: DayDetailGate[] }) {
 
       <div data-testid="gate-board" className="grid grid-cols-3 grid-rows-3 gap-2">
         {placed.map((p) => (
-          <GateCell key={p.direction} direction={p.direction} gate={p.gate} rank={topDirs.has(p.direction) ? 'top' : matchedDirs.has(p.direction) ? 'near' : undefined} />
+          <GateCell key={p.direction} direction={p.direction} gate={p.gate} rank={topDirs.has(p.direction) ? 'top' : matchedDirs.has(p.direction) ? 'near' : undefined} onOpen={() => setDetail({ direction: p.direction, gate: p.gate })} />
         ))}
         {/* ช่องกลาง = "คุณ" (ผู้ดู) — ซินแส 2026-09-12: ตำราไม่มีประตูที่ 9 และช่องกลางคือ "ตัวเรา" ที่ยืนอยู่กลางเข็มทิศ.
             ทิศมงคล (財/โชคลาภ) ย้ายไปแสดงในการ์ด "ทิศ สีมงคล" แล้ว จึงไม่ซ้ำที่นี่ */}
@@ -341,6 +347,9 @@ export function EightGates({ gates }: { gates: DayDetailGate[] }) {
           </ul>
         </div>
       )}
+
+      {/* #2/#4: กดช่อง → popup รายละเอียด ประตู+เทพ (ใบเซียมซี) */}
+      {detail && <GateDetailPopup direction={detail.direction} gate={detail.gate} onClose={() => setDetail(null)} />}
     </SectionCard>
   )
 }

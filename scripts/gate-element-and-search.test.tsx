@@ -130,3 +130,23 @@ describe('B · ช่องค้นหาบนตารางประตู',
     expect(screen.queryByTestId('gate-search-empty')).toBeNull()
   })
 })
+
+describe('C · กดช่องประตู → popup รายละเอียด ประตู+เทพ (#2/#4 ซินแสนุ้ย 2026-09-15)', () => {
+  it('กดช่อง 開/E → popup โผล่ โชว์ ประตู(ไค/เริ่มต้นสิ่งใหม่) + เทพ(ที/วิสัยทัศน์), กดปิดแล้วหาย', () => {
+    render(<EightGates gates={GATES} />)
+    // ก่อนกด: ไม่มี popup
+    expect(screen.queryByTestId('gate-detail-popup')).toBeNull()
+    const cellE = document.querySelector('[data-testid="gate-cell"][data-dir="E"]') as HTMLElement
+    expect(cellE.tagName).toBe('BUTTON') // ช่องต้องกดได้
+    fireEvent.click(cellE)
+    const popup = screen.getByTestId('gate-detail-popup')
+    // ประตู 開 = ไค/เริ่มต้นสิ่งใหม่ ; เทพ 天 = ที/วิสัยทัศน์
+    expect(popup.textContent).toContain('ไค')
+    expect(popup.textContent).toContain('เริ่มต้นสิ่งใหม่')
+    expect(popup.textContent).toContain('ที')
+    expect(popup.textContent).toContain('วิสัยทัศน์')
+    // ปิด popup
+    fireEvent.click(screen.getByTestId('gate-detail-close'))
+    expect(screen.queryByTestId('gate-detail-popup')).toBeNull()
+  })
+})
