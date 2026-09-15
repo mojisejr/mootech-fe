@@ -27,6 +27,7 @@
 import type { DayDetailColor } from '../../types'
 import { SectionCard } from './SectionCard'
 import { directionLabelTH } from './gate-compass'
+import { COLOR_STYLE, COLOR_NEUTRAL } from './color-style'
 import { ELEMENT_COLOR, ELEMENT_LABEL_TH, type BaziElement } from '@/lib/calculator/elements'
 
 /** ไม้/ไฟ/ดิน/ทอง/น้ำ → the enum, by inverting the canonical Thai labels (no second list to drift). */
@@ -87,13 +88,22 @@ export function LuckyColors({ colors, deity, direction, badDirection }: { colors
           const el = TH_TO_ELEMENT[c.element?.trim()]
           const ink = el ? ELEMENT_COLOR[el] : NEUTRAL
           return (
-            <div key={`${c.element}-${i}`} data-testid="lucky-color-row" data-element={c.element} className="flex items-baseline justify-between gap-3">
+            <div key={`${c.element}-${i}`} data-testid="lucky-color-row" data-element={c.element} className="flex items-center justify-between gap-3">
               <span className="flex shrink-0 items-center gap-1.5 text-base font-normal leading-6 text-v3-text-body">
-                {/* the dot carries the ELEMENT; the words stay neutral so no ink contradicts a colour name */}
+                {/* จุด = ธาตุ · คำสีแต่ละคำ = ชิปสีจริงของคำนั้น (เจ้าของขอ 2026-09-15) */}
                 <span aria-hidden className="size-2.5 rounded-full" style={{ backgroundColor: ink }} />
                 ธาตุ{c.element}
               </span>
-              <span className="text-right text-base font-bold leading-6 text-v3-text-body">{c.colors}</span>
+              <span className="flex flex-wrap justify-end gap-1.5">
+                {(c.colors ?? '').split(/\s+/).map((w) => w.trim()).filter(Boolean).map((w, wi) => {
+                  const s = COLOR_STYLE[w] ?? COLOR_NEUTRAL
+                  return (
+                    <span key={`${w}-${wi}`} className="rounded-full px-2.5 py-1 text-sm font-medium leading-5" style={{ backgroundColor: s.bg, color: s.text, border: s.border ? `1px solid ${s.border}` : undefined }}>
+                      {w}
+                    </span>
+                  )
+                })}
+              </span>
             </div>
           )
         })}

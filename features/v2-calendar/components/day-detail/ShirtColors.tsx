@@ -3,24 +3,7 @@
 // ดีไซน์ (เจ้าของเคาะ 2026-09-14): แต่ละสี = "ชิปสีจริง" ของคำนั้น (เขียว=เขียว แดง=แดง ขาว=ขอบเทา) อ่านเข้าใจง่าย
 // แทนพื้นเขียวใหญ่แบบเก่า. label นับอิม (ธาตุ 納音) เป็นหัวเล็ก ๆ ด้านบน.
 import { SectionCard } from './SectionCard'
-
-// ชื่อสีไทย → { พื้นชิป, สีตัวอักษร, ขอบ? } — เลือกให้ตัวอักษรอ่านออกบนพื้น (สีอ่อน=อักษรเข้ม+ขอบ, สีเข้ม=อักษรขาว)
-const COLOR_STYLE: Record<string, { bg: string; text: string; border?: string }> = {
-  เขียว: { bg: '#2E9E5B', text: '#FFFFFF' },
-  แดง: { bg: '#D6453A', text: '#FFFFFF' },
-  ชมพู: { bg: '#F0A6BE', text: '#7A2942' },
-  ส้ม: { bg: '#E8863A', text: '#FFFFFF' },
-  ม่วง: { bg: '#7C5CBF', text: '#FFFFFF' },
-  ครีม: { bg: '#F5ECCB', text: '#7A6A2A', border: '#E4D6A6' },
-  เหลือง: { bg: '#F4CE3B', text: '#6B5410' },
-  น้ำตาล: { bg: '#8A5A2B', text: '#FFFFFF' },
-  ขาว: { bg: '#FFFFFF', text: '#5A5A5A', border: '#D8D8D8' },
-  ฟ้า: { bg: '#7FC0EC', text: '#0F3E63' },
-  น้ำเงิน: { bg: '#1F4E9E', text: '#FFFFFF' },
-  เทา: { bg: '#8A929B', text: '#FFFFFF' },
-  ดำ: { bg: '#2B2B2B', text: '#FFFFFF' },
-}
-const NEUTRAL = { bg: '#EDEFF2', text: '#3A4A5E' }
+import { COLOR_STYLE, COLOR_NEUTRAL as NEUTRAL } from './color-style'
 
 export function ShirtColors({ shirtColors }: { shirtColors?: { navin: string; colors: string[] } | null }) {
   if (!shirtColors || (!shirtColors.navin && shirtColors.colors.length === 0)) return null
