@@ -443,11 +443,13 @@ const LUCKY_HEX_TH: Record<string, string> = {
 function SectionHeader({
   title,
   info,
+  onInfo,
   open,
   onToggle,
 }: {
   title: string
   info?: boolean
+  onInfo?: () => void
   open?: boolean
   onToggle?: () => void
 }) {
@@ -455,7 +457,11 @@ function SectionHeader({
     <>
       <div className="flex w-full items-center gap-2">
         <h2 className="flex-1 text-[18px] font-bold leading-6 text-v3-navy">{title}</h2>
-        {info && <span className="grid h-[19px] w-[19px] place-items-center rounded-full border border-v3-sapphire text-[11px] font-bold text-v3-sapphire">i</span>}
+        {info && (onInfo ? (
+          <button type="button" onClick={onInfo} aria-label="ข้อมูลเพิ่มเติม" className="grid h-[19px] w-[19px] place-items-center rounded-full border border-v3-sapphire text-[11px] font-bold text-v3-sapphire">i</button>
+        ) : (
+          <span className="grid h-[19px] w-[19px] place-items-center rounded-full border border-v3-sapphire text-[11px] font-bold text-v3-sapphire">i</span>
+        ))}
         {onToggle && (
           <button onClick={onToggle} aria-expanded={open} aria-label="ย่อ/ขยาย" className="text-v3-text-muted">
             <svg width="20" height="20" viewBox="0 0 20 20" fill="none" aria-hidden style={{ transform: open ? undefined : "rotate(180deg)" }}>
@@ -531,12 +537,18 @@ function PredictionCard({ summary, prediction, cautions, occupations }: { summar
 // การ์ด "สีมงคล สิ่งศักดิ์สิทธิ์" — 5 สี + เทพประจำวัน
 function LuckyCard({ colors, deity }: { colors?: string[]; deity?: string | null }) {
   const [open, setOpen] = useState(true)
+  const [infoOpen, setInfoOpen] = useState(false)
   // สีจาก favorable elements (engine); เทพจาก chapter guardian_deities — fallback ถ้าไม่มี
   const colorList = colors && colors.length > 0 ? colors : ["#fffce1", "#fdff7c", "#ece79c", "#888888", "#dedede"]
   const deityName = deity || "พระกษิติครรภ์"
   return (
     <section className="rounded-[20px] bg-white p-5 v3-shadow-card" data-testid="destiny-lucky">
-      <SectionHeader title="สีมงคล สิ่งศักดิ์สิทธิ์" info open={open} onToggle={() => setOpen((v) => !v)} />
+      <SectionHeader title="สีมงคล สิ่งศักดิ์สิทธิ์" info onInfo={() => setInfoOpen((v) => !v)} open={open} onToggle={() => setOpen((v) => !v)} />
+      {infoOpen && (
+        <p className="mt-3 rounded-[12px] bg-v3-ghost-white p-3 text-[13px] leading-[22px] text-v3-text-body" data-testid="destiny-lucky-info">
+          ข้อมูลนี้ไม่ได้อิงตามวันเกิดทั่วไป แต่คำนวณจากโครงสร้างธาตุกำเนิด (BaZi) และจังหวะพลังงานของคุณโดยเฉพาะ เพื่อเลือกคู่สีและพลังบารมีขององค์เทพเข้ามาเติมเต็มธาตุที่ขาด ช่วยเสริมสมาธิและความมั่นคงในทุกการตัดสินใจ
+        </p>
+      )}
       {open && (
         <div className="mt-3 flex flex-col gap-2.5">
           <div className="flex items-center justify-between">
@@ -548,7 +560,7 @@ function LuckyCard({ colors, deity }: { colors?: string[]; deity?: string | null
             </span>
           </div>
           <div className="flex items-center justify-between">
-            <span className="flex-1 text-[16px] leading-6 text-[#464646]">เทพประจำวัน</span>
+            <span className="flex-1 text-[16px] leading-6 text-[#464646]">เทพประจำตัว</span>
             <span className="text-[16px] font-bold text-v3-navy">{deityName}</span>
           </div>
         </div>

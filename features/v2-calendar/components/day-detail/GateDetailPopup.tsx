@@ -4,6 +4,7 @@
 // สไตล์ "ใบเซียมซี" (แบบรูป 2) — หัวตัวจีน ประตู+เทพ ขนาดเท่ากัน (กฎ #5), ชื่อไทย + สรุป(keyword) + คีย์เวิร์ด/การกระทำ.
 // เนื้อหา static จาก GATE_INFO/DEITY_INFO (ไม่ใช้ AI).
 import { useEffect } from 'react'
+import { createPortal } from 'react-dom'
 import type { DayDetailGate } from '../../types'
 import { GATE_INFO, DEITY_INFO, type GlyphInfo } from './gate-deity-info'
 import { SPIRIT_STYLE } from './EightDeities'
@@ -49,16 +50,18 @@ export function GateDetailPopup({ direction, gate, onClose }: { direction: Direc
   const gInk = inkOfGate(gateGlyph)
   const dInk = deityGlyph ? inkOfDeity(deityGlyph) : gInk
 
-  return (
+  // portal ไป body: popup ต้องลอยเหนือทุกอย่าง (เดิมติด stacking context ของ ancestor ทำให้แถบเมนูล่างบังส่วนล่าง)
+  if (typeof document === 'undefined') return null
+  return createPortal(
     <div
       data-testid="gate-detail-popup"
       role="dialog"
       aria-modal="true"
-      className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 sm:items-center sm:p-4"
+      className="fixed inset-0 z-[70] flex items-end justify-center bg-black/40 sm:items-center sm:p-4"
       onClick={onClose}
     >
       <div
-        className="relative max-h-[85vh] w-full max-w-md overflow-y-auto rounded-t-[24px] bg-[#fbf3df] p-5 pb-8 shadow-2xl sm:rounded-[24px]"
+        className="relative max-h-[90dvh] w-full max-w-md overflow-y-auto rounded-t-[24px] bg-[#fbf3df] p-5 pb-[max(2rem,env(safe-area-inset-bottom))] shadow-2xl sm:max-h-[85vh] sm:rounded-[24px]"
         onClick={(e) => e.stopPropagation()}
       >
         <button type="button" aria-label="ปิด" data-testid="gate-detail-close" onClick={onClose} className="absolute right-3 top-3 grid size-8 place-items-center rounded-full bg-white/80 text-v3-text-muted">✕</button>
@@ -80,6 +83,7 @@ export function GateDetailPopup({ direction, gate, onClose }: { direction: Direc
 
         <p className="mt-3 px-1 text-[11px] leading-4 text-v3-text-muted">คีย์เวิร์ด = การกระทำที่เหมาะกับประตู·เทพนี้ · ใช้เสริมการเลือกทิศประจำวัน</p>
       </div>
-    </div>
+    </div>,
+    document.body,
   )
 }
