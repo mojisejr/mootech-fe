@@ -77,7 +77,7 @@ export function MateAIButton() {
       href="/v2/chat"
       aria-label={info.name}
       data-testid="nav-mate-ai"
-      className="relative flex h-[70px] w-[74px] shrink-0 items-center justify-center overflow-hidden rounded-2xl border-[5px] border-[rgba(216,143,169,0.4)] bg-v3-lime bg-clip-padding backdrop-blur-[6.8px]"
+      className="no-print relative flex h-[70px] w-[74px] shrink-0 items-center justify-center overflow-hidden rounded-2xl border-[5px] border-[rgba(216,143,169,0.4)] bg-v3-lime bg-clip-padding backdrop-blur-[6.8px]"
     >
       {/* mascot — head-aligned; the bottom overhangs the tile and is clipped by it (Figma's own behaviour) */}
       <span aria-hidden data-testid="nav-mate-ai-mascot" className="pointer-events-none absolute left-1/2 top-[12px] h-[67px] w-[56px] -translate-x-1/2" style={fade}>

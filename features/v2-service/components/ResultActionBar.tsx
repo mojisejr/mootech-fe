@@ -28,13 +28,13 @@ export async function shareResult(text: string, file?: File | null, title = 'ผ
 export function ResultActionBar({ shareText, shareTitle, testIdPrefix = 'work', inline, getShareFile }: { shareText: string; shareTitle?: string; testIdPrefix?: string; inline?: boolean; getShareFile?: () => Promise<File | null> }) {
   if (inline === false) {
     return (
-      <div className="fixed inset-x-0 bottom-0 z-40 mx-auto flex max-w-md items-center justify-end px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-2">
+      <div className="no-print fixed inset-x-0 bottom-0 z-40 mx-auto flex max-w-md items-center justify-end px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-2">
         <MateAIButton />
       </div>
     )
   }
   return (
-    <div className={inline ? 'flex items-center gap-2' : 'fixed inset-x-0 bottom-0 z-40 mx-auto flex max-w-md items-center gap-2 px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-2'}>
+    <div className={inline ? 'no-print flex items-center gap-2' : 'no-print fixed inset-x-0 bottom-0 z-40 mx-auto flex max-w-md items-center gap-2 px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-2'}>
       <div className="flex min-w-0 flex-1 items-center gap-1">
         <button
           type="button"

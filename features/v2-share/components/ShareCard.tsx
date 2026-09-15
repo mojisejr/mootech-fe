@@ -9,7 +9,7 @@ import { forwardRef, type ReactNode } from "react"
 /** ที่วางการ์ดแชร์แบบซ่อนนอกจอ (ยัง render มี layout ให้ html2canvas จับได้ แต่ผู้ใช้ไม่เห็น). */
 export function ShareStage({ children }: { children: ReactNode }) {
   return (
-    <div aria-hidden style={{ position: "fixed", left: -10000, top: 0, pointerEvents: "none" }}>
+    <div aria-hidden className="no-print" style={{ position: "fixed", left: -10000, top: 0, pointerEvents: "none" }}>
       {children}
     </div>
   )
