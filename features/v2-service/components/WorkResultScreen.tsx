@@ -360,9 +360,9 @@ export function WorkResultScreen({ matchingId }: { matchingId: string }) {
       {/* hero — Figma 720:29221: การ์ด #1455A4 r22 · title + มาสคอต · แถวอันดับในการ์ด */}
       <section data-testid="work-hero" className="relative mx-4 flex flex-col gap-7 overflow-hidden rounded-[22px] bg-v3-sapphire px-4 pb-6 pt-[34px]">
         <div className="flex flex-col items-center gap-3 text-center">
-          <span data-testid="work-hero-mascot" className="relative block h-[84px] w-[67px]">
-            {/* มาสคอตหัวการ์ด = cutout จากเฟรม Figma 720:29221 (download_assets 2026-09-07) — การ์ดมาสคอตจาก API มีพื้นหลัง ใช้ในแถวแทน */}
-            <Image src="/images/v2/compat/work/hero-mascot.png" alt="" fill sizes="67px" style={{ objectFit: 'contain' }} />
+          <span data-testid="work-hero-mascot" className="relative block h-[132px] w-[106px]">
+            {/* มาสคอตหัวการ์ด = cutout จากเฟรม Figma 720:29221 — #359 รอบ 10: เจ้าของขอขยายไซซ์เสี่ยวมู่ */}
+            <Image src="/images/v2/compat/work/hero-mascot.png" alt="" fill sizes="106px" style={{ objectFit: 'contain' }} />
           </span>
           <h2 data-testid="work-hero-title" data-role={chosenRole?.value ?? ''} className="text-[20px] font-bold leading-7 text-white">
             <span className="block">{heroTitle}</span>
