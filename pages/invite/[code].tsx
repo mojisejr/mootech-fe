@@ -27,7 +27,7 @@ type Look = { code?: string; inviterName?: string | null }
 // (card ขึ้น "MuMate · preview"). ดึงชื่อผู้ชวนฝั่ง server แล้วปล่อย og ให้ FB/LINE ทำ rich preview.
 // #359 รอบ 13: พารามิเตอร์การ์ดแชร์เฉพาะผล (t/s/d/g/m) ที่ติดมากับลิงก์ → ใช้ทำ og:image เฉพาะบุคคล
 type ShareOg = { t?: string; s?: string; d?: string; g?: string; m?: string }
-type InviteSSR = { ssrCode: string; ssrInviterName: string | null; origin: string; share: ShareOg }
+type InviteSSR = { ssrCode: string; ssrInviterName: string | null; origin: string; share: ShareOg; shareUrl: string }
 
 export const getServerSideProps: GetServerSideProps<InviteSSR> = async (ctx) => {
   const raw = ctx.params?.code
@@ -64,8 +64,11 @@ export const getServerSideProps: GetServerSideProps<InviteSSR> = async (ctx) => 
       /* best-effort — ดึงสแนปช็อตไม่ได้ → การ์ดแบรนด์ทั่วไป */
     }
   }
+  // og:url = URL เต็มที่แชร์จริง (รวม ?c=) — สำคัญกับ FB feed: FB ยึด og:url เป็น canonical แล้ว scrape ซ้ำ.
+  // ถ้า og:url ตัด ?c= ออก FB จะดึงหน้า /invite เปล่า → ได้การ์ด referral ทั่วไป (ไม่ใช่ผลเฉพาะบุคคล).
+  const shareUrl = `${origin}${ctx.resolvedUrl}`
   ctx.res.setHeader("Cache-Control", "public, max-age=300, s-maxage=600")
-  return { props: { ssrCode, ssrInviterName, origin, share } }
+  return { props: { ssrCode, ssrInviterName, origin, share, shareUrl } }
 }
 
 const FEATURES: { title: string; sub: string; icon: React.ReactNode; tone: string }[] = [
@@ -74,7 +77,7 @@ const FEATURES: { title: string; sub: string; icon: React.ReactNode; tone: strin
   { title: "ถามเซียนมู่ AI", sub: "30 QI ต่อครั้ง", tone: "bg-[#E3F4F7] text-[#14707E]", icon: (<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" /></svg>) },
 ]
 
-export default function InvitePage({ ssrCode = "", ssrInviterName = null, origin = "", share = {} }: Partial<InviteSSR>) {
+export default function InvitePage({ ssrCode = "", ssrInviterName = null, origin = "", share = {}, shareUrl = "" }: Partial<InviteSSR>) {
   const router = useRouter()
   const { code: rawCode } = router.query
   const code = (Array.isArray(rawCode) ? rawCode[0] : rawCode) ?? ssrCode
@@ -93,7 +96,8 @@ export default function InvitePage({ ssrCode = "", ssrInviterName = null, origin
   const ogImage = hasShare
     ? `${origin}/api/og/share?${new URLSearchParams(Object.entries(share).filter(([, v]) => v) as [string, string][]).toString()}`
     : `${origin}/images/v2/referral/hero.png`
-  const pageUrl = `${origin}/invite/${encodeURIComponent(ssrCode)}`
+  // FB feed ยึด og:url เป็น canonical → ต้องเป็น URL ที่มี ?c= (ผลเฉพาะบุคคล) ไม่งั้นได้การ์ด referral ทั่วไป
+  const pageUrl = hasShare && shareUrl ? shareUrl : `${origin}/invite/${encodeURIComponent(ssrCode)}`
 
   useEffect(() => {
     if (!code) return // router ยัง hydrate ไม่เสร็จ

@@ -31,8 +31,14 @@ export default async function handler(req: Request): Promise<Response> {
   const subtitle = clamp(searchParams.get("s") || "", 40)
   const summary = clamp(searchParams.get("d") || "ดูดวงจีนเฉพาะคุณกับ Mumate", 180)
   const tag = clamp(searchParams.get("g") || "", 24)
-  const mRaw = searchParams.get("m") || ""
-  const mascot = mRaw ? (mRaw.startsWith("http") ? mRaw : `${origin}${mRaw.startsWith("/") ? "" : "/"}${mRaw}`) : ""
+  // m = รูป (มาสคอต 1 รูป หรือไพ่หลายใบคั่นด้วย ",") — resolve relative → absolute, เก็บสูงสุด 3
+  const resolveImg = (s: string) => (s.startsWith("http") ? s : `${origin}${s.startsWith("/") ? "" : "/"}${s}`)
+  const imgs = (searchParams.get("m") || "")
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean)
+    .slice(0, 3)
+    .map(resolveImg)
   // รอบ 14: พื้นหลัง = ภาพฉากพาสเทล (ไม่ใช่ไล่สีน้ำเงิน) + ตัวหนังสือเข้ม ให้เข้าชุดการ์ดแชร์
   const bg = `${origin}/images/v2/destiny/bg-destiny.jpg`
 
@@ -73,15 +79,21 @@ export default async function handler(req: Request): Promise<Response> {
             color: "#0b305b",
           }}
         >
-          {mascot ? (
+          {imgs.length >= 2 ? (
+            // ไพ่หลายใบ — เรียงเป็นแถว (เห็นครบทุกใบ)
+            <div style={{ display: "flex", flexDirection: "row", gap: 14, flexShrink: 0, alignItems: "center" }}>
+              {imgs.map((src, i) => {
+                const w = imgs.length >= 3 ? 148 : 176
+                const h = Math.round(w * 1.34)
+                return (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img key={i} src={src} width={w} height={h} style={{ width: w, height: h, objectFit: "cover", borderRadius: 16, border: "3px solid #ffffff" }} alt="" />
+                )
+              })}
+            </div>
+          ) : imgs.length === 1 ? (
             // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src={mascot}
-              width={320}
-              height={400}
-              style={{ width: 320, height: 400, objectFit: "contain", flexShrink: 0 }}
-              alt=""
-            />
+            <img src={imgs[0]} width={320} height={400} style={{ width: 320, height: 400, objectFit: "contain", flexShrink: 0 }} alt="" />
           ) : null}
           <div style={{ display: "flex", flexDirection: "column", flex: 1 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 18 }}>

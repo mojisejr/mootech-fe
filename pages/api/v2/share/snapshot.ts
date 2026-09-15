@@ -52,7 +52,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       subtitle: str(body.subtitle, 120),
       summary: str(body.summary, 400),
       tag: str(body.tag, 40),
-      image: str(body.image, 500),
+      image: str(body.image, 1500), // รองรับไพ่หลายใบ (URL คั่นด้วย ",")
     })
     return res.status(200).json({ ok: true, id })
   } catch (err) {
