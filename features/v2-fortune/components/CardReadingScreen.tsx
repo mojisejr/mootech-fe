@@ -244,6 +244,7 @@ export function CardReadingScreen({
           {redeemMsg && <p className="text-center text-[12px] font-bold text-v3-error">{redeemMsg}</p>}
           {error && <p data-testid="cards-error" className="text-center text-[12px] font-bold text-v3-error">{error}</p>}
           {quotaOut && <Link href="/v2/qi" className="text-center text-[13px] font-bold text-v3-sapphire">เติม/แลก QI ที่หน้าพลังชี่ →</Link>}
+          {quotaOut && <Link href="/v2/shop" data-testid="cards-upsell" className="text-center text-[13px] font-bold text-v3-cyan">หรือสมัครสมาชิก เปิดไพ่ได้มากขึ้น →</Link>}
           <p className="text-center text-[11px] text-v3-text-muted">ใช้โควตาเปิดการ์ดวันละ 1 ครั้ง (ฟรี) — เกินแล้วแลกด้วย QI</p>
         </div>
       )}

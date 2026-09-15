@@ -282,6 +282,7 @@ export function PhoneReadingScreen({ initialMode = "normal" }: { initialMode?: M
               </button>
               {error && <p className="mt-2 text-[12px] font-bold text-v3-lime" data-testid="phone-error">{error}</p>}
               {needQi && <Link href="/v2/qi" className="mt-2 inline-grid h-9 place-items-center rounded-full bg-white px-5 text-[13px] font-bold text-v3-sapphire" data-testid="phone-buy-qi">เติม QI</Link>}
+              {needQi && <Link href="/v2/shop" className="mt-2 ml-2 inline-grid h-9 place-items-center rounded-full bg-white/20 px-5 text-[13px] font-bold text-white" data-testid="phone-upsell">สมัครสมาชิก</Link>}
               <p className="mt-3 text-[11px] font-bold text-v3-lime">ใช้ {QI_COST} QI ต่อการทำนาย</p>
               <p className="mt-0.5 text-[11px] text-white/70">ระบบจะตัดรหัสประเทศ 0 หรือ 66 ออกให้อัตโนมัติ</p>
             </section>
