@@ -27,7 +27,7 @@ import { TopBarBell } from "@/features/v2-shell/components/TopBarBell"
 import { TopBarAvatar } from "@/features/v2-shell/components/TopBarAvatar"
 import { shareAsInvite } from "@/lib/v2/share-invite"
 import { captureShareImage } from "@/lib/v2/share-card"
-import { ShareCard, ShareStage } from "@/features/v2-share/components/ShareCard"
+import { ShareCard, ShareStage, type ShareSkill } from "@/features/v2-share/components/ShareCard"
 
 // engine `element-summary` returns advice as OBJECTS ({key,label,text}), not strings — the earlier
 // `advice: string[]` typing was wrong and rendering the object as a React child crashed the whole page
@@ -196,6 +196,8 @@ const ELEMENT_SLOTS: Array<React.CSSProperties> = [
   { top: "168px", left: "-8px" },
   { top: "168px", right: "-8px" },
 ]
+// #359 (ซินแสนุ้ย 2026-09-15): ชื่อเดือนไทยย่อ สำหรับการ์ด "วันดีเดือนนี้" (goodDays อยู่เดือนปัจจุบันทั้งหมด)
+const THAI_MONTHS_ABBR = ["ม.ค.", "ก.พ.", "มี.ค.", "เม.ย.", "พ.ค.", "มิ.ย.", "ก.ค.", "ส.ค.", "ก.ย.", "ต.ค.", "พ.ย.", "ธ.ค."]
 const PILLAR_LABEL: Record<string, string> = {
   year: "ปี",
   month: "เดือน",
@@ -305,8 +307,20 @@ function LifePathChart({ points }: { points: LifePathPoint[] }) {
   )
 }
 
+// #359 (ซินแสนุ้ย 2026-09-15): คำอธิบายแต่ละช่วงชีวิต (static ทั่วไป) — ตามชุดคำ เชี่ยงแซ (QI_STAGE) ของ engine
+const LIFE_PATH_PHASES: Record<string, string> = {
+  "เริ่มใหม่": "ช่วงตั้งต้น เหมาะวางรากฐานและเริ่มสิ่งใหม่ ลองผิดลองถูกเพื่อหาทางของตัวเอง",
+  "สะสม": "ช่วงเก็บเกี่ยวความรู้ ประสบการณ์ และทุน ค่อย ๆ สร้างฐานให้มั่นคงก่อนโต",
+  "ฟื้นฟู": "ช่วงตั้งหลัก ซ่อมแซมและปรับสมดุลหลังผ่านบททดสอบ เตรียมพร้อมรอบใหม่",
+  "ทดลอง": "ช่วงกล้าลองของใหม่อย่างมีสติ เปิดรับโอกาสและความเป็นไปได้ที่หลากหลาย",
+  "เก็บเกี่ยว": "ช่วงผลิดอกออกผล ได้รับผลตอบแทนจากสิ่งที่ลงแรงสะสมไว้ก่อนหน้า",
+  "โชว์สกิล": "ช่วงเปล่งประกาย ได้แสดงศักยภาพเต็มที่และเป็นที่ยอมรับ",
+  "ถดถอย": "ช่วงพักฟื้นและระมัดระวัง เน้นรักษาของเดิม ไม่รุกหนัก รอจังหวะฟื้นตัว",
+}
+
 function LifePathCard({ lifePath }: { lifePath: LifePath }) {
   const [open, setOpen] = useState(true)
+  const [infoOpen, setInfoOpen] = useState(false)
   const [tab, setTab] = useState<LifePathTab>("all")
   const points = lifePath.series?.[tab] ?? []
   const current = points.find((p) => p.isCurrent)
@@ -314,18 +328,42 @@ function LifePathCard({ lifePath }: { lifePath: LifePath }) {
     <section className="rounded-[20px] bg-white p-5 v3-shadow-card" data-testid="destiny-lifepath">
       <div className="flex items-center justify-between">
         <h2 className="text-[18px] font-bold text-v3-navy">เส้นทางชีวิต (Life Path)</h2>
-        <button
-          onClick={() => setOpen((v) => !v)}
-          aria-expanded={open}
-          aria-label="ย่อ/ขยายเส้นทางชีวิต"
-          data-testid="destiny-lifepath-toggle"
-          className="text-v3-text-muted"
-        >
-          <svg width="20" height="20" viewBox="0 0 20 20" fill="none" aria-hidden style={{ transform: open ? undefined : "rotate(180deg)" }}>
-            <path d="m5 12 5-5 5 5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-          </svg>
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setInfoOpen((v) => !v)}
+            aria-expanded={infoOpen}
+            aria-label="คำอธิบายแต่ละช่วงชีวิต"
+            data-testid="destiny-lifepath-info"
+            className="grid h-5 w-5 place-items-center rounded-full border border-v3-sapphire/50 text-[11px] font-bold italic text-v3-sapphire"
+          >
+            i
+          </button>
+          <button
+            onClick={() => setOpen((v) => !v)}
+            aria-expanded={open}
+            aria-label="ย่อ/ขยายเส้นทางชีวิต"
+            data-testid="destiny-lifepath-toggle"
+            className="text-v3-text-muted"
+          >
+            <svg width="20" height="20" viewBox="0 0 20 20" fill="none" aria-hidden style={{ transform: open ? undefined : "rotate(180deg)" }}>
+              <path d="m5 12 5-5 5 5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+          </button>
+        </div>
       </div>
+
+      {infoOpen && (
+        <div className="mt-3 rounded-[12px] bg-v3-ghost-white p-3" data-testid="destiny-lifepath-info-panel">
+          <p className="text-[12px] font-bold text-v3-navy">ความหมายแต่ละช่วง</p>
+          <ul className="mt-1.5 flex flex-col gap-1.5">
+            {Object.entries(LIFE_PATH_PHASES).map(([k, v]) => (
+              <li key={k} className="text-[12px] leading-[18px] text-v3-text-body">
+                <span className="font-bold text-v3-sapphire">{k}</span> — {v}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
 
       {open && (
         <>
@@ -523,8 +561,8 @@ function LuckyCard({ colors, deity }: { colors?: string[]; deity?: string | null
 // การ์ด "ดูดวงด้านอื่นต่อ" — คู่รัก/เพื่อนร่วมงาน/ถามเซียนมู่ (แทน จองไว้ล่วงหน้าเดิม)
 function MoreReadingsCard() {
   const rows = [
-    { title: "ดูดวงคู่รัก", sub: "เทียบธาตุกับคนที่คุณสนใจ", href: "/v2/service", icon: "/images/v2/mascot/personas/mi/love.png", tint: "#fbecec", pad: false },
-    { title: "ดูดวงเพื่อนร่วมงาน", sub: "ดูว่าทำงานกับใครแล้วรุ่ง", href: "/v2/service", icon: "/images/v2/destiny/icons/friends.svg", tint: "#eaf0fa", pad: true },
+    { title: "ดูดวงคู่รัก", sub: "เทียบธาตุกับคนที่คุณสนใจ", href: "/v2/service/compatibility/love", icon: "/images/v2/mascot/personas/mi/love.png", tint: "#fbecec", pad: false },
+    { title: "ดูดวงเพื่อนร่วมงาน", sub: "ดูว่าทำงานกับใครแล้วรุ่ง", href: "/v2/service/compatibility/colleague", icon: "/images/v2/destiny/icons/friends.svg", tint: "#eaf0fa", pad: true },
     { title: "ถามเซียนมู่เรื่องนี้ต่อ", sub: "ถามลึกกว่าที่อ่านไปได้ที", href: "/v2/chat", icon: "/images/v2/mascot/personas/mu/greet.png", tint: "#eef7f0", pad: false },
   ]
   return (
@@ -651,6 +689,12 @@ export function DestinyScreen({ previewData }: { previewData?: DestinyData } = {
   const shareCardRef = useRef<HTMLDivElement>(null)
   const shareTitle = summary ? `คุณธาตุ${summary.elementTh}${polarityOf(summary.dayMaster)}` : "ดวงของฉัน"
   const shareSummary = summary?.tagline ?? "ดูดวงธาตุของคุณแบบละเอียดกับ Mumate"
+  // #359 (B5): แถบสกิล 4 ด้านลงการ์ดแชร์ (ให้ภาพบอกได้ว่าคืออะไร) — จาก heroRows เดียวกับที่โชว์บนจอ
+  const shareSkills: ShareSkill[] = heroRows.map((d) => {
+    const score = Math.round(d.score ?? 0)
+    const g = gradeStyle(score)
+    return { label: DOMAIN_TH[d.key] ?? d.key, percent: score, grade: g.grade, color: g.color, top: d.key === topKey }
+  })
 
   const shareToday = async () => {
     // แชร์ = ลิงก์เชิญเพื่อนของ user เอง (คนสมัคร → user ได้ QI) + แนบภาพการ์ดเฉพาะบุคคล (#6)
@@ -751,20 +795,19 @@ export function DestinyScreen({ previewData }: { previewData?: DestinyData } = {
                 <span className="block h-[220px] w-[168px] overflow-hidden rounded-[16px] bg-white/10">
                   <MascotImage src={mascotUrl} alt="มาสคอตประจำวันเกิด" className="h-full w-full object-cover" />
                 </span>
-                {elementCounts.map(({ el, n }, i) => {
+                {/* #359 (ซินแสนุ้ย 2026-09-15): โชว์แค่ไอคอนธาตุ (ตัดป้าย ธาตุ×N) + ใส่ glow เรือง */}
+                {elementCounts.map(({ el }, i) => {
                   const slot = ELEMENT_SLOTS[i]
                   if (!slot) return null
                   return (
                     <div key={el} className="absolute z-10 flex flex-col items-center" style={slot} data-testid={`destiny-element-${el}`}>
-                      <Image src={ELEMENT_MASCOT[el]} alt={`ธาตุ${ELEMENT_TH[el]}`} width={40} height={40} unoptimized className="h-10 w-10 object-contain drop-shadow-[0_2px_5px_rgba(0,0,0,0.3)]" />
-                      <span className="-mt-1 rounded-full bg-white px-1.5 text-[10px] font-bold leading-4 shadow-[0_1px_3px_rgba(0,0,0,0.25)]" style={{ color: ELEMENT_INK[el] }}>
-                        {ELEMENT_TH[el]}×{n}
-                      </span>
+                      <Image src={ELEMENT_MASCOT[el]} alt={`ธาตุ${ELEMENT_TH[el]}`} width={44} height={44} unoptimized className="h-11 w-11 object-contain drop-shadow-[0_0_7px_rgba(255,255,255,0.75)]" />
                     </div>
                   )
                 })}
               </div>
-              <span className="-mt-6 grid h-16 w-16 place-items-center overflow-hidden rounded-full border-2 border-v3-lime bg-v3-sapphire">
+              {/* #359: avatar ต้องอยู่เหนือการ์ด+ไอคอน (z-20) ไม่ให้การ์ดบังรูปโปรไฟล์ */}
+              <span className="relative z-20 -mt-6 grid h-16 w-16 place-items-center overflow-hidden rounded-full border-2 border-v3-lime bg-v3-sapphire">
                 {/* #1 (ซินแสนุ้ย 2026-09-14): รูปที่ผู้ใช้อัปโหลดอยู่ที่ engine avatar store → อ่าน /api/v2/avatar
                     (แหล่งเดียวกับ avatar มุมขวาบน) ไม่ใช่ data.avatarUrl (= user.picture_url รูป LINE เก่า).
                     fallback: avatarUrl (LINE) → MASCOT_FALLBACK ถ้าโหลดไม่ได้ (กันลูปด้วย dataset.fb). */}
@@ -853,7 +896,7 @@ export function DestinyScreen({ previewData }: { previewData?: DestinyData } = {
                         <div key={key} className="flex flex-col items-center rounded-[12px] border border-v3-border-card py-2">
                           <span className="text-[10px] text-v3-text-muted">{PILLAR_LABEL[key] ?? key}</span>
                           <span className="text-[15px] font-bold leading-5" style={{ color: inkOf(p.stem) ?? "#0b305b" }}>{p.stem}</span>
-                          <span className="text-[12px] leading-4" style={{ color: inkOf(p.branch) ?? "#464646" }}>{p.branch}</span>
+                          <span className="text-[15px] font-bold leading-5" style={{ color: inkOf(p.branch) ?? "#464646" }}>{p.branch}</span>
                         </div>
                       ))
                   : null}
@@ -921,13 +964,16 @@ export function DestinyScreen({ previewData }: { previewData?: DestinyData } = {
                 <h3 className="text-[15px] font-bold text-v3-navy">วันดีเดือนนี้</h3>
                 <p className="mt-0.5 text-[11px] text-v3-text-note">3 วันที่ดวงคุณส่งเสริมที่สุดในเดือนนี้</p>
                 <div className="mt-3 flex flex-col gap-2">
-                  {data!.goodDays!.map((d, i) => (
+                  {/* #359: เรียงตามวันที่ (asc) + ต่อชื่อเดือน + เกรดขึ้น "วันเกรดX" */}
+                  {[...data!.goodDays!]
+                    .sort((a, b) => (a.dayOfMonth ?? 99) - (b.dayOfMonth ?? 99))
+                    .map((d, i) => (
                     <div key={i} className="flex items-center justify-between rounded-[12px] bg-v3-qi-earn-bg px-3 py-2">
                       <span className="text-[13px] font-medium text-v3-navy">
-                        {d.weekday ? `${d.weekday} ` : ""}{d.dayOfMonth != null ? `${d.dayOfMonth}` : (d.date ?? "")}
+                        {d.weekday ? `${d.weekday} ` : ""}{d.dayOfMonth != null ? `${d.dayOfMonth} ${THAI_MONTHS_ABBR[new Date().getMonth()]}` : (d.date ?? "")}
                       </span>
                       <span className="text-[12px] font-bold text-v3-qi-earn">
-                        {d.grade ?? (d.percent != null ? `${d.percent}%` : "")}
+                        {d.grade ? `วันเกรด${d.grade}` : (d.percent != null ? `${d.percent}%` : "")}
                       </span>
                     </div>
                   ))}
@@ -991,7 +1037,7 @@ export function DestinyScreen({ previewData }: { previewData?: DestinyData } = {
       {/* #6: การ์ดแชร์เฉพาะบุคคล (ซ่อนนอกจอ) */}
       {mascotUrl ? (
         <ShareStage>
-          <ShareCard ref={shareCardRef} tag="ดวงธาตุของฉัน" title={shareTitle} summary={shareSummary} images={[mascotUrl]} />
+          <ShareCard ref={shareCardRef} tag="ดวงธาตุของฉัน" title={shareTitle} summary={shareSummary} images={mascotUrl ? [mascotUrl] : []} skills={shareSkills} />
         </ShareStage>
       ) : null}
     </div>

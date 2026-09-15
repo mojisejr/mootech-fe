@@ -161,7 +161,7 @@ function ElementInsightCard({ element }: { element: ElementInfo }) {
       <div className="flex items-center gap-2">
         {/* สัตว์ธาตุ (60-card) ตาม ganzhi ของคุณจาก engine */}
         <MonthMascot ganzhi={element?.dayGanzhi} elementTh={el} />
-        <p className="text-[16px] font-bold text-v3-navy">ธาตุ{el}ของคุณเดือนนี้</p>
+        <p className="text-[16px] font-bold text-v3-navy">คำแนะนำในการเพิ่มความปรารถนาตามดวงของคุณ</p>
       </div>
       <p className="mt-2 text-[13px] leading-[20px] text-v3-text-body">
         {monthInsight(el, monthEl)}
@@ -179,20 +179,38 @@ function ElementInsightCard({ element }: { element: ElementInfo }) {
   )
 }
 
-// ตั้งเวลาแมนิเฟสต์ (07:00 + แจ้งเตือนทุกวัน) — เก็บค่าไว้ local + ขอสิทธิ์แจ้งเตือน
-// TODO(push): ต่อ schedule จริงกับ calendar push infra (kind=manifest) — pass ถัดไป
+// ตั้งเวลาแมนิเฟสต์ (07:00 + แจ้งเตือนทุกวัน) — #359: เก็บฝั่ง server (manifest_reminder) ให้ cron รายเช้ายิง push
+// จริง (ไม่ใช่แค่ localStorage เดิม). localStorage คงไว้เป็น cache ให้จอไม่กระพริบระหว่างรอ GET.
 function ReminderCard() {
   const [time, setTime] = useState("07:00")
   const [on, setOn] = useState(false)
   useEffect(() => {
+    // cache ก่อน (กันกระพริบ) แล้วค่อย sync จาก server เป็นแหล่งจริง
     try {
       const raw = JSON.parse(localStorage.getItem("mumate-manifest-reminder") || "{}") as { time?: string; on?: boolean }
       if (raw.time) setTime(raw.time)
       if (typeof raw.on === "boolean") setOn(raw.on)
     } catch { /* ignore */ }
+    let alive = true
+    ;(async () => {
+      try {
+        const r = await fetch("/api/v2/manifest/reminder")
+        if (!r.ok) return
+        const j = (await r.json()) as { ok?: boolean; enabled?: boolean; hour?: number; minute?: number }
+        if (!alive || !j.ok) return
+        const t = `${String(j.hour ?? 7).padStart(2, "0")}:${String(j.minute ?? 0).padStart(2, "0")}`
+        setTime(t); setOn(!!j.enabled)
+      } catch { /* server ล่ม → ใช้ค่า cache */ }
+    })()
+    return () => { alive = false }
   }, [])
   const persist = (t: string, o: boolean) => {
     try { localStorage.setItem("mumate-manifest-reminder", JSON.stringify({ time: t, on: o })) } catch { /* ignore */ }
+    // เขียนลง server (fire-and-forget) — cron อ่านจากตรงนี้
+    void fetch("/api/v2/manifest/reminder", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ enabled: o, time: t }),
+    }).catch(() => {})
   }
   const toggle = async () => {
     const next = !on
@@ -377,6 +395,8 @@ function CreateGoalModal({ onClose, onCreated }: { onClose: () => void; onCreate
     const file = e.target.files?.[0]
     e.target.value = ""
     if (!file) return
+    // #359 (ซินแสนุ้ย 2026-09-15): รับเฉพาะ jpg/png — ไฟล์ .heic (iPhone) decode ไม่ได้บนเบราว์เซอร์ทั่วไป
+    if (!/^image\/(jpeg|png)$/i.test(file.type)) { setErr("รองรับเฉพาะไฟล์ .jpg / .png เท่านั้น"); return }
     setUploading(true); setErr(null)
     try {
       const { dataUrl, mime } = await resizeImage(file)
@@ -436,8 +456,9 @@ function CreateGoalModal({ onClose, onCreated }: { onClose: () => void; onCreate
 
         <div className="mt-3">
           <span className="text-[13px] font-bold text-v3-navy">รูปภาพ (ไม่บังคับ)</span>
+          <span className="ml-2 text-[11px] text-v3-text-muted">รองรับ .jpg / .png เท่านั้น</span>
           <label className="mt-1 flex h-40 cursor-pointer items-center justify-center overflow-hidden rounded-[16px] border border-dashed border-v3-border-input bg-v3-ghost-white" data-testid="manifest-photo-pick">
-            <input type="file" accept="image/*" className="hidden" onChange={onPick} />
+            <input type="file" accept="image/jpeg,image/png" className="hidden" onChange={onPick} />
             {uploading ? (
               <span className="text-[13px] text-v3-text-muted">กำลังอัปโหลด…</span>
             ) : photo ? (

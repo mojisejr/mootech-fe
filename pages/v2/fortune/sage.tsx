@@ -221,7 +221,7 @@ export default function FortuneSagePage() {
                 <p className="text-[13px] leading-[22px] text-v3-text-body">{stick.topics[s.key]}</p>
               )}
               {s.key === "health" ? (
-                <p className="mt-2 rounded-[10px] bg-[#FDECEC] px-3 py-2 text-[11px] leading-4 text-[#A83238]">ข้อมูลเพื่อความบันเทิง ไม่ใช่คำวินิจฉัยทางการแพทย์ หากมีอาการควรพบแพทย์</p>
+                <p className="mt-2 rounded-[10px] bg-[#FDECEC] px-3 py-2 text-[11px] leading-4 text-[#A83238]">ข้อมูลเพื่อการพยากรณ์ ไม่ใช่คำวินิจฉัยทางการแพทย์ หากมีอาการควรพบแพทย์</p>
               ) : null}
             </DotSection>
           ))}

@@ -25,3 +25,13 @@ export function buildReminderPayload(r: ReminderNotice): PushPayload {
     url: `/v2/calendar/${r.date}`,
   }
 }
+
+// #359 (ซินแสนุ้ย 2026-09-15) — manifest morning nudge. ทั่วไป (ไม่ดึงเนื้อ goal จาก engine): เตือนให้
+// กลับมาตั้งจิต/เช็คอินความปรารถนาของวันนี้. deep-link → หน้ามานิเฟส.
+export function buildManifestPayload(): PushPayload {
+  return {
+    title: "🌱 ถึงเวลาตั้งจิตวันนี้",
+    body: "เปิดมานิเฟสต์ เช็คอินความปรารถนาของคุณสักครู่",
+    url: "/v2/service/manifest",
+  }
+}

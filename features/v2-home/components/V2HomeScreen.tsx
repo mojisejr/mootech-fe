@@ -193,6 +193,15 @@ function Greeting({ name, mascotCharacter, element, profile, membership, loading
         ? <Link href="/v2/account" className="block w-fit"><h1 data-testid="greeting-name" className="line-clamp-2 break-words text-2xl font-bold leading-8 text-v3-navy">{name}</h1></Link>
         : <Skeleton className="my-1 h-6 w-40 rounded" />}
       <ElementLine mascotCharacter={mascotCharacter} element={element} loading={loading.mascot} />
+      {/* #359 (ซินแสนุ้ย 2026-09-15): ปุ่ม "ดูดวงของฉัน" หลังบรรทัดดิถี — ให้รู้ว่ากดเข้าดวงตัวเองได้ */}
+      <Link
+        href="/v2/destiny"
+        data-testid="home-my-destiny"
+        className="mt-1 inline-flex w-fit items-center gap-1 rounded-full bg-v3-sapphire/10 px-3 py-1 text-[13px] font-bold text-v3-sapphire"
+      >
+        ดูดวงของฉัน
+        <span aria-hidden>›</span>
+      </Link>
     </header>
   )
 }

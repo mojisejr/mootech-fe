@@ -101,19 +101,15 @@ export const PLANS: readonly Plan[] = [
   },
   {
     id: 'pro',
-    // The design draws no เซียมซี line for Pro even though Free and + both have one. Confirmed against the
-    // rendered frame (636:11973), not inferred: we draw what is drawn (#359 question 3).
+    // #359 (ซินแสนุ้ย 2026-09-15): เจ้าของสั่งให้เติมบรรทัดเซียมซี/Oracle Card กลับเข้า Pro (รูป 8 "ตรงนี้หาย").
+    // Pro = ไม่จำกัดทุกข้อ (lib/v2/entitlement.ts ให้ PRO เป็น null = ไม่มีเพดาน; โควตา card จริงบังคับที่ engine).
     name: 'Mumate Pro',
     tagline: 'สำหรับสายมูตัวจริง หรือต้องการไกด์ไลน์ในช่วงการตัดสินใจครั้งใหญ่ของชีวิต',
     features: [
-      // #573 DECIDED: Pro is NOT touched, and this is a ruling, not an omission. lib/v2/entitlement.ts:41
-      // gives PRO `null` for compatibility — no monthly ceiling exists — so 'ไม่จำกัด / เดือน' would name a
-      // cycle that is not there, and a reader who has met the Free and + cards reads a cycle as a cap. The
-      // other two Pro bullets are bare 'ไม่จำกัด' for the same reason; changing one of the three would make
-      // this card internally uneven while making the set of cards look even.
       'ดวงสมพงศ์ การงาน, ความรัก ไม่จำกัด (Unlimited)',
       'ปฏิทินดวงเฉพาะบุคคล ไม่จำกัด (รายวันแบบเต็ม)',
       'เชี่ยวมู chat (ชินแซ 24 ชม): ไม่จำกัด (Unlimited)',
+      'เซียมซี / Oracle Card: ไม่จำกัด (Unlimited)',
     ],
     codes: { monthly: 'V2_PRO_MONTHLY', annual: 'V2_PRO_YEARLY' },
     badge: { label: 'แนะนำ 🔥', tone: 'error' },
