@@ -26,7 +26,7 @@ type Look = { code?: string; inviterName?: string | null }
 // SSR OG card (ซินแส 2026-09-12): /invite ไม่โดน v2 gate → scraper เข้าถึงได้ แต่เดิมไม่มี og:* เลย
 // (card ขึ้น "MuMate · preview"). ดึงชื่อผู้ชวนฝั่ง server แล้วปล่อย og ให้ FB/LINE ทำ rich preview.
 // #359 รอบ 13: พารามิเตอร์การ์ดแชร์เฉพาะผล (t/s/d/g/m) ที่ติดมากับลิงก์ → ใช้ทำ og:image เฉพาะบุคคล
-type ShareOg = { t?: string; s?: string; d?: string; g?: string; m?: string }
+type ShareOg = { t?: string; s?: string; d?: string; g?: string; m?: string; k?: string }
 type InviteSSR = { ssrCode: string; ssrInviterName: string | null; origin: string; share: ShareOg; shareUrl: string }
 
 export const getServerSideProps: GetServerSideProps<InviteSSR> = async (ctx) => {
@@ -59,7 +59,7 @@ export const getServerSideProps: GetServerSideProps<InviteSSR> = async (ctx) => 
     try {
       const rows = await db.select().from(shareSnapshot).where(eq(shareSnapshot.id, snapId)).limit(1)
       const r = rows[0]
-      if (r) share = { t: r.title, s: r.subtitle ?? "", d: r.summary ?? "", g: r.tag ?? "", m: r.image ?? "" }
+      if (r) share = { t: r.title, s: r.subtitle ?? "", d: r.summary ?? "", g: r.tag ?? "", m: r.image ?? "", k: r.skills ?? "" }
     } catch {
       /* best-effort — ดึงสแนปช็อตไม่ได้ → การ์ดแบรนด์ทั่วไป */
     }

@@ -19,7 +19,18 @@ export async function fetchInviteUrl(): Promise<string> {
 export type ShareResult = "shared" | "copied" | "failed"
 
 // #359 รอบ 13: พารามิเตอร์การ์ดแชร์เฉพาะผล → แนบไปกับลิงก์ /invite ให้หน้า invite ทำ og:image เฉพาะบุคคล
-export type ShareOgParams = { title: string; subtitle?: string; summary?: string; tag?: string; image?: string }
+// รอบ 16: skills = แถบสกิล 4 ด้าน (เฉพาะดวงธาตุ) → encode เป็นสตริงเก็บใน snapshot
+export type ShareSkillOg = { label: string; percent: number; grade: string; color: string; top?: boolean }
+export type ShareOgParams = { title: string; subtitle?: string; summary?: string; tag?: string; image?: string; skills?: ShareSkillOg[] }
+
+// encode สกิล → "label|percent|grade|color|top~..." (คั่นแถวด้วย "~", ฟิลด์ด้วย "|"); label ตัด "|""~" กันพัง
+function encodeSkills(skills: ShareSkillOg[] | undefined): string | undefined {
+  if (!skills || !skills.length) return undefined
+  return skills
+    .slice(0, 4)
+    .map((s) => [s.label.replace(/[|~]/g, " "), Math.round(s.percent), s.grade, s.color, s.top ? "1" : "0"].join("|"))
+    .join("~")
+}
 
 // #359 รอบ 14 (2026-09-15): เดิมยัด t/s/d/g/m ลง query → ไทย 1 ตัว = 9 ตัวอักษรเมื่อ encode → ลิงก์ยาวมาก.
 // แก้: POST เก็บ "สแนปช็อต" ที่ server แล้วได้โค้ดสั้น → ลิงก์ = /invite/CODE?c=<id> (สั้น กดได้).
@@ -29,7 +40,14 @@ async function createShareSnapshot(og: ShareOgParams): Promise<string | null> {
     const r = await fetch("/api/v2/share/snapshot", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(og),
+      body: JSON.stringify({
+        title: og.title,
+        subtitle: og.subtitle,
+        summary: og.summary,
+        tag: og.tag,
+        image: og.image,
+        skills: encodeSkills(og.skills),
+      }),
     })
     if (!r.ok) return null
     const j = (await r.json().catch(() => null)) as { id?: unknown } | null

@@ -484,7 +484,7 @@ export function WorkResultScreen({ matchingId }: { matchingId: string }) {
       </p>
 
       {/* #359 รอบ 10: ปุ่ม PDF/แชร์ ลอยล่าง ดีไซน์เดียวกับหน้าคู่รัก (ResultActionBar มาตรฐาน) */}
-      <ResultActionBar shareText="ผลดวงสมพงศ์เพื่อนร่วมงานของฉันจาก Mumate" testIdPrefix="work" og={{ title: shareTitle, subtitle: shareSubtitle, summary: shareSummary, tag: "ผลความสมพงศ์", image: shareImages[0] }} getShareFile={() => captureShareImage(shareCardRef.current)} />
+      <ResultActionBar shareText="ผลดวงสมพงศ์เพื่อนร่วมงานของฉันจาก Mumate" testIdPrefix="work" og={{ title: shareTitle, subtitle: shareSubtitle, summary: shareSummary, tag: "ผลความสมพงศ์", image: shareImages.slice(0, 2).join(",") }} getShareFile={() => captureShareImage(shareCardRef.current)} />
 
       {/* #359 (A7): การ์ดแชร์เฉพาะบุคคล (ซ่อนนอกจอ) — คู่ที่เข้ากับคุณที่สุด */}
       <ShareStage>

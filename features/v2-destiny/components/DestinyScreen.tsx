@@ -701,7 +701,7 @@ export function DestinyScreen({ previewData }: { previewData?: DestinyData } = {
     await shareAsInvite({
       title: "Mumate — ดวงของฉันวันนี้",
       text: shareSummary,
-      og: { title: shareTitle, summary: shareSummary, tag: "ดวงธาตุของฉัน", image: mascotUrl ?? undefined },
+      og: { title: shareTitle, summary: shareSummary, tag: "ดวงธาตุของฉัน", image: mascotUrl ?? undefined, skills: shareSkills },
     })
     // รู้ผลของวันนี้แล้ว (รับ/เต็มโควตา) ⇒ ไม่ยิง qi-earn ซ้ำ (แชร์เองยังทำได้ตามปกติด้านบน)
     if (shareState === "done" || shareState === "capped") return
