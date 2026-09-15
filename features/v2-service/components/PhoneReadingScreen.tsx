@@ -196,7 +196,8 @@ export function PhoneReadingScreen({ initialMode = "normal" }: { initialMode?: M
         setError(msg || "ทำนายเบอร์ไม่สำเร็จ ลองใหม่อีกครั้ง"); setPhase("intro"); return
       }
       // คำนวณสำเร็จแล้วค่อยหัก QI — ถ้าแต้มไม่พอ (409) จะไม่โชว์ผล (ยังไม่ได้จ่าย)
-      const spend = await fetch("/api/qi-spend", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ code: c.spendCode }) })
+      // credit ก่อน (grant/คูปอง phone_reading/honeycomb_reading) → แล้วค่อยหัก QI
+      const spend = await fetch("/api/v2/phone-charge", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ code: c.spendCode }) })
       if (!spend.ok) {
         if (spend.status === 409) { setError(`แต้ม QI ไม่พอ (ใช้ ${QI_COST} QI ต่อการทำนาย)`); setNeedQi(true) }
         else if (spend.status === 401) setError("กรุณาเข้าสู่ระบบก่อนใช้งาน")
