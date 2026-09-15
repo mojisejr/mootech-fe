@@ -4,7 +4,7 @@ import Script from "next/script";
 export default function Document() {
   const gtm = "GTM-MLZC4FRC";
   return (
-    <Html lang="en">
+    <Html lang="th">
       <Head>
           {/* PWA (#285): manifest + theme + iOS home-screen meta. apple-* tags are what let iOS run
               the app full-screen (no Safari chrome) after Add-to-Home-Screen. */}

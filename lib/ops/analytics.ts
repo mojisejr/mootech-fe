@@ -30,5 +30,22 @@ export async function getFeAnalytics(days = 30) {
       FROM member_subscription
      WHERE status = 'ACTIVE' AND expire_at >= CURRENT_DATE
      GROUP BY 1 ORDER BY members DESC`))
-  return { days: d, revenueByDay, revenueByPackage, tierDistribution }
+  // สมาชิก v2 (CIEL mootech-ga4-instrumentation-001, D4) — ตัวหารของ "% สมาชิกที่ใช้งานต่อวัน" ที่ทีมขอ.
+  // "สมาชิก v2" = user.onboarded_at ไม่ว่าง (ผ่าน first-run แล้ว) ตามที่ owner ตัดสิน 2026-09-15: ใช้ข้อมูล v2
+  // ตั้งแต่นี้ไป ไม่นับ member เก่าที่ยังไม่เคยผ่าน first-run. onboarded_at เป็น text ISO (BE consent.service
+  // เขียน new Date().toISOString()) จึง cast เป็น timestamptz ได้; "วันนี้" = วันตามเวลากรุงเทพ.
+  // GA ให้ตัวเลขนี้ไม่ได้ — มันรู้จักแค่คนที่เข้ามาในช่วงวันที่เลือก ไม่รู้จักสมาชิกที่สมัครแล้วหายไป.
+  const memberRows = rowsOf(await db.execute(sql`
+    SELECT COUNT(*)::int AS members_total,
+           COUNT(*) FILTER (WHERE (onboarded_at::timestamptz AT TIME ZONE 'Asia/Bangkok')::date = (now() AT TIME ZONE 'Asia/Bangkok')::date)::int AS members_new_today,
+           COUNT(*) FILTER (WHERE onboarded_at::timestamptz >= now() - interval '7 days')::int AS members_new_7d
+      FROM "user"
+     WHERE onboarded_at IS NOT NULL AND onboarded_at <> ''`))
+  const m = memberRows[0] ?? {}
+  const members = {
+    total: Number(m.members_total ?? 0),
+    newToday: Number(m.members_new_today ?? 0),
+    new7d: Number(m.members_new_7d ?? 0),
+  }
+  return { days: d, revenueByDay, revenueByPackage, tierDistribution, members }
 }
