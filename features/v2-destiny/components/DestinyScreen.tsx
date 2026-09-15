@@ -26,7 +26,6 @@ import { MateAIButton } from "@/features/v2-shell/components/MateAIButton"
 import { TopBarBell } from "@/features/v2-shell/components/TopBarBell"
 import { TopBarAvatar } from "@/features/v2-shell/components/TopBarAvatar"
 import { shareAsInvite } from "@/lib/v2/share-invite"
-import { captureShareImage } from "@/lib/v2/share-card"
 import { ShareCard, ShareStage, type ShareSkill } from "@/features/v2-share/components/ShareCard"
 
 // engine `element-summary` returns advice as OBJECTS ({key,label,text}), not strings — the earlier
@@ -698,8 +697,12 @@ export function DestinyScreen({ previewData }: { previewData?: DestinyData } = {
 
   const shareToday = async () => {
     // แชร์ = ลิงก์เชิญเพื่อนของ user เอง (คนสมัคร → user ได้ QI) + แนบภาพการ์ดเฉพาะบุคคล (#6)
-    const file = await captureShareImage(shareCardRef.current)
-    await shareAsInvite({ title: "Mumate — ดวงของฉันวันนี้", text: shareSummary, imageUrl: mascotUrl, file })
+    // #359 รอบ 13: แชร์เป็นลิงก์ + og:image เฉพาะบุคคล (Messenger/LINE ได้ลิงก์กดได้ + พรีวิวการ์ด)
+    await shareAsInvite({
+      title: "Mumate — ดวงของฉันวันนี้",
+      text: shareSummary,
+      og: { title: shareTitle, summary: shareSummary, tag: "ดวงธาตุของฉัน", image: mascotUrl ?? undefined },
+    })
     // รู้ผลของวันนี้แล้ว (รับ/เต็มโควตา) ⇒ ไม่ยิง qi-earn ซ้ำ (แชร์เองยังทำได้ตามปกติด้านบน)
     if (shareState === "done" || shareState === "capped") return
     // แชร์ = รับ +10 QI วันละ 1 ครั้ง (code "share"). อ่านผลจริงจาก engine แล้วบอกให้ตรง — ได้จริง = "รับแล้ว",

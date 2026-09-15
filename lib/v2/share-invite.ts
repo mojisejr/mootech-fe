@@ -18,6 +18,20 @@ export async function fetchInviteUrl(): Promise<string> {
 
 export type ShareResult = "shared" | "copied" | "failed"
 
+// #359 รอบ 13: พารามิเตอร์การ์ดแชร์เฉพาะผล → แนบไปกับลิงก์ /invite ให้หน้า invite ทำ og:image เฉพาะบุคคล
+export type ShareOgParams = { title: string; subtitle?: string; summary?: string; tag?: string; image?: string }
+
+function appendShareParams(baseUrl: string, og: ShareOgParams): string {
+  const p = new URLSearchParams()
+  if (og.title) p.set("t", og.title.slice(0, 80))
+  if (og.subtitle) p.set("s", og.subtitle.slice(0, 60))
+  if (og.summary) p.set("d", og.summary.slice(0, 200))
+  if (og.tag) p.set("g", og.tag.slice(0, 30))
+  if (og.image) p.set("m", og.image)
+  const qs = p.toString()
+  return qs ? `${baseUrl}${baseUrl.includes("?") ? "&" : "?"}${qs}` : baseUrl
+}
+
 /** แชร์เป็นคำเชิญ: url = ลิงก์เชิญของ user, แนบภาพการ์ด (ถ้ารองรับ).
  *  #6 (2026-09-15): รับ `file` = ภาพการ์ดเฉพาะบุคคลที่ render มาแล้ว (html2canvas) → แนบตรง ไม่ต้อง fetch.
  *  ถ้าไม่มี `file` แต่มี `imageUrl` → fetch มาแนบเหมือนเดิม (backward-compatible). */
@@ -26,14 +40,27 @@ export async function shareAsInvite({
   text,
   imageUrl,
   file,
+  og,
 }: {
   title: string
   text: string
   imageUrl?: string | null
   file?: File | null
+  og?: ShareOgParams | null
 }): Promise<ShareResult> {
-  const url = await fetchInviteUrl()
+  const baseUrl = await fetchInviteUrl()
+  const url = og ? appendShareParams(baseUrl, og) : baseUrl
   const nav = typeof navigator !== "undefined" ? navigator : undefined
+
+  // #359 รอบ 13: มี og → แชร์เป็น "ลิงก์" อย่างเดียว (ไม่แนบไฟล์) เพื่อให้ Messenger/LINE/FB โชว์ลิงก์กดได้
+  // + พรีวิวการ์ดเฉพาะบุคคล (og:image = /api/og/share). แนบไฟล์รูปทำให้แอปทิ้งลิงก์ จึงไม่แนบเมื่อมี og.
+  if (og) {
+    try {
+      if (nav?.share) { await nav.share({ title, text, url }); return "shared" }
+      if (nav?.clipboard) { await nav.clipboard.writeText(`${text} ${url}`); return "copied" }
+    } catch { /* ยกเลิก/error → ไม่สำเร็จ */ }
+    return "failed"
+  }
 
   // พยายามแนบภาพการ์ด (best-effort — ล้มก็แชร์แค่ url+text): file ที่ render แล้วก่อน, ไม่งั้น fetch จาก imageUrl
   let files: File[] | undefined

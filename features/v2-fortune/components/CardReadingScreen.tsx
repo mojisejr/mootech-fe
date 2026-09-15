@@ -10,7 +10,6 @@ import { KitButton, SkyHeader, SkyScreen } from "@/features/v2-profile/component
 import { Menubar } from "@/features/v2-shell/components/Menubar"
 import { useActionCooldown } from "@/lib/useActionCooldown"
 import { shareAsInvite } from "@/lib/v2/share-invite"
-import { captureShareImage } from "@/lib/v2/share-card"
 import { ShareCard, ShareStage } from "@/features/v2-share/components/ShareCard"
 
 export type FortuneCard = {
@@ -177,8 +176,8 @@ export function CardReadingScreen({
     }
     // แชร์ = ลิงก์เชิญเพื่อนของ user เอง (คนสมัคร → user ได้ QI) + แนบภาพการ์ดเฉพาะบุคคล (#6)
     const text = cards.length ? `เปิดไพ่ได้ ${cards.map((c) => c.name).join(" · ")} — ${title} กับ Mumate` : `${title} กับ Mumate`
-    const file = await captureShareImage(shareCardRef.current)
-    void shareAsInvite({ title, text, imageUrl: cards[0] ? faceUrl(cards[0]) : null, file })
+    // #359 รอบ 13: แชร์เป็นลิงก์ + og:image เฉพาะผล (ลิงก์กดได้ทุกแอป + พรีวิวการ์ด)
+    void shareAsInvite({ title, text, og: { title: resultTitle || title, summary: shareSummary, tag: title, image: shareImages[0] } })
   }
 
   const headerTitle = phase === "result" ? resultTitle : phase === "pick" ? "เลือกไพ่ 3 ใบ" : title
