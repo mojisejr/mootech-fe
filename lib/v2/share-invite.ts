@@ -51,10 +51,13 @@ export async function shareAsInvite({
     }
   }
 
+  // #359 รอบ 10: หลายแอป (LINE/IG/มือถือ) เวลาแนบไฟล์รูป จะ "ทิ้ง" field url/text ทำให้ลิงก์ชวน + slug หาย.
+  // แก้โดยฝังลิงก์เชิญไว้ใน text ด้วย → ลิงก์ (พร้อมโค้ดผู้ชวน) รอดแม้ url จะถูกตัดตอนแนบไฟล์.
+  const textWithLink = `${text}\n${url}`
   try {
     if (nav?.share) {
       const canFiles = files && typeof nav.canShare === "function" && nav.canShare({ files })
-      await nav.share(canFiles ? { title, text, url, files } : { title, text, url })
+      await nav.share(canFiles ? { title, text: textWithLink, files } : { title, text: textWithLink, url })
       return "shared"
     }
     if (nav?.clipboard) {

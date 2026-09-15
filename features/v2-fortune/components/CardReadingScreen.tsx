@@ -103,8 +103,9 @@ export function CardReadingScreen({
 
   // #6 (2026-09-15): การ์ดแชร์เฉพาะบุคคล — หน้าไพ่ที่เปิดได้ + สรุปคำทำนายสั้น
   const shareCardRef = useRef<HTMLDivElement>(null)
-  const shareSummary = (cards[0]?.meaning?.trim() || proseParas[0] || cards[0]?.book1 || `${title} กับ Mumate`).slice(0, 150)
-  const shareImages = cards.slice(0, 2).map(faceUrl)
+  // #359 รอบ 10: สรุปรวมจากไพ่ทุกใบ (ไม่ใช่แค่ใบแรก) + โชว์ไพ่ครบ 3 ใบ
+  const shareSummary = cards.map((c) => c.meaning?.trim()).filter(Boolean).join(" ") || proseParas.join(" ") || `${title} กับ Mumate`
+  const shareImages = cards.map(faceUrl)
 
   // 402 = ฟรีหมด + เครดิตหมด + ชี่ไม่พอ (engine หักชี่ให้เองเมื่อพอ) — ปุ่มแลกตรงนี้: แลก card_use 1 ครั้งด้วยชี่ แล้วเปิดต่อทันที
   const [redeeming, setRedeeming] = useState(false)
@@ -358,7 +359,7 @@ export function CardReadingScreen({
       {/* #6: การ์ดแชร์เฉพาะบุคคล (ซ่อนนอกจอ) */}
       {phase === "result" && cards.length > 0 ? (
         <ShareStage>
-          <ShareCard ref={shareCardRef} tag={title} title={cards[0]?.name ?? title} summary={shareSummary} images={shareImages} />
+          <ShareCard ref={shareCardRef} tag={title} title={resultTitle || title} summary={shareSummary} images={shareImages} />
         </ShareStage>
       ) : null}
     </SkyScreen>

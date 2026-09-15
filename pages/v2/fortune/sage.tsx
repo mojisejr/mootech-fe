@@ -249,7 +249,7 @@ export default function FortuneSagePage() {
             tag="เซียมซี"
             title={`เซียมซีใบที่ ${stick.no}`}
             subtitle={`${stick.pillar} · ${stick.nayin}`}
-            summary={(stick.personality?.trim() || "เสี่ยงเซียมซีเสริมดวงกับ Mumate").slice(0, 150)}
+            summary={stick.personality?.trim() || "เสี่ยงเซียมซีเสริมดวงกับ Mumate"}
             images={[`/images/v2/fortune/cards/sage/${stick.no}.jpg`]}
           />
         </ShareStage>
