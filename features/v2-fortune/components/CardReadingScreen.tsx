@@ -4,12 +4,14 @@
 import Head from "next/head"
 import Image from "next/image"
 import Link from "next/link"
-import { useEffect, useMemo, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 
 import { KitButton, SkyHeader, SkyScreen } from "@/features/v2-profile/components/kit"
 import { Menubar } from "@/features/v2-shell/components/Menubar"
 import { useActionCooldown } from "@/lib/useActionCooldown"
 import { shareAsInvite } from "@/lib/v2/share-invite"
+import { captureShareImage } from "@/lib/v2/share-card"
+import { ShareCard, ShareStage } from "@/features/v2-share/components/ShareCard"
 
 export type FortuneCard = {
   no: number
@@ -99,6 +101,11 @@ export function CardReadingScreen({
     else img.style.visibility = "hidden"
   }
 
+  // #6 (2026-09-15): การ์ดแชร์เฉพาะบุคคล — หน้าไพ่ที่เปิดได้ + สรุปคำทำนายสั้น
+  const shareCardRef = useRef<HTMLDivElement>(null)
+  const shareSummary = (cards[0]?.meaning?.trim() || proseParas[0] || cards[0]?.book1 || `${title} กับ Mumate`).slice(0, 150)
+  const shareImages = cards.slice(0, 2).map(faceUrl)
+
   // 402 = ฟรีหมด + เครดิตหมด + ชี่ไม่พอ (engine หักชี่ให้เองเมื่อพอ) — ปุ่มแลกตรงนี้: แลก card_use 1 ครั้งด้วยชี่ แล้วเปิดต่อทันที
   const [redeeming, setRedeeming] = useState(false)
   const [redeemMsg, setRedeemMsg] = useState<string | null>(null)
@@ -167,9 +174,10 @@ export function CardReadingScreen({
         /* QI ล่ม — คง idle ให้ลองใหม่ได้ */
       }
     }
-    // แชร์ = ลิงก์เชิญเพื่อนของ user เอง (คนสมัคร → user ได้ QI) + แนบภาพไพ่หลัก (ผู้ใช้ 2026-09-12)
+    // แชร์ = ลิงก์เชิญเพื่อนของ user เอง (คนสมัคร → user ได้ QI) + แนบภาพการ์ดเฉพาะบุคคล (#6)
     const text = cards.length ? `เปิดไพ่ได้ ${cards.map((c) => c.name).join(" · ")} — ${title} กับ Mumate` : `${title} กับ Mumate`
-    void shareAsInvite({ title, text, imageUrl: cards[0] ? faceUrl(cards[0]) : null })
+    const file = await captureShareImage(shareCardRef.current)
+    void shareAsInvite({ title, text, imageUrl: cards[0] ? faceUrl(cards[0]) : null, file })
   }
 
   const headerTitle = phase === "result" ? resultTitle : phase === "pick" ? "เลือกไพ่ 3 ใบ" : title
@@ -346,6 +354,13 @@ export function CardReadingScreen({
       )}
 
       {phase !== "pick" && <Menubar />}
+
+      {/* #6: การ์ดแชร์เฉพาะบุคคล (ซ่อนนอกจอ) */}
+      {phase === "result" && cards.length > 0 ? (
+        <ShareStage>
+          <ShareCard ref={shareCardRef} tag={title} title={cards[0]?.name ?? title} summary={shareSummary} images={shareImages} />
+        </ShareStage>
+      ) : null}
     </SkyScreen>
   )
 }

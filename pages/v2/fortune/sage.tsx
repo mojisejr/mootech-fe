@@ -4,13 +4,16 @@
 import Head from "next/head"
 import Image from "next/image"
 import Link from "next/link"
-import { useState } from "react"
+import { useRef, useState } from "react"
 import type { GetServerSideProps } from "next"
 
 import { v2RedirectIfUnauthed } from "@/lib/v2/gate"
 import { KitButton, SkyHeader, SkyScreen } from "@/features/v2-profile/components/kit"
 import { Menubar } from "@/features/v2-shell/components/Menubar"
 import { useActionCooldown } from "@/lib/useActionCooldown"
+import { shareAsInvite } from "@/lib/v2/share-invite"
+import { captureShareImage } from "@/lib/v2/share-card"
+import { ShareCard, ShareStage } from "@/features/v2-share/components/ShareCard"
 
 export const getServerSideProps: GetServerSideProps = async (ctx) => {
   ctx.res.setHeader("Cache-Control", "no-store, must-revalidate")
@@ -104,8 +107,11 @@ export default function FortuneSagePage() {
     }
   }
 
+  // #6 (2026-09-15): การ์ดแชร์เฉพาะบุคคล — ใบเซียมซี + สรุปนิสัย
+  const shareCardRef = useRef<HTMLDivElement>(null)
+
   const share = async () => {
-    // แชร์ = รับ +10 QI (earn "share" ที่ engine, daily-capped) — อ่านผลจริงมาบอกบนปุ่ม + เปิด native share
+    // แชร์ = รับ +10 QI (earn "share" ที่ engine, daily-capped) — อ่านผลจริงมาบอกบนปุ่ม + แนบภาพการ์ด
     if (shareState === "idle") {
       try {
         const r = await fetch("/api/qi-earn", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ code: "share" }) })
@@ -116,10 +122,9 @@ export default function FortuneSagePage() {
         /* QI ล่ม — คง idle ให้ลองใหม่ได้ */
       }
     }
-    const url = typeof window !== "undefined" ? window.location.href : ""
     const text = stick ? `เสี่ยงเซียมซีได้ ${stick.pillar} · ${stick.nayin} — เสี่ยงทายกับ Mumate` : "เสี่ยงทายกับ Mumate"
-    if (typeof navigator !== "undefined" && navigator.share) void navigator.share({ title: "เซียมซีเสี่ยงทาย", text, url }).catch(() => {})
-    else if (typeof navigator !== "undefined" && navigator.clipboard) void navigator.clipboard.writeText(`${text} ${url}`).catch(() => {})
+    const file = await captureShareImage(shareCardRef.current)
+    void shareAsInvite({ title: "เซียมซีเสี่ยงทาย", text, file })
   }
 
   const love = stick ? splitLove(stick.topics.love) : null
@@ -236,6 +241,19 @@ export default function FortuneSagePage() {
         </div>
       )}
 
+      {/* #6: การ์ดแชร์เฉพาะบุคคล (ซ่อนนอกจอ) */}
+      {stick ? (
+        <ShareStage>
+          <ShareCard
+            ref={shareCardRef}
+            tag="เซียมซี"
+            title={`เซียมซีใบที่ ${stick.no}`}
+            subtitle={`${stick.pillar} · ${stick.nayin}`}
+            summary={(stick.personality?.trim() || "เสี่ยงเซียมซีเสริมดวงกับ Mumate").slice(0, 150)}
+            images={[`/images/v2/fortune/cards/sage/${stick.no}.jpg`]}
+          />
+        </ShareStage>
+      ) : null}
       <Menubar />
     </SkyScreen>
   )

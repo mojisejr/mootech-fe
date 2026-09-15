@@ -11,7 +11,7 @@
 import Head from "next/head"
 import Image from "next/image"
 import Link from "next/link"
-import { useEffect, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { getDestinyCache, setDestinyCache } from "@/features/v2-destiny/destiny-cache"
 import {
   CartesianGrid,
@@ -26,6 +26,8 @@ import { MateAIButton } from "@/features/v2-shell/components/MateAIButton"
 import { TopBarBell } from "@/features/v2-shell/components/TopBarBell"
 import { TopBarAvatar } from "@/features/v2-shell/components/TopBarAvatar"
 import { shareAsInvite } from "@/lib/v2/share-invite"
+import { captureShareImage } from "@/lib/v2/share-card"
+import { ShareCard, ShareStage } from "@/features/v2-share/components/ShareCard"
 
 // engine `element-summary` returns advice as OBJECTS ({key,label,text}), not strings — the earlier
 // `advice: string[]` typing was wrong and rendering the object as a React child crashed the whole page
@@ -634,10 +636,15 @@ export function DestinyScreen({ previewData }: { previewData?: DestinyData } = {
     heroRows[0],
   )?.key
   const mascotUrl = summary ? `/api/bazi-mascot?ganzhi=${encodeURIComponent(summary.dayGanzhi)}` : null
+  // #6 (2026-09-15): การ์ดแชร์เฉพาะบุคคล (มาสคอตธาตุ + สรุปสั้น) → render ซ่อน แล้วแนบตอนแชร์
+  const shareCardRef = useRef<HTMLDivElement>(null)
+  const shareTitle = summary ? `คุณธาตุ${summary.elementTh}${polarityOf(summary.dayMaster)}` : "ดวงของฉัน"
+  const shareSummary = summary?.tagline ?? "ดูดวงธาตุของคุณแบบละเอียดกับ Mumate"
 
   const shareToday = async () => {
-    // แชร์ = ลิงก์เชิญเพื่อนของ user เอง (คนสมัคร → user ได้ QI) + แนบภาพมาสคอตธาตุของวัน (ผู้ใช้ 2026-09-12)
-    await shareAsInvite({ title: "Mumate — ดวงของฉันวันนี้", text: "ดูดวงของฉันด้วย Mumate", imageUrl: mascotUrl })
+    // แชร์ = ลิงก์เชิญเพื่อนของ user เอง (คนสมัคร → user ได้ QI) + แนบภาพการ์ดเฉพาะบุคคล (#6)
+    const file = await captureShareImage(shareCardRef.current)
+    await shareAsInvite({ title: "Mumate — ดวงของฉันวันนี้", text: shareSummary, imageUrl: mascotUrl, file })
     // รู้ผลของวันนี้แล้ว (รับ/เต็มโควตา) ⇒ ไม่ยิง qi-earn ซ้ำ (แชร์เองยังทำได้ตามปกติด้านบน)
     if (shareState === "done" || shareState === "capped") return
     // แชร์ = รับ +10 QI วันละ 1 ครั้ง (code "share"). อ่านผลจริงจาก engine แล้วบอกให้ตรง — ได้จริง = "รับแล้ว",
@@ -978,6 +985,13 @@ export function DestinyScreen({ previewData }: { previewData?: DestinyData } = {
           </div>
         </>
       )}
+
+      {/* #6: การ์ดแชร์เฉพาะบุคคล (ซ่อนนอกจอ) */}
+      {mascotUrl ? (
+        <ShareStage>
+          <ShareCard ref={shareCardRef} tag="ดวงธาตุของฉัน" title={shareTitle} summary={shareSummary} images={[mascotUrl]} />
+        </ShareStage>
+      ) : null}
     </div>
   )
 }

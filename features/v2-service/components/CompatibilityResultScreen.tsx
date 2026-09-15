@@ -7,7 +7,7 @@
 //
 // Unchanged below the hero: tabs (D47) · ภาพรวม (overall.ratingText) · รายมิติ (D22) · ธาตุ&เสา (D45+D44) ·
 // รายคน (D21). Rule 4 everywhere: an absent field/section hides.
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import Head from 'next/head'
 import Link from 'next/link'
 import { VipGate } from '@/features/v2-shell/components/VipGate'
@@ -25,6 +25,8 @@ import { ChartTableCard } from './ChartTableCard'
 import { readChartTable } from '../chart-table'
 import { CompatPersonDetail } from './CompatPersonDetail'
 import { ResultActionBar } from './ResultActionBar'
+import { captureShareImage } from '@/lib/v2/share-card'
+import { ShareCard, ShareStage } from '@/features/v2-share/components/ShareCard'
 import { ComingSoonNotice } from '@/features/v2-shell/components/ComingSoon'
 import { TopBarBell } from '@/features/v2-shell/components/TopBarBell'
 import { TopBarAvatar } from '@/features/v2-shell/components/TopBarAvatar'
@@ -46,6 +48,7 @@ export function CompatibilityResultScreen({ matchingId }: { matchingId: string }
   const [activeTab, setActiveTab] = useState('overview')
   // Figma 636:18819: toggle base สีเทา = ปิดเป็นค่าเริ่มต้น; เปิดแล้วโชว์ตารางดวงจีน
   const [advanced, setAdvanced] = useState(false)
+  const shareCardRef = useRef<HTMLDivElement>(null) // #6: hook ต้องอยู่ก่อน early return (rules-of-hooks)
 
   // D17/2F — the SAME loader/copy the form showed, so form → result is one continuous screen.
   if (r.loading) {
@@ -71,6 +74,11 @@ export function CompatibilityResultScreen({ matchingId }: { matchingId: string }
   const dims = r.result.dimensions ?? []
   const ei = r.result.elementInteraction
   const { mascotA, mascotB } = r
+  // #6 (2026-09-15): การ์ดแชร์เฉพาะบุคคล — มาสคอต A+B + สรุปผลสมพงศ์
+  const shareImages = [mascotA?.imageUrl, mascotB?.imageUrl].filter((u): u is string => typeof u === 'string' && u.length > 0)
+  const shareTitle = overall?.gradeLabel?.trim() || 'ผลความสมพงศ์'
+  const shareSubtitle = typeof overall?.percent === 'number' ? `เข้ากัน ${overall.percent}%` : undefined
+  const shareSummary = (overall?.ratingText?.trim() || 'ดูผลความเข้ากันของเรากับ Mumate').slice(0, 150)
 
   // D47 — which sections have data → which tabs to show (never an empty tab)
   // Figma 636:18819 — แท็บ 3 อัน (ภาพรวม → hero · ความเข้ากัน · ทำนายพื้นฐาน) + toggle แอดวานซ์ (= ตารางดวงจีน)
@@ -191,7 +199,12 @@ export function CompatibilityResultScreen({ matchingId }: { matchingId: string }
         ) : null}
       </div>
 
-      <ResultActionBar shareText="ผลดวงสมพงศ์ของฉันจาก Mumate" testIdPrefix="compat" />
+      <ResultActionBar shareText="ผลดวงสมพงศ์ของฉันจาก Mumate" testIdPrefix="compat" getShareFile={() => captureShareImage(shareCardRef.current)} />
+
+      {/* #6: การ์ดแชร์เฉพาะบุคคล (ซ่อนนอกจอ) */}
+      <ShareStage>
+        <ShareCard ref={shareCardRef} tag="ผลความสมพงศ์" title={shareTitle} subtitle={shareSubtitle} summary={shareSummary} images={shareImages} />
+      </ShareStage>
     </div>
   )
 }
