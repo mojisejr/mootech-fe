@@ -18,7 +18,7 @@
 // that gap asks for a SECOND payment from the one user whose first payment already worked — so the gap gets
 // its own line that says what is actually happening and offers no new QR.
 import Image from 'next/image'
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { useChargeStatus } from '../useChargeStatus'
 
 /** Every user-visible string on this screen, in one place, for the DoD's per-line audit. */
@@ -26,6 +26,11 @@ export const QR_COPY = {
   title: 'สแกนเพื่อชำระเงิน',
   howto: 'เปิดแอปธนาคารของคุณ แล้วสแกน QR นี้',
   waiting: 'กำลังรอการชำระเงิน…',
+  // ปุ่มให้ผู้ใช้กดหลังโอนเสร็จ → เริ่มนับถอยหลังตรวจสอบ (ผู้ใช้ขอ 2026-09-15: "โอนเสร็จรอ 3-4 วิ ทำเป็นเลขนับถอยหลัง")
+  paidCta: 'โอนเสร็จแล้ว',
+  confirming: 'กำลังตรวจสอบการชำระเงิน…',
+  // นับจบแล้วยังไม่เจอ APPROVED — ไม่โทษผู้ใช้ ไม่บอกว่าล้มเหลว (ธนาคารอาจยังไม่ยืนยัน) แค่ให้ลองอีกครั้ง
+  notYet: 'ยังไม่พบการชำระเงิน กดตรวจสอบอีกครั้งได้เลย',
   // ❌ never "ล้มเหลว": a network hiccup on our side is not the user's payment failing.
   offline: 'ตอนนี้เช็คสถานะไม่ได้ กำลังลองใหม่ให้อัตโนมัติ',
   // อาจ — we do not know. See the header.
@@ -63,6 +68,32 @@ export function QrScreen({ chargeId, qrUrl, amountText, onApproved, onNewQr, onB
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [status])
 
+  // "โอนเสร็จแล้ว" → นับถอยหลัง 4→0 (ผู้ใช้เห็นว่าระบบกำลังตรวจ ไม่ใช่ค้าง) แล้วเช็คสถานะ. โพลปกติ
+  // (useChargeStatus) ยังทำงานคู่กันอยู่ — ถ้าเงินเข้าจริงระหว่างนับ status=APPROVED จะเด้ง onApproved เอง.
+  const [confirming, setConfirming] = useState(false)
+  const [count, setCount] = useState(0)
+  const [notYet, setNotYet] = useState(false)
+
+  const startConfirm = () => {
+    setNotYet(false)
+    setCount(4)
+    setConfirming(true)
+    check() // โพกครั้งแรกทันที
+  }
+
+  useEffect(() => {
+    if (!confirming) return
+    if (count <= 0) {
+      setConfirming(false)
+      setNotYet(true)
+      check() // เช็คอีกทีตอนนับจบ
+      return
+    }
+    const t = setTimeout(() => setCount((c) => c - 1), 1000)
+    return () => clearTimeout(t)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [confirming, count])
+
   return (
     <div data-testid="qr-screen" className="flex w-full flex-col items-center gap-4 font-ibm">
       <h1 className="text-2xl font-bold leading-8 text-v3-navy">{QR_COPY.title}</h1>
@@ -80,9 +111,36 @@ export function QrScreen({ chargeId, qrUrl, amountText, onApproved, onNewQr, onB
       </p>
 
       {phase === 'waiting' && (
-        <p data-testid="qr-waiting" role="status" aria-live="polite" className="text-sm leading-[22px] text-v3-text-muted">
-          {error ? QR_COPY.offline : QR_COPY.waiting}
-        </p>
+        <div className="flex w-full flex-col items-center gap-3">
+          <p data-testid="qr-waiting" role="status" aria-live="polite" className="text-sm leading-[22px] text-v3-text-muted">
+            {error ? QR_COPY.offline : confirming ? QR_COPY.confirming : QR_COPY.waiting}
+          </p>
+          {confirming ? (
+            <div
+              data-testid="qr-countdown"
+              aria-hidden
+              className="grid size-14 place-items-center rounded-full border-2 border-v3-sapphire text-2xl font-bold text-v3-sapphire"
+            >
+              {count}
+            </div>
+          ) : (
+            <>
+              <button
+                type="button"
+                data-testid="qr-paid"
+                onClick={startConfirm}
+                className="w-full rounded-pill bg-v3-sapphire px-6 py-3 text-sm font-bold text-white"
+              >
+                {QR_COPY.paidCta}
+              </button>
+              {notYet && (
+                <p role="status" aria-live="polite" className="text-xs leading-4 text-v3-text-muted">
+                  {QR_COPY.notYet}
+                </p>
+              )}
+            </>
+          )}
+        </div>
       )}
 
       {/* 🔴 No "ขอ QR ใหม่" button here on purpose — see QR_COPY.reconciling. "ตรวจสอบอีกครั้ง" is offered

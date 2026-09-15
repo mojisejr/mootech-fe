@@ -93,6 +93,11 @@ export function SinsaeBookingSuccess({ packageCode, charge, order }: { packageCo
         <p className="text-center text-[10px] leading-4 text-v3-text-muted">ใบกำกับภาษีฉบับเต็มส่งไปที่อีเมล · ออกโดย Omise</p>
       </section>
 
+      {/* คำแนะนำ 2 ขั้น (ผู้ใช้ขอ 2026-09-15): แอดไลน์ก่อน แล้วแนบรูปใบเสร็จนี้เพื่อนัดวันเวลา */}
+      <p data-testid="sinsae-success-howto" className="text-center text-sm leading-[22px] text-v3-text-body">
+        แอดไลน์ Mumate แล้วแนบรูปใบเสร็จนี้ เพื่อนัดวันเวลากับซินแส
+      </p>
+
       {/* actions: หลัก = ทักไลน์ยืนยันคิว · รอง = บันทึกรูป / ดูใบเสร็จ */}
       <a
         href={LINE_ORDER_URL}
