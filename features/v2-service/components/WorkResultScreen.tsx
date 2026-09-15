@@ -22,7 +22,7 @@ import { LoadingScreen } from '@/features/v2-shell/components/LoadingScreen'
 import { ComingSoonNotice } from '@/features/v2-shell/components/ComingSoon'
 import { ResultActionBar } from './ResultActionBar'
 import { gradeTier, TIER_COLOR, TIER_INK, TIER_SOFT, pctWidth } from '../compat-result-parts'
-import { useWorkResult, useWorkMascots, dayGanzhiOfChart } from '../hooks/useWorkResult'
+import { useWorkResult, useWorkMascots, dayGanzhiOfChart, dayGanzhiOfProfile } from '../hooks/useWorkResult'
 import { VipGate } from '@/features/v2-shell/components/VipGate'
 import type { WorkEntry, WorkFacet, WorkRole } from '../work-comparison'
 import { orderRoles } from '../work-role-order'
@@ -299,7 +299,6 @@ export function WorkResultScreen({ matchingId }: { matchingId: string }) {
         </header>
         {children}
       </div>
-      <ResultActionBar shareText="ผลดวงสมพงศ์เพื่อนร่วมงานของฉันจาก Mumate" testIdPrefix="work" inline={false} />
     </div>
   )
 
@@ -342,17 +341,19 @@ export function WorkResultScreen({ matchingId }: { matchingId: string }) {
     const k = dayGanzhiOfChart(chart)
     return k ? mascots[k] ?? null : null
   }
-  const selfMascot = mascotOf(state.selfChart)
+  // #359 รอบ 10: มาสคอตแชร์เลือกจาก dayGanzhi ของ profile ก่อน (รอดแม้ chart ไม่มา) แล้วค่อย fallback chart
+  const mascotByGz = (gz: string | null) => (gz ? mascots[gz] ?? null : null)
+  const selfMascot = mascotByGz(dayGanzhiOfProfile(state.selfProfile) ?? dayGanzhiOfChart(state.selfChart))
   const selfTrait = (state.selfProfile?.nisai?.[0] ?? '').trim()
 
   // #359 (A7): การ์ดแชร์เฉพาะบุคคล — คู่ที่เข้ากับคุณที่สุด (rank 1) เหมือนปุ่มแชร์คู่รัก
   const topEntry = entries[0]
-  const topMascot = mascotOf(topEntry.chart)
+  const topMascot = mascotByGz(dayGanzhiOfProfile(topEntry.profile) ?? dayGanzhiOfChart(topEntry.chart))
   const topPct = Math.round(topEntry.rankScore ?? 0)
   const shareImages = [selfMascot?.imageUrl, topMascot?.imageUrl].filter((u): u is string => typeof u === 'string' && u.length > 0)
   const shareTitle = `${heroTitle}ที่เข้ากับคุณที่สุด`
   const shareSubtitle = `${displayName(topEntry)}${topPct ? ` · ${topPct}%` : ''}${topEntry.grade ? ` (${topEntry.grade})` : ''}`
-  const shareSummary = (topEntry.ratingText?.trim() || selfTrait || 'ดูผลสมพงศ์การงานของเรากับ Mumate').slice(0, 150)
+  const shareSummary = topEntry.ratingText?.trim() || selfTrait || 'ดูผลสมพงศ์การงานของเรากับ Mumate'
 
   return shell(
     <>
@@ -377,8 +378,6 @@ export function WorkResultScreen({ matchingId }: { matchingId: string }) {
           ))}
         </ol>
       </section>
-      {/* ปุ่ม PDF/แชร์ ใต้การ์ด hero ตามเฟรม (720:26015) — ตัวลอยล่างเหลือแค่ Mate AI */}
-      <div className="mx-4 mt-3"><ResultActionBar shareText="ผลดวงสมพงศ์เพื่อนร่วมงานของฉันจาก Mumate" testIdPrefix="work" inline getShareFile={() => captureShareImage(shareCardRef.current)} /></div>
 
       {/* การ์ดขาว: toggle แอดวานซ์ · Pill Tabs · การ์ดคนที่เปิด */}
       <section className="mx-4 mt-4 flex flex-col gap-6 rounded-2xl bg-white py-6">
@@ -483,6 +482,9 @@ export function WorkResultScreen({ matchingId }: { matchingId: string }) {
       <p className="mt-6 px-4 text-center text-[13px] text-v3-text-muted">
         <Link href="/v2/service/compatibility/recent" className="underline">ดูดวงสมพงศ์ล่าสุด</Link>
       </p>
+
+      {/* #359 รอบ 10: ปุ่ม PDF/แชร์ ลอยล่าง ดีไซน์เดียวกับหน้าคู่รัก (ResultActionBar มาตรฐาน) */}
+      <ResultActionBar shareText="ผลดวงสมพงศ์เพื่อนร่วมงานของฉันจาก Mumate" testIdPrefix="work" getShareFile={() => captureShareImage(shareCardRef.current)} />
 
       {/* #359 (A7): การ์ดแชร์เฉพาะบุคคล (ซ่อนนอกจอ) — คู่ที่เข้ากับคุณที่สุด */}
       <ShareStage>

@@ -51,10 +51,23 @@ export function dayGanzhiOfChart(chart: unknown): string | null {
   return d.stem && d.branch ? `${d.stem}${d.branch}` : null
 }
 
+/** #359 รอบ 10: วัน-กานจือ จาก profile (ฟิลด์ dayGanzhi ตรง ๆ แบบหน้าคู่รัก) — รอดแม้ chart ไม่มา (ผลเก่า)
+ *  → มาสคอตจองาน/หุ้นส่วน/ลูกน้อง ไม่ว่างเปล่า */
+export function dayGanzhiOfProfile(p: unknown): string | null {
+  if (p && typeof p === "object") {
+    const gz = (p as { dayGanzhi?: unknown }).dayGanzhi
+    if (typeof gz === "string" && gz.trim()) return gz.trim()
+  }
+  return null
+}
+
 /** มาสคอตของทุกคนในผล (คุณ + ผู้สมัคร) keyed ด้วยวัน-กานจือ — ไม่มี chart (ผลเก่า) = ไม่มีมาสคอต ไม่เดา */
 export function useWorkMascots(state: WorkResultState): Record<string, CompatMascot | null> {
   const keys = state.status === 'ready'
-    ? Array.from(new Set([dayGanzhiOfChart(state.selfChart), ...state.entries.map((e) => dayGanzhiOfChart(e.chart))].filter((k): k is string => !!k)))
+    ? Array.from(new Set([
+        dayGanzhiOfProfile(state.selfProfile) ?? dayGanzhiOfChart(state.selfChart),
+        ...state.entries.map((e) => dayGanzhiOfProfile(e.profile) ?? dayGanzhiOfChart(e.chart)),
+      ].filter((k): k is string => !!k)))
     : []
   const keyStr = keys.join('|')
   const [mascots, setMascots] = useState<Record<string, CompatMascot | null>>({})

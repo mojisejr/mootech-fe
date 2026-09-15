@@ -12,9 +12,9 @@ import { TopBarBell } from "@/features/v2-shell/components/TopBarBell"
 import { TopBarAvatar } from "@/features/v2-shell/components/TopBarAvatar"
 import { getDayEntry, getLastEntry, putDayEntry } from "@/features/v2-service/daily-reading-cache"
 import { useActionCooldown } from "@/lib/useActionCooldown"
-import { shareAsInvite } from "@/lib/v2/share-invite"
 import { captureShareImage } from "@/lib/v2/share-card"
 import { ShareCard, ShareStage } from "@/features/v2-share/components/ShareCard"
+import { ResultActionBar } from "./ResultActionBar"
 import {
   LayerRow, Pyramid, buildHoneycombEngineText, type HoneycombReading,
 } from "@/features/v2-service/components/honeycomb-parts"
@@ -223,16 +223,8 @@ export function PhoneReadingScreen({ initialMode = "normal" }: { initialMode?: M
   // #6 (2026-09-15): การ์ดแชร์เฉพาะบุคคล — เลขเบอร์เป็นเอกลักษณ์ + สรุป (narration)
   const shareCardRef = useRef<HTMLDivElement>(null)
   const shareNumber = (resultMode === "normal" ? pReading?.normalized : hReading?.normalized) ?? ""
-  const shareSummary = (narration?.trim() || "ทำนายเบอร์มือถือของคุณที่ Mumate").slice(0, 150)
-
-  const share = async () => {
-    const norm = shareNumber
-    if (!norm) return
-    const text = `${MODE[resultMode].label} · เบอร์ ${norm}\n${narration ? narration.slice(0, 160) : ""}…\nทำนายเบอร์ของคุณที่ MuMate`
-    // แชร์ผ่าน shareAsInvite เพื่อให้มี url (ลิงก์เชิญของ user) ติดไปด้วย + แนบภาพการ์ดเฉพาะบุคคล (#6)
-    const file = await captureShareImage(shareCardRef.current)
-    void shareAsInvite({ title: "ทำนายเบอร์มือถือ", text, file })
-  }
+  const shareSummary = narration?.trim() || "ทำนายเบอร์มือถือของคุณที่ Mumate"
+  const shareText = `ผลวิเคราะห์${MODE[resultMode].label} เบอร์ ${shareNumber} จาก Mumate`
 
   const digits = pReading ? pReading.normalized.split("") : []
   const closingLen = pReading?.closing.pair.length ?? 2
@@ -383,10 +375,8 @@ export function PhoneReadingScreen({ initialMode = "normal" }: { initialMode?: M
               <p className="text-[12px] leading-5 text-[#9B5273]">คำทำนายมีไว้เพื่อเป็นแนวทางในการไตร่ตรอง<br />ไม่ใช่คำแนะนำทางการแพทย์ การเงิน หรือกฎหมาย</p>
             </div>
 
-            <div className="grid grid-cols-2 gap-2">
-              <button type="button" onClick={() => window.print()} data-testid="phone-pdf" className="grid h-11 place-items-center rounded-full border border-v3-border-card bg-white text-[13px] font-bold text-v3-navy">📄 บันทึก PDF</button>
-              <button type="button" onClick={share} data-testid="phone-share" className="grid h-11 place-items-center rounded-full bg-v3-sapphire text-[13px] font-bold text-white">↗ แชร์</button>
-            </div>
+            {/* #359 รอบ 10: ปุ่ม PDF/แชร์ ดีไซน์มาตรฐาน (teal/น้ำเงิน rounded) เหมือนหน้าแชร์อื่น ๆ */}
+            <ResultActionBar shareText={shareText} shareTitle="ทำนายเบอร์มือถือ" testIdPrefix="phone" inline getShareFile={() => captureShareImage(shareCardRef.current)} />
           </div>
         )}
       </div>
@@ -396,7 +386,7 @@ export function PhoneReadingScreen({ initialMode = "normal" }: { initialMode?: M
       {/* #6: การ์ดแชร์เฉพาะบุคคล (ซ่อนนอกจอ) */}
       {phase === "result" && shareNumber ? (
         <ShareStage>
-          <ShareCard ref={shareCardRef} tag={MODE[resultMode].label} title={shareNumber} summary={shareSummary} images={[HERO_MASCOTS[0].src]} />
+          <ShareCard ref={shareCardRef} tag={MODE[resultMode].label} title={shareNumber} summary={shareSummary} images={["/images/v2/mascot/personas/mu/greet.png"]} />
         </ShareStage>
       ) : null}
       <style>{`
