@@ -59,6 +59,7 @@ const INCLUDED = [
   ["BaZi Life Matrix ออนไลน์", "฿499"],
   ["อัปเดตดวงประจำปี 1 ปี", "฿990"],
   ["ปรึกษาซินแสทางแชท 1 ครั้ง", "฿590"],
+  ["ระบบ Mumate+", "฿790"], // #359 (ซินแสนุ้ย 2026-09-15): แถมสิทธิ์ Plus ฟรีกับคนซื้อหนังสือ
 ] as const
 
 const FITS = [
@@ -122,7 +123,7 @@ export function OneBookScreen() {
           {/* pt เผื่อรูปหนังสือ+มาสคอต (book.png) ที่ล้นขึ้นบน ไม่ให้ทับหัวข้อ (ผู้ใช้ 2026-09-12: รูปทับตัวหนังสือ) */}
           <div className="flex flex-col items-center gap-3 rounded-[24px] bg-v3-sapphire px-5 pb-6 pt-[122px] text-center text-white">
             <div>
-              <h1 className="text-[27px] font-black leading-9 text-v3-lime">คู่มือระดับ 1 ของชีวิตคุณ</h1>
+              <h1 className="text-[27px] font-black leading-9 text-v3-lime">คู่มือกลยุทธ์ชีวิตส่วนบุคคล</h1>
               <p className="text-[18px] font-black tracking-[0.14em] text-white">YOUR LIFE CODE</p>
             </div>
             <p className="text-[13px] leading-5 text-white/85">หนังสือเล่มเดียวในโลกที่คำนวณจากวันเดือนปี<br />และเวลาเกิดของคุณ ไม่ซ้ำกับใคร</p>
