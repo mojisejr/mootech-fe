@@ -82,7 +82,8 @@ describe("DestinyScreen (ดวงฉัน, node 55349-3070)", () => {
 
   it("hero: มาสคอต + ชื่อธาตุ + ปุ่มแชร์ +10 QI + Mate AI (D1)", async () => {
     await mountScreen()
-    expect(screen.getByText(/คุณธาตุไม้/)).toBeTruthy()
+    // #6: การ์ดแชร์ (ShareStage) ก็มีชื่อธาตุด้วย → ใช้ getAllByText (hero + share card)
+    expect(screen.getAllByText(/คุณธาตุไม้/).length).toBeGreaterThan(0)
     expect(screen.getByTestId("destiny-share")).toBeTruthy()
     expect(screen.getByTestId("destiny-share-pill")).toBeTruthy()
     expect(screen.getByTestId("destiny-mate-ai")).toBeTruthy()

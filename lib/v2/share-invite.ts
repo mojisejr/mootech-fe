@@ -18,22 +18,28 @@ export async function fetchInviteUrl(): Promise<string> {
 
 export type ShareResult = "shared" | "copied" | "failed"
 
-/** แชร์เป็นคำเชิญ: url = ลิงก์เชิญของ user, แนบภาพการ์ด (ถ้ารองรับ). */
+/** แชร์เป็นคำเชิญ: url = ลิงก์เชิญของ user, แนบภาพการ์ด (ถ้ารองรับ).
+ *  #6 (2026-09-15): รับ `file` = ภาพการ์ดเฉพาะบุคคลที่ render มาแล้ว (html2canvas) → แนบตรง ไม่ต้อง fetch.
+ *  ถ้าไม่มี `file` แต่มี `imageUrl` → fetch มาแนบเหมือนเดิม (backward-compatible). */
 export async function shareAsInvite({
   title,
   text,
   imageUrl,
+  file,
 }: {
   title: string
   text: string
   imageUrl?: string | null
+  file?: File | null
 }): Promise<ShareResult> {
   const url = await fetchInviteUrl()
   const nav = typeof navigator !== "undefined" ? navigator : undefined
 
-  // พยายามดึงภาพการ์ดมาแนบ (best-effort — ล้มก็แชร์แค่ url+text)
+  // พยายามแนบภาพการ์ด (best-effort — ล้มก็แชร์แค่ url+text): file ที่ render แล้วก่อน, ไม่งั้น fetch จาก imageUrl
   let files: File[] | undefined
-  if (imageUrl) {
+  if (file && file.size > 0) {
+    files = [file]
+  } else if (imageUrl) {
     try {
       const resp = await fetch(imageUrl)
       if (resp.ok) {

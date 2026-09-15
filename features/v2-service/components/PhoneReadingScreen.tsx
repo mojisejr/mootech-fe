@@ -4,7 +4,7 @@
 // Figma 55666-1122 (ธรรมดา) + 55666-2096 (รังผึ้ง).
 import Head from "next/head"
 import Link from "next/link"
-import { useEffect, useMemo, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 
 import { SkyBackdrop, SkyHeader } from "@/features/v2-profile/components/kit"
 import { Menubar } from "@/features/v2-shell/components/Menubar"
@@ -13,6 +13,8 @@ import { TopBarAvatar } from "@/features/v2-shell/components/TopBarAvatar"
 import { getDayEntry, getLastEntry, putDayEntry } from "@/features/v2-service/daily-reading-cache"
 import { useActionCooldown } from "@/lib/useActionCooldown"
 import { shareAsInvite } from "@/lib/v2/share-invite"
+import { captureShareImage } from "@/lib/v2/share-card"
+import { ShareCard, ShareStage } from "@/features/v2-share/components/ShareCard"
 import {
   LayerRow, Pyramid, buildHoneycombEngineText, type HoneycombReading,
 } from "@/features/v2-service/components/honeycomb-parts"
@@ -218,12 +220,18 @@ export function PhoneReadingScreen({ initialMode = "normal" }: { initialMode?: M
 
   const reset = () => { setPhone(""); setPReading(null); setHReading(null); setNarration(null); setError(null); setNeedQi(false); setTab("pairs"); setPhase("intro") }
 
-  const share = () => {
-    const norm = resultMode === "normal" ? pReading?.normalized : hReading?.normalized
+  // #6 (2026-09-15): การ์ดแชร์เฉพาะบุคคล — เลขเบอร์เป็นเอกลักษณ์ + สรุป (narration)
+  const shareCardRef = useRef<HTMLDivElement>(null)
+  const shareNumber = (resultMode === "normal" ? pReading?.normalized : hReading?.normalized) ?? ""
+  const shareSummary = (narration?.trim() || "ทำนายเบอร์มือถือของคุณที่ Mumate").slice(0, 150)
+
+  const share = async () => {
+    const norm = shareNumber
     if (!norm) return
     const text = `${MODE[resultMode].label} · เบอร์ ${norm}\n${narration ? narration.slice(0, 160) : ""}…\nทำนายเบอร์ของคุณที่ MuMate`
-    // แชร์ผ่าน shareAsInvite เพื่อให้มี url (ลิงก์เชิญของ user) ติดไปด้วย + fallback คัดลอกใส่ url (2026-09-13)
-    void shareAsInvite({ title: "ทำนายเบอร์มือถือ", text })
+    // แชร์ผ่าน shareAsInvite เพื่อให้มี url (ลิงก์เชิญของ user) ติดไปด้วย + แนบภาพการ์ดเฉพาะบุคคล (#6)
+    const file = await captureShareImage(shareCardRef.current)
+    void shareAsInvite({ title: "ทำนายเบอร์มือถือ", text, file })
   }
 
   const digits = pReading ? pReading.normalized.split("") : []
@@ -384,6 +392,13 @@ export function PhoneReadingScreen({ initialMode = "normal" }: { initialMode?: M
       </div>
 
       <Menubar />
+
+      {/* #6: การ์ดแชร์เฉพาะบุคคล (ซ่อนนอกจอ) */}
+      {phase === "result" && shareNumber ? (
+        <ShareStage>
+          <ShareCard ref={shareCardRef} tag={MODE[resultMode].label} title={shareNumber} summary={shareSummary} images={[HERO_MASCOTS[0].src]} />
+        </ShareStage>
+      ) : null}
       <style>{`
         @keyframes phoneFloat { 0%,100%{ transform: translateY(0) } 50%{ transform: translateY(-8px) } }
         .phone-float { animation: phoneFloat 2.6s ease-in-out infinite; }
