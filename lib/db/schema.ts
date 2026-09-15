@@ -1184,6 +1184,21 @@ export const reminder = pgTable("reminder", {
 	index("idx_reminder_due").on(table.fireAtUtc).where(sql`sent_at IS NULL`),
 ]);
 
+// manifest_reminder (#359 ซินแสนุ้ย 2026-09-15) — opt-in แจ้งเตือน "ตั้งจิต/เช็คอินความปรารถนา" รายเช้า.
+// หนึ่งแถวต่อผู้ใช้ (user_id PK). cron รายชั่วโมงยิง user ที่ enabled และ hour == ชั่วโมงปัจจุบัน (Asia/Bangkok)
+// และยังไม่ถูกยิงวันนี้ (last_sent_date <> วันนี้) — mark last_sent_date ก่อนส่ง (at-most-once ต่อวัน). ดู 0030.
+export const manifestReminder = pgTable("manifest_reminder", {
+	userId: varchar("user_id", { length: 36 }).primaryKey().notNull(),
+	enabled: boolean("enabled").default(false).notNull(),
+	hour: integer("hour").default(7).notNull(), // ชั่วโมง (0-23) ตามเวลาไทยที่จะยิง
+	minute: integer("minute").default(0).notNull(), // นาที (เก็บไว้โชว์ — cron ยิงระดับชั่วโมง)
+	lastSentDate: varchar("last_sent_date", { length: 10 }), // YYYY-MM-DD (BKK) กันยิงซ้ำในวันเดียว
+	updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+}, (table) => [
+	// cron scan: enabled + hour ตรง — index ที่ hour ช่วยลดสแกน (ตารางเล็กก็จริง แต่กันโตในอนาคต)
+	index("idx_manifest_reminder_hour").on(table.hour).where(sql`enabled = true`),
+]);
+
 // book_order (#3 ซินแสนุ้ย 2026-09-15) — ออเดอร์หนังสือ "Your Life Code" (ฟอร์มในแอป + จ่าย PromptPay).
 // ฟิลด์ตามฟอร์มจริง forms.gle/Lf5f7HUdoj3TvKVk9. รูปแบบ PDF/PHYSICAL (เล่มโชว์ที่อยู่จัดส่ง). status:
 // NEW=สร้างตอนกรอก, PAID=ผูก charge หลังจ่ายสำเร็จ (v2_payment tier_code='BOOK'). ดู migration 0029.
