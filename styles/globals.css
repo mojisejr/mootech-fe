@@ -196,4 +196,8 @@
   .no-print { display: none !important; }
   html, body { background: #fff !important; }
   * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+  /* #359 รอบ 14: กันการ์ด/บล็อกผลถูกตัดกลางข้ามหน้า (PDF แบ่งหน้าพลาด) */
+  .print-keep { break-inside: avoid; page-break-inside: avoid; }
+  .print-keep img, .print-keep svg { break-inside: avoid; page-break-inside: avoid; }
+  h1, h2, h3, h4 { break-after: avoid; page-break-after: avoid; }
 }

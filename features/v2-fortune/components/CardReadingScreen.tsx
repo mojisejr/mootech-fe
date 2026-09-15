@@ -302,7 +302,7 @@ export function CardReadingScreen({
           {(() => {
             const summaryText = (cards[0]?.meaning?.trim() || proseParas[0] || cards[0]?.book1 || "").trim()
             return summaryText ? (
-              <section className="flex flex-col gap-1 rounded-[24px] bg-[#EAF3FF] p-5" data-testid="cards-summary">
+              <section className="print-keep flex flex-col gap-1 rounded-[24px] bg-[#EAF3FF] p-5" data-testid="cards-summary">
                 <span className="w-fit text-[13px] font-black text-v3-sapphire">สรุปคำทำนายนี้</span>
                 <p className="text-[13px] leading-[22px] text-v3-text-body">{summaryText}</p>
               </section>
@@ -311,7 +311,7 @@ export function CardReadingScreen({
 
           {/* รายใบ */}
           {cards.map((c, i) => (
-            <section key={c.no} className="v3-shadow-card flex flex-col gap-2 rounded-[24px] bg-white p-5">
+            <section key={c.no} className="print-keep v3-shadow-card flex flex-col gap-2 rounded-[24px] bg-white p-5">
               <div className="flex flex-wrap items-center gap-2">
                 {/* ไอคอนเล็ก = รูปหน้าไพ่ (เหมือนด้านบน) แบบไม่ตัด */}
                 <span className="relative size-9 flex-none overflow-hidden rounded-[8px] bg-v3-ghost-white">
