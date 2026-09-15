@@ -87,9 +87,11 @@ export function payDestination(args: {
       // ❌ never CARD_DECLINED here: there is no card on this lane to decline.
       return { kind: 'route', href: '/v2/shop/result?state=OFFLINE', keepPaying: false }
     }
+    // package_code เดินทางไปกับหน้า QR ด้วย เพื่อส่งต่อเข้า /v2/shop/result ตอนจ่ายเสร็จ (ไม่งั้นจอ success
+    // เลือกเลนจาก tierCode อย่างเดียว และ label/จำนวนจะจางลง) และให้ "ขอ QR ใหม่" กลับมา checkout ใบเดิมได้.
     return {
       kind: 'route',
-      href: `/v2/shop/qrcode?charge=${encodeURIComponent(body.chargeId)}&qr=${encodeURIComponent(body.qr)}&amount=${amountSatang}`,
+      href: `/v2/shop/qrcode?charge=${encodeURIComponent(body.chargeId)}&qr=${encodeURIComponent(body.qr)}&amount=${amountSatang}&package_code=${pkg}`,
       keepPaying: true,
     }
   }

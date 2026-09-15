@@ -41,6 +41,12 @@ export type PaymentRow = {
   status: string
   method?: string
   orderId?: string | null
+  /**
+   * เลนสินค้าของแถวนี้ ('SINSAE'|'BOOK'|'QI' หรือ tier สมาชิก) — แหล่งความจริงว่าซื้ออะไร. result.tsx ใช้ตัวนี้
+   * เลือกจอ success แทนที่จะเดาจาก package_code ใน URL: เลน PromptPay ไม่ได้ส่ง package_code กลับมา (bug 2026-09-15
+   * จองซินแสแล้วเด้งไปหน้าสมาชิก) — tierCode มากับทุก charge/order เสมอ ผ่าน /api/v2/payment/status.
+   */
+  tierCode?: string | null
   qrDeadline?: QrDeadlineState
   /**
    * #455 slice 3 — เหตุผลที่แถวจบแบบไม่ได้จ่าย · optional ด้วยเหตุผลเดียวกับ `qrDeadline`:
@@ -138,6 +144,8 @@ export type UseChargeStatus = {
   status: ChargeStatus
   /** #438 — 'card' | 'promptpay' for THIS charge, or null until a row is seen. Only the screen uses it. */
   method: string | null
+  /** เลนสินค้าของแถวนี้ ('SINSAE'|'BOOK'|'QI'|tier) — null จนกว่าจะเจอแถว. result.tsx ใช้เลือกจอ success. */
+  tierCode: string | null
   polling: boolean
   error: boolean
   /**
@@ -179,6 +187,7 @@ export function useChargeStatus(
   // #438 — the method the row was actually paid with. A REJECT means "the bank refused this card" or "this
   // QR died"; the screen needs to know which before it picks words. Null until a row for THIS charge is seen.
   const [method, setMethod] = useState<string | null>(null)
+  const [tierCode, setTierCode] = useState<string | null>(null)
   const [qrDeadline, setQrDeadline] = useState<QrDeadlineState>('unknown')
   const [failureCode, setFailureCode] = useState<string | null>(null)
   const [error, setError] = useState(false)
@@ -210,6 +219,7 @@ export function useChargeStatus(
         setError(false)
         setStatus(next)
         setMethod(row?.method ?? null)
+        setTierCode(row?.tierCode ?? null)
         // ไม่มีแถว หรือแถวไม่มีช่องนี้ = ไม่ถูกบอก ⇒ 'unknown' (ดูเหตุผลที่ PaymentRow ข้างบน)
         setQrDeadline(row?.qrDeadline ?? 'unknown')
         setFailureCode(row?.failureCode ?? null)
@@ -252,6 +262,7 @@ export function useChargeStatus(
   return {
     status,
     method,
+    tierCode,
     // 🔴 `polling` now means what it says — we ask until the charge settles or the page closes. It no longer
     // goes false at the horizon, because we no longer stop there.
     polling: !!lookupKey && !isSettledStatus(status),

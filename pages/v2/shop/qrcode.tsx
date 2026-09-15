@@ -19,6 +19,10 @@ export default function V2QrPage() {
   const charge = typeof q.charge === 'string' ? q.charge : ''
   const qr = typeof q.qr === 'string' ? q.qr : ''
   const amount = typeof q.amount === 'string' ? Number(q.amount) : 0
+  // #438-style — พก package_code ต่อไปยัง result/checkout ไม่งั้นเลน PromptPay จะทิ้ง package_code ทำให้
+  // จองซินแส/หนังสือ/ชี่ เด้งไปหน้าสมาชิกผิดเลน และ "ขอ QR ใหม่" ตกไป checkout เปล่าที่ตั้งราคาไม่ได้.
+  const packageCode = typeof q.package_code === 'string' ? q.package_code : ''
+  const pkgQuery = packageCode ? `&package_code=${encodeURIComponent(packageCode)}` : ''
 
   if (!charge || !qr) {
     // Landing here without a charge means a stale link or a refresh after the flow ended. Sending them to a
@@ -37,8 +41,8 @@ export default function V2QrPage() {
         chargeId={charge}
         qrUrl={qr}
         amountText={formatSatang(amount)}
-        onApproved={() => router.replace(`/v2/shop/result?state=APPROVED&charge=${encodeURIComponent(charge)}`)}
-        onNewQr={() => router.replace('/v2/shop/checkout')}
+        onApproved={() => router.replace(`/v2/shop/result?state=APPROVED&charge=${encodeURIComponent(charge)}${pkgQuery}`)}
+        onNewQr={() => router.replace(`/v2/shop/checkout${packageCode ? `?package_code=${encodeURIComponent(packageCode)}` : ''}`)}
         // 🔴 back NAVIGATES AND NOTHING ELSE — the charge stays payable, and its code hold releases itself
         //    within the quote TTL (lib/discount/repo.ts:104-122). Cancelling here would destroy money the
         //    user may still be about to send.
