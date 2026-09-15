@@ -22,6 +22,7 @@ import type { NextApiRequest, NextApiResponse } from 'next'
 import { toBaziInput, type FeCalcInput } from '@/lib/bazi-bridge/input'
 import { resolveSubscription } from '@/lib/v2/subscription'
 import { calendarMonthReachable } from '@/lib/v2/entitlement'
+import { ownsCalendar } from '@/lib/v2/calendar-access'
 import { currentMonthBkk } from '@/lib/v2/clock'
 import { resolveSessionUserId } from '@/lib/v2/resolve-user'
 import {
@@ -91,6 +92,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     verdict = { isPaid: v.isPaid, tier: v.tier }
   } catch {
     verdict = { isPaid: false, tier: null } // cannot confirm membership → treat as free (fail-closed)
+  }
+  // ได้รับ grant สิทธิ์ปฏิทินเฉพาะบุคคล (owned calendar) จาก /ops → ปลดล็อกเทียบเท่าสมาชิก (span เต็ม + เนื้อหาเต็ม)
+  if (verdict.isPaid !== true && (await ownsCalendar(userId))) {
+    verdict = { isPaid: true, tier: 'PRO' }
   }
 
   // 🔴 #358 Phase 2 — ONE resolver for both calendar gates. This used to call `resolveMembership`
