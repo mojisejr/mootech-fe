@@ -17,6 +17,7 @@ import { db } from '@/lib/db'
 import { userMatching } from '@/lib/db/schema'
 import { monthWindow, monthResetAt, quotaRemaining, type QuotaRemaining } from '@/lib/usage-core'
 import { entitlementTierOf, monthlyQuotaFor, type MembershipVerdictLike, type Tier } from '@/lib/v2/entitlement'
+import { getMatchingCredits } from '@/lib/matching/matching-credit'
 
 /** Anything with `.select()` — the pooled client, or a transaction handle so a count can run under a lock. */
 type Reader = Pick<typeof db, 'select'>
@@ -83,8 +84,16 @@ export async function compatibilityQuotaView(
 ): Promise<CompatQuotaView> {
   const ceiling = compatibilityCeilingFor(verdict)
   const used = await countCompatibilityInMonth(userId, now)
+  const base = quotaRemaining({ isFree: false, used, limitFree: 0, limitMember: ceiling })
+  // บวก matching_slot credit (คูปองแมทช์สมพงศ์ / /ops grant) เข้ากับโควตา tier ที่แสดง — ให้ indicator
+  // ตรงกับ gate (ที่ยอมให้ใช้ credit เมื่อ tier หมด). PRO (ceiling null) ไม่อั้นอยู่แล้ว จึงไม่บวก.
+  let withCredit = base
+  if (!base.unlimited && ceiling !== null) {
+    const credits = await getMatchingCredits(userId)
+    if (credits > 0) withCredit = { ...base, limit: base.limit + credits }
+  }
   return {
-    ...quotaRemaining({ isFree: false, used, limitFree: 0, limitMember: ceiling }),
+    ...withCredit,
     resetAt: monthResetAt(now),
     tier: entitlementTierOf(verdict),
   }
