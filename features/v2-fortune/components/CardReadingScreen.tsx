@@ -177,7 +177,7 @@ export function CardReadingScreen({
     // แชร์ = ลิงก์เชิญเพื่อนของ user เอง (คนสมัคร → user ได้ QI) + แนบภาพการ์ดเฉพาะบุคคล (#6)
     const text = cards.length ? `เปิดไพ่ได้ ${cards.map((c) => c.name).join(" · ")} — ${title} กับ Mumate` : `${title} กับ Mumate`
     // #359 รอบ 13: แชร์เป็นลิงก์ + og:image เฉพาะผล (ลิงก์กดได้ทุกแอป + พรีวิวการ์ด)
-    void shareAsInvite({ title, text, og: { title: resultTitle || title, summary: shareSummary, tag: title, image: shareImages[0] } })
+    void shareAsInvite({ title, text, og: { title: resultTitle || title, summary: shareSummary, tag: title, image: shareImages.slice(0, 3).join(",") } })
   }
 
   const headerTitle = phase === "result" ? resultTitle : phase === "pick" ? "เลือกไพ่ 3 ใบ" : title
