@@ -23,9 +23,13 @@ async function font(url: string): Promise<ArrayBuffer | null> {
   }
 }
 
+// ตัดข้อความไม่ให้ยาวเกิน — ถ้าเกิน ตัดที่ "ช่องว่าง" ตัวสุดท้าย (ไทยเว้นวรรคระหว่างวลี) กันตัดกลางคำ
 function clamp(s: string, max: number): string {
   const t = s.trim()
-  return t.length <= max ? t : t.slice(0, max).trimEnd() + "…"
+  if (t.length <= max) return t
+  const cut = t.slice(0, max)
+  const sp = cut.lastIndexOf(" ")
+  return (sp > max * 0.6 ? cut.slice(0, sp) : cut).trimEnd() + "…"
 }
 
 export default async function handler(req: Request): Promise<Response> {
@@ -43,8 +47,8 @@ export default async function handler(req: Request): Promise<Response> {
       const [label = "", pct = "", grade = "", color = "", top = ""] = row.split("|")
       return { label, pct: Math.max(0, Math.min(100, Number(pct) || 0)), grade, color: color || "#1455A4", top: top === "1" }
     })
-  // มีสกิล → คำโปรยสั้นลงให้มีที่วางแถบ
-  const summary = clamp(searchParams.get("d") || "ดูดวงจีนเฉพาะคุณกับ Mumate", skills.length ? 110 : 180)
+  // มีสกิล → คำโปรยสั้น (มีที่วางแถบ); ไม่มีสกิล → ยาวได้ (คำทำนายเต็มขึ้น ลดการตัด)
+  const summary = clamp(searchParams.get("d") || "ดูดวงจีนเฉพาะคุณกับ Mumate", skills.length ? 110 : 340)
   // m = รูป (มาสคอต 1 รูป หรือไพ่หลายใบคั่นด้วย ",") — resolve relative → absolute, เก็บสูงสุด 3
   const resolveImg = (s: string) => (s.startsWith("http") ? s : `${origin}${s.startsWith("/") ? "" : "/"}${s}`)
   const imgs = (searchParams.get("m") || "")
@@ -124,7 +128,7 @@ export default async function handler(req: Request): Promise<Response> {
             {subtitle ? (
               <div style={{ display: "flex", fontSize: 30, fontWeight: 700, color: "#1455A4", marginTop: 10 }}>{subtitle}</div>
             ) : null}
-            <div style={{ display: "flex", fontSize: skills.length ? 22 : 26, lineHeight: 1.4, color: "#243449", marginTop: skills.length ? 10 : 18 }}>{summary}</div>
+            <div style={{ display: "flex", fontSize: skills.length ? 22 : 25, lineHeight: 1.42, color: "#243449", marginTop: skills.length ? 10 : 16 }}>{summary}</div>
             {skills.length ? (
               <div style={{ display: "flex", flexDirection: "column", marginTop: 18 }}>
                 {skills.map((s, i) => (

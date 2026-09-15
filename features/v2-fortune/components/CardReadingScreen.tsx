@@ -103,7 +103,11 @@ export function CardReadingScreen({
   // #6 (2026-09-15): การ์ดแชร์เฉพาะบุคคล — หน้าไพ่ที่เปิดได้ + สรุปคำทำนายสั้น
   const shareCardRef = useRef<HTMLDivElement>(null)
   // #359 รอบ 10: สรุปรวมจากไพ่ทุกใบ (ไม่ใช่แค่ใบแรก) + โชว์ไพ่ครบ 3 ใบ
-  const shareSummary = cards.map((c) => c.meaning?.trim()).filter(Boolean).join(" ") || proseParas.join(" ") || `${title} กับ Mumate`
+  // แชร์: ตัด "(น้ำหนัก 50%)" ที่ engine ใส่มาในคำทำนายไพ่ divine ออก (ผู้ใช้: ไม่ต้องเอา % มา)
+  const shareSummary = (cards.map((c) => c.meaning?.trim()).filter(Boolean).join(" ") || proseParas.join(" ") || `${title} กับ Mumate`)
+    .replace(/\s*\(น้ำหนัก[^)]*%\)/g, "")
+    .replace(/\s{2,}/g, " ")
+    .trim()
   const shareImages = cards.map(faceUrl)
 
   // 402 = ฟรีหมด + เครดิตหมด + ชี่ไม่พอ (engine หักชี่ให้เองเมื่อพอ) — ปุ่มแลกตรงนี้: แลก card_use 1 ครั้งด้วยชี่ แล้วเปิดต่อทันที
