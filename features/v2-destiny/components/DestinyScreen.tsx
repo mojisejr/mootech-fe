@@ -185,6 +185,15 @@ const ELEMENT_MASCOT: Record<string, string> = {
   metal: "/images/v2/destiny/el-metal.png",
   water: "/images/v2/destiny/el-water.png",
 }
+// #2 (แก้รอบ 2): ตำแหน่งไอคอนธาตุที่ "ล้อม" รูปมาสคอต (relative กับกรอบรูป 168×220) — มุม+ข้าง เว้นล่างกลาง (avatar ซ้อน)
+const ELEMENT_SLOTS: Array<React.CSSProperties> = [
+  { top: "2px", left: "-16px" },
+  { top: "2px", right: "-16px" },
+  { top: "88px", left: "-26px" },
+  { top: "88px", right: "-26px" },
+  { top: "168px", left: "-8px" },
+  { top: "168px", right: "-8px" },
+]
 const PILLAR_LABEL: Record<string, string> = {
   year: "ปี",
   month: "เดือน",
@@ -587,6 +596,8 @@ export function DestinyScreen({ previewData }: { previewData?: DestinyData } = {
   const pillars = data?.calculatedState?.fourPillars ?? null
   const mingGong = data?.calculatedState?.mingGong ?? null
   const analysis = data?.calculatedState?.elementAnalysis ?? null
+  // #2 (ซินแสนุ้ย 2026-09-14, แก้รอบ 2): ธาตุในดวง = ไอคอนล้อมรูปมาสคอต (ไม่แยกการ์ด) — 1 ธาตุ/ไอคอน + ป้าย ×N
+  const elementCounts = ELEMENT_ROW_ORDER.map((el) => ({ el, n: analysis?.totalCounts?.[el] ?? 0 })).filter((e) => e.n > 0)
   const lifePath = data?.lifePath ?? null
   // สีมงคล = ธาตุอุปถัมภ์ (favorable) → hex ตาม engine READING_COLORS
   const favTh = lifePath?.favorableElementsTh ?? data?.lifeTimeline?.favorableElementsTh ?? []
@@ -727,11 +738,25 @@ export function DestinyScreen({ previewData }: { previewData?: DestinyData } = {
           {/* การ์ดน้ำเงิน (Figma promo-personal-calendar 55349:3091): การ์ดมาสคอต + avatar ริมไลม์ + ชื่อ + 4 แถบเกรด */}
           <div className="mx-4 mt-3">
           <section className="relative z-0 flex flex-col items-center gap-7 overflow-hidden rounded-[22px] bg-v3-sapphire px-4 pb-6 pt-8 text-white" data-testid="destiny-hero">
-            {/* การ์ดมาสคอต (art) — avatar ผู้ใช้ซ้อนคาบล่าง */}
+            {/* การ์ดมาสคอต (art) — avatar ผู้ใช้ซ้อนคาบล่าง + ธาตุในดวงล้อมรอบรูป (#2 แก้รอบ 2) */}
             <div className="flex w-full flex-col items-center">
-              <span className="block h-[220px] w-[168px] overflow-hidden rounded-[16px] bg-white/10">
-                <MascotImage src={mascotUrl} alt="มาสคอตประจำวันเกิด" className="h-full w-full object-cover" />
-              </span>
+              <div className="relative" data-testid="destiny-elements">
+                <span className="block h-[220px] w-[168px] overflow-hidden rounded-[16px] bg-white/10">
+                  <MascotImage src={mascotUrl} alt="มาสคอตประจำวันเกิด" className="h-full w-full object-cover" />
+                </span>
+                {elementCounts.map(({ el, n }, i) => {
+                  const slot = ELEMENT_SLOTS[i]
+                  if (!slot) return null
+                  return (
+                    <div key={el} className="absolute z-10 flex flex-col items-center" style={slot} data-testid={`destiny-element-${el}`}>
+                      <Image src={ELEMENT_MASCOT[el]} alt={`ธาตุ${ELEMENT_TH[el]}`} width={40} height={40} unoptimized className="h-10 w-10 object-contain drop-shadow-[0_2px_5px_rgba(0,0,0,0.3)]" />
+                      <span className="-mt-1 rounded-full bg-white px-1.5 text-[10px] font-bold leading-4 shadow-[0_1px_3px_rgba(0,0,0,0.25)]" style={{ color: ELEMENT_INK[el] }}>
+                        {ELEMENT_TH[el]}×{n}
+                      </span>
+                    </div>
+                  )
+                })}
+              </div>
               <span className="-mt-6 grid h-16 w-16 place-items-center overflow-hidden rounded-full border-2 border-v3-lime bg-v3-sapphire">
                 {/* #1 (ซินแสนุ้ย 2026-09-14): รูปที่ผู้ใช้อัปโหลดอยู่ที่ engine avatar store → อ่าน /api/v2/avatar
                     (แหล่งเดียวกับ avatar มุมขวาบน) ไม่ใช่ data.avatarUrl (= user.picture_url รูป LINE เก่า).
@@ -808,29 +833,6 @@ export function DestinyScreen({ previewData }: { previewData?: DestinyData } = {
             </div>
           </section>
           </div>
-
-          {/* #2 (ซินแสนุ้ย 2026-09-14): "ธาตุในดวง" โชว์ตามจำนวนจริง (totalCounts) — มีธาตุไหนกี่ตัวก็โชว์เท่านั้น
-              แบบเรียงเป็นแถวไม่ทับกัน/ไม่ทับการ์ด (แทนมาสคอตลอย 5 ตัว hardcode เดิมที่ซ้อนทับดวง) */}
-          {analysis?.totalCounts && ELEMENT_ROW_ORDER.some((el) => (analysis.totalCounts?.[el] ?? 0) > 0) && (
-            <section className="mx-4 mt-3 rounded-[18px] bg-white p-4 v3-shadow-card" data-testid="destiny-elements">
-              <p className="mb-3 text-[13px] font-bold text-v3-navy">ธาตุในดวงของคุณ</p>
-              <div className="flex flex-wrap items-end justify-center gap-x-4 gap-y-3">
-                {ELEMENT_ROW_ORDER.filter((el) => (analysis.totalCounts?.[el] ?? 0) > 0).map((el) => {
-                  const n = analysis.totalCounts?.[el] ?? 0
-                  return (
-                    <div key={el} className="flex flex-col items-center gap-1" data-testid={`destiny-element-${el}`}>
-                      <div className="flex max-w-[120px] flex-wrap items-end justify-center gap-0.5">
-                        {Array.from({ length: n }).map((_, i) => (
-                          <Image key={i} src={ELEMENT_MASCOT[el]} alt="" width={26} height={26} unoptimized className="h-[26px] w-[26px] object-contain drop-shadow" />
-                        ))}
-                      </div>
-                      <span className="text-[11px] font-bold" style={{ color: ELEMENT_INK[el] }}>ธาตุ{ELEMENT_TH[el]} ×{n}</span>
-                    </div>
-                  )
-                })}
-              </div>
-            </section>
-          )}
 
           <div className="mx-4 mt-4 flex flex-col gap-4">
             {/* ดวงจะส่งผล 8 ด้าน — ชิปเสา + จุดอ่อน 4 ด้าน */}
