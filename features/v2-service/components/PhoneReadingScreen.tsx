@@ -225,7 +225,11 @@ export function PhoneReadingScreen({ initialMode = "normal" }: { initialMode?: M
   // normalized = 9 หลักสำคัญ (ตัด 0 หน้าตอนคำนวณ) → เติม 0 กลับตอนแชร์ให้เป็นเบอร์เต็ม
   const shareNumberRaw = (resultMode === "normal" ? pReading?.normalized : hReading?.normalized) ?? ""
   const shareNumber = shareNumberRaw && !shareNumberRaw.startsWith("0") ? `0${shareNumberRaw}` : shareNumberRaw
-  const shareSummary = narration?.trim() || "ทำนายเบอร์มือถือของคุณที่ Mumate"
+  // คำทำนายจาก engine อ้างเบอร์แบบ 9 หลัก (ไม่มี 0) → แทนด้วยเบอร์เต็มมี 0 ให้ตรงกับ title
+  const shareSummary = (() => {
+    const s = narration?.trim() || "ทำนายเบอร์มือถือของคุณที่ Mumate"
+    return shareNumberRaw && shareNumber !== shareNumberRaw ? s.split(shareNumberRaw).join(shareNumber) : s
+  })()
   const shareText = `ผลวิเคราะห์${MODE[resultMode].label} เบอร์ ${shareNumber} จาก Mumate`
 
   const digits = pReading ? pReading.normalized.split("") : []
