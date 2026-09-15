@@ -222,7 +222,9 @@ export function PhoneReadingScreen({ initialMode = "normal" }: { initialMode?: M
 
   // #6 (2026-09-15): การ์ดแชร์เฉพาะบุคคล — เลขเบอร์เป็นเอกลักษณ์ + สรุป (narration)
   const shareCardRef = useRef<HTMLDivElement>(null)
-  const shareNumber = (resultMode === "normal" ? pReading?.normalized : hReading?.normalized) ?? ""
+  // normalized = 9 หลักสำคัญ (ตัด 0 หน้าตอนคำนวณ) → เติม 0 กลับตอนแชร์ให้เป็นเบอร์เต็ม
+  const shareNumberRaw = (resultMode === "normal" ? pReading?.normalized : hReading?.normalized) ?? ""
+  const shareNumber = shareNumberRaw && !shareNumberRaw.startsWith("0") ? `0${shareNumberRaw}` : shareNumberRaw
   const shareSummary = narration?.trim() || "ทำนายเบอร์มือถือของคุณที่ Mumate"
   const shareText = `ผลวิเคราะห์${MODE[resultMode].label} เบอร์ ${shareNumber} จาก Mumate`
 
