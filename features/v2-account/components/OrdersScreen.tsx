@@ -42,6 +42,10 @@ export function titleFor(row: FullPaymentRow): string {
     const label = sinsaeLabelOf(row.packageCode)
     return label ? `จองซินแส · ${label}` : "จองปรึกษาซินแส"
   }
+  // หนังสือ "Your Life Code" — โชว์ชื่อจริง ไม่ใช่โค้ดแพ็ก (BOOK_PDF/BOOK_PHYSICAL)
+  if (row.tierCode === "BOOK") {
+    return row.packageCode === "BOOK_PHYSICAL" ? "Your Life Code (รูปเล่ม)" : "Your Life Code (PDF)"
+  }
   return TIER_WORD[row.tierCode] ?? row.packageCode
 }
 
