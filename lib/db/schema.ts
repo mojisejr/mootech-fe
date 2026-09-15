@@ -1227,6 +1227,20 @@ export const bookOrder = pgTable("book_order", {
 	check("book_order_status_check", sql`${table.status} IN ('NEW','PAID','DONE','CANCELLED')`),
 ]);
 
+// share_snapshot (#359 ซินแสนุ้ย รอบ 14 2026-09-15) — เก็บ "สแนปช็อตการ์ดแชร์" ใต้โค้ดสั้น เพื่อลิงก์ที่แชร์
+// สั้น (/invite/CODE?c=<id>) แทนการยัด t/s/d/g/m ลง query (ไทย 1 ตัว = 9 ตัวอักษรเมื่อ encode → ลิงก์ยาวมาก).
+// หน้า /invite อ่านแถวนี้ฝั่ง server แล้วสร้าง og:image เฉพาะผล. id = base62 สุ่มสั้น (สร้างใน API). ดู 0031.
+export const shareSnapshot = pgTable("share_snapshot", {
+	id: varchar("id", { length: 24 }).primaryKey().notNull(), // โค้ดสั้น base62 (สร้างฝั่ง API)
+	userId: varchar("user_id", { length: 36 }), // เจ้าของผล (null ได้ — best-effort, ไว้ debug/กันสแปม)
+	title: text("title").notNull(),
+	subtitle: text("subtitle"),
+	summary: text("summary"),
+	tag: text("tag"),
+	image: text("image"), // URL รูปมาสคอต/การ์ด (relative หรือ absolute)
+	createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
 export const analyticLife = pgTable("analytic_life", {
 	id: bigserial({ mode: "bigint" }).primaryKey().notNull(),
 	// You can use { mode: "bigint" } if numbers are exceeding js number limitations

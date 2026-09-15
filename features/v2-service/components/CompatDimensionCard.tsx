@@ -34,7 +34,7 @@ export function CompatDimensionCard({ dimension, tone: toneProp, index = 0 }: { 
   const icon = DIM_ICONS[((index % DIM_ICONS.length) + DIM_ICONS.length) % DIM_ICONS.length]
 
   return (
-    <section data-testid="compat-dim-card" data-main={dimension.isMain ? 'true' : undefined} className="flex flex-col gap-1">
+    <section data-testid="compat-dim-card" data-main={dimension.isMain ? 'true' : undefined} className="print-keep flex flex-col gap-1">
       <div className="flex items-start gap-3">
         <span className="grid size-14 shrink-0 place-items-center rounded-[10px] bg-[#EAF0FA]">
           <Image src={`/images/v2/compat/${icon}`} alt="" width={27} height={27} className="size-[27px]" />

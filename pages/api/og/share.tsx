@@ -33,6 +33,8 @@ export default async function handler(req: Request): Promise<Response> {
   const tag = clamp(searchParams.get("g") || "", 24)
   const mRaw = searchParams.get("m") || ""
   const mascot = mRaw ? (mRaw.startsWith("http") ? mRaw : `${origin}${mRaw.startsWith("/") ? "" : "/"}${mRaw}`) : ""
+  // รอบ 14: พื้นหลัง = ภาพฉากพาสเทล (ไม่ใช่ไล่สีน้ำเงิน) + ตัวหนังสือเข้ม ให้เข้าชุดการ์ดแชร์
+  const bg = `${origin}/images/v2/destiny/bg-destiny.jpg`
 
   const [reg, bold] = await Promise.all([font(FONT_REG), font(FONT_BOLD)])
   const fonts = [
@@ -46,39 +48,55 @@ export default async function handler(req: Request): Promise<Response> {
         style={{
           width: "100%",
           height: "100%",
+          position: "relative",
           display: "flex",
-          flexDirection: "row",
-          alignItems: "center",
-          padding: "56px",
-          gap: "44px",
           fontFamily: "Plex",
-          color: "#ffffff",
-          background: "linear-gradient(135deg, #1B62B3 0%, #12489B 55%, #0B2A65 100%)",
+          backgroundColor: "#cfe6f5",
         }}
       >
-        {mascot ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            src={mascot}
-            width={300}
-            height={380}
-            style={{ width: 300, height: 380, objectFit: "cover", borderRadius: 24, background: "rgba(255,255,255,0.1)", flexShrink: 0 }}
-            alt=""
-          />
-        ) : null}
-        <div style={{ display: "flex", flexDirection: "column", flex: 1 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 18 }}>
-            <span style={{ fontSize: 40, fontWeight: 700, letterSpacing: -1 }}>Mumate</span>
-            {tag ? (
-              <span style={{ fontSize: 22, fontWeight: 700, background: "rgba(255,255,255,0.18)", borderRadius: 999, padding: "6px 18px" }}>{tag}</span>
-            ) : null}
-          </div>
-          <div style={{ display: "flex", fontSize: 52, fontWeight: 700, lineHeight: 1.15 }}>{title}</div>
-          {subtitle ? (
-            <div style={{ display: "flex", fontSize: 30, fontWeight: 700, color: "#FFD84D", marginTop: 10 }}>{subtitle}</div>
+        {/* พื้นหลังภาพฉากพาสเทล */}
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src={bg} alt="" style={{ position: "absolute", top: 0, left: 0, width: "100%", height: "100%", objectFit: "cover" }} />
+        {/* ม่านขาวจาง ให้ตัวหนังสือเข้มอ่านชัด */}
+        <div style={{ position: "absolute", top: 0, left: 0, width: "100%", height: "100%", background: "rgba(255,255,255,0.42)" }} />
+
+        <div
+          style={{
+            position: "relative",
+            width: "100%",
+            height: "100%",
+            display: "flex",
+            flexDirection: "row",
+            alignItems: "center",
+            padding: "56px",
+            gap: "44px",
+            color: "#0b305b",
+          }}
+        >
+          {mascot ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={mascot}
+              width={320}
+              height={400}
+              style={{ width: 320, height: 400, objectFit: "contain", flexShrink: 0 }}
+              alt=""
+            />
           ) : null}
-          <div style={{ display: "flex", fontSize: 26, lineHeight: 1.4, color: "rgba(255,255,255,0.92)", marginTop: 18 }}>{summary}</div>
-          <div style={{ display: "flex", marginTop: "auto", fontSize: 22, fontWeight: 700, color: "rgba(255,255,255,0.85)" }}>bazichart.mumate.co</div>
+          <div style={{ display: "flex", flexDirection: "column", flex: 1 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 18 }}>
+              <span style={{ fontSize: 40, fontWeight: 700, letterSpacing: -1, color: "#0b305b" }}>Mumate</span>
+              {tag ? (
+                <span style={{ fontSize: 22, fontWeight: 700, color: "#ffffff", background: "#0b305b", borderRadius: 999, padding: "6px 18px" }}>{tag}</span>
+              ) : null}
+            </div>
+            <div style={{ display: "flex", fontSize: 52, fontWeight: 700, lineHeight: 1.15, color: "#0b305b" }}>{title}</div>
+            {subtitle ? (
+              <div style={{ display: "flex", fontSize: 30, fontWeight: 700, color: "#1455A4", marginTop: 10 }}>{subtitle}</div>
+            ) : null}
+            <div style={{ display: "flex", fontSize: 26, lineHeight: 1.4, color: "#243449", marginTop: 18 }}>{summary}</div>
+            <div style={{ display: "flex", marginTop: "auto", fontSize: 22, fontWeight: 700, color: "#1455A4" }}>bazichart.mumate.co</div>
+          </div>
         </div>
       </div>
     ),

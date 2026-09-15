@@ -21,15 +21,22 @@ export type ShareResult = "shared" | "copied" | "failed"
 // #359 รอบ 13: พารามิเตอร์การ์ดแชร์เฉพาะผล → แนบไปกับลิงก์ /invite ให้หน้า invite ทำ og:image เฉพาะบุคคล
 export type ShareOgParams = { title: string; subtitle?: string; summary?: string; tag?: string; image?: string }
 
-function appendShareParams(baseUrl: string, og: ShareOgParams): string {
-  const p = new URLSearchParams()
-  if (og.title) p.set("t", og.title.slice(0, 80))
-  if (og.subtitle) p.set("s", og.subtitle.slice(0, 60))
-  if (og.summary) p.set("d", og.summary.slice(0, 200))
-  if (og.tag) p.set("g", og.tag.slice(0, 30))
-  if (og.image) p.set("m", og.image)
-  const qs = p.toString()
-  return qs ? `${baseUrl}${baseUrl.includes("?") ? "&" : "?"}${qs}` : baseUrl
+// #359 รอบ 14 (2026-09-15): เดิมยัด t/s/d/g/m ลง query → ไทย 1 ตัว = 9 ตัวอักษรเมื่อ encode → ลิงก์ยาวมาก.
+// แก้: POST เก็บ "สแนปช็อต" ที่ server แล้วได้โค้ดสั้น → ลิงก์ = /invite/CODE?c=<id> (สั้น กดได้).
+// ล้ม (ไม่มี session/เน็ต) → คืน null → แชร์ลิงก์เชิญเปล่า (ยังใช้ได้ แค่ไม่มีพรีวิวเฉพาะผล).
+async function createShareSnapshot(og: ShareOgParams): Promise<string | null> {
+  try {
+    const r = await fetch("/api/v2/share/snapshot", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(og),
+    })
+    if (!r.ok) return null
+    const j = (await r.json().catch(() => null)) as { id?: unknown } | null
+    return typeof j?.id === "string" && j.id ? j.id : null
+  } catch {
+    return null
+  }
 }
 
 /** แชร์เป็นคำเชิญ: url = ลิงก์เชิญของ user, แนบภาพการ์ด (ถ้ารองรับ).
@@ -49,12 +56,14 @@ export async function shareAsInvite({
   og?: ShareOgParams | null
 }): Promise<ShareResult> {
   const baseUrl = await fetchInviteUrl()
-  const url = og ? appendShareParams(baseUrl, og) : baseUrl
   const nav = typeof navigator !== "undefined" ? navigator : undefined
 
-  // #359 รอบ 13: มี og → แชร์เป็น "ลิงก์" อย่างเดียว (ไม่แนบไฟล์) เพื่อให้ Messenger/LINE/FB โชว์ลิงก์กดได้
-  // + พรีวิวการ์ดเฉพาะบุคคล (og:image = /api/og/share). แนบไฟล์รูปทำให้แอปทิ้งลิงก์ จึงไม่แนบเมื่อมี og.
+  // #359 รอบ 13-14: มี og → แชร์เป็น "ลิงก์" อย่างเดียว (ไม่แนบไฟล์) เพื่อให้ Messenger/LINE/FB โชว์ลิงก์กดได้
+  // + พรีวิวการ์ดเฉพาะบุคคล (og:image). แนบไฟล์รูปทำให้แอปทิ้งลิงก์ จึงไม่แนบเมื่อมี og.
+  // รอบ 14: ลิงก์สั้น — เก็บสแนปช็อตที่ server ได้โค้ดสั้น (?c=<id>) แทนยัดข้อความไทยลง query.
   if (og) {
+    const id = await createShareSnapshot(og)
+    const url = id ? `${baseUrl}${baseUrl.includes("?") ? "&" : "?"}c=${id}` : baseUrl
     try {
       if (nav?.share) { await nav.share({ title, text, url }); return "shared" }
       if (nav?.clipboard) { await nav.clipboard.writeText(`${text} ${url}`); return "copied" }
@@ -62,6 +71,8 @@ export async function shareAsInvite({
     return "failed"
   }
 
+  // เส้นทางไม่มี og (แชร์แบบแนบภาพเดิม) — url = ลิงก์เชิญเปล่า
+  const url = baseUrl
   // พยายามแนบภาพการ์ด (best-effort — ล้มก็แชร์แค่ url+text): file ที่ render แล้วก่อน, ไม่งั้น fetch จาก imageUrl
   let files: File[] | undefined
   if (file && file.size > 0) {

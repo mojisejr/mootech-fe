@@ -13,6 +13,9 @@ import Image from "next/image"
 import Link from "next/link"
 import { useRouter } from "next/router"
 import { useEffect, useState } from "react"
+import { eq } from "drizzle-orm"
+import { db } from "@/lib/db"
+import { shareSnapshot } from "@/lib/db/schema"
 
 export const REFERRAL_STORAGE_KEY = 'v2:referral'
 
@@ -46,10 +49,21 @@ export const getServerSideProps: GetServerSideProps<InviteSSR> = async (ctx) => 
       /* best-effort — การ์ดยังขึ้นแบบทั่วไปได้ถ้าดึงชื่อไม่ได้ */
     }
   }
-  // เก็บ share params (การ์ดเฉพาะผล) จาก query — ส่งต่อให้ og:image เฉพาะบุคคล
+  // การ์ดแชร์เฉพาะผล → og:image เฉพาะบุคคล.
+  // รอบ 14: ลิงก์สั้น — โค้ด ?c=<id> อ่านสแนปช็อตจาก DB (ฝั่ง server). รองรับ ?t/s/d/g/m เดิมด้วย (ลิงก์เก่า).
   const q = ctx.query
   const str = (v: unknown): string => (typeof v === "string" ? v : Array.isArray(v) ? (v[0] ?? "") : "")
-  const share: ShareOg = { t: str(q.t), s: str(q.s), d: str(q.d), g: str(q.g), m: str(q.m) }
+  let share: ShareOg = { t: str(q.t), s: str(q.s), d: str(q.d), g: str(q.g), m: str(q.m) }
+  const snapId = str(q.c).trim()
+  if (snapId && /^[0-9A-Za-z]{1,24}$/.test(snapId)) {
+    try {
+      const rows = await db.select().from(shareSnapshot).where(eq(shareSnapshot.id, snapId)).limit(1)
+      const r = rows[0]
+      if (r) share = { t: r.title, s: r.subtitle ?? "", d: r.summary ?? "", g: r.tag ?? "", m: r.image ?? "" }
+    } catch {
+      /* best-effort — ดึงสแนปช็อตไม่ได้ → การ์ดแบรนด์ทั่วไป */
+    }
+  }
   ctx.res.setHeader("Cache-Control", "public, max-age=300, s-maxage=600")
   return { props: { ssrCode, ssrInviterName, origin, share } }
 }
