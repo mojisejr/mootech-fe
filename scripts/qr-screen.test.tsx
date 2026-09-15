@@ -80,6 +80,31 @@ describe('#363 the QR wait says only what it can back', () => {
   })
 })
 
+describe('the "โอนเสร็จแล้ว" countdown (2026-09-15) — feedback that the wait is active, then a re-check', () => {
+  it('press → countdown 4 shows, decrements, and a status re-check is fired', async () => {
+    vi.useFakeTimers()
+    try {
+      const fetchMock = vi.fn(async () => ({ ok: true, json: async () => ({ payments: [{ chargeId: 'chrg_mine', status: 'PENDING' }] }) }))
+      vi.stubGlobal('fetch', fetchMock)
+      render(<QrScreen {...props} />)
+      await vi.advanceTimersByTimeAsync(0) // let the first poll resolve → phase 'waiting'
+      // idle: the CTA is shown, no countdown yet
+      expect(screen.getByTestId('qr-paid')).toBeTruthy()
+      const before = fetchMock.mock.calls.length
+      fireEvent.click(screen.getByTestId('qr-paid'))
+      // an immediate re-check is poked on press
+      expect(fetchMock.mock.calls.length).toBeGreaterThan(before)
+      // the countdown replaces the CTA and starts at 4
+      expect(screen.getByTestId('qr-countdown').textContent).toBe('4')
+      expect(screen.queryByTestId('qr-paid')).toBeNull()
+      await vi.advanceTimersByTimeAsync(1000)
+      expect(screen.getByTestId('qr-countdown').textContent).toBe('3')
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+})
+
 describe('#363 the per-line audit — this screen has no frame to check it against', () => {
   it('every visible line comes from QR_COPY, and none of them claims a certainty we lack', async () => {
     mockStatus([{ chargeId: 'chrg_mine', status: 'PENDING' }])

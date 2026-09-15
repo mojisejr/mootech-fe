@@ -43,20 +43,38 @@ export default function V2ResultPage() {
   // ของแพ็ก (จาก QI_PACK_QTY server-side map — ไม่อ่านจาก URL นอกจากโค้ดแพ็กที่ตรวจแล้ว)
   const qiQty = qiQtyOf(packageCode)
   const qiLine = qiQty !== null ? `แพ็ก ${qiQty.toLocaleString('th-TH')} QI` : null
-  // จองซินแส (tier SINSAE) — จบที่หน้า success ของตัวเอง (ใบเสร็จย่อ + ทักไลน์) ไม่ใช่หน้าสมาชิก/ชี่
-  const isSinsae = sinsaeMinutesOf(packageCode) !== null
-  // สั่งซื้อหนังสือ (tier BOOK) — จบที่หน้า success ของตัวเอง (ใบเสร็จย่อ + 10-15 วัน + ปุ่มกลุ่ม BLM)
-  const isBook = bookFormatOf(packageCode) !== null
-  const { status, method, phase, qrDeadline, failureCode, check } = useChargeStatus({ chargeId: charge || null, orderId: order || null })
+  const { status, method, phase, qrDeadline, failureCode, check, tierCode } = useChargeStatus({ chargeId: charge || null, orderId: order || null })
+
+  // 🔴 เลนสินค้า: ยึด tierCode จาก "แถวจ่ายเงินจริง" (แหล่งความจริง จาก /api/v2/payment/status) ก่อน แล้วค่อย
+  // fallback ไป package_code ใน URL. เหตุ (2026-09-15): เลน PromptPay ไม่ส่ง package_code กลับมา (qrcode.tsx
+  // onApproved) ⇒ จองซินแสแล้ว packageCode='' ⇒ ตกไปหน้าสมาชิก PlanPaySuccess ทั้งที่จ่ายค่าจองซินแส. tierCode
+  // มากับทุก charge/order เสมอ ⇒ เลือกจอถูกเลนแม้ URL ไม่มี package_code.
+  const lane: 'SINSAE' | 'BOOK' | 'QI' | 'MEMBER' | null =
+    tierCode === 'SINSAE' || sinsaeMinutesOf(packageCode) !== null ? 'SINSAE'
+      : tierCode === 'BOOK' || bookFormatOf(packageCode) !== null ? 'BOOK'
+        : tierCode === 'QI' || qiQty !== null ? 'QI'
+          : tierCode ? 'MEMBER' // แถวโหลดแล้ว เป็น tier สมาชิก
+            : packageCode ? 'MEMBER' // deep-link ปกติที่พก package_code (ไม่ใช่ 3 เลนบน)
+              : null // ยังไม่รู้: แถวยังไม่โหลด + ไม่มี package_code ⇒ รอ ไม่เดาว่าเป็นสมาชิก
 
   // Glue only — the rule lives in result-state.ts next to the words it chooses between, so it can be tested
   // without a router. That is not tidiness: the branch this ticket adds was missing precisely because the
   // only way to exercise the old nested ternary was to render this page.
   const state: ResultState = resolveResultState({ status, method, claimed, phase, qrDeadline, failureCode })
 
+  // 🔴 เงินเข้าจริงแล้ว แต่ยังไม่รู้เลน (แถวยังโหลดไม่เสร็จ + URL ไม่มี package_code — เช่นเลน PromptPay) ⇒ รอ
+  // ไม่เดาว่าเป็นสมาชิก. ถ้าเดา จะโชว์หน้าสมาชิกผิด ๆ ให้คนจ่ายค่าจองซินแสเห็นชั่ววูบ (บั๊กที่กำลังแก้).
+  if (RESULT_COPY[state].paid && lane === null) {
+    return (
+      <div className="flex min-h-screen w-full flex-col items-center justify-center bg-v3-bg-cream">
+        <Head><title>กำลังเปิดใบเสร็จ · MuMate</title></Head>
+        <p role="status" aria-live="polite" className="text-sm text-v3-text-muted">กำลังเปิดใบเสร็จ…</p>
+      </div>
+    )
+  }
+
   // จองซินแส (tier SINSAE): เงินเข้าจริงแล้ว → หน้า "จองสำเร็จ" (ใบเสร็จย่อ + ทักไลน์ยืนยันคิว).
-  // ต้องเช็คก่อนเลนสมาชิก เพราะ qiQty เป็น null สำหรับ SINSAE เช่นกัน (ไม่งั้นจะตกไป PlanPaySuccess).
-  if (RESULT_COPY[state].paid && isSinsae) {
+  if (RESULT_COPY[state].paid && lane === 'SINSAE') {
     return (
       <div className="flex min-h-screen w-full flex-col bg-v3-bg-cream">
         <Head><title>จองสำเร็จ · MuMate</title></Head>
@@ -66,8 +84,7 @@ export default function V2ResultPage() {
   }
 
   // สั่งซื้อหนังสือ (tier BOOK): เงินเข้าจริงแล้ว → หน้า "สั่งซื้อสำเร็จ" (ใบเสร็จย่อ + 10-15 วัน + กลุ่ม BLM).
-  // ต้องเช็คก่อนเลนสมาชิก/QI เพราะ qiQty/sinsae เป็น null สำหรับ BOOK เช่นกัน (ไม่งั้นจะตกไป PlanPaySuccess).
-  if (RESULT_COPY[state].paid && isBook) {
+  if (RESULT_COPY[state].paid && lane === 'BOOK') {
     return (
       <div className="flex min-h-screen w-full flex-col bg-v3-bg-cream">
         <Head><title>สั่งซื้อสำเร็จ · MuMate</title></Head>
@@ -78,7 +95,7 @@ export default function V2ResultPage() {
 
   // buy-qi (เฟรม success): เมื่อเงินเข้าแล้วจริง + เป็นแพ็ก QI → จอ success เฉพาะ QI (ยอดใหม่/delta/ใบเสร็จ).
   // สถานะอื่น (กำลังจ่าย/ถูกปฏิเสธ/QR หมดอายุ ฯลฯ) ยังใช้ ResultScreen ที่ copy/retry ถูก audit ไว้แล้ว.
-  if (RESULT_COPY[state].paid && qiQty !== null) {
+  if (RESULT_COPY[state].paid && lane === 'QI') {
     return (
       <div className="flex min-h-screen w-full flex-col justify-center bg-v3-bg-cream">
         <Head><title>เติม QI สำเร็จ · MuMate</title></Head>
@@ -90,7 +107,7 @@ export default function V2ResultPage() {
   // 402:22087 — a settled MEMBERSHIP purchase gets the receipt-card success screen (the QI twin above does
   // the same for packs). ALREADY_PAID is `paid` too and lands here on purpose: the card it shows is the
   // one payment that exists, which is exactly what that state is trying to say.
-  if (RESULT_COPY[state].paid && qiQty === null) {
+  if (RESULT_COPY[state].paid && lane === 'MEMBER') {
     return (
       <div className="flex min-h-screen w-full flex-col bg-v3-bg-cream">
         <Head><title>ชำระเงินสำเร็จ · MuMate</title></Head>
