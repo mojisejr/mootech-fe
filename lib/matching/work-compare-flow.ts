@@ -31,6 +31,7 @@ import { logActivity, memberWithFriend, user, userMatching, workComparison, work
 import { AI_MSG, bkkTimestamp } from '@/lib/usage'
 import { resolveSubscription } from '@/lib/v2/subscription'
 import { compatibilityCeilingFor, countCompatibilityInMonth, lockCompatibilityFor } from '@/lib/v2/compat-quota'
+import { getMatchingCredits, consumeMatchingCredit } from '@/lib/matching/matching-credit'
 import { mergeEngineBirth } from '@/lib/bazi-bridge/engine-birth'
 import { BaziEngineError } from './bazi-client'
 import { fetchBaziWork, MAX_CANDIDATES, type BaziRawInput, type BaziWorkRelationship } from './bazi-work-client'
@@ -170,8 +171,14 @@ export async function runWorkCompare(params: {
     verdict = { isPaid: false, tier: null } // fail-closed, same as the pair lane
   }
   const ceiling = compatibilityCeilingFor(verdict)
+  // tier รายเดือนหมด → มี matching_slot credit ยอมให้คำนวณ แล้วหัก 1 หลังสำเร็จ (drawCredit)
+  let drawCredit = false
   if (ceiling !== null && (await countCompatibilityInMonth(params.userId, now)) >= ceiling) {
-    return { ok: false, kind: 'quota', message: AI_MSG.OUT_OF_LIMIT_ALL }
+    if ((await getMatchingCredits(params.userId)) > 0) {
+      drawCredit = true
+    } else {
+      return { ok: false, kind: 'quota', message: AI_MSG.OUT_OF_LIMIT_ALL }
+    }
   }
 
   // 2. the people. 🔴 Friends are scoped to the CALLER in the predicate, never by id alone.
@@ -235,7 +242,7 @@ export async function runWorkCompare(params: {
   let refusedByQuota = false
   try {
     await db.transaction(async (tx) => {
-      if (ceiling !== null) {
+      if (ceiling !== null && !drawCredit) {
         await lockCompatibilityFor(tx, params.userId)
         if ((await countCompatibilityInMonth(params.userId, now, tx)) >= ceiling) {
           refusedByQuota = true
@@ -288,6 +295,9 @@ export async function runWorkCompare(params: {
     if (!isQuotaRefusal(refusedByQuota, e)) throw e
     return { ok: false, kind: 'quota', message: AI_MSG.OUT_OF_LIMIT_ALL }
   }
+
+  // สำเร็จและดึงจาก credit → หัก matching_slot credit 1 (best-effort)
+  if (drawCredit) await consumeMatchingCredit(params.userId)
 
   return { ok: true, matchingId, entries: built.entries, rankingComplete: built.rankingComplete }
 }

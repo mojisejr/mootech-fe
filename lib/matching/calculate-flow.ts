@@ -32,6 +32,7 @@ import { logActivity, logLoveMate, logMatching, logWorkVibe, memberWithFriend, u
 import { AI_MSG, bkkTimestamp } from '@/lib/usage'
 import { resolveSubscription } from '@/lib/v2/subscription'
 import { compatibilityCeilingFor, countCompatibilityInMonth, lockCompatibilityFor } from '@/lib/v2/compat-quota'
+import { getMatchingCredits, consumeMatchingCredit } from '@/lib/matching/matching-credit'
 import { BaziEngineError, fetchBaziPairMatch } from './bazi-client'
 import { mapPairMatchToComputeResult, toPairMatchRequest } from './bazi-pair-match.mapper'
 import type { MatchingType } from './bazi-pair.types'
@@ -111,8 +112,15 @@ export async function runCalculateMatching(params: {
     verdict = { isPaid: false, tier: null }
   }
   const ceiling = compatibilityCeilingFor(verdict)
+  // โควตา tier รายเดือนหมด → ถ้ามี matching_slot credit (คูปองแมทช์สมพงศ์ / /ops grant) ยอมให้คำนวณ
+  // แล้วหัก credit 1 หลังสำเร็จ (drawCredit). ไม่มี credit → ปฏิเสธ quota เหมือนเดิม.
+  let drawCredit = false
   if (ceiling !== null && (await countCompatibilityInMonth(params.userId, now)) >= ceiling) {
-    return { ok: false, kind: 'quota', message: AI_MSG.OUT_OF_LIMIT_ALL }
+    if ((await getMatchingCredits(params.userId)) > 0) {
+      drawCredit = true
+    } else {
+      return { ok: false, kind: 'quota', message: AI_MSG.OUT_OF_LIMIT_ALL }
+    }
   }
 
   // 2. the two people. 🔴 The friend is scoped to the CALLER — be read member_with_friend by id alone
@@ -169,7 +177,8 @@ export async function runCalculateMatching(params: {
   let refusedByQuota = false
   try {
     await db.transaction(async (tx) => {
-      if (ceiling !== null) {
+      // drawCredit = ดึงจาก credit (tier หมดแล้ว) → ข้ามการบังคับ ceiling; ไม่งั้นบังคับ tier ตามเดิม
+      if (ceiling !== null && !drawCredit) {
         await lockCompatibilityFor(tx, params.userId)
         if ((await countCompatibilityInMonth(params.userId, now, tx)) >= ceiling) {
           refusedByQuota = true
@@ -248,6 +257,9 @@ export async function runCalculateMatching(params: {
     }
     throw e
   }
+
+  // สำเร็จและดึงจาก credit → หัก matching_slot credit 1 (best-effort — engine, ไม่บล็อกคำตอบ)
+  if (drawCredit) await consumeMatchingCredit(params.userId)
 
   return { ok: true, matchingId, result: mapped }
 }
