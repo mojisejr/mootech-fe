@@ -20,6 +20,9 @@ const SacredMapLeaflet = dynamic(() => import("./SacredMapLeaflet"), {
 
 const CARD = "v3-shadow-card w-full rounded-[24px] bg-white p-4"
 
+// #359 (ซินแสนุ้ย 2026-09-15): ธาตุอุปถัมภ์ (用神) จาก /api/destiny เป็นชื่อไทย — map กลับเป็น key อังกฤษของตัวกรอง
+const EL_TH_TO_EN: Record<string, string> = { "ไม้": "wood", "ไฟ": "fire", "ดิน": "earth", "ทอง": "metal", "น้ำ": "water" }
+
 function FilterPill({ active, onClick, testId, color, children }: { active: boolean; onClick: () => void; testId?: string; color?: string; children: React.ReactNode }) {
   // ธาตุ (มี color): active = พื้นสีธาตุ ตัวขาว / inactive = พื้นขาว ตัวอักษรสีธาตุ. ทั่วไป (ไม่มี color): active = lime.
   const style = color ? (active ? { background: color, color: "#fff" } : { background: "#fff", color }) : undefined
@@ -41,6 +44,7 @@ export function SacredMapScreen() {
   const [saved, setSaved] = useState<Set<string>>(new Set())
   const [bootstrapped, setBootstrapped] = useState(false)
   const [userPos, setUserPos] = useState<{ lat: number; lng: number } | null>(null)
+  const [favTh, setFavTh] = useState<string[]>([]) // #359: ธาตุที่ดวงควรเสริม (用神)
 
   // ฟอร์มเสนอสถานที่
   const [submitOpen, setSubmitOpen] = useState(false)
@@ -68,6 +72,21 @@ export function SacredMapScreen() {
       () => {},
       { enableHighAccuracy: false, timeout: 8000, maximumAge: 300000 },
     )
+  }, [])
+
+  // #359 (ซินแสนุ้ย 2026-09-15): ดึงธาตุอุปถัมภ์ (用神) จาก /api/destiny มาแนะนำว่าควรเสริมธาตุไหน — ล้มก็ซ่อนกล่องเงียบ ๆ
+  useEffect(() => {
+    let alive = true
+    ;(async () => {
+      try {
+        const res = await fetch("/api/destiny", { method: "POST" })
+        if (!res.ok) return
+        const j = (await res.json()) as { lifePath?: { favorableElementsTh?: string[] }; lifeTimeline?: { favorableElementsTh?: string[] } }
+        const th = j.lifePath?.favorableElementsTh ?? j.lifeTimeline?.favorableElementsTh ?? []
+        if (alive && Array.isArray(th)) setFavTh(th.filter((x) => typeof x === "string" && x))
+      } catch { /* เงียบ */ }
+    })()
+    return () => { alive = false }
   }, [])
 
   const load = useCallback(async () => {
@@ -140,6 +159,34 @@ export function SacredMapScreen() {
           testId="sacred-map"
           right={<button type="button" onClick={openSubmit} data-testid="sacred-map-suggest" className="rounded-full bg-v3-sapphire px-3 py-1.5 text-[12px] font-bold text-white">+ เสนอที่</button>}
         />
+        {/* #359 (ซินแสนุ้ย 2026-09-15): กล่องแนะนำธาตุที่ดวงคุณควรเสริม (用神) — แตะเพื่อกรองแผนที่ */}
+        {favTh.length > 0 && (
+          <section className={CARD} data-testid="sacred-map-recommend">
+            <p className="text-[14px] font-black text-v3-navy">ดวงคุณควรเสริมธาตุ</p>
+            <p className="mt-0.5 text-[12px] text-v3-text-muted">แตะธาตุเพื่อกรองสถานที่ที่ช่วยเสริมพลังธาตุนั้น</p>
+            <div className="mt-2 flex flex-wrap gap-2">
+              {favTh.map((th) => {
+                const key = EL_TH_TO_EN[th]
+                const color = key ? EL[key].color : "#64748b"
+                const active = !!key && elementFilter === key
+                return (
+                  <button
+                    key={th}
+                    type="button"
+                    disabled={!key}
+                    onClick={() => key && setElementFilter(elementFilter === key ? null : key)}
+                    data-testid={`sacred-map-recommend-${key ?? th}`}
+                    style={{ background: active ? color : "#fff", color: active ? "#fff" : color, borderColor: color }}
+                    className="rounded-full border px-3 py-1 text-[12px] font-bold disabled:opacity-60"
+                  >
+                    ธาตุ{th}
+                  </button>
+                )
+              })}
+            </div>
+          </section>
+        )}
+
         {/* FILTER CARD */}
         <section className="rounded-[24px] bg-v3-sapphire p-5 text-white" data-testid="sacred-map-filters">
           <h2 className="text-center text-[16px] font-black">ค้นหาสถานที่ศักดิ์สิทธิ์</h2>
