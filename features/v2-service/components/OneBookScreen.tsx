@@ -5,6 +5,7 @@
 // วิเคราะห์โดยซินแส (สั่งทำ) → ทุก CTA ไป LINE OA. asset: book hero เดิม + มาสคอต 5 ธาตุ (referral/*).
 import Head from "next/head"
 import Image from "next/image"
+import Link from "next/link"
 import { useState } from "react"
 
 import { SkyBackdrop, SkyHeader } from "@/features/v2-profile/components/kit"
@@ -12,7 +13,8 @@ import { MateAIButton } from "@/features/v2-shell/components/MateAIButton"
 import { TopBarBell } from "@/features/v2-shell/components/TopBarBell"
 import { TopBarAvatar } from "@/features/v2-shell/components/TopBarAvatar"
 
-const LINE_ORDER_URL = "https://line.me/R/ti/p/@082cvuiy?ts=09151109&oat_content=url"
+// #3 (ซินแสนุ้ย 2026-09-15): "สั่งซื้อเลย" → ฟอร์มสั่งซื้อในแอป + จ่ายเงิน (ไม่ทักไลน์แล้ว)
+const ORDER_HREF = "/v2/service/one-book/order"
 const CARD = "v3-shadow-card w-full rounded-[24px] bg-white p-5"
 
 const PAINS = [
@@ -86,10 +88,10 @@ function Stars() {
 
 function OrderCta({ label = "สั่งซื้อเลย", testId }: { label?: string; testId?: string }) {
   return (
-    <a href={LINE_ORDER_URL} target="_blank" rel="noopener noreferrer" data-testid={testId}
+    <Link href={ORDER_HREF} data-testid={testId}
       className="grid h-12 w-full place-items-center rounded-full bg-v3-lime text-[15px] font-bold text-v3-navy">
       {label}
-    </a>
+    </Link>
   )
 }
 
@@ -169,7 +171,7 @@ export function OneBookScreen() {
             <h2 className="max-w-[78%] text-[19px] font-black leading-7">เพราะคุณไม่ใช่แค่ <span className="text-v3-lime">“คำทำนาย”</span><br />และไม่ใช่แค่ <span className="text-v3-lime">“ดวงชะตา”</span></h2>
             <p className="text-[13px] font-bold">YOUR LIFE CODE</p>
             <p className="max-w-[66%] text-[13px] leading-5 text-white/85">ไม่ได้บอกว่าอนาคตจะเป็นยังไง<br />แต่บอกว่าคุณถูกออกแบบมาแบบไหน<br />และควรเดินด้วยจังหวะของใคร</p>
-            <a href={LINE_ORDER_URL} target="_blank" rel="noopener noreferrer" className="relative z-20 mt-1 grid h-11 w-[72%] place-items-center rounded-full bg-v3-lime px-4 text-[14px] font-bold text-v3-navy">สั่งซื้อเลย YOUR LIFE CODE</a>
+            <Link href={ORDER_HREF} className="relative z-20 mt-1 grid h-11 w-[72%] place-items-center rounded-full bg-v3-lime px-4 text-[14px] font-bold text-v3-navy">สั่งซื้อเลย YOUR LIFE CODE</Link>
           </div>
         </section>
 
@@ -327,7 +329,7 @@ export function OneBookScreen() {
 
       {/* แถบล่างฟิกซ์: สั่งซื้อเลย + Mate AI (ตาม Figma) */}
       <div className="fixed inset-x-0 bottom-0 z-40 mx-auto flex max-w-md items-center gap-2 px-4 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-2">
-        <a href={LINE_ORDER_URL} target="_blank" rel="noopener noreferrer" data-testid="one-book-order" className="grid h-[52px] min-w-0 flex-1 place-items-center rounded-full bg-v3-sapphire text-[15px] font-bold text-white v3-shadow-card">สั่งซื้อเลย</a>
+        <Link href={ORDER_HREF} data-testid="one-book-order" className="grid h-[52px] min-w-0 flex-1 place-items-center rounded-full bg-v3-sapphire text-[15px] font-bold text-white v3-shadow-card">สั่งซื้อเลย</Link>
         <span className="flex-none"><MateAIButton /></span>
       </div>
 

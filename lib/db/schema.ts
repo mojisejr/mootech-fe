@@ -687,7 +687,7 @@ export const paymentPackage = pgTable("payment_package", {
 	tierCode: text("tier_code").notNull(),
 	isActive: boolean("is_active").default(false).notNull(),
 }, (table) => [
-	check("payment_package_tier_code_check", sql`${table.tierCode} IN ('FREE','PLUS','PRO','QI','SINSAE')`),
+	check("payment_package_tier_code_check", sql`${table.tierCode} IN ('FREE','PLUS','PRO','QI','SINSAE','BOOK')`),
 ]);
 
 export const paymentPlan = pgTable("payment_plan", {
@@ -807,7 +807,7 @@ export const v2Payment = pgTable("v2_payment", {
 	uniqueIndex("uq_v2_payment_charge_id").on(table.chargeId),
 	index("idx_v2_payment_user_id").on(table.userId),
 	// CHECK mirrors 0007 (Postgres names an inline column CHECK <table>_<column>_check, so these agree).
-	check("v2_payment_tier_code_check", sql`${table.tierCode} IN ('FREE','PLUS','PRO','QI','SINSAE')`),
+	check("v2_payment_tier_code_check", sql`${table.tierCode} IN ('FREE','PLUS','PRO','QI','SINSAE','BOOK')`),
 	check("v2_payment_method_check", sql`${table.method} IN ('card','promptpay')`),
 	check("v2_payment_status_check", sql`${table.status} IN ('PENDING','APPROVED','REJECT')`),
 	check("v2_payment_expire_check", sql`${table.expire} ~ '^[0-9]+[DMY]$'`),
@@ -1182,6 +1182,34 @@ export const reminder = pgTable("reminder", {
 	// #288's cron scans DUE-and-UNSENT reminders. A partial index on fire time WHERE sent_at IS NULL is
 	// exactly that scan — added now so that lane is ready without a second prod migration.
 	index("idx_reminder_due").on(table.fireAtUtc).where(sql`sent_at IS NULL`),
+]);
+
+// book_order (#3 ซินแสนุ้ย 2026-09-15) — ออเดอร์หนังสือ "Your Life Code" (ฟอร์มในแอป + จ่าย PromptPay).
+// ฟิลด์ตามฟอร์มจริง forms.gle/Lf5f7HUdoj3TvKVk9. รูปแบบ PDF/PHYSICAL (เล่มโชว์ที่อยู่จัดส่ง). status:
+// NEW=สร้างตอนกรอก, PAID=ผูก charge หลังจ่ายสำเร็จ (v2_payment tier_code='BOOK'). ดู migration 0029.
+export const bookOrder = pgTable("book_order", {
+	id: uuid("id").defaultRandom().primaryKey().notNull(),
+	userId: varchar("user_id", { length: 36 }).notNull(),
+	email: text("email"),
+	fullName: text("full_name").notNull(),
+	gender: text("gender").notNull(),
+	birthDateBe: text("birth_date_be").notNull(), // วันเดือนปีเกิด (พ.ศ.) เป็นข้อความ เช่น "1 มกราคม พ.ศ. 2550"
+	birthTime: text("birth_time").notNull(), // เวลาเกิด เช่น "15.00 น."
+	format: text("format").notNull(), // PDF | PHYSICAL
+	shipName: text("ship_name"),
+	shipPhone: text("ship_phone"),
+	shipAddress: text("ship_address"),
+	contactChannel: text("contact_channel").notNull(), // Facebook | Instagram | Line
+	contactAccount: text("contact_account").notNull(),
+	packageCode: text("package_code").notNull(), // BOOK_PDF | BOOK_PHYSICAL
+	amountSatang: integer("amount_satang"),
+	status: text("status").default('NEW').notNull(),
+	chargeId: varchar("charge_id", { length: 36 }),
+	createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+}, (table) => [
+	index("idx_book_order_user_id").on(table.userId),
+	check("book_order_format_check", sql`${table.format} IN ('PDF','PHYSICAL')`),
+	check("book_order_status_check", sql`${table.status} IN ('NEW','PAID','DONE','CANCELLED')`),
 ]);
 
 export const analyticLife = pgTable("analytic_life", {

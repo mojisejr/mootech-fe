@@ -11,9 +11,10 @@ import { ResultScreen } from '@/features/v2-shop/components/ResultScreen'
 import { QiBuySuccess } from '@/features/v2-shop/components/QiBuySuccess'
 import { PlanPaySuccess } from '@/features/v2-shop/components/PlanPaySuccess'
 import { SinsaeBookingSuccess } from '@/features/v2-shop/components/SinsaeBookingSuccess'
+import { BookOrderSuccess } from '@/features/v2-shop/components/BookOrderSuccess'
 import { RESULT_COPY, resolveResultState, tryAnotherHref, type ResultState } from '@/features/v2-shop/result-state'
 import { useChargeStatus } from '@/features/v2-shop/useChargeStatus'
-import { qiQtyOf, sinsaeMinutesOf } from '@/lib/payment/catalog'
+import { qiQtyOf, sinsaeMinutesOf, bookFormatOf } from '@/lib/payment/catalog'
 
 export const getServerSideProps: GetServerSideProps = async (ctx) => {
   ctx.res.setHeader('Cache-Control', 'no-store, must-revalidate')
@@ -44,6 +45,8 @@ export default function V2ResultPage() {
   const qiLine = qiQty !== null ? `แพ็ก ${qiQty.toLocaleString('th-TH')} QI` : null
   // จองซินแส (tier SINSAE) — จบที่หน้า success ของตัวเอง (ใบเสร็จย่อ + ทักไลน์) ไม่ใช่หน้าสมาชิก/ชี่
   const isSinsae = sinsaeMinutesOf(packageCode) !== null
+  // สั่งซื้อหนังสือ (tier BOOK) — จบที่หน้า success ของตัวเอง (ใบเสร็จย่อ + 10-15 วัน + ปุ่มกลุ่ม BLM)
+  const isBook = bookFormatOf(packageCode) !== null
   const { status, method, phase, qrDeadline, failureCode, check } = useChargeStatus({ chargeId: charge || null, orderId: order || null })
 
   // Glue only — the rule lives in result-state.ts next to the words it chooses between, so it can be tested
@@ -58,6 +61,17 @@ export default function V2ResultPage() {
       <div className="flex min-h-screen w-full flex-col bg-v3-bg-cream">
         <Head><title>จองสำเร็จ · MuMate</title></Head>
         <SinsaeBookingSuccess packageCode={packageCode} charge={charge} order={order} />
+      </div>
+    )
+  }
+
+  // สั่งซื้อหนังสือ (tier BOOK): เงินเข้าจริงแล้ว → หน้า "สั่งซื้อสำเร็จ" (ใบเสร็จย่อ + 10-15 วัน + กลุ่ม BLM).
+  // ต้องเช็คก่อนเลนสมาชิก/QI เพราะ qiQty/sinsae เป็น null สำหรับ BOOK เช่นกัน (ไม่งั้นจะตกไป PlanPaySuccess).
+  if (RESULT_COPY[state].paid && isBook) {
+    return (
+      <div className="flex min-h-screen w-full flex-col bg-v3-bg-cream">
+        <Head><title>สั่งซื้อสำเร็จ · MuMate</title></Head>
+        <BookOrderSuccess packageCode={packageCode} charge={charge} order={order} />
       </div>
     )
   }

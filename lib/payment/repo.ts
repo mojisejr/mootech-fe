@@ -290,6 +290,9 @@ export async function revokeByChargeId(
     // 🔴 SINSAE BOOKING LANE — เช่นเดียวกับ QI: การจองไม่ได้เขียน member_* → ไม่มีสมาชิกให้ถอน. การคืนเงิน/ยกเลิก
     // คิวเป็นเรื่องที่คุยกับซินแสทางไลน์; เลนนี้แค่ mark REVERSED (ข้างบน) ไม่แตะ shadow และไม่รอมนุษย์.
     if (pay.tierCode === 'SINSAE') return { revoked: true, shadowHandled: 'NONE' }
+    // 🔴 BOOK ORDER LANE — เช่นเดียวกับ QI/SINSAE: ไม่ได้เขียน member_* → ไม่มีสมาชิกให้ถอน. คืนเงิน/ยกเลิกออเดอร์
+    // คุยกันทางไลน์/กลุ่ม; เลนนี้แค่ mark REVERSED (ข้างบน) ไม่แตะ shadow และไม่รอมนุษย์.
+    if (pay.tierCode === 'BOOK') return { revoked: true, shadowHandled: 'NONE' }
 
     // Only an ACTIVE row is moved, ON PURPOSE. If a later purchase already superseded this one the row is
     // 'REPLACED', which grants nothing anyway (lib/v2/subscription.ts:71 asks for ACTIVE), so there is
@@ -754,6 +757,13 @@ export async function settleAndProvision(
     // จองซินแสไม่ใช่สมาชิกและไม่ใช่ชี่: เลนนี้จบที่การบันทึก APPROVED ข้างบน (v2_payment แถวนี้ = หลักฐาน
     // การจอง) — ไม่เขียน member_subscription/member_payment และไม่เครดิตชี่. ยืนยันวันเวลากับซินแสทางไลน์.
     if (pay.tierCode === 'SINSAE') {
+      return { provisioned: true, outcome }
+    }
+
+    // ── 🔴 BOOK ORDER LANE (#3 ซินแสนุ้ย 2026-09-15) ─────────────────────────────────────────────
+    // สั่งซื้อหนังสือไม่ใช่สมาชิก/ชี่: v2_payment แถวนี้ (tier_code='BOOK') = หลักฐานการซื้อ. ไม่เขียน member_*
+    // ไม่เครดิตชี่. รายละเอียดจัดส่งอยู่ใน book_order แล้วผูก charge_id ที่ result หลังจ่ายสำเร็จ.
+    if (pay.tierCode === 'BOOK') {
       return { provisioned: true, outcome }
     }
 

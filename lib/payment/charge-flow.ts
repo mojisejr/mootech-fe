@@ -76,7 +76,7 @@ export async function runChargeFlow(
   // 🔴 QI/SINSAE ไม่เข้า matrix สมาชิก — ซื้อ/จองได้ทุก tier และซ้ำได้ (ไม่มีทาง "ลดระดับ" ใคร): ทั้งคู่อยู่นอก
   // บันได FREE/PLUS/PRO โดยการออกแบบ (catalog.ts) → ประตูอนุญาตเสมอ; การบังคับสิทธิ์เกิดที่ settle เลนแยก.
   const purchase =
-    priced.tierCode === 'QI' || priced.tierCode === 'SINSAE'
+    priced.tierCode === 'QI' || priced.tierCode === 'SINSAE' || priced.tierCode === 'BOOK'
       ? ({ allow: true } as const)
       : await decidePurchaseFor(who.userId, priced.tierCode, now)
   if (!purchase.allow) {
