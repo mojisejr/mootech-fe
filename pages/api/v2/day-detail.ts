@@ -33,6 +33,7 @@ import { mapDayDetail, pickFreeDayDetail, type DayDetail } from '@/lib/v2-calend
 import { resolveSessionUserId } from '@/lib/v2/resolve-user'
 import { resolveSubscription } from '@/lib/v2/subscription'
 import { calendarMonthReachable } from '@/lib/v2/entitlement'
+import { ownsCalendar } from '@/lib/v2/calendar-access'
 import { currentMonthBkk } from '@/lib/v2/clock'
 import { BAZI_BASE, BAZI_TIMEOUT_MS, fetchAlmanacDays, type AlmanacDay } from '@/lib/v2-calendar/month'
 
@@ -93,7 +94,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   } catch {
     verdict = { isPaid: false, tier: null } // cannot determine membership → free (fail closed)
   }
-  const paid = verdict.isPaid === true
+  // paid = สมาชิก (tier) หรือได้รับ grant สิทธิ์ปฏิทินเฉพาะบุคคล (owned calendar) จาก /ops
+  const paid = verdict.isPaid === true || (await ownsCalendar(userId))
 
   // ── #358 Phase 3 — THE SPAN, the same one call the month route makes ──────────────────────────────
   //
