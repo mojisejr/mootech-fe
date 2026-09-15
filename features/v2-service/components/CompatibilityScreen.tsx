@@ -13,6 +13,7 @@ import { useRef, useState } from 'react'
 import Head from 'next/head'
 import Image from 'next/image'
 import Link from 'next/link'
+import { SHOP_HREF } from '@/features/v2-shop/upgrade-cta'
 import { useRouter } from 'next/router'
 import { Menubar } from '@/features/v2-shell/components/Menubar'
 import { TopBarBell } from '@/features/v2-shell/components/TopBarBell'
@@ -624,6 +625,13 @@ export function CompatibilityScreen({ config }: { config: CompatibilityConfig })
                 <span key={line} className={i === 0 ? 'block font-bold' : 'block font-normal'}>{line}</span>
               ))}
             </p>
+          ) : null}
+
+          {/* quota หมด → ชวนสมัครสมาชิกเพื่อดูเพิ่ม (เจ้าของ 2026-09-15) */}
+          {calcError === 'quota' ? (
+            <Link href={SHOP_HREF} data-testid="compat-quota-upsell" className="grid h-12 w-full place-items-center rounded-full bg-v3-sapphire text-[15px] font-bold uppercase text-v3-lime">
+              สมัครสมาชิก ดูดวงสมพงศ์เพิ่ม
+            </Link>
           ) : null}
 
           {/* "ดูดวงสมพงศ์ล่าสุด" — 2G/D38: was a ComingSoon placeholder; now opens the history list. */}
