@@ -23,6 +23,7 @@ interface SnapshotBody {
   summary?: string
   tag?: string
   image?: string
+  skills?: string // encode แล้ว: label|percent|grade|color|top คั่นแถวด้วย "~"
 }
 
 const str = (v: unknown, max: number): string | null => {
@@ -53,6 +54,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       summary: str(body.summary, 400),
       tag: str(body.tag, 40),
       image: str(body.image, 1500), // รองรับไพ่หลายใบ (URL คั่นด้วย ",")
+      skills: str(body.skills, 400),
     })
     return res.status(200).json({ ok: true, id })
   } catch (err) {

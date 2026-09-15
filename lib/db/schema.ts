@@ -1238,6 +1238,7 @@ export const shareSnapshot = pgTable("share_snapshot", {
 	summary: text("summary"),
 	tag: text("tag"),
 	image: text("image"), // URL รูปมาสคอต/การ์ด (relative หรือ absolute)
+	skills: text("skills"), // แถบสกิลที่ encode แล้ว (label|percent|grade|color|top คั่นแถว "~") — เฉพาะดวงธาตุ. ดู 0032
 	createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
 });
 
