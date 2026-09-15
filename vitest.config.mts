@@ -264,6 +264,7 @@ export default defineConfig({
       'scripts/sacred-travel-dur.test.ts', // P3-16 — fmtDur เวลาเดินทางเป็น ชม./นาที (ไม่โชว์นาทีดิบเป็นพัน)
       'scripts/manifest-screen.test.tsx', // บริการ manifest — goals+tasks+progress+checkin (ต่อ engine)
       'scripts/compat-format.test.ts', // P3-17 — formatCompatBirth delegate + toBuddhistYear/toGregorianYear
+      'scripts/service-cta.test.ts', // #359 — CTA ต่อใบบนการ์ดบริการ (แมทช์/สั่งทำ/เปิดไพ่/…) + href couple/coworker
     ],
   },
   resolve: {

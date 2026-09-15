@@ -41,7 +41,7 @@ export function ServiceCard({ data, eagerArt = false }: { data: ServiceCardData;
           ))}
         </div>
         <span className="flex items-center gap-1 text-[14px] font-medium leading-5 text-v3-cyan">
-          ดูดวงเลย
+          {data.cta ?? "ดูดวงเลย"}
           <ArrowNext />
         </span>
       </div>

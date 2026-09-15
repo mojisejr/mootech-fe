@@ -32,6 +32,8 @@ export type ServiceCardData = {
   hiddenUntilArt?: boolean
   /** true = href เป็นลิงก์ภายนอก (เปิดแท็บใหม่) เช่น LINE shop — ServiceCard เรนเดอร์ <a target=_blank> แทน <Link> */
   external?: boolean
+  /** #359 (ซินแสนุ้ย 2026-09-15): ข้อความปุ่ม CTA ต่อใบ (ถ้าไม่ระบุ = "ดูดวงเลย") */
+  cta?: string
 }
 
 /** `/images/v2/features/*` — art lives under the id it belongs to, so a renamed file can never
@@ -63,25 +65,25 @@ export const comingSoonHref = (title: string): string => `/v2/service/coming-soo
 
 export const SERVICES = [
   // ดวงสมพงศ์ Slice 1: these two now enter the real compatibility flow (was comingSoonHref).
-  { id: 'couple', title: 'ดูดวงคู่รัก', desc: DESC_COUPLE, href: '/v2/service/compatibility/love', image: ART('01_ดูดวงคู่รัก.png') },
-  { id: 'coworker', title: 'ดูดวงเพื่อนร่วมงาน', desc: DESC_COWORKER, href: '/v2/service/compatibility/colleague', image: ART('02_ดูดวงเพื่อนร่วมงาน.png') },
-  { id: 'one-book', title: 'หนังสือเล่มเดียวในโลก', desc: DESC_ONE_BOOK, href: '/v2/service/one-book', image: ART('03_หนังสือเล่มเดียวในโลก.png') },
-  { id: 'oracle-kiang', title: 'เสี่ยงไพ่ออราเคิลเคี้ยงคุง', desc: DESC_ORACLE, href: '/v2/fortune/oracle', image: ART('04_เสี่ยงไพ่ออราเคิลเคี้ยงคุง.png') },
-  { id: 'spirit-heaven', title: 'เสี่ยงไพ่จิตวิญญาณแดนสวรรค์', desc: DESC_SPIRIT, href: '/v2/fortune/divine', image: ART('05_เสี่ยงไพ่จิตวิญญาณแดนสวรรค์.png') },
-  { id: 'sian', title: 'เสี่ยงเซียนเสี่ยงทาย', desc: DESC_SIAN, href: '/v2/fortune/sage', image: ART('06_เสี่ยงเซียนเสี่ยงทาย.png') },
-  { id: 'sinsae', title: 'ดูดวงส่วนตัว กับซินแส', desc: DESC_SINSAE, href: '/v2/service/sinsae', image: ART('07_ดูดวงส่วนตัวกับซินแส.png') },
-  { id: 'manifest', title: 'มานิเฟส', desc: DESC_MANIFEST, href: '/v2/service/manifest', image: ART('08_มานิเฟส.png') },
+  { id: 'couple', title: 'ดูดวงคู่รัก', desc: DESC_COUPLE, href: '/v2/service/compatibility/love', image: ART('01_ดูดวงคู่รัก.png'), cta: 'แมทช์ดวงเลย' },
+  { id: 'coworker', title: 'ดูดวงเพื่อนร่วมงาน', desc: DESC_COWORKER, href: '/v2/service/compatibility/colleague', image: ART('02_ดูดวงเพื่อนร่วมงาน.png'), cta: 'แมทช์ดวงเลย' },
+  { id: 'one-book', title: 'หนังสือเล่มเดียวในโลก', desc: DESC_ONE_BOOK, href: '/v2/service/one-book', image: ART('03_หนังสือเล่มเดียวในโลก.png'), cta: 'สั่งทำเลย' },
+  { id: 'oracle-kiang', title: 'เสี่ยงไพ่ออราเคิลเคี้ยงคุง', desc: DESC_ORACLE, href: '/v2/fortune/oracle', image: ART('04_เสี่ยงไพ่ออราเคิลเคี้ยงคุง.png'), cta: 'เปิดไพ่เลย' },
+  { id: 'spirit-heaven', title: 'เสี่ยงไพ่จิตวิญญาณแดนสวรรค์', desc: DESC_SPIRIT, href: '/v2/fortune/divine', image: ART('05_เสี่ยงไพ่จิตวิญญาณแดนสวรรค์.png'), cta: 'เปิดไพ่เลย' },
+  { id: 'sian', title: 'เสี่ยงเซียนเสี่ยงทาย', desc: DESC_SIAN, href: '/v2/fortune/sage', image: ART('06_เสี่ยงเซียนเสี่ยงทาย.png'), cta: 'เสี่ยงทายเลย' },
+  { id: 'sinsae', title: 'ดูดวงส่วนตัว กับซินแส', desc: DESC_SINSAE, href: '/v2/service/sinsae', image: ART('07_ดูดวงส่วนตัวกับซินแส.png'), cta: 'ดูดวงเลย' },
+  { id: 'manifest', title: 'มานิเฟส', desc: DESC_MANIFEST, href: '/v2/service/manifest', image: ART('08_มานิเฟส.png'), cta: 'เริ่มมานิเฟส' },
   // filename says ปฎิทิน (ฎ ชฎา), the title says ปฏิทิน (ฏ ปฏัก) — different letters. Mapped by id on purpose.
-  { id: 'calendar', title: 'ปฏิทิน', desc: DESC_CALENDAR, href: '/v2/calendar', image: ART('09_ปฎิทิน.png') },
+  { id: 'calendar', title: 'ปฏิทิน', desc: DESC_CALENDAR, href: '/v2/calendar', image: ART('09_ปฎิทิน.png'), cta: 'เช็กวันมงคล' },
   { id: 'healing-circles', title: 'Healing Circles', desc: DESC_HEALING, href: comingSoonHref('Healing Circles'), hiddenUntilArt: true },
-  { id: 'sacred-map', title: 'แผนที่ศักดิ์สิทธิ์', desc: DESC_SACRED, href: '/v2/service/sacred-map', image: ART('10_แผนที่ศักดิ์สิทธิ์.png') },
+  { id: 'sacred-map', title: 'แผนที่ศักดิ์สิทธิ์', desc: DESC_SACRED, href: '/v2/service/sacred-map', image: ART('10_แผนที่ศักดิ์สิทธิ์.png'), cta: 'ค้นหาพิกัด' },
   // ดูดวงเบอร์มือถือ — มีอาร์ตเต็มใบ (12_เบอร์มือถือ.png) + หน้าจริง /v2/service/phone-number (rebuild
   // ตาม Figma + คิด 10 QI + แคชรายวัน). อยู่ "ก่อนร้านค้า" (ฟีม 2026-09-10).
-  { id: 'phone-number', title: 'ดูดวงเบอร์มือถือ', desc: DESC_PHONE, href: '/v2/service/phone-number', image: ART('12_เบอร์มือถือ.png') },
+  { id: 'phone-number', title: 'ดูดวงเบอร์มือถือ', desc: DESC_PHONE, href: '/v2/service/phone-number', image: ART('12_เบอร์มือถือ.png'), cta: 'วิเคราะห์เลย' },
   // เบอร์รังผึ้ง (Honeycomb) — ไม่แยกการ์ดแล้ว: เป็น "โหมด" ในหน้าดูเบอร์มือถือ (สลับธรรมดา/รังผึ้ง) ฟีม 2026-09-10.
   // เก็บ entry ไว้ (hidden) เพื่อคง route /v2/service/honeycomb + ServiceId 'honeycomb'; ไม่โชว์การ์ดในฮับ.
   { id: 'honeycomb', title: 'เบอร์รังผึ้ง', desc: DESC_HONEYCOMB, href: '/v2/service/honeycomb', hiddenUntilArt: true },
-  { id: 'shop', title: 'ร้านค้าของเรา', desc: DESC_SHOP, href: 'https://shop.line.me/@mumate.co', external: true, image: ART('11_ร้านค้าของเรา.png') },
+  { id: 'shop', title: 'ร้านค้าของเรา', desc: DESC_SHOP, href: 'https://shop.line.me/@mumate.co', external: true, image: ART('11_ร้านค้าของเรา.png'), cta: 'Shop Now' },
   // #13, added 2026-08-08 — NOT from the Figma 12. The home screen (Zone 6) has been selling this since
   // #157, but it existed nowhere in the catalog, so its CTA had no name to send anywhere. Hidden for the
   // same reason as Healing Circles: the card art is 1128×463 full-card, and the only ปาจื่อ image we have
