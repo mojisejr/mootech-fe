@@ -102,11 +102,11 @@ export default async function handler(req: Request): Promise<Response> {
               ))}
             </div>
           ) : imgs.length === 2 ? (
-            // สมพงศ์ — มาสคอต 2 คน (contain ไม่ครอบตัด)
-            <div style={{ display: "flex", flexDirection: "row", gap: 8, flexShrink: 0, alignItems: "center" }}>
+            // สมพงศ์ — การ์ดมาสคอตธาตุ 2 คน (กรอบขาว มุมมน)
+            <div style={{ display: "flex", flexDirection: "row", gap: 12, flexShrink: 0, alignItems: "center" }}>
               {imgs.map((src, i) => (
                 // eslint-disable-next-line @next/next/no-img-element
-                <img key={i} src={src} width={210} height={250} style={{ width: 210, height: 250, objectFit: "contain", flexShrink: 0 }} alt="" />
+                <img key={i} src={src} width={196} height={250} style={{ width: 196, height: 250, objectFit: "cover", borderRadius: 18, border: "4px solid #ffffff" }} alt="" />
               ))}
             </div>
           ) : imgs.length === 1 ? (
