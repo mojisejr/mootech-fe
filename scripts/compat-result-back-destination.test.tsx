@@ -31,6 +31,8 @@ vi.mock('next/config', () => ({ default: () => ({ publicRuntimeConfig: {}, serve
 vi.mock('@/features/v2-shell/components/TopBarBell', () => ({ TopBarBell: () => null }))
 vi.mock('@/features/v2-shell/components/TopBarAvatar', () => ({ TopBarAvatar: () => null }))
 vi.mock('@/features/v2-shell/components/MateAIButton', () => ({ MateAIButton: () => null }))
+// #359 — จอผลใช้ useV2Tier (advanced-toggle upsell) ซึ่งอ่าน cookie; mock ให้เป็นสมาชิก ไม่ต้องมี CookiesProvider
+vi.mock('@/features/auth/hooks/useV2Tier', () => ({ useV2Tier: () => ({ isPaid: true, tier: 'PRO', loading: false }) }))
 
 import { useCompatibilityResult } from '@/features/v2-service/hooks/useCompatibilityResult'
 import { CompatibilityResultScreen } from '@/features/v2-service/components/CompatibilityResultScreen'

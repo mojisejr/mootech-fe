@@ -27,6 +27,8 @@ import { CompatPersonDetail } from './CompatPersonDetail'
 import { ResultActionBar } from './ResultActionBar'
 import { captureShareImage } from '@/lib/v2/share-card'
 import { ShareCard, ShareStage } from '@/features/v2-share/components/ShareCard'
+import { AdvancedUpsellModal } from '@/features/v2-shell/components/AdvancedUpsellModal'
+import { useV2Tier } from '@/features/auth/hooks/useV2Tier'
 import { ComingSoonNotice } from '@/features/v2-shell/components/ComingSoon'
 import { TopBarBell } from '@/features/v2-shell/components/TopBarBell'
 import { TopBarAvatar } from '@/features/v2-shell/components/TopBarAvatar'
@@ -48,6 +50,9 @@ export function CompatibilityResultScreen({ matchingId }: { matchingId: string }
   const [activeTab, setActiveTab] = useState('overview')
   // Figma 636:18819: toggle base สีเทา = ปิดเป็นค่าเริ่มต้น; เปิดแล้วโชว์ตารางดวงจีน
   const [advanced, setAdvanced] = useState(false)
+  const [upsell, setUpsell] = useState(false) // #359: popup ชวนอัปเกรดเมื่อ free กดโหมดแอดวานซ์
+  const { isPaid } = useV2Tier() // hook ต้องอยู่ก่อน early return (rules-of-hooks)
+  const onAdvancedToggle = () => { if (isPaid === false) { setUpsell(true); return } setAdvanced((v) => !v) }
   const shareCardRef = useRef<HTMLDivElement>(null) // #6: hook ต้องอยู่ก่อน early return (rules-of-hooks)
 
   // D17/2F — the SAME loader/copy the form showed, so form → result is one continuous screen.
@@ -137,7 +142,7 @@ export function CompatibilityResultScreen({ matchingId }: { matchingId: string }
                 role="switch"
                 aria-checked={advanced}
                 data-testid="compat-advanced-toggle"
-                onClick={() => setAdvanced((v) => !v)}
+                onClick={onAdvancedToggle}
                 className="relative h-5 w-9 shrink-0 rounded-xl p-0.5 transition-colors"
                 style={{ backgroundColor: advanced ? '#1455A4' : '#E5E7EB' }}
               >
@@ -205,6 +210,8 @@ export function CompatibilityResultScreen({ matchingId }: { matchingId: string }
       <ShareStage>
         <ShareCard ref={shareCardRef} tag="ผลความสมพงศ์" title={shareTitle} subtitle={shareSubtitle} summary={shareSummary} images={shareImages} />
       </ShareStage>
+
+      {upsell && <AdvancedUpsellModal onClose={() => setUpsell(false)} />}
     </div>
   )
 }

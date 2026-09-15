@@ -38,6 +38,8 @@ vi.mock('@/features/v2-shell/components/TopBarBell', () => ({ TopBarBell: () => 
 vi.mock('@/features/v2-shell/components/TopBarAvatar', () => ({ TopBarAvatar: () => null }))
 vi.mock('@/features/v2-shell/components/LoadingScreen', () => ({ LoadingScreen: () => <div data-testid="loading" /> }))
 vi.mock('@/constants/api/api-v2-matching', () => ({ V2MatchingWorkGetDetailApi: (...a: unknown[]) => getWork(...a) }))
+// #359 — จอผลใช้ useV2Tier (advanced-toggle upsell) ซึ่งอ่าน cookie; mock ให้เป็นสมาชิก ไม่ต้องมี CookiesProvider
+vi.mock('@/features/auth/hooks/useV2Tier', () => ({ useV2Tier: () => ({ isPaid: true, tier: 'PRO', loading: false }) }))
 
 import { WorkResultScreen } from '@/features/v2-service/components/WorkResultScreen'
 

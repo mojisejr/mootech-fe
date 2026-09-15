@@ -14,7 +14,7 @@
 import Image from 'next/image'
 import Link from 'next/link'
 import { useRouter } from 'next/router'
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import Head from 'next/head'
 import { TopBarBell } from '@/features/v2-shell/components/TopBarBell'
 import { TopBarAvatar } from '@/features/v2-shell/components/TopBarAvatar'
@@ -34,6 +34,10 @@ import { SectionCard } from '@/features/v2-calendar/components/day-detail/Sectio
 import type { CompatDimension, CompatElementInteraction, CompatMascot } from '../compatibility-result'
 import { CHART_ELEMENT_SOFT, CHART_PILL_INK, readChartTable, type ChartTable } from '../chart-table'
 import { formatCompatBirth } from './compat-format'
+import { captureShareImage } from '@/lib/v2/share-card'
+import { ShareCard, ShareStage } from '@/features/v2-share/components/ShareCard'
+import { AdvancedUpsellModal } from '@/features/v2-shell/components/AdvancedUpsellModal'
+import { useV2Tier } from '@/features/auth/hooks/useV2Tier'
 
 const INK_BODY = '#464646'
 
@@ -270,6 +274,10 @@ export function WorkResultScreen({ matchingId }: { matchingId: string }) {
   const [openRank, setOpenRank] = useState(1)
   // Figma 720:32490: toggle base สีเทา = ปิดเป็นค่าเริ่มต้น; เปิดแล้วโชว์ตารางดวงจีน
   const [advanced, setAdvanced] = useState(false)
+  const [upsell, setUpsell] = useState(false) // #359: popup ชวนอัปเกรดเมื่อ free กดโหมดแอดวานซ์
+  const { isPaid } = useV2Tier() // hook ต้องอยู่ก่อน early return (rules-of-hooks)
+  const onAdvancedToggle = () => { if (isPaid === false) { setUpsell(true); return } setAdvanced((v) => !v) }
+  const shareCardRef = useRef<HTMLDivElement>(null) // #359 (A7): การ์ดแชร์เฉพาะบุคคล
 
   if (state.status === 'loading') {
     return <LoadingScreen title="กำลังเปิดผลลัพธ์" subtitle="อีกสักครู่" />
@@ -337,6 +345,15 @@ export function WorkResultScreen({ matchingId }: { matchingId: string }) {
   const selfMascot = mascotOf(state.selfChart)
   const selfTrait = (state.selfProfile?.nisai?.[0] ?? '').trim()
 
+  // #359 (A7): การ์ดแชร์เฉพาะบุคคล — คู่ที่เข้ากับคุณที่สุด (rank 1) เหมือนปุ่มแชร์คู่รัก
+  const topEntry = entries[0]
+  const topMascot = mascotOf(topEntry.chart)
+  const topPct = Math.round(topEntry.rankScore ?? 0)
+  const shareImages = [selfMascot?.imageUrl, topMascot?.imageUrl].filter((u): u is string => typeof u === 'string' && u.length > 0)
+  const shareTitle = `${heroTitle}ที่เข้ากับคุณที่สุด`
+  const shareSubtitle = `${displayName(topEntry)}${topPct ? ` · ${topPct}%` : ''}${topEntry.grade ? ` (${topEntry.grade})` : ''}`
+  const shareSummary = (topEntry.ratingText?.trim() || selfTrait || 'ดูผลสมพงศ์การงานของเรากับ Mumate').slice(0, 150)
+
   return shell(
     <>
       {/* hero — Figma 720:29221: การ์ด #1455A4 r22 · title + มาสคอต · แถวอันดับในการ์ด */}
@@ -361,11 +378,11 @@ export function WorkResultScreen({ matchingId }: { matchingId: string }) {
         </ol>
       </section>
       {/* ปุ่ม PDF/แชร์ ใต้การ์ด hero ตามเฟรม (720:26015) — ตัวลอยล่างเหลือแค่ Mate AI */}
-      <div className="mx-4 mt-3"><ResultActionBar shareText="ผลดวงสมพงศ์เพื่อนร่วมงานของฉันจาก Mumate" testIdPrefix="work" inline /></div>
+      <div className="mx-4 mt-3"><ResultActionBar shareText="ผลดวงสมพงศ์เพื่อนร่วมงานของฉันจาก Mumate" testIdPrefix="work" inline getShareFile={() => captureShareImage(shareCardRef.current)} /></div>
 
       {/* การ์ดขาว: toggle แอดวานซ์ · Pill Tabs · การ์ดคนที่เปิด */}
       <section className="mx-4 mt-4 flex flex-col gap-6 rounded-2xl bg-white py-6">
-        <div className="px-4"><AdvancedToggle on={advanced} onToggle={() => setAdvanced((v) => !v)} /></div>
+        <div className="px-4"><AdvancedToggle on={advanced} onToggle={onAdvancedToggle} /></div>
         {/* tabs — same array, same order. data-rank so a test can prove the ORDER, not just the names. */}
         <nav data-testid="work-tabs" className="mx-4 flex items-center rounded-[50px] bg-v3-ghost-white p-2" aria-label="เลือกคนที่จะดูรายละเอียด">
           {entries.map((e) => {
@@ -466,6 +483,13 @@ export function WorkResultScreen({ matchingId }: { matchingId: string }) {
       <p className="mt-6 px-4 text-center text-[13px] text-v3-text-muted">
         <Link href="/v2/service/compatibility/recent" className="underline">ดูดวงสมพงศ์ล่าสุด</Link>
       </p>
+
+      {/* #359 (A7): การ์ดแชร์เฉพาะบุคคล (ซ่อนนอกจอ) — คู่ที่เข้ากับคุณที่สุด */}
+      <ShareStage>
+        <ShareCard ref={shareCardRef} tag="ผลความสมพงศ์" title={shareTitle} subtitle={shareSubtitle} summary={shareSummary} images={shareImages} />
+      </ShareStage>
+
+      {upsell && <AdvancedUpsellModal onClose={() => setUpsell(false)} />}
     </>,
   )
 }

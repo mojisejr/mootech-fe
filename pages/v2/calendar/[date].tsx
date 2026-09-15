@@ -25,6 +25,7 @@ import { DayHeader } from '@/features/v2-calendar/components/day-detail/DayHeade
 import { DayStrip } from '@/features/v2-calendar/components/day-detail/DayStrip'
 import { DayScoreCard } from '@/features/v2-calendar/components/day-detail/DayScoreCard'
 import { AdvancedToggle } from '@/features/v2-calendar/components/day-detail/AdvancedToggle'
+import { AdvancedUpsellModal } from '@/features/v2-shell/components/AdvancedUpsellModal'
 import { CompatList } from '@/features/v2-calendar/components/day-detail/CompatList'
 import { PredictionCards } from '@/features/v2-calendar/components/day-detail/PredictionCards'
 import { LuckyColors } from '@/features/v2-calendar/components/day-detail/LuckyColors'
@@ -96,6 +97,7 @@ export default function V2CalendarDayPage({ teamPreview }: { teamPreview: boolea
   // (ชีทไม่เรียก hook เอง ⇒ unit test ป้อนครบ 6 สถานะได้โดยไม่ต้องมีเบราว์เซอร์)
   const notify = notifyStateFrom(usePwaCapability())
   const [guide, setGuide] = useState<InstallGuideVariant | null>(null)
+  const [advUpsell, setAdvUpsell] = useState(false) // #359: popup ชวนอัปเกรดเมื่อ free กดโหมดแอดวานซ์
   // เพิ่มปฏิทินภายนอก (Figma 375:11286) — 3 ปลายทาง. mumate = in-app push (POST เดิม); google/apple = client-side
   // (เปิด template URL / ดาวน์โหลด .ics · lib/v2/external-calendar) ⇒ ไม่แตะ backend. ค่าเริ่มต้นตามดีไซน์.
   const [external, setExternal] = useState<Record<ReminderDestination, boolean>>({ mumate: true, google: true, apple: false })
@@ -336,7 +338,7 @@ export default function V2CalendarDayPage({ teamPreview }: { teamPreview: boolea
             🔑 หลังใบนี้ การมีอยู่ของฟิลด์ = คำตัดสินของเซิร์ฟเวอร์อยู่แล้ว จอไม่ต้องเดาซ้ำ
             ⚠️ เงื่อนไขต้องเป็นฟิลด์ที่ **paid เท่านั้น** — `dithi` กับ `luckyDirection` เป็นของฟรีหลัง #226
             (การ์ดคะแนนใช้) ⇒ ใช้มันเป็นเงื่อนไข = โชว์หัวข้อที่ขายเงินให้คนใช้ฟรี */}
-        {detail.compatAreas && <AdvancedToggle on={advanced} onToggle={toggleAndReveal} />}
+        {detail.compatAreas && <AdvancedToggle on={advanced} onToggle={free ? () => setAdvUpsell(true) : toggleAndReveal} />}
         {/* §5 [advanced] — ดวงของฉัน (binds goo's detail.pillars) · ห่อด้วย anchor ให้ toggle เลื่อนมาหา (ฟีม สไลด์ 17) */}
         <div ref={advancedRef} data-testid="day-advanced-anchor" className="scroll-mt-4" />
         {advanced && detail.pillars && <MyChart pillars={detail.pillars} />}
@@ -399,6 +401,7 @@ export default function V2CalendarDayPage({ teamPreview }: { teamPreview: boolea
           ⇒ **ตอนนี้ไม่มีอะไรรันมันอัตโนมัติ** ประโยคนี้เก็บไว้เพื่อบอกว่าทำไมชั้นนี้เป็นแบบนี้
           ❌ ห้ามอ่านว่ายังมีฟันเฝ้าอยู่ */}
       {guide && <InstallGuideSheet variant={guide} onClose={() => setGuide(null)} />}
+      {advUpsell && <AdvancedUpsellModal onClose={() => setAdvUpsell(false)} />}
     </CalendarShell>
   )
 }
