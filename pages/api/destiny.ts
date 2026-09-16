@@ -22,7 +22,7 @@ const rowsOf = (r: any): any[] => (Array.isArray(r) ? r : r?.rows ?? [])
 // เวอร์ชันของ "ก้อนผลดวงที่ cache" — bump เมื่อ engine เพิ่ม/แก้ฟิลด์ใน payload (เช่น elementNisai)
 // ต่อเข้า birthKey → ผลเก่าที่ cache ก่อน bump จะ miss แล้วคำนวณใหม่เองทันที ไม่ต้องล้างตาราง cache มือ.
 // v2 (2026-09-11): เพิ่ม elementAnalysis.elementNisai (นิสัย 5 ธาตุ แข็ง/อ่อน) ลงหน้าดวง.
-const CACHE_VERSION = "v5" // v5 2026-09-16: วันดีเดือนนี้ กรองวันที่ผ่านมาแล้วออก (โชว์เฉพาะวันนี้+ข้างหน้า) · v4 2026-09-15: เทพประจำตัว = ชื่อองค์คุ้มครองหลักจริง
+const CACHE_VERSION = "v6" // v6 2026-09-16: "นิสัย" รวมราศีบน(เสาเต็ม)+ราศีล่าง(ก้านล่าง) — engine เพิ่มราศีล่างที่หายกลับ · v5: วันดีเดือนนี้ กรองวันผ่านมาแล้ว · v4: เทพประจำตัวชื่อจริง
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== "POST") {
