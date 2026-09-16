@@ -6,18 +6,9 @@
 import assert from 'node:assert/strict'
 import { toComputeSource, resolveGreetingElementTh } from '../lib/personalization/compute-source'
 import { resolveMascotFromCompute } from '../lib/personalization/mascot'
+import { test as t } from 'vitest'
 
-let pass = 0
-function t(name: string, fn: () => void) {
-  try {
-    fn()
-    pass++
-    console.log(`  ✓ ${name}`)
-  } catch (e) {
-    console.error(`  ✗ ${name}\n    ${(e as Error).message}`)
-    process.exitCode = 1
-  }
-}
+
 
 // The REAL runtime shape (verified against my-destiny.tsx, which reads result.data.summary/.detail).
 const wrapped = {
@@ -73,4 +64,4 @@ t('fallback: neither source has an element → null (row hidden — correct, no 
   assert.equal(resolveGreetingElementTh(null, undefined), null)
 })
 
-console.log(`\n  ${pass} passed${process.exitCode ? ' · SOME FAILED' : ''}`)
+

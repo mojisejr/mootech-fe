@@ -4,17 +4,9 @@
 // npx tsx scripts/calc-compute-validation.test.ts
 import assert from 'node:assert/strict'
 import { validateInput, sameOrigin } from '../pages/api/calculator/compute'
+import { test as t } from 'vitest'
 
-let pass = 0
-function t(name: string, fn: () => void) {
-  try {
-    fn()
-    pass++
-  } catch (e: any) {
-    console.error(`✗ ${name}\n  ${e?.message ?? e}`)
-    process.exitCode = 1
-  }
-}
+
 
 function main() {
   t('valid full input passes, gender normalized to uppercase', () => {
@@ -93,11 +85,7 @@ function main() {
     assert.equal(sameOrigin(req), false)
   })
 
-  if (process.exitCode) {
-    console.error(`\ncalc-compute-validation: FAILED (${pass} passed)`)
-  } else {
-    console.log(`calc-compute-validation: all ${pass} passed ✓`)
-  }
+
 }
 
 main()

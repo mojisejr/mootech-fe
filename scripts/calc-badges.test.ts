@@ -3,17 +3,9 @@
 import assert from 'node:assert/strict'
 import { badgeIcon, badgePopoverText, capBadges, findAnnualBadge, findDecadeBadge, findPillarBadge } from '../lib/calculator/badges'
 import type { EnrichmentBadge } from '../pages/api/calculator/compute'
+import { test as t } from 'vitest'
 
-let pass = 0
-function t(name: string, fn: () => void) {
-  try {
-    fn()
-    pass++
-  } catch (e: any) {
-    console.error(`✗ ${name}\n  ${e?.message ?? e}`)
-    process.exitCode = 1
-  }
-}
+
 
 function badge(point: string, role: 'wealth' | 'power' = 'wealth'): EnrichmentBadge {
   return { point, role, element: 'ไม้', qi: 'เชี่ยงแซ', clash: false }
@@ -98,11 +90,7 @@ function main() {
     }
   })
 
-  if (process.exitCode) {
-    console.error(`\ncalc-badges: FAILED (${pass} passed)`)
-  } else {
-    console.log(`calc-badges: all ${pass} passed ✓`)
-  }
+
 }
 
 main()

@@ -1,6 +1,7 @@
 // Deterministic unit tests for the bazi-bridge primitives (Phase 3.1 hard gate,
 // #mootech-fullstack-supabase-fold). DB-free. Run: npx tsx scripts/bazi-bridge.test.ts
 import assert from 'node:assert/strict'
+import { test as t } from 'vitest'
 import {
   toBaziInput,
   normalizeGender,
@@ -14,16 +15,7 @@ import {
   hiddenZodiac,
 } from '../lib/bazi-bridge/elements'
 
-let pass = 0
-function t(name: string, fn: () => void) {
-  try {
-    fn()
-    pass++
-  } catch (e: any) {
-    console.error(`✗ ${name}\n  ${e?.message ?? e}`)
-    process.exitCode = 1
-  }
-}
+
 
 // ── B0 input adapter ──
 t('gender MALE->male', () => assert.equal(normalizeGender('MALE'), 'male'))
@@ -81,5 +73,3 @@ t('stem unknown throws', () => assert.throws(() => stemPolarity('Z')))
 t('hiddenZodiac join space', () => assert.equal(hiddenZodiac(['丁', '己']), '丁 己'))
 t('hiddenZodiac empty', () => assert.equal(hiddenZodiac(null), ''))
 
-if (!process.exitCode) console.log(`✓ all ${pass} bazi-bridge assertions passed`)
-else console.error(`\n${pass} passed, FAILURES above`)

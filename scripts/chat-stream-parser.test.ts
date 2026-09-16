@@ -2,17 +2,9 @@
 // DB-free, network-free. Run: npx tsx scripts/chat-stream-parser.test.ts
 import assert from "node:assert/strict"
 import { parseSseBuffer } from "../lib/chat/use-bazi-chat-stream"
+import { test as t } from 'vitest'
 
-let pass = 0
-function t(name: string, fn: () => void) {
-  try {
-    fn()
-    pass++
-  } catch (e: any) {
-    console.error(`✗ ${name}\n  ${e?.message ?? e}`)
-    process.exitCode = 1
-  }
-}
+
 
 const frame = (content: string) =>
   `data: ${JSON.stringify({ choices: [{ delta: { content } }] })}\n\n`
@@ -104,4 +96,4 @@ t("trace before answer tokens preserves answer order", () => {
   assert.equal(r.done, true)
 })
 
-console.log(`\nchat-stream-parser: ${pass} passed`)
+

@@ -14,11 +14,10 @@
 //     just paid is never stuck on a stale free gate). Proven by "later call refetches".
 import assert from 'node:assert'
 import { getUser, clearUserCache, _inflightSize } from '../lib/v2/user-cache'
+import { test } from 'vitest'
 
-let pass = 0
 function ok(name: string, cond: boolean) {
   assert.ok(cond, `FAIL: ${name}`)
-  pass += 1
 }
 
 async function run() {
@@ -87,11 +86,6 @@ async function run() {
   ok('logout: an in-flight fetch is registered', _inflightSize() === 1)
   clearUserCache()
   ok('logout: clearUserCache empties the in-flight map', _inflightSize() === 0)
-
-  console.log(`✅ user-cache.test.ts — ${pass} assertions passed`)
 }
 
-run().catch((e) => {
-  console.error(e)
-  process.exit(1)
-})
+test('user-cache.test.ts', run)

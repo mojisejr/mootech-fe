@@ -16,8 +16,9 @@
 //
 // ANCHOR: scripts/check-omise-key-inlined.test.ts#omise-key-gate-skip-shape
 import assert from 'node:assert/strict'
+import { test, afterAll } from 'vitest'
 import { execFileSync } from 'node:child_process'
-import { existsSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 
@@ -35,7 +36,7 @@ const SPACED_KEY = 'pkey_test_SPACED 0123456789'
 const dir = mkdtempSync(join(tmpdir(), 'omise-gate-'))
 const staticDir = join(dir, 'static')
 writeFileSync(join(dir, 'placeholder'), '')
-execFileSync('mkdir', ['-p', staticDir])
+mkdirSync(staticDir, { recursive: true })
 // The bundle contains PRESENT_KEY and not ABSENT_KEY — that is what lets one case pass and one redden.
 writeFileSync(join(staticDir, 'chunk.js'), `var k="${PRESENT_KEY}";\nvar s="${SPACED_KEY}";\n`)
 
@@ -143,17 +144,12 @@ const cases: Case[] = [
   },
 ]
 
-let failures = 0
 for (const c of cases) {
-  const { rc, out } = runGate(c.env)
-  try {
+  test(c.name, () => {
+    const { rc, out } = runGate(c.env)
     assert.equal(rc, c.rc, `${c.name}: expected rc=${c.rc}, got ${rc}\n${out}`)
     if (c.expect) assert.match(out, c.expect, `${c.name}: output did not match ${c.expect}\n${out}`)
-    console.log(`  ✓ ${c.name}`)
-  } catch (e) {
-    failures += 1
-    console.error(`  ✗ ${(e as Error).message}`)
-  }
+  })
 }
 
 // ── CONTROL PAIR — two runs that must land on OPPOSITE verdicts, compared in this same process ──────
@@ -161,29 +157,17 @@ for (const c of cases) {
 // row return the same verdict, and a table asserting "rc=1" on mostly-red rows stayed green through it.
 // This pair differs in ONE thing (the key) and asserts the verdicts DIFFER, so a runner that has stopped
 // distinguishing anything fails here even if every row above still matches its expectation.
-{
+test('control pair: same harness, one green and one red', () => {
   const present = runGate({ NEXT_PUBLIC_OMISE_KEY_V2: PRESENT_KEY })
   const absent = runGate({ NEXT_PUBLIC_OMISE_KEY_V2: ABSENT_KEY })
-  try {
-    assert.notEqual(
-      present.rc,
-      absent.rc,
-      `control pair collapsed: both runs returned rc=${present.rc}. The harness is no longer telling the ` +
-        `two apart, so every verdict above is suspect.\n--- present ---\n${present.out}\n--- absent ---\n${absent.out}`,
-    )
-    assert.equal(present.rc, 0, 'control: the key that IS in the bundle must be green')
-    assert.equal(absent.rc, 1, 'control: the key that is NOT in the bundle must be red')
-    console.log('  ✓ control pair: same harness, one green and one red')
-  } catch (e) {
-    failures += 1
-    console.error(`  ✗ ${(e as Error).message}`)
-  }
-}
+  assert.notEqual(
+    present.rc,
+    absent.rc,
+    `control pair collapsed: both runs returned rc=${present.rc}. The harness is no longer telling the ` +
+      `two apart, so every verdict above is suspect.\n--- present ---\n${present.out}\n--- absent ---\n${absent.out}`,
+  )
+  assert.equal(present.rc, 0, 'control: the key that IS in the bundle must be green')
+  assert.equal(absent.rc, 1, 'control: the key that is NOT in the bundle must be red')
+})
 
-rmSync(dir, { recursive: true, force: true })
-
-if (failures > 0) {
-  console.error(`\n${failures} case(s) failed — the gate's skip condition is not the shape #482 agreed to.`)
-  process.exit(1)
-}
-console.log(`\nomise key gate: ${cases.length}/${cases.length} cases hold.`)
+afterAll(() => rmSync(dir, { recursive: true, force: true }))

@@ -13,17 +13,9 @@
 // Run: npx tsx scripts/user-api-parity.test.ts   or: bun scripts/user-api-parity.test.ts
 import assert from 'node:assert/strict'
 import { isNotExpired } from '../lib/usage-core'
+import { test as t } from 'vitest'
 
-let pass = 0
-function t(name: string, fn: () => void) {
-  try {
-    fn()
-    pass++
-  } catch (e: any) {
-    console.error(`✗ ${name}\n  ${e?.message ?? e}`)
-    process.exitCode = 1
-  }
-}
+
 
 // ── THE TZ BOUNDARY (the regression the old server-local code got wrong) ──
 // expire = 2026-06-14. Bangkok midnight = 17:00 UTC. The flip must happen there.
@@ -55,8 +47,4 @@ t('datetime string (member row with time) slices to date -> true', () => {
 })
 t('garbage -> false', () => assert.equal(isNotExpired('not-a-date', new Date('2026-06-14T05:00:00Z')), false))
 
-if (process.exitCode) {
-  console.error(`\nuser-api-parity: FAILED (${pass} passed)`)
-} else {
-  console.log(`user-api-parity: all ${pass} passed ✓`)
-}
+

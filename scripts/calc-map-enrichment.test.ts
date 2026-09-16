@@ -4,17 +4,9 @@ import assert from 'node:assert/strict'
 import { thaiToBaziElement, findDecadePhasePair, findLiuNianForYear } from '../lib/calculator/map-enrichment'
 import type { DecadeLuckItem, AnnualLuckItem } from '../lib/calculator/map-timeline'
 import type { DaYunRow, LiuNianRow } from '../pages/api/calculator/compute'
+import { test as t } from 'vitest'
 
-let pass = 0
-function t(name: string, fn: () => void) {
-  try {
-    fn()
-    pass++
-  } catch (e: any) {
-    console.error(`✗ ${name}\n  ${e?.message ?? e}`)
-    process.exitCode = 1
-  }
-}
+
 
 function main() {
   t('thaiToBaziElement maps all 5 locked labels to their English key', () => {
@@ -74,11 +66,7 @@ function main() {
     assert.equal(findLiuNianForYear([], annual), undefined)
   })
 
-  if (process.exitCode) {
-    console.error(`\ncalc-map-enrichment: FAILED (${pass} passed)`)
-  } else {
-    console.log(`calc-map-enrichment: all ${pass} passed ✓`)
-  }
+
 }
 
 main()

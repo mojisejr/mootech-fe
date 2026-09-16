@@ -11,12 +11,9 @@
 //   MF2  an unrecognised value reads as OFF                       → the typo cases redden
 import assert from 'node:assert/strict'
 import { isReconcileEnabled } from '../lib/payment/reconcile-flag'
+import { test } from 'vitest'
 
-let pass = 0
-const ok = (name: string, cond: boolean) => {
-  assert.ok(cond, `FAIL: ${name}`)
-  pass += 1
-}
+const ok = (name: string, cond: boolean) => test(name, () => assert.ok(cond, `FAIL: ${name}`))
 
 // 🔴 the default. Unset must keep repairing.
 ok('unset → ENABLED (an unconfigured deploy still recovers lost payments)', isReconcileEnabled(undefined))
@@ -32,4 +29,4 @@ for (const v of ['', 'on', 'true', '1', 'yes', 'maybe', 'OFF PLEASE', 'offf', 'n
   ok(`"${v}" → still enabled (unrecognised is not a disable)`, isReconcileEnabled(v))
 }
 
-console.log(`\n  reconcile-kill-switch-default-on: ${pass} passed`)
+

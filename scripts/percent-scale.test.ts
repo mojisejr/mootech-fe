@@ -33,12 +33,9 @@
 import assert from 'node:assert'
 import { isPlausiblePercent, percentText } from '../features/v2-calendar/components/percent-display'
 import { crossCheckPercents, harvestIsMeaningful } from './_helpers/percent-crosscheck'
+import { test } from 'vitest'
 
-let pass = 0
-const ok = (name: string, cond: boolean, detail = '') => {
-  assert.ok(cond, `FAIL: ${name}${detail ? ` — ${detail}` : ''}`)
-  pass += 1
-}
+const ok = (name: string, cond: boolean, detail = '') => test(name, () => assert.ok(cond, `FAIL: ${name}${detail ? ` — ${detail}` : ''}`))
 
 // ── VERIFY-THE-INSTRUMENT — real values first, or every rejection below is vacuous ──
 // Sampled from live man-vs-day responses (2 people × 13 days, 2026-08): day totals and facet percents.
@@ -107,4 +104,4 @@ ok('ABORT-ON-EMPTY: both sides present ⇒ meaningful', harvestIsMeaningful(API,
 // stated plainly: an empty comparison reports zero issues, which is exactly why it must never count as a pass
 ok('an empty comparison finds nothing — the reason ABORT-ON-EMPTY exists', crossCheckPercents([], []).length === 0)
 
-console.log(`\n✅ percent-scale.test.ts — ${pass} assertions passed`)
+

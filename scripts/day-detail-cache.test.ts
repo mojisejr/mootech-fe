@@ -23,6 +23,7 @@ import {
   type CachedDay,
 } from '../features/v2-calendar/hooks/day-detail-cache'
 import type { DayDetail as LibDayDetail } from '../lib/v2-calendar/day-detail'
+import { test } from 'vitest'
 
 // 🔴 #529 — the cache stores a RECORD now, not the detail object. `outOfSpan` is the third state the
 // screen needs (a paid wall, which is not a failure); storing the detail alone is exactly how the route's
@@ -35,10 +36,8 @@ import type { DayDetail as LibDayDetail } from '../lib/v2-calendar/day-detail'
 // Tracked at mojisejr/mootech-fe#532.
 const cached = (d: LibDayDetail | null, outOfSpan = false): CachedDay => ({ detail: d, outOfSpan })
 
-let pass = 0
 function ok(name: string, cond: boolean) {
   assert.ok(cond, `FAIL: ${name}`)
-  pass += 1
 }
 
 // a minimal lib DayDetail stub tagged by `summary` so we can tell whose/what day came back.
@@ -48,6 +47,7 @@ const libDetail = (tag: string): LibDayDetail =>
      spirits: [], wanPhra: { isWanPhra: false, label: '' }, colors: [], gates: [],
      dithi: { officer: '', officerDesc: '', jianchu: '' }, luckyDirection: '' }) as unknown as LibDayDetail
 
+test('day-detail-cache — dayKey composition', () => {
 // ── dayKey: includes userId + birthSig + date + tier (bug-class 1 & 2 — the key is the whole defence) ──
 ok('dayKey includes userId', dayKey('user-A', 'sig', '2026-08-05', false).startsWith('user-A:'))
 ok('dayKey includes date', dayKey('user-A', 'sig', '2026-08-05', false).includes(':2026-08-05:')) // #226: the tier now trails the date
@@ -58,6 +58,7 @@ ok('dayKey different date → different key', dayKey('user-A', 'sig', '2026-08-0
 // shapes; a key that cannot tell them apart serves a paying user the free-shaped day out of memory until a
 // reload (the "stranded on the free gate" money bug this cache's own header warns about).
 ok('dayKey different tier → different key', dayKey('user-A', 'sig', '2026-08-05', false) !== dayKey('user-A', 'sig', '2026-08-05', true))
+})
 
 async function run() {
   clearDayDetailCache()
@@ -142,10 +143,6 @@ async function run() {
   ok('CONTROL: and it stays that way through the cache', peekDayDetail(kDead)?.outOfSpan === false)
 
   clearDayDetailCache()
-  console.log(`✅ day-detail-cache.test.ts — ${pass} assertions passed`)
 }
 
-run().catch((e) => {
-  console.error(e)
-  process.exit(1)
-})
+test('day-detail-cache — cache behaviour', run)

@@ -4,17 +4,9 @@
 import assert from 'node:assert/strict'
 
 import { mascotFromBaziResponse } from '../pages/api/bazi/mascot/[ganzhi]'
+import { test as t } from 'vitest'
 
-let pass = 0
-function t(name: string, fn: () => void) {
-  try {
-    fn()
-    pass++
-  } catch (e: any) {
-    console.error(`✗ ${name}\n  ${e?.message ?? e}`)
-    process.exitCode = 1
-  }
-}
+
 
 const PROD_V2 =
   'https://soxsccdlsycaevusndro.supabase.co/storage/v1/object/public/mootech-v2/mascot/01_wood.png'
@@ -59,4 +51,4 @@ t('data ไม่มี ganzhi → ใช้ fallback', () => {
   assert.equal(mascot?.ganzhi, '乙丑')
 })
 
-console.log(`\n✓ compat-mascot-proxy: ${pass} passed`)
+

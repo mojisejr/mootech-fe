@@ -3,17 +3,9 @@
 //                                                or: bun scripts/use-current-user.test.ts
 import assert from 'node:assert/strict'
 import { resolveAuth, UUID_RE } from '../lib/auth/resolve-auth'
+import { test as t } from 'vitest'
 
-let pass = 0
-function t(name: string, fn: () => void) {
-  try {
-    fn()
-    pass++
-  } catch (e: any) {
-    console.error(`✗ ${name}\n  ${e?.message ?? e}`)
-    process.exitCode = 1
-  }
-}
+
 
 const UUID = '11111111-2222-4333-8444-555555555555'
 
@@ -66,5 +58,3 @@ t('UUID_RE accepts a real uuid, rejects access tokens / junk', () => {
   assert.ok(!UUID_RE.test('11111111-2222-4333-8444'))
 })
 
-if (!process.exitCode) console.log(`✓ all ${pass} use-current-user assertions passed`)
-else console.error(`\n${pass} passed, FAILURES above`)

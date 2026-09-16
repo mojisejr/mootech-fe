@@ -6,17 +6,9 @@
 // Run: bun scripts/ops-calculator-usage.test.ts   or: npx tsx scripts/ops-calculator-usage.test.ts
 import assert from 'node:assert/strict'
 import { bangkokDayBoundary } from '../lib/ops/calculator-usage'
+import { test as t } from 'vitest'
 
-let pass = 0
-function t(name: string, fn: () => void) {
-  try {
-    fn()
-    pass++
-  } catch (e: any) {
-    console.error(`✗ ${name}\n  ${e?.message ?? e}`)
-    process.exitCode = 1
-  }
-}
+
 
 function main() {
   t('today (offset 0) is a 24h window starting at Bangkok midnight', () => {
@@ -53,11 +45,7 @@ function main() {
     assert.equal(label, '2026-12-31')
   })
 
-  if (process.exitCode) {
-    console.error(`\nops-calculator-usage: FAILED (${pass} passed)`)
-  } else {
-    console.log(`ops-calculator-usage: all ${pass} passed ✓`)
-  }
+
 }
 
 main()

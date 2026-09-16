@@ -3,17 +3,9 @@
 //                                               or: bun scripts/chat-access.test.ts
 import assert from 'node:assert/strict'
 import { parseTesters, resolveChatAccess } from '../lib/chat/access'
+import { test as t } from 'vitest'
 
-let pass = 0
-function t(name: string, fn: () => void) {
-  try {
-    fn()
-    pass++
-  } catch (e: any) {
-    console.error(`✗ ${name}\n  ${e?.message ?? e}`)
-    process.exitCode = 1
-  }
-}
+
 
 // ── parseTesters ──
 t('parseTesters empty/undefined -> []', () => {
@@ -81,5 +73,3 @@ t('empty email is never matched', () => {
   )
 })
 
-if (!process.exitCode) console.log(`✓ all ${pass} chat-access assertions passed`)
-else console.error(`\n${pass} passed, FAILURES above`)

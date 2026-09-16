@@ -3,17 +3,9 @@
 // users had none. gender starts null (no default), so this gate is what forces an active choice.
 import assert from 'node:assert/strict'
 import { profileCanSubmit } from '../features/auth/hooks/profile-can-submit'
+import { test as t } from 'vitest'
 
-let pass = 0
-function t(name: string, fn: () => void) {
-  try {
-    fn()
-    pass++
-  } catch (e: any) {
-    console.error(`✗ ${name}\n  ${e?.message ?? e}`)
-    process.exitCode = 1
-  }
-}
+
 
 const ok = { userId: 'u1', name: 'A', birthDay: '1990-06-15', gender: 'MALE' as const, isTimeValid: true }
 
@@ -34,4 +26,4 @@ t('invalid time ⇒ cannot submit even with gender (unchanged)', () => {
   assert.equal(profileCanSubmit({ ...ok, isTimeValid: false }), false)
 })
 
-console.log(`\n✅ profile-can-submit — ${pass} passed`)
+

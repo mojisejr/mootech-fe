@@ -16,20 +16,10 @@ import { prefetchSummary, getSummary, clearSummaryCache } from '../features/v2-f
 
 const person = { birthDate: '1990-06-15', gender: 'female' as const }
 
-let pass = 0
-function t(name: string, fn: () => Promise<void> | void) {
-  return Promise.resolve()
-    .then(fn)
-    .then(() => { pass++ })
-    .catch((e: any) => {
-      console.error(`✗ ${name}\n  ${e?.message ?? e}`)
-      process.exitCode = 1
-    })
-}
+import { test as t } from 'vitest'
 
-async function main() {
-  // prefetch then read ⇒ ONE fetch (selector reuses the register-time promise).
-  await t('prefetch is reused by getSummary (no double fetch)', async () => {
+// prefetch then read ⇒ ONE fetch (selector reuses the register-time promise).
+await t('prefetch is reused by getSummary (no double fetch)', async () => {
     clearSummaryCache()
     calls = 0
     prefetchSummary('u1', person)
@@ -55,8 +45,3 @@ async function main() {
     await getSummary('u3', person)
     assert.equal(calls, 1)
   })
-
-  console.log(`\n${process.exitCode ? '✗' : '✅'} summary-cache — ${pass} passed`)
-}
-
-main()

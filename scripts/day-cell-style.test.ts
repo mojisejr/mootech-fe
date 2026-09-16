@@ -28,12 +28,9 @@ import assert from 'node:assert'
 import { dayCellStyle } from '../features/v2-calendar/components/day-cell-style'
 import { DAY_CELL_COLORS, SELECTED } from '../features/v2-calendar/components/grade-colors'
 import { GRADE_STEPS, gradeStep } from '../lib/v2/grade-scale'
+import { test } from 'vitest'
 
-let pass = 0
-const ok = (name: string, cond: boolean, detail = '') => {
-  assert.ok(cond, `FAIL: ${name}${detail ? ` — ${detail}` : ''}`)
-  pass += 1
-}
+const ok = (name: string, cond: boolean, detail = '') => test(name, () => assert.ok(cond, `FAIL: ${name}${detail ? ` — ${detail}` : ''}`))
 
 // the ten Figma steps — dayCellStyle takes the WIRE grade, so the step letter is what goes in
 const TIERS = [...GRADE_STEPS]
@@ -80,4 +77,4 @@ for (const tier of TIERS) {
 const restingBgs = TIERS.map((t) => dayCellStyle(t, false).bg)
 ok('TOTAL: the ten unselected steps still paint ten different backgrounds', new Set(restingBgs).size === TIERS.length, restingBgs.join(' '))
 
-console.log(`\n✅ day-cell-style.test.ts — ${pass} assertions passed`)
+

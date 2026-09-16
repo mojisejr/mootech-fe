@@ -16,7 +16,7 @@
 //   L3  (ยกออก) การถอด guard `includes` ไม่เปลี่ยนพฤติกรรมเลย — String.replace no-op อยู่แล้ว
 //       ⇒ ไม่มีฟันไหนจับได้ และผมถอด guard นั้นออกจากโค้ดแทนที่จะเก็บฟันปลอมไว้
 import assert from 'node:assert/strict'
-import test from 'node:test'
+import { test } from 'vitest'
 import {
   FACET_ORDER,
   LABEL_PATCH,

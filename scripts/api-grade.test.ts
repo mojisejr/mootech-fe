@@ -1,12 +1,9 @@
 // B-3 — ApiGrade wire contract. Plain tsx + node:assert. 13 levels + null + LOUD on anything else.
 import assert from "node:assert";
 import { API_GRADES, isApiGrade, parseApiGrade, type ApiGrade } from "../lib/v2/api-grade";
+import { test } from 'vitest'
 
-let pass = 0;
-const ok = (name: string, cond: boolean) => {
-  assert.ok(cond, `FAIL: ${name}`);
-  pass += 1;
-};
+const ok = (name: string, cond: boolean) => test(name, () => assert.ok(cond, `FAIL: ${name}`))
 
 // exactly bazi's 13 — same set/order as rating-scale (verified against gradeForPercent in PR-1/#18)
 const EXPECTED = ["F", "D-", "D", "D+", "C-", "C", "C+", "B-", "B", "B+", "A-", "A", "A+"];
@@ -33,4 +30,4 @@ for (const bad of invalid) {
 // the "-" sentinel specifically is NOT an ApiGrade — the pipe uses null, not "-"
 ok('"-" sentinel is not an ApiGrade', !isApiGrade("-"));
 
-console.log(`✅ api-grade.test.ts — ${pass} assertions passed`);
+

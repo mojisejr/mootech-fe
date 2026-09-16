@@ -135,13 +135,19 @@ if [ -n "$skipped" ]; then
   echo "pre-push:    ถ้ามันคือด่านของสิ่งที่คุณเพิ่งแก้ ไปรันมันจริงแล้วแปะ output ลง PR" >&2
 fi
 
-# §lane 2 — the 74 plain node:assert scripts that `npm test` does NOT see.
-#   vitest runs ONLY the specs named in vitest.config.mts `include` (27 files). The other
-#   scripts/*.test.ts are plain node:assert scripts that used to run in ci.yml's tsx lane — and #321
-#   moved ci.yml into .github/workflows/archive/, so from 2026-08-18 13:56Z NOTHING ran them.
-#   `npm test` stayed green the whole time: it was green about a pile that had shrunk ~3x, and nothing
-#   said so. That is the exact failure this hook exists to prevent, so the lane moves here (#334).
-#   The skip list mirrors ci.yml's: those two ARE in vitest's include, so running them twice is waste.
+# §lane 2 — the RESIDUAL plain node:assert scripts that `npm test` does NOT see.
+#   HISTORY: this lane once carried ~74 plain node:assert scripts/*.test.ts. #321 archived ci.yml (which
+#   had been the only runner for them), NOTHING ran them for hours, and `npm test` stayed green about a
+#   pile that had shrunk ~3x — the exact failure this hook exists to prevent, so #334 moved the lane here.
+#   Then the bulk of those files were converted into real vitest specs and added to vitest.config.mts's
+#   include (refactor/tsx-lane-into-vitest), so `npm test` now runs them in ONE process instead of ~74
+#   `npx tsx` cold-starts. What is LEFT in this lane is the handful that could not become vitest specs:
+#   the meta-guards that shell out / spawn native binaries / run the hook itself (verify-architecture,
+#   guard-workflow-integrity, optimize-assets, main-guard, pre-push-guard) and any env-specific holdout.
+#   The point of the lane is unchanged: a node:assert scripts/*.test.ts that vitest does NOT own must
+#   still run SOMEWHERE, and fail the push if it fails.
+#   The skip list is DERIVED from vitest.config.mts: a file vitest already owns is skipped here (running a
+#   `import … from 'vitest'` spec under plain tsx would fail for a reason unrelated to the change).
 #   ⚠️ ANY new scripts/*.test.ts is picked up automatically — this is a glob, not a hand-synced list.
 #      (contrast vitest.config.mts, which IS hand-synced — that is tracked debt #212.)
 #   §scope — the lane only claims anything about repos that HAVE this pile. A repo with no scripts/
@@ -178,8 +184,10 @@ for f in scripts/*.test.ts; do
   npx tsx "$f" >/dev/null 2>&1 || { lane2_failed=1; echo "  ✗ $f" >&2; npx tsx "$f" >&2 2>&1 | tail -20; }
 done
 [ "$lane2_ran" -gt 0 ] \
-  || die "the tsx lane matched 0 files. scripts/*.test.ts is where 74 node:assert tests live; matching
-     nothing means the glob broke, not that the tests pass. Not asserting green over an empty run."
+  || die "the tsx lane matched 0 files. scripts/*.test.ts still holds the residual node:assert meta-guards
+     (verify-architecture, guard-workflow-integrity, optimize-assets, main-guard, pre-push-guard, …) that
+     could not become vitest specs; matching nothing means the glob broke or every one of them was silently
+     removed, not that the tests pass. Not asserting green over an empty run."
 [ "$lane2_failed" -eq 0 ] \
   || die "a scripts/*.test.ts file failed in the tsx lane (see ✗ above). Fix it, then push again."
 echo "pre-push: tsx lane green ($lane2_ran files)" >&2

@@ -2,17 +2,9 @@
 // Run: npx tsx scripts/chat-greeting.test.ts
 import assert from "node:assert/strict"
 import { buildGreeting } from "../components/chat/chat-greeting"
+import { test as t } from 'vitest'
 
-let pass = 0
-function t(name: string, fn: () => void) {
-  try {
-    fn()
-    pass++
-  } catch (e: any) {
-    console.error(`✗ ${name}\n  ${e?.message ?? e}`)
-    process.exitCode = 1
-  }
-}
+
 
 const at = (hour: number) => new Date(2026, 5, 28, hour, 0, 0)
 
@@ -60,4 +52,4 @@ t("never contains the word ปาจื่อ in any combination", () => {
   }
 })
 
-console.log(`\nchat-greeting: ${pass} passed`)
+

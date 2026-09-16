@@ -15,18 +15,9 @@ import { CalendarMenuState, menuHasMateAi, menuStateForDay } from '../features/v
 import { buildMonthGrid, firstWeekday, daysInMonth } from '../features/v2-calendar/month-grid'
 import { generateMonthDays, mockReminderList } from '../features/v2-calendar/fixtures'
 import { isAppFetch } from './_helpers/assert-no-app-fetch'
+import { test as t } from 'vitest'
 
-let pass = 0
-function t(name: string, fn: () => void) {
-  try {
-    fn()
-    pass++
-    console.log(`  ✓ ${name}`)
-  } catch (e) {
-    console.error(`  ✗ ${name}\n    ${(e as Error).message}`)
-    process.exitCode = 1
-  }
-}
+
 
 // ── SAVE-FLOW state machine (the PR#97-class client side-effect) ──────────────────────────────────
 t('happy path: idle→editing→saving→saved', () => {
@@ -141,4 +132,4 @@ t('reminder list groups into upcoming/past with correct totals', () => {
   assert.equal(list.totalYams, list.upcoming.length + list.past.length)
 })
 
-console.log(`\ncalendar-phase0: ${pass} passed`)
+

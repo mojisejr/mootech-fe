@@ -126,7 +126,8 @@ describe('SaveSheet — ปุ่มบันทึกพูดความจ�
     // ตู๋ #303: `onClick={onSave}` → `() => {}` ผ่าน 35/35 เพราะไม่มีเทสต์ไหนกดปุ่มจริง — ปุ่มอยู่ครบ
     // แต่ไม่มีใครเฝ้าว่ามันยังต่อสาย (ตระกูล #299: ปุ่มอยู่ แต่กดไม่ติด). ฟันนี้กดปุ่มจริงแล้ว assert callback.
     const onSave = vi.fn()
-    render(<SaveSheet date="2026-08-16" yams={YAMS} draft={draftWith([])} onSave={onSave} notify="granted" onShowGuide={() => {}} statusFor={() => 'addable'} />)
+    // external ต้องมี ≥1 ปลายทางเปิด ไม่งั้นกดบันทึกจะโดน gate (เลื่อนไปเลือกก่อน) แทนเรียก onSave (2026-09-16)
+    render(<SaveSheet date="2026-08-16" yams={YAMS} draft={draftWith([])} onSave={onSave} notify="granted" onShowGuide={() => {}} statusFor={() => 'addable'} external={{ mumate: true, google: false, apple: false }} />)
     fireEvent.click(screen.getByTestId('sheet-save'))
     expect(onSave).toHaveBeenCalledTimes(1)
   })

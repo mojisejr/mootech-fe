@@ -24,12 +24,9 @@
 import assert from 'node:assert'
 import { API_GRADES } from '../lib/v2/api-grade'
 import { gradeTier, TIER_COLOR, TIER_INK, TIER_SOFT, type GradeTier } from '../lib/v2/grade-scale'
+import { test } from 'vitest'
 
-let pass = 0
-const ok = (name: string, cond: boolean, detail = '') => {
-  assert.ok(cond, `FAIL: ${name}${detail ? ` — ${detail}` : ''}`)
-  pass += 1
-}
+const ok = (name: string, cond: boolean, detail = '') => test(name, () => assert.ok(cond, `FAIL: ${name}${detail ? ` — ${detail}` : ''}`))
 
 // ── colour maths (sRGB → Lab → ΔE2000) + colour-blind simulation (Viénot 1999) ──
 const hex2rgb = (h: string): number[] => [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16))
@@ -124,4 +121,4 @@ for (const z of ZONES) if (z !== 'fair') ok(`${z} zone uses white ink`, TIER_INK
 ok('C+ inherits dark ink through its ZONE (not a letter special-case)', TIER_INK[gradeTier('C+')] === '#374151')
 ok('every zone has a soft ground', ZONES.every((z) => /^#[0-9A-F]{6}$/i.test(TIER_SOFT[z])))
 
-console.log(`\n✅ grade-scale.test.ts — ${pass} assertions passed`)
+

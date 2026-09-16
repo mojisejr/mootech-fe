@@ -6,17 +6,7 @@
 // Run: bun scripts/ops-health.test.ts   or: npx tsx scripts/ops-health.test.ts
 import assert from 'node:assert/strict'
 import { fetchRenderHealth, fetchVercelHealth, overallHealth } from '../lib/ops/health'
-
-let pass = 0
-async function t(name: string, fn: () => void | Promise<void>) {
-  try {
-    await fn()
-    pass++
-  } catch (e: any) {
-    console.error(`✗ ${name}\n  ${e?.message ?? e}`)
-    process.exitCode = 1
-  }
-}
+import { test as t } from 'vitest'
 
 function withMockFetch<T>(impl: typeof fetch, fn: () => Promise<T>): Promise<T> {
   const original = globalThis.fetch
@@ -26,8 +16,7 @@ function withMockFetch<T>(impl: typeof fetch, fn: () => Promise<T>): Promise<T> 
   })
 }
 
-async function main() {
-  await t('Render: unconfigured key -> unknown, no fetch attempted', async () => {
+await t('Render: unconfigured key -> unknown, no fetch attempted', async () => {
     delete process.env.RENDER_API_KEY
     const result = await fetchRenderHealth()
     assert.equal(result.status, 'unknown')
@@ -107,12 +96,3 @@ async function main() {
     assert.equal(overallHealth(['ok', 'warn', 'bad']), 'bad')
     assert.equal(overallHealth(['ok', 'unknown']), 'unknown')
   })
-
-  if (process.exitCode) {
-    console.error(`\nops-health: FAILED (${pass} passed)`)
-  } else {
-    console.log(`ops-health: all ${pass} passed ✓`)
-  }
-}
-
-main()

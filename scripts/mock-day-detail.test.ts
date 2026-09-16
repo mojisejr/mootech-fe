@@ -8,12 +8,9 @@
 // The fix generates from the requested date's own month; the returned `date` must always equal the input.
 import assert from 'node:assert'
 import { mockDayDetail } from '../features/v2-calendar/fixtures'
+import { test } from 'vitest'
 
-let pass = 0
-function ok(name: string, cond: boolean) {
-  assert.ok(cond, `FAIL: ${name}`)
-  pass += 1
-}
+const ok = (name: string, cond: boolean) => test(name, () => assert.ok(cond, `FAIL: ${name}`))
 
 // The exact case บอง caught: an August date (outside the fixed July fixture) must return itself, not July 14.
 const aug = mockDayDetail('2026-08-05')
@@ -39,5 +36,3 @@ ok('empty date does not crash and does not claim another day', empty.date === ''
 
 // The detail is internally consistent (yams present, facet lists present) regardless of month.
 ok('detail carries yams + suitable/avoid for any month', aug.yams.length > 0 && aug.suitable.length > 0 && aug.avoid.length > 0)
-
-console.log(`✅ mock-day-detail.test.ts — ${pass} assertions passed`)

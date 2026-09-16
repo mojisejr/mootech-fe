@@ -17,17 +17,9 @@ process.env.MAINTENANCE_BYPASS_KEY = 'testkey'
 
 import { NextRequest } from 'next/server'
 import { middleware } from '../middleware'
+import { test as t } from 'vitest'
 
-let pass = 0
-function t(name: string, fn: () => void) {
-  try {
-    fn()
-    pass++
-  } catch (e: any) {
-    console.error(`✗ ${name}\n  ${e?.message ?? e}`)
-    process.exitCode = 1
-  }
-}
+
 
 function mkReq(path: string, cookie?: string) {
   const headers = new Headers()
@@ -140,8 +132,4 @@ t('wrong bypass cookie is still gated', () => {
   assert.equal(isRewrittenToMaintenance(middleware(mkReq('/', 'mnt_bypass=nope'))), true)
 })
 
-if (process.exitCode) {
-  console.error(`\nmaintenance-allowlist: FAILED (${pass} passed)`)
-} else {
-  console.log(`maintenance-allowlist: all ${pass} passed ✓`)
-}
+

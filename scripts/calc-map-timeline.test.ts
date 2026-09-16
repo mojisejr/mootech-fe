@@ -5,17 +5,9 @@
 // Run: bun scripts/calc-map-timeline.test.ts   or: npx tsx scripts/calc-map-timeline.test.ts
 import assert from 'node:assert/strict'
 import { mapDecadeLuck, mapAnnualLuck } from '../lib/calculator/map-timeline'
+import { test as t } from 'vitest'
 
-let pass = 0
-function t(name: string, fn: () => void) {
-  try {
-    fn()
-    pass++
-  } catch (e: any) {
-    console.error(`✗ ${name}\n  ${e?.message ?? e}`)
-    process.exitCode = 1
-  }
-}
+
 
 // First 6 of the real 20-entry `cycleLife.life` array (dob 1990-03-21), captured live.
 const REAL_LIFE = [
@@ -198,11 +190,7 @@ function main() {
     assert.equal(current[0].year, 38)
   })
 
-  if (process.exitCode) {
-    console.error(`\ncalc-map-timeline: FAILED (${pass} passed)`)
-  } else {
-    console.log(`calc-map-timeline: all ${pass} passed ✓`)
-  }
+
 }
 
 main()

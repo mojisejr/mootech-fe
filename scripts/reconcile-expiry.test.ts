@@ -24,6 +24,7 @@
 //   ME4  stop passing the reason through                              → ⑤ reddens (cause is lost, REJECT becomes ambiguous)
 //   ME5  count abandoned even when released=false                     → ⑥ reddens (an APPROVED row would inflate the count)
 import assert from 'node:assert/strict'
+import { test } from 'vitest'
 import { runReconcile, type ReconcileDeps } from '@/lib/payment/reconcile-run'
 
 type Charge = { chargeId: string; paid: boolean; status: string; failureCode?: string | null } | null
@@ -146,10 +147,6 @@ async function main() {
     assert.equal(settled.length, 0)
   }
 
-  console.log('reconcile-expiry: 8 cases green')
 }
 
-main().catch((e) => {
-  console.error(e)
-  process.exit(1)
-})
+test('reconcile-expiry.test.ts', main)

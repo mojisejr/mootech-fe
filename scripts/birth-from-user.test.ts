@@ -1,6 +1,7 @@
 // Deterministic unit tests for mapping a stored user row -> bazi input (#mootech-bazi-chat-lane).
 // DB-free. Run: npx tsx scripts/birth-from-user.test.ts  or: bun scripts/birth-from-user.test.ts
 import assert from 'node:assert/strict'
+import { test as t } from 'vitest'
 import {
   userRowToFeCalcInput,
   isBirthProfileComplete,
@@ -9,16 +10,7 @@ import {
   DEFAULT_PROVINCE,
 } from '../lib/bazi-bridge/input'
 
-let pass = 0
-function t(name: string, fn: () => void) {
-  try {
-    fn()
-    pass++
-  } catch (e: any) {
-    console.error(`✗ ${name}\n  ${e?.message ?? e}`)
-    process.exitCode = 1
-  }
-}
+
 
 // ── isBirthProfileComplete ──
 t('complete when dob + gender present', () => {
@@ -82,5 +74,3 @@ t('row without remembered time -> 12:00 + hour pillar suppressed + province defa
   assert.equal(hasBirthTime, false)
 })
 
-if (!process.exitCode) console.log(`✓ all ${pass} birth-from-user assertions passed`)
-else console.error(`\n${pass} passed, FAILURES above`)

@@ -2,6 +2,7 @@
 // DB-free — pure functions only. Run: npx tsx scripts/usage-core.test.ts
 // Asserts the helper reproduces every NestJS isCheckUsage variant + isNotExpired + count windows.
 import assert from 'node:assert/strict'
+import { test as t } from 'vitest'
 import {
   AI_CODE,
   AI_MSG,
@@ -16,16 +17,7 @@ import {
   FREE_MATCHING_LIMIT,
 } from '../lib/usage-core'
 
-let pass = 0
-function t(name: string, fn: () => void) {
-  try {
-    fn()
-    pass++
-  } catch (e: any) {
-    console.error(`✗ ${name}\n  ${e?.message ?? e}`)
-    process.exitCode = 1
-  }
-}
+
 
 // Fixed "now" = 2026-06-14 12:00 Asia/Bangkok (05:00 UTC) -> bkkDateStr '2026-06-14'
 const NOW = new Date('2026-06-14T05:00:00Z')
@@ -168,5 +160,3 @@ t('friend member used 5 (limit 20) -> remaining 15 (member NOT unlimited for fri
     unlimited: false, limit: 20, used: 5, remaining: 15,
   }))
 
-if (!process.exitCode) console.log(`✓ all ${pass} usage-core assertions passed`)
-else console.error(`\n${pass} passed, FAILURES above`)

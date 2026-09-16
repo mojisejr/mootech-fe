@@ -2,17 +2,9 @@
 // Run: bun scripts/calc-map-pillars.test.ts   or: npx tsx scripts/calc-map-pillars.test.ts
 import assert from 'node:assert/strict'
 import { mapPillarColumns } from '../lib/calculator/map-pillars'
+import { test as t } from 'vitest'
 
-let pass = 0
-function t(name: string, fn: () => void) {
-  try {
-    fn()
-    pass++
-  } catch (e: any) {
-    console.error(`✗ ${name}\n  ${e?.message ?? e}`)
-    process.exitCode = 1
-  }
-}
+
 
 // Real shape verified live against mootech-be, 2026-07-15 (dob 1990-03-21, time 09:15).
 const REAL_DETAIL = {
@@ -80,11 +72,7 @@ function main() {
     }
   })
 
-  if (process.exitCode) {
-    console.error(`\ncalc-map-pillars: FAILED (${pass} passed)`)
-  } else {
-    console.log(`calc-map-pillars: all ${pass} passed ✓`)
-  }
+
 }
 
 main()

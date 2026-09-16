@@ -4,17 +4,9 @@
 // Run: npx tsx scripts/welcome-target.test.ts   or: bun scripts/welcome-target.test.ts
 import assert from 'node:assert/strict'
 import { resolveWelcomeTarget } from '../lib/auth/welcome-target'
+import { test as t } from 'vitest'
 
-let pass = 0
-function t(name: string, fn: () => void) {
-  try {
-    fn()
-    pass++
-  } catch (e: any) {
-    console.error(`✗ ${name}\n  ${e?.message ?? e}`)
-    process.exitCode = 1
-  }
-}
+
 
 // ── THE REGRESSION: returning authed user must NEVER bounce to login ──
 // (returning user has MEMBER_ID but the old guard read infoUserId='' -> bounced)
@@ -52,8 +44,4 @@ t('loading -> wait even with a result code (identity not resolved yet)', () => {
   assert.deepEqual(resolveWelcomeTarget('loading', 'RC123', false), { kind: 'wait' })
 })
 
-if (process.exitCode) {
-  console.error(`\nwelcome-target: FAILED (${pass} passed)`)
-} else {
-  console.log(`welcome-target: all ${pass} passed ✓`)
-}
+

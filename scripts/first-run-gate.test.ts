@@ -4,17 +4,9 @@
 // this test is the tripwire (and the onboarded fixture below stops compiling if the field is removed).
 import assert from 'node:assert/strict'
 import { needsFirstRun } from '../lib/home/first-run-gate'
+import { test as t } from 'vitest'
 
-let pass = 0
-function t(name: string, fn: () => void) {
-  try {
-    fn()
-    pass++
-  } catch (e: any) {
-    console.error(`✗ ${name}\n  ${e?.message ?? e}`)
-    process.exitCode = 1
-  }
-}
+
 
 // MUTANT: if the gate stopped reading onboarded_at (e.g. `return false`), THIS fails (null/missing → home).
 t('onboarded (onboarded_at set) ⇒ does NOT need first-run', () => {
@@ -30,4 +22,4 @@ t('empty string ⇒ not onboarded', () => {
   assert.equal(needsFirstRun({ onboarded_at: '' }), true)
 })
 
-console.log(`\n✅ first-run-gate — ${pass} passed`)
+

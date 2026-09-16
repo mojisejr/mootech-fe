@@ -3,17 +3,7 @@
 // Run: bun scripts/ops-activity.test.ts   or: npx tsx scripts/ops-activity.test.ts
 import assert from 'node:assert/strict'
 import { fetchTeamActivity } from '../lib/ops/activity'
-
-let pass = 0
-async function t(name: string, fn: () => void | Promise<void>) {
-  try {
-    await fn()
-    pass++
-  } catch (e: any) {
-    console.error(`✗ ${name}\n  ${e?.message ?? e}`)
-    process.exitCode = 1
-  }
-}
+import { test as t } from 'vitest'
 
 function withMockFetch<T>(impl: typeof fetch, fn: () => Promise<T>): Promise<T> {
   const original = globalThis.fetch
@@ -23,8 +13,7 @@ function withMockFetch<T>(impl: typeof fetch, fn: () => Promise<T>): Promise<T> 
   })
 }
 
-async function main() {
-  await t('returns warn with empty items when GITHUB_TOKEN is unset', async () => {
+await t('returns warn with empty items when GITHUB_TOKEN is unset', async () => {
     delete process.env.GITHUB_TOKEN
     const result = await fetchTeamActivity()
     assert.equal(result.status, 'warn')
@@ -124,12 +113,3 @@ async function main() {
       },
     )
   })
-
-  if (process.exitCode) {
-    console.error(`\nops-activity: FAILED (${pass} passed)`)
-  } else {
-    console.log(`ops-activity: all ${pass} passed ✓`)
-  }
-}
-
-main()

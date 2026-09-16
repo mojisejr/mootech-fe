@@ -17,18 +17,10 @@ import { type CardState } from '../features/v2-shop/card-rules'
 import { payReady } from '../features/v2-shop/pay-ready'
 import { tokenizationFailedDestination } from '../features/v2-shop/pay-destination'
 import { RESULT_COPY } from '../features/v2-shop/result-state'
+import { test as check } from 'vitest'
 
 const NOW = new Date('2026-08-28T00:00:00Z')
-let failures = 0
-const check = (name: string, fn: () => void): void => {
-  try {
-    fn()
-    console.log(`  ✓ ${name}`)
-  } catch (e) {
-    failures += 1
-    console.error(`  ✗ ${name}\n    ${(e as Error).message}`)
-  }
-}
+
 
 // 🔴 IMPORTED, NOT RE-IMPLEMENTED (ตู๋, review r1 B2). The first version of this file wrote the rule out
 // again, so deleting the real condition from pages/v2/shop/checkout.tsx left every lane green — a test
@@ -155,8 +147,5 @@ check('CARD_DECLINED still speaks for a real decline, and still says no money mo
   assert.ok(c.title.includes('ธนาคาร'), c.title)
 })
 
-if (failures > 0) {
-  console.error(`\n${failures} case(s) failed.`)
-  process.exit(1)
-}
-console.log('\npay gate: all cases hold.')
+
+

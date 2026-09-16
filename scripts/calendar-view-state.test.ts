@@ -26,12 +26,9 @@
 // vacuously satisfiable. Asserted first, before any behavioural claim is trusted.
 import assert from 'node:assert'
 import { calendarViewState, type CalendarViewState } from '../features/v2-calendar/components/calendar-view-state'
+import { test } from 'vitest'
 
-let pass = 0
-const ok = (name: string, cond: boolean, detail = '') => {
-  assert.ok(cond, `FAIL: ${name}${detail ? ` — ${detail}` : ''}`)
-  pass += 1
-}
+const ok = (name: string, cond: boolean, detail = '') => test(name, () => assert.ok(cond, `FAIL: ${name}${detail ? ` — ${detail}` : ''}`))
 
 const STATES: CalendarViewState[] = ['loading', 'unavailable', 'ready']
 const MONTH = { year: 2026, month: 8, days: [], weeks: [] } // any truthy month-shaped value
@@ -74,4 +71,4 @@ for (const loading of [true, false]) {
   ok(`[loading=${loading}] a month in hand paints`, calendarViewState({ month: MONTH, loading }) === 'ready')
 }
 
-console.log(`\n✅ calendar-view-state.test.ts — ${pass} assertions passed`)
+

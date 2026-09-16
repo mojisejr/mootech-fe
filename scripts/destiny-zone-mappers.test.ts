@@ -7,6 +7,7 @@ import { mapChartFoundation } from "../lib/destiny/map-chart-foundation"
 import { mapLove, mapWork } from "../lib/destiny/map-love-work"
 import { mapBeCareful } from "../lib/destiny/map-be-careful"
 import { stripBaziMarkup } from "../lib/destiny/strip-bazi-markup"
+import { test as t } from 'vitest'
 
 const DIR = join(__dirname, "fixtures", "destiny")
 const load = (chart: string, topic: string) =>
@@ -14,16 +15,7 @@ const load = (chart: string, topic: string) =>
 
 const CHARTS = ["condark_m", "case_f", "case_m"]
 
-let pass = 0
-function t(name: string, fn: () => void) {
-  try {
-    fn()
-    pass++
-  } catch (e: any) {
-    console.error(`✗ ${name}\n  ${e?.message ?? e}`)
-    process.exitCode = 1
-  }
-}
+
 
 const clean = (s: string) => !s.includes("[[") && !s.includes("]]") && !/(^|\n)##\s/.test(s)
 
@@ -128,4 +120,4 @@ t("mapBeCareful returns null on empty / no-clash", () => {
   assert.equal(mapBeCareful({ humanReading: "บทนำเฉย ๆ ไม่มีจังหวะปะทะ" }), null)
 })
 
-console.log(`\ndestiny-zone-mappers: ${pass} passed`)
+

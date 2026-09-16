@@ -1,6 +1,7 @@
 // Deterministic tests for the personalization mascot resolver (DESIGN.md §7, decision C).
 // Run: bun scripts/personalization-mascot.test.ts   or: npx tsx scripts/personalization-mascot.test.ts
 import assert from 'node:assert/strict'
+import { test as t } from 'vitest'
 import {
   ZODIAC_TABLE,
   toNakkasat,
@@ -15,16 +16,7 @@ import {
   elementFromCompute,
 } from '../lib/personalization/mascot'
 
-let pass = 0
-function t(name: string, fn: () => void) {
-  try {
-    fn()
-    pass++
-  } catch (e: any) {
-    console.error(`✗ ${name}\n  ${e?.message ?? e}`)
-    process.exitCode = 1
-  }
-}
+
 
 function main() {
   t('table has 12 นักษัตร in canonical order 01..12', () => {
@@ -184,7 +176,7 @@ function main() {
     assert.equal(n, 60)
   })
 
-  console.log(`${pass} passed`)
+
 }
 
 main()

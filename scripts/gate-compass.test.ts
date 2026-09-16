@@ -27,12 +27,9 @@ import {
   type Direction,
 } from '../features/v2-calendar/components/day-detail/gate-compass'
 import type { DayDetailGate } from '../features/v2-calendar/types'
+import { test } from 'vitest'
 
-let pass = 0
-const ok = (name: string, cond: boolean, detail = '') => {
-  assert.ok(cond, `FAIL: ${name}${detail ? ` — ${detail}` : ''}`)
-  pass += 1
-}
+const ok = (name: string, cond: boolean, detail = '') => test(name, () => assert.ok(cond, `FAIL: ${name}${detail ? ` — ${detail}` : ''}`))
 const key = (c: { row: number; col: number }) => `${c.row},${c.col}`
 
 // ── VERIFY-THE-INSTRUMENT ──
@@ -136,4 +133,4 @@ for (const junk of ['', 'C', 'CENTRE', 'NNW', '財', 'up', null, undefined]) {
   ok(`${JSON.stringify(junk)} is refused rather than guessed`, normalizeDirection(junk as string) === null)
 }
 
-console.log(`\n✅ gate-compass.test.ts — ${pass} assertions passed`)
+

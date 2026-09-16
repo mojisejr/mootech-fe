@@ -14,12 +14,9 @@ import {
   mergeCalendarMonth,
   parseMonth,
 } from '../lib/v2-calendar/month' // #calendar-month-wanphra-category
+import { test } from 'vitest'
 
-let pass = 0
-function ok(name: string, cond: boolean) {
-  assert.ok(cond, `FAIL: ${name}`)
-  pass += 1
-}
+const ok = (name: string, cond: boolean) => test(name, () => assert.ok(cond, `FAIL: ${name}`))
 
 // ── parseMonth ──
 ok('parseMonth valid + yearBE=+543', (() => {
@@ -108,5 +105,3 @@ ok('cacheKey differs per user and per month', (() => {
   return fortuneCacheKey('u1', dobA, '2026-08') !== fortuneCacheKey('u2', dobA, '2026-08')
     && fortuneCacheKey('u1', dobA, '2026-08') !== fortuneCacheKey('u1', dobA, '2026-09')
 })())
-
-console.log(`✅ calendar-month.test.ts — ${pass} assertions passed`)

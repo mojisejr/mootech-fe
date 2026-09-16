@@ -20,13 +20,10 @@ import {
   setCandidateAt,
 } from '../features/v2-service/colleague-candidates'
 import type { CompatPerson } from '../features/v2-service/compatibility-api'
+import { test as t } from 'vitest'
 
-let pass = 0
 const fails: string[] = []
-function t(name: string, fn: () => void) {
-  try { fn(); pass++; console.log('  ✓', name) }
-  catch (e) { fails.push(`${name}\n    ${(e as Error).message}`); console.log('  ✗', name) }
-}
+
 
 const p = (id: string, name = id): CompatPerson => ({ id, name, dob: '1989-01-03', time: '08:45', imageProfile: '' })
 const A = p('a'), B = p('b'), C = p('c'), D = p('d')
@@ -100,6 +97,6 @@ t('เพดานมาจากเอนจิน ❌ ไม่ใช่เล
 if (fails.length) {
   console.log('\n❌ colleague-candidates FAIL')
   for (const f of fails) console.log(' -', f)
-  process.exit(1)
+
 }
-console.log(`\n✅ colleague-candidates PASS (${pass})`)
+
