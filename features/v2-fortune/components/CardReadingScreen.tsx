@@ -9,6 +9,7 @@ import { useEffect, useMemo, useRef, useState } from "react"
 import { KitButton, SkyHeader, SkyScreen } from "@/features/v2-profile/components/kit"
 import { Menubar } from "@/features/v2-shell/components/Menubar"
 import { useActionCooldown } from "@/lib/useActionCooldown"
+import { useV2Tier } from "@/features/auth/hooks/useV2Tier"
 import { shareAsInvite } from "@/lib/v2/share-invite"
 import { ShareCard, ShareStage } from "@/features/v2-share/components/ShareCard"
 
@@ -56,6 +57,9 @@ export function CardReadingScreen({
   backHref?: string
 }) {
   const theme = THEME[mode]
+  // PRO = เปิดไพ่/เซียมซี ไม่จำกัด (ร้านค้า) → ไม่โชว์ copy "วันละ 1 ครั้ง (ฟรี)" ที่ทำให้ PRO เข้าใจผิดว่าจำกัด
+  const { tier } = useV2Tier()
+  const cardUnlimited = tier === "PRO"
   const cd = useActionCooldown(`fortune:${mode}`) // กันบอทยิงรัว 10 วิ
   const [phase, setPhase] = useState<"intro" | "pick" | "loading" | "result">("intro")
   const [picked, setPicked] = useState<number[]>([])
@@ -245,7 +249,7 @@ export function CardReadingScreen({
           {error && <p data-testid="cards-error" className="text-center text-[12px] font-bold text-v3-error">{error}</p>}
           {quotaOut && <Link href="/v2/qi" className="text-center text-[13px] font-bold text-v3-sapphire">เติม/แลก QI ที่หน้าพลังชี่ →</Link>}
           {quotaOut && <Link href="/v2/shop" data-testid="cards-upsell" className="text-center text-[13px] font-bold text-v3-cyan">หรือสมัครสมาชิก เปิดไพ่ได้มากขึ้น →</Link>}
-          <p className="text-center text-[11px] text-v3-text-muted">ใช้โควตาเปิดการ์ดวันละ 1 ครั้ง (ฟรี) — เกินแล้วแลกด้วย QI</p>
+          <p className="text-center text-[11px] text-v3-text-muted">{cardUnlimited ? "สมาชิก PRO เปิดการ์ดได้ไม่จำกัด" : "ใช้โควตาเปิดการ์ดวันละ 1 ครั้ง (ฟรี) — เกินแล้วแลกด้วย QI"}</p>
         </div>
       )}
 

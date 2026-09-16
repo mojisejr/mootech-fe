@@ -10,6 +10,8 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, cleanup, fireEvent, waitFor, within } from '@testing-library/react'
 
 vi.mock('next/config', () => ({ default: () => ({ publicRuntimeConfig: {}, serverRuntimeConfig: {} }) }))
+// useV2Tier → useV2User → useCookies ต้องมี CookiesProvider; เทสนี้ไม่ได้วัด tier → mock เป็น non-PRO
+vi.mock('@/features/auth/hooks/useV2Tier', () => ({ useV2Tier: () => ({ tier: null, isPaid: null, loading: false }) }))
 vi.mock('next/router', () => ({
   useRouter: () => ({ push: vi.fn(), replace: vi.fn(), query: {}, pathname: '/v2/fortune/oracle', isReady: true }),
 }))
