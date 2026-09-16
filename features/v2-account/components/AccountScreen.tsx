@@ -11,6 +11,7 @@ import { useCookies } from "react-cookie"
 import { Menubar } from "@/features/v2-shell/components/Menubar"
 import { Spinner } from "@/features/v2-shell/components/Spinner"
 import { useV2User } from "@/features/auth/hooks/useV2User"
+import { useHasMounted } from "@/lib/hooks/use-has-mounted"
 import { CookieKey } from "@/constants/cookie-key"
 import { SHOP_HREF } from "@/features/v2-shop/upgrade-cta"
 import { BackButton, IconTile, KitButton, SectionCard, SkyBackdrop } from "@/features/v2-profile/components/kit"
@@ -69,9 +70,13 @@ type AccountPreview = { wallet?: Wallet | null; board?: MissionBoard | null; ent
 export function AccountScreen({ preview }: { preview?: AccountPreview } = {}) {
   const { user } = useV2User()
   // ตัวตน LINE (ชื่อ+รูปจริง) จาก cookie ที่ตั้งตอน login — เหมือนที่หน้าหลักใช้ ให้ /account ตรงกัน
+  // 🔴 gate หลัง mount (#193 pattern เดียวกับ useMemberIdentity): server อ่าน cookie ไม่ได้ (_app CookiesProvider
+  // ไม่ได้ seed ฝั่ง SSR) → ถ้า render ค่า cookie ตั้งแต่ paint แรกจะ mismatch กับ SSR → React #418/#423.
+  // คืน null บน SSR + hydration render แรก (ตรงกัน) แล้วค่อยเติมค่าจริงหลัง mount (รูป/ชื่อขึ้นช้า 1 tick).
+  const hasMounted = useHasMounted()
   const [cookies] = useCookies([CookieKey.MEMBER_NAME, CookieKey.MEMBER_IMAGE])
-  const lineName = typeof cookies[CookieKey.MEMBER_NAME] === "string" ? cookies[CookieKey.MEMBER_NAME] : null
-  const linePhoto = typeof cookies[CookieKey.MEMBER_IMAGE] === "string" ? cookies[CookieKey.MEMBER_IMAGE] : null
+  const lineName = hasMounted && typeof cookies[CookieKey.MEMBER_NAME] === "string" ? cookies[CookieKey.MEMBER_NAME] : null
+  const linePhoto = hasMounted && typeof cookies[CookieKey.MEMBER_IMAGE] === "string" ? cookies[CookieKey.MEMBER_IMAGE] : null
   const [wallet, setWallet] = useState<Wallet | null>(preview?.wallet ?? null)
   const [ent, setEnt] = useState<Entitlements | null>(preview?.ent ?? null)
   const [profile, setProfile] = useState<Profile | null>(null)
