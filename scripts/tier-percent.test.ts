@@ -3,12 +3,9 @@
 // exact pure logic the harness assertion calls, so no browser is needed to show the mutant biting.
 import assert from 'node:assert'
 import { onePercentAgree, readPct } from './_helpers/tier-percent'
+import { test } from 'vitest'
 
-let pass = 0
-const ok = (name: string, cond: boolean) => {
-  assert.ok(cond, `FAIL: ${name}`)
-  pass += 1
-}
+const ok = (name: string, cond: boolean) => test(name, () => assert.ok(cond, `FAIL: ${name}`))
 
 // The old regex, kept here only to DEMONSTRATE why the gate used to go green on a fraction-scale leak.
 const oldRead = (s: string) => s.match(/(\d+)%/)?.[1] ?? ''
@@ -47,4 +44,4 @@ const leakConsistent = onePercentAgree('0.57%', '0.57%', '0.57%') // all three l
 console.log(`  A2 · consistent scale leak 0.57 / 0.57 / 0.57 → agree=${leakConsistent} → ${leakConsistent ? '🥷 GREEN (NOT caught — needs PERCENT-SCALE)' : 'RED'}`)
 ok('A2: a consistently-leaked scale still AGREES → GREEN (uncaught by ONE-NUMBER, by construction)', leakConsistent === true)
 
-console.log(`\n✅ tier-percent.test.ts — ${pass} assertions passed`)
+

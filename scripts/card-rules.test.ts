@@ -12,6 +12,7 @@
 //
 // ANCHOR: scripts/card-rules.test.ts#card-rules
 import assert from 'node:assert/strict'
+import { test as check } from 'vitest'
 import {
   cvcLengthFor,
   detectBrand,
@@ -25,16 +26,7 @@ import {
 } from '../features/v2-shop/card-rules'
 
 const NOW = new Date('2026-08-28T00:00:00Z')
-let failures = 0
-function check(name: string, fn: () => void): void {
-  try {
-    fn()
-    console.log(`  ✓ ${name}`)
-  } catch (e) {
-    failures += 1
-    console.error(`  ✗ ${name}\n    ${(e as Error).message}`)
-  }
-}
+
 
 // Real published test numbers. Using invented digits would test the checksum against itself.
 const VISA = '4242424242424242'
@@ -196,8 +188,5 @@ check('🔴 ok:true while naming a broken field CANNOT be constructed', () => {
   }
 })
 
-if (failures > 0) {
-  console.error(`\n${failures} case(s) failed.`)
-  process.exit(1)
-}
-console.log('\ncard rules: all cases hold.')
+
+

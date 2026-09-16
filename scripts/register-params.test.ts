@@ -4,20 +4,12 @@
 // the exact same request. Run: npx tsx scripts/register-params.test.ts
 import assert from "node:assert/strict";
 import { buildRegisterParamsFromSession } from "../lib/auth/register-params";
+import { test as t } from 'vitest'
 
 // Fake sessions cast to the augmented next-auth Session shape.
 const s = (o: any) => o as any;
 
-let pass = 0;
-function t(name: string, fn: () => void) {
-  try {
-    fn();
-    pass++;
-  } catch (e: any) {
-    console.error(`✗ ${name}\n  ${e?.message ?? e}`);
-    process.exitCode = 1;
-  }
-}
+
 
 // ── LINE: lineProfile.sub is the id_token, provider forced "LINE", empty email ──
 t("LINE session -> lineProfile.sub id_token, provider LINE, empty email", () => {
@@ -75,5 +67,3 @@ t("missing image/name/email default to empty string", () => {
   assert.equal(p?.email, "");
 });
 
-if (!process.exitCode) console.log(`✓ all ${pass} register-params assertions passed`);
-else console.error(`\n${pass} passed, FAILURES above`);

@@ -10,6 +10,7 @@
 //
 // ANCHOR: scripts/compatibility-result.test.ts#compatibility-result-parse-seam
 import assert from 'node:assert/strict'
+import { test as t } from 'vitest'
 import {
   parseCompatibilityResult,
   applyCarriedBirth,
@@ -18,17 +19,7 @@ import {
   type CompatibilityResult,
 } from '../features/v2-service/compatibility-result'
 
-let pass = 0
-function t(name: string, fn: () => void) {
-  try {
-    fn()
-    pass++
-    console.log(`  ✓ ${name}`)
-  } catch (e) {
-    console.error(`  ✗ ${name}\n    ${(e as Error).message}`)
-    process.exitCode = 1
-  }
-}
+
 
 // The BE (2B) stores the whole blob as a JSON STRING under get-detail's `.result`.
 const pairMatch = {
@@ -181,4 +172,4 @@ t('#554 applyAccountPhotos on a null result stays null (no crash)', () => {
   assert.equal(applyAccountPhotos(null, withPhotos), null)
 })
 
-console.log(`\ncompatibility-result: ${pass} passed`)
+

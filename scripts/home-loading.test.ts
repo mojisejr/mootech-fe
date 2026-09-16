@@ -6,18 +6,9 @@
 // Run: npx tsx scripts/home-loading.test.ts
 import assert from 'node:assert/strict'
 import { deriveHomeLoading } from '../lib/home/loading'
+import { test as t } from 'vitest'
 
-let pass = 0
-function t(name: string, fn: () => void) {
-  try {
-    fn()
-    pass++
-    console.log(`  ✓ ${name}`)
-  } catch (e) {
-    console.error(`  ✗ ${name}\n    ${(e as Error).message}`)
-    process.exitCode = 1
-  }
-}
+
 
 // mount: nothing fetched yet → both zones grey
 t('resolving + no user → profile grey + mascot grey', () => {
@@ -71,4 +62,4 @@ t('🔴 DoD#3: profile is a pure function of (phase,hasUser) — identical for B
   }
 })
 
-console.log(`\n${pass} passed`)
+

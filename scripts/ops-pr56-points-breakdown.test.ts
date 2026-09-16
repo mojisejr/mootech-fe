@@ -6,17 +6,9 @@
 // Run: bun scripts/ops-pr56-points-breakdown.test.ts   or: npx tsx scripts/ops-pr56-points-breakdown.test.ts
 import assert from 'node:assert/strict'
 import { categorizePointsRows } from '../lib/ops/metrics'
+import { test as t } from 'vitest'
 
-let pass = 0
-function t(name: string, fn: () => void) {
-  try {
-    fn()
-    pass++
-  } catch (e: any) {
-    console.error(`✗ ${name}\n  ${e?.message ?? e}`)
-    process.exitCode = 1
-  }
-}
+
 
 function main() {
   t('known activities translate to Thai and sort by sign (in = New Register + Friend Get Friend)', () => {
@@ -57,11 +49,7 @@ function main() {
     assert.deepEqual(result, { in: [], out: [] })
   })
 
-  if (process.exitCode) {
-    console.error(`\nops-pr56-points-breakdown: FAILED (${pass} passed)`)
-  } else {
-    console.log(`ops-pr56-points-breakdown: all ${pass} passed ✓`)
-  }
+
 }
 
 main()

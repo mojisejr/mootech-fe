@@ -4,17 +4,9 @@
 //                                     or: bun scripts/use-submit.test.ts
 import assert from 'node:assert/strict'
 import { createSubmitGuard } from '../lib/ui/use-submit'
+import { test as t } from 'vitest'
 
-let pass = 0
-function t(name: string, fn: () => void) {
-  try {
-    fn()
-    pass++
-  } catch (e: any) {
-    console.error(`✗ ${name}\n  ${e?.message ?? e}`)
-    process.exitCode = 1
-  }
-}
+
 
 // ── first acquire succeeds, second is blocked while held ──
 t('tryAcquire returns true once, false while still held', () => {
@@ -60,5 +52,3 @@ t('isHeld is false initially, true after acquire, false after release', () => {
   assert.equal(g.isHeld, false)
 })
 
-if (!process.exitCode) console.log(`✓ all ${pass} use-submit assertions passed`)
-else console.error(`\n${pass} passed, FAILURES above`)

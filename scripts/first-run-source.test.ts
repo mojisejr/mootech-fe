@@ -8,17 +8,9 @@
 // incomplete — a lie about the cause, invisible to มุน's screen because it only sees the state we hand it.
 import assert from 'node:assert/strict'
 import { cycleFromChart, summaryStateFromResponse } from '../features/v2-first-run/hooks/first-run-source-map'
+import { test as t } from 'vitest'
 
-let pass = 0
-function t(name: string, fn: () => void) {
-  try {
-    fn()
-    pass++
-  } catch (e: any) {
-    console.error(`✗ ${name}\n  ${e?.message ?? e}`)
-    process.exitCode = 1
-  }
-}
+
 
 // ── summary: timeout (proxy reason:'error') ⇒ error, NEVER unavailable ──────────────────────────────
 t('summary: reason error (timeout/4xx/5xx/parse) ⇒ error', () => {
@@ -70,4 +62,4 @@ t('cycle: null (no join — gender missing) ⇒ unavailable, NOT error', () => {
   assert.equal(cycleFromChart(undefined).status, 'unavailable')
 })
 
-console.log(`\n✅ first-run-source — ${pass} passed`)
+

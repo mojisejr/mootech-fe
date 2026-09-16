@@ -18,11 +18,10 @@ import { defaultSelectedDate, isSelectableDate } from '../features/v2-calendar/h
 import { fetchCalendarMonth, toMonthParam } from '../features/v2-calendar/hooks/fetch-month'
 import type { CalendarDay as ApiCalendarDay } from '../lib/v2-calendar/month'
 import type { FeCalcInput } from '../lib/bazi-bridge/input'
+import { test } from 'vitest'
 
-let pass = 0
 function ok(name: string, cond: boolean) {
   assert.ok(cond, `FAIL: ${name}`)
-  pass += 1
 }
 
 const apiDay = (over: Partial<ApiCalendarDay> = {}): ApiCalendarDay => ({
@@ -35,6 +34,7 @@ const apiDay = (over: Partial<ApiCalendarDay> = {}): ApiCalendarDay => ({
   ...over,
 })
 
+test('calendar-month-pipe — pure adapter + selection', () => {
 // ── adapter: field map (no grade on the cell) ──
 ok('apiDayToFeatureDay maps every field', (() => {
   const c = apiDayToFeatureDay(apiDay({ wanPhra: true }))
@@ -72,6 +72,7 @@ ok('isSelectableDate false for a non-day (padding/other month)', !isSelectableDa
 
 // ── client-fetch: param + total mapping (never throws) ──
 ok('toMonthParam zero-pads', toMonthParam(2026, 8) === '2026-08' && toMonthParam(2026, 12) === '2026-12')
+})
 
 const person = { name: 'ทดสอบ', dob: '1990-01-01', gender: 'male' } as unknown as FeCalcInput
 const realFetch = globalThis.fetch
@@ -102,11 +103,6 @@ async function run() {
   ok('fetch throw → degraded empty, no throw', throwRes.degraded === true && throwRes.days.length === 0)
 
   globalThis.fetch = realFetch
-  console.log(`✅ calendar-month-pipe.test.ts — ${pass} assertions passed`)
 }
 
-run().catch((e) => {
-  globalThis.fetch = realFetch
-  console.error(e)
-  process.exit(1)
-})
+test('calendar-month-pipe — client fetch', run)

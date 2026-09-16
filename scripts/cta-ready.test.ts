@@ -4,17 +4,9 @@
 // Run: npx tsx scripts/cta-ready.test.ts   or: bun scripts/cta-ready.test.ts
 import assert from 'node:assert/strict'
 import { resolveCtaReady } from '../lib/auth/cta-ready'
+import { test as t } from 'vitest'
 
-let pass = 0
-function t(name: string, fn: () => void) {
-  try {
-    fn()
-    pass++
-  } catch (e: any) {
-    console.error(`✗ ${name}\n  ${e?.message ?? e}`)
-    process.exitCode = 1
-  }
-}
+
 
 // ── THE RACE GUARD: authed but routing state not yet hydrated -> NOT ready ──
 // (returning user clicks before get-user returns -> would route to /register)
@@ -44,8 +36,4 @@ t('loading + hydrated -> not ready (identity not resolved yet)', () => {
   assert.equal(resolveCtaReady('loading', true), false)
 })
 
-if (process.exitCode) {
-  console.error(`\ncta-ready: FAILED (${pass} passed)`)
-} else {
-  console.log(`cta-ready: all ${pass} passed ✓`)
-}
+

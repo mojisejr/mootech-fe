@@ -5,17 +5,9 @@
 // Run: bun scripts/calc-enrichment-labels.test.ts   or: npx tsx scripts/calc-enrichment-labels.test.ts
 import assert from 'node:assert/strict'
 import { displayQi, displayReaction } from '../lib/calculator/enrichment-labels'
+import { test as t } from 'vitest'
 
-let pass = 0
-function t(name: string, fn: () => void) {
-  try {
-    fn()
-    pass++
-  } catch (e: any) {
-    console.error(`✗ ${name}\n  ${e?.message ?? e}`)
-    process.exitCode = 1
-  }
-}
+
 
 function main() {
   t('displayQi overrides "ซวย" (衰) and keeps the original term in parentheses', () => {
@@ -44,11 +36,7 @@ function main() {
     assert.equal(displayReaction(''), '')
   })
 
-  if (process.exitCode) {
-    console.error(`\ncalc-enrichment-labels: FAILED (${pass} passed)`)
-  } else {
-    console.log(`calc-enrichment-labels: all ${pass} passed ✓`)
-  }
+
 }
 
 main()

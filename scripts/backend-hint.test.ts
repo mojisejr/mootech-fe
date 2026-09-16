@@ -5,18 +5,9 @@
 // Run: npx tsx scripts/backend-hint.test.ts
 import assert from 'node:assert/strict'
 import { detectBackendUnreachable, backendUnreachableHint, parseFailed } from './_helpers/backend-hint'
+import { test as t } from 'vitest'
 
-let pass = 0
-function t(name: string, fn: () => void) {
-  try {
-    fn()
-    pass++
-    console.log(`  ✓ ${name}`)
-  } catch (e) {
-    console.error(`  ✗ ${name}\n    ${(e as Error).message}`)
-    process.exitCode = 1
-  }
-}
+
 
 const API = 'http://localhost:3000/api/chinese-horoscope'
 
@@ -65,4 +56,4 @@ t('mixed with NO 502-on-/api → silent', () => {
   assert.equal(backendUnreachableHint([`500 ${API}`, '404 http://localhost:3000/foo', '503 http://localhost:3000/x']), null)
 })
 
-console.log(`\nbackend-hint: ${pass} passed`)
+

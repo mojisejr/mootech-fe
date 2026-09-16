@@ -3,17 +3,9 @@
 // Run: npx tsx scripts/returning-result.test.ts   or: bun scripts/returning-result.test.ts
 import assert from 'node:assert/strict'
 import { resolveReturningResult } from '../lib/auth/returning-result'
+import { test as t } from 'vitest'
 
-let pass = 0
-function t(name: string, fn: () => void) {
-  try {
-    fn()
-    pass++
-  } catch (e: any) {
-    console.error(`✗ ${name}\n  ${e?.message ?? e}`)
-    process.exitCode = 1
-  }
-}
+
 
 // ── returning user WITH a computed chart -> expose code -> CTA opens /my-destiny ──
 t('result_code present, not refresh -> {RC123, false} [the fix]', () => {
@@ -48,8 +40,4 @@ t('undefined / missing fields -> empty', () => {
   assert.deepEqual(resolveReturningResult(null), { resultCode: '', isRefreshResult: false })
 })
 
-if (process.exitCode) {
-  console.error(`\nreturning-result: FAILED (${pass} passed)`)
-} else {
-  console.log(`returning-result: all ${pass} passed ✓`)
-}
+

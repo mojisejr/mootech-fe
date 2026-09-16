@@ -5,18 +5,9 @@
 // keyed items are absent. Run: npx tsx scripts/home-fortune-best-worst.test.ts
 import assert from 'node:assert/strict'
 import { bestWorstText } from '../pages/api/home-fortune'
+import { test as t } from 'vitest'
 
-let pass = 0
-function t(name: string, fn: () => void) {
-  try {
-    fn()
-    pass++
-    console.log(`  ✓ ${name}`)
-  } catch (e) {
-    console.error(`  ✗ ${name}\n    ${(e as Error).message}`)
-    process.exitCode = 1
-  }
-}
+
 
 // The REAL bazi /api/home summaryItems shape (บอง verified live): keyed, order best·worst·strength·element·officer.
 const OFFICER_TEXT = 'ดูแลเอาใจใส่'
@@ -70,4 +61,4 @@ t('empty everything → empty strings (graceful, never throws)', () => {
   assert.deepEqual(bestWorstText({}), { best: '', worst: '' })
 })
 
-console.log(`\n  best-worst-by-key: ${pass} passed`)
+

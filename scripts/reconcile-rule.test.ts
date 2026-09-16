@@ -13,6 +13,7 @@
 //   MR3  drop the grace window              → the fresh-row case fails (racing an in-flight webhook)
 //   MR4  gatewaySaysPaid accepts null       → the unknown-charge case fails (unreachable read as paid)
 import assert from 'node:assert/strict'
+import { test } from 'vitest'
 import {
   selectReconcileCandidates,
   gatewaySaysPaid,
@@ -20,11 +21,7 @@ import {
   DEFAULT_WINDOW,
 } from '../lib/payment/reconcile'
 
-let pass = 0
-const ok = (name: string, cond: boolean) => {
-  assert.ok(cond, `FAIL: ${name}`)
-  pass += 1
-}
+const ok = (name: string, cond: boolean) => test(name, () => assert.ok(cond, `FAIL: ${name}`))
 
 const NOW = new Date('2026-08-23T12:00:00Z')
 const ago = (ms: number) => new Date(NOW.getTime() - ms)
@@ -87,4 +84,4 @@ ok(
   !gatewaySaysPaid(null),
 )
 
-console.log(`\n  reconcile-selection-and-boundary: ${pass} passed`)
+

@@ -3,17 +3,9 @@
 // Run: npx tsx scripts/matching-target.test.ts   or: bun scripts/matching-target.test.ts
 import assert from 'node:assert/strict'
 import { resolveMatchingTarget } from '../lib/auth/matching-target'
+import { test as t } from 'vitest'
 
-let pass = 0
-function t(name: string, fn: () => void) {
-  try {
-    fn()
-    pass++
-  } catch (e: any) {
-    console.error(`✗ ${name}\n  ${e?.message ?? e}`)
-    process.exitCode = 1
-  }
-}
+
 
 // ── happy path: refer-code present -> /matching/:code (unchanged behaviour) ──
 t('refer-code present + authed -> go-matching with code', () => {
@@ -51,5 +43,3 @@ t('anon + null refer-code -> go-login', () => {
   assert.equal(resolveMatchingTarget(false, null).kind, 'go-login')
 })
 
-if (!process.exitCode) console.log(`✓ all ${pass} matching-target assertions passed`)
-else console.error(`\n${pass} passed, FAILURES above`)

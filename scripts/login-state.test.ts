@@ -3,17 +3,9 @@
 // Run: npx tsx scripts/login-state.test.ts   or: bun scripts/login-state.test.ts
 import assert from 'node:assert/strict'
 import { shouldRegister, shouldClearToken } from '../lib/auth/login-state'
+import { test as t } from 'vitest'
 
-let pass = 0
-function t(name: string, fn: () => void) {
-  try {
-    fn()
-    pass++
-  } catch (e: any) {
-    console.error(`✗ ${name}\n  ${e?.message ?? e}`)
-    process.exitCode = 1
-  }
-}
+
 
 // ── shouldRegister: idempotent — fire only when authenticated AND no member id ──
 t('authenticated + no member id -> register (first login OR after wipe)', () => {
@@ -53,5 +45,3 @@ t('loading + no cookie -> no register, no clear (let it settle, never wipe)', ()
   assert.equal(shouldClearToken('loading'), false)
 })
 
-if (!process.exitCode) console.log(`✓ all ${pass} login-state assertions passed`)
-else console.error(`\n${pass} passed, FAILURES above`)

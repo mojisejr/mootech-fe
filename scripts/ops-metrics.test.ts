@@ -6,17 +6,9 @@
 // Run: bun scripts/ops-metrics.test.ts   or: npx tsx scripts/ops-metrics.test.ts
 import assert from 'node:assert/strict'
 import { todayBangkokRange, yesterdayBangkokRange } from '../lib/ops/metrics'
+import { test as t } from 'vitest'
 
-let pass = 0
-function t(name: string, fn: () => void) {
-  try {
-    fn()
-    pass++
-  } catch (e: any) {
-    console.error(`✗ ${name}\n  ${e?.message ?? e}`)
-    process.exitCode = 1
-  }
-}
+
 
 function main() {
   t('today range is [00:00:00, next-day 00:00:00) in Bangkok, mid-day UTC', () => {
@@ -56,11 +48,7 @@ function main() {
     assert.equal(yesterday.label, '2026-07-13')
   })
 
-  if (process.exitCode) {
-    console.error(`\nops-metrics: FAILED (${pass} passed)`)
-  } else {
-    console.log(`ops-metrics: all ${pass} passed ✓`)
-  }
+
 }
 
 main()

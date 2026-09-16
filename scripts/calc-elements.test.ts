@@ -5,17 +5,9 @@
 // Run: bun scripts/calc-elements.test.ts   or: npx tsx scripts/calc-elements.test.ts
 import assert from 'node:assert/strict'
 import { ELEMENT_COLOR, elementColor, elementLabel, type BaziElement } from '../lib/calculator/elements'
+import { test as t } from 'vitest'
 
-let pass = 0
-function t(name: string, fn: () => void) {
-  try {
-    fn()
-    pass++
-  } catch (e: any) {
-    console.error(`✗ ${name}\n  ${e?.message ?? e}`)
-    process.exitCode = 1
-  }
-}
+
 
 function relativeLuminance(hex: string): number {
   const [r, g, b] = (hex.replace('#', '').match(/.{2}/g) ?? []).map((x) => {
@@ -70,11 +62,7 @@ function main() {
     assert.equal(elementLabel('WOOD'), 'ธาตุไม้ · Wood')
   })
 
-  if (process.exitCode) {
-    console.error(`\ncalc-elements: FAILED (${pass} passed)`)
-  } else {
-    console.log(`calc-elements: all ${pass} passed ✓`)
-  }
+
 }
 
 main()

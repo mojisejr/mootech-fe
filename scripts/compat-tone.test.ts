@@ -9,12 +9,9 @@
 // ANCHOR: scripts/compat-tone.test.ts#compat-tone-13-levels
 import assert from 'node:assert/strict'
 import { gradeTier, deriveTone, TIER_COLOR, type GradeTier, type DimTone } from '../features/v2-service/compat-result-parts'
+import { test as t } from 'vitest'
 
-let pass = 0
-function t(name: string, fn: () => void) {
-  try { fn(); pass++; console.log(`  ✓ ${name}`) }
-  catch (e) { console.error(`  ✗ ${name}\n    ${(e as Error).message}`); process.exitCode = 1 }
-}
+
 
 const ALL_13 = ['F', 'D-', 'D', 'D+', 'C-', 'C', 'C+', 'B-', 'B', 'B+', 'A-', 'A', 'A+'] as const
 
@@ -81,4 +78,4 @@ t('ฟีม mapping: A*+B+ → strong, D*+F → watch, C*/B/B- → null', () =>
   for (const g of ALL_13) assert.equal(deriveTone(g), expect[g], `${g}`)
 })
 
-console.log(`\n${pass} passed`)
+

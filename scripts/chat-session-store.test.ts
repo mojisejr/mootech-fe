@@ -1,6 +1,7 @@
 // Deterministic unit tests for the multi-session chat store (#mootech-chat-sessions).
 // Browser-free: a fake in-memory StorageLike is injected (DI). Run: npx tsx scripts/chat-session-store.test.ts
 import assert from 'node:assert/strict'
+import { test as t } from 'vitest'
 import {
   LocalStorageSessionStore,
   migrateLegacyHistory,
@@ -9,16 +10,7 @@ import {
   type StorageLike,
 } from '../lib/chat/session-store'
 
-let pass = 0
-function t(name: string, fn: () => void) {
-  try {
-    fn()
-    pass++
-  } catch (e: any) {
-    console.error(`✗ ${name}\n  ${e?.message ?? e}`)
-    process.exitCode = 1
-  }
-}
+
 
 function fakeStorage(): StorageLike & { dump: () => Record<string, string> } {
   const m = new Map<string, string>()
@@ -175,5 +167,3 @@ t('titleFromMessages defaults when no user turn', () => {
   assert.equal(titleFromMessages([]), DEFAULT_TITLE)
 })
 
-if (!process.exitCode) console.log(`✓ all ${pass} chat-session-store assertions passed`)
-else console.error(`\n${pass} passed, FAILURES above`)

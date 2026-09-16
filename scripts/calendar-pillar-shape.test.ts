@@ -9,6 +9,7 @@
 import assert from 'node:assert/strict'
 import { mockDayDetail, MOCK_DAYS } from '../features/v2-calendar/fixtures'
 import type { PillarCell } from '../features/v2-calendar/types'
+import { test as t } from 'vitest'
 
 // Independent 五行 oracle (NOT imported from fixtures — an independent check, so a fixture-side change to the
 // map is caught here rather than tautologically agreeing with itself).
@@ -17,17 +18,7 @@ const STEM_ELEMENT: Record<string, string> = {
   己: 'ดิน', 庚: 'ทอง', 辛: 'ทอง', 壬: 'น้ำ', 癸: 'น้ำ',
 }
 
-let pass = 0
-function t(name: string, fn: () => void) {
-  try {
-    fn()
-    pass++
-    console.log(`  ✓ ${name}`)
-  } catch (e) {
-    console.error(`  ✗ ${name}\n    ${(e as Error).message}`)
-    process.exitCode = 1
-  }
-}
+
 
 const detail = mockDayDetail(MOCK_DAYS[0].date)
 const pillars = detail.pillars ?? []
@@ -78,8 +69,4 @@ t('DAY block wires the วัน pillar to the day\'s real ganzhi glyphs', () =>
   assert.equal(dayColumn.branch, MOCK_DAYS[0].ganzhi[1], 'วัน branch should be the day ganzhi[1]')
 })
 
-if (process.exitCode) {
-  console.error(`\ncalendar-pillar-shape: FAILED (${pass} passed)`)
-} else {
-  console.log(`\ncalendar-pillar-shape: all ${pass} passed ✓`)
-}
+

@@ -5,17 +5,9 @@
 // Run: bun scripts/ops-pr56-ai-quota.test.ts   or: npx tsx scripts/ops-pr56-ai-quota.test.ts
 import assert from 'node:assert/strict'
 import { deriveAiQuota, WELCOME_CREDITS } from '../lib/ops/ai-usage'
+import { test as t } from 'vitest'
 
-let pass = 0
-function t(name: string, fn: () => void) {
-  try {
-    fn()
-    pass++
-  } catch (e: any) {
-    console.error(`✗ ${name}\n  ${e?.message ?? e}`)
-    process.exitCode = 1
-  }
-}
+
 
 function main() {
   t('matches the live production numbers verified 2026-07-14', () => {
@@ -77,11 +69,7 @@ function main() {
     ])
   })
 
-  if (process.exitCode) {
-    console.error(`\nops-pr56-ai-quota: FAILED (${pass} passed)`)
-  } else {
-    console.log(`ops-pr56-ai-quota: all ${pass} passed ✓`)
-  }
+
 }
 
 main()

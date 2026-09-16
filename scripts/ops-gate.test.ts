@@ -3,17 +3,9 @@
 import assert from 'node:assert/strict'
 import { NextRequest } from 'next/server'
 import { middleware } from '../middleware'
+import { test as t } from 'vitest'
 
-let pass = 0
-function t(name: string, fn: () => void) {
-  try {
-    fn()
-    pass++
-  } catch (e: any) {
-    console.error(`✗ ${name}\n  ${e?.message ?? e}`)
-    process.exitCode = 1
-  }
-}
+
 
 function resetEnv() {
   delete process.env.OPS_DASHBOARD_KEY
@@ -81,11 +73,7 @@ function main() {
     assert.equal(isPassThrough(middleware(mkReq('/my-destiny'))), true)
   })
 
-  if (process.exitCode) {
-    console.error(`\nops-gate: FAILED (${pass} passed)`)
-  } else {
-    console.log(`ops-gate: all ${pass} passed ✓`)
-  }
+
 }
 
 main()

@@ -11,17 +11,18 @@
 // 🔴 WHAT IS ALREADY COVERED — do not re-guard it here, and do not report it as a hole.
 // `.githooks/pre-push` (#334) globs `scripts/*.test.ts` and runs everything vitest does NOT own through
 // `tsx`. So an unregistered **.test.ts** already reddens at push time (a spec that imports from 'vitest'
-// cannot run under tsx, so it dies loudly). Measured on this tree: "tsx lane green (75 files)".
+// cannot run under tsx, so it dies loudly). Most of that pile has since been converted into real vitest
+// specs (refactor/tsx-lane-into-vitest); the tsx lane now runs only the residual node:assert meta-guards.
 //
 // 🔴 THE HOLE THAT IS LEFT, AND IT IS EXACTLY ONE. That glob is `scripts/*.test.ts` — it does not match
 // `.tsx`. `vitest.config.mts:14` says so in a comment ("invisible to that lane by extension") and then
 // nothing enforces it. So an unregistered **.test.tsx** is run by NOBODY and says NOTHING. Today all 52
 // .test.tsx files are registered; this file is what keeps that true tomorrow.
 //
-// 🔴 THE TARGET IS "N THAT WE CAN EXPLAIN", NOT ZERO. 75 scripts/*.test.ts are deliberately outside
-// vitest's include — they are plain node:assert scripts owned by the tsx lane. A guard demanding 0 would
-// be wrong about this repo and would be silenced within a week. So ④ does not ask them to join vitest; it
-// asks them to still be runnable by the lane that DOES own them.
+// 🔴 THE TARGET IS "N THAT WE CAN EXPLAIN", NOT ZERO. A handful of scripts/*.test.ts are deliberately
+// outside vitest's include — the residual plain node:assert meta-guards owned by the tsx lane. A guard
+// demanding 0 would be wrong about this repo and would be silenced within a week. So ④ does not ask them
+// to join vitest; it asks them to still be runnable by the lane that DOES own them.
 //
 // 🔴 MUTANT CONTRACT (each must redden `npm test`; fired for real, results in the PR):
 //   M1  add scripts/anything.test.tsx and leave it out of include   → ① reddens, naming the file

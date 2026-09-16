@@ -5,17 +5,7 @@ import assert from 'node:assert/strict'
 import { NextRequest } from 'next/server'
 import { middleware } from '../middleware'
 import handler, { config, sanitizeWhatIfBody } from '../pages/api/what-if/generate'
-
-let pass = 0
-async function t(name: string, fn: () => void | Promise<void>) {
-  try {
-    await fn()
-    pass++
-  } catch (e: any) {
-    console.error(`✗ ${name}\n  ${e?.message ?? e}`)
-    process.exitCode = 1
-  }
-}
+import { test as t } from 'vitest'
 
 function resetEnv() {
   delete process.env.WHATIF_KEY
@@ -54,8 +44,7 @@ function createJsonRes() {
   return res
 }
 
-async function main() {
-  await t('What If gate fails closed when WHATIF_KEY is unset', () => {
+await t('What If gate fails closed when WHATIF_KEY is unset', () => {
     resetEnv()
     assert.equal(isRewrittenToMaintenance(middleware(mkReq('/what-if'))), true)
     assert.equal(isRewrittenToMaintenance(middleware(mkReq('/api/what-if/generate'))), true)
@@ -167,15 +156,3 @@ async function main() {
     assert.equal(res.statusCode, 405)
     assert.deepEqual(res.body, { error: { message: 'Method not allowed' } })
   })
-
-  if (process.exitCode) {
-    console.error(`\nwhat-if-infra: FAILED (${pass} passed)`)
-  } else {
-    console.log(`what-if-infra: all ${pass} passed ✓`)
-  }
-}
-
-main().catch((e) => {
-  console.error(e)
-  process.exit(1)
-})

@@ -8,11 +8,10 @@
 import assert from 'node:assert'
 import { fetchDayDetail } from '../features/v2-calendar/hooks/fetch-day-detail'
 import type { FeCalcInput } from '../lib/bazi-bridge/input'
+import { test } from 'vitest'
 
-let pass = 0
 function ok(name: string, cond: boolean) {
   assert.ok(cond, `FAIL: ${name}`)
-  pass += 1
 }
 
 const person = { name: 'ทดสอบ', dob: '1990-01-01', gender: 'male' } as unknown as FeCalcInput
@@ -62,12 +61,6 @@ async function run() {
   // and not about the rebuild setting it unconditionally.
   globalThis.fetch = (async () => ({ ok: true, json: async () => ({ detail: null, degraded: true }) })) as unknown as typeof fetch
   ok('a degraded answer does not fake outOfSpan', (await fetchDayDetail(person, '2029-01-06')).outOfSpan === undefined)
-
-  console.log(`✅ day-detail-fetch.test.ts — ${pass} assertions passed`)
 }
 
-run().catch((e) => {
-  globalThis.fetch = realFetch
-  console.error(e)
-  process.exit(1)
-})
+test('day-detail-fetch.test.ts', run)
