@@ -115,7 +115,7 @@ export function SacredPlaceDetailScreen({ loc }: { loc: SacredLocation }) {
   return (
     <div className="relative flex min-h-screen w-full flex-col overflow-x-hidden bg-v3-bg-cream font-ibm">
       <SkyBackdrop height={340} />
-      <Head><title>{loc.name} · แผนที่ศักดิ์สิทธิ์ · MuMate</title></Head>
+      <Head><title>{`${loc.name} · แผนที่ศักดิ์สิทธิ์ · MuMate`}</title></Head>
       <div className="relative z-10 mx-auto flex w-full max-w-md flex-1 flex-col gap-4 px-4 pb-32 pt-2">
         <SkyHeader
           title="สถานที่ศักดิ์สิทธิ์"
