@@ -42,7 +42,12 @@ function draftAt(state: SaveFlowState, canCommit = true): UseReminderDraft {
   } as unknown as UseReminderDraft
 }
 
-function renderAt(state: SaveFlowState, opts: { notify?: NotifyState; canCommit?: boolean; onSave?: () => void } = {}) {
+// external ต้องมี ≥1 ปลายทางเปิด ไม่งั้นกดบันทึกจะโดน intercept (เลื่อนไปเลือกก่อน) — ทดสอบเส้นทางบันทึกจริง
+// เปิด mumate ไว้เป็นค่าเริ่มของ helper; เทสของ "gate ปิดหมด" ส่ง external เองด้านล่าง
+function renderAt(
+  state: SaveFlowState,
+  opts: { notify?: NotifyState; canCommit?: boolean; onSave?: () => void; external?: Record<'mumate' | 'google' | 'apple', boolean> } = {},
+) {
   const onSave = opts.onSave ?? (() => {})
   render(
     <SaveSheet
@@ -53,6 +58,7 @@ function renderAt(state: SaveFlowState, opts: { notify?: NotifyState; canCommit?
       notify={opts.notify ?? 'granted'}
       onShowGuide={() => {}}
       statusFor={() => 'addable'}
+      external={opts.external ?? { mumate: true, google: false, apple: false }}
     />,
   )
   return screen.getByTestId('sheet-save') as HTMLButtonElement
@@ -92,6 +98,27 @@ describe('#342 ① · saving — ปุ่มต้องบอกว่าก�
     expect(renderAt('saving').getAttribute('aria-busy')).toBe('true')
     cleanup()
     expect(renderAt('editing').getAttribute('aria-busy')).toBe('false')
+  })
+})
+
+// ── เพิ่มปฏิทินภายนอกปิดหมด → กดบันทึกครั้งแรกเลื่อนไปให้เลือกก่อน (ผู้ใช้ 2026-09-16) ────────────
+
+describe('external ปิดหมด → บังคับเลือกปลายทางก่อนบันทึก', () => {
+  it('🔴 ยังไม่เลือกปลายทางใด ๆ → กดบันทึก onSave ไม่ถูกเรียก + ขึ้นคำเตือนให้เลือกก่อน', () => {
+    const onSave = vi.fn()
+    const btn = renderAt('editing', { onSave, external: { mumate: false, google: false, apple: false } })
+    expect(screen.queryByTestId('dest-hint')).toBeNull() // ยังไม่กด = ยังไม่เตือน
+    fireEvent.click(btn)
+    expect(onSave).not.toHaveBeenCalled()
+    expect(screen.getByTestId('dest-hint')).toBeTruthy()
+  })
+
+  it('เลือกอย่างน้อย 1 ปลายทาง → กดบันทึกยิง onSave จริง', () => {
+    const onSave = vi.fn()
+    const btn = renderAt('editing', { onSave, external: { mumate: false, google: true, apple: false } })
+    fireEvent.click(btn)
+    expect(onSave).toHaveBeenCalledTimes(1)
+    expect(screen.queryByTestId('dest-hint')).toBeNull()
   })
 })
 
@@ -221,6 +248,12 @@ describe('#343 · ชีท — ยามที่เลยเวลา/เพ�
     expect(box('y1').disabled).toBe(true)
     expect(box('y1').checked).toBe(false)
     expect(screen.getByTestId('sheet-yam-note-y1').textContent).toBe(SHEET_YAM_PAST_NOTE)
+  })
+
+  it('🔴 ยามที่เลยเวลา ถึงจะเคยอยู่ใน selectedYamIds ก็ต้องไม่ติ๊กค้าง (ผู้ใช้ 2026-09-16 "ให้ว่างไปเลย")', () => {
+    renderSheetWithStatus({ y1: 'past' }, ['y1'])
+    expect(box('y1').checked).toBe(false)
+    expect(box('y1').disabled).toBe(true)
   })
 
   it('🔴 ยามที่เพิ่มแล้ว ติ๊กค้างไว้ให้เห็น + กดไม่ได้ + บอกว่าเพิ่มแล้ว', () => {
