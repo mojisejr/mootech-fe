@@ -188,7 +188,7 @@ export function CardReadingScreen({
 
   return (
     <SkyScreen bgImage={theme.bg}>
-      <Head><title>{headerTitle} · MuMate</title></Head>
+      <Head><title>{`${headerTitle} · MuMate`}</title></Head>
       <SkyHeader
         title={headerTitle}
         backHref={phase === "pick" ? undefined : backHref}

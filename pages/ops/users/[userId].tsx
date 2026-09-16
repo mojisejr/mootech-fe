@@ -51,7 +51,7 @@ export default function OpsUserDetail({ authenticated }: Props) {
 
   return (
     <>
-      <Head><title>Ops · ผู้ใช้ {userId.slice(0, 8)}</title></Head>
+      <Head><title>{`Ops · ผู้ใช้ ${userId.slice(0, 8)}`}</title></Head>
       <main style={{ padding: 24, fontFamily: 'system-ui', maxWidth: 820 }}>
         <p><Link href="/ops/users">← ค้นหาผู้ใช้</Link></p>
         {msg && <p style={{ color: msg.includes('สำเร็จ') ? '#080' : '#b00' }}>{msg}</p>}

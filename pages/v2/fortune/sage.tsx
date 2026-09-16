@@ -134,7 +134,7 @@ export default function FortuneSagePage() {
 
   return (
     <SkyScreen bgImage="/images/v2/fortune/sage-bg.png">
-      <Head><title>{phase === "result" ? "ผลเซียมซี" : "เซียมซีเสี่ยงทาย"} · MuMate</title></Head>
+      <Head><title>{`${phase === "result" ? "ผลเซียมซี" : "เซียมซีเสี่ยงทาย"} · MuMate`}</title></Head>
       <SkyHeader
         title={phase === "result" ? "ผลเซียมซี" : "เซียมซีเสี่ยงทาย"}
         backHref="/v2/service"
