@@ -22,7 +22,7 @@ const rowsOf = (r: any): any[] => (Array.isArray(r) ? r : r?.rows ?? [])
 // เวอร์ชันของ "ก้อนผลดวงที่ cache" — bump เมื่อ engine เพิ่ม/แก้ฟิลด์ใน payload (เช่น elementNisai)
 // ต่อเข้า birthKey → ผลเก่าที่ cache ก่อน bump จะ miss แล้วคำนวณใหม่เองทันที ไม่ต้องล้างตาราง cache มือ.
 // v2 (2026-09-11): เพิ่ม elementAnalysis.elementNisai (นิสัย 5 ธาตุ แข็ง/อ่อน) ลงหน้าดวง.
-const CACHE_VERSION = "v6" // v6 2026-09-16: "นิสัย" รวมราศีบน(เสาเต็ม)+ราศีล่าง(ก้านล่าง) — engine เพิ่มราศีล่างที่หายกลับ · v5: วันดีเดือนนี้ กรองวันผ่านมาแล้ว · v4: เทพประจำตัวชื่อจริง
+const CACHE_VERSION = "v7" // v7 2026-09-16: + luck (ปีจร/เดือนจรปัจจุบัน) ที่หน้า Destiny · v6: นิสัยรวมราศีล่าง · v5: วันดีเดือนนี้กรองวันเก่า · v4: เทพชื่อจริง
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== "POST") {
@@ -131,7 +131,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       : null
 
   // คำทำนายจาก reading-essence (engine สกัดใจความให้แล้ว); work มาจาก career-finance แหล่งเดียว
-  type EssenceResp = { prediction?: { personality?: string | null; habit?: string | null; love?: string | null }; cautions?: string[]; deity?: string | null }
+  type LuckItem = { label?: string | null; text?: string | null } | null
+  type EssenceResp = { prediction?: { personality?: string | null; habit?: string | null; love?: string | null }; cautions?: string[]; deity?: string | null; luck?: { year?: LuckItem; month?: LuckItem } | null }
   type CareerResp = { career?: { essence?: string | null } | null }
   const essenceVal = val(essence) as EssenceResp | null
   const careerVal = val(careerFin) as CareerResp | null
@@ -143,6 +144,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
   const cautions = Array.isArray(essenceVal?.cautions) ? essenceVal!.cautions! : []
   const deity = essenceVal?.deity ?? null
+  // จังหวะปีนี้/เดือนนี้ (ปีจร/เดือนจร) — engine essence เพิ่มมา (ซินแส 2026-09-16 "อ่านให้ถึงปีจร/เดือนจร")
+  const luck = essenceVal?.luck ?? null
 
   // วันดีเดือนนี้: top 3 วันคะแนนสูงสุดจาก man-vs-day (เฉพาะใจความ ไม่เอาทั้งเดือน)
   type MonthDay = { date?: string; dayOfMonth?: number; weekday?: string; overallPercent?: number | null; grade?: string | null }
@@ -170,6 +173,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     deity,
     careerFinance: val(careerFin), // { career:{doElement,avoidElement,occupations,context,essence}, finance:{essence} }
     goodDays, // [{date,dayOfMonth,weekday,percent,grade}] top 3 วันดีเดือนนี้
+    luck, // { year:{label,text}, month:{label,text} } — ปีจร/เดือนจรปัจจุบัน
   }
 
   // เก็บลง cache (ทับแถวเดิมของ user เมื่อ birthKey เปลี่ยน) — เฉพาะเมื่อดวงคำนวณได้จริง
