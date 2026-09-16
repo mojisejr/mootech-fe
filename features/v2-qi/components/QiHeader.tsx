@@ -10,7 +10,7 @@ export function QiHeader({ title, testId, right }: { title: string; testId: stri
   return (
     <>
       <Head>
-        <title>{title} — Mumate</title>
+        <title>{`${title} — Mumate`}</title>
       </Head>
       <header className="flex w-full items-center gap-2 pt-4">
         <BackButton fallbackHref="/v2/qi" testId={`${testId}-back`} />

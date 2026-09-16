@@ -46,7 +46,7 @@ export function DocReaderScreen({ slug }: { slug: string }) {
   return (
     <div className="relative min-h-screen w-full overflow-x-hidden bg-white font-ibm">
       <SkyBackdrop />
-      <Head><title>{title ?? 'เอกสาร'} · MuMate</title></Head>
+      <Head><title>{`${title ?? 'เอกสาร'} · MuMate`}</title></Head>
       <SkyHeader title={state === 'ok' && title ? title : 'เอกสาร'} backHref="/v2/help/faq" testId="doc" />
 
       <div className="mx-auto flex w-full max-w-md flex-col gap-4 px-4 pb-36 pt-2">
