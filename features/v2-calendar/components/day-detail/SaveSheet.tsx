@@ -19,6 +19,7 @@
 // at [date].tsx:112 (`ok = outcome.ok`) and nothing stores it, so the sheet CANNOT know which of the 5 it
 // was. It says only what it can prove. Splitting the copy per reason needs the kind carried down first
 // (#341/#343) — the sheet must never guess a cause it wasn't told.
+import { useRef, useState } from 'react'
 import type { YamSlot, ReminderDestination } from '../../types'
 import type { UseReminderDraft } from '../../hooks/useReminderDraft'
 import type { YamReminderStatus } from '../../tier-lock'
@@ -30,8 +31,8 @@ import { ExternalCalendarSection } from './ExternalCalendarSection'
 export const SHEET_YAM_ADDED_NOTE = 'เพิ่มแล้ว'
 export const SHEET_YAM_PAST_NOTE = 'เลยเวลา'
 
-// เพิ่มปฏิทินภายนอก default (mumate+google เปิด, apple ปิด) — ใช้เมื่อผู้เรียกไม่ส่ง `external` (เทสต์เดิม)
-const DEFAULT_EXTERNAL: Record<ReminderDestination, boolean> = { mumate: true, google: true, apple: false }
+// เพิ่มปฏิทินภายนอก default — ปิดหมดทุกปลายทาง (ผู้ใช้ 2026-09-16 "ปิดหมดก่อน แล้วให้ user เลือกก่อนค่อยบันทึก")
+const DEFAULT_EXTERNAL: Record<ReminderDestination, boolean> = { mumate: false, google: false, apple: false }
 
 const THAI_MONTHS = ['มกราคม', 'กุมภาพันธ์', 'มีนาคม', 'เมษายน', 'พฤษภาคม', 'มิถุนายน', 'กรกฎาคม', 'สิงหาคม', 'กันยายน', 'ตุลาคม', 'พฤศจิกายน', 'ธันวาคม']
 
@@ -92,6 +93,19 @@ export function SaveSheet({
   // (idle/saved — [date].tsx:125 keeps the sheet only for editing/saving/error) or is the normal form.
   const saving = draft.state === 'saving'
   const failed = draft.state === 'error'
+  // เพิ่มปฏิทินภายนอกเริ่ม "ปิดหมด" (ผู้ใช้ 2026-09-16) — กดบันทึกทั้งที่ยังไม่เลือกปลายทางใด ๆ ⇒ เลื่อนลงไปโชว์
+  // section "เพิ่มปฏิทินภายนอก" + เตือนให้เลือกก่อน แทนที่จะบันทึกทันที. เลือกแล้ว (≥1) ค่อยกดบันทึกได้จริง.
+  const externalRef = useRef<HTMLDivElement>(null)
+  const [destHint, setDestHint] = useState(false)
+  const noExternal = !Object.values(external).some(Boolean)
+  const handleSave = () => {
+    if (noExternal) {
+      setDestHint(true)
+      externalRef.current?.scrollIntoView?.({ behavior: 'smooth', block: 'center' })
+      return
+    }
+    onSave()
+  }
   // `saving` keeps the sapphire fill (work in progress) instead of the grey disabled fill (dead button) —
   // so the `disabled:` variants are left OUT of the class list in that branch rather than overridden,
   // which a plain utility could never win against (:disabled has the higher specificity).
@@ -149,8 +163,9 @@ export function SaveSheet({
                 const past = status === 'past'
                 const locked = added || past
                 // "เพิ่มแล้ว" ติ๊กค้างไว้ให้เห็น (ผู้ใช้เพิ่มไว้จริง — ช่องว่างจะอ่านว่าของหาย)
-                // "เลยเวลา" ไม่ติ๊ก และติ๊กไม่ได้
-                const checked = added || d.selectedYamIds.includes(yam.id)
+                // "เลยเวลา" ไม่ติ๊กเด็ดขาด (ให้ว่าง/จางไปเลย) และติ๊กไม่ได้ — ผู้ใช้ 2026-09-16 "อันที่ผ่านมาแล้ว
+                // ไม่ต้องติ๊กค้างไว้ ให้ว่างดำไปเลย" (กันกรณีเคยถูกใส่ไว้ใน selectedYamIds แล้วยังโชว์ติ๊ก)
+                const checked = added || (!past && d.selectedYamIds.includes(yam.id))
                 const note = added ? SHEET_YAM_ADDED_NOTE : past ? SHEET_YAM_PAST_NOTE : null
                 return (
                   <label
@@ -214,7 +229,14 @@ export function SaveSheet({
 
           {/* เพิ่มปฏิทินภายนอก — Mumate (push) · Google · Apple. Google/Apple เป็น client-side ทั้งคู่
               (#298 เอาออกเพราะไม่มี backend — แต่ทั้งคู่ไม่ต้องมี: เปิด template URL / ดาวน์โหลด .ics) */}
-          <ExternalCalendarSection value={external} onToggle={onToggleExternal} />
+          <div ref={externalRef}>
+            <ExternalCalendarSection value={external} onToggle={onToggleExternal} />
+            {destHint && noExternal && (
+              <p role="alert" data-testid="dest-hint" className="mt-2 rounded-xl border-l-4 border-v3-sapphire bg-white px-3 py-2 text-xs font-bold leading-5 text-v3-text-body">
+                เลือกปฏิทินที่จะให้เตือนอย่างน้อย 1 อย่างก่อนบันทึก
+              </p>
+            )}
+          </div>
         </div>
 
         {/* sticky save — disabled via goo's canCommit (≥1 ยาม; no hand-written guard).
@@ -232,7 +254,7 @@ export function SaveSheet({
             data-save-state={draft.state}
             disabled={!draft.canCommit || saving}
             aria-busy={saving}
-            onClick={onSave}
+            onClick={handleSave}
             className={`flex h-[52px] w-full items-center justify-center gap-2 rounded-full text-[16px] font-bold ${saveTone}`}
           >
             {saving && <span aria-hidden data-testid="sheet-save-spinner" className="size-5 shrink-0 animate-spin rounded-full border-[3px] border-white/30 border-t-white" />}

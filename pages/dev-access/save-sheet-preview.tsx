@@ -14,9 +14,11 @@ const YAMS: YamSlot[] = [
 
 export default function SaveSheetPreviewPage() {
   const [note, setNote] = useState('')
-  const [selected, setSelected] = useState<string[]>(['y1'])
+  // y1 = 'past' และถูกใส่ selected ไว้ → พิสูจน์ว่า past ต้องโชว์ "ว่าง" ไม่ติ๊กค้าง (ผู้ใช้ 2026-09-16)
+  const [selected, setSelected] = useState<string[]>(['y1', 'y2'])
   const [customTime, setCustomTime] = useState('')
-  const [external, setExternal] = useState<Record<ReminderDestination, boolean>>({ mumate: true, google: true, apple: false })
+  // ปิดหมดก่อน (ตรงกับค่าจริงในเพจ) → กดบันทึกจะโดน gate ให้เลือกก่อน
+  const [external, setExternal] = useState<Record<ReminderDestination, boolean>>({ mumate: false, google: false, apple: false })
 
   const draft = {
     state: 'editing',
@@ -41,7 +43,7 @@ export default function SaveSheetPreviewPage() {
       onSave={() => alert('save (mock)')}
       notify="granted"
       onShowGuide={() => {}}
-      statusFor={() => 'addable'}
+      statusFor={(y) => (y.id === 'y1' ? 'past' : 'addable')}
       external={external}
       onToggleExternal={(d) => setExternal((s) => ({ ...s, [d]: !s[d] }))}
     />

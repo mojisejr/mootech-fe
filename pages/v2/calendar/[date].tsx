@@ -100,7 +100,8 @@ export default function V2CalendarDayPage({ teamPreview }: { teamPreview: boolea
   const [advUpsell, setAdvUpsell] = useState(false) // #359: popup ชวนอัปเกรดเมื่อ free กดโหมดแอดวานซ์
   // เพิ่มปฏิทินภายนอก (Figma 375:11286) — 3 ปลายทาง. mumate = in-app push (POST เดิม); google/apple = client-side
   // (เปิด template URL / ดาวน์โหลด .ics · lib/v2/external-calendar) ⇒ ไม่แตะ backend. ค่าเริ่มต้นตามดีไซน์.
-  const [external, setExternal] = useState<Record<ReminderDestination, boolean>>({ mumate: true, google: true, apple: false })
+  // ปิดหมดก่อน (ผู้ใช้ 2026-09-16) — ให้ user เลือกปลายทางเองก่อนบันทึก (SaveSheet บังคับเลือก ≥1 ก่อนกดบันทึกจริง)
+  const [external, setExternal] = useState<Record<ReminderDestination, boolean>>({ mumate: false, google: false, apple: false })
   const onToggleExternal = (d: ReminderDestination) => setExternal((s) => ({ ...s, [d]: !s[d] }))
 
   // #343 — ปุ่มรายยาม **เปิดชีทโดยติ๊กยามนั้นไว้ให้** ❌ ไม่ยิง POST ทันทีเหมือนเดิม
