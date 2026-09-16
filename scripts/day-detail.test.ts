@@ -79,7 +79,9 @@ ok('absent dayStars → [] (ไม่ throw)', (() => { const e = mapDayDetail(M
 ok('compatAreas ← facets (4), จุดแข็ง = แถวคะแนนสูงสุด (work 60%) เท่านั้น 1 แถว', d.compatAreas.length === 4 && d.compatAreas[2].isStrength === true && d.compatAreas[0].isStrength === false && d.compatAreas.filter((a) => a.isStrength).length === 1)
 ok('compatAreas carry facet grade pass-through', d.compatAreas[1].grade === 'C+')
 ok('advice ← MAIN facet lines[].text (3 บรรทัด)', d.advice.length === 3 && d.advice[0] === 'บรรทัด 1')
-ok('yams ← luckyHours (code→id · range→window · god+meaning→label)', d.yams.length === 1 && d.yams[0].id === 'B8' && d.yams[0].window === '1:00-2:59' && d.yams[0].label === 'เหง็กอ๋วง · ดี')
+// label = ความหมายไทยล้วน (fallback เป็น god เฉพาะตอน meaning ว่าง) — ผู้ใช้ 2026-09-12 "เอาแต่คำแปล · ตัดคำจีน"
+// (god 'เหง็กอ๋วง' = ชื่อสำเนียงจีน ถูกตัดออก). ก่อนหน้านี้เทสนี้รันเฉพาะ tsx lane ของ pre-push จึงค้างแดงเงียบ ๆ
+ok('yams ← luckyHours (code→id · range→window · meaning→label, ตัดคำจีน god)', d.yams.length === 1 && d.yams[0].id === 'B8' && d.yams[0].window === '1:00-2:59' && d.yams[0].label === 'ดี')
 ok('dayDeity ← almanac.deity', d.dayDeity === 'เจ้าพ่อเสือ')
 ok('spirits ← 8 เทพ + keywords', d.spirits.length === 8 && d.spirits[0].keywords.length === 2)
 ok('wanPhra ← thaiLunar.isWanPhra + label', d.wanPhra.isWanPhra === false && d.wanPhra.label === 'แรม ๗ ค่ำ เดือน ๘-๘')
