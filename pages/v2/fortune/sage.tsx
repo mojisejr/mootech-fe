@@ -11,6 +11,7 @@ import { v2RedirectIfUnauthed } from "@/lib/v2/gate"
 import { KitButton, SkyHeader, SkyScreen } from "@/features/v2-profile/components/kit"
 import { Menubar } from "@/features/v2-shell/components/Menubar"
 import { useActionCooldown } from "@/lib/useActionCooldown"
+import { useV2Tier } from "@/features/auth/hooks/useV2Tier"
 import { shareAsInvite } from "@/lib/v2/share-invite"
 import { ShareCard, ShareStage } from "@/features/v2-share/components/ShareCard"
 
@@ -55,6 +56,8 @@ function splitLove(text: string): { male: string; female: string } | null {
 
 export default function FortuneSagePage() {
   const cd = useActionCooldown("fortune:sage") // กันบอทยิงรัว 10 วิ
+  const { tier } = useV2Tier() // PRO = เซียมซี/Oracle ไม่จำกัด → ไม่โชว์ copy "วันละ 1 ครั้ง"
+  const cardUnlimited = tier === "PRO"
   const [phase, setPhase] = useState<"intro" | "loading" | "result">("intro")
   const [stick, setStick] = useState<Stick | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -178,7 +181,7 @@ export default function FortuneSagePage() {
             <KitButton onClick={() => void draw()} disabled={cd.active} testId="sage-draw">{cd.active ? `รออีก ${cd.secondsLeft} วินาที` : "กดเพื่อเสี่ยงทาย"}</KitButton>
           </section>
           {quotaOut && <Link href="/v2/qi" className="text-center text-[13px] font-bold text-v3-sapphire">เติม/แลก QI ที่หน้าพลังชี่ →</Link>}
-          <p className="text-center text-[11px] text-v3-text-muted">ใช้โควตาเสี่ยงทายวันละ 1 ครั้ง (ฟรี) — เกินแล้วแลกด้วย QI</p>
+          <p className="text-center text-[11px] text-v3-text-muted">{cardUnlimited ? "สมาชิก PRO เสี่ยงทายได้ไม่จำกัด" : "ใช้โควตาเสี่ยงทายวันละ 1 ครั้ง (ฟรี) — เกินแล้วแลกด้วย QI"}</p>
         </div>
       )}
 
