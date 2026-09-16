@@ -97,6 +97,8 @@ export type DestinyData = {
   } | null
   // วันดีเดือนนี้ (top 3) จาก man-vs-day
   goodDays?: Array<{ date?: string | null; dayOfMonth?: number | null; weekday?: string | null; percent?: number | null; grade?: string | null }> | null
+  // จังหวะปัจจุบัน: ปีจร/เดือนจร (ต่อจากวัยจรใน Life Path)
+  luck?: { year?: { label?: string | null; text?: string | null } | null; month?: { label?: string | null; text?: string | null } | null } | null
 }
 
 // ป้ายตามดีไซน์ Figma: สกิลเรียกทรัพย์ (การเงิน) · สกิลสัมพันธ์ (เพื่อน) — แถวที่สองในดีไซน์
@@ -1005,6 +1007,28 @@ export function DestinyScreen({ previewData }: { previewData?: DestinyData } = {
 
             {/* เส้นทางชีวิต (Life Path) — recharts + แท็บ ทั้งหมด/5ปี/1ปี/1เดือน (Figma 55349:3332) */}
             {lifePath && lifePath.series && <LifePathCard lifePath={lifePath} />}
+
+            {/* จังหวะปีนี้/เดือนนี้ (ปีจร/เดือนจร) — ต่อจากวัยจรใน Life Path (ซินแส 2026-09-16 "อ่านให้ถึงปีจร/เดือนจร") */}
+            {(data?.luck?.year?.text || data?.luck?.month?.text) && (
+              <section className="rounded-[20px] bg-white p-4 shadow-sm" data-testid="destiny-luck">
+                <h3 className="text-[15px] font-bold text-v3-navy">จังหวะปีนี้ · เดือนนี้</h3>
+                <p className="mt-0.5 text-[11px] text-v3-text-note">ปีจร / เดือนจร — จังหวะพลังในช่วงนี้ (ต่อจากวัยจร)</p>
+                <div className="mt-3 flex flex-col gap-2">
+                  {data!.luck!.year?.text && (
+                    <div className="rounded-[12px] bg-v3-qi-earn-bg px-3 py-2.5">
+                      <p className="text-[13px] font-bold text-v3-navy">{data!.luck!.year!.label}</p>
+                      <p className="mt-0.5 whitespace-pre-line text-[13px] leading-[20px] text-v3-text-body">{data!.luck!.year!.text}</p>
+                    </div>
+                  )}
+                  {data!.luck!.month?.text && (
+                    <div className="rounded-[12px] bg-v3-qi-earn-bg px-3 py-2.5">
+                      <p className="text-[13px] font-bold text-v3-navy">{data!.luck!.month!.label}</p>
+                      <p className="mt-0.5 whitespace-pre-line text-[13px] leading-[20px] text-v3-text-body">{data!.luck!.month!.text}</p>
+                    </div>
+                  )}
+                </div>
+              </section>
+            )}
 
             {/* ดูดวงด้านอื่นต่อ — คู่รัก/เพื่อนร่วมงาน/ถามเซียนมู่ (Figma what-next) */}
             <MoreReadingsCard />
