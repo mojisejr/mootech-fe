@@ -246,7 +246,10 @@ describe('#384 every screen that renders the shared header passes a membership',
     // cannot answer "did somebody's call site disappear", and it can be right by accident. It WAS right by
     // accident: the old `toBe(6)` matched only because the hand-list happened to omit AppHeader.tsx, which
     // renders <HeaderTools/> itself and is a seventh site (ตู๋ found this while walking the tree).
-    const SKIP = new Set(['node_modules', '.next', '.git', 'out', 'coverage'])
+    // 🔴 '.claude' skipped too (2026-09-16): agent worktrees live under .claude/worktrees/ and are FULL
+    // copies of the repo — walking into one double-counts every header call site (24 vs 12) and reddens this
+    // test for a reason that has nothing to do with the tree being checked. Only the project's own source counts.
+    const SKIP = new Set(['node_modules', '.next', '.git', 'out', 'coverage', '.claude'])
     const walk = (d: string): string[] =>
       readdirSync(d, { withFileTypes: true }).flatMap((e) =>
         SKIP.has(e.name) ? [] : e.isDirectory() ? walk(join(d, e.name)) : e.name.endsWith('.tsx') ? [join(d, e.name)] : [],
