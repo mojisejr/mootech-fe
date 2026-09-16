@@ -156,6 +156,9 @@ export function AccountScreen({ preview }: { preview?: AccountPreview } = {}) {
   // สมาชิกจ่ายเงิน (plus/pro) แชทไม่จำกัด → โชว์ "ไม่จำกัด".
   const freeLeft = (f: "card" | "chat") => Math.max(0, (ent?.quota?.[f]?.limit ?? 0) - (ent?.quota?.[f]?.used ?? 0))
   const chatUnlimited = ent?.tier === "plus" || ent?.tier === "pro"
+  // เปิดไพ่/เซียมซี ไม่จำกัด = PRO เท่านั้น (ร้านค้า: Free 2/วัน · PLUS 10/วัน · PRO ไม่จำกัด) — กัน PRO เห็นตัวเลข
+  // จำกัดจาก QI (เช่น "เปิดไพ่ได้อีก 4274 ครั้ง") ทั้งที่จริงไม่จำกัด (ผู้ใช้ 2026-09-16)
+  const cardUnlimited = ent?.tier === "pro"
   const asksNum = freeLeft("chat") + (ent?.credits?.chat_question ?? 0) + Math.floor(balance / CHAT_COST)
   const cards = freeLeft("card") + (ent?.credits?.card_use ?? 0) + Math.floor(balance / 10) // เปิดไพ่ = 10 QI (card_use)
   const asks = chatUnlimited ? "ไม่จำกัด" : asksNum
@@ -286,7 +289,7 @@ export function AccountScreen({ preview }: { preview?: AccountPreview } = {}) {
                   <Image src="/images/v2/qi/qi-coin.png" alt="" width={64} height={64} sizes="64px" unoptimized className="size-16 object-contain" />
                 </span>
               </div>
-              <p className="mt-3 text-[13px] leading-[18px] text-white/90">{chatUnlimited ? <>ถามเซียนมู่ AI ได้ไม่จำกัด · เปิดไพ่ได้อีก {cards} ครั้ง</> : <>พอถามเซียนมู่ AI ได้อีก {asks} ครั้ง หรือเปิดไพ่ได้ {cards} ครั้ง</>}</p>
+              <p className="mt-3 text-[13px] leading-[18px] text-white/90">{chatUnlimited ? <>ถามเซียนมู่ AI ได้ไม่จำกัด · {cardUnlimited ? <>เปิดไพ่ได้ไม่จำกัด</> : <>เปิดไพ่ได้อีก {cards} ครั้ง</>}</> : <>พอถามเซียนมู่ AI ได้อีก {asks} ครั้ง หรือเปิดไพ่ได้ {cards} ครั้ง</>}</p>
               <div className="mt-3 flex gap-2">
                 <Link href="/v2/qi/buy" data-testid="qi-topup-link" className="grid h-11 flex-1 place-items-center rounded-full bg-v3-lime text-[14px] font-semibold uppercase text-v3-sapphire">ซื้อ QI เพิ่ม</Link>
                 <Link href="/v2/qi/history" data-testid="account-qi-history" className="grid h-11 flex-1 place-items-center rounded-full border border-v3-placeholder text-[14px] font-semibold uppercase text-white">ประวัติการใช้</Link>

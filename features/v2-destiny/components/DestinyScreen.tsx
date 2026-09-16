@@ -973,28 +973,35 @@ export function DestinyScreen({ previewData }: { previewData?: DestinyData } = {
             {/* สีมงคล สิ่งศักดิ์สิทธิ์ (Figma 55349:3303) */}
             <LuckyCard colors={luckyColors} deity={data?.deity ?? null} />
 
-            {/* วันดีเดือนนี้ (top 3) — man-vs-day รายเดือน (ปฏิทินส่วนตัว) */}
-            {Array.isArray(data?.goodDays) && data!.goodDays!.length > 0 && (
-              <section className="rounded-[20px] bg-white p-4 shadow-sm" data-testid="destiny-good-days">
-                <h3 className="text-[15px] font-bold text-v3-navy">วันดีเดือนนี้</h3>
-                <p className="mt-0.5 text-[11px] text-v3-text-note">3 วันที่ดวงคุณส่งเสริมที่สุดในเดือนนี้</p>
-                <div className="mt-3 flex flex-col gap-2">
-                  {/* #359: เรียงตามวันที่ (asc) + ต่อชื่อเดือน + เกรดขึ้น "วันเกรดX" */}
-                  {[...data!.goodDays!]
+            {/* วันดีเดือนนี้ — man-vs-day รายเดือน (ปฏิทินส่วนตัว). #359 เรียงตามวันที่ + ชื่อเดือน + "วันเกรดX".
+                2026-09-16: กรองวันที่ผ่านมาแล้วออก (ผู้ใช้ขอ) — cache รายเดือนอาจมีวันเก่าติดมา จึงกันที่ FE
+                ด้วยวันปัจจุบันสด ๆ (dayOfMonth >= วันนี้). แสดงเฉพาะเมื่อยังมีวันดีเหลือในเดือน. */}
+            {(() => {
+              const upcoming = Array.isArray(data?.goodDays)
+                ? [...data!.goodDays!]
+                    .filter((d) => (d.dayOfMonth ?? 0) >= new Date().getDate())
                     .sort((a, b) => (a.dayOfMonth ?? 99) - (b.dayOfMonth ?? 99))
-                    .map((d, i) => (
-                    <div key={i} className="flex items-center justify-between rounded-[12px] bg-v3-qi-earn-bg px-3 py-2">
-                      <span className="text-[13px] font-medium text-v3-navy">
-                        {d.weekday ? `${d.weekday} ` : ""}{d.dayOfMonth != null ? `${d.dayOfMonth} ${THAI_MONTHS_ABBR[new Date().getMonth()]}` : (d.date ?? "")}
-                      </span>
-                      <span className="text-[12px] font-bold text-v3-qi-earn">
-                        {d.grade ? `วันเกรด${d.grade}` : (d.percent != null ? `${d.percent}%` : "")}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              </section>
-            )}
+                : []
+              if (upcoming.length === 0) return null
+              return (
+                <section className="rounded-[20px] bg-white p-4 shadow-sm" data-testid="destiny-good-days">
+                  <h3 className="text-[15px] font-bold text-v3-navy">วันดีเดือนนี้</h3>
+                  <p className="mt-0.5 text-[11px] text-v3-text-note">วันที่ดวงคุณส่งเสริมที่สุดในเดือนนี้</p>
+                  <div className="mt-3 flex flex-col gap-2">
+                    {upcoming.map((d, i) => (
+                      <div key={i} className="flex items-center justify-between rounded-[12px] bg-v3-qi-earn-bg px-3 py-2">
+                        <span className="text-[13px] font-medium text-v3-navy">
+                          {d.weekday ? `${d.weekday} ` : ""}{d.dayOfMonth != null ? `${d.dayOfMonth} ${THAI_MONTHS_ABBR[new Date().getMonth()]}` : (d.date ?? "")}
+                        </span>
+                        <span className="text-[12px] font-bold text-v3-qi-earn">
+                          {d.grade ? `วันเกรด${d.grade}` : (d.percent != null ? `${d.percent}%` : "")}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </section>
+              )
+            })()}
 
             {/* เส้นทางชีวิต (Life Path) — recharts + แท็บ ทั้งหมด/5ปี/1ปี/1เดือน (Figma 55349:3332) */}
             {lifePath && lifePath.series && <LifePathCard lifePath={lifePath} />}

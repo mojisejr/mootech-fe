@@ -22,7 +22,7 @@ const rowsOf = (r: any): any[] => (Array.isArray(r) ? r : r?.rows ?? [])
 // เวอร์ชันของ "ก้อนผลดวงที่ cache" — bump เมื่อ engine เพิ่ม/แก้ฟิลด์ใน payload (เช่น elementNisai)
 // ต่อเข้า birthKey → ผลเก่าที่ cache ก่อน bump จะ miss แล้วคำนวณใหม่เองทันที ไม่ต้องล้างตาราง cache มือ.
 // v2 (2026-09-11): เพิ่ม elementAnalysis.elementNisai (นิสัย 5 ธาตุ แข็ง/อ่อน) ลงหน้าดวง.
-const CACHE_VERSION = "v4" // v4 2026-09-15: เทพประจำตัว = ชื่อองค์คุ้มครองหลักจริง (engine primaryGuardianDeity แทนชื่อกล่อง)
+const CACHE_VERSION = "v5" // v5 2026-09-16: วันดีเดือนนี้ กรองวันที่ผ่านมาแล้วออก (โชว์เฉพาะวันนี้+ข้างหน้า) · v4 2026-09-15: เทพประจำตัว = ชื่อองค์คุ้มครองหลักจริง
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== "POST") {
@@ -147,8 +147,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   // วันดีเดือนนี้: top 3 วันคะแนนสูงสุดจาก man-vs-day (เฉพาะใจความ ไม่เอาทั้งเดือน)
   type MonthDay = { date?: string; dayOfMonth?: number; weekday?: string; overallPercent?: number | null; grade?: string | null }
   const monthVal = val(monthDays) as { days?: MonthDay[] } | null
+  // 2026-09-16 (ผู้ใช้ขอ): ไม่โชว์วันที่ผ่านมาแล้ว — คัดเฉพาะวันนี้+วันข้างหน้าก่อนเลือก top 3 เพื่อให้ "วันดีเดือนนี้"
+  // เป็นวันที่กดใช้ได้จริง (FE ยังกรองซ้ำด้วยวันปัจจุบันสด กัน cache รายเดือนค้างวันเก่า)
+  const todayBkk = new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Bangkok" })
   const goodDays = (Array.isArray(monthVal?.days) ? monthVal!.days! : [])
     .filter((d) => typeof d.overallPercent === "number")
+    .filter((d) => typeof d.date === "string" && d.date >= todayBkk)
     .sort((a, b) => (b.overallPercent as number) - (a.overallPercent as number))
     .slice(0, 3)
     .map((d) => ({ date: d.date ?? null, dayOfMonth: d.dayOfMonth ?? null, weekday: d.weekday ?? null, percent: d.overallPercent ?? null, grade: d.grade ?? null }))
