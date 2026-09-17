@@ -502,23 +502,22 @@ function PredictionCard({ summary, prediction, cautions, occupations, corePerson
     if (!a) return summary.tagline
     return typeof a === "string" ? a : a.text ?? summary.tagline
   }
-  // นิสัย/บุคลิกเสาวัน แยก 3 ส่วนจาก engine (ซินแสนุ้ย): ก้าน(บุคลิกพื้นฐาน) / กิ่ง(นิสัยพื้นฐาน) / เสาเต็ม(เฉพาะตน).
-  // มีครบเมื่อ engine ส่ง corePersona มา; ไม่ครบ → fallback blob เดิม (personality/habit) เพื่อไม่ให้ว่าง.
+  // นิสัย/บุคลิกเสาวัน = การ์ดเดียว (ซินแสนุ้ย 2026-09-17: "รวมกันอันเดียว ไม่ต้องแยก") แต่ข้างในไล่ 3 ส่วน
+  // จาก engine: ก้าน(บุคลิกพื้นฐาน) / กิ่ง(นิสัยพื้นฐาน) / เสาเต็ม(เฉพาะตน). ไม่ครบ → fallback blob เดิม.
   const code = corePersona?.code ?? ""
   const [stemCh, branchCh] = Array.from(code)
-  const personaBlocks =
+  const personaParts =
     corePersona?.heavenNarrative && corePersona?.earthNarrative && corePersona?.narrative
       ? [
-          { title: `บุคลิกพื้นฐาน${stemCh ? ` · ก้านวัน ${stemCh}` : ""}`, text: corePersona.heavenNarrative },
-          { title: `นิสัยพื้นฐาน${branchCh ? ` · กิ่งวัน ${branchCh}` : ""}`, text: corePersona.earthNarrative },
-          { title: `บุคลิก/นิสัยเฉพาะตน${code ? ` · ${code}` : ""}`, text: corePersona.narrative },
+          { label: `บุคลิกพื้นฐาน${stemCh ? ` · ก้านวัน ${stemCh}` : ""}`, text: corePersona.heavenNarrative },
+          { label: `นิสัยพื้นฐาน${branchCh ? ` · กิ่งวัน ${branchCh}` : ""}`, text: corePersona.earthNarrative },
+          { label: `บุคลิก/นิสัยเฉพาะตน${code ? ` · ${code}` : ""}`, text: corePersona.narrative },
         ]
       : [
-          { title: "บุคลิกพื้นฐาน", text: prediction?.personality || summary.tagline },
-          { title: "นิสัย", text: prediction?.habit || summary.traits?.join(" · ") || summary.tagline },
+          { label: "บุคลิกพื้นฐาน", text: prediction?.personality || summary.tagline },
+          { label: "นิสัย", text: prediction?.habit || summary.traits?.join(" · ") || summary.tagline },
         ]
   const blocks = [
-    ...personaBlocks,
     { title: "ความรัก", text: prediction?.love || adviceText(0) },
     { title: "การเรียน/การทำงาน", text: prediction?.work || adviceText(1) },
   ]
@@ -530,6 +529,18 @@ function PredictionCard({ summary, prediction, cautions, occupations, corePerson
       <SectionHeader title="ทำนายพื้นฐาน" open={open} onToggle={() => setOpen((v) => !v)} />
       {open && (
         <div className="mt-4 flex flex-col gap-4">
+          {/* นิสัย · บุคลิก — การ์ดเดียว ไล่ 3 ส่วน (ก้าน/กิ่ง/เสาเต็ม) */}
+          <div className="rounded-[20px] bg-[#ecf0fd] p-[18px]" data-testid="destiny-persona">
+            <p className="text-[18px] font-bold leading-6 text-v3-navy">นิสัย · บุคลิก</p>
+            <div className="mt-3 flex flex-col gap-3">
+              {personaParts.map((part) => (
+                <div key={part.label}>
+                  <p className="text-[15px] font-bold leading-5 text-v3-navy">{part.label}</p>
+                  <p className="mt-1 text-[14px] leading-[21px] text-[#888]">{stripMd(part.text)}</p>
+                </div>
+              ))}
+            </div>
+          </div>
           {blocks.map((b) => (
             <div key={b.title} className="rounded-[20px] bg-[#ecf0fd] p-[18px]">
               <p className="text-[18px] font-bold leading-6 text-v3-navy">{b.title}</p>
