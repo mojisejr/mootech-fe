@@ -99,6 +99,11 @@ export type DestinyData = {
       heavenNarrative?: string | null
       earthNarrative?: string | null
     } | null
+    /**
+     * บุคลิกพื้นฐาน (ราศีบน) ต้องใช้เวอร์ชัน "ดิถีแข็ง/อ่อน" ของก้านวัน (10 ก้าน × แข็ง-อ่อน) ตามซินแสนุ้ย
+     * 2026-09-17 — ไม่ใช่ ราศีบน จาก 60 กะจื่อ. narrative นี้อิงความแข็ง/อ่อนของดิถีจริง.
+     */
+    dayMasterStrengthProfile?: { narrative?: string | null } | null
   } | null
   // อาชีพ/การเงิน จากตาราง B (用神): doElement = ธาตุที่ "ควรทำ" อาชีพ (ธาตุที่ควรเสริม ไม่ใช่ธาตุประจำตัว)
   careerFinance?: {
@@ -494,7 +499,7 @@ function stripMd(s: string | null | undefined): string {
 
 // การ์ด "ทำนายพื้นฐาน" (collapsible): บุคลิก/นิสัย/ความรัก/การเรียน + อาชีพเด่น + ข้อควรระวัง
 type CorePersona = NonNullable<NonNullable<DestinyData["calculatedState"]>["sixtyJiaziCorePersona"]>
-function PredictionCard({ summary, prediction, cautions, occupations, corePersona }: { summary: ElementSummary; prediction?: Prediction | null; cautions?: string[] | null; occupations?: string[]; corePersona?: CorePersona | null }) {
+function PredictionCard({ summary, prediction, cautions, occupations, corePersona, dayMasterNarrative }: { summary: ElementSummary; prediction?: Prediction | null; cautions?: string[] | null; occupations?: string[]; corePersona?: CorePersona | null; dayMasterNarrative?: string | null }) {
   const [open, setOpen] = useState(true)
   // ใช้คำทำนายจริงจาก engine (newdata-reading chapters); ถ้าไม่มี → fallback element-summary
   const adviceText = (i: number): string => {
@@ -506,10 +511,12 @@ function PredictionCard({ summary, prediction, cautions, occupations, corePerson
   // จาก engine: ก้าน(บุคลิกพื้นฐาน) / กิ่ง(นิสัยพื้นฐาน) / เสาเต็ม(เฉพาะตน). ไม่ครบ → fallback blob เดิม.
   const code = corePersona?.code ?? ""
   const [stemCh, branchCh] = Array.from(code)
+  // บุคลิกพื้นฐาน (ราศีบน) = ก้านวันเวอร์ชันแข็ง/อ่อน (dayMasterStrengthProfile) ก่อน — ตกไป heavenNarrative
+  const basePersonalityText = dayMasterNarrative || corePersona?.heavenNarrative
   const personaParts =
-    corePersona?.heavenNarrative && corePersona?.earthNarrative && corePersona?.narrative
+    basePersonalityText && corePersona?.earthNarrative && corePersona?.narrative
       ? [
-          { label: `บุคลิกพื้นฐาน${stemCh ? ` · ก้านวัน ${stemCh}` : ""}`, text: corePersona.heavenNarrative },
+          { label: `บุคลิกพื้นฐาน${stemCh ? ` · ก้านวัน ${stemCh}` : ""}`, text: basePersonalityText },
           { label: `นิสัยพื้นฐาน${branchCh ? ` · กิ่งวัน ${branchCh}` : ""}`, text: corePersona.earthNarrative },
           { label: `บุคลิก/นิสัยเฉพาะตน${code ? ` · ${code}` : ""}`, text: corePersona.narrative },
         ]
@@ -1006,6 +1013,7 @@ export function DestinyScreen({ previewData }: { previewData?: DestinyData } = {
                 cautions={cautionList}
                 occupations={ELEMENT_CAREERS[careerDoElement] ?? []}
                 corePersona={data?.calculatedState?.sixtyJiaziCorePersona ?? null}
+                dayMasterNarrative={data?.calculatedState?.dayMasterStrengthProfile?.narrative ?? null}
               />
             )}
 
