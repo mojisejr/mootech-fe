@@ -68,6 +68,8 @@ const FIXTURE = {
       earthNarrative: "กิ่งวันน้ำ — persona-earth-จื้อ",
       narrative: "เสาเต็ม 甲子 — persona-combined-เฉพาะตน",
     },
+    // บุคลิกพื้นฐานต้องใช้ตัวนี้ (ก้านวันแข็ง/อ่อน) แทน heavenNarrative
+    dayMasterStrengthProfile: { narrative: "ก้านวันแข็ง/อ่อน — persona-strength-ราศีบน" },
   },
 }
 
@@ -128,7 +130,9 @@ describe("DestinyScreen (ดวงฉัน, node 55349-3070)", () => {
     // 3 ส่วนแยกชัด พร้อมตัวจีนกำกับ ก้าน 甲 / กิ่ง 子 / เสาเต็ม 甲子
     expect(card.textContent).toContain("บุคลิกพื้นฐาน")
     expect(card.textContent).toContain("ก้านวัน 甲")
-    expect(card.textContent).toContain("persona-heaven-กะ")
+    // บุคลิกพื้นฐาน = ก้านวันแข็ง/อ่อน (dayMasterStrengthProfile), NOT the 60-jiazi heavenNarrative
+    expect(card.textContent).toContain("persona-strength-ราศีบน")
+    expect(card.textContent).not.toContain("persona-heaven-กะ")
     expect(card.textContent).toContain("นิสัยพื้นฐาน")
     expect(card.textContent).toContain("กิ่งวัน 子")
     expect(card.textContent).toContain("persona-earth-จื้อ")
