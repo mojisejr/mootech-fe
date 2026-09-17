@@ -89,6 +89,16 @@ export type DestinyData = {
       /** นิสัย 5 ธาตุ แข็ง/อ่อน ต่อธาตุ (engine เป็นแหล่งเดียว — nisai-by-element) */
       elementNisai?: { element: string; tier: "strong" | "weak"; text: string }[]
     }
+    /**
+     * นิสัย/บุคลิกเสาวัน 3 ส่วน (ซินแสนุ้ย 2026-09-17): แยก ก้าน(บุคลิกพื้นฐาน) / กิ่ง(นิสัยพื้นฐาน) /
+     * เสาเต็ม(เฉพาะตน) จาก engine โดยตรง แทน blob เดียวที่ซ้ำกัน. code เช่น "甲午".
+     */
+    sixtyJiaziCorePersona?: {
+      code?: string | null
+      narrative?: string | null
+      heavenNarrative?: string | null
+      earthNarrative?: string | null
+    } | null
   } | null
   // อาชีพ/การเงิน จากตาราง B (用神): doElement = ธาตุที่ "ควรทำ" อาชีพ (ธาตุที่ควรเสริม ไม่ใช่ธาตุประจำตัว)
   careerFinance?: {
@@ -483,7 +493,8 @@ function stripMd(s: string | null | undefined): string {
 }
 
 // การ์ด "ทำนายพื้นฐาน" (collapsible): บุคลิก/นิสัย/ความรัก/การเรียน + อาชีพเด่น + ข้อควรระวัง
-function PredictionCard({ summary, prediction, cautions, occupations }: { summary: ElementSummary; prediction?: Prediction | null; cautions?: string[] | null; occupations?: string[] }) {
+type CorePersona = NonNullable<NonNullable<DestinyData["calculatedState"]>["sixtyJiaziCorePersona"]>
+function PredictionCard({ summary, prediction, cautions, occupations, corePersona }: { summary: ElementSummary; prediction?: Prediction | null; cautions?: string[] | null; occupations?: string[]; corePersona?: CorePersona | null }) {
   const [open, setOpen] = useState(true)
   // ใช้คำทำนายจริงจาก engine (newdata-reading chapters); ถ้าไม่มี → fallback element-summary
   const adviceText = (i: number): string => {
@@ -491,9 +502,23 @@ function PredictionCard({ summary, prediction, cautions, occupations }: { summar
     if (!a) return summary.tagline
     return typeof a === "string" ? a : a.text ?? summary.tagline
   }
+  // นิสัย/บุคลิกเสาวัน แยก 3 ส่วนจาก engine (ซินแสนุ้ย): ก้าน(บุคลิกพื้นฐาน) / กิ่ง(นิสัยพื้นฐาน) / เสาเต็ม(เฉพาะตน).
+  // มีครบเมื่อ engine ส่ง corePersona มา; ไม่ครบ → fallback blob เดิม (personality/habit) เพื่อไม่ให้ว่าง.
+  const code = corePersona?.code ?? ""
+  const [stemCh, branchCh] = Array.from(code)
+  const personaBlocks =
+    corePersona?.heavenNarrative && corePersona?.earthNarrative && corePersona?.narrative
+      ? [
+          { title: `บุคลิกพื้นฐาน${stemCh ? ` · ก้านวัน ${stemCh}` : ""}`, text: corePersona.heavenNarrative },
+          { title: `นิสัยพื้นฐาน${branchCh ? ` · กิ่งวัน ${branchCh}` : ""}`, text: corePersona.earthNarrative },
+          { title: `บุคลิก/นิสัยเฉพาะตน${code ? ` · ${code}` : ""}`, text: corePersona.narrative },
+        ]
+      : [
+          { title: "บุคลิกพื้นฐาน", text: prediction?.personality || summary.tagline },
+          { title: "นิสัย", text: prediction?.habit || summary.traits?.join(" · ") || summary.tagline },
+        ]
   const blocks = [
-    { title: "บุคลิกพื้นฐาน", text: prediction?.personality || summary.tagline },
-    { title: "นิสัย", text: prediction?.habit || summary.traits?.join(" · ") || summary.tagline },
+    ...personaBlocks,
     { title: "ความรัก", text: prediction?.love || adviceText(0) },
     { title: "การเรียน/การทำงาน", text: prediction?.work || adviceText(1) },
   ]
@@ -969,6 +994,7 @@ export function DestinyScreen({ previewData }: { previewData?: DestinyData } = {
                 prediction={data?.prediction ?? null}
                 cautions={cautionList}
                 occupations={ELEMENT_CAREERS[careerDoElement] ?? []}
+                corePersona={data?.calculatedState?.sixtyJiaziCorePersona ?? null}
               />
             )}
 
