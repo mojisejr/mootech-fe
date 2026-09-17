@@ -62,6 +62,12 @@ const FIXTURE = {
         { element: "water", tier: "weak", text: "สติปัญญา — weak-water" },
       ],
     },
+    sixtyJiaziCorePersona: {
+      code: "甲子",
+      heavenNarrative: "ก้านวันไม้ใหญ่ — persona-heaven-กะ",
+      earthNarrative: "กิ่งวันน้ำ — persona-earth-จื้อ",
+      narrative: "เสาเต็ม 甲子 — persona-combined-เฉพาะตน",
+    },
   },
 }
 
@@ -114,6 +120,22 @@ describe("DestinyScreen (ดวงฉัน, node 55349-3070)", () => {
     expect(screen.getByTestId("destiny-nisai-wood").textContent).toContain("strong-wood")
     expect(screen.getByTestId("destiny-nisai-fire").textContent).toContain("weak-fire")
     expect(screen.getByTestId("destiny-nisai-water").textContent).toContain("weak-water")
+  })
+
+  it("ทำนายพื้นฐาน: นิสัยเสาวันแยก 3 ส่วน ก้าน/กิ่ง/เสาเต็ม จาก engine (ซินแสนุ้ย)", async () => {
+    await mountScreen()
+    const card = screen.getByTestId("destiny-prediction")
+    // 3 ส่วนแยกชัด พร้อมตัวจีนกำกับ ก้าน 甲 / กิ่ง 子 / เสาเต็ม 甲子
+    expect(card.textContent).toContain("บุคลิกพื้นฐาน")
+    expect(card.textContent).toContain("ก้านวัน 甲")
+    expect(card.textContent).toContain("persona-heaven-กะ")
+    expect(card.textContent).toContain("นิสัยพื้นฐาน")
+    expect(card.textContent).toContain("กิ่งวัน 子")
+    expect(card.textContent).toContain("persona-earth-จื้อ")
+    expect(card.textContent).toContain("บุคลิก/นิสัยเฉพาะตน")
+    expect(card.textContent).toContain("persona-combined-เฉพาะตน")
+    // เลี่ยงคำว่า "พฤติกรรม" ตามที่ซินแสนุ้ยขอ
+    expect(card.textContent).not.toContain("พฤติกรรม")
   })
 
   it("Life Path: การ์ด + กราฟ + แท็บช่วงเวลา (D4)", async () => {
