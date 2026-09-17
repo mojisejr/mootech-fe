@@ -107,12 +107,31 @@ const DISCLAIMER_LINES = [
   "ไม่สามารถใช้แทนคำแนะนำทางการแพทย์ หรือคำแนะนำทางการเงินได้",
 ]
 
-function TypingDots() {
+// ข้อความ "กำลังจะตอบ" แบบซินแส — สลับไปเรื่อย ๆ ให้รู้ว่ามู่/มี่กำลังทำอะไร (ไม่ใช่แค่จุดเด้งเฉย ๆ)
+const TYPING_PHRASES = [
+  "กำลังดูจังหวะให้อยู่",
+  "ขอเปิดผังดวงแป๊บ",
+  "กำลังพลิกดวงให้",
+  "ขอตรวจปีจร-เดือนจรก่อน",
+  "กำลังจับจุดให้ตรงประเด็น",
+]
+
+function TypingDots({ personaName }: { personaName?: string }) {
+  const [idx, setIdx] = useState(0)
+  useEffect(() => {
+    const id = setInterval(() => setIdx((v) => (v + 1) % TYPING_PHRASES.length), 2200)
+    return () => clearInterval(id)
+  }, [])
+  const phrase = personaName ? `${personaName}${TYPING_PHRASES[idx]}` : TYPING_PHRASES[idx]
   return (
-    <span className="inline-flex items-center gap-1 py-1" data-testid="chat-typing">
-      <span className="h-[6px] w-[6px] animate-bounce rounded-full bg-v3-sapphire/50 [animation-delay:-0.2s]" />
-      <span className="h-[6px] w-[6px] animate-bounce rounded-full bg-v3-sapphire/50 [animation-delay:-0.1s]" />
-      <span className="h-[6px] w-[6px] animate-bounce rounded-full bg-v3-sapphire/50" />
+    <span className="inline-flex items-center gap-1.5 py-1 text-[13px] text-v3-navy/70" data-testid="chat-typing">
+      <span aria-hidden className="text-[15px] leading-none animate-pulse">🔮</span>
+      <span className="transition-opacity duration-300">{phrase}</span>
+      <span className="inline-flex items-center gap-0.5">
+        <span className="h-[5px] w-[5px] animate-bounce rounded-full bg-v3-sapphire/60 [animation-delay:-0.2s]" />
+        <span className="h-[5px] w-[5px] animate-bounce rounded-full bg-v3-sapphire/60 [animation-delay:-0.1s]" />
+        <span className="h-[5px] w-[5px] animate-bounce rounded-full bg-v3-sapphire/60" />
+      </span>
     </span>
   )
 }
@@ -405,7 +424,7 @@ export function ChatScreen() {
             data-testid="chat-capabilities"
             className="text-[12px] font-medium leading-4 text-v3-cyan underline underline-offset-2"
           >
-            {showAllQuestions ? "ซ่อนรายการคำถาม" : "ดูสิ่งที่มิวน้อยทำได้"}
+            {showAllQuestions ? "ซ่อนรายการคำถาม" : "คำแนะนำ"}
           </button>
           <button
             type="button"
@@ -438,7 +457,7 @@ export function ChatScreen() {
                   data-testid="chat-bubble-ai"
                   className="whitespace-pre-line rounded-[18px] border border-[#D88FA9] bg-white px-4 py-3 text-[14px] leading-[22px] text-v3-navy shadow-[0_2px_8px_rgba(11,48,91,0.12),0_1px_4px_rgba(216,143,169,0.35)]"
                 >
-                  {t.loading && !t.content ? <TypingDots /> : t.content}
+                  {t.loading && !t.content ? <TypingDots personaName={activePersona.name} /> : t.content}
                 </div>
                 {!t.loading && t.content.trim() && (
                   <GoodDayReminders answer={t.content} question={turns.slice(0, i).reverse().find((x) => x.role === "user")?.content ?? ""} />
