@@ -75,6 +75,19 @@ UPDATE bazi_newdata_reading               SET client_name = 'client_' || left(id
 UPDATE bazi_newdata_reading_pdf_versions  SET client_name = 'client_' || left(id::text, 8);
 UPDATE bazi_newdata_reading_revisions     SET client_name = 'client_' || left(id::text, 8);
 
+-- ── bazi v2 profile / data-export (2026-09 tables the sweep found unscrubbed — mumate-infra-move slice 1) ──
+-- KEEP gender/birth_date/birth_time/time_unknown/birth_province (engine inputs). Scrub identity + avatar
+-- (avatar_base64 = the real photo bytes; a local placeholder path is not valid here, so NULL it).
+UPDATE bazi_user_profile SET
+  display_name = 'bp_' || left(anon_id, 8),
+  first_name   = 'first_' || left(anon_id, 8),
+  last_name    = 'last_'  || left(anon_id, 8),
+  email        = 'bp_' || left(anon_id, 8) || '@test.local',
+  avatar_base64 = NULL, avatar_mime = NULL
+  WHERE to_regclass('public.bazi_user_profile') IS NOT NULL;
+UPDATE bazi_data_export_request SET email = 'exp_' || left(anon_id, 8) || '@test.local'
+  WHERE to_regclass('public.bazi_data_export_request') IS NOT NULL;
+
 -- ── sacred map: submitter_contact = PII; name/address/deity = public temple info → KEEP ─────────────
 UPDATE bazi_sacred_map_location SET submitter_contact = '(anonymized)';
 

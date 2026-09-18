@@ -1,0 +1,31 @@
+# Nothing that holds a credential or machine-local state may enter the build context. Every env spelling,
+# including the arena's shadow copies (testenv/scripts/stack.sh renames the real .env* to *.testenv-shadowed).
+.env
+.env.*
+!.env.example
+*.testenv-shadowed
+.env.disabled
+testenv/env/*.env
+testenv/.backups
+testenv/dumps
+testenv/certs
+# Produced inside the image.
+node_modules
+.next
+out
+coverage
+test-results
+playwright-report
+tsconfig.tsbuildinfo
+*.log
+# Repository plumbing, evidence and tooling the server never reads at runtime.
+.git
+.github
+.githooks
+.vercel
+.DS_Store
+docs
+e2e
+harness
+assets-src
+*.md

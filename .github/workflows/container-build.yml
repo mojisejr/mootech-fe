@@ -1,0 +1,36 @@
+name: container-build
+# Proves the image still builds from this revision and is hygienic (mumate-infra-move-001 slice 1). Runs
+# scripts/container-smoke.sh --no-db — the SAME script a developer runs locally — so CI and a laptop cannot
+# disagree about what "the image builds" means. The database + maintenance legs need the arena and run
+# locally before a PR is marked ready; CI says so explicitly instead of printing a green it did not earn.
+#
+# 🔴 This is the first live workflow since #321 archived ci.yml (CI minutes are paid — mootech-fe#318). It is
+# path-filtered to container-relevant files only, one job, no image push, no registry login, and it does not
+# replace the .githooks/pre-push lane. Pushing images is the control room's job (slice 2), not this repo's.
+# The postbuild gates inside the image build see CI=true: check-omise-key-inlined.sh therefore needs a value
+# and gets a test-shaped placeholder from the smoke script — it proves the SHAPE inlines, not a deploy key.
+on:
+  pull_request:
+    paths:
+      - Dockerfile
+      - .dockerignore
+      - next.config.mjs
+      - package.json
+      - package-lock.json
+      - pages/api/health.ts
+      - scripts/container-smoke.sh
+      - .github/workflows/container-build.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  image:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - name: build + hygiene (no database in CI)
+        run: bash scripts/container-smoke.sh --no-db
