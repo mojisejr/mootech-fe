@@ -319,6 +319,7 @@ export default defineConfig({
       'scripts/ops-calculator-usage.test.ts', // #334 migrated tsx-lane→vitest
       'scripts/ops-gate.test.ts', // #334 migrated tsx-lane→vitest
       'scripts/ops-health.test.ts', // #334 migrated tsx-lane→vitest
+      'scripts/health-route.test.ts', // mumate-infra-move-001 slice 1 — /api/health is a real DB round trip, never a constant
       'scripts/ops-metrics.test.ts', // #334 migrated tsx-lane→vitest
       'scripts/ops-pr56-ai-quota.test.ts', // #334 migrated tsx-lane→vitest
       'scripts/ops-pr56-points-breakdown.test.ts', // #334 migrated tsx-lane→vitest

@@ -1,58 +1,72 @@
-# Install dependencies only when needed
-FROM node:20-alpine AS deps
-ARG NODE_ENV
-# Check https://github.com/nodejs/docker-node/tree/b4117f9333da4138b03a546ec926ef50a31506c3#nodealpine to understand why libc6-compat might be needed.
-RUN apk add --no-cache libc6-compat
+# syntax=docker/dockerfile:1.7
+# mootech-fe — the Next 14 (Pages Router) app Vercel serves today, as a reproducible standalone image
+# (mumate-infra-move-001 slice 1). Replaces the 2025 Dockerfile that COPYed `.env.${NODE_ENV}` into the image.
+#
+#   • Base pinned by digest to node:22, Debian slim (glibc, like Vercel's runtime).
+#   • `next build` runs with NEXT_OUTPUT_STANDALONE=1 (next.config.mjs) — the Vercel build is untouched.
+#   • BUILD ARGUMENTS ARE THE PUBLIC VALUES NEXT INLINES AT BUILD TIME and nothing else: NEXT_PUBLIC_* (client
+#     bundle) and NEXTAUTH_URL / ENVIRONMENT / HOST (next.config.mjs publicRuntimeConfig — the v1 refer link is
+#     built from NEXTAUTH_URL). The same values are set on Vercel at build time today. None is a secret; every
+#     secret (DATABASE_URL, NEXTAUTH_SECRET, …) reaches the process only through the runtime environment.
+#   • The repo's postbuild gates still run inside the build: check-vapid-not-leaked.sh (placeholder tracer, must
+#     be ABSENT from the bundle) and check-omise-key-inlined.sh (if NEXT_PUBLIC_OMISE_KEY_V2 is given it must be
+#     PRESENT; with no key and no CI/VERCEL env it skips LOUDLY — read the build log).
+#   • No env file is ever COPYed (.dockerignore). APP_GIT_SHA names the built revision through /api/health.
+#
+# Build:  docker build --build-arg APP_GIT_SHA=$(git rev-parse HEAD) --build-arg NEXTAUTH_URL=https://… \
+#           --build-arg NEXT_PUBLIC_BACKEND_URL=https://… [--build-arg NEXT_PUBLIC_OMISE_KEY_V2=pkey_…] -t mootech-fe:local .
+# Smoke:  bash scripts/container-smoke.sh   (builds, hygiene, /api/health db, maintenance gate on the image)
+
+ARG BASE=node:22.23.2-bookworm-slim@sha256:83f487e0a63425e5b4d146fb5e5be574bcbe1b7b843d3ebafdd95eaf7767a7e5
+
+# ── deps ──────────────────────────────────────────────────────────────────────────────────────────────────────
+FROM ${BASE} AS deps
 WORKDIR /app
-# COPY package.json yarn.lock ./
 COPY package.json package-lock.json ./
+COPY scripts/install-git-hooks.sh ./scripts/install-git-hooks.sh
+RUN npm ci --no-audit --no-fund
 
-
-
-# RUN yarn install --frozen-lockfile
-RUN npm ci
-# fixes: Another stage to copy some files error - Container ID 166536 cannot be mapped to a host ID
-# ref: https://github.com/phusion/passenger-docker/issues/235
-RUN chown -R root:root *
-
-# Rebuild the source code only when needed
-FROM node:20-alpine  AS builder
+# ── builder ───────────────────────────────────────────────────────────────────────────────────────────────────
+FROM ${BASE} AS builder
 WORKDIR /app
-COPY . .
+ARG NEXTAUTH_URL=http://localhost:3000
+ARG ENVIRONMENT=production
+ARG HOST=
+ARG NEXT_PUBLIC_BACKEND_URL=http://localhost:4000
+ARG NEXT_PUBLIC_OMISE_KEY=
+ARG NEXT_PUBLIC_OMISE_KEY_V2=
+ARG NEXT_PUBLIC_ENABLE_CHAT=
+ARG NEXT_PUBLIC_VAPID_PUBLIC_KEY=
+ARG NEXT_PUBLIC_WHATIF_API_URL=
+ENV NEXT_TELEMETRY_DISABLED=1 \
+    NEXT_OUTPUT_STANDALONE=1 \
+    NEXTAUTH_URL=${NEXTAUTH_URL} \
+    ENVIRONMENT=${ENVIRONMENT} \
+    HOST=${HOST} \
+    NEXT_PUBLIC_BACKEND_URL=${NEXT_PUBLIC_BACKEND_URL} \
+    NEXT_PUBLIC_OMISE_KEY=${NEXT_PUBLIC_OMISE_KEY} \
+    NEXT_PUBLIC_OMISE_KEY_V2=${NEXT_PUBLIC_OMISE_KEY_V2} \
+    NEXT_PUBLIC_ENABLE_CHAT=${NEXT_PUBLIC_ENABLE_CHAT} \
+    NEXT_PUBLIC_VAPID_PUBLIC_KEY=${NEXT_PUBLIC_VAPID_PUBLIC_KEY} \
+    NEXT_PUBLIC_WHATIF_API_URL=${NEXT_PUBLIC_WHATIF_API_URL}
 COPY --from=deps /app/node_modules ./node_modules
+COPY . .
+RUN npm run build
 
-# Copy the appropriate .env file based on the environment
-# This assumes you will pass the environment variable at runtime
-ARG NODE_ENV
-COPY .env.${NODE_ENV} ./.env
-
-# RUN yarn build && yarn install --production --ignore-scripts --prefer-offline
-RUN npm run build && npm install --production --ignore-scripts --prefer-offline
-
-# Production image, copy all the files and run next
-FROM node:20-alpine AS runner
-ARG NODE_ENV
+# ── runner ────────────────────────────────────────────────────────────────────────────────────────────────────
+FROM ${BASE} AS runner
+ARG APP_GIT_SHA=unknown
+ENV NODE_ENV=production \
+    NEXT_TELEMETRY_DISABLED=1 \
+    APP_GIT_SHA=${APP_GIT_SHA} \
+    HOSTNAME=0.0.0.0 \
+    PORT=3000
 WORKDIR /app
-
-RUN addgroup -g 1001 -S nodejs
-RUN adduser -S nextjs -u 1001
-
-# You only need to copy next.config.js if you are NOT using the default configuration
-COPY --from=builder /app/next.config.mjs ./
-COPY --from=builder /app/public ./public
-COPY --from=builder --chown=nextjs:nodejs /app/.next ./.next
-COPY --from=builder /app/node_modules ./node_modules
-COPY --from=builder /app/package.json ./package.json
-COPY --from=builder /app/.env ./.env
-
-USER nextjs
-
+COPY --from=builder --chown=node:node /app/.next/standalone ./
+COPY --from=builder --chown=node:node /app/.next/static ./.next/static
+COPY --from=builder --chown=node:node /app/public ./public
+USER node
 EXPOSE 3000
-
-# Next.js collects completely anonymous telemetry data about general usage.
-# Learn more here: https://nextjs.org/telemetry
-# Uncomment the following line in case you want to disable telemetry.
-ENV NEXT_TELEMETRY_DISABLED 1
-
-# CMD ["yarn", "start"]
-CMD ["npm", "run", "start"]
+HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 \
+  CMD node -e "fetch('http://127.0.0.1:'+(process.env.PORT||3000)+'/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
+CMD ["node", "server.js"]
