@@ -31,8 +31,16 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     placeName?: string
     deity?: string
     dateTimeLabel?: string
+    gates?: unknown
+    gods?: unknown
+    title?: string
   }
   const topic = typeof body?.topic === "string" && TOPICS.has(body.topic) ? body.topic : "general"
+  // โหมดเจาะจงประตู/เทพ (ปุ่มในป๊อปอัพประตู) — รับ array อักษรจีนสั้น ๆ เท่านั้น
+  const glyphs = (v: unknown): string[] | undefined =>
+    Array.isArray(v) ? v.filter((x): x is string => typeof x === "string" && x.length > 0 && x.length <= 4).slice(0, 4) : undefined
+  const gates = glyphs(body?.gates)
+  const gods = glyphs(body?.gods)
 
   // resolve birth SERVER-SIDE (immutable) — optional: prayer works without it
   let feInput: FeCalcInput | null = null
@@ -61,6 +69,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         placeName: typeof body?.placeName === "string" ? body.placeName.slice(0, 120) : undefined,
         deity: typeof body?.deity === "string" ? body.deity.slice(0, 120) : undefined,
         dateTimeLabel: typeof body?.dateTimeLabel === "string" ? body.dateTimeLabel.slice(0, 120) : undefined,
+        gates,
+        gods,
+        title: typeof body?.title === "string" ? body.title.slice(0, 120) : undefined,
       }),
     })
     const json = await upstream.json().catch(() => null)
