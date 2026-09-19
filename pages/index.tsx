@@ -30,6 +30,12 @@ import { CalculatorHomeExperience } from '@/components/calculator/CalculatorHome
 // it in getServerSideProps exactly like /calculator does — otherwise the first compute POST from the
 // homepage would be rejected.
 export const getServerSideProps: GetServerSideProps = async (ctx) => {
+  // #606 step 3 — after launch (V2_PREVIEW_KEY removed) the app IS /v2, so the root landing redirects
+  // there. Kept at page level, not middleware, so it never affects the gate/maintenance routing tests.
+  // Only reached when maintenance is off (middleware rewrites "/" to /maintenance while it is on).
+  if (!process.env.V2_PREVIEW_KEY) {
+    return { redirect: { destination: '/v2', permanent: false } }
+  }
   const nonce = issueNonce()
   ctx.res.setHeader('Set-Cookie', `${NONCE_COOKIE}=${nonce}; HttpOnly; Path=/; SameSite=Lax; Secure; Max-Age=600`)
   return { props: {} }

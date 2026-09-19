@@ -44,9 +44,10 @@ describe.each(PAGES)('pages/v2/$name — SENDS teamPreview from the gate (#225 c
     vi.stubEnv('V2_PREVIEW_KEY', KEY)
     expect(await gssp(ctx({}))).toEqual(REDIRECT_TO_GATE)
   })
-  // fail-closed: unconfigured passkey ⇒ nobody is a team member ⇒ redirect, so ?tier= dies at launch.
-  it('fail-closed: V2_PREVIEW_KEY unset + cookie present → redirect (self-death at launch)', async () => {
+  // #606 launch: unset key OPENS access, so the page now RENDERS — but the tier override still dies,
+  // because teamPreview comes from isV2TeamPreview which is false once the key is gone (?tier= can't move it).
+  it('launched: V2_PREVIEW_KEY unset → renders with teamPreview:false (?tier= dies at launch, access open)', async () => {
     vi.stubEnv('V2_PREVIEW_KEY', undefined)
-    expect(await gssp(ctx({ [V2_COOKIE]: KEY }))).toEqual(REDIRECT_TO_GATE)
+    expect(await gssp(ctx({ [V2_COOKIE]: KEY }))).toEqual({ props: { teamPreview: false } })
   })
 })
