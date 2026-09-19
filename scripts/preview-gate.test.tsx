@@ -19,7 +19,7 @@
 //   • revert a page to the old `notFound` guard → its "authed on prod → props" test goes RED.
 // That is the closing criterion — the guard must live at the call site, not just in the helper.
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { isV2Authenticated, v2RedirectIfUnauthed, V2_COOKIE } from '../lib/v2/gate'
+import { isV2Authenticated, isV2TeamPreview, v2RedirectIfUnauthed, V2_COOKIE } from '../lib/v2/gate'
 
 // The 3 pages under test — invoke the ACTUAL exported getServerSideProps (call-site teeth).
 import { getServerSideProps as firstRunGSSP } from '../pages/v2/first-run-preview'
@@ -50,23 +50,27 @@ describe('lib/v2/gate — isV2Authenticated / v2RedirectIfUnauthed', () => {
     vi.stubEnv('V2_PREVIEW_KEY', KEY)
     expect(isV2Authenticated({ cookies: {} })).toBe(false)
   })
-  // 🔴 fail-closed TEETH (ตู๋ #224): V2_PREVIEW_KEY must be truly UNSET (undefined), not '' — with an
-  // empty string the strict `cookie === ''` already returns false, so removing `if (!key)` in gate.ts
-  // stays green (no teeth). The case the guard actually protects is UNSET + NO cookie: both sides are
-  // `undefined`, so `req.cookies?.[V2_COOKIE] === key` is `undefined === undefined` → true → an
-  // UNCONFIGURED preview would authenticate everyone. Mutant: delete `if (!key) return false` → RED.
-  it('fail-closed TEETH: V2_PREVIEW_KEY unset + NO cookie → false (removing `if (!key)` → undefined===undefined, RED)', () => {
+  // ── #606 LAUNCH CUTOVER semantics: V2_PREVIEW_KEY UNSET = "gate removed = public" ──
+  // (was fail-closed pre-launch; owner confirmed 2026-09-13 payments are LIVE/proven, so unset now opens.)
+  it('launched: V2_PREVIEW_KEY unset + NO cookie → ACCESS true (site is public)', () => {
     vi.stubEnv('V2_PREVIEW_KEY', undefined)
-    expect(isV2Authenticated({ cookies: {} })).toBe(false)
+    expect(isV2Authenticated({ cookies: {} })).toBe(true)
   })
-  it('fail-closed: V2_PREVIEW_KEY unset → false even WITH a cookie (a stale cookie must not survive de-config)', () => {
+  // 🔴 THE SAFETY TEETH (#605): opening ACCESS must NOT open the team-tier `?tier=` override. Once the
+  // key is unset, isV2TeamPreview must be false for EVERYONE — else any public visitor could preview paid
+  // features for free. Mutant: make isV2TeamPreview delegate to isV2Authenticated again → RED.
+  it('launched TEETH: V2_PREVIEW_KEY unset → team-tier override FALSE even WITH a stale cookie', () => {
     vi.stubEnv('V2_PREVIEW_KEY', undefined)
-    expect(isV2Authenticated({ cookies: { [V2_COOKIE]: KEY } })).toBe(false)
+    expect(isV2TeamPreview({ cookies: { [V2_COOKIE]: KEY } })).toBe(false)
   })
-  // and the page-level consequence of the same hole: unconfigured + no cookie must REDIRECT, not render.
-  it('fail-closed TEETH (page): key unset + no cookie → redirect (not null)', () => {
+  it('pre-launch: key SET + matching cookie → team-tier override TRUE', () => {
+    vi.stubEnv('V2_PREVIEW_KEY', KEY)
+    expect(isV2TeamPreview({ cookies: { [V2_COOKIE]: KEY } })).toBe(true)
+  })
+  // page-level consequence: once launched, an unauthenticated visitor RENDERS (no redirect).
+  it('launched (page): key unset + no cookie → null (renders, not redirect)', () => {
     vi.stubEnv('V2_PREVIEW_KEY', undefined)
-    expect(v2RedirectIfUnauthed({ cookies: {} })).toEqual(REDIRECT_TO_GATE)
+    expect(v2RedirectIfUnauthed({ cookies: {} })).toBe(null)
   })
   it('v2RedirectIfUnauthed: authed → null (no redirect)', () => {
     vi.stubEnv('V2_PREVIEW_KEY', KEY)

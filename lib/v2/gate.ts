@@ -7,15 +7,24 @@
 // dropdown / DB lookup / Discord ping like /ops has. If per-user tracking is wanted later, it can be
 // layered on without changing the gate's shape.
 import type { NextApiRequest } from 'next'
+import { safeEqual } from '@/lib/security/constant-time'
 
 export const V2_COOKIE = 'v2_access'
 
+// #606 launch cutover: this is the ACCESS gate (may this request see /v2 at all).
+//   V2_PREVIEW_KEY SET   -> pre-launch: team-only (cookie must match). Behaviour unchanged.
+//   V2_PREVIEW_KEY UNSET -> launched: OPEN to everyone. This is the one-variable go-live.
+// ⚠️ This deliberately reverses the old "fail closed when unset" default — that was the pre-launch
+// safety while Omise was in test mode (#605). Owner confirmed 2026-09-13 payments run LIVE and are
+// proven, so unset now means "gate removed = public", matching guardV2 in middleware.ts (which already
+// returns null when the key is unset). ACCESS opening does NOT grant the team-tier override — that is a
+// SEPARATE privilege in isV2TeamPreview below, which stays closed for the public at launch.
 export function isV2Authenticated(
   req: NextApiRequest | { cookies: Partial<Record<string, string>> },
 ): boolean {
   const key = process.env.V2_PREVIEW_KEY
-  if (!key) return false // fail closed: unconfigured = preview does not exist
-  return req.cookies?.[V2_COOKIE] === key
+  if (!key) return true // launched: gate removed -> open to everyone
+  return safeEqual(req.cookies?.[V2_COOKIE], key)
 }
 
 // getServerSideProps guard for v2 pages OTHER than /v2 itself: redirect to the gate when the cookie
@@ -36,10 +45,17 @@ export function v2RedirectIfUnauthed(
 // cookie which client JS cannot read or forge. And it self-destructs at launch — remove V2_PREVIEW_KEY
 // and isV2Authenticated → false → the page's v2RedirectIfUnauthed redirects before render, so no request
 // ever reaches the hook with teamPreview=true. Nothing to remember to strip.
+// The team-tier OVERRIDE privilege (may this request use `?tier=` to preview paid/free). This is NOT
+// the same as access: it must stay a real team session and MUST NOT open to the public at launch, or
+// every visitor could preview paid features for free (#605). So it checks the cookie DIRECTLY and, when
+// the key is unset (launched), returns false for everyone — self-destructing exactly as designed, while
+// isV2Authenticated (access) opens. Splitting these two is the whole point of the launch fix.
 export function isV2TeamPreview(
   req: NextApiRequest | { cookies: Partial<Record<string, string>> },
 ): boolean {
-  return isV2Authenticated(req)
+  const key = process.env.V2_PREVIEW_KEY
+  if (!key) return false // launched: nobody gets the team-tier override
+  return safeEqual(req.cookies?.[V2_COOKIE], key)
 }
 
 export function v2CookieHeader(key: string): string {

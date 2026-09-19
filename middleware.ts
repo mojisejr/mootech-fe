@@ -27,6 +27,13 @@ const WHATIF_PLAYED_COOKIE = 'whatif_played';
 //   form when the cookie is missing/invalid. Fail closed: unconfigured = feature hidden.
 const OPS_COOKIE = 'ops_access';
 
+// Launch console gate (#606 go-live button).
+//   LAUNCH_KEY=xxx -> the ONE person who runs the launch (เอ็ม) opens `/launch?key=xxx` once to set a
+//   cookie and reach the launch console + its /api/launch/* actions. Independent of maintenance and the
+//   v2 gate ON PURPOSE: it must stay reachable WHILE the site is still in maintenance and v2 is locked,
+//   because that is exactly when the launch is pressed. Fail closed: unconfigured = console hidden.
+const LAUNCH_COOKIE = 'launch_access';
+
 // MuMate v2 preview gate.
 //   V2_PREVIEW_KEY=xxx -> team-only. Entry is a form submit (passkey) via POST /api/v2/login,
 //   not a `?key=` link — so this guard only checks the cookie/env at the edge. `/v2` itself renders
@@ -237,6 +244,41 @@ function withPaymentLaneCsp(req: NextRequest, res: NextResponse): NextResponse {
 // a real charge must settle and the buyer must actually receive what they paid for FIRST. When that day
 // comes, follow #606 B3 (make the gate open only when V2_PREVIEW_KEY is UNSET, so launch is one variable
 // and not a code change) — do not delete these lines by hand again.
+// Launch console guard — mirrors guardGlassBox (secret `?key=` link → httpOnly cookie → edge check).
+// Fail closed: no LAUNCH_KEY configured → the console does not exist. Same cookie protects the page
+// and /api/launch/* (same-origin fetch sends it), so the go-live/rollback actions can never be hit
+// without the key. Runs BEFORE maintenance/v2 gates so เอ็ม can reach it while the site is still closed.
+function guardLaunch(req: NextRequest): NextResponse | null {
+  const { pathname, searchParams } = req.nextUrl;
+  const isLaunch = pathname === '/launch' || pathname.startsWith('/launch/') || pathname.startsWith('/api/launch');
+  if (!isLaunch) return null;
+
+  const key = process.env.LAUNCH_KEY;
+  if (!key) return noStore(NextResponse.rewrite(new URL('/maintenance', req.url)));
+
+  if (req.cookies.get(LAUNCH_COOKIE)?.value === key) return noStore(NextResponse.next());
+
+  if (searchParams.get('key') === key) {
+    const url = req.nextUrl.clone();
+    url.searchParams.delete('key');
+    const res = NextResponse.redirect(url);
+    res.cookies.set(LAUNCH_COOKIE, key, {
+      httpOnly: true,
+      sameSite: 'lax',
+      secure: true,
+      path: '/',
+      maxAge: 60 * 60 * 24, // 24h
+    });
+    return noStore(res);
+  }
+
+  // No valid key: API → 401 JSON (never the 200 maintenance HTML); page → hidden behind maintenance.
+  if (pathname.startsWith('/api/launch')) {
+    return noStore(NextResponse.json({ error: { message: 'Not authenticated' } }, { status: 401 }));
+  }
+  return noStore(NextResponse.rewrite(new URL('/maintenance', req.url)));
+}
+
 function guardV2(req: NextRequest): NextResponse | null {
   const { pathname } = req.nextUrl;
   const isV2 = pathname === '/v2' || pathname.startsWith('/v2/') || pathname.startsWith('/api/v2');
@@ -309,6 +351,10 @@ export function middleware(req: NextRequest) {
 }
 
 function route(req: NextRequest): NextResponse {
+  // Launch console gate first — must be reachable WHILE the site is in maintenance / v2 locked.
+  const launch = guardLaunch(req);
+  if (launch) return launch;
+
   // Glass Box gate first — independent of maintenance mode.
   const glassBox = guardGlassBox(req);
   if (glassBox) return glassBox;
@@ -331,6 +377,12 @@ function route(req: NextRequest): NextResponse {
   // because it is now attached in middleware() rather than to this return value.
   const v2 = guardV2(req);
   if (v2) return v2;
+
+  // #606 step 3 — after launch, the root landing sends v1 visitors to /v2. This is done in
+  // pages/index.tsx getServerSideProps (keyed on V2_PREVIEW_KEY unset), NOT here: doing it in
+  // middleware changed "/" for every gate test that probes it with the key unset (ops/what-if/
+  // maintenance). Page-level keeps middleware routing untouched and still only fires post-launch,
+  // after maintenance is off (middleware rewrites "/" to /maintenance while it is on).
 
   // Maintenance off -> behave normally (normal caching resumes).
   // (While maintenance is on, every gated response below uses the module-level noStore so the

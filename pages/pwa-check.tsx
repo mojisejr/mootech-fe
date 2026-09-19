@@ -10,7 +10,7 @@ import type { GetServerSideProps } from "next";
 import Head from "next/head";
 import { usePwaCapability } from "@/lib/pwa/capability";
 import { requestPushSubscription, type SubscribeResult } from "@/lib/pwa/subscribe";
-import { v2RedirectIfUnauthed } from "@/lib/v2/gate";
+import { isV2TeamPreview } from "@/lib/v2/gate";
 
 const SAPPHIRE = "#1455A4";
 const BG = "#ECF0FD";
@@ -101,9 +101,11 @@ export default function PwaCheckPage() {
   );
 }
 
-// ตู๋ F3: this diagnostic page creates a REAL subscription, so it is not public — same v2 preview gate
-// as every other /v2 page (ฟีม reaches it through the gate). Self-destructs at launch: once
-// V2_PREVIEW_KEY is removed, isV2Authenticated → false → this always redirects to /v2 before render.
+// ตู๋ F3: this diagnostic page creates a REAL subscription, so it must never be public. After the #606
+// cutover, isV2Authenticated OPENS to everyone at launch, so this page can no longer ride the access gate
+// or it would go public. It is gated on the TEAM-preview privilege instead (isV2TeamPreview): reachable
+// only by a real team session pre-launch, and — because that privilege self-destructs at launch — it
+// redirects to /v2 for everyone once V2_PREVIEW_KEY is removed. Exactly the "not public" intent, preserved.
 export const getServerSideProps: GetServerSideProps = async ({ req }) => {
-  return v2RedirectIfUnauthed(req) ?? { props: {} };
+  return isV2TeamPreview(req) ? { props: {} } : { redirect: { destination: "/v2", permanent: false } };
 };
