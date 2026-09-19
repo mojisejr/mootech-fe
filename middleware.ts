@@ -346,8 +346,23 @@ function redirectWhatIfFirstVisit(req: NextRequest): NextResponse | null {
 // the payment lane's CSP with it. Behaviour today is identical — every PAYMENT_LANE_PREFIXES path is
 // under /v2 and therefore already passed through guardV2 — which is exactly what makes it safe to move
 // now, before the launch change needs it.
+// Baseline security headers on EVERY response (pentest hardening, ก). These are additive and safe —
+// they do NOT include a site-wide Content-Security-Policy (the app loads GTM's inline script and the
+// rest of /v2 is un-audited for what it loads, per the payment-lane note above; a blanket CSP would
+// break them). The payment lane keeps its own strict CSP via withPaymentLaneCsp — its frame-ancestors
+// 'none' is honored over the SAMEORIGIN below on those screens.
+//   X-Content-Type-Options: nosniff  — stop MIME sniffing
+//   X-Frame-Options: SAMEORIGIN      — clickjacking guard (LINE LIFF/webview open standalone, not iframed)
+//   Referrer-Policy                  — don't leak full URLs cross-origin
+function withBaselineSecurityHeaders(res: NextResponse): NextResponse {
+  if (!res.headers.has('X-Content-Type-Options')) res.headers.set('X-Content-Type-Options', 'nosniff');
+  if (!res.headers.has('X-Frame-Options')) res.headers.set('X-Frame-Options', 'SAMEORIGIN');
+  if (!res.headers.has('Referrer-Policy')) res.headers.set('Referrer-Policy', 'strict-origin-when-cross-origin');
+  return res;
+}
+
 export function middleware(req: NextRequest) {
-  return withPaymentLaneCsp(req, route(req));
+  return withBaselineSecurityHeaders(withPaymentLaneCsp(req, route(req)));
 }
 
 function route(req: NextRequest): NextResponse {
