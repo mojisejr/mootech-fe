@@ -3,7 +3,7 @@
 // #2/#4 (ซินแสนุ้ย 2026-09-15): กดช่องในตาราง 8 ประตู → popup รายละเอียด ประตู(八門)+เทพ(十神) ของช่องนั้น
 // สไตล์ "ใบเซียมซี" (แบบรูป 2) — หัวตัวจีน ประตู+เทพ ขนาดเท่ากัน (กฎ #5), ชื่อไทย + สรุป(keyword) + คีย์เวิร์ด/การกระทำ.
 // เนื้อหา static จาก GATE_INFO/DEITY_INFO (ไม่ใช้ AI).
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { createPortal } from 'react-dom'
 import type { DayDetailGate } from '../../types'
 import { GATE_INFO, DEITY_INFO, type GlyphInfo } from './gate-deity-info'
@@ -43,12 +43,44 @@ export function GateDetailPopup({ direction, gate, onClose }: { direction: Direc
     return () => document.removeEventListener('keydown', onKey)
   }, [onClose])
 
+  // คำอธิษฐานตามประตู/เทพช่องนี้ (deterministic — ไม่เสียค่า AI). เรียก BFF /api/prayer ที่ resolve ดวงหลังบ้าน.
+  const [prayer, setPrayer] = useState<string | null>(null)
+  const [praying, setPraying] = useState(false)
+  const [copied, setCopied] = useState(false)
+
   const gateGlyph = gate.name.trim()
   const deityGlyph = gate.deity?.trim() || ''
   const gateInfo = GATE_INFO[gateGlyph]
   const deityInfo = deityGlyph ? DEITY_INFO[deityGlyph] : undefined
   const gInk = inkOfGate(gateGlyph)
   const dInk = deityGlyph ? inkOfDeity(deityGlyph) : gInk
+
+  const makePrayer = async () => {
+    setPraying(true)
+    setCopied(false)
+    try {
+      const title = `ขอพร${deityInfo?.keyword ?? gateInfo?.keyword ?? 'เปิดทางมงคล'}`
+      const res = await fetch('/api/prayer', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          gates: gateGlyph ? [gateGlyph] : [],
+          gods: deityGlyph ? [deityGlyph] : [],
+          title,
+        }),
+      })
+      const j = await res.json().catch(() => null)
+      setPrayer(res.ok && typeof j?.text === 'string' ? j.text : 'สร้างคำอธิษฐานไม่สำเร็จ ลองใหม่อีกครั้งนะคะ')
+    } catch {
+      setPrayer('เชื่อมต่อไม่สำเร็จ ลองใหม่อีกครั้งนะคะ')
+    } finally {
+      setPraying(false)
+    }
+  }
+  const copyPrayer = () => {
+    if (!prayer) return
+    void navigator.clipboard?.writeText(prayer).then(() => { setCopied(true); setTimeout(() => setCopied(false), 2000) })
+  }
 
   // portal ไป body: popup ต้องลอยเหนือทุกอย่าง (เดิมติด stacking context ของ ancestor ทำให้แถบเมนูล่างบังส่วนล่าง)
   if (typeof document === 'undefined') return null
@@ -82,6 +114,32 @@ export function GateDetailPopup({ direction, gate, onClose }: { direction: Direc
         </div>
 
         <p className="mt-3 px-1 text-[11px] leading-4 text-v3-text-muted">คีย์เวิร์ด = การกระทำที่เหมาะกับประตู·เทพนี้ · ใช้เสริมการเลือกทิศประจำวัน</p>
+
+        {/* ปุ่มสร้างคำอธิษฐานตามประตู/เทพช่องนี้ (ฟรี ไม่เสียค่า AI) */}
+        <button
+          type="button"
+          data-testid="gate-detail-pray"
+          onClick={() => void makePrayer()}
+          disabled={praying}
+          className="mt-3 grid h-11 w-full place-items-center rounded-full bg-v3-sapphire text-[14px] font-bold text-white disabled:opacity-60"
+        >
+          {praying ? 'กำลังเรียบเรียงคำอธิษฐาน…' : '🙏 สร้างคำอธิษฐานตามประตูนี้'}
+        </button>
+
+        {prayer && (
+          <div className="mt-3 rounded-2xl border border-[#e7d6a8] bg-[#fffdf5] p-3.5" data-testid="gate-detail-prayer">
+            <p className="whitespace-pre-line text-[13px] leading-6 text-v3-text-body">{prayer}</p>
+            <button
+              type="button"
+              data-testid="gate-detail-prayer-copy"
+              onClick={copyPrayer}
+              className="mt-2.5 grid h-9 w-full place-items-center rounded-full border border-[#eadfbf] bg-white text-[12px] font-bold text-v3-navy"
+            >
+              {copied ? '✓ คัดลอกแล้ว' : 'คัดลอกบท'}
+            </button>
+            <p className="mt-2 text-center text-[10px] text-v3-text-muted">แทนที่ (ระบุชื่อ-นามสกุล) ด้วยชื่อของคุณก่อนอธิษฐาน</p>
+          </div>
+        )}
       </div>
     </div>,
     document.body,
