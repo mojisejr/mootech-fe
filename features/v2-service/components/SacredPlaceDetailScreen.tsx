@@ -4,6 +4,7 @@
 import Head from "next/head"
 import { useEffect, useState } from "react"
 
+import { PrayerGenerator, topicFromNeeds } from "@/features/v2-service/components/PrayerGenerator"
 import { SkyBackdrop, SkyHeader } from "@/features/v2-profile/components/kit"
 import { Menubar } from "@/features/v2-shell/components/Menubar"
 import { TopBarBell } from "@/features/v2-shell/components/TopBarBell"
@@ -24,6 +25,7 @@ export function SacredPlaceDetailScreen({ loc }: { loc: SacredLocation }) {
   const [shareOpts, setShareOpts] = useState({ route: true, guide: true, direction: false })
   const [inviteCode, setInviteCode] = useState<string | null>(null)
   const [qiToast, setQiToast] = useState<string | null>(null)
+  const [prayerOpen, setPrayerOpen] = useState(false)
 
   useEffect(() => {
     setSaved(readSet(SAVED_KEY).has(loc.id))
@@ -203,6 +205,24 @@ export function SacredPlaceDetailScreen({ loc }: { loc: SacredLocation }) {
                 <div className="rounded-[12px] bg-[#EDF7EE] p-3">
                   <p className="text-[13px] font-black text-[#2F7A46]">คำอธิษฐาน</p>
                   <p className="mt-0.5 text-[13px] leading-5 text-v3-text-body">ขอเรื่อง{loc.needs.join(" และ ")}</p>
+                  {!prayerOpen ? (
+                    <button
+                      type="button"
+                      onClick={() => setPrayerOpen(true)}
+                      data-testid="sacred-place-prayer-open"
+                      className="mt-2.5 grid h-10 w-full place-items-center rounded-full bg-v3-sapphire text-[13px] font-bold text-white"
+                    >
+                      🙏 สร้างคำอธิษฐานให้ฉัน
+                    </button>
+                  ) : (
+                    <div className="mt-3">
+                      <PrayerGenerator
+                        defaultTopic={topicFromNeeds(loc.needs)}
+                        placeName={loc.name}
+                        deity={loc.deity}
+                      />
+                    </div>
+                  )}
                 </div>
               ) : null}
             </div>
