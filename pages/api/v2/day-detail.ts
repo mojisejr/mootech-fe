@@ -29,6 +29,7 @@ import type { NextApiRequest, NextApiResponse } from 'next'
 import { sql } from 'drizzle-orm'
 import { db } from '@/lib/db'
 import { toBaziInput, type FeCalcInput } from '@/lib/bazi-bridge/input'
+import { mergeEngineBirth } from '@/lib/bazi-bridge/engine-birth'
 import { mapDayDetail, pickFreeDayDetail, type DayDetail } from '@/lib/v2-calendar/day-detail'
 import { resolveSessionUserId } from '@/lib/v2/resolve-user'
 import { resolveSubscription } from '@/lib/v2/subscription'
@@ -124,7 +125,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   const ac = new AbortController()
   const timer = setTimeout(() => ac.abort(), BAZI_TIMEOUT_MS)
   try {
-    const { rawInput } = toBaziInput(person)
+    // 2026-09-20 (เอ็มพบ live): หน้าแรก (/api/home-fortune) ทับ dob/time ด้วยค่า "แก้ล่าสุด" จาก engine
+    // bazi_user_profile ก่อนคำนวณ (mergeEngineBirth) เสมอ แต่หน้านี้ยังส่ง person จาก legacy user row ตรงๆ
+    // — ถ้าผู้ใช้เคยแก้วันเกิด สองหน้าจะคำนวณดวงคนละชุด (ธาตุ/คะแนนวันไม่ตรงกัน). ทับให้เหมือนหน้าแรก.
+    const merged = await mergeEngineBirth(userId, person)
+    const effectivePerson: FeCalcInput = { ...person, dob: merged.dob ?? person.dob, time: merged.time ?? person.time }
+    const { rawInput } = toBaziInput(effectivePerson)
     const key = dayCacheKey(userId, rawInput, date as string)
     const dbKey = `${DAY_CACHE_VERSION}|${key}`
 

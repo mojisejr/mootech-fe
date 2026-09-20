@@ -20,6 +20,7 @@
 // The same session id also keys the server-side fortune cache below — one identity in this file, not two.
 import type { NextApiRequest, NextApiResponse } from 'next'
 import { toBaziInput, type FeCalcInput } from '@/lib/bazi-bridge/input'
+import { mergeEngineBirth } from '@/lib/bazi-bridge/engine-birth'
 import { resolveSubscription } from '@/lib/v2/subscription'
 import { calendarMonthReachable } from '@/lib/v2/entitlement'
 import { ownsCalendar } from '@/lib/v2/calendar-access'
@@ -224,7 +225,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   const ac = new AbortController()
   const timer = setTimeout(() => ac.abort(), BAZI_TIMEOUT_MS)
   try {
-    const { rawInput } = toBaziInput(person) // the true determinant of the fortune → also the cache key
+    // 2026-09-20 (เอ็มพบ live): หน้าแรก (/api/home-fortune) ทับ dob/time ด้วยค่า "แก้ล่าสุด" จาก engine
+    // bazi_user_profile ก่อนคำนวณ (mergeEngineBirth) เสมอ แต่หน้านี้ยังส่ง person จาก legacy user row ตรงๆ
+    // — ถ้าผู้ใช้เคยแก้วันเกิด สองหน้าจะคำนวณดวงคนละชุด (ธาตุ/คะแนนวันไม่ตรงกัน). ทับให้เหมือนหน้าแรก.
+    const merged = await mergeEngineBirth(userId, person)
+    const effectivePerson: FeCalcInput = { ...person, dob: merged.dob ?? person.dob, time: merged.time ?? person.time }
+    const { rawInput } = toBaziInput(effectivePerson) // the true determinant of the fortune → also the cache key
 
     // ── cache keyed on (SESSION user, birth-signature, month): a user's month fortune is deterministic in the
     // birth input → serve instantly on re-view / prefetch; a changed dob yields a different key (no stale).
