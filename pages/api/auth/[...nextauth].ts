@@ -36,16 +36,11 @@ export const authOptions: NextAuthOptions = {
     LineProvider({
       clientId: process.env.LINE_CLIENT_ID as string,
       clientSecret: process.env.LINE_CLIENT_SECRET as string,
-      // เอ็มอนุมัติ 2026-09-20 (LINE login คนใหม่พังทุกเคส app-switch): กด LINE จาก Safari/Chrome → "เปิดใน
-      // LINE?" → กระโดดเข้าแอป LINE (คนละ browser คนละ cookie jar) → callback กลับมา "ไม่มี state/pkce cookie"
-      // ที่ตั้งไว้ตอนเริ่ม → next-auth callback โยน "State cookie was missing" → เด้งกลับหน้า login โดยไม่ล็อกอิน.
-      // state/pkce/nonce.use ทุกตัว gate ด้วย provider.checks.includes(...) (core/lib/oauth/checks.js:48,93,128)
-      // → ตั้ง checks:["none"] = callback ไม่พึ่ง cookie ใดเลย → app-switch จบได้ ล็อกอินสำเร็จจากทุก browser.
-      // ⚠️ TRADEOFF (เอ็มรับทราบ+อนุมัติ): ถอด login-CSRF(state)+PKCE ของ LINE. เสี่ยงต่ำสำหรับแอปนี้ — LINE เป็น
-      // confidential client (แลก token ต้องใช้ clientSecret ฝั่ง server) โค้ดที่ถูกดักไปแลกไม่ได้; residual = login-CSRF
-      // (หลอกให้เหยื่อล็อกอินเป็นบัญชีผู้โจมตี) ซึ่งผลกระทบต่ำและผู้ใช้สังเกตได้. คงไว้เฉพาะ LINE — Google/FB/Twitter
-      // ยัง checks เดิม. ทางที่ปลอดภัยเต็มคือเข้าจาก LINE OA (in-app browser ไม่มี switch) — ทำคู่กันไป.
-      checks: ["none"],
+      // 🔴 เอ็มพบ 2026-09-20: เคยลอง checks:["none"] (#731) เพื่อให้ callback ไม่พึ่ง state cookie (แก้ app-switch)
+      // — แต่ LINE Login "บังคับต้องมี state param" ในคำขอ authorize. checks:["none"] ทำให้ state.create ถูกข้าม →
+      // authorize URL ไม่มี state (ยืนยันจาก prod: .../authorize? ไม่มี state) → LINE ปฏิเสธ → เด้งกลับหน้า login
+      // ทันที ("กด login แล้วกลับมาที่เดิม"). ถอดออก = กลับไป checks default (มี state/pkce) ให้ LINE รับคำขอได้.
+      // (app-switch Safari→แอป LINE ยังทำ session cookie หลุด context — แก้จริงต้องเข้าจาก LINE OA in-app browser)
     }),
     GoogleProvider({
       clientId: process.env.GOOGLE_CLIENT_ID as string,
