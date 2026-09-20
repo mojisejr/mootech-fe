@@ -121,9 +121,19 @@ export function EditBirthScreen() {
         )
         await load()
       } else if (res.status === 409) {
+        // 🔴 เอ็ม/Janjarat พบ 2026-09-20: มี QI พอ (เช่น 1,000) แต่เด้งชีท "QI ไม่พอ · ขาดอีก 0 QI" แล้วแก้วันเกิดไม่ได้.
+        // เหตุ: engine ตอบ 409 ได้ 2 แบบ — "แต้ม Qi ไม่พอ" (หา QI เพิ่ม) และ "ยังไม่มีโปรไฟล์ — ตั้ง @name ก่อน"
+        // (เคสบัญชี legacy ที่ยังไม่มี bazi_user_profile). เดิมโชว์ชีท "QI ไม่พอ" กับ 409 ทุกแบบ → คนมี QI งง.
+        // แยก: ไม่พอจริง (ยอด < ราคา หรือข้อความมี "ไม่พอ") → เปิดชีทหา QI; 409 อื่น → โชว์ข้อความจริงจาก engine.
         const w = await fetch("/api/qi-wallet").then((r) => (r.ok ? r.json() : null)).catch(() => null)
-        setWalletQi(typeof w?.qi === "number" ? w.qi : 0)
-        setInsufficient(true)
+        const qi = typeof w?.qi === "number" ? w.qi : 0
+        setWalletQi(qi)
+        const price = quota?.birthEditPriceQi ?? 150
+        if (qi < price || (j.error ?? "").includes("ไม่พอ")) {
+          setInsufficient(true)
+        } else {
+          setMsg(String(j.error ?? "แก้วันเกิดไม่สำเร็จ ลองใหม่อีกครั้ง"))
+        }
       } else {
         setMsg(String(j.error ?? "บันทึกไม่สำเร็จ"))
       }
