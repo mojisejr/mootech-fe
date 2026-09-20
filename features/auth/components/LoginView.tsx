@@ -9,8 +9,9 @@ import { GoogleButton } from './GoogleButton'
 //
 // Container = FullBleedScreen (container-contract §9.1) · bg = BG01 (ฟีม lock 2026-07-21).
 
-// Brand glyphs = the Figma exports (public/images/v2/onboarding, byte-identical to 302:268 "twitter"
-// [sic — it is the LINE mark, 20px] and 626:950 devicon:google [24px]). Never redrawn.
+// Brand glyphs. line.svg เดิมเป็น "นก Twitter" จริงๆ (Figma node 302:268 ชื่อ "twitter" และเนื้อในก็เป็น
+// นก — เอ็มพบ 2026-09-20: ปุ่ม LINE โชว์โลโก้ทวิตเตอร์) → เปลี่ยนเป็นสัญลักษณ์ LINE (bubble ขาว) แล้ว.
+// google.svg = 626:950 devicon:google (24px).
 function LineGlyph() {
   return <Image src="/images/v2/onboarding/line.svg" alt="" width={20} height={20} className="size-5" />
 }
