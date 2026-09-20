@@ -84,6 +84,7 @@ export default defineConfig({
     // Same shape as the merge-conflict rule already written into design-verify.yml. Debt #212 is
     // that this list and ci.yml's skip list are two hand-synced copies of the same fact.
     include: [
+      'scripts/v2-login-providers-retry.test.ts', // 2026-09-20 — signIn() providers-fetch retry (LINE cold-start "undefined" error fix)
       'scripts/launch-env-propagation.test.ts', // 2026-09-20 — goLive() waits for env propagation before redeploy (live race fix)
       'scripts/v2-entitlement.test.ts', // #358 — teeth on the v2 entitlement table (count vs span shapes)
       'scripts/card-form.test.tsx', // #491 — teeth on 'a buyer cannot type nonsense into the card fields'
