@@ -38,6 +38,7 @@ vi.mock('@/features/v2-shell/components/TopBarAvatar', () => ({ TopBarAvatar: ()
 vi.mock('@/features/v2-shell/components/LoadingScreen', () => ({ LoadingScreen: () => <div data-testid="loading" /> }))
 // The screen reads MEMBER_ID from the cookie to know whom to ask about.
 vi.mock('react-cookie', () => ({ useCookies: () => [{ 'cookie-mumate-id': 'u-1' }] }))
+vi.mock('@/lib/auth/use-current-user', () => ({ useCurrentUser: () => ({ userId: 'u-1', status: 'authed' }) }))
 
 import { CompatibilityScreen } from '@/features/v2-service/components/CompatibilityScreen'
 

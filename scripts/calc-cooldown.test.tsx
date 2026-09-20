@@ -49,6 +49,7 @@ vi.mock('@/features/v2-shell/components/TopBarBell', () => ({ TopBarBell: () => 
 vi.mock('@/features/v2-shell/components/TopBarAvatar', () => ({ TopBarAvatar: () => null }))
 vi.mock('@/features/v2-shell/components/LoadingScreen', () => ({ LoadingScreen: () => <div data-testid="loading" /> }))
 vi.mock('react-cookie', () => ({ useCookies: () => [{ 'cookie-mumate-id': USER }] }))
+vi.mock('@/lib/auth/use-current-user', () => ({ useCurrentUser: () => ({ userId: USER, status: 'authed' }) }))
 
 import { CompatibilityScreen } from '@/features/v2-service/components/CompatibilityScreen'
 

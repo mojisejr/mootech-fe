@@ -37,6 +37,7 @@ vi.mock('@/features/v2-shell/components/TopBarBell', () => ({ TopBarBell: () => 
 vi.mock('@/features/v2-shell/components/TopBarAvatar', () => ({ TopBarAvatar: () => null }))
 vi.mock('@/features/v2-shell/components/LoadingScreen', () => ({ LoadingScreen: () => <div data-testid="loading" /> }))
 vi.mock('react-cookie', () => ({ useCookies: () => [{ 'cookie-mumate-id': 'u-1' }] }))
+vi.mock('@/lib/auth/use-current-user', () => ({ useCurrentUser: () => ({ userId: 'u-1', status: 'authed' }) }))
 vi.mock('@/features/v2-service/hooks/useCompatibility', () => ({ useCompatibility: () => useCompatibility() }))
 
 // The friend-detail read behind slot enrichment. Answering `null` is the real "detail unavailable" path:

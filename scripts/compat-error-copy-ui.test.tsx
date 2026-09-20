@@ -57,6 +57,8 @@ vi.mock('@/features/v2-shell/components/LoadingScreen', () => ({ LoadingScreen: 
 // provider comes from _app; under vitest the bare hook throws "Missing <CookiesProvider>", which would
 // take THIS spec down for a reason that has nothing to do with the copy it guards.
 vi.mock('react-cookie', () => ({ useCookies: () => [{ 'cookie-mumate-id': 'u-1' }] }))
+// useCurrentUser → useSession ต้องมี SessionProvider; เทสนี้ไม่ได้วัด auth gate → mock เป็น login แล้ว (authed)
+vi.mock('@/lib/auth/use-current-user', () => ({ useCurrentUser: () => ({ userId: 'u-1', status: 'authed' }) }))
 // …and with an identity present the screen now fetches /api/quota on mount. Stubbed as unavailable so no
 // indicator renders and the copy assertions below see exactly what they saw before #264.
 vi.stubGlobal('fetch', vi.fn(() => Promise.resolve({ ok: false, status: 500, json: async () => ({}) })))
