@@ -111,8 +111,39 @@ describe('startOAuthRedirect — form POST ตรง เลี่ยง getProvi
     await startOAuthRedirect('line', '/auth/after/line')
 
     expect(signInMock).toHaveBeenCalledTimes(1)
-    expect(signInMock).toHaveBeenCalledWith('line', { callbackUrl: '/auth/after/line' })
+    expect(signInMock).toHaveBeenCalledWith('line', { callbackUrl: '/auth/after/line' }, undefined)
     expect(submitSpy).not.toHaveBeenCalled()
+
+    submitSpy.mockRestore()
+  })
+
+  it('มี authorizeParams → ต่อท้าย action เป็น query (disable_auto_login=true ของ LINE)', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify({ csrfToken: 'tok-y' }), { status: 200 })))
+    let submittedForm: HTMLFormElement | null = null
+    const submitSpy = vi.spyOn(HTMLFormElement.prototype, 'submit').mockImplementation(function (this: HTMLFormElement) {
+      submittedForm = this
+    })
+
+    await startOAuthRedirect('line', '/v2', { disable_auto_login: 'true' })
+
+    const form = submittedForm as unknown as HTMLFormElement
+    expect(form.getAttribute('action')).toBe('/api/auth/signin/line?disable_auto_login=true')
+    // csrfToken/callbackUrl ยังอยู่ใน body ปกติ (query แค่ต่อท้าย action)
+    const fields = Object.fromEntries(Array.from(form.querySelectorAll('input')).map((i) => [i.name, i.value]))
+    expect(fields.callbackUrl).toBe('/v2')
+
+    submitSpy.mockRestore()
+  })
+
+  it('csrf พัง + มี authorizeParams → fallback ส่งเป็น arg ที่ 3 ของ signIn', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => {
+      throw new Error('down')
+    }))
+    const submitSpy = vi.spyOn(HTMLFormElement.prototype, 'submit').mockImplementation(() => {})
+
+    await startOAuthRedirect('line', '/v2', { disable_auto_login: 'true' })
+
+    expect(signInMock).toHaveBeenCalledWith('line', { callbackUrl: '/v2' }, { disable_auto_login: 'true' })
 
     submitSpy.mockRestore()
   })

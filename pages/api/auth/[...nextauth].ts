@@ -106,7 +106,10 @@ export const authOptions: NextAuthOptions = {
   secret: process.env.NEXTAUTH_SECRET,
   // คุณสามารถกำหนดหน้าสำหรับ Sign in, Sign out, Error ได้
   pages: {
-    signIn: "/login",
+    // เอ็มพบ 2026-09-20: OAuth ที่พลาด (หรือ session ยังไม่ตั้ง) ถูก next-auth เด้งมาที่ pages.signIn —
+    // เดิม "/login" (ดีไซน์ v1 เก่า) ทำให้ผู้ใช้ v2 "เด้งไปหน้า version เก่า". หลัง launch (/ → /v2) หน้า
+    // login จริงคือ /v2/login → ชี้มาที่นี่ ผู้ใช้จึงอยู่ในดีไซน์ใหม่เสมอ (v2 gate เปิดแล้ว ไม่ loop).
+    signIn: "/v2/login",
     signOut: "/signout",
     error: "/auth/error",
   },

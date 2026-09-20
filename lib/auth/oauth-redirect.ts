@@ -46,20 +46,30 @@ export async function fetchCsrfToken(retries = 2, delayMs = 350): Promise<string
 /**
  * เริ่ม OAuth ด้วย full-page form POST → /api/auth/signin/<provider> (เลี่ยง getProviders ของ signIn()).
  * ถ้าดึง csrf ไม่ได้ → fallback ไป next-auth signIn() เดิม (พฤติกรรมไม่แย่ไปกว่าก่อนแก้).
+ *
+ * authorizeParams = query ที่ next-auth "forward ต่อไปยัง provider authorize URL" (authorization-url.js:
+ * `params = { ...provider.authorization.params, ...query }`). ใช้ส่ง `disable_auto_login=true` ของ LINE
+ * เพื่อกัน LINE เด้งเปิดแอป (context switch ทำ state cookie หาย → callback พัง) — ดู useV2Login.ts.
  */
-export async function startOAuthRedirect(provider: string, callbackUrl: string): Promise<void> {
+export async function startOAuthRedirect(
+  provider: string,
+  callbackUrl: string,
+  authorizeParams?: Record<string, string>,
+): Promise<void> {
   const csrfToken = await fetchCsrfToken()
 
   if (!csrfToken || typeof document === 'undefined') {
-    // fallback: ยังพึ่ง client signIn() เดิม (กรณี csrf พังจริง หรือไม่มี DOM)
+    // fallback: ยังพึ่ง client signIn() เดิม (กรณี csrf พังจริง หรือไม่มี DOM). next-auth signIn รับ
+    // authorizationParams เป็น arg ที่ 3 แล้ว forward ต่อเหมือนกัน.
     const { signIn } = await import('next-auth/react')
-    void signIn(provider, { callbackUrl })
+    void signIn(provider, { callbackUrl }, authorizeParams)
     return
   }
 
+  const query = authorizeParams ? `?${new URLSearchParams(authorizeParams).toString()}` : ''
   const form = document.createElement('form')
   form.method = 'post'
-  form.action = `${AUTH_BASE}/signin/${encodeURIComponent(provider)}`
+  form.action = `${AUTH_BASE}/signin/${encodeURIComponent(provider)}${query}`
   form.style.display = 'none'
 
   const addField = (name: string, value: string) => {
