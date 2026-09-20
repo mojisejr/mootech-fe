@@ -6,6 +6,7 @@ import type { AppProps } from "next/app";
 import { useRouter } from "next/router";
 import { CookiesProvider } from "react-cookie";
 import IdentitySelfHeal from "@/components/identity-self-heal";
+import LiffBoot from "@/components/liff-boot";
 import AnalyticsIdentity from "@/components/analytics-identity";
 import { ANALYTICS_CONSENT_COOKIE, ANALYTICS_STORAGE_DEFAULT } from "@/lib/analytics/consent";
 import AppErrorBoundary from "@/components/app-error-boundary";
@@ -79,6 +80,9 @@ export default function App({ Component, pageProps: { session, ...pageProps } }:
               recovers a missing MEMBER_ID on deep-link entry so auth-gated pages
               don't hang on ScreenLoading. Renders null; runs before the page. */}
           <IdentitySelfHeal />
+          {/* LIFF boot (#mumate-line-liff): เปิด entry จาก LINE เป็น LIFF URL เพื่อบังคับ in-app browser
+              ของ LINE เสมอ → แก้เคสเปิดใน Safari/Chrome ภายนอกแล้ว login พัง. no-op ถ้ายังไม่ตั้ง env. */}
+          <LiffBoot />
           {/* Analytics identity: watches the member id land and sends login + user_id once per login. */}
           <AnalyticsIdentity />
           {/* #399 — a single render throw used to blank the whole app. The boundary keeps the
