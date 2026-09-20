@@ -1,8 +1,11 @@
 // MuMate v2 — จอ QR พร้อมเพย์ (mootech-fe#363). Behind the v2 gate. Glue only; the rules live in QrScreen.
+import { useEffect } from 'react'
 import Head from 'next/head'
 import { useRouter } from 'next/router'
 import type { GetServerSideProps } from 'next'
 import { v2RedirectIfUnauthed } from '@/lib/v2/gate'
+import { useCurrentUser } from '@/lib/auth/use-current-user'
+import { AuthLoadingGate } from '@/features/v2-shell/components/AuthLoadingGate'
 import { QrScreen } from '@/features/v2-shop/components/QrScreen'
 import { formatSatang } from '@/features/v2-shop/usePackagePrice'
 
@@ -15,6 +18,11 @@ export const getServerSideProps: GetServerSideProps = async (ctx) => {
 
 export default function V2QrPage() {
   const router = useRouter()
+  // เช็ค login จริงราย user (SSR gate เป็น team preview ไม่ใช่ auth): anon → เด้งไป /v2/login
+  const { status: authStatus } = useCurrentUser()
+  useEffect(() => {
+    if (authStatus === 'anon') void router.replace('/v2/login')
+  }, [authStatus, router])
   const q = router.query
   const charge = typeof q.charge === 'string' ? q.charge : ''
   const qr = typeof q.qr === 'string' ? q.qr : ''

@@ -5,11 +5,13 @@
 // come from PaymentMethodPicker, and the card token comes from omise-token (v2 key, set at call time).
 // Keeping the page thin is deliberate — a page is the one place nobody writes unit tests for, so it should
 // hold as few decisions as possible.
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import Head from 'next/head'
 import { useRouter } from 'next/router'
 import type { GetServerSideProps } from 'next'
 import { v2RedirectIfUnauthed, isV2TeamPreview } from '@/lib/v2/gate'
+import { useCurrentUser } from '@/lib/auth/use-current-user'
+import { AuthLoadingGate } from '@/features/v2-shell/components/AuthLoadingGate'
 import { AppHeader } from '@/features/v2-shell/components/AppHeader'
 import { useClientTier } from '@/features/v2-shell/hooks/useClientTier'
 import { OrderSummaryCard } from '@/features/v2-shop/components/OrderSummaryCard'
@@ -36,6 +38,13 @@ const EMPTY_CARD: CardState = { name: '', number: '', expiry: '', cvc: '' }
 
 export default function V2CheckoutPage({ teamPreview }: { teamPreview: boolean }) {
   const router = useRouter()
+  // เอ็มพบ 2026-09-20: SSR gate เดิม (v2RedirectIfUnauthed) เป็น team preview gate ไม่ใช่ auth ราย user จริง
+  // → คนไม่ได้ login "กดไปจ่ายเงินได้" (เช่น logout แล้วกด back). server ปฏิเสธ charge (401) แต่ UX เพี้ยน.
+  // เช็ค login จริงฝั่ง client: anon → เด้งไป /v2/login (หน้าต้อนรับ/สมัคร). guard ที่ pay() ซ้ำอีกชั้น.
+  const { status: authStatus } = useCurrentUser()
+  useEffect(() => {
+    if (authStatus === 'anon') void router.replace('/v2/login')
+  }, [authStatus, router])
   const packageCode = typeof router.query.package_code === 'string' ? router.query.package_code : ''
   const tier = useClientTier(teamPreview)
   const co = useCheckout(packageCode)
@@ -66,6 +75,7 @@ export default function V2CheckoutPage({ teamPreview }: { teamPreview: boolean }
   // above it, both kept `npm test` green and both put "ธนาคารปฏิเสธการชำระเงิน" back in front of a paying
   // member. So the order came out too. Everything below is transport; the answer comes from payDestination.
   async function pay() {
+    if (authStatus !== 'authed') { void router.replace('/v2/login'); return }
     if (!co.quote || paying) return
     setPaying(true)
     try {
@@ -129,6 +139,9 @@ export default function V2CheckoutPage({ teamPreview }: { teamPreview: boolean }
   const issuer = gatewayLabel(co.quote?.gateway)
   const validation = validateCard(card, now)
   const ready = payReady({ hasQuote: !!co.quote, loading: co.loading, method, card, now, cardEntry: co.quote?.cardEntry })
+
+  // ยังไม่ authed (loading/anon) → ไม่แสดงหน้าจ่ายเงิน (anon กำลังถูก effect เด้งไป /v2/login)
+  if (authStatus !== 'authed') return <AuthLoadingGate />
 
   return (
     <div className="relative min-h-screen w-full overflow-x-hidden bg-v3-bg-cream font-ibm">
