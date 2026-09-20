@@ -8,8 +8,8 @@
 // authenticated-but-without-MEMBER_ID. Verified: the self-heal is mounted globally and exists
 // precisely for "deep-link pages that skipped /". So we deliberately skip `/` and let it heal.
 import { useState } from 'react'
-import { signIn } from 'next-auth/react'
 import { useCookies } from 'react-cookie'
+import { startOAuthRedirect } from '@/lib/auth/oauth-redirect'
 import { CookieKey } from '@/constants/cookie-key'
 import { CONFIG } from '@/constants/config'
 
@@ -71,9 +71,9 @@ export function useV2Login(): V2LoginApi {
     }
 
     setLoading(true)
-    void ensureAuthProvidersReachable().finally(() => {
-      signIn(provider, { callbackUrl: V2_LOGIN_CALLBACK })
-    })
+    // เลี่ยง getProviders ของ signIn() ทั้งหมด (ต้นเหตุจริงของ "รหัสอ้างอิง: undefined") — เริ่ม OAuth ด้วย
+    // full-page form POST ตรงไป /api/auth/signin/<provider> ให้เบราว์เซอร์เดินตาม 302 เอง. ดู oauth-redirect.ts
+    void startOAuthRedirect(provider, V2_LOGIN_CALLBACK)
   }
 
   return {
