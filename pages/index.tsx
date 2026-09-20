@@ -212,13 +212,13 @@ useEffect(() => {
             setCookie(CookieKey.MEMBER_ID, result.user_id, {
               path: '/',
               maxAge: CONFIG.EXPIRED_TIME_COOKIE,
-              sameSite: true,
+              sameSite: 'lax', // Lax (ไม่ใช่ Strict) เพื่อให้ MEMBER_ID ส่งได้เมื่อเปิดลิงก์จาก LINE/ภายนอก (cross-site nav)
             })
 
             setCookie(CookieKey.MEMBER_NAME, result.name, {
               path: '/',
               maxAge: CONFIG.EXPIRED_TIME_COOKIE,
-              sameSite: true,
+              sameSite: 'lax', // Lax (ไม่ใช่ Strict) เพื่อให้ MEMBER_ID ส่งได้เมื่อเปิดลิงก์จาก LINE/ภายนอก (cross-site nav)
             })
             // register-login returns the refer code as `ref_code`, but a BE edge
             // branch can return it null/empty. An empty MEMBER_REFER_CODE cookie
@@ -240,13 +240,13 @@ useEffect(() => {
             setCookie(CookieKey.MEMBER_REFER_CODE, referCode, {
               path: '/',
               maxAge: CONFIG.EXPIRED_TIME_COOKIE,
-              sameSite: true,
+              sameSite: 'lax', // Lax (ไม่ใช่ Strict) เพื่อให้ MEMBER_ID ส่งได้เมื่อเปิดลิงก์จาก LINE/ภายนอก (cross-site nav)
             })
 
             setCookie(CookieKey.MEMBER_IMAGE, result.picture_url, {
               path: '/',
               maxAge: CONFIG.EXPIRED_TIME_COOKIE,
-              sameSite: true,
+              sameSite: 'lax', // Lax (ไม่ใช่ Strict) เพื่อให้ MEMBER_ID ส่งได้เมื่อเปิดลิงก์จาก LINE/ภายนอก (cross-site nav)
             })
 
             setInfoImage(result.picture_url)
