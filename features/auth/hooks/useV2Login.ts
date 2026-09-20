@@ -22,6 +22,26 @@ const V2_LOGIN_CALLBACK = '/v2'
 const isLineInAppBrowser = () =>
   typeof navigator !== 'undefined' && /\bLine\//i.test(navigator.userAgent)
 
+// เอ็ม 2026-09-20 (สมัครใหม่ด้วย LINE ครั้งแรกพัง — "เข้าสู่ระบบไม่สำเร็จ / รหัสอ้างอิง: undefined"):
+// next-auth's signIn() ยิง fetch('/api/auth/providers') เองก่อนเปิดหน้า OAuth เสมอ — ถ้า fetch นั้นพลาด
+// (มักเกิดกับ cold-start ครั้งแรกในเว็บบราวเซอร์ของแอป LINE ซึ่งเป็นเคสของ "user ใหม่ที่ไม่เคยใช้") มันจะ
+// เด้งไป /api/auth/error โดยไม่มี query เลย (error=ค่า undefined จริงๆ ไม่ใช่ string) → เพจ /auth/error ของเรา
+// โชว์ "รหัสอ้างอิง: undefined" — เกิดก่อนถึงหน้า LINE OAuth ด้วยซ้ำ ไม่เกี่ยวกับ callback/session ใดๆ เลย.
+// แก้: ลอง fetch เส้นเดียวกันเองก่อน (พร้อม retry สั้นๆ) เผื่อ warm-up การเชื่อมต่อให้ผ่านก่อนค่อยเรียก signIn()
+// จริง — ลด race ของ cold-start ได้มาก โดยไม่เปลี่ยน public API ของ hook นี้ (ถ้า retry ครบแล้วยังไม่ผ่าน ก็ยัง
+// เรียก signIn() ต่อเหมือนพฤติกรรมเดิม ไม่แย่ไปกว่าก่อนแก้).
+export async function ensureAuthProvidersReachable(retries = 2, delayMs = 350): Promise<void> {
+  for (let i = 0; i <= retries; i += 1) {
+    try {
+      const res = await fetch('/api/auth/providers', { credentials: 'same-origin' })
+      if (res.ok) return
+    } catch {
+      /* เครือข่ายพลาด — ลองรอบถัดไป */
+    }
+    if (i < retries) await new Promise((r) => setTimeout(r, delayMs))
+  }
+}
+
 // The seam Lamun's LoginView binds to: two provider callbacks + a loading flag.
 export type V2LoginApi = {
   loading: boolean
@@ -51,7 +71,9 @@ export function useV2Login(): V2LoginApi {
     }
 
     setLoading(true)
-    signIn(provider, { callbackUrl: V2_LOGIN_CALLBACK })
+    void ensureAuthProvidersReachable().finally(() => {
+      signIn(provider, { callbackUrl: V2_LOGIN_CALLBACK })
+    })
   }
 
   return {
