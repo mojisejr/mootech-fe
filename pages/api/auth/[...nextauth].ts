@@ -36,11 +36,15 @@ export const authOptions: NextAuthOptions = {
     LineProvider({
       clientId: process.env.LINE_CLIENT_ID as string,
       clientSecret: process.env.LINE_CLIENT_SECRET as string,
-      // 🔴 เอ็มพบ 2026-09-20: เคยลอง checks:["none"] (#731) เพื่อให้ callback ไม่พึ่ง state cookie (แก้ app-switch)
-      // — แต่ LINE Login "บังคับต้องมี state param" ในคำขอ authorize. checks:["none"] ทำให้ state.create ถูกข้าม →
-      // authorize URL ไม่มี state (ยืนยันจาก prod: .../authorize? ไม่มี state) → LINE ปฏิเสธ → เด้งกลับหน้า login
-      // ทันที ("กด login แล้วกลับมาที่เดิม"). ถอดออก = กลับไป checks default (มี state/pkce) ให้ LINE รับคำขอได้.
-      // (app-switch Safari→แอป LINE ยังทำ session cookie หลุด context — แก้จริงต้องเข้าจาก LINE OA in-app browser)
+      // 🔴 เอ็ม/Janjarat 2026-09-20 (error3.mp4): ต้นเหตุ "กด login แล้วเด้งกลับหน้า welcome ไม่ login" บน iPhone
+      // คือ LINE "auto login" สลับไปเปิดแอป LINE (iOS ถาม "เปิดใน LINE?") ระหว่าง authorize → cookie jar เปลี่ยน
+      // (Safari/LINE-webview → แอป LINE) → state/pkce cookie ที่ตั้งไว้ตอน authorize หาย → callback ไม่เจอ state →
+      // next-auth ปฏิเสธ → เด้งกลับ signIn (จอดำแวบ→หน้า welcome). วิดีโอยืนยันครบ flow.
+      // แก้: disable_ios_auto_login=true — ปิด "การสลับไปแอป LINE" เฉพาะ iOS (LINE docs) → ทำ OAuth จบใน browser
+      // เดียว → state/pkce ไม่หาย → callback ผ่าน. ต่างจาก disable_auto_login (#728, กว้างทุกแพลตฟอร์ม บังคับหน้า
+      // email/QR เมื่อไม่มี SSO — ผู้ใช้ปฏิเสธ) — ตัวนี้เจาะจง iOS และคง SSO ไว้ถ้ามี session LINE บนเว็บ.
+      // คง checks default (state/pkce) ไว้ — LINE บังคับต้องมี state (บทเรียน #731/#735). scope คงเดิม.
+      authorization: { params: { scope: "openid profile", disable_ios_auto_login: true } },
     }),
     GoogleProvider({
       clientId: process.env.GOOGLE_CLIENT_ID as string,
