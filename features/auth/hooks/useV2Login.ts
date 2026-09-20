@@ -74,14 +74,10 @@ export function useV2Login(): V2LoginApi {
     // เลี่ยง getProviders ของ signIn() ทั้งหมด (ต้นเหตุ "รหัสอ้างอิง: undefined") — เริ่ม OAuth ด้วย full-page
     // form POST ตรงไป /api/auth/signin/<provider> ให้เบราว์เซอร์เดินตาม 302 เอง. ดู oauth-redirect.ts
     //
-    // เอ็มพบ 2026-09-20 (คนใหม่ยังสมัคร LINE ไม่ได้): พอเริ่มใน Safari/Chrome แล้ว LINE เด้ง "เปิดใน LINE?"
-    // → กระโดดเข้าแอป LINE (คนละ browser คนละ cookie jar) → state cookie ที่ตั้งตอนเริ่มหาย → callback พัง →
-    // next-auth เด้งไปหน้า signin default. แก้: นอก LINE in-app browser ส่ง disable_auto_login=true (LINE
-    // ยืนยันในเอกสาร: แอปจะไม่เด้ง เปิดหน้า login ใน browser เดิมแทน) → OAuth จบใน context เดียว state ไม่หาย.
-    // ถ้าอยู่ใน LINE browser อยู่แล้ว ไม่ต้องส่ง (auto SSO one-tap ไม่มี switch อยู่แล้ว).
-    const authorizeParams =
-      provider === 'line' && !isLineInAppBrowser() ? { disable_auto_login: 'true' } : undefined
-    void startOAuthRedirect(provider, V2_LOGIN_CALLBACK, authorizeParams)
+    // เอ็ม 2026-09-20: เคยลองใส่ disable_auto_login=true (#727) เพื่อกัน LINE เด้งเปิดแอป — แต่ผลคือมันบังคับ
+    // ขึ้นหน้า "อีเมล/รหัสผ่าน" ของ LINE ซึ่งคนที่จำ LINE ไม่ได้เข้ายากมาก. ถอดออก → กลับไปใช้ auto-login ของ
+    // LINE (แตะทีเดียวผ่านแอป). ทางที่ลื่นที่สุด = เปิดจากใน LINE (OA rich menu) ให้อยู่ใน in-app browser.
+    void startOAuthRedirect(provider, V2_LOGIN_CALLBACK)
   }
 
   return {

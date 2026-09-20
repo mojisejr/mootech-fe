@@ -120,10 +120,8 @@ useEffect(() => {
     }else{
       // เลี่ยง getProviders ของ signIn() (ต้นเหตุ "รหัสอ้างอิง: undefined" ตอน LINE webview cold-start) —
       // เริ่ม OAuth ด้วย full-page form POST ตรง. ดู lib/auth/oauth-redirect.ts
-      // LINE นอก in-app browser: ส่ง disable_auto_login=true กัน LINE เด้งเปิดแอป (context switch → callback พัง)
-      const authorizeParams =
-        provider === "line" && !isLineInAppBrowser() ? { disable_auto_login: "true" } : undefined;
-      void startOAuthRedirect(provider, `/auth/after/${provider}`, authorizeParams);
+      // (ถอด disable_auto_login ออก #728 — มันบังคับหน้าอีเมล/รหัสผ่าน LINE ที่คนจำไม่ได้เข้ายาก)
+      void startOAuthRedirect(provider, `/auth/after/${provider}`);
     }
   };
 
