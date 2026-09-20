@@ -299,8 +299,13 @@ function guardV2(req: NextRequest): NextResponse | null {
   // that arrives after PAYMENT_GATEWAY flips (either direction) still reaches its own route.
   if (pathname === '/api/v2/payment/webhook-beam') return noStore(NextResponse.next());
 
+  // 🔴 #606 B3 (2026-09-20, เอ็มพบ live): นี่คือ step ที่คอมเมนต์ด้านบน (บรรทัด ~234) บอกไว้ล่วงหน้าว่าต้องทำ
+  // ตอน launch จริง แต่ยังไม่เคยถูกทำ — ผลคือกด "เปิดระบบ" (goLive() ลบ V2_PREVIEW_KEY) แล้ว /v2 ล็อกเข้า
+  // maintenance ถาวรทันที ไม่ว่า MAINTENANCE_MODE จะเป็นอะไร เพราะ guard นี้ fail-closed เมื่อไม่มีคีย์
+  // (เดิม: rewrite /maintenance). ตอนนี้ preview gate หมดหน้าที่แล้ว (ผ่าน #605 ตามคอมเมนต์เดิม) — เมื่อไม่มี
+  // คีย์ตั้งไว้ (unset = launch แล้ว) ให้ "เปิดผ่าน" แทน fail-closed. คีย์ยังตั้งอยู่ (ยังไม่ launch) → gate ทำงานเหมือนเดิมทุกอย่าง.
   const key = process.env.V2_PREVIEW_KEY;
-  if (!key) return noStore(NextResponse.rewrite(new URL('/maintenance', req.url)));
+  if (!key) return noStore(NextResponse.next());
 
   if (pathname === '/api/v2/login') return noStore(NextResponse.next());
 
