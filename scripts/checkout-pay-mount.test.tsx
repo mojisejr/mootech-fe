@@ -59,6 +59,9 @@ vi.mock('@/features/auth/hooks/useV2Tier', () => ({
 // The card lane would reach omise.js through the network; the PromptPay lane needs none of it. Stubbed so a
 // card test can exist without a real tokeniser.
 vi.mock('@/features/v2-shop/omise-token', () => ({ createCardToken: vi.fn(async () => 'tokn_test_1') }))
+// checkout gates on real per-user login (useCurrentUser) — mock as authed so this mount test exercises the
+// pay flow, not the auth redirect (mirrors the useV2Tier mock; both wrap next-auth/cookies).
+vi.mock('@/lib/auth/use-current-user', () => ({ useCurrentUser: () => ({ userId: 'u-1', status: 'authed' }) }))
 
 import CheckoutPage from '@/pages/v2/shop/checkout'
 
