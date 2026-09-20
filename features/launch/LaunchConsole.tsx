@@ -131,19 +131,30 @@ export function LaunchConsole() {
         </div>
       </div>
 
-      {/* ปุ่มเปิดระบบ */}
+      {/* ปุ่มเปิดระบบ
+          2026-09-20 (เอ็มพบ live): เดิมปุ่มนี้ disable ตัวเองทันทีที่ status.env บอกว่า maintenance=off
+          (Boolean(live) ใน disabled) — แต่ "env config ว่า off" ไม่เท่ากับ "เว็บจริงถูก redeploy ด้วยค่านั้นแล้ว"
+          (เช่นเจอ race ที่ deploy hook build ก่อน env ใหม่ propagate ทัน — ดู lib/launch/vercel.ts). ผลคือ
+          หลัง press ครั้งแรกที่ env กลาย off แล้ว ปุ่มล็อกตัวเองถาวร กดซ้ำเพื่อ "บังคับ redeploy อีกที" ไม่ได้เลย
+          ทั้งที่ goLive() ออกแบบมาให้ idempotent อยู่แล้ว (คอมเมนต์เดิมในไฟล์นี้). แก้: ไม่ disable จาก live อีกต่อไป
+          ปุ่มยังกดซ้ำได้เสมอเมื่อ armed — แค่เปลี่ยนป้าย/สีเป็นโหมด "บังคับ redeploy" แทน "เปิดระบบ" ตอน live. */}
       <button
         type="button"
-        disabled={busy || !status?.armed || Boolean(live)}
+        disabled={busy || !status?.armed}
         onClick={() => setConfirming("go")}
         style={{
           width: "100%", height: 56, marginTop: 16, borderRadius: 999, border: "none",
-          background: live ? "#9e9e9e" : "#e53935", color: "#fff", fontSize: 17, fontWeight: 800,
-          cursor: busy || !status?.armed || live ? "not-allowed" : "pointer",
+          background: live ? "#2e7d32" : "#e53935", color: "#fff", fontSize: 17, fontWeight: 800,
+          cursor: busy || !status?.armed ? "not-allowed" : "pointer",
         }}
       >
-        {live ? "เปิดระบบแล้ว ✅" : busy ? "กำลังทำงาน…" : "🙏 เผยแพร่ — เปิดระบบสู่ผู้ใช้"}
+        {busy ? "กำลังทำงาน…" : live ? "✅ เปิดอยู่แล้ว — กดเพื่อบังคับ redeploy อีกครั้ง" : "🙏 เผยแพร่ — เปิดระบบสู่ผู้ใช้"}
       </button>
+      {live ? (
+        <p style={{ marginTop: 6, fontSize: 12, color: "#2e7d32", textAlign: "center" }}>
+          env บน Vercel เป็น off แล้ว — ถ้าเว็บจริงยังขึ้น maintenance ให้กดปุ่มนี้ซ้ำเพื่อบังคับ redeploy
+        </p>
+      ) : null}
 
       <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
         <button type="button" disabled={busy || !status?.armed} onClick={() => void dryRun()}
