@@ -13,6 +13,8 @@ import { Menubar } from "@/features/v2-shell/components/Menubar"
 import { useActionCooldown } from "@/lib/useActionCooldown"
 import { useV2Tier } from "@/features/auth/hooks/useV2Tier"
 import { useCurrentUser } from "@/lib/auth/use-current-user"
+import { useHasMounted } from "@/lib/hooks/use-has-mounted"
+import { useLoadingTimeout } from "@/lib/hooks/use-loading-timeout"
 import { AuthRequiredCard } from "@/features/auth/components/AuthRequiredCard"
 import { shareAsInvite } from "@/lib/v2/share-invite"
 import { ShareCard, ShareStage } from "@/features/v2-share/components/ShareCard"
@@ -58,6 +60,11 @@ function splitLove(text: string): { male: string; female: string } | null {
 
 export default function FortuneSagePage() {
   const { status: authStatus } = useCurrentUser() // 'loading' | 'authed' | 'anon' — ไม่ login กดเสี่ยงทายไม่ได้
+  // #246-style escape: บางเคส (เปิดลิงก์จาก LINE rich menu → MEMBER_ID โดน SameSite ตัด / self-heal ยังไม่ลง)
+  // authStatus ค้าง 'loading' นานเกินไป → ปุ่มถูก disable ตายตัว. ถ้าค้างเกิน 8 วิ ถือว่า "ตรวจบัญชีไม่ผ่าน" →
+  // โชว์การ์ดเข้าสู่ระบบแทน (พาไป /v2/login มินต์ MEMBER_ID ใหม่) แทนปุ่มที่กดไม่ได้.
+  const mounted = useHasMounted()
+  const identityStuck = useLoadingTimeout(mounted && authStatus === "loading", 8000)
   const cd = useActionCooldown("fortune:sage") // กันบอทยิงรัว 10 วิ
   const { tier } = useV2Tier() // PRO = เซียมซี/Oracle ไม่จำกัด → ไม่โชว์ copy "วันละ 1 ครั้ง"
   const cardUnlimited = tier === "PRO"
@@ -174,8 +181,9 @@ export default function FortuneSagePage() {
             <span className="relative h-48 w-full max-w-[300px]">
               <Image src="/images/v2/fortune/sage-cup.png" alt="" fill sizes="300px" className="object-contain" />
             </span>
-            {authStatus === "anon" ? (
-              // ยังไม่ login — ห้ามให้กดเสี่ยงทาย (เดิมกด draw() แล้วได้ 401 → error ทั่วไป "เสี่ยงทายไม่สำเร็จ")
+            {authStatus === "anon" || identityStuck ? (
+              // ยังไม่ login (anon) หรือ ตรวจบัญชีค้างเกิน 8 วิ (identityStuck — เช่นเปิดจาก LINE rich menu แล้ว
+              // MEMBER_ID ไม่มา) — โชว์การ์ดเข้าสู่ระบบ (พาไป /v2/login) แทนปุ่มที่กดไม่ได้ตายตัว.
               <AuthRequiredCard testId="sage-auth-gate" message="เข้าสู่ระบบก่อนเพื่อเสี่ยงทายเซียมซี" />
             ) : (
               <>
