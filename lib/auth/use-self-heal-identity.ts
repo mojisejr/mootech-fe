@@ -97,7 +97,11 @@ export function useSelfHealIdentity(): void {
     const cookieOpts = {
       path: "/",
       maxAge: CONFIG.EXPIRED_TIME_COOKIE,
-      sameSite: true as const,
+      // เอ็ม/Janjarat 2026-09-20: เดิม sameSite:true (=Strict) → เปิดลิงก์แอปจาก "ใน LINE" (cross-site
+      // line.me→bazichart, top-level nav) เบราว์เซอร์ "ไม่ส่ง" cookie-mumate-id → session มีแต่ MEMBER_ID
+      // หาย = identity limbo (authStatus ค้าง 'loading' → ปุ่มเสี่ยงทาย/ฟีเจอร์กดไม่ได้). Lax = ส่งบน top-level
+      // GET nav ข้ามไซต์ (เคสลิงก์จาก LINE พอดี) → MEMBER_ID มา → authStatus='authed'. ปลอดภัย (identity cookie).
+      sameSite: "lax" as const,
     };
 
     const timer = setTimeout(async () => {
