@@ -17,6 +17,8 @@ vi.mock('next/router', () => ({
 
 let freeUsed = false
 let patchStatus = 200
+let patchError = 'แต้ม Qi ไม่พอ'
+let walletQi = 30
 const fetchMock = vi.fn(async (url: string, init?: { method?: string; body?: string }) => {
   const u = String(url)
   const method = init?.method ?? 'GET'
@@ -31,13 +33,13 @@ const fetchMock = vi.fn(async (url: string, init?: { method?: string; body?: str
     }
   }
   if (u.includes('/api/profile') && method === 'PATCH') {
-    return { ok: patchStatus === 200, status: patchStatus, json: async () => ({ birthEditMode: freeUsed ? 'qi' : 'free' }) }
+    return { ok: patchStatus === 200, status: patchStatus, json: async () => (patchStatus === 200 ? { birthEditMode: freeUsed ? 'qi' : 'free' } : { error: patchError }) }
   }
   if (u.includes('/api/profile') && method === 'POST') {
     return { ok: true, status: 200, json: async () => ({ ok: true, requestId: 'r1' }) }
   }
   if (u.includes('/api/qi-wallet')) {
-    return { ok: true, status: 200, json: async () => ({ qi: 30, coins: 0, xp: 0, level: 1, history: [] }) }
+    return { ok: true, status: 200, json: async () => ({ qi: walletQi, coins: 0, xp: 0, level: 1, history: [] }) }
   }
   return { ok: true, status: 200, json: async () => ({}) }
 })
@@ -48,6 +50,8 @@ import EditBirthScreen from '@/features/v2-account/components/EditBirthScreen'
 beforeEach(() => {
   freeUsed = false
   patchStatus = 200
+  patchError = 'แต้ม Qi ไม่พอ'
+  walletQi = 30
   fetchMock.mockClear()
 })
 afterEach(() => cleanup())
@@ -97,6 +101,21 @@ describe('จอแก้วันเกิด (edit-birth-data ×4)', () => {
     await waitFor(() => expect(screen.getByTestId('qi-insufficient-title')).toBeTruthy())
     expect(screen.getByTestId('qi-insufficient-title').textContent).toContain('ขาดอีก 120 QI')
     expect(screen.getByTestId('qi-insufficient-buy').getAttribute('href')).toBe('/v2/qi/buy')
+  })
+
+  it('EB2b 409 ที่ "มี QI พอ" (บัญชี legacy ไม่มีโปรไฟล์) → โชว์ error จริง ไม่ใช่ชีต "QI ไม่พอ"', async () => {
+    // เอ็ม/Janjarat 2026-09-20: มี 1,000 QI แต่เด้ง "ขาดอีก 0 QI" แล้วแก้ไม่ได้ — engine 409 "ตั้ง @name ก่อน"
+    freeUsed = true
+    patchStatus = 409
+    walletQi = 1000
+    patchError = 'ยังไม่มีโปรไฟล์ — ตั้ง @name ก่อน (หน้าสมัคร)'
+    render(<CookiesProvider><EditBirthScreen /></CookiesProvider>)
+    fireEvent.click(await waitFor(() => screen.getByTestId('eb-unlock')))
+    fireEvent.change(screen.getByTestId('eb-province'), { target: { value: 'ตรัง' } })
+    fireEvent.click(screen.getByTestId('eb-save'))
+    await waitFor(() => expect(screen.getByTestId('eb-msg').textContent).toContain('ตั้ง @name ก่อน'))
+    // ต้องไม่โผล่ชีต "QI ไม่พอ" ทั้งที่มี QI พอ
+    expect(screen.queryByTestId('qi-insufficient-title')).toBeNull()
   })
 
   // EB3 (correction-request free path) ถูกถอดออกทั้งหมด 2026-09: ปิดช่องแก้ฟรีถาวร —
