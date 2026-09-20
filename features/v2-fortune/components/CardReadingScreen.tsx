@@ -10,6 +10,8 @@ import { KitButton, SkyHeader, SkyScreen } from "@/features/v2-profile/component
 import { Menubar } from "@/features/v2-shell/components/Menubar"
 import { useActionCooldown } from "@/lib/useActionCooldown"
 import { useV2Tier } from "@/features/auth/hooks/useV2Tier"
+import { useCurrentUser } from "@/lib/auth/use-current-user"
+import { AuthRequiredCard } from "@/features/auth/components/AuthRequiredCard"
 import { shareAsInvite } from "@/lib/v2/share-invite"
 import { ShareCard, ShareStage } from "@/features/v2-share/components/ShareCard"
 
@@ -57,6 +59,7 @@ export function CardReadingScreen({
   backHref?: string
 }) {
   const theme = THEME[mode]
+  const { status: authStatus } = useCurrentUser() // 'loading' | 'authed' | 'anon' — ไม่ login เปิดไพ่ไม่ได้
   // PRO = เปิดไพ่/เซียมซี ไม่จำกัด (ร้านค้า) → ไม่โชว์ copy "วันละ 1 ครั้ง (ฟรี)" ที่ทำให้ PRO เข้าใจผิดว่าจำกัด
   const { tier } = useV2Tier()
   const cardUnlimited = tier === "PRO"
@@ -135,6 +138,8 @@ export function CardReadingScreen({
   const predict = async (cardNos?: number[], opts?: { bypassCooldown?: boolean }) => {
     // กันบอทยิงรัว/กดรัว 10 วิ (ข้ามได้ตอน redeem+retry ที่ผู้ใช้จ่าย QI เอง)
     if (!opts?.bypassCooldown && !cd.begin()) return
+    // ป้องกันชั้นสอง (ปุ่มถูกซ่อนไปแล้วตอน anon แต่กันไว้เผื่อเรียกตรง เช่น redeemAndRetry)
+    if (authStatus === "anon") { setError("เข้าสู่ระบบก่อนเพื่อเปิดไพ่"); setPhase(cardNos ? "pick" : "intro"); return }
     setPhase("loading")
     setError(null)
     setQuotaOut(false)
@@ -234,11 +239,17 @@ export function CardReadingScreen({
             <span className="relative block aspect-[350/504] w-full">
               <Image src={introArt} alt="" fill sizes="300px" className="object-contain drop-shadow-[0_8px_24px_rgba(26,38,77,0.25)]" priority />
             </span>
-            <div className="absolute inset-x-3 bottom-1 flex gap-2">
-              <button onClick={() => void predict()} disabled={cd.active} data-testid="cards-random" className="grid h-11 flex-1 place-items-center rounded-full bg-white text-[13px] font-bold text-v3-sapphire shadow-md disabled:opacity-50">{cd.active ? `รออีก ${cd.secondsLeft} วิ` : "กดเพื่อเสี่ยงทาย"}</button>
-              <KitButton onClick={() => setPhase("pick")} testId="cards-goto-pick" className="flex-1 !h-11 shadow-md">เลือกเอง 3 ใบ</KitButton>
-            </div>
+            {authStatus !== "anon" && (
+              <div className="absolute inset-x-3 bottom-1 flex gap-2">
+                <button onClick={() => void predict()} disabled={cd.active || authStatus === "loading"} data-testid="cards-random" className="grid h-11 flex-1 place-items-center rounded-full bg-white text-[13px] font-bold text-v3-sapphire shadow-md disabled:opacity-50">{cd.active ? `รออีก ${cd.secondsLeft} วิ` : "กดเพื่อเสี่ยงทาย"}</button>
+                <KitButton onClick={() => setPhase("pick")} testId="cards-goto-pick" className="flex-1 !h-11 shadow-md">เลือกเอง 3 ใบ</KitButton>
+              </div>
+            )}
           </div>
+          {authStatus === "anon" && (
+            // ยังไม่ login — ห้ามให้กดเปิดไพ่ (เดิมกด predict() แล้วได้ 401 → error ทั่วไป "เปิดไพ่ไม่สำเร็จ")
+            <AuthRequiredCard testId="cards-auth-gate" message="เข้าสู่ระบบก่อนเพื่อเปิดไพ่" />
+          )}
           {quotaOut && <p className="text-center text-[12px] font-bold text-[#8A5A0C]" data-testid="cards-quota">โควตาเปิดไพ่วันนี้หมด — แลก 10 QI เพื่อเปิดต่อได้เลย</p>}
           {quotaOut && (
             <button type="button" onClick={() => void redeemAndRetry()} disabled={redeeming} data-testid="cards-redeem" className="grid h-12 w-full place-items-center rounded-full bg-v3-sapphire text-[15px] font-bold uppercase text-v3-lime disabled:opacity-40">

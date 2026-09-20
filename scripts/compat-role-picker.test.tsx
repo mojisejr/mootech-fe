@@ -15,6 +15,8 @@ vi.mock('@/features/v2-shell/components/TopBarBell', () => ({ TopBarBell: () => 
 vi.mock('@/features/v2-shell/components/TopBarAvatar', () => ({ TopBarAvatar: () => null }))
 vi.mock('@/features/v2-shell/components/LoadingScreen', () => ({ LoadingScreen: () => <div data-testid="loading" /> }))
 vi.mock('react-cookie', () => ({ useCookies: () => [{ 'cookie-mumate-id': 'u-1' }] }))
+// useCurrentUser → useSession ต้องมี SessionProvider; เทสนี้ไม่ได้วัด auth gate → mock เป็น login แล้ว (authed)
+vi.mock('@/lib/auth/use-current-user', () => ({ useCurrentUser: () => ({ userId: 'u-1', status: 'authed' }) }))
 const hook = vi.fn()
 vi.mock('@/features/v2-service/hooks/useCompatibility', () => ({ useCompatibility: () => hook() }))
 vi.mock('@/constants/api/api-member-with-friend-get-detail', () => ({ MemberWithFriendGetDetailApi: vi.fn(async () => null) }))

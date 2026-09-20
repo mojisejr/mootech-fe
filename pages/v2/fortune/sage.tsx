@@ -12,6 +12,8 @@ import { KitButton, SkyHeader, SkyScreen } from "@/features/v2-profile/component
 import { Menubar } from "@/features/v2-shell/components/Menubar"
 import { useActionCooldown } from "@/lib/useActionCooldown"
 import { useV2Tier } from "@/features/auth/hooks/useV2Tier"
+import { useCurrentUser } from "@/lib/auth/use-current-user"
+import { AuthRequiredCard } from "@/features/auth/components/AuthRequiredCard"
 import { shareAsInvite } from "@/lib/v2/share-invite"
 import { ShareCard, ShareStage } from "@/features/v2-share/components/ShareCard"
 
@@ -55,6 +57,7 @@ function splitLove(text: string): { male: string; female: string } | null {
 }
 
 export default function FortuneSagePage() {
+  const { status: authStatus } = useCurrentUser() // 'loading' | 'authed' | 'anon' — ไม่ login กดเสี่ยงทายไม่ได้
   const cd = useActionCooldown("fortune:sage") // กันบอทยิงรัว 10 วิ
   const { tier } = useV2Tier() // PRO = เซียมซี/Oracle ไม่จำกัด → ไม่โชว์ copy "วันละ 1 ครั้ง"
   const cardUnlimited = tier === "PRO"
@@ -88,6 +91,8 @@ export default function FortuneSagePage() {
   const draw = async (opts?: { bypassCooldown?: boolean }) => {
     // กันบอทยิงรัว/กดรัว 10 วิ (ข้ามตอน redeem+retry ที่จ่าย QI เอง)
     if (!opts?.bypassCooldown && !cd.begin()) return
+    // ป้องกันชั้นสอง (ปุ่มถูกซ่อนไปแล้วตอน anon แต่กันไว้เผื่อ redeemAndRetry เรียกตรง)
+    if (authStatus === "anon") { setError("เข้าสู่ระบบก่อนเพื่อเสี่ยงทายเซียมซี"); setPhase("intro"); return }
     setPhase("loading")
     setError(null)
     setQuotaOut(false)
@@ -169,16 +174,23 @@ export default function FortuneSagePage() {
             <span className="relative h-48 w-full max-w-[300px]">
               <Image src="/images/v2/fortune/sage-cup.png" alt="" fill sizes="300px" className="object-contain" />
             </span>
-            <p className="text-center text-[12px] text-v3-text-muted">ตั้งจิตให้นิ่ง แล้วกดเสี่ยงทายเพื่อรับคำทำนาย</p>
-            {quotaOut && <p className="text-center text-[12px] font-bold text-[#8A5A0C]" data-testid="sage-quota">โควตาเสี่ยงทายวันนี้หมด — แลก 10 QI เพื่อเสี่ยงต่อได้เลย</p>}
-            {quotaOut && (
-              <button type="button" onClick={() => void redeemAndRetry()} disabled={redeeming} data-testid="sage-redeem" className="grid h-12 w-full place-items-center rounded-full bg-v3-sapphire text-[15px] font-bold uppercase text-v3-lime disabled:opacity-40">
-                {redeeming ? "กำลังแลก..." : "แลก 10 QI แล้วเสี่ยงทายเลย"}
-              </button>
+            {authStatus === "anon" ? (
+              // ยังไม่ login — ห้ามให้กดเสี่ยงทาย (เดิมกด draw() แล้วได้ 401 → error ทั่วไป "เสี่ยงทายไม่สำเร็จ")
+              <AuthRequiredCard testId="sage-auth-gate" message="เข้าสู่ระบบก่อนเพื่อเสี่ยงทายเซียมซี" />
+            ) : (
+              <>
+                <p className="text-center text-[12px] text-v3-text-muted">ตั้งจิตให้นิ่ง แล้วกดเสี่ยงทายเพื่อรับคำทำนาย</p>
+                {quotaOut && <p className="text-center text-[12px] font-bold text-[#8A5A0C]" data-testid="sage-quota">โควตาเสี่ยงทายวันนี้หมด — แลก 10 QI เพื่อเสี่ยงต่อได้เลย</p>}
+                {quotaOut && (
+                  <button type="button" onClick={() => void redeemAndRetry()} disabled={redeeming} data-testid="sage-redeem" className="grid h-12 w-full place-items-center rounded-full bg-v3-sapphire text-[15px] font-bold uppercase text-v3-lime disabled:opacity-40">
+                    {redeeming ? "กำลังแลก..." : "แลก 10 QI แล้วเสี่ยงทายเลย"}
+                  </button>
+                )}
+                {redeemMsg && <p className="text-center text-[12px] font-bold text-v3-error">{redeemMsg}</p>}
+                {error && <p data-testid="sage-error" className="text-center text-[12px] font-bold text-v3-error">{error}</p>}
+                <KitButton onClick={() => void draw()} disabled={cd.active || authStatus === "loading"} testId="sage-draw">{cd.active ? `รออีก ${cd.secondsLeft} วินาที` : "กดเพื่อเสี่ยงทาย"}</KitButton>
+              </>
             )}
-            {redeemMsg && <p className="text-center text-[12px] font-bold text-v3-error">{redeemMsg}</p>}
-            {error && <p data-testid="sage-error" className="text-center text-[12px] font-bold text-v3-error">{error}</p>}
-            <KitButton onClick={() => void draw()} disabled={cd.active} testId="sage-draw">{cd.active ? `รออีก ${cd.secondsLeft} วินาที` : "กดเพื่อเสี่ยงทาย"}</KitButton>
           </section>
           {quotaOut && <Link href="/v2/qi" className="text-center text-[13px] font-bold text-v3-sapphire">เติม/แลก QI ที่หน้าพลังชี่ →</Link>}
           <p className="text-center text-[11px] text-v3-text-muted">{cardUnlimited ? "สมาชิก PRO เสี่ยงทายได้ไม่จำกัด" : "ใช้โควตาเสี่ยงทายวันละ 1 ครั้ง (ฟรี) — เกินแล้วแลกด้วย QI"}</p>

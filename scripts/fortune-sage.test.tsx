@@ -11,6 +11,8 @@ import { render, screen, cleanup, fireEvent, waitFor } from '@testing-library/re
 vi.mock('next/config', () => ({ default: () => ({ publicRuntimeConfig: {}, serverRuntimeConfig: {} }) }))
 // useV2Tier → useV2User → useCookies ต้องมี CookiesProvider; เทสนี้ไม่ได้วัด tier → mock เป็น non-PRO
 vi.mock('@/features/auth/hooks/useV2Tier', () => ({ useV2Tier: () => ({ tier: null, isPaid: null, loading: false }) }))
+// useCurrentUser → useSession ต้องมี SessionProvider; เทสนี้ไม่ได้วัด auth gate → mock เป็น login แล้ว (authed)
+vi.mock('@/lib/auth/use-current-user', () => ({ useCurrentUser: () => ({ userId: 'test-user-id', status: 'authed' }) }))
 vi.mock('next/router', () => ({
   useRouter: () => ({ push: vi.fn(), replace: vi.fn(), query: {}, pathname: '/v2/fortune/sage', isReady: true }),
 }))

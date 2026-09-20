@@ -42,6 +42,7 @@ vi.mock('@/features/v2-shell/components/LoadingScreen', () => ({
   ),
 }))
 vi.mock('react-cookie', () => ({ useCookies: () => [{ 'cookie-mumate-id': 'u-1' }] }))
+vi.mock('@/lib/auth/use-current-user', () => ({ useCurrentUser: () => ({ userId: 'u-1', status: 'authed' }) }))
 vi.mock('@/features/v2-service/hooks/useCompatibility', () => ({ useCompatibility: () => useCompatibility() }))
 vi.mock('@/constants/api/api-member-with-friend-get-detail', () => ({
   MemberWithFriendGetDetailApi: (...a: unknown[]) => getDetail(...a),

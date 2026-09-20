@@ -26,6 +26,8 @@ import { CookieKey } from '@/constants/cookie-key'
 import { MemberWithFriendGetDetailApi } from '@/constants/api/api-member-with-friend-get-detail'
 import { friendDetailToEditForm, createdFriendToSelectInput, type EditFriendForm, type FriendEditDetail, type CreatedFriendRow } from '../compatibility-api'
 import { useCompatibility, type CompatPerson } from '../hooks/useCompatibility'
+import { useCurrentUser } from '@/lib/auth/use-current-user'
+import { AuthRequiredCard } from '@/features/auth/components/AuthRequiredCard'
 import { useColleagueCandidates } from '../hooks/useColleagueCandidates'
 import { readWorkCompareResult, type WorkCalcFailure } from '../work-compare-call'
 import { V2MatchingWorkCreateApi } from '@/constants/api/api-v2-matching'
@@ -269,6 +271,7 @@ const CALC_ERROR_COPY: Record<CompatFailure, { tone: 'retry' | 'blocked'; lines:
 }
 
 export function CompatibilityScreen({ config }: { config: CompatibilityConfig }) {
+  const { status: authStatus } = useCurrentUser() // 'loading' | 'authed' | 'anon'
   const c = useCompatibility(config)
   const { logout } = useV2Logout()
   const [logoutOpen, setLogoutOpen] = useState(false)
@@ -427,6 +430,23 @@ export function CompatibilityScreen({ config }: { config: CompatibilityConfig })
   // resolves, then swaps to the result — which mounts already-loading with the identical loader. Same
   // component + copy means no content/copy swap across the two phases (the frame-level rAF trace in
   // run-compat-2f.ts checks role=status is present every frame across the handoff).
+  // เอ็ม 2026-09-20: ยังไม่ login เดิม person1 resolve เป็น null เงียบๆ (ไม่มี error) → ผู้ใช้เห็นแค่ dropdown
+  // เลือกโปรไฟล์ว่างๆ กดปุ่ม "ดูผลลัพธ์เลย" ไม่ติด งงว่าเกิดอะไรขึ้น. โชว์ gate พาไป /v2/login แทน.
+  if (authStatus === 'anon') {
+    return (
+      <div data-testid="compat-screen" className="relative min-h-screen w-full overflow-x-hidden bg-v3-bg-cream font-ibm">
+        <Head><title>{`${config.title} · MuMate`}</title></Head>
+        <div className="relative z-10 mx-auto flex w-full max-w-md flex-col gap-4 px-4 pb-36 pt-[max(0.75rem,env(safe-area-inset-top))]">
+          <header className="flex items-center gap-2 py-2">
+            <Link href="/v2/service" aria-label="ย้อนกลับ" className="grid size-8 shrink-0 place-items-center rounded-full text-v3-navy"><BackChevron /></Link>
+            <h1 className="min-w-0 flex-1 truncate text-[24px] font-bold leading-8 text-v3-navy">{config.title}</h1>
+          </header>
+          <AuthRequiredCard testId="compat-auth-gate" message="เข้าสู่ระบบก่อนเพื่อดูดวงสมพงศ์" />
+        </div>
+      </div>
+    )
+  }
+
   if (calculating) {
     // #585 ก้อน 4 — the colleague lane names how many people are in flight; everything else about the
     // wait, including ฟีม's verbatim subtitle, is the same screen the pair lane and the result route show.
