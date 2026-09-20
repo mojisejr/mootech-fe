@@ -165,15 +165,19 @@ function onProd(e: VercelEnv): boolean {
   return Array.isArray(t) ? t.includes("production") : t === "production";
 }
 
-/** Read current production state of the two launch variables (best-effort; value may be encrypted). */
-export async function readEnvState(): Promise<EnvState> {
-  const p = await resolveProject();
+async function readEnvStateFor(p: ResolvedProject): Promise<EnvState> {
   const envs = await listEnv(p);
   const maint = envs.find((e) => e.key === "MAINTENANCE_MODE" && onProd(e));
   const v2 = envs.find((e) => e.key === "V2_PREVIEW_KEY" && onProd(e));
   let maintenance: EnvState["maintenance"] = "unset";
   if (maint) maintenance = maint.value === "on" ? "on" : maint.value === undefined ? "unknown" : "off";
   return { maintenance, v2Locked: Boolean(v2) };
+}
+
+/** Read current production state of the two launch variables (best-effort; value may be encrypted). */
+export async function readEnvState(): Promise<EnvState> {
+  const p = await resolveProject();
+  return readEnvStateFor(p);
 }
 
 async function upsertEnv(p: ResolvedProject, key: string, value: string): Promise<void> {
@@ -216,11 +220,37 @@ async function redeploy(): Promise<void> {
   if (!res.ok) throw new Error(`deploy hook failed (${res.status})`);
 }
 
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+// 2026-09-20 (เอ็มพบ live): goLive() เคย upsertEnv แล้ว redeploy() ทันที — เจอเคสจริงที่ deploy hook
+// สั่ง build ก่อน Vercel เอา env ใหม่ (MAINTENANCE_MODE=off) เข้า build pipeline ทัน (race), ผลคือ
+// deployment ใหม่ "Ready" + ติด tag Production ปกติ แต่ยัง bake MAINTENANCE_MODE=on ค้างอยู่ — แก้ด้วย
+// poll readEnvState() ยืนยันค่าที่เขียนไปแล้ว "อ่านกลับมาตรงจริง" ก่อนค่อยยิง deploy hook (best-effort:
+// timeout แล้วไม่ throw — ยังยิง redeploy ต่อ เผื่อ Vercel แค่ตอบช้าแต่ apply แล้วจริง).
+async function waitForEnvPropagation(
+  p: ResolvedProject,
+  expected: Pick<EnvState, "maintenance">,
+  { attempts = 5, delayMs = 800 }: { attempts?: number; delayMs?: number } = {},
+): Promise<void> {
+  for (let i = 0; i < attempts; i += 1) {
+    try {
+      const state = await readEnvStateFor(p);
+      if (state.maintenance === expected.maintenance) return;
+    } catch {
+      /* best-effort — ลองรอบถัดไป */
+    }
+    await sleep(delayMs);
+  }
+}
+
 /** GO LIVE: maintenance off + drop the v2 lock + redeploy. Idempotent. */
 export async function goLive(): Promise<void> {
   const p = await resolveProject();
   await upsertEnv(p, "MAINTENANCE_MODE", "off");
   await deleteEnv(p, "V2_PREVIEW_KEY");
+  await waitForEnvPropagation(p, { maintenance: "off" });
   await redeploy();
 }
 
@@ -228,5 +258,6 @@ export async function goLive(): Promise<void> {
 export async function rollback(): Promise<void> {
   const p = await resolveProject();
   await upsertEnv(p, "MAINTENANCE_MODE", "on");
+  await waitForEnvPropagation(p, { maintenance: "on" });
   await redeploy();
 }
