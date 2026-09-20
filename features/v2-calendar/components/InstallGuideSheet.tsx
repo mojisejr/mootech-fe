@@ -31,6 +31,7 @@
 // WHICH variant from capability — so this file compiles and renders before #285 lands.
 import { useEffect, useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
+import { isLineInAppBrowser, openInExternalBrowser } from '@/lib/line/liff'
 
 export type InstallGuideVariant = 'install' | 'permission'
 
@@ -100,6 +101,10 @@ export function InstallGuideSheet({ variant, onClose }: { variant: InstallGuideV
   // ให้หลุดจาก context → คลุมทั้งจอรวมแถบเมนูจริง. + ยก z เป็น z-[90] (เหนือ app chrome; ต่ำกว่า toast z-[9000]).
   const [mounted, setMounted] = useState(false)
   useEffect(() => setMounted(true), [])
+  // อยู่ใน LINE in-app browser → ขั้นตอน manual (แชร์/Add to Home) ใช้ไม่ได้ ต้องเด้งออกเบราว์เซอร์ภายนอกก่อน
+  // (เอ็ม 2026-09-20). โชว์แบนเนอร์ทางลัดด้านบน guide ให้กดออกไปได้เลย ทุก path ที่เปิด guide ตอนอยู่ใน LINE.
+  const [inLine, setInLine] = useState(false)
+  useEffect(() => setInLine(isLineInAppBrowser()), [])
 
   const sheet = (
     <div className="fixed inset-0 z-[90] flex items-end justify-center bg-black/30" onClick={onClose} data-testid="install-guide-scrim">
@@ -132,6 +137,24 @@ export function InstallGuideSheet({ variant, onClose }: { variant: InstallGuideV
         </div>
 
         <p className="px-5 pb-4 text-sm font-medium leading-6 text-v3-text-body">{lead}</p>
+
+        {inLine && (
+          // อยู่ใน LINE: ขั้นตอนล่างทำในแอป LINE ไม่ได้ — ปุ่มลัดพาออกไปเบราว์เซอร์ภายนอกก่อน
+          <div className="mx-5 mb-4 rounded-2xl bg-v3-sapphire/10 p-4">
+            <p className="text-sm font-bold leading-6 text-v3-navy">คุณกำลังเปิดในแอป LINE</p>
+            <p className="mt-0.5 text-xs font-medium leading-5 text-v3-text-body">
+              ในแอป LINE ทำขั้นตอนด้านล่างไม่ได้ — แตะปุ่มนี้เพื่อเปิดในเบราว์เซอร์ (Chrome/Safari) ก่อน แล้วค่อยติดตั้งตามขั้นตอน
+            </p>
+            <button
+              type="button"
+              data-testid="install-guide-open-external"
+              onClick={() => void openInExternalBrowser(window.location.href)}
+              className="mt-3 flex h-11 w-full items-center justify-center gap-2 rounded-2xl bg-v3-sapphire text-sm font-bold text-white"
+            >
+              <span aria-hidden>🌐</span> เปิดในเบราว์เซอร์
+            </button>
+          </div>
+        )}
 
         <ol className="flex flex-col gap-3 overflow-y-auto px-5 pb-4">
           {STEPS[variant].map((step) => (

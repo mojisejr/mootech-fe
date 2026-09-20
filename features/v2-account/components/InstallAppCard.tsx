@@ -1,19 +1,24 @@
 // features/v2-account/components/InstallAppCard.tsx — การ์ด "ติดตั้งแอปลงหน้าจอ" แบบถาวรบนหน้าโปรไฟล์
 // (ผู้ใช้ 2026-09-14: ป็อปอัปหน้าแรกกดปิดแล้วหาย หาไม่เจอ → เอาที่ถาวรมาไว้ตรงที่หาเจอ). กดติดตั้งได้ทุกเมื่อ
 // เพราะ deferred prompt อยู่ที่ module scope (usePwaInstall). + รางวัล +30 QI ครั้งเดียว/บัญชี (useInstallReward).
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 
 import { usePwaInstall } from '@/lib/pwa/use-install-prompt'
 import { useInstallReward } from '@/lib/pwa/use-install-reward'
 import { InstallGuideSheet } from '@/features/v2-calendar/components/InstallGuideSheet'
 import { KitButton, SectionCard } from '@/features/v2-profile/components/kit'
+import { isLineInAppBrowser, openInExternalBrowser } from '@/lib/line/liff'
 
 export function InstallAppCard() {
   const { canInstall, installed, promptInstall } = usePwaInstall()
   const { state: reward } = useInstallReward()
   const [guideOpen, setGuideOpen] = useState(false)
+  // อยู่ใน LINE in-app browser → ติดตั้งไม่ได้ ต้องเด้งออกเบราว์เซอร์ภายนอก (เอ็ม 2026-09-20)
+  const [inLine, setInLine] = useState(false)
+  useEffect(() => { setInLine(isLineInAppBrowser()) }, [])
 
   const onInstall = () => {
+    if (inLine) { void openInExternalBrowser(window.location.href); return } // LINE → เด้งออก Chrome/Safari
     if (canInstall) { void promptInstall(); return } // Android/Chromium → native dialog
     setGuideOpen(true) // iOS / อื่น ๆ → สอนมือ (InstallGuideSheet)
   }
@@ -33,7 +38,9 @@ export function InstallAppCard() {
                 : reward === 'already'
                   ? 'ได้รับโบนัสติดตั้ง 30 QI ไปแล้ว'
                   : 'เปิดจากไอคอน MuMate บนหน้าจอได้เลย'
-              : 'เพิ่มลงหน้าจอโฮม · แจ้งเตือนเด้งเหมือนแอป · เปิดได้เร็ว แม้ปิดจอ'}
+              : inLine
+                ? 'ในแอป LINE ติดตั้ง/เปิดแจ้งเตือนไม่ได้ — แตะเพื่อเปิดในเบราว์เซอร์ (Chrome/Safari) แล้วติดตั้งต่อ'
+                : 'เพิ่มลงหน้าจอโฮม · แจ้งเตือนเด้งเหมือนแอป · เปิดได้เร็ว แม้ปิดจอ'}
           </p>
         </div>
       </div>
@@ -49,7 +56,7 @@ export function InstallAppCard() {
             </p>
           </div>
           <KitButton onClick={onInstall} testId="account-install-btn">
-            {canInstall ? 'ติดตั้งเลย · รับ 30 QI' : 'ดูวิธีติดตั้ง · รับ 30 QI'}
+            {inLine ? 'เปิดในเบราว์เซอร์เพื่อติดตั้ง · รับ 30 QI' : canInstall ? 'ติดตั้งเลย · รับ 30 QI' : 'ดูวิธีติดตั้ง · รับ 30 QI'}
           </KitButton>
         </>
       )}

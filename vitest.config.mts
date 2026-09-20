@@ -86,6 +86,7 @@ export default defineConfig({
     include: [
       'scripts/v2-login-providers-retry.test.ts', // 2026-09-20 — signIn() providers-fetch retry (LINE cold-start "undefined" error fix)
       'scripts/oauth-redirect.test.ts', // 2026-09-20 — startOAuthRedirect: form POST เลี่ยง getProviders (LINE signup ยังพังหลัง #723)
+      'scripts/liff-detect.test.ts', // 2026-09-20 — isLineInAppBrowser (UA) → โชว์ปุ่ม "เปิดในเบราว์เซอร์" ติดตั้ง PWA/notification
       'scripts/ops-delete-user.test.ts', // 2026-09-20 — /ops ลบบัญชี (deleteUserIdentity scoped + best-effort)
       'scripts/launch-env-propagation.test.ts', // 2026-09-20 — goLive() waits for env propagation before redeploy (live race fix)
       'scripts/v2-entitlement.test.ts', // #358 — teeth on the v2 entitlement table (count vs span shapes)
