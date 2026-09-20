@@ -196,7 +196,11 @@ export default function FortuneSagePage() {
                 )}
                 {redeemMsg && <p className="text-center text-[12px] font-bold text-v3-error">{redeemMsg}</p>}
                 {error && <p data-testid="sage-error" className="text-center text-[12px] font-bold text-v3-error">{error}</p>}
-                <KitButton onClick={() => void draw()} disabled={cd.active || authStatus === "loading"} testId="sage-draw">{cd.active ? `รออีก ${cd.secondsLeft} วินาที` : "กดเพื่อเสี่ยงทาย"}</KitButton>
+                {/* เปิดจาก LINE rich menu (cross-site) → MEMBER_ID เก่า (SameSite=Strict) โดนตัด → authStatus ค้าง
+                    'loading' ระหว่าง self-heal มินต์ใหม่ (อาจนานถ้า engine cold start). อย่าโชว์ปุ่มเทาเฉยๆ ที่ดู
+                    เหมือนพัง — บอกให้รู้ว่ากำลังเชื่อมต่อบัญชี (escape hatch จะเด้งการ์ดเข้าสู่ระบบให้เองถ้าเกิน 8 วิ). */}
+                <KitButton onClick={() => void draw()} disabled={cd.active || authStatus === "loading"} testId="sage-draw">{authStatus === "loading" ? "กำลังเชื่อมต่อบัญชี…" : cd.active ? `รออีก ${cd.secondsLeft} วินาที` : "กดเพื่อเสี่ยงทาย"}</KitButton>
+                {authStatus === "loading" && <p className="text-center text-[11px] text-v3-text-muted">กำลังตรวจสอบบัญชีของคุณ สักครู่…</p>}
               </>
             )}
           </section>
