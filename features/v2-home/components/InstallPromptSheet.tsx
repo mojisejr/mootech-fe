@@ -74,19 +74,26 @@ export function InstallPromptSheet() {
     setGuideOpen(true) // iOS / อื่น ๆ → สอนมือ
   }
 
+  // เอ็ม/Janjarat 2026-09-20: กด "ดูวิธีติดตั้ง" แล้ว "เหมือนกดไม่ได้" + กด "ไว้ก่อน" แล้วชีทวิธีติดตั้งโผล่ —
+  // เพราะเดิม render prompt + guide พร้อมกัน แล้ว guide อยู่ "หลัง" prompt (guide z-60 < prompt z-70) → กด CTA
+  // เปิด guide ที่ถูกบัง (ดูเหมือนไม่มีอะไรเกิด), พอปิด prompt (ไว้ก่อน) guide ที่เปิดไว้ก็โผล่. แก้: เมื่อ
+  // guideOpen ให้แสดง "เฉพาะชีทวิธีติดตั้ง" ไม่ render prompt ทับ (guide จบ → กลับมา prompt).
+  if (guideOpen) {
+    return <InstallGuideSheet variant="install" onClose={() => setGuideOpen(false)} />
+  }
+
   // เงื่อนไขแสดง: client พร้อม · ยังไม่ติดตั้ง · ยังไม่ปิด · และ "ติดตั้งได้จริง" (Android prompt หรือ iOS)
   const installable = canInstall || needsInstall === true
   if (!ready || installed || dismissed || !installable) {
-    return guideOpen ? <InstallGuideSheet variant="install" onClose={() => setGuideOpen(false)} /> : null
+    return null
   }
 
   return (
-    <>
-      <div
-        className="fixed inset-0 z-[70] flex items-end justify-center bg-black/40"
-        onClick={close}
-        data-testid="install-prompt-scrim"
-      >
+    <div
+      className="fixed inset-0 z-[70] flex items-end justify-center bg-black/40"
+      onClick={close}
+      data-testid="install-prompt-scrim"
+    >
         <div
           role="dialog"
           aria-modal="true"
@@ -131,7 +138,5 @@ export function InstallPromptSheet() {
           </button>
         </div>
       </div>
-      {guideOpen && <InstallGuideSheet variant="install" onClose={() => setGuideOpen(false)} />}
-    </>
   )
 }

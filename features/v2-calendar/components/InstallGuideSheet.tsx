@@ -29,7 +29,8 @@
 //
 // Presentational only: no capability import, no useState, no network. The caller owns open/close and decides
 // WHICH variant from capability — so this file compiles and renders before #285 lands.
-import type { ReactNode } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
+import { createPortal } from 'react-dom'
 
 export type InstallGuideVariant = 'install' | 'permission'
 
@@ -65,7 +66,7 @@ function StepNumber({ n }: { n: number }) {
 
 const STEPS: Record<InstallGuideVariant, Step[]> = {
   install: [
-    { key: 'share', icon: <ShareIcon />, title: 'แตะปุ่มแชร์', body: 'ปุ่มรูปสี่เหลี่ยมมีลูกศรชี้ขึ้น อยู่ที่แถบล่างของ Safari' },
+    { key: 'share', icon: <ShareIcon />, title: 'แตะปุ่มแชร์/เมนู', body: 'ปุ่มรูปสี่เหลี่ยมมีลูกศรชี้ขึ้น (หรือปุ่ม ⋮) อยู่ที่แถบของเบราว์เซอร์' },
     { key: 'add', icon: <AddToHomeIcon />, title: 'เลือก "เพิ่มไปยังหน้าจอโฮม"', body: 'เลื่อนรายการลงมาจะเจอ — ภาษาอังกฤษคือ Add to Home Screen' },
     { key: 'confirm', icon: <StepNumber n={3} />, title: 'แตะ "เพิ่ม" มุมขวาบน', body: 'ไอคอน Mumate จะไปอยู่บนหน้าจอโฮมของคุณ' },
     { key: 'reopen', icon: <StepNumber n={4} />, title: 'เปิด Mumate จากไอคอนนั้น', body: 'แล้วกลับมาเปิดการแจ้งเตือนอีกครั้ง คราวนี้จะเปิดได้' },
@@ -80,9 +81,10 @@ const STEPS: Record<InstallGuideVariant, Step[]> = {
 
 const HEADING: Record<InstallGuideVariant, { title: string; lead: string }> = {
   install: {
-    title: 'เปิดแจ้งเตือนบน iPhone',
-    // Says WHY before HOW — without the reason this reads as an arbitrary hoop. It is Apple's rule, not ours.
-    lead: 'iPhone ส่งแจ้งเตือนให้เว็บที่เปิดในแท็บ Safari ไม่ได้ ต้องเพิ่ม Mumate ลงหน้าจอโฮมก่อน แล้วเปิดจากไอคอนนั้น',
+    // เอ็ม/Janjarat 2026-09-20: Android ก็เห็นชีทนี้ → เลี่ยงคำเฉพาะ iPhone/Safari ใช้คำกลาง "มือถือ/เบราว์เซอร์"
+    title: 'เปิดแจ้งเตือนบนมือถือ',
+    // Says WHY before HOW — without the reason this reads as an arbitrary hoop.
+    lead: 'มือถือส่งแจ้งเตือนให้เว็บที่เปิดในแท็บเบราว์เซอร์ไม่ได้ ต้องเพิ่ม Mumate ลงหน้าจอโฮมก่อน แล้วเปิดจากไอคอนนั้น',
   },
   permission: {
     title: 'เปิดแจ้งเตือนอีกครั้ง',
@@ -93,16 +95,14 @@ const HEADING: Record<InstallGuideVariant, { title: string; lead: string }> = {
 export function InstallGuideSheet({ variant, onClose }: { variant: InstallGuideVariant; onClose: () => void }) {
   const { title, lead } = HEADING[variant]
   const headingId = `install-guide-${variant}`
+  // เอ็ม/Janjarat 2026-09-20: "แถบเมนูล่างทับ" — ชีทถูก render ในคอนเทนต์ที่ครอบด้วย stacking context (หน้า
+  // account/home) ทำให้ z-index ไม่ชนะแถบเมนู (Menubar z-40) ที่เป็น sibling ระดับบน. portal ไป document.body
+  // ให้หลุดจาก context → คลุมทั้งจอรวมแถบเมนูจริง. + ยก z เป็น z-[90] (เหนือ app chrome; ต่ำกว่า toast z-[9000]).
+  const [mounted, setMounted] = useState(false)
+  useEffect(() => setMounted(true), [])
 
-  return (
-    // #302 · z-[60] = the ABOVE-MODAL layer (already used by DetailSheet, screen-loading, ComingSoon).
-    // This sheet is opened BY a button inside SaveSheet, which owns the modal layer (z-50). At z-50 both
-    // sat on the same level and only DOM order in [date].tsx put this one on top — correct today, silent
-    // the day someone reorders the JSX. Same mechanism as #299, one layer up. ❌ Do not lower this to
-    // z-50 without also moving SaveSheet down: harness/archive/save-sheet-hittable.ts case C hit-tested it.
-    // 🗄️ ARCHIVED by #321 — no workflow runs it now (.github/workflows/archive/design-verify.yml).
-    // ⇒ if you move either sheet's layer, NOTHING will catch a regression for you. Check it by hand.
-    <div className="fixed inset-0 z-[60] flex items-end justify-center bg-black/30" onClick={onClose} data-testid="install-guide-scrim">
+  const sheet = (
+    <div className="fixed inset-0 z-[90] flex items-end justify-center bg-black/30" onClick={onClose} data-testid="install-guide-scrim">
       <div
         role="dialog"
         aria-modal="true"
@@ -160,4 +160,7 @@ export function InstallGuideSheet({ variant, onClose }: { variant: InstallGuideV
       </div>
     </div>
   )
+
+  if (!mounted || typeof document === 'undefined') return null
+  return createPortal(sheet, document.body)
 }
