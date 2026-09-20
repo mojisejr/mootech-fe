@@ -15,6 +15,7 @@ import { usePwaInstall } from '@/lib/pwa/use-install-prompt'
 import { useInstallReward } from '@/lib/pwa/use-install-reward'
 import { usePwaCapability } from '@/lib/pwa/capability'
 import { InstallGuideSheet } from '@/features/v2-calendar/components/InstallGuideSheet'
+import { isLineInAppBrowser, openInExternalBrowser } from '@/lib/line/liff'
 
 const DISMISS_KEY = 'mumate:install-prompt-dismissed-at'
 const DISMISS_DAYS = 7
@@ -39,6 +40,9 @@ export function InstallPromptSheet() {
   const [dismissed, setDismissed] = useState(false)
   const [guideOpen, setGuideOpen] = useState(false)
   const [busy, setBusy] = useState(false)
+  // อยู่ใน in-app browser ของ LINE ไหม — ถ้าใช่ ติดตั้ง PWA ที่นี่ไม่ได้ (ข้อจำกัด WebView) ต้องเด้งออก
+  // เบราว์เซอร์ภายนอกก่อน (เอ็ม 2026-09-20). detect ฝั่ง client หลัง mount (อ่าน navigator.userAgent).
+  const [inLine, setInLine] = useState(false)
   // ยิงรับรางวัลติดตั้ง +30 QI ทันทีเมื่อเปิดเป็นแอปที่ติดตั้งแล้ว (idempotent ฝั่ง engine) — โฮมคือหน้าแรกที่ landing
   useInstallReward()
 
@@ -46,6 +50,7 @@ export function InstallPromptSheet() {
     // หน่วงเล็กน้อยให้หน้าแรกโผล่ก่อน แล้วค่อยเชิญ (ไม่กระโดดใส่ทันทีที่เข้า)
     const t = setTimeout(() => {
       setDismissed(dismissedRecently())
+      setInLine(isLineInAppBrowser())
       setReady(true)
     }, 1200)
     return () => clearTimeout(t)
@@ -61,6 +66,13 @@ export function InstallPromptSheet() {
   }
 
   const onInstall = async () => {
+    if (inLine) {
+      // LINE in-app browser ติดตั้ง PWA ไม่ได้ (ข้อจำกัด WebView) → เด้งออกเบราว์เซอร์ภายนอก (Chrome/Safari)
+      // ให้ไปติดตั้ง + เปิดแจ้งเตือนที่นั่น. หน้าเดิม (bazichart) เปิดใน browser นอก → กด login + ติดตั้งต่อได้
+      void openInExternalBrowser(window.location.href)
+      close() // เด้งออกแล้ว ไม่ต้องเชิญซ้ำรอบนี้
+      return
+    }
     if (canInstall) {
       setBusy(true)
       try {
@@ -83,7 +95,8 @@ export function InstallPromptSheet() {
   }
 
   // เงื่อนไขแสดง: client พร้อม · ยังไม่ติดตั้ง · ยังไม่ปิด · และ "ติดตั้งได้จริง" (Android prompt หรือ iOS)
-  const installable = canInstall || needsInstall === true
+  // — หรืออยู่ใน LINE (inLine): ติดตั้งที่นี่ไม่ได้ แต่โชว์ปุ่มพาออกไปเบราว์เซอร์ภายนอกเพื่อติดตั้ง
+  const installable = canInstall || needsInstall === true || inLine
   if (!ready || installed || dismissed || !installable) {
     return null
   }
@@ -111,7 +124,9 @@ export function InstallPromptSheet() {
             ติดตั้ง MuMate เป็นแอป
           </h2>
           <p className="mt-2 text-center text-sm font-medium leading-6 text-v3-text-body">
-            เพิ่มลงหน้าจอโฮม แล้วแจ้งเตือนยามมงคลจะเด้งเหมือนแอปทั่วไป — ทำงานแม้ปิดหน้าจอ ไม่ต้องเปิดเว็บค้างไว้
+            {inLine
+              ? 'ในแอป LINE ติดตั้งปุ่มลัด/เปิดแจ้งเตือนไม่ได้ — แตะเพื่อเปิดในเบราว์เซอร์ (Chrome/Safari) แล้วติดตั้ง + เปิดแจ้งเตือนได้เลย'
+              : 'เพิ่มลงหน้าจอโฮม แล้วแจ้งเตือนยามมงคลจะเด้งเหมือนแอปทั่วไป — ทำงานแม้ปิดหน้าจอ ไม่ต้องเปิดเว็บค้างไว้'}
           </p>
           {/* โบนัสติดตั้งครั้งแรก +30 QI (ครั้งเดียวต่อบัญชี) */}
           <p className="mt-3 rounded-2xl bg-v3-lime/25 px-3 py-2 text-center text-[13px] font-bold text-v3-navy">
@@ -125,8 +140,8 @@ export function InstallPromptSheet() {
             data-testid="install-prompt-cta"
             className="mt-5 flex h-[52px] w-full items-center justify-center gap-2 rounded-2xl bg-v3-sapphire text-base font-bold text-white disabled:opacity-50"
           >
-            <span aria-hidden>📲</span>
-            {busy ? 'กำลังเปิดตัวติดตั้ง…' : canInstall ? 'ติดตั้งเลย · รับ 30 QI' : 'ดูวิธีติดตั้ง · รับ 30 QI'}
+            <span aria-hidden>{inLine ? '🌐' : '📲'}</span>
+            {busy ? 'กำลังเปิดตัวติดตั้ง…' : inLine ? 'เปิดในเบราว์เซอร์เพื่อติดตั้ง · รับ 30 QI' : canInstall ? 'ติดตั้งเลย · รับ 30 QI' : 'ดูวิธีติดตั้ง · รับ 30 QI'}
           </button>
           <button
             type="button"
