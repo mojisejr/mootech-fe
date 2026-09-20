@@ -3,7 +3,8 @@ import HeaderMuMate from '@/components/header-v2';
 import { CONFIG } from '@/constants/config';
 import { CookieKey } from '@/constants/cookie-key';
 import { PageRouter } from '@/constants/router';
-import { signIn, signOut, useSession } from "next-auth/react";
+import { signOut, useSession } from "next-auth/react";
+import { startOAuthRedirect } from "@/lib/auth/oauth-redirect";
 import Head from "next/head";
 import Image from "next/image";
 import { useRouter } from "next/router";
@@ -117,7 +118,9 @@ useEffect(() => {
     if(provider==="instagram"){
       router.replace("https://www.instagram.com/oauth/authorize?force_reauth=true&client_id=1513079686516451&redirect_uri=https://bazichart-dev.mumate.co/api/instagram/callback&response_type=code&scope=instagram_business_basic%2Cinstagram_business_manage_messages%2Cinstagram_business_manage_comments%2Cinstagram_business_content_publish%2Cinstagram_business_manage_insights")
     }else{
-      signIn(provider, { callbackUrl: `/auth/after/${provider}` });
+      // เลี่ยง getProviders ของ signIn() (ต้นเหตุ "รหัสอ้างอิง: undefined" ตอน LINE webview cold-start) —
+      // เริ่ม OAuth ด้วย full-page form POST ตรง. ดู lib/auth/oauth-redirect.ts
+      void startOAuthRedirect(provider, `/auth/after/${provider}`);
     }
   };
 

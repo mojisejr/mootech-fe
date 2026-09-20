@@ -166,7 +166,7 @@ export function EditBirthScreen() {
                   <p className="text-[14px] font-medium leading-5">แก้ได้ฟรีอีก 1 ครั้ง</p>
                   <p className="text-[12px] leading-[18px] opacity-85">ใช้สำหรับกรณีกรอกผิด หลังจากนั้นการเปลี่ยนวันเกิดจะมีค่าใช้จ่าย</p>
                 </div>
-                <span className="flex-none rounded-full bg-white px-2.5 py-[5px] text-[9px] font-bold leading-none">1 / 1</span>
+                <span className="flex-none rounded-full bg-white px-2.5 py-[5px] text-[9px] font-bold leading-none">0 / 1</span>
               </div>
             )}
 
