@@ -47,6 +47,17 @@ export default function OpsUserDetail({ authenticated }: Props) {
     } finally { setBusy(false) }
   }
 
+  async function deleteAccount() {
+    setBusy(true); setMsg(null)
+    try {
+      const res = await fetch('/api/ops/users', { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ user_id: userId }) })
+      const body = await res.json().catch(() => ({}))
+      if (!res.ok) { setMsg(`ลบบัญชีไม่สำเร็จ: ${body?.error ?? res.status}`); return }
+      // ลบสำเร็จ → user นี้ไม่มีแล้ว กลับหน้าค้นหา
+      await router.replace('/ops/users')
+    } finally { setBusy(false) }
+  }
+
   if (!authenticated) return <main style={{ padding: 24, fontFamily: 'system-ui' }}><p>ต้องเข้าสู่ระบบ ops — <Link href="/ops">/ops</Link></p></main>
 
   return (
@@ -99,6 +110,16 @@ export default function OpsUserDetail({ authenticated }: Props) {
               <BirthPanel busy={busy} current={{ dob: d.user.dob, time: d.user.time, isRememberTime: d.user.isRememberTime }}
                 onSave={(p) => act('/api/ops/birth', 'PATCH', { user_id: userId, ...p }, 'แก้วันเกิด')} />
             </div>
+
+            {/* Danger zone — ลบบัญชี (ทำให้กลับเป็น "คนใหม่" สำหรับเทสต์สมัคร LINE ซ้ำ) */}
+            <div style={{ ...box, borderColor: '#f0c2c2', background: '#fff7f7' }}>
+              <strong style={{ color: '#b00' }}>ลบบัญชี (ทำให้เป็น user ใหม่)</strong>
+              <p style={{ fontSize: 13, color: '#777', marginTop: 6 }}>
+                ลบ identity ออกจากระบบ (mapping LINE/Google + สมาชิก + โปรไฟล์) เพื่อให้ล็อกอิน LINE ครั้งถัดไปเป็น
+                &quot;คนใหม่&quot;. <b>ลบถาวร กู้คืนไม่ได้</b> — ข้อมูล QI/ดวงฝั่ง engine ของ user_id เดิมจะกลายเป็นกำพร้า (ไม่กระทบบัญชีใหม่).
+              </p>
+              <DeletePanel busy={busy} expectId={userId} onConfirm={deleteAccount} />
+            </div>
           </>
         )}
       </main>
@@ -129,6 +150,28 @@ function QiPanel({ busy, onAdjust }: { busy: boolean; onAdjust: (delta: number, 
       <input value={note} onChange={(e) => setNote(e.target.value)} placeholder="เหตุผล (optional)" aria-label="เหตุผล" />
       <button disabled={busy || !Number.isInteger(n) || n === 0} onClick={() => onAdjust(Math.abs(n), note)}>+ เพิ่ม</button>
       <button disabled={busy || !Number.isInteger(n) || n === 0} onClick={() => onAdjust(-Math.abs(n), note)} style={{ color: '#b00' }}>− ลด</button>
+    </div>
+  )
+}
+
+function DeletePanel({ busy, expectId, onConfirm }: { busy: boolean; expectId: string; onConfirm: () => void }) {
+  const [typed, setTyped] = useState('')
+  const ok = typed.trim() === expectId
+  return (
+    <div style={{ marginTop: 8 }}>
+      <div style={{ fontSize: 12, color: '#777', marginBottom: 4 }}>
+        พิมพ์ user_id ให้ตรงเพื่อยืนยัน: <code style={{ userSelect: 'all' }}>{expectId}</code>
+      </div>
+      <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+        <input value={typed} onChange={(e) => setTyped(e.target.value)} placeholder="วาง user_id ที่นี่" aria-label="ยืนยัน user_id" style={{ width: 320 }} />
+        <button
+          disabled={busy || !ok}
+          onClick={() => { if (ok && window.confirm('ลบบัญชีนี้ถาวร? กู้คืนไม่ได้')) onConfirm() }}
+          style={{ color: '#fff', background: ok ? '#b00' : '#d9a0a0', border: 'none', borderRadius: 6, padding: '6px 14px', cursor: ok ? 'pointer' : 'not-allowed' }}
+        >
+          ลบบัญชีถาวร
+        </button>
+      </div>
     </div>
   )
 }
