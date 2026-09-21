@@ -187,7 +187,7 @@ const ELEMENT_INK: Record<string, string> = {
   wood: "#388659",
   fire: "#CB2C2A",
   earth: "#F19953",
-  metal: "#C99A1E",
+  metal: "#5A5A5A",
   water: "#1455A4",
 }
 // ราศีสวรรค์ 甲乙=ไม้ 丙丁=ไฟ 戊己=ดิน 庚辛=ทอง 壬癸=น้ำ · นักษัตรดิน 寅卯=ไม้ 巳午=ไฟ 辰戌丑未=ดิน 申酉=ทอง 亥子=น้ำ
@@ -202,6 +202,16 @@ function inkOf(ch?: string): string | undefined {
   if (!ch) return undefined
   const el = CHAR_ELEMENT[ch[0]]
   return el ? ELEMENT_INK[el] : undefined
+}
+
+// ไส้แฝง 藏干 ของแต่ละนักษัตร (mirror engine BRANCH_HIDDEN_STEMS) — เอ็ม 2026-09-21 "เจาะไส้แฝงด้วย"
+const BRANCH_HIDDEN_STEMS: Record<string, string[]> = {
+  子: ["癸"], 丑: ["己", "癸", "辛"], 寅: ["甲", "丙", "戊"], 卯: ["乙"],
+  辰: ["戊", "乙", "癸"], 巳: ["丙", "庚", "戊"], 午: ["丁", "己"], 未: ["己", "丁", "乙"],
+  申: ["庚", "壬", "戊"], 酉: ["辛"], 戌: ["戊", "辛", "丁"], 亥: ["壬", "甲"],
+}
+function hiddenStemsOf(branch?: string): string[] {
+  return BRANCH_HIDDEN_STEMS[(branch ?? "")[0]] ?? []
 }
 // มาสคอต 5 ธาตุจาก designer (Drive "ตัวละคร 5 ธาตุ", 256px พื้นโปร่ง) — manifest ใน duang-chan-spec.md
 const ELEMENT_MASCOT: Record<string, string> = {
@@ -969,6 +979,12 @@ export function DestinyScreen({ previewData }: { previewData?: DestinyData } = {
                           <span className="mt-0.5 text-[15px] font-bold leading-5" style={{ color: inkOf(p.branch) ?? "#464646" }}>{p.branch}</span>
                           {/* ป้ายราศี EN (ซินแสขอ: "rabbit") */}
                           <span className="text-center text-[8px] capitalize leading-tight text-v3-text-muted">{branchZodiacEn(p.branch)}</span>
+                          {/* ไส้แฝง 藏干 ของนักษัตร (เอ็ม 2026-09-21) — ลงสีตามธาตุแต่ละตัว */}
+                          <span className="mt-1 flex items-center justify-center gap-0.5 border-t border-v3-border-card/60 pt-1">
+                            {hiddenStemsOf(p.branch).map((h, i) => (
+                              <span key={i} className="text-[11px] font-bold leading-none" style={{ color: inkOf(h) ?? "#464646" }}>{h}</span>
+                            ))}
+                          </span>
                         </div>
                       ))
                   : null}
