@@ -59,3 +59,17 @@ export function stemEnLabel(stem?: string | null): string {
 export function branchZodiacEn(branch?: string | null): string {
   return BRANCH_ZODIAC_EN[(branch ?? "")[0]] ?? "";
 }
+
+// ── ธาตุไทย + ราศีไทย (ใช้หน้า "สีมงคลวันเกิด") ──
+const BRANCH_ZODIAC_TH: Record<string, string> = {
+  子: "ชวด", 丑: "ฉลู", 寅: "ขาล", 卯: "เถาะ", 辰: "มะโรง", 巳: "มะเส็ง",
+  午: "มะเมีย", 未: "มะแม", 申: "วอก", 酉: "ระกา", 戌: "จอ", 亥: "กุน",
+};
+/** 天干 → ธาตุไทย เช่น "ทอง" */
+export function stemElementTh(stem?: string | null): string {
+  return STEM_ELEMENT[(stem ?? "")[0]] ?? "";
+}
+/** 地支 → ราศีไทย เช่น "เถาะ" */
+export function branchZodiacTh(branch?: string | null): string {
+  return BRANCH_ZODIAC_TH[(branch ?? "")[0]] ?? "";
+}
