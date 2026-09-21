@@ -115,7 +115,8 @@ export function CardReadingScreen({
   const shareCardRef = useRef<HTMLDivElement>(null)
   // #359 รอบ 10: สรุปรวมจากไพ่ทุกใบ (ไม่ใช่แค่ใบแรก) + โชว์ไพ่ครบ 3 ใบ
   // แชร์: ตัด "(น้ำหนัก 50%)" ที่ engine ใส่มาในคำทำนายไพ่ divine ออก (ผู้ใช้: ไม่ต้องเอา % มา)
-  const shareSummary = (cards.map((c) => c.meaning?.trim()).filter(Boolean).join(" ") || proseParas.join(" ") || `${title} กับ Mumate`)
+  // เอ็ม 2026-09-21: แชร์ใช้ "คำสรุปที่ตรงคำถาม" (LLM tailored) ก่อน — ตรงกับกล่องสรุปบนจอ; ไม่มี LLM ค่อยถอยไปความหมายไพ่รวม
+  const shareSummary = (tailored.trim() || cards.map((c) => c.meaning?.trim()).filter(Boolean).join(" ") || proseParas.join(" ") || `${title} กับ Mumate`)
     .replace(/\s*\(น้ำหนัก[^)]*%\)/g, "")
     .replace(/\s{2,}/g, " ")
     .trim()
