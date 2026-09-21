@@ -75,6 +75,10 @@ export default function FortuneSagePage() {
   const [loveGender, setLoveGender] = useState<"female" | "male">("female")
   // ที่มาของการเปิดครั้งนี้ (จาก engine): free=ฟรีวันนี้ · qi=หัก N QI · credit=ใช้เครดิต — ป้ายต้องตามจริง ไม่ hardcode
   const [qiInfo, setQiInfo] = useState<{ source: "free" | "credit" | "qi"; cost: number } | null>(null)
+  // คำถาม (บังคับใส่ก่อนเสี่ยง — ซินแส/ปอง 2026-09-21): seed หัวเซี่ยงแซตามคำถาม + LLM เกลาคำตอบตรงคำถาม
+  const [question, setQuestion] = useState("")
+  const questionReady = question.trim().length > 0
+  const [tailored, setTailored] = useState<string | null>(null)
 
   // 402 = ฟรีหมด + เครดิตหมด + ชี่ไม่พอ — แลก card_use ด้วยชี่ตรงนี้แล้วเสี่ยงต่อทันที (ไม่ต้องไปหน้าพลังชี่)
   const [redeeming, setRedeeming] = useState(false)
@@ -105,12 +109,13 @@ export default function FortuneSagePage() {
     setQuotaOut(false)
     const started = Date.now()
     try {
-      const res = await fetch("/api/fortune/sage", { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" })
-      const j = (await res.json().catch(() => ({}))) as { stick?: Stick; qi?: { source: "free" | "credit" | "qi"; cost: number } | null; error?: { message?: string } }
+      const res = await fetch("/api/fortune/sage", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ question: question.trim() }) })
+      const j = (await res.json().catch(() => ({}))) as { stick?: Stick; tailored?: string | null; qi?: { source: "free" | "credit" | "qi"; cost: number } | null; error?: { message?: string } }
       await new Promise((r) => setTimeout(r, Math.max(0, 1800 - (Date.now() - started))))
       if (res.status === 402) { setQuotaOut(true); setPhase("intro"); return }
       if (!res.ok || !j.stick) { setError(j.error?.message ?? "เสี่ยงทายไม่สำเร็จ ลองใหม่อีกครั้ง"); setPhase("intro"); return }
       setStick(j.stick)
+      setTailored(j.tailored ?? null) // คำตอบ LLM ที่เกลาให้ตรงคำถาม (โชว์บนสุดของผล)
       setQiInfo(j.qi ?? null)
       setPhase("result")
     } catch {
@@ -187,7 +192,17 @@ export default function FortuneSagePage() {
               <AuthRequiredCard testId="sage-auth-gate" message="เข้าสู่ระบบก่อนเพื่อเสี่ยงทายเซียมซี" />
             ) : (
               <>
-                <p className="text-center text-[12px] text-v3-text-muted">ตั้งจิตให้นิ่ง แล้วกดเสี่ยงทายเพื่อรับคำทำนาย</p>
+                {/* บังคับพิมพ์คำถามก่อนเสี่ยง — seed หัวเซี่ยงแซ + LLM ตอบตรงคำถาม */}
+                <textarea
+                  data-testid="sage-question"
+                  value={question}
+                  onChange={(e) => setQuestion(e.target.value)}
+                  maxLength={200}
+                  rows={2}
+                  placeholder="พิมพ์คำถามที่อยากรู้ เช่น เดือนนี้การเงินเป็นอย่างไร"
+                  className="w-full resize-none rounded-2xl border border-v3-border-card bg-white px-4 py-3 text-[13px] leading-5 text-v3-navy outline-none placeholder:text-v3-text-muted focus:border-v3-sapphire"
+                />
+                <p className="text-center text-[12px] text-v3-text-muted">{questionReady ? "ตั้งจิตให้นิ่ง แล้วกดเสี่ยงทายเพื่อรับคำทำนาย" : "พิมพ์คำถามก่อนจึงจะเสี่ยงทายได้"}</p>
                 {quotaOut && <p className="text-center text-[12px] font-bold text-[#8A5A0C]" data-testid="sage-quota">โควตาเสี่ยงทายวันนี้หมด — แลก 10 QI เพื่อเสี่ยงต่อได้เลย</p>}
                 {quotaOut && (
                   <button type="button" onClick={() => void redeemAndRetry()} disabled={redeeming} data-testid="sage-redeem" className="grid h-12 w-full place-items-center rounded-full bg-v3-sapphire text-[15px] font-bold uppercase text-v3-lime disabled:opacity-40">
@@ -199,7 +214,7 @@ export default function FortuneSagePage() {
                 {/* เปิดจาก LINE rich menu (cross-site) → MEMBER_ID เก่า (SameSite=Strict) โดนตัด → authStatus ค้าง
                     'loading' ระหว่าง self-heal มินต์ใหม่ (อาจนานถ้า engine cold start). อย่าโชว์ปุ่มเทาเฉยๆ ที่ดู
                     เหมือนพัง — บอกให้รู้ว่ากำลังเชื่อมต่อบัญชี (escape hatch จะเด้งการ์ดเข้าสู่ระบบให้เองถ้าเกิน 8 วิ). */}
-                <KitButton onClick={() => void draw()} disabled={cd.active || authStatus === "loading"} testId="sage-draw">{authStatus === "loading" ? "กำลังเชื่อมต่อบัญชี…" : cd.active ? `รออีก ${cd.secondsLeft} วินาที` : "กดเพื่อเสี่ยงทาย"}</KitButton>
+                <KitButton onClick={() => void draw()} disabled={cd.active || authStatus === "loading" || !questionReady} testId="sage-draw">{authStatus === "loading" ? "กำลังเชื่อมต่อบัญชี…" : cd.active ? `รออีก ${cd.secondsLeft} วินาที` : "กดเพื่อเสี่ยงทาย"}</KitButton>
                 {authStatus === "loading" && <p className="text-center text-[11px] text-v3-text-muted">กำลังตรวจสอบบัญชีของคุณ สักครู่…</p>}
               </>
             )}
@@ -237,6 +252,14 @@ export default function FortuneSagePage() {
             <span className="mt-1 rounded-full bg-white px-3 py-1 text-[11px] font-bold text-[#B08A3B]">{stick.deity}</span>
           </section>
 
+          {/* คำตอบ LLM ที่เกลาให้ตรงคำถามของผู้ถาม (บนสุด) — 6 section ด้านล่างเป็นเนื้อใบตายตัว */}
+          {tailored?.trim() && (
+            <section className="flex flex-col gap-1 rounded-[24px] bg-[#EAF3FF] p-5" data-testid="sage-tailored">
+              <span className="w-fit text-[13px] font-black text-v3-sapphire">คำตอบสำหรับคำถามของคุณ</span>
+              <p className="text-[13px] leading-[22px] text-v3-text-body">{tailored.trim()}</p>
+            </section>
+          )}
+
           <DotSection label="นิสัยและพฤติกรรม" dot="#3B82F6">{stick.personality}</DotSection>
           {SECTIONS.map((s) => (
             <DotSection key={s.key} label={s.label} dot={s.dot}>
@@ -264,7 +287,7 @@ export default function FortuneSagePage() {
                 {shareState === "done" ? "รับ +10 QI แล้ว 🎉" : shareState === "capped" ? "วันนี้รับ +10 QI ไปแล้ว" : "แชร์ผลนี้ รับ +10 QI"}
               </span>
             </KitButton>
-            <button onClick={() => { setStick(null); setPhase("intro") }} data-testid="sage-again" className="grid h-12 w-full place-items-center rounded-full border border-v3-border-card bg-white text-[15px] font-bold text-v3-navy">
+            <button onClick={() => { setStick(null); setTailored(null); setPhase("intro") }} data-testid="sage-again" className="grid h-12 w-full place-items-center rounded-full border border-v3-border-card bg-white text-[15px] font-bold text-v3-navy">
               เสี่ยงอีกครั้ง · 10 QI
             </button>
           </div>

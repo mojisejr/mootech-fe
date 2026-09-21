@@ -76,6 +76,10 @@ export function CardReadingScreen({
   const [qiInfo, setQiInfo] = useState<{ source: "free" | "credit" | "qi"; cost: number } | null>(null)
   // แชร์ = รับ +10 QI วันละ 1 ครั้ง — อ่านผลจริงเพื่อบอกให้ตรง (ได้/เต็มโควตาแล้ว) ไม่ให้ผู้ใช้งงว่ากดแล้วไม่ได้ QI
   const [shareState, setShareState] = useState<"idle" | "done" | "capped">("idle")
+  // คำถาม (บังคับใส่ก่อนเสี่ยง — ซินแส/ปอง 2026-09-21): seed ไพ่ตามคำถาม + LLM เกลาคำตอบให้ตรงคำถาม (llmProse→สรุป)
+  const [question, setQuestion] = useState("")
+  const questionReady = question.trim().length > 0
+  const [tailored, setTailored] = useState("")
 
   const deck = useMemo(() => shuffle(deckCount), [deckCount])
 
@@ -148,15 +152,16 @@ export function CardReadingScreen({
       const res = await fetch(endpoint, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(cardNos ? { cardNos } : { random: true }),
+        body: JSON.stringify({ ...(cardNos ? { cardNos } : { random: true }), question: question.trim() }),
       })
-      const j = (await res.json().catch(() => ({}))) as { cards?: FortuneCard[]; slots?: Slot[]; engineProse?: string; qi?: { source: "free" | "credit" | "qi"; cost: number } | null; error?: { message?: string } }
+      const j = (await res.json().catch(() => ({}))) as { cards?: FortuneCard[]; slots?: Slot[]; engineProse?: string; llmProse?: string; qi?: { source: "free" | "credit" | "qi"; cost: number } | null; error?: { message?: string } }
       await new Promise((r) => setTimeout(r, Math.max(0, 1900 - (Date.now() - started))))
       if (res.status === 402) { setQuotaOut(true); setPhase("intro"); return }
       if (!res.ok || !j.cards?.length) { setError(j.error?.message ?? "เปิดไพ่ไม่สำเร็จ ลองใหม่อีกครั้ง"); setPhase(cardNos ? "pick" : "intro"); return }
       setCards(j.cards)
       setSlots(j.slots ?? [])
       setProse(j.engineProse ?? "")
+      setTailored(j.llmProse ?? "") // คำตอบ LLM ที่เกลาให้ตรงคำถาม → ใช้เป็นสรุป (ต่อใบยังใช้ engineProse)
       setQiInfo(j.qi ?? null)
       // ดูดวงครั้งแรก / อ่านดวงวันนี้ → รายงานภารกิจ (best-effort, engine กันซ้ำ/รีเซ็ตรายวันเอง)
       void fetch("/api/missions", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ missionId: "first_reading" }) }).catch(() => {})
@@ -173,7 +178,7 @@ export function CardReadingScreen({
 
   const toggle = (idx: number) => setPicked((p) => (p.includes(idx) ? p.filter((x) => x !== idx) : p.length >= 3 ? p : [...p, idx]))
   const openPicked = () => { if (picked.length === 3) void predict(picked.map((i) => deck[i])) }
-  const reset = () => { setPicked([]); setCards([]); setSlots([]); setProse(""); setPhase("intro") }
+  const reset = () => { setPicked([]); setCards([]); setSlots([]); setProse(""); setTailored(""); setPhase("intro") }
 
   const share = async () => {
     // ยิง earn เฉพาะเมื่อยังไม่รู้ผลของวันนี้ แล้วอ่านผลจริง (awarded/capped) มาบอกบนปุ่ม
@@ -234,6 +239,21 @@ export function CardReadingScreen({
             <p className="text-[15px] font-black text-v3-navy">ตั้งจิตให้เป็นสมาธิ 1 นาที</p>
             <p className="text-[13px] leading-5 text-v3-text-body">ขอตั้งจิตอธิษฐานถามคำถามที่อยากได้คำตอบ</p>
           </div>
+          {/* บังคับพิมพ์คำถามก่อนเสี่ยง — ทำให้ไพ่/คำตอบต่างกันตามคำถาม (ไม่งั้นทุกคนได้เหมือนกัน) */}
+          {authStatus !== "anon" && (
+            <div>
+              <textarea
+                data-testid="cards-question"
+                value={question}
+                onChange={(e) => setQuestion(e.target.value)}
+                maxLength={200}
+                rows={2}
+                placeholder="พิมพ์คำถามที่อยากรู้ เช่น งานที่สมัครไว้จะได้ไหม"
+                className="w-full resize-none rounded-2xl border border-v3-border-card bg-white px-4 py-3 text-[13px] leading-5 text-v3-navy outline-none placeholder:text-v3-text-muted focus:border-v3-sapphire"
+              />
+              {!questionReady && <p className="mt-1 text-[11px] text-v3-text-muted">พิมพ์คำถามก่อนจึงจะเสี่ยงทายได้</p>}
+            </div>
+          )}
           {/* การ์ด deck เต็มใบ + ปุ่มทับขอบล่าง (ตาม Figma) */}
           <div className="relative mx-auto w-full max-w-[300px] pb-3">
             <span className="relative block aspect-[350/504] w-full">
@@ -241,8 +261,8 @@ export function CardReadingScreen({
             </span>
             {authStatus !== "anon" && (
               <div className="absolute inset-x-3 bottom-1 flex gap-2">
-                <button onClick={() => void predict()} disabled={cd.active || authStatus === "loading"} data-testid="cards-random" className="grid h-11 flex-1 place-items-center rounded-full bg-white text-[13px] font-bold text-v3-sapphire shadow-md disabled:opacity-50">{cd.active ? `รออีก ${cd.secondsLeft} วิ` : "กดเพื่อเสี่ยงทาย"}</button>
-                <KitButton onClick={() => setPhase("pick")} testId="cards-goto-pick" className="flex-1 !h-11 shadow-md">เลือกเอง 3 ใบ</KitButton>
+                <button onClick={() => void predict()} disabled={cd.active || authStatus === "loading" || !questionReady} data-testid="cards-random" className="grid h-11 flex-1 place-items-center rounded-full bg-white text-[13px] font-bold text-v3-sapphire shadow-md disabled:opacity-50">{cd.active ? `รออีก ${cd.secondsLeft} วิ` : "กดเพื่อเสี่ยงทาย"}</button>
+                <KitButton onClick={() => setPhase("pick")} disabled={!questionReady} testId="cards-goto-pick" className="flex-1 !h-11 shadow-md">เลือกเอง 3 ใบ</KitButton>
               </div>
             )}
           </div>
@@ -321,7 +341,7 @@ export function CardReadingScreen({
           {/* สรุปคำทำนายนี้ — ใจความจากไพ่หลัก (น้ำหนักสูงสุด = ใบแรก). เดิมโชว์ cards[0].meaning ตรง ๆ ซึ่ง
               "ว่างได้" จน section หายไป (ผู้ใช้: ต้องมีสรุปเหมือนไพ่อีกอัน) → fallback ให้ไม่ว่าง: meaning → prose ใบแรก → book1 */}
           {(() => {
-            const summaryText = (cards[0]?.meaning?.trim() || proseParas[0] || cards[0]?.book1 || "").trim()
+            const summaryText = (tailored.trim() || cards[0]?.meaning?.trim() || proseParas[0] || cards[0]?.book1 || "").trim()
             return summaryText ? (
               <section className="print-keep flex flex-col gap-1 rounded-[24px] bg-[#EAF3FF] p-5" data-testid="cards-summary">
                 <span className="w-fit text-[13px] font-black text-v3-sapphire">สรุปคำทำนายนี้</span>

@@ -43,15 +43,23 @@ import FortuneSagePage from '@/pages/v2/fortune/sage'
 beforeEach(() => { sageStatus = 200; sageQi = null; fetchMock.mockClear(); try { localStorage.clear() } catch { /* cooldown ต่อเคส */ } })
 afterEach(() => cleanup())
 
+// พิมพ์คำถาม (บังคับก่อนเสี่ยง — ซินแส/ปอง 2026-09-21)
+const typeQ = (v = 'เดือนนี้การเงินเป็นอย่างไร') => fireEvent.change(screen.getByTestId('sage-question'), { target: { value: v } })
+
 describe('เซียมซีเสี่ยงทาย', () => {
-  it('FS1 intro: มีปุ่มเสี่ยงทาย ไม่มี topic chips', () => {
+  it('FS1 intro: มีปุ่มเสี่ยงทาย (disable จนพิมพ์คำถาม) ไม่มี topic chips', () => {
     render(<FortuneSagePage />)
-    expect(screen.getByTestId('sage-draw').textContent).toContain('กดเพื่อเสี่ยงทาย')
+    const btn = screen.getByTestId('sage-draw') as HTMLButtonElement
+    expect(btn.textContent).toContain('กดเพื่อเสี่ยงทาย')
+    expect(btn.disabled).toBe(true) // ยังไม่พิมพ์คำถาม
+    typeQ()
+    expect((screen.getByTestId('sage-draw') as HTMLButtonElement).disabled).toBe(false)
     expect(screen.queryByTestId('sage-topics')).toBeNull()
   })
 
   it('FS2 กดเสี่ยง → ผลเซียมซี: pillar + หมวด + toggle รักหญิง/ชาย', async () => {
     render(<FortuneSagePage />)
+    typeQ()
     fireEvent.click(screen.getByTestId('sage-draw'))
     await waitFor(() => expect(screen.getByTestId('sage-result')).toBeTruthy(), { timeout: 3000 })
     expect(screen.getByTestId('sage-pillar').textContent).toBe('辛亥')
@@ -71,6 +79,7 @@ describe('เซียมซีเสี่ยงทาย', () => {
   it('FS3 402 โควตา/ชี่หมด → quota ไม่โชว์ผล', async () => {
     sageStatus = 402
     render(<FortuneSagePage />)
+    typeQ()
     fireEvent.click(screen.getByTestId('sage-draw'))
     await waitFor(() => expect(screen.getByTestId('sage-quota')).toBeTruthy(), { timeout: 3000 })
     expect(screen.queryByTestId('sage-result')).toBeNull()
@@ -78,6 +87,7 @@ describe('เซียมซีเสี่ยงทาย', () => {
 
   it('FS4 แชร์ผล → ยิง /api/qi-earn code=share', async () => {
     render(<FortuneSagePage />)
+    typeQ()
     fireEvent.click(screen.getByTestId('sage-draw'))
     await waitFor(() => expect(screen.getByTestId('sage-share')).toBeTruthy(), { timeout: 3000 })
     fireEvent.click(screen.getByTestId('sage-share'))
@@ -90,18 +100,21 @@ describe('เซียมซีเสี่ยงทาย', () => {
   it('FS5 ป้ายที่มาของการเสี่ยง: free → "ฟรีวันนี้", qi → "ใช้ไป N QI", ไม่มี qi → ไม่มีป้าย', async () => {
     sageQi = { source: 'free', cost: 0 }
     render(<FortuneSagePage />)
+    typeQ()
     fireEvent.click(screen.getByTestId('sage-draw'))
     expect((await screen.findByTestId('sage-qi-source', {}, { timeout: 4000 })).textContent).toBe('ฟรีวันนี้')
     cleanup(); try { localStorage.clear() } catch { /* รีเซ็ตคูลดาวน์ก่อน draw รอบถัดไป */ }
 
     sageQi = { source: 'qi', cost: 10 }
     render(<FortuneSagePage />)
+    typeQ()
     fireEvent.click(screen.getByTestId('sage-draw'))
     expect((await screen.findByTestId('sage-qi-source', {}, { timeout: 4000 })).textContent).toBe('ใช้ไป 10 QI')
     cleanup(); try { localStorage.clear() } catch { /* รีเซ็ตคูลดาวน์ */ }
 
     sageQi = null
     render(<FortuneSagePage />)
+    typeQ()
     fireEvent.click(screen.getByTestId('sage-draw'))
     await screen.findByTestId('sage-pillar', {}, { timeout: 4000 })
     expect(screen.queryByTestId('sage-qi-source')).toBeNull()
