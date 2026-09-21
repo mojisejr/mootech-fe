@@ -71,6 +71,9 @@ export const SERVICES = [
   { id: 'oracle-kiang', title: 'เสี่ยงไพ่ออราเคิลเคี้ยงคุง', desc: DESC_ORACLE, href: '/v2/fortune/oracle', image: ART('04_เสี่ยงไพ่ออราเคิลเคี้ยงคุง.png'), cta: 'เปิดไพ่เลย' },
   { id: 'spirit-heaven', title: 'เสี่ยงไพ่จิตวิญญาณแดนสวรรค์', desc: DESC_SPIRIT, href: '/v2/fortune/divine', image: ART('05_เสี่ยงไพ่จิตวิญญาณแดนสวรรค์.png'), cta: 'เปิดไพ่เลย' },
   { id: 'sian', title: 'เสี่ยงเซียนเสี่ยงทาย', desc: DESC_SIAN, href: '/v2/fortune/sage', image: ART('06_เสี่ยงเซียนเสี่ยงทาย.png'), cta: 'เสี่ยงทายเลย' },
+  // #6 (Kittipon 2026-09-21): มาหาธาตุแท้ / Bazi Element Finder. hiddenUntilArt จนกว่าจะได้อาร์ตการ์ด (1128×463)
+  // จาก Kittipon — reachable ที่ /v2/element-finder แล้ว. พอมีไฟล์ image ให้ใส่ ART(...) + ลบ hiddenUntilArt.
+  { id: 'element-finder', title: 'มาหาธาตุแท้กันเถอะ', desc: ['หาธาตุแท้จากวันเกิด รู้ใน 10 วินาที', 'พร้อมนิสัยและการ์ดแชร์'], href: '/v2/element-finder', cta: 'เช็คธาตุเลย', hiddenUntilArt: true },
   { id: 'sinsae', title: 'ดูดวงส่วนตัว กับซินแส', desc: DESC_SINSAE, href: '/v2/service/sinsae', image: ART('07_ดูดวงส่วนตัวกับซินแส.png'), cta: 'ดูดวงเลย' },
   { id: 'manifest', title: 'มานิเฟส', desc: DESC_MANIFEST, href: '/v2/service/manifest', image: ART('08_มานิเฟส.png'), cta: 'เริ่มมานิเฟส' },
   // filename says ปฎิทิน (ฎ ชฎา), the title says ปฏิทิน (ฏ ปฏัก) — different letters. Mapped by id on purpose.
