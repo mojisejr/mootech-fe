@@ -187,7 +187,7 @@ const ELEMENT_INK: Record<string, string> = {
   wood: "#388659",
   fire: "#CB2C2A",
   earth: "#F19953",
-  metal: "#5A5A5A",
+  metal: "#C99A1E",
   water: "#1455A4",
 }
 // ราศีสวรรค์ 甲乙=ไม้ 丙丁=ไฟ 戊己=ดิน 庚辛=ทอง 壬癸=น้ำ · นักษัตรดิน 寅卯=ไม้ 巳午=ไฟ 辰戌丑未=ดิน 申酉=ทอง 亥子=น้ำ
