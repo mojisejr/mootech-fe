@@ -32,11 +32,26 @@ function clamp(s: string, max: number): string {
   return (sp > max * 0.6 ? cut.slice(0, sp) : cut).trimEnd() + "…"
 }
 
+// ไทยไม่มีเว้นวรรคระหว่างคำ → Satori ตัดบรรทัดไม่ได้ (มองเป็นคำเดียวยาว → ล้นขอบ)
+// แทรก zero-width space ตามขอบคำ (Intl.Segmenter รองรับใน edge/V8) เพื่อให้ wrap ได้
+// fallback: แทรกหลังอักษรไทยทุกตัว (break-all) เผื่อ Segmenter ไม่มี
+function breakable(s: string): string {
+  if (!s) return s
+  try {
+    const SegmenterCtor = (Intl as { Segmenter?: new (l: string, o: { granularity: string }) => { segment: (s: string) => Iterable<{ segment: string }> } }).Segmenter
+    if (!SegmenterCtor) throw new Error("no-segmenter")
+    const seg = new SegmenterCtor("th", { granularity: "word" })
+    return Array.from(seg.segment(s), (x) => x.segment).join("​")
+  } catch {
+    return s.replace(/([฀-๿])/g, "$1​")
+  }
+}
+
 export default async function handler(req: Request): Promise<Response> {
   const { searchParams, origin } = new URL(req.url)
-  const title = clamp(searchParams.get("t") || "ดวงของฉัน", 60)
-  const subtitle = clamp(searchParams.get("s") || "", 40)
-  const tag = clamp(searchParams.get("g") || "", 24)
+  const title = breakable(clamp(searchParams.get("t") || "ดวงของฉัน", 60))
+  const subtitle = breakable(clamp(searchParams.get("s") || "", 40))
+  const tag = breakable(clamp(searchParams.get("g") || "", 24))
   // แถบสกิล (เฉพาะดวงธาตุ): label|percent|grade|color|top(1/0) คั่นแถวด้วย "~"
   const skills: Skill[] = (searchParams.get("k") || "")
     .split("~")
@@ -48,7 +63,7 @@ export default async function handler(req: Request): Promise<Response> {
       return { label, pct: Math.max(0, Math.min(100, Number(pct) || 0)), grade, color: color || "#1455A4", top: top === "1" }
     })
   // มีสกิล → คำโปรยสั้น (มีที่วางแถบ); ไม่มีสกิล → ยาวได้ (คำทำนายเต็มขึ้น ลดการตัด)
-  const summary = clamp(searchParams.get("d") || "ดูดวงจีนเฉพาะคุณกับ Mumate", skills.length ? 110 : 340)
+  const summary = breakable(clamp(searchParams.get("d") || "ดูดวงจีนเฉพาะคุณกับ Mumate", skills.length ? 110 : 340))
   // m = รูป (มาสคอต 1 รูป หรือไพ่หลายใบคั่นด้วย ",") — resolve relative → absolute, เก็บสูงสุด 3
   const resolveImg = (s: string) => (s.startsWith("http") ? s : `${origin}${s.startsWith("/") ? "" : "/"}${s}`)
   const imgs = (searchParams.get("m") || "")
@@ -59,6 +74,14 @@ export default async function handler(req: Request): Promise<Response> {
     .map(resolveImg)
   // รอบ 14: พื้นหลัง = ภาพฉากพาสเทล (ไม่ใช่ไล่สีน้ำเงิน) + ตัวหนังสือเข้ม ให้เข้าชุดการ์ดแชร์
   const bg = `${origin}/images/v2/destiny/bg-destiny.jpg`
+
+  // ความกว้างสูงสุดของคอลัมน์ข้อความ — Satori ไม่ตัดบรรทัดเองถ้าคอลัมน์ flex:1 ไม่ถูกจำกัด
+  // (มันขยายตาม min-content ของข้อความยาว → ล้นขอบขวา) จึงต้อง cap ตามความกว้างรูปจริง
+  const CANVAS = 1200
+  const PAD = 56 * 2
+  const imgBlockW = imgs.length >= 3 ? 146 * 3 + 12 * 2 : imgs.length === 2 ? 196 * 2 + 12 : imgs.length === 1 ? (skills.length ? 280 : 320) : 0
+  const colGap = imgs.length ? 44 : 0
+  const colMaxWidth = CANVAS - PAD - colGap - imgBlockW
 
   const [reg, bold] = await Promise.all([font(FONT_REG), font(FONT_BOLD)])
   const fonts = [
@@ -117,7 +140,7 @@ export default async function handler(req: Request): Promise<Response> {
             // eslint-disable-next-line @next/next/no-img-element
             <img src={imgs[0]} width={skills.length ? 280 : 320} height={skills.length ? 350 : 400} style={{ width: skills.length ? 280 : 320, height: skills.length ? 350 : 400, objectFit: "contain", flexShrink: 0 }} alt="" />
           ) : null}
-          <div style={{ display: "flex", flexDirection: "column", flex: 1 }}>
+          <div style={{ display: "flex", flexDirection: "column", width: colMaxWidth }}>
             <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: skills.length ? 10 : 18 }}>
               <span style={{ fontSize: 40, fontWeight: 700, letterSpacing: -1, color: "#0b305b" }}>Mumate</span>
               {tag ? (
@@ -134,7 +157,7 @@ export default async function handler(req: Request): Promise<Response> {
                 {skills.map((s, i) => (
                   <div key={i} style={{ display: "flex", flexDirection: "column", marginTop: i ? 14 : 0 }}>
                     <div style={{ display: "flex", flexDirection: "row", alignItems: "center", marginBottom: 6 }}>
-                      <span style={{ display: "flex", flex: 1, fontSize: 24, fontWeight: 700, color: "#0b305b" }}>{s.label}</span>
+                      <span style={{ display: "flex", flex: 1, fontSize: 24, fontWeight: 700, color: "#0b305b" }}>{breakable(s.label)}</span>
                       {s.top ? (
                         <span style={{ display: "flex", flexDirection: "row", alignItems: "center", gap: 5, fontSize: 18, fontWeight: 700, color: "#2e7d32", background: "#DDF3D8", borderRadius: 999, padding: "3px 14px" }}>
                           <svg width="16" height="16" viewBox="0 0 24 24"><path d="M12 2l2.9 6.3 6.9.7-5.1 4.6 1.4 6.8L12 17.8 5.9 20.4l1.4-6.8L2.2 9l6.9-.7z" fill="#F2B01E" /></svg>
