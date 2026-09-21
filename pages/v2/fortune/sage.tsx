@@ -66,7 +66,7 @@ export default function FortuneSagePage() {
   const mounted = useHasMounted()
   const identityStuck = useLoadingTimeout(mounted && authStatus === "loading", 8000)
   const cd = useActionCooldown("fortune:sage") // กันบอทยิงรัว 10 วิ
-  const { tier } = useV2Tier() // PRO = เซียมซี/Oracle ไม่จำกัด → ไม่โชว์ copy "วันละ 1 ครั้ง"
+  const { tier, loading: tierLoading } = useV2Tier() // PRO = เซียมซี/Oracle ไม่จำกัด
   const cardUnlimited = tier === "PRO"
   const [phase, setPhase] = useState<"intro" | "loading" | "result">("intro")
   const [stick, setStick] = useState<Stick | null>(null)
@@ -220,8 +220,8 @@ export default function FortuneSagePage() {
             )}
           </section>
           {quotaOut && <Link href="/v2/qi" className="text-center text-[13px] font-bold text-v3-sapphire">เติม/แลก QI ที่หน้าพลังชี่ →</Link>}
-          {/* โควตาตาม tier จริง (เอ็ม 2026-09-21): PRO ไม่จำกัด · PLUS 10/วัน · ฟรี 2/วัน (เดิม hardcode "1 ครั้ง" ผิด) */}
-          <p className="text-center text-[11px] text-v3-text-muted">{cardUnlimited ? "สมาชิก PRO เสี่ยงทายได้ไม่จำกัด" : tier === "PLUS" ? "สมาชิก PLUS เสี่ยงทายวันละ 10 ครั้ง — เกินแล้วแลกด้วย QI" : "ใช้โควตาเสี่ยงทายวันละ 2 ครั้ง (ฟรี) — เกินแล้วแลกด้วย QI"}</p>
+          {/* โควตาตาม tier จริง — รอ tier โหลดก่อนค่อยโชว์ (PRO ต้องขึ้น "ไม่จำกัด" แต่แรก ไม่แวบ "ฟรี/PLUS") */}
+          {!tierLoading && <p className="text-center text-[11px] text-v3-text-muted">{cardUnlimited ? "สมาชิก PRO เสี่ยงทายได้ไม่จำกัด" : tier === "PLUS" ? "สมาชิก PLUS เสี่ยงทายวันละ 10 ครั้ง — เกินแล้วแลกด้วย QI" : "ใช้โควตาเสี่ยงทายวันละ 2 ครั้ง (ฟรี) — เกินแล้วแลกด้วย QI"}</p>}
         </div>
       )}
 
