@@ -1,7 +1,8 @@
 // pages/v2/element-finder.tsx — "มาหาธาตุแท้กันเถอะ / Bazi Element Finder" (#6 Kittipon 2026-09-21)
-// flow 3 จอ: กรอกวันเกิด → loading (หาเสาวัน/ยาม) → ผลธาตุ (มาสคอต+quote+นิสัย+แชร์). login-only (เอ็ม).
-// v1 self-designed จาก Figma screenshots (node 1670-69 เข้าตรงไม่ได้). เนื้อหา DRAFT → ซินแสรีวิว.
-// คำนวณธาตุจากวันเกิดผ่าน /api/bazi/element-summary → dayMaster(ก้านวัน) → ธาตุ (แม่นกว่าราศีเดือน).
+// flow 3 จอ: กรอกวันเกิด → loading → ผลธาตุ (มาสคอต 60 การ์ด + quote + นิสัย + แชร์). login-only.
+// มาสคอต = การ์ด 60 character (นักษัตร×ธาตุ) แบบเดียวกับหน้า "ธาตุของคุณ" (resolveMascotFromCompute →
+// /images/v2/cards/NN_นักษัตร-ธาตุ.jpg). คำนวณจากวันเกิดที่กรอกผ่าน /api/calculator/compute.
+// gender ไม่กระทบมาสคอต/ธาตุ (แค่ facets ที่ไม่ใช้) → default MALE. แชร์ = shareAsInvite เหมือนจอผลอื่น.
 import Head from "next/head"
 import Link from "next/link"
 import Image from "next/image"
@@ -14,17 +15,22 @@ import { Menubar } from "@/features/v2-shell/components/Menubar"
 import { AuthRequiredCard } from "@/features/auth/components/AuthRequiredCard"
 import { useCurrentUser } from "@/lib/auth/use-current-user"
 import { ELEMENT_CONTENT, toElementKey, type ElementContent } from "@/features/v2-element-finder/content"
-import { stemElementTh, ELEMENT_COLOR } from "@/lib/bazi/element-colors"
+import { ELEMENT_COLOR } from "@/lib/bazi/element-colors"
+import { resolveMascotFromCompute, type ComputeMascotSource } from "@/lib/personalization/mascot"
+import { shareAsInvite } from "@/lib/v2/share-invite"
+import { issueNonce, NONCE_COOKIE } from "@/lib/calculator/nonce"
 
 export const getServerSideProps: GetServerSideProps = async (ctx) => {
   ctx.res.setHeader("Cache-Control", "no-store, must-revalidate")
   const redirect = v2RedirectIfUnauthed(ctx.req)
   if (redirect) return redirect
+  // /api/calculator/compute ต้องมี nonce cookie (lib/calculator/nonce.ts) — ออกตอนโหลดหน้าเหมือน /calculator
+  const nonce = issueNonce()
+  ctx.res.setHeader("Set-Cookie", `${NONCE_COOKIE}=${nonce}; HttpOnly; Path=/; SameSite=Lax; Secure; Max-Age=600`)
   return { props: {} }
 }
 
 const STEPS = ["อ่านวันเดือนปีเกิด", "หาเสาวัน (日柱) ของคุณ", "หาเสายาม (時柱) จากเวลาเกิด", "สรุปธาตุแท้และนิสัย"]
-
 const ELEMENT_ICONS: { key: keyof typeof ELEMENT_CONTENT; emoji: string }[] = [
   { key: "ไฟ", emoji: "🔥" }, { key: "ไม้", emoji: "🌱" }, { key: "ดิน", emoji: "⛰️" }, { key: "ทอง", emoji: "🪙" }, { key: "น้ำ", emoji: "💧" },
 ]
@@ -32,11 +38,11 @@ const ELEMENT_ICONS: { key: keyof typeof ELEMENT_CONTENT; emoji: string }[] = [
 export default function ElementFinderPage() {
   const { status: authStatus } = useCurrentUser()
   const [phase, setPhase] = useState<"input" | "loading" | "result">("input")
-  const [birthDate, setBirthDate] = useState("") // YYYY-MM-DD (native)
+  const [birthDate, setBirthDate] = useState("")
   const [birthTime, setBirthTime] = useState("")
   const [timeUnknown, setTimeUnknown] = useState(false)
   const [result, setResult] = useState<ElementContent | null>(null)
-  const [ganzhi, setGanzhi] = useState("") // เสาวัน (60 กะจื่อ) → มาสคอต 60 character
+  const [mascotCard, setMascotCard] = useState<string>("") // การ์ด 60 character (นักษัตร×ธาตุ)
   const [error, setError] = useState<string | null>(null)
   const [step, setStep] = useState(0)
 
@@ -46,30 +52,34 @@ export default function ElementFinderPage() {
     if (!canSubmit) return
     setPhase("loading"); setError(null); setStep(0)
     const started = Date.now()
-    // เดินไล่ checklist ให้ดูมีชีวิต ระหว่างรอ engine
-    const timers = STEPS.map((_, i) => window.setTimeout(() => setStep(i + 1), 500 * (i + 1)))
+    const timers = STEPS.map((_, i) => window.setTimeout(() => setStep(i + 1), 550 * (i + 1)))
     try {
-      const res = await fetch("/api/bazi/element-summary", {
+      const res = await fetch("/api/calculator/compute", {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ person: { birthDate, birthTime: timeUnknown ? undefined : birthTime } }),
+        body: JSON.stringify({ dob: birthDate, time: timeUnknown ? "" : birthTime, gender: "MALE" }),
       })
-      const j = (await res.json().catch(() => ({}))) as { summary?: { dayMaster?: string; dayGanzhi?: string; elementTh?: string } | null }
-      // ธาตุจากก้านวัน (dayMaster) เป็นหลัก — แม่นกว่า elementTh (เลี่ยง split-brain), fallback elementTh
-      const key = toElementKey(stemElementTh(j.summary?.dayMaster) || j.summary?.elementTh)
-      await new Promise((r) => setTimeout(r, Math.max(0, 2400 - (Date.now() - started))))
-      if (!key) { setError("คำนวณธาตุไม่สำเร็จ ลองตรวจวันเกิดอีกครั้ง"); setPhase("input"); return }
-      setGanzhi(j.summary?.dayGanzhi ?? ""); setResult(ELEMENT_CONTENT[key]); setPhase("result")
+      const body = (await res.json().catch(() => ({}))) as { data?: unknown }
+      const mascot = res.ok ? resolveMascotFromCompute(body.data as ComputeMascotSource) : null // นักษัตร×ธาตุ → การ์ด+ธาตุ
+      const key = mascot ? toElementKey(mascot.elementTh) : null
+      await new Promise((r) => setTimeout(r, Math.max(0, 2600 - (Date.now() - started))))
+      if (!mascot || !key) { setError("คำนวณธาตุไม่สำเร็จ ลองตรวจวันเกิดอีกครั้ง"); setPhase("input"); return }
+      setMascotCard(mascot.card); setResult(ELEMENT_CONTENT[key]); setPhase("result")
     } catch {
       setError("เชื่อมต่อไม่สำเร็จ ลองใหม่อีกครั้ง"); setPhase("input")
     } finally { timers.forEach((t) => window.clearTimeout(t)) }
   }
 
-  const reset = () => { setResult(null); setPhase("input") }
+  const reset = () => { setResult(null); setMascotCard(""); setPhase("input") }
 
-  const shareText = result ? `ฉันคือ${result.nameTh} — “${result.quote}” มาเช็คธาตุแท้ของคุณกับ Mumate` : "มาเช็คธาตุแท้ของคุณกับ Mumate"
-  const shareUrl = typeof window !== "undefined" ? `${window.location.origin}/v2/element-finder` : "https://bazichart.mumate.co/v2/element-finder"
-  const shareX = () => window.open(`https://x.com/intent/tweet?text=${encodeURIComponent(shareText)}&url=${encodeURIComponent(shareUrl)}`, "_blank", "noopener")
-  const shareLine = () => window.open(`https://social-plugins.line.me/lineit/share?url=${encodeURIComponent(shareUrl)}&text=${encodeURIComponent(shareText)}`, "_blank", "noopener")
+  // แชร์แบบเดียวกับจอผลอื่น (shareAsInvite → ลิงก์ + og:image) — เอ็ม 2026-09-21
+  const share = () => {
+    if (!result) return
+    void shareAsInvite({
+      title: "มาหาธาตุแท้กันเถอะ",
+      text: `ฉันคือ${result.nameTh} — “${result.quote}” มาเช็คธาตุแท้ของคุณกับ Mumate`,
+      og: { title: `ฉันคือ${result.nameTh}`, subtitle: result.nameEn, summary: `“${result.quote}”`, tag: "ธาตุแท้ของฉัน", image: mascotCard || undefined },
+    })
+  }
 
   return (
     <SkyScreen bgImage="/images/v2/fortune/sage-bg.png">
@@ -124,16 +134,8 @@ export default function ElementFinderPage() {
       ) : result ? (
         <div className="mt-3 flex flex-col items-center gap-3" data-testid="finder-result">
           <div className="rounded-2xl bg-white px-4 py-2 text-center text-[14px] font-bold text-v3-navy shadow-sm">“{result.quote}”</div>
-          {/* มาสคอต 60 character ตามเสาวัน (60 กะจื่อ) — เช่นระกา+ทอง; โหลดไม่ขึ้นถอยไปมาสคอตธาตุรวม */}
-          <span className="relative size-44">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={ganzhi ? `/api/bazi-mascot?ganzhi=${encodeURIComponent(ganzhi)}` : result.mascot}
-              alt={result.nameTh}
-              className="size-full object-contain drop-shadow"
-              onError={(e) => { const img = e.currentTarget; if (!img.dataset.fb) { img.dataset.fb = "1"; img.src = result.mascot } }}
-            />
-          </span>
+          {/* มาสคอต = การ์ด 60 character (นักษัตร×ธาตุ) แบบหน้า "ธาตุของคุณ" */}
+          {mascotCard && <span className="relative h-56 w-44"><Image src={mascotCard} alt={result.nameTh} fill sizes="176px" className="rounded-3xl object-contain drop-shadow" /></span>}
           <div className="text-center">
             <p className="text-[30px] font-black" style={{ color: ELEMENT_COLOR[result.key] }}>{result.nameTh}</p>
             <p className="text-[12px] font-black tracking-widest text-v3-text-muted">{result.nameEn}</p>
@@ -145,17 +147,15 @@ export default function ElementFinderPage() {
           </div>
           <p className="max-w-md text-center text-[13px] leading-[22px] text-v3-text-body">{result.description}</p>
 
-          {/* login-only → CTA ภายในไปดวงเต็ม (แทน "แอด LINE OA" ที่ออกแบบไว้สำหรับ public) */}
           <Link href="/v2/destiny" className="mt-1 flex w-full max-w-md items-center justify-between rounded-2xl bg-v3-sapphire/10 p-4" data-testid="finder-cta">
             <span className="text-[13px] font-bold text-v3-navy">อยากรู้ลึกกว่านี้? ดูดวงเต็มของคุณ</span>
             <span className="rounded-full bg-v3-sapphire px-4 py-2 text-[13px] font-bold text-white">ดูเลย →</span>
           </Link>
 
-          <p className="mt-1 text-[13px] font-bold text-v3-navy">แชร์ผลลัพธ์นี้ให้เพื่อนเช็คมั่ง</p>
-          <div className="flex w-full max-w-md gap-2">
-            <button onClick={shareX} data-testid="finder-share-x" className="flex h-12 flex-1 items-center justify-center gap-2 rounded-full bg-black text-[14px] font-bold text-white">𝕏 แชร์ลง X</button>
-            <button onClick={shareLine} data-testid="finder-share-line" className="flex h-12 flex-1 items-center justify-center gap-2 rounded-full bg-[#06C755] text-[14px] font-bold text-white">แชร์ลง LINE</button>
-          </div>
+          <button onClick={share} data-testid="finder-share" className="mt-1 flex h-12 w-full max-w-md items-center justify-center gap-2 rounded-full bg-v3-sapphire text-[15px] font-bold text-white">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="18" cy="5" r="3" /><circle cx="6" cy="12" r="3" /><circle cx="18" cy="19" r="3" /><path d="m8.6 13.5 6.8 4M15.4 6.5l-6.8 4" /></svg>
+            แชร์ผลลัพธ์นี้ให้เพื่อนเช็คมั่ง
+          </button>
           <button onClick={reset} className="mt-1 text-[13px] font-bold text-v3-sapphire" data-testid="finder-again">เช็คธาตุคนอื่นอีกครั้ง</button>
         </div>
       ) : null}
