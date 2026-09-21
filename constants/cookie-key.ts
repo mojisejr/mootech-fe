@@ -5,6 +5,10 @@ enum CookieKey {
   MEMBER_IMAGE = "cookie-mumate-image",
   MEMBER_REFER_CODE = "cookie-mumate-refer",
   MEMBER_EMAIL = "cookie-mumate-email",
+  // ผูก MEMBER_ID กับ "ตัวตน LINE/provider" (sub) ที่ mint มันขึ้นมา — กัน cookie member ค้างจาก
+  // login เก่าใน jar เดียวกัน (LINE webview vs Chrome/PWA คนละ jar) ถูกเชื่อทั้งที่ session เป็นคนละ sub
+  // (เอ็ม 2026-09-21: LINE บัญชีเดียวกันแต่ 2 ทางเข้าโชว์คนละ QI). mismatch/ไม่มี → re-register ผูกใหม่
+  MEMBER_SUB = "cookie-mumate-sub",
 
 
   REFCODE_FGF = "cookie-mumate-fgf-code",
