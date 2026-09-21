@@ -36,6 +36,7 @@ export default function ElementFinderPage() {
   const [birthTime, setBirthTime] = useState("")
   const [timeUnknown, setTimeUnknown] = useState(false)
   const [result, setResult] = useState<ElementContent | null>(null)
+  const [ganzhi, setGanzhi] = useState("") // เสาวัน (60 กะจื่อ) → มาสคอต 60 character
   const [error, setError] = useState<string | null>(null)
   const [step, setStep] = useState(0)
 
@@ -52,12 +53,12 @@ export default function ElementFinderPage() {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ person: { birthDate, birthTime: timeUnknown ? undefined : birthTime } }),
       })
-      const j = (await res.json().catch(() => ({}))) as { summary?: { dayMaster?: string; elementTh?: string } | null }
+      const j = (await res.json().catch(() => ({}))) as { summary?: { dayMaster?: string; dayGanzhi?: string; elementTh?: string } | null }
       // ธาตุจากก้านวัน (dayMaster) เป็นหลัก — แม่นกว่า elementTh (เลี่ยง split-brain), fallback elementTh
       const key = toElementKey(stemElementTh(j.summary?.dayMaster) || j.summary?.elementTh)
       await new Promise((r) => setTimeout(r, Math.max(0, 2400 - (Date.now() - started))))
       if (!key) { setError("คำนวณธาตุไม่สำเร็จ ลองตรวจวันเกิดอีกครั้ง"); setPhase("input"); return }
-      setResult(ELEMENT_CONTENT[key]); setPhase("result")
+      setGanzhi(j.summary?.dayGanzhi ?? ""); setResult(ELEMENT_CONTENT[key]); setPhase("result")
     } catch {
       setError("เชื่อมต่อไม่สำเร็จ ลองใหม่อีกครั้ง"); setPhase("input")
     } finally { timers.forEach((t) => window.clearTimeout(t)) }
@@ -123,7 +124,16 @@ export default function ElementFinderPage() {
       ) : result ? (
         <div className="mt-3 flex flex-col items-center gap-3" data-testid="finder-result">
           <div className="rounded-2xl bg-white px-4 py-2 text-center text-[14px] font-bold text-v3-navy shadow-sm">“{result.quote}”</div>
-          <span className="relative size-44"><Image src={result.mascot} alt={result.nameTh} fill sizes="176px" className="object-contain drop-shadow" /></span>
+          {/* มาสคอต 60 character ตามเสาวัน (60 กะจื่อ) — เช่นระกา+ทอง; โหลดไม่ขึ้นถอยไปมาสคอตธาตุรวม */}
+          <span className="relative size-44">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={ganzhi ? `/api/bazi-mascot?ganzhi=${encodeURIComponent(ganzhi)}` : result.mascot}
+              alt={result.nameTh}
+              className="size-full object-contain drop-shadow"
+              onError={(e) => { const img = e.currentTarget; if (!img.dataset.fb) { img.dataset.fb = "1"; img.src = result.mascot } }}
+            />
+          </span>
           <div className="text-center">
             <p className="text-[30px] font-black" style={{ color: ELEMENT_COLOR[result.key] }}>{result.nameTh}</p>
             <p className="text-[12px] font-black tracking-widest text-v3-text-muted">{result.nameEn}</p>
