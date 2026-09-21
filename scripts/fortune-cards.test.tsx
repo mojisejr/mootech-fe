@@ -35,12 +35,13 @@ let predictStatus = 200
 let cardsOut: unknown[] = CARDS
 let lastBody: Record<string, unknown> = {}
 let spendBodies: Array<Record<string, unknown>> = []
+let llmProseOut: string | undefined // FC6: mock LLM สรุปที่เกลาให้ตรงคำถาม
 const fetchMock = vi.fn(async (url: string, init?: { method?: string; body?: string }) => {
   const u = String(url)
   if (u.includes('/api/fortune/oracle')) {
     lastBody = JSON.parse(String(init?.body ?? '{}'))
     return predictStatus === 200
-      ? { ok: true, status: 200, json: async () => ({ source: 'engine', cards: cardsOut, slots: SLOTS, engineProse: PROSE }) }
+      ? { ok: true, status: 200, json: async () => ({ source: llmProseOut ? 'llm' : 'engine', cards: cardsOut, slots: SLOTS, engineProse: PROSE, ...(llmProseOut ? { llmProse: llmProseOut } : {}) }) }
       : { ok: false, status: 402, json: async () => ({ error: { message: 'quota' } }) }
   }
   if (u.includes('/api/qi-earn')) return { ok: true, status: 200, json: async () => ({ ok: true }) }
@@ -61,18 +62,28 @@ const renderOracle = () =>
     <CardReadingScreen mode="oracle" title="เสี่ยงไพ่ออราเคิลเคี้ยงคุง" resultTitle="ผลไพ่ออราเคิล" introArt="/x.png" endpoint="/api/fortune/oracle" deckCount={12} />,
   )
 
-beforeEach(() => { predictStatus = 200; cardsOut = CARDS; lastBody = {}; spendBodies = []; fetchMock.mockClear(); try { localStorage.clear() } catch { /* cooldown ต่อเคส */ } })
+beforeEach(() => { predictStatus = 200; cardsOut = CARDS; lastBody = {}; spendBodies = []; llmProseOut = undefined; fetchMock.mockClear(); try { localStorage.clear() } catch { /* cooldown ต่อเคส */ } })
 afterEach(() => cleanup())
 
+// พิมพ์คำถาม (บังคับก่อนเสี่ยง — ซินแส/ปอง 2026-09-21)
+const typeQ = (v = 'งานที่สมัครไว้จะได้ไหม') => fireEvent.change(screen.getByTestId('cards-question'), { target: { value: v } })
+
 describe('เสี่ยงไพ่ (oracle/divine)', () => {
-  it('FC1 intro: 2 ปุ่ม เสี่ยงทาย / เลือกเอง 3 ใบ', () => {
+  it('FC1 intro: 2 ปุ่ม (disable จนพิมพ์คำถาม)', () => {
     renderOracle()
-    expect(screen.getByTestId('cards-random').textContent).toContain('กดเพื่อเสี่ยงทาย')
-    expect(screen.getByTestId('cards-goto-pick').textContent).toContain('เลือกเอง 3 ใบ')
+    const rnd = screen.getByTestId('cards-random') as HTMLButtonElement
+    const pick = screen.getByTestId('cards-goto-pick') as HTMLButtonElement
+    expect(rnd.textContent).toContain('กดเพื่อเสี่ยงทาย')
+    expect(pick.textContent).toContain('เลือกเอง 3 ใบ')
+    expect(rnd.disabled).toBe(true); expect(pick.disabled).toBe(true) // ยังไม่พิมพ์คำถาม
+    typeQ()
+    expect((screen.getByTestId('cards-random') as HTMLButtonElement).disabled).toBe(false)
+    expect((screen.getByTestId('cards-goto-pick') as HTMLButtonElement).disabled).toBe(false)
   })
 
-  it('FC2 เปิดการ์ด: เลือกเอง → กริด → แตะ 3 → เปิด → POST cardNos(3) → ผล 3 ใบ', async () => {
+  it('FC2 เปิดการ์ด: เลือกเอง → กริด → แตะ 3 → เปิด → POST cardNos(3)+question → ผล 3 ใบ', async () => {
     renderOracle()
+    typeQ()
     fireEvent.click(screen.getByTestId('cards-goto-pick'))
     expect(screen.getByTestId('cards-pick')).toBeTruthy()
     // กริด = deckCount ใบ
@@ -95,14 +106,17 @@ describe('เสี่ยงไพ่ (oracle/divine)', () => {
 
   it('FC3 หยิบสุ่ม → POST random → ผล', async () => {
     renderOracle()
+    typeQ()
     fireEvent.click(screen.getByTestId('cards-random'))
     await waitFor(() => expect(screen.getByTestId('cards-result')).toBeTruthy(), { timeout: 3000 })
     expect(lastBody.random).toBe(true)
+    expect(lastBody.question).toBe('งานที่สมัครไว้จะได้ไหม') // ส่งคำถามไปด้วย
   })
 
   it('FC3b รูปหน้าไพ่มาจาก database (card.imageUrl = Supabase URL) — ไม่ใช่ไฟล์ในโปรเจกต์', async () => {
     cardsOut = CARDS.map((c, i) => ({ ...c, imageUrl: `https://x.supabase.co/storage/v1/object/public/oracle-cards/cards/${c.no}.jpg?i=${i}` }))
     renderOracle()
+    typeQ()
     fireEvent.click(screen.getByTestId('cards-random'))
     await waitFor(() => expect(screen.getByTestId('cards-result')).toBeTruthy(), { timeout: 3000 })
     const imgs = Array.from(screen.getByTestId('cards-result').querySelectorAll('img')) as HTMLImageElement[]
@@ -113,6 +127,7 @@ describe('เสี่ยงไพ่ (oracle/divine)', () => {
   it('FC4 402 → quota ไม่โชว์ผล', async () => {
     predictStatus = 402
     renderOracle()
+    typeQ()
     fireEvent.click(screen.getByTestId('cards-random'))
     await waitFor(() => expect(screen.getByTestId('cards-quota')).toBeTruthy(), { timeout: 3000 })
     expect(screen.queryByTestId('cards-result')).toBeNull()
@@ -121,6 +136,7 @@ describe('เสี่ยงไพ่ (oracle/divine)', () => {
   it('FC4b 402 → ปุ่ม "แลก 10 QI แล้วเปิดไพ่เลย" ตรงหน้า: ยิง /api/qi-spend card_use แล้วเปิดต่อทันที', async () => {
     predictStatus = 402
     renderOracle()
+    typeQ()
     fireEvent.click(screen.getByTestId('cards-random'))
     const btn = await waitFor(() => screen.getByTestId('cards-redeem'), { timeout: 3000 })
     fireEvent.click(btn)
@@ -131,10 +147,24 @@ describe('เสี่ยงไพ่ (oracle/divine)', () => {
 
   it('FC5 น้ำหนัก 50 จาก engine → แสดง "50%" ไม่ใช่ "5000%"', async () => {
     renderOracle()
+    typeQ()
     fireEvent.click(screen.getByTestId('cards-random'))
     await waitFor(() => expect(screen.getByTestId('cards-result')).toBeTruthy(), { timeout: 3000 })
     const result = screen.getByTestId('cards-result')
     expect(within(result).getAllByText(/น้ำหนัก 50%/).length).toBeGreaterThan(0)
     expect(within(result).queryByText(/5000%/)).toBeNull()
+  })
+
+  it('FC6 มี llmProse (เกลาตรงคำถาม) → ใช้เป็นสรุป · ต่อใบยังใช้ engineProse ไม่เลื่อน', async () => {
+    llmProseOut = 'คำตอบเกลาตรงคำถามจากซินแส'
+    renderOracle()
+    typeQ()
+    fireEvent.click(screen.getByTestId('cards-random'))
+    await waitFor(() => expect(screen.getByTestId('cards-result')).toBeTruthy(), { timeout: 3000 })
+    // สรุป = llmProse (ไม่ใช่ cards[0].meaning 'สรุปใบหลัก')
+    expect(screen.getByTestId('cards-summary').textContent).toContain('คำตอบเกลาตรงคำถามจากซินแส')
+    expect(screen.getByTestId('cards-summary').textContent).not.toContain('สรุปใบหลัก')
+    // ต่อใบยังแสดงหัวใบครบ (engineProse ไม่เลื่อน index)
+    expect(screen.getByText('#11 ไพ่หนึ่ง · พลัง')).toBeTruthy()
   })
 })

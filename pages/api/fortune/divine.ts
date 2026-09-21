@@ -21,7 +21,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const upstream = await fetch(`${base}/api/divine-cards/predict`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ mode: "engine", question: body.question, ...pick, anonId: rawId }),
+      body: JSON.stringify({ mode: "llm", question: body.question, ...pick, anonId: rawId }),
     })
     const payload = await upstream.json().catch(() => ({}))
     res.status(upstream.status).json(payload)

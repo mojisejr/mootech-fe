@@ -21,7 +21,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const upstream = await fetch(`${base}/api/fortune-sage/predict`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ question: body.question, topic: body.topic, no: body.no, anonId: rawId }),
+      body: JSON.stringify({ mode: "llm", question: body.question, topic: body.topic, no: body.no, anonId: rawId }),
     })
     const payload = await upstream.json().catch(() => ({}))
     res.status(upstream.status).json(payload)
