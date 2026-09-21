@@ -98,6 +98,14 @@ const MOCK = {
       hour: { stem: "戊", branch: "子" },
     },
     mingGong: { stem: "壬", branch: "午" },
+    daYun: [
+      { startAge: 3, endAge: 12, stem: "丁", branch: "卯", upperPhase: { startAge: 3, endAge: 7, symbol: "丁", source: "stem", twelveQiDisplay: "เจ๊าะ" }, lowerPhase: { startAge: 8, endAge: 12, symbol: "卯", source: "branch", twelveQiDisplay: "ตี้อ๋วง" } },
+      { startAge: 13, endAge: 22, stem: "戊", branch: "辰", upperPhase: { startAge: 13, endAge: 17, symbol: "戊", source: "stem", twelveQiDisplay: "กวงตั่ว" }, lowerPhase: { startAge: 18, endAge: 22, symbol: "辰", source: "branch", twelveQiDisplay: "ซวย" } },
+      { startAge: 23, endAge: 32, stem: "己", branch: "巳", isCurrent: true, upperPhase: { startAge: 23, endAge: 27, symbol: "己", source: "stem", twelveQiDisplay: "ลิ่มกัว" }, lowerPhase: { startAge: 28, endAge: 32, symbol: "巳", source: "branch", twelveQiDisplay: "ตี้อ๋วง", isCurrent: true } },
+      { startAge: 33, endAge: 42, stem: "庚", branch: "午", upperPhase: { startAge: 33, endAge: 37, symbol: "庚", source: "stem", twelveQiDisplay: "เชี่ยงแซ" }, lowerPhase: { startAge: 38, endAge: 42, symbol: "午", source: "branch", twelveQiDisplay: "แป่" } },
+      { startAge: 43, endAge: 52, stem: "辛", branch: "未", upperPhase: { startAge: 43, endAge: 47, symbol: "辛", source: "stem", twelveQiDisplay: "ซี่" }, lowerPhase: { startAge: 48, endAge: 52, symbol: "未", source: "branch", twelveQiDisplay: "หมกยก" } },
+      { startAge: 53, endAge: 62, stem: "壬", branch: "申", upperPhase: { startAge: 53, endAge: 57, symbol: "壬", source: "stem", twelveQiDisplay: "ทอ" }, lowerPhase: { startAge: 58, endAge: 62, symbol: "申", source: "branch", twelveQiDisplay: "ลิ่มกัว" } },
+    ],
     elementAnalysis: {
       totalCounts: { wood: 2, fire: 1, earth: 3, metal: 1, water: 1 },
       dominantElements: ["earth"],
