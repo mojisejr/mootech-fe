@@ -61,7 +61,7 @@ export function CardReadingScreen({
   const theme = THEME[mode]
   const { status: authStatus } = useCurrentUser() // 'loading' | 'authed' | 'anon' — ไม่ login เปิดไพ่ไม่ได้
   // PRO = เปิดไพ่/เซียมซี ไม่จำกัด (ร้านค้า) → ไม่โชว์ copy "วันละ 1 ครั้ง (ฟรี)" ที่ทำให้ PRO เข้าใจผิดว่าจำกัด
-  const { tier } = useV2Tier()
+  const { tier, loading: tierLoading } = useV2Tier()
   const cardUnlimited = tier === "PRO"
   const cd = useActionCooldown(`fortune:${mode}`) // กันบอทยิงรัว 10 วิ
   const [phase, setPhase] = useState<"intro" | "pick" | "loading" | "result">("intro")
@@ -280,8 +280,9 @@ export function CardReadingScreen({
           {error && <p data-testid="cards-error" className="text-center text-[12px] font-bold text-v3-error">{error}</p>}
           {quotaOut && <Link href="/v2/qi" className="text-center text-[13px] font-bold text-v3-sapphire">เติม/แลก QI ที่หน้าพลังชี่ →</Link>}
           {quotaOut && <Link href="/v2/shop" data-testid="cards-upsell" className="text-center text-[13px] font-bold text-v3-cyan">หรือสมัครสมาชิก เปิดไพ่ได้มากขึ้น →</Link>}
-          {/* โควตาตาม tier จริง (เอ็ม 2026-09-21): PRO ไม่จำกัด · PLUS 10/วัน · ฟรี 2/วัน (เดิม hardcode "1 ครั้ง" ผิด) */}
-          <p className="text-center text-[11px] text-v3-text-muted">{cardUnlimited ? "สมาชิก PRO เปิดการ์ดได้ไม่จำกัด" : tier === "PLUS" ? "สมาชิก PLUS เปิดการ์ดวันละ 10 ครั้ง — เกินแล้วแลกด้วย QI" : "ใช้โควตาเปิดการ์ดวันละ 2 ครั้ง (ฟรี) — เกินแล้วแลกด้วย QI"}</p>
+          {/* โควตาตาม tier จริง (เอ็ม 2026-09-21): PRO ไม่จำกัด · PLUS 10/วัน · ฟรี 2/วัน. รอ tier โหลดก่อน
+              ค่อยโชว์ — ไม่งั้น PRO เห็นข้อความ "ฟรี/PLUS" แวบก่อน ("ต้องขึ้นไม่จำกัดแต่แรก") */}
+          {!tierLoading && <p className="text-center text-[11px] text-v3-text-muted">{cardUnlimited ? "สมาชิก PRO เปิดการ์ดได้ไม่จำกัด" : tier === "PLUS" ? "สมาชิก PLUS เปิดการ์ดวันละ 10 ครั้ง — เกินแล้วแลกด้วย QI" : "ใช้โควตาเปิดการ์ดวันละ 2 ครั้ง (ฟรี) — เกินแล้วแลกด้วย QI"}</p>}
         </div>
       )}
 
