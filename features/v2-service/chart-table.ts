@@ -14,15 +14,15 @@ export type ChartTable = {
   liuNian: ChartLiuNian[]
 }
 
-/** สีตัวก้าน/กิ่งในตาราง — hex จริงจาก design context ของ Figma 720:32490 §ตารางดวงจีน + 758:3239 (2026-09-07)
- *  (ทองใช้เทาตาม variable "สีธาตุ/ทอง/ตัวอักษร" — ในไฟล์มีทั้งเทาและส้มปน เลือกเทาให้ตรง legend) */
+/** สีตัวก้าน/กิ่งในตาราง — ตรง engine ELEMENT_COLORS_TH (เอ็ม 2026-09-21 "ใช้สี engine"; เดิม ดิน=น้ำตาล
+ *  เพี้ยนจาก engine ส้ม). ค่าเดียวกับ lib/bazi/element-colors.ts. chip SOFT/PILL ด้านล่างคง Figma เดิม. */
 export const CHART_ELEMENT_INK: Record<string, string> = {
-  'ไม้': '#43A047',
-  'ไฟ': '#E53935',
-  'ดิน': '#8D6E63',
-  'ทอง': '#818181',
-  'โลหะ': '#818181',
-  'น้ำ': '#1B9AAF',
+  'ไม้': '#388659',
+  'ไฟ': '#CB2C2A',
+  'ดิน': '#F19953',
+  'ทอง': '#5A5A5A',
+  'โลหะ': '#5A5A5A',
+  'น้ำ': '#1455A4',
 }
 /** Figma variables "สีธาตุ/<ธาตุ>/พื้นหลัง" + "/ตัวอักษร" — พื้น/ตัวหนังสือของชิปธาตุ (legend, ชิปธาตุดิถี, กล่องปฏิกิริยาธาตุ) */
 export const CHART_ELEMENT_SOFT: Record<string, string> = {

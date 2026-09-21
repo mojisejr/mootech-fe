@@ -27,6 +27,8 @@ import { TopBarBell } from "@/features/v2-shell/components/TopBarBell"
 import { TopBarAvatar } from "@/features/v2-shell/components/TopBarAvatar"
 import { shareAsInvite } from "@/lib/v2/share-invite"
 import { ShareCard, ShareStage, type ShareSkill } from "@/features/v2-share/components/ShareCard"
+import { GRADE_STEP_COLOR, type GradeStep } from "@/lib/v2/grade-scale"
+import { stemEnLabel, branchZodiacEn } from "@/lib/bazi/element-colors"
 
 // engine `element-summary` returns advice as OBJECTS ({key,label,text}), not strings — the earlier
 // `advice: string[]` typing was wrong and rendering the object as a React child crashed the whole page
@@ -152,12 +154,17 @@ function polarityOf(dayMaster?: string): string {
   if (!dayMaster) return ""
   return YIN_STEMS.has(dayMaster[0]) ? "หยิน" : "หยาง"
 }
-// สีเกรดตาม Figma: A #2e7d32 · B #66bb6a · C+ #cddc39(อักษรเข้ม) · C- #f57c00
+// เกรดละเอียด 10 ขั้น ตามสเกลดีไซน์ Figma (lib/v2/grade-scale.ts GRADE_STEP_COLOR) — เดิม 4 ช่วงกว้างไป
+// (ฟิว 2026-09-21: 15% เป็น C-, 63% เป็น C+ กว้างไป). ตอนนี้: 15%→D-, 63%→B-. สีพิลใช้ ink ของแต่ละขั้น
+// (saturated), อักษรเข้มเฉพาะไลม์/เขียวอ่อนที่สว่าง (C+ #CDDC39, B- #8BC34A) ให้อ่านชัด.
 function gradeStyle(score: number): { grade: string; color: string; badgeText: string } {
-  if (score >= 90) return { grade: "A", color: "#2e7d32", badgeText: "#ffffff" }
-  if (score >= 70) return { grade: "B", color: "#66bb6a", badgeText: "#ffffff" }
-  if (score >= 50) return { grade: "C+", color: "#cddc39", badgeText: "#374151" }
-  return { grade: "C-", color: "#f57c00", badgeText: "#ffffff" }
+  const s = Math.max(0, Math.min(100, score))
+  const step: GradeStep =
+    s >= 90 ? "A" : s >= 80 ? "B+" : s >= 70 ? "B" : s >= 60 ? "B-" :
+    s >= 50 ? "C+" : s >= 45 ? "C" : s >= 40 ? "C-" : s >= 35 ? "D+" :
+    s >= 25 ? "D" : "D-"
+  const darkInk = step === "C+" || step === "B-"
+  return { grade: step, color: GRADE_STEP_COLOR[step].ink, badgeText: darkInk ? "#374151" : "#ffffff" }
 }
 const ELEMENT_TH: Record<string, string> = {
   wood: "ไม้",
@@ -174,13 +181,14 @@ const ELEMENT_TINT: Record<string, string> = {
   metal: "#e1e1e1",
   water: "#e4f1f7",
 }
-// สีตัวอักษรจีน (ราศี/นักษัตร) ตามธาตุ — ให้อ่านออกบนพื้นขาว
+// สีตัวอักษรจีน (天干/地支) ตามธาตุ — ตรง engine ELEMENT_COLORS_TH (เอ็ม 2026-09-21 "ใช้สี engine";
+// เดิม ทอง=ทอง/ดิน=น้ำตาล เพี้ยนจน tester ทักว่าสีผิด). ค่าเดียวกับ lib/bazi/element-colors.ts
 const ELEMENT_INK: Record<string, string> = {
-  wood: "#2e9e5b",
-  fire: "#e5484d",
-  earth: "#b8873a",
-  metal: "#c99a1e",
-  water: "#1f6fd6",
+  wood: "#388659",
+  fire: "#CB2C2A",
+  earth: "#F19953",
+  metal: "#5A5A5A",
+  water: "#1455A4",
 }
 // ราศีสวรรค์ 甲乙=ไม้ 丙丁=ไฟ 戊己=ดิน 庚辛=ทอง 壬癸=น้ำ · นักษัตรดิน 寅卯=ไม้ 巳午=ไฟ 辰戌丑未=ดิน 申酉=ทอง 亥子=น้ำ
 const CHAR_ELEMENT: Record<string, string> = {
@@ -953,10 +961,14 @@ export function DestinyScreen({ previewData }: { previewData?: DestinyData } = {
                   ? PILLAR_ORDER.map((key) => ({ key, p: key === "mingGong" ? mingGong : pillars[key] }))
                       .filter((e): e is { key: (typeof PILLAR_ORDER)[number]; p: { stem: string; branch: string } } => Boolean(e.p))
                       .map(({ key, p }) => (
-                        <div key={key} className="flex flex-col items-center rounded-[12px] border border-v3-border-card py-2">
+                        <div key={key} className="flex flex-col items-center rounded-[12px] border border-v3-border-card px-0.5 py-2">
                           <span className="text-[10px] text-v3-text-muted">{PILLAR_LABEL[key] ?? key}</span>
                           <span className="text-[15px] font-bold leading-5" style={{ color: inkOf(p.stem) ?? "#0b305b" }}>{p.stem}</span>
-                          <span className="text-[15px] font-bold leading-5" style={{ color: inkOf(p.branch) ?? "#464646" }}>{p.branch}</span>
+                          {/* ป้าย EN ธาตุ+polarity (ซินแสขอ: "Yin Metal") */}
+                          <span className="text-center text-[8px] leading-tight text-v3-text-muted">{stemEnLabel(p.stem)}</span>
+                          <span className="mt-0.5 text-[15px] font-bold leading-5" style={{ color: inkOf(p.branch) ?? "#464646" }}>{p.branch}</span>
+                          {/* ป้ายราศี EN (ซินแสขอ: "rabbit") */}
+                          <span className="text-center text-[8px] capitalize leading-tight text-v3-text-muted">{branchZodiacEn(p.branch)}</span>
                         </div>
                       ))
                   : null}
