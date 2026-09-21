@@ -1,6 +1,6 @@
 // features/v2-element-finder/content.ts — เนื้อหาผลธาตุ 5 แบบ สำหรับ "มาหาธาตุแท้ / Bazi Element Finder" (#6)
 // v1 DRAFT (เอ็ม 2026-09-21: ผมดราฟต์จากของเดิม → ซินแสรีวิว/แก้ถ้อยคำทีหลัง). key = ธาตุไทย.
-// สี = ตรง lib/bazi/element-colors.ts (ทอง=ทอง #C99A1E). มาสคอต = /images/v2/destiny/el-*.png (มีอยู่แล้ว).
+// สี = ตรง lib/bazi/element-colors.ts (ทอง=เทา #5A5A5A). มาสคอต = /images/v2/destiny/el-*.png (มีอยู่แล้ว).
 export type ElementKey = "ไม้" | "ไฟ" | "ดิน" | "ทอง" | "น้ำ"
 
 export type ElementContent = {

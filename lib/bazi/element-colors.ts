@@ -7,12 +7,13 @@
 // เดิม FE มี 3 palette ไม่ตรงกัน (ทอง=เทา/ทอง/เทา, ดิน=น้ำตาล/โอลีฟ/ส้ม) + fallback ดำ = อาการ "สีเลอะ".
 
 /** ธาตุ(ไทย) → สี hex (ตรง engine ELEMENT_COLORS_TH เป๊ะ) */
-// เอ็ม 2026-09-21: ทอง = สีทอง (ไม่ใช่เทาตาม engine — ดูไม่สวยในผลจริง "ธาตุทอง=GOLD ELEMENT")
+// เอ็ม 2026-09-21 (ยืนยันซ้ำจากภาพ mark): ทอง = "สีเทา" ตาม engine canonical (ไม่ใช่สีทอง — รอบ #749
+// ตีความผิดว่าเป็นทอง; "สีธาตุทอง ไม่ใช่สีทอง" = metal element ไม่ใช่สีทองจริง ให้เป็นเทา)
 export const ELEMENT_COLOR: Record<string, string> = {
   ไม้: "#388659", // wood — green
   ไฟ: "#CB2C2A", // fire — red
   ดิน: "#F19953", // earth — orange
-  ทอง: "#C99A1E", // metal — gold (เดิม engine เทา #5A5A5A → เปลี่ยนเป็นทอง)
+  ทอง: "#5A5A5A", // metal — gray (engine ELEMENT_COLORS_TH)
   น้ำ: "#1455A4", // water — blue
 };
 
