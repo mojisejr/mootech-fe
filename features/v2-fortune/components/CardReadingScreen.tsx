@@ -260,7 +260,8 @@ export function CardReadingScreen({
           {error && <p data-testid="cards-error" className="text-center text-[12px] font-bold text-v3-error">{error}</p>}
           {quotaOut && <Link href="/v2/qi" className="text-center text-[13px] font-bold text-v3-sapphire">เติม/แลก QI ที่หน้าพลังชี่ →</Link>}
           {quotaOut && <Link href="/v2/shop" data-testid="cards-upsell" className="text-center text-[13px] font-bold text-v3-cyan">หรือสมัครสมาชิก เปิดไพ่ได้มากขึ้น →</Link>}
-          <p className="text-center text-[11px] text-v3-text-muted">{cardUnlimited ? "สมาชิก PRO เปิดการ์ดได้ไม่จำกัด" : "ใช้โควตาเปิดการ์ดวันละ 1 ครั้ง (ฟรี) — เกินแล้วแลกด้วย QI"}</p>
+          {/* โควตาตาม tier จริง (เอ็ม 2026-09-21): PRO ไม่จำกัด · PLUS 10/วัน · ฟรี 2/วัน (เดิม hardcode "1 ครั้ง" ผิด) */}
+          <p className="text-center text-[11px] text-v3-text-muted">{cardUnlimited ? "สมาชิก PRO เปิดการ์ดได้ไม่จำกัด" : tier === "PLUS" ? "สมาชิก PLUS เปิดการ์ดวันละ 10 ครั้ง — เกินแล้วแลกด้วย QI" : "ใช้โควตาเปิดการ์ดวันละ 2 ครั้ง (ฟรี) — เกินแล้วแลกด้วย QI"}</p>
         </div>
       )}
 
