@@ -135,7 +135,7 @@ export default function BirthdayColorPage() {
           <div className="w-full max-w-[290px]">
             <KitButton onClick={() => void save()} disabled={saving} testId="birthday-color-save">{saving ? "กำลังบันทึก…" : "บันทึก / ตั้งเป็นวอลเปเปอร์"}</KitButton>
           </div>
-          <p className="max-w-xs text-center text-[11px] leading-4 text-v3-text-muted">บนมือถือ: กด "บันทึก" แล้วเลือกบันทึกภาพ → ตั้งเป็นวอลเปเปอร์จากคลังรูป</p>
+          <p className="max-w-xs text-center text-[11px] leading-4 text-v3-text-muted">บนมือถือ: กดปุ่มบันทึก แล้วเลือกบันทึกภาพ → ตั้งเป็นวอลเปเปอร์จากคลังรูป</p>
         </div>
       )}
       <Menubar />
