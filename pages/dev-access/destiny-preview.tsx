@@ -28,7 +28,24 @@ const MOCK = {
     traits: ["ละเอียด รอบคอบ", "คิดเยอะ วางแผนเก่ง", "รักความถูกต้อง"],
     advice: [{ label: "งาน", text: "ฝึกตัดสินใจให้เด็ดขาดขึ้น" }],
   },
-  lifeTimeline: { currentAge: 31, favorableElementsTh: ["ดิน", "ทอง"], cautionYears: [{ year: 2027 }, { year: 2033 }, { year: 2039 }] },
+  lifeTimeline: {
+    currentAge: 31,
+    favorableElementsTh: ["ดิน", "ทอง"],
+    stages: [
+      { startAge: 3, endAge: 12, ganzhi: "丁卯", isCurrent: false },
+      { startAge: 13, endAge: 22, ganzhi: "戊辰", isCurrent: false },
+      { startAge: 23, endAge: 32, ganzhi: "己巳", isCurrent: true },
+      { startAge: 33, endAge: 42, ganzhi: "庚午", isCurrent: false },
+      { startAge: 43, endAge: 52, ganzhi: "辛未", isCurrent: false },
+      { startAge: 53, endAge: 62, ganzhi: "壬申", isCurrent: false },
+    ],
+    years: Array.from({ length: 10 }, (_, i) => {
+      const age = 29 + i
+      const gz = ["甲辰", "乙巳", "丙午", "丁未", "戊申", "己酉", "庚戌", "辛亥", "壬子", "癸丑"][i]
+      return { year: 2023 + i, age, ganzhi: gz, clash: i === 4 }
+    }),
+    cautionYears: [{ year: 2027 }, { year: 2033 }, { year: 2039 }],
+  },
   lifePath: {
     currentAge: 31,
     favorableElementsTh: ["ดิน", "ทอง"],

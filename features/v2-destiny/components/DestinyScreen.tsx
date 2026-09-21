@@ -42,11 +42,14 @@ type ElementSummary = {
   traits: string[]
   advice: AdviceItem[]
 }
+type LifeStage = { startAge: number; endAge: number; ganzhi: string; isCurrent?: boolean; upperState?: string | null; lowerState?: string | null }
+type TimelineYear = { year: number; age?: number | null; ganzhi: string; twelveQi?: string | null; clash?: boolean; sixCombine?: boolean; harm?: boolean }
 type LifeTimeline = {
   currentAge: number
   favorableElementsTh?: string[]
-  current?: { startAge: number; endAge: number; ganzhi: string; upperState?: string; lowerState?: string }
-  years?: Array<Record<string, unknown>>
+  stages?: LifeStage[]
+  current?: LifeStage
+  years?: TimelineYear[]
   cautionYears?: Array<Record<string, unknown>>
   note?: string
 }
@@ -212,6 +215,62 @@ const BRANCH_HIDDEN_STEMS: Record<string, string[]> = {
 }
 function hiddenStemsOf(branch?: string): string[] {
   return BRANCH_HIDDEN_STEMS[(branch ?? "")[0]] ?? []
+}
+
+// แถบ ganzhi 1 ช่อง (ก้านบน/กิ่งล่าง ลงสีตามธาตุ) — ใช้ทั้งแถบวัยจรและปีจร (เอ็ม 2026-09-21 "โชว์เป็นแถบ")
+function GanzhiCell({ ganzhi, top, bottom, current, warn }: { ganzhi: string; top?: string; bottom?: string; current?: boolean; warn?: string }) {
+  const stem = ganzhi?.[0]
+  const branch = ganzhi?.[1]
+  return (
+    <div className={"flex shrink-0 flex-col items-center rounded-[10px] border px-1.5 py-1 " + (current ? "border-v3-sapphire bg-v3-sapphire/10" : "border-v3-border-card bg-white")} style={{ minWidth: 46 }}>
+      {top ? <span className="text-[9px] leading-tight text-v3-text-muted">{top}</span> : null}
+      <span className="text-[14px] font-bold leading-4" style={{ color: inkOf(stem) ?? "#0b305b" }}>{stem}</span>
+      <span className="text-[14px] font-bold leading-4" style={{ color: inkOf(branch) ?? "#464646" }}>{branch}</span>
+      {bottom ? <span className="mt-0.5 text-[8px] leading-tight text-v3-text-muted">{bottom}</span> : null}
+      {warn ? <span className="mt-0.5 rounded-full bg-v3-error/10 px-1 text-[7px] font-bold leading-tight text-v3-error">{warn}</span> : null}
+    </div>
+  )
+}
+
+// แถบวัยจร (大运, ช่วง 10 ปี) + แถบปีจร (流年, รายปี) — ข้อมูล engine life-timeline (stages/years) มีอยู่ในดวงแล้ว
+function LuckStrips({ tl }: { tl: LifeTimeline }) {
+  const stages = tl.stages ?? []
+  const years = tl.years ?? []
+  if (stages.length === 0 && years.length === 0) return null
+  const curAge = tl.currentAge
+  return (
+    <section className="rounded-[20px] bg-white p-4 shadow-sm" data-testid="destiny-luck-strips">
+      <h3 className="text-[15px] font-bold text-v3-navy">แถบวัยจร · ปีจร</h3>
+      <p className="mt-0.5 text-[11px] text-v3-text-note">จังหวะดวงตามช่วงชีวิต (วัยจร 10 ปี) และรายปี (ปีจร) — ช่วงปัจจุบันไฮไลต์</p>
+      {stages.length > 0 && (
+        <div className="mt-3">
+          <p className="text-[12px] font-bold text-v3-navy">วัยจร (ช่วงละ 10 ปี)</p>
+          <div className="mt-1.5 flex gap-1.5 overflow-x-auto pb-1">
+            {stages.map((s, i) => (
+              <GanzhiCell key={i} ganzhi={s.ganzhi} top={`${s.startAge}–${s.endAge}`} current={s.isCurrent} />
+            ))}
+          </div>
+        </div>
+      )}
+      {years.length > 0 && (
+        <div className="mt-3">
+          <p className="text-[12px] font-bold text-v3-navy">ปีจร (รายปี)</p>
+          <div className="mt-1.5 flex gap-1.5 overflow-x-auto pb-1">
+            {years.map((y, i) => (
+              <GanzhiCell
+                key={i}
+                ganzhi={y.ganzhi}
+                top={`${y.year + 543}`}
+                bottom={y.age != null ? `${y.age} ปี` : undefined}
+                current={y.age != null && curAge != null && y.age === curAge}
+                warn={y.clash ? "ชง" : undefined}
+              />
+            ))}
+          </div>
+        </div>
+      )}
+    </section>
+  )
 }
 // มาสคอต 5 ธาตุจาก designer (Drive "ตัวละคร 5 ธาตุ", 256px พื้นโปร่ง) — manifest ใน duang-chan-spec.md
 const ELEMENT_MASCOT: Record<string, string> = {
@@ -1080,6 +1139,9 @@ export function DestinyScreen({ previewData }: { previewData?: DestinyData } = {
 
             {/* เส้นทางชีวิต (Life Path) — recharts + แท็บ ทั้งหมด/5ปี/1ปี/1เดือน (Figma 55349:3332) */}
             {lifePath && lifePath.series && <LifePathCard lifePath={lifePath} />}
+
+            {/* แถบวัยจร (大运) + ปีจร (流年) — ganzhi ต่อช่วง/ปี (เอ็ม 2026-09-21 "โชว์เป็นแถบ แบบ engine") */}
+            {data?.lifeTimeline && <LuckStrips tl={data.lifeTimeline} />}
 
             {/* จังหวะปีนี้/เดือนนี้ (ปีจร/เดือนจร) — ต่อจากวัยจรใน Life Path (ซินแส 2026-09-16 "อ่านให้ถึงปีจร/เดือนจร") */}
             {(data?.luck?.year?.text || data?.luck?.month?.text) && (
