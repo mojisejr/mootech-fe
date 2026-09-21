@@ -146,7 +146,7 @@ export default function FortuneSagePage() {
     void shareAsInvite({
       title: "เซียมซีเสี่ยงทาย",
       text,
-      og: stick ? { title: `เซียมซีใบที่ ${stick.no}`, subtitle: `${stick.pillar} · ${stick.nayin}`, summary: stick.personality ?? "", tag: "เซียมซี", image: `/images/v2/fortune/cards/sage/${stick.no}.jpg` } : { title: "เซียมซีเสี่ยงทาย", tag: "เซียมซี" },
+      og: stick ? { title: `เซียมซีใบที่ ${stick.no}`, subtitle: `${stick.pillar} · ${stick.nayin}`, summary: tailored?.trim() || stick.personality || "", tag: "เซียมซี", image: `/images/v2/fortune/cards/sage/${stick.no}.jpg` } : { title: "เซียมซีเสี่ยงทาย", tag: "เซียมซี" },
     })
   }
 
