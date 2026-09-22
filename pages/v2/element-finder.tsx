@@ -37,10 +37,24 @@ const STEPS = ["อ่านวันเดือนปีเกิด", "หา
 // — emoji ทอง 🪙 ขึ้น □ (ไม่มี glyph ในบางเครื่อง) · ชุดนี้ครบ 5 ธาตุ สม่ำเสมอกับทั้งแอป (เอ็ม 2026-09-22)
 const ELEMENT_ICON_ORDER: (keyof typeof ELEMENT_CONTENT)[] = ["ไฟ", "ไม้", "ดิน", "ทอง", "น้ำ"]
 
+// รับ "วว/ดด/ปปปป" — ปีเป็น พ.ศ. (เช่น 2538) หรือ ค.ศ. (เช่น 1995) ก็ได้ → คืน "YYYY-MM-DD" (ค.ศ.) หรือ "" ถ้าไม่ถูก
+// (ปี ≥ 2400 ถือเป็น พ.ศ. → ลบ 543). ตรวจวันจริง (กัน 31/02) และช่วงปีสมเหตุผล.
+function parseThaiDate(input: string): string {
+  const m = input.trim().match(/^(\d{1,2})\s*\/\s*(\d{1,2})\s*\/\s*(\d{4})$/)
+  if (!m) return ""
+  const d = Number(m[1]), mo = Number(m[2])
+  let y = Number(m[3])
+  if (y >= 2400) y -= 543 // พ.ศ. → ค.ศ.
+  if (mo < 1 || mo > 12 || d < 1 || d > 31 || y < 1900 || y > 2200) return ""
+  const dt = new Date(y, mo - 1, d)
+  if (dt.getFullYear() !== y || dt.getMonth() !== mo - 1 || dt.getDate() !== d) return "" // เช่น 31/04
+  return `${y}-${String(mo).padStart(2, "0")}-${String(d).padStart(2, "0")}`
+}
+
 export default function ElementFinderPage() {
   const { status: authStatus } = useCurrentUser()
   const [phase, setPhase] = useState<"input" | "loading" | "result">("input")
-  const [birthDate, setBirthDate] = useState("")
+  const [birthText, setBirthText] = useState("") // "วว/ดด/ปปปป" (พ.ศ. หรือ ค.ศ.)
   const [birthTime, setBirthTime] = useState("")
   const [timeUnknown, setTimeUnknown] = useState(false)
   const [result, setResult] = useState<ElementContent | null>(null)
@@ -51,6 +65,7 @@ export default function ElementFinderPage() {
   const [error, setError] = useState<string | null>(null)
   const [step, setStep] = useState(0)
 
+  const birthDate = parseThaiDate(birthText) // "" ถ้ายังกรอกไม่ครบ/ผิด
   const canSubmit = /^\d{4}-\d{2}-\d{2}$/.test(birthDate) && (timeUnknown || /^\d{2}:\d{2}$/.test(birthTime))
 
   const run = async () => {
@@ -126,10 +141,23 @@ export default function ElementFinderPage() {
       ) : authStatus === "loading" ? (
         <p className="mt-10 text-center text-[13px] text-v3-text-body">กำลังเตรียม…</p>
       ) : phase === "input" ? (
-        <div className="mt-4 flex flex-col items-center gap-4" data-testid="finder-input">
+        <div className="mt-2 flex flex-col items-center gap-3" data-testid="finder-input">
+          {/* HERO — โลโก้ + มาสคอตนกฮูก + ธาตุลอยรอบ (ตาม reference Kittipon) */}
+          <Image src="/images/v2/logo/splash-logo.png" alt="Mumate" width={150} height={36} className="h-9 w-auto object-contain" priority />
+          <div className="relative mt-1 h-44 w-full max-w-[300px]">
+            <Image src="/images/v2/mascot/mumate.webp" alt="" fill sizes="180px" className="object-contain" priority />
+            {/* ธาตุ 5 ตัวลอยรอบมาสคอต */}
+            <Image src={ELEMENT_CONTENT["ไม้"].mascot} alt="" width={38} height={38} className="absolute left-1 top-3 size-9 object-contain drop-shadow" />
+            <Image src={ELEMENT_CONTENT["ไฟ"].mascot} alt="" width={40} height={40} className="absolute right-2 top-1 size-10 object-contain drop-shadow" />
+            <Image src={ELEMENT_CONTENT["น้ำ"].mascot} alt="" width={34} height={34} className="absolute left-0 top-1/2 size-[34px] object-contain drop-shadow" />
+            <Image src={ELEMENT_CONTENT["ดิน"].mascot} alt="" width={34} height={34} className="absolute bottom-2 left-4 size-[34px] object-contain drop-shadow" />
+            <Image src={ELEMENT_CONTENT["ทอง"].mascot} alt="" width={36} height={36} className="absolute bottom-1 right-3 size-9 object-contain drop-shadow" />
+          </div>
+
           <span className="rounded-full bg-v3-sapphire/10 px-3 py-1 text-[11px] font-black tracking-wide text-v3-sapphire">BAZI ELEMENT FINDER</span>
-          <h1 className="text-center text-[28px] font-black leading-9 text-v3-navy">มาหาธาตุแท้กันเถอะ</h1>
-          <p className="-mt-1 text-center text-[13px] text-v3-text-body">กรอกวันเกิด รู้ธาตุของคุณใน 10 วินาที · คุณจะได้ 1 ใน 5 ธาตุนี้</p>
+          <h1 className="text-center text-[27px] font-black leading-9 text-v3-navy">มาหาธาตุแท้กันเถอะ</h1>
+          <p className="-mt-1.5 text-center text-[13px] leading-5 text-v3-text-body">กรอกวันเกิด รู้ธาตุของคุณใน 10 วินาที</p>
+          <p className="-mt-2 text-center text-[12px] font-medium text-v3-text-muted">คุณจะได้ 1 ใน 5 ธาตุนี้</p>
           <div className="flex flex-wrap justify-center gap-3">
             {ELEMENT_ICON_ORDER.map((key) => (
               <span key={key} className="flex items-center gap-1 text-[13px] font-bold" style={{ color: ELEMENT_COLOR[key] }}>
@@ -138,22 +166,46 @@ export default function ElementFinderPage() {
             ))}
           </div>
 
-          <section className="v3-shadow-card mt-1 flex w-full max-w-md flex-col gap-3 rounded-[24px] bg-white p-5">
-            <label className="text-[13px] font-bold text-v3-navy">วันเกิดของคุณ
-              <input type="date" value={birthDate} onChange={(e) => setBirthDate(e.target.value)} data-testid="finder-date"
-                className="mt-1 w-full rounded-2xl border border-v3-border-card bg-white px-4 py-3 text-[14px] text-v3-navy outline-none focus:border-v3-sapphire" />
+          <section className="v3-shadow-card mt-1 flex w-full max-w-md flex-col gap-4 rounded-[24px] bg-white p-5">
+            {/* วันเกิด — กรอกเป็นข้อความ วว/ดด/ปปปป รับทั้ง พ.ศ./ค.ศ. */}
+            <label className="flex flex-col gap-1.5 text-[13px] font-bold text-v3-navy">วันเกิดของคุณ
+              <input
+                type="text" inputMode="numeric" value={birthText} onChange={(e) => setBirthText(e.target.value)}
+                placeholder="วว/ดด/ปปปป" aria-label="วันเกิด" data-testid="finder-date"
+                className="w-full rounded-2xl border border-v3-border-card bg-white px-4 py-3 text-[15px] font-medium text-v3-navy outline-none placeholder:font-normal placeholder:text-v3-placeholder focus:border-v3-sapphire"
+              />
+              <span className="text-[11px] font-normal text-v3-text-muted">ใช้ปี พ.ศ. หรือ ค.ศ. ก็ได้ เช่น 15/08/2538</span>
             </label>
-            <label className={"text-[13px] font-bold text-v3-navy " + (timeUnknown ? "opacity-40" : "")}>เวลาเกิด (ถ้ารู้ จะแม่นขึ้น)
+
+            {/* เวลาเกิด + ไม่ทราบเวลา (บนแถวเดียวกัน) */}
+            <label className="flex flex-col gap-1.5">
+              <span className="flex items-center justify-between">
+                <span className={"text-[13px] font-bold text-v3-navy " + (timeUnknown ? "opacity-40" : "")}>เวลาเกิด (ถ้ารู้ จะแม่นขึ้น)</span>
+                <span className="flex items-center gap-1.5 text-[12px] font-medium text-v3-text-body">
+                  <input type="checkbox" checked={timeUnknown} onChange={(e) => setTimeUnknown(e.target.checked)} data-testid="finder-time-unknown" className="size-4 accent-v3-sapphire" />
+                  ไม่ทราบเวลาเกิด
+                </span>
+              </span>
               <input type="time" value={birthTime} disabled={timeUnknown} onChange={(e) => setBirthTime(e.target.value)} data-testid="finder-time"
-                className="mt-1 w-full rounded-2xl border border-v3-border-card bg-white px-4 py-3 text-[14px] text-v3-navy outline-none focus:border-v3-sapphire disabled:bg-black/5" />
+                className="w-full rounded-2xl border border-v3-border-card bg-white px-4 py-3 text-[15px] text-v3-navy outline-none focus:border-v3-sapphire disabled:bg-black/5 disabled:text-v3-placeholder" />
             </label>
-            <label className="flex items-center gap-2 text-[12px] font-medium text-v3-text-body">
-              <input type="checkbox" checked={timeUnknown} onChange={(e) => setTimeUnknown(e.target.checked)} data-testid="finder-time-unknown" /> ไม่ทราบเวลาเกิด
-            </label>
+
             {error && <p className="text-center text-[12px] font-bold text-v3-error" data-testid="finder-error">{error}</p>}
             <button type="button" onClick={() => void run()} disabled={!canSubmit} data-testid="finder-submit"
-              className="mt-1 grid h-12 w-full place-items-center rounded-full bg-v3-sapphire text-[15px] font-bold text-white disabled:opacity-40">เช็คธาตุฉันเลย →</button>
+              className="mt-1 grid h-12 w-full place-items-center rounded-full bg-v3-navy text-[15px] font-bold text-white disabled:opacity-40">เช็คธาตุฉันเลย →</button>
           </section>
+
+          {/* social proof */}
+          <div className="mt-1 flex items-center gap-2">
+            <span className="flex -space-x-2">
+              {(["ไฟ", "น้ำ", "ไม้"] as const).map((k) => (
+                <span key={k} className="grid size-6 place-items-center overflow-hidden rounded-full border-2 border-white bg-white shadow-sm">
+                  <Image src={ELEMENT_CONTENT[k].mascot} alt="" width={22} height={22} className="size-[22px] object-contain" />
+                </span>
+              ))}
+            </span>
+            <span className="text-[12px] font-medium text-v3-text-body"><b className="text-v3-navy">12,450</b> คนเช็คธาตุแล้ววันนี้</span>
+          </div>
           <p className="text-center text-[11px] text-v3-text-muted">ปาจื่อดูธาตุจาก “วันเกิด” ไม่ใช่ราศีเดือนเกิด เลยแม่นกว่าดวงทั่วไป</p>
         </div>
       ) : phase === "loading" ? (
