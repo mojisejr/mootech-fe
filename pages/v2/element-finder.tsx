@@ -33,9 +33,9 @@ export const getServerSideProps: GetServerSideProps = async (ctx) => {
 }
 
 const STEPS = ["อ่านวันเดือนปีเกิด", "หาเสาวัน (日柱) ของคุณ", "หาเสายาม (時柱) จากเวลาเกิด", "สรุปธาตุแท้และนิสัย"]
-const ELEMENT_ICONS: { key: keyof typeof ELEMENT_CONTENT; emoji: string }[] = [
-  { key: "ไฟ", emoji: "🔥" }, { key: "ไม้", emoji: "🌱" }, { key: "ดิน", emoji: "⛰️" }, { key: "ทอง", emoji: "🪙" }, { key: "น้ำ", emoji: "💧" },
-]
+// ใช้ไอคอนธาตุของเรา (/images/v2/destiny/el-*.png ผ่าน ELEMENT_CONTENT[key].mascot) แทน emoji
+// — emoji ทอง 🪙 ขึ้น □ (ไม่มี glyph ในบางเครื่อง) · ชุดนี้ครบ 5 ธาตุ สม่ำเสมอกับทั้งแอป (เอ็ม 2026-09-22)
+const ELEMENT_ICON_ORDER: (keyof typeof ELEMENT_CONTENT)[] = ["ไฟ", "ไม้", "ดิน", "ทอง", "น้ำ"]
 
 export default function ElementFinderPage() {
   const { status: authStatus } = useCurrentUser()
@@ -131,8 +131,10 @@ export default function ElementFinderPage() {
           <h1 className="text-center text-[28px] font-black leading-9 text-v3-navy">มาหาธาตุแท้กันเถอะ</h1>
           <p className="-mt-1 text-center text-[13px] text-v3-text-body">กรอกวันเกิด รู้ธาตุของคุณใน 10 วินาที · คุณจะได้ 1 ใน 5 ธาตุนี้</p>
           <div className="flex flex-wrap justify-center gap-3">
-            {ELEMENT_ICONS.map(({ key, emoji }) => (
-              <span key={key} className="flex items-center gap-1 text-[13px] font-bold" style={{ color: ELEMENT_COLOR[key] }}><span aria-hidden>{emoji}</span>{key}</span>
+            {ELEMENT_ICON_ORDER.map((key) => (
+              <span key={key} className="flex items-center gap-1 text-[13px] font-bold" style={{ color: ELEMENT_COLOR[key] }}>
+                <Image src={ELEMENT_CONTENT[key].mascot} alt="" width={22} height={22} className="size-[22px] object-contain" />{key}
+              </span>
             ))}
           </div>
 
