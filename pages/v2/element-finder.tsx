@@ -142,19 +142,22 @@ export default function ElementFinderPage() {
         <p className="mt-10 text-center text-[13px] text-v3-text-body">กำลังเตรียม…</p>
       ) : phase === "input" ? (
         <div className="mt-2 flex flex-col items-center gap-3" data-testid="finder-input">
-          {/* HERO — โลโก้ + มาสคอตนกฮูก + ธาตุลอยรอบ (ตาม reference Kittipon) */}
-          <Image src="/images/v2/logo/splash-logo.png" alt="Mumate" width={150} height={36} className="h-9 w-auto object-contain" priority />
-          <div className="relative mt-1 h-44 w-full max-w-[300px]">
-            <Image src="/images/v2/mascot/mumate.webp" alt="" fill sizes="180px" className="object-contain" priority />
-            {/* ธาตุ 5 ตัวลอยรอบมาสคอต */}
-            <Image src={ELEMENT_CONTENT["ไม้"].mascot} alt="" width={38} height={38} className="absolute left-1 top-3 size-9 object-contain drop-shadow" />
-            <Image src={ELEMENT_CONTENT["ไฟ"].mascot} alt="" width={40} height={40} className="absolute right-2 top-1 size-10 object-contain drop-shadow" />
-            <Image src={ELEMENT_CONTENT["น้ำ"].mascot} alt="" width={34} height={34} className="absolute left-0 top-1/2 size-[34px] object-contain drop-shadow" />
-            <Image src={ELEMENT_CONTENT["ดิน"].mascot} alt="" width={34} height={34} className="absolute bottom-2 left-4 size-[34px] object-contain drop-shadow" />
-            <Image src={ELEMENT_CONTENT["ทอง"].mascot} alt="" width={36} height={36} className="absolute bottom-1 right-3 size-9 object-contain drop-shadow" />
+          {/* โลโก้ muMate เหนือ hero */}
+          <Image src="/images/v2/logo/splash-logo.png" alt="Mumate" width={148} height={36} priority className="mt-1 h-9 w-auto object-contain" />
+          {/* HERO full-bleed — ใช้ฉากมาสคอตเป็นพื้นหลังเต็ม ไม่มีกรอบ (เอ็ม 2026-09-22 "เป็นพื้นหลังเลย ไม่ต้องตัดขอบ") */}
+          <div className="relative -mx-4 mt-1 h-[280px] w-[calc(100%+2rem)] overflow-hidden">
+            <Image src="/images/v2/mascot/mumate.webp" alt="" fill sizes="480px" priority className="object-cover object-center" />
+            {/* ธาตุ 5 ตัวลอยตามมุม */}
+            <Image src={ELEMENT_CONTENT["ไม้"].mascot} alt="" width={44} height={44} className="absolute left-3 top-16 size-11 object-contain drop-shadow" />
+            <Image src={ELEMENT_CONTENT["ไฟ"].mascot} alt="" width={46} height={46} className="absolute right-4 top-14 size-[46px] object-contain drop-shadow" />
+            <Image src={ELEMENT_CONTENT["น้ำ"].mascot} alt="" width={40} height={40} className="absolute left-5 top-1/2 size-10 object-contain drop-shadow" />
+            <Image src={ELEMENT_CONTENT["ดิน"].mascot} alt="" width={40} height={40} className="absolute bottom-8 left-6 size-10 object-contain drop-shadow" />
+            <Image src={ELEMENT_CONTENT["ทอง"].mascot} alt="" width={42} height={42} className="absolute bottom-6 right-6 size-[42px] object-contain drop-shadow" />
+            {/* fade ล่างกลืนเข้าเนื้อหา */}
+            <div aria-hidden className="pointer-events-none absolute inset-x-0 bottom-0 h-20 bg-gradient-to-b from-transparent to-white/85" />
           </div>
 
-          <span className="rounded-full bg-v3-sapphire/10 px-3 py-1 text-[11px] font-black tracking-wide text-v3-sapphire">BAZI ELEMENT FINDER</span>
+          <span className="-mt-1 rounded-full bg-v3-sapphire/10 px-3 py-1 text-[11px] font-black tracking-wide text-v3-sapphire">BAZI ELEMENT FINDER</span>
           <h1 className="text-center text-[27px] font-black leading-9 text-v3-navy">มาหาธาตุแท้กันเถอะ</h1>
           <p className="-mt-1.5 text-center text-[13px] leading-5 text-v3-text-body">กรอกวันเกิด รู้ธาตุของคุณใน 10 วินาที</p>
           <p className="-mt-2 text-center text-[12px] font-medium text-v3-text-muted">คุณจะได้ 1 ใน 5 ธาตุนี้</p>
