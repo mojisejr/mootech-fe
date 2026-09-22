@@ -67,7 +67,6 @@ export function useSelfHealIdentity(): void {
   const { status: authStatus } = useCurrentUser();
   const [, setCookie, removeCookie] = useCookies([
     CookieKey.MEMBER_ID,
-    CookieKey.MEMBER_SUB,
     CookieKey.MEMBER_NAME,
     CookieKey.MEMBER_SURNAME,
     CookieKey.MEMBER_REFER_CODE,
@@ -139,7 +138,6 @@ export function useSelfHealIdentity(): void {
         if (result && result.ok === false) {
           // Genuine BE rejection — mirror home: clear identity + sign out.
           removeCookie(CookieKey.MEMBER_ID, { path: "/" });
-          removeCookie(CookieKey.MEMBER_SUB, { path: "/" });
           removeCookie(CookieKey.MEMBER_NAME, { path: "/" });
           removeCookie(CookieKey.MEMBER_SURNAME, { path: "/" });
           removeCookie(CookieKey.MEMBER_REFER_CODE, { path: "/" });
@@ -163,8 +161,6 @@ export function useSelfHealIdentity(): void {
             }
           }
           setCookie(CookieKey.MEMBER_ID, result.user_id, cookieOpts);
-          // ผูก member กับ sub ที่ register (id_token) — ให้หน้า "/" เชื่อ cookie นี้ได้โดยไม่ต้อง re-register
-          setCookie(CookieKey.MEMBER_SUB, params.id_token, cookieOpts);
           setCookie(CookieKey.MEMBER_NAME, result.name, cookieOpts);
           setCookie(CookieKey.MEMBER_REFER_CODE, referCode, cookieOpts);
           setCookie(CookieKey.MEMBER_IMAGE, result.picture_url, cookieOpts);

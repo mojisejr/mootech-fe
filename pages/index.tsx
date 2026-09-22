@@ -10,7 +10,7 @@ import { UserGetById } from '@/constants/api/api-user-get';
 import { CONFIG } from '@/constants/config';
 import { CookieKey } from '@/constants/cookie-key';
 import { PageRouter } from '@/constants/router';
-import { shouldClearToken } from '@/lib/auth/login-state';
+import { shouldClearToken, shouldRegister } from '@/lib/auth/login-state';
 import { useCurrentUser } from '@/lib/auth/use-current-user';
 import { resolveWelcomeTarget } from '@/lib/auth/welcome-target';
 import { resolveReturningResult } from '@/lib/auth/returning-result';
@@ -51,8 +51,7 @@ export default function HomePage() {
     CookieKey.MEMBER_REFER_CODE,
     CookieKey.MEMBER_IMAGE,
     CookieKey.REFCODE_FGF,
-    CookieKey.LOGIN_PROVIDER,
-    CookieKey.MEMBER_SUB,
+    CookieKey.LOGIN_PROVIDER
   ])
 
 
@@ -151,7 +150,6 @@ export default function HomePage() {
 
   const clearToken = () => {
     removeCookie(CookieKey.MEMBER_ID)
-    removeCookie(CookieKey.MEMBER_SUB)
     removeCookie(CookieKey.MEMBER_NAME)
     removeCookie(CookieKey.MEMBER_SURNAME)
     removeCookie(CookieKey.MEMBER_REFER_CODE)
@@ -215,13 +213,6 @@ useEffect(() => {
               path: '/',
               maxAge: CONFIG.EXPIRED_TIME_COOKIE,
               sameSite: 'lax', // Lax (ไม่ใช่ Strict) เพื่อให้ MEMBER_ID ส่งได้เมื่อเปิดลิงก์จาก LINE/ภายนอก (cross-site nav)
-            })
-            // ผูก MEMBER_ID ใบนี้กับ sub ที่ใช้ register (id_token) — รอบหน้าถ้า session เป็นคนละ sub
-            // จะไม่เชื่อ cookie นี้ แล้ว re-register ผูกใหม่ (กัน cookie ค้างข้ามบัญชีใน jar เดียวกัน)
-            setCookie(CookieKey.MEMBER_SUB, id_token, {
-              path: '/',
-              maxAge: CONFIG.EXPIRED_TIME_COOKIE,
-              sameSite: 'lax',
             })
 
             setCookie(CookieKey.MEMBER_NAME, result.name, {
@@ -345,31 +336,24 @@ useEffect(() => {
         return
       }
 
-      // ตัวตนของ session ปัจจุบัน (LINE sub ก่อน, ไม่งั้น stable provider id) — ต้องตรงกับ sub ที่
-      // "mint" MEMBER_ID cookie ใบนี้ไว้ (MEMBER_SUB). ถ้าไม่ตรง/ไม่มี = cookie อาจค้างจาก login เก่า
-      // ใน browser jar เดียวกัน (LINE webview vs Chrome/PWA) → ห้ามเชื่อ ให้ re-register ผูกใหม่
-      // (เอ็ม 2026-09-21: LINE บัญชีเดียวกันแต่ 2 ทางเข้าโชว์คนละ QI). register_or_login เป็น upsert ตาม
-      // idToken → คืน member ที่ถูกต้องของ sub ปัจจุบันเสมอ (idempotent ไม่สร้างซ้ำ)
-      const currentSub = session?.lineProfile?.sub ?? session?.providerId ?? ""
-      const boundSub = cookies[CookieKey.MEMBER_SUB]
-      const identityBound = hasMemberId && !!boundSub && boundSub === currentSub
-
-      // Already have a resolved identity (ผูก sub ตรงแล้ว). register-login is skipped here, so the
+      // Already have a resolved identity. register-login is skipped here, so the
       // routing state the home CTA needs (resultCode/isRefreshResult) would stay
       // empty -> a returning user with a computed chart was wrongly routed to
       // /register instead of /my-destiny. Rehydrate those two values from get-user
       // (the same source /my-destiny uses), exactly once.
       // (#mootech-home-cta-bounce-migration)
-      if (identityBound) {
+      if (hasMemberId) {
         setIsLogin(true)
         setInfoUserId(cookies[CookieKey.MEMBER_ID])
         hydrateReturningUserResult(cookies[CookieKey.MEMBER_ID])
         return
       }
 
-      // IDEMPOTENT register: fire whenever authenticated AND ยังไม่มี member ที่ผูก sub ปัจจุบัน
-      // (first login, หลัง wipe, หรือ cookie ค้างจากตัวตนอื่น). in-flight ref กันยิงซ้ำระหว่างรอ network
-      if (session && currentSub && !identityBound && !registerInFlightRef.current) {
+      // IDEMPOTENT register: fire the round-trip whenever authenticated AND the
+      // MEMBER_ID cookie is not present (first login OR after any wipe). The
+      // in-flight ref prevents firing twice concurrently while the network call
+      // is still pending.
+      if (session && shouldRegister(status, hasMemberId) && !registerInFlightRef.current) {
         const user = session.user
         const lineProfile = session.lineProfile
 
