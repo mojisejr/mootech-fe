@@ -136,6 +136,10 @@ export function PhoneReadingScreen({ initialMode = "normal" }: { initialMode?: M
   const [error, setError] = useState<string | null>(null)
   const [narration, setNarration] = useState<string | null>(null)
   const [narrating, setNarrating] = useState(false)
+  // ถาม AI ให้ตรงคำถาม (เอ็ม 2026-09-22) — อิงผลถอดเบอร์เดิม ไม่หัก QI ซ้ำ (narrate อย่างเดียว)
+  const [question, setQuestion] = useState("")
+  const [asking, setAsking] = useState(false)
+  const [askAnswer, setAskAnswer] = useState<string | null>(null)
   const [needQi, setNeedQi] = useState(false)
   const [tab, setTab] = useState<"pairs" | "digits">("pairs")
 
@@ -219,7 +223,31 @@ export function PhoneReadingScreen({ initialMode = "normal" }: { initialMode?: M
     }
   }
 
-  const reset = () => { setPhone(""); setPReading(null); setHReading(null); setNarration(null); setError(null); setNeedQi(false); setTab("pairs"); setPhase("intro") }
+  const reset = () => { setPhone(""); setPReading(null); setHReading(null); setNarration(null); setQuestion(""); setAskAnswer(null); setError(null); setNeedQi(false); setTab("pairs"); setPhase("intro") }
+
+  // ถาม AI ให้ตรงคำถาม — สร้าง engineText จากผลถอดเดิม + ส่ง question ไป /api/v2/narrate (ไม่หัก QI ซ้ำ)
+  const ask = async () => {
+    const q = question.trim()
+    if (!q || asking) return
+    const engineText =
+      resultMode === "honeycomb"
+        ? (hReading ? buildHoneycombEngineText(hReading) : null)
+        : (pReading ? buildPhoneEngineText(pReading) : null)
+    if (!engineText) return
+    setAsking(true); setAskAnswer(null)
+    try {
+      const r = await fetch("/api/v2/narrate", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ engineText, domainLabel: MODE[resultMode].domainLabel, feature: "phone_reading", question: q }),
+      })
+      const n = (await r.json().catch(() => ({}))) as { text?: string }
+      setAskAnswer(typeof n?.text === "string" && n.text.trim() ? n.text : "ตอบไม่สำเร็จ ลองใหม่อีกครั้ง")
+    } catch {
+      setAskAnswer("เชื่อมต่อ AI ไม่สำเร็จ ลองใหม่อีกครั้ง")
+    } finally {
+      setAsking(false)
+    }
+  }
 
   // #6 (2026-09-15): การ์ดแชร์เฉพาะบุคคล — เลขเบอร์เป็นเอกลักษณ์ + สรุป (narration)
   const shareCardRef = useRef<HTMLDivElement>(null)
@@ -336,6 +364,24 @@ export function PhoneReadingScreen({ initialMode = "normal" }: { initialMode?: M
               {narrating && !narration && <p className="mt-2 text-[13px] text-v3-text-muted">กำลังเรียบเรียงภาพรวม…</p>}
               {narration && <p className="mt-2 whitespace-pre-line text-[14px] leading-6 text-v3-text-body">{narration}</p>}
               {!narrating && !narration && <p className="mt-2 text-[13px] text-v3-text-muted">ดูรายละเอียดด้านล่างได้เลย</p>}
+            </section>
+
+            {/* ถาม AI ให้ตรงคำถาม (อิงเลขศาสตร์ของเบอร์นี้) — เอ็ม 2026-09-22 */}
+            <section className="rounded-[20px] bg-white p-5 v3-shadow-card" data-testid="phone-ask">
+              <h2 className="text-[16px] font-black text-v3-navy">ถามเจาะจงเรื่องนี้</h2>
+              <p className="mt-0.5 text-[12px] text-v3-text-muted">พิมพ์คำถามเกี่ยวกับเบอร์นี้ เช่น “เบอร์นี้ช่วยเรื่องงานไหม” แล้ว AI จะตอบจากเลขศาสตร์ของเบอร์คุณ</p>
+              <textarea
+                value={question} onChange={(e) => setQuestion(e.target.value)} data-testid="phone-ask-input"
+                rows={2} maxLength={300} placeholder="เช่น เบอร์นี้เหมาะกับการค้าขายไหม / เรื่องความรักเป็นยังไง"
+                className="mt-2 w-full resize-none rounded-2xl border border-v3-border-card bg-white px-4 py-3 text-[14px] text-v3-navy outline-none focus:border-v3-sapphire"
+              />
+              <button
+                type="button" onClick={() => void ask()} disabled={asking || !question.trim()} data-testid="phone-ask-btn"
+                className="mt-2 grid h-11 w-full place-items-center rounded-full bg-v3-sapphire text-[14px] font-bold text-white disabled:opacity-40"
+              >
+                {asking ? "กำลังถาม AI…" : "ถาม AI ให้ตรงคำถาม"}
+              </button>
+              {askAnswer && <p className="mt-3 whitespace-pre-line rounded-2xl bg-v3-sapphire/5 p-3 text-[14px] leading-6 text-v3-text-body" data-testid="phone-ask-answer">{askAnswer}</p>}
             </section>
 
             {/* รายละเอียดตามโหมด */}

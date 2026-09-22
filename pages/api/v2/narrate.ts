@@ -9,12 +9,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return
   }
   const base = process.env.BAZI_BASE_URL || "http://localhost:3000"
-  const body = (req.body ?? {}) as { engineText?: string; domainLabel?: string; feature?: string }
+  const body = (req.body ?? {}) as { engineText?: string; domainLabel?: string; feature?: string; question?: string }
   const engineText = String(body.engineText ?? "").trim()
   if (!engineText) {
     res.status(400).json({ error: { message: "engineText is required" } })
     return
   }
+  const question = String(body.question ?? "").trim().slice(0, 300)
   try {
     const upstream = await fetch(`${base}/api/bazi/narrate`, {
       method: "POST",
@@ -23,6 +24,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         engineText: engineText.slice(0, 12000),
         domainLabel: body.domainLabel || "ผลวิเคราะห์",
         feature: body.feature || "narrate",
+        ...(question ? { question } : {}),
       }),
     })
     const payload = await upstream.json().catch(() => ({ error: { message: "เรียก AI ไม่สำเร็จ" } }))
