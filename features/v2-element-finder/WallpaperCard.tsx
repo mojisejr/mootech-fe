@@ -41,7 +41,8 @@ export const WallpaperCard = forwardRef<HTMLDivElement, WallpaperCardProps>(func
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img src={bg} alt="" crossOrigin="anonymous" className="absolute inset-0 h-full w-full object-cover" />
 
-      {/* Character — กลางค่อนล่าง สูง ~42% พ้นกล่องข้อมูลล่าง */}
+      {/* Character — กลางค่อนล่าง สูง ~36% เว้นช่องบนให้ "คำลอย" ชัด (ไม่ทับ text) + พ้นกล่องข้อมูลล่าง
+          (เอ็ม 2026-09-22 เทียบ reference Kittipon: มัสคอตต้องไม่ทับตัวหนังสือ) */}
       {character ? (
         // eslint-disable-next-line @next/next/no-img-element
         <img
@@ -49,7 +50,7 @@ export const WallpaperCard = forwardRef<HTMLDivElement, WallpaperCardProps>(func
           alt=""
           crossOrigin="anonymous"
           className="absolute left-1/2 -translate-x-1/2 object-contain drop-shadow-[0_6px_16px_rgba(0,0,0,0.28)]"
-          style={{ bottom: "28%", width: "60%", height: "42%" }}
+          style={{ bottom: "24%", width: "56%", height: "36%" }}
         />
       ) : null}
 
