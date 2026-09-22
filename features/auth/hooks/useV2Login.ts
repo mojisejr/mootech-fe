@@ -10,6 +10,7 @@
 import { useState } from 'react'
 import { useCookies } from 'react-cookie'
 import { startOAuthRedirect } from '@/lib/auth/oauth-redirect'
+import { openInExternalBrowser } from '@/lib/line/liff'
 import { CookieKey } from '@/constants/cookie-key'
 import { CONFIG } from '@/constants/config'
 
@@ -66,7 +67,11 @@ export function useV2Login(): V2LoginApi {
     // `v2_access` cookie, so a Google-in-LINE-webview tester re-enters the preview passkey there —
     // acceptable for an internal preview; revisit if it bites.
     if (provider === 'google' && isLineInAppBrowser()) {
-      window.location.href = `${window.location.origin}/v2/login?openExternalBrowser=1`
+      // เอ็ม 2026-09-22 (LINE LIFF browser): Google บล็อกใน LINE webview (disallowed_useragent). เดิมใช้
+      // window.location = ...?openExternalBrowser=1 แต่ query param นี้ "ไม่ทำงานใน LIFF" → คลิกแล้วรีโหลด
+      // หน้าเดิม (ปุ่มเหมือนกดไม่ได้). แก้: เปิดเบราว์เซอร์ภายนอกด้วย liff.openWindow({external:true}) ผ่าน
+      // openInExternalBrowser (fallback window.open ถ้าไม่ใช่ LIFF) → ผู้ใช้ไปล็อกอิน Google ต่อข้างนอกได้จริง.
+      void openInExternalBrowser(`${window.location.origin}/v2/login`)
       return
     }
 

@@ -28,8 +28,10 @@ export default function V2LoginPage() {
     <LoginView
       onLine={onLine}
       onGoogle={onGoogle}
-      // Slice 1: returning users log in with the same OAuth buttons; no separate credential flow.
-      onExistingAccount={() => undefined}
+      // เอ็ม 2026-09-22: ลิงก์ "เข้าสู่ระบบ" เดิมผูก () => undefined = กดแล้วไม่เกิดอะไร (ผู้ใช้แจ้ง "กดเข้าสู่ระบบ
+      // ไม่ได้"). returning user ล็อกอินด้วย OAuth ปุ่มเดิม (register-login เป็น upsert idempotent) → ผูกลิงก์นี้
+      // ให้เริ่มล็อกอิน LINE (provider หลักของผู้ใช้ส่วนใหญ่) แทนการเป็นลิงก์ตาย.
+      onExistingAccount={onLine}
       loading={loading}
     />
   )
