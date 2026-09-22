@@ -5,6 +5,10 @@ enum CookieKey {
   MEMBER_IMAGE = "cookie-mumate-image",
   MEMBER_REFER_CODE = "cookie-mumate-refer",
   MEMBER_EMAIL = "cookie-mumate-email",
+  // ผูก MEMBER_ID กับ "ตัวตน LINE/provider" (sub) ที่ mint มัน — กัน cookie member ค้างข้ามบัญชีใน jar เดียวกัน
+  // (เอ็ม 2026-09-21). ⚠️ ห้ามบังคับ re-register ถ้าไม่มี cookie นี้ (บทเรียน revert #755/#760): ผู้ใช้เดิม
+  // ที่ไม่มี MEMBER_SUB ให้ hydrate ปกติ + backfill เงียบ ๆ; re-register เฉพาะเมื่อ sub ไม่ตรงกันจริง.
+  MEMBER_SUB = "cookie-mumate-sub",
 
 
   REFCODE_FGF = "cookie-mumate-fgf-code",
