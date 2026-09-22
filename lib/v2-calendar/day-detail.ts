@@ -32,7 +32,7 @@ export type DayDetail = {
   compatAreas: DayDetailArea[] // facets[]
   advice: string[] // the main facet's lines[].text
   yams: DayDetailYam[] // almanac.luckyHours
-  dithi: { officer: string; officerDesc: string; jianchu: string } // officer + officerDesc + jianchu
+  dithi: { officer: string; officerDesc: string; jianchu: string; huangdao: string } // officer + officerDesc + jianchu + 黃道(รหัส B)
   luckyDirection: string // ทิศมงคล — RAW from man-vs-day (lucky_dir almanac column, real ตำรา data, NOT a
   // ranking of the 8 gates). A chip alongside dithi.officer; the 財 chip is cut (bazi's 8 gates have no 財).
   dayDeity: string // almanac.deity  ①
@@ -97,6 +97,7 @@ export function mapDayDetail(mvd: unknown, almanacDay: unknown): DayDetail {
   const er = (m.elementRelation ?? {}) as { summaryTh?: unknown }
   const tl = (a.thaiLunar ?? {}) as { isWanPhra?: unknown; label?: unknown }
   const jc = (a.jianchu ?? {}) as { name?: unknown; meaning?: unknown }
+  const hd = (a.huangdao ?? {}) as { god?: unknown; meaning?: unknown; good?: unknown }
 
   return {
     date: str(m.date),
@@ -143,7 +144,8 @@ export function mapDayDetail(mvd: unknown, almanacDay: unknown): DayDetail {
     }),
     // jianchu = ความหมายไทยล้วน — ตัด jc.name (ชื่อ 建除 สำเนียงแต้จิ๋ว เช่น "เตีย/เกี๋ยง" = คำจีนทับศัพท์)
     // ออกตามที่ผู้ใช้สั่ง 2026-09-12 ("ตัดคำจีน"): bullet "วันนี้มีความหมาย" เหลือแต่ความหมาย ไม่มีคำอ่านจีน
-    dithi: { officer: str(a.officer), officerDesc: str(a.officerDesc), jianchu: str(jc.meaning) },
+    // huangdao (黃道 รหัส B) = ความหมายไทยล้วน เช่น "ก้าวหน้ารุ่งเรือง" — คำนวณได้ทุกวัน (เอาแต่คำแปล ตัดชื่อสำเนียงจีน hd.god เหมือน yams)
+    dithi: { officer: str(a.officer), officerDesc: str(a.officerDesc), jianchu: str(jc.meaning), huangdao: str(hd.meaning) },
     // ทิศมงคล ดิบ — man-vs-day ก่อน, ไม่มีค่อยเอาจาก almanac day (2026-09-07: man-vs-day ส่งว่างมา ทำให้ chip+เข็มทิศหายทั้งจอ)
     luckyDirection: str(m.luckyDirection) || str(a.luckyDirection),
     dayDeity: str(a.deity),

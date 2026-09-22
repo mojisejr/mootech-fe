@@ -19,7 +19,8 @@ function stripCJK(s: string | undefined): string {
 export function Dithi({ dithi }: { dithi: DayDetailDithi }) {
   // #226 — officerDesc/jianchu are OPTIONAL (free viewer gets only `officer`). แต่ละบรรทัดคือความหมายหนึ่งช่วง;
   // strip ตัวจีนก่อน แล้ว filter บรรทัดที่ว่าง (เช่น jianchu ที่เหลือแต่ glyph จีน → ว่าง → ตัดทิ้ง).
-  const items = [dithi.officer, dithi.officerDesc, dithi.jianchu]
+  // huangdao (黃道 รหัส B) = ความหมายไทยของเทพประจำวัน — คำนวณได้ทุกวัน จึงเติมเต็มเมื่อ officerDesc ไม่มีข้อมูลเดือน
+  const items = [dithi.officer, dithi.officerDesc, dithi.huangdao, dithi.jianchu]
     .map((v) => stripCJK(v))
     .filter((v) => v.length > 0)
 

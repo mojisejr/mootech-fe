@@ -196,7 +196,7 @@ export function mockDayDetail(date: string): DayDetail {
       { name: '死', direction: 'NW', meaning: 'ตาย' },
       { name: '驚', direction: 'N', meaning: 'กลัว' },
     ],
-    dithi: { officer: 'สะสาง', officerDesc: 'อับโชค เสียหาย เดียวดาย ทุกข์โศก', jianchu: '除 · ปัดกวาดสิ่งเก่า' },
+    dithi: { officer: 'สะสาง', officerDesc: 'อับโชค เสียหาย เดียวดาย ทุกข์โศก', huangdao: 'มีลาภผล ทรัพย์สิน เงินทอง ยศศักดิ์', jianchu: '除 · ปัดกวาดสิ่งเก่า' },
     // lucky_dir is its OWN vocabulary — 'ทิศ ' + short code (real values in the almanac data are
     // ทิศ N · ทิศ S · ทิศ E · ทิศ W · ทิศ SE). Different shape from gates[].direction; both are read.
     luckyDirection: 'ทิศ SE', // G-3 chip (raw ตำรา); chip 財 ตัดทิ้ง (8 ประตูไม่มี 財)

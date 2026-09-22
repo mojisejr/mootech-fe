@@ -168,6 +168,8 @@ export interface DayDetailDithi {
    *  (ดิถีเป็นฟิลด์เดียวในก้อนที่แยกครึ่งข้างในตัวเอง) ⇒ การมีอยู่ของมันคือคำตัดสินของเซิร์ฟเวอร์. */
   officerDesc?: string
   jianchu?: string
+  /** 黃道 (รหัส B — เทพประจำวัน) ความหมายไทยล้วน เช่น "ก้าวหน้ารุ่งเรือง" — คำนวณได้ทุกวัน (เติมเต็มเมื่อ officerDesc ไม่มีข้อมูลเดือน). paid (ใน <Dithi/>). */
+  huangdao?: string
 }
 
 export interface DayDetail {
