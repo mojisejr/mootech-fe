@@ -93,19 +93,22 @@ export const authOptions: NextAuthOptions = {
       return session;
     },
   },
-  // Session cookie SameSite=None (ซินแส/iPad 2026-09-12): NextAuth ค่าเริ่ม session-token เป็น SameSite=Lax
-  // ซึ่ง iPad Safari/LINE webview ทำหล่นในบริบท cross-site → ปฏิทัน (getServerSession) เห็น no-identity แม้
-  // หน้าอื่นยังล็อกอินอยู่ (ใช้ MEMBER_ID). ตั้ง session-token เป็น None+Secure เฉพาะ prod (https) ให้ cookie
-  // เดินทางข้าม context ได้; dev คง Lax ไม่ Secure เพื่อให้ล็อกอิน localhost (http) ยังทำงาน. แตะเฉพาะ
-  // session-token — ไม่ยุ่ง csrf/callback เพื่อไม่กระทบ handshake ตอนล็อกอิน. (verify บน iPad จริงก่อน; ถ้าไม่หาย
-  // ค่อยไป fallback MEMBER_ID #391)
+  // Session cookie SameSite=Lax (เอ็ม 2026-09-22 — login ล่มทุก provider ทั้ง LINE/Google + "เด้งเหมือนเดิม"):
+  // 🔴 ย้อนจาก None → Lax. ของเดิม (1d2f0db 2026-09-12) ตั้ง None+Secure เพื่อแก้ iPad calendar getServerSession
+  // เห็น no-identity — แต่ SameSite=None ถูก "webview ในแอป LINE + มือถือหลายตัว บล็อก/แยก partition" → หลัง
+  // OAuth callback เซ็ต session-token (None) แล้ว webview ทิ้ง cookie → โหลดหน้า /v2 ถัดไปไม่เห็น session →
+  // เด้งกลับ login (ทุก provider เพราะเป็น cookie session ร่วม ไม่ใช่ปัญหาราย provider). บนเบราว์เซอร์ปกติ None
+  // ทำงานได้ (จึง reproduce ไม่เจอบน desktop). Lax = ค่า default ที่ webview รับได้ และ login เป็น same-origin
+  // (Lax ส่ง cookie บน top-level nav รวมถึงเปิดจาก LINE). login ล่มทั้งระบบ >> เคส iPad calendar SSR (ถ้ากลับมา
+  // ค่อยแก้ด้วย MEMBER_ID fallback #391 แทนการเปิด None ทั้งระบบ). แตะเฉพาะ session-token; คง __Secure- prefix
+  // + secure ใน prod → ชื่อ cookie เดิม ผู้ที่ล็อกอินอยู่ไม่หลุด (แค่ attribute อัปเดตรอบ set ถัดไป).
   useSecureCookies: !isDev,
   cookies: {
     sessionToken: {
       name: `${!isDev ? "__Secure-" : ""}next-auth.session-token`,
       options: {
         httpOnly: true,
-        sameSite: !isDev ? "none" : "lax",
+        sameSite: "lax",
         path: "/",
         secure: !isDev,
       },
