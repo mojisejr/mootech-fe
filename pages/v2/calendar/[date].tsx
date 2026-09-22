@@ -346,8 +346,9 @@ export default function V2CalendarDayPage({ teamPreview }: { teamPreview: boolea
         {/* Figma Free-2 375:11286 puts the upsell exactly here — after the score card, before ทิศ สีมงคล —
             standing in for the three sections below it. The percent is the SAME one the ring shows. */}
         {free && <PersonalCalendarUpsell percent={detail.percent} />}
-        {detail.compatAreas && <CompatList areas={detail.compatAreas} insight={detail.insight ?? ''} />}
-        {detail.compatAreas && detail.advice && (
+        {/* ความเข้ากัน 4 ด้าน + คำทำนายรายด้าน — โชว์เฉพาะโหมดแอดวานซ์ (เอ็ม 2026-09-22: basic ต้องไม่มี 2 หัวข้อนี้) */}
+        {advanced && detail.compatAreas && <CompatList areas={detail.compatAreas} insight={detail.insight ?? ''} />}
+        {advanced && detail.compatAreas && detail.advice && (
           <PredictionCards areas={detail.compatAreas} advice={detail.advice} />
         )}
         {/* §9 [advanced] — ดิถีวันนี้ · สะสม · เงื่อนไขคือ jianchu (ครึ่งที่ขายเงินของ dithi)

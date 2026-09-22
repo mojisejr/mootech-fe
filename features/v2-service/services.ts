@@ -71,9 +71,6 @@ export const SERVICES = [
   { id: 'oracle-kiang', title: 'เสี่ยงไพ่ออราเคิลเคี้ยงคุง', desc: DESC_ORACLE, href: '/v2/fortune/oracle', image: ART('04_เสี่ยงไพ่ออราเคิลเคี้ยงคุง.png'), cta: 'เปิดไพ่เลย' },
   { id: 'spirit-heaven', title: 'เสี่ยงไพ่จิตวิญญาณแดนสวรรค์', desc: DESC_SPIRIT, href: '/v2/fortune/divine', image: ART('05_เสี่ยงไพ่จิตวิญญาณแดนสวรรค์.png'), cta: 'เปิดไพ่เลย' },
   { id: 'sian', title: 'เสี่ยงเซียนเสี่ยงทาย', desc: DESC_SIAN, href: '/v2/fortune/sage', image: ART('06_เสี่ยงเซียนเสี่ยงทาย.png'), cta: 'เสี่ยงทายเลย' },
-  // #6 (Kittipon 2026-09-21): มาหาธาตุแท้ / Bazi Element Finder. hiddenUntilArt จนกว่าจะได้อาร์ตการ์ด (1128×463)
-  // จาก Kittipon — reachable ที่ /v2/element-finder แล้ว. พอมีไฟล์ image ให้ใส่ ART(...) + ลบ hiddenUntilArt.
-  { id: 'element-finder', title: 'มาหาธาตุแท้กันเถอะ', desc: ['หาธาตุแท้จากวันเกิด รู้ใน 10 วินาที', 'พร้อมนิสัยและการ์ดแชร์'], href: '/v2/element-finder', cta: 'เช็คธาตุเลย', hiddenUntilArt: true },
   { id: 'sinsae', title: 'ดูดวงส่วนตัว กับซินแส', desc: DESC_SINSAE, href: '/v2/service/sinsae', image: ART('07_ดูดวงส่วนตัวกับซินแส.png'), cta: 'ดูดวงเลย' },
   { id: 'manifest', title: 'มานิเฟส', desc: DESC_MANIFEST, href: '/v2/service/manifest', image: ART('08_มานิเฟส.png'), cta: 'เริ่มมานิเฟส' },
   // filename says ปฎิทิน (ฎ ชฎา), the title says ปฏิทิน (ฏ ปฏัก) — different letters. Mapped by id on purpose.
@@ -86,6 +83,9 @@ export const SERVICES = [
   // เบอร์รังผึ้ง (Honeycomb) — ไม่แยกการ์ดแล้ว: เป็น "โหมด" ในหน้าดูเบอร์มือถือ (สลับธรรมดา/รังผึ้ง) ฟีม 2026-09-10.
   // เก็บ entry ไว้ (hidden) เพื่อคง route /v2/service/honeycomb + ServiceId 'honeycomb'; ไม่โชว์การ์ดในฮับ.
   { id: 'honeycomb', title: 'เบอร์รังผึ้ง', desc: DESC_HONEYCOMB, href: '/v2/service/honeycomb', hiddenUntilArt: true },
+  // มาหาธาตุแท้ (Bazi Element Finder / wallpaper) — เอ็ม+พี่พล 2026-09-22: วางไว้ล่างสุด "ก่อนร้านค้า". ยังไม่มี
+  // อาร์ตการ์ด 1128×463 → ServiceCardArt คืน null (พื้นครีมล้วน ไม่ broken); พอได้อาร์ตค่อยใส่ image: ART(...).
+  { id: 'element-finder', title: 'มาหาธาตุแท้กันเถอะ', desc: ['หาธาตุแท้จากวันเกิด รู้ใน 10 วินาที', 'พร้อมนิสัยและการ์ดแชร์'], href: '/v2/element-finder', cta: 'เช็คธาตุเลย' },
   { id: 'shop', title: 'ร้านค้าของเรา', desc: DESC_SHOP, href: 'https://shop.line.me/@mumate.co', external: true, image: ART('11_ร้านค้าของเรา.png'), cta: 'Shop Now' },
   // #13, added 2026-08-08 — NOT from the Figma 12. The home screen (Zone 6) has been selling this since
   // #157, but it existed nowhere in the catalog, so its CTA had no name to send anywhere. Hidden for the
