@@ -49,6 +49,7 @@ const ALMANAC_DAY = {
   officer: 'สะสาง',
   officerDesc: 'อับโชค เสียหาย',
   jianchu: { name: 'เตีย', meaning: 'มัดจำ จองจำ' },
+  huangdao: { god: 'กิมกุ่ย', meaning: 'ลาภผล โชคลาภ ตำแหน่งดี', good: true },
   gates: Array.from({ length: 8 }, (_, i) => ({ name: `G${i}`, direction: 'E', meaning: 'เปิด', keywords: ['คีย์1', 'คีย์2'] })),
   colors: [{ element: 'ทอง', colors: 'ขาว' }, { element: 'น้ำ', colors: 'ฟ้า น้ำเงิน' }],
   luckyHours: [{ code: 'B8', range: '1:00-2:59', god: 'เหง็กอ๋วง', meaning: 'ดี' }],
@@ -89,6 +90,9 @@ ok('dayPillars ← almanac day/month/year (with element)', d.dayPillars.day?.ele
 ok('ownerPillars ← person.fourPillars (raw block)', JSON.stringify(d.ownerPillars) === JSON.stringify(MVD.person.fourPillars))
 // jianchu = ความหมายไทยล้วน — ตัดชื่อ 建除 สำเนียงจีน (jc.name 'เตีย') ออก (ผู้ใช้ 2026-09-12 "ตัดคำจีน")
 ok('dithi ← officer + officerDesc + jianchu(ความหมายล้วน ไม่มีคำจีน)', d.dithi.officer === 'สะสาง' && d.dithi.jianchu === 'มัดจำ จองจำ')
+// huangdao (黃道 รหัส B) = ความหมายไทยล้วน — ตัดชื่อเทพสำเนียงจีน (hd.god 'กิมกุ่ย'); คำนวณได้ทุกวัน (เติมเต็มเมื่อ officerDesc ไม่มีข้อมูลเดือน)
+ok('dithi.huangdao ← almanac.huangdao.meaning (ตัดชื่อเทพจีน)', d.dithi.huangdao === 'ลาภผล โชคลาภ ตำแหน่งดี')
+ok('dithi.huangdao = "" เมื่อ almanac ไม่มี huangdao (ไม่ throw)', mapDayDetail(MVD, { ...ALMANAC_DAY, huangdao: undefined }).dithi.huangdao === '')
 // G-3 chips: officer (dithi) + luckyDirection, RAW; the 財 chip is cut (bazi's 8 gates have no 財).
 ok('luckyDirection ← man-vs-day (raw ทิศมงคล, a chip; 財 cut)', d.luckyDirection === 'ทิศ E')
 ok('gates ← 8 raw, NO good/bad level added (ตำราไม่มี)', d.gates.length === 8 && !('level' in d.gates[0]) && d.gates[0].name === 'G0')
