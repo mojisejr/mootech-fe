@@ -11,6 +11,7 @@ import { CONFIG } from '@/constants/config';
 import { CookieKey } from '@/constants/cookie-key';
 import { PageRouter } from '@/constants/router';
 import { shouldClearToken, shouldRegister } from '@/lib/auth/login-state';
+import { nextIdentityAction, shouldBackfillSub } from '@/lib/auth/identity-binding';
 import { useCurrentUser } from '@/lib/auth/use-current-user';
 import { resolveWelcomeTarget } from '@/lib/auth/welcome-target';
 import { resolveReturningResult } from '@/lib/auth/returning-result';
@@ -51,7 +52,8 @@ export default function HomePage() {
     CookieKey.MEMBER_REFER_CODE,
     CookieKey.MEMBER_IMAGE,
     CookieKey.REFCODE_FGF,
-    CookieKey.LOGIN_PROVIDER
+    CookieKey.LOGIN_PROVIDER,
+    CookieKey.MEMBER_SUB,
   ])
 
 
@@ -150,6 +152,7 @@ export default function HomePage() {
 
   const clearToken = () => {
     removeCookie(CookieKey.MEMBER_ID)
+    removeCookie(CookieKey.MEMBER_SUB)
     removeCookie(CookieKey.MEMBER_NAME)
     removeCookie(CookieKey.MEMBER_SURNAME)
     removeCookie(CookieKey.MEMBER_REFER_CODE)
@@ -214,6 +217,14 @@ useEffect(() => {
               maxAge: CONFIG.EXPIRED_TIME_COOKIE,
               sameSite: 'lax', // Lax (ไม่ใช่ Strict) เพื่อให้ MEMBER_ID ส่งได้เมื่อเปิดลิงก์จาก LINE/ภายนอก (cross-site nav)
             })
+            // ผูก MEMBER_ID กับ sub ที่ register (id_token) — รอบหน้าถ้า session เป็นคนละ sub จะตรวจเจอ mismatch
+            if (id_token) {
+              setCookie(CookieKey.MEMBER_SUB, id_token, {
+                path: '/',
+                maxAge: CONFIG.EXPIRED_TIME_COOKIE,
+                sameSite: 'lax',
+              })
+            }
 
             setCookie(CookieKey.MEMBER_NAME, result.name, {
               path: '/',
@@ -336,6 +347,10 @@ useEffect(() => {
         return
       }
 
+      // ตัวตน LINE/provider ของ session ปัจจุบัน (sub) — ใช้ตรวจว่า MEMBER_ID cookie ที่มีอยู่เป็นของบัญชีนี้ไหม
+      const currentSub = session?.lineProfile?.sub ?? session?.providerId ?? ""
+      const boundSub = cookies[CookieKey.MEMBER_SUB]
+
       // Already have a resolved identity. register-login is skipped here, so the
       // routing state the home CTA needs (resultCode/isRefreshResult) would stay
       // empty -> a returning user with a computed chart was wrongly routed to
@@ -343,6 +358,26 @@ useEffect(() => {
       // (the same source /my-destiny uses), exactly once.
       // (#mootech-home-cta-bounce-migration)
       if (hasMemberId) {
+        const action = nextIdentityAction(hasMemberId, currentSub, boundSub)
+        // CONFIRMED mismatch = cookie ค้างจากบัญชีอื่นใน jar นี้ → ทิ้ง member cookie แล้ว render ถัดไป register ใหม่
+        // (ไม่บังคับ re-register ผู้ใช้เดิมที่ boundSub ยังว่าง — บทเรียน revert #755/#760)
+        if (action === "clear-and-register") {
+          removeCookie(CookieKey.MEMBER_ID)
+          removeCookie(CookieKey.MEMBER_SUB)
+          removeCookie(CookieKey.MEMBER_NAME)
+          removeCookie(CookieKey.MEMBER_SURNAME)
+          removeCookie(CookieKey.MEMBER_REFER_CODE)
+          removeCookie(CookieKey.MEMBER_IMAGE)
+          return
+        }
+        // trusted → hydrate เร็วแบบเดิม + backfill sub เงียบ ๆ ถ้ายังไม่มี (ไม่ยิง network)
+        if (shouldBackfillSub(hasMemberId, currentSub, boundSub)) {
+          setCookie(CookieKey.MEMBER_SUB, currentSub, {
+            path: '/',
+            maxAge: CONFIG.EXPIRED_TIME_COOKIE,
+            sameSite: 'lax',
+          })
+        }
         setIsLogin(true)
         setInfoUserId(cookies[CookieKey.MEMBER_ID])
         hydrateReturningUserResult(cookies[CookieKey.MEMBER_ID])

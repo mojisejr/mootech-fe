@@ -336,6 +336,7 @@ export default defineConfig({
       'scripts/reconcile-flag.test.ts', // #334 migrated tsx-lane→vitest
       'scripts/reconcile-rule.test.ts', // #334 migrated tsx-lane→vitest
       'scripts/register-params.test.ts', // #334 migrated tsx-lane→vitest
+      'scripts/identity-binding.test.ts', // MEMBER_SUB binding decision (safe re-fix after revert #760)
       'scripts/render-gate.test.ts', // #334 migrated tsx-lane→vitest
       'scripts/returning-result.test.ts', // #334 migrated tsx-lane→vitest
       'scripts/summary-cache.test.ts', // #334 migrated tsx-lane→vitest
