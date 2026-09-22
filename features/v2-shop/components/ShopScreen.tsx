@@ -13,6 +13,7 @@
 //   ③ no bonus box / no "ส่วนลดร้าน" line / Privacy-only legal note — see PackageCard.
 import Head from 'next/head'
 import Image from 'next/image'
+import Link from 'next/link'
 import { useState } from 'react'
 import { PillTabs } from '@/components/ui/pill-tabs'
 import { Menubar } from '@/features/v2-shell/components/Menubar'
@@ -128,17 +129,18 @@ export function ShopScreen({ teamPreview = false }: { teamPreview?: boolean } = 
 
         {/* Footer ask + mascot — in flow (not absolutely positioned), so it cannot land on a control. */}
         {/* 997:2786 Mascot-Area — cream@60% · 20px radius · 16 padding · 14 bold + 12 regular. */}
-        <section data-testid="shop-footer-ask" className="mt-8 flex items-center gap-4 rounded-[20px] bg-v3-bg-cream/60 p-4">
+        {/* กดได้ → ไปหน้าถามเซียนมู่ (แชท/ซินแส) — เอ็ม 2026-09-22 */}
+        <Link href="/v2/chat" data-testid="shop-footer-ask" className="mt-8 flex items-center gap-4 rounded-[20px] bg-v3-bg-cream/60 p-4 transition active:scale-[0.99]">
           <div className="flex flex-1 flex-col gap-1">
             <p className="text-sm font-bold leading-normal text-v3-navy">มีคำถามเกี่ยวกับดวงชะตา?</p>
-            <p className="text-xs leading-normal text-v3-text-body">ให้เราคอยดูแลเคียงข้างคุณทุกเวลา</p>
+            <p className="text-xs leading-normal text-v3-text-body">ให้เราคอยดูแลเคียงข้างคุณทุกเวลา · แตะเพื่อถามเซียนมู่</p>
           </div>
           {/* data-testid is the anchor e2e/v2-shop.spec.ts measures against — the mascot must never overlap
               anything tappable, at any viewport, at any scroll position. */}
           <span data-testid="shop-mascot" className="relative size-16 shrink-0">
             <Image src="/images/v2/mascot/01-nav.png" alt="" fill sizes="64px" style={{ objectFit: 'contain' }} />
           </span>
-        </section>
+        </Link>
       </div>
 
       <Menubar />

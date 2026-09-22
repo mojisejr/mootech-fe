@@ -2,6 +2,22 @@
 // - link ที่แชร์ = /invite/<referral-code> ของ user → คนสมัครผ่านลิงก์นี้ = user ได้ QI (referral)
 // - ภาพ: ถ้าเบราว์เซอร์รองรับ navigator.share({files}) จะแนบภาพการ์ดไปในชีตแชร์ด้วย
 //   (fallback: แชร์ url+text; OG ของหน้า /invite ยังโชว์การ์ดแบรนด์ให้ผู้รับลิงก์เห็น)
+import { getLiff, isLineInAppBrowser } from "@/lib/line/liff"
+
+// LINE in-app webview: navigator.share มัก undefined → เดิมตกไป clipboard เฉย ๆ (เอ็ม 2026-09-22 "แชร์ในไลน์
+// ได้แค่คัดลอก"). ใช้ liff.shareTargetPicker เปิดหน้าเลือกเพื่อน/กลุ่มในไลน์ แล้วส่งลิงก์ (พร้อม og preview) ได้จริง.
+// คืน true = เปิด picker แล้ว (จัดการแชร์เสร็จ ไม่ต้องตกไป clipboard); false = ใช้ LIFF ไม่ได้ → ให้ caller fallback.
+async function tryLineSharePicker(text: string, url: string): Promise<boolean> {
+  if (!isLineInAppBrowser()) return false
+  try {
+    const liff = await getLiff()
+    if (!liff.isInClient?.() || !liff.isApiAvailable?.("shareTargetPicker")) return false
+    await liff.shareTargetPicker([{ type: "text", text: `${text}\n${url}` }])
+    return true // เปิด picker สำเร็จ (ส่งหรือยกเลิกก็ถือว่าจัดการแล้ว)
+  } catch {
+    return false // shareTargetPicker ปิดอยู่/ล้ม → caller fallback (clipboard)
+  }
+}
 
 /** ลิงก์เชิญเพื่อนของ user: /invite/<code> (คนสมัครผ่านลิงก์นี้ → user ได้ QI). fallback = origin */
 export async function fetchInviteUrl(): Promise<string> {
@@ -82,6 +98,8 @@ export async function shareAsInvite({
   if (og) {
     const id = await createShareSnapshot(og)
     const url = id ? `${baseUrl}${baseUrl.includes("?") ? "&" : "?"}c=${id}` : baseUrl
+    // ในไลน์: เปิด shareTargetPicker ก่อน (navigator.share มักไม่มีใน webview → เดิมได้แค่ copy)
+    if (await tryLineSharePicker(text, url)) return "shared"
     try {
       if (nav?.share) { await nav.share({ title, text, url }); return "shared" }
       if (nav?.clipboard) { await nav.clipboard.writeText(`${text} ${url}`); return "copied" }
@@ -91,6 +109,8 @@ export async function shareAsInvite({
 
   // เส้นทางไม่มี og (แชร์แบบแนบภาพเดิม) — url = ลิงก์เชิญเปล่า
   const url = baseUrl
+  // ในไลน์: เปิด shareTargetPicker แชร์ลิงก์เชิญเข้าไลน์เพื่อน (webview แนบไฟล์/navigator.share ไม่ได้ → เดิมได้แค่ copy)
+  if (await tryLineSharePicker(text, url)) return "shared"
   // พยายามแนบภาพการ์ด (best-effort — ล้มก็แชร์แค่ url+text): file ที่ render แล้วก่อน, ไม่งั้น fetch จาก imageUrl
   let files: File[] | undefined
   if (file && file.size > 0) {
