@@ -629,16 +629,15 @@ function PredictionCard({ summary, prediction, cautions, occupations, corePerson
   }
   // นิสัย/บุคลิกเสาวัน = การ์ดเดียว (ซินแสนุ้ย 2026-09-17: "รวมกันอันเดียว ไม่ต้องแยก") แต่ข้างในไล่ 3 ส่วน
   // จาก engine: ก้าน(บุคลิกพื้นฐาน) / กิ่ง(นิสัยพื้นฐาน) / เสาเต็ม(เฉพาะตน). ไม่ครบ → fallback blob เดิม.
-  const code = corePersona?.code ?? ""
-  const [stemCh, branchCh] = Array.from(code)
   // บุคลิกพื้นฐาน (ราศีบน) = ก้านวันเวอร์ชันแข็ง/อ่อน (dayMasterStrengthProfile) ก่อน — ตกไป heavenNarrative
   const basePersonalityText = dayMasterNarrative || corePersona?.heavenNarrative
   const personaParts =
     basePersonalityText && corePersona?.earthNarrative && corePersona?.narrative
       ? [
-          { label: `บุคลิกพื้นฐาน${stemCh ? ` · ก้านวัน ${stemCh}` : ""}`, text: basePersonalityText },
-          { label: `นิสัยพื้นฐาน${branchCh ? ` · กิ่งวัน ${branchCh}` : ""}`, text: corePersona.earthNarrative },
-          { label: `บุคลิก/นิสัยเฉพาะตน${code ? ` · ${code}` : ""}`, text: corePersona.narrative },
+          // ซินแสนุ้ย 2026-09-21: เอาอักษรจีน (ก้านวัน 甲 / กิ่งวัน 午 / 甲午) ออกจากหัวข้อ — ดูรก
+          { label: "บุคลิกพื้นฐาน", text: basePersonalityText },
+          { label: "นิสัยพื้นฐาน", text: corePersona.earthNarrative },
+          { label: "บุคลิก/นิสัยเฉพาะตน", text: corePersona.narrative },
         ]
       : [
           { label: "บุคลิกพื้นฐาน", text: prediction?.personality || summary.tagline },
