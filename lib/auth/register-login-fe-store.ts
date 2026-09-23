@@ -83,8 +83,11 @@ function txAdapter(tx: SqlExecutor): RegisterLoginTransaction {
             update_at = ${input.updatedAt}
         WHERE id_token = ${input.providerSubject} AND lower(provider) = lower(${input.provider})
       `)
-      // Spelling is normalised to the live writer's: Google lower case.
-      if (input.provider === 'google' && input.email) {
+      // Compared case-insensitively on purpose. An exact match here would be
+      // coupled to PROVIDER_SPELLING's value, and a future spelling change would
+      // silently stop Google members' email from ever updating - no error, no
+      // failing test. The proof file covers this write directly.
+      if (input.provider.toLowerCase() === 'google' && input.email) {
         await tx.execute(sql`
           UPDATE "user"
           SET email = ${input.email}, login_at = ${input.updatedAt}, update_at = ${input.updatedAt}
