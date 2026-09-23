@@ -83,6 +83,7 @@ export default function ElementFinderPage({ ogImage, ogTitle, ogDesc, pageUrl }:
   const [character, setCharacter] = useState<string>("") // การ์ด 60 โปร่งใส (สำหรับซ้อนบน wallpaper)
   const [wallpaper, setWallpaper] = useState<WallpaperPick | null>(null) // { bg, text } ที่สุ่มไว้
   const [saving, setSaving] = useState(false)
+  const [copyHint, setCopyHint] = useState(false) // แชร์ X: คัดลอกรูปแล้ว → บอกให้ "แตะค้าง→วาง" ในโพสต์ X
   const [saveImg, setSaveImg] = useState<string | null>(null) // LINE: โชว์รูปให้กดค้างบันทึก (<a download> ถูกบล็อก)
   const wallpaperRef = useRef<HTMLDivElement>(null) // ใบ 540px ซ่อนนอกจอ → html2canvas จับ
   const [error, setError] = useState<string | null>(null)
@@ -145,34 +146,48 @@ export default function ElementFinderPage({ ogImage, ogTitle, ogDesc, pageUrl }:
 
   const closeSaveImg = () => { if (saveImg) URL.revokeObjectURL(saveImg); setSaveImg(null) }
 
-  // แชร์ลง X พร้อม "wallpaper เต็มใบแนวตั้ง" (เอ็ม 2026-09-23: "ทำให้วอลเปเปอร์เต็มจอ").
-  //   ข้อจำกัด X: intent URL แนบรูปไม่ได้ + การ์ดพรีวิวเป็นแนวนอน 1.91:1 (รูปแนวตั้งโดนครอบ). วิธีเดียวที่ได้
-  //   "รูปเต็มใบ" ลงโพสต์ X คือ Web Share files (navigator.share({files})) → ชีตแชร์ระบบ → เลือก X → รูปติดไปเต็ม.
-  //   รองรับบนมือถือ (iOS Safari / Android Chrome). เครื่องที่ไม่รองรับ → ถอยไป X intent (การ์ดพรีวิว) เหมือนเดิม.
+  // แชร์ลง X พร้อม wallpaper แนวตั้งเต็มใบ (เอ็ม 2026-09-23). ข้อจำกัด X: แนบรูปผ่านลิงก์ไม่ได้เลย.
+  // ทำ 3 ชั้น: (1) "เด้งเข้าแอป X ตรง + คัดลอกรูปให้วาง" — คัดลอก wallpaper ลง clipboard แล้วเปิด X compose
+  //   (ผู้ใช้แตะค้าง→วาง เพื่อแนบรูป). (2) เครื่องคัดลอกรูปไม่ได้ → Web Share sheet (แนบรูปอัตโนมัติ, แตะ X).
+  //   (3) ไม่รองรับเลย → X intent (การ์ดพรีวิว). LINE in-app → ข้ามชั้น 1 (clipboard/scheme ไม่เสถียร).
   const shareX = async () => {
     if (!result || saving) return
     const text = `ฉันคือ${result.nameTh} — “${result.quote}” มาเช็คธาตุแท้ของคุณกับ Mumate`
-    // 1) พยายามแชร์รูป wallpaper เต็มใบผ่านชีตแชร์ระบบ (ได้รูปแนวตั้งเต็มลง X)
-    try {
-      setSaving(true)
-      const blob = await renderWallpaperBlob()
-      if (blob && typeof navigator !== "undefined" && typeof navigator.canShare === "function") {
-        const file = new File([blob], "mumate-wallpaper.png", { type: "image/png" })
-        if (navigator.canShare({ files: [file] })) {
-          await navigator.share({ files: [file], text })
-          return
-        }
-      }
-    } catch {
-      /* ผู้ใช้ยกเลิก/ไม่รองรับ → ถอยไป intent */
-    } finally {
-      setSaving(false)
-    }
-    // 2) fallback: X intent (แนบรูปไม่ได้ → ส่ง bg/ch/txt ให้ลิงก์ทำการ์ดพรีวิวผ่าน /api/og/finder)
     const p = new URLSearchParams()
     if (wallpaper?.bg && character && wallpaper?.text) { p.set("bg", wallpaper.bg); p.set("ch", character); p.set("txt", wallpaper.text) }
-    const url = `https://bazichart.mumate.co/v2/element-finder${p.toString() ? `?${p.toString()}` : ""}`
-    void openInExternalBrowser(`https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}&url=${encodeURIComponent(url)}`)
+    const finderUrl = `https://bazichart.mumate.co/v2/element-finder${p.toString() ? `?${p.toString()}` : ""}`
+    const webIntent = `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}&url=${encodeURIComponent(finderUrl)}`
+
+    setSaving(true)
+    let blob: Blob | null = null
+    try { blob = await renderWallpaperBlob() } catch { /* ประกอบรูปไม่ได้ */ }
+    setSaving(false)
+
+    // (1) คัดลอกรูป + เปิดแอป X ตรง (เด้งเข้า X เลย, รูปพร้อมวาง)
+    const canCopyImg = typeof navigator !== "undefined" && !!navigator.clipboard && typeof window !== "undefined" && "ClipboardItem" in window
+    if (blob && canCopyImg && !isLineInAppBrowser()) {
+      try {
+        await navigator.clipboard.write([new ClipboardItem({ "image/png": blob })])
+        setCopyHint(true); window.setTimeout(() => setCopyHint(false), 8000)
+        void openInExternalBrowser(webIntent) // เปิด X (แอปถ้ามี App Links, ไม่งั้นเว็บ) พร้อมข้อความ → ผู้ใช้วางรูป
+        return
+      } catch {
+        /* คัดลอกรูปไม่ได้ (gesture หมดเวลา/ไม่รองรับ) → ถอยไปชีต */
+      }
+    }
+
+    // (2) Web Share sheet — แนบรูปอัตโนมัติ (แตะ X ในชีต)
+    try {
+      if (blob && typeof navigator !== "undefined" && typeof navigator.canShare === "function") {
+        const file = new File([blob], "mumate-wallpaper.png", { type: "image/png" })
+        if (navigator.canShare({ files: [file] })) { await navigator.share({ files: [file], text }); return }
+      }
+    } catch {
+      /* ผู้ใช้ยกเลิก/ไม่รองรับ */
+    }
+
+    // (3) fallback: X intent (การ์ดพรีวิว)
+    void openInExternalBrowser(webIntent)
   }
 
   // ขนาด wallpaper preview แบบ responsive — ขยายให้เต็มความสูงจอที่เหลือ (ไม่เหลือช่องว่างล่าง / ไม่ต้องเลื่อน)
@@ -312,6 +327,12 @@ export default function ElementFinderPage({ ogImage, ogTitle, ogDesc, pageUrl }:
             <span className="shrink-0 rounded-full bg-v3-sapphire px-4 py-1.5 text-[13px] font-bold text-white">ดูเลย →</span>
           </Link>
 
+          {/* แชร์ X แบบคัดลอกรูป → บอกวิธีวางในโพสต์ X (เอ็ม 2026-09-23) */}
+          {copyHint ? (
+            <div data-testid="finder-copy-hint" className="w-full max-w-md rounded-2xl bg-v3-navy px-4 py-2.5 text-center text-[12.5px] font-bold leading-5 text-white">
+              📋 คัดลอกรูปแล้ว — ในหน้าเขียนโพสต์ X แตะค้างที่ช่องข้อความ แล้วเลือก “วาง” เพื่อแนบรูป
+            </div>
+          ) : null}
           {/* แชร์ = Twitter/X อย่างเดียว (ปุ่มดำ ไอคอน X) + บันทึก wallpaper */}
           <div className="flex w-full max-w-md gap-2">
             <button onClick={() => void shareX()} disabled={saving} data-testid="finder-share" className="flex h-12 flex-1 items-center justify-center gap-2 rounded-full bg-black text-[14px] font-bold text-white disabled:opacity-50">
