@@ -204,12 +204,10 @@ export function CardReadingScreen({
     // เอ็ม 2026-09-23: คำตอบต้อง "ทวนคำถาม" — คนอ่าน (โดยเฉพาะหน้าแชร์) ไม่เห็นคำถามเดิม จึงนำคำถามขึ้นก่อนสรุป/ผลเต็ม
     const q = question.trim()
     const sharedSummary = q ? `คำถาม: ${q}\n\n${shareSummary}` : shareSummary
-    // เปิดเผย (0033): ติ๊กยินยอม → แนบคำทำนายเต็มไปกับ snapshot ให้หน้า invite เปิดอ่านได้
-    // เอ็ม 2026-09-23: ใช้ engineProse (แต่ละย่อหน้าเอ่ยชื่อไพ่อยู่แล้ว "ไพ่หลัก... — <ชื่อไพ่>") = ตรงกับผลบนจอ
-    //   ไม่ prepend 【ชื่อไพ่】 อีก (meaning ว่าง → เหลือหัวข้อลอย ๆ ซ้ำชื่อในย่อหน้าถัดไป). สรุปอยู่ที่ share.d แล้ว
-    const fullText = allowPublic
-      ? [q ? `คำถาม: ${q}` : "", proseParas.join("\n\n") || cards.map((c) => `${c.name} — ${(c.meaning || c.book1 || "").trim()}`.trim()).join("\n\n")].filter(Boolean).join("\n\n").slice(0, 8000) || undefined
-      : undefined
+    // เปิดเผย (0033) + เอ็ม 2026-09-23: แชร์ไพ่ = "รูป + ชื่อ + สรุป" พอ — ไม่เอาผลรายใบยาว และไม่เอาน้ำหนัก
+    //   (สรุปถูกตัด "(น้ำหนัก %)" ออกแล้วใน shareSummary). fullText = สรุปเดียวกับ share.d → หน้า invite dedup
+    //   ไม่โชว์ซ้ำ → คนเปิดลิงก์เห็น รูป+ชื่อ+สรุป ตามที่ขอ.
+    const fullText = allowPublic ? sharedSummary : undefined
     // #359 รอบ 13: แชร์เป็นลิงก์ + og:image เฉพาะผล (ลิงก์กดได้ทุกแอป + พรีวิวการ์ด)
     void shareAsInvite({ title, text, og: { title: resultTitle || title, summary: sharedSummary, tag: title, image: shareImages.slice(0, 3).join(","), isPublic: allowPublic, fullText } })
   }
