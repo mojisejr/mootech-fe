@@ -36,14 +36,19 @@ export const getServerSideProps: GetServerSideProps<FinderProps> = async (ctx) =
   // Twitter/OG card: แชร์ ?el=<ธาตุ> → card เฉพาะธาตุ (ผ่าน /api/og/share); ไม่มี el → การ์ดแบรนด์ทั่วไป
   const proto = (ctx.req.headers["x-forwarded-proto"] as string)?.split(",")[0] || "https"
   const origin = `${proto}://${ctx.req.headers.host ?? "bazichart.mumate.co"}`
-  const el = String(ctx.query.el ?? "")
+  const str = (v: unknown): string => (typeof v === "string" ? v : Array.isArray(v) ? (v[0] ?? "") : "")
+  const el = str(ctx.query.el)
   const meta = EL_OG[el] ?? null
   const ogTitle = meta ? `ฉันคือ${meta.th} · มาหาธาตุแท้กันเถอะ` : "มาหาธาตุแท้กันเถอะ · MuMate"
   const ogDesc = "เช็คธาตุแท้จากวันเกิด รู้ใน 10 วิ พร้อมนิสัย & wallpaper — กับ Mumate"
-  // ใช้ "ไฟล์ static" (เร็ว/เชื่อถือได้ต่อ crawler ของ X) ไม่ใช่ endpoint dynamic (cold-start อาจทำ X ดึงรูปไม่ทัน)
-  const ogImage = meta
-    ? `${origin}/images/v2/og/finder-${el}.png`
-    : `${origin}/images/v2/features/13_มาหาธาตุแท้.png`
+  // ลำดับความสำคัญ: (1) มี bg/ch/txt → การ์ด "wallpaper เต็มใบ" (/api/og/finder), (2) มี el → การ์ดธาตุ static, (3) default
+  const bg = str(ctx.query.bg), ch = str(ctx.query.ch), txt = str(ctx.query.txt)
+  const ogImage =
+    bg && ch && txt
+      ? `${origin}/api/og/finder?${new URLSearchParams({ bg, ch, txt }).toString()}`
+      : meta
+        ? `${origin}/images/v2/og/finder-${el}.png`
+        : `${origin}/images/v2/features/13_มาหาธาตุแท้.png`
   const pageUrl = `${origin}${ctx.resolvedUrl}`
   return { props: { ogImage, ogTitle, ogDesc, pageUrl } }
 }
@@ -148,8 +153,12 @@ export default function ElementFinderPage({ ogImage, ogTitle, ogDesc, pageUrl }:
   const shareX = () => {
     if (!result) return
     const text = `ฉันคือ${result.nameTh} — “${result.quote}” มาเช็คธาตุแท้ของคุณกับ Mumate`
-    const el = ({ "ไฟ": "fire", "ไม้": "wood", "ดิน": "earth", "ทอง": "metal", "น้ำ": "water" } as Record<string, string>)[result.key] ?? ""
-    const url = `https://bazichart.mumate.co/v2/element-finder${el ? `?el=${el}` : ""}`
+    // ส่ง bg/ch/txt ของ wallpaper ปัจจุบัน → หน้าเป้าหมายทำการ์ด X เป็น "wallpaper เต็มใบ" (ผ่าน /api/og/finder)
+    // X ย่อลิงก์เป็น t.co อยู่แล้ว ยาวได้ไม่กระทบหน้าตาโพสต์
+    const p = new URLSearchParams()
+    if (wallpaper?.bg && character && wallpaper?.text) { p.set("bg", wallpaper.bg); p.set("ch", character); p.set("txt", wallpaper.text) }
+    const qs = p.toString()
+    const url = `https://bazichart.mumate.co/v2/element-finder${qs ? `?${qs}` : ""}`
     void openInExternalBrowser(`https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}&url=${encodeURIComponent(url)}`)
   }
 
