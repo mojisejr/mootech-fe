@@ -18,12 +18,36 @@ import { resolveMascotFromCompute, type ComputeMascotSource } from "@/lib/person
 import { openInExternalBrowser, isLineInAppBrowser } from "@/lib/line/liff"
 import { issueNonce, NONCE_COOKIE } from "@/lib/calculator/nonce"
 
-export const getServerSideProps: GetServerSideProps = async (ctx) => {
+// ธาตุ (en) → ชื่อไทย + ไอคอนตัวแทน (ใช้ทำ Twitter/OG card ตอนแชร์ ?el=)
+const EL_OG: Record<string, { th: string; img: string }> = {
+  fire: { th: "ธาตุไฟ", img: "/images/v2/destiny/el-fire.png" },
+  wood: { th: "ธาตุไม้", img: "/images/v2/destiny/el-wood.png" },
+  earth: { th: "ธาตุดิน", img: "/images/v2/destiny/el-earth.png" },
+  metal: { th: "ธาตุทอง", img: "/images/v2/destiny/el-metal.png" },
+  water: { th: "ธาตุน้ำ", img: "/images/v2/destiny/el-water.png" },
+}
+// ธาตุไทย → en (สำหรับใส่ใน query ?el= ตอนแชร์ ให้ลิงก์สั้น)
+const TH2EN: Record<string, string> = { "ไฟ": "fire", "ไม้": "wood", "ดิน": "earth", "ทอง": "metal", "น้ำ": "water" }
+
+type FinderProps = { ogImage: string; ogTitle: string; ogDesc: string; pageUrl: string }
+
+export const getServerSideProps: GetServerSideProps<FinderProps> = async (ctx) => {
   ctx.res.setHeader("Cache-Control", "no-store, must-revalidate")
   // ไม่มี v2 gate/login — หน้านี้เปิดให้ทุกคนใช้ (viral). /api/calculator/compute ต้องมี nonce cookie เท่านั้น.
   const nonce = issueNonce()
   ctx.res.setHeader("Set-Cookie", `${NONCE_COOKIE}=${nonce}; HttpOnly; Path=/; SameSite=Lax; Secure; Max-Age=600`)
-  return { props: {} }
+  // Twitter/OG card: แชร์ ?el=<ธาตุ> → card เฉพาะธาตุ (ผ่าน /api/og/share); ไม่มี el → การ์ดแบรนด์ทั่วไป
+  const proto = (ctx.req.headers["x-forwarded-proto"] as string)?.split(",")[0] || "https"
+  const origin = `${proto}://${ctx.req.headers.host ?? "bazichart.mumate.co"}`
+  const el = String(ctx.query.el ?? "")
+  const meta = EL_OG[el] ?? null
+  const ogTitle = meta ? `ฉันคือ${meta.th} · มาหาธาตุแท้กันเถอะ` : "มาหาธาตุแท้กันเถอะ · MuMate"
+  const ogDesc = "เช็คธาตุแท้จากวันเกิด รู้ใน 10 วิ พร้อมนิสัย & wallpaper — กับ Mumate"
+  const ogImage = meta
+    ? `${origin}/api/og/share?${new URLSearchParams({ t: `ฉันคือ${meta.th}`, g: "หาธาตุแท้", d: ogDesc, m: meta.img }).toString()}`
+    : `${origin}/images/v2/features/13_มาหาธาตุแท้.png`
+  const pageUrl = `${origin}${ctx.resolvedUrl}`
+  return { props: { ogImage, ogTitle, ogDesc, pageUrl } }
 }
 
 const STEPS = ["อ่านวันเดือนปีเกิด", "หาเสาวัน (日柱) ของคุณ", "หาเสายาม (時柱) จากเวลาเกิด", "สรุปธาตุแท้และนิสัย"]
@@ -34,7 +58,20 @@ const ELEMENT_ICON_ORDER: (keyof typeof ELEMENT_CONTENT)[] = ["ไฟ", "ไม�
 // วันเกิด = ค.ศ. "YYYY-MM-DD" จาก <input type="date"> (ปฏิทินมือถือ) — ไม่ต้อง parse เอง
 const TODAY_ISO = new Date().toLocaleDateString("en-CA") // จำกัด max ไม่ให้เลือกอนาคต
 
-export default function ElementFinderPage() {
+// ป้าย FREE แบบ icon (starburst 8 แฉก แดง + FREE ขาว) — เป็น SVG จึงไม่ตกบรรทัด/ไม่พึ่งฟอนต์นอก
+function FreeBadge() {
+  return (
+    <svg width="52" height="52" viewBox="0 0 64 64" aria-hidden className="shrink-0 drop-shadow-[0_2px_3px_rgba(0,0,0,0.28)]">
+      <g transform="rotate(-8 32 32)">
+        <rect x="10" y="10" width="44" height="44" rx="9" fill="#ef3b3b" />
+        <rect x="10" y="10" width="44" height="44" rx="9" fill="#ef3b3b" transform="rotate(45 32 32)" />
+        <text x="32" y="34" fill="#fff" fontSize="15" fontWeight="900" textAnchor="middle" dominantBaseline="middle" fontFamily="system-ui, Arial, sans-serif" style={{ letterSpacing: "0.5px" }}>FREE</text>
+      </g>
+    </svg>
+  )
+}
+
+export default function ElementFinderPage({ ogImage, ogTitle, ogDesc, pageUrl }: FinderProps) {
   const [phase, setPhase] = useState<"input" | "loading" | "result">("input")
   const [birthDate, setBirthDate] = useState("") // "YYYY-MM-DD" (ค.ศ.) จากปฏิทิน
   const [birthTime, setBirthTime] = useState("")
@@ -111,7 +148,9 @@ export default function ElementFinderPage() {
   const shareTwitter = () => {
     if (!result) return
     const text = `ฉันคือ${result.nameTh} — “${result.quote}” มาเช็คธาตุแท้ของคุณกับ Mumate`
-    const url = "https://bazichart.mumate.co/v2/element-finder"
+    // ใส่ ?el=<ธาตุ> → หน้าเป้าหมายมี Twitter card เฉพาะธาตุ → โพสต์ X มีรูปตามไป
+    const el = TH2EN[result.key] ?? ""
+    const url = `https://bazichart.mumate.co/v2/element-finder${el ? `?el=${el}` : ""}`
     void openInExternalBrowser(`https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}&url=${encodeURIComponent(url)}`)
   }
 
@@ -130,10 +169,19 @@ export default function ElementFinderPage() {
   return (
     <SkyScreen bgImage="/images/v2/fortune/sage-bg.png">
       <Head>
-        <title>มาหาธาตุแท้กันเถอะ · MuMate</title>
-        {/* ฟอนต์ display สำหรับป้าย FREE (ดูสนุก มีมิติ) */}
-        <link rel="preconnect" href="https://fonts.googleapis.com" />
-        <link href="https://fonts.googleapis.com/css2?family=Luckiest+Guy&display=swap" rel="stylesheet" />
+        <title>{ogTitle}</title>
+        <meta name="description" content={ogDesc} />
+        {/* Twitter/OG card — ให้ "แชร์ลง X" มีรูปตามไป (per-element เมื่อลิงก์มี ?el=) */}
+        <meta property="og:type" content="website" />
+        <meta property="og:title" content={ogTitle} />
+        <meta property="og:description" content={ogDesc} />
+        <meta property="og:image" content={ogImage} />
+        <meta property="og:url" content={pageUrl} />
+        <meta property="og:site_name" content="MuMate" />
+        <meta name="twitter:card" content="summary_large_image" />
+        <meta name="twitter:title" content={ogTitle} />
+        <meta name="twitter:description" content={ogDesc} />
+        <meta name="twitter:image" content={ogImage} />
       </Head>
 
       {phase === "input" ? (
@@ -239,8 +287,8 @@ export default function ElementFinderPage() {
           {/* CTA ดูดวงเต็ม — ข้อความบรรทัดเดียว (เต็มความกว้าง) แล้วแถว FREE (Luckiest Guy เล็ก หนา มีมิติ) + ดูเลย */}
           <Link href="/v2/destiny" className="flex w-full max-w-md flex-col gap-1.5 rounded-2xl bg-v3-sapphire/10 px-4 py-2.5" data-testid="finder-cta">
             <span className="whitespace-nowrap text-[13px] font-bold text-v3-navy">อยากรู้ลึกกว่านี้? ดูดวงเต็มของคุณ</span>
-            <span className="flex items-center justify-end gap-2.5">
-              <span className="finder-free select-none leading-none">FREE</span>
+            <span className="flex items-center justify-end gap-2">
+              <FreeBadge />
               <span className="shrink-0 rounded-full bg-v3-sapphire px-4 py-1.5 text-[13px] font-bold text-white">ดูเลย →</span>
             </span>
           </Link>
@@ -257,19 +305,6 @@ export default function ElementFinderPage() {
             </button>
           </div>
           <button onClick={reset} className="text-[13px] font-bold text-v3-sapphire" data-testid="finder-again">เช็คธาตุคนอื่นอีกครั้ง</button>
-          {/* ป้าย FREE — ฟอนต์ Luckiest Guy (สนุก หนา) เล็กลง + มิติ (layered shadow) */}
-          <style jsx>{`
-            .finder-free {
-              display: inline-block; /* จำเป็นให้ transform/nowrap ทำงาน (span inline ไม่รับ transform → เดิมตกบรรทัด) */
-              white-space: nowrap;
-              font-family: "Luckiest Guy", system-ui, sans-serif;
-              font-size: 18px;
-              letter-spacing: 1.5px;
-              color: #ef3b3b;
-              text-shadow: 1px 1px 0 #fff, 2px 2px 0 #b91c1c, 3px 3px 0 #991b1b, 4px 5px 6px rgba(0, 0, 0, 0.3);
-              transform: rotate(-8deg);
-            }
-          `}</style>
         </div>
       ) : null}
 
