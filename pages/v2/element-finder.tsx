@@ -49,6 +49,7 @@ export default function ElementFinderPage() {
   const [timeUnknown, setTimeUnknown] = useState(false)
   const [result, setResult] = useState<ElementContent | null>(null)
   const [character, setCharacter] = useState<string>("") // การ์ด 60 โปร่งใส (สำหรับซ้อนบน wallpaper)
+  const [card, setCard] = useState<string>("") // การ์ด 60 แบบ .jpg (สำหรับ OG preview — next/og ไม่รองรับ webp)
   const [wallpaper, setWallpaper] = useState<WallpaperPick | null>(null) // { bg, text } ที่สุ่มไว้
   const [saving, setSaving] = useState(false)
   const [saveImg, setSaveImg] = useState<string | null>(null) // LINE: โชว์รูปให้กดค้างบันทึก (<a download> ถูกบล็อก)
@@ -73,14 +74,14 @@ export default function ElementFinderPage() {
       const key = mascot ? toElementKey(mascot.elementTh) : null
       await new Promise((r) => setTimeout(r, Math.max(0, 2600 - (Date.now() - started))))
       if (!mascot || !key) { setError("คำนวณธาตุไม่สำเร็จ ลองตรวจวันเกิดอีกครั้ง"); setPhase("input"); return }
-      setCharacter(mascot.character); setWallpaper(pickWallpaper(key))
+      setCharacter(mascot.character); setCard(mascot.card); setWallpaper(pickWallpaper(key))
       setResult(ELEMENT_CONTENT[key]); setPhase("result")
     } catch {
       setError("เชื่อมต่อไม่สำเร็จ ลองใหม่อีกครั้ง"); setPhase("input")
     } finally { timers.forEach((t) => window.clearTimeout(t)) }
   }
 
-  const reset = () => { setResult(null); setCharacter(""); setWallpaper(null); setPhase("input") }
+  const reset = () => { setResult(null); setCharacter(""); setCard(""); setWallpaper(null); setPhase("input") }
 
   // สุ่มลุคใหม่ — BG (ในธาตุเดิม) + Text ใหม่ ตามสเปก Kittipon/gafiw
   const shuffle = () => { if (result) setWallpaper(pickWallpaper(result.key)) }
@@ -120,10 +121,13 @@ export default function ElementFinderPage() {
     try {
       const blob = await renderWallpaperBlob()
       const file = blob ? new File([blob], "mumate-wallpaper.png", { type: "image/png" }) : null
+      // og = การ์ดพรีวิว (OG) ให้ลิงก์ /invite มี "รูปตามมา" ตอนแชร์ในแชท/กลุ่ม LINE (แนบไฟล์ตรงในไลน์ไม่ได้)
+      // — ใช้การ์ด .jpg (next/og ไม่รองรับ webp). ยังส่ง file ไว้ให้ FB/มือถือแนบ wallpaper เต็มผ่าน Web Share.
       await shareAsInvite({
         title: "มาหาธาตุแท้กันเถอะ",
         text: `ฉันคือ${result.nameTh} — “${result.quote}” มาเช็คธาตุแท้ของคุณกับ Mumate`,
         file,
+        og: { title: `ฉันคือ${result.nameTh}`, summary: result.quote, tag: "หาธาตุแท้", image: card || undefined },
       })
     } finally { setSaving(false) }
   }
