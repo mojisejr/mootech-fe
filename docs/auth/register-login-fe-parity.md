@@ -30,8 +30,8 @@ compatibility and for any future reader.
 
 | Field | Legacy | FE-native | Assessment |
 |---|---|---|---|
-| `is_info`, first login | Hardcoded `false`, even when the OAuth profile carried a name | `Boolean(name)`, so `true` for almost every Google login | **Not yet reconciled.** `is_info: false` is the legacy "GO TO FORM" signal. If a future caller routes on it, new Google members would skip the form the legacy path sends them to. Owner decision: keep the honest value, or be bug-compatible and return `false`. |
-| `is_email`, returning member | Hardcoded `true` on every returning branch, regardless of the stored email | `Boolean(member.email)` | The FE value is the accurate one. Recorded rather than silently "fixed", because a rollback flips the value back. |
+| `is_info`, first login | Hardcoded `false`, even when the OAuth profile carried a name | `Boolean(name)`, so `true` for almost every Google login | **Owner decision 2026-09-23: keep the honest value.** `is_info: false` is the legacy "GO TO FORM" signal, so if a future caller routes on it, new Google members would skip the form the legacy path sends them to. Nothing reads it today; a future reader must be told this. |
+| `is_email`, returning member | Hardcoded `true` on every returning branch, regardless of the stored email | `Boolean(member.email)` | **Owner decision 2026-09-23: keep the honest value.** A rollback flips it back, which the owner accepts: rollback is for genuine necessity, not routine. |
 | `is_email`, first login | `email != ''` | `Boolean(member.email)` | Preserved. |
 | `name`, `picture_url` absent | `''` | `''` | Preserved. Returning `null` here was a slice-1 defect: callers write these straight into a cookie, so a member saw the literal string `null`. |
 | `email` | Not returned by `registerOrLogin` | Not returned | Preserved. |
@@ -67,7 +67,17 @@ bug stays live and is recorded here rather than silently worked around.
 
 | Legacy | FE-native | Difference |
 |---|---|---|
-| On both first and returning LINE logins, copies the LINE image to S3 and saves the result to **`user.picture_url`** — the column the app reads | Stores the session's verified image URL on the `user_provider` row. `user.picture_url` is written at creation and **never refreshed afterwards** | **Known gap, not preserved.** A returning LINE member's avatar will not update. Object-storage migration is explicitly not claimed by this slice; reproducing the refresh without S3 is a slice-3 decision. |
+| On both first and returning LINE logins, copies the LINE image into object storage and saves the result to **`user.picture_url`** — the column the app reads | Stores the session's verified image URL on the `user_provider` row. `user.picture_url` is written at creation and **never refreshed afterwards** | **Known gap, not preserved.** A returning LINE member's avatar will not update. Reproducing the refresh needs a storage-credentials decision, so it is its own slice, gated to land before the traffic flip. |
+
+**The storage is Supabase, not S3 — the names lie.** `downloadLineImageToS3`,
+the `.Location` field and the `s3_key` key are legacy names kept deliberately so
+the migration did not have to touch every consumer. `mootech-be`
+`src/object-storage/object-storage.service.ts` is backed by Supabase Storage,
+migrated in BE commit `2641c73` on 2026-06-17, which also copied the objects and
+rewrote the stored URLs off both the S3 base and the `cdn.phoenix-stark.com`
+CloudFront base (`scripts/phase3-backfill-urls.sql`). No file under `src/` uses
+`aws-sdk`; only the unused dependency entry in `package.json` remains. Any
+design here should assume Supabase Storage.
 
 ## Profile write scope
 
