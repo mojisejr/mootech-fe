@@ -67,7 +67,30 @@ bug stays live and is recorded here rather than silently worked around.
 
 | Legacy | FE-native | Difference |
 |---|---|---|
-| On both first and returning LINE logins, copies the LINE image into object storage and saves the result to **`user.picture_url`** — the column the app reads | Stores the session's verified image URL on the `user_provider` row. `user.picture_url` is written at creation and **never refreshed afterwards** | **Known gap, not preserved.** A returning LINE member's avatar will not update. Reproducing the refresh needs a storage-credentials decision, so it is its own slice, gated to land before the traffic flip. |
+| On both first and returning LINE logins, copies the LINE image into object storage and saves the result to **`user.picture_url`** — the column the app reads | Refreshes `user.picture_url` with the **provider's own CDN URL**, on first and returning logins, for every provider. Nothing is copied into our storage | **Owner decision 2026-09-23: intentional change, gap closed.** The refresh behaviour is preserved; the storage copy is not, deliberately, so no storage of ours is consumed. An empty session image never blanks the stored one. |
+
+Two consequences of holding the provider URL rather than a copy, stated so
+nobody meets them as a surprise:
+
+- **`user.picture_url` will hold mixed hosts.** Rows written before the flip
+  point at Supabase Storage; rows written after point at
+  `profile.line-scdn.net` or `lh3.googleusercontent.com`. Both are already
+  listed in `next.config.mjs` `images.domains`, and `images.unoptimized` is
+  true, so rendering is unaffected.
+- **The image is now LINE's or Google's to keep alive.** If a provider rotates
+  or expires an avatar URL, the stored one breaks, where a copy would not have.
+  That is the price of not consuming storage, and it is accepted.
+- The payment-lane CSP in `middleware.ts` is `img-src 'self' data:
+  https://api.omise.co`, which allows no avatar host at all — including the
+  Supabase one rows already use. So any avatar shown on a payment screen is
+  already blocked today; this change neither causes nor worsens that. Not
+  investigated further here.
+
+Legacy refreshes `user.picture_url` only on its LINE-or-empty-email branch, so a
+Google member with an email never had their avatar refreshed. This route
+refreshes for every provider. **Declared deviation:** the fix is free once the
+column is being written at all, and leaving Google avatars deliberately stale
+would be the harder behaviour to justify.
 
 **The storage is Supabase, not S3 — the names lie.** `downloadLineImageToS3`,
 the `.Location` field and the `s3_key` key are legacy names kept deliberately so

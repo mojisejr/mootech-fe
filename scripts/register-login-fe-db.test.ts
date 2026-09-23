@@ -151,6 +151,41 @@ describe.skipIf(!TEST_URL)('FE-native register/login against real Postgres', () 
     }
   })
 
+  // Owner decision 2026-09-23: the member avatar is refreshed from the
+  // provider's own CDN, not copied into our storage. `user.picture_url` is the
+  // column the app reads, and the legacy path refreshes it on every returning
+  // LINE login - slice 1 originally never touched it after creation.
+  it('refreshes the member avatar on a returning login, and never blanks it', async () => {
+    const subject = `slice1-avatar-${randomUUID()}`
+    const userId = randomUUID()
+    touchedSubjects.push(subject)
+    touchedUserIds.push(userId)
+    const base = {
+      provider: 'LINE' as const, providerSubject: subject, name: 'Avatar proof',
+      email: '', pictureUrl: 'https://profile.line-scdn.net/first',
+    }
+    const dependencies = {
+      now: () => new Date('2026-09-23T02:00:00.000Z'),
+      makeUserId: () => userId,
+      makeProviderRowId: () => randomUUID(),
+      makeReferCode: () => 'AVATARPROOFAVATARPRO',
+    }
+
+    await registerOrLoginInFe(store, base, dependencies)
+    const [created] = await client`SELECT picture_url FROM "user" WHERE user_id = ${userId}`
+    expect(created.picture_url).toBe('https://profile.line-scdn.net/first')
+
+    // The member changed their LINE photo.
+    await registerOrLoginInFe(store, { ...base, pictureUrl: 'https://profile.line-scdn.net/second' }, dependencies)
+    const [refreshed] = await client`SELECT picture_url FROM "user" WHERE user_id = ${userId}`
+    expect(refreshed.picture_url).toBe('https://profile.line-scdn.net/second')
+
+    // A session that carries no image must never erase the stored one.
+    await registerOrLoginInFe(store, { ...base, pictureUrl: '' }, dependencies)
+    const [kept] = await client`SELECT picture_url FROM "user" WHERE user_id = ${userId}`
+    expect(kept.picture_url).toBe('https://profile.line-scdn.net/second')
+  })
+
   it('negative control: the same race duplicates the identity without the lock', async () => {
     let worstProviderRowCount = 0
     for (let attempt = 0; attempt < CONTROL_ATTEMPTS; attempt += 1) {

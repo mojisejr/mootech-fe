@@ -70,6 +70,13 @@ function txAdapter(tx: SqlExecutor): RegisterLoginTransaction {
       } satisfies MemberIdentity
     },
 
+    // `user.picture_url` is the column the app reads, and it is refreshed here
+    // with the provider's own CDN URL - owner decision 2026-09-23. The legacy
+    // path downloads the image into object storage first (Supabase Storage since
+    // BE 2641c73, despite the downloadLineImageToS3 name); this route
+    // deliberately does not, so no storage of ours is consumed. Both
+    // profile.line-scdn.net and lh3.googleusercontent.com are already allowed in
+    // next.config.mjs `images.domains`.
     async updateLoginProfile(input) {
       // An empty incoming value means "the session did not carry one", never
       // "erase the stored one". COALESCE(NULLIF(...)) keeps the stored value in
@@ -90,13 +97,16 @@ function txAdapter(tx: SqlExecutor): RegisterLoginTransaction {
       if (input.provider.toLowerCase() === 'google' && input.email) {
         await tx.execute(sql`
           UPDATE "user"
-          SET email = ${input.email}, login_at = ${input.updatedAt}, update_at = ${input.updatedAt}
+          SET email = ${input.email},
+              picture_url = COALESCE(NULLIF(${input.pictureUrl}, ''), picture_url),
+              login_at = ${input.updatedAt}, update_at = ${input.updatedAt}
           WHERE user_id = ${input.userId}
         `)
       } else {
         await tx.execute(sql`
           UPDATE "user"
-          SET login_at = ${input.updatedAt}, update_at = ${input.updatedAt}
+          SET picture_url = COALESCE(NULLIF(${input.pictureUrl}, ''), picture_url),
+              login_at = ${input.updatedAt}, update_at = ${input.updatedAt}
           WHERE user_id = ${input.userId}
         `)
       }
