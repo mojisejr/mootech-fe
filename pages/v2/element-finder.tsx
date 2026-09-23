@@ -37,24 +37,13 @@ const STEPS = ["อ่านวันเดือนปีเกิด", "หา
 // — emoji ทอง 🪙 ขึ้น □ (ไม่มี glyph ในบางเครื่อง) · ชุดนี้ครบ 5 ธาตุ สม่ำเสมอกับทั้งแอป (เอ็ม 2026-09-22)
 const ELEMENT_ICON_ORDER: (keyof typeof ELEMENT_CONTENT)[] = ["ไฟ", "ไม้", "ดิน", "ทอง", "น้ำ"]
 
-// รับ "วว/ดด/ปปปป" — ปีเป็น พ.ศ. (เช่น 2538) หรือ ค.ศ. (เช่น 1995) ก็ได้ → คืน "YYYY-MM-DD" (ค.ศ.) หรือ "" ถ้าไม่ถูก
-// (ปี ≥ 2400 ถือเป็น พ.ศ. → ลบ 543). ตรวจวันจริง (กัน 31/02) และช่วงปีสมเหตุผล.
-function parseThaiDate(input: string): string {
-  const m = input.trim().match(/^(\d{1,2})\s*\/\s*(\d{1,2})\s*\/\s*(\d{4})$/)
-  if (!m) return ""
-  const d = Number(m[1]), mo = Number(m[2])
-  let y = Number(m[3])
-  if (y >= 2400) y -= 543 // พ.ศ. → ค.ศ.
-  if (mo < 1 || mo > 12 || d < 1 || d > 31 || y < 1900 || y > 2200) return ""
-  const dt = new Date(y, mo - 1, d)
-  if (dt.getFullYear() !== y || dt.getMonth() !== mo - 1 || dt.getDate() !== d) return "" // เช่น 31/04
-  return `${y}-${String(mo).padStart(2, "0")}-${String(d).padStart(2, "0")}`
-}
+// วันเกิด = ค.ศ. "YYYY-MM-DD" จาก <input type="date"> (ปฏิทินมือถือ) — ไม่ต้อง parse เอง
+const TODAY_ISO = new Date().toLocaleDateString("en-CA") // จำกัด max ไม่ให้เลือกอนาคต
 
 export default function ElementFinderPage() {
   const { status: authStatus } = useCurrentUser()
   const [phase, setPhase] = useState<"input" | "loading" | "result">("input")
-  const [birthText, setBirthText] = useState("") // "วว/ดด/ปปปป" (พ.ศ. หรือ ค.ศ.)
+  const [birthDate, setBirthDate] = useState("") // "YYYY-MM-DD" (ค.ศ.) จากปฏิทิน
   const [birthTime, setBirthTime] = useState("")
   const [timeUnknown, setTimeUnknown] = useState(false)
   const [result, setResult] = useState<ElementContent | null>(null)
@@ -65,7 +54,6 @@ export default function ElementFinderPage() {
   const [error, setError] = useState<string | null>(null)
   const [step, setStep] = useState(0)
 
-  const birthDate = parseThaiDate(birthText) // "" ถ้ายังกรอกไม่ครบ/ผิด
   const canSubmit = /^\d{4}-\d{2}-\d{2}$/.test(birthDate) && (timeUnknown || /^\d{2}:\d{2}$/.test(birthTime))
 
   const run = async () => {
@@ -167,14 +155,14 @@ export default function ElementFinderPage() {
           </div>
 
           <section className="v3-shadow-card mt-1 flex w-full max-w-md flex-col gap-4 rounded-[24px] bg-white p-5">
-            {/* วันเกิด — กรอกเป็นข้อความ วว/ดด/ปปปป รับทั้ง พ.ศ./ค.ศ. */}
+            {/* วันเกิด — เลือกจากปฏิทินในมือถือ (ไม่ต้องพิมพ์เอง) เอ็ม 2026-09-23 */}
             <label className="flex flex-col gap-1.5 text-[13px] font-bold text-v3-navy">วันเกิดของคุณ
               <input
-                type="text" inputMode="numeric" value={birthText} onChange={(e) => setBirthText(e.target.value)}
-                placeholder="วว/ดด/ปปปป" aria-label="วันเกิด" data-testid="finder-date"
-                className="w-full rounded-2xl border border-v3-border-card bg-white px-4 py-3 text-[15px] font-medium text-v3-navy outline-none placeholder:font-normal placeholder:text-v3-placeholder focus:border-v3-sapphire"
+                type="date" value={birthDate} onChange={(e) => setBirthDate(e.target.value)}
+                min="1900-01-01" max={TODAY_ISO} aria-label="วันเกิด" data-testid="finder-date"
+                className="w-full rounded-2xl border border-v3-border-card bg-white px-4 py-3 text-[15px] font-medium text-v3-navy outline-none focus:border-v3-sapphire"
               />
-              <span className="text-[11px] font-normal text-v3-text-muted">ใช้ปี พ.ศ. หรือ ค.ศ. ก็ได้ เช่น 15/08/2538</span>
+              <span className="text-[11px] font-normal text-v3-text-muted">แตะเพื่อเลือกวันเกิดจากปฏิทิน</span>
             </label>
 
             {/* เวลาเกิด + ไม่ทราบเวลา (บนแถวเดียวกัน) */}
