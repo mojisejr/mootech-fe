@@ -201,14 +201,17 @@ export function CardReadingScreen({
     const text = cards.length
       ? `เปิดไพ่ได้ ${cards.map((c) => c.name).join(" · ")}${summaryLine ? ` - ${summaryLine}` : ""} — ${title} กับ Mumate`
       : `${title} กับ Mumate`
+    // เอ็ม 2026-09-23: คำตอบต้อง "ทวนคำถาม" — คนอ่าน (โดยเฉพาะหน้าแชร์) ไม่เห็นคำถามเดิม จึงนำคำถามขึ้นก่อนสรุป/ผลเต็ม
+    const q = question.trim()
+    const sharedSummary = q ? `คำถาม: ${q}\n\n${shareSummary}` : shareSummary
     // เปิดเผย (0033): ติ๊กยินยอม → แนบคำทำนายเต็มไปกับ snapshot ให้หน้า invite เปิดอ่านได้
     // เอ็ม 2026-09-23: ใช้ engineProse (แต่ละย่อหน้าเอ่ยชื่อไพ่อยู่แล้ว "ไพ่หลัก... — <ชื่อไพ่>") = ตรงกับผลบนจอ
     //   ไม่ prepend 【ชื่อไพ่】 อีก (meaning ว่าง → เหลือหัวข้อลอย ๆ ซ้ำชื่อในย่อหน้าถัดไป). สรุปอยู่ที่ share.d แล้ว
     const fullText = allowPublic
-      ? (proseParas.join("\n\n") || cards.map((c) => `${c.name} — ${(c.meaning || c.book1 || "").trim()}`.trim()).join("\n\n")).slice(0, 8000) || undefined
+      ? [q ? `คำถาม: ${q}` : "", proseParas.join("\n\n") || cards.map((c) => `${c.name} — ${(c.meaning || c.book1 || "").trim()}`.trim()).join("\n\n")].filter(Boolean).join("\n\n").slice(0, 8000) || undefined
       : undefined
     // #359 รอบ 13: แชร์เป็นลิงก์ + og:image เฉพาะผล (ลิงก์กดได้ทุกแอป + พรีวิวการ์ด)
-    void shareAsInvite({ title, text, og: { title: resultTitle || title, summary: shareSummary, tag: title, image: shareImages.slice(0, 3).join(","), isPublic: allowPublic, fullText } })
+    void shareAsInvite({ title, text, og: { title: resultTitle || title, summary: sharedSummary, tag: title, image: shareImages.slice(0, 3).join(","), isPublic: allowPublic, fullText } })
   }
 
   const headerTitle = phase === "result" ? resultTitle : phase === "pick" ? "เลือกไพ่ 3 ใบ" : title
@@ -359,6 +362,8 @@ export function CardReadingScreen({
             return summaryText ? (
               <section className="print-keep flex flex-col gap-1 rounded-[24px] bg-[#EAF3FF] p-5" data-testid="cards-summary">
                 <span className="w-fit text-[13px] font-black text-v3-sapphire">สรุปคำทำนายนี้</span>
+                {/* ทวนคำถาม (เอ็ม 2026-09-23): โชว์คำถามที่ถามก่อนคำตอบ ให้รู้ว่าตอบอะไรอยู่ */}
+                {question.trim() ? <p className="text-[12px] font-semibold leading-5 text-v3-sapphire">คำถามของคุณ: {question.trim()}</p> : null}
                 <p className="text-[13px] leading-[22px] text-v3-text-body">{summaryText}</p>
               </section>
             ) : null

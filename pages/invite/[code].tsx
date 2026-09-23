@@ -223,7 +223,8 @@ export default function InvitePage({ ssrCode = "", ssrInviterName = null, origin
               {share.d ? (
                 <div className="mt-3 rounded-2xl bg-[#EAF3FF] p-4">
                   <span className="text-[12px] font-black text-v3-sapphire">สรุปคำทำนายนี้</span>
-                  <p className="mt-1 text-[13px] leading-[22px] text-v3-text-body">{share.d}</p>
+                  {/* whitespace-pre-line: สรุปอาจขึ้นต้นด้วย "คำถาม: ...\n\n" (ทวนคำถาม เอ็ม 2026-09-23) */}
+                  <p className="mt-1 whitespace-pre-line text-[13px] leading-[22px] text-v3-text-body">{share.d}</p>
                 </div>
               ) : null}
               {/* แท่งความเข้ากันรายด้าน (เอ็ม 2026-09-23) — จาก snapshot.skills "label|pct|grade|color|top~..." */}
