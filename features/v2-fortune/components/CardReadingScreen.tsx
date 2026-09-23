@@ -76,6 +76,8 @@ export function CardReadingScreen({
   const [qiInfo, setQiInfo] = useState<{ source: "free" | "credit" | "qi"; cost: number } | null>(null)
   // แชร์ = รับ +10 QI วันละ 1 ครั้ง — อ่านผลจริงเพื่อบอกให้ตรง (ได้/เต็มโควตาแล้ว) ไม่ให้ผู้ใช้งงว่ากดแล้วไม่ได้ QI
   const [shareState, setShareState] = useState<"idle" | "done" | "capped">("idle")
+  // ยินยอมเปิดเผย (0033): กดติ๊ก → แชร์แบบให้คนอื่นอ่านคำทำนายเต็มได้; ไม่ติ๊ก = แชร์แบบเดิม (พรีวิว + ชวนเล่น)
+  const [allowPublic, setAllowPublic] = useState(false)
   // คำถาม (บังคับใส่ก่อนเสี่ยง — ซินแส/ปอง 2026-09-21): seed ไพ่ตามคำถาม + LLM เกลาคำตอบให้ตรงคำถาม (llmProse→สรุป)
   const [question, setQuestion] = useState("")
   const questionReady = question.trim().length > 0
@@ -199,8 +201,12 @@ export function CardReadingScreen({
     const text = cards.length
       ? `เปิดไพ่ได้ ${cards.map((c) => c.name).join(" · ")}${summaryLine ? ` - ${summaryLine}` : ""} — ${title} กับ Mumate`
       : `${title} กับ Mumate`
+    // เปิดเผย (0033): ติ๊กยินยอม → แนบคำทำนายเต็มไปกับ snapshot ให้หน้า invite เปิดอ่านได้
+    const fullText = allowPublic
+      ? [...cards.map((c) => `【${c.name}】 ${(c.meaning || c.book1 || "").trim()}`), proseParas.join("\n\n"), tailored.trim()].filter(Boolean).join("\n\n").slice(0, 8000)
+      : undefined
     // #359 รอบ 13: แชร์เป็นลิงก์ + og:image เฉพาะผล (ลิงก์กดได้ทุกแอป + พรีวิวการ์ด)
-    void shareAsInvite({ title, text, og: { title: resultTitle || title, summary: shareSummary, tag: title, image: shareImages.slice(0, 3).join(",") } })
+    void shareAsInvite({ title, text, og: { title: resultTitle || title, summary: shareSummary, tag: title, image: shareImages.slice(0, 3).join(","), isPublic: allowPublic, fullText } })
   }
 
   const headerTitle = phase === "result" ? resultTitle : phase === "pick" ? "เลือกไพ่ 3 ใบ" : title
@@ -388,6 +394,11 @@ export function CardReadingScreen({
           </section>
 
           <div className="mt-1 flex flex-col gap-2">
+            {/* ยินยอมเปิดเผย (0033) — ติ๊กแล้วเพื่อนกดอ่านคำทำนายเต็มได้จากลิงก์แชร์ */}
+            <label className="flex items-start gap-2 rounded-2xl bg-v3-sapphire/5 px-4 py-2.5 text-[12px] font-medium leading-4 text-v3-text-body">
+              <input type="checkbox" checked={allowPublic} onChange={(e) => setAllowPublic(e.target.checked)} data-testid="cards-allow-public" className="mt-0.5 size-4 shrink-0 accent-v3-sapphire" />
+              เปิดเผยให้เพื่อนกดอ่านคำทำนายเต็มได้ (ยินยอมเปิดเผยผลนี้)
+            </label>
             <KitButton onClick={share} testId="cards-share">
               <span className="inline-flex items-center gap-2">
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="18" cy="5" r="3" /><circle cx="6" cy="12" r="3" /><circle cx="18" cy="19" r="3" /><path d="m8.6 13.5 6.8 4M15.4 6.5l-6.8 4" /></svg>
