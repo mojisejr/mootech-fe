@@ -355,7 +355,7 @@ export default function V2CalendarDayPage({ teamPreview }: { teamPreview: boolea
             ❌ ไม่ใช่ `detail.dithi` ทั้งก้อน ซึ่งผู้ใช้ฟรีก็มี (officer ไปเป็นชิปบนการ์ดคะแนน) */}
         {advanced && detail.dithi?.jianchu && <div ref={dithiRef} className="scroll-mt-4"><Dithi dithi={detail.dithi} /></div>}
         {/* วันมงคล/วันพิเศษ (ทุก tier) — ดาววันจากปฏิทินซินแส */}
-        {detail.specialDays && detail.specialDays.length > 0 && <SpecialDays specialDays={detail.specialDays} />}
+        {detail.specialDays && detail.specialDays.length > 0 && <SpecialDays specialDays={detail.specialDays} luckyDirection={detail.luckyDirection} />}
         {/* every tier gets these two — Free-2 draws them in full */}
         <LuckyColors colors={detail.luckyColors} deity={detail.dayDeity} direction={detail.luckyDirection} badDirection={detail.badDirection} />
         {/* สีเสื้อประจำวัน (納音/นับอิม) — ตัวอักษรขาว พื้นสีตามธาตุ (เอกสารซินแส). paid: shirtColors ไม่อยู่ใน allow-list ฟรี → free ได้ null → การ์ดซ่อนตัวเอง */}
