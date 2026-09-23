@@ -71,12 +71,20 @@ function txAdapter(tx: SqlExecutor): RegisterLoginTransaction {
     },
 
     async updateLoginProfile(input) {
+      // An empty incoming value means "the session did not carry one", never
+      // "erase the stored one". COALESCE(NULLIF(...)) keeps the stored value in
+      // that case - it matters most for email, the column checkUserWithLine
+      // branches on, which every LINE login would otherwise blank.
       await tx.execute(sql`
         UPDATE user_provider
-        SET name = ${input.name}, picture_url = ${input.pictureUrl}, email = ${input.email}, update_at = ${input.updatedAt}
+        SET name = COALESCE(NULLIF(${input.name}, ''), name),
+            picture_url = COALESCE(NULLIF(${input.pictureUrl}, ''), picture_url),
+            email = COALESCE(NULLIF(${input.email}, ''), email),
+            update_at = ${input.updatedAt}
         WHERE id_token = ${input.providerSubject} AND lower(provider) = lower(${input.provider})
       `)
-      if (input.provider === 'GOOGLE' && input.email) {
+      // Spelling is normalised to the live writer's: Google lower case.
+      if (input.provider === 'google' && input.email) {
         await tx.execute(sql`
           UPDATE "user"
           SET email = ${input.email}, login_at = ${input.updatedAt}, update_at = ${input.updatedAt}

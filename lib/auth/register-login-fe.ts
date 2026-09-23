@@ -1,6 +1,6 @@
 import { randomInt, randomUUID } from 'node:crypto'
 
-export type LoginProvider = 'GOOGLE' | 'LINE'
+export type LoginProvider = 'google' | 'LINE'
 
 export interface RegisterLoginInput {
   provider: string
@@ -68,9 +68,9 @@ export interface RegisterLoginResult {
   is_email: boolean
   is_info: boolean
   user_id: string
-  name: string | null
+  name: string
   ref_code: string
-  picture_url: string | null
+  picture_url: string
   is_refresh: boolean
   result_code: string
 }
@@ -101,14 +101,28 @@ export interface RegisterLoginDependencies {
   makeReferCode?: () => string
 }
 
-const SUPPORTED_PROVIDERS = new Set<LoginProvider>(['GOOGLE', 'LINE'])
+/**
+ * Spelling is normalised PER PROVIDER, to whatever the live writer already
+ * stores: Google lower case, LINE upper case. Do not pick one case for both.
+ *
+ * Four backend queries match a STORED 'LINE' exactly - the new-member cohort
+ * job, the paying-LINE-member audience, checkUserWithLine, and a migration
+ * idempotency check - so lower-casing LINE makes all four return zero rows
+ * WITHOUT raising an error. No query anywhere reads a stored 'GOOGLE', so
+ * lower-casing Google is free. Matching the live spelling also means no
+ * production file has to change in the same deploy.
+ */
+const PROVIDER_SPELLING = new Map<string, LoginProvider>([
+  ['GOOGLE', 'google'],
+  ['LINE', 'LINE'],
+])
 
 export function normalizeLoginProvider(value: string): LoginProvider {
-  const provider = value.trim().toUpperCase() as LoginProvider
-  if (!SUPPORTED_PROVIDERS.has(provider)) {
+  const spelling = PROVIDER_SPELLING.get(value.trim().toUpperCase())
+  if (!spelling) {
     throw new RegisterLoginError(400, 'only Google and LINE login are supported', true)
   }
-  return provider
+  return spelling
 }
 
 /**
@@ -143,9 +157,12 @@ function response(member: MemberIdentity, isNew: boolean): RegisterLoginResult {
     is_email: Boolean(member.email),
     is_info: Boolean(member.name),
     user_id: member.userId,
-    name: member.name,
+    // The legacy path writes and returns '' for an absent name or picture.
+    // Callers put these straight into a cookie, so a null would reach the
+    // member as the literal string "null" where their name should be.
+    name: member.name ?? '',
     ref_code: member.referCode ?? '',
-    picture_url: member.pictureUrl,
+    picture_url: member.pictureUrl ?? '',
     is_refresh: member.isRefresh,
     result_code: member.resultCode,
   }
@@ -211,7 +228,12 @@ export async function registerOrLoginInFe(
         providerSubject,
         userId: member.userId,
         name,
-        email,
+        // LINE sessions carry no email unless the scope is granted, and an
+        // empty one must never overwrite a stored address: user_provider.email
+        // is the column checkUserWithLine branches on, so blanking it on each
+        // LINE login would quietly change that branch. The store treats an
+        // empty value as "leave the stored one alone".
+        email: provider === 'LINE' ? '' : email,
         pictureUrl,
         updatedAt: now,
       })
@@ -220,9 +242,9 @@ export async function registerOrLoginInFe(
 
     const member: NewMemberIdentity = {
       userId: makeUserId(),
-      name: name || null,
-      email: email || null,
-      pictureUrl: pictureUrl || null,
+      name,
+      email,
+      pictureUrl,
       referCode: makeReferCode(),
       isRefresh: false,
       resultCode: '',

@@ -18,12 +18,18 @@ class FakeTransaction implements RegisterLoginTransaction {
   createdProviders: string[] = []
   activities: string[] = []
   updatedProfiles: string[] = []
+  profileUpdates: { userId: string; name: string; email: string; pictureUrl: string }[] = []
   referCodes: string[] = []
 
   async lockProviderIdentity(provider: string, subject: string) { this.locked.push(`${provider}:${subject}`) }
   async findProviderMappings() { return this.mappings }
   async findMember(userId: string) { return this.members.get(userId) ?? null }
-  async updateLoginProfile(input: { userId: string }) { this.updatedProfiles.push(input.userId) }
+  async updateLoginProfile(input: { userId: string; name: string; email: string; pictureUrl: string }) {
+    this.updatedProfiles.push(input.userId)
+    this.profileUpdates.push({
+      userId: input.userId, name: input.name, email: input.email, pictureUrl: input.pictureUrl,
+    })
+  }
   async setReferCode(userId: string, referCode: string) {
     this.referCodes.push(`${userId}:${referCode}`)
   }
@@ -71,7 +77,7 @@ describe('FE-native register/login', () => {
       provider: 'google', providerSubject: 'sub-1', name: 'New', email: 'n@example.com', pictureUrl: 'n.png',
     }, deps)
     expect(result).toMatchObject({ ok: true, is_user_new: true, user_id: deps.makeUserId(), ref_code: deps.makeReferCode() })
-    expect(tx.locked).toEqual(['GOOGLE:sub-1'])
+    expect(tx.locked).toEqual(['google:sub-1'])
     expect(tx.createdMembers).toEqual([deps.makeUserId()])
     expect(tx.createdProviders).toEqual([`${deps.makeProviderRowId()}:${deps.makeUserId()}`])
     expect(tx.activities).toEqual([deps.makeUserId()])
@@ -165,6 +171,75 @@ describe('FE-native register/login', () => {
       expect(tx.referCodes).toEqual([])
       expect(tx.createdMembers).toEqual([deps.makeUserId()])
     }
+  })
+
+  // Defect 3: the live path writes Google lower case and LINE upper case, and
+  // four backend queries match a stored 'LINE' exactly.
+  it('writes each provider at the spelling the live path already stores', async () => {
+    const google = new FakeTransaction()
+    await registerOrLoginInFe(storeOf(google), {
+      provider: 'GOOGLE', providerSubject: 'g-1', name: 'G', email: 'g@example.com', pictureUrl: '',
+    }, deps)
+    expect(google.locked).toEqual(['google:g-1'])
+
+    const line = new FakeTransaction()
+    await registerOrLoginInFe(storeOf(line), {
+      provider: 'line', providerSubject: 'U-1', name: 'L', email: '', pictureUrl: '',
+    }, deps)
+    expect(line.locked).toEqual(['LINE:U-1'])
+  })
+
+  // Defect 4: callers put name and picture straight into a cookie, so a null
+  // would reach the member as the literal string "null".
+  it('answers an absent name or picture as an empty string, never null', async () => {
+    const fresh = new FakeTransaction()
+    const created = await registerOrLoginInFe(storeOf(fresh), {
+      provider: 'google', providerSubject: 'blank-1', name: '', email: '', pictureUrl: '',
+    }, deps)
+    expect(created).toEqual({
+      ok: true, is_user_new: true, is_email: false, is_info: false,
+      user_id: deps.makeUserId(), name: '', ref_code: deps.makeReferCode(),
+      picture_url: '', is_refresh: false, result_code: '',
+    })
+
+    const returning = new FakeTransaction()
+    returning.mappings = [{ id: 'p1', userId: 'u-null' }]
+    returning.members.set('u-null', {
+      userId: 'u-null', name: null, email: null, pictureUrl: null,
+      referCode: 'KEEPKEEPKEEPKEEPKEEP', isRefresh: false, resultCode: '',
+    })
+    const result = await registerOrLoginInFe(storeOf(returning), {
+      provider: 'line', providerSubject: 'U-null', name: '', email: '', pictureUrl: '',
+    }, deps)
+    expect(result.name).toBe('')
+    expect(result.picture_url).toBe('')
+  })
+
+  // Defect 5: user_provider.email is the column checkUserWithLine branches on.
+  it('never sends a LINE session email into the stored profile', async () => {
+    const line = new FakeTransaction()
+    line.mappings = [{ id: 'p1', userId: 'u-line' }]
+    line.members.set('u-line', {
+      userId: 'u-line', name: 'L', email: 'kept@example.com', pictureUrl: null,
+      referCode: 'KEEPKEEPKEEPKEEPKEEP', isRefresh: false, resultCode: '',
+    })
+    await registerOrLoginInFe(storeOf(line), {
+      provider: 'LINE', providerSubject: 'U-keep', name: 'L', email: 'line@example.com', pictureUrl: 'l.png',
+    }, deps)
+    expect(line.profileUpdates).toEqual([
+      { userId: 'u-line', name: 'L', email: '', pictureUrl: 'l.png' },
+    ])
+
+    const google = new FakeTransaction()
+    google.mappings = [{ id: 'p2', userId: 'u-google' }]
+    google.members.set('u-google', {
+      userId: 'u-google', name: 'G', email: 'old@example.com', pictureUrl: null,
+      referCode: 'KEEPKEEPKEEPKEEPKEEP', isRefresh: false, resultCode: '',
+    })
+    await registerOrLoginInFe(storeOf(google), {
+      provider: 'google', providerSubject: 'g-keep', name: 'G', email: 'new@example.com', pictureUrl: '',
+    }, deps)
+    expect(google.profileUpdates[0].email).toBe('new@example.com')
   })
 
   // Defect 1: both callers sign the member out on `ok: false`, so a failure they
