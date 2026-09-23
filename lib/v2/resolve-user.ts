@@ -43,6 +43,23 @@ export function resolveUserFromRows(rows: Array<{ user_id?: unknown }>): Resolve
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
+const MEMBER_ID_COOKIE = 'cookie-mumate-id'
+
+/**
+ * กันเหนียว (เอ็ม 2026-09-23): true เมื่อ session ที่เซ็นแล้ว resolve เป็นคนละ user กับ MEMBER_ID cookie
+ * (สภาพ "ล็อกอินค้าง 2 บัญชี" / cookie ค้างจาก login เก่า). หน้าจอ (person1 + รายชื่อเพื่อน) อ่านจาก cookie
+ * แต่ calculate ยึด session → เพื่อนของ cookie จะหาไม่เจอใน session แล้วขึ้น "friend not found" ที่งง.
+ * ให้ route จับเคสนี้แล้วบอก "โปรดเข้าสู่ระบบใหม่" แทน.
+ *
+ * 🔴 ถ้า resolveSessionUserId ใช้ fallback (ไม่มี session) → sessionUserId == cookie อยู่แล้ว → คืน false
+ *    (ผู้ใช้ล็อกอินเดียวปกติไม่มีวันชนเคสนี้). ไม่มี cookie / cookie ไม่ใช่ UUID → false.
+ */
+export function memberCookieMismatch(req: NextApiRequest, sessionUserId: string): boolean {
+  const raw = (req.cookies?.[MEMBER_ID_COOKIE] ?? '').trim()
+  if (!UUID_RE.test(raw)) return false
+  return raw.toLowerCase() !== sessionUserId.trim().toLowerCase()
+}
+
 /**
  * Fallback identity (#391, 2026-09-13): some browsers (Samsung Internet tracking-prevention / Secret Mode,
  * และ webview บางตัว) ทิ้ง cookie `__Secure-next-auth.session-token` (SameSite=None; Secure) ทำให้

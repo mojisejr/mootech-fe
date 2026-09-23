@@ -28,6 +28,8 @@ export type WorkCalcFailure =
   | 'unusable-birth'
   | 'too-many'
   | 'engine-down'
+  /** 409 — signed session ≠ MEMBER_ID cookie (ล็อกอินค้างคนละบัญชี): เพื่อนของ cookie หาไม่เจอใน session → ให้ล็อกอินใหม่ */
+  | 'identity'
   /** no response at all — offline, timeout, CORS. We cannot know whether the server processed it. */
   | 'network'
   /** ours, and unclassified: a 500, an unexpected status, or a 2xx that broke its own contract. */
@@ -73,6 +75,8 @@ export function readWorkCompareResult(res: ApiResult): WorkCalcOutcome {
   switch (res.status) {
     case 410:
       return { ok: false, reason: 'quota' }
+    case 409:
+      return { ok: false, reason: 'identity' } // session ≠ cookie → ล็อกอินใหม่ (เอ็ม 2026-09-23)
     case 404:
       return { ok: false, reason: 'no-friend' }
     case 422:

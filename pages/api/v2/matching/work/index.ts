@@ -15,7 +15,7 @@
 //   5xx → 'system'  everything else, the engine included
 // so an engine outage can never render as "โควตาเต็ม" (#263).
 import type { NextApiRequest, NextApiResponse } from 'next'
-import { resolveSessionUserId } from '@/lib/v2/resolve-user'
+import { resolveSessionUserId, memberCookieMismatch } from '@/lib/v2/resolve-user'
 import { runWorkCompare } from '@/lib/matching/work-compare-flow'
 import { MAX_CANDIDATES, type BaziWorkRelationship } from '@/lib/matching/bazi-work-client'
 import { resolveRelationship } from '@/lib/matching/bazi-pair.mapper'
@@ -29,6 +29,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   const who = await resolveSessionUserId(req, res)
   if (!who.ok) return res.status(who.status).json({ ok: false, error: who.error })
+  // กันเหนียว: หน้าจออ่านเพื่อนจาก MEMBER_ID cookie แต่ที่นี่ยึด session — คนละบัญชี (cookie ค้าง) → บอกล็อกอินใหม่
+  if (memberCookieMismatch(req, who.userId)) {
+    return res.status(409).json({ ok: false, reason: 'identity', error: 'บัญชีไม่ตรงกัน โปรดออกจากระบบแล้วเข้าสู่ระบบใหม่' })
+  }
 
   const body = (req.body ?? {}) as { friend_ids?: unknown; role?: unknown }
   const raw = body.friend_ids

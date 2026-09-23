@@ -83,7 +83,12 @@ export function CompatibilityResultScreen({ matchingId }: { matchingId: string }
   const ei = r.result.elementInteraction
   const { mascotA, mascotB } = r
   // #6 (2026-09-15): การ์ดแชร์เฉพาะบุคคล — มาสคอต A+B + สรุปผลสมพงศ์
-  const shareImages = [mascotA?.imageUrl, mascotB?.imageUrl].filter((u): u is string => typeof u === 'string' && u.length > 0)
+  // เอ็ม 2026-09-23: มาสคอตโหลด async (หลังผล) → บางทีกดแชร์ก่อนโหลดเสร็จ → รูปคู่หายในหน้าอ่าน.
+  //   fallback รูปโปรไฟล์ของแต่ละคน (มีอยู่ตั้งแต่ต้น) เมื่อมาสคอตยังไม่มา → รูปคู่ไม่หาย (มาสคอตมาก็ทับเอง)
+  const shareImages = [
+    mascotA?.imageUrl?.trim() || persons?.a?.imageProfile?.trim() || '',
+    mascotB?.imageUrl?.trim() || persons?.b?.imageProfile?.trim() || '',
+  ].filter((u) => u.length > 0)
   const shareTitle = overall?.gradeLabel?.trim() || 'ผลความสมพงศ์'
   const shareSubtitle = typeof overall?.percent === 'number' ? `เข้ากัน ${overall.percent}%` : undefined
   const shareSummary = (overall?.ratingText?.trim() || 'ดูผลความเข้ากันของเรากับ Mumate').slice(0, 150)

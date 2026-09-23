@@ -352,7 +352,11 @@ export function WorkResultScreen({ matchingId }: { matchingId: string }) {
   const topEntry = entries[0]
   const topMascot = mascotByGz(dayGanzhiOfProfile(topEntry.profile) ?? dayGanzhiOfChart(topEntry.chart))
   const topPct = Math.round(topEntry.rankScore ?? 0)
-  const shareImages = [selfMascot?.imageUrl, topMascot?.imageUrl].filter((u): u is string => typeof u === 'string' && u.length > 0)
+  // เอ็ม 2026-09-23: มาสคอตโหลด async → fallback รูปโปรไฟล์ของคู่ที่เข้าที่สุด (self ไม่มีรูปใน profile → มาสคอตอย่างเดียว)
+  const shareImages = [
+    selfMascot?.imageUrl?.trim() || '',
+    topMascot?.imageUrl?.trim() || topEntry.person.pictureUrl?.trim() || '',
+  ].filter((u) => u.length > 0)
   const shareTitle = `${heroTitle}ที่เข้ากับคุณที่สุด`
   const shareSubtitle = `${displayName(topEntry)}${topPct ? ` · ${topPct}%` : ''}${topEntry.grade ? ` (${topEntry.grade})` : ''}`
   const shareSummary = topEntry.ratingText?.trim() || selfTrait || 'ดูผลสมพงศ์การงานของเรากับ Mumate'

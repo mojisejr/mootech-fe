@@ -239,6 +239,10 @@ const CALC_ERROR_COPY: Record<CompatFailure, { tone: 'retry' | 'blocked'; lines:
   network: { tone: 'retry', lines: ['เชื่อมต่อไม่ได้', 'ตรวจสัญญาณอินเทอร์เน็ตแล้วลองอีกครั้ง'] },
   navigate: { tone: 'blocked', lines: ['คำนวณเสร็จแล้ว แต่เปิดหน้าผลไม่สำเร็จ', 'ดูผลของคุณได้ที่ "ดูดวงสมพงศ์ล่าสุด" ด้านล่าง'] },
 
+  // identity (409) — session ที่เซ็นแล้ว ≠ MEMBER_ID cookie (ล็อกอินค้างคนละบัญชี): หน้าจออ่านเพื่อนจาก cookie
+  // แต่คำนวณยึด session → เพื่อนหาไม่เจอ. 'blocked' เพราะกดซ้ำไม่ช่วย ต้องออก-เข้าระบบใหม่ให้ตรงบัญชีก่อน (เอ็ม 2026-09-23)
+  identity: { tone: 'blocked', lines: ['บัญชีไม่ตรงกัน (ล็อกอินค้าง)', 'ออกจากระบบแล้วเข้าสู่ระบบใหม่ แล้วลองอีกครั้ง'] },
+
   // ── #585 ก้อน 4, the colleague lane's own refusals ────────────────────────────────────────────────
   //
   // 🔴 EVERY LINE BELOW IS SHORT BECAUSE IT WAS MEASURED, NOT BECAUSE IT READS SHORT. The two-line

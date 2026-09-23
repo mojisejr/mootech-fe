@@ -11,7 +11,7 @@
 //   5xx → 'system'  everything else, including the engine being down
 // So the engine failing can never render as "โควตาเต็ม": 503 ≠ 410, and the reason field says which.
 import type { NextApiRequest, NextApiResponse } from 'next'
-import { resolveSessionUserId } from '@/lib/v2/resolve-user'
+import { resolveSessionUserId, memberCookieMismatch } from '@/lib/v2/resolve-user'
 import { isMatchingType, runCalculateMatching } from '@/lib/matching/calculate-flow'
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
@@ -23,6 +23,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   // Identity first — an unsigned caller never reaches the engine and never writes a row (DoD).
   const who = await resolveSessionUserId(req, res)
   if (!who.ok) return res.status(who.status).json({ ok: false, error: who.error })
+  // กันเหนียว: หน้าจออ่านเพื่อนจาก MEMBER_ID cookie แต่ที่นี่ยึด session — ถ้าเป็นคนละบัญชี (cookie ค้าง)
+  // เพื่อนจะหาไม่เจอ → บอกให้ล็อกอินใหม่ชัด ๆ แทน "friend not found" ที่งง (เอ็ม 2026-09-23)
+  if (memberCookieMismatch(req, who.userId)) {
+    return res.status(409).json({ ok: false, reason: 'identity', error: 'บัญชีไม่ตรงกัน โปรดออกจากระบบแล้วเข้าสู่ระบบใหม่' })
+  }
 
   const body = (req.body ?? {}) as { friend_id?: unknown; matching_type?: unknown }
   const friendId = typeof body.friend_id === 'string' ? body.friend_id.trim() : ''
