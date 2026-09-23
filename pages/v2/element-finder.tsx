@@ -43,8 +43,9 @@ export const getServerSideProps: GetServerSideProps<FinderProps> = async (ctx) =
   const meta = EL_OG[el] ?? null
   const ogTitle = meta ? `ฉันคือ${meta.th} · มาหาธาตุแท้กันเถอะ` : "มาหาธาตุแท้กันเถอะ · MuMate"
   const ogDesc = "เช็คธาตุแท้จากวันเกิด รู้ใน 10 วิ พร้อมนิสัย & wallpaper — กับ Mumate"
+  // ใช้ "ไฟล์ static" (เร็ว/เชื่อถือได้ต่อ crawler ของ X) ไม่ใช่ endpoint dynamic (cold-start อาจทำ X ดึงรูปไม่ทัน)
   const ogImage = meta
-    ? `${origin}/api/og/share?${new URLSearchParams({ t: `ฉันคือ${meta.th}`, g: "หาธาตุแท้", d: ogDesc, m: meta.img }).toString()}`
+    ? `${origin}/images/v2/og/finder-${el}.png`
     : `${origin}/images/v2/features/13_มาหาธาตุแท้.png`
   const pageUrl = `${origin}${ctx.resolvedUrl}`
   return { props: { ogImage, ogTitle, ogDesc, pageUrl } }
@@ -61,7 +62,7 @@ const TODAY_ISO = new Date().toLocaleDateString("en-CA") // จำกัด max 
 // ป้าย FREE แบบ icon (starburst 8 แฉก แดง + FREE ขาว) — เป็น SVG จึงไม่ตกบรรทัด/ไม่พึ่งฟอนต์นอก
 function FreeBadge() {
   return (
-    <svg width="52" height="52" viewBox="0 0 64 64" aria-hidden className="shrink-0 drop-shadow-[0_2px_3px_rgba(0,0,0,0.28)]">
+    <svg width="42" height="42" viewBox="0 0 64 64" aria-hidden className="shrink-0 drop-shadow-[0_2px_3px_rgba(0,0,0,0.28)]">
       <g transform="rotate(-8 32 32)">
         <rect x="10" y="10" width="44" height="44" rx="9" fill="#ef3b3b" />
         <rect x="10" y="10" width="44" height="44" rx="9" fill="#ef3b3b" transform="rotate(45 32 32)" />
@@ -284,13 +285,11 @@ export default function ElementFinderPage({ ogImage, ogTitle, ogDesc, pageUrl }:
             </>
           )}
 
-          {/* CTA ดูดวงเต็ม — ข้อความบรรทัดเดียว (เต็มความกว้าง) แล้วแถว FREE (Luckiest Guy เล็ก หนา มีมิติ) + ดูเลย */}
-          <Link href="/v2/destiny" className="flex w-full max-w-md flex-col gap-1.5 rounded-2xl bg-v3-sapphire/10 px-4 py-2.5" data-testid="finder-cta">
-            <span className="whitespace-nowrap text-[13px] font-bold text-v3-navy">อยากรู้ลึกกว่านี้? ดูดวงเต็มของคุณ</span>
-            <span className="flex items-center justify-end gap-2">
-              <FreeBadge />
-              <span className="shrink-0 rounded-full bg-v3-sapphire px-4 py-1.5 text-[13px] font-bold text-white">ดูเลย →</span>
-            </span>
+          {/* CTA ดูดวงเต็ม — แถวเดียว: ข้อความ | ป้าย FREE | ปุ่มดูเลย */}
+          <Link href="/v2/destiny" className="flex w-full max-w-md items-center gap-2 rounded-2xl bg-v3-sapphire/10 px-3.5 py-2.5" data-testid="finder-cta">
+            <span className="min-w-0 flex-1 truncate text-[12.5px] font-bold text-v3-navy">อยากรู้ลึกกว่านี้? ดูดวงเต็มของคุณ</span>
+            <FreeBadge />
+            <span className="shrink-0 rounded-full bg-v3-sapphire px-4 py-1.5 text-[13px] font-bold text-white">ดูเลย →</span>
           </Link>
 
           {/* แชร์ = Twitter/X อย่างเดียว (ปุ่มดำ ไอคอน X) + บันทึก wallpaper */}
