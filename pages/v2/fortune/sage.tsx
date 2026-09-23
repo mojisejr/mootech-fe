@@ -141,7 +141,9 @@ export default function FortuneSagePage() {
         /* QI ล่ม — คง idle ให้ลองใหม่ได้ */
       }
     }
-    const text = stick ? `เสี่ยงเซียมซีได้ ${stick.pillar} · ${stick.nayin} — เสี่ยงทายกับ Mumate` : "เสี่ยงทายกับ Mumate"
+    // พี่พล 2026-09-23: ใส่คำแปลสรุป 1 บรรทัดในข้อความแชร์ (คนอ่านเห็นสรุป → อยากเข้ามาเล่นเอง)
+    const sageSummary = (tailored?.trim() || stick?.personality || "").replace(/\s+/g, " ").trim().slice(0, 120)
+    const text = stick ? `เสี่ยงเซียมซีได้ ${stick.pillar} · ${stick.nayin}${sageSummary ? ` - ${sageSummary}` : ""} — เสี่ยงทายกับ Mumate` : "เสี่ยงทายกับ Mumate"
     // #359 รอบ 13: แชร์เป็นลิงก์ + og:image เฉพาะผล
     void shareAsInvite({
       title: "เซียมซีเสี่ยงทาย",

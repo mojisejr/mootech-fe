@@ -193,8 +193,12 @@ export function CardReadingScreen({
         /* QI ล่ม — คง idle ให้ลองใหม่ได้ */
       }
     }
-    // แชร์ = ลิงก์เชิญเพื่อนของ user เอง (คนสมัคร → user ได้ QI) + แนบภาพการ์ดเฉพาะบุคคล (#6)
-    const text = cards.length ? `เปิดไพ่ได้ ${cards.map((c) => c.name).join(" · ")} — ${title} กับ Mumate` : `${title} กับ Mumate`
+    // แชร์ = ลิงก์เชิญเพื่อนของ user เอง (คนสมัคร → user ได้ QI). พี่พล 2026-09-23: ใส่ "คำแปลสรุป 1 บรรทัด"
+    // หลังชื่อไพ่ → คนอ่านเห็นสรุป + อยากเข้ามาเล่นเอง (ไม่เปิดผลเต็ม; หน้า invite = ชวนเล่น)
+    const summaryLine = shareSummary.replace(/\s+/g, " ").trim().slice(0, 120)
+    const text = cards.length
+      ? `เปิดไพ่ได้ ${cards.map((c) => c.name).join(" · ")}${summaryLine ? ` - ${summaryLine}` : ""} — ${title} กับ Mumate`
+      : `${title} กับ Mumate`
     // #359 รอบ 13: แชร์เป็นลิงก์ + og:image เฉพาะผล (ลิงก์กดได้ทุกแอป + พรีวิวการ์ด)
     void shareAsInvite({ title, text, og: { title: resultTitle || title, summary: shareSummary, tag: title, image: shareImages.slice(0, 3).join(",") } })
   }
