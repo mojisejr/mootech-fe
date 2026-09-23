@@ -1,33 +1,26 @@
 // pages/v2/element-finder.tsx — "มาหาธาตุแท้กันเถอะ / Bazi Element Finder" (#6 Kittipon 2026-09-21)
-// flow 3 จอ: กรอกวันเกิด → loading → ผลธาตุ (มาสคอต 60 การ์ด + quote + นิสัย + แชร์). login-only.
-// มาสคอต = การ์ด 60 character (นักษัตร×ธาตุ) แบบเดียวกับหน้า "ธาตุของคุณ" (resolveMascotFromCompute →
-// /images/v2/cards/NN_นักษัตร-ธาตุ.jpg). คำนวณจากวันเกิดที่กรอกผ่าน /api/calculator/compute.
-// gender ไม่กระทบมาสคอต/ธาตุ (แค่ facets ที่ไม่ใช้) → default MALE. แชร์ = shareAsInvite เหมือนจอผลอื่น.
+// flow 3 จอ: กรอกวันเกิด → loading → ผลธาตุ (wallpaper + แชร์). **ไม่ต้อง login** (เอ็ม 2026-09-23) —
+// เป็นหน้าเชิญชวน (viral) ใครก็เช็คได้. มาสคอต = การ์ด 60 (นักษัตร×ธาตุ) จาก resolveMascotFromCompute.
+// คำนวณผ่าน /api/calculator/compute (ต้องมี nonce cookie). แชร์ = Twitter/X intent อย่างเดียว.
 import Head from "next/head"
 import Link from "next/link"
 import Image from "next/image"
 import { useRef, useState } from "react"
 import type { GetServerSideProps } from "next"
 
-import { v2RedirectIfUnauthed } from "@/lib/v2/gate"
 import { SkyScreen } from "@/features/v2-profile/components/kit"
 import { Menubar } from "@/features/v2-shell/components/Menubar"
-import { AuthRequiredCard } from "@/features/auth/components/AuthRequiredCard"
-import { useCurrentUser } from "@/lib/auth/use-current-user"
 import { ELEMENT_CONTENT, toElementKey, type ElementContent } from "@/features/v2-element-finder/content"
 import { WallpaperCard, WallpaperStage } from "@/features/v2-element-finder/WallpaperCard"
 import { pickWallpaper, type WallpaperPick } from "@/features/v2-element-finder/wallpaper"
 import { ELEMENT_COLOR } from "@/lib/bazi/element-colors"
 import { resolveMascotFromCompute, type ComputeMascotSource } from "@/lib/personalization/mascot"
-import { shareAsInvite } from "@/lib/v2/share-invite"
-import { isLineInAppBrowser } from "@/lib/line/liff"
+import { openInExternalBrowser, isLineInAppBrowser } from "@/lib/line/liff"
 import { issueNonce, NONCE_COOKIE } from "@/lib/calculator/nonce"
 
 export const getServerSideProps: GetServerSideProps = async (ctx) => {
   ctx.res.setHeader("Cache-Control", "no-store, must-revalidate")
-  const redirect = v2RedirectIfUnauthed(ctx.req)
-  if (redirect) return redirect
-  // /api/calculator/compute ต้องมี nonce cookie (lib/calculator/nonce.ts) — ออกตอนโหลดหน้าเหมือน /calculator
+  // ไม่มี v2 gate/login — หน้านี้เปิดให้ทุกคนใช้ (viral). /api/calculator/compute ต้องมี nonce cookie เท่านั้น.
   const nonce = issueNonce()
   ctx.res.setHeader("Set-Cookie", `${NONCE_COOKIE}=${nonce}; HttpOnly; Path=/; SameSite=Lax; Secure; Max-Age=600`)
   return { props: {} }
@@ -42,14 +35,12 @@ const ELEMENT_ICON_ORDER: (keyof typeof ELEMENT_CONTENT)[] = ["ไฟ", "ไม�
 const TODAY_ISO = new Date().toLocaleDateString("en-CA") // จำกัด max ไม่ให้เลือกอนาคต
 
 export default function ElementFinderPage() {
-  const { status: authStatus } = useCurrentUser()
   const [phase, setPhase] = useState<"input" | "loading" | "result">("input")
   const [birthDate, setBirthDate] = useState("") // "YYYY-MM-DD" (ค.ศ.) จากปฏิทิน
   const [birthTime, setBirthTime] = useState("")
   const [timeUnknown, setTimeUnknown] = useState(false)
   const [result, setResult] = useState<ElementContent | null>(null)
   const [character, setCharacter] = useState<string>("") // การ์ด 60 โปร่งใส (สำหรับซ้อนบน wallpaper)
-  const [card, setCard] = useState<string>("") // การ์ด 60 แบบ .jpg (สำหรับ OG preview — next/og ไม่รองรับ webp)
   const [wallpaper, setWallpaper] = useState<WallpaperPick | null>(null) // { bg, text } ที่สุ่มไว้
   const [saving, setSaving] = useState(false)
   const [saveImg, setSaveImg] = useState<string | null>(null) // LINE: โชว์รูปให้กดค้างบันทึก (<a download> ถูกบล็อก)
@@ -74,14 +65,14 @@ export default function ElementFinderPage() {
       const key = mascot ? toElementKey(mascot.elementTh) : null
       await new Promise((r) => setTimeout(r, Math.max(0, 2600 - (Date.now() - started))))
       if (!mascot || !key) { setError("คำนวณธาตุไม่สำเร็จ ลองตรวจวันเกิดอีกครั้ง"); setPhase("input"); return }
-      setCharacter(mascot.character); setCard(mascot.card); setWallpaper(pickWallpaper(key))
+      setCharacter(mascot.character); setWallpaper(pickWallpaper(key))
       setResult(ELEMENT_CONTENT[key]); setPhase("result")
     } catch {
       setError("เชื่อมต่อไม่สำเร็จ ลองใหม่อีกครั้ง"); setPhase("input")
     } finally { timers.forEach((t) => window.clearTimeout(t)) }
   }
 
-  const reset = () => { setResult(null); setCharacter(""); setCard(""); setWallpaper(null); setPhase("input") }
+  const reset = () => { setResult(null); setCharacter(""); setWallpaper(null); setPhase("input") }
 
   // สุ่มลุคใหม่ — BG (ในธาตุเดิม) + Text ใหม่ ตามสเปก Kittipon/gafiw
   const shuffle = () => { if (result) setWallpaper(pickWallpaper(result.key)) }
@@ -114,33 +105,21 @@ export default function ElementFinderPage() {
 
   const closeSaveImg = () => { if (saveImg) URL.revokeObjectURL(saveImg); setSaveImg(null) }
 
-  // แชร์ wallpaper ที่ประกอบแล้ว (แนบไฟล์ภาพจริง) — เอ็ม/gafiw 2026-09-22
-  const share = async () => {
-    if (!result || saving) return
-    setSaving(true)
-    try {
-      const blob = await renderWallpaperBlob()
-      const file = blob ? new File([blob], "mumate-wallpaper.png", { type: "image/png" }) : null
-      // og = การ์ดพรีวิว (OG) ให้ลิงก์ /invite มี "รูปตามมา" ตอนแชร์ในแชท/กลุ่ม LINE (แนบไฟล์ตรงในไลน์ไม่ได้)
-      // — ใช้การ์ด .jpg (next/og ไม่รองรับ webp). ยังส่ง file ไว้ให้ FB/มือถือแนบ wallpaper เต็มผ่าน Web Share.
-      await shareAsInvite({
-        title: "มาหาธาตุแท้กันเถอะ",
-        text: `ฉันคือ${result.nameTh} — “${result.quote}” มาเช็คธาตุแท้ของคุณกับ Mumate`,
-        file,
-        og: { title: `ฉันคือ${result.nameTh}`, summary: result.quote, tag: "หาธาตุแท้", image: card || undefined },
-      })
-    } finally { setSaving(false) }
+  // แชร์ลง Twitter/X อย่างเดียว (เอ็ม 2026-09-23) — intent เปิด composer พร้อมข้อความ + ลิงก์หน้า finder
+  // (Twitter intent แนบรูปผ่าน URL ไม่ได้ → ผู้ใช้กด "บันทึก wallpaper" ไปแนบเองถ้าต้องการ). เปิดเบราว์เซอร์
+  // ภายนอกเมื่ออยู่ใน LINE (openInExternalBrowser), ไม่งั้น window.open.
+  const shareTwitter = () => {
+    if (!result) return
+    const text = `ฉันคือ${result.nameTh} — “${result.quote}” มาเช็คธาตุแท้ของคุณกับ Mumate`
+    const url = "https://bazichart.mumate.co/v2/element-finder"
+    void openInExternalBrowser(`https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}&url=${encodeURIComponent(url)}`)
   }
 
   return (
     <SkyScreen bgImage="/images/v2/fortune/sage-bg.png">
       <Head><title>มาหาธาตุแท้กันเถอะ · MuMate</title></Head>
 
-      {authStatus === "anon" ? (
-        <div className="mt-6"><AuthRequiredCard testId="finder-auth" message="เข้าสู่ระบบก่อนเพื่อค้นหาธาตุแท้ของคุณ" /></div>
-      ) : authStatus === "loading" ? (
-        <p className="mt-10 text-center text-[13px] text-v3-text-body">กำลังเตรียม…</p>
-      ) : phase === "input" ? (
+      {phase === "input" ? (
         <div className="mt-2 flex flex-col items-center gap-3" data-testid="finder-input">
           {/* โลโก้ muMate */}
           <Image src="/images/v2/logo/splash-logo.png" alt="Mumate" width={148} height={36} priority className="mt-1 h-9 w-auto object-contain" />
@@ -222,47 +201,52 @@ export default function ElementFinderPage() {
           <p className="max-w-xs text-[11px] text-v3-text-muted">ปาจื่อดูธาตุจาก “วันเกิด” ไม่ใช่ราศีเดือนเกิด เลยแม่นกว่าดวงทั่วไป</p>
         </div>
       ) : result ? (
-        <div className="mt-3 flex flex-col items-center gap-3" data-testid="finder-result">
-          <div className="rounded-2xl bg-white px-4 py-2 text-center text-[14px] font-bold text-v3-navy shadow-sm">“{result.quote}”</div>
-
-          {/* wallpaper ที่ประกอบแล้ว (BG ตามธาตุ + Character การ์ด 60 + Text สุ่ม) — พรีวิว + ปุ่มสุ่ม/บันทึก */}
+        // ผลลัพธ์ = หน้าเดียวไม่ต้องเลื่อน (เอ็ม 2026-09-23): wallpaper คือภาพที่บอกทุกอย่างอยู่แล้ว
+        // (ธาตุ+นิสัย+คำ baked ในภาพ) → ตัดข้อความซ้ำ (quote/traits/คำบรรยาย) ออก เหลือ ภาพ+CTA+ปุ่มแชร์
+        <div className="mt-1 flex flex-col items-center gap-2.5" data-testid="finder-result">
+          {/* wallpaper (ย่อ ~200 ให้พอดีหน้าเดียว) — ภาพเดียวบอกครบ */}
           {wallpaper && character && (
             <>
-              <div className="overflow-hidden rounded-[20px] shadow-[0_8px_24px_rgba(11,48,91,0.18)]" data-testid="finder-wallpaper">
-                <WallpaperCard bg={wallpaper.bg} character={character} text={wallpaper.text} width={300} />
+              <div className="overflow-hidden rounded-[18px] shadow-[0_8px_24px_rgba(11,48,91,0.18)]" data-testid="finder-wallpaper">
+                <WallpaperCard bg={wallpaper.bg} character={character} text={wallpaper.text} width={200} />
               </div>
               <button type="button" onClick={shuffle} data-testid="finder-shuffle" className="text-[13px] font-bold text-v3-sapphire">🎲 สุ่มลุคใหม่</button>
-              {/* ใบเต็ม 540px ซ่อนนอกจอ → html2canvas จับเป็นภาพคมชัด */}
               <WallpaperStage>
                 <WallpaperCard ref={wallpaperRef} bg={wallpaper.bg} character={character} text={wallpaper.text} width={540} />
               </WallpaperStage>
             </>
           )}
-          <div className="text-center">
-            <p className="text-[30px] font-black" style={{ color: ELEMENT_COLOR[result.key] }}>{result.nameTh}</p>
-            <p className="text-[12px] font-black tracking-widest text-v3-text-muted">{result.nameEn}</p>
-          </div>
-          <div className="flex flex-wrap justify-center gap-2">
-            {result.traits.map((t) => (
-              <span key={t} className="rounded-full px-4 py-1.5 text-[12px] font-bold" style={{ background: `${ELEMENT_COLOR[result.key]}1A`, color: ELEMENT_COLOR[result.key] }}>{t}</span>
-            ))}
-          </div>
-          <p className="max-w-md text-center text-[13px] leading-[22px] text-v3-text-body">{result.description}</p>
 
-          <Link href="/v2/destiny" className="mt-1 flex w-full max-w-md items-center justify-between rounded-2xl bg-v3-sapphire/10 p-4" data-testid="finder-cta">
-            <span className="text-[13px] font-bold text-v3-navy">อยากรู้ลึกกว่านี้? ดูดวงเต็มของคุณ</span>
-            <span className="rounded-full bg-v3-sapphire px-4 py-2 text-[13px] font-bold text-white">ดูเลย →</span>
+          {/* CTA ดูดวงเต็ม + ป้าย FREE แดงมีมิติ ก่อน "ดูเลย" */}
+          <Link href="/v2/destiny" className="flex w-full max-w-md items-center justify-between gap-2 rounded-2xl bg-v3-sapphire/10 p-3.5" data-testid="finder-cta">
+            <span className="text-[13px] font-bold leading-4 text-v3-navy">อยากรู้ลึกกว่านี้?<br />ดูดวงเต็มของคุณ</span>
+            <span className="flex shrink-0 items-center gap-2">
+              <span className="finder-free select-none text-[20px] font-black italic leading-none tracking-wide">FREE</span>
+              <span className="rounded-full bg-v3-sapphire px-4 py-2 text-[13px] font-bold text-white">ดูเลย →</span>
+            </span>
           </Link>
 
-          <button onClick={() => void download()} disabled={saving} data-testid="finder-download" className="mt-1 flex h-12 w-full max-w-md items-center justify-center gap-2 rounded-full bg-v3-sapphire text-[15px] font-bold text-white disabled:opacity-50">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3" /></svg>
-            {saving ? "กำลังบันทึก…" : "บันทึก wallpaper"}
-          </button>
-          <button onClick={() => void share()} disabled={saving} data-testid="finder-share" className="flex h-11 w-full max-w-md items-center justify-center gap-2 rounded-full border border-v3-sapphire text-[14px] font-bold text-v3-sapphire disabled:opacity-50">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="18" cy="5" r="3" /><circle cx="6" cy="12" r="3" /><circle cx="18" cy="19" r="3" /><path d="m8.6 13.5 6.8 4M15.4 6.5l-6.8 4" /></svg>
-            แชร์ให้เพื่อนเช็คมั่ง
-          </button>
-          <button onClick={reset} className="mt-1 text-[13px] font-bold text-v3-sapphire" data-testid="finder-again">เช็คธาตุคนอื่นอีกครั้ง</button>
+          {/* แชร์ = Twitter/X อย่างเดียว (ปุ่มดำ ไอคอน X) + บันทึก wallpaper */}
+          <div className="flex w-full max-w-md gap-2">
+            <button onClick={shareTwitter} data-testid="finder-share" className="flex h-12 flex-1 items-center justify-center gap-2 rounded-full bg-black text-[14px] font-bold text-white">
+              <svg width="17" height="17" viewBox="0 0 24 24" fill="currentColor" aria-hidden><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" /></svg>
+              แชร์ลง X
+            </button>
+            <button onClick={() => void download()} disabled={saving} data-testid="finder-download" className="flex h-12 flex-1 items-center justify-center gap-2 rounded-full border border-v3-sapphire text-[14px] font-bold text-v3-sapphire disabled:opacity-50">
+              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3" /></svg>
+              {saving ? "กำลังบันทึก…" : "บันทึก"}
+            </button>
+          </div>
+          <button onClick={reset} className="text-[13px] font-bold text-v3-sapphire" data-testid="finder-again">เช็คธาตุคนอื่นอีกครั้ง</button>
+          {/* ป้าย FREE — ตัวหนังสือแดงมีมิติ (layered shadow + ขอบขาว) */}
+          <style jsx>{`
+            .finder-free {
+              color: #ef3b3b;
+              -webkit-text-stroke: 1px #fff;
+              text-shadow: 0 1px 0 #b91c1c, 0 2px 0 #991b1b, 0 3px 5px rgba(0, 0, 0, 0.35);
+              transform: rotate(-6deg);
+            }
+          `}</style>
         </div>
       ) : null}
 
