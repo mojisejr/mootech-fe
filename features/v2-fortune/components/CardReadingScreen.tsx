@@ -208,8 +208,11 @@ export function CardReadingScreen({
     //   (สรุปถูกตัด "(น้ำหนัก %)" ออกแล้วใน shareSummary). fullText = สรุปเดียวกับ share.d → หน้า invite dedup
     //   ไม่โชว์ซ้ำ → คนเปิดลิงก์เห็น รูป+ชื่อ+สรุป ตามที่ขอ.
     const fullText = allowPublic ? sharedSummary : undefined
+    // เอ็ม 2026-09-23: แนบ "ชื่อไพ่" ไปกับรูป (รูปแบบ "ชื่อ::url") → หน้า invite โชว์ชื่อใต้รูปแต่ละใบ (เหมือนหน้าผล);
+    //   ตัว consumer อื่น (OG card) parse แบบ tolerant (ไม่มี "::" = URL ล้วนเหมือนเดิม).
+    const ogImage = cards.slice(0, 3).map((c) => `${c.name}::${faceUrl(c)}`).join(",")
     // #359 รอบ 13: แชร์เป็นลิงก์ + og:image เฉพาะผล (ลิงก์กดได้ทุกแอป + พรีวิวการ์ด)
-    void shareAsInvite({ title, text, og: { title: resultTitle || title, summary: sharedSummary, tag: title, image: shareImages.slice(0, 3).join(","), isPublic: allowPublic, fullText } })
+    void shareAsInvite({ title, text, og: { title: resultTitle || title, summary: sharedSummary, tag: title, image: ogImage, isPublic: allowPublic, fullText } })
   }
 
   const headerTitle = phase === "result" ? resultTitle : phase === "pick" ? "เลือกไพ่ 3 ใบ" : title

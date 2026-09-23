@@ -71,7 +71,8 @@ export default async function handler(req: Request): Promise<Response> {
     .map((s) => s.trim())
     .filter(Boolean)
     .slice(0, 3)
-    .map(resolveImg)
+    // แต่ละรายการอาจเป็น "ชื่อ::url" (ไพ่ — เอ็ม 2026-09-23) → ใช้เฉพาะ url; ไม่มี "::" = URL ล้วนเหมือนเดิม
+    .map((s) => { const i = s.indexOf("::"); return resolveImg(i >= 0 ? s.slice(i + 2) : s); })
   // รอบ 14: พื้นหลัง = ภาพฉากพาสเทล (ไม่ใช่ไล่สีน้ำเงิน) + ตัวหนังสือเข้ม ให้เข้าชุดการ์ดแชร์
   const bg = `${origin}/images/v2/destiny/bg-destiny.jpg`
 

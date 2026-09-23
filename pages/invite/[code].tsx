@@ -210,13 +210,21 @@ export default function InvitePage({ ssrCode = "", ssrInviterName = null, origin
             <section data-testid="invite-reading" className="v3-shadow-card rounded-[24px] bg-white p-5">
               <span className="w-fit rounded-full bg-v3-sapphire/10 px-3 py-1 text-[11px] font-black tracking-wide text-v3-sapphire">คำทำนายที่แชร์</span>
               {readingTitle ? <h2 className="mt-2 text-[17px] font-black leading-6 text-v3-navy">{readingTitle}</h2> : null}
-              {/* รูปการ์ด/มาสคอต (จาก snapshot.image คั่นด้วย ",") */}
+              {/* รูปการ์ด/มาสคอต (จาก snapshot.image คั่นด้วย ",") — แต่ละรายการอาจเป็น "ชื่อ::url" (ไพ่) → โชว์ชื่อใต้รูป */}
               {share.m ? (
-                <div className="mt-3 flex flex-wrap justify-center gap-2">
-                  {share.m.split(",").map((s) => s.trim()).filter(Boolean).slice(0, 3).map((src, i) => (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img key={i} src={src} alt="" className="h-32 w-auto rounded-[12px] object-contain" />
-                  ))}
+                <div className="mt-3 flex flex-wrap justify-center gap-3">
+                  {share.m.split(",").map((s) => s.trim()).filter(Boolean).slice(0, 3).map((entry, i) => {
+                    const sep = entry.indexOf("::")
+                    const name = sep >= 0 ? entry.slice(0, sep) : ""
+                    const src = sep >= 0 ? entry.slice(sep + 2) : entry
+                    return (
+                      <div key={i} className="flex flex-col items-center gap-1">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img src={src} alt={name} className="h-32 w-auto rounded-[12px] object-contain" />
+                        {name ? <span className="max-w-[7.5rem] text-center text-[11px] font-bold leading-tight text-v3-navy">{name}</span> : null}
+                      </div>
+                    )
+                  })}
                 </div>
               ) : null}
               {/* สรุป (จาก snapshot.summary) */}
