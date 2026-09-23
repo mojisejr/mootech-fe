@@ -146,11 +146,15 @@ export default function FortuneSagePage() {
     // พี่พล 2026-09-23: ใส่คำแปลสรุป 1 บรรทัดในข้อความแชร์ (คนอ่านเห็นสรุป → อยากเข้ามาเล่นเอง)
     const sageSummary = (tailored?.trim() || stick?.personality || "").replace(/\s+/g, " ").trim().slice(0, 120)
     const text = stick ? `เสี่ยงเซียมซีได้ ${stick.pillar} · ${stick.nayin}${sageSummary ? ` - ${sageSummary}` : ""} — เสี่ยงทายกับ Mumate` : "เสี่ยงทายกับ Mumate"
+    // เอ็ม 2026-09-23: คำตอบต้องทวนคำถาม → นำคำถามขึ้นก่อนสรุป/ผลเต็ม (คนอ่านหน้าแชร์ไม่เห็นคำถามเดิม)
+    const q = question.trim()
+    const sageSummaryFull = tailored?.trim() || stick?.personality || ""
+    const ogSummary = q ? `คำถาม: ${q}\n\n${sageSummaryFull}` : sageSummaryFull
     // #359 รอบ 13: แชร์เป็นลิงก์ + og:image เฉพาะผล
     void shareAsInvite({
       title: "เซียมซีเสี่ยงทาย",
       text,
-      og: stick ? { title: `เซียมซีใบที่ ${stick.no}`, subtitle: `${stick.pillar} · ${stick.nayin}`, summary: tailored?.trim() || stick.personality || "", tag: "เซียมซี", image: `/images/v2/fortune/cards/sage/${stick.no}.jpg`, isPublic: allowPublic, fullText: allowPublic ? [stick.personality?.trim(), tailored?.trim(), ...Object.values(stick.topics).map((v) => (typeof v === "string" ? v.trim() : ""))].filter(Boolean).join("\n\n").slice(0, 8000) : undefined } : { title: "เซียมซีเสี่ยงทาย", tag: "เซียมซี" },
+      og: stick ? { title: `เซียมซีใบที่ ${stick.no}`, subtitle: `${stick.pillar} · ${stick.nayin}`, summary: ogSummary, tag: "เซียมซี", image: `/images/v2/fortune/cards/sage/${stick.no}.jpg`, isPublic: allowPublic, fullText: allowPublic ? [q ? `คำถาม: ${q}` : "", stick.personality?.trim(), tailored?.trim(), ...Object.values(stick.topics).map((v) => (typeof v === "string" ? v.trim() : ""))].filter(Boolean).join("\n\n").slice(0, 8000) : undefined } : { title: "เซียมซีเสี่ยงทาย", tag: "เซียมซี" },
     })
   }
 
@@ -260,6 +264,8 @@ export default function FortuneSagePage() {
           {tailored?.trim() && (
             <section className="flex flex-col gap-1 rounded-[24px] bg-[#EAF3FF] p-5" data-testid="sage-tailored">
               <span className="w-fit text-[13px] font-black text-v3-sapphire">คำตอบสำหรับคำถามของคุณ</span>
+              {/* ทวนคำถาม (เอ็ม 2026-09-23) */}
+              {question.trim() ? <p className="text-[12px] font-semibold leading-5 text-v3-sapphire">คำถามของคุณ: {question.trim()}</p> : null}
               <p className="text-[13px] leading-[22px] text-v3-text-body">{tailored.trim()}</p>
             </section>
           )}

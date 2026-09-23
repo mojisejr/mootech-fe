@@ -56,7 +56,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       userId: who.userId,
       title,
       subtitle: str(body.subtitle, 120),
-      summary: str(body.summary, 400),
+      summary: str(body.summary, 1500), // เอ็ม 2026-09-23: 400 สั้นไป → สรุปที่แชร์ถูกตัดกลางคำ. column เป็น text อยู่แล้ว (การ์ด OG clamp เอง)
       tag: str(body.tag, 40),
       image: str(body.image, 1500), // รองรับไพ่หลายใบ (URL คั่นด้วย ",")
       skills: str(body.skills, 400),
