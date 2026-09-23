@@ -5,7 +5,7 @@
 import Head from "next/head"
 import Link from "next/link"
 import Image from "next/image"
-import { useRef, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import type { GetServerSideProps } from "next"
 
 import { SkyScreen } from "@/features/v2-profile/components/kit"
@@ -115,9 +115,26 @@ export default function ElementFinderPage() {
     void openInExternalBrowser(`https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}&url=${encodeURIComponent(url)}`)
   }
 
+  // ขนาด wallpaper preview แบบ responsive — ขยายให้เต็มความสูงจอที่เหลือ (ไม่เหลือช่องว่างล่าง / ไม่ต้องเลื่อน)
+  const [wpW, setWpW] = useState(220)
+  useEffect(() => {
+    const calc = () => {
+      const avail = window.innerHeight - 290 // เผื่อ CTA + ปุ่มแชร์/บันทึก + เมนูล่าง
+      setWpW(Math.round(Math.min(300, Math.max(170, (avail * 9) / 16))))
+    }
+    calc()
+    window.addEventListener("resize", calc)
+    return () => window.removeEventListener("resize", calc)
+  }, [])
+
   return (
     <SkyScreen bgImage="/images/v2/fortune/sage-bg.png">
-      <Head><title>มาหาธาตุแท้กันเถอะ · MuMate</title></Head>
+      <Head>
+        <title>มาหาธาตุแท้กันเถอะ · MuMate</title>
+        {/* ฟอนต์ display สำหรับป้าย FREE (ดูสนุก มีมิติ) */}
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link href="https://fonts.googleapis.com/css2?family=Luckiest+Guy&display=swap" rel="stylesheet" />
+      </Head>
 
       {phase === "input" ? (
         <div className="mt-2 flex flex-col items-center gap-3" data-testid="finder-input">
@@ -203,12 +220,12 @@ export default function ElementFinderPage() {
       ) : result ? (
         // ผลลัพธ์ = หน้าเดียวไม่ต้องเลื่อน (เอ็ม 2026-09-23): wallpaper คือภาพที่บอกทุกอย่างอยู่แล้ว
         // (ธาตุ+นิสัย+คำ baked ในภาพ) → ตัดข้อความซ้ำ (quote/traits/คำบรรยาย) ออก เหลือ ภาพ+CTA+ปุ่มแชร์
-        <div className="mt-1 flex flex-col items-center gap-2.5" data-testid="finder-result">
-          {/* wallpaper (ย่อ ~200 ให้พอดีหน้าเดียว) — ภาพเดียวบอกครบ */}
+        <div className="mt-1 flex flex-col items-center gap-2" data-testid="finder-result">
+          {/* wallpaper — ขยายเต็มความสูงจอที่เหลือ (responsive) ให้ไม่เหลือช่องว่าง ภาพเดียวบอกครบ */}
           {wallpaper && character && (
             <>
               <div className="overflow-hidden rounded-[18px] shadow-[0_8px_24px_rgba(11,48,91,0.18)]" data-testid="finder-wallpaper">
-                <WallpaperCard bg={wallpaper.bg} character={character} text={wallpaper.text} width={200} />
+                <WallpaperCard bg={wallpaper.bg} character={character} text={wallpaper.text} width={wpW} />
               </div>
               <button type="button" onClick={shuffle} data-testid="finder-shuffle" className="text-[13px] font-bold text-v3-sapphire">🎲 สุ่มลุคใหม่</button>
               <WallpaperStage>
@@ -217,12 +234,12 @@ export default function ElementFinderPage() {
             </>
           )}
 
-          {/* CTA ดูดวงเต็ม + ป้าย FREE แดงมีมิติ ก่อน "ดูเลย" */}
-          <Link href="/v2/destiny" className="flex w-full max-w-md items-center justify-between gap-2 rounded-2xl bg-v3-sapphire/10 p-3.5" data-testid="finder-cta">
-            <span className="text-[13px] font-bold leading-4 text-v3-navy">อยากรู้ลึกกว่านี้?<br />ดูดวงเต็มของคุณ</span>
-            <span className="flex shrink-0 items-center gap-2">
-              <span className="finder-free select-none text-[20px] font-black italic leading-none tracking-wide">FREE</span>
-              <span className="rounded-full bg-v3-sapphire px-4 py-2 text-[13px] font-bold text-white">ดูเลย →</span>
+          {/* CTA ดูดวงเต็ม — ข้อความบรรทัดเดียว (เต็มความกว้าง) แล้วแถว FREE (Luckiest Guy เล็ก หนา มีมิติ) + ดูเลย */}
+          <Link href="/v2/destiny" className="flex w-full max-w-md flex-col gap-1.5 rounded-2xl bg-v3-sapphire/10 px-4 py-2.5" data-testid="finder-cta">
+            <span className="whitespace-nowrap text-[13px] font-bold text-v3-navy">อยากรู้ลึกกว่านี้? ดูดวงเต็มของคุณ</span>
+            <span className="flex items-center justify-end gap-2.5">
+              <span className="finder-free select-none leading-none">FREE</span>
+              <span className="shrink-0 rounded-full bg-v3-sapphire px-4 py-1.5 text-[13px] font-bold text-white">ดูเลย →</span>
             </span>
           </Link>
 
@@ -238,13 +255,15 @@ export default function ElementFinderPage() {
             </button>
           </div>
           <button onClick={reset} className="text-[13px] font-bold text-v3-sapphire" data-testid="finder-again">เช็คธาตุคนอื่นอีกครั้ง</button>
-          {/* ป้าย FREE — ตัวหนังสือแดงมีมิติ (layered shadow + ขอบขาว) */}
+          {/* ป้าย FREE — ฟอนต์ Luckiest Guy (สนุก หนา) เล็กลง + มิติ (layered shadow) */}
           <style jsx>{`
             .finder-free {
+              font-family: "Luckiest Guy", system-ui, sans-serif;
+              font-size: 16px;
+              letter-spacing: 1px;
               color: #ef3b3b;
-              -webkit-text-stroke: 1px #fff;
-              text-shadow: 0 1px 0 #b91c1c, 0 2px 0 #991b1b, 0 3px 5px rgba(0, 0, 0, 0.35);
-              transform: rotate(-6deg);
+              text-shadow: 1px 1px 0 #fff, 2px 2px 0 #b91c1c, 3px 3px 0 #991b1b, 4px 5px 6px rgba(0, 0, 0, 0.3);
+              transform: rotate(-8deg);
             }
           `}</style>
         </div>
