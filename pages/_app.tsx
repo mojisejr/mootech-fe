@@ -8,6 +8,7 @@ import { CookiesProvider } from "react-cookie";
 import IdentitySelfHeal from "@/components/identity-self-heal";
 import LiffBoot from "@/components/liff-boot";
 import AnalyticsIdentity from "@/components/analytics-identity";
+import { PromoPopup } from "@/features/v2-home/components/PromoPopup";
 import { ANALYTICS_CONSENT_COOKIE, ANALYTICS_STORAGE_DEFAULT } from "@/lib/analytics/consent";
 import AppErrorBoundary from "@/components/app-error-boundary";
 // side-effect: ดัก `beforeinstallprompt` ตั้งแต่แอปโหลด (event ยิงครั้งเดียวก่อน component mount) — #install
@@ -91,6 +92,8 @@ export default function App({ Component, pageProps: { session, ...pageProps } }:
             <div className={isV2 ? "contents font-ibm" : "contents"}>
               <Component {...pageProps} />
             </div>
+            {/* ป็อปอัปโปรโมชัน (carousel) — เด้งครอบทั้ง /v2 (สลับใบเมื่อเปลี่ยนหน้า); คอมโพเนนต์เช็ก path เอง */}
+            {isV2 ? <PromoPopup /> : null}
           </AppErrorBoundary>
         </SessionProvider>
       </CookiesProvider>
