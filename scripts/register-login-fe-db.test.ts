@@ -186,6 +186,10 @@ describe.skipIf(!TEST_URL)('FE-native register/login against real Postgres', () 
     expect(kept.picture_url).toBe('https://profile.line-scdn.net/second')
   })
 
+  // PRE-INDEX world. This is what the table looks like today: no unique index, so
+  // the advisory lock is the only thing standing between two callers and a
+  // duplicate. The post-index successor is the second describe block below, and it
+  // asserts the opposite outcome for the same race - see its header.
   it('negative control: the same race duplicates the identity without the lock', async () => {
     let worstProviderRowCount = 0
     for (let attempt = 0; attempt < CONTROL_ATTEMPTS; attempt += 1) {
@@ -196,5 +200,108 @@ describe.skipIf(!TEST_URL)('FE-native register/login against real Postgres', () 
     // If this ever stops duplicating, the test above has stopped being evidence
     // and the reason must be understood before trusting it again.
     expect(worstProviderRowCount).toBeGreaterThan(1)
+  })
+})
+
+// Slice 2's world: the unique index from lib/db/0034 exists. The race above then
+// has the OPPOSITE outcome - the database refuses the duplicate instead of
+// accepting it - so the pre-index control's assertion would fail here, by design
+// rather than by regression. What must hold instead is that no caller is punished
+// for losing the race: the unique-violation recovery in registerOrLoginInFe turns
+// the loser into a returning member.
+//
+// It runs in its own schema so the arena's restored tables are never touched.
+describe.skipIf(!TEST_URL)('FE-native register/login once the unique index exists', () => {
+  const SCHEMA = 'slice2_route_proof'
+  const client = postgres(TEST_URL as string, {
+    prepare: false,
+    max: CONCURRENCY + 2,
+    connection: { search_path: `${SCHEMA},public` },
+  })
+  const store = createPostgresRegisterLoginStore(drizzle(client) as any)
+  const unlockedStore: RegisterLoginStore = {
+    transaction: (work) =>
+      store.transaction((tx) => work({ ...tx, lockProviderIdentity: async () => {} })),
+  }
+
+  beforeAll(async () => {
+    await client.unsafe(`DROP SCHEMA IF EXISTS ${SCHEMA} CASCADE`)
+    await client.unsafe(`CREATE SCHEMA ${SCHEMA}`)
+    await client.unsafe(`
+      CREATE TABLE ${SCHEMA}."user" (
+        user_id text PRIMARY KEY, name text, picture_url text, email text,
+        create_at text, update_at text, refer_code text, login_at text,
+        dob text, time text, is_remember_time boolean, result_code text,
+        place_name text, used_point int, total_point int, is_refresh boolean,
+        share_img_profile_url text
+      );
+      CREATE TABLE ${SCHEMA}.user_provider (
+        id varchar(36) PRIMARY KEY, user_id text NOT NULL, provider text NOT NULL,
+        name text, picture_url text, email text NOT NULL DEFAULT '',
+        id_token text NOT NULL, create_at text NOT NULL, update_at text NOT NULL
+      );
+      CREATE TABLE ${SCHEMA}.log_activity (
+        id bigserial PRIMARY KEY, "createAt" text, activity_id int, point int, user_id text
+      );
+    `)
+    // The artifact under test, taken from the migration rather than retyped.
+    await client.unsafe(`
+      CREATE UNIQUE INDEX user_provider_identity_unique
+        ON ${SCHEMA}.user_provider (lower(provider), id_token)
+    `)
+  })
+
+  afterAll(async () => {
+    await client.unsafe(`DROP SCHEMA IF EXISTS ${SCHEMA} CASCADE`)
+    await client.end()
+  })
+
+  async function race(target: RegisterLoginStore, providerSubject: string) {
+    let userIndex = 0
+    let rowIndex = 0
+    const userIds = Array.from({ length: CONCURRENCY }, () => randomUUID())
+    const rowIds = Array.from({ length: CONCURRENCY }, () => randomUUID())
+    const settled = await Promise.all(
+      Array.from({ length: CONCURRENCY }, () =>
+        registerOrLoginInFe(target, {
+          provider: 'google', providerSubject, name: 'Index proof',
+          email: 'register-login-fe-test@example.invalid', pictureUrl: '',
+        }, {
+          now: () => new Date('2026-09-23T02:00:00.000Z'),
+          makeUserId: () => userIds[userIndex++],
+          makeProviderRowId: () => rowIds[rowIndex++],
+          makeReferCode: () => 'INDEXPROOFINDEXPROOF',
+        })
+          .then((result) => ({ ok: true as const, result }))
+          .catch((error) => ({ ok: false as const, error })),
+      ),
+    )
+    const providerRows = await client`
+      SELECT user_id FROM user_provider WHERE id_token = ${providerSubject}
+    `
+    return { settled, providerRows }
+  }
+
+  it('keeps one identity and answers every caller, even with the lock removed', async () => {
+    const subject = `slice2-no-lock-${randomUUID()}`
+    const { settled, providerRows } = await race(unlockedStore, subject)
+
+    // The index, not the lock, is what makes this one row.
+    expect(providerRows).toHaveLength(1)
+    // And nobody is punished for losing: the unique-violation recovery turns the
+    // loser into a returning member instead of a 500 the caller would retry.
+    const failures = settled.filter((outcome) => !outcome.ok)
+    expect(failures).toEqual([])
+    const userIds = new Set(settled.map((outcome: any) => outcome.result.user_id))
+    expect(userIds.size).toBe(1)
+    expect(settled.filter((outcome: any) => outcome.result.is_user_new)).toHaveLength(1)
+  })
+
+  it('still holds with the advisory lock in place, which is how it will ship', async () => {
+    const subject = `slice2-locked-${randomUUID()}`
+    const { settled, providerRows } = await race(store, subject)
+    expect(providerRows).toHaveLength(1)
+    expect(settled.filter((outcome) => !outcome.ok)).toEqual([])
+    expect(settled.filter((outcome: any) => outcome.result.is_user_new)).toHaveLength(1)
   })
 })

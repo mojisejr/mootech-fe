@@ -94,11 +94,41 @@ export class RegisterLoginError extends Error {
   }
 }
 
+/**
+ * True for the unique violation slice 2's index raises when two callers reach the
+ * insert for one provider identity at the same moment. postgres-js exposes the
+ * SQLSTATE as `code` and the constraint as `constraint_name`; a driver that gives
+ * neither still matches on the code alone, which is the conservative direction -
+ * the recovery below re-reads and returns the existing member, so a false positive
+ * costs one extra transaction and never a wrong answer.
+ */
+export function isProviderIdentityConflict(error: unknown): boolean {
+  // Walk the cause chain. Drizzle wraps the driver error in a "Failed query:"
+  // error whose own `code` is undefined, so a top-level check alone silently
+  // never matches - the unit test passes, the production recovery never fires.
+  for (let current = error, depth = 0; current != null && depth < 5; depth += 1) {
+    if (typeof current !== 'object') return false
+    const candidate = current as {
+      code?: unknown
+      constraint_name?: unknown
+      constraint?: unknown
+      cause?: unknown
+    }
+    if (candidate.code === '23505') {
+      const constraint = String(candidate.constraint_name ?? candidate.constraint ?? '')
+      return constraint === '' || constraint.includes('user_provider_identity')
+    }
+    current = candidate.cause
+  }
+  return false
+}
+
 export interface RegisterLoginDependencies {
   now?: () => Date
   makeUserId?: () => string
   makeProviderRowId?: () => string
   makeReferCode?: () => string
+  isIdentityConflict?: (error: unknown) => boolean
 }
 
 /**
@@ -200,7 +230,7 @@ export async function registerOrLoginInFe(
   const email = rawInput.email.trim()
   const pictureUrl = rawInput.pictureUrl.trim()
 
-  return store.transaction(async (tx) => {
+  const attempt = () => store.transaction(async (tx) => {
     // The schema does not yet have the unique provider-identity index. Every FE
     // writer therefore takes the same transaction-scoped advisory lock first.
     // Slice 2 adds the DB constraint after existing collisions are resolved.
@@ -264,4 +294,20 @@ export async function registerOrLoginInFe(
     await tx.recordSignupActivity(member.userId, now)
     return response(member, true)
   })
+
+  const isConflict = dependencies.isIdentityConflict ?? isProviderIdentityConflict
+  try {
+    return await attempt()
+  } catch (error) {
+    // Slice 2 adds a unique index on the provider identity, and from then on two
+    // callers that reach the insert together no longer both succeed - one gets a
+    // unique violation. Left alone that surfaces as a 500 carrying no `ok: false`,
+    // which both callers read as "retry", so the member's browser retries straight
+    // back into the same race. One retry lands on the existing-member path, which
+    // is what the caller wanted in the first place. The advisory lock makes this
+    // rare; the index is what makes it correct. Exactly one retry: a second
+    // violation would mean something other than this race.
+    if (!isConflict(error)) throw error
+    return await attempt()
+  }
 }

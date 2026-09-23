@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
+  isProviderIdentityConflict,
   normalizeIncomingReferCode,
   RegisterLoginError,
   registerOrLoginInFe,
@@ -240,6 +241,76 @@ describe('FE-native register/login', () => {
       provider: 'google', providerSubject: 'g-keep', name: 'G', email: 'new@example.com', pictureUrl: '',
     }, deps)
     expect(google.profileUpdates[0].email).toBe('new@example.com')
+  })
+
+  // Slice 2: once the unique index exists, a racing caller gets a unique
+  // violation instead of silently writing a duplicate. Recovering into the
+  // existing-member path is what stops that becoming a retry loop through a 500.
+  it('recognises the identity conflict without mistaking other failures for it', () => {
+    expect(isProviderIdentityConflict({ code: '23505', constraint_name: 'user_provider_identity_unique' })).toBe(true)
+    // A driver that reports no constraint still matches on the code: the recovery
+    // re-reads, so a false positive costs a transaction and never a wrong answer.
+    expect(isProviderIdentityConflict({ code: '23505' })).toBe(true)
+    expect(isProviderIdentityConflict({ code: '23505', constraint_name: 'user_pkey' })).toBe(false)
+    // The shape production actually throws: drizzle wraps the driver error in a
+    // "Failed query:" error whose own code is undefined. Checking only the top
+    // level passes this unit test and never fires in production - found by the
+    // real-Postgres proof, not by this file.
+    expect(isProviderIdentityConflict(Object.assign(new Error('Failed query: INSERT ...'), {
+      cause: Object.assign(new Error('duplicate key'), {
+        code: '23505', constraint_name: 'user_provider_identity_unique',
+      }),
+    }))).toBe(true)
+    expect(isProviderIdentityConflict(Object.assign(new Error('Failed query: INSERT ...'), {
+      cause: Object.assign(new Error('deadlock'), { code: '40P01' }),
+    }))).toBe(false)
+    expect(isProviderIdentityConflict({ code: '40001' })).toBe(false)
+    expect(isProviderIdentityConflict(new Error('boom'))).toBe(false)
+    expect(isProviderIdentityConflict(null)).toBe(false)
+  })
+
+  it('retries once into the existing-member path when the index refuses the duplicate', async () => {
+    const tx = new FakeTransaction()
+    let attempts = 0
+    const racingStore: RegisterLoginStore = {
+      transaction: async (work) => {
+        attempts += 1
+        if (attempts === 1) {
+          // The other caller won the race and committed while this one was writing.
+          tx.mappings = [{ id: 'p1', userId: 'u-winner' }]
+          tx.members.set('u-winner', {
+            userId: 'u-winner', name: 'Winner', email: 'w@example.com', pictureUrl: 'w.png',
+            referCode: 'WINNERWINNERWINNERWI', isRefresh: false, resultCode: '',
+          })
+          throw Object.assign(new Error('duplicate key value violates unique constraint'), {
+            code: '23505', constraint_name: 'user_provider_identity_unique',
+          })
+        }
+        return work(tx)
+      },
+    }
+
+    const result = await registerOrLoginInFe(racingStore, {
+      provider: 'LINE', providerSubject: 'U-race', name: 'Winner', email: '', pictureUrl: 'w.png',
+    }, deps)
+
+    expect(attempts).toBe(2)
+    expect(result).toMatchObject({ ok: true, is_user_new: false, user_id: 'u-winner' })
+    expect(tx.createdMembers).toEqual([])
+  })
+
+  it('does not retry a failure that is not the identity conflict', async () => {
+    let attempts = 0
+    const brokenStore: RegisterLoginStore = {
+      transaction: async () => {
+        attempts += 1
+        throw Object.assign(new Error('connection terminated'), { code: '08006' })
+      },
+    }
+    await expect(registerOrLoginInFe(brokenStore, {
+      provider: 'google', providerSubject: 'g-1', name: '', email: '', pictureUrl: '',
+    }, deps)).rejects.toThrow('connection terminated')
+    expect(attempts).toBe(1)
   })
 
   // Defect 1: both callers sign the member out on `ok: false`, so a failure they
