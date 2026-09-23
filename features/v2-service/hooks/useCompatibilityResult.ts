@@ -198,6 +198,7 @@ export type CompatCalcErrorReason =
   | 'quota' // 410 GONE — free ceiling reached
   | 'system' // 5xx (or any other error status / malformed success) — server-side, not the user's fault
   | 'network' // no HTTP response — offline / timeout / CORS
+  | 'identity' // 409 — signed session ≠ MEMBER_ID cookie (ล็อกอินค้างคนละบัญชี) → ให้ล็อกอินใหม่
 export type CalculateCompatibilityResult =
   | { ok: true; matchingId: string }
   | { ok: false; reason: CompatCalcErrorReason; error?: unknown }
@@ -228,5 +229,6 @@ export async function calculateCompatibility(
   if (res.kind === 'network') return { ok: false, reason: 'network', error: res.error }
   // http error status
   if (res.status === 410) return { ok: false, reason: 'quota', error: res.data }
+  if (res.status === 409) return { ok: false, reason: 'identity', error: res.data } // session ≠ cookie → ล็อกอินใหม่
   return { ok: false, reason: 'system', error: res.data } // 5xx and any other error status
 }
