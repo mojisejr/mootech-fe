@@ -154,7 +154,8 @@ export default function FortuneSagePage() {
     void shareAsInvite({
       title: "เซียมซีเสี่ยงทาย",
       text,
-      og: stick ? { title: `เซียมซีใบที่ ${stick.no}`, subtitle: `${stick.pillar} · ${stick.nayin}`, summary: ogSummary, tag: "เซียมซี", image: `/images/v2/fortune/cards/sage/${stick.no}.jpg`, isPublic: allowPublic, fullText: allowPublic ? [q ? `คำถาม: ${q}` : "", stick.personality?.trim(), tailored?.trim(), ...Object.values(stick.topics).map((v) => (typeof v === "string" ? v.trim() : ""))].filter(Boolean).join("\n\n").slice(0, 8000) : undefined } : { title: "เซียมซีเสี่ยงทาย", tag: "เซียมซี" },
+      // เอ็ม 2026-09-23: แชร์เซียมซี = รูป+ชื่อ+สรุป พอ (เหมือนไพ่/เบอร์) → fullText = สรุปเดียวกับ share.d → หน้า invite dedup ไม่โชว์ซ้ำ
+      og: stick ? { title: `เซียมซีใบที่ ${stick.no}`, subtitle: `${stick.pillar} · ${stick.nayin}`, summary: ogSummary, tag: "เซียมซี", image: `/images/v2/fortune/cards/sage/${stick.no}.jpg`, isPublic: allowPublic, fullText: allowPublic ? ogSummary : undefined } : { title: "เซียมซีเสี่ยงทาย", tag: "เซียมซี" },
     })
   }
 
