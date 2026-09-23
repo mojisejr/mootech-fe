@@ -1,117 +1,150 @@
--- 0034 · user_provider: normalise provider spelling, remove dead credential rows,
---        and make one provider identity map to one member (mumate-login-identity-001 slice 2)
--- HAND-AUTHORED per the DRIZZLE WORKFLOW CONTRACT (schema.ts header): reviewed, applied BY HAND.
--- NEVER run blind / via drizzle push.
+-- 0034 · user_provider: one provider identity maps to one member
+--        (mumate-login-identity-001 slice 2)
 --
--- 🔴 Applying any of this to PRODUCTION requires ฟีม (CLAUDE.md). ฟีม runs each statement.
--- 🔴 NOT ADDITIVE. Steps 2 and 3 DELETE rows. Step 0 dumps every row they touch and
---    MUST be run and its output kept before either of them. Nothing here deletes a
---    member: only rows in user_provider, which are login credentials.
--- 🔴 RUN ONE STEP AT A TIME and read the output. Step 5 refuses to run while any
---    cross-user collision survives, by design — do not work around it.
+-- APPLIED TO PRODUCTION BY THE OWNER ON 2026-09-23. This file is the record of
+-- what actually ran, not a proposal. It replaces the earlier step-by-step draft,
+-- which was rewritten for two reasons found while running it - see AS RUN below.
 --
--- ทำไม: วันนี้ provider ตัวเดียวกันสะกดได้หลายแบบ (GOOGLE/google) และ identity เดียว
--- ยังผูกกับสมาชิกได้หลายคน ทำให้ login ซ้ำสร้างบัญชีใหม่เงียบ ๆ. slice 1 กันด้วย advisory
--- lock ซึ่งเป็นการร่วมมือกัน ไม่ใช่โครงสร้าง — index ตัวนี้คือของจริง.
+-- 🔴 Any future application requires ฟีม (CLAUDE.md). ฟีม runs it.
+-- 🔴 NOT ADDITIVE. Rows are deleted. The dumps are not optional: nothing here
+--    restores a deleted row, and the rollback file says so plainly.
 --
--- Numbers quoted in the plan are the 2026-09-23 planning checkpoint. RE-MEASURE with
--- step 1 before trusting any of them; they WILL have drifted.
+-- ทำไม: provider ตัวเดียวกันสะกดได้หลายแบบ (GOOGLE/google) และ identity เดียว
+-- ผูกกับสมาชิกได้หลายคน ทำให้ login ซ้ำสร้างบัญชีใหม่เงียบ ๆ. slice 1 กันด้วย
+-- advisory lock ซึ่งเป็นการร่วมมือกัน ไม่ใช่โครงสร้าง — index ตัวนี้คือของจริง.
+--
+-- ============================================================================
+-- AS RUN — two things the first draft got wrong, both caught before any write
+-- ============================================================================
+-- 1. A TEMP TABLE cannot carry the decision list. The Supabase SQL editor opens
+--    a new session per run, so the temp table was gone by the next statement.
+--    The list is an inline VALUES CTE instead, and each part is self-contained.
+--
+-- 2. THE EXPECTED COUNTS WERE ORDER-DEPENDENT AND ONE WAS WRONG. The inventory
+--    found exactly one same-user duplicate pair, so PART B expected to collapse
+--    one row. That pair was itself inside the dead-credential class, so step 1
+--    had already deleted both rows and step 2 found nothing. The guard raised,
+--    the whole transaction rolled back, and NOTHING was written - which is the
+--    entire reason the counts are asserted rather than written in a comment.
+--    Expectation corrected to 0. The lesson is in the ciel-os closeout.
+--
+-- Every count below is asserted, not assumed. A DO block is its own transaction:
+-- if any assertion fails, every statement before it is rolled back.
 
 -- ============================================================================
--- STEP 0 — dump everything the later steps delete. Keep the output.
+-- BEFORE ANYTHING — dump what will be deleted, and KEEP the output
 -- ============================================================================
--- 0a. dead credential rows (blank provider holding a Google ACCESS token as identity)
+-- 0a. the 20 losing rows of the cross-user collisions (PART A deletes these):
+--     run PART A's decision list as a SELECT first; see the restore file.
+-- 0b. the dead credential class (PART B step 1 deletes these):
 SELECT * FROM user_provider WHERE provider = '' AND id_token LIKE 'ya29%';
 
--- 0b. same-user duplicate credential rows that step 3 will collapse
-SELECT * FROM user_provider up
-WHERE EXISTS (
-  SELECT 1 FROM user_provider other
-  WHERE other.user_id = up.user_id
-    AND lower(other.provider) = lower(up.provider)
-    AND other.id_token = up.id_token
-    AND other.id <> up.id
-);
+-- ============================================================================
+-- PART A — resolve the cross-user collisions (20 identities, 40 members)
+-- ============================================================================
+-- Decided by the owner's rule, in this order: whoever PAID wins; otherwise
+-- whoever holds more (chart, calculations, QI, friends); a genuine tie is broken
+-- deterministically, never at random. Payment resolved two cases that no other
+-- signal could separate - both sides created in the same second with nothing
+-- else to tell them apart. One case had nothing on either side and was decided
+-- by user_id order.
+--
+-- Only the LOSING side's colliding row is deleted. No member row, no member
+-- data, and no OTHER credential of the same member is touched - the join to the
+-- kept member's own row is what makes that precise.
+--
+-- The keep/drop pairs are member identifiers and are deliberately NOT committed
+-- to this repository. They live in the run record and the restore file.
+--
+--   DO $$ ... WITH resolution(keep_id, drop_id) AS (VALUES (...20 pairs...)),
+--   del AS (DELETE FROM user_provider losing
+--           USING resolution r, user_provider keeping
+--           WHERE losing.user_id = r.drop_id
+--             AND keeping.user_id = r.keep_id
+--             AND lower(keeping.provider) = lower(losing.provider)
+--             AND keeping.id_token = losing.id_token
+--           RETURNING 1)
+--   SELECT count(*) INTO deleted FROM del;
+--   IF deleted <> 20 THEN RAISE EXCEPTION ... END IF;
+--   ... then assert zero collisions remain ...
+--
+-- Result on 2026-09-23: 20 rows deleted, 0 collisions remaining, 5957 -> 5937.
 
 -- ============================================================================
--- STEP 1 — inventory. Read-only. Run before and after; keep both.
--- ============================================================================
-SELECT provider, count(*) AS rows, count(DISTINCT user_id) AS members
-FROM user_provider GROUP BY provider ORDER BY rows DESC;
-
--- rows whose identity is unusable: no token at all. The unique index would collapse
--- them into one. Expected zero; if not, STOP and decide what they are.
-SELECT count(*) AS empty_id_token FROM user_provider WHERE id_token = '';
-
--- identities claimed by more than one member. Step 5 will not run while this is > 0.
-SELECT lower(provider) AS provider, id_token, count(DISTINCT user_id) AS members
-FROM user_provider
-GROUP BY 1, 2 HAVING count(DISTINCT user_id) > 1
-ORDER BY members DESC;
-
--- ============================================================================
--- STEP 2 — delete dead credential rows (owner decision 3, 2026-09-23).
--- These hold a short-lived `ya29...` Google ACCESS token where the stable subject
--- belongs, so they can never match again under any implementation. The members
--- behind them are NOT deleted; recovery for them is routed to support.
--- ============================================================================
-DELETE FROM user_provider WHERE provider = '' AND id_token LIKE 'ya29%';
-
--- Any OTHER blank-provider row is not the known class. Report, do not delete.
-SELECT * FROM user_provider WHERE provider = '';
-
--- ============================================================================
--- STEP 3 — collapse same-user duplicates. Keeps the oldest row per identity,
--- tie-broken by id so the result is deterministic. Same member on both sides, so
--- nothing has to be chosen about who owns the account.
--- ============================================================================
-DELETE FROM user_provider up
-USING user_provider keep
-WHERE keep.user_id = up.user_id
-  AND lower(keep.provider) = lower(up.provider)
-  AND keep.id_token = up.id_token
-  AND (keep.create_at, keep.id) < (up.create_at, up.id);
-
--- ============================================================================
--- STEP 4 — normalise spelling to what the live writers already store:
--- Google lower case, LINE upper case. NOT one case for both — four backend
--- queries match a stored 'LINE' exactly and would silently return zero rows.
--- update_at is deliberately NOT touched: this is a data-shape repair, and
--- restamping it would make every member's credential look freshly modified.
--- ============================================================================
-UPDATE user_provider SET provider = 'google' WHERE lower(provider) = 'google' AND provider <> 'google';
-UPDATE user_provider SET provider = 'LINE'   WHERE lower(provider) = 'line'   AND provider <> 'LINE';
-
--- Whatever is left that is neither (today: one 'dev' row) is reported, never guessed at.
-SELECT * FROM user_provider WHERE provider NOT IN ('google', 'LINE');
-
--- ============================================================================
--- STEP 5 — the structural guarantee. Refuses to run while any identity is still
--- claimed by more than one member; those are the cases the owner resolves by hand.
--- Indexed on lower(provider) so the asymmetric spelling cannot reintroduce a
--- duplicate pair if some future writer ever sends the other case.
+-- PART B — cleanup, spelling, and the structural guarantee
 -- ============================================================================
 DO $$
-DECLARE collisions bigint;
+DECLARE n int; m bigint;
 BEGIN
-  SELECT count(*) INTO collisions FROM (
-    SELECT 1 FROM user_provider
-    GROUP BY lower(provider), id_token
-    HAVING count(DISTINCT user_id) > 1
-  ) x;
-  IF collisions > 0 THEN
-    RAISE EXCEPTION 'refusing to build the unique index: % provider identities are still claimed by more than one member', collisions;
-  END IF;
+  -- 1. dead credential rows: blank provider holding a short-lived `ya29...`
+  --    Google ACCESS token where the stable subject belongs. They can never
+  --    match again under any implementation. Owner decision 3 deletes them and
+  --    routes the members behind them to support. Member rows are NOT touched.
+  WITH d AS (DELETE FROM user_provider WHERE provider = '' AND id_token LIKE 'ya29%' RETURNING 1)
+  SELECT count(*) INTO n FROM d;
+  IF n <> 657 THEN RAISE EXCEPTION 'step 1: expected 657 dead rows, got % - nothing changed', n; END IF;
+
+  -- A blank-provider row that is NOT of that class would be something we have
+  -- never seen. Refuse rather than guess.
+  SELECT count(*) INTO m FROM user_provider WHERE btrim(provider) = '';
+  IF m <> 0 THEN RAISE EXCEPTION 'step 1: % blank-provider rows are not the known dead class - nothing changed', m; END IF;
+
+  -- 2. same-user duplicates. The only pair was itself inside the dead class
+  --    above, so step 1 already removed it and nothing survives to collapse.
+  --    Kept as an assertion because a NEW pair appearing here would matter.
+  WITH d AS (
+    DELETE FROM user_provider up USING user_provider keep
+    WHERE keep.user_id = up.user_id
+      AND lower(keep.provider) = lower(up.provider)
+      AND keep.id_token = up.id_token
+      AND (keep.create_at, keep.id) < (up.create_at, up.id)
+    RETURNING 1)
+  SELECT count(*) INTO n FROM d;
+  IF n <> 0 THEN RAISE EXCEPTION 'step 2: expected 0 duplicate rows to survive step 1, got % - nothing changed', n; END IF;
+
+  -- 3. Spelling normalised PER PROVIDER, to whatever the live writer already
+  --    stores: Google lower case, LINE upper case. NOT one case for both - four
+  --    backend queries match a stored 'LINE' exactly and would silently return
+  --    zero rows. update_at is deliberately not restamped: this is a data-shape
+  --    repair, not a change to anybody's profile.
+  WITH u AS (UPDATE user_provider SET provider = 'google'
+             WHERE lower(provider) = 'google' AND provider <> 'google' RETURNING 1)
+  SELECT count(*) INTO n FROM u;
+  IF n <> 1787 THEN RAISE EXCEPTION 'step 3: expected 1787 Google rows, got % - nothing changed', n; END IF;
+
+  WITH u AS (UPDATE user_provider SET provider = 'LINE'
+             WHERE lower(provider) = 'line' AND provider <> 'LINE' RETURNING 1)
+  SELECT count(*) INTO n FROM u;
+  IF n <> 0 THEN RAISE EXCEPTION 'step 3: expected 0 LINE rows, got % - nothing changed', n; END IF;
+
+  -- One `dev` row is expected and deliberately left alone. Anything else here
+  -- is a provider class nobody has decided about.
+  SELECT count(*) INTO m FROM user_provider WHERE provider NOT IN ('google', 'LINE');
+  IF m <> 1 THEN RAISE EXCEPTION 'step 3: expected 1 row outside google/LINE, found % - nothing changed', m; END IF;
+
+  -- 4. The structural guarantee. Indexed on lower(provider) so the asymmetric
+  --    spelling cannot reintroduce a duplicate pair if a future writer ever
+  --    sends the other case.
+  SELECT count(*) INTO m FROM (
+    SELECT 1 FROM user_provider GROUP BY lower(provider), id_token
+    HAVING count(DISTINCT user_id) > 1) x;
+  IF m <> 0 THEN RAISE EXCEPTION 'step 4: % identities are still claimed by two members - nothing changed', m; END IF;
+
+  CREATE UNIQUE INDEX IF NOT EXISTS user_provider_identity_unique
+    ON user_provider (lower(provider), id_token);
+
+  -- 5. Stop the dead class regrowing. provider is already NOT NULL, which never
+  --    caught the empty string. Validated immediately: the NOT VALID + VALIDATE
+  --    dance exists to avoid a long lock on a large table and is pointless here.
+  ALTER TABLE user_provider DROP CONSTRAINT IF EXISTS user_provider_provider_not_blank;
+  ALTER TABLE user_provider ADD CONSTRAINT user_provider_provider_not_blank
+    CHECK (btrim(provider) <> '');
+
+  -- Reported, not enforced: new logins between the measurement and the run move it.
+  SELECT count(*) INTO m FROM user_provider;
+
+  RAISE NOTICE 'OK - % rows, index built, blank providers blocked', m;
 END $$;
 
-CREATE UNIQUE INDEX IF NOT EXISTS user_provider_identity_unique
-  ON user_provider (lower(provider), id_token);
-
--- ============================================================================
--- STEP 6 — stop the dead-credential class regrowing. provider is already NOT NULL;
--- the rows step 2 removed were empty strings, which NOT NULL does not catch.
--- ============================================================================
-ALTER TABLE user_provider DROP CONSTRAINT IF EXISTS user_provider_provider_not_blank;
-ALTER TABLE user_provider ADD CONSTRAINT user_provider_provider_not_blank
-  CHECK (btrim(provider) <> '') NOT VALID;
-ALTER TABLE user_provider VALIDATE CONSTRAINT user_provider_provider_not_blank;
+-- Result on 2026-09-23: 657 deleted, 0 collapsed, 1787 respelled, index built,
+-- CHECK added. 5937 -> 5280.
