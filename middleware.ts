@@ -303,9 +303,15 @@ function guardV2(req: NextRequest): NextResponse | null {
   // ตอน launch จริง แต่ยังไม่เคยถูกทำ — ผลคือกด "เปิดระบบ" (goLive() ลบ V2_PREVIEW_KEY) แล้ว /v2 ล็อกเข้า
   // maintenance ถาวรทันที ไม่ว่า MAINTENANCE_MODE จะเป็นอะไร เพราะ guard นี้ fail-closed เมื่อไม่มีคีย์
   // (เดิม: rewrite /maintenance). ตอนนี้ preview gate หมดหน้าที่แล้ว (ผ่าน #605 ตามคอมเมนต์เดิม) — เมื่อไม่มี
-  // คีย์ตั้งไว้ (unset = launch แล้ว) ให้ "เปิดผ่าน" แทน fail-closed. คีย์ยังตั้งอยู่ (ยังไม่ launch) → gate ทำงานเหมือนเดิมทุกอย่าง.
+  // คีย์ตั้งไว้ (unset = launch แล้ว) ให้ "ปล่อยผ่าน guard นี้" (return null) แทน fail-closed.
+  //
+  // 🔴 return null ไม่ใช่ next() (2026-09-23): ถ้าคืน next() ที่นี่ = guardV2 short-circuit ก่อนถึง
+  // maintenance gate ⇒ ตอน launch-day (MAINTENANCE_MODE=on + คีย์ถูกลบแล้ว) /v2 และ path เลียนแบบ webhook
+  // (/webhook/extra) จะหลุด maintenance ทั้งหมด (เทส maintenance-allowlist/webhook-beam-gate แดง). คืน null
+  // ให้ตกไปที่ route() ต่อ: maintenance OFF → ปลายทาง `MAINTENANCE_MODE !== 'on'` คืน next() (เปิดผ่านเหมือนเดิม);
+  // maintenance ON → maintenance gate คุม /v2 ตามปกติ (เฉพาะ exact webhook/auth/cron/health เท่านั้นที่ผ่าน).
   const key = process.env.V2_PREVIEW_KEY;
-  if (!key) return noStore(NextResponse.next());
+  if (!key) return null;
 
   if (pathname === '/api/v2/login') return noStore(NextResponse.next());
 

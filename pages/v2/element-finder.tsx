@@ -20,6 +20,7 @@ import { pickWallpaper, type WallpaperPick } from "@/features/v2-element-finder/
 import { ELEMENT_COLOR } from "@/lib/bazi/element-colors"
 import { resolveMascotFromCompute, type ComputeMascotSource } from "@/lib/personalization/mascot"
 import { shareAsInvite } from "@/lib/v2/share-invite"
+import { isLineInAppBrowser } from "@/lib/line/liff"
 import { issueNonce, NONCE_COOKIE } from "@/lib/calculator/nonce"
 
 export const getServerSideProps: GetServerSideProps = async (ctx) => {
@@ -50,6 +51,7 @@ export default function ElementFinderPage() {
   const [character, setCharacter] = useState<string>("") // การ์ด 60 โปร่งใส (สำหรับซ้อนบน wallpaper)
   const [wallpaper, setWallpaper] = useState<WallpaperPick | null>(null) // { bg, text } ที่สุ่มไว้
   const [saving, setSaving] = useState(false)
+  const [saveImg, setSaveImg] = useState<string | null>(null) // LINE: โชว์รูปให้กดค้างบันทึก (<a download> ถูกบล็อก)
   const wallpaperRef = useRef<HTMLDivElement>(null) // ใบ 540px ซ่อนนอกจอ → html2canvas จับ
   const [error, setError] = useState<string | null>(null)
   const [step, setStep] = useState(0)
@@ -92,7 +94,7 @@ export default function ElementFinderPage() {
     return await new Promise<Blob | null>((res) => canvas.toBlob((b) => res(b), "image/png"))
   }
 
-  // บันทึก wallpaper ลงเครื่อง
+  // บันทึก wallpaper ลงเครื่อง — LINE in-app browser บล็อก <a download> → โชว์รูปให้ "กดค้างเพื่อบันทึก" แทน
   const download = async () => {
     if (!wallpaper || saving) return
     setSaving(true)
@@ -100,10 +102,16 @@ export default function ElementFinderPage() {
       const blob = await renderWallpaperBlob()
       if (!blob) { setError("บันทึกภาพไม่สำเร็จ ลองใหม่อีกครั้ง"); return }
       const url = URL.createObjectURL(blob)
+      if (isLineInAppBrowser()) {
+        setSaveImg(url) // เปิด overlay รูปเดี่ยว → ผู้ใช้กดค้างที่รูปเพื่อบันทึก (ไม่ revoke จนปิด overlay)
+        return
+      }
       const a = document.createElement("a"); a.href = url; a.download = "mumate-wallpaper.png"
       document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url)
     } finally { setSaving(false) }
   }
+
+  const closeSaveImg = () => { if (saveImg) URL.revokeObjectURL(saveImg); setSaveImg(null) }
 
   // แชร์ wallpaper ที่ประกอบแล้ว (แนบไฟล์ภาพจริง) — เอ็ม/gafiw 2026-09-22
   const share = async () => {
@@ -253,6 +261,17 @@ export default function ElementFinderPage() {
           <button onClick={reset} className="mt-1 text-[13px] font-bold text-v3-sapphire" data-testid="finder-again">เช็คธาตุคนอื่นอีกครั้ง</button>
         </div>
       ) : null}
+
+      {/* LINE in-app browser: <a download> ถูกบล็อก → โชว์รูปเดี่ยวให้ "กดค้างที่รูป" เพื่อบันทึกลงเครื่อง */}
+      {saveImg ? (
+        <div className="fixed inset-0 z-[80] flex flex-col items-center justify-center gap-3 bg-black/80 px-6" onClick={closeSaveImg} data-testid="finder-save-overlay">
+          <p className="text-center text-[14px] font-bold text-white">กดค้างที่รูป ▸ “บันทึกรูปภาพ”</p>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={saveImg} alt="wallpaper" onClick={(e) => e.stopPropagation()} className="max-h-[75vh] w-auto rounded-[16px] shadow-2xl" />
+          <button type="button" onClick={closeSaveImg} className="mt-1 rounded-full bg-white px-6 py-2 text-[14px] font-bold text-v3-navy">ปิด</button>
+        </div>
+      ) : null}
+
       <Menubar />
     </SkyScreen>
   )

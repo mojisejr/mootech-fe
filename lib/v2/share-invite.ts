@@ -4,19 +4,43 @@
 //   (fallback: แชร์ url+text; OG ของหน้า /invite ยังโชว์การ์ดแบรนด์ให้ผู้รับลิงก์เห็น)
 import { getLiff, isLineInAppBrowser } from "@/lib/line/liff"
 
-// LINE in-app webview: navigator.share มัก undefined → เดิมตกไป clipboard เฉย ๆ (เอ็ม 2026-09-22 "แชร์ในไลน์
-// ได้แค่คัดลอก"). ใช้ liff.shareTargetPicker เปิดหน้าเลือกเพื่อน/กลุ่มในไลน์ แล้วส่งลิงก์ (พร้อม og preview) ได้จริง.
-// คืน true = เปิด picker แล้ว (จัดการแชร์เสร็จ ไม่ต้องตกไป clipboard); false = ใช้ LIFF ไม่ได้ → ให้ caller fallback.
+// LINE deep-link แชร์ข้อความ (เปิดหน้าเลือกเพื่อน/แชตของ LINE) — ใช้ได้แม้หน้าไม่ได้เปิดเป็น LIFF app
+// (shareTargetPicker ต้องมี LIFF context จาก liff.line.me เท่านั้น; ใน in-app browser ปกติจะ unavailable).
+// เปิดผ่าน liff.openWindow ก่อน (อยู่ในแอป LINE), ไม่งั้น window.location. คืน true = พาไปหน้าแชร์แล้ว.
+async function openLineMsgShare(text: string, url: string): Promise<boolean> {
+  if (typeof window === "undefined") return false
+  const deep = `https://line.me/R/msg/text/?${encodeURIComponent(`${text}\n${url}`)}`
+  try {
+    const liff = await getLiff()
+    if (liff.isInClient?.()) { liff.openWindow({ url: deep, external: false }); return true }
+  } catch {
+    /* liff ใช้ไม่ได้ → ตกไป navigate ตรง */
+  }
+  try {
+    window.location.href = deep
+    return true
+  } catch {
+    return false
+  }
+}
+
+// แชร์เข้า LINE จาก in-app webview: navigator.share มัก undefined → เดิมตกไป clipboard เฉย ๆ (เอ็ม 2026-09-22
+// "แชร์ในไลน์ได้แค่คัดลอก"). ลอง shareTargetPicker ก่อน (ต้องเปิดเป็น LIFF app + เปิดสิทธิ์ในคอนโซล) →
+// ถ้าไม่ได้ (เปิดผ่าน in-app browser ธรรมดา / picker ปิด) ตกไป LINE deep-link แทน clipboard (เอ็ม 2026-09-23).
+// คืน true = จัดการแชร์แล้ว (ไม่ต้อง fallback clipboard); false = ไม่ได้อยู่ใน LINE → ให้ caller ใช้ทางอื่น.
 async function tryLineSharePicker(text: string, url: string): Promise<boolean> {
   if (!isLineInAppBrowser()) return false
   try {
     const liff = await getLiff()
-    if (!liff.isInClient?.() || !liff.isApiAvailable?.("shareTargetPicker")) return false
-    await liff.shareTargetPicker([{ type: "text", text: `${text}\n${url}` }])
-    return true // เปิด picker สำเร็จ (ส่งหรือยกเลิกก็ถือว่าจัดการแล้ว)
+    if (liff.isInClient?.() && liff.isApiAvailable?.("shareTargetPicker")) {
+      await liff.shareTargetPicker([{ type: "text", text: `${text}\n${url}` }])
+      return true // เปิด picker สำเร็จ (ส่งหรือยกเลิกก็ถือว่าจัดการแล้ว)
+    }
   } catch {
-    return false // shareTargetPicker ปิดอยู่/ล้ม → caller fallback (clipboard)
+    /* shareTargetPicker ปิด/ล้ม → ลอง deep-link ต่อ */
   }
+  // อยู่ใน LINE แน่ ๆ แต่ picker ใช้ไม่ได้ → deep-link (ดีกว่า copy) แทนที่จะตกไป clipboard
+  return openLineMsgShare(text, url)
 }
 
 /** ลิงก์เชิญเพื่อนของ user: /invite/<code> (คนสมัครผ่านลิงก์นี้ → user ได้ QI). fallback = origin */
