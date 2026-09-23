@@ -83,9 +83,9 @@ export const SERVICES = [
   // เบอร์รังผึ้ง (Honeycomb) — ไม่แยกการ์ดแล้ว: เป็น "โหมด" ในหน้าดูเบอร์มือถือ (สลับธรรมดา/รังผึ้ง) ฟีม 2026-09-10.
   // เก็บ entry ไว้ (hidden) เพื่อคง route /v2/service/honeycomb + ServiceId 'honeycomb'; ไม่โชว์การ์ดในฮับ.
   { id: 'honeycomb', title: 'เบอร์รังผึ้ง', desc: DESC_HONEYCOMB, href: '/v2/service/honeycomb', hiddenUntilArt: true },
-  // มาหาธาตุแท้ (Bazi Element Finder / wallpaper) — เอ็ม+พี่พล 2026-09-22: วางไว้ล่างสุด "ก่อนร้านค้า". ยังไม่มี
-  // อาร์ตการ์ด 1128×463 → ServiceCardArt คืน null (พื้นครีมล้วน ไม่ broken); พอได้อาร์ตค่อยใส่ image: ART(...).
-  { id: 'element-finder', title: 'มาหาธาตุแท้กันเถอะ', desc: ['หาธาตุแท้จากวันเกิด รู้ใน 10 วินาที', 'พร้อมนิสัยและ wallpaper'], href: '/v2/element-finder', cta: 'เช็คธาตุเลย' },
+  // มาหาธาตุแท้ (Bazi Element Finder / wallpaper) — เอ็ม+พี่พล 2026-09-22: วางไว้ล่างสุด "ก่อนร้านค้า".
+  // อาร์ตการ์ด 13 ประกอบจาก asset ที่มี (hero + ไอคอน 5 ธาตุ) บนพื้น #FBF6FA ให้เข้าชุดการ์ดอื่น (เอ็ม 2026-09-23).
+  { id: 'element-finder', title: 'มาหาธาตุแท้กันเถอะ', desc: ['หาธาตุแท้จากวันเกิด รู้ใน 10 วินาที', 'พร้อมนิสัยและ wallpaper'], href: '/v2/element-finder', image: ART('13_มาหาธาตุแท้.png'), cta: 'เช็คธาตุเลย' },
   { id: 'shop', title: 'ร้านค้าของเรา', desc: DESC_SHOP, href: 'https://shop.line.me/@mumate.co', external: true, image: ART('11_ร้านค้าของเรา.png'), cta: 'Shop Now' },
   // #13, added 2026-08-08 — NOT from the Figma 12. The home screen (Zone 6) has been selling this since
   // #157, but it existed nowhere in the catalog, so its CTA had no name to send anywhere. Hidden for the

@@ -9,12 +9,14 @@
 import { useEffect, useRef, useState } from 'react'
 import Image from 'next/image'
 import { useRouter } from 'next/router'
+import { openInExternalBrowser } from '@/lib/line/liff'
 
 const PROMOS: { key: string; src: string; href: string; alt: string }[] = [
   { key: 'checkin', src: '/images/v2/popup/checkin.png', href: '/v2/qi/checkin', alt: 'เช็กอินทุกวัน รับ Qi ฟรี' },
   { key: 'book', src: '/images/v2/popup/book.png', href: '/v2/service/one-book', alt: 'เรียน & ดูดวงจีน ได้ไฟล์คู่มือดวงส่วนตัว' },
   { key: 'sinsae', src: '/images/v2/popup/sinsae.png', href: '/v2/service/sinsae', alt: 'ดูดวงกับซินแส ประสบการณ์ 20 ปี' },
-  { key: 'ganesha', src: '/images/v2/popup/ganesha.png', href: '/v2/shop', alt: 'องค์พ่อพระพิฆเนศ รุ่นความสุข & ความสำเร็จ' },
+  { key: 'ganesha', src: '/images/v2/popup/ganesha.png', href: 'https://www.facebook.com/Mumate.co/posts/pfbid0VhDkDaXmN9DFEqgJC6sPe1DuPNYhooa26sMkDEGo75FiXU2iZ6mkbcU6JC4ZLSYQl', alt: 'องค์พ่อพระพิฆเนศ รุ่นความสุข & ความสำเร็จ' },
+  // TODO(เอ็ม): ใส่ URL คอร์สปฏิทิน (ลิงก์ภายนอก) — เปิดในเบราว์เซอร์ภายนอกเมื่ออยู่ใน LINE
   { key: 'calendar-course', src: '/images/v2/popup/calendar-course.png', href: '/v2/calendar', alt: 'คอร์สปฏิทิน เรียนฟรี วิธีอ่านปฏิทิน Mumate' },
 ]
 
@@ -82,8 +84,10 @@ export function PromoPopup() {
     setOpen(false)
   }
   const go = (href: string) => {
-    suppressNext.current = true
     setOpen(false)
+    // ลิงก์ภายนอก (http) → เปิดเบราว์เซอร์ภายนอก (ใน LINE ต้อง openWindow external); ภายใน → router.push
+    if (/^https?:\/\//i.test(href)) { void openInExternalBrowser(href); return }
+    suppressNext.current = true // เปลี่ยนหน้าในแอปเอง → กันเด้ง popup ซ้ำที่ปลายทาง
     void router.push(href)
   }
   const step = (dir: 1 | -1) => setSlide((s) => (s + dir + PROMOS.length) % PROMOS.length)
