@@ -204,12 +204,29 @@ export default function InvitePage({ ssrCode = "", ssrInviterName = null, origin
 
       {state === "ready" && (
         <div className="mt-4 flex w-full max-w-md flex-col gap-4">
-          {/* คำทำนายที่แชร์ (เจ้าของยินยอมเปิดเผย 0033) — ให้เพื่อนอ่านผลเต็มได้ */}
+          {/* คำทำนายที่แชร์ (เจ้าของยินยอมเปิดเผย 0033) — รูปการ์ด + สรุป + ผลเต็ม */}
           {readingFull ? (
             <section data-testid="invite-reading" className="v3-shadow-card rounded-[24px] bg-white p-5">
               <span className="w-fit rounded-full bg-v3-sapphire/10 px-3 py-1 text-[11px] font-black tracking-wide text-v3-sapphire">คำทำนายที่แชร์</span>
               {readingTitle ? <h2 className="mt-2 text-[17px] font-black leading-6 text-v3-navy">{readingTitle}</h2> : null}
-              <p className="mt-2 whitespace-pre-line text-[14px] leading-[24px] text-v3-text-body">{readingFull}</p>
+              {/* รูปการ์ด/มาสคอต (จาก snapshot.image คั่นด้วย ",") */}
+              {share.m ? (
+                <div className="mt-3 flex flex-wrap justify-center gap-2">
+                  {share.m.split(",").map((s) => s.trim()).filter(Boolean).slice(0, 3).map((src, i) => (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img key={i} src={src} alt="" className="h-32 w-auto rounded-[12px] object-contain" />
+                  ))}
+                </div>
+              ) : null}
+              {/* สรุป (จาก snapshot.summary) */}
+              {share.d ? (
+                <div className="mt-3 rounded-2xl bg-[#EAF3FF] p-4">
+                  <span className="text-[12px] font-black text-v3-sapphire">สรุปคำทำนายนี้</span>
+                  <p className="mt-1 text-[13px] leading-[22px] text-v3-text-body">{share.d}</p>
+                </div>
+              ) : null}
+              {/* ผลเต็ม */}
+              <p className="mt-3 whitespace-pre-line text-[14px] leading-[24px] text-v3-text-body">{readingFull}</p>
               <p className="mt-3 text-[11px] leading-4 text-v3-text-muted">ผู้แชร์ยินยอมเปิดเผยผลนี้ · อยากรู้ดวงของคุณเองไหม? สมัครฟรีด้านล่าง</p>
             </section>
           ) : null}

@@ -27,6 +27,7 @@ import { TopBarBell } from "@/features/v2-shell/components/TopBarBell"
 import { TopBarAvatar } from "@/features/v2-shell/components/TopBarAvatar"
 import { shareAsInvite } from "@/lib/v2/share-invite"
 import { ShareCard, ShareStage, type ShareSkill } from "@/features/v2-share/components/ShareCard"
+import { PublicShareToggle } from "@/features/v2-share/components/PublicShareToggle"
 import { GRADE_STEP_COLOR, type GradeStep } from "@/lib/v2/grade-scale"
 import { stemEnLabel, branchZodiacEn } from "@/lib/bazi/element-colors"
 
@@ -788,6 +789,7 @@ export function DestinyScreen({ previewData }: { previewData?: DestinyData } = {
   const [guard, setGuard] = useState<"not_authenticated" | "profile_incomplete" | null>(null)
   const [showDomains, setShowDomains] = useState(false)
   const [shareState, setShareState] = useState<"idle" | "done" | "capped">("idle")
+  const [allowPublic, setAllowPublic] = useState(false) // ยินยอมเปิดเผยผลเต็ม (0033)
 
   useEffect(() => {
     if (previewData) return
@@ -896,7 +898,13 @@ export function DestinyScreen({ previewData }: { previewData?: DestinyData } = {
     await shareAsInvite({
       title: "Mumate — ดวงของฉันวันนี้",
       text: `${shareTitle}${summary?.tagline ? ` - ${summary.tagline.replace(/\s+/g, " ").trim().slice(0, 120)}` : ""} — มาดูดวงธาตุกับ Mumate`,
-      og: { title: shareTitle, summary: shareSummary, tag: "ดวงธาตุของฉัน", image: mascotUrl ?? undefined, skills: shareSkills },
+      og: {
+        title: shareTitle, summary: shareSummary, tag: "ดวงธาตุของฉัน", image: mascotUrl ?? undefined, skills: shareSkills,
+        isPublic: allowPublic,
+        fullText: allowPublic
+          ? [data?.prediction?.personality, data?.prediction?.habit, data?.prediction?.love, data?.prediction?.work, ...cautionList].filter(Boolean).join("\n\n").slice(0, 8000)
+          : undefined,
+      },
     })
     // รู้ผลของวันนี้แล้ว (รับ/เต็มโควตา) ⇒ ไม่ยิง qi-earn ซ้ำ (แชร์เองยังทำได้ตามปกติด้านบน)
     if (shareState === "done" || shareState === "capped") return
@@ -1250,9 +1258,11 @@ export function DestinyScreen({ previewData }: { previewData?: DestinyData } = {
           {/* แถบล่างฟิกซ์ที่ขอบจอ (ฟีม 2026-09-10): แชร์ +10 QI + ปุ่มเสี่ยวมู่ — แทนตำแหน่ง Menubar (หน้านี้ไม่มี
               Menubar), เนื้อหาเลื่อนลอดใต้. มิเรอร์คลาส fixed ของ Menubar (inset-x-0 bottom-0 z-40 mx-auto max-w-md). */}
           <div
-            className="fixed inset-x-0 bottom-0 z-40 mx-auto flex max-w-md items-center gap-2 px-4 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-2"
+            className="fixed inset-x-0 bottom-0 z-40 mx-auto flex max-w-md flex-col gap-2 px-4 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-2"
             data-testid="destiny-share-pill"
           >
+            <PublicShareToggle checked={allowPublic} onChange={setAllowPublic} testId="destiny-allow-public" />
+            <div className="flex items-center gap-2">
             <button
               onClick={shareToday}
               data-testid="destiny-share"
@@ -1272,6 +1282,7 @@ export function DestinyScreen({ previewData }: { previewData?: DestinyData } = {
             <span data-testid="destiny-mate-ai" className="flex-none">
               <MateAIButton />
             </span>
+            </div>
           </div>
         </>
       )}
