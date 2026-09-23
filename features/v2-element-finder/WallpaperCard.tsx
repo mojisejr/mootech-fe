@@ -49,8 +49,10 @@ export const WallpaperCard = forwardRef<HTMLDivElement, WallpaperCardProps>(func
           src={character}
           alt=""
           crossOrigin="anonymous"
-          className="absolute left-1/2 -translate-x-1/2 object-contain drop-shadow-[0_6px_16px_rgba(0,0,0,0.28)]"
-          style={{ bottom: "24%", width: "56%", height: "36%" }}
+          // ⚠️ html2canvas ไม่รองรับ object-fit (จะยืดเต็มกล่อง → ตัวละครโดนบีบตอนแชร์) →
+          // กำหนด "ความสูง" อย่างเดียว ปล่อย width auto ให้ img ใช้สัดส่วนจริงของไฟล์ (ไม่ต้อง object-fit)
+          className="absolute left-1/2 -translate-x-1/2 drop-shadow-[0_6px_16px_rgba(0,0,0,0.28)]"
+          style={{ bottom: "24%", height: "36%", width: "auto", maxWidth: "72%" }}
         />
       ) : null}
 

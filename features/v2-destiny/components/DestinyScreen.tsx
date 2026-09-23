@@ -282,13 +282,29 @@ function YearCard({ y, current }: { y: TimelineYear; current?: boolean }) {
   )
 }
 
+// ป้ายข้อมูล "ⓘ" กดเพื่อดูหมายเหตุ (มือถือแตะได้ ไม่ใช้ hover)
+function InfoDot({ text }: { text: string }) {
+  const [open, setOpen] = useState(false)
+  return (
+    <span className="relative ml-1 inline-flex align-middle">
+      <button type="button" onClick={() => setOpen((v) => !v)} aria-label="หมายเหตุ"
+        className="grid size-[15px] place-items-center rounded-full border border-v3-text-note text-[10px] font-bold leading-none text-v3-text-note">i</button>
+      {open ? (
+        <span className="absolute left-0 top-[19px] z-20 w-[180px] rounded-lg bg-v3-navy px-2 py-1.5 text-[10px] font-medium leading-tight text-white shadow-lg">{text}</span>
+      ) : null}
+    </span>
+  )
+}
+
 // แถบวัยจร (大运) + ปีจร (流年) แบบ engine — วัยจรใช้ calculatedState.daYun (แตกครึ่งก้าน/กิ่ง + qi), ปีจรใช้ years
 function LuckStrips({ tl, daYun }: { tl: LifeTimeline; daYun?: DaYun[] | null }) {
   // engine อ่านขวา→ซ้าย (ช่วงแรก/อ่อนสุดอยู่ขวาสุด) → เรียง startAge มาก→น้อย
   const stages = (daYun && daYun.length ? [...daYun] : []).sort((a, b) => b.startAge - a.startAge)
   const years = tl.years ?? []
   if (stages.length === 0 && years.length === 0) return null
-  const curAge = tl.currentAge
+  // ไฮไลต์ "ปีปัจจุบัน" ตามปีปฏิทินจริง (ค.ศ.) — เดิมใช้ currentAge จาก engine ทำให้เลื่อนไป 1 ปี
+  // (อายุจีน = อายุไทย + 1 ⇒ ปีที่กำลังอยู่คือการ์ดถัดไป). ยึดปีปฏิทินจึงตรงเสมอ. (เอ็ม 2026-09-23)
+  const nowYear = new Date().getFullYear()
   return (
     <section className="rounded-[20px] bg-white p-4 shadow-sm" data-testid="destiny-luck-strips">
       <h3 className="text-[15px] font-bold text-v3-navy">ตารางวัยจร · ปีจร</h3>
@@ -303,11 +319,11 @@ function LuckStrips({ tl, daYun }: { tl: LifeTimeline; daYun?: DaYun[] | null })
       )}
       {years.length > 0 && (
         <div className="mt-3">
-          <p className="text-[12px] font-bold text-v3-navy">ปีจร (รายปี)</p>
+          <p className="flex items-center text-[12px] font-bold text-v3-navy">ปีจร (รายปี)<InfoDot text="อายุที่แสดง = อายุไทย · อายุจีน = อายุไทย + 1 (ปีที่ไฮไลต์คือปีปัจจุบันตามปฏิทิน)" /></p>
           <p className="text-[10px] text-v3-text-note">เลื่อนดูกะจื่อ/อายุแต่ละปี · ปีปัจจุบันไฮไลต์ · ปีชงมี tag</p>
           <div className="mt-1.5 flex gap-1.5 overflow-x-auto pb-1">
             {years.map((y, i) => (
-              <YearCard key={i} y={y} current={y.age != null && curAge != null && y.age === curAge} />
+              <YearCard key={i} y={y} current={y.year === nowYear} />
             ))}
           </div>
         </div>

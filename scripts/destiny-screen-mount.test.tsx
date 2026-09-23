@@ -127,16 +127,14 @@ describe("DestinyScreen (ดวงฉัน, node 55349-3070)", () => {
   it("ทำนายพื้นฐาน: นิสัยเสาวันแยก 3 ส่วน ก้าน/กิ่ง/เสาเต็ม จาก engine (ซินแสนุ้ย)", async () => {
     await mountScreen()
     const card = screen.getByTestId("destiny-prediction")
-    // 3 ส่วนแยกชัด พร้อมตัวจีนกำกับ ก้าน 甲 / กิ่ง 子 / เสาเต็ม 甲子
-    expect(card.textContent).toContain("บุคลิกพื้นฐาน")
-    expect(card.textContent).toContain("ก้านวัน 甲")
+    // 3 ส่วนแยกชัด: หัวข้อคงเฉพาะตัวจีน (甲 / 子 / 甲子) ตัดคำ "ก้านวัน/กิ่งวัน/เสาเต็ม" ออก (เอ็ม 2026-09-22)
+    expect(card.textContent).toContain("บุคลิกพื้นฐาน · 甲")
     // บุคลิกพื้นฐาน = ก้านวันแข็ง/อ่อน (dayMasterStrengthProfile), NOT the 60-jiazi heavenNarrative
     expect(card.textContent).toContain("persona-strength-ราศีบน")
     expect(card.textContent).not.toContain("persona-heaven-กะ")
-    expect(card.textContent).toContain("นิสัยพื้นฐาน")
-    expect(card.textContent).toContain("กิ่งวัน 子")
+    expect(card.textContent).toContain("นิสัยพื้นฐาน · 子")
     expect(card.textContent).toContain("persona-earth-จื้อ")
-    expect(card.textContent).toContain("บุคลิก/นิสัยเฉพาะตน")
+    expect(card.textContent).toContain("บุคลิก/นิสัยเฉพาะตน · 甲子")
     expect(card.textContent).toContain("persona-combined-เฉพาะตน")
     // เลี่ยงคำว่า "พฤติกรรม" ตามที่ซินแสนุ้ยขอ
     expect(card.textContent).not.toContain("พฤติกรรม")
