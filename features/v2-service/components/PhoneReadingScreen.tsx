@@ -259,7 +259,9 @@ export function PhoneReadingScreen({ initialMode = "normal" }: { initialMode?: M
     const s = narration?.trim() || "ทำนายเบอร์มือถือของคุณที่ Mumate"
     return shareNumberRaw && shareNumber !== shareNumberRaw ? s.split(shareNumberRaw).join(shareNumber) : s
   })()
-  const shareText = `ผลวิเคราะห์${MODE[resultMode].label} เบอร์ ${shareNumber} จาก Mumate`
+  // พี่พล 2026-09-23: ใส่คำแปลสรุป 1 บรรทัดในข้อความแชร์ (เหมือนไพ่) — ใช้ narration ถ้ามี (ไม่ใช่ fallback ทั่วไป)
+  const shareLine = (narration?.trim() ? shareSummary : "").replace(/\s+/g, " ").trim().slice(0, 120)
+  const shareText = `ผลวิเคราะห์${MODE[resultMode].label} เบอร์ ${shareNumber}${shareLine ? ` - ${shareLine}` : ""} จาก Mumate`
 
   const digits = pReading ? pReading.normalized.split("") : []
   const closingLen = pReading?.closing.pair.length ?? 2
