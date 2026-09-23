@@ -114,7 +114,7 @@ export function CompatibilityResultScreen({ matchingId }: { matchingId: string }
     <div data-testid="compat-result-screen" data-state="ready" className="relative min-h-screen w-full overflow-x-hidden bg-v3-bg-cream font-ibm">
       <Head><title>ผลดวงสมพงศ์ · MuMate</title></Head>
       <ComingSoonNotice />
-      <div className="relative z-10 mx-auto flex w-full max-w-md flex-col gap-4 px-4 pb-32 pt-[max(0.75rem,env(safe-area-inset-top))]">
+      <div className="relative z-10 mx-auto flex w-full max-w-md flex-col gap-4 px-4 pb-44 pt-[max(0.75rem,env(safe-area-inset-top))]">
         <header className="flex items-center gap-2 py-1">
           {/* slide 3 (ฟีม 2026-09-10): ย้อนไป "หน้าก่อนหน้า" จริง (หน้ากรอกดวงสมพงศ์) เมื่อมีประวัติในแอป —
               ไม่ใช่กระโดดไปหน้าบริการ. href={backHref} คงไว้เป็น fallback ตอนเปิดลิงก์ตรง/รีเฟรช (ไม่มีประวัติ). */}
@@ -210,8 +210,7 @@ export function CompatibilityResultScreen({ matchingId }: { matchingId: string }
         ) : null}
       </div>
 
-      <PublicShareToggle checked={allowPublic} onChange={setAllowPublic} testId="compat-allow-public" />
-      <ResultActionBar shareText={`ผลดวงสมพงศ์ของฉัน${overall?.ratingText?.trim() ? ` - ${overall.ratingText.replace(/\s+/g, " ").trim().slice(0, 120)}` : ""} จาก Mumate`} testIdPrefix="compat" og={{ title: shareTitle, subtitle: shareSubtitle, summary: shareSummary, tag: "ผลความสมพงศ์", image: shareImages.slice(0, 2).join(","), isPublic: allowPublic, fullText }} getShareFile={() => captureShareImage(shareCardRef.current)} />
+      <ResultActionBar shareText={`ผลดวงสมพงศ์ของฉัน${overall?.ratingText?.trim() ? ` - ${overall.ratingText.replace(/\s+/g, " ").trim().slice(0, 120)}` : ""} จาก Mumate`} testIdPrefix="compat" og={{ title: shareTitle, subtitle: shareSubtitle, summary: shareSummary, tag: "ผลความสมพงศ์", image: shareImages.slice(0, 2).join(","), isPublic: allowPublic, fullText }} getShareFile={() => captureShareImage(shareCardRef.current)} aboveSlot={<PublicShareToggle checked={allowPublic} onChange={setAllowPublic} testId="compat-allow-public" />} />
 
       {/* #6: การ์ดแชร์เฉพาะบุคคล (ซ่อนนอกจอ) */}
       <ShareStage>

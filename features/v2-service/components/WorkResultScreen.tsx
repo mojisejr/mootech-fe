@@ -290,7 +290,7 @@ export function WorkResultScreen({ matchingId }: { matchingId: string }) {
     <div data-testid="work-result-screen" className="relative min-h-screen w-full overflow-x-hidden bg-v3-bg-cream font-ibm">
       <Head><title>ผลความสมพงศ์ · MuMate</title></Head>
       <ComingSoonNotice />
-      <div className="mx-auto w-full max-w-[430px] pb-32">
+      <div className="mx-auto w-full max-w-[430px] pb-44">
         <header className="flex items-center gap-2 px-4 pb-6 pt-4">
           <button type="button" aria-label="ย้อนกลับ" data-testid="work-back" onClick={() => { if (typeof window !== "undefined" && window.history.length > 1) router.back(); else router.push('/v2/service/compatibility/recent') }} className="grid size-8 place-items-center text-v3-navy">
             <BackChevron />
@@ -489,9 +489,8 @@ export function WorkResultScreen({ matchingId }: { matchingId: string }) {
         <Link href="/v2/service/compatibility/recent" className="underline">ดูดวงสมพงศ์ล่าสุด</Link>
       </p>
 
-      {/* #359 รอบ 10: ปุ่ม PDF/แชร์ ลอยล่าง ดีไซน์เดียวกับหน้าคู่รัก (ResultActionBar มาตรฐาน) */}
-      <PublicShareToggle checked={allowPublic} onChange={setAllowPublic} testId="work-allow-public" />
-      <ResultActionBar shareText={`ผลดวงสมพงศ์เพื่อนร่วมงานของฉัน${topEntry.ratingText?.trim() ? ` - ${topEntry.ratingText.replace(/\s+/g, " ").trim().slice(0, 120)}` : ""} จาก Mumate`} testIdPrefix="work" og={{ title: shareTitle, subtitle: shareSubtitle, summary: shareSummary, tag: "ผลความสมพงศ์", image: shareImages.slice(0, 2).join(","), isPublic: allowPublic, fullText }} getShareFile={() => captureShareImage(shareCardRef.current)} />
+      {/* #359 รอบ 10: ปุ่ม PDF/แชร์ ลอยล่าง ดีไซน์เดียวกับหน้าคู่รัก (ResultActionBar มาตรฐาน) — toggle ยินยอมอยู่ในกรอบลอยเดียวกัน (aboveSlot) ให้เห็นติดปุ่มแชร์ */}
+      <ResultActionBar shareText={`ผลดวงสมพงศ์เพื่อนร่วมงานของฉัน${topEntry.ratingText?.trim() ? ` - ${topEntry.ratingText.replace(/\s+/g, " ").trim().slice(0, 120)}` : ""} จาก Mumate`} testIdPrefix="work" og={{ title: shareTitle, subtitle: shareSubtitle, summary: shareSummary, tag: "ผลความสมพงศ์", image: shareImages.slice(0, 2).join(","), isPublic: allowPublic, fullText }} getShareFile={() => captureShareImage(shareCardRef.current)} aboveSlot={<PublicShareToggle checked={allowPublic} onChange={setAllowPublic} testId="work-allow-public" />} />
 
       {/* #359 (A7): การ์ดแชร์เฉพาะบุคคล (ซ่อนนอกจอ) — คู่ที่เข้ากับคุณที่สุด */}
       <ShareStage>
