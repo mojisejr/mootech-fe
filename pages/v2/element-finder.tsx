@@ -150,16 +150,25 @@ export default function ElementFinderPage({ ogImage, ogTitle, ogDesc, pageUrl }:
   // ภายนอกเมื่ออยู่ใน LINE (openInExternalBrowser), ไม่งั้น window.open.
   // แชร์ลง X = เด้งเข้าหน้าเขียนโพสต์ X ตรง ๆ (เอ็ม "ต้องเด้งไป X เลย"). X-web แนบรูปอัตโนมัติไม่ได้ →
   // โพสต์โชว์การ์ดพรีวิว (twitter card เฉพาะธาตุจาก ?el=). อยากได้ wallpaper เต็มใบ กด "บันทึก" ไปแนบเอง.
-  const shareX = () => {
-    if (!result) return
-    const text = `ฉันคือ${result.nameTh} — “${result.quote}” มาเช็คธาตุแท้ของคุณกับ Mumate`
-    // ส่ง bg/ch/txt ของ wallpaper ปัจจุบัน → หน้าเป้าหมายทำการ์ด X เป็น "wallpaper เต็มใบ" (ผ่าน /api/og/finder)
-    // X ย่อลิงก์เป็น t.co อยู่แล้ว ยาวได้ไม่กระทบหน้าตาโพสต์
-    const p = new URLSearchParams()
-    if (wallpaper?.bg && character && wallpaper?.text) { p.set("bg", wallpaper.bg); p.set("ch", character); p.set("txt", wallpaper.text) }
-    const qs = p.toString()
-    const url = `https://bazichart.mumate.co/v2/element-finder${qs ? `?${qs}` : ""}`
-    void openInExternalBrowser(`https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}&url=${encodeURIComponent(url)}`)
+  // แชร์ลง X: มือถือ → แนบ "รูป wallpaper แนวตั้งเต็มใบ" เป็น media (Web Share → เลือก X ในชีต) = โพสรูปนั้นตรง ๆ ไม่มีกรอบ
+  // desktop (แนบไฟล์ไม่ได้) → ตกไปเปิด X composer + การ์ดลิงก์ wallpaper (contain) จาก /api/og/finder
+  const shareX = async () => {
+    if (!result || saving) return
+    setSaving(true)
+    try {
+      const text = `ฉันคือ${result.nameTh} — “${result.quote}” มาเช็คธาตุแท้ของคุณกับ Mumate`
+      const blob = await renderWallpaperBlob()
+      const file = blob ? new File([blob], "mumate-element.png", { type: "image/png" }) : null
+      const nav = typeof navigator !== "undefined" ? (navigator as Navigator & { canShare?: (d: unknown) => boolean }) : undefined
+      if (file && nav?.share && nav.canShare?.({ files: [file] })) {
+        try { await nav.share({ files: [file], text }) } catch { /* ยกเลิก = จบ */ }
+        return
+      }
+      const p = new URLSearchParams()
+      if (wallpaper?.bg && character && wallpaper?.text) { p.set("bg", wallpaper.bg); p.set("ch", character); p.set("txt", wallpaper.text) }
+      const url = `https://bazichart.mumate.co/v2/element-finder${p.toString() ? `?${p.toString()}` : ""}`
+      void openInExternalBrowser(`https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}&url=${encodeURIComponent(url)}`)
+    } finally { setSaving(false) }
   }
 
   // ขนาด wallpaper preview แบบ responsive — ขยายให้เต็มความสูงจอที่เหลือ (ไม่เหลือช่องว่างล่าง / ไม่ต้องเลื่อน)
@@ -301,9 +310,9 @@ export default function ElementFinderPage({ ogImage, ogTitle, ogDesc, pageUrl }:
 
           {/* แชร์ = Twitter/X อย่างเดียว (ปุ่มดำ ไอคอน X) + บันทึก wallpaper */}
           <div className="flex w-full max-w-md gap-2">
-            <button onClick={shareX} data-testid="finder-share" className="flex h-12 flex-1 items-center justify-center gap-2 rounded-full bg-black text-[14px] font-bold text-white">
+            <button onClick={() => void shareX()} disabled={saving} data-testid="finder-share" className="flex h-12 flex-1 items-center justify-center gap-2 rounded-full bg-black text-[14px] font-bold text-white disabled:opacity-50">
               <svg width="17" height="17" viewBox="0 0 24 24" fill="currentColor" aria-hidden><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" /></svg>
-              แชร์ลง X
+              {saving ? "กำลังเตรียม…" : "แชร์ลง X"}
             </button>
             <button onClick={() => void download()} disabled={saving} data-testid="finder-download" className="flex h-12 flex-1 items-center justify-center gap-2 rounded-full border border-v3-sapphire text-[14px] font-bold text-v3-sapphire disabled:opacity-50">
               <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3" /></svg>
