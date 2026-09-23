@@ -22,7 +22,6 @@ import { TopBarBell } from '@/features/v2-shell/components/TopBarBell'
 import { DailyFortuneCard } from '@/features/v2-shell/components/DailyFortuneCard'
 import { Spinner } from '@/features/v2-shell/components/Spinner'
 import { InstallPromptSheet } from './InstallPromptSheet'
-import { PromoPopup } from './PromoPopup'
 
 // Zone 1 daily-fortune (bazi /api/home). goo wires useHomeFortune() → this shape; I compose against it.
 export type DailyFortune = {
@@ -143,9 +142,7 @@ export function V2HomeScreen({ greeting, mascotCharacter, fortune, fortuneLoadin
 
       {/* #install — ป็อปอัปชวนติดตั้งแอปที่หน้าแรก (เด้งครั้งเดียว จำการปิด 7 วัน ซ่อนถ้าติดตั้งแล้ว/ติดตั้งไม่ได้) */}
       <InstallPromptSheet />
-
-      {/* ป็อปอัปโปรโมชัน (สไตล์ Shopee) — เด้ง 1 ครั้ง/วัน สุ่มโปรฯ แตะภาพไปหน้าที่เกี่ยวข้อง (เอ็ม 2026-09-23) */}
-      <PromoPopup />
+      {/* หมายเหตุ: PromoPopup ย้ายไป mount ที่ _app (ครอบทั้ง /v2 → เด้งข้ามหน้าได้) */}
     </div>
   )
 }
