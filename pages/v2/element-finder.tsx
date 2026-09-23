@@ -26,9 +26,6 @@ const EL_OG: Record<string, { th: string; img: string }> = {
   metal: { th: "ธาตุทอง", img: "/images/v2/destiny/el-metal.png" },
   water: { th: "ธาตุน้ำ", img: "/images/v2/destiny/el-water.png" },
 }
-// ธาตุไทย → en (สำหรับใส่ใน query ?el= ตอนแชร์ ให้ลิงก์สั้น)
-const TH2EN: Record<string, string> = { "ไฟ": "fire", "ไม้": "wood", "ดิน": "earth", "ทอง": "metal", "น้ำ": "water" }
-
 type FinderProps = { ogImage: string; ogTitle: string; ogDesc: string; pageUrl: string }
 
 export const getServerSideProps: GetServerSideProps<FinderProps> = async (ctx) => {
@@ -146,13 +143,22 @@ export default function ElementFinderPage({ ogImage, ogTitle, ogDesc, pageUrl }:
   // แชร์ลง Twitter/X อย่างเดียว (เอ็ม 2026-09-23) — intent เปิด composer พร้อมข้อความ + ลิงก์หน้า finder
   // (Twitter intent แนบรูปผ่าน URL ไม่ได้ → ผู้ใช้กด "บันทึก wallpaper" ไปแนบเองถ้าต้องการ). เปิดเบราว์เซอร์
   // ภายนอกเมื่ออยู่ใน LINE (openInExternalBrowser), ไม่งั้น window.open.
-  const shareTwitter = () => {
-    if (!result) return
-    const text = `ฉันคือ${result.nameTh} — “${result.quote}” มาเช็คธาตุแท้ของคุณกับ Mumate`
-    // ใส่ ?el=<ธาตุ> → หน้าเป้าหมายมี Twitter card เฉพาะธาตุ → โพสต์ X มีรูปตามไป
-    const el = TH2EN[result.key] ?? ""
-    const url = `https://bazichart.mumate.co/v2/element-finder${el ? `?el=${el}` : ""}`
-    void openInExternalBrowser(`https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}&url=${encodeURIComponent(url)}`)
+  // แชร์ลง X พร้อม "รูป wallpaper แนวตั้งเต็มใบ ไม่ครอป" — ต้องแนบเป็น media ผ่าน Web Share (เลือก X ในชีต)
+  // เพราะการ์ดพรีวิวลิงก์ของ X ครอปแนวนอนเสมอ. desktop/ไม่มี file-share → fallback เปิด X composer (แนบเอง)
+  const shareX = async () => {
+    if (!result || saving) return
+    setSaving(true)
+    try {
+      const text = `ฉันคือ${result.nameTh} — “${result.quote}” มาเช็คธาตุแท้ของคุณกับ Mumate\nhttps://bazichart.mumate.co/v2/element-finder`
+      const blob = await renderWallpaperBlob()
+      const file = blob ? new File([blob], "mumate-element.png", { type: "image/png" }) : null
+      const nav = typeof navigator !== "undefined" ? (navigator as Navigator & { canShare?: (d: unknown) => boolean }) : undefined
+      if (file && nav?.share && nav.canShare?.({ files: [file] })) {
+        try { await nav.share({ files: [file], text }); return } catch { return } // ยกเลิก/ปิดชีต = จบ
+      }
+      // fallback: เปิด X composer (ผู้ใช้กด "บันทึก" แล้วแนบรูปเองได้)
+      void openInExternalBrowser(`https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}`)
+    } finally { setSaving(false) }
   }
 
   // ขนาด wallpaper preview แบบ responsive — ขยายให้เต็มความสูงจอที่เหลือ (ไม่เหลือช่องว่างล่าง / ไม่ต้องเลื่อน)
@@ -294,9 +300,9 @@ export default function ElementFinderPage({ ogImage, ogTitle, ogDesc, pageUrl }:
 
           {/* แชร์ = Twitter/X อย่างเดียว (ปุ่มดำ ไอคอน X) + บันทึก wallpaper */}
           <div className="flex w-full max-w-md gap-2">
-            <button onClick={shareTwitter} data-testid="finder-share" className="flex h-12 flex-1 items-center justify-center gap-2 rounded-full bg-black text-[14px] font-bold text-white">
+            <button onClick={() => void shareX()} disabled={saving} data-testid="finder-share" className="flex h-12 flex-1 items-center justify-center gap-2 rounded-full bg-black text-[14px] font-bold text-white disabled:opacity-50">
               <svg width="17" height="17" viewBox="0 0 24 24" fill="currentColor" aria-hidden><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" /></svg>
-              แชร์ลง X
+              {saving ? "กำลังเตรียม…" : "แชร์ลง X"}
             </button>
             <button onClick={() => void download()} disabled={saving} data-testid="finder-download" className="flex h-12 flex-1 items-center justify-center gap-2 rounded-full border border-v3-sapphire text-[14px] font-bold text-v3-sapphire disabled:opacity-50">
               <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3" /></svg>
