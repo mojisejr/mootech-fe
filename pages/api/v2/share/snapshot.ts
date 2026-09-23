@@ -24,6 +24,8 @@ interface SnapshotBody {
   tag?: string
   image?: string
   skills?: string // encode แล้ว: label|percent|grade|color|top คั่นแถวด้วย "~"
+  isPublic?: boolean // ยินยอมเปิดเผยให้คนอื่นอ่านผลเต็ม (0033)
+  fullText?: string // คำทำนายเต็ม (เก็บเฉพาะเมื่อ isPublic)
 }
 
 const str = (v: unknown, max: number): string | null => {
@@ -46,7 +48,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     if (!title) return res.status(400).json({ ok: false, error: "ต้องมี title" })
 
     const id = shortId()
-    await db.insert(shareSnapshot).values({
+    // เปิดเผย = ต้องมี fullText จริง ๆ ถึงจะถือว่าเปิดอ่านได้ (กัน public เปล่า)
+    const isPublic = body.isPublic === true
+    const fullText = isPublic ? str(body.fullText, 8000) : null
+    const base = {
       id,
       userId: who.userId,
       title,
@@ -55,7 +60,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       tag: str(body.tag, 40),
       image: str(body.image, 1500), // รองรับไพ่หลายใบ (URL คั่นด้วย ",")
       skills: str(body.skills, 400),
-    })
+    }
+    // ⚠️ แตะคอลัมน์ใหม่ (0033) เฉพาะกรณี "เปิดเผย" เท่านั้น — แชร์ปกติ insert เหมือนเดิม จึงไม่พังถ้ายังไม่ได้รัน migration
+    await db.insert(shareSnapshot).values(
+      isPublic && fullText ? { ...base, isPublic: true, fullText, consentedAt: new Date() } : base,
+    )
     return res.status(200).json({ ok: true, id })
   } catch (err) {
     console.error("[share/snapshot] failed", err)

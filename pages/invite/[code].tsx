@@ -27,7 +27,8 @@ type Look = { code?: string; inviterName?: string | null }
 // (card ขึ้น "MuMate · preview"). ดึงชื่อผู้ชวนฝั่ง server แล้วปล่อย og ให้ FB/LINE ทำ rich preview.
 // #359 รอบ 13: พารามิเตอร์การ์ดแชร์เฉพาะผล (t/s/d/g/m) ที่ติดมากับลิงก์ → ใช้ทำ og:image เฉพาะบุคคล
 type ShareOg = { t?: string; s?: string; d?: string; g?: string; m?: string; k?: string }
-type InviteSSR = { ssrCode: string; ssrInviterName: string | null; origin: string; share: ShareOg; shareUrl: string }
+// เปิดเผย (0033): ถ้าเจ้าของยินยอม → มีคำทำนายเต็มให้คนอื่นอ่าน (readingFull) พร้อมหัวข้อ (readingTitle)
+type InviteSSR = { ssrCode: string; ssrInviterName: string | null; origin: string; share: ShareOg; shareUrl: string; readingTitle: string | null; readingFull: string | null }
 
 export const getServerSideProps: GetServerSideProps<InviteSSR> = async (ctx) => {
   const raw = ctx.params?.code
@@ -54,12 +55,22 @@ export const getServerSideProps: GetServerSideProps<InviteSSR> = async (ctx) => 
   const q = ctx.query
   const str = (v: unknown): string => (typeof v === "string" ? v : Array.isArray(v) ? (v[0] ?? "") : "")
   let share: ShareOg = { t: str(q.t), s: str(q.s), d: str(q.d), g: str(q.g), m: str(q.m) }
+  let readingTitle: string | null = null
+  let readingFull: string | null = null
   const snapId = str(q.c).trim()
   if (snapId && /^[0-9A-Za-z]{1,24}$/.test(snapId)) {
     try {
-      const rows = await db.select().from(shareSnapshot).where(eq(shareSnapshot.id, snapId)).limit(1)
+      // เลือกเฉพาะคอลัมน์เดิม (การ์ด OG) — ไม่แตะคอลัมน์ 0033 ตรงนี้ กัน SELECT พังถ้ายังไม่รัน migration
+      const rows = await db
+        .select({ title: shareSnapshot.title, subtitle: shareSnapshot.subtitle, summary: shareSnapshot.summary, tag: shareSnapshot.tag, image: shareSnapshot.image, skills: shareSnapshot.skills })
+        .from(shareSnapshot).where(eq(shareSnapshot.id, snapId)).limit(1)
       const r = rows[0]
       if (r) share = { t: r.title, s: r.subtitle ?? "", d: r.summary ?? "", g: r.tag ?? "", m: r.image ?? "", k: r.skills ?? "" }
+      // เจ้าของยินยอมเปิดเผย → อ่านคำทำนายเต็มได้ (แยก query + try เผื่อยังไม่รัน migration 0033)
+      try {
+        const pub = await db.select({ isPublic: shareSnapshot.isPublic, fullText: shareSnapshot.fullText }).from(shareSnapshot).where(eq(shareSnapshot.id, snapId)).limit(1)
+        if (pub[0]?.isPublic && pub[0]?.fullText) { readingTitle = share.t ?? null; readingFull = pub[0].fullText }
+      } catch { /* ยังไม่รัน migration 0033 → ไม่มีอ่านเต็ม (การ์ด OG ยังทำงาน) */ }
     } catch {
       /* best-effort — ดึงสแนปช็อตไม่ได้ → การ์ดแบรนด์ทั่วไป */
     }
@@ -68,7 +79,7 @@ export const getServerSideProps: GetServerSideProps<InviteSSR> = async (ctx) => 
   // ถ้า og:url ตัด ?c= ออก FB จะดึงหน้า /invite เปล่า → ได้การ์ด referral ทั่วไป (ไม่ใช่ผลเฉพาะบุคคล).
   const shareUrl = `${origin}${ctx.resolvedUrl}`
   ctx.res.setHeader("Cache-Control", "public, max-age=300, s-maxage=600")
-  return { props: { ssrCode, ssrInviterName, origin, share, shareUrl } }
+  return { props: { ssrCode, ssrInviterName, origin, share, shareUrl, readingTitle, readingFull } }
 }
 
 const FEATURES: { title: string; sub: string; icon: React.ReactNode; tone: string }[] = [
@@ -77,7 +88,7 @@ const FEATURES: { title: string; sub: string; icon: React.ReactNode; tone: strin
   { title: "ถามเซียนมู่ AI", sub: "30 QI ต่อครั้ง", tone: "bg-[#E3F4F7] text-[#14707E]", icon: (<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" /></svg>) },
 ]
 
-export default function InvitePage({ ssrCode = "", ssrInviterName = null, origin = "", share = {}, shareUrl = "" }: Partial<InviteSSR>) {
+export default function InvitePage({ ssrCode = "", ssrInviterName = null, origin = "", share = {}, shareUrl = "", readingTitle = null, readingFull = null }: Partial<InviteSSR>) {
   const router = useRouter()
   const { code: rawCode } = router.query
   const code = (Array.isArray(rawCode) ? rawCode[0] : rawCode) ?? ssrCode
@@ -193,6 +204,16 @@ export default function InvitePage({ ssrCode = "", ssrInviterName = null, origin
 
       {state === "ready" && (
         <div className="mt-4 flex w-full max-w-md flex-col gap-4">
+          {/* คำทำนายที่แชร์ (เจ้าของยินยอมเปิดเผย 0033) — ให้เพื่อนอ่านผลเต็มได้ */}
+          {readingFull ? (
+            <section data-testid="invite-reading" className="v3-shadow-card rounded-[24px] bg-white p-5">
+              <span className="w-fit rounded-full bg-v3-sapphire/10 px-3 py-1 text-[11px] font-black tracking-wide text-v3-sapphire">คำทำนายที่แชร์</span>
+              {readingTitle ? <h2 className="mt-2 text-[17px] font-black leading-6 text-v3-navy">{readingTitle}</h2> : null}
+              <p className="mt-2 whitespace-pre-line text-[14px] leading-[24px] text-v3-text-body">{readingFull}</p>
+              <p className="mt-3 text-[11px] leading-4 text-v3-text-muted">ผู้แชร์ยินยอมเปิดเผยผลนี้ · อยากรู้ดวงของคุณเองไหม? สมัครฟรีด้านล่าง</p>
+            </section>
+          ) : null}
+
           {/* hero */}
           <div className="relative h-[200px] w-full overflow-hidden rounded-[24px]">
             <Image src="/images/v2/referral/hero.png" alt="" fill sizes="(max-width:480px) 100vw, 448px" className="object-cover" />

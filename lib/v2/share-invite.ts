@@ -61,7 +61,7 @@ export type ShareResult = "shared" | "copied" | "failed"
 // #359 รอบ 13: พารามิเตอร์การ์ดแชร์เฉพาะผล → แนบไปกับลิงก์ /invite ให้หน้า invite ทำ og:image เฉพาะบุคคล
 // รอบ 16: skills = แถบสกิล 4 ด้าน (เฉพาะดวงธาตุ) → encode เป็นสตริงเก็บใน snapshot
 export type ShareSkillOg = { label: string; percent: number; grade: string; color: string; top?: boolean }
-export type ShareOgParams = { title: string; subtitle?: string; summary?: string; tag?: string; image?: string; skills?: ShareSkillOg[] }
+export type ShareOgParams = { title: string; subtitle?: string; summary?: string; tag?: string; image?: string; skills?: ShareSkillOg[]; isPublic?: boolean; fullText?: string }
 
 // encode สกิล → "label|percent|grade|color|top~..." (คั่นแถวด้วย "~", ฟิลด์ด้วย "|"); label ตัด "|""~" กันพัง
 function encodeSkills(skills: ShareSkillOg[] | undefined): string | undefined {
@@ -87,6 +87,8 @@ async function createShareSnapshot(og: ShareOgParams): Promise<string | null> {
         tag: og.tag,
         image: og.image,
         skills: encodeSkills(og.skills),
+        isPublic: og.isPublic === true,
+        fullText: og.fullText,
       }),
     })
     if (!r.ok) return null

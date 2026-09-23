@@ -1239,6 +1239,9 @@ export const shareSnapshot = pgTable("share_snapshot", {
 	tag: text("tag"),
 	image: text("image"), // URL รูปมาสคอต/การ์ด (relative หรือ absolute)
 	skills: text("skills"), // แถบสกิลที่ encode แล้ว (label|percent|grade|color|top คั่นแถว "~") — เฉพาะดวงธาตุ. ดู 0032
+	isPublic: boolean("is_public").default(false).notNull(), // ยินยอมเปิดเผยให้คนอื่นอ่านผลเต็ม (0033)
+	fullText: text("full_text"), // คำทำนายเต็มสำหรับหน้าอ่านสาธารณะ (เฉพาะเมื่อ is_public)
+	consentedAt: timestamp("consented_at", { withTimezone: true }), // เวลาที่กดยินยอมเปิดเผย (PDPA)
 	createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
 });
 
