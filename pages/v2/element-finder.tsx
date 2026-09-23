@@ -158,17 +158,19 @@ export default function ElementFinderPage({ ogImage, ogTitle, ogDesc, pageUrl }:
     if (wallpaper?.bg && character && wallpaper?.text) { p.set("bg", wallpaper.bg); p.set("ch", character); p.set("txt", wallpaper.text) }
     const finderUrl = `https://bazichart.mumate.co/v2/element-finder${p.toString() ? `?${p.toString()}` : ""}`
     const webIntent = `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}&url=${encodeURIComponent(finderUrl)}`
+    // แนบลิงก์ชวนเล่นไปกับรูปด้วย (เอ็ม 2026-09-23) — พอมีรูปแนบ X โชว์รูป + ลิงก์เป็นข้อความกดได้ (ไม่กลายเป็นการ์ด)
+    const shareText = `${text}\n${finderUrl}`
 
     setSaving(true)
     let blob: Blob | null = null
     try { blob = await renderWallpaperBlob() } catch { /* ประกอบรูปไม่ได้ */ }
     setSaving(false)
 
-    // (1) Web Share sheet — แนบรูปแนวตั้งอัตโนมัติ (แตะ X ในชีตแล้วรูปติดไปเลย ไม่ต้องวางเอง) = วิธีที่ได้รูปตั้งจริง
+    // (1) Web Share sheet — แนบรูปแนวตั้งอัตโนมัติ + ลิงก์ชวนเล่น (แตะ X ในชีตแล้วรูป+ลิงก์ติดไปเลย) = วิธีที่ได้รูปตั้งจริง
     try {
       if (blob && typeof navigator !== "undefined" && typeof navigator.canShare === "function") {
         const file = new File([blob], "mumate-wallpaper.png", { type: "image/png" })
-        if (navigator.canShare({ files: [file] })) { await navigator.share({ files: [file], text }); return }
+        if (navigator.canShare({ files: [file] })) { await navigator.share({ files: [file], text: shareText }); return }
       }
     } catch {
       /* ผู้ใช้ยกเลิก/ไม่รองรับ → ลองคัดลอก/ถอยไป intent */
