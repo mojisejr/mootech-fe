@@ -83,7 +83,6 @@ export default function ElementFinderPage({ ogImage, ogTitle, ogDesc, pageUrl }:
   const [character, setCharacter] = useState<string>("") // การ์ด 60 โปร่งใส (สำหรับซ้อนบน wallpaper)
   const [wallpaper, setWallpaper] = useState<WallpaperPick | null>(null) // { bg, text } ที่สุ่มไว้
   const [saving, setSaving] = useState(false)
-  const [copyHint, setCopyHint] = useState(false) // แชร์ X: คัดลอกรูปแล้ว → บอกให้ "แตะค้าง→วาง" ในโพสต์ X
   const [saveImg, setSaveImg] = useState<string | null>(null) // LINE: โชว์รูปให้กดค้างบันทึก (<a download> ถูกบล็อก)
   const wallpaperRef = useRef<HTMLDivElement>(null) // ใบ 540px ซ่อนนอกจอ → html2canvas จับ
   const [error, setError] = useState<string | null>(null)
@@ -146,51 +145,16 @@ export default function ElementFinderPage({ ogImage, ogTitle, ogDesc, pageUrl }:
 
   const closeSaveImg = () => { if (saveImg) URL.revokeObjectURL(saveImg); setSaveImg(null) }
 
-  // แชร์ลง X พร้อม wallpaper แนวตั้งเต็มใบ (เอ็ม 2026-09-23). ข้อจำกัด X: การ์ดลิงก์บังคับแนวนอน 1.91:1 เสมอ
-  //   (รูปแนวตั้งโดนใส่กรอบขอบข้าง). วิธีเดียวที่ได้ "รูปแนวตั้งเต็มจริง" ในโพสต์ = แนบไฟล์รูปจริง.
-  // (1) Web Share sheet (navigator.share files) = ตัวหลัก — แตะ X ในชีต → รูปแนวตั้งแนบให้อัตโนมัติ (ไม่ต้องวางเอง).
-  // (2) เครื่องแชร์ไฟล์ไม่ได้ (เช่น desktop) แต่คัดลอกรูปได้ → คัดลอก wallpaper + เปิด X ให้ "วาง" (มี toast บอก).
-  // (3) ไม่รองรับเลย/LINE in-app → X intent (การ์ดพรีวิวแนวนอน — เป็น fallback สุดท้ายเท่านั้น).
-  const shareX = async () => {
-    if (!result || saving) return
+  // แชร์ลง X — แบบ B (เอ็มเคาะ 2026-09-23): "เด้งเข้าแอป X ตรง กดปุ่มเดียวโพสต์เลย".
+  //   X แนบไฟล์รูปผ่านลิงก์ไม่ได้ + การ์ดพรีวิวบังคับแนวนอน 1.91:1 (ทำแนวตั้งไม่ได้ — ข้อจำกัด X ทุกเว็บเจอเหมือนกัน).
+  //   → เปิด X intent ตรง: โพสต์ = ข้อความ + การ์ดพรีวิว wallpaper (bg/ch/txt → /api/og/finder) + ลิงก์ชวนเล่นกดได้.
+  const shareX = () => {
+    if (!result) return
     const text = `ฉันคือ${result.nameTh} — “${result.quote}” มาเช็คธาตุแท้ของคุณกับ Mumate`
     const p = new URLSearchParams()
     if (wallpaper?.bg && character && wallpaper?.text) { p.set("bg", wallpaper.bg); p.set("ch", character); p.set("txt", wallpaper.text) }
     const finderUrl = `https://bazichart.mumate.co/v2/element-finder${p.toString() ? `?${p.toString()}` : ""}`
-    const webIntent = `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}&url=${encodeURIComponent(finderUrl)}`
-    // แนบลิงก์ชวนเล่นไปกับรูปด้วย (เอ็ม 2026-09-23) — พอมีรูปแนบ X โชว์รูป + ลิงก์เป็นข้อความกดได้ (ไม่กลายเป็นการ์ด)
-    const shareText = `${text}\n${finderUrl}`
-
-    setSaving(true)
-    let blob: Blob | null = null
-    try { blob = await renderWallpaperBlob() } catch { /* ประกอบรูปไม่ได้ */ }
-    setSaving(false)
-
-    // (1) Web Share sheet — แนบรูปแนวตั้งอัตโนมัติ + ลิงก์ชวนเล่น (แตะ X ในชีตแล้วรูป+ลิงก์ติดไปเลย) = วิธีที่ได้รูปตั้งจริง
-    try {
-      if (blob && typeof navigator !== "undefined" && typeof navigator.canShare === "function") {
-        const file = new File([blob], "mumate-wallpaper.png", { type: "image/png" })
-        if (navigator.canShare({ files: [file] })) { await navigator.share({ files: [file], text: shareText }); return }
-      }
-    } catch {
-      /* ผู้ใช้ยกเลิก/ไม่รองรับ → ลองคัดลอก/ถอยไป intent */
-    }
-
-    // (2) แชร์ไฟล์ไม่ได้ แต่คัดลอกรูปได้ (desktop) → คัดลอก wallpaper + เปิด X ให้ "วาง"
-    const canCopyImg = typeof navigator !== "undefined" && !!navigator.clipboard && typeof window !== "undefined" && "ClipboardItem" in window
-    if (blob && canCopyImg && !isLineInAppBrowser()) {
-      try {
-        await navigator.clipboard.write([new ClipboardItem({ "image/png": blob })])
-        setCopyHint(true); window.setTimeout(() => setCopyHint(false), 8000)
-        void openInExternalBrowser(webIntent)
-        return
-      } catch {
-        /* คัดลอกไม่ได้ → intent */
-      }
-    }
-
-    // (3) fallback สุดท้าย: X intent (การ์ดพรีวิวแนวนอน)
-    void openInExternalBrowser(webIntent)
+    void openInExternalBrowser(`https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}&url=${encodeURIComponent(finderUrl)}`)
   }
 
   // ขนาด wallpaper preview แบบ responsive — ขยายให้เต็มความสูงจอที่เหลือ (ไม่เหลือช่องว่างล่าง / ไม่ต้องเลื่อน)
@@ -330,17 +294,11 @@ export default function ElementFinderPage({ ogImage, ogTitle, ogDesc, pageUrl }:
             <span className="shrink-0 rounded-full bg-v3-sapphire px-4 py-1.5 text-[13px] font-bold text-white">ดูเลย →</span>
           </Link>
 
-          {/* แชร์ X แบบคัดลอกรูป → บอกวิธีวางในโพสต์ X (เอ็ม 2026-09-23) */}
-          {copyHint ? (
-            <div data-testid="finder-copy-hint" className="w-full max-w-md rounded-2xl bg-v3-navy px-4 py-2.5 text-center text-[12.5px] font-bold leading-5 text-white">
-              📋 คัดลอกรูปแล้ว — ในหน้าเขียนโพสต์ X แตะค้างที่ช่องข้อความ แล้วเลือก “วาง” เพื่อแนบรูป
-            </div>
-          ) : null}
           {/* แชร์ = Twitter/X อย่างเดียว (ปุ่มดำ ไอคอน X) + บันทึก wallpaper */}
           <div className="flex w-full max-w-md gap-2">
-            <button onClick={() => void shareX()} disabled={saving} data-testid="finder-share" className="flex h-12 flex-1 items-center justify-center gap-2 rounded-full bg-black text-[14px] font-bold text-white disabled:opacity-50">
+            <button onClick={shareX} data-testid="finder-share" className="flex h-12 flex-1 items-center justify-center gap-2 rounded-full bg-black text-[14px] font-bold text-white">
               <svg width="17" height="17" viewBox="0 0 24 24" fill="currentColor" aria-hidden><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" /></svg>
-              {saving ? "กำลังเตรียมรูป…" : "แชร์ลง X"}
+              แชร์ลง X
             </button>
             <button onClick={() => void download()} disabled={saving} data-testid="finder-download" className="flex h-12 flex-1 items-center justify-center gap-2 rounded-full border border-v3-sapphire text-[14px] font-bold text-v3-sapphire disabled:opacity-50">
               <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3" /></svg>
