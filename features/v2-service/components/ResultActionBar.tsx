@@ -25,7 +25,7 @@ export async function shareResult(text: string, file?: File | null, title = 'ผ
  * inline=false → ตัวลอยติดล่าง: เหลือแค่ Mate AI (ปุ่มคู่ย้ายขึ้นไป inline แล้ว — ไม่โชว์ซ้ำ 2 ที่)
  * ไม่ส่ง inline → พฤติกรรมเดิม (ปุ่มคู่ + Mate AI ลอยล่าง) สำหรับหน้าคู่รักที่ยังใช้แบบเดิม
  */
-export function ResultActionBar({ shareText, shareTitle, testIdPrefix = 'work', inline, getShareFile, og }: { shareText: string; shareTitle?: string; testIdPrefix?: string; inline?: boolean; getShareFile?: () => Promise<File | null>; og?: ShareOgParams | null }) {
+export function ResultActionBar({ shareText, shareTitle, testIdPrefix = 'work', inline, getShareFile, og, aboveSlot }: { shareText: string; shareTitle?: string; testIdPrefix?: string; inline?: boolean; getShareFile?: () => Promise<File | null>; og?: ShareOgParams | null; aboveSlot?: React.ReactNode }) {
   if (inline === false) {
     return (
       <div className="no-print fixed inset-x-0 bottom-0 z-40 mx-auto flex max-w-md items-center justify-end px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-2">
@@ -33,8 +33,9 @@ export function ResultActionBar({ shareText, shareTitle, testIdPrefix = 'work', 
       </div>
     )
   }
-  return (
-    <div className={inline ? 'no-print flex items-center gap-2' : 'no-print fixed inset-x-0 bottom-0 z-40 mx-auto flex max-w-md items-center gap-2 px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-2'}>
+  // aboveSlot (เช่น ยินยอมเปิดเผยผล 0033) — วางเหนือแถวปุ่มในกรอบลอยเดียวกัน ให้เห็นชัดติดปุ่มแชร์ (มิเรอร์ destiny-share-pill)
+  const buttonRow = (
+    <>
       <div className="flex min-w-0 flex-1 items-center gap-1">
         <button
           type="button"
@@ -56,6 +57,20 @@ export function ResultActionBar({ shareText, shareTitle, testIdPrefix = 'work', 
         </button>
       </div>
       {inline ? null : <MateAIButton />}
+    </>
+  )
+  if (inline) {
+    return (
+      <div className="no-print flex flex-col gap-2">
+        {aboveSlot ? <div className="flex justify-center">{aboveSlot}</div> : null}
+        <div className="flex items-center gap-2">{buttonRow}</div>
+      </div>
+    )
+  }
+  return (
+    <div className="no-print fixed inset-x-0 bottom-0 z-40 mx-auto flex max-w-md flex-col gap-2 px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-2">
+      {aboveSlot ? <div className="flex justify-center">{aboveSlot}</div> : null}
+      <div className="flex items-center gap-2">{buttonRow}</div>
     </div>
   )
 }
