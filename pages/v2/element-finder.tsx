@@ -146,10 +146,11 @@ export default function ElementFinderPage({ ogImage, ogTitle, ogDesc, pageUrl }:
 
   const closeSaveImg = () => { if (saveImg) URL.revokeObjectURL(saveImg); setSaveImg(null) }
 
-  // แชร์ลง X พร้อม wallpaper แนวตั้งเต็มใบ (เอ็ม 2026-09-23). ข้อจำกัด X: แนบรูปผ่านลิงก์ไม่ได้เลย.
-  // ทำ 3 ชั้น: (1) "เด้งเข้าแอป X ตรง + คัดลอกรูปให้วาง" — คัดลอก wallpaper ลง clipboard แล้วเปิด X compose
-  //   (ผู้ใช้แตะค้าง→วาง เพื่อแนบรูป). (2) เครื่องคัดลอกรูปไม่ได้ → Web Share sheet (แนบรูปอัตโนมัติ, แตะ X).
-  //   (3) ไม่รองรับเลย → X intent (การ์ดพรีวิว). LINE in-app → ข้ามชั้น 1 (clipboard/scheme ไม่เสถียร).
+  // แชร์ลง X พร้อม wallpaper แนวตั้งเต็มใบ (เอ็ม 2026-09-23). ข้อจำกัด X: การ์ดลิงก์บังคับแนวนอน 1.91:1 เสมอ
+  //   (รูปแนวตั้งโดนใส่กรอบขอบข้าง). วิธีเดียวที่ได้ "รูปแนวตั้งเต็มจริง" ในโพสต์ = แนบไฟล์รูปจริง.
+  // (1) Web Share sheet (navigator.share files) = ตัวหลัก — แตะ X ในชีต → รูปแนวตั้งแนบให้อัตโนมัติ (ไม่ต้องวางเอง).
+  // (2) เครื่องแชร์ไฟล์ไม่ได้ (เช่น desktop) แต่คัดลอกรูปได้ → คัดลอก wallpaper + เปิด X ให้ "วาง" (มี toast บอก).
+  // (3) ไม่รองรับเลย/LINE in-app → X intent (การ์ดพรีวิวแนวนอน — เป็น fallback สุดท้ายเท่านั้น).
   const shareX = async () => {
     if (!result || saving) return
     const text = `ฉันคือ${result.nameTh} — “${result.quote}” มาเช็คธาตุแท้ของคุณกับ Mumate`
@@ -163,30 +164,30 @@ export default function ElementFinderPage({ ogImage, ogTitle, ogDesc, pageUrl }:
     try { blob = await renderWallpaperBlob() } catch { /* ประกอบรูปไม่ได้ */ }
     setSaving(false)
 
-    // (1) คัดลอกรูป + เปิดแอป X ตรง (เด้งเข้า X เลย, รูปพร้อมวาง)
-    const canCopyImg = typeof navigator !== "undefined" && !!navigator.clipboard && typeof window !== "undefined" && "ClipboardItem" in window
-    if (blob && canCopyImg && !isLineInAppBrowser()) {
-      try {
-        await navigator.clipboard.write([new ClipboardItem({ "image/png": blob })])
-        setCopyHint(true); window.setTimeout(() => setCopyHint(false), 8000)
-        void openInExternalBrowser(webIntent) // เปิด X (แอปถ้ามี App Links, ไม่งั้นเว็บ) พร้อมข้อความ → ผู้ใช้วางรูป
-        return
-      } catch {
-        /* คัดลอกรูปไม่ได้ (gesture หมดเวลา/ไม่รองรับ) → ถอยไปชีต */
-      }
-    }
-
-    // (2) Web Share sheet — แนบรูปอัตโนมัติ (แตะ X ในชีต)
+    // (1) Web Share sheet — แนบรูปแนวตั้งอัตโนมัติ (แตะ X ในชีตแล้วรูปติดไปเลย ไม่ต้องวางเอง) = วิธีที่ได้รูปตั้งจริง
     try {
       if (blob && typeof navigator !== "undefined" && typeof navigator.canShare === "function") {
         const file = new File([blob], "mumate-wallpaper.png", { type: "image/png" })
         if (navigator.canShare({ files: [file] })) { await navigator.share({ files: [file], text }); return }
       }
     } catch {
-      /* ผู้ใช้ยกเลิก/ไม่รองรับ */
+      /* ผู้ใช้ยกเลิก/ไม่รองรับ → ลองคัดลอก/ถอยไป intent */
     }
 
-    // (3) fallback: X intent (การ์ดพรีวิว)
+    // (2) แชร์ไฟล์ไม่ได้ แต่คัดลอกรูปได้ (desktop) → คัดลอก wallpaper + เปิด X ให้ "วาง"
+    const canCopyImg = typeof navigator !== "undefined" && !!navigator.clipboard && typeof window !== "undefined" && "ClipboardItem" in window
+    if (blob && canCopyImg && !isLineInAppBrowser()) {
+      try {
+        await navigator.clipboard.write([new ClipboardItem({ "image/png": blob })])
+        setCopyHint(true); window.setTimeout(() => setCopyHint(false), 8000)
+        void openInExternalBrowser(webIntent)
+        return
+      } catch {
+        /* คัดลอกไม่ได้ → intent */
+      }
+    }
+
+    // (3) fallback สุดท้าย: X intent (การ์ดพรีวิวแนวนอน)
     void openInExternalBrowser(webIntent)
   }
 
