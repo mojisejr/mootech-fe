@@ -67,7 +67,7 @@ export type ShareOgParams = { title: string; subtitle?: string; summary?: string
 function encodeSkills(skills: ShareSkillOg[] | undefined): string | undefined {
   if (!skills || !skills.length) return undefined
   return skills
-    .slice(0, 4)
+    .slice(0, 6) // ดวงธาตุ 4 ด้าน · สมพงศ์ 5-6 ด้าน (เอ็ม 2026-09-23) — 6×~40 ตัวอักษร ยังพอดี limit 400
     .map((s) => [s.label.replace(/[|~]/g, " "), Math.round(s.percent), s.grade, s.color, s.top ? "1" : "0"].join("|"))
     .join("~")
 }

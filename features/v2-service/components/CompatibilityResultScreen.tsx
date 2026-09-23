@@ -23,6 +23,7 @@ import { CompatElementInteractionCard } from './CompatElementInteractionCard'
 import { CompatFourPillarsTable } from './CompatFourPillarsTable'
 import { ChartTableCard } from './ChartTableCard'
 import { readChartTable } from '../chart-table'
+import { gradeTier, TIER_COLOR } from '../compat-result-parts'
 import { CompatPersonDetail } from './CompatPersonDetail'
 import { ResultActionBar } from './ResultActionBar'
 import { captureShareImage } from '@/lib/v2/share-card'
@@ -90,6 +91,15 @@ export function CompatibilityResultScreen({ matchingId }: { matchingId: string }
   const fullText = allowPublic
     ? [overall?.ratingText?.trim(), ...dims.map((d) => `【${(d.label ?? d.pairingLabel ?? '').trim()}${d.percent != null ? ` ${d.percent}%` : ''}】\n${(d.ratingText ?? '').trim()}`), ei?.summaryTh?.trim()].filter(Boolean).join('\n\n').slice(0, 8000)
     : undefined
+  // แท่งความเข้ากัน 5 ด้าน (เอ็ม 2026-09-23) — ส่งเป็น ShareSkillOg[] (label/percent/grade/สีเกรด)
+  //   → หน้า invite เรนเดอร์แท่ง + การ์ด OG (/api/og/share) ก็โชว์แท่งด้วย (รองรับ skills อยู่แล้ว)
+  const shareSkills = dims
+    .map((d) => {
+      const label = (d.label ?? d.pairingLabel ?? '').trim()
+      if (!label || d.percent == null) return null
+      return { label, percent: d.percent, grade: d.grade ?? '', color: TIER_COLOR[gradeTier(d.grade)], top: d.isMain === true }
+    })
+    .filter((s): s is { label: string; percent: number; grade: string; color: string; top: boolean } => !!s)
 
   // D47 — which sections have data → which tabs to show (never an empty tab)
   // Figma 636:18819 — แท็บ 3 อัน (ภาพรวม → hero · ความเข้ากัน · ทำนายพื้นฐาน) + toggle แอดวานซ์ (= ตารางดวงจีน)
@@ -210,7 +220,7 @@ export function CompatibilityResultScreen({ matchingId }: { matchingId: string }
         ) : null}
       </div>
 
-      <ResultActionBar shareText={`ผลดวงสมพงศ์ของฉัน${overall?.ratingText?.trim() ? ` - ${overall.ratingText.replace(/\s+/g, " ").trim().slice(0, 120)}` : ""} จาก Mumate`} testIdPrefix="compat" og={{ title: shareTitle, subtitle: shareSubtitle, summary: shareSummary, tag: "ผลความสมพงศ์", image: shareImages.slice(0, 2).join(","), isPublic: allowPublic, fullText }} getShareFile={() => captureShareImage(shareCardRef.current)} aboveSlot={<PublicShareToggle checked={allowPublic} onChange={setAllowPublic} testId="compat-allow-public" />} />
+      <ResultActionBar shareText={`ผลดวงสมพงศ์ของฉัน${overall?.ratingText?.trim() ? ` - ${overall.ratingText.replace(/\s+/g, " ").trim().slice(0, 120)}` : ""} จาก Mumate`} testIdPrefix="compat" og={{ title: shareTitle, subtitle: shareSubtitle, summary: shareSummary, tag: "ผลความสมพงศ์", image: shareImages.slice(0, 2).join(","), skills: shareSkills.length ? shareSkills : undefined, isPublic: allowPublic, fullText }} getShareFile={() => captureShareImage(shareCardRef.current)} aboveSlot={<PublicShareToggle checked={allowPublic} onChange={setAllowPublic} testId="compat-allow-public" />} />
 
       {/* #6: การ์ดแชร์เฉพาะบุคคล (ซ่อนนอกจอ) */}
       <ShareStage>

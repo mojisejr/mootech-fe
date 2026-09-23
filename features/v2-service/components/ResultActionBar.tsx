@@ -68,7 +68,7 @@ export function ResultActionBar({ shareText, shareTitle, testIdPrefix = 'work', 
     )
   }
   return (
-    <div className="no-print fixed inset-x-0 bottom-0 z-40 mx-auto flex max-w-md flex-col gap-2 px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-2">
+    <div className="no-print fixed inset-x-0 bottom-0 z-40 mx-auto flex max-w-md flex-col gap-2 border-t border-v3-border-card/60 bg-v3-bg-cream/95 px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-3 backdrop-blur-sm">
       {aboveSlot ? <div className="flex justify-center">{aboveSlot}</div> : null}
       <div className="flex items-center gap-2">{buttonRow}</div>
     </div>

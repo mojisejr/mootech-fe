@@ -16,6 +16,7 @@ import { useEffect, useState } from "react"
 import { eq } from "drizzle-orm"
 import { db } from "@/lib/db"
 import { shareSnapshot } from "@/lib/db/schema"
+import { gradeTier, TIER_INK } from "@/lib/v2/grade-scale"
 
 export const REFERRAL_STORAGE_KEY = 'v2:referral'
 
@@ -223,6 +224,29 @@ export default function InvitePage({ ssrCode = "", ssrInviterName = null, origin
                 <div className="mt-3 rounded-2xl bg-[#EAF3FF] p-4">
                   <span className="text-[12px] font-black text-v3-sapphire">สรุปคำทำนายนี้</span>
                   <p className="mt-1 text-[13px] leading-[22px] text-v3-text-body">{share.d}</p>
+                </div>
+              ) : null}
+              {/* แท่งความเข้ากันรายด้าน (เอ็ม 2026-09-23) — จาก snapshot.skills "label|pct|grade|color|top~..." */}
+              {share.k ? (
+                <div className="mt-3 flex flex-col gap-2.5">
+                  {share.k.split("~").map((row) => row.split("|")).filter((f) => (f[0] ?? "").trim()).map((f, i) => {
+                    const [label = "", pct = "0", grade = "", color = "#1455A4"] = f
+                    const p = Math.max(0, Math.min(100, Math.round(Number(pct) || 0)))
+                    return (
+                      <div key={i} className="flex flex-col gap-1">
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="min-w-0 flex-1 text-[13px] font-semibold text-v3-navy">{label}</span>
+                          <span className="flex shrink-0 items-center gap-1.5">
+                            <span className="text-[12px] font-bold" style={{ color }}>{p}%</span>
+                            {grade ? <span className="grid min-w-[36px] place-items-center rounded-full px-2 py-0.5 text-[11px] font-black" style={{ backgroundColor: color, color: TIER_INK[gradeTier(grade)] }}>{grade}</span> : null}
+                          </span>
+                        </div>
+                        <span className="h-2 w-full overflow-hidden rounded-full bg-[#EAECEF]">
+                          <span className="block h-full rounded-full" style={{ width: `${p}%`, backgroundColor: color }} />
+                        </span>
+                      </div>
+                    )
+                  })}
                 </div>
               ) : null}
               {/* ผลเต็ม */}
