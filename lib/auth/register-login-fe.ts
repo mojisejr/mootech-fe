@@ -79,6 +79,15 @@ export class RegisterLoginError extends Error {
   constructor(
     readonly status: 400 | 409 | 422,
     message: string,
+    /**
+     * True only when the provider identity itself is refused — the single case
+     * the legacy route flags with `ok: false`. Both callers (home's register
+     * handler and lib/auth/use-self-heal-identity) clear the member cookies and
+     * call signOut on that flag, so any failure the member could retry past — an
+     * ambiguous mapping awaiting manual recovery, a transient database error —
+     * must answer WITHOUT it, or a fault logs the member out.
+     */
+    readonly identityRejected = false,
   ) {
     super(message)
     this.name = 'RegisterLoginError'
@@ -97,9 +106,20 @@ const SUPPORTED_PROVIDERS = new Set<LoginProvider>(['GOOGLE', 'LINE'])
 export function normalizeLoginProvider(value: string): LoginProvider {
   const provider = value.trim().toUpperCase() as LoginProvider
   if (!SUPPORTED_PROVIDERS.has(provider)) {
-    throw new RegisterLoginError(400, 'only Google and LINE login are supported')
+    throw new RegisterLoginError(400, 'only Google and LINE login are supported', true)
   }
   return provider
+}
+
+/**
+ * The login page writes the REFCODE_FGF cookie from its `callback` query
+ * parameter, which DEFAULTS TO '/' — so an ordinary member who never followed a
+ * referral link still sends a non-empty refer_code. Treat that default as no
+ * referral at all; anything else is a real code this route does not act on.
+ */
+export function normalizeIncomingReferCode(value: string | undefined): string {
+  const code = (value ?? '').trim()
+  return code === '/' ? '' : code
 }
 
 export function makeAlphabeticReferCode(length = 20): string {
@@ -145,14 +165,15 @@ export async function registerOrLoginInFe(
 ): Promise<RegisterLoginResult> {
   const provider = normalizeLoginProvider(rawInput.provider)
   const providerSubject = rawInput.providerSubject.trim()
-  if (!providerSubject) throw new RegisterLoginError(400, 'provider subject is required')
+  if (!providerSubject) throw new RegisterLoginError(400, 'provider subject is required', true)
 
   // The legacy endpoint performs referral/friend writes while registering. That
-  // data belongs to another lane, so this parallel route refuses it explicitly
-  // instead of silently dropping or partially reproducing the side effect.
-  if ((rawInput.referCode ?? '').trim()) {
-    throw new RegisterLoginError(422, 'referral registration is not available on the FE route yet')
-  }
+  // data belongs to another lane, so this route performs none of them. It must
+  // still never refuse the LOGIN over one. Refusing a non-empty refer_code would
+  // have signed out effectively the whole member base at the traffic flip, not
+  // an edge case, because of the '/' default described on
+  // normalizeIncomingReferCode. The code is ignored; the login proceeds. The
+  // parity table states this as a known gap against the legacy route.
 
   const now = formatLegacyTimestamp((dependencies.now ?? (() => new Date()))())
   const makeUserId = dependencies.makeUserId ?? randomUUID

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
+  normalizeIncomingReferCode,
   RegisterLoginError,
   registerOrLoginInFe,
   type MemberIdentity,
@@ -118,14 +119,72 @@ describe('FE-native register/login', () => {
     expect(tx.createdMembers).toEqual([deps.makeUserId()])
   })
 
-  it('refuses referral side effects and unsupported providers before a transaction write', async () => {
+  it('refuses an unsupported provider before a transaction write, as an identity rejection', async () => {
     const tx = new FakeTransaction()
     await expect(registerOrLoginInFe(storeOf(tx), {
-      provider: 'google', providerSubject: 'g', name: '', email: '', pictureUrl: '', referCode: 'INVITE',
-    }, deps)).rejects.toMatchObject({ status: 422 } satisfies Partial<RegisterLoginError>)
-    await expect(registerOrLoginInFe(storeOf(tx), {
       provider: 'facebook', providerSubject: 'f', name: '', email: '', pictureUrl: '',
-    }, deps)).rejects.toMatchObject({ status: 400 } satisfies Partial<RegisterLoginError>)
+    }, deps)).rejects.toMatchObject({
+      status: 400, identityRejected: true,
+    } satisfies Partial<RegisterLoginError>)
     expect(tx.locked).toEqual([])
+  })
+
+  // The login page writes REFCODE_FGF from `callback`, which defaults to '/',
+  // so a non-empty refer_code is the norm and not a referral at all.
+  it('reads the login page default as no referral and a real code as a referral', () => {
+    expect(normalizeIncomingReferCode(undefined)).toBe('')
+    expect(normalizeIncomingReferCode('')).toBe('')
+    expect(normalizeIncomingReferCode('  ')).toBe('')
+    expect(normalizeIncomingReferCode('/')).toBe('')
+    expect(normalizeIncomingReferCode(' INVITE ')).toBe('INVITE')
+  })
+
+  // Defect 2: refusing the login over a referral code would have signed out
+  // effectively every member at the traffic flip, not an edge case.
+  it('logs a member in carrying a referral code instead of refusing the login', async () => {
+    for (const referCode of ['/', 'INVITE']) {
+      const tx = new FakeTransaction()
+      const result = await registerOrLoginInFe(storeOf(tx), {
+        provider: 'google', providerSubject: 'sub-ref', name: 'New',
+        email: 'n@example.com', pictureUrl: 'n.png', referCode,
+      }, deps)
+      // Whole response shape, not a subset (DoD 1, revision 0.2).
+      expect(result).toEqual({
+        ok: true,
+        is_user_new: true,
+        is_email: true,
+        is_info: true,
+        user_id: deps.makeUserId(),
+        name: 'New',
+        ref_code: deps.makeReferCode(),
+        picture_url: 'n.png',
+        is_refresh: false,
+        result_code: '',
+      })
+      // The referral side effect itself is still not performed here.
+      expect(tx.referCodes).toEqual([])
+      expect(tx.createdMembers).toEqual([deps.makeUserId()])
+    }
+  })
+
+  // Defect 1: both callers sign the member out on `ok: false`, so a failure they
+  // could retry past must not be flagged as an identity rejection.
+  it('flags only a refused identity for sign-out, never a recoverable fault', async () => {
+    const collision = new FakeTransaction()
+    collision.mappings = [{ id: 'p1', userId: 'u1' }, { id: 'p2', userId: 'u2' }]
+    await expect(registerOrLoginInFe(storeOf(collision), {
+      provider: 'google', providerSubject: 'shared', name: '', email: '', pictureUrl: '',
+    }, deps)).rejects.toMatchObject({ status: 409, identityRejected: false })
+
+    const orphan = new FakeTransaction()
+    orphan.mappings = [{ id: 'p1', userId: 'gone' }]
+    await expect(registerOrLoginInFe(storeOf(orphan), {
+      provider: 'line', providerSubject: 'U-gone', name: '', email: '', pictureUrl: '',
+    }, deps)).rejects.toMatchObject({ status: 409, identityRejected: false })
+
+    const missingSubject = new FakeTransaction()
+    await expect(registerOrLoginInFe(storeOf(missingSubject), {
+      provider: 'google', providerSubject: '  ', name: '', email: '', pictureUrl: '',
+    }, deps)).rejects.toMatchObject({ status: 400, identityRejected: true })
   })
 })
