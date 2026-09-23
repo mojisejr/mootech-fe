@@ -895,7 +895,7 @@ export function DestinyScreen({ previewData }: { previewData?: DestinyData } = {
     // #359 รอบ 13: แชร์เป็นลิงก์ + og:image เฉพาะบุคคล (Messenger/LINE ได้ลิงก์กดได้ + พรีวิวการ์ด)
     await shareAsInvite({
       title: "Mumate — ดวงของฉันวันนี้",
-      text: shareSummary,
+      text: `${shareTitle}${summary?.tagline ? ` - ${summary.tagline.replace(/\s+/g, " ").trim().slice(0, 120)}` : ""} — มาดูดวงธาตุกับ Mumate`,
       og: { title: shareTitle, summary: shareSummary, tag: "ดวงธาตุของฉัน", image: mascotUrl ?? undefined, skills: shareSkills },
     })
     // รู้ผลของวันนี้แล้ว (รับ/เต็มโควตา) ⇒ ไม่ยิง qi-earn ซ้ำ (แชร์เองยังทำได้ตามปกติด้านบน)

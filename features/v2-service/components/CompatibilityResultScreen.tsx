@@ -204,7 +204,7 @@ export function CompatibilityResultScreen({ matchingId }: { matchingId: string }
         ) : null}
       </div>
 
-      <ResultActionBar shareText="ผลดวงสมพงศ์ของฉันจาก Mumate" testIdPrefix="compat" og={{ title: shareTitle, subtitle: shareSubtitle, summary: shareSummary, tag: "ผลความสมพงศ์", image: shareImages.slice(0, 2).join(",") }} getShareFile={() => captureShareImage(shareCardRef.current)} />
+      <ResultActionBar shareText={`ผลดวงสมพงศ์ของฉัน${overall?.ratingText?.trim() ? ` - ${overall.ratingText.replace(/\s+/g, " ").trim().slice(0, 120)}` : ""} จาก Mumate`} testIdPrefix="compat" og={{ title: shareTitle, subtitle: shareSubtitle, summary: shareSummary, tag: "ผลความสมพงศ์", image: shareImages.slice(0, 2).join(",") }} getShareFile={() => captureShareImage(shareCardRef.current)} />
 
       {/* #6: การ์ดแชร์เฉพาะบุคคล (ซ่อนนอกจอ) */}
       <ShareStage>
