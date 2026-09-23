@@ -119,7 +119,7 @@ export default function ElementFinderPage() {
   const [wpW, setWpW] = useState(220)
   useEffect(() => {
     const calc = () => {
-      const avail = window.innerHeight - 290 // เผื่อ CTA + ปุ่มแชร์/บันทึก + เมนูล่าง
+      const avail = window.innerHeight - 330 // เผื่อ โลโก้ + CTA + ปุ่มแชร์/บันทึก + เมนูล่าง
       setWpW(Math.round(Math.min(300, Math.max(170, (avail * 9) / 16))))
     }
     calc()
@@ -221,6 +221,8 @@ export default function ElementFinderPage() {
         // ผลลัพธ์ = หน้าเดียวไม่ต้องเลื่อน (เอ็ม 2026-09-23): wallpaper คือภาพที่บอกทุกอย่างอยู่แล้ว
         // (ธาตุ+นิสัย+คำ baked ในภาพ) → ตัดข้อความซ้ำ (quote/traits/คำบรรยาย) ออก เหลือ ภาพ+CTA+ปุ่มแชร์
         <div className="mt-1 flex flex-col items-center gap-2" data-testid="finder-result">
+          {/* โลโก้ Mumate ด้านบน (กันหัวติดขอบ) — เหมือนหน้ากรอกวันเกิด */}
+          <Image src="/images/v2/logo/splash-logo.png" alt="Mumate" width={132} height={32} priority className="h-8 w-auto object-contain" />
           {/* wallpaper — ขยายเต็มความสูงจอที่เหลือ (responsive) ให้ไม่เหลือช่องว่าง ภาพเดียวบอกครบ */}
           {wallpaper && character && (
             <>
@@ -258,9 +260,11 @@ export default function ElementFinderPage() {
           {/* ป้าย FREE — ฟอนต์ Luckiest Guy (สนุก หนา) เล็กลง + มิติ (layered shadow) */}
           <style jsx>{`
             .finder-free {
+              display: inline-block; /* จำเป็นให้ transform/nowrap ทำงาน (span inline ไม่รับ transform → เดิมตกบรรทัด) */
+              white-space: nowrap;
               font-family: "Luckiest Guy", system-ui, sans-serif;
-              font-size: 16px;
-              letter-spacing: 1px;
+              font-size: 18px;
+              letter-spacing: 1.5px;
               color: #ef3b3b;
               text-shadow: 1px 1px 0 #fff, 2px 2px 0 #b91c1c, 3px 3px 0 #991b1b, 4px 5px 6px rgba(0, 0, 0, 0.3);
               transform: rotate(-8deg);
