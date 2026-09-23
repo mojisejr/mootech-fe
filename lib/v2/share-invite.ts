@@ -122,9 +122,15 @@ export async function shareAsInvite({
   if (og) {
     const id = await createShareSnapshot(og)
     const url = id ? `${baseUrl}${baseUrl.includes("?") ? "&" : "?"}c=${id}` : baseUrl
-    // ในไลน์: เปิด shareTargetPicker ก่อน (navigator.share มักไม่มีใน webview → เดิมได้แค่ copy)
+    // ในไลน์: แชร์ "ลิงก์" (?c=) → OG ของ /invite โชว์การ์ดพรีวิว = "รูปตามมา" ในแชท/กลุ่ม
+    // (แนบไฟล์รูปเข้าไลน์ตรง ๆ ไม่ได้ใน webview → ต้องพึ่ง OG scraping ของลิงก์)
     if (await tryLineSharePicker(text, url)) return "shared"
     try {
+      // มีไฟล์การ์ด/wallpaper + Web Share รองรับไฟล์ (เช่น FB/มือถือ) → แนบรูปจริง + ฝังลิงก์ใน text
+      // (FB โชว์รูป wallpaper เต็ม + ลิงก์ยังอยู่); ไม่มีไฟล์ → แชร์ลิงก์อย่างเดียว (OG โชว์การ์ด)
+      if (file && file.size > 0 && nav?.share && typeof nav.canShare === "function" && nav.canShare({ files: [file] })) {
+        await nav.share({ title, text: `${text}\n${url}`, files: [file] }); return "shared"
+      }
       if (nav?.share) { await nav.share({ title, text, url }); return "shared" }
       if (nav?.clipboard) { await nav.clipboard.writeText(`${text} ${url}`); return "copied" }
     } catch { /* ยกเลิก/error → ไม่สำเร็จ */ }
