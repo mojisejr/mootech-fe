@@ -27,6 +27,7 @@ import { CompatPersonDetail } from './CompatPersonDetail'
 import { ResultActionBar } from './ResultActionBar'
 import { captureShareImage } from '@/lib/v2/share-card'
 import { ShareCard, ShareStage } from '@/features/v2-share/components/ShareCard'
+import { PublicShareToggle } from '@/features/v2-share/components/PublicShareToggle'
 import { AdvancedUpsellModal } from '@/features/v2-shell/components/AdvancedUpsellModal'
 import { useV2Tier } from '@/features/auth/hooks/useV2Tier'
 import { ComingSoonNotice } from '@/features/v2-shell/components/ComingSoon'
@@ -51,6 +52,7 @@ export function CompatibilityResultScreen({ matchingId }: { matchingId: string }
   // Figma 636:18819: toggle base สีเทา = ปิดเป็นค่าเริ่มต้น; เปิดแล้วโชว์ตารางดวงจีน
   const [advanced, setAdvanced] = useState(false)
   const [upsell, setUpsell] = useState(false) // #359: popup ชวนอัปเกรดเมื่อ free กดโหมดแอดวานซ์
+  const [allowPublic, setAllowPublic] = useState(false) // ยินยอมเปิดเผยผลเต็ม (0033) — ต้องอยู่ก่อน early return
   const { isPaid } = useV2Tier() // hook ต้องอยู่ก่อน early return (rules-of-hooks)
   const onAdvancedToggle = () => { if (isPaid === false) { setUpsell(true); return } setAdvanced((v) => !v) }
   const shareCardRef = useRef<HTMLDivElement>(null) // #6: hook ต้องอยู่ก่อน early return (rules-of-hooks)
@@ -84,6 +86,10 @@ export function CompatibilityResultScreen({ matchingId }: { matchingId: string }
   const shareTitle = overall?.gradeLabel?.trim() || 'ผลความสมพงศ์'
   const shareSubtitle = typeof overall?.percent === 'number' ? `เข้ากัน ${overall.percent}%` : undefined
   const shareSummary = (overall?.ratingText?.trim() || 'ดูผลความเข้ากันของเรากับ Mumate').slice(0, 150)
+  // เปิดเผย (0033): ยินยอม → แนบผลเต็ม (สรุป + ทุกมิติ + ธาตุ) ให้เพื่อนอ่านได้ (allowPublic ประกาศไว้ด้านบนก่อน early return)
+  const fullText = allowPublic
+    ? [overall?.ratingText?.trim(), ...dims.map((d) => `【${(d.label ?? d.pairingLabel ?? '').trim()}${d.percent != null ? ` ${d.percent}%` : ''}】\n${(d.ratingText ?? '').trim()}`), ei?.summaryTh?.trim()].filter(Boolean).join('\n\n').slice(0, 8000)
+    : undefined
 
   // D47 — which sections have data → which tabs to show (never an empty tab)
   // Figma 636:18819 — แท็บ 3 อัน (ภาพรวม → hero · ความเข้ากัน · ทำนายพื้นฐาน) + toggle แอดวานซ์ (= ตารางดวงจีน)
@@ -204,7 +210,8 @@ export function CompatibilityResultScreen({ matchingId }: { matchingId: string }
         ) : null}
       </div>
 
-      <ResultActionBar shareText={`ผลดวงสมพงศ์ของฉัน${overall?.ratingText?.trim() ? ` - ${overall.ratingText.replace(/\s+/g, " ").trim().slice(0, 120)}` : ""} จาก Mumate`} testIdPrefix="compat" og={{ title: shareTitle, subtitle: shareSubtitle, summary: shareSummary, tag: "ผลความสมพงศ์", image: shareImages.slice(0, 2).join(",") }} getShareFile={() => captureShareImage(shareCardRef.current)} />
+      <PublicShareToggle checked={allowPublic} onChange={setAllowPublic} testId="compat-allow-public" />
+      <ResultActionBar shareText={`ผลดวงสมพงศ์ของฉัน${overall?.ratingText?.trim() ? ` - ${overall.ratingText.replace(/\s+/g, " ").trim().slice(0, 120)}` : ""} จาก Mumate`} testIdPrefix="compat" og={{ title: shareTitle, subtitle: shareSubtitle, summary: shareSummary, tag: "ผลความสมพงศ์", image: shareImages.slice(0, 2).join(","), isPublic: allowPublic, fullText }} getShareFile={() => captureShareImage(shareCardRef.current)} />
 
       {/* #6: การ์ดแชร์เฉพาะบุคคล (ซ่อนนอกจอ) */}
       <ShareStage>
