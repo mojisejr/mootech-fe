@@ -22,6 +22,7 @@ import { TopBarBell } from '@/features/v2-shell/components/TopBarBell'
 import { DailyFortuneCard } from '@/features/v2-shell/components/DailyFortuneCard'
 import { Spinner } from '@/features/v2-shell/components/Spinner'
 import { InstallPromptSheet } from './InstallPromptSheet'
+import { PromoCarousel } from './PromoCarousel'
 
 // Zone 1 daily-fortune (bazi /api/home). goo wires useHomeFortune() → this shape; I compose against it.
 export type DailyFortune = {
@@ -131,6 +132,8 @@ export function V2HomeScreen({ greeting, mascotCharacter, fortune, fortuneLoadin
             gone turns it CLAIMED ✗. One owner for the rule, one tooth watching it. */}
         <ScoreRingCard fortune={fortune} loading={fortuneLoading} />
         <ManifestCard mascotCharacter={mascotCharacter} element={element} loading={loading.mascot} />
+        {/* แถบโปรโมชัน (carousel) — ใต้มานิเฟส ก่อนดวงสมพงศ์ (เอ็ม 2026-09-23) */}
+        <PromoCarousel />
         {/* ฟีม สไลด์ 13: โซนล่างเลื่อนขึ้นเข้ามาตอนสกรอลล์ถึง (Reveal = IO + CSS, reduced-motion → นิ่ง) */}
         <Reveal><SomphongSection /></Reveal>
         <Reveal><SianSection /></Reveal>
