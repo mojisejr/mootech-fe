@@ -84,6 +84,8 @@ export default defineConfig({
     // Same shape as the merge-conflict rule already written into design-verify.yml. Debt #212 is
     // that this list and ci.yml's skip list are two hand-synced copies of the same fact.
     include: [
+      'scripts/register-login-fe.test.ts', // mumate-login-identity slice 1 — verified session → atomic FE-native identity route
+      'scripts/register-login-fe-db.test.ts', // mumate-login-identity slice 1 — real-pg advisory-lock concurrency proof (env-gated)
       'scripts/v2-login-providers-retry.test.ts', // 2026-09-20 — signIn() providers-fetch retry (LINE cold-start "undefined" error fix)
       'scripts/oauth-redirect.test.ts', // 2026-09-20 — startOAuthRedirect: form POST เลี่ยง getProviders (LINE signup ยังพังหลัง #723)
       'scripts/liff-detect.test.ts', // 2026-09-20 — isLineInAppBrowser (UA) → โชว์ปุ่ม "เปิดในเบราว์เซอร์" ติดตั้ง PWA/notification
