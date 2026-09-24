@@ -28,10 +28,21 @@ import {
   type LinkableProvider,
 } from './link-providers'
 
-/** Asymmetric algorithms only. An allowlist is what stops a token signed with
- *  HS256 using the public key as the secret from verifying — the classic
- *  algorithm-confusion attack. `none` is excluded by construction. */
-const ALLOWED_ALGS = ['RS256', 'ES256'] as const
+// §ALGORITHM CONFUSION, and why the allowlist is per provider rather than global.
+//
+// The attack an allowlist exists to stop is this: a provider publishes a PUBLIC
+// signing key, we accept HS256, and an attacker signs their own token using that
+// published key as the HMAC secret. We verify it, because we hold the same bytes.
+// The defence is not "never HS256" — it is that the algorithm and the key must
+// agree, and that pairing is a property of the PROVIDER, not of the codebase:
+//
+//   google  RS256, key = the public JWKS      → HS256 here would be the attack
+//   line    HS256, key = LINE_CLIENT_SECRET   → RS256 here has no key to use
+//
+// A single shared allowlist cannot express that, and the first version of this
+// file proved it: it allowed RS256/ES256 for everyone and so could never verify
+// any LINE web token at all. Each provider now carries its own `idTokenAlgs` and
+// its own key material, and neither is reachable from the other.
 
 export interface VerifiedIdentity {
   /** the provider's STABLE subject: Google's `sub`, LINE's userId */
@@ -54,12 +65,14 @@ export type VerifyResult =
 
 // One JWKS client per provider, created lazily and reused: it caches the keys and
 // rate-limits refetches, so a burst of links does not hammer the provider's
-// certificate endpoint (and a key rotation is picked up on its own).
+// certificate endpoint (and a key rotation is picked up on its own). Only
+// providers that publish a key set appear here; a symmetric one never does.
 const jwks = new Map<LinkableProvider, ReturnType<typeof createRemoteJWKSet>>()
-function keySetFor(provider: LinkableProvider) {
+
+function keySetFor(provider: LinkableProvider, jwksUrl: string) {
   let set = jwks.get(provider)
   if (!set) {
-    set = createRemoteJWKSet(new URL(ENDPOINTS[provider].jwksUrl))
+    set = createRemoteJWKSet(new URL(jwksUrl))
     jwks.set(provider, set)
   }
   return set
@@ -71,12 +84,22 @@ export interface ExchangeDeps {
   verifyToken?: (provider: LinkableProvider, token: string) => Promise<JWTPayload>
 }
 
-async function defaultVerify(provider: LinkableProvider, token: string): Promise<JWTPayload> {
-  const { payload } = await jwtVerify(token, keySetFor(provider), {
-    issuer: [...ENDPOINTS[provider].issuers],
+export async function defaultVerify(provider: LinkableProvider, token: string): Promise<JWTPayload> {
+  const { jwksUrl, issuers, idTokenAlgs } = ENDPOINTS[provider]
+  // Same options either way; only the KEY differs, and which key it is follows
+  // from `jwksUrl` alone. The two branches are written out rather than folded
+  // into one call because a union of key types matches neither jwtVerify
+  // overload — and because the split is the point: a symmetric key and a remote
+  // key set are never interchangeable.
+  const options = {
+    issuer: [...issuers],
     audience: clientIdFor(provider),
-    algorithms: [...ALLOWED_ALGS],
-  })
+    algorithms: [...idTokenAlgs],
+  }
+  const { payload } =
+    jwksUrl === null
+      ? await jwtVerify(token, new TextEncoder().encode(clientSecretFor(provider)), options)
+      : await jwtVerify(token, keySetFor(provider, jwksUrl), options)
   return payload
 }
 

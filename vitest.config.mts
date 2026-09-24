@@ -91,6 +91,7 @@ export default defineConfig({
       'scripts/link-start-route.test.ts', // mumate-login-identity slice 3 — link start route: strict identity, cookie+redirect in one response
       'scripts/link-account.test.ts', // mumate-login-identity slice 3 — the three identity-contract cases and the last-method unlink rule
       'scripts/link-verify.test.ts', // mumate-login-identity slice 3 — code exchange and id_token claim checks
+      'scripts/link-verify-default.test.ts', // mumate-login-identity slice 3 — the REAL verifier: LINE HS256 vs Google RS256, key/alg pairing
       'scripts/link-callback-route.test.ts', // mumate-login-identity slice 3 — callback: state before anything, cookie cleared on every exit
       'scripts/link-connections-route.test.ts', // mumate-login-identity slice 3 — connections read, unlink route, last-method refusal
       'scripts/connected-screen.test.tsx', // mumate-login-identity slice 3 — the screen renders real link state, not session guesswork

@@ -29,9 +29,16 @@ export const PROVIDER_SPELLING: Record<LinkableProvider, string> = {
 export interface ProviderEndpoints {
   authorizeUrl: string
   tokenUrl: string
-  jwksUrl: string
+  /** Where the PUBLIC keys live, for a provider that signs asymmetrically.
+   *  `null` means the provider signs its id_token with a SYMMETRIC key — the
+   *  client secret we already hold — and there is no key set to fetch. */
+  jwksUrl: string | null
   issuers: readonly string[]
   scope: string
+  /** Every algorithm this provider's id_token may carry, and nothing else. It
+   *  belongs to the provider rather than being shared, because the algorithm and
+   *  the key material have to agree — see §ALGORITHM CONFUSION in link-verify.ts. */
+  idTokenAlgs: readonly string[]
 }
 
 export const ENDPOINTS: Record<LinkableProvider, ProviderEndpoints> = {
@@ -42,16 +49,33 @@ export const ENDPOINTS: Record<LinkableProvider, ProviderEndpoints> = {
     // Google mints tokens under both spellings and both are legitimate.
     issuers: ['https://accounts.google.com', 'accounts.google.com'],
     scope: 'openid email profile',
+    // Google signs with RS256 against the key set above. It must NEVER accept a
+    // symmetric algorithm: the key here is public, so HS256 would let anyone who
+    // can read that key mint a token we would believe.
+    idTokenAlgs: ['RS256'],
   },
   line: {
     authorizeUrl: 'https://access.line.me/oauth2/v2.1/authorize',
     tokenUrl: 'https://api.line.me/oauth2/v2.1/token',
-    jwksUrl: 'https://api.line.me/oauth2/v2.1/certs',
+    // NO JWKS, and this is not an omission. LINE's WEB login signs the id_token
+    // with HS256 using the channel secret; the ES256 keys served at
+    // https://api.line.me/oauth2/v2.1/certs belong to the native/LIFF/SDK flow,
+    // which this is not. Reaching for that key set is what made the first real
+    // link attempt fail with `bad-token` on 2026-09-24 at 19:49 ICT: jose
+    // rejected the token on its `alg` header before it ever fetched a key.
+    // The proof was already in this repo — next-auth's own LINE provider, which
+    // drives the sign-in that works in production today, pins
+    // `id_token_signed_response_alg: "HS256"`.
+    jwksUrl: null,
     issuers: ['https://access.line.me'],
     // NO email scope. The LINE channel's email permission is a separate request
     // that remains with the team, and slice 3 does not need it: owner decision 2
     // says an email may suggest an account but may never bind one.
     scope: 'openid profile',
+    // HS256 only, verified against LINE_CLIENT_SECRET. Safe here for the reason
+    // it is unsafe for Google: the key is a shared secret only LINE and we hold,
+    // never a published public key.
+    idTokenAlgs: ['HS256'],
   },
 }
 
