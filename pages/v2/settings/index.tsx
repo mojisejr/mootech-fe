@@ -18,6 +18,13 @@ import { InstallGuideSheet } from '@/features/v2-calendar/components/InstallGuid
 // จาก useV2User (แหล่งเดียวกับ AccountScreen). null/ยังไม่รู้ = ไม่เดา (ไม่โชว์ค่า) กันโชว์ค่าผิดซ้ำรอยเดิม
 const TIER_LABEL: Record<string, string> = { free: 'Free Tier', plus: 'PLUS', pro: 'PRO' }
 
+// #Bug — แถว "บัญชีที่เชื่อมต่อ" เคยแสดงคำว่า "LINE" ตายตัว (`profile?.displayName ? '@…' : 'LINE'`)
+// ซึ่งไม่ได้อ่านอะไรเลยว่าเชื่อมอะไรไว้จริง: สมาชิกที่ล็อกอินด้วย Google และยังไม่เคยเชื่อม LINE ก็เห็นคำว่า
+// LINE — เจอโดยเจ้าของระบบบน staging 2026-09-24. เป็นบั๊กตัวเดียวกับ "Free Tier" ด้านบนเป๊ะ ๆ คือ
+// แถวที่ยืนยันสิ่งที่ตัวเองไม่รู้. ตอนนี้อ่านจาก /api/auth/link/connections แหล่งเดียวกับหน้า
+// บัญชีที่เชื่อมต่อ ทั้งสองจึงขัดแย้งกันไม่ได้ · ยังไม่รู้ = ไม่โชว์ค่า (ไม่เดา)
+const PROVIDER_LABEL: Record<string, string> = { line: 'LINE', google: 'Google' }
+
 const APP_VERSION = 'Mumate v2.1.0'
 
 // ขนาดตัวอักษร (settings-text-size-sheet) — บันทึกเครื่องนี้ + apply ผ่าน zoom ของ <html>
@@ -108,6 +115,8 @@ export default function V2SettingsPage() {
   const [scale, setScale] = useState<number>(1)
   const [profile, setProfile] = useState<Profile | null>(null)
   const [qi, setQi] = useState<number | null>(null)
+  // null = ยังไม่รู้ (กำลังโหลด หรืออ่านไม่ได้) → ไม่โชว์ค่า ไม่ใช่ [] ซึ่งแปลว่า "รู้แล้วว่าไม่มี"
+  const [linked, setLinked] = useState<string[] | null>(null)
 
   useEffect(() => {
     const saved = Number(window.localStorage.getItem(TEXT_SCALE_KEY) ?? '1')
@@ -115,6 +124,17 @@ export default function V2SettingsPage() {
     let alive = true
     fetch('/api/profile').then((r) => (r.ok ? r.json() : null)).then((j) => { if (alive) setProfile(j?.profile ?? null) }).catch(() => {})
     fetch('/api/qi-wallet').then((r) => (r.ok ? r.json() : null)).then((j) => { if (alive && typeof j?.qi === 'number') setQi(j.qi) }).catch(() => {})
+    fetch('/api/auth/link/connections')
+      .then((r) => (r.ok ? r.json() : null))
+      .then((j: { connections?: Array<{ provider?: string; linked?: boolean }> } | null) => {
+        if (!alive || !Array.isArray(j?.connections)) return
+        setLinked(
+          j.connections
+            .filter((c) => c?.linked === true)
+            .map((c) => PROVIDER_LABEL[String(c?.provider ?? '')] ?? String(c?.provider ?? '')),
+        )
+      })
+      .catch(() => {})
     return () => { alive = false }
   }, [])
 
@@ -125,7 +145,8 @@ export default function V2SettingsPage() {
   }
 
   const scaleLabel = TEXT_SCALES.find((s) => s.value === scale)?.label ?? 'ปกติ'
-  const lineValue = profile?.displayName ? `@${profile.displayName}` : 'LINE'
+  // ไม่รู้ → undefined (แถวไม่โชว์ค่า) · รู้แล้วจึงพูด และพูดเฉพาะที่เชื่อมจริง
+  const connectedValue = linked === null || linked.length === 0 ? undefined : linked.join(', ')
   const tier = user?.membership?.tier
   const membershipValue = tier ? (TIER_LABEL[tier] ?? tier) : undefined // ยังไม่รู้ tier → ไม่โชว์ค่า (ไม่เดา)
 
@@ -136,7 +157,7 @@ export default function V2SettingsPage() {
 
       {/* บัญชี */}
       <Group title="บัญชี">
-        <Row href="/v2/settings/connected" testId="settings-connected" title="บัญชีที่เชื่อมต่อ" value={lineValue} />
+        <Row href="/v2/settings/connected" testId="settings-connected" title="บัญชีที่เชื่อมต่อ" value={connectedValue} />
         <Row href="/v2/settings/edit-profile" testId="settings-profile" title="แก้ไขข้อมูลส่วนตัว" />
         <Row href="/v2/settings/edit-birth" testId="settings-birth" title="ข้อมูลวันเกิดและธาตุ" sub="แก้แล้วคำทำนายทั้งแอปจะเปลี่ยน" />
         <Row href="/v2/account" testId="settings-membership" title="แพ็กเกจของฉัน" value={membershipValue} last />
