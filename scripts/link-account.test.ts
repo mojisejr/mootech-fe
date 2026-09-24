@@ -39,7 +39,7 @@ function fakeStore(init: Partial<FakeState> = {}) {
 
   const tx: LinkTransaction = {
     async lockIdentity(provider, subject) {
-      s.locks.push(`${provider}${subject}`)
+      s.locks.push(`${provider}\u001f${subject}`)
     },
     async findIdentityOwner(provider, subject) {
       const hit = s.rows.find(
@@ -108,7 +108,7 @@ describe('case 1 — the identity has no owner, so attach it', () => {
   it('takes the advisory lock BEFORE reading, or two simultaneous links both see nothing', async () => {
     const f = fakeStore()
     await linkProvider(f.store, { userId: ME, provider: 'line', subject: 'U-line-1' })
-    expect(f.state.locks).toEqual(['lineU-line-1'])
+    expect(f.state.locks).toEqual(['line\u001fU-line-1'])
   })
 
   it('stores google lower-case and LINE upper-case, the spelling the live writers use', async () => {
