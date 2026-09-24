@@ -18,7 +18,7 @@
 import { randomUUID } from 'node:crypto'
 
 import { formatLegacyTimestamp, isProviderIdentityConflict } from './register-login-fe'
-import { PROVIDER_SPELLING, type LinkableProvider } from './link-providers'
+import { LINKABLE, PROVIDER_SPELLING, type LinkableProvider } from './link-providers'
 
 export interface ProviderRow {
   id: string
@@ -196,4 +196,45 @@ export async function unlinkProvider(store: LinkStore, input: UnlinkInput): Prom
     const removed = await tx.deleteProviderRows(input.userId, key)
     return { status: 'unlinked', removed }
   })
+}
+
+export interface ConnectionSummary {
+  provider: LinkableProvider
+  linked: boolean
+  /** the provider this session is signed in with */
+  current: boolean
+  /** false for the last remaining method — removing it would lock the member out */
+  canUnlink: boolean
+}
+
+/**
+ * What the Connected Accounts screen needs, derived from the member's real rows.
+ *
+ * §THIS EXISTS BECAUSE THE SCREEN CURRENTLY GUESSES. ConnectedScreen decides
+ * "connected" with `b.key === session.provider` — string equality against the
+ * provider the member happens to be signed in with. So a second linked provider
+ * renders as "ยังไม่ได้เชื่อม" however well the backend works, and no endpoint
+ * anywhere returns the caller's provider rows: /api/profile does not, and nothing
+ * else does either. The screen cannot be made truthful without this.
+ *
+ * Provider comparison is lower() on both sides throughout, because the session
+ * says `line` and the database says `LINE`.
+ */
+export function summariseConnections(
+  rows: Array<{ provider: string }>,
+  sessionProvider: string | null | undefined,
+): ConnectionSummary[] {
+  const linked = new Set(
+    rows.map((r) => r.provider.trim().toLowerCase()).filter((p) => p !== ''),
+  )
+  const current = String(sessionProvider ?? '').trim().toLowerCase()
+  return LINKABLE.map((provider) => ({
+    provider,
+    linked: linked.has(provider),
+    current: current === provider,
+    // The same rule unlinkProvider enforces, mirrored here so the button is
+    // disabled rather than offered and then refused. Both read the same source,
+    // so they cannot disagree about which method is the last one.
+    canUnlink: linked.has(provider) && linked.size > 1,
+  }))
 }

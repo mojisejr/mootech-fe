@@ -117,4 +117,22 @@ export function createPostgresLinkStore(database: TransactionDatabase): LinkStor
   }
 }
 
+/** Read-only: the caller's own provider rows. Outside a transaction on purpose —
+ *  this is a page read, not part of a write decision, and holding FOR UPDATE for
+ *  a settings screen would serialise members against each other for no gain. */
+export async function readMemberProviders(userId: string): Promise<ProviderRow[]> {
+  const rows = rowsOf<{ id?: unknown; user_id?: unknown; provider?: unknown }>(
+    await (db as unknown as SqlExecutor).execute(
+      sql`SELECT id, user_id, provider FROM user_provider WHERE user_id = ${userId}`,
+    ),
+  )
+  return rows
+    .filter((r) => typeof r.id === 'string' && typeof r.user_id === 'string')
+    .map((r) => ({
+      id: r.id as string,
+      userId: r.user_id as string,
+      provider: typeof r.provider === 'string' ? r.provider : '',
+    }))
+}
+
 export const postgresLinkStore = createPostgresLinkStore(db as unknown as TransactionDatabase)

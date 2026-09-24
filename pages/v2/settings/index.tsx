@@ -136,7 +136,7 @@ export default function V2SettingsPage() {
 
       {/* บัญชี */}
       <Group title="บัญชี">
-        <Row href="/v2/settings/connected" testId="settings-connected" title="เข้าสู่ระบบด้วย LINE" value={lineValue} />
+        <Row href="/v2/settings/connected" testId="settings-connected" title="บัญชีที่เชื่อมต่อ" value={lineValue} />
         <Row href="/v2/settings/edit-profile" testId="settings-profile" title="แก้ไขข้อมูลส่วนตัว" />
         <Row href="/v2/settings/edit-birth" testId="settings-birth" title="ข้อมูลวันเกิดและธาตุ" sub="แก้แล้วคำทำนายทั้งแอปจะเปลี่ยน" />
         <Row href="/v2/account" testId="settings-membership" title="แพ็กเกจของฉัน" value={membershipValue} last />

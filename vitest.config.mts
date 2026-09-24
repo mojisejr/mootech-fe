@@ -92,6 +92,8 @@ export default defineConfig({
       'scripts/link-account.test.ts', // mumate-login-identity slice 3 — the three identity-contract cases and the last-method unlink rule
       'scripts/link-verify.test.ts', // mumate-login-identity slice 3 — code exchange and id_token claim checks
       'scripts/link-callback-route.test.ts', // mumate-login-identity slice 3 — callback: state before anything, cookie cleared on every exit
+      'scripts/link-connections-route.test.ts', // mumate-login-identity slice 3 — connections read, unlink route, last-method refusal
+      'scripts/connected-screen.test.tsx', // mumate-login-identity slice 3 — the screen renders real link state, not session guesswork
       'scripts/provider-identity-migration-db.test.ts', // mumate-login-identity slice 2 — real-pg proof of migration 0034 on a synthetic seed (env-gated)
       'scripts/v2-login-providers-retry.test.ts', // 2026-09-20 — signIn() providers-fetch retry (LINE cold-start "undefined" error fix)
       'scripts/oauth-redirect.test.ts', // 2026-09-20 — startOAuthRedirect: form POST เลี่ยง getProviders (LINE signup ยังพังหลัง #723)
