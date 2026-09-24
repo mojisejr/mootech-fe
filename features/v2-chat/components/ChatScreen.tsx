@@ -40,6 +40,7 @@ function quotaSourceText(q: ChatQuota): string {
 import { useBaziChatStream } from "../useBaziChatStream"
 import { isGoodDayQuestion, parseThaiDates, shortThaiDate } from "../good-day-dates"
 import { SUGGESTED_QUESTIONS, SUGGESTED_QUESTION_ITEMS } from "@/constants/suggested-questions"
+import { thaiBreakable } from "@/lib/th/thai-breakable"
 
 // เพอร์โซนา 2 แบบ (เสี่ยวมู่ ชาย / เสี่ยวมี่ หญิง) × 4 ท่าตามอารมณ์คำตอบ
 type PersonaKey = "mu" | "mi"
@@ -446,8 +447,8 @@ export function ChatScreen() {
       <div className="min-h-0 w-full flex-1 overflow-y-auto px-4">
         <div className="mx-auto flex w-full max-w-[430px] flex-col gap-2 pb-2 pt-2">
           {/* greeting bubble (Figma copy — see TODO(figma-copy)) */}
-          <div data-testid="chat-greeting" className="max-w-[92%] self-start rounded-[18px] border border-[#D88FA9] bg-white px-4 py-3 text-[14px] leading-[22px] text-v3-navy shadow-[0_2px_8px_rgba(11,48,91,0.12),0_1px_4px_rgba(216,143,169,0.35)]">
-            {activePersona.greeting}
+          <div data-testid="chat-greeting" className="max-w-[92%] self-start break-keep rounded-[18px] border border-[#D88FA9] bg-white px-4 py-3 text-[14px] leading-[22px] text-v3-navy shadow-[0_2px_8px_rgba(11,48,91,0.12),0_1px_4px_rgba(216,143,169,0.35)]">
+            {thaiBreakable(activePersona.greeting)}
           </div>
 
           {turns.map((t, i) =>
@@ -455,9 +456,9 @@ export function ChatScreen() {
               <div key={t.id} className="flex max-w-[92%] flex-col gap-2 self-start">
                 <div
                   data-testid="chat-bubble-ai"
-                  className="whitespace-pre-line rounded-[18px] border border-[#D88FA9] bg-white px-4 py-3 text-[14px] leading-[22px] text-v3-navy shadow-[0_2px_8px_rgba(11,48,91,0.12),0_1px_4px_rgba(216,143,169,0.35)]"
+                  className="whitespace-pre-line break-keep rounded-[18px] border border-[#D88FA9] bg-white px-4 py-3 text-[14px] leading-[22px] text-v3-navy shadow-[0_2px_8px_rgba(11,48,91,0.12),0_1px_4px_rgba(216,143,169,0.35)]"
                 >
-                  {t.loading && !t.content ? <TypingDots personaName={activePersona.name} /> : t.content}
+                  {t.loading && !t.content ? <TypingDots personaName={activePersona.name} /> : thaiBreakable(t.content)}
                 </div>
                 {!t.loading && t.content.trim() && (
                   <GoodDayReminders answer={t.content} question={turns.slice(0, i).reverse().find((x) => x.role === "user")?.content ?? ""} />
@@ -467,9 +468,9 @@ export function ChatScreen() {
               <div key={t.id} className="max-w-[85%] self-end">
                 <div
                   data-testid="chat-bubble-user"
-                  className="whitespace-pre-line v3-shadow-line rounded-[18px] bg-v3-sapphire px-4 py-3 text-[14px] leading-[22px] text-white"
+                  className="whitespace-pre-line break-keep v3-shadow-line rounded-[18px] bg-v3-sapphire px-4 py-3 text-[14px] leading-[22px] text-white"
                 >
-                  {t.content}
+                  {thaiBreakable(t.content)}
                 </div>
               </div>
             ),
