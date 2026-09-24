@@ -18,12 +18,19 @@
 // A mechanism that no test executes is a mechanism nobody has tested. This file
 // executes it, with tokens minted here rather than mocked away.
 //
-// Nothing here reaches the network: LINE is symmetric so no key is fetched, and
-// the Google cases are rejected on the `alg` header, which jose checks before it
-// resolves a key (node_modules/jose/dist/node/cjs/jws/flattened/verify.js:62-65
-// runs before the resolver call at :75).
+// Nothing here reaches a PROVIDER. LINE is symmetric, so no key is ever fetched.
+// Google's key set IS fetched for real — from a server this file stands up on
+// loopback — because the point of the Google cases is to execute
+// `createRemoteJWKSet`, the fetch and the RS256 check rather than to mock them.
+// The Google case rejected on its `alg` still fetches nothing: jose checks the
+// algorithm allowlist before resolving a key, in both the cjs and esm builds
+// (node_modules/jose/dist/node/*/jws/flattened/verify.js — the allowlist throw
+// precedes the `await key(...)` call).
+import { createServer, type Server } from 'node:http'
+import type { AddressInfo } from 'node:net'
+
 import { SignJWT, exportJWK, generateKeyPair } from 'jose'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { defaultVerify, exchangeAndVerify } from '@/lib/auth/link-verify'
 import { ENDPOINTS, LINKABLE } from '@/lib/auth/link-providers'
@@ -49,6 +56,53 @@ afterEach(() => {
 })
 
 const LINE_ISS = 'https://access.line.me'
+
+// §THE GOOGLE KEY SET, STOOD UP FOR THE WHOLE FILE — and it has to be the whole
+// file, not one describe. `defaultVerify` passes `keySetFor(provider, jwksUrl)`
+// as an ARGUMENT to jwtVerify, so the RemoteJWKSet is constructed — and cached
+// under the provider — before jwtVerify runs, even for a token that is about to
+// be rejected on its `alg`. Point the URL at this server only inside the Google
+// describe and the cache is already holding one built from the real Google URL,
+// which then serves no matching key. Constructing a RemoteJWKSet performs no
+// request; the fetch happens on first key resolution, so the rejected-on-alg
+// cases still reach no network.
+let jwksServer: Server
+let googleKey: Awaited<ReturnType<typeof generateKeyPair>>['privateKey']
+let jwksServed = 0
+
+// §READ AT IMPORT TIME, BEFORE THE SERVER REPLACES ONE OF THEM. The behaviour
+// tests below borrow `ENDPOINTS.google.jwksUrl` to point at loopback, which means
+// any test asserting on the LIVE value would be asserting on the borrowed one and
+// could never notice the shipped config changing. Caught by mutation: setting
+// google's real `jwksUrl` to null left the whole file green until these snapshots
+// existed. Configuration is judged from here; behaviour from the live object.
+const SHIPPED_JWKS_URL: Record<(typeof LINKABLE)[number], string | null> = {
+  google: ENDPOINTS.google.jwksUrl,
+  line: ENDPOINTS.line.jwksUrl,
+}
+const SHIPPED_ALGS: Record<(typeof LINKABLE)[number], readonly string[]> = {
+  google: [...ENDPOINTS.google.idTokenAlgs],
+  line: [...ENDPOINTS.line.idTokenAlgs],
+}
+
+beforeAll(async () => {
+  const pair = await generateKeyPair('RS256')
+  googleKey = pair.privateKey
+  const jwk = await exportJWK(pair.publicKey)
+  const body = JSON.stringify({ keys: [{ ...jwk, kid: 'test-key-1', alg: 'RS256', use: 'sig' }] })
+  jwksServer = createServer((_req, res) => {
+    jwksServed += 1
+    res.writeHead(200, { 'Content-Type': 'application/json' })
+    res.end(body)
+  })
+  await new Promise<void>((resolve) => jwksServer.listen(0, '127.0.0.1', resolve))
+  ENDPOINTS.google.jwksUrl = `http://127.0.0.1:${(jwksServer.address() as AddressInfo).port}/certs`
+})
+
+afterAll(async () => {
+  ENDPOINTS.google.jwksUrl = SHIPPED_JWKS_URL.google
+  await new Promise<void>((resolve) => jwksServer.close(() => resolve()))
+})
 
 /** A token shaped exactly like the one LINE's web login returns. */
 function lineToken(
@@ -124,7 +178,8 @@ describe('the algorithm and the key material can never disagree', () => {
   // The defect was a shared allowlist that outlived the assumption behind it.
   // This pins the pairing itself, so a provider added later cannot repeat it.
   it.each(LINKABLE)('%s pairs a key source with algorithms that can use it', (provider) => {
-    const { jwksUrl, idTokenAlgs } = ENDPOINTS[provider]
+    const jwksUrl = SHIPPED_JWKS_URL[provider]
+    const idTokenAlgs = SHIPPED_ALGS[provider]
     expect(idTokenAlgs.length).toBeGreaterThan(0)
     const symmetric = idTokenAlgs.every((a) => a.startsWith('HS'))
     const asymmetric = idTokenAlgs.every((a) => a.startsWith('RS') || a.startsWith('ES'))
@@ -137,8 +192,12 @@ describe('the algorithm and the key material can never disagree', () => {
   })
 
   it('keeps LINE on HS256 and Google on RS256 — the two this slice proved', () => {
-    expect([...ENDPOINTS.line.idTokenAlgs]).toEqual(['HS256'])
-    expect([...ENDPOINTS.google.idTokenAlgs]).toEqual(['RS256'])
+    expect([...SHIPPED_ALGS.line]).toEqual(['HS256'])
+    expect([...SHIPPED_ALGS.google]).toEqual(['RS256'])
+    // LINE ships with no key set and Google ships with one. Asserted on the
+    // shipped values, not the borrowed ones.
+    expect(SHIPPED_JWKS_URL.line).toBeNull()
+    expect(SHIPPED_JWKS_URL.google).toMatch(/^https:\/\//)
   })
 })
 
@@ -177,5 +236,67 @@ describe('exchangeAndVerify end to end, with the real verifier', () => {
       { fetch: fetchMock },
     )
     expect(r).toEqual({ ok: false, reason: 'nonce-mismatch' })
+  })
+})
+
+// §THE GOOGLE BRANCH, ACTUALLY EXECUTED (added 0.4 after the DoD audit).
+//
+// Everything above proves LINE, whose key is symmetric and needs no network. The
+// audit found that Google's half — `createRemoteJWKSet`, the fetch, the RS256
+// verification — was executed by NO test at all: its only case was an HS256
+// token, which jose rejects on the `alg` header before it resolves a key. So the
+// branch that runs in production for every Google link had never run once.
+//
+// Rather than mock jose (which would test the mock), this stands up a real HTTP
+// server serving a real JWKS and points the provider's `jwksUrl` at it. The code
+// under test is untouched: the same `createRemoteJWKSet`, the same fetch, the
+// same signature check. Only the address changes.
+describe('defaultVerify — Google fetches a key set and verifies RS256 with it', () => {
+  const googleToken = (over: { iss?: string; aud?: string; exp?: string | number } = {}) =>
+    new SignJWT({ nonce: 'NONCE', email: 'member@example.invalid', name: 'Member' })
+      .setProtectedHeader({ alg: 'RS256', kid: 'test-key-1' })
+      .setSubject('g-subject-1')
+      .setIssuedAt()
+      .setIssuer(over.iss ?? 'https://accounts.google.com')
+      .setAudience(over.aud ?? 'g-client')
+      .setExpirationTime(over.exp ?? '5m')
+      .sign(googleKey)
+
+  it('ACCEPTS an RS256 token whose key it had to go and fetch', async () => {
+    const claims = await defaultVerify('google', await googleToken())
+    expect(claims.sub).toBe('g-subject-1')
+    // The key set was really retrieved over the wire, not read from a fixture.
+    expect(jwksServed).toBeGreaterThan(0)
+  })
+
+  it('REFUSES a token signed by a key the published set does not contain', async () => {
+    const stranger = await generateKeyPair('RS256')
+    const forged = await new SignJWT({ nonce: 'NONCE' })
+      .setProtectedHeader({ alg: 'RS256', kid: 'test-key-1' })
+      .setSubject('g-subject-1')
+      .setIssuedAt()
+      .setIssuer('https://accounts.google.com')
+      .setAudience('g-client')
+      .setExpirationTime('5m')
+      .sign(stranger.privateKey)
+    await expect(defaultVerify('google', forged)).rejects.toThrow()
+  })
+
+  it('REFUSES a wrong audience — a token minted for a different client', async () => {
+    await expect(defaultVerify('google', await googleToken({ aud: 'someone-else' }))).rejects.toThrow()
+  })
+
+  it('REFUSES a wrong issuer', async () => {
+    await expect(defaultVerify('google', await googleToken({ iss: 'https://evil.example' }))).rejects.toThrow()
+  })
+
+  it('REFUSES an expired token', async () => {
+    const past = Math.floor(Date.now() / 1000) - 60
+    await expect(defaultVerify('google', await googleToken({ exp: past }))).rejects.toThrow()
+  })
+
+  it('accepts the OTHER issuer spelling Google also mints under', async () => {
+    const claims = await defaultVerify('google', await googleToken({ iss: 'accounts.google.com' }))
+    expect(claims.sub).toBe('g-subject-1')
   })
 })
