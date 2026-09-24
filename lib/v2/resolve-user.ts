@@ -104,3 +104,39 @@ export async function resolveSessionUserId(
   // session ถูกต้อง → เชื่อผลตามแถว (404 = ไม่มีบัญชี, 409 = กำกวม) ไม่ fallback (fallback ใช้เฉพาะกรณี "ไม่มี session")
   return resolveUserFromRows(rows)
 }
+
+/**
+ * Same resolution, but WITHOUT the MEMBER_ID fallback (mumate-login-identity-001 slice 3).
+ *
+ * 🔴 Use this, not resolveSessionUserId, for any request that GRANTS ACCESS to an account —
+ * attaching a login credential, removing one. The fallback above accepts `cookie-mumate-id`,
+ * which is set client-side and is not httpOnly, i.e. forgeable. For reads and quotas that trade
+ * was made deliberately (#391: some browsers drop the session cookie and the alternative was
+ * locking those members out of the calendar). For a write that decides WHO CAN LOG IN AS WHOM it
+ * is an account-takeover primitive: set the cookie to someone else's user_id, link your own
+ * provider to it, and you own their account — their charts, their QI, their subscription.
+ *
+ * The cost of being strict here is small and lands in the right place: a member whose session
+ * cookie the browser dropped cannot LINK a provider until they sign in again, which is a sentence
+ * of inconvenience, not a lost account.
+ */
+export async function resolveSignedSessionUserId(
+  req: NextApiRequest,
+  res: NextApiResponse,
+): Promise<ResolvedIdentity> {
+  const session = (await getServerSession(req, res, authOptions)) as
+    | { providerId?: string; provider?: string }
+    | null
+
+  const providerId = (session?.providerId ?? '').trim()
+  const provider = (session?.provider ?? '').trim()
+  if (!providerId || !provider) return { ok: false, status: 401, error: 'not signed in' }
+
+  const rows = rowsOf(
+    await db.execute(
+      sql`SELECT user_id FROM user_provider
+          WHERE id_token = ${providerId} AND lower(provider) = lower(${provider})`,
+    ),
+  )
+  return resolveUserFromRows(rows)
+}
