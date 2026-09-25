@@ -97,6 +97,7 @@ export default defineConfig({
       'scripts/merge-routes.test.ts', // mumate-login-identity slice 4 — preview and confirm: the body is never the proof, and an offer is spent once
       'scripts/merge-offer-screen.test.tsx', // mumate-login-identity slice 4 — the two-press confirmation and the copy that states the cost
       'scripts/merge-identity-db.test.ts', // mumate-login-identity slice 4 — the merge against real Postgres; skipped unless TEST_DATABASE_URL is set
+      'scripts/merge-standing-in-transaction.test.ts', // mumate-login-identity slice 4 phase 8b-fix — a pool of ONE connection: the standing read must not ask for a second
       'scripts/link-verify-default.test.ts', // mumate-login-identity slice 3 — the REAL verifier: LINE HS256 vs Google RS256, key/alg pairing
       'scripts/link-callback-route.test.ts', // mumate-login-identity slice 3 — callback: state before anything, cookie cleared on every exit
       'scripts/link-connections-route.test.ts', // mumate-login-identity slice 3 — connections read, unlink route, last-method refusal

@@ -23,12 +23,17 @@
 // afterwards. It is evidence that the merge does not violate that index; it is NOT
 // evidence about production's index over production's data.
 //
+// §WHAT CHANGED AT PHASE 8b-fix. Standing used to be faked here through an injected
+// resolver. It is now read by the adapter inside the merge's own transaction, so these
+// cases express "this side has paid" by INSERTING a member_subscription row and the SQL
+// behind the verdict is exercised for the first time. The paid RULE is still proven in
+// scripts/merge-survivor.test.ts and the pure verdict in
+// scripts/merge-standing-in-transaction.test.ts.
+//
 // §ALSO NOT PROVEN HERE. This is a direct connection — production reaches Supabase
-// through the transaction pooler. And lib/v2/subscription.ts's hasEverPaid is not
-// exercised: it reads through the application's own client, so the standing resolver is
-// faked here. Its SQL is an ordinary Drizzle select over member_subscription plus the
-// already-covered resolveMembership, which is the least of slice 4's risks; the paid
-// RULE is proven in scripts/merge-survivor.test.ts.
+// through the transaction pooler — and this file's client is opened with max 8, so it
+// cannot witness a nested acquisition of a single connection. That bug class belongs to
+// scripts/merge-standing-in-transaction.test.ts, which models a pool of exactly one.
 import { randomUUID } from 'node:crypto'
 import postgres from 'postgres'
 import { drizzle } from 'drizzle-orm/postgres-js'
@@ -53,10 +58,22 @@ describe.skipIf(!TEST_URL)('the merge against real Postgres', () => {
   const subjects: string[] = []
   const audits: string[] = []
 
-  /** Standing is faked: this file is about the SQL, not about who has paid. */
-  const standing = (paid: Record<string, { isPaid: boolean | null; everPaid: boolean }>) => ({
-    resolveStanding: async (userId: string) => paid[userId] ?? { isPaid: false, everPaid: false },
-  })
+  const subscriptions: string[] = []
+
+  /** Make this member paid the way production does — a live PRO member_subscription
+   *  row — so the merge's own standing read finds it. Nothing is injected: if this SQL
+   *  or the adapter's SELECT is wrong, the survivor comes out wrong and these cases
+   *  fail, which is the point of moving the read here. */
+  async function makePaid(userId: string): Promise<void> {
+    const id = randomUUID()
+    subscriptions.push(id)
+    await client`
+      INSERT INTO member_subscription (id, user_id, tier_code, package_code, amount_satang,
+                                       start_at, expire_at, status)
+      VALUES (${id}, ${userId}, ${'PRO'}, ${'s4p-proof'}, ${0},
+              ${'2026-01-01'}, ${'2099-01-01'}, ${'ACTIVE'})
+    `
+  }
 
   async function makeMember(): Promise<string> {
     const id = randomUUID()
@@ -121,7 +138,11 @@ describe.skipIf(!TEST_URL)('the merge against real Postgres', () => {
   afterAll(async () => {
     if (audits.length) await client`DELETE FROM ops_audit_log WHERE id = ANY(${audits})`
     if (subjects.length) await client`DELETE FROM user_provider WHERE id_token = ANY(${subjects})`
+    if (subscriptions.length) {
+      await client`DELETE FROM member_subscription WHERE id = ANY(${subscriptions})`
+    }
     if (members.length) {
+      // member_subscription.user_id references "user", so it is cleared first above.
       await client`DELETE FROM user_provider WHERE user_id = ANY(${members})`
       await client`DELETE FROM ops_audit_log WHERE target_user_id = ANY(${members})`
       await client`DELETE FROM "user" WHERE user_id = ANY(${members})`
@@ -139,14 +160,15 @@ describe.skipIf(!TEST_URL)('the merge against real Postgres', () => {
     // The paid member signs in with LINE; the free member holds the Google identity.
     await linkProvider(store, { userId: paidUser, provider: 'line', subject: myLine })
     await linkProvider(store, { userId: freeUser, provider: 'google', subject: theirGoogle })
+    await makePaid(paidUser)
 
     const before = await client`SELECT count(*)::int AS n FROM user_provider`
 
-    const outcome = await mergeIdentity(
-      store,
-      { signedInUserId: paidUser, provider: 'google', subject: theirGoogle },
-      standing({ [paidUser]: { isPaid: true, everPaid: true } }),
-    )
+    const outcome = await mergeIdentity(store, {
+      signedInUserId: paidUser,
+      provider: 'google',
+      subject: theirGoogle,
+    })
 
     expect(outcome.status).toBe('merged')
     if (outcome.status !== 'merged') return
@@ -189,12 +211,13 @@ describe.skipIf(!TEST_URL)('the merge against real Postgres', () => {
     const theirGoogle = googleSubject()
     await linkProvider(store, { userId: paidUser, provider: 'line', subject: lineSubject() })
     await linkProvider(store, { userId: freeUser, provider: 'google', subject: theirGoogle })
+    await makePaid(paidUser)
 
-    const outcome = await mergeIdentity(
-      store,
-      { signedInUserId: paidUser, provider: 'google', subject: theirGoogle },
-      standing({ [paidUser]: { isPaid: true, everPaid: true } }),
-    )
+    const outcome = await mergeIdentity(store, {
+      signedInUserId: paidUser,
+      provider: 'google',
+      subject: theirGoogle,
+    })
     if (outcome.status !== 'merged') throw new Error(`expected a merge, got ${outcome.status}`)
 
     const trail = await auditFor(paidUser)
@@ -217,15 +240,15 @@ describe.skipIf(!TEST_URL)('the merge against real Postgres', () => {
     await linkProvider(store, { userId: a, provider: 'line', subject: lineSubject() })
     await linkProvider(store, { userId: b, provider: 'google', subject: theirGoogle })
 
-    const outcome = await mergeIdentity(
-      store,
-      { signedInUserId: a, provider: 'google', subject: theirGoogle },
-      // Both sides look paid, so nobody may lose.
-      standing({
-        [a]: { isPaid: true, everPaid: true },
-        [b]: { isPaid: true, everPaid: true },
-      }),
-    )
+    // Both sides really are paid, so nobody may lose.
+    await makePaid(a)
+    await makePaid(b)
+
+    const outcome = await mergeIdentity(store, {
+      signedInUserId: a,
+      provider: 'google',
+      subject: theirGoogle,
+    })
 
     expect(outcome).toEqual({ status: 'refused', reason: 'no-side-may-lose' })
     const still = await client`SELECT user_id FROM user_provider WHERE id_token = ${theirGoogle}`
@@ -253,11 +276,13 @@ describe.skipIf(!TEST_URL)('the merge against real Postgres', () => {
               ${'2026-09-25 00:00:00'}, ${'2026-09-25 00:00:00'})
     `
 
-    const plan = await planIdentityMerge(
-      store,
-      { signedInUserId: paidUser, provider: 'google', subject: theirGoogle },
-      standing({ [paidUser]: { isPaid: true, everPaid: true } }),
-    )
+    await makePaid(paidUser)
+
+    const plan = await planIdentityMerge(store, {
+      signedInUserId: paidUser,
+      provider: 'google',
+      subject: theirGoogle,
+    })
 
     // Two rows on the losing side, one of them dead, so exactly one is live.
     expect(plan.status).toBe('planned')
@@ -273,12 +298,13 @@ describe.skipIf(!TEST_URL)('the merge against real Postgres', () => {
     await linkProvider(store, { userId: paidUser, provider: 'line', subject: lineSubject() })
     await linkProvider(store, { userId: freeUser, provider: 'google', subject: theirGoogle })
     await linkProvider(store, { userId: freeUser, provider: 'line', subject: lineSubject() })
+    await makePaid(paidUser)
 
-    const outcome = await mergeIdentity(
-      store,
-      { signedInUserId: paidUser, provider: 'google', subject: theirGoogle },
-      standing({ [paidUser]: { isPaid: true, everPaid: true } }),
-    )
+    const outcome = await mergeIdentity(store, {
+      signedInUserId: paidUser,
+      provider: 'google',
+      subject: theirGoogle,
+    })
 
     expect(outcome).toEqual({ status: 'refused', reason: 'loser-holds-several-identities' })
   })
@@ -293,11 +319,13 @@ describe.skipIf(!TEST_URL)('the merge against real Postgres', () => {
     await linkProvider(store, { userId: freeSignedIn, provider: 'line', subject: myLine })
     await linkProvider(store, { userId: paidOther, provider: 'google', subject: theirGoogle })
 
-    const outcome = await mergeIdentity(
-      store,
-      { signedInUserId: freeSignedIn, provider: 'google', subject: theirGoogle },
-      standing({ [paidOther]: { isPaid: true, everPaid: true } }),
-    )
+    await makePaid(paidOther)
+
+    const outcome = await mergeIdentity(store, {
+      signedInUserId: freeSignedIn,
+      provider: 'google',
+      subject: theirGoogle,
+    })
 
     expect(outcome.status).toBe('merged')
     if (outcome.status !== 'merged') return
@@ -316,11 +344,11 @@ describe.skipIf(!TEST_URL)('the merge against real Postgres', () => {
     const mine = googleSubject()
     await linkProvider(store, { userId: user, provider: 'google', subject: mine })
 
-    const outcome = await mergeIdentity(
-      store,
-      { signedInUserId: user, provider: 'google', subject: mine },
-      standing({}),
-    )
+    const outcome = await mergeIdentity(store, {
+      signedInUserId: user,
+      provider: 'google',
+      subject: mine,
+    })
 
     expect(outcome).toEqual({ status: 'not-a-collision' })
   })
@@ -336,11 +364,13 @@ describe.skipIf(!TEST_URL)('the merge against real Postgres', () => {
     await linkProvider(store, { userId: older, provider: 'line', subject: lineSubject() })
     await linkProvider(store, { userId: newer, provider: 'google', subject: newerGoogle })
 
-    const plan = await planIdentityMerge(
-      store,
-      { signedInUserId: older, provider: 'google', subject: newerGoogle },
-      standing({}),
-    )
+    // Neither side has a member_subscription or member_payment row, so both read as
+    // known-not-paid from the real tables and the tiebreak is reached honestly.
+    const plan = await planIdentityMerge(store, {
+      signedInUserId: older,
+      provider: 'google',
+      subject: newerGoogle,
+    })
 
     expect(plan).toMatchObject({
       status: 'planned',

@@ -5,6 +5,7 @@
 import { sql } from 'drizzle-orm'
 
 import { db } from '@/lib/db'
+import { resolveStandingFromRows } from '@/lib/v2/subscription'
 import type { LinkStore, LinkTransaction, ProviderRow } from './link-account'
 
 type SqlExecutor = { execute(query: unknown): Promise<unknown> }
@@ -178,6 +179,55 @@ function txAdapter(tx: SqlExecutor): LinkTransaction {
       )
       const value = rows[0]?.create_at
       return typeof value === 'string' ? value : ''
+    },
+
+    async memberStanding(userId: string) {
+      // 🔴 BOTH READS GO THROUGH `tx`, NEVER THROUGH `db`. This method exists because
+      // the merge used to ask lib/v2/subscription.ts for this verdict by userId, and
+      // that module reads through the shared client — a second connection request from
+      // inside a transaction already holding the only one (lib/db/index.ts max 1),
+      // which wedged the shadow twice on 2026-09-25. Anything added here must use `tx`.
+      //
+      // The SQL does ONLY the user narrowing. Selection, expiry and the legacy
+      // fall-through are the pure rule's, exactly as resolveSubscription leaves them —
+      // filtering here would put half the rule in SQL where only a database suite
+      // could watch it (ตู๋ #369 B2).
+      const subs = rowsOf<{
+        id?: unknown
+        tier_code?: unknown
+        status?: unknown
+        expire_at?: unknown
+        created_at?: unknown
+      }>(
+        await tx.execute(sql`
+          SELECT id, tier_code, status, expire_at, created_at
+          FROM member_subscription
+          WHERE user_id = ${userId}
+        `),
+      )
+      // member_payment.user_id is the primary key, so this is one deterministic row —
+      // the same single-row read resolveMembership performs.
+      const pays = rowsOf<{ plan_code?: unknown; expire_at?: unknown }>(
+        await tx.execute(sql`
+          SELECT plan_code, expire_at FROM member_payment WHERE user_id = ${userId} LIMIT 1
+        `),
+      )
+      const payment = pays[0]
+      return resolveStandingFromRows({
+        subscriptionRows: subs.map((r) => ({
+          id: String(r.id ?? ''),
+          tierCode: String(r.tier_code ?? ''),
+          status: String(r.status ?? ''),
+          expireAt: r.expire_at,
+          createdAt: r.created_at,
+        })),
+        memberPaymentRow: payment
+          ? {
+              planCode: typeof payment.plan_code === 'string' ? payment.plan_code : null,
+              expireAt: typeof payment.expire_at === 'string' ? payment.expire_at : null,
+            }
+          : null,
+      })
     },
   }
 }

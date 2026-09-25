@@ -28,7 +28,6 @@ import {
 import { linkProvider, planIdentityMerge } from '@/lib/auth/link-account'
 import { postgresLinkStore } from '@/lib/auth/link-account-store'
 import { issueMergeTicket, mergeTicketCookie } from '@/lib/auth/merge-ticket'
-import { hasEverPaid, resolveSubscription } from '@/lib/v2/subscription'
 import {
   clearLinkStateCookie,
   linkStateCookieName,
@@ -158,17 +157,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         // proof of ownership than a support ticket. An offer made any earlier — or
         // to anyone who has not completed the second authorization — would be the
         // oracle, so this must never move ahead of the exchange above.
+        // The paid verdict still comes from the one module that owns that rule, but it
+        // is now read INSIDE the planning transaction (phase 8b-fix). Passing a
+        // resolver from here made the read ask the max-1 pool for a second connection
+        // while the transaction held the only one, and this callback is exactly where
+        // that wedged the shadow twice on 2026-09-25.
         const plan = await timeStage('merge-planning', () => planIdentityMerge(
           postgresLinkStore,
           { signedInUserId: state.value.userId, provider, subject: verified.value.subject },
-          // The paid verdict comes from the one module that owns that rule. A second
-          // copy of it here is the defect #369 B2 closed.
-          {
-            resolveStanding: async (userId) => ({
-              isPaid: (await resolveSubscription(userId)).isPaid,
-              everPaid: await hasEverPaid(userId),
-            }),
-          },
         ))
 
         if (plan.status !== 'planned') {

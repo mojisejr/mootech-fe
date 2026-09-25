@@ -93,6 +93,22 @@ function fakeStore(opts: {
     async memberCreatedAt(userId) {
       return opts.createdAt?.[userId] ?? '2026-01-01 00:00:00'
     },
+    // 🔴 ON THE TRANSACTION, not injected (phase 8b-fix). It used to be a MergeDeps
+    // field, and every real call site wired it to a module that reads through the
+    // shared client — a second connection request from inside a transaction holding
+    // the only one. scripts/merge-standing-in-transaction.test.ts owns that bug class;
+    // this file keeps owning the decision, so the verdicts stay supplied by the test.
+    //
+    // NOT `opts.paid[userId] ?? false`. `??` treats null as nullish, so it would
+    // quietly convert the undeterminable verdict into a known-free one and erase the
+    // exact distinction half of these cases exist to prove. A missing key means "no
+    // verdict supplied by this test", which is different again.
+    async memberStanding(userId: string) {
+      return {
+        isPaid: Object.prototype.hasOwnProperty.call(opts.paid, userId) ? opts.paid[userId]! : false,
+        everPaid: (opts.everPaid ?? []).includes(userId),
+      }
+    },
   }
 
   const store: LinkStore = { transaction: (work) => work(tx) }
@@ -104,16 +120,9 @@ function fakeStore(opts: {
     get moves() {
       return moves
     },
-    deps: {
-      // 🔴 NOT `opts.paid[userId] ?? false`. `??` treats null as nullish, so it
-      // would quietly convert the undeterminable verdict into a known-free one and
-      // erase the exact distinction half of these cases exist to prove. A missing
-      // key means "no verdict supplied by this test", which is different again.
-      resolveStanding: async (userId: string) => ({
-        isPaid: Object.prototype.hasOwnProperty.call(opts.paid, userId) ? opts.paid[userId]! : false,
-        everPaid: (opts.everPaid ?? []).includes(userId),
-      }),
-    },
+    /** Nothing is injected any more; kept as an empty object so the call sites below
+     *  read the same and a future override (mayLose) has somewhere to go. */
+    deps: {},
   }
 }
 
@@ -345,16 +354,25 @@ describe('mergeIdentity — the trail it leaves', () => {
       async memberCreatedAt() {
         return '2026-01-01 00:00:00'
       },
+      async memberStanding(userId: string) {
+        order.push('read')
+        return { isPaid: userId === SIGNED_IN, everPaid: false }
+      },
     } as unknown as LinkTransaction
     const store: LinkStore = { transaction: (work) => work(tx) }
 
-    await mergeIdentity(
-      store,
-      { signedInUserId: SIGNED_IN, provider: 'google', subject: '104000000000000000008' },
-      { resolveStanding: async (u) => ({ isPaid: u === SIGNED_IN, everPaid: false }) },
-    )
+    await mergeIdentity(store, {
+      signedInUserId: SIGNED_IN,
+      provider: 'google',
+      subject: '104000000000000000008',
+    })
 
-    expect(order).toEqual(['lock', 'read', 'write'])
+    // The standing read is now part of the transaction's own sequence, so it appears in
+    // this order too — which is the assertion that would have failed before the fix for
+    // the right reason: it used to happen off this executor entirely.
+    expect(order[0]).toBe('lock')
+    expect(order[order.length - 1]).toBe('write')
+    expect(order.filter((step) => step === 'read').length).toBeGreaterThan(0)
   })
 })
 

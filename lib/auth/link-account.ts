@@ -82,6 +82,24 @@ export interface LinkTransaction {
   /** Slice 4. `user.create_at`, used only to break a tie between two accounts that
    *  have both been determined NOT to have paid. */
   memberCreatedAt(userId: string): Promise<string>
+
+  /** Slice 4, phase 8b-fix. Where this member stands: paid NOW (three-valued) and
+   *  paid EVER.
+   *
+   *  §WHY IT IS ON THE TRANSACTION AND NOT INJECTED. It used to arrive through
+   *  MergeDeps, wired at every call site to lib/v2/subscription.ts resolveSubscription
+   *  and hasEverPaid — and both of those read through the shared `db` client. Called
+   *  from inside store.transaction, which holds the application's ONLY connection
+   *  (lib/db/index.ts max 1), that asked the pool for a second connection while the
+   *  enclosing transaction held the only one: the transaction waited for the query,
+   *  the query waited for the connection, and the container took every other request
+   *  down with it. Observed twice on the shadow, 2026-09-25, with no load at all.
+   *  Reading through the transaction's own executor makes that shape unrepresentable
+   *  instead of merely forbidden.
+   *
+   *  §THE RULE IS STILL NOT DUPLICATED. The adapter only fetches rows; the verdict is
+   *  resolveStandingFromRows', in the module that owns the question of who has paid. */
+  memberStanding(userId: string): Promise<{ isPaid: PaidVerdict; everPaid: boolean }>
 }
 
 export interface LinkStore {
@@ -284,12 +302,11 @@ export interface MergeInput {
   subject: string
 }
 
+/** What a caller may still override. Standing is NOT here: it is read inside the
+ *  transaction (LinkTransaction.memberStanding) because injecting it is what produced
+ *  the nested-acquire deadlock of 2026-09-25. Every field is optional, so a route that
+ *  wants the ordinary rules passes nothing. */
 export interface MergeDeps {
-  /** Where a member stands with us, from lib/v2/subscription.ts: paid NOW (isPaid,
-   *  three-valued) and paid EVER (hasEverPaid). Injected rather than imported so this
-   *  module holds no second copy of the rule that decides who has paid — the
-   *  divergence #525 closed and #514 still tracks. */
-  resolveStanding: (userId: string) => Promise<{ isPaid: PaidVerdict; everPaid: boolean }>
   /** Overrides which sides are allowed to lose. See defaultMayLose. */
   mayLose?: (side: { isPaid: PaidVerdict; everPaid: boolean }) => boolean
 }
@@ -371,9 +388,13 @@ async function planWithin(
     tx.listMemberIdentityShapes(input.signedInUserId),
     tx.listMemberIdentityShapes(owner.userId),
   ])
+  // 🔴 EVERY READ HERE IS THE TRANSACTION'S OWN. There is one connection for the whole
+  // application and this transaction is holding it, so a read that goes anywhere else
+  // deadlocks against itself. Promise.all is safe precisely because these all queue on
+  // the same executor; it is not concurrency.
   const [mineStanding, theirStanding, mineCreated, theirCreated] = await Promise.all([
-    deps.resolveStanding(input.signedInUserId),
-    deps.resolveStanding(owner.userId),
+    tx.memberStanding(input.signedInUserId),
+    tx.memberStanding(owner.userId),
     tx.memberCreatedAt(input.signedInUserId),
     tx.memberCreatedAt(owner.userId),
   ])
@@ -436,7 +457,7 @@ async function planWithin(
 export async function planIdentityMerge(
   store: LinkStore,
   input: MergeInput,
-  deps: MergeDeps,
+  deps: MergeDeps = {},
 ): Promise<MergePlan> {
   if (!text(input.subject)) throw new Error('planIdentityMerge requires a provider subject')
   if (!text(input.signedInUserId)) throw new Error('planIdentityMerge requires a signedInUserId')
@@ -465,7 +486,7 @@ export async function planIdentityMerge(
 export async function mergeIdentity(
   store: LinkStore,
   input: MergeInput,
-  deps: MergeDeps,
+  deps: MergeDeps = {},
   now: Date = new Date(),
 ): Promise<MergeOutcome> {
   if (!text(input.subject)) throw new Error('mergeIdentity requires a provider subject')

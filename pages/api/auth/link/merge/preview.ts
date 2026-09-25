@@ -28,7 +28,6 @@ import { planIdentityMerge } from '@/lib/auth/link-account'
 import { postgresLinkStore } from '@/lib/auth/link-account-store'
 import { mergeTicketCookieName, verifyMergeTicket } from '@/lib/auth/merge-ticket'
 import { resolveSignedSessionUserId } from '@/lib/v2/resolve-user'
-import { hasEverPaid, resolveSubscription } from '@/lib/v2/subscription'
 
 export type MergePreviewBody =
   | {
@@ -78,15 +77,11 @@ export default async function handler(
   res.setHeader('Cache-Control', 'no-store, must-revalidate')
 
   try {
+    // No standing resolver is passed: the plan reads it inside its own transaction
+    // (phase 8b-fix). Handing one in is what deadlocked the max-1 pool against itself.
     const plan = await planIdentityMerge(
       postgresLinkStore,
       { signedInUserId: who.userId, provider: provider as 'google' | 'line', subject: ticket.value.subject },
-      {
-        resolveStanding: async (userId) => ({
-          isPaid: (await resolveSubscription(userId)).isPaid,
-          everPaid: await hasEverPaid(userId),
-        }),
-      },
     )
     if (plan.status !== 'planned') {
       return res.status(409).json({ ok: false, error: plan.status === 'refused' ? 'merge_refused' : plan.status })

@@ -28,7 +28,6 @@ import { mergeIdentity } from '@/lib/auth/link-account'
 import { postgresLinkStore } from '@/lib/auth/link-account-store'
 import { clearMergeTicketCookie, mergeTicketCookieName, verifyMergeTicket } from '@/lib/auth/merge-ticket'
 import { resolveSignedSessionUserId } from '@/lib/v2/resolve-user'
-import { hasEverPaid, resolveSubscription } from '@/lib/v2/subscription'
 
 const isDev = process.env.NODE_ENV !== 'production'
 
@@ -83,15 +82,11 @@ export default async function handler(
   }
 
   try {
+    // No standing resolver is passed: the merge reads it inside the transaction that
+    // writes (phase 8b-fix), which is also the only place a fresh verdict is safe.
     const outcome = await mergeIdentity(
       postgresLinkStore,
       { signedInUserId: who.userId, provider, subject: ticket.value.subject },
-      {
-        resolveStanding: async (userId) => ({
-          isPaid: (await resolveSubscription(userId)).isPaid,
-          everPaid: await hasEverPaid(userId),
-        }),
-      },
     )
     spend()
 
