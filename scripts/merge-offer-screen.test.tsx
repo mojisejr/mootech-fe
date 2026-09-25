@@ -71,7 +71,7 @@ function arriveWithOffer(search = '?merge_offer=google') {
 beforeEach(() => {
   world = {
     connections: [conn({ provider: 'line', linked: true, current: true }), conn({ provider: 'google' })],
-    preview: { ok: true, provider: 'google', survivor: 'this-account', loserKeepsNothing: true },
+    preview: { ok: true, provider: 'google', survivor: 'this-account', loserKeepsNothing: true, movingProvider: 'LINE', reason: 'only-one-may-lose' },
     previewStatus: 200,
     confirmBody: { ok: true, merged: 'google', survivor: 'this-account' },
     confirmStatus: 200,
@@ -134,28 +134,114 @@ describe('the offer only appears when the server says a merge is possible', () =
 })
 
 describe('what the member is told before anything is written', () => {
-  it('states the cost: the other account loses its way in, and its data does not come across', async () => {
+  it('states the cost as the DATA left behind, not as a login method lost', async () => {
     arriveWithOffer()
     await mount()
     await screen.findByTestId('merge-offer')
 
     const cost = screen.getByTestId('merge-offer-cost').textContent ?? ''
-    expect(cost).toContain('ไม่มีวิธีเข้าสู่ระบบเหลืออยู่')
-    // Slice 4 moves a credential and nothing else. A member expecting a full merge
-    // would be misled by silence here.
-    expect(cost).toContain('จะไม่ถูกย้าย')
+    // 🔴 THIS ASSERTION IS INVERTED FROM WHAT IT USED TO BE, AND THE REASON IS EVIDENCE.
+    // The old copy said the losing account "จะไม่มีวิธีเข้าสู่ระบบเหลืออยู่". True of the
+    // rows; false of the member's experience, because the surviving account ends up
+    // holding BOTH credentials — measured on the rehearsal database 2026-09-26, where the
+    // survivor finished with google and LINE together. Saying it frightened the member
+    // about the one thing that does not happen and buried the thing that does.
+    expect(cost).not.toContain('ไม่มีวิธีเข้าสู่ระบบเหลืออยู่')
+    expect(cost).toContain('ไม่ย้าย')
+    expect(cost).toContain('เข้าถึงข้อมูลชุดนั้นไม่ได้อีก')
+    // Slice 4 moves a credential and nothing else. A member expecting a full merge would
+    // be misled by silence about the rest.
+    expect(cost).toContain('QI')
+    expect(cost).toContain('ติดต่อทีมงาน')
   })
 
-  it('when the OTHER account survives, it says the member stays signed in', async () => {
+  it('NAMES THE CREDENTIAL THAT MOVES, which is not always the one just verified', async () => {
+    // 🔴 THE DEFECT THIS OWNS, FOUND BY THE OWNER ON 2026-09-26. He walked the collision
+    // on the rehearsal database, read the panel, pressed through both gates deliberately —
+    // and afterwards could not say that the LINE credential he was signed in with was the
+    // one about to move. He had guessed the direction right from knowing which account
+    // holds his purchases, not from the screen. The cause was that the ONLY provider named
+    // was the one he had just verified, which is the side that STAYS.
+    world.preview = {
+      ok: true,
+      provider: 'google',
+      survivor: 'other-account',
+      loserKeepsNothing: true,
+      movingProvider: 'LINE',
+      reason: 'only-one-may-lose',
+    }
+    arriveWithOffer()
+    await mount()
+    await screen.findByTestId('merge-offer')
+
+    const which = screen.getByTestId('merge-offer-which').textContent ?? ''
+    expect(which).toContain('LINE')    // the credential that moves
+    expect(which).toContain('Google')  // the side that is kept
+    expect(which).toContain('อันที่คุณกำลังใช้อยู่ตอนนี้')
+  })
+
+  it('says WHY this side is kept rather than leaving it to look arbitrary', async () => {
+    // Owner decision 2026-09-26: tell the member. He reasoned the paying account should
+    // survive before the screen said so, and wanted the screen to say it.
+    arriveWithOffer()
+    await mount()
+    await screen.findByTestId('merge-offer')
+
+    expect(screen.getByTestId('merge-offer-which').textContent ?? '').toContain('ประวัติการสั่งซื้อ')
+  })
+
+  it('a tiebreak reason reads honestly: nobody paid, so the older account is kept', async () => {
+    world.preview = {
+      ok: true,
+      provider: 'google',
+      survivor: 'other-account',
+      loserKeepsNothing: true,
+      movingProvider: 'LINE',
+      reason: 'older-account-survives',
+    }
+    arriveWithOffer()
+    await mount()
+    await screen.findByTestId('merge-offer')
+
+    const which = screen.getByTestId('merge-offer-which').textContent ?? ''
+    expect(which).toContain('ไม่มีประวัติการสั่งซื้อ')
+    expect(which).toContain('สร้างไว้ก่อน')
+  })
+
+  it('says the member stays signed in AND can still use both providers afterwards', async () => {
     // Identity resolves from the provider row, so once the row moves this same session
-    // resolves to the surviving account on its next request. Saying so stops a member
-    // abandoning the flow because they think they have been logged out.
+    // resolves to the surviving account on its next request — and the NEXT sign-in with
+    // either provider lands on that same account, which is why both are named.
+    world.preview = {
+      ok: true,
+      provider: 'google',
+      survivor: 'other-account',
+      loserKeepsNothing: true,
+      movingProvider: 'LINE',
+      reason: 'only-one-may-lose',
+    }
+    arriveWithOffer()
+    await mount()
+    await screen.findByTestId('merge-offer')
+
+    const after = screen.getByTestId('merge-offer-after').textContent ?? ''
+    expect(after).toContain('ไม่ต้องเข้าสู่ระบบใหม่')
+    expect(after).toContain('LINE')
+    expect(after).toContain('Google')
+    expect(after).toContain('บัญชีเดียวกัน')
+  })
+
+  it('an older server that sends neither field still renders without inventing one', async () => {
+    // The panel must degrade rather than guess: a missing movingProvider means the sentence
+    // drops the name, never substitutes the verified provider as if it were the mover.
     world.preview = { ok: true, provider: 'google', survivor: 'other-account', loserKeepsNothing: true }
     arriveWithOffer()
     await mount()
     await screen.findByTestId('merge-offer')
 
-    expect(screen.getByTestId('merge-offer-which').textContent ?? '').toContain('ไม่ต้องเข้าสู่ระบบใหม่')
+    const which = screen.getByTestId('merge-offer-which').textContent ?? ''
+    expect(which).toContain('ช่องทางที่คุณใช้อยู่')
+    expect(which).not.toContain('ประวัติการสั่งซื้อ')
   })
 })
 

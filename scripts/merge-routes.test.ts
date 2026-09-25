@@ -125,6 +125,44 @@ describe('GET /api/auth/link/merge/preview', () => {
       provider: 'google',
       survivor: 'this-account',
       loserKeepsNothing: true,
+      // Added 2026-09-26 after the owner read the offer on the rehearsal database and still
+      // could not tell which credential would move. Both values are the plan's own, so this
+      // route reads nothing extra for them; the assertions below still prove that neither
+      // carries a user id or the proven subject.
+      // 'google' and not 'LINE' here, and the distinction is the whole point of the field:
+      // this fixture's survivor is THIS account, so the OTHER side loses and the row that
+      // changes hands is the one holding the identity just verified. When the signed-in side
+      // loses instead, the mover is its own credential — the case below.
+      movingProvider: 'google',
+      reason: 'only-one-may-lose',
+    })
+    const serialised = JSON.stringify(r.json)
+    expect(serialised).not.toContain(THEM)
+    expect(serialised).not.toContain(ME)
+    expect(serialised).not.toContain(SUBJECT)
+  })
+
+  it('names the SIGNED-IN side\'s own credential when that side is the one that loses', async () => {
+    // 🔴 THE CASE THE OWNER HIT ON 2026-09-26. He was signed in with LINE, verified Google,
+    // and the Google-owning account was the one that had paid — so his own LINE credential
+    // was what moved. The screen named only 'Google', the side that stays, and he could not
+    // tell which way the merge went. movingProvider exists to answer that, so the route must
+    // report the LOSING side's provider and not the verified one.
+    planIdentityMerge.mockResolvedValue({
+      ...PLANNED,
+      survivorUserId: THEM,
+      loserUserId: ME,
+      provider: 'LINE',
+    })
+
+    const r = await run(preview, { query: { provider: 'google' }, cookies: ticketFor() })
+
+    expect(r.status).toBe(200)
+    expect(r.json).toMatchObject({
+      ok: true,
+      provider: 'google',
+      survivor: 'other-account',
+      movingProvider: 'LINE',
     })
     const serialised = JSON.stringify(r.json)
     expect(serialised).not.toContain(THEM)

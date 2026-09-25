@@ -137,10 +137,25 @@ export function ConnectedScreen({ navigate = defaultNavigate }: { navigate?: (ur
     let alive = true
     fetch(`/api/auth/link/merge/preview?provider=${mergeOffer}`)
       .then((r) => r.json().catch(() => ({})))
-      .then((j: { ok?: boolean; survivor?: MergePreview["survivor"]; loserKeepsNothing?: boolean; error?: string }) => {
+      .then((j: {
+        ok?: boolean
+        survivor?: MergePreview["survivor"]
+        loserKeepsNothing?: boolean
+        movingProvider?: string
+        reason?: string
+        error?: string
+      }) => {
         if (!alive) return
         if (j?.ok && j.survivor) {
-          setMergePreview({ survivor: j.survivor, loserKeepsNothing: j.loserKeepsNothing !== false })
+          // movingProvider and reason are carried through unchanged. The panel says which
+          // credential moves and why this side is kept, and both answers are the server's —
+          // a screen that inferred either would eventually contradict the decision.
+          setMergePreview({
+            survivor: j.survivor,
+            loserKeepsNothing: j.loserKeepsNothing !== false,
+            movingProvider: j.movingProvider,
+            reason: j.reason,
+          })
           return
         }
         setMergeOffer(null)

@@ -41,6 +41,14 @@ export type MergePreviewBody =
        *  today; it is reported rather than assumed so the copy stays honest if the
        *  rule ever widens. */
       loserKeepsNothing: boolean
+      /** the provider of the credential that would change hands, AS STORED. NOT always
+       *  the provider just verified: when the signed-in side loses, its own credential is
+       *  the one that moves. The screen names this side, because naming only the verified
+       *  provider is what left a member unable to tell which way the merge went
+       *  (2026-09-26, on the rehearsal database). */
+      movingProvider: string
+      /** the survivor rule's verdict, so the screen can say why this side is kept. */
+      reason: string
     }
   | { ok: false; error: string }
 
@@ -87,11 +95,21 @@ export default async function handler(
       return res.status(409).json({ ok: false, error: plan.status === 'refused' ? 'merge_refused' : plan.status })
     }
 
+    // §movingProvider AND reason EXIST BECAUSE A MEMBER READ THIS SCREEN AND STILL DID NOT
+    // KNOW WHICH CREDENTIAL WOULD MOVE (owner, on the rehearsal database, 2026-09-26). The
+    // screen named exactly one provider — the one he had just verified, which is the one
+    // that STAYS — so the only concrete name on the page pointed at the wrong side. Both
+    // values are already decided by planIdentityMerge, so this reads nothing extra: the
+    // provider is the stored spelling of the row that would change hands, and the reason is
+    // the survivor rule's own verdict. Neither says anything about a person other than the
+    // member, who has just proven both accounts in this same session.
     return res.status(200).json({
       ok: true,
       provider,
       survivor: plan.survivorUserId === who.userId ? 'this-account' : 'other-account',
       loserKeepsNothing: plan.loserLiveIdentities <= 1,
+      movingProvider: plan.provider,
+      reason: plan.reason,
     })
   } catch (error) {
     console.error('[link/merge/preview] failed', error instanceof Error ? error.message : 'unknown error')
