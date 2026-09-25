@@ -20,6 +20,9 @@
 // neither side may lose is REFUSED rather than guessed. Owner decision 9 already
 // names manual support as the fallback for whatever this flow refuses.
 //
+// The owner widened this on 2026-09-25: a side that has EVER paid may not lose either,
+// even with a lapsed subscription. See defaultMayLose.
+//
 // The verdict is passed IN. This module must never read a subscription table: the
 // selection rule for who has paid lives in lib/v2/subscription.ts and a second copy
 // of it is the bug #369 B2 closed once already.
@@ -49,6 +52,10 @@ export interface MergeSide {
   userId: string
   /** from lib/v2/subscription.ts. Never re-derived in this module. */
   isPaid: PaidVerdict
+  /** from lib/v2/subscription.ts hasEverPaid: has this account ever held a paid
+   *  record, expired or not. A DIFFERENT question from isPaid, and load-bearing here
+   *  for the reason recorded in defaultMayLose. */
+  everPaid: boolean
   /** How many of this side's provider rows could still authenticate. Counted
    *  conservatively by the caller: a row of unknown shape counts as live, so this
    *  number is never lower than the truth. See isDeadIdentityShape. */
@@ -58,8 +65,9 @@ export interface MergeSide {
 }
 
 export type SurvivorRefusal =
-  /** Neither side is known to be unpaid, so taking a login method from either
-   *  could take it from someone who paid. */
+  /** Neither side may lose: each is paid now, undeterminable, or has paid before, so
+   *  taking a login method from either could take it from someone who bought
+   *  something. */
   | 'no-side-may-lose'
   /** The losing side holds several identities that still work; moving one would
    *  leave it reachable and make the member's confirmation a lie. */
@@ -70,11 +78,11 @@ export type SurvivorRefusal =
   | 'loser-holds-no-identity'
 
 export type SurvivorReason =
-  /** exactly one side was known-unpaid */
+  /** exactly one side was known-unpaid and had never paid */
   | 'only-one-may-lose'
-  /** both sides were known-unpaid; the older account was kept */
+  /** both sides could lose; the older account was kept */
   | 'older-account-survives'
-  /** both sides were known-unpaid and created at the same recorded moment */
+  /** both sides could lose and were created at the same recorded moment */
   | 'user-id-order'
 
 export type SurvivorDecision =
@@ -86,14 +94,24 @@ export type SurvivorDecision =
     }
   | { status: 'refused'; reason: SurvivorRefusal }
 
-/** The default protective predicate: only a KNOWN not-paid side may lose.
+/** The default protective predicate: a side may lose only when it is known not to be
+ *  paid NOW **and** has never paid before.
  *
- *  Injected rather than inlined because one question was still open when slice 4
- *  was authorized — whether a member whose subscription has LAPSED counts as
- *  someone we protect. Under this default a lapsed member reports `false` and may
- *  lose. If the owner reverses that, the replacement predicate is the only thing
- *  that changes. */
-export const defaultMayLose = (verdict: PaidVerdict): boolean => verdict === false
+ *  §THE SECOND HALF IS THE OWNER'S DECISION OF 2026-09-25, and it is not a detail.
+ *  Asked whether a member whose subscription has LAPSED should still be protected, he
+ *  reasoned that having once subscribed means having once paid, so that account should
+ *  be the one kept. The harm a merge does is not the loss of a subscription — it is
+ *  losing access to the account that holds the purchases, and a lapsed PRO member's
+ *  charts, QI and order history are still in there.
+ *
+ *  It costs the common case nothing: an account that appeared by accident on a second
+ *  provider has never paid, so it may still lose. What it widens is the set of pairs
+ *  handed to support — pairs where BOTH sides have bought something, which deserve a
+ *  person.
+ *
+ *  Still injected, so reversing it stays one line rather than a rewrite. */
+export const defaultMayLose = (side: { isPaid: PaidVerdict; everPaid: boolean }): boolean =>
+  side.isPaid === false && !side.everPaid
 
 /**
  * Google's dead-credential shape, reused rather than re-derived.
@@ -132,7 +150,7 @@ export function countLiveIdentities(
 export function decideSurvivor(
   a: MergeSide,
   b: MergeSide,
-  opts: { mayLose?: (verdict: PaidVerdict) => boolean } = {},
+  opts: { mayLose?: (side: { isPaid: PaidVerdict; everPaid: boolean }) => boolean } = {},
 ): SurvivorDecision {
   const mayLose = opts.mayLose ?? defaultMayLose
 
@@ -146,8 +164,8 @@ export function decideSurvivor(
     throw new Error('decideSurvivor requires two DIFFERENT user ids')
   }
 
-  const aMayLose = mayLose(a.isPaid)
-  const bMayLose = mayLose(b.isPaid)
+  const aMayLose = mayLose(a)
+  const bMayLose = mayLose(b)
 
   let loser: MergeSide
   let survivor: MergeSide
@@ -164,9 +182,9 @@ export function decideSurvivor(
     survivor = aMayLose ? b : a
     reason = 'only-one-may-lose'
   } else {
-    // Both known-unpaid. Nothing about payment can separate them, so fall to the
-    // documented proxy. Note this is decided WITHOUT reference to which side holds
-    // the session, which is what owner decision 8 forbids.
+    // Both may lose: neither is paid now and neither ever was. Nothing about payment
+    // can separate them, so fall to the documented proxy. Decided WITHOUT reference to
+    // which side holds the session, which is what owner decision 8 forbids.
     const cmp = String(a.createdAt ?? '').localeCompare(String(b.createdAt ?? ''))
     if (cmp === 0) {
       const older = a.userId.localeCompare(b.userId) <= 0 ? a : b

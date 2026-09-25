@@ -28,7 +28,7 @@ import {
 import { linkProvider, planIdentityMerge } from '@/lib/auth/link-account'
 import { postgresLinkStore } from '@/lib/auth/link-account-store'
 import { issueMergeTicket, mergeTicketCookie } from '@/lib/auth/merge-ticket'
-import { resolveSubscription } from '@/lib/v2/subscription'
+import { hasEverPaid, resolveSubscription } from '@/lib/v2/subscription'
 import {
   clearLinkStateCookie,
   linkStateCookieName,
@@ -130,7 +130,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           { signedInUserId: state.value.userId, provider, subject: verified.value.subject },
           // The paid verdict comes from the one module that owns that rule. A second
           // copy of it here is the defect #369 B2 closed.
-          { resolvePaid: async (userId) => (await resolveSubscription(userId)).isPaid },
+          {
+            resolveStanding: async (userId) => ({
+              isPaid: (await resolveSubscription(userId)).isPaid,
+              everPaid: await hasEverPaid(userId),
+            }),
+          },
         )
 
         if (plan.status !== 'planned') {

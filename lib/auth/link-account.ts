@@ -285,11 +285,13 @@ export interface MergeInput {
 }
 
 export interface MergeDeps {
-  /** lib/v2/subscription.ts's verdict for a member. Injected rather than imported
-   *  so this module holds no second copy of the rule that decides who has paid. */
-  resolvePaid: (userId: string) => Promise<PaidVerdict>
-  /** Overrides which verdicts are allowed to lose. See defaultMayLose. */
-  mayLose?: (verdict: PaidVerdict) => boolean
+  /** Where a member stands with us, from lib/v2/subscription.ts: paid NOW (isPaid,
+   *  three-valued) and paid EVER (hasEverPaid). Injected rather than imported so this
+   *  module holds no second copy of the rule that decides who has paid — the
+   *  divergence #525 closed and #514 still tracks. */
+  resolveStanding: (userId: string) => Promise<{ isPaid: PaidVerdict; everPaid: boolean }>
+  /** Overrides which sides are allowed to lose. See defaultMayLose. */
+  mayLose?: (side: { isPaid: PaidVerdict; everPaid: boolean }) => boolean
 }
 
 /** Everything the decision produced, with nothing written yet. */
@@ -369,9 +371,9 @@ async function planWithin(
     tx.listMemberIdentityShapes(input.signedInUserId),
     tx.listMemberIdentityShapes(owner.userId),
   ])
-  const [minePaid, theirPaid, mineCreated, theirCreated] = await Promise.all([
-    deps.resolvePaid(input.signedInUserId),
-    deps.resolvePaid(owner.userId),
+  const [mineStanding, theirStanding, mineCreated, theirCreated] = await Promise.all([
+    deps.resolveStanding(input.signedInUserId),
+    deps.resolveStanding(owner.userId),
     tx.memberCreatedAt(input.signedInUserId),
     tx.memberCreatedAt(owner.userId),
   ])
@@ -380,8 +382,20 @@ async function planWithin(
   const theirLive = countLiveIdentities(theirShapes)
 
   const decision = decideSurvivor(
-    { userId: input.signedInUserId, isPaid: minePaid, liveIdentities: mineLive, createdAt: mineCreated },
-    { userId: owner.userId, isPaid: theirPaid, liveIdentities: theirLive, createdAt: theirCreated },
+    {
+      userId: input.signedInUserId,
+      isPaid: mineStanding.isPaid,
+      everPaid: mineStanding.everPaid,
+      liveIdentities: mineLive,
+      createdAt: mineCreated,
+    },
+    {
+      userId: owner.userId,
+      isPaid: theirStanding.isPaid,
+      everPaid: theirStanding.everPaid,
+      liveIdentities: theirLive,
+      createdAt: theirCreated,
+    },
     { mayLose: deps.mayLose },
   )
   if (decision.status === 'refused') return { status: 'refused', reason: decision.reason }

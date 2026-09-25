@@ -22,7 +22,16 @@ import {
 } from '@/lib/auth/merge-survivor'
 
 function side(userId: string, isPaid: PaidVerdict, over: Partial<MergeSide> = {}): MergeSide {
-  return { userId, isPaid, liveIdentities: 1, createdAt: '2026-01-01 00:00:00', ...over }
+  return {
+    userId,
+    isPaid,
+    // Default: never paid. A side that HAS paid before is protected even when its
+    // subscription has lapsed (owner, 2026-09-25), so the cases that care say so.
+    everPaid: false,
+    liveIdentities: 1,
+    createdAt: '2026-01-01 00:00:00',
+    ...over,
+  }
 }
 
 describe('decideSurvivor — who is allowed to lose', () => {
@@ -147,22 +156,61 @@ describe('decideSurvivor — what the losing account is left holding', () => {
   })
 })
 
-describe('the protective predicate is injected so a lapsed payer can be reclassified', () => {
-  it('lets a lapsed member lose under the default', () => {
-    // Slice 4 was authorized with this question still open. The default is the
-    // narrow reading: an expired subscription reports false and may lose.
-    expect(defaultMayLose(false)).toBe(true)
-    expect(defaultMayLose(true)).toBe(false)
-    expect(defaultMayLose(null)).toBe(false)
+describe('a member who paid ONCE is protected, even after the subscription lapsed', () => {
+  // Owner decision, 2026-09-25: having subscribed means having paid, so that account
+  // is the one kept. The harm is not the lost subscription — it is losing access to the
+  // account holding the charts, QI and order history already bought.
+  it('will not let a lapsed payer lose to an account that never paid', () => {
+    const lapsed = side('lapsed-payer', false, { everPaid: true })
+    const neverPaid = side('never-paid', false)
+
+    const forward = decideSurvivor(lapsed, neverPaid)
+
+    expect(forward).toEqual({
+      status: 'decided',
+      survivorUserId: 'lapsed-payer',
+      loserUserId: 'never-paid',
+      reason: 'only-one-may-lose',
+    })
+    expect(decideSurvivor(neverPaid, lapsed)).toEqual(forward)
   })
 
-  it('protects everyone once the owner supplies a wider predicate, with no other change', () => {
-    const everPaid = new Set(['lapsed-user'])
-    const mayLose = (v: PaidVerdict) => v === false && !everPaid.has('lapsed-user')
+  it('hands a pair who have BOTH bought something to a person', () => {
+    const one = side('lapsed-a', false, { everPaid: true })
+    const two = side('lapsed-b', false, { everPaid: true })
 
-    const decision = decideSurvivor(side('lapsed-user', false), side('other-user', false), { mayLose })
+    expect(decideSurvivor(one, two)).toEqual({ status: 'refused', reason: 'no-side-may-lose' })
+  })
 
-    expect(decision).toEqual({ status: 'refused', reason: 'no-side-may-lose' })
+  it('costs the common case nothing: an accidental second account never paid, so it may still lose', () => {
+    const main = side('main-account', true, { everPaid: true })
+    const accident = side('accidental-account', false, { everPaid: false })
+
+    expect(decideSurvivor(main, accident)).toMatchObject({
+      status: 'decided',
+      survivorUserId: 'main-account',
+      loserUserId: 'accidental-account',
+    })
+  })
+
+  it('reads both halves of the default predicate', () => {
+    expect(defaultMayLose({ isPaid: false, everPaid: false })).toBe(true)
+    expect(defaultMayLose({ isPaid: false, everPaid: true })).toBe(false)
+    expect(defaultMayLose({ isPaid: true, everPaid: false })).toBe(false)
+    expect(defaultMayLose({ isPaid: null, everPaid: false })).toBe(false)
+  })
+
+  it('is still injected, so the owner can narrow it again with no other change', () => {
+    // The reverse of the decision above: ignore history and look only at today.
+    const mayLose = (s: { isPaid: PaidVerdict; everPaid: boolean }) => s.isPaid === false
+
+    const decision = decideSurvivor(
+      side('lapsed-payer', false, { everPaid: true }),
+      side('current-payer', true, { everPaid: true }),
+      { mayLose },
+    )
+
+    expect(decision).toMatchObject({ status: 'decided', loserUserId: 'lapsed-payer' })
   })
 })
 

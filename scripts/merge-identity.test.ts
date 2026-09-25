@@ -37,6 +37,9 @@ interface AuditEntry {
 function fakeStore(opts: {
   rows: Row[]
   paid: Record<string, PaidVerdict>
+  /** accounts that have paid at some point, lapsed or not — protected since the
+   *  owner's decision of 2026-09-25 */
+  everPaid?: string[]
   members?: string[]
   createdAt?: Record<string, string>
 }) {
@@ -106,8 +109,10 @@ function fakeStore(opts: {
       // would quietly convert the undeterminable verdict into a known-free one and
       // erase the exact distinction half of these cases exist to prove. A missing
       // key means "no verdict supplied by this test", which is different again.
-      resolvePaid: async (userId: string) =>
-        Object.prototype.hasOwnProperty.call(opts.paid, userId) ? opts.paid[userId]! : false,
+      resolveStanding: async (userId: string) => ({
+        isPaid: Object.prototype.hasOwnProperty.call(opts.paid, userId) ? opts.paid[userId]! : false,
+        everPaid: (opts.everPaid ?? []).includes(userId),
+      }),
     },
   }
 }
@@ -346,7 +351,7 @@ describe('mergeIdentity — the trail it leaves', () => {
     await mergeIdentity(
       store,
       { signedInUserId: SIGNED_IN, provider: 'google', subject: '104000000000000000008' },
-      { resolvePaid: async (u) => (u === SIGNED_IN ? true : false) },
+      { resolveStanding: async (u) => ({ isPaid: u === SIGNED_IN, everPaid: false }) },
     )
 
     expect(order).toEqual(['lock', 'read', 'write'])

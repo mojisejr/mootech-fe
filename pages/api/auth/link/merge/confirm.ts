@@ -28,7 +28,7 @@ import { mergeIdentity } from '@/lib/auth/link-account'
 import { postgresLinkStore } from '@/lib/auth/link-account-store'
 import { clearMergeTicketCookie, mergeTicketCookieName, verifyMergeTicket } from '@/lib/auth/merge-ticket'
 import { resolveSignedSessionUserId } from '@/lib/v2/resolve-user'
-import { resolveSubscription } from '@/lib/v2/subscription'
+import { hasEverPaid, resolveSubscription } from '@/lib/v2/subscription'
 
 const isDev = process.env.NODE_ENV !== 'production'
 
@@ -86,7 +86,12 @@ export default async function handler(
     const outcome = await mergeIdentity(
       postgresLinkStore,
       { signedInUserId: who.userId, provider, subject: ticket.value.subject },
-      { resolvePaid: async (userId) => (await resolveSubscription(userId)).isPaid },
+      {
+        resolveStanding: async (userId) => ({
+          isPaid: (await resolveSubscription(userId)).isPaid,
+          everPaid: await hasEverPaid(userId),
+        }),
+      },
     )
     spend()
 

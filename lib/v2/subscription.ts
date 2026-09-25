@@ -297,3 +297,43 @@ export async function resolveSubscription(
     expireAt: m.memberPayment?.expireAt ?? null,
   })
 }
+
+/**
+ * Has this member EVER held a paid record? (mumate-login-identity-001 slice 4)
+ *
+ * §THIS IS A DIFFERENT QUESTION FROM resolveSubscription, WHICH IS WHY IT IS A
+ * SEPARATE FUNCTION AND NOT A FLAG ON ResolvedMembership. `isPaid` answers "is this
+ * member paid RIGHT NOW", and every gate in the product wants exactly that. Slice 4
+ * needs something else: whether an account is one a member ever bought anything
+ * through, because the merge takes a login method away and the harm is losing access
+ * to the account that holds the purchases.
+ *
+ * §WHY IT LIVES HERE. It is a question about who has paid, so it belongs to the module
+ * that owns that subject. Answering it inside the merge would put a second, private
+ * notion of "paid" in the codebase, which is the shape of the divergence #525 closed
+ * and the one still tracked at #514.
+ *
+ * §HOW IT DECIDES, REUSING THIS FILE'S OWN RULES RATHER THAN INVENTING A THIRD.
+ *   1. Any member_subscription row whose tier_code would decide "paid" ON ITS OWN —
+ *      that is `decidesWithoutLegacy`, the predicate already exported here, which is
+ *      true for PLUS, PRO and an unknown code (fails closed) and false for FREE.
+ *      Deliberately NOT filtered by expire_at: an expired PRO row is the exact case
+ *      the owner asked to protect.
+ *   2. Otherwise, a member_payment row of any date. resolveMembership returns the row
+ *      it read, and `paid or expired` both count here for the same reason.
+ *
+ * §THE OWNER'S DECISION THIS IMPLEMENTS (2026-09-25). Asked whether a member whose
+ * subscription has lapsed should be protected from losing their account in a merge, he
+ * reasoned that having once subscribed means having once paid, so that account should
+ * be the one kept. This function is that sentence.
+ */
+export async function hasEverPaid(userId: string, now: Date = new Date()): Promise<boolean> {
+  const rows = await db
+    .select()
+    .from(memberSubscription)
+    .where(eq(memberSubscription.userId, userId))
+  if (toSubRows(rows).some((r) => decidesWithoutLegacy(r.tierCode))) return true
+
+  const legacy = await resolveMembership(userId, now)
+  return legacy.memberPayment !== null
+}

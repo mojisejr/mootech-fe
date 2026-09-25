@@ -28,7 +28,7 @@ import { planIdentityMerge } from '@/lib/auth/link-account'
 import { postgresLinkStore } from '@/lib/auth/link-account-store'
 import { mergeTicketCookieName, verifyMergeTicket } from '@/lib/auth/merge-ticket'
 import { resolveSignedSessionUserId } from '@/lib/v2/resolve-user'
-import { resolveSubscription } from '@/lib/v2/subscription'
+import { hasEverPaid, resolveSubscription } from '@/lib/v2/subscription'
 
 export type MergePreviewBody =
   | {
@@ -81,7 +81,12 @@ export default async function handler(
     const plan = await planIdentityMerge(
       postgresLinkStore,
       { signedInUserId: who.userId, provider: provider as 'google' | 'line', subject: ticket.value.subject },
-      { resolvePaid: async (userId) => (await resolveSubscription(userId)).isPaid },
+      {
+        resolveStanding: async (userId) => ({
+          isPaid: (await resolveSubscription(userId)).isPaid,
+          everPaid: await hasEverPaid(userId),
+        }),
+      },
     )
     if (plan.status !== 'planned') {
       return res.status(409).json({ ok: false, error: plan.status === 'refused' ? 'merge_refused' : plan.status })
