@@ -7,14 +7,22 @@
 // through the repo's single DB client (lib/db), mocked at the module boundary.
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 
-const state: { fail: boolean; calls: number } = { fail: false, calls: 0 }
+// 🔴 'hang' IS WHY THIS FILE WAS REWRITTEN. The original faked failure only as
+// Promise.reject(ECONNREFUSED) — it proved the one path the real fault never took. The bug class above
+// says "green while the app cannot serve a single request", and the fault that actually happened on the
+// shadow was not green and not red: the route hung with the request, because the probe had no bound. A
+// rejection test passes against code that can hang forever, which is exactly how the defect survived.
+const state: { mode: 'ok' | 'reject' | 'hang'; calls: number } = { mode: 'ok', calls: 0 }
 
 vi.mock('next/config', () => ({ default: () => ({ publicRuntimeConfig: {}, serverRuntimeConfig: {} }) }))
 vi.mock('@/lib/db', () => ({
   db: {
     execute: () => {
       state.calls += 1
-      return state.fail ? Promise.reject(new Error('ECONNREFUSED')) : Promise.resolve([{ '?column?': 1 }])
+      if (state.mode === 'reject') return Promise.reject(new Error('ECONNREFUSED'))
+      // never settles — no resolve, no reject, no timer. The queued-query fault, exactly.
+      if (state.mode === 'hang') return new Promise(() => {})
+      return Promise.resolve([{ '?column?': 1 }])
     },
   },
 }))
@@ -30,8 +38,9 @@ function run(method = 'GET') {
 }
 
 beforeEach(() => {
-  state.fail = false
+  state.mode = 'ok'
   state.calls = 0
+  process.env.HEALTH_DB_TIMEOUT_MS = '120'
 })
 
 describe('GET /api/health', () => {
@@ -44,10 +53,26 @@ describe('GET /api/health', () => {
   })
 
   it('answers 503 degraded when the database is unreachable — never a constant green', async () => {
-    state.fail = true
+    state.mode = 'reject'
     const res = await run()
     expect(res.statusCode).toBe(503)
     expect(res.body).toMatchObject({ status: 'degraded', db: 'error' })
+    expect(JSON.stringify(res.body)).not.toMatch(/postgres(ql)?:\/\/|DATABASE_URL/i)
+  })
+
+  // 🔴 THE TEST THE ROUTE WAS MISSING. It fails against the pre-2026-09-24 handler, which awaited the probe
+  // with no bound: there the handler never settles, so this assertion never runs and the spec times out
+  // instead of failing cleanly. That is the point — a hang must become an ANSWER, and a 503 is the only
+  // honest one a container can give about a database it cannot reach.
+  it('answers 503 when the database HANGS rather than rejecting — and answers within the budget', async () => {
+    state.mode = 'hang'
+    const startedAt = Date.now()
+    const res = await run()
+    const elapsed = Date.now() - startedAt
+    expect(res.statusCode).toBe(503)
+    expect(res.body).toMatchObject({ status: 'degraded', db: 'error' })
+    // bounded by the route's own deadline, not by the caller giving up
+    expect(elapsed).toBeLessThan(2000)
     expect(JSON.stringify(res.body)).not.toMatch(/postgres(ql)?:\/\/|DATABASE_URL/i)
   })
 
