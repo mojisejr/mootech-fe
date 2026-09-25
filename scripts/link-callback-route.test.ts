@@ -9,12 +9,19 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 const exchangeAndVerify = vi.fn()
 const linkProvider = vi.fn()
+const planIdentityMerge = vi.fn()
 
 vi.mock('@/lib/auth/link-verify', () => ({
   exchangeAndVerify: (...a: unknown[]) => exchangeAndVerify(...a),
 }))
 vi.mock('@/lib/auth/link-account', () => ({
   linkProvider: (...a: unknown[]) => linkProvider(...a),
+  planIdentityMerge: (...a: unknown[]) => planIdentityMerge(...a),
+}))
+// Imported by the collision branch since slice 4. Mocked so these specs never reach a
+// database; the paid rule itself is proven in scripts/merge-survivor.test.ts.
+vi.mock('@/lib/v2/subscription', () => ({
+  resolveSubscription: async () => ({ isPaid: false, tier: null, source: 'none', expireAt: null }),
 }))
 vi.mock('@/lib/auth/link-account-store', () => ({ postgresLinkStore: { transaction: vi.fn() } }))
 
@@ -26,7 +33,7 @@ const USER = 'aaaaaaaa-0000-4000-8000-000000000001'
 interface Captured {
   status: number | null
   redirect: string | null
-  headers: Record<string, string>
+  headers: Record<string, string[]>
   json: unknown
 }
 
@@ -38,8 +45,12 @@ function call(
   const out: Captured = { status: null, redirect: null, headers: {}, json: null }
   const req = { method, query, cookies, headers: {} } as unknown as NextApiRequest
   const res = {
-    setHeader: (k: string, v: string) => {
-      out.headers[k.toLowerCase()] = String(v)
+    setHeader: (k: string, v: string | string[]) => {
+      // Node keeps Set-Cookie as a LIST. A fake that flattened it into one string
+      // would hide the difference between one cookie and several, which is exactly
+      // what slice 4's offer path turns on: it must set the ticket AND clear the
+      // state cookie in the same response.
+      out.headers[k.toLowerCase()] = Array.isArray(v) ? v.map(String) : [String(v)]
     },
     status: (c: number) => {
       out.status = c
@@ -74,11 +85,23 @@ beforeEach(() => {
   process.env.LINE_CLIENT_ID = 'l'
   exchangeAndVerify.mockReset()
   linkProvider.mockReset()
+  planIdentityMerge.mockReset()
   exchangeAndVerify.mockResolvedValue({
     ok: true,
     value: { subject: 'U-1', email: '', name: '', pictureUrl: '' },
   })
   linkProvider.mockResolvedValue({ status: 'linked', rowId: 'row-1' })
+  // Slice 4's default: a collision the survivor rule CAN decide. Specs that want the
+  // refusal path override it.
+  planIdentityMerge.mockResolvedValue({
+    status: 'planned',
+    survivorUserId: USER,
+    loserUserId: 'bbbbbbbb-0000-4000-8000-000000000002',
+    rowId: 'row-1',
+    provider: 'LINE',
+    reason: 'only-one-may-lose',
+    loserLiveIdentities: 1,
+  })
 })
 afterEach(() => {
   for (const k of ENV) {
@@ -128,8 +151,8 @@ describe('nothing happens without a valid state', () => {
 })
 
 describe('the state cookie is expired on EVERY exit', () => {
-  const cleared = (h: Record<string, string>) =>
-    (h['set-cookie'] ?? '').includes('Max-Age=0')
+  const cleared = (h: Record<string, string[]>) =>
+    (h['set-cookie'] ?? []).join(' || ').includes('Max-Age=0')
 
   it('on success', async () => {
     const { issued, cookies } = goodState('line')
@@ -183,7 +206,9 @@ describe('outcomes reach the screen', () => {
   it.each([
     ['linked', 'linked=line'],
     ['already-linked', 'already=1'],
-    ['owned-by-another', 'link_error=owned_by_another'],
+    // Slice 4 changed this branch: a collision is now an OFFER when the survivor
+    // rule can decide it. The refusal path is asserted separately below.
+    ['owned-by-another', 'merge_offer=line'],
     ['member-missing', 'link_error=member_missing'],
   ])('%s → %s', async (status, expected) => {
     linkProvider.mockResolvedValue({ status, rowId: 'r' })
@@ -198,6 +223,50 @@ describe('outcomes reach the screen', () => {
     const r = await call({ provider: 'line', code: 'C', state: issued.state }, cookies)
     expect(r.redirect).not.toContain('bbbbbbbb')
     expect(r.redirect).not.toContain('@')
+  })
+
+  it('offers a merge with nothing identifying in the URL, and carries the proof in an HttpOnly cookie', async () => {
+    // Slice 4. The other account's id and the proven subject must not reach the query
+    // string: it lands in browser history, in any access log in front of this app, and
+    // in a Referer header.
+    linkProvider.mockResolvedValue({ status: 'owned-by-another' })
+    planIdentityMerge.mockResolvedValue({
+      status: 'planned',
+      survivorUserId: USER,
+      loserUserId: 'bbbbbbbb-0000-4000-8000-000000000002',
+      rowId: 'row-1',
+      provider: 'LINE',
+      reason: 'only-one-may-lose',
+      loserLiveIdentities: 1,
+    })
+    const { issued, cookies } = goodState('line')
+    const r = await call({ provider: 'line', code: 'C', state: issued.state }, cookies)
+
+    expect(r.redirect).toContain('merge_offer=line')
+    expect(r.redirect).not.toContain('bbbbbbbb')
+    expect(r.redirect).not.toContain('subject')
+
+    const setCookie = r.headers['set-cookie'] ?? []
+    expect(Array.isArray(setCookie)).toBe(true)
+    const ticket = setCookie.find((c) => c.startsWith('mumate_merge_line='))
+    expect(ticket).toBeTruthy()
+    expect(ticket).toContain('HttpOnly')
+    expect(ticket).toContain('SameSite=Lax')
+    // And the state cookie is STILL cleared in the same response — one setHeader call
+    // with an array, not two calls where the second replaces the first.
+    expect(setCookie.some((c) => c.startsWith(`${linkStateCookieName('line')}=`) && c.includes('Max-Age=0'))).toBe(true)
+  })
+
+  it('sends a refused merge to a code of its own, so the screen can point at support', async () => {
+    linkProvider.mockResolvedValue({ status: 'owned-by-another' })
+    planIdentityMerge.mockResolvedValue({ status: 'refused', reason: 'no-side-may-lose' })
+    const { issued, cookies } = goodState('line')
+    const r = await call({ provider: 'line', code: 'C', state: issued.state }, cookies)
+
+    expect(r.redirect).toContain('link_error=merge_refused')
+    // No ticket is minted for an offer that was never made.
+    const setCookie = r.headers['set-cookie'] ?? []
+    expect(setCookie.some((c) => c.startsWith('mumate_merge_line='))).toBe(false)
   })
 
   it('a member who cancelled at the consent screen is sent back quietly', async () => {
@@ -239,7 +308,7 @@ describe('where the member lands', () => {
   it('is never cached — a cached callback would replay a spent state', async () => {
     const { issued, cookies } = goodState('line')
     const r = await call({ provider: 'line', code: 'C', state: issued.state }, cookies)
-    expect(r.headers['cache-control']).toContain('no-store')
+    expect((r.headers['cache-control'] ?? []).join('')).toContain('no-store')
   })
 })
 

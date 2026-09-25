@@ -19,6 +19,14 @@ import { randomUUID } from 'node:crypto'
 
 import { formatLegacyTimestamp, isProviderIdentityConflict } from './register-login-fe'
 import { LINKABLE, PROVIDER_SPELLING, type LinkableProvider } from './link-providers'
+import {
+  countLiveIdentities,
+  decideSurvivor,
+  isDeadIdentityShape,
+  type PaidVerdict,
+  type SurvivorReason,
+  type SurvivorRefusal,
+} from './merge-survivor'
 
 export interface ProviderRow {
   id: string
@@ -47,6 +55,33 @@ export interface LinkTransaction {
   /** Every provider row this member holds, used by unlink to count what is left. */
   listMemberProviders(userId: string): Promise<ProviderRow[]>
   deleteProviderRows(userId: string, provider: string): Promise<number>
+
+  /** Slice 4. The member's rows with the LENGTH of each stored identity and never
+   *  the identity itself. Length is enough to recognise the dead `ya29` class and
+   *  keeps an old access token — still a credential, expired or not — from reaching
+   *  application memory, a log line, or an error trace. */
+  listMemberIdentityShapes(
+    userId: string,
+  ): Promise<Array<{ id: string; provider: string; identityLength: number }>>
+
+  /** Slice 4. Move ONE row to another member. Addressed by row id, so it cannot
+   *  widen into "every row of this provider" the way unlink deliberately does. */
+  moveProviderRow(rowId: string, toUserId: string, timestamp: string): Promise<number>
+
+  /** Slice 4. The trail support reads, and the one statement that reverses the move.
+   *  Never given the subject: ops can read this table. */
+  recordIdentityMerge(entry: {
+    id: string
+    rowId: string
+    provider: string
+    fromUserId: string
+    toUserId: string
+    reason: string
+  }): Promise<void>
+
+  /** Slice 4. `user.create_at`, used only to break a tie between two accounts that
+   *  have both been determined NOT to have paid. */
+  memberCreatedAt(userId: string): Promise<string>
 }
 
 export interface LinkStore {
@@ -237,4 +272,217 @@ export function summariseConnections(
     // so they cannot disagree about which method is the last one.
     canUnlink: linked.has(provider) && linked.size > 1,
   }))
+}
+
+export interface MergeInput {
+  /** The member driving this, captured from the SIGNED session. Never from the
+   *  client-settable cookie fallback — this attaches a login credential, so the
+   *  same rule the start and unlink routes follow applies here. */
+  signedInUserId: string
+  provider: LinkableProvider
+  /** The stable subject just proven at the provider in this same session. */
+  subject: string
+}
+
+export interface MergeDeps {
+  /** lib/v2/subscription.ts's verdict for a member. Injected rather than imported
+   *  so this module holds no second copy of the rule that decides who has paid. */
+  resolvePaid: (userId: string) => Promise<PaidVerdict>
+  /** Overrides which verdicts are allowed to lose. See defaultMayLose. */
+  mayLose?: (verdict: PaidVerdict) => boolean
+}
+
+/** Everything the decision produced, with nothing written yet. */
+export interface MergePlanned {
+  status: 'planned'
+  survivorUserId: string
+  loserUserId: string
+  /** The one row that would change hands, chosen by primary key. */
+  rowId: string
+  /** That row's provider AS STORED, so a caller can name it without re-reading. */
+  provider: string
+  reason: SurvivorReason
+  /** How many working credentials the losing account holds now. The survivor rule
+   *  only plans a merge when this is exactly 1, so a caller can tell the member
+   *  truthfully that the losing account is left with no way in. */
+  loserLiveIdentities: number
+}
+
+export type MergeRefusal =
+  /** The identity already belongs to the signed-in member. Nothing to join. */
+  | { status: 'not-a-collision' }
+  /** Nobody owns this identity, so this is slice 3's plain link and not a merge. */
+  | { status: 'identity-unknown' }
+  | { status: 'member-missing' }
+  | { status: 'refused'; reason: SurvivorRefusal }
+
+export type MergePlan = MergePlanned | MergeRefusal
+
+export type MergeOutcome =
+  | {
+      status: 'merged'
+      rowId: string
+      fromUserId: string
+      toUserId: string
+      reason: SurvivorReason
+    }
+  | MergeRefusal
+
+/**
+ * Decide a merge without performing it.
+ *
+ * §WHY THIS IS SEPARATE FROM THE WRITE. DoD 4 requires the member to be told what
+ * they are about to lose and to confirm it in a step of its own, so the decision has
+ * to be reachable twice: once to describe the offer, and once again at the moment of
+ * writing. Sharing one function is what stops the description and the action from
+ * disagreeing — the alternative is two copies of owner decision 8, which is exactly
+ * the mistake #369 B2 closed for the paid-membership rule.
+ *
+ * §THE PLAN IS NOT AN AUTHORISATION. It is recomputed by mergeIdentity before
+ * anything moves. A payment landing between the offer and the confirmation changes
+ * who is allowed to lose, and a cached verdict must never be the thing that decides.
+ */
+async function planWithin(
+  tx: LinkTransaction,
+  input: MergeInput,
+  deps: MergeDeps,
+): Promise<MergePlan> {
+  const key = String(input.provider).toLowerCase()
+  const subject = text(input.subject)
+
+  await tx.lockIdentity(key, subject)
+
+  const owner = await tx.findIdentityOwner(key, subject)
+  // Slice 3 would have linked an unowned identity outright. Reaching here with no
+  // owner means the collision evaporated between the offer and the confirmation —
+  // report it rather than inventing a merge with one side missing.
+  if (!owner) return { status: 'identity-unknown' }
+  if (sameId(owner.userId, input.signedInUserId)) return { status: 'not-a-collision' }
+
+  // Both accounts must still exist. user_provider.user_id carries no foreign key, so
+  // a row can outlive its member, and moving a credential onto a deleted member
+  // would strand it where no session can ever reach it.
+  if (!(await tx.memberExists(input.signedInUserId))) return { status: 'member-missing' }
+  if (!(await tx.memberExists(owner.userId))) return { status: 'member-missing' }
+
+  const [mineShapes, theirShapes] = await Promise.all([
+    tx.listMemberIdentityShapes(input.signedInUserId),
+    tx.listMemberIdentityShapes(owner.userId),
+  ])
+  const [minePaid, theirPaid, mineCreated, theirCreated] = await Promise.all([
+    deps.resolvePaid(input.signedInUserId),
+    deps.resolvePaid(owner.userId),
+    tx.memberCreatedAt(input.signedInUserId),
+    tx.memberCreatedAt(owner.userId),
+  ])
+
+  const mineLive = countLiveIdentities(mineShapes)
+  const theirLive = countLiveIdentities(theirShapes)
+
+  const decision = decideSurvivor(
+    { userId: input.signedInUserId, isPaid: minePaid, liveIdentities: mineLive, createdAt: mineCreated },
+    { userId: owner.userId, isPaid: theirPaid, liveIdentities: theirLive, createdAt: theirCreated },
+    { mayLose: deps.mayLose },
+  )
+  if (decision.status === 'refused') return { status: 'refused', reason: decision.reason }
+
+  const loserIsTheOwner = sameId(decision.loserUserId, owner.userId)
+  let rowId: string
+  let provider: string
+  if (loserIsTheOwner) {
+    rowId = owner.id
+    provider = owner.provider
+  } else {
+    // The signed-in side lost, so ITS working credential moves. decideSurvivor has
+    // already refused unless exactly one of its rows can still authenticate, so this
+    // cannot be ambiguous — but it is asserted rather than assumed, because a
+    // silently wrong row here moves the wrong credential.
+    const live = mineShapes.filter((s) => !isDeadIdentityShape(s.provider, s.identityLength))
+    if (live.length !== 1) {
+      throw new Error(
+        `merge expected exactly one live identity on the losing side, found ${live.length}`,
+      )
+    }
+    rowId = live[0]!.id
+    provider = live[0]!.provider
+  }
+
+  return {
+    status: 'planned',
+    survivorUserId: decision.survivorUserId,
+    loserUserId: decision.loserUserId,
+    rowId,
+    provider,
+    reason: decision.reason,
+    loserLiveIdentities: loserIsTheOwner ? theirLive : mineLive,
+  }
+}
+
+/** Read-only: what a merge WOULD do. Used to describe the offer to the member. */
+export async function planIdentityMerge(
+  store: LinkStore,
+  input: MergeInput,
+  deps: MergeDeps,
+): Promise<MergePlan> {
+  if (!text(input.subject)) throw new Error('planIdentityMerge requires a provider subject')
+  if (!text(input.signedInUserId)) throw new Error('planIdentityMerge requires a signedInUserId')
+  return store.transaction((tx) => planWithin(tx, input, deps))
+}
+
+/**
+ * Join two accounts one member has proven they hold (slice 4).
+ *
+ * §WHAT COUNTS AS PROOF, AND WHY IT IS ENOUGH. Two things are true at the moment
+ * this runs: the caller holds a signed session for one account, and the provider has
+ * just attested the subject that belongs to the other. Owner decision 9 is that this
+ * is stronger evidence of ownership than a support ticket, which is why the member
+ * performs the merge instead of asking a human to.
+ *
+ * §WHY IT REUSES SLICE 3'S LOCK RATHER THAN TAKING ITS OWN. linkProvider serialises
+ * on (provider, subject) before reading the owner. A merge that took a different
+ * lock could interleave with a link of the same identity and both could believe they
+ * know who owns it. Same lock, same order.
+ *
+ * §THE ROW IS ADDRESSED BY ID, NEVER BY PROVIDER. unlinkProvider deletes every row
+ * of a provider on purpose; this moves exactly one, chosen by primary key. DoD 4's
+ * row-count assertion depends on that distinction, and so does the one-statement
+ * reversal recorded in ops_audit_log.
+ */
+export async function mergeIdentity(
+  store: LinkStore,
+  input: MergeInput,
+  deps: MergeDeps,
+  now: Date = new Date(),
+): Promise<MergeOutcome> {
+  if (!text(input.subject)) throw new Error('mergeIdentity requires a provider subject')
+  if (!text(input.signedInUserId)) throw new Error('mergeIdentity requires a signedInUserId')
+
+  return store.transaction(async (tx) => {
+    // Decided again here, inside the transaction that writes, rather than trusting
+    // whatever was decided when the offer was made.
+    const plan = await planWithin(tx, input, deps)
+    if (plan.status !== 'planned') return plan
+
+    const moved = await tx.moveProviderRow(plan.rowId, plan.survivorUserId, formatLegacyTimestamp(now))
+    // A zero means the row went away under the lock. Abandon the transaction rather
+    // than write an audit entry for a move that did not happen.
+    if (moved !== 1) throw new Error(`mergeIdentity expected to move exactly 1 row, moved ${moved}`)
+
+    await tx.recordIdentityMerge({
+      id: randomUUID(),
+      rowId: plan.rowId,
+      provider: plan.provider,
+      fromUserId: plan.loserUserId,
+      toUserId: plan.survivorUserId,
+      reason: plan.reason,
+    })
+
+    return {
+      status: 'merged' as const,
+      rowId: plan.rowId,
+      fromUserId: plan.loserUserId,
+      toUserId: plan.survivorUserId,
+      reason: plan.reason,
+    }
+  })
 }

@@ -106,6 +106,79 @@ function txAdapter(tx: SqlExecutor): LinkTransaction {
       )
       return rows.length
     },
+
+    async listMemberIdentityShapes(userId: string) {
+      // length(id_token) and NOT id_token. The dead class this has to recognise is
+      // a `ya29...` Google ACCESS token that was stored as an identity; it is
+      // expired and useless, and it is still a credential. Nothing is gained by
+      // carrying one into application memory where a stray console.error or an
+      // error-reporting hook could copy it out, and the only property the caller
+      // needs is how long it is.
+      const rows = rowsOf<{ id?: unknown; provider?: unknown; len?: unknown }>(
+        await tx.execute(sql`
+          SELECT id, provider, length(id_token) AS len
+          FROM user_provider
+          WHERE user_id = ${userId}
+        `),
+      )
+      return rows
+        .filter((r) => typeof r.id === 'string')
+        .map((r) => ({
+          id: r.id as string,
+          provider: typeof r.provider === 'string' ? r.provider : '',
+          identityLength: Number(r.len ?? 0),
+        }))
+    },
+
+    async moveProviderRow(rowId: string, toUserId: string, timestamp: string) {
+      // Addressed by primary key, which is the opposite choice from
+      // deleteProviderRows above and is deliberate: a merge must move exactly the
+      // row the survivor rule decided on. The row id never comes from the request —
+      // it is read inside this transaction, under the same advisory lock.
+      const rows = rowsOf<{ id?: unknown }>(
+        await tx.execute(sql`
+          UPDATE user_provider
+          SET user_id = ${toUserId}, update_at = ${timestamp}
+          WHERE id = ${rowId}
+          RETURNING id
+        `),
+      )
+      return rows.length
+    },
+
+    async recordIdentityMerge(entry) {
+      // ops_audit_log (migration 0022) already carries exactly this shape and is
+      // indexed on (target_user_id, created_at), so support can find a member's
+      // merges without a new table or a migration. admin_user_id is NULL because no
+      // admin did this: the member did, which is the point of slice 4. The payload
+      // holds no subject and no token — ops can read this table.
+      await tx.execute(sql`
+        INSERT INTO ops_audit_log (id, admin_user_id, action, target_user_id, payload)
+        VALUES (
+          ${entry.id},
+          NULL,
+          'member_identity_merge',
+          ${entry.toUserId},
+          ${JSON.stringify({
+            row_id: entry.rowId,
+            provider: entry.provider,
+            from_user_id: entry.fromUserId,
+            to_user_id: entry.toUserId,
+            reason: entry.reason,
+            reverse_with:
+              'UPDATE user_provider SET user_id = <from_user_id> WHERE id = <row_id>',
+          })}::jsonb
+        )
+      `)
+    },
+
+    async memberCreatedAt(userId: string) {
+      const rows = rowsOf<{ create_at?: unknown }>(
+        await tx.execute(sql`SELECT create_at FROM "user" WHERE user_id = ${userId} LIMIT 1`),
+      )
+      const value = rows[0]?.create_at
+      return typeof value === 'string' ? value : ''
+    },
   }
 }
 

@@ -91,6 +91,11 @@ export default defineConfig({
       'scripts/link-start-route.test.ts', // mumate-login-identity slice 3 — link start route: strict identity, cookie+redirect in one response
       'scripts/link-account.test.ts', // mumate-login-identity slice 3 — the three identity-contract cases and the last-method unlink rule
       'scripts/link-verify.test.ts', // mumate-login-identity slice 3 — code exchange and id_token claim checks
+      'scripts/merge-survivor.test.ts', // mumate-login-identity slice 4 — who survives a merge, and every case the flow must refuse
+      'scripts/merge-identity.test.ts', // mumate-login-identity slice 4 — the merge itself over a fake transaction: one row, the right direction, nothing on a refusal
+      'scripts/merge-ticket.test.ts', // mumate-login-identity slice 4 — the signed offer that carries the proof across the member's confirmation
+      'scripts/merge-routes.test.ts', // mumate-login-identity slice 4 — preview and confirm: the body is never the proof, and an offer is spent once
+      'scripts/merge-offer-screen.test.tsx', // mumate-login-identity slice 4 — the two-press confirmation and the copy that states the cost
       'scripts/link-verify-default.test.ts', // mumate-login-identity slice 3 — the REAL verifier: LINE HS256 vs Google RS256, key/alg pairing
       'scripts/link-callback-route.test.ts', // mumate-login-identity slice 3 — callback: state before anything, cookie cleared on every exit
       'scripts/link-connections-route.test.ts', // mumate-login-identity slice 3 — connections read, unlink route, last-method refusal

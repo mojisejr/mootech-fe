@@ -23,6 +23,8 @@ import Head from "next/head"
 import { useSession } from "next-auth/react"
 import { useCallback, useEffect, useState } from "react"
 
+import { MergeOfferPanel, type MergePreview } from "./MergeOfferPanel"
+
 import { IconTile, SkyBackdrop, SkyHeader } from "@/features/v2-profile/components/kit"
 import { ProfileGate } from "./ProfileGate"
 
@@ -61,25 +63,43 @@ const MESSAGES: Record<string, string> = {
   not_signed_in: "เซสชันหมดอายุ กรุณาเข้าสู่ระบบใหม่แล้วลองอีกครั้ง",
   identity_unresolved: "ยืนยันตัวตนไม่ได้ในตอนนี้ กรุณาลองใหม่อีกครั้ง",
   last_method: "นี่เป็นวิธีเข้าสู่ระบบวิธีเดียวที่เหลืออยู่ ถอดออกแล้วจะเข้าบัญชีไม่ได้อีก",
+  // Slice 4. `merge_refused` is deliberately separate from `owned_by_another`: the
+  // identity IS the member's own, and the flow declined to decide rather than
+  // declining to link. Owner decision 9 makes support the answer for that.
+  merge_refused: "ช่องทางนี้เป็นของอีกบัญชีหนึ่ง และเรายังรวมสองบัญชีนี้ให้อัตโนมัติไม่ได้ — ติดต่อทีมงานเพื่อให้ช่วยตรวจสอบได้เลย",
+  not_a_collision: "ช่องทางนี้เชื่อมกับบัญชีนี้อยู่แล้ว",
+  no_offer: "คำขอรวมบัญชีหมดอายุแล้ว กรุณาเริ่มเชื่อมใหม่อีกครั้ง",
+  member_missing: "ยืนยันบัญชีไม่ได้ในตอนนี้ กรุณาลองใหม่อีกครั้ง",
 }
 const FALLBACK_ERROR = "เชื่อมบัญชีไม่สำเร็จ กรุณาลองใหม่อีกครั้ง"
 
 /** Read once on mount. The callback redirects back here with a result in the
  *  query string, and it is stripped afterwards so a refresh does not replay it. */
-function readResultFromUrl(): { tone: "ok" | "warn"; text: string } | null {
-  if (typeof window === "undefined") return null
+function readResultFromUrl(): {
+  notice: { tone: "ok" | "warn"; text: string } | null
+  /** slice 4: the callback is OFFERING a merge. Not a notice — it needs a decision. */
+  offer: Linkable | null
+} {
+  if (typeof window === "undefined") return { notice: null, offer: null }
   const q = new URLSearchParams(window.location.search)
   const linked = q.get("linked")
   const error = q.get("link_error")
-  if (!linked && !error) return null
+  const offer = q.get("merge_offer")
+  if (!linked && !error && !offer) return { notice: null, offer: null }
   window.history.replaceState({}, "", window.location.pathname)
+  if (offer && (LINKABLE as readonly string[]).includes(offer)) {
+    return { notice: null, offer: offer as Linkable }
+  }
   if (linked) {
     const name = PROVIDER[linked]?.name ?? linked
-    return q.get("already")
-      ? { tone: "ok", text: `${name} เชื่อมกับบัญชีนี้อยู่แล้ว` }
-      : { tone: "ok", text: `เชื่อม ${name} เรียบร้อยแล้ว` }
+    return {
+      notice: q.get("already")
+        ? { tone: "ok", text: `${name} เชื่อมกับบัญชีนี้อยู่แล้ว` }
+        : { tone: "ok", text: `เชื่อม ${name} เรียบร้อยแล้ว` },
+      offer: null,
+    }
   }
-  return { tone: "warn", text: MESSAGES[error as string] ?? FALLBACK_ERROR }
+  return { notice: { tone: "warn", text: MESSAGES[error as string] ?? FALLBACK_ERROR }, offer: null }
 }
 
 /** jsdom cannot perform a real navigation, so the hop to the start route is
@@ -99,10 +119,42 @@ export function ConnectedScreen({ navigate = defaultNavigate }: { navigate?: (ur
   const [rewards, setRewards] = useState<Record<string, number>>({})
   const [busy, setBusy] = useState<string | null>(null)
   const [notice, setNotice] = useState<{ tone: "ok" | "warn"; text: string } | null>(null)
+  const [mergeOffer, setMergeOffer] = useState<Linkable | null>(null)
+  const [mergePreview, setMergePreview] = useState<MergePreview | null>(null)
+  const [mergeBusy, setMergeBusy] = useState(false)
 
   useEffect(() => {
-    setNotice(readResultFromUrl())
+    const { notice: n, offer } = readResultFromUrl()
+    setNotice(n)
+    setMergeOffer(offer)
   }, [])
+
+  // The server decides what the merge would do; the screen only asks. A preview that
+  // cannot be fetched means the offer is gone, so the panel is not shown at all rather
+  // than shown with a guess in it.
+  useEffect(() => {
+    if (!mergeOffer) return
+    let alive = true
+    fetch(`/api/auth/link/merge/preview?provider=${mergeOffer}`)
+      .then((r) => r.json().catch(() => ({})))
+      .then((j: { ok?: boolean; survivor?: MergePreview["survivor"]; loserKeepsNothing?: boolean; error?: string }) => {
+        if (!alive) return
+        if (j?.ok && j.survivor) {
+          setMergePreview({ survivor: j.survivor, loserKeepsNothing: j.loserKeepsNothing !== false })
+          return
+        }
+        setMergeOffer(null)
+        setNotice({ tone: "warn", text: MESSAGES[j?.error ?? ""] ?? FALLBACK_ERROR })
+      })
+      .catch(() => {
+        if (!alive) return
+        setMergeOffer(null)
+        setNotice({ tone: "warn", text: FALLBACK_ERROR })
+      })
+    return () => {
+      alive = false
+    }
+  }, [mergeOffer])
 
   useEffect(() => {
     let alive = true
@@ -199,6 +251,43 @@ export function ConnectedScreen({ navigate = defaultNavigate }: { navigate?: (ur
     }
   }
 
+  /** Slice 4. The member has read the panel and pressed its own confirm button. The
+   *  body says `confirm: "merge"` because a POST alone is not proof of intent — a
+   *  prefetch or a retried request produces one. */
+  const confirmMerge = async () => {
+    if (!mergeOffer) return
+    const name = PROVIDER[mergeOffer]?.name ?? mergeOffer
+    setMergeBusy(true)
+    try {
+      const r = await fetch("/api/auth/link/merge/confirm", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ provider: mergeOffer, confirm: "merge" }),
+      })
+      const j = (await r.json().catch(() => ({}))) as { ok?: boolean; error?: string }
+      if (r.ok && j?.ok) {
+        setNotice({ tone: "ok", text: `รวมบัญชีเรียบร้อยแล้ว ${name} อยู่กับบัญชีที่เก็บไว้` })
+      } else {
+        setNotice({ tone: "warn", text: MESSAGES[j?.error ?? ""] ?? FALLBACK_ERROR })
+      }
+      setMergeOffer(null)
+      setMergePreview(null)
+      await loadConnections()
+    } catch {
+      setNotice({ tone: "warn", text: FALLBACK_ERROR })
+    } finally {
+      setMergeBusy(false)
+    }
+  }
+
+  /** Declining writes nothing anywhere: the offer was never an authorisation, and the
+   *  ticket expires on its own. */
+  const cancelMerge = () => {
+    setMergeOffer(null)
+    setMergePreview(null)
+    setNotice({ tone: "ok", text: "ยกเลิกการรวมบัญชีแล้ว ไม่มีอะไรเปลี่ยนแปลง" })
+  }
+
   const known = provider ? PROVIDER[provider] : undefined
   const email = typeof session?.user?.email === "string" && session.user.email ? session.user.email : null
   const rows: Connection[] =
@@ -255,6 +344,17 @@ export function ConnectedScreen({ navigate = defaultNavigate }: { navigate?: (ur
               ) : null}
             </section>
             </div>
+
+            {/* รวมบัญชี (slice 4) — แสดงเฉพาะเมื่อ callback เสนอ และ server ยืนยันว่ารวมได้ */}
+            {mergeOffer && mergePreview ? (
+              <MergeOfferPanel
+                provider={mergeOffer}
+                preview={mergePreview}
+                busy={mergeBusy}
+                onConfirm={confirmMerge}
+                onCancel={cancelMerge}
+              />
+            ) : null}
 
             {/* เชื่อมต่อ — สถานะจริงจาก /api/auth/link/connections */}
             <div>

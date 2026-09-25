@@ -25,8 +25,10 @@ import {
   linkRedirectUri,
   type LinkableProvider,
 } from '@/lib/auth/link-providers'
-import { linkProvider } from '@/lib/auth/link-account'
+import { linkProvider, planIdentityMerge } from '@/lib/auth/link-account'
 import { postgresLinkStore } from '@/lib/auth/link-account-store'
+import { issueMergeTicket, mergeTicketCookie } from '@/lib/auth/merge-ticket'
+import { resolveSubscription } from '@/lib/v2/subscription'
 import {
   clearLinkStateCookie,
   linkStateCookieName,
@@ -44,8 +46,13 @@ function finish(
   provider: string,
   returnTo: string,
   params: Record<string, string>,
+  extraCookies: string[] = [],
 ) {
-  res.setHeader('Set-Cookie', clearLinkStateCookie(provider, { secure: !isDev }))
+  // 🔴 ONE setHeader CALL WITH AN ARRAY, never two calls. res.setHeader REPLACES the
+  // header, so setting the merge ticket in a second call would silently drop the
+  // clear-state cookie and leave a spent state replayable — the exact guarantee the
+  // header comment above promises is unconditional.
+  res.setHeader('Set-Cookie', [clearLinkStateCookie(provider, { secure: !isDev }), ...extraCookies])
   res.setHeader('Cache-Control', 'no-store, must-revalidate')
   const url = new URL(safeReturnTo(returnTo, FALLBACK_RETURN), 'http://localhost')
   for (const [k, v] of Object.entries(params)) url.searchParams.set(k, v)
@@ -104,11 +111,51 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         return finish(res, provider, returnTo, { linked: provider })
       case 'already-linked':
         return finish(res, provider, returnTo, { linked: provider, already: '1' })
-      case 'owned-by-another':
-        // Case 3 of the identity contract. Nothing was written. The message the
-        // screen shows must stay neutral — naming the other account would leak
-        // that a given provider identity belongs to a member of this service.
-        return finish(res, provider, returnTo, { link_error: 'owned_by_another' })
+      case 'owned-by-another': {
+        // Case 3 of the identity contract, and as of slice 4 the case this feature
+        // exists for rather than a dead end. Nothing has been written yet.
+        //
+        // §THE DISCLOSURE SLICE 3 REFUSED TO MAKE, MADE HERE ON PURPOSE. Slice 3
+        // answers neutrally because naming the other account would reveal that a
+        // given provider identity belongs to a member of this service — an
+        // enumeration oracle. Offering a merge necessarily reveals it. That is safe
+        // HERE and only here, because reaching this line means the same person, in
+        // the same session, has both a signed session for one account AND a fresh
+        // provider attestation for the other. Owner decision 9: that is stronger
+        // proof of ownership than a support ticket. An offer made any earlier — or
+        // to anyone who has not completed the second authorization — would be the
+        // oracle, so this must never move ahead of the exchange above.
+        const plan = await planIdentityMerge(
+          postgresLinkStore,
+          { signedInUserId: state.value.userId, provider, subject: verified.value.subject },
+          // The paid verdict comes from the one module that owns that rule. A second
+          // copy of it here is the defect #369 B2 closed.
+          { resolvePaid: async (userId) => (await resolveSubscription(userId)).isPaid },
+        )
+
+        if (plan.status !== 'planned') {
+          // Refusals keep slice 3's neutral wording. `merge_refused` is a separate
+          // code from `owned_by_another` so the screen can say "this needs a person"
+          // instead of "this cannot be linked", and owner decision 9 makes support
+          // the answer for everything this flow declines.
+          const code = plan.status === 'refused' ? 'merge_refused' : 'owned_by_another'
+          return finish(res, provider, returnTo, { link_error: code })
+        }
+
+        // The offer travels in an HttpOnly cookie and NOT in the query string: a
+        // subject in a URL lands in browser history, in any access log in front of
+        // this app, and in a Referer header.
+        const ticket = issueMergeTicket({
+          signedInUserId: state.value.userId,
+          provider,
+          subject: verified.value.subject,
+          survivorUserId: plan.survivorUserId,
+          loserUserId: plan.loserUserId,
+        })
+        return finish(res, provider, returnTo, { merge_offer: provider }, [
+          mergeTicketCookie(provider, ticket, { secure: !isDev }),
+        ])
+      }
       case 'member-missing':
         return finish(res, provider, returnTo, { link_error: 'member_missing' })
     }
