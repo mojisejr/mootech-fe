@@ -41,6 +41,35 @@ const isDev = process.env.NODE_ENV !== 'production'
 
 const FALLBACK_RETURN = '/v2/settings/connected'
 
+// This event is intentionally a fixed vocabulary. Its purpose is to locate the
+// first slow callback stage; identifiers and OAuth material must never become
+// application logs while doing so.
+type CallbackStage = 'token-exchange' | 'token-verification' | 'identity-lookup' | 'merge-planning'
+type CallbackOutcome = 'ok' | 'failed' | 'timeout'
+
+function logStage(stage: CallbackStage, outcome: CallbackOutcome, durationMs: number) {
+  console.info(
+    JSON.stringify({
+      event: 'link_callback_stage',
+      stage,
+      outcome,
+      duration_ms: Math.max(0, Math.round(durationMs)),
+    }),
+  )
+}
+
+async function timeStage<T>(stage: Exclude<CallbackStage, 'token-exchange' | 'token-verification'>, work: () => Promise<T>) {
+  const startedAt = Date.now()
+  try {
+    const value = await work()
+    logStage(stage, 'ok', Date.now() - startedAt)
+    return value
+  } catch (error) {
+    logStage(stage, 'failed', Date.now() - startedAt)
+    throw error
+  }
+}
+
 function finish(
   res: NextApiResponse,
   provider: string,
@@ -94,17 +123,21 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       codeVerifier: state.value.codeVerifier,
       redirectUri: linkRedirectUri(provider),
       nonce: state.value.nonce,
+    }, {
+      onStage: logStage,
     })
     if (!verified.ok) return finish(res, provider, returnTo, { link_error: verified.reason })
 
-    const outcome = await linkProvider(postgresLinkStore, {
-      userId: state.value.userId,
-      provider,
-      subject: verified.value.subject,
-      email: verified.value.email,
-      name: verified.value.name,
-      pictureUrl: verified.value.pictureUrl,
-    })
+    const outcome = await timeStage('identity-lookup', () =>
+      linkProvider(postgresLinkStore, {
+        userId: state.value.userId,
+        provider,
+        subject: verified.value.subject,
+        email: verified.value.email,
+        name: verified.value.name,
+        pictureUrl: verified.value.pictureUrl,
+      }),
+    )
 
     switch (outcome.status) {
       case 'linked':
@@ -125,7 +158,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         // proof of ownership than a support ticket. An offer made any earlier — or
         // to anyone who has not completed the second authorization — would be the
         // oracle, so this must never move ahead of the exchange above.
-        const plan = await planIdentityMerge(
+        const plan = await timeStage('merge-planning', () => planIdentityMerge(
           postgresLinkStore,
           { signedInUserId: state.value.userId, provider, subject: verified.value.subject },
           // The paid verdict comes from the one module that owns that rule. A second
@@ -136,7 +169,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
               everPaid: await hasEverPaid(userId),
             }),
           },
-        )
+        ))
 
         if (plan.status !== 'planned') {
           // Refusals keep slice 3's neutral wording. `merge_refused` is a separate
@@ -164,8 +197,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       case 'member-missing':
         return finish(res, provider, returnTo, { link_error: 'member_missing' })
     }
-  } catch (error) {
-    console.error('[link/callback] failed', error instanceof Error ? error.message : 'unknown error')
+  } catch {
+    // The stage event above contains all the operational detail this callback is
+    // allowed to retain. An arbitrary thrown message can contain upstream data.
+    console.error('[link/callback] failed')
     return finish(res, provider, returnTo, { link_error: 'link_failed' })
   }
 }

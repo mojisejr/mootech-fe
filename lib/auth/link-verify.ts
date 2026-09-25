@@ -82,7 +82,21 @@ export interface ExchangeDeps {
   fetch?: typeof globalThis.fetch
   /** injected in tests so a fixture token can be checked without reaching a provider */
   verifyToken?: (provider: LinkableProvider, token: string) => Promise<JWTPayload>
+  /**
+   * Safe callback telemetry. Callers receive only a fixed stage name, duration
+   * and outcome — never an OAuth value, a provider subject, or member identity.
+   */
+  onStage?: (stage: LinkVerifyStage, outcome: LinkVerifyOutcome, durationMs: number) => void
 }
+
+export type LinkVerifyStage = 'token-exchange' | 'token-verification'
+export type LinkVerifyOutcome = 'ok' | 'failed' | 'timeout'
+
+// Caddy allowed the stalled shadow callback to occupy its upstream for about 45
+// seconds. Fifteen seconds leaves enough room to redirect with the existing
+// safe failure code, and AbortController actually cancels the outbound LINE
+// request rather than merely racing the HTTP response and leaving it alive.
+export const LINK_TOKEN_EXCHANGE_TIMEOUT_MS = 15_000
 
 export async function defaultVerify(provider: LinkableProvider, token: string): Promise<JWTPayload> {
   const { jwksUrl, issuers, idTokenAlgs } = ENDPOINTS[provider]
@@ -117,8 +131,10 @@ export async function exchangeAndVerify(
 ): Promise<VerifyResult> {
   const doFetch = deps.fetch ?? globalThis.fetch
   const verify = deps.verifyToken ?? defaultVerify
+  const stage = deps.onStage
 
   let idToken: string
+  const exchangeStartedAt = Date.now()
   try {
     const body = new URLSearchParams({
       grant_type: 'authorization_code',
@@ -128,28 +144,46 @@ export async function exchangeAndVerify(
       client_secret: clientSecretFor(provider),
       code_verifier: args.codeVerifier,
     })
-    const response = await doFetch(ENDPOINTS[provider].tokenUrl, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: body.toString(),
-    })
-    if (!response.ok) return { ok: false, reason: 'token-exchange-failed' }
-    const payload = (await response.json()) as { id_token?: unknown }
+    const controller = new AbortController()
+    const timeout = setTimeout(() => controller.abort(), LINK_TOKEN_EXCHANGE_TIMEOUT_MS)
+    let payload: { id_token?: unknown }
+    try {
+      const response = await doFetch(ENDPOINTS[provider].tokenUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: body.toString(),
+        signal: controller.signal,
+      })
+      if (!response.ok) {
+        stage?.('token-exchange', 'failed', Date.now() - exchangeStartedAt)
+        return { ok: false, reason: 'token-exchange-failed' }
+      }
+      payload = (await response.json()) as { id_token?: unknown }
+    } finally {
+      clearTimeout(timeout)
+    }
     if (typeof payload?.id_token !== 'string' || payload.id_token === '') {
+      stage?.('token-exchange', 'failed', Date.now() - exchangeStartedAt)
       return { ok: false, reason: 'no-id-token' }
     }
     idToken = payload.id_token
-  } catch {
+    stage?.('token-exchange', 'ok', Date.now() - exchangeStartedAt)
+  } catch (error) {
+    const outcome: LinkVerifyOutcome = error instanceof Error && error.name === 'AbortError' ? 'timeout' : 'failed'
+    stage?.('token-exchange', outcome, Date.now() - exchangeStartedAt)
     return { ok: false, reason: 'token-exchange-failed' }
   }
 
   let claims: JWTPayload
+  const verificationStartedAt = Date.now()
   try {
     claims = await verify(provider, idToken)
+    stage?.('token-verification', 'ok', Date.now() - verificationStartedAt)
   } catch {
     // Signature, issuer, audience, expiry and algorithm all land here. They are
     // reported as one reason on purpose: telling a caller WHICH check failed
     // helps them craft the next attempt and helps a member not at all.
+    stage?.('token-verification', 'failed', Date.now() - verificationStartedAt)
     return { ok: false, reason: 'bad-token' }
   }
 

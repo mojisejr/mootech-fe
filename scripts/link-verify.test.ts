@@ -5,7 +5,7 @@
 import type { JWTPayload } from 'jose'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-import { exchangeAndVerify } from '@/lib/auth/link-verify'
+import { exchangeAndVerify, LINK_TOKEN_EXCHANGE_TIMEOUT_MS } from '@/lib/auth/link-verify'
 
 const ENV = ['GOOGLE_CLIENT_ID', 'GOOGLE_CLIENT_SECRET', 'LINE_CLIENT_ID', 'LINE_CLIENT_SECRET'] as const
 let saved: Record<string, string | undefined> = {}
@@ -18,6 +18,7 @@ beforeEach(() => {
   process.env.LINE_CLIENT_SECRET = 'l-secret'
 })
 afterEach(() => {
+  vi.useRealTimers()
   for (const k of ENV) {
     if (saved[k] === undefined) delete process.env[k]
     else process.env[k] = saved[k]
@@ -65,6 +66,22 @@ describe('the code exchange', () => {
     }) as unknown as typeof globalThis.fetch
     const r = await exchangeAndVerify('google', ARGS, { fetch: boom, verifyToken: async () => claims() })
     expect(r).toEqual({ ok: false, reason: 'token-exchange-failed' })
+  })
+
+  it('aborts a hung LINE exchange before the proxy deadline', async () => {
+    vi.useFakeTimers()
+    const fetchMock = vi.fn((_url: string, init?: RequestInit) =>
+      new Promise<Response>((_resolve, reject) => {
+        init?.signal?.addEventListener('abort', () => reject(new DOMException('aborted', 'AbortError')))
+      }),
+    ) as unknown as typeof globalThis.fetch
+
+    const pending = exchangeAndVerify('line', ARGS, { fetch: fetchMock, verifyToken: async () => claims() })
+    await vi.advanceTimersByTimeAsync(LINK_TOKEN_EXCHANGE_TIMEOUT_MS)
+
+    await expect(pending).resolves.toEqual({ ok: false, reason: 'token-exchange-failed' })
+    const [, init] = (fetchMock as unknown as ReturnType<typeof vi.fn>).mock.calls[0]
+    expect((init as RequestInit).signal?.aborted).toBe(true)
   })
 
   it.each([{}, { id_token: '' }, { id_token: 42 }])('refuses a response without a usable id_token: %p', async (body) => {

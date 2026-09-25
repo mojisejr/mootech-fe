@@ -76,6 +76,7 @@ function goodState(provider: 'google' | 'line' = 'line', returnTo = '/v2/setting
 
 let saved: Record<string, string | undefined> = {}
 const ENV = ['LINK_STATE_SECRET', 'NEXTAUTH_URL', 'GOOGLE_CLIENT_ID', 'LINE_CLIENT_ID'] as const
+let info: ReturnType<typeof vi.spyOn>
 
 beforeEach(() => {
   saved = Object.fromEntries(ENV.map((k) => [k, process.env[k]]))
@@ -86,6 +87,7 @@ beforeEach(() => {
   exchangeAndVerify.mockReset()
   linkProvider.mockReset()
   planIdentityMerge.mockReset()
+  info = vi.spyOn(console, 'info').mockImplementation(() => undefined)
   exchangeAndVerify.mockResolvedValue({
     ok: true,
     value: { subject: 'U-1', email: '', name: '', pictureUrl: '' },
@@ -104,10 +106,36 @@ beforeEach(() => {
   })
 })
 afterEach(() => {
+  info.mockRestore()
   for (const k of ENV) {
     if (saved[k] === undefined) delete process.env[k]
     else process.env[k] = saved[k]
   }
+})
+
+describe('callback telemetry', () => {
+  it('records only fixed stage, outcome and duration fields for a collision preview', async () => {
+    exchangeAndVerify.mockImplementation(async (_provider: unknown, _args: unknown, deps: {
+      onStage?: (stage: 'token-exchange' | 'token-verification', outcome: 'ok' | 'failed' | 'timeout', durationMs: number) => void
+    }) => {
+      deps.onStage?.('token-exchange', 'ok', 12)
+      deps.onStage?.('token-verification', 'ok', 7)
+      return { ok: true, value: { subject: 'U-1', email: '', name: '', pictureUrl: '' } }
+    })
+    linkProvider.mockResolvedValue({ status: 'owned-by-another' })
+    const { issued, cookies } = goodState('line')
+    await call({ provider: 'line', code: 'C', state: issued.state }, cookies)
+
+    const events = info.mock.calls.map(([raw]) => JSON.parse(String(raw)))
+    expect(events).toEqual([
+      { event: 'link_callback_stage', stage: 'token-exchange', outcome: 'ok', duration_ms: 12 },
+      { event: 'link_callback_stage', stage: 'token-verification', outcome: 'ok', duration_ms: 7 },
+      { event: 'link_callback_stage', stage: 'identity-lookup', outcome: 'ok', duration_ms: expect.any(Number) },
+      { event: 'link_callback_stage', stage: 'merge-planning', outcome: 'ok', duration_ms: expect.any(Number) },
+    ])
+    expect(JSON.stringify(events)).not.toContain(USER)
+    expect(JSON.stringify(events)).not.toContain('U-1')
+  })
 })
 
 describe('nothing happens without a valid state', () => {
