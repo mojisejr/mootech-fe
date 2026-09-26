@@ -90,12 +90,49 @@ describe('summariseConnections — what the screen renders from', () => {
     expect(s.find((x) => x.provider === 'line')?.linked).toBe(true)
   })
 
-  it('forbids unlinking the only method, and allows it once there are two', () => {
+  it('forbids unlinking the only method, and says WHY', () => {
     const one = summariseConnections([{ provider: 'LINE' }], 'line')
-    expect(one.find((x) => x.provider === 'line')?.canUnlink).toBe(false)
+    const line = one.find((x) => x.provider === 'line')
+    expect(line?.canUnlink).toBe(false)
+    // last-method, not current-method: with one method it is BOTH, and reporting the
+    // recoverable reason would tell the member to sign in the other way when there
+    // is no other way.
+    expect(line?.unlinkBlockedBy).toBe('last-method')
+  })
 
+  it('forbids unlinking the method this session signed in WITH, and allows the other', () => {
     const two = summariseConnections([{ provider: 'LINE' }, { provider: 'google' }], 'line')
-    expect(two.every((x) => x.canUnlink)).toBe(true)
+    const line = two.find((x) => x.provider === 'line')
+    const google = two.find((x) => x.provider === 'google')
+
+    // Signed in through LINE, so LINE is the one that cannot go: removing it strands
+    // the session the member is using. This inverts the assertion this test used to
+    // make, deliberately — the old rule allowed it and the hazard was recorded on
+    // 2026-09-25 with no guard.
+    expect(line?.canUnlink).toBe(false)
+    expect(line?.unlinkBlockedBy).toBe('current-method')
+
+    // The other one is ordinary and stays removable. A rule that blocked both would
+    // make a two-method account impossible to reduce at all.
+    expect(google?.canUnlink).toBe(true)
+    expect(google?.unlinkBlockedBy).toBe(null)
+  })
+
+  it('blocks nothing when the session provider is unknown', () => {
+    // A member whose session carries no provider still gets a usable screen: both
+    // methods are removable down to the last one, which the other rule then holds.
+    const s = summariseConnections([{ provider: 'LINE' }, { provider: 'google' }], null)
+    expect(s.every((x) => x.canUnlink)).toBe(true)
+    expect(s.every((x) => x.unlinkBlockedBy === null)).toBe(true)
+  })
+
+  it('reports no reason for a provider that is not linked at all', () => {
+    const s = summariseConnections([{ provider: 'LINE' }], 'line')
+    const google = s.find((x) => x.provider === 'google')
+    expect(google?.linked).toBe(false)
+    expect(google?.canUnlink).toBe(false)
+    // Not 'last-method': there is nothing to remove, so there is no refusal to explain.
+    expect(google?.unlinkBlockedBy).toBe(null)
   })
 
   it('several rows of ONE provider are still one method — the shape 1,443 members are in', () => {
@@ -186,6 +223,35 @@ describe('DELETE /api/auth/link/unlink/<provider>', () => {
     unlinkProvider.mockResolvedValue({ status: 'not-linked' })
     const r = await invoke(unlinkRoute, { method: 'DELETE', query: { provider: 'google' } })
     expect(r.status).toBe(404)
+  })
+
+  it('409s a DIFFERENT code for the method the session signed in with', async () => {
+    unlinkProvider.mockResolvedValue({ status: 'current-method' })
+    const r = await invoke(unlinkRoute, { method: 'DELETE', query: { provider: 'line' } })
+    expect(r.status).toBe(409)
+    // Not last_method: this one has a way out and the screen has to be able to say it.
+    expect(r.json).toMatchObject({ error: 'current_method' })
+  })
+
+  it('takes the session provider from the SESSION, and hands it to the rule', async () => {
+    getServerSession.mockResolvedValue({ provider: 'line' })
+    unlinkProvider.mockResolvedValue({ status: 'unlinked', removed: 1 })
+    await invoke(unlinkRoute, { method: 'DELETE', query: { provider: 'google' } })
+    expect(unlinkProvider).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ provider: 'google', sessionProvider: 'line' }),
+    )
+  })
+
+  it('never takes it from the request — a member must not be able to name their own session', async () => {
+    getServerSession.mockResolvedValue(null)
+    unlinkProvider.mockResolvedValue({ status: 'unlinked', removed: 1 })
+    // A caller trying to pretend the session is on google so the guard lets line go.
+    await invoke(unlinkRoute, { method: 'DELETE', query: { provider: 'line', sessionProvider: 'google' } })
+    expect(unlinkProvider).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ sessionProvider: null }),
+    )
   })
 
   it('refuses an unauthenticated caller before touching the store', async () => {

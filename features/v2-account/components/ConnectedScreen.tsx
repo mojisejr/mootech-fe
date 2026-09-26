@@ -21,7 +21,7 @@
 // they read as broken rather than unbuilt.
 import Head from "next/head"
 import { useSession } from "next-auth/react"
-import { useCallback, useEffect, useState } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
 
 import { MergeOfferPanel, type MergePreview } from "./MergeOfferPanel"
 
@@ -51,6 +51,10 @@ interface Connection {
   linked: boolean
   current: boolean
   canUnlink: boolean
+  /** Absent from an older server's reply, so every reader must tolerate undefined
+   *  rather than assume the last-method reason and tell half of them something
+   *  untrue. */
+  unlinkBlockedBy?: 'last-method' | 'current-method' | null
 }
 
 /** Every message a member can see from this flow, in their own language. The
@@ -70,6 +74,12 @@ const MESSAGES: Record<string, string> = {
   not_a_collision: "ช่องทางนี้เชื่อมกับบัญชีนี้อยู่แล้ว",
   no_offer: "คำขอรวมบัญชีหมดอายุแล้ว กรุณาเริ่มเชื่อมใหม่อีกครั้ง",
   member_missing: "ยืนยันบัญชีไม่ได้ในตอนนี้ กรุณาลองใหม่อีกครั้ง",
+  // The member is signed in THROUGH this method. Not a refusal to help — a door
+  // they open by signing in the other way, so the sentence names that way.
+  current_method: "คุณกำลังเข้าสู่ระบบด้วยวิธีนี้อยู่ ออกจากระบบแล้วเข้าด้วยอีกวิธีก่อน จึงจะถอดวิธีนี้ได้",
+  // The feature is not configured on this deployment. It is NOT "try again": no
+  // number of retries configures a server, and FALLBACK_ERROR used to say so.
+  link_unavailable: "ตอนนี้ยังเชื่อมบัญชีไม่ได้ ระบบยังไม่พร้อมใช้งานส่วนนี้ — ไม่ใช่ที่เครื่องคุณ ทีมงานกำลังดูแลอยู่",
 }
 const FALLBACK_ERROR = "เชื่อมบัญชีไม่สำเร็จ กรุณาลองใหม่อีกครั้ง"
 
@@ -229,17 +239,35 @@ export function ConnectedScreen({ navigate = defaultNavigate }: { navigate?: (ur
     return () => { alive = false }
   }, [])
 
-  const provider = typeof session?.provider === "string" ? session.provider : null
+  /* §THE MISSION WAS CREDITED FOR THE WRONG THING (recorded 2026-09-24, unfixed
+     because it was in no slice's DoD). It fired when the SESSION's provider was
+     line, so a member who signs in with LINE and merely opens this screen was paid,
+     while a member who signs in with Google and genuinely links LINE was not. That
+     was invisible while the reward badge was a hardcoded number; the badge now
+     reads the engine, so the second member SEES "+20 QI" offered and then is not
+     paid. Making it visible is what turned it into this branch's problem.
 
-  // เชื่อม LINE = วิธีล็อกอินหลัก → ครบภารกิจ connect_line (best-effort, engine กันซ้ำเอง)
+     The rule is now the honest one: credit connect_<provider> for a provider the
+     member ACTUALLY HOLDS, read from the same /api/auth/link/connections every other
+     state on this page comes from. Both members above are then paid, and neither is
+     paid twice — `rewards` only carries missions the engine reports as INCOMPLETE,
+     and a provider is posted at most once per mount. It also self-corrects the day
+     someone adds connect_google to the engine, exactly as the badge does. */
+  const credited = useRef<Set<string>>(new Set())
   useEffect(() => {
-    if (provider !== "line") return
-    void fetch("/api/missions", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ missionId: "connect_line" }),
-    }).catch(() => {})
-  }, [provider])
+    if (!connections) return
+    for (const row of connections) {
+      if (!row.linked) continue
+      if (!rewards[row.provider]) continue
+      if (credited.current.has(row.provider)) continue
+      credited.current.add(row.provider)
+      void fetch("/api/missions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ missionId: `connect_${row.provider}` }),
+      }).catch(() => {})
+    }
+  }, [connections, rewards])
 
   const startLink = (p: Linkable) => {
     setBusy(p)
@@ -303,10 +331,15 @@ export function ConnectedScreen({ navigate = defaultNavigate }: { navigate?: (ur
     setNotice({ tone: "ok", text: "ยกเลิกการรวมบัญชีแล้ว ไม่มีอะไรเปลี่ยนแปลง" })
   }
 
-  const known = provider ? PROVIDER[provider] : undefined
+  // Which method this session came in through. Used only to name it in the header;
+  // every UNLINK decision reads the server's summary instead, because the session
+  // provider alone is what the old screen guessed from.
+  const sessionProvider = typeof session?.provider === "string" ? session.provider : null
+  const known = sessionProvider ? PROVIDER[sessionProvider] : undefined
   const email = typeof session?.user?.email === "string" && session.user.email ? session.user.email : null
   const rows: Connection[] =
-    connections ?? LINKABLE.map((p) => ({ provider: p, linked: false, current: false, canUnlink: false }))
+    connections ??
+    LINKABLE.map((p) => ({ provider: p, linked: false, current: false, canUnlink: false, unlinkBlockedBy: null }))
 
   return (
     <div className="relative min-h-screen w-full overflow-x-hidden bg-white font-ibm">
@@ -392,6 +425,18 @@ export function ConnectedScreen({ navigate = defaultNavigate }: { navigate?: (ur
                             +{reward} QI
                           </span>
                         ) : null}
+                        {/* Slice 4's merge can only START from a provider that is not yet
+                            linked here, so a member who was silently given a second
+                            account has no way to learn that this screen is where the two
+                            are joined. This line is unconditional for an unlinked
+                            provider: it never infers that they hold another account —
+                            owner decision 2 forbids that — it only says what linking
+                            does if they do. */}
+                        {!row.linked ? (
+                          <p className="mt-1 text-[11px] leading-4 text-v3-text-muted" data-testid={`connected-merge-hint-${row.provider}`}>
+                            เคยเข้าด้วย {meta.name} มาก่อน? เชื่อมที่นี่เพื่อรวมสองบัญชีเป็นบัญชีเดียว
+                          </p>
+                        ) : null}
                       </div>
                       {row.linked ? (
                         row.canUnlink ? (
@@ -408,7 +453,11 @@ export function ConnectedScreen({ navigate = defaultNavigate }: { navigate?: (ur
                         ) : (
                           <span
                             className="flex-none rounded-full bg-v3-grade-a-bg px-3 py-1 text-[11px] font-black text-v3-badge-green"
-                            title="เป็นวิธีเข้าสู่ระบบวิธีเดียวที่เหลืออยู่ ถอดออกไม่ได้"
+                            title={
+                              row.unlinkBlockedBy === "current-method"
+                                ? "กำลังเข้าสู่ระบบด้วยวิธีนี้ เข้าด้วยอีกวิธีก่อนจึงถอดได้"
+                                : "เป็นวิธีเข้าสู่ระบบวิธีเดียวที่เหลืออยู่ ถอดออกไม่ได้"
+                            }
                             data-testid={`connected-only-${row.provider}`}
                           >
                             ใช้อยู่

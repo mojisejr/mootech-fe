@@ -323,6 +323,44 @@ describe('unlink', () => {
     expect(f.state.rows).toHaveLength(2)
   })
 
+  it('REFUSES the method the session is signed in WITH, and removes nothing', async () => {
+    const f = await withBoth()
+    const r = await unlinkProvider(f.store, { userId: ME, provider: 'line', sessionProvider: 'line' })
+    expect(r).toEqual({ status: 'current-method' })
+    expect(f.state.rows).toHaveLength(2)
+    expect(f.state.deletes).toBe(0)
+  })
+
+  it('still allows removing the OTHER method while signed in through one', async () => {
+    // The rule must not make a two-method account impossible to reduce.
+    const f = await withBoth()
+    const r = await unlinkProvider(f.store, { userId: ME, provider: 'google', sessionProvider: 'line' })
+    expect(r).toEqual({ status: 'unlinked', removed: 1 })
+    expect(f.state.rows.map((x) => x.provider)).toEqual(['LINE'])
+  })
+
+  it('matches the session provider case-insensitively, like every other comparison here', async () => {
+    const f = await withBoth()
+    const r = await unlinkProvider(f.store, { userId: ME, provider: 'line', sessionProvider: 'LINE' })
+    expect(r).toEqual({ status: 'current-method' })
+  })
+
+  it('last-method OUTRANKS current-method when they collide', async () => {
+    // One method, signed in through it: both rules fire. The permanent refusal must
+    // be the one reported, or the member is told to sign in a way that does not exist.
+    const f = fakeStore()
+    await linkProvider(f.store, { userId: ME, provider: 'line', subject: 'U-1' })
+    const r = await unlinkProvider(f.store, { userId: ME, provider: 'line', sessionProvider: 'line' })
+    expect(r).toEqual({ status: 'last-method' })
+    expect(f.state.deletes).toBe(0)
+  })
+
+  it('an absent session provider blocks nothing, so a support path is not broken by the guard', async () => {
+    const f = await withBoth()
+    const r = await unlinkProvider(f.store, { userId: ME, provider: 'line', sessionProvider: null })
+    expect(r).toEqual({ status: 'unlinked', removed: 1 })
+  })
+
   it('reports not-linked without touching anything when the provider was never linked', async () => {
     const f = fakeStore()
     await linkProvider(f.store, { userId: ME, provider: 'line', subject: 'U-1' })

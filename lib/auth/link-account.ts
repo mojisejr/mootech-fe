@@ -128,6 +128,11 @@ export type UnlinkOutcome =
   | { status: 'unlinked'; removed: number }
   | { status: 'not-linked' }
   | { status: 'last-method' }
+  /** The member is signed in THROUGH this method right now. Removing it strands
+   *  their own session: they are still logged in, but the credential that got
+   *  them here is gone, so the next sign-in must use the other method. Recorded
+   *  as a hazard on 2026-09-25 with no guard; this is the guard. */
+  | { status: 'current-method' }
 
 /** Empty is written as '' and never as SQL NULL. Slice 1 defect 4: callers put
  *  the value straight into a cookie, so a null arrives in the UI as the literal
@@ -204,6 +209,10 @@ export async function linkProvider(
 export interface UnlinkInput {
   userId: string
   provider: LinkableProvider
+  /** The provider this session is signed in WITH, from the session and never from
+   *  the client. Optional so a caller that genuinely has no session context (a
+   *  support path, a test) is not forced to invent one. */
+  sessionProvider?: string | null
 }
 
 /**
@@ -246,6 +255,18 @@ export async function unlinkProvider(store: LinkStore, input: UnlinkInput): Prom
     )
     if (others.size === 0) return { status: 'last-method' }
 
+    // AFTER last-method, and the order is the rule rather than a preference: with one
+    // method a member is signed in through it, so both refusals fire, and answering
+    // with the recoverable one tells them to sign in a way that does not exist. The
+    // same precedence is in summariseConnections, so the button and the route cannot
+    // give a member two different reasons for the same refusal.
+    //
+    // Checked INSIDE the transaction beside the rule above, on the same rows, so a
+    // second tab cannot slip between two reads.
+    if (String(input.sessionProvider ?? '').trim().toLowerCase() === key) {
+      return { status: 'current-method' }
+    }
+
     const removed = await tx.deleteProviderRows(input.userId, key)
     return { status: 'unlinked', removed }
   })
@@ -258,6 +279,11 @@ export interface ConnectionSummary {
   current: boolean
   /** false for the last remaining method — removing it would lock the member out */
   canUnlink: boolean
+  /** Why `canUnlink` is false, because the two reasons are NOT the same sentence:
+   *  'last-method' is permanent and has no recovery, 'current-method' is a door the
+   *  member opens by signing in the other way. A screen that renders one reason for
+   *  both tells half of them something untrue. */
+  unlinkBlockedBy: 'last-method' | 'current-method' | null
 }
 
 /**
@@ -281,15 +307,28 @@ export function summariseConnections(
     rows.map((r) => r.provider.trim().toLowerCase()).filter((p) => p !== ''),
   )
   const current = String(sessionProvider ?? '').trim().toLowerCase()
-  return LINKABLE.map((provider) => ({
-    provider,
-    linked: linked.has(provider),
-    current: current === provider,
-    // The same rule unlinkProvider enforces, mirrored here so the button is
-    // disabled rather than offered and then refused. Both read the same source,
-    // so they cannot disagree about which method is the last one.
-    canUnlink: linked.has(provider) && linked.size > 1,
-  }))
+  return LINKABLE.map((provider) => {
+    const isLinked = linked.has(provider)
+    // The same two rules unlinkProvider enforces, mirrored here so a button is
+    // disabled rather than offered and then refused. Both read the same source, so
+    // they cannot disagree about the same member. Last-method is reported FIRST:
+    // it is the permanent one, and when a member has exactly one method it is also
+    // the one they are signed in with, so the weaker reason would mask it.
+    const blocked: 'last-method' | 'current-method' | null = !isLinked
+      ? null
+      : linked.size <= 1
+        ? 'last-method'
+        : current === provider
+          ? 'current-method'
+          : null
+    return {
+      provider,
+      linked: isLinked,
+      current: current === provider,
+      canUnlink: isLinked && blocked === null,
+      unlinkBlockedBy: blocked,
+    }
+  })
 }
 
 export interface MergeInput {
