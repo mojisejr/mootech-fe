@@ -14,7 +14,6 @@ import { getDayEntry, getLastEntry, putDayEntry } from "@/features/v2-service/da
 import { useActionCooldown } from "@/lib/useActionCooldown"
 import { captureShareImage } from "@/lib/v2/share-card"
 import { ShareCard, ShareStage } from "@/features/v2-share/components/ShareCard"
-import { ShareConsentNotice } from "@/features/v2-share/components/ShareConsentNotice"
 import { ResultActionBar } from "./ResultActionBar"
 import {
   LayerRow, Pyramid, buildHoneycombEngineText, type HoneycombReading,
@@ -264,7 +263,7 @@ export function PhoneReadingScreen({ initialMode = "normal" }: { initialMode?: M
   const shareLine = (narration?.trim() ? shareSummary : "").replace(/\s+/g, " ").trim().slice(0, 120)
   const shareText = `ผลวิเคราะห์${MODE[resultMode].label} เบอร์ ${shareNumber}${shareLine ? ` - ${shareLine}` : ""} จาก Mumate`
   // เปิดเผย (0033): ยินยอม → แนบคำทำนายเต็ม (narration) ให้เพื่อนอ่านได้
-  const allowPublic = true // แชร์ = เปิดเผยผลเต็มเสมอ (เอ็ม 2026-09-26; เดิม checkbox 0033) — ยินยอมผ่านการกดแชร์ (ShareConsentNotice)
+  const allowPublic = true // แชร์ = เปิดเผยผลเต็มเสมอ (เอ็ม 2026-09-26; เดิม checkbox 0033) — ยินยอมผ่านเอกสาร PDPA ตอนสมัครครั้งแรก (PdpaConsentScreen)
   const shareFullText = allowPublic && narration?.trim() ? shareSummary.slice(0, 8000) : undefined
 
   const digits = pReading ? pReading.normalized.split("") : []
@@ -436,7 +435,6 @@ export function PhoneReadingScreen({ initialMode = "normal" }: { initialMode?: M
             </div>
 
             {/* #359 รอบ 10: ปุ่ม PDF/แชร์ ดีไซน์มาตรฐาน (teal/น้ำเงิน rounded) เหมือนหน้าแชร์อื่น ๆ */}
-            <ShareConsentNotice testId="phone-share-consent" />
             <ResultActionBar shareText={shareText} shareTitle="ทำนายเบอร์มือถือ" testIdPrefix="phone" inline og={{ title: shareNumber, summary: shareSummary, tag: MODE[resultMode].label, image: "/images/v2/mascot/personas/mu/greet.png", isPublic: allowPublic, fullText: shareFullText }} getShareFile={() => captureShareImage(shareCardRef.current)} />
           </div>
         )}

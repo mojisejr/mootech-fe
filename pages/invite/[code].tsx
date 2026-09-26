@@ -19,6 +19,7 @@ import { shareSnapshot } from "@/lib/db/schema"
 import { gradeTier, TIER_INK } from "@/lib/v2/grade-scale"
 import { extractBaziShare, type BaziSharePayload } from "@/lib/v2/bazi-share"
 import { BaziShareChart } from "@/features/v2-share/components/BaziShareChart"
+import { renderBoldSegments } from "@/features/v2-share/components/BoldText"
 
 export const REFERRAL_STORAGE_KEY = 'v2:referral'
 
@@ -272,7 +273,7 @@ export default function InvitePage({ ssrCode = "", ssrInviterName = null, origin
               {/* ผลเต็ม — แสดงเฉพาะเมื่อ "ต่างจากสรุป" (ไพ่/เบอร์ตั้ง fullText = สรุป → dedup ไม่โชว์ซ้ำ เหลือ รูป+ชื่อ+สรุป
                   ตามที่เอ็มขอ 2026-09-23; ดวงธาตุ/สมพงศ์/เซียมซี ที่ fullText เป็นผลยาว → ยังโชว์ครบ) */}
               {readingFull && readingFull.trim() !== (share.d ?? "").trim() ? (
-                <p className="mt-3 whitespace-pre-line text-[14px] leading-[24px] text-v3-text-body">{readingFull}</p>
+                <p className="mt-3 whitespace-pre-line text-[14px] leading-[24px] text-v3-text-body">{renderBoldSegments(readingFull)}</p>
               ) : null}
               <p className="mt-3 text-[11px] leading-4 text-v3-text-muted">ผู้แชร์ยินยอมเปิดเผยผลนี้ · อยากรู้ดวงของคุณเองไหม? สมัครฟรีด้านล่าง</p>
             </section>

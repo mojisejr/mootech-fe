@@ -27,10 +27,10 @@ import { TopBarBell } from "@/features/v2-shell/components/TopBarBell"
 import { TopBarAvatar } from "@/features/v2-shell/components/TopBarAvatar"
 import { shareAsInvite } from "@/lib/v2/share-invite"
 import { ShareCard, ShareStage, type ShareSkill } from "@/features/v2-share/components/ShareCard"
-import { ShareConsentNotice } from "@/features/v2-share/components/ShareConsentNotice"
 import { GRADE_STEP_COLOR, type GradeStep } from "@/lib/v2/grade-scale"
 import { stemEnLabel, branchZodiacEn } from "@/lib/bazi/element-colors"
 import { encodeBaziShare, type BaziSharePayload, type BaziPillar, type BaziLuckCard, type BaziYearCard, type BaziElement } from "@/lib/v2/bazi-share"
+import { renderBoldSegments } from "@/features/v2-share/components/BoldText"
 
 // engine `element-summary` returns advice as OBJECTS ({key,label,text}), not strings — the earlier
 // `advice: string[]` typing was wrong and rendering the object as a React child crashed the whole page
@@ -631,10 +631,6 @@ function SectionHeader({
 }
 
 // engine ส่งคำทำนายมาพร้อม markdown ดิบ (**bold**) — จอนี้เป็น plain text จึงต้องถอดออก ไม่งั้นเห็น "**...**"
-function stripMd(s: string | null | undefined): string {
-  return (s ?? "").replace(/\*\*/g, "").replace(/__/g, "").trim()
-}
-
 // การ์ด "ทำนายพื้นฐาน" (collapsible): บุคลิก/นิสัย/ความรัก/การเรียน + อาชีพเด่น + ข้อควรระวัง
 type CorePersona = NonNullable<NonNullable<DestinyData["calculatedState"]>["sixtyJiaziCorePersona"]>
 function PredictionCard({ summary, prediction, cautions, occupations, corePersona, dayMasterNarrative }: { summary: ElementSummary; prediction?: Prediction | null; cautions?: string[] | null; occupations?: string[]; corePersona?: CorePersona | null; dayMasterNarrative?: string | null }) {
@@ -683,7 +679,7 @@ function PredictionCard({ summary, prediction, cautions, occupations, corePerson
               {personaParts.map((part) => (
                 <div key={part.label}>
                   <p className="text-[15px] font-bold leading-5 text-v3-navy">{part.label}</p>
-                  <p className="mt-1 text-[14px] leading-[21px] text-[#888]">{stripMd(part.text)}</p>
+                  <p className="mt-1 whitespace-pre-line text-[14px] leading-[21px] text-[#888]">{renderBoldSegments(part.text)}</p>
                 </div>
               ))}
             </div>
@@ -691,7 +687,7 @@ function PredictionCard({ summary, prediction, cautions, occupations, corePerson
           {blocks.map((b) => (
             <div key={b.title} className="rounded-[20px] bg-[#ecf0fd] p-[18px]">
               <p className="text-[18px] font-bold leading-6 text-v3-navy">{b.title}</p>
-              <p className="mt-3 text-[14px] leading-[21px] text-[#888]">{stripMd(b.text)}</p>
+              <p className="mt-3 whitespace-pre-line text-[14px] leading-[21px] text-[#888]">{renderBoldSegments(b.text)}</p>
             </div>
           ))}
           <div className="rounded-[20px] bg-[#ecf0fd] p-[18px]">
@@ -790,7 +786,7 @@ export function DestinyScreen({ previewData }: { previewData?: DestinyData } = {
   const [guard, setGuard] = useState<"not_authenticated" | "profile_incomplete" | null>(null)
   const [showDomains, setShowDomains] = useState(false)
   const [shareState, setShareState] = useState<"idle" | "done" | "capped">("idle")
-  const allowPublic = true // แชร์ = เปิดเผยผลเต็มเสมอ (เอ็ม 2026-09-26; เดิม checkbox 0033) — ยินยอมผ่านการกดแชร์ (ShareConsentNotice)
+  const allowPublic = true // แชร์ = เปิดเผยผลเต็มเสมอ (เอ็ม 2026-09-26; เดิม checkbox 0033) — ยินยอมผ่านเอกสาร PDPA ตอนสมัครครั้งแรก (PdpaConsentScreen)
 
   useEffect(() => {
     if (previewData) return
@@ -908,11 +904,15 @@ export function DestinyScreen({ previewData }: { previewData?: DestinyData } = {
           }))
       : []
     const daYun = data?.calculatedState?.daYun ?? []
+    // ไฮไลต์ช่วงปัจจุบัน: engine ไม่ได้ set isCurrent มาเสมอ → คำนวณจาก currentAge (อายุ engine ระบบเดียวกับ startAge/endAge)
+    const curAge = data?.lifeTimeline?.currentAge ?? null
+    const inRange = (s: number, e: number) => curAge != null && curAge >= s && curAge <= e
     const luckOut: BaziLuckCard[] = [...daYun].sort((a, b) => b.startAge - a.startAge).map((d) => ({
-      range: `${d.startAge}–${d.endAge}`, current: !!d.isCurrent,
+      range: `${d.startAge}–${d.endAge}`, current: !!d.isCurrent || inRange(d.startAge, d.endAge),
       phases: [d.upperPhase, d.lowerPhase].filter((ph): ph is DaYunPhase => Boolean(ph)).map((ph) => ({
         range: `${ph.startAge}–${ph.endAge}`, sym: ph.symbol, ink: inkOf(ph.symbol) ?? "#464646",
         band: ph.source === "stem" ? "ราศีบน" : "ราศีล่าง", qi: ph.twelveQiDisplay ?? undefined,
+        current: !!ph.isCurrent || inRange(ph.startAge, ph.endAge),
       })),
       stem: { ch: d.stem, ink: inkOf(d.stem) ?? "#0b305b" }, branch: { ch: d.branch, ink: inkOf(d.branch) ?? "#464646" },
     }))
@@ -1312,7 +1312,6 @@ export function DestinyScreen({ previewData }: { previewData?: DestinyData } = {
             className="fixed inset-x-0 bottom-0 z-40 mx-auto flex max-w-md flex-col gap-2 px-4 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-2"
             data-testid="destiny-share-pill"
           >
-            <ShareConsentNotice testId="destiny-share-consent" />
             <div className="flex items-center gap-2">
             <button
               onClick={shareToday}
