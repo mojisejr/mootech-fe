@@ -27,9 +27,10 @@ import { TopBarBell } from "@/features/v2-shell/components/TopBarBell"
 import { TopBarAvatar } from "@/features/v2-shell/components/TopBarAvatar"
 import { shareAsInvite } from "@/lib/v2/share-invite"
 import { ShareCard, ShareStage, type ShareSkill } from "@/features/v2-share/components/ShareCard"
-import { PublicShareToggle } from "@/features/v2-share/components/PublicShareToggle"
+import { ShareConsentNotice } from "@/features/v2-share/components/ShareConsentNotice"
 import { GRADE_STEP_COLOR, type GradeStep } from "@/lib/v2/grade-scale"
 import { stemEnLabel, branchZodiacEn } from "@/lib/bazi/element-colors"
+import { encodeBaziShare, type BaziSharePayload, type BaziPillar, type BaziLuckCard, type BaziYearCard, type BaziElement } from "@/lib/v2/bazi-share"
 
 // engine `element-summary` returns advice as OBJECTS ({key,label,text}), not strings — the earlier
 // `advice: string[]` typing was wrong and rendering the object as a React child crashed the whole page
@@ -789,7 +790,7 @@ export function DestinyScreen({ previewData }: { previewData?: DestinyData } = {
   const [guard, setGuard] = useState<"not_authenticated" | "profile_incomplete" | null>(null)
   const [showDomains, setShowDomains] = useState(false)
   const [shareState, setShareState] = useState<"idle" | "done" | "capped">("idle")
-  const [allowPublic, setAllowPublic] = useState(false) // ยินยอมเปิดเผยผลเต็ม (0033)
+  const allowPublic = true // แชร์ = เปิดเผยผลเต็มเสมอ (เอ็ม 2026-09-26; เดิม checkbox 0033) — ยินยอมผ่านการกดแชร์ (ShareConsentNotice)
 
   useEffect(() => {
     if (previewData) return
@@ -892,6 +893,50 @@ export function DestinyScreen({ previewData }: { previewData?: DestinyData } = {
     return { label: DOMAIN_TH[d.key] ?? d.key, percent: score, grade: g.grade, color: g.color, top: d.key === topKey }
   })
 
+  // ผังปาจื่อ + วัยจร/ปีจร (ทั้งตาราง) + จุดแข็ง-จุดอ่อน 5 ธาตุ สำหรับดวงที่แชร์ (เอ็ม 2026-09-26)
+  //   ค่าทุกตัว "พร้อมแสดง" (สีธาตุ/ป้าย EN คำนวณที่นี่ซึ่งมี helper ครบ) → หน้า invite เรนเดอร์ตรง ๆ
+  const baziShare: BaziSharePayload | null = (() => {
+    if (!summary) return null
+    const pillarsOut: BaziPillar[] = pillars
+      ? PILLAR_ORDER.map((key) => ({ key, p: key === "mingGong" ? mingGong : pillars[key] }))
+          .filter((e): e is { key: (typeof PILLAR_ORDER)[number]; p: { stem: string; branch: string } } => Boolean(e.p))
+          .map(({ key, p }) => ({
+            label: PILLAR_LABEL[key] ?? key,
+            stem: p.stem, stemInk: inkOf(p.stem) ?? "#0b305b", stemEn: stemEnLabel(p.stem),
+            branch: p.branch, branchInk: inkOf(p.branch) ?? "#464646", branchEn: branchZodiacEn(p.branch),
+            hidden: hiddenStemsOf(p.branch).map((h) => ({ ch: h, ink: inkOf(h) ?? "#464646" })),
+          }))
+      : []
+    const daYun = data?.calculatedState?.daYun ?? []
+    const luckOut: BaziLuckCard[] = [...daYun].sort((a, b) => b.startAge - a.startAge).map((d) => ({
+      range: `${d.startAge}–${d.endAge}`, current: !!d.isCurrent,
+      phases: [d.upperPhase, d.lowerPhase].filter((ph): ph is DaYunPhase => Boolean(ph)).map((ph) => ({
+        range: `${ph.startAge}–${ph.endAge}`, sym: ph.symbol, ink: inkOf(ph.symbol) ?? "#464646",
+        band: ph.source === "stem" ? "ราศีบน" : "ราศีล่าง", qi: ph.twelveQiDisplay ?? undefined,
+      })),
+      stem: { ch: d.stem, ink: inkOf(d.stem) ?? "#0b305b" }, branch: { ch: d.branch, ink: inkOf(d.branch) ?? "#464646" },
+    }))
+    const nowYear = new Date().getFullYear()
+    const allYears = data?.lifeTimeline?.years ?? []
+    // ทั้งตาราง แต่คุมขนาด: หน้าต่างจาก 2 ปีก่อนปัจจุบันไปข้างหน้า ~16 ปี (กัน JSON เกิน 8000)
+    const idx = allYears.findIndex((y) => y.year >= nowYear)
+    const startIdx = idx >= 0 ? Math.max(0, idx - 2) : 0
+    const yearsOut: BaziYearCard[] = allYears.slice(startIdx, startIdx + 16).map((y) => ({
+      year: y.year, be: y.year + 543,
+      stem: { ch: y.ganzhi?.[0] ?? "", ink: inkOf(y.ganzhi?.[0]) ?? "#0b305b" },
+      branch: { ch: y.ganzhi?.[1] ?? "", ink: inkOf(y.ganzhi?.[1]) ?? "#464646" },
+      qi: y.twelveQi ?? undefined, age: y.age != null ? `อายุ ${y.age} ปี` : undefined,
+      clash: !!y.clash, current: y.year === nowYear,
+    }))
+    const dmEl = CHAR_ELEMENT[summary.dayMaster?.[0] ?? ""]
+    const elementsOut: BaziElement[] = ELEMENT_ROW_ORDER.map((el) => ({
+      th: ELEMENT_TH[el] ?? el, count: analysis?.totalCounts?.[el] ?? null,
+      role: relationRole(dmEl, el), nisai: analysis?.elementNisai?.find((n) => n.element === el)?.text,
+      tint: ELEMENT_TINT[el] ?? "#f1f2f4", mascot: ELEMENT_MASCOT[el] ?? "",
+    }))
+    return { headline: `ธาตุ${summary.elementTh}${polarityOf(summary.dayMaster)}`, tagline: summary.tagline ?? undefined, pillars: pillarsOut, luck: luckOut, years: yearsOut, elements: elementsOut }
+  })()
+
   const shareToday = async () => {
     // แชร์ = ลิงก์เชิญเพื่อนของ user เอง (คนสมัคร → user ได้ QI) + แนบภาพการ์ดเฉพาะบุคคล (#6)
     // #359 รอบ 13: แชร์เป็นลิงก์ + og:image เฉพาะบุคคล (Messenger/LINE ได้ลิงก์กดได้ + พรีวิวการ์ด)
@@ -901,8 +946,14 @@ export function DestinyScreen({ previewData }: { previewData?: DestinyData } = {
       og: {
         title: shareTitle, summary: shareSummary, tag: "ดวงธาตุของฉัน", image: mascotUrl ?? undefined, skills: shareSkills,
         isPublic: allowPublic,
+        // เอ็ม 2026-09-26: แชร์เฉพาะ "บุคลิกพื้นฐาน + นิสัย" (ตัดความรัก/อาชีพ/ทำนายพิเศษออก) + แนบผังปาจื่อ/วัยจร/ปีจร/ธาตุ5
+        //   block ปาจื่อ (JSON sentinel) มาก่อนเพื่อไม่ถูก slice ตัด แล้วต่อ prose ให้รวมไม่เกิน 8000
         fullText: allowPublic
-          ? [data?.prediction?.personality, data?.prediction?.habit, data?.prediction?.love, data?.prediction?.work, ...cautionList].filter(Boolean).join("\n\n").slice(0, 8000)
+          ? (() => {
+              const prose = [data?.prediction?.personality, data?.prediction?.habit].filter(Boolean).join("\n\n")
+              const block = baziShare ? encodeBaziShare(baziShare) : ""
+              return (block ? block + "\n\n" : "") + prose.slice(0, Math.max(0, 8000 - block.length - 4))
+            })()
           : undefined,
       },
     })
@@ -1261,7 +1312,7 @@ export function DestinyScreen({ previewData }: { previewData?: DestinyData } = {
             className="fixed inset-x-0 bottom-0 z-40 mx-auto flex max-w-md flex-col gap-2 px-4 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-2"
             data-testid="destiny-share-pill"
           >
-            <PublicShareToggle checked={allowPublic} onChange={setAllowPublic} testId="destiny-allow-public" />
+            <ShareConsentNotice testId="destiny-share-consent" />
             <div className="flex items-center gap-2">
             <button
               onClick={shareToday}

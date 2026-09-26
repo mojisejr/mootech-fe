@@ -295,6 +295,7 @@ export default defineConfig({
       'scripts/api-grade.test.ts', // #334 migrated tsx-lane→vitest
       'scripts/backend-hint.test.ts', // #334 migrated tsx-lane→vitest
       'scripts/bazi-bridge.test.ts', // #334 migrated tsx-lane→vitest
+      'scripts/bazi-share.test.ts', // ดวงธาตุที่แชร์ ฝังผังปาจื่อไปกับ fullText (เอ็ม 2026-09-26)
       'scripts/birth-from-user.test.ts', // #334 migrated tsx-lane→vitest
       'scripts/calc-badges.test.ts', // #334 migrated tsx-lane→vitest
       'scripts/calc-compute-validation.test.ts', // #334 migrated tsx-lane→vitest
