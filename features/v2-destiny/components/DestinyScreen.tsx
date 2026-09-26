@@ -946,11 +946,19 @@ export function DestinyScreen({ previewData }: { previewData?: DestinyData } = {
       og: {
         title: shareTitle, summary: shareSummary, tag: "ดวงธาตุของฉัน", image: mascotUrl ?? undefined, skills: shareSkills,
         isPublic: allowPublic,
-        // เอ็ม 2026-09-26 (รอบ 3): แชร์ "บุคลิกพื้นฐาน + นิสัย" เท่านั้น — ดูของจริงแล้วตัดพารากราฟความรัก/คู่ครองออก (กลับมาเหมือนก่อน #818); คงตัด อาชีพ/ทำนายพิเศษ + ผังปาจื่อ/วัยจร/ปีจร/ธาตุ5
-        //   block ปาจื่อ (JSON sentinel) มาก่อนเพื่อไม่ถูก slice ตัด แล้วต่อ prose ให้รวมไม่เกิน 8000
+        // เอ็ม 2026-09-26 (รอบ 4): แชร์ = บุคลิกพื้นฐาน + นิสัย แต่ (ก) ตัดพารากราฟ "**ราศีบนเสาวัน (ธาตุ)** พลังงาน/อุปนิสัย"
+        //   ออกจาก habit (ซ้ำ personality) (ข) เรียงพารากราฟ "กิ่ง" (เช่น **เสาวัน 酉 ระกา**) ขึ้นก่อน "เต็มเสา" (**เสาวัน 己酉**);
+        //   คงตัด ความรัก/อาชีพ/ทำนายพิเศษ. block ปาจื่อ (JSON sentinel) มาก่อนกัน slice ตัด รวมไม่เกิน 8000
         fullText: allowPublic
           ? (() => {
-              const prose = [data?.prediction?.personality, data?.prediction?.habit].filter(Boolean).join("\n\n")
+              // พารากราฟ "กิ่ง" = **เสาวัน <อักษรจีน 1 ตัว> <ชื่อนักษัตรไทย>...** (มีช่องว่างหลังอักษรจีนตัวเดียว)
+              const isBranchPara = (p: string) => /^\*\*เสาวัน\s+[一-鿿]\s/.test(p.trim())
+              const habitParas = (data?.prediction?.habit ?? "")
+                .split(/\n{2,}/)
+                .map((p) => p.trim())
+                .filter((p) => p && !p.startsWith("**ราศีบน")) // ตัดพารากราฟ "ราศีบน (ธาตุ)"
+              const habitOrdered = [...habitParas.filter(isBranchPara), ...habitParas.filter((p) => !isBranchPara(p))].join("\n\n")
+              const prose = [data?.prediction?.personality, habitOrdered].filter((p) => p && p.trim()).join("\n\n")
               const block = baziShare ? encodeBaziShare(baziShare) : ""
               return (block ? block + "\n\n" : "") + prose.slice(0, Math.max(0, 8000 - block.length - 4))
             })()
