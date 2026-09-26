@@ -1,0 +1,266 @@
+// lib/auth/link-state.ts — the signed binding that survives a provider round trip
+// (mumate-login-identity-001 slice 3).
+//
+// WHY THIS EXISTS AT ALL. Linking a second provider cannot go through NextAuth
+// `signIn`: the session strategy is JWT with no database adapter, so a second
+// provider authorization REPLACES the session instead of attaching to it. This
+// slice therefore owns its authorization routes, and owning them means owning
+// the anti-forgery machinery NextAuth was doing for us — `state`, PKCE and an
+// OIDC `nonce`. None of it exists anywhere in this repository today. The one
+// hand-rolled OAuth callback that does exist (pages/api/instagram/callback.ts)
+// checks no state at all; it is a spike, not a model.
+//
+// WHAT IS BOUND, AND WHY EACH FIELD. The whole point is that the value coming
+// back from the provider can be tied to the exact member and request that
+// started it, without trusting anything the browser can set:
+//   u  the member's internal user_id, resolved from the SIGNED session at start.
+//      The callback never re-derives identity from a cookie the client can write
+//      (see §identity below) — it reads it from here.
+//   p  the provider, so a state minted for Google cannot be replayed at the LINE
+//      callback.
+//   v  the PKCE code_verifier. Never leaves the server; only its S256 challenge
+//      goes to the provider.
+//   n  the OIDC nonce, which must appear inside the returned id_token.
+//   r  where to send the member afterwards, validated as a same-site path so the
+//      link flow cannot be turned into an open redirect.
+//   s  a random state id, echoed to the provider and compared on return.
+//   t  issued-at, for a short TTL.
+//
+// §identity — the reason u lives in here rather than being re-read on the way
+// back. lib/v2/resolve-user.ts falls back to the `cookie-mumate-id` cookie when
+// the signed session is absent. That cookie is client-settable and not httpOnly.
+// For reads and quotas that was judged acceptable; for a request that ATTACHES A
+// NEW LOGIN CREDENTIAL to an account it is an account-takeover primitive — set
+// the cookie to someone else's id, link your own provider, own their account.
+// So the member is captured once, at start, from the signed session, and carried
+// inside an HMAC the client cannot forge.
+//
+// §the cookie is the whole security boundary, and that is deliberate. If the
+// cookie is missing the flow fails closed. That is also exactly what happens in
+// the LINE in-app browser when Google escorts the member out to an external
+// browser — a different cookie jar, no cookie, no link. Rather than paper over
+// it, the start route refuses to begin from that webview and says so (owner
+// decision 7, 2026-09-24). This module is the reason that refusal is honest:
+// there is no path here that trusts an unbound callback.
+import { createHash, createHmac, randomBytes, timingSafeEqual } from 'node:crypto'
+
+/** Cookie holding the signed binding. One per provider so two link attempts in
+ *  two tabs cannot clobber each other's verifier. */
+export function linkStateCookieName(provider: string): string {
+  return `mumate_link_${normalizeProviderKey(provider)}`
+}
+
+/** Ten minutes: long enough for a slow consent screen and a 3G redirect, short
+ *  enough that a state lifted from a shared machine is usually already dead. */
+export const LINK_STATE_TTL_MS = 10 * 60 * 1000
+
+export interface LinkStateClaims {
+  /** internal user_id captured from the signed session at start */
+  userId: string
+  /** provider key, lower-case: 'google' | 'line' */
+  provider: string
+  /** same-site path to return to */
+  returnTo: string
+}
+
+export interface IssuedLinkState {
+  /** opaque value sent to the provider as ?state= and echoed back */
+  state: string
+  /** PKCE S256 challenge sent to the provider; the verifier stays in the cookie */
+  codeChallenge: string
+  /** OIDC nonce sent to the provider; must reappear inside the id_token */
+  nonce: string
+  /** the signed blob to store in the cookie */
+  cookieValue: string
+}
+
+export interface VerifiedLinkState extends LinkStateClaims {
+  /** PKCE code_verifier to send to the token endpoint */
+  codeVerifier: string
+  /** nonce that the returned id_token must carry */
+  nonce: string
+}
+
+export type LinkStateFailure =
+  | 'missing'
+  | 'malformed'
+  | 'bad-signature'
+  | 'expired'
+  | 'state-mismatch'
+  | 'provider-mismatch'
+
+export type LinkStateResult =
+  | { ok: true; value: VerifiedLinkState }
+  | { ok: false; reason: LinkStateFailure }
+
+interface Payload {
+  s: string
+  u: string
+  p: string
+  v: string
+  n: string
+  r: string
+  t: number
+}
+
+// House convention (lib/calculator/nonce.ts): read the secret through a function
+// that THROWS when it is unset, rather than defaulting. A signing key that
+// silently falls back to a constant is worse than no signing at all, because
+// every deployment would then share it.
+function secret(): string {
+  const s = process.env.LINK_STATE_SECRET
+  if (!s) throw new Error('LINK_STATE_SECRET is not configured')
+  return s
+}
+
+function sign(payload: string): string {
+  return createHmac('sha256', secret()).update(payload).digest('base64url')
+}
+
+function b64u(input: Buffer | string): string {
+  return Buffer.from(input as never).toString('base64url')
+}
+
+/** Provider spelling is asymmetric in storage — Google is stored `google`, LINE
+ *  is stored `LINE` — so every comparison in this slice normalises both sides.
+ *  This module works in the normalised space and never writes the stored form. */
+export function normalizeProviderKey(provider: string): string {
+  return String(provider ?? '').trim().toLowerCase()
+}
+
+/** Only a same-site absolute path may be returned to. Anything else — a scheme,
+ *  a protocol-relative `//host`, a backslash that some parsers read as a slash —
+ *  would make the link flow a redirector for someone else's domain. */
+export function safeReturnTo(candidate: string | undefined | null, fallback = '/v2/settings/connected'): string {
+  const raw = typeof candidate === 'string' ? candidate.trim() : ''
+  if (!raw) return fallback
+  if (!raw.startsWith('/')) return fallback
+  if (raw.startsWith('//') || raw.startsWith('/\\')) return fallback
+  if (raw.includes('\\')) return fallback
+  // A control character can truncate a header in a careless downstream writer.
+  // eslint-disable-next-line no-control-regex
+  if (/[\u0000-\u001f\u007f]/.test(raw)) return fallback
+  return raw
+}
+
+export function issueLinkState(claims: LinkStateClaims, now: number = Date.now()): IssuedLinkState {
+  const provider = normalizeProviderKey(claims.provider)
+  if (!claims.userId) throw new Error('issueLinkState requires a userId')
+  if (!provider) throw new Error('issueLinkState requires a provider')
+
+  const state = b64u(randomBytes(32))
+  const nonce = b64u(randomBytes(32))
+  // RFC 7636 allows 43-128 characters from the unreserved set; base64url of 32
+  // random bytes is 43 and is entirely unreserved.
+  const codeVerifier = b64u(randomBytes(32))
+  const codeChallenge = createHash('sha256').update(codeVerifier).digest('base64url')
+
+  const payload: Payload = {
+    s: state,
+    u: claims.userId,
+    p: provider,
+    v: codeVerifier,
+    n: nonce,
+    r: safeReturnTo(claims.returnTo),
+    t: now,
+  }
+  const encoded = b64u(JSON.stringify(payload))
+  return { state, codeChallenge, nonce, cookieValue: `${encoded}.${sign(encoded)}` }
+}
+
+export function verifyLinkState(
+  cookieValue: string | undefined | null,
+  expected: { state: string | undefined | null; provider: string },
+  now: number = Date.now(),
+): LinkStateResult {
+  if (!cookieValue) return { ok: false, reason: 'missing' }
+
+  const dot = cookieValue.lastIndexOf('.')
+  if (dot <= 0 || dot === cookieValue.length - 1) return { ok: false, reason: 'malformed' }
+  const encoded = cookieValue.slice(0, dot)
+  const mac = cookieValue.slice(dot + 1)
+
+  // Signature BEFORE parsing: never hand attacker-controlled bytes to JSON.parse
+  // and then act on the result, even to decide an error message.
+  const want = sign(encoded)
+  if (want.length !== mac.length) return { ok: false, reason: 'bad-signature' }
+  if (!timingSafeEqual(Buffer.from(want), Buffer.from(mac))) return { ok: false, reason: 'bad-signature' }
+
+  let payload: Payload
+  try {
+    payload = JSON.parse(Buffer.from(encoded, 'base64url').toString('utf8')) as Payload
+  } catch {
+    return { ok: false, reason: 'malformed' }
+  }
+  if (
+    !payload ||
+    typeof payload.s !== 'string' ||
+    typeof payload.u !== 'string' ||
+    typeof payload.p !== 'string' ||
+    typeof payload.v !== 'string' ||
+    typeof payload.n !== 'string' ||
+    typeof payload.r !== 'string' ||
+    typeof payload.t !== 'number'
+  ) {
+    return { ok: false, reason: 'malformed' }
+  }
+
+  if (!Number.isFinite(payload.t)) return { ok: false, reason: 'malformed' }
+  if (now < payload.t || now - payload.t > LINK_STATE_TTL_MS) return { ok: false, reason: 'expired' }
+
+  // A state minted for one provider must not be spendable at another provider's
+  // callback, or a member could be talked into starting a LINE link and finishing
+  // it as a Google one.
+  if (normalizeProviderKey(expected.provider) !== payload.p) return { ok: false, reason: 'provider-mismatch' }
+
+  const got = typeof expected.state === 'string' ? expected.state : ''
+  if (got.length !== payload.s.length) return { ok: false, reason: 'state-mismatch' }
+  if (!timingSafeEqual(Buffer.from(got), Buffer.from(payload.s))) return { ok: false, reason: 'state-mismatch' }
+
+  return {
+    ok: true,
+    value: {
+      userId: payload.u,
+      provider: payload.p,
+      returnTo: safeReturnTo(payload.r),
+      codeVerifier: payload.v,
+      nonce: payload.n,
+    },
+  }
+}
+
+/** Serialise the state cookie.
+ *
+ *  SameSite MUST be Lax and must never be None. On 2026-09-22 the session cookie
+ *  was set to `None; Secure` to fix an iPad SSR case, and login broke for EVERY
+ *  provider: LINE's in-app webview and several mobile browsers block or partition
+ *  SameSite=None cookies, so the post-callback Set-Cookie was discarded and the
+ *  next page load saw nothing. Lax is correct here for the same reason it is
+ *  correct there — the provider returns via a top-level GET navigation, which Lax
+ *  allows. Secure follows the NextAuth pattern (`secure: !isDev`) rather than
+ *  being hardcoded, so plain-HTTP localhost still works.
+ */
+export function linkStateCookie(
+  provider: string,
+  value: string,
+  opts: { secure: boolean; maxAgeSeconds?: number } = { secure: true },
+): string {
+  const maxAge = opts.maxAgeSeconds ?? Math.floor(LINK_STATE_TTL_MS / 1000)
+  const parts = [
+    `${linkStateCookieName(provider)}=${value}`,
+    'Path=/',
+    'HttpOnly',
+    'SameSite=Lax',
+    `Max-Age=${maxAge}`,
+  ]
+  if (opts.secure) parts.push('Secure')
+  return parts.join('; ')
+}
+
+/** Expire the state cookie. Always sent on the way out of the callback, on both
+ *  the success and the failure path, so one state can be spent exactly once. */
+export function clearLinkStateCookie(provider: string, opts: { secure: boolean } = { secure: true }): string {
+  const parts = [`${linkStateCookieName(provider)}=`, 'Path=/', 'HttpOnly', 'SameSite=Lax', 'Max-Age=0']
+  if (opts.secure) parts.push('Secure')
+  return parts.join('; ')
+}

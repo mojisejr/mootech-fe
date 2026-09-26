@@ -84,6 +84,26 @@ export default defineConfig({
     // Same shape as the merge-conflict rule already written into design-verify.yml. Debt #212 is
     // that this list and ci.yml's skip list are two hand-synced copies of the same fact.
     include: [
+      'scripts/register-login-fe.test.ts', // mumate-login-identity slice 1 — verified session → atomic FE-native identity route
+      'scripts/register-login-fe-db.test.ts', // mumate-login-identity slice 1 — real-pg advisory-lock concurrency proof (env-gated)
+      'scripts/link-state.test.ts', // mumate-login-identity slice 3 — signed state/PKCE/nonce binding for provider linking
+      'scripts/link-providers.test.ts', // mumate-login-identity slice 3 — authorize URLs, LINE/Google flags, webview refusal
+      'scripts/link-start-route.test.ts', // mumate-login-identity slice 3 — link start route: strict identity, cookie+redirect in one response
+      'scripts/link-account.test.ts', // mumate-login-identity slice 3 — the three identity-contract cases and the last-method unlink rule
+      'scripts/link-verify.test.ts', // mumate-login-identity slice 3 — code exchange and id_token claim checks
+      'scripts/merge-survivor.test.ts', // mumate-login-identity slice 4 — who survives a merge, and every case the flow must refuse
+      'scripts/merge-identity.test.ts', // mumate-login-identity slice 4 — the merge itself over a fake transaction: one row, the right direction, nothing on a refusal
+      'scripts/merge-ticket.test.ts', // mumate-login-identity slice 4 — the signed offer that carries the proof across the member's confirmation
+      'scripts/merge-routes.test.ts', // mumate-login-identity slice 4 — preview and confirm: the body is never the proof, and an offer is spent once
+      'scripts/merge-offer-screen.test.tsx', // mumate-login-identity slice 4 — the two-press confirmation and the copy that states the cost
+      'scripts/merge-identity-db.test.ts', // mumate-login-identity slice 4 — the merge against real Postgres; skipped unless TEST_DATABASE_URL is set
+      'scripts/merge-standing-in-transaction.test.ts', // mumate-login-identity slice 4 phase 8b-fix — a pool of ONE connection: the standing read must not ask for a second
+      'scripts/link-verify-default.test.ts', // mumate-login-identity slice 3 — the REAL verifier: LINE HS256 vs Google RS256, key/alg pairing
+      'scripts/link-callback-route.test.ts', // mumate-login-identity slice 3 — callback: state before anything, cookie cleared on every exit
+      'scripts/link-connections-route.test.ts', // mumate-login-identity slice 3 — connections read, unlink route, last-method refusal
+      'scripts/connected-screen.test.tsx', // mumate-login-identity slice 3 — the screen renders real link state, not session guesswork
+      'scripts/link-account-db.test.ts', // mumate-login-identity slice 3 — real-pg: unique-violation recovery against a real index (env-gated)
+      'scripts/provider-identity-migration-db.test.ts', // mumate-login-identity slice 2 — real-pg proof of migration 0034 on a synthetic seed (env-gated)
       'scripts/v2-login-providers-retry.test.ts', // 2026-09-20 — signIn() providers-fetch retry (LINE cold-start "undefined" error fix)
       'scripts/oauth-redirect.test.ts', // 2026-09-20 — startOAuthRedirect: form POST เลี่ยง getProviders (LINE signup ยังพังหลัง #723)
       'scripts/liff-detect.test.ts', // 2026-09-20 — isLineInAppBrowser (UA) → โชว์ปุ่ม "เปิดในเบราว์เซอร์" ติดตั้ง PWA/notification

@@ -14,7 +14,7 @@
 import { eq } from 'drizzle-orm'
 import { db } from '@/lib/db'
 import { memberSubscription } from '@/lib/db/schema'
-import { bkkDateStr, type MembershipReason } from '@/lib/usage-core'
+import { bkkDateStr, classifyMembership, type MembershipReason } from '@/lib/usage-core'
 import { resolveMembership } from '@/lib/usage'
 import { parseTierCode, tierIsPaid, type TierCode } from './tier'
 
@@ -296,4 +296,107 @@ export async function resolveSubscription(
     reason: m.reason,
     expireAt: m.memberPayment?.expireAt ?? null,
   })
+}
+
+/**
+ * Has this member EVER held a paid record? (mumate-login-identity-001 slice 4)
+ *
+ * §THIS IS A DIFFERENT QUESTION FROM resolveSubscription, WHICH IS WHY IT IS A
+ * SEPARATE FUNCTION AND NOT A FLAG ON ResolvedMembership. `isPaid` answers "is this
+ * member paid RIGHT NOW", and every gate in the product wants exactly that. Slice 4
+ * needs something else: whether an account is one a member ever bought anything
+ * through, because the merge takes a login method away and the harm is losing access
+ * to the account that holds the purchases.
+ *
+ * §WHY IT LIVES HERE. It is a question about who has paid, so it belongs to the module
+ * that owns that subject. Answering it inside the merge would put a second, private
+ * notion of "paid" in the codebase, which is the shape of the divergence #525 closed
+ * and the one still tracked at #514.
+ *
+ * §HOW IT DECIDES, REUSING THIS FILE'S OWN RULES RATHER THAN INVENTING A THIRD.
+ *   1. Any member_subscription row whose tier_code would decide "paid" ON ITS OWN —
+ *      that is `decidesWithoutLegacy`, the predicate already exported here, which is
+ *      true for PLUS, PRO and an unknown code (fails closed) and false for FREE.
+ *      Deliberately NOT filtered by expire_at: an expired PRO row is the exact case
+ *      the owner asked to protect.
+ *   2. Otherwise, a member_payment row of any date. resolveMembership returns the row
+ *      it read, and `paid or expired` both count here for the same reason.
+ *
+ * §THE OWNER'S DECISION THIS IMPLEMENTS (2026-09-25). Asked whether a member whose
+ * subscription has lapsed should be protected from losing their account in a merge, he
+ * reasoned that having once subscribed means having once paid, so that account should
+ * be the one kept. This function is that sentence.
+ */
+export async function hasEverPaid(userId: string, now: Date = new Date()): Promise<boolean> {
+  const rows = await db
+    .select()
+    .from(memberSubscription)
+    .where(eq(memberSubscription.userId, userId))
+  if (toSubRows(rows).some((r) => decidesWithoutLegacy(r.tierCode))) return true
+
+  const legacy = await resolveMembership(userId, now)
+  return legacy.memberPayment !== null
+}
+
+/**
+ * The SAME two questions as resolveSubscription + hasEverPaid, answered from ROWS
+ * the caller has already read (mumate-login-identity-001 slice 4, phase 8b-fix).
+ *
+ * §WHY THIS EXISTS, AND THE BUG IT REMOVES. The merge asks "where does each side
+ * stand?" from inside a transaction that holds the application's only database
+ * connection (lib/db/index.ts, max 1). The first version asked through an injected
+ * resolver wired to the two functions above, and both of those read through the same
+ * `db` client — so the inner read queued for a connection the enclosing transaction
+ * was holding and neither could move. The transaction stayed open forever and every
+ * other request in the container queued behind it: one member pressing one button
+ * took the whole container down, reproduced twice on the shadow 2026-09-25 with no
+ * load at all. Taking ROWS instead of a userId makes that shape unreachable rather
+ * than forbidden — there is no client here to acquire a second connection with.
+ *
+ * §WHY THE RULE IS STILL NOT COPIED. Every decision below is made by a function this
+ * file already exports (or usage-core's classifyMembership, which the legacy arm has
+ * always used): the selection, the tier verdict, the legacy fall-through, the
+ * ever-paid predicate. What this function adds is the ORDER, which is the one thing
+ * resolveSubscription cannot lend out — it reads member_payment lazily on purpose,
+ * because #525's skip is load-bearing on hot v1 pages. That single shared branch is
+ * held to resolveSubscription's by a test that drives identical rows through both and
+ * asserts the same verdict; if the two ever disagree, that test fails rather than a
+ * member silently losing an account.
+ *
+ * §THE CALLER DOES THE READING, INSIDE ITS OWN TRANSACTION. See
+ * link-account-store.ts memberStanding: two narrow SELECTs on indexed columns, both
+ * on the transaction's own executor.
+ */
+export function resolveStandingFromRows(args: {
+  /** every member_subscription row of ONE member, unfiltered — the selection rule is
+   *  pickActiveSubscriptionRow's and must not be pre-applied in SQL (ตู๋ #369 B2). */
+  subscriptionRows: SubscriptionRowLike[]
+  /** that member's member_payment row, or null. user_id is its primary key, so there
+   *  is at most one. */
+  memberPaymentRow: { planCode?: string | null; expireAt?: string | null } | null
+  now?: Date
+}): { isPaid: boolean | null; everPaid: boolean } {
+  const now = args.now ?? new Date()
+  const today = bkkDateStr(now)
+  const candidates = toSubRows(args.subscriptionRows)
+  const legacyRow = args.memberPaymentRow ?? null
+
+  // resolveSubscription's own branch, in the same order and for the same reason: a
+  // live row whose tier decides outright never consults the legacy arm, and NO_LEGACY
+  // is passed only when such a row exists.
+  const live = pickActiveSubscriptionRow(candidates, today)
+  const membership =
+    live !== null && decidesWithoutLegacy(live.tierCode)
+      ? resolveMembershipFromRows(candidates, today, NO_LEGACY)
+      : resolveMembershipFromRows(candidates, today, {
+          ...classifyMembership(legacyRow, now),
+          expireAt: legacyRow?.expireAt ?? null,
+        })
+
+  // hasEverPaid's rule, unchanged: a tier that decides paid ON ITS OWN counts however
+  // long ago it expired, and otherwise the mere existence of a member_payment row does.
+  const everPaid =
+    candidates.some((r) => decidesWithoutLegacy(r.tierCode)) || legacyRow !== null
+
+  return { isPaid: membership.isPaid, everPaid }
 }

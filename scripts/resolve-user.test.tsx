@@ -20,6 +20,9 @@
 //   MG  first-run-reset handler drops the v2 preview gate                        → the gate test reddens
 //   MH  first-run-reset handler acts on an ambiguous identity (stops refusing)   → the handler-409 test reddens
 //   MI  first-run-reset forwards resolve-user's raw 409 reason to the user        → the "nothing was reset" test reddens
+//   MJ  resolveSignedSessionUserId falls back to cookie-mumate-id               → the takeover test reddens
+//   MK  resolveSignedSessionUserId accepts providerId without provider          → the half-session test reddens
+//   ML  its lookup stops matching provider case-insensitively                   → the query-shape test reddens
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 
 // Shared, inspectable state + capture buckets, declared via vi.hoisted so the (hoisted) vi.mock
@@ -52,7 +55,11 @@ vi.mock('@/pages/api/auth/[...nextauth]', () => ({ authOptions: {}, default: () 
 vi.mock('@/lib/db', () => ({ db: h.db }))
 vi.mock('@/lib/v2/gate', () => ({ isV2Authenticated: h.isV2Authenticated }))
 
-import { resolveUserFromRows, resolveSessionUserId } from '@/lib/v2/resolve-user'
+import {
+  resolveUserFromRows,
+  resolveSessionUserId,
+  resolveSignedSessionUserId,
+} from '@/lib/v2/resolve-user'
 import firstRunResetHandler from '@/pages/api/v2/first-run-reset'
 
 // The real drizzle `sql` stores its literal fragments as StringChunk.value (string[]) and its
@@ -291,5 +298,88 @@ describe('first-run-reset endpoint — behavior parity through the shared resolv
     const skels = h.captured.execute.map(sqlSkeleton)
     expect(skels.some((s) => s.includes('UPDATE "user"'))).toBe(true)
     expect(skels.some((s) => s.includes('DELETE FROM consent'))).toBe(true)
+  })
+})
+
+// 🔴 MUTANT CONTRACT — resolveSignedSessionUserId (mumate-login-identity-001 slice 3, added 0.4)
+//   MJ  resolveSignedSessionUserId falls back to cookie-mumate-id → the takeover test reddens
+//   MK  it drops the provider check and accepts providerId alone   → the half-session test reddens
+//   ML  its lookup stops matching provider case-insensitively      → the query-shape test reddens
+//
+// §WHY THIS BLOCK EXISTS. The DoD item this pins was already written down — "the link route REFUSES a
+// request authenticated only by cookie-mumate-id, proven by a test that sends a forged cookie and
+// asserts no row is written" — and an audit on 2026-09-25 found the existing spec mocked BOTH
+// resolvers and never sent a forged cookie, so it asserted which mock was called and nothing else.
+// The function that actually decides it had no test at all. It is the one function standing between a
+// client-settable cookie and "attach my login to that member's account", so it gets a test that fails
+// when it stops doing its job.
+//
+// The shape of the proof is a CONTRAST, not an assertion in isolation: the same request object goes
+// through both resolvers. The lenient one accepts it — deliberately, #391 — and the strict one must
+// refuse it. A test that only checked the strict one could pass because the request was malformed in
+// some unrelated way; this one cannot.
+describe('resolveSignedSessionUserId — the cookie that may not buy an account', () => {
+  const VICTIM = '11111111-2222-4333-8444-555555555555'
+  const forgedCookieNoSession = () =>
+    [{ cookies: { 'cookie-mumate-id': VICTIM } } as never, {} as never] as const
+
+  beforeEach(() => {
+    h.state.session = null
+    h.state.rows = []
+    h.captured.execute.length = 0
+    h.db.execute.mockClear()
+  })
+
+  it('MJ — a forged cookie with NO signed session is refused, and nothing is even looked up', async () => {
+    h.state.rows = [{ user_id: VICTIM }] // the row EXISTS; the point is that it is never reached
+    const r = await resolveSignedSessionUserId(...forgedCookieNoSession())
+    expect(r.ok).toBe(false)
+    if (!r.ok) expect(r.status).toBe(401)
+    // Not merely "refused" — it must not query at all. A fallback that queried and then discarded the
+    // answer would still be a fallback, and the next edit would return it.
+    expect(h.db.execute).not.toHaveBeenCalled()
+    expect(JSON.stringify(r)).not.toContain(VICTIM)
+  })
+
+  it('the SAME request is accepted by the lenient resolver — so MJ is not passing by accident', async () => {
+    h.state.rows = [{ user_id: VICTIM }]
+    const lenient = await resolveSessionUserId(...forgedCookieNoSession())
+    expect(lenient).toEqual({ ok: true, userId: VICTIM })
+    // Both were handed an identical request. The difference is the whole security property.
+  })
+
+  it('MK — a session carrying providerId but no provider is not a session', async () => {
+    h.state.session = { providerId: 'tok-1' }
+    const r = await resolveSignedSessionUserId(...stubReqRes())
+    expect(r.ok).toBe(false)
+    if (!r.ok) expect(r.status).toBe(401)
+    expect(h.db.execute).not.toHaveBeenCalled()
+  })
+
+  it('a real signed session resolves to its member', async () => {
+    h.state.session = { providerId: 'tok-1', provider: 'line' }
+    h.state.rows = [{ user_id: 'u-7' }]
+    const r = await resolveSignedSessionUserId(...stubReqRes())
+    expect(r).toEqual({ ok: true, userId: 'u-7' })
+  })
+
+  it('ML — the lookup reads user_provider and compares provider case-insensitively', async () => {
+    h.state.session = { providerId: 'tok-1', provider: 'line' }
+    h.state.rows = [{ user_id: 'u-7' }]
+    await resolveSignedSessionUserId(...stubReqRes())
+    const skeleton = sqlSkeleton(h.captured.execute[0])
+    expect(skeleton).toContain('FROM user_provider')
+    // LINE is stored upper-case and the session spells it lower-case; without lower() on both sides
+    // this returns zero rows and a signed-in member is told they have no account.
+    expect(skeleton).toContain('lower(provider) = lower(')
+  })
+
+  it('an ambiguous identity is refused here too, and neither id leaks', async () => {
+    h.state.session = { providerId: 'tok-1', provider: 'line' }
+    h.state.rows = [{ user_id: 'u-1' }, { user_id: 'u-2' }]
+    const r = await resolveSignedSessionUserId(...stubReqRes())
+    expect(r.ok).toBe(false)
+    if (!r.ok) expect(r.status).toBe(409)
+    expect(JSON.stringify(r)).not.toContain('u-1')
   })
 })
