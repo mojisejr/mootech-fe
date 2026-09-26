@@ -16,6 +16,9 @@ import {
 
 const ME = 'aaaaaaaa-0000-4000-8000-000000000001'
 const SOMEONE_ELSE = 'bbbbbbbb-0000-4000-8000-000000000002'
+/** The dead legacy shape: a Google ACCESS token stored as the identity (253-342 chars in production). */
+const DEAD_YA29 = `ya29.${'x'.repeat(250)}`
+const REAL_GOOGLE_SUB = '109876543210987654321' // 21 chars, a real Google `sub`
 
 interface FakeState {
   rows: ProviderRow[]
@@ -62,6 +65,11 @@ function fakeStore(init: Partial<FakeState> = {}) {
     },
     async listMemberProviders(userId) {
       return s.rows.filter((r) => r.userId === userId)
+    },
+    async listMemberIdentityShapes(userId) {
+      return s.rows
+        .filter((r) => r.userId === userId)
+        .map((r) => ({ id: r.id, provider: r.provider, identityLength: (s.subjects.get(r.id) ?? '').length }))
     },
     async deleteProviderRows(userId, provider) {
       const before = s.rows.length
@@ -205,6 +213,7 @@ describe('a concurrent writer outside our transaction', () => {
             throw conflict()
           },
           listMemberProviders: async () => [],
+          listMemberIdentityShapes: async () => [],
           deleteProviderRows: async () => 0,
         }),
     }
@@ -234,6 +243,7 @@ describe('what gets written', () => {
             captured.push(row as unknown as Record<string, unknown>)
           },
           listMemberProviders: async () => [],
+          listMemberIdentityShapes: async () => [],
           deleteProviderRows: async () => 0,
         }),
     }
@@ -255,6 +265,7 @@ describe('what gets written', () => {
             captured.push(row as unknown as Record<string, unknown>)
           },
           listMemberProviders: async () => [],
+          listMemberIdentityShapes: async () => [],
           deleteProviderRows: async () => 0,
         }),
     }
@@ -274,6 +285,7 @@ describe('what gets written', () => {
             captured.push(row as unknown as Record<string, unknown>)
           },
           listMemberProviders: async () => [],
+          listMemberIdentityShapes: async () => [],
           deleteProviderRows: async () => 0,
         }),
     }
@@ -314,10 +326,12 @@ describe('unlink', () => {
   })
 
   it('counts OTHER PROVIDERS, not rows — several rows of one provider are still one way in', async () => {
-    // The shape 1,443 members are actually in: many google rows, nothing else.
+    // The shape 1,443 members are actually in: many google rows, nothing else. The
+    // extra row is a dead legacy access token — the only way a member reaches two
+    // google rows since owner decision 22 (plan 0.8).
     const f = fakeStore()
+    await linkProvider(f.store, { userId: ME, provider: 'google', subject: DEAD_YA29 })
     await linkProvider(f.store, { userId: ME, provider: 'google', subject: 'g-1' })
-    await linkProvider(f.store, { userId: ME, provider: 'google', subject: 'g-2' })
     const r = await unlinkProvider(f.store, { userId: ME, provider: 'google' })
     expect(r).toEqual({ status: 'last-method' })
     expect(f.state.rows).toHaveLength(2)
@@ -383,5 +397,64 @@ describe('unlink', () => {
     const again = await linkProvider(f.store, { userId: ME, provider: 'google', subject: 'g-1' })
     expect(again.status).toBe('linked')
     expect(f.state.rows.every((r) => r.userId === ME)).toBe(true)
+  })
+})
+
+describe('owner decision 22 — one live identity per provider per member (plan 0.8)', () => {
+  it('REFUSES a second live Google and writes nothing', async () => {
+    const f = fakeStore()
+    await linkProvider(f.store, { userId: ME, provider: 'google', subject: REAL_GOOGLE_SUB })
+    const r = await linkProvider(f.store, { userId: ME, provider: 'google', subject: '100000000000000000002' })
+    expect(r).toEqual({ status: 'provider-already-held' })
+    expect(f.state.rows).toHaveLength(1)
+    expect(f.state.inserts).toBe(1)
+  })
+
+  it('REFUSES a second LINE the same way', async () => {
+    const f = fakeStore()
+    await linkProvider(f.store, { userId: ME, provider: 'line', subject: `U${'a'.repeat(32)}` })
+    const r = await linkProvider(f.store, { userId: ME, provider: 'line', subject: `U${'b'.repeat(32)}` })
+    expect(r).toEqual({ status: 'provider-already-held' })
+    expect(f.state.rows).toHaveLength(1)
+  })
+
+  it('a dead ya29 row does not count — the member may still attach their real Google', async () => {
+    const f = fakeStore()
+    await linkProvider(f.store, { userId: ME, provider: 'google', subject: DEAD_YA29 })
+    const r = await linkProvider(f.store, { userId: ME, provider: 'google', subject: REAL_GOOGLE_SUB })
+    expect(r.status).toBe('linked')
+    expect(f.state.rows).toHaveLength(2)
+  })
+
+  it('holding one provider never blocks the OTHER provider', async () => {
+    const f = fakeStore()
+    await linkProvider(f.store, { userId: ME, provider: 'google', subject: REAL_GOOGLE_SUB })
+    const r = await linkProvider(f.store, { userId: ME, provider: 'line', subject: `U${'a'.repeat(32)}` })
+    expect(r.status).toBe('linked')
+  })
+
+  it('the SAME identity again is still "already-linked", not a refusal', async () => {
+    const f = fakeStore()
+    await linkProvider(f.store, { userId: ME, provider: 'google', subject: REAL_GOOGLE_SUB })
+    const r = await linkProvider(f.store, { userId: ME, provider: 'google', subject: REAL_GOOGLE_SUB })
+    expect(r).toEqual({ status: 'already-linked' })
+  })
+
+  it('an identity owned by ANOTHER member is still slice 4\'s collision, not this refusal', async () => {
+    const f = fakeStore()
+    await linkProvider(f.store, { userId: ME, provider: 'google', subject: REAL_GOOGLE_SUB })
+    await linkProvider(f.store, { userId: SOMEONE_ELSE, provider: 'google', subject: '100000000000000000002' })
+    const r = await linkProvider(f.store, { userId: ME, provider: 'google', subject: '100000000000000000002' })
+    expect(r).toEqual({ status: 'owned-by-another' })
+  })
+
+  it('changing Google = unlink the old one, then link the new one', async () => {
+    const f = fakeStore()
+    await linkProvider(f.store, { userId: ME, provider: 'line', subject: `U${'a'.repeat(32)}` })
+    await linkProvider(f.store, { userId: ME, provider: 'google', subject: REAL_GOOGLE_SUB })
+    await unlinkProvider(f.store, { userId: ME, provider: 'google' })
+    const r = await linkProvider(f.store, { userId: ME, provider: 'google', subject: '100000000000000000002' })
+    expect(r.status).toBe('linked')
+    expect(f.state.rows.filter((row) => row.provider.toLowerCase() === 'google')).toHaveLength(1)
   })
 })

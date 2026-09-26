@@ -297,6 +297,24 @@ describe('outcomes reach the screen', () => {
     expect(setCookie.some((c) => c.startsWith('mumate_merge_line='))).toBe(false)
   })
 
+  it('owner decision 22: a second live identity of one provider gets its own code, and nothing is minted', async () => {
+    linkProvider.mockResolvedValue({ status: 'provider-already-held' })
+    const { issued, cookies } = goodState('google')
+    const r = await call({ provider: 'google', code: 'C', state: issued.state }, cookies)
+    expect(r.redirect).toContain('link_error=provider_already_held')
+    expect(planIdentityMerge).not.toHaveBeenCalled()
+  })
+
+  it('owner decision 22 on the merge path: the survivor already holds that provider → same code, no ticket', async () => {
+    linkProvider.mockResolvedValue({ status: 'owned-by-another' })
+    planIdentityMerge.mockResolvedValue({ status: 'provider-already-held' })
+    const { issued, cookies } = goodState('google')
+    const r = await call({ provider: 'google', code: 'C', state: issued.state }, cookies)
+    expect(r.redirect).toContain('link_error=provider_already_held')
+    const setCookie = r.headers['set-cookie'] ?? []
+    expect(setCookie.some((c) => c.startsWith('mumate_merge_google='))).toBe(false)
+  })
+
   it('a member who cancelled at the consent screen is sent back quietly', async () => {
     const { issued, cookies } = goodState('line')
     const r = await call({ provider: 'line', error: 'access_denied', state: issued.state }, cookies)

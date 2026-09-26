@@ -391,3 +391,54 @@ describe('mergeIdentity — caller mistakes', () => {
     ).rejects.toThrow(/signedInUserId/)
   })
 })
+
+describe('mergeIdentity — owner decision 22: the survivor keeps one live identity per provider (plan 0.8)', () => {
+  it('refuses to move a Google into an account that already holds a live Google, and writes nothing', async () => {
+    // The wrong-account case slice 5 exists to catch: the signed-in (paid) member already
+    // has Google A and proves Google B, which belongs to a free second account.
+    const f = fakeStore({
+      rows: [
+        { id: 'mine-line', userId: SIGNED_IN, provider: 'LINE', subject: 'U'.padEnd(33, 'e') },
+        { id: 'mine-google', userId: SIGNED_IN, provider: 'google', subject: '104000000000000000010' },
+        { id: 'their-google', userId: OTHER, provider: 'google', subject: '104000000000000000011' },
+      ],
+      paid: { [SIGNED_IN]: true, [OTHER]: false },
+    })
+
+    const outcome = await mergeIdentity(f.store, { signedInUserId: SIGNED_IN, provider: 'google', subject: '104000000000000000011' }, f.deps)
+
+    expect(outcome).toEqual({ status: 'provider-already-held' })
+    expect(f.moves).toBe(0)
+    expect(f.audit).toEqual([])
+  })
+
+  it('a dead ya29 row on the survivor does not block the move', async () => {
+    const f = fakeStore({
+      rows: [
+        { id: 'mine-line', userId: SIGNED_IN, provider: 'LINE', subject: 'U'.padEnd(33, 'f') },
+        { id: 'mine-dead', userId: SIGNED_IN, provider: 'google', subject: 'ya29-old', identityLength: 253 },
+        { id: 'their-google', userId: OTHER, provider: 'google', subject: '104000000000000000012' },
+      ],
+      paid: { [SIGNED_IN]: true, [OTHER]: false },
+    })
+
+    const outcome = await mergeIdentity(f.store, { signedInUserId: SIGNED_IN, provider: 'google', subject: '104000000000000000012' }, f.deps)
+
+    expect(outcome).toMatchObject({ status: 'merged', rowId: 'their-google', toUserId: SIGNED_IN })
+    expect(f.moves).toBe(1)
+  })
+
+  it('checks the SURVIVOR, not the signed-in side: a LINE moving into a LINE-less paid account is fine', async () => {
+    const f = fakeStore({
+      rows: [
+        { id: 'mine-line', userId: SIGNED_IN, provider: 'LINE', subject: 'U'.padEnd(33, 'g') },
+        { id: 'their-google', userId: OTHER, provider: 'google', subject: '104000000000000000013' },
+      ],
+      paid: { [SIGNED_IN]: false, [OTHER]: true },
+    })
+
+    const outcome = await mergeIdentity(f.store, { signedInUserId: SIGNED_IN, provider: 'google', subject: '104000000000000000013' }, f.deps)
+
+    expect(outcome).toMatchObject({ status: 'merged', rowId: 'mine-line', toUserId: OTHER })
+  })
+})

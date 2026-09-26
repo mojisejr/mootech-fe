@@ -123,6 +123,9 @@ export type LinkOutcome =
   | { status: 'already-linked' }
   | { status: 'owned-by-another' }
   | { status: 'member-missing' }
+  /** Owner decision 22: the member already holds a working identity of this
+   *  provider. Nothing is written; unlinking the old one first is the way to change it. */
+  | { status: 'provider-already-held' }
 
 export type UnlinkOutcome =
   | { status: 'unlinked'; removed: number }
@@ -143,6 +146,30 @@ function text(v: string | undefined | null): string {
 
 function sameId(a: string, b: string): boolean {
   return a.trim().toLowerCase() === b.trim().toLowerCase()
+}
+
+/** Owner decision 22 (plan 0.8, 2026-09-26): ONE LIVE IDENTITY PER PROVIDER PER MEMBER.
+ *  True when these shapes already hold a working identity of `provider`, not counting
+ *  `exceptRowId` (the row a merge is about to move). Dead legacy rows — the `ya29`
+ *  access tokens isDeadIdentityShape recognises — do not count: they cannot sign
+ *  anyone in, and 259 members carry one beside their real Google row.
+ *
+ *  Measured before the rule was written: one member in production holds two live
+ *  Google identities. They are left alone; this governs what is ATTACHED from now on,
+ *  by a link or by a merge, so a member who picks the wrong Google account is told so
+ *  instead of silently holding two. To change one, unlink it first. */
+export function holdsLiveIdentityOf(
+  shapes: Array<{ id: string; provider: string; identityLength: number }>,
+  provider: string,
+  exceptRowId?: string,
+): boolean {
+  const key = String(provider).trim().toLowerCase()
+  return shapes.some(
+    (s) =>
+      s.id !== exceptRowId &&
+      String(s.provider).trim().toLowerCase() === key &&
+      !isDeadIdentityShape(s.provider, s.identityLength),
+  )
 }
 
 export async function linkProvider(
@@ -175,6 +202,12 @@ export async function linkProvider(
       // a provider row pointing at nothing — that is the orphan the legacy path
       // had to grow a null-guard for.
       if (!(await tx.memberExists(input.userId))) return { status: 'member-missing' as const }
+
+      // Owner decision 22. Checked inside the same transaction and after the lock, so
+      // two tabs linking two different Google accounts cannot both pass it.
+      if (holdsLiveIdentityOf(await tx.listMemberIdentityShapes(input.userId), key)) {
+        return { status: 'provider-already-held' as const }
+      }
 
       const id = randomUUID()
       await tx.insertProviderRow({
@@ -373,6 +406,9 @@ export type MergeRefusal =
   | { status: 'identity-unknown' }
   | { status: 'member-missing' }
   | { status: 'refused'; reason: SurvivorRefusal }
+  /** Owner decision 22: the surviving account already holds a working identity of the
+   *  provider the merge would move into it. Refused rather than leave it holding two. */
+  | { status: 'provider-already-held' }
 
 export type MergePlan = MergePlanned | MergeRefusal
 
@@ -479,6 +515,13 @@ async function planWithin(
     }
     rowId = live[0]!.id
     provider = live[0]!.provider
+  }
+
+  // Owner decision 22, applied to the survivor: the moving row must not become its
+  // second working identity of one provider.
+  const survivorShapes = loserIsTheOwner ? mineShapes : theirShapes
+  if (holdsLiveIdentityOf(survivorShapes, provider, rowId)) {
+    return { status: 'provider-already-held' }
   }
 
   return {

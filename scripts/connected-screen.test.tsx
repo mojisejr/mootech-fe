@@ -406,3 +406,44 @@ describe('when the connections read fails', () => {
     expect(screen.queryByTestId('connected-unlink-line')).toBeNull()
   })
 })
+
+describe('slice 5 (plan 0.8) — one live identity per provider, and a way out for members holding both', () => {
+  it('explains provider_already_held as a wrong-account pick with the way to change it (D10)', async () => {
+    window.history.replaceState({}, '', '/v2/settings/connected?link_error=provider_already_held')
+    await mount()
+    const notice = await screen.findByTestId('connected-notice')
+    expect(notice.textContent ?? '').toContain('อาจเลือกบัญชีผิด')
+    expect(notice.textContent ?? '').toContain('ยกเลิกการเชื่อม')
+    expect(notice.textContent ?? '').not.toMatch(/@|[0-9a-f]{8}-/)
+  })
+
+  it('a member holding EVERY provider sees how to reach the team (D6, owner decision 19)', async () => {
+    world.connections = [
+      conn({ provider: 'line', linked: true, current: true, canUnlink: false }),
+      conn({ provider: 'google', linked: true, canUnlink: true }),
+    ]
+    await mount()
+    const help = await screen.findByTestId('connected-all-linked-help')
+    expect(help.textContent ?? '').toContain('ทักทีมงาน')
+    expect(help.querySelector('a')?.getAttribute('href')).toBe('https://lin.ee/mumate')
+  })
+
+  it('never shows it while a provider is still unlinked — the link button is the way there', async () => {
+    await mount()
+    expect(screen.queryByTestId('connected-all-linked-help')).toBeNull()
+  })
+
+  it('never shows it before the real connections have loaded', async () => {
+    world.connections = [
+      conn({ provider: 'line', linked: true }),
+      conn({ provider: 'google', linked: true }),
+    ]
+    const real = installFetch()
+    vi.stubGlobal('fetch', vi.fn((input: RequestInfo | URL, init?: RequestInit) =>
+      String(input) === '/api/auth/link/connections' ? new Promise(() => {}) : real(input, init),
+    ))
+    render(<ConnectedScreen navigate={vi.fn()} />)
+    await screen.findByTestId('connected-backup')
+    expect(screen.queryByTestId('connected-all-linked-help')).toBeNull()
+  })
+})

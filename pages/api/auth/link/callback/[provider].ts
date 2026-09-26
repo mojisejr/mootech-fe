@@ -172,7 +172,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           // code from `owned_by_another` so the screen can say "this needs a person"
           // instead of "this cannot be linked", and owner decision 9 makes support
           // the answer for everything this flow declines.
-          const code = plan.status === 'refused' ? 'merge_refused' : 'owned_by_another'
+          const code =
+            plan.status === 'refused'
+              ? 'merge_refused'
+              : plan.status === 'provider-already-held'
+                ? 'provider_already_held'
+                : 'owned_by_another'
           return finish(res, provider, returnTo, { link_error: code })
         }
 
@@ -192,6 +197,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       }
       case 'member-missing':
         return finish(res, provider, returnTo, { link_error: 'member_missing' })
+      case 'provider-already-held':
+        // Owner decision 22. Neutral like slice 3: it names no other account.
+        return finish(res, provider, returnTo, { link_error: 'provider_already_held' })
     }
   } catch {
     // The stage event above contains all the operational detail this callback is
