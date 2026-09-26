@@ -281,6 +281,30 @@ export function ManifestScreen({ previewData }: { previewData?: ManifestPreview 
     }).catch(() => {})
   }
 
+  // เพิ่ม/เปลี่ยนรูปของ goal ที่มีอยู่ (เอ็ม/เทสเตอร์ 2026-09-26: เดิมใส่รูปได้แค่ตอนสร้าง) —
+  //   ย่อรูป → อัปโหลด (/manifest/photo) → PATCH goal.imageUrl → โหลดใหม่. engine PATCH รับ imageUrl อยู่แล้ว.
+  const [photoBusyId, setPhotoBusyId] = useState<string | null>(null)
+  const [err, setErr] = useState<string | null>(null)
+  const changePhoto = async (id: string, file: File) => {
+    if (!/^image\/(jpeg|png)$/i.test(file.type)) { setErr("รองรับเฉพาะไฟล์ .jpg / .png เท่านั้น"); return }
+    setPhotoBusyId(id); setErr(null)
+    try {
+      const { dataUrl, mime } = await resizeImage(file)
+      const up = await fetch("/api/v2/manifest/photo", {
+        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ imageBase64: dataUrl, mime }),
+      })
+      const uj = (await up.json().catch(() => ({}))) as { url?: string; error?: string; code?: string }
+      if (!up.ok || !uj.url) { setErr(up.status === 401 ? "กรุณาเข้าสู่ระบบก่อน" : `อัปโหลดไม่สำเร็จ (${up.status}${uj.error || uj.code ? `: ${uj.error ?? uj.code}` : ""})`); return }
+      const pr = await fetch("/api/v2/manifest/goals", {
+        method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id, imageUrl: uj.url }),
+      })
+      if (!pr.ok) { setErr("บันทึกรูปไม่สำเร็จ"); return }
+      await load()
+    } catch (e) {
+      setErr(`อ่าน/ย่อรูปไม่สำเร็จ${e instanceof Error ? `: ${e.message}` : ""}`)
+    } finally { setPhotoBusyId(null) }
+  }
+
   return (
     <div className="font-ibm min-h-[100dvh] w-full bg-v3-ghost-white">
       <Head><title>สมุดแมนิเฟสต์ · MuMate</title></Head>
@@ -338,6 +362,16 @@ export function ManifestScreen({ previewData }: { previewData?: ManifestPreview 
                       </div>
                     </Link>
                     <button type="button" onClick={() => setConfirmDeleteId(g.id)} aria-label="ลบความปรารถนา" data-testid="manifest-delete" className="absolute bottom-3 right-3 text-[12px] text-v3-text-muted">ลบ</button>
+                    {/* เปลี่ยน/เพิ่มรูป — overlay มุมขวาบนของรูป (นอก Link ไม่ให้กดแล้วเด้งเข้าหน้าอ่าน) */}
+                    <label className="absolute right-2 top-2 flex cursor-pointer items-center gap-1 rounded-full bg-black/55 px-2.5 py-1 text-[11px] font-bold text-white backdrop-blur-sm" data-testid="manifest-change-photo">
+                      <input type="file" accept="image/jpeg,image/png" className="hidden" disabled={photoBusyId === g.id} onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ""; if (f) void changePhoto(g.id, f) }} />
+                      {photoBusyId === g.id ? "กำลังอัปโหลด…" : (
+                        <>
+                          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" /><circle cx="12" cy="13" r="4" /></svg>
+                          {g.imageUrl ? "เปลี่ยนรูป" : "เพิ่มรูป"}
+                        </>
+                      )}
+                    </label>
                   </article>
                 ))}
               </div>
@@ -346,6 +380,8 @@ export function ManifestScreen({ previewData }: { previewData?: ManifestPreview 
               ) : <p className="mt-3 text-center text-[12px] text-white/80">เขียนครบ {MAX_GOALS} ข้อแล้ว โฟกัสให้สำเร็จก่อนนะ</p>}
             </section>
           )}
+
+          {err ? <p className="text-center text-[12px] font-bold text-v3-error" data-testid="manifest-photo-err">{err}</p> : null}
 
           {/* การ์ดธาตุประจำเดือน */}
           {!loading && <ElementInsightCard element={element} />}
