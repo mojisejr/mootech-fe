@@ -17,7 +17,6 @@ import { useHasMounted } from "@/lib/hooks/use-has-mounted"
 import { useLoadingTimeout } from "@/lib/hooks/use-loading-timeout"
 import { AuthRequiredCard } from "@/features/auth/components/AuthRequiredCard"
 import { shareAsInvite } from "@/lib/v2/share-invite"
-import { ShareConsentNotice } from "@/features/v2-share/components/ShareConsentNotice"
 import { ShareCard, ShareStage } from "@/features/v2-share/components/ShareCard"
 
 export const getServerSideProps: GetServerSideProps = async (ctx) => {
@@ -86,7 +85,7 @@ export default function FortuneSagePage() {
   const [redeemMsg, setRedeemMsg] = useState<string | null>(null)
   // แชร์ = รับ +10 QI วันละ 1 ครั้ง — อ่านผลจริงเพื่อบอกให้ตรง (ได้/เต็มโควตาแล้ว)
   const [shareState, setShareState] = useState<"idle" | "done" | "capped">("idle")
-  const allowPublic = true // แชร์ = เปิดเผยผลเต็มเสมอ (เอ็ม 2026-09-26; เดิม checkbox 0033) — ยินยอมผ่านการกดแชร์ (ShareConsentNotice)
+  const allowPublic = true // แชร์ = เปิดเผยผลเต็มเสมอ (เอ็ม 2026-09-26; เดิม checkbox 0033) — ยินยอมผ่านเอกสาร PDPA ตอนสมัครครั้งแรก (PdpaConsentScreen)
   const redeemAndRetry = async () => {
     setRedeeming(true)
     setRedeemMsg(null)
@@ -292,7 +291,6 @@ export default function FortuneSagePage() {
           ))}
 
           <div className="mt-1 flex flex-col gap-2">
-            <ShareConsentNotice testId="sage-share-consent" />
             <KitButton onClick={share} testId="sage-share">
               <span className="inline-flex items-center gap-2">
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="18" cy="5" r="3" /><circle cx="6" cy="12" r="3" /><circle cx="18" cy="19" r="3" /><path d="m8.6 13.5 6.8 4M15.4 6.5l-6.8 4" /></svg>

@@ -15,7 +15,7 @@ export type BaziPillar = {
   branchEn: string // "rooster"
   hidden: BaziGlyph[] // ไส้แฝง 藏干
 }
-export type BaziLuckPhase = { range: string; sym: string; ink: string; band: string; qi?: string } // band = "ราศีบน"/"ราศีล่าง"
+export type BaziLuckPhase = { range: string; sym: string; ink: string; band: string; qi?: string; current?: boolean } // band = "ราศีบน"/"ราศีล่าง"
 export type BaziLuckCard = {
   range: string // "43–52"
   current: boolean

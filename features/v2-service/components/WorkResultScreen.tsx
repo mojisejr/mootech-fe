@@ -36,7 +36,6 @@ import { CHART_ELEMENT_SOFT, CHART_PILL_INK, readChartTable, type ChartTable } f
 import { formatCompatBirth } from './compat-format'
 import { captureShareImage } from '@/lib/v2/share-card'
 import { ShareCard, ShareStage } from '@/features/v2-share/components/ShareCard'
-import { ShareConsentNotice } from '@/features/v2-share/components/ShareConsentNotice'
 import { AdvancedUpsellModal } from '@/features/v2-shell/components/AdvancedUpsellModal'
 import { useV2Tier } from '@/features/auth/hooks/useV2Tier'
 
@@ -276,7 +275,7 @@ export function WorkResultScreen({ matchingId }: { matchingId: string }) {
   // Figma 720:32490: toggle base สีเทา = ปิดเป็นค่าเริ่มต้น; เปิดแล้วโชว์ตารางดวงจีน
   const [advanced, setAdvanced] = useState(false)
   const [upsell, setUpsell] = useState(false) // #359: popup ชวนอัปเกรดเมื่อ free กดโหมดแอดวานซ์
-  const allowPublic = true // แชร์ = เปิดเผยผลเต็มเสมอ (เอ็ม 2026-09-26; เดิม checkbox 0033) — ยินยอมผ่านการกดแชร์ (ShareConsentNotice)
+  const allowPublic = true // แชร์ = เปิดเผยผลเต็มเสมอ (เอ็ม 2026-09-26; เดิม checkbox 0033) — ยินยอมผ่านเอกสาร PDPA ตอนสมัครครั้งแรก (PdpaConsentScreen)
   const { isPaid } = useV2Tier() // hook ต้องอยู่ก่อน early return (rules-of-hooks)
   const onAdvancedToggle = () => { if (isPaid === false) { setUpsell(true); return } setAdvanced((v) => !v) }
   const shareCardRef = useRef<HTMLDivElement>(null) // #359 (A7): การ์ดแชร์เฉพาะบุคคล
@@ -494,7 +493,7 @@ export function WorkResultScreen({ matchingId }: { matchingId: string }) {
       </p>
 
       {/* #359 รอบ 10: ปุ่ม PDF/แชร์ ลอยล่าง ดีไซน์เดียวกับหน้าคู่รัก (ResultActionBar มาตรฐาน) — toggle ยินยอมอยู่ในกรอบลอยเดียวกัน (aboveSlot) ให้เห็นติดปุ่มแชร์ */}
-      <ResultActionBar shareText={`ผลดวงสมพงศ์เพื่อนร่วมงานของฉัน${topEntry.ratingText?.trim() ? ` - ${topEntry.ratingText.replace(/\s+/g, " ").trim().slice(0, 120)}` : ""} จาก Mumate`} testIdPrefix="work" og={{ title: shareTitle, subtitle: shareSubtitle, summary: shareSummary, tag: "ผลความสมพงศ์", image: shareImages.slice(0, 2).join(","), isPublic: allowPublic, fullText }} getShareFile={() => captureShareImage(shareCardRef.current)} aboveSlot={<ShareConsentNotice testId="work-share-consent" />} />
+      <ResultActionBar shareText={`ผลดวงสมพงศ์เพื่อนร่วมงานของฉัน${topEntry.ratingText?.trim() ? ` - ${topEntry.ratingText.replace(/\s+/g, " ").trim().slice(0, 120)}` : ""} จาก Mumate`} testIdPrefix="work" og={{ title: shareTitle, subtitle: shareSubtitle, summary: shareSummary, tag: "ผลความสมพงศ์", image: shareImages.slice(0, 2).join(","), isPublic: allowPublic, fullText }} getShareFile={() => captureShareImage(shareCardRef.current)} />
 
       {/* #359 (A7): การ์ดแชร์เฉพาะบุคคล (ซ่อนนอกจอ) — คู่ที่เข้ากับคุณที่สุด */}
       <ShareStage>

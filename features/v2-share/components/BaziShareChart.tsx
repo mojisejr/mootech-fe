@@ -65,7 +65,7 @@ export function BaziShareChart({ bazi }: { bazi: BaziSharePayload }) {
                     {d.phases?.length ? (
                       <div className="mt-1 flex w-full flex-col gap-1">
                         {d.phases.map((ph, j) => (
-                          <div key={j} className="flex flex-col items-center rounded-[8px] py-1">
+                          <div key={j} className={'flex flex-col items-center rounded-[8px] py-1 ' + (ph.current ? 'bg-v3-sapphire/10' : '')}>
                             <span className="text-[8px] leading-tight text-v3-text-muted">{ph.range}</span>
                             <Glyph g={{ ch: ph.sym, ink: ph.ink }} />
                             <span className="text-[8px] leading-tight text-v3-text-muted">{ph.band}</span>
