@@ -31,6 +31,8 @@ import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/re
 
 const useSession = vi.fn()
 vi.mock('next-auth/react', () => ({ useSession: () => useSession() }))
+const currentUser = vi.fn(() => ({ status: 'authed' }))
+vi.mock('@/lib/auth/use-current-user', () => ({ useCurrentUser: () => currentUser() }))
 
 import { ConnectedScreen, defaultNavigate } from '@/features/v2-account/components/ConnectedScreen'
 
@@ -445,5 +447,49 @@ describe('slice 5 (plan 0.8) — one live identity per provider, and a way out f
     render(<ConnectedScreen navigate={vi.fn()} />)
     await screen.findByTestId('connected-backup')
     expect(screen.queryByTestId('connected-all-linked-help')).toBeNull()
+  })
+})
+
+describe('owner decision 23 — the profile is read again when MEMBER_ID arrives late (the belt)', () => {
+  it('a 401 followed by the member cookie arriving → reads once more and the card goes away', async () => {
+    let profileCalls = 0
+    const real = installFetch()
+    vi.stubGlobal('fetch', vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
+      if (String(input) === '/api/profile') {
+        profileCalls += 1
+        return Promise.resolve(
+          profileCalls === 1
+            ? { ok: false, status: 401, json: async () => ({ code: 'not_authenticated' }) }
+            : { ok: true, status: 200, json: async () => ({ profile: { displayName: 'นนทศักดิ์' } }) },
+        )
+      }
+      return real(input, init)
+    }))
+    currentUser.mockReturnValue({ status: 'loading' })
+    const view = render(<ConnectedScreen navigate={vi.fn()} />)
+    await screen.findByTestId('profile-gate-auth')
+
+    currentUser.mockReturnValue({ status: 'authed' })
+    view.rerender(<ConnectedScreen navigate={vi.fn()} />)
+    await waitFor(() => expect(screen.queryByTestId('profile-gate-auth')).toBeNull())
+    expect(profileCalls).toBe(2)
+  })
+
+  it('reads again at most once — a member who really is signed out keeps the card', async () => {
+    let profileCalls = 0
+    const real = installFetch()
+    vi.stubGlobal('fetch', vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
+      if (String(input) === '/api/profile') {
+        profileCalls += 1
+        return Promise.resolve({ ok: false, status: 401, json: async () => ({}) })
+      }
+      return real(input, init)
+    }))
+    currentUser.mockReturnValue({ status: 'authed' })
+    render(<ConnectedScreen navigate={vi.fn()} />)
+    await screen.findByTestId('profile-gate-auth')
+    await new Promise((r) => setTimeout(r, 50))
+    expect(profileCalls).toBe(2)
+    expect(screen.getByTestId('profile-gate-auth')).toBeTruthy()
   })
 })

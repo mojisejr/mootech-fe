@@ -106,6 +106,8 @@ export default defineConfig({
       'scripts/identity-status-route.test.ts', // mumate-login-identity slice 5 — strict resolution, switch off never asks, no user_id disclosed
       'scripts/self-heal-ask.test.ts', // mumate-login-identity slice 5 — the only creating path asks first; every failure falls back to today
       'scripts/identity-choice-screen.test.tsx', // mumate-login-identity slice 5 — /v2/welcome-back: yes proves with the other provider, no dead end
+      'scripts/identity-yes-seam.test.tsx', // mumate-login-identity slice 5, owner decision 23 — the owner's walk as a test: real screens, cookie jar, /api/profile's real rule
+      'scripts/held-identity.test.ts', // mumate-login-identity slice 5, owner decision 23 — the held identity, hold (unowned only) and attach (strict, spent once)
       'scripts/link-account-db.test.ts', // mumate-login-identity slice 3 — real-pg: unique-violation recovery against a real index (env-gated)
       'scripts/provider-identity-migration-db.test.ts', // mumate-login-identity slice 2 — real-pg proof of migration 0034 on a synthetic seed (env-gated)
       'scripts/v2-login-providers-retry.test.ts', // 2026-09-20 — signIn() providers-fetch retry (LINE cold-start "undefined" error fix)

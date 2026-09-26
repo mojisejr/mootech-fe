@@ -4,11 +4,14 @@
 // is on. Three states, all read from /api/auth/identity-status on mount:
 //
 //   ask          "have you used MuMate with <other> before?"
-//                  yes → sign in with <other>, come back here with ?proof=<this provider>
+//                  yes → HOLD this identity server-side (owner decision 23), sign in with
+//                        <other>, come back here with ?proof=<this provider>
 //                  no  → remember "create new" for this identity (this tab) → /v2, where
 //                        the self-heal creates the account exactly as it always has
-//   proof        ?proof=<p> and the session now HAS an owner → attach <p> to it through
-//                  slice 3's link flow (the only way this slice writes anything)
+//   proof        ?proof=<p> and the session now HAS an owner → mint MEMBER_ID for it FIRST
+//                  (the connected screen reads nothing else), then attach the held <p>
+//                  through linkProvider. No hold (expired, blocked cookie) → slice 3's link
+//                  start route, i.e. one more provider screen but the same outcome.
 //   proof-failed ?proof=<p> but the identity signed in with is ALSO unowned → say so;
 //                  try again, or create the account with this identity (owner decision 18:
 //                  no dead end; a wrong choice is repaired later by slice 4's merge)
@@ -18,6 +21,7 @@ import Head from 'next/head'
 import { useRouter } from 'next/router'
 import { useSession } from 'next-auth/react'
 import { useEffect, useState } from 'react'
+import { useCookies } from 'react-cookie'
 import { FullBleedScreen } from '@/features/v2-shell/components/FullBleedScreen'
 import { LineButton } from './LineButton'
 import { GoogleButton } from './GoogleButton'
@@ -30,7 +34,8 @@ import {
   rememberCreateNew,
   type AskableProvider,
 } from '@/lib/auth/ask-before-create'
-import { buildRegisterParamsFromSession } from '@/lib/auth/register-params'
+import { buildRegisterParamsFromSession, type RegisterParams } from '@/lib/auth/register-params'
+import { mintMemberIdentity, type MintOutcome, type SetMemberCookie } from '@/lib/auth/mint-member'
 import { startOAuthRedirect } from '@/lib/auth/oauth-redirect'
 import { isLineInAppBrowser, openInExternalBrowser } from '@/lib/line/liff'
 import { CookieKey } from '@/constants/cookie-key'
@@ -51,9 +56,42 @@ export interface IdentityChoiceDeps {
   openExternal: (url: string) => void
   storage: () => Storage | null
   fetchStatus: typeof fetchIdentityStatus
+  /** POST /api/auth/identity-hold. Best effort: false just means the fallback path. */
+  hold: () => Promise<boolean>
+  /** POST /api/auth/identity-attach */
+  attach: () => Promise<AttachResult>
+  mint: (params: RegisterParams, setCookie: SetMemberCookie) => Promise<MintOutcome>
 }
 
-const defaultDeps: IdentityChoiceDeps = {
+export type AttachResult =
+  | { ok: true; linked: AskableProvider; already?: boolean }
+  | { ok: false; error: string }
+
+async function postJson(url: string): Promise<{ status: number; body: any }> {
+  const r = await fetch(url, { method: 'POST', credentials: 'same-origin', cache: 'no-store' })
+  let body: any = null
+  try {
+    body = await r.json()
+  } catch {
+    body = null
+  }
+  return { status: r.status, body }
+}
+
+/** Where the connected screen reports an attach, in the same words as the link callback. */
+export function connectedResultUrl(result: AttachResult): string {
+  const q = new URLSearchParams()
+  if (result.ok) {
+    q.set('linked', result.linked)
+    if (result.already) q.set('already', '1')
+  } else {
+    q.set('link_error', result.error)
+  }
+  return `/v2/settings/connected?${q.toString()}`
+}
+
+/** Exported so a seam test can run the real hold/attach/mint with only the browser edges replaced. */
+export const defaultIdentityChoiceDeps: IdentityChoiceDeps = {
   navigate: (url) => window.location.assign(url),
   startOAuth: (provider, callbackUrl) => {
     // Same analytics cookie useV2Login sets, so the login method is reported truthfully.
@@ -72,6 +110,24 @@ const defaultDeps: IdentityChoiceDeps = {
     }
   },
   fetchStatus: fetchIdentityStatus,
+  hold: async () => {
+    try {
+      return (await postJson('/api/auth/identity-hold')).status === 200
+    } catch {
+      return false
+    }
+  },
+  attach: async () => {
+    try {
+      const { body } = await postJson('/api/auth/identity-attach')
+      const linked = asAskableProvider(body?.linked ?? null)
+      if (body?.ok === true && linked) return { ok: true, linked, already: body.already === true }
+      return { ok: false, error: typeof body?.error === 'string' ? body.error : 'link_failed' }
+    } catch {
+      return { ok: false, error: 'link_failed' }
+    }
+  },
+  mint: mintMemberIdentity,
 }
 
 function GlyphFor({ provider }: { provider: AskableProvider }) {
@@ -80,11 +136,12 @@ function GlyphFor({ provider }: { provider: AskableProvider }) {
   return <img src={`/images/v2/onboarding/${provider}.svg`} alt="" width={20} height={20} className="size-5" />
 }
 
-export function IdentityChoiceScreen({ deps = defaultDeps }: { deps?: IdentityChoiceDeps }) {
+export function IdentityChoiceScreen({ deps = defaultIdentityChoiceDeps }: { deps?: IdentityChoiceDeps }) {
   const router = useRouter()
   const { data: session, status: sessionStatus } = useSession()
   const [view, setView] = useState<View>({ kind: 'loading' })
   const [busy, setBusy] = useState(false)
+  const [, setCookie] = useCookies()
   const proof = asAskableProvider(typeof router.query.proof === 'string' ? router.query.proof : null)
 
   useEffect(() => {
@@ -96,8 +153,27 @@ export function IdentityChoiceScreen({ deps = defaultDeps }: { deps?: IdentityCh
       // Anything we cannot read, or a signed-out visitor: this page has nothing to ask.
       if (!status || !status.signedIn || !status.provider) return deps.navigate('/v2')
       if (status.known === true) {
-        // proof succeeded → attach the identity they started with; otherwise nothing to ask
-        return deps.navigate(proof ? linkStartUrl(proof) : '/v2')
+        if (!proof) return deps.navigate('/v2')
+        // Proof succeeded. Fix A: mint MEMBER_ID for the proven account BEFORE anything
+        // reads it. A failed mint does not stop the attach — the session is valid, and
+        // the self-heal and the connected screen's re-read remain the fallback.
+        const params = buildRegisterParamsFromSession(session)
+        if (params) {
+          try {
+            await deps.mint(params, setCookie as unknown as SetMemberCookie)
+          } catch {
+            /* fall through to the attach */
+          }
+        }
+        if (cancelled) return
+        const result = await deps.attach()
+        if (cancelled) return
+        // No hold to spend (expired, blocked, or a hold that failed earlier): the link
+        // flow's own round trip reaches the same outcome with one more provider screen.
+        if (!result.ok && (result.error === 'no_hold' || result.error === 'link_failed')) {
+          return deps.navigate(linkStartUrl(proof))
+        }
+        return deps.navigate(connectedResultUrl(result))
       }
       if (status.known === false) {
         setView({ kind: proof ? 'proof-failed' : 'ask', current: status.provider })
@@ -111,10 +187,14 @@ export function IdentityChoiceScreen({ deps = defaultDeps }: { deps?: IdentityCh
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [router.isReady, sessionStatus, proof])
 
-  const proveWith = (provider: AskableProvider, returnTo: AskableProvider) => {
+  const proveWith = async (provider: AskableProvider, returnTo: AskableProvider) => {
     // Google refuses to sign in inside LINE's in-app browser (disallowed_useragent).
     if (provider === 'google' && deps.inLineApp()) return setView({ kind: 'google-in-line' })
     setBusy(true)
+    // Owner decision 23: hold this identity so the member is not sent through its
+    // provider a second time. Only in the ask state — on a retry after a failed proof the
+    // session is the OTHER identity, and the original hold (if any) is still the one to spend.
+    if (view.kind === 'ask') await deps.hold()
     deps.startOAuth(provider, WELCOME_BACK_CALLBACK(returnTo))
   }
 
@@ -145,7 +225,7 @@ export function IdentityChoiceScreen({ deps = defaultDeps }: { deps?: IdentityCh
           <AskView
             current={view.current}
             busy={busy}
-            onYes={() => proveWith(otherProvider(view.current), view.current)}
+            onYes={() => void proveWith(otherProvider(view.current), view.current)}
             onNo={createNew}
           />
         ) : null}
@@ -164,7 +244,7 @@ export function IdentityChoiceScreen({ deps = defaultDeps }: { deps?: IdentityCh
               <ProviderButton
                 provider={view.current}
                 disabled={busy}
-                onClick={() => proveWith(view.current, proof ?? otherProvider(view.current))}
+                onClick={() => void proveWith(view.current, proof ?? otherProvider(view.current))}
                 testId="identity-choice-retry"
               >
                 ลองอีกครั้งด้วย {PROVIDER_LABEL[view.current]}

@@ -15,6 +15,9 @@ const { routerState, sessionState } = vi.hoisted(() => ({
 }))
 
 vi.mock('next/router', () => ({ useRouter: () => routerState }))
+vi.mock('next/config', () => ({ default: () => ({ publicRuntimeConfig: {}, serverRuntimeConfig: {} }) }))
+const setCookieMock = vi.fn()
+vi.mock('react-cookie', () => ({ useCookies: () => [{}, setCookieMock, vi.fn()] }))
 vi.mock('next-auth/react', () => ({ useSession: () => ({ data: sessionState.data, status: 'authenticated' }) }))
 vi.mock('next/head', () => ({ default: ({ children }: { children: React.ReactNode }) => <>{children}</> }))
 vi.mock('@/features/v2-shell/components/FullBleedScreen', () => ({
@@ -32,6 +35,9 @@ function deps(status: IdentityStatus | null, over: Partial<IdentityChoiceDeps> =
     openExternal: vi.fn(),
     storage: () => window.sessionStorage,
     fetchStatus: vi.fn(async () => status),
+    hold: vi.fn(async () => true),
+    attach: vi.fn(async () => ({ ok: true as const, linked: 'google' as const })),
+    mint: vi.fn(async () => ({ status: 'minted' as const, userId: 'u-a' })),
     ...over,
   }
   return d as typeof d & IdentityChoiceDeps
@@ -59,7 +65,10 @@ describe('ask', () => {
     const d = deps(UNOWNED_GOOGLE)
     render(<IdentityChoiceScreen deps={d} />)
     fireEvent.click(await screen.findByTestId('identity-choice-yes'))
-    expect(d.startOAuth).toHaveBeenCalledWith('line', '/v2/welcome-back?proof=google')
+    await waitFor(() => expect(d.startOAuth).toHaveBeenCalledWith('line', '/v2/welcome-back?proof=google'))
+    // Fix C: the identity is held BEFORE the member leaves for the other provider
+    expect(d.hold).toHaveBeenCalledTimes(1)
+    expect(d.hold.mock.invocationCallOrder[0]).toBeLessThan(d.startOAuth.mock.invocationCallOrder[0])
   })
 
   it('"no" remembers create-new for THIS identity and goes where the self-heal creates it (D4)', async () => {
@@ -91,13 +100,54 @@ describe('ask', () => {
 })
 
 describe('after the proof', () => {
-  it('known after proof → link start for the ORIGINAL provider (D3)', async () => {
+  const PROVEN_LINE = { signedIn: true, known: true, ask: false, provider: 'line' as const }
+  const provenSession = () => {
     routerState.query = { proof: 'google' }
-    const d = deps({ signedIn: true, known: true, ask: false, provider: 'line' })
+    sessionState.data = { provider: 'line', providerId: 'U'.padEnd(33, 'c'), lineProfile: { sub: 'U'.padEnd(33, 'c') }, user: {} }
+  }
+
+  it('Fix A: mints MEMBER_ID for the proven account BEFORE attaching (owner decision 23)', async () => {
+    provenSession()
+    const order: string[] = []
+    const d = deps(PROVEN_LINE, {
+      mint: vi.fn(async () => { order.push('mint'); return { status: 'minted' as const, userId: 'u-a' } }),
+      attach: vi.fn(async () => { order.push('attach'); return { ok: true as const, linked: 'google' as const } }),
+    })
+    render(<IdentityChoiceScreen deps={d} />)
+    await waitFor(() => expect(d.navigate).toHaveBeenCalled())
+    expect(order).toEqual(['mint', 'attach'])
+    expect((d.mint.mock.calls[0] as unknown[])[0]).toMatchObject({ provider: 'LINE' })
+  })
+
+  it('Fix C: the held identity is attached — ONE Google screen, and the connected screen says linked (D3)', async () => {
+    provenSession()
+    const d = deps(PROVEN_LINE)
+    render(<IdentityChoiceScreen deps={d} />)
+    await waitFor(() => expect(d.navigate).toHaveBeenCalledWith('/v2/settings/connected?linked=google'))
+    expect(d.startOAuth).not.toHaveBeenCalled()
+  })
+
+  it('no hold to spend → falls back to the link flow round trip, same outcome', async () => {
+    provenSession()
+    const d = deps(PROVEN_LINE, { attach: vi.fn(async () => ({ ok: false as const, error: 'no_hold' })) })
     render(<IdentityChoiceScreen deps={d} />)
     await waitFor(() =>
       expect(d.navigate).toHaveBeenCalledWith('/api/auth/link/start/google?return_to=%2Fv2%2Fsettings%2Fconnected'),
     )
+  })
+
+  it('a refusal from the attach is reported on the connected screen in its words (D10)', async () => {
+    provenSession()
+    const d = deps(PROVEN_LINE, { attach: vi.fn(async () => ({ ok: false as const, error: 'provider_already_held' })) })
+    render(<IdentityChoiceScreen deps={d} />)
+    await waitFor(() => expect(d.navigate).toHaveBeenCalledWith('/v2/settings/connected?link_error=provider_already_held'))
+  })
+
+  it('a failed mint does not stop the attach — the belt and the self-heal remain', async () => {
+    provenSession()
+    const d = deps(PROVEN_LINE, { mint: vi.fn(async () => { throw new Error('BE asleep') }) })
+    render(<IdentityChoiceScreen deps={d} />)
+    await waitFor(() => expect(d.navigate).toHaveBeenCalledWith('/v2/settings/connected?linked=google'))
   })
 
   it('proof failed → says so, and offers retry AND create-new (D5)', async () => {
@@ -107,7 +157,9 @@ describe('after the proof', () => {
     render(<IdentityChoiceScreen deps={d} />)
     await screen.findByTestId('identity-choice-proof-failed')
     fireEvent.click(screen.getByTestId('identity-choice-retry'))
-    expect(d.startOAuth).toHaveBeenCalledWith('line', '/v2/welcome-back?proof=google')
+    await waitFor(() => expect(d.startOAuth).toHaveBeenCalledWith('line', '/v2/welcome-back?proof=google'))
+    // the session is now the OTHER identity: the original hold must not be replaced
+    expect(d.hold).not.toHaveBeenCalled()
     cleanup()
 
     const d2 = deps(UNOWNED_LINE)
