@@ -33,6 +33,8 @@ export function apiDayToFeatureDay(d: ApiCalendarDay): CalendarDay | null {
     percent: d.overallPercent,
     grade: d.grade, // G-2: carry bazi's 13-level grade RAW (string|null) — the ring reads it (จังหวะ-1). No projection.
     isBuddhistDay: d.wanPhra,
+    dayClash: d.dayClash, // วันชงดิถี — จุดเตือนบนช่องกริด แยกจากสี %
+
   }
 }
 

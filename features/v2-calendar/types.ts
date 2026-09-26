@@ -49,6 +49,8 @@ export interface CalendarDay {
   grade: string
   /** วันพระ (ไทย/จีน) — drives the #9D85DA ring marker. */
   isBuddhistDay?: boolean
+  /** วันชงดิถี (地支相冲) — จุดเตือนเล็ก ๆ บนช่อง แยกจากสี % (เฉลี่ยกลบวันชงได้). personalised (paid) เท่านั้น */
+  dayClash?: boolean
   /** true when this cell is NOT part of the displayed month (leading/trailing padding). */
   isPadding?: boolean
 }
@@ -185,6 +187,8 @@ export interface DayDetail {
   grade: string
   /** headline สรุปดวงวัน. */
   summary: string
+  /** วันชงดิถี (地支相冲) — กิ่งเสาวันของเจ้าของชงกิ่งเสาวันของวันนี้; โชว์ชิปเตือนแยกจาก % */
+  dayClash?: boolean
   /** เหมาะกับวันนี้ / ควรเลี่ยง. */
   suitable: string[]
   avoid: string[]

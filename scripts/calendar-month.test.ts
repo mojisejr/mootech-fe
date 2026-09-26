@@ -60,9 +60,9 @@ const ALMANAC = [
 const merged = mergeCalendarMonth(MVD, ALMANAC)
 
 ok('merge keeps only mvd days (4, not 5)', merged.length === 4)
-ok('merge strips heavy/junk fields to 6 keys (incl grade)', (() => {
+ok('merge strips heavy/junk fields to 7 keys (incl grade + dayClash)', (() => {
   const keys = Object.keys(merged[0]).sort()
-  return JSON.stringify(keys) === JSON.stringify(['date', 'dayGanzhi', 'dayOfMonth', 'grade', 'overallPercent', 'wanPhra'])
+  return JSON.stringify(keys) === JSON.stringify(['date', 'dayClash', 'dayGanzhi', 'dayOfMonth', 'grade', 'overallPercent', 'wanPhra'])
 })())
 // #b4-grade-passthrough
 ok('grade passes through from bazi (B-4): 08-01 B · 08-13 C- · 08-27 A+', (() => {
@@ -85,6 +85,9 @@ ok('merge joins wanPhra BY DATE not index', (() => {
 ok('merge clamps percent >100 → 100', merged.find((x) => x.date === '2026-08-27')?.overallPercent === 100)
 ok('merge keeps null percent', merged.find((x) => x.date === '2026-08-28')?.overallPercent === null)
 ok('merge day absent in almanac → wanPhra false (08-28)', merged.find((x) => x.date === '2026-08-28')?.wanPhra === false)
+// วันชงดิถี (地支相冲) ผ่านทะลุ: true เมื่อ engine ส่ง dayClash:true, ไม่มี → false (ไม่ใช่ undefined)
+ok('merge passes dayClash through (true)', mergeCalendarMonth([{ date: '2026-08-09', overallPercent: 50, grade: 'C+', dayClash: true }], []).at(0)?.dayClash === true)
+ok('merge dayClash absent → false', merged.find((x) => x.date === '2026-08-01')?.dayClash === false)
 ok('merge non-array mvd → []', mergeCalendarMonth(undefined, ALMANAC).length === 0)
 
 // ── almanacWanPhraDays — free overlay shape ──

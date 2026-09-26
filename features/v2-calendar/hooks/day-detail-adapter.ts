@@ -24,6 +24,7 @@ export function libDayDetailToFeature(lib: LibDayDetail): DayDetail {
     percent: lib.overallPercent ?? 0, // degraded-only fallback (a selected day has a score)
     grade: lib.grade ?? '', // degraded-only fallback (grade tracks percent)
     summary: lib.summary,
+    dayClash: lib.dayClash, // วันชงดิถี (地支相冲) — ชิปเตือนแยกจาก %
     suitable: lib.suitable,
     avoid: lib.avoid,
     yams: lib.yams.map((y) => ({ id: y.id, label: y.label, window: y.window })), // no grade/tone (cut G-2)

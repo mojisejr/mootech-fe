@@ -71,6 +71,12 @@ export function DayScoreCard({ detail }: { detail: DayDetail }) {
       <ScoreRing grade={detail.grade} percent={detail.percent} />
 
       <p className="mt-4 text-[20px] font-bold leading-7 text-v3-navy">{detail.summary}</p>
+      {/* วันชงดิถี (地支相冲) — เตือนเด่นแยกจาก % ที่เฉลี่ยกลบวันชงได้ (ซินแส/เอ็ม 2026-09-26) */}
+      {detail.dayClash && (
+        <span data-testid="day-clash" className="mt-2 inline-flex items-center gap-1 rounded-full bg-[#FBEAEA] px-3 py-1 text-[12px] font-bold leading-none text-[#C0392B]">
+          ⚠️ วันชงดิถี — ควรระวังเป็นพิเศษ
+        </span>
+      )}
       <p className="mt-2 text-sm font-bold leading-5 text-v3-navy">วันนี้ · {thaiDate(detail.date)}</p>
 
       {/* แถว 1 — 干支 วัน/เดือน/ปี พื้นสีตามธาตุนับอิม 納音 ของแต่ละเสา + ตัวอักษรขาว (ซินแสนุ้ย 2026-09-14 รูป 8b) */}

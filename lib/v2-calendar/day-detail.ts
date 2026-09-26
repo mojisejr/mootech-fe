@@ -25,6 +25,7 @@ export type DayDetail = {
   overallPercent: number | null
   grade: string | null // bazi pass-through (ApiGrade|null), never re-derived
   verdict: string
+  dayClash: boolean // วันชงดิถี (地支相冲) — flag แยกจาก % (ที่เฉลี่ยกลบวันชงได้); โชว์ชิปเตือน
   summary: string // summaryHeadline
   suitable: string[] // summaryItems key=best — a LIST (the UI does .slice().map(); a bare string crashes it)
   avoid: string[] // summaryItems key=worst — a LIST
@@ -108,6 +109,7 @@ export function mapDayDetail(mvd: unknown, almanacDay: unknown): DayDetail {
     overallPercent: num(m.overallPercent),
     grade: parseApiGrade(m.grade), // F1 (ตู๋ #178): validate 13, null→null, นอกลิสต์ throw (loud)
     verdict: str(m.verdict),
+    dayClash: m.dayClash === true,
     summary: str(m.summaryHeadline) || str(m.summary),
     suitable: splitList(byKey(summaryItems, 'best')),
     avoid: splitList(byKey(summaryItems, 'worst')),
@@ -224,6 +226,7 @@ export const FREE_DAY_DETAIL_FIELDS = [
   'yearGanzhi',
   'overallPercent',
   'grade',
+  'dayClash', // วันชงดิถี — สัญญาณเตือนความปลอดภัย (summary ก็โชว์อยู่แล้ว) ให้ฟรีเห็นชิปด้วย
   'summary',
   'suitable',
   'avoid',
