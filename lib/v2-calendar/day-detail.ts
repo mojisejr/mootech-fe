@@ -16,6 +16,8 @@ export type DayDetailGate = { name: string; direction: string; meaning: string; 
 export type DayDetailQimen = { pillar: string; caishenDir: string; badDir: string; deity: string; kimeng: string; gates: DayDetailGate[] }
 export type DayDetailColor = { element: string; colors: string }
 export type DayDetailStar = { name: string; polarity: string; activity: string }
+// กิจกรรมพิเศษแนะนำ (Calendar#3) — ***ไม่ใช่ฤกษ์ยาม*** ใช้ร่วม % วันดีกับดวง; โหมด Advance เท่านั้น
+export type DayDetailActivity = { key: string; title: string; dayLabel: string; desc: string }
 
 export type DayDetail = {
   date: string
@@ -50,6 +52,7 @@ export type DayDetail = {
   yearFortune: DayDetailQimen | null // ดวงประจำปี (คี้มึ้ง) — almanac.yearInfo · โชว์การ์ด "ดวงประจำปี/เดือน" (แอดวานซ์)
   monthFortune: DayDetailQimen | null // ดวงประจำเดือน — almanac.monthInfo
   shirtColors: { navin: string; colors: string[] } | null // สีเสื้อประจำวัน — almanac.shirtColors (納音 + โทนสี)
+  recommendedActivities: DayDetailActivity[] // กิจกรรมพิเศษแนะนำ (Calendar#3) — advance-only, ***ไม่ใช่ฤกษ์ยาม***
 }
 
 const str = (v: unknown, d = ''): string => (typeof v === 'string' ? v : d)
@@ -198,6 +201,11 @@ export function mapDayDetail(mvd: unknown, almanacDay: unknown): DayDetail {
       const navin = str(s.navin)
       return navin || colors.length ? { navin, colors } : null
     })(),
+    // กิจกรรมพิเศษแนะนำ (Calendar#3) — จาก almanac.recommendedActivities (advance-only; ไม่อยู่ใน FREE fields)
+    recommendedActivities: arr(a.recommendedActivities).map((x) => {
+      const xx = x as { key?: unknown; title?: unknown; dayLabel?: unknown; desc?: unknown }
+      return { key: str(xx.key), title: str(xx.title), dayLabel: str(xx.dayLabel), desc: str(xx.desc) }
+    }).filter((x) => x.title !== ''),
   }
 }
 
