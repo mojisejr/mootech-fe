@@ -28,7 +28,7 @@ import { CompatPersonDetail } from './CompatPersonDetail'
 import { ResultActionBar } from './ResultActionBar'
 import { captureShareImage } from '@/lib/v2/share-card'
 import { ShareCard, ShareStage } from '@/features/v2-share/components/ShareCard'
-import { PublicShareToggle } from '@/features/v2-share/components/PublicShareToggle'
+import { ShareConsentNotice } from '@/features/v2-share/components/ShareConsentNotice'
 import { AdvancedUpsellModal } from '@/features/v2-shell/components/AdvancedUpsellModal'
 import { useV2Tier } from '@/features/auth/hooks/useV2Tier'
 import { ComingSoonNotice } from '@/features/v2-shell/components/ComingSoon'
@@ -53,7 +53,7 @@ export function CompatibilityResultScreen({ matchingId }: { matchingId: string }
   // Figma 636:18819: toggle base สีเทา = ปิดเป็นค่าเริ่มต้น; เปิดแล้วโชว์ตารางดวงจีน
   const [advanced, setAdvanced] = useState(false)
   const [upsell, setUpsell] = useState(false) // #359: popup ชวนอัปเกรดเมื่อ free กดโหมดแอดวานซ์
-  const [allowPublic, setAllowPublic] = useState(false) // ยินยอมเปิดเผยผลเต็ม (0033) — ต้องอยู่ก่อน early return
+  const allowPublic = true // แชร์ = เปิดเผยผลเต็มเสมอ (เอ็ม 2026-09-26; เดิม checkbox 0033) — ยินยอมผ่านการกดแชร์ (ShareConsentNotice)
   const { isPaid } = useV2Tier() // hook ต้องอยู่ก่อน early return (rules-of-hooks)
   const onAdvancedToggle = () => { if (isPaid === false) { setUpsell(true); return } setAdvanced((v) => !v) }
   const shareCardRef = useRef<HTMLDivElement>(null) // #6: hook ต้องอยู่ก่อน early return (rules-of-hooks)
@@ -225,7 +225,7 @@ export function CompatibilityResultScreen({ matchingId }: { matchingId: string }
         ) : null}
       </div>
 
-      <ResultActionBar shareText={`ผลดวงสมพงศ์ของฉัน${overall?.ratingText?.trim() ? ` - ${overall.ratingText.replace(/\s+/g, " ").trim().slice(0, 120)}` : ""} จาก Mumate`} testIdPrefix="compat" og={{ title: shareTitle, subtitle: shareSubtitle, summary: shareSummary, tag: "ผลความสมพงศ์", image: shareImages.slice(0, 2).join(","), skills: shareSkills.length ? shareSkills : undefined, isPublic: allowPublic, fullText }} getShareFile={() => captureShareImage(shareCardRef.current)} aboveSlot={<PublicShareToggle checked={allowPublic} onChange={setAllowPublic} testId="compat-allow-public" />} />
+      <ResultActionBar shareText={`ผลดวงสมพงศ์ของฉัน${overall?.ratingText?.trim() ? ` - ${overall.ratingText.replace(/\s+/g, " ").trim().slice(0, 120)}` : ""} จาก Mumate`} testIdPrefix="compat" og={{ title: shareTitle, subtitle: shareSubtitle, summary: shareSummary, tag: "ผลความสมพงศ์", image: shareImages.slice(0, 2).join(","), skills: shareSkills.length ? shareSkills : undefined, isPublic: allowPublic, fullText }} getShareFile={() => captureShareImage(shareCardRef.current)} aboveSlot={<ShareConsentNotice testId="compat-share-consent" />} />
 
       {/* #6: การ์ดแชร์เฉพาะบุคคล (ซ่อนนอกจอ) */}
       <ShareStage>
