@@ -27,10 +27,11 @@ export type CalendarDay = {
   overallPercent: number | null // 0–100 personalised; UI derives colour via dayCellTier(percent)
   grade: string | null // bazi's letter grade for overallPercent (ApiGrade | null); pass-through, never re-derived
   wanPhra: boolean // วันพระ (bazi almanac, religious categories only)
+  dayClash?: boolean // วันชงดิถี (地支相冲) — personalised only; grid marks it แยกจากสี % (paid)
 }
 
 export type AlmanacDay = { date?: unknown; specialDays?: unknown }
-export type MvdDay = { date?: unknown; dayOfMonth?: unknown; dayGanzhi?: unknown; overallPercent?: unknown; grade?: unknown }
+export type MvdDay = { date?: unknown; dayOfMonth?: unknown; dayGanzhi?: unknown; overallPercent?: unknown; grade?: unknown; dayClash?: unknown }
 
 /** "YYYY-MM" → {year, month, yearBE(=+543)}; rejects bad shape / month out of range. */
 export function parseMonth(input: unknown): { year: number; month: number; yearBE: number } | null {
@@ -97,6 +98,7 @@ export function mergeCalendarMonth(mvdDays: unknown, almanacDays: unknown): Cale
         // (B-3): null = คิดไม่ได้ (not "-"); anything outside the 13 THROWS (loud, never a silent bad grade).
         grade: parseApiGrade(d.grade),
         wanPhra: wanPhra.get(date) ?? false,
+        dayClash: d.dayClash === true, // วันชงดิถี — ให้กริดติดมาร์กแยกจากสี %
       }
     })
 }

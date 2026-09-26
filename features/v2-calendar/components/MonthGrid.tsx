@@ -57,19 +57,22 @@ function DayCell({ cell, selected, onSelect }: { cell: CalendarDay; selected: bo
       aria-current={selected ? 'date' : undefined}
       // the spoken label is a percent RENDER POINT too — it goes through percentText, the one rounding site
       // (#188). A raw number here would read "57.0000001 เปอร์เซ็นต์" to a screen reader while the eye sees 57.
-      aria-label={`วันที่ ${cell.day} ${cell.ganzhi} ${percentText(cell.percent)}%${cell.isBuddhistDay ? ' วันพระ' : ''}${selected ? ' (เลือกอยู่)' : ''}`}
+      aria-label={`วันที่ ${cell.day} ${cell.ganzhi} ${percentText(cell.percent)}%${cell.isBuddhistDay ? ' วันพระ' : ''}${cell.dayClash ? ' วันชงดิถี' : ''}${selected ? ' (เลือกอยู่)' : ''}`}
       data-testid="calendar-day"
       // the date as data, not parsed back out of an href — anchors key on this now that there is no href
       data-date={cell.date}
       data-selected={selected ? 'true' : undefined}
       data-wanphra={cell.isBuddhistDay ? 'true' : undefined}
-      className="flex min-w-0 flex-1 flex-col items-center justify-center gap-px rounded-[11px] py-[3px] leading-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-v3-focus-border"
+      data-clash={cell.dayClash ? 'true' : undefined}
+      className="relative flex min-w-0 flex-1 flex-col items-center justify-center gap-px rounded-[11px] py-[3px] leading-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-v3-focus-border"
       style={{
         backgroundColor: style.bg,
         // วันพระ survives selection — two independent facts, two independent marks (Figma 368:9929)
         border: cell.isBuddhistDay ? `1.6px solid ${CALENDAR_MARKER}` : '1.6px solid transparent',
       }}
     >
+      {/* วันชงดิถี — จุดแดงมุมขวาบน (地支相冲) เตือนแยกจากสี % ที่เฉลี่ยกลบวันชงได้ */}
+      {cell.dayClash && <span aria-hidden className="absolute right-[3px] top-[3px] size-[5px] rounded-full bg-[#C0392B]" />}
       <span className="flex items-center gap-[2px]">
         <span className="text-[13px] font-bold" style={{ color: style.dayText }}>{cell.day}</span>
         <span data-testid="calendar-ganzhi" className="text-[8px] font-normal" style={{ color: style.ganzhiText }}>{cell.ganzhi}</span>
