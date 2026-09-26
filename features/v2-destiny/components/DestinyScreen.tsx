@@ -918,10 +918,10 @@ export function DestinyScreen({ previewData }: { previewData?: DestinyData } = {
     }))
     const nowYear = new Date().getFullYear()
     const allYears = data?.lifeTimeline?.years ?? []
-    // ทั้งตาราง แต่คุมขนาด: หน้าต่างจาก 2 ปีก่อนปัจจุบันไปข้างหน้า ~16 ปี (กัน JSON เกิน 8000)
+    // คุมขนาด block (กัน JSON+prose เกิน 8000 → prose ถูก slice ตัด): หน้าต่างจาก 2 ปีก่อนปัจจุบันไปข้างหน้า ~10 ปี
     const idx = allYears.findIndex((y) => y.year >= nowYear)
     const startIdx = idx >= 0 ? Math.max(0, idx - 2) : 0
-    const yearsOut: BaziYearCard[] = allYears.slice(startIdx, startIdx + 16).map((y) => ({
+    const yearsOut: BaziYearCard[] = allYears.slice(startIdx, startIdx + 10).map((y) => ({
       year: y.year, be: y.year + 543,
       stem: { ch: y.ganzhi?.[0] ?? "", ink: inkOf(y.ganzhi?.[0]) ?? "#0b305b" },
       branch: { ch: y.ganzhi?.[1] ?? "", ink: inkOf(y.ganzhi?.[1]) ?? "#464646" },
@@ -946,11 +946,11 @@ export function DestinyScreen({ previewData }: { previewData?: DestinyData } = {
       og: {
         title: shareTitle, summary: shareSummary, tag: "ดวงธาตุของฉัน", image: mascotUrl ?? undefined, skills: shareSkills,
         isPublic: allowPublic,
-        // เอ็ม 2026-09-26: แชร์เฉพาะ "บุคลิกพื้นฐาน + นิสัย" (ตัดความรัก/อาชีพ/ทำนายพิเศษออก) + แนบผังปาจื่อ/วัยจร/ปีจร/ธาตุ5
+        // เอ็ม 2026-09-26: แชร์ "บุคลิกพื้นฐาน + นิสัย + ความรัก" (เอ็มขอความรักกลับ 26/9 รอบ 2; คงตัด อาชีพ/ทำนายพิเศษ) + ผังปาจื่อ/วัยจร/ปีจร/ธาตุ5
         //   block ปาจื่อ (JSON sentinel) มาก่อนเพื่อไม่ถูก slice ตัด แล้วต่อ prose ให้รวมไม่เกิน 8000
         fullText: allowPublic
           ? (() => {
-              const prose = [data?.prediction?.personality, data?.prediction?.habit].filter(Boolean).join("\n\n")
+              const prose = [data?.prediction?.personality, data?.prediction?.habit, data?.prediction?.love].filter(Boolean).join("\n\n")
               const block = baziShare ? encodeBaziShare(baziShare) : ""
               return (block ? block + "\n\n" : "") + prose.slice(0, Math.max(0, 8000 - block.length - 4))
             })()
