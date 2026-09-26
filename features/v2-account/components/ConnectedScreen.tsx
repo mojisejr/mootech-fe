@@ -27,6 +27,7 @@ import { MergeOfferPanel, type MergePreview } from "./MergeOfferPanel"
 
 import { IconTile, SkyBackdrop, SkyHeader } from "@/features/v2-profile/components/kit"
 import { ProfileGate } from "./ProfileGate"
+import { useCurrentUser } from "@/lib/auth/use-current-user"
 
 const CARD = "v3-shadow-card flex w-full flex-col gap-3 rounded-[24px] bg-white p-5"
 const RETURN_TO = "/v2/settings/connected"
@@ -130,6 +131,8 @@ export function ConnectedScreen({ navigate = defaultNavigate }: { navigate?: (ur
   const [displayName, setDisplayName] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [kind, setKind] = useState<"ok" | "not_authenticated" | "failed">("ok")
+  const [profileAttempt, setProfileAttempt] = useState(0)
+  const { status: authStatus } = useCurrentUser()
   const [connections, setConnections] = useState<Connection[] | null>(null)
   const [rewards, setRewards] = useState<Record<string, number>>({})
   const [busy, setBusy] = useState<string | null>(null)
@@ -205,7 +208,18 @@ export function ConnectedScreen({ navigate = defaultNavigate }: { navigate?: (ur
         setLoading(false)
       })
     return () => { alive = false }
-  }, [])
+  }, [profileAttempt])
+
+  // Owner decision 23 (slice 5): /api/profile trusts only the MEMBER_ID cookie, and a
+  // member who arrives straight from a sign-in can get here a few seconds before the
+  // self-heal mints it. The screen used to read once and keep the "ไม่พบข้อมูลผู้ใช้" card
+  // until a manual refresh. Read again, once, when the cookie arrives.
+  useEffect(() => {
+    if (kind === "not_authenticated" && authStatus === "authed" && profileAttempt === 0) {
+      setLoading(true)
+      setProfileAttempt(1)
+    }
+  }, [kind, authStatus, profileAttempt])
 
   const loadConnections = useCallback(async () => {
     try {

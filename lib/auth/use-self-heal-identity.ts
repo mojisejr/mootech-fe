@@ -2,9 +2,7 @@ import { useEffect, useRef } from "react";
 import { useSession, signOut } from "next-auth/react";
 import { useCookies } from "react-cookie";
 import { CookieKey } from "@/constants/cookie-key";
-import { CONFIG } from "@/constants/config";
-import { UserRegisterOrLogin } from "@/constants/api/api-user-register-or-login";
-import { UserGetById } from "@/constants/api/api-user-get";
+import { mintMemberIdentity } from "./mint-member";
 import { useCurrentUser } from "./use-current-user";
 import { buildRegisterParamsFromSession } from "./register-params";
 import {
@@ -43,24 +41,7 @@ function tabStorage(): Storage | null {
 // the wait, authStatus flips to "authed", the effect re-runs and clears the timer.
 const SELF_HEAL_DELAY_MS = 3000;
 
-// Hard ceiling on the register-login round-trip. Without it, a hung request leaves
-// healingRef pinned true forever (the await never settles) and the user is stuck on
-// ScreenLoading with no recovery. On timeout the call rejects -> the catch releases
-// the guard, and my-destiny's escape hatch (Fix B″) offers re-login after 8s.
-const SELF_HEAL_CALL_TIMEOUT_MS = 10000;
-// #? login ไม่สำเร็จรอบแรกบน localhost/Render: free tier ตื่นช้า 30-60 วิ แล้ว call แรก timeout ที่
-// 10 วิ → เดิมจบที่ signOut กลับหน้า login (อาการ "login ไม่สำเร็จ" ที่ผู้ใช้เจอ 2026-09-03) — ตอนนี้
-// พอ timeout จะยิงซ้ำอีกครั้งด้วยหน้าต่างยาวพอสำหรับ cold start ก่อนยอมแพ้
-const SELF_HEAL_RETRY_TIMEOUT_MS = 70000;
 
-function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
-  return Promise.race([
-    promise,
-    new Promise<T>((_, reject) =>
-      setTimeout(() => reject(new Error("self-heal register timed out")), ms),
-    ),
-  ]);
-}
 
 // DEV bypass marker. /dev-login sets LOGIN_PROVIDER=DEV and mints MEMBER_ID itself,
 // so a dev session must never be re-registered. Read from document.cookie at FIRE
@@ -107,16 +88,6 @@ export function useSelfHealIdentity(): void {
       return;
     }
 
-    const cookieOpts = {
-      path: "/",
-      maxAge: CONFIG.EXPIRED_TIME_COOKIE,
-      // เอ็ม/Janjarat 2026-09-20: เดิม sameSite:true (=Strict) → เปิดลิงก์แอปจาก "ใน LINE" (cross-site
-      // line.me→bazichart, top-level nav) เบราว์เซอร์ "ไม่ส่ง" cookie-mumate-id → session มีแต่ MEMBER_ID
-      // หาย = identity limbo (authStatus ค้าง 'loading' → ปุ่มเสี่ยงทาย/ฟีเจอร์กดไม่ได้). Lax = ส่งบน top-level
-      // GET nav ข้ามไซต์ (เคสลิงก์จาก LINE พอดี) → MEMBER_ID มา → authStatus='authed'. ปลอดภัย (identity cookie).
-      sameSite: "lax" as const,
-    };
-
     const timer = setTimeout(async () => {
       if (healingRef.current) {
         return;
@@ -147,24 +118,9 @@ export function useSelfHealIdentity(): void {
         }
       }
       try {
-        const call = () =>
-          UserRegisterOrLogin(
-            params.id_token,
-            params.image,
-            params.name,
-            params.refer_code,
-            params.email,
-            params.provider,
-          );
-        let result: any;
-        try {
-          result = await withTimeout(call(), SELF_HEAL_CALL_TIMEOUT_MS);
-        } catch {
-          // attempt 1 timeout (Render cold start ชนะ 10 วิ เสมอตอน server หลับ) — ยิงซ้ำหน้าต่างยาว
-          result = await withTimeout(call(), SELF_HEAL_RETRY_TIMEOUT_MS);
-        }
+        const outcome = await mintMemberIdentity(params, setCookie);
 
-        if (result && result.ok === false) {
+        if (outcome.status === "rejected") {
           // Genuine BE rejection — mirror home: clear identity + sign out.
           removeCookie(CookieKey.MEMBER_ID, { path: "/" });
           removeCookie(CookieKey.MEMBER_NAME, { path: "/" });
@@ -175,24 +131,7 @@ export function useSelfHealIdentity(): void {
           return;
         }
 
-        if (result && result.user_id) {
-          // Backfill refer code from get-user when the register edge returns it
-          // empty — an empty MEMBER_REFER_CODE once bounced users to /login?refresh=2.
-          let referCode = result.ref_code;
-          if (!referCode || referCode === "") {
-            try {
-              const fetched: any = await UserGetById(result.user_id);
-              if (fetched && fetched.refer_code) {
-                referCode = fetched.refer_code;
-              }
-            } catch {
-              // non-fatal: never block the heal on the backfill
-            }
-          }
-          setCookie(CookieKey.MEMBER_ID, result.user_id, cookieOpts);
-          setCookie(CookieKey.MEMBER_NAME, result.name, cookieOpts);
-          setCookie(CookieKey.MEMBER_REFER_CODE, referCode, cookieOpts);
-          setCookie(CookieKey.MEMBER_IMAGE, result.picture_url, cookieOpts);
+        if (outcome.status === "minted") {
           // MEMBER_ID now present -> useCurrentUser re-resolves to "authed" ->
           // every gated page's ScreenLoading releases on its own. No redirect.
           return;

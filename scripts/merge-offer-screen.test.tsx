@@ -20,6 +20,8 @@ import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/re
 
 const useSession = vi.fn()
 vi.mock('next-auth/react', () => ({ useSession: () => useSession() }))
+// The connected screen re-reads the profile when MEMBER_ID arrives (owner decision 23); not under test here.
+vi.mock('@/lib/auth/use-current-user', () => ({ useCurrentUser: () => ({ status: 'authed' }) }))
 
 import { ConnectedScreen } from '@/features/v2-account/components/ConnectedScreen'
 
