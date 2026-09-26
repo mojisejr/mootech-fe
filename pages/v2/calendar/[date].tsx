@@ -35,6 +35,7 @@ import { YamTimes } from '@/features/v2-calendar/components/day-detail/YamTimes'
 import { MyChart } from '@/features/v2-calendar/components/day-detail/MyChart'
 import { Dithi } from '@/features/v2-calendar/components/day-detail/Dithi'
 import { EightGates } from '@/features/v2-calendar/components/day-detail/EightGates'
+import { RecommendedActivities } from '@/features/v2-calendar/components/day-detail/RecommendedActivities'
 import { YearMonthFortune } from '@/features/v2-calendar/components/day-detail/YearMonthFortune'
 import { EightDeities } from '@/features/v2-calendar/components/day-detail/EightDeities'
 import { Patrons } from '@/features/v2-calendar/components/day-detail/Patrons'
@@ -354,6 +355,10 @@ export default function V2CalendarDayPage({ teamPreview }: { teamPreview: boolea
         {/* §9 [advanced] — ดิถีวันนี้ · สะสม · เงื่อนไขคือ jianchu (ครึ่งที่ขายเงินของ dithi)
             ❌ ไม่ใช่ `detail.dithi` ทั้งก้อน ซึ่งผู้ใช้ฟรีก็มี (officer ไปเป็นชิปบนการ์ดคะแนน) */}
         {advanced && detail.dithi?.jianchu && <div ref={dithiRef} className="scroll-mt-4"><Dithi dithi={detail.dithi} /></div>}
+        {/* [advanced] กิจกรรมพิเศษแนะนำ (Calendar#3) — ***ไม่ใช่ฤกษ์ยาม*** ใช้ร่วม % วันดีกับดวง */}
+        {advanced && detail.recommendedActivities && detail.recommendedActivities.length > 0 && (
+          <RecommendedActivities activities={detail.recommendedActivities} />
+        )}
         {/* วันมงคล/วันพิเศษ (ทุก tier) — ดาววันจากปฏิทินซินแส */}
         {detail.specialDays && detail.specialDays.length > 0 && <SpecialDays specialDays={detail.specialDays} luckyDirection={detail.luckyDirection} />}
         {/* every tier gets these two — Free-2 draws them in full */}

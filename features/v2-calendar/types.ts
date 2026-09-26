@@ -240,6 +240,16 @@ export interface DayDetail {
   monthFortune?: DayDetailQimen | null
   /** สีเสื้อประจำวัน (納音 + โทนสี) — almanac.shirtColors. OPTIONAL — paid/แอดวานซ์. */
   shirtColors?: { navin: string; colors: string[] } | null
+  /** กิจกรรมพิเศษแนะนำ (Calendar#3) — ***ไม่ใช่ฤกษ์ยาม*** ใช้ร่วม % วันดีกับดวง. OPTIONAL — paid/แอดวานซ์. */
+  recommendedActivities?: DayDetailActivity[]
+}
+
+/** กิจกรรมพิเศษแนะนำของวัน (Calendar#3) — title = กิจกรรม, dayLabel = ชื่อวัน (เช่น วันร่ำรวย), desc = รายละเอียด */
+export interface DayDetailActivity {
+  key: string
+  title: string
+  dayLabel: string
+  desc: string
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
