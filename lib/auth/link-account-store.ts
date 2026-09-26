@@ -242,11 +242,18 @@ export function createPostgresLinkStore(database: TransactionDatabase): LinkStor
 
 /** Read-only: the caller's own provider rows. Outside a transaction on purpose —
  *  this is a page read, not part of a write decision, and holding FOR UPDATE for
- *  a settings screen would serialise members against each other for no gain. */
-export async function readMemberProviders(userId: string): Promise<ProviderRow[]> {
-  const rows = rowsOf<{ id?: unknown; user_id?: unknown; provider?: unknown }>(
+ *  a settings screen would serialise members against each other for no gain.
+ *
+ *  Carries each row's identity LENGTH (slice 6a) because the screen's unlink verdict
+ *  must judge by identities that can authenticate, exactly as unlinkProvider does, or
+ *  the button offers an unlink the route refuses. Length and never the identity, for
+ *  the reason listMemberIdentityShapes gives. */
+export async function readMemberProviders(
+  userId: string,
+): Promise<Array<ProviderRow & { identityLength: number }>> {
+  const rows = rowsOf<{ id?: unknown; user_id?: unknown; provider?: unknown; len?: unknown }>(
     await (db as unknown as SqlExecutor).execute(
-      sql`SELECT id, user_id, provider FROM user_provider WHERE user_id = ${userId}`,
+      sql`SELECT id, user_id, provider, length(id_token) AS len FROM user_provider WHERE user_id = ${userId}`,
     ),
   )
   return rows
@@ -255,6 +262,7 @@ export async function readMemberProviders(userId: string): Promise<ProviderRow[]
       id: r.id as string,
       userId: r.user_id as string,
       provider: typeof r.provider === 'string' ? r.provider : '',
+      identityLength: Number(r.len ?? 0),
     }))
 }
 

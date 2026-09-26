@@ -52,7 +52,9 @@ export interface LinkTransaction {
     pictureUrl: string
     timestamp: string
   }): Promise<void>
-  /** Every provider row this member holds, used by unlink to count what is left. */
+  /** Every provider row this member holds, read FOR UPDATE. Unlink locks with it and
+   *  finds the rows it would delete; whether what is left can still sign the member
+   *  in is judged from listMemberIdentityShapes, restricted to these rows. */
   listMemberProviders(userId: string): Promise<ProviderRow[]>
   deleteProviderRows(userId: string, provider: string): Promise<number>
 
@@ -239,6 +241,26 @@ export async function linkProvider(
   }
 }
 
+/** Slice 6a (plan 0.9, DoD F1). True when, with every row of `provider` gone, this
+ *  member still holds at least one row that can sign them in. The one definition of
+ *  "a way in" for unlinkProvider AND summariseConnections, so the route and the
+ *  button cannot judge the same member by two different rules.
+ *
+ *  Rows with a blank provider are no method at all and are skipped before counting;
+ *  isDeadIdentityShape would otherwise call them live, since it only recognises the
+ *  dead Google shape. */
+export function leavesAWayIn(
+  shapes: Array<{ provider: string; identityLength: number }>,
+  provider: string,
+): boolean {
+  const key = String(provider).trim().toLowerCase()
+  const others = shapes.filter((s) => {
+    const p = String(s.provider ?? '').trim().toLowerCase()
+    return p !== '' && p !== key
+  })
+  return countLiveIdentities(others) > 0
+}
+
 export interface UnlinkInput {
   userId: string
   provider: LinkableProvider
@@ -254,8 +276,9 @@ export interface UnlinkInput {
  * §THE LAST-METHOD RULE (owner decision, 2026-09-24). Removing a member's only
  * remaining provider locks them out permanently: this workstream refuses to join
  * accounts by email, so there is no recovery path and no support action short of
- * a manual database write. The refusal counts OTHER PROVIDERS, not rows — a
- * member with several rows for one provider still has one way in.
+ * a manual database write. The refusal asks whether anything OTHER than the
+ * provider being removed can still sign the member in: several rows of one provider
+ * are still one provider, and a row that cannot authenticate is not a way in at all.
  *
  * §WHY UNLINK EXISTS AT ALL, since it looks like a convenience. The unique index
  * added in slice 2 means one identity belongs to one member forever. A member who
@@ -264,14 +287,29 @@ export interface UnlinkInput {
  * fix is a hand-written DELETE in production. Unlink is the escape hatch for a
  * mistake the index otherwise makes permanent.
  *
- * §KNOWN LIMIT, recorded rather than silently handled. The count asks whether
- * another PROVIDER remains, not whether that provider's stored rows can still
- * authenticate. A member whose other rows hold a dead access token (the class
- * measured at 1,443 members on 2026-09-24) would pass this check and still be
- * locked out. Detecting that would mean encoding this lane's "unusable id_token"
- * heuristic into a live guard, which is an inference, not a fact the schema
- * carries. The pre-existing condition is not made worse by unlink; it is not
- * fixed by it either.
+ * §WHAT "A WAY IN" MEANS (slice 6a, plan 0.9, DoD F1). Revision 0.5 of the plan
+ * made this a precondition of the flip. Until then the rule counted distinct
+ * provider NAMES, and a name proves nothing: 1,783 Google rows hold a dead `ya29`
+ * access token, so a member holding one of those beside a single live LINE row
+ * passed the check, unlinked LINE, and was left with a Google row no login will
+ * ever present again. Before the flip the legacy path's email discovery healed that
+ * member on their next Google login; after it nothing does, and recovery is a
+ * hand-written production DELETE. So the count is now of identities that can still
+ * authenticate — leavesAWayIn below, over the same shapes and the same
+ * isDeadIdentityShape that slices 4 and 5 already judge by.
+ *
+ * §WHY THE INFERENCE IS ACCEPTABLE AS A GUARD HERE. This comment used to decline it,
+ * on the ground that a heuristic in a live guard can deny a member an action they
+ * legitimately asked for. That is still its only cost, and it is bounded: the rule
+ * now refuses a SUPERSET of what the name count refused, never less, and the member
+ * refused has a way forward — link a working identity first, which owner decision 22
+ * permits beside a dead row, then unlink. The failure it prevents has no way forward.
+ *
+ * §THE RESIDUE, recorded rather than silently handled. isDeadIdentityShape answers
+ * "is this row KNOWN dead" and treats anything unfamiliar as live, so a row that is
+ * dead in some shape it does not recognise (an empty id_token, say) still counts as
+ * a way in here, exactly as it did before this fix. The fix narrows the gap to the
+ * class that was measured; it does not claim to close every conceivable one.
  */
 export async function unlinkProvider(store: LinkStore, input: UnlinkInput): Promise<UnlinkOutcome> {
   const key = String(input.provider).toLowerCase()
@@ -281,12 +319,13 @@ export async function unlinkProvider(store: LinkStore, input: UnlinkInput): Prom
     const mine = rows.filter((r) => r.provider.trim().toLowerCase() === key)
     if (mine.length === 0) return { status: 'not-linked' }
 
-    const others = new Set(
-      rows
-        .map((r) => r.provider.trim().toLowerCase())
-        .filter((p) => p !== '' && p !== key),
-    )
-    if (others.size === 0) return { status: 'last-method' }
+    // Judged on the rows just locked FOR UPDATE and on nothing else. The shape read
+    // carries no lock of its own, so a row committed between the two reads is left
+    // out rather than trusted: a credential this transaction has not locked could be
+    // gone by the time the delete commits. Leaving one out can only refuse more.
+    const locked = new Set(rows.map((r) => r.id))
+    const shapes = (await tx.listMemberIdentityShapes(input.userId)).filter((s) => locked.has(s.id))
+    if (!leavesAWayIn(shapes, key)) return { status: 'last-method' }
 
     // AFTER last-method, and the order is the rule rather than a preference: with one
     // method a member is signed in through it, so both refusals fire, and answering
@@ -310,7 +349,8 @@ export interface ConnectionSummary {
   linked: boolean
   /** the provider this session is signed in with */
   current: boolean
-  /** false for the last remaining method — removing it would lock the member out */
+  /** false when nothing else this member holds can sign them in, or when it is the
+   *  method this session came through — see unlinkBlockedBy */
   canUnlink: boolean
   /** Why `canUnlink` is false, because the two reasons are NOT the same sentence:
    *  'last-method' is permanent and has no recovery, 'current-method' is a door the
@@ -331,9 +371,14 @@ export interface ConnectionSummary {
  *
  * Provider comparison is lower() on both sides throughout, because the session
  * says `line` and the database says `LINE`.
+ *
+ * `linked` still means "a row of this provider exists", dead or not. Only the unlink
+ * verdict judges whether a row can authenticate (slice 6a); what a dead-only
+ * provider should LOOK like on this screen is a separate question and is not
+ * answered here.
  */
 export function summariseConnections(
-  rows: Array<{ provider: string }>,
+  rows: Array<{ provider: string; identityLength: number }>,
   sessionProvider: string | null | undefined,
 ): ConnectionSummary[] {
   const linked = new Set(
@@ -343,13 +388,15 @@ export function summariseConnections(
   return LINKABLE.map((provider) => {
     const isLinked = linked.has(provider)
     // The same two rules unlinkProvider enforces, mirrored here so a button is
-    // disabled rather than offered and then refused. Both read the same source, so
-    // they cannot disagree about the same member. Last-method is reported FIRST:
-    // it is the permanent one, and when a member has exactly one method it is also
-    // the one they are signed in with, so the weaker reason would mask it.
+    // disabled rather than offered and then refused. Both call leavesAWayIn over the
+    // same identity shapes, so they cannot disagree about the same member: a dead
+    // `ya29` Google row beside one LINE row blocks LINE here exactly as the route
+    // refuses it. Last-method is reported FIRST: it is the permanent one, and when a
+    // member has exactly one method it is also the one they are signed in with, so
+    // the weaker reason would mask it.
     const blocked: 'last-method' | 'current-method' | null = !isLinked
       ? null
-      : linked.size <= 1
+      : !leavesAWayIn(rows, provider)
         ? 'last-method'
         : current === provider
           ? 'current-method'

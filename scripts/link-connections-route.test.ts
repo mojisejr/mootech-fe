@@ -31,6 +31,11 @@ vi.mock('@/lib/auth/link-account', async (orig) => {
 })
 
 const USER = 'aaaaaaaa-0000-4000-8000-000000000001'
+/** Identity LENGTHS as production holds them — the route never reads an identity. */
+const LINE_LEN = 33
+const GOOGLE_SUB_LEN = 21
+/** a `ya29` Google access token stored as the identity: 253 or 333-342 in production */
+const DEAD_YA29_LEN = 253
 
 interface Out {
   status: number | null
@@ -68,15 +73,15 @@ beforeEach(() => {
   resolveSessionUserId.mockResolvedValue({ ok: true, userId: USER })
   resolveSignedSessionUserId.mockResolvedValue({ ok: true, userId: USER })
   getServerSession.mockResolvedValue({ provider: 'line' })
-  readMemberProviders.mockResolvedValue([{ id: '1', userId: USER, provider: 'LINE' }])
+  readMemberProviders.mockResolvedValue([{ id: '1', userId: USER, provider: 'LINE', identityLength: LINE_LEN }])
 })
 
 describe('summariseConnections — what the screen renders from', () => {
   it('reports a second linked provider as linked, which the screen cannot do today', () => {
     const s = summariseConnections(
       [
-        { provider: 'LINE' },
-        { provider: 'google' },
+        { provider: 'LINE', identityLength: LINE_LEN },
+        { provider: 'google', identityLength: GOOGLE_SUB_LEN },
       ],
       'line',
     )
@@ -86,12 +91,12 @@ describe('summariseConnections — what the screen renders from', () => {
   })
 
   it('matches lower-case session provider against upper-case stored LINE', () => {
-    const s = summariseConnections([{ provider: 'LINE' }], 'line')
+    const s = summariseConnections([{ provider: 'LINE', identityLength: LINE_LEN }], 'line')
     expect(s.find((x) => x.provider === 'line')?.linked).toBe(true)
   })
 
   it('forbids unlinking the only method, and says WHY', () => {
-    const one = summariseConnections([{ provider: 'LINE' }], 'line')
+    const one = summariseConnections([{ provider: 'LINE', identityLength: LINE_LEN }], 'line')
     const line = one.find((x) => x.provider === 'line')
     expect(line?.canUnlink).toBe(false)
     // last-method, not current-method: with one method it is BOTH, and reporting the
@@ -101,7 +106,7 @@ describe('summariseConnections — what the screen renders from', () => {
   })
 
   it('forbids unlinking the method this session signed in WITH, and allows the other', () => {
-    const two = summariseConnections([{ provider: 'LINE' }, { provider: 'google' }], 'line')
+    const two = summariseConnections([{ provider: 'LINE', identityLength: LINE_LEN }, { provider: 'google', identityLength: GOOGLE_SUB_LEN }], 'line')
     const line = two.find((x) => x.provider === 'line')
     const google = two.find((x) => x.provider === 'google')
 
@@ -121,13 +126,13 @@ describe('summariseConnections — what the screen renders from', () => {
   it('blocks nothing when the session provider is unknown', () => {
     // A member whose session carries no provider still gets a usable screen: both
     // methods are removable down to the last one, which the other rule then holds.
-    const s = summariseConnections([{ provider: 'LINE' }, { provider: 'google' }], null)
+    const s = summariseConnections([{ provider: 'LINE', identityLength: LINE_LEN }, { provider: 'google', identityLength: GOOGLE_SUB_LEN }], null)
     expect(s.every((x) => x.canUnlink)).toBe(true)
     expect(s.every((x) => x.unlinkBlockedBy === null)).toBe(true)
   })
 
   it('reports no reason for a provider that is not linked at all', () => {
-    const s = summariseConnections([{ provider: 'LINE' }], 'line')
+    const s = summariseConnections([{ provider: 'LINE', identityLength: LINE_LEN }], 'line')
     const google = s.find((x) => x.provider === 'google')
     expect(google?.linked).toBe(false)
     expect(google?.canUnlink).toBe(false)
@@ -136,24 +141,58 @@ describe('summariseConnections — what the screen renders from', () => {
   })
 
   it('several rows of ONE provider are still one method — the shape 1,443 members are in', () => {
-    const s = summariseConnections([{ provider: 'google' }, { provider: 'google' }], 'google')
+    const s = summariseConnections([{ provider: 'google', identityLength: GOOGLE_SUB_LEN }, { provider: 'google', identityLength: GOOGLE_SUB_LEN }], 'google')
     expect(s.find((x) => x.provider === 'google')?.canUnlink).toBe(false)
   })
 
   it('offers exactly the two providers the contract covers — no Apple, no phone', () => {
     // The server decides this list, not the screen: ConnectedScreen renders whatever
     // comes back, so adding a provider here is what would put it on the page.
-    const s = summariseConnections([{ provider: 'LINE' }], 'line')
+    const s = summariseConnections([{ provider: 'LINE', identityLength: LINE_LEN }], 'line')
     expect(s.map((x) => x.provider).sort()).toEqual(['google', 'line'])
   })
 
   it('never invents a provider that is not linked', () => {
-    const s = summariseConnections([{ provider: 'LINE' }], 'line')
+    const s = summariseConnections([{ provider: 'LINE', identityLength: LINE_LEN }], 'line')
     expect(s.find((x) => x.provider === 'google')).toMatchObject({ linked: false, canUnlink: false })
   })
 
+  describe('slice 6a — judged by identities that can sign in, the same rule the route enforces', () => {
+    const DEAD_GOOGLE = { provider: 'google', identityLength: DEAD_YA29_LEN }
+    const LIVE_GOOGLE = { provider: 'google', identityLength: GOOGLE_SUB_LEN }
+    const LIVE_LINE = { provider: 'LINE', identityLength: LINE_LEN }
+
+    it('dead ya29 Google + live LINE: LINE is NOT offered for unlinking, and the reason is last-method', () => {
+      // Before 6a this counted two provider names and offered the button; the route
+      // now refuses that unlink, so the screen must stop offering it.
+      const s = summariseConnections([DEAD_GOOGLE, LIVE_LINE], null)
+      expect(s.find((x) => x.provider === 'line')).toMatchObject({
+        linked: true,
+        canUnlink: false,
+        unlinkBlockedBy: 'last-method',
+      })
+      // The dead Google row itself stays removable: LINE is a way in.
+      expect(s.find((x) => x.provider === 'google')).toMatchObject({ canUnlink: true, unlinkBlockedBy: null })
+    })
+
+    it('dead ya29 Google + live LINE, signed in through LINE: last-method, not current-method', () => {
+      const s = summariseConnections([DEAD_GOOGLE, LIVE_LINE], 'line')
+      expect(s.find((x) => x.provider === 'line')?.unlinkBlockedBy).toBe('last-method')
+    })
+
+    it('live Google + live LINE: LINE is offered', () => {
+      const s = summariseConnections([LIVE_GOOGLE, LIVE_LINE], null)
+      expect(s.find((x) => x.provider === 'line')).toMatchObject({ canUnlink: true, unlinkBlockedBy: null })
+    })
+
+    it('dead ya29 Google + live Google + live LINE: LINE is offered — one live Google is enough', () => {
+      const s = summariseConnections([DEAD_GOOGLE, LIVE_GOOGLE, LIVE_LINE], null)
+      expect(s.find((x) => x.provider === 'line')).toMatchObject({ canUnlink: true, unlinkBlockedBy: null })
+    })
+  })
+
   it('ignores blank provider rows rather than counting them as a method', () => {
-    const s = summariseConnections([{ provider: 'LINE' }, { provider: '  ' }], 'line')
+    const s = summariseConnections([{ provider: 'LINE', identityLength: LINE_LEN }, { provider: '  ', identityLength: 0 }], 'line')
     expect(s.find((x) => x.provider === 'line')?.canUnlink).toBe(false)
   })
 })
@@ -161,8 +200,8 @@ describe('summariseConnections — what the screen renders from', () => {
 describe('GET /api/auth/link/connections', () => {
   it('returns the summary and nothing that could identify a credential', async () => {
     readMemberProviders.mockResolvedValue([
-      { id: 'row-1', userId: USER, provider: 'LINE' },
-      { id: 'row-2', userId: USER, provider: 'google' },
+      { id: 'row-1', userId: USER, provider: 'LINE', identityLength: LINE_LEN },
+      { id: 'row-2', userId: USER, provider: 'google', identityLength: GOOGLE_SUB_LEN },
     ])
     const r = await invoke(connections, { method: 'GET' })
     expect(r.status).toBe(200)
@@ -170,6 +209,19 @@ describe('GET /api/auth/link/connections', () => {
     expect(r.json?.ok).toBe(true)
     expect(body).not.toContain('row-1')
     expect(body).not.toContain(USER)
+  })
+
+  it('carries the identity lengths through, so a dead ya29 Google does not make LINE removable', async () => {
+    readMemberProviders.mockResolvedValue([
+      { id: 'row-1', userId: USER, provider: 'LINE', identityLength: LINE_LEN },
+      { id: 'row-2', userId: USER, provider: 'google', identityLength: DEAD_YA29_LEN },
+    ])
+    const r = await invoke(connections, { method: 'GET' })
+    expect(r.status).toBe(200)
+    const list = r.json?.connections as Array<{ provider: string; canUnlink: boolean; unlinkBlockedBy: unknown }>
+    expect(list.find((x) => x.provider === 'line')).toMatchObject({ canUnlink: false, unlinkBlockedBy: 'last-method' })
+    // A length is not a credential, but it is not the screen's business either.
+    expect(JSON.stringify(r.json)).not.toContain('identityLength')
   })
 
   it('never caches — a stale answer would show a link that was just removed', async () => {
@@ -200,14 +252,14 @@ describe('GET /api/auth/link/connections', () => {
 describe('DELETE /api/auth/link/unlink/<provider>', () => {
   it('uses the STRICT resolver — unlink removes a credential', async () => {
     unlinkProvider.mockResolvedValue({ status: 'unlinked', removed: 1 })
-    await invoke(unlinkRoute, { method: 'DELETE', query: { provider: 'google' } })
+    await invoke(unlinkRoute, { method: 'DELETE', query: { provider: 'google', identityLength: GOOGLE_SUB_LEN } })
     expect(resolveSignedSessionUserId).toHaveBeenCalledTimes(1)
     expect(resolveSessionUserId).not.toHaveBeenCalled()
   })
 
   it('removes the provider and reports how many rows went', async () => {
     unlinkProvider.mockResolvedValue({ status: 'unlinked', removed: 2 })
-    const r = await invoke(unlinkRoute, { method: 'DELETE', query: { provider: 'google' } })
+    const r = await invoke(unlinkRoute, { method: 'DELETE', query: { provider: 'google', identityLength: GOOGLE_SUB_LEN } })
     expect(r.status).toBe(200)
     expect(r.json).toMatchObject({ ok: true, unlinked: 'google', removed: 2 })
   })
@@ -221,7 +273,7 @@ describe('DELETE /api/auth/link/unlink/<provider>', () => {
 
   it('404s a provider that was never linked', async () => {
     unlinkProvider.mockResolvedValue({ status: 'not-linked' })
-    const r = await invoke(unlinkRoute, { method: 'DELETE', query: { provider: 'google' } })
+    const r = await invoke(unlinkRoute, { method: 'DELETE', query: { provider: 'google', identityLength: GOOGLE_SUB_LEN } })
     expect(r.status).toBe(404)
   })
 
@@ -236,7 +288,7 @@ describe('DELETE /api/auth/link/unlink/<provider>', () => {
   it('takes the session provider from the SESSION, and hands it to the rule', async () => {
     getServerSession.mockResolvedValue({ provider: 'line' })
     unlinkProvider.mockResolvedValue({ status: 'unlinked', removed: 1 })
-    await invoke(unlinkRoute, { method: 'DELETE', query: { provider: 'google' } })
+    await invoke(unlinkRoute, { method: 'DELETE', query: { provider: 'google', identityLength: GOOGLE_SUB_LEN } })
     expect(unlinkProvider).toHaveBeenCalledWith(
       expect.anything(),
       expect.objectContaining({ provider: 'google', sessionProvider: 'line' }),
@@ -256,13 +308,13 @@ describe('DELETE /api/auth/link/unlink/<provider>', () => {
 
   it('refuses an unauthenticated caller before touching the store', async () => {
     resolveSignedSessionUserId.mockResolvedValue({ ok: false, status: 401, error: 'not signed in' })
-    const r = await invoke(unlinkRoute, { method: 'DELETE', query: { provider: 'google' } })
+    const r = await invoke(unlinkRoute, { method: 'DELETE', query: { provider: 'google', identityLength: GOOGLE_SUB_LEN } })
     expect(r.status).toBe(401)
     expect(unlinkProvider).not.toHaveBeenCalled()
   })
 
   it.each(['GET', 'POST'])('405s %s, so a link cannot be removed by navigation', async (method) => {
-    const r = await invoke(unlinkRoute, { method, query: { provider: 'google' } })
+    const r = await invoke(unlinkRoute, { method, query: { provider: 'google', identityLength: GOOGLE_SUB_LEN } })
     expect(r.status).toBe(405)
     expect(unlinkProvider).not.toHaveBeenCalled()
   })

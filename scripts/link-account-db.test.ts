@@ -282,6 +282,50 @@ describe.skipIf(!TEST_URL)('provider linking against real Postgres', () => {
     expect(rows).toHaveLength(1)
   })
 
+  // Slice 6a (plan 0.9, DoD F1). The unit suite proves the rule; this proves the rule
+  // is fed by real SQL — that length(id_token) comes back through the driver as a
+  // number the dead-shape test can read, inside the same transaction as the lock.
+  //
+  // THE SUBJECT LENGTHS ARE THE FIXTURE. subject() is 49 characters, which
+  // isDeadIdentityShape reads as a dead Google row — right for the ya29 case, wrong
+  // for a live one. A live Google here is cut to exactly 32, the last length the
+  // shape test still calls live.
+  function liveGoogleSubject(): string {
+    const s = `${PREFIX}${randomUUID().replace(/-/g, '')}`.slice(0, 32)
+    subjects.push(s)
+    return s
+  }
+  function deadYa29Subject(): string {
+    const s = `${PREFIX}ya29.${'x'.repeat(240)}`.slice(0, 253) + randomUUID()
+    subjects.push(s)
+    return s
+  }
+
+  it('unlink REFUSES LINE when the only other row is a dead ya29 Google, and both rows survive', async () => {
+    const user = await makeMember()
+    await linkProvider(store, { userId: user, provider: 'google', subject: deadYa29Subject() })
+    await linkProvider(store, { userId: user, provider: 'line', subject: subject() })
+
+    const r = await unlinkProvider(store, { userId: user, provider: 'line' })
+    expect(r).toEqual({ status: 'last-method' })
+
+    const rows = await client`SELECT provider FROM user_provider WHERE user_id = ${user}`
+    expect(rows.map((x) => x.provider).sort()).toEqual(['LINE', 'google'])
+  })
+
+  it('unlink PERMITS LINE when a live Google remains beside the dead one', async () => {
+    const user = await makeMember()
+    await linkProvider(store, { userId: user, provider: 'google', subject: deadYa29Subject() })
+    await linkProvider(store, { userId: user, provider: 'google', subject: liveGoogleSubject() })
+    await linkProvider(store, { userId: user, provider: 'line', subject: subject() })
+
+    const r = await unlinkProvider(store, { userId: user, provider: 'line' })
+    expect(r).toEqual({ status: 'unlinked', removed: 1 })
+
+    const rows = await client`SELECT provider FROM user_provider WHERE user_id = ${user}`
+    expect(rows.map((x) => x.provider)).toEqual(['google', 'google'])
+  })
+
   it('a member whose row was deleted cannot acquire a credential', async () => {
     const ghost = randomUUID()
     const r = await linkProvider(store, { userId: ghost, provider: 'line', subject: subject() })
