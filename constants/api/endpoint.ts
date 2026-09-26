@@ -52,7 +52,7 @@ export const API = {
     update_profile_pic: backendURLGenerator('/user/profile-pic'),
 
     check_line: backendURLGenerator('/user/check-line'),
-    register_or_login: backendURLGenerator('/user/register-login')
+    register_or_login: localApi('/auth/register-login-fe') // MIGRATED slice 6 -> pages/api/auth/register-login-fe.ts. Roll back: backendURLGenerator('/user/register-login')
   },
   survey: {
     get: localApi('/survey'), // MIGRATED -> pages/api/survey/index.ts (static questionnaire)
