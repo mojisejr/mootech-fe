@@ -102,6 +102,10 @@ export default defineConfig({
       'scripts/link-callback-route.test.ts', // mumate-login-identity slice 3 — callback: state before anything, cookie cleared on every exit
       'scripts/link-connections-route.test.ts', // mumate-login-identity slice 3 — connections read, unlink route, last-method refusal
       'scripts/connected-screen.test.tsx', // mumate-login-identity slice 3 — the screen renders real link state, not session guesswork
+      'scripts/ask-before-create.test.ts', // mumate-login-identity slice 5 — the switch, the ask/known verdict, the remembered choice, fail-open status read
+      'scripts/identity-status-route.test.ts', // mumate-login-identity slice 5 — strict resolution, switch off never asks, no user_id disclosed
+      'scripts/self-heal-ask.test.ts', // mumate-login-identity slice 5 — the only creating path asks first; every failure falls back to today
+      'scripts/identity-choice-screen.test.tsx', // mumate-login-identity slice 5 — /v2/welcome-back: yes proves with the other provider, no dead end
       'scripts/link-account-db.test.ts', // mumate-login-identity slice 3 — real-pg: unique-violation recovery against a real index (env-gated)
       'scripts/provider-identity-migration-db.test.ts', // mumate-login-identity slice 2 — real-pg proof of migration 0034 on a synthetic seed (env-gated)
       'scripts/v2-login-providers-retry.test.ts', // 2026-09-20 — signIn() providers-fetch retry (LINE cold-start "undefined" error fix)

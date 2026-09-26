@@ -30,6 +30,8 @@ import { ProfileGate } from "./ProfileGate"
 
 const CARD = "v3-shadow-card flex w-full flex-col gap-3 rounded-[24px] bg-white p-5"
 const RETURN_TO = "/v2/settings/connected"
+/** The support channel ProfileGate already sends members to. */
+const SUPPORT_LINE_URL = "https://lin.ee/mumate"
 
 const CHAT = <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a2 2 0 0 1-2 2H8l-4 4V5a2 2 0 0 1 2-2h13a2 2 0 0 1 2 2Z" /></svg>
 
@@ -79,6 +81,9 @@ const MESSAGES: Record<string, string> = {
   current_method: "คุณกำลังเข้าสู่ระบบด้วยวิธีนี้อยู่ ออกจากระบบแล้วเข้าด้วยอีกวิธีก่อน จึงจะถอดวิธีนี้ได้",
   // The feature is not configured on this deployment. It is NOT "try again": no
   // number of retries configures a server, and FALLBACK_ERROR used to say so.
+  // Owner decision 22 (plan 0.8): one working identity per provider. The usual cause
+  // is picking the wrong Google account in the chooser, so the sentence says that first.
+  provider_already_held: "บัญชีนี้เชื่อมช่องทางนี้ไว้แล้วอีกบัญชีหนึ่ง — คุณอาจเลือกบัญชีผิด ถ้าต้องการเปลี่ยน ให้กด \"ยกเลิกการเชื่อม\" อันเดิมก่อน แล้วค่อยเชื่อมใหม่",
   link_unavailable: "ตอนนี้ยังเชื่อมบัญชีไม่ได้ ระบบยังไม่พร้อมใช้งานส่วนนี้ — ไม่ใช่ที่เครื่องคุณ ทีมงานกำลังดูแลอยู่",
 }
 const FALLBACK_ERROR = "เชื่อมบัญชีไม่สำเร็จ กรุณาลองใหม่อีกครั้ง"
@@ -480,6 +485,20 @@ export function ConnectedScreen({ navigate = defaultNavigate }: { navigate?: (ur
                 })}
               </div>
             </div>
+
+            {/* Owner decision 19 (plan 0.8). A member holding every provider has no link
+                button left, so slice 4's merge — which starts from an unlinked provider —
+                cannot be reached from here. Before this line they had no way out at all.
+                Shown only once the real connections have loaded, never on the default shape. */}
+            {connections && rows.every((row) => row.linked) ? (
+              <p className="px-1 text-[11px] leading-4 text-v3-text-muted" data-testid="connected-all-linked-help">
+                มีบัญชีเก่าอีกบัญชีที่ข้อมูลไม่ครบ?{" "}
+                <a href={SUPPORT_LINE_URL} target="_blank" rel="noopener noreferrer" className="font-bold text-v3-sapphire">
+                  ทักทีมงานทาง LINE @mumate.co
+                </a>{" "}
+                เพื่อให้ช่วยรวมบัญชี
+              </p>
+            ) : null}
 
             <p className="px-1 text-[11px] leading-4 text-v3-text-muted">
               แนะนำให้เชื่อมอย่างน้อย 2 วิธี ถ้าเข้าวิธีหลักไม่ได้จะยังกู้บัญชีคืนได้ — ข้อมูลดวงและ QI ทั้งหมดผูกกับบัญชีนี้

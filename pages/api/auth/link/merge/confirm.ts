@@ -108,6 +108,8 @@ export default async function handler(
         return res.status(409).json({ ok: false, error: 'no_offer' })
       case 'member-missing':
         return res.status(409).json({ ok: false, error: 'member_missing' })
+      case 'provider-already-held':
+        return res.status(409).json({ ok: false, error: 'provider_already_held' })
     }
   } catch (error) {
     console.error('[link/merge/confirm] failed', error instanceof Error ? error.message : 'unknown error')

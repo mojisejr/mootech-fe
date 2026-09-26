@@ -7,6 +7,19 @@ import { UserRegisterOrLogin } from "@/constants/api/api-user-register-or-login"
 import { UserGetById } from "@/constants/api/api-user-get";
 import { useCurrentUser } from "./use-current-user";
 import { buildRegisterParamsFromSession } from "./register-params";
+import {
+  WELCOME_BACK_PATH,
+  fetchIdentityStatus,
+  hasChosenCreateNew,
+} from "./ask-before-create";
+
+function tabStorage(): Storage | null {
+  try {
+    return typeof window === "undefined" ? null : window.sessionStorage;
+  } catch {
+    return null;
+  }
+}
 
 // Global identity self-heal (#mumate-line-webview-oauth, Fix B).
 //
@@ -112,11 +125,27 @@ export function useSelfHealIdentity(): void {
       if (isDevSession()) {
         return;
       }
+      // Slice 5: the question page drives its own flow; minting here would create the
+      // very account it is asking about.
+      if (typeof window !== "undefined" && window.location.pathname === WELCOME_BACK_PATH) {
+        return;
+      }
       const params = buildRegisterParamsFromSession(session);
       if (!params) {
         return; // session not usable yet; a later render can retry
       }
       healingRef.current = true;
+      // Slice 5 (mumate-login-identity-001, plan 0.8): ask before creating. Only when the
+      // server says this identity has NO owner and the switch is on; any failure answers
+      // "do not ask" and the heal continues exactly as before. A member who already chose
+      // "create new" for this identity in this tab is not asked again.
+      if (!hasChosenCreateNew(tabStorage(), params.provider, params.id_token)) {
+        const status = await fetchIdentityStatus();
+        if (status?.ask) {
+          window.location.assign(WELCOME_BACK_PATH);
+          return; // guard stays held: this page is being left
+        }
+      }
       try {
         const call = () =>
           UserRegisterOrLogin(
