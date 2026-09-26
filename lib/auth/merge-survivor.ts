@@ -129,12 +129,12 @@ export const defaultMayLose = (side: { isPaid: PaidVerdict; everPaid: boolean })
  * member they had lost nothing. Being wrong in this direction only ever makes the
  * flow refuse more.
  *
- * §AND WHY IT IS USED HERE WHEN unlinkProvider REFUSED TO USE IT. The known limit
- * recorded at lib/auth/link-account.ts declines to make this inference a live
- * GUARD, because there it would block an unlink a member legitimately asked for. A
- * false positive there denies a member an action; a false positive here only makes
- * slice 4 hand the pair to support. The inference may narrow what this flow does
- * and must never widen it.
+ * §AND unlinkProvider USES IT TOO, SINCE SLICE 6a (plan 0.9). It once declined to,
+ * because in a live guard a false positive denies a member an action they asked for,
+ * while here it only makes slice 4 hand the pair to support. Revision 0.5 of the plan
+ * decided the other way for the flip: an unlink judged by provider names can leave a
+ * member holding nothing but a dead row, and after the flip nothing heals that. In
+ * both places the inference may narrow what a flow does and must never widen it.
  */
 export function isDeadIdentityShape(provider: string, identityLength: number): boolean {
   return String(provider ?? '').trim().toLowerCase() === 'google' && identityLength > 32

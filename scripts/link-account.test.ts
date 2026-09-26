@@ -8,6 +8,7 @@ import { describe, expect, it } from 'vitest'
 
 import {
   linkProvider,
+  summariseConnections,
   unlinkProvider,
   type LinkStore,
   type LinkTransaction,
@@ -325,7 +326,7 @@ describe('unlink', () => {
     expect(f.state.deletes).toBe(0)
   })
 
-  it('counts OTHER PROVIDERS, not rows — several rows of one provider are still one way in', async () => {
+  it('several rows of ONE provider are still one provider — nothing else is left, so it is the last', async () => {
     // The shape 1,443 members are actually in: many google rows, nothing else. The
     // extra row is a dead legacy access token — the only way a member reaches two
     // google rows since owner decision 22 (plan 0.8).
@@ -397,6 +398,118 @@ describe('unlink', () => {
     const again = await linkProvider(f.store, { userId: ME, provider: 'google', subject: 'g-1' })
     expect(again.status).toBe('linked')
     expect(f.state.rows.every((r) => r.userId === ME)).toBe(true)
+  })
+})
+
+describe('slice 6a — the last method is judged by identities that can sign in (plan 0.9, DoD F1)', () => {
+  const LIVE_LINE = `U${'a'.repeat(32)}` // 33 chars, the only LINE shape production holds
+
+  /** Builds a member through the real link path, in the order given, so every row
+   *  exists because linkProvider allowed it. */
+  async function member(...ids: Array<['google' | 'line', string]>) {
+    const f = fakeStore()
+    for (const [provider, subject] of ids) {
+      const r = await linkProvider(f.store, { userId: ME, provider, subject })
+      expect(r.status).toBe('linked')
+    }
+    return f
+  }
+
+  /** What the Connected screen would be told about this member right now — the same
+   *  rows the connections route reads, with lengths and never the identities. */
+  function screenFor(f: ReturnType<typeof fakeStore>, session: string | null) {
+    return summariseConnections(
+      f.state.rows
+        .filter((r) => r.userId === ME)
+        .map((r) => ({ provider: r.provider, identityLength: (f.state.subjects.get(r.id) ?? '').length })),
+      session,
+    )
+  }
+
+  it('dead ya29 Google + live LINE: unlinking LINE is REFUSED as last-method, and nothing is removed', async () => {
+    // The member the flip strands. Under the old name count this was permitted, and
+    // left them holding a Google row no login will ever present again.
+    const f = await member(['google', DEAD_YA29], ['line', LIVE_LINE])
+    const r = await unlinkProvider(f.store, { userId: ME, provider: 'line' })
+    expect(r).toEqual({ status: 'last-method' })
+    expect(f.state.rows).toHaveLength(2)
+    expect(f.state.deletes).toBe(0)
+  })
+
+  it('...and the screen does not offer it: the button and the route give the same reason', async () => {
+    const f = await member(['google', DEAD_YA29], ['line', LIVE_LINE])
+    const line = screenFor(f, null).find((x) => x.provider === 'line')
+    expect(line).toMatchObject({ linked: true, canUnlink: false, unlinkBlockedBy: 'last-method' })
+  })
+
+  it('dead ya29 Google + live LINE, signed in through LINE: last-method still OUTRANKS current-method', async () => {
+    // Both rules fire. "Sign in the other way first" would send the member to a Google
+    // row that cannot sign anyone in.
+    const f = await member(['google', DEAD_YA29], ['line', LIVE_LINE])
+    const r = await unlinkProvider(f.store, { userId: ME, provider: 'line', sessionProvider: 'line' })
+    expect(r).toEqual({ status: 'last-method' })
+    expect(screenFor(f, 'line').find((x) => x.provider === 'line')?.unlinkBlockedBy).toBe('last-method')
+    expect(f.state.deletes).toBe(0)
+  })
+
+  it('dead ya29 Google + live LINE: the DEAD Google row may still be removed — LINE is a way in', async () => {
+    // The fix may only refuse more where the member would be left with nothing. Taking
+    // away a row that never worked leaves them exactly as reachable as before.
+    const f = await member(['google', DEAD_YA29], ['line', LIVE_LINE])
+    expect(screenFor(f, 'line').find((x) => x.provider === 'google')).toMatchObject({
+      canUnlink: true,
+      unlinkBlockedBy: null,
+    })
+    const r = await unlinkProvider(f.store, { userId: ME, provider: 'google', sessionProvider: 'line' })
+    expect(r).toEqual({ status: 'unlinked', removed: 1 })
+    expect(f.state.rows.map((x) => x.provider)).toEqual(['LINE'])
+  })
+
+  it('live Google + live LINE: unlinking LINE is PERMITTED, and the screen offered it', async () => {
+    const f = await member(['google', REAL_GOOGLE_SUB], ['line', LIVE_LINE])
+    expect(screenFor(f, null).find((x) => x.provider === 'line')).toMatchObject({
+      canUnlink: true,
+      unlinkBlockedBy: null,
+    })
+    const r = await unlinkProvider(f.store, { userId: ME, provider: 'line' })
+    expect(r).toEqual({ status: 'unlinked', removed: 1 })
+    expect(f.state.rows.map((x) => x.provider)).toEqual(['google'])
+  })
+
+  it('dead ya29 Google + live Google + live LINE: unlinking LINE is PERMITTED — one live Google is enough', async () => {
+    // The 259-member shape: a dead row beside the real one. The dead row must not
+    // make the live one invisible, or the fix would refuse members it has no reason to.
+    const f = await member(['google', DEAD_YA29], ['google', REAL_GOOGLE_SUB], ['line', LIVE_LINE])
+    expect(screenFor(f, null).find((x) => x.provider === 'line')).toMatchObject({
+      canUnlink: true,
+      unlinkBlockedBy: null,
+    })
+    const r = await unlinkProvider(f.store, { userId: ME, provider: 'line' })
+    expect(r).toEqual({ status: 'unlinked', removed: 1 })
+    expect(f.state.rows.map((x) => x.provider).sort()).toEqual(['google', 'google'])
+  })
+
+  it('judges only the rows it locked: a live row that appears between the two reads is not trusted', async () => {
+    // The shape read takes no lock. A row it sees that the FOR UPDATE read did not is
+    // one this transaction cannot stop another from deleting before the unlink
+    // commits, so it must not be what makes the unlink safe.
+    const f = await member(['google', DEAD_YA29], ['line', LIVE_LINE])
+    const base = f.store
+    const racing: LinkStore = {
+      transaction: (work) =>
+        base.transaction((tx) =>
+          work({
+            ...tx,
+            listMemberIdentityShapes: async (userId) => [
+              ...(await tx.listMemberIdentityShapes(userId)),
+              { id: 'unlocked-row', provider: 'google', identityLength: REAL_GOOGLE_SUB.length },
+            ],
+          }),
+        ),
+    }
+    const r = await unlinkProvider(racing, { userId: ME, provider: 'line' })
+    expect(r).toEqual({ status: 'last-method' })
+    expect(f.state.deletes).toBe(0)
   })
 })
 
