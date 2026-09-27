@@ -5,7 +5,7 @@
 // (api-user-matching-calculate.ts:9), which is forgeable; the v2 routes derive it from the signed
 // session and ignore anything the client says about identity.
 import { callApi, callApiWithStatus, type ApiResult } from '../../utils/fetch'
-import { API } from './endpoint'
+import { LOCAL_API as API } from './endpoint-local' // not ./endpoint: keeps the retired BE entries out of v2's chunks (be-retirement 2b)
 
 /** POST /api/v2/matching/calculate — status-aware, because 410 (quota) and 5xx (system/engine down)
  *  must stay distinguishable for the result screen (useCompatibilityResult.ts:203-206). */

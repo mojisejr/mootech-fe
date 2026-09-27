@@ -125,7 +125,12 @@ t('Beam · /api/v2/payment/webhook-beam/extra is still gated (exact match, not p
 
 // ── bypass cookie still works for the rest of the app ──
 t('valid bypass cookie passes the app through', () => {
-  assert.equal(isPassThrough(middleware(mkReq('/', 'mnt_bypass=testkey'))), true)
+  assert.equal(isPassThrough(middleware(mkReq('/v2', 'mnt_bypass=testkey'))), true)
+  // '/' reaches the app too, and since be-retirement slice 2a the app answers it with the v1 retirement
+  // redirect to /v2 (lib/v1-retired-routes.ts) — not the maintenance page.
+  const root: any = middleware(mkReq('/', 'mnt_bypass=testkey'))
+  assert.equal(rewriteTarget(root), null)
+  assert.equal(root.headers.get('location'), 'http://localhost/v2')
 })
 
 t('wrong bypass cookie is still gated', () => {

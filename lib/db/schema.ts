@@ -1053,6 +1053,22 @@ export const user = pgTable("user", {
 	onboardingGoal: text("onboarding_goal"),
 });
 
+// consent — one row per PDPA acceptance on v2 first-run (#233). History, not a flag: re-completing
+// first-run APPENDS a row and never overwrites an earlier one. Created on prod by the BE's
+// migrations/2026-08-09_onboarding-consent.sql; the FE owns the DDL since lib/db/0035_consent.sql (CIEL
+// mumate-be-retirement-001 slice 1d), which mirrors it and is a no-op where the table exists.
+// accepted_at is TEXT holding a Bangkok 'YYYY-MM-DD HH:mm:ss' string (what the BE wrote; lib/v2/consent-store.ts
+// keeps writing the same) — do not "fix" it to a timestamp here without a migration that converts the rows.
+// Written ONLY by lib/v2/consent-store.ts.
+export const consent = pgTable("consent", {
+	id: uuid().primaryKey().notNull().default(sql`gen_random_uuid()`),
+	userId: text("user_id").notNull(),
+	acceptedAt: text("accepted_at").notNull(),
+	policyVersion: text("policy_version").notNull(),
+}, (table) => [
+	index("idx_consent_user_id").using("btree", table.userId.asc().nullsLast().op("text_ops")),
+]);
+
 export const userFriendGetFriend = pgTable("user_friend_get_friend", {
 	id: bigserial({ mode: "bigint" }).primaryKey().notNull(),
 	userId: text("user_id"),

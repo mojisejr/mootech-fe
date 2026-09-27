@@ -61,7 +61,6 @@ jobs:
           docker build --build-arg "APP_GIT_SHA=${sha}" \
             --build-arg NEXTAUTH_URL="${{ vars.NEXTAUTH_URL }}" \
             --build-arg HOST="${{ vars.HOST }}" \
-            --build-arg NEXT_PUBLIC_BACKEND_URL="${{ vars.NEXT_PUBLIC_BACKEND_URL }}" \
             --build-arg NEXT_PUBLIC_OMISE_KEY="${{ vars.NEXT_PUBLIC_OMISE_KEY }}" \
             --build-arg NEXT_PUBLIC_OMISE_KEY_V2="${{ vars.NEXT_PUBLIC_OMISE_KEY_V2 }}"\
             --build-arg NEXT_PUBLIC_ENABLE_CHAT="${{ vars.NEXT_PUBLIC_ENABLE_CHAT }}" \

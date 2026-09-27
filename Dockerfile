@@ -14,7 +14,9 @@
 #   • No env file is ever COPYed (.dockerignore). APP_GIT_SHA names the built revision through /api/health.
 #
 # Build:  docker build --build-arg APP_GIT_SHA=$(git rev-parse HEAD) --build-arg NEXTAUTH_URL=https://… \
-#           --build-arg NEXT_PUBLIC_BACKEND_URL=https://… [--build-arg NEXT_PUBLIC_OMISE_KEY_V2=pkey_…] -t mootech-fe:local .
+#           [--build-arg NEXT_PUBLIC_OMISE_KEY_V2=pkey_…] -t mootech-fe:local .
+#         (NEXT_PUBLIC_BACKEND_URL is no longer a build argument: mootech-be left the app in CIEL
+#          mumate-be-retirement-001 slice 2b and nothing reads it.)
 # Smoke:  bash scripts/container-smoke.sh   (builds, hygiene, /api/health db, maintenance gate on the image)
 
 ARG BASE=node:22.23.2-bookworm-slim@sha256:83f487e0a63425e5b4d146fb5e5be574bcbe1b7b843d3ebafdd95eaf7767a7e5
@@ -32,7 +34,6 @@ WORKDIR /app
 ARG NEXTAUTH_URL=http://localhost:3000
 ARG ENVIRONMENT=production
 ARG HOST=
-ARG NEXT_PUBLIC_BACKEND_URL=http://localhost:4000
 ARG NEXT_PUBLIC_OMISE_KEY=
 ARG NEXT_PUBLIC_OMISE_KEY_V2=
 ARG NEXT_PUBLIC_ENABLE_CHAT=
@@ -43,7 +44,6 @@ ENV NEXT_TELEMETRY_DISABLED=1 \
     NEXTAUTH_URL=${NEXTAUTH_URL} \
     ENVIRONMENT=${ENVIRONMENT} \
     HOST=${HOST} \
-    NEXT_PUBLIC_BACKEND_URL=${NEXT_PUBLIC_BACKEND_URL} \
     NEXT_PUBLIC_OMISE_KEY=${NEXT_PUBLIC_OMISE_KEY} \
     NEXT_PUBLIC_OMISE_KEY_V2=${NEXT_PUBLIC_OMISE_KEY_V2} \
     NEXT_PUBLIC_ENABLE_CHAT=${NEXT_PUBLIC_ENABLE_CHAT} \

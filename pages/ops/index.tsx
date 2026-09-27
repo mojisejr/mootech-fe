@@ -33,7 +33,7 @@ import { ActivityList } from '@/components/ops/ActivityList'
 type GateProps = { authenticated: false; users: Array<{ id: string; name: string }>; gateError: string | null }
 type DashboardProps = {
   authenticated: true
-  health: { fe: ServiceHealth; be: ServiceHealth }
+  health: { fe: ServiceHealth }
   metrics: BusinessMetrics
   points: PointsBreakdown
   revenue: RevenueBreakdownRow[]
@@ -90,7 +90,8 @@ export default function OpsPage(props: Props) {
   }
 
   const { health, metrics, points, revenue, aiQuota, activity, calculatorUsage } = props
-  const overall = overallHealth([health.fe.status, health.be.status, activity.status])
+  // mootech-be is not folded in any more (be-retirement slice 2c): the app does not call it.
+  const overall = overallHealth([health.fe.status, activity.status])
 
   const pointsBreakdown = (
     <>
@@ -164,7 +165,6 @@ export default function OpsPage(props: Props) {
             <h2 className="mb-3 text-sm font-semibold text-ops_text_muted">System Health</h2>
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <HealthCard service={health.fe} />
-              <HealthCard service={health.be} />
             </div>
           </section>
 

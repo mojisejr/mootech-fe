@@ -14,7 +14,7 @@ Lives in `mootech-fe/testenv/` (next to `harness/`, whose tooling was archived 2
 | service | port | notes |
 |---|---|---|
 | mootech-fe | **3000** | `npm run dev` (prints a mode banner first — see Awareness) |
-| mootech-be | **4000** | `PORT=4000 npm run start:dev` (default is 3000 → collides with FE, so forced) |
+| mootech-be | **4000** | `PORT=4000 npm run start:dev` (default is 3000 → collides with FE, so forced). **Not needed by the FE since 2026-09-27** (be-retirement slice 2: the FE no longer reads `NEXT_PUBLIC_BACKEND_URL`; `env/fe.env` still sets it, which is harmless and only feeds the mode banner). Boot it only to work on mootech-be itself. |
 | bazi | **3100** | `npm run dev -- -p 3100` |
 | postgres | **5433** | docker, SSL self-signed, db `mumate_test` |
 | line-stub | **3200** | booted BY `stack.sh up` — do not start it by hand (see *Signing up on the arena*) |

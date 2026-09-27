@@ -11,8 +11,7 @@
 // MEMBER_ID, and saw "ไม่พบข้อมูลผู้ใช้" until a refresh let the late self-heal's cookie
 // through. Found by the owner's first production walk, 2026-09-26.
 //
-// Behaviour is the self-heal's, unchanged: 10 s window, one 70 s retry for a cold BE,
-// ref-code backfill, the same four cookies with the same options. For an identity that
+// Behaviour is the self-heal's, unchanged: 10 s window, one 70 s retry, ref-code backfill, the same four cookies with the same options. For an identity that
 // already has an owner, register-login LOGS IN and creates nothing.
 import { CookieKey } from "@/constants/cookie-key";
 import { CONFIG } from "@/constants/config";
@@ -21,9 +20,12 @@ import { UserGetById } from "@/constants/api/api-user-get";
 import type { RegisterParams } from "./register-params";
 
 export const MINT_CALL_TIMEOUT_MS = 10000;
-// #? login ไม่สำเร็จรอบแรกบน localhost/Render: free tier ตื่นช้า 30-60 วิ แล้ว call แรก timeout ที่
-// 10 วิ → เดิมจบที่ signOut กลับหน้า login (อาการ "login ไม่สำเร็จ" ที่ผู้ใช้เจอ 2026-09-03) — ตอนนี้
-// พอ timeout จะยิงซ้ำอีกครั้งด้วยหน้าต่างยาวพอสำหรับ cold start ก่อนยอมแพ้
+// One longer retry after a first-call timeout, so a slow first request ends in a second try rather than
+// in signOut (the "login ไม่สำเร็จ" symptom of 2026-09-03). It was sized for mootech-be's Render cold start
+// (30-60 s). Since mumate-login-identity slice 6 the call is same-origin (/api/auth/register-login-fe) and
+// since be-retirement slice 2 nothing here reaches the BE at all; the retry stays as a cheap safety net for
+// a slow serverless/DB first request. Its length is unchanged on purpose — shortening it is a behaviour
+// change for the login lane to decide, not a comment cleanup.
 export const MINT_RETRY_TIMEOUT_MS = 70000;
 
 function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
@@ -55,7 +57,7 @@ export type SetMemberCookie = (name: MemberCookieName, value: string, opts: type
 export type MintOutcome =
   /** the four cookies are set */
   | { status: "minted"; userId: string }
-  /** BE rejected the identity outright (ok:false) — the caller clears and signs out */
+  /** register-login rejected the identity outright (ok:false) — the caller clears and signs out */
   | { status: "rejected" }
   /** a response without a user_id; nothing written, safe to retry later */
   | { status: "no-user" };
@@ -75,7 +77,7 @@ export async function mintMemberIdentity(params: RegisterParams, setCookie: SetM
   try {
     result = await withTimeout(call(), MINT_CALL_TIMEOUT_MS);
   } catch {
-    // attempt 1 timeout (Render cold start ชนะ 10 วิ เสมอตอน server หลับ) — ยิงซ้ำหน้าต่างยาว
+    // attempt 1 timed out — one retry with the long window (see MINT_RETRY_TIMEOUT_MS)
     result = await withTimeout(call(), MINT_RETRY_TIMEOUT_MS);
   }
 

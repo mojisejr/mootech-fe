@@ -6,6 +6,7 @@
 import assert from 'node:assert/strict'
 import { toComputeSource, resolveGreetingElementTh } from '../lib/personalization/compute-source'
 import { resolveMascotFromCompute } from '../lib/personalization/mascot'
+import { buildChartPayload, deriveChartCore } from '../lib/chart/engine-chart'
 import { test as t } from 'vitest'
 
 
@@ -65,3 +66,16 @@ t('fallback: neither source has an element → null (row hidden — correct, no 
 })
 
 
+
+// mumate-be-retirement-001 slice 1: GET /api/chinese-horoscope now answers with the ENGINE-derived payload
+// (buildChartPayload). toComputeSource must read it unchanged — same envelope, same legacy paths.
+t('the engine payload maps: 亥 year + 戊 day → กุน + ดิน', () => {
+  const data = buildChartPayload(
+    { dob: '1995-06-15', time: '', gender: 'FEMALE' },
+    deriveChartCore({ pillars: { year: { branch: '亥' }, day: { stem: '戊' } } })!,
+    null,
+  )
+  const m = resolveMascotFromCompute(toComputeSource({ data }))
+  assert.ok(m)
+  assert.equal(m.filename, '12_กุน-ดิน')
+})

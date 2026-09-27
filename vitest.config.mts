@@ -84,6 +84,15 @@ export default defineConfig({
     // Same shape as the merge-conflict rule already written into design-verify.yml. Debt #212 is
     // that this list and ci.yml's skip list are two hand-synced copies of the same fact.
     include: [
+      'scripts/engine-chart.test.ts', // mumate-be-retirement-001 slice 1 — engine glyphs → animal / stem element+power / element_cycle, result_code format
+      'scripts/engine-chart-db.test.ts', // mumate-be-retirement-001 slice 1 — STEM_TABLE + element_cycle vocabulary against real Postgres (env-gated)
+      'scripts/birth-chart-save.test.ts', // mumate-be-retirement-001 slice 1 — register/edit-birth writer: columns, time '', session identity, minimal log_calculate
+      'scripts/birth-chart-db.test.ts', // mumate-be-retirement-001 slice 1 — the writer's transaction against real Postgres (env-gated)
+      'scripts/chart-routes.test.ts', // mumate-be-retirement-001 slice 1 — GET /api/chinese-horoscope from the engine, element finder without BE
+      'scripts/chart-clients.test.tsx', // mumate-be-retirement-001 slice 1 — register form, edit-birth and home read/write through the new routes
+      'scripts/measure-chart-drift.test.ts', // mumate-be-retirement-001 slice 1 DoD B2 — drift measurement classification, counts only
+      'scripts/v1-retired-routes.test.ts', // mumate-be-retirement-001 slice 2a DoD V1 — every v1 page redirects to its v2 target (307, one middleware rule); every other page is kept on purpose
+      'scripts/be-seam-closed.test.ts', // mumate-be-retirement-001 slice 2b DoD V2 — import graph from every page/API route that can still run: none reaches constants/api/endpoint.ts or a BE marker
       'scripts/register-login-fe.test.ts', // mumate-login-identity slice 1 — verified session → atomic FE-native identity route
       'scripts/register-login-fe-db.test.ts', // mumate-login-identity slice 1 — real-pg advisory-lock concurrency proof (env-gated)
       'scripts/link-state.test.ts', // mumate-login-identity slice 3 — signed state/PKCE/nonce binding for provider linking
@@ -129,7 +138,7 @@ export default defineConfig({
       'scripts/first-run-source-hook.test.tsx', // #244 — teeth on the hook that DECIDES the status
       'scripts/preview-gate.test.tsx', // #220 — .tsx so ci.yml's `*.test.ts` tsx lane never sees it (no skip-list edit, no #212 sync)
       'scripts/tier-prod-pages.test.tsx', // #225 — page-wiring teeth; .tsx (same reason: invisible to ci.yml tsx lane)
-      'scripts/consent-header.test.tsx', // #16 companion — BFF sends x-consent-secret; .tsx (invisible to ci.yml tsx lane)
+      'scripts/consent-header.test.tsx', // be-retirement 1d — /api/v2/onboarding writes consent locally, in production too, never via the BE (was: #16 x-consent-secret); .tsx
       'scripts/v2-auth-gate-escape.test.tsx', // #246 — identity-limbo escape hatch; .tsx (vitest-only, no #212 sync)
       'scripts/member-with-friend-limit.test.tsx', // #262 — real free friend limit 1→20; .tsx (invisible to ci.yml tsx lane)
       'scripts/user-friend-limit.test.tsx', // #262 r2 — /api/user limit_friend (FE-button read-path); .tsx (ตู๋ req-changes)
@@ -266,6 +275,10 @@ export default defineConfig({
       'scripts/matching-quota-gate.test.ts', // #357 — ด่านโควตาดวงสมพงษ์ ต้องเป็นหน้าต่างปีปฏิทินเท่ากับ be
       'scripts/compat-tier-quota.test.ts', // #358 Phase 6 — the tiered, monthly ดวงสมพงษ์ ceiling
       'scripts/compat-quota-concurrency-db.test.ts', // #358 Phase 6 — the ceiling under a burst, real pg
+      'scripts/consent-store-db.test.ts', // be-retirement 1d — real pg (skipIf !TEST_DATABASE_URL): consent row + onboarded_at in one transaction, production-mode handler, max:1 pool
+      'scripts/friend-write-routes.test.ts', // be-retirement 1e — POST /member-with-friend + PUT /profile: identity from the session only, 410 quota body, 400/404
+      'scripts/friend-write-db.test.ts', // be-retirement 1e — real pg: BE row shape, member/free quota from member_payment, burst holds 20, own rows only
+      'scripts/upload-file-route.test.ts', // be-retirement 1f — friend photo → Supabase Storage: session-bound, type/size/magic-byte refusals, { s3_key } answer
       'scripts/matching-activity-id.test.ts', // #357 — ตู๋จับได้ว่า BOSS/EMPLOYEE/FRIEND ต้องเป็น activity 3 ไม่ใช่ 2
       'scripts/compat-readers-v2-lane.test.ts', // #541 ① the readers stay on the v2 lane
       'scripts/compat-new-friend-selected.test.tsx', // #570 — WIRING: the friend just created becomes person2; .tsx

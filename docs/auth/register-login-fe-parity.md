@@ -1,8 +1,14 @@
 # FE-native register-login parity table
 
-The parallel endpoint is `POST /api/auth/register-login-fe`. Nothing calls it in
-production yet. The existing BE `POST /user/register-login` remains the live path
-and the rollback path.
+The FE-native endpoint is `POST /api/auth/register-login-fe`. **It is the live
+path:** `register_or_login` in `constants/api/endpoint.ts` was flipped to it on
+production at 06:47 +07 on 2026-09-27 (`mumate-login-identity-001` slice 6g,
+mootech-fe PR 828). The BE `POST /user/register-login` was kept as that flip's
+rollback until the login lane's observation window closes on 2026-10-04; the
+be-retirement slice 2 change (which stops the FE reading
+`NEXT_PUBLIC_BACKEND_URL`) ends that rollback and merges only after that date.
+When this table was written the FE route was still the parallel path, and the
+rows below describe it as such.
 
 Every legacy behaviour below was read from `mootech-be`
 `src/user/user.service.ts` (`registerOrLogin`) at commit `0705378`, not inferred

@@ -55,6 +55,18 @@ export async function checkChineseCalendarUsage(userId: string, now?: Date): Pro
 // no time window (lifetime count of member_with_friend rows); OUT_OF_LIMIT message = _ALL variant.
 export async function checkMemberWithFriendUsage(userId: string, count: number, now?: Date): Promise<UsageResult> {
   const m = await resolveMembership(userId, now)
+  return evaluateMemberWithFriendUsage(m, count)
+}
+
+// The pure half of checkMemberWithFriendUsage, split out (CIEL mumate-be-retirement-001 slice 1e) so the friend
+// CREATE can decide inside its write transaction, on a count taken under the lock, without a second database
+// round trip for membership: lib/db runs one connection, and calling resolveMembership (which uses `db`) inside
+// a transaction would queue behind the transaction itself. Membership is read BEFORE the transaction and
+// passed in. The numbers below are the one copy both callers use.
+export function evaluateMemberWithFriendUsage(
+  m: { reason: MembershipReason; isFree: boolean },
+  count: number,
+): UsageResult {
   return evaluateUsage({
     reason: m.reason,
     isFree: m.isFree,

@@ -90,3 +90,17 @@ export function userRowToFeCalcInput(row: UserBirthRow): FeCalcInput {
 export function isBirthProfileComplete(row: UserBirthRow): boolean {
   return nonEmpty(row.dob) !== '' && nonEmpty(row.gender) !== ''
 }
+
+// The engine profile's birth (bazi_user_profile.birth_date/birth_time/time_unknown) wins over the legacy
+// `user` row when it has a valid date — the rule mergeEngineBirth (engine-birth.ts) applies after its
+// SELECT. PURE so scripts/measure-chart-drift.ts can apply the same rule without the app's db client.
+export function applyEngineProfileBirth(
+  row: UserBirthRow,
+  prof: { birth_date?: unknown; birth_time?: unknown; time_unknown?: unknown } | null | undefined,
+): UserBirthRow {
+  const birthDate = typeof prof?.birth_date === 'string' ? prof.birth_date.slice(0, 10) : ''
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(birthDate)) return row
+  const timeUnknown = prof?.time_unknown === true
+  const t = typeof prof?.birth_time === 'string' ? prof.birth_time.slice(0, 5) : ''
+  return { ...row, dob: birthDate, time: timeUnknown ? '' : t, is_remember_time: !timeUnknown }
+}

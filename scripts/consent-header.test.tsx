@@ -1,24 +1,36 @@
-// Companion to mootech-be#16. The BE POST /consent is now fail-closed on a BFF↔BE shared secret
-// (x-consent-secret). This BFF (pages/api/v2/onboarding.ts) is the only authorized caller, so it MUST
-// attach that header — otherwise the whole onboarding flow gets a silent 401 and consent never records.
+// /api/v2/onboarding writes consent ITSELF, in every environment — and never calls mootech-be.
+// (CIEL mumate-be-retirement-001 slice 1d.)
 //
-// ANCHOR: scripts/consent-header.test.tsx#bff-sends-consent-secret
-// Bug-class this owns: the BFF calling BE /consent WITHOUT the shared secret. "FE sends the header" is
-// only true if a test fails when the header is removed — so the teeth are a call-site mutant: delete the
-// `x-consent-secret` line in onboarding.ts → the first test goes RED.
+// ANCHOR: scripts/consent-header.test.tsx#onboarding-writes-locally-in-production
+// This file used to own "the BFF sends x-consent-secret to BE /consent" (mootech-be#16 companion). That hop
+// is gone: the route writes the consent row + onboarded_at through lib/v2/consent-store.ts, so there is no
+// secret left to send. The filename is kept so the vitest include list and its drift guard do not churn;
+// what it owns now is the replacement contract.
 //
-// .tsx on purpose: ci.yml's legacy tsx lane globs `scripts/*.test.ts` and never sees `.tsx`, so this runs
-// under vitest only (registered in vitest.config.mts include) — no #212 skip-list sync needed.
+// Bug-class this owns: the first-run write depending on a backend — directly (a fetch to the BE), or
+// indirectly (a branch that only writes locally outside production, which is what the old dev fallback was:
+// on production it fell through to the BE call and 502'd without CONSENT_SECRET, looping every member
+// through first-run the day the BE goes).
+//
+// 🔴 MUTANT CONTRACT (each reddens `npm test`):
+//   MC1  gate the local write on NODE_ENV !== 'production' again     → ① reddens (production gets no write)
+//   MC2  re-add any fetch to the BE on the path                       → ① and ② redden (fetch was called)
+//   MC3  read policy_version from the body                            → ③ reddens
+//   MC4  relay the driver's error message on a failed write            → ⑤ reddens
+// The real-database half (both rows land, or neither) is scripts/consent-store-db.test.ts.
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import { readFileSync } from 'node:fs'
+import { PDPA_POLICY_VERSION } from '@/constants/pdpa'
 
-// #252 — the route now derives the caller's user_id from the signed session before it does anything else,
-// so this spec has to say who is calling. It is mocked (not exercised) ON PURPOSE: what this file owns is
-// the BFF↔BE shared secret, and the identity half has its own teeth in scripts/onboarding-identity.test.tsx.
-// Without this mock every case here dies inside getServerSession on a stub res — a failure about the
-// harness, not about the header, which is exactly the kind of noise that teaches people to ignore a spec.
+// Identity is mocked (not exercised) ON PURPOSE — it has its own teeth in scripts/onboarding-identity.test.tsx.
 vi.mock('@/lib/v2/resolve-user', () => ({
   resolveSessionUserId: vi.fn(async () => ({ ok: true, userId: 'u1' })),
 }))
+
+const store = vi.hoisted(() => ({
+  recordOnboardingConsent: vi.fn(),
+}))
+vi.mock('@/lib/v2/consent-store', () => store)
 
 import handler from '../pages/api/v2/onboarding'
 
@@ -46,67 +58,100 @@ function makeRes() {
 const makeReq = (body: unknown) =>
   ({ method: 'POST', body }) as unknown as Parameters<typeof handler>[0]
 
-describe('BFF /api/v2/onboarding → BE /consent carries x-consent-secret (#16 companion)', () => {
-  const PREV = process.env.CONSENT_SECRET
+describe('/api/v2/onboarding writes consent locally, in production too, and never reaches the BE', () => {
+  const PREV_NODE_ENV = process.env.NODE_ENV
   let fetchMock: ReturnType<typeof vi.fn>
 
   beforeEach(() => {
-    process.env.CONSENT_SECRET = 'fe-test-secret'
-    fetchMock = vi.fn().mockResolvedValue({
+    store.recordOnboardingConsent.mockReset()
+    store.recordOnboardingConsent.mockResolvedValue({
       ok: true,
-      json: async () => ({
-        onboarded_at: '2026-08-10 10:00:00',
-        onboarding_goal: 'finance',
-      }),
+      onboarded_at: '2026-09-27 10:00:00',
+      onboarding_goal: 'finance',
     })
+    fetchMock = vi.fn()
     vi.stubGlobal('fetch', fetchMock)
   })
 
   afterEach(() => {
     vi.unstubAllGlobals()
-    if (PREV === undefined) delete process.env.CONSENT_SECRET
-    else process.env.CONSENT_SECRET = PREV
+    if (PREV_NODE_ENV === undefined) delete (process.env as Record<string, string | undefined>).NODE_ENV
+    else (process.env as Record<string, string | undefined>).NODE_ENV = PREV_NODE_ENV
   })
 
-  it('sends x-consent-secret equal to CONSENT_SECRET on the BE /consent call', async () => {
+  // ① 🔴 THE CASE THE OLD CODE FAILED: production, no CONSENT_SECRET anywhere. It used to call the BE.
+  it('🔴 ① NODE_ENV=production → the local write runs, 200 with the stamp, and no network call is made', async () => {
+    ;(process.env as Record<string, string | undefined>).NODE_ENV = 'production'
     const res = makeRes()
-    await handler(makeReq({ goal: 'finance' }), res as never) // #252: no user_id — the session decides
+    await handler(makeReq({ goal: 'finance' }), res as never)
 
-    expect(res.status).toHaveBeenCalledWith(200)
-    expect(fetchMock).toHaveBeenCalledTimes(1)
-    const [url, opts] = fetchMock.mock.calls[0] as [string, RequestInit]
-    expect(url).toMatch(/\/consent$/)
-    const headers = opts.headers as Record<string, string>
-    // MUTANT: delete the x-consent-secret line in onboarding.ts → this assertion fails.
-    expect(headers['x-consent-secret']).toBe('fe-test-secret')
-  })
-
-  it('never omits the header key even when CONSENT_SECRET is unset (fail-closed at BE, not silently dropped here)', async () => {
-    // The handler only reaches the BE call when the secret is set OR NODE_ENV is production — a non-prod
-    // deploy without the secret takes the local-DB fallback (onboarding.ts) and never calls BE. To exercise
-    // "BE call with an empty header key" (the case this owns), force production with the secret unset.
-    const PREV_NODE_ENV = process.env.NODE_ENV
-    process.env.NODE_ENV = 'production'
-    delete process.env.CONSENT_SECRET
-    try {
-      const res = makeRes()
-      await handler(makeReq({ goal: 'finance' }), res as never) // #252: no user_id — the session decides
-
-      const [, opts] = fetchMock.mock.calls[0] as [string, RequestInit]
-      const headers = opts.headers as Record<string, string>
-      expect(headers).toHaveProperty('x-consent-secret')
-      expect(headers['x-consent-secret']).toBe('') // key present, empty ⇒ BE fail-closes; FE never drops it
-    } finally {
-      if (PREV_NODE_ENV === undefined) delete process.env.NODE_ENV
-      else process.env.NODE_ENV = PREV_NODE_ENV
-    }
-  })
-
-  it('does not call BE at all when goal is invalid (validation still runs before the secret call)', async () => {
-    const res = makeRes()
-    await handler(makeReq({ user_id: 'u1', goal: 'not-a-goal' }), res as never)
-
-    expect(res.status).toHaveBeenCalledWith(400)
+    expect(res.statusCode).toBe(200)
+    expect(res.body).toEqual({ ok: true, onboarded_at: '2026-09-27 10:00:00', onboarding_goal: 'finance' })
+    expect(store.recordOnboardingConsent).toHaveBeenCalledTimes(1)
+    expect(store.recordOnboardingConsent).toHaveBeenCalledWith({
+      userId: 'u1',
+      goal: 'finance',
+      policyVersion: PDPA_POLICY_VERSION,
+    })
     expect(fetchMock).not.toHaveBeenCalled()
+  })
+
+  // ② The same path outside production — there is ONE path now, not a dev branch and a prod branch.
+  it('② NODE_ENV=development → the SAME local write, the same arguments, no network call', async () => {
+    ;(process.env as Record<string, string | undefined>).NODE_ENV = 'development'
+    const res = makeRes()
+    await handler(makeReq({ goal: 'love' }), res as never)
+
+    expect(res.statusCode).toBe(200)
+    expect(store.recordOnboardingConsent).toHaveBeenCalledWith({
+      userId: 'u1',
+      goal: 'love',
+      policyVersion: PDPA_POLICY_VERSION,
+    })
+    expect(fetchMock).not.toHaveBeenCalled()
+  })
+
+  // ③ policy_version is server-owned — proven by trying to move it from the body.
+  it('③ policy_version in the body is ignored; the server constant is written', async () => {
+    const res = makeRes()
+    await handler(makeReq({ goal: 'finance', policy_version: 'ATTACKER-1' }), res as never)
+    expect(store.recordOnboardingConsent.mock.calls[0][0].policyVersion).toBe(PDPA_POLICY_VERSION)
+  })
+
+  it('④ an invalid goal is refused (400) before the write side is reached', async () => {
+    const res = makeRes()
+    await handler(makeReq({ goal: 'not-a-goal' }), res as never)
+    expect(res.statusCode).toBe(400)
+    expect(store.recordOnboardingConsent).not.toHaveBeenCalled()
+  })
+
+  // ⑤ A failed write is a 500 that does not relay the driver's text (it can name tables and values).
+  it('⑤ the write throws → 500 with a fixed message; the driver error is not relayed', async () => {
+    store.recordOnboardingConsent.mockRejectedValueOnce(new Error('relation "consent" does not exist SECRET-DETAIL'))
+    const res = makeRes()
+    await handler(makeReq({ goal: 'finance' }), res as never)
+    expect(res.statusCode).toBe(500)
+    expect(res.body).toEqual({ ok: false, error: 'consent save failed' })
+    expect(JSON.stringify(res.body)).not.toContain('SECRET-DETAIL')
+  })
+
+  it('⑥ the session names a user_id with no "user" row → 404, nothing claimed as stamped', async () => {
+    store.recordOnboardingConsent.mockResolvedValueOnce({ ok: false, reason: 'user-not-found' })
+    const res = makeRes()
+    await handler(makeReq({ goal: 'finance' }), res as never)
+    expect(res.statusCode).toBe(404)
+    expect(res.body).toEqual({ ok: false, error: 'user not found' })
+  })
+
+  // ⑦ A source pin, because ① can only see a fetch on the paths it drives. The route must not NAME the
+  // backend at all: no backend URL, no consent secret, no fetch.
+  it('⑦ the route source names no backend URL, no consent secret, and makes no fetch', () => {
+    const src = readFileSync('pages/api/v2/onboarding.ts', 'utf8')
+      .replace(/\/\*[\s\S]*?\*\//g, '')
+      .replace(/^\s*\/\/.*$/gm, '')
+    expect(src).not.toMatch(/NEXT_PUBLIC_BACKEND_URL/)
+    expect(src).not.toMatch(/CONSENT_SECRET/)
+    expect(src).not.toMatch(/x-consent-secret/)
+    expect(src).not.toMatch(/\bfetch\s*\(/)
   })
 })
