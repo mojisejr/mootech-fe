@@ -65,6 +65,10 @@ WORKDIR /app
 COPY --from=builder --chown=node:node /app/.next/standalone ./
 COPY --from=builder --chown=node:node /app/.next/static ./.next/static
 COPY --from=builder --chown=node:node /app/public ./public
+# vercel.json rides along as DATA, not config: it is the one source of the cron schedules. On DigitalOcean the
+# host's timers are generated from and checked against the copy inside the image they call, so a schedule
+# cannot drift into a third, unchecked copy (mumate-vercel-to-do-001 slice 2; the timers are slice 3).
+COPY --from=builder --chown=node:node /app/vercel.json ./vercel.json
 USER node
 EXPOSE 3000
 HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 \
