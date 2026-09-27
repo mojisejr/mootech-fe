@@ -27,9 +27,12 @@ describe('sendPush · classifies the push service answer', () => {
   it('2xx → ok, and maps subscription + payload onto sendNotification (arg-mapping fang)', async () => {
     vi.mocked(webpush.sendNotification).mockResolvedValueOnce(undefined as never)
     expect(await sendPush(target, payload)).toEqual({ status: 'ok' })
+    // 3rd arg = delivery options: Urgency:high + short TTL so the push service delivers promptly
+    // instead of batching under Android Doze (the "เวลาไม่ตรง มาตอนเปิดเครื่อง" fix, 2026-09-27).
     expect(webpush.sendNotification).toHaveBeenCalledWith(
       { endpoint: target.endpoint, keys: { p256dh: 'PKEY', auth: 'AKEY' } },
       JSON.stringify(payload),
+      { urgency: 'high', TTL: 3600 },
     )
   })
   it('404 → gone (subscription really dead → delete)', async () => {
