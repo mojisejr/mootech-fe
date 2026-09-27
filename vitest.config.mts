@@ -84,6 +84,7 @@ export default defineConfig({
     // Same shape as the merge-conflict rule already written into design-verify.yml. Debt #212 is
     // that this list and ci.yml's skip list are two hand-synced copies of the same fact.
     include: [
+      'scripts/do-platform-seams.test.ts', // mumate-vercel-to-do-001 slice 2
       'scripts/engine-chart.test.ts', // mumate-be-retirement-001 slice 1 — engine glyphs → animal / stem element+power / element_cycle, result_code format
       'scripts/engine-chart-db.test.ts', // mumate-be-retirement-001 slice 1 — STEM_TABLE + element_cycle vocabulary against real Postgres (env-gated)
       'scripts/birth-chart-save.test.ts', // mumate-be-retirement-001 slice 1 — register/edit-birth writer: columns, time '', session identity, minimal log_calculate

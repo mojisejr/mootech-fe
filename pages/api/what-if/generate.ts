@@ -10,6 +10,16 @@ export const config = {
   maxDuration: 60,
 }
 
+// BAZI_WHATIF_URL, else the engine every other route uses (BAZI_BASE_URL), else the old Vercel default.
+// Was BAZI_WHATIF_URL || the Vercel URL: in a container with only BAZI_BASE_URL=http://bazi:3000 it kept
+// calling Vercel (mumate-vercel-to-do-001 slice 2). On Vercel BAZI_BASE_URL is that same host, so nothing moves.
+export function whatIfUpstreamUrl(env: Partial<NodeJS.ProcessEnv> = process.env): string {
+  const explicit = env.BAZI_WHATIF_URL?.trim()
+  if (explicit) return explicit
+  const base = env.BAZI_BASE_URL?.trim().replace(/\/+$/, '')
+  return base ? `${base}/api/what-if/generate` : DEFAULT_BAZI_WHATIF_URL
+}
+
 export function sanitizeWhatIfBody(input: unknown): WhatIfProxyBody {
   if (!input || typeof input !== 'object' || Array.isArray(input)) return {}
 
@@ -32,7 +42,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return
   }
 
-  const upstreamUrl = process.env.BAZI_WHATIF_URL || DEFAULT_BAZI_WHATIF_URL
+  const upstreamUrl = whatIfUpstreamUrl()
 
   let upstream: Response
   try {
