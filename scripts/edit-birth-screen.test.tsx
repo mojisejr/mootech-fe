@@ -118,6 +118,40 @@ describe('จอแก้วันเกิด (edit-birth-data ×4)', () => {
     expect(screen.queryByTestId('qi-insufficient-title')).toBeNull()
   })
 
+  // mumate-be-retirement-001 slice 1 — after the engine PATCH succeeds, the legacy `user` row is synced and a
+  // new result_code minted through the FE route (was mootech-be POST /chinese-horoscope). Only dob/time are
+  // sent: no user_id (session), and no name/surname/picture/gender (this screen does not edit them — the
+  // old call blanked surname and guessed MALE for any gender that was not exactly "FEMALE").
+  it('EB4 บันทึกสำเร็จ → POST /api/v2/birth-chart ด้วย dob/time เท่านั้น; 409 → ไม่ยิง', async () => {
+    document.cookie = 'cookie-mumate-id=11111111-1111-4111-8111-111111111111; path=/'
+    try {
+      render(<CookiesProvider><EditBirthScreen /></CookiesProvider>)
+      fireEvent.change(await waitFor(() => screen.getByTestId('eb-province')), { target: { value: 'ตรัง' } })
+      fireEvent.click(screen.getByTestId('eb-save'))
+      await waitFor(() => expect(screen.getByTestId('eb-msg').textContent).toContain('ใช้สิทธิ์แก้ฟรี'))
+      const posts = fetchMock.mock.calls.filter((c) => String(c[0]) === '/api/v2/birth-chart')
+      expect(posts).toHaveLength(1)
+      expect(posts[0][1]?.method).toBe('POST')
+      expect(JSON.parse(String(posts[0][1]?.body))).toEqual({ dob: '1995-06-15', time: '' })
+      // the PATCH went first: the chart write follows a SAVED birth, never a refused one
+      const order = fetchMock.mock.calls.map((c) => `${c[1]?.method ?? 'GET'} ${String(c[0])}`)
+      expect(order.indexOf('PATCH /api/profile')).toBeLessThan(order.indexOf('POST /api/v2/birth-chart'))
+
+      cleanup()
+      fetchMock.mockClear()
+      freeUsed = true
+      patchStatus = 409
+      render(<CookiesProvider><EditBirthScreen /></CookiesProvider>)
+      fireEvent.click(await waitFor(() => screen.getByTestId('eb-unlock')))
+      fireEvent.change(screen.getByTestId('eb-province'), { target: { value: 'ตรัง' } })
+      fireEvent.click(screen.getByTestId('eb-save'))
+      await waitFor(() => expect(screen.getByTestId('qi-insufficient-title')).toBeTruthy())
+      expect(fetchMock.mock.calls.some((c) => String(c[0]) === '/api/v2/birth-chart')).toBe(false)
+    } finally {
+      document.cookie = 'cookie-mumate-id=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/'
+    }
+  })
+
   // EB3 (correction-request free path) ถูกถอดออกทั้งหมด 2026-09: ปิดช่องแก้ฟรีถาวร —
   // หลังใช้สิทธิ์ฟรี 1 ครั้งแล้ว มีทางเดียวคือจ่าย QI (ปุ่มปลดล็อก). ไม่มีชีตแจ้งทีมอีก
   it('EB3 removed: ไม่มีช่องทางแจ้งแก้ฟรี (correction sheet) แล้ว', async () => {

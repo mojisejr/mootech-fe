@@ -83,10 +83,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       if (/^\d{4}-\d{2}-\d{2}$/.test(birth)) {
         const timeUnknown = req.body?.timeUnknown === true
         const bt = typeof req.body?.birthTime === "string" ? req.body.birthTime : ""
-        const time = timeUnknown || !/^\d{2}:\d{2}$/.test(bt) ? null : bt
+        // `user.time` is NOT NULL: an unknown time is '' (what BE always wrote), never NULL — a NULL here
+        // failed the whole UPDATE silently (mumate-be-retirement-001 slice 1, plan 0.3 "latent FE bug").
+        const time = timeUnknown || !/^\d{2}:\d{2}$/.test(bt) ? "" : bt
         try {
           await db.execute(
-            sql`UPDATE "user" SET dob = ${birth}, "time" = ${time}, is_remember_time = ${!timeUnknown} WHERE user_id = ${rawId}`,
+            sql`UPDATE "user" SET dob = ${birth}, "time" = ${time}, is_remember_time = ${time !== ""} WHERE user_id = ${rawId}`,
           )
         } catch {
           /* legacy sync best-effort — engine เป็นแหล่งหลักแล้ว (mergeEngineBirth) */

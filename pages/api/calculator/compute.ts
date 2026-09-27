@@ -1,8 +1,10 @@
-// Public Bazi Calculator compute endpoint (#public-bazi-calculator, Phase 1).
-// Calls mootech-be's existing POST /chinese-horoscope WITHOUT user_id — its own identity gate
-// (chinese-horoscope.service.ts:923, verified live) skips every user-bound side effect (log
-// write, S3 image upload, profile update) when user_id is absent, so this is naturally
-// anonymous/stateless on the be side. No new be endpoint needed.
+// Public Bazi Calculator compute endpoint (#public-bazi-calculator, Phase 1) — serves /v2/element-finder.
+// Since mumate-be-retirement-001 slice 1 it no longer calls mootech-be: the whole answer comes from the
+// bazi engine's DB-free public-calc (fetchEnrichment below). The year animal the mascot needs is derived
+// from the engine's own year branch (enrichment.pillars.year.branch), and the day-master element was
+// already the engine's (enrichment.dayMasterElement). The legacy fields BE supplied (dobThai, summary,
+// cycleLife, cycleYearLife, the full `detail`) are gone; only v1 /calculator read them, and v1 is retired
+// by slice 2 (plan R1).
 //
 // Defense layers (launch blocker per FROZEN v1 — no auth wall, so this is the only protection):
 //   1. same-origin check (Origin header must match this host)
@@ -15,26 +17,18 @@ import { db } from '@/lib/db'
 import { calculatorUsageLog } from '@/lib/db/schema'
 import { NONCE_COOKIE, verifyNonce } from '@/lib/calculator/nonce'
 import { checkCalculatorRateLimit, clientIpFromHeaders } from '@/lib/calculator/rate-limit'
+import { ZODIAC_TABLE } from '@/lib/personalization/zodiac'
 
-const BE_ENDPOINT = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:4000'
-if (/bazichart\.mumate\.co/i.test(BE_ENDPOINT)) {
-  throw new Error(`[GUARDRAIL] NEXT_PUBLIC_BACKEND_URL points at old prod (${BE_ENDPOINT}).`)
-}
-
-// bazi-sft-dataset's DB-free enrichment route (#calculator-enrichment-FROZEN-v1) — daYun/liuNian
-// 12-qi + element-reaction + clash flags, on top of the base pillars from mootech-be above. This
-// is an ADD-ON, not a dependency: if it's slow/down, the calculator still works with the base
-// pillars/timeline that already shipped in PR#57 — see fetchEnrichment below (bounded timeout,
-// swallows failure, never blocks or fails the main response).
+// bazi-sft-dataset's DB-free public-calc route (#calculator-enrichment-FROZEN-v1) — pillars, daYun/liuNian
+// 12-qi, element-reaction and clash flags. Since slice 1 it is the ONLY source, so when it is slow or down
+// the calculator answers 502 (it used to fall back to mootech-be's pillars).
 const BAZI_SFT_ENDPOINT = process.env.BAZI_BASE_URL || ''
-const ENRICHMENT_TIMEOUT_MS = 5000
+const ENRICHMENT_TIMEOUT_MS = 8000 // was 5000 while it was an add-on; it is now the whole answer
 const ENRICHMENT_DEFAULT_PROVINCE = 'กรุงเทพมหานคร'
 
-// Shape-only (not full calendar validity — mootech-be is the source of truth for that, verified
-// live: an out-of-range date like "2026-99-99" gets a real 500 there, which this API surfaces as
-// a clean "compute failed" 502 rather than crashing). Month/day are range-checked here anyway
-// (01-12 / 01-31) so an obviously-bogus date fails fast locally instead of wasting a round trip
-// to a backend call that's going to fail anyway.
+// Shape-only (not full calendar validity — the engine is the source of truth for that, and a date it
+// cannot compute surfaces as a clean "compute failed" 502 rather than crashing). Month/day are
+// range-checked here anyway (01-12 / 01-31) so an obviously-bogus date fails fast locally.
 const DOB_RE = /^\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/
 const TIME_RE = /^([01]\d|2[0-3]):[0-5]\d$/
 
@@ -139,7 +133,7 @@ export type Enrichment = {
   badges: EnrichmentBadge[]
 }
 
-// Best-effort only — timeout + swallow-all-errors by design (see comment at BAZI_SFT_ENDPOINT).
+// Timeout + swallow-all-errors: null means "no answer", and the handler turns that into a 502.
 // No time entered ("จำไม่ได้") still gets enrichment: day/month/year pillars always render per
 // FROZEN v1, and daYun/liuNian depend on date, not exact hour, so a noon placeholder is safe here
 // (bazi-sft-dataset's RawInputSchema requires birthTime, unlike mootech-be's optional time).
@@ -171,6 +165,20 @@ export async function fetchEnrichment(input: { dob: string; time: string; gender
     return null
   } finally {
     clearTimeout(timeout)
+  }
+}
+
+// The compute payload the v2 element-finder reads (resolveMascotFromCompute): the year animal in the
+// legacy paths (yearOfZodiac.below = branch glyph, detail.yearBelow = id + English animal) plus the
+// engine enrichment (dayMasterElement). null when the engine gave no mappable year branch.
+export function toElementFinderData(enrichment: Enrichment | null) {
+  const branch = (enrichment?.pillars?.year?.branch ?? '').trim()
+  const z = ZODIAC_TABLE.find((row) => row.branch === branch)
+  if (!enrichment || !z) return null
+  return {
+    yearOfZodiac: { below: z.branch },
+    detail: { yearBelow: { id: z.id, constellation: z.en, chinese_symbol: z.branch } },
+    enrichment,
   }
 }
 
@@ -207,32 +215,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return
   }
 
-  // Fired alongside the required mootech-be call below — independent host, no shared connection
-  // pool, so parallel is safe (unlike the DB-pool concurrency hang elsewhere in this codebase).
-  const enrichmentPromise = fetchEnrichment(input)
-
-  let beJson: any
-  try {
-    const beRes = await fetch(`${BE_ENDPOINT}/chinese-horoscope`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      // Deliberately no user_id/family_code/name/place_name — the anonymous, side-effect-free path.
-      body: JSON.stringify({ dob: input.dob, time: input.time, gender: input.gender }),
-    })
-    beJson = await beRes.json().catch(() => null)
-    if (!beRes.ok || !beJson) {
-      res.status(502).json({ error: { message: 'คำนวณไม่สำเร็จ ลองใหม่อีกครั้ง' } })
-      return
-    }
-  } catch {
-    res.status(502).json({ error: { message: 'เชื่อมต่อไม่สำเร็จ ลองใหม่อีกครั้ง' } })
+  const enrichment = await fetchEnrichment(input)
+  const data = toElementFinderData(enrichment)
+  if (!data) {
+    res.status(502).json({ error: { message: 'คำนวณไม่สำเร็จ ลองใหม่อีกครั้ง' } })
     return
   }
 
   recordUsage()
-
-  const enrichment = await enrichmentPromise
-
-  const { dobThai, yearOfZodiac, summary, detail, cycleLife, cycleYearLife } = beJson
-  res.status(200).json({ data: { dobThai, yearOfZodiac, summary, detail, cycleLife, cycleYearLife, enrichment } })
+  res.status(200).json({ data })
 }

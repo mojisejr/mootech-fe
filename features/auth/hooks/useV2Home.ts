@@ -13,10 +13,11 @@
 // win the latch, then its own cleanup stranded it (the /v2 hang). Prod mounts once. `router` is read via a
 // ref so it is NOT an effect dependency (no refetch churn if router identity changes between renders).
 //
-// Compute-availability (goo trace): the chart is created AT profile-save — ChineseHoroscopeCalculate
-// returns the compute synchronously, so profile-complete == compute-complete. Home re-reads it via
-// ChineseHoroscopeGet(userId, result_code). While that fetch is in flight computeSource is null → Lamun
-// shows the static hero 01.png fallback (safety).
+// Compute-availability: profile-save (SaveBirthChart → /api/v2/birth-chart) mints `result_code`, which
+// stays the "registered" gate below. The mascot's animal is NOT read from a stored chart any more
+// (mumate-be-retirement-001 slice 1): ChineseHoroscopeGet → GET /api/chinese-horoscope derives it live
+// from the bazi engine on the member's current birth. While that fetch is in flight computeSource is
+// null → Lamun shows the static hero 01.png fallback (safety).
 import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/router'
 import { useCookies } from 'react-cookie'
@@ -148,7 +149,7 @@ export function useV2Home(status: AuthStatus): V2Home {
         // Self-heal (DoD#2): the cached chart is correct ONLY if its resultCode matches the LIVE row's. A
         // match → the instant mascot IS fresh → skip ChineseHoroscopeGet entirely (revisit costs 0 fetch —
         // the P3 wiring invariant, proven live in harness/archive/run-home-chart-cache.ts — 🗄️ archived by #321, nothing runs it automatically). A mismatch (dob edited →
-        // BE minted a new result_code, verified live testenv jvfQl2haFj2F→KBhQL58FQw8S) → refetch + overwrite.
+        // /api/v2/birth-chart minted a new result_code; edit-birth also clears this cache) → refetch + overwrite.
         if (isChartFresh(userId, resultCode)) {
           setPhase('home')
           return

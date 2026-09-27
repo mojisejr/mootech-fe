@@ -15,11 +15,12 @@ import type {
 import { cycleFromChart, toBaziGender } from './first-run-source-map'
 import { getSummary } from './summary-cache'
 
-// The first-run element screen needs three things (#233). Two are FREE and immediate — they ride the
-// chart the user already computed at register (ChineseHoroscopeGet):
+// The first-run element screen needs three things (#233). Two come with the chart (ChineseHoroscopeGet →
+// GET /api/chinese-horoscope, derived live from the bazi engine since mumate-be-retirement-001 slice 1 —
+// no stored legacy chart):
 //   • mascot  — card art + element, resolved from the same compute home uses (split-brain safe).
-//   • cycle   — chart.elementCycle IS the DB element_cycle row, joined server-side by (element, power,
-//               gender). No second query. `null` (e.g. gender missing ⇒ no join) → `unavailable`.
+//   • cycle   — chart.elementCycle IS the DB element_cycle row, looked up server-side by the engine day
+//               stem's (element, power) and the member's gender. `null` (gender missing) → `unavailable`.
 // One is SLOW (~10s): the per-person reading from POST /api/bazi/element-summary, fetched here (C3 will
 // prefetch it at register so it is usually ready by the time the user finishes intent + pdpa).
 // The pure mappers live in first-run-source-map.ts; the summary fetch + prefetch cache in summary-cache.ts.

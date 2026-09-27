@@ -31,9 +31,11 @@ const localApi = (pathname: string) => `/api${pathname}`
 
 export const API = {
   chinese_horoscope: {
-    calculate: backendURLGenerator('/chinese-horoscope'),
-    // GET routed to hybrid BFF (#my-destiny-bazi-engine-swap): overlays bazi readings on the
-    // 3 top cards + love + work, keeps everything else be. Flip to backendURLGenerator to roll back.
+    calculate: backendURLGenerator('/chinese-horoscope'), // v1 only (unreachable after slice 2). NOT repointed: v1 /friend calls it for a FRIEND's birth with no user_id; a session-bound writer would save that birth onto the member.
+    // MIGRATED mumate-be-retirement-001 slice 1 -> pages/api/v2/birth-chart.ts (v2 register + edit-birth; session-bound, writes user + minimal log_calculate)
+    save_birth: localApi('/v2/birth-chart'),
+    // GET -> pages/api/chinese-horoscope.ts: since mumate-be-retirement-001 slice 1, the member's chart
+    // derived live from the bazi engine (no BE, no stored chart). Serves v2 home + first-run.
     get: localApi('/chinese-horoscope'),
     compatibility_love: backendURLGenerator('/chinese-horoscope/compatibility-love'),
     compatibility_work: backendURLGenerator('/chinese-horoscope/compatibility-work'),
