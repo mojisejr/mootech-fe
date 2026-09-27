@@ -9,6 +9,9 @@ import { useCallback, useEffect, useState } from "react"
 
 import { BackButton, KitButton } from "@/features/v2-profile/components/kit"
 import { useDragScroll } from "@/features/v2-service/hooks/useDragScroll"
+import { usePwaCapability } from "@/lib/pwa/capability"
+import { requestPushSubscription } from "@/lib/pwa/subscribe"
+import { postPushSubscription } from "@/lib/pwa/persist-subscription"
 import { Menubar } from "@/features/v2-shell/components/Menubar"
 import { TopBarBell } from "@/features/v2-shell/components/TopBarBell"
 import { TopBarAvatar } from "@/features/v2-shell/components/TopBarAvatar"
@@ -184,6 +187,8 @@ function ElementInsightCard({ element }: { element: ElementInfo }) {
 function ReminderCard() {
   const [time, setTime] = useState("07:00")
   const [on, setOn] = useState(false)
+  const [hint, setHint] = useState<string | null>(null) // เหตุผลที่ noti อาจไม่มา (iOS ยังไม่ติดตั้ง / ปิดสิทธิ์)
+  const cap = usePwaCapability()
   useEffect(() => {
     // cache ก่อน (กันกระพริบ) แล้วค่อย sync จาก server เป็นแหล่งจริง
     try {
@@ -212,11 +217,31 @@ function ReminderCard() {
       body: JSON.stringify({ enabled: o, time: t }),
     }).catch(() => {})
   }
-  const toggle = async () => {
+  // เปิดสวิตช์ = ตั้งเวลา (บันทึกเสมอ) + ลงทะเบียน push subscription ของเครื่องนี้ (เดิมขอแค่ permission
+  // ไม่เคยสร้าง subscription → cron หาไม่เจอ = noDevice ยิงไม่ออก โดยเฉพาะ iPhone). gesture-leading:
+  // ยิง requestPushSubscription() ก่อน await ใด ๆ (Safari โชว์กล่อง permission เฉพาะใน user gesture).
+  const toggle = () => {
     const next = !on
+    setHint(null)
+    if (next && cap.needsInstall) {
+      // iOS Safari (แท็บ) ยังไม่มี PushManager จนกว่าจะ "เพิ่มลงหน้าจอหลัก" — ตั้งเวลาไว้ได้ แต่บอกให้ติดตั้งก่อน
+      setHint("iPhone: เพิ่มแอปลงหน้าจอหลักก่อน (ปุ่มแชร์ → เพิ่มลงในหน้าจอโฮม) แล้วเปิดจากไอคอน จึงจะเตือนได้")
+      setOn(next); persist(time, next)
+      return
+    }
+    const wantsPush = next && cap.canReceivePush === true && cap.permission !== "denied"
+    const subscribing = wantsPush ? requestPushSubscription() : null
     setOn(next); persist(time, next)
-    if (next && typeof window !== "undefined" && "Notification" in window && Notification.permission === "default") {
-      try { await Notification.requestPermission() } catch { /* ignore */ }
+    if (next && cap.permission === "denied") {
+      setHint("การแจ้งเตือนถูกปิดไว้ เปิดสิทธิ์แจ้งเตือนของเว็บนี้ในตั้งค่าเบราว์เซอร์ก่อน")
+    }
+    if (subscribing) {
+      void subscribing.then(async (r) => {
+        if (r.ok) { await postPushSubscription(r.subscription, navigator.userAgent); return }
+        if (r.reason === "needs-install") setHint("iPhone: เพิ่มแอปลงหน้าจอหลักก่อน แล้วเปิดจากไอคอน จึงจะเตือนได้")
+        else if (r.reason === "denied") setHint("การแจ้งเตือนถูกปิดไว้ เปิดสิทธิ์แจ้งเตือนของเว็บนี้ในตั้งค่าเบราว์เซอร์ก่อน")
+        else if (r.reason === "unsupported") setHint("อุปกรณ์/เบราว์เซอร์นี้ยังไม่รองรับการแจ้งเตือน (ลองเพิ่มลงหน้าจอหลัก หรือเปิดใน Safari/Chrome)")
+      })
     }
   }
   return (
@@ -228,10 +253,11 @@ function ReminderCard() {
           <input type="time" value={time} onChange={(e) => { setTime(e.target.value); persist(e.target.value, on) }} className="bg-transparent text-[20px] font-black text-v3-navy outline-none" data-testid="manifest-reminder-time" />
           <p className="text-[11px] text-v3-text-muted">แจ้งเตือนทุกวัน</p>
         </div>
-        <button type="button" role="switch" aria-checked={on} onClick={() => void toggle()} data-testid="manifest-reminder-toggle" className={`relative h-7 w-12 flex-none rounded-full transition ${on ? "bg-v3-cyan" : "bg-v3-border-card"}`}>
+        <button type="button" role="switch" aria-checked={on} onClick={() => toggle()} data-testid="manifest-reminder-toggle" className={`relative h-7 w-12 flex-none rounded-full transition ${on ? "bg-v3-cyan" : "bg-v3-border-card"}`}>
           <span className={`absolute top-0.5 size-6 rounded-full bg-white transition-all ${on ? "left-[22px]" : "left-0.5"}`} />
         </button>
       </div>
+      {hint ? <p className="mt-2 text-[11px] leading-4 text-v3-pumpkin" data-testid="manifest-reminder-hint">{hint}</p> : null}
     </section>
   )
 }
@@ -356,14 +382,18 @@ export function ManifestScreen({ previewData }: { previewData?: ManifestPreview 
                       <span className="block h-[150px] w-full overflow-hidden">
                         <Image src={g.imageUrl || DEFAULT_MANIFEST_IMAGE} alt="" width={480} height={300} unoptimized className="h-full w-full object-cover" />
                       </span>
-                      <div className="p-3 pr-10">
+                      <div className="p-3">
                         {g.category ? <span className="inline-block rounded-full bg-[#3E9B4A] px-2 py-0.5 text-[11px] font-semibold text-white">{g.category}</span> : null}
                         <p className="mt-1 text-[14px] font-bold leading-5">{g.affirmation || g.title}</p>
                       </div>
                     </Link>
-                    <button type="button" onClick={() => setConfirmDeleteId(g.id)} aria-label="ลบความปรารถนา" data-testid="manifest-delete" className="absolute bottom-3 right-3 text-[12px] text-v3-text-muted">ลบ</button>
+                    {/* ลบ — pill แดงเห็นชัดมุมซ้ายบน (เดิมเป็นตัวอักษรจาง ๆ มุมล่าง เทสเตอร์หาไม่เจอ) */}
+                    <button type="button" onClick={() => setConfirmDeleteId(g.id)} aria-label="ลบความปรารถนา" data-testid="manifest-delete" className="absolute left-2 top-2 flex items-center gap-1 rounded-full bg-v3-pumpkin px-2.5 py-1 text-[11px] font-bold text-white shadow">
+                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m2 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6" /><line x1="10" y1="11" x2="10" y2="17" /><line x1="14" y1="11" x2="14" y2="17" /></svg>
+                      ลบ
+                    </button>
                     {/* เปลี่ยน/เพิ่มรูป — overlay มุมขวาบนของรูป (นอก Link ไม่ให้กดแล้วเด้งเข้าหน้าอ่าน) */}
-                    <label className="absolute right-2 top-2 flex cursor-pointer items-center gap-1 rounded-full bg-black/55 px-2.5 py-1 text-[11px] font-bold text-white backdrop-blur-sm" data-testid="manifest-change-photo">
+                    <label className="absolute right-2 top-2 flex cursor-pointer items-center gap-1 rounded-full bg-black/70 px-2.5 py-1 text-[11px] font-bold text-white shadow backdrop-blur-sm" data-testid="manifest-change-photo">
                       <input type="file" accept="image/jpeg,image/png" className="hidden" disabled={photoBusyId === g.id} onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ""; if (f) void changePhoto(g.id, f) }} />
                       {photoBusyId === g.id ? "กำลังอัปโหลด…" : (
                         <>
