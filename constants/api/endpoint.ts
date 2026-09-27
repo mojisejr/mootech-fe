@@ -69,7 +69,7 @@ export const API = {
     get: localApi('/log-survey'), // MIGRATED -> pages/api/log-survey.ts (Supabase/Drizzle)
   },
   object_storage: {
-    upload: backendURLGenerator('/object-storage/upload-file'),
+    upload: localApi('/object-storage/upload-file'), // MIGRATED be-retirement 1f -> pages/api/object-storage/upload-file.ts (session-bound, Supabase Storage). Shared with v1 modal-image-crop. Roll back: backendURLGenerator('/object-storage/upload-file')
     upload_slip: backendURLGenerator('/object-storage/upload-slip'),
   },  
   card: {
@@ -100,11 +100,11 @@ export const API = {
     general_streaming: backendURLGenerator('/ai/chat-streaming'),
   },
   member_with_friend: {
-    create: backendURLGenerator('/member-with-friend'),
+    create: localApi('/member-with-friend'), // MIGRATED be-retirement 1e -> pages/api/member-with-friend/index.ts (POST branch, session-bound, BE quota). Roll back: backendURLGenerator('/member-with-friend')
     get: localApi('/member-with-friend'), // MIGRATED -> pages/api/member-with-friend/index.ts (read + usage gate + user join)
     get_detail: localApi('/member-with-friend/detail'), // MIGRATED -> pages/api/member-with-friend/detail.ts (read, no gate)
     update: backendURLGenerator('/member-with-friend'),
-    update_profile: backendURLGenerator('/member-with-friend/profile'),
+    update_profile: localApi('/member-with-friend/profile'), // MIGRATED be-retirement 1e -> pages/api/member-with-friend/profile.ts (session-bound, own rows only). Roll back: backendURLGenerator('/member-with-friend/profile')
     new_friend: backendURLGenerator('/member-with-friend/new-friend'),
     delete: localApi('/member-with-friend'), // MIGRATED -> pages/api/member-with-friend/index.ts (DELETE branch)
   },

@@ -1,16 +1,21 @@
-// POST /api/v2/onboarding — finish v2 first-run (#233). Browser → this route (same-origin) → BE
-// POST /consent (mootech-be, on main since 249c14b): records the PDPA consent row, sets onboarding_goal,
+// POST /api/v2/onboarding — finish v2 first-run (#233): records the PDPA consent row, sets onboarding_goal,
 // and stamps user.onboarded_at (which is what stops the first-run gate from looping the user forever).
 //
-// Two things this BFF owns that mirror the BE guard (mootech-be#16):
+// 🔁 CIEL mumate-be-retirement-001 slice 1d — THIS ROUTE NO LONGER CALLS mootech-be. It used to forward to BE
+// POST /consent with a BFF↔BE shared secret (`x-consent-secret` / CONSENT_SECRET, mootech-be#16). The two writes
+// that BE call made now happen here, in one transaction, through lib/v2/consent-store.ts (parity notes there).
+// There is no secret any more because there is no second hop: the only way to reach the write is this route,
+// and this route answers "who" from the signed session (below). CONSENT_SECRET is gone from code and
+// .env.example; the BE keeps its own copy until the BE itself is retired.
+// The write used to run locally only when NODE_ENV !== 'production' (a dev fallback that stamped the two user
+// columns and skipped the consent row). That fallback is now the ONE path, in every environment, and it
+// writes the consent row too.
+//
+// Two things this route owns (they mirrored the BE guard, and now they ARE the guard):
 //   • goal is validated to be one of the SIX first-run goals before it can reach the DB.
 //   • policy_version is server-owned — never read from the client body.
-// This route carries the BFF↔BE shared secret `x-consent-secret` (mootech-be#16, fail-closed there):
-// without the header the BE rejects the call with 401, so a request from OUTSIDE (a direct curl with no
-// secret) cannot reach /consent. Same pattern as the AI wallet (lib/credit/wallet-client.ts sends
-// x-ai-secret). Server-side only — CONSENT_SECRET is never NEXT_PUBLIC_.
 //
-// 🔴 IDENTITY (#252) — the secret above answers "may this CALLER reach /consent", never "WHO is it".
+// 🔴 IDENTITY (#252) — the old BE secret only ever answered "may this CALLER reach /consent", never "WHO is it".
 // Until this ticket the answer to "who" was `req.body.user_id`, and ตู๋ proved with a live probe that a
 // request holding only the team passkey could write a PDPA consent row in a VICTIM's name and get 200
 // back. The MEMBER_ID cookie is no better: pages/index.tsx sets it with a client-side `setCookie`, so it
@@ -27,12 +32,7 @@
 import type { NextApiRequest, NextApiResponse } from 'next'
 import { PDPA_POLICY_VERSION } from '@/constants/pdpa'
 import { resolveSessionUserId } from '@/lib/v2/resolve-user'
-
-const BE_ENDPOINT = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:4000'
-if (/bazichart\.mumate\.co/i.test(BE_ENDPOINT)) {
-  throw new Error(`[GUARDRAIL] NEXT_PUBLIC_BACKEND_URL points at old prod (${BE_ENDPOINT}).`)
-}
-const BE_TIMEOUT_MS = 12000
+import { recordOnboardingConsent } from '@/lib/v2/consent-store'
 
 // The six IntentCheckScreen goals (GoalId). Kept in sync with features/v2-first-run/components/IntentCheckScreen.
 const GOALS = ['finance', 'health', 'family', 'growth', 'love', 'work'] as const
@@ -44,8 +44,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   if (req.method !== 'POST') return res.status(405).json({ ok: false, error: 'Method not allowed' })
 
   // Identity FIRST — before the body is inspected at all, and before anything leaves this process.
-  // An unauthenticated request must not learn whether its goal was well-formed, and must never cause a
-  // call to the BE (the write side). 401 / 404 / 409 come straight from the shared resolver.
+  // An unauthenticated request must not learn whether its goal was well-formed, and must never reach the
+  // write side (lib/v2/consent-store.ts). 401 / 404 / 409 come straight from the shared resolver.
   const who = await resolveSessionUserId(req, res)
   if (!who.ok) return res.status(who.status).json({ ok: false, error: who.error })
   const userId = who.userId
@@ -55,48 +55,21 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return res.status(400).json({ ok: false, error: 'goal must be one of the 6 first-run goals' })
   }
 
-  // DEV FALLBACK (แบบเดียวกับ DEV birth fallback ของ chat/bazi.ts): นอก production ถ้าไม่มี
-  // CONSENT_SECRET (ค่าอยู่บน Render dashboard ของทีม — env-inbox ที่ส่งมาไม่มี) ให้ประทับ
-  // onboarded_at/onboarding_goal ผ่าน DB ของ FE เอง — คอลัมน์เดียวกับที่ BE /consent เขียน
-  // ❌ production ยัง fail-closed: ไม่มี secret = 502 เหมือนเดิม ห้ามเขียนตรงเด็ดขาด
-  if (!process.env.CONSENT_SECRET && process.env.NODE_ENV !== 'production') {
-    try {
-      const { db } = await import('@/lib/db')
-      const now = new Date().toISOString()
-      await db.execute(
-        (await import('drizzle-orm')).sql`UPDATE "user" SET onboarded_at = ${now}, onboarding_goal = ${goal} WHERE user_id = ${userId}`,
-      )
-      return res.status(200).json({ ok: true, onboarded_at: now, onboarding_goal: goal })
-    } catch (dbErr) {
-      const message = dbErr instanceof Error ? dbErr.message : 'dev consent stamp failed'
-      return res.status(500).json({ ok: false, error: message })
-    }
-  }
-
+  // The write. Identity came from the session above; policy_version is the server's constant. Nothing from
+  // the body except the validated goal reaches it.
   try {
-    const ac = new AbortController()
-    const timer = setTimeout(() => ac.abort(), BE_TIMEOUT_MS)
-    const r = await fetch(`${BE_ENDPOINT}/consent`, {
-      method: 'POST',
-      headers: {
-        'content-type': 'application/json',
-        // BFF↔BE shared secret — BE (#16) is fail-closed and 401s without it.
-        'x-consent-secret': process.env.CONSENT_SECRET || '',
-      },
-      body: JSON.stringify({ user_id: userId, goal, policy_version: PDPA_POLICY_VERSION }),
-      signal: ac.signal,
-    })
-    clearTimeout(timer)
-    if (!r.ok) return res.status(502).json({ ok: false, error: `consent save failed (${r.status})` })
-    const data = (await r.json().catch(() => null)) as { onboarded_at?: string; onboarding_goal?: string } | null
+    const r = await recordOnboardingConsent({ userId, goal, policyVersion: PDPA_POLICY_VERSION })
+    if (!r.ok) {
+      // The session resolved to a user_id that has no "user" row. Nothing was written (the store checks
+      // before it writes). The BE answered this case with 400 'User not found.', which the old BFF turned
+      // into 502; 404 says what it is.
+      return res.status(404).json({ ok: false, error: 'user not found' })
+    }
     // onboarded_at is the load-bearing field — without it the gate loops. Surface it so the caller can
     // confirm the stamp actually happened rather than assuming a 200 means done.
-    return res.status(200).json({
-      ok: true,
-      onboarded_at: data?.onboarded_at ?? null,
-      onboarding_goal: data?.onboarding_goal ?? goal,
-    })
+    return res.status(200).json({ ok: true, onboarded_at: r.onboarded_at, onboarding_goal: r.onboarding_goal })
   } catch {
-    return res.status(504).json({ ok: false, error: 'consent save timed out' })
+    // Both writes rolled back together. The driver's message is not relayed: it can name tables and values.
+    return res.status(500).json({ ok: false, error: 'consent save failed' })
   }
 }

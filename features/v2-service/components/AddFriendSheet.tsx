@@ -154,9 +154,15 @@ export function AddFriendSheet({ onClose, onCreate, edit, title = 'เลือ�
     if (!file) return
     setUploading(true); setUploadError(false)
     try {
-      const [{ callApiUpload }, { API }] = await Promise.all([import('@/utils/fetch'), import('@/constants/api/endpoint')])
+      const [{ callApiUpload }, { API }, { shrinkImageForUpload }] = await Promise.all([
+        import('@/utils/fetch'),
+        import('@/constants/api/endpoint'),
+        import('@/lib/v2/shrink-image'),
+      ])
+      // be-retirement 1f: the upload now goes to our own route (4 MB cap, Vercel's 4.5 MB body limit) instead of
+      // the BE (50 MB). Shrink first so an ordinary phone photo fits; the preview below still shows the original.
       const formData = new FormData()
-      formData.append('file', file)
+      formData.append('file', await shrinkImageForUpload(file))
       const res = await callApiUpload(API.object_storage.upload, 'POST', '', formData)
       if (res?.s3_key) {
         setImageKey(res.s3_key)

@@ -129,7 +129,7 @@ export default defineConfig({
       'scripts/first-run-source-hook.test.tsx', // #244 — teeth on the hook that DECIDES the status
       'scripts/preview-gate.test.tsx', // #220 — .tsx so ci.yml's `*.test.ts` tsx lane never sees it (no skip-list edit, no #212 sync)
       'scripts/tier-prod-pages.test.tsx', // #225 — page-wiring teeth; .tsx (same reason: invisible to ci.yml tsx lane)
-      'scripts/consent-header.test.tsx', // #16 companion — BFF sends x-consent-secret; .tsx (invisible to ci.yml tsx lane)
+      'scripts/consent-header.test.tsx', // be-retirement 1d — /api/v2/onboarding writes consent locally, in production too, never via the BE (was: #16 x-consent-secret); .tsx
       'scripts/v2-auth-gate-escape.test.tsx', // #246 — identity-limbo escape hatch; .tsx (vitest-only, no #212 sync)
       'scripts/member-with-friend-limit.test.tsx', // #262 — real free friend limit 1→20; .tsx (invisible to ci.yml tsx lane)
       'scripts/user-friend-limit.test.tsx', // #262 r2 — /api/user limit_friend (FE-button read-path); .tsx (ตู๋ req-changes)
@@ -266,6 +266,10 @@ export default defineConfig({
       'scripts/matching-quota-gate.test.ts', // #357 — ด่านโควตาดวงสมพงษ์ ต้องเป็นหน้าต่างปีปฏิทินเท่ากับ be
       'scripts/compat-tier-quota.test.ts', // #358 Phase 6 — the tiered, monthly ดวงสมพงษ์ ceiling
       'scripts/compat-quota-concurrency-db.test.ts', // #358 Phase 6 — the ceiling under a burst, real pg
+      'scripts/consent-store-db.test.ts', // be-retirement 1d — real pg (skipIf !TEST_DATABASE_URL): consent row + onboarded_at in one transaction, production-mode handler, max:1 pool
+      'scripts/friend-write-routes.test.ts', // be-retirement 1e — POST /member-with-friend + PUT /profile: identity from the session only, 410 quota body, 400/404
+      'scripts/friend-write-db.test.ts', // be-retirement 1e — real pg: BE row shape, member/free quota from member_payment, burst holds 20, own rows only
+      'scripts/upload-file-route.test.ts', // be-retirement 1f — friend photo → Supabase Storage: session-bound, type/size/magic-byte refusals, { s3_key } answer
       'scripts/matching-activity-id.test.ts', // #357 — ตู๋จับได้ว่า BOSS/EMPLOYEE/FRIEND ต้องเป็น activity 3 ไม่ใช่ 2
       'scripts/compat-readers-v2-lane.test.ts', // #541 ① the readers stay on the v2 lane
       'scripts/compat-new-friend-selected.test.tsx', // #570 — WIRING: the friend just created becomes person2; .tsx
