@@ -212,7 +212,7 @@ const callApiGetUser = async (user_id: string) => {
       }
 
 
-      setImageUrl(data.share_profile_url)
+      setImageUrl(data.share_profile_url ?? "") // absent since mumate-be-retirement slice 1 (engine chart has no share card)
 
       setDestinyLoaded(true)
     } else {

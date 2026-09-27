@@ -12,7 +12,8 @@ import { TH_PROVINCES } from "@/lib/th/provinces"
 import { thaiDateFull, thaiTimeLabel } from "@/lib/th/thai-date"
 import { useCookies } from "react-cookie"
 import { CookieKey } from "@/constants/cookie-key"
-import { ChineseHoroscopeCalculate } from "@/constants/api/api-chinese-horoscope"
+import { SaveBirthChart } from "@/constants/api/api-birth-chart"
+import { clearChartCache } from "@/features/auth/hooks/chart-cache"
 import { clearDestinyCache } from "@/features/v2-destiny/destiny-cache"
 import { ProfileGate } from "./ProfileGate"
 
@@ -44,9 +45,8 @@ export function EditBirthScreen() {
   const [birthTime, setBirthTime] = useState("")
   const [province, setProvince] = useState("")
   const [timeUnknown, setTimeUnknown] = useState(false)
-  const [gender, setGender] = useState<string>("") // เก็บ gender ปัจจุบันไว้ recompute chart (ไม่เปลี่ยนตอนแก้วันเกิด)
   // #Bug2 — หลังแก้วันเกิดต้อง recompute chart ฝั่ง FE user row ด้วย (มินต์ result_code ใหม่ → หน้าแรก self-heal)
-  const [cookies] = useCookies([CookieKey.MEMBER_ID, CookieKey.MEMBER_NAME, CookieKey.MEMBER_IMAGE])
+  const [cookies] = useCookies([CookieKey.MEMBER_ID])
   const [saving, setSaving] = useState(false)
   const [msg, setMsg] = useState<string | null>(null)
   const [insufficient, setInsufficient] = useState(false)
@@ -74,7 +74,6 @@ export function EditBirthScreen() {
       setBirthTime(j.profile?.birthTime ?? "")
       setProvince(j.profile?.birthProvince ?? "")
       setTimeUnknown(j.profile?.timeUnknown ?? false)
-      setGender(j.profile?.gender ?? "")
       // ยอด QI ปัจจุบัน สำหรับ preview "เหลือหลังแก้" (สถานะเสียเงิน) — best-effort
       if (j.quota?.birthEditFreeUsed) {
         fetch("/api/qi-wallet").then((r) => (r.ok ? r.json() : null)).then((w) => setWalletQiNow(typeof w?.qi === "number" ? w.qi : null)).catch(() => {})
@@ -101,19 +100,17 @@ export function EditBirthScreen() {
       if (res.ok) {
         // วันเกิดเปลี่ยน → ดวงต้องคำนวณใหม่: ล้าง client cache (server ก็ miss เองเพราะ birthKey เปลี่ยน)
         clearDestinyCache()
-        // 🔴 #Bug2 — engine profile (birthDate) อัปเดตแล้ว แต่ "ธาตุ/หน้าแรก" คำนวณจาก FE user row (dob + result_code)
-        // ผ่าน ChineseHoroscopeGet. ต้อง recompute chart ฝั่ง FE ด้วย (เหมือน register) ไม่งั้น result_code เดิม →
-        // หน้าแรกโชว์ธาตุเก่า. best-effort (try/catch): ถ้าล้ม engine ก็บันทึกแล้ว — worst case = เท่าเดิม ไม่แย่ลง.
-        // (ธาตุ = เสาวันเกิด ขึ้นกับ "วันเกิด" เท่านั้น — gender ที่ map เป็น binary ไม่กระทบธาตุ)
+        // มาสคอตหน้าแรกคำนวณสดจาก engine ด้วยวันเกิดล่าสุดแล้ว (mumate-be-retirement-001 slice 1) — ล้าง cache
+        // ในหน่วยความจำ ให้กลับไปหน้าแรกแล้วคำนวณใหม่ทันที ไม่ต้องรอ result_code เปลี่ยน
+        clearChartCache()
+        // 🔴 #Bug2 — sync legacy `user` (dob/time/is_remember_time) + มินต์ result_code ใหม่ผ่าน FE route แทน BE.
+        // ส่งเฉพาะวัน/เวลาเกิด: ชื่อ/นามสกุล/รูป/เพศไม่ได้แก้ในจอนี้ จึงไม่ส่ง (เดิมส่ง surname "" ทับ และเดาเพศเป็น
+        // MALE เมื่อค่าไม่ใช่ "FEMALE"). best-effort: ล้ม = engine บันทึกแล้ว หน้าแรกก็คำนวณจาก engine profile อยู่ดี
         try {
-          const userId = (cookies[CookieKey.MEMBER_ID] as string) ?? ""
-          if (userId) {
-            const time = timeUnknown ? "" : birthTime || ""
-            const g = gender === "FEMALE" ? "FEMALE" : "MALE"
-            const name = (cookies[CookieKey.MEMBER_NAME] as string) ?? ""
-            await ChineseHoroscopeCalculate(userId, name, birth, time, g, cookies[CookieKey.MEMBER_IMAGE] ?? "", "", name, "")
+          if ((cookies[CookieKey.MEMBER_ID] as string) ?? "") {
+            await SaveBirthChart({ dob: birth, time: timeUnknown ? "" : birthTime || "" })
           }
-        } catch { /* recompute ล้ม → ธาตุจะอัปเดตช้า แต่วันเกิดใน engine บันทึกแล้ว */ }
+        } catch { /* best-effort — see above */ }
         setMsg(
           j.birthEditMode === "qi"
             ? `บันทึกแล้ว — หัก ${quota?.birthEditPriceQi ?? 150} QI ดวงของคุณจะอัปเดตตามวันเกิดใหม่`

@@ -2,11 +2,11 @@ import { type ComputeMascotSource } from '@/lib/personalization/mascot'
 
 // The greeting ธาตุ element string — the day-master element the home header shows.
 // SOURCE OF TRUTH = bazi's persona (pdf-dev, the SAME engine as หน้า "ดวงของฉัน" via /api/destiny),
-// computed live from the current user row each home load. It does NOT fall back to the mootech-be
-// compute (ChineseHoroscopeGet → NEXT_PUBLIC_BACKEND_URL): the two engines disagree on the day-master
-// element (different solar-term/time handling) AND the mootech-be chart is served via a `result_code`
-// pointer that goes STALE after an edit-birth — so the compute value could be WRONG and mismatch
-// ดวงของฉัน. Showing a stale/other-engine element even for one frame is worse than showing none, so
+// computed live from the current user row each home load. It does NOT fall back to the chart compute
+// (ChineseHoroscopeGet): historically that was the legacy backend's stored chart, which disagreed with
+// the engine on the day-master element and went STALE after an edit-birth. Since
+// mumate-be-retirement-001 slice 1 the chart is engine-derived too, but the persona stays the one
+// source for this text. Showing a stale/other-engine element even for one frame is worse than none, so
 // while persona is still loading (or the engine is down) this returns null and the row stays hidden.
 // `_computeSource` is kept only for call-site compatibility and is intentionally unused.
 export function resolveGreetingElementTh(
@@ -17,7 +17,9 @@ export function resolveGreetingElementTh(
   return persona || null
 }
 
-// Map the raw ChineseHoroscopeGet response into the shape resolveMascotFromCompute reads.
+// Map the raw ChineseHoroscopeGet response into the shape resolveMascotFromCompute reads. Since
+// mumate-be-retirement-001 slice 1 that response is the ENGINE-derived chart (lib/chart/engine-chart.ts
+// buildChartPayload), which keeps exactly these legacy paths, so this mapper did not change.
 // SHAPE (verified against my-destiny.tsx, a working consumer that reads `result.data.summary`/`.detail`):
 // the /api/chinese-horoscope route returns `{ data: chart }`, but ChineseHoroscopeGet force-casts it to
 // a FLAT RESPONSE type — so the `.data` envelope is invisible to tsc. Reading `chart.detail` directly

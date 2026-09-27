@@ -6,7 +6,7 @@
 // dob/time/is_remember_time ของ row ก่อนส่งเข้า userRowToFeCalcInput. gender/place_name/name ยังมาจาก user.
 import { sql } from "drizzle-orm"
 import { db } from "@/lib/db"
-import type { UserBirthRow } from "@/lib/bazi-bridge/input"
+import { applyEngineProfileBirth, type UserBirthRow } from "@/lib/bazi-bridge/input"
 
 const rowsOf = (r: unknown): Record<string, unknown>[] =>
   Array.isArray(r) ? (r as Record<string, unknown>[]) : ((r as { rows?: Record<string, unknown>[] })?.rows ?? [])
@@ -23,16 +23,7 @@ export async function mergeEngineBirth(userId: string, row: UserBirthRow): Promi
         sql`SELECT birth_date, birth_time, time_unknown FROM "bazi_user_profile" WHERE anon_id = ${userId} LIMIT 1`,
       ),
     )[0]
-    const birthDate = typeof prof?.birth_date === "string" ? prof.birth_date.slice(0, 10) : ""
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(birthDate)) return row // ยังไม่เคยแก้ฝั่ง engine → ใช้ legacy เดิม
-    const timeUnknown = prof?.time_unknown === true
-    const t = typeof prof?.birth_time === "string" ? prof.birth_time.slice(0, 5) : ""
-    return {
-      ...row,
-      dob: birthDate,
-      time: timeUnknown ? "" : t,
-      is_remember_time: !timeUnknown,
-    }
+    return applyEngineProfileBirth(row, prof) // ยังไม่เคยแก้ฝั่ง engine → คืน row เดิม (legacy)
   } catch {
     return row
   }

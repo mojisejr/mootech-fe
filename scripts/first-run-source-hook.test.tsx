@@ -38,21 +38,19 @@ vi.mock('@/features/v2-first-run/hooks/summary-cache', () => ({
 }))
 
 import { useFirstRunSource, IDENTITY_GRACE_MS } from '@/features/v2-first-run/hooks/useFirstRunSource'
+import { buildChartPayload, deriveChartCore } from '@/lib/chart/engine-chart'
 
-// ✓ SHAPE TRACED, NOT GUESSED — my first draft of this fixture invented `animal`/`element` keys and H6
-// failed. The real path is toComputeSource (lib/personalization/compute-source.ts:23):
-//   chart.data.detail.yearBelow.constellation | .id   → animalFromCompute → toNakkasat
-//   chart.data.detail.dayAbove.element                → elementFromCompute (pillars.day.stemElement)
-// `id` is the numeric branch (zodiac.ts:96 ID_TO_TH), so it needs no glyph table here.
-// If the endpoint's shape ever moves, H6 goes red — which is correct: that IS a regression for this screen.
+// ✓ SHAPE TRACED, NOT GUESSED. Since mumate-be-retirement-001 slice 1, ChineseHoroscopeGet answers with
+// the ENGINE-derived chart built by lib/chart/engine-chart.ts buildChartPayload — so the fixture is built
+// by that same producer, not hand-written: if the producer's shape drifts from what this hook reads
+// (detail.yearBelow → animal, detail.dayAbove.element → element, elementCycle, dob/time/gender), H6 goes red.
+// 子 year + 甲 day = ชวด + ไม้.
 const CHART_OK = {
-  data: {
-    dob: '1990-01-01',
-    time: '08:00',
-    gender: 'MALE',
-    detail: { yearBelow: { id: 1 }, dayAbove: { element: 'WOOD' } },
-    elementCycle: null,
-  },
+  data: buildChartPayload(
+    { dob: '1990-01-01', time: '08:00', gender: 'MALE' },
+    deriveChartCore({ pillars: { year: { branch: '子' }, day: { stem: '甲' } } })!,
+    null,
+  ),
 }
 
 beforeEach(() => {
@@ -129,7 +127,7 @@ describe('the branches that ARE genuinely terminal', () => {
 
   it('H4 — chart returns but no mascot can be resolved ⇒ unavailable', async () => {
     userGet.mockResolvedValue({ user_id: 'u-1', result_code: 'CODE' })
-    chartGet.mockResolvedValue({ data: {} })
+    chartGet.mockResolvedValue({ data: null }) // the route's "no birth yet" answer
     const { result } = renderHook(() => useFirstRunSource())
     await waitFor(() => expect(result.current.status).toBe('unavailable'))
   })
@@ -148,5 +146,17 @@ describe('H6 — happy path', () => {
     const { result } = renderHook(() => useFirstRunSource())
     await waitFor(() => expect(result.current.status).toBe('ready'))
     expect(result.current.source).not.toBeNull()
+    // the mascot is the ENGINE's animal + day-stem element, and gender without a cycle row → unavailable
+    expect(result.current.source?.mascot.filename).toBe('01_ชวด-ไม้')
+    expect(result.current.source?.cycle).toEqual({ status: 'unavailable' })
+  })
+
+  it('H6b — the engine chart carries the element_cycle row ⇒ the six facets are ready', async () => {
+    userGet.mockResolvedValue({ user_id: 'u-1', result_code: 'CODE' })
+    const row = { id: 1, element: 'WOOD', power: 'YANG', gender: 'MALE', element_friend: 'WOOD', element_work: 'FIRE', element_career: 'METAL', element_fortune: 'EARTH', element_spouse: 'EARTH', element_supporter: 'WATER' }
+    chartGet.mockResolvedValue({ data: { ...CHART_OK.data, elementCycle: row } })
+    const { result } = renderHook(() => useFirstRunSource())
+    await waitFor(() => expect(result.current.status).toBe('ready'))
+    expect(result.current.source?.cycle).toMatchObject({ status: 'ready', data: { power: 'YANG', friend: 'WOOD', supporter: 'WATER' } })
   })
 })

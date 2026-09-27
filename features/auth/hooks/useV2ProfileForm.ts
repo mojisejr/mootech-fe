@@ -1,12 +1,13 @@
-// MuMate v2 — profile-form wiring hook. REUSES the existing profile-save endpoint
-// (ChineseHoroscopeCalculate = the /chinese-horoscope backend write + chart compute) and the same
-// userId source (MEMBER_ID cookie) as pages/register — it does NOT introduce a new save path. The
+// MuMate v2 — profile-form wiring hook. Saves through SaveBirthChart (POST /api/v2/birth-chart — the FE
+// replacement for mootech-be's POST /chinese-horoscope, mumate-be-retirement-001 slice 1): it writes the
+// same `user` columns and mints `result_code`; the server takes identity from the session, so no user_id
+// is sent. The MEMBER_ID cookie is still read for canSubmit and the summary prefetch key. The
 // time-building logic is copied verbatim from pages/register onSubmit so behaviour matches exactly.
 // The page composes the fields (BirthDayInput + name/gender/time/checkbox) into Lamun's RegisterView.
 import { useEffect, useMemo, useState } from 'react'
 import { useCookies } from 'react-cookie'
 import { CookieKey } from '@/constants/cookie-key'
-import { ChineseHoroscopeCalculate } from '@/constants/api/api-chinese-horoscope'
+import { SaveBirthChart } from '@/constants/api/api-birth-chart'
 import { profileCanSubmit } from './profile-can-submit'
 import { prefetchSummary } from '@/features/v2-first-run/hooks/summary-cache'
 import { toBaziGender } from '@/features/v2-first-run/hooks/first-run-source-map'
@@ -33,7 +34,7 @@ export type V2ProfileFormApi = {
   isTimeValid: boolean
   submitting: boolean
   error: string | null
-  onSubmit: () => void // → ChineseHoroscopeCalculate (profile save + chart compute) → onSaved(code)
+  onSubmit: () => void // → SaveBirthChart (profile save + result_code) → onSaved(code)
 }
 
 export function useV2ProfileForm(onSaved: (code: string) => void): V2ProfileFormApi {
@@ -92,19 +93,18 @@ export function useV2ProfileForm(onSaved: (code: string) => void): V2ProfileForm
     setError(null)
     try {
       const time = buildTime()
-      // Same param order as pages/register callApiCalculate → ChineseHoroscopeCalculate.
-      const result: any = await ChineseHoroscopeCalculate(
-        userId,
+      // The same fields BE's POST /chinese-horoscope received from here (family_code was always '' and
+      // is gone). user_id is NOT sent: the server binds the write to the session.
+      const result = await SaveBirthChart({
         name,
-        birthDay,
+        dob: birthDay,
         time,
         gender,
-        displayImage,
+        picture_url: displayImage,
         surname,
-        name, // account_name (register uses accountName; prefilled == name here)
-        '', // family_code — not collected in slice 1
-      )
-      if (result?.code) {
+        account_name: name, // register uses accountName; prefilled == name here
+      })
+      if (typeof result?.code === 'string' && result.code) {
         // C3: kick the slow (~10s) first-run reading off NOW, while the user walks intent + pdpa, so the
         // element screen's reading block is usually ready by the time they arrive (memory-only cache).
         prefetchSummary(userId, { birthDate: birthDay, birthTime: time, gender: toBaziGender(gender) })

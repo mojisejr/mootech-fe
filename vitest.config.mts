@@ -84,6 +84,13 @@ export default defineConfig({
     // Same shape as the merge-conflict rule already written into design-verify.yml. Debt #212 is
     // that this list and ci.yml's skip list are two hand-synced copies of the same fact.
     include: [
+      'scripts/engine-chart.test.ts', // mumate-be-retirement-001 slice 1 — engine glyphs → animal / stem element+power / element_cycle, result_code format
+      'scripts/engine-chart-db.test.ts', // mumate-be-retirement-001 slice 1 — STEM_TABLE + element_cycle vocabulary against real Postgres (env-gated)
+      'scripts/birth-chart-save.test.ts', // mumate-be-retirement-001 slice 1 — register/edit-birth writer: columns, time '', session identity, minimal log_calculate
+      'scripts/birth-chart-db.test.ts', // mumate-be-retirement-001 slice 1 — the writer's transaction against real Postgres (env-gated)
+      'scripts/chart-routes.test.ts', // mumate-be-retirement-001 slice 1 — GET /api/chinese-horoscope from the engine, element finder without BE
+      'scripts/chart-clients.test.tsx', // mumate-be-retirement-001 slice 1 — register form, edit-birth and home read/write through the new routes
+      'scripts/measure-chart-drift.test.ts', // mumate-be-retirement-001 slice 1 DoD B2 — drift measurement classification, counts only
       'scripts/register-login-fe.test.ts', // mumate-login-identity slice 1 — verified session → atomic FE-native identity route
       'scripts/register-login-fe-db.test.ts', // mumate-login-identity slice 1 — real-pg advisory-lock concurrency proof (env-gated)
       'scripts/link-state.test.ts', // mumate-login-identity slice 3 — signed state/PKCE/nonce binding for provider linking
