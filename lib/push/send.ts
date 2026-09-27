@@ -41,6 +41,10 @@ export async function sendPush(target: PushTarget, payload: PushPayload): Promis
     await webpush.sendNotification(
       { endpoint: target.endpoint, keys: { p256dh: target.p256dh, auth: target.auth } },
       JSON.stringify(payload),
+      // Urgency:high + a short TTL → the push service delivers NOW instead of batching under Android
+      // Doze (which held reminders until the phone was unlocked — the "เวลาไม่ตรง มาตอนเปิดเครื่อง" bug).
+      // TTL 3600s = if the device is offline, drop the reminder after an hour rather than pile up stale ones.
+      { urgency: 'high', TTL: 3600 },
     )
     return { status: 'ok' }
   } catch (err) {
@@ -48,6 +52,11 @@ export async function sendPush(target: PushTarget, payload: PushPayload): Promis
     // → falls through to transient (never delete on an error we cannot attribute to the endpoint).
     const code = (err as { statusCode?: number }).statusCode
     if (code === 404 || code === 410) return { status: 'gone' }
+    // Apple's push endpoint (web.push.apple.com) rejects (e.g. bad VAPID_SUBJECT) were invisible — an
+    // all-iOS silent miss looked identical to success. Log host+status so it surfaces in Vercel logs.
+    try {
+      console.error('[push] send failed', { statusCode: code ?? null, host: new URL(target.endpoint).host })
+    } catch { /* URL parse can't fail for a stored endpoint, but never let logging throw */ }
     return { status: 'transient' }
   }
 }

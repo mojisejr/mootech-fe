@@ -34,6 +34,18 @@ export default function App({ Component, pageProps: { session, ...pageProps } }:
     navigator.serviceWorker.register("/sw.js").catch((err) => {
       console.error("[pwa] service worker registration failed", err);
     });
+    // sw.ts uses skipWaiting+clientsClaim, so a new deploy's SW takes control while the page is still
+    // running the OLD bundle → `controllerchange` fires. Reload once so the tester's installed PWA picks
+    // up fresh assets automatically, instead of being stuck on a cached old build until they reopen twice
+    // (เอ็ม/เทสเตอร์ 2026-09-27: เห็น UI เก่าทั้งที่ deploy ใหม่แล้ว). Guard against a reload loop.
+    let reloaded = false;
+    const onControllerChange = () => {
+      if (reloaded) return;
+      reloaded = true;
+      window.location.reload();
+    };
+    navigator.serviceWorker.addEventListener("controllerchange", onControllerChange);
+    return () => navigator.serviceWorker.removeEventListener("controllerchange", onControllerChange);
   }, []);
 
   // ขนาดตัวอักษร (settings-text-size-sheet, ก้อน 4) — apply ค่าที่บันทึกในเครื่องตั้งแต่โหลดแอป

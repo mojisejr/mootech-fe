@@ -13,13 +13,13 @@ import { sendPush } from "@/lib/push/send"
 import { isAuthorized } from "@/lib/push/authorize"
 import { buildManifestPayload } from "@/lib/push/payload"
 
-// เวลาไทย = UTC+7 (ไม่มี DST). คืน { hour, date } ตามเวลาไทย ณ ขณะนั้น
-function bangkokNow(now: Date): { hour: number; date: string } {
+// เวลาไทย = UTC+7 (ไม่มี DST). คืน { hour, minute, date } ตามเวลาไทย ณ ขณะนั้น
+function bangkokNow(now: Date): { hour: number; minute: number; date: string } {
   const bkk = new Date(now.getTime() + 7 * 60 * 60 * 1000)
   const y = bkk.getUTCFullYear()
   const m = String(bkk.getUTCMonth() + 1).padStart(2, "0")
   const d = String(bkk.getUTCDate()).padStart(2, "0")
-  return { hour: bkk.getUTCHours(), date: `${y}-${m}-${d}` }
+  return { hour: bkk.getUTCHours(), minute: bkk.getUTCMinutes(), date: `${y}-${m}-${d}` }
 }
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
@@ -28,13 +28,16 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return res.status(401).json({ ok: false, error: "unauthorized" })
   }
 
-  const { hour, date } = bangkokNow(new Date())
+  const { hour, minute, date } = bangkokNow(new Date())
 
-  // atomic claim+mark: mark last_sent_date = วันนี้ และคืน user_id ที่ถึงคิว (กันยิงซ้ำในวันเดียว / cron overlap)
+  // atomic claim+mark: mark last_sent_date = วันนี้ และคืน user_id ที่ถึงคิว (กันยิงซ้ำในวันเดียว / cron overlap).
+  // แมตช์ทั้ง hour AND minute → ยิงตรงนาทีที่ผู้ใช้ตั้ง (cron รันทุกนาที) แทนของเดิมที่แมตช์ชั่วโมงอย่างเดียว
+  // ทำให้ตั้ง 07:30 แต่เด้ง 07:00 (เอ็ม/เทสเตอร์ 2026-09-27: "เวลาไม่ตรง").
   const claimed = (await db.execute(sql`
     UPDATE manifest_reminder SET last_sent_date = ${date}
     WHERE enabled = true
       AND hour = ${hour}
+      AND minute = ${minute}
       AND (last_sent_date IS NULL OR last_sent_date <> ${date})
     RETURNING user_id AS "userId"
   `)) as unknown as Array<{ userId: string }>
