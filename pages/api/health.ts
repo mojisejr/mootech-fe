@@ -35,6 +35,16 @@ export type HealthBody = {
   dbLatencyMs: number
   sha: string | null
   uptimeSec: number
+  /** where this answer comes from — a reviewer tells DigitalOcean from Vercel without guessing (mumate-vercel-to-do-001 slice 2) */
+  platform: 'vercel' | 'container'
+  /** MUMATE_ENV on DigitalOcean (staging / production); vercel-<VERCEL_ENV> on Vercel; null when neither is set */
+  env: string | null
+}
+
+export function platformOf(env: Partial<NodeJS.ProcessEnv> = process.env): Pick<HealthBody, 'platform' | 'env' | 'sha'> {
+  const platform = env.VERCEL ? 'vercel' : 'container'
+  const name = env.MUMATE_ENV?.trim() || (env.VERCEL_ENV ? `vercel-${env.VERCEL_ENV}` : '')
+  return { platform, env: name || null, sha: env.APP_GIT_SHA ?? env.VERCEL_GIT_COMMIT_SHA ?? null }
 }
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse<HealthBody | { error: string }>) {
@@ -58,13 +68,18 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse<
     // the losing branch of a race is not cancelled; without this the timer keeps the event loop alive
     if (timer) clearTimeout(timer)
   }
+  const where = platformOf()
   res.setHeader('Cache-Control', 'no-store')
+  res.setHeader('X-MuMate-Platform', where.platform)
+  if (where.env) res.setHeader('X-MuMate-Env', where.env)
   return res.status(dbStatus === 'ok' ? 200 : 503).json({
     status: dbStatus === 'ok' ? 'ok' : 'degraded',
     service: 'mootech-fe',
     db: dbStatus,
     dbLatencyMs: Date.now() - startedAt,
-    sha: process.env.APP_GIT_SHA ?? null,
+    sha: where.sha,
     uptimeSec: Math.round(process.uptime()),
+    platform: where.platform,
+    env: where.env,
   })
 }
