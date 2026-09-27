@@ -1,6 +1,7 @@
 import { drizzle } from 'drizzle-orm/postgres-js'
 import postgres from 'postgres'
 import * as schema from './schema'
+import { dbPoolMax } from './pool-size'
 
 // Runtime: Supabase TRANSACTION pooler (:6543) for serverless API routes.
 // `prepare: false` is REQUIRED for the transaction pooler (no prepared statements).
@@ -19,11 +20,11 @@ const client =
   postgres(process.env.DATABASE_URL as string, {
     prepare: false, // transaction pooler: removing this breaks every route at once
     ssl: 'require',
-    // 🔴 max STAYS AT 1 ON PURPOSE. It serialises every database route through a single connection and is
-    // why 36 routes queue behind one another, but choosing a higher number needs two facts this repository
-    // does not hold: the transaction pooler's configured pool size, and the real client count in a running
-    // container. Raising it on a guess spends production's pool. Measure first, then raise.
-    max: 1,
+    // 🔴 max is 1 unless DB_POOL_MAX says otherwise (lib/db/pool-size.ts). The two facts this comment used to
+    // say were missing are now known: the pooler's pool size is 15 (owner, 2026-09-28) and the client count per
+    // container is one (the unconditional singleton below). 1 stays the default so Vercel does not change;
+    // the container sets DB_POOL_MAX after the nested-acquire audit (mumate-vercel-to-do-001 slice 2).
+    max: dbPoolMax(),
     // 🔴 THE DIRECT REPAIR FOR THE OBSERVED FAULT (shadow, 2026-09-24): pages answered in 17 ms while every
     // database route hung — TCP to the pooler completed in 25 ms, established sockets were ZERO, and queued
     // queries were neither dispatched nor rejected, with an empty log. With no idle_timeout WE never close
