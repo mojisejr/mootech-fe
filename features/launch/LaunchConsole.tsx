@@ -10,6 +10,7 @@ const RITE_END = new Date("2026-09-20T15:00:00+07:00").getTime() // 14:59 น. =
 type Status = {
   armed: boolean
   missing: string[]
+  offVercel?: boolean
   env: { maintenance: string; v2Locked: boolean } | null
   project?: { projectId: string; teamId: string | null; via: string } | null
   error?: string
@@ -103,7 +104,11 @@ export function LaunchConsole() {
             maintenance: <b>{status.env.maintenance}</b> · v2 lock: <b>{status.env.v2Locked ? "ล็อก" : "ปลดแล้ว"}</b>
           </div>
         ) : null}
-        {status && !status.armed ? (
+        {status?.offVercel ? (
+          <div style={{ fontSize: 13, color: "#c0392b", marginTop: 6 }}>
+            ⛔ ปิดใช้งาน — เครื่องนี้ไม่ได้รันบน Vercel · ปุ่มนี้แก้ env ของ Vercel เท่านั้น · เปิด/ปิด maintenance บน DigitalOcean ใช้ runbook ของ mumate-infra
+          </div>
+        ) : status && !status.armed ? (
           <div style={{ fontSize: 13, color: "#c0392b", marginTop: 6 }}>
             ⚠️ ปุ่มยังไม่พร้อม — ตั้งค่า env นี้บน Vercel ก่อน: <b>{status.missing.join(", ")}</b>
           </div>

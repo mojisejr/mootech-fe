@@ -17,7 +17,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
   const armed = isLaunchArmed();
   if (!armed.armed) {
-    res.status(409).json({ error: { message: `ยังไม่พร้อม: ตั้งค่า ${armed.missing.join(", ")} ก่อน` } });
+    const message = armed.offVercel
+      ? "ปิดใช้งาน: เครื่องนี้ไม่ได้รันบน Vercel — ปุ่มนี้แก้ env ของ Vercel เท่านั้น (mumate-vercel-to-do-001)"
+      : `ยังไม่พร้อม: ตั้งค่า ${armed.missing.join(", ")} ก่อน`;
+    res.status(409).json({ error: { message } });
     return;
   }
   const dryRun = req.query.dryRun === "1" || req.query.dryRun === "true";
