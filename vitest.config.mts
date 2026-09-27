@@ -91,6 +91,8 @@ export default defineConfig({
       'scripts/chart-routes.test.ts', // mumate-be-retirement-001 slice 1 — GET /api/chinese-horoscope from the engine, element finder without BE
       'scripts/chart-clients.test.tsx', // mumate-be-retirement-001 slice 1 — register form, edit-birth and home read/write through the new routes
       'scripts/measure-chart-drift.test.ts', // mumate-be-retirement-001 slice 1 DoD B2 — drift measurement classification, counts only
+      'scripts/v1-retired-routes.test.ts', // mumate-be-retirement-001 slice 2a DoD V1 — every v1 page redirects to its v2 target (307, one middleware rule); every other page is kept on purpose
+      'scripts/be-seam-closed.test.ts', // mumate-be-retirement-001 slice 2b DoD V2 — import graph from every page/API route that can still run: none reaches constants/api/endpoint.ts or a BE marker
       'scripts/register-login-fe.test.ts', // mumate-login-identity slice 1 — verified session → atomic FE-native identity route
       'scripts/register-login-fe-db.test.ts', // mumate-login-identity slice 1 — real-pg advisory-lock concurrency proof (env-gated)
       'scripts/link-state.test.ts', // mumate-login-identity slice 3 — signed state/PKCE/nonce binding for provider linking

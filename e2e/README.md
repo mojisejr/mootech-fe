@@ -1,5 +1,12 @@
 # Auth E2E Smoke (`#mootech-auth-e2e-smoke`)
 
+> ⚠️ **Retired flow (2026-09-27).** This smoke drives **v1** screens (`/`, the v1 menu, `/matching`,
+> `/register`) against **mootech-be on :4000**. Since CIEL `mumate-be-retirement-001` slice 2 every v1 route is
+> redirected to v2 (`lib/v1-retired-routes.ts`) and the FE no longer reads `NEXT_PUBLIC_BACKEND_URL`, so
+> `auth-loop.spec.ts`, `cold-start.spec.ts` (both land on `/`) and `self-heal.spec.ts` (lands on `/my-destiny`)
+> can no longer reach what they assert and will fail if run. They are kept, unrun, as the record of the v1
+> login-loop guards; the v2 equivalents are the `e2e/v2-*.spec.ts` specs, which need no BE.
+
 A committed Playwright smoke test that guards the **login-loop regression**: a
 logged-in user must **never** be bounced to `/login` because the refer-code
 cookie is empty.

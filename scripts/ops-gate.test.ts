@@ -69,8 +69,11 @@ function main() {
   t('unrelated paths are unaffected by the ops guard', () => {
     resetEnv()
     process.env.OPS_DASHBOARD_KEY = 'test-secret'
-    assert.equal(isPassThrough(middleware(mkReq('/'))), true)
-    assert.equal(isPassThrough(middleware(mkReq('/my-destiny'))), true)
+    // Kept (non-v1) pages. '/' and '/my-destiny' used to be probed here; since be-retirement slice 2a they
+    // are v1 routes that redirect to v2 (scripts/v1-retired-routes.test.ts owns that), which is not the ops
+    // guard's doing, so this probe moved to pages that are neither ops nor retired.
+    assert.equal(isPassThrough(middleware(mkReq('/privacy/policy'))), true)
+    assert.equal(isPassThrough(middleware(mkReq('/invite/ABCD1234'))), true)
   })
 
 

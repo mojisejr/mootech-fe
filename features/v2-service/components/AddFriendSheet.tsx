@@ -154,9 +154,9 @@ export function AddFriendSheet({ onClose, onCreate, edit, title = 'เลือ�
     if (!file) return
     setUploading(true); setUploadError(false)
     try {
-      const [{ callApiUpload }, { API }, { shrinkImageForUpload }] = await Promise.all([
+      const [{ callApiUpload }, { LOCAL_API: API }, { shrinkImageForUpload }] = await Promise.all([
         import('@/utils/fetch'),
-        import('@/constants/api/endpoint'),
+        import('@/constants/api/endpoint-local'), // not endpoint: keeps the retired BE entries out of v2's chunks (be-retirement 2b)
         import('@/lib/v2/shrink-image'),
       ])
       // be-retirement 1f: the upload now goes to our own route (4 MB cap, Vercel's 4.5 MB body limit) instead of

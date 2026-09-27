@@ -32,7 +32,6 @@ echo "── build ${TAG} (APP_GIT_SHA=${SHA:0:12}) ──"
 # gate check-omise-key-inlined.sh runs its PRESENT check against the real artifact instead of skipping.
 docker build --build-arg "APP_GIT_SHA=${SHA}" \
   --build-arg NEXTAUTH_URL=http://localhost:${PORT} \
-  --build-arg NEXT_PUBLIC_BACKEND_URL=http://host.docker.internal:4000 \
   --build-arg NEXT_PUBLIC_OMISE_KEY_V2=pkey_test_containersmoke_placeholder \
   -t "$TAG" . | tail -3
 

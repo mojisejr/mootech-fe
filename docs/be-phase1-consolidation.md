@@ -1,5 +1,12 @@
 # BE Phase‑1 Consolidation — retire the DUPLICATE parts of `mootech-be` by repointing FE → engine
 
+> ⛔ **SUPERSEDED (2026-09-27).** This plan was overtaken by CIEL `mumate-be-retirement-001` (plan rev 0.4), which
+> retires `mootech-be` from the app completely rather than in phases: v2 moved to FE routes + the engine
+> (slice 1), every v1 route is redirected to v2 by `lib/v1-retired-routes.ts` and no reachable code calls the
+> BE (slice 2). The inventory below — what was "still on `be`", the BFF proxies, the env that "stays" — is a
+> record of the state on the day it was written, not of the code today. In particular
+> `NEXT_PUBLIC_BACKEND_URL` is **no longer read** and `lib/credit/wallet-client.ts` is gone.
+
 Status: PLAN (read‑only analysis). Scope: **only** the bazi/horoscope/AI/consent/almanac/matching duplicates.
 **Out of scope (Phase 2+, unique to `be`): payments/Omise, user register/login/OTP, object‑storage/upload, member‑payment, logs.**
 

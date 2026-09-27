@@ -1,5 +1,5 @@
 import { callApi } from '../../utils/fetch'
-import { API } from './endpoint'
+import { LOCAL_API as API } from './endpoint-local' // not ./endpoint: keeps the retired BE entries out of v2's chunks (be-retirement 2b)
 import { RESPONSE_CHINESE_HOROSCOPE_GET } from './response-chinese-horoscope'
 import type { ChartPayload } from '@/lib/chart/engine-chart'
 

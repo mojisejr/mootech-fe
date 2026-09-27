@@ -1,4 +1,4 @@
-import { API } from './endpoint'
+import { LOCAL_API as API } from './endpoint-local' // not ./endpoint: keeps the retired BE entries out of v2's chunks (be-retirement 2b)
 import { UnverifiedApiResult } from './unverified-result'
 
 // v2 register + edit-birth save (mumate-be-retirement-001 slice 1) -> POST /api/v2/birth-chart.

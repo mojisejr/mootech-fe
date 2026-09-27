@@ -13,10 +13,17 @@
 | Repo | Role | Remote (deploy) | Platform | Ownership |
 |------|------|-----------------|----------|-----------|
 | **mootech-fe** | Consumer FE, `bazichart.mumate.co` | `origin` = mojisejr/mootech-fe | Vercel | Non (full) |
-| **mootech-be** | Backend (auth, horoscope, payment, LINE) | `mootech` = mojisejr/mootech-be | Render | Non (full) |
+| **mootech-be** | Backend (auth, horoscope, payment, LINE) — **retired from the app 2026-09-27**, see below | `mootech` = mojisejr/mootech-be | Render | Non (full) |
 | **bazi-sft-dataset** | Bazi engine + chat brain | `origin` = mojisejr/bazi-sft-dataset | Vercel | **Shared with friend** |
 
 `bazi` has **no code dependency** on BE (domain overlap only). Payment lives in **FE + BE only**.
+
+> ⛔ **mootech-be, 2026-09-27:** the FE no longer calls it (CIEL `mumate-be-retirement-001` slices 1-2: v2 moved to
+> FE routes + the engine, v1 is redirected to v2, `NEXT_PUBLIC_BACKEND_URL` left the env contract). The BE rows in
+> this document describe how it was run while it was live. Switching the service off (suspend → quiet days →
+> delete) and archiving the repository are later, owner-confirmed steps; until then treat BE as read-only and do
+> not start new work there. Payment is **FE only** since v2 (`pages/api/v2/payment/*`); the §4 FE↔BE contract
+> below applies to the retired v1 flow.
 
 ---
 

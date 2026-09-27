@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
+import { retiredV1Target } from './lib/v1-retired-routes';
 
 // Maintenance gate.
 //   MAINTENANCE_MODE=on        -> show /maintenance to everyone (server-side env, NOT public)
@@ -327,6 +328,22 @@ function guardV2(req: NextRequest): NextResponse | null {
   return noStore(NextResponse.redirect(new URL('/v2', req.url)));
 }
 
+// v1 is retired by redirect (CIEL mumate-be-retirement-001 slice 2a, plan rev 0.4 R1). The table and the
+// reasoning live in lib/v1-retired-routes.ts; this is the only place it is applied. Called at the two exits
+// where a request is about to REACH THE APP (maintenance off, or a valid bypass cookie), never before the
+// maintenance gate: while maintenance is on, a v1 URL still gets the maintenance page like every other page,
+// so the maintenance gate stays the outermost one (#606) and its containment tests hold as written.
+// 307 + no-store, not 308: a 308 is cached by browsers indefinitely, so removing this rule would not reach
+// anyone who had followed it once. The query string is kept (req.nextUrl.clone()).
+// To turn it off: delete this function and its two call sites in route(). The v1 pages are still in the tree.
+function redirectRetiredV1(req: NextRequest): NextResponse | null {
+  const target = retiredV1Target(req.nextUrl.pathname);
+  if (!target) return null;
+  const url = req.nextUrl.clone();
+  url.pathname = target;
+  return noStore(NextResponse.redirect(url, 307));
+}
+
 function redirectWhatIfFirstVisit(req: NextRequest): NextResponse | null {
   if (req.nextUrl.pathname !== '/') return null;
 
@@ -404,16 +421,15 @@ function route(req: NextRequest): NextResponse {
   const v2 = guardV2(req);
   if (v2) return v2;
 
-  // #606 step 3 — after launch, the root landing sends v1 visitors to /v2. This is done in
-  // pages/index.tsx getServerSideProps (keyed on V2_PREVIEW_KEY unset), NOT here: doing it in
-  // middleware changed "/" for every gate test that probes it with the key unset (ops/what-if/
-  // maintenance). Page-level keeps middleware routing untouched and still only fires post-launch,
-  // after maintenance is off (middleware rewrites "/" to /maintenance while it is on).
+  // #606 step 3 — after launch, the root landing sends v1 visitors to /v2. This was done in
+  // pages/index.tsx getServerSideProps (keyed on V2_PREVIEW_KEY unset), and that still stands as a
+  // backstop. Since be-retirement slice 2a, "/" is also a row of the v1 retirement table, applied below
+  // AFTER the maintenance gate (redirectRetiredV1), so "/" still gets the maintenance page while it is on.
 
   // Maintenance off -> behave normally (normal caching resumes).
   // (While maintenance is on, every gated response below uses the module-level noStore so the
   // CDN never caches the maintenance HTML under "/" and serves it to bypassed devs.)
-  if (process.env.MAINTENANCE_MODE !== 'on') return NextResponse.next();
+  if (process.env.MAINTENANCE_MODE !== 'on') return redirectRetiredV1(req) ?? NextResponse.next();
 
   const { pathname, searchParams } = req.nextUrl;
 
@@ -466,7 +482,7 @@ function route(req: NextRequest): NextResponse {
 
   // Dev already holds a valid bypass cookie -> pass through (sees the real site).
   if (key && req.cookies.get(BYPASS_COOKIE)?.value === key) {
-    return noStore(NextResponse.next());
+    return redirectRetiredV1(req) ?? noStore(NextResponse.next());
   }
 
   // Dev opens the secret link `?bypass=<key>` -> set cookie, redirect to clean URL, pass through.

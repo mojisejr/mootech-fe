@@ -12,14 +12,21 @@ Grounded from: `README.md`, `package.json`, `pages/`, `components/`, `constants/
 ## 🔗 Cross-Project Relations — "mumate" product group
 > Added 2026-06-20. This repo is **1 of 3 sibling repos** behind the MuMate (สายมู/ดวงจีน) product. Use this to orient when work spans repos.
 
+> ⛔ **2026-09-27 — mootech-be is retired from this app** (CIEL `mumate-be-retirement-001` slices 1-2). v2 reads
+> and writes through its own `pages/api/*` routes and the bazi engine (slice 1); every v1 route is redirected
+> to v2 by one middleware rule, `lib/v1-retired-routes.ts` (slice 2a); and no reachable page or API route calls
+> the BE, whose env (`NEXT_PUBLIC_BACKEND_URL`) left the contract (slice 2b). The v1 code stays in the tree,
+> unreachable. The BE service itself is switched off in a later slice — until then it may still be running,
+> but nothing here talks to it. The FE → BE edges below are **history**.
+
 | Repo | Role | Stack / Host | DB |
 |------|------|--------------|-----|
 | **mootech-fe-fork** (FE) ← *you are here* | Consumer frontend — `bazichart.mumate.co` | Next.js Pages Router · Vercel `mootech-fe` | none of its own; **~11 `/api/*` routes query Supabase Pro `soxs` directly** via `DATABASE_URL` |
-| **mootech-be** (BE) | Legacy backend — auth/register-login, horoscope calc, payment, master-data, legacy `ai` chat, LINE multicast | NestJS · Render `srv-d8nc4j8k1i2s73d7e030` | Supabase Pro `soxsccdlsycaevusndro` |
+| **mootech-be** (BE) | **Retired from the app 2026-09-27** (see the note above). Was: legacy backend — auth/register-login, horoscope calc, payment, master-data, legacy `ai` chat, LINE multicast | NestJS · Render `srv-d8nc4j8k1i2s73d7e030` | Supabase Pro `soxsccdlsycaevusndro` |
 | **bazi** (`bazi-sft-dataset`) | Deterministic Bazi platform — symbolic engine, reading/PDF, **chat brain (API-only, OpenAI-compatible)**, LINE | Next.js App Router · Clerk | Neon (Drizzle) |
 
 ### Edges (grounded in code)
-- **FE → BE** *(primary)*: all core flows. Base `https://bazichart.mumate.co/api/v1` → BE. Legacy chat = BE `/ai/chat` (gated by `NEXT_PUBLIC_ENABLE_CHAT`).
+- **FE → BE** *(history — none since 2026-09-27)*: was all core flows. Base `https://bazichart.mumate.co/api/v1` → BE. Legacy chat = BE `/ai/chat` (gated by `NEXT_PUBLIC_ENABLE_CHAT`).
 - **FE → Supabase Pro `soxs`** *(direct)*: FE is **partial-fullstack** — ~11 `/api/*` routes hit the SAME DB as BE via `DATABASE_URL` (drizzle, `lib/db/index.ts`). Cutover must switch BOTH BE (Render) and FE (Vercel) pointers — else split-brain.
 - **FE → bazi** *(new chat brain)*: FE BFF [`pages/api/chat/bazi.ts`](pages/api/chat/bazi.ts) → bazi `/api/bazi/calculate` + `/api/v1/chat/completions` (server-side `OPEN_WEBUI_API_TOKEN`, `BAZI_BASE_URL`). UI prototype [`dev-access/bazi-chat-modal.tsx`](dev-access/bazi-chat-modal.tsx) — not yet promoted to prod.
 - **bazi ⟂ BE**: no direct code dependency (domain overlap only).
@@ -34,7 +41,7 @@ graph LR
   BE -. domain overlap, no code dep .- BAZI
 ```
 
-> **This repo = FE.** It is the consumer: calls **BE** for core data, **bazi** for chat, and queries **soxs** directly for ~11 routes.
+> **This repo = FE.** Since 2026-09-27 it calls **bazi** (the engine) and queries **soxs** directly; it no longer calls **BE**. (Before that it called BE for core data.)
 
 ## 🔒 Collaboration Contract (Human ↔ AI) — ratified 2026-06-19
 

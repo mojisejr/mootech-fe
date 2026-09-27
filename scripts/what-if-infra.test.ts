@@ -73,8 +73,11 @@ await t('What If gate fails closed when WHATIF_KEY is unset', () => {
     resetEnv()
     process.env.WHATIF_KEY = 'test-secret'
     assert.equal(locationTarget(middleware(mkReq('/', 'whatif_access=test-secret'))), 'http://localhost/what-if')
-    assert.equal(isPassThrough(middleware(mkReq('/', 'whatif_access=test-secret; whatif_played=1'))), true)
-    assert.equal(isPassThrough(middleware(mkReq('/'))), true)
+    // Not sent to /what-if. Since be-retirement slice 2a '/' is a retired v1 route, so "not the first-visit
+    // redirect" now means it takes the v1 retirement redirect to /v2 (lib/v1-retired-routes.ts), not a
+    // pass-through.
+    assert.equal(locationTarget(middleware(mkReq('/', 'whatif_access=test-secret; whatif_played=1'))), 'http://localhost/v2')
+    assert.equal(locationTarget(middleware(mkReq('/'))), 'http://localhost/v2')
   })
 
   await t('proxy config allows the slow Imagen path', () => {
