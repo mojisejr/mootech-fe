@@ -46,8 +46,13 @@ export default function V2CheckoutPage({ teamPreview }: { teamPreview: boolean }
     if (authStatus === 'anon') void router.replace('/v2/login')
   }, [authStatus, router])
   const packageCode = typeof router.query.package_code === 'string' ? router.query.package_code : ''
+  // โปรฯ landing: ?code=MUMATE100 (หรือ ?coupon=) → พรีฟิล+auto-apply ให้เหลือราคาลดทันที กดจ่ายได้เลย
+  const promoCode =
+    typeof router.query.code === 'string' ? router.query.code
+    : typeof router.query.coupon === 'string' ? router.query.coupon
+    : null
   const tier = useClientTier(teamPreview)
-  const co = useCheckout(packageCode)
+  const co = useCheckout(packageCode, promoCode)
   const [method, setMethod] = useState<PayMethod>('card')
   const [card, setCard] = useState<CardState>(EMPTY_CARD)
   // One clock for the page. Held in state so a re-render cannot silently move the month boundary

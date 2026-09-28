@@ -20,6 +20,7 @@ import { formatThaiDateAbbr } from '@/lib/v2/thai-date'
 import { RESULT_COPY } from '../result-state'
 import { planNameForTier } from '../packages'
 import { gatewayLabel } from '../gateway-label'
+import { PlanShareInvite } from './PlanShareInvite'
 
 export const PLAN_SUCCESS_SUBTITLE = 'ขอบคุณที่ให้ Mumate ดูแล'
 
@@ -95,6 +96,9 @@ export function PlanPaySuccess({ packageCode, charge, order }: { packageCode: st
           )}
         </p>
       </section>
+
+      {/* โปรฯ: ชวนเพื่อนใช้ Pro ฟรี 1 เดือน (ฟิว/ซินแส 2026-09-28) */}
+      <PlanShareInvite />
 
       <KitButton href="/v2" testId="plan-pay-success-home" className="!h-[52px]">
         กลับสู่หน้าหลัก
