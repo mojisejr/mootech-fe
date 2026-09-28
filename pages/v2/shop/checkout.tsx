@@ -42,8 +42,9 @@ export default function V2CheckoutPage({ teamPreview }: { teamPreview: boolean }
   // → คนไม่ได้ login "กดไปจ่ายเงินได้" (เช่น logout แล้วกด back). server ปฏิเสธ charge (401) แต่ UX เพี้ยน.
   // เช็ค login จริงฝั่ง client: anon → เด้งไป /v2/login (หน้าต้อนรับ/สมัคร). guard ที่ pay() ซ้ำอีกชั้น.
   const { status: authStatus } = useCurrentUser()
+  // โปรฯ: เด้งไป login พร้อม next = หน้านี้ (รวม ?code=) → หลังล็อกอินกลับมาหน้า 159 โค้ดกรอกไว้แล้ว กดจ่ายต่อได้เลย
   useEffect(() => {
-    if (authStatus === 'anon') void router.replace('/v2/login')
+    if (authStatus === 'anon') void router.replace(`/v2/login?next=${encodeURIComponent(router.asPath)}`)
   }, [authStatus, router])
   const packageCode = typeof router.query.package_code === 'string' ? router.query.package_code : ''
   // โปรฯ landing: ?code=MUMATE100 (หรือ ?coupon=) → พรีฟิล+auto-apply ให้เหลือราคาลดทันที กดจ่ายได้เลย
@@ -80,7 +81,7 @@ export default function V2CheckoutPage({ teamPreview }: { teamPreview: boolean }
   // above it, both kept `npm test` green and both put "ธนาคารปฏิเสธการชำระเงิน" back in front of a paying
   // member. So the order came out too. Everything below is transport; the answer comes from payDestination.
   async function pay() {
-    if (authStatus !== 'authed') { void router.replace('/v2/login'); return }
+    if (authStatus !== 'authed') { void router.replace(`/v2/login?next=${encodeURIComponent(router.asPath)}`); return }
     if (!co.quote || paying) return
     setPaying(true)
     try {
