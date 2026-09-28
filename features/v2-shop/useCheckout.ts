@@ -8,7 +8,7 @@
 // 🔴 A REFUSED CODE MUST NOT DESTROY THE PRICE. preview refuses a bad code with a 4xx (`codeError`), and the
 // naive handling — set quote to null — blanks the summary the user was reading and makes a typo look like an
 // outage. So a code failure updates the CODE state only; the last good quote stays on screen.
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import type { Quote } from './components/OrderSummaryCard'
 import type { DiscountState } from './components/DiscountCodeField'
 
@@ -39,11 +39,15 @@ const CODE_REASON: Record<string, string> = {
   BELOW_MIN: 'ยอดยังไม่ถึงขั้นต่ำของโค้ดนี้',
 }
 
-export function useCheckout(packageCode: string): CheckoutState {
+/**
+ * @param initialCode โค้ดที่พรีฟิลจาก URL (โปรฯ landing เช่น ?code=MUMATE100) — auto-apply หลังราคาฐานโหลดเสร็จ
+ *   (apply หลัง price(null) เพื่อให้โค้ดที่หมดอายุ/ผิด ยังโชว์ราคาปกติไว้ ตาม design "โค้ดพังห้ามลบราคา")
+ */
+export function useCheckout(packageCode: string, initialCode?: string | null): CheckoutState {
   const [quote, setQuote] = useState<(Quote & { quoteId: string }) | null>(null)
   const [loading, setLoading] = useState(true)
   const [fatal, setFatal] = useState(false)
-  const [code, setCode] = useState('')
+  const [code, setCode] = useState(initialCode?.trim() ?? '')
   const [codeState, setCodeState] = useState<DiscountState>('default')
   const [codeError, setCodeError] = useState<string | undefined>(undefined)
   const [busy, setBusy] = useState(false)
@@ -82,7 +86,17 @@ export function useCheckout(packageCode: string): CheckoutState {
     }
   }, [packageCode])
 
-  useEffect(() => { void price(null) }, [price])
+  // โหลดราคาฐานก่อน แล้วถ้ามีโค้ดพรีฟิลจาก URL ค่อย auto-apply (ครั้งเดียว) — โค้ดพังก็ยังเห็นราคา 1,590
+  const autoApplied = useRef(false)
+  useEffect(() => {
+    let alive = true
+    const seed = initialCode?.trim()
+    void (async () => {
+      await price(null)
+      if (alive && seed && !autoApplied.current) { autoApplied.current = true; await price(seed) }
+    })()
+    return () => { alive = false }
+  }, [price, initialCode])
 
   return {
     quote, loading, fatal, code, codeState, codeError, busy,

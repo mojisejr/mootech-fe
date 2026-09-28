@@ -8,6 +8,7 @@
 // authenticated-but-without-MEMBER_ID. Verified: the self-heal is mounted globally and exists
 // precisely for "deep-link pages that skipped /". So we deliberately skip `/` and let it heal.
 import { useState } from 'react'
+import { useRouter } from 'next/router'
 import { useCookies } from 'react-cookie'
 import { startOAuthRedirect } from '@/lib/auth/oauth-redirect'
 import { openInExternalBrowser } from '@/lib/line/liff'
@@ -18,6 +19,16 @@ import { CONFIG } from '@/constants/config'
 // new(no-chart)→/v2/register (parity gap C). Sending everyone straight to /v2/register was the bug —
 // a returning user re-did profile setup instead of seeing their home.
 const V2_LOGIN_CALLBACK = '/v2'
+
+// โปรฯ landing: /v2/login?next=<path> → หลังล็อกอินเด้งกลับหน้านั้น (เช่น checkout ที่กรอกโค้ดไว้แล้ว).
+// 🔴 กัน open-redirect: รับเฉพาะ path ภายในเว็บนี้ — ขึ้นต้น '/' ตัวเดียว, ห้าม '//' หรือมี '://' (โดเมนอื่น).
+// next-auth เองก็รับ callbackUrl แค่ same-origin อยู่แล้ว แต่ validate ตรงนี้ด้วยกัน redirect หลุดออกนอก.
+export function safeNextPath(next: unknown): string | null {
+  if (typeof next !== 'string' || next === '') return null
+  if (!next.startsWith('/') || next.startsWith('//')) return null
+  if (next.includes('://') || next.includes('\\')) return null
+  return next
+}
 
 // Copied from pages/login (defined inline there, not exported) — LINE's in-app webview UA.
 const isLineInAppBrowser = () =>
@@ -53,6 +64,9 @@ export type V2LoginApi = {
 export function useV2Login(): V2LoginApi {
   const [, setCookie] = useCookies([CookieKey.LOGIN_PROVIDER])
   const [loading, setLoading] = useState(false)
+  const router = useRouter()
+  // ปลายทางหลังล็อกอิน: ?next ที่ปลอดภัย (โปรฯ → กลับหน้า checkout), ไม่งั้น /v2 ตามเดิม
+  const callbackUrl = safeNextPath(router.query.next) ?? V2_LOGIN_CALLBACK
 
   const login = (provider: string) => {
     setCookie(CookieKey.LOGIN_PROVIDER, provider, {
@@ -71,7 +85,12 @@ export function useV2Login(): V2LoginApi {
       // window.location = ...?openExternalBrowser=1 แต่ query param นี้ "ไม่ทำงานใน LIFF" → คลิกแล้วรีโหลด
       // หน้าเดิม (ปุ่มเหมือนกดไม่ได้). แก้: เปิดเบราว์เซอร์ภายนอกด้วย liff.openWindow({external:true}) ผ่าน
       // openInExternalBrowser (fallback window.open ถ้าไม่ใช่ LIFF) → ผู้ใช้ไปล็อกอิน Google ต่อข้างนอกได้จริง.
-      void openInExternalBrowser(`${window.location.origin}/v2/login`)
+      // พา next ออกไปด้วย เผื่อล็อกอิน Google นอกแอปเสร็จแล้วจะได้เด้งกลับ checkout (best-effort)
+      const externalNext = safeNextPath(router.query.next)
+      const externalUrl = externalNext
+        ? `${window.location.origin}/v2/login?next=${encodeURIComponent(externalNext)}`
+        : `${window.location.origin}/v2/login`
+      void openInExternalBrowser(externalUrl)
       return
     }
 
@@ -82,7 +101,7 @@ export function useV2Login(): V2LoginApi {
     // เอ็ม 2026-09-20: เคยลองใส่ disable_auto_login=true (#727) เพื่อกัน LINE เด้งเปิดแอป — แต่ผลคือมันบังคับ
     // ขึ้นหน้า "อีเมล/รหัสผ่าน" ของ LINE ซึ่งคนที่จำ LINE ไม่ได้เข้ายากมาก. ถอดออก → กลับไปใช้ auto-login ของ
     // LINE (แตะทีเดียวผ่านแอป). ทางที่ลื่นที่สุด = เปิดจากใน LINE (OA rich menu) ให้อยู่ใน in-app browser.
-    void startOAuthRedirect(provider, V2_LOGIN_CALLBACK)
+    void startOAuthRedirect(provider, callbackUrl)
   }
 
   return {
