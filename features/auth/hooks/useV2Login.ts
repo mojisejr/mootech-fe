@@ -8,7 +8,6 @@
 // authenticated-but-without-MEMBER_ID. Verified: the self-heal is mounted globally and exists
 // precisely for "deep-link pages that skipped /". So we deliberately skip `/` and let it heal.
 import { useState } from 'react'
-import { useRouter } from 'next/router'
 import { useCookies } from 'react-cookie'
 import { startOAuthRedirect } from '@/lib/auth/oauth-redirect'
 import { openInExternalBrowser } from '@/lib/line/liff'
@@ -64,9 +63,10 @@ export type V2LoginApi = {
 export function useV2Login(): V2LoginApi {
   const [, setCookie] = useCookies([CookieKey.LOGIN_PROVIDER])
   const [loading, setLoading] = useState(false)
-  const router = useRouter()
-  // ปลายทางหลังล็อกอิน: ?next ที่ปลอดภัย (โปรฯ → กลับหน้า checkout), ไม่งั้น /v2 ตามเดิม
-  const callbackUrl = safeNextPath(router.query.next) ?? V2_LOGIN_CALLBACK
+  // 🔴 2026-09-28: ถอด next ออกจาก OAuth callback ชั่วคราว — การส่ง callbackUrl เป็น URL checkout (มี query)
+  // ทำให้ LINE login ค้างทั้งเว็บตรง/LIFF (เอ็มพบ). คืนเป็น /v2 (เส้นทางที่ทำงานเดิม). การเด้งกลับหน้า 159
+  // จะทำใหม่แบบปลอดภัยผ่าน /v2 (ไม่ยัดใน OAuth callbackUrl). safeNextPath คงไว้ (มีเทสต์) แต่ยังไม่ใช้กับ callback.
+  const callbackUrl = V2_LOGIN_CALLBACK
 
   const login = (provider: string) => {
     setCookie(CookieKey.LOGIN_PROVIDER, provider, {
@@ -85,12 +85,7 @@ export function useV2Login(): V2LoginApi {
       // window.location = ...?openExternalBrowser=1 แต่ query param นี้ "ไม่ทำงานใน LIFF" → คลิกแล้วรีโหลด
       // หน้าเดิม (ปุ่มเหมือนกดไม่ได้). แก้: เปิดเบราว์เซอร์ภายนอกด้วย liff.openWindow({external:true}) ผ่าน
       // openInExternalBrowser (fallback window.open ถ้าไม่ใช่ LIFF) → ผู้ใช้ไปล็อกอิน Google ต่อข้างนอกได้จริง.
-      // พา next ออกไปด้วย เผื่อล็อกอิน Google นอกแอปเสร็จแล้วจะได้เด้งกลับ checkout (best-effort)
-      const externalNext = safeNextPath(router.query.next)
-      const externalUrl = externalNext
-        ? `${window.location.origin}/v2/login?next=${encodeURIComponent(externalNext)}`
-        : `${window.location.origin}/v2/login`
-      void openInExternalBrowser(externalUrl)
+      void openInExternalBrowser(`${window.location.origin}/v2/login`)
       return
     }
 
