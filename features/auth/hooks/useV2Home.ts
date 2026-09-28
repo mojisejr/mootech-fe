@@ -33,6 +33,7 @@ import { deriveHomeProfile, type HomeProfile } from '@/lib/home/profile'
 import { deriveHomeLoading, type HomeLoading } from '@/lib/home/loading'
 import { peekChart, isChartFresh, setChart } from './chart-cache'
 import { needsFirstRun } from '@/lib/home/first-run-gate'
+import { consumePendingCheckout } from '@/lib/v2/pending-checkout'
 
 export type { HomeProfile, HomeLoading }
 
@@ -150,6 +151,14 @@ export function useV2Home(status: AuthStatus): V2Home {
         // match → the instant mascot IS fresh → skip ChineseHoroscopeGet entirely (revisit costs 0 fetch —
         // the P3 wiring invariant, proven live in harness/archive/run-home-chart-cache.ts — 🗄️ archived by #321, nothing runs it automatically). A mismatch (dob edited →
         // /api/v2/birth-chart minted a new result_code; edit-birth also clears this cache) → refetch + overwrite.
+        // โปรฯ: คนที่กดลิงก์ checkout ตอนยังไม่ล็อกอิน → ถึงจุดนี้ = พร้อมจริง (มี chart + onboarded) → เด้งกลับ
+        // หน้าจ่ายเงิน (พร้อม ?code=). จุดเดียวที่ redirect → ไม่ชนกับ register/first-run.
+        const pending = consumePendingCheckout()
+        if (pending) {
+          setPhase('redirecting')
+          routerRef.current.replace(pending)
+          return
+        }
         if (isChartFresh(userId, resultCode)) {
           setPhase('home')
           return

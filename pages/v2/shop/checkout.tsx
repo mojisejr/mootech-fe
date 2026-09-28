@@ -11,6 +11,7 @@ import { useRouter } from 'next/router'
 import type { GetServerSideProps } from 'next'
 import { v2RedirectIfUnauthed, isV2TeamPreview } from '@/lib/v2/gate'
 import { useCurrentUser } from '@/lib/auth/use-current-user'
+import { rememberPendingCheckout } from '@/lib/v2/pending-checkout'
 import { AuthLoadingGate } from '@/features/v2-shell/components/AuthLoadingGate'
 import { AppHeader } from '@/features/v2-shell/components/AppHeader'
 import { useClientTier } from '@/features/v2-shell/hooks/useClientTier'
@@ -44,7 +45,11 @@ export default function V2CheckoutPage({ teamPreview }: { teamPreview: boolean }
   const { status: authStatus } = useCurrentUser()
   // เด้ง anon ไป login (เส้นทางที่ทำงานเสถียร — ไม่ยุ่งกับ OAuth/return เพื่อไม่ให้ LINE login พัง, 2026-09-28)
   useEffect(() => {
-    if (authStatus === 'anon') void router.replace('/v2/login')
+    if (authStatus === 'anon') {
+      // จำหน้านี้ (รวม ?code=) → useV2Home เด้งกลับมาหลังผู้ใช้พร้อม (ไม่แตะ OAuth)
+      rememberPendingCheckout(router.asPath)
+      void router.replace('/v2/login')
+    }
   }, [authStatus, router])
   const packageCode = typeof router.query.package_code === 'string' ? router.query.package_code : ''
   // โปรฯ landing: ?code=MUMATE100 (หรือ ?coupon=) → พรีฟิล+auto-apply ให้เหลือราคาลดทันที กดจ่ายได้เลย
