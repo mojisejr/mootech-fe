@@ -8,7 +8,6 @@ import { CookiesProvider } from "react-cookie";
 import IdentitySelfHeal from "@/components/identity-self-heal";
 import LiffBoot from "@/components/liff-boot";
 import AnalyticsIdentity from "@/components/analytics-identity";
-import PostLoginReturn from "@/components/post-login-return";
 import { PromoPopup } from "@/features/v2-home/components/PromoPopup";
 import { ANALYTICS_CONSENT_COOKIE, ANALYTICS_STORAGE_DEFAULT } from "@/lib/analytics/consent";
 import AppErrorBoundary from "@/components/app-error-boundary";
@@ -99,8 +98,6 @@ export default function App({ Component, pageProps: { session, ...pageProps } }:
           <LiffBoot />
           {/* Analytics identity: watches the member id land and sends login + user_id once per login. */}
           <AnalyticsIdentity />
-          {/* เด้งกลับหน้าเดิมหลังล็อกอิน (เช่น checkout ที่มีโค้ดโปรฯ) — แยกจาก OAuth callback, no-op ถ้าไม่มีที่จำไว้ */}
-          <PostLoginReturn />
           {/* #399 — a single render throw used to blank the whole app. The boundary keeps the
               rest of the page recoverable (reload / home) and still logs the trace. */}
           <AppErrorBoundary>
