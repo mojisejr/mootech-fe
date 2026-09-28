@@ -11,6 +11,7 @@ import { useRouter } from 'next/router'
 import type { GetServerSideProps } from 'next'
 import { v2RedirectIfUnauthed, isV2TeamPreview } from '@/lib/v2/gate'
 import { useCurrentUser } from '@/lib/auth/use-current-user'
+import { POST_LOGIN_RETURN_KEY } from '@/components/post-login-return'
 import { AuthLoadingGate } from '@/features/v2-shell/components/AuthLoadingGate'
 import { AppHeader } from '@/features/v2-shell/components/AppHeader'
 import { useClientTier } from '@/features/v2-shell/hooks/useClientTier'
@@ -42,9 +43,13 @@ export default function V2CheckoutPage({ teamPreview }: { teamPreview: boolean }
   // → คนไม่ได้ login "กดไปจ่ายเงินได้" (เช่น logout แล้วกด back). server ปฏิเสธ charge (401) แต่ UX เพี้ยน.
   // เช็ค login จริงฝั่ง client: anon → เด้งไป /v2/login (หน้าต้อนรับ/สมัคร). guard ที่ pay() ซ้ำอีกชั้น.
   const { status: authStatus } = useCurrentUser()
-  // เด้ง anon ไป login (ถอด ?next ชั่วคราว — callbackUrl เป็น URL checkout ทำ LINE login ค้าง, 2026-09-28)
+  // เด้ง anon ไป login — จำหน้านี้ (รวม ?code=) ไว้ใน sessionStorage เพื่อเด้งกลับหลังล็อกอิน (PostLoginReturn).
+  // ไม่ยัดใน OAuth callbackUrl แล้ว (ทำ LINE login ค้าง 2026-09-28) → แยกจาก OAuth ทั้งหมด
   useEffect(() => {
-    if (authStatus === 'anon') void router.replace('/v2/login')
+    if (authStatus === 'anon') {
+      try { sessionStorage.setItem(POST_LOGIN_RETURN_KEY, router.asPath) } catch { /* ignore */ }
+      void router.replace('/v2/login')
+    }
   }, [authStatus, router])
   const packageCode = typeof router.query.package_code === 'string' ? router.query.package_code : ''
   // โปรฯ landing: ?code=MUMATE100 (หรือ ?coupon=) → พรีฟิล+auto-apply ให้เหลือราคาลดทันที กดจ่ายได้เลย
