@@ -9,6 +9,7 @@ import { KitButton } from '@/features/v2-profile/components/kit'
 import { useCurrentUser } from '@/lib/auth/use-current-user'
 
 const REASON_TEXT: Record<string, string> = {
+  DISABLED: 'แคมเปญนี้ปิดรับสิทธิ์แล้ว',
   INVALID: 'โค้ดไม่ถูกต้องหรือไม่มีอยู่',
   SELF: 'ใช้โค้ดของตัวเองไม่ได้',
   ALREADY: 'คุณเคยรับสิทธิ์ฟรีนี้ไปแล้ว',

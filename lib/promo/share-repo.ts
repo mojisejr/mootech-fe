@@ -10,18 +10,32 @@ import { db } from '@/lib/db'
 /** โค้ดส่วนลดที่ต้องเคยใช้ + จ่ายสำเร็จ ถึงจะมีสิทธิ์ออกโค้ดแชร์ */
 export const ELIGIBLE_DISCOUNT_CODE = 'MUMATE100'
 export const CAMPAIGN_ID = 'MUMATE_FREE_MONTH'
-export const MAX_PER_ISSUER = 10
+export const MAX_PER_ISSUER = 10 // default fallback ถ้าแถวแคมเปญยังไม่มี (แต่ปกติ seed แล้ว)
 const GRANT_TIER = 'PRO'
 const GRANT_DAYS = 30
 const GRANT_PACKAGE = 'PROMO_FREE_MONTH'
 
 export type RedeemReason =
   | 'OK'
+  | 'DISABLED' //       ปิดการแชร์ต่อ (แอดมินปิดสวิตช์)
   | 'INVALID' //        โค้ดไม่มีจริง
   | 'SELF' //           กรอกโค้ดตัวเอง
   | 'ALREADY' //        เพื่อนคนนี้เคยแลกแล้ว (1 ครั้ง/คน)
-  | 'ISSUER_FULL' //    ผู้ออกโค้ดครบ 10 คนแล้ว
-  | 'CAMPAIGN_FULL' //  ครบ 1000 สิทธิ์รวมแล้ว
+  | 'ISSUER_FULL' //    ผู้ออกโค้ดครบเพดานคน/แอคแล้ว
+  | 'CAMPAIGN_FULL' //  ครบสิทธิ์รวมแล้ว
+
+/** ค่าตั้งค่าแชร์เพื่อน (แก้ได้จาก /ops) — enabled เปิด/ปิด, maxPerIssuer เพดานคน/ผู้แชร์, maxTotal สิทธิ์รวม */
+export type ShareConfig = { enabled: boolean; maxPerIssuer: number; maxTotal: number; usedTotal: number }
+export async function getCampaignConfig(): Promise<ShareConfig> {
+  const r = await rows(sql`SELECT enabled, max_per_issuer, max_total, used_count FROM promo_share_campaign WHERE id = ${CAMPAIGN_ID} LIMIT 1`)
+  if (!r.length) return { enabled: true, maxPerIssuer: MAX_PER_ISSUER, maxTotal: 1000, usedTotal: 0 }
+  return {
+    enabled: r[0].enabled !== false,
+    maxPerIssuer: Number(r[0].max_per_issuer ?? MAX_PER_ISSUER),
+    maxTotal: Number(r[0].max_total ?? 1000),
+    usedTotal: Number(r[0].used_count ?? 0),
+  }
+}
 
 // throw เพื่อ rollback transaction (drizzle rollback เมื่อ callback throw) — ปฏิเสธหลังเริ่มนับ counter แล้ว
 class Refuse extends Error {
@@ -55,11 +69,11 @@ function randomShareCode(): string {
   return s
 }
 
-/** ออก/คืนโค้ดแชร์ของผู้ใช้ (เรียกหลังเช็ค isEligibleIssuer แล้วเท่านั้น) */
-export async function getOrCreateShareCode(userId: string): Promise<{ code: string; used: number; max: number }> {
+/** ออก/คืนโค้ดแชร์ของผู้ใช้ (เรียกหลังเช็ค isEligibleIssuer แล้วเท่านั้น) — max = เพดานคน/ผู้แชร์ จาก config */
+export async function getOrCreateShareCode(userId: string, maxPerIssuer = MAX_PER_ISSUER): Promise<{ code: string; used: number; max: number }> {
   const existing = await rows(sql`SELECT code, used_count FROM promo_share_code WHERE user_id = ${userId} LIMIT 1`)
   if (existing.length) {
-    return { code: String(existing[0].code), used: Number(existing[0].used_count), max: MAX_PER_ISSUER }
+    return { code: String(existing[0].code), used: Number(existing[0].used_count), max: maxPerIssuer }
   }
   // ยังไม่มี → มินต์ใหม่ (retry เมื่อชนโค้ดซ้ำ / แข่งกันสร้างของ user เดียวกัน)
   for (let attempt = 0; attempt < 10; attempt++) {
@@ -69,10 +83,10 @@ export async function getOrCreateShareCode(userId: string): Promise<{ code: stri
         INSERT INTO promo_share_code (user_id, code) VALUES (${userId}, ${code})
         ON CONFLICT (user_id) DO NOTHING
         RETURNING code, used_count`)
-      if (inserted.length) return { code: String(inserted[0].code), used: 0, max: MAX_PER_ISSUER }
+      if (inserted.length) return { code: String(inserted[0].code), used: 0, max: maxPerIssuer }
       // user_id ชน(มีคนสร้างให้แล้วใน race) → อ่านซ้ำ
       const reread = await rows(sql`SELECT code, used_count FROM promo_share_code WHERE user_id = ${userId} LIMIT 1`)
-      if (reread.length) return { code: String(reread[0].code), used: Number(reread[0].used_count), max: MAX_PER_ISSUER }
+      if (reread.length) return { code: String(reread[0].code), used: Number(reread[0].used_count), max: maxPerIssuer }
     } catch (e) {
       // ชนโค้ดซ้ำ (unique lower(code) = 23505) → ลองโค้ดใหม่; error อื่นโยนต่อ
       if ((e as { code?: string }).code !== '23505') throw e
@@ -92,6 +106,11 @@ export async function redeemShareCode(refereeUserId: string, codeInput: string):
     await db.transaction(async (tx) => {
       const exec = async (q: ReturnType<typeof sql>) => (await tx.execute(q)) as unknown as Record<string, unknown>[]
 
+      // อ่าน config แคมเปญ (ล็อกแถว) — เปิด/ปิด + เพดานคน/แอค (แก้ได้จาก /ops)
+      const cfg = await exec(sql`SELECT enabled, max_per_issuer FROM promo_share_campaign WHERE id = ${CAMPAIGN_ID} FOR UPDATE`)
+      if (cfg.length && cfg[0].enabled === false) throw new Refuse('DISABLED')
+      const maxPerIssuer = Number(cfg.length ? (cfg[0].max_per_issuer ?? MAX_PER_ISSUER) : MAX_PER_ISSUER)
+
       const codeRow = await exec(sql`SELECT user_id FROM promo_share_code WHERE lower(code) = ${code.toLowerCase()} FOR UPDATE`)
       if (!codeRow.length) throw new Refuse('INVALID')
       const issuerUserId = String(codeRow[0].user_id)
@@ -100,16 +119,16 @@ export async function redeemShareCode(refereeUserId: string, codeInput: string):
       const seen = await exec(sql`SELECT 1 FROM promo_share_redemption WHERE referee_user_id = ${refereeUserId} LIMIT 1`)
       if (seen.length) throw new Refuse('ALREADY')
 
-      // เพดานรวม 1000 (atomic) — ถ้าไม่มีแถวคืน = เต็ม
+      // เพดานรวม (atomic) — ถ้าไม่มีแถวคืน = เต็ม
       const camp = await exec(sql`
         UPDATE promo_share_campaign SET used_count = used_count + 1
         WHERE id = ${CAMPAIGN_ID} AND used_count < max_total RETURNING used_count`)
       if (!camp.length) throw new Refuse('CAMPAIGN_FULL')
 
-      // เพดาน 10 คน/ผู้ออกโค้ด (atomic)
+      // เพดานคน/ผู้ออกโค้ด (atomic) — ใช้ค่าจาก config
       const iss = await exec(sql`
         UPDATE promo_share_code SET used_count = used_count + 1
-        WHERE user_id = ${issuerUserId} AND used_count < ${MAX_PER_ISSUER} RETURNING used_count`)
+        WHERE user_id = ${issuerUserId} AND used_count < ${maxPerIssuer} RETURNING used_count`)
       if (!iss.length) throw new Refuse('ISSUER_FULL')
 
       // บันทึกการแลก (unique referee กัน race — ถ้าชนโยน ALREADY)

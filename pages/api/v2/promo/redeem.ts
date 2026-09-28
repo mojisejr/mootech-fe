@@ -6,6 +6,7 @@ import { redeemShareCode, type RedeemReason } from '@/lib/promo/share-repo'
 
 const STATUS: Record<RedeemReason, number> = {
   OK: 200,
+  DISABLED: 409,
   INVALID: 404,
   SELF: 409,
   ALREADY: 409,
