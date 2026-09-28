@@ -267,7 +267,11 @@ export async function registerOrLoginInFe(
         pictureUrl,
         updatedAt: now,
       })
-      return response({ ...member, referCode }, false)
+      // 🔴 `member` was read (findMember) BEFORE updateLoginProfile, so its pictureUrl is the STALE pre-login
+      // value — returning it set MEMBER_IMAGE cookie to the old/empty url (รูปโปรไฟล์ไม่ขึ้นจนกว่าจะ login รอบถัดไป).
+      // Override with the fresh pictureUrl we just wrote, but ONLY when non-empty (an empty session image must
+      // never blank a stored picture — the store's COALESCE already keeps the DB value).
+      return response({ ...member, referCode, ...(pictureUrl ? { pictureUrl } : {}) }, false)
     }
 
     const member: NewMemberIdentity = {
