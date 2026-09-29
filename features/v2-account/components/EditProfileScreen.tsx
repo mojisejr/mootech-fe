@@ -43,6 +43,36 @@ function fileToBase64(file: File): Promise<string> {
   })
 }
 
+// รูปจากกล้องมือถือ 3-5MB → base64 เกิน 4.5MB (เพดาน body ของ Vercel) → อัปไม่ผ่าน (พล 2026-09-29).
+// ย่อในเครื่องเหลือด้านยาว 512px JPEG ก่อนส่ง (engine ย่อ 256px อยู่แล้ว). ถอดรหัสไม่ได้ → ส่งไฟล์เดิม.
+async function shrinkImage(file: File, max = 512): Promise<{ dataUrl: string; mime: string }> {
+  if (file.size < 1024 * 1024) return { dataUrl: await fileToBase64(file), mime: file.type } // เล็กพอแล้ว
+  try {
+    const url = URL.createObjectURL(file)
+    try {
+      const img = await new Promise<HTMLImageElement>((resolve, reject) => {
+        const el = new Image()
+        el.onload = () => resolve(el)
+        el.onerror = () => reject(new Error("decode failed"))
+        setTimeout(() => reject(new Error("decode timeout")), 8000)
+        el.src = url
+      })
+      const scale = Math.min(1, max / Math.max(img.naturalWidth, img.naturalHeight))
+      const canvas = document.createElement("canvas")
+      canvas.width = Math.max(1, Math.round(img.naturalWidth * scale))
+      canvas.height = Math.max(1, Math.round(img.naturalHeight * scale))
+      const ctx = canvas.getContext("2d")
+      if (!ctx) throw new Error("no canvas")
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height)
+      return { dataUrl: canvas.toDataURL("image/jpeg", 0.85), mime: "image/jpeg" }
+    } finally {
+      URL.revokeObjectURL(url)
+    }
+  } catch {
+    return { dataUrl: await fileToBase64(file), mime: file.type }
+  }
+}
+
 const GENDERS: Array<{ code: string; label: string }> = [
   { code: "MALE", label: "ชาย" },
   { code: "FEMALE", label: "หญิง" },
@@ -80,6 +110,7 @@ export function EditProfileScreen() {
   const [hasAvatar, setHasAvatar] = useState(false)
   const [avatarTs, setAvatarTs] = useState<string>("")
   const [avatarBusy, setAvatarBusy] = useState(false)
+  const [avatarErr, setAvatarErr] = useState<string | null>(null)
   const fileRef = useRef<HTMLInputElement>(null)
 
   const load = useCallback(async () => {
@@ -162,23 +193,24 @@ export function EditProfileScreen() {
     e.target.value = "" // ให้เลือกไฟล์เดิมซ้ำได้
     if (!file) return
     setAvatarBusy(true)
+    setAvatarErr(null)
     setMsg(null)
     try {
-      const dataUrl = await fileToBase64(file)
+      const { dataUrl, mime } = await shrinkImage(file)
       const res = await fetch("/api/v2/avatar", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ imageBase64: dataUrl, mime: file.type }),
+        body: JSON.stringify({ imageBase64: dataUrl, mime }),
       })
       const j = (await res.json().catch(() => ({}))) as { error?: string; avatarUpdatedAt?: string }
       if (res.ok) {
         setHasAvatar(true)
         setAvatarTs(j.avatarUpdatedAt ?? String(Date.now())) // cache-bust
       } else {
-        setMsg(String(j.error ?? "อัปโหลดรูปไม่สำเร็จ"))
+        setAvatarErr(res.status === 413 ? "รูปใหญ่เกินไป ลองรูปอื่น" : String(j.error ?? "อัปโหลดรูปไม่สำเร็จ"))
       }
     } catch {
-      setMsg("อ่านไฟล์รูปไม่สำเร็จ")
+      setAvatarErr("อ่านไฟล์รูปไม่สำเร็จ")
     } finally {
       setAvatarBusy(false)
     }
@@ -216,6 +248,7 @@ export function EditProfileScreen() {
               </button>
               <input ref={fileRef} type="file" accept="image/*" hidden data-testid="ep-avatar-input" onChange={onPickAvatar} />
               <button type="button" onClick={() => fileRef.current?.click()} className="text-[13px] leading-[18px] text-v3-sapphire" data-testid="ep-avatar-change">เปลี่ยนรูปโปรไฟล์</button>
+              {avatarErr && <p data-testid="ep-avatar-err" className="text-center text-[12px] font-bold text-red-600">{avatarErr}</p>}
             </div>
 
             {/* form-card (เฟรม 55399:6069): ขาว ขอบ border/default r20 p18 gap16 · label 12 medium · hint 9 muted */}
