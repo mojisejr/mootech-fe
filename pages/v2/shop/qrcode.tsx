@@ -21,7 +21,7 @@ export default function V2QrPage() {
   // เช็ค login จริงราย user (SSR gate เป็น team preview ไม่ใช่ auth): anon → เด้งไป /v2/login
   const { status: authStatus } = useCurrentUser()
   useEffect(() => {
-    if (authStatus === 'anon') void router.replace('/v2/login')
+    if (authStatus === 'anon') window.location.replace('/v2/login')
   }, [authStatus, router])
   const q = router.query
   const charge = typeof q.charge === 'string' ? q.charge : ''

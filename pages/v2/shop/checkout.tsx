@@ -48,7 +48,7 @@ export default function V2CheckoutPage({ teamPreview }: { teamPreview: boolean }
     if (authStatus === 'anon') {
       // จำหน้านี้ (รวม ?code=) → useV2Home เด้งกลับมาหลังผู้ใช้พร้อม (ไม่แตะ OAuth)
       rememberPendingCheckout(router.asPath)
-      void router.replace('/v2/login')
+      window.location.replace('/v2/login') // full load: ทิ้ง CSP form-action 'self' ของหน้าจ่ายเงิน (ไม่งั้นบล็อก redirect ไป access.line.me → ปุ่ม LINE ค้าง)
     }
   }, [authStatus, router])
   const packageCode = typeof router.query.package_code === 'string' ? router.query.package_code : ''
@@ -86,7 +86,7 @@ export default function V2CheckoutPage({ teamPreview }: { teamPreview: boolean }
   // above it, both kept `npm test` green and both put "ธนาคารปฏิเสธการชำระเงิน" back in front of a paying
   // member. So the order came out too. Everything below is transport; the answer comes from payDestination.
   async function pay() {
-    if (authStatus !== 'authed') { void router.replace('/v2/login'); return }
+    if (authStatus !== 'authed') { window.location.replace('/v2/login'); return }
     if (!co.quote || paying) return
     setPaying(true)
     try {
