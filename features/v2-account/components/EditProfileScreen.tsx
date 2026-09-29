@@ -110,6 +110,7 @@ export function EditProfileScreen() {
   const [hasAvatar, setHasAvatar] = useState(false)
   const [avatarTs, setAvatarTs] = useState<string>("")
   const [avatarBusy, setAvatarBusy] = useState(false)
+  const handleRef = useRef<HTMLInputElement>(null)
   const [avatarErr, setAvatarErr] = useState<string | null>(null)
   const fileRef = useRef<HTMLInputElement>(null)
 
@@ -188,6 +189,24 @@ export function EditProfileScreen() {
     }
   }
 
+  // engine เก็บรูปผูกกับโปรไฟล์ที่มี @name — ผู้ใช้ใหม่ยังไม่มี → อัปไม่ได้ (409).
+  // พิมพ์ @name ไว้แล้ว → บันทึก @name ให้ก่อนแล้วอัปรูปต่อ; ยังไม่พิมพ์ → พาไปช่อง @name แทนเปิดเลือกรูป.
+  const needsHandle = !profile?.displayName
+  const openAvatarPicker = () => {
+    if (needsHandle && !handle.trim()) {
+      setAvatarErr("กรุณาตั้ง @name ด้านล่างก่อน แล้วค่อยอัปรูป")
+      handleRef.current?.focus()
+      return
+    }
+    if (needsHandle && !DISPLAY_NAME_RE.test(handle.trim())) {
+      setHandleErr("ใช้ไทย/อังกฤษ/ตัวเลข/_/. ยาว 4-24 ตัวอักษร")
+      handleRef.current?.focus()
+      return
+    }
+    setAvatarErr(null)
+    fileRef.current?.click()
+  }
+
   const onPickAvatar = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     e.target.value = "" // ให้เลือกไฟล์เดิมซ้ำได้
@@ -201,6 +220,21 @@ export function EditProfileScreen() {
       if (dataUrl.length > 4_400_000) {
         setAvatarErr(`รูปใหญ่เกินไป (${(file.size / 1024 / 1024).toFixed(1)}MB) — เลือกรูปที่เล็กกว่า 3MB หรือแคปหน้าจอรูปนั้นแล้วอัปแทน`)
         return
+      }
+      if (needsHandle) {
+        const dnRes = await fetch("/api/v2/display-name", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ displayName: handle.trim() }),
+        })
+        if (!dnRes.ok) {
+          const dj = (await dnRes.json().catch(() => ({}))) as { error?: string }
+          const m = dj.error === "display_name_taken" ? "ชื่อนี้มีคนใช้แล้ว ลองชื่ออื่น" : "ตั้งชื่อไม่สำเร็จ"
+          setHandleErr(m)
+          setAvatarErr(`ตั้ง @name ไม่สำเร็จ: ${m}`)
+          return
+        }
+        setProfile((p) => ({ ...(p ?? {}), displayName: handle.trim() }) as Profile)
       }
       const res = await fetch("/api/v2/avatar", {
         method: "POST",
@@ -236,7 +270,7 @@ export function EditProfileScreen() {
             <div className="flex flex-col items-center gap-2.5 pt-1">
               <button
                 type="button"
-                onClick={() => fileRef.current?.click()}
+                onClick={openAvatarPicker}
                 data-testid="ep-avatar-btn"
                 className="relative grid size-[88px] place-items-center overflow-hidden rounded-full bg-v3-sky-tint text-[24px] font-bold leading-8 text-v3-sapphire"
                 aria-label="เปลี่ยนรูปโปรไฟล์"
@@ -252,7 +286,7 @@ export function EditProfileScreen() {
                 ) : null}
               </button>
               <input ref={fileRef} type="file" accept="image/*" hidden data-testid="ep-avatar-input" onChange={onPickAvatar} />
-              <button type="button" onClick={() => fileRef.current?.click()} className="text-[13px] leading-[18px] text-v3-sapphire" data-testid="ep-avatar-change">เปลี่ยนรูปโปรไฟล์</button>
+              <button type="button" onClick={openAvatarPicker} className="text-[13px] leading-[18px] text-v3-sapphire" data-testid="ep-avatar-change">{needsHandle && !handle ? "กรุณาตั้ง @name ก่อนอัปรูป" : "เปลี่ยนรูปโปรไฟล์"}</button>
               {avatarErr && <p data-testid="ep-avatar-err" className="text-center text-[12px] font-bold text-red-600">{avatarErr}</p>}
             </div>
 
@@ -267,6 +301,7 @@ export function EditProfileScreen() {
                     onChange={(e) => { setHandle(e.target.value.trim()); setHandleErr(null) }}
                     placeholder="เช่น mumate_fan"
                     data-testid="ep-handle"
+                    ref={handleRef}
                     className={INPUT + " w-full pl-8"}
                   />
                 </span>
