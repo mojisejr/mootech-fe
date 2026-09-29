@@ -197,6 +197,11 @@ export function EditProfileScreen() {
     setMsg(null)
     try {
       const { dataUrl, mime } = await shrinkImage(file)
+      // เพดาน body ของ Vercel 4.5MB — เตือนก่อนส่ง (เกิดเมื่อย่อไม่ได้ เช่น HEIC บางเครื่อง แล้วตกไปส่งไฟล์เดิม)
+      if (dataUrl.length > 4_400_000) {
+        setAvatarErr(`รูปใหญ่เกินไป (${(file.size / 1024 / 1024).toFixed(1)}MB) — เลือกรูปที่เล็กกว่า 3MB หรือแคปหน้าจอรูปนั้นแล้วอัปแทน`)
+        return
+      }
       const res = await fetch("/api/v2/avatar", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
