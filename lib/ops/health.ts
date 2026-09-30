@@ -51,8 +51,33 @@ export async function fetchVercelHealth(): Promise<ServiceHealth> {
   }
 }
 
-export async function fetchSystemHealth(): Promise<{ fe: ServiceHealth }> {
-  return { fe: await fetchVercelHealth() }
+// OFF VERCEL, FE HEALTH IS THE APP'S OWN /api/health (mumate-vercel-to-do-001 slice 2). The Vercel card reports
+// the latest Vercel deployment's build state: in a container on DigitalOcean it would stay green while the
+// container that actually serves users is down, and it is the Vercel copy (the flip-back target) it describes.
+// /api/health runs a bounded `select 1` and names platform, env and SHA — the same answer the orchestrator gets.
+export async function fetchContainerHealth(
+  env: Partial<NodeJS.ProcessEnv> = process.env,
+  fetchImpl: typeof fetch = fetch,
+): Promise<ServiceHealth> {
+  const url = `http://127.0.0.1:${env.PORT || 3000}/api/health`
+  try {
+    const res = await fetchImpl(url, { signal: AbortSignal.timeout(8000), cache: 'no-store' })
+    const body = (await res.json().catch(() => ({}))) as { db?: string; env?: string | null; sha?: string | null }
+    const where = [body.env, body.sha ? String(body.sha).slice(0, 7) : null].filter(Boolean).join(' · ')
+    return {
+      name: 'mootech-fe',
+      status: res.ok && body.db === 'ok' ? 'ok' : 'bad',
+      detail: `${res.ok ? 'healthy' : `HTTP ${res.status}`}${body.db ? ` · db ${body.db}` : ''}${where ? ` · ${where}` : ''}`,
+      deployedAt: null,
+      inspectUrl: null,
+    }
+  } catch (e: any) {
+    return { name: 'mootech-fe', status: 'bad', detail: e?.message ?? '/api/health unreachable', deployedAt: null, inspectUrl: null }
+  }
+}
+
+export async function fetchSystemHealth(env: Partial<NodeJS.ProcessEnv> = process.env): Promise<{ fe: ServiceHealth }> {
+  return { fe: env.VERCEL ? await fetchVercelHealth() : await fetchContainerHealth(env) }
 }
 
 export function overallHealth(services: HealthStatus[]): HealthStatus {

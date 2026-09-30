@@ -39,12 +39,21 @@ function deployHook(): string | undefined {
   return process.env.LAUNCH_DEPLOY_HOOK_URL;
 }
 
-/** The two vars the operator MUST set by hand (option ก). Project/team are auto-discovered. */
-export function isLaunchArmed(): { armed: boolean; missing: string[] } {
+/**
+ * The two vars the operator MUST set by hand (option ก). Project/team are auto-discovered.
+ *
+ * OFF VERCEL THE CONSOLE IS DISARMED, WHATEVER IS SET (mumate-vercel-to-do-001 slice 2, owner decision C:
+ * "ปิดปุ่มเลย เพราะ launch ไปแล้ว"). Every action here edits the VERCEL project's env and fires a Vercel deploy
+ * hook. Run from a container on DigitalOcean it would report success and change nothing that serves users,
+ * or, worse, flip the Vercel copy that is kept as the flip-back target. `VERCEL` is set by the platform
+ * on every Vercel runtime, so on Vercel nothing changes.
+ */
+export function isLaunchArmed(env: Partial<NodeJS.ProcessEnv> = process.env): { armed: boolean; missing: string[]; offVercel: boolean } {
+  if (!env.VERCEL) return { armed: false, missing: [], offVercel: true };
   const missing: string[] = [];
-  if (!token()) missing.push("VERCEL_TOKEN");
-  if (!deployHook()) missing.push("LAUNCH_DEPLOY_HOOK_URL");
-  return { armed: missing.length === 0, missing };
+  if (!env.VERCEL_TOKEN) missing.push("VERCEL_TOKEN");
+  if (!env.LAUNCH_DEPLOY_HOOK_URL) missing.push("LAUNCH_DEPLOY_HOOK_URL");
+  return { armed: missing.length === 0, missing, offVercel: false };
 }
 
 function authHeaders(): HeadersInit {

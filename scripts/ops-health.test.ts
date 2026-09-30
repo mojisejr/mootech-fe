@@ -23,6 +23,8 @@ function withMockFetch<T>(impl: typeof fetch, fn: () => Promise<T>): Promise<T> 
 await t('V4 · System Health asks Vercel only — never Render, even with a Render key in the environment', async () => {
     process.env.VERCEL_TOKEN = 'test-token'
     process.env.RENDER_API_KEY = 'left-over-on-a-platform'
+    // on Vercel (the platform sets VERCEL); off Vercel the card is the container's /api/health — scripts/do-ops-launch.test.ts
+    process.env.VERCEL = '1'
     const asked: string[] = []
     try {
       await withMockFetch(
@@ -40,6 +42,7 @@ await t('V4 · System Health asks Vercel only — never Render, even with a Rend
       )
     } finally {
       delete process.env.RENDER_API_KEY
+      delete process.env.VERCEL
     }
     assert.equal(asked.length, 1, `expected one request, got ${asked.join(', ')}`)
     assert.match(asked[0], /^https:\/\/api\.vercel\.com\//)

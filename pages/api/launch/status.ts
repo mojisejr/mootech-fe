@@ -11,7 +11,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
   const armed = isLaunchArmed();
   if (!armed.armed) {
-    res.status(200).json({ armed: false, missing: armed.missing, project: null, env: null });
+    res.status(200).json({ armed: false, missing: armed.missing, offVercel: armed.offVercel, project: null, env: null });
     return;
   }
   // armed = token + deploy hook present. Project/team are auto-discovered — surface the result so the
