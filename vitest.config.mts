@@ -84,6 +84,7 @@ export default defineConfig({
     // Same shape as the merge-conflict rule already written into design-verify.yml. Debt #212 is
     // that this list and ci.yml's skip list are two hand-synced copies of the same fact.
     include: [
+      'scripts/do-cron-source.test.ts', // mumate-vercel-to-do-001 slice 2
       'scripts/do-ops-launch.test.ts', // mumate-vercel-to-do-001 slice 2
       'scripts/do-db-pool.test.ts', // mumate-vercel-to-do-001 slice 2
       'scripts/do-platform-seams.test.ts', // mumate-vercel-to-do-001 slice 2
