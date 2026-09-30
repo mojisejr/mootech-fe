@@ -33,6 +33,37 @@ export const authOptions: NextAuthOptions = {
           }),
         ]
       : []),
+    // LINE ผ่าน LIFF (เอ็ม 2026-09-28: OAuth หน้า access.line.me ค้างใน webview ของ LINE ทั้ง LIFF/เว็บตรง).
+    // ในแอป LINE ผู้ใช้ล็อกอิน LINE อยู่แล้ว → client ส่ง liff.getIDToken() มา → verify กับ LINE server-side
+    // (api.line.me/oauth2/v2.1/verify) → ได้ sub เดียวกับ OAuth (LINE userId ต่อ provider) → session เหมือน provider line
+    // (ดู jwt callback). ไม่มี redirect ไป access.line.me เลย.
+    CredentialsProvider({
+      id: "line-liff",
+      name: "LINE (LIFF)",
+      credentials: { idToken: { label: "idToken", type: "text" } },
+      async authorize(credentials) {
+        const idToken = credentials?.idToken;
+        if (!idToken) return null;
+        const liffChannel = (process.env.NEXT_PUBLIC_LIFF_ID || "2011679472-sNcCbR2K").split("-")[0];
+        const clientIds = Array.from(new Set([process.env.LINE_CLIENT_ID, liffChannel].filter(Boolean))) as string[];
+        for (const clientId of clientIds) {
+          try {
+            const res = await fetch("https://api.line.me/oauth2/v2.1/verify", {
+              method: "POST",
+              headers: { "Content-Type": "application/x-www-form-urlencoded" },
+              body: new URLSearchParams({ id_token: idToken, client_id: clientId }).toString(),
+            });
+            if (!res.ok) continue;
+            const p = (await res.json()) as { sub?: string; name?: string; picture?: string };
+            if (!p.sub) continue;
+            return { id: p.sub, name: p.name ?? "", image: p.picture ?? null, email: "" } as any;
+          } catch {
+            /* ลอง client id ถัดไป */
+          }
+        }
+        return null;
+      },
+    }),
     LineProvider({
       clientId: process.env.LINE_CLIENT_ID as string,
       clientSecret: process.env.LINE_CLIENT_SECRET as string,
@@ -64,7 +95,15 @@ export const authOptions: NextAuthOptions = {
   ],
   // Optional: กำหนด callbacks สำหรับการจัดการ token และ session
   callbacks: {
-    async jwt({ token, account, profile }) {
+    async jwt({ token, account, profile, user }) {
+      // LIFF login → ทำ token ให้หน้าตาเหมือน LINE OAuth ทุกประการ (lineProfile.sub = LINE userId) เพื่อให้
+      // register-params / register-login-fe / identity ใช้เส้นทาง LINE เดิมได้ตรงตัว.
+      if (account?.provider === "line-liff" && user) {
+        token.provider = "line";
+        token.providerId = user.id;
+        token.lineProfile = { sub: user.id, name: user.name, picture: user.image };
+        return token;
+      }
       // account จะมี access_token และ id_token ที่ได้จากผู้ให้บริการ
       // profile จะมีข้อมูลจาก provider (ถ้า scope ขอไว้)
       if (account) {

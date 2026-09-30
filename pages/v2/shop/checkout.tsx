@@ -11,6 +11,7 @@ import { useRouter } from 'next/router'
 import type { GetServerSideProps } from 'next'
 import { v2RedirectIfUnauthed, isV2TeamPreview } from '@/lib/v2/gate'
 import { useCurrentUser } from '@/lib/auth/use-current-user'
+import { rememberPendingCheckout } from '@/lib/v2/pending-checkout'
 import { AuthLoadingGate } from '@/features/v2-shell/components/AuthLoadingGate'
 import { AppHeader } from '@/features/v2-shell/components/AppHeader'
 import { useClientTier } from '@/features/v2-shell/hooks/useClientTier'
@@ -42,12 +43,22 @@ export default function V2CheckoutPage({ teamPreview }: { teamPreview: boolean }
   // → คนไม่ได้ login "กดไปจ่ายเงินได้" (เช่น logout แล้วกด back). server ปฏิเสธ charge (401) แต่ UX เพี้ยน.
   // เช็ค login จริงฝั่ง client: anon → เด้งไป /v2/login (หน้าต้อนรับ/สมัคร). guard ที่ pay() ซ้ำอีกชั้น.
   const { status: authStatus } = useCurrentUser()
+  // เด้ง anon ไป login (เส้นทางที่ทำงานเสถียร — ไม่ยุ่งกับ OAuth/return เพื่อไม่ให้ LINE login พัง, 2026-09-28)
   useEffect(() => {
-    if (authStatus === 'anon') void router.replace('/v2/login')
+    if (authStatus === 'anon') {
+      // จำหน้านี้ (รวม ?code=) → useV2Home เด้งกลับมาหลังผู้ใช้พร้อม (ไม่แตะ OAuth)
+      rememberPendingCheckout(router.asPath)
+      window.location.replace('/v2/login') // full load: ทิ้ง CSP form-action 'self' ของหน้าจ่ายเงิน (ไม่งั้นบล็อก redirect ไป access.line.me → ปุ่ม LINE ค้าง)
+    }
   }, [authStatus, router])
   const packageCode = typeof router.query.package_code === 'string' ? router.query.package_code : ''
+  // โปรฯ landing: ?code=MUMATE100 (หรือ ?coupon=) → พรีฟิล+auto-apply ให้เหลือราคาลดทันที กดจ่ายได้เลย
+  const promoCode =
+    typeof router.query.code === 'string' ? router.query.code
+    : typeof router.query.coupon === 'string' ? router.query.coupon
+    : null
   const tier = useClientTier(teamPreview)
-  const co = useCheckout(packageCode)
+  const co = useCheckout(packageCode, promoCode)
   const [method, setMethod] = useState<PayMethod>('card')
   const [card, setCard] = useState<CardState>(EMPTY_CARD)
   // One clock for the page. Held in state so a re-render cannot silently move the month boundary
@@ -75,7 +86,7 @@ export default function V2CheckoutPage({ teamPreview }: { teamPreview: boolean }
   // above it, both kept `npm test` green and both put "ธนาคารปฏิเสธการชำระเงิน" back in front of a paying
   // member. So the order came out too. Everything below is transport; the answer comes from payDestination.
   async function pay() {
-    if (authStatus !== 'authed') { void router.replace('/v2/login'); return }
+    if (authStatus !== 'authed') { window.location.replace('/v2/login'); return }
     if (!co.quote || paying) return
     setPaying(true)
     try {

@@ -100,3 +100,31 @@ describe('#363 pricing is the server\'s job, every single time', () => {
     expect(result.current.quote).toBeNull()
   })
 })
+
+// โปรฯ landing: ?code=MUMATE100 → พรีฟิล + auto-apply หลังราคาฐานโหลด (เอ็ม/ฟิว 2026-09-28)
+describe('promo landing — initialCode auto-applies from the URL', () => {
+  it('lands already discounted: seeds the code and applies it after the base price', async () => {
+    reply((b) => (b.code ? { ok: true, json: WITH_CODE } : { ok: true, json: QUOTE }))
+    const { result } = renderHook(() => useCheckout('V2_PRO_YEARLY', 'SAVE10'))
+    // ราคาลดขึ้นเอง โดยผู้ใช้ไม่ต้องพิมพ์/กด "ใช้"
+    await waitFor(() => expect(result.current.codeState).toBe('success'))
+    expect(result.current.quote?.amountSatang).toBe(143100)
+    expect(result.current.code).toBe('SAVE10')
+  })
+
+  it('a bad promo code keeps the normal price (1,590) visible — never a blank summary', async () => {
+    reply((b) => (b.code ? { ok: false, json: { codeError: 'INVALID' } } : { ok: true, json: QUOTE }))
+    const { result } = renderHook(() => useCheckout('V2_PRO_YEARLY', 'EXPIRED'))
+    await waitFor(() => expect(result.current.codeState).toBe('error'))
+    expect(result.current.quote?.amountSatang).toBe(159000)
+    expect(result.current.fatal).toBe(false)
+  })
+
+  it('no initialCode → prices from the package alone, no code call (unchanged behaviour)', async () => {
+    reply((b) => { if (b.code) throw new Error('must not send a code'); return { ok: true, json: QUOTE } })
+    const { result } = renderHook(() => useCheckout('V2_PRO_YEARLY'))
+    await waitFor(() => expect(result.current.quote?.amountSatang).toBe(159000))
+    expect(result.current.codeState).toBe('default')
+    expect(result.current.code).toBe('')
+  })
+})

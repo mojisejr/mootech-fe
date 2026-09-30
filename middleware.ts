@@ -299,6 +299,10 @@ function guardV2(req: NextRequest): NextResponse | null {
   // provider's machine, same reasoning, same exact-match rule. Both paths stay open together so a delivery
   // that arrives after PAYMENT_GATEWAY flips (either direction) still reaches its own route.
   if (pathname === '/api/v2/payment/webhook-beam') return noStore(NextResponse.next());
+  // QStash push delivery (pages/api/v2/push/fire.ts) — a machine caller like the two webhooks: no cookie, its gate
+  // is the QStash signature checked inside the route (fails closed). Answered with a gate page instead, QStash
+  // reads 200 as delivered and the reminder is lost (research fe-vercel-inventory B9, mumate-vercel-to-do-001 slice 2).
+  if (pathname === '/api/v2/push/fire') return noStore(NextResponse.next());
 
   // 🔴 #606 B3 (2026-09-20, เอ็มพบ live): นี่คือ step ที่คอมเมนต์ด้านบน (บรรทัด ~234) บอกไว้ล่วงหน้าว่าต้องทำ
   // ตอน launch จริง แต่ยังไม่เคยถูกทำ — ผลคือกด "เปิดระบบ" (goLive() ลบ V2_PREVIEW_KEY) แล้ว /v2 ล็อกเข้า
@@ -473,6 +477,7 @@ function route(req: NextRequest): NextResponse {
     pathname.startsWith('/api/cron/') ||
     pathname === '/api/v2/payment/webhook' ||
     pathname === '/api/v2/payment/webhook-beam' || // Beam Checkout webhook — mirrors the Omise line above
+    pathname === '/api/v2/push/fire' || // QStash push delivery — mirrors the guardV2 exemption; signature checked in the route
     pathname === '/auth/error'
   ) {
     return noStore(NextResponse.next());
