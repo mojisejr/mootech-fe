@@ -108,6 +108,7 @@ const KEPT: Record<string, string> = {
   '/launch': 'internal console, own key',
   '/glass-box': 'internal console, own key',
   '/what-if': 'campaign, own key',
+  '/promo': 'v2 promo landing pages (MUMATE100 free month, 2026-09-28)',
   '/pwa-check': 'team diagnostic, behind the v2 preview check',
   '/design-system': 'team design reference, no BE',
   '/dev-login': 'dev-only (refuses in production)',

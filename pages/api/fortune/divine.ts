@@ -1,6 +1,7 @@
 // BFF — POST /api/fortune/divine: เสี่ยงไพ่จิตวิญญาณแดนสวรรค์ (divine-cards) ของผู้ใช้ที่ล็อกอิน.
 // แนบ anonId ให้ engine ตัดโควตา/QI (qiGate "card"). Engine: POST {BAZI_BASE_URL}/api/divine-cards/predict.
 import type { NextApiRequest, NextApiResponse } from "next"
+import { baziClientHeaders } from "@/lib/bazi/client-identity"
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
@@ -20,7 +21,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   try {
     const upstream = await fetch(`${base}/api/divine-cards/predict`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", ...baziClientHeaders(req) },
       body: JSON.stringify({ mode: "llm", question: body.question, ...pick, anonId: rawId }),
     })
     const payload = await upstream.json().catch(() => ({}))

@@ -2,6 +2,7 @@
 // แนบ anonId จาก cookie ให้ engine ตัดโควตา/QI (qiGate "card"). Engine: POST {BAZI_BASE_URL}/api/fortune-sage/predict.
 // 402 = โควตา/ชี่หมด (ส่ง error กลับให้จอเปิดชีตซื้อ/แลก) · 401 = ยังไม่ล็อกอิน.
 import type { NextApiRequest, NextApiResponse } from "next"
+import { baziClientHeaders } from "@/lib/bazi/client-identity"
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
@@ -20,7 +21,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   try {
     const upstream = await fetch(`${base}/api/fortune-sage/predict`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", ...baziClientHeaders(req) },
       body: JSON.stringify({ mode: "llm", question: body.question, topic: body.topic, no: body.no, anonId: rawId }),
     })
     const payload = await upstream.json().catch(() => ({}))
