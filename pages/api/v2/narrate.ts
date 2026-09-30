@@ -2,6 +2,7 @@
 //   POST { engineText, domainLabel?, feature? }  → { text } (หรือ { error })
 // Engine: {BAZI_BASE_URL}/api/bazi/narrate (LLM, guardServerLlm กันโควตา/ต้นทุนที่ engine).
 import type { NextApiRequest, NextApiResponse } from "next"
+import { baziClientHeaders } from "@/lib/bazi/client-identity"
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== "POST") {
@@ -19,7 +20,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   try {
     const upstream = await fetch(`${base}/api/bazi/narrate`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", ...baziClientHeaders(req) },
       body: JSON.stringify({
         engineText: engineText.slice(0, 12000),
         domainLabel: body.domainLabel || "ผลวิเคราะห์",

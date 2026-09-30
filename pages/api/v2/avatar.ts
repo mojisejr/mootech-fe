@@ -3,8 +3,21 @@
 //   POST {imageBase64,mime} → อัปโหลด (engine ย่อ 256px เก็บ base64) | 409 ยังไม่ตั้ง @name
 // Engine: {BAZI_BASE_URL}/api/profile/avatar
 import type { NextApiRequest, NextApiResponse } from "next"
+import { sql } from "drizzle-orm"
+import { db } from "@/lib/db"
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+
+// รูป LINE จาก DB (user.picture_url) — fallback เมื่อ cookie-mumate-image ว่าง (ผู้ใช้เก่าที่ cookie ยังไม่มีรูป
+// จากบั๊ก stale-read; DB ถูกเก็บไว้ครบเสมอ). คืน "" ถ้าไม่มี/พลาด — ไม่ให้ล้มทั้ง route.
+async function linePictureFromDb(userId: string): Promise<string> {
+  try {
+    const rows = (await db.execute(sql`SELECT picture_url FROM "user" WHERE user_id = ${userId} LIMIT 1`)) as unknown as Array<{ picture_url?: string | null }>
+    return String(rows[0]?.picture_url ?? "")
+  } catch {
+    return ""
+  }
+}
 
 export const config = { api: { bodyParser: { sizeLimit: "8mb" } } }
 
@@ -34,6 +47,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         if (/^https:\/\//i.test(lineUrl)) {
           res.setHeader("Cache-Control", "private, max-age=0, must-revalidate")
           res.redirect(302, lineUrl)
+          return
+        }
+        // cookie ว่าง (ผู้ใช้เก่า/บั๊ก stale-read) → อ่านรูป LINE จาก DB แทน จะได้ไม่ต้อง login ใหม่
+        const dbUrl = await linePictureFromDb(rawId)
+        if (/^https:\/\//i.test(dbUrl)) {
+          res.setHeader("Cache-Control", "private, max-age=0, must-revalidate")
+          res.redirect(302, dbUrl)
           return
         }
         res.status(upstream.status).json({ error: "ยังไม่มีรูปโปรไฟล์" })

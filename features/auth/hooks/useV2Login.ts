@@ -9,8 +9,8 @@
 // precisely for "deep-link pages that skipped /". So we deliberately skip `/` and let it heal.
 import { useState } from 'react'
 import { useCookies } from 'react-cookie'
-import { startOAuthRedirect } from '@/lib/auth/oauth-redirect'
-import { openInExternalBrowser } from '@/lib/line/liff'
+import { startOAuthRedirect, startLiffCredentialsLogin } from '@/lib/auth/oauth-redirect'
+import { openInExternalBrowser, getLiff, LIFF_ID } from '@/lib/line/liff'
 import { CookieKey } from '@/constants/cookie-key'
 import { CONFIG } from '@/constants/config'
 
@@ -18,6 +18,16 @@ import { CONFIG } from '@/constants/config'
 // new(no-chart)→/v2/register (parity gap C). Sending everyone straight to /v2/register was the bug —
 // a returning user re-did profile setup instead of seeing their home.
 const V2_LOGIN_CALLBACK = '/v2'
+
+// โปรฯ landing: /v2/login?next=<path> → หลังล็อกอินเด้งกลับหน้านั้น (เช่น checkout ที่กรอกโค้ดไว้แล้ว).
+// 🔴 กัน open-redirect: รับเฉพาะ path ภายในเว็บนี้ — ขึ้นต้น '/' ตัวเดียว, ห้าม '//' หรือมี '://' (โดเมนอื่น).
+// next-auth เองก็รับ callbackUrl แค่ same-origin อยู่แล้ว แต่ validate ตรงนี้ด้วยกัน redirect หลุดออกนอก.
+export function safeNextPath(next: unknown): string | null {
+  if (typeof next !== 'string' || next === '') return null
+  if (!next.startsWith('/') || next.startsWith('//')) return null
+  if (next.includes('://') || next.includes('\\')) return null
+  return next
+}
 
 // Copied from pages/login (defined inline there, not exported) — LINE's in-app webview UA.
 const isLineInAppBrowser = () =>
@@ -53,6 +63,10 @@ export type V2LoginApi = {
 export function useV2Login(): V2LoginApi {
   const [, setCookie] = useCookies([CookieKey.LOGIN_PROVIDER])
   const [loading, setLoading] = useState(false)
+  // 🔴 2026-09-28: ถอด next ออกจาก OAuth callback ชั่วคราว — การส่ง callbackUrl เป็น URL checkout (มี query)
+  // ทำให้ LINE login ค้างทั้งเว็บตรง/LIFF (เอ็มพบ). คืนเป็น /v2 (เส้นทางที่ทำงานเดิม). การเด้งกลับหน้า 159
+  // จะทำใหม่แบบปลอดภัยผ่าน /v2 (ไม่ยัดใน OAuth callbackUrl). safeNextPath คงไว้ (มีเทสต์) แต่ยังไม่ใช้กับ callback.
+  const callbackUrl = V2_LOGIN_CALLBACK
 
   const login = (provider: string) => {
     setCookie(CookieKey.LOGIN_PROVIDER, provider, {
@@ -76,13 +90,48 @@ export function useV2Login(): V2LoginApi {
     }
 
     setLoading(true)
+
+    // เอ็ม 2026-09-28: ใน LINE → ล็อกอินผ่าน LIFF (ไม่ไปหน้า access.line.me ที่ค้าง). ไม่สำเร็จ → ตกไป OAuth เดิม.
+    if (provider === 'line' && isLineInAppBrowser()) {
+      void (async () => {
+        try {
+          const liff = await getLiff()
+          if (liff.isInClient()) {
+            if (!liff.isLoggedIn()) {
+              liff.login({ redirectUri: window.location.href })
+              return
+            }
+            const idToken = liff.getIDToken()
+            if (idToken && (await startLiffCredentialsLogin(idToken, callbackUrl))) return
+          } else {
+            // in-app browser ธรรมดา (เปิดลิงก์ตรงในแชท) → เปิดหน้าเดิมผ่าน LIFF URL เพื่อให้ได้ idToken
+            const path = window.location.pathname + window.location.search
+            window.location.href = `https://liff.line.me/${LIFF_ID}${path}`
+            return
+          }
+        } catch {
+          /* ตกไป OAuth เดิม */
+        }
+        void startOAuthRedirect(provider, callbackUrl)
+      })()
+      return
+    }
     // เลี่ยง getProviders ของ signIn() ทั้งหมด (ต้นเหตุ "รหัสอ้างอิง: undefined") — เริ่ม OAuth ด้วย full-page
     // form POST ตรงไป /api/auth/signin/<provider> ให้เบราว์เซอร์เดินตาม 302 เอง. ดู oauth-redirect.ts
     //
     // เอ็ม 2026-09-20: เคยลองใส่ disable_auto_login=true (#727) เพื่อกัน LINE เด้งเปิดแอป — แต่ผลคือมันบังคับ
     // ขึ้นหน้า "อีเมล/รหัสผ่าน" ของ LINE ซึ่งคนที่จำ LINE ไม่ได้เข้ายากมาก. ถอดออก → กลับไปใช้ auto-login ของ
     // LINE (แตะทีเดียวผ่านแอป). ทางที่ลื่นที่สุด = เปิดจากใน LINE (OA rich menu) ให้อยู่ใน in-app browser.
-    void startOAuthRedirect(provider, V2_LOGIN_CALLBACK)
+    void startOAuthRedirect(provider, callbackUrl)
+
+    // เอ็ม 2026-09-28: cold-start ใน LINE webview — หน้า access.line.me ค้างรอบแรก, กดซ้ำรอบสองผ่าน ("ต้องกด 2 รอบ").
+    // ทำ "รอบสอง" ให้อัตโนมัติ: ถ้า 6 วิแล้วยังอยู่หน้านี้ (ไม่ได้ไปต่อ) → ยิงใหม่ 1 ครั้ง; 14 วิยังค้าง → ปลดปุ่มให้กดเองได้.
+    // ออกจากหน้าไปแล้ว (pagehide) → ยกเลิก timer ทั้งหมด.
+    const retry = window.setTimeout(() => {
+      if (document.visibilityState === 'visible') void startOAuthRedirect(provider, callbackUrl)
+    }, 6000)
+    const unlock = window.setTimeout(() => setLoading(false), 14000)
+    window.addEventListener('pagehide', () => { window.clearTimeout(retry); window.clearTimeout(unlock) }, { once: true })
   }
 
   return {

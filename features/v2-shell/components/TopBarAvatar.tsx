@@ -79,12 +79,15 @@ function SapphireAvatar({ name = '', pictureUrl, onClick, href, label = 'โป�
   const alt = name.trim() || identity.name.trim()
   const inner = showImg
     ? (
-      // eslint-disable-next-line @next/next/no-img-element -- ต้องส่ง cookie ไป /api/v2/avatar (next/image optimizer ไม่ส่ง)
-      <img src={src} alt={alt} className="absolute inset-0 h-full w-full" style={{ objectFit: 'cover' }} onError={() => setSrcIdx((i) => i + 1)} />
+      // referrerPolicy=no-referrer: รูป LINE (profile.line-scdn.net) จะ 404 ถ้าส่ง referer ไป — ต้องไม่ส่ง (เหมือนหน้า account)
+      // ต้องส่ง cookie ไป /api/v2/avatar (next/image optimizer ไม่ส่ง)
+      // eslint-disable-next-line @next/next/no-img-element
+      <img src={src} alt={alt} referrerPolicy="no-referrer" className="absolute inset-0 h-full w-full" style={{ objectFit: 'cover' }} onError={() => setSrcIdx((i) => i + 1)} />
     )
     : (
-      // eslint-disable-next-line @next/next/no-img-element -- the zoom/offset crop cannot be expressed with
-      // next/image fill + objectPosition, and the file is 63 KB already in cache on most screens.
+      // the zoom/offset crop cannot be expressed with next/image fill + objectPosition,
+      // and the file is 63 KB already in cache on most screens.
+      // eslint-disable-next-line @next/next/no-img-element
       <img
         data-testid="avatar-mascot"
         src={AVATAR_MASCOT.src}

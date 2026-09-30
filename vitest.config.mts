@@ -85,6 +85,7 @@ export default defineConfig({
     // that this list and ci.yml's skip list are two hand-synced copies of the same fact.
     include: [
       'scripts/do-platform-seams.test.ts', // mumate-vercel-to-do-001 slice 2
+      'scripts/do-bazi-client-identity.test.ts', // mumate-vercel-to-do-001 slice 2
       'scripts/engine-chart.test.ts', // mumate-be-retirement-001 slice 1 — engine glyphs → animal / stem element+power / element_cycle, result_code format
       'scripts/engine-chart-db.test.ts', // mumate-be-retirement-001 slice 1 — STEM_TABLE + element_cycle vocabulary against real Postgres (env-gated)
       'scripts/birth-chart-save.test.ts', // mumate-be-retirement-001 slice 1 — register/edit-birth writer: columns, time '', session identity, minimal log_calculate
@@ -261,6 +262,8 @@ export default defineConfig({
       'scripts/result-state.test.ts', // #363 — audit 6 สถานะหลังจ่าย: สถานะไหน 'เงินขยับแล้ว' + กดซ้ำช่วยไหม
       'scripts/result-screen.test.tsx', // #363 — จอ result: เครื่องหมายถูกมาจาก paid ไม่ใช่ชื่อสถานะ
       'scripts/use-checkout.test.tsx', // #363 — ✕ ต้องยิง preview ใหม่ · โค้ดผิดห้ามลบราคาทิ้ง
+      'scripts/plan-share-invite.test.tsx', // โปรฯ — บล็อกแชร์โค้ดบนหน้าชำระเงินสำเร็จ
+      'scripts/next-path-safety.test.ts', // โปรฯ — กัน open-redirect ของ ?next หลังล็อกอิน
       'scripts/omise-token.test.ts', // #363 — คีย์ v2 เท่านั้น และตั้งทันทีก่อน createToken
       'scripts/v1-add-friend-copy.test.tsx', // #413 — โมดัลเพิ่มเพื่อนของ v1: ป้ายต้องบอกว่าเป็นข้อมูลเพื่อน
       'scripts/v1-sales-closed-pages.test.tsx', // #376 — ปิดการขาย v1 ชั้นหน้า (จุด ①②); .tsx

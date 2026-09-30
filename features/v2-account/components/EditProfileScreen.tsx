@@ -43,6 +43,36 @@ function fileToBase64(file: File): Promise<string> {
   })
 }
 
+// รูปจากกล้องมือถือ 3-5MB → base64 เกิน 4.5MB (เพดาน body ของ Vercel) → อัปไม่ผ่าน (พล 2026-09-29).
+// ย่อในเครื่องเหลือด้านยาว 512px JPEG ก่อนส่ง (engine ย่อ 256px อยู่แล้ว). ถอดรหัสไม่ได้ → ส่งไฟล์เดิม.
+async function shrinkImage(file: File, max = 512): Promise<{ dataUrl: string; mime: string }> {
+  if (file.size < 1024 * 1024) return { dataUrl: await fileToBase64(file), mime: file.type } // เล็กพอแล้ว
+  try {
+    const url = URL.createObjectURL(file)
+    try {
+      const img = await new Promise<HTMLImageElement>((resolve, reject) => {
+        const el = new Image()
+        el.onload = () => resolve(el)
+        el.onerror = () => reject(new Error("decode failed"))
+        setTimeout(() => reject(new Error("decode timeout")), 8000)
+        el.src = url
+      })
+      const scale = Math.min(1, max / Math.max(img.naturalWidth, img.naturalHeight))
+      const canvas = document.createElement("canvas")
+      canvas.width = Math.max(1, Math.round(img.naturalWidth * scale))
+      canvas.height = Math.max(1, Math.round(img.naturalHeight * scale))
+      const ctx = canvas.getContext("2d")
+      if (!ctx) throw new Error("no canvas")
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height)
+      return { dataUrl: canvas.toDataURL("image/jpeg", 0.85), mime: "image/jpeg" }
+    } finally {
+      URL.revokeObjectURL(url)
+    }
+  } catch {
+    return { dataUrl: await fileToBase64(file), mime: file.type }
+  }
+}
+
 const GENDERS: Array<{ code: string; label: string }> = [
   { code: "MALE", label: "ชาย" },
   { code: "FEMALE", label: "หญิง" },
@@ -80,6 +110,8 @@ export function EditProfileScreen() {
   const [hasAvatar, setHasAvatar] = useState(false)
   const [avatarTs, setAvatarTs] = useState<string>("")
   const [avatarBusy, setAvatarBusy] = useState(false)
+  const handleRef = useRef<HTMLInputElement>(null)
+  const [avatarErr, setAvatarErr] = useState<string | null>(null)
   const fileRef = useRef<HTMLInputElement>(null)
 
   const load = useCallback(async () => {
@@ -157,28 +189,67 @@ export function EditProfileScreen() {
     }
   }
 
+  // engine เก็บรูปผูกกับโปรไฟล์ที่มี @name — ผู้ใช้ใหม่ยังไม่มี → อัปไม่ได้ (409).
+  // พิมพ์ @name ไว้แล้ว → บันทึก @name ให้ก่อนแล้วอัปรูปต่อ; ยังไม่พิมพ์ → พาไปช่อง @name แทนเปิดเลือกรูป.
+  const needsHandle = !profile?.displayName
+  const openAvatarPicker = () => {
+    if (needsHandle && !handle.trim()) {
+      setAvatarErr("กรุณาตั้ง @name ด้านล่างก่อน แล้วค่อยอัปรูป")
+      handleRef.current?.focus()
+      return
+    }
+    if (needsHandle && !DISPLAY_NAME_RE.test(handle.trim())) {
+      setHandleErr("ใช้ไทย/อังกฤษ/ตัวเลข/_/. ยาว 4-24 ตัวอักษร")
+      handleRef.current?.focus()
+      return
+    }
+    setAvatarErr(null)
+    fileRef.current?.click()
+  }
+
   const onPickAvatar = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     e.target.value = "" // ให้เลือกไฟล์เดิมซ้ำได้
     if (!file) return
     setAvatarBusy(true)
+    setAvatarErr(null)
     setMsg(null)
     try {
-      const dataUrl = await fileToBase64(file)
+      const { dataUrl, mime } = await shrinkImage(file)
+      // เพดาน body ของ Vercel 4.5MB — เตือนก่อนส่ง (เกิดเมื่อย่อไม่ได้ เช่น HEIC บางเครื่อง แล้วตกไปส่งไฟล์เดิม)
+      if (dataUrl.length > 4_400_000) {
+        setAvatarErr(`รูปใหญ่เกินไป (${(file.size / 1024 / 1024).toFixed(1)}MB) — เลือกรูปที่เล็กกว่า 3MB หรือแคปหน้าจอรูปนั้นแล้วอัปแทน`)
+        return
+      }
+      if (needsHandle) {
+        const dnRes = await fetch("/api/v2/display-name", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ displayName: handle.trim() }),
+        })
+        if (!dnRes.ok) {
+          const dj = (await dnRes.json().catch(() => ({}))) as { error?: string }
+          const m = dj.error === "display_name_taken" ? "ชื่อนี้มีคนใช้แล้ว ลองชื่ออื่น" : "ตั้งชื่อไม่สำเร็จ"
+          setHandleErr(m)
+          setAvatarErr(`ตั้ง @name ไม่สำเร็จ: ${m}`)
+          return
+        }
+        setProfile((p) => ({ ...(p ?? {}), displayName: handle.trim() }) as Profile)
+      }
       const res = await fetch("/api/v2/avatar", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ imageBase64: dataUrl, mime: file.type }),
+        body: JSON.stringify({ imageBase64: dataUrl, mime }),
       })
       const j = (await res.json().catch(() => ({}))) as { error?: string; avatarUpdatedAt?: string }
       if (res.ok) {
         setHasAvatar(true)
         setAvatarTs(j.avatarUpdatedAt ?? String(Date.now())) // cache-bust
       } else {
-        setMsg(String(j.error ?? "อัปโหลดรูปไม่สำเร็จ"))
+        setAvatarErr(res.status === 413 ? "รูปใหญ่เกินไป ลองรูปอื่น" : String(j.error ?? "อัปโหลดรูปไม่สำเร็จ"))
       }
     } catch {
-      setMsg("อ่านไฟล์รูปไม่สำเร็จ")
+      setAvatarErr("อ่านไฟล์รูปไม่สำเร็จ")
     } finally {
       setAvatarBusy(false)
     }
@@ -199,7 +270,7 @@ export function EditProfileScreen() {
             <div className="flex flex-col items-center gap-2.5 pt-1">
               <button
                 type="button"
-                onClick={() => fileRef.current?.click()}
+                onClick={openAvatarPicker}
                 data-testid="ep-avatar-btn"
                 className="relative grid size-[88px] place-items-center overflow-hidden rounded-full bg-v3-sky-tint text-[24px] font-bold leading-8 text-v3-sapphire"
                 aria-label="เปลี่ยนรูปโปรไฟล์"
@@ -215,7 +286,8 @@ export function EditProfileScreen() {
                 ) : null}
               </button>
               <input ref={fileRef} type="file" accept="image/*" hidden data-testid="ep-avatar-input" onChange={onPickAvatar} />
-              <button type="button" onClick={() => fileRef.current?.click()} className="text-[13px] leading-[18px] text-v3-sapphire" data-testid="ep-avatar-change">เปลี่ยนรูปโปรไฟล์</button>
+              <button type="button" onClick={openAvatarPicker} className="text-[13px] leading-[18px] text-v3-sapphire" data-testid="ep-avatar-change">{needsHandle && !handle ? "กรุณาตั้ง @name ก่อนอัปรูป" : "เปลี่ยนรูปโปรไฟล์"}</button>
+              {avatarErr && <p data-testid="ep-avatar-err" className="text-center text-[12px] font-bold text-red-600">{avatarErr}</p>}
             </div>
 
             {/* form-card (เฟรม 55399:6069): ขาว ขอบ border/default r20 p18 gap16 · label 12 medium · hint 9 muted */}
@@ -229,6 +301,7 @@ export function EditProfileScreen() {
                     onChange={(e) => { setHandle(e.target.value.trim()); setHandleErr(null) }}
                     placeholder="เช่น mumate_fan"
                     data-testid="ep-handle"
+                    ref={handleRef}
                     className={INPUT + " w-full pl-8"}
                   />
                 </span>
