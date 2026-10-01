@@ -1,16 +1,61 @@
 // /course/calendar — หน้าขาย + สารบัญคอร์สสอนใช้ปฏิทินจีน Mumate (สาธารณะ ไม่ต้องล็อกอิน).
 // ฟิว/พล 2026-10-01: EP 1-7 ฟรีทุกคน · EP 8-13 คอร์ส 490 (แถม Plus 1 เดือน) / 790 (แถม Plus 1 ปี)
 // สมาชิก Plus/Pro เรียนได้เลยไม่ต้องซื้อ · ซื้อคอร์สแล้วเรียนได้ตลอด (แม้ Plus ที่แถมหมดอายุ)
+import { useState } from 'react'
 import Head from 'next/head'
 import Link from 'next/link'
+import { useRouter } from 'next/router'
 import { SkyBackdrop, SkyHeader } from '@/features/v2-profile/components/kit'
 import { useCalendarCourse } from '@/features/course/useCalendarCourse'
-import { COURSE_OFFERS, PARTS, FREE_UNTIL_EP } from '@/lib/course/calendar-content'
+import { PARTS, FREE_UNTIL_EP, COURSE_UPSELL_CODE, COURSE_UPSELL_PRICE, checkoutHrefFor } from '@/lib/course/calendar-content'
 
 const CARD = 'rounded-[20px] bg-white p-5 drop-shadow-[0_4px_15px_rgba(26,38,77,0.10)]'
 
+/** flow จ่ายเงินของฟิว: กดซื้อ 490 → ① ชวน 790 (Plus 1 ปี) → ไม่เอา → ② 790 ลด 10% = 711 → ไม่เอา → จ่าย 490 */
+function UpsellSheet({ onClose }: { onClose: () => void }) {
+  const router = useRouter()
+  const [step, setStep] = useState<1 | 2>(1)
+  const go = (href: string) => void router.push(href)
+  return (
+    <div role="dialog" aria-modal="true" data-testid="course-upsell" className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 sm:items-center" onClick={onClose}>
+      <div className="w-full max-w-md rounded-t-[24px] bg-white p-6 pb-[max(1.5rem,env(safe-area-inset-bottom))] sm:rounded-[24px]" onClick={(e) => e.stopPropagation()}>
+        {step === 1 ? (
+          <>
+            <p className="text-xs font-bold text-v3-cyan">ก่อนชำระเงิน</p>
+            <h3 className="mt-1 text-xl font-black leading-7 text-v3-navy">เพิ่มอีก ฿300 ได้ใช้ปฏิทิน 1 ปีเต็ม</h3>
+            <p className="mt-2 text-sm leading-6 text-v3-text-body">
+              คอร์ส ฿490 แถม Mumate + 1 เดือน · เพิ่มเป็น <b>฿790</b> ได้ Mumate + ใช้ปฏิทินครบ <b>1 ปี</b> — คุ้มกว่า เรียนจบแล้วยังใช้จริงต่อได้ทั้งปี
+            </p>
+            <button type="button" data-testid="upsell-yes-790" onClick={() => go(checkoutHrefFor('COURSE_CAL_790'))} className="mt-4 h-12 w-full rounded-full bg-v3-sapphire text-base font-bold text-white">
+              เอา ฿790 (ได้ 1 ปี)
+            </button>
+            <button type="button" data-testid="upsell-no-790" onClick={() => setStep(2)} className="mt-2 h-11 w-full rounded-full text-sm font-semibold text-v3-text-body">
+              ไม่เอา
+            </button>
+          </>
+        ) : (
+          <>
+            <p className="text-xs font-bold text-v3-error">ข้อเสนอพิเศษ · ครั้งเดียว</p>
+            <h3 className="mt-1 text-xl font-black leading-7 text-v3-navy">ลดเพิ่ม 10% เหลือ ฿{COURSE_UPSELL_PRICE}</h3>
+            <p className="mt-2 text-sm leading-6 text-v3-text-body">
+              คอร์สปฏิทิน + Mumate + 1 ปี จาก <s>฿790</s> เหลือ <b>฿{COURSE_UPSELL_PRICE}</b> — จ่ายเพิ่มจาก ฿490 แค่ ฿{COURSE_UPSELL_PRICE - 490}
+            </p>
+            <button type="button" data-testid="upsell-yes-711" onClick={() => go(checkoutHrefFor('COURSE_CAL_790', COURSE_UPSELL_CODE))} className="mt-4 h-12 w-full rounded-full bg-v3-sapphire text-base font-bold text-white">
+              เอา ฿{COURSE_UPSELL_PRICE}
+            </button>
+            <button type="button" data-testid="upsell-no-711" onClick={() => go(checkoutHrefFor('COURSE_CAL_490'))} className="mt-2 h-11 w-full rounded-full text-sm font-semibold text-v3-text-body">
+              ไม่เอา ซื้อคอร์ส ฿490 ตามเดิม
+            </button>
+          </>
+        )}
+      </div>
+    </div>
+  )
+}
+
 export default function CalendarCoursePage() {
   const s = useCalendarCourse()
+  const [upsell, setUpsell] = useState(false)
   const access = s.status === 'ok' && s.access
 
   return (
@@ -49,25 +94,23 @@ export default function CalendarCoursePage() {
           </p>
         ) : (
           <section className="flex flex-col gap-3" data-testid="course-offers">
-            {COURSE_OFFERS.map((o, i) => (
-              <div key={o.code} className={`${CARD} ${i === 1 ? 'ring-2 ring-v3-cyan' : ''}`}>
-                {i === 1 ? <p className="mb-1 text-xs font-bold text-v3-cyan">คุ้มสุด · เพิ่มแค่ ฿300</p> : null}
-                <div className="flex items-baseline justify-between gap-2">
-                  <h3 className="text-base font-black text-v3-navy">{o.title}</h3>
-                  <span className="text-2xl font-black text-v3-navy">฿{o.price.toLocaleString('th-TH')}</span>
-                </div>
-                <p className="mt-1 text-sm text-v3-text-body">เรียนครบ 13 ตอน (ตลอดชีพ) · {o.bonus}</p>
-                <Link
-                  href={`/v2/shop/checkout?package_code=${o.code}`}
-                  data-testid={`course-buy-${o.code}`}
-                  className="mt-3 grid h-12 w-full place-items-center rounded-full bg-v3-sapphire text-base font-bold text-white"
-                >
-                  ซื้อคอร์ส ฿{o.price.toLocaleString('th-TH')}
-                </Link>
+            <div className={CARD}>
+              <div className="flex items-baseline justify-between gap-2">
+                <h3 className="text-base font-black text-v3-navy">คอร์สปฏิทิน Mumate</h3>
+                <span className="text-2xl font-black text-v3-navy">฿490</span>
               </div>
-            ))}
+              <p className="mt-1 text-sm text-v3-text-body">เรียนครบ 13 ตอน (ตลอดชีพ) · แถม Mumate + ใช้ปฏิทินฟรี 1 เดือน</p>
+              <button
+                type="button"
+                data-testid="course-buy"
+                onClick={() => setUpsell(true)}
+                className="mt-3 grid h-12 w-full place-items-center rounded-full bg-v3-sapphire text-base font-bold text-white"
+              >
+                ซื้อคอร์ส ฿490
+              </button>
+            </div>
             <p className="text-center text-xs leading-5 text-v3-text-muted">
-              เป็นสมาชิก Mumate + หรือ Pro อยู่แล้ว? เรียนได้เลยไม่ต้องซื้อ —{' '}
+              สมัครสมาชิก Mumate + หรือ Pro แบบชำระเงินอยู่แล้ว? เรียนได้เลยไม่ต้องซื้อ (สิทธิ์ฟรีจากโค้ดกิจกรรมไม่รวม) —{' '}
               {s.status === 'ok' && !s.loggedIn ? <Link href="/v2/login" className="font-bold text-v3-sapphire">เข้าสู่ระบบ</Link> : 'ตรวจสอบแพ็กเกจที่หน้าร้านค้า'}
             </p>
           </section>
@@ -107,6 +150,7 @@ export default function CalendarCoursePage() {
             })
           : null}
       </main>
+      {upsell ? <UpsellSheet onClose={() => setUpsell(false)} /> : null}
     </div>
   )
 }
