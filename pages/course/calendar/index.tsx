@@ -3,6 +3,7 @@
 // สมาชิก Plus/Pro เรียนได้เลยไม่ต้องซื้อ · ซื้อคอร์สแล้วเรียนได้ตลอด (แม้ Plus ที่แถมหมดอายุ)
 import { useState } from 'react'
 import Head from 'next/head'
+import Image from 'next/image'
 import Link from 'next/link'
 import { useRouter } from 'next/router'
 import { SkyBackdrop, SkyHeader } from '@/features/v2-profile/components/kit'
@@ -68,6 +69,9 @@ export default function CalendarCoursePage() {
       <SkyHeader title="คอร์สปฏิทิน Mumate" backHref="/v2" testId="course" />
 
       <main className="relative z-10 mx-auto flex w-full max-w-md flex-col gap-5 px-4 pb-16 pt-3">
+        {/* ภาพคอร์ส — รูปเดียวกับแบนเนอร์หน้าแรก (public/images/v2/popup/calendar-course.png) */}
+        <Image src="/images/v2/popup/calendar-course.png" alt="คอร์สปฏิทิน Mumate" width={1000} height={1300} priority className="h-auto w-full rounded-[20px] drop-shadow-[0_4px_15px_rgba(26,38,77,0.10)]" />
+
         {/* Hero */}
         <section className={CARD}>
           <p className="text-xs font-bold tracking-wide text-v3-cyan">คอร์สออนไลน์ · 13 ตอน</p>

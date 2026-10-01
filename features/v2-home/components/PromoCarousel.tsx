@@ -11,7 +11,7 @@ const PROMOS: { key: string; src: string; href: string; alt: string }[] = [
   { key: 'sinsae', src: '/images/v2/popup/sinsae.png', href: '/v2/service/sinsae', alt: 'ดูดวงกับซินแส ประสบการณ์ 20 ปี' },
   { key: 'ganesha', src: '/images/v2/popup/ganesha.png', href: 'https://www.facebook.com/Mumate.co/posts/pfbid0VhDkDaXmN9DFEqgJC6sPe1DuPNYhooa26sMkDEGo75FiXU2iZ6mkbcU6JC4ZLSYQl', alt: 'องค์พ่อพระพิฆเนศ รุ่นความสุข & ความสำเร็จ' },
   // TODO(เอ็ม): URL คอร์สปฏิทิน (ลิงก์ภายนอก) — ชั่วคราวไปหน้าปฏิทิน
-  { key: 'calendar-course', src: '/images/v2/popup/calendar-course.png', href: '/v2/calendar', alt: 'คอร์สปฏิทิน เรียนฟรี วิธีอ่านปฏิทิน Mumate' },
+  { key: 'calendar-course', src: '/images/v2/popup/calendar-course.png', href: '/course/calendar', alt: 'คอร์สปฏิทิน เรียนฟรี วิธีอ่านปฏิทิน Mumate' },
 ]
 
 export function PromoCarousel() {
