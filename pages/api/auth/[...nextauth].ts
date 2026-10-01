@@ -44,8 +44,9 @@ export const authOptions: NextAuthOptions = {
       async authorize(credentials) {
         const idToken = credentials?.idToken;
         if (!idToken) return null;
-        const liffChannel = (process.env.NEXT_PUBLIC_LIFF_ID || "2011679472-sNcCbR2K").split("-")[0];
-        const clientIds = Array.from(new Set([process.env.LINE_CLIENT_ID, liffChannel].filter(Boolean))) as string[];
+        // 🔴 2026-10-01: verify กับช่อง Login (LINE_CLIENT_ID) เท่านั้น — idToken จากช่อง LIFF ที่อยู่คนละ Provider ให้
+        // sub คนละค่ากับ OAuth → คนเดิมกลายเป็นบัญชีใหม่ (พบ 28 คนใน 3 วัน). ช่องอื่นจึงต้องถูกปฏิเสธ.
+        const clientIds = [process.env.LINE_CLIENT_ID].filter(Boolean) as string[];
         for (const clientId of clientIds) {
           try {
             const res = await fetch("https://api.line.me/oauth2/v2.1/verify", {
@@ -101,7 +102,7 @@ export const authOptions: NextAuthOptions = {
       if (account?.provider === "line-liff" && user) {
         token.provider = "line";
         token.providerId = user.id;
-        token.lineProfile = { sub: user.id, name: user.name, picture: user.image };
+        token.lineProfile = { sub: user.id, name: user.name, picture: user.image, via: "liff" };
         return token;
       }
       // account จะมี access_token และ id_token ที่ได้จากผู้ให้บริการ
