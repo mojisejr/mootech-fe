@@ -80,8 +80,9 @@ describe('#457 row 1 — viewer is Free', () => {
 })
 
 describe('#457 row 2 — viewer holds PLUS', () => {
-  it('sees the Mumate + card as the package they already hold, WITH their real expiry', () => {
-    expect(verdict('plus', plusUntil('2027-08-26'))).toEqual({ kind: 'current', expireAt: '2027-08-26' })
+  // เอ็มเคาะ 2026-10-01: การ์ดระดับที่ถืออยู่ = ต่ออายุได้ (renew) พร้อมวันหมดอายุจริง + วันที่เหลือตามไป
+  it('sees the Mumate + card as theirs (renew), WITH their real expiry and the days that follow', () => {
+    expect(verdict('plus', plusUntil('2027-08-26'))).toEqual({ kind: 'renew', expireAt: '2027-08-26', carryOverDays: 365 })
   })
   it('may upgrade to Mumate Pro, and the days they have left come with them', () => {
     const v = verdict('pro', plusUntil('2027-08-26'))
@@ -95,8 +96,8 @@ describe('#457 row 3 — viewer holds PRO', () => {
   it('cannot be sold Mumate + — that would take something away', () => {
     expect(verdict('plus', proUntil('2027-08-26'))).toEqual({ kind: 'blocked' })
   })
-  it('sees the Mumate Pro card as the package they already hold', () => {
-    expect(verdict('pro', proUntil('2027-01-15'))).toEqual({ kind: 'current', expireAt: '2027-01-15' })
+  it('sees the Mumate Pro card as theirs and may renew it (promo top-up)', () => {
+    expect(verdict('pro', proUntil('2027-01-15'))).toMatchObject({ kind: 'renew', expireAt: '2027-01-15' })
   })
 })
 
@@ -177,11 +178,11 @@ describe("#457 🔴 the reader's clock must not reach the words on the card", ()
 })
 
 describe('#457 — negative controls (an assertion that reads back what it wrote proves nothing)', () => {
-  it('the expiry on `current` tracks the INPUT — two different expiries give two different answers', () => {
+  it('the expiry on `renew` tracks the INPUT — two different expiries give two different answers', () => {
     const a = verdict('plus', plusUntil('2027-08-26'))
     const b = verdict('plus', plusUntil('2028-01-02'))
-    expect(a).toEqual({ kind: 'current', expireAt: '2027-08-26' })
-    expect(b).toEqual({ kind: 'current', expireAt: '2028-01-02' })
+    expect(a).toMatchObject({ kind: 'renew', expireAt: '2027-08-26' })
+    expect(b).toMatchObject({ kind: 'renew', expireAt: '2028-01-02' })
     expect(a).not.toEqual(b)
   })
   it('the carried day count tracks the INPUT — a longer remaining term carries more days', () => {
@@ -308,7 +309,7 @@ describe('#358 Phase 1 🔴 the REAL resolver output, through the screen own map
     expect(legacyCard('plus').kind).not.toBe('upgrade')
   })
 
-  it('🔴 NEGATIVE CONTROL — a real v2 PRO member is still refused on both cards', () => {
+  it('🔴 NEGATIVE CONTROL — a real v2 PRO member is placed on the ladder: renew PRO, refused PLUS', () => {
     // Without this, "everyone can buy" would pass the block above just as well, and the fix would read as
     // "the gate was switched off". The two members reach `cardVerdictFor` with the SAME tier name 'PRO';
     // only `source` differs, and that difference is the whole rule.
@@ -323,7 +324,7 @@ describe('#358 Phase 1 🔴 the REAL resolver output, through the screen own map
     const v2Server = serverAnswerFor([V2_ROW], LEGACY_ROW)
     const v2Card = asTheShopScreenSeesIt(v2Server, LEGACY_ROW.expireAt)
     expect(v2Server).toEqual({ isPaid: true, tier: 'PRO', source: 'v2', expireAt: '2027-06-30' })
-    expect(v2Card('pro')).toEqual({ kind: 'current', expireAt: '2027-06-30' })
+    expect(v2Card('pro')).toMatchObject({ kind: 'renew', expireAt: '2027-06-30' })
     expect(v2Card('plus')).toEqual({ kind: 'blocked' })
   })
 })

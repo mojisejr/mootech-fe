@@ -252,7 +252,7 @@ export function PackageCard({
                   'สมัครแพ็กเกจ Mumate' / '+' beside a floating '฿790/ปี'. Wrapping both in one span keeps the
                   whole label a single flex item, so it flows as ordinary text again. */}
               <span>
-                {`${verdict.kind === 'upgrade' ? 'อัปเกรดเป็น' : 'สมัครแพ็กเกจ'} ${plan.name}`}
+                {`${verdict.kind === 'upgrade' ? 'อัปเกรดเป็น' : verdict.kind === 'renew' ? 'ต่ออายุ' : 'สมัครแพ็กเกจ'} ${plan.name}`}
                 {price.kind === 'ready' ? (
                   <>{' '}<span className="whitespace-nowrap">{`${formatThb(price.amountThb)}${buttonSuffix}`}</span></>
                 ) : null}
@@ -279,7 +279,14 @@ export function PackageCard({
       {/* 🔴 DoD ③ — the fear this line removes is specific: a member who thinks upgrading forfeits the time
           they already paid for will not upgrade. It appears ONLY when days actually follow them, so it can
           never become a decoration that is true on every card. */}
-      {verdict.kind === 'upgrade' || (verdict.kind === 'buy' && verdict.carriesDays) ? (
+      {verdict.kind === 'renew' ? (
+        <p data-testid={`plan-renew-note-${plan.id}`} className="text-center text-sm font-semibold leading-5 text-v3-sapphire">
+          {verdict.expireAt && formatThaiDateAbbr(verdict.expireAt)
+            ? `แพ็กเกจปัจจุบันของคุณ · ใช้ได้ถึง ${formatThaiDateAbbr(verdict.expireAt)}`
+            : 'แพ็กเกจปัจจุบันของคุณ'}
+        </p>
+      ) : null}
+      {verdict.kind === 'upgrade' || verdict.kind === 'renew' || (verdict.kind === 'buy' && verdict.carriesDays) ? (
         <p data-testid={`plan-carry-note-${plan.id}`} className="text-center text-sm font-semibold leading-5 text-v3-cyan">
           วันที่เหลือของแพ็กเกจปัจจุบันจะถูกบวกให้ ไม่หายไป
         </p>
@@ -290,7 +297,7 @@ export function PackageCard({
           line below, "เมื่อชำระเงินเรียบร้อยแล้ว ถือว่ายอมรับ…" — terms for a purchase the same card had
           just refused to offer. Same family as the card's other rule: never say words that imply an action
           this card does not have. */}
-      {plan.id !== 'free' && (verdict.kind === 'buy' || verdict.kind === 'upgrade') ? (
+      {plan.id !== 'free' && (verdict.kind === 'buy' || verdict.kind === 'upgrade' || verdict.kind === 'renew') ? (
         // 997:2844 — Body/Caption 9px, 16 line-height, Text/Secondary, centred.
         <p data-testid={`plan-legal-${plan.id}`} className="text-center text-[9px] leading-4 text-v3-text-body">
           เมื่อชำระเงินเรียบร้อยแล้ว ถือว่ายอมรับ{' '}

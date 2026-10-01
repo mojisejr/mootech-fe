@@ -88,10 +88,12 @@ describe('the matrix — row by row (ฟีมเคาะ 2026-08-26, ทาง
     })
   })
 
-  it('ROW 2 — PLUS buys PLUS: REFUSED (this is ฟีม’s 1,580-baht bug)', () => {
+  // เอ็มเคาะ 2026-10-01: ซื้อระดับเดิมซ้ำ = ต่ออายุ/รับโปรฯ — อนุญาต และวันที่เหลือต้องตามไปครบ
+  // (บั๊ก 1,580 บาทของฟีมคือ "จ่ายสองครั้งได้ปีเดียว" — carry ทำให้จ่ายสองครั้งได้สองปี จึงไม่กลับมา)
+  it('ROW 2 — PLUS buys PLUS: allowed as a RENEWAL, all 364 days follow', () => {
     expect(decidePurchase({ current: plusUntil('2027-08-25'), targetTier: 'PLUS', today: TODAY })).toEqual({
-      allow: false,
-      reason: 'ALREADY_ON_THIS_TIER',
+      allow: true,
+      carryOverDays: 364,
     })
   })
 
@@ -109,10 +111,10 @@ describe('the matrix — row by row (ฟีมเคาะ 2026-08-26, ทาง
     })
   })
 
-  it('ROW 5 — PRO buys PRO: REFUSED', () => {
+  it('ROW 5 — PRO buys PRO (promo top-up): allowed, all 364 days follow', () => {
     expect(decidePurchase({ current: proUntil('2027-08-25'), targetTier: 'PRO', today: TODAY })).toEqual({
-      allow: false,
-      reason: 'ALREADY_ON_THIS_TIER',
+      allow: true,
+      carryOverDays: 364,
     })
   })
 
@@ -141,11 +143,7 @@ describe('MG3 — legacy members (paid, no tier NAME) are never locked out', () 
 
 describe('MG2 — the refusals are real (a gate that always allows fails these)', () => {
   it('every refusing row refuses, and no refusal carries a day count the caller could use', () => {
-    const refusals = [
-      decidePurchase({ current: plusUntil('2027-08-25'), targetTier: 'PLUS', today: TODAY }),
-      decidePurchase({ current: proUntil('2027-08-25'), targetTier: 'PLUS', today: TODAY }),
-      decidePurchase({ current: proUntil('2027-08-25'), targetTier: 'PRO', today: TODAY }),
-    ]
+    const refusals = [decidePurchase({ current: proUntil('2027-08-25'), targetTier: 'PLUS', today: TODAY })]
     for (const r of refusals) {
       expect(r.allow).toBe(false)
       expect(r).not.toHaveProperty('carryOverDays')

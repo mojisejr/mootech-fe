@@ -62,6 +62,8 @@ export type CardVerdict =
   | { kind: 'free-card' }
   | { kind: 'buy'; carriesDays: boolean; carryOverDays: number }
   | { kind: 'upgrade'; carryOverDays: number }
+  /** ถือระดับนี้อยู่แล้ว และซื้อซ้ำได้ (ต่ออายุ/รับโปรฯ — เอ็ม 2026-10-01): วันที่เหลือบวกต่อท้าย */
+  | { kind: 'renew'; expireAt: string | null; carryOverDays: number }
   | { kind: 'current'; expireAt: string | null }
   | { kind: 'blocked' }
 
@@ -126,6 +128,9 @@ export function cardVerdictFor(args: {
 
   // Allowed. Is it an UPGRADE (we can place them on the ladder and this is higher), or just a purchase?
   const held = tierRank(current.tier)
+  if (current.isPaid && held !== null && held === tierRank(targetTier)) {
+    return { kind: 'renew', expireAt: current.expireAt, carryOverDays: decision.carryOverDays }
+  }
   if (current.isPaid && held !== null) return { kind: 'upgrade', carryOverDays: decision.carryOverDays }
 
   return {
