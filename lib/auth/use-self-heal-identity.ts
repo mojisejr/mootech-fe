@@ -4,7 +4,7 @@ import { useRouter } from "next/router";
 import { useCookies } from "react-cookie";
 import { CookieKey } from "@/constants/cookie-key";
 import { mintMemberIdentity } from "./mint-member";
-import { isLiffEraLineProfile } from "./liff-carry";
+import { isLiffEraLineProfile } from "./liff-carry-shared";
 import { useCurrentUser } from "./use-current-user";
 import { buildRegisterParamsFromSession } from "./register-params";
 import {

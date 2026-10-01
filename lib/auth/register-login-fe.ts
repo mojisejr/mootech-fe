@@ -1,5 +1,5 @@
 import { randomInt, randomUUID } from 'node:crypto'
-import { isInLiffWindow } from './liff-carry'
+import { isInLiffWindow } from './liff-carry-shared'
 
 export type LoginProvider = 'google' | 'LINE'
 
