@@ -1,12 +1,8 @@
-// lib/course/calendar.ts — คอร์สสอนใช้ปฏิทินจีน Mumate (ฟิว/พล 2026-10-01). server-only (ใช้ db).
-//   EP 1-7 ฟรี (สาธารณะ) · EP 8-13 ต้องมีสิทธิ์ (สมาชิก Plus/Pro ที่ยังไม่หมด หรือเคยซื้อคอร์ส = ตลอดชีพ)
-//   เนื้อหา EP มาจากชีตของฟิว · ลิงก์วิดีโอเก็บในตาราง course_video (0039) แก้ที่ /ops ของ engine
+// lib/course/access.ts — สิทธิ์เรียน + ลิงก์วิดีโอของคอร์ส (server-only: ใช้ db).
 import { sql } from 'drizzle-orm'
 import { db } from '@/lib/db'
 import { REVERSED_CODE } from '@/lib/payment/repo'
-import { COURSE_SLUG, COURSE_PACKAGE_CODES, EPISODES, type Episode } from './calendar-content'
-
-export { COURSE_SLUG, COURSE_PACKAGE_CODES, EPISODES, type Episode }
+import { COURSES, packagesGranting, type CourseSlug } from './content'
 
 function rowsOf(r: unknown): Record<string, unknown>[] {
   return (Array.isArray(r) ? r : ((r as { rows?: unknown[] }).rows ?? [])) as Record<string, unknown>[]
@@ -21,10 +17,10 @@ export function youtubeId(url: string | null | undefined): string | null {
   return m ? m[1] : null
 }
 
-/** ep → video id (เฉพาะที่ตั้งไว้แล้ว). ตารางยังไม่มี (ยังไม่รัน 0039) → {} ไม่ล้ม */
-export async function readVideoIds(): Promise<Record<number, string>> {
+/** ep → video id ของคอร์สนี้ (เฉพาะที่ตั้งไว้). ตารางยังไม่มี (ยังไม่รัน 0039) → {} ไม่ล้ม */
+export async function readVideoIds(slug: CourseSlug): Promise<Record<number, string>> {
   try {
-    const r = await db.execute(sql`SELECT ep, video_url FROM course_video WHERE course = ${COURSE_SLUG}`)
+    const r = await db.execute(sql`SELECT ep, video_url FROM course_video WHERE course = ${slug}`)
     const out: Record<number, string> = {}
     for (const row of rowsOf(r)) {
       const id = youtubeId(String(row.video_url ?? ''))
@@ -36,13 +32,15 @@ export async function readVideoIds(): Promise<Record<number, string>> {
   }
 }
 
-/** เคยซื้อคอร์สสำเร็จ (และไม่ถูก reverse) = สิทธิ์ตลอดชีพ แม้ Plus ที่แถมมาหมดแล้ว */
-export async function hasPurchasedCourse(userId: string): Promise<boolean> {
+/** เคยซื้อแพ็กที่ให้สิทธิ์คอร์สนี้สำเร็จ (ไม่ถูก reverse) = สิทธิ์ตลอดชีพ */
+export async function hasPurchased(userId: string, slug: CourseSlug): Promise<boolean> {
+  const codes = packagesGranting(slug)
+  if (codes.length === 0) return false
   const r = await db.execute(sql`
     SELECT 1 FROM v2_payment
      WHERE user_id = ${userId}
        AND status = 'APPROVED'
-       AND package_code IN (${sql.join(COURSE_PACKAGE_CODES.map((c) => sql`${c}`), sql`, `)})
+       AND package_code IN (${sql.join(codes.map((c) => sql`${c}`), sql`, `)})
        AND (failure_code IS NULL OR failure_code <> ${REVERSED_CODE})
      LIMIT 1`)
   return rowsOf(r).length > 0
@@ -67,13 +65,16 @@ export async function isPaidMemberNow(userId: string): Promise<boolean> {
 
 export type CourseAccess = { access: boolean; via: 'member' | 'purchase' | null }
 
-/** สิทธิ์เรียน EP เสียเงิน: สมาชิกที่จ่ายเงินจริงและยังไม่หมด (ไม่ต้องซื้อ) หรือเคยซื้อคอร์ส */
-export async function courseAccessFor(userId: string | null): Promise<CourseAccess> {
+/** สิทธิ์เรียน EP เสียเงิน: เคยซื้อคอร์ส (ตลอดชีพ) หรือ (คอร์สที่เปิดให้สมาชิก) สมาชิกที่จ่ายเงินจริงและยังไม่หมด */
+export async function courseAccessFor(slug: CourseSlug, userId: string | null): Promise<CourseAccess> {
   if (!userId) return { access: false, via: null }
-  try {
-    if (await isPaidMemberNow(userId)) return { access: true, via: 'member' }
-  } catch {
-    /* อ่านสมาชิกไม่ได้ → เช็กการซื้อคอร์สต่อ */
+  if (await hasPurchased(userId, slug)) return { access: true, via: 'purchase' }
+  if (COURSES[slug].memberAccess) {
+    try {
+      if (await isPaidMemberNow(userId)) return { access: true, via: 'member' }
+    } catch {
+      /* อ่านสมาชิกไม่ได้ → ไม่มีสิทธิ์ */
+    }
   }
-  return (await hasPurchasedCourse(userId)) ? { access: true, via: 'purchase' } : { access: false, via: null }
+  return { access: false, via: null }
 }

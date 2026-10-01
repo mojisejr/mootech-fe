@@ -1,160 +1,170 @@
-// /course/calendar — หน้าขาย + สารบัญคอร์สสอนใช้ปฏิทินจีน Mumate (สาธารณะ ไม่ต้องล็อกอิน).
-// ฟิว/พล 2026-10-01: EP 1-7 ฟรีทุกคน · EP 8-13 คอร์ส 490 (แถม Plus 1 เดือน) / 790 (แถม Plus 1 ปี)
-// สมาชิก Plus/Pro เรียนได้เลยไม่ต้องซื้อ · ซื้อคอร์สแล้วเรียนได้ตลอด (แม้ Plus ที่แถมหมดอายุ)
+// /course/calendar — Sale page คอร์ส "Win the Day" (คอร์สปฏิทิน Mumate ฿490) ตามเอกสาร sale page ของพล 2026-10-01.
+// 8 ส่วน: Hero · ขยี้ปัญหา · ทางออก · หลักสูตร 13 บท · โบนัส Plus 1 เดือน · สรุปมูลค่า · FAQ · ปิดการขาย
+// มีสิทธิ์แล้ว (สมาชิกที่จ่ายเงินจริง / เคยซื้อ) → ไม่โชว์ปุ่มซื้อ โชว์ "เรียนได้เลย" แทน
+// upsell/downsell (Bazi Life Matrix) เสนอ "หลังจ่าย 490" ที่ /course/offer
 import { useState } from 'react'
 import Head from 'next/head'
 import Image from 'next/image'
 import Link from 'next/link'
-import { useRouter } from 'next/router'
 import { SkyBackdrop, SkyHeader } from '@/features/v2-profile/components/kit'
-import { useCalendarCourse } from '@/features/course/useCalendarCourse'
-import { PARTS, FREE_UNTIL_EP, COURSE_UPSELL_CODE, COURSE_UPSELL_PRICE, checkoutHrefFor } from '@/lib/course/calendar-content'
+import { useCourse, type CourseState } from '@/features/course/useCourse'
+import { EpisodeList, CARD } from '@/features/course/EpisodeList'
+import { COURSES, checkoutHrefFor } from '@/lib/course/content'
 
-const CARD = 'rounded-[20px] bg-white p-5 drop-shadow-[0_4px_15px_rgba(26,38,77,0.10)]'
+const COURSE = COURSES.calendar
+const BUY_HREF = checkoutHrefFor('COURSE_CAL_490')
 
-/** flow จ่ายเงินของฟิว: กดซื้อ 490 → ① ชวน 790 (Plus 1 ปี) → ไม่เอา → ② 790 ลด 10% = 711 → ไม่เอา → จ่าย 490 */
-function UpsellSheet({ onClose }: { onClose: () => void }) {
-  const router = useRouter()
-  const [step, setStep] = useState<1 | 2>(1)
-  const go = (href: string) => void router.push(href)
+const PAINS = [
+  { icon: '❌', text: 'ใส่เสื้อสีมงคลตามตารางทั่วไป แต่ทำไมไปคุยงานแล้วยังพัง ไม่รู้สึกว่าเป็นวันของเรา?' },
+  { icon: '🌪️', text: 'นัดเจรจาหรือตัดสินใจเรื่องใหญ่ในวันที่พลังงานต้านทาน จนเกิดข้อผิดพลาดที่แก้ยาก?' },
+  { icon: '⏱️', text: 'ยุ่งจนไม่มีเวลาดูฤกษ์ยามซับซ้อน แต่อยากรู้วิธีเลี่ยง "วันชง" หรือ "วันพัง" แบบง่าย ๆ ทันทีที่ตื่นนอน?' },
+]
+
+const FAQ = [
+  { q: 'ไม่มีพื้นฐานดวงจีนเลย เรียนรู้เรื่องไหม?', a: 'เรียนได้ 100% คอร์สนี้ไม่ได้สอนให้คุณเป็นหมอดู แต่สอนวิธีใช้ "เครื่องมือ" (ปฏิทิน) เพื่อคนทั่วไปนำไปปรับใช้กับชีวิตประจำวันได้ทันที' },
+  { q: 'มีสอนหาฤกษ์ยามแบบลึกซึ้งเลยไหม?', a: 'คอร์สนี้เน้นการหาวันที่เหมาะสม-วันควรระวัง และการเลือกกิจกรรมให้เข้ากับวันนั้น ๆ เพื่อให้คนทั่วไปใช้งานได้จริงอย่างรวดเร็ว โดยเลี่ยงความซับซ้อนของวิชาฤกษ์ยามขั้นสูง' },
+  { q: 'หลังจากแอปฟรี 1 เดือนหมดอายุ จะโดนตัดบัตรอัตโนมัติไหม?', a: 'ไม่มีการหักเงินอัตโนมัติซ่อนเร้น คุณสามารถเลือกต่ออายุด้วยตัวเองได้หากชื่นชอบ หรือกลับไปใช้แอปเวอร์ชันปกติได้ฟรีตลอดไป' },
+  { q: 'เรียนที่ไหน มีวันหมดอายุไหม?', a: 'เรียนผ่านระบบออนไลน์ เข้าเรียนได้ทันทีหลังชำระเงิน และดูซ้ำได้ตลอดชีพ ไม่มีวันหมดอายุ' },
+]
+
+/** ปุ่ม CTA: ยังตรวจสิทธิ์ → รอ · มีสิทธิ์ → เข้าเรียน · ไม่มี → ไปจ่าย 490 */
+function Cta({ s, label, testId, gold }: { s: CourseState; label: string; testId: string; gold?: boolean }) {
+  if (s.status === 'loading') return <p className="text-center text-sm text-v3-text-muted">กำลังตรวจสอบสิทธิ์ของคุณ…</p>
+  if (s.status === 'ok' && s.access) {
+    return (
+      <Link href="/course/calendar/1" data-testid={`${testId}-go`} className="grid min-h-14 w-full place-items-center rounded-full bg-v3-cyan px-4 text-base font-bold text-white">
+        {s.via === 'member' ? 'คุณเป็นสมาชิก — เข้าเรียนได้เลย ▶' : 'คุณมีสิทธิ์แล้ว — เข้าเรียนเลย ▶'}
+      </Link>
+    )
+  }
   return (
-    <div role="dialog" aria-modal="true" data-testid="course-upsell" className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 sm:items-center" onClick={onClose}>
-      <div className="w-full max-w-md rounded-t-[24px] bg-white p-6 pb-[max(1.5rem,env(safe-area-inset-bottom))] sm:rounded-[24px]" onClick={(e) => e.stopPropagation()}>
-        {step === 1 ? (
-          <>
-            <p className="text-xs font-bold text-v3-cyan">ก่อนชำระเงิน</p>
-            <h3 className="mt-1 text-xl font-black leading-7 text-v3-navy">เพิ่มอีก ฿300 ได้ใช้ปฏิทิน 1 ปีเต็ม</h3>
-            <p className="mt-2 text-sm leading-6 text-v3-text-body">
-              คอร์ส ฿490 แถม Mumate + 1 เดือน · เพิ่มเป็น <b>฿790</b> ได้ Mumate + ใช้ปฏิทินครบ <b>1 ปี</b> — คุ้มกว่า เรียนจบแล้วยังใช้จริงต่อได้ทั้งปี
-            </p>
-            <button type="button" data-testid="upsell-yes-790" onClick={() => go(checkoutHrefFor('COURSE_CAL_790'))} className="mt-4 h-12 w-full rounded-full bg-v3-sapphire text-base font-bold text-white">
-              เอา ฿790 (ได้ 1 ปี)
-            </button>
-            <button type="button" data-testid="upsell-no-790" onClick={() => setStep(2)} className="mt-2 h-11 w-full rounded-full text-sm font-semibold text-v3-text-body">
-              ไม่เอา
-            </button>
-          </>
-        ) : (
-          <>
-            <p className="text-xs font-bold text-v3-error">ข้อเสนอพิเศษ · ครั้งเดียว</p>
-            <h3 className="mt-1 text-xl font-black leading-7 text-v3-navy">ลดเพิ่ม 10% เหลือ ฿{COURSE_UPSELL_PRICE}</h3>
-            <p className="mt-2 text-sm leading-6 text-v3-text-body">
-              คอร์สปฏิทิน + Mumate + 1 ปี จาก <s>฿790</s> เหลือ <b>฿{COURSE_UPSELL_PRICE}</b> — จ่ายเพิ่มจาก ฿490 แค่ ฿{COURSE_UPSELL_PRICE - 490}
-            </p>
-            <button type="button" data-testid="upsell-yes-711" onClick={() => go(checkoutHrefFor('COURSE_CAL_790', COURSE_UPSELL_CODE))} className="mt-4 h-12 w-full rounded-full bg-v3-sapphire text-base font-bold text-white">
-              เอา ฿{COURSE_UPSELL_PRICE}
-            </button>
-            <button type="button" data-testid="upsell-no-711" onClick={() => go(checkoutHrefFor('COURSE_CAL_490'))} className="mt-2 h-11 w-full rounded-full text-sm font-semibold text-v3-text-body">
-              ไม่เอา ซื้อคอร์ส ฿490 ตามเดิม
-            </button>
-          </>
-        )}
-      </div>
-    </div>
+    <Link
+      href={BUY_HREF}
+      data-testid={testId}
+      className={`grid min-h-14 w-full place-items-center rounded-full px-4 text-center text-base font-bold shadow-lg transition-transform hover:-translate-y-0.5 hover:shadow-xl active:translate-y-0 ${gold ? 'bg-[#f2c14e] text-v3-navy' : 'bg-v3-sapphire text-white'}`}
+    >
+      {label}
+    </Link>
   )
 }
 
 export default function CalendarCoursePage() {
-  const s = useCalendarCourse()
-  const [upsell, setUpsell] = useState(false)
-  const access = s.status === 'ok' && s.access
+  const s = useCourse('calendar')
+  const [faqOpen, setFaqOpen] = useState<number | null>(0)
 
   return (
     <div className="relative min-h-screen w-full overflow-x-hidden bg-white font-ibm">
       <Head>
-        <title>คอร์สสอนใช้ปฏิทินจีน Mumate</title>
-        <meta name="description" content="เรียนอ่านปฏิทินจีน Mumate ให้ใช้เป็นในชีวิตจริง — ดูฟรี 7 ตอน และ Advance Mode อีก 6 ตอน" />
+        <title>Win the Day — สูตรอ่านปฏิทินดวงจีน | Mumate</title>
+        <meta name="description" content="เลิกเดาจังหวะชีวิต! รู้วันดี-วันต้องระวังล่วงหน้า ด้วยปฏิทิน Mumate — คอร์สออนไลน์ 13 บทเรียน ดูฟรี 7 บทแรก" />
       </Head>
       <SkyBackdrop />
-      <SkyHeader title="คอร์สปฏิทิน Mumate" backHref="/v2" testId="course" />
+      <SkyHeader title="Win the Day" backHref="/v2" testId="course" />
 
-      <main className="relative z-10 mx-auto flex w-full max-w-md flex-col gap-5 px-4 pb-16 pt-3">
-        {/* ภาพคอร์ส — รูปเดียวกับแบนเนอร์หน้าแรก (public/images/v2/popup/calendar-course.png) */}
-        <Image src="/images/v2/popup/calendar-course.png" alt="คอร์สปฏิทิน Mumate" width={1000} height={1300} priority className="h-auto w-full rounded-[20px] drop-shadow-[0_4px_15px_rgba(26,38,77,0.10)]" />
+      <main className="relative z-10 mx-auto flex w-full max-w-md flex-col gap-6 px-4 pb-16 pt-3">
+        {/* Section 1 — Hero */}
+        <section className="flex flex-col gap-4" data-testid="sale-hero">
+          <Image src="/images/v2/popup/calendar-course.png" alt="คอร์สปฏิทิน Mumate" width={1000} height={1300} priority className="h-auto w-full rounded-[20px] drop-shadow-[0_4px_15px_rgba(26,38,77,0.10)]" />
+          <div className={CARD}>
+            <p className="text-sm font-semibold text-v3-text-muted">หยุดเสียเวลาและพลังงานไปกับวันที่ไม่ใช่...</p>
+            <h1 className="mt-1 text-2xl font-black leading-8 text-v3-navy">
+              เลิกเดาจังหวะชีวิต! รู้วันดี-วันต้องระวังล่วงหน้า เพื่อผลลัพธ์ที่ดีที่สุดในทุก ๆ วัน ด้วย &ldquo;ปฏิทิน Mumate&rdquo;
+            </h1>
+            <p className="mt-3 text-sm leading-6 text-v3-text-body">
+              คอร์สออนไลน์ที่จะสอนคุณ &ldquo;ถอดรหัสปฏิทินดวงยุคใหม่&rdquo; พร้อมวิธีเลือกกิจกรรมให้ตรงกับพลังงานของวัน วางแผนชีวิตได้แม่นยำขึ้นใน 60 วินาที แม้ไม่มีพื้นฐานโหราศาสตร์
+            </p>
+            <div className="mt-4">
+              <Cta s={s} label="สมัครเรียน + รับสิทธิ์ใช้แอปฟรี 1 เดือน (เพียง 490.-)" testId="course-buy-hero" />
+            </div>
+            <p className="mt-3 text-center text-xs text-v3-text-muted">🔒 ชำระเงินปลอดภัย · 📱 เข้าเรียนได้ทันที · ♾️ เรียนทบทวนได้ตลอดชีพ</p>
+            <p className="mt-1 text-center text-xs font-semibold text-v3-cyan">✅ ดูฟรี 7 บทแรกได้เลย ไม่ต้องสมัคร</p>
+          </div>
+        </section>
 
-        {/* Hero */}
-        <section className={CARD}>
-          <p className="text-xs font-bold tracking-wide text-v3-cyan">คอร์สออนไลน์ · 13 ตอน</p>
-          <h2 className="mt-1 text-2xl font-black leading-8 text-v3-navy">อ่านปฏิทินจีนเป็น ใช้ได้จริงทุกวัน</h2>
-          <p className="mt-2 text-sm leading-6 text-v3-text-body">
-            เลิกเดาสีเสื้อ ทิศ และเวลามงคลจากสูตรตายตัว — เรียนวิธีอ่านปฏิทิน Mumate ที่คำนวณเฉพาะดวงของคุณ ตั้งแต่เกรด A-F
-            เวลาทอง ไปจนถึง 8 ประตู 10 เทพ และการใช้จริงกับงาน เงิน ความรัก
+        {/* Section 2 — Agitation */}
+        <section className="flex flex-col gap-3 rounded-[24px] bg-v3-bg-cream p-4">
+          <h2 className="text-xl font-black leading-7 text-v3-navy">คุณกำลังรู้สึกแบบนี้อยู่หรือเปล่า?</h2>
+          {PAINS.map((p) => (
+            <div key={p.icon} className="flex gap-3 rounded-2xl bg-white p-4 text-sm leading-6 text-v3-text-body">
+              <span className="text-xl">{p.icon}</span>
+              <span>{p.text}</span>
+            </div>
+          ))}
+          <p className="text-center text-base font-black leading-7 text-v3-navy">
+            ปัญหาไม่ได้อยู่ที่คุณไม่เก่ง แต่อยู่ที่คุณอาจกำลัง &ldquo;ออกแรงในวันที่ทิศทางลมต้าน&rdquo;
           </p>
-          <ul className="mt-3 space-y-1 text-sm text-v3-navy">
-            <li>✅ ดูฟรี {FREE_UNTIL_EP} ตอนแรก ไม่ต้องสมัคร</li>
-            <li>🔒 Advance Mode อีก 6 ตอน (EP 8-13)</li>
-            <li>♾️ ซื้อครั้งเดียว เรียนได้ตลอด</li>
+        </section>
+
+        {/* Section 3 — Solution */}
+        <section className={CARD}>
+          <h2 className="text-xl font-black leading-7 text-v3-navy">ทุกอย่างจะง่ายขึ้น เมื่อคุณมี &ldquo;เข็มทิศ&rdquo; บอกจังหวะชีวิตในทุก ๆ วัน</h2>
+          <p className="mt-2 text-sm leading-6 text-v3-text-body">
+            คอร์ส &ldquo;ปฏิทิน Mumate&rdquo; คือหลักสูตรที่ย่อยศาสตร์ Bazi (ปาจื่อ) ที่ซับซ้อน ให้กลายเป็นเครื่องมือที่ใช้งานง่ายที่สุดในชีวิตประจำวัน
+            คุณจะไม่ต้องเดาอีกต่อไปว่าวันไหนควรลุย วันไหนควรพัก หรือวันไหนควรระวังตัวเป็นพิเศษ
+          </p>
+        </section>
+
+        {/* Section 4 — Curriculum */}
+        <section className="flex flex-col gap-3">
+          <h2 className="text-xl font-black leading-7 text-v3-navy">เจาะลึกสิ่งที่คุณจะได้เรียนรู้ (นำไปใช้จริงได้ทันที)</h2>
+          {s.status === 'error' ? <p className="text-center text-sm text-v3-error">โหลดรายการบทเรียนไม่สำเร็จ ลองรีเฟรชอีกครั้ง</p> : null}
+          {s.status === 'ok' ? <EpisodeList course={COURSE} episodes={s.episodes} access={s.access} /> : null}
+          <Cta s={s} label="ปลดล็อกเนื้อหาทั้งหมดนี้ ในราคาเพียง 490.-" testId="course-buy-mid" />
+        </section>
+
+        {/* Section 5 — Bonus */}
+        <section className="rounded-[24px] border-2 border-[#d4a63a] bg-gradient-to-b from-[#fff8e6] to-white p-5">
+          <p className="text-xs font-black tracking-wide text-[#b8862a]">🎁 FREE 1 MONTH</p>
+          <h2 className="mt-1 text-xl font-black leading-7 text-v3-navy">พิเศษ! ไม่ใช่แค่คอร์สเรียน แต่เราให้ &ldquo;เครื่องมือ&rdquo; คุณไปใช้ลงมือทำจริง</h2>
+          <p className="mt-2 text-sm leading-6 text-v3-text-body">
+            ทฤษฎีจะไม่มีประโยชน์หากไม่ได้ลงมือทำ! สมัครเรียนวันนี้ รับสิทธิ์ใช้งานแอป <b>Mumate Plus ฟรี 1 เดือนเต็ม</b>
+          </p>
+          <ul className="mt-3 space-y-1 text-sm leading-6 text-v3-navy">
+            <li>✨ ให้ระบบ AI ของแอปช่วยประมวลผลดวงจีนที่ซับซ้อนแทนคุณ</li>
+            <li>✨ ดูเกรดรายวัน สีมงคลเฉพาะตัว และทิศทางแบบเรียลไทม์</li>
+            <li>✨ ใช้งานควบคู่กับบทเรียนได้ทันทีตั้งแต่นาทีแรกที่เข้าเรียน</li>
           </ul>
         </section>
 
-        {/* สถานะสิทธิ์ / ข้อเสนอ */}
-        {s.status === 'loading' ? (
-          <p className="text-center text-sm text-v3-text-muted">กำลังตรวจสอบสิทธิ์ของคุณ…</p>
-        ) : access ? (
-          <p data-testid="course-access" className="rounded-2xl bg-v3-sapphire/10 p-4 text-center text-sm font-bold text-v3-sapphire">
-            {s.status === 'ok' && s.via === 'member'
-              ? '🎉 คุณเป็นสมาชิก Mumate — เรียนได้ครบทุกตอนโดยไม่ต้องซื้อคอร์ส'
-              : '🎉 คุณมีสิทธิ์เรียนคอร์สนี้ครบทุกตอนแล้ว'}
-          </p>
-        ) : (
-          <section className="flex flex-col gap-3" data-testid="course-offers">
-            <div className={CARD}>
-              <div className="flex items-baseline justify-between gap-2">
-                <h3 className="text-base font-black text-v3-navy">คอร์สปฏิทิน Mumate</h3>
-                <span className="text-2xl font-black text-v3-navy">฿490</span>
-              </div>
-              <p className="mt-1 text-sm text-v3-text-body">เรียนครบ 13 ตอน (ตลอดชีพ) · แถม Mumate + ใช้ปฏิทินฟรี 1 เดือน</p>
-              <button
-                type="button"
-                data-testid="course-buy"
-                onClick={() => setUpsell(true)}
-                className="mt-3 grid h-12 w-full place-items-center rounded-full bg-v3-sapphire text-base font-bold text-white"
-              >
-                ซื้อคอร์ส ฿490
-              </button>
-            </div>
-            <p className="text-center text-xs leading-5 text-v3-text-muted">
-              สมัครสมาชิก Mumate + หรือ Pro แบบชำระเงินอยู่แล้ว? เรียนได้เลยไม่ต้องซื้อ (สิทธิ์ฟรีจากโค้ดกิจกรรมไม่รวม) —{' '}
-              {s.status === 'ok' && !s.loggedIn ? <Link href="/v2/login" className="font-bold text-v3-sapphire">เข้าสู่ระบบ</Link> : 'ตรวจสอบแพ็กเกจที่หน้าร้านค้า'}
-            </p>
-          </section>
-        )}
+        {/* Section 6 — Value stack */}
+        <section className={CARD}>
+          <h2 className="text-xl font-black leading-7 text-v3-navy">สรุปสิ่งที่คุณจะได้รับทั้งหมดในวันนี้...</h2>
+          <ul className="mt-3 flex flex-col gap-2 text-sm leading-6 text-v3-text-body">
+            <li className="flex justify-between gap-3"><span>คอร์สออนไลน์ ปฏิทิน Mumate 13 บทเรียน (เรียนซ้ำได้ตลอดชีพ)</span><span className="flex-none">มูลค่า 990.-</span></li>
+            <li className="flex justify-between gap-3"><span>[โบนัส] สิทธิ์ใช้งาน Mumate Plus 1 เดือน</span><span className="flex-none">มูลค่า 99.-</span></li>
+          </ul>
+          <hr className="my-3 border-v3-border-card" />
+          <p className="text-center text-sm text-v3-text-muted">มูลค่ารวมทั้งหมด <s>1,089 บาท</s></p>
+          <p className="mt-1 text-center text-3xl font-black text-v3-navy">วันนี้ จ่ายเพียง 490 บาท</p>
+          <div className="mt-4">
+            <Cta s={s} label="สมัครเรียน + รับสิทธิ์ใช้ Mumate Plus ฟรี 1 เดือน" testId="course-buy-value" />
+          </div>
+        </section>
 
-        {/* สารบัญ */}
-        {s.status === 'error' ? (
-          <p className="text-center text-sm text-v3-error">โหลดรายการตอนไม่สำเร็จ ลองรีเฟรชอีกครั้ง</p>
-        ) : null}
-        {s.status === 'ok'
-          ? ([1, 2, 3] as const).map((part) => {
-              const eps = s.episodes.filter((e) => e.part === part)
-              return (
-                <section key={part} className={CARD}>
-                  <p className="text-xs font-bold text-v3-cyan">ส่วนที่ {part}</p>
-                  <h3 className="mb-2 text-base font-black leading-6 text-v3-navy">{PARTS[part]}</h3>
-                  <ul className="flex flex-col divide-y divide-v3-border-card">
-                    {eps.map((e) => {
-                      const open = e.free || access
-                      return (
-                        <li key={e.ep}>
-                          <Link href={`/course/calendar/${e.ep}`} data-testid={`course-ep-${e.ep}`} className="flex items-start gap-3 py-3">
-                            <span className="grid size-8 flex-none place-items-center rounded-full bg-v3-sky-tint text-sm font-black text-v3-sapphire">
-                              {e.ep}
-                            </span>
-                            <span className="min-w-0 flex-1 text-sm font-semibold leading-5 text-v3-navy">{e.title}</span>
-                            <span className="flex-none text-xs font-bold">
-                              {!open ? '🔒' : e.ready ? <span className="text-v3-cyan">▶ ดู</span> : <span className="text-v3-text-muted">เร็ว ๆ นี้</span>}
-                            </span>
-                          </Link>
-                        </li>
-                      )
-                    })}
-                  </ul>
-                </section>
-              )
-            })
-          : null}
+        {/* Section 7 — FAQ */}
+        <section className="flex flex-col gap-2">
+          <h2 className="text-xl font-black leading-7 text-v3-navy">คำถามที่พบบ่อย (FAQ)</h2>
+          {FAQ.map((f, i) => (
+            <div key={f.q} className="rounded-2xl bg-white drop-shadow-[0_2px_8px_rgba(26,38,77,0.08)]">
+              <button type="button" onClick={() => setFaqOpen(faqOpen === i ? null : i)} className="flex w-full items-center justify-between gap-3 p-4 text-left text-sm font-bold text-v3-navy" aria-expanded={faqOpen === i}>
+                <span>Q: {f.q}</span>
+                <span className="flex-none text-v3-text-muted">{faqOpen === i ? '−' : '+'}</span>
+              </button>
+              {faqOpen === i ? <p className="px-4 pb-4 text-sm leading-6 text-v3-text-body">{f.a}</p> : null}
+            </div>
+          ))}
+        </section>
+
+        {/* Section 8 — Final CTA */}
+        <section className="rounded-[24px] bg-v3-navy p-6 text-center text-white">
+          <h2 className="text-xl font-black leading-7">อย่าปล่อยให้ความสำเร็จของคุณ ต้องพึ่งพาแค่ความบังเอิญอีกต่อไป</h2>
+          <p className="mt-2 text-sm leading-6 text-white/80">เริ่มต้นออกแบบจังหวะชีวิตล่วงหน้า ในราคาที่คุ้มค่ากว่ากาแฟไม่กี่แก้ว</p>
+          <div className="mt-4">
+            <Cta s={s} label="สมัครเรียนตอนนี้เลย (490 บาท)" testId="course-buy-final" gold />
+          </div>
+          <p className="mt-3 text-xs text-white/60">สมาชิก Mumate + / Pro แบบชำระเงิน เรียนได้เลยไม่ต้องซื้อ (สิทธิ์ฟรีจากโค้ดกิจกรรมไม่รวม)</p>
+        </section>
       </main>
-      {upsell ? <UpsellSheet onClose={() => setUpsell(false)} /> : null}
     </div>
   )
 }

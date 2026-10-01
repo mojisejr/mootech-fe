@@ -10,7 +10,7 @@ import { getQuote } from '@/lib/discount/repo'
 import type { ChargeResult } from './gateway'
 import { isRefusedCharge } from './gateway'
 import { gatewayNameFromEnv } from './select-gateway'
-import { isCoursePackage } from '@/lib/course/calendar-content'
+import { isCoursePackage } from '@/lib/course/content'
 
 export function makeOrderId(): string {
   // parity with v1: 10 random decimal digits (crypto.randomInt)
@@ -79,7 +79,7 @@ export async function runChargeFlow(
   const purchase =
     // คอร์สปฏิทิน (tier PLUS) — คนที่ถือ PRO (เช่น ได้ฟรีจากโค้ดกิจกรรม = ไม่มีสิทธิ์คอร์ส) ต้องซื้อได้: ไม่ใช่การ
     // ลดระดับ — settle ไม่เขียนแถว PLUS ทับ PRO (decideSettlement → REPLACED) แต่ v2_payment APPROVED = สิทธิ์คอร์สตลอดชีพ
-    priced.tierCode === 'QI' || priced.tierCode === 'SINSAE' || priced.tierCode === 'BOOK' || isCoursePackage(priced.packageCode)
+    priced.tierCode === 'QI' || priced.tierCode === 'SINSAE' || priced.tierCode === 'BOOK' || priced.tierCode === 'COURSE' || isCoursePackage(priced.packageCode)
       ? ({ allow: true } as const)
       : await decidePurchaseFor(who.userId, priced.tierCode, now)
   if (!purchase.allow) {

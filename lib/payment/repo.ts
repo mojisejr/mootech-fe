@@ -293,6 +293,8 @@ export async function revokeByChargeId(
     // 🔴 BOOK ORDER LANE — เช่นเดียวกับ QI/SINSAE: ไม่ได้เขียน member_* → ไม่มีสมาชิกให้ถอน. คืนเงิน/ยกเลิกออเดอร์
     // คุยกันทางไลน์/กลุ่ม; เลนนี้แค่ mark REVERSED (ข้างบน) ไม่แตะ shadow และไม่รอมนุษย์.
     if (pay.tierCode === 'BOOK') return { revoked: true, shadowHandled: 'NONE' }
+    // COURSE (คอร์สล้วน) — ไม่ได้เขียน member_*; สิทธิ์คอร์สอ่านจาก v2_payment ที่ไม่ถูก reverse จึงหายเองเมื่อ mark REVERSED
+    if (pay.tierCode === 'COURSE') return { revoked: true, shadowHandled: 'NONE' }
 
     // Only an ACTIVE row is moved, ON PURPOSE. If a later purchase already superseded this one the row is
     // 'REPLACED', which grants nothing anyway (lib/v2/subscription.ts:71 asks for ACTIVE), so there is
@@ -764,6 +766,11 @@ export async function settleAndProvision(
     // สั่งซื้อหนังสือไม่ใช่สมาชิก/ชี่: v2_payment แถวนี้ (tier_code='BOOK') = หลักฐานการซื้อ. ไม่เขียน member_*
     // ไม่เครดิตชี่. รายละเอียดจัดส่งอยู่ใน book_order แล้วผูก charge_id ที่ result หลังจ่ายสำเร็จ.
     if (pay.tierCode === 'BOOK') {
+      return { provisioned: true, outcome }
+    }
+
+    // ── COURSE (คอร์สล้วน, lib/course) — v2_payment APPROVED = สิทธิ์คอร์สตลอดชีพ. ไม่เขียน member_* ไม่เครดิตชี่.
+    if (pay.tierCode === 'COURSE') {
       return { provisioned: true, outcome }
     }
 

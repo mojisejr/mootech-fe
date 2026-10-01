@@ -16,7 +16,7 @@ import { AuthLoadingGate } from '@/features/v2-shell/components/AuthLoadingGate'
 import { AppHeader } from '@/features/v2-shell/components/AppHeader'
 import { useClientTier } from '@/features/v2-shell/hooks/useClientTier'
 import { OrderSummaryCard } from '@/features/v2-shop/components/OrderSummaryCard'
-import { COURSE_OFFERS } from '@/lib/course/calendar-content'
+import { COURSE_PACKAGES, isCoursePackage } from '@/lib/course/content'
 import { qiQtyOf, sinsaeLabelOf } from '@/lib/payment/catalog'
 import { PaymentMethodPicker, type PayMethod } from '@/features/v2-shop/components/PaymentMethodPicker'
 import { CardForm, type CardState } from '@/features/v2-shop/components/CardForm'
@@ -74,7 +74,7 @@ export default function V2CheckoutPage({ teamPreview }: { teamPreview: boolean }
   // 🔴 จองซินแส (tier SINSAE) — ห้ามโชว์โค้ดดิบ "SINSAE_60" หรือ "อายุ 1 ปี": การจองไม่มีอายุ ยืนยันวันเวลาทางไลน์
   const sinsaeLabel = sinsaeLabelOf(packageCode)
   // คอร์สปฏิทิน (tier PLUS — lib/course/calendar-content) — ชื่อ + อายุ Plus ที่แถม (490 = 1 เดือน, 790 = 1 ปี)
-  const courseOffer = COURSE_OFFERS.find((o) => o.code === packageCode)
+  const courseOffer = isCoursePackage(packageCode) ? COURSE_PACKAGES[packageCode] : null
   const planName = courseOffer
     ? courseOffer.title
     : plan
@@ -173,7 +173,9 @@ export default function V2CheckoutPage({ teamPreview }: { teamPreview: boolean }
             planName={planName}
             validUntilText={
               courseOffer
-                ? `เรียนได้ตลอด · Mumate + ${courseOffer.code === 'COURSE_CAL_490' ? '1 เดือน' : '1 ปี'}นับจากวันที่ชำระเงิน`
+                ? courseOffer.plusLabel
+                  ? `เรียนได้ตลอด · Mumate + ${courseOffer.plusLabel}นับจากวันที่ชำระเงิน`
+                  : 'เรียนได้ตลอดชีพ'
                 : '1 ปีนับจากวันที่ชำระเงิน'
             }
             {...(qiQty !== null

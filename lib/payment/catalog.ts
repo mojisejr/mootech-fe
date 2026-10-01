@@ -15,6 +15,7 @@
 // below and slots the real code discount into `codeDiscountSatang`. The formula's SHAPE is here now so the
 // money lane is touched once per phase, not rewritten.
 import { parseTierCode, type TierCode } from '@/lib/v2/tier'
+import { isCoursePackage } from '@/lib/course/content'
 
 // ── QI PACKS (buy-qi ก้อน 1.6) ────────────────────────────────────────────────────────────────────
 // แพ็กชี่ขายผ่านราง Omise v2 เดียวกับ Plus/Pro แต่ไม่ใช่สมาชิก: settle แล้ว "เครดิตชี่เข้า engine"
@@ -140,7 +141,7 @@ export function parseExpireSpec(expire: string): ExpireSpec {
 export type Quote = {
   packageCode: string
   /** 'QI'=แพ็กชี่ · 'SINSAE'=จองซินแส · 'BOOK'=สั่งซื้อหนังสือ (ทั้งหมดไม่ใช่สมาชิก — เลน settle แยก); อื่น ๆ คือบันไดสมาชิก */
-  tierCode: TierCode | 'QI' | 'SINSAE' | 'BOOK'
+  tierCode: TierCode | 'QI' | 'SINSAE' | 'BOOK' | 'COURSE'
   amountSatang: number // what Omise charges (VAT-inclusive)
   vatSatang: number // VAT extracted from amountSatang (0 when rate is 0)
   expire: ExpireSpec
@@ -179,6 +180,13 @@ export function quotePackage(
     throw new UnsellablePackageError(pkg.packageCode, 'BOOK order without a known format')
   }
 
+  // 🔴 COURSE (คอร์สล้วน เช่น downsell Bazi Life Matrix +199): ไม่ใช่บันไดสมาชิก — v2_payment APPROVED = สิทธิ์คอร์ส
+  // (lib/course/access.ts). ต้องเป็นแพ็กคอร์สที่รู้จัก (lib/course/content) ไม่งั้น fail loud.
+  const isCoursePack = pkg.tierCode === 'COURSE'
+  if (isCoursePack && !isCoursePackage(pkg.packageCode)) {
+    throw new UnsellablePackageError(pkg.packageCode, 'COURSE pack that is not a known course package')
+  }
+
   const tierCode = parseTierCode(pkg.tierCode)
   // 🔴 The `=== 'FREE'` half is load-bearing OUTSIDE this file, and its only pin is one row of one test.
   // A FREE tier passes 0006's CHECK and maps cleanly, so nothing downstream refuses it: a live FREE
@@ -191,7 +199,7 @@ export function quotePackage(
   // individually: `free` (:32) still throws on the amount check, `garbageTier` (:34) still throws on the
   // null half, and only :33 reddens. Delete :33 as a near-duplicate of :32 and MC1 keeps its name and its
   // green tick while no longer testing this clause at all.
-  if (!isQiPack && !isSinsaePack && !isBookPack && (tierCode === null || tierCode === 'FREE')) {
+  if (!isQiPack && !isSinsaePack && !isBookPack && !isCoursePack && (tierCode === null || tierCode === 'FREE')) {
     throw new UnsellablePackageError(pkg.packageCode, 'no paid tier for it')
   }
 
@@ -213,7 +221,7 @@ export function quotePackage(
 
   return {
     packageCode: pkg.packageCode,
-    tierCode: isQiPack ? 'QI' : isSinsaePack ? 'SINSAE' : isBookPack ? 'BOOK' : (tierCode as TierCode), // throw ด้านบน = พยานว่า non-QI/SINSAE/BOOK แล้วเป็น paid tier
+    tierCode: isQiPack ? 'QI' : isSinsaePack ? 'SINSAE' : isBookPack ? 'BOOK' : isCoursePack ? 'COURSE' : (tierCode as TierCode), // throw ด้านบน = พยานว่า non-QI/SINSAE/BOOK แล้วเป็น paid tier
     amountSatang,
     vatSatang,
     expire: parseExpireSpec(pkg.expire),
