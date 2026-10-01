@@ -1,5 +1,6 @@
 import { useEffect, useRef } from "react";
 import { useSession, signOut } from "next-auth/react";
+import { useRouter } from "next/router";
 import { useCookies } from "react-cookie";
 import { CookieKey } from "@/constants/cookie-key";
 import { mintMemberIdentity } from "./mint-member";
@@ -59,6 +60,9 @@ function isDevSession(): boolean {
 export function useSelfHealIdentity(): void {
   const { data: session, status: sessionStatus } = useSession();
   const { status: authStatus } = useCurrentUser();
+  // หน้าสาธารณะที่ข้ามการ heal ต้องถูกประเมินใหม่ทุกครั้งที่เปลี่ยนหน้า — ไม่งั้นเข้า /course แล้ว client-nav ไป
+  // /v2/shop/checkout จะไม่มีใคร mint MEMBER_ID → checkout ค้าง "ใช้เวลานานกว่าปกติ" (เจอ 2026-10-01)
+  const { pathname } = useRouter();
   const [, setCookie, removeCookie] = useCookies([
     CookieKey.MEMBER_ID,
     CookieKey.MEMBER_NAME,
@@ -98,7 +102,7 @@ export function useSelfHealIdentity(): void {
       return;
     }
     // หน้าสาธารณะ (ลิงก์แชร์คำทำนาย / คอร์ส / โปรฯ) เปิดดูได้โดยไม่ต้องมีบัญชี — ห้ามเด้งไปถามหรือสร้างบัญชีให้
-    if (typeof window !== "undefined" && /^\/(invite|course|promo)(\/|$)/.test(window.location.pathname)) {
+    if (/^\/(invite|course|promo)(\/|$)/.test(pathname)) {
       return;
     }
 
@@ -164,5 +168,5 @@ export function useSelfHealIdentity(): void {
     // Depend only on the decision signals. react-cookie's cookies/setter identities
     // are not stable and would needlessly re-arm the timer; they are read at fire time.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sessionStatus, authStatus, session]);
+  }, [sessionStatus, authStatus, session, pathname]);
 }

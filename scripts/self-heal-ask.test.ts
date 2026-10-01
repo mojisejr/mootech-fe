@@ -21,6 +21,7 @@ const { session, registerCall, userGet, signOutMock, setCookieMock, removeCookie
   statusMock: vi.fn(),
 }))
 
+vi.mock('next/router', () => ({ useRouter: () => ({ pathname: '/v2' }) }))
 vi.mock('next/config', () => ({ default: () => ({ publicRuntimeConfig: {}, serverRuntimeConfig: {} }) }))
 vi.mock('next-auth/react', () => ({
   useSession: () => ({ data: session.data, status: session.status }),
