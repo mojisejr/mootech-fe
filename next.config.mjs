@@ -15,6 +15,14 @@ const withSerwist = withSerwistInit({
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
+  // คอร์สปฏิทินอยู่ที่ /course/calendar — ทางลัดที่คนชอบพิมพ์ (/v2/course, /course) พาไปหน้าเดียวกัน
+  async redirects() {
+    return [
+      { source: "/v2/course", destination: "/course/calendar", permanent: false },
+      { source: "/v2/course/:path*", destination: "/course/calendar/:path*", permanent: false },
+      { source: "/course", destination: "/course/calendar", permanent: false },
+    ];
+  },
   // Container build only (mumate-infra-move-001 slice 1): the Dockerfile sets NEXT_OUTPUT_STANDALONE=1 so
   // `next build` also emits .next/standalone (server.js + traced node_modules) for `node server.js` in the
   // image. Deliberately NOT unconditional — the Vercel build keeps exactly the output it has today.
