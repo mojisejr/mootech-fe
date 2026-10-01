@@ -140,20 +140,18 @@ describe('#457 🔴 row 1b — LOGGED OUT: no membership row exists, and the sho
 })
 
 describe('#457 row 2 — a PLUS member', () => {
-  it('is told Mumate + is theirs, WITH the real expiry date, and gets NO way to buy it at all', async () => {
+  // เอ็มเคาะ 2026-10-01: การ์ดระดับที่ถืออยู่ ต่ออายุได้ — บอกวันหมดอายุจริง + ปุ่ม "ต่ออายุ" + วันที่เหลือตามไป
+  it('is told Mumate + is theirs, WITH the real expiry date, and may RENEW it (days carry over)', async () => {
     await mountAs({ isPaid: true, tier: 'PLUS', loading: false }, '2027-08-26')
-    expect(screen.getByTestId('plan-status-plus').textContent).toBe('แพ็กเกจปัจจุบันของคุณ · ใช้ได้ถึง 26 ส.ค. 2570')
-    expect(controlsIn('plus')).toHaveLength(0)
-    expect(cardText('plus')).not.toContain('สมัครแพ็กเกจ')
+    expect(screen.getByTestId('plan-renew-note-plus').textContent).toBe('แพ็กเกจปัจจุบันของคุณ · ใช้ได้ถึง 26 ส.ค. 2570')
+    expect(screen.getByTestId('plan-cta-plus').textContent).toContain('ต่ออายุ Mumate +')
     expect(cardText('plus')).not.toContain('อัปเกรดเป็น')
-    // ตู๋ MUT-D: "no control" and "no promise" are two claims, and these rows only made the first. Letting
-    // the carry-over line render here tells someone who cannot buy this that buying it keeps their days.
-    expect(cardText('plus')).not.toContain('จะถูกบวกให้')
+    expect(cardText('plus')).toContain('จะถูกบวกให้')
   })
   it('🔴 shows the DATE THEY WERE GIVEN — a different expiry renders differently', async () => {
     // negative control for S2: an assertion that could pass with a hardcoded date proves nothing.
     await mountAs({ isPaid: true, tier: 'PLUS', loading: false }, '2027-01-15')
-    expect(screen.getByTestId('plan-status-plus').textContent).toContain('ใช้ได้ถึง 15 ม.ค. 2570')
+    expect(screen.getByTestId('plan-renew-note-plus').textContent).toContain('ใช้ได้ถึง 15 ม.ค. 2570')
   })
   it('is offered Mumate Pro as an UPGRADE, and told the days they have left follow them', async () => {
     await mountAs({ isPaid: true, tier: 'PLUS', loading: false }, '2027-08-26')
@@ -171,11 +169,11 @@ describe('#457 row 3 — a PRO member', () => {
     expect(cardText('plus')).not.toContain('สมัครแพ็กเกจ')
     expect(cardText('plus')).not.toContain('จะถูกบวกให้') // ตู๋ MUT-D — no promises either, not just no controls
   })
-  it('sees Mumate Pro as the package they hold, with nothing to press there either', async () => {
+  it('sees Mumate Pro as the package they hold, and may renew it for the promo (days carry over)', async () => {
     await mountAs({ isPaid: true, tier: 'PRO', loading: false }, '2027-08-26')
-    expect(screen.getByTestId('plan-status-pro').textContent).toContain('แพ็กเกจปัจจุบันของคุณ')
-    expect(controlsIn('pro')).toHaveLength(0)
-    expect(cardText('pro')).not.toContain('จะถูกบวกให้')
+    expect(screen.getByTestId('plan-renew-note-pro').textContent).toContain('แพ็กเกจปัจจุบันของคุณ')
+    expect(screen.getByTestId('plan-cta-pro').textContent).toContain('ต่ออายุ Mumate Pro')
+    expect(cardText('pro')).toContain('จะถูกบวกให้')
   })
 })
 
@@ -240,7 +238,7 @@ describe('#457 — 🔴 payment terms only where there is a payment (found by LO
   it('a card that offers no purchase carries no "เมื่อชำระเงินเรียบร้อยแล้ว" line', async () => {
     await mountAs({ isPaid: true, tier: 'PRO', loading: false }, '2027-08-26')
     expect(screen.queryByTestId('plan-legal-plus')).toBeNull() // blocked — cannot downgrade
-    expect(screen.queryByTestId('plan-legal-pro')).toBeNull() // current — already theirs
+    expect(screen.getByTestId('plan-legal-pro').textContent).toContain('เมื่อชำระเงินเรียบร้อยแล้ว') // renew — a real payment
   })
   it('and neither does a card whose viewer we cannot place yet', async () => {
     tierState.value = { isPaid: null, tier: null, loading: true }

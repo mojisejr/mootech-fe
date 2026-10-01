@@ -110,7 +110,7 @@ function parseYmdUtc(ymd: string): number | null {
  *   PLUS (live)    PLUS     →  REFUSE ALREADY_ON_THIS_TIER
  *   PLUS (live)    PRO      →  allow, carry N     — upgrade now, the N days left follow them
  *   PRO  (live)    PLUS     →  REFUSE CANNOT_DOWNGRADE
- *   PRO  (live)    PRO      →  REFUSE ALREADY_ON_THIS_TIER
+ *   PRO  (live)    PRO      →  allow, carry N     — ต่ออายุ/โปรฯ (เอ็มเคาะ 2026-10-01, ดูด้านล่าง)
  *   legacy paid    PLUS/PRO →  allow, carry N     — see below
  *
  * 🔴 THE LEGACY BRANCH IS NOT IN ฟีม'S TABLE — บอง chose it, and it needs confirming (#456 comment).
@@ -144,7 +144,10 @@ export function decidePurchase(args: {
   if (wanted === null) return { allow: false, reason: 'CANNOT_DOWNGRADE' }
 
   if (wanted > held) return { allow: true, carryOverDays } // upgrade — the whole point of ทาง C
-  if (wanted === held) return { allow: false, reason: 'ALREADY_ON_THIS_TIER' }
+  // 🔴 เอ็มเคาะ 2026-10-01: สมาชิกที่ถือระดับนี้อยู่แล้ว "จ่ายซ้ำเพื่อรับโปรโมชัน/ต่ออายุ" ได้ — เดิมถูกปฏิเสธ
+  // (ALREADY_ON_THIS_TIER). ปลอดภัยเพราะไม่มีวันไหนหาย: วันที่เหลือ carry ต่อท้ายแพ็กใหม่ (= top-up)
+  // และ settlement (decideSettlement ด้านล่าง) grant ระดับเดียวกันพร้อม carry อยู่แล้ว — ประตูกับ webhook ตรงกัน.
+  if (wanted === held) return { allow: true, carryOverDays }
   return { allow: false, reason: 'CANNOT_DOWNGRADE' }
 }
 
