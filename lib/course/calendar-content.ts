@@ -12,6 +12,14 @@ export const COURSE_OFFERS: { code: CoursePackageCode; price: number; title: str
   { code: 'COURSE_CAL_790', price: 790, title: 'คอร์สปฏิทิน + Mumate + 1 ปี', bonus: 'เพิ่มอีก ฿300 ได้ Mumate + ใช้ปฏิทินฟรี 1 ปีเต็ม' },
 ]
 
+/** flow ฟิว 2026-10-01: กดซื้อ 490 → ชวน +300 เป็น 790 → ไม่เอา → เสนอ 790 ลด 10% (฿711, โค้ดนี้) → ไม่เอา → จ่าย 490 */
+export const COURSE_UPSELL_CODE = 'COURSEYEAR10'
+export const COURSE_UPSELL_PRICE = 711
+
+export function checkoutHrefFor(code: CoursePackageCode, promo?: string): string {
+  return `/v2/shop/checkout?package_code=${code}${promo ? `&code=${encodeURIComponent(promo)}` : ''}`
+}
+
 export function isCoursePackage(code: string): code is CoursePackageCode {
   return (COURSE_PACKAGE_CODES as readonly string[]).includes(code)
 }

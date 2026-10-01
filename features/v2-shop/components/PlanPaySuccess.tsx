@@ -16,6 +16,7 @@ import { useEffect, useState } from 'react'
 import { KitButton } from '@/features/v2-profile/components/kit'
 import { useV2User } from '@/features/auth/hooks/useV2User'
 import { bahtOf, methodWord, type FullPaymentRow } from '@/features/v2-account/components/OrdersScreen'
+import { isCoursePackage } from '@/lib/course/calendar-content'
 import { formatThaiDateAbbr } from '@/lib/v2/thai-date'
 import { RESULT_COPY } from '../result-state'
 import { planNameForTier } from '../packages'
@@ -96,6 +97,20 @@ export function PlanPaySuccess({ packageCode, charge, order }: { packageCode: st
           )}
         </p>
       </section>
+
+      {/* คอร์สปฏิทิน (ฟิว 2026-10-01): หลังจ่ายคอร์ส → ไปเรียน · แพ็ก 490 (Plus 1 เดือน) แนะนำเรียนให้จบใน 1 เดือน.
+          PromptPay ไม่ส่ง package_code กลับมา → ใช้ของแถวการจ่ายแทน */}
+      {isCoursePackage(packageCode || row?.packageCode || '') ? (
+        <section data-testid="course-pay-success" className="v3-shadow-card flex w-full flex-col gap-2 rounded-[22px] bg-white p-4 text-center">
+          <p className="text-base font-bold text-v3-navy">🎓 ปลดล็อกคอร์สปฏิทินครบ 13 ตอนแล้ว</p>
+          {(packageCode || row?.packageCode) === 'COURSE_CAL_490' ? (
+            <p data-testid="course-pay-success-hint" className="text-sm leading-6 text-v3-text-body">
+              เพื่อความคุ้มค่าที่สุด ควรเรียนให้จบภายใน 1 เดือน ระหว่างที่ใช้ Mumate + ได้ จะได้ฝึกใช้ปฏิทินจริงไปพร้อมกัน
+            </p>
+          ) : null}
+          <KitButton href="/course/calendar" testId="course-pay-success-go" className="!h-[48px]">เริ่มเรียนเลย</KitButton>
+        </section>
+      ) : null}
 
       {/* โปรฯ: ชวนเพื่อนใช้ Pro ฟรี 1 เดือน (ฟิว/ซินแส 2026-09-28) */}
       <PlanShareInvite />

@@ -22,3 +22,9 @@ CREATE TABLE IF NOT EXISTS course_video (
   updated_at  timestamptz NOT NULL DEFAULT now(),
   PRIMARY KEY (course, ep)
 );
+--> statement-breakpoint
+-- โค้ด upsell ขั้นที่ 2 (flow ฟิว 2026-10-01): ไม่เอา 790 → เสนอ 790 ลด 10% = ฿711 · ใช้ได้เฉพาะ COURSE_CAL_790, คนละครั้ง.
+-- หน้า /course/calendar แนบโค้ดนี้ใน ?code= ให้ checkout กรอกอัตโนมัติ. พัก/แก้ได้ที่ /ops เหมือนโค้ดอื่น.
+INSERT INTO discount_code (id, code, kind, value, max_discount_satang, applies_to, starts_at, ends_at, max_use_total, max_use_per_user, status, used_count, created_by, created_at)
+SELECT gen_random_uuid()::text, 'COURSEYEAR10', 'PERCENT', 10, NULL, ARRAY['COURSE_CAL_790'], NULL, NULL, NULL, 1, 'ACTIVE', 0, 'migration-0039', now()
+ WHERE NOT EXISTS (SELECT 1 FROM discount_code WHERE lower(code) = 'courseyear10');

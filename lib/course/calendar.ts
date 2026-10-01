@@ -4,7 +4,6 @@
 import { sql } from 'drizzle-orm'
 import { db } from '@/lib/db'
 import { REVERSED_CODE } from '@/lib/payment/repo'
-import { resolveSubscription } from '@/lib/v2/subscription'
 import { COURSE_SLUG, COURSE_PACKAGE_CODES, EPISODES, type Episode } from './calendar-content'
 
 export { COURSE_SLUG, COURSE_PACKAGE_CODES, EPISODES, type Episode }
@@ -49,14 +48,30 @@ export async function hasPurchasedCourse(userId: string): Promise<boolean> {
   return rowsOf(r).length > 0
 }
 
+/** เป็นสมาชิกที่ "จ่ายเงินจริง" และยังไม่หมดอายุ — แถว member_subscription ที่ผูก v2_payment (APPROVED, ยอด > 0).
+ *  🔴 ฟิว 2026-10-01: ได้ Plus/Pro ฟรีจากโค้ดกิจกรรม (COUPON:… เช่น BaziXMumatePro), แอดมินให้ (ADMIN_…),
+ *  หรือแชร์เพื่อนฟรี 1 เดือน → ไม่ได้สิทธิ์คอร์ส. แถวพวกนั้น amount 0 และไม่มี v2_payment_id จึงตกเงื่อนไขนี้เอง. */
+export async function isPaidMemberNow(userId: string): Promise<boolean> {
+  const r = await db.execute(sql`
+    SELECT 1 FROM member_subscription s
+      JOIN v2_payment p ON p.id = s.v2_payment_id
+     WHERE s.user_id = ${userId}
+       AND s.status = 'ACTIVE'
+       AND s.amount_satang > 0
+       AND s.expire_at >= (now() AT TIME ZONE 'Asia/Bangkok')::date
+       AND p.status = 'APPROVED'
+       AND (p.failure_code IS NULL OR p.failure_code <> ${REVERSED_CODE})
+     LIMIT 1`)
+  return rowsOf(r).length > 0
+}
+
 export type CourseAccess = { access: boolean; via: 'member' | 'purchase' | null }
 
-/** สิทธิ์เรียน EP เสียเงิน: สมาชิกที่ยังไม่หมดอายุ (ไม่ต้องซื้อ) หรือเคยซื้อคอร์ส */
+/** สิทธิ์เรียน EP เสียเงิน: สมาชิกที่จ่ายเงินจริงและยังไม่หมด (ไม่ต้องซื้อ) หรือเคยซื้อคอร์ส */
 export async function courseAccessFor(userId: string | null): Promise<CourseAccess> {
   if (!userId) return { access: false, via: null }
   try {
-    const sub = await resolveSubscription(userId)
-    if (sub?.isPaid) return { access: true, via: 'member' }
+    if (await isPaidMemberNow(userId)) return { access: true, via: 'member' }
   } catch {
     /* อ่านสมาชิกไม่ได้ → เช็กการซื้อคอร์สต่อ */
   }
