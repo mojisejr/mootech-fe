@@ -102,14 +102,12 @@ export function useV2Login(): V2LoginApi {
     // LINE (แตะทีเดียวผ่านแอป). ทางที่ลื่นที่สุด = เปิดจากใน LINE (OA rich menu) ให้อยู่ใน in-app browser.
     void startOAuthRedirect(provider, callbackUrl)
 
-    // เอ็ม 2026-09-28: cold-start ใน LINE webview — หน้า access.line.me ค้างรอบแรก, กดซ้ำรอบสองผ่าน ("ต้องกด 2 รอบ").
-    // ทำ "รอบสอง" ให้อัตโนมัติ: ถ้า 6 วิแล้วยังอยู่หน้านี้ (ไม่ได้ไปต่อ) → ยิงใหม่ 1 ครั้ง; 14 วิยังค้าง → ปลดปุ่มให้กดเองได้.
-    // ออกจากหน้าไปแล้ว (pagehide) → ยกเลิก timer ทั้งหมด.
-    const retry = window.setTimeout(() => {
-      if (document.visibilityState === 'visible') void startOAuthRedirect(provider, callbackUrl)
-    }, 6000)
+    // 🔴 slice 7b (2026-10-01): ถอด "ยิงรอบสองอัตโนมัติหลัง 6 วิ" (#845) ออก. หน้านี้ยัง visible ตลอดช่วงที่ access.line.me
+    // กำลังโหลดช้า → รอบสองถูกยิงทับทั้งที่รอบแรกยังไม่จบ → state cookie ถูกเขียนใหม่ → รอบแรกกลับมาด้วย state เก่า →
+    // "state mismatch" → เด้งกลับ /v2/login (จำลองบน staging แล้วได้ OAUTH_CALLBACK_ERROR state mismatch ตรงตัว).
+    // คงแค่ปลดปุ่มหลัง 14 วิ ให้ผู้ใช้กดเองได้ถ้าค้างจริง. ออกจากหน้าไปแล้ว (pagehide) → ยกเลิก timer.
     const unlock = window.setTimeout(() => setLoading(false), 14000)
-    window.addEventListener('pagehide', () => { window.clearTimeout(retry); window.clearTimeout(unlock) }, { once: true })
+    window.addEventListener('pagehide', () => window.clearTimeout(unlock), { once: true })
   }
 
   return {

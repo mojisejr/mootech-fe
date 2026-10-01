@@ -24,11 +24,14 @@ export function LoginView({
   onGoogle,
   onExistingAccount,
   loading = false,
+  notice = null,
 }: {
   onLine: () => void
   onGoogle: () => void
   onExistingAccount?: () => void
   loading?: boolean
+  // ข้อความเมื่อ OAuth ที่แล้วพลาด (lib/auth/login-error.ts) — null = ไม่แสดง
+  notice?: string | null
 }) {
   return (
     <FullBleedScreen
@@ -49,6 +52,15 @@ export function LoginView({
               และค้นพบความสงบไปกับพวกเรา
             </p>
           </div>
+
+          {notice ? (
+            <p
+              role="alert"
+              className="rounded-2xl bg-white/70 px-4 py-3 text-center font-ibm text-sm leading-5 text-v3-text-title"
+            >
+              {notice}
+            </p>
+          ) : null}
 
           {/* Registration Options (302:254): buttons stack gap 12 · stack↔login link gap 20 */}
           <div className="flex flex-col items-center gap-5">

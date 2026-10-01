@@ -38,9 +38,13 @@ export default function App({ Component, pageProps: { session, ...pageProps } }:
     // running the OLD bundle → `controllerchange` fires. Reload once so the tester's installed PWA picks
     // up fresh assets automatically, instead of being stuck on a cached old build until they reopen twice
     // (เอ็ม/เทสเตอร์ 2026-09-27: เห็น UI เก่าทั้งที่ deploy ใหม่แล้ว). Guard against a reload loop.
+    // 🔴 slice 7b (2026-10-01): clientsClaim ยิง `controllerchange` ตอนเข้าเว็บ "ครั้งแรก" ด้วย (ไม่มี SW เก่าให้แทน) —
+    // ผู้มาใหม่จากลิงก์แชร์คือเคสนี้พอดี: precache เสร็จระหว่างที่เขากดล็อกอิน → reload ตัดการไป access.line.me กลางทาง
+    // → กลับมาหน้า login. reload เฉพาะเมื่อมี SW ตัวเก่าคุมหน้าอยู่ก่อน (= มี deploy ใหม่จริง).
+    const hadController = Boolean(navigator.serviceWorker.controller);
     let reloaded = false;
     const onControllerChange = () => {
-      if (reloaded) return;
+      if (!hadController || reloaded) return;
       reloaded = true;
       window.location.reload();
     };

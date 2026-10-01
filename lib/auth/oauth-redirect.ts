@@ -51,29 +51,6 @@ export async function fetchCsrfToken(retries = 2, delayMs = 350): Promise<string
  * `params = { ...provider.authorization.params, ...query }`). ใช้ส่ง `disable_auto_login=true` ของ LINE
  * เพื่อกัน LINE เด้งเปิดแอป (context switch ทำ state cookie หาย → callback พัง) — ดู useV2Login.ts.
  */
-/**
- * LIFF login: POST idToken (form, full-page navigation) → /api/auth/callback/line-liff (credentials provider).
- * ไม่ผ่าน next-auth client (getProviders) และไม่มี redirect ไป access.line.me. คืน false ถ้าเริ่มไม่ได้.
- */
-export async function startLiffCredentialsLogin(idToken: string, callbackUrl: string): Promise<boolean> {
-  const csrfToken = await fetchCsrfToken()
-  if (!csrfToken || typeof document === 'undefined') return false
-  const form = document.createElement('form')
-  form.method = 'post'
-  form.action = `${AUTH_BASE}/callback/line-liff`
-  form.style.display = 'none'
-  for (const [name, value] of Object.entries({ csrfToken, idToken, callbackUrl, json: 'false' })) {
-    const input = document.createElement('input')
-    input.type = 'hidden'
-    input.name = name
-    input.value = value
-    form.appendChild(input)
-  }
-  document.body.appendChild(form)
-  form.submit()
-  return true
-}
-
 export async function startOAuthRedirect(
   provider: string,
   callbackUrl: string,
