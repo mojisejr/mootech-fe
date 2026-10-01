@@ -13,6 +13,7 @@ import { getServerSession } from 'next-auth/next'
 import { authOptions } from '@/pages/api/auth/[...nextauth]'
 import { resolveSignedSessionUserId } from '@/lib/v2/resolve-user'
 import { decideIdentityStatus, isAskBeforeCreateEnabled } from '@/lib/auth/ask-before-create'
+import { isSecureDeploy, readCarry } from '@/lib/auth/liff-carry'
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   res.setHeader('Cache-Control', 'no-store')
@@ -24,7 +25,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const session = (await getServerSession(req, res, authOptions)) as { provider?: string } | null
     const enabled = isAskBeforeCreateEnabled(process.env.LOGIN_ASK_BEFORE_CREATE)
     const resolved = session ? await resolveSignedSessionUserId(req, res) : null
-    return res.status(200).json(decideIdentityStatus({ provider: session?.provider ?? null, resolved, enabled }))
+    const carry = readCarry(req.cookies, process.env.NEXTAUTH_SECRET, isSecureDeploy()) !== null
+    return res.status(200).json(decideIdentityStatus({ provider: session?.provider ?? null, resolved, enabled, carry }))
   } catch {
     // Never let this route block a sign-in: the client treats any failure as "do not ask".
     console.error('[auth/identity-status] failed')

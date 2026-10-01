@@ -4,6 +4,7 @@ import { useRouter } from "next/router";
 import { useCookies } from "react-cookie";
 import { CookieKey } from "@/constants/cookie-key";
 import { mintMemberIdentity } from "./mint-member";
+import { isLiffEraLineProfile } from "./liff-carry";
 import { useCurrentUser } from "./use-current-user";
 import { buildRegisterParamsFromSession } from "./register-params";
 import {
@@ -42,6 +43,19 @@ function tabStorage(): Storage | null {
 // the wait, authStatus flips to "authed", the effect re-runs and clears the timer.
 const SELF_HEAL_DELAY_MS = 3000;
 
+// slice 7g: ขอใบส่งต่อก่อนจบ session ยุค LIFF — best effort, ไม่เกิน 4 วิ, ล้มไม่เป็นไร
+const LIFF_CARRY_TIMEOUT_MS = 4000;
+async function requestLiffCarry(): Promise<void> {
+  try {
+    await Promise.race([
+      fetch("/api/auth/liff-carry", { method: "POST", credentials: "same-origin" }),
+      new Promise((resolve) => setTimeout(resolve, LIFF_CARRY_TIMEOUT_MS)),
+    ]);
+  } catch {
+    /* ไม่มีใบ = ถามว่าเคยใช้มาก่อนไหม ตามเดิม */
+  }
+}
+
 
 
 // DEV bypass marker. /dev-login sets LOGIN_PROVIDER=DEV and mints MEMBER_ID itself,
@@ -75,9 +89,33 @@ export function useSelfHealIdentity(): void {
   const healingRef = useRef(false);
 
   useEffect(() => {
+    if (sessionStatus !== "authenticated") {
+      return;
+    }
+    // 🔴 slice 7g (2026-10-02): session จากการล็อกอินผ่าน LIFF (#846, ถอดแล้ว) ถือ LINE sub ของช่อง LIFF ซึ่งอยู่คนละ
+    // Provider → ไม่ตรงกับช่อง Login. OAuth ช่อง Login ให้ lineProfile เป็น claims ของ id_token (มี iss) — ไม่มี iss = LIFF.
+    // จบ session นี้ "แม้มี MEMBER_ID แล้ว" (เดิม #860 จบเฉพาะตอนไม่มี MEMBER_ID → คนที่ได้บัญชีซ้ำค้างอยู่ในบัญชีซ้ำได้ 7 วัน).
+    // ก่อนจบ ขอ "ใบส่งต่อ" (lib/auth/liff-carry.ts): คนที่สมัครครั้งแรกในช่วง LIFF จะได้บัญชีเดิมกลับเมื่อล็อกอิน LINE ใหม่
+    // แทนบัญชีว่าง. ขอใบไม่สำเร็จ → จบ session อยู่ดี (เท่ากับพฤติกรรมของ #860).
+    if (isLiffEraLineProfile((session as { lineProfile?: unknown } | null)?.lineProfile)) {
+      if (healingRef.current) {
+        return;
+      }
+      healingRef.current = true;
+      void (async () => {
+        await requestLiffCarry();
+        removeCookie(CookieKey.MEMBER_ID, { path: "/" });
+        removeCookie(CookieKey.MEMBER_NAME, { path: "/" });
+        removeCookie(CookieKey.MEMBER_SURNAME, { path: "/" });
+        removeCookie(CookieKey.MEMBER_REFER_CODE, { path: "/" });
+        removeCookie(CookieKey.MEMBER_IMAGE, { path: "/" });
+        await signOut({ redirect: false });
+      })();
+      return;
+    }
     // The limbo, precisely: NextAuth says authenticated, but identity is still
     // "loading" (== no valid MEMBER_ID uuid yet). Anything else is not our case.
-    if (sessionStatus !== "authenticated" || authStatus !== "loading") {
+    if (authStatus !== "loading") {
       return;
     }
     // DEV bypass (mirrors home). /dev-login mints MEMBER_ID itself, so a dev session
@@ -92,15 +130,6 @@ export function useSelfHealIdentity(): void {
       return;
     }
 
-    // 🔴 2026-10-01: session จากการล็อกอินผ่าน LIFF (#846, ถอดแล้ว) ถือ LINE sub ของช่อง LIFF ซึ่งอยู่คนละ Provider →
-    // ไม่ตรงกับบัญชีจริง. OAuth ช่อง Login ให้ lineProfile เป็น claims ของ id_token (มี iss) — ไม่มี iss = มาจาก LIFF.
-    // ออกจากระบบ (ไม่ mint / ไม่ถาม) แล้วให้ผู้ใช้ล็อกอินใหม่ตามปกติ.
-    const lp = (session as { lineProfile?: { sub?: string; iss?: string } } | null)?.lineProfile;
-    if (lp?.sub && !lp.iss && !(lp as { via?: string }).via) {
-      healingRef.current = true;
-      void signOut({ redirect: false });
-      return;
-    }
     // หน้าสาธารณะ (ลิงก์แชร์คำทำนาย / คอร์ส / โปรฯ) เปิดดูได้โดยไม่ต้องมีบัญชี — ห้ามเด้งไปถามหรือสร้างบัญชีให้
     if (/^\/(invite|course|promo)(\/|$)/.test(pathname)) {
       return;

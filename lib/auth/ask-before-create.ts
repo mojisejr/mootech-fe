@@ -59,11 +59,14 @@ export function decideIdentityStatus(input: {
   provider: string | null | undefined
   resolved: { ok: true } | { ok: false; status: number } | null
   enabled: boolean
+  /** slice 7g: เบราว์เซอร์ถือใบส่งต่อที่ใช้ได้ → register-login จะผูก LINE sub นี้เข้าบัญชีเดิม จึงไม่ต้องถาม */
+  carry?: boolean
 }): IdentityStatus {
   const provider = asAskableProvider(input.provider)
   const r = input.resolved
   if (!r || (!r.ok && r.status === 401)) return { signedIn: false, known: null, ask: false, provider }
   if (r.ok) return { signedIn: true, known: true, ask: false, provider }
+  if (r.status === 404 && input.carry && provider === 'line') return { signedIn: true, known: false, ask: false, provider }
   if (r.status === 404) return { signedIn: true, known: false, ask: input.enabled && provider !== null, provider }
   return { signedIn: true, known: null, ask: false, provider }
 }

@@ -42,6 +42,7 @@ class FakeTransaction implements RegisterLoginTransaction {
     this.createdProviders.push(`${input.id}:${input.userId}`)
   }
   async recordSignupActivity(userId: string) { this.activities.push(userId) }
+  async findCarryTarget() { return null }
 }
 
 const storeOf = (tx: FakeTransaction): RegisterLoginStore => ({
