@@ -20,15 +20,18 @@ import { useLoadingTimeout } from '@/lib/hooks/use-loading-timeout'
 // 'loading' FOREVER (resolveAuth, login-loop invariant) — the global self-heal is the only recovery and it
 // can fail with no retry. Without an exit the user stares at a skeleton that never releases. After this many
 // ms of continuous post-mount limbo we surface <ScreenIdentityStuck/> (re-login), the SAME mechanism
-// my-destiny uses (useLoadingTimeout, 8s = self-heal 3s delay + network buffer).
-const DEFAULT_ESCAPE_AFTER_MS = 8000
+// my-destiny uses (useLoadingTimeout).
+// 🔴 slice 7b (2026-10-01): 8 วิ → 20 วิ. คนใหม่ต้องผ่าน self-heal 3 วิ + identity-status ≤4 วิ + mint รอบแรก ≤10 วิ
+// (mint-member.ts) = ~17 วิ ในกรณีช้าแต่ปกติ. 8 วิโชว์ "เชื่อมบัญชีไม่ได้" ขณะ mint ยังวิ่งอยู่ แล้วปุ่ม re-login ของมัน
+// signOut → /v2 → carousel → login = อีกเส้นทางของ login loop.
+const DEFAULT_ESCAPE_AFTER_MS = 20000
 
 export type V2AuthGateConfig = {
   /** Where to send a settled-authenticated user (e.g. /v2/login → '/v2'). Omit to render authed. */
   redirectWhenAuthed?: string
   /** Where to send a settled-anonymous user (e.g. /v2/register → '/v2'). Omit to render anon. */
   redirectWhenAnon?: string
-  /** ms of continuous post-mount identity-limbo before `identityStuck` flips true. Default 8000 (#246). */
+  /** ms of continuous post-mount identity-limbo before `identityStuck` flips true. Default 20000 (#246, slice 7b). */
   escapeAfterMs?: number
 }
 

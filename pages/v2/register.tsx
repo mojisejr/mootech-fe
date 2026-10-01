@@ -1,5 +1,5 @@
 // MuMate v2 — /v2/register profile-setup (Slice 1). Team-gated (SSR). Client identity + hydration
-// via useV2AuthGate (mount-safe: no SSR mismatch; anon → /v2; loop invariant preserved).
+// via useV2AuthGate (mount-safe: no SSR mismatch; anon → /v2/login; loop invariant preserved).
 //
 // Ownership (codify): goo's useV2ProfileForm holds ALL logic (state/validation/save + BirthDayInput
 // reuse); THIS page composes the fields with the design-system primitives (Field / PillTabs /
@@ -28,7 +28,9 @@ export const getServerSideProps: GetServerSideProps = async (ctx) => {
 
 export default function V2RegisterPage() {
   const router = useRouter()
-  const { status, showLoading, identityStuck } = useV2AuthGate({ redirectWhenAnon: '/v2' })
+  // slice 7b (2026-10-01): คนยังไม่ล็อกอิน (เช่น กด "สมัครด้วย LINE" จากลิงก์เชิญ /invite) → ไปหน้า login ตรงๆ.
+  // เดิม → /v2 → carousel → /v2/login = อ้อม 3 หน้า และ ?ref หลุดระหว่างทาง (โค้ดยังอยู่ใน localStorage v2:referral).
+  const { status, showLoading, identityStuck } = useV2AuthGate({ redirectWhenAnon: '/v2/login' })
   // Slice 1 endpoint: after save → /v2 home (slice 2 wires the destiny result).
   const form = useV2ProfileForm(() => router.replace('/v2'))
 

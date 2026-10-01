@@ -1,13 +1,16 @@
 // MuMate v2 — /v2/login (Slice 1). Team-gated (SSR). Client identity + hydration via useV2AuthGate
 // (mount-safe: no SSR mismatch; authed → /v2; login-loop invariant preserved). WRAPS next-auth via
 // useV2Login (no rewrite). Figma "03-register" (route-swap: Figma register = code /login).
+import { useEffect, useState } from 'react'
 import type { GetServerSideProps } from 'next'
+import { useRouter } from 'next/router'
 import { v2RedirectIfUnauthed } from '@/lib/v2/gate'
 import { useV2AuthGate } from '@/features/auth/hooks/useV2AuthGate'
 import { AuthLoadingGate } from '@/features/v2-shell/components/AuthLoadingGate'
 import ScreenIdentityStuck from '@/components/screen-identity-stuck'
 import { LoginView } from '@/features/auth/components/LoginView'
 import { useV2Login } from '@/features/auth/hooks/useV2Login'
+import { loginErrorNotice } from '@/lib/auth/login-error'
 
 export const getServerSideProps: GetServerSideProps = async (ctx) => {
   ctx.res.setHeader('Cache-Control', 'no-store, must-revalidate')
@@ -19,6 +22,12 @@ export const getServerSideProps: GetServerSideProps = async (ctx) => {
 export default function V2LoginPage() {
   const { showLoading, identityStuck } = useV2AuthGate({ redirectWhenAuthed: '/v2' })
   const { loading, onLine, onGoogle } = useV2Login()
+  // slice 7b: OAuth ที่พลาดกลับมาที่นี่พร้อม ?error= — เดิมไม่แสดงอะไร ผู้ใช้เห็นเป็น loop. อ่านหลัง mount (ใช้ UA).
+  const { query } = useRouter()
+  const [notice, setNotice] = useState<string | null>(null)
+  useEffect(() => {
+    setNotice(loginErrorNotice(query.error, navigator.userAgent))
+  }, [query.error])
 
   // #246 — authed-but-no-MEMBER_ID limbo would spin AuthLoadingGate forever here too. Offer re-login.
   if (identityStuck) return <ScreenIdentityStuck callbackUrl="/v2" />
@@ -33,6 +42,7 @@ export default function V2LoginPage() {
       // ให้เริ่มล็อกอิน LINE (provider หลักของผู้ใช้ส่วนใหญ่) แทนการเป็นลิงก์ตาย.
       onExistingAccount={onLine}
       loading={loading}
+      notice={notice}
     />
   )
 }

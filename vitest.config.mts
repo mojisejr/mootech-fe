@@ -126,6 +126,7 @@ export default defineConfig({
       'scripts/provider-identity-migration-db.test.ts', // mumate-login-identity slice 2 — real-pg proof of migration 0034 on a synthetic seed (env-gated)
       'scripts/v2-login-providers-retry.test.ts', // 2026-09-20 — signIn() providers-fetch retry (LINE cold-start "undefined" error fix)
       'scripts/oauth-redirect.test.ts', // 2026-09-20 — startOAuthRedirect: form POST เลี่ยง getProviders (LINE signup ยังพังหลัง #723)
+      'scripts/login-loop-s7b.test.ts', // slice 7b 2026-10-01 — OAuth error ต้องไม่เงียบบน /v2/login + ปุ่มไม่ยิง OAuth ซ้ำเอง (state mismatch)
       'scripts/liff-detect.test.ts', // 2026-09-20 — isLineInAppBrowser (UA) → โชว์ปุ่ม "เปิดในเบราว์เซอร์" ติดตั้ง PWA/notification
       'scripts/ops-delete-user.test.ts', // 2026-09-20 — /ops ลบบัญชี (deleteUserIdentity scoped + best-effort)
       'scripts/launch-env-propagation.test.ts', // 2026-09-20 — goLive() waits for env propagation before redeploy (live race fix)
