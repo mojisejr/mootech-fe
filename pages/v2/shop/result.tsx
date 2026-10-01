@@ -11,6 +11,7 @@ import { ResultScreen } from '@/features/v2-shop/components/ResultScreen'
 import { QiBuySuccess } from '@/features/v2-shop/components/QiBuySuccess'
 import { PlanPaySuccess } from '@/features/v2-shop/components/PlanPaySuccess'
 import { SinsaeBookingSuccess } from '@/features/v2-shop/components/SinsaeBookingSuccess'
+import { CoursePaySuccess } from '@/features/course/CoursePaySuccess'
 import { BookOrderSuccess } from '@/features/v2-shop/components/BookOrderSuccess'
 import { RESULT_COPY, resolveResultState, tryAnotherHref, type ResultState } from '@/features/v2-shop/result-state'
 import { useChargeStatus } from '@/features/v2-shop/useChargeStatus'
@@ -49,8 +50,9 @@ export default function V2ResultPage() {
   // fallback ไป package_code ใน URL. เหตุ (2026-09-15): เลน PromptPay ไม่ส่ง package_code กลับมา (qrcode.tsx
   // onApproved) ⇒ จองซินแสแล้ว packageCode='' ⇒ ตกไปหน้าสมาชิก PlanPaySuccess ทั้งที่จ่ายค่าจองซินแส. tierCode
   // มากับทุก charge/order เสมอ ⇒ เลือกจอถูกเลนแม้ URL ไม่มี package_code.
-  const lane: 'SINSAE' | 'BOOK' | 'QI' | 'MEMBER' | null =
-    tierCode === 'SINSAE' || sinsaeMinutesOf(packageCode) !== null ? 'SINSAE'
+  const lane: 'SINSAE' | 'BOOK' | 'QI' | 'COURSE' | 'MEMBER' | null =
+    tierCode === 'COURSE' ? 'COURSE'
+      : tierCode === 'SINSAE' || sinsaeMinutesOf(packageCode) !== null ? 'SINSAE'
       : tierCode === 'BOOK' || bookFormatOf(packageCode) !== null ? 'BOOK'
         : tierCode === 'QI' || qiQty !== null ? 'QI'
           : tierCode ? 'MEMBER' // แถวโหลดแล้ว เป็น tier สมาชิก
@@ -89,6 +91,16 @@ export default function V2ResultPage() {
       <div className="flex min-h-screen w-full flex-col bg-v3-bg-cream">
         <Head><title>สั่งซื้อสำเร็จ · MuMate</title></Head>
         <BookOrderSuccess packageCode={packageCode} charge={charge} order={order} />
+      </div>
+    )
+  }
+
+  // คอร์สล้วน (tier COURSE เช่น downsell Bazi Life Matrix): เงินเข้าแล้ว → ปุ่มเข้าเรียน
+  if (RESULT_COPY[state].paid && lane === 'COURSE') {
+    return (
+      <div className="flex min-h-screen w-full flex-col bg-v3-bg-cream">
+        <Head><title>ชำระเงินสำเร็จ · MuMate</title></Head>
+        <CoursePaySuccess />
       </div>
     )
   }

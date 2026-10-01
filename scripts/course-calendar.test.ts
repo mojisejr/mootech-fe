@@ -1,21 +1,32 @@
 import { describe, expect, it, vi } from 'vitest'
 
-// lib/course/calendar ดึง db/subscription มาด้วย — เทสต์นี้ใช้แค่ youtubeId (pure) จึง mock db ไว้ไม่ให้ต่อจริง
+// lib/course/access ดึง db มาด้วย — เทสต์นี้ใช้แค่ youtubeId (pure) จึง mock db ไว้ไม่ให้ต่อจริง
 vi.mock('@/lib/db', () => ({ db: {} }))
 
-import { EPISODES, FREE_UNTIL_EP, COURSE_OFFERS, isCoursePackage } from '@/lib/course/calendar-content'
-import { youtubeId } from '@/lib/course/calendar'
+import { COURSES, COURSE_PACKAGES, isCoursePackage, packagesGranting } from '@/lib/course/content'
+import { youtubeId } from '@/lib/course/access'
 
-describe('คอร์สปฏิทิน Mumate', () => {
-  it('มี 13 ตอน: EP 1-7 ฟรี, EP 8-13 ต้องมีสิทธิ์', () => {
-    expect(EPISODES.map((e) => e.ep)).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13])
-    expect(EPISODES.filter((e) => e.free).map((e) => e.ep)).toEqual([1, 2, 3, 4, 5, 6, 7])
-    expect(FREE_UNTIL_EP).toBe(7)
+describe('คอร์สออนไลน์ Mumate', () => {
+  it('Win the Day: 13 บท — 1-7 ฟรี, 8-13 ต้องมีสิทธิ์ และเปิดให้สมาชิกที่จ่ายเงิน', () => {
+    const c = COURSES.calendar
+    expect(c.episodes.map((e) => e.ep)).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13])
+    expect(c.episodes.filter((e) => e.free).map((e) => e.ep)).toEqual([1, 2, 3, 4, 5, 6, 7])
+    expect(c.memberAccess).toBe(true)
   })
 
-  it('แพ็กคอร์ส 490 / 790 และแยกจากแพ็กสมาชิกปกติ', () => {
-    expect(COURSE_OFFERS.map((o) => o.price)).toEqual([490, 790])
-    expect(isCoursePackage('COURSE_CAL_490')).toBe(true)
+  it('Bazi Life Matrix: 15 บท ไม่มีบทฟรี และสมาชิกไม่ได้สิทธิ์อัตโนมัติ', () => {
+    const m = COURSES['life-matrix']
+    expect(m.episodes.map((e) => e.ep)).toEqual(Array.from({ length: 15 }, (_, i) => i + 1))
+    expect(m.episodes.some((e) => e.free)).toBe(false)
+    expect(m.memberAccess).toBe(false)
+  })
+
+  it('funnel ราคา 490 → +300 (รวม 790) / +199 (รวม 689) และแพ็กให้สิทธิ์ถูกคอร์ส', () => {
+    expect(COURSE_PACKAGES.COURSE_CAL_490.price + COURSE_PACKAGES.COURSE_MATRIX_UP_300.price).toBe(790)
+    expect(COURSE_PACKAGES.COURSE_CAL_490.price + COURSE_PACKAGES.COURSE_MATRIX_199.price).toBe(689)
+    expect(packagesGranting('calendar')).toEqual(['COURSE_CAL_490'])
+    expect(packagesGranting('life-matrix')).toEqual(['COURSE_MATRIX_UP_300', 'COURSE_MATRIX_199'])
+    expect(isCoursePackage('COURSE_MATRIX_199')).toBe(true)
     expect(isCoursePackage('V2_PLUS_YEARLY')).toBe(false)
   })
 

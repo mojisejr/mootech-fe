@@ -11,7 +11,7 @@ import { priceFor } from '@/lib/discount/preview-flow'
 import { insertQuote } from '@/lib/discount/repo'
 import { decidePurchaseFor } from '@/lib/payment/repo'
 import { gatewayNameFromEnv, selectGateway } from '@/lib/payment/select-gateway'
-import { isCoursePackage } from '@/lib/course/calendar-content'
+import { isCoursePackage } from '@/lib/course/content'
 
 // A quote is only good for a short while — the price it froze (VAT, code status, code quota) can move.
 export const QUOTE_TTL_MS = 15 * 60 * 1000
@@ -45,7 +45,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   const purchase =
     // คอร์สปฏิทิน (tier PLUS) — คนที่ถือ PRO (เช่น ได้ฟรีจากโค้ดกิจกรรม = ไม่มีสิทธิ์คอร์ส) ต้องซื้อได้: ไม่ใช่การ
     // ลดระดับ — settle ไม่เขียนแถว PLUS ทับ PRO (decideSettlement → REPLACED) แต่ v2_payment APPROVED = สิทธิ์คอร์สตลอดชีพ
-    priced.tierCode === 'QI' || priced.tierCode === 'SINSAE' || priced.tierCode === 'BOOK' || isCoursePackage(priced.packageCode)
+    priced.tierCode === 'QI' || priced.tierCode === 'SINSAE' || priced.tierCode === 'BOOK' || priced.tierCode === 'COURSE' || isCoursePackage(priced.packageCode)
       ? ({ allow: true } as const)
       : await decidePurchaseFor(who.userId, priced.tierCode, now)
 
