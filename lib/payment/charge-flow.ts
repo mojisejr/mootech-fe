@@ -10,6 +10,7 @@ import { getQuote } from '@/lib/discount/repo'
 import type { ChargeResult } from './gateway'
 import { isRefusedCharge } from './gateway'
 import { gatewayNameFromEnv } from './select-gateway'
+import { isCoursePackage } from '@/lib/course/calendar-content'
 
 export function makeOrderId(): string {
   // parity with v1: 10 random decimal digits (crypto.randomInt)
@@ -76,7 +77,9 @@ export async function runChargeFlow(
   // 🔴 QI/SINSAE ไม่เข้า matrix สมาชิก — ซื้อ/จองได้ทุก tier และซ้ำได้ (ไม่มีทาง "ลดระดับ" ใคร): ทั้งคู่อยู่นอก
   // บันได FREE/PLUS/PRO โดยการออกแบบ (catalog.ts) → ประตูอนุญาตเสมอ; การบังคับสิทธิ์เกิดที่ settle เลนแยก.
   const purchase =
-    priced.tierCode === 'QI' || priced.tierCode === 'SINSAE' || priced.tierCode === 'BOOK'
+    // คอร์สปฏิทิน (tier PLUS) — คนที่ถือ PRO (เช่น ได้ฟรีจากโค้ดกิจกรรม = ไม่มีสิทธิ์คอร์ส) ต้องซื้อได้: ไม่ใช่การ
+    // ลดระดับ — settle ไม่เขียนแถว PLUS ทับ PRO (decideSettlement → REPLACED) แต่ v2_payment APPROVED = สิทธิ์คอร์สตลอดชีพ
+    priced.tierCode === 'QI' || priced.tierCode === 'SINSAE' || priced.tierCode === 'BOOK' || isCoursePackage(priced.packageCode)
       ? ({ allow: true } as const)
       : await decidePurchaseFor(who.userId, priced.tierCode, now)
   if (!purchase.allow) {
