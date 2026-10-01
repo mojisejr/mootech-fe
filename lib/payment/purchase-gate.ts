@@ -108,7 +108,7 @@ function parseYmdUtc(ymd: string): number | null {
  *   ─────────────────────────────────────────────────────────────────────────────────
  *   nothing/free   PLUS/PRO →  allow, carry 0     — first purchase, behaviour UNCHANGED
  *   PLUS (live)    PLUS     →  REFUSE ALREADY_ON_THIS_TIER
- *   PLUS (live)    PRO      →  allow, carry N     — upgrade now, the N days left follow them
+ *   PLUS (live)    PRO      →  allow, carry 0     — upgrade: สิทธิ์ Plus ที่เหลือสิ้นสุด (เอ็มเคาะ 2026-10-01)
  *   PRO  (live)    PLUS     →  REFUSE CANNOT_DOWNGRADE
  *   PRO  (live)    PRO      →  allow, carry N     — ต่ออายุ/โปรฯ (เอ็มเคาะ 2026-10-01, ดูด้านล่าง)
  *   legacy paid    PLUS/PRO →  allow, carry N     — see below
@@ -143,7 +143,9 @@ export function decidePurchase(args: {
   // without a rank — fail towards refusing a purchase we cannot reason about rather than granting it.
   if (wanted === null) return { allow: false, reason: 'CANNOT_DOWNGRADE' }
 
-  if (wanted > held) return { allow: true, carryOverDays } // upgrade — the whole point of ทาง C
+  // 🔴 เอ็มเคาะ 2026-10-01: อัปเกรด (เช่น Plus → Pro) ไม่ top-up — วัน Plus ที่เหลือ "หายไป" (หน้าร้าน/checkout
+  // เตือนก่อนจ่าย). top-up มีเฉพาะซื้อระดับเดิมซ้ำ (ต่ออายุ) เท่านั้น.
+  if (wanted > held) return { allow: true, carryOverDays: 0 }
   // 🔴 เอ็มเคาะ 2026-10-01: สมาชิกที่ถือระดับนี้อยู่แล้ว "จ่ายซ้ำเพื่อรับโปรโมชัน/ต่ออายุ" ได้ — เดิมถูกปฏิเสธ
   // (ALREADY_ON_THIS_TIER). ปลอดภัยเพราะไม่มีวันไหนหาย: วันที่เหลือ carry ต่อท้ายแพ็กใหม่ (= top-up)
   // และ settlement (decideSettlement ด้านล่าง) grant ระดับเดียวกันพร้อม carry อยู่แล้ว — ประตูกับ webhook ตรงกัน.
@@ -213,6 +215,7 @@ export function decideSettlement(args: {
   const paid = tierRank(paidTier)
   if (paid === null) return { grant: false, reason: 'WOULD_DOWNGRADE' } // unplaceable ⇒ do not let it win
 
-  if (paid >= held) return { grant: true, carryOverDays } // upgrade, or same tier ⇒ add the time bought
+  if (paid > held) return { grant: true, carryOverDays: 0 } // upgrade ⇒ ระดับใหม่ แต่ไม่ต่อวันระดับเก่า (เอ็ม 2026-10-01)
+  if (paid === held) return { grant: true, carryOverDays } // same tier ⇒ add the time bought (top-up)
   return { grant: false, reason: 'WOULD_DOWNGRADE' }
 }

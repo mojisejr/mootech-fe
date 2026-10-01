@@ -286,7 +286,13 @@ export function PackageCard({
             : 'แพ็กเกจปัจจุบันของคุณ'}
         </p>
       ) : null}
-      {verdict.kind === 'upgrade' || verdict.kind === 'renew' || (verdict.kind === 'buy' && verdict.carriesDays) ? (
+      {verdict.kind === 'upgrade' ? (
+        // เอ็มเคาะ 2026-10-01: อัปเกรดไม่ต่อวันระดับเดิม — ต้องบอกก่อนจ่ายว่าสิทธิ์เดิมจะหายไป
+        <p data-testid={`plan-upgrade-warn-${plan.id}`} className="text-center text-sm font-semibold leading-5 text-v3-error">
+          อัปเกรดแล้วสิทธิ์แพ็กเกจเดิมที่เหลือจะสิ้นสุดทันที ไม่ถูกบวกเพิ่ม · เริ่มนับแพ็กเกจใหม่ตั้งแต่วันที่ชำระ
+        </p>
+      ) : null}
+      {verdict.kind === 'renew' || (verdict.kind === 'buy' && verdict.carriesDays) ? (
         <p data-testid={`plan-carry-note-${plan.id}`} className="text-center text-sm font-semibold leading-5 text-v3-cyan">
           วันที่เหลือของแพ็กเกจปัจจุบันจะถูกบวกให้ ไม่หายไป
         </p>

@@ -153,10 +153,11 @@ describe('#457 row 2 — a PLUS member', () => {
     await mountAs({ isPaid: true, tier: 'PLUS', loading: false }, '2027-01-15')
     expect(screen.getByTestId('plan-renew-note-plus').textContent).toContain('ใช้ได้ถึง 15 ม.ค. 2570')
   })
-  it('is offered Mumate Pro as an UPGRADE, and told the days they have left follow them', async () => {
+  it('is offered Mumate Pro as an UPGRADE, and WARNED the Plus days end (no top-up)', async () => {
     await mountAs({ isPaid: true, tier: 'PLUS', loading: false }, '2027-08-26')
     expect(screen.getByTestId('plan-cta-pro').textContent).toContain('อัปเกรดเป็น Mumate Pro')
-    expect(screen.getByTestId('plan-carry-note-pro').textContent).toContain('วันที่เหลือของแพ็กเกจปัจจุบันจะถูกบวกให้')
+    expect(screen.getByTestId('plan-upgrade-warn-pro').textContent).toContain('สิ้นสุดทันที')
+    expect(screen.queryByTestId('plan-carry-note-pro')).toBeNull()
   })
 })
 

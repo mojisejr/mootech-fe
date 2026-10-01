@@ -97,10 +97,11 @@ describe('the matrix — row by row (ฟีมเคาะ 2026-08-26, ทาง
     })
   })
 
-  it('ROW 3 — PLUS with 364 days left buys PRO: upgraded NOW, all 364 days follow', () => {
+  // เอ็มเคาะ 2026-10-01: อัปเกรดไม่ top-up — วัน Plus ที่เหลือสิ้นสุด (หน้าร้าน/checkout เตือนก่อนจ่าย)
+  it('ROW 3 — PLUS with 364 days left buys PRO: upgraded NOW, Plus days do NOT follow', () => {
     expect(decidePurchase({ current: plusUntil('2027-08-25'), targetTier: 'PRO', today: TODAY })).toEqual({
       allow: true,
-      carryOverDays: 364,
+      carryOverDays: 0,
     })
   })
 
@@ -168,10 +169,10 @@ describe('decideSettlement — money has already moved; what may we WRITE?', () 
     expect(d).not.toHaveProperty('carryOverDays')
   })
 
-  it('an UPGRADE landing is granted and carries the days left, exactly like the door promised', () => {
+  it('an UPGRADE landing is granted WITHOUT carrying the old tier days, exactly like the door said', () => {
     expect(decideSettlement({ current: plusUntil('2027-08-25'), paidTier: 'PRO', today: TODAY })).toEqual({
       grant: true,
-      carryOverDays: 364,
+      carryOverDays: 0,
     })
   })
 

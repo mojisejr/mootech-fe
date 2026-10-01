@@ -178,6 +178,18 @@ export default function V2CheckoutPage({ teamPreview }: { teamPreview: boolean }
           />
         )}
 
+        {/* เอ็มเคาะ 2026-10-01: ลิงก์โปรฯ พาสมาชิกเดิมมาตรงนี้โดยไม่ผ่านการ์ดร้าน → เตือนที่ checkout ด้วย
+            Plus → Pro = สิทธิ์ Plus ที่เหลือสิ้นสุด (ไม่ top-up) · ระดับเดิม = ต่ออายุ วันที่เหลือบวกต่อท้าย */}
+        {co.quote && tier.isPaid && plan?.id === 'pro' && tier.tier === 'PLUS' ? (
+          <p data-testid="checkout-upgrade-warn" role="note" className="rounded-2xl bg-white p-4 text-sm font-semibold leading-5 text-v3-error">
+            คุณเป็นสมาชิก Mumate + อยู่ · เมื่ออัปเกรดเป็น Pro สิทธิ์ Mumate + ที่เหลือจะสิ้นสุดทันที ไม่ถูกบวกเพิ่ม และเริ่มนับ Pro ตั้งแต่วันที่ชำระ
+          </p>
+        ) : co.quote && tier.isPaid && plan && tier.tier === (plan.id === 'pro' ? 'PRO' : plan.id === 'plus' ? 'PLUS' : null) ? (
+          <p data-testid="checkout-renew-note" role="note" className="rounded-2xl bg-white p-4 text-sm font-semibold leading-5 text-v3-sapphire">
+            ต่ออายุแพ็กเกจเดิม · วันที่เหลือของแพ็กเกจปัจจุบันจะถูกบวกต่อท้ายให้ ไม่หายไป
+          </p>
+        ) : null}
+
         {/* 55159:5346 Payment Card Box — H3 18/24 title, a hairline under it, then the picker + form. */}
         <section className="flex w-full flex-col gap-4 rounded-[20px] bg-white p-4 drop-shadow-[0_4px_15px_rgba(26,38,77,0.12)]">
           <h2 className="text-lg font-bold leading-6 text-v3-navy">วิธีชำระเงิน</h2>

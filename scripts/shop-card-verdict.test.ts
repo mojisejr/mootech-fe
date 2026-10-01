@@ -84,11 +84,10 @@ describe('#457 row 2 — viewer holds PLUS', () => {
   it('sees the Mumate + card as theirs (renew), WITH their real expiry and the days that follow', () => {
     expect(verdict('plus', plusUntil('2027-08-26'))).toEqual({ kind: 'renew', expireAt: '2027-08-26', carryOverDays: 365 })
   })
-  it('may upgrade to Mumate Pro, and the days they have left come with them', () => {
+  it('may upgrade to Mumate Pro, and the Plus days do NOT come with them (เอ็ม 2026-10-01)', () => {
     const v = verdict('pro', plusUntil('2027-08-26'))
     expect(v.kind).toBe('upgrade')
-    // 365 days from 2026-08-26 to 2027-08-26 — the number the door would carry (purchase-gate remainingDays)
-    expect(v).toMatchObject({ carryOverDays: 365 })
+    expect(v).toMatchObject({ carryOverDays: 0 })
   })
 })
 
@@ -185,11 +184,11 @@ describe('#457 — negative controls (an assertion that reads back what it wrote
     expect(b).toMatchObject({ kind: 'renew', expireAt: '2028-01-02' })
     expect(a).not.toEqual(b)
   })
-  it('the carried day count tracks the INPUT — a longer remaining term carries more days', () => {
-    const near = verdict('pro', plusUntil('2026-09-01'))
-    const far = verdict('pro', plusUntil('2027-08-26'))
-    expect(near).toMatchObject({ carryOverDays: 6 })
-    expect(far).toMatchObject({ carryOverDays: 365 })
+  it('the carried day count tracks the INPUT — a longer remaining term carries more days (renew)', () => {
+    const near = verdict('pro', proUntil('2026-09-01'))
+    const far = verdict('pro', proUntil('2027-08-26'))
+    expect(near).toMatchObject({ kind: 'renew', carryOverDays: 6 })
+    expect(far).toMatchObject({ kind: 'renew', carryOverDays: 365 })
   })
 })
 
