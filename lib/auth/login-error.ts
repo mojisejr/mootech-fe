@@ -3,11 +3,10 @@
 // "กดแล้วกลับมาหน้าเดิม" = login loop ที่ไม่มีใครบอกอะไร (จำลองบน staging 2026-10-01: callback ที่ไปตกอีก cookie jar →
 // /api/auth/error → /api/auth/signin → /v2/login?error=OAuthCallback). ไฟล์นี้แปลง code เป็นข้อความที่บอกทางไปต่อ.
 
-// in-app browser ของ Facebook / Messenger / Instagram (Android: FB_IAB/FBAV, iOS: FBAN/FBAV, IG: Instagram).
-// ในนี้ LINE auto login บน Android สลับไปแอป LINE แล้ว callback กลับมาอีกเบราว์เซอร์ → state cookie หาย.
-export function isSocialInAppBrowser(userAgent: string): boolean {
-  return /\b(FBAN|FBAV|FB_IAB|FB4A|MESSENGER|Instagram)\b/i.test(userAgent)
-}
+// in-app browser ของ Facebook / Messenger / Instagram — ตัวตรวจย้ายไป lib/browser/in-app.ts (slice 7c).
+// ในนั้น LINE ไม่ auto login (ต้องกรอกอีเมล/รหัสผ่าน) และ Google บล็อก OAuth.
+import { isSocialInAppBrowser } from '@/lib/browser/in-app'
+export { isSocialInAppBrowser }
 
 const OPEN_IN_BROWSER_HINT =
   'ถ้าเปิดลิงก์จาก Facebook หรือ Instagram ให้กดปุ่ม ⋯ มุมขวาบน แล้วเลือก "เปิดในเบราว์เซอร์" ก่อนเข้าสู่ระบบค่ะ'

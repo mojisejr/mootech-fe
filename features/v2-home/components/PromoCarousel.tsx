@@ -4,7 +4,7 @@
 import { useEffect, useRef, useState } from 'react'
 import Image from 'next/image'
 import { useRouter } from 'next/router'
-import { openInExternalBrowser } from '@/lib/line/liff'
+import { openInExternalBrowser } from '@/lib/browser/open-external'
 
 const PROMOS: { key: string; src: string; href: string; alt: string }[] = [
   { key: 'book', src: '/images/v2/popup/book.png', href: '/v2/service/one-book', alt: 'เรียน & ดูดวงจีน ได้ไฟล์คู่มือดวงส่วนตัว' },

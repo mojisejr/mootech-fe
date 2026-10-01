@@ -144,7 +144,7 @@ export function buildAuthorizeUrl(p: AuthorizeParams): string {
 }
 
 /** LINE's in-app browser identifies itself with "Line/<version>" in the UA, the
- *  same test lib/line/liff.ts:33 uses on the client. Here it runs server-side, on
+ *  same test lib/browser/in-app.ts uses on the client. Here it runs server-side, on
  *  the request that starts the flow. */
 export function isLineWebview(userAgent: string | undefined | null): boolean {
   return /\bLine\//i.test(String(userAgent ?? ''))

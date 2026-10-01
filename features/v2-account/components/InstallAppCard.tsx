@@ -7,7 +7,7 @@ import { usePwaInstall } from '@/lib/pwa/use-install-prompt'
 import { useInstallReward } from '@/lib/pwa/use-install-reward'
 import { InstallGuideSheet } from '@/features/v2-calendar/components/InstallGuideSheet'
 import { KitButton, SectionCard } from '@/features/v2-profile/components/kit'
-import { isLineInAppBrowser, openInExternalBrowser } from '@/lib/line/liff'
+import { isLineInAppBrowser, openInExternalBrowser } from '@/lib/browser/open-external'
 
 export function InstallAppCard() {
   const { canInstall, installed, promptInstall } = usePwaInstall()

@@ -1,5 +1,5 @@
 import { describe, test, expect, afterEach, vi } from "vitest";
-import { isLineInAppBrowser } from "@/lib/line/liff";
+import { isLineInAppBrowser } from "@/lib/browser/open-external";
 
 // ล็อก regex ตรวจ "อยู่ใน in-app browser ของ LINE" จาก User-Agent (Line/<version>) —
 // ใช้ตัดสินว่าจะโชว์ปุ่ม "เปิดในเบราว์เซอร์" (ติดตั้ง PWA/notification ที่ in-app browser ทำไม่ได้).

@@ -6,7 +6,7 @@ import { act, renderHook } from '@testing-library/react'
 
 const startOAuthRedirect = vi.fn(async () => {})
 vi.mock('@/lib/auth/oauth-redirect', () => ({ startOAuthRedirect: (...a: unknown[]) => startOAuthRedirect(...(a as [])) }))
-vi.mock('@/lib/line/liff', () => ({ openInExternalBrowser: vi.fn(async () => {}) }))
+vi.mock('@/lib/browser/open-external', () => ({ openInExternalBrowser: vi.fn(async () => {}), isInAppBrowser: () => false }))
 vi.mock('react-cookie', () => ({ useCookies: () => [{}, vi.fn(), vi.fn()] }))
 
 import { isSocialInAppBrowser, loginErrorNotice } from '@/lib/auth/login-error'

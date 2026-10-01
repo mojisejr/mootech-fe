@@ -2,7 +2,8 @@
 // - link ที่แชร์ = /invite/<referral-code> ของ user → คนสมัครผ่านลิงก์นี้ = user ได้ QI (referral)
 // - ภาพ: ถ้าเบราว์เซอร์รองรับ navigator.share({files}) จะแนบภาพการ์ดไปในชีตแชร์ด้วย
 //   (fallback: แชร์ url+text; OG ของหน้า /invite ยังโชว์การ์ดแบรนด์ให้ผู้รับลิงก์เห็น)
-import { getLiff, isLineInAppBrowser } from "@/lib/line/liff"
+import { getLiff } from "@/lib/line/liff"
+import { isLineInAppBrowser } from "@/lib/browser/open-external"
 
 // LINE deep-link แชร์ข้อความ (เปิดหน้าเลือกเพื่อน/แชตของ LINE) — ใช้ได้แม้หน้าไม่ได้เปิดเป็น LIFF app
 // (shareTargetPicker ต้องมี LIFF context จาก liff.line.me เท่านั้น; ใน in-app browser ปกติจะ unavailable).

@@ -15,7 +15,7 @@ import { usePwaInstall } from '@/lib/pwa/use-install-prompt'
 import { useInstallReward } from '@/lib/pwa/use-install-reward'
 import { usePwaCapability } from '@/lib/pwa/capability'
 import { InstallGuideSheet } from '@/features/v2-calendar/components/InstallGuideSheet'
-import { isLineInAppBrowser, openInExternalBrowser } from '@/lib/line/liff'
+import { isLineInAppBrowser, openInExternalBrowser } from '@/lib/browser/open-external'
 
 const DISMISS_KEY = 'mumate:install-prompt-dismissed-at'
 const DISMISS_DAYS = 7

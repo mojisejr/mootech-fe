@@ -127,6 +127,8 @@ export default defineConfig({
       'scripts/v2-login-providers-retry.test.ts', // 2026-09-20 — signIn() providers-fetch retry (LINE cold-start "undefined" error fix)
       'scripts/oauth-redirect.test.ts', // 2026-09-20 — startOAuthRedirect: form POST เลี่ยง getProviders (LINE signup ยังพังหลัง #723)
       'scripts/login-loop-s7b.test.ts', // slice 7b 2026-10-01 — OAuth error ต้องไม่เงียบบน /v2/login + ปุ่มไม่ยิง OAuth ซ้ำเอง (state mismatch)
+      'scripts/in-app-s7c.test.ts', // slice 7c 2026-10-02 — พาออกจาก in-app browser (LINE/FB/IG) ก่อน OAuth + ?ref ตามไป + liff.state โดยไม่ boot SDK
+      'scripts/login-escape-page.test.tsx', // slice 7c 2026-10-02 — /v2/login ใน Facebook/IG: หน้าเปิดในเบราว์เซอร์จริง, ?ref ตามไป, ไม่ขังผู้ใช้
       'scripts/liff-detect.test.ts', // 2026-09-20 — isLineInAppBrowser (UA) → โชว์ปุ่ม "เปิดในเบราว์เซอร์" ติดตั้ง PWA/notification
       'scripts/ops-delete-user.test.ts', // 2026-09-20 — /ops ลบบัญชี (deleteUserIdentity scoped + best-effort)
       'scripts/launch-env-propagation.test.ts', // 2026-09-20 — goLive() waits for env propagation before redeploy (live race fix)
