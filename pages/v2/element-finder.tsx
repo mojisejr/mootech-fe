@@ -15,7 +15,7 @@ import { WallpaperCard, WallpaperStage } from "@/features/v2-element-finder/Wall
 import { pickWallpaper, type WallpaperPick } from "@/features/v2-element-finder/wallpaper"
 import { ELEMENT_COLOR } from "@/lib/bazi/element-colors"
 import { resolveMascotFromCompute, type ComputeMascotSource } from "@/lib/personalization/mascot"
-import { openInExternalBrowser, isLineInAppBrowser } from "@/lib/line/liff"
+import { openInExternalBrowser, isLineInAppBrowser } from "@/lib/browser/open-external"
 import { issueNonce, NONCE_COOKIE } from "@/lib/calculator/nonce"
 
 // ธาตุ (en) → ชื่อไทย + ไอคอนตัวแทน (ใช้ทำ Twitter/OG card ตอนแชร์ ?el=)

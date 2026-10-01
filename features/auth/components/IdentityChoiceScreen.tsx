@@ -37,7 +37,7 @@ import {
 import { buildRegisterParamsFromSession, type RegisterParams } from '@/lib/auth/register-params'
 import { mintMemberIdentity, type MintOutcome, type SetMemberCookie } from '@/lib/auth/mint-member'
 import { startOAuthRedirect } from '@/lib/auth/oauth-redirect'
-import { isLineInAppBrowser, openInExternalBrowser } from '@/lib/line/liff'
+import { isLineInAppBrowser, openInExternalBrowser } from '@/lib/browser/open-external'
 import { CookieKey } from '@/constants/cookie-key'
 import { CONFIG } from '@/constants/config'
 

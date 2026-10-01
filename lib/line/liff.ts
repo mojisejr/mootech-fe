@@ -1,15 +1,16 @@
-// Shared LIFF helpers (#mumate-line-liff, 2026-09-20).
+// LIFF SDK wrapper — on demand only (slice 7c, 2026-10-02).
 //
-// สองหน้าที่:
-//   1) init LIFF ครั้งเดียว (dedupe ด้วย module-level promise) — LiffBoot เรียกตอน mount.
-//   2) openInExternalBrowser() — เด้งออก "เบราว์เซอร์ภายนอก" (Chrome/Safari) จากใน LINE in-app browser
-//      ผ่าน liff.openWindow({external:true}). จำเป็นเพราะ in-app browser ของ LINE ทำ PWA install
-//      (Add to Home Screen) + web push ไม่ได้ (ข้อจำกัด WebView) → ต้องออกไปข้างนอก (เอ็ม 2026-09-20).
+// LIFF ไม่ใช้กับการล็อกอินแล้ว (#860/#863: ช่อง LIFF อยู่คนละ LINE Provider → LINE userId ไม่ตรง → บัญชีซ้ำ) และไม่ boot
+// ทุกหน้าแล้ว (LiffBoot ถอดออก). เหลือใช้เฉพาะตอนผู้ใช้กด ในบริบท LIFF browser (entry ผ่าน https://liff.line.me/<id>
+// เช่น rich menu) ซึ่งทำได้ผ่าน SDK เท่านั้น:
+//   - liff.openWindow({ external: true }) พาออกเบราว์เซอร์จริง (lib/browser/open-external.ts)
+//   - shareTargetPicker แชร์ลิงก์เชิญเข้าแชต LINE (lib/v2/share-invite.ts)
+// เมื่อทีมเปลี่ยน rich menu เป็น URL ปกติแล้ว ไฟล์นี้และ @line/liff ถอดได้ทั้งหมด.
 //
 // LIFF ID = ค่าสาธารณะ (อยู่ใน LIFF URL) ฝัง default ได้ ไม่ต้องพึ่ง Vercel env (override ด้วย env ได้).
 export const LIFF_ID = process.env.NEXT_PUBLIC_LIFF_ID || "2011679472-sNcCbR2K";
 
-// dedupe init: LiffBoot (mount) และ openInExternalBrowser (click) อาจเรียกพร้อมกัน — init รอบเดียว.
+// dedupe init: ผู้เรียกหลายจุดอาจเรียกพร้อมกัน — init รอบเดียว.
 let liffPromise: Promise<typeof import("@line/liff").default> | null = null;
 export function getLiff(): Promise<typeof import("@line/liff").default> {
   if (!liffPromise) {
@@ -24,28 +25,4 @@ export function getLiff(): Promise<typeof import("@line/liff").default> {
     })();
   }
   return liffPromise;
-}
-
-// อยู่ใน in-app browser ของ LINE ไหม — เช็คจาก User-Agent (sync, ไม่ต้องรอ init).
-// LINE webview UA มี "Line/<version>" เช่น "... Line/13.5.0".
-export function isLineInAppBrowser(): boolean {
-  if (typeof navigator === "undefined") return false;
-  return /\bLine\//i.test(navigator.userAgent);
-}
-
-// เปิด url ในเบราว์เซอร์ "ภายนอก" (Chrome/Safari). ใน LINE → liff.openWindow({external:true});
-// นอก LINE → window.open ปกติ. ใช้ตอนจะติดตั้ง PWA / เปิด notification ที่ in-app browser ทำไม่ได้.
-export async function openInExternalBrowser(url: string): Promise<void> {
-  try {
-    const liff = await getLiff();
-    if (liff.isInClient()) {
-      liff.openWindow({ url, external: true });
-      return;
-    }
-  } catch {
-    // liff ใช้ไม่ได้ — ตกไป window.open
-  }
-  if (typeof window !== "undefined") {
-    window.open(url, "_blank", "noopener");
-  }
 }

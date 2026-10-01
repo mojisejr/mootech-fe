@@ -10,7 +10,7 @@
 import { useState } from 'react'
 import { useCookies } from 'react-cookie'
 import { startOAuthRedirect } from '@/lib/auth/oauth-redirect'
-import { openInExternalBrowser } from '@/lib/line/liff'
+import { isInAppBrowser, openInExternalBrowser } from '@/lib/browser/open-external'
 import { CookieKey } from '@/constants/cookie-key'
 import { CONFIG } from '@/constants/config'
 
@@ -28,10 +28,6 @@ export function safeNextPath(next: unknown): string | null {
   if (next.includes('://') || next.includes('\\')) return null
   return next
 }
-
-// Copied from pages/login (defined inline there, not exported) — LINE's in-app webview UA.
-const isLineInAppBrowser = () =>
-  typeof navigator !== 'undefined' && /\bLine\//i.test(navigator.userAgent)
 
 // เอ็ม 2026-09-20 (สมัครใหม่ด้วย LINE ครั้งแรกพัง — "เข้าสู่ระบบไม่สำเร็จ / รหัสอ้างอิง: undefined"):
 // next-auth's signIn() ยิง fetch('/api/auth/providers') เองก่อนเปิดหน้า OAuth เสมอ — ถ้า fetch นั้นพลาด
@@ -80,11 +76,11 @@ export function useV2Login(): V2LoginApi {
     // is Lamun's UI to port). ⚠️ known limitation: the external browser won't carry the team
     // `v2_access` cookie, so a Google-in-LINE-webview tester re-enters the preview passkey there —
     // acceptable for an internal preview; revisit if it bites.
-    if (provider === 'google' && isLineInAppBrowser()) {
-      // เอ็ม 2026-09-22 (LINE LIFF browser): Google บล็อกใน LINE webview (disallowed_useragent). เดิมใช้
-      // window.location = ...?openExternalBrowser=1 แต่ query param นี้ "ไม่ทำงานใน LIFF" → คลิกแล้วรีโหลด
-      // หน้าเดิม (ปุ่มเหมือนกดไม่ได้). แก้: เปิดเบราว์เซอร์ภายนอกด้วย liff.openWindow({external:true}) ผ่าน
-      // openInExternalBrowser (fallback window.open ถ้าไม่ใช่ LIFF) → ผู้ใช้ไปล็อกอิน Google ต่อข้างนอกได้จริง.
+    // slice 7c (2026-10-02): ทุก in-app browser (LINE / Facebook / Instagram) ไม่ใช่แค่ LINE. ทางออกตามบริบท
+    // (lib/browser/in-app.ts): LIFF browser → liff.openWindow, LINE ธรรมดา → ?openExternalBrowser=1,
+    // Android FB/IG → intent:// Chrome, iOS FB/IG → x-safari-. (เอ็ม 2026-09-22: query param ไม่ทำงานใน LIFF — จึงเช็ค
+    // liff.isInClient() ก่อนเสมอในฝั่ง LINE.)
+    if (provider === 'google' && isInAppBrowser()) {
       void openInExternalBrowser(`${window.location.origin}/v2/login`)
       return
     }

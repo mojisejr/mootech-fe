@@ -31,7 +31,7 @@
 // WHICH variant from capability — so this file compiles and renders before #285 lands.
 import { useEffect, useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
-import { isLineInAppBrowser, openInExternalBrowser } from '@/lib/line/liff'
+import { isLineInAppBrowser, openInExternalBrowser } from '@/lib/browser/open-external'
 
 export type InstallGuideVariant = 'install' | 'permission'
 
