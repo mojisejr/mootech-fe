@@ -171,14 +171,14 @@ export default function V2CheckoutPage({ teamPreview }: { teamPreview: boolean }
         {co.quote && (
           <OrderSummaryCard
             planName={planName}
-            validUntilText={
-              courseOffer
-                ? courseOffer.plusLabel
-                  ? `เรียนได้ตลอด · Mumate + ${courseOffer.plusLabel}นับจากวันที่ชำระเงิน`
-                  : 'เรียนได้ตลอดชีพ'
-                : '1 ปีนับจากวันที่ชำระเงิน'
-            }
-            {...(qiQty !== null
+            validUntilText="1 ปีนับจากวันที่ชำระเงิน"
+            {...(courseOffer
+              ? {
+                  validLine: courseOffer.plusLabel
+                    ? `เรียนได้ตลอดชีพ · แถม Mumate + ${courseOffer.plusLabel} นับจากวันที่ชำระเงิน`
+                    : 'เรียนได้ตลอดชีพ',
+                }
+              : qiQty !== null
               ? { validLine: 'ชี่เข้าบัญชีทันทีหลังชำระเงินสำเร็จ' }
               : sinsaeLabel
                 ? { validLine: 'ชำระแล้วทักไลน์เพื่อยืนยันวันเวลากับซินแส (คนจริง)' }
