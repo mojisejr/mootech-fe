@@ -9,8 +9,8 @@
 // precisely for "deep-link pages that skipped /". So we deliberately skip `/` and let it heal.
 import { useState } from 'react'
 import { useCookies } from 'react-cookie'
-import { startOAuthRedirect, startLiffCredentialsLogin } from '@/lib/auth/oauth-redirect'
-import { openInExternalBrowser, getLiff, LIFF_ID } from '@/lib/line/liff'
+import { startOAuthRedirect } from '@/lib/auth/oauth-redirect'
+import { openInExternalBrowser } from '@/lib/line/liff'
 import { CookieKey } from '@/constants/cookie-key'
 import { CONFIG } from '@/constants/config'
 
@@ -91,31 +91,9 @@ export function useV2Login(): V2LoginApi {
 
     setLoading(true)
 
-    // เอ็ม 2026-09-28: ใน LINE → ล็อกอินผ่าน LIFF (ไม่ไปหน้า access.line.me ที่ค้าง). ไม่สำเร็จ → ตกไป OAuth เดิม.
-    if (provider === 'line' && isLineInAppBrowser()) {
-      void (async () => {
-        try {
-          const liff = await getLiff()
-          if (liff.isInClient()) {
-            if (!liff.isLoggedIn()) {
-              liff.login({ redirectUri: window.location.href })
-              return
-            }
-            const idToken = liff.getIDToken()
-            if (idToken && (await startLiffCredentialsLogin(idToken, callbackUrl))) return
-          } else {
-            // in-app browser ธรรมดา (เปิดลิงก์ตรงในแชท) → เปิดหน้าเดิมผ่าน LIFF URL เพื่อให้ได้ idToken
-            const path = window.location.pathname + window.location.search
-            window.location.href = `https://liff.line.me/${LIFF_ID}${path}`
-            return
-          }
-        } catch {
-          /* ตกไป OAuth เดิม */
-        }
-        void startOAuthRedirect(provider, callbackUrl)
-      })()
-      return
-    }
+    // 🔴 2026-10-01: ถอดการล็อกอินผ่าน LIFF (#846) — ช่อง LIFF อยู่คนละ LINE Provider กับช่อง Login → LINE userId (sub)
+    // ไม่ตรงกัน → คนเดิมกลายเป็น "คนใหม่" (บัญชีซ้ำ / เด้งหน้า welcome-back). กลับมาใช้ OAuth ช่อง Login อย่างเดียว
+    // จนกว่าจะย้าย LIFF app ไปอยู่ใน Provider เดียวกับ LINE_CLIENT_ID.
     // เลี่ยง getProviders ของ signIn() ทั้งหมด (ต้นเหตุ "รหัสอ้างอิง: undefined") — เริ่ม OAuth ด้วย full-page
     // form POST ตรงไป /api/auth/signin/<provider> ให้เบราว์เซอร์เดินตาม 302 เอง. ดู oauth-redirect.ts
     //

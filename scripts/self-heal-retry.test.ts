@@ -10,7 +10,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { renderHook, waitFor } from '@testing-library/react'
 
 const { session, registerCall, userGet, signOutMock, setCookieMock, removeCookieMock } = vi.hoisted(() => ({
-  session: { status: 'authenticated', data: { user: { name: 'ทดสอบ', image: '' }, lineProfile: { sub: 'U123' } } },
+  session: { status: 'authenticated', data: { user: { name: 'ทดสอบ', image: '' }, lineProfile: { sub: 'U123', iss: 'https://access.line.me' } } },
   registerCall: vi.fn(),
   userGet: vi.fn(),
   signOutMock: vi.fn(),
@@ -107,3 +107,14 @@ async function actRelease(release: (v: unknown) => void, value: unknown) {
   await vi.advanceTimersByTimeAsync(0)
   release(value)
 }
+
+describe('2026-10-01 · session จาก LIFF (sub ผิดช่อง) ต้องถูกออกจากระบบ ไม่ mint บัญชีใหม่', () => {
+  it('lineProfile ไม่มี iss (มาจาก LIFF รุ่นก่อน) → signOut ทันที และไม่เรียก register', async () => {
+    session.data = { user: { name: 'ทดสอบ', image: '' }, lineProfile: { sub: 'U-LIFF' } } as typeof session.data
+    signOutMock.mockClear()
+    registerCall.mockClear()
+    renderHook(() => useSelfHealIdentity())
+    await vi.waitFor(() => expect(signOutMock).toHaveBeenCalled())
+    expect(registerCall).not.toHaveBeenCalled()
+  })
+})

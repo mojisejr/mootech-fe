@@ -88,6 +88,20 @@ export function useSelfHealIdentity(): void {
       return;
     }
 
+    // 🔴 2026-10-01: session จากการล็อกอินผ่าน LIFF (#846, ถอดแล้ว) ถือ LINE sub ของช่อง LIFF ซึ่งอยู่คนละ Provider →
+    // ไม่ตรงกับบัญชีจริง. OAuth ช่อง Login ให้ lineProfile เป็น claims ของ id_token (มี iss) — ไม่มี iss = มาจาก LIFF.
+    // ออกจากระบบ (ไม่ mint / ไม่ถาม) แล้วให้ผู้ใช้ล็อกอินใหม่ตามปกติ.
+    const lp = (session as { lineProfile?: { sub?: string; iss?: string } } | null)?.lineProfile;
+    if (lp?.sub && !lp.iss && !(lp as { via?: string }).via) {
+      healingRef.current = true;
+      void signOut({ redirect: false });
+      return;
+    }
+    // หน้าสาธารณะ (ลิงก์แชร์คำทำนาย / คอร์ส / โปรฯ) เปิดดูได้โดยไม่ต้องมีบัญชี — ห้ามเด้งไปถามหรือสร้างบัญชีให้
+    if (typeof window !== "undefined" && /^\/(invite|course|promo)(\/|$)/.test(window.location.pathname)) {
+      return;
+    }
+
     const timer = setTimeout(async () => {
       if (healingRef.current) {
         return;
