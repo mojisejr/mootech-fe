@@ -76,8 +76,11 @@ export default function CalendarCoursePage() {
             </div>
             <div className="px-5 pb-6 pt-3 text-center">
               <h1 className="text-[34px] font-black leading-tight tracking-tight text-black">Win the Day</h1>
-              <p className="mt-1.5 text-lg font-semibold leading-7 text-[#6e6a75]">สูตรอ่านปฏิทินดวงจีน</p>
-              <p className="text-lg font-semibold leading-7 text-[#6e6a75]">รู้ วันดี-วันต้องระวังล่วงหน้า</p>
+              <p className="mt-1.5 text-lg font-semibold leading-7 text-[#6e6a75]">
+                <span className="whitespace-nowrap">สูตรอ่านปฏิทินดวงจีน</span>{" "}
+                <span className="whitespace-nowrap">รู้ วันดี-วันต้องระวังล่วงหน้า</span>
+              </p>
+              <p className="mt-1 text-sm text-[#8d8995]">(อ่านง่ายแม้ไม่มีพื้นฐาน)</p>
             </div>
           </div>
           <div className={CARD}>
