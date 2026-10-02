@@ -1,15 +1,16 @@
 // BFF — /api/v2/manifest/entry: บันทึกประจำวัน (mood + note) + สตรีค (ต่อ engine /api/manifest/entry)
 //   GET ?from&to → { entries[], streak{current,best} } · POST { date?, mood?(1-5), note? } → { rewarded, streak }
 import type { NextApiRequest, NextApiResponse } from "next"
+import { resolveRouteMember } from '@/lib/v2/resolve-user'
 
-const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
-  const rawId = req.cookies["cookie-mumate-id"] ?? ""
-  if (!UUID_RE.test(rawId)) {
-    res.status(401).json({ code: "not_authenticated" })
+  const who = await resolveRouteMember(req, res)
+  if (!who.ok) {
+    res.status(who.status).json(who.body)
     return
   }
+  const memberId = who.userId
   const base = process.env.BAZI_BASE_URL
   if (!base) {
     res.status(503).json({ error: "engine not configured" })
@@ -17,7 +18,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
   try {
     if (req.method === "GET") {
-      const qs = new URLSearchParams({ anonId: rawId })
+      const qs = new URLSearchParams({ anonId: memberId })
       const from = typeof req.query.from === "string" ? req.query.from : ""
       const to = typeof req.query.to === "string" ? req.query.to : ""
       if (from) qs.set("from", from)
@@ -30,7 +31,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       const upstream = await fetch(`${base}/api/manifest/entry`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...(req.body ?? {}), anonId: rawId }),
+        body: JSON.stringify({ ...(req.body ?? {}), anonId: memberId }),
       })
       res.status(upstream.status).json(await upstream.json().catch(() => ({})))
       return

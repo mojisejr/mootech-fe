@@ -127,6 +127,35 @@ export async function resolveSessionUserId(
   return resolved
 }
 
+const IDENTITY_MISMATCH_BODY = { reason: 'identity', error: 'บัญชีไม่ตรงกัน โปรดออกจากระบบแล้วเข้าสู่ระบบใหม่' } as const
+
+export type RouteMember =
+  | { ok: true; userId: string }
+  | { ok: false; status: 401 | 404 | 409; body: Record<string, unknown> }
+
+/**
+ * For the routes that used to read cookie-mumate-id directly (hardening slice 1 step 2): the caller comes
+ * from the signed session (or the sealed #391 fallback), and a member cookie naming someone else is refused
+ * with the 409 `reason: 'identity'` the clients already understand. A refusal keeps the
+ * `code: 'not_authenticated'` body those routes always sent.
+ */
+export async function resolveRouteMember(req: NextApiRequest, res: NextApiResponse): Promise<RouteMember> {
+  const who = await resolveSessionUserId(req, res)
+  if (!who.ok) return { ok: false, status: who.status, body: { code: 'not_authenticated', error: who.error } }
+  if (memberCookieMismatch(req, who.userId)) return { ok: false, status: 409, body: { ...IDENTITY_MISMATCH_BODY } }
+  return { ok: true, userId: who.userId }
+}
+
+/** Same, for routes that also serve anonymous callers: '' whenever there is no member we may act for. */
+export async function resolveOptionalRouteMember(req: NextApiRequest, res: NextApiResponse): Promise<string> {
+  try {
+    const who = await resolveRouteMember(req, res)
+    return who.ok ? who.userId : ''
+  } catch {
+    return ''
+  }
+}
+
 /**
  * Same resolution, but WITHOUT the MEMBER_ID fallback (mumate-login-identity-001 slice 3).
  *

@@ -1,19 +1,20 @@
-// BFF — POST /api/coupon-redeem { code }: user แลกคูปองกิจกรรม (anonId = cookie-mumate-id) → engine.
+// BFF — POST /api/coupon-redeem { code }: user แลกคูปองกิจกรรม (anonId = user_id ของผู้เรียก จาก session — resolveRouteMember) → engine.
 // #2 คูปอง Phase 2. กันรับซ้ำอยู่ฝั่ง engine (1 คูปอง/บัญชี).
 import type { NextApiRequest, NextApiResponse } from "next"
+import { resolveRouteMember } from '@/lib/v2/resolve-user'
 
-const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== "POST") {
     res.status(405).json({ error: "Method not allowed" })
     return
   }
-  const rawId = req.cookies["cookie-mumate-id"] ?? ""
-  if (!UUID_RE.test(rawId)) {
-    res.status(401).json({ code: "not_authenticated" })
+  const who = await resolveRouteMember(req, res)
+  if (!who.ok) {
+    res.status(who.status).json(who.body)
     return
   }
+  const memberId = who.userId
   const body = (req.body ?? {}) as { code?: string }
   const code = typeof body.code === "string" ? body.code.trim() : ""
   if (!code) {
@@ -25,7 +26,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const upstream = await fetch(`${base}/api/coupon/redeem`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ anonId: rawId, code }),
+      body: JSON.stringify({ anonId: memberId, code }),
     })
     const payload = await upstream.json().catch(() => ({}))
     res.status(upstream.status).json(payload)

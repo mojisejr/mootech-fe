@@ -2,6 +2,7 @@
 //   POST { imageBase64, mime } → { url }   (เก็บลง DB, คืน URL เสิร์ฟที่เบราว์เซอร์โหลดได้)
 //   GET  ?id=<uuid>            → ไบต์รูป     (proxy จาก engine, สโคปด้วย anonId จาก cookie)
 import type { NextApiRequest, NextApiResponse } from "next"
+import { resolveRouteMember } from '@/lib/v2/resolve-user'
 
 // รูป base64 ใหญ่ — ปลดล็อกลิมิต body (client ย่อ ~1080px q0.8 มาแล้ว) เหมือน /api/v2/avatar
 export const config = { api: { bodyParser: { sizeLimit: "8mb" } } }
@@ -9,11 +10,12 @@ export const config = { api: { bodyParser: { sizeLimit: "8mb" } } }
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
-  const rawId = req.cookies["cookie-mumate-id"] ?? ""
-  if (!UUID_RE.test(rawId)) {
-    res.status(401).json({ code: "not_authenticated" })
+  const who = await resolveRouteMember(req, res)
+  if (!who.ok) {
+    res.status(who.status).json(who.body)
     return
   }
+  const memberId = who.userId
   const base = process.env.BAZI_BASE_URL
   if (!base) {
     res.status(503).json({ error: "engine not configured" })
@@ -28,7 +30,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return
     }
     try {
-      const upstream = await fetch(`${base}/api/manifest/photo/${id}?anonId=${encodeURIComponent(rawId)}`)
+      const upstream = await fetch(`${base}/api/manifest/photo/${id}?anonId=${encodeURIComponent(memberId)}`)
       if (!upstream.ok) {
         res.status(upstream.status).json({ error: "ไม่พบรูป" })
         return
@@ -55,7 +57,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const upstream = await fetch(`${base}/api/manifest/photo`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ anonId: rawId, imageBase64: body.imageBase64, mime: body.mime }),
+      body: JSON.stringify({ anonId: memberId, imageBase64: body.imageBase64, mime: body.mime }),
     })
     const j = (await upstream.json().catch(() => ({}))) as { id?: string; error?: string }
     if (!upstream.ok || !j.id) {

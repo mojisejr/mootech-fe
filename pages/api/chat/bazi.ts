@@ -3,7 +3,7 @@
 // /api/v1/chat/completions). The OPEN_WEBUI_API_TOKEN stays server-side only.
 //
 // IDENTITY & IMMUTABILITY: birth data is resolved SERVER-SIDE from the logged-in user's row,
-// keyed by the auth cookie (cookie-mumate-id, a uuid). The browser NEVER sends birth fields,
+// keyed by the signed session's user_id (resolveOptionalRouteMember). The browser NEVER sends birth fields,
 // so a user can't change their birthday by typing in chat. Streams OpenAI SSE back.
 //
 // DEV FALLBACK: outside production only, if there is no resolvable user row, we accept a
@@ -20,6 +20,7 @@ import {
 } from "@/lib/bazi-bridge/input"
 import { mergeEngineBirth } from "@/lib/bazi-bridge/engine-birth"
 import type { DevBirthProfile } from "@/dev-access/birth-adapter"
+import { resolveOptionalRouteMember } from '@/lib/v2/resolve-user'
 
 export const config = {
   api: {
@@ -29,7 +30,6 @@ export const config = {
 
 type ChatMessage = { role: "user" | "assistant" | "system"; content: string }
 
-const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 const rowsOf = (r: any): any[] => (Array.isArray(r) ? r : r?.rows ?? [])
 
 function devBirthToFeCalcInput(b: DevBirthProfile): FeCalcInput {
@@ -70,8 +70,7 @@ export default async function handler(
 
   // 0) resolve birth SERVER-SIDE from the logged-in identity (immutable)
   let feInput: FeCalcInput | null = null
-  const rawId = req.cookies["cookie-mumate-id"] ?? ""
-  const userId = UUID_RE.test(rawId) ? rawId : ""
+  const userId = await resolveOptionalRouteMember(req, res)
   if (userId) {
     try {
       const row = rowsOf(

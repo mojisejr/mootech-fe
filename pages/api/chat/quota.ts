@@ -1,11 +1,11 @@
-// BFF — GET /api/chat/quota: สถานะโควตาแชทของผู้ใช้ที่ล็อกอิน (anonId = cookie-mumate-id) สำหรับ
+// BFF — GET /api/chat/quota: สถานะโควตาแชทของผู้ใช้ที่ล็อกอิน (anonId = user_id ของผู้เรียก จาก session — resolveRouteMember) สำหรับ
 // แถบสถานะบนหน้าแชท เพื่อบอกว่า "คุยจากอะไร / เหลือกี่ / ชี่เท่าไร / คำถามถัดไปหักอะไร".
 // รวม 2 อ่านจาก engine (pdf-dev): feature-check(chat) = peekUse (ไม่หัก) + qi/wallet = ยอดชี่.
 //   → { qi, unlimited, nextSource, cost, freeRemaining, affordable }
 // graceful: engine ล่ม/ไม่มี identity → 401/200 พร้อมค่า null ให้แถบซ่อนเอง ไม่ทำให้หน้าแชทพัง.
 import type { NextApiRequest, NextApiResponse } from "next"
+import { resolveRouteMember } from '@/lib/v2/resolve-user'
 
-const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
 export type ChatQuota = {
   qi: number | null
@@ -18,8 +18,9 @@ export type ChatQuota = {
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== "GET") return res.status(405).json({ error: "Method not allowed" })
-  const rawId = req.cookies["cookie-mumate-id"] ?? ""
-  if (!UUID_RE.test(rawId)) return res.status(401).json({ code: "not_authenticated" })
+  const who = await resolveRouteMember(req, res)
+  if (!who.ok) return res.status(who.status).json(who.body)
+  const memberId = who.userId
 
   const base = process.env.BAZI_BASE_URL || "http://localhost:3000"
   try {
@@ -27,9 +28,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       fetch(`${base}/api/qi/feature-check`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ anonId: rawId, feature: "chat" }),
+        body: JSON.stringify({ anonId: memberId, feature: "chat" }),
       }),
-      fetch(`${base}/api/qi/wallet?anonId=${encodeURIComponent(rawId)}&history=0`),
+      fetch(`${base}/api/qi/wallet?anonId=${encodeURIComponent(memberId)}&history=0`),
     ])
     const check = checkRes.ok ? await checkRes.json() : null
     const wallet = walletRes.ok ? await walletRes.json() : null

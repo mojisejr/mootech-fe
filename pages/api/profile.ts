@@ -1,4 +1,4 @@
-// BFF — /api/profile: โปรไฟล์ของผู้ใช้ที่ล็อกอิน (anonId = cookie-mumate-id).
+// BFF — /api/profile: โปรไฟล์ของผู้ใช้ที่ล็อกอิน (anonId = user_id ของผู้เรียก จาก session — resolveRouteMember).
 //   GET            → โปรไฟล์ + quota แก้วันเกิด { birthEditFreeUsed, birthEditPriceQi, pendingCorrection }
 //   PATCH {…}      → แก้ชื่อ/เพศเสมอ; แก้วันเกิด → engine ตัดสินโควตาเอง (ฟรีครั้งแรก / หัก 150 QI → 409 ถ้าไม่พอ)
 //   POST {reason}  → คำขอพิจารณาแก้วันเกิด (correction request)
@@ -11,8 +11,8 @@
 import type { NextApiRequest, NextApiResponse } from "next"
 import { sql } from "drizzle-orm"
 import { db } from "@/lib/db"
+import { resolveRouteMember } from '@/lib/v2/resolve-user'
 
-const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
 type EngineProfile = { birthDate?: string | null; birthTime?: string | null; timeUnknown?: boolean | null; [k: string]: unknown }
 type LegacyBirth = { birth: string; birthTime: string | null; timeUnknown: boolean }
@@ -40,16 +40,17 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     res.status(405).json({ error: "Method not allowed" })
     return
   }
-  const rawId = req.cookies["cookie-mumate-id"] ?? ""
-  if (!UUID_RE.test(rawId)) {
-    res.status(401).json({ code: "not_authenticated" })
+  const who = await resolveRouteMember(req, res)
+  if (!who.ok) {
+    res.status(who.status).json(who.body)
     return
   }
+  const memberId = who.userId
   const base = process.env.BAZI_BASE_URL || "http://localhost:3000"
   try {
     const url =
       req.method === "GET"
-        ? `${base}/api/profile?anonId=${encodeURIComponent(rawId)}`
+        ? `${base}/api/profile?anonId=${encodeURIComponent(memberId)}`
         : `${base}/api/profile`
     const upstream = await fetch(url, {
       method: req.method,
@@ -57,12 +58,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       body:
         req.method === "GET"
           ? undefined
-          : JSON.stringify({ ...(req.body ?? {}), anonId: rawId }),
+          : JSON.stringify({ ...(req.body ?? {}), anonId: memberId }),
     })
     const payload = (await upstream.json().catch(() => ({}))) as { profile?: EngineProfile | null }
 
     if (req.method === "GET" && upstream.ok && !payload.profile?.birthDate) {
-      const legacy = await legacyBirth(rawId)
+      const legacy = await legacyBirth(memberId)
       if (legacy) {
         // profile null = ยังไม่เคยตั้ง @name ฝั่ง engine (ผู้ใช้เก่าก่อน v2) — สังเคราะห์โปรไฟล์ขั้นต่ำให้จอ v2 มีวันเกิดใช้
         const baseProfile: EngineProfile = payload.profile ?? { displayName: null, firstName: null, lastName: null, gender: null, email: null, birthProvince: null, hasAvatar: false, avatarUpdatedAt: null }
@@ -71,7 +72,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         void fetch(`${base}/api/profile`, {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ anonId: rawId, birth: legacy.birth, birthTime: legacy.birthTime, timeUnknown: legacy.timeUnknown }),
+          body: JSON.stringify({ anonId: memberId, birth: legacy.birth, birthTime: legacy.birthTime, timeUnknown: legacy.timeUnknown }),
         }).catch(() => {})
       }
     }
@@ -88,7 +89,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         const time = timeUnknown || !/^\d{2}:\d{2}$/.test(bt) ? "" : bt
         try {
           await db.execute(
-            sql`UPDATE "user" SET dob = ${birth}, "time" = ${time}, is_remember_time = ${time !== ""} WHERE user_id = ${rawId}`,
+            sql`UPDATE "user" SET dob = ${birth}, "time" = ${time}, is_remember_time = ${time !== ""} WHERE user_id = ${memberId}`,
           )
         } catch {
           /* legacy sync best-effort — engine เป็นแหล่งหลักแล้ว (mergeEngineBirth) */

@@ -1,15 +1,16 @@
 // BFF — /api/v2/manifest/goals: เป้าหมายมานิเฟส (ต่อ engine /api/manifest/goals)
 //   GET → goals+tasks+progress ของผู้ใช้ · POST สร้าง · PATCH แก้ · DELETE ลบ (แนบ anonId จาก cookie)
 import type { NextApiRequest, NextApiResponse } from "next"
+import { resolveRouteMember } from '@/lib/v2/resolve-user'
 
-const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
-  const rawId = req.cookies["cookie-mumate-id"] ?? ""
-  if (!UUID_RE.test(rawId)) {
-    res.status(401).json({ code: "not_authenticated" })
+  const who = await resolveRouteMember(req, res)
+  if (!who.ok) {
+    res.status(who.status).json(who.body)
     return
   }
+  const memberId = who.userId
   const base = process.env.BAZI_BASE_URL
   if (!base) {
     res.status(503).json({ error: "engine not configured" })
@@ -17,7 +18,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
   try {
     if (req.method === "GET") {
-      const upstream = await fetch(`${base}/api/manifest/goals?anonId=${encodeURIComponent(rawId)}`)
+      const upstream = await fetch(`${base}/api/manifest/goals?anonId=${encodeURIComponent(memberId)}`)
       res.status(upstream.status).json(await upstream.json().catch(() => ({ goals: [] })))
       return
     }
@@ -25,7 +26,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       const upstream = await fetch(`${base}/api/manifest/goals`, {
         method: req.method,
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...(req.body ?? {}), anonId: rawId }),
+        body: JSON.stringify({ ...(req.body ?? {}), anonId: memberId }),
       })
       res.status(upstream.status).json(await upstream.json().catch(() => ({})))
       return

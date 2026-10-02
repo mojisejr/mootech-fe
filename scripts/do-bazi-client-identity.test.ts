@@ -33,6 +33,10 @@ describe('the BFF that proxies to a rate-limited engine route', () => {
     vi.stubEnv('BAZI_BASE_URL', 'http://bazi:3000')
     const fetchMock = vi.fn(async () => new Response('{}', { status: 200 }))
     vi.stubGlobal('fetch', fetchMock)
+    // identity is not what this test is about (hardening slice 1 moved it onto the signed session)
+    vi.doMock('@/lib/v2/resolve-user', () => ({
+      resolveRouteMember: async () => ({ ok: true, userId: '11111111-2222-3333-4444-555555555555' }),
+    }))
     const { default: handler } = await import('@/pages/api/fortune/divine')
     const res = { status: vi.fn(() => res), json: vi.fn(() => res) }
     await handler(

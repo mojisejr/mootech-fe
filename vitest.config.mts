@@ -133,6 +133,7 @@ export default defineConfig({
       'scripts/self-heal-liff-carry.test.ts', // slice 7g 2026-10-02 — จบ session ยุค LIFF แม้มี MEMBER_ID, ขอใบส่งต่อก่อน signOut
       'scripts/member-seal.test.ts', // hardening slice 1 2026-10-02 — ตราสมาชิก: cookie httpOnly เซ็น HMAC ที่ fallback #391 ต้องเห็นก่อนเชื่อ cookie-mumate-id
       'scripts/member-check.test.ts', // hardening slice 1 2026-10-02 — ไม่มี session + cookie-mumate-id ที่ไม่มีตรา → ล้าง cookie ให้ล็อกอินใหม่ครั้งเดียว ไม่ค้างหน้า error
+      'scripts/member-routes-identity.test.ts', // hardening slice 1 2026-10-02 — ทุก route ที่เคยอ่าน cookie-mumate-id ตรง ๆ: id ของคนอื่นต้องไม่หลุดออกจาก handler
       'scripts/liff-detect.test.ts', // 2026-09-20 — isLineInAppBrowser (UA) → โชว์ปุ่ม "เปิดในเบราว์เซอร์" ติดตั้ง PWA/notification
       'scripts/ops-delete-user.test.ts', // 2026-09-20 — /ops ลบบัญชี (deleteUserIdentity scoped + best-effort)
       'scripts/launch-env-propagation.test.ts', // 2026-09-20 — goLive() waits for env propagation before redeploy (live race fix)

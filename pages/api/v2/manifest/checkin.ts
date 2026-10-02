@@ -1,18 +1,19 @@
 // BFF — POST /api/v2/manifest/checkin: ติ๊ก/ถอนงานประจำวันของเป้าหมายมานิเฟส (ต่อ engine)
 import type { NextApiRequest, NextApiResponse } from "next"
+import { resolveRouteMember } from '@/lib/v2/resolve-user'
 
-const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== "POST") {
     res.status(405).json({ error: "Method not allowed" })
     return
   }
-  const rawId = req.cookies["cookie-mumate-id"] ?? ""
-  if (!UUID_RE.test(rawId)) {
-    res.status(401).json({ code: "not_authenticated" })
+  const who = await resolveRouteMember(req, res)
+  if (!who.ok) {
+    res.status(who.status).json(who.body)
     return
   }
+  const memberId = who.userId
   const base = process.env.BAZI_BASE_URL
   if (!base) {
     res.status(503).json({ error: "engine not configured" })
@@ -23,7 +24,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const upstream = await fetch(`${base}/api/manifest/checkin`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ anonId: rawId, taskId: body.taskId, done: body.done, date: body.date }),
+      body: JSON.stringify({ anonId: memberId, taskId: body.taskId, done: body.done, date: body.date }),
     })
     res.status(upstream.status).json(await upstream.json().catch(() => ({})))
   } catch {

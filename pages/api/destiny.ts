@@ -1,5 +1,5 @@
 // BFF proxy for the ดวงฉัน (destiny hub) lane — /api/destiny.
-// Browser -> this route (identity from cookie-mumate-id) -> bazi engine, 5 calls in parallel.
+// Browser -> this route (identity from the signed session — resolveRouteMember) -> bazi engine, 5 calls in parallel.
 // Same discipline as /api/chat/bazi: birth data is resolved SERVER-SIDE from the logged-in
 // user's row; the browser never sends birth fields. Engine base = BAZI_BASE_URL.
 //
@@ -15,8 +15,8 @@ import {
   isBirthProfileComplete,
 } from "@/lib/bazi-bridge/input"
 import { mergeEngineBirth } from "@/lib/bazi-bridge/engine-birth"
+import { resolveRouteMember } from '@/lib/v2/resolve-user'
 
-const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 const rowsOf = (r: any): any[] => (Array.isArray(r) ? r : r?.rows ?? [])
 
 // เวอร์ชันของ "ก้อนผลดวงที่ cache" — bump เมื่อ engine เพิ่ม/แก้ฟิลด์ใน payload (เช่น elementNisai)
@@ -33,12 +33,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   const base = process.env.BAZI_BASE_URL || "http://localhost:3000"
 
   // identity → birth profile (immutable, server-side only)
-  const rawId = req.cookies["cookie-mumate-id"] ?? ""
-  const userId = UUID_RE.test(rawId) ? rawId : ""
-  if (!userId) {
-    res.status(401).json({ code: "not_authenticated" })
+  const who = await resolveRouteMember(req, res)
+  if (!who.ok) {
+    res.status(who.status).json(who.body)
     return
   }
+  const userId = who.userId
 
   let feInput: ReturnType<typeof userRowToFeCalcInput>
   let avatarUrl: string | null = null

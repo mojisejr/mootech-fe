@@ -1,6 +1,6 @@
 // BFF proxy for the prayer generator (คำอธิษฐาน) lane.
 // Browser -> this route (no birth) -> bazi (/api/prayer). Birth is resolved SERVER-SIDE from the
-// logged-in user's row (cookie-mumate-id) so the browser can't spoof a birthday, same rule as the
+// logged-in user's row (signed session — resolveOptionalRouteMember) so the browser can't spoof a birthday, same rule as the
 // chat lane. If the user isn't logged in / has no birth, we still generate a prayer "by topic"
 // (no 用神 layer) — a prayer never needs a chart to exist.
 import type { NextApiRequest, NextApiResponse } from "next"
@@ -13,8 +13,8 @@ import {
   type FeCalcInput,
 } from "@/lib/bazi-bridge/input"
 import { mergeEngineBirth } from "@/lib/bazi-bridge/engine-birth"
+import { resolveOptionalRouteMember } from '@/lib/v2/resolve-user'
 
-const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 const rowsOf = (r: any): any[] => (Array.isArray(r) ? r : r?.rows ?? [])
 
 const TOPICS = new Set(["love", "wealth", "career", "health", "study", "fixluck", "general"])
@@ -44,8 +44,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   // resolve birth SERVER-SIDE (immutable) — optional: prayer works without it
   let feInput: FeCalcInput | null = null
-  const rawId = req.cookies["cookie-mumate-id"] ?? ""
-  const userId = UUID_RE.test(rawId) ? rawId : ""
+  const userId = await resolveOptionalRouteMember(req, res)
   if (userId) {
     try {
       const row = rowsOf(await db.execute(sql`SELECT * FROM "user" WHERE user_id = ${userId} LIMIT 1`))[0]

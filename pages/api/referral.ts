@@ -1,10 +1,10 @@
-// BFF — /api/referral: โค้ดแนะนำเพื่อนของผู้ใช้ที่ล็อกอิน (anonId = cookie-mumate-id).
+// BFF — /api/referral: โค้ดแนะนำเพื่อนของผู้ใช้ที่ล็อกอิน (anonId = user_id ของผู้เรียก จาก session — resolveRouteMember).
 //   GET          → { code, redeemed } (สร้างครั้งแรกอัตโนมัติ — รูปแบบ MUMATE+เลข 3 หลัก)
 //   POST {code}  → กรอกโค้ดเพื่อน: ผู้ชวน +250 coins · คนกรอก +100 coins (คนละครั้งตลอดชีพ)
 // Engine: {BAZI_BASE_URL}/api/referral (pdf-dev).
 import type { NextApiRequest, NextApiResponse } from "next"
+import { resolveRouteMember } from '@/lib/v2/resolve-user'
 
-const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 const CODE_RE = /^[A-Za-z0-9]{4,32}$/
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
@@ -12,15 +12,16 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     res.status(405).json({ error: "Method not allowed" })
     return
   }
-  const rawId = req.cookies["cookie-mumate-id"] ?? ""
-  if (!UUID_RE.test(rawId)) {
-    res.status(401).json({ code: "not_authenticated" })
+  const who = await resolveRouteMember(req, res)
+  if (!who.ok) {
+    res.status(who.status).json(who.body)
     return
   }
+  const memberId = who.userId
   const base = process.env.BAZI_BASE_URL || "http://localhost:3000"
   try {
     if (req.method === "GET") {
-      const upstream = await fetch(`${base}/api/referral?anonId=${encodeURIComponent(rawId)}`)
+      const upstream = await fetch(`${base}/api/referral?anonId=${encodeURIComponent(memberId)}`)
       const payload = await upstream.json().catch(() => ({}))
       res.status(upstream.ok ? 200 : upstream.status).json(payload)
       return
@@ -33,7 +34,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const upstream = await fetch(`${base}/api/referral`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ anonId: rawId, code }),
+      body: JSON.stringify({ anonId: memberId, code }),
     })
     const payload = await upstream.json().catch(() => ({}))
     res.status(upstream.ok ? 200 : upstream.status).json(payload)
