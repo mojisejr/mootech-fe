@@ -13,6 +13,7 @@ import { SkyHeader, SkyScreen } from '@/features/v2-profile/components/kit'
 import { usePwaInstall } from '@/lib/pwa/use-install-prompt'
 import { usePwaCapability } from '@/lib/pwa/capability'
 import { InstallGuideSheet } from '@/features/v2-calendar/components/InstallGuideSheet'
+import { SupportIdRow } from '@/features/v2-settings/components/SupportIdRow'
 
 // #Bug — "แพ็กเกจของฉัน" เคย hardcode "Free Tier" ⇒ ผู้ใช้ PRO เห็นไม่ตรงกับหน้า account. อ่าน tier จริง
 // จาก useV2User (แหล่งเดียวกับ AccountScreen). null/ยังไม่รู้ = ไม่เดา (ไม่โชว์ค่า) กันโชว์ค่าผิดซ้ำรอยเดิม
@@ -149,6 +150,9 @@ export default function V2SettingsPage() {
   const connectedValue = linked === null || linked.length === 0 ? undefined : linked.join(', ')
   const tier = user?.membership?.tier
   const membershipValue = tier ? (TIER_LABEL[tier] ?? tier) : undefined // ยังไม่รู้ tier → ไม่โชว์ค่า (ไม่เดา)
+  // ID สมาชิก (hardening slice 1): จากแถว /api/user ซึ่งเป็นของผู้เรียกที่ server ยืนยันแล้ว — ไม่ใช่ cookie MEMBER_ID ·
+  // ยังไม่รู้ = ไม่โชว์แถว (ไม่เดา)
+  const supportId = typeof user?.user_id === 'string' && user.user_id ? user.user_id : ''
 
   return (
     <SkyScreen>
@@ -192,7 +196,8 @@ export default function V2SettingsPage() {
       {/* ช่วยเหลือ (เฟรมวางก่อน เกี่ยวกับ) */}
       <Group title="ช่วยเหลือ">
         <Row href="/v2/help/faq" testId="settings-help" title="ช่วยเหลือ / ติดต่อเรา" value="Line @mumate.co" />
-        <Row href="/v2/help/faq" testId="settings-faq" title="คำถามที่พบบ่อย" last />
+        <Row href="/v2/help/faq" testId="settings-faq" title="คำถามที่พบบ่อย" last={!supportId} />
+        {supportId ? <SupportIdRow userId={supportId} /> : null}
       </Group>
 
       {/* เกี่ยวกับ */}
