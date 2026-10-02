@@ -1,4 +1,5 @@
 import { randomInt, randomUUID } from 'node:crypto'
+import { isInLiffWindow } from './liff-carry-shared'
 
 export type LoginProvider = 'google' | 'LINE'
 
@@ -9,6 +10,8 @@ export interface RegisterLoginInput {
   email: string
   pictureUrl: string
   referCode?: string
+  /** slice 7g: บัญชีจาก "ใบส่งต่อ" ที่ route ตรวจลายเซ็นแล้ว (lib/auth/liff-carry.ts). ใช้เฉพาะเมื่อ LINE sub นี้ยังไม่มีเจ้าของ. */
+  carryToUserId?: string
 }
 
 export interface ProviderMapping {
@@ -56,6 +59,8 @@ export interface RegisterLoginTransaction {
     createdAt: string
   }): Promise<void>
   recordSignupActivity(userId: string, createdAt: string): Promise<void>
+  /** slice 7g: create_at ของบัญชี + จำนวนแถว LINE ที่มีอยู่ (ล็อกแถว user) — null ถ้าไม่พบ */
+  findCarryTarget(userId: string): Promise<{ createAt: string; lineRows: number } | null>
 }
 
 export interface RegisterLoginStore {
@@ -73,6 +78,8 @@ export interface RegisterLoginResult {
   picture_url: string
   is_refresh: boolean
   result_code: string
+  /** slice 7g: true เมื่อ sub ใหม่ถูกผูกเข้าบัญชีเดิมด้วยใบส่งต่อ (route ใช้ล้าง cookie + log) */
+  carried?: true
 }
 
 export class RegisterLoginError extends Error {
@@ -272,6 +279,36 @@ export async function registerOrLoginInFe(
       // Override with the fresh pictureUrl we just wrote, but ONLY when non-empty (an empty session image must
       // never blank a stored picture — the store's COALESCE already keeps the DB value).
       return response({ ...member, referCode, ...(pictureUrl ? { pictureUrl } : {}) }, false)
+    }
+
+    // slice 7g — ใบส่งต่อ: LINE sub (ช่อง Login) นี้ยังไม่มีเจ้าของ และเบราว์เซอร์นี้เพิ่งจบ session ยุค LIFF ของบัญชีที่สมัคร
+    // ในช่วง LIFF → ผูก sub นี้เข้าบัญชีเดิมแทนการสร้างบัญชีใหม่. ตรวจซ้ำในทรานแซกชัน (ล็อกแถว user): ยังอยู่ในช่วง LIFF และ
+    // มีแถว LINE แถวเดียว (= ยังไม่เคยได้ sub ช่อง Login) ไม่ผ่านข้อใด → สร้างบัญชีใหม่ตามเดิม (fail open).
+    const carryTo = rawInput.carryToUserId?.trim()
+    if (provider === 'LINE' && carryTo) {
+      const target = await tx.findCarryTarget(carryTo)
+      const member = target && target.lineRows === 1 && isInLiffWindow(target.createAt) ? await tx.findMember(carryTo) : null
+      if (member) {
+        await tx.createProviderMapping({
+          id: makeProviderRowId(),
+          userId: member.userId,
+          provider,
+          providerSubject,
+          name,
+          email,
+          pictureUrl,
+          createdAt: now,
+        })
+        let referCode = member.referCode?.trim() ?? ''
+        if (!referCode) {
+          referCode = makeReferCode()
+          await tx.setReferCode(member.userId, referCode, now)
+        }
+        await tx.updateLoginProfile({
+          provider, providerSubject, userId: member.userId, name, email: '', pictureUrl, updatedAt: now,
+        })
+        return { ...response({ ...member, referCode, ...(pictureUrl ? { pictureUrl } : {}) }, false), carried: true as const }
+      }
     }
 
     const member: NewMemberIdentity = {

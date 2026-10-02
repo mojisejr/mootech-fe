@@ -9,6 +9,7 @@ import {
   type RegisterLoginInput,
 } from '@/lib/auth/register-login-fe'
 import { postgresRegisterLoginStore } from '@/lib/auth/register-login-fe-store'
+import { appendSetCookie, carryClearCookie, isSecureDeploy, readCarry } from '@/lib/auth/liff-carry'
 
 type SessionIdentity = Session & {
   provider?: string
@@ -60,8 +61,19 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   const input = inputFromVerifiedSession(session, requestedReferCode)
   if (!input) return res.status(401).json({ ok: false, error: 'not signed in' })
 
+  // slice 7g: ใบส่งต่อ (cookie เซ็นด้วย HMAC, httpOnly) — ใช้เฉพาะเมื่อ LINE sub นี้ยังไม่มีเจ้าของ (ตรวจใน transaction)
+  const secure = isSecureDeploy()
+  const carry = readCarry(req.cookies, process.env.NEXTAUTH_SECRET, secure)
+  if (carry) input.carryToUserId = carry.u
+
   try {
-    return res.status(200).json(await registerOrLoginInFe(postgresRegisterLoginStore, input))
+    const result = await registerOrLoginInFe(postgresRegisterLoginStore, input)
+    if (carry) {
+      // ใช้แล้วหรือไม่จำเป็นแล้ว (sub มีเจ้าของอยู่แล้ว) — ล้างทิ้งทั้งสองกรณี
+      appendSetCookie(res, carryClearCookie(secure))
+      console.info(result.carried ? '[liff-carry] attached' : '[liff-carry] not needed')
+    }
+    return res.status(200).json(result)
   } catch (error) {
     if (error instanceof RegisterLoginError) {
       // Only a refused identity carries the flag. An ambiguous or orphaned

@@ -143,6 +143,23 @@ function txAdapter(tx: SqlExecutor): RegisterLoginTransaction {
       `)
     },
 
+    async findCarryTarget(userId: string) {
+      const rows = rowsOf<{ create_at?: unknown; line_rows?: unknown }>(
+        await tx.execute(sql`
+          SELECT u.create_at,
+                 (SELECT count(*) FROM user_provider p
+                   WHERE p.user_id = u.user_id AND lower(p.provider) = 'line')::int AS line_rows
+          FROM "user" u
+          WHERE u.user_id = ${userId}
+          LIMIT 1
+          FOR UPDATE
+        `),
+      )
+      const row = rows[0]
+      if (!row || row.create_at == null) return null
+      return { createAt: String(row.create_at), lineRows: Number(row.line_rows) }
+    },
+
     async recordSignupActivity(userId: string, createdAt: string) {
       await tx.execute(sql`
         INSERT INTO log_activity ("createAt", activity_id, point, user_id)
