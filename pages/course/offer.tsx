@@ -58,12 +58,15 @@ export default function CourseOfferPage() {
               <ul className="mt-2 space-y-2 text-sm leading-6 text-v3-text-body">
                 {MATRIX_POINTS.map((p) => <li key={p}>✅ {p}</li>)}
               </ul>
-              <p className="mt-4 text-center text-sm text-v3-text-body">จ่ายเพิ่มเพียง <b className="text-2xl text-v3-navy">300 บาท</b> (ยอดรวม 790 บาท)</p>
+              <p className="mt-4 text-center text-sm leading-7 text-v3-text-body">
+                <span className="block">จ่ายเพิ่มเพียง <b className="text-2xl text-v3-navy">300 บาท</b></span>
+                <span className="block">(ยอดรวม 790 บาท)</span>
+              </p>
               <Link href={checkoutHrefFor('COURSE_BUNDLE_790')} data-testid="offer-up-yes" className="mt-3 grid min-h-14 w-full place-items-center rounded-full bg-v3-sapphire px-4 text-center text-base font-bold text-white shadow-lg">
-                ✅ ใช่! ฉันรับข้อเสนอนี้ อัปเกรดเป็นแพ็กเกจ 790 บาท
+                <span className="leading-6"><span className="inline-block">✅ ใช่! ฉันรับข้อเสนอนี้</span> <span className="inline-block">อัปเกรดเป็นแพ็กเกจ 790 บาท</span></span>
               </Link>
               <button type="button" data-testid="offer-up-no" onClick={() => void router.replace('/course/offer?step=down')} className="mx-auto mt-3 grid min-h-11 w-[88%] place-items-center rounded-full border border-v3-border-card bg-white px-4 py-2 text-center text-xs font-semibold leading-5 text-v3-text-body">
-                ไม่ ขอบคุณ ฉันขอใช้แอปแค่ 1 เดือน และยอมพลาดโอกาสเรียนคอร์ส Bazi Life Matrix ในราคานี้
+                <span><span className="inline-block">ไม่ ขอบคุณ ฉันขอใช้แอปแค่ 1 เดือน</span> <span className="inline-block">และยอมพลาดโอกาสเรียนคอร์ส</span> <span className="inline-block">Bazi Life Matrix ในราคานี้</span></span>
               </button>
             </section>
           </>
@@ -79,15 +82,14 @@ export default function CourseOfferPage() {
                 ทั้งการหาจุดสมดุลธาตุ ถอดรหัสบุคลิกคนรอบข้าง เจาะลึกดาวการเงินอาชีพ ไปจนถึงเทคนิคเลือกสีมงคลและสแกนหุ้นส่วน (เรียนจบดูดวงเบื้องต้นให้เพื่อนได้ทันที)
               </p>
               <p className="mt-4 text-center text-sm text-v3-text-body">
-                พิเศษเฉพาะหน้านี้ บวกเพิ่มเพียง <b className="text-2xl text-v3-navy">199 บาท</b>
-                <br />
-                (ประหยัด 300 บาทจากราคาปกติ · ยอดรวม 689 บาท)
+                <span className="block">พิเศษเฉพาะหน้านี้ บวกเพิ่มเพียง <b className="text-2xl text-v3-navy">199 บาท</b></span>
+                <span className="block"><span className="inline-block">(ประหยัด 300 บาทจากราคาปกติ</span> <span className="inline-block">· ยอดรวม 689 บาท)</span></span>
               </p>
               <Link href={checkoutHrefFor('COURSE_BUNDLE_689')} data-testid="offer-down-yes" className="mt-3 grid min-h-14 w-full place-items-center rounded-full bg-v3-sapphire px-4 text-center text-base font-bold text-white shadow-lg">
-                ✅ ใช่! ขอรับเฉพาะคอร์ส Bazi Life Matrix (เพิ่ม 199 บาท)
+                <span className="leading-6"><span className="inline-block">✅ ใช่! ขอรับเฉพาะคอร์ส</span> <span className="inline-block">Bazi Life Matrix (เพิ่ม 199 บาท)</span></span>
               </Link>
               <Link href={checkoutHrefFor('COURSE_CAL_490')} data-testid="offer-down-no" className="mx-auto mt-3 grid min-h-11 w-[88%] place-items-center rounded-full border border-v3-border-card bg-white px-4 py-2 text-center text-xs font-semibold leading-5 text-v3-text-body">
-                ไม่ ขอบคุณ ขอเข้าสู่บทเรียนด้วยแพ็กเกจ 490 บาทเพียงอย่างเดียว
+                <span><span className="inline-block">ไม่ ขอบคุณ</span> <span className="inline-block">ขอเข้าสู่บทเรียนด้วยแพ็กเกจ 490 บาท</span> <span className="inline-block">เพียงอย่างเดียว</span></span>
               </Link>
             </section>
           </>
