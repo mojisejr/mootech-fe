@@ -62,7 +62,7 @@ export default function CourseOfferPage() {
               <Link href={checkoutHrefFor('COURSE_BUNDLE_790')} data-testid="offer-up-yes" className="mt-3 grid min-h-14 w-full place-items-center rounded-full bg-v3-sapphire px-4 text-center text-base font-bold text-white shadow-lg">
                 ✅ ใช่! ฉันรับข้อเสนอนี้ อัปเกรดเป็นแพ็กเกจ 790 บาท
               </Link>
-              <button type="button" data-testid="offer-up-no" onClick={() => void router.replace('/course/offer?step=down')} className="mt-3 w-full text-center text-xs leading-5 text-v3-text-muted underline">
+              <button type="button" data-testid="offer-up-no" onClick={() => void router.replace('/course/offer?step=down')} className="mx-auto mt-3 grid min-h-11 w-[88%] place-items-center rounded-full border border-v3-border-card bg-white px-4 py-2 text-center text-xs font-semibold leading-5 text-v3-text-body">
                 ไม่ ขอบคุณ ฉันขอใช้แอปแค่ 1 เดือน และยอมพลาดโอกาสเรียนคอร์ส Bazi Life Matrix ในราคานี้
               </button>
             </section>
@@ -86,7 +86,7 @@ export default function CourseOfferPage() {
               <Link href={checkoutHrefFor('COURSE_BUNDLE_689')} data-testid="offer-down-yes" className="mt-3 grid min-h-14 w-full place-items-center rounded-full bg-v3-sapphire px-4 text-center text-base font-bold text-white shadow-lg">
                 ✅ ใช่! ขอรับเฉพาะคอร์ส Bazi Life Matrix (เพิ่ม 199 บาท)
               </Link>
-              <Link href={checkoutHrefFor('COURSE_CAL_490')} data-testid="offer-down-no" className="mt-3 block w-full text-center text-xs leading-5 text-v3-text-muted underline">
+              <Link href={checkoutHrefFor('COURSE_CAL_490')} data-testid="offer-down-no" className="mx-auto mt-3 grid min-h-11 w-[88%] place-items-center rounded-full border border-v3-border-card bg-white px-4 py-2 text-center text-xs font-semibold leading-5 text-v3-text-body">
                 ไม่ ขอบคุณ ขอเข้าสู่บทเรียนด้วยแพ็กเกจ 490 บาทเพียงอย่างเดียว
               </Link>
             </section>
