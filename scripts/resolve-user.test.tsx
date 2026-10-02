@@ -61,6 +61,20 @@ import {
   resolveSignedSessionUserId,
 } from '@/lib/v2/resolve-user'
 import firstRunResetHandler from '@/pages/api/v2/first-run-reset'
+import {
+  MEMBER_SEAL_TTL_SECONDS,
+  memberSealCookieName,
+  signMemberSeal,
+  verifyMemberSeal,
+} from '@/lib/auth/member-seal'
+import { isSecureDeploy } from '@/lib/auth/liff-carry'
+
+const SEAL_SECRET = 'resolve-user-test-secret'
+process.env.NEXTAUTH_SECRET = SEAL_SECRET
+const SEAL_COOKIE = memberSealCookieName(isSecureDeploy())
+const nowSec = () => Math.floor(Date.now() / 1000)
+const sealFor = (u: string, exp = nowSec() + MEMBER_SEAL_TTL_SECONDS, secret = SEAL_SECRET) =>
+  signMemberSeal({ u, exp }, secret)
 
 // The real drizzle `sql` stores its literal fragments as StringChunk.value (string[]) and its
 // interpolated params as Param objects (no .value array). Join just the literal fragments to get the
@@ -341,11 +355,18 @@ describe('resolveSignedSessionUserId — the cookie that may not buy an account'
     expect(JSON.stringify(r)).not.toContain(VICTIM)
   })
 
-  it('the SAME request is accepted by the lenient resolver — so MJ is not passing by accident', async () => {
+  it('the lenient resolver accepts the same cookie only with a valid seal — so MJ is not passing by accident', async () => {
+    // hardening slice 1: the bare cookie no longer buys anything from the lenient resolver either.
     h.state.rows = [{ user_id: VICTIM }]
-    const lenient = await resolveSessionUserId(...forgedCookieNoSession())
-    expect(lenient).toEqual({ ok: true, userId: VICTIM })
-    // Both were handed an identical request. The difference is the whole security property.
+    expect((await resolveSessionUserId(...forgedCookieNoSession())).ok).toBe(false)
+    // With the server's seal beside it, the lenient resolver accepts (#391 keeps working) and the
+    // strict one still refuses. Both were handed an identical request; the difference is the property.
+    const sealed = () =>
+      [{ cookies: { 'cookie-mumate-id': VICTIM, [SEAL_COOKIE]: sealFor(VICTIM) } } as never, {} as never] as const
+    expect(await resolveSessionUserId(...sealed())).toEqual({ ok: true, userId: VICTIM })
+    const strict = await resolveSignedSessionUserId(...sealed())
+    expect(strict.ok).toBe(false)
+    if (!strict.ok) expect(strict.status).toBe(401)
   })
 
   it('MK — a session carrying providerId but no provider is not a session', async () => {
@@ -381,5 +402,140 @@ describe('resolveSignedSessionUserId — the cookie that may not buy an account'
     expect(r.ok).toBe(false)
     if (!r.ok) expect(r.status).toBe(409)
     expect(JSON.stringify(r)).not.toContain('u-1')
+  })
+})
+
+// 🔴 MUTANT CONTRACT — the #391 fallback needs the server's seal (mumate-member-identity-hardening-001 slice 1)
+//   MM  the fallback trusts cookie-mumate-id without a seal          → the bare-cookie test reddens
+//   MN  the fallback takes the seal's member, ignoring the cookie     → the disagreement + signed-out tests redden
+//   MO  the fallback accepts a seal signed with another secret        → the forged-seal test reddens
+//   MP  the session path stops issuing the seal                       → the issue test reddens
+//   MQ  the session path re-issues on every request                   → the fresh-seal test reddens
+//   MR  a refused session still gets a seal                           → the 404 test reddens
+//
+// §WHY. cookie-mumate-id is set client-side and is not httpOnly, so on its own it proves nothing; a
+// member's user_id was a key. The seal is httpOnly and HMAC-signed, issued only where a signed session
+// was just verified. The fallback now needs BOTH: the seal says who the server saw, the plain cookie says
+// the app on this device is still signed in as them (client-side logout clears only the plain cookie,
+// so requiring it keeps logout meaning logout).
+describe('resolveSessionUserId — the #391 fallback needs the seal', () => {
+  const A = '11111111-2222-4333-8444-555555555555'
+  const B = '66666666-7777-4888-9999-aaaaaaaaaaaa'
+  const noSession = (cookies: Record<string, string>) => [{ cookies } as never, {} as never] as const
+
+  beforeEach(() => {
+    h.state.session = null
+    h.state.rows = [{ user_id: A }]
+    h.captured.execute.length = 0
+    h.db.execute.mockClear()
+  })
+
+  it('MM — the bare cookie of an existing member, with no seal, is refused and nothing is looked up', async () => {
+    const r = await resolveSessionUserId(...noSession({ 'cookie-mumate-id': A }))
+    expect(r).toEqual({ ok: false, status: 401, error: 'not signed in' })
+    expect(h.db.execute).not.toHaveBeenCalled()
+  })
+
+  it('cookie + a valid seal for the same member ⇒ that member (the #391 browsers keep working)', async () => {
+    const r = await resolveSessionUserId(...noSession({ 'cookie-mumate-id': A, [SEAL_COOKIE]: sealFor(A) }))
+    expect(r).toEqual({ ok: true, userId: A })
+  })
+
+  it('the cookie may differ in case from the seal and still be the same member', async () => {
+    const r = await resolveSessionUserId(
+      ...noSession({ 'cookie-mumate-id': A.toUpperCase(), [SEAL_COOKIE]: sealFor(A) }),
+    )
+    expect(r).toEqual({ ok: true, userId: A })
+  })
+
+  it('MN — a seal for A beside a cookie naming B is refused; neither id is returned', async () => {
+    h.state.rows = [{ user_id: B }]
+    const r = await resolveSessionUserId(...noSession({ 'cookie-mumate-id': B, [SEAL_COOKIE]: sealFor(A) }))
+    expect(r).toEqual({ ok: false, status: 401, error: 'not signed in' })
+    expect(h.db.execute).not.toHaveBeenCalled()
+  })
+
+  it('MN — a seal with no plain cookie (signed out on this device) is refused', async () => {
+    const r = await resolveSessionUserId(...noSession({ [SEAL_COOKIE]: sealFor(A) }))
+    expect(r).toEqual({ ok: false, status: 401, error: 'not signed in' })
+    expect(h.db.execute).not.toHaveBeenCalled()
+  })
+
+  it('MO — a seal signed with another secret, or expired, is refused', async () => {
+    for (const seal of [sealFor(A, undefined, 'other-secret'), sealFor(A, nowSec() - 1), A]) {
+      const r = await resolveSessionUserId(...noSession({ 'cookie-mumate-id': A, [SEAL_COOKIE]: seal }))
+      expect(r.ok).toBe(false)
+    }
+    expect(h.db.execute).not.toHaveBeenCalled()
+  })
+
+  it('a valid seal for a member whose row is gone ⇒ refused (404), not trusted blindly', async () => {
+    h.state.rows = []
+    const r = await resolveSessionUserId(...noSession({ 'cookie-mumate-id': A, [SEAL_COOKIE]: sealFor(A) }))
+    expect(r.ok).toBe(false)
+    if (!r.ok) expect(r.status).toBe(404)
+  })
+})
+
+describe('resolveSessionUserId — a verified session leaves a seal behind', () => {
+  const A = '11111111-2222-4333-8444-555555555555'
+  const B = '66666666-7777-4888-9999-aaaaaaaaaaaa'
+
+  function call(cookies: Record<string, string> = {}) {
+    const headers: Record<string, unknown> = {}
+    const res = {
+      getHeader: (n: string) => headers[n.toLowerCase()],
+      setHeader: (n: string, v: unknown) => {
+        headers[n.toLowerCase()] = v
+      },
+    }
+    const seals = () => {
+      const v = headers['set-cookie']
+      const lines = Array.isArray(v) ? v.map(String) : v == null ? [] : [String(v)]
+      return lines
+        .filter((l) => l.startsWith(`${SEAL_COOKIE}=`))
+        .map((l) => l.split(';')[0].slice(SEAL_COOKIE.length + 1))
+    }
+    return { p: resolveSessionUserId({ cookies } as never, res as never), seals }
+  }
+
+  beforeEach(() => {
+    h.state.session = { providerId: 'U1', provider: 'line' }
+    h.state.rows = [{ user_id: A }]
+  })
+
+  it('MP — no seal yet ⇒ the response carries one for the resolved member', async () => {
+    const { p, seals } = call()
+    expect(await p).toEqual({ ok: true, userId: A })
+    expect(seals()).toHaveLength(1)
+    expect(verifyMemberSeal(seals()[0], SEAL_SECRET, nowSec())?.u).toBe(A)
+  })
+
+  it('MQ — a fresh seal for the same member ⇒ nothing is re-issued', async () => {
+    const { p, seals } = call({ [SEAL_COOKIE]: sealFor(A) })
+    await p
+    expect(seals()).toHaveLength(0)
+  })
+
+  it('a seal for another member, or one past half its life, is replaced', async () => {
+    for (const old of [sealFor(B), sealFor(A, nowSec() + MEMBER_SEAL_TTL_SECONDS / 2 - 60)]) {
+      const { p, seals } = call({ [SEAL_COOKIE]: old })
+      await p
+      expect(seals()).toHaveLength(1)
+      expect(verifyMemberSeal(seals()[0], SEAL_SECRET, nowSec())?.u).toBe(A)
+    }
+  })
+
+  it('MR — a session that resolves to no account (404) or an ambiguous one (409) gets no seal', async () => {
+    for (const rows of [[], [{ user_id: A }, { user_id: B }]]) {
+      h.state.rows = rows
+      const { p, seals } = call()
+      expect((await p).ok).toBe(false)
+      expect(seals()).toHaveLength(0)
+    }
+  })
+
+  it('a response object without header methods is tolerated (identity still resolves)', async () => {
+    expect(await resolveSessionUserId({} as never, {} as never)).toEqual({ ok: true, userId: A })
   })
 })
