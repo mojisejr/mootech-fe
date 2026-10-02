@@ -1,10 +1,11 @@
 // lib/course/content.ts — คอร์สออนไลน์ของ Mumate (pure: ใช้ได้ทั้ง client/server).
 // ที่มา: ชีตของฟิว/พล 2026-10-01 (docs.google.com/spreadsheets/d/1uWpmCW3cm8CYN9gBoJ-rF__KT4dkniNcuAsyXQqWBfI)
 //
-// Funnel (เอกสาร sale page ของพล):
-//   1) Front-end  COURSE_CAL_490        ฿490  คอร์สปฏิทิน "Win the Day" + Mumate + 1 เดือน
-//   2) Upsell     COURSE_MATRIX_UP_300  +฿300 (รวม 790) คอร์ส Bazi Life Matrix + Mumate + 1 ปี  — เสนอหลังจ่าย 490
-//   3) Downsell   COURSE_MATRIX_199     +฿199 (รวม 689) คอร์ส Bazi Life Matrix อย่างเดียว      — เสนอเมื่อปฏิเสธ upsell
+// Funnel (พล 2026-10-02 — ข้อเสนอขึ้น "ก่อนจ่าย" แล้วจ่ายครั้งเดียว, /course/offer):
+//   landing → Upsell: เอา → COURSE_BUNDLE_790 ฿790 (ปฏิทิน + Bazi Life Matrix + Mumate + 1 ปี)
+//          → ไม่เอา → Downsell: เอา → COURSE_BUNDLE_689 ฿689 (ปฏิทิน + Bazi Life Matrix + Mumate + 1 เดือน)
+//          → ไม่เอา → COURSE_CAL_490 ฿490 (ปฏิทิน + Mumate + 1 เดือน)
+//   COURSE_MATRIX_UP_300 / COURSE_MATRIX_199 = แพ็กหลังจ่ายรุ่นก่อน (ปิดขายใน 0040) คงไว้ให้สิทธิ์คนที่ซื้อไปแล้ว
 // สิทธิ์คอร์ส = เคยซื้อแพ็กที่ grants คอร์สนั้น (ตลอดชีพ) · คอร์สปฏิทินเปิดให้สมาชิกที่จ่ายเงินจริงด้วย (lib/course/access.ts)
 
 export type CourseSlug = 'calendar' | 'life-matrix'
@@ -21,11 +22,13 @@ export type Course = {
   memberAccess: boolean
 }
 
-export const COURSE_PACKAGE_CODES = ['COURSE_CAL_490', 'COURSE_MATRIX_UP_300', 'COURSE_MATRIX_199'] as const
+export const COURSE_PACKAGE_CODES = ['COURSE_CAL_490', 'COURSE_BUNDLE_689', 'COURSE_BUNDLE_790', 'COURSE_MATRIX_UP_300', 'COURSE_MATRIX_199'] as const
 export type CoursePackageCode = (typeof COURSE_PACKAGE_CODES)[number]
 
 export const COURSE_PACKAGES: Record<CoursePackageCode, { title: string; price: number; grants: CourseSlug[]; plusLabel: string | null }> = {
   COURSE_CAL_490: { title: 'Win the Day — คอร์สปฏิทิน Mumate', price: 490, grants: ['calendar'], plusLabel: '1 เดือน' },
+  COURSE_BUNDLE_689: { title: 'Win the Day + Bazi Life Matrix', price: 689, grants: ['calendar', 'life-matrix'], plusLabel: '1 เดือน' },
+  COURSE_BUNDLE_790: { title: 'Win the Day + Bazi Life Matrix + Mumate + 1 ปี', price: 790, grants: ['calendar', 'life-matrix'], plusLabel: '1 ปี' },
   COURSE_MATRIX_UP_300: { title: 'คอร์ส Bazi Life Matrix + Mumate + 1 ปี', price: 300, grants: ['life-matrix'], plusLabel: '1 ปี' },
   COURSE_MATRIX_199: { title: 'คอร์ส Bazi Life Matrix', price: 199, grants: ['life-matrix'], plusLabel: null },
 }

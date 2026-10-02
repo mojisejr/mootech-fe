@@ -21,11 +21,11 @@ describe('คอร์สออนไลน์ Mumate', () => {
     expect(m.memberAccess).toBe(false)
   })
 
-  it('funnel ราคา 490 → +300 (รวม 790) / +199 (รวม 689) และแพ็กให้สิทธิ์ถูกคอร์ส', () => {
-    expect(COURSE_PACKAGES.COURSE_CAL_490.price + COURSE_PACKAGES.COURSE_MATRIX_UP_300.price).toBe(790)
-    expect(COURSE_PACKAGES.COURSE_CAL_490.price + COURSE_PACKAGES.COURSE_MATRIX_199.price).toBe(689)
-    expect(packagesGranting('calendar')).toEqual(['COURSE_CAL_490'])
-    expect(packagesGranting('life-matrix')).toEqual(['COURSE_MATRIX_UP_300', 'COURSE_MATRIX_199'])
+  it('funnel ก่อนจ่าย 790 / 689 / 490 และแพ็กรวมให้สิทธิ์ทั้ง 2 คอร์ส', () => {
+    expect(COURSE_PACKAGES.COURSE_BUNDLE_790.price).toBe(COURSE_PACKAGES.COURSE_CAL_490.price + 300)
+    expect(COURSE_PACKAGES.COURSE_BUNDLE_689.price).toBe(COURSE_PACKAGES.COURSE_CAL_490.price + 199)
+    expect(packagesGranting('calendar')).toEqual(['COURSE_CAL_490', 'COURSE_BUNDLE_689', 'COURSE_BUNDLE_790'])
+    expect(packagesGranting('life-matrix')).toEqual(['COURSE_BUNDLE_689', 'COURSE_BUNDLE_790', 'COURSE_MATRIX_UP_300', 'COURSE_MATRIX_199'])
     expect(isCoursePackage('COURSE_MATRIX_199')).toBe(true)
     expect(isCoursePackage('V2_PLUS_YEARLY')).toBe(false)
   })

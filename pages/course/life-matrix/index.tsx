@@ -1,5 +1,5 @@
 // /course/life-matrix — คอร์ส Bazi Life Matrix (15 บท). ขายเป็นข้อเสนอหลังซื้อคอร์ส Win the Day เท่านั้น
-// (upsell +300 / downsell +199 ที่ /course/offer) — ยังไม่มีคลิป บทเรียนขึ้น "เร็ว ๆ นี้" จนกว่าฟิวจะวางลิงก์ที่ /ops
+// (แพ็กรวม 790 / 689 ที่ /course/offer ก่อนจ่ายคอร์ส Win the Day) — ยังไม่มีคลิป บทเรียนขึ้น "เร็ว ๆ นี้" จนกว่าฟิวจะวางลิงก์ที่ /ops
 import Head from 'next/head'
 import Link from 'next/link'
 import { SkyBackdrop, SkyHeader } from '@/features/v2-profile/components/kit'

@@ -1,8 +1,8 @@
-// /course/offer — ข้อเสนอหลังจ่ายคอร์ส Win the Day ฿490 (เอกสาร sale page ของพล 2026-10-01)
-//   ?step=up   (80%) Upsell  +฿300 → COURSE_MATRIX_UP_300 : Bazi Life Matrix + Mumate + 1 ปี (รวม 790)
-//   ?step=down (90%) Downsell +฿199 → COURSE_MATRIX_199    : Bazi Life Matrix อย่างเดียว (รวม 689)
-//   ปฏิเสธทั้งคู่ → เข้าบทเรียน (/course/calendar)
-// PlanPaySuccess พามาที่นี่อัตโนมัติหลังจ่าย 490 สำเร็จ. รับข้อเสนอ = จ่ายรอบสองที่ checkout ปกติ
+// /course/offer — ข้อเสนอ "ก่อนจ่าย" ของคอร์ส Win the Day (พล 2026-10-02) — จ่ายครั้งเดียวตามที่เลือก
+//   ?step=up   (80%) Upsell   เอา → COURSE_BUNDLE_790 (490+300: ปฏิทิน + Bazi Life Matrix + Mumate + 1 ปี)
+//   ?step=down (90%) Downsell เอา → COURSE_BUNDLE_689 (490+199: ปฏิทิน + Bazi Life Matrix + Mumate + 1 เดือน)
+//   ไม่เอาทั้งคู่ → COURSE_CAL_490 (ปฏิทิน + Mumate + 1 เดือน)
+// ข้อความตามเอกสาร sale page ของพล (ปรับประโยคต้อนรับให้เข้ากับ "ก่อนจ่าย")
 import Head from 'next/head'
 import Link from 'next/link'
 import { useRouter } from 'next/router'
@@ -48,7 +48,7 @@ export default function CourseOfferPage() {
                 เดี๋ยวก่อน... อย่าเพิ่งปิดหน้านี้! ต่อยอดการอ่านดวงชะตาให้ลึกซึ้งขั้นสุด พร้อมรับสิทธิ์ใช้งานแอปยาวตลอด 1 ปีเต็ม
               </h1>
               <p className="mt-3 text-sm leading-6 text-v3-text-body">
-                ยินดีด้วยที่คุณได้รับสิทธิ์คอร์สปฏิทิน Mumate และแอปฟรี 1 เดือนแล้ว! ตอนนี้คุณมีเครื่องมือบอก &ldquo;จังหวะเวลา&rdquo; ที่ดีที่สุดในมือ
+                คุณกำลังจะได้รับคอร์สปฏิทิน Mumate และแอปฟรี 1 เดือน! เครื่องมือบอก &ldquo;จังหวะเวลา&rdquo; ที่ดีที่สุดจะอยู่ในมือคุณ
                 แต่จะดีกว่าไหม... ถ้าคุณสามารถ &ldquo;ถอดรหัสโครงสร้างชีวิต&rdquo; ของตัวเองและคนรอบข้าง เพื่อรู้จุดแข็ง จุดอ่อน และวิธีดึงศักยภาพสูงสุดออกมาใช้ได้ด้วย?
               </p>
               <p className="mt-3 rounded-2xl bg-[#fff8e6] p-3 text-sm font-bold leading-6 text-v3-navy">
@@ -59,7 +59,7 @@ export default function CourseOfferPage() {
                 {MATRIX_POINTS.map((p) => <li key={p}>✅ {p}</li>)}
               </ul>
               <p className="mt-4 text-center text-sm text-v3-text-body">จ่ายเพิ่มเพียง <b className="text-2xl text-v3-navy">300 บาท</b> (ยอดรวม 790 บาท)</p>
-              <Link href={checkoutHrefFor('COURSE_MATRIX_UP_300')} data-testid="offer-up-yes" className="mt-3 grid min-h-14 w-full place-items-center rounded-full bg-v3-sapphire px-4 text-center text-base font-bold text-white shadow-lg">
+              <Link href={checkoutHrefFor('COURSE_BUNDLE_790')} data-testid="offer-up-yes" className="mt-3 grid min-h-14 w-full place-items-center rounded-full bg-v3-sapphire px-4 text-center text-base font-bold text-white shadow-lg">
                 ✅ ใช่! ฉันรับข้อเสนอนี้ อัปเกรดเป็นแพ็กเกจ 790 บาท
               </Link>
               <button type="button" data-testid="offer-up-no" onClick={() => void router.replace('/course/offer?step=down')} className="mt-3 w-full text-center text-xs leading-5 text-v3-text-muted underline">
@@ -83,10 +83,10 @@ export default function CourseOfferPage() {
                 <br />
                 (ประหยัด 300 บาทจากราคาปกติ · ยอดรวม 689 บาท)
               </p>
-              <Link href={checkoutHrefFor('COURSE_MATRIX_199')} data-testid="offer-down-yes" className="mt-3 grid min-h-14 w-full place-items-center rounded-full bg-v3-sapphire px-4 text-center text-base font-bold text-white shadow-lg">
+              <Link href={checkoutHrefFor('COURSE_BUNDLE_689')} data-testid="offer-down-yes" className="mt-3 grid min-h-14 w-full place-items-center rounded-full bg-v3-sapphire px-4 text-center text-base font-bold text-white shadow-lg">
                 ✅ ใช่! ขอรับเฉพาะคอร์ส Bazi Life Matrix (เพิ่ม 199 บาท)
               </Link>
-              <Link href="/course/calendar" data-testid="offer-down-no" className="mt-3 block w-full text-center text-xs leading-5 text-v3-text-muted underline">
+              <Link href={checkoutHrefFor('COURSE_CAL_490')} data-testid="offer-down-no" className="mt-3 block w-full text-center text-xs leading-5 text-v3-text-muted underline">
                 ไม่ ขอบคุณ ขอเข้าสู่บทเรียนด้วยแพ็กเกจ 490 บาทเพียงอย่างเดียว
               </Link>
             </section>
