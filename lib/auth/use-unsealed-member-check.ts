@@ -3,6 +3,7 @@ import { useSession } from "next-auth/react";
 import { useCookies } from "react-cookie";
 import { CookieKey } from "@/constants/cookie-key";
 import { UUID_RE } from "./resolve-auth";
+import { WELCOME_BACK_PATH } from "./ask-before-create";
 
 // mumate-member-identity-hardening-001 slice 1 (2026-10-02).
 //
@@ -11,10 +12,15 @@ import { UUID_RE } from "./resolve-auth";
 // httpOnly member seal beside it (lib/auth/member-seal.ts). A browser with the cookie, no session and no
 // seal would therefore look signed in and be refused by every route.
 //
-// So, only in that state (session settled as "unauthenticated" + a UUID cookie), ask the server once per
-// mount. A definite 401 clears the MEMBER_* cookies: the member becomes "anon" and the normal gates send
-// them to sign in once. Anything else (204, 404, 409, 5xx, network) leaves everything as it is — a fault
-// must never sign anyone out.
+// The routes also refuse (409 reason:'identity') a cookie left over from ANOTHER account than the session
+// ("ล็อกอินค้าง 2 บัญชี", เอ็ม 2026-09-23). The self-heal only mints when the cookie is missing, so nothing
+// repaired that state.
+//
+// So, once the session has settled and the app holds a UUID cookie, ask the server once per mount.
+// 401 clears the MEMBER_* cookies: the member becomes "anon" and the normal gates send them to sign in
+// once. 409 reason:'identity' clears them too: with a session, the self-heal then mints the session's own
+// member. Anything else (204, 404, an ambiguous 409, 5xx, network) leaves everything as it is — a fault
+// must never sign anyone out. The welcome-back question page runs its own flow and is never touched.
 const MEMBER_COOKIES = [
   CookieKey.MEMBER_ID,
   CookieKey.MEMBER_NAME,
@@ -30,14 +36,20 @@ export function useUnsealedMemberCheck(): void {
   const askedRef = useRef(false);
 
   useEffect(() => {
-    if (sessionStatus !== "unauthenticated" || !UUID_RE.test(rawId) || askedRef.current) {
+    if (sessionStatus === "loading" || !UUID_RE.test(rawId) || askedRef.current) {
+      return;
+    }
+    if (typeof window !== "undefined" && window.location.pathname === WELCOME_BACK_PATH) {
       return;
     }
     askedRef.current = true;
     void (async () => {
       try {
         const res = await fetch("/api/auth/member-check", { credentials: "same-origin" });
-        if (res.status !== 401) {
+        const stale =
+          res.status === 401 ||
+          (res.status === 409 && ((await res.json().catch(() => null)) as { reason?: string } | null)?.reason === "identity");
+        if (!stale) {
           return;
         }
         for (const name of MEMBER_COOKIES) {

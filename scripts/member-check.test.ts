@@ -11,8 +11,12 @@
 //   C1  the endpoint answers ok without resolving identity            → the 401 endpoint test reddens
 //   C2  the endpoint returns the user_id                              → the no-disclosure test reddens
 //   C3  the hook clears cookies on a non-401 (404/409/500/network)    → the keep test reddens
-//   C4  the hook runs while a session exists                          → the authenticated test reddens
+//   C4  the hook runs while the session is still loading              → the loading test reddens
 //   C5  the hook never clears on 401                                  → the clear test reddens
+//   C6  the endpoint stops refusing a cookie that disagrees with the session → the 409 endpoint test reddens
+//   C7  the hook ignores 409 reason:'identity'                        → the stale-cookie test reddens
+//   C8  the hook clears on an ambiguous 409 (no reason)               → the ambiguous test reddens
+//   C9  the hook runs on the welcome-back question page               → the welcome-back test reddens
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { renderHook } from '@testing-library/react'
 
@@ -23,9 +27,24 @@ const h = vi.hoisted(() => ({
   session: { status: 'unauthenticated' as string },
   cookies: { 'cookie-mumate-id': '11111111-2222-4333-8444-555555555555' } as Record<string, string>,
   removeCookie: vi.fn(),
+  reqCookies: {} as Record<string, string>,
 }))
 
-vi.mock('@/lib/v2/resolve-user', () => ({ resolveSessionUserId: vi.fn(async () => h.resolved) }))
+// Only the transport is mocked; the real resolver turns h.resolved's intent into session + rows.
+vi.mock('next-auth/next', () => ({
+  getServerSession: async () => (h.resolved.ok || h.resolved.status !== 401 ? { providerId: 'U1', provider: 'line' } : null),
+}))
+vi.mock('@/pages/api/auth/[...nextauth]', () => ({ authOptions: {}, default: () => undefined }))
+vi.mock('@/lib/db', () => ({
+  db: {
+    execute: async () =>
+      h.resolved.ok
+        ? [{ user_id: h.resolved.userId }]
+        : h.resolved.status === 409
+          ? [{ user_id: 'a' }, { user_id: 'b' }]
+          : [],
+  },
+}))
 vi.mock('next-auth/react', () => ({ useSession: () => ({ data: null, status: h.session.status }) }))
 vi.mock('react-cookie', () => ({ useCookies: () => [h.cookies, vi.fn(), h.removeCookie] }))
 
@@ -52,12 +71,21 @@ function invoke(method = 'GET') {
       return res
     },
   }
-  return { p: memberCheckHandler({ method, cookies: {} } as never, res as never), out }
+  return { p: memberCheckHandler({ method, cookies: h.reqCookies } as never, res as never), out }
 }
 
 describe('GET /api/auth/member-check', () => {
   beforeEach(() => {
     h.resolved = { ok: true, userId: '11111111-2222-4333-8444-555555555555' }
+    h.reqCookies = {}
+  })
+
+  it('C6 — a member cookie naming someone other than the session ⇒ 409 reason identity', async () => {
+    h.reqCookies = { 'cookie-mumate-id': '99999999-8888-4777-8666-555555555555' }
+    const { p, out } = invoke()
+    await p
+    expect(out.status).toBe(409)
+    expect((out.body as { reason?: string }).reason).toBe('identity')
   })
 
   it('a resolved member ⇒ 204, no-store, and C2 — no user_id in the answer', async () => {
@@ -119,13 +147,39 @@ describe('useUnsealedMemberCheck', () => {
     expect(h.removeCookie).not.toHaveBeenCalled()
   })
 
-  it('C4 — with a session (or while it loads) nothing is asked', async () => {
-    for (const status of ['authenticated', 'loading']) {
-      h.session.status = status
-      renderHook(() => useUnsealedMemberCheck())
-    }
+  it('C4 — while the session is still loading nothing is asked', async () => {
+    h.session.status = 'loading'
+    renderHook(() => useUnsealedMemberCheck())
     await new Promise((r) => setTimeout(r, 20))
     expect(fetchMock).not.toHaveBeenCalled()
+  })
+
+  it('C7 — signed in, and the server says the cookie names someone else ⇒ the stale MEMBER_* go (self-heal re-mints)', async () => {
+    h.session.status = 'authenticated'
+    fetchMock.mockImplementation(async () => new Response(JSON.stringify({ reason: 'identity' }), { status: 409 }))
+    renderHook(() => useUnsealedMemberCheck())
+    await vi.waitFor(() => expect(h.removeCookie).toHaveBeenCalledWith('cookie-mumate-id', { path: '/' }))
+  })
+
+  it('C8 — an ambiguous identity (409 without reason identity) keeps everything', async () => {
+    h.session.status = 'authenticated'
+    fetchMock.mockImplementation(async () => new Response(JSON.stringify({ code: 'not_authenticated', error: 'identity is ambiguous' }), { status: 409 }))
+    renderHook(() => useUnsealedMemberCheck())
+    await vi.waitFor(() => expect(fetchMock).toHaveBeenCalled())
+    await new Promise((r) => setTimeout(r, 10))
+    expect(h.removeCookie).not.toHaveBeenCalled()
+  })
+
+  it('C9 — on the welcome-back question page nothing is asked (that page drives its own flow)', async () => {
+    h.session.status = 'authenticated'
+    window.history.pushState({}, '', '/v2/welcome-back')
+    try {
+      renderHook(() => useUnsealedMemberCheck())
+      await new Promise((r) => setTimeout(r, 20))
+      expect(fetchMock).not.toHaveBeenCalled()
+    } finally {
+      window.history.pushState({}, '', '/')
+    }
   })
 
   it('no member cookie (or not a UUID) ⇒ nothing is asked', async () => {
