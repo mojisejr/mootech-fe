@@ -2,6 +2,7 @@
 // #2 คูปอง Phase 2. กันรับซ้ำอยู่ฝั่ง engine (1 คูปอง/บัญชี).
 import type { NextApiRequest, NextApiResponse } from "next"
 import { resolveRouteMember } from '@/lib/v2/resolve-user'
+import { baziFetch } from '@/lib/bazi/fetch'
 
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
@@ -23,7 +24,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
   const base = process.env.BAZI_BASE_URL || "http://localhost:3000"
   try {
-    const upstream = await fetch(`${base}/api/coupon/redeem`, {
+    const upstream = await baziFetch(`${base}/api/coupon/redeem`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ anonId: memberId, code }),

@@ -3,6 +3,7 @@
 import type { NextApiRequest, NextApiResponse } from "next"
 import { baziClientHeaders } from "@/lib/bazi/client-identity"
 import { resolveRouteMember } from '@/lib/v2/resolve-user'
+import { baziFetch } from '@/lib/bazi/fetch'
 
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
@@ -20,7 +21,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   const body = (req.body ?? {}) as { cardNos?: number[]; random?: boolean; question?: string }
   const pick = Array.isArray(body.cardNos) && body.cardNos.length === 3 ? { cardNos: body.cardNos } : { random: true }
   try {
-    const upstream = await fetch(`${base}/api/divine-cards/predict`, {
+    const upstream = await baziFetch(`${base}/api/divine-cards/predict`, {
       method: "POST",
       headers: { "Content-Type": "application/json", ...baziClientHeaders(req) },
       body: JSON.stringify({ mode: "llm", question: body.question, ...pick, anonId: memberId }),

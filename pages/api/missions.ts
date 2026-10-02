@@ -4,6 +4,7 @@
 // Engine: {BAZI_BASE_URL}/api/missions (pdf-dev).
 import type { NextApiRequest, NextApiResponse } from "next"
 import { resolveRouteMember } from '@/lib/v2/resolve-user'
+import { baziFetch } from '@/lib/bazi/fetch'
 
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
@@ -20,7 +21,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   const base = process.env.BAZI_BASE_URL || "http://localhost:3000"
   try {
     if (req.method === "GET") {
-      const upstream = await fetch(
+      const upstream = await baziFetch(
         `${base}/api/missions?anonId=${encodeURIComponent(memberId)}`,
       )
       const payload = await upstream.json().catch(() => ({}))
@@ -33,7 +34,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       res.status(400).json({ error: "missionId is required" })
       return
     }
-    const upstream = await fetch(`${base}/api/missions`, {
+    const upstream = await baziFetch(`${base}/api/missions`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({

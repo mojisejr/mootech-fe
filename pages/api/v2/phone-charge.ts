@@ -4,6 +4,7 @@
 // สถานะ upstream ผ่านตรง ๆ (409 = QI ไม่พอ) ให้จอแยก "ไม่พอ" กับ "ระบบล้ม" ได้เหมือน qi-spend เดิม.
 import type { NextApiRequest, NextApiResponse } from "next"
 import { resolveRouteMember } from '@/lib/v2/resolve-user'
+import { baziFetch } from '@/lib/bazi/fetch'
 
 const CODES = new Set(["phone_reading", "honeycomb_reading"])
 
@@ -26,11 +27,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   const base = process.env.BAZI_BASE_URL || "http://localhost:3000"
   try {
     // 1) มี credit ของฟีเจอร์นี้ไหม → หัก credit (ฟรี ไม่แตะ QI)
-    const entRes = await fetch(`${base}/api/qi/entitlements?anonId=${encodeURIComponent(memberId)}`)
+    const entRes = await baziFetch(`${base}/api/qi/entitlements?anonId=${encodeURIComponent(memberId)}`)
     if (entRes.ok) {
       const ent = (await entRes.json().catch(() => null)) as { credits?: Record<string, number> } | null
       if (Number(ent?.credits?.[code] ?? 0) > 0) {
-        const cRes = await fetch(`${base}/api/qi/credit-consume`, {
+        const cRes = await baziFetch(`${base}/api/qi/credit-consume`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ anonId: memberId, kind: code }),
@@ -43,7 +44,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       }
     }
     // 2) ไม่มี credit → หัก QI (เหมือน qi-spend เดิม; 409 = QI ไม่พอ)
-    const upstream = await fetch(`${base}/api/qi/spend`, {
+    const upstream = await baziFetch(`${base}/api/qi/spend`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ anonId: memberId, code }),

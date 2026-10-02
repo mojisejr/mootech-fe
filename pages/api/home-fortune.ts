@@ -18,6 +18,7 @@ import { bkkDateStr } from '@/lib/usage-core'
 import { toBaziInput, type FeCalcInput } from '@/lib/bazi-bridge/input'
 import { mergeEngineBirth } from '@/lib/bazi-bridge/engine-birth'
 import { resolveOptionalRouteMember } from '@/lib/v2/resolve-user'
+import { baziFetch } from '@/lib/bazi/fetch'
 
 
 // bump เมื่อเปลี่ยนรูป payload { fortune, persona } → ผลเก่าที่ cache miss แล้วคำนวณใหม่เอง (0022_home_fortune_cache)
@@ -141,7 +142,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const { rawInput } = toBaziInput(effectivePerson) // reuse the FE→bazi person mapper (birthDate/time/gender/province)
     const ac = new AbortController()
     const timer = setTimeout(() => ac.abort(), BAZI_TIMEOUT_MS)
-    const r = await fetch(`${BAZI_BASE}/api/home`, {
+    const r = await baziFetch(`${BAZI_BASE}/api/home`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       // anonId only feeds bazi's manifest queries (goals/streak/wallet) — irrelevant to the fortune,

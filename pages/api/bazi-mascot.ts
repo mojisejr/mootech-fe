@@ -2,6 +2,7 @@
 // Keeps BAZI_BASE_URL server-side only; the browser never learns the engine origin.
 // The mascot endpoint is public GET on the engine (no secret involved).
 import type { NextApiRequest, NextApiResponse } from "next"
+import { baziFetch } from '@/lib/bazi/fetch'
 
 // ganzhi \u0E08\u0E32\u0E01 engine \u0E40\u0E1B\u0E47\u0E19\u0E2D\u0E31\u0E01\u0E29\u0E23\u0E08\u0E35\u0E19 (\u0E40\u0E0A\u0E48\u0E19 "\u4E01\u4E11") \u2014 \u0E15\u0E49\u0E2D\u0E07\u0E2D\u0E19\u0E38\u0E0D\u0E32\u0E15 CJK (\u4E00-\u9FFF) \u0E14\u0E49\u0E27\u0E22
 // \u0E44\u0E21\u0E48\u0E07\u0E31\u0E49\u0E19 proxy \u0E15\u0E2D\u0E1A 400 \u0E41\u0E25\u0E30\u0E21\u0E32\u0E2A\u0E04\u0E2D\u0E15\u0E44\u0E21\u0E48\u0E02\u0E36\u0E49\u0E19
@@ -23,7 +24,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     // imageUrl points at a deleted Supabase project; imageUrlV2 is the live mootech-v2 bucket.
     // timeout ทุกชั้น — บาง ganzhi ทำให้ engine/สตอเรจค้าง; ถ้าไม่ตัด request หน้าเว็บจะค้างการ์ดเปล่า
     // (ค้างจริง ไม่ error → onError ฝั่ง client ไม่ยิง fallback) ตัดที่ 8 วิให้ตอบ 502 เร็วแทน
-    const meta = await fetch(`${base}/api/bazi/mascot/${encodeURIComponent(ganzhi)}`, {
+    const meta = await baziFetch(`${base}/api/bazi/mascot/${encodeURIComponent(ganzhi)}`, {
       signal: AbortSignal.timeout(8000),
     })
     if (!meta.ok) {

@@ -10,6 +10,7 @@
 //      the user must see a message they can tell apart from "โควตาเต็ม". So a failure here becomes an
 //      explicit engine error at the route — never a quota answer, and never a silent charge of quota.
 import type { BaziPairMatchRequest, BaziPairMatchResponse } from './bazi-pair-match.types'
+import { baziFetch } from '@/lib/bazi/fetch'
 
 const BAZI_BASE = process.env.BAZI_BASE_URL || 'http://localhost:3000'
 if (/bazichart\.mumate\.co/i.test(BAZI_BASE)) {
@@ -42,7 +43,7 @@ export async function fetchBaziPairMatch(
   const ac = new AbortController()
   const timer = setTimeout(() => ac.abort(), timeoutMs)
   try {
-    const r = await fetch(url, {
+    const r = await baziFetch(url, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify(req),

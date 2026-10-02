@@ -6,6 +6,7 @@
 // identity = user_id ของผู้เรียก จาก session (resolveRouteMember) → engine anonId (เช่นเดียวกับ qi/profile BFF ทุกเส้น)
 import type { NextApiRequest, NextApiResponse } from 'next'
 import { resolveRouteMember } from '@/lib/v2/resolve-user'
+import { baziFetch } from '@/lib/bazi/fetch'
 
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
@@ -19,7 +20,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   const base = process.env.BAZI_BASE_URL || 'http://localhost:3000'
   try {
     const query = `?anonId=${encodeURIComponent(memberId)}`
-    const upstream = await fetch(`${base}/api/account/delete${req.method === 'GET' || req.method === 'DELETE' ? query : ''}`, {
+    const upstream = await baziFetch(`${base}/api/account/delete${req.method === 'GET' || req.method === 'DELETE' ? query : ''}`, {
       method: req.method,
       headers: { 'Content-Type': 'application/json' },
       body: ['POST', 'PATCH'].includes(req.method ?? '') ? JSON.stringify({ ...(req.body ?? {}), anonId: memberId }) : undefined,

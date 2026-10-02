@@ -5,6 +5,7 @@
 // Engine: {BAZI_BASE_URL}/api/account/export
 import type { NextApiRequest, NextApiResponse } from "next"
 import { resolveRouteMember } from '@/lib/v2/resolve-user'
+import { baziFetch } from '@/lib/bazi/fetch'
 
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
@@ -22,7 +23,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   try {
     if (req.method === "POST") {
       const email = typeof req.body?.email === "string" ? req.body.email : undefined
-      const upstream = await fetch(`${base}/api/account/export`, {
+      const upstream = await baziFetch(`${base}/api/account/export`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ anonId: memberId, email }),
@@ -32,7 +33,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return
     }
     const statusQ = req.query.status ? "&status=1" : ""
-    const upstream = await fetch(`${base}/api/account/export?anonId=${encodeURIComponent(memberId)}${statusQ}`)
+    const upstream = await baziFetch(`${base}/api/account/export?anonId=${encodeURIComponent(memberId)}${statusQ}`)
     const payload = await upstream.json().catch(() => ({}))
     res.status(upstream.ok ? 200 : upstream.status).json(payload)
   } catch {

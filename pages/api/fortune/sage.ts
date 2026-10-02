@@ -4,6 +4,7 @@
 import type { NextApiRequest, NextApiResponse } from "next"
 import { baziClientHeaders } from "@/lib/bazi/client-identity"
 import { resolveRouteMember } from '@/lib/v2/resolve-user'
+import { baziFetch } from '@/lib/bazi/fetch'
 
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
@@ -20,7 +21,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   const base = process.env.BAZI_BASE_URL || "http://localhost:3000"
   const body = (req.body ?? {}) as { question?: string; topic?: string; no?: number }
   try {
-    const upstream = await fetch(`${base}/api/fortune-sage/predict`, {
+    const upstream = await baziFetch(`${base}/api/fortune-sage/predict`, {
       method: "POST",
       headers: { "Content-Type": "application/json", ...baziClientHeaders(req) },
       body: JSON.stringify({ mode: "llm", question: body.question, topic: body.topic, no: body.no, anonId: memberId }),

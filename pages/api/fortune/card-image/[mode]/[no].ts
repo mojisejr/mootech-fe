@@ -1,6 +1,7 @@
 // BFF — GET /api/fortune/card-image/{oracle|divine}/{no}: พร็อกซีรูปหน้าไพ่จาก engine
 // engine เสิร์ฟ bytes จากไฟล์จริง (ไม่พึ่ง Supabase CDN) → FE เชื่อมมาที่ engine เป็น source เดียว.
 import type { NextApiRequest, NextApiResponse } from "next"
+import { baziFetch } from '@/lib/bazi/fetch'
 
 const ENDPOINT: Record<string, string> = {
   oracle: "oracle-cards",
@@ -22,7 +23,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
   const base = process.env.BAZI_BASE_URL || "http://localhost:3000"
   try {
-    const upstream = await fetch(`${base}/api/${path}/image/${no}`)
+    const upstream = await baziFetch(`${base}/api/${path}/image/${no}`)
     if (!upstream.ok) {
       res.status(upstream.status).json({ error: `ไม่พบรูปไพ่ #${no}` })
       return

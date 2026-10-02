@@ -16,6 +16,7 @@ import {
 } from "@/lib/bazi-bridge/input"
 import { mergeEngineBirth } from "@/lib/bazi-bridge/engine-birth"
 import { resolveRouteMember } from '@/lib/v2/resolve-user'
+import { baziFetch } from '@/lib/bazi/fetch'
 
 const rowsOf = (r: any): any[] => (Array.isArray(r) ? r : r?.rows ?? [])
 
@@ -92,7 +93,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const ac = new AbortController()
     const timer = setTimeout(() => ac.abort(), CALL_TIMEOUT_MS)
     try {
-      const r = await fetch(`${base}${path}`, {
+      const r = await baziFetch(`${base}${path}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),

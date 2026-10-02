@@ -37,6 +37,7 @@ import { calendarMonthReachable } from '@/lib/v2/entitlement'
 import { ownsCalendar } from '@/lib/v2/calendar-access'
 import { currentMonthBkk } from '@/lib/v2/clock'
 import { BAZI_BASE, BAZI_TIMEOUT_MS, fetchAlmanacDays, type AlmanacDay } from '@/lib/v2-calendar/month'
+import { baziFetch } from '@/lib/bazi/fetch'
 
 type AlmanacDated = AlmanacDay & { date?: unknown }
 
@@ -50,7 +51,7 @@ function parseDate(input: unknown): { y: number; m: number; d: number; yearBE: n
 }
 
 async function fetchFortuneDay(rawInput: unknown, date: string, signal: AbortSignal): Promise<unknown> {
-  const r = await fetch(`${BAZI_BASE}/api/bazi/man-vs-day`, {
+  const r = await baziFetch(`${BAZI_BASE}/api/bazi/man-vs-day`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ person: rawInput, date }),

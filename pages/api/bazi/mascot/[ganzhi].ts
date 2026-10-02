@@ -9,6 +9,7 @@
 // ❌ NEVER fall back to the legacy `imageUrl` — a row that has the old image but no v2 image must
 // HIDE the card (that is exactly what ฟีม wants: v2 = ชุดใหม่เท่านั้น, ไม่ให้ของเก่าแอบโผล่).
 import type { NextApiRequest, NextApiResponse } from 'next'
+import { baziFetch } from '@/lib/bazi/fetch'
 
 const BAZI_BASE = process.env.BAZI_BASE_URL || 'http://localhost:3000'
 if (/bazichart\.mumate\.co/i.test(BAZI_BASE)) {
@@ -64,7 +65,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   try {
     const ac = new AbortController()
     const timer = setTimeout(() => ac.abort(), BAZI_TIMEOUT_MS)
-    const r = await fetch(`${BAZI_BASE}/api/bazi/mascot/${encodeURIComponent(ganzhi)}`, {
+    const r = await baziFetch(`${BAZI_BASE}/api/bazi/mascot/${encodeURIComponent(ganzhi)}`, {
       method: 'GET',
       signal: ac.signal,
     })

@@ -5,6 +5,7 @@
 // graceful: engine ล่ม/ไม่มี identity → 401/200 พร้อมค่า null ให้แถบซ่อนเอง ไม่ทำให้หน้าแชทพัง.
 import type { NextApiRequest, NextApiResponse } from "next"
 import { resolveRouteMember } from '@/lib/v2/resolve-user'
+import { baziFetch } from '@/lib/bazi/fetch'
 
 
 export type ChatQuota = {
@@ -25,12 +26,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   const base = process.env.BAZI_BASE_URL || "http://localhost:3000"
   try {
     const [checkRes, walletRes] = await Promise.all([
-      fetch(`${base}/api/qi/feature-check`, {
+      baziFetch(`${base}/api/qi/feature-check`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ anonId: memberId, feature: "chat" }),
       }),
-      fetch(`${base}/api/qi/wallet?anonId=${encodeURIComponent(memberId)}&history=0`),
+      baziFetch(`${base}/api/qi/wallet?anonId=${encodeURIComponent(memberId)}&history=0`),
     ])
     const check = checkRes.ok ? await checkRes.json() : null
     const wallet = walletRes.ok ? await walletRes.json() : null

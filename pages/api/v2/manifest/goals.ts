@@ -2,6 +2,7 @@
 //   GET → goals+tasks+progress ของผู้ใช้ · POST สร้าง · PATCH แก้ · DELETE ลบ (แนบ anonId จาก cookie)
 import type { NextApiRequest, NextApiResponse } from "next"
 import { resolveRouteMember } from '@/lib/v2/resolve-user'
+import { baziFetch } from '@/lib/bazi/fetch'
 
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
@@ -18,12 +19,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
   try {
     if (req.method === "GET") {
-      const upstream = await fetch(`${base}/api/manifest/goals?anonId=${encodeURIComponent(memberId)}`)
+      const upstream = await baziFetch(`${base}/api/manifest/goals?anonId=${encodeURIComponent(memberId)}`)
       res.status(upstream.status).json(await upstream.json().catch(() => ({ goals: [] })))
       return
     }
     if (req.method === "POST" || req.method === "PATCH" || req.method === "DELETE") {
-      const upstream = await fetch(`${base}/api/manifest/goals`, {
+      const upstream = await baziFetch(`${base}/api/manifest/goals`, {
         method: req.method,
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ ...(req.body ?? {}), anonId: memberId }),

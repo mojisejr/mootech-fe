@@ -3,6 +3,7 @@
 // Engine: GET {BAZI_BASE_URL}/api/qi/wallet?anonId=...&history=N (pdf-dev).
 import type { NextApiRequest, NextApiResponse } from "next"
 import { resolveRouteMember } from '@/lib/v2/resolve-user'
+import { baziFetch } from '@/lib/bazi/fetch'
 
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
@@ -20,7 +21,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   const history = Number.isFinite(requested) ? Math.min(100, Math.max(0, Math.floor(requested))) : 20
   const base = process.env.BAZI_BASE_URL || "http://localhost:3000"
   try {
-    const upstream = await fetch(
+    const upstream = await baziFetch(
       `${base}/api/qi/wallet?anonId=${encodeURIComponent(memberId)}&history=${history}`,
     )
     if (!upstream.ok) {

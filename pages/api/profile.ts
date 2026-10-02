@@ -12,6 +12,7 @@ import type { NextApiRequest, NextApiResponse } from "next"
 import { sql } from "drizzle-orm"
 import { db } from "@/lib/db"
 import { resolveRouteMember } from '@/lib/v2/resolve-user'
+import { baziFetch } from '@/lib/bazi/fetch'
 
 
 type EngineProfile = { birthDate?: string | null; birthTime?: string | null; timeUnknown?: boolean | null; [k: string]: unknown }
@@ -52,7 +53,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       req.method === "GET"
         ? `${base}/api/profile?anonId=${encodeURIComponent(memberId)}`
         : `${base}/api/profile`
-    const upstream = await fetch(url, {
+    const upstream = await baziFetch(url, {
       method: req.method,
       headers: { "Content-Type": "application/json" },
       body:
@@ -69,7 +70,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         const baseProfile: EngineProfile = payload.profile ?? { displayName: null, firstName: null, lastName: null, gender: null, email: null, birthProvince: null, hasAvatar: false, avatarUpdatedAt: null }
         payload.profile = { ...baseProfile, birthDate: legacy.birth, birthTime: legacy.birthTime, timeUnknown: legacy.timeUnknown, birthSource: "legacy" }
         // backfill engine — best-effort, ไม่รอ ไม่ทำให้คำตอบนี้ล้ม (engine ตอบ 409 ถ้ายังไม่มีแถวโปรไฟล์ — ปล่อยผ่าน)
-        void fetch(`${base}/api/profile`, {
+        void baziFetch(`${base}/api/profile`, {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ anonId: memberId, birth: legacy.birth, birthTime: legacy.birthTime, timeUnknown: legacy.timeUnknown }),

@@ -10,6 +10,7 @@
 // เรียกจาก settleAndProvision (lib/payment/repo.ts) หลัง transaction จบเท่านั้น — ห้ามถือ DB transaction
 // ข้าม network call
 import { qiBonusOf, qiQtyOf } from '@/lib/payment/catalog'
+import { baziFetch } from '@/lib/bazi/fetch'
 
 export type QiPurchaseRef = { userId: string; packageCode: string; chargeId: string }
 
@@ -30,7 +31,7 @@ export async function grantQiPurchase(ref: QiPurchaseRef): Promise<boolean> {
   // ปริมาณ QI ที่เครดิตจริง = จำนวนแพ็ก + โบนัสรายแพ็ก (2026-09: +0/+45/+260/+816) — โบนัสซื้อครั้งแรก +30
   // engine บวกให้เองแยกต่างหาก (once ต่อบัญชี)
   const qi = qty + qiBonusOf(ref.packageCode)
-  const upstream = await fetch(`${ENGINE_BASE}/api/qi/grant`, {
+  const upstream = await baziFetch(`${ENGINE_BASE}/api/qi/grant`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
@@ -53,7 +54,7 @@ export async function grantQiPurchase(ref: QiPurchaseRef): Promise<boolean> {
 export async function fireReferralUpgradeTrigger(userId: string, tier: 'PLUS' | 'PRO'): Promise<void> {
   const secret = process.env.QI_GRANT_SECRET
   if (!secret) return // ระบบชี่ไม่ได้ตั้ง — ข้ามอย่างเงียบ (โบนัสผู้ชวนเป็นของแถม ไม่ใช่ส่วนของการซื้อสมาชิก)
-  await fetch(`${ENGINE_BASE}/api/qi/grant`, {
+  await baziFetch(`${ENGINE_BASE}/api/qi/grant`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ secret, anonId: userId, kind: tier.toLowerCase(), ref: `tier:${tier}` }),

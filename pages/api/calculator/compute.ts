@@ -18,6 +18,7 @@ import { calculatorUsageLog } from '@/lib/db/schema'
 import { NONCE_COOKIE, verifyNonce } from '@/lib/calculator/nonce'
 import { checkCalculatorRateLimit, clientIpFromHeaders } from '@/lib/calculator/rate-limit'
 import { ZODIAC_TABLE } from '@/lib/personalization/zodiac'
+import { baziFetch } from '@/lib/bazi/fetch'
 
 // bazi-sft-dataset's DB-free public-calc route (#calculator-enrichment-FROZEN-v1) — pillars, daYun/liuNian
 // 12-qi, element-reaction and clash flags. Since slice 1 it is the ONLY source, so when it is slow or down
@@ -143,7 +144,7 @@ export async function fetchEnrichment(input: { dob: string; time: string; gender
   const controller = new AbortController()
   const timeout = setTimeout(() => controller.abort(), ENRICHMENT_TIMEOUT_MS)
   try {
-    const res = await fetch(`${BAZI_SFT_ENDPOINT}/api/bazi/public-calc`, {
+    const res = await baziFetch(`${BAZI_SFT_ENDPOINT}/api/bazi/public-calc`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({

@@ -3,6 +3,7 @@
 //   GET  ?id=<uuid>            → ไบต์รูป     (proxy จาก engine, สโคปด้วย anonId จาก cookie)
 import type { NextApiRequest, NextApiResponse } from "next"
 import { resolveRouteMember } from '@/lib/v2/resolve-user'
+import { baziFetch } from '@/lib/bazi/fetch'
 
 // รูป base64 ใหญ่ — ปลดล็อกลิมิต body (client ย่อ ~1080px q0.8 มาแล้ว) เหมือน /api/v2/avatar
 export const config = { api: { bodyParser: { sizeLimit: "8mb" } } }
@@ -30,7 +31,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return
     }
     try {
-      const upstream = await fetch(`${base}/api/manifest/photo/${id}?anonId=${encodeURIComponent(memberId)}`)
+      const upstream = await baziFetch(`${base}/api/manifest/photo/${id}?anonId=${encodeURIComponent(memberId)}`)
       if (!upstream.ok) {
         res.status(upstream.status).json({ error: "ไม่พบรูป" })
         return
@@ -54,7 +55,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   // ── อัปโหลด: เก็บลง engine DB → คืน URL เสิร์ฟของ FE เอง (ให้เบราว์เซอร์โหลดผ่าน same-origin) ──
   try {
     const body = (req.body ?? {}) as { imageBase64?: string; mime?: string }
-    const upstream = await fetch(`${base}/api/manifest/photo`, {
+    const upstream = await baziFetch(`${base}/api/manifest/photo`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ anonId: memberId, imageBase64: body.imageBase64, mime: body.mime }),

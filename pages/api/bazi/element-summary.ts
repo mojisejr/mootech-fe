@@ -13,6 +13,7 @@ import type { NextApiRequest, NextApiResponse } from 'next'
 import { sql } from 'drizzle-orm'
 import { db } from '@/lib/db'
 import { resolveOptionalRouteMember } from '@/lib/v2/resolve-user'
+import { baziFetch } from '@/lib/bazi/fetch'
 
 const BAZI_BASE = process.env.BAZI_BASE_URL || 'http://localhost:3000'
 if (/bazichart\.mumate\.co/i.test(BAZI_BASE)) {
@@ -105,7 +106,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   try {
     const ac = new AbortController()
     const timer = setTimeout(() => ac.abort(), BAZI_TIMEOUT_MS)
-    const r = await fetch(`${BAZI_BASE}/api/bazi/element-summary`, {
+    const r = await baziFetch(`${BAZI_BASE}/api/bazi/element-summary`, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ person }),

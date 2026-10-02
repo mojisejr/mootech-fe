@@ -63,7 +63,7 @@ describe('the BFF that proxies to a rate-limited engine route', () => {
       encoding: 'utf8',
     })
       .split('\n')
-      .filter((f) => f && !f.endsWith('.sql') && readFileSync(f, 'utf8').includes('fetch('))
+      .filter((f) => f && !f.endsWith('.sql') && /[fF]etch\(/.test(readFileSync(f, 'utf8'))) // fetch( or baziFetch( (hardening slice 1)
     expect(callers.length).toBeGreaterThan(0)
     expect(callers.filter((f) => !readFileSync(f, 'utf8').includes('baziClientHeaders(req)'))).toEqual([])
   })

@@ -6,6 +6,7 @@ import type { NextApiRequest, NextApiResponse } from "next"
 import { sql } from "drizzle-orm"
 import { db } from "@/lib/db"
 import { resolveRouteMember } from '@/lib/v2/resolve-user'
+import { baziFetch } from '@/lib/bazi/fetch'
 
 
 // รูป LINE จาก DB (user.picture_url) — fallback เมื่อ cookie-mumate-image ว่าง (ผู้ใช้เก่าที่ cookie ยังไม่มีรูป
@@ -39,7 +40,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
   try {
     if (req.method === "GET") {
-      const upstream = await fetch(`${base}/api/profile/avatar?anonId=${encodeURIComponent(memberId)}`)
+      const upstream = await baziFetch(`${base}/api/profile/avatar?anonId=${encodeURIComponent(memberId)}`)
       if (!upstream.ok) {
         // ยังไม่ได้อัพโหลดรูปเอง → ใช้รูปตั้งต้นจาก LINE (cookie-mumate-image) เพื่อให้ทุกหน้าโชว์รูปเดียวกัน
         // ทำที่ชั้น server เพื่อให้จอ shell เรียก /api/v2/avatar ที่เดียว ไม่ต้องรู้ว่ามีรูปอัพโหลดหรือไม่
@@ -72,7 +73,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       res.status(400).json({ error: "imageBase64 is required" })
       return
     }
-    const upstream = await fetch(`${base}/api/profile/avatar`, {
+    const upstream = await baziFetch(`${base}/api/profile/avatar`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ anonId: memberId, imageBase64: body.imageBase64, mime: body.mime }),

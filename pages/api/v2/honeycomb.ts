@@ -2,6 +2,7 @@
 //   POST { phoneNumber }  → HoneycombReading (rows พีระมิด + layers ความหมาย) จาก engine
 // Engine: {BAZI_BASE_URL}/api/honeycomb/predict (deterministic, stateless)
 import type { NextApiRequest, NextApiResponse } from "next"
+import { baziFetch } from '@/lib/bazi/fetch'
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== "POST") {
@@ -15,7 +16,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return
   }
   try {
-    const upstream = await fetch(`${base}/api/honeycomb/predict`, {
+    const upstream = await baziFetch(`${base}/api/honeycomb/predict`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ phoneNumber }),

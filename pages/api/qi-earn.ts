@@ -2,6 +2,7 @@
 // Engine: POST {BAZI_BASE_URL}/api/qi/earn — จ่ายซ้ำในรอบเดิมไม่ได้ (capped).
 import type { NextApiRequest, NextApiResponse } from "next"
 import { resolveRouteMember } from '@/lib/v2/resolve-user'
+import { baziFetch } from '@/lib/bazi/fetch'
 
 const CODE_RE = /^[a-z0-9_]{1,64}$/i
 
@@ -25,7 +26,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
   const base = process.env.BAZI_BASE_URL || "http://localhost:3000"
   try {
-    const upstream = await fetch(`${base}/api/qi/earn`, {
+    const upstream = await baziFetch(`${base}/api/qi/earn`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ anonId: memberId, code, ...(ref ? { ref } : {}) }),

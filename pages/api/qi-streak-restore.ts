@@ -2,6 +2,7 @@
 // Engine: POST {BAZI_BASE_URL}/api/qi/streak-restore — หัก 20 ชี่ + มาร์กวันที่กู้ (จำกัดสัปดาห์ละครั้ง; แต้มไม่พอ → 409).
 import type { NextApiRequest, NextApiResponse } from "next"
 import { resolveRouteMember } from '@/lib/v2/resolve-user'
+import { baziFetch } from '@/lib/bazi/fetch'
 
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
@@ -17,7 +18,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   const memberId = who.userId
   const base = process.env.BAZI_BASE_URL || "http://localhost:3000"
   try {
-    const upstream = await fetch(`${base}/api/qi/streak-restore`, {
+    const upstream = await baziFetch(`${base}/api/qi/streak-restore`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ anonId: memberId }),

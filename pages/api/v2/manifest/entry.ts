@@ -2,6 +2,7 @@
 //   GET ?from&to → { entries[], streak{current,best} } · POST { date?, mood?(1-5), note? } → { rewarded, streak }
 import type { NextApiRequest, NextApiResponse } from "next"
 import { resolveRouteMember } from '@/lib/v2/resolve-user'
+import { baziFetch } from '@/lib/bazi/fetch'
 
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
@@ -23,12 +24,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       const to = typeof req.query.to === "string" ? req.query.to : ""
       if (from) qs.set("from", from)
       if (to) qs.set("to", to)
-      const upstream = await fetch(`${base}/api/manifest/entry?${qs.toString()}`)
+      const upstream = await baziFetch(`${base}/api/manifest/entry?${qs.toString()}`)
       res.status(upstream.status).json(await upstream.json().catch(() => ({ entries: [] })))
       return
     }
     if (req.method === "POST") {
-      const upstream = await fetch(`${base}/api/manifest/entry`, {
+      const upstream = await baziFetch(`${base}/api/manifest/entry`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ ...(req.body ?? {}), anonId: memberId }),

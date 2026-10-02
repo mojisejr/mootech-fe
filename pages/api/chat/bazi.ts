@@ -21,6 +21,7 @@ import {
 import { mergeEngineBirth } from "@/lib/bazi-bridge/engine-birth"
 import type { DevBirthProfile } from "@/dev-access/birth-adapter"
 import { resolveOptionalRouteMember } from '@/lib/v2/resolve-user'
+import { baziFetch } from '@/lib/bazi/fetch'
 
 export const config = {
   api: {
@@ -104,7 +105,7 @@ export default async function handler(
   // เช็คก่อน "ไม่หัก" (หักจริงหลังตอบสำเร็จด้านล่าง) — ชี่ไม่พอ → 402. dev playground (ไม่มี userId) ยกเว้น.
   if (userId) {
     try {
-      const chk = await fetch(`${base}/api/qi/feature-check`, {
+      const chk = await baziFetch(`${base}/api/qi/feature-check`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ anonId: userId, feature: "chat" }),
@@ -127,7 +128,7 @@ export default async function handler(
   // 1) deterministic chart calculation (public bazi endpoint)
   let calculatedState: unknown
   try {
-    const calcRes = await fetch(`${base}/api/bazi/calculate`, {
+    const calcRes = await baziFetch(`${base}/api/bazi/calculate`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(rawInput),
@@ -150,7 +151,7 @@ export default async function handler(
   // 2) chat completion (authenticated, streamed)
   let upstream: Response
   try {
-    upstream = await fetch(`${base}/api/v1/chat/completions`, {
+    upstream = await baziFetch(`${base}/api/v1/chat/completions`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -207,7 +208,7 @@ export default async function handler(
   // หักชี่ 1 ครั้ง เฉพาะเมื่อตอบสำเร็จและมีเนื้อหา (ฟรีวันนี้ → QI). best-effort:
   // ถ้าหักล้มก็ไม่กระทบคำตอบที่ส่งไปแล้ว. เขตไทยรีเซ็ตโควตาฟรีรายวันเองที่ engine.
   if (userId && gotContent) {
-    await fetch(`${base}/api/qi/feature-consume`, {
+    await baziFetch(`${base}/api/qi/feature-consume`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ anonId: userId, feature: "chat" }),

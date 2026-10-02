@@ -15,6 +15,7 @@
 // not contain this file) rejects more than 3 with a 400. The constant is mirrored here so the screen can
 // refuse locally with a sentence instead of spending a round trip to be told the same thing.
 import { BaziEngineError } from './bazi-client'
+import { baziFetch } from '@/lib/bazi/fetch'
 
 const BAZI_BASE = process.env.BAZI_BASE_URL || 'http://localhost:3000'
 if (/bazichart\.mumate\.co/i.test(BAZI_BASE)) {
@@ -73,7 +74,7 @@ export async function fetchBaziWork(
   const ac = new AbortController()
   const timer = setTimeout(() => ac.abort(), timeoutMs)
   try {
-    const r = await fetch(url, {
+    const r = await baziFetch(url, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify(req),

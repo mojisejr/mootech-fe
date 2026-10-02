@@ -16,6 +16,7 @@ import { UUID_RE } from '@/lib/auth/resolve-auth'
 import { analyticsUserId } from '@/lib/analytics/identity'
 import { analyticsConsentCookieValue } from '@/lib/analytics/consent'
 import { resolveRouteMember } from '@/lib/v2/resolve-user'
+import { baziFetch } from '@/lib/bazi/fetch'
 
 export const ANALYTICS_ID_COOKIE = 'mumate-aid'
 
@@ -24,7 +25,7 @@ type ConsentRow = { kind?: string; accepted?: boolean }
 async function latestAnalyticsConsent(memberId: string): Promise<boolean | null> {
   const base = process.env.BAZI_BASE_URL || 'http://localhost:3000'
   try {
-    const r = await fetch(`${base}/api/account/consent?anonId=${encodeURIComponent(memberId)}`, {
+    const r = await baziFetch(`${base}/api/account/consent?anonId=${encodeURIComponent(memberId)}`, {
       headers: { 'Content-Type': 'application/json' },
     })
     if (!r.ok) return null

@@ -1,6 +1,7 @@
 // BFF — POST /api/v2/manifest/checkin: ติ๊ก/ถอนงานประจำวันของเป้าหมายมานิเฟส (ต่อ engine)
 import type { NextApiRequest, NextApiResponse } from "next"
 import { resolveRouteMember } from '@/lib/v2/resolve-user'
+import { baziFetch } from '@/lib/bazi/fetch'
 
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
@@ -21,7 +22,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
   const body = (req.body ?? {}) as { taskId?: string; done?: boolean; date?: string }
   try {
-    const upstream = await fetch(`${base}/api/manifest/checkin`, {
+    const upstream = await baziFetch(`${base}/api/manifest/checkin`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ anonId: memberId, taskId: body.taskId, done: body.done, date: body.date }),

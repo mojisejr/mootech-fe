@@ -5,6 +5,7 @@
 // Engine: {BAZI_BASE_URL}/api/profile/display-name
 import type { NextApiRequest, NextApiResponse } from "next"
 import { resolveRouteMember } from '@/lib/v2/resolve-user'
+import { baziFetch } from '@/lib/bazi/fetch'
 
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
@@ -29,7 +30,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       const url = check
         ? `${base}/api/profile/display-name?check=${encodeURIComponent(check)}`
         : `${base}/api/profile/display-name?anonId=${encodeURIComponent(memberId)}`
-      const upstream = await fetch(url)
+      const upstream = await baziFetch(url)
       const payload = await upstream.json().catch(() => ({}))
       res.status(upstream.ok ? 200 : upstream.status).json(payload)
       return
@@ -39,7 +40,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       res.status(400).json({ error: "displayName is required" })
       return
     }
-    const upstream = await fetch(`${base}/api/profile/display-name`, {
+    const upstream = await baziFetch(`${base}/api/profile/display-name`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ anonId: memberId, displayName }),

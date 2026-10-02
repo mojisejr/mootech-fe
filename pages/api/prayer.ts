@@ -14,6 +14,7 @@ import {
 } from "@/lib/bazi-bridge/input"
 import { mergeEngineBirth } from "@/lib/bazi-bridge/engine-birth"
 import { resolveOptionalRouteMember } from '@/lib/v2/resolve-user'
+import { baziFetch } from '@/lib/bazi/fetch'
 
 const rowsOf = (r: any): any[] => (Array.isArray(r) ? r : r?.rows ?? [])
 
@@ -59,7 +60,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   const birth = feInput ? toBaziInput(feInput).rawInput : undefined
 
   try {
-    const upstream = await fetch(`${base}/api/prayer`, {
+    const upstream = await baziFetch(`${base}/api/prayer`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({

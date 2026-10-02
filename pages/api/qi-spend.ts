@@ -4,6 +4,7 @@
 // สถานะ upstream ผ่านไปตรง ๆ เพื่อให้จอแยก "ไม่พอ (409)" กับ "ระบบล้ม (5xx)" ได้จริง.
 import type { NextApiRequest, NextApiResponse } from "next"
 import { resolveRouteMember } from '@/lib/v2/resolve-user'
+import { baziFetch } from '@/lib/bazi/fetch'
 
 const CODE_RE = /^[a-z0-9_]{1,64}$/i
 
@@ -25,7 +26,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
   const base = process.env.BAZI_BASE_URL || "http://localhost:3000"
   try {
-    const upstream = await fetch(`${base}/api/qi/spend`, {
+    const upstream = await baziFetch(`${base}/api/qi/spend`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ anonId: memberId, code }),
