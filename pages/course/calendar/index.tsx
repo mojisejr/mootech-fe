@@ -68,19 +68,16 @@ export default function CalendarCoursePage() {
       <main className="relative z-10 mx-auto flex w-full max-w-md flex-col gap-6 px-4 pb-16 pt-3">
         {/* Section 1 — Hero */}
         <section className="flex flex-col gap-4" data-testid="sale-hero">
-          {/* ส่วนหัวแบบที่พลปรับ (2026-10-02): พื้นห้องสมุดโทนเข้ม · แบนเนอร์ม้วนชื่อคอร์ส · มาสคอต · ปุ่มทองบนภาพ */}
-          <div className="relative overflow-hidden rounded-[24px] bg-gradient-to-b from-[#1c2547] via-[#27325c] to-[#3a3f6b] px-4 pb-5 pt-5 shadow-xl">
-            <div aria-hidden className="pointer-events-none absolute inset-0 opacity-25 [background-image:repeating-linear-gradient(90deg,#5b4632_0_18px,#3d2f22_18px_22px,#7a5b3c_22px_34px,#2e241a_34px_38px)] [mask-image:linear-gradient(to_bottom,transparent_30%,black_60%,transparent_95%)]" />
-            <div className="relative mx-auto max-w-[92%] rounded-md border-y-4 border-[#c9a45c] bg-[#fbf3df] px-4 py-3 text-center shadow-[0_6px_18px_rgba(0,0,0,0.35)]">
-              <h1 className="text-[26px] font-black leading-8 text-v3-navy">Win the Day</h1>
-              <p className="mt-1 text-[15px] font-bold leading-6 text-v3-navy">สูตรอ่านปฏิทินดวงจีน รู้ &ldquo;วันดี-วันต้องระวัง&rdquo; ล่วงหน้า</p>
-              <p className="text-xs text-v3-text-muted">(อ่านง่ายแม้ไม่มีพื้นฐาน)</p>
+          {/* ส่วนหัว = การ์ดรูปเดิม (แบนเนอร์หน้าแรก) แต่ตัดข้อความที่ฝังในรูป "คอร์สปฏิทิน" ออก (แถว 0-963 ของรูป 1000x1300
+              = ภาพวาด, 964+ = แผงข้อความสี #fbf6fa) แล้ววางชื่อใหม่ตามพล 2026-10-02 เป็นตัวอักษรจริงบนแผงสีเดียวกัน */}
+          <div className="overflow-hidden rounded-[20px] bg-[#fbf6fa] drop-shadow-[0_4px_15px_rgba(26,38,77,0.10)]">
+            <div className="relative aspect-[1000/963] w-full">
+              <Image src="/images/v2/popup/calendar-course.png" alt="น้องมูเมทถือปฏิทิน" fill priority sizes="(max-width: 448px) 100vw, 448px" className="object-cover object-top" />
             </div>
-            <div className="relative mx-auto mt-3 aspect-[1/0.78] w-[86%] overflow-hidden rounded-[20px]">
-              <Image src="/images/v2/popup/calendar-course.png" alt="น้องมูเมทถือปฏิทิน" fill priority sizes="(max-width: 448px) 86vw, 380px" className="object-cover object-top" />
-            </div>
-            <div className="relative mt-4">
-              <Cta s={s} label="สมัครเรียน + รับสิทธิ์ใช้แอปฟรี 1 เดือน (เพียง 490.-)" testId="course-buy-hero-top" gold />
+            <div className="px-5 pb-6 pt-3 text-center">
+              <h1 className="text-[34px] font-black leading-tight tracking-tight text-black">Win the Day</h1>
+              <p className="mt-1.5 text-lg font-semibold leading-7 text-[#6e6a75]">สูตรอ่านปฏิทินดวงจีน</p>
+              <p className="text-lg font-semibold leading-7 text-[#6e6a75]">รู้ วันดี-วันต้องระวังล่วงหน้า</p>
             </div>
           </div>
           <div className={CARD}>
