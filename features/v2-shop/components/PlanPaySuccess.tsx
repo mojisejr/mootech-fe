@@ -22,7 +22,6 @@ import { RESULT_COPY } from '../result-state'
 import { planNameForTier } from '../packages'
 import { gatewayLabel } from '../gateway-label'
 import { PlanShareInvite } from './PlanShareInvite'
-import { useRouter } from 'next/router'
 
 export const PLAN_SUCCESS_SUBTITLE = 'ขอบคุณที่ให้ Mumate ดูแล'
 
@@ -48,14 +47,7 @@ export function PlanPaySuccess({ packageCode, charge, order }: { packageCode: st
   const tier = row?.tierCode ?? null
   // คอร์ส (lib/course/content) — PromptPay ไม่ส่ง package_code กลับมา → ใช้ของแถวการจ่ายแทน
   const coursePkg = packageCode || row?.packageCode || ''
-  // เอกสาร sale page (พล): จ่าย 490 สำเร็จ → เด้งหน้า Upsell ทันที (หน้านี้ render เฉพาะตอนเงินเข้าแล้ว)
-  const router = useRouter()
-  useEffect(() => {
-    if (coursePkg === 'COURSE_CAL_490') {
-      const t = setTimeout(() => void router.replace('/course/offer?step=up'), 1500)
-      return () => clearTimeout(t)
-    }
-  }, [coursePkg, router])
+
   const planName = planNameForTier(tier) ?? planNameForTier(packageCode.replace(/^V2_/, '').replace(/_(YEARLY|MONTHLY)$/, '')) ?? 'Mumate'
   const period = packageCode.endsWith('MONTHLY') ? 'รายเดือน' : 'รายปี'
   const expire = user?.membership?.expireAt ? formatThaiDateAbbr(user.membership.expireAt.slice(0, 10)) : ''
@@ -119,11 +111,14 @@ export function PlanPaySuccess({ packageCode, charge, order }: { packageCode: st
               <p data-testid="course-pay-success-hint" className="text-sm leading-6 text-v3-text-body">
                 เพื่อความคุ้มค่าที่สุด ควรเรียนให้จบภายใน 1 เดือน ระหว่างที่ใช้ Mumate + ได้ จะได้ฝึกใช้ปฏิทินจริงไปพร้อมกัน
               </p>
-              <KitButton href="/course/offer?step=up" testId="course-pay-success-offer" className="!h-[48px]">ไปต่อ</KitButton>
+              <KitButton href="/course/calendar" testId="course-pay-success-go" className="!h-[48px]">เริ่มเรียนเลย</KitButton>
             </>
           ) : (
             <>
-              <p className="text-base font-bold text-v3-navy">🎓 ปลดล็อก Bazi Life Matrix + Mumate + 1 ปีแล้ว</p>
+              <p className="text-base font-bold text-v3-navy">🎓 ปลดล็อกคอร์ส Win the Day + Bazi Life Matrix แล้ว</p>
+              {coursePkg === 'COURSE_BUNDLE_689' ? (
+                <p className="text-sm leading-6 text-v3-text-body">เพื่อความคุ้มค่าที่สุด ควรเรียนให้จบภายใน 1 เดือน ระหว่างที่ใช้ Mumate + ได้</p>
+              ) : null}
               <KitButton href="/course/calendar" testId="course-pay-success-go" className="!h-[48px]">เข้าเรียนคอร์สปฏิทิน</KitButton>
               <KitButton href="/course/life-matrix" testId="course-pay-success-matrix" className="!h-[48px]">ไปคอร์ส Bazi Life Matrix</KitButton>
             </>

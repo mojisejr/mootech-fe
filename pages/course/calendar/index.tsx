@@ -1,7 +1,7 @@
 // /course/calendar — Sale page คอร์ส "Win the Day" (คอร์สปฏิทิน Mumate ฿490) ตามเอกสาร sale page ของพล 2026-10-01.
 // 8 ส่วน: Hero · ขยี้ปัญหา · ทางออก · หลักสูตร 13 บท · โบนัส Plus 1 เดือน · สรุปมูลค่า · FAQ · ปิดการขาย
 // มีสิทธิ์แล้ว (สมาชิกที่จ่ายเงินจริง / เคยซื้อ) → ไม่โชว์ปุ่มซื้อ โชว์ "เรียนได้เลย" แทน
-// upsell/downsell (Bazi Life Matrix) เสนอ "หลังจ่าย 490" ที่ /course/offer
+// ปุ่มสมัคร → /course/offer (upsell 790 → downsell 689 → 490) แล้วจ่ายครั้งเดียว (พล 2026-10-02)
 import { useState } from 'react'
 import Head from 'next/head'
 import Image from 'next/image'
@@ -9,10 +9,10 @@ import Link from 'next/link'
 import { SkyBackdrop, SkyHeader } from '@/features/v2-profile/components/kit'
 import { useCourse, type CourseState } from '@/features/course/useCourse'
 import { EpisodeList, CARD } from '@/features/course/EpisodeList'
-import { COURSES, checkoutHrefFor } from '@/lib/course/content'
+import { COURSES } from '@/lib/course/content'
 
 const COURSE = COURSES.calendar
-const BUY_HREF = checkoutHrefFor('COURSE_CAL_490')
+const BUY_HREF = '/course/offer'
 
 const PAINS = [
   { icon: '❌', text: 'ใส่เสื้อสีมงคลตามตารางทั่วไป แต่ทำไมไปคุยงานแล้วยังพัง ไม่รู้สึกว่าเป็นวันของเรา?' },
