@@ -29,10 +29,14 @@ const FAQ = [
 
 /** ปุ่ม CTA: ยังตรวจสิทธิ์ → รอ · มีสิทธิ์ → เข้าเรียน · ไม่มี → ไปจ่าย 490 */
 function Cta({ s, label, testId, gold }: { s: CourseState; label: string; testId: string; gold?: boolean }) {
-  if (s.status === 'loading') return <p className="text-center text-sm text-v3-text-muted">กำลังตรวจสอบสิทธิ์ของคุณ…</p>
+  if (s.status === 'loading') return <p className={`text-center text-sm ${gold ? 'text-white/70' : 'text-v3-text-muted'}`}>กำลังตรวจสอบสิทธิ์ของคุณ…</p>
   if (s.status === 'ok' && s.access) {
     return (
-      <Link href="/course/calendar/1" data-testid={`${testId}-go`} className="grid min-h-14 w-full place-items-center rounded-full bg-v3-cyan px-4 text-base font-bold text-white">
+      <Link
+        href="/course/calendar/1"
+        data-testid={`${testId}-go`}
+        className={`grid min-h-14 w-full place-items-center rounded-full px-4 text-base font-bold text-white ${gold ? 'bg-gradient-to-r from-[#1c2547] via-[#4b4a6e] to-[#c9a45c] shadow-[0_6px_18px_rgba(201,164,92,0.45)]' : 'bg-v3-cyan'}`}
+      >
         {s.via === 'member' ? 'คุณเป็นสมาชิก — เข้าเรียนได้เลย ▶' : 'คุณมีสิทธิ์แล้ว — เข้าเรียนเลย ▶'}
       </Link>
     )
@@ -41,7 +45,7 @@ function Cta({ s, label, testId, gold }: { s: CourseState; label: string; testId
     <Link
       href={BUY_HREF}
       data-testid={testId}
-      className={`grid min-h-14 w-full place-items-center rounded-full px-4 text-center text-base font-bold shadow-lg transition-transform hover:-translate-y-0.5 hover:shadow-xl active:translate-y-0 ${gold ? 'bg-[#f2c14e] text-v3-navy' : 'bg-v3-sapphire text-white'}`}
+      className={`grid min-h-14 w-full place-items-center rounded-full px-4 text-center text-base font-bold shadow-lg transition-transform hover:-translate-y-0.5 hover:shadow-xl active:translate-y-0 ${gold ? 'bg-gradient-to-r from-[#1c2547] via-[#4b4a6e] to-[#c9a45c] text-white shadow-[0_6px_18px_rgba(201,164,92,0.45)]' : 'bg-v3-sapphire text-white'}`}
     >
       {label}
     </Link>
@@ -64,12 +68,26 @@ export default function CalendarCoursePage() {
       <main className="relative z-10 mx-auto flex w-full max-w-md flex-col gap-6 px-4 pb-16 pt-3">
         {/* Section 1 — Hero */}
         <section className="flex flex-col gap-4" data-testid="sale-hero">
-          <Image src="/images/v2/popup/calendar-course.png" alt="คอร์สปฏิทิน Mumate" width={1000} height={1300} priority className="h-auto w-full rounded-[20px] drop-shadow-[0_4px_15px_rgba(26,38,77,0.10)]" />
+          {/* ส่วนหัวแบบที่พลปรับ (2026-10-02): พื้นห้องสมุดโทนเข้ม · แบนเนอร์ม้วนชื่อคอร์ส · มาสคอต · ปุ่มทองบนภาพ */}
+          <div className="relative overflow-hidden rounded-[24px] bg-gradient-to-b from-[#1c2547] via-[#27325c] to-[#3a3f6b] px-4 pb-5 pt-5 shadow-xl">
+            <div aria-hidden className="pointer-events-none absolute inset-0 opacity-25 [background-image:repeating-linear-gradient(90deg,#5b4632_0_18px,#3d2f22_18px_22px,#7a5b3c_22px_34px,#2e241a_34px_38px)] [mask-image:linear-gradient(to_bottom,transparent_30%,black_60%,transparent_95%)]" />
+            <div className="relative mx-auto max-w-[92%] rounded-md border-y-4 border-[#c9a45c] bg-[#fbf3df] px-4 py-3 text-center shadow-[0_6px_18px_rgba(0,0,0,0.35)]">
+              <h1 className="text-[26px] font-black leading-8 text-v3-navy">Win the Day</h1>
+              <p className="mt-1 text-[15px] font-bold leading-6 text-v3-navy">สูตรอ่านปฏิทินดวงจีน รู้ &ldquo;วันดี-วันต้องระวัง&rdquo; ล่วงหน้า</p>
+              <p className="text-xs text-v3-text-muted">(อ่านง่ายแม้ไม่มีพื้นฐาน)</p>
+            </div>
+            <div className="relative mx-auto mt-3 aspect-[1/0.78] w-[86%] overflow-hidden rounded-[20px]">
+              <Image src="/images/v2/popup/calendar-course.png" alt="น้องมูเมทถือปฏิทิน" fill priority sizes="(max-width: 448px) 86vw, 380px" className="object-cover object-top" />
+            </div>
+            <div className="relative mt-4">
+              <Cta s={s} label="สมัครเรียน + รับสิทธิ์ใช้แอปฟรี 1 เดือน (เพียง 490.-)" testId="course-buy-hero-top" gold />
+            </div>
+          </div>
           <div className={CARD}>
             <p className="text-sm font-semibold text-v3-text-muted">หยุดเสียเวลาและพลังงานไปกับวันที่ไม่ใช่...</p>
-            <h1 className="mt-1 text-2xl font-black leading-8 text-v3-navy">
+            <h2 className="mt-1 text-2xl font-black leading-8 text-v3-navy">
               เลิกเดาจังหวะชีวิต! รู้วันดี-วันต้องระวังล่วงหน้า เพื่อผลลัพธ์ที่ดีที่สุดในทุก ๆ วัน ด้วย &ldquo;ปฏิทิน Mumate&rdquo;
-            </h1>
+            </h2>
             <p className="mt-3 text-sm leading-6 text-v3-text-body">
               คอร์สออนไลน์ที่จะสอนคุณ &ldquo;ถอดรหัสปฏิทินดวงยุคใหม่&rdquo; พร้อมวิธีเลือกกิจกรรมให้ตรงกับพลังงานของวัน วางแผนชีวิตได้แม่นยำขึ้นใน 60 วินาที แม้ไม่มีพื้นฐานโหราศาสตร์
             </p>
