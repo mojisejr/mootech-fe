@@ -19,6 +19,7 @@ import { resolveMembershipFromRows, toSubRows, type ResolvedMembership } from '@
 // isNotExpired mirrors the NestJS MomentService (Asia/Bangkok) and is unit-tested.
 // (#mootech-fold-parity-audit)
 import { isNotExpired, FREE_FRIEND_LIMIT } from '@/lib/usage-core'
+import { IDENTITY_MISMATCH_BODY, namesAnotherMember, resolveRouteMember } from '@/lib/v2/resolve-user'
 
 const FORTUNE_LIMIT_FREE = 1 // be: src/constants/fortune-limit.ts FORTUNE_LIMIT.FREE
 
@@ -52,7 +53,12 @@ async function readSubRows(userId: string) {
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== 'GET') return res.status(405).json({ error: 'Method not allowed' })
-  const userId = (req.query.user_id as string) ?? ''
+  // hardening slice 1: the row is the CALLER's (signed session, or the sealed #391 fallback). Every caller
+  // sends its own MEMBER_ID as ?user_id=; naming anyone else is refused, never served.
+  const who = await resolveRouteMember(req, res)
+  if (!who.ok) return res.status(who.status).json(who.body)
+  if (namesAnotherMember(req.query.user_id, who.userId)) return res.status(409).json({ ...IDENTITY_MISMATCH_BODY })
+  const userId = who.userId
   try {
     const user = rowsOf(await db.execute(sql`SELECT * FROM "user" WHERE user_id = ${userId} LIMIT 1`))[0]
     if (!user) {

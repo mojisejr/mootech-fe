@@ -54,6 +54,12 @@ vi.mock('@/lib/db', () => ({
   },
 }))
 
+// /api/user serves only the signed caller since hardening slice 1 (identity is tested in
+// scripts/member-routes-userid.test.ts); here the caller simply IS u1, the id these rows belong to.
+vi.mock('@/lib/v2/resolve-user', async (orig) => ({
+  ...(await orig<typeof import('@/lib/v2/resolve-user')>()),
+  resolveRouteMember: async () => ({ ok: true, userId: 'u1' }),
+}))
 import handler from '@/pages/api/user'
 
 const FUTURE = '2099-12-31'

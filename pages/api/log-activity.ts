@@ -1,36 +1,10 @@
-// MIGRATED from NestJS GET /log-activity (-> getLogsByUserId)  (Phase 4 DB-only batch)
-// Pure read: a user's point activity joined to activity names, newest first.
-// Parity: queryBuilder leftJoin Activity, orderBy createAt DESC,
-//   select [createAt AS create_at, activity.description AS activity_name, point].
-// NestJS returns `{ data: result }` and the consumer (pages/profile/activity reads
-// `result.data`); the migration had dropped the envelope -> empty list. Restored.
-// (#mootech-fold-parity-audit)
+// Retired — answers 410 (mumate-member-identity-hardening-001 slice 1, 2026-10-02).
+//
+// This route took the member from a client-supplied user_id with no identity check. Its only caller was
+// /profile/activity (v1 activity log), behind a v1 page that middleware redirects (lib/v1-retired-routes.ts), so nothing live calls
+// it and it is retired rather than fixed. The previous implementation is in git history for this path.
 import type { NextApiRequest, NextApiResponse } from 'next'
-import { sql } from 'drizzle-orm'
-import { db } from '@/lib/db'
 
-const rowsOf = (r: any): any[] => (Array.isArray(r) ? r : r?.rows ?? [])
-
-export default async function handler(req: NextApiRequest, res: NextApiResponse) {
-  if (req.method !== 'GET') return res.status(405).json({ error: 'Method not allowed' })
-  const userId = (req.query.user_id as string) ?? ''
-  try {
-    const rows = rowsOf(
-      await db.execute(sql`
-        SELECT la."createAt" AS create_at,
-               a.description AS activity_name,
-               la.point AS point
-        FROM log_activity la
-        LEFT JOIN activity a ON la.activity_id = a.id
-        WHERE la.user_id = ${userId}
-        ORDER BY la."createAt" DESC
-      `),
-    )
-    // point is bigint -> string via postgres.js; NestJS getRawMany returns it numeric
-    const out = rows.map((r) => ({ ...r, point: r.point == null ? r.point : Number(r.point) }))
-    // NestJS getLogsByUserId returns `{ data: result }` — preserve the envelope.
-    return res.status(200).json({ data: out })
-  } catch (e: any) {
-    return res.status(500).json({ error: e?.message ?? 'internal error' })
-  }
+export default function handler(_req: NextApiRequest, res: NextApiResponse) {
+  res.status(410).json({ error: 'gone' })
 }

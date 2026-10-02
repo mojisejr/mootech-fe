@@ -107,7 +107,8 @@ export function normalizePersona(persona: unknown): HomePersona | null {
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' })
-  const { person, anonId } = (req.body ?? {}) as { person?: FeCalcInput; anonId?: string }
+  // the body's anonId is not read (hardening slice 1): the engine is told the signed caller, or a placeholder
+  const { person } = (req.body ?? {}) as { person?: FeCalcInput }
   if (!person) return res.status(200).json({ fortune: null, persona: null }) // no birth data → graceful skip
 
   // §cache (0022): ผลดวงวันนี้ของคนเดิม ในวันเดียวกัน = เท่ากันเสมอ → คืนทันที ไม่ยิง engine (mergeEngineBirth + bazi) ซ้ำ.
@@ -145,7 +146,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       headers: { 'Content-Type': 'application/json' },
       // anonId only feeds bazi's manifest queries (goals/streak/wallet) — irrelevant to the fortune,
       // but the schema requires a non-empty value; a stable placeholder is fine for the fortune card.
-      body: JSON.stringify({ anonId: anonId || 'home-fortune', person: rawInput }),
+      body: JSON.stringify({ anonId: memberId || 'home-fortune', person: rawInput }),
       signal: ac.signal,
     })
     clearTimeout(timer)

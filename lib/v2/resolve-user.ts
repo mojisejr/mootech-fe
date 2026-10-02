@@ -127,7 +127,13 @@ export async function resolveSessionUserId(
   return resolved
 }
 
-const IDENTITY_MISMATCH_BODY = { reason: 'identity', error: 'บัญชีไม่ตรงกัน โปรดออกจากระบบแล้วเข้าสู่ระบบใหม่' } as const
+export const IDENTITY_MISMATCH_BODY = { reason: 'identity', error: 'บัญชีไม่ตรงกัน โปรดออกจากระบบแล้วเข้าสู่ระบบใหม่' } as const
+
+/** True when the client named a user_id (query/body) that is a UUID and is not the caller. */
+export function namesAnotherMember(asked: unknown, callerId: string): boolean {
+  const v = typeof asked === 'string' ? asked.trim() : ''
+  return UUID_RE.test(v) && v.toLowerCase() !== callerId.trim().toLowerCase()
+}
 
 export type RouteMember =
   | { ok: true; userId: string }

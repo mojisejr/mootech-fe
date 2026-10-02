@@ -9,8 +9,8 @@ import { eq, and, asc } from 'drizzle-orm'
 import { db } from '@/lib/db'
 import { memberWithFriend, user } from '@/lib/db/schema'
 import { checkMemberWithFriendUsage, AI_CODE, FREE_FRIEND_LIMIT } from '@/lib/usage'
-import { resolveSessionUserId, memberCookieMismatch } from '@/lib/v2/resolve-user'
-import { createFriend, parseFriendFields } from '@/lib/v2/friend-store'
+import { resolveSessionUserId, memberCookieMismatch, resolveRouteMember, namesAnotherMember, IDENTITY_MISMATCH_BODY } from '@/lib/v2/resolve-user'
+import { createFriend, parseFriendFields, MEMBER_FRIEND_MARKER } from '@/lib/v2/friend-store'
 
 const FREE_LIMIT = FREE_FRIEND_LIMIT // free friend ceiling (#262: 1 → 20); single source in usage-core
 
@@ -23,8 +23,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   //    resolver /api/v2/matching/calculate uses to read these rows back). The body's `user_id` — which the
   //    client still sends, because the v1 wrapper's signature carries it — is INERT: not read, not compared.
   //    The BE wrote whatever user_id the body named, so anyone could fill anyone's friend list.
-  //    (GET and DELETE above/below still take user_id from the query. They predate this slice and are
-  //    unchanged here; they are named in the slice record as the next place this rule should reach.)
+  //    (GET and DELETE below follow the same rule since mumate-member-identity-hardening-001 slice 1: the
+  //    caller comes from the session, and a ?user_id= naming anyone else is refused with 409.)
   if (req.method === 'POST') {
     const who = await resolveSessionUserId(req, res)
     if (!who.ok) return res.status(who.status).json({ error: who.error })
@@ -52,12 +52,15 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
   }
 
-  // DELETE /member-with-friend?user_id=..&id=.. — ลบเพื่อน (scope ที่ user_id + row id: ลบได้เฉพาะของตัวเอง)
+  // DELETE /member-with-friend?user_id=..&id=.. — ลบเพื่อน (scope ที่ผู้เรียกจาก session + row id: ลบได้เฉพาะของตัวเอง)
   if (req.method === 'DELETE') {
+    const who = await resolveRouteMember(req, res)
+    if (!who.ok) return res.status(who.status).json(who.body)
+    if (namesAnotherMember(req.query.user_id, who.userId)) return res.status(409).json({ ...IDENTITY_MISMATCH_BODY })
     try {
-      const userId = (req.query.user_id as string) ?? ''
+      const userId = who.userId
       const id = ((req.query.id as string) || (req.query.friend_id as string)) ?? ''
-      if (!userId || !id) return res.status(400).json({ error: 'user_id and id are required' })
+      if (!id) return res.status(400).json({ error: 'id is required' })
       const deleted = await db
         .delete(memberWithFriend)
         .where(and(eq(memberWithFriend.id, id), eq(memberWithFriend.userId, userId)))
@@ -69,8 +72,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
   }
   if (req.method !== 'GET') return res.status(405).json({ error: 'Method not allowed' })
+  const who = await resolveRouteMember(req, res)
+  if (!who.ok) return res.status(who.status).json(who.body)
+  if (namesAnotherMember(req.query.user_id, who.userId)) return res.status(409).json({ ...IDENTITY_MISMATCH_BODY })
   try {
-    const userId = (req.query.user_id as string) ?? ''
+    const userId = who.userId
 
     const rows = await db
       .select()
@@ -107,7 +113,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             gender: friend.gender,
             place_name: friend.placeName,
             is_member: true,
-            member_id: friend.userId,
+            // not the friend's user_id (hardening slice 1): clients only test it against '' (v1 friend page)
+            member_id: MEMBER_FRIEND_MARKER,
             is_disable: isDisable,
           })
           continue
