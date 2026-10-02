@@ -11,6 +11,7 @@
 import type { NextApiRequest, NextApiResponse } from "next"
 import { toBaziInput, type FeCalcInput } from "@/lib/bazi-bridge/input"
 import type { DevBirthProfile } from "@/dev-access/birth-adapter"
+import { baziFetch } from '@/lib/bazi/fetch'
 
 export const config = {
   api: {
@@ -63,7 +64,7 @@ export default async function handler(
   // 1) deterministic chart calculation (public bazi endpoint) — same path as prod
   let calculatedState: unknown
   try {
-    const calcRes = await fetch(`${base}/api/bazi/calculate`, {
+    const calcRes = await baziFetch(`${base}/api/bazi/calculate`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(rawInput),
@@ -86,7 +87,7 @@ export default async function handler(
   // 2) chat completion with the Glass Box trace flag ON (authenticated, streamed)
   let upstream: Response
   try {
-    upstream = await fetch(`${base}/api/v1/chat/completions`, {
+    upstream = await baziFetch(`${base}/api/v1/chat/completions`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",

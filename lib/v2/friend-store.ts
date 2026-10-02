@@ -238,3 +238,11 @@ export async function updateFriendProfile(input: UpdateFriendProfileInput): Prom
   if (!row) return { ok: false, reason: 'not-found' }
   return { ok: true, row: friendRowToJson(row) }
 }
+
+/**
+ * What the friend list and detail answer as `member_id` for a friend who is a registered member
+ * (mumate-member-identity-hardening-001 slice 1). It used to be that member's user_id; clients only ever
+ * compare it with '' (v1 friend page: editable iff not a member), so a fixed non-empty marker keeps them
+ * working without handing one member another member's id.
+ */
+export const MEMBER_FRIEND_MARKER = 'member'

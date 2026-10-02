@@ -2,6 +2,7 @@
 //   forward body → engine POST /api/sacred-map (เข้าคิว pending รอแอดมิน verify)
 // engine validate ด้วย SacredSubmissionSchema (name/lat/lng จำเป็น) — เราแค่ pass-through
 import type { NextApiRequest, NextApiResponse } from "next"
+import { baziFetch } from '@/lib/bazi/fetch'
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== "POST") {
@@ -14,7 +15,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return
   }
   try {
-    const upstream = await fetch(`${base}/api/sacred-map`, {
+    const upstream = await baziFetch(`${base}/api/sacred-map`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(req.body ?? {}),

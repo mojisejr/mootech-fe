@@ -1,12 +1,13 @@
 // BFF — /api/v2/avatar: รูปโปรไฟล์ (edit-personal-info "เปลี่ยนรูปโปรไฟล์")
-//   GET                     → bytes รูปของผู้ใช้ (จาก cookie-mumate-id) | 404
+//   GET                     → bytes รูปของผู้ใช้ (จาก session — resolveRouteMember) | 404
 //   POST {imageBase64,mime} → อัปโหลด (engine ย่อ 256px เก็บ base64) | 409 ยังไม่ตั้ง @name
 // Engine: {BAZI_BASE_URL}/api/profile/avatar
 import type { NextApiRequest, NextApiResponse } from "next"
 import { sql } from "drizzle-orm"
 import { db } from "@/lib/db"
+import { resolveRouteMember } from '@/lib/v2/resolve-user'
+import { baziFetch } from '@/lib/bazi/fetch'
 
-const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
 // รูป LINE จาก DB (user.picture_url) — fallback เมื่อ cookie-mumate-image ว่าง (ผู้ใช้เก่าที่ cookie ยังไม่มีรูป
 // จากบั๊ก stale-read; DB ถูกเก็บไว้ครบเสมอ). คืน "" ถ้าไม่มี/พลาด — ไม่ให้ล้มทั้ง route.
@@ -26,11 +27,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     res.status(405).json({ error: "Method not allowed" })
     return
   }
-  const rawId = req.cookies["cookie-mumate-id"] ?? ""
-  if (!UUID_RE.test(rawId)) {
-    res.status(401).json({ code: "not_authenticated" })
+  const who = await resolveRouteMember(req, res)
+  if (!who.ok) {
+    res.status(who.status).json(who.body)
     return
   }
+  const memberId = who.userId
   const base = process.env.BAZI_BASE_URL
   if (!base) {
     res.status(503).json({ error: "engine not configured" })
@@ -38,7 +40,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
   try {
     if (req.method === "GET") {
-      const upstream = await fetch(`${base}/api/profile/avatar?anonId=${encodeURIComponent(rawId)}`)
+      const upstream = await baziFetch(`${base}/api/profile/avatar?anonId=${encodeURIComponent(memberId)}`)
       if (!upstream.ok) {
         // ยังไม่ได้อัพโหลดรูปเอง → ใช้รูปตั้งต้นจาก LINE (cookie-mumate-image) เพื่อให้ทุกหน้าโชว์รูปเดียวกัน
         // ทำที่ชั้น server เพื่อให้จอ shell เรียก /api/v2/avatar ที่เดียว ไม่ต้องรู้ว่ามีรูปอัพโหลดหรือไม่
@@ -50,7 +52,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           return
         }
         // cookie ว่าง (ผู้ใช้เก่า/บั๊ก stale-read) → อ่านรูป LINE จาก DB แทน จะได้ไม่ต้อง login ใหม่
-        const dbUrl = await linePictureFromDb(rawId)
+        const dbUrl = await linePictureFromDb(memberId)
         if (/^https:\/\//i.test(dbUrl)) {
           res.setHeader("Cache-Control", "private, max-age=0, must-revalidate")
           res.redirect(302, dbUrl)
@@ -71,10 +73,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       res.status(400).json({ error: "imageBase64 is required" })
       return
     }
-    const upstream = await fetch(`${base}/api/profile/avatar`, {
+    const upstream = await baziFetch(`${base}/api/profile/avatar`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ anonId: rawId, imageBase64: body.imageBase64, mime: body.mime }),
+      body: JSON.stringify({ anonId: memberId, imageBase64: body.imageBase64, mime: body.mime }),
     })
     const payload = await upstream.json().catch(() => ({}))
     res.status(upstream.ok ? 200 : upstream.status).json(payload)

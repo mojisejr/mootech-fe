@@ -131,6 +131,12 @@ export default defineConfig({
       'scripts/login-escape-page.test.tsx', // slice 7c 2026-10-02 — /v2/login ใน Facebook/IG: หน้าเปิดในเบราว์เซอร์จริง, ?ref ตามไป, ไม่ขังผู้ใช้
       'scripts/liff-carry-s7g.test.ts', // slice 7g 2026-10-02 — ใบส่งต่อ: คนที่สมัครผ่าน LIFF ได้บัญชีเดิมกลับเมื่อล็อกอิน LINE ช่อง Login
       'scripts/self-heal-liff-carry.test.ts', // slice 7g 2026-10-02 — จบ session ยุค LIFF แม้มี MEMBER_ID, ขอใบส่งต่อก่อน signOut
+      'scripts/member-seal.test.ts', // hardening slice 1 2026-10-02 — ตราสมาชิก: cookie httpOnly เซ็น HMAC ที่ fallback #391 ต้องเห็นก่อนเชื่อ cookie-mumate-id
+      'scripts/member-check.test.ts', // hardening slice 1 2026-10-02 — ไม่มี session + cookie-mumate-id ที่ไม่มีตรา → ล้าง cookie ให้ล็อกอินใหม่ครั้งเดียว ไม่ค้างหน้า error
+      'scripts/member-routes-identity.test.ts', // hardening slice 1 2026-10-02 — ทุก route ที่เคยอ่าน cookie-mumate-id ตรง ๆ: id ของคนอื่นต้องไม่หลุดออกจาก handler
+      'scripts/member-routes-userid.test.ts', // hardening slice 1 2026-10-02 — /api/user + เพื่อน: ให้เฉพาะของผู้เรียก, route v1 → 410, home-fortune ไม่เชื่อ anonId จาก body
+      'scripts/bazi-fetch-secret.test.ts', // hardening slice 1 2026-10-02 — ทุกการเรียก bazi จาก FE แนบ x-mumate-client-secret ผ่าน baziFetch
+      'scripts/settings-support-id.test.tsx', // hardening slice 1 2026-10-02 — ID สมาชิก ในหน้าตั้งค่า: user_id จาก server + ปุ่มคัดลอก (มี fallback ใน LINE)
       'scripts/liff-detect.test.ts', // 2026-09-20 — isLineInAppBrowser (UA) → โชว์ปุ่ม "เปิดในเบราว์เซอร์" ติดตั้ง PWA/notification
       'scripts/ops-delete-user.test.ts', // 2026-09-20 — /ops ลบบัญชี (deleteUserIdentity scoped + best-effort)
       'scripts/launch-env-propagation.test.ts', // 2026-09-20 — goLive() waits for env propagation before redeploy (live race fix)

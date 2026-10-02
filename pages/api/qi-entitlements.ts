@@ -1,24 +1,26 @@
 // BFF — GET /api/qi-entitlements: สรุปสิทธิ์ปัจจุบัน (tier / เครดิตคงเหลือ / ของที่เป็นเจ้าของ / โควตาฟรี)
-// ของผู้ใช้ที่ล็อกอิน (anonId = cookie-mumate-id).
+// ของผู้ใช้ที่ล็อกอิน (anonId = user_id ของผู้เรียก จาก session — resolveRouteMember).
 // Engine: GET {BAZI_BASE_URL}/api/qi/entitlements?anonId=... (pdf-dev).
 import type { NextApiRequest, NextApiResponse } from "next"
+import { resolveRouteMember } from '@/lib/v2/resolve-user'
+import { baziFetch } from '@/lib/bazi/fetch'
 
-const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== "GET") {
     res.status(405).json({ error: "Method not allowed" })
     return
   }
-  const rawId = req.cookies["cookie-mumate-id"] ?? ""
-  if (!UUID_RE.test(rawId)) {
-    res.status(401).json({ code: "not_authenticated" })
+  const who = await resolveRouteMember(req, res)
+  if (!who.ok) {
+    res.status(who.status).json(who.body)
     return
   }
+  const memberId = who.userId
   const base = process.env.BAZI_BASE_URL || "http://localhost:3000"
   try {
-    const upstream = await fetch(
-      `${base}/api/qi/entitlements?anonId=${encodeURIComponent(rawId)}`,
+    const upstream = await baziFetch(
+      `${base}/api/qi/entitlements?anonId=${encodeURIComponent(memberId)}`,
     )
     const payload = await upstream.json().catch(() => ({}))
     res.status(upstream.ok ? 200 : upstream.status).json(payload)

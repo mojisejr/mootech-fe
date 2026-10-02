@@ -7,6 +7,7 @@
 // 2.2MB (we strip to 5 fields/day → ~2KB to browser); almanac month 3.5s/141KB (deterministic per month
 // → cached in-process). Callers run the two upstreams in PARALLEL and cache per (user,month).
 import { parseApiGrade } from '@/lib/v2/api-grade'
+import { baziFetch } from '@/lib/bazi/fetch'
 
 export const BAZI_BASE = process.env.BAZI_BASE_URL || 'http://localhost:3000'
 if (/bazichart\.mumate\.co/i.test(BAZI_BASE)) {
@@ -116,7 +117,7 @@ export async function fetchAlmanacDays(yearBE: number, month: number, signal?: A
   const key = `${yearBE}-${month}`
   const cached = almanacCache.get(key)
   if (cached) return cached
-  const r = await fetch(`${BAZI_BASE}/api/almanac?yearBE=${yearBE}&month=${month}`, signal ? { signal } : {})
+  const r = await baziFetch(`${BAZI_BASE}/api/almanac?yearBE=${yearBE}&month=${month}`, signal ? { signal } : {})
   if (!r.ok) throw new Error(`almanac ${r.status}`)
   const data = (await r.json()) as { days?: unknown }
   const days = Array.isArray(data.days) ? (data.days as AlmanacDay[]) : []
@@ -126,7 +127,7 @@ export async function fetchAlmanacDays(yearBE: number, month: number, signal?: A
 }
 
 export async function fetchFortuneDays(rawInput: unknown, month: string, signal?: AbortSignal): Promise<MvdDay[]> {
-  const r = await fetch(`${BAZI_BASE}/api/bazi/man-vs-day`, {
+  const r = await baziFetch(`${BAZI_BASE}/api/bazi/man-vs-day`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ person: rawInput, month }),

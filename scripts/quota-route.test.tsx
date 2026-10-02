@@ -31,7 +31,10 @@ vi.mock('@/lib/db', async () => {
   return { db: { select: () => makeQuery() }, schema }
 })
 
+// The v1 route /api/quota is retired (410, hardening slice 1); /api/v2/quota uses the same two functions,
+// so the teeth stay on them: run() assembles the shape the v1 route used to answer.
 import handler from '@/pages/api/quota/index'
+import { checkMatchingQuota, checkFriendQuota } from '@/lib/usage'
 
 const makeRes = () => {
   const res: any = { statusCode: 0, payload: null }
@@ -39,10 +42,9 @@ const makeRes = () => {
   res.json = (b: any) => ((res.payload = b), res)
   return res
 }
-const run = async (query: any = { user_id: 'u1' }, method = 'GET') => {
-  const res = makeRes()
-  await handler({ method, query } as any, res)
-  return res
+const run = async (userId = 'u1') => {
+  const [matching, friend] = await Promise.all([checkMatchingQuota(userId), checkFriendQuota(userId)])
+  return { statusCode: 200, payload: { matching, friend } as any }
 }
 
 describe('/api/quota — both quotas remaining (#264)', () => {
@@ -79,13 +81,9 @@ describe('/api/quota — both quotas remaining (#264)', () => {
     expect(res.payload.friend.remaining).toBe(0)
   })
 
-  it('missing user_id -> 400', async () => {
-    const res = await run({})
-    expect(res.statusCode).toBe(400)
-  })
-
-  it('non-GET -> 405', async () => {
-    const res = await run({ user_id: 'u1' }, 'POST')
-    expect(res.statusCode).toBe(405)
+  it('the v1 route itself is retired -> 410 for any caller', async () => {
+    const res = makeRes()
+    await handler({ method: 'GET', query: { user_id: 'u1' } } as any, res)
+    expect(res.statusCode).toBe(410)
   })
 })

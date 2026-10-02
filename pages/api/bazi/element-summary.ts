@@ -12,6 +12,8 @@
 import type { NextApiRequest, NextApiResponse } from 'next'
 import { sql } from 'drizzle-orm'
 import { db } from '@/lib/db'
+import { resolveOptionalRouteMember } from '@/lib/v2/resolve-user'
+import { baziFetch } from '@/lib/bazi/fetch'
 
 const BAZI_BASE = process.env.BAZI_BASE_URL || 'http://localhost:3000'
 if (/bazichart\.mumate\.co/i.test(BAZI_BASE)) {
@@ -20,7 +22,6 @@ if (/bazichart\.mumate\.co/i.test(BAZI_BASE)) {
 const BAZI_TIMEOUT_MS = 12000
 
 // §cache (0025) — element-summary เป็น birth-deterministic → เก็บไว้ ข้ามการคำนวณ chart ซ้ำทุกครั้งที่เข้า /account
-const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 const CACHE_VERSION = 'v1' // bump เมื่อเปลี่ยนรูป payload ({ summary })
 const rowsOf = (r: unknown): Record<string, unknown>[] =>
   (Array.isArray(r) ? r : (r as { rows?: Record<string, unknown>[] })?.rows ?? []) as Record<string, unknown>[]
@@ -86,15 +87,15 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return res.status(200).json({ summary: null, reason: 'unavailable' } satisfies ElementSummaryResult)
   }
 
-  // §cache read (0025): birth-deterministic → คืนทันทีไม่ยิง engine. identity = cookie-mumate-id, key ผูก
+  // §cache read (0025): birth-deterministic → คืนทันทีไม่ยิง engine. identity = user_id จาก session (resolveOptionalRouteMember), key ผูก
   // birthDate+birthTime (ไม่มี term วันที่). best-effort: ยังไม่ migrate → คำนวณสด (try/catch กลืน error)
-  const rawId = req.cookies['cookie-mumate-id'] ?? ''
-  const hasUser = UUID_RE.test(rawId)
+  const memberId = await resolveOptionalRouteMember(req, res)
+  const hasUser = memberId !== ''
   const cacheKey = [CACHE_VERSION, person.birthDate, person.birthTime ?? ''].join('|')
   if (hasUser) {
     try {
       const cached = rowsOf(await db.execute(
-        sql`SELECT payload FROM "bazi_element_summary_cache" WHERE user_id = ${rawId} AND cache_key = ${cacheKey} LIMIT 1`,
+        sql`SELECT payload FROM "bazi_element_summary_cache" WHERE user_id = ${memberId} AND cache_key = ${cacheKey} LIMIT 1`,
       ))[0]
       if (cached?.payload) return res.status(200).json(cached.payload as ElementSummaryResult)
     } catch {
@@ -105,7 +106,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   try {
     const ac = new AbortController()
     const timer = setTimeout(() => ac.abort(), BAZI_TIMEOUT_MS)
-    const r = await fetch(`${BAZI_BASE}/api/bazi/element-summary`, {
+    const r = await baziFetch(`${BAZI_BASE}/api/bazi/element-summary`, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ person }),
@@ -121,7 +122,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       try {
         await db.execute(
           sql`INSERT INTO "bazi_element_summary_cache" (user_id, cache_key, payload, updated_at)
-              VALUES (${rawId}, ${cacheKey}, ${JSON.stringify(result)}::jsonb, now())
+              VALUES (${memberId}, ${cacheKey}, ${JSON.stringify(result)}::jsonb, now())
               ON CONFLICT (user_id) DO UPDATE SET cache_key = EXCLUDED.cache_key, payload = EXCLUDED.payload, updated_at = now()`,
         )
       } catch {

@@ -2,6 +2,7 @@
 // public (ผู้รับลิงก์ยังไม่มีบัญชี); คืนแค่ @name ผู้ชวน ไม่มีข้อมูลส่วนตัวอื่น.
 // Engine: GET {BAZI_BASE_URL}/api/referral?code= (pdf-dev).
 import type { NextApiRequest, NextApiResponse } from "next"
+import { baziFetch } from '@/lib/bazi/fetch'
 
 const CODE_RE = /^MUMATE\d{3}$/
 
@@ -17,7 +18,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
   const base = process.env.BAZI_BASE_URL || "http://localhost:3000"
   try {
-    const upstream = await fetch(`${base}/api/referral?code=${encodeURIComponent(code)}`)
+    const upstream = await baziFetch(`${base}/api/referral?code=${encodeURIComponent(code)}`)
     const payload = await upstream.json().catch(() => ({}))
     res.status(upstream.ok ? 200 : upstream.status).json(payload)
   } catch {

@@ -19,6 +19,8 @@ import { getServerSession } from 'next-auth/next'
 import { sql } from 'drizzle-orm'
 import { db } from '@/lib/db'
 import { authOptions } from '@/pages/api/auth/[...nextauth]'
+import { isSecureDeploy } from '@/lib/auth/liff-carry'
+import { issueMemberSeal, memberSealNeedsRefresh, readMemberSeal } from '@/lib/auth/member-seal'
 
 export type ResolvedIdentity =
   | { ok: true; userId: string }
@@ -62,27 +64,44 @@ export function memberCookieMismatch(req: NextApiRequest, sessionUserId: string)
 
 /**
  * Fallback identity (#391, 2026-09-13): some browsers (Samsung Internet tracking-prevention / Secret Mode,
- * และ webview บางตัว) ทิ้ง cookie `__Secure-next-auth.session-token` (SameSite=None; Secure) ทำให้
- * getServerSession ว่าง → ปฏิทิน/แจ้งเตือนขึ้น "ยืนยันตัวตนไม่ได้" ทั้งที่หน้าอื่น (ที่อ่าน MEMBER_ID) ยังล็อกอินอยู่.
+ * และ webview บางตัว) ทิ้ง cookie `__Secure-next-auth.session-token` ทำให้ getServerSession ว่าง →
+ * ปฏิทิน/แจ้งเตือนขึ้น "ยืนยันตัวตนไม่ได้" ทั้งที่หน้าอื่น (ที่อ่าน MEMBER_ID) ยังล็อกอินอยู่.
  *
- * 🔴 `cookie-mumate-id` (= CookieKey.MEMBER_ID) ตั้งฝั่ง client ไม่ใช่ httpOnly → ปลอมได้. จึงยอมรับเป็น
- * fallback เฉพาะเมื่อ (1) รูปแบบเป็น UUID และ (2) มี user แถวนั้นจริงในฐานข้อมูล — ใช้แค่ "ระบุตัวผู้ใช้ที่
- * สมัครแล้ว" เท่านั้น ไม่ยกระดับสิทธิ์ใด ๆ. นี่เป็น identity เดียวกับที่ /api/v2/avatar, /api/profile, /api/chat/bazi
- * ใช้อยู่แล้ว.
+ * 🔴 hardening slice 1 (2026-10-02): `cookie-mumate-id` ตั้งฝั่ง client ไม่ใช่ httpOnly → server ไม่ใช้เป็นหลักฐานตัวตน
+ * ลำพัง. fallback ต้องมี "ตราสมาชิก" (lib/auth/member-seal.ts: httpOnly, เซ็น HMAC, ออกเฉพาะตอนเพิ่งตรวจ session
+ * ที่เซ็นแล้ว) ที่ระบุ user คนเดียวกับ cookie-mumate-id. ต้องมีทั้งคู่: ตรา = เซิร์ฟเวอร์เคยเห็น session ของคนนี้, cookie = แอปบนเครื่องนี้ยังล็อกอินเป็นคนนี้
+ * (ออกจากระบบฝั่ง client ลบแค่ cookie นี้ → ตราที่ค้างใช้ต่อไม่ได้). แล้วยังตรวจว่ามีแถว user อยู่จริง.
  */
 async function resolveMemberIdFallback(req: NextApiRequest): Promise<ResolvedIdentity> {
-  const raw = (req.cookies?.['cookie-mumate-id'] ?? '').trim()
+  const raw = (req.cookies?.[MEMBER_ID_COOKIE] ?? '').trim()
   if (!UUID_RE.test(raw)) return { ok: false, status: 401, error: 'not signed in' }
+  const seal = readMemberSeal(req.cookies, process.env.NEXTAUTH_SECRET, isSecureDeploy())
+  if (!seal || seal.u.toLowerCase() !== raw.toLowerCase()) return { ok: false, status: 401, error: 'not signed in' }
   try {
-    const rows = rowsOf(await db.execute(sql`SELECT user_id FROM "user" WHERE user_id = ${raw} LIMIT 1`))
+    const rows = rowsOf(await db.execute(sql`SELECT user_id FROM "user" WHERE user_id = ${seal.u} LIMIT 1`))
     return resolveUserFromRows(rows)
   } catch {
     return { ok: false, status: 401, error: 'not signed in' }
   }
 }
 
+/** Leave a seal on the response for a member whose signed session was just verified, unless the request
+ *  already carries a fresh one for them. Best effort: never changes the identity answer. */
+function refreshMemberSeal(req: NextApiRequest, res: NextApiResponse, userId: string): void {
+  try {
+    const secret = process.env.NEXTAUTH_SECRET
+    const secure = isSecureDeploy()
+    const now = Math.floor(Date.now() / 1000)
+    if (!memberSealNeedsRefresh(readMemberSeal(req?.cookies, secret, secure, now), userId, now)) return
+    issueMemberSeal(res, userId, { secret, secure, now })
+  } catch {
+    // headers already sent or an odd response object: the member simply gets the seal on a later request
+  }
+}
+
 /** Read the caller's user_id from their signed session. 401 if not signed in, 404/409 per the rows.
- *  If the session cookie is missing (e.g. dropped by the browser), fall back to the MEMBER_ID cookie (#391). */
+ *  If the session cookie is missing (e.g. dropped by the browser), fall back to the MEMBER_ID cookie (#391),
+ *  but only when the member seal names the same member. A verified session refreshes that seal. */
 export async function resolveSessionUserId(
   req: NextApiRequest,
   res: NextApiResponse,
@@ -102,7 +121,45 @@ export async function resolveSessionUserId(
     ),
   )
   // session ถูกต้อง → เชื่อผลตามแถว (404 = ไม่มีบัญชี, 409 = กำกวม) ไม่ fallback (fallback ใช้เฉพาะกรณี "ไม่มี session")
-  return resolveUserFromRows(rows)
+  const resolved = resolveUserFromRows(rows)
+  // สมาชิกที่ล็อกอินอยู่ได้ตราสมาชิกในคำขอถัดไปเอง ไม่ต้องล็อกอินใหม่ — ถ้าเบราว์เซอร์ทิ้ง session ภายหลัง fallback ยังใช้ได้
+  if (resolved.ok) refreshMemberSeal(req, res, resolved.userId)
+  return resolved
+}
+
+export const IDENTITY_MISMATCH_BODY = { reason: 'identity', error: 'บัญชีไม่ตรงกัน โปรดออกจากระบบแล้วเข้าสู่ระบบใหม่' } as const
+
+/** True when the client named a user_id (query/body) that is a UUID and is not the caller. */
+export function namesAnotherMember(asked: unknown, callerId: string): boolean {
+  const v = typeof asked === 'string' ? asked.trim() : ''
+  return UUID_RE.test(v) && v.toLowerCase() !== callerId.trim().toLowerCase()
+}
+
+export type RouteMember =
+  | { ok: true; userId: string }
+  | { ok: false; status: 401 | 404 | 409; body: Record<string, unknown> }
+
+/**
+ * For the routes that used to read cookie-mumate-id directly (hardening slice 1 step 2): the caller comes
+ * from the signed session (or the sealed #391 fallback), and a member cookie naming someone else is refused
+ * with the 409 `reason: 'identity'` the clients already understand. A refusal keeps the
+ * `code: 'not_authenticated'` body those routes always sent.
+ */
+export async function resolveRouteMember(req: NextApiRequest, res: NextApiResponse): Promise<RouteMember> {
+  const who = await resolveSessionUserId(req, res)
+  if (!who.ok) return { ok: false, status: who.status, body: { code: 'not_authenticated', error: who.error } }
+  if (memberCookieMismatch(req, who.userId)) return { ok: false, status: 409, body: { ...IDENTITY_MISMATCH_BODY } }
+  return { ok: true, userId: who.userId }
+}
+
+/** Same, for routes that also serve anonymous callers: '' whenever there is no member we may act for. */
+export async function resolveOptionalRouteMember(req: NextApiRequest, res: NextApiResponse): Promise<string> {
+  try {
+    const who = await resolveRouteMember(req, res)
+    return who.ok ? who.userId : ''
+  } catch {
+    return ''
+  }
 }
 
 /**

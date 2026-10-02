@@ -17,8 +17,9 @@ import { db } from '@/lib/db'
 import { bkkDateStr } from '@/lib/usage-core'
 import { toBaziInput, type FeCalcInput } from '@/lib/bazi-bridge/input'
 import { mergeEngineBirth } from '@/lib/bazi-bridge/engine-birth'
+import { resolveOptionalRouteMember } from '@/lib/v2/resolve-user'
+import { baziFetch } from '@/lib/bazi/fetch'
 
-const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
 // bump เมื่อเปลี่ยนรูป payload { fortune, persona } → ผลเก่าที่ cache miss แล้วคำนวณใหม่เอง (0022_home_fortune_cache)
 const CACHE_VERSION = 'v1'
@@ -107,19 +108,20 @@ export function normalizePersona(persona: unknown): HomePersona | null {
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' })
-  const { person, anonId } = (req.body ?? {}) as { person?: FeCalcInput; anonId?: string }
+  // the body's anonId is not read (hardening slice 1): the engine is told the signed caller, or a placeholder
+  const { person } = (req.body ?? {}) as { person?: FeCalcInput }
   if (!person) return res.status(200).json({ fortune: null, persona: null }) // no birth data → graceful skip
 
   // §cache (0022): ผลดวงวันนี้ของคนเดิม ในวันเดียวกัน = เท่ากันเสมอ → คืนทันที ไม่ยิง engine (mergeEngineBirth + bazi) ซ้ำ.
   // key ผูก birth (แก้วันเกิด → miss) + วันที่ Bangkok (ขึ้นวันใหม่ → miss). cache เฉพาะผู้ใช้ที่มี cookie identity.
-  const rawId = req.cookies['cookie-mumate-id'] ?? ''
-  const hasUser = UUID_RE.test(rawId)
+  const memberId = await resolveOptionalRouteMember(req, res)
+  const hasUser = memberId !== ''
   const p = person as FeCalcInput & { gender?: string | null; place_name?: string | null }
   const cacheKey = [CACHE_VERSION, p.dob ?? '', p.time ?? '', p.gender ?? '', p.place_name ?? '', bkkDateStr(new Date())].join('|')
   if (hasUser) {
     try {
       const cached = rowsOf(await db.execute(
-        sql`SELECT payload FROM "bazi_home_fortune_cache" WHERE user_id = ${rawId} AND cache_key = ${cacheKey} LIMIT 1`,
+        sql`SELECT payload FROM "bazi_home_fortune_cache" WHERE user_id = ${memberId} AND cache_key = ${cacheKey} LIMIT 1`,
       ))[0]
       if (cached?.payload) return res.status(200).json(cached.payload as Record<string, unknown>)
     } catch {
@@ -134,18 +136,18 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     // ดวงของฉัน และแก้วันเกิดแล้วไม่ตาม. best-effort: ไม่มีแถว engine → คืน person เดิม (ไม่พังจอ).
     let effectivePerson: FeCalcInput = person
     if (hasUser) {
-      const merged = await mergeEngineBirth(rawId, person)
+      const merged = await mergeEngineBirth(memberId, person)
       effectivePerson = { ...person, dob: merged.dob ?? person.dob, time: merged.time ?? person.time }
     }
     const { rawInput } = toBaziInput(effectivePerson) // reuse the FE→bazi person mapper (birthDate/time/gender/province)
     const ac = new AbortController()
     const timer = setTimeout(() => ac.abort(), BAZI_TIMEOUT_MS)
-    const r = await fetch(`${BAZI_BASE}/api/home`, {
+    const r = await baziFetch(`${BAZI_BASE}/api/home`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       // anonId only feeds bazi's manifest queries (goals/streak/wallet) — irrelevant to the fortune,
       // but the schema requires a non-empty value; a stable placeholder is fine for the fortune card.
-      body: JSON.stringify({ anonId: anonId || 'home-fortune', person: rawInput }),
+      body: JSON.stringify({ anonId: memberId || 'home-fortune', person: rawInput }),
       signal: ac.signal,
     })
     clearTimeout(timer)
@@ -157,7 +159,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       try {
         await db.execute(
           sql`INSERT INTO "bazi_home_fortune_cache" (user_id, cache_key, payload, updated_at)
-              VALUES (${rawId}, ${cacheKey}, ${JSON.stringify(out)}::jsonb, now())
+              VALUES (${memberId}, ${cacheKey}, ${JSON.stringify(out)}::jsonb, now())
               ON CONFLICT (user_id) DO UPDATE SET cache_key = EXCLUDED.cache_key, payload = EXCLUDED.payload, updated_at = now()`,
         )
       } catch {

@@ -3,6 +3,7 @@
 // Engine: {BAZI_BASE_URL}/api/bazi/narrate (LLM, guardServerLlm กันโควตา/ต้นทุนที่ engine).
 import type { NextApiRequest, NextApiResponse } from "next"
 import { baziClientHeaders } from "@/lib/bazi/client-identity"
+import { baziFetch } from '@/lib/bazi/fetch'
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== "POST") {
@@ -18,7 +19,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
   const question = String(body.question ?? "").trim().slice(0, 300)
   try {
-    const upstream = await fetch(`${base}/api/bazi/narrate`, {
+    const upstream = await baziFetch(`${base}/api/bazi/narrate`, {
       method: "POST",
       headers: { "Content-Type": "application/json", ...baziClientHeaders(req) },
       body: JSON.stringify({

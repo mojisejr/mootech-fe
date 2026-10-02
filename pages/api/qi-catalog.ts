@@ -2,6 +2,7 @@
 // ไม่มีข้อมูลผู้ใช้ → public (ไม่เช็ค cookie); จอใช้ตัวเลขจากตรงนี้เป็นหลักเสมอ (ที่มาเดียวของความจริง).
 // Engine: GET {BAZI_BASE_URL}/api/qi/catalog (pdf-dev).
 import type { NextApiRequest, NextApiResponse } from "next"
+import { baziFetch } from '@/lib/bazi/fetch'
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== "GET") {
@@ -10,7 +11,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
   const base = process.env.BAZI_BASE_URL || "http://localhost:3000"
   try {
-    const upstream = await fetch(`${base}/api/qi/catalog`)
+    const upstream = await baziFetch(`${base}/api/qi/catalog`)
     const payload = await upstream.json().catch(() => ({}))
     res.status(upstream.ok ? 200 : upstream.status).json(payload)
   } catch {

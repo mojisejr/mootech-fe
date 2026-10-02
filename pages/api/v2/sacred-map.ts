@@ -3,6 +3,7 @@
 //   POST { id }          → เช็คอิน (+1) → { ok, checkinCount }
 // Engine: {BAZI_BASE_URL}/api/sacred-map (+/checkin)
 import type { NextApiRequest, NextApiResponse } from "next"
+import { baziFetch } from '@/lib/bazi/fetch'
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   const base = process.env.BAZI_BASE_URL
@@ -17,7 +18,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       const qs = new URLSearchParams()
       if (element) qs.set("element", element)
       if (need) qs.set("need", need)
-      const upstream = await fetch(`${base}/api/sacred-map${qs.toString() ? `?${qs}` : ""}`)
+      const upstream = await baziFetch(`${base}/api/sacred-map${qs.toString() ? `?${qs}` : ""}`)
       const payload = await upstream.json().catch(() => ({ ok: true, locations: [], unavailable: true }))
       res.status(200).json(payload)
       return
@@ -28,7 +29,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         res.status(400).json({ error: "id is required" })
         return
       }
-      const upstream = await fetch(`${base}/api/sacred-map/checkin`, {
+      const upstream = await baziFetch(`${base}/api/sacred-map/checkin`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ id }),

@@ -15,6 +15,8 @@ import type { NextApiRequest, NextApiResponse } from 'next'
 import { UUID_RE } from '@/lib/auth/resolve-auth'
 import { analyticsUserId } from '@/lib/analytics/identity'
 import { analyticsConsentCookieValue } from '@/lib/analytics/consent'
+import { resolveRouteMember } from '@/lib/v2/resolve-user'
+import { baziFetch } from '@/lib/bazi/fetch'
 
 export const ANALYTICS_ID_COOKIE = 'mumate-aid'
 
@@ -23,7 +25,7 @@ type ConsentRow = { kind?: string; accepted?: boolean }
 async function latestAnalyticsConsent(memberId: string): Promise<boolean | null> {
   const base = process.env.BAZI_BASE_URL || 'http://localhost:3000'
   try {
-    const r = await fetch(`${base}/api/account/consent?anonId=${encodeURIComponent(memberId)}`, {
+    const r = await baziFetch(`${base}/api/account/consent?anonId=${encodeURIComponent(memberId)}`, {
       headers: { 'Content-Type': 'application/json' },
     })
     if (!r.ok) return null
@@ -38,8 +40,9 @@ async function latestAnalyticsConsent(memberId: string): Promise<boolean | null>
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== 'GET') return res.status(405).json({ error: 'Method not allowed' })
-  const memberId = req.cookies['cookie-mumate-id'] ?? ''
-  if (!UUID_RE.test(memberId)) return res.status(401).json({ code: 'not_authenticated' })
+  const who = await resolveRouteMember(req, res)
+  if (!who.ok) return res.status(who.status).json(who.body)
+  const memberId = who.userId
 
   const aid = analyticsUserId(memberId)
   const analytics = await latestAnalyticsConsent(memberId)

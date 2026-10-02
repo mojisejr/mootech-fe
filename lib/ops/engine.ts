@@ -1,5 +1,6 @@
 // เรียก engine admin routes (secret-gated) จาก /ops ฝั่ง FE — ข้อมูลฝั่ง engine (QI, bazi_user_profile)
 // อยู่คนละ DB ต้องผ่าน HTTP. ใช้ OPS_ADMIN_SECRET (แยกจาก QI_GRANT_SECRET). fail-closed ถ้าไม่ตั้ง env.
+import { baziFetch } from '@/lib/bazi/fetch'
 const ENGINE_BASE = process.env.BAZI_BASE_URL || 'http://localhost:3000'
 
 export type OpsEngineResult = { ok: boolean; status: number; json: Record<string, unknown> }
@@ -18,7 +19,7 @@ export async function opsEngineGet(path: string): Promise<OpsEngineResult> {
   const secret = process.env.OPS_ADMIN_SECRET
   if (!secret) return noSecret()
   try {
-    return await parse(await fetch(`${ENGINE_BASE}${path}`, { headers: { 'x-ops-secret': secret } }))
+    return await parse(await baziFetch(`${ENGINE_BASE}${path}`, { headers: { 'x-ops-secret': secret } }))
   } catch {
     return { ok: false, status: 502, json: { error: 'engine unreachable' } }
   }
@@ -34,7 +35,7 @@ export async function opsEngineWrite(
   if (!secret) return noSecret()
   try {
     return await parse(
-      await fetch(`${ENGINE_BASE}${path}`, {
+      await baziFetch(`${ENGINE_BASE}${path}`, {
         method,
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ ...body, secret }),

@@ -1,5 +1,6 @@
 // BFF — GET /api/v2/sacred-map/image/[id]: พร็อกซีรูปสถานที่จาก engine (เสิร์ฟ bytes จาก DB)
 import type { NextApiRequest, NextApiResponse } from "next"
+import { baziFetch } from '@/lib/bazi/fetch'
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== "GET") {
@@ -13,7 +14,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return
   }
   try {
-    const upstream = await fetch(`${base}/api/sacred-map/image/${encodeURIComponent(id)}`, { redirect: "follow" })
+    const upstream = await baziFetch(`${base}/api/sacred-map/image/${encodeURIComponent(id)}`, { redirect: "follow" })
     if (!upstream.ok) {
       res.status(upstream.status).json({ error: "ไม่พบรูป" })
       return

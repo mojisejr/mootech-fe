@@ -10,6 +10,7 @@ import {
 } from '@/lib/auth/register-login-fe'
 import { postgresRegisterLoginStore } from '@/lib/auth/register-login-fe-store'
 import { appendSetCookie, carryClearCookie, isSecureDeploy, readCarry } from '@/lib/auth/liff-carry'
+import { issueMemberSeal } from '@/lib/auth/member-seal'
 
 type SessionIdentity = Session & {
   provider?: string
@@ -73,6 +74,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       appendSetCookie(res, carryClearCookie(secure))
       console.info(result.carried ? '[liff-carry] attached' : '[liff-carry] not needed')
     }
+    // hardening slice 1: ตราสมาชิก (httpOnly, เซ็น HMAC) สำหรับ user_id ที่ session นี้เพิ่งยืนยัน — fallback #391 เชื่อตรานี้แทน cookie-mumate-id
+    if (result?.user_id) issueMemberSeal(res, result.user_id, { secret: process.env.NEXTAUTH_SECRET, secure })
     return res.status(200).json(result)
   } catch (error) {
     if (error instanceof RegisterLoginError) {

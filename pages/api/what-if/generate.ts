@@ -1,5 +1,6 @@
 import type { NextApiRequest, NextApiResponse } from 'next'
 import { baziClientHeaders } from '@/lib/bazi/client-identity'
+import { baziFetch } from '@/lib/bazi/fetch'
 
 const DEFAULT_BAZI_WHATIF_URL = 'https://bazi-sft-dataset.vercel.app/api/what-if/generate'
 const ALLOWED_FIELDS = ['birthDate', 'birthTime', 'gender', 'currentJob', 'withImage'] as const
@@ -47,7 +48,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   let upstream: Response
   try {
-    upstream = await fetch(upstreamUrl, {
+    upstream = await baziFetch(upstreamUrl, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', ...baziClientHeaders(req) },
       body: JSON.stringify(sanitizeWhatIfBody(req.body)),
