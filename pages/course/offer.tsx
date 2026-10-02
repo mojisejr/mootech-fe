@@ -83,7 +83,8 @@ export default function CourseOfferPage() {
               </p>
               <p className="mt-4 text-center text-sm text-v3-text-body">
                 <span className="block">พิเศษเฉพาะหน้านี้ บวกเพิ่มเพียง <b className="text-2xl text-v3-navy">199 บาท</b></span>
-                <span className="block"><span className="inline-block">(ประหยัด 300 บาทจากราคาปกติ</span> <span className="inline-block">· ยอดรวม 689 บาท)</span></span>
+                <span className="block">(ประหยัด 300 บาทจากราคาปกติ)</span>
+                <span className="block">ยอดรวม 689 บาท</span>
               </p>
               <Link href={checkoutHrefFor('COURSE_BUNDLE_689')} data-testid="offer-down-yes" className="mt-3 grid min-h-14 w-full place-items-center rounded-full bg-v3-sapphire px-4 text-center text-base font-bold text-white shadow-lg">
                 <span className="leading-6"><span className="inline-block">✅ ใช่! ขอรับเฉพาะคอร์ส</span> <span className="inline-block">Bazi Life Matrix (เพิ่ม 199 บาท)</span></span>
