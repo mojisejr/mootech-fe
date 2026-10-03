@@ -2,17 +2,23 @@
 // (โปรฯ อื่นย้ายไป carousel ในหน้าหลักแล้ว — features/v2-home/components/PromoCarousel.tsx)
 //
 // พฤติกรรม:
-//   • เด้งครั้งเดียวต่อ session เมื่อเข้าแอป /v2 (ยกเว้นหน้า login/สมัคร/หาธาตุแท้)
+//   • เฉพาะสมาชิกที่ล็อกอินแล้ว (useCurrentUser = 'authed') และยังไม่เช็กอินวันนี้ (mumate-promo-popup-auth-001):
+//     'anon' ไม่เด้ง, 'loading' รอ (คนที่กลับจาก LINE ค้าง 'loading' ได้ ~17 วิ ระหว่าง mint identity).
+//     เช็กใหม่ทุกครั้งที่ status/path เปลี่ยน — /v2/login ส่งสมาชิกไป /v2 ด้วย router.replace (ไม่ remount).
+//     อ่าน /api/qi-wallet ครั้งเดียว: เช็กอินวันนี้แล้ว = ไม่เด้ง; อ่านไม่ได้ = เด้ง (แย่สุด = พฤติกรรมเดิม)
+//   • เด้งครั้งเดียวต่อ session ในหน้า /v2 แรกที่เข้าเงื่อนไข (ยกเว้นหน้า login/สมัคร/หาธาตุแท้)
 //   • ปิด (X / แตะพื้นหลัง) = ปิดรอบนี้ (ไม่เด้งซ้ำใน session นี้)
 //   • "ไม่แสดง 7 วัน" = จำใน localStorage 7 วัน
 //   • แตะรูป = ไปหน้าเช็กอิน
 import { useEffect, useState } from 'react'
 import Image from 'next/image'
 import { useRouter } from 'next/router'
+import { useCurrentUser } from '@/lib/auth/use-current-user'
+import { checkedInToday, todayBangkok, type Wallet } from '@/features/v2-qi/qi-model'
 
 const CHECKIN = { src: '/images/v2/popup/checkin.png', href: '/v2/qi/checkin', alt: 'เช็กอินทุกวัน รับ Qi ฟรี' }
 const HIDE_KEY = 'mumate:promo-hidden-until' // localStorage: timestamp ที่ให้กลับมาแสดงได้ (ไม่แสดง 7 วัน)
-const SHOWN_KEY = 'mumate:promo-shown' // sessionStorage: เด้งไปแล้วรอบนี้ (กันเด้งซ้ำทุกครั้งที่เปลี่ยนหน้า)
+const SHOWN_KEY = 'mumate:promo-shown' // sessionStorage: ตัดสินแล้วรอบนี้ — เด้งไปแล้ว หรือเช็กอินแล้ว (กันอ่าน wallet/เด้งซ้ำทุกครั้งที่เปลี่ยนหน้า)
 const HIDE_DAYS = 7
 
 // ไม่เด้งบนหน้าที่ไม่ใช่แอปหลัก + หน้าหาธาตุแท้ (เอ็ม: ไม่เอา popup ในหน้านี้)
@@ -32,20 +38,34 @@ function shownThisSession(): boolean {
   try { return window.sessionStorage.getItem(SHOWN_KEY) === '1' } catch { return false }
 }
 
+// อ่านไม่ได้ (เครือข่าย/5xx/รูปร่างผิด) = false → เด้ง
+async function alreadyCheckedInToday(): Promise<boolean> {
+  try {
+    const res = await fetch('/api/qi-wallet')
+    if (!res.ok) return false
+    const wallet = (await res.json()) as Wallet
+    return checkedInToday(wallet?.history, todayBangkok())
+  } catch { return false }
+}
+
 export function PromoPopup() {
   const router = useRouter()
+  const { status } = useCurrentUser()
   const [open, setOpen] = useState(false)
 
   useEffect(() => {
+    if (status !== 'authed') return
     if (!isPromoPath(router.pathname)) return
     if (hiddenNow() || shownThisSession()) return
-    const t = setTimeout(() => {
+    let alive = true
+    const delay = new Promise((resolve) => setTimeout(resolve, 1200))
+    void Promise.all([alreadyCheckedInToday(), delay]).then(([done]) => {
+      if (!alive) return
       try { window.sessionStorage.setItem(SHOWN_KEY, '1') } catch { /* private mode */ }
-      setOpen(true)
-    }, 1200)
-    return () => clearTimeout(t)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+      if (!done) setOpen(true)
+    })
+    return () => { alive = false }
+  }, [status, router.pathname])
 
   const close = () => setOpen(false)
   const hide7d = () => {
