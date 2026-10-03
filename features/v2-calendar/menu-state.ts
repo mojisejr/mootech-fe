@@ -19,7 +19,7 @@
  * Left slot swaps content; the Mate AI slot (right) is present in 1-3 and ABSENT in 4.
  */
 export enum CalendarMenuState {
-  /** 1 · ปกติ — 4 แท็บ (หน้าหลัก/บริการ/ปฏิทิน/ร้านค้า) + Mate AI. (หน้าปฏิทินรายเดือน · หน้า home) */
+  /** 1 · ปกติ — 4 แท็บ (หน้าหลัก/บริการ/ปฏิทิน/แพ็กเกจ) + Mate AI. (หน้าปฏิทินรายเดือน · หน้า home) */
   Normal = 'default',
   /** 2 · มีปุ่มหลัก — ปุ่มน้ำเงิน "เพิ่มลงปฏิทิน เพื่อแจ้งเตือน" + Mate AI. (รายละเอียดวัน · ยังไม่บันทึก · ทั้ง 2 โหมด) */
   PrimaryAction = 'primary-cta',

@@ -65,7 +65,7 @@ const TABS: { href: string; label: string; icon: ReactNode }[] = [
   { href: '/v2', label: 'หน้าหลัก', icon: <IconHome /> },
   { href: '/v2/service', label: 'บริการ', icon: <IconService /> },
   { href: '/v2/calendar', label: 'ปฏิทิน', icon: <IconCalendar /> },
-  { href: '/v2/shop', label: 'ร้านค้า', icon: <IconShop /> },
+  { href: '/v2/shop', label: 'แพ็กเกจ', icon: <IconShop /> }, // owner 2026-10-03: ร้านค้า → แพ็กเกจ
 ]
 
 function isActive(pathname: string, href: string): boolean {
