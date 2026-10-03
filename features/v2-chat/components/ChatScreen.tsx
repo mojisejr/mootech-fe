@@ -477,7 +477,7 @@ export function ChatScreen() {
           {guard === "OUT_OF_LIMIT" && (
             <div data-testid="chat-guard-credit" className="w-full rounded-[18px] bg-white p-4 text-center shadow-[0_2px_10px_rgba(26,38,77,0.10)]">
               <p className="text-[13px] font-bold leading-5 text-v3-navy">ชี่ไม่พอถาม AI แล้ว</p>
-              <p className="mt-1 text-[12px] leading-4 text-v3-text-body">เติมชี่หรืออัปเกรดแพ็กเกจ (โควตาฟรีมากขึ้น) เพื่อคุยกับมิวต่อได้เลย</p>
+              <p className="mt-1 text-[12px] leading-4 text-v3-text-body">เติมชี่หรืออัปเกรดแพ็กเกจ (โควตาฟรีมากขึ้น) เพื่อคุยกับ{activePersona.name}ต่อได้เลย</p>
               <Link
                 href="/v2/qi/buy"
                 className="mt-3 grid h-11 w-full place-items-center rounded-full bg-v3-cyan text-sm font-bold text-white"
@@ -489,7 +489,7 @@ export function ChatScreen() {
           {guard === "profile_incomplete" && (
             <div data-testid="chat-guard-profile" className="w-full rounded-[18px] bg-white p-4 text-center shadow-[0_2px_10px_rgba(26,38,77,0.10)]">
               <p className="text-[13px] font-bold leading-5 text-v3-navy">ข้อมูลวันเกิดยังไม่ครบ</p>
-              <p className="mt-1 text-[12px] leading-4 text-v3-text-body">มิวต้องรู้วันเวลาเกิดก่อนถึงจะทำนายให้แม่นยำได้</p>
+              <p className="mt-1 text-[12px] leading-4 text-v3-text-body">{activePersona.name}ต้องรู้วันเวลาเกิดก่อนถึงจะทำนายให้แม่นยำได้</p>
               <Link
                 href="/v2/register"
                 className="mt-3 grid h-11 w-full place-items-center rounded-full bg-v3-cyan text-sm font-bold text-white"
@@ -584,7 +584,7 @@ export function ChatScreen() {
               type="text"
               value={draft}
               disabled={busy}
-              placeholder={busy ? "มิวกำลังตอบ..." : "พิมพ์ถามมา..."}
+              placeholder={busy ? `${activePersona.name}กำลังตอบ...` : `พิมพ์ถาม${activePersona.name}ได้เลย...`}
               data-testid="chat-input"
               onChange={(e) => setDraft(e.target.value)}
               onKeyDown={(e) => {

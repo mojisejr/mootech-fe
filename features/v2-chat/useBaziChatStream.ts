@@ -28,35 +28,55 @@ const nextId = () => `m_${Date.now().toString(36)}_${++seq}`
 
 // #Bug — ประวัติแชทหายเมื่อออกจากหน้าแล้วกลับมา (turns อยู่ใน state เท่านั้น). เก็บบทสนทนาลง localStorage
 // ต่อเครื่อง แล้ว restore ตอน mount. (ประวัติข้ามอุปกรณ์/ดูย้อนหลังหลายบทต้องมี backend — คนละงาน)
-const HISTORY_KEY = "mumate-chat-history"
+// เอ็ม 2026-10-03: เสี่ยวมู่/เสี่ยวมี่ แยกประวัติกัน — ปนกันแล้ว AI เห็นคำลงท้ายของอีกตัว (ครับ↔ค่ะ) แล้วตอบเพี้ยน
+const LEGACY_HISTORY_KEY = "mumate-chat-history" // ก่อนแยก → ย้ายเป็นของเสี่ยวมู่ (ค่าเริ่มต้น) ครั้งเดียว
+const historyKey = (p: "mu" | "mi") => `mumate-chat-history-${p}`
 const MAX_TURNS = 40
+
+const PERSONA_TEXT = {
+  mu: { name: "เสี่ยวมู่", soft: "นะครับ" },
+  mi: { name: "เสี่ยวมี่", soft: "นะคะ" },
+} as const
 
 export function useBaziChatStream(persona: "mu" | "mi" = "mu") {
   const [turns, setTurns] = useState<ChatTurn[]>([])
   const [busy, setBusy] = useState(false)
   const [guard, setGuard] = useState<ChatGuardCode | null>(null)
 
-  // restore ครั้งเดียวหลัง mount (client only) — กัน hydration mismatch: server เรนเดอร์ว่าง, client เติมหลัง mount
-  useEffect(() => {
-    try {
-      const raw = localStorage.getItem(HISTORY_KEY)
-      if (!raw) return
-      const saved = JSON.parse(raw) as ChatTurn[]
-      if (Array.isArray(saved) && saved.length > 0) {
-        setTurns(saved.filter((t) => t && t.content).map((t) => ({ ...t, loading: false })))
-      }
-    } catch { /* localStorage ปิด/เสีย → เริ่มบทสนทนาใหม่ */ }
-  }, [])
+  const abortRef = useRef<AbortController | null>(null)
+  // turns ที่อยู่บนจอเป็นของ persona ไหน — persist ลง key ของตัวนั้นเท่านั้น (กันเขียนข้ามตอนสลับ)
+  const loadedFor = useRef<"mu" | "mi" | null>(null)
 
-  // persist เฉพาะ turn ที่จบแล้ว (ไม่บันทึกระหว่างสตรีม)
+  // restore หลัง mount และทุกครั้งที่สลับ persona (client only — กัน hydration mismatch)
   useEffect(() => {
-    if (busy) return
+    abortRef.current?.abort() // สตรีมของอีกตัวที่ค้างอยู่ ไม่ให้ไหลเข้าประวัติตัวใหม่
+    let restored: ChatTurn[] = []
+    try {
+      let raw = localStorage.getItem(historyKey(persona))
+      if (!raw && persona === "mu") {
+        raw = localStorage.getItem(LEGACY_HISTORY_KEY)
+        if (raw) {
+          localStorage.setItem(historyKey("mu"), raw)
+          localStorage.removeItem(LEGACY_HISTORY_KEY)
+        }
+      }
+      const saved = raw ? (JSON.parse(raw) as ChatTurn[]) : []
+      if (Array.isArray(saved)) restored = saved.filter((t) => t && t.content).map((t) => ({ ...t, loading: false }))
+    } catch { /* localStorage ปิด/เสีย → เริ่มบทสนทนาใหม่ */ }
+    loadedFor.current = persona
+    setTurns(restored)
+    setBusy(false)
+    setGuard(null)
+  }, [persona])
+
+  // persist เฉพาะ turn ที่จบแล้ว (ไม่บันทึกระหว่างสตรีม) ลง key ของ persona เจ้าของ turns
+  useEffect(() => {
+    if (busy || !loadedFor.current) return
     try {
       const done = turns.filter((t) => !t.loading && t.content).slice(-MAX_TURNS)
-      if (done.length > 0) localStorage.setItem(HISTORY_KEY, JSON.stringify(done))
+      if (done.length > 0) localStorage.setItem(historyKey(loadedFor.current), JSON.stringify(done))
     } catch { /* ignore */ }
   }, [turns, busy])
-  const abortRef = useRef<AbortController | null>(null)
   // persona ล่าสุด (ผู้ใช้สลับได้ระหว่างแชท) — ใช้ ref เพื่อไม่ต้อง re-create send
   const personaRef = useRef(persona)
   useEffect(() => { personaRef.current = persona }, [persona])
@@ -126,7 +146,7 @@ export function useBaziChatStream(persona: "mu" | "mi" = "mu") {
               prev.content ||
               (res.status === 402
                 ? "ชี่ไม่พอถาม AI แล้ว เติมชี่เพื่อถามต่อได้เลย"
-                : "เกิดข้อผิดพลาด ลองใหม่อีกครั้งนะคะ"),
+                : `เกิดข้อผิดพลาด ลองใหม่อีกครั้ง${PERSONA_TEXT[personaRef.current].soft}`),
           }))
           return
         }
@@ -167,14 +187,14 @@ export function useBaziChatStream(persona: "mu" | "mi" = "mu") {
         update(aiId, (prev) => ({
           ...prev,
           loading: false,
-          content: prev.content || "ไม่ได้รับคำตอบจากมิว ลองใหม่อีกครั้งนะคะ",
+          content: prev.content || `ไม่ได้รับคำตอบจาก${PERSONA_TEXT[personaRef.current].name} ลองใหม่อีกครั้ง${PERSONA_TEXT[personaRef.current].soft}`,
         }))
       } catch (err: unknown) {
         const aborted = (err as { name?: string })?.name === "AbortError"
         update(aiId, (prev) => ({
           ...prev,
           loading: false,
-          content: prev.content || (aborted ? "ยกเลิกแล้ว" : "การเชื่อมต่อมีปัญหา ลองใหม่อีกครั้งนะคะ"),
+          content: prev.content || (aborted ? "ยกเลิกแล้ว" : `การเชื่อมต่อมีปัญหา ลองใหม่อีกครั้ง${PERSONA_TEXT[personaRef.current].soft}`),
         }))
       } finally {
         setBusy(false)
@@ -188,7 +208,7 @@ export function useBaziChatStream(persona: "mu" | "mi" = "mu") {
     setTurns([])
     setGuard(null)
     setBusy(false)
-    try { localStorage.removeItem(HISTORY_KEY) } catch { /* ignore */ }
+    try { localStorage.removeItem(historyKey(personaRef.current)) } catch { /* ignore */ }
   }, [])
 
   return { turns, busy, guard, send, clear }
