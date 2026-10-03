@@ -38,6 +38,9 @@ function quotaSourceText(q: ChatQuota): string {
   return ""
 }
 import { useBaziChatStream } from "../useBaziChatStream"
+import { useCanvasColor, useVisibleArea } from "../visible-area"
+
+const CHAT_CANVAS = "#F6ECF0" // = พื้นล่างสุดของ background จอแชท (Figma mumate-ai-chat)
 import { isGoodDayQuestion, parseThaiDates, shortThaiDate } from "../good-day-dates"
 import { SUGGESTED_QUESTIONS, SUGGESTED_QUESTION_ITEMS } from "@/constants/suggested-questions"
 import { thaiBreakable } from "@/lib/th/thai-breakable"
@@ -272,21 +275,13 @@ export function ChatScreen() {
   // ล้างแชทเป็นของ in-memory เท่านั้น (unmount = หายอยู่แล้ว) และ "ปุ่มเฟืองต้องไปหน้า setting"
   // ตามที่ทีมรายงาน 2026-09-03
 
-  // #chat-vh (Samsung/Android 2026-09-13): เมื่อคีย์บอร์ดเด้ง 100dvh ไม่ยุบตาม visual viewport บนบางเบราว์เซอร์
-  // (Samsung Internet) จึงเหลือช่องขาว (#F6ECF0) ใต้ composer. ผูกความสูงจริงจาก visualViewport แทน.
-  const [screenH, setScreenH] = useState<string>("100dvh")
-  useEffect(() => {
-    const vv = typeof window !== "undefined" ? window.visualViewport : null
-    if (!vv) return
-    const apply = () => setScreenH(`${Math.round(vv.height)}px`)
-    apply()
-    vv.addEventListener("resize", apply)
-    vv.addEventListener("scroll", apply)
-    return () => {
-      vv.removeEventListener("resize", apply)
-      vv.removeEventListener("scroll", apply)
-    }
-  }, [])
+  // #chat-vh (Samsung/Android 2026-09-13) → mumate-chat-keyboard-ios-001 (iPhone 2026-10-03): ตรึงจอไว้กับ
+  // "พื้นที่ที่มองเห็น" ทั้ง top และ height. iOS ไม่ยุบหน้าเว็บตอนคีย์บอร์ดเด้ง แต่เลื่อน visual viewport ลงหา input
+  // (offsetTop > 0) — ตั้งแค่ height (โค้ดเดิม) จอจึงค้างอยู่บนสุด แล้วเห็นพื้นขาวระหว่างจอกับคีย์บอร์ด.
+  // หารด้วย zoom ของขนาดตัวอักษรด้วย — รายละเอียด/ตัวเลขที่วัดจริงอยู่ใน features/v2-chat/visible-area.ts
+  const area = useVisibleArea()
+  // พื้น canvas ใต้จอ = สีพื้นแชท (กันช่องที่คณิตปิดไม่ได้ เช่น iOS 26 PWA วัดความสูงขาด — WebKit 301108) ไม่ให้เป็นสีขาว
+  useCanvasColor(CHAT_CANVAS)
 
   // #5 (2026-09-13): มาสคอต ย่อ/ขยายได้เอง (กดพับเก็บเพื่ออ่านเต็มจอ) — จำสถานะไว้ใน localStorage
   const [mascotOpen, setMascotOpen] = useState(true)
@@ -309,10 +304,12 @@ export function ChatScreen() {
   return (
     <div
       data-testid="v2-chat-screen"
-      className="font-ibm flex h-[100dvh] w-full flex-col overflow-hidden"
+      className="font-ibm fixed inset-x-0 flex h-[100dvh] w-full flex-col overflow-hidden"
       style={{
-        // #chat-vh: ความสูงจริงตาม visual viewport (fallback 100dvh ก่อน effect ทำงาน / เบราว์เซอร์ไม่มี visualViewport)
-        height: screenH,
+        // ตรึงกับพื้นที่ที่มองเห็น (fallback top 0 + 100dvh ก่อนวัดครั้งแรก / เบราว์เซอร์ไม่มี visualViewport)
+        position: "fixed",
+        top: area ? `${area.top}px` : "0px",
+        height: area ? `${area.height}px` : "100dvh",
         // ตามเฟรม Figma: gradient + ภาพ BG01 (ฟ้า-เมฆ) เต็มจอ บนพื้น #F6ECF0
         background:
           "linear-gradient(180deg, rgba(207,230,251,0.42) 0%, rgba(231,233,251,0.18) 34%, rgba(246,231,242,0.22) 62%, rgba(251,236,239,0.4) 100%)," +
@@ -596,7 +593,8 @@ export function ChatScreen() {
                   submit()
                 }
               }}
-              className="min-w-0 flex-1 border-none bg-transparent text-[14px] text-v3-text-filled outline-none placeholder:text-v3-placeholder"
+              // 16px: ต่ำกว่านี้ iOS ซูมเข้าเมื่อแตะ input (ทำให้ viewport เล็กลงอีกและเลื่อนมากขึ้น) — owner 2026-10-03
+              className="min-w-0 flex-1 border-none bg-transparent text-[16px] text-v3-text-filled outline-none placeholder:text-v3-placeholder"
             />
           </div>
           <button

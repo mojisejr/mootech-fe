@@ -138,6 +138,7 @@ export default defineConfig({
       'scripts/bazi-fetch-secret.test.ts', // hardening slice 1 2026-10-02 — ทุกการเรียก bazi จาก FE แนบ x-mumate-client-secret ผ่าน baziFetch
       'scripts/settings-support-id.test.tsx', // hardening slice 1 2026-10-02 — ID สมาชิก ในหน้าตั้งค่า: user_id จาก server + ปุ่มคัดลอก (มี fallback ใน LINE)
       'scripts/promo-popup-members-only.test.tsx', // mumate-promo-popup-auth-001 slice 1 — ป็อปอัปเช็กอิน: เฉพาะสมาชิกที่ล็อกอินแล้ว + ยังไม่เช็กอินวันนี้
+      'scripts/chat-visible-area.test.tsx', // mumate-chat-keyboard-ios-001 slice 1 — แชท v2 ตรึงกับพื้นที่ที่มองเห็นตอนคีย์บอร์ดเปิด (iOS pan + zoom ขนาดตัวอักษร), ช่องพิมพ์ 16px
       'scripts/liff-detect.test.ts', // 2026-09-20 — isLineInAppBrowser (UA) → โชว์ปุ่ม "เปิดในเบราว์เซอร์" ติดตั้ง PWA/notification
       'scripts/ops-delete-user.test.ts', // 2026-09-20 — /ops ลบบัญชี (deleteUserIdentity scoped + best-effort)
       'scripts/launch-env-propagation.test.ts', // 2026-09-20 — goLive() waits for env propagation before redeploy (live race fix)
