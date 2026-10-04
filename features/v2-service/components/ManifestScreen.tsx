@@ -16,6 +16,7 @@ import { Menubar } from "@/features/v2-shell/components/Menubar"
 import { TopBarBell } from "@/features/v2-shell/components/TopBarBell"
 import { TopBarAvatar } from "@/features/v2-shell/components/TopBarAvatar"
 import { useV2Tier } from "@/features/auth/hooks/useV2Tier"
+import { ManifestPhotoCrop } from "@/features/v2-service/components/ManifestPhotoCrop"
 
 type Task = { id: string; title: string; targetCount: number; isDaily: boolean; doneCount: number }
 type Goal = {
@@ -24,7 +25,7 @@ type Goal = {
 }
 
 // ย่อรูปฝั่ง client (canvas) ก่อนอัปโหลด → dataURL jpeg (คุมขนาดไฟล์ที่เก็บใน storage)
-function resizeImage(file: File, maxEdge = 1080, quality = 0.82): Promise<{ dataUrl: string; mime: string }> {
+function resizeImage(file: File, maxEdge = 2000, quality = 0.9): Promise<{ dataUrl: string; mime: string }> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader()
     reader.onerror = () => reject(new Error("read failed"))
@@ -47,6 +48,16 @@ function resizeImage(file: File, maxEdge = 1080, quality = 0.82): Promise<{ data
     }
     reader.readAsDataURL(file)
   })
+}
+
+// อัปโหลดรูปที่ครอปแล้ว (dataURL jpeg) → public URL
+async function uploadManifestPhoto(dataUrl: string): Promise<{ url?: string; err?: string }> {
+  const r = await fetch("/api/v2/manifest/photo", {
+    method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ imageBase64: dataUrl, mime: "image/jpeg" }),
+  })
+  const j = (await r.json().catch(() => ({}))) as { url?: string; error?: string; code?: string }
+  if (r.ok && j.url) return { url: j.url }
+  return { err: r.status === 401 ? "กรุณาเข้าสู่ระบบก่อน" : `อัปโหลดไม่สำเร็จ (${r.status}${j.error || j.code ? `: ${j.error ?? j.code}` : ""})` }
 }
 type ElementInfo = { elementTh: string; dayGanzhi?: string } | null
 type ManifestPreview = { goals?: Goal[]; element?: ElementInfo }
@@ -311,23 +322,28 @@ export function ManifestScreen({ previewData }: { previewData?: ManifestPreview 
   //   ย่อรูป → อัปโหลด (/manifest/photo) → PATCH goal.imageUrl → โหลดใหม่. engine PATCH รับ imageUrl อยู่แล้ว.
   const [photoBusyId, setPhotoBusyId] = useState<string | null>(null)
   const [err, setErr] = useState<string | null>(null)
+  const [cropping, setCropping] = useState<{ id: string; src: string } | null>(null)
   const changePhoto = async (id: string, file: File) => {
     if (!/^image\/(jpeg|png)$/i.test(file.type)) { setErr("รองรับเฉพาะไฟล์ .jpg / .png เท่านั้น"); return }
+    setErr(null)
+    try {
+      const { dataUrl } = await resizeImage(file)
+      setCropping({ id, src: dataUrl })
+    } catch (e) {
+      setErr(`อ่านรูปไม่สำเร็จ${e instanceof Error ? `: ${e.message}` : ""}`)
+    }
+  }
+  const saveCropped = async (id: string, dataUrl: string) => {
     setPhotoBusyId(id); setErr(null)
     try {
-      const { dataUrl, mime } = await resizeImage(file)
-      const up = await fetch("/api/v2/manifest/photo", {
-        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ imageBase64: dataUrl, mime }),
-      })
-      const uj = (await up.json().catch(() => ({}))) as { url?: string; error?: string; code?: string }
-      if (!up.ok || !uj.url) { setErr(up.status === 401 ? "กรุณาเข้าสู่ระบบก่อน" : `อัปโหลดไม่สำเร็จ (${up.status}${uj.error || uj.code ? `: ${uj.error ?? uj.code}` : ""})`); return }
+      const up = await uploadManifestPhoto(dataUrl)
+      if (!up.url) { setErr(up.err ?? "อัปโหลดไม่สำเร็จ"); return }
       const pr = await fetch("/api/v2/manifest/goals", {
-        method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id, imageUrl: uj.url }),
+        method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id, imageUrl: up.url }),
       })
       if (!pr.ok) { setErr("บันทึกรูปไม่สำเร็จ"); return }
+      setCropping(null)
       await load()
-    } catch (e) {
-      setErr(`อ่าน/ย่อรูปไม่สำเร็จ${e instanceof Error ? `: ${e.message}` : ""}`)
     } finally { setPhotoBusyId(null) }
   }
 
@@ -402,6 +418,12 @@ export function ManifestScreen({ previewData }: { previewData?: ManifestPreview 
                         </>
                       )}
                     </label>
+                    {g.imageUrl ? (
+                      <button type="button" onClick={() => setCropping({ id: g.id, src: g.imageUrl as string })} disabled={photoBusyId === g.id} data-testid="manifest-adjust-photo" className="absolute right-2 top-10 flex items-center gap-1 rounded-full bg-black/70 px-2.5 py-1 text-[11px] font-bold text-white shadow backdrop-blur-sm">
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M6 2v14a2 2 0 0 0 2 2h14" /><path d="M18 22V8a2 2 0 0 0-2-2H2" /></svg>
+                        ปรับรูป
+                      </button>
+                    ) : null}
                   </article>
                 ))}
               </div>
@@ -426,6 +448,7 @@ export function ManifestScreen({ previewData }: { previewData?: ManifestPreview 
         </div>
       </div>
 
+      {cropping ? <ManifestPhotoCrop src={cropping.src} onCancel={() => setCropping(null)} onDone={(d) => saveCropped(cropping.id, d)} /> : null}
       {creating ? <CreateGoalModal onClose={() => setCreating(false)} onCreated={() => { setCreating(false); void load() }} /> : null}
       {/* P3-18: ยืนยันก่อนลบความปรารถนา (เดิมลบทันทีไม่มีถาม) — pattern เดียวกับ LogoutModal */}
       {confirmDeleteId ? (
@@ -453,6 +476,8 @@ function CreateGoalModal({ onClose, onCreated }: { onClose: () => void; onCreate
   const [text, setText] = useState("")
   const [category, setCategory] = useState<string>(CATEGORIES[0])
   const [photo, setPhoto] = useState<string | null>(null)
+  const [original, setOriginal] = useState<string | null>(null) // ต้นฉบับ (ย่อแล้ว) ไว้ครอปใหม่
+  const [cropSrc, setCropSrc] = useState<string | null>(null)
   const [uploading, setUploading] = useState(false)
   const [saving, setSaving] = useState(false)
   const [err, setErr] = useState<string | null>(null)
@@ -463,19 +488,20 @@ function CreateGoalModal({ onClose, onCreated }: { onClose: () => void; onCreate
     if (!file) return
     // #359 (ซินแสนุ้ย 2026-09-15): รับเฉพาะ jpg/png — ไฟล์ .heic (iPhone) decode ไม่ได้บนเบราว์เซอร์ทั่วไป
     if (!/^image\/(jpeg|png)$/i.test(file.type)) { setErr("รองรับเฉพาะไฟล์ .jpg / .png เท่านั้น"); return }
+    setErr(null)
+    try {
+      const { dataUrl } = await resizeImage(file)
+      setOriginal(dataUrl)
+      setCropSrc(dataUrl)
+    } catch (e) {
+      setErr(`อ่านรูปไม่สำเร็จ${e instanceof Error ? `: ${e.message}` : ""}`)
+    }
+  }
+  const onCropped = async (dataUrl: string) => {
     setUploading(true); setErr(null)
     try {
-      const { dataUrl, mime } = await resizeImage(file)
-      const r = await fetch("/api/v2/manifest/photo", {
-        method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ imageBase64: dataUrl, mime }),
-      })
-      const j = (await r.json().catch(() => ({}))) as { url?: string; error?: string; code?: string }
-      if (r.ok && j.url) setPhoto(j.url)
-      else if (r.status === 401) setErr("กรุณาเข้าสู่ระบบก่อน")
-      else setErr(`อัปโหลดไม่สำเร็จ (${r.status}${j.error || j.code ? `: ${j.error ?? j.code}` : ""})`)
-    } catch (e) {
-      setErr(`อ่าน/ย่อรูปไม่สำเร็จ${e instanceof Error ? `: ${e.message}` : ""}`)
+      const up = await uploadManifestPhoto(dataUrl)
+      if (up.url) { setPhoto(up.url); setCropSrc(null) } else setErr(up.err ?? "อัปโหลดไม่สำเร็จ")
     } finally { setUploading(false) }
   }
 
@@ -533,6 +559,10 @@ function CreateGoalModal({ onClose, onCreated }: { onClose: () => void; onCreate
               <span className="text-[13px] text-v3-text-muted">+ แตะเพื่อเลือกรูป</span>
             )}
           </label>
+          {photo && original ? (
+            <button type="button" onClick={() => setCropSrc(original)} className="mt-2 text-[12px] font-bold text-v3-navy underline" data-testid="manifest-create-adjust">ปรับรูป (เลือกส่วนที่จะโชว์)</button>
+          ) : null}
+          {cropSrc ? <ManifestPhotoCrop src={cropSrc} onCancel={() => setCropSrc(null)} onDone={onCropped} /> : null}
         </div>
 
         {err ? <p className="mt-3 text-[12px] font-bold text-v3-error" data-testid="manifest-create-err">{err}</p> : null}
