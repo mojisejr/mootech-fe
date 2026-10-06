@@ -51,9 +51,11 @@ export async function fetchInviteUrl(): Promise<string> {
     const r = await fetch("/api/referral")
     const j = (r.ok ? await r.json().catch(() => null) : null) as { code?: unknown } | null
     const code = typeof j?.code === "string" ? j.code.trim() : ""
-    return code ? `${origin}/invite/${encodeURIComponent(code)}` : origin
+    // ไม่มีโค้ดเชิญ (API ล่ม/ยังไม่มีโค้ด) ก็ต้องเป็นลิงก์ /invite/... — หน้า invite เท่านั้นที่อ่านสแนปช็อต ?c ได้
+    // (เดิมคืน origin เปล่า → /?c= เด้งไปหน้าแรก ผู้รับไม่เห็นผลที่แชร์, 2026-10-06)
+    return `${origin}/invite/${encodeURIComponent(code || "MUMATE")}`
   } catch {
-    return origin
+    return `${origin}/invite/MUMATE`
   }
 }
 
