@@ -340,7 +340,16 @@ function guardV2(req: NextRequest): NextResponse | null {
 // 307 + no-store, not 308: a 308 is cached by browsers indefinitely, so removing this rule would not reach
 // anyone who had followed it once. The query string is kept (req.nextUrl.clone()).
 // To turn it off: delete this function and its two call sites in route(). The v1 pages are still in the tree.
+const SHARE_FALLBACK_CODE = 'MUMATE';
+
 function redirectRetiredV1(req: NextRequest): NextResponse | null {
+  // ลิงก์แชร์ที่สร้างตอนดึงโค้ดเชิญไม่ได้ (/?c=<id>, 2026-10-06) → ส่งไปหน้า invite ที่อ่านสแนปช็อต ?c ได้
+  // (เดิม / → /v2 หน้าแรก ผู้รับไม่เห็นผลที่แชร์)
+  if (req.nextUrl.pathname === '/' && req.nextUrl.searchParams.get('c')) {
+    const url = req.nextUrl.clone();
+    url.pathname = `/invite/${SHARE_FALLBACK_CODE}`;
+    return noStore(NextResponse.redirect(url, 307));
+  }
   const target = retiredV1Target(req.nextUrl.pathname);
   if (!target) return null;
   const url = req.nextUrl.clone();
