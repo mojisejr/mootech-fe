@@ -587,6 +587,8 @@ function relationRole(self: string | undefined, other: string): string {
   return ""
 }
 const ELEMENT_ROW_ORDER = ["wood", "metal", "fire", "earth", "water"]
+// ธาตุส่งเสริม (生): ธาตุที่ให้กำเนิด — ไม้←น้ำ ไฟ←ไม้ ดิน←ไฟ ทอง←ดิน น้ำ←ทอง
+const SUPPORTED_BY: Record<string, string> = { wood: "water", fire: "wood", earth: "fire", metal: "earth", water: "metal" }
 // สีมงคลตามธาตุ (engine READING_COLORS) — key = ชื่อธาตุไทยจาก favorableElementsTh
 const LUCKY_HEX_TH: Record<string, string> = {
   ไม้: "#388659",
@@ -1222,7 +1224,12 @@ export function DestinyScreen({ previewData }: { previewData?: DestinyData } = {
                             <div className="min-w-0 flex-1">
                               <p className="text-[15px] font-bold leading-6 text-v3-navy">
                                 ธาตุ{ELEMENT_TH[el]}
-                                {typeof count === "number" ? <span className="ml-1 text-[13px] font-normal text-v3-text-muted">({count})</span> : null}
+                                {typeof count === "number" ? (
+                                  <span className="ml-1 text-[13px] font-normal text-v3-text-muted">
+                                    {/* ซินแสนุ้ย 2026-10-06: มีธาตุนั้น + มีธาตุส่งเสริมในดวง → "N+1" (+1 คงที่); ไม่มีตัวส่งเสริม = N (ถูกถ่ายเท ไม่แข็งแรง) */}
+                                    ({count > 0 && pillars && (pillarElCounts[SUPPORTED_BY[el]] ?? 0) > 0 ? `${count}+1` : count})
+                                  </span>
+                                ) : null}
                               </p>
                               <p className="text-[13px] leading-5 text-[#888]">{relationRole(dmEl, el)}</p>
                               {nisai && count !== 0 ? (
