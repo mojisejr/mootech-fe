@@ -3,7 +3,9 @@
 //
 // ประกาศปิดปรับปรุง (mumate-maintenance-notice-001, 2026-10-06): ก่อน NOTICE.until ป็อปอัปนี้แสดง "ประกาศแจ้ง
 // ปิดปรับปรุงระบบ" แทนโปรฯ เช็กอิน — ให้ทุกคนเห็น (ล็อกอินหรือยังก็ได้), ไม่อ่าน wallet, แตะรูป = ปิด (ไม่พาไปไหน),
-// "รับทราบ" = ไม่เด้งอีกจนหมดประกาศ. ตั้งแต่ NOTICE.until (เริ่มรอบย้าย server) กลับเป็นโปรฯ เช็กอินตามเดิมเอง —
+// "รับทราบ" = ไม่เด้งอีกจนหมดประกาศ. "ครั้งเดียวต่อ session" นับตอนผู้ใช้ปิด ไม่ใช่ตอนเด้ง — deploy ใหม่ทำให้ service
+// worker สั่ง reload หน้า 1 ครั้ง (pages/_app.tsx controllerchange) ไม่กี่วินาทีหลังเข้าเว็บ ถ้านับตอนเด้ง ผู้ใช้เห็นแวบเดียวแล้วหาย
+// (owner ลองบนมือถือ 2026-10-06). ตั้งแต่ NOTICE.until (เริ่มรอบย้าย server) กลับเป็นโปรฯ เช็กอินตามเดิมเอง —
 // ไม่ต้อง deploy ซ้ำ (SHA เดียวกันรันทั้งบน Vercel ก่อนย้ายและบน DigitalOcean หลังย้าย).
 // เลื่อนรอบย้าย = แก้ until + รูป แล้ว release ใหม่.
 //
@@ -36,7 +38,7 @@ export const NOTICE = {
   until: Date.parse('2026-10-09T04:00:00+07:00'), // เริ่มรอบย้าย: หลังจากนี้ทุกคนเห็นหน้า maintenance อยู่แล้ว
 }
 const NOTICE_HIDE_KEY = 'mumate:notice-20261009-hidden' // localStorage: กด "รับทราบ" แล้ว
-const NOTICE_SHOWN_KEY = 'mumate:notice-20261009-shown' // sessionStorage: เด้งไปแล้วรอบนี้
+const NOTICE_CLOSED_KEY = 'mumate:notice-20261009-closed' // sessionStorage: ผู้ใช้ปิดแล้วรอบนี้ (X / พื้นหลัง / แตะรูป)
 export const noticeActive = (now = Date.now()) => now < NOTICE.until
 
 // ไม่เด้งบนหน้าที่ไม่ใช่แอปหลัก + หน้าหาธาตุแท้ (เอ็ม: ไม่เอา popup ในหน้านี้)
@@ -57,7 +59,7 @@ function shownThisSession(): boolean {
 }
 function noticeDismissed(): boolean {
   try {
-    return window.localStorage.getItem(NOTICE_HIDE_KEY) === '1' || window.sessionStorage.getItem(NOTICE_SHOWN_KEY) === '1'
+    return window.localStorage.getItem(NOTICE_HIDE_KEY) === '1' || window.sessionStorage.getItem(NOTICE_CLOSED_KEY) === '1'
   } catch { return false }
 }
 
@@ -81,10 +83,8 @@ export function PromoPopup() {
     if (noticeActive()) {
       // ประกาศ: ทุกคน ไม่ดู status/wallet · โปรฯ เช็กอินไม่เด้งช่วงนี้
       if (noticeDismissed()) return
-      const t = setTimeout(() => {
-        try { window.sessionStorage.setItem(NOTICE_SHOWN_KEY, '1') } catch { /* private mode */ }
-        setOpen('notice')
-      }, 1200)
+      // ไม่จดตอนเด้ง: ถ้าหน้า reload ก่อนผู้ใช้ปิด (service worker ตัวใหม่) ประกาศต้องเด้งกลับมา
+      const t = setTimeout(() => setOpen('notice'), 1200)
       return () => clearTimeout(t)
     }
     if (status !== 'authed') return
@@ -99,7 +99,12 @@ export function PromoPopup() {
     return () => { alive = false }
   }, [status, router.pathname])
 
-  const close = () => setOpen(null)
+  const close = () => {
+    if (open === 'notice') {
+      try { window.sessionStorage.setItem(NOTICE_CLOSED_KEY, '1') } catch { /* private mode */ }
+    }
+    setOpen(null)
+  }
   const hide7d = () => {
     try { window.localStorage.setItem(HIDE_KEY, String(Date.now() + HIDE_DAYS * 24 * 60 * 60 * 1000)) } catch { /* private mode */ }
     setOpen(null)

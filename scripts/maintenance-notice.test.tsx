@@ -112,6 +112,26 @@ describe('maintenance notice — before the end', () => {
     expect(notice()).not.toBeNull()
   })
 
+  it('a reload before the visitor touches it (new service worker) shows it again', async () => {
+    render(<PromoPopup />)
+    await settle()
+    expect(notice()).not.toBeNull()
+    cleanup() // pages/_app.tsx reloads once on controllerchange; sessionStorage survives a reload
+    render(<PromoPopup />)
+    await settle()
+    expect(notice()).not.toBeNull()
+  })
+
+  it('closing it by tapping the image also counts for the session, across a reload', async () => {
+    render(<PromoPopup />)
+    await settle()
+    act(() => { screen.getByTestId('maintenance-notice-image').click() })
+    cleanup()
+    render(<PromoPopup />)
+    await settle()
+    expect(notice()).toBeNull()
+  })
+
   it('"รับทราบ" keeps it closed in later sessions', async () => {
     render(<PromoPopup />)
     await settle()
