@@ -64,7 +64,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return
   }
 
-  const { rawInput } = toBaziInput(feInput)
+  const { rawInput, hasBirthTime } = toBaziInput(feInput)
 
   // cache ต่อผู้ใช้ keyed ด้วยวันเวลาเกิด: ไม่เปลี่ยน = คืน payload เดิม ไม่ยิง engine ซ้ำ (0021_destiny_cache).
   // birthKey ครอบทุก field ที่ป้อน engine (วัน/เวลา/เพศ/จังหวัด) — แก้อันไหนก็ miss แล้วคำนวณใหม่.
@@ -78,7 +78,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     )[0]
     if (cached?.payload) {
       // avatarUrl ดึงสดเสมอ (เปลี่ยนได้อิสระจากดวง); ส่วนที่มาจาก engine ใช้ของที่ cache ไว้
-      res.status(200).json({ avatarUrl, ...(cached.payload as Record<string, unknown>) })
+      res.status(200).json({ avatarUrl, hasBirthTime, ...(cached.payload as Record<string, unknown>) })
       return
     }
   } catch {
@@ -191,5 +191,5 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
   }
 
-  res.status(200).json({ avatarUrl, ...engineOut })
+  res.status(200).json({ avatarUrl, hasBirthTime, ...engineOut })
 }

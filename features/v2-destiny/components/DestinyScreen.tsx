@@ -114,6 +114,8 @@ export type DestinyData = {
     dayMasterStrengthProfile?: { narrative?: string | null } | null
   } | null
   // อาชีพ/การเงิน จากตาราง B (用神): doElement = ธาตุที่ "ควรทำ" อาชีพ (ธาตุที่ควรเสริม ไม่ใช่ธาตุประจำตัว)
+  // false = ผู้ใช้ไม่ทราบเวลาเกิด (engine ใช้ 12:00 สมมติ) → ซ่อนเสายาม/ลัคนา ไม่นับธาตุจากเสาเหล่านั้น
+  hasBirthTime?: boolean
   careerFinance?: {
     career?: { doElement?: string | null; avoidElement?: string | null; occupations?: string | null; context?: string | null; essence?: string | null } | null
     finance?: { essence?: string | null } | null
@@ -829,8 +831,24 @@ export function DestinyScreen({ previewData }: { previewData?: DestinyData } = {
   const pillars = data?.calculatedState?.fourPillars ?? null
   const mingGong = data?.calculatedState?.mingGong ?? null
   const analysis = data?.calculatedState?.elementAnalysis ?? null
+  // ซินแสนุ้ย 2026-10-06: ไม่ทราบเวลาเกิด → ไม่มีเสายาม/ลัคนา (เดิมโชว์จากเวลาสมมติ 12:00)
+  const hasBirthTime = data?.hasBirthTime !== false
+  const shownPillarKeys = PILLAR_ORDER.filter((k) => hasBirthTime || (k !== "hour" && k !== "mingGong"))
+  // นับธาตุ "เฉพาะ 8 ตัว" ของ 4 หลัก (ก้าน+กิ่ง ยาม/วัน/เดือน/ปี) — ไม่นับลัคนาและไส้แฝง (巳=ไฟ)
+  const pillarElCounts: Record<string, number> = (() => {
+    const out: Record<string, number> = { wood: 0, fire: 0, earth: 0, metal: 0, water: 0 }
+    for (const k of ["hour", "day", "month", "year"] as const) {
+      if (k === "hour" && !hasBirthTime) continue
+      const p = pillars?.[k]
+      for (const ch of [p?.stem, p?.branch]) {
+        const el = CHAR_ELEMENT[(ch ?? "")[0]]
+        if (el) out[el] += 1
+      }
+    }
+    return out
+  })()
   // #2 (ซินแสนุ้ย 2026-09-14, แก้รอบ 2): ธาตุในดวง = ไอคอนล้อมรูปมาสคอต (ไม่แยกการ์ด) — 1 ธาตุ/ไอคอน + ป้าย ×N
-  const elementCounts = ELEMENT_ROW_ORDER.map((el) => ({ el, n: analysis?.totalCounts?.[el] ?? 0 })).filter((e) => e.n > 0)
+  const elementCounts = ELEMENT_ROW_ORDER.map((el) => ({ el, n: pillars ? pillarElCounts[el] : analysis?.totalCounts?.[el] ?? 0 })).filter((e) => e.n > 0)
   const lifePath = data?.lifePath ?? null
   // สีมงคล = ธาตุอุปถัมภ์ (favorable) → hex ตาม engine READING_COLORS
   const favTh = lifePath?.favorableElementsTh ?? data?.lifeTimeline?.favorableElementsTh ?? []
@@ -855,7 +873,7 @@ export function DestinyScreen({ previewData }: { previewData?: DestinyData } = {
     const clean = fromEngine
       .flatMap((c) => (typeof c === "string" ? c.split(/\n{2,}|\s*·\s*/) : [])) // แตกทั้งย่อหน้า (\n\n) และ "·"
       .map((s) => s.replace(/^\s*\*\*[^*]+\*\*\s*/, "").replace(/\*\*/g, "").trim()) // ตัด **หัวข้อ** นำหน้า แล้วลบ ** ที่เหลือ
-      .filter((s) => s.length > 0 && !NOISE.test(s))
+      .filter((s) => s.length > 0 && !NOISE.test(s) && !/^\(\d\)\s/.test(s) /* ป้ายเกรดวัยจร เช่น (0) เฝ้าระวัง หลุดมาจากการแตก · */)
       .map((s) => (s.length > 140 ? s.slice(0, 140).replace(/\s+\S*$/, "") + "…" : s))
     if (clean.length > 0) return clean.slice(0, 4)
     const out: string[] = []
@@ -894,7 +912,7 @@ export function DestinyScreen({ previewData }: { previewData?: DestinyData } = {
   const baziShare: BaziSharePayload | null = (() => {
     if (!summary) return null
     const pillarsOut: BaziPillar[] = pillars
-      ? PILLAR_ORDER.map((key) => ({ key, p: key === "mingGong" ? mingGong : pillars[key] }))
+      ? shownPillarKeys.map((key) => ({ key, p: key === "mingGong" ? mingGong : pillars[key] }))
           .filter((e): e is { key: (typeof PILLAR_ORDER)[number]; p: { stem: string; branch: string } } => Boolean(e.p))
           .map(({ key, p }) => ({
             label: PILLAR_LABEL[key] ?? key,
@@ -1153,9 +1171,9 @@ export function DestinyScreen({ previewData }: { previewData?: DestinyData } = {
             {/* ดวงจะส่งผล 8 ด้าน — ชิปเสา + จุดอ่อน 4 ด้าน */}
             <section className="rounded-[20px] bg-white p-5 v3-shadow-card" data-testid="destiny-pillars">
               <h2 className="text-base font-bold text-v3-navy">ดวงจะส่งผล 8 ด้าน</h2>
-              <div className="mt-3 grid grid-cols-5 gap-2">
+              <div className={`mt-3 grid gap-2 ${shownPillarKeys.length === 5 ? "grid-cols-5" : "grid-cols-3"}`}>
                 {pillars
-                  ? PILLAR_ORDER.map((key) => ({ key, p: key === "mingGong" ? mingGong : pillars[key] }))
+                  ? shownPillarKeys.map((key) => ({ key, p: key === "mingGong" ? mingGong : pillars[key] }))
                       .filter((e): e is { key: (typeof PILLAR_ORDER)[number]; p: { stem: string; branch: string } } => Boolean(e.p))
                       .map(({ key, p }) => (
                         <div key={key} className="flex flex-col items-center rounded-[12px] border border-v3-border-card px-0.5 py-2">
@@ -1194,7 +1212,7 @@ export function DestinyScreen({ previewData }: { previewData?: DestinyData } = {
                     <div className="mt-3 flex flex-col gap-3">
                       {ELEMENT_ROW_ORDER.map((el) => {
                         const dmEl = CHAR_ELEMENT[summary.dayMaster?.[0] ?? ""]
-                        const count = analysis?.totalCounts?.[el]
+                        const count = pillars ? pillarElCounts[el] : analysis?.totalCounts?.[el]
                         const nisai = analysis?.elementNisai?.find((n) => n.element === el)
                         return (
                           <div key={el} className="flex items-center gap-3">
@@ -1207,7 +1225,7 @@ export function DestinyScreen({ previewData }: { previewData?: DestinyData } = {
                                 {typeof count === "number" ? <span className="ml-1 text-[13px] font-normal text-v3-text-muted">({count})</span> : null}
                               </p>
                               <p className="text-[13px] leading-5 text-[#888]">{relationRole(dmEl, el)}</p>
-                              {nisai ? (
+                              {nisai && count !== 0 ? (
                                 <p className="mt-0.5 text-[12px] leading-[18px] text-v3-text-body" data-testid={`destiny-nisai-${el}`}>{nisai.text}</p>
                               ) : null}
                             </div>
