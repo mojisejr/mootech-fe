@@ -116,11 +116,13 @@ export function PromoPopup() {
   const tid = notice ? 'maintenance-notice' : 'promo-popup'
 
   return (
-    <div className="fixed inset-0 z-[75] flex items-center justify-center bg-black/50 px-8" onClick={close} data-testid={`${tid}-scrim`}>
+    <div className={`fixed inset-0 z-[75] flex items-center justify-center px-8 ${notice ? 'bg-black/60' : 'bg-black/50'}`} onClick={close} data-testid={`${tid}-scrim`}>
       <div className="relative w-full max-w-[340px]" onClick={(e) => e.stopPropagation()}
         {...(notice ? { role: 'dialog', 'aria-modal': true, 'aria-label': NOTICE.alt } : {})}>
+        {/* ประกาศ: รูปโปร่งใสมีมาสคอตยื่นเหนือการ์ด — box-shadow วาดเป็นกรอบสี่เหลี่ยมรอบพื้นที่ใสแล้วดูลอย (owner 2026-10-06)
+            จึงใช้ drop-shadow ที่เกาะรูปทรงจริงแทน + พื้นหลังมืดขึ้น (60%) ให้การ์ดสีอ่อนไม่กลืนกับหน้าแอป */}
         <button type="button" onClick={notice ? close : go} data-testid={`${tid}-image`} aria-label={notice ? NOTICE.alt : CHECKIN.alt}
-          className="block w-full overflow-hidden rounded-[24px] shadow-[0_12px_40px_rgba(0,0,0,0.35)]">
+          className={notice ? 'block w-full drop-shadow-[0_8px_20px_rgba(0,0,0,0.25)]' : 'block w-full overflow-hidden rounded-[24px] shadow-[0_12px_40px_rgba(0,0,0,0.35)]'}>
           {notice
             ? <Image src={NOTICE.src} alt={NOTICE.alt} width={NOTICE.width} height={NOTICE.height} priority className="h-auto w-full object-contain" />
             : <Image src={CHECKIN.src} alt={CHECKIN.alt} width={1000} height={1300} priority className="h-auto w-full object-contain" />}
