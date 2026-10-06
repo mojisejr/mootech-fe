@@ -1,7 +1,13 @@
 // features/v2-home/components/PromoPopup.tsx — ป็อปอัปหน้าแรก: โปรฯ "เช็กอินรับ Qi" อย่างเดียว (เอ็ม 2026-09-23).
 // (โปรฯ อื่นย้ายไป carousel ในหน้าหลักแล้ว — features/v2-home/components/PromoCarousel.tsx)
 //
-// พฤติกรรม:
+// ประกาศปิดปรับปรุง (mumate-maintenance-notice-001, 2026-10-06): ก่อน NOTICE.until ป็อปอัปนี้แสดง "ประกาศแจ้ง
+// ปิดปรับปรุงระบบ" แทนโปรฯ เช็กอิน — ให้ทุกคนเห็น (ล็อกอินหรือยังก็ได้), ไม่อ่าน wallet, แตะรูป = ปิด (ไม่พาไปไหน),
+// "รับทราบ" = ไม่เด้งอีกจนหมดประกาศ. ตั้งแต่ NOTICE.until (เริ่มรอบย้าย server) กลับเป็นโปรฯ เช็กอินตามเดิมเอง —
+// ไม่ต้อง deploy ซ้ำ (SHA เดียวกันรันทั้งบน Vercel ก่อนย้ายและบน DigitalOcean หลังย้าย).
+// เลื่อนรอบย้าย = แก้ until + รูป แล้ว release ใหม่.
+//
+// พฤติกรรมโปรฯ เช็กอิน:
 //   • เฉพาะสมาชิกที่ล็อกอินแล้ว (useCurrentUser = 'authed') และยังไม่เช็กอินวันนี้ (mumate-promo-popup-auth-001):
 //     'anon' ไม่เด้ง, 'loading' รอ (คนที่กลับจาก LINE ค้าง 'loading' ได้ ~17 วิ ระหว่าง mint identity).
 //     เช็กใหม่ทุกครั้งที่ status/path เปลี่ยน — /v2/login ส่งสมาชิกไป /v2 ด้วย router.replace (ไม่ remount).
@@ -21,6 +27,18 @@ const HIDE_KEY = 'mumate:promo-hidden-until' // localStorage: timestamp ที�
 const SHOWN_KEY = 'mumate:promo-shown' // sessionStorage: ตัดสินแล้วรอบนี้ — เด้งไปแล้ว หรือเช็กอินแล้ว (กันอ่าน wallet/เด้งซ้ำทุกครั้งที่เปลี่ยนหน้า)
 const HIDE_DAYS = 7
 
+// รูปจากทีม (1040x1300) — ข้อความอยู่ในรูป จึงใส่ครบใน alt ให้ screen reader อ่านได้
+export const NOTICE = {
+  src: '/images/v2/popup/maintenance-20261009.png',
+  alt: 'ประกาศแจ้ง Mumate ปิดปรับปรุงระบบชั่วคราว วันศุกร์ที่ 9 ตุลาคม 2569 เวลา 04.00-10.00 น. ไม่สามารถใช้งานได้ ขออภัยในความไม่สะดวก',
+  width: 1040,
+  height: 1300,
+  until: Date.parse('2026-10-09T04:00:00+07:00'), // เริ่มรอบย้าย: หลังจากนี้ทุกคนเห็นหน้า maintenance อยู่แล้ว
+}
+const NOTICE_HIDE_KEY = 'mumate:notice-20261009-hidden' // localStorage: กด "รับทราบ" แล้ว
+const NOTICE_SHOWN_KEY = 'mumate:notice-20261009-shown' // sessionStorage: เด้งไปแล้วรอบนี้
+export const noticeActive = (now = Date.now()) => now < NOTICE.until
+
 // ไม่เด้งบนหน้าที่ไม่ใช่แอปหลัก + หน้าหาธาตุแท้ (เอ็ม: ไม่เอา popup ในหน้านี้)
 const EXCLUDE = ['/v2/login', '/v2/register', '/v2/onboarding', '/v2/first-run', '/v2/first-run-preview', '/v2/element-finder']
 function isPromoPath(path: string): boolean {
@@ -37,6 +55,11 @@ function hiddenNow(): boolean {
 function shownThisSession(): boolean {
   try { return window.sessionStorage.getItem(SHOWN_KEY) === '1' } catch { return false }
 }
+function noticeDismissed(): boolean {
+  try {
+    return window.localStorage.getItem(NOTICE_HIDE_KEY) === '1' || window.sessionStorage.getItem(NOTICE_SHOWN_KEY) === '1'
+  } catch { return false }
+}
 
 // อ่านไม่ได้ (เครือข่าย/5xx/รูปร่างผิด) = false → เด้ง
 async function alreadyCheckedInToday(): Promise<boolean> {
@@ -51,48 +74,74 @@ async function alreadyCheckedInToday(): Promise<boolean> {
 export function PromoPopup() {
   const router = useRouter()
   const { status } = useCurrentUser()
-  const [open, setOpen] = useState(false)
+  const [open, setOpen] = useState<'notice' | 'checkin' | null>(null)
 
   useEffect(() => {
-    if (status !== 'authed') return
     if (!isPromoPath(router.pathname)) return
+    if (noticeActive()) {
+      // ประกาศ: ทุกคน ไม่ดู status/wallet · โปรฯ เช็กอินไม่เด้งช่วงนี้
+      if (noticeDismissed()) return
+      const t = setTimeout(() => {
+        try { window.sessionStorage.setItem(NOTICE_SHOWN_KEY, '1') } catch { /* private mode */ }
+        setOpen('notice')
+      }, 1200)
+      return () => clearTimeout(t)
+    }
+    if (status !== 'authed') return
     if (hiddenNow() || shownThisSession()) return
     let alive = true
     const delay = new Promise((resolve) => setTimeout(resolve, 1200))
     void Promise.all([alreadyCheckedInToday(), delay]).then(([done]) => {
       if (!alive) return
       try { window.sessionStorage.setItem(SHOWN_KEY, '1') } catch { /* private mode */ }
-      if (!done) setOpen(true)
+      if (!done) setOpen('checkin')
     })
     return () => { alive = false }
   }, [status, router.pathname])
 
-  const close = () => setOpen(false)
+  const close = () => setOpen(null)
   const hide7d = () => {
     try { window.localStorage.setItem(HIDE_KEY, String(Date.now() + HIDE_DAYS * 24 * 60 * 60 * 1000)) } catch { /* private mode */ }
-    setOpen(false)
+    setOpen(null)
   }
-  const go = () => { setOpen(false); void router.push(CHECKIN.href) }
+  const acknowledge = () => {
+    try { window.localStorage.setItem(NOTICE_HIDE_KEY, '1') } catch { /* private mode */ }
+    setOpen(null)
+  }
+  const go = () => { setOpen(null); void router.push(CHECKIN.href) }
 
   if (!open) return null
 
+  const notice = open === 'notice'
+  const tid = notice ? 'maintenance-notice' : 'promo-popup'
+
   return (
-    <div className="fixed inset-0 z-[75] flex items-center justify-center bg-black/50 px-8" onClick={close} data-testid="promo-popup-scrim">
-      <div className="relative w-full max-w-[340px]" onClick={(e) => e.stopPropagation()}>
-        <button type="button" onClick={go} data-testid="promo-popup-image" aria-label={CHECKIN.alt}
+    <div className="fixed inset-0 z-[75] flex items-center justify-center bg-black/50 px-8" onClick={close} data-testid={`${tid}-scrim`}>
+      <div className="relative w-full max-w-[340px]" onClick={(e) => e.stopPropagation()}
+        {...(notice ? { role: 'dialog', 'aria-modal': true, 'aria-label': NOTICE.alt } : {})}>
+        <button type="button" onClick={notice ? close : go} data-testid={`${tid}-image`} aria-label={notice ? NOTICE.alt : CHECKIN.alt}
           className="block w-full overflow-hidden rounded-[24px] shadow-[0_12px_40px_rgba(0,0,0,0.35)]">
-          <Image src={CHECKIN.src} alt={CHECKIN.alt} width={1000} height={1300} priority className="h-auto w-full object-contain" />
+          {notice
+            ? <Image src={NOTICE.src} alt={NOTICE.alt} width={NOTICE.width} height={NOTICE.height} priority className="h-auto w-full object-contain" />
+            : <Image src={CHECKIN.src} alt={CHECKIN.alt} width={1000} height={1300} priority className="h-auto w-full object-contain" />}
         </button>
 
-        <button type="button" onClick={close} aria-label="ปิด" data-testid="promo-popup-close"
+        <button type="button" onClick={close} aria-label="ปิด" data-testid={`${tid}-close`}
           className="absolute -top-3 -right-3 grid size-9 place-items-center rounded-full bg-white text-v3-navy shadow-lg">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round"><path d="m6 6 12 12M18 6 6 18" /></svg>
         </button>
 
-        <button type="button" onClick={hide7d} data-testid="promo-popup-hide"
-          className="mt-2 block w-full text-center text-[12px] font-medium text-white/80 underline">
-          ไม่แสดงอีกใน 7 วัน
-        </button>
+        {notice ? (
+          <button type="button" onClick={acknowledge} data-testid="maintenance-notice-ack"
+            className="mt-2 block w-full text-center text-[12px] font-medium text-white/80 underline">
+            รับทราบ
+          </button>
+        ) : (
+          <button type="button" onClick={hide7d} data-testid="promo-popup-hide"
+            className="mt-2 block w-full text-center text-[12px] font-medium text-white/80 underline">
+            ไม่แสดงอีกใน 7 วัน
+          </button>
+        )}
       </div>
     </div>
   )

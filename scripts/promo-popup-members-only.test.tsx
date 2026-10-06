@@ -10,6 +10,9 @@
 //   • one GET /api/qi-wallet; checked in today (checkedInToday, the check-in screen's rule) → stays closed.
 //     A failed wallet read opens it: the worst case is the behaviour that shipped before.
 //   • unchanged: excluded paths, once per session, "ไม่แสดงอีกใน 7 วัน".
+//
+// The clock is fixed after the maintenance notice ends (mumate-maintenance-notice-001): before then the same
+// component shows the notice instead, which scripts/maintenance-notice.test.tsx covers.
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { act, cleanup, render, screen } from '@testing-library/react'
 
@@ -26,8 +29,10 @@ import { PromoPopup } from '@/features/v2-home/components/PromoPopup'
 
 const fetchMock = vi.fn()
 const walletWith = (history: unknown[]) => ({ ok: true, json: async () => ({ qi: 10, history }) })
-const CHECKED_IN_TODAY = [{ id: 1, qiDelta: 5, reason: 'qi:earn:daily_login', createdAt: new Date().toISOString() }]
-const CHECKED_IN_YESTERDAY = [
+const AFTER_NOTICE = new Date('2026-10-12T12:00:00+07:00')
+// built per test, after the clock is set, so "today" is the fixed clock's day
+const checkedInToday = () => [{ id: 1, qiDelta: 5, reason: 'qi:earn:daily_login', createdAt: new Date().toISOString() }]
+const checkedInYesterday = () => [
   { id: 1, qiDelta: 5, reason: 'qi:earn:daily_login', createdAt: new Date(Date.now() - 26 * 3600_000).toISOString() },
 ]
 
@@ -36,6 +41,7 @@ const settle = () => act(async () => { await vi.advanceTimersByTimeAsync(1500) }
 
 beforeEach(() => {
   vi.useFakeTimers()
+  vi.setSystemTime(AFTER_NOTICE)
   auth.status = 'anon'
   nav.pathname = '/v2'
   fetchMock.mockReset()
@@ -59,7 +65,7 @@ describe('PromoPopup — members only', () => {
 
   it('opens for a signed-in member who has not checked in today', async () => {
     auth.status = 'authed'
-    fetchMock.mockResolvedValue(walletWith(CHECKED_IN_YESTERDAY))
+    fetchMock.mockResolvedValue(walletWith(checkedInYesterday()))
     render(<PromoPopup />)
     await settle()
     expect(popup()).not.toBeNull()
@@ -69,7 +75,7 @@ describe('PromoPopup — members only', () => {
 
   it('stays closed for a member who checked in today, and does not re-read on navigation', async () => {
     auth.status = 'authed'
-    fetchMock.mockResolvedValue(walletWith(CHECKED_IN_TODAY))
+    fetchMock.mockResolvedValue(walletWith(checkedInToday()))
     const { rerender } = render(<PromoPopup />)
     await settle()
     expect(popup()).toBeNull()
