@@ -1221,6 +1221,7 @@ export function DestinyScreen({ previewData }: { previewData?: DestinyData } = {
                       {ELEMENT_ROW_ORDER.map((el) => {
                         const dmEl = CHAR_ELEMENT[summary.dayMaster?.[0] ?? ""]
                         const count = pillars ? pillarElCounts[el] : analysis?.totalCounts?.[el]
+                        const supportCount = pillars ? (pillarElCounts[SUPPORTED_BY[el]] ?? 0) : 0
                         const nisai = analysis?.elementNisai?.find((n) => n.element === el)
                         return (
                           <div key={el} className="flex items-center gap-3">
@@ -1232,8 +1233,8 @@ export function DestinyScreen({ previewData }: { previewData?: DestinyData } = {
                                 ธาตุ{ELEMENT_TH[el]}
                                 {typeof count === "number" ? (
                                   <span className="ml-1 text-[13px] font-normal text-v3-text-muted">
-                                    {/* ซินแสนุ้ย 2026-10-06: มีธาตุนั้น + มีธาตุส่งเสริมในดวง → "N+1" (+1 คงที่); ไม่มีตัวส่งเสริม = N (ถูกถ่ายเท ไม่แข็งแรง) */}
-                                    ({count > 0 && pillars && (pillarElCounts[SUPPORTED_BY[el]] ?? 0) > 0 ? `${count}+1` : count})
+                                    {/* ซินแสนุ้ย 2026-10-06 (doc ตอบ ข้อ 3): (คู่ธาตุ)+(ธาตุส่งเสริม) = จำนวนจริงของธาตุส่งเสริมในดวง เช่น (1)+(1) · (2)+(1) · (0)+(2); ไม่มีตัวส่งเสริม = (N) เฉย ๆ */}
+                                    {supportCount > 0 ? `(${count})+(${supportCount})` : `(${count})`}
                                   </span>
                                 ) : null}
                               </p>
