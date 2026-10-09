@@ -6,6 +6,7 @@
 //         k=แถบสกิล (แถวคั่น "~", ฟิลด์คั่น "|": label|percent|grade|color|top(1/0)) — เฉพาะดวงธาตุ
 // ฟอนต์ไทย: fetch IBM Plex Sans Thai (.ttf) ตอน render (edge fetch ได้) — ไม่มี asset ฟอนต์ในรีโป
 import { ImageResponse } from "next/og"
+import { assetOrigin } from "@/lib/og/asset-origin"
 
 type Skill = { label: string; pct: number; grade: string; color: string; top: boolean }
 
@@ -48,7 +49,8 @@ function breakable(s: string): string {
 }
 
 export default async function handler(req: Request): Promise<Response> {
-  const { searchParams, origin } = new URL(req.url)
+  const { searchParams } = new URL(req.url)
+  const origin = assetOrigin(req.url) // own images: never the listen address over https (lib/og/asset-origin.ts)
   const title = breakable(clamp(searchParams.get("t") || "ดวงของฉัน", 60))
   const subtitle = breakable(clamp(searchParams.get("s") || "", 40))
   const tag = breakable(clamp(searchParams.get("g") || "", 24))

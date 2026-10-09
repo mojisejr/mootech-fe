@@ -103,6 +103,7 @@ export default defineConfig({
       'scripts/link-state.test.ts', // mumate-login-identity slice 3 — signed state/PKCE/nonce binding for provider linking
       'scripts/link-providers.test.ts', // mumate-login-identity slice 3 — authorize URLs, LINE/Google flags, webview refusal
       'scripts/line-provider-no-discovery.test.ts', // mumate-vercel-to-do-001 slice 7 — LINE provider carries its endpoints: no discovery from access.line.me (DO egress drops), same client as discovery, iss still checked
+      'scripts/og-asset-origin.test.ts', // mumate-vercel-to-do-001 slice 7 — share image fetches its own files over http loopback, not https://0.0.0.0 (container behind Caddy)
       'scripts/link-start-route.test.ts', // mumate-login-identity slice 3 — link start route: strict identity, cookie+redirect in one response
       'scripts/link-account.test.ts', // mumate-login-identity slice 3 — the three identity-contract cases and the last-method unlink rule
       'scripts/link-verify.test.ts', // mumate-login-identity slice 3 — code exchange and id_token claim checks
