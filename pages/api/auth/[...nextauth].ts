@@ -5,6 +5,7 @@ import GoogleProvider from "next-auth/providers/google";
 import LineProvider from "next-auth/providers/line";
 import TwitterProvider from "next-auth/providers/twitter";
 import CredentialsProvider from "next-auth/providers/credentials";
+import { ENDPOINTS } from "@/lib/auth/link-providers";
 
 // DEV-ONLY login bypass (no OAuth, no old server). Active only under `next dev`
 // (NODE_ENV !== production) — auto-disabled in any production build/deploy.
@@ -47,7 +48,18 @@ export const authOptions: NextAuthOptions = {
       // เดียว → state/pkce ไม่หาย → callback ผ่าน. ต่างจาก disable_auto_login (#728, กว้างทุกแพลตฟอร์ม บังคับหน้า
       // email/QR เมื่อไม่มี SSO — ผู้ใช้ปฏิเสธ) — ตัวนี้เจาะจง iOS และคง SSO ไว้ถ้ามี session LINE บนเว็บ.
       // คง checks default (state/pkce) ไว้ — LINE บังคับต้องมี state (บทเรียน #731/#735). scope คงเดิม.
-      authorization: { params: { scope: "openid profile", disable_ios_auto_login: true } },
+      authorization: { url: ENDPOINTS.line.authorizeUrl, params: { scope: "openid profile", disable_ios_auto_login: true } },
+      // 🔴 2026-10-09 (หลังย้ายมา DigitalOcean): provider LINE ของ next-auth ตั้ง wellKnown = access.line.me/.well-known/…
+      // → next-auth ดึง metadata นั้นใหม่ "ทุกครั้ง" ทั้งตอน signin และ callback. จาก DO Singapore การต่อ TCP ไป edge
+      // ของ access.line.me หลุดราวครึ่งหนึ่ง (prod-1 และ mumate-2 เหมือนกัน; api.line.me กับ Google ต่อติดทุกครั้ง) →
+      // "outgoing request timed out after 3500ms" → ล็อกอิน LINE ล้ม ~1 ใน 4 (18:00–20:00 คืนโปรโมชัน).
+      // แก้: ปิด discovery แล้วให้ endpoint ตรง ๆ (ค่าเดียวกับเอกสาร discovery ของ LINE) — เซิร์ฟเวอร์คุยกับ api.line.me
+      // เท่านั้น; access.line.me เหลือแค่หน้า authorize ที่ browser ของผู้ใช้เปิดเอง. issuer ต้องตรง `iss` ใน id_token.
+      wellKnown: undefined,
+      issuer: ENDPOINTS.line.issuers[0],
+      token: ENDPOINTS.line.tokenUrl,
+      userinfo: "https://api.line.me/oauth2/v2.1/userinfo",
+      jwks_endpoint: "https://api.line.me/oauth2/v2.1/certs",
     }),
     GoogleProvider({
       clientId: process.env.GOOGLE_CLIENT_ID as string,
