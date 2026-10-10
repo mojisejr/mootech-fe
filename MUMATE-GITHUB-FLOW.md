@@ -61,22 +61,24 @@ The fear: editing on a stale or already-merged local branch, then shipping from 
 
 ---
 
-## 3. Deploy Rule — **deploy = merge into the deploy branch. Never CLI.**
+## 3. Deploy Rule — **merge = staging · production = the owner's button. Never CLI.**
 
-Both platforms are git-integration driven:
+Since 2026-10-09 MuMate runs on DigitalOcean (control repo `mumate-infra`, private). Vercel still builds `main` but
+serves only a maintenance page; Render BE is retired.
 
-| Repo | Platform | Trigger |
-|------|----------|---------|
-| FE | Vercel | merge → `main` → Vercel builds + ships prod |
-| BE | Render | merge → `main` → `autoDeploy: yes` (`trigger: commit`) builds + ships prod |
+| Step | What happens | Who |
+|------|--------------|-----|
+| merge PR → FE `main` / bazi `pdf-dev` | `container-build` builds and pushes both images (`<sha>-staging`, `<sha>`) | automatic |
+| ~10 min later | staging (`app.staging.mumate.co`) runs the newest FE `main` + bazi `pdf-dev`; Discord `🧪 staging พร้อมทดสอบ` | automatic |
+| test on staging, then tell the owner | — | the team |
+| production (`bazichart.mumate.co`) | `promote-production` puts the pair staging runs on production, after gates (on the release branch, healthy on staging for 10 min, production healthy) | the owner, or the agent on the owner's word |
+| something wrong after release | `rollback-production` goes back one step | the owner, or the agent on the owner's word |
 
-**Because merge = instant production ship, the gate is the merge — not a separate deploy step.**
-
-- 🚫 **Never deploy via CLI** (`vercel --prod`, manual Render deploy). CLI ships from a local working tree, bypassing git/PR/CI → prod drifts from `main`. Deploy = merge to `main`, full stop.
-- 🚫 **AI never merges its own PR and never deploys.** AI opens the PR; the operator reviews and merges. The merge IS the operator's deploy decision.
-- ✅ After a deploy, verify: Vercel deployment status (FE) / Render deploy id (BE).
-
-> **Deploy-trigger reality note (updated 2026-06-22):** FE Vercel git auto-deploy is now confirmed working — merge → `main` ships prod automatically (operator verified). BE Render `autoDeploy: yes` on `main`. "merge = ship" now holds for both. (History: FE's PR #1 release once needed an explicit `vercel --prod` before auto-deploy was enabled.)
+- **Database migration**: additive only, run on the production database **before** the merge that needs it (the owner
+  or the team). Tell the owner/agent so the staging database gets it too.
+- **New env variable**: tell the owner before asking for production; it must be on the production host first.
+- 🚫 **Never deploy via CLI** (`vercel --prod`, `docker` on a server). Every release goes through git and the buttons.
+- 🚫 **AI never merges its own PR.** AI opens the PR; the operator reviews and merges.
 
 ---
 
