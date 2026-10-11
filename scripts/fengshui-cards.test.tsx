@@ -1,0 +1,102 @@
+// scripts/fengshui-cards.test.tsx — ไพ่อาถรรพ์ฮวงจุ้ย (FengshuiScreen) · ซินแสนุ้ย 2026-10-07
+// 🔴 CONTRACT:
+//   FG1 intro: ปุ่มสุ่ม 3 ใบ / 1 ใบ ใช้ได้โดยไม่ต้องพิมพ์คำถาม
+//   FG2 สุ่ม 3 → POST /api/fortune/fengshui {count:3, persona} → ผล 3 ใบ พร้อมรูปไพ่
+//   FG3 มีคำถาม → ส่ง question + แสดงคำตอบ (answer) ก่อนรายใบ
+//   FG4 สุ่ม 1 → count:1 → ผล 1 ใบ
+//   FG5 402 → โควตาหมด + ปุ่มแลก QI (ไม่โชว์ผล) → แลกแล้วเปิดต่อได้
+import React from 'react'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import { render, screen, cleanup, fireEvent, waitFor } from '@testing-library/react'
+
+vi.mock('next/config', () => ({ default: () => ({ publicRuntimeConfig: {}, serverRuntimeConfig: {} }) }))
+vi.mock('@/lib/auth/use-current-user', () => ({ useCurrentUser: () => ({ userId: 'test-user-id', status: 'authed' }) }))
+vi.mock('next/router', () => ({
+  useRouter: () => ({ push: vi.fn(), replace: vi.fn(), query: {}, pathname: '/v2/fortune/fengshui', isReady: true }),
+}))
+
+const CARDS = [
+  { no: 1, name: 'กระจกซ้อนกัน', meaning: 'ความหมาย 1', caution: 'ระวัง 1', advice: 'แก้ 1', imageUrl: 'https://img.example/1.jpg' },
+  { no: 11, name: 'แจกันดอกไม้', meaning: 'ความหมาย 11', caution: 'ระวัง 11', advice: 'แก้ 11', imageUrl: 'https://img.example/11.jpg' },
+  { no: 40, name: 'มังกรเขียว', meaning: 'ความหมาย 40', caution: 'ระวัง 40', advice: 'แก้ 40', imageUrl: 'https://img.example/40.jpg' },
+]
+
+let status = 200
+let answerOut: string | undefined
+let lastBody: Record<string, unknown> = {}
+let spendBodies: Array<Record<string, unknown>> = []
+const fetchMock = vi.fn(async (url: string, init?: { method?: string; body?: string }) => {
+  const u = String(url)
+  if (u.includes('/api/fortune/fengshui')) {
+    lastBody = JSON.parse(String(init?.body ?? '{}'))
+    const count = lastBody.count === 1 ? 1 : 3
+    return status === 200
+      ? { ok: true, status: 200, json: async () => ({ source: answerOut ? 'llm' : 'engine', cards: CARDS.slice(0, count), ...(answerOut ? { answer: answerOut } : {}) }) }
+      : { ok: false, status: 402, json: async () => ({ error: { message: 'quota' } }) }
+  }
+  if (u.includes('/api/qi-spend')) {
+    spendBodies.push(JSON.parse(String(init?.body ?? '{}')))
+    status = 200
+    return { ok: true, status: 200, json: async () => ({ code: 'card_use', spentQi: 10, qi: 90 }) }
+  }
+  if (u.includes('/api/qi-wallet')) return { ok: true, status: 200, json: async () => ({ qi: 120 }) }
+  return { ok: true, status: 200, json: async () => ({}) }
+})
+vi.stubGlobal('fetch', fetchMock)
+
+import { FengshuiScreen } from '@/features/v2-fortune/components/FengshuiScreen'
+
+beforeEach(() => { status = 200; answerOut = undefined; lastBody = {}; spendBodies = []; fetchMock.mockClear(); try { localStorage.clear() } catch { /* cooldown ต่อเคส */ } })
+afterEach(() => cleanup())
+
+describe('ไพ่อาถรรพ์ฮวงจุ้ย (FengshuiScreen)', () => {
+  it('FG1 intro: สุ่ม 3 / 1 ใบ กดได้เลยโดยไม่ต้องพิมพ์คำถาม', () => {
+    render(<FengshuiScreen />)
+    expect((screen.getByTestId('fengshui-draw-3') as HTMLButtonElement).disabled).toBe(false)
+    expect((screen.getByTestId('fengshui-draw-1') as HTMLButtonElement).disabled).toBe(false)
+  })
+
+  it('FG2 สุ่ม 3 ใบ → POST count:3 → ผล 3 ใบ พร้อมรูปไพ่', async () => {
+    render(<FengshuiScreen />)
+    fireEvent.click(screen.getByTestId('fengshui-draw-3'))
+    await waitFor(() => expect(screen.getByTestId('fengshui-result')).toBeTruthy(), { timeout: 4000 })
+    expect(lastBody.count).toBe(3)
+    expect(lastBody.persona).toBe('mu')
+    expect(screen.getAllByTestId('fengshui-card').length).toBe(3)
+    expect(screen.getByText('แจกันดอกไม้')).toBeTruthy()
+    expect(document.querySelector('img[src="https://img.example/40.jpg"]')).toBeTruthy()
+    expect(screen.queryByTestId('fengshui-answer')).toBeNull() // ไม่มีคำถาม = ไม่มีคำตอบ LLM
+  })
+
+  it('FG3 มีคำถาม → ส่ง question + persona ที่เลือก + แสดงคำตอบ', async () => {
+    answerOut = 'ห้องนี้ต้องปรับตรงกระจกก่อนค่ะ'
+    render(<FengshuiScreen />)
+    fireEvent.change(screen.getByTestId('fengshui-question'), { target: { value: 'ห้องนอนหันทิศตะวันตกดีไหม' } })
+    fireEvent.click(screen.getByTestId('fengshui-persona-mi'))
+    fireEvent.click(screen.getByTestId('fengshui-draw-3'))
+    await waitFor(() => expect(screen.getByTestId('fengshui-answer')).toBeTruthy(), { timeout: 4000 })
+    expect(lastBody.question).toBe('ห้องนอนหันทิศตะวันตกดีไหม')
+    expect(lastBody.persona).toBe('mi')
+    expect(screen.getByTestId('fengshui-answer').textContent).toContain('ห้องนี้ต้องปรับตรงกระจกก่อนค่ะ')
+  })
+
+  it('FG4 สุ่ม 1 ใบ → count:1 → ผล 1 ใบ', async () => {
+    render(<FengshuiScreen />)
+    fireEvent.click(screen.getByTestId('fengshui-draw-1'))
+    await waitFor(() => expect(screen.getByTestId('fengshui-result')).toBeTruthy(), { timeout: 4000 })
+    expect(lastBody.count).toBe(1)
+    expect(screen.getAllByTestId('fengshui-card').length).toBe(1)
+  })
+
+  it('FG5 402 → โควตาหมด ไม่โชว์ผล → แลก QI แล้วเปิดต่อ', async () => {
+    status = 402
+    render(<FengshuiScreen />)
+    fireEvent.click(screen.getByTestId('fengshui-draw-3'))
+    await waitFor(() => expect(screen.getByTestId('fengshui-quota')).toBeTruthy(), { timeout: 4000 })
+    expect(screen.queryByTestId('fengshui-result')).toBeNull()
+    fireEvent.click(screen.getByTestId('fengshui-redeem'))
+    await waitFor(() => expect(screen.getByTestId('fengshui-result')).toBeTruthy(), { timeout: 4000 })
+    expect(spendBodies[0]).toEqual({ code: 'card_use' })
+    expect(screen.getAllByTestId('fengshui-card').length).toBe(3)
+  })
+})
