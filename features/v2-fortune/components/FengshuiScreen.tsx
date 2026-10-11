@@ -1,5 +1,5 @@
 // features/v2-fortune/components/FengshuiScreen.tsx — ไพ่อาถรรพ์ฮวงจุ้ย (ซินแสนุ้ย 2026-10-07)
-// ถามเรื่องสถานที่ (ไม่บังคับ) → สุ่ม 3 ใบ (หรือ 1 ใบ) → ผล: รูปไพ่ + ความหมาย/ข้อควรระวัง/คำแนะนำ + คำตอบจากเสี่ยวมู่/มี่ (ถ้ามีคำถาม)
+// ถามเรื่องสถานที่ (ไม่บังคับ) → สุ่ม 3 ใบ (หรือ 1 ใบ) → ผล: สรุปคำทำนาย (แบบไพ่อื่น ไม่ใช่แบบแชท — ซินแสนุ้ย 2026-10-11) + รูปไพ่ + ความหมาย/ข้อควรระวัง/คำแนะนำ
 // ต่อ engine ผ่าน BFF /api/fortune/fengshui (โควตา "card" เดียวกับไพ่อื่น: 402 → ชวนแลก QI). หมายเหตุท้ายแชทชี้มาที่หน้านี้
 import Head from "next/head"
 import Link from "next/link"
@@ -12,7 +12,6 @@ import { useCurrentUser } from "@/lib/auth/use-current-user"
 import { AuthRequiredCard } from "@/features/auth/components/AuthRequiredCard"
 
 type FengshuiCard = { no: number; name: string; meaning: string; caution: string; advice: string; imageUrl: string | null }
-type Persona = "mu" | "mi"
 type Phase = "intro" | "loading" | "result"
 
 const SECTIONS: { key: "meaning" | "caution" | "advice"; label: string }[] = [
@@ -26,9 +25,8 @@ export function FengshuiScreen({ backHref = "/v2/service" }: { backHref?: string
   const cd = useActionCooldown("fortune:fengshui") // กันกดรัว
   const [phase, setPhase] = useState<Phase>("intro")
   const [question, setQuestion] = useState("")
-  const [persona, setPersona] = useState<Persona>("mu")
   const [cards, setCards] = useState<FengshuiCard[]>([])
-  const [answer, setAnswer] = useState("")
+  const [summary, setSummary] = useState("")
   const [error, setError] = useState<string | null>(null)
   const [quotaOut, setQuotaOut] = useState(false)
   const [balance, setBalance] = useState<number | null>(null)
@@ -41,10 +39,6 @@ export function FengshuiScreen({ backHref = "/v2/service" }: { backHref?: string
   useEffect(() => { setMounted(true) }, [])
 
   useEffect(() => {
-    try {
-      // เสี่ยวมู่/มี่ ที่ผู้ใช้เลือกในแชทล่าสุด (key ประวัติแชทต่อ persona) — ไม่มี = มู่
-      if (localStorage.getItem("mumate-chat-history-mi") && !localStorage.getItem("mumate-chat-history-mu")) setPersona("mi")
-    } catch { /* localStorage ปิด */ }
     let alive = true
     fetch("/api/qi-wallet").then((r) => (r.ok ? r.json() : null)).then((j) => { if (alive && typeof j?.qi === "number") setBalance(j.qi) }).catch(() => {})
     return () => { alive = false }
@@ -62,14 +56,14 @@ export function FengshuiScreen({ backHref = "/v2/service" }: { backHref?: string
       const res = await fetch("/api/fortune/fengshui", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ count, persona, question: question.trim() || undefined }),
+        body: JSON.stringify({ count, question: question.trim() || undefined }),
       })
-      const j = (await res.json().catch(() => ({}))) as { cards?: FengshuiCard[]; answer?: string | null; error?: { message?: string } }
-      await new Promise((r) => setTimeout(r, Math.max(0, 1500 - (Date.now() - started))))
+      const j = (await res.json().catch(() => ({}))) as { cards?: FengshuiCard[]; summary?: string | null; error?: { message?: string } }
+      await new Promise((r) => setTimeout(r, Math.max(0, 1900 - (Date.now() - started))))
       if (res.status === 402) { setQuotaOut(true); setPhase("intro"); return }
       if (!res.ok || !j.cards?.length) { setError(j.error?.message ?? "เปิดไพ่ไม่สำเร็จ ลองใหม่อีกครั้ง"); setPhase("intro"); return }
       setCards(j.cards)
-      setAnswer(j.answer?.trim() ?? "")
+      setSummary(j.summary?.trim() ?? "")
       setPhase("result")
       fetch("/api/qi-wallet").then((r) => (r.ok ? r.json() : null)).then((w) => { if (typeof w?.qi === "number") setBalance(w.qi) }).catch(() => {})
     } catch {
@@ -96,7 +90,7 @@ export function FengshuiScreen({ backHref = "/v2/service" }: { backHref?: string
     }
   }
 
-  const reset = () => { setCards([]); setAnswer(""); setPhase("intro") }
+  const reset = () => { setCards([]); setSummary(""); setPhase("intro") }
   const title = "ไพ่อาถรรพ์ฮวงจุ้ย"
 
   return (
@@ -133,14 +127,6 @@ export function FengshuiScreen({ backHref = "/v2/service" }: { backHref?: string
                 placeholder="เช่น ห้องนอนหันหน้าไปทางทิศตะวันตก ดีไหม (ไม่ใส่ก็ได้)"
                 className="w-full resize-none rounded-2xl border border-v3-border-card bg-white px-4 py-3 text-[13px] leading-5 text-v3-navy outline-none placeholder:text-v3-text-muted focus:border-v3-sapphire"
               />
-              <div className="flex items-center gap-2 text-[12px] text-v3-text-body">
-                <span>ให้ตอบโดย</span>
-                {(["mu", "mi"] as const).map((p) => (
-                  <button key={p} type="button" onClick={() => setPersona(p)} data-testid={`fengshui-persona-${p}`} className={"rounded-full px-3 py-1 text-[12px] font-bold " + (persona === p ? "bg-v3-sapphire text-white" : "border border-v3-border-card bg-white text-v3-navy")}>
-                    {p === "mu" ? "เสี่ยวมู่" : "เสี่ยวมี่"}
-                  </button>
-                ))}
-              </div>
               <div className="flex flex-col gap-2">
                 <KitButton onClick={() => void predict(3)} disabled={!mounted || cd.active || authStatus === "loading"} testId="fengshui-draw-3">{cd.active ? `รออีก ${cd.secondsLeft} วิ` : "สุ่ม 3 ใบ"}</KitButton>
                 <button onClick={() => void predict(1)} disabled={!mounted || cd.active || authStatus === "loading"} data-testid="fengshui-draw-1" className="grid h-12 w-full place-items-center rounded-full border border-v3-border-card bg-white text-[15px] font-bold text-v3-navy disabled:opacity-50">สุ่ม 1 ใบ</button>
@@ -162,11 +148,12 @@ export function FengshuiScreen({ backHref = "/v2/service" }: { backHref?: string
 
       {phase === "result" && cards.length > 0 && (
         <div className="mt-3 flex flex-col gap-3" data-testid="fengshui-result">
-          {answer ? (
-            <section className="flex flex-col gap-1 rounded-[24px] bg-[#EAF3FF] p-5" data-testid="fengshui-answer">
-              <span className="w-fit text-[13px] font-black text-v3-sapphire">คำตอบ ({persona === "mu" ? "เสี่ยวมู่" : "เสี่ยวมี่"})</span>
+          {/* สรุปคำทำนายนี้ — แบบเดียวกับไพ่อื่น (CardReadingScreen); LLM ล่ม → ใช้ความหมายใบแรกแทน ไม่ให้ว่าง */}
+          {(summary || cards[0]?.meaning) ? (
+            <section className="flex flex-col gap-1 rounded-[24px] bg-[#EAF3FF] p-5" data-testid="fengshui-summary">
+              <span className="w-fit text-[13px] font-black text-v3-sapphire">สรุปคำทำนายนี้</span>
               {question.trim() ? <p className="text-[12px] font-semibold leading-5 text-v3-sapphire">คำถามของคุณ: {question.trim()}</p> : null}
-              <p className="whitespace-pre-line text-[13px] leading-[22px] text-v3-text-body">{answer}</p>
+              <p className="whitespace-pre-line text-[13px] leading-[22px] text-v3-text-body">{summary || cards[0]?.meaning}</p>
             </section>
           ) : null}
 
