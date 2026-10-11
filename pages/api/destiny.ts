@@ -23,7 +23,7 @@ const rowsOf = (r: any): any[] => (Array.isArray(r) ? r : r?.rows ?? [])
 // เวอร์ชันของ "ก้อนผลดวงที่ cache" — bump เมื่อ engine เพิ่ม/แก้ฟิลด์ใน payload (เช่น elementNisai)
 // ต่อเข้า birthKey → ผลเก่าที่ cache ก่อน bump จะ miss แล้วคำนวณใหม่เองทันที ไม่ต้องล้างตาราง cache มือ.
 // v2 (2026-09-11): เพิ่ม elementAnalysis.elementNisai (นิสัย 5 ธาตุ แข็ง/อ่อน) ลงหน้าดวง.
-const CACHE_VERSION = "v9" // v9 2026-09-22: luck ปีจร/เดือนจร มีคำอธิบายไทยเต็ม (ผล/ระวัง/จังหวะเชี่ยงแซ) · v8: บัสต์ luck=null · v7: + luck ปีจร/เดือนจร · v6: นิสัยรวมราศีล่าง · v5: วันดีเดือนนี้กรองวันเก่า · v4: เทพชื่อจริง
+const CACHE_VERSION = "v10" // v10 2026-10-11: ข้อความนิสัย 5 ธาตุใหม่ตามเอกสารซินแส (strongText/weakText) · v9 2026-09-22: luck ปีจร/เดือนจร มีคำอธิบายไทยเต็ม (ผล/ระวัง/จังหวะเชี่ยงแซ) · v8: บัสต์ luck=null · v7: + luck ปีจร/เดือนจร · v6: นิสัยรวมราศีล่าง · v5: วันดีเดือนนี้กรองวันเก่า · v4: เทพชื่อจริง
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== "POST") {
