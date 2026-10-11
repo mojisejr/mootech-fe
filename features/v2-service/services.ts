@@ -57,6 +57,7 @@ const DESC_CALENDAR = ['วางแผนชีวิตตามจังห�
 const DESC_HEALING = ['พื้นที่ปลอดภัยให้ทุกคนได้แบ่งปัน', 'ความรู้สึกรับฟังซึ่งกันและกัน']
 const DESC_SACRED = ['แผนที่ศักดิ์สิทธิ์ที่รวบรวมสถานที่', 'พลังงานสูงพร้อมนำภายในที่ลึกซึ้ง']
 const DESC_SHOP = ['เลือกสรรสินค้าเสริมพลังกาย', 'ใจ และจิตวิญญาณ']
+const DESC_FENGSHUI = ['ตรวจชัยภูมิบ้าน ที่ทำงาน ร้าน', 'รู้จุดเสียและวิธีแก้ด้วยไพ่ฮวงจุ้ย']
 const DESC_PHONE = ['ถอดพลังตัวเลขในเบอร์ของคุณ', 'เสริมดวงเงิน งาน และความรัก']
 const DESC_HONEYCOMB = ['ถอดรหัสเบอร์แบบปิรามิดรังผึ้ง', 'อ่านพลังตัวเรา–ใกล้ตัว–ไกลตัว']
 
@@ -70,6 +71,7 @@ export const SERVICES = [
   { id: 'one-book', title: 'หนังสือเล่มเดียวในโลก', desc: DESC_ONE_BOOK, href: '/v2/service/one-book', image: ART('03_หนังสือเล่มเดียวในโลก.png'), cta: 'สั่งทำเลย' },
   { id: 'oracle-kiang', title: 'เสี่ยงไพ่ออราเคิลเคี้ยงคุง', desc: DESC_ORACLE, href: '/v2/fortune/oracle', image: ART('04_เสี่ยงไพ่ออราเคิลเคี้ยงคุง.png'), cta: 'เปิดไพ่เลย' },
   { id: 'spirit-heaven', title: 'เสี่ยงไพ่จิตวิญญาณแดนสวรรค์', desc: DESC_SPIRIT, href: '/v2/fortune/divine', image: ART('05_เสี่ยงไพ่จิตวิญญาณแดนสวรรค์.png'), cta: 'เปิดไพ่เลย' },
+  { id: 'fengshui-cards', title: 'ไพ่อาถรรพ์ฮวงจุ้ย', desc: DESC_FENGSHUI, href: '/v2/fortune/fengshui', image: ART('14_ไพ่อาถรรพ์ฮวงจุ้ย.png'), cta: 'เปิดไพ่เลย' },
   { id: 'sian', title: 'เสี่ยงเซียนเสี่ยงทาย', desc: DESC_SIAN, href: '/v2/fortune/sage', image: ART('06_เสี่ยงเซียนเสี่ยงทาย.png'), cta: 'เสี่ยงทายเลย' },
   { id: 'sinsae', title: 'ดูดวงส่วนตัว กับซินแส', desc: DESC_SINSAE, href: '/v2/service/sinsae', image: ART('07_ดูดวงส่วนตัวกับซินแส.png'), cta: 'ดูดวงเลย' },
   { id: 'manifest', title: 'มานิเฟส', desc: DESC_MANIFEST, href: '/v2/service/manifest', image: ART('08_มานิเฟส.png'), cta: 'เริ่มมานิเฟส' },
