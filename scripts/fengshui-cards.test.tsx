@@ -2,7 +2,7 @@
 // 🔴 CONTRACT:
 //   FG1 intro: ปุ่มสุ่ม 3 ใบ / 1 ใบ ใช้ได้โดยไม่ต้องพิมพ์คำถาม
 //   FG2 สุ่ม 3 → POST /api/fortune/fengshui {count:3, persona} → ผล 3 ใบ พร้อมรูปไพ่
-//   FG3 มีคำถาม → ส่ง question + แสดงคำตอบ (answer) ก่อนรายใบ
+//   FG3 มีคำถาม → ส่ง question + แสดง "สรุปคำทำนายนี้" (summary แบบไพ่อื่น ไม่ใช่แบบแชท) ก่อนรายใบ
 //   FG4 สุ่ม 1 → count:1 → ผล 1 ใบ
 //   FG5 402 → โควตาหมด + ปุ่มแลก QI (ไม่โชว์ผล) → แลกแล้วเปิดต่อได้
 import React from 'react'
@@ -22,7 +22,7 @@ const CARDS = [
 ]
 
 let status = 200
-let answerOut: string | undefined
+let summaryOut: string | undefined
 let lastBody: Record<string, unknown> = {}
 let spendBodies: Array<Record<string, unknown>> = []
 const fetchMock = vi.fn(async (url: string, init?: { method?: string; body?: string }) => {
@@ -31,7 +31,7 @@ const fetchMock = vi.fn(async (url: string, init?: { method?: string; body?: str
     lastBody = JSON.parse(String(init?.body ?? '{}'))
     const count = lastBody.count === 1 ? 1 : 3
     return status === 200
-      ? { ok: true, status: 200, json: async () => ({ source: answerOut ? 'llm' : 'engine', cards: CARDS.slice(0, count), ...(answerOut ? { answer: answerOut } : {}) }) }
+      ? { ok: true, status: 200, json: async () => ({ source: summaryOut ? 'llm' : 'engine', cards: CARDS.slice(0, count), ...(summaryOut ? { summary: summaryOut } : {}) }) }
       : { ok: false, status: 402, json: async () => ({ error: { message: 'quota' } }) }
   }
   if (u.includes('/api/qi-spend')) {
@@ -46,7 +46,7 @@ vi.stubGlobal('fetch', fetchMock)
 
 import { FengshuiScreen } from '@/features/v2-fortune/components/FengshuiScreen'
 
-beforeEach(() => { status = 200; answerOut = undefined; lastBody = {}; spendBodies = []; fetchMock.mockClear(); try { localStorage.clear() } catch { /* cooldown ต่อเคส */ } })
+beforeEach(() => { status = 200; summaryOut = undefined; lastBody = {}; spendBodies = []; fetchMock.mockClear(); try { localStorage.clear() } catch { /* cooldown ต่อเคส */ } })
 afterEach(() => cleanup())
 
 describe('ไพ่อาถรรพ์ฮวงจุ้ย (FengshuiScreen)', () => {
@@ -61,23 +61,23 @@ describe('ไพ่อาถรรพ์ฮวงจุ้ย (FengshuiScreen)',
     fireEvent.click(screen.getByTestId('fengshui-draw-3'))
     await waitFor(() => expect(screen.getByTestId('fengshui-result')).toBeTruthy(), { timeout: 4000 })
     expect(lastBody.count).toBe(3)
-    expect(lastBody.persona).toBe('mu')
     expect(screen.getAllByTestId('fengshui-card').length).toBe(3)
     expect(screen.getByText('แจกันดอกไม้')).toBeTruthy()
     expect(document.querySelector('img[src="https://img.example/40.jpg"]')).toBeTruthy()
-    expect(screen.queryByTestId('fengshui-answer')).toBeNull() // ไม่มีคำถาม = ไม่มีคำตอบ LLM
+    // LLM ไม่ส่งสรุป → ยังมีกล่องสรุป (ใช้ความหมายใบแรก) ไม่ว่าง
+    expect(screen.getByTestId('fengshui-summary').textContent).toContain('ความหมาย 1')
   })
 
-  it('FG3 มีคำถาม → ส่ง question + persona ที่เลือก + แสดงคำตอบ', async () => {
-    answerOut = 'ห้องนี้ต้องปรับตรงกระจกก่อนค่ะ'
+  it('FG3 มีคำถาม → ส่ง question + แสดงสรุปคำทำนาย (ไม่ใช่แบบแชท)', async () => {
+    summaryOut = 'ห้องนี้ต้องปรับตรงกระจกก่อน'
     render(<FengshuiScreen />)
     fireEvent.change(screen.getByTestId('fengshui-question'), { target: { value: 'ห้องนอนหันทิศตะวันตกดีไหม' } })
-    fireEvent.click(screen.getByTestId('fengshui-persona-mi'))
     fireEvent.click(screen.getByTestId('fengshui-draw-3'))
-    await waitFor(() => expect(screen.getByTestId('fengshui-answer')).toBeTruthy(), { timeout: 4000 })
+    await waitFor(() => expect(screen.getByTestId('fengshui-result')).toBeTruthy(), { timeout: 4000 })
     expect(lastBody.question).toBe('ห้องนอนหันทิศตะวันตกดีไหม')
-    expect(lastBody.persona).toBe('mi')
-    expect(screen.getByTestId('fengshui-answer').textContent).toContain('ห้องนี้ต้องปรับตรงกระจกก่อนค่ะ')
+    const box = screen.getByTestId('fengshui-summary').textContent ?? ''
+    expect(box).toContain('สรุปคำทำนายนี้')
+    expect(box).toContain('ห้องนี้ต้องปรับตรงกระจกก่อน')
   })
 
   it('FG4 สุ่ม 1 ใบ → count:1 → ผล 1 ใบ', async () => {
