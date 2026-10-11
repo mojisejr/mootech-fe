@@ -95,7 +95,7 @@ export type DestinyData = {
       dominantElements?: string[]
       missingElements?: string[]
       /** นิสัย 5 ธาตุ แข็ง/อ่อน ต่อธาตุ (engine เป็นแหล่งเดียว — nisai-by-element) */
-      elementNisai?: { element: string; tier: "strong" | "weak"; text: string }[]
+      elementNisai?: { element: string; tier: "strong" | "weak"; text: string; strongText?: string; weakText?: string }[]
     }
     /**
      * นิสัย/บุคลิกเสาวัน 3 ส่วน (ซินแสนุ้ย 2026-09-17): แยก ก้าน(บุคลิกพื้นฐาน) / กิ่ง(นิสัยพื้นฐาน) /
@@ -583,6 +583,23 @@ const RELATION_ROLE: Record<string, string> = {
   power: "หน้าที่การงาน",
   resource: "ผู้สนับสนุน/ส่งเสริม",
 }
+// บรรทัด "คุณสมบัตินี้..." ตามความสัมพันธ์ธาตุกับดิถี — ส่วนสีน้ำเงินในเอกสารซินแส "นิสัย 5 ธาตุแข็งแรง/อ่อนแอ" (2026-10-11)
+const RELATION_DETAIL: Record<string, string> = {
+  same: "คุณสมบัตินี้สะท้อนตัวตน เพื่อน พี่น้อง หุ้นส่วน และการแข่งขัน",
+  output: "คุณสมบัตินี้ถ่ายทอดผ่าน ความคิด คำพูด ผลงาน การเรียนรู้ และการลงมือทำ",
+  wealth: "คุณสมบัตินี้ส่งผลต่อรายได้ ธุรกิจ ลูกค้า",
+  power: "คุณสมบัตินี้เชื่อมโยงกับหน้าที่ ตำแหน่ง กฏเกณฑ์ และความรับผิดชอบ",
+  resource: "คุณสมบัตินี้เชื่อมโยงกับผู้ใหญ่ หัวหน้า ครู อาจารย์ ครอบครัวและผู้สนับสนุน",
+}
+function relationDetail(self: string | undefined, other: string): string {
+  if (!self) return ""
+  if (self === other) return RELATION_DETAIL.same
+  if (GEN[self] === other) return RELATION_DETAIL.output
+  if (GEN[other] === self) return RELATION_DETAIL.resource
+  if (CTRL[self] === other) return RELATION_DETAIL.wealth
+  if (CTRL[other] === self) return RELATION_DETAIL.power
+  return ""
+}
 function relationRole(self: string | undefined, other: string): string {
   if (!self) return ""
   if (self === other) return RELATION_ROLE.same
@@ -843,6 +860,15 @@ export function DestinyScreen({ previewData }: { previewData?: DestinyData } = {
   const hasBirthTime = data?.hasBirthTime !== false
   const shownPillarKeys = PILLAR_ORDER.filter((k) => hasBirthTime || (k !== "hour" && k !== "mingGong"))
   // นับธาตุ "เฉพาะ 8 ตัว" ของ 4 หลัก (ก้าน+กิ่ง ยาม/วัน/เดือน/ปี) — ไม่นับลัคนาและไส้แฝง (巳=ไฟ)
+  // นิสัยธาตุ แข็ง/อ่อน จากการนับ 8 ตัว (ซินแสนุ้ย 2026-10-07: ธาตุน้ำ 0 = อ่อนแอ ต้องขึ้นความหมายธาตุอ่อน)
+  // กฎตามเอกสาร: แข็งเมื่อ นับ ≥2 หรือ นับ ≥1 และมีธาตุส่งเสริม ≥1 · นอกนั้น (รวม 0) = อ่อน
+  const nisaiTextOf = (el: string, counts: Record<string, number>): string | undefined => {
+    const n = analysis?.elementNisai?.find((x) => x.element === el)
+    if (!n) return undefined
+    const c = counts[el] ?? 0
+    const strong = c >= 2 || (c >= 1 && (counts[SUPPORTED_BY[el]] ?? 0) >= 1)
+    return (strong ? n.strongText : n.weakText) ?? n.text
+  }
   const pillarElCounts: Record<string, number> = (() => {
     const out: Record<string, number> = { wood: 0, fire: 0, earth: 0, metal: 0, water: 0 }
     for (const k of ["hour", "day", "month", "year"] as const) {
@@ -956,8 +982,8 @@ export function DestinyScreen({ previewData }: { previewData?: DestinyData } = {
     }))
     const dmEl = CHAR_ELEMENT[summary.dayMaster?.[0] ?? ""]
     const elementsOut: BaziElement[] = ELEMENT_ROW_ORDER.map((el) => ({
-      th: ELEMENT_TH[el] ?? el, count: analysis?.totalCounts?.[el] ?? null,
-      role: relationRole(dmEl, el), nisai: analysis?.elementNisai?.find((n) => n.element === el)?.text,
+      th: ELEMENT_TH[el] ?? el, count: pillars ? pillarElCounts[el] : (analysis?.totalCounts?.[el] ?? null),
+      role: relationRole(dmEl, el), nisai: pillars ? nisaiTextOf(el, pillarElCounts) : analysis?.elementNisai?.find((n) => n.element === el)?.text,
       tint: ELEMENT_TINT[el] ?? "#f1f2f4", mascot: ELEMENT_MASCOT[el] ?? "",
     }))
     return { headline: `ธาตุ${summary.elementTh}${polarityOf(summary.dayMaster)}`, tagline: summary.tagline ?? undefined, pillars: pillarsOut, luck: luckOut, years: yearsOut, elements: elementsOut }
@@ -1222,7 +1248,7 @@ export function DestinyScreen({ previewData }: { previewData?: DestinyData } = {
                         const dmEl = CHAR_ELEMENT[summary.dayMaster?.[0] ?? ""]
                         const count = pillars ? pillarElCounts[el] : analysis?.totalCounts?.[el]
                         const supportCount = pillars ? (pillarElCounts[SUPPORTED_BY[el]] ?? 0) : 0
-                        const nisai = analysis?.elementNisai?.find((n) => n.element === el)
+                        const nisaiText = pillars ? nisaiTextOf(el, pillarElCounts) : analysis?.elementNisai?.find((n) => n.element === el)?.text
                         return (
                           <div key={el} className="flex items-center gap-3">
                             <span className="grid h-12 w-12 flex-none place-items-center overflow-hidden rounded-[14px]" style={{ backgroundColor: ELEMENT_TINT[el] }}>
@@ -1239,8 +1265,11 @@ export function DestinyScreen({ previewData }: { previewData?: DestinyData } = {
                                 ) : null}
                               </p>
                               <p className="text-[13px] leading-5 text-[#888]">{relationRole(dmEl, el)}</p>
-                              {nisai && count !== 0 ? (
-                                <p className="mt-0.5 text-[12px] leading-[18px] text-v3-text-body" data-testid={`destiny-nisai-${el}`}>{nisai.text}</p>
+                              {nisaiText ? (
+                                <p className="mt-0.5 text-[12px] leading-[18px] text-v3-text-body" data-testid={`destiny-nisai-${el}`}>{nisaiText}</p>
+                              ) : null}
+                              {nisaiText && relationDetail(dmEl, el) ? (
+                                <p className="mt-0.5 text-[12px] leading-[18px] text-v3-text-muted" data-testid={`destiny-nisai-rel-${el}`}>{relationDetail(dmEl, el)}</p>
                               ) : null}
                             </div>
                           </div>
