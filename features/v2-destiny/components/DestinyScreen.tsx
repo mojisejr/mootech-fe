@@ -583,6 +583,23 @@ const RELATION_ROLE: Record<string, string> = {
   power: "หน้าที่การงาน",
   resource: "ผู้สนับสนุน/ส่งเสริม",
 }
+// บรรทัด "คุณสมบัตินี้..." ตามความสัมพันธ์ธาตุกับดิถี — ส่วนสีน้ำเงินในเอกสารซินแส "นิสัย 5 ธาตุแข็งแรง/อ่อนแอ" (2026-10-11)
+const RELATION_DETAIL: Record<string, string> = {
+  same: "คุณสมบัตินี้สะท้อนตัวตน เพื่อน พี่น้อง หุ้นส่วน และการแข่งขัน",
+  output: "คุณสมบัตินี้ถ่ายทอดผ่าน ความคิด คำพูด ผลงาน การเรียนรู้ และการลงมือทำ",
+  wealth: "คุณสมบัตินี้ส่งผลต่อรายได้ ธุรกิจ ลูกค้า",
+  power: "คุณสมบัตินี้เชื่อมโยงกับหน้าที่ ตำแหน่ง กฏเกณฑ์ และความรับผิดชอบ",
+  resource: "คุณสมบัตินี้เชื่อมโยงกับผู้ใหญ่ หัวหน้า ครู อาจารย์ ครอบครัวและผู้สนับสนุน",
+}
+function relationDetail(self: string | undefined, other: string): string {
+  if (!self) return ""
+  if (self === other) return RELATION_DETAIL.same
+  if (GEN[self] === other) return RELATION_DETAIL.output
+  if (GEN[other] === self) return RELATION_DETAIL.resource
+  if (CTRL[self] === other) return RELATION_DETAIL.wealth
+  if (CTRL[other] === self) return RELATION_DETAIL.power
+  return ""
+}
 function relationRole(self: string | undefined, other: string): string {
   if (!self) return ""
   if (self === other) return RELATION_ROLE.same
@@ -1250,6 +1267,9 @@ export function DestinyScreen({ previewData }: { previewData?: DestinyData } = {
                               <p className="text-[13px] leading-5 text-[#888]">{relationRole(dmEl, el)}</p>
                               {nisaiText ? (
                                 <p className="mt-0.5 text-[12px] leading-[18px] text-v3-text-body" data-testid={`destiny-nisai-${el}`}>{nisaiText}</p>
+                              ) : null}
+                              {nisaiText && relationDetail(dmEl, el) ? (
+                                <p className="mt-0.5 text-[12px] leading-[18px] text-v3-text-muted" data-testid={`destiny-nisai-rel-${el}`}>{relationDetail(dmEl, el)}</p>
                               ) : null}
                             </div>
                           </div>
