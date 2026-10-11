@@ -35,6 +35,10 @@ export function FengshuiScreen({ backHref = "/v2/service" }: { backHref?: string
   const [redeeming, setRedeeming] = useState(false)
   const [redeemMsg, setRedeemMsg] = useState<string | null>(null)
   const [lastCount, setLastCount] = useState<1 | 3>(3)
+  // server render เห็น auth = loading (ปุ่ม disabled) แต่ client render แรกอ่าน cookie ได้ทันที → React ไม่แก้ attribute
+  // disabled ที่ค้างจาก SSR (hydration mismatch) ปุ่มเลยกดไม่ได้บน staging. รอ mount ก่อนค่อยเปิดปุ่ม → render แรกตรงกันทั้งสองฝั่ง
+  const [mounted, setMounted] = useState(false)
+  useEffect(() => { setMounted(true) }, [])
 
   useEffect(() => {
     try {
@@ -138,8 +142,8 @@ export function FengshuiScreen({ backHref = "/v2/service" }: { backHref?: string
                 ))}
               </div>
               <div className="flex flex-col gap-2">
-                <KitButton onClick={() => void predict(3)} disabled={cd.active || authStatus === "loading"} testId="fengshui-draw-3">{cd.active ? `รออีก ${cd.secondsLeft} วิ` : "สุ่ม 3 ใบ"}</KitButton>
-                <button onClick={() => void predict(1)} disabled={cd.active || authStatus === "loading"} data-testid="fengshui-draw-1" className="grid h-12 w-full place-items-center rounded-full border border-v3-border-card bg-white text-[15px] font-bold text-v3-navy disabled:opacity-50">สุ่ม 1 ใบ</button>
+                <KitButton onClick={() => void predict(3)} disabled={!mounted || cd.active || authStatus === "loading"} testId="fengshui-draw-3">{cd.active ? `รออีก ${cd.secondsLeft} วิ` : "สุ่ม 3 ใบ"}</KitButton>
+                <button onClick={() => void predict(1)} disabled={!mounted || cd.active || authStatus === "loading"} data-testid="fengshui-draw-1" className="grid h-12 w-full place-items-center rounded-full border border-v3-border-card bg-white text-[15px] font-bold text-v3-navy disabled:opacity-50">สุ่ม 1 ใบ</button>
               </div>
             </>
           )}
