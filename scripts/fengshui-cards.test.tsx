@@ -5,6 +5,7 @@
 //   FG3 มีคำถาม → ส่ง question + แสดง "สรุปคำทำนายนี้" (summary แบบไพ่อื่น ไม่ใช่แบบแชท) ก่อนรายใบ
 //   FG4 สุ่ม 1 → count:1 → ผล 1 ใบ
 //   FG5 402 → โควตาหมด + ปุ่มแลก QI (ไม่โชว์ผล) → แลกแล้วเปิดต่อได้
+//   FG6 พักบริการ (owner 2026-10-12, mumate-fengshui-hold-001): ไม่มีการ์ดในฮับ · เข้า URL ตรงแล้วถูกส่งไป coming-soon
 import React from 'react'
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, cleanup, fireEvent, waitFor } from '@testing-library/react'
@@ -98,5 +99,26 @@ describe('ไพ่อาถรรพ์ฮวงจุ้ย (FengshuiScreen)',
     await waitFor(() => expect(screen.getByTestId('fengshui-result')).toBeTruthy(), { timeout: 4000 })
     expect(spendBodies[0]).toEqual({ code: 'card_use' })
     expect(screen.getAllByTestId('fengshui-card').length).toBe(3)
+  })
+})
+
+describe('ไพ่อาถรรพ์ฮวงจุ้ย — พักบริการ (FG6)', () => {
+  const saved = process.env.V2_PREVIEW_KEY
+  beforeEach(() => { delete process.env.V2_PREVIEW_KEY }) // launched gate: every signed-in visitor passes it
+  afterEach(() => { if (saved === undefined) delete process.env.V2_PREVIEW_KEY; else process.env.V2_PREVIEW_KEY = saved })
+
+  it('FG6a ฮับไม่โชว์การ์ด แต่ catalog ยังเก็บไว้ (เปิดคืน = ลบ flag เดียว)', async () => {
+    const { SERVICES, VISIBLE_SERVICES } = await import('@/features/v2-service/services')
+    expect(VISIBLE_SERVICES.some((s) => s.id === 'fengshui-cards')).toBe(false)
+    expect(SERVICES.some((s) => s.id === 'fengshui-cards')).toBe(true)
+  })
+
+  it('FG6b เข้า /v2/fortune/fengshui ตรง → redirect ไป coming-soon พร้อมชื่อบริการ', async () => {
+    const { getServerSideProps } = await import('@/pages/v2/fortune/fengshui')
+    const ctx = { req: { cookies: {} }, res: { setHeader: () => {} }, query: {}, resolvedUrl: '/v2/fortune/fengshui' }
+    const out = await getServerSideProps(ctx as unknown as Parameters<typeof getServerSideProps>[0])
+    expect(out).toEqual({
+      redirect: { destination: `/v2/service/coming-soon?service=${encodeURIComponent('ไพ่อาถรรพ์ฮวงจุ้ย')}`, permanent: false },
+    })
   })
 })
