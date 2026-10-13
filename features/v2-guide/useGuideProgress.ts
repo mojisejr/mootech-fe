@@ -1,13 +1,15 @@
-// features/v2-guide/useGuideProgress.ts — ความคืบหน้า "เส้นทางมือใหม่" เก็บในเครื่อง (localStorage)
-// ทุกคอมโพเนนต์ที่ใช้ hook นี้ sync กันผ่าน event (เปลี่ยนหน้าแล้วการ์ดหน้าหลักอัปเดตทันที)
-// storage ปิด/เสีย = ไกด์ยังใช้ได้ แค่ไม่จำ (ไม่ทำให้หน้าพัง)
+// features/v2-guide/useGuideProgress.ts — ความคืบหน้า "เส้นทางมือใหม่"
+// แหล่งจริง = ภารกิจ engine (guide_<id> รับรางวัลแล้ว = ผ่าน → ข้ามเครื่องได้) · localStorage = แคชให้จอขึ้นทันที
+// ทุกคอมโพเนนต์ที่ใช้ hook นี้ sync กันผ่าน event · storage/เน็ตเสีย = ไกด์ยังใช้ได้ ไม่ทำให้หน้าพัง
 import { useCallback, useEffect, useState } from "react"
+
+import { GUIDE_QUESTS, missionIdOf } from "@/features/v2-guide/quests"
 
 const KEY = "mumate-guide-v1"
 const EVENT = "mumate-guide-change"
 
-export type GuideState = { done: string[]; hidden: boolean }
-const EMPTY: GuideState = { done: [], hidden: false }
+export type GuideState = { done: string[]; hidden: boolean; bonus: boolean }
+const EMPTY: GuideState = { done: [], hidden: false, bonus: false }
 
 function read(): GuideState {
   if (typeof window === "undefined") return EMPTY
@@ -15,7 +17,11 @@ function read(): GuideState {
     const raw = window.localStorage.getItem(KEY)
     if (!raw) return EMPTY
     const j = JSON.parse(raw) as Partial<GuideState>
-    return { done: Array.isArray(j.done) ? j.done.filter((x): x is string => typeof x === "string") : [], hidden: j.hidden === true }
+    return {
+      done: Array.isArray(j.done) ? j.done.filter((x): x is string => typeof x === "string") : [],
+      hidden: j.hidden === true,
+      bonus: j.bonus === true,
+    }
   } catch {
     return EMPTY
   }
@@ -28,6 +34,42 @@ function write(next: GuideState) {
     /* storage ปิด */
   }
   window.dispatchEvent(new Event(EVENT))
+}
+
+type MissionRow = { id?: string; completed?: boolean; claimedAt?: string | null }
+
+/** ดึงภารกิจจาก engine แล้วรวมเข้ากับที่เครื่องจำไว้ (ผ่านที่เครื่องอื่นก็นับ) */
+export async function syncGuideFromServer(): Promise<void> {
+  try {
+    const r = await fetch("/api/missions")
+    if (!r.ok) return
+    const j = (await r.json()) as { missions?: MissionRow[] }
+    const rows = Array.isArray(j.missions) ? j.missions : []
+    const claimed = new Set(rows.filter((m) => m.completed || m.claimedAt).map((m) => m.id))
+    const cur = read()
+    const done = new Set(cur.done)
+    for (const q of GUIDE_QUESTS) if (claimed.has(missionIdOf(q.id))) done.add(q.id)
+    const bonus = cur.bonus || claimed.has("guide_complete")
+    if (done.size !== cur.done.length || bonus !== cur.bonus) write({ ...cur, done: Array.from(done), bonus })
+  } catch {
+    /* ออฟไลน์ */
+  }
+}
+
+/** บอก engine ว่าผ่านขั้นนี้ → engine จ่าย QI ครั้งเดียว. คืน true ถ้าได้รางวัลรอบนี้ */
+export async function reportGuideMission(missionId: string): Promise<boolean> {
+  try {
+    const r = await fetch("/api/missions", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ missionId }),
+    })
+    if (!r.ok) return false
+    const j = (await r.json().catch(() => ({}))) as { rewarded?: boolean }
+    return j.rewarded === true
+  } catch {
+    return false
+  }
 }
 
 export function useGuideProgress() {
@@ -54,7 +96,7 @@ export function useGuideProgress() {
   }, [])
 
   const setHidden = useCallback((hidden: boolean) => write({ ...read(), hidden }), [])
-  const reset = useCallback(() => write(EMPTY), [])
+  const setBonus = useCallback(() => write({ ...read(), bonus: true }), [])
 
-  return { ...state, ready, markDone, setHidden, reset }
+  return { ...state, ready, markDone, setHidden, setBonus }
 }
