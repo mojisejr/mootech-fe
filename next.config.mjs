@@ -23,6 +23,30 @@ const nextConfig = {
       { source: "/course", destination: "/course/calendar", permanent: false },
     ];
   },
+  // WebP from the same image URLs (CIEL mumate-image-weight-001): a browser whose Accept says image/webp gets
+  // the <file>.webp twin that scripts/webp-siblings.ts writes before the build; crawlers and old webviews get
+  // the PNG/JPEG. beforeFiles, because a public/ file otherwise answers before any rewrite is looked at.
+  // Every PNG/JPEG under public/images has a twin (the script exits 1 otherwise), so the rewrite never 404s.
+  async rewrites() {
+    return {
+      beforeFiles: [
+        {
+          source: "/images/:path(.*\\.(?:png|jpg|jpeg|PNG|JPG|JPEG))",
+          has: [{ type: "header", key: "accept", value: ".*image/webp.*" }],
+          destination: "/images/:path.webp",
+        },
+      ],
+    };
+  },
+  // The same URL now answers in two formats, so any cache between us and the browser must key on Accept.
+  async headers() {
+    return [
+      {
+        source: "/images/:path(.*\\.(?:png|jpg|jpeg|PNG|JPG|JPEG))",
+        headers: [{ key: "Vary", value: "Accept" }],
+      },
+    ];
+  },
   // Container build only (mumate-infra-move-001 slice 1): the Dockerfile sets NEXT_OUTPUT_STANDALONE=1 so
   // `next build` also emits .next/standalone (server.js + traced node_modules) for `node server.js` in the
   // image. Deliberately NOT unconditional — the Vercel build keeps exactly the output it has today.

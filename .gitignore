@@ -91,3 +91,11 @@ public/swe-worker-*.js
 
 # local agent tooling
 .claude/
+
+# WebP twins of public/images — build output of scripts/webp-siblings.ts (CIEL mumate-image-weight-001)
+public/images/**/*.png.webp
+public/images/**/*.jpg.webp
+public/images/**/*.jpeg.webp
+public/images/**/*.PNG.webp
+public/images/**/*.JPG.webp
+public/images/**/*.JPEG.webp

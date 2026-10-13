@@ -18,6 +18,13 @@ test-results
 playwright-report
 tsconfig.tsbuildinfo
 *.log
+# WebP twins of public/images (scripts/webp-siblings.ts runs in the builder; a dev machine's copies stay out)
+public/images/**/*.png.webp
+public/images/**/*.jpg.webp
+public/images/**/*.jpeg.webp
+public/images/**/*.PNG.webp
+public/images/**/*.JPG.webp
+public/images/**/*.JPEG.webp
 # Repository plumbing, evidence and tooling the server never reads at runtime.
 .git
 .github
