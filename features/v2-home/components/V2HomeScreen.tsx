@@ -16,6 +16,7 @@ import { Reveal } from '@/features/v2-shell/components/Reveal'
 import { SinseSection } from './sections/SinseSection'
 import { CalendarMenu } from './CalendarMenu'
 import { hrefById, type ServiceId } from '@/features/v2-service/services'
+import { GuideCard } from '@/features/v2-guide/GuideCard'
 import { HeaderTools } from '@/features/v2-shell/components/AppHeader'
 import type { MembershipLike } from '@/features/v2-shell/header-badge'
 import { TopBarBell } from '@/features/v2-shell/components/TopBarBell'
@@ -131,6 +132,8 @@ export function V2HomeScreen({ greeting, mascotCharacter, fortune, fortuneLoadin
             removing this belt keeps the gate silent ✓, and removing goo's guard with the belt already
             gone turns it CLAIMED ✗. One owner for the rule, one tooth watching it. */}
         <ScoreRingCard fortune={fortune} loading={fortuneLoading} />
+        {/* เส้นทางมือใหม่ — ไกด์สอนเล่นแบบเกม (เอ็ม 2026-10-13) */}
+        <GuideCard />
         <ManifestCard mascotCharacter={mascotCharacter} element={element} loading={loading.mascot} />
         {/* แถบโปรโมชัน (carousel) — ใต้มานิเฟส ก่อนดวงสมพงศ์ (เอ็ม 2026-09-23) */}
         <PromoCarousel />

@@ -329,6 +329,7 @@ export default defineConfig({
       'scripts/fortune-sage.test.tsx', // โหมดเซียน — เซียมซีเสี่ยงทาย (เสี่ยง→ผล 6 หมวด · toggle รัก · 402 · แชร์ earn)
       'scripts/fortune-cards.test.tsx', // โหมดเซียน — oracle/divine (เปิดการ์ด: เลือก 3→เปิด→ผล+น้ำหนัก% · สุ่ม · 402)
       'scripts/fengshui-cards.test.tsx', // ไพ่อาถรรพ์ฮวงจุ้ย (FengshuiScreen: สุ่ม 3/1 · คำถาม+คำตอบ · 402→แลก QI)
+      'scripts/newbie-guide.test.tsx', // เส้นทางมือใหม่ (การ์ดหน้าหลัก · นับภารกิจ · มาสคอตอธิบาย · ซ่อน)
       'scripts/one-book-screen.test.tsx', // บริการ one-book (Your Life Code) — hero/ราคา/CTA ไลน์ + accordion 15 ด้าน
       'scripts/sinsae-screen.test.tsx', // บริการ sinsae (ดูดวงส่วนตัว กับซินแส) — 3 แพ็ก + trust bar + CTA ไลน์
 
