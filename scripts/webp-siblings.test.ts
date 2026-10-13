@@ -76,4 +76,14 @@ describe('rewrite ⇔ script', () => {
     }
     expect(config).toContain('destination: "/images/:path.webp"')
   })
+  it('the rewrite is on only where the twins are written: the Dockerfile writes them, then sets WEBP_TWINS=1', async () => {
+    const config = await fs.readFile(path.resolve(__dirname, '../next.config.mjs'), 'utf8')
+    expect(config).toContain('if (process.env.WEBP_TWINS !== "1") return [];')
+    const docker = await fs.readFile(path.resolve(__dirname, '../Dockerfile'), 'utf8')
+    const twins = docker.indexOf('RUN npx tsx scripts/webp-siblings.ts')
+    const flag = docker.indexOf('ENV WEBP_TWINS=1')
+    const build = docker.indexOf('RUN npm run build')
+    expect(twins).toBeGreaterThan(-1)
+    expect(twins < flag && flag < build).toBe(true)
+  })
 })

@@ -27,7 +27,10 @@ const nextConfig = {
   // the <file>.webp twin that scripts/webp-siblings.ts writes before the build; crawlers and old webviews get
   // the PNG/JPEG. beforeFiles, because a public/ file otherwise answers before any rewrite is looked at.
   // Every PNG/JPEG under public/images has a twin (the script exits 1 otherwise), so the rewrite never 404s.
+  // Only where the twins exist: the Dockerfile writes them and sets WEBP_TWINS=1 for `next build`. A dev machine
+  // (`next dev`, or a local build without the script) has no twins and keeps plain PNGs instead of 404s.
   async rewrites() {
+    if (process.env.WEBP_TWINS !== "1") return [];
     return {
       beforeFiles: [
         {
