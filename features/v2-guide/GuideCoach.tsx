@@ -37,7 +37,9 @@ export function GuideCoach() {
     const fromGuide = typeof router.query.guide === "string" ? router.query.guide : null
     // เลือกเควสตาม id (หลายเควสอยู่หน้าเดียวกันได้ เช่น ดวงของฉัน / เส้นทางชีวิต / แชร์) แล้วเช็กว่าอยู่หน้าของเควสนั้นจริง
     const here = fromGuide ? GUIDE_QUESTS.find((q) => q.id === fromGuide) : undefined
-    if (here && pathMatches(here, router.pathname)) {
+    // หน้า dynamic (เช่น compatibility/[kind]) pathname เป็นแม่แบบ → เทียบกับ path จริงใน asPath
+    const realPath = (router.asPath || router.pathname).split(/[?#]/)[0]
+    if (here && (pathMatches(here, realPath) || pathMatches(here, router.pathname))) {
       setQuest(here)
       setStepIdx(0)
       setRewarded(false)
@@ -46,7 +48,7 @@ export function GuideCoach() {
       setQuest(null)
       setPhase("idle")
     }
-  }, [router.isReady, router.pathname, router.query.guide])
+  }, [router.isReady, router.pathname, router.asPath, router.query.guide])
 
   // หาปุ่มของขั้นปัจจุบัน (รอหน้าโหลด) → เลื่อนให้เห็น → ไฮไลต์
   useEffect(() => {

@@ -11,7 +11,7 @@ import React from 'react'
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, cleanup, fireEvent, act, waitFor } from '@testing-library/react'
 
-let route: { pathname: string; query: Record<string, string>; isReady: boolean; push: ReturnType<typeof vi.fn> } = { pathname: '/v2', query: {}, isReady: true, push: vi.fn() }
+let route: { pathname: string; asPath?: string; query: Record<string, string>; isReady: boolean; push: ReturnType<typeof vi.fn> } = { pathname: '/v2', query: {}, isReady: true, push: vi.fn() }
 vi.mock('next/router', () => ({ useRouter: () => route }))
 
 let posted: string[] = []
@@ -137,5 +137,11 @@ describe('เส้นทางมือใหม่', () => {
     route = { ...route, pathname: '/v2/destiny', query: { guide: 'lifepath' } }
     render(<><div data-testid="destiny-lifepath-tabs"><button>5 ปี</button></div><button data-testid="destiny-weakness-toggle">x</button><GuideCoach /></>)
     await waitFor(() => expect(screen.getByTestId('guide-step-text').textContent).toContain('เส้นทางชีวิต'), { timeout: 3000 })
+  })
+
+  it('NG9 หน้า dynamic route (compatibility/[kind]) → ไกด์ยังขึ้น (เทียบ asPath)', async () => {
+    route = { ...route, pathname: '/v2/service/compatibility/[kind]', asPath: '/v2/service/compatibility/love?guide=compat', query: { guide: 'compat', kind: 'love' } }
+    render(<><button data-testid="compat-person2">เลือกคู่</button><GuideCoach /></>)
+    await waitFor(() => expect(screen.getByTestId('guide-spotlight')).toBeTruthy(), { timeout: 3000 })
   })
 })
