@@ -4,7 +4,7 @@
 import { useRouter } from "next/router"
 import { useEffect, useRef, useState } from "react"
 
-import { GUIDE_QUESTS, GUIDE_STEP_QI, GUIDE_TOTAL, missionIdOf, questForPath, type GuideQuest } from "@/features/v2-guide/quests"
+import { GUIDE_QUESTS, GUIDE_STEP_QI, chapterOf, missionIdOf, pathMatches, type GuideQuest } from "@/features/v2-guide/quests"
 import { reportGuideMission, useGuideProgress } from "@/features/v2-guide/useGuideProgress"
 
 type Phase = "idle" | "searching" | "step" | "fallback" | "done"
@@ -35,8 +35,9 @@ export function GuideCoach() {
   useEffect(() => {
     if (!router.isReady) return
     const fromGuide = typeof router.query.guide === "string" ? router.query.guide : null
-    const here = questForPath(router.pathname)
-    if (fromGuide && here && here.id === fromGuide) {
+    // เลือกเควสตาม id (หลายเควสอยู่หน้าเดียวกันได้ เช่น ดวงของฉัน / เส้นทางชีวิต / แชร์) แล้วเช็กว่าอยู่หน้าของเควสนั้นจริง
+    const here = fromGuide ? GUIDE_QUESTS.find((q) => q.id === fromGuide) : undefined
+    if (here && pathMatches(here, router.pathname)) {
       setQuest(here)
       setStepIdx(0)
       setRewarded(false)
@@ -124,8 +125,11 @@ export function GuideCoach() {
   if (!quest || phase === "idle" || phase === "searching") return null
 
   const stop = () => { setPhase("idle"); setQuest(null); setRect(null) }
-  const doneCount = GUIDE_QUESTS.filter((q) => done.includes(q.id)).length
-  const next = GUIDE_QUESTS.find((q) => !done.includes(q.id) && q.id !== quest.id)
+  // ภารกิจต่อไป = ข้อถัดไปในบทเดียวกัน · บทจบแล้ว → กลับหน้าหลักรับโบนัสบท (บทถัดไปปลดล็อก)
+  const chapter = chapterOf(quest.id)
+  const chapterDone = chapter ? chapter.quests.filter((q) => done.includes(q.id) || q.id === quest.id).length : 0
+  const chapterTotal = chapter?.quests.length ?? 0
+  const next = chapter?.quests.find((q) => !done.includes(q.id) && q.id !== quest.id)
   const goNext = () => { stop(); void router.push(next ? `${next.href}?guide=${next.id}` : "/v2") }
 
   // ── ไฮไลต์ปุ่ม "กดตรงนี้" ──
@@ -179,7 +183,7 @@ export function GuideCoach() {
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src={MASCOT} alt="" aria-hidden className="h-20 w-auto flex-none drop-shadow" />
         <div className="relative flex-1 rounded-[18px] border border-v3-sapphire/20 bg-white p-3 shadow-lg">
-          <p className="text-[11px] font-black text-v3-sapphire">เส้นทางมือใหม่ · {doneCount}/{GUIDE_TOTAL}</p>
+          <p className="text-[11px] font-black text-v3-sapphire">บท{chapter?.title ?? "มือใหม่"} · {chapterDone}/{chapterTotal}</p>
           {isDone ? (
             <p className="mt-0.5 text-[15px] font-black text-v3-navy" data-testid="guide-reward">
               ภารกิจสำเร็จ! {rewarded ? `+${GUIDE_STEP_QI} QI 🎉` : "🎉"}
@@ -191,7 +195,7 @@ export function GuideCoach() {
           <div className="mt-2 flex items-center justify-end gap-2">
             {isDone ? (
               <button type="button" data-testid="guide-coach-next" onClick={goNext} className="rounded-full bg-v3-sapphire px-3 py-1.5 text-[12px] font-bold text-v3-lime">
-                {next ? "ภารกิจต่อไป →" : "กลับหน้าหลัก รับรางวัลจบ →"}
+                {next ? "ภารกิจต่อไป →" : "จบบทแล้ว! กลับไปรับโบนัส →"}
               </button>
             ) : (
               <button type="button" data-testid="guide-coach-ok" onClick={() => complete(quest)} className="rounded-full bg-v3-sapphire px-3 py-1.5 text-[12px] font-bold text-v3-lime">

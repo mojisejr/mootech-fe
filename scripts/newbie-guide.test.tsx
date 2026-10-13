@@ -1,11 +1,12 @@
-// scripts/newbie-guide.test.tsx — เส้นทางมือใหม่ (ไกด์ "ปุ่มพากด" + รางวัล QI · เอ็ม 2026-10-13)
-//   NG1 การ์ดหน้าหลัก: 0/N + ภารกิจถัดไป = ภารกิจแรก (ลิงก์มี ?guide=) + บอกรางวัล QI
+// scripts/newbie-guide.test.tsx — เส้นทางมือใหม่ 6 บท (ไกด์ "ปุ่มพากด" + รางวัล QI · เอ็ม 2026-10-13)
+//   NG1 การ์ดหน้าหลัก: บทที่ 1 · 0/6 + ภารกิจถัดไป = ภารกิจแรก (ลิงก์มี ?guide=) + บอกรางวัล QI
 //   NG2 มาจากไกด์ → ไฮไลต์ปุ่มจริง "กดตรงนี้" → ผู้ใช้กดปุ่มนั้น → ภารกิจสำเร็จ + ยิง /api/missions guide_<id> → โชว์ +QI
 //   NG3 เข้าหน้าเอง (ไม่มี ?guide=) → ไม่ไฮไลต์ ไม่นับผ่าน (ต้องทำตามไกด์ถึงได้รางวัล)
 //   NG4 ภารกิจหลายขั้น (เซียมซี): ช่องพิมพ์ผ่านเมื่อเริ่มพิมพ์ → ขั้นถัดไปไฮไลต์ปุ่มเสี่ยงทาย
-//   NG5 ครบทุกภารกิจ → ปุ่มรับรางวัลจบ → ยิง guide_complete
+//   NG5 จบบท → ปุ่มรับโบนัสบท (guide_ch1) → บทถัดไป · จบทุกบท+โบนัสครบ → รางวัลใหญ่ guide_complete + ป้าย
 //   NG6 sync จาก engine: guide_<id> ที่รับแล้ว (อีกเครื่อง) นับว่าผ่าน
 //   NG7 กดซ่อน → การ์ดหายและจำไว้ · questForPath จับ path ลูก
+//   NG8 6 บท 25 ภารกิจ · บท 2 ล็อกจนบท 1 ครบ · หลายเควสหน้าเดียวกันเลือกตาม ?guide=
 import React from 'react'
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, cleanup, fireEvent, act, waitFor } from '@testing-library/react'
@@ -27,7 +28,7 @@ const fetchMock = vi.fn(async (url: string, init?: { method?: string; body?: str
   return { ok: true, status: 200, json: async () => ({}) }
 })
 vi.stubGlobal('fetch', fetchMock)
-// jsdom ไม่มี scrollIntoView + ปุ่มต้องมีขนาด (findTarget ข้ามของที่ width 0)
+// jsdom ไม่มี scrollIntoView + ปุ่มต้องมีขนาด/อยู่ในจอ (findTarget ข้ามของที่ width 0)
 Element.prototype.scrollIntoView = vi.fn()
 const realRect = Element.prototype.getBoundingClientRect
 beforeEach(() => {
@@ -36,26 +37,27 @@ beforeEach(() => {
 
 import { GuideCard } from '@/features/v2-guide/GuideCard'
 import { GuideCoach } from '@/features/v2-guide/GuideCoach'
-import { GUIDE_QUESTS, GUIDE_TOTAL, questForPath } from '@/features/v2-guide/quests'
+import { GUIDE_CHAPTERS, GUIDE_QUESTS, GUIDE_TOTAL, questForPath } from '@/features/v2-guide/quests'
 
 beforeEach(() => { localStorage.clear(); posted = []; serverMissions = []; fetchMock.mockClear(); route = { pathname: '/v2', query: {}, isReady: true, push: vi.fn() } })
 afterEach(() => { cleanup(); Element.prototype.getBoundingClientRect = realRect })
 
-const destiny = GUIDE_QUESTS.find((q) => q.id === 'destiny')!
-const fortune = GUIDE_QUESTS.find((q) => q.id === 'fortune')!
+const q = (id: string) => GUIDE_QUESTS.find((x) => x.id === id)!
+const CH1 = GUIDE_CHAPTERS[0].quests
 
 describe('เส้นทางมือใหม่', () => {
-  it('NG1 การ์ด: 0/N + ภารกิจถัดไป + รางวัล', () => {
+  it('NG1 การ์ด: บทที่ 1 · 0/6 + ภารกิจถัดไป + รางวัล', () => {
     render(<GuideCard />)
-    expect(screen.getByTestId('guide-progress').textContent).toBe(`0/${GUIDE_TOTAL}`)
+    expect(screen.getByTestId('guide-chapter').textContent).toContain(GUIDE_CHAPTERS[0].title)
+    expect(screen.getByTestId('guide-progress').textContent).toBe(`0/${CH1.length}`)
     const next = screen.getByTestId('guide-next')
-    expect(next.textContent).toContain(GUIDE_QUESTS[0].title)
+    expect(next.textContent).toContain(CH1[0].title)
     expect(next.textContent).toContain('QI')
-    expect(next.getAttribute('href')).toBe(`${GUIDE_QUESTS[0].href}?guide=${GUIDE_QUESTS[0].id}`)
+    expect(next.getAttribute('href')).toBe(`${CH1[0].href}?guide=${CH1[0].id}`)
   })
 
   it('NG2 ไฮไลต์ปุ่มจริง → กด → สำเร็จ + ยิง guide_destiny + โชว์รางวัล', async () => {
-    route = { ...route, pathname: destiny.href, query: { guide: destiny.id } }
+    route = { ...route, pathname: '/v2/destiny', query: { guide: 'destiny' } }
     render(<><button data-testid="destiny-weakness-toggle">จุดแข็ง-จุดอ่อน</button><GuideCoach /></>)
     await waitFor(() => expect(screen.getByTestId('guide-spotlight')).toBeTruthy(), { timeout: 3000 })
     expect(screen.getByTestId('guide-step-text').textContent).toContain('จุดแข็ง-จุดอ่อน')
@@ -66,7 +68,7 @@ describe('เส้นทางมือใหม่', () => {
   })
 
   it('NG3 เข้าหน้าเอง (ไม่มี ?guide=) → ไม่ไฮไลต์ ไม่นับผ่าน', async () => {
-    route = { ...route, pathname: destiny.href }
+    route = { ...route, pathname: '/v2/destiny' }
     render(<><button data-testid="destiny-weakness-toggle">x</button><GuideCoach /></>)
     await new Promise((r) => setTimeout(r, 700))
     expect(screen.queryByTestId('guide-spotlight')).toBeNull()
@@ -74,7 +76,8 @@ describe('เส้นทางมือใหม่', () => {
   })
 
   it('NG4 หลายขั้น: พิมพ์คำถาม → ขั้นต่อไปไฮไลต์ปุ่มเสี่ยงทาย → กด → สำเร็จ', async () => {
-    route = { ...route, pathname: fortune.href, query: { guide: fortune.id } }
+    const f = q('fortune')
+    route = { ...route, pathname: f.href, query: { guide: f.id } }
     render(<><textarea data-testid="sage-question" /><button data-testid="sage-draw">เสี่ยง</button><GuideCoach /></>)
     await waitFor(() => expect(screen.getByTestId('guide-step-text').textContent).toContain('พิมพ์คำถาม'), { timeout: 3000 })
     act(() => { fireEvent.input(screen.getByTestId('sage-question'), { target: { value: 'งาน' } }) })
@@ -84,18 +87,26 @@ describe('เส้นทางมือใหม่', () => {
     expect(posted).toEqual(['guide_fortune'])
   })
 
-  it('NG5 ครบทุกภารกิจ → รับรางวัลจบ → guide_complete', async () => {
-    localStorage.setItem('mumate-guide-v1', JSON.stringify({ done: GUIDE_QUESTS.map((q) => q.id), hidden: false, bonus: false }))
+  it('NG5 จบบท → รับโบนัสบท → บทถัดไป · จบทุกบท → รางวัลใหญ่ + ป้าย', async () => {
+    localStorage.setItem('mumate-guide-v1', JSON.stringify({ done: CH1.map((x) => x.id), hidden: false, bonuses: [] }))
+    const { unmount } = render(<GuideCard />)
+    fireEvent.click(await screen.findByTestId('guide-claim-chapter'))
+    await waitFor(() => expect(screen.getByTestId('guide-claim-msg').textContent).toContain('QI'))
+    expect(posted).toEqual(['guide_ch1'])
+    await waitFor(() => expect(screen.getByTestId('guide-chapter').textContent).toContain(GUIDE_CHAPTERS[1].title))
+    unmount()
+    posted = []
+    localStorage.setItem('mumate-guide-v1', JSON.stringify({ done: GUIDE_QUESTS.map((x) => x.id), hidden: false, bonuses: GUIDE_CHAPTERS.map((c) => `guide_${c.id}`) }))
     render(<GuideCard />)
     fireEvent.click(await screen.findByTestId('guide-claim'))
-    await waitFor(() => expect(screen.getByTestId('guide-claim-msg').textContent).toContain('QI'))
+    await waitFor(() => expect(screen.getByTestId('guide-badge')).toBeTruthy())
     expect(posted).toEqual(['guide_complete'])
   })
 
   it('NG6 sync จาก engine: ภารกิจที่รับแล้วนับว่าผ่าน', async () => {
     serverMissions = [{ id: 'guide_calendar', completed: true, claimedAt: '2026-10-13' }]
     render(<GuideCard />)
-    await waitFor(() => expect(screen.getByTestId('guide-progress').textContent).toBe(`1/${GUIDE_TOTAL}`))
+    await waitFor(() => expect(screen.getByTestId('guide-progress').textContent).toBe(`1/${CH1.length}`))
   })
 
   it('NG7 กดซ่อน → หายและจำไว้ · questForPath', () => {
@@ -105,8 +116,23 @@ describe('เส้นทางมือใหม่', () => {
     unmount()
     render(<GuideCard />)
     expect(screen.queryByTestId('guide-card')).toBeNull()
-    expect(questForPath('/v2/fortune/oracle')?.id).toBe('fortune')
-    expect(questForPath('/v2/service/compatibility/colleague')?.id).toBe('compat')
+    expect(questForPath('/v2/fortune/oracle')?.id).toBe('oracle')
+    expect(questForPath('/v2/service/compatibility/colleague')?.id).toBe('colleague')
     expect(questForPath('/v2/destinyx')).toBeUndefined()
+  })
+
+  it('NG8 6 บท 25 ภารกิจ · บท 2 ล็อก · เควสหน้าเดียวกันเลือกตาม ?guide=', async () => {
+    expect(GUIDE_CHAPTERS.length).toBe(6)
+    expect(GUIDE_TOTAL).toBe(25)
+    expect(new Set(GUIDE_QUESTS.map((x) => x.id)).size).toBe(25)
+    const { unmount } = render(<GuideCard />)
+    fireEvent.click(screen.getByTestId('guide-toggle'))
+    expect(screen.getByTestId('guide-ch-ch2').textContent).toContain('🔒')
+    expect(screen.getByTestId('guide-ch-ch1').textContent).not.toContain('🔒')
+    unmount()
+    // /v2/destiny มีทั้ง destiny / lifepath / share — ?guide=lifepath ต้องไฮไลต์แท็บเส้นทางชีวิต
+    route = { ...route, pathname: '/v2/destiny', query: { guide: 'lifepath' } }
+    render(<><div data-testid="destiny-lifepath-tabs"><button>5 ปี</button></div><button data-testid="destiny-weakness-toggle">x</button><GuideCoach /></>)
+    await waitFor(() => expect(screen.getByTestId('guide-step-text').textContent).toContain('เส้นทางชีวิต'), { timeout: 3000 })
   })
 })
