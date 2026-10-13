@@ -51,6 +51,12 @@ ENV NEXT_TELEMETRY_DISABLED=1 \
     NEXT_PUBLIC_WHATIF_API_URL=${NEXT_PUBLIC_WHATIF_API_URL}
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
+# Every public/images PNG/JPEG gets its <file>.webp twin, served from the same URL by next.config.mjs's rewrite
+# when the browser accepts WebP (CIEL mumate-image-weight-001). Exits 1 if one is missing, failing the build
+# rather than shipping a rewrite that 404s. WEBP_TWINS=1 turns the rewrite on for this build only (dev machines
+# have no twins).
+RUN npx tsx scripts/webp-siblings.ts
+ENV WEBP_TWINS=1
 RUN npm run build
 
 # ── runner ────────────────────────────────────────────────────────────────────────────────────────────────────
