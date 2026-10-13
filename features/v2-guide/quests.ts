@@ -234,11 +234,11 @@ export const GUIDE_CHAPTERS: readonly GuideChapter[] = [
       {
         id: "special_day",
         title: "วันมงคลในปฏิทิน",
-        desc: "หาวันความรัก วันลาภสวรรค์ของเดือนนี้",
+        desc: "เปิดดูวันที่ เจอวันความรัก/วันลาภสวรรค์ แตะดูคำขอพร",
         href: "/v2/calendar",
         match: ["/v2/calendar"],
         coach: "ในปฏิทินมีวันพิเศษ เช่น วันความรัก (เฒ่าจันทรา) และวันลาภสวรรค์ (ไฉ่ซิ้งเอี้ย) แตะเพื่อดูคำขอพร ที่ไหว้ และทิศมงคล",
-        steps: [{ target: [tid("special-day-open"), tid("special-day-row"), tid("calendar-day")], text: "แตะดูวันพิเศษ พร้อมคำขอพรและที่ไหว้" }],
+        steps: [{ target: [tid("special-day-open"), tid("calendar-day")], text: "แตะวันที่ แล้วเลื่อนดูหัวข้อวันพิเศษ (มีคำขอพรและที่ไหว้)" }],
       },
     ],
   },
