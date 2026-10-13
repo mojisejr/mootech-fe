@@ -15,10 +15,24 @@ export function GuideCard() {
 
   useEffect(() => { void syncGuideFromServer() }, [])
 
-  if (!ready || hidden) return null
+  if (!ready) return null
 
   const { chapters, current, allQuestsDone, finalClaimed } = guideStatus(done, bonuses)
   const cur = current
+
+  // ซ่อน = ย่อเหลือแถบเล็ก (ไม่หายไป) กดเพื่อเปิดกลับ
+  if (hidden) {
+    return (
+      <button type="button" onClick={() => setHidden(false)} data-testid="guide-collapsed" className="mb-6 flex w-full items-center gap-3 rounded-full bg-white px-4 py-2 text-left v3-shadow-card">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src="/images/v2/mascot/01-nav.png" alt="" aria-hidden className="h-8 w-auto flex-none" />
+        <span className="min-w-0 flex-1 truncate text-[13px] font-black text-v3-navy">
+          เส้นทางมือใหม่{cur ? ` · บทที่ ${cur.index + 1}/${GUIDE_CHAPTERS.length} · ${cur.doneCount}/${cur.chapter.quests.length}` : finalClaimed ? ` · 🏅 ${GUIDE_BADGE}` : ""}
+        </span>
+        <span className="flex-none text-[12px] font-bold text-v3-sapphire" data-testid="guide-show">แสดง ↓</span>
+      </button>
+    )
+  }
   const next = cur ? cur.chapter.quests.find((q) => !done.includes(q.id)) : undefined
   const pct = cur ? Math.round((cur.doneCount / cur.chapter.quests.length) * 100) : 100
 
@@ -54,8 +68,8 @@ export function GuideCard() {
             </p>
           )}
         </div>
-        <button type="button" onClick={() => setHidden(true)} aria-label="ซ่อนเส้นทางมือใหม่" data-testid="guide-hide" className="flex-none text-[12px] font-bold text-v3-text-muted">
-          ซ่อน
+        <button type="button" onClick={() => setHidden(true)} aria-label="ย่อเส้นทางมือใหม่" data-testid="guide-hide" className="flex-none text-[12px] font-bold text-v3-text-muted">
+          ย่อ
         </button>
       </div>
 
