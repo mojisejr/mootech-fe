@@ -5,7 +5,7 @@
 //   NG4 ภารกิจหลายขั้น (เซียมซี): ช่องพิมพ์ผ่านเมื่อเริ่มพิมพ์ → ขั้นถัดไปไฮไลต์ปุ่มเสี่ยงทาย
 //   NG5 จบบท → ปุ่มรับโบนัสบท (guide_ch1) → บทถัดไป · จบทุกบท+โบนัสครบ → รางวัลใหญ่ guide_complete + ป้าย
 //   NG6 sync จาก engine: guide_<id> ที่รับแล้ว (อีกเครื่อง) นับว่าผ่าน
-//   NG7 กดซ่อน → การ์ดหายและจำไว้ · questForPath จับ path ลูก
+//   NG7 กดย่อ → เหลือแถบเล็ก ไม่หาย + เปิดกลับได้ · questForPath จับ path ลูก
 //   NG8 6 บท 25 ภารกิจ · บท 2 ล็อกจนบท 1 ครบ · หลายเควสหน้าเดียวกันเลือกตาม ?guide=
 import React from 'react'
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
@@ -109,13 +109,16 @@ describe('เส้นทางมือใหม่', () => {
     await waitFor(() => expect(screen.getByTestId('guide-progress').textContent).toBe(`1/${CH1.length}`))
   })
 
-  it('NG7 กดซ่อน → หายและจำไว้ · questForPath', () => {
+  it('NG7 กดย่อ → เหลือแถบเล็ก (ไม่หาย) + เปิดกลับได้ · questForPath', () => {
     const { unmount } = render(<GuideCard />)
     act(() => { fireEvent.click(screen.getByTestId('guide-hide')) })
+    // ย่อ = ไม่หายไป เหลือแถบเล็ก จำไว้ข้ามรอบ · กดแถบ = เปิดกลับ
     expect(screen.queryByTestId('guide-card')).toBeNull()
+    expect(screen.getByTestId('guide-collapsed').textContent).toContain('บทที่ 1')
     unmount()
     render(<GuideCard />)
-    expect(screen.queryByTestId('guide-card')).toBeNull()
+    act(() => { fireEvent.click(screen.getByTestId('guide-collapsed')) })
+    expect(screen.getByTestId('guide-card')).toBeTruthy()
     expect(questForPath('/v2/fortune/oracle')?.id).toBe('oracle')
     expect(questForPath('/v2/service/compatibility/colleague')?.id).toBe('colleague')
     expect(questForPath('/v2/destinyx')).toBeUndefined()
