@@ -74,18 +74,28 @@ export function GuideCoach() {
     void reportGuideMission(missionIdOf(q.id)).then((ok) => setRewarded(ok))
   }
 
-  // ระหว่างไฮไลต์: ตามตำแหน่งปุ่ม (เลื่อนจอ/layout เปลี่ยน) + รอผู้ใช้กดปุ่มนั้น
+  // ระหว่างไฮไลต์: หาปุ่มใหม่ทุกครั้ง (หน้ามัก render ปุ่มใหม่หลังโหลดข้อมูล — ถือ element เก่าไว้จะชี้ผิดที่, staging 2026-10-13)
+  // + ปุ่มหลุดจอ → เลื่อนกลับมา · รอผู้ใช้กดปุ่มนั้น (ฟังที่ document: ปุ่มเปลี่ยนตัวก็ยังจับได้)
   useEffect(() => {
     if (phase !== "step" || !quest) return
-    const el = targetRef.current
-    if (!el) return
+    const step = quest.steps[stepIdx]
+    const selector = step.target.join(",")
+    let lastScroll = 0
     const track = () => {
+      const el = findTarget(step.target)
+      if (!el) return
+      targetRef.current = el
       const r = el.getBoundingClientRect()
+      const off = r.top < 60 || r.bottom > window.innerHeight - 60
+      if (off && Date.now() - lastScroll > 1200) {
+        lastScroll = Date.now()
+        el.scrollIntoView({ block: "center" })
+        return
+      }
       setRect({ top: r.top, left: r.left, width: r.width, height: r.height })
     }
     track()
     const tid = window.setInterval(track, 200)
-    const isField = el.tagName === "TEXTAREA"
     const advance = () => {
       if (stepIdx + 1 < quest.steps.length) {
         setRect(null)
@@ -95,12 +105,18 @@ export function GuideCoach() {
         complete(quest)
       }
     }
-    // ช่องพิมพ์ = ผ่านเมื่อเริ่มพิมพ์ · ปุ่ม/ช่องอื่น = ผ่านเมื่อแตะ
-    const evt = isField ? "input" : "click"
-    el.addEventListener(evt, advance, { once: true })
+    // ช่องพิมพ์ (textarea) = ผ่านเมื่อเริ่มพิมพ์ · ปุ่ม/ช่องอื่น = ผ่านเมื่อแตะ
+    const onEvent = (e: Event) => {
+      const t = e.target instanceof Element ? e.target.closest(selector) : null
+      if (!t) return
+      if (e.type === "input" || t.tagName !== "TEXTAREA") advance()
+    }
+    document.addEventListener("click", onEvent, true)
+    document.addEventListener("input", onEvent, true)
     return () => {
       window.clearInterval(tid)
-      el.removeEventListener(evt, advance)
+      document.removeEventListener("click", onEvent, true)
+      document.removeEventListener("input", onEvent, true)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [phase, quest, stepIdx])
@@ -121,7 +137,7 @@ export function GuideCoach() {
       <div className="pointer-events-none fixed inset-0 z-[70]" data-testid="guide-spotlight">
         {/* หรี่จอทั้งหมดยกเว้นปุ่มเป้าหมาย (box-shadow) — คลิกทะลุได้ ผู้ใช้กดปุ่มจริงเอง */}
         <div
-          className="absolute rounded-[16px] border-[3px] border-v3-lime transition-all duration-200"
+          className="absolute rounded-[16px] border-[3px] border-v3-lime"
           style={{ top: rect.top - pad, left: rect.left - pad, width: rect.width + pad * 2, height: rect.height + pad * 2, boxShadow: "0 0 0 9999px rgba(10,22,52,0.6)" }}
         />
         <div
