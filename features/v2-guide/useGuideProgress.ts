@@ -1,27 +1,29 @@
 // features/v2-guide/useGuideProgress.ts — ความคืบหน้า "เส้นทางมือใหม่"
-// แหล่งจริง = ภารกิจ engine (guide_<id> รับรางวัลแล้ว = ผ่าน → ข้ามเครื่องได้) · localStorage = แคชให้จอขึ้นทันที
+// แหล่งจริง = ภารกิจ engine (guide_* ที่รับรางวัลแล้ว → ข้ามเครื่องได้) · localStorage = แคชให้จอขึ้นทันที
 // ทุกคอมโพเนนต์ที่ใช้ hook นี้ sync กันผ่าน event · storage/เน็ตเสีย = ไกด์ยังใช้ได้ ไม่ทำให้หน้าพัง
 import { useCallback, useEffect, useState } from "react"
 
-import { GUIDE_QUESTS, missionIdOf } from "@/features/v2-guide/quests"
+import { GUIDE_CHAPTERS, GUIDE_QUESTS, chapterBonusId, missionIdOf } from "@/features/v2-guide/quests"
 
 const KEY = "mumate-guide-v1"
 const EVENT = "mumate-guide-change"
 
-export type GuideState = { done: string[]; hidden: boolean; bonus: boolean }
-const EMPTY: GuideState = { done: [], hidden: false, bonus: false }
+/** done = เควสที่ผ่าน · bonuses = โบนัสที่รับแล้ว (guide_ch<n> / guide_complete) */
+export type GuideState = { done: string[]; hidden: boolean; bonuses: string[] }
+const EMPTY: GuideState = { done: [], hidden: false, bonuses: [] }
+
+const strings = (v: unknown): string[] => (Array.isArray(v) ? v.filter((x): x is string => typeof x === "string") : [])
 
 function read(): GuideState {
   if (typeof window === "undefined") return EMPTY
   try {
     const raw = window.localStorage.getItem(KEY)
     if (!raw) return EMPTY
-    const j = JSON.parse(raw) as Partial<GuideState>
-    return {
-      done: Array.isArray(j.done) ? j.done.filter((x): x is string => typeof x === "string") : [],
-      hidden: j.hidden === true,
-      bonus: j.bonus === true,
-    }
+    const j = JSON.parse(raw) as Partial<GuideState> & { bonus?: boolean }
+    // รุ่นแรกเก็บ bonus:boolean (โบนัสจบเดียว) → แปลงเป็น guide_complete
+    const bonuses = strings(j.bonuses)
+    if (j.bonus === true && !bonuses.includes("guide_complete")) bonuses.push("guide_complete")
+    return { done: strings(j.done), hidden: j.hidden === true, bonuses }
   } catch {
     return EMPTY
   }
@@ -45,18 +47,22 @@ export async function syncGuideFromServer(): Promise<void> {
     if (!r.ok) return
     const j = (await r.json()) as { missions?: MissionRow[] }
     const rows = Array.isArray(j.missions) ? j.missions : []
-    const claimed = new Set(rows.filter((m) => m.completed || m.claimedAt).map((m) => m.id))
+    const claimed = new Set(rows.filter((m) => m.claimedAt || m.completed).map((m) => m.id))
     const cur = read()
     const done = new Set(cur.done)
     for (const q of GUIDE_QUESTS) if (claimed.has(missionIdOf(q.id))) done.add(q.id)
-    const bonus = cur.bonus || claimed.has("guide_complete")
-    if (done.size !== cur.done.length || bonus !== cur.bonus) write({ ...cur, done: Array.from(done), bonus })
+    const bonuses = new Set(cur.bonuses)
+    for (const c of GUIDE_CHAPTERS) if (claimed.has(chapterBonusId(c.id))) bonuses.add(chapterBonusId(c.id))
+    if (claimed.has("guide_complete")) bonuses.add("guide_complete")
+    if (done.size !== cur.done.length || bonuses.size !== cur.bonuses.length) {
+      write({ ...cur, done: Array.from(done), bonuses: Array.from(bonuses) })
+    }
   } catch {
     /* ออฟไลน์ */
   }
 }
 
-/** บอก engine ว่าผ่านขั้นนี้ → engine จ่าย QI ครั้งเดียว. คืน true ถ้าได้รางวัลรอบนี้ */
+/** บอก engine ว่าผ่านภารกิจ/ขอรับโบนัส → engine จ่าย QI ครั้งเดียว. คืน true ถ้าได้รางวัลรอบนี้ */
 export async function reportGuideMission(missionId: string): Promise<boolean> {
   try {
     const r = await fetch("/api/missions", {
@@ -96,7 +102,23 @@ export function useGuideProgress() {
   }, [])
 
   const setHidden = useCallback((hidden: boolean) => write({ ...read(), hidden }), [])
-  const setBonus = useCallback(() => write({ ...read(), bonus: true }), [])
+  const addBonus = useCallback((id: string) => {
+    const cur = read()
+    if (!cur.bonuses.includes(id)) write({ ...cur, bonuses: [...cur.bonuses, id] })
+  }, [])
 
-  return { ...state, ready, markDone, setHidden, setBonus }
+  return { ...state, ready, markDone, setHidden, addBonus }
+}
+
+/** บทที่กำลังทำ: บทแรกที่ยังไม่จบ (ยังมีเควสค้าง หรือยังไม่รับโบนัสบท) · บทถัดไปล็อกจนบทนี้ทำเควสครบ */
+export function guideStatus(done: string[], bonuses: string[]) {
+  const chapters = GUIDE_CHAPTERS.map((c, i) => {
+    const doneCount = c.quests.filter((q) => done.includes(q.id)).length
+    const complete = doneCount === c.quests.length
+    const prevComplete = i === 0 || GUIDE_CHAPTERS[i - 1].quests.every((q) => done.includes(q.id))
+    return { chapter: c, index: i, doneCount, complete, unlocked: prevComplete, bonusClaimed: bonuses.includes(chapterBonusId(c.id)) }
+  })
+  const current = chapters.find((c) => !c.complete || !c.bonusClaimed) ?? null
+  const allQuestsDone = chapters.every((c) => c.complete)
+  return { chapters, current, allQuestsDone, finalClaimed: bonuses.includes("guide_complete") }
 }

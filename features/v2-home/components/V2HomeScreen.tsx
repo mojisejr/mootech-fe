@@ -337,7 +337,7 @@ function ScoreRingCard({ fortune, loading }: { fortune: DailyFortune | null; loa
   // The shared card hardcodes mb-8; Figma puts 8px between this card and the manifest card (the 32px sits
   // BELOW the manifest card). Overridden from outside — DailyFortuneCard is shared with ปฏิทินดวง.
   return (
-    <div className="mb-2 [&>section]:mb-0">
+    <div className="mb-2 [&>section]:mb-0" data-testid="home-fortune">
     <DailyFortuneCard
       variant="home"
       ring={{ grade: fortune.grade, percent: fortune.percent, verdict: fortune.verdict }}
