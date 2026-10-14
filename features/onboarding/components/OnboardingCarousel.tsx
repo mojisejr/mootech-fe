@@ -24,7 +24,8 @@ const STEPS: Step[] = [
   { lines: ['เน้นความแม่นยำจากข้อมูลวันเกิดจริง', 'ไม่ใช่คำทำนายทั่วไปแบบราศี'] },
 ]
 
-export function OnboardingCarousel({ onComplete }: { onComplete: () => void }) {
+/** lastLabel = ปุ่มหน้าสุดท้าย (คนใหม่ → "ลองหาธาตุของคุณฟรี") · ไม่ส่ง = "ถัดไป" เหมือนเดิม */
+export function OnboardingCarousel({ onComplete, lastLabel }: { onComplete: () => void; lastLabel?: string }) {
   const [index, setIndex] = useState(0)
   const step = STEPS[index]
   const isLast = index === STEPS.length - 1
@@ -94,7 +95,7 @@ export function OnboardingCarousel({ onComplete }: { onComplete: () => void }) {
         {/* BOTTOM — dots + next (accessible name = visible text, WCAG 2.5.3) */}
         <div className="flex flex-col items-center gap-5 sm:gap-6">
           <DotsPager count={STEPS.length} active={index} />
-          <Button onClick={next}>ถัดไป</Button>
+          <Button onClick={next}>{isLast && lastLabel ? lastLabel : 'ถัดไป'}</Button>
         </div>
       </div>
     </FullBleedScreen>
