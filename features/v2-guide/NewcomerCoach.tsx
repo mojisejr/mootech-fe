@@ -68,7 +68,7 @@ type Rect = { top: number; left: number; width: number; height: number }
 export function NewcomerCoach({ step }: { step: keyof typeof NEWCOMER_STEPS | null }) {
   const [rect, setRect] = useState<Rect | null>(null)
 
-  // ตามตำแหน่งส่วนที่ส่อง (หน้าเลื่อน/โหลดรูป) · ขั้นใหม่ = เลื่อนให้เห็นครั้งเดียว
+  // ตามตำแหน่งส่วนที่ส่องทุกเฟรม (หน้าเลื่อน/โหลดรูป — ทุก 200ms ตามไม่ทันตอนเลื่อน) · ขั้นใหม่ = เลื่อนให้เห็นครั้งเดียว
   useEffect(() => {
     setRect(null)
     if (!step) return
@@ -81,11 +81,16 @@ export function NewcomerCoach({ step }: { step: keyof typeof NEWCOMER_STEPS | nu
         scrolled = true
         el.scrollIntoView({ block: "center", behavior: "smooth" })
       }
-      setRect({ top: r.top - PAD, left: r.left - PAD, width: r.width + PAD * 2, height: r.height + PAD * 2 })
+      const next = { top: r.top - PAD, left: r.left - PAD, width: r.width + PAD * 2, height: r.height + PAD * 2 }
+      setRect((prev) => (prev && prev.top === next.top && prev.left === next.left && prev.width === next.width && prev.height === next.height ? prev : next))
     }
-    track()
-    const id = window.setInterval(track, 200)
-    return () => window.clearInterval(id)
+    let raf = 0
+    const loop = () => {
+      track()
+      raf = window.requestAnimationFrame(loop)
+    }
+    loop()
+    return () => window.cancelAnimationFrame(raf)
   }, [step])
 
   if (!step || !rect) return null
