@@ -23,6 +23,7 @@ import Image from 'next/image'
 import { useRouter } from 'next/router'
 import { useCurrentUser } from '@/lib/auth/use-current-user'
 import { checkedInToday, todayBangkok, type Wallet } from '@/features/v2-qi/qi-model'
+import { useTourActive } from '@/features/v2-guide/OnboardingTour'
 
 const CHECKIN = { src: '/images/v2/popup/checkin.png', href: '/v2/qi/checkin', alt: 'เช็กอินทุกวัน รับ Qi ฟรี' }
 const HIDE_KEY = 'mumate:promo-hidden-until' // localStorage: timestamp ที่ให้กลับมาแสดงได้ (ไม่แสดง 7 วัน)
@@ -77,6 +78,8 @@ export function PromoPopup() {
   const router = useRouter()
   const { status } = useCurrentUser()
   const [open, setOpen] = useState<'notice' | 'checkin' | null>(null)
+  // ทัวร์แนะนำแอปกำลังเล่น → ป็อปอัปรอก่อน (ไม่บังส่วนที่ส่อง) แล้วค่อยขึ้นหลังจบทัวร์
+  const touring = useTourActive()
 
   useEffect(() => {
     if (!isPromoPath(router.pathname)) return
@@ -115,7 +118,7 @@ export function PromoPopup() {
   }
   const go = () => { setOpen(null); void router.push(CHECKIN.href) }
 
-  if (!open) return null
+  if (!open || touring) return null
 
   const notice = open === 'notice'
   const tid = notice ? 'maintenance-notice' : 'promo-popup'
