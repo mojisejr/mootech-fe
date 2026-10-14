@@ -8,6 +8,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { useCookies } from 'react-cookie'
 import { CookieKey } from '@/constants/cookie-key'
 import { SaveBirthChart } from '@/constants/api/api-birth-chart'
+import { clearNewcomer, readNewcomerBirth } from '@/features/v2-guide/NewcomerCoach'
 import { profileCanSubmit } from './profile-can-submit'
 import { prefetchSummary } from '@/features/v2-first-run/hooks/summary-cache'
 import { toBaziGender } from '@/features/v2-first-run/hooks/first-run-source-map'
@@ -63,6 +64,20 @@ export function useV2ProfileForm(onSaved: (code: string) => void): V2ProfileForm
     setName((prev) => (prev === '' && cookieName ? cookieName : prev))
   }, [cookies])
 
+  // คนใหม่ที่หาธาตุก่อนสมัคร (NewcomerCoach): เติมวันเกิด/เวลาที่กรอกไว้ให้ ไม่ต้องกรอกซ้ำ (หลัง mount — กัน hydration mismatch)
+  useEffect(() => {
+    const b = readNewcomerBirth()
+    if (!b) return
+    setBirthDay((prev) => prev || b.date)
+    if (b.time) {
+      const [h, m] = b.time.split(':')
+      setTimeHourBirth((prev) => prev || h)
+      setTimeMinuteBirth((prev) => prev || m)
+    } else {
+      setIsRememberTimeBirth(false)
+    }
+  }, [])
+
   // #3: when the birth time is provided, validate it's numeric and in-range, so buildTime() can
   // never POST '99:00' / 'NaN:NaN' to the profile-save. Empty is allowed (buildTime → '00').
   const isTimeValid = useMemo(() => {
@@ -108,6 +123,7 @@ export function useV2ProfileForm(onSaved: (code: string) => void): V2ProfileForm
         // C3: kick the slow (~10s) first-run reading off NOW, while the user walks intent + pdpa, so the
         // element screen's reading block is usually ready by the time they arrive (memory-only cache).
         prefetchSummary(userId, { birthDate: birthDay, birthTime: time, gender: toBaziGender(gender) })
+        clearNewcomer()
         onSaved(result.code)
       } else {
         setError('บันทึกไม่สำเร็จ ลองใหม่อีกครั้ง')

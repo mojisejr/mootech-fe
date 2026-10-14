@@ -5,9 +5,11 @@
 import Head from "next/head"
 import Link from "next/link"
 import Image from "next/image"
+import { useRouter } from "next/router"
 import { useEffect, useRef, useState } from "react"
 import type { GetServerSideProps } from "next"
 
+import { NewcomerCoach, saveNewcomerBirth, useNewcomer } from "@/features/v2-guide/NewcomerCoach"
 import { SkyScreen } from "@/features/v2-profile/components/kit"
 import { Menubar } from "@/features/v2-shell/components/Menubar"
 import { ELEMENT_CONTENT, toElementKey, type ElementContent } from "@/features/v2-element-finder/content"
@@ -90,9 +92,15 @@ export default function ElementFinderPage({ ogImage, ogTitle, ogDesc, pageUrl }:
 
   const canSubmit = /^\d{4}-\d{2}-\d{2}$/.test(birthDate) && (timeUnknown || /^\d{2}:\d{2}$/.test(birthTime))
 
+  // คนใหม่จากหน้าแนะนำ (?newcomer=1): บังคับกดทีละขั้น วันเกิด → เวลา → ดูธาตุ → สมัครฟรี (CTA ไปล็อกอินแทนดวงเต็ม)
+  const router = useRouter()
+  const newcomer = useNewcomer(router.query.newcomer)
+  const coachStep = !newcomer ? null : phase === "input" ? (!birthDate ? "date" : !canSubmit ? "time" : "submit") : phase === "result" ? "signup" : null
+
   const run = async () => {
     if (!canSubmit) return
     setPhase("loading"); setError(null); setStep(0)
+    if (newcomer) saveNewcomerBirth({ date: birthDate, time: timeUnknown ? "" : birthTime }) // หน้าสมัครเติมให้
     const started = Date.now()
     const timers = STEPS.map((_, i) => window.setTimeout(() => setStep(i + 1), 550 * (i + 1)))
     try {
@@ -225,7 +233,7 @@ export default function ElementFinderPage({ ogImage, ogTitle, ogDesc, pageUrl }:
             </label>
 
             {/* เวลาเกิด + ไม่ทราบเวลา (บนแถวเดียวกัน) */}
-            <label className="flex flex-col gap-1.5">
+            <label className="flex flex-col gap-1.5" data-testid="finder-time-block">
               <span className="flex items-center justify-between">
                 <span className={"text-[13px] font-bold text-v3-navy " + (timeUnknown ? "opacity-40" : "")}>เวลาเกิด (ถ้ารู้ จะแม่นขึ้น)</span>
                 <span className="flex items-center gap-1.5 text-[12px] font-medium text-v3-text-body">
@@ -288,8 +296,8 @@ export default function ElementFinderPage({ ogImage, ogTitle, ogDesc, pageUrl }:
           )}
 
           {/* CTA ดูดวงเต็ม — แถวเดียว: ข้อความ | ป้าย FREE | ปุ่มดูเลย */}
-          <Link href="/v2/destiny" className="flex w-full max-w-md items-center gap-2 rounded-2xl bg-v3-sapphire/10 px-3.5 py-2.5" data-testid="finder-cta">
-            <span className="min-w-0 flex-1 truncate text-[12.5px] font-bold text-v3-navy">อยากรู้ลึกกว่านี้? ดูดวงเต็มของคุณ</span>
+          <Link href={newcomer ? "/v2/login" : "/v2/destiny"} className="flex w-full max-w-md items-center gap-2 rounded-2xl bg-v3-sapphire/10 px-3.5 py-2.5" data-testid="finder-cta">
+            <span className="min-w-0 flex-1 truncate text-[12.5px] font-bold text-v3-navy">{newcomer ? "สมัครฟรีด้วย LINE ดูดวงเต็ม + รับ QI" : "อยากรู้ลึกกว่านี้? ดูดวงเต็มของคุณ"}</span>
             <FreeBadge />
             <span className="shrink-0 rounded-full bg-v3-sapphire px-4 py-1.5 text-[13px] font-bold text-white">ดูเลย →</span>
           </Link>
@@ -320,6 +328,7 @@ export default function ElementFinderPage({ ogImage, ogTitle, ogDesc, pageUrl }:
       ) : null}
 
       <Menubar />
+      <NewcomerCoach step={coachStep} />
     </SkyScreen>
   )
 }

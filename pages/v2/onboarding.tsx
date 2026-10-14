@@ -18,5 +18,6 @@ export const getServerSideProps: GetServerSideProps = async (ctx) => {
 
 export default function V2OnboardingPage() {
   const router = useRouter()
-  return <OnboardingCarousel onComplete={() => router.push('/v2/login')} />
+  // คนใหม่: จบหน้าแนะนำ → ลองหาธาตุฟรีก่อน (ไกด์บังคับกด) → ค่อยสมัคร (เอ็ม 2026-10-14)
+  return <OnboardingCarousel lastLabel="ลองหาธาตุของคุณฟรี" onComplete={() => router.push('/v2/element-finder?newcomer=1')} />
 }
