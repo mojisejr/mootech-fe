@@ -36,8 +36,9 @@ describe('ไกด์คนใหม่ หาธาตุก่อนสมั
     const onClick = vi.fn()
     render(<><button data-testid="finder-submit" onClick={onClick}>ดูธาตุ</button><NewcomerCoach step="submit" /></>)
     await waitFor(() => expect(screen.getByTestId('newcomer-spotlight')).toBeTruthy())
-    const blockers = screen.getByTestId('newcomer-coach').querySelectorAll('.pointer-events-auto')
+    const blockers = screen.getAllByTestId('newcomer-coach-block')
     expect(blockers.length).toBe(4)
+    expect(screen.queryByTestId('newcomer-coach-hole')).toBeNull() // pass = ไม่มีชิ้นรับแตะในช่อง
     // ฉากบนสูงถึงขอบบนของช่อง (300 - pad 8) · ฉากล่างเริ่มที่ขอบล่างช่อง
     expect((blockers[0] as HTMLElement).style.height).toBe('292px')
     expect((blockers[1] as HTMLElement).style.top).toBe('348px')

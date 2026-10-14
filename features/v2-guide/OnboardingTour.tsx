@@ -3,9 +3,11 @@
 // หรี่จอ + ส่องส่วนที่แนะนำ + มือชี้ + เสี่ยวมู่พูด · แตะส่วนที่ส่อง หรือ "ถัดไป" = ขั้นต่อไป (ระหว่างทัวร์แตะแล้วไม่ออกจากหน้า)
 // เปลี่ยนหน้าเอง (หน้าหลัก → บริการ → โปรไฟล์) · หาส่วนที่ส่องไม่เจอใน 6 วิ = ข้ามขั้นนั้น (ไม่ค้างจอมืด)
 // "เริ่มต้นใช้งาน" = จบ + engine จ่าย TOUR_QI ครั้งเดียว · "ไว้คราวหลัง" = ปิด ไม่ได้รางวัล · ทั้งคู่จำไว้ ไม่ขึ้นซ้ำ
+// ภาพ/การเคลื่อนไหวของช่องส่อง = Spotlight (ใช้ร่วมกับไกด์คนใหม่)
 import { useRouter } from "next/router"
-import { useEffect, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 
+import { Spotlight, holeOf, useTrackedRect } from "@/features/v2-guide/Spotlight"
 import { TOUR_MISSION_ID, TOUR_QI, TOUR_STEPS } from "@/features/v2-guide/tourSteps"
 import { reportGuideMission } from "@/features/v2-guide/useGuideProgress"
 
@@ -15,8 +17,6 @@ const MASCOT = "/images/v2/mascot/01-nav.png"
 const FIND_TIMEOUT_MS = 6000
 const START_DELAY_MS = 900
 const PAD = 10
-
-type Rect = { top: number; left: number; width: number; height: number }
 
 function tourSeen(): boolean {
   try {
@@ -52,15 +52,6 @@ function findTargets(selectors: string[]): HTMLElement[] {
   return [first, ...selectors.slice(1).map((s) => document.querySelector<HTMLElement>(s)).filter(visible)]
 }
 
-function unionRect(els: HTMLElement[]): Rect {
-  const rs = els.map((el) => el.getBoundingClientRect())
-  const top = Math.min(...rs.map((r) => r.top))
-  const left = Math.min(...rs.map((r) => r.left))
-  const bottom = Math.max(...rs.map((r) => r.bottom))
-  const right = Math.max(...rs.map((r) => r.right))
-  return { top, left, width: right - left, height: bottom - top }
-}
-
 /** ภารกิจ engine บอกว่าเคยจบทัวร์ (อีกเครื่อง) หรือจบเส้นทางมือใหม่แล้ว → ไม่ต้องทัวร์ · ล็อกอินไม่ผ่าน = ไม่ทัวร์ */
 async function shouldStartFromServer(): Promise<boolean> {
   try {
@@ -77,10 +68,11 @@ async function shouldStartFromServer(): Promise<boolean> {
 export function OnboardingTour() {
   const router = useRouter()
   const [step, setStep] = useState<number | null>(null)
-  const [rect, setRect] = useState<Rect | null>(null)
   const [reward, setReward] = useState<string | null>(null)
 
   const realPath = (router.asPath || router.pathname).split(/[?#]/)[0]
+  const s = step === null ? null : TOUR_STEPS[step]
+  const onPage = !!s && realPath === s.page
 
   // เริ่มเอง: หน้าหลัก + ไม่ได้มาจากไกด์เควส + ยังไม่เคยเห็น
   useEffect(() => {
@@ -99,6 +91,12 @@ export function OnboardingTour() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [router.isReady, realPath, router.query.guide])
 
+  // อยู่ผิดหน้า → พาไป
+  useEffect(() => {
+    if (s && !onPage) void router.push(s.page)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [step, onPage])
+
   const end = (how: "done" | "skipped") => {
     try {
       window.localStorage.setItem(KEY, how)
@@ -106,7 +104,6 @@ export function OnboardingTour() {
       /* storage ปิด */
     }
     setStep(null)
-    setRect(null)
     setActiveFlag(false)
   }
 
@@ -118,43 +115,31 @@ export function OnboardingTour() {
     })
   }
 
+  const stepRef = useRef(step)
+  stepRef.current = step
   const next = () => {
-    if (step === null) return
-    setRect(null)
-    if (step + 1 >= TOUR_STEPS.length) finish()
-    else setStep(step + 1)
+    const cur = stepRef.current
+    if (cur === null) return
+    if (cur + 1 >= TOUR_STEPS.length) finish()
+    else setStep(cur + 1)
   }
 
-  // ขั้นปัจจุบัน: อยู่ผิดหน้า → พาไป · รอส่วนที่ส่องโผล่ → เลื่อนให้เห็น → ตามตำแหน่งทุกเฟรม (200ms ตามไม่ทันตอนเลื่อน)
+  // ตามตำแหน่งทุกเฟรม · เจอครั้งแรก = เลื่อนให้เห็น · หาไม่เจอเกิน 6 วิ = ข้ามขั้น
+  const startedAt = useRef(0)
   useEffect(() => {
-    if (step === null) return
-    const s = TOUR_STEPS[step]
-    if (realPath !== s.page) {
-      setRect(null)
-      void router.push(s.page)
-      return
-    }
-    const started = Date.now()
-    let scrolled = false
-    let raf = 0
-    const loop = () => {
-      const els = findTargets(s.targets)
-      if (els.length === 0) {
-        if (Date.now() - started > FIND_TIMEOUT_MS) return next()
-      } else {
-        if (!scrolled) {
-          scrolled = true
-          els[0].scrollIntoView({ block: "center", behavior: "smooth" })
-        }
-        const r = unionRect(els)
-        setRect((prev) => (prev && prev.top === r.top && prev.left === r.left && prev.width === r.width && prev.height === r.height ? prev : r))
+    startedAt.current = Date.now()
+  }, [step, onPage])
+  const rect = useTrackedRect(
+    onPage ? step : null,
+    () => (s ? findTargets(s.targets) : []),
+    (els) => els[0].scrollIntoView({ block: "center", behavior: "smooth" }),
+    (found) => {
+      if (!found && Date.now() - startedAt.current > FIND_TIMEOUT_MS) {
+        startedAt.current = Date.now()
+        next()
       }
-      raf = window.requestAnimationFrame(loop)
-    }
-    loop()
-    return () => window.cancelAnimationFrame(raf)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [step, realPath])
+    },
+  )
 
   useEffect(() => {
     if (!reward) return
@@ -162,7 +147,7 @@ export function OnboardingTour() {
     return () => window.clearTimeout(t)
   }, [reward])
 
-  if (step === null) {
+  if (step === null || !s) {
     if (!reward) return null
     return (
       <div className="pointer-events-none fixed inset-x-0 top-6 z-[80] flex justify-center px-4" data-testid="tour-reward">
@@ -171,16 +156,9 @@ export function OnboardingTour() {
     )
   }
 
-  const s = TOUR_STEPS[step]
   const last = step === TOUR_STEPS.length - 1
   const vh = typeof window === "undefined" ? 800 : window.innerHeight
-  const hole = rect
-    ? (() => {
-        const top = Math.max(rect.top - PAD, 4)
-        const bottom = Math.min(rect.top + rect.height + PAD, vh - 4)
-        return { top, left: rect.left - PAD, width: rect.width + PAD * 2, height: Math.max(bottom - top, 0) }
-      })()
-    : null
+  const hole = rect && onPage ? holeOf(rect, PAD, vh) : null
   // กล่องคำพูด: วางฝั่งที่เหลือที่มากกว่า · ส่วนที่ส่องสูงจนไม่มีที่ = ชิดล่างจอ
   const spaceBelow = hole ? vh - (hole.top + hole.height) : 0
   const spaceAbove = hole ? hole.top : 0
@@ -191,60 +169,43 @@ export function OnboardingTour() {
         ? { top: hole.top + hole.height + 14 }
         : { bottom: vh - hole.top + 14 }
 
-  // แตะในส่วนที่ส่อง = ถัดไป · แตะที่อื่นไม่มีผล (ฉากกันทั้งจอ — ระหว่างทัวร์ไม่ออกจากหน้า)
-  const onScrim = (e: React.MouseEvent) => {
-    if (!hole) return
-    const { clientX: x, clientY: y } = e
-    if (x >= hole.left && x <= hole.left + hole.width && y >= hole.top && y <= hole.top + hole.height) next()
-  }
-
   return (
-    <div className="fixed inset-0 z-[80]" data-testid="onboarding-tour" onClick={onScrim}>
-      {hole ? (
+    <Spotlight
+      stepKey={step}
+      hole={hole}
+      mode="catch"
+      onHoleTap={next}
+      testId="onboarding-tour"
+      spotTestId="tour-spotlight"
+      bubbleStyle={bubbleStyle}
+      bubble={
         <>
-          <div
-            className="pointer-events-none absolute rounded-[18px] border-2 border-white/80 transition-all duration-300"
-            style={{ ...hole, boxShadow: "0 0 0 9999px rgba(0,0,0,0.72), 0 0 18px 4px rgba(255,255,255,0.55)" }}
-            data-testid="tour-spotlight"
-          />
-          <span
-            aria-hidden
-            className="pointer-events-none absolute animate-bounce text-[40px] drop-shadow-lg"
-            style={{ top: hole.top + hole.height * 0.55, left: hole.left + Math.max(hole.width * 0.7 - 20, 0) }}
-          >
-            👆
-          </span>
-        </>
-      ) : (
-        <div className="pointer-events-none absolute inset-0 bg-black/[0.72]" />
-      )}
-
-      <div className="absolute inset-x-0 mx-auto flex w-full max-w-md items-end gap-2 px-4" style={bubbleStyle} onClick={(e) => e.stopPropagation()}>
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={MASCOT} alt="เสี่ยวมู่" className="h-20 w-auto flex-none drop-shadow" />
-        <div className="flex-1 rounded-[18px] bg-white p-3 shadow-lg" data-testid="tour-bubble">
-          <p className="text-[11px] font-black text-v3-sapphire" data-testid="tour-progress">
-            {step + 1}/{TOUR_STEPS.length}
-          </p>
-          <p className="mt-0.5 text-[15px] font-black leading-5 text-v3-navy" data-testid="tour-title">
-            {s.title}
-          </p>
-          <p className="mt-1 text-[13px] leading-[19px] text-v3-text-body">{s.body}</p>
-          <div className="mt-2.5 flex items-center justify-between">
-            <button type="button" onClick={() => end("skipped")} data-testid="tour-skip" className="text-[12px] font-bold text-v3-text-muted underline">
-              ไว้คราวหลัง
-            </button>
-            <button
-              type="button"
-              onClick={next}
-              data-testid={last ? "tour-finish" : "tour-next"}
-              className="rounded-full bg-v3-sapphire px-4 py-1.5 text-[13px] font-bold text-v3-lime"
-            >
-              {last ? `เริ่มต้นใช้งาน (+${TOUR_QI} QI)` : "ถัดไป"}
-            </button>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={MASCOT} alt="เสี่ยวมู่" className="h-20 w-auto flex-none drop-shadow" />
+          <div className="flex-1 rounded-[18px] bg-white p-3 shadow-lg" data-testid="tour-bubble">
+            <p className="text-[11px] font-black text-v3-sapphire" data-testid="tour-progress">
+              {step + 1}/{TOUR_STEPS.length}
+            </p>
+            <p className="mt-0.5 text-[15px] font-black leading-5 text-v3-navy" data-testid="tour-title">
+              {s.title}
+            </p>
+            <p className="mt-1 text-[13px] leading-[19px] text-v3-text-body">{s.body}</p>
+            <div className="mt-2.5 flex items-center justify-between">
+              <button type="button" onClick={() => end("skipped")} data-testid="tour-skip" className="text-[12px] font-bold text-v3-text-muted underline">
+                ไว้คราวหลัง
+              </button>
+              <button
+                type="button"
+                onClick={next}
+                data-testid={last ? "tour-finish" : "tour-next"}
+                className="rounded-full bg-v3-sapphire px-4 py-1.5 text-[13px] font-bold text-v3-lime"
+              >
+                {last ? `เริ่มต้นใช้งาน (+${TOUR_QI} QI)` : "ถัดไป"}
+              </button>
+            </div>
           </div>
-        </div>
-      </div>
-    </div>
+        </>
+      }
+    />
   )
 }

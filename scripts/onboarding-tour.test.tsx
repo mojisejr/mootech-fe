@@ -60,10 +60,10 @@ describe('ทัวร์แนะนำแอป', () => {
     await waitFor(() => expect(progress()).toBe(`2/${N}`))
     await started()
     // แตะกลางส่วนที่ส่อง (top 100 left 20 กว้าง 200 สูง 40)
-    act(() => { fireEvent.click(screen.getByTestId('onboarding-tour'), { clientX: 100, clientY: 120 }) })
+    act(() => { fireEvent.click(screen.getByTestId('onboarding-tour-hole')) })
     await waitFor(() => expect(progress()).toBe(`3/${N}`))
     await started()
-    act(() => { fireEvent.click(screen.getByTestId('onboarding-tour'), { clientX: 300, clientY: 600 }) })
+    act(() => { fireEvent.click(screen.getAllByTestId('onboarding-tour-block')[1]) })
     expect(progress()).toBe(`3/${N}`)
   })
 
