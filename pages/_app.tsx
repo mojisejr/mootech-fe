@@ -5,6 +5,7 @@ import { SessionProvider } from "next-auth/react";
 import type { AppProps } from "next/app";
 import { useRouter } from "next/router";
 import { GuideCoach } from "@/features/v2-guide/GuideCoach";
+import { OnboardingTour } from "@/features/v2-guide/OnboardingTour";
 import { CookiesProvider } from "react-cookie";
 import IdentitySelfHeal from "@/components/identity-self-heal";
 import LiffStateRoute from "@/components/liff-state-route";
@@ -113,6 +114,8 @@ export default function App({ Component, pageProps: { session, ...pageProps } }:
             {isV2 ? <PromoPopup /> : null}
             {/* เส้นทางมือใหม่ (เอ็ม 2026-10-13): มาสคอตอธิบายหน้าเมื่อมาจากไกด์ + นับภารกิจผ่าน */}
             {isV2 ? <GuideCoach /> : null}
+            {/* ทัวร์แนะนำแอป 8 ขั้น (สเปก FTUE เอ็ม 2026-10-14): ขึ้นครั้งแรกที่หน้าหลัก */}
+            {isV2 ? <OnboardingTour /> : null}
           </AppErrorBoundary>
         </SessionProvider>
       </CookiesProvider>

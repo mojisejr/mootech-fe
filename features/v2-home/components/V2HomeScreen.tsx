@@ -347,7 +347,7 @@ function ScoreRingCard({ fortune, loading }: { fortune: DailyFortune | null; loa
       // #3: API "2026-06-01" → "1 มิถุนายน 2569" (พ.ศ.). If formatting fails, NEVER leak a raw ISO: a
       // malformed ISO-shaped string → hide; a non-ISO string (already formatted) → pass through.
       dateLine={formatThaiLongDate(fortune.date) || (/^\d{4}-\d{2}-\d{2}/.test(fortune.date) ? '' : fortune.date)}
-      dateAside={<Link href="/v2/calendar" className="shrink-0 text-v3-sapphire underline">เปิดปฏิทินของฉัน</Link>}
+      dateAside={<Link href="/v2/calendar" data-testid="home-open-calendar" className="shrink-0 text-v3-sapphire underline">เปิดปฏิทินของฉัน</Link>}
       suitable={[fortune.best.text]}
       avoid={[fortune.worst.text]}
     />
