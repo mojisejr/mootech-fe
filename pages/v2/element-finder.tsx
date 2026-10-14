@@ -297,7 +297,7 @@ export default function ElementFinderPage({ ogImage, ogTitle, ogDesc, pageUrl }:
 
           {/* CTA ดูดวงเต็ม — แถวเดียว: ข้อความ | ป้าย FREE | ปุ่มดูเลย */}
           <Link href={newcomer ? "/v2/login" : "/v2/destiny"} className="flex w-full max-w-md items-center gap-2 rounded-2xl bg-v3-sapphire/10 px-3.5 py-2.5" data-testid="finder-cta">
-            <span className="min-w-0 flex-1 truncate text-[12.5px] font-bold text-v3-navy">{newcomer ? "สมัครฟรีด้วย LINE ดูดวงเต็ม + รับ QI" : "อยากรู้ลึกกว่านี้? ดูดวงเต็มของคุณ"}</span>
+            <span className="min-w-0 flex-1 truncate text-[12.5px] font-bold text-v3-navy">{newcomer ? "สมัครฟรี ดูดวงเต็ม + รับ QI" : "อยากรู้ลึกกว่านี้? ดูดวงเต็มของคุณ"}</span>
             <FreeBadge />
             <span className="shrink-0 rounded-full bg-v3-sapphire px-4 py-1.5 text-[13px] font-bold text-white">ดูเลย →</span>
           </Link>

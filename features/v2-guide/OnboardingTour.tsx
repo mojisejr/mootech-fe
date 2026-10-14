@@ -125,7 +125,7 @@ export function OnboardingTour() {
     else setStep(step + 1)
   }
 
-  // ขั้นปัจจุบัน: อยู่ผิดหน้า → พาไป · รอส่วนที่ส่องโผล่ → เลื่อนให้เห็น → ตามตำแหน่งทุก 200ms
+  // ขั้นปัจจุบัน: อยู่ผิดหน้า → พาไป · รอส่วนที่ส่องโผล่ → เลื่อนให้เห็น → ตามตำแหน่งทุกเฟรม (200ms ตามไม่ทันตอนเลื่อน)
   useEffect(() => {
     if (step === null) return
     const s = TOUR_STEPS[step]
@@ -136,22 +136,23 @@ export function OnboardingTour() {
     }
     const started = Date.now()
     let scrolled = false
-    const id = window.setInterval(() => {
+    let raf = 0
+    const loop = () => {
       const els = findTargets(s.targets)
       if (els.length === 0) {
-        if (Date.now() - started > FIND_TIMEOUT_MS) {
-          window.clearInterval(id)
-          next()
+        if (Date.now() - started > FIND_TIMEOUT_MS) return next()
+      } else {
+        if (!scrolled) {
+          scrolled = true
+          els[0].scrollIntoView({ block: "center", behavior: "smooth" })
         }
-        return
+        const r = unionRect(els)
+        setRect((prev) => (prev && prev.top === r.top && prev.left === r.left && prev.width === r.width && prev.height === r.height ? prev : r))
       }
-      if (!scrolled) {
-        scrolled = true
-        els[0].scrollIntoView({ block: "center", behavior: "smooth" })
-      }
-      setRect(unionRect(els))
-    }, 200)
-    return () => window.clearInterval(id)
+      raf = window.requestAnimationFrame(loop)
+    }
+    loop()
+    return () => window.cancelAnimationFrame(raf)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [step, realPath])
 
