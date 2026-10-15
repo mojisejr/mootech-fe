@@ -6,6 +6,7 @@
 import type { GetServerSideProps } from 'next'
 import { isPaidMember } from '@/lib/v2/tier'
 import { useRouter } from 'next/router'
+import { useEffect } from 'react'
 import { isV2Authenticated } from '@/lib/v2/gate'
 import { useV2AuthGate } from '@/features/auth/hooks/useV2AuthGate'
 import type { AuthStatus } from '@/lib/auth/resolve-auth'
@@ -20,6 +21,7 @@ import ScreenIdentityStuck from '@/components/screen-identity-stuck'
 import { HomeSkeleton } from '@/features/v2-home/components/HomeSkeleton'
 import { V2GateForm } from '@/features/v2-shell/components/V2GateForm'
 import { OnboardingCarousel } from '@/features/onboarding/components/OnboardingCarousel'
+import { endNewcomerGuide } from '@/features/v2-guide/NewcomerCoach'
 import { V2HomeScreen } from '@/features/v2-home/components/V2HomeScreen'
 // 🔴 TEMPORARY (#249) — #248 removes this import and its one <TeamPreviewResetBadge /> below.
 import { TeamPreviewResetBadge } from '@/features/v2-team-preview/TeamPreviewResetBadge'
@@ -53,7 +55,14 @@ function V2Entry() {
   if (showLoading) return <HomeSkeleton />
 
   if (status === 'anon') {
-    return <OnboardingCarousel onComplete={() => router.push('/v2/login')} />
+    // คนใหม่ (เอ็ม 2026-10-15 "ทำเลย"): จบหน้าแนะนำ → ลองหาธาตุฟรี (ไกด์บังคับกด) → ค่อยสมัคร · คนเก่ากดทางลัดเข้าสู่ระบบ
+    return (
+      <OnboardingCarousel
+        lastLabel="ลองหาธาตุของคุณฟรี"
+        onComplete={() => router.push('/v2/element-finder?newcomer=1')}
+        onLogin={() => router.push('/v2/login')}
+      />
+    )
   }
 
   // status === 'authed' → hand off to the home router (returning→home / no-chart→register, gap C).
@@ -72,6 +81,8 @@ function V2HomeRoute({ status }: { status: AuthStatus }) {
   // a second UserGetById.
   const { redirecting, greeting, computeSource, profile, user, loading } = useV2Home(status)
   const { logout } = useV2Logout()
+  // ล็อกอินแล้ว = ไม่ใช่คนใหม่อีก → หน้าหาธาตุกลับเป็นแบบปกติ (ไม่มีไกด์ / CTA ไม่พาไปล็อกอิน) · วันเกิดยังเก็บไว้ให้หน้าสมัคร
+  useEffect(() => endNewcomerGuide(), [])
   // Zone 1 — daily-fortune + persona data seam. Called unconditionally (before the loading branch) so
   // hook order is stable; graceful by design (no user / bazi error → fortune/persona=null → cards show
   // fallback). Consumes the shared `user` (no second fetch). ONE BFF call returns both fortune and persona.
