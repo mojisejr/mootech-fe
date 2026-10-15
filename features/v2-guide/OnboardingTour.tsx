@@ -75,9 +75,18 @@ export function OnboardingTour() {
   const s = step === null ? null : TOUR_STEPS[step]
   const onPage = !!s && realPath === s.page
 
+  // ดูทัวร์อีกครั้ง (/v2?tour=replay จากหน้าโปรไฟล์): เริ่มทันทีแม้เคยดูแล้ว · จบอีกรอบ engine ไม่จ่าย QI ซ้ำ (ภารกิจครั้งเดียว)
+  useEffect(() => {
+    if (!router.isReady || step !== null || realPath !== "/v2" || router.query.tour !== "replay") return
+    void router.replace("/v2", undefined, { shallow: true })
+    setStep(0)
+    setActiveFlag(true)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [router.isReady, realPath, router.query.tour])
+
   // เริ่มเอง: หน้าหลัก + ไม่ได้มาจากไกด์เควส + ยังไม่เคยเห็น
   useEffect(() => {
-    if (!router.isReady || step !== null || realPath !== "/v2" || router.query.guide) return
+    if (!router.isReady || step !== null || realPath !== "/v2" || router.query.guide || router.query.tour) return
     if (tourSeen()) return
     let alive = true
     const delay = new Promise((resolve) => setTimeout(resolve, START_DELAY_MS))

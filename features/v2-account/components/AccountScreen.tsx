@@ -398,6 +398,15 @@ export function AccountScreen({ preview }: { preview?: AccountPreview } = {}) {
               {goals && friends > 0 ? <span data-testid="account-friends-badge" className="flex-none rounded-full bg-v3-sky-tint px-2.5 py-[5px] text-[9px] font-bold leading-none text-v3-sapphire">{goals.element.collected}/5</span> : null}
               <span className="flex-none text-[16px] font-bold leading-6 text-v3-text-note">›</span>
             </Link>
+            {/* ดูทัวร์แนะนำแอปอีกครั้ง (เอ็ม 2026-10-15) — OnboardingTour เริ่มเมื่อเห็น ?tour=replay */}
+            <Link href="/v2?tour=replay" data-testid="account-tour-replay" className="flex items-center gap-3 border-t border-v3-border-card px-4 py-3.5">
+              <span aria-hidden className="grid size-[38px] flex-none place-items-center rounded-full bg-v3-sky-tint text-[18px]">🧭</span>
+              <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+                <p className="text-[14px] font-medium leading-5 text-v3-navy">ดูทัวร์แนะนำแอปอีกครั้ง</p>
+                <p className="text-[12px] leading-[18px] text-v3-text-body">ให้เสี่ยวมู่พาเดินดูทุกเมนูอีกรอบ</p>
+              </div>
+              <span className="flex-none text-[16px] font-bold leading-6 text-v3-text-note">›</span>
+            </Link>
             {/* แถวแผน / upsell */}
             {isPaid ? (
               <Link href="/v2/account/plan" data-testid="account-plan" className="flex items-center gap-3 border-t border-v3-border-card px-4 py-3.5">
