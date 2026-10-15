@@ -2,7 +2,8 @@
 //   NC1 ไกด์ส่องส่วนที่บอก + ข้อความ + ลำดับ x/4 · ไม่มีขั้น = ไม่ขึ้น · หาไม่เจอ = ไม่ขึ้น (ไม่ค้างจอมืด)
 //   NC2 บังคับกด: ฉากกันรอบช่อง กดได้เฉพาะของจริงในช่อง
 //   NC3 ?newcomer=1 → จำทั้ง session · วันเกิดที่กรอกจำไว้ให้หน้าสมัคร · ล้างหลังสมัคร
-//   NC4 หน้าแนะนำ: ปุ่มหน้าสุดท้ายใช้ lastLabel
+//   NC4 หน้าแนะนำ: ปุ่มหน้าสุดท้ายใช้ lastLabel · ทางลัด "มีบัญชีแล้ว? เข้าสู่ระบบ" (คนเก่า)
+//   NC5 ล็อกอินแล้ว (endNewcomerGuide): ปิดไกด์ แต่วันเกิดยังอยู่ให้หน้าสมัคร · ไกด์มีทางออกไปเข้าสู่ระบบ
 import React from 'react'
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, cleanup, fireEvent, waitFor, renderHook } from '@testing-library/react'
@@ -10,7 +11,7 @@ import { render, screen, cleanup, fireEvent, waitFor, renderHook } from '@testin
 Element.prototype.scrollIntoView = vi.fn()
 const realRect = Element.prototype.getBoundingClientRect
 
-import { NEWCOMER_STEPS, NewcomerCoach, clearNewcomer, readNewcomerBirth, saveNewcomerBirth, useNewcomer } from '@/features/v2-guide/NewcomerCoach'
+import { NEWCOMER_STEPS, NewcomerCoach, clearNewcomer, endNewcomerGuide, readNewcomerBirth, saveNewcomerBirth, useNewcomer } from '@/features/v2-guide/NewcomerCoach'
 import { OnboardingCarousel } from '@/features/onboarding/components/OnboardingCarousel'
 
 beforeEach(() => {
@@ -69,5 +70,24 @@ describe('ไกด์คนใหม่ หาธาตุก่อนสมั
     for (let i = 0; i < 3; i++) fireEvent.click(screen.getByRole('button', { name: 'ถัดไป' }))
     fireEvent.click(screen.getByRole('button', { name: 'ลองหาธาตุของคุณฟรี' }))
     expect(done).toHaveBeenCalledTimes(1)
+  })
+  it('NC4b ทางลัดเข้าสู่ระบบบนหน้าแนะนำ (ทุกหน้า) · ไม่ส่ง onLogin = ไม่แสดง', () => {
+    const login = vi.fn()
+    const { rerender } = render(<OnboardingCarousel onComplete={vi.fn()} onLogin={login} />)
+    fireEvent.click(screen.getByTestId('onboarding-login'))
+    expect(login).toHaveBeenCalledTimes(1)
+    rerender(<OnboardingCarousel onComplete={vi.fn()} />)
+    expect(screen.queryByTestId('onboarding-login')).toBeNull()
+  })
+
+  it('NC5 ล็อกอินแล้ว: ปิดไกด์ แต่เก็บวันเกิดไว้ให้หน้าสมัคร · ไกด์มีลิงก์เข้าสู่ระบบ', async () => {
+    renderHook(() => useNewcomer('1'))
+    saveNewcomerBirth({ date: '1990-05-17', time: '08:30' })
+    endNewcomerGuide()
+    expect(renderHook(() => useNewcomer(undefined)).result.current).toBe(false)
+    expect(readNewcomerBirth()).toEqual({ date: '1990-05-17', time: '08:30' })
+
+    render(<><input data-testid="finder-date" /><NewcomerCoach step="date" /></>)
+    await waitFor(() => expect(screen.getByTestId('newcomer-login').getAttribute('href')).toBe('/v2/login'))
   })
 })

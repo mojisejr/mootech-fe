@@ -3,6 +3,7 @@
 // บังคับกด = หรี่จอ + กันแตะทุกที่ยกเว้นส่วนที่ส่อง (ผู้ใช้กดของจริงเอง) · ขั้นเลือกจากสถานะหน้า (หน้าส่ง step มา)
 // วันเกิดที่กรอกจำไว้ให้หน้าสมัคร (/v2/register) เติมให้เอง ไม่ต้องกรอกซ้ำ · ยังไม่มี QI (ยังไม่มีบัญชี) — QI มาจากทัวร์หลังสมัคร
 // ภาพ/การเคลื่อนไหวของช่องส่อง = Spotlight (ใช้ร่วมกับทัวร์แนะนำแอป) · ระหว่างคำนวณ (ไม่มีขั้น) ชั้นหายไป แล้วจางเข้าใหม่ตอนผล
+import Link from "next/link"
 import { useEffect, useState } from "react"
 
 import { Spotlight, holeOf, useTrackedRect } from "@/features/v2-guide/Spotlight"
@@ -43,6 +44,15 @@ export function readNewcomerBirth(): NewcomerBirth | null {
     return j && typeof j.date === "string" && /^\d{4}-\d{2}-\d{2}$/.test(j.date) ? { date: j.date, time: typeof j.time === "string" ? j.time : "" } : null
   } catch {
     return null
+  }
+}
+
+/** ล็อกอินแล้ว: ปิดไกด์คนใหม่ (หน้าหาธาตุกลับเป็นแบบปกติ) แต่เก็บวันเกิดไว้ให้หน้าสมัครเติม */
+export function endNewcomerGuide() {
+  try {
+    window.sessionStorage.removeItem(FLAG)
+  } catch {
+    /* storage ปิด */
   }
 }
 
@@ -100,6 +110,10 @@ export function NewcomerCoach({ step }: { step: keyof typeof NEWCOMER_STEPS | nu
             <p className="mt-0.5 text-[14px] font-bold leading-5 text-v3-navy" data-testid="newcomer-text">
               {NEWCOMER_STEPS[step].text}
             </p>
+            {/* คนเก่าที่หลงมาทางคนใหม่: ทางออกไปเข้าสู่ระบบ (ไกด์บังคับกด ปุ่มอื่นในหน้ากดไม่ได้) */}
+            <Link href="/v2/login" data-testid="newcomer-login" className="mt-1.5 inline-block text-[12px] font-semibold text-v3-sapphire underline">
+              มีบัญชีแล้ว? เข้าสู่ระบบ
+            </Link>
           </div>
         </>
       }
