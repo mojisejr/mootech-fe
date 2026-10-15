@@ -53,6 +53,15 @@ function findTargets(selectors: string[]): HTMLElement[] {
   return [first, ...selectors.slice(1).map((s) => document.querySelector<HTMLElement>(s)).filter(visible)]
 }
 
+/** รอหน้าหลักแสดงจริง (ส่วนที่ส่องขั้นแรกโผล่) ไม่เกิน 10 วิ — ไม่โผล่ = แอปพาไปหน้าอื่น (สมัคร/first-run) อย่าเริ่มทัวร์ */
+async function homeRendered(alive: () => boolean): Promise<boolean> {
+  for (let i = 0; i < 50 && alive(); i++) {
+    if (findTargets(TOUR_STEPS[0].targets).length > 0) return true
+    await new Promise((r) => setTimeout(r, 200))
+  }
+  return false
+}
+
 /** ภารกิจ engine บอกว่าเคยจบทัวร์ (อีกเครื่อง) หรือจบเส้นทางมือใหม่แล้ว → ไม่ต้องทัวร์ · ล็อกอินไม่ผ่าน = ไม่ทัวร์ */
 async function shouldStartFromServer(): Promise<boolean> {
   try {
@@ -90,8 +99,10 @@ export function OnboardingTour() {
     if (tourSeen()) return
     let alive = true
     const delay = new Promise((resolve) => setTimeout(resolve, START_DELAY_MS))
-    void Promise.all([shouldStartFromServer(), delay]).then(([ok]) => {
+    void Promise.all([shouldStartFromServer(), delay]).then(async ([ok]) => {
       if (!alive || !ok || tourSeen()) return
+      // รอหน้าหลักแสดงจริง (คนใหม่ยังไม่มีดวง → หน้าหลักพาไปสมัคร/first-run แทน ห้ามเริ่มทัวร์ทับ)
+      if (!(await homeRendered(() => alive))) return
       setStep(0)
       setActiveFlag(true)
     })
@@ -101,12 +112,12 @@ export function OnboardingTour() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [router.isReady, realPath, router.query.guide])
 
-  // ขั้น nav: ผู้ใช้กดเมนูจนถึงหน้าปลายทาง = ขั้นต่อไป · อยู่ผิดหน้า (หลง/รีเฟรช) → พากลับหน้าของขั้นนี้
+  // ขั้น nav: ผู้ใช้กดเมนูจนถึงหน้าปลายทาง = ขั้นต่อไป · อยู่หน้าอื่น = ทัวร์ซ่อนไว้ รอจนกลับมาหน้าของขั้นนี้
+  // ⚠️ ห้ามพากลับหน้าเอง: ชนกับ redirect ของแอป (หน้าหลัก → สมัคร/first-run) = วนลูป (Kittipon 2026-10-15)
   const arrivedNav = !!s && s.kind === "nav" && realPath === s.to
   useEffect(() => {
     if (!s) return
     if (arrivedNav) next()
-    else if (!onPage) void router.push(s.page)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [step, onPage, arrivedNav])
 
@@ -161,7 +172,8 @@ export function OnboardingTour() {
     return () => window.clearTimeout(t)
   }, [reward])
 
-  if (step === null || !s) {
+  if (step === null || !s || !onPage) {
+    if (step !== null) return null // อยู่หน้าอื่นชั่วคราว (กำลังเปลี่ยนหน้า / แอปพาไปที่อื่น) — ไม่หรี่จอทับ
     if (!reward) return null
     return (
       <div className="pointer-events-none fixed inset-x-0 top-6 z-[80] flex justify-center px-4" data-testid="tour-reward">
