@@ -1,4 +1,4 @@
-// features/v2-guide/Spotlight.tsx — ชั้นส่องไฟที่ทัวร์ 8 ขั้น (OnboardingTour) และไกด์คนใหม่ (NewcomerCoach) ใช้ร่วมกัน
+// features/v2-guide/Spotlight.tsx — ชั้นส่องไฟที่ทัวร์แนะนำแอป (OnboardingTour) และไกด์คนใหม่ (NewcomerCoach) ใช้ร่วมกัน
 // ให้ลื่นแบบ coach mark ของ LINE (เอ็ม 2026-10-14 "ไม่ smooth เลย"):
 //   • เปลี่ยนขั้น = ช่องส่อง "เลื่อน" จากจุดเดิมไปจุดใหม่ (ไม่หายแล้วโผล่ ไม่มีจอมืดทึบแวบ)
 //   • ระหว่างนั้นตามตำแหน่งทุกเฟรมแบบไม่มี transition (จอเลื่อนแล้วช่องไม่หนืดตาม — transition ที่โดนตั้งค่าใหม่ทุกเฟรม = กระตุก)
@@ -116,6 +116,9 @@ export function Spotlight({ stepKey, hole, mode, onHoleTap, bubble, bubbleStyle,
   const h = hole ?? lastHole.current
 
   const vw = typeof window === "undefined" ? 400 : window.innerWidth
+  const vh = typeof window === "undefined" ? 800 : window.innerHeight
+  // เป้าชิดล่างจอ (แถบเมนู) → มือชี้ลงจากเหนือปุ่ม · อื่นๆ มือชี้ขึ้นจากในช่อง
+  const handAbove = !!h && h.top + h.height > vh - 120
   const glide = gliding ? `transform ${GLIDE_MS}ms ${EASE}, width ${GLIDE_MS}ms ${EASE}, height ${GLIDE_MS}ms ${EASE}` : "none"
   const tapHole = mode === "catch" && onHoleTap ? onHoleTap : undefined
 
@@ -151,9 +154,9 @@ export function Spotlight({ stepKey, hole, mode, onHoleTap, bubble, bubbleStyle,
           <span
             aria-hidden
             className="pointer-events-none absolute left-0 top-0 text-[40px] drop-shadow-lg"
-            style={{ transform: `translate3d(${h.left + Math.max(h.width * 0.7 - 20, 0)}px, ${h.top + h.height * 0.55}px, 0)`, transition: glide }}
+            style={{ transform: `translate3d(${h.left + Math.max(h.width * (handAbove ? 0.5 : 0.7) - 20, 0)}px, ${handAbove ? h.top - 52 : h.top + h.height * 0.55}px, 0)`, transition: glide }}
           >
-            <span className="block animate-bounce">👆</span>
+            <span className="block animate-bounce">{handAbove ? "👇" : "👆"}</span>
           </span>
         </>
       ) : (

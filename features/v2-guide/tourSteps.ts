@@ -1,5 +1,6 @@
-// features/v2-guide/tourSteps.ts — ทัวร์แนะนำแอป 8 ขั้น (FTUE / coach mark) ตามสเปก "User Onboarding Tour Specification" (เอ็ม 2026-10-14)
-// ขึ้นเองครั้งแรกที่หน้าหลัก /v2 · หน้าหลัก 4 ขั้น → บริการ 3 ขั้น → โปรไฟล์ 1 ขั้น · แตะส่วนที่ส่อง หรือ "ถัดไป" = ขั้นต่อไป
+// features/v2-guide/tourSteps.ts — ทัวร์แนะนำแอป 12 ขั้น (FTUE / coach mark) ตามสเปก "User Onboarding Tour Specification" (เอ็ม 2026-10-14)
+// ขึ้นเองครั้งแรกที่หน้าหลัก /v2 · หน้าหลัก → บริการ → ปฏิทิน → โปรไฟล์ · แตะส่วนที่ส่อง หรือ "ถัดไป" = ขั้นต่อไป
+// เปลี่ยนหน้า = ขั้น nav ส่องปุ่มเมนูให้ผู้ใช้กดเอง (Kittipon 2026-10-14 "ให้เห็นว่ากดปุ่มตรงนี้ก่อน" + เมนูปฏิทิน/โปรไฟล์)
 // จบ ("เริ่มต้นใช้งาน") = engine ภารกิจ guide_tour จ่าย TOUR_QI ครั้งเดียว ⚠️ id/รางวัลต้องตรงกับ engine lib/bazi/manifest/missions.ts
 
 export type TourStep = {
@@ -9,6 +10,9 @@ export type TourStep = {
   targets: string[]
   title: string
   body: string
+  /** nav = ส่องปุ่มเมนู ผู้ใช้ต้องกดของจริง (ไม่มี "ถัดไป") → ไปขั้นต่อเมื่อถึงหน้า `to` */
+  kind?: "nav"
+  to?: string
 }
 
 export const TOUR_MISSION_ID = "guide_tour"
@@ -42,6 +46,14 @@ export const TOUR_STEPS: readonly TourStep[] = [
     body: "มีข้อสงสัยเรื่องดวง หาฤกษ์มงคล หรืออยากเปิดไพ่ถามปัญหา กดเปิดแชตคุยกับเสี่ยวมู่ได้ทันทีตลอด 24 ชั่วโมง",
   },
   {
+    page: "/v2",
+    kind: "nav",
+    to: "/v2/service",
+    targets: [tid("nav-tab-service")],
+    title: "ไปดูบริการทั้งหมด",
+    body: "กดเมนู \"บริการ\" ตรงนี้ เพื่อดูบริการดูดวงทั้งหมดของ Mumate",
+  },
+  {
     page: "/v2/service",
     targets: [tid("service-card-couple"), tid("service-card-coworker")],
     title: "แมตช์ดวงตรวจความสมพงษ์",
@@ -58,6 +70,28 @@ export const TOUR_STEPS: readonly TourStep[] = [
     targets: [tid("service-card-one-book")],
     title: "วางแผนชีวิตแบบเจาะลึกเฉพาะคุณ",
     body: "หากต้องการรู้ชะตาตนเองแบบละเอียดที่สุด สามารถสั่งทำคู่มือกลยุทธ์ชีวิตส่วนบุคคลที่คำนวณจากวันเดือนปีและเวลาเกิดจริงของคุณโดยเฉพาะ",
+  },
+  {
+    page: "/v2/service",
+    kind: "nav",
+    to: "/v2/calendar",
+    targets: [tid("nav-tab-calendar")],
+    title: "ปฏิทินดวงของคุณ",
+    body: "กดเมนู \"ปฏิทิน\" ตรงนี้ เพื่อดูวันดีวันเสียของคุณทั้งเดือน",
+  },
+  {
+    page: "/v2/calendar",
+    targets: [tid("calendar-grid-card")],
+    title: "ดูวันดีทั้งเดือนในที่เดียว",
+    body: "ปฏิทินดวงรายเดือนของคุณ แตะวันไหนก็ดูคะแนน 4 ด้าน คำทำนาย และทิศมงคลของวันนั้นได้ทันที",
+  },
+  {
+    page: "/v2/calendar",
+    kind: "nav",
+    to: "/v2/account",
+    targets: [tid("header-avatar")],
+    title: "โปรไฟล์ของคุณ",
+    body: "กดรูปโปรไฟล์ตรงนี้ เพื่อดูพลังชี่ (QI) และภารกิจของคุณ",
   },
   {
     page: "/v2/account",

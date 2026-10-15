@@ -1,6 +1,7 @@
 // scripts/onboarding-tour.test.tsx — ทัวร์แนะนำแอป 8 ขั้น (สเปก FTUE เอ็ม 2026-10-14)
 //   OT1 หน้าหลักครั้งแรก → ขึ้น 1/8 + ถัดไป → 2/8 · แตะส่วนที่ส่อง = ขั้นต่อไป · แตะนอกส่วนที่ส่อง = ไม่มีผล
-//   OT2 ขั้นที่ต้องอยู่หน้าอื่น → พาไปหน้านั้นเอง (router.push)
+//   OT2 ขั้น nav (ส่องเมนูบริการ): ไม่มี "ถัดไป" ไม่พาไปเอง · ผู้ใช้กดเมนูจนถึงหน้าบริการ = ขั้นต่อไป
+//   OT2b หาปุ่มเมนูไม่เจอ → พาไปหน้านั้นเอง (ทางสำรอง)
 //   OT3 จบ "เริ่มต้นใช้งาน" → ยิง guide_tour + จำว่าดูแล้ว · ข้าม "ไว้คราวหลัง" → ไม่ยิง แต่จำ
 //   OT4 ไม่ขึ้น: เคยดูแล้ว / engine จ่าย guide_tour แล้ว / จบเส้นทางมือใหม่ / มาจากไกด์ / ล็อกอินไม่ผ่าน / ไม่ใช่หน้าหลัก
 //   OT5 หาส่วนที่ส่องไม่เจอ → ข้ามขั้นเอง ไม่ค้าง
@@ -67,21 +68,50 @@ describe('ทัวร์แนะนำแอป', () => {
     expect(progress()).toBe(`3/${N}`)
   })
 
-  it('OT2 ขั้นบริการ → พาไป /v2/service เอง', async () => {
-    render(<><Targets /><OnboardingTour /></>)
+  it('OT2 ขั้น nav: ส่องเมนูบริการ → ผู้ใช้กดเองจนถึงหน้าบริการ = ขั้นต่อไป', async () => {
+    const { rerender } = render(<><Targets /><OnboardingTour /></>)
     for (let i = 0; i < 4; i++) {
       await started()
       act(() => { fireEvent.click(screen.getByTestId('tour-next')) })
     }
-    await waitFor(() => expect(route.push).toHaveBeenCalledWith('/v2/service'))
+    await waitFor(() => expect(progress()).toBe(`5/${N}`))
+    await started()
+    expect(TOUR_STEPS[4].kind).toBe('nav')
+    expect(screen.queryByTestId('tour-next')).toBeNull()
+    expect(screen.getByTestId('tour-tap-hint')).toBeTruthy()
+    expect(screen.queryByTestId('onboarding-tour-hole')).toBeNull() // แตะทะลุไปกดเมนูจริง
+    await new Promise((r) => setTimeout(r, 300))
+    expect(route.push).not.toHaveBeenCalled()
+    route = { ...route, pathname: '/v2/service', asPath: '/v2/service' }
+    rerender(<><Targets /><OnboardingTour /></>)
+    await waitFor(() => expect(progress()).toBe(`6/${N}`))
   })
+
+  it('OT2b หาปุ่มเมนูไม่เจอ → พาไปหน้านั้นเอง', async () => {
+    const navIds = TOUR_STEPS.filter((x) => x.kind === 'nav').flatMap((x) => ids(x.targets))
+    function NoNav() {
+      return <>{TOUR_STEPS.flatMap((x) => ids(x.targets)).filter((id) => !navIds.includes(id)).map((id) => <div key={id} data-testid={id}>{id}</div>)}</>
+    }
+    render(<><NoNav /><OnboardingTour /></>)
+    for (let i = 0; i < 4; i++) {
+      await started()
+      act(() => { fireEvent.click(screen.getByTestId('tour-next')) })
+    }
+    await waitFor(() => expect(route.push).toHaveBeenCalledWith('/v2/service'), { timeout: 9000 })
+  }, 15000)
 
   it('OT3 จบ → ยิง guide_tour + จำ · ข้าม → ไม่ยิง แต่จำ', async () => {
     const { rerender } = render(<><Targets /><OnboardingTour /></>)
     await started()
     for (let i = 0; i < N - 1; i++) {
-      route = { ...route, pathname: TOUR_STEPS[i + 1].page, asPath: TOUR_STEPS[i + 1].page }
-      act(() => { fireEvent.click(screen.getByTestId('tour-next')) })
+      const cur = TOUR_STEPS[i]
+      if (cur.kind === 'nav') {
+        // ผู้ใช้กดเมนูเอง → หน้าเปลี่ยน
+        route = { ...route, pathname: cur.to!, asPath: cur.to! }
+      } else {
+        route = { ...route, pathname: TOUR_STEPS[i + 1].page, asPath: TOUR_STEPS[i + 1].page }
+        act(() => { fireEvent.click(screen.getByTestId('tour-next')) })
+      }
       rerender(<><Targets /><OnboardingTour /></>)
       await waitFor(() => expect(progress()).toBe(`${i + 2}/${N}`))
       await started()
