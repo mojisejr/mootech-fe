@@ -332,7 +332,8 @@ export default defineConfig({
       'scripts/fengshui-cards.test.tsx', // ไพ่อาถรรพ์ฮวงจุ้ย (FengshuiScreen: สุ่ม 3/1 · คำถาม+คำตอบ · 402→แลก QI)
       'scripts/newbie-guide.test.tsx', // เส้นทางมือใหม่ (การ์ดหน้าหลัก · นับภารกิจ · มาสคอตอธิบาย · ซ่อน)
       'scripts/onboarding-tour.test.tsx', // ทัวร์แนะนำแอป 8 ขั้น (สเปก FTUE 2026-10-14)
-      'scripts/newcomer-coach.test.tsx', // คนใหม่หาธาตุก่อนสมัคร (บังคับกด) 2026-10-14
+      'scripts/newcomer-coach.test.tsx', // คนใหม่หาธาตุก่อนสมัคร (บังคับกด) 2026-10-14
+      'scripts/siamsi-page.test.ts', // ไพ่เซียมซีเคี้ยงคุง หน้าในแอป (ยังปิด) 2026-10-15
       'scripts/one-book-screen.test.tsx', // บริการ one-book (Your Life Code) — hero/ราคา/CTA ไลน์ + accordion 15 ด้าน
       'scripts/sinsae-screen.test.tsx', // บริการ sinsae (ดูดวงส่วนตัว กับซินแส) — 3 แพ็ก + trust bar + CTA ไลน์
 

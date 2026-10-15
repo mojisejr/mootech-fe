@@ -57,6 +57,7 @@ const DESC_CALENDAR = ['วางแผนชีวิตตามจังห�
 const DESC_HEALING = ['พื้นที่ปลอดภัยให้ทุกคนได้แบ่งปัน', 'ความรู้สึกรับฟังซึ่งกันและกัน']
 const DESC_SACRED = ['แผนที่ศักดิ์สิทธิ์ที่รวบรวมสถานที่', 'พลังงานสูงพร้อมนำภายในที่ลึกซึ้ง']
 const DESC_SHOP = ['เลือกสรรสินค้าเสริมพลังกาย', 'ใจ และจิตวิญญาณ']
+const DESC_SIAMSI = ['ขอคำชี้แนะ แผนงาน การตัดสินใจ', 'ตั้งคำถามแล้วเสี่ยง 1 ใบ ได้คำตอบทันที']
 const DESC_FENGSHUI = ['ตรวจชัยภูมิบ้าน ที่ทำงาน ร้าน', 'รู้จุดเสียและวิธีแก้ด้วยไพ่ฮวงจุ้ย']
 const DESC_PHONE = ['ถอดพลังตัวเลขในเบอร์ของคุณ', 'เสริมดวงเงิน งาน และความรัก']
 const DESC_HONEYCOMB = ['ถอดรหัสเบอร์แบบปิรามิดรังผึ้ง', 'อ่านพลังตัวเรา–ใกล้ตัว–ไกลตัว']
@@ -74,6 +75,9 @@ export const SERVICES = [
   // พักไว้ก่อน (owner 2026-10-12, mumate-fengshui-hold-001): ยังไม่เปิดให้ใช้ — ซ่อนการ์ด และหน้า /v2/fortune/fengshui ส่งไป
   // coming-soon. เปิดคืน = ลบ hiddenUntilArt บรรทัดนี้ + ON_HOLD ใน pages/v2/fortune/fengshui.tsx (+ CHAT_CARD_NOTE_FENGSHUI ของ bazi)
   { id: 'fengshui-cards', title: 'ไพ่อาถรรพ์ฮวงจุ้ย', desc: DESC_FENGSHUI, href: '/v2/fortune/fengshui', image: ART('14_ไพ่อาถรรพ์ฮวงจุ้ย.png'), cta: 'เปิดไพ่เลย', hiddenUntilArt: true },
+  // ไพ่เซียมซีเคี้ยงคุง 80 ใบ (ซินแสนุ้ย 2026-10-15): สร้างไว้แต่ยังไม่เปิด (ใช้ได้แค่หลังบ้าน engine /siamsi) — ไม่มีอาร์ตการ์ดเมนู
+  // เปิดคืน = ลบ hiddenUntilArt + ใส่ image + ON_HOLD ใน pages/v2/fortune/siamsi.tsx
+  { id: 'siamsi-kiangkung', title: 'ไพ่เซียมซีเคี้ยงคุง', desc: DESC_SIAMSI, href: '/v2/fortune/siamsi', cta: 'เสี่ยงเลย', hiddenUntilArt: true },
   { id: 'sian', title: 'เสี่ยงเซียนเสี่ยงทาย', desc: DESC_SIAN, href: '/v2/fortune/sage', image: ART('06_เสี่ยงเซียนเสี่ยงทาย.png'), cta: 'เสี่ยงทายเลย' },
   { id: 'sinsae', title: 'ดูดวงส่วนตัว กับซินแส', desc: DESC_SINSAE, href: '/v2/service/sinsae', image: ART('07_ดูดวงส่วนตัวกับซินแส.png'), cta: 'ดูดวงเลย' },
   { id: 'manifest', title: 'มานิเฟส', desc: DESC_MANIFEST, href: '/v2/service/manifest', image: ART('08_มานิเฟส.png'), cta: 'เริ่มมานิเฟส' },

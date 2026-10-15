@@ -4,6 +4,7 @@
 //   FC2 เปิดการ์ด: เลือกเอง → กริดครบ deck → แตะ 3 ใบ → เปิด → POST cardNos → ผล 3 ใบ + น้ำหนัก%
 //   FC3 หยิบสุ่ม → POST random → ผล
 //   FC4 402 → quota ไม่โชว์ผล
+//   FC-S1 เซียมซีเคี้ยงคุง pickCount=1: ปุ่ม/ตัวนับเป็น 1 ใบ · แตะใบใหม่แทนใบเดิม · POST cardNos(1)
 //   FC5 น้ำหนักจาก engine (50) แสดง "50%" ไม่ใช่ "5000%"
 import React from 'react'
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
@@ -166,5 +167,21 @@ describe('เสี่ยงไพ่ (oracle/divine)', () => {
     expect(screen.getByTestId('cards-summary').textContent).not.toContain('สรุปใบหลัก')
     // ต่อใบยังแสดงหัวใบครบ (engineProse ไม่เลื่อน index)
     expect(screen.getByText('#11 ไพ่หนึ่ง · พลัง')).toBeTruthy()
+  })
+  it('FC-S1 เซียมซี 1 ใบ: เลือกเอง 1 ใบ → แตะใบใหม่แทน → เปิด → POST cardNos(1)', async () => {
+    cardsOut = [CARDS[0]]
+    render(<CardReadingScreen mode="siamsi" title="ไพ่เซียมซีเคี้ยงคุง" resultTitle="ผลเซียมซีเคี้ยงคุง" introArt="/x.png" endpoint="/api/fortune/oracle" deckCount={8} pickCount={1} />)
+    typeQ('ควรลาออกไหม')
+    expect(screen.getByTestId('cards-goto-pick').textContent).toContain('เลือกเอง 1 ใบ')
+    fireEvent.click(screen.getByTestId('cards-goto-pick'))
+    expect(screen.getAllByTestId(/^cards-tile-/).length).toBe(8)
+    fireEvent.click(screen.getByTestId('cards-tile-0'))
+    fireEvent.click(screen.getByTestId('cards-tile-3')) // แตะใบใหม่ = เปลี่ยนใบ (ไม่ติดที่ใบแรก)
+    expect(screen.getByTestId('cards-pick-count').textContent).toContain('1/1')
+    const open = screen.getByTestId('cards-open') as HTMLButtonElement
+    expect(open.textContent).toContain('เปิดไพ่ · 10 QI')
+    fireEvent.click(open)
+    await waitFor(() => expect(screen.getByTestId('cards-result')).toBeTruthy(), { timeout: 3000 })
+    expect(lastBody.cardNos as number[]).toHaveLength(1)
   })
 })
