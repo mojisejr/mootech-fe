@@ -102,7 +102,7 @@ function SapphireAvatar({ name = '', pictureUrl, onClick, href, label = 'โป�
       />
     )
   const cls = 'relative grid size-10 shrink-0 place-items-center overflow-hidden rounded-full bg-v3-sapphire text-sm font-bold text-white'
-  if (href) return <Link href={href} aria-label={label} className={cls}>{inner}</Link>
+  if (href) return <Link href={href} aria-label={label} data-testid="header-avatar" className={cls}>{inner}</Link>
   // No href AND no onClick → the page has no avatar action yet (the calendar flow). ฟีม's ruling is that the
   // avatar must LOOK the same everywhere; it does not say every page must invent a menu. Render the identical
   // tile as a <span> rather than a <button> that swallows the tap — same pixels, no lie.
@@ -116,7 +116,7 @@ function SapphireAvatar({ name = '', pictureUrl, onClick, href, label = 'โป�
       </ComingSoonAction>
     )
   }
-  return <button type="button" aria-label={label} onClick={onClick} className={cls}>{inner}</button>
+  return <button type="button" aria-label={label} onClick={onClick} data-testid="header-avatar" className={cls}>{inner}</button>
 }
 
 export function TopBarAvatar({ variant = 'sapphire', ...rest }: TopBarAvatarProps) {

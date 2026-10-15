@@ -121,6 +121,7 @@ export function Menubar({ state = 'default', ctaLabel, ctaDisabled = false, onCt
               <li key={tab.href} className="min-w-0 flex-1">
                 <Link
                   href={tab.href}
+                  data-testid={`nav-tab-${tab.href === '/v2' ? 'home' : tab.href.split('/').pop()}`}
                   aria-current={active ? 'page' : undefined}
                   className={[
                     // Figma Menu (461:3097): 58×54 tab · py-8 · gap 2 · SemiBold 14/20 · default #FAF7F4 on the bar ·

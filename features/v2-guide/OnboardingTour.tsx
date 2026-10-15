@@ -1,7 +1,8 @@
-// features/v2-guide/OnboardingTour.tsx — ทัวร์แนะนำแอป 8 ขั้น (coach mark แบบ LINE · สเปก FTUE เอ็ม 2026-10-14) mount ครั้งเดียวใน _app เฉพาะ /v2
+// features/v2-guide/OnboardingTour.tsx — ทัวร์แนะนำแอป 12 ขั้น (coach mark แบบ LINE · สเปก FTUE เอ็ม 2026-10-14) mount ครั้งเดียวใน _app เฉพาะ /v2
 // ขึ้นเองเมื่อเปิดหน้าหลักครั้งแรกหลังล็อกอิน (ยังไม่เคยจบ/ข้าม · engine ยังไม่จ่าย guide_tour · ยังไม่จบเส้นทางมือใหม่)
 // หรี่จอ + ส่องส่วนที่แนะนำ + มือชี้ + เสี่ยวมู่พูด · แตะส่วนที่ส่อง หรือ "ถัดไป" = ขั้นต่อไป (ระหว่างทัวร์แตะแล้วไม่ออกจากหน้า)
-// เปลี่ยนหน้าเอง (หน้าหลัก → บริการ → โปรไฟล์) · หาส่วนที่ส่องไม่เจอใน 6 วิ = ข้ามขั้นนั้น (ไม่ค้างจอมืด)
+// เปลี่ยนหน้า = ขั้น nav: ส่องปุ่มเมนู ผู้ใช้กดของจริงเอง (ถึงหน้า to = ขั้นต่อไป) · หาปุ่มเมนูไม่เจอ 6 วิ = พาไปเอง
+// หาส่วนที่ส่องขั้นอื่นไม่เจอใน 6 วิ = ข้ามขั้นนั้น (ไม่ค้างจอมืด)
 // "เริ่มต้นใช้งาน" = จบ + engine จ่าย TOUR_QI ครั้งเดียว · "ไว้คราวหลัง" = ปิด ไม่ได้รางวัล · ทั้งคู่จำไว้ ไม่ขึ้นซ้ำ
 // ภาพ/การเคลื่อนไหวของช่องส่อง = Spotlight (ใช้ร่วมกับไกด์คนใหม่)
 import { useRouter } from "next/router"
@@ -91,11 +92,14 @@ export function OnboardingTour() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [router.isReady, realPath, router.query.guide])
 
-  // อยู่ผิดหน้า → พาไป
+  // ขั้น nav: ผู้ใช้กดเมนูจนถึงหน้าปลายทาง = ขั้นต่อไป · อยู่ผิดหน้า (หลง/รีเฟรช) → พากลับหน้าของขั้นนี้
+  const arrivedNav = !!s && s.kind === "nav" && realPath === s.to
   useEffect(() => {
-    if (s && !onPage) void router.push(s.page)
+    if (!s) return
+    if (arrivedNav) next()
+    else if (!onPage) void router.push(s.page)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [step, onPage])
+  }, [step, onPage, arrivedNav])
 
   const end = (how: "done" | "skipped") => {
     try {
@@ -136,7 +140,8 @@ export function OnboardingTour() {
     (found) => {
       if (!found && Date.now() - startedAt.current > FIND_TIMEOUT_MS) {
         startedAt.current = Date.now()
-        next()
+        if (s?.kind === "nav" && s.to) void router.push(s.to) // ไม่เจอปุ่มเมนู → พาไปเอง (ถึงแล้วขั้นต่อไปเอง)
+        else next()
       }
     },
   )
@@ -157,6 +162,7 @@ export function OnboardingTour() {
   }
 
   const last = step === TOUR_STEPS.length - 1
+  const nav = s.kind === "nav"
   const vh = typeof window === "undefined" ? 800 : window.innerHeight
   const hole = rect && onPage ? holeOf(rect, PAD, vh) : null
   // กล่องคำพูด: วางฝั่งที่เหลือที่มากกว่า · ส่วนที่ส่องสูงจนไม่มีที่ = ชิดล่างจอ
@@ -173,8 +179,8 @@ export function OnboardingTour() {
     <Spotlight
       stepKey={step}
       hole={hole}
-      mode="catch"
-      onHoleTap={next}
+      mode={nav ? "pass" : "catch"}
+      onHoleTap={nav ? undefined : next}
       testId="onboarding-tour"
       spotTestId="tour-spotlight"
       bubbleStyle={bubbleStyle}
@@ -194,6 +200,9 @@ export function OnboardingTour() {
               <button type="button" onClick={() => end("skipped")} data-testid="tour-skip" className="text-[12px] font-bold text-v3-text-muted underline">
                 ไว้คราวหลัง
               </button>
+              {nav ? (
+                <span className="text-[12px] font-bold text-v3-sapphire" data-testid="tour-tap-hint">แตะปุ่มที่ส่องอยู่ 👆</span>
+              ) : (
               <button
                 type="button"
                 onClick={next}
@@ -202,6 +211,7 @@ export function OnboardingTour() {
               >
                 {last ? `เริ่มต้นใช้งาน (+${TOUR_QI} QI)` : "ถัดไป"}
               </button>
+              )}
             </div>
           </div>
         </>
