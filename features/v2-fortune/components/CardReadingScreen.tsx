@@ -1,4 +1,5 @@
 // features/v2-fortune/components/CardReadingScreen.tsx — flow เลือกไพ่ 3 ใบ (oracle/divine) ร่วมกัน
+// + siamsi (เซียมซีเคี้ยงคุง 80 ใบ, 2026-10-15): pickCount=1 — 1 คำถาม 1 ใบ
 // เฟรม oracle 55449:2172 / divine 55449:2170. intro → เลือกไพ่ 3 ใบ (หรือหยิบสุ่ม) → loading → ผล
 // (3 ใบ + น้ำหนัก% + สรุป + รายใบ). ต่อ engine ผ่าน BFF. โควตา "card" (402 → ชวนเติม/แลก). แชร์ = +10 QI (earn share).
 import Head from "next/head"
@@ -27,9 +28,12 @@ export type FortuneCard = {
 type Slot = { position: number; weight: number; role: string; no: number }
 
 // รูปหลังไพ่จริง (export จาก Figma deck-cover) + สีเรืองเมื่อเลือก/ตอนโหลด
-const THEME: Record<"oracle" | "divine", { back: string; ring: string; bg: string }> = {
+type DeckMode = "oracle" | "divine" | "siamsi"
+const THEME: Record<DeckMode, { back: string; ring: string; bg: string }> = {
   oracle: { back: "/images/v2/fortune/oracle-back.png", ring: "ring-[#127687]", bg: "/images/v2/fortune/oracle-bg.png" },
   divine: { back: "/images/v2/fortune/divine-back.png", ring: "ring-[#20306F]", bg: "/images/v2/fortune/divine-bg.png" },
+  // ยังไม่มีอาร์ตหลังไพ่เซียมซี → ใช้ของออราเคิล (เคี้ยงคุงเหมือนกัน) จนกว่าจะได้อาร์ต
+  siamsi: { back: "/images/v2/fortune/oracle-back.png", ring: "ring-[#2E7D5B]", bg: "/images/v2/fortune/oracle-bg.png" },
 }
 
 function shuffle(n: number): number[] {
@@ -48,14 +52,17 @@ export function CardReadingScreen({
   introArt,
   endpoint,
   deckCount,
+  pickCount = 3,
   backHref = "/v2/service",
 }: {
-  mode: "oracle" | "divine"
+  mode: DeckMode
   title: string
   resultTitle: string
   introArt: string
   endpoint: string
   deckCount: number
+  /** จำนวนใบที่เลือกเอง (oracle/divine = 3 · siamsi = 1) */
+  pickCount?: number
   backHref?: string
 }) {
   const theme = THEME[mode]
@@ -179,8 +186,8 @@ export function CardReadingScreen({
     }
   }
 
-  const toggle = (idx: number) => setPicked((p) => (p.includes(idx) ? p.filter((x) => x !== idx) : p.length >= 3 ? p : [...p, idx]))
-  const openPicked = () => { if (picked.length === 3) void predict(picked.map((i) => deck[i])) }
+  const toggle = (idx: number) => setPicked((p) => (p.includes(idx) ? p.filter((x) => x !== idx) : p.length >= pickCount ? (pickCount === 1 ? [idx] : p) : [...p, idx]))
+  const openPicked = () => { if (picked.length === pickCount) void predict(picked.map((i) => deck[i])) }
   const reset = () => { setPicked([]); setCards([]); setSlots([]); setProse(""); setTailored(""); setPhase("intro") }
 
   const share = async () => {
@@ -215,7 +222,7 @@ export function CardReadingScreen({
     void shareAsInvite({ title, text, og: { title: resultTitle || title, summary: sharedSummary, tag: title, image: ogImage, isPublic: allowPublic, fullText } })
   }
 
-  const headerTitle = phase === "result" ? resultTitle : phase === "pick" ? "เลือกไพ่ 3 ใบ" : title
+  const headerTitle = phase === "result" ? resultTitle : phase === "pick" ? `เลือกไพ่ ${pickCount} ใบ` : title
 
   return (
     <SkyScreen bgImage={theme.bg}>
@@ -279,7 +286,7 @@ export function CardReadingScreen({
             {authStatus !== "anon" && (
               <div className="absolute inset-x-3 bottom-1 flex gap-2">
                 <button onClick={() => void predict()} disabled={cd.active || authStatus === "loading" || !questionReady} data-testid="cards-random" className="grid h-11 flex-1 place-items-center rounded-full bg-white text-[13px] font-bold text-v3-sapphire shadow-md disabled:opacity-50">{cd.active ? `รออีก ${cd.secondsLeft} วิ` : "กดเพื่อเสี่ยงทาย"}</button>
-                <KitButton onClick={() => setPhase("pick")} disabled={!questionReady} testId="cards-goto-pick" className="flex-1 !h-11 shadow-md">เลือกเอง 3 ใบ</KitButton>
+                <KitButton onClick={() => setPhase("pick")} disabled={!questionReady} testId="cards-goto-pick" className="flex-1 !h-11 shadow-md">เลือกเอง {pickCount} ใบ</KitButton>
               </div>
             )}
           </div>
@@ -308,7 +315,7 @@ export function CardReadingScreen({
           {/* ถาดเลือก: บอกจำนวนที่เลือกแล้ว */}
           <div className="rounded-[16px] bg-v3-sapphire p-3 text-center text-white">
             <p className="text-[13px] font-bold">ตั้งจิตให้นิ่ง แล้วเลือกไพ่ที่รู้สึกว่าใช่</p>
-            <p className="text-[12px] text-white/80" data-testid="cards-pick-count">เลือกแล้ว {picked.length}/3</p>
+            <p className="text-[12px] text-white/80" data-testid="cards-pick-count">เลือกแล้ว {picked.length}/{pickCount}</p>
           </div>
           <div className="grid grid-cols-4 gap-2 pb-24">
             {deck.map((no, idx) => {
@@ -330,7 +337,7 @@ export function CardReadingScreen({
             })}
           </div>
           <div className="fixed inset-x-0 bottom-0 z-30 mx-auto w-full max-w-md border-t border-v3-border-card bg-white/95 px-4 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3 backdrop-blur">
-            <KitButton onClick={openPicked} disabled={picked.length !== 3 || cd.active} testId="cards-open">{cd.active ? `รออีก ${cd.secondsLeft} วิ` : "เปิดไพ่ทั้ง 3 ใบ · 10 QI"}</KitButton>
+            <KitButton onClick={openPicked} disabled={picked.length !== pickCount || cd.active} testId="cards-open">{cd.active ? `รออีก ${cd.secondsLeft} วิ` : pickCount === 1 ? "เปิดไพ่ · 10 QI" : `เปิดไพ่ทั้ง ${pickCount} ใบ · 10 QI`}</KitButton>
           </div>
         </div>
       )}
