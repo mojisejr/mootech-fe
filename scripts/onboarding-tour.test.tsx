@@ -4,12 +4,13 @@
 //   OT2b หาปุ่มเมนูไม่เจอ → พาไปหน้านั้นเอง (ทางสำรอง)
 //   OT3 จบ "เริ่มต้นใช้งาน" → ยิง guide_tour + จำว่าดูแล้ว · ข้าม "ไว้คราวหลัง" → ไม่ยิง แต่จำ
 //   OT4 ไม่ขึ้น: เคยดูแล้ว / engine จ่าย guide_tour แล้ว / จบเส้นทางมือใหม่ / มาจากไกด์ / ล็อกอินไม่ผ่าน / ไม่ใช่หน้าหลัก
+//   OT6 ดูทัวร์อีกครั้ง (/v2?tour=replay): ขึ้นแม้เคยดูแล้ว/engine จ่ายแล้ว + ล้าง query
 //   OT5 หาส่วนที่ส่องไม่เจอ → ข้ามขั้นเอง ไม่ค้าง
 import React from 'react'
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, cleanup, fireEvent, act, waitFor } from '@testing-library/react'
 
-type Route = { pathname: string; asPath: string; query: Record<string, string>; isReady: boolean; push: ReturnType<typeof vi.fn> }
+type Route = { pathname: string; asPath: string; query: Record<string, string>; isReady: boolean; push: ReturnType<typeof vi.fn>; replace?: ReturnType<typeof vi.fn> }
 let route: Route
 vi.mock('next/router', () => ({ useRouter: () => route }))
 
@@ -152,4 +153,13 @@ describe('ทัวร์แนะนำแอป', () => {
     await waitFor(() => expect(progress()).toBe(`1/${N}`), { timeout: 3000 })
     await waitFor(() => expect(progress()).toBe(`2/${N}`), { timeout: 8000 })
   }, 15000)
+  it('OT6 ดูทัวร์อีกครั้ง: ขึ้นแม้เคยดูแล้ว + ล้าง ?tour', async () => {
+    localStorage.setItem('mumate-tour-v1', 'done')
+    serverMissions = [{ id: 'guide_tour', completed: true, claimedAt: '2026-10-14' }]
+    route = { ...route, query: { tour: 'replay' }, asPath: '/v2?tour=replay', replace: vi.fn() }
+    render(<><Targets /><OnboardingTour /></>)
+    await started()
+    expect(progress()).toBe('1/' + N)
+    expect(route.replace).toHaveBeenCalledWith('/v2', undefined, { shallow: true })
+  })
 })
