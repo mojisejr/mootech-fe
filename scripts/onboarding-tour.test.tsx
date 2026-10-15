@@ -5,6 +5,7 @@
 //   OT3 จบ "เริ่มต้นใช้งาน" → ยิง guide_tour + จำว่าดูแล้ว · ข้าม "ไว้คราวหลัง" → ไม่ยิง แต่จำ
 //   OT4 ไม่ขึ้น: เคยดูแล้ว / engine จ่าย guide_tour แล้ว / จบเส้นทางมือใหม่ / มาจากไกด์ / ล็อกอินไม่ผ่าน / ไม่ใช่หน้าหลัก
 //   OT6 ดูทัวร์อีกครั้ง (/v2?tour=replay): ขึ้นแม้เคยดูแล้ว/engine จ่ายแล้ว + ล้าง query
+//   OT7 สมัครใหม่ (Kittipon 2026-10-15 วนลูป): หน้าหลักยังไม่แสดง → ไม่เริ่ม · แอปพาไปหน้าอื่นกลางทัวร์ → ไม่ดึงกลับ /v2
 //   OT5 หาส่วนที่ส่องไม่เจอ → ข้ามขั้นเอง ไม่ค้าง
 import React from 'react'
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
@@ -149,10 +150,18 @@ describe('ทัวร์แนะนำแอป', () => {
   })
 
   it('OT5 หาส่วนที่ส่องไม่เจอ → ข้ามขั้นเอง', async () => {
-    render(<OnboardingTour />)
-    await waitFor(() => expect(progress()).toBe(`1/${N}`), { timeout: 3000 })
-    await waitFor(() => expect(progress()).toBe(`2/${N}`), { timeout: 8000 })
+    // ขั้น 2 (ดวงวันนี้) ไม่มีบนหน้า → ข้ามไปขั้น 3 เอง
+    const missing = ids(TOUR_STEPS[1].targets)
+    function NoStep2() {
+      return <>{TOUR_STEPS.flatMap((x) => ids(x.targets)).filter((id) => !missing.includes(id)).map((id) => <div key={id} data-testid={id}>{id}</div>)}</>
+    }
+    render(<><NoStep2 /><OnboardingTour /></>)
+    await started()
+    act(() => { fireEvent.click(screen.getByTestId('tour-next')) })
+    await waitFor(() => expect(progress()).toBe('2/' + N))
+    await waitFor(() => expect(progress()).toBe('3/' + N), { timeout: 8000 })
   }, 15000)
+
   it('OT6 ดูทัวร์อีกครั้ง: ขึ้นแม้เคยดูแล้ว + ล้าง ?tour', async () => {
     localStorage.setItem('mumate-tour-v1', 'done')
     serverMissions = [{ id: 'guide_tour', completed: true, claimedAt: '2026-10-14' }]
@@ -161,5 +170,25 @@ describe('ทัวร์แนะนำแอป', () => {
     await started()
     expect(progress()).toBe('1/' + N)
     expect(route.replace).toHaveBeenCalledWith('/v2', undefined, { shallow: true })
+  })
+  it('OT7a คนใหม่: หน้าหลักยังไม่แสดง (แอปกำลังพาไปสมัคร) → ไม่เริ่มทัวร์', async () => {
+    render(<OnboardingTour />)
+    await new Promise((r) => setTimeout(r, 1500))
+    expect(screen.queryByTestId('onboarding-tour')).toBeNull()
+    expect(document.documentElement.dataset.tour).toBeUndefined()
+  })
+
+  it('OT7b แอปพาไปหน้าอื่นกลางทัวร์ → ทัวร์ซ่อน ไม่ดึงกลับ /v2 (ไม่วนลูป) · กลับมาหน้าหลัก = ทัวร์ต่อ', async () => {
+    const { rerender } = render(<><Targets /><OnboardingTour /></>)
+    await started()
+    route = { ...route, pathname: '/v2/first-run', asPath: '/v2/first-run' }
+    rerender(<><Targets /><OnboardingTour /></>)
+    await new Promise((r) => setTimeout(r, 500))
+    expect(screen.queryByTestId('onboarding-tour')).toBeNull()
+    expect(route.push).not.toHaveBeenCalled()
+    route = { ...route, pathname: '/v2', asPath: '/v2' }
+    rerender(<><Targets /><OnboardingTour /></>)
+    await started()
+    expect(progress()).toBe('1/' + N)
   })
 })
