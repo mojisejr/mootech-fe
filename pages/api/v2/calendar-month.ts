@@ -22,9 +22,9 @@ import type { NextApiRequest, NextApiResponse } from 'next'
 import { toBaziInput, type FeCalcInput } from '@/lib/bazi-bridge/input'
 import { mergeEngineBirth } from '@/lib/bazi-bridge/engine-birth'
 import { resolveSubscription } from '@/lib/v2/subscription'
-import { calendarMonthReachable } from '@/lib/v2/entitlement'
+import { calendarDateOpen, calendarMonthReachable } from '@/lib/v2/entitlement'
 import { ownsCalendar } from '@/lib/v2/calendar-access'
-import { currentMonthBkk } from '@/lib/v2/clock'
+import { currentMonthBkk, todayBkk as todayBkkClock } from '@/lib/v2/clock'
 import { resolveSessionUserId } from '@/lib/v2/resolve-user'
 import {
   BAZI_TIMEOUT_MS,
@@ -36,6 +36,7 @@ import {
   mergeCalendarMonth,
   parseMonth,
   type AlmanacDay,
+  type CalendarDay,
 } from '@/lib/v2-calendar/month'
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
@@ -216,9 +217,18 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   // ⇒ `^ *` plus an OPTIONAL `return` is what keeps it both self-exclusive and shape-agnostic: a comment
   //   line starts with `//`, so it is still never counted, while `allowed: false` on its own line is.
   const wantedMonth = `${parsed.year}-${String(parsed.month).padStart(2, '0')}`
-  if (!calendarMonthReachable(verdict, wantedMonth, currentMonthBkk())) {
+  const todayBkk = todayBkkClock()
+  if (!calendarMonthReachable(verdict, wantedMonth, currentMonthBkk(), todayBkk)) {
     return res.status(200).json({ allowed: false, reason: 'out-of-span', year: parsed.year, month: parsed.month, days: [] })
   }
+  // ฟรีเห็นแค่หน้าต่าง 7 วัน (Kittipon 2026-10-20) — วันอื่นส่งแค่วันที่+วันพระ+locked (ไม่มีคะแนน/เกรด/ก้านกิ่ง/วันชง)
+  // ตัดตอน "ส่งออก" เท่านั้น: cache เก็บเดือนเต็ม (สมาชิกที่เพิ่งจ่ายต้องเห็นเต็มทันที — แบบเดียวกับ day-detail)
+  const lockOut = (days: CalendarDay[]): CalendarDay[] =>
+    days.map((d) =>
+      calendarDateOpen(verdict, d.date, todayBkk)
+        ? d
+        : { date: d.date, dayOfMonth: d.dayOfMonth, dayGanzhi: '', overallPercent: null, grade: null, wanPhra: d.wanPhra, locked: true },
+    )
   // ────────────────────────────────────────────────────────────────────────────────────────────────
 
   // ── PAID: fortune + วันพระ in PARALLEL (total ≈ max, not sum). Graceful on any miss. ──
@@ -238,7 +248,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const cached = fortuneCacheGet(cacheKey)
     if (cached) {
       clearTimeout(timer)
-      return res.status(200).json({ allowed: true, year: parsed.year, month: parsed.month, days: cached })
+      return res.status(200).json({ allowed: true, year: parsed.year, month: parsed.month, days: lockOut(cached) })
     }
 
     const [fortune, almanac] = await Promise.all([
@@ -252,7 +262,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       allowed: true,
       year: parsed.year,
       month: parsed.month,
-      days,
+      days: lockOut(days),
       ...(days.length === 0 ? { degraded: true } : {}),
     })
   } catch {

@@ -10,6 +10,7 @@ import type { GetServerSideProps } from "next"
 import { v2RedirectIfUnauthed } from "@/lib/v2/gate"
 import { KitButton, SkyHeader, SkyScreen } from "@/features/v2-profile/components/kit"
 import { Menubar } from "@/features/v2-shell/components/Menubar"
+import { useCardGate } from "@/features/v2-shell/hooks/useCardGate"
 import { useActionCooldown } from "@/lib/useActionCooldown"
 import { useV2Tier } from "@/features/auth/hooks/useV2Tier"
 import { useCurrentUser } from "@/lib/auth/use-current-user"
@@ -72,6 +73,8 @@ export default function FortuneSagePage() {
   const [stick, setStick] = useState<Stick | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [quotaOut, setQuotaOut] = useState(false)
+  // ฟรีวันละ 1 ครั้ง (รวมไพ่/เซียมซี/เบอร์มงคล) — ครั้งที่จะหัก QI ขึ้นป็อปอัปชวนแพ็กเกจก่อน (Kittipon 2026-10-20)
+  const gate = useCardGate()
   const [loveGender, setLoveGender] = useState<"female" | "male">("female")
   // ที่มาของการเปิดครั้งนี้ (จาก engine): free=ฟรีวันนี้ · qi=หัก N QI · credit=ใช้เครดิต — ป้ายต้องตามจริง ไม่ hardcode
   const [qiInfo, setQiInfo] = useState<{ source: "free" | "credit" | "qi"; cost: number } | null>(null)
@@ -113,7 +116,7 @@ export default function FortuneSagePage() {
       const res = await fetch("/api/fortune/sage", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ question: question.trim() }) })
       const j = (await res.json().catch(() => ({}))) as { stick?: Stick; tailored?: string | null; qi?: { source: "free" | "credit" | "qi"; cost: number } | null; error?: { message?: string } }
       await new Promise((r) => setTimeout(r, Math.max(0, 1800 - (Date.now() - started))))
-      if (res.status === 402) { setQuotaOut(true); setPhase("intro"); return }
+      if (res.status === 402) { setQuotaOut(true); gate.blocked(); setPhase("intro"); return }
       if (!res.ok || !j.stick) { setError(j.error?.message ?? "เสี่ยงทายไม่สำเร็จ ลองใหม่อีกครั้ง"); setPhase("intro"); return }
       setStick(j.stick)
       setTailored(j.tailored ?? null) // คำตอบ LLM ที่เกลาให้ตรงคำถาม (โชว์บนสุดของผล)
@@ -222,14 +225,14 @@ export default function FortuneSagePage() {
                 {/* เปิดจาก LINE rich menu (cross-site) → MEMBER_ID เก่า (SameSite=Strict) โดนตัด → authStatus ค้าง
                     'loading' ระหว่าง self-heal มินต์ใหม่ (อาจนานถ้า engine cold start). อย่าโชว์ปุ่มเทาเฉยๆ ที่ดู
                     เหมือนพัง — บอกให้รู้ว่ากำลังเชื่อมต่อบัญชี (escape hatch จะเด้งการ์ดเข้าสู่ระบบให้เองถ้าเกิน 8 วิ). */}
-                <KitButton onClick={() => void draw()} disabled={cd.active || authStatus === "loading" || !questionReady} testId="sage-draw">{authStatus === "loading" ? "กำลังเชื่อมต่อบัญชี…" : cd.active ? `รออีก ${cd.secondsLeft} วินาที` : "กดเพื่อเสี่ยงทาย"}</KitButton>
+                <KitButton onClick={() => void gate.guard(() => void draw())} disabled={cd.active || authStatus === "loading" || !questionReady} testId="sage-draw">{authStatus === "loading" ? "กำลังเชื่อมต่อบัญชี…" : cd.active ? `รออีก ${cd.secondsLeft} วินาที` : "กดเพื่อเสี่ยงทาย"}</KitButton>
                 {authStatus === "loading" && <p className="text-center text-[11px] text-v3-text-muted">กำลังตรวจสอบบัญชีของคุณ สักครู่…</p>}
               </>
             )}
           </section>
           {quotaOut && <Link href="/v2/qi" className="text-center text-[13px] font-bold text-v3-sapphire">เติม/แลก QI ที่หน้าพลังชี่ →</Link>}
           {/* โควตาตาม tier จริง — รอ tier โหลดก่อนค่อยโชว์ (PRO ต้องขึ้น "ไม่จำกัด" แต่แรก ไม่แวบ "ฟรี/PLUS") */}
-          {!tierLoading && <p className="text-center text-[11px] text-v3-text-muted">{cardUnlimited ? "สมาชิก PRO เสี่ยงทายได้ไม่จำกัด" : tier === "PLUS" ? "สมาชิก PLUS เสี่ยงทายวันละ 10 ครั้ง — เกินแล้วแลกด้วย QI" : "ใช้โควตาเสี่ยงทายวันละ 2 ครั้ง (ฟรี) — เกินแล้วแลกด้วย QI"}</p>}
+          {!tierLoading && <p className="text-center text-[11px] text-v3-text-muted">{cardUnlimited ? "สมาชิก PRO เสี่ยงทายได้ไม่จำกัด" : tier === "PLUS" ? "สมาชิก PLUS เสี่ยงทายวันละ 10 ครั้ง — เกินแล้วแลกด้วย QI" : "ฟรีวันละ 1 ครั้ง (รวมไพ่ · เซียมซี · เบอร์มงคล) — สมัครสมาชิกเพื่อใช้ไม่จำกัด"}</p>}
         </div>
       )}
 
@@ -319,6 +322,7 @@ export default function FortuneSagePage() {
         </ShareStage>
       ) : null}
       <Menubar />
+      {gate.modal}
     </SkyScreen>
   )
 }

@@ -15,6 +15,7 @@ import { useActionCooldown } from "@/lib/useActionCooldown"
 import { captureShareImage } from "@/lib/v2/share-card"
 import { ShareCard, ShareStage } from "@/features/v2-share/components/ShareCard"
 import { ResultActionBar } from "./ResultActionBar"
+import { useCardGate } from "@/features/v2-shell/hooks/useCardGate"
 import {
   LayerRow, Pyramid, buildHoneycombEngineText, type HoneycombReading,
 } from "@/features/v2-service/components/honeycomb-parts"
@@ -177,7 +178,9 @@ export function PhoneReadingScreen({ initialMode = "normal" }: { initialMode?: M
     setNarration(narr); setNarrating(false); setError(null); setNeedQi(false); setTab("pairs"); setPhase("result")
   }
 
-  const submit = async () => {
+  // ฟรีวันละ 1 ครั้ง รวมกับไพ่/เซียมซี (โควตา card ก้อนเดียวกัน — gafiw 2026-10-20) · ครั้งที่จะหัก QI ขึ้นป็อปอัปก่อน
+  const gate = useCardGate()
+  const submit = async (opts?: { gated?: boolean }) => {
     if (!canSubmit || phase === "loading") return
     const m = mode
     const c = MODE[m]
@@ -185,6 +188,7 @@ export function PhoneReadingScreen({ initialMode = "normal" }: { initialMode?: M
     // เบอร์นี้ทำนายโหมดนี้แล้ววันนี้ → ดูซ้ำฟรี (ไม่หัก/ไม่คำนวณใหม่ ไม่ติดคูลดาวน์)
     const cached = m === "normal" ? getDayEntry<PhoneReading>(c.cacheKey, digits) : getDayEntry<HoneycombReading>(c.cacheKey, digits)
     if (cached) { showResult(m, cached.reading, cached.narration); return }
+    if (!opts?.gated) { await gate.guard(() => void submit({ gated: true })); return }
 
     // กันบอทยิงรัว/กดรัว — เฉพาะการคำนวณจริง (เสีย QI + ยิง engine)
     if (!cd.begin()) return
@@ -317,7 +321,7 @@ export function PhoneReadingScreen({ initialMode = "normal" }: { initialMode?: M
               {error && <p className="mt-2 text-[12px] font-bold text-v3-lime" data-testid="phone-error">{error}</p>}
               {needQi && <Link href="/v2/qi" className="mt-2 inline-grid h-9 place-items-center rounded-full bg-white px-5 text-[13px] font-bold text-v3-sapphire" data-testid="phone-buy-qi">เติม QI</Link>}
               {needQi && <Link href="/v2/shop" className="mt-2 ml-2 inline-grid h-9 place-items-center rounded-full bg-white/20 px-5 text-[13px] font-bold text-white" data-testid="phone-upsell">สมัครสมาชิก</Link>}
-              <p className="mt-3 text-[11px] font-bold text-v3-lime">ใช้ {QI_COST} QI ต่อการทำนาย</p>
+              <p className="mt-3 text-[11px] font-bold text-v3-lime">ฟรีวันละ 1 ครั้ง (รวมไพ่ · เซียมซี) · เกินแล้ว {QI_COST} QI ต่อการทำนาย</p>
               <p className="mt-0.5 text-[11px] text-white/70">ระบบจะตัดรหัสประเทศ 0 หรือ 66 ออกให้อัตโนมัติ</p>
             </section>
 
@@ -453,6 +457,7 @@ export function PhoneReadingScreen({ initialMode = "normal" }: { initialMode?: M
         .phone-float { animation: phoneFloat 2.6s ease-in-out infinite; }
         @media (prefers-reduced-motion: reduce) { .phone-float { animation: none !important } }
       `}</style>
+      {gate.modal}
     </div>
   )
 }

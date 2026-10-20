@@ -23,7 +23,7 @@ const h = vi.hoisted(() => ({
   fortuneCalls: [] as string[],
 }))
 vi.mock('@/lib/v2/resolve-user', () => ({ resolveSessionUserId: vi.fn(async () => h.who) }))
-vi.mock('@/lib/v2/clock', () => ({ currentMonthBkk: () => '2028-01' }))
+vi.mock('@/lib/v2/clock', () => ({ currentMonthBkk: () => '2028-01', todayBkk: () => '2028-01-10' })) // ฟรี = หน้าต่าง 7 วันจาก todayBkk (2026-10-20)
 vi.mock('@/lib/v2/subscription', () => ({
   resolveSubscription: vi.fn(async () => ({
     isPaid: h.tier !== 'FREE',

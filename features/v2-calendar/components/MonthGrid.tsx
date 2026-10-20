@@ -21,6 +21,7 @@ import type { CalendarDay } from '@/features/v2-calendar'
 import { DAY_CELL_COLORS, CALENDAR_MARKER } from './grade-colors'
 import { dayCellStyle } from './day-cell-style'
 import { percentText } from './percent-display'
+import { SHOP_HREF } from '@/features/v2-shop/upgrade-cta'
 
 const THAI_DOW = ['อา', 'จ', 'อ', 'พ', 'พฤ', 'ศ', 'ส']
 
@@ -33,6 +34,24 @@ const LEGEND: { label: string; bg: string; border?: string }[] = [
   { label: '<40% ระวัง', bg: DAY_CELL_COLORS['D'].tint },
   { label: 'วันพระ', bg: '#FFFFFF', border: CALENDAR_MARKER },
 ]
+
+/** ช่องวันที่ฟรีดูไม่ได้ (นอกหน้าต่าง 7 วัน) — กุญแจ กดแล้วไปหน้าแพ็กเกจ (Kittipon 2026-10-20) */
+function LockedCell({ cell, onLocked }: { cell: CalendarDay; onLocked: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onLocked}
+      aria-label={`วันที่ ${cell.day} ล็อกอยู่ สมัครสมาชิกเพื่อดู${cell.isBuddhistDay ? ' วันพระ' : ''}`}
+      data-testid="calendar-day-locked"
+      data-date={cell.date}
+      className="relative flex min-w-0 flex-1 flex-col items-center justify-center gap-px rounded-[11px] bg-[#F1F2F6] py-[3px] leading-none"
+      style={{ border: cell.isBuddhistDay ? `1.6px solid ${CALENDAR_MARKER}` : '1.6px solid transparent' }}
+    >
+      <span className="text-[13px] font-bold text-v3-text-muted">{cell.day}</span>
+      <span aria-hidden className="text-[12px] leading-none">🔒</span>
+    </button>
+  )
+}
 
 function DayCell({ cell, selected, onSelect }: { cell: CalendarDay; selected: boolean; onSelect: (date: string) => void }) {
   // selection is a MODE — every colour moves together. See day-cell-style.ts for why this is one
@@ -83,7 +102,9 @@ function DayCell({ cell, selected, onSelect }: { cell: CalendarDay; selected: bo
   )
 }
 
-export function MonthGrid({ weeks, selectedDate, onSelect }: { weeks: CalendarDay[][]; selectedDate: string | null; onSelect: (date: string) => void }) {
+export function MonthGrid({ weeks, selectedDate, onSelect, onLocked }: { weeks: CalendarDay[][]; selectedDate: string | null; onSelect: (date: string) => void; onLocked?: () => void }) {
+  const hasLocked = weeks.some((w) => w.some((c) => c.locked))
+  const goShop = onLocked ?? (() => { window.location.assign(SHOP_HREF) })
   return (
     <section data-testid="calendar-grid-card" className="flex flex-col gap-[14px] overflow-hidden rounded-[20px] bg-white p-4 shadow-[0_4px_14px_rgba(26,38,77,0.06)]">
       <div className="flex w-full">
@@ -98,7 +119,9 @@ export function MonthGrid({ weeks, selectedDate, onSelect }: { weeks: CalendarDa
             {week.map((cell, ci) =>
               cell.isPadding
                 ? <span key={`${wi}-${ci}`} aria-hidden className="min-w-0 flex-1" />
-                : <DayCell key={cell.date} cell={cell} selected={cell.date === selectedDate} onSelect={onSelect} />,
+                : cell.locked
+                  ? <LockedCell key={cell.date} cell={cell} onLocked={goShop} />
+                  : <DayCell key={cell.date} cell={cell} selected={cell.date === selectedDate} onSelect={onSelect} />,
             )}
           </div>
         ))}
@@ -117,6 +140,12 @@ export function MonthGrid({ weeks, selectedDate, onSelect }: { weeks: CalendarDa
             <span className="text-[9px] leading-none text-v3-text-body">{l.label}</span>
           </span>
         ))}
+        {hasLocked && (
+          <span className="flex items-center gap-1" data-testid="calendar-legend-locked">
+            <span aria-hidden className="text-[11px] leading-none">🔒</span>
+            <span className="text-[9px] leading-none text-v3-text-body">สมาชิกดูได้ทุกวัน</span>
+          </span>
+        )}
       </div>
     </section>
   )

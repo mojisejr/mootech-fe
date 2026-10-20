@@ -19,11 +19,13 @@ function firstOfMonthISO(month: CalendarMonth): string {
  * day 1, which is exactly what server + first client paint should agree on.
  */
 export function defaultSelectedDate(month: CalendarMonth, todayISO: string | null): string {
-  if (todayISO && month.days.some((d) => d.date === todayISO)) return todayISO
-  return month.days[0]?.date ?? firstOfMonthISO(month)
+  // วันล็อก (ฟรีนอกหน้าต่าง 7 วัน) เลือกไม่ได้ — ตั้งต้นที่วันแรกที่เปิดดูได้
+  const open = month.days.filter((d) => !d.locked)
+  if (todayISO && open.some((d) => d.date === todayISO)) return todayISO
+  return open[0]?.date ?? month.days[0]?.date ?? firstOfMonthISO(month)
 }
 
 /** Whether `date` is a selectable real (non-padding) day of this month — selectDay ignores anything else. */
 export function isSelectableDate(month: CalendarMonth, date: string): boolean {
-  return month.days.some((d) => d.date === date)
+  return month.days.some((d) => d.date === date && !d.locked)
 }

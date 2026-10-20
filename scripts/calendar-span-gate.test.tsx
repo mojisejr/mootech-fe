@@ -37,7 +37,7 @@ vi.mock('@/lib/db', () => ({ db: { execute: vi.fn(async () => ({ rows: [] })) } 
 vi.mock('@/lib/v2/subscription', () => ({ resolveSubscription: vi.fn(async () => h.verdict) }))
 // "now" is pinned so the span has a fixed origin. lib/v2/clock is the smallest surface that does it —
 // freezing the global clock would leak across vitest's shared worker pool (mootech-fe#523).
-vi.mock('@/lib/v2/clock', () => ({ currentMonthBkk: () => '2026-08' }))
+vi.mock('@/lib/v2/clock', () => ({ currentMonthBkk: () => '2026-08', todayBkk: () => '2026-08-10' })) // ฟรี = หน้าต่าง 7 วันจาก todayBkk (2026-10-20)
 // The entitlement table is NOT mocked: this exercises the spans that actually ship, the same choice
 // scripts/calendar-month-gate-closed.test.tsx makes and for the same reason. (Until #358 Phase 4 this
 // sentence named lib/v2-calendar/gate, the retired switch, for that same role.)

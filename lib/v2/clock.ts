@@ -13,3 +13,8 @@ import { bkkDateStr } from '@/lib/usage-core'
 export function currentMonthBkk(now: Date = new Date()): string {
   return bkkDateStr(now).slice(0, 7)
 }
+
+/** 'YYYY-MM-DD' วันนี้ของกรุงเทพ — จุดตั้งต้นหน้าต่างปฏิทินฟรี 7 วัน (เทสตรึงผ่านไฟล์นี้ไฟล์เดียว เหมือน currentMonthBkk) */
+export function todayBkk(now: Date = new Date()): string {
+  return bkkDateStr(now)
+}

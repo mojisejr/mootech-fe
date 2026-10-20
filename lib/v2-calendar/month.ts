@@ -29,6 +29,7 @@ export type CalendarDay = {
   grade: string | null // bazi's letter grade for overallPercent (ApiGrade | null); pass-through, never re-derived
   wanPhra: boolean // วันพระ (bazi almanac, religious categories only)
   dayClash?: boolean // วันชงดิถี (地支相冲) — personalised only; grid marks it แยกจากสี % (paid)
+  locked?: boolean // ฟรีนอกหน้าต่าง 7 วัน — ไม่มีคะแนน/เกรด กริดโชว์กุญแจ กดแล้วไปหน้าแพ็กเกจ (Kittipon 2026-10-20)
 }
 
 export type AlmanacDay = { date?: unknown; specialDays?: unknown }

@@ -7,6 +7,7 @@ import { useEffect, useState } from "react"
 
 import { KitButton, SkyHeader, SkyScreen } from "@/features/v2-profile/components/kit"
 import { Menubar } from "@/features/v2-shell/components/Menubar"
+import { useCardGate } from "@/features/v2-shell/hooks/useCardGate"
 import { useActionCooldown } from "@/lib/useActionCooldown"
 import { useCurrentUser } from "@/lib/auth/use-current-user"
 import { AuthRequiredCard } from "@/features/auth/components/AuthRequiredCard"
@@ -29,6 +30,8 @@ export function FengshuiScreen({ backHref = "/v2/service" }: { backHref?: string
   const [summary, setSummary] = useState("")
   const [error, setError] = useState<string | null>(null)
   const [quotaOut, setQuotaOut] = useState(false)
+  // ฟรีวันละ 1 ครั้ง (รวมไพ่/เซียมซี/เบอร์มงคล) — ครั้งที่จะหัก QI ขึ้นป็อปอัปชวนแพ็กเกจก่อน (Kittipon 2026-10-20)
+  const gate = useCardGate()
   const [balance, setBalance] = useState<number | null>(null)
   const [redeeming, setRedeeming] = useState(false)
   const [redeemMsg, setRedeemMsg] = useState<string | null>(null)
@@ -60,7 +63,7 @@ export function FengshuiScreen({ backHref = "/v2/service" }: { backHref?: string
       })
       const j = (await res.json().catch(() => ({}))) as { cards?: FengshuiCard[]; summary?: string | null; error?: { message?: string } }
       await new Promise((r) => setTimeout(r, Math.max(0, 1900 - (Date.now() - started))))
-      if (res.status === 402) { setQuotaOut(true); setPhase("intro"); return }
+      if (res.status === 402) { setQuotaOut(true); gate.blocked(); setPhase("intro"); return }
       if (!res.ok || !j.cards?.length) { setError(j.error?.message ?? "เปิดไพ่ไม่สำเร็จ ลองใหม่อีกครั้ง"); setPhase("intro"); return }
       setCards(j.cards)
       setSummary(j.summary?.trim() ?? "")
@@ -128,8 +131,8 @@ export function FengshuiScreen({ backHref = "/v2/service" }: { backHref?: string
                 className="w-full resize-none rounded-2xl border border-v3-border-card bg-white px-4 py-3 text-[13px] leading-5 text-v3-navy outline-none placeholder:text-v3-text-muted focus:border-v3-sapphire"
               />
               <div className="flex flex-col gap-2">
-                <KitButton onClick={() => void predict(3)} disabled={!mounted || cd.active || authStatus === "loading"} testId="fengshui-draw-3">{cd.active ? `รออีก ${cd.secondsLeft} วิ` : "สุ่ม 3 ใบ"}</KitButton>
-                <button onClick={() => void predict(1)} disabled={!mounted || cd.active || authStatus === "loading"} data-testid="fengshui-draw-1" className="grid h-12 w-full place-items-center rounded-full border border-v3-border-card bg-white text-[15px] font-bold text-v3-navy disabled:opacity-50">สุ่ม 1 ใบ</button>
+                <KitButton onClick={() => void gate.guard(() => void predict(3))} disabled={!mounted || cd.active || authStatus === "loading"} testId="fengshui-draw-3">{cd.active ? `รออีก ${cd.secondsLeft} วิ` : "สุ่ม 3 ใบ"}</KitButton>
+                <button onClick={() => void gate.guard(() => void predict(1))} disabled={!mounted || cd.active || authStatus === "loading"} data-testid="fengshui-draw-1" className="grid h-12 w-full place-items-center rounded-full border border-v3-border-card bg-white text-[15px] font-bold text-v3-navy disabled:opacity-50">สุ่ม 1 ใบ</button>
               </div>
             </>
           )}
@@ -191,6 +194,7 @@ export function FengshuiScreen({ backHref = "/v2/service" }: { backHref?: string
       )}
 
       <Menubar />
+      {gate.modal}
     </SkyScreen>
   )
 }

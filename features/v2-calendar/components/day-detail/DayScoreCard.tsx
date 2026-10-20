@@ -30,6 +30,25 @@ function thaiDate(iso: string): string {
   return `${dow}ที่ ${d} ${THAI_MONTHS[m - 1]} ${y + 543}`
 }
 
+/** วงคะแนนสากล /100 — ลายเดียวกับ ScoreRing (เส้นน้ำเงิน/ไลม์) แต่ตรงกลางเป็นตัวเลข /100 แทนเกรด */
+function UniversalRing({ score, size = 104 }: { score: number; size?: number }) {
+  const R = 46
+  const C = 2 * Math.PI * R
+  const pct = Math.max(0, Math.min(100, score))
+  return (
+    <div className="relative grid place-items-center" style={{ width: size, height: size }}>
+      <svg viewBox="0 0 120 120" className="-rotate-90" style={{ width: size, height: size }}>
+        <circle cx="60" cy="60" r={R} fill="none" stroke="#083C7B" strokeWidth="11" />
+        <circle cx="60" cy="60" r={R} fill="none" stroke="#E1FF00" strokeWidth="11" strokeLinecap="round" strokeDasharray={C} strokeDashoffset={C * (1 - pct / 100)} />
+      </svg>
+      <span className="absolute flex flex-col items-center leading-none">
+        <span className="font-extrabold text-v3-navy" style={{ fontSize: Math.round(size * 30 / 104) }} data-testid="day-universal-score">{Math.round(pct)}</span>
+        <span className="mt-0.5 text-xs font-bold text-v3-navy">/100</span>
+      </span>
+    </div>
+  )
+}
+
 // ScoreRing (the lime-progress / navy-track hero ring) is now a shared primitive in ./ScoreRing —
 // reused by the compatibility result score card (ดวงสมพงศ์ 2E) instead of duplicated. Markup unchanged.
 
@@ -68,7 +87,29 @@ export function DayScoreCard({ detail }: { detail: DayDetail }) {
         backgroundPosition: 'center',
       }}
     >
-      <ScoreRing grade={detail.grade} percent={detail.percent} />
+      {detail.universal ? (
+        // Kittipon 2026-10-20 (แบบปฏิทิน 通勝): สากล = วันนี้ดีแค่ไหน · เฉพาะบุคคล = ดวงคุณเข้ากับวันนี้แค่ไหน
+        <div data-testid="day-dual-score" className="flex w-full items-start justify-center gap-2">
+          <div className="flex flex-1 flex-col items-center" data-testid="day-universal">
+            <span className="mb-1.5 text-[13px] font-bold text-v3-navy">🌏 สากล</span>
+            <UniversalRing score={detail.universal.score} />
+            <span className="mt-1.5 text-[15px] font-black text-v3-navy" data-testid="day-universal-label">{detail.universal.label}</span>
+            <span className="text-[11px] text-v3-text-body">คุณภาพวัน</span>
+          </div>
+          <span aria-hidden className="mt-8 h-24 w-px bg-v3-navy/15" />
+          <div className="flex flex-1 flex-col items-center" data-testid="day-personal">
+            <span className="mb-1.5 text-[13px] font-bold text-v3-navy">👤 เฉพาะบุคคล</span>
+            <ScoreRing grade={detail.grade} percent={detail.percent} size={104} />
+            <span className="mt-1.5 text-[15px] font-black text-v3-navy">&nbsp;</span>
+            <span className="text-[11px] text-v3-text-body">ความสอดคล้องกับดวงคุณ</span>
+          </div>
+        </div>
+      ) : (
+        <ScoreRing grade={detail.grade} percent={detail.percent} />
+      )}
+      {detail.universal ? (
+        <p className="mt-2 text-[11px] leading-4 text-v3-text-body">สากล = วันนี้ดีแค่ไหน · เฉพาะบุคคล = ดวงคุณเข้ากับวันนี้แค่ไหน</p>
+      ) : null}
 
       <p className="mt-4 text-[20px] font-bold leading-7 text-v3-navy">{detail.summary}</p>
       {/* วันชงดิถี (地支相冲) — เตือนเด่นแยกจาก % ที่เฉลี่ยกลบวันชงได้ (ซินแส/เอ็ม 2026-09-26) */}

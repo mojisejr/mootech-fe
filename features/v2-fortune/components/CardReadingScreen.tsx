@@ -15,6 +15,7 @@ import { useCurrentUser } from "@/lib/auth/use-current-user"
 import { AuthRequiredCard } from "@/features/auth/components/AuthRequiredCard"
 import { shareAsInvite } from "@/lib/v2/share-invite"
 import { ShareCard, ShareStage } from "@/features/v2-share/components/ShareCard"
+import { useCardGate } from "@/features/v2-shell/hooks/useCardGate"
 
 export type FortuneCard = {
   no: number
@@ -78,6 +79,8 @@ export function CardReadingScreen({
   const [prose, setProse] = useState<string>("")
   const [error, setError] = useState<string | null>(null)
   const [quotaOut, setQuotaOut] = useState(false)
+  // ฟรีวันละ 1 ครั้ง (รวมไพ่/เซียมซี/เบอร์มงคล) — ครั้งที่จะหัก QI ขึ้นป็อปอัปชวนแพ็กเกจก่อน (Kittipon 2026-10-20)
+  const gate = useCardGate()
   const [balance, setBalance] = useState<number | null>(null)
   // ที่มาของการเปิดครั้งนี้ (จาก engine): free=ฟรีวันนี้ · qi=หัก N ชี่ · credit=ใช้เครดิต
   const [qiInfo, setQiInfo] = useState<{ source: "free" | "credit" | "qi"; cost: number } | null>(null)
@@ -166,7 +169,7 @@ export function CardReadingScreen({
       })
       const j = (await res.json().catch(() => ({}))) as { cards?: FortuneCard[]; slots?: Slot[]; engineProse?: string; llmProse?: string; qi?: { source: "free" | "credit" | "qi"; cost: number } | null; error?: { message?: string } }
       await new Promise((r) => setTimeout(r, Math.max(0, 1900 - (Date.now() - started))))
-      if (res.status === 402) { setQuotaOut(true); setPhase("intro"); return }
+      if (res.status === 402) { setQuotaOut(true); gate.blocked(); setPhase("intro"); return }
       if (!res.ok || !j.cards?.length) { setError(j.error?.message ?? "เปิดไพ่ไม่สำเร็จ ลองใหม่อีกครั้ง"); setPhase(cardNos ? "pick" : "intro"); return }
       setCards(j.cards)
       setSlots(j.slots ?? [])
@@ -187,7 +190,7 @@ export function CardReadingScreen({
   }
 
   const toggle = (idx: number) => setPicked((p) => (p.includes(idx) ? p.filter((x) => x !== idx) : p.length >= pickCount ? (pickCount === 1 ? [idx] : p) : [...p, idx]))
-  const openPicked = () => { if (picked.length === pickCount) void predict(picked.map((i) => deck[i])) }
+  const openPicked = () => { if (picked.length === pickCount) void gate.guard(() => void predict(picked.map((i) => deck[i]))) }
   const reset = () => { setPicked([]); setCards([]); setSlots([]); setProse(""); setTailored(""); setPhase("intro") }
 
   const share = async () => {
@@ -285,7 +288,7 @@ export function CardReadingScreen({
             </span>
             {authStatus !== "anon" && (
               <div className="absolute inset-x-3 bottom-1 flex gap-2">
-                <button onClick={() => void predict()} disabled={cd.active || authStatus === "loading" || !questionReady} data-testid="cards-random" className="grid h-11 flex-1 place-items-center rounded-full bg-white text-[13px] font-bold text-v3-sapphire shadow-md disabled:opacity-50">{cd.active ? `รออีก ${cd.secondsLeft} วิ` : "กดเพื่อเสี่ยงทาย"}</button>
+                <button onClick={() => void gate.guard(() => void predict())} disabled={cd.active || authStatus === "loading" || !questionReady} data-testid="cards-random" className="grid h-11 flex-1 place-items-center rounded-full bg-white text-[13px] font-bold text-v3-sapphire shadow-md disabled:opacity-50">{cd.active ? `รออีก ${cd.secondsLeft} วิ` : "กดเพื่อเสี่ยงทาย"}</button>
                 <KitButton onClick={() => setPhase("pick")} disabled={!questionReady} testId="cards-goto-pick" className="flex-1 !h-11 shadow-md">เลือกเอง {pickCount} ใบ</KitButton>
               </div>
             )}
@@ -306,7 +309,7 @@ export function CardReadingScreen({
           {quotaOut && <Link href="/v2/shop" data-testid="cards-upsell" className="text-center text-[13px] font-bold text-v3-cyan">หรือสมัครสมาชิก เปิดไพ่ได้มากขึ้น →</Link>}
           {/* โควตาตาม tier จริง (เอ็ม 2026-09-21): PRO ไม่จำกัด · PLUS 10/วัน · ฟรี 2/วัน. รอ tier โหลดก่อน
               ค่อยโชว์ — ไม่งั้น PRO เห็นข้อความ "ฟรี/PLUS" แวบก่อน ("ต้องขึ้นไม่จำกัดแต่แรก") */}
-          {!tierLoading && <p className="text-center text-[11px] text-v3-text-muted">{cardUnlimited ? "สมาชิก PRO เปิดการ์ดได้ไม่จำกัด" : tier === "PLUS" ? "สมาชิก PLUS เปิดการ์ดวันละ 10 ครั้ง — เกินแล้วแลกด้วย QI" : "ใช้โควตาเปิดการ์ดวันละ 2 ครั้ง (ฟรี) — เกินแล้วแลกด้วย QI"}</p>}
+          {!tierLoading && <p className="text-center text-[11px] text-v3-text-muted">{cardUnlimited ? "สมาชิก PRO เปิดการ์ดได้ไม่จำกัด" : tier === "PLUS" ? "สมาชิก PLUS เปิดการ์ดวันละ 10 ครั้ง — เกินแล้วแลกด้วย QI" : "ฟรีวันละ 1 ครั้ง (รวมไพ่ · เซียมซี · เบอร์มงคล) — สมัครสมาชิกเพื่อใช้ไม่จำกัด"}</p>}
         </div>
       )}
 
@@ -429,6 +432,7 @@ export function CardReadingScreen({
           <ShareCard ref={shareCardRef} tag={title} title={resultTitle || title} summary={shareSummary} images={shareImages} />
         </ShareStage>
       ) : null}
+      {gate.modal}
     </SkyScreen>
   )
 }
