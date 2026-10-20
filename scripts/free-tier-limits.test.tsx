@@ -133,7 +133,7 @@ describe('FT4 คะแนนสากล', () => {
   it('มีคะแนนสากล → 2 วง · ไม่มี → วงเดียวแบบเดิม', () => {
     render(<DayScoreCard detail={{ ...(DETAIL as object), universal: { score: 90, label: 'ดีเยี่ยม' } } as never} />)
     expect(screen.getByTestId('day-dual-score')).toBeTruthy()
-    expect(screen.queryByTestId('day-universal-score')).toBeNull() // เอ็ม 2026-10-20: สากลมีแค่คำ ไม่มีวง/ตัวเลข
+    expect(screen.getByTestId('day-universal-score').textContent).toBe('90')
     expect(screen.getByTestId('day-universal-label').textContent).toBe('ดีเยี่ยม')
     expect(screen.getByTestId('day-personal').textContent).toContain('35%')
     cleanup()
