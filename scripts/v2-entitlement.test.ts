@@ -79,7 +79,8 @@ describe('#358 the table must not drift from what the shop already sells', () =>
     // sentence makes this tooth cover both halves instead of one.
     // Free card
     expect(shop).toContain(String.raw`ดวงสมพงศ์ การงาน, ความรัก: 2\u00A0match\u00A0/\u00A0เดือน`)
-    expect(shop).toContain('ปฏิทินดวงเฉพาะบุคคล เดือนปัจจุบัน (ดูสรุปรายวัน)')
+    // Kittipon 2026-10-20: ฟรีเห็นล่วงหน้า 7 วัน (entitlement.ts freeWindowDates)
+    expect(shop).toContain(String.raw`ปฏิทินดวงเฉพาะบุคคล ล่วงหน้า 7\u00A0วัน (ดูสรุปรายวัน)`)
     // Plus card
     expect(shop).toContain(String.raw`ดวงสมพงศ์ การงาน, ความรัก: 20\u00A0match\u00A0/\u00A0เดือน`)
     expect(shop).toContain('ปฏิทินดวงเฉพาะบุคคล 1 ปีเต็ม (รายวันแบบเต็ม)')

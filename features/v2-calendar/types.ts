@@ -53,6 +53,8 @@ export interface CalendarDay {
   dayClash?: boolean
   /** true when this cell is NOT part of the displayed month (leading/trailing padding). */
   isPadding?: boolean
+  /** ฟรีนอกหน้าต่าง 7 วัน — โชว์กุญแจ กดแล้วไปหน้าแพ็กเกจ (percent/grade เป็นค่าว่าง ห้ามอ่าน) */
+  locked?: boolean
 }
 
 /** A whole month: cursor + the 6×7 grid (weeks) + score summary card. */
@@ -189,6 +191,8 @@ export interface DayDetail {
   summary: string
   /** วันชงดิถี (地支相冲) — กิ่งเสาวันของเจ้าของชงกิ่งเสาวันของวันนี้; โชว์ชิปเตือนแยกจาก % */
   dayClash?: boolean
+  /** คะแนนสากล (คุณภาพวัน ไม่ขึ้นกับดวง) — วงซ้ายของการ์ดคะแนน · null = โชว์วงเดียวแบบเดิม */
+  universal?: { score: number; label: string } | null
   /** เหมาะกับวันนี้ / ควรเลี่ยง. */
   suitable: string[]
   avoid: string[]

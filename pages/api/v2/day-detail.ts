@@ -33,9 +33,9 @@ import { mergeEngineBirth } from '@/lib/bazi-bridge/engine-birth'
 import { mapDayDetail, pickFreeDayDetail, type DayDetail } from '@/lib/v2-calendar/day-detail'
 import { resolveSessionUserId } from '@/lib/v2/resolve-user'
 import { resolveSubscription } from '@/lib/v2/subscription'
-import { calendarMonthReachable } from '@/lib/v2/entitlement'
+import { calendarDateOpen, calendarMonthReachable } from '@/lib/v2/entitlement'
 import { ownsCalendar } from '@/lib/v2/calendar-access'
-import { currentMonthBkk } from '@/lib/v2/clock'
+import { currentMonthBkk, todayBkk as todayBkkClock } from '@/lib/v2/clock'
 import { BAZI_BASE, BAZI_TIMEOUT_MS, fetchAlmanacDays, type AlmanacDay } from '@/lib/v2-calendar/month'
 import { baziFetch } from '@/lib/bazi/fetch'
 
@@ -119,7 +119,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   // to it. pages/api/v2/calendar-month.ts:154 already built its month from `parsed`; this one had the
   // parsed value in hand at line 69 and used the raw string beside it.
   const wantedMonth = `${parsed.y}-${String(parsed.m).padStart(2, '0')}`
-  if (!calendarMonthReachable(verdict, wantedMonth, currentMonthBkk())) {
+  // ฟรี: เฉพาะหน้าต่าง 7 วัน (วันนี้…+6) — วันอื่นรวมวันที่ผ่านมา = outOfSpan (Kittipon 2026-10-20)
+  const todayBkk = todayBkkClock()
+  const wantedDate = `${wantedMonth}-${String(parsed.d).padStart(2, '0')}`
+  if (!calendarMonthReachable(verdict, wantedMonth, currentMonthBkk(), todayBkk) || !calendarDateOpen(verdict, wantedDate, todayBkk)) {
     return res.status(200).json({ detail: null, outOfSpan: true })
   }
 

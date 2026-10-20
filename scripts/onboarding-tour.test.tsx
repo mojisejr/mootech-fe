@@ -119,7 +119,7 @@ describe('ทัวร์แนะนำแอป', () => {
       await started()
     }
     act(() => { fireEvent.click(screen.getByTestId('tour-finish')) })
-    await waitFor(() => expect(screen.getByTestId('tour-reward').textContent).toContain('+10 QI'))
+    await waitFor(() => expect(screen.getByTestId('tour-reward').textContent).toContain('+2 QI'))
     expect(posted).toEqual(['guide_tour'])
     expect(localStorage.getItem('mumate-tour-v1')).toBe('done')
     expect(screen.queryByTestId('onboarding-tour')).toBeNull()

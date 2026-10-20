@@ -76,12 +76,14 @@ export const PLANS: readonly Plan[] = [
       // reader is primed to read a bare '(1 เดือน)' as a quantity and expect the full reading for a month. A free day is a SUMMARY:
       // lib/v2-calendar/day-detail.ts FREE_DAY_DETAIL_FIELDS carries 12 of the 22 fields, and
       // pages/api/v2/day-detail.ts trims the rest before the response is built.
-      'ปฏิทินดวงเฉพาะบุคคล เดือนปัจจุบัน (ดูสรุปรายวัน)',
+      // Kittipon 2026-10-20: ฟรีเห็นล่วงหน้า 7 วัน (วันนี้…+6) วันอื่นล็อก — lib/v2/entitlement.ts freeWindowDates
+      'ปฏิทินดวงเฉพาะบุคคล ล่วงหน้า 7\u00A0วัน (ดูสรุปรายวัน)',
       // #581 — every RATE bullet on every card carries \u00A0 through the whole 'N unit / period' run, for
       // the reason measured in mojisejr/mootech-fe#573: a plain space strands the number at 320, and an NBSP
       // on the number alone just moves the break onto the '/' at 360. The escapes are visible in source on
       // purpose. Below is the whole class, not the two spots that happened to be noticed.
-      'เซียมซี / Oracle Card: 2\u00A0ครั้ง\u00A0/\u00A0วัน',
+      // gafiw 2026-10-20: ไพ่ + เซียมซี + เบอร์มงคล รวมกันวันละ 1 ครั้ง (engine quota card free 1)
+      'ไพ่ / เซียมซี / เบอร์มงคล: รวม 1\u00A0ครั้ง\u00A0/\u00A0วัน',
       'เชี่ยวมู chat (ชินแซ 24 ชม): 1\u00A0คำถาม\u00A0/\u00A0วัน',
     ],
     codes: { monthly: null, annual: null },

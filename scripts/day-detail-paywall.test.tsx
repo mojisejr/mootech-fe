@@ -42,7 +42,9 @@ vi.mock('@/lib/db', () => ({ db: { execute: vi.fn(async () => ({ rows: [] })) } 
 // #358 Phase 3 — this suite is about the paid-field TRIM, not the span, and its dates are 2027-01-xx
 // (chosen so the module-level cache never collides). Pinning "now" to that month keeps every case
 // in span so the span gate never fires here and these assertions keep measuring what they name.
-vi.mock('@/lib/v2/clock', () => ({ currentMonthBkk: () => '2027-01' }))
+// วันนี้เลื่อนตาม freshDate — เทสนี้วัดการตัดฟิลด์ ไม่ใช่หน้าต่าง 7 วัน (หน้าต่างวัดใน calendar-span-gate)
+const clockToday = vi.hoisted(() => ({ d: '2027-01-03' }))
+vi.mock('@/lib/v2/clock', () => ({ currentMonthBkk: () => '2027-01', todayBkk: () => clockToday.d }))
 vi.mock('@/lib/v2/subscription', () => ({
   resolveSubscription: vi.fn(async (userId: string) => {
     if (h.subThrows) throw new Error('membership store unreachable')
@@ -125,7 +127,7 @@ async function call(body: unknown, method = 'POST') {
 }
 // each test uses its own date so the module-level server cache never leaks between cases
 let n = 0
-const freshDate = () => `2027-01-${String(++n + 9).padStart(2, '0')}`
+const freshDate = () => { const d = `2027-01-${String(++n + 9).padStart(2, '0')}`; clockToday.d = d; return d }
 
 describe('#226 /api/v2/day-detail — the paid sections are cut at the source', () => {
   beforeEach(() => {

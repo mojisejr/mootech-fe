@@ -26,6 +26,31 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
   const base = process.env.BAZI_BASE_URL || "http://localhost:3000"
   try {
+    // 0) สิทธิ์ฟรีรายวัน — โควตา card ก้อนเดียวกับไพ่/เซียมซี (ฟรี 1 ครั้ง/วันรวมทุกฟีเจอร์ · gafiw 2026-10-20;
+    //    สมาชิก PRO ไม่จำกัด) → ถ้าครั้งนี้ยังเป็น "ฟรี" หักโควตา card แล้วจบ ไม่แตะ QI
+    const peek = await baziFetch(`${base}/api/qi/feature-check`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ anonId: memberId, feature: "card" }),
+    })
+    const pk = peek.ok ? ((await peek.json().catch(() => null)) as { nextSource?: string } | null) : null
+    if (pk?.nextSource === "free") {
+      const fc = await baziFetch(`${base}/api/qi/feature-consume`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ anonId: memberId, feature: "card" }),
+      })
+      const fr = fc.ok ? ((await fc.json().catch(() => null)) as { source?: string } | null) : null
+      if (fr?.source === "free") {
+        res.status(200).json({ ok: true, source: "free" })
+        return
+      }
+      // แข่งกันหมดพอดี/หักไปทางอื่น — ถ้า engine หักเครดิต/QI ของไพ่ไปแล้ว ถือว่าจ่ายแล้ว
+      if (fc.ok) {
+        res.status(200).json({ ok: true, source: fr?.source ?? "card" })
+        return
+      }
+    }
     // 1) มี credit ของฟีเจอร์นี้ไหม → หัก credit (ฟรี ไม่แตะ QI)
     const entRes = await baziFetch(`${base}/api/qi/entitlements?anonId=${encodeURIComponent(memberId)}`)
     if (entRes.ok) {

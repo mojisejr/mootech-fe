@@ -30,9 +30,9 @@ export type GuideQuest = {
 export type GuideChapter = { id: string; title: string; subtitle: string; quests: GuideQuest[] }
 
 /** รางวัลที่โชว์บนจอ (ต้องตรงกับ engine GUIDE_STEP_QI / GUIDE_CHAPTER_QI / GUIDE_COMPLETE_QI) */
-export const GUIDE_STEP_QI = 5
-export const GUIDE_CHAPTER_QI = 20
-export const GUIDE_COMPLETE_QI = 50
+export const GUIDE_STEP_QI = 1 // เอ็ม 2026-10-20: รางวัลไกด์เยอะเกิน → รวม ~305 เหลือ ~55 (เดิม 5/20/50)
+export const GUIDE_CHAPTER_QI = 3
+export const GUIDE_COMPLETE_QI = 10
 export const GUIDE_BADGE = "ศิษย์เอกเสี่ยวมู่"
 
 const tid = (id: string) => `[data-testid="${id}"]`

@@ -59,7 +59,9 @@ vi.mock('@/lib/db', () => ({ db: { execute: vi.fn(async () => ({ rows: [] })) } 
 // each level may scroll. Its months walk 2029-xx for cache isolation, so "now" is pinned there and its
 // paid verdicts are PRO (no wall). If the span ever became what decides a row here, the agreement being
 // measured would silently become an agreement about the span instead.
-vi.mock('@/lib/v2/clock', () => ({ currentMonthBkk: () => '2029-01' }))
+// วันนี้ = วันที่ที่ day route ถูกถาม (ด้านล่าง) — เทสนี้วัด "สองประตูตอบตรงกัน" ไม่ใช่หน้าต่างฟรี 7 วัน (2026-10-20)
+const clockToday = vi.hoisted(() => ({ d: '2029-01-05' }))
+vi.mock('@/lib/v2/clock', () => ({ currentMonthBkk: () => '2029-01', todayBkk: () => clockToday.d }))
 
 // lib/usage.ts:27 — one table, one row, classify. Nothing else.
 vi.mock('@/lib/usage', () => ({
@@ -178,7 +180,7 @@ async function monthAllows(userId: string) {
 async function dayAllows(userId: string) {
   h.who = { ok: true, userId }
   const res = makeRes()
-  await dayHandler({ method: 'POST', body: { person: PERSON, date: `2029-01-${String((n++ % 20) + 5).padStart(2, '0')}` } } as never, res as never)
+  await dayHandler({ method: 'POST', body: { person: PERSON, date: (clockToday.d = `2029-01-${String((n++ % 20) + 5).padStart(2, '0')}`) } } as never, res as never)
   return 'insight' in (res.body?.detail ?? {})
 }
 

@@ -48,7 +48,7 @@ import { announceComingSoon, ComingSoonNotice } from '@/features/v2-shell/compon
 import { usePwaCapability } from '@/lib/pwa/capability'
 import { requestPushSubscription } from '@/lib/pwa/subscribe'
 import { saveWithNotification, postPushSubscription } from '@/lib/pwa/persist-subscription'
-import { PersonalCalendarUpsell } from '@/features/v2-calendar/components/upsell/PersonalCalendarUpsell'
+import { AdvancedTeaser } from '@/features/v2-calendar/components/day-detail/AdvancedTeaser'
 import { dayBodyState } from '@/features/v2-calendar/refusal-view'
 import { CalendarRefusalCard } from '@/features/v2-calendar/components/refusal/CalendarRefusalCard'
 import { useClientTier } from '@/features/v2-shell/hooks/useClientTier'
@@ -346,7 +346,8 @@ export default function V2CalendarDayPage({ teamPreview }: { teamPreview: boolea
         {advanced && detail.pillars && <MyChart pillars={detail.pillars} />}
         {/* Figma Free-2 375:11286 puts the upsell exactly here — after the score card, before ทิศ สีมงคล —
             standing in for the three sections below it. The percent is the SAME one the ring shows. */}
-        {free && <PersonalCalendarUpsell percent={detail.percent} />}
+        {/* Kittipon 2026-10-20: ฟรี = ส่วนแอดวานซ์แบบเบลอ (ตัวอย่าง) แตะแล้วป็อปอัปชวนสมัคร → แพ็กเกจ (แทนการ์ดชวนอัปเกรดเดิม) */}
+        {free && <AdvancedTeaser onTap={() => setAdvUpsell(true)} />}
         {/* ความเข้ากัน 4 ด้าน + คำทำนายรายด้าน — โชว์เฉพาะโหมดแอดวานซ์ (เอ็ม 2026-09-22: basic ต้องไม่มี 2 หัวข้อนี้) */}
         {advanced && detail.compatAreas && <CompatList areas={detail.compatAreas} insight={detail.insight ?? ''} />}
         {advanced && detail.compatAreas && detail.advice && (

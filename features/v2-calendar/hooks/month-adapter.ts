@@ -23,6 +23,8 @@ import { buildMonthGrid } from '../month-grid'
  * fabricating a 0 — returning null lets buildMonthGrid render it as an empty (padding-like) slot instead.
  */
 export function apiDayToFeatureDay(d: ApiCalendarDay): CalendarDay | null {
+  // ฟรีนอกหน้าต่าง 7 วัน: ไม่มีคะแนน แต่ยังเป็นช่องจริง (กุญแจ) — ไม่ทิ้งเป็นช่องว่าง
+  if (d.locked) return { date: d.date, day: d.dayOfMonth, ganzhi: '', percent: 0, grade: '', isBuddhistDay: d.wanPhra, locked: true }
   // Drop a day with no score OR no grade — an incomplete day is not a real cell. Grade tracks percent, so
   // these usually coincide; dropping both keeps `CalendarDay.grade` honestly non-null for every survivor.
   if (d.overallPercent == null || d.grade == null) return null

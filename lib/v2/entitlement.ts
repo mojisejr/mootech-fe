@@ -129,6 +129,30 @@ export function entitlementTierOf(verdict: MembershipVerdictLike): Tier {
  * 🔴 This is the SERVER's answer. The screen hiding an arrow is layout, and layout is not a gate — #226
  * closed a bug where the paid sections were trimmed only by the UI and curl read them anyway.
  */
-export function calendarMonthReachable(verdict: MembershipVerdictLike, requestedMonth: string, currentMonth: string): boolean {
+export function calendarMonthReachable(verdict: MembershipVerdictLike, requestedMonth: string, currentMonth: string, todayBkk?: string): boolean {
+  // ฟรี = หน้าต่าง 7 วัน (Kittipon 2026-10-20) — เดือนที่หน้าต่างครอบ (เดือนนี้ + เดือนหน้าเมื่อหน้าต่างข้ามเดือน)
+  if (todayBkk && entitlementTierOf(verdict) === 'FREE') return freeWindowMonths(todayBkk).includes(requestedMonth)
   return isMonthReachable(entitlementTierOf(verdict), 'calendar', requestedMonth, currentMonth)
+}
+
+/** ฟรีดูปฏิทินเฉพาะบุคคลได้ล่วงหน้า N วัน (นับวันนี้เป็นวันแรก) — วันอื่น (รวมวันที่ผ่านมา) ล็อก (Kittipon 2026-10-20) */
+export const FREE_CALENDAR_WINDOW_DAYS = 7
+
+/** วันที่ในหน้าต่างฟรี 'YYYY-MM-DD' (วันนี้ … วันนี้+6) — todayBkk = 'YYYY-MM-DD' ของกรุงเทพ */
+export function freeWindowDates(todayBkk: string, days: number = FREE_CALENDAR_WINDOW_DAYS): string[] {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(todayBkk)
+  if (!m) throw new Error(`not a YYYY-MM-DD date: ${JSON.stringify(todayBkk)}`)
+  const base = Date.UTC(Number(m[1]), Number(m[2]) - 1, Number(m[3]))
+  return Array.from({ length: days }, (_, i) => new Date(base + i * 86_400_000).toISOString().slice(0, 10))
+}
+
+/** เดือน 'YYYY-MM' ที่หน้าต่างฟรีครอบ */
+export function freeWindowMonths(todayBkk: string): string[] {
+  return Array.from(new Set(freeWindowDates(todayBkk).map((d) => d.slice(0, 7))))
+}
+
+/** วันนี้ (ของคนนี้) เปิดดูได้ไหม — สมาชิก: ทุกวันในเดือนที่เข้าถึงได้ · ฟรี: เฉพาะหน้าต่าง 7 วัน */
+export function calendarDateOpen(verdict: MembershipVerdictLike, date: string, todayBkk: string): boolean {
+  if (entitlementTierOf(verdict) !== 'FREE') return true
+  return freeWindowDates(todayBkk).includes(date)
 }

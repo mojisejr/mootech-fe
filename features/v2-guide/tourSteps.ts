@@ -16,7 +16,7 @@ export type TourStep = {
 }
 
 export const TOUR_MISSION_ID = "guide_tour"
-export const TOUR_QI = 10
+export const TOUR_QI = 2 // เอ็ม 2026-10-20 (เดิม 10)
 
 const tid = (id: string) => `[data-testid="${id}"]`
 

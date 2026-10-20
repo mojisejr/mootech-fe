@@ -4,6 +4,7 @@
 // routing (useCalendarMonth · dayCellTier · /v2/calendar/[date]) are untouched; NO network (mock hooks).
 import type { GetServerSideProps } from 'next'
 import { useRouter } from 'next/router'
+import { SHOP_HREF } from '@/features/v2-shop/upgrade-cta'
 import { useRef } from 'react'
 import { v2RedirectIfUnauthed, isV2TeamPreview } from '@/lib/v2/gate'
 import { CalendarShell } from '@/features/v2-calendar/components/CalendarShell'
@@ -51,7 +52,9 @@ export default function V2CalendarPage({ teamPreview }: { teamPreview: boolean }
   // today if today is in view, else day 1, re-applied on month change), so this is a one-word change from
   // `todayISO` to `selectedDate` and NOT a second copy of the rule. Before this, tapping a day moved the
   // grid highlight while the card underneath kept describing today — one widget, two answers.
-  const cardDay = month ? (month.days.find((d) => d.date === selectedDate) ?? month.days[0] ?? null) : null
+  // วันล็อก (ฟรีนอกหน้าต่าง 7 วัน) ไม่มีการ์ด — ถ้าทั้งเดือนล็อกก็ไม่โชว์การ์ด
+  const openDays = month ? month.days.filter((d) => !d.locked) : []
+  const cardDay = month ? (openDays.find((d) => d.date === selectedDate) ?? openDays[0] ?? null) : null
   // the same payload the day-detail screen binds to — headline + the two facet lists live there, so the
   // card shows real copy instead of the hardcoded sentence the little local card carried.
   const { detail } = useDayDetail(cardDay?.date ?? '')
@@ -133,7 +136,7 @@ export default function V2CalendarPage({ teamPreview }: { teamPreview: boolean }
 
         {viewState === 'ready' && month && cardDay && (
         <>
-        <MonthGrid weeks={month.weeks} selectedDate={selectedDate} onSelect={pickDay} />
+        <MonthGrid weeks={month.weeks} selectedDate={selectedDate} onSelect={pickDay} onLocked={() => void router.push(SHOP_HREF)} />
 
         {/* Figma 375:11100 — the card and its CTA are ONE card; the CTA was a separate button below it. */}
         {/* goo · G-2 minimal compile-guard (NOT a designed loading state — M-B/M-D own the real one): the

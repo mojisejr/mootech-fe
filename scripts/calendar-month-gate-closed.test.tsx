@@ -36,7 +36,7 @@ const h = vi.hoisted(() => ({
 vi.mock('@/lib/v2/resolve-user', () => ({ resolveSessionUserId: vi.fn(async () => h.who) }))
 // #358 Phase 3 — this suite is about the MEMBERSHIP gate, not the span, and freshMonth() walks 2028-xx.
 // "now" is pinned to 2028-01 and every case is given PRO below, so the span is never what decides here.
-vi.mock('@/lib/v2/clock', () => ({ currentMonthBkk: () => '2028-01' }))
+vi.mock('@/lib/v2/clock', () => ({ currentMonthBkk: () => '2028-01', todayBkk: () => '2028-01-10' })) // ฟรี = หน้าต่าง 7 วันจาก todayBkk (2026-10-20)
 // #358 Phase 2 — the route now asks resolveSubscription, so the stub moved with it. Left as a full module
 // mock rather than a spread of the original: the original pulls @/lib/db, and a membership stub that can
 // still reach a database is not a stub. `isPaid` (boolean | null) replaces `isFree` (boolean) because that
