@@ -30,25 +30,6 @@ function thaiDate(iso: string): string {
   return `${dow}ที่ ${d} ${THAI_MONTHS[m - 1]} ${y + 543}`
 }
 
-/** วงคะแนนสากล /100 — ลายเดียวกับ ScoreRing (เส้นน้ำเงิน/ไลม์) แต่ตรงกลางเป็นตัวเลข /100 แทนเกรด */
-function UniversalRing({ score, size = 104 }: { score: number; size?: number }) {
-  const R = 46
-  const C = 2 * Math.PI * R
-  const pct = Math.max(0, Math.min(100, score))
-  return (
-    <div className="relative grid place-items-center" style={{ width: size, height: size }}>
-      <svg viewBox="0 0 120 120" className="-rotate-90" style={{ width: size, height: size }}>
-        <circle cx="60" cy="60" r={R} fill="none" stroke="#083C7B" strokeWidth="11" />
-        <circle cx="60" cy="60" r={R} fill="none" stroke="#E1FF00" strokeWidth="11" strokeLinecap="round" strokeDasharray={C} strokeDashoffset={C * (1 - pct / 100)} />
-      </svg>
-      <span className="absolute flex flex-col items-center leading-none">
-        <span className="font-extrabold text-v3-navy" style={{ fontSize: Math.round(size * 30 / 104) }} data-testid="day-universal-score">{Math.round(pct)}</span>
-        <span className="mt-0.5 text-xs font-bold text-v3-navy">/100</span>
-      </span>
-    </div>
-  )
-}
-
 // ScoreRing (the lime-progress / navy-track hero ring) is now a shared primitive in ./ScoreRing —
 // reused by the compatibility result score card (ดวงสมพงศ์ 2E) instead of duplicated. Markup unchanged.
 
@@ -92,8 +73,9 @@ export function DayScoreCard({ detail }: { detail: DayDetail }) {
         <div data-testid="day-dual-score" className="flex w-full items-start justify-center gap-2">
           <div className="flex flex-1 flex-col items-center" data-testid="day-universal">
             <span className="mb-1.5 text-[13px] font-bold text-v3-navy">🌏 สากล</span>
-            <UniversalRing score={detail.universal.score} />
-            <span className="mt-1.5 text-[15px] font-black text-v3-navy" data-testid="day-universal-label">{detail.universal.label}</span>
+            {/* เอ็ม 2026-10-20: สากลไม่ต้องเป็นวง — มีแค่คำ (ดีเยี่ยม/ดี/พอใช้/ระวัง) สูงเท่าวงฝั่งขวาให้แถวตรงกัน */}
+            <span className="grid h-[104px] place-items-center text-[34px] font-black leading-none text-v3-navy" data-testid="day-universal-label">{detail.universal.label}</span>
+            <span className="mt-1.5 text-[15px] font-black text-v3-navy">&nbsp;</span>
             <span className="text-[11px] text-v3-text-body">คุณภาพวัน</span>
           </div>
           <span aria-hidden className="mt-8 h-24 w-px bg-v3-navy/15" />
