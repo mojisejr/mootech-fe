@@ -139,6 +139,7 @@ export default defineConfig({
       'scripts/member-routes-identity.test.ts', // hardening slice 1 2026-10-02 — ทุก route ที่เคยอ่าน cookie-mumate-id ตรง ๆ: id ของคนอื่นต้องไม่หลุดออกจาก handler
       'scripts/member-routes-userid.test.ts', // hardening slice 1 2026-10-02 — /api/user + เพื่อน: ให้เฉพาะของผู้เรียก, route v1 → 410, home-fortune ไม่เชื่อ anonId จาก body
       'scripts/bazi-fetch-secret.test.ts', // hardening slice 1 2026-10-02 — ทุกการเรียก bazi จาก FE แนบ x-mumate-client-secret ผ่าน baziFetch
+      'scripts/chat-bazi-member-header.test.ts', // mumate-bdash-v2-001 slice 1 2026-10-21 — แชตบอก bazi ว่าเป็นสมาชิกคนไหน (bdash นับคน) และไม่เคยเป็น id ของคนอื่น
       'scripts/settings-support-id.test.tsx', // hardening slice 1 2026-10-02 — ID สมาชิก ในหน้าตั้งค่า: user_id จาก server + ปุ่มคัดลอก (มี fallback ใน LINE)
       'scripts/promo-popup-members-only.test.tsx', // mumate-promo-popup-auth-001 slice 1 — ป็อปอัปเช็กอิน: เฉพาะสมาชิกที่ล็อกอินแล้ว + ยังไม่เช็กอินวันนี้
       'scripts/maintenance-notice.test.tsx', // mumate-maintenance-notice-001 slice 1 — ประกาศปิดปรับปรุงแทนป็อปอัปเช็กอินจนถึง 2026-10-09 04:00

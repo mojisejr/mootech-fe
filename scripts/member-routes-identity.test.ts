@@ -93,6 +93,7 @@ const ROUTES: Route[] = [
   { path: 'pages/api/referral', methods: ['GET', 'POST'] },
   { path: 'pages/api/v2/account/delete', methods: ['GET', 'DELETE'] },
   { path: 'pages/api/v2/analytics/identity', methods: ['GET'] },
+  { path: 'pages/api/v2/narrate', methods: ['POST'], optional: true, body: { engineText: 'ผล', feature: 'phone_reading' } },
   { path: 'pages/api/v2/avatar', methods: ['GET'] },
   { path: 'pages/api/v2/display-name', methods: ['GET', 'POST'] },
   { path: 'pages/api/v2/manifest/checkin', methods: ['POST'] },
@@ -172,8 +173,10 @@ function expectServed(out: { status: number; body: unknown }) {
   expect((out.body as { reason?: string } | undefined)?.reason).not.toBe('identity')
 }
 
-const fetchMock = vi.fn(async (url: unknown, init?: { body?: unknown }) => {
-  h.outbound.push(`fetch:${String(url)} ${typeof init?.body === 'string' ? init.body : h.deepText(init?.body)}`)
+const fetchMock = vi.fn(async (url: unknown, init?: { body?: unknown; headers?: unknown }) => {
+  // headers too: the chat proxy names the member in x-openwebui-user-id (mumate-bdash-v2-001)
+  const headers = init?.headers instanceof Headers ? Object.fromEntries(init.headers.entries()) : init?.headers
+  h.outbound.push(`fetch:${String(url)} ${typeof init?.body === 'string' ? init.body : h.deepText(init?.body)} ${h.deepText(headers)}`)
   return new Response(JSON.stringify({ ok: true }), { status: 200, headers: { 'content-type': 'application/json' } })
 })
 
