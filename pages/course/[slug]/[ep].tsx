@@ -3,10 +3,11 @@
 import Head from 'next/head'
 import Link from 'next/link'
 import { useRouter } from 'next/router'
+import { useState } from 'react'
 import { SkyBackdrop, SkyHeader } from '@/features/v2-profile/components/kit'
 import { useCourse } from '@/features/course/useCourse'
 import { CARD } from '@/features/course/EpisodeList'
-import { COURSES, isCourseSlug } from '@/lib/course/content'
+import { COURSES, episodeCover, isCourseSlug } from '@/lib/course/content'
 
 export default function CourseEpisodePage() {
   const router = useRouter()
@@ -20,6 +21,10 @@ export default function CourseEpisodePage() {
   const prev = course?.episodes.find((e) => e.ep === epNo - 1)
   const next = course?.episodes.find((e) => e.ep === epNo + 1)
   const home = slug ? `/course/${slug}` : '/course/calendar'
+  // ปก + คลิปแนวตั้ง 9:16 (gafiw 2026-10-21) — โชว์ปกก่อน แตะ ▶ แล้วค่อยโหลดคลิป (ไม่โหลด YouTube จนกว่าจะกดดู)
+  const cover = slug && meta ? episodeCover(slug, meta.ep) : null
+  const [playing, setPlaying] = useState<number | null>(null)
+  const isPlaying = playing === epNo
 
   return (
     <div className="relative min-h-screen w-full overflow-x-hidden bg-white font-ibm">
@@ -36,22 +41,38 @@ export default function CourseEpisodePage() {
 
         {meta && course ? (
           <>
-            <div className="overflow-hidden rounded-[20px] bg-black">
+            <div className={cover ? 'relative mx-auto aspect-[9/16] w-full max-w-[340px] overflow-hidden rounded-[20px] bg-black' : 'overflow-hidden rounded-[20px] bg-black'}>
+              {cover && !(ep?.videoId && isPlaying) ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={cover} alt={meta.title} data-testid="course-cover" className="absolute inset-0 size-full object-cover" />
+              ) : null}
               {s.status === 'loading' ? (
-                <div className="grid aspect-video place-items-center text-sm text-white/70">กำลังโหลด…</div>
+                <div className={(cover ? 'absolute inset-0 bg-black/40 ' : 'aspect-video ') + 'grid place-items-center text-sm text-white/80'}>กำลังโหลด…</div>
               ) : ep?.videoId ? (
-                <iframe
-                  data-testid="course-player"
-                  className="aspect-video w-full"
-                  src={`https://www.youtube-nocookie.com/embed/${ep.videoId}?rel=0&modestbranding=1`}
-                  title={meta.title}
-                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                  allowFullScreen
-                />
+                cover && !isPlaying ? (
+                  <button
+                    type="button"
+                    onClick={() => setPlaying(epNo)}
+                    data-testid="course-play"
+                    aria-label={`เล่นคลิปบทที่ ${meta.ep}`}
+                    className="absolute inset-0 grid place-items-center bg-black/10"
+                  >
+                    <span className="grid size-16 place-items-center rounded-full bg-white/90 pl-1 text-2xl text-v3-sapphire shadow-lg">▶</span>
+                  </button>
+                ) : (
+                  <iframe
+                    data-testid="course-player"
+                    className={cover ? 'absolute inset-0 size-full' : 'aspect-video w-full'}
+                    src={`https://www.youtube-nocookie.com/embed/${ep.videoId}?rel=0&modestbranding=1${cover ? '&autoplay=1&playsinline=1' : ''}`}
+                    title={meta.title}
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                    allowFullScreen
+                  />
+                )
               ) : ep && (ep.free || (s.status === 'ok' && s.access)) ? (
-                <div className="grid aspect-video place-items-center p-6 text-center text-sm text-white/80">คลิปบทนี้กำลังจะมา เร็ว ๆ นี้</div>
+                <div className={(cover ? 'absolute inset-x-0 bottom-0 bg-black/60 ' : 'aspect-video ') + 'grid place-items-center p-6 text-center text-sm text-white/90'}>คลิปบทนี้กำลังจะมา เร็ว ๆ นี้</div>
               ) : (
-                <div data-testid="course-locked" className="grid aspect-video place-items-center gap-2 p-6 text-center text-white">
+                <div data-testid="course-locked" className={(cover ? 'absolute inset-0 bg-black/55 ' : 'aspect-video ') + 'grid place-items-center gap-2 p-6 text-center text-white'}>
                   <p className="text-3xl">🔒</p>
                   <p className="text-sm font-bold">บทเรียนนี้สำหรับผู้ที่สมัครคอร์สแล้ว</p>
                 </div>
