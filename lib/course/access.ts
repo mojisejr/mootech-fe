@@ -63,12 +63,27 @@ export async function isPaidMemberNow(userId: string): Promise<boolean> {
   return rowsOf(r).length > 0
 }
 
-export type CourseAccess = { access: boolean; via: 'member' | 'purchase' | null }
+export type CourseAccess = { access: boolean; via: 'member' | 'purchase' | 'grant' | null }
+
+/** แอดมินให้สิทธิ์ (engine /ops) หรือแลกโค้ด/ลิงก์รับคอร์ส — bazi_entitlement kind='course' sku=<slug> (DB เดียวกัน · เอ็ม 2026-10-21) */
+export async function hasGrant(userId: string, slug: CourseSlug): Promise<boolean> {
+  try {
+    const r = await db.execute(sql`
+      SELECT 1 FROM bazi_entitlement
+       WHERE anon_id = ${userId} AND kind = 'course' AND sku = ${slug}
+         AND (expires_at IS NULL OR expires_at > now())
+       LIMIT 1`)
+    return rowsOf(r).length > 0
+  } catch {
+    return false // ตาราง/DB อ่านไม่ได้ → ไม่มีสิทธิ์ (fail-closed)
+  }
+}
 
 /** สิทธิ์เรียน EP เสียเงิน: เคยซื้อคอร์ส (ตลอดชีพ) หรือ (คอร์สที่เปิดให้สมาชิก) สมาชิกที่จ่ายเงินจริงและยังไม่หมด */
 export async function courseAccessFor(slug: CourseSlug, userId: string | null): Promise<CourseAccess> {
   if (!userId) return { access: false, via: null }
   if (await hasPurchased(userId, slug)) return { access: true, via: 'purchase' }
+  if (await hasGrant(userId, slug)) return { access: true, via: 'grant' }
   if (COURSES[slug].memberAccess) {
     try {
       if (await isPaidMemberNow(userId)) return { access: true, via: 'member' }

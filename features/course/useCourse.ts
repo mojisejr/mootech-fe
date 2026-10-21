@@ -6,7 +6,7 @@ export type CourseEpisode = Episode & { ready: boolean; videoId: string | null }
 export type CourseState =
   | { status: 'loading' }
   | { status: 'error' }
-  | { status: 'ok'; loggedIn: boolean; access: boolean; via: 'member' | 'purchase' | null; episodes: CourseEpisode[] }
+  | { status: 'ok'; loggedIn: boolean; access: boolean; via: 'member' | 'purchase' | 'grant' | null; episodes: CourseEpisode[] }
 
 export function useCourse(slug: CourseSlug | null): CourseState {
   const [state, setState] = useState<CourseState>({ status: 'loading' })

@@ -22,6 +22,7 @@ import { HomeSkeleton } from '@/features/v2-home/components/HomeSkeleton'
 import { V2GateForm } from '@/features/v2-shell/components/V2GateForm'
 import { OnboardingCarousel } from '@/features/onboarding/components/OnboardingCarousel'
 import { endNewcomerGuide } from '@/features/v2-guide/NewcomerCoach'
+import { COURSE_REDEEM_KEY } from '@/features/course/redeem'
 import { V2HomeScreen } from '@/features/v2-home/components/V2HomeScreen'
 // 🔴 TEMPORARY (#249) — #248 removes this import and its one <TeamPreviewResetBadge /> below.
 import { TeamPreviewResetBadge } from '@/features/v2-team-preview/TeamPreviewResetBadge'
@@ -83,6 +84,13 @@ function V2HomeRoute({ status }: { status: AuthStatus }) {
   const { logout } = useV2Logout()
   // ล็อกอินแล้ว = ไม่ใช่คนใหม่อีก → หน้าหาธาตุกลับเป็นแบบปกติ (ไม่มีไกด์ / CTA ไม่พาไปล็อกอิน) · วันเกิดยังเก็บไว้ให้หน้าสมัคร
   useEffect(() => endNewcomerGuide(), [])
+  // ลิงก์รับคอร์ส (/course/redeem?code=) ที่เปิดตอนยังไม่ล็อกอิน — ล็อกอินเสร็จตกที่นี่ → พากลับไปรับคอร์สต่อ (เอ็ม 2026-10-21)
+  useEffect(() => {
+    try {
+      if (window.localStorage.getItem(COURSE_REDEEM_KEY)) window.location.assign("/course/redeem")
+    } catch { /* storage ปิด */ }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
   // Zone 1 — daily-fortune + persona data seam. Called unconditionally (before the loading branch) so
   // hook order is stable; graceful by design (no user / bazi error → fortune/persona=null → cards show
   // fallback). Consumes the shared `user` (no second fetch). ONE BFF call returns both fortune and persona.
