@@ -2,7 +2,7 @@
 // โชว์เฉพาะคอร์สที่ผู้ใช้มีสิทธิ์ (ซื้อแล้ว หรือสิทธิ์สมาชิก — /api/course/[slug] access) · ไม่มีสักคอร์ส = ไม่วาดการ์ด
 import Link from "next/link"
 
-export type MyCourse = { slug: string; name: string; via: "member" | "purchase" | null; ready: number; total: number }
+export type MyCourse = { slug: string; name: string; via: "member" | "purchase" | "grant" | null; ready: number; total: number }
 
 export function MyCoursesCard({ courses }: { courses: MyCourse[] }) {
   if (courses.length === 0) return null
@@ -15,7 +15,7 @@ export function MyCoursesCard({ courses }: { courses: MyCourse[] }) {
           <div className="flex min-w-0 flex-1 flex-col gap-0.5">
             <p className="truncate text-[14px] font-medium leading-5 text-v3-navy">{c.name}</p>
             <p className="text-[12px] leading-[18px] text-v3-text-body">
-              {c.via === "member" ? "สิทธิ์สมาชิก" : "ซื้อแล้ว"} · พร้อมเรียน {c.ready}/{c.total} บท
+              {c.via === "member" ? "สิทธิ์สมาชิก" : c.via === "grant" ? "ได้รับสิทธิ์" : "ซื้อแล้ว"} · พร้อมเรียน {c.ready}/{c.total} บท
             </p>
           </div>
           <span className="flex-none rounded-full bg-v3-sapphire px-3 py-1.5 text-[12px] font-bold text-v3-lime">เรียนต่อ</span>

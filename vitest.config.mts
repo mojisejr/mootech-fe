@@ -336,6 +336,7 @@ export default defineConfig({
       'scripts/siamsi-page.test.ts', // ไพ่เซียมซีเคี้ยงคุง หน้าในแอป (ยังปิด) 2026-10-15
       'scripts/free-tier-limits.test.tsx', // ฟรี: ปฏิทิน 7 วัน · ไพ่รวม 1 ครั้ง/วัน · แอดวานซ์เบลอ · คะแนนสากล (2026-10-20)
       'scripts/course-video-flow.test.tsx', // ลิงก์ใน /ops → หน้าคอร์ส ready/▶ ดู/ปก+เล่น (2026-10-21)
+      'scripts/course-grant.test.tsx', // สิทธิ์คอร์สจากแอดมิน/โค้ด + หน้ารับคอร์ส (2026-10-21)
       'scripts/one-book-screen.test.tsx', // บริการ one-book (Your Life Code) — hero/ราคา/CTA ไลน์ + accordion 15 ด้าน
       'scripts/sinsae-screen.test.tsx', // บริการ sinsae (ดูดวงส่วนตัว กับซินแส) — 3 แพ็ก + trust bar + CTA ไลน์
 
