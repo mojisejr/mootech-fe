@@ -1,9 +1,11 @@
 // BFF — /api/v2/narrate: เกลา engine-truth เป็นคำทำนายร้อยแก้วด้วย AI (ใช้ร่วมหลายฟีเจอร์).
 //   POST { engineText, domainLabel?, feature? }  → { text } (หรือ { error })
 // Engine: {BAZI_BASE_URL}/api/bazi/narrate (LLM, guardServerLlm กันโควตา/ต้นทุนที่ engine).
+// แนบ anonId ของสมาชิก (ถ้ามี) ให้ engine บันทึกใน usage log — bdash นับคนต่อฟีเจอร์ (mumate-bdash-v2-001).
 import type { NextApiRequest, NextApiResponse } from "next"
 import { baziClientHeaders } from "@/lib/bazi/client-identity"
 import { baziFetch } from '@/lib/bazi/fetch'
+import { resolveOptionalRouteMember } from '@/lib/v2/resolve-user'
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== "POST") {
@@ -18,6 +20,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return
   }
   const question = String(body.question ?? "").trim().slice(0, 300)
+  const memberId = await resolveOptionalRouteMember(req, res)
   try {
     const upstream = await baziFetch(`${base}/api/bazi/narrate`, {
       method: "POST",
@@ -27,6 +30,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         domainLabel: body.domainLabel || "ผลวิเคราะห์",
         feature: body.feature || "narrate",
         ...(question ? { question } : {}),
+        ...(memberId ? { anonId: memberId } : {}),
       }),
     })
     const payload = await upstream.json().catch(() => ({ error: { message: "เรียก AI ไม่สำเร็จ" } }))

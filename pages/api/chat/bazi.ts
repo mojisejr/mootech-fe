@@ -156,6 +156,8 @@ export default async function handler(
       headers: {
         "Content-Type": "application/json",
         Authorization: `Bearer ${token}`,
+        // bazi บันทึก usage + หัวข้อแชต (ไม่มีข้อความ) ต่อสมาชิก — bdash นับคน (mumate-bdash-v2-001)
+        ...(userId ? { "x-openwebui-user-id": userId } : {}),
       },
       body: JSON.stringify({
         messages,
