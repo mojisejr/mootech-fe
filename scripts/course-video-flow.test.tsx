@@ -1,7 +1,7 @@
 // scripts/course-video-flow.test.tsx — วางลิงก์ใน /ops แล้วหน้าคอร์สเปลี่ยนเอง (gafiw/เอ็ม 2026-10-21)
 //   CV1 API: บทที่มีลิงก์ = ready + videoId (ลิงก์ youtu.be และ shorts) · บทที่ไม่มี = ไม่ ready · บทล็อกไม่ส่ง videoId ให้คนไม่มีสิทธิ์
 //   CV2 สารบัญ: มีลิงก์ → "▶ ดู" ไม่มี "เร็ว ๆ นี้" · ไม่มีลิงก์ → "เร็ว ๆ นี้" · ล็อก → 🔒
-//   CV3 หน้าคลิป: มีลิงก์ → ปก + ปุ่ม ▶ (ไม่มีข้อความเร็ว ๆ นี้) → กดแล้วโหลด YouTube autoplay · ไม่มีลิงก์ → "กำลังจะมา เร็ว ๆ นี้"
+//   CV3 หน้าคลิป: (+ กันกดออกไป YouTube: controls=0 + ชั้นคลุม + ไม่มีลิงก์ YouTube) มีลิงก์ → ปก + ปุ่ม ▶ (ไม่มีข้อความเร็ว ๆ นี้) → กดแล้วโหลด YouTube autoplay · ไม่มีลิงก์ → "กำลังจะมา เร็ว ๆ นี้"
 import React from 'react'
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, cleanup, fireEvent, waitFor } from '@testing-library/react'
@@ -74,6 +74,14 @@ describe('วางลิงก์ใน /ops แล้วหน้าคอร�
     const player = screen.getByTestId('course-player')
     expect(player.getAttribute('src')).toContain('/embed/hNCcXdjL2Lk')
     expect(player.getAttribute('src')).toContain('autoplay=1')
+    // กันกดออกไป YouTube (เอ็ม 2026-10-21): ซ่อนแถบควบคุม/คีย์ลัด/เต็มจอของ YouTube · iframe แตะไม่ได้ · ชั้นคลุมรับแตะแทน
+    expect(player.getAttribute('src')).toContain('controls=0')
+    expect(player.getAttribute('src')).toContain('disablekb=1')
+    expect(player.getAttribute('src')).toContain('fs=0')
+    expect(player.className).toContain('pointer-events-none')
+    expect(screen.getByTestId('course-player-shield')).toBeTruthy()
+    expect(screen.getByTestId('course-player-seek')).toBeTruthy()
+    expect(document.querySelector('a[href*="youtube.com"], a[href*="youtu.be"]')).toBeNull()
   })
 
   it('CV3b หน้าคลิปที่ยังไม่มีลิงก์: ปก + "กำลังจะมา เร็ว ๆ นี้" ไม่มีปุ่มเล่น', async () => {
