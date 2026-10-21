@@ -46,3 +46,18 @@ describe('คอร์สออนไลน์ Mumate', () => {
     expect(youtubeId('')).toBeNull()
   })
 })
+
+// ปกคลิปรายบท (gafiw 2026-10-21) — แนวตั้ง 9:16 · public/images/course/calendar/cover-<ep>.webp
+describe('episodeCover', () => {
+  it('คอร์สปฏิทินมีปกครบ 13 บท และไฟล์มีอยู่จริง', async () => {
+    const { episodeCover } = await import('../lib/course/content')
+    const { existsSync } = await import('node:fs')
+    for (let ep = 1; ep <= 13; ep++) {
+      const p = episodeCover('calendar', ep)
+      expect(p).toBe(`/images/course/calendar/cover-${ep}.webp`)
+      expect(existsSync(`public${p}`), p ?? '').toBe(true)
+    }
+    expect(episodeCover('calendar', 14)).toBeNull()
+    expect(episodeCover('life-matrix', 1)).toBeNull()
+  })
+})

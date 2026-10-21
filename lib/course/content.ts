@@ -12,6 +12,14 @@ export type CourseSlug = 'calendar' | 'life-matrix'
 
 export type Episode = { ep: number; part: number; title: string; points: string[]; free: boolean }
 
+/** ปกคลิปรายบท (แนวตั้ง 9:16 — คลิปทุกบทเป็นแนวตั้ง) จาก Drive ของทีม (gafiw 2026-10-21) — public/images/course/<slug>/cover-<ep>.webp
+ *  คอร์สที่ยังไม่มีปก → null (สารบัญ/หน้าคลิปแสดงแบบเดิม) */
+const COVER_COUNT: Partial<Record<string, number>> = { calendar: 13 }
+export function episodeCover(slug: string, ep: number): string | null {
+  const n = COVER_COUNT[slug] ?? 0
+  return ep >= 1 && ep <= n ? `/images/course/${slug}/cover-${ep}.webp` : null
+}
+
 export type Course = {
   slug: CourseSlug
   name: string
