@@ -134,10 +134,14 @@ export function AccountScreen({ preview }: { preview?: AccountPreview } = {}) {
       getJson("/api/course/calendar"),
       getJson("/api/course/life-matrix"),
     ]).then(([m, r, del, pack, cCal, cMatrix]) => {
+      // มีสิทธิ์ → เรียนต่อ · ยังไม่มี → ปุ่มซื้อ (คอร์สปฏิทินขายเดี่ยว ฿490 · Life Matrix ได้จากแพ็กรวม/ข้อเสนอ → ไปหน้าคอร์ส)
       const mine: MyCourse[] = []
       for (const [slug, j] of [["calendar", cCal], ["life-matrix", cMatrix]] as const) {
         const eps = Array.isArray(j?.episodes) ? (j.episodes as { ready?: boolean }[]) : []
-        if (j?.access === true) mine.push({ slug, name: COURSES[slug].name, via: j.via ?? null, ready: eps.filter((e) => e.ready).length, total: eps.length })
+        const access = j?.access === true
+        // Life Matrix ยังไม่มีขายเดี่ยว — โชว์เฉพาะคนที่มีสิทธิ์แล้ว
+        if (slug === "life-matrix" && !access) continue
+        mine.push({ slug, name: COURSES[slug].name, access, via: j?.via ?? null, ready: eps.filter((e) => e.ready).length, total: eps.length || COURSES[slug].episodes.length, priceLabel: slug === "calendar" ? "฿490" : undefined })
       }
       setMyCourses(mine)
       setBoard(m)
