@@ -92,3 +92,17 @@ describe('วางลิงก์ใน /ops แล้วหน้าคอร�
     expect(screen.getByTestId('course-cover')).toBeTruthy()
   })
 })
+
+// คอร์สของฉันในหน้าโปรไฟล์ (เอ็ม 2026-10-21)
+import { MyCoursesCard } from '@/features/v2-account/components/MyCoursesCard'
+describe('คอร์สของฉัน (โปรไฟล์)', () => {
+  it('มีสิทธิ์ → การ์ดพร้อมปุ่มเรียนต่อไปหน้าคอร์ส · ไม่มีสิทธิ์ → ไม่วาด', () => {
+    const { rerender } = render(<MyCoursesCard courses={[{ slug: 'calendar', name: 'Win the Day', via: 'purchase', ready: 10, total: 13 }]} />)
+    const row = screen.getByTestId('account-course-calendar')
+    expect(row.getAttribute('href')).toBe('/course/calendar')
+    expect(row.textContent).toContain('ซื้อแล้ว · พร้อมเรียน 10/13 บท')
+    expect(row.textContent).toContain('เรียนต่อ')
+    rerender(<MyCoursesCard courses={[]} />)
+    expect(screen.queryByTestId('account-my-courses')).toBeNull()
+  })
+})

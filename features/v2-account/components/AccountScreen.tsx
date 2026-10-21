@@ -23,6 +23,8 @@ import { bkkCivilDate } from "../payment-history"
 import { planFor, type Plan } from "../plan"
 import { InstallAppCard } from "./InstallAppCard"
 import { RedeemCouponCard } from "@/features/v2-qi/components/RedeemCouponCard"
+import { MyCoursesCard, type MyCourse } from "./MyCoursesCard"
+import { COURSES } from "@/lib/course/content"
 
 type Profile = { firstName?: string | null; displayName?: string | null; birthDate?: string | null; birthTime?: string | null; hasAvatar?: boolean | null; avatarUpdatedAt?: string | null }
 // สรุปสิทธิ์จาก /api/qi-entitlements — ใช้คิด "ยังถาม/เปิดไพ่ได้อีกกี่ครั้ง" ให้ตรง (ฟรี + credit + QI)
@@ -82,6 +84,8 @@ export function AccountScreen({ preview }: { preview?: AccountPreview } = {}) {
   const [profile, setProfile] = useState<Profile | null>(null)
   const [element, setElement] = useState<ElementSummary>(null)
   const [board, setBoard] = useState<MissionBoard | null>(preview?.board ?? null)
+  // คอร์สที่มีสิทธิ์ (ซื้อ/สมาชิก) — ปุ่มเข้าเรียนจากโปรไฟล์ (เอ็ม 2026-10-21)
+  const [myCourses, setMyCourses] = useState<MyCourse[]>([])
   const [referral, setReferral] = useState<Referral | null>(null)
   const [deletePending, setDeletePending] = useState<string | null>(null)
   const [busyCheckin, setBusyCheckin] = useState(false)
@@ -127,7 +131,15 @@ export function AccountScreen({ preview }: { preview?: AccountPreview } = {}) {
       getJson("/api/referral"),
       getJson("/api/v2/account/delete"),
       getJson("/api/payment-package?code=QI_60"),
-    ]).then(([m, r, del, pack]) => {
+      getJson("/api/course/calendar"),
+      getJson("/api/course/life-matrix"),
+    ]).then(([m, r, del, pack, cCal, cMatrix]) => {
+      const mine: MyCourse[] = []
+      for (const [slug, j] of [["calendar", cCal], ["life-matrix", cMatrix]] as const) {
+        const eps = Array.isArray(j?.episodes) ? (j.episodes as { ready?: boolean }[]) : []
+        if (j?.access === true) mine.push({ slug, name: COURSES[slug].name, via: j.via ?? null, ready: eps.filter((e) => e.ready).length, total: eps.length })
+      }
+      setMyCourses(mine)
       setBoard(m)
       setReferral(r)
       setDeletePending(del?.deletion?.purgeAt ?? null)
@@ -363,6 +375,7 @@ export function AccountScreen({ preview }: { preview?: AccountPreview } = {}) {
             </div>
           )}
 
+          <MyCoursesCard courses={myCourses} />
           {/* การ์ดรวม: เพื่อน + แผน (เฟรม nav-list-card) */}
           <section className="v3-shadow-card flex w-full flex-col overflow-hidden rounded-[24px] bg-white">
             {/* แถวเพื่อน / 5 ธาตุ (เฟรม row 55399:5007): avatar stack 34px ขอบขาว 2 ซ้อน -12 + วง "+N" + badge 3/5 */}
