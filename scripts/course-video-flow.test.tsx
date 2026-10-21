@@ -96,12 +96,16 @@ describe('วางลิงก์ใน /ops แล้วหน้าคอร�
 // คอร์สของฉันในหน้าโปรไฟล์ (เอ็ม 2026-10-21)
 import { MyCoursesCard } from '@/features/v2-account/components/MyCoursesCard'
 describe('คอร์สของฉัน (โปรไฟล์)', () => {
-  it('มีสิทธิ์ → การ์ดพร้อมปุ่มเรียนต่อไปหน้าคอร์ส · ไม่มีสิทธิ์ → ไม่วาด', () => {
-    const { rerender } = render(<MyCoursesCard courses={[{ slug: 'calendar', name: 'Win the Day', via: 'purchase', ready: 10, total: 13 }]} />)
+  it('มีสิทธิ์ → เรียนต่อ · ยังไม่มี → ปุ่มซื้อคอร์สไปหน้าขาย · ไม่มีรายการ → ไม่วาด', () => {
+    const { rerender } = render(<MyCoursesCard courses={[{ slug: 'calendar', name: 'Win the Day', access: true, via: 'purchase', ready: 10, total: 13 }]} />)
     const row = screen.getByTestId('account-course-calendar')
     expect(row.getAttribute('href')).toBe('/course/calendar')
     expect(row.textContent).toContain('ซื้อแล้ว · พร้อมเรียน 10/13 บท')
-    expect(row.textContent).toContain('เรียนต่อ')
+    expect(screen.getByTestId('account-course-calendar-learn').textContent).toBe('เรียนต่อ')
+    rerender(<MyCoursesCard courses={[{ slug: 'calendar', name: 'Win the Day', access: false, via: null, ready: 10, total: 13, priceLabel: '฿490' }]} />)
+    expect(screen.getByTestId('account-course-calendar').getAttribute('href')).toBe('/course/calendar')
+    expect(screen.getByTestId('account-course-calendar-buy').textContent).toBe('ซื้อคอร์ส ฿490')
+    expect(screen.getByTestId('account-my-courses').textContent).toContain('คอร์สเรียน Mumate')
     rerender(<MyCoursesCard courses={[]} />)
     expect(screen.queryByTestId('account-my-courses')).toBeNull()
   })
