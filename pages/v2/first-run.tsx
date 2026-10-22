@@ -25,6 +25,7 @@ import { PdpaConsentScreen } from '@/features/v2-first-run/components/PdpaConsen
 import { Button } from '@/components/ui/button'
 import { useFirstRunSource } from '@/features/v2-first-run/hooks/useFirstRunSource'
 import { useSaveOnboarding } from '@/features/v2-first-run/hooks/useSaveOnboarding'
+import { recordAiTrainingConsent } from '@/features/v2-privacy/aiTraining'
 
 const HOME = '/v2'
 
@@ -43,6 +44,8 @@ export default function V2FirstRun() {
   const [step, setStep] = useState<Step>('intent')
   const [goal, setGoal] = useState<GoalId | null>(null)
   const [consent, setConsent] = useState(false)
+  // ยินยอมใช้คำถามพัฒนา AI — แยก ไม่บังคับ (เอ็ม 2026-10-22). บันทึกทั้งยินยอม/ไม่ยินยอม → ไม่ถามซ้ำในแชท
+  const [aiTraining, setAiTraining] = useState(false)
 
   const goHome = () => router.replace(HOME)
 
@@ -50,7 +53,10 @@ export default function V2FirstRun() {
   // save never leaves a user "onboarded" in the UI but not the DB (which would loop them next visit).
   const acceptAndSave = async () => {
     if (!goal || saveState === 'saving') return // goal is guaranteed by the intent gate; guard re-entry
-    if (await save(goal)) setStep('element')
+    if (await save(goal)) {
+      void recordAiTrainingConsent(aiTraining)
+      setStep('element')
+    }
     // on failure saveState becomes 'error' and we stay on pdpa so the user can retry (no silent advance).
   }
 
@@ -59,6 +65,8 @@ export default function V2FirstRun() {
       <PdpaConsentScreen
         consent={consent}
         onConsentChange={setConsent}
+        aiTraining={aiTraining}
+        onAiTrainingChange={setAiTraining}
         onBack={() => setStep('intent')}
         onAccept={acceptAndSave}
         saving={saveState === 'saving'}

@@ -3,6 +3,7 @@ import { Lock, Shield, Star } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import { FirstRunScreen } from './FirstRunScreen'
+import { AI_TRAINING_SUB, AI_TRAINING_TITLE } from '@/features/v2-privacy/aiTraining'
 
 // PdpaConsentScreen — "ความเป็นส่วนตัวของคุณ" (Figma 04-pdpa: 300:1582 unticked → 300:2137 ticked).
 // The two Figma frames are ONE screen in two states, not two screens.
@@ -44,8 +45,13 @@ export function PdpaConsentScreen({
   onAccept,
   saving = false,
   error = false,
+  aiTraining = false,
+  onAiTrainingChange,
 }: {
   consent: boolean
+  /** ยินยอมใช้คำถามที่ถาม AI เพื่อพัฒนา (เอ็ม 2026-10-22) — แยก · ไม่บังคับ · ไม่ล็อกปุ่ม */
+  aiTraining?: boolean
+  onAiTrainingChange?: (next: boolean) => void
   onConsentChange: (next: boolean) => void
   onBack?: () => void
   onAccept?: () => void
@@ -127,6 +133,19 @@ export function PdpaConsentScreen({
           </a>
         </span>
       </div>
+
+      {/* ข้อยินยอมแยก (ไม่บังคับ) — ไม่ผูกกับปุ่มยอมรับ: ไม่ติ๊กก็สมัครได้ตามปกติ */}
+      {onAiTrainingChange ? (
+        <div className="flex items-start gap-3" data-testid="pdpa-ai-training">
+          <Checkbox checked={aiTraining} onChange={onAiTrainingChange} ariaLabel={AI_TRAINING_TITLE} />
+          <span className="flex flex-col gap-1">
+            <span onClick={() => onAiTrainingChange(!aiTraining)} className="cursor-pointer font-ibm text-base leading-6 text-v3-text-title">
+              {AI_TRAINING_TITLE} (ไม่บังคับ)
+            </span>
+            <span className="font-ibm text-xs leading-[18px] text-v3-text-body">{AI_TRAINING_SUB}</span>
+          </span>
+        </div>
+      ) : null}
     </FirstRunScreen>
   )
 }

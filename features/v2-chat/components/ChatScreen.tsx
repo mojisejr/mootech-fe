@@ -18,6 +18,7 @@
 import Link from "next/link"
 import Image from "next/image"
 import { useRouter } from "next/router"
+import { AiTrainingAsk } from "@/features/v2-privacy/AiTrainingAsk"
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 
 // สถานะโควตาแชท (จาก /api/chat/quota) — บอกว่าคุยจากอะไร/เหลือกี่/ชี่เท่าไร
@@ -317,6 +318,7 @@ export function ChatScreen() {
           "#F6ECF0",
       }}
     >
+      <AiTrainingAsk />
       {/* header — ← · Mate AI · ●ทำงานอยู่ · ⚙ (บีบคอลัมน์ 430 กลางจอเดียวกับเนื้อหา ตามเฟรมมือถือใน Figma) */}
       <header className="mx-auto flex w-full max-w-[430px] items-center gap-2 px-4 pt-4">
         <button
