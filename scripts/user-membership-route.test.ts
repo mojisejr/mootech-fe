@@ -193,8 +193,10 @@ describe('#383 /api/user → membership composite', () => {
     })
     expect(body.used_point).toBe(3) // bigint-as-string → number (TypeORM parity), untouched by #383
     expect(body.total_point).toBe(20)
+    // CIEL mumate-pdpa-reconsent-001 adds `policyConsent` (the latest accepted policy version, null = not
+    // determined) — a second deliberate addition, listed here so any other new key still reddens this test.
     expect(Object.keys(body).sort()).toEqual(
-      ['membership', 'name', 'payment', 'picture_url', 'total_point', 'used_point', 'user_id'].sort(),
+      ['membership', 'name', 'payment', 'picture_url', 'policyConsent', 'total_point', 'used_point', 'user_id'].sort(),
     )
   })
 

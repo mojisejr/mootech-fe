@@ -20,6 +20,7 @@ import { resolveMembershipFromRows, toSubRows, type ResolvedMembership } from '@
 // (#mootech-fold-parity-audit)
 import { isNotExpired, FREE_FRIEND_LIMIT } from '@/lib/usage-core'
 import { IDENTITY_MISMATCH_BODY, namesAnotherMember, resolveRouteMember } from '@/lib/v2/resolve-user'
+import { latestPolicyVersion } from '@/lib/v2/consent-store'
 
 const FORTUNE_LIMIT_FREE = 1 // be: src/constants/fortune-limit.ts FORTUNE_LIMIT.FREE
 
@@ -51,6 +52,19 @@ async function readSubRows(userId: string) {
   }
 }
 
+// CIEL mumate-pdpa-reconsent-001 — the member's latest accepted privacy-policy version, so the home gate can ask
+// for the updated policy without a second request. Same contract as readSubRows: its own catch, and `null` =
+// NOT DETERMINED (the gate then lets the member through rather than locking them out on a read failure).
+// `{ version: null }` = determined, and no consent row exists.
+async function readPolicyConsent(userId: string): Promise<{ version: string | null } | null> {
+  try {
+    return { version: await latestPolicyVersion(userId) }
+  } catch (e: any) {
+    console.error(`[api/user] policy consent lookup failed — returning policyConsent: null (not determined):`, e?.message ?? e)
+    return null
+  }
+}
+
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== 'GET') return res.status(405).json({ error: 'Method not allowed' })
   // hardening slice 1: the row is the CALLER's (signed session, or the sealed #391 fallback). Every caller
@@ -72,11 +86,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     // awaiting in series. postgres.js pipelines them over the pool so we pay ~1 round-trip
     // instead of 3 (the old sequential awaits stacked ~2s of latency in prod). Same queries
     // and same results as before — only the await became parallel. (#mootech-latency-user-fold)
-    const [memberPaymentRows, totalFriendRows, totalFortuneRows, subRows] = await Promise.all([
+    const [memberPaymentRows, totalFriendRows, totalFortuneRows, subRows, policyConsent] = await Promise.all([
       db.execute(sql`SELECT * FROM member_payment WHERE user_id = ${userId} LIMIT 1`),
       db.execute(sql`SELECT count(*)::int AS n FROM member_with_friend WHERE user_id = ${userId}`),
       db.execute(sql`SELECT count(*)::int AS n FROM fortune_telling_log WHERE user_id = ${userId}`),
       readSubRows(userId), // #383 — 4th query, dispatched in the same batch: no extra round trip (see above)
+      readPolicyConsent(userId), // mumate-pdpa-reconsent-001 — 5th, same batch: an indexed lookup on consent(user_id)
     ])
     const memberPayment = rowsOf(memberPaymentRows)[0] ?? null
     const totalFriend = Number(rowsOf(totalFriendRows)[0]?.n ?? 0)
@@ -120,6 +135,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       // #383 — NEW key, camelCase because it is a v2 composite (the snake_case above exists for TypeORM
       // parity; nothing here needs that). `null` = NOT DETERMINED, never "free".
       membership,
+      // mumate-pdpa-reconsent-001 — NEW key. `null` = not determined (never "needs consent").
+      policyConsent,
     })
   } catch (e: any) {
     return res.status(500).json({ error: e?.message ?? 'internal error' })

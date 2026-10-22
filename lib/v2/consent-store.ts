@@ -26,7 +26,7 @@
 //    (max: 1). The transaction holds it, so a stray `db.` call inside would queue behind the transaction that
 //    is waiting for it — the self-deadlock found in lib/auth/link-account.ts (mootech-fe db-pool wedge). The
 //    user-exists check is done with the UPDATE's own RETURNING for the same reason: no second statement.
-import { eq } from 'drizzle-orm'
+import { desc, eq } from 'drizzle-orm'
 import { db } from '@/lib/db'
 import { consent, user } from '@/lib/db/schema'
 import { bkkTimestamp } from '@/lib/usage-core'
@@ -69,4 +69,26 @@ export async function recordOnboardingConsent(input: OnboardingConsentInput): Pr
     throw e
   }
   return { ok: true, onboarded_at: now, onboarding_goal: input.goal }
+}
+
+// ── Re-consent after a policy change (CIEL mumate-pdpa-reconsent-001 slice 1) ──────────────────────────────
+// A member who already finished first-run accepts an UPDATED policy: one more row appended to the same
+// history, with the same Bangkok clock format. onboarded_at / onboarding_goal are NOT touched — this is not
+// onboarding, and re-stamping onboarded_at would move the member's v2 "sign_up" date (lib/ops/analytics.ts).
+// A single INSERT, so no transaction and no risk of the self-deadlock described above.
+export async function recordPolicyConsent(input: { userId: string; policyVersion: string; now?: Date }): Promise<{ accepted_at: string }> {
+  const now = bkkTimestamp(input.now ?? new Date())
+  await db.insert(consent).values({ userId: input.userId, acceptedAt: now, policyVersion: input.policyVersion })
+  return { accepted_at: now }
+}
+
+/** The member's latest accepted policy version (null = no row). Throws on a read failure; callers decide. */
+export async function latestPolicyVersion(userId: string): Promise<string | null> {
+  const rows = await db
+    .select({ policyVersion: consent.policyVersion })
+    .from(consent)
+    .where(eq(consent.userId, userId))
+    .orderBy(desc(consent.acceptedAt))
+    .limit(1)
+  return rows[0]?.policyVersion ?? null
 }
