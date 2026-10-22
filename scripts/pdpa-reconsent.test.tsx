@@ -26,7 +26,7 @@ import { PDPA_POLICY_VERSION } from '@/constants/pdpa'
 import { PRIVACY_POLICY, PRIVACY_POLICY_STAMP } from '@/constants/privacy-policy'
 import { needsReconsent, safeNext } from '@/lib/home/first-run-gate'
 import { checkPolicyStamp, policyContentSha256 } from '@/lib/privacy/policy-stamp'
-import { AI_TRAINING_KIND, AI_TRAINING_VERSION } from '@/features/v2-privacy/aiTraining'
+import { AI_TRAINING_KIND, AI_TRAINING_SUB, AI_TRAINING_TITLE, AI_TRAINING_VERSION } from '@/features/v2-privacy/aiTraining'
 import { PdpaConsentScreen } from '@/features/v2-first-run/components/PdpaConsentScreen'
 import { usePolicyGate } from '@/features/v2-privacy/usePolicyGate'
 import { isPromoPath } from '@/features/v2-home/components/PromoPopup'
@@ -229,6 +229,15 @@ describe('R6 words, policy page, stamp', () => {
   it('no promotion pops over the updated-policy screen (found on the local render)', () => {
     expect(isPromoPath('/v2/policy-update')).toBe(false)
     expect(isPromoPath('/v2/chat')).toBe(true)
+  })
+
+  // owner 2026-10-23: softer words are fine (option A, or the team's later), but the box must still say what is
+  // used, what for, and that it can be changed — words without these would not be informed consent.
+  it('the AI box words keep the floor: what is used, what for, changeable', () => {
+    const words = `${AI_TRAINING_TITLE} ${AI_TRAINING_SUB}`
+    expect(words).toMatch(/คำถาม/) // what is used
+    expect(words).toMatch(/ปรับปรุง|พัฒนา/) // what for
+    expect(words).toMatch(/เปลี่ยนใจ|ปิดได้|ถอน/) // can be changed
   })
 
   it('first-run screen is unchanged', () => {
