@@ -32,7 +32,7 @@ import { toComputeSource } from '@/lib/personalization/compute-source'
 import { deriveHomeProfile, type HomeProfile } from '@/lib/home/profile'
 import { deriveHomeLoading, type HomeLoading } from '@/lib/home/loading'
 import { peekChart, isChartFresh, setChart } from './chart-cache'
-import { needsFirstRun } from '@/lib/home/first-run-gate'
+import { needsFirstRun, needsReconsent } from '@/lib/home/first-run-gate'
 import { consumePendingCheckout } from '@/lib/v2/pending-checkout'
 
 export type { HomeProfile, HomeLoading }
@@ -49,6 +49,8 @@ export type HomeUser = UserBirthRow & {
   membership?: { isPaid?: boolean | null; tier?: string | null; source?: string } | null
   // v2 first-run gate (#233): null on the settled row = user has never finished onboarding.
   onboarded_at?: string | null
+  // CIEL mumate-pdpa-reconsent-001: latest accepted policy version. null/absent = not determined (never gate on it).
+  policyConsent?: { version: string | null } | null
 }
 
 // Header profile (goo → μุน seam, กติกา ค) lives in a pure module (lib/home/profile) so the rule is
@@ -145,6 +147,15 @@ export function useV2Home(status: AuthStatus): V2Home {
         if (needsFirstRun(u)) {
           setPhase('redirecting')
           routerRef.current.replace('/v2/first-run')
+          return
+        }
+        // Updated-policy gate (CIEL mumate-pdpa-reconsent-001): an onboarded member whose latest accepted policy
+        // version is not the current one accepts the updated policy once, then comes back here. Same row, no
+        // extra request; an undetermined read (policyConsent null) lets them through. Before the pending-checkout
+        // hop below, which is not consumed here and so still fires when they return.
+        if (needsReconsent(u)) {
+          setPhase('redirecting')
+          routerRef.current.replace('/v2/policy-update?next=%2Fv2')
           return
         }
         // Self-heal (DoD#2): the cached chart is correct ONLY if its resultCode matches the LIVE row's. A

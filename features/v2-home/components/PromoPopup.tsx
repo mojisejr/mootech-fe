@@ -43,8 +43,9 @@ const NOTICE_CLOSED_KEY = 'mumate:notice-20261009-closed' // sessionStorage: ผ
 export const noticeActive = (now = Date.now()) => now < NOTICE.until
 
 // ไม่เด้งบนหน้าที่ไม่ใช่แอปหลัก + หน้าหาธาตุแท้ (เอ็ม: ไม่เอา popup ในหน้านี้)
-const EXCLUDE = ['/v2/login', '/v2/register', '/v2/onboarding', '/v2/first-run', '/v2/first-run-preview', '/v2/element-finder']
-function isPromoPath(path: string): boolean {
+// /v2/policy-update: the updated-policy screen must not be covered by a promotion (CIEL mumate-pdpa-reconsent-001)
+const EXCLUDE = ['/v2/login', '/v2/register', '/v2/onboarding', '/v2/first-run', '/v2/first-run-preview', '/v2/element-finder', '/v2/policy-update']
+export function isPromoPath(path: string): boolean {
   if (!(path === '/v2' || path.startsWith('/v2/'))) return false
   return !EXCLUDE.some((p) => path === p || path.startsWith(`${p}/`))
 }

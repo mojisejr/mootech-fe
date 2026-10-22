@@ -39,8 +39,8 @@ export function FirstRunScreen({
   footer,
   contentClassName,
 }: {
-  /** 0-based index into the 3-dot pager. */
-  step: number
+  /** 0-based index into the 3-dot pager. null = no pager (the updated-policy screen is not a first-run step). */
+  step: number | null
   onBack?: () => void
   children: ReactNode
   /** Sits under the content with a capped gap (<=48px); pushed below the fold when the content is long. */
@@ -69,7 +69,7 @@ export function FirstRunScreen({
         ) : (
           <span className="size-6" />
         )}
-        <DotsPager count={FIRST_RUN_STEPS} active={step} />
+        {step === null ? <span /> : <DotsPager count={FIRST_RUN_STEPS} active={step} />}
         <span className="size-6" />
       </div>
 

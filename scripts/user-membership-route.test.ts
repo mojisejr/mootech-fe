@@ -45,10 +45,16 @@ vi.mock('@/lib/db', () => ({
     }),
     select: () => ({
       from: () => ({
-        where: async () => {
-          if (h.state.subThrows) throw new Error('relation "member_subscription" does not exist')
-          return h.state.subRows
-        },
+        // member_subscription is awaited straight off where(); the consent lookup (CIEL mumate-pdpa-reconsent-001)
+        // chains orderBy().limit(). A lazy thenable serves both, and builds the rejection only when awaited —
+        // an eager rejected promise left unawaited by the consent chain would surface as an unhandled error.
+        where: () => ({
+          then: (ok: (v: unknown) => unknown, fail: (e: unknown) => unknown) =>
+            h.state.subThrows
+              ? Promise.reject(new Error('relation "member_subscription" does not exist')).then(ok, fail)
+              : Promise.resolve(h.state.subRows).then(ok, fail),
+          orderBy: () => ({ limit: async () => [] }),
+        }),
       }),
     }),
   },
@@ -193,8 +199,10 @@ describe('#383 /api/user → membership composite', () => {
     })
     expect(body.used_point).toBe(3) // bigint-as-string → number (TypeORM parity), untouched by #383
     expect(body.total_point).toBe(20)
+    // CIEL mumate-pdpa-reconsent-001 adds `policyConsent` (the latest accepted policy version, null = not
+    // determined) — a second deliberate addition, listed here so any other new key still reddens this test.
     expect(Object.keys(body).sort()).toEqual(
-      ['membership', 'name', 'payment', 'picture_url', 'total_point', 'used_point', 'user_id'].sort(),
+      ['membership', 'name', 'payment', 'picture_url', 'policyConsent', 'total_point', 'used_point', 'user_id'].sort(),
     )
   })
 

@@ -5,6 +5,7 @@
 import type { GetServerSideProps } from 'next'
 import { v2RedirectIfUnauthed } from '@/lib/v2/gate'
 import { ChatScreen } from '@/features/v2-chat/components/ChatScreen'
+import { usePolicyGate } from '@/features/v2-privacy/usePolicyGate'
 
 export const getServerSideProps: GetServerSideProps = async (ctx) => {
   ctx.res.setHeader('Cache-Control', 'no-store, must-revalidate')
@@ -14,5 +15,7 @@ export const getServerSideProps: GetServerSideProps = async (ctx) => {
 }
 
 export default function V2ChatPage() {
+  // CIEL mumate-pdpa-reconsent-001 — members open chat straight from links; ask for the updated policy here too.
+  usePolicyGate()
   return <ChatScreen />
 }

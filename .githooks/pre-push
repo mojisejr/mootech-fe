@@ -110,6 +110,13 @@ command -v npm >/dev/null 2>&1 \
   || die "'npm' is not on PATH, so lint/test could not run. Not passing a check that never happened.
      (GUI git clients often have a smaller PATH than your shell — launch from a terminal, or fix the client's PATH.)"
 
+# §PDPA policy stamp — a WARNING, never a gate (CIEL mumate-pdpa-reconsent-001; owner 2026-10-22: "ไม่ fix นะ หลวมๆ").
+#   Printed first so it is not lost under the test output. It says when constants/privacy-policy.ts changed
+#   without a version decision; it cannot fail the push (`|| true`), whatever it finds or however it breaks.
+if [ -f scripts/check-policy-version.ts ]; then
+  npx tsx scripts/check-policy-version.ts >&2 || true
+fi
+
 echo "pre-push: hard gate → npm run lint" >&2
 npm run lint \
   || die "'npm run lint' failed (or the 'lint' script is missing). Fix it, then push again."

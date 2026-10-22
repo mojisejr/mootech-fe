@@ -38,7 +38,19 @@ const ASSURANCES: Assurance[] = [
 const POLICY_SUMMARY =
   'เราขอความยินยอมในการรวบรวมข้อมูลวันเกิด เวลาเกิด และข้อมูลสุขภาพ เพื่อประมวลผลด้วยระบบ AI ตามหลักสถิติพยากรณ์และการดูแลสุขภาพแบบองค์รวม เพื่อสร้างแผนการปฏิบัติตนที่เหมาะสมกับพื้นฐานดวงชะตาและร่างกายของคุณ โดยข้อมูลทั้งหมดจะถูกจัดเก็บเป็นความลับสูงสุดตามพระราชบัญญัติคุ้มครองข้อมูลส่วนบุคคล (PDPA) ทั้งนี้ หากคุณเลือกใช้ฟังก์ชัน “แชร์” ผลคำทำนาย ถือว่าคุณให้ความยินยอมโดยชัดแจ้งให้เปิดเผยผลคำทำนายและข้อมูลที่เกี่ยวข้องนั้นแก่บุคคลที่ได้รับลิงก์ที่คุณแชร์'
 
+// CIEL mumate-pdpa-reconsent-001 — the same screen asks an existing member to accept an UPDATED policy.
+// Neutral words on purpose (owner 2026-10-22: "ภาษาแบบเลี่ยงๆ แต่ปลอดภัย"): the heading and lead say only that the
+// policy was updated; what changed is in the full policy behind the link, and the AI item keeps its own
+// specific, optional box below — never folded into the required tick, never pre-ticked for a member who has
+// not accepted it.
+const UPDATE_COPY = {
+  title: 'นโยบายความเป็นส่วนตัวฉบับปรับปรุง',
+  lead: 'เราปรับปรุงรายละเอียดบางส่วนเพื่อให้ดูแลข้อมูลของคุณได้ดียิ่งขึ้น กรุณาอ่านและกดยอมรับเพื่อใช้งานต่อ',
+  button: 'ยอมรับและใช้งานต่อ',
+}
+
 export function PdpaConsentScreen({
+  variant = 'first-run',
   consent,
   onConsentChange,
   onBack,
@@ -48,6 +60,8 @@ export function PdpaConsentScreen({
   aiTraining = false,
   onAiTrainingChange,
 }: {
+  /** 'update' = an onboarded member accepting an updated policy (/v2/policy-update): no pager, neutral heading. */
+  variant?: 'first-run' | 'update'
   consent: boolean
   /** ยินยอมใช้คำถามที่ถาม AI เพื่อพัฒนา (เอ็ม 2026-10-22) — แยก · ไม่บังคับ · ไม่ล็อกปุ่ม */
   aiTraining?: boolean
@@ -62,7 +76,7 @@ export function PdpaConsentScreen({
 }) {
   return (
     <FirstRunScreen
-      step={1}
+      step={variant === 'update' ? null : 1}
       onBack={onBack}
       footer={
         <div className="flex flex-col gap-2">
@@ -70,7 +84,7 @@ export function PdpaConsentScreen({
               scripts/first-run-screens.test.tsx must go red (issue #215 close condition). `|| saving`
               only ADDS a lock while the save is in flight; consent=false still disables as before. */}
           <Button onClick={onAccept} disabled={!consent || saving}>
-            {saving ? 'กำลังบันทึก…' : 'ยอมรับและดำเนินการต่อ'}
+            {saving ? 'กำลังบันทึก…' : variant === 'update' ? UPDATE_COPY.button : 'ยอมรับและดำเนินการต่อ'}
           </Button>
           {error ? (
             <p className="text-center font-ibm text-sm leading-5 text-v3-error" role="alert">
@@ -83,11 +97,16 @@ export function PdpaConsentScreen({
     >
       <div className="flex flex-col gap-3 text-center">
         <h1 className="font-ibm text-2xl font-bold leading-8 text-v3-text-title">
-          ความเป็นส่วนตัวของคุณ
+          {variant === 'update' ? UPDATE_COPY.title : 'ความเป็นส่วนตัวของคุณ'}
         </h1>
         <p className="font-ibm text-base leading-6 text-v3-text-body">
-          เราให้ความสำคัญกับการปกป้องข้อมูลส่วนบุคคลของคุณ เพื่อมอบประสบการณ์ที่ดีที่สุด
+          {variant === 'update' ? UPDATE_COPY.lead : 'เราให้ความสำคัญกับการปกป้องข้อมูลส่วนบุคคลของคุณ เพื่อมอบประสบการณ์ที่ดีที่สุด'}
         </p>
+        {variant === 'update' ? (
+          <a href="/privacy/policy" target="_blank" rel="noreferrer" className="font-ibm text-sm font-bold text-v3-sapphire underline" data-testid="policy-update-read">
+            อ่านนโยบายฉบับเต็ม
+          </a>
+        ) : null}
       </div>
 
       <div className="flex flex-col gap-2">
@@ -122,14 +141,14 @@ export function PdpaConsentScreen({
         <Checkbox
           checked={consent}
           onChange={onConsentChange}
-          ariaLabel="ฉันอ่านและยอมรับข้อกำหนดความเป็นส่วนตัว"
+          ariaLabel={variant === 'update' ? 'ฉันอ่านและยอมรับนโยบายความเป็นส่วนตัว' : 'ฉันอ่านและยอมรับข้อกำหนดความเป็นส่วนตัว'}
         />
         <span className="font-ibm text-base leading-6 text-v3-text-title">
           <span onClick={() => onConsentChange(!consent)} className="cursor-pointer">
             {'ฉันอ่านและยอมรับ '}
           </span>
           <a href="/privacy/policy" target="_blank" rel="noreferrer" className="text-v3-sapphire underline">
-            ข้อกำหนดความเป็นส่วนตัว
+            {variant === 'update' ? 'นโยบายความเป็นส่วนตัว' : 'ข้อกำหนดความเป็นส่วนตัว'}
           </a>
         </span>
       </div>
