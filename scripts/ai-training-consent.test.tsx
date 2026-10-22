@@ -2,13 +2,14 @@
 //   AT1 หน้าสมัคร: ช่องแยก ไม่ติ๊กไว้ก่อน · ไม่ติ๊กก็กดยอมรับได้ (ไม่ผูกกับ PDPA หลัก)
 //   AT2 ป็อปอัปแชท: ยังไม่เคยตอบ → ถาม · ตอบแล้ว/ยังไม่ล็อกอิน → ไม่ถาม · กดยินยอม → POST kind=ai_training
 //   AT3 จัดการความยินยอม: มีสวิตช์ ai_training ค่าเริ่มต้นปิด
+//   AT4 รุ่น 2026-10.2 (CIEL mumate-bdash-v2-001 slice 4): ตอบรุ่นเดิม → ถามอีกครั้งเดียว · สวิตช์เปิดเฉพาะยินยอมรุ่นนี้
 import React from 'react'
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, cleanup, fireEvent, waitFor } from '@testing-library/react'
 
 import { PdpaConsentScreen } from '@/features/v2-first-run/components/PdpaConsentScreen'
 import { AiTrainingAsk } from '@/features/v2-privacy/AiTrainingAsk'
-import { AI_TRAINING_KIND, AI_TRAINING_VERSION } from '@/features/v2-privacy/aiTraining'
+import { AI_TRAINING_ASKED_KEY, AI_TRAINING_KIND, AI_TRAINING_VERSION, aiTrainingOn } from '@/features/v2-privacy/aiTraining'
 
 beforeEach(() => localStorage.clear())
 afterEach(() => {
@@ -48,7 +49,7 @@ describe('ป็อปอัปแชท', () => {
   })
 
   it('AT2b เคยตอบแล้ว (แม้ไม่ยินยอม) หรือยังไม่ล็อกอิน → ไม่ถาม', async () => {
-    vi.stubGlobal('fetch', vi.fn(async () => ({ ok: true, json: async () => ({ consents: [{ kind: 'ai_training', accepted: false }] }) })))
+    vi.stubGlobal('fetch', vi.fn(async () => ({ ok: true, json: async () => ({ consents: [{ kind: 'ai_training', version: AI_TRAINING_VERSION, accepted: false }] }) })))
     render(<AiTrainingAsk />)
     await new Promise((r) => setTimeout(r, 0))
     expect(screen.queryByTestId('ai-training-ask')).toBeNull()
@@ -57,5 +58,38 @@ describe('ป็อปอัปแชท', () => {
     render(<AiTrainingAsk />)
     await new Promise((r) => setTimeout(r, 0))
     expect(screen.queryByTestId('ai-training-ask')).toBeNull()
+  })
+})
+
+describe('รุ่น 2026-10.2', () => {
+  const consents = (version: string, accepted: boolean) => [{ kind: AI_TRAINING_KIND, version, accepted }, { kind: 'pdpa', version: '2026-09', accepted: true }]
+
+  it('AT4a ตอบรุ่นเดิม (ยินยอมหรือไม่) → ถามอีกครั้ง พร้อมบอกว่าเพิ่มอะไร', async () => {
+    for (const accepted of [true, false]) {
+      localStorage.clear()
+      vi.stubGlobal('fetch', vi.fn(async () => ({ ok: true, json: async () => ({ consents: consents('2026-10', accepted) }) })))
+      render(<AiTrainingAsk />)
+      await waitFor(() => expect(screen.getByTestId('ai-training-again')).toBeTruthy())
+      cleanup()
+    }
+  })
+
+  it('AT4b เครื่องที่เคยกด "ไว้ก่อน" ของรุ่นเดิม ยังถูกถามรุ่นนี้ · กดรุ่นนี้แล้วไม่ถามซ้ำ', async () => {
+    localStorage.setItem('mumate:ai-training-asked', '1')
+    vi.stubGlobal('fetch', vi.fn(async () => ({ ok: true, json: async () => ({ consents: [] }) })))
+    render(<AiTrainingAsk />)
+    await waitFor(() => expect(screen.getByTestId('ai-training-ask')).toBeTruthy())
+    cleanup()
+    localStorage.setItem(AI_TRAINING_ASKED_KEY, '1')
+    render(<AiTrainingAsk />)
+    await new Promise((r) => setTimeout(r, 0))
+    expect(screen.queryByTestId('ai-training-ask')).toBeNull()
+  })
+
+  it('AT4c สวิตช์เปิดเฉพาะเมื่อคำตอบล่าสุดยินยอมรุ่นนี้', () => {
+    expect(aiTrainingOn(consents(AI_TRAINING_VERSION, true))).toBe(true)
+    expect(aiTrainingOn(consents('2026-10', true))).toBe(false)
+    expect(aiTrainingOn(consents(AI_TRAINING_VERSION, false))).toBe(false)
+    expect(aiTrainingOn([{ kind: 'pdpa', version: '2026-09', accepted: true }])).toBe(false)
   })
 })
