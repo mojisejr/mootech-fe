@@ -128,7 +128,7 @@ export function PdpaConsentScreen({
           <span onClick={() => onConsentChange(!consent)} className="cursor-pointer">
             {'ฉันอ่านและยอมรับ '}
           </span>
-          <a href="#" className="text-v3-sapphire underline">
+          <a href="/privacy/policy" target="_blank" rel="noreferrer" className="text-v3-sapphire underline">
             ข้อกำหนดความเป็นส่วนตัว
           </a>
         </span>
