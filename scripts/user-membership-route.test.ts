@@ -45,10 +45,16 @@ vi.mock('@/lib/db', () => ({
     }),
     select: () => ({
       from: () => ({
-        where: async () => {
-          if (h.state.subThrows) throw new Error('relation "member_subscription" does not exist')
-          return h.state.subRows
-        },
+        // member_subscription is awaited straight off where(); the consent lookup (CIEL mumate-pdpa-reconsent-001)
+        // chains orderBy().limit(). A lazy thenable serves both, and builds the rejection only when awaited —
+        // an eager rejected promise left unawaited by the consent chain would surface as an unhandled error.
+        where: () => ({
+          then: (ok: (v: unknown) => unknown, fail: (e: unknown) => unknown) =>
+            h.state.subThrows
+              ? Promise.reject(new Error('relation "member_subscription" does not exist')).then(ok, fail)
+              : Promise.resolve(h.state.subRows).then(ok, fail),
+          orderBy: () => ({ limit: async () => [] }),
+        }),
       }),
     }),
   },
