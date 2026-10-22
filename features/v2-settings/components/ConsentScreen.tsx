@@ -9,7 +9,7 @@ import { SkyBackdrop, SkyHeader, Toggle } from '@/features/v2-profile/components
 import { ProfileGate } from '@/features/v2-account/components/ProfileGate'
 import { applyAnalyticsConsent } from '@/lib/analytics/consent'
 import { track } from '@/lib/analytics/track'
-import { AI_TRAINING_KIND, AI_TRAINING_OFF_IMPACT, AI_TRAINING_SUB, AI_TRAINING_TITLE, AI_TRAINING_VERSION } from '@/features/v2-privacy/aiTraining'
+import { AI_TRAINING_KIND, AI_TRAINING_OFF_IMPACT, AI_TRAINING_SUB, AI_TRAINING_TITLE, AI_TRAINING_VERSION, aiTrainingOn } from '@/features/v2-privacy/aiTraining'
 
 type Consent = { kind: string; version: string; accepted: boolean; createdAt: string }
 const CONSENT_VERSION = '2026-09'
@@ -55,6 +55,8 @@ export function ConsentScreen() {
 
   // สถานะปัจจุบันต่อ kind = แถวล่าสุดของ kind นั้น (ไม่มี = ค่าเริ่มต้น)
   const stateOf = (p: (typeof PURPOSES)[number]) => {
+    // ai_training: ยินยอมรุ่นเดิมไม่นับ (engine ไม่เก็บแล้ว) → แสดงปิด ให้เปิดใหม่ภายใต้ข้อความรุ่นนี้
+    if (p.kind === AI_TRAINING_KIND && consents) return aiTrainingOn(consents)
     const latest = consents?.find((c) => c.kind === p.kind)
     return latest ? latest.accepted : p.def
   }
