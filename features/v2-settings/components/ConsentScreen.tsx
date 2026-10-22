@@ -9,6 +9,7 @@ import { SkyBackdrop, SkyHeader, Toggle } from '@/features/v2-profile/components
 import { ProfileGate } from '@/features/v2-account/components/ProfileGate'
 import { applyAnalyticsConsent } from '@/lib/analytics/consent'
 import { track } from '@/lib/analytics/track'
+import { AI_TRAINING_KIND, AI_TRAINING_OFF_IMPACT, AI_TRAINING_SUB, AI_TRAINING_TITLE, AI_TRAINING_VERSION } from '@/features/v2-privacy/aiTraining'
 
 type Consent = { kind: string; version: string; accepted: boolean; createdAt: string }
 const CONSENT_VERSION = '2026-09'
@@ -18,6 +19,7 @@ const PURPOSES: Array<{ kind: string; title: string; sub: string; locked?: boole
   { kind: 'pdpa', title: 'ใช้วันเกิดเพื่อคำนวณดวงให้คุณ', sub: 'ข้อมูลพื้นฐานที่ทำให้บริการทำงานได้', locked: true, def: true, impact: { tone: 'subtle', always: true, text: 'จำเป็นต่อการให้บริการ ถ้าไม่ยินยอมข้อนี้ กรุณาลบบัญชีแทน' } },
   { kind: 'history', title: 'เก็บประวัติการดูดวง', sub: 'ทำให้กลับมาดูผลเก่าและให้คำทำนายต่อเนื่องได้', def: true, impact: { tone: 'red', text: 'ปิดแล้ว: ประวัติที่บันทึกไว้จะถูกลบ และดูผลย้อนหลังไม่ได้' } },
   { kind: 'analytics', title: 'ใช้ข้อมูลเพื่อพัฒนาคำทำนาย', sub: 'วิเคราะห์แบบไม่ระบุตัวตนเพื่อปรับความแม่นยำ', def: true, impact: { tone: 'red', text: 'ปิดแล้ว: ใช้งานได้ตามปกติทุกอย่าง' } },
+  { kind: AI_TRAINING_KIND, title: AI_TRAINING_TITLE, sub: AI_TRAINING_SUB, def: false, impact: { tone: 'red', text: AI_TRAINING_OFF_IMPACT } },
   { kind: 'marketing', title: 'ส่งข่าวสารและโปรโมชัน', sub: 'อีเมลและ LINE เกี่ยวกับส่วนลดและฟีเจอร์ใหม่', def: false },
   { kind: 'ads', title: 'แชร์ข้อมูลกับพันธมิตรโฆษณา', sub: 'ใช้เพื่อแสดงโฆษณาที่ตรงกับคุณนอกแอป', def: false },
 ]
@@ -66,7 +68,7 @@ export function ConsentScreen() {
       const res = await fetch('/api/consent', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ kind: p.kind, version: CONSENT_VERSION, accepted }),
+        body: JSON.stringify({ kind: p.kind, version: p.kind === AI_TRAINING_KIND ? AI_TRAINING_VERSION : CONSENT_VERSION, accepted }),
       })
       setMsg(res.ok ? (accepted ? 'บันทึกความยินยอมแล้ว' : 'ปิดความยินยอมแล้ว — บริการบางส่วนอาจได้รับผลกระทบ') : 'บันทึกไม่สำเร็จ ลองใหม่')
       if (res.ok && p.kind === 'analytics') {
