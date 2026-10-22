@@ -29,6 +29,7 @@ import { checkPolicyStamp, policyContentSha256 } from '@/lib/privacy/policy-stam
 import { AI_TRAINING_KIND, AI_TRAINING_VERSION } from '@/features/v2-privacy/aiTraining'
 import { PdpaConsentScreen } from '@/features/v2-first-run/components/PdpaConsentScreen'
 import { usePolicyGate } from '@/features/v2-privacy/usePolicyGate'
+import { isPromoPath } from '@/features/v2-home/components/PromoPopup'
 import handler from '../pages/api/v2/policy-consent'
 import V2PolicyUpdate from '../pages/v2/policy-update'
 import PrivacyPolicyPage from '../pages/privacy/policy'
@@ -223,6 +224,11 @@ describe('R6 words, policy page, stamp', () => {
     expect(screen.getByTestId('policy-update-read').getAttribute('href')).toBe('/privacy/policy')
     expect(screen.queryByText(/AI/, { selector: 'h1,p.text-base' })).toBeNull() // the heading and lead never single out AI
     expect(screen.getByTestId('pdpa-ai-training').textContent).toContain('ไม่บังคับ')
+  })
+
+  it('no promotion pops over the updated-policy screen (found on the local render)', () => {
+    expect(isPromoPath('/v2/policy-update')).toBe(false)
+    expect(isPromoPath('/v2/chat')).toBe(true)
   })
 
   it('first-run screen is unchanged', () => {
