@@ -1,5 +1,6 @@
 // scripts/ai-training-consent.test.tsx — ความยินยอมใช้คำถามพัฒนา AI (เอ็ม 2026-10-22)
-//   AT1 หน้าสมัคร: ช่องแยก ไม่ติ๊กไว้ก่อน · ไม่ติ๊กก็กดยอมรับได้ (ไม่ผูกกับ PDPA หลัก)
+//   AT1 หน้าสมัคร (plan 0.3 ของ CIEL mumate-pdpa-reconsent-001, owner 2026-10-23): ไม่มีช่อง AI · ยอมรับนโยบาย = เปิด ai_training
+//       เว้นแต่คำตอบล่าสุดคือ "ไม่" หรืออ่านคำตอบเดิมไม่ได้
 //   AT2 ป็อปอัปแชท: ยังไม่เคยตอบ → ถาม · ตอบแล้ว/ยังไม่ล็อกอิน → ไม่ถาม · กดยินยอม → POST kind=ai_training
 //   AT3 จัดการความยินยอม: มีสวิตช์ ai_training ค่าเริ่มต้นปิด
 //   AT4 รุ่น 2026-10.2 (CIEL mumate-bdash-v2-001 slice 4): ตอบรุ่นเดิม → ถามอีกครั้งเดียว · สวิตช์เปิดเฉพาะยินยอมรุ่นนี้
@@ -9,7 +10,7 @@ import { render, screen, cleanup, fireEvent, waitFor } from '@testing-library/re
 
 import { PdpaConsentScreen } from '@/features/v2-first-run/components/PdpaConsentScreen'
 import { AiTrainingAsk } from '@/features/v2-privacy/AiTrainingAsk'
-import { AI_TRAINING_ASKED_KEY, AI_TRAINING_KIND, AI_TRAINING_VERSION, aiTrainingOn } from '@/features/v2-privacy/aiTraining'
+import { AI_TRAINING_ASKED_KEY, AI_TRAINING_KIND, AI_TRAINING_VERSION, aiTrainingOn, turnOnAiTrainingOnAcceptance } from '@/features/v2-privacy/aiTraining'
 
 beforeEach(() => localStorage.clear())
 afterEach(() => {
@@ -18,14 +19,48 @@ afterEach(() => {
 })
 
 describe('หน้าสมัคร', () => {
-  it('AT1 ช่องยินยอมใช้คำถาม แยก ไม่ติ๊กไว้ก่อน และไม่ล็อกปุ่มยอมรับ', () => {
-    const onAi = vi.fn()
-    render(<PdpaConsentScreen consent={true} onConsentChange={() => {}} aiTraining={false} onAiTrainingChange={onAi} />)
-    const box = screen.getByTestId('pdpa-ai-training')
-    expect(box.textContent).toContain('ไม่บังคับ')
-    expect(screen.getByRole('button', { name: 'ยอมรับและดำเนินการต่อ' }).hasAttribute('disabled')).toBe(false)
-    fireEvent.click(screen.getByText(/ไม่บังคับ/))
-    expect(onAi).toHaveBeenCalledWith(true)
+  it('AT1a ไม่มีช่อง AI บนหน้านโยบาย', () => {
+    render(<PdpaConsentScreen consent={true} onConsentChange={() => {}} />)
+    expect(screen.queryByTestId('pdpa-ai-training')).toBeNull()
+    expect(screen.getAllByRole('checkbox')).toHaveLength(1)
+  })
+
+  type Row = { kind: string; version: string; accepted: boolean }
+  function stubConsent(rows: Row[] | 'down') {
+    const posts: unknown[] = []
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (url: string, init?: RequestInit) => {
+        if (init?.method === 'POST') {
+          posts.push(JSON.parse(String(init.body)))
+          return { ok: true, json: async () => ({ ok: true }) }
+        }
+        if (rows === 'down') return { ok: false, json: async () => ({}) }
+        return { ok: true, json: async () => ({ consents: rows }) }
+      }),
+    )
+    return posts
+  }
+
+  it('AT1b ยอมรับนโยบาย: ยังไม่เคยตอบ หรือเคยยินยอมรุ่นเดิม → บันทึกยินยอมรุ่นนี้ แล้วคืน true', async () => {
+    let posts = stubConsent([])
+    expect(await turnOnAiTrainingOnAcceptance()).toBe(true)
+    expect(posts).toEqual([{ kind: AI_TRAINING_KIND, version: AI_TRAINING_VERSION, accepted: true }])
+    posts = stubConsent([{ kind: AI_TRAINING_KIND, version: '2026-10', accepted: true }])
+    expect(await turnOnAiTrainingOnAcceptance()).toBe(true)
+    expect(posts).toHaveLength(1)
+  })
+
+  it('AT1c เปิดอยู่แล้ว → ไม่บันทึกซ้ำ · เคยตอบ "ไม่" (รุ่นไหนก็ตาม) หรืออ่านไม่ได้ → ไม่เปิด', async () => {
+    let posts = stubConsent([{ kind: AI_TRAINING_KIND, version: AI_TRAINING_VERSION, accepted: true }])
+    expect(await turnOnAiTrainingOnAcceptance()).toBe(true)
+    expect(posts).toHaveLength(0)
+    posts = stubConsent([{ kind: AI_TRAINING_KIND, version: '2026-10', accepted: false }])
+    expect(await turnOnAiTrainingOnAcceptance()).toBe(false)
+    expect(posts).toHaveLength(0)
+    posts = stubConsent('down')
+    expect(await turnOnAiTrainingOnAcceptance()).toBe(false)
+    expect(posts).toHaveLength(0)
   })
 })
 

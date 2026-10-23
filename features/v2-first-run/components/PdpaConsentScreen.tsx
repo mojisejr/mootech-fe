@@ -1,52 +1,76 @@
-import type { ComponentType, SVGProps } from 'react'
-import { Lock, Shield, Star } from 'lucide-react'
+import { useEffect, useRef, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
+import { PolicyText } from '@/features/v2-privacy/PolicyText'
 import { FirstRunScreen } from './FirstRunScreen'
-import { AI_TRAINING_SUB, AI_TRAINING_TITLE } from '@/features/v2-privacy/aiTraining'
 
-// PdpaConsentScreen — "ความเป็นส่วนตัวของคุณ" (Figma 04-pdpa: 300:1582 unticked → 300:2137 ticked).
-// The two Figma frames are ONE screen in two states, not two screens.
+// PdpaConsentScreen — the privacy policy step, used by sign-up (/v2/first-run) and by the updated-policy screen
+// (/v2/policy-update). CIEL mumate-pdpa-reconsent-001 plan 0.3 (owner 2026-10-23, the business team's ask):
+//   • the FULL policy as plain text (constants/privacy-policy.ts via PolicyText) — no cards, no summary, no link;
+//   • ONE tick, in a bar fixed to the bottom with a read-progress line (sample A). The tick unlocks only once the end
+//     of the policy has been reached; tapping it earlier keeps it empty and shows READ_TO_END_MESSAGE;
+//   • no AI box: accepting turns the AI item on (opt-out) — the caller does that and shows AiTrainingNotice.
+// The button still needs the tick (issue #215's gate): strip `disabled={!consent ...}` and
+// scripts/first-run-screens.test.tsx must go red.
 //
-// Consent is held by the caller and goes nowhere yet (issue #215 is UI only; recording the consent
-// is ใบ 3). What ships here is the GATE: the button cannot be pressed until the box is ticked.
-//
-// lucide-react supplies lock/shield/star: the Figma export is lucide's own path data at stroke-width
-// 2 (checked path-by-path before reusing, not assumed from the layer names), and the project already
-// depends on lucide-react — so this reuses the glyph instead of shipping a second copy of it.
+// "Reached the end" = a sentinel after the policy text is visible above the fixed bar (IntersectionObserver).
+// The observer reports at once, so a policy that already fits on the screen unlocks without scrolling. A browser
+// without IntersectionObserver unlocks at once too: the rule must never lock a member out of the app.
 
-type Assurance = { Icon: ComponentType<SVGProps<SVGSVGElement>>; title: string; body: string }
+export const READ_TO_END_MESSAGE = 'กรุณาเลื่อนอ่านนโยบายให้จบก่อน จึงจะติ๊กยอมรับได้'
+export const CONSENT_LABEL = 'ฉันอ่านและยอมรับนโยบายความเป็นส่วนตัว'
 
-const ASSURANCES: Assurance[] = [
-  {
-    Icon: Lock,
-    title: 'ข้อมูลถูกเข้ารหัสปลอดภัย',
-    body: 'ข้อมูลสุขภาพและส่วนตัวของคุณจะถูกเก็บรักษาด้วยมาตรฐานสากล',
+const COPY = {
+  'first-run': {
+    title: 'ความเป็นส่วนตัวของคุณ',
+    lead: 'กรุณาอ่านนโยบายความเป็นส่วนตัวให้จบ แล้วติ๊กยอมรับเพื่อดำเนินการต่อ',
+    button: 'ยอมรับและดำเนินการต่อ',
   },
-  {
-    Icon: Shield,
-    title: 'ไม่แชร์ข้อมูลให้บุคคลที่สาม',
-    body: 'เราจะไม่นำข้อมูลส่วนตัวของคุณไปขายเพื่อวัตถุประสงค์ทางการค้า',
+  // Neutral on purpose (owner 2026-10-22): the heading and lead say only that the policy was updated.
+  update: {
+    title: 'นโยบายความเป็นส่วนตัวฉบับปรับปรุง',
+    lead: 'เราปรับปรุงรายละเอียดบางส่วนเพื่อให้ดูแลข้อมูลของคุณได้ดียิ่งขึ้น กรุณาอ่านให้จบ แล้วติ๊กยอมรับเพื่อใช้งานต่อ',
+    button: 'ยอมรับและใช้งานต่อ',
   },
-  {
-    Icon: Star,
-    title: 'AI วิเคราะห์เพื่อสุขภาพเท่านั้น',
-    body: 'ข้อมูลถูกนำมาใช้เพื่อให้คำแนะนำที่ตรงจุดสำหรับคุณโดยเฉพาะ',
-  },
-]
+} as const
 
-const POLICY_SUMMARY =
-  'เราขอความยินยอมในการรวบรวมข้อมูลวันเกิด เวลาเกิด และข้อมูลสุขภาพ เพื่อประมวลผลด้วยระบบ AI ตามหลักสถิติพยากรณ์และการดูแลสุขภาพแบบองค์รวม เพื่อสร้างแผนการปฏิบัติตนที่เหมาะสมกับพื้นฐานดวงชะตาและร่างกายของคุณ โดยข้อมูลทั้งหมดจะถูกจัดเก็บเป็นความลับสูงสุดตามพระราชบัญญัติคุ้มครองข้อมูลส่วนบุคคล (PDPA) ทั้งนี้ หากคุณเลือกใช้ฟังก์ชัน “แชร์” ผลคำทำนาย ถือว่าคุณให้ความยินยอมโดยชัดแจ้งให้เปิดเผยผลคำทำนายและข้อมูลที่เกี่ยวข้องนั้นแก่บุคคลที่ได้รับลิงก์ที่คุณแชร์'
+function useReadToEnd() {
+  const sentinel = useRef<HTMLDivElement>(null)
+  const bar = useRef<HTMLDivElement>(null)
+  const [reached, setReached] = useState(false)
+  const [progress, setProgress] = useState(0)
 
-// CIEL mumate-pdpa-reconsent-001 — the same screen asks an existing member to accept an UPDATED policy.
-// Neutral words on purpose (owner 2026-10-22: "ภาษาแบบเลี่ยงๆ แต่ปลอดภัย"): the heading and lead say only that the
-// policy was updated; what changed is in the full policy behind the link, and the AI item keeps its own
-// specific, optional box below — never folded into the required tick, never pre-ticked for a member who has
-// not accepted it.
-const UPDATE_COPY = {
-  title: 'นโยบายความเป็นส่วนตัวฉบับปรับปรุง',
-  lead: 'เราปรับปรุงรายละเอียดบางส่วนเพื่อให้ดูแลข้อมูลของคุณได้ดียิ่งขึ้น กรุณาอ่านและกดยอมรับเพื่อใช้งานต่อ',
-  button: 'ยอมรับและใช้งานต่อ',
+  useEffect(() => {
+    const el = sentinel.current
+    if (!el || typeof IntersectionObserver === 'undefined') {
+      setReached(true)
+      return
+    }
+    const barHeight = bar.current?.offsetHeight ?? 0
+    const io = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((e) => e.isIntersecting)) {
+          setReached(true)
+          io.disconnect()
+        }
+      },
+      { rootMargin: `0px 0px -${barHeight}px 0px` },
+    )
+    io.observe(el)
+    return () => io.disconnect()
+  }, [])
+
+  useEffect(() => {
+    const onScroll = () => {
+      const max = document.documentElement.scrollHeight - window.innerHeight
+      setProgress(max <= 0 ? 100 : Math.min(100, Math.round((window.scrollY / max) * 100)))
+    }
+    onScroll()
+    window.addEventListener('scroll', onScroll, { passive: true })
+    return () => window.removeEventListener('scroll', onScroll)
+  }, [])
+
+  return { sentinel, bar, reached, progress: reached ? 100 : progress }
 }
 
 export function PdpaConsentScreen({
@@ -57,15 +81,10 @@ export function PdpaConsentScreen({
   onAccept,
   saving = false,
   error = false,
-  aiTraining = false,
-  onAiTrainingChange,
 }: {
   /** 'update' = an onboarded member accepting an updated policy (/v2/policy-update): no pager, neutral heading. */
   variant?: 'first-run' | 'update'
   consent: boolean
-  /** ยินยอมใช้คำถามที่ถาม AI เพื่อพัฒนา (เอ็ม 2026-10-22) — แยก · ไม่บังคับ · ไม่ล็อกปุ่ม */
-  aiTraining?: boolean
-  onAiTrainingChange?: (next: boolean) => void
   onConsentChange: (next: boolean) => void
   onBack?: () => void
   onAccept?: () => void
@@ -74,97 +93,80 @@ export function PdpaConsentScreen({
   /** the save failed — show a retriable message; the button stays usable (do NOT disable on error). */
   error?: boolean
 }) {
+  const copy = COPY[variant]
+  const { sentinel, bar, reached, progress } = useReadToEnd()
+  const [warned, setWarned] = useState(0)
+
+  useEffect(() => {
+    if (!warned) return
+    const t = setTimeout(() => setWarned(0), 3000)
+    return () => clearTimeout(t)
+  }, [warned])
+
+  const tryTick = (next: boolean) => {
+    if (!reached) {
+      setWarned((n) => n + 1)
+      return
+    }
+    onConsentChange(next)
+  }
+
   return (
     <FirstRunScreen
       step={variant === 'update' ? null : 1}
       onBack={onBack}
-      footer={
-        <div className="flex flex-col gap-2">
-          {/* THE gate. `disabled={!consent}` is the whole point of this screen — strip it and
-              scripts/first-run-screens.test.tsx must go red (issue #215 close condition). `|| saving`
-              only ADDS a lock while the save is in flight; consent=false still disables as before. */}
-          <Button onClick={onAccept} disabled={!consent || saving}>
-            {saving ? 'กำลังบันทึก…' : variant === 'update' ? UPDATE_COPY.button : 'ยอมรับและดำเนินการต่อ'}
-          </Button>
-          {error ? (
-            <p className="text-center font-ibm text-sm leading-5 text-v3-error" role="alert">
-              บันทึกไม่สำเร็จ ลองใหม่อีกครั้ง
-            </p>
-          ) : null}
-        </div>
-      }
-      contentClassName="gap-8 px-6 py-8"
+      // room under the text so its last lines can scroll clear of the fixed bar
+      footer={<div aria-hidden className="h-48" />}
+      contentClassName="gap-6 px-6 pt-8"
     >
       <div className="flex flex-col gap-3 text-center">
-        <h1 className="font-ibm text-2xl font-bold leading-8 text-v3-text-title">
-          {variant === 'update' ? UPDATE_COPY.title : 'ความเป็นส่วนตัวของคุณ'}
-        </h1>
-        <p className="font-ibm text-base leading-6 text-v3-text-body">
-          {variant === 'update' ? UPDATE_COPY.lead : 'เราให้ความสำคัญกับการปกป้องข้อมูลส่วนบุคคลของคุณ เพื่อมอบประสบการณ์ที่ดีที่สุด'}
-        </p>
-        {variant === 'update' ? (
-          <a href="/privacy/policy" target="_blank" rel="noreferrer" className="font-ibm text-sm font-bold text-v3-sapphire underline" data-testid="policy-update-read">
-            อ่านนโยบายฉบับเต็ม
-          </a>
-        ) : null}
+        <h1 className="font-ibm text-2xl font-bold leading-8 text-v3-text-title">{copy.title}</h1>
+        <p className="font-ibm text-base leading-6 text-v3-text-body">{copy.lead}</p>
       </div>
 
-      <div className="flex flex-col gap-2">
-        {ASSURANCES.map(({ Icon, title, body }) => (
-          <div key={title} className="flex items-center gap-4 rounded-2xl bg-white p-4">
-            <span className="flex size-12 shrink-0 items-center justify-center rounded-2xl bg-v3-ghost-white">
-              <Icon className="size-6 text-v3-cyan" strokeWidth={2} aria-hidden="true" />
-            </span>
-            <span className="flex min-w-0 flex-col gap-1">
-              <span className="font-ibm text-base font-bold leading-6 text-v3-text-title">
-                {title}
-              </span>
-              <span className="font-ibm text-sm leading-[22px] text-v3-text-body">{body}</span>
+      <PolicyText />
+      <div ref={sentinel} aria-hidden className="h-px" data-testid="policy-end" />
+
+      <div className="fixed inset-x-0 bottom-0 z-40">
+        <div ref={bar} className="relative mx-auto w-full max-w-md border-t border-v3-border-card bg-white px-6" style={{ paddingBottom: 'max(16px, env(safe-area-inset-bottom))' }}>
+          {warned ? (
+            <p
+              role="status"
+              className="absolute inset-x-4 bottom-full mb-3 rounded-2xl bg-v3-text-price px-4 py-3 text-center font-ibm text-sm leading-5 text-white shadow-lg"
+              data-testid="read-to-end-warning"
+            >
+              {READ_TO_END_MESSAGE}
+            </p>
+          ) : null}
+          <div className="-mx-6 h-[3px] bg-v3-ghost-white" aria-hidden>
+            <div className="h-full bg-v3-sapphire transition-[width] duration-150" style={{ width: `${progress}%` }} />
+          </div>
+          <p className={reached ? 'mt-2 text-center font-ibm text-xs font-semibold leading-[18px] text-v3-text-title' : 'mt-2 text-center font-ibm text-xs leading-[18px] text-v3-text-muted'}>
+            {reached ? 'อ่านครบแล้ว ติ๊กยอมรับได้เลย' : `เลื่อนอ่านให้จบเพื่อติ๊กยอมรับ · อ่านแล้ว ${progress}%`}
+          </p>
+          <div className="mt-2 flex items-center gap-3">
+            <Checkbox checked={consent} onChange={tryTick} ariaLabel={CONSENT_LABEL} />
+            <span
+              onClick={() => tryTick(!consent)}
+              className={reached ? 'cursor-pointer font-ibm text-base leading-6 text-v3-text-title' : 'cursor-pointer font-ibm text-base leading-6 text-v3-text-muted'}
+            >
+              {CONSENT_LABEL}
             </span>
           </div>
-        ))}
-      </div>
-
-      <div className="flex flex-col gap-2">
-        <h2 className="font-ibm text-base font-bold leading-6 text-v3-text-title">
-          สรุปสาระสำคัญของนโยบาย
-        </h2>
-        <p className="font-ibm text-sm leading-[22px] text-v3-text-body">{POLICY_SUMMARY}</p>
-      </div>
-
-      {/* Consent line. The Checkbox primitive's own `label` prop is not used here for two reasons:
-          it renders body-grey 16/24 where Figma has navy, and it takes a plain string — there is no
-          slot for the underlined sapphire link. So: unlabeled primitive (still the real focusable
-          control, still the accessible name via ariaLabel) + the Figma type beside it. The text is a
-          convenience hit target; the checkbox remains the keyboard-reachable one. */}
-      <div className="flex items-center gap-3">
-        <Checkbox
-          checked={consent}
-          onChange={onConsentChange}
-          ariaLabel={variant === 'update' ? 'ฉันอ่านและยอมรับนโยบายความเป็นส่วนตัว' : 'ฉันอ่านและยอมรับข้อกำหนดความเป็นส่วนตัว'}
-        />
-        <span className="font-ibm text-base leading-6 text-v3-text-title">
-          <span onClick={() => onConsentChange(!consent)} className="cursor-pointer">
-            {'ฉันอ่านและยอมรับ '}
-          </span>
-          <a href="/privacy/policy" target="_blank" rel="noreferrer" className="text-v3-sapphire underline">
-            {variant === 'update' ? 'นโยบายความเป็นส่วนตัว' : 'ข้อกำหนดความเป็นส่วนตัว'}
-          </a>
-        </span>
-      </div>
-
-      {/* ข้อยินยอมแยก (ไม่บังคับ) — ไม่ผูกกับปุ่มยอมรับ: ไม่ติ๊กก็สมัครได้ตามปกติ */}
-      {onAiTrainingChange ? (
-        <div className="flex items-start gap-3" data-testid="pdpa-ai-training">
-          <Checkbox checked={aiTraining} onChange={onAiTrainingChange} ariaLabel={AI_TRAINING_TITLE} />
-          <span className="flex flex-col gap-1">
-            <span onClick={() => onAiTrainingChange(!aiTraining)} className="cursor-pointer font-ibm text-base leading-6 text-v3-text-title">
-              {AI_TRAINING_TITLE} (ไม่บังคับ)
-            </span>
-            <span className="font-ibm text-xs leading-[18px] text-v3-text-body">{AI_TRAINING_SUB}</span>
-          </span>
+          <div className="mt-3 flex flex-col gap-2">
+            {/* THE gate. `disabled={!consent}` is the whole point of this screen (issue #215). `|| saving` only ADDS a
+                lock while the save is in flight. */}
+            <Button onClick={onAccept} disabled={!consent || saving}>
+              {saving ? 'กำลังบันทึก…' : copy.button}
+            </Button>
+            {error ? (
+              <p className="text-center font-ibm text-sm leading-5 text-v3-error" role="alert">
+                บันทึกไม่สำเร็จ ลองใหม่อีกครั้ง
+              </p>
+            ) : null}
+          </div>
         </div>
-      ) : null}
+      </div>
     </FirstRunScreen>
   )
 }

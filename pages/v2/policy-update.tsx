@@ -2,18 +2,18 @@
 // (CIEL mumate-pdpa-reconsent-001 slice 1). Home (useV2Home) and chat (usePolicyGate) send members here when
 // their latest accepted consent.policy_version is not the current one; ?next= is where they were going.
 //
-// The required tick appends one consent row at the server's version (/api/v2/policy-consent POST) and never
-// touches onboarded_at. The AI box is the same optional ai_training consent as sign-up and settings:
-//   • ticked on arrival only if the member already accepted the CURRENT ai_training version;
-//   • left empty → nothing is recorded (an empty box is not a "no" over an earlier answer);
-//   • changed from its arrival state → recorded (a tick = yes; un-ticking an existing yes = withdrawal).
+// The tick (read to the end first, PdpaConsentScreen) appends one consent row at the server's version
+// (/api/v2/policy-consent POST) and never touches onboarded_at. Plan 0.3 (owner 2026-10-23): accepting also turns the
+// ai_training item on (opt-out), unless the member's latest answer is a no; when it is on, a one-time notice says so
+// and points to the settings switch, then the member goes on to ?next=.
 import type { GetServerSideProps } from 'next'
 import { useRouter } from 'next/router'
 import { useEffect, useState } from 'react'
 import { v2RedirectIfUnauthed } from '@/lib/v2/gate'
 import { safeNext } from '@/lib/home/first-run-gate'
 import { PdpaConsentScreen } from '@/features/v2-first-run/components/PdpaConsentScreen'
-import { aiTrainingOn, recordAiTrainingConsent } from '@/features/v2-privacy/aiTraining'
+import { turnOnAiTrainingOnAcceptance } from '@/features/v2-privacy/aiTraining'
+import { AiTrainingNotice } from '@/features/v2-privacy/AiTrainingNotice'
 
 export const getServerSideProps: GetServerSideProps = async (ctx) => {
   ctx.res.setHeader('Cache-Control', 'no-store, must-revalidate')
@@ -22,15 +22,13 @@ export const getServerSideProps: GetServerSideProps = async (ctx) => {
   return { props: {} }
 }
 
-type Status = 'loading' | 'ready' | 'saving' | 'error'
+type Status = 'loading' | 'ready' | 'saving' | 'error' | 'notice'
 
 export default function V2PolicyUpdate() {
   const router = useRouter()
   const next = safeNext(router.query.next)
   const [status, setStatus] = useState<Status>('loading')
   const [consent, setConsent] = useState(false)
-  const [aiAtArrival, setAiAtArrival] = useState(false)
-  const [ai, setAi] = useState(false)
 
   useEffect(() => {
     if (!router.isReady) return
@@ -43,11 +41,6 @@ export default function V2PolicyUpdate() {
         void router.replace(next)
         return
       }
-      const c = await fetch('/api/consent').then((r) => (r.ok ? r.json() : null)).catch(() => null)
-      if (!alive) return
-      const on = aiTrainingOn(c?.consents ?? [])
-      setAiAtArrival(on)
-      setAi(on)
       setStatus('ready')
     })()
     return () => {
@@ -65,22 +58,26 @@ export default function V2PolicyUpdate() {
       setStatus('error')
       return
     }
-    if (ai !== aiAtArrival) await recordAiTrainingConsent(ai)
+    if (await turnOnAiTrainingOnAcceptance()) {
+      setStatus('notice')
+      return
+    }
     void router.replace(next)
   }
 
   if (status === 'loading') return <div className="min-h-screen bg-[#ECF0FD]" aria-busy="true" />
 
   return (
-    <PdpaConsentScreen
-      variant="update"
-      consent={consent}
-      onConsentChange={setConsent}
-      aiTraining={ai}
-      onAiTrainingChange={setAi}
-      onAccept={accept}
-      saving={status === 'saving'}
-      error={status === 'error'}
-    />
+    <>
+      <PdpaConsentScreen
+        variant="update"
+        consent={consent}
+        onConsentChange={setConsent}
+        onAccept={accept}
+        saving={status === 'saving' || status === 'notice'}
+        error={status === 'error'}
+      />
+      {status === 'notice' ? <AiTrainingNotice onDone={() => void router.replace(next)} /> : null}
+    </>
   )
 }
