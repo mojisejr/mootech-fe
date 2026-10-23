@@ -99,9 +99,13 @@ export function PdpaConsentScreen({
 
   useEffect(() => {
     if (!warned) return
+    if (reached) {
+      setWarned(0) // the warning is about the end not reached yet — gone the moment it is
+      return
+    }
     const t = setTimeout(() => setWarned(0), 3000)
     return () => clearTimeout(t)
-  }, [warned])
+  }, [warned, reached])
 
   const tryTick = (next: boolean) => {
     if (!reached) {
