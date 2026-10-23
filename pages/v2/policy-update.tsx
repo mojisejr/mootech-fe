@@ -4,8 +4,8 @@
 //
 // The tick (read to the end first, PdpaConsentScreen) appends one consent row at the server's version
 // (/api/v2/policy-consent POST) and never touches onboarded_at. Plan 0.3 (owner 2026-10-23): accepting also turns the
-// ai_training item on (opt-out), unless the member's latest answer is a no; when it is on, a one-time notice says so
-// and points to the settings switch, then the member goes on to ?next=.
+// ai_training item on (opt-out), unless the member's latest answer is a no, then the member goes straight on to ?next=.
+// Plan 0.4 (the team, 2026-10-24): no notice after accepting — 3.1 in the policy they just read is where it is said.
 import type { GetServerSideProps } from 'next'
 import { useRouter } from 'next/router'
 import { useEffect, useState } from 'react'
@@ -13,7 +13,6 @@ import { v2RedirectIfUnauthed } from '@/lib/v2/gate'
 import { safeNext } from '@/lib/home/first-run-gate'
 import { PdpaConsentScreen } from '@/features/v2-first-run/components/PdpaConsentScreen'
 import { turnOnAiTrainingOnAcceptance } from '@/features/v2-privacy/aiTraining'
-import { AiTrainingNotice } from '@/features/v2-privacy/AiTrainingNotice'
 
 export const getServerSideProps: GetServerSideProps = async (ctx) => {
   ctx.res.setHeader('Cache-Control', 'no-store, must-revalidate')
@@ -22,7 +21,7 @@ export const getServerSideProps: GetServerSideProps = async (ctx) => {
   return { props: {} }
 }
 
-type Status = 'loading' | 'ready' | 'saving' | 'error' | 'notice'
+type Status = 'loading' | 'ready' | 'saving' | 'error'
 
 export default function V2PolicyUpdate() {
   const router = useRouter()
@@ -58,26 +57,20 @@ export default function V2PolicyUpdate() {
       setStatus('error')
       return
     }
-    if (await turnOnAiTrainingOnAcceptance()) {
-      setStatus('notice')
-      return
-    }
+    await turnOnAiTrainingOnAcceptance()
     void router.replace(next)
   }
 
   if (status === 'loading') return <div className="min-h-screen bg-[#ECF0FD]" aria-busy="true" />
 
   return (
-    <>
-      <PdpaConsentScreen
-        variant="update"
-        consent={consent}
-        onConsentChange={setConsent}
-        onAccept={accept}
-        saving={status === 'saving' || status === 'notice'}
-        error={status === 'error'}
-      />
-      {status === 'notice' ? <AiTrainingNotice onDone={() => void router.replace(next)} /> : null}
-    </>
+    <PdpaConsentScreen
+      variant="update"
+      consent={consent}
+      onConsentChange={setConsent}
+      onAccept={accept}
+      saving={status === 'saving'}
+      error={status === 'error'}
+    />
   )
 }

@@ -2,8 +2,8 @@
 //   R1 gate rule: ask only on a DETERMINED older version; an undetermined read never locks anyone out
 //   R2 ?next= stays inside /v2
 //   R3 /api/v2/policy-consent: identity from the session, version from the server, needed = accepted ≠ current
-//   R4 /v2/policy-update (plan 0.3): read to the end before the one tick; the button needs the tick; accepting turns
-//      ai_training on unless the latest answer is a no, shows the one-time notice, then → next
+//   R4 /v2/policy-update (plan 0.3/0.4): read to the end before the one tick; the button needs the tick; accepting turns
+//      ai_training on unless the latest answer is a no, then → next with no notice
 //   R5 chat gate redirects on a clear "needed" only
 //   R6 the screens' words; 3.1 matches the system; the policy page shows its version and effective date; the stamp warns
 import React from 'react'
@@ -28,7 +28,6 @@ import { needsReconsent, safeNext } from '@/lib/home/first-run-gate'
 import { checkPolicyStamp, policyContentSha256 } from '@/lib/privacy/policy-stamp'
 import { AI_TRAINING_KIND, AI_TRAINING_SUB, AI_TRAINING_TITLE, AI_TRAINING_VERSION } from '@/features/v2-privacy/aiTraining'
 import { PdpaConsentScreen, READ_TO_END_MESSAGE } from '@/features/v2-first-run/components/PdpaConsentScreen'
-import { AI_TRAINING_NOTICE } from '@/features/v2-privacy/AiTrainingNotice'
 import { usePolicyGate } from '@/features/v2-privacy/usePolicyGate'
 import { isPromoPath } from '@/features/v2-home/components/PromoPopup'
 import handler from '../pages/api/v2/policy-consent'
@@ -171,7 +170,7 @@ describe('R4 /v2/policy-update', () => {
     expect(mainButton().hasAttribute('disabled')).toBe(false)
   })
 
-  it('accepting records the policy, turns the AI item on, shows the notice once, then → next', async () => {
+  it('accepting records the policy, turns the AI item on, then → next with no notice (team 2026-10-24)', async () => {
     h.query = { next: '/v2/chat?topic=love' }
     const calls = stubFetch({ needed: true, ai: null })
     render(<V2PolicyUpdate />)
@@ -179,15 +178,13 @@ describe('R4 /v2/policy-update', () => {
     expect(screen.queryByTestId('pdpa-ai-training')).toBeNull()
     fireEvent.click(mainTick())
     fireEvent.click(mainButton())
-    await waitFor(() => expect(screen.getByTestId('ai-training-notice')).toBeTruthy())
+    await waitFor(() => expect(h.replace).toHaveBeenCalledWith('/v2/chat?topic=love'))
     expect(calls.filter((c) => c.method === 'POST').map((c) => c.url)).toEqual(['/api/v2/policy-consent', '/api/consent'])
     expect(calls.find((c) => c.url === '/api/consent' && c.method === 'POST')?.body).toEqual({ kind: AI_TRAINING_KIND, version: AI_TRAINING_VERSION, accepted: true })
-    expect(h.replace).not.toHaveBeenCalled()
-    fireEvent.click(screen.getByRole('button', { name: AI_TRAINING_NOTICE.ok }))
-    expect(h.replace).toHaveBeenCalledWith('/v2/chat?topic=love')
+    expect(screen.queryByRole('dialog')).toBeNull()
   })
 
-  it('a member whose latest answer is a no keeps it: no AI write, no notice, straight on', async () => {
+  it('a member whose latest answer is a no keeps it: no AI write, straight on', async () => {
     const calls = stubFetch({ needed: true, ai: { version: AI_TRAINING_VERSION, accepted: false } })
     render(<V2PolicyUpdate />)
     await waitFor(() => expect(mainButton()).toBeTruthy())
@@ -195,7 +192,6 @@ describe('R4 /v2/policy-update', () => {
     fireEvent.click(mainButton())
     await waitFor(() => expect(h.replace).toHaveBeenCalledWith('/v2'))
     expect(calls.filter((c) => c.method === 'POST').map((c) => c.url)).toEqual(['/api/v2/policy-consent'])
-    expect(screen.queryByTestId('ai-training-notice')).toBeNull()
   })
 
   it('already on the current version → straight to next; a failed save stays and says so', async () => {

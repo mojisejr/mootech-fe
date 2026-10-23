@@ -26,7 +26,6 @@ import { Button } from '@/components/ui/button'
 import { useFirstRunSource } from '@/features/v2-first-run/hooks/useFirstRunSource'
 import { useSaveOnboarding } from '@/features/v2-first-run/hooks/useSaveOnboarding'
 import { turnOnAiTrainingOnAcceptance } from '@/features/v2-privacy/aiTraining'
-import { AiTrainingNotice } from '@/features/v2-privacy/AiTrainingNotice'
 
 const HOME = '/v2'
 
@@ -45,9 +44,6 @@ export default function V2FirstRun() {
   const [step, setStep] = useState<Step>('intent')
   const [goal, setGoal] = useState<GoalId | null>(null)
   const [consent, setConsent] = useState(false)
-  // ใช้คำถามพัฒนา AI — plan 0.3 ของ CIEL mumate-pdpa-reconsent-001 (owner 2026-10-23): ยอมรับนโยบาย = เปิดข้อนี้ (opt-out)
-  // แล้วประกาศครั้งเดียวทับหน้าผลธาตุ ว่าใช้อะไรและปิดได้ที่ตั้งค่า
-  const [aiNotice, setAiNotice] = useState(false)
 
   const goHome = () => router.replace(HOME)
 
@@ -56,8 +52,9 @@ export default function V2FirstRun() {
   const acceptAndSave = async () => {
     if (!goal || saveState === 'saving') return // goal is guaranteed by the intent gate; guard re-entry
     if (await save(goal)) {
+      // ใช้คำถามพัฒนา AI — CIEL mumate-pdpa-reconsent-001: ยอมรับนโยบาย = เปิดข้อนี้ (opt-out, plan 0.3) · ไม่มีประกาศตามหลัง (plan 0.4)
+      void turnOnAiTrainingOnAcceptance()
       setStep('element')
-      if (await turnOnAiTrainingOnAcceptance()) setAiNotice(true)
     }
     // on failure saveState becomes 'error' and we stay on pdpa so the user can retry (no silent advance).
   }
@@ -77,15 +74,12 @@ export default function V2FirstRun() {
 
   if (step === 'element') {
     return (
-      <>
-        <FirstRunElementView
-          status={status}
-          source={source}
-          onBack={() => setStep('pdpa')}
-          onGoHome={goHome}
-        />
-        {aiNotice ? <AiTrainingNotice onDone={() => setAiNotice(false)} /> : null}
-      </>
+      <FirstRunElementView
+        status={status}
+        source={source}
+        onBack={() => setStep('pdpa')}
+        onGoHome={goHome}
+      />
     )
   }
 
