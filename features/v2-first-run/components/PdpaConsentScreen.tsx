@@ -9,7 +9,7 @@ import { FirstRunScreen } from './FirstRunScreen'
 //   • the FULL policy as plain text (constants/privacy-policy.ts via PolicyText) — no cards, no summary, no link;
 //   • ONE tick, in a bar fixed to the bottom with a read-progress line (sample A). The tick unlocks only once the end
 //     of the policy has been reached; tapping it earlier keeps it empty and shows READ_TO_END_MESSAGE;
-//   • no AI box: accepting turns the AI item on (opt-out) — the caller does that and shows AiTrainingNotice.
+//   • no AI box: accepting turns the AI item on (opt-out) — the caller does that; no notice follows (team, 2026-10-24).
 // The button still needs the tick (issue #215's gate): strip `disabled={!consent ...}` and
 // scripts/first-run-screens.test.tsx must go red.
 //

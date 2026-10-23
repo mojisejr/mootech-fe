@@ -63,7 +63,7 @@ export async function aiTrainingAnswer(): Promise<'current' | 'never' | 'old' | 
 /**
  * opt-out (plan 0.3): เรียกหลังบันทึกการยอมรับนโยบายสำเร็จ — เปิด ai_training รุ่นปัจจุบัน เว้นแต่คำตอบล่าสุดคือ "ไม่"
  * (คำปฏิเสธที่ให้ไว้ยังมีผล). อ่านคำตอบเดิมไม่ได้ = ไม่เปิด (ไม่เสี่ยงทับคำปฏิเสธ).
- * คืน true เมื่อข้อนี้เปิดอยู่หลังเรียก → ผู้เรียกแสดงประกาศครั้งเดียว (AiTrainingNotice)
+ * คืน true เมื่อข้อนี้เปิดอยู่หลังเรียก (ไม่มีประกาศตามหลัง — ทีมไม่เอา, plan 0.4 2026-10-24; ข้อ 3.1 ในนโยบายที่อ่านจนจบคือที่บอก)
  */
 export async function turnOnAiTrainingOnAcceptance(): Promise<boolean> {
   try {
