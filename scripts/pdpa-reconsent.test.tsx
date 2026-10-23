@@ -2,13 +2,13 @@
 //   R1 gate rule: ask only on a DETERMINED older version; an undetermined read never locks anyone out
 //   R2 ?next= stays inside /v2
 //   R3 /api/v2/policy-consent: identity from the session, version from the server, needed = accepted ≠ current
-//   R4 /v2/policy-update: main button needs the main tick only; AI box never pre-ticked unless already accepted;
-//      an untouched empty AI box records nothing; un-ticking an existing yes records the withdrawal; then → next
+//   R4 /v2/policy-update (plan 0.3): read to the end before the one tick; the button needs the tick; accepting turns
+//      ai_training on unless the latest answer is a no, shows the one-time notice, then → next
 //   R5 chat gate redirects on a clear "needed" only
-//   R6 the update screen's words; the policy page shows its version and effective date; the stamp check warns
+//   R6 the screens' words; 3.1 matches the system; the policy page shows its version and effective date; the stamp warns
 import React from 'react'
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { render, screen, cleanup, fireEvent, waitFor } from '@testing-library/react'
+import { render, screen, cleanup, fireEvent, waitFor, act } from '@testing-library/react'
 
 const h = vi.hoisted(() => ({
   query: {} as Record<string, string>,
@@ -27,7 +27,8 @@ import { PRIVACY_POLICY, PRIVACY_POLICY_STAMP } from '@/constants/privacy-policy
 import { needsReconsent, safeNext } from '@/lib/home/first-run-gate'
 import { checkPolicyStamp, policyContentSha256 } from '@/lib/privacy/policy-stamp'
 import { AI_TRAINING_KIND, AI_TRAINING_SUB, AI_TRAINING_TITLE, AI_TRAINING_VERSION } from '@/features/v2-privacy/aiTraining'
-import { PdpaConsentScreen } from '@/features/v2-first-run/components/PdpaConsentScreen'
+import { PdpaConsentScreen, READ_TO_END_MESSAGE } from '@/features/v2-first-run/components/PdpaConsentScreen'
+import { AI_TRAINING_NOTICE } from '@/features/v2-privacy/AiTrainingNotice'
 import { usePolicyGate } from '@/features/v2-privacy/usePolicyGate'
 import { isPromoPath } from '@/features/v2-home/components/PromoPopup'
 import handler from '../pages/api/v2/policy-consent'
@@ -134,46 +135,67 @@ function stubFetch(opts: { needed: boolean; ai?: { version: string; accepted: bo
   )
   return calls
 }
-const aiBox = () => screen.getByTestId('pdpa-ai-training').querySelector('[role="checkbox"],input[type="checkbox"]') as HTMLElement
 const isTicked = (el: HTMLElement) => el.getAttribute('aria-checked') === 'true' || (el as HTMLInputElement).checked === true
 const mainButton = () => screen.getByRole('button', { name: 'ยอมรับและใช้งานต่อ' })
 const mainTick = () => screen.getByLabelText('ฉันอ่านและยอมรับนโยบายความเป็นส่วนตัว')
 
+/** IntersectionObserver ปลอม: ยังไม่ถึงท้ายนโยบายจนกว่าเทสต์จะเรียก reachEnd() */
+function stubObserver() {
+  const callbacks: IntersectionObserverCallback[] = []
+  vi.stubGlobal(
+    'IntersectionObserver',
+    class {
+      constructor(cb: IntersectionObserverCallback) {
+        callbacks.push(cb)
+      }
+      observe() {}
+      disconnect() {}
+    },
+  )
+  return () => act(() => callbacks.forEach((cb) => cb([{ isIntersecting: true } as IntersectionObserverEntry], {} as IntersectionObserver)))
+}
+
 describe('R4 /v2/policy-update', () => {
-  it('main button waits for the main tick only; an untouched empty AI box records nothing; then → next', async () => {
-    h.query = { next: '/v2/chat?topic=love' }
-    const calls = stubFetch({ needed: true, ai: { version: '2026-10', accepted: true } })
+  it('the tick stays empty and says why until the end is reached; then the button needs it', async () => {
+    const reachEnd = stubObserver()
+    stubFetch({ needed: true, ai: null })
     render(<V2PolicyUpdate />)
-    await waitFor(() => expect(screen.getByText('นโยบายความเป็นส่วนตัวฉบับปรับปรุง')).toBeTruthy())
-    expect(isTicked(aiBox())).toBe(false) // an OLD-version yes is not the current consent → not pre-ticked
-    expect(mainButton().hasAttribute('disabled')).toBe(true)
+    await waitFor(() => expect(mainButton()).toBeTruthy())
     fireEvent.click(mainTick())
+    expect(isTicked(mainTick())).toBe(false)
+    expect(screen.getByTestId('read-to-end-warning').textContent).toBe(READ_TO_END_MESSAGE)
+    expect(mainButton().hasAttribute('disabled')).toBe(true)
+    reachEnd()
+    fireEvent.click(mainTick())
+    expect(isTicked(mainTick())).toBe(true)
     expect(mainButton().hasAttribute('disabled')).toBe(false)
-    fireEvent.click(mainButton())
-    await waitFor(() => expect(h.replace).toHaveBeenCalledWith('/v2/chat?topic=love'))
-    expect(calls.filter((c) => c.method === 'POST').map((c) => c.url)).toEqual(['/api/v2/policy-consent'])
   })
 
-  it('ticking the AI box records a yes at the current version', async () => {
+  it('accepting records the policy, turns the AI item on, shows the notice once, then → next', async () => {
+    h.query = { next: '/v2/chat?topic=love' }
     const calls = stubFetch({ needed: true, ai: null })
     render(<V2PolicyUpdate />)
     await waitFor(() => expect(mainButton()).toBeTruthy())
-    fireEvent.click(aiBox())
+    expect(screen.queryByTestId('pdpa-ai-training')).toBeNull()
+    fireEvent.click(mainTick())
+    fireEvent.click(mainButton())
+    await waitFor(() => expect(screen.getByTestId('ai-training-notice')).toBeTruthy())
+    expect(calls.filter((c) => c.method === 'POST').map((c) => c.url)).toEqual(['/api/v2/policy-consent', '/api/consent'])
+    expect(calls.find((c) => c.url === '/api/consent' && c.method === 'POST')?.body).toEqual({ kind: AI_TRAINING_KIND, version: AI_TRAINING_VERSION, accepted: true })
+    expect(h.replace).not.toHaveBeenCalled()
+    fireEvent.click(screen.getByRole('button', { name: AI_TRAINING_NOTICE.ok }))
+    expect(h.replace).toHaveBeenCalledWith('/v2/chat?topic=love')
+  })
+
+  it('a member whose latest answer is a no keeps it: no AI write, no notice, straight on', async () => {
+    const calls = stubFetch({ needed: true, ai: { version: AI_TRAINING_VERSION, accepted: false } })
+    render(<V2PolicyUpdate />)
+    await waitFor(() => expect(mainButton()).toBeTruthy())
     fireEvent.click(mainTick())
     fireEvent.click(mainButton())
     await waitFor(() => expect(h.replace).toHaveBeenCalledWith('/v2'))
-    expect(calls.find((c) => c.url === '/api/consent' && c.method === 'POST')?.body).toEqual({ kind: AI_TRAINING_KIND, version: AI_TRAINING_VERSION, accepted: true })
-  })
-
-  it('a current yes arrives ticked; un-ticking it records the withdrawal', async () => {
-    const calls = stubFetch({ needed: true, ai: { version: AI_TRAINING_VERSION, accepted: true } })
-    render(<V2PolicyUpdate />)
-    await waitFor(() => expect(isTicked(aiBox())).toBe(true))
-    fireEvent.click(aiBox())
-    fireEvent.click(mainTick())
-    fireEvent.click(mainButton())
-    await waitFor(() => expect(h.replace).toHaveBeenCalled())
-    expect(calls.find((c) => c.url === '/api/consent' && c.method === 'POST')?.body).toMatchObject({ accepted: false })
+    expect(calls.filter((c) => c.method === 'POST').map((c) => c.url)).toEqual(['/api/v2/policy-consent'])
+    expect(screen.queryByTestId('ai-training-notice')).toBeNull()
   })
 
   it('already on the current version → straight to next; a failed save stays and says so', async () => {
@@ -183,13 +205,14 @@ describe('R4 /v2/policy-update', () => {
     await waitFor(() => expect(h.replace).toHaveBeenCalledWith('/v2'))
     cleanup()
     h.replace.mockReset()
-    stubFetch({ needed: true, postOk: false })
+    const calls = stubFetch({ needed: true, postOk: false })
     render(<V2PolicyUpdate />)
     await waitFor(() => expect(mainButton()).toBeTruthy())
     fireEvent.click(mainTick())
     fireEvent.click(mainButton())
     await waitFor(() => expect(screen.getByRole('alert')).toBeTruthy())
     expect(h.replace).not.toHaveBeenCalled()
+    expect(calls.some((c) => c.url === '/api/consent' && c.method === 'POST')).toBe(false)
   })
 })
 
@@ -218,12 +241,14 @@ describe('R5 chat gate', () => {
 })
 
 describe('R6 words, policy page, stamp', () => {
-  it('update screen: neutral heading, link to the full policy, no first-run pager', () => {
-    render(<PdpaConsentScreen variant="update" consent={false} onConsentChange={() => {}} aiTraining={false} onAiTrainingChange={() => {}} />)
+  it('update screen: neutral heading, the full policy as text, one tick, no link and no AI box', () => {
+    render(<PdpaConsentScreen variant="update" consent={false} onConsentChange={() => {}} />)
     expect(screen.getByText('นโยบายความเป็นส่วนตัวฉบับปรับปรุง')).toBeTruthy()
-    expect(screen.getByTestId('policy-update-read').getAttribute('href')).toBe('/privacy/policy')
     expect(screen.queryByText(/AI/, { selector: 'h1,p.text-base' })).toBeNull() // the heading and lead never single out AI
-    expect(screen.getByTestId('pdpa-ai-training').textContent).toContain('ไม่บังคับ')
+    expect(screen.getByTestId('policy-text').textContent).toContain(PRIVACY_POLICY.sections.find((x) => x.id === 'ai')!.title)
+    expect(screen.queryByTestId('policy-update-read')).toBeNull()
+    expect(screen.queryByTestId('pdpa-ai-training')).toBeNull()
+    expect(screen.getAllByRole('checkbox')).toHaveLength(1)
   })
 
   it('no promotion pops over the updated-policy screen (found on the local render)', () => {
@@ -231,9 +256,8 @@ describe('R6 words, policy page, stamp', () => {
     expect(isPromoPath('/v2/chat')).toBe(true)
   })
 
-  // owner 2026-10-23: softer words are fine (option A, or the team's later), but the box must still say what is
-  // used, what for, and that it can be changed — words without these would not be informed consent.
-  it('the AI box words keep the floor: what is used, what for, changeable', () => {
+  // the short AI words (settings switch) still say what is used, what for, and that it can be switched off.
+  it('the AI words keep the floor: what is used, what for, changeable', () => {
     const words = `${AI_TRAINING_TITLE} ${AI_TRAINING_SUB}`
     expect(words).toMatch(/คำถาม/) // what is used
     expect(words).toMatch(/ปรับปรุง|พัฒนา/) // what for
@@ -249,7 +273,16 @@ describe('R6 words, policy page, stamp', () => {
   it('policy page shows the version, the effective date and the AI section', () => {
     render(<PrivacyPolicyPage />)
     expect(screen.getByTestId('policy-version').textContent).toBe(`ฉบับ ${PRIVACY_POLICY.version} · มีผลตั้งแต่ 23 ตุลาคม 2569`)
-    expect(document.getElementById('ai')?.textContent).toContain('สิทธิในการจัดการและถอนความยินยอม:')
+    expect(document.getElementById('ai')?.textContent).toContain('สิทธิในการปิดการใช้งานและถอนความยินยอม:')
+  })
+
+  // plan 0.3: every 3.1 claim is something the system does (bazi rewrite before keeping, subject hash used for deletion,
+  // the daily two-year deletion job, opt-out by accepting, switch-off deletes)
+  it('3.1 says what the system does, and no longer what it did not', () => {
+    const ai = JSON.stringify(PRIVACY_POLICY.sections.find((x) => x.id === 'ai'))
+    for (const claim of ['เมื่อท่านกดยอมรับนโยบายฉบับนี้', 'ตั้งค่า › จัดการความยินยอม', 'เรียบเรียงคำถามใหม่โดยคงความหมายเดิม', 'ระบบจะไม่จัดเก็บคำถามนั้น', 'รหัสอ้างอิงที่เข้ารหัสทางเดียว', 'ไม่เกิน 2 ปี', 'ลบคำถามของท่านที่จัดเก็บไว้ทั้งหมด'])
+      expect(ai).toContain(claim)
+    for (const gone of ['เฉพาะในกรณีที่ท่านได้ให้ความยินยอมไว้เท่านั้น', 'ไม่ผูกติดกับบัญชีผู้ใช้งาน', 'ปฏิเสธไม่ให้ความยินยอม']) expect(ai).not.toContain(gone)
   })
 
   it('stamp: matches today; warns (never throws) on changed text or an unstamped version', () => {
