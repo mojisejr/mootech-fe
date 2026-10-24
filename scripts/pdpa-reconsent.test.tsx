@@ -268,7 +268,7 @@ describe('R6 words, policy page, stamp', () => {
 
   it('policy page shows the version, the effective date and the AI section', () => {
     render(<PrivacyPolicyPage />)
-    expect(screen.getByTestId('policy-version').textContent).toBe(`ฉบับ ${PRIVACY_POLICY.version} · มีผลตั้งแต่ 23 ตุลาคม 2569`)
+    expect(screen.getByTestId('policy-version').textContent).toBe(`ฉบับ ${PRIVACY_POLICY.version} · มีผลตั้งแต่ 24 ตุลาคม 2569`)
     expect(document.getElementById('ai')?.textContent).toContain('สิทธิในการปิดการใช้งานและถอนความยินยอม:')
   })
 
