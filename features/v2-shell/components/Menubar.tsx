@@ -63,7 +63,7 @@ const IconShop = () => (
 
 const TABS: { href: string; label: string; icon: ReactNode }[] = [
   { href: '/v2', label: 'หน้าหลัก', icon: <IconHome /> },
-  { href: '/v2/service', label: 'บริการ', icon: <IconService /> },
+  { href: '/v2/service', label: 'ฟีเจอร์', icon: <IconService /> }, // ประชุม 2026-10-27: บริการ → ฟีเจอร์
   { href: '/v2/calendar', label: 'ปฏิทิน', icon: <IconCalendar /> },
   { href: '/v2/shop', label: 'แพ็กเกจ', icon: <IconShop /> }, // owner 2026-10-03: ร้านค้า → แพ็กเกจ
 ]

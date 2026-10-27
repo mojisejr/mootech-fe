@@ -30,7 +30,7 @@ export function ServiceHubScreen({ teamPreview = false }: { teamPreview?: boolea
     // Figma services (333:7519 / 626:2786): ground is WHITE; BG01 365 tall fading to white at 50.131%.
     <div className="relative min-h-screen w-full overflow-x-hidden bg-white font-ibm">
       <Head>
-        <title>บริการทั้งหมด · MuMate</title>
+        <title>ฟีเจอร์ทั้งหมด · MuMate</title>
       </Head>
 
       {/* BG01 hero fading into the cream ground — same continuity pattern as home (no seam). */}

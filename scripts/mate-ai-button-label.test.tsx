@@ -1,4 +1,4 @@
-// scripts/mate-ai-button-label.test.tsx — #568 (ฟีม): ปุ่มแชทบนเมนูชื่อ "เสี่ยวมู่"
+// scripts/mate-ai-button-label.test.tsx — #568 (ฟีม) → ประชุม 2026-10-27: ปุ่มแชทบนเมนูชื่อ "ถามซินแส"
 //
 // 🔴 MUTANT CONTRACT:
 //   G1 ข้อความบนปุ่มกลับไปเป็น "Mate AI" → "ชื่อบนปุ่มคือ เสี่ยวมู่" แดง
@@ -18,15 +18,15 @@ import { MateAIButton } from '@/features/v2-shell/components/MateAIButton'
 describe('#568 · ปุ่มเสี่ยวมู่', () => {
   afterEach(() => cleanup())
 
-  it('G1 ข้อความบนปุ่มคือ เสี่ยวมู่ (ไม่ใช่ Mate AI)', () => {
+  it('G1 ข้อความบนปุ่มคือ ถามซินแส (ไม่ใช่ Mate AI)', () => {
     render(<MateAIButton />)
     const label = screen.getByTestId('nav-mate-ai-label')
-    expect(label.textContent).toBe('เสี่ยวมู่')
+    expect(label.textContent).toBe('ถามซินแส')
   })
 
   it('G2 accessible name ตรงกับข้อความบนจอ', () => {
     render(<MateAIButton />)
-    expect(screen.getByRole('link', { name: 'เสี่ยวมู่' })).toBeTruthy()
+    expect(screen.getByRole('link', { name: 'ถามซินแส' })).toBeTruthy()
     expect(screen.queryByRole('link', { name: 'Mate AI' })).toBeNull()
   })
 

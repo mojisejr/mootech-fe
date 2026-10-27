@@ -40,7 +40,9 @@ import Image from 'next/image'
 import Link from 'next/link'
 import { useEffect, useState } from 'react'
 
-// ปุ่มแชทสลับ เสี่ยวมู่ ↔ เสี่ยวมี่ อัตโนมัติ (เฟดออก-เฟดเข้า) ไม่ผูกกับ persona ที่เลือกในแชท
+// ปุ่มแชทสลับมาสคอต เสี่ยวมู่ ↔ เสี่ยวมี่ อัตโนมัติ (เฟดออก-เฟดเข้า) ไม่ผูกกับ persona ที่เลือกในแชท
+// ประชุม 2026-10-27 (Kittipon/gafiw): ชื่อบนปุ่ม = "ถามซินแส" คงที่ (ไม่สลับชื่อตัวละครแล้ว) — รูปมาสคอตยังสลับ
+export const NAV_CHAT_LABEL = 'ถามซินแส'
 const NAV_ROTATION: Array<{ name: string; avatar: string }> = [
   { name: 'เสี่ยวมู่', avatar: '/images/v2/mascot/personas/mu/greet.png' },
   { name: 'เสี่ยวมี่', avatar: '/images/v2/mascot/personas/mi/greet.png' },
@@ -75,7 +77,7 @@ export function MateAIButton() {
   return (
     <Link
       href="/v2/chat"
-      aria-label={info.name}
+      aria-label={NAV_CHAT_LABEL}
       data-testid="nav-mate-ai"
       className="no-print relative flex h-[70px] w-[74px] shrink-0 items-center justify-center overflow-hidden rounded-2xl border-[5px] border-[rgba(216,143,169,0.4)] bg-v3-lime bg-clip-padding backdrop-blur-[6.8px]"
     >
@@ -86,8 +88,8 @@ export function MateAIButton() {
         </span>
       </span>
       {/* label — INSIDE the tile (Figma y=3), above the mascot head. No slab: see the note above. */}
-      <span data-testid="nav-mate-ai-label" className="absolute left-1/2 top-0 z-[1] -translate-x-1/2 whitespace-nowrap text-sm font-black leading-5" style={fade}>
-        <span className="bg-gradient-to-r from-v3-sapphire to-v3-mate-magenta bg-clip-text text-transparent">{info.name}</span>
+      <span data-testid="nav-mate-ai-label" className="absolute left-1/2 top-0 z-[1] -translate-x-1/2 whitespace-nowrap text-sm font-black leading-5">
+        <span className="bg-gradient-to-r from-v3-sapphire to-v3-mate-magenta bg-clip-text text-transparent">{NAV_CHAT_LABEL}</span>
       </span>
     </Link>
   )
