@@ -29,7 +29,7 @@ export function PrayerScreen() {
             className="inline-flex items-center gap-1 text-[14px] font-medium leading-5 text-v3-cyan focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-v3-focus-border"
           >
             <BackIcon />
-            กลับไปหน้าบริการ
+            กลับไปหน้าฟีเจอร์
           </Link>
         </div>
 

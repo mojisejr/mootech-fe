@@ -102,7 +102,7 @@ export function CompatibilityRecentScreen() {
         <div data-testid="compat-recent-error" className="mt-10 flex flex-col items-center gap-4 text-center">
           <p className="text-[16px] font-bold text-v3-navy">โหลดประวัติไม่สำเร็จ</p>
           <p className="text-[14px] leading-6 text-v3-text-body">เกิดข้อผิดพลาดระหว่างดึงประวัติ ลองกลับเข้ามาใหม่อีกครั้ง</p>
-          <Link href="/v2/service" className="rounded-[100px] bg-v3-sapphire px-6 py-3 text-[14px] font-semibold text-white">กลับไปหน้าบริการ</Link>
+          <Link href="/v2/service" className="rounded-[100px] bg-v3-sapphire px-6 py-3 text-[14px] font-semibold text-white">กลับไปหน้าฟีเจอร์</Link>
         </div>
       </Shell>
     )
