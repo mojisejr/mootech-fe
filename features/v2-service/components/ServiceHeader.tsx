@@ -18,7 +18,7 @@ export function ServiceHeader({ membership }: { membership: MembershipLike }) {
   return (
     <AppHeader
       testId="service-header"
-      title="บริการทั้งหมด"
+      title="ฟีเจอร์ทั้งหมด"
       // เล็กลงจาก 24→20 + ไม่ตัดบรรทัด: "บริการทั้งหมด" ยาวสุดในบรรดาหัวข้อ shared header ที่ 375 เคยตก 2 บรรทัด
       titleClassName="whitespace-nowrap text-[20px] font-bold leading-7 text-v3-navy"
       membership={membership}

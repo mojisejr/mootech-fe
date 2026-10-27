@@ -456,7 +456,7 @@ function SomphongSection() {
         </SomphongCard>
       </div>
       {/* Figma: 8px from the card row to the tertiary CTA */}
-      <Link href="/v2/service" className="mx-auto mt-2 block w-fit rounded-full border border-v3-sapphire px-6 py-2 text-center text-sm font-semibold uppercase leading-5 text-v3-sapphire">ดูบริการทั้งหมด</Link>
+      <Link href="/v2/service" className="mx-auto mt-2 block w-fit rounded-full border border-v3-sapphire px-6 py-2 text-center text-sm font-semibold uppercase leading-5 text-v3-sapphire">ดูฟีเจอร์ทั้งหมด</Link>
       <SomphongKeyframes />
     </section>
   )
@@ -586,7 +586,7 @@ function SianSection() {
         ))}
       </div>
       <Link href="/v2/service" className="mx-auto block w-fit rounded-full border border-v3-sapphire px-6 py-2 text-center text-sm font-semibold uppercase leading-5 text-v3-sapphire">
-        ดูบริการทั้งหมด
+        ดูฟีเจอร์ทั้งหมด
       </Link>
     </section>
   )
