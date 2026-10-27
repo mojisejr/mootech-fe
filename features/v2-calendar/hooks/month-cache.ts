@@ -117,7 +117,17 @@ export function monthKey(userId: string, birthSig: string, ym: string): string {
  * completeness gate here — left out now to keep this PR to the three blockers.
  */
 export function isCacheableMonth(resp: { allowed?: boolean; degraded?: boolean; days?: unknown }): boolean {
-  return resp.allowed === true && !resp.degraded && Array.isArray(resp.days) && resp.days.length > 0
+  return resp.allowed === true && !resp.degraded && Array.isArray(resp.days) && resp.days.length > 0 && !hasLockedDay(resp.days)
+}
+
+/**
+ * 🔴 gafiw 2026-10-27 (สมัคร PRO แล้ว ต.ค./พ.ย. ยังล็อก แต่ ก.ย./ธ.ค. ดูได้): ตั้งแต่ฟรีเห็นหน้าต่าง 7 วัน
+ * (2026-10-20) เดือนของคนฟรีตอบ allowed:true แต่วันนอกหน้าต่าง locked:true — เดิมผ่าน isCacheableMonth
+ * แล้วถูกเก็บถาวร ("เดือนเดิม+วันเกิดเดิม = ไม่มีวันเปลี่ยน") → พอจ่ายเงินแล้ว peek ยังคืนเดือนที่ล็อกจากเครื่องเดิม
+ * กติกา: เดือนที่มีวันล็อก = ผลเฉพาะสิทธิ์ตอนนั้น ไม่ใช่ผลของเดือน → ห้ามเก็บ และของเก่าที่ค้างในเครื่องทิ้งตอนอ่าน
+ */
+function hasLockedDay(days: unknown): boolean {
+  return Array.isArray(days) && days.some((d) => (d as { locked?: unknown } | null)?.locked === true)
 }
 
 /**
@@ -138,14 +148,15 @@ export function isCacheableMonth(resp: { allowed?: boolean; degraded?: boolean; 
 export function peekMonth(key: string, viewer: { paid: boolean }): MonthDays | undefined {
   if (!viewer.paid) return undefined
   const mem = MEM.get(key)
-  if (mem) return mem
+  if (mem && !hasLockedDay(mem)) return mem
+  if (mem) MEM.delete(key) // เดือนที่ล็อกค้างจากตอนยังเป็นฟรี → ทิ้ง ไปดึงใหม่
 
   const raw = safeGet(LS_WRITE_PREFIX + key)
   if (raw === null) return undefined
   try {
     const parsed = JSON.parse(raw) as Partial<StoredMonth>
-    if (!parsed || !Array.isArray(parsed.d)) {
-      safeRemove(LS_WRITE_PREFIX + key) // wrong shape (old version / tampered) → miss + evict
+    if (!parsed || !Array.isArray(parsed.d) || hasLockedDay(parsed.d)) {
+      safeRemove(LS_WRITE_PREFIX + key) // wrong shape / เดือนที่ล็อกค้างจากตอนฟรี → miss + evict
       return undefined
     }
     const days = parsed.d
