@@ -19,7 +19,7 @@ function BackIcon() {
 /** B3: the page can now be told what it is showing instead of only reading `?service=`, because /v2/shop
  *  has to render this screen AT ITS OWN URL — a redirect to /v2/service/coming-soon would move the active
  *  tab from ร้านค้า to บริการ under the user's finger.
- *  `back` exists for the same reason one click later: the hardcoded "กลับไปหน้าบริการ" is right when the
+ *  `back` exists for the same reason one click later: the hardcoded "กลับไปหน้าฟีเจอร์" is right when the
  *  user came from the service hub and is a tab-jump when they came from the shop tab.
  *  Both default to exactly the previous behaviour, so the 7 existing `?service=` routes are untouched. */
 export function ServiceComingSoonScreen({ serviceName: serviceNameProp, back }: {
@@ -29,7 +29,7 @@ export function ServiceComingSoonScreen({ serviceName: serviceNameProp, back }: 
   const { query } = useRouter()
   const raw = query.service
   const serviceName = serviceNameProp?.trim() || (Array.isArray(raw) ? raw[0] : raw)?.trim() || 'บริการนี้'
-  const backTo = back ?? { href: '/v2/service', label: 'กลับไปหน้าบริการ' }
+  const backTo = back ?? { href: '/v2/service', label: 'กลับไปหน้าฟีเจอร์' }
 
   return (
     <div className="relative flex min-h-screen w-full flex-col overflow-x-hidden bg-v3-bg-cream font-ibm">

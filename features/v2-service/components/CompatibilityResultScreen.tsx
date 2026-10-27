@@ -67,8 +67,8 @@ export function CompatibilityResultScreen({ matchingId }: { matchingId: string }
     return (
       <div data-testid="compat-result-screen" data-state="empty" className="flex min-h-screen w-full flex-col items-center justify-center gap-4 bg-v3-bg-cream px-8 text-center font-ibm">
         <p className="text-[17px] font-bold text-v3-navy">ยังไม่พบผลลัพธ์</p>
-        <p className="text-[15px] leading-6 text-v3-text-body">ผลดวงสมพงศ์นี้อาจหมดอายุหรือยังไม่ถูกคำนวณ ลองเริ่มใหม่จากหน้าบริการ</p>
-        <Link href="/v2/service" className="rounded-[100px] bg-v3-sapphire px-6 py-3 text-[15px] font-semibold text-white">กลับไปหน้าบริการ</Link>
+        <p className="text-[15px] leading-6 text-v3-text-body">ผลดวงสมพงศ์นี้อาจหมดอายุหรือยังไม่ถูกคำนวณ ลองเริ่มใหม่จากหน้าฟีเจอร์</p>
+        <Link href="/v2/service" className="rounded-[100px] bg-v3-sapphire px-6 py-3 text-[15px] font-semibold text-white">กลับไปหน้าฟีเจอร์</Link>
       </div>
     )
   }
