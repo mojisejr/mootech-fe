@@ -84,9 +84,9 @@ export function ServiceHubScreen({ teamPreview = false }: { teamPreview?: boolea
         <title>เมนูแนะนำ · MuMate</title>
       </Head>
 
-      <div aria-hidden className="pointer-events-none absolute inset-x-0 top-0 h-[365px] select-none">
-        <Image src="/images/v2/bg/BG01.png" alt="" fill priority sizes="100vw" style={{ objectFit: 'cover', objectPosition: 'top center' }} />
-        <div className="absolute inset-0 bg-gradient-to-b from-[rgba(255,255,255,0)] to-white to-[50.131%]" />
+      {/* พื้นหลังเต็มจอ ตรึงไว้ (Figma 55751:1793 เมฆคลุมทั้งหน้า) — เดิม BG01 สูง 365px แล้วตัดเป็นขาว เห็นรอยตัดกลางจอ */}
+      <div aria-hidden className="pointer-events-none fixed inset-0 select-none">
+        <Image src="/images/v2/bg/BG01.png" alt="" fill priority sizes="100vw" style={{ objectFit: 'cover', objectPosition: 'center' }} />
       </div>
 
       <div className="relative z-10 mx-auto flex w-full max-w-md flex-col gap-5 px-4 pb-36 pt-[max(0.75rem,env(safe-area-inset-top))]">
