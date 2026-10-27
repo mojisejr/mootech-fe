@@ -310,3 +310,22 @@ t('quota from ANOTHER feature (our entries cannot free it) → memory-only, no c
   assert.deepEqual(peekMonth(k, { paid: true }), DAYS_A, 'renewing restores the instant read (nothing was evicted)')
   console.log('  ✓ #293 tier guard: free viewer blocked · paid viewer unaffected · entry preserved')
 }
+
+// gafiw 2026-10-27: เดือนของคนฟรี (มีวัน locked) ห้ามเก็บ · ของเก่าที่ค้างในเครื่องต้องถูกทิ้งตอนคนนั้นจ่ายแล้ว
+t('locked month (free 7-day window) is never cached, and a stale one is evicted on read', () => {
+  ;(globalThis as { localStorage?: Storage }).localStorage = makeFakeLS()
+  clearMonthCache()
+  const locked = [
+    { date: '2026-10-27', dayOfMonth: 27, dayGanzhi: '甲戌', overallPercent: 73, grade: 'B+', wanPhra: false },
+    { date: '2026-10-26', dayOfMonth: 26, dayGanzhi: '', overallPercent: null, grade: null, wanPhra: false, locked: true },
+  ]
+  assert.equal(isCacheableMonth({ allowed: true, days: locked }), false, 'a free-window month is not a real month')
+  // simulate a stale entry written before this fix (straight into localStorage, as an old build did)
+  const k = monthKey('U1', 'sig', '2026-10')
+  localStorage.setItem('mumate:cal:v1:' + k, JSON.stringify({ t: 1, d: locked }))
+  assert.equal(peekMonth(k, { paid: true }), undefined, 'paid viewer must refetch, not read the locked copy')
+  assert.equal(localStorage.getItem('mumate:cal:v1:' + k), null, 'stale locked entry evicted')
+  // memory layer too
+  setMonth(k, locked as never)
+  assert.equal(peekMonth(k, { paid: true }), undefined, 'memory copy with locked days is a miss')
+})
