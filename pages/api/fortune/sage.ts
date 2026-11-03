@@ -1,5 +1,5 @@
-// BFF — POST /api/fortune/sage: เสี่ยงเซียนเสี่ยงทาย (fortune-sage) ของผู้ใช้ที่ล็อกอิน.
-// แนบ anonId จาก cookie ให้ engine ตัดโควตา/QI (qiGate "card"). Engine: POST {BAZI_BASE_URL}/api/fortune-sage/predict.
+// BFF — POST /api/fortune/sage: เซียมซีโป๊ยเซียน (ซินแสนุ้ย 2026-11-03) ของผู้ใช้ที่ล็อกอิน — 1 ใบตามไฟล์ ไม่ผ่าน AI.
+// แนบ anonId จาก cookie ให้ engine ตัดโควตา/QI (qiGate "card"). Engine: POST {BAZI_BASE_URL}/api/immortal-cards/siamsi.
 // 402 = โควตา/ชี่หมด (ส่ง error กลับให้จอเปิดชีตซื้อ/แลก) · 401 = ยังไม่ล็อกอิน.
 import type { NextApiRequest, NextApiResponse } from "next"
 import { baziClientHeaders } from "@/lib/bazi/client-identity"
@@ -19,12 +19,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
   const memberId = who.userId
   const base = process.env.BAZI_BASE_URL || "http://localhost:3000"
-  const body = (req.body ?? {}) as { question?: string; topic?: string; no?: number }
+  const body = (req.body ?? {}) as { question?: string }
   try {
-    const upstream = await baziFetch(`${base}/api/fortune-sage/predict`, {
+    const upstream = await baziFetch(`${base}/api/immortal-cards/siamsi`, {
       method: "POST",
       headers: { "Content-Type": "application/json", ...baziClientHeaders(req) },
-      body: JSON.stringify({ mode: "llm", question: body.question, topic: body.topic, no: body.no, anonId: memberId }),
+      body: JSON.stringify({ question: body.question || undefined, anonId: memberId }),
     })
     const payload = await upstream.json().catch(() => ({}))
     res.status(upstream.status).json(payload)
