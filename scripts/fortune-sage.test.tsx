@@ -15,6 +15,18 @@ vi.mock('next/config', () => ({ default: () => ({ publicRuntimeConfig: {}, serve
 vi.mock('@/features/auth/hooks/useV2Tier', () => ({ useV2Tier: () => ({ tier: null, isPaid: null, loading: false }) }))
 // useCurrentUser → useSession ต้องมี SessionProvider; เทสนี้ไม่ได้วัด auth gate → mock เป็น login แล้ว (authed)
 vi.mock('@/lib/auth/use-current-user', () => ({ useCurrentUser: () => ({ userId: 'test-user-id', status: 'authed' }) }))
+// พิธีเขย่า (~6 วิ) ทดสอบแยกใน FS7 — เคสอื่นข้ามไปผลทันทีเมื่อ API ตอบ
+vi.mock('@/features/v2-fortune/components/SiamsiRitual', async (orig) => {
+  const real = await orig<typeof import('@/features/v2-fortune/components/SiamsiRitual')>()
+  return {
+    ...real,
+    SiamsiRitual: (p: { ready: boolean; onDone: () => void }) => {
+      const { ready, onDone } = p
+      React.useEffect(() => { if (ready && !(globalThis as { __realRitual?: boolean }).__realRitual) onDone() }, [ready, onDone])
+      return (globalThis as { __realRitual?: boolean }).__realRitual ? React.createElement(real.SiamsiRitual, p as never) : React.createElement('div', { 'data-testid': 'sage-loading' })
+    },
+  }
+})
 vi.mock('next/router', () => ({
   useRouter: () => ({ push: vi.fn(), replace: vi.fn(), query: {}, pathname: '/v2/fortune/sage', isReady: true }),
 }))
@@ -121,4 +133,20 @@ describe('เซียมซีโป๊ยเซียน', () => {
     await waitFor(() => expect(screen.getByTestId('sage-result')).toBeTruthy(), { timeout: 3000 })
     Object.defineProperty(navigator, 'maxTouchPoints', { value: 0, configurable: true })
   })
+
+  it('FS7 พิธีเขย่า: เขย่า ≥3.2 วิ → ไม้หล่น → แสงระเบิด+พลิกไพ่ → ผล', async () => {
+    ;(globalThis as { __realRitual?: boolean }).__realRitual = true
+    try {
+      render(<FortuneSagePage />)
+      fireEvent.click(screen.getByTestId('sage-draw'))
+      const box = await screen.findByTestId('sage-loading')
+      await new Promise((r) => setTimeout(r, 1500))
+      expect(box.getAttribute('data-stage')).toBe('shake') // ยังเขย่าอยู่แม้ API ตอบแล้ว
+      await waitFor(() => expect(screen.getByTestId('sage-loading').getAttribute('data-stage')).toBe('burst'), { timeout: 4000 })
+      expect(screen.getByTestId('sage-loading').querySelector(`img[src="${CARD.imageUrl}"]`)).toBeTruthy()
+      await waitFor(() => expect(screen.getByTestId('sage-result')).toBeTruthy(), { timeout: 4000 })
+    } finally {
+      ;(globalThis as { __realRitual?: boolean }).__realRitual = false
+    }
+  }, 15000)
 })

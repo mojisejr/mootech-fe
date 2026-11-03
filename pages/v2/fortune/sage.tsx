@@ -4,7 +4,7 @@
 import Head from "next/head"
 import Image from "next/image"
 import Link from "next/link"
-import { useRef, useState } from "react"
+import { useCallback, useRef, useState } from "react"
 import type { GetServerSideProps } from "next"
 
 import { v2RedirectIfUnauthed } from "@/lib/v2/gate"
@@ -17,6 +17,7 @@ import { useCurrentUser } from "@/lib/auth/use-current-user"
 import { useHasMounted } from "@/lib/hooks/use-has-mounted"
 import { useLoadingTimeout } from "@/lib/hooks/use-loading-timeout"
 import { useShake } from "@/lib/hooks/use-shake"
+import { SiamsiRitual } from "@/features/v2-fortune/components/SiamsiRitual"
 import { AuthRequiredCard } from "@/features/auth/components/AuthRequiredCard"
 import { shareAsInvite } from "@/lib/v2/share-invite"
 import { ShareCard, ShareStage } from "@/features/v2-share/components/ShareCard"
@@ -96,20 +97,18 @@ export default function FortuneSagePage() {
   const draw = async (opts?: { bypassCooldown?: boolean }) => {
     if (!opts?.bypassCooldown && !cd.begin()) return
     if (authStatus === "anon") { setError("เข้าสู่ระบบก่อนเพื่อเสี่ยงทายเซียมซี"); setPhase("intro"); return }
+    setCard(null)
     setPhase("loading")
     setError(null)
     setQuotaOut(false)
-    const started = Date.now()
     try {
       const res = await fetch("/api/fortune/sage", { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" })
       const j = (await res.json().catch(() => ({}))) as { card?: SiamsiCard; qi?: { source: "free" | "credit" | "qi"; cost: number } | null; error?: { message?: string } }
-      // เขย่าแล้วออกเลย — แค่จังหวะไม้เซียมซีหล่นสั้น ๆ
-      await new Promise((r) => setTimeout(r, Math.max(0, 900 - (Date.now() - started))))
       if (res.status === 402) { setQuotaOut(true); gate.blocked(); setPhase("intro"); return }
       if (!res.ok || !j.card) { setError(j.error?.message ?? "เสี่ยงทายไม่สำเร็จ ลองใหม่อีกครั้ง"); setPhase("intro"); return }
+      // ได้ผลแล้ว → SiamsiRitual เขย่าจนครบเวลา หล่นไม้ แสงระเบิด พลิกไพ่ แล้วค่อย revealDone ไปหน้าผล
       setCard(j.card)
       setQiInfo(j.qi ?? null)
-      setPhase("result")
     } catch {
       setError("เชื่อมต่อไม่สำเร็จ ลองใหม่อีกครั้ง")
       setPhase("intro")
@@ -117,6 +116,8 @@ export default function FortuneSagePage() {
       if (!opts?.bypassCooldown) cd.end()
     }
   }
+
+  const revealDone = useCallback(() => setPhase("result"), [])
 
   const canDraw = phase === "intro" && authStatus === "authed" && !cd.active && !quotaOut
   // มือถือ: เขย่าเครื่อง = เสี่ยงทันที (ผ่าน gate ป็อปอัป QI เหมือนกดปุ่ม)
@@ -157,12 +158,7 @@ export default function FortuneSagePage() {
         right={phase === "result" && qiInfo ? <span data-testid="sage-qi-source" className="rounded-full bg-[#FCE9F0] px-3 py-1 text-[11px] font-bold text-[#B0568A]">{qiInfo.source === "qi" ? `ใช้ไป ${qiInfo.cost} QI` : qiInfo.source === "credit" ? "ใช้เครดิต" : "ฟรีวันนี้"}</span> : undefined}
       />
 
-      {phase === "loading" && (
-        <div className="mt-10 flex flex-col items-center gap-4 text-center" data-testid="sage-loading">
-          <span className="relative h-48 w-64 animate-fortune-shake"><Image src="/images/v2/fortune/sage-cup.png" alt="" fill sizes="256px" className="object-contain" /></span>
-          <p className="text-[18px] font-black text-v3-navy">ไม้เซียมซีกำลังหล่น…</p>
-        </div>
-      )}
+      {phase === "loading" && <SiamsiRitual ready={card !== null} cardImage={card?.imageUrl} cardName={card ? `ใบที่ ${card.no} · ${card.name}` : undefined} onDone={revealDone} />}
 
       {phase === "intro" && (
         <div className="mt-3 flex flex-col gap-4" data-testid="sage-intro">
