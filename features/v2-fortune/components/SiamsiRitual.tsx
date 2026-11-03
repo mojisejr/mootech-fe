@@ -107,7 +107,11 @@ export function SiamsiRitual({ ready, cardImage, cardName, onDone }: Props) {
           // ไพ่พลิก หลัง → หน้า
           <div className="siamsi-card-in relative h-[280px] w-[187px] [perspective:1000px]">
             <div className="siamsi-card-flip relative size-full [transform-style:preserve-3d]">
-              <div className="absolute inset-0 grid place-items-center rounded-[16px] border-4 border-[#D9A441] bg-[radial-gradient(circle,#C0392B,#6B1A13)] text-[40px] font-black text-[#F6DA9A] shadow-2xl [backface-visibility:hidden]">八仙</div>
+              <div className="absolute inset-0 overflow-hidden rounded-[16px] border-4 border-[#D9A441] bg-[#6B1A13] shadow-2xl [backface-visibility:hidden]">
+                {/* หลังไพ่ = ภาพปกเซียมซี 8 เซียน */}
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src="/images/v2/fortune/poysian-cover.webp" alt="" className="size-full object-cover" />
+              </div>
               <div className="absolute inset-0 overflow-hidden rounded-[16px] border-4 border-[#D9A441] bg-white shadow-[0_0_40px_10px_rgba(255,214,102,0.7)] [backface-visibility:hidden] [transform:rotateY(180deg)]">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 {cardImage ? <img src={cardImage} alt={cardName ?? ""} className="size-full object-cover" /> : null}
