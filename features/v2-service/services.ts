@@ -78,7 +78,7 @@ export const SERVICES = [
   // ไพ่เซียมซีเคี้ยงคุง 80 ใบ (ซินแสนุ้ย 2026-10-15): สร้างไว้แต่ยังไม่เปิด (ใช้ได้แค่หลังบ้าน engine /siamsi) — ไม่มีอาร์ตการ์ดเมนู
   // เปิดคืน = ลบ hiddenUntilArt + ใส่ image + ON_HOLD ใน pages/v2/fortune/siamsi.tsx
   { id: 'siamsi-kiangkung', title: 'ไพ่เซียมซีเคี้ยงคุง', desc: DESC_SIAMSI, href: '/v2/fortune/siamsi', cta: 'เสี่ยงเลย', hiddenUntilArt: true },
-  { id: 'sian', title: 'เซียมซีโป๊ยเซียน', desc: DESC_SIAN, href: '/v2/fortune/sage', image: ART('06_เสี่ยงเซียนเสี่ยงทาย.png'), cta: 'เสี่ยงทายเลย' },
+  { id: 'sian', title: 'เซียมซีโป๊ยเซียน (NEW)', desc: DESC_SIAN, href: '/v2/fortune/sage', image: ART('06_เสี่ยงเซียนเสี่ยงทาย.png'), cta: 'เสี่ยงทายเลย' },
   { id: 'sinsae', title: 'ดูดวงส่วนตัว กับซินแส', desc: DESC_SINSAE, href: '/v2/service/sinsae', image: ART('07_ดูดวงส่วนตัวกับซินแส.png'), cta: 'ดูดวงเลย' },
   { id: 'manifest', title: 'มานิเฟส', desc: DESC_MANIFEST, href: '/v2/service/manifest', image: ART('08_มานิเฟส.png'), cta: 'เริ่มมานิเฟส' },
   // filename says ปฎิทิน (ฎ ชฎา), the title says ปฏิทิน (ฏ ปฏัก) — different letters. Mapped by id on purpose.
