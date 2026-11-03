@@ -167,8 +167,9 @@ export default function FortuneSagePage() {
             <p className="text-[13px] leading-5 text-v3-text-body">นึกถึงเรื่องที่อยากรู้ แล้วเขย่ากระบอกเซียมซี</p>
           </div>
           <section className="v3-shadow-card flex flex-col items-center gap-3 rounded-[24px] bg-white p-5">
-            <span className="relative h-48 w-full max-w-[300px]">
-              <Image src="/images/v2/fortune/sage-cup.png" alt="" fill sizes="300px" className="object-contain" />
+            {/* ภาพปกเซียมซี 8 เซียน (ซินแสนุ้ย 2026-11-03) */}
+            <span className="relative aspect-[2/3] w-full max-w-[300px] overflow-hidden rounded-[18px] border-2 border-[#D9A441] shadow-md" data-testid="sage-cover">
+              <Image src="/images/v2/fortune/poysian-cover.webp" alt="เซียมซีโป๊ยเซียน" fill sizes="300px" className="object-cover" priority />
             </span>
             {authStatus === "anon" || identityStuck ? (
               <AuthRequiredCard testId="sage-auth-gate" message="เข้าสู่ระบบก่อนเพื่อเสี่ยงทายเซียมซี" />
