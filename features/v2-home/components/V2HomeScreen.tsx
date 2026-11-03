@@ -525,7 +525,7 @@ function SomphongKeyframes() {
 const SIAN_CARDS: { icon: string; lines: string[]; serviceId: ServiceId }[] = [
   { icon: 'oracle', lines: ['เสี่ยงไพ่', 'ออราเคิล', 'เคี้ยงคุง'], serviceId: 'oracle-kiang' },
   { icon: 'spirit', lines: ['เสี่ยงไพ่', 'จิตวิญญาณ', 'แดนสวรรค์'], serviceId: 'spirit-heaven' },
-  { icon: 'sian', lines: ['เซียมซี', 'โป๊ยเซียน'], serviceId: 'sian' },
+  { icon: 'sian', lines: ['เซียมซีโป๊ยเซียน', '(NEW)'], serviceId: 'sian' },
 ]
 
 function SianSection() {

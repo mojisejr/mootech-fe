@@ -150,9 +150,9 @@ export default function FortuneSagePage() {
 
   return (
     <SkyScreen bgImage="/images/v2/fortune/sage-bg.png">
-      <Head><title>{`${phase === "result" ? "ผลเซียมซี" : "เซียมซีโป๊ยเซียน"} · MuMate`}</title></Head>
+      <Head><title>{`${phase === "result" ? "ผลเซียมซี" : "เซียมซีโป๊ยเซียน (NEW)"} · MuMate`}</title></Head>
       <SkyHeader
-        title={phase === "result" ? "ผลเซียมซี" : "เซียมซีโป๊ยเซียน"}
+        title={phase === "result" ? "ผลเซียมซี" : "เซียมซีโป๊ยเซียน (NEW)"}
         backHref="/v2/service"
         testId="fortune-sage"
         right={phase === "result" && qiInfo ? <span data-testid="sage-qi-source" className="rounded-full bg-[#FCE9F0] px-3 py-1 text-[11px] font-bold text-[#B0568A]">{qiInfo.source === "qi" ? `ใช้ไป ${qiInfo.cost} QI` : qiInfo.source === "credit" ? "ใช้เครดิต" : "ฟรีวันนี้"}</span> : undefined}
