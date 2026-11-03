@@ -8,7 +8,8 @@ import { useEffect, useState } from "react"
 export const SHAKE_MS = 3200 // เขย่าอย่างน้อยเท่านี้ ต่อให้ API ตอบเร็ว
 const FRENZY_MS = 2000 // หลังจากนี้เขย่าแรงขึ้น
 const DROP_MS = 900
-const BURST_MS = 3400
+const BURST_MS = 3600
+const EXIT_MS = 450
 
 const STICKS = Array.from({ length: 13 }, (_, i) => ({
   x: 38 + i * 5.2,
@@ -33,6 +34,7 @@ export function SiamsiRitual({ ready, cardImage, cardName, onDone }: Props) {
   const [stage, setStage] = useState<"shake" | "drop" | "burst">("shake")
   const [minDone, setMinDone] = useState(false)
   const [frenzy, setFrenzy] = useState(false)
+  const [exiting, setExiting] = useState(false)
 
   useEffect(() => {
     const t = setTimeout(() => setMinDone(true), SHAKE_MS)
@@ -41,6 +43,11 @@ export function SiamsiRitual({ ready, cardImage, cardName, onDone }: Props) {
     try { navigator.vibrate?.([60, 60, 60, 60, 60, 120, 60, 60, 60, 60, 60, 120, 40, 30, 40, 30, 40, 30, 40, 30, 40, 30, 40, 30, 40]) } catch { /* ไม่รองรับ */ }
     return () => { clearTimeout(t); clearTimeout(f) }
   }, [])
+
+  // โหลดรูปหน้าไพ่ล่วงหน้าตั้งแต่ API ตอบ — ไม่งั้นรูปมาช้าแล้วโผล่กระตุกตอนพลิก
+  useEffect(() => {
+    if (cardImage) new Image().src = cardImage
+  }, [cardImage])
 
   useEffect(() => {
     if (stage === "shake" && minDone && ready) setStage("drop")
@@ -57,13 +64,15 @@ export function SiamsiRitual({ ready, cardImage, cardName, onDone }: Props) {
       return () => clearTimeout(t)
     }
     if (stage === "burst") {
+      // ค่อย ๆ จางออกก่อนสลับไปหน้าผล (ไม่ตัดฉับ)
+      const x = setTimeout(() => setExiting(true), BURST_MS - EXIT_MS)
       const t = setTimeout(onDone, BURST_MS)
-      return () => clearTimeout(t)
+      return () => { clearTimeout(x); clearTimeout(t) }
     }
   }, [stage, onDone])
 
   return (
-    <div className="relative mt-4 flex flex-col items-center gap-4 text-center" data-testid="sage-loading" data-stage={stage}>
+    <div className={"relative mt-4 flex flex-col items-center gap-4 text-center " + (exiting ? "siamsi-exit" : "")} data-testid="sage-loading" data-stage={stage}>
       <div className={"relative grid h-[380px] w-full max-w-[360px] place-items-center overflow-hidden rounded-[28px] " + (stage === "drop" ? "siamsi-quake" : stage === "burst" ? "siamsi-quake-late" : "")}>
         {/* ฉากมืด แดง-ทอง */}
         <span aria-hidden className="siamsi-stage-bg absolute inset-0 bg-[radial-gradient(circle_at_50%_55%,#5A1410_0%,#2A0907_55%,#120403_100%)]" />
