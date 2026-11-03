@@ -1,9 +1,11 @@
-// scripts/fortune-sage.test.tsx — เซียมซีเสี่ยงทาย (/v2/fortune/sage)
+// scripts/fortune-sage.test.tsx — เซียมซีโป๊ยเซียน (/v2/fortune/sage)
 // 🔴 CONTRACT:
-//   FS1 intro ไม่มี topic chips (ตาม Figma) + ปุ่ม "กดเพื่อเสี่ยงทาย"
-//   FS2 กดเสี่ยง → POST /api/fortune/sage → ผล: pillar + 6 หมวด + toggle รัก หญิง/ชาย
+//   FS1 intro ไม่มี topic chips (ตาม Figma) + ปุ่ม "กดเพื่อเสี่ยงทาย" กดได้เลย (คำถามไม่บังคับ)
+//   FS2 กดเสี่ยง → POST /api/fortune/sage → ผลโป๊ยเซียน: ชื่อใบ + หมวด + รูป + toggle รัก มีคู่/โสด
 //   FS3 402 (โควตา/ชี่หมด) → โชว์ quota ไม่โชว์ผล
 //   FS4 แชร์ → ยิง /api/qi-earn code=share (รับ +10 QI)
+//   FS5 ป้ายที่มาของการเสี่ยงตาม qi.source
+//   FS6 มือถือเขย่า → เสี่ยงทันที
 import React from 'react'
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, cleanup, fireEvent, waitFor } from '@testing-library/react'
@@ -17,20 +19,21 @@ vi.mock('next/router', () => ({
   useRouter: () => ({ push: vi.fn(), replace: vi.fn(), query: {}, pathname: '/v2/fortune/sage', isReady: true }),
 }))
 
-const STICK = {
-  no: 48, stem: '辛', branch: '亥', pillar: '辛亥', nayin: 'ทองเครื่องประดับ',
-  personality: 'บุคคลที่มีคุณค่า...', deity: 'องค์เทพพระพิฆเนศ คุ้มครองดวงชะตา',
-  topics: { career: 'งานดี', finance: 'เงินดี', health: 'สุขภาพดี', love: 'ชาย : รักเก่าปัญหา / หญิง : รักแท้แพ้ระยะทาง', family: 'ครอบครัวอบอุ่น' },
-  imageUrl: null,
+const CARD = {
+  no: 6, name: 'ฮั่นเจ็งหลีตีกลอง', category: 'ดี', deity: 'ฮั่นเจ็งหลี', keywords: 'ชัยชนะ',
+  overall: 'ภาพรวมดี', work: 'งานดี', money: 'เงินดี', health: 'สุขภาพดี', mind: 'ใจสงบ', family: 'ครอบครัวอบอุ่น',
+  loveCouple: 'คู่รักหวานชื่น', loveSingle: 'โสดเจอคนใหม่', advice: 'ทำต่อไป',
+  imageUrl: 'https://x.supabase.co/immortal-cards/poysian/6.webp',
 }
 
 let sageStatus = 200
 let sageQi: { source: 'free' | 'credit' | 'qi'; cost: number } | null = null
 const fetchMock = vi.fn(async (url: string, init?: { method?: string; body?: string }) => {
+  void init
   const u = String(url)
   if (u.includes('/api/fortune/sage')) {
     return sageStatus === 200
-      ? { ok: true, status: 200, json: async () => ({ stick: STICK, question: null, topic: null, qi: sageQi }) }
+      ? { ok: true, status: 200, json: async () => ({ card: CARD, question: null, qi: sageQi }) }
       : { ok: false, status: 402, json: async () => ({ error: { message: 'quota' } }) }
   }
   if (u.includes('/api/qi-earn')) return { ok: true, status: 200, json: async () => ({ ok: true }) }
@@ -43,43 +46,35 @@ import FortuneSagePage from '@/pages/v2/fortune/sage'
 beforeEach(() => { sageStatus = 200; sageQi = null; fetchMock.mockClear(); try { localStorage.clear() } catch { /* cooldown ต่อเคส */ } })
 afterEach(() => cleanup())
 
-// พิมพ์คำถาม (บังคับก่อนเสี่ยง — ซินแส/ปอง 2026-09-21)
 const typeQ = (v = 'เดือนนี้การเงินเป็นอย่างไร') => fireEvent.change(screen.getByTestId('sage-question'), { target: { value: v } })
 
-describe('เซียมซีเสี่ยงทาย', () => {
-  it('FS1 intro: มีปุ่มเสี่ยงทาย (disable จนพิมพ์คำถาม) ไม่มี topic chips', () => {
+describe('เซียมซีโป๊ยเซียน', () => {
+  it('FS1 intro: ปุ่มเสี่ยงทายกดได้เลย (คำถามไม่บังคับ) ไม่มี topic chips', () => {
     render(<FortuneSagePage />)
     const btn = screen.getByTestId('sage-draw') as HTMLButtonElement
     expect(btn.textContent).toContain('กดเพื่อเสี่ยงทาย')
-    expect(btn.disabled).toBe(true) // ยังไม่พิมพ์คำถาม
-    typeQ()
-    expect((screen.getByTestId('sage-draw') as HTMLButtonElement).disabled).toBe(false)
+    expect(btn.disabled).toBe(false)
     expect(screen.queryByTestId('sage-topics')).toBeNull()
   })
 
-  it('FS2 กดเสี่ยง → ผลเซียมซี: pillar + หมวด + toggle รักหญิง/ชาย', async () => {
+  it('FS2 กดเสี่ยง → ผลโป๊ยเซียน: ชื่อใบ + หมวด + รูป + toggle รักมีคู่/โสด', async () => {
     render(<FortuneSagePage />)
     typeQ()
     fireEvent.click(screen.getByTestId('sage-draw'))
     await waitFor(() => expect(screen.getByTestId('sage-result')).toBeTruthy(), { timeout: 3000 })
-    expect(screen.getByTestId('sage-pillar').textContent).toBe('辛亥')
-    // ใบเซียมซีดึงจาก engine (proxy) ตามเลขหัว ไม่พึ่ง stick.imageUrl (supabase)
-    const slip = screen.getByTestId('sage-slip').querySelector('img[src="/images/v2/fortune/cards/sage/48.jpg"]')
-    expect(slip).toBeTruthy()
-    expect(screen.getByText('นิสัยและพฤติกรรม')).toBeTruthy()
+    expect(screen.getByTestId('sage-name').textContent).toBe('ฮั่นเจ็งหลีตีกลอง')
+    expect(screen.getByTestId('sage-category').textContent).toBe('หมวดดี')
+    expect(screen.getByTestId('sage-slip').querySelector(`img[src="${CARD.imageUrl}"]`)).toBeTruthy()
     expect(screen.getByText('การงาน')).toBeTruthy()
-    // toggle ความรัก: ค่าเริ่ม = หญิง
-    expect(screen.getByText('สำหรับผู้หญิง')).toBeTruthy()
-    expect(screen.getByText(/รักแท้แพ้ระยะทาง/)).toBeTruthy()
-    fireEvent.click(screen.getByText('สำหรับผู้ชาย'))
-    expect(screen.getByText(/รักเก่าปัญหา/)).toBeTruthy()
+    expect(screen.getByText('คู่รักหวานชื่น')).toBeTruthy()
+    fireEvent.click(screen.getByText('โสด'))
+    expect(screen.getByText('โสดเจอคนใหม่')).toBeTruthy()
     expect(fetchMock).toHaveBeenCalledWith('/api/fortune/sage', expect.objectContaining({ method: 'POST' }))
   })
 
   it('FS3 402 โควตา/ชี่หมด → quota ไม่โชว์ผล', async () => {
     sageStatus = 402
     render(<FortuneSagePage />)
-    typeQ()
     fireEvent.click(screen.getByTestId('sage-draw'))
     await waitFor(() => expect(screen.getByTestId('sage-quota')).toBeTruthy(), { timeout: 3000 })
     expect(screen.queryByTestId('sage-result')).toBeNull()
@@ -87,7 +82,6 @@ describe('เซียมซีเสี่ยงทาย', () => {
 
   it('FS4 แชร์ผล → ยิง /api/qi-earn code=share', async () => {
     render(<FortuneSagePage />)
-    typeQ()
     fireEvent.click(screen.getByTestId('sage-draw'))
     await waitFor(() => expect(screen.getByTestId('sage-share')).toBeTruthy(), { timeout: 3000 })
     fireEvent.click(screen.getByTestId('sage-share'))
@@ -96,27 +90,36 @@ describe('เซียมซีเสี่ยงทาย', () => {
     expect(JSON.parse(String(earn![1]?.body)).code).toBe('share')
   })
 
-  // บั๊ก prod 2026-09-07: header เคย hardcode "ใช้ไป 10 QI" ทั้งที่ engine ตัดโควตาฟรี (ยอด QI ไม่ลด) — ป้ายต้องตาม qi.source
+  // บั๊ก prod 2026-09-07: header เคย hardcode "ใช้ไป 10 QI" ทั้งที่ engine ตัดโควตาฟรี — ป้ายต้องตาม qi.source
   it('FS5 ป้ายที่มาของการเสี่ยง: free → "ฟรีวันนี้", qi → "ใช้ไป N QI", ไม่มี qi → ไม่มีป้าย', async () => {
     sageQi = { source: 'free', cost: 0 }
     render(<FortuneSagePage />)
-    typeQ()
     fireEvent.click(screen.getByTestId('sage-draw'))
     expect((await screen.findByTestId('sage-qi-source', {}, { timeout: 4000 })).textContent).toBe('ฟรีวันนี้')
     cleanup(); try { localStorage.clear() } catch { /* รีเซ็ตคูลดาวน์ก่อน draw รอบถัดไป */ }
 
     sageQi = { source: 'qi', cost: 10 }
     render(<FortuneSagePage />)
-    typeQ()
     fireEvent.click(screen.getByTestId('sage-draw'))
     expect((await screen.findByTestId('sage-qi-source', {}, { timeout: 4000 })).textContent).toBe('ใช้ไป 10 QI')
     cleanup(); try { localStorage.clear() } catch { /* รีเซ็ตคูลดาวน์ */ }
 
     sageQi = null
     render(<FortuneSagePage />)
-    typeQ()
     fireEvent.click(screen.getByTestId('sage-draw'))
-    await screen.findByTestId('sage-pillar', {}, { timeout: 4000 })
+    await screen.findByTestId('sage-name', {}, { timeout: 4000 })
     expect(screen.queryByTestId('sage-qi-source')).toBeNull()
+  })
+
+  it('FS6 มือถือ: เขย่าเครื่อง → เสี่ยงทันที', async () => {
+    Object.defineProperty(navigator, 'maxTouchPoints', { value: 5, configurable: true })
+    ;(window as unknown as { DeviceMotionEvent: unknown }).DeviceMotionEvent = function DeviceMotionEvent() {}
+    render(<FortuneSagePage />)
+    await screen.findByTestId('sage-shake-hint')
+    const fire = (x: number) => window.dispatchEvent(Object.assign(new Event('devicemotion'), { accelerationIncludingGravity: { x, y: 0, z: 9.8 } }))
+    fire(0)
+    fire(25)
+    await waitFor(() => expect(screen.getByTestId('sage-result')).toBeTruthy(), { timeout: 3000 })
+    Object.defineProperty(navigator, 'maxTouchPoints', { value: 0, configurable: true })
   })
 })

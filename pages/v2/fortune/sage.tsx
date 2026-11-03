@@ -1,5 +1,5 @@
-// pages/v2/fortune/sage.tsx — เซียมซีเสี่ยงทาย (fortune-sage) เฟรม 55449:240
-// flow: intro (ตั้งจิต + กดเพื่อเสี่ยงทาย) → loading → ผลเซียมซี (หัวเซี่ยงแซ + 6 หมวด). ต่อ engine /api/fortune-sage/predict.
+// pages/v2/fortune/sage.tsx — เซียมซีโป๊ยเซียน 21 ใบ (ซินแสนุ้ย 2026-11-03 แทนเซียมซีเซี่ยงแซเดิม) เฟรม 55449:240
+// flow: intro (ตั้งจิต + เขย่ามือถือ/กดเพื่อเสี่ยง) → loading สั้น → ผล 1 ใบตามไฟล์ซินแส (ไม่ผ่าน AI). ต่อ engine /api/immortal-cards/siamsi.
 // โควตา: ตัด "card" ที่ engine (qiGate) — 402 = หมด → ชวนเติม/แลกที่ /v2/qi. แชร์ผล = ได้ +10 QI (earn "share").
 import Head from "next/head"
 import Image from "next/image"
@@ -16,6 +16,7 @@ import { useV2Tier } from "@/features/auth/hooks/useV2Tier"
 import { useCurrentUser } from "@/lib/auth/use-current-user"
 import { useHasMounted } from "@/lib/hooks/use-has-mounted"
 import { useLoadingTimeout } from "@/lib/hooks/use-loading-timeout"
+import { useShake } from "@/lib/hooks/use-shake"
 import { AuthRequiredCard } from "@/features/auth/components/AuthRequiredCard"
 import { shareAsInvite } from "@/lib/v2/share-invite"
 import { ShareCard, ShareStage } from "@/features/v2-share/components/ShareCard"
@@ -27,68 +28,59 @@ export const getServerSideProps: GetServerSideProps = async (ctx) => {
   return { props: {} }
 }
 
-type TopicKey = "career" | "finance" | "health" | "love" | "family"
-type Stick = {
+type TopicKey = "overall" | "work" | "money" | "health" | "mind" | "family"
+type SiamsiCard = {
   no: number
-  stem: string
-  branch: string
-  pillar: string
-  nayin: string
-  personality: string
-  deity: string
-  topics: Record<TopicKey, string>
-  imageUrl: string | null
+  name: string
+  category?: string
+  deity?: string
+  keywords?: string
+  overall?: string
+  work?: string
+  money?: string
+  health?: string
+  mind?: string
+  family?: string
+  loveCouple?: string
+  loveSingle?: string
+  advice?: string
+  imageUrl?: string
 }
 
-// หัวข้อผล — จุดสีกลม + หัวข้อ (ตาม Figma) เรียงตามเฟรม
+// หัวข้อผล — จุดสีกลม + หัวข้อ (ตาม Figma) · ความรักแยกมีคู่/โสด ต่อท้าย
 const SECTIONS: { key: TopicKey; label: string; dot: string }[] = [
-  { key: "career", label: "การงาน", dot: "#8B5CF6" },
-  { key: "finance", label: "การเงิน", dot: "#E5A93B" },
+  { key: "overall", label: "ภาพรวม", dot: "#3B82F6" },
+  { key: "work", label: "การงาน", dot: "#8B5CF6" },
+  { key: "money", label: "การเงิน", dot: "#E5A93B" },
   { key: "health", label: "สุขภาพ", dot: "#EC4899" },
-  { key: "love", label: "ความรัก", dot: "#F472B6" },
+  { key: "mind", label: "จิตใจ", dot: "#10B981" },
   { key: "family", label: "ครอบครัว", dot: "#22D3EE" },
 ]
-
-/** แยกคำทำนายความรัก "ชาย : ... / หญิง : ..." เป็นชาย/หญิง (ถ้าแยกไม่ได้คืน null) */
-function splitLove(text: string): { male: string; female: string } | null {
-  const fIdx = text.search(/หญิง\s*[:：]/)
-  const mIdx = text.search(/ชาย\s*[:：]/)
-  if (fIdx === -1 || mIdx === -1) return null
-  const male = text.slice(mIdx, fIdx).replace(/^ชาย\s*[:：]\s*/, "").replace(/[/·|]\s*$/, "").trim()
-  const female = text.slice(fIdx).replace(/^หญิง\s*[:：]\s*/, "").trim()
-  return male && female ? { male, female } : null
-}
+const CAT_STYLE: Record<string, string> = { ดี: "bg-[#FBF3DE] text-[#B08A3B]", กลาง: "bg-[#E6F1EC] text-[#3F6F5D]", เตือน: "bg-[#F6E3E1] text-[#8E3B36]" }
 
 export default function FortuneSagePage() {
   const { status: authStatus } = useCurrentUser() // 'loading' | 'authed' | 'anon' — ไม่ login กดเสี่ยงทายไม่ได้
-  // #246-style escape: บางเคส (เปิดลิงก์จาก LINE rich menu → MEMBER_ID โดน SameSite ตัด / self-heal ยังไม่ลง)
-  // authStatus ค้าง 'loading' นานเกินไป → ปุ่มถูก disable ตายตัว. ถ้าค้างเกิน 8 วิ ถือว่า "ตรวจบัญชีไม่ผ่าน" →
-  // โชว์การ์ดเข้าสู่ระบบแทน (พาไป /v2/login มินต์ MEMBER_ID ใหม่) แทนปุ่มที่กดไม่ได้.
+  // #246-style escape: authStatus ค้าง 'loading' เกิน 8 วิ → โชว์การ์ดเข้าสู่ระบบแทนปุ่มที่กดไม่ได้
   const mounted = useHasMounted()
   const identityStuck = useLoadingTimeout(mounted && authStatus === "loading", 8000)
   const cd = useActionCooldown("fortune:sage") // กันบอทยิงรัว 10 วิ
   const { tier, loading: tierLoading } = useV2Tier() // PRO = เซียมซี/Oracle ไม่จำกัด
   const cardUnlimited = tier === "PRO"
   const [phase, setPhase] = useState<"intro" | "loading" | "result">("intro")
-  const [stick, setStick] = useState<Stick | null>(null)
+  const [card, setCard] = useState<SiamsiCard | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [quotaOut, setQuotaOut] = useState(false)
   // ฟรีวันละ 1 ครั้ง (รวมไพ่/เซียมซี/เบอร์มงคล) — ครั้งที่จะหัก QI ขึ้นป็อปอัปชวนแพ็กเกจก่อน (Kittipon 2026-10-20)
   const gate = useCardGate()
-  const [loveGender, setLoveGender] = useState<"female" | "male">("female")
-  // ที่มาของการเปิดครั้งนี้ (จาก engine): free=ฟรีวันนี้ · qi=หัก N QI · credit=ใช้เครดิต — ป้ายต้องตามจริง ไม่ hardcode
+  const [loveMode, setLoveMode] = useState<"couple" | "single">("couple")
+  // ที่มาของการเปิดครั้งนี้ (จาก engine): free=ฟรีวันนี้ · qi=หัก N QI · credit=ใช้เครดิต
   const [qiInfo, setQiInfo] = useState<{ source: "free" | "credit" | "qi"; cost: number } | null>(null)
-  // คำถาม (บังคับใส่ก่อนเสี่ยง — ซินแส/ปอง 2026-09-21): seed หัวเซี่ยงแซตามคำถาม + LLM เกลาคำตอบตรงคำถาม
+  // คำถามไม่บังคับ — เซียมซีโป๊ยเซียนเปิดตามไฟล์ ไม่ใช้ AI ตอบ (เก็บไว้ทวนตอนแชร์)
   const [question, setQuestion] = useState("")
-  const questionReady = question.trim().length > 0
-  const [tailored, setTailored] = useState<string | null>(null)
 
-  // 402 = ฟรีหมด + เครดิตหมด + ชี่ไม่พอ — แลก card_use ด้วยชี่ตรงนี้แล้วเสี่ยงต่อทันที (ไม่ต้องไปหน้าพลังชี่)
   const [redeeming, setRedeeming] = useState(false)
   const [redeemMsg, setRedeemMsg] = useState<string | null>(null)
-  // แชร์ = รับ +10 QI วันละ 1 ครั้ง — อ่านผลจริงเพื่อบอกให้ตรง (ได้/เต็มโควตาแล้ว)
   const [shareState, setShareState] = useState<"idle" | "done" | "capped">("idle")
-  const allowPublic = true // แชร์ = เปิดเผยผลเต็มเสมอ (เอ็ม 2026-09-26; เดิม checkbox 0033) — ยินยอมผ่านเอกสาร PDPA ตอนสมัครครั้งแรก (PdpaConsentScreen)
   const redeemAndRetry = async () => {
     setRedeeming(true)
     setRedeemMsg(null)
@@ -104,9 +96,7 @@ export default function FortuneSagePage() {
   }
 
   const draw = async (opts?: { bypassCooldown?: boolean }) => {
-    // กันบอทยิงรัว/กดรัว 10 วิ (ข้ามตอน redeem+retry ที่จ่าย QI เอง)
     if (!opts?.bypassCooldown && !cd.begin()) return
-    // ป้องกันชั้นสอง (ปุ่มถูกซ่อนไปแล้วตอน anon แต่กันไว้เผื่อ redeemAndRetry เรียกตรง)
     if (authStatus === "anon") { setError("เข้าสู่ระบบก่อนเพื่อเสี่ยงทายเซียมซี"); setPhase("intro"); return }
     setPhase("loading")
     setError(null)
@@ -114,12 +104,12 @@ export default function FortuneSagePage() {
     const started = Date.now()
     try {
       const res = await fetch("/api/fortune/sage", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ question: question.trim() }) })
-      const j = (await res.json().catch(() => ({}))) as { stick?: Stick; tailored?: string | null; qi?: { source: "free" | "credit" | "qi"; cost: number } | null; error?: { message?: string } }
-      await new Promise((r) => setTimeout(r, Math.max(0, 1800 - (Date.now() - started))))
+      const j = (await res.json().catch(() => ({}))) as { card?: SiamsiCard; qi?: { source: "free" | "credit" | "qi"; cost: number } | null; error?: { message?: string } }
+      // เขย่าแล้วออกเลย — แค่จังหวะไม้เซียมซีหล่นสั้น ๆ
+      await new Promise((r) => setTimeout(r, Math.max(0, 900 - (Date.now() - started))))
       if (res.status === 402) { setQuotaOut(true); gate.blocked(); setPhase("intro"); return }
-      if (!res.ok || !j.stick) { setError(j.error?.message ?? "เสี่ยงทายไม่สำเร็จ ลองใหม่อีกครั้ง"); setPhase("intro"); return }
-      setStick(j.stick)
-      setTailored(j.tailored ?? null) // คำตอบ LLM ที่เกลาให้ตรงคำถาม (โชว์บนสุดของผล)
+      if (!res.ok || !j.card) { setError(j.error?.message ?? "เสี่ยงทายไม่สำเร็จ ลองใหม่อีกครั้ง"); setPhase("intro"); return }
+      setCard(j.card)
       setQiInfo(j.qi ?? null)
       setPhase("result")
     } catch {
@@ -130,11 +120,13 @@ export default function FortuneSagePage() {
     }
   }
 
-  // #6 (2026-09-15): การ์ดแชร์เฉพาะบุคคล — ใบเซียมซี + สรุปนิสัย
+  const canDraw = phase === "intro" && authStatus === "authed" && !cd.active && !quotaOut
+  // มือถือ: เขย่าเครื่อง = เสี่ยงทันที (ผ่าน gate ป็อปอัป QI เหมือนกดปุ่ม)
+  const shake = useShake(() => { if (canDraw) void gate.guard(() => void draw()) }, canDraw)
+
   const shareCardRef = useRef<HTMLDivElement>(null)
 
   const share = async () => {
-    // แชร์ = รับ +10 QI (earn "share" ที่ engine, daily-capped) — อ่านผลจริงมาบอกบนปุ่ม + แนบภาพการ์ด
     if (shareState === "idle") {
       try {
         const r = await fetch("/api/qi-earn", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ code: "share" }) })
@@ -145,29 +137,25 @@ export default function FortuneSagePage() {
         /* QI ล่ม — คง idle ให้ลองใหม่ได้ */
       }
     }
-    // พี่พล 2026-09-23: ใส่คำแปลสรุป 1 บรรทัดในข้อความแชร์ (คนอ่านเห็นสรุป → อยากเข้ามาเล่นเอง)
-    const sageSummary = (tailored?.trim() || stick?.personality || "").replace(/\s+/g, " ").trim().slice(0, 120)
-    const text = stick ? `เสี่ยงเซียมซีได้ ${stick.pillar} · ${stick.nayin}${sageSummary ? ` - ${sageSummary}` : ""} — เสี่ยงทายกับ Mumate` : "เสี่ยงทายกับ Mumate"
-    // เอ็ม 2026-09-23: คำตอบต้องทวนคำถาม → นำคำถามขึ้นก่อนสรุป/ผลเต็ม (คนอ่านหน้าแชร์ไม่เห็นคำถามเดิม)
+    const summary = (card?.overall ?? "").replace(/\s+/g, " ").trim().slice(0, 120)
+    const text = card ? `เสี่ยงเซียมซีโป๊ยเซียนได้ใบที่ ${card.no} ${card.name}${summary ? ` - ${summary}` : ""} — เสี่ยงทายกับ Mumate` : "เสี่ยงทายกับ Mumate"
     const q = question.trim()
-    const sageSummaryFull = tailored?.trim() || stick?.personality || ""
-    const ogSummary = q ? `คำถาม: ${q}\n\n${sageSummaryFull}` : sageSummaryFull
-    // #359 รอบ 13: แชร์เป็นลิงก์ + og:image เฉพาะผล
+    const full = card?.overall ?? ""
+    const ogSummary = q ? `คำถาม: ${q}\n\n${full}` : full
     void shareAsInvite({
-      title: "เซียมซีเสี่ยงทาย",
+      title: "เซียมซีโป๊ยเซียน",
       text,
-      // เอ็ม 2026-09-23: แชร์เซียมซี = รูป+ชื่อ+สรุป พอ (เหมือนไพ่/เบอร์) → fullText = สรุปเดียวกับ share.d → หน้า invite dedup ไม่โชว์ซ้ำ
-      og: stick ? { title: `เซียมซีใบที่ ${stick.no}`, subtitle: `${stick.pillar} · ${stick.nayin}`, summary: ogSummary, tag: "เซียมซี", image: `/images/v2/fortune/cards/sage/${stick.no}.jpg`, isPublic: allowPublic, fullText: allowPublic ? ogSummary : undefined } : { title: "เซียมซีเสี่ยงทาย", tag: "เซียมซี" },
+      og: card ? { title: `เซียมซีใบที่ ${card.no}`, subtitle: card.name, summary: ogSummary, tag: "เซียมซี", image: card.imageUrl, isPublic: true, fullText: ogSummary } : { title: "เซียมซีโป๊ยเซียน", tag: "เซียมซี" },
     })
   }
 
-  const love = stick ? splitLove(stick.topics.love) : null
+  const love = card ? (loveMode === "couple" ? card.loveCouple : card.loveSingle) : undefined
 
   return (
     <SkyScreen bgImage="/images/v2/fortune/sage-bg.png">
-      <Head><title>{`${phase === "result" ? "ผลเซียมซี" : "เซียมซีเสี่ยงทาย"} · MuMate`}</title></Head>
+      <Head><title>{`${phase === "result" ? "ผลเซียมซี" : "เซียมซีโป๊ยเซียน"} · MuMate`}</title></Head>
       <SkyHeader
-        title={phase === "result" ? "ผลเซียมซี" : "เซียมซีเสี่ยงทาย"}
+        title={phase === "result" ? "ผลเซียมซี" : "เซียมซีโป๊ยเซียน"}
         backHref="/v2/service"
         testId="fortune-sage"
         right={phase === "result" && qiInfo ? <span data-testid="sage-qi-source" className="rounded-full bg-[#FCE9F0] px-3 py-1 text-[11px] font-bold text-[#B0568A]">{qiInfo.source === "qi" ? `ใช้ไป ${qiInfo.cost} QI` : qiInfo.source === "credit" ? "ใช้เครดิต" : "ฟรีวันนี้"}</span> : undefined}
@@ -175,45 +163,41 @@ export default function FortuneSagePage() {
 
       {phase === "loading" && (
         <div className="mt-10 flex flex-col items-center gap-4 text-center" data-testid="sage-loading">
-          {/* effect ตอนรอ: แสงเรืองเต้น + รูปลอย */}
-          <div className="relative grid size-56 place-items-center">
-            <span aria-hidden className="absolute size-40 rounded-full bg-v3-lime/40 blur-2xl animate-fortune-glow" />
-            <span className="animate-fortune-breathe relative size-52"><Image src="/images/v2/fortune/sage-loading.png" alt="" fill sizes="208px" className="object-contain" /></span>
-          </div>
-          <p className="text-[18px] font-black text-v3-navy">กำลังสุ่มเซียมซีให้คุณ</p>
-          <p className="max-w-xs text-[13px] leading-5 text-v3-text-body">มาร่วมสร้างบันทึกทางใจ และค้นพบความสงบไปกับพวกเรา</p>
-          <span aria-hidden className="mt-1 h-1.5 w-48 overflow-hidden rounded-full bg-v3-ghost-white"><span className="block h-full w-1/3 rounded-full bg-v3-lime animate-fortune-shimmer" /></span>
+          <span className="relative h-48 w-64 animate-fortune-shake"><Image src="/images/v2/fortune/sage-cup.png" alt="" fill sizes="256px" className="object-contain" /></span>
+          <p className="text-[18px] font-black text-v3-navy">ไม้เซียมซีกำลังหล่น…</p>
         </div>
       )}
 
       {phase === "intro" && (
         <div className="mt-3 flex flex-col gap-4" data-testid="sage-intro">
           <div>
-            <p className="text-[15px] font-black text-v3-navy">ตั้งจิตให้เป็นสมาธิ 1 นาที</p>
-            <p className="text-[13px] leading-5 text-v3-text-body">ขอตั้งจิตอธิษฐานถามคำถามที่อยากได้คำตอบ</p>
+            <p className="text-[15px] font-black text-v3-navy">ตั้งจิตอธิษฐานถึงโป๊ยเซียน</p>
+            <p className="text-[13px] leading-5 text-v3-text-body">นึกถึงเรื่องที่อยากรู้ แล้วเขย่ากระบอกเซียมซี</p>
           </div>
-          {/* การ์ดภาพเซียมซี (รูปหน้าแรก) + ปุ่มเสี่ยงทาย */}
           <section className="v3-shadow-card flex flex-col items-center gap-3 rounded-[24px] bg-white p-5">
             <span className="relative h-48 w-full max-w-[300px]">
               <Image src="/images/v2/fortune/sage-cup.png" alt="" fill sizes="300px" className="object-contain" />
             </span>
             {authStatus === "anon" || identityStuck ? (
-              // ยังไม่ login (anon) หรือ ตรวจบัญชีค้างเกิน 8 วิ (identityStuck — เช่นเปิดจาก LINE rich menu แล้ว
-              // MEMBER_ID ไม่มา) — โชว์การ์ดเข้าสู่ระบบ (พาไป /v2/login) แทนปุ่มที่กดไม่ได้ตายตัว.
               <AuthRequiredCard testId="sage-auth-gate" message="เข้าสู่ระบบก่อนเพื่อเสี่ยงทายเซียมซี" />
             ) : (
               <>
-                {/* บังคับพิมพ์คำถามก่อนเสี่ยง — seed หัวเซี่ยงแซ + LLM ตอบตรงคำถาม */}
                 <textarea
                   data-testid="sage-question"
                   value={question}
                   onChange={(e) => setQuestion(e.target.value)}
                   maxLength={200}
                   rows={2}
-                  placeholder="พิมพ์คำถามที่อยากรู้ เช่น เดือนนี้การเงินเป็นอย่างไร"
+                  placeholder="คำถามในใจ (ไม่บังคับ) เช่น เดือนนี้การเงินเป็นอย่างไร"
                   className="w-full resize-none rounded-2xl border border-v3-border-card bg-white px-4 py-3 text-[13px] leading-5 text-v3-navy outline-none placeholder:text-v3-text-muted focus:border-v3-sapphire"
                 />
-                <p className="text-center text-[12px] text-v3-text-muted">{questionReady ? "ตั้งจิตให้นิ่ง แล้วกดเสี่ยงทายเพื่อรับคำทำนาย" : "พิมพ์คำถามก่อนจึงจะเสี่ยงทายได้"}</p>
+                {shake.supported ? (
+                  shake.granted ? (
+                    <p data-testid="sage-shake-hint" className="text-center text-[13px] font-bold text-v3-sapphire">📳 เขย่ามือถือเพื่อเสี่ยงเซียมซีได้เลย</p>
+                  ) : shake.needsPermission ? (
+                    <button type="button" data-testid="sage-shake-enable" onClick={() => void shake.requestPermission()} className="text-center text-[13px] font-bold text-v3-sapphire underline">📳 แตะเพื่อเปิดโหมดเขย่ามือถือ</button>
+                  ) : null
+                ) : null}
                 {quotaOut && <p className="text-center text-[12px] font-bold text-[#8A5A0C]" data-testid="sage-quota">โควตาเสี่ยงทายวันนี้หมด — แลก 10 QI เพื่อเสี่ยงต่อได้เลย</p>}
                 {quotaOut && (
                   <button type="button" onClick={() => void redeemAndRetry()} disabled={redeeming} data-testid="sage-redeem" className="grid h-12 w-full place-items-center rounded-full bg-v3-sapphire text-[15px] font-bold uppercase text-v3-lime disabled:opacity-40">
@@ -222,76 +206,51 @@ export default function FortuneSagePage() {
                 )}
                 {redeemMsg && <p className="text-center text-[12px] font-bold text-v3-error">{redeemMsg}</p>}
                 {error && <p data-testid="sage-error" className="text-center text-[12px] font-bold text-v3-error">{error}</p>}
-                {/* เปิดจาก LINE rich menu (cross-site) → MEMBER_ID เก่า (SameSite=Strict) โดนตัด → authStatus ค้าง
-                    'loading' ระหว่าง self-heal มินต์ใหม่ (อาจนานถ้า engine cold start). อย่าโชว์ปุ่มเทาเฉยๆ ที่ดู
-                    เหมือนพัง — บอกให้รู้ว่ากำลังเชื่อมต่อบัญชี (escape hatch จะเด้งการ์ดเข้าสู่ระบบให้เองถ้าเกิน 8 วิ). */}
-                <KitButton onClick={() => void gate.guard(() => void draw())} disabled={cd.active || authStatus === "loading" || !questionReady} testId="sage-draw">{authStatus === "loading" ? "กำลังเชื่อมต่อบัญชี…" : cd.active ? `รออีก ${cd.secondsLeft} วินาที` : "กดเพื่อเสี่ยงทาย"}</KitButton>
+                <KitButton onClick={() => void gate.guard(() => void draw())} disabled={cd.active || authStatus === "loading"} testId="sage-draw">{authStatus === "loading" ? "กำลังเชื่อมต่อบัญชี…" : cd.active ? `รออีก ${cd.secondsLeft} วินาที` : "กดเพื่อเสี่ยงทาย"}</KitButton>
                 {authStatus === "loading" && <p className="text-center text-[11px] text-v3-text-muted">กำลังตรวจสอบบัญชีของคุณ สักครู่…</p>}
               </>
             )}
           </section>
           {quotaOut && <Link href="/v2/qi" className="text-center text-[13px] font-bold text-v3-sapphire">เติม/แลก QI ที่หน้าพลังชี่ →</Link>}
-          {/* โควตาตาม tier จริง — รอ tier โหลดก่อนค่อยโชว์ (PRO ต้องขึ้น "ไม่จำกัด" แต่แรก ไม่แวบ "ฟรี/PLUS") */}
           {!tierLoading && <p className="text-center text-[11px] text-v3-text-muted">{cardUnlimited ? "สมาชิก PRO เสี่ยงทายได้ไม่จำกัด" : tier === "PLUS" ? "สมาชิก PLUS เสี่ยงทายวันละ 10 ครั้ง — เกินแล้วแลกด้วย QI" : "ฟรีวันละ 1 ครั้ง (รวมไพ่ · เซียมซี · เบอร์มงคล) — สมัครสมาชิกเพื่อใช้ไม่จำกัด"}</p>}
         </div>
       )}
 
-      {phase === "result" && stick && (
+      {phase === "result" && card && (
         <div className="mt-3 flex flex-col gap-3" data-testid="sage-result">
-          {/* ภาพผล — ใบเซียมซีจริง (โปสเตอร์เต็มใบ จาก engine) ทับบนถ้วย (fallback ถ้าใบโหลดไม่ขึ้น) */}
-          <span className="relative grid aspect-square w-full place-items-center overflow-hidden rounded-[24px] bg-[#F3F4FB]" data-testid="sage-slip">
-            <span className="relative z-0 h-48 w-64"><Image src="/images/v2/fortune/sage-cup.png" alt="" fill sizes="256px" className="object-contain" /></span>
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={`/images/v2/fortune/cards/sage/${stick.no}.jpg`}
-              alt={`เซียมซีใบที่ ${stick.no}`}
-              className="absolute inset-0 z-10 size-full object-cover"
-              onError={(e) => {
-                // ไฟล์ใน FE ไม่มี → ถอยไป proxy engine ครั้งเดียว แล้วค่อยซ่อน
-                const img = e.currentTarget
-                if (!img.dataset.fallback) { img.dataset.fallback = "1"; img.src = `/api/fortune/card-image/sage/${stick.no}`; return }
-                img.style.display = "none"
-              }}
-            />
-          </span>
+          {card.imageUrl ? (
+            <span className="block w-full overflow-hidden rounded-[24px] bg-[#F3F4FB]" data-testid="sage-slip">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={card.imageUrl} alt={`เซียมซีใบที่ ${card.no} ${card.name}`} className="mx-auto block w-full max-w-[360px]" />
+            </span>
+          ) : null}
 
-          {/* การ์ดครีม: หัวที่ + pillar + nayin + องค์เทพ */}
           <section className="flex flex-col items-center gap-1.5 rounded-[24px] border border-[#EAD9AE] bg-[#FBF3DE] p-5 text-center">
-            <p className="text-[13px] font-bold text-[#B08A3B]">หัวที่ {stick.no}</p>
-            <p className="text-[34px] font-black leading-none text-v3-navy" data-testid="sage-pillar">{stick.pillar}</p>
-            <p className="text-[15px] font-bold text-[#8A6D2F]">{stick.nayin}</p>
-            <span className="mt-1 rounded-full bg-white px-3 py-1 text-[11px] font-bold text-[#B08A3B]">{stick.deity}</span>
+            <p className="text-[13px] font-bold text-[#B08A3B]">ใบที่ {card.no}</p>
+            <p className="text-[26px] font-black leading-tight text-v3-navy" data-testid="sage-name">{card.name}</p>
+            {card.deity ? <p className="text-[14px] font-bold text-[#8A6D2F]">{card.deity}</p> : null}
+            {card.category ? <span data-testid="sage-category" className={"mt-1 rounded-full px-3 py-1 text-[11px] font-bold " + (CAT_STYLE[card.category] ?? "bg-white text-[#B08A3B]")}>หมวด{card.category}</span> : null}
+            {card.keywords ? <p className="mt-1 text-[12px] leading-5 text-v3-text-body">{card.keywords}</p> : null}
           </section>
 
-          {/* คำตอบ LLM ที่เกลาให้ตรงคำถามของผู้ถาม (บนสุด) — 6 section ด้านล่างเป็นเนื้อใบตายตัว */}
-          {tailored?.trim() && (
-            <section className="flex flex-col gap-1 rounded-[24px] bg-[#EAF3FF] p-5" data-testid="sage-tailored">
-              <span className="w-fit text-[13px] font-black text-v3-sapphire">คำตอบสำหรับคำถามของคุณ</span>
-              {/* ทวนคำถาม (เอ็ม 2026-09-23) */}
-              {question.trim() ? <p className="text-[12px] font-semibold leading-5 text-v3-sapphire">คำถามของคุณ: {question.trim()}</p> : null}
-              <p className="text-[13px] leading-[22px] text-v3-text-body">{tailored.trim()}</p>
-            </section>
-          )}
-
-          <DotSection label="นิสัยและพฤติกรรม" dot="#3B82F6">{stick.personality}</DotSection>
-          {SECTIONS.map((s) => (
+          {SECTIONS.map((s) => (card[s.key] ? (
             <DotSection key={s.key} label={s.label} dot={s.dot}>
-              {s.key === "love" && love ? (
-                <>
-                  <div className="mb-2 inline-flex rounded-full bg-[#F6ECF0] p-0.5">
-                    <button onClick={() => setLoveGender("female")} className={"rounded-full px-4 py-1 text-[12px] font-bold " + (loveGender === "female" ? "bg-white text-v3-navy shadow-sm" : "text-v3-text-muted")}>สำหรับผู้หญิง</button>
-                    <button onClick={() => setLoveGender("male")} className={"rounded-full px-4 py-1 text-[12px] font-bold " + (loveGender === "male" ? "bg-white text-v3-navy shadow-sm" : "text-v3-text-muted")}>สำหรับผู้ชาย</button>
-                  </div>
-                  <p className="text-[13px] leading-[22px] text-v3-text-body">{loveGender === "female" ? love.female : love.male}</p>
-                </>
-              ) : (
-                <p className="text-[13px] leading-[22px] text-v3-text-body">{stick.topics[s.key]}</p>
-              )}
+              <p className="text-[13px] leading-[22px] text-v3-text-body">{card[s.key]}</p>
               {s.key === "health" ? (
                 <p className="mt-2 rounded-[10px] bg-[#FDECEC] px-3 py-2 text-[11px] leading-4 text-[#A83238]">ข้อมูลเพื่อการพยากรณ์ ไม่ใช่คำวินิจฉัยทางการแพทย์ หากมีอาการควรพบแพทย์</p>
               ) : null}
             </DotSection>
-          ))}
+          ) : null))}
+          {card.loveCouple || card.loveSingle ? (
+            <DotSection label="ความรัก" dot="#F472B6">
+              <div className="mb-2 inline-flex w-fit rounded-full bg-[#F6ECF0] p-0.5">
+                <button onClick={() => setLoveMode("couple")} className={"rounded-full px-4 py-1 text-[12px] font-bold " + (loveMode === "couple" ? "bg-white text-v3-navy shadow-sm" : "text-v3-text-muted")}>มีคู่</button>
+                <button onClick={() => setLoveMode("single")} className={"rounded-full px-4 py-1 text-[12px] font-bold " + (loveMode === "single" ? "bg-white text-v3-navy shadow-sm" : "text-v3-text-muted")}>โสด</button>
+              </div>
+              <p className="text-[13px] leading-[22px] text-v3-text-body">{love}</p>
+            </DotSection>
+          ) : null}
+          {card.advice ? <DotSection label="คำแนะนำ" dot="#C9A24A"><p className="text-[13px] leading-[22px] text-v3-text-body">{card.advice}</p></DotSection> : null}
 
           <div className="mt-1 flex flex-col gap-2">
             <KitButton onClick={share} testId="sage-share">
@@ -300,7 +259,7 @@ export default function FortuneSagePage() {
                 {shareState === "done" ? "รับ +10 QI แล้ว 🎉" : shareState === "capped" ? "วันนี้รับ +10 QI ไปแล้ว" : "แชร์ผลนี้ รับ +10 QI"}
               </span>
             </KitButton>
-            <button onClick={() => { setStick(null); setTailored(null); setPhase("intro") }} data-testid="sage-again" className="grid h-12 w-full place-items-center rounded-full border border-v3-border-card bg-white text-[15px] font-bold text-v3-navy">
+            <button onClick={() => { setCard(null); setPhase("intro") }} data-testid="sage-again" className="grid h-12 w-full place-items-center rounded-full border border-v3-border-card bg-white text-[15px] font-bold text-v3-navy">
               เสี่ยงอีกครั้ง · 10 QI
             </button>
           </div>
@@ -308,16 +267,15 @@ export default function FortuneSagePage() {
         </div>
       )}
 
-      {/* #6: การ์ดแชร์เฉพาะบุคคล (ซ่อนนอกจอ) */}
-      {stick ? (
+      {card ? (
         <ShareStage>
           <ShareCard
             ref={shareCardRef}
             tag="เซียมซี"
-            title={`เซียมซีใบที่ ${stick.no}`}
-            subtitle={`${stick.pillar} · ${stick.nayin}`}
-            summary={stick.personality?.trim() || "เสี่ยงเซียมซีเสริมดวงกับ Mumate"}
-            images={[`/images/v2/fortune/cards/sage/${stick.no}.jpg`]}
+            title={`เซียมซีใบที่ ${card.no}`}
+            subtitle={card.name}
+            summary={card.overall?.trim() || "เสี่ยงเซียมซีโป๊ยเซียนกับ Mumate"}
+            images={card.imageUrl ? [card.imageUrl] : []}
           />
         </ShareStage>
       ) : null}
