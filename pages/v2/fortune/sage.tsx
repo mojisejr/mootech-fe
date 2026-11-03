@@ -201,7 +201,7 @@ export default function FortuneSagePage() {
       )}
 
       {phase === "result" && card && (
-        <div className="mt-3 flex flex-col gap-3" data-testid="sage-result">
+        <div className="siamsi-result-in mt-3 flex flex-col gap-3" data-testid="sage-result">
           {card.imageUrl ? (
             <span className="block w-full overflow-hidden rounded-[24px] bg-[#F3F4FB]" data-testid="sage-slip">
               {/* eslint-disable-next-line @next/next/no-img-element */}
