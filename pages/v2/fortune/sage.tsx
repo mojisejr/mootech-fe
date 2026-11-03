@@ -75,8 +75,6 @@ export default function FortuneSagePage() {
   const [loveMode, setLoveMode] = useState<"couple" | "single">("couple")
   // ที่มาของการเปิดครั้งนี้ (จาก engine): free=ฟรีวันนี้ · qi=หัก N QI · credit=ใช้เครดิต
   const [qiInfo, setQiInfo] = useState<{ source: "free" | "credit" | "qi"; cost: number } | null>(null)
-  // คำถามไม่บังคับ — เซียมซีโป๊ยเซียนเปิดตามไฟล์ ไม่ใช้ AI ตอบ (เก็บไว้ทวนตอนแชร์)
-  const [question, setQuestion] = useState("")
 
   const [redeeming, setRedeeming] = useState(false)
   const [redeemMsg, setRedeemMsg] = useState<string | null>(null)
@@ -103,7 +101,7 @@ export default function FortuneSagePage() {
     setQuotaOut(false)
     const started = Date.now()
     try {
-      const res = await fetch("/api/fortune/sage", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ question: question.trim() }) })
+      const res = await fetch("/api/fortune/sage", { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" })
       const j = (await res.json().catch(() => ({}))) as { card?: SiamsiCard; qi?: { source: "free" | "credit" | "qi"; cost: number } | null; error?: { message?: string } }
       // เขย่าแล้วออกเลย — แค่จังหวะไม้เซียมซีหล่นสั้น ๆ
       await new Promise((r) => setTimeout(r, Math.max(0, 900 - (Date.now() - started))))
@@ -139,9 +137,7 @@ export default function FortuneSagePage() {
     }
     const summary = (card?.overall ?? "").replace(/\s+/g, " ").trim().slice(0, 120)
     const text = card ? `เสี่ยงเซียมซีโป๊ยเซียนได้ใบที่ ${card.no} ${card.name}${summary ? ` - ${summary}` : ""} — เสี่ยงทายกับ Mumate` : "เสี่ยงทายกับ Mumate"
-    const q = question.trim()
-    const full = card?.overall ?? ""
-    const ogSummary = q ? `คำถาม: ${q}\n\n${full}` : full
+    const ogSummary = card?.overall ?? ""
     void shareAsInvite({
       title: "เซียมซีโป๊ยเซียน",
       text,
@@ -182,15 +178,6 @@ export default function FortuneSagePage() {
               <AuthRequiredCard testId="sage-auth-gate" message="เข้าสู่ระบบก่อนเพื่อเสี่ยงทายเซียมซี" />
             ) : (
               <>
-                <textarea
-                  data-testid="sage-question"
-                  value={question}
-                  onChange={(e) => setQuestion(e.target.value)}
-                  maxLength={200}
-                  rows={2}
-                  placeholder="คำถามในใจ (ไม่บังคับ) เช่น เดือนนี้การเงินเป็นอย่างไร"
-                  className="w-full resize-none rounded-2xl border border-v3-border-card bg-white px-4 py-3 text-[13px] leading-5 text-v3-navy outline-none placeholder:text-v3-text-muted focus:border-v3-sapphire"
-                />
                 {shake.supported ? (
                   shake.granted ? (
                     <p data-testid="sage-shake-hint" className="text-center text-[13px] font-bold text-v3-sapphire">📳 เขย่ามือถือเพื่อเสี่ยงเซียมซีได้เลย</p>
