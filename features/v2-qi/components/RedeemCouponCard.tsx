@@ -2,6 +2,13 @@
 // user กรอกโค้ด → /api/coupon-redeem → engine มอบรางวัล (QI/เครดิตแชท·เปิดไพ่/tier). กันรับซ้ำ 1 คูปอง/บัญชี (ฝั่ง engine).
 import { useState } from "react"
 
+function errorText(status: number): string {
+  if (status === 401 || status === 404) return "ยังไม่ได้เข้าสู่ระบบ หรือเซสชันหมดอายุ — ออกจากระบบแล้วเข้าใหม่ แล้วลองอีกครั้ง (รหัส " + status + ")"
+  if (status === 409) return "บัญชีไม่ตรงกัน โปรดออกจากระบบแล้วเข้าสู่ระบบใหม่ (รหัส 409)"
+  if (status === 429) return "ลองบ่อยเกินไป รอสักครู่แล้วลองใหม่ (รหัส 429)"
+  return "ระบบขัดข้อง ลองใหม่อีกครั้ง หรือแจ้งแอดมินพร้อมรหัส " + status
+}
+
 export function RedeemCouponCard({ onRedeemed }: { onRedeemed?: () => void }) {
   const [code, setCode] = useState("")
   const [busy, setBusy] = useState(false)
@@ -14,13 +21,14 @@ export function RedeemCouponCard({ onRedeemed }: { onRedeemed?: () => void }) {
     setMsg(null)
     try {
       const r = await fetch("/api/coupon-redeem", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ code: c }) })
-      const d = (await r.json().catch(() => ({}))) as { ok?: boolean; reward?: string; message?: string; reason?: string }
+      const d = (await r.json().catch(() => ({}))) as { ok?: boolean; reward?: string; message?: string; reason?: string; error?: string }
       if (r.ok && d.ok) {
         setMsg({ ok: true, text: `รับ ${d.reward} เรียบร้อย!` })
         setCode("")
         onRedeemed?.()
       } else {
-        setMsg({ ok: false, text: d.message ?? d.reason ?? "ใช้โค้ดไม่สำเร็จ" })
+        // เดิมทุก error ที่ไม่ใช่เหตุผลคูปอง (ยังไม่ล็อกอิน/session หลุด/ระบบล่ม) โชว์ "ใช้โค้ดไม่สำเร็จ" เหมือนกันหมด → แอดมินไล่ไม่ได้
+        setMsg({ ok: false, text: d.message ?? (d.reason === "identity" ? d.error : null) ?? errorText(r.status) })
       }
     } catch {
       setMsg({ ok: false, text: "เชื่อมต่อไม่ได้ ลองใหม่อีกครั้ง" })
