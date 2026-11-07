@@ -67,7 +67,11 @@ export default async function handler(req: Request): Promise<Response> {
   // มีสกิล → คำโปรยสั้น (มีที่วางแถบ); ไม่มีสกิล → ยาวได้ (คำทำนายเต็มขึ้น ลดการตัด)
   const summary = breakable(clamp(searchParams.get("d") || "ดูดวงจีนเฉพาะคุณกับ Mumate", skills.length ? 110 : 340))
   // m = รูป (มาสคอต 1 รูป หรือไพ่หลายใบคั่นด้วย ",") — resolve relative → absolute, เก็บสูงสุด 3
-  const resolveImg = (s: string) => (s.startsWith("http") ? s : `${origin}${s.startsWith("/") ? "" : "/"}${s}`)
+  // Satori อ่าน .webp ไม่ได้ (รูปหายเงียบ ๆ — การ์ดเซียมซี/ไพ่เทพบน Supabase เป็น webp ทั้งหมด) → ผ่าน Supabase image
+  // render endpoint ซึ่งคืน JPEG ให้ client ที่ไม่ประกาศรับ webp
+  const toRaster = (u: string) =>
+    /\/storage\/v1\/object\/public\/.+\.webp(\?|$)/i.test(u) ? u.replace("/storage/v1/object/public/", "/storage/v1/render/image/public/").replace(/\?.*$/, "") + "?width=640" : u
+  const resolveImg = (s: string) => toRaster(s.startsWith("http") ? s : `${origin}${s.startsWith("/") ? "" : "/"}${s}`)
   const imgs = (searchParams.get("m") || "")
     .split(",")
     .map((s) => s.trim())
