@@ -1,7 +1,7 @@
 // features/v2-home/components/PromoCarousel.tsx — แถบโปรโมชันในหน้าหลัก (ใต้การ์ดมานิเฟส) เอ็ม 2026-09-23.
 // โปรฯ ที่ไม่ใช่เช็กอิน (คู่มือ/ซินแส/พระพิฆเนศ/คอร์สปฏิทิน). แสดง "เต็มรูป" ไม่ตัดขอบ (h-auto) + ปัดเลื่อนได้
 // (transform translateX + touch handlers — เชื่อถือได้กว่า native scroll-snap ที่ปุ่มบังการปัด) + auto ~4.5 วิ.
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
 import Image from 'next/image'
 import { useRouter } from 'next/router'
 import { openInExternalBrowser } from '@/lib/browser/open-external'
@@ -14,13 +14,25 @@ const PROMOS: { key: string; src: string; href: string; alt: string }[] = [
   { key: 'calendar-course', src: '/images/v2/popup/calendar-course.png', href: '/course/calendar', alt: 'คอร์สปฏิทิน เรียนฟรี วิธีอ่านปฏิทิน Mumate' },
 ]
 
-export function PromoCarousel() {
+// lead = สไลด์ที่เป็นคอมโพเนนต์ (มานิเฟส/ซินแส — gafiw 2026-11-09) วางก่อนรูปโปรฯ. สูงไม่เท่ากัน → กล่องสูงตามสไลด์ที่โชว์อยู่
+export function PromoCarousel({ lead = [] }: { lead?: { key: string; node: ReactNode }[] } = {}) {
   const router = useRouter()
   const [idx, setIdx] = useState(0)
   const startX = useRef<number | null>(null)
   const moved = useRef(false) // กันปัดแล้วเผลอเปิดลิงก์ (ถือว่าเป็นปัดถ้าเลื่อนเกิน 10px)
   const paused = useRef(false)
-  const n = PROMOS.length
+  const n = lead.length + PROMOS.length
+  const slideRefs = useRef<(HTMLElement | null)[]>([])
+  const [h, setH] = useState<number | undefined>(undefined)
+  useEffect(() => {
+    const el = slideRefs.current[idx]
+    if (!el) return
+    const measure = () => setH(el.offsetHeight)
+    measure()
+    const ro = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(measure) : null
+    ro?.observe(el)
+    return () => ro?.disconnect()
+  }, [idx])
 
   useEffect(() => {
     if (n <= 1) return
@@ -50,10 +62,16 @@ export function PromoCarousel() {
 
   return (
     <section className="mb-6 mt-1" aria-label="โปรโมชัน" data-testid="promo-carousel">
-      <div className="overflow-hidden rounded-[20px] shadow-sm" onTouchStart={onTouchStart} onTouchMove={onTouchMove} onTouchEnd={onTouchEnd}>
-        <div className="flex transition-transform duration-300 ease-out" style={{ transform: `translateX(-${idx * 100}%)` }}>
-          {PROMOS.map((p) => (
-            <button key={p.key} type="button" onClick={() => go(p.href)} aria-label={p.alt} className="w-full flex-none">
+      <div className="overflow-hidden rounded-[20px] shadow-sm transition-[height] duration-300 ease-out" style={{ height: h }} onTouchStart={onTouchStart} onTouchMove={onTouchMove} onTouchEnd={onTouchEnd}>
+        <div className="flex items-start transition-transform duration-300 ease-out" style={{ transform: `translateX(-${idx * 100}%)` }}>
+          {lead.map((l, i) => (
+            // คอมโพเนนต์มีลิงก์/ปุ่มของตัวเอง → ห่อด้วย div (ห้ามปุ่มซ้อนปุ่ม); ปัดแล้วกันคลิกด้วย capture
+            <div key={l.key} ref={(el) => { slideRefs.current[i] = el }} className="w-full flex-none" onClickCapture={(e) => { if (moved.current) { e.preventDefault(); e.stopPropagation() } }}>
+              {l.node}
+            </div>
+          ))}
+          {PROMOS.map((p, i) => (
+            <button key={p.key} ref={(el) => { slideRefs.current[lead.length + i] = el }} type="button" onClick={() => go(p.href)} aria-label={p.alt} className="w-full flex-none">
               {/* เต็มรูป ไม่ตัดขอบ (h-auto ตามสัดส่วนจริง) */}
               <Image src={p.src} alt={p.alt} width={1000} height={1300} sizes="(max-width:480px) 100vw, 448px" className="h-auto w-full" />
             </button>
@@ -62,8 +80,8 @@ export function PromoCarousel() {
       </div>
       {n > 1 && (
         <div className="mt-2 flex justify-center gap-1.5">
-          {PROMOS.map((p, i) => (
-            <button key={p.key} type="button" onClick={() => setIdx(i)} aria-label={`โปรฯ ${i + 1}`}
+          {[...lead.map((l) => l.key), ...PROMOS.map((p) => p.key)].map((key, i) => (
+            <button key={key} type="button" onClick={() => setIdx(i)} aria-label={`โปรฯ ${i + 1}`}
               className={'h-2 rounded-full transition-all ' + (i === idx ? 'w-5 bg-v3-sapphire' : 'w-2 bg-v3-sapphire/30')} />
           ))}
         </div>
