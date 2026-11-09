@@ -11,7 +11,6 @@ import Link from 'next/link'
 import { useRouter } from 'next/router'
 import { formatThaiLongDate } from '@/utils/formate-date-thai'
 import { HabitCard } from './sections/HabitCard'
-import { PajeuSection } from './sections/PajeuSection'
 import { Reveal } from '@/features/v2-shell/components/Reveal'
 import { SinseSection } from './sections/SinseSection'
 import { CalendarMenu } from './CalendarMenu'
@@ -134,14 +133,16 @@ export function V2HomeScreen({ greeting, mascotCharacter, fortune, fortuneLoadin
         <ScoreRingCard fortune={fortune} loading={fortuneLoading} />
         {/* เส้นทางมือใหม่ — ไกด์สอนเล่นแบบเกม (เอ็ม 2026-10-13) */}
         <GuideCard />
-        <ManifestCard mascotCharacter={mascotCharacter} element={element} loading={loading.mascot} />
-        {/* แถบโปรโมชัน (carousel) — ใต้มานิเฟส ก่อนดวงสมพงศ์ (เอ็ม 2026-09-23) */}
-        <PromoCarousel />
+        {/* gafiw 2026-11-09: มานิเฟส + ดูดวงส่วนตัวกับซินแส + แบนเนอร์โปรฯ รวมเป็นแบนเนอร์เลื่อนอันเดียว
+            · ซ่อนโหมดเซียน + เรียนอ่านดวง (ไว้ก่อน) → หน้าแรกจบที่ดวงสมพงศ์ */}
+        <PromoCarousel
+          lead={[
+            { key: 'manifest', node: <ManifestCard mascotCharacter={mascotCharacter} element={element} loading={loading.mascot} /> },
+            { key: 'sinse-card', node: <SinseSection inset /> },
+          ]}
+        />
         {/* ฟีม สไลด์ 13: โซนล่างเลื่อนขึ้นเข้ามาตอนสกรอลล์ถึง (Reveal = IO + CSS, reduced-motion → นิ่ง) */}
         <Reveal><SomphongSection /></Reveal>
-        <Reveal><SianSection /></Reveal>
-        <Reveal><SinseSection /></Reveal>
-        <Reveal><PajeuSection /></Reveal>
       </div>
 
       <CalendarMenu state="default" />
@@ -379,7 +380,7 @@ function ManifestCard({ mascotCharacter, element, loading }: { mascotCharacter: 
   return (
     // overflow-hidden clips the overflowing mascot (intended). The mascot scales with the card (w-[48%]) so
     // the left lane stays proportional at 393/360/320 (a fixed 187px mascot cramped the title to 4 lines @320).
-    <section className="relative mb-8 overflow-hidden rounded-[24px] py-6 pl-6 pr-5" style={{ background: `linear-gradient(to right, ${g.from}, ${g.to})` }}>
+    <section className="relative h-full overflow-hidden rounded-[24px] py-6 pl-6 pr-5" style={{ background: `linear-gradient(to right, ${g.from}, ${g.to})` }}>
       {/* content — z ABOVE the mascot/coin so the button is always readable + clickable (ฟีม, all 60 mascots) */}
       <div className="relative z-10 flex flex-col items-start gap-3">
         {/* title wraps in the LEFT lane (max-w keeps it off the mascot) */}
@@ -528,6 +529,7 @@ const SIAN_CARDS: { icon: string; lines: string[]; serviceId: ServiceId }[] = [
   { icon: 'sian', lines: ['เซียมซีโป๊ยเซียน', '(NEW)'], serviceId: 'sian' },
 ]
 
+// ซ่อนไว้ก่อน (gafiw 2026-11-09) — เปิดคืนโดยใส่ <Reveal><SianSection /></Reveal> ใต้ดวงสมพงศ์
 function SianSection() {
   return (
     // Figma 333:6885: bg WHITE, full-bleed, px-16 py-32, gap 8 — flush against ดวงสมพงศ์ above and ซินแส below.
