@@ -15,6 +15,9 @@ import { render, screen, cleanup, waitFor, fireEvent } from "@testing-library/re
 import { CookiesProvider } from "react-cookie"
 
 vi.mock("next/config", () => ({ default: () => ({ publicRuntimeConfig: {}, serverRuntimeConfig: {} }) }))
+// tier: ค่าเริ่มต้น = สมาชิก (ไม่ล็อก); เคสฟรีตั้ง tierState.isPaid = false
+const tierState: { isPaid: boolean | null } = { isPaid: true }
+vi.mock("@/features/auth/hooks/useV2Tier", () => ({ useV2Tier: () => ({ tier: tierState.isPaid ? "PRO" : null, isPaid: tierState.isPaid, loading: false }) }))
 vi.mock("next/router", () => ({ useRouter: () => ({ push: vi.fn(), replace: vi.fn(), query: {}, isReady: true }) }))
 
 // recharts' ResponsiveContainer (LifePathChart) needs ResizeObserver — jsdom has none. Polyfill it.
@@ -86,7 +89,26 @@ describe("DestinyScreen (ดวงฉัน, node 55349-3070)", () => {
     // fetch benignly so no real/undefined fetch hangs (that was an intermittent 15s timeout under load).
     vi.stubGlobal("fetch", vi.fn(async () => new Response("{}", { status: 200, headers: { "Content-Type": "application/json" } })) as unknown as typeof fetch)
   })
-  afterEach(() => { cleanup(); vi.unstubAllGlobals() })
+  afterEach(() => { cleanup(); vi.unstubAllGlobals(); tierState.isPaid = true })
+
+  it("ฟรี: ล็อกความรัก/การงาน/อาชีพ/ข้อควรระวัง + Life Path เหลือ 1 เดือน (gafiw 2026-11-10)", async () => {
+    tierState.isPaid = false
+    await mountScreen()
+    expect(screen.getByTestId("destiny-prediction-lock")).toBeTruthy()
+    const tabs = screen.queryByTestId("destiny-lifepath-tabs")
+    if (tabs) {
+      const locked = tabs.querySelectorAll('[data-locked="true"]')
+      expect(locked.length).toBe(3)
+      fireEvent.click(locked[0] as HTMLElement)
+      expect(screen.getByTestId("destiny-upsell-modal")).toBeTruthy()
+    }
+  })
+
+  it("สมาชิก: ไม่มีล็อก", async () => {
+    await mountScreen()
+    expect(screen.queryByTestId("destiny-prediction-lock")).toBeNull()
+    expect(document.querySelectorAll('[data-locked="true"]').length).toBe(0)
+  })
 
   it("hero: มาสคอต + ชื่อธาตุ + ปุ่มแชร์ +10 QI + Mate AI (D1)", async () => {
     await mountScreen()

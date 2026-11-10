@@ -22,6 +22,9 @@ import {
   XAxis,
   YAxis,
 } from "recharts"
+import { useV2Tier } from "@/features/auth/hooks/useV2Tier"
+import { MemberLock, DestinyUpsellModal } from "@/features/v2-shell/components/MemberLock"
+
 import { MateAIButton } from "@/features/v2-shell/components/MateAIButton"
 import { TopBarBell } from "@/features/v2-shell/components/TopBarBell"
 import { TopBarAvatar } from "@/features/v2-shell/components/TopBarAvatar"
@@ -480,10 +483,13 @@ const LIFE_PATH_PHASES: Record<string, string> = {
   "สูญสิ้น": "ช่วงจบรอบเก่า สิ่งเดิมสิ้นสุดลงเพื่อเตรียมเริ่มรอบใหม่",
 }
 
-function LifePathCard({ lifePath }: { lifePath: LifePath }) {
+function LifePathCard({ lifePath, locked = false }: { lifePath: LifePath; locked?: boolean }) {
   const [open, setOpen] = useState(true)
   const [infoOpen, setInfoOpen] = useState(false)
-  const [tab, setTab] = useState<LifePathTab>("all")
+  const [upsell, setUpsell] = useState(false)
+  // ฟรีดูได้แค่ 1 เดือน (gafiw 2026-11-10) — ทั้งหมด/5 ปี/1 ปี ล็อก กดแล้วขึ้นป็อปอัปจ่ายเงิน
+  const [pickedTab, setTab] = useState<LifePathTab>("all")
+  const tab: LifePathTab = locked ? "1m" : pickedTab
   const points = lifePath.series?.[tab] ?? []
   const current = points.find((p) => p.isCurrent)
   return (
@@ -533,15 +539,17 @@ function LifePathCard({ lifePath }: { lifePath: LifePath }) {
             {LIFEPATH_TABS.map((t) => (
               <button
                 key={t.k}
-                onClick={() => setTab(t.k)}
+                onClick={() => (locked && t.k !== "1m" ? setUpsell(true) : setTab(t.k))}
+                data-locked={locked && t.k !== "1m" ? "true" : undefined}
                 className={`flex-1 rounded-full py-2 text-[14px] font-semibold ${
                   tab === t.k ? "border border-[#e6e1dd] bg-[#e1ff00] text-v3-navy" : "text-v3-navy/80"
                 }`}
               >
-                {t.label}
+                {locked && t.k !== "1m" ? "🔒 " : ""}{t.label}
               </button>
             ))}
           </div>
+          {upsell && <DestinyUpsellModal onClose={() => setUpsell(false)} />}
 
           <div className="mt-4">
             {points.length > 1 ? (
@@ -660,7 +668,7 @@ function SectionHeader({
 // engine ส่งคำทำนายมาพร้อม markdown ดิบ (**bold**) — จอนี้เป็น plain text จึงต้องถอดออก ไม่งั้นเห็น "**...**"
 // การ์ด "ทำนายพื้นฐาน" (collapsible): บุคลิก/นิสัย/ความรัก/การเรียน + อาชีพเด่น + ข้อควรระวัง
 type CorePersona = NonNullable<NonNullable<DestinyData["calculatedState"]>["sixtyJiaziCorePersona"]>
-function PredictionCard({ summary, prediction, cautions, occupations, corePersona, dayMasterNarrative }: { summary: ElementSummary; prediction?: Prediction | null; cautions?: string[] | null; occupations?: string[]; corePersona?: CorePersona | null; dayMasterNarrative?: string | null }) {
+function PredictionCard({ summary, prediction, cautions, occupations, corePersona, dayMasterNarrative, locked = false }: { locked?: boolean; summary: ElementSummary; prediction?: Prediction | null; cautions?: string[] | null; occupations?: string[]; corePersona?: CorePersona | null; dayMasterNarrative?: string | null }) {
   const [open, setOpen] = useState(true)
   // ใช้คำทำนายจริงจาก engine (newdata-reading chapters); ถ้าไม่มี → fallback element-summary
   const adviceText = (i: number): string => {
@@ -711,6 +719,8 @@ function PredictionCard({ summary, prediction, cautions, occupations, corePerson
               ))}
             </div>
           </div>
+          <MemberLock locked={locked} testId="destiny-prediction-lock">
+          <div className="flex flex-col gap-4">
           {blocks.map((b) => (
             <div key={b.title} className="rounded-[20px] bg-[#ecf0fd] p-[18px]">
               <p className="text-[18px] font-bold leading-6 text-v3-navy">{b.title}</p>
@@ -736,6 +746,8 @@ function PredictionCard({ summary, prediction, cautions, occupations, corePerson
               ))}
             </ul>
           </div>
+          </div>
+          </MemberLock>
         </div>
       )}
     </section>
@@ -809,6 +821,9 @@ function MoreReadingsCard() {
 // โดยไม่แตะ fetch/guard เพื่อ iterate เทียบ Figma โดยไม่ต้องล็อกอิน
 export function DestinyScreen({ previewData }: { previewData?: DestinyData } = {}) {
   const [data, setData] = useState<DestinyData | null>(previewData ?? null)
+  // บัญชีฟรี → ล็อกความรัก/การงาน/อาชีพ/ข้อควรระวัง/วันดีเดือนนี้/Life Path (ยกเว้น 1 เดือน). isPaid null (กำลังโหลด) = ไม่ล็อก กันสมาชิกเห็นแฟลช
+  const { isPaid } = useV2Tier()
+  const locked = isPaid === false
   const [loading, setLoading] = useState(!previewData)
   const [guard, setGuard] = useState<"not_authenticated" | "profile_incomplete" | null>(null)
   const [showDomains, setShowDomains] = useState(false)
@@ -1290,6 +1305,7 @@ export function DestinyScreen({ previewData }: { previewData?: DestinyData } = {
                 occupations={ELEMENT_CAREERS[careerDoElement] ?? []}
                 corePersona={data?.calculatedState?.sixtyJiaziCorePersona ?? null}
                 dayMasterNarrative={data?.calculatedState?.dayMasterStrengthProfile?.narrative ?? null}
+                locked={locked}
               />
             )}
 
@@ -1307,6 +1323,7 @@ export function DestinyScreen({ previewData }: { previewData?: DestinyData } = {
                 : []
               if (upcoming.length === 0) return null
               return (
+                <MemberLock locked={locked} testId="destiny-good-days-lock">
                 <section className="rounded-[20px] bg-white p-4 shadow-sm" data-testid="destiny-good-days">
                   <h3 className="text-[15px] font-bold text-v3-navy">วันดีเดือนนี้</h3>
                   <p className="mt-0.5 text-[11px] text-v3-text-note">วันที่ดวงคุณส่งเสริมที่สุดในเดือนนี้</p>
@@ -1323,11 +1340,12 @@ export function DestinyScreen({ previewData }: { previewData?: DestinyData } = {
                     ))}
                   </div>
                 </section>
+                </MemberLock>
               )
             })()}
 
             {/* เส้นทางชีวิต (Life Path) — recharts + แท็บ ทั้งหมด/5ปี/1ปี/1เดือน (Figma 55349:3332) */}
-            {lifePath && lifePath.series && <LifePathCard lifePath={lifePath} />}
+            {lifePath && lifePath.series && <LifePathCard lifePath={lifePath} locked={locked} />}
 
             {/* แถบวัยจร (大运) + ปีจร (流年) — แบบ engine (แตกครึ่งก้าน/กิ่ง + qi) เอ็ม 2026-09-21 */}
             {data?.lifeTimeline && <LuckStrips tl={data.lifeTimeline} daYun={data?.calculatedState?.daYun} />}
