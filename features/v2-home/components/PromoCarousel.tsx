@@ -6,12 +6,13 @@ import Image from 'next/image'
 import { useRouter } from 'next/router'
 import { openInExternalBrowser } from '@/lib/browser/open-external'
 
+// แบนเนอร์แนวนอนชุดใหม่ 1430×500 (gafiw 2026-11-10, Drive 1ogN2kRin1_sLr_x-WaMHwRPArnFpCcbt)
 const PROMOS: { key: string; src: string; href: string; alt: string }[] = [
-  { key: 'book', src: '/images/v2/popup/book.png', href: '/v2/service/one-book', alt: 'เรียน & ดูดวงจีน ได้ไฟล์คู่มือดวงส่วนตัว' },
-  { key: 'sinsae', src: '/images/v2/popup/sinsae.png', href: '/v2/service/sinsae', alt: 'ดูดวงกับซินแส ประสบการณ์ 20 ปี' },
-  { key: 'ganesha', src: '/images/v2/popup/ganesha.png', href: 'https://www.facebook.com/Mumate.co/posts/pfbid0VhDkDaXmN9DFEqgJC6sPe1DuPNYhooa26sMkDEGo75FiXU2iZ6mkbcU6JC4ZLSYQl', alt: 'องค์พ่อพระพิฆเนศ รุ่นความสุข & ความสำเร็จ' },
-  // TODO(เอ็ม): URL คอร์สปฏิทิน (ลิงก์ภายนอก) — ชั่วคราวไปหน้าปฏิทิน
-  { key: 'calendar-course', src: '/images/v2/popup/calendar-course.png', href: '/course/calendar', alt: 'คอร์สปฏิทิน เรียนฟรี วิธีอ่านปฏิทิน Mumate' },
+  { key: 'calendar-course', src: '/images/v2/banner/calendar-course.webp', href: '/course/calendar', alt: 'คอร์สปฏิทิน เรียนฟรี วิธีอ่านปฏิทิน Mumate' },
+  { key: 'book', src: '/images/v2/banner/book.webp', href: '/v2/service/one-book', alt: 'เรียน & ดูดวงจีน ได้ไฟล์คู่มือดวงส่วนตัว' },
+  { key: 'sinsae', src: '/images/v2/banner/sinsae.webp', href: '/v2/service/sinsae', alt: 'ดูดวงกับซินแส ประสบการณ์ 20 ปี' },
+  { key: 'checkin', src: '/images/v2/banner/checkin.webp', href: '/v2/qi/checkin', alt: 'เช็กอินทุกวัน รับ Qi ฟรี ครบ 7 วัน รับ Qi +30' },
+  { key: 'ganesha', src: '/images/v2/banner/ganesha.webp', href: 'https://www.facebook.com/Mumate.co/posts/pfbid0VhDkDaXmN9DFEqgJC6sPe1DuPNYhooa26sMkDEGo75FiXU2iZ6mkbcU6JC4ZLSYQl', alt: 'องค์พ่อพระพิฆเนศ รุ่นแห่งความสุข & ความสำเร็จ' },
 ]
 
 // lead = สไลด์ที่เป็นคอมโพเนนต์ (มานิเฟส/ซินแส — gafiw 2026-11-09) วางก่อนรูปโปรฯ. สูงไม่เท่ากัน → กล่องสูงตามสไลด์ที่โชว์อยู่
@@ -73,7 +74,7 @@ export function PromoCarousel({ lead = [] }: { lead?: { key: string; node: React
           {PROMOS.map((p, i) => (
             <button key={p.key} ref={(el) => { slideRefs.current[lead.length + i] = el }} type="button" onClick={() => go(p.href)} aria-label={p.alt} className="w-full flex-none">
               {/* เต็มรูป ไม่ตัดขอบ (h-auto ตามสัดส่วนจริง) */}
-              <Image src={p.src} alt={p.alt} width={1000} height={1300} sizes="(max-width:480px) 100vw, 448px" className="h-auto w-full" />
+              <Image src={p.src} alt={p.alt} width={1430} height={500} sizes="(max-width:480px) 100vw, 448px" className="h-auto w-full" />
             </button>
           ))}
         </div>

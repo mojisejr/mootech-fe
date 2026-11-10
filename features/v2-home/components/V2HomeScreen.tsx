@@ -12,7 +12,6 @@ import { useRouter } from 'next/router'
 import { formatThaiLongDate } from '@/utils/formate-date-thai'
 import { HabitCard } from './sections/HabitCard'
 import { Reveal } from '@/features/v2-shell/components/Reveal'
-import { SinseSection } from './sections/SinseSection'
 import { CalendarMenu } from './CalendarMenu'
 import { hrefById, type ServiceId } from '@/features/v2-service/services'
 import { GuideCard } from '@/features/v2-guide/GuideCard'
@@ -133,12 +132,11 @@ export function V2HomeScreen({ greeting, mascotCharacter, fortune, fortuneLoadin
         <ScoreRingCard fortune={fortune} loading={fortuneLoading} />
         {/* เส้นทางมือใหม่ — ไกด์สอนเล่นแบบเกม (เอ็ม 2026-10-13) */}
         <GuideCard />
-        {/* gafiw 2026-11-09: มานิเฟส + ดูดวงส่วนตัวกับซินแส + แบนเนอร์โปรฯ รวมเป็นแบนเนอร์เลื่อนอันเดียว
+        {/* gafiw 2026-11-09: มานิเฟส + แบนเนอร์โปรฯ (ซินแสอยู่ในแบนเนอร์ชุดใหม่แล้ว) รวมเป็นแบนเนอร์เลื่อนอันเดียว
             · ซ่อนโหมดเซียน + เรียนอ่านดวง (ไว้ก่อน) → หน้าแรกจบที่ดวงสมพงศ์ */}
         <PromoCarousel
           lead={[
             { key: 'manifest', node: <ManifestCard mascotCharacter={mascotCharacter} element={element} loading={loading.mascot} /> },
-            { key: 'sinse-card', node: <SinseSection inset /> },
           ]}
         />
         {/* ฟีม สไลด์ 13: โซนล่างเลื่อนขึ้นเข้ามาตอนสกรอลล์ถึง (Reveal = IO + CSS, reduced-motion → นิ่ง) */}
