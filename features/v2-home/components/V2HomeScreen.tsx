@@ -423,8 +423,9 @@ const COLLEAGUE_LIFT = [10, 5, 0, 0, 0, 5, 10] // px: raise outer mascots into a
 const charSrc = (n: string) => `/images/v2/characters/${n}.webp`
 
 function SomphongSection() {
+  // ส่วนสุดท้ายของหน้าแรกแล้ว (2026-11-09) → เผื่อล่างให้พ้นแถบเมนูลอย ไม่งั้นปุ่ม "ดูฟีเจอร์ทั้งหมด" โดนทับ
   return (
-    <section className="relative -mx-4 overflow-hidden px-4 py-14">
+    <section className="relative -mx-4 overflow-hidden px-4 pt-14 pb-[calc(8.5rem+env(safe-area-inset-bottom))]">
       <Image src="/images/v2/zone3/section-bg.jpg" alt="" fill priority sizes="100vw" aria-hidden className="pointer-events-none -z-10 object-cover" />
       {/* white mound: top (flipped vertical) + bottom — full-bleed, overflowing both edges */}
       <SomphongMound className="top-0 -scale-y-100" />
