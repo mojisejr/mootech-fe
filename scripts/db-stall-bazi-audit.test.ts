@@ -28,13 +28,13 @@ function load(source: string, dependencies: Record<string, unknown>) {
   const compiled = ts.transpileModule(source, { compilerOptions: {
     module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022,
   } }).outputText
-  const module = { exports: {} as Record<string, any> }
+  const compiledModule = { exports: {} as Record<string, any> }
   const require = (name: string) => {
     if (!(name in dependencies)) throw new Error(`unapproved forensic dependency: ${name}`)
     return dependencies[name]
   }
-  new Function('require', 'exports', 'module', compiled)(require, module.exports, module)
-  return module.exports
+  new Function('require', 'exports', 'module', compiled)(require, compiledModule.exports, compiledModule)
+  return compiledModule.exports
 }
 
 describe.skipIf(!enabled)('deployed bazi QI audit · known race reproduction', () => {
