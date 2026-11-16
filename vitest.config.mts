@@ -403,6 +403,9 @@ export default defineConfig({
       'scripts/ops-gate.test.ts', // #334 migrated tsx-lane→vitest
       'scripts/ops-health.test.ts', // #334 migrated tsx-lane→vitest
       'scripts/health-route.test.ts', // mumate-infra-move-001 slice 1 — /api/health is a real DB round trip, never a constant
+      'scripts/db-stall-pg.test.ts', // opt-in disposable real-socket fault proof
+      'scripts/db-stall-money.test.ts', // opt-in synthetic payment and QI invariants
+      'scripts/db-stall-bazi-audit.test.ts', // opt-in exact deployed bazi source; reproduces existing QI race
       'scripts/ops-metrics.test.ts', // #334 migrated tsx-lane→vitest
       'scripts/ops-pr56-ai-quota.test.ts', // #334 migrated tsx-lane→vitest
       'scripts/ops-pr56-points-breakdown.test.ts', // #334 migrated tsx-lane→vitest

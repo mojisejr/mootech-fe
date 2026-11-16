@@ -1,0 +1,37 @@
+schema_version: ciel.event.v0.1
+id: evt_20261116T150721_db_stall_release_review
+type: closeout
+recorded_at: 2026-11-16T15:07:21Z
+recorded_by:
+  agent: codex
+workstream:
+  id: mumate-fe-db-resilience-001
+  objective: Release bounded FE database recovery without automatic write replay.
+outcome:
+  status: prepared-for-authorized-release
+  summary: FE mitigation and synthetic staging proofs are complete. Owner directed release first after disclosure of the existing QI defect and baseline architecture failures. Production release is still pending.
+evidence:
+  repository:
+    head: 2be82f1927e2f4413ba947be7bfc742e4516f4ef
+    branch: fix/db-stall-resilience
+  pull_request: https://github.com/mojisejr/mootech-fe/pull/951
+  plan: ciel-os/workstreams/mumate-fe-db-resilience-001/PLAN.md
+  plan_revision: '0.2'
+  slice: '2'
+  tested_runtime: 5a430dcf7495a729c9898d4ea3fd6934fce73a46
+  proof: docs/db-stall-staging-proof.md
+  checks:
+    - Lint has zero errors and 134 baseline warnings; full suite has 3992 passed and 225 environment-gated skips.
+    - Eleven lifecycle assertions and twelve real socket and synthetic payment assertions pass; PostgreSQL and transaction PgBouncer tested locally and on staging.
+    - Two compiled image TLS stall cycles bound eight concurrent requests at about five seconds and recover subsequent requests without process restart.
+    - Build secret/inlining canaries, workflow integrity, remaining plain tsx checks and gitleaks pass. PR staging image CI passed.
+  baseline_exception: Four unchanged architecture violations reproduced on main 9c456e2; disclosed release exception only, never reported as passing.
+  rollback_fe: 9c456e23e0aed05a4af86e50d05bffe1303cef50
+  preserve_production_bazi: 366b9437e66511de09eccb49274c5877fff6513b
+unresolved:
+  - Existing Bazi concurrent same-reference grant can double QI; reproduced, unfixed, and customer impact unknown.
+  - Initial network/driver/pooler cause remains unknown; PgBouncer proof is not Supavisor fault injection.
+  - Pool retirement can interrupt other transactions; lost commit responses remain unknown outcomes with no automatic replay.
+  - Four baseline architecture violations remain outside this patch.
+next_action:
+  action: Merge under owner release instruction, build environment-specific images, verify shared staging, then named production release preserving Bazi and observe health and natural cron.
