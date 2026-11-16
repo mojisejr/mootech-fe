@@ -1,5 +1,7 @@
 import assert from 'node:assert/strict'
 import type postgres from 'postgres'
+import { drizzle } from 'drizzle-orm/postgres-js'
+import { sql as statement } from 'drizzle-orm'
 import { createResilientSql, DbStallError, retrySafeRead } from '../lib/db/resilient-sql'
 
 type Sql = ReturnType<typeof postgres>
@@ -28,7 +30,8 @@ function harness(run: (generation: number, text: string) => Promise<unknown>) {
     sql.options = state.options
     sql.end = async () => { state.ends++ }
     sql.begin = sql.savepoint = async (...args: any[]) => {
-      const result = await args.at(-1)(sql)
+      const work = args.at(-1)(sql)
+      const result = await (Array.isArray(work) ? Promise.all(work) : work)
       await query('COMMIT')
       return result
     }
@@ -122,7 +125,20 @@ async function main() {
     assert.deepEqual(await sql.unsafe('SELECT 1'), [{ n: 1 }])
     assert.equal(constructions, 3)
   }
-  console.log('db-resilient-sql: 9 safety cases passed')
+  {
+    // Exercise the real adapter's DrizzleQueryError wrapper, as /api/health does.
+    const h = harness(async generation => generation === 0 ? never() : [{ n: 1 }])
+    const db = drizzle(h.sql)
+    assert.deepEqual(await retrySafeRead(() => db.execute(statement`select 1`)), [{ n: 1 }])
+    assert.equal(h.pools.length, 2)
+    assert.deepEqual(h.pools.map(p => p.calls.length), [1, 1])
+  }
+  {
+    const h = harness(async () => [])
+    await h.sql.begin(tx => [tx.unsafe('WRITE 1'), tx.unsafe('WRITE 2')])
+    assert.deepEqual(h.pools[0].calls, ['WRITE 1', 'WRITE 2', 'COMMIT'])
+  }
+  console.log('db-resilient-sql: 11 safety cases passed')
 }
 
 void main().catch(error => { console.error(error); process.exitCode = 1 })

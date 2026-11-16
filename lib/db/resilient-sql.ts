@@ -28,7 +28,17 @@ export async function retrySafeRead<T>(operation: () => PromiseLike<T>): Promise
   try {
     return await operation()
   } catch (error) {
-    if (!(error instanceof DbStallError)) throw error
+    // Drizzle wraps driver failures in DrizzleQueryError.cause. Require our actual
+    // sentinel in a bounded cause chain, not a message/code that a DB error shares.
+    let cause: unknown = error
+    let stalled = false
+    const seen = new Set<unknown>()
+    for (let depth = 0; depth < 8 && cause && !seen.has(cause); depth++) {
+      if (cause instanceof DbStallError) { stalled = true; break }
+      seen.add(cause)
+      cause = typeof cause === 'object' ? (cause as { cause?: unknown }).cause : undefined
+    }
+    if (!stalled) throw error
     return await operation()
   }
 }
@@ -152,7 +162,7 @@ export function createResilientSql(createPool: () => Sql, options: Options = {})
       if (typeof callback !== 'function') throw new Error('transaction requires a callback')
       const child: Scope = { active: true, parent: scope }
       const client = raw ?? generation.sql
-      const wrapped = async (tx: Sql) => {
+      const wrapped = (tx: Sql) => {
         assertActive(generation, child)
         return callback(facade(() => generation, tx, child))
       }

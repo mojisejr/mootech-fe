@@ -49,7 +49,8 @@ pre-existing race has not been measured.
 
 ## Required evidence
 
-Run the registered `db-resilient-sql`, `db-stall-pg`, and `db-stall-money` tests.
+Run `npx tsx scripts/db-resilient-sql.test.ts` and the registered Vitest
+`db-stall-pg` and `db-stall-money` tests.
 The opt-in database suites must actually run, not skip. Record their exit status
 and assertions, without database URLs, SQL parameters, or customer data.
 
