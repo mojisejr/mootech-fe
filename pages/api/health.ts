@@ -20,6 +20,7 @@
 import type { NextApiRequest, NextApiResponse } from 'next'
 import { sql } from 'drizzle-orm'
 import { db } from '@/lib/db'
+import { retrySafeRead } from '@/lib/db/resilient-sql'
 
 // Generous against a slow pooler, far below any sensible orchestrator or probe timeout, so the answer is
 // ours rather than the caller's. Read PER REQUEST, not once at module scope: a module-scope constant is
@@ -57,7 +58,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse<
   let timer: ReturnType<typeof setTimeout> | undefined
   try {
     await Promise.race([
-      db.execute(sql`select 1`),
+      // Explicitly side-effect-free. The outer HTTP deadline may win first;
+      // the guarded operation still retires the stalled pool for the next probe.
+      retrySafeRead(() => db.execute(sql`select 1`)),
       new Promise((_resolve, reject) => {
         timer = setTimeout(() => reject(new Error('db probe timed out')), dbProbeTimeoutMs())
       }),
