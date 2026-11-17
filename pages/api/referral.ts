@@ -1,5 +1,5 @@
 // BFF — /api/referral: โค้ดแนะนำเพื่อนของผู้ใช้ที่ล็อกอิน (anonId = user_id ของผู้เรียก จาก session — resolveRouteMember).
-//   GET          → { code, redeemed } (สร้างครั้งแรกอัตโนมัติ — รูปแบบ MUMATE+เลข 3 หลัก)
+//   GET          → { code, redeemed } (สร้างครั้งแรกอัตโนมัติ — รูปแบบ MUMATE+ตัวเลข: โค้ดเก่า 3 หลัก, โค้ดใหม่ 5 หลักขึ้นไป)
 //   POST {code}  → กรอกโค้ดเพื่อน: ผู้ชวน +250 coins · คนกรอก +100 coins (คนละครั้งตลอดชีพ)
 // Engine: {BAZI_BASE_URL}/api/referral (pdf-dev).
 import type { NextApiRequest, NextApiResponse } from "next"
