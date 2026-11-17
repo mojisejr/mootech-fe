@@ -17,6 +17,7 @@ import { eq } from "drizzle-orm"
 import { db } from "@/lib/db"
 import { shareSnapshot } from "@/lib/db/schema"
 import { gradeTier, TIER_INK } from "@/lib/v2/grade-scale"
+import { REFERRAL_CODE_RE } from "@/lib/v2/referral-code"
 import { extractBaziShare, type BaziSharePayload } from "@/lib/v2/bazi-share"
 import { BaziShareChart } from "@/features/v2-share/components/BaziShareChart"
 import { renderBoldSegments } from "@/features/v2-share/components/BoldText"
@@ -42,7 +43,7 @@ export const getServerSideProps: GetServerSideProps<InviteSSR> = async (ctx) => 
   const origin = `${proto}://${host}`
   let ssrInviterName: string | null = null
   const upper = ssrCode.toUpperCase()
-  if (/^MUMATE\d{3}$/.test(upper)) {
+  if (REFERRAL_CODE_RE.test(upper)) {
     try {
       const base = process.env.BAZI_BASE_URL || "http://localhost:3000"
       const r = await fetch(`${base}/api/referral?code=${encodeURIComponent(upper)}`)

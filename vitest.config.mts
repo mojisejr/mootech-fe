@@ -324,6 +324,7 @@ export default defineConfig({
       'scripts/qi-buy-screen.test.tsx', // ก้อน 1.6 — จอเติมชี่ (ราคาจากแถวจริง · แพ็กปิดขายไม่มีทางเข้า checkout)
       'scripts/qi-checkin-screen.test.tsx', // เฟรม check-in — states (สตรีคเขตไทย · เช็คอินแล้วปุ่มปิด)
       'scripts/invite-landing.test.tsx', // เฟรม invite-landing (ยอมรับ → localStorage ก่อน register · โค้ดเน่าพูดตรง)
+      'scripts/invite-look-code-shape.test.ts', // mumate-fe-db-resilience-001 slice 5 — โค้ดแนะนำเพื่อนรับ 3 ถึง 8 หลัก (3 หลักเต็ม 900 ค่า 2026-11-17)
       'scripts/edit-profile-screen.test.tsx', // ก้อน 3 — edit-personal-info (PATCH engine · @name แก้ได้ + avatar อัปโหลด)
       'scripts/edit-birth-screen.test.tsx', // ก้อน 3 — edit-birth-data ×4 (โควตา engine · 409→ชีตชี่ไม่พอ · correction sheet)
       'scripts/orders-screen.test.tsx', // ก้อน 3 — order-history + order-receipt (APPROVED เท่านั้น = สำเร็จ · แพ็กชี่ตั้งชื่อถูก)

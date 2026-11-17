@@ -3,8 +3,7 @@
 // Engine: GET {BAZI_BASE_URL}/api/referral?code= (pdf-dev).
 import type { NextApiRequest, NextApiResponse } from "next"
 import { baziFetch } from '@/lib/bazi/fetch'
-
-const CODE_RE = /^MUMATE\d{3}$/
+import { REFERRAL_CODE_RE } from '@/lib/v2/referral-code'
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== "GET") {
@@ -12,7 +11,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return
   }
   const code = String(req.query.code ?? "").trim().toUpperCase()
-  if (!CODE_RE.test(code)) {
+  if (!REFERRAL_CODE_RE.test(code)) {
     res.status(400).json({ error: "โค้ดไม่ถูกต้อง" })
     return
   }
