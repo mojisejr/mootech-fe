@@ -2,7 +2,11 @@
 // locked → เนื้อหาเบลอ (กดไม่ได้/เลือกข้อความไม่ได้) + ป้าย 🔒 ทับ; แตะตรงไหนก็เปิด DestinyUpsellModal → /v2/shop
 import { useState, type ReactNode } from "react"
 import Link from "next/link"
-import { SHOP_HREF } from "@/features/v2-shop/upgrade-cta"
+
+// โปรฯ เดือนแรก 49 = Mumate + รายเดือน (V2_PLUS_MONTHLY ฿99) + โค้ด DESTINY49 (ลด 50 บาท · 1 ครั้ง/คน — สร้างใน /ops).
+// เดิมปุ่มไปหน้าแพ็กเกจเฉย ๆ → ลูกค้าเห็นแต่ ฿99 จ่าย 49 ไม่ได้ (gafiw 2026-11-17) → ส่งตรงไปเช็กเอาต์พร้อมโค้ด
+export const DESTINY_PROMO_CODE = "DESTINY49"
+export const DESTINY_PROMO_HREF = `/v2/shop/checkout?package_code=V2_PLUS_MONTHLY&code=${DESTINY_PROMO_CODE}`
 
 /** ป็อปอัปชวนสมัคร (ข้อความ + ราคาตาม gafiw 2026-11-10: รายเดือน 99 → เดือนแรกลด 50% เหลือ 49) */
 export function DestinyUpsellModal({ onClose }: { onClose: () => void }) {
@@ -16,7 +20,7 @@ export function DestinyUpsellModal({ onClose }: { onClose: () => void }) {
           ปลดล็อกข้อมูลดวงเชิงลึก เพื่อให้คุณเข้าใจตัวเองมากขึ้น และใช้วางแผนเรื่องสำคัญในชีวิต
         </p>
         <div className="mt-4 rounded-2xl bg-v3-ghost-white px-4 py-3">
-          <p className="text-[12px] font-semibold text-v3-text-muted">สมาชิกรายเดือน</p>
+          <p className="text-[12px] font-semibold text-v3-text-muted">Mumate + รายเดือน</p>
           <p className="mt-0.5 flex items-baseline justify-center gap-2">
             <span className="text-[15px] text-v3-text-muted line-through">99 บาท</span>
             <span className="text-[26px] font-black text-v3-sapphire">49 บาท</span>
@@ -27,7 +31,7 @@ export function DestinyUpsellModal({ onClose }: { onClose: () => void }) {
           <button type="button" onClick={onClose} className="flex-1 rounded-full border border-v3-sapphire px-4 py-2.5 text-sm font-semibold text-v3-sapphire">
             ไว้ก่อน
           </button>
-          <Link href={SHOP_HREF} data-testid="destiny-upsell-cta" className="flex-1 rounded-full bg-v3-sapphire px-4 py-2.5 text-sm font-semibold text-v3-lime">
+          <Link href={DESTINY_PROMO_HREF} data-testid="destiny-upsell-cta" className="flex-1 rounded-full bg-v3-sapphire px-4 py-2.5 text-sm font-semibold text-v3-lime">
             สมัครเลย
           </Link>
         </div>
