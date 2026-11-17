@@ -22,6 +22,7 @@ import { mergeEngineBirth } from "@/lib/bazi-bridge/engine-birth"
 import type { DevBirthProfile } from "@/dev-access/birth-adapter"
 import { resolveOptionalRouteMember } from '@/lib/v2/resolve-user'
 import { baziFetch } from '@/lib/bazi/fetch'
+import { createAnswerOutcome } from '@/lib/chat/answer-outcome'
 
 export const config = {
   api: {
@@ -190,14 +191,15 @@ export default async function handler(
 
   const reader = upstream.body.getReader()
   const decoder = new TextDecoder()
-  // "answer success" = stream completed AND produced non-empty content.
-  let gotContent = false
+  // "answer success" = the stream reached [DONE] with answer content and no failure frame from bazi.
+  // Bazi's fallback text on a failed answer is content too, so counting bytes would charge for it.
+  const outcome = createAnswerOutcome()
   try {
     while (true) {
       const { value, done } = await reader.read()
       if (done) break
       const text = decoder.decode(value, { stream: true })
-      if (text.trim().length > 0) gotContent = true
+      outcome.push(text)
       res.write(text)
       ;(res as unknown as { flush?: () => void }).flush?.()
     }
@@ -207,9 +209,10 @@ export default async function handler(
     res.end()
   }
 
-  // หักชี่ 1 ครั้ง เฉพาะเมื่อตอบสำเร็จและมีเนื้อหา (ฟรีวันนี้ → QI). best-effort:
-  // ถ้าหักล้มก็ไม่กระทบคำตอบที่ส่งไปแล้ว. เขตไทยรีเซ็ตโควตาฟรีรายวันเองที่ engine.
-  if (userId && gotContent) {
+  // หักชี่ 1 ครั้ง เฉพาะเมื่อได้คำตอบจริง (ฟรีวันนี้ → QI). ตอบไม่สำเร็จ / stream ไม่จบ = ไม่หัก
+  // (mumate-chat-failed-answer-001). best-effort: ถ้าหักล้มก็ไม่กระทบคำตอบที่ส่งไปแล้ว.
+  // เขตไทยรีเซ็ตโควตาฟรีรายวันเองที่ engine.
+  if (userId && outcome.finish().answered) {
     await baziFetch(`${base}/api/qi/feature-consume`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
