@@ -1,13 +1,17 @@
 import withSerwistInit from "@serwist/next";
+import { PRECACHE_PUBLIC_PATTERNS } from "./lib/pwa/precache-public.mjs";
 
 // PWA (mootech-fe#285 phase 1). Serwist replaces the unmaintained next-pwa (ฟีมเคาะ). It compiles
 // sw.ts → public/sw.js at build time and injects the precache manifest.
 //   • disable in dev: the SW would cache dev assets and fight HMR. Verify the SW via `next build &&
 //     next start` (that is also the real ship path). `next dev` stays SW-free.
 //   • register: false → we register in pages/_app.tsx ourselves (Pages Router, explicit control).
+//   • globPublicPatterns: the default precaches all of public/ (about 130 MB of images per new browser context).
+//     Only the manifest and icons are listed; see lib/pwa/precache-public.mjs.
 const withSerwist = withSerwistInit({
   swSrc: "sw.ts",
   swDest: "public/sw.js",
+  globPublicPatterns: PRECACHE_PUBLIC_PATTERNS,
   disable: process.env.NODE_ENV === "development",
   register: false,
 });
