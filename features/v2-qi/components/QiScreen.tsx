@@ -17,6 +17,7 @@ import { useCallback, useEffect, useState } from "react"
 
 import { SpendConfirmSheet, InsufficientQiSheet } from "./QiSpendSheets"
 import { RedeemCouponCard } from "./RedeemCouponCard"
+import { LineOaCard } from "./LineOaCard"
 import { SkyHeader, SkyScreen } from "@/features/v2-profile/components/kit"
 import { checkedInToday, todayBangkok, type MissionBoard, type QiCatalog, type QiSpendLine, type Referral, type Wallet } from "../qi-model"
 
@@ -244,6 +245,7 @@ export function QiScreen() {
           </Link>
 
           {/* #2 คูปอง Phase 2: ช่องกรอกโค้ดคูปองกิจกรรม → รับ QI/เครดิต/tier (โค้ดละครั้งต่อบัญชี) */}
+          <LineOaCard onClaimed={load} />
           <RedeemCouponCard onRedeemed={load} />
 
           {/* สะสมพลังชี่ฟรี */}
