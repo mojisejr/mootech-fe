@@ -141,6 +141,7 @@ export default defineConfig({
       'scripts/bazi-fetch-secret.test.ts', // hardening slice 1 2026-10-02 — ทุกการเรียก bazi จาก FE แนบ x-mumate-client-secret ผ่าน baziFetch
       'scripts/chat-bazi-member-header.test.ts', // mumate-bdash-v2-001 slice 1 2026-10-21 — แชตบอก bazi ว่าเป็นสมาชิกคนไหน (bdash นับคน) และไม่เคยเป็น id ของคนอื่น
       'scripts/chat-bazi-charge-only-answer.test.ts', // mumate-chat-failed-answer-001 slice 1 2026-11-18 — หักชี่เฉพาะเมื่อได้คำตอบจริง (ไม่หักเมื่อ bazi ส่งเฟรมตอบไม่สำเร็จ)
+      'scripts/chat-failed-reply-history.test.ts', // mumate-chat-failed-answer-001 slice 3 2026-11-18 — ข้อความที่ไม่ใช่คำตอบไม่ถูกเก็บในประวัติและไม่ถูกส่งกลับเป็นบริบท
       'scripts/settings-support-id.test.tsx', // hardening slice 1 2026-10-02 — ID สมาชิก ในหน้าตั้งค่า: user_id จาก server + ปุ่มคัดลอก (มี fallback ใน LINE)
       'scripts/promo-popup-members-only.test.tsx', // mumate-promo-popup-auth-001 slice 1 — ป็อปอัปเช็กอิน: เฉพาะสมาชิกที่ล็อกอินแล้ว + ยังไม่เช็กอินวันนี้
       'scripts/maintenance-notice.test.tsx', // mumate-maintenance-notice-001 slice 1 — ประกาศปิดปรับปรุงแทนป็อปอัปเช็กอินจนถึง 2026-10-09 04:00

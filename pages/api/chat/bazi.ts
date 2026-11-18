@@ -194,8 +194,18 @@ export default async function handler(
   // "answer success" = the stream reached [DONE] with answer content and no failure frame from bazi.
   // Bazi's fallback text on a failed answer is content too, so counting bytes would charge for it.
   const outcome = createAnswerOutcome()
+  // สมาชิกหลุดก่อนได้คำตอบครบ (ปิดแอป/สลับแอป/เน็ตหลุด) → หยุดอ่าน bazi และไม่หักชี่ (slice 3).
+  // "close" ที่มาก่อน res.end() = ฝั่งสมาชิกปิดการเชื่อมต่อเอง. close หลัง end() เป็นการจบปกติ.
+  let memberGone = false
+  const onClose = () => {
+    if (res.writableEnded) return
+    memberGone = true
+    reader.cancel().catch(() => {})
+  }
+  const events = res as unknown as { on?: (e: string, f: () => void) => void; off?: (e: string, f: () => void) => void }
+  events.on?.("close", onClose)
   try {
-    while (true) {
+    while (!memberGone) {
       const { value, done } = await reader.read()
       if (done) break
       const text = decoder.decode(value, { stream: true })
@@ -206,13 +216,14 @@ export default async function handler(
   } catch {
     // client disconnected or upstream aborted — fall through to end()
   } finally {
-    res.end()
+    events.off?.("close", onClose)
+    if (!memberGone) res.end()
   }
 
   // หักชี่ 1 ครั้ง เฉพาะเมื่อได้คำตอบจริง (ฟรีวันนี้ → QI). ตอบไม่สำเร็จ / stream ไม่จบ = ไม่หัก
   // (mumate-chat-failed-answer-001). best-effort: ถ้าหักล้มก็ไม่กระทบคำตอบที่ส่งไปแล้ว.
   // เขตไทยรีเซ็ตโควตาฟรีรายวันเองที่ engine.
-  if (userId && outcome.finish().answered) {
+  if (userId && !memberGone && outcome.finish().answered) {
     await baziFetch(`${base}/api/qi/feature-consume`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
