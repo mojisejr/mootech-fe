@@ -10,6 +10,8 @@
 // replays the full turn list each call, exactly like the prototype.
 import { useCallback, useEffect, useRef, useState } from "react"
 
+import { CHAT_FAILED_REPLY_TEXT, keepableTurns } from "@/lib/chat/failed-reply"
+
 export type ChatRole = "user" | "assistant"
 
 export type ChatTurn = {
@@ -17,6 +19,8 @@ export type ChatTurn = {
   role: ChatRole
   content: string
   loading?: boolean
+  /** no answer arrived (bazi failure frame, network error, empty stream): shown, never saved or replayed */
+  failed?: boolean
 }
 
 /** the BFF guard codes the page needs to react to (everything else stays an inline error bubble) */
@@ -32,11 +36,6 @@ const nextId = () => `m_${Date.now().toString(36)}_${++seq}`
 const LEGACY_HISTORY_KEY = "mumate-chat-history" // ก่อนแยก → ย้ายเป็นของเสี่ยวมู่ (ค่าเริ่มต้น) ครั้งเดียว
 const historyKey = (p: "mu" | "mi") => `mumate-chat-history-${p}`
 const MAX_TURNS = 40
-
-const PERSONA_TEXT = {
-  mu: { name: "เสี่ยวมู่", soft: "นะครับ" },
-  mi: { name: "เสี่ยวมี่", soft: "นะคะ" },
-} as const
 
 export function useBaziChatStream(persona: "mu" | "mi" = "mu") {
   const [turns, setTurns] = useState<ChatTurn[]>([])
@@ -61,7 +60,7 @@ export function useBaziChatStream(persona: "mu" | "mi" = "mu") {
         }
       }
       const saved = raw ? (JSON.parse(raw) as ChatTurn[]) : []
-      if (Array.isArray(saved)) restored = saved.filter((t) => t && t.content).map((t) => ({ ...t, loading: false }))
+      if (Array.isArray(saved)) restored = keepableTurns(saved.filter((t) => t && t.content).map((t) => ({ ...t, loading: false })))
     } catch { /* localStorage ปิด/เสีย → เริ่มบทสนทนาใหม่ */ }
     loadedFor.current = persona
     setTurns(restored)
@@ -73,7 +72,7 @@ export function useBaziChatStream(persona: "mu" | "mi" = "mu") {
   useEffect(() => {
     if (busy || !loadedFor.current) return
     try {
-      const done = turns.filter((t) => !t.loading && t.content).slice(-MAX_TURNS)
+      const done = keepableTurns(turns).slice(-MAX_TURNS)
       if (done.length > 0) localStorage.setItem(historyKey(loadedFor.current), JSON.stringify(done))
     } catch { /* ignore */ }
   }, [turns, busy])
@@ -92,7 +91,7 @@ export function useBaziChatStream(persona: "mu" | "mi" = "mu") {
       const msg = text.trim()
       if (!msg || busy) return
 
-      const prior = turns.filter((t) => !t.loading)
+      const prior = keepableTurns(turns)
       const aiId = nextId()
       setTurns((list) => [
         ...list,
@@ -105,6 +104,7 @@ export function useBaziChatStream(persona: "mu" | "mi" = "mu") {
       const controller = new AbortController()
       abortRef.current = controller
       let finished = false
+      let failedFrame = false
 
       try {
         const res = await fetch(
@@ -142,11 +142,12 @@ export function useBaziChatStream(persona: "mu" | "mi" = "mu") {
           update(aiId, (prev) => ({
             ...prev,
             loading: false,
+            failed: true,
             content:
               prev.content ||
               (res.status === 402
                 ? "ชี่ไม่พอถาม AI แล้ว เติมชี่เพื่อถามต่อได้เลย"
-                : `เกิดข้อผิดพลาด ลองใหม่อีกครั้ง${PERSONA_TEXT[personaRef.current].soft}`),
+                : CHAT_FAILED_REPLY_TEXT),
           }))
           return
         }
@@ -172,6 +173,7 @@ export function useBaziChatStream(persona: "mu" | "mi" = "mu") {
               }
               try {
                 const j = JSON.parse(d)
+                if (j?.object === "mumate.answer.failed") failedFrame = true
                 const tok: string | undefined = j?.choices?.[0]?.delta?.content
                 if (typeof tok === "string" && tok) {
                   update(aiId, (prev) => ({ ...prev, content: prev.content + tok }))
@@ -187,14 +189,16 @@ export function useBaziChatStream(persona: "mu" | "mi" = "mu") {
         update(aiId, (prev) => ({
           ...prev,
           loading: false,
-          content: prev.content || `ไม่ได้รับคำตอบจาก${PERSONA_TEXT[personaRef.current].name} ลองใหม่อีกครั้ง${PERSONA_TEXT[personaRef.current].soft}`,
+          failed: failedFrame || !prev.content || !finished,
+          content: failedFrame ? CHAT_FAILED_REPLY_TEXT : prev.content || CHAT_FAILED_REPLY_TEXT,
         }))
       } catch (err: unknown) {
         const aborted = (err as { name?: string })?.name === "AbortError"
         update(aiId, (prev) => ({
           ...prev,
           loading: false,
-          content: prev.content || (aborted ? "ยกเลิกแล้ว" : `การเชื่อมต่อมีปัญหา ลองใหม่อีกครั้ง${PERSONA_TEXT[personaRef.current].soft}`),
+          failed: true,
+          content: prev.content || (aborted ? "ยกเลิกแล้ว" : CHAT_FAILED_REPLY_TEXT),
         }))
       } finally {
         setBusy(false)

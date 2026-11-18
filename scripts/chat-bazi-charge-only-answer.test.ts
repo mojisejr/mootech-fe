@@ -5,6 +5,7 @@
 //   M2  ignore the failure frame                          → "failure frame" reddens
 //   M3  stop reading frames split across chunks           → "split frame" reddens
 //   M4  never charge                                      → "real answer" reddens
+//   M5  charge after the member's connection closed       → "member gone" reddens (slice 3)
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { createAnswerOutcome } from '@/lib/chat/answer-outcome'
@@ -37,15 +38,20 @@ const fetchMock = vi.fn(async (url: unknown) => {
   if (u.endsWith('/api/v1/chat/completions')) {
     const enc = new TextEncoder()
     const chunks = h.chunks
+    let i = 0
     return new Response(new ReadableStream({
-      start(c) {
-        for (const ch of chunks) c.enqueue(enc.encode(ch))
-        c.close()
+      pull(c) {
+        if (i < chunks.length) c.enqueue(enc.encode(chunks[i++]))
+        else c.close()
       },
+      cancel() { upstreamCancelled = true },
     }), { status: 200 })
   }
   return new Response(JSON.stringify({ ok: true }), { status: 200 })
 })
+
+let closeAfterWrites = 0
+let upstreamCancelled = false
 
 async function ask(chunks: string[]) {
   h.chunks = chunks
@@ -58,12 +64,22 @@ async function ask(chunks: string[]) {
       birth: { dob: '1990-01-01', time: '08:00', gender: 'MALE', isRememberTime: true },
     },
   }
+  const listeners: Array<() => void> = []
+  let writes = 0
   const res = {
+    writableEnded: false,
+    on(e: string, f: () => void) { if (e === 'close') listeners.push(f) },
+    off() {},
     status() { return res },
     json() { return res },
     writeHead() { return res },
-    write(t: string) { written += t; return true },
-    end() { return res },
+    write(t: string) {
+      written += t
+      writes += 1
+      if (closeAfterWrites && writes === closeAfterWrites) for (const f of listeners) f()
+      return true
+    },
+    end() { res.writableEnded = true; for (const f of listeners) f(); return res },
     setHeader() { return res },
     getHeader() { return undefined },
   }
@@ -72,6 +88,8 @@ async function ask(chunks: string[]) {
 
 beforeEach(() => {
   consumed = 0
+  closeAfterWrites = 0
+  upstreamCancelled = false
   written = ''
   h.member = 'member-A'
   vi.stubGlobal('fetch', fetchMock)
@@ -114,6 +132,26 @@ describe('POST /api/chat/bazi — QI is charged only for a real answer', () => {
     const cut = all.indexOf('mumate.answer') + 4
     await ask([all.slice(0, cut), all.slice(cut)])
     expect(consumed).toBe(0)
+  })
+
+  it('member gone: connection closed after the first frame is not charged and upstream is cancelled', async () => {
+    closeAfterWrites = 1
+    await ask([role, tok('สวัสดี'), tok('ครับ'), stop, DONE])
+    expect(consumed).toBe(0)
+    expect(upstreamCancelled).toBe(true)
+    expect(written).toBe(role)
+  })
+
+  it('member gone just before [DONE]: still not charged', async () => {
+    closeAfterWrites = 3
+    await ask([role, tok('สวัสดี'), tok('ครับ'), stop, DONE])
+    expect(consumed).toBe(0)
+  })
+
+  it('normal end: the close that follows end() does not cancel the charge', async () => {
+    await ask([role, tok('สวัสดี'), stop, DONE])
+    expect(consumed).toBe(1)
+    expect(upstreamCancelled).toBe(false)
   })
 
   it('anonymous caller: never charged', async () => {
