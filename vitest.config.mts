@@ -327,6 +327,7 @@ export default defineConfig({
       'scripts/invite-landing.test.tsx', // เฟรม invite-landing (ยอมรับ → localStorage ก่อน register · โค้ดเน่าพูดตรง)
       'scripts/invite-look-code-shape.test.ts', // mumate-fe-db-resilience-001 slice 5 — โค้ดแนะนำเพื่อนรับ 3 ถึง 8 หลัก (3 หลักเต็ม 900 ค่า 2026-11-17)
       'scripts/sw-precache-scope.test.ts', // mumate-fe-db-resilience-001 slice 6 — service worker ไม่ precache ทั้ง public/ (เดิม 1,326 ไฟล์ ราว 130 MB ต่อ browser ใหม่)
+      'scripts/line-oa-claim.test.ts', // แอด LINE OA รับ 100 Qi — เช็กเพื่อนกับ LINE ก่อนจ่าย + /api/qi-earn บล็อกโค้ดนี้
       'scripts/edit-profile-screen.test.tsx', // ก้อน 3 — edit-personal-info (PATCH engine · @name แก้ได้ + avatar อัปโหลด)
       'scripts/edit-birth-screen.test.tsx', // ก้อน 3 — edit-birth-data ×4 (โควตา engine · 409→ชีตชี่ไม่พอ · correction sheet)
       'scripts/orders-screen.test.tsx', // ก้อน 3 — order-history + order-receipt (APPROVED เท่านั้น = สำเร็จ · แพ็กชี่ตั้งชื่อถูก)

@@ -48,7 +48,7 @@ export const authOptions: NextAuthOptions = {
       // เดียว → state/pkce ไม่หาย → callback ผ่าน. ต่างจาก disable_auto_login (#728, กว้างทุกแพลตฟอร์ม บังคับหน้า
       // email/QR เมื่อไม่มี SSO — ผู้ใช้ปฏิเสธ) — ตัวนี้เจาะจง iOS และคง SSO ไว้ถ้ามี session LINE บนเว็บ.
       // คง checks default (state/pkce) ไว้ — LINE บังคับต้องมี state (บทเรียน #731/#735). scope คงเดิม.
-      authorization: { url: ENDPOINTS.line.authorizeUrl, params: { scope: "openid profile", disable_ios_auto_login: true } },
+      authorization: { url: ENDPOINTS.line.authorizeUrl, params: { scope: "openid profile", disable_ios_auto_login: true, bot_prompt: "normal" } },
       // 🔴 2026-10-09 (หลังย้ายมา DigitalOcean): provider LINE ของ next-auth ตั้ง wellKnown = access.line.me/.well-known/…
       // → next-auth ดึง metadata นั้นใหม่ "ทุกครั้ง" ทั้งตอน signin และ callback. จาก DO Singapore การต่อ TCP ไป edge
       // ของ access.line.me หลุดราวครึ่งหนึ่ง (prod-1 และ mumate-2 เหมือนกัน; api.line.me กับ Google ต่อติดทุกครั้ง) →

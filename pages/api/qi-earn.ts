@@ -5,6 +5,8 @@ import { resolveRouteMember } from '@/lib/v2/resolve-user'
 import { baziFetch } from '@/lib/bazi/fetch'
 
 const CODE_RE = /^[a-z0-9_]{1,64}$/i
+// โค้ดที่ต้องผ่านการตรวจฝั่ง server ก่อนจ่าย (เช่น line_oa_add → /api/v2/line-oa-claim เช็กเพื่อน OA กับ LINE) — ห้ามรับตรงจากที่นี่
+const SERVER_VERIFIED_CODES = new Set(["line_oa_add"])
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== "POST") {
@@ -20,6 +22,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   const body = (req.body ?? {}) as { code?: string; ref?: string }
   const code = String(body.code ?? "")
   const ref = body.ref ? String(body.ref).slice(0, 200) : undefined
+  if (SERVER_VERIFIED_CODES.has(code)) {
+    res.status(403).json({ error: "code must be claimed via its own endpoint" })
+    return
+  }
   if (!CODE_RE.test(code)) {
     res.status(400).json({ error: "code is required" })
     return
