@@ -7,11 +7,14 @@ import { track as trackEvent } from '@/lib/analytics/track'
 import type { AnalyticsEventName } from '@/lib/analytics/events'
 import { REFERRAL_KEY } from '@/lib/browser/login-escape'
 import type { TaisuiReading } from '@/lib/taisui/types'
+import { LINE_OA_URL } from '@/features/v2-qi/components/LineOaCard'
+import { withFreshPass } from '../fresh-pass'
+import { oaClaimFrom } from '../oa-claim'
 import { leaveReturnMarker } from '../return'
 import { TAISUI_CSS } from './taisui-css'
 import { TAISUI_CSS_EXTRA } from './taisui-css-extra'
 import { TAISUI_MARKUP } from './taisui-markup'
-import { startTaisui, type Birth, type Sender } from './taisui-motion'
+import { startTaisui, type Birth, type OaClaim, type Sender } from './taisui-motion'
 
 export type TaisuiScreenProps = { refCode: string | null; sender: Sender }
 
@@ -38,7 +41,8 @@ export function TaisuiScreen({ refCode, sender }: TaisuiScreenProps) {
         let b = birth
         if (!b) { try { const s = sessionStorage.getItem(BIRTH_KEY); if (s) b = JSON.parse(s) as Birth } catch { /* none */ } }
         const tryOnce = async (withBirth: Birth | undefined) => {
-          const r = await postJson('/api/taisui/reading', { ...(withBirth ? { birth: withBirth } : {}), ...(refCode ? { partnerRef: refCode } : {}) })
+          const body = { ...(withBirth ? { birth: withBirth } : {}), ...(refCode ? { partnerRef: refCode } : {}) }
+          const r = await withFreshPass(() => postJson('/api/taisui/reading', body))
           return r.ok ? { ok: true as const, reading: (await r.json()) as TaisuiReading } : { ok: false as const, status: r.status }
         }
         // A member's saved chart wins over a typed one.
@@ -65,6 +69,13 @@ export function TaisuiScreen({ refCode, sender }: TaisuiScreenProps) {
         const r = release ? await postJson('/api/taisui/lantern', {}) : await fetch('/api/taisui/lantern')
         return r.ok ? r.json() : null
       },
+      // The existing LINE OA reward (/api/v2/line-oa-claim): pays 100 QI once per member, after LINE confirms
+      // the member is the OA's friend right now. Logged in with Google or an expired LINE token → nothing shown.
+      claimOa: async (): Promise<OaClaim> => {
+        const r = await fetch('/api/v2/line-oa-claim', { method: 'POST', credentials: 'same-origin' })
+        return oaClaimFrom(r.status, await r.json().catch(() => null))
+      },
+      oaUrl: LINE_OA_URL,
       track: (event, params) => { trackEvent(event as AnalyticsEventName, params ?? {}) },
     })
     return stop

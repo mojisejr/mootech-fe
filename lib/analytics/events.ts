@@ -27,6 +27,7 @@ export const ANALYTICS_EVENTS = {
   taisui_share: ['channel'],
   taisui_packet_open: ['member'],
   taisui_lantern: [],
+  taisui_oa_claim: ['result'],
 } as const satisfies Record<string, readonly string[]>
 
 export type AnalyticsEventName = keyof typeof ANALYTICS_EVENTS

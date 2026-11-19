@@ -9,6 +9,8 @@ import type { TaisuiFacts } from '@/lib/taisui/types'
 import { APPROVED, PREVIEW, RELATION_IN_SENTENCE, readingFor, type PillarKey, type Relation } from '@/features/v2-taisui/content/readings'
 import { animalImage, MONTH_LABEL } from '@/features/v2-taisui/content/animals'
 import { leaveReturnMarker, takeReturnPath, TAISUI_RETURN_KEY } from '@/features/v2-taisui/return'
+import { withFreshPass } from '@/features/v2-taisui/fresh-pass'
+import { oaClaimFrom } from '@/features/v2-taisui/oa-claim'
 import { ANALYTICS_EVENTS, FORBIDDEN_PARAM_KEY } from '@/lib/analytics/events'
 import { TAISUI_MARKUP } from '@/features/v2-taisui/components/taisui-markup'
 import { TAISUI_CSS } from '@/features/v2-taisui/components/taisui-css'
@@ -149,5 +151,41 @@ describe('return after login', () => {
     expect(takeReturnPath(2)).toBe('/taisui-2570')
     store.set(TAISUI_RETURN_KEY, 'not json')
     expect(takeReturnPath(2)).toBeNull()
+  })
+})
+
+describe('an expired form pass', () => {
+  const res = (status: number, body: unknown) => new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json' } })
+  it('takes a fresh pass and sends the same request once more', async () => {
+    const send = vi.fn().mockResolvedValueOnce(res(403, { error: 'nonce' })).mockResolvedValueOnce(res(200, { ok: 1 }))
+    const refresh = vi.fn().mockResolvedValue(undefined)
+    expect((await withFreshPass(send, refresh)).status).toBe(200)
+    expect(refresh).toHaveBeenCalledTimes(1)
+    expect(send).toHaveBeenCalledTimes(2)
+  })
+  it('leaves every other failure alone, and retries at most once', async () => {
+    for (const [status, body] of [[403, { error: 'forbidden' }], [429, { error: 'rate_limited' }], [502, { error: 'upstream' }]] as const) {
+      const send = vi.fn().mockResolvedValue(res(status, body))
+      const refresh = vi.fn()
+      expect((await withFreshPass(send, refresh)).status).toBe(status)
+      expect(refresh).not.toHaveBeenCalled()
+    }
+    const stuck = vi.fn().mockResolvedValue(res(403, { error: 'nonce' }))
+    expect((await withFreshPass(stuck, vi.fn().mockResolvedValue(undefined))).status).toBe(403)
+    expect(stuck).toHaveBeenCalledTimes(2)
+  })
+})
+
+describe('the LINE OA reward after login', () => {
+  it('shows a payment, offers the add button to a non-friend, and stays quiet otherwise', () => {
+    expect(oaClaimFrom(200, { awarded: 100 })).toEqual({ state: 'paid', qi: 100 })
+    expect(oaClaimFrom(200, { capped: true })).toEqual({ state: 'already' })
+    expect(oaClaimFrom(409, { reason: 'not_friend' })).toEqual({ state: 'not_friend' })
+    for (const [status, body] of [[400, { reason: 'not_line' }], [401, { reason: 'relogin' }], [502, null], [409, { reason: 'other' }]] as const) {
+      expect(oaClaimFrom(status, body)).toEqual({ state: 'skip' })
+    }
+  })
+  it('sends the red packet through LINE only', () => {
+    expect(TAISUI_MARKUP).toContain('ส่งอั่งเปาทาง LINE')
   })
 })
