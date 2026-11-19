@@ -19,6 +19,14 @@ export const ANALYTICS_EVENTS = {
   sign_up: ['method'],
   /** The PDPA analytics switch changed. Carries only the new state, never who changed it. */
   consent_update: ['analytics'],
+  /** ปีชง 2570 page (ciel-os mumate-taisui-2570-001). Counts and flags only — never an animal, element or birth. */
+  taisui_open: ['ref'],
+  taisui_form_submit: ['time_known'],
+  taisui_result: ['pillars', 'member'],
+  taisui_login_click: ['from'],
+  taisui_share: ['channel'],
+  taisui_packet_open: ['member'],
+  taisui_lantern: [],
 } as const satisfies Record<string, readonly string[]>
 
 export type AnalyticsEventName = keyof typeof ANALYTICS_EVENTS
