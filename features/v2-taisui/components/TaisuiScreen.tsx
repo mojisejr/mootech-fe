@@ -7,6 +7,7 @@ import { track as trackEvent } from '@/lib/analytics/track'
 import type { AnalyticsEventName } from '@/lib/analytics/events'
 import { REFERRAL_KEY } from '@/lib/browser/login-escape'
 import type { TaisuiReading } from '@/lib/taisui/types'
+import { withFreshPass } from '../fresh-pass'
 import { leaveReturnMarker } from '../return'
 import { TAISUI_CSS } from './taisui-css'
 import { TAISUI_CSS_EXTRA } from './taisui-css-extra'
@@ -38,7 +39,8 @@ export function TaisuiScreen({ refCode, sender }: TaisuiScreenProps) {
         let b = birth
         if (!b) { try { const s = sessionStorage.getItem(BIRTH_KEY); if (s) b = JSON.parse(s) as Birth } catch { /* none */ } }
         const tryOnce = async (withBirth: Birth | undefined) => {
-          const r = await postJson('/api/taisui/reading', { ...(withBirth ? { birth: withBirth } : {}), ...(refCode ? { partnerRef: refCode } : {}) })
+          const body = { ...(withBirth ? { birth: withBirth } : {}), ...(refCode ? { partnerRef: refCode } : {}) }
+          const r = await withFreshPass(() => postJson('/api/taisui/reading', body))
           return r.ok ? { ok: true as const, reading: (await r.json()) as TaisuiReading } : { ok: false as const, status: r.status }
         }
         // A member's saved chart wins over a typed one.
