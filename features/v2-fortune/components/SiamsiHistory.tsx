@@ -2,6 +2,8 @@
 // รีวิว = 👍/👎 + เขียนข้อความ + บันทึก → ได้ 3-5 QI ต่อรีวิว, รวมทั้งเดือนไม่เกิน 100 QI (engine คุมเพดาน)
 import { useCallback, useEffect, useState } from "react"
 
+import { shareAsInvite } from "@/lib/v2/share-invite"
+
 export type HistoryCard = {
   no: number
   name: string
@@ -39,8 +41,11 @@ export function SiamsiReviewBox({
   historyId,
   initial,
   onSaved,
+  card,
 }: {
   historyId: string
+  /** ไพ่ของรีวิวนี้ — ใช้ทำภาพแชร์ */
+  card?: Pick<HistoryCard, "no" | "name" | "imageUrl"> | null
   initial?: Pick<HistoryItem, "rating" | "review" | "rewardQi">
   onSaved?: (r: { rating: 1 | -1; review: string; rewardQi: number }) => void
 }) {
@@ -51,12 +56,26 @@ export function SiamsiReviewBox({
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null)
   const [saved, setSaved] = useState(done)
 
+  const shareReview = () => {
+    const verdict = rating === 1 ? "👍 ตรงมาก" : "👎 ไม่ค่อยตรง"
+    const head = card ? `เซียมซีโป๊ยเซียนใบที่ ${card.no} ${card.name}` : "เซียมซีโป๊ยเซียน"
+    const quote = text.trim().slice(0, 160)
+    void shareAsInvite({
+      title: "รีวิวเซียมซีโป๊ยเซียน",
+      text: `${head} — ${verdict}${quote ? ` "${quote}"` : ""} · เสี่ยงทายกับ Mumate`,
+      og: { title: card ? `เซียมซีใบที่ ${card.no}` : "เซียมซีโป๊ยเซียน", subtitle: card?.name ?? verdict, summary: `${verdict}${quote ? ` — "${quote}"` : ""}`, tag: "รีวิวเซียมซี", image: card?.imageUrl, isPublic: true, fullText: quote },
+    })
+  }
+
   if (saved) {
     return (
       <section className="v3-shadow-card flex flex-col gap-2 rounded-[24px] bg-white p-5" data-testid="siamsi-review-done">
         <p className="text-[15px] font-black text-v3-navy">รีวิวของคุณ {rating === 1 ? "👍" : "👎"}</p>
         {text ? <p className="text-[13px] leading-[22px] text-v3-text-body">{text}</p> : null}
         {msg ? <p className={"text-[12px] font-bold " + (msg.ok ? "text-[#3F6F5D]" : "text-[#8A5A0C]")}>{msg.text}</p> : initial?.rewardQi ? <p className="text-[12px] font-bold text-[#3F6F5D]">ได้รับ +{initial.rewardQi} QI แล้ว</p> : null}
+        <button type="button" onClick={shareReview} data-testid="siamsi-review-share" className="mt-1 grid h-11 w-full place-items-center rounded-full border border-v3-sapphire text-[14px] font-bold text-v3-sapphire">
+          แชร์รีวิวนี้
+        </button>
       </section>
     )
   }
@@ -187,6 +206,7 @@ export function SiamsiHistory({ onBack }: { onBack: () => void }) {
         <SiamsiReviewBox
           historyId={open.id}
           initial={open}
+          card={c}
           onSaved={(r) => {
             setItems((prev) => prev?.map((i) => (i.id === open.id ? { ...i, ...r } : i)) ?? prev)
             setEarned((e) => e + r.rewardQi)

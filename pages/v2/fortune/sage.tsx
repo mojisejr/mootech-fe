@@ -247,7 +247,7 @@ export default function FortuneSagePage() {
           ) : null}
           {card.advice ? <DotSection label="คำแนะนำ" dot="#C9A24A"><p className="text-[13px] leading-[22px] text-v3-text-body">{card.advice}</p></DotSection> : null}
 
-          {historyId ? <SiamsiReviewBox key={historyId} historyId={historyId} /> : null}
+          {historyId ? <SiamsiReviewBox key={historyId} historyId={historyId} card={card} /> : null}
 
           <div className="mt-1 flex flex-col gap-2">
             <KitButton onClick={share} testId="sage-share">
