@@ -18,6 +18,7 @@
 //   /auth/error             NextAuth's error page (authOptions.pages.error).
 //   /invite/[code]          the v2 referral link (lib/v2/share-invite.ts builds it; /v2/qi/referral shares it).
 //   /p/[id]                 the public share page of a v2 sacred-map place.
+//   /taisui-2570            the public ปีชง 2570 campaign page (ciel-os mumate-taisui-2570-001).
 //   /privacy/*              legal pages linked from v2 (ConsentScreen, PackageCard).
 //   /maintenance            the maintenance gate's own page.
 //   /ops/*, /launch, /glass-box, /what-if   internal consoles, each behind its own key in middleware.ts.
