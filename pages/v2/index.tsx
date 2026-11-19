@@ -23,6 +23,8 @@ import { V2GateForm } from '@/features/v2-shell/components/V2GateForm'
 import { OnboardingCarousel } from '@/features/onboarding/components/OnboardingCarousel'
 import { endNewcomerGuide } from '@/features/v2-guide/NewcomerCoach'
 import { COURSE_REDEEM_KEY } from '@/features/course/redeem'
+import { hasReturnMarker, takeReturnPath } from '@/features/v2-taisui/return'
+import { isBirthProfileComplete } from '@/lib/bazi-bridge/input'
 import { V2HomeScreen } from '@/features/v2-home/components/V2HomeScreen'
 // 🔴 TEMPORARY (#249) — #248 removes this import and its one <TeamPreviewResetBadge /> below.
 import { TeamPreviewResetBadge } from '@/features/v2-team-preview/TeamPreviewResetBadge'
@@ -91,6 +93,13 @@ function V2HomeRoute({ status }: { status: AuthStatus }) {
     } catch { /* storage ปิด */ }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
+  // ปีชง 2570: logged in from /taisui-2570 → back there once the chart exists (no chart → register first)
+  useEffect(() => {
+    if (!user || !hasReturnMarker()) return
+    if (!isBirthProfileComplete(user as Parameters<typeof isBirthProfileComplete>[0])) return
+    const to = takeReturnPath()
+    if (to) window.location.assign(to)
+  }, [user])
   // Zone 1 — daily-fortune + persona data seam. Called unconditionally (before the loading branch) so
   // hook order is stable; graceful by design (no user / bazi error → fortune/persona=null → cards show
   // fallback). Consumes the shared `user` (no second fetch). ONE BFF call returns both fortune and persona.

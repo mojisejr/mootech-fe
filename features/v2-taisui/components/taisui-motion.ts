@@ -1,0 +1,457 @@
+// ปีชง 2570 — the scroll stage, guidance and scenes of preview D (design/PREVIEW-D.md, MOTION-KIT.md),
+// driven by a real reading. One pinned stage; scroll progress p (0..1) drives every layer through
+// seg(p, a, b). Only transform, opacity and one CSS variable (--n, the night amount) are written per frame.
+//
+// Member data reaches the DOM only through textContent, attributes and createElement — never as HTML.
+import type { TaisuiReading } from '@/lib/taisui/types'
+import { AREA, FLOW_LINE, MONTH_TIP, PAIR_LINE, RELATION_NAME, TONE, muLine, type Relation } from '../content/readings'
+import { animalImage, MONTH_LABEL, WHEEL_BRANCHES } from '../content/animals'
+
+export type Birth = { date: string; time: string | null; gender: 'female' | 'male' }
+export type Sender = { name: string; animal: string; image: string } | null
+
+export type TaisuiApi = {
+  /** Loads the reading: no birth = the logged-in member's saved chart. */
+  loadReading: (birth?: Birth) => Promise<{ ok: true; reading: TaisuiReading } | { ok: false; status: number }>
+  stats: () => Promise<{ members: number; asOf: string } | null>
+  login: (birth: Birth | null) => void
+  openPacket: () => Promise<{ paid: boolean; qi?: number; reason?: string } | null>
+  sendPacket: () => Promise<{ url: string } | null>
+  lantern: (release: boolean) => Promise<{ count: number } | null>
+  track: (event: string, params?: Record<string, string | number>) => void
+  sender: Sender
+  hasRef: boolean
+}
+
+type Sky = { s: [string, string, string]; img: 0 | 1; sunA: number; sunY?: string; sunC?: string; moonA: number; starA: number; cloudB: number; dark: 0 | 1; lbl: string }
+const SKIES: Record<string, Sky> = {
+  '2': { s: ['#081430', '#16285a', '#33407a'], img: 0, sunA: 0, moonA: 1, starA: 1, cloudB: 0.55, dark: 1, lbl: 'ฟ้าตอนคุณเกิด · 02:00 น. ฟ้าดาวเต็ม' },
+  u: { s: ['#bfe3ff', '#e8eaff', '#fff1d6'], img: 1, sunA: 1, sunY: '44%', moonA: 0, starA: 0, cloudB: 1, dark: 0, lbl: 'ไม่ทราบเวลาเกิด · ใช้ฟ้ากลางวัน' },
+  '6': { s: ['#2e3d7c', '#c780a6', '#ffc58a'], img: 0, sunA: 1, sunY: '70%', sunC: 'rgba(255,200,140,.95)', moonA: 0, starA: 0.25, cloudB: 0.85, dark: 1, lbl: 'ฟ้าตอนคุณเกิด · 06:00 น. ฟ้ารุ่งสาง' },
+  '8.5': { s: ['#bfe3ff', '#e8eaff', '#fff1d6'], img: 1, sunA: 1, sunY: '44%', moonA: 0, starA: 0, cloudB: 1, dark: 0, lbl: 'ฟ้าปีมะแม 2570' },
+  '15': { s: ['#5fb2ff', '#a9d8ff', '#fff3cc'], img: 0, sunA: 1, sunY: '24%', sunC: 'rgba(255,252,220,.95)', moonA: 0, starA: 0, cloudB: 1, dark: 0, lbl: 'ฟ้าตอนคุณเกิด · 15:00 น. ฟ้าบ่าย' },
+  '18': { s: ['#3a3f8f', '#e2709a', '#ffb36b'], img: 0, sunA: 1, sunY: '76%', sunC: 'rgba(255,150,90,.95)', moonA: 0, starA: 0.4, cloudB: 0.85, dark: 1, lbl: 'ฟ้าตอนคุณเกิด · 18:00 น. ฟ้าเย็น' },
+  '21': { s: ['#06142e', '#123a74', '#2b4f8f'], img: 0, sunA: 0, moonA: 1, starA: 0.85, cloudB: 0.6, dark: 1, lbl: 'ฟ้าตอนคุณเกิด · 21:00 น. ฟ้าค่ำ' },
+}
+const PRESETS = [2, 6, 8.5, 15, 18, 21]
+const MONTHS_TH = ['มกราคม', 'กุมภาพันธ์', 'มีนาคม', 'เมษายน', 'พฤษภาคม', 'มิถุนายน', 'กรกฎาคม', 'สิงหาคม', 'กันยายน', 'ตุลาคม', 'พฤศจิกายน', 'ธันวาคม']
+const RESTS: Array<[number, string]> = [[0.3, 'ต่อ'], [0.5, 'ดูนักษัตรของฉัน'], [0.5325, 'ดูทีละตัว'], [0.5575, 'ตัวถัดไป'], [0.5825, 'ตัวถัดไป'], [0.6075, 'ตัวสุดท้าย'], [0.77, 'ดูกับ 12 นักษัตร'], [0.92, 'ไปต่อ']]
+const SEG: Array<[number, number]> = [[0, 0.2], [0.2, 0.4], [0.4, 0.64], [0.64, 0.86], [0.86, 0.94]]
+const FX: Record<'good' | 'care' | 'calm', [string, string]> = { good: ['six', '🎉'], care: ['harm', '😬'], calm: ['none', '🙂'] }
+
+const clamp = (x: number, a: number, b: number) => Math.min(b, Math.max(a, x))
+const seg = (p: number, a: number, b: number) => clamp((p - a) / (b - a), 0, 1)
+const lerp = (a: number, b: number, t: number) => a + (b - a) * t
+const ease = (t: number) => (t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2)
+
+function el<K extends keyof HTMLElementTagNameMap>(tag: K, cls?: string, text?: string): HTMLElementTagNameMap[K] {
+  const e = document.createElement(tag)
+  if (cls) e.className = cls
+  if (text !== undefined) e.textContent = text
+  return e
+}
+
+export function startTaisui(root: HTMLElement, api: TaisuiApi): () => void {
+  const still = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false
+  const $ = <T extends HTMLElement = HTMLElement>(id: string) => root.querySelector<T>('#' + id) as T
+  const cleanups: Array<() => void> = []
+  const on = <E extends Event>(t: EventTarget, ev: string, fn: (e: E) => void, opts?: AddEventListenerOptions) => {
+    t.addEventListener(ev, fn as EventListener, opts)
+    cleanups.push(() => t.removeEventListener(ev, fn as EventListener, opts))
+  }
+  const timers = new Set<number>()
+  const later = (fn: () => void, ms: number) => { const t = window.setTimeout(() => { timers.delete(t); fn() }, ms); timers.add(t); return t }
+  const stage = $('stage'), cine = $('cine'), medal = $('medal'), ring = $('ring'), prog = $('prog')
+  let reading: TaisuiReading | null = null
+  let member = false
+
+  // ① birth-hour sky
+  function setSky(h: string, t?: string) {
+    const k = SKIES[h]; if (!k) return
+    stage.style.setProperty('--s1', k.s[0]); stage.style.setProperty('--s2', k.s[1]); stage.style.setProperty('--s3', k.s[2])
+    $('skyImg').style.opacity = k.img ? 'calc(1 - var(--n))' : '0'
+    stage.style.setProperty('--sunA', String(k.sunA)); stage.style.setProperty('--moonA', String(k.moonA)); stage.style.setProperty('--starA', String(k.starA)); stage.style.setProperty('--cloudB', String(k.cloudB))
+    if (k.sunY) stage.style.setProperty('--sunY', k.sunY); else stage.style.removeProperty('--sunY')
+    if (k.sunC) stage.style.setProperty('--sunC', k.sunC); else stage.style.removeProperty('--sunC')
+    $('heroT').classList.toggle('dark', !!k.dark)
+    $('skyLabel').textContent = t ? k.lbl.replace(/\d\d:\d\d/, t) : k.lbl
+  }
+  function skyFor(v: string): string {
+    const [hh, mm] = v.split(':'); const h = +hh + (+mm || 0) / 60
+    let best = 8.5, bd = 99
+    for (const x of PRESETS) { const d = Math.min(Math.abs(h - x), 24 - Math.abs(h - x)); if (d < bd) { bd = d; best = x } }
+    return String(best)
+  }
+  setSky('8.5')
+
+  // sheet: day / month / B.E. year, a time or "don't know", gender; birthplace defaults to Thailand
+  const bdD = $<HTMLSelectElement>('bdD'), bdM = $<HTMLSelectElement>('bdM'), bdY = $<HTMLSelectElement>('bdY'), bt = $<HTMLInputElement>('bt'), noT = $<HTMLInputElement>('noT')
+  const opt = (s: HTMLSelectElement, v: string | number, t: string | number) => { const o = document.createElement('option'); o.value = String(v); o.textContent = String(t); s.appendChild(o) }
+  MONTHS_TH.forEach((m, i) => opt(bdM, i + 1, m))
+  for (let be = new Date().getFullYear() + 543; be >= 2443; be--) opt(bdY, be, be)
+  function fillDays() {
+    const keep = bdD.value, m = +bdM.value || 1, y = (+bdY.value || 2532) - 543, n = new Date(y, m, 0).getDate()
+    while (bdD.options.length > 1) bdD.remove(1)
+    for (let d = 1; d <= n; d++) opt(bdD, d, d)
+    bdD.value = +keep <= n ? keep : ''
+  }
+  fillDays()
+  function mark() {
+    ;[bdD, bdM, bdY, bt].forEach((x) => x.classList.toggle('empty', !x.value))
+    if (!root.querySelector('.box.bad')) $('shErr').textContent = ''
+  }
+  ;[bdD, bdM, bdY].forEach((x) => on(x, 'change', () => { if (x !== bdD) fillDays(); x.parentElement?.classList.remove('bad'); mark() }))
+  on(bt, 'input', () => { if (bt.value) { $('bxT').classList.remove('bad'); setSky(skyFor(bt.value), bt.value) } mark() })
+  on(noT, 'change', () => {
+    bt.disabled = noT.checked; $('bxT').classList.toggle('off', noT.checked); $('bxT').classList.remove('bad')
+    if (noT.checked) setSky('u'); else if (bt.value) setSky(skyFor(bt.value), bt.value); else setSky('8.5')
+    mark()
+  })
+  mark()
+  const sexBtns = Array.from(root.querySelectorAll<HTMLButtonElement>('#sex button'))
+  sexBtns.forEach((b) => on(b, 'click', () => { sexBtns.forEach((x) => x.setAttribute('aria-pressed', String(x === b))); $('bxS').classList.remove('bad'); mark() }))
+  function readSheet(): Birth | null {
+    const miss: string[] = []
+    ;([[bdD, 'bxD'], [bdM, 'bxM'], [bdY, 'bxY']] as const).forEach(([f, id]) => { if (!f.value) miss.push(id) })
+    if (!noT.checked && !bt.value) miss.push('bxT')
+    const sexI = sexBtns.findIndex((b) => b.getAttribute('aria-pressed') === 'true')
+    if (sexI < 0) miss.push('bxS')
+    miss.forEach((id) => { const b = $(id); b.classList.remove('bad'); void b.offsetWidth; b.classList.add('bad') })
+    $('shErr').textContent = miss.length ? (miss.length === 1 && miss[0] === 'bxT' ? 'ใส่เวลาเกิด หรือติ๊ก "ไม่ทราบเวลาเกิด" ครับ' : 'ยังขาดช่องที่ขอบแดงอยู่ครับ') : ''
+    if (miss.length) return null
+    const pad = (n: string) => n.padStart(2, '0')
+    return { date: `${+bdY.value - 543}-${pad(bdM.value)}-${pad(bdD.value)}`, time: noT.checked ? null : bt.value, gender: sexI === 0 ? 'female' : 'male' }
+  }
+
+  // ambient layers
+  const st = $('stars'), sp = $('sparks')
+  for (let i = 0; i < 70; i++) { const s = el('i'); s.style.left = Math.random() * 100 + '%'; s.style.top = Math.random() * 62 + '%'; s.style.animationDelay = -Math.random() * 3 + 's'; st.appendChild(s) }
+  for (let j = 0; j < 34; j++) { const k = el('i'); k.style.left = Math.random() * 100 + '%'; k.style.background = Math.random() < 0.5 ? '#E1FF00' : '#EBBF30'; k.style.animationDuration = 18 + Math.random() * 30 + 's'; k.style.animationDelay = -Math.random() * 40 + 's'; sp.appendChild(k) }
+  const lans: HTMLElement[] = []
+  ;[[10, 18], [24, 8], [76, 10], [90, 20], [40, 4], [62, 5]].forEach(([x, y], idx) => {
+    const d = el('div', 'lantern'); d.style.left = `calc(${x}% - 22px)`; d.style.top = y + 6 + 'vh'; d.style.animationDelay = -idx * 1.3 + 's'
+    d.appendChild(el('div', 'glow')); d.appendChild(el('b')); d.appendChild(el('em')); $('lanterns').appendChild(d); lans.push(d)
+  })
+
+  // twelve-animal wheel (the goat is the medallion in the middle)
+  const wheel = $('wheel')
+  const zs = WHEEL_BRANCHES.map((b) => { const z = el('div', 'z'); const im = el('img'); im.src = animalImage(b, 'ไฟ'); im.alt = ''; im.loading = 'lazy'; z.appendChild(im); wheel.appendChild(z); return { el: z, b } })
+  let mine = new Set<string>()
+
+  // ② actors + ⑤ element flow, from the reading
+  let actors: HTMLElement[] = []
+  let caps: string[] = []
+  let flowKind: Array<'gen' | 'ctl'> = []
+  function renderPillars(r: TaisuiReading) {
+    const row = $('row'); row.textContent = ''
+    actors = r.pillars.map((p, i) => {
+      const tone = TONE[p.relation as Relation]
+      const [cls, fx] = FX[tone]
+      const a = el('div', 'actor ' + cls)
+      a.style.setProperty('--from', i < r.pillars.length / 2 ? '-70vw' : '70vw'); a.style.setProperty('--dl', i * 0.18 + 's')
+      a.appendChild(el('span', 'pl', AREA[p.key].label.split(' · ')[0]))
+      const fig = el('div', 'fig'); fig.appendChild(el('span', 'fx', fx)); const im = el('img'); im.src = p.image; im.alt = `${p.animal}ธาตุ${p.element}`; fig.appendChild(im); fig.appendChild(el('i', 'shadow')); a.appendChild(fig)
+      a.appendChild(el('span', 'nm', `${p.animal} · ${p.element}`))
+      const pr = el('span', 'pr'); pr.appendChild(document.createTextNode(p.preview[0])); pr.appendChild(el('br')); pr.appendChild(document.createTextNode(p.preview[1])); a.appendChild(pr)
+      row.appendChild(a)
+      return a
+    })
+    caps = r.pillars.map((p) => `${muLine(p.relation as Relation, p.key, p.animal)} · ${FLOW_LINE[p.flow]}`)
+    flowKind = r.pillars.map((p) => (p.flow === 'controls' || p.flow === 'controlled-by' ? 'ctl' : 'gen'))
+    $('pillars').querySelector('h2')!.textContent = r.pillars.length === 4 ? 'นักษัตรทั้ง 4 ตัวของคุณ' : 'นักษัตร 3 ตัวของคุณ'
+    mine = new Set(r.mine)
+    zs.forEach((z) => z.el.classList.toggle('me', mine.has(z.b)))
+  }
+  let entered = false, reactT = 0
+  function enter() { entered = true; actors.forEach((a) => a.classList.add('in')); window.clearTimeout(reactT); reactT = later(() => actors.forEach((a) => a.classList.add('react')), still ? 0 : 1600) }
+  function leave() { entered = false; window.clearTimeout(reactT); actors.forEach((a) => a.classList.remove('in', 'react')) }
+
+  const lines = $('lines') as unknown as SVGSVGElement
+  function drawFlow(t: number, now: number) {
+    if (t <= 0 || !actors.length) { if (lines.firstChild) lines.textContent = ''; return }
+    const sr = stage.getBoundingClientRect(), mr = medal.getBoundingClientRect()
+    const mx = mr.left + mr.width / 2 - sr.left, my = mr.top + mr.height * 0.86 - sr.top
+    const ns = 'http://www.w3.org/2000/svg'
+    lines.textContent = ''
+    const g = document.createElementNS(ns, 'g')
+    actors.forEach((a, i) => {
+      const r = a.querySelector('.fig')!.getBoundingClientRect(); const x = r.left + r.width / 2 - sr.left, y = r.top - sr.top + 4, cy = (my + y) / 2
+      const pe = document.createElementNS(ns, 'path'); pe.setAttribute('d', `M${mx} ${my} C ${mx} ${cy}, ${x} ${cy}, ${x} ${y}`)
+      const gen = flowKind[i] === 'gen'
+      pe.setAttribute('stroke', gen ? '#FF8A3D' : '#ff6b6b'); pe.setAttribute('opacity', (t * 0.55).toFixed(2)); lines.appendChild(pe)
+      if (still) return
+      const len = pe.getTotalLength(), n = gen ? 6 : 5, speed = gen ? 0.00022 : 0.0005
+      for (let q = 0; q < n; q++) {
+        const u = (now * speed + q / n) % 1, pt = pe.getPointAtLength(u * len), c = document.createElementNS(ns, 'circle')
+        const jit = gen ? 0 : Math.sin(now / 40 + q * 3) * 3
+        c.setAttribute('cx', (pt.x + jit).toFixed(1)); c.setAttribute('cy', pt.y.toFixed(1)); c.setAttribute('r', gen ? '3.2' : '2.2')
+        c.setAttribute('fill', gen ? '#FFB066' : '#FF5A4D'); c.setAttribute('opacity', (t * (gen ? 0.95 : 0.85)).toFixed(2)); g.appendChild(c)
+      }
+    })
+    lines.appendChild(g)
+  }
+
+  // ⑦ Mu's faces and bubble
+  const faces = Array.from(root.querySelectorAll<HTMLImageElement>('#muFace img')), bub = $('bubble')
+  let lastMsg = '', lastFace = 'greet'
+  function say(t: string, face?: string) {
+    if (face && face !== lastFace) { lastFace = face; faces.forEach((f) => f.classList.toggle('on', f.dataset.m === face)) }
+    if (t === lastMsg) return
+    lastMsg = t; bub.classList.add('swap'); later(() => { $('bubT').textContent = t; bub.classList.remove('swap') }, still ? 0 : 180)
+  }
+
+  // ⑦ member count, odometer
+  let members = 0, counted = false, odoBuilt = false, odoT = 0
+  function buildOdo() {
+    const box = $('statN'), txt = members.toLocaleString('en-US'); box.textContent = ''
+    for (const ch of txt) {
+      if (ch === ',') { box.appendChild(el('span', 'sep', ',')); continue }
+      const d = el('span', 'd'); d.dataset.v = ch; const reel = el('span', 'reel')
+      for (let k = 0; k < 4; k++) for (let dg = 0; dg < 10; dg++) reel.appendChild(el('span', undefined, String(dg)))
+      d.appendChild(reel); box.appendChild(d)
+    }
+    box.setAttribute('aria-label', txt); odoBuilt = true
+  }
+  function countUp() {
+    if (!members) return
+    counted = true; if (!odoBuilt) buildOdo()
+    const box = $('statN'), ds = Array.from(box.querySelectorAll<HTMLElement>('.d')); box.classList.remove('done'); window.clearTimeout(odoT)
+    ds.forEach((d, i) => { const reel = d.firstChild as HTMLElement, idx = 30 + +(d.dataset.v ?? 0), dur = still ? 0 : 1.3 + i * 0.38
+      reel.style.transition = 'none'; reel.style.transform = 'translateY(0)'; void reel.offsetHeight
+      reel.style.transition = dur ? `transform ${dur}s cubic-bezier(.15,.75,.15,1)` : 'none'; reel.style.transform = `translateY(-${idx * 1.05}em)` })
+    odoT = later(() => box.classList.add('done'), still ? 0 : 1300 + ds.length * 380)
+  }
+  function resetOdo() { counted = false; if (!odoBuilt) return; window.clearTimeout(odoT); const box = $('statN'); box.classList.remove('done'); box.querySelectorAll<HTMLElement>('.reel').forEach((r) => { r.style.transition = 'none'; r.style.transform = 'translateY(0)' }) }
+  $('statN').hidden = true
+  api.stats().then((s) => { if (!s || !s.members) return; members = s.members; $('statN').hidden = false; $('statAsOf').textContent = `นับจากสมาชิกจริง ณ ${new Date(s.asOf).toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: 'numeric' })}`; if (P > 0.89) countUp() })
+
+  let P = 0, flowT = 0, sheetOpen = false, gliding = false
+  function careCount() { return reading ? reading.pillars.filter((p) => TONE[p.relation as Relation] === 'care').length : 0 }
+  function frame() {
+    const vh = stage.clientHeight || innerHeight, vw = stage.clientWidth || innerWidth
+    const p = clamp((scrollY - cine.offsetTop) / (cine.offsetHeight - vh), 0, 1); P = p
+    stage.style.setProperty('--n', seg(p, 0.04, 0.26).toFixed(3))
+    const out = seg(p, 0, 0.06); $('heroT').style.opacity = String(1 - out); $('heroT').style.transform = `translateY(${-30 * out}px)`
+    $('cta').style.opacity = String(1 - seg(p, 0, 0.04)); $('cta').style.pointerEvents = p > 0.03 ? 'none' : ''
+    root.querySelectorAll<HTMLElement>('#prog b').forEach((b, i) => { b.style.transform = `scaleX(${seg(p, SEG[i][0], SEG[i][1]).toFixed(3)})` })
+    prog.classList.toggle('day', seg(p, 0.04, 0.26) < 0.5); prog.style.opacity = scrollY > cine.offsetTop + cine.offsetHeight - vh * 0.6 ? '0' : '1'
+    $('cFar').style.transform = `translateY(${seg(p, 0, 0.3) * 12}vh)`; $('cMid').style.transform = `translateY(${seg(p, 0, 0.3) * 22}vh)`; $('cNear').style.transform = `translateY(${seg(p, 0, 0.3) * 36}vh)`
+    lans.forEach((l, i) => { l.classList.toggle('lit', p > 0.12 + i * 0.02); l.style.opacity = (seg(p, 0.05, 0.14) * (1 - seg(p, 0.9, 1)) * (1 - 0.62 * seg(p, 0.38, 0.44))).toFixed(2) })
+    const shrink = ease(seg(p, 0.03, 0.2)), toC = ease(seg(p, 0.62, 0.7)), gone = seg(p, 0.84, 0.9)
+    const y = lerp(lerp(0.06 * vh, -0.31 * vh, shrink), -0.02 * vh, toC), sc = lerp(lerp(1, 0.3, shrink), 0.36, toC)
+    medal.style.transform = `translate(-50%,-50%) translateY(${y}px) scale(${sc})`; medal.style.opacity = (1 - gone).toFixed(2); ring.style.opacity = shrink.toFixed(2)
+    const yIn = seg(p, 0.2, 0.26), yOut = seg(p, 0.34, 0.4); $('year').style.opacity = (yIn * (1 - yOut)).toFixed(2)
+    const pIn = seg(p, 0.4, 0.45), pOut = seg(p, 0.6, 0.64); $('pillars').style.opacity = (pIn * (1 - pOut)).toFixed(2)
+    if (p > 0.43 && !entered && actors.length) enter(); if (p < 0.38 && entered) leave()
+    flowT = seg(p, 0.47, 0.52) * (1 - pOut)
+    const spot = p >= 0.52 && p < 0.62 ? Math.min(actors.length - 1, Math.floor((p - 0.52) / 0.025)) : -1
+    actors.forEach((a, i) => { a.classList.toggle('lit', spot === i); a.classList.toggle('dim', spot >= 0 && spot !== i) })
+    const wIn = seg(p, 0.64, 0.7), wOut = seg(p, 0.84, 0.88), wv = wIn * (1 - wOut); wheel.style.opacity = wv.toFixed(2); $('wtitle').style.opacity = wv.toFixed(2)
+    const R = Math.min(vw * 0.39, vh * 0.3, 240), cx = vw / 2, cy = vh / 2 - 0.02 * vh, rot = p * 140
+    zs.forEach((z, i) => { const a = ((rot + i * (360 / zs.length)) * Math.PI) / 180, r = R * lerp(0.6, 1, wIn); z.el.style.left = cx + Math.cos(a) * r + 'px'; z.el.style.top = cy + Math.sin(a) * r * 0.92 + 'px'; z.el.style.transform = `scale(${mine.has(z.b) && p > 0.72 ? 1.28 : 1})` })
+    const sIn = seg(p, 0.88, 0.93); $('stat').style.opacity = sIn.toFixed(2); $('toRead').style.pointerEvents = sIn > 0.6 ? 'auto' : 'none'; $('toRead').tabIndex = sIn > 0.6 ? 0 : -1
+    if (p > 0.89 && !counted) countUp(); if (p < 0.86 && counted) resetOdo()
+    if (sheetOpen) say('ใส่เวลาเกิด แล้วดูฟ้าด้านบนเปลี่ยนตามนะครับ', 'happy')
+    else if (p < 0.05) say(api.sender ? `มีอั่งเปาจาก${api.sender.name}รออยู่ มาดูดวงปีมะแมของคุณกันก่อนครับ` : 'สวัสดีครับ ผมเสี่ยวมู่ มาดูกันว่าปีมะแมส่งผลกับคุณยังไง', 'greet')
+    else if (p < 0.2) say('ฟ้ากำลังเข้าคืนเทศกาล โคมเริ่มจุดแล้วครับ', 'greet')
+    else if (p < 0.4) say('丁 คือไฟหยิน 未 คือมะแม ปีนี้จึงเป็นปีมะแมไฟ', 'special')
+    else if (!reading) say('กรอกวันเกิดก่อน แล้วนักษัตรของคุณจะวิ่งออกมาครับ', 'happy')
+    else if (p < 0.52) say(`นี่คือนักษัตร ${actors.length} ตัวของคุณ ท่าทางบอกว่าเข้ากับปีมะแมแค่ไหน`, 'happy')
+    else if (p < 0.62) say(caps[Math.max(0, spot)] ?? '', 'happy')
+    else if (p < 0.86) { const n = careCount(); say(n ? `ตัวที่เรืองแสงคือของคุณ ปีนี้มี ${n} ตัวที่ต้องระวัง` : 'ตัวที่เรืองแสงคือของคุณ ปีนี้ไม่มีตัวไหนชงเลยครับ', n ? 'special' : 'happy') }
+    else say(member ? 'อยากรู้ว่าเดือนไหนควรรุก เดือนไหนควรรอ อ่านต่อได้เลยครับ' : 'คำทำนายเต็มกับโคม 12 เดือน ดูได้หลังเข้าสู่ระบบครับ', 'happy')
+    updateNext()
+  }
+  let ticking = false
+  const onScroll = () => { if (!ticking) { ticking = true; requestAnimationFrame(() => { ticking = false; frame() }) } }
+  on(window, 'scroll', onScroll, { passive: true }); on(window, 'resize', onScroll)
+  let raf = 0
+  const loop = (now: number) => { drawFlow(flowT, now); raf = requestAnimationFrame(loop) }
+  raf = requestAnimationFrame(loop)
+  cleanups.push(() => cancelAnimationFrame(raf))
+
+  // glide to a scroll point; any touch, wheel or key cancels it
+  const cancelGlide = () => { gliding = false }
+  ;['wheel', 'touchstart', 'keydown'].forEach((ev) => on(window, ev, cancelGlide, { passive: true }))
+  function glideToY(to: number, done?: () => void) {
+    if (still) { scrollTo(0, to); done?.(); return }
+    const s0 = scrollY, dist = Math.abs(to - s0), dur = clamp(dist / 1.3, 500, 2400); let t0 = 0; gliding = true; hideNext()
+    const stp = (t: number) => { if (!gliding) return; if (!t0) t0 = t; const k = Math.min(1, (t - t0) / dur); scrollTo(0, s0 + (to - s0) * ease(k)); if (k < 1) requestAnimationFrame(stp); else { gliding = false; done?.(); armIdle() } }
+    requestAnimationFrame(stp)
+  }
+  const glideTo = (pp: number, done?: () => void) => glideToY(cine.offsetTop + (cine.offsetHeight - innerHeight) * pp, done)
+  const toSection = (id: string) => glideToY($(id).getBoundingClientRect().top + scrollY - 12)
+
+  // one guide button inside Mu's bubble
+  const nextBtn = $<HTMLButtonElement>('next')
+  let nextTo: number | 'sheet' | null = null, idleT = 0, nudgeT = 0
+  function hideNext() { nextBtn.classList.remove('on', 'idle'); nextBtn.tabIndex = -1; window.clearTimeout(nudgeT) }
+  function updateNext() {
+    if (gliding || sheetOpen) return
+    nextTo = null
+    if (!reading && P >= 0.3 && P < 0.9) { nextTo = 'sheet'; nextBtn.textContent = 'กรอกวันเกิด'; return }
+    if (P >= 0.03 && P < 0.9) for (const [at, label] of RESTS) if (at > P + 0.004) { nextTo = at; nextBtn.textContent = label; break }
+  }
+  function armIdle() {
+    window.clearTimeout(idleT); window.clearTimeout(nudgeT); nextBtn.classList.remove('idle')
+    idleT = later(() => { updateNext(); if (nextTo === null) { hideNext(); return } nextBtn.classList.add('on'); nextBtn.tabIndex = 0; nudgeT = later(() => nextBtn.classList.add('idle'), 2600) }, 450)
+  }
+  on(window, 'scroll', () => { if (gliding) return; hideNext(); armIdle() }, { passive: true })
+  on(nextBtn, 'click', () => { if (!nextBtn.classList.contains('on')) return; if (nextTo === 'sheet') openSheet(); else if (nextTo !== null) glideTo(nextTo) })
+
+  // the sheet (visitors) — members with a saved chart go straight in
+  const sheet = $('sheet'), scrim = $('scrim')
+  function openSheet() { sheetOpen = true; hideNext(); sheet.classList.add('on'); scrim.classList.add('on'); $('cta').style.visibility = 'hidden'; frame() }
+  function closeSheet() { sheetOpen = false; sheet.classList.remove('on'); scrim.classList.remove('on'); $('cta').style.visibility = ''; frame() }
+  on($('start'), 'click', () => { if (reading) glideTo(0.3); else openSheet() })
+  on(scrim, 'click', closeSheet)
+  on<KeyboardEvent>(window, 'keydown', (e) => { if (e.key === 'Escape' && sheetOpen) closeSheet() })
+  let typed: Birth | null = null
+  on<SubmitEvent>(sheet, 'submit', async (e) => {
+    e.preventDefault()
+    const birth = readSheet(); if (!birth) return
+    const btn = sheet.querySelector<HTMLButtonElement>('button[type=submit]')!; btn.disabled = true
+    api.track('taisui_form_submit', { time_known: birth.time ? 1 : 0 })
+    const res = await api.loadReading(birth); btn.disabled = false
+    if (!res.ok) { $('shErr').textContent = res.status === 429 ? 'กดถี่ไปหน่อย รอสักครู่แล้วลองใหม่ครับ' : 'ยังดูดวงไม่ได้ ลองใหม่อีกครั้งครับ'; return }
+    typed = birth
+    apply(res.reading)
+    closeSheet(); glideTo(0.3)
+  })
+  on($('member'), 'click', () => { api.track('taisui_login_click', { from: 'hero' }); api.login(null) })
+  on($('toRead'), 'click', () => { if (member) toSection('moSec'); else { api.track('taisui_login_click', { from: 'count' }); api.login(typed) } })
+  on($('lockLogin'), 'click', () => { api.track('taisui_login_click', { from: 'lock' }); api.login(typed) })
+
+  // ⑥ twelve monthly lanterns
+  const mz = $('months')
+  function renderMonths(r: TaisuiReading) {
+    mz.textContent = ''
+    r.months.forEach((m, i) => {
+      const b = el('button', 'mo' + (m.state === 'normal' ? '' : ' ' + m.state)); b.type = 'button'; b.setAttribute('aria-pressed', 'false')
+      const lt = el('span', 'lt'); lt.style.animationDelay = -i * 0.6 + 's'; b.appendChild(lt)
+      const lbl = MONTH_LABEL[m.branch]; const ms = el('span', 'm'); ms.appendChild(el('b', undefined, lbl.name)); ms.appendChild(document.createTextNode(lbl.short)); b.appendChild(ms)
+      on(b, 'click', () => {
+        Array.from(mz.children).forEach((x) => x.setAttribute('aria-pressed', 'false')); b.setAttribute('aria-pressed', 'true')
+        const tip = $('mtip'); tip.textContent = ''; tip.appendChild(el('b', undefined, `เดือน${lbl.name} (${lbl.short}) `)); tip.appendChild(document.createTextNode(r.full?.monthTips[m.branch] ?? MONTH_TIP[m.state]))
+      })
+      mz.appendChild(b)
+    })
+  }
+  if ('IntersectionObserver' in window) {
+    const mo = new IntersectionObserver((es) => es.forEach((en) => {
+      if (!en.isIntersecting || !mz.children.length) return
+      mo.disconnect()
+      if (!still) { mz.scrollTo({ left: 96, behavior: 'smooth' }); later(() => mz.scrollTo({ left: 0, behavior: 'smooth' }), 700) }
+      const first = Array.from(mz.children).findIndex((c) => c.classList.contains('peak'))
+      later(() => (mz.children[Math.max(0, first)] as HTMLElement | undefined)?.click(), still ? 0 : 1300)
+    }), { threshold: 0.6 })
+    mo.observe(mz); cleanups.push(() => mo.disconnect())
+  }
+
+  // reading per pillar (members) or the lock (visitors)
+  function renderReads(r: TaisuiReading) {
+    const box = $('reads'); box.textContent = ''
+    $('lock').hidden = !r.locked
+    $('draftNote').hidden = !r.draft
+    if (!r.full) return
+    r.pillars.forEach((p, i) => {
+      const rd = r.full!.readings[i]; if (!rd) return
+      const art = el('article', 'read')
+      const hd = el('div', 'hd'); const im = el('img'); im.src = p.image; im.alt = `ตัวละคร${p.animal}ธาตุ${p.element}`; im.loading = 'lazy'; hd.appendChild(im)
+      const t = el('div'); t.appendChild(el('div', 'k', `นักษัตร${AREA[p.key].label}`)); t.appendChild(el('div', 't', `${p.animal} · ${RELATION_NAME[p.relation as Relation]}`)); hd.appendChild(t); art.appendChild(hd)
+      art.appendChild(el('h3', undefined, rd.headline))
+      art.appendChild(el('h3', undefined, 'โอกาสของคุณปีนี้')); art.appendChild(el('p', undefined, rd.opportunity))
+      art.appendChild(el('h3', undefined, 'จุดแข็ง')); art.appendChild(el('p', undefined, rd.strengths))
+      art.appendChild(el('h3', undefined, 'ระวัง')); art.appendChild(el('p', undefined, rd.cautions))
+      art.appendChild(el('h3', undefined, 'ทำ 3 อย่างนี้'))
+      const ul = el('ul', 'acts'); rd.actions.forEach((a, k) => { const li = el('li'); li.appendChild(el('span', undefined, String(k + 1))); li.appendChild(document.createTextNode(a)); ul.appendChild(li) }); art.appendChild(ul)
+      const ask = el('a', 'ask'); ask.href = '/v2/chat'; const mi = el('img'); mi.src = '/images/v2/mascot/personas/mu/happy.png'; mi.alt = ''; ask.appendChild(mi); ask.appendChild(document.createTextNode('ถามเสี่ยวมู่เรื่องนี้ต่อ')); art.appendChild(ask)
+      box.appendChild(art)
+      if (i < r.pillars.length - 1) box.appendChild(el('div', 'gap'))
+    })
+  }
+
+  // ③ + ⑧ red packet: drag the seal up to open; a tap also opens it
+  const pz = $('pz'), env = $('env'), seal = $('seal'), burst = $('burst')
+  if (api.hasRef) {
+    $('pkSec').hidden = false
+    if (api.sender) { $('pkFrom').textContent = api.sender.name; $('pkCardFrom').textContent = `อั่งเปาจาก ${api.sender.name}`; $('pkThem').textContent = `${api.sender.name} · ${api.sender.animal}`; $<HTMLImageElement>('pkThemImg').src = api.sender.image }
+    const go = el('button', 'link', 'มีอั่งเปารออยู่ · แกะซอง'); go.type = 'button'; on(go, 'click', () => toSection('pkSec')); $('cta').appendChild(go)
+  }
+  for (let c = 0; c < 16; c++) { const q = el('div', 'coinq', 'Qi'); const an = Math.random() * Math.PI * 2, d = 120 + Math.random() * 120; q.style.setProperty('--dx', Math.cos(an) * d + 'px'); q.style.setProperty('--dy', Math.sin(an) * d - 60 + 'px'); q.style.setProperty('--rot', Math.random() * 540 - 270 + 'deg'); q.style.setProperty('--dl', (Math.random() * 0.25).toFixed(2) + 's'); burst.appendChild(q) }
+  for (let f = 0; f < 14; f++) { const fl = el('i', 'flake'); fl.style.left = 10 + Math.random() * 80 + '%'; fl.style.setProperty('--dx', Math.random() * 80 - 40 + 'px'); fl.style.setProperty('--rot', Math.random() * 720 - 360 + 'deg'); fl.style.setProperty('--dl', (Math.random() * 0.6).toFixed(2) + 's'); pz.appendChild(fl) }
+  const REASON: Record<string, string> = {
+    own_packet: 'ซองนี้เป็นของคุณเอง ส่งให้เพื่อนเปิดได้เลยครับ', already_opened: 'คุณเปิดซองของคนนี้ไปแล้วครับ',
+    receiver_daily_cap: 'วันนี้รับชี่จากอั่งเปาครบแล้ว พรุ่งนี้มาเปิดใหม่ได้ครับ', sender_daily_cap: 'ซองนี้แจกชี่ครบโควตาวันนี้แล้วครับ', unknown_code: 'ซองนี้หมดอายุหรือไม่ถูกต้องครับ',
+  }
+  async function openEnv() {
+    if (env.classList.contains('open')) return
+    env.classList.remove('dragging'); seal.classList.remove('drag', 'back'); seal.style.removeProperty('--dy'); seal.style.removeProperty('--rot')
+    env.classList.add('open'); pz.classList.add('open'); try { navigator.vibrate?.([18, 40, 25]) } catch { /* no vibration */ }
+    api.track('taisui_packet_open', { member: member ? 1 : 0 })
+    if (!member) { $('pkQi').textContent = 'ชี่ 5–10 รออยู่'; $('pkHint').textContent = 'เข้าสู่ระบบเพื่อรับชี่จากซองนี้'; $('pkLogin').hidden = false; return }
+    const r = await api.openPacket()
+    if (r?.paid && r.qi) { $('pkQi').textContent = `+${r.qi} ชี่`; $('pkHint').textContent = `ได้ ${r.qi} ชี่ เข้ากระเป๋าแล้วครับ` }
+    else { $('pkQi').textContent = 'ชี่'; $('pkHint').textContent = REASON[r?.reason ?? ''] ?? 'ยังรับชี่ไม่ได้ ลองใหม่อีกครั้งครับ' }
+  }
+  on($('pkLogin'), 'click', () => { api.track('taisui_login_click', { from: 'packet' }); api.login(typed) })
+  let y0: number | null = null, moved = 0
+  on<PointerEvent>(seal, 'pointerdown', (e) => { if (env.classList.contains('open')) return; y0 = e.clientY; moved = 0; seal.setPointerCapture(e.pointerId); seal.classList.add('drag'); seal.classList.remove('back'); env.classList.add('dragging') })
+  on<PointerEvent>(seal, 'pointermove', (e) => { if (y0 === null) return; const dy = Math.min(0, e.clientY - y0); moved = Math.max(moved, -dy); seal.style.setProperty('--dy', (dy * 0.9).toFixed(0) + 'px'); seal.style.setProperty('--rot', (dy * -0.15).toFixed(1) + 'deg'); if (-dy > 70) { y0 = null; void openEnv() } })
+  const endDrag = () => { if (y0 === null) return; const wasTap = moved < 6; y0 = null; seal.classList.remove('drag'); env.classList.remove('dragging'); if (wasTap) { void openEnv(); return } seal.classList.add('back'); seal.style.removeProperty('--dy'); seal.style.removeProperty('--rot') }
+  on(seal, 'pointerup', endDrag); on(seal, 'pointercancel', endDrag)
+  on<KeyboardEvent>(seal, 'keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); void openEnv() } })
+
+  // ④ wish lanterns: only the count is shared, the wish stays in this browser
+  const ws = $('wishsky')
+  for (let w = 0; w < 22; w++) { const o = el('i', 'fl'); o.style.left = 4 + Math.random() * 92 + '%'; o.style.setProperty('--w', (8 + Math.random() * 12).toFixed(0) + 'px'); o.style.animationDuration = 10 + Math.random() * 12 + 's'; o.style.animationDelay = -Math.random() * 20 + 's'; ws.appendChild(o) }
+  const showCount = (n: number) => { $('wishN').textContent = n.toLocaleString('en-US') }
+  on<SubmitEvent>($('wishform'), 'submit', async (e) => {
+    e.preventDefault()
+    const input = $<HTMLInputElement>('wish'); const t = (input.value || 'ขอให้ปีนี้ราบรื่น').trim().slice(0, 40)
+    const m = $('mine'); m.classList.remove('go'); void m.offsetWidth; $('mineTxt').textContent = t; m.classList.add('go'); input.value = ''
+    api.track('taisui_lantern')
+    const r = await api.lantern(true); if (r) showCount(r.count)
+  })
+
+  // share card + send a packet
+  const sh = $('share')
+  if ('IntersectionObserver' in window) { const io = new IntersectionObserver((es) => es.forEach((e) => { if (e.isIntersecting) sh.classList.add('on') }), { threshold: 0.45 }); io.observe(sh); cleanups.push(() => io.disconnect()) } else sh.classList.add('on')
+  on($('sendPk'), 'click', async () => {
+    const r = await api.sendPacket()
+    if (!r) { $('sendHint').textContent = 'ยังสร้างซองไม่ได้ ลองใหม่อีกครั้งครับ'; return }
+    const text = 'ส่งอั่งเปาปีมะแมให้ แกะดูว่าปีนี้เราเข้ากันแค่ไหน แล้วรับชี่ฟรี'
+    try {
+      if (navigator.share) { await navigator.share({ title: 'อั่งเปาปีมะแม 2570', text, url: r.url }); api.track('taisui_share', { channel: 'native' }); return }
+    } catch { /* cancelled */ }
+    window.location.href = `https://line.me/R/msg/text/?${encodeURIComponent(`${text} ${r.url}`)}`
+    api.track('taisui_share', { channel: 'line' })
+  })
+
+  // apply a reading to every scene
+  function apply(r: TaisuiReading) {
+    reading = r; member = !r.locked
+    api.track('taisui_result', { pillars: r.pillars.length, member: member ? 1 : 0 })
+    renderPillars(r); renderMonths(r); renderReads(r)
+    root.querySelectorAll<HTMLElement>('[data-full]').forEach((s) => { s.hidden = !member })
+    const year = r.pillars.find((p) => p.key === 'year')
+    if (year) { $<HTMLImageElement>('pkMeImg').src = year.image; $('pkMe').textContent = `คุณ · ${year.animal}` }
+    if (r.partner) { const rel = el('span'); rel.textContent = PAIR_LINE[r.partner.relation as Relation]; $('pkRel').textContent = ''; $('pkRel').appendChild(rel) }
+    const meds = $('meds'); meds.textContent = ''
+    r.pillars.forEach((p, i) => { const d = el('div'); d.style.setProperty('--i', String(i)); const im = el('img'); im.src = p.image; im.alt = ''; d.appendChild(im); d.appendChild(document.createTextNode(p.animal)); meds.appendChild(d) })
+    const yearRead = r.full?.readings[r.pillars.length - 1]
+    $('scT').textContent = yearRead ? yearRead.headline : 'ปีมะแมของฉัน'
+    $('start').textContent = 'ดูดวงปีมะแมของฉัน'
+    $('member').hidden = true
+    if (member) void api.lantern(false).then((c) => c && showCount(c.count))
+    entered = false; frame()
+  }
+
+  // members with a saved chart: no sheet
+  api.track('taisui_open', { ref: api.hasRef ? 1 : 0 })
+  void api.loadReading().then((res) => { if (res.ok) apply(res.reading) })
+  root.querySelectorAll<HTMLElement>('[data-full]').forEach((s) => { s.hidden = true })
+  frame()
+
+  return () => { cleanups.forEach((f) => f()); timers.forEach((t) => window.clearTimeout(t)) }
+}
