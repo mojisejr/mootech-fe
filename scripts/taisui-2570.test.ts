@@ -10,6 +10,7 @@ import { APPROVED, PREVIEW, RELATION_IN_SENTENCE, readingFor, type PillarKey, ty
 import { animalImage, MONTH_LABEL } from '@/features/v2-taisui/content/animals'
 import { leaveReturnMarker, takeReturnPath, TAISUI_RETURN_KEY } from '@/features/v2-taisui/return'
 import { withFreshPass } from '@/features/v2-taisui/fresh-pass'
+import { oaClaimFrom } from '@/features/v2-taisui/oa-claim'
 import { ANALYTICS_EVENTS, FORBIDDEN_PARAM_KEY } from '@/lib/analytics/events'
 import { TAISUI_MARKUP } from '@/features/v2-taisui/components/taisui-markup'
 import { TAISUI_CSS } from '@/features/v2-taisui/components/taisui-css'
@@ -172,5 +173,19 @@ describe('an expired form pass', () => {
     const stuck = vi.fn().mockResolvedValue(res(403, { error: 'nonce' }))
     expect((await withFreshPass(stuck, vi.fn().mockResolvedValue(undefined))).status).toBe(403)
     expect(stuck).toHaveBeenCalledTimes(2)
+  })
+})
+
+describe('the LINE OA reward after login', () => {
+  it('shows a payment, offers the add button to a non-friend, and stays quiet otherwise', () => {
+    expect(oaClaimFrom(200, { awarded: 100 })).toEqual({ state: 'paid', qi: 100 })
+    expect(oaClaimFrom(200, { capped: true })).toEqual({ state: 'already' })
+    expect(oaClaimFrom(409, { reason: 'not_friend' })).toEqual({ state: 'not_friend' })
+    for (const [status, body] of [[400, { reason: 'not_line' }], [401, { reason: 'relogin' }], [502, null], [409, { reason: 'other' }]] as const) {
+      expect(oaClaimFrom(status, body)).toEqual({ state: 'skip' })
+    }
+  })
+  it('sends the red packet through LINE only', () => {
+    expect(TAISUI_MARKUP).toContain('ส่งอั่งเปาทาง LINE')
   })
 })

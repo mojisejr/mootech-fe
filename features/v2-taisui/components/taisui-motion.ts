@@ -9,6 +9,7 @@ import { animalImage, MONTH_LABEL, WHEEL_BRANCHES } from '../content/animals'
 
 export type Birth = { date: string; time: string | null; gender: 'female' | 'male' }
 export type Sender = { name: string; animal: string; image: string } | null
+export type OaClaim = { state: 'paid'; qi: number } | { state: 'already' | 'not_friend' | 'skip' }
 
 export type TaisuiApi = {
   /** Loads the reading: no birth = the logged-in member's saved chart. */
@@ -18,6 +19,9 @@ export type TaisuiApi = {
   openPacket: () => Promise<{ paid: boolean; qi?: number; reason?: string } | null>
   sendPacket: () => Promise<{ url: string } | null>
   lantern: (release: boolean) => Promise<{ count: number } | null>
+  /** The existing once-per-member LINE OA reward (100 QI), checked against LINE on the server. */
+  claimOa: () => Promise<OaClaim>
+  oaUrl: string
   track: (event: string, params?: Record<string, string | number>) => void
   sender: Sender
   hasRef: boolean
@@ -421,12 +425,30 @@ export function startTaisui(root: HTMLElement, api: TaisuiApi): () => void {
     const r = await api.sendPacket()
     if (!r) { $('sendHint').textContent = 'ยังสร้างซองไม่ได้ ลองใหม่อีกครั้งครับ'; return }
     const text = 'ส่งอั่งเปาปีมะแมให้ แกะดูว่าปีนี้เราเข้ากันแค่ไหน แล้วรับชี่ฟรี'
-    try {
-      if (navigator.share) { await navigator.share({ title: 'อั่งเปาปีมะแม 2570', text, url: r.url }); api.track('taisui_share', { channel: 'native' }); return }
-    } catch { /* cancelled */ }
+    // LINE only: a friend who opens the link inside LINE logs in with one tap, no password page.
     window.location.href = `https://line.me/R/msg/text/?${encodeURIComponent(`${text} ${r.url}`)}`
     api.track('taisui_share', { channel: 'line' })
   })
+
+  // the LINE OA reward: asked once per page load as soon as the visitor is a member
+  let oaAsked = false, oaWaiting = false
+  const oaToast = el('div', 'oaToast'); oaToast.setAttribute('role', 'status'); oaToast.hidden = true; root.appendChild(oaToast); cleanups.push(() => oaToast.remove())
+  function showOa(text: string, withAdd: boolean) {
+    oaToast.textContent = ''
+    const t = el('p'); t.textContent = text; oaToast.appendChild(t)
+    if (withAdd) { const a = el('a', 'btn') as HTMLAnchorElement; a.href = api.oaUrl; a.target = '_blank'; a.rel = 'noopener noreferrer'; a.textContent = 'แอด LINE รับ 100 ชี่'; on(a, 'click', () => { oaWaiting = true; api.track('taisui_oa_claim', { result: 'add_click' }) }); oaToast.appendChild(a) }
+    const x = el('button', 'x') as HTMLButtonElement; x.type = 'button'; x.setAttribute('aria-label', 'ปิด'); x.textContent = '×'; on(x, 'click', () => { oaToast.hidden = true }); oaToast.appendChild(x)
+    oaToast.hidden = false
+  }
+  async function claimOa() {
+    const r = await api.claimOa().catch(() => ({ state: 'skip' as const }))
+    api.track('taisui_oa_claim', { result: r.state })
+    if (r.state === 'paid') { oaWaiting = false; showOa(`ได้ +${r.qi} ชี่ จากการเป็นเพื่อน MuMate ใน LINE แล้วครับ`, false); later(() => { oaToast.hidden = true }, 6000) }
+    else if (r.state === 'not_friend') showOa('แอด LINE ของ MuMate เป็นเพื่อน รับเพิ่ม 100 ชี่ (ครั้งเดียว)', true)
+    else { oaWaiting = false; if (r.state === 'already') oaToast.hidden = true }
+  }
+  // back from adding the OA: ask again once
+  on(document, 'visibilitychange', () => { if (document.visibilityState === 'visible' && oaWaiting) { oaWaiting = false; void claimOa() } })
 
   // apply a reading to every scene
   function apply(r: TaisuiReading) {
@@ -444,6 +466,7 @@ export function startTaisui(root: HTMLElement, api: TaisuiApi): () => void {
     $('start').textContent = 'ดูดวงปีมะแมของฉัน'
     $('member').hidden = true
     if (member) void api.lantern(false).then((c) => c && showCount(c.count))
+    if (member && !oaAsked) { oaAsked = true; void claimOa() }
     entered = false; frame()
   }
 
