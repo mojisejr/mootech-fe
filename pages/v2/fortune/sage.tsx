@@ -18,6 +18,7 @@ import { useHasMounted } from "@/lib/hooks/use-has-mounted"
 import { useLoadingTimeout } from "@/lib/hooks/use-loading-timeout"
 import { useShake } from "@/lib/hooks/use-shake"
 import { SiamsiRitual } from "@/features/v2-fortune/components/SiamsiRitual"
+import { SiamsiHistory, SiamsiReviewBox } from "@/features/v2-fortune/components/SiamsiHistory"
 import { AuthRequiredCard } from "@/features/auth/components/AuthRequiredCard"
 import { shareAsInvite } from "@/lib/v2/share-invite"
 import { ShareCard, ShareStage } from "@/features/v2-share/components/ShareCard"
@@ -67,7 +68,9 @@ export default function FortuneSagePage() {
   const cd = useActionCooldown("fortune:sage") // กันบอทยิงรัว 10 วิ
   const { tier, loading: tierLoading } = useV2Tier() // PRO = เซียมซี/Oracle ไม่จำกัด
   const cardUnlimited = tier === "PRO"
-  const [phase, setPhase] = useState<"intro" | "loading" | "result">("intro")
+  const [phase, setPhase] = useState<"intro" | "loading" | "result" | "history">("intro")
+  // id แถวประวัติของไพ่ที่เพิ่งเปิด (engine เก็บ 20 ใบล่าสุด) — ใช้รีวิวรับ QI ในหน้าผล
+  const [historyId, setHistoryId] = useState<string | null>(null)
   const [card, setCard] = useState<SiamsiCard | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [quotaOut, setQuotaOut] = useState(false)
@@ -103,11 +106,12 @@ export default function FortuneSagePage() {
     setQuotaOut(false)
     try {
       const res = await fetch("/api/fortune/sage", { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" })
-      const j = (await res.json().catch(() => ({}))) as { card?: SiamsiCard; qi?: { source: "free" | "credit" | "qi"; cost: number } | null; error?: { message?: string } }
+      const j = (await res.json().catch(() => ({}))) as { card?: SiamsiCard; historyId?: string | null; qi?: { source: "free" | "credit" | "qi"; cost: number } | null; error?: { message?: string } }
       if (res.status === 402) { setQuotaOut(true); gate.blocked(); setPhase("intro"); return }
       if (!res.ok || !j.card) { setError(j.error?.message ?? "เสี่ยงทายไม่สำเร็จ ลองใหม่อีกครั้ง"); setPhase("intro"); return }
       // ได้ผลแล้ว → SiamsiRitual เขย่าจนครบเวลา หล่นไม้ แสงระเบิด พลิกไพ่ แล้วค่อย revealDone ไปหน้าผล
       setCard(j.card)
+      setHistoryId(j.historyId ?? null)
       setQiInfo(j.qi ?? null)
     } catch {
       setError("เชื่อมต่อไม่สำเร็จ ลองใหม่อีกครั้ง")
@@ -152,13 +156,15 @@ export default function FortuneSagePage() {
     <SkyScreen bgImage="/images/v2/fortune/sage-bg.png">
       <Head><title>{`${phase === "result" ? "ผลเซียมซี" : "เซียมซีโป๊ยเซียน (NEW)"} · MuMate`}</title></Head>
       <SkyHeader
-        title={phase === "result" ? "ผลเซียมซี" : "เซียมซีโป๊ยเซียน (NEW)"}
+        title={phase === "result" ? "ผลเซียมซี" : phase === "history" ? "ประวัติเซียมซี" : "เซียมซีโป๊ยเซียน (NEW)"}
         backHref="/v2/service"
         testId="fortune-sage"
         right={phase === "result" && qiInfo ? <span data-testid="sage-qi-source" className="rounded-full bg-[#FCE9F0] px-3 py-1 text-[11px] font-bold text-[#B0568A]">{qiInfo.source === "qi" ? `ใช้ไป ${qiInfo.cost} QI` : qiInfo.source === "credit" ? "ใช้เครดิต" : "ฟรีวันนี้"}</span> : undefined}
       />
 
       {phase === "loading" && <SiamsiRitual ready={card !== null} cardImage={card?.imageUrl} cardName={card ? `ใบที่ ${card.no} · ${card.name}` : undefined} onDone={revealDone} />}
+
+      {phase === "history" && <SiamsiHistory onBack={() => setPhase(card ? "result" : "intro")} />}
 
       {phase === "intro" && (
         <div className="mt-3 flex flex-col gap-4" data-testid="sage-intro">
@@ -195,6 +201,11 @@ export default function FortuneSagePage() {
               </>
             )}
           </section>
+          {authStatus === "authed" && (
+            <button type="button" onClick={() => setPhase("history")} data-testid="sage-history-open" className="grid h-12 w-full place-items-center rounded-full border border-v3-border-card bg-white text-[14px] font-bold text-v3-navy">
+              📜 ประวัติเซียมซี · รีวิวรับ QI
+            </button>
+          )}
           {quotaOut && <Link href="/v2/qi" className="text-center text-[13px] font-bold text-v3-sapphire">เติม/แลก QI ที่หน้าพลังชี่ →</Link>}
           {!tierLoading && <p className="text-center text-[11px] text-v3-text-muted">{cardUnlimited ? "สมาชิก PRO เสี่ยงทายได้ไม่จำกัด" : tier === "PLUS" ? "สมาชิก PLUS เสี่ยงทายวันละ 10 ครั้ง — เกินแล้วแลกด้วย QI" : "ฟรีวันละ 1 ครั้ง (รวมไพ่ · เซียมซี · เบอร์มงคล) — สมัครสมาชิกเพื่อใช้ไม่จำกัด"}</p>}
         </div>
@@ -236,6 +247,8 @@ export default function FortuneSagePage() {
           ) : null}
           {card.advice ? <DotSection label="คำแนะนำ" dot="#C9A24A"><p className="text-[13px] leading-[22px] text-v3-text-body">{card.advice}</p></DotSection> : null}
 
+          {historyId ? <SiamsiReviewBox key={historyId} historyId={historyId} /> : null}
+
           <div className="mt-1 flex flex-col gap-2">
             <KitButton onClick={share} testId="sage-share">
               <span className="inline-flex items-center gap-2">
@@ -246,6 +259,7 @@ export default function FortuneSagePage() {
             <button onClick={() => { setCard(null); setPhase("intro") }} data-testid="sage-again" className="grid h-12 w-full place-items-center rounded-full border border-v3-border-card bg-white text-[15px] font-bold text-v3-navy">
               เสี่ยงอีกครั้ง · 10 QI
             </button>
+            <button onClick={() => setPhase("history")} data-testid="sage-history-from-result" className="text-center text-[13px] font-bold text-v3-sapphire">📜 ดูประวัติเซียมซีย้อนหลัง</button>
           </div>
           <p className="pb-2 text-center text-[11px] leading-4 text-v3-text-muted">คำทำนายเพื่อความบันเทิงและเป็นแนวทาง โปรดใช้วิจารณญาณ</p>
         </div>
