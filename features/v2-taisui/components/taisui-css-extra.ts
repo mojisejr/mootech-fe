@@ -161,6 +161,12 @@ body:has(.ts2570){background:#071a36}
 .ts2570 .fold > .dm,.ts2570 .fold > .rl,.ts2570 .fold > .how{margin-left:14px;margin-right:14px}
 .ts2570 .fold > .how{margin-bottom:14px}
 @media (prefers-reduced-motion:reduce){.ts2570 .prow li{transition:none;opacity:1;transform:none}}
+.ts2570 .wheel svg.he{position:absolute;inset:0;width:100%;height:100%;overflow:visible;pointer-events:none}
+.ts2570 .wheel svg.he line{stroke:#EBBF30;stroke-width:3;stroke-linecap:round;filter:drop-shadow(0 0 6px rgba(235,191,48,.7))}
+.ts2570 .wheel svg.he line.care{stroke:#ff8a5c;filter:drop-shadow(0 0 6px rgba(255,138,92,.6))}
+.ts2570 .wheel .heb{position:absolute;z-index:2;transform:translate(-50%,-50%) scale(var(--s,0));padding:2px 9px;border-radius:999px;background:#071a36;border:1.5px solid #EBBF30;color:var(--ivory);font-size:13px;font-weight:700;line-height:1.5;white-space:nowrap;transition:transform .35s var(--ease-pop)}
+.ts2570 .wheel .heb.care{border-color:#ff8a5c}
+.ts2570 .prow li .also.care{color:#ffc2a6}
 @media (prefers-reduced-motion:reduce){.ts2570 .z.me{animation:none}.ts2570 .dock{transition:none}}
 .ts2570 .oaToast{position:fixed;left:50%;top:calc(18px + env(safe-area-inset-top));transform:translateX(-50%);z-index:60;width:min(420px,calc(100vw - 32px));display:flex;flex-wrap:wrap;align-items:center;gap:10px;padding:14px 44px 14px 16px;border-radius:18px;background:rgba(7,26,54,.94);border:1px solid rgba(235,191,48,.45);box-shadow:0 10px 30px rgba(0,0,0,.35);color:var(--ivory)}
 .ts2570 .oaToast p{margin:0;flex:1 1 200px;font-size:14px;line-height:1.5}

@@ -6,7 +6,7 @@ import { isTaisuiOpen, PRODUCTION_HOST } from '@/lib/taisui/live'
 import { parseBirth } from '@/lib/taisui/server'
 import { assembleReading } from '@/lib/taisui/assemble'
 import type { TaisuiFacts } from '@/lib/taisui/types'
-import { APPROVED, PREVIEW, RELATIONS, RELATION_IN_SENTENCE, readingFor, type PillarKey, type ReactionFact } from '@/features/v2-taisui/content/readings'
+import { APPROVED, PREVIEW, RELATIONS, RELATION_IN_SENTENCE, heOf, readingFor, type PillarKey, type ReactionFact } from '@/features/v2-taisui/content/readings'
 import { animalImage, MONTH_LABEL } from '@/features/v2-taisui/content/animals'
 import { leaveReturnMarker, takeReturnPath, TAISUI_RETURN_KEY } from '@/features/v2-taisui/return'
 import { withFreshPass } from '@/features/v2-taisui/fresh-pass'
@@ -107,6 +107,12 @@ describe('content', () => {
     expect(readingFor('phua', 'day', [asBazi]).details[0].why).toBe('丁卯 · 丁 ของปีมาเจอ 卯 ของคุณ · ราศีล่างเสาวัน')
     const top: ReactionFact = { kind: 'phua', name: '破', pillar: 'month', at: 'top', mine: '癸', year: '未', pair: '癸未', group: 'self' }
     expect(readingFor('phua', 'month', [top]).details[0].why).toBe('癸未 · 癸 ของคุณมาเจอ 未 ของปี · ราศีบนเสาเดือน')
+  })
+  it('judges a ฮะ by what its new element is to the day master', () => {
+    // day master 己 (earth): 午未 makes fire, which feeds earth; 卯 with 未 makes wood, which presses earth
+    expect(heOf({ kind: 'six', mine: '午' }, '己')).toEqual({ element: 'ไฟ', role: 'resource', tone: 'good' })
+    expect(heOf({ kind: 'half3', mine: '卯' }, '己')).toEqual({ element: 'ไม้', role: 'power', tone: 'care' })
+    expect(readingFor('half3', 'day', [{ kind: 'half3', name: '半三合', pillar: 'day', at: 'bottom', mine: '卯', year: '未' }], '己').headline).toBe('ตัวเองและคู่ครอง: มีคนรวมกลุ่มด้วย ได้ธาตุไม้เพิ่ม แต่จะกดดันคุณนิดๆ')
   })
   it('names ฮะ the Sinse way and says what it turns into', () => {
     const six: ReactionFact = { kind: 'six', name: '六合', pillar: 'year', at: 'bottom', mine: '午', year: '未' }

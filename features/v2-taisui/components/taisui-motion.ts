@@ -4,7 +4,7 @@
 //
 // Member data reaches the DOM only through textContent, attributes and createElement — never as HTML.
 import type { TaisuiReading } from '@/lib/taisui/types'
-import { AREA, AT_TH, DAY_MASTER, FLOW_LINE, MONTH_TIP, PAIR_LINE, PLAIN, PREVIEW, RELATION_NAME, TONE, VERDICT, areaOf, muLine, pillarName, strongestOf, type Relation } from '../content/readings'
+import { AREA, AT_TH, DAY_MASTER, FLOW_LINE, MONTH_TIP, PAIR_LINE, HE_DOES, HE_SHORT, HE_TO_YOU, HE_VERB, PLAIN, RELATION_NAME, TONE, VERDICT, areaOf, heOf, muLine, pillarName, strongestOf, type Relation } from '../content/readings'
 import { animalImage, animalTh, MONTH_LABEL, WHEEL_BRANCHES } from '../content/animals'
 
 export type Birth = { date: string; time: string | null; gender: 'female' | 'male' }
@@ -156,6 +156,10 @@ export function startTaisui(root: HTMLElement, api: TaisuiApi): () => void {
   const zs = WHEEL_BRANCHES.map((b) => { const z = el('div', 'z'); const c = el('span', 'c'); const im = el('img'); im.src = animalImage(b, 'ไฟ'); im.alt = ''; im.loading = 'lazy'; c.appendChild(im); z.appendChild(c); z.appendChild(el('b', 'n', animalTh(b))); wheel.appendChild(z); return { el: z, b } })
   const zc = el('b', 'zc', 'มะแม · ปีนี้'); zc.setAttribute('aria-hidden', 'true'); $('stage').appendChild(zc)
   let mine = new Set<string>()
+  // ฮะ on the wheel: a thin line from the goat to each animal that joins it, and the element it makes
+  const heSvg = document.createElementNS('http://www.w3.org/2000/svg', 'svg'); heSvg.setAttribute('class', 'he'); heSvg.setAttribute('aria-hidden', 'true'); wheel.prepend(heSvg)
+  let heLinks: Array<{ b: string; line: SVGLineElement; badge: HTMLElement; sentence: string; short: string }> = []
+  const EL_MARK: Record<string, string> = { ไฟ: '🔥', ไม้: '🌿', ดิน: '⛰️', ทอง: '✨', น้ำ: '💧' }
 
   // ② actors + ⑤ element flow, from the reading
   let actors: HTMLElement[] = []
@@ -181,6 +185,16 @@ export function startTaisui(root: HTMLElement, api: TaisuiApi): () => void {
     mine = new Set(r.mine)
     zs.forEach((z) => z.el.classList.toggle('me', mine.has(z.b)))
     wheel.classList.toggle('has', mine.size > 0); medal.classList.toggle('me', mine.has('未'))
+    heLinks.forEach((l) => { l.line.remove(); l.badge.remove() }); heLinks = []
+    const seen = new Set<string>()
+    r.hits.forEach((h) => {
+      if (!HE_VERB[h.kind] || seen.has(h.mine)) return
+      const he = heOf(h, r.role?.dayMaster); if (!he) return
+      seen.add(h.mine)
+      const line = document.createElementNS('http://www.w3.org/2000/svg', 'line'); line.setAttribute('class', he.tone); heSvg.appendChild(line)
+      const badge = el('span', 'heb ' + he.tone, `${EL_MARK[he.element] ?? ''} ${he.element}`); wheel.appendChild(badge)
+      heLinks.push({ b: h.mine, line, badge, sentence: `${animalTh(h.mine)}ของคุณ${HE_VERB[h.kind]}กับแพะ ได้ธาตุ${he.element}เพิ่ม ${he.role ? HE_TO_YOU[he.role] : ''}`.trim(), short: `${animalTh(h.mine)}${HE_VERB[h.kind]}กับแพะได้${he.element} ${he.role ? HE_SHORT[he.role] : ''}`.trim() })
+    })
     $('wsub').textContent = `ตัวที่เรืองแสงคือของคุณ · ${Array.from(mine).map((b) => animalTh(b) + (b === '未' ? ' (ตรงกลาง)' : '')).join(' ')}`
   }
   let entered = false, reactT = 0
@@ -271,6 +285,15 @@ export function startTaisui(root: HTMLElement, api: TaisuiApi): () => void {
     const wIn = seg(p, 0.64, 0.7), wOut = seg(p, 0.84, 0.88), wv = wIn * (1 - wOut); wheel.style.opacity = wv.toFixed(2); $('wtitle').style.opacity = wv.toFixed(2)
     const R = Math.min(vw * 0.39, vh * 0.3, 240), cx = vw / 2, cy = vh / 2 - 0.02 * vh, rot = 90 + 140 * ease(seg(p, 0.6, 0.72)), pop = 1.08
     zs.forEach((z, i) => { const a = ((rot + i * (360 / zs.length)) * Math.PI) / 180, r = R * lerp(0.6, 1, wIn); z.el.style.left = cx + Math.cos(a) * r + 'px'; z.el.style.top = cy + Math.sin(a) * r * 0.92 + 'px'; z.el.style.transform = `scale(${mine.has(z.b) && p > 0.72 ? pop : 1})` })
+    heLinks.forEach((l, i) => {
+      const z = zs.find((q) => q.b === l.b); if (!z) return
+      const x = parseFloat(z.el.style.left), y = parseFloat(z.el.style.top), k = still ? (p > 0.72 ? 1 : 0) : ease(seg(p, 0.72 + i * 0.025, 0.755 + i * 0.025))
+      const ex = cx + (x - cx) * k, ey = cy + (y - cy) * k
+      l.line.setAttribute('x1', String(cx)); l.line.setAttribute('y1', String(cy)); l.line.setAttribute('x2', ex.toFixed(1)); l.line.setAttribute('y2', ey.toFixed(1))
+      l.line.style.opacity = (k > 0 ? wv : 0).toFixed(2)
+      l.badge.style.left = cx + (x - cx) * 0.74 + 'px'; l.badge.style.top = cy + (y - cy) * 0.74 + 'px'
+      l.badge.style.setProperty('--s', k > 0.95 && wv > 0.5 ? '1' : '0')
+    })
     zc.style.left = cx + 'px'; zc.style.top = cy + medal.offsetWidth * sc * 0.4 + 'px'; zc.style.opacity = wv.toFixed(2); zc.classList.toggle('me', mine.has('未') && p > 0.72)
     const sIn = seg(p, 0.88, 0.93); $('stat').style.opacity = sIn.toFixed(2); $('toRead').style.pointerEvents = sIn > 0.6 ? 'auto' : 'none'; $('toRead').tabIndex = sIn > 0.6 ? 0 : -1
     if (p > 0.89 && !counted) countUp(); if (p < 0.86 && counted) resetOdo()
@@ -281,7 +304,8 @@ export function startTaisui(root: HTMLElement, api: TaisuiApi): () => void {
     else if (!reading) say('กรอกวันเกิดก่อน แล้วนักษัตรของคุณจะวิ่งออกมาครับ', 'happy')
     else if (p < 0.52) say(`นี่คือนักษัตร ${actors.length} ตัวของคุณ ท่าทางบอกว่าเข้ากับปีมะแมแค่ไหน`, 'happy')
     else if (p < 0.62) say(caps[Math.max(0, spot)] ?? '', 'happy')
-    else if (p < 0.86) { const n = careCount(), h = heCount(); say(n || h ? `ตัวที่เรืองแสงคือของคุณ ปีนี้${n ? `มี ${n} เสาที่โดนแรงของปี` : ''}${n && h ? ' และ' : ''}${h ? `มี ${h} เสาที่ฮะกับปี` : ''}` : 'ตัวที่เรืองแสงคือของคุณ ปีนี้ไม่มีเสาไหนโดนแรงของปีตรงๆ ครับ', n ? 'special' : 'happy') }
+    else if (p < 0.86 && p > 0.745 && heLinks.length) say(heLinks.length > 1 ? `เส้นที่วงล้อคือตัวที่เชื่อมกับแพะ: ${heLinks.map((l) => l.short).join(' · ')}` : heLinks[0].sentence, 'special')
+    else if (p < 0.86) { const n = careCount(), h = heCount(); say(n || h ? `ตัวที่เรืองแสงคือของคุณ ปีนี้${n ? `มี ${n} เสาที่โดนแรงของปี` : ''}${n && h ? ' และ' : ''}${h ? `มี ${h} เสาที่จับมือกับปี` : ''}` : 'ตัวที่เรืองแสงคือของคุณ ปีนี้ไม่มีเสาไหนโดนแรงของปีตรงๆ ครับ', n ? 'special' : 'happy') }
     else say(member ? 'อยากรู้ว่าเดือนไหนควรรุก เดือนไหนควรรอ อ่านต่อได้เลยครับ' : 'คำทำนายเต็มกับโคม 12 เดือน ดูได้หลังเข้าสู่ระบบครับ', 'happy')
     updateNext(); updateDock()
   }
@@ -427,8 +451,9 @@ export function startTaisui(root: HTMLElement, api: TaisuiApi): () => void {
     roleSec.textContent = ''; roleSec.hidden = !r.role
     if (!r.role) return
     // the answer first: one line for the year, then one plain line per pillar (owner pick A, 2026-11-20)
-    const cares = r.pillars.filter((p) => TONE[p.relation as Relation] === 'care').length
-    const goods = r.pillars.filter((p) => TONE[p.relation as Relation] === 'good').length
+    const toneOfPillar = (p: TaisuiReading['pillars'][number]) => { const h = r.hits.find((x) => x.pillar === p.key && x.kind === p.relation); return (h && heOf(h, r.role?.dayMaster)?.tone) || TONE[p.relation as Relation] }
+    const cares = r.pillars.filter((p) => toneOfPillar(p) === 'care').length
+    const goods = r.pillars.filter((p) => toneOfPillar(p) === 'good').length
     const vd = el('div', 'verdict')
     vd.appendChild(el('div', 'k', 'ปีมะแม 2570 ของคุณ'))
     vd.appendChild(el('h2', undefined, VERDICT[strongestOf(r.pillars.map((p) => p.relation))]))
@@ -437,12 +462,14 @@ export function startTaisui(root: HTMLElement, api: TaisuiApi): () => void {
     vd.appendChild(sub)
     const rows = el('ul', 'prow')
     r.pillars.slice().reverse().forEach((p, i) => {
-      const tone = TONE[p.relation as Relation]; const li = el('li', tone); li.style.transitionDelay = `${i * 0.12}s`
+      const own = r.hits.find((h) => h.pillar === p.key && h.kind === p.relation); const ownHe = own ? heOf(own, r.role?.dayMaster) : null
+      const tone = ownHe ? ownHe.tone : TONE[p.relation as Relation]; const li = el('li', tone); li.style.transitionDelay = `${i * 0.12}s`
       const im = el('img'); im.src = p.image; im.alt = ''; im.loading = 'lazy'; li.appendChild(im)
       const t = el('div'); t.appendChild(el('small', undefined, `${AREA[p.key].label} · ${p.animal}`))
-      const b = el('b'); b.appendChild(el('i')); b.appendChild(document.createTextNode(PLAIN[p.relation as Relation])); t.appendChild(b)
-      const also = tone === 'care' ? r.hits.find((h) => h.pillar === p.key && TONE[h.kind] === 'good') : undefined
-      if (also) t.appendChild(el('em', 'also', `แต่ ${PREVIEW[also.kind].join(' ')}`))
+      const b = el('b'); b.appendChild(el('i')); b.appendChild(document.createTextNode(ownHe?.role ? `${HE_DOES[p.relation]} ได้ธาตุ${ownHe.element}เพิ่ม ${HE_SHORT[ownHe.role]}` : PLAIN[p.relation as Relation])); t.appendChild(b)
+      const also = tone === 'care' ? r.hits.find((h) => h.pillar === p.key && HE_DOES[h.kind] && h !== own) : undefined
+      const alsoHe = also ? heOf(also, r.role?.dayMaster) : null
+      if (also && alsoHe?.role) t.appendChild(el('em', 'also ' + alsoHe.tone, `${alsoHe.tone === 'care' ? 'และ' : 'แต่ '}${HE_DOES[also.kind]} ได้ธาตุ${alsoHe.element}เพิ่ม ${HE_SHORT[alsoHe.role]}`))
       li.appendChild(t); rows.appendChild(li)
     })
     vd.appendChild(rows); roleSec.appendChild(vd)

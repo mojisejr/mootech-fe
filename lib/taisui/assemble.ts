@@ -37,7 +37,7 @@ export function assembleReading(facts: TaisuiFacts, opts: { member: boolean; sou
   }
   if (opts.member) {
     reading.full = {
-      readings: facts.pillars.map((p) => ({ key: p.key, ...readingFor(p.relation, p.key, reactions) })),
+      readings: facts.pillars.map((p) => ({ key: p.key, ...readingFor(p.relation, p.key, reactions, facts.role?.dayMaster) })),
       monthTips: Object.fromEntries(facts.months.map((m) => [m.branch, `${MONTH_TIP[m.state]}${m.state === 'peak' && m.because.some((b) => b.startsWith('三合')) ? ' เดือนนี้ไตรภาคีครบชุด' : ''}`])),
       plan: facts.pillars.map((p) => planLine(p.relation, p.key)),
     }

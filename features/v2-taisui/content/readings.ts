@@ -51,7 +51,7 @@ export const RELATION_NAME: Record<Relation, string> = {
 export const RELATION_IN_SENTENCE: Record<Relation, string> = {
   chong: 'ชงกับปีมะแม', samheng: 'ครบซำเฮ้งกับปีมะแม', heng: 'โดนเฮ้งจากปีมะแม', hai: 'โดนไห่จากปีมะแม',
   phua: 'เกิดผั่วกับปีมะแม', stemClash: 'ราศีบนปะทะไฟของปี', same: 'เป็นนักษัตรเดียวกับปีมะแม',
-  six: 'ฮะกับปีมะแม', half3: 'ภาคีกับปีมะแม', stemCombine: 'ราศีบนฮะกับไฟของปี', none: 'ไม่มีปฏิกิริยาตรงกับปีมะแม',
+  six: 'จับมือกับปีมะแม', half3: 'รวมกลุ่มกับปีมะแม', stemCombine: 'ความคิดเข้ากับไฟของปี', none: 'ไม่มีปฏิกิริยาตรงกับปีมะแม',
 }
 
 /** The core meaning of each reaction, in the Sinse's terms. */
@@ -119,9 +119,9 @@ export const PREVIEW: Record<Relation, [string, string]> = {
   phua: ['มีรอยรั่วข้างใน', 'อุดก่อนจะลาม'],
   stemClash: ['ความคิดปะทะ', 'คิดก่อนพูด'],
   same: ['ปีของตัวเอง', 'วางตัวให้นิ่ง'],
-  six: ['ฮะกับปี', 'รวมกันได้ธาตุไฟ'],
-  half3: ['ภาคีกับปี', 'ได้ธาตุไม้เพิ่ม'],
-  stemCombine: ['ราศีบนฮะ', 'ได้ธาตุไม้เพิ่ม'],
+  six: ['มีคนจับมือ', 'ได้ธาตุไฟเพิ่ม'],
+  half3: ['มีคนรวมกลุ่ม', 'ได้ธาตุไม้เพิ่ม'],
+  stemCombine: ['คุยกันง่าย', 'ได้ธาตุไม้เพิ่ม'],
   none: ['ปีนิ่ง', 'เดินตามแผน'],
 }
 
@@ -145,9 +145,9 @@ export const PLAIN: Record<Relation, string> = {
   phua: 'มีรอยรั่วเงียบๆ ที่ต้องรีบอุด',
   stemClash: 'ความคิดของคุณสวนทางกับคนรอบตัว',
   same: 'ได้ออกหน้าและถูกจับตามากขึ้น',
-  six: 'ฮะกับปี รวมกันเกิดพลังไฟเพิ่ม มีคนจับมือช่วย',
-  half3: 'ภาคีกับปี ได้ธาตุไม้เพิ่ม รวมทีมแล้วมีแรงส่ง',
-  stemCombine: 'ราศีบนฮะกับปี ได้ธาตุไม้เพิ่ม เจรจาลงตัว',
+  six: 'มีคนจับมือ ได้ธาตุไฟเพิ่ม',
+  half3: 'มีคนรวมกลุ่มด้วย ได้ธาตุไม้เพิ่ม',
+  stemCombine: 'คุยกันง่าย เจรจาลงตัว',
   none: 'ปีไม่ได้เข้ามาแตะเรื่องนี้โดยตรง เดินตามแผนได้',
 }
 
@@ -213,6 +213,43 @@ export function whyOf(r: ReactionFact): string {
 }
 
 /** What a ฮะ with the Goat year turns into (午未 fire; 亥卯未 wood, 未 the wood vault; 丁壬 wood). */
+const STEM_ELEMENT: Record<string, string> = { 甲: 'ไม้', 乙: 'ไม้', 丙: 'ไฟ', 丁: 'ไฟ', 戊: 'ดิน', 己: 'ดิน', 庚: 'ทอง', 辛: 'ทอง', 壬: 'น้ำ', 癸: 'น้ำ' }
+const FEEDS: Record<string, string> = { ไม้: 'ไฟ', ไฟ: 'ดิน', ดิน: 'ทอง', ทอง: 'น้ำ', น้ำ: 'ไม้' }
+const CONTROLS: Record<string, string> = { ไม้: 'ดิน', ดิน: 'น้ำ', น้ำ: 'ไฟ', ไฟ: 'ทอง', ทอง: 'ไม้' }
+
+/** What an element is to the day master: the Sinse's five roles, as the year's fire uses them. */
+export function roleOfElement(element: string, dayMaster: string): ElementRole | null {
+  const me = STEM_ELEMENT[dayMaster]; if (!me || !element) return null
+  if (element === me) return 'companion'
+  if (FEEDS[me] === element) return 'output'
+  if (CONTROLS[me] === element) return 'wealth'
+  if (CONTROLS[element] === me) return 'power'
+  return 'resource'
+}
+
+/** ฮะ in plain words: what joins, and what the new element is to you. */
+export const HE_DOES: Record<string, string> = { six: 'มีคนจับมือ', half3: 'มีคนรวมกลุ่มด้วย', stemCombine: 'คุยกันลงตัว' }
+/** On the wheel: "<animal>ของคุณ<verb>กับแพะ". */
+export const HE_VERB: Record<string, string> = { six: 'จับมือ', half3: 'รวมกลุ่ม' }
+export const HE_TO_YOU: Record<ElementRole, string> = {
+  resource: 'ธาตุนี้ช่วยหนุนคุณ',
+  power: 'แต่ธาตุนี้กดดันคุณนิดๆ อย่ารับงานเกินตัว',
+  wealth: 'เป็นโอกาสเรื่องเงินของคุณ',
+  output: 'ได้ใช้ฝีมือเต็มที่ แต่จะเหนื่อยหน่อย',
+  companion: 'มีเพื่อนร่วมทาง และมีคู่แข่งด้วย',
+}
+export const HE_SHORT: Record<ElementRole, string> = {
+  resource: 'ช่วยหนุนคุณ', power: 'แต่จะกดดันคุณนิดๆ', wealth: 'เป็นโอกาสเรื่องเงิน', output: 'ได้ใช้ฝีมือ แต่เหนื่อยหน่อย', companion: 'มีเพื่อนร่วมทาง',
+}
+
+/** A ฮะ with the Goat year, judged against the day master: the element it makes and its role to you. */
+export function heOf(r: { kind: string; mine: string }, dayMaster: string | undefined): { element: string; role: ElementRole | null; tone: 'good' | 'care' } | null {
+  const element = TRANSFORM[`${r.kind}:${r.mine}`]
+  if (!element) return null
+  const role = dayMaster ? roleOfElement(element, dayMaster) : null
+  return { element, role, tone: role === 'power' ? 'care' : 'good' }
+}
+
 export const TRANSFORM: Record<string, string> = { 'six:午': 'ไฟ', 'half3:卯': 'ไม้', 'half3:亥': 'ไม้', 'stemCombine:壬': 'ไม้' }
 
 /** Layer 3: two actions per reaction; the page picks two of four by the pillar, so two pillars with
@@ -258,7 +295,7 @@ export function toneOf(reactions: ReactionFact[]): 'good' | 'care' | 'calm' {
   return reactions.length ? 'good' : 'calm'
 }
 
-export function readingFor(strongest: Relation, key: PillarKey, reactions: ReactionFact[]): Reading {
+export function readingFor(strongest: Relation, key: PillarKey, reactions: ReactionFact[], dayMaster?: string): Reading {
   const mine = reactions.filter((r) => r.pillar === key)
   const area = areaOf(key)
   const details = mine.map((r) => ({ name: RELATION_NAME[r.kind], why: whyOf(r), story: storyOf(r) }))
@@ -270,7 +307,7 @@ export function readingFor(strongest: Relation, key: PillarKey, reactions: React
     actions = [ACTIONS[tone][key][0], acts[at], acts[at + 1]]
   }
   return {
-    headline: `${area}: ${PLAIN[lead ? lead.kind : 'none']}`,
+    headline: (() => { const he = lead ? heOf(lead, dayMaster) : null; return he?.role ? `${area}: ${HE_DOES[lead!.kind]} ได้ธาตุ${he.element}เพิ่ม ${HE_SHORT[he.role]}` : `${area}: ${PLAIN[lead ? lead.kind : 'none']}` })(),
     story: lead ? storyOf(lead) : '',
     details,
     actions,
