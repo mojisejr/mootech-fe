@@ -1,11 +1,14 @@
 // ปีชง 2570 — the shapes the page reads (ciel-os workstream mumate-taisui-2570-001, design/CONTRACT.md).
-import type { Flow, PillarKey, Relation } from '@/features/v2-taisui/content/readings'
+import type { ElementRole, Flow, PillarKey, ReactionFact, Relation } from '@/features/v2-taisui/content/readings'
 
 /** What bazi POST /api/taisui returns: facts only. */
 export type TaisuiFacts = {
   year: { gregorian: number; stem: string; branch: string; element: string; lichun: string }
   chart: { hasHour: boolean }
   pillars: Array<{ key: PillarKey; stem: string; branch: string; element: string; relation: Relation; relations: string[]; flow: Flow }>
+  /** Plan revision 0.9: every reaction by the Sinse's method, and the year's role to the day master. */
+  reactions?: ReactionFact[]
+  role?: { dayMaster: string; dayElement: string; role: ElementRole; th: string }
   mine: string[]
   months: Array<{ branch: string; startsAt: string; state: 'peak' | 'care' | 'normal'; because: string[] }>
   partner?: { yearBranch: string; relation: Relation }
@@ -19,11 +22,18 @@ export type TaisuiReading = {
     relation: Relation; relations: string[]; flow: Flow; preview: [string, string]
   }>
   mine: string[]
+  /** Free for everyone: the day master as a picture and the year's fire to it. */
+  role: { dayMaster: string; th: string; picture: string; roleTh: string; line: string } | null
+  /** Free for everyone: the reactions' names and where they land, without the stories. */
+  marks: Array<{ pillar: PillarKey; name: string; where: string; tone: 'good' | 'care' | 'calm' }>
   months: Array<{ branch: string; state: 'peak' | 'care' | 'normal' }>
   partner?: { relation: Relation }
   locked: boolean
   full?: {
-    readings: Array<{ key: PillarKey; headline: string; opportunity: string; strengths: string; cautions: string; actions: [string, string, string] }>
+    readings: Array<{
+      key: PillarKey; headline: string; opportunity: string; strengths: string; cautions: string; actions: [string, string, string]
+      details: Array<{ name: string; where: string; story: string }>
+    }>
     monthTips: Record<string, string>
     plan: string[]
   }

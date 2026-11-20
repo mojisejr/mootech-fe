@@ -31,6 +31,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
     const f = (await fr.json().catch(() => null)) as { friendFlag?: boolean } | null
     if (!fr.ok || !f) {
+      // No token or member data in logs: only the step and LINE's status (502 on staging, 2026-11-20).
+      console.error("[line-oa-claim] friendship check failed", { status: fr.status, parsed: Boolean(f) })
       res.status(502).json({ reason: "line_error", message: "เช็กกับ LINE ไม่สำเร็จ ลองใหม่อีกครั้ง" })
       return
     }
@@ -38,7 +40,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       res.status(409).json({ reason: "not_friend", message: "ยังไม่ได้เพิ่ม Mumate เป็นเพื่อน — กดแอดไลน์ก่อน แล้วกลับมากดรับ" })
       return
     }
-  } catch {
+  } catch (e) {
+    console.error("[line-oa-claim] friendship call threw", e instanceof Error ? e.name : "unknown")
     res.status(502).json({ reason: "line_error", message: "เช็กกับ LINE ไม่สำเร็จ ลองใหม่อีกครั้ง" })
     return
   }
@@ -50,8 +53,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       body: JSON.stringify({ anonId: who.userId, code: "line_oa_add" }),
     })
     const payload = await upstream.json().catch(() => ({}))
+    if (!upstream.ok) console.error("[line-oa-claim] qi earn answered", upstream.status)
     res.status(upstream.status).json(payload)
-  } catch {
+  } catch (e) {
+    console.error("[line-oa-claim] qi earn threw", e instanceof Error ? e.name : "unknown")
     res.status(502).json({ error: "qi earn unreachable" })
   }
 }

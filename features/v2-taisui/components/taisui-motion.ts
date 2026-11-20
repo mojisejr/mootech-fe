@@ -5,9 +5,15 @@
 // Member data reaches the DOM only through textContent, attributes and createElement — never as HTML.
 import type { TaisuiReading } from '@/lib/taisui/types'
 import { AREA, FLOW_LINE, MONTH_TIP, PAIR_LINE, RELATION_NAME, TONE, muLine, type Relation } from '../content/readings'
-import { animalImage, MONTH_LABEL, WHEEL_BRANCHES } from '../content/animals'
+import { animalImage, animalTh, MONTH_LABEL, WHEEL_BRANCHES } from '../content/animals'
 
 export type Birth = { date: string; time: string | null; gender: 'female' | 'male' }
+/** Two-hour ยาม with the middle that stands in for an unknown exact time. */
+const YAM: Array<[string, string]> = [
+  ['00:00', 'ยามชวด 23:00–00:59'], ['02:00', 'ยามฉลู 01:00–02:59'], ['04:00', 'ยามขาล 03:00–04:59'], ['06:00', 'ยามเถาะ 05:00–06:59'],
+  ['08:00', 'ยามมะโรง 07:00–08:59'], ['10:00', 'ยามมะเส็ง 09:00–10:59'], ['12:00', 'ยามมะเมีย 11:00–12:59'], ['14:00', 'ยามมะแม 13:00–14:59'],
+  ['16:00', 'ยามวอก 15:00–16:59'], ['18:00', 'ยามระกา 17:00–18:59'], ['20:00', 'ยามจอ 19:00–20:59'], ['22:00', 'ยามกุน 21:00–22:59'],
+]
 export type Sender = { name: string; animal: string; image: string } | null
 export type OaClaim = { state: 'paid'; qi: number } | { state: 'already' | 'not_friend' | 'skip' }
 
@@ -59,6 +65,9 @@ export function startTaisui(root: HTMLElement, api: TaisuiApi): () => void {
   const still = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false
   const $ = <T extends HTMLElement = HTMLElement>(id: string) => root.querySelector<T>('#' + id) as T
   const cleanups: Array<() => void> = []
+  // A second start on the same frame (a remount, or React's dev double effect) begins from a clean frame.
+  ;['stars', 'sparks', 'lanterns', 'wheel'].forEach((id) => { $(id).textContent = '' })
+  root.querySelectorAll('#wishsky > .fl, .role, .rtabs, .yam, .dock, .oaToast').forEach((n) => n.remove())
   const on = <E extends Event>(t: EventTarget, ev: string, fn: (e: E) => void, opts?: AddEventListenerOptions) => {
     t.addEventListener(ev, fn as EventListener, opts)
     cleanups.push(() => t.removeEventListener(ev, fn as EventListener, opts))
@@ -106,7 +115,12 @@ export function startTaisui(root: HTMLElement, api: TaisuiApi): () => void {
   }
   ;[bdD, bdM, bdY].forEach((x) => on(x, 'change', () => { if (x !== bdD) fillDays(); x.parentElement?.classList.remove('bad'); mark() }))
   on(bt, 'input', () => { if (bt.value) { $('bxT').classList.remove('bad'); setSky(skyFor(bt.value), bt.value) } mark() })
+  // unknown time: the reader may still pick a two-hour ยาม; its middle stands in for the time
+  const yam = el('select', 'yam') as HTMLSelectElement; yam.setAttribute('aria-label', 'ช่วงยามเกิด (ถ้าพอจำได้)'); yam.hidden = true
+  ;[['', 'จำช่วงยามไม่ได้เลย'], ...YAM].forEach(([v, t]) => { const o = el('option'); o.value = v; o.textContent = t; yam.appendChild(o) })
+  noT.closest('label')?.after(yam)
   on(noT, 'change', () => {
+    yam.hidden = !noT.checked; if (!noT.checked) yam.value = ''
     bt.disabled = noT.checked; $('bxT').classList.toggle('off', noT.checked); $('bxT').classList.remove('bad')
     if (noT.checked) setSky('u'); else if (bt.value) setSky(skyFor(bt.value), bt.value); else setSky('8.5')
     mark()
@@ -124,7 +138,7 @@ export function startTaisui(root: HTMLElement, api: TaisuiApi): () => void {
     $('shErr').textContent = miss.length ? (miss.length === 1 && miss[0] === 'bxT' ? 'ใส่เวลาเกิด หรือติ๊ก "ไม่ทราบเวลาเกิด" ครับ' : 'ยังขาดช่องที่ขอบแดงอยู่ครับ') : ''
     if (miss.length) return null
     const pad = (n: string) => n.padStart(2, '0')
-    return { date: `${+bdY.value - 543}-${pad(bdM.value)}-${pad(bdD.value)}`, time: noT.checked ? null : bt.value, gender: sexI === 0 ? 'female' : 'male' }
+    return { date: `${+bdY.value - 543}-${pad(bdM.value)}-${pad(bdD.value)}`, time: noT.checked ? (yam.value || null) : bt.value, gender: sexI === 0 ? 'female' : 'male' }
   }
 
   // ambient layers
@@ -165,9 +179,11 @@ export function startTaisui(root: HTMLElement, api: TaisuiApi): () => void {
     $('pillars').querySelector('h2')!.textContent = r.pillars.length === 4 ? 'นักษัตรทั้ง 4 ตัวของคุณ' : 'นักษัตร 3 ตัวของคุณ'
     mine = new Set(r.mine)
     zs.forEach((z) => z.el.classList.toggle('me', mine.has(z.b)))
+    wheel.classList.toggle('has', mine.size > 0); medal.classList.toggle('me', mine.has('未'))
+    $('wsub').textContent = `ตัวที่เรืองแสงคือของคุณ · ${Array.from(mine).map((b) => animalTh(b) + (b === '未' ? ' (ตรงกลาง)' : '')).join(' ')}`
   }
   let entered = false, reactT = 0
-  function enter() { entered = true; actors.forEach((a) => a.classList.add('in')); window.clearTimeout(reactT); reactT = later(() => actors.forEach((a) => a.classList.add('react')), still ? 0 : 1600) }
+  function enter() { try { navigator.vibrate?.(12) } catch { /* no vibration */ } entered = true; actors.forEach((a) => a.classList.add('in')); window.clearTimeout(reactT); reactT = later(() => actors.forEach((a) => a.classList.add('react')), still ? 0 : 1600) }
   function leave() { entered = false; window.clearTimeout(reactT); actors.forEach((a) => a.classList.remove('in', 'react')) }
 
   const lines = $('lines') as unknown as SVGSVGElement
@@ -252,7 +268,7 @@ export function startTaisui(root: HTMLElement, api: TaisuiApi): () => void {
     actors.forEach((a, i) => { a.classList.toggle('lit', spot === i); a.classList.toggle('dim', spot >= 0 && spot !== i) })
     const wIn = seg(p, 0.64, 0.7), wOut = seg(p, 0.84, 0.88), wv = wIn * (1 - wOut); wheel.style.opacity = wv.toFixed(2); $('wtitle').style.opacity = wv.toFixed(2)
     const R = Math.min(vw * 0.39, vh * 0.3, 240), cx = vw / 2, cy = vh / 2 - 0.02 * vh, rot = p * 140
-    zs.forEach((z, i) => { const a = ((rot + i * (360 / zs.length)) * Math.PI) / 180, r = R * lerp(0.6, 1, wIn); z.el.style.left = cx + Math.cos(a) * r + 'px'; z.el.style.top = cy + Math.sin(a) * r * 0.92 + 'px'; z.el.style.transform = `scale(${mine.has(z.b) && p > 0.72 ? 1.28 : 1})` })
+    zs.forEach((z, i) => { const a = ((rot + i * (360 / zs.length)) * Math.PI) / 180, r = R * lerp(0.6, 1, wIn); z.el.style.left = cx + Math.cos(a) * r + 'px'; z.el.style.top = cy + Math.sin(a) * r * 0.92 + 'px'; z.el.style.transform = `scale(${mine.has(z.b) && p > 0.72 ? 1.38 : 1})` })
     const sIn = seg(p, 0.88, 0.93); $('stat').style.opacity = sIn.toFixed(2); $('toRead').style.pointerEvents = sIn > 0.6 ? 'auto' : 'none'; $('toRead').tabIndex = sIn > 0.6 ? 0 : -1
     if (p > 0.89 && !counted) countUp(); if (p < 0.86 && counted) resetOdo()
     if (sheetOpen) say('ใส่เวลาเกิด แล้วดูฟ้าด้านบนเปลี่ยนตามนะครับ', 'happy')
@@ -262,9 +278,9 @@ export function startTaisui(root: HTMLElement, api: TaisuiApi): () => void {
     else if (!reading) say('กรอกวันเกิดก่อน แล้วนักษัตรของคุณจะวิ่งออกมาครับ', 'happy')
     else if (p < 0.52) say(`นี่คือนักษัตร ${actors.length} ตัวของคุณ ท่าทางบอกว่าเข้ากับปีมะแมแค่ไหน`, 'happy')
     else if (p < 0.62) say(caps[Math.max(0, spot)] ?? '', 'happy')
-    else if (p < 0.86) { const n = careCount(); say(n ? `ตัวที่เรืองแสงคือของคุณ ปีนี้มี ${n} ตัวที่ต้องระวัง` : 'ตัวที่เรืองแสงคือของคุณ ปีนี้ไม่มีตัวไหนชงเลยครับ', n ? 'special' : 'happy') }
+    else if (p < 0.86) { const n = careCount(); say(n ? `ตัวที่เรืองแสงคือของคุณ ปีนี้มี ${n} เสาที่โดนแรงของปี` : 'ตัวที่เรืองแสงคือของคุณ ปีนี้ไม่มีเสาไหนโดนแรงของปีตรงๆ ครับ', n ? 'special' : 'happy') }
     else say(member ? 'อยากรู้ว่าเดือนไหนควรรุก เดือนไหนควรรอ อ่านต่อได้เลยครับ' : 'คำทำนายเต็มกับโคม 12 เดือน ดูได้หลังเข้าสู่ระบบครับ', 'happy')
-    updateNext()
+    updateNext(); updateDock()
   }
   let ticking = false
   const onScroll = () => { if (!ticking) { ticking = true; requestAnimationFrame(() => { ticking = false; frame() }) } }
@@ -357,23 +373,76 @@ export function startTaisui(root: HTMLElement, api: TaisuiApi): () => void {
     const box = $('reads'); box.textContent = ''
     $('lock').hidden = !r.locked
     $('draftNote').hidden = !r.draft
+    renderRole(r)
+    tabs.textContent = ''; tabs.hidden = !r.full
     if (!r.full) return
     r.pillars.forEach((p, i) => {
+      const tb = el('button', 'rtab' + (i === 0 ? ' on' : '')) as HTMLButtonElement; tb.type = 'button'
+      tb.textContent = `${AREA[p.key].label.split(' · ')[0].replace('เกิด', '')} · ${p.animal}`
+      on(tb, 'click', () => { const card = box.children[i] as HTMLElement | undefined; if (card) box.scrollTo({ left: card.offsetLeft - box.offsetLeft - 16, behavior: still ? 'auto' : 'smooth' }) })
+      tabs.appendChild(tb)
       const rd = r.full!.readings[i]; if (!rd) return
       const art = el('article', 'read')
       const hd = el('div', 'hd'); const im = el('img'); im.src = p.image; im.alt = `ตัวละคร${p.animal}ธาตุ${p.element}`; im.loading = 'lazy'; hd.appendChild(im)
       const t = el('div'); t.appendChild(el('div', 'k', `นักษัตร${AREA[p.key].label}`)); t.appendChild(el('div', 't', `${p.animal} · ${RELATION_NAME[p.relation as Relation]}`)); hd.appendChild(t); art.appendChild(hd)
       art.appendChild(el('h3', undefined, rd.headline))
+      if (rd.details.length) {
+        const dl = el('div', 'rx')
+        rd.details.forEach((d) => { const it = el('div', 'it'); it.appendChild(el('b', undefined, d.name)); it.appendChild(el('small', undefined, d.where)); it.appendChild(el('p', undefined, d.story)); dl.appendChild(it) })
+        art.appendChild(dl)
+      }
       art.appendChild(el('h3', undefined, 'โอกาสของคุณปีนี้')); art.appendChild(el('p', undefined, rd.opportunity))
       art.appendChild(el('h3', undefined, 'จุดแข็ง')); art.appendChild(el('p', undefined, rd.strengths))
       art.appendChild(el('h3', undefined, 'ระวัง')); art.appendChild(el('p', undefined, rd.cautions))
       art.appendChild(el('h3', undefined, 'ทำ 3 อย่างนี้'))
       const ul = el('ul', 'acts'); rd.actions.forEach((a, k) => { const li = el('li'); li.appendChild(el('span', undefined, String(k + 1))); li.appendChild(document.createTextNode(a)); ul.appendChild(li) }); art.appendChild(ul)
       const ask = el('a', 'ask'); ask.href = '/v2/chat'; const mi = el('img'); mi.src = '/images/v2/mascot/personas/mu/happy.png'; mi.alt = ''; ask.appendChild(mi); ask.appendChild(document.createTextNode('ถามเสี่ยวมู่เรื่องนี้ต่อ')); art.appendChild(ask)
+      const send = el('button', 'line', `ส่งให้คนเกิดปี${p.animal}ทาง LINE`) as HTMLButtonElement; send.type = 'button'
+      on(send, 'click', async () => {
+        const u = await api.sendPacket(); const url = u?.url ?? `${window.location.origin}/taisui-2570`
+        api.track('taisui_share', { channel: 'line_pillar' })
+        window.location.href = `https://line.me/R/msg/text/?${encodeURIComponent(`คนเกิดปี${p.animal} ปีมะแม 2570 ส่งผลกับคุณยังไง มาดูกัน ${url}`)}`
+      })
+      art.appendChild(send)
       box.appendChild(art)
-      if (i < r.pillars.length - 1) box.appendChild(el('div', 'gap'))
     })
   }
+  const tabs = el('div', 'rtabs'); tabs.setAttribute('role', 'tablist'); $('reads').before(tabs)
+  on($('reads'), 'scroll', () => {
+    const box = $('reads'); const w = (box.firstElementChild as HTMLElement | null)?.offsetWidth ?? 1
+    const i = Math.round(box.scrollLeft / (w + 12)); tabs.querySelectorAll('.rtab').forEach((t, k) => t.classList.toggle('on', k === i))
+  }, { passive: true })
+
+  // the year's fire to the day master, and where the year lands in the chart: free for everyone
+  const roleSec = el('section', 'sec gut role'); roleSec.hidden = true; $('readT').closest('section')?.before(roleSec)
+  function renderRole(r: TaisuiReading) {
+    roleSec.textContent = ''; roleSec.hidden = !r.role
+    if (!r.role) return
+    roleSec.appendChild(el('h2', undefined, 'ปีมะแมทำปฏิกิริยากับดวงคุณตรงไหน'))
+    const dm = el('div', 'dm')
+    dm.appendChild(el('span', 'gz', r.role.dayMaster))
+    const t = el('div'); t.appendChild(el('small', undefined, 'ธาตุประจำตัวของคุณ (ดิถี)')); t.appendChild(el('b', undefined, `${r.role.th} · ${r.role.picture}`)); dm.appendChild(t)
+    roleSec.appendChild(dm)
+    const rl = el('p', 'rl'); rl.appendChild(el('b', undefined, `ไฟของปีเป็น ${r.role.roleTh} ของคุณ `)); rl.appendChild(document.createTextNode(r.role.line)); roleSec.appendChild(rl)
+    const marks = el('ul', 'marks')
+    if (!r.marks.length) marks.appendChild(el('li', 'calm', 'ปีมะแมไม่ได้เข้ามาทำปฏิกิริยากับเสาไหนของคุณโดยตรง'))
+    r.marks.forEach((m) => { const li = el('li', m.tone); li.appendChild(el('b', undefined, m.name)); li.appendChild(el('span', undefined, m.where)); marks.appendChild(li) })
+    roleSec.appendChild(marks)
+    roleSec.appendChild(el('p', 'how', 'MuMate อ่านแบบซินแส: ปีใหม่เข้ามาทำปฏิกิริยากับตัวอักษรทั้ง 8 ตัวในดวง ดูว่าเป็นชง เฮ้ง ไห่ ผั่ว หรือซำเฮ้ง ลงเสาไหน ราศีบนหรือราศีล่าง แล้วจึงเล่าว่าเกิดเรื่องอะไร กับใคร'))
+  }
+
+  // bottom dock below the opening: one thumb-reach action for where the reader is
+  const dock = el('div', 'dock'); const dockBtn = el('button', 'btn') as HTMLButtonElement; dockBtn.type = 'button'; dock.appendChild(dockBtn); root.appendChild(dock); cleanups.push(() => dock.remove())
+  function updateDock() {
+    const below = scrollY > cine.offsetTop + cine.offsetHeight - innerHeight * 0.5
+    dock.classList.toggle('on', below && !sheetOpen)
+    dockBtn.textContent = !reading ? 'ดูดวงปีมะแมของฉัน · ฟรี' : member ? 'ส่งอั่งเปาทาง LINE' : 'เข้าสู่ระบบ LINE ดูคำทำนายเต็ม'
+  }
+  on(dockBtn, 'click', () => {
+    if (!reading) { glideTo(0.3, openSheet); return }
+    if (member) { $('sendPk').click(); return }
+    api.track('taisui_login_click', { from: 'dock' }); api.login(typed)
+  })
 
   // ③ + ⑧ red packet: drag the seal up to open; a tap also opens it
   const pz = $('pz'), env = $('env'), seal = $('seal'), burst = $('burst')

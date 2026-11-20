@@ -62,6 +62,8 @@ describe('B3 — every FE file that calls bazi does it through baziFetch', () =>
   const NOT_BAZI: Record<string, string> = {
     // fetches the mascot IMAGE at the URL bazi returns (may be a storage host) — the secret must not go there
     'pages/api/bazi-mascot.ts': 'image fetch from a URL bazi returns',
+    // asks LINE (api.line.me) whether the member is the OA's friend before the 100 QI reward — the bazi secret must not go to LINE
+    'pages/api/v2/line-oa-claim.ts': 'LINE friendship API call',
   }
 
   it('no bare fetch( in a bazi-calling file', () => {
