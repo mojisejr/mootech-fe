@@ -17,7 +17,11 @@ export type ElementRole = 'companion' | 'output' | 'wealth' | 'power' | 'resourc
 export type ReactionFact = {
   kind: Exclude<Relation, 'none'>; name: string; pillar: PillarKey; at: 'top' | 'bottom'
   mine: string; year: string; pair?: string; group?: string
+  /** ฮะ only, from bazi: the element and the engine's outcome (source "sinse" when the engine has no element). */
+  into?: { element: string; status: 'transformed' | 'supported' | 'detected' | 'blocked'; source: 'engine' | 'sinse' }
 }
+/** The chart's favourable elements (用神) and elements to avoid (忌神), from the engine, in Thai. */
+export type Luck = { favorable: string[]; avoid: string[] }
 
 export const RELATIONS: Relation[] = ['chong', 'samheng', 'heng', 'hai', 'phua', 'stemClash', 'same', 'six', 'half3', 'stemCombine', 'none']
 
@@ -41,9 +45,9 @@ export const RELATION_NAME: Record<Relation, string> = {
   phua: 'ผั่ว (破)',
   stemClash: 'ราศีบนปะทะ (天干冲)',
   same: 'นักษัตรเดียวกับปี (伏吟)',
-  six: 'หกประสาน (六合)',
-  half3: 'ครึ่งไตรภาคี (半三合)',
-  stemCombine: 'ราศีบนประสาน (天干合)',
+  six: 'ฮะ (六合)',
+  half3: 'ภาคี (半三合)',
+  stemCombine: 'ราศีบนฮะ (天干合)',
   none: 'ไม่มีปฏิกิริยาตรง',
 }
 
@@ -51,7 +55,7 @@ export const RELATION_NAME: Record<Relation, string> = {
 export const RELATION_IN_SENTENCE: Record<Relation, string> = {
   chong: 'ชงกับปีมะแม', samheng: 'ครบซำเฮ้งกับปีมะแม', heng: 'โดนเฮ้งจากปีมะแม', hai: 'โดนไห่จากปีมะแม',
   phua: 'เกิดผั่วกับปีมะแม', stemClash: 'ราศีบนปะทะไฟของปี', same: 'เป็นนักษัตรเดียวกับปีมะแม',
-  six: 'หกประสานกับปีมะแม', half3: 'ครึ่งไตรภาคีกับปีมะแม', stemCombine: 'ราศีบนประสานกับไฟของปี', none: 'ไม่มีปฏิกิริยาตรงกับปีมะแม',
+  six: 'จับมือกับปีมะแม', half3: 'รวมกลุ่มกับปีมะแม', stemCombine: 'ความคิดเข้ากับไฟของปี', none: 'ไม่มีปฏิกิริยาตรงกับปีมะแม',
 }
 
 /** The core meaning of each reaction, in the Sinse's terms. */
@@ -63,9 +67,9 @@ export const MEANING: Record<Relation, string> = {
   phua: 'รอยร้าวจากข้างใน การรั่วไหลอย่างเงียบๆ ที่ค่อยๆ กินรากฐาน',
   stemClash: 'ความคิดและสิ่งที่แสดงออกปะทะกับพลังของปี',
   same: 'ปีมาทับนักษัตรของตัวเอง เรื่องของเสานี้จะเด่นและถูกจับตามากกว่าปกติ',
-  six: 'แรงประสาน มีคนจับมือช่วยกันในเรื่องของเสานี้',
-  half3: 'แรงรวมกลุ่ม เมื่อครบอีกตัวในเดือนที่ใช่ โอกาสจะเด่นขึ้น',
-  stemCombine: 'ความคิดเข้ากับพลังของปี เจรจาและร่วมมือได้ง่าย',
+  six: 'ฮะ: สองตัวรวมกันแล้วแปรสภาพ เกิดธาตุใหม่เพิ่มขึ้น มีคนจับมือช่วยในเรื่องของเสานี้',
+  half3: 'ภาคี: รวมกลุ่มกับปีแล้วได้ธาตุเพิ่ม ครบอีกตัวในเดือนที่ใช่ โอกาสจะเด่นขึ้น',
+  stemCombine: 'ราศีบนฮะ: ความคิดรวมกับพลังของปีแล้วแปรสภาพ เจรจาและร่วมมือได้ง่าย',
   none: 'ปีไม่ได้เข้ามาทำปฏิกิริยากับเสานี้โดยตรง',
 }
 
@@ -83,6 +87,11 @@ const PAIR_STORY: Record<string, string> = {
   'stemClash:any': 'ความคิดหรือการตัดสินใจขัดกับคนรอบตัว เรื่องที่พูดออกไปต้องคิดก่อน',
   'stemCombine:any': 'เจรจาง่าย ความคิดของคุณเข้ากับจังหวะของปี',
   'same:any': 'เป็นปีที่ต้องก้าวขึ้นมารับผิดชอบมากขึ้น วางตัวนิ่งแล้วจะได้ความน่าเชื่อถือ',
+  // ฮะ, from the Sinse (2026-11-20): 午+未 ภาคี合 แปรสภาพเป็นธาตุไฟ; 卯 ภาคีกับ 未 ซึ่งเป็นคลังไม้ ได้ธาตุไม้.
+  'six:午': '午 กับ 未 ฮะกัน (午未合) รวมกันแล้วแปรสภาพเป็นธาตุไฟ เกิดคุณสมบัติใหม่เพิ่มขึ้น เรื่องของเสานี้ได้แรงหนุนจากคนที่เข้าขากัน',
+  'half3:卯': '卯 ไม้เบ้า มาภาคีกับ 未 ซึ่งเป็นคลังไม้ (亥卯未) ได้ธาตุไม้เพิ่ม เรื่องของเสานี้มีคนรวมกลุ่มช่วย',
+  'half3:亥': '亥 มาภาคีกับ 未 ซึ่งเป็นคลังไม้ (亥卯未) ได้ธาตุไม้เพิ่ม เรื่องของเสานี้มีคนรวมกลุ่มช่วย',
+  'stemCombine:壬': '丁 ของปีฮะกับ 壬 ของคุณ (丁壬合) แปรสภาพเป็นธาตุไม้ ความคิดเข้ากับจังหวะของปี เจรจาง่าย',
   'six:any': 'มีคนจับมือช่วย งานที่ต้องร่วมมือจะไปได้ไว',
   'half3:any': 'รวมทีมแล้วมีแรงส่ง โอกาสเด่นในเดือนที่ครบไตรภาคี',
 }
@@ -114,9 +123,9 @@ export const PREVIEW: Record<Relation, [string, string]> = {
   phua: ['มีรอยรั่วข้างใน', 'อุดก่อนจะลาม'],
   stemClash: ['ความคิดปะทะ', 'คิดก่อนพูด'],
   same: ['ปีของตัวเอง', 'วางตัวให้นิ่ง'],
-  six: ['มีคนจับมือ', 'ชวนกันทำได้'],
-  half3: ['รวมพลังได้', 'หาทีมที่ใช่'],
-  stemCombine: ['เจรจาง่าย', 'คุยเรื่องสำคัญได้'],
+  six: ['มีคนจับมือ', 'ได้ธาตุไฟเพิ่ม'],
+  half3: ['มีคนรวมกลุ่ม', 'ได้ธาตุไม้เพิ่ม'],
+  stemCombine: ['คุยกันง่าย', 'ได้ธาตุไม้เพิ่ม'],
   none: ['ปีนิ่ง', 'เดินตามแผน'],
 }
 
@@ -140,10 +149,31 @@ export const PLAIN: Record<Relation, string> = {
   phua: 'มีรอยรั่วเงียบๆ ที่ต้องรีบอุด',
   stemClash: 'ความคิดของคุณสวนทางกับคนรอบตัว',
   same: 'ได้ออกหน้าและถูกจับตามากขึ้น',
-  six: 'มีคนจับมือช่วยเปิดทาง',
-  half3: 'รวมทีมแล้วมีแรงส่ง',
+  six: 'มีคนจับมือ ได้ธาตุไฟเพิ่ม',
+  half3: 'มีคนรวมกลุ่มด้วย ได้ธาตุไม้เพิ่ม',
   stemCombine: 'คุยกันง่าย เจรจาลงตัว',
   none: 'ปีไม่ได้เข้ามาแตะเรื่องนี้โดยตรง เดินตามแผนได้',
+}
+
+/** The answer first (owner pick A, 2026-11-20): one line for the whole year, by the strongest reaction. */
+export const VERDICT: Record<Relation, string> = {
+  chong: 'ปีแห่งการเปลี่ยนแปลง เตรียมแผนไว้ก่อน',
+  samheng: 'ปีที่แรงกดดันมาหลายทาง ใจเย็นแล้วผ่านได้',
+  heng: 'ปีที่ต้องวางภาระบางอย่างลง',
+  hai: 'ปีที่ต้องระวังเรื่องลับหลัง',
+  phua: 'ปีที่ต้องอุดรอยรั่ว ก่อนไปต่อ',
+  stemClash: 'ปีที่ต้องคิดก่อนพูด',
+  same: 'ปีของคุณเอง ได้ออกหน้า',
+  six: 'ปีที่มีคนจับมือ ได้พลังไฟเพิ่ม',
+  half3: 'ปีที่รวมทีมแล้วได้ธาตุไม้หนุน',
+  stemCombine: 'ปีที่เจรจาลงตัว',
+  none: 'ปีที่สงบ เดินตามแผนได้',
+}
+
+/** The strongest reaction among the pillars, in bazi's order. */
+export function strongestOf(relations: string[]): Relation {
+  for (const k of RELATIONS) if (relations.includes(k)) return k
+  return 'none'
 }
 
 /** The pillar's own name, "เสาปี" … "เสายาม". */
@@ -162,20 +192,59 @@ const VERB: Record<Exclude<Relation, 'none' | 'phua' | 'samheng' | 'same'>, stri
   heng: 'เฮ้ง',
   hai: 'ไห่',
   stemClash: 'ปะทะ',
-  six: 'ประสาน',
-  half3: 'รวมกลุ่มกับ',
-  stemCombine: 'ประสาน',
+  six: 'ฮะ',
+  half3: 'ภาคีกับ',
+  stemCombine: 'ฮะ',
+}
+
+/** The year's own character in a reaction. For ผั่ว on a bottom character bazi sends the year's branch,
+ *  but the year's character there is its stem (丁 over your animal), the first of the pair. */
+export function yearCharOf(r: ReactionFact): string {
+  if (r.kind === 'phua' && r.pair && r.pair.length === 2) return r.at === 'bottom' ? r.pair[0] : r.pair[1]
+  return r.year
 }
 
 export function whyOf(r: ReactionFact): string {
   const where = `${AT_TH[r.at]}${pillarName(r.pillar)}`
   if (r.kind === 'phua') {
-    const meet = r.at === 'top' ? `${r.mine} ของคุณมาเจอ ${r.year} ของปี` : `${r.year} ของปีมาเจอ ${r.mine} ของคุณ`
+    const meet = r.at === 'top' ? `${r.mine} ของคุณมาเจอ ${yearCharOf(r)} ของปี` : `${yearCharOf(r)} ของปีมาเจอ ${r.mine} ของคุณ`
     return r.pair ? `${r.pair} · ${meet} · ${where}` : `${meet} · ${where}`
   }
   if (r.kind === 'samheng') return `${r.pair ? `${r.pair} ` : ''}ครบสามตัวกับ ${r.year} ของปี · ${where}`
   if (r.kind === 'same') return `${r.year} ของปีตรงกับ ${r.mine} ของคุณ · ${where}`
-  return `${r.year} ของปี ${VERB[r.kind]} ${r.mine} ของคุณ · ${where}`
+  return `${r.year} ของปี ${VERB[r.kind]} ${r.mine} ของคุณ${r.into ? intoWords(r.into) : ''} · ${where}`
+}
+
+export const ELEMENT_EN_TH: Record<string, string> = { wood: 'ไม้', fire: 'ไฟ', earth: 'ดิน', metal: 'ทอง', water: 'น้ำ' }
+
+/** ฮะ in plain words: what joins, and what the new element is to you. */
+export const HE_DOES: Record<string, string> = { six: 'มีคนจับมือ', half3: 'มีคนรวมกลุ่มด้วย', stemCombine: 'คุยกันลงตัว' }
+/** On the wheel: "<animal>ของคุณ<verb>กับแพะ". */
+export const HE_VERB: Record<string, string> = { six: 'จับมือ', half3: 'รวมกลุ่ม' }
+
+export type He = { element: string; status: NonNullable<ReactionFact['into']>['status']; tone: 'good' | 'care'; gets: string; toYou: string; short: string }
+
+/**
+ * A ฮะ as bazi reads it from the engine: the element and how far the pair gets (`into`), and whether
+ * that element helps this chart (the engine's 用神 / 忌神 in `luck`). Nothing here is decided on the page.
+ */
+export function heOf(r: { into?: ReactionFact['into'] }, luck: Luck | null | undefined): He | null {
+  const into = r.into; if (!into) return null
+  const element = ELEMENT_EN_TH[into.element]; if (!element) return null
+  const gets = into.status === 'transformed' || into.status === 'blocked' ? `รวมเป็นธาตุ${element}เต็มตัว` : into.status === 'detected' && into.source === 'engine' ? `ได้ธาตุ${element}นิดหน่อย` : `ได้ธาตุ${element}เพิ่ม`
+  const avoid = luck?.avoid.includes(element), favorable = luck?.favorable.includes(element)
+  return {
+    element, status: into.status, tone: avoid ? 'care' : 'good', gets,
+    toYou: avoid ? 'แต่ธาตุนี้ไม่ใช่ธาตุที่ช่วยคุณ อย่ารับงานเกินตัว' : favorable ? 'ธาตุนี้ช่วยหนุนคุณ' : 'เป็นแรงเสริมกลางๆ',
+    short: avoid ? 'แต่ไม่ใช่ธาตุที่ช่วยคุณ' : favorable ? 'ช่วยหนุนคุณ' : '',
+  }
+}
+
+/** The Sinse's chart words for a ฮะ outcome (inside "ดูแบบซินแส" only). */
+function intoWords(into: NonNullable<ReactionFact['into']>): string {
+  const el = ELEMENT_EN_TH[into.element] ?? ''
+  if (into.source === 'sinse') return ` รวมเป็นธาตุ${el} (ตามคำอธิบายของซินแส)`
+  return { transformed: ` แปรสภาพเป็นธาตุ${el}`, blocked: ` ครบชุดสามตัว ธาตุ${el}`, supported: ` มีแรงไปทางธาตุ${el} (ยังไม่แปร)`, detected: ` ธาตุ${el} แรงน้อย` }[into.status]
 }
 
 /** Layer 3: two actions per reaction; the page picks two of four by the pillar, so two pillars with
@@ -221,7 +290,7 @@ export function toneOf(reactions: ReactionFact[]): 'good' | 'care' | 'calm' {
   return reactions.length ? 'good' : 'calm'
 }
 
-export function readingFor(strongest: Relation, key: PillarKey, reactions: ReactionFact[]): Reading {
+export function readingFor(strongest: Relation, key: PillarKey, reactions: ReactionFact[], luck?: Luck | null): Reading {
   const mine = reactions.filter((r) => r.pillar === key)
   const area = areaOf(key)
   const details = mine.map((r) => ({ name: RELATION_NAME[r.kind], why: whyOf(r), story: storyOf(r) }))
@@ -233,7 +302,7 @@ export function readingFor(strongest: Relation, key: PillarKey, reactions: React
     actions = [ACTIONS[tone][key][0], acts[at], acts[at + 1]]
   }
   return {
-    headline: `${area}: ${PLAIN[lead ? lead.kind : 'none']}`,
+    headline: (() => { const he = lead ? heOf(lead, luck) : null; return he ? `${area}: ${HE_DOES[lead!.kind]} ${he.gets} ${he.short}`.trim() : `${area}: ${PLAIN[lead ? lead.kind : 'none']}` })(),
     story: lead ? storyOf(lead) : '',
     details,
     actions,
@@ -276,9 +345,9 @@ export const PAIR_LINE: Record<Relation, string> = {
   phua: 'มีรอยรั่วเล็กๆ คุยกันตรงๆ จะไม่ลาม',
   stemClash: 'ความคิดต่างกันบ้าง ฟังกันก่อนตัดสิน',
   same: 'นักษัตรเดียวกัน ปีนี้เข้าใจกันดีเป็นพิเศษ',
-  six: 'หกประสาน ปีนี้ช่วยกันได้ดีมาก',
-  half3: 'ครึ่งไตรภาคี ร่วมมือกันแล้วโชคดี',
-  stemCombine: 'ความคิดเข้ากัน คุยอะไรก็ลงตัว',
+  six: 'ฮะกัน ปีนี้ช่วยกันได้ดีมาก',
+  half3: 'ภาคีกัน ร่วมมือกันแล้วโชคดี',
+  stemCombine: 'ราศีบนฮะกัน คุยอะไรก็ลงตัว',
   none: 'ไม่มีปฏิกิริยาตรงกัน ปีนี้ไปด้วยกันได้สบาย',
 }
 

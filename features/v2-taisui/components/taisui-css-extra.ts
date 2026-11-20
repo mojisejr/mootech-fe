@@ -136,6 +136,37 @@ body:has(.ts2570){background:#071a36}
 @keyframes ts-cardRise{0%{opacity:0;transform:translateY(0)}8%{opacity:1}42%{opacity:1;transform:translateY(-40%)}100%{opacity:1;transform:translateY(-4%) scale(1.06);box-shadow:0 26px 44px rgba(0,0,0,.45),0 0 0 3px rgba(235,191,48,.8)}}
 @keyframes ts-envAway{to{opacity:0;transform:translateY(12%) scale(.97)}}
 @media (prefers-reduced-motion:reduce){.ts2570 .env.open .card{animation:none;opacity:1;transform:translateY(-4%) scale(1.06)}.ts2570 .env.open .body,.ts2570 .env.open .pocket{animation:none;opacity:0}.ts2570 .env .flap,.ts2570 .env.open .seal{transition:none}}
+.ts2570 .role .verdict .k{font-size:13px;color:var(--mist);letter-spacing:.04em}
+.ts2570 .role .verdict h2{font-family:var(--display);font-weight:400;font-size:clamp(28px,8.4vw,38px);line-height:1.28;margin:8px 0 10px;text-wrap:balance}
+.ts2570 .role .verdict .sub{margin:0 0 18px;color:var(--mist);font-size:15px;line-height:1.6}
+.ts2570 .role .verdict .sub b{color:var(--gold);font-weight:600}
+.ts2570 .prow{list-style:none;margin:0 0 18px;padding:0;border-top:1px solid rgba(201,214,242,.14)}
+.ts2570 .prow li{display:grid;grid-template-columns:52px 1fr;gap:12px;align-items:center;padding:12px 0;border-bottom:1px solid rgba(201,214,242,.14);opacity:0;transform:translateY(14px);transition:opacity .6s cubic-bezier(.2,.8,.2,1),transform .6s cubic-bezier(.2,.8,.2,1)}
+.ts2570 .prow.in li{opacity:1;transform:none}
+.ts2570 .prow li img{width:52px;height:52px;border-radius:50%;object-fit:cover;object-position:50% 18%;background:#eef2ff;box-shadow:inset 0 0 0 2px rgba(235,191,48,.8)}
+.ts2570 .prow li small{display:block;font-size:12px;color:var(--mist)}
+.ts2570 .prow li b{display:block;font-size:16px;font-weight:600;line-height:1.45}
+.ts2570 .prow li .also{display:block;font-style:normal;font-size:14px;color:var(--lime);margin-top:2px}
+.ts2570 .prow li i{font-style:normal;display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:6px;vertical-align:2px;background:var(--mist)}
+.ts2570 .prow li.care i{background:#ff8a5c}
+.ts2570 .prow li.good i{background:var(--lime)}
+.ts2570 .fold{border:1px solid rgba(235,191,48,.35);border-radius:18px;overflow:hidden}
+.ts2570 .fold > summary{display:flex;align-items:center;justify-content:space-between;gap:10px;min-height:56px;padding:0 18px;list-style:none;cursor:pointer;font-weight:600;color:var(--gold)}
+.ts2570 .fold > summary::-webkit-details-marker{display:none}
+.ts2570 .fold > summary small{display:block;font-weight:400;font-size:12px;color:var(--mist)}
+.ts2570 .fold > summary::after{content:"";flex:0 0 9px;height:9px;border-right:2px solid currentColor;border-bottom:2px solid currentColor;transform:rotate(45deg) translateY(-3px);transition:transform .25s}
+.ts2570 .fold[open] > summary::after{transform:rotate(-135deg)}
+.ts2570 .fold > summary:focus-visible{outline:3px solid var(--lime);outline-offset:-3px;border-radius:18px}
+.ts2570 .fold .chart{margin:0;border:0;border-radius:0;background:none}
+.ts2570 .fold > .dm,.ts2570 .fold > .rl,.ts2570 .fold > .how{margin-left:14px;margin-right:14px}
+.ts2570 .fold > .how{margin-bottom:14px}
+@media (prefers-reduced-motion:reduce){.ts2570 .prow li{transition:none;opacity:1;transform:none}}
+.ts2570 .wheel svg.he{position:absolute;inset:0;width:100%;height:100%;overflow:visible;pointer-events:none}
+.ts2570 .wheel svg.he line{stroke:#EBBF30;stroke-width:3;stroke-linecap:round;filter:drop-shadow(0 0 6px rgba(235,191,48,.7))}
+.ts2570 .wheel svg.he line.care{stroke:#ff8a5c;filter:drop-shadow(0 0 6px rgba(255,138,92,.6))}
+.ts2570 .wheel .heb{position:absolute;z-index:2;transform:translate(-50%,-50%) scale(var(--s,0));padding:2px 9px;border-radius:999px;background:#071a36;border:1.5px solid #EBBF30;color:var(--ivory);font-size:13px;font-weight:700;line-height:1.5;white-space:nowrap;transition:transform .35s var(--ease-pop)}
+.ts2570 .wheel .heb.care{border-color:#ff8a5c}
+.ts2570 .prow li .also.care{color:#ffc2a6}
 @media (prefers-reduced-motion:reduce){.ts2570 .z.me{animation:none}.ts2570 .dock{transition:none}}
 .ts2570 .oaToast{position:fixed;left:50%;top:calc(18px + env(safe-area-inset-top));transform:translateX(-50%);z-index:60;width:min(420px,calc(100vw - 32px));display:flex;flex-wrap:wrap;align-items:center;gap:10px;padding:14px 44px 14px 16px;border-radius:18px;background:rgba(7,26,54,.94);border:1px solid rgba(235,191,48,.45);box-shadow:0 10px 30px rgba(0,0,0,.35);color:var(--ivory)}
 .ts2570 .oaToast p{margin:0;flex:1 1 200px;font-size:14px;line-height:1.5}

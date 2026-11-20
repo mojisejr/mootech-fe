@@ -6,7 +6,7 @@ import { isTaisuiOpen, PRODUCTION_HOST } from '@/lib/taisui/live'
 import { parseBirth } from '@/lib/taisui/server'
 import { assembleReading } from '@/lib/taisui/assemble'
 import type { TaisuiFacts } from '@/lib/taisui/types'
-import { APPROVED, PREVIEW, RELATIONS, RELATION_IN_SENTENCE, readingFor, type PillarKey, type ReactionFact } from '@/features/v2-taisui/content/readings'
+import { APPROVED, PREVIEW, RELATIONS, RELATION_IN_SENTENCE, heOf, readingFor, type PillarKey, type ReactionFact } from '@/features/v2-taisui/content/readings'
 import { animalImage, MONTH_LABEL } from '@/features/v2-taisui/content/animals'
 import { leaveReturnMarker, takeReturnPath, TAISUI_RETURN_KEY } from '@/features/v2-taisui/return'
 import { withFreshPass } from '@/features/v2-taisui/fresh-pass'
@@ -93,7 +93,7 @@ describe('assembleReading', () => {
     expect(r.draft).toBe(!APPROVED)
     expect(r.partner).toEqual({ relation: 'six' })
     const month = r.full!.readings.find((x) => x.key === 'month')!
-    expect(month.details.map((d) => d.name)).toEqual(['ผั่ว (破)', 'ครึ่งไตรภาคี (半三合)'])
+    expect(month.details.map((d) => d.name)).toEqual(['ผั่ว (破)', 'ภาคี (半三合)'])
     expect(month.details[0].story).toContain('วาระซ่อน') // the Sinse's ผั่ว 丁卯 story: help with poison inside
     expect(month.details[0].why).toBe('丁卯 · 丁 ของปีมาเจอ 卯 ของคุณ · ราศีล่างเสาเดือน')
     expect(month.headline).toBe('การงานและพ่อแม่: มีรอยรั่วเงียบๆ ที่ต้องรีบอุด')
@@ -102,6 +102,27 @@ describe('assembleReading', () => {
 })
 
 describe('content', () => {
+  it('flies the year stem for ผั่ว on a bottom character, as bazi sends it (year = the branch)', () => {
+    const asBazi: ReactionFact = { kind: 'phua', name: '破', pillar: 'day', at: 'bottom', mine: '卯', year: '未', pair: '丁卯', group: 'poison' }
+    expect(readingFor('phua', 'day', [asBazi]).details[0].why).toBe('丁卯 · 丁 ของปีมาเจอ 卯 ของคุณ · ราศีล่างเสาวัน')
+    const top: ReactionFact = { kind: 'phua', name: '破', pillar: 'month', at: 'top', mine: '癸', year: '未', pair: '癸未', group: 'self' }
+    expect(readingFor('phua', 'month', [top]).details[0].why).toBe('癸未 · 癸 ของคุณมาเจอ 未 ของปี · ราศีบนเสาเดือน')
+  })
+  it('judges a ฮะ by the engine: its outcome from bazi, its help from 用神', () => {
+    const luck = { favorable: ['ไฟ', 'ดิน'], avoid: ['ไม้'] }
+    expect(heOf({ into: { element: 'fire', status: 'detected', source: 'sinse' } }, luck)).toMatchObject({ element: 'ไฟ', tone: 'good', gets: 'ได้ธาตุไฟเพิ่ม', short: 'ช่วยหนุนคุณ' })
+    expect(heOf({ into: { element: 'wood', status: 'supported', source: 'engine' } }, luck)).toMatchObject({ element: 'ไม้', tone: 'care', short: 'แต่ไม่ใช่ธาตุที่ช่วยคุณ' })
+    expect(heOf({ into: { element: 'wood', status: 'transformed', source: 'engine' } }, null)?.gets).toBe('รวมเป็นธาตุไม้เต็มตัว')
+    expect(heOf({}, luck)).toBeNull() // an older bazi sends no outcome: the page says nothing of its own
+    const half: ReactionFact = { kind: 'half3', name: '半三合', pillar: 'day', at: 'bottom', mine: '卯', year: '未', into: { element: 'wood', status: 'supported', source: 'engine' } }
+    expect(readingFor('half3', 'day', [half], luck).headline).toBe('ตัวเองและคู่ครอง: มีคนรวมกลุ่มด้วย ได้ธาตุไม้เพิ่ม แต่ไม่ใช่ธาตุที่ช่วยคุณ')
+  })
+  it('names ฮะ the Sinse way and says what it turns into', () => {
+    const six: ReactionFact = { kind: 'six', name: '六合', pillar: 'year', at: 'bottom', mine: '午', year: '未', into: { element: 'fire', status: 'detected', source: 'sinse' } }
+    const half: ReactionFact = { kind: 'half3', name: '半三合', pillar: 'day', at: 'bottom', mine: '卯', year: '未' }
+    expect(readingFor('six', 'year', [six]).details[0]).toMatchObject({ name: 'ฮะ (六合)', why: '未 ของปี ฮะ 午 ของคุณ รวมเป็นธาตุไฟ (ตามคำอธิบายของซินแส) · ราศีล่างเสาปี' })
+    expect(readingFor('half3', 'day', [half]).details[0].story).toContain('คลังไม้')
+  })
   it('never repeats a card line across two pillars with the same reaction', () => {
     const reacts: ReactionFact[] = (['day', 'month'] as PillarKey[]).map((k) => ({ kind: 'stemClash', name: '天干冲', pillar: k, at: 'top', mine: '癸', year: '丁' }))
     const [d, m] = (['day', 'month'] as PillarKey[]).map((k) => readingFor('stemClash', k, reacts))
