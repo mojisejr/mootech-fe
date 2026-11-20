@@ -6,7 +6,7 @@ import { isTaisuiOpen, PRODUCTION_HOST } from '@/lib/taisui/live'
 import { parseBirth } from '@/lib/taisui/server'
 import { assembleReading } from '@/lib/taisui/assemble'
 import type { TaisuiFacts } from '@/lib/taisui/types'
-import { APPROVED, PREVIEW, RELATION_IN_SENTENCE, readingFor, type PillarKey, type Relation } from '@/features/v2-taisui/content/readings'
+import { APPROVED, PREVIEW, RELATIONS, RELATION_IN_SENTENCE, readingFor, type PillarKey, type ReactionFact } from '@/features/v2-taisui/content/readings'
 import { animalImage, MONTH_LABEL } from '@/features/v2-taisui/content/animals'
 import { leaveReturnMarker, takeReturnPath, TAISUI_RETURN_KEY } from '@/features/v2-taisui/return'
 import { withFreshPass } from '@/features/v2-taisui/fresh-pass'
@@ -15,7 +15,6 @@ import { ANALYTICS_EVENTS, FORBIDDEN_PARAM_KEY } from '@/lib/analytics/events'
 import { TAISUI_MARKUP } from '@/features/v2-taisui/components/taisui-markup'
 import { TAISUI_CSS } from '@/features/v2-taisui/components/taisui-css'
 
-const RELATIONS: Relation[] = ['same', 'clash', 'punish', 'harm', 'six', 'half3', 'season', 'none']
 const KEYS: PillarKey[] = ['hour', 'day', 'month', 'year']
 
 describe('production switch', () => {
@@ -50,11 +49,20 @@ const FACTS: TaisuiFacts = {
   year: { gregorian: 2027, stem: '丁', branch: '未', element: 'fire', lichun: '2027-02-04T01:46:18.000Z' },
   chart: { hasHour: true },
   pillars: [
-    { key: 'hour', stem: '庚', branch: '辰', element: 'metal', relation: 'none', relations: [], flow: 'controls' },
-    { key: 'day', stem: '己', branch: '卯', element: 'earth', relation: 'half3', relations: ['半三合'], flow: 'feeds' },
-    { key: 'month', stem: '己', branch: '卯', element: 'earth', relation: 'half3', relations: ['半三合'], flow: 'feeds' },
-    { key: 'year', stem: '庚', branch: '午', element: 'metal', relation: 'six', relations: ['六合', '三會'], flow: 'controls' },
+    { key: 'hour', stem: '庚', branch: '辰', element: 'metal', relation: 'heng', relations: ['刑'], flow: 'controls' },
+    { key: 'day', stem: '己', branch: '卯', element: 'earth', relation: 'phua', relations: ['破', '半三合'], flow: 'feeds' },
+    { key: 'month', stem: '己', branch: '卯', element: 'earth', relation: 'phua', relations: ['破', '半三合'], flow: 'feeds' },
+    { key: 'year', stem: '庚', branch: '午', element: 'metal', relation: 'six', relations: ['六合'], flow: 'controls' },
   ],
+  reactions: [
+    { kind: 'heng', name: '刑', pillar: 'hour', at: 'bottom', mine: '辰', year: '未' },
+    { kind: 'phua', name: '破', pillar: 'day', at: 'bottom', mine: '卯', year: '丁', pair: '丁卯', group: 'poison' },
+    { kind: 'phua', name: '破', pillar: 'month', at: 'bottom', mine: '卯', year: '丁', pair: '丁卯', group: 'poison' },
+    { kind: 'six', name: '六合', pillar: 'year', at: 'bottom', mine: '午', year: '未' },
+    { kind: 'half3', name: '半三合', pillar: 'day', at: 'bottom', mine: '卯', year: '未' },
+    { kind: 'half3', name: '半三合', pillar: 'month', at: 'bottom', mine: '卯', year: '未' },
+  ],
+  role: { dayMaster: '己', dayElement: 'earth', role: 'resource', th: 'ส่งเสริมดิถี' },
   mine: ['辰', '卯', '午'],
   months: Object.keys(MONTH_LABEL).map((b) => ({ branch: b, startsAt: '2027-02-04T01:46:18.000Z', state: b === '亥' ? 'peak' as const : b === '丑' ? 'care' as const : 'normal' as const, because: b === '亥' ? ['三合:亥卯未'] : [] })),
   partner: { yearBranch: '未', relation: 'six' },
@@ -67,7 +75,12 @@ describe('assembleReading', () => {
     expect(r.full).toBeUndefined()
     expect(r.pillars.map((p) => p.animal)).toEqual(['มะโรง', 'เถาะ', 'เถาะ', 'มะเมีย'])
     expect(r.pillars[3].image).toBe('/images/v2/characters/07_มะเมีย-ทอง.webp')
-    expect(r.pillars[3].preview).toEqual(PREVIEW.six.year)
+    expect(r.pillars[3].preview).toEqual(PREVIEW.six)
+    expect(r.role).toMatchObject({ th: 'ดินหยิน', picture: 'ดินสวน', roleTh: 'ส่งเสริมดิถี' })
+    expect(r.marks.map((m) => m.name)).toContain('ผั่ว (破)')
+    expect(r.marks.find((m) => m.name === 'ผั่ว (破)')?.where).toContain('丁卯')
+    expect(r.hits.find((h) => h.kind === 'phua')).toMatchObject({ pillar: 'day', at: 'bottom', mine: '卯', year: '丁', tone: 'care' })
+    expect(JSON.stringify(r.hits)).not.toMatch(/วาระซ่อน/) // the Sinse's stories stay in the member reading
     expect(r.months).toHaveLength(12)
     expect(JSON.stringify(r)).not.toMatch(/because|startsAt|yearBranch/) // internals stay on the server
   })
@@ -79,20 +92,42 @@ describe('assembleReading', () => {
     expect(r.full?.plan).toHaveLength(4)
     expect(r.draft).toBe(!APPROVED)
     expect(r.partner).toEqual({ relation: 'six' })
+    const month = r.full!.readings.find((x) => x.key === 'month')!
+    expect(month.details.map((d) => d.name)).toEqual(['ผั่ว (破)', 'ครึ่งไตรภาคี (半三合)'])
+    expect(month.details[0].story).toContain('วาระซ่อน') // the Sinse's ผั่ว 丁卯 story: help with poison inside
+    expect(month.details[0].why).toBe('丁卯 · 丁 ของปีมาเจอ 卯 ของคุณ · ราศีล่างเสาเดือน')
+    expect(month.headline).toBe('การงานและพ่อแม่: มีรอยรั่วเงียบๆ ที่ต้องรีบอุด')
+    expect(month.story).toBe(month.details[0].story)
   })
 })
 
 describe('content', () => {
+  it('never repeats a card line across two pillars with the same reaction', () => {
+    const reacts: ReactionFact[] = (['day', 'month'] as PillarKey[]).map((k) => ({ kind: 'stemClash', name: '天干冲', pillar: k, at: 'top', mine: '癸', year: '丁' }))
+    const [d, m] = (['day', 'month'] as PillarKey[]).map((k) => readingFor('stemClash', k, reacts))
+    expect(d.actions.filter((a) => m.actions.includes(a))).toEqual([])
+    expect(d.headline).not.toBe(m.headline)
+  })
   it('covers every relation for every pillar', () => {
     for (const rel of RELATIONS) {
       expect(RELATION_IN_SENTENCE[rel]).toBeTruthy()
+      expect(PREVIEW[rel]).toHaveLength(2)
       for (const k of KEYS) {
-        expect(PREVIEW[rel][k]).toHaveLength(2)
-        const rd = readingFor(rel, k)
+        const reacts: ReactionFact[] = rel === 'none' ? [] : [{ kind: rel, name: '', pillar: k, at: 'bottom', mine: '丑', year: '未', group: 'vault' }]
+        const rd = readingFor(rel, k, reacts)
         expect(rd.actions).toHaveLength(3)
-        expect(rd.opportunity.length).toBeGreaterThan(10)
+        expect(rd.headline.length).toBeGreaterThan(10)
+        expect(new Set(rd.actions).size).toBe(3)
       }
     }
+  })
+  it('uses "ชง" for 冲 alone (the Sinse, plan revision 0.9)', async () => {
+    const fs = await import('node:fs')
+    const lines = fs.readFileSync('features/v2-taisui/content/readings.ts', 'utf8').split('\n').filter((l) => !l.trim().startsWith('//') && !l.trim().startsWith('*'))
+    for (const l of lines.filter((x) => x.includes('ชง'))) expect([l.trim(), l.includes('chong')]).toEqual([l.trim(), true])
+    const motion = fs.readFileSync('features/v2-taisui/components/taisui-motion.ts', 'utf8').split('\n').filter((l) => !l.trim().startsWith('//'))
+    // the one line that names all five reactions (ชง เฮ้ง ไห่ ผั่ว ซำเฮ้ง) is the method note
+    expect(motion.filter((l) => /['`][^'`]*ชง/.test(l) && !/ปีชง/.test(l) && !/ชง เฮ้ง ไห่ ผั่ว/.test(l))).toEqual([])
   })
   it('names no AI provider and makes no ritual or purchase promise', async () => {
     const fs = await import('node:fs')
