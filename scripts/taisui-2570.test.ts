@@ -102,6 +102,12 @@ describe('assembleReading', () => {
 })
 
 describe('content', () => {
+  it('flies the year stem for ผั่ว on a bottom character, as bazi sends it (year = the branch)', () => {
+    const asBazi: ReactionFact = { kind: 'phua', name: '破', pillar: 'day', at: 'bottom', mine: '卯', year: '未', pair: '丁卯', group: 'poison' }
+    expect(readingFor('phua', 'day', [asBazi]).details[0].why).toBe('丁卯 · 丁 ของปีมาเจอ 卯 ของคุณ · ราศีล่างเสาวัน')
+    const top: ReactionFact = { kind: 'phua', name: '破', pillar: 'month', at: 'top', mine: '癸', year: '未', pair: '癸未', group: 'self' }
+    expect(readingFor('phua', 'month', [top]).details[0].why).toBe('癸未 · 癸 ของคุณมาเจอ 未 ของปี · ราศีบนเสาเดือน')
+  })
   it('names ฮะ the Sinse way and says what it turns into', () => {
     const six: ReactionFact = { kind: 'six', name: '六合', pillar: 'year', at: 'bottom', mine: '午', year: '未' }
     const half: ReactionFact = { kind: 'half3', name: '半三合', pillar: 'day', at: 'bottom', mine: '卯', year: '未' }

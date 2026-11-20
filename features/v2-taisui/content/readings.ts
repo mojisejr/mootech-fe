@@ -172,10 +172,17 @@ const VERB: Record<Exclude<Relation, 'none' | 'phua' | 'samheng' | 'same'>, stri
   stemCombine: 'ฮะ',
 }
 
+/** The year's own character in a reaction. For ผั่ว on a bottom character bazi sends the year's branch,
+ *  but the year's character there is its stem (丁 over your animal), the first of the pair. */
+export function yearCharOf(r: ReactionFact): string {
+  if (r.kind === 'phua' && r.pair && r.pair.length === 2) return r.at === 'bottom' ? r.pair[0] : r.pair[1]
+  return r.year
+}
+
 export function whyOf(r: ReactionFact): string {
   const where = `${AT_TH[r.at]}${pillarName(r.pillar)}`
   if (r.kind === 'phua') {
-    const meet = r.at === 'top' ? `${r.mine} ของคุณมาเจอ ${r.year} ของปี` : `${r.year} ของปีมาเจอ ${r.mine} ของคุณ`
+    const meet = r.at === 'top' ? `${r.mine} ของคุณมาเจอ ${yearCharOf(r)} ของปี` : `${yearCharOf(r)} ของปีมาเจอ ${r.mine} ของคุณ`
     return r.pair ? `${r.pair} · ${meet} · ${where}` : `${meet} · ${where}`
   }
   if (r.kind === 'samheng') return `${r.pair ? `${r.pair} ` : ''}ครบสามตัวกับ ${r.year} ของปี · ${where}`

@@ -1,6 +1,6 @@
 // ปีชง 2570 — turns bazi's facts into what the page reads, adding the prose from the content files.
 // The full reading is only included for a logged-in member (the gate of plan revision 0.7).
-import { APPROVED, DAY_MASTER, MONTH_TIP, PLAIN, PREVIEW, RELATION_NAME, ROLE, TONE, planLine, readingFor, whereOf, whyOf } from '@/features/v2-taisui/content/readings'
+import { APPROVED, DAY_MASTER, MONTH_TIP, PLAIN, PREVIEW, RELATION_NAME, ROLE, TONE, planLine, readingFor, whereOf, whyOf, yearCharOf } from '@/features/v2-taisui/content/readings'
 import { ELEMENT_TH, animalImage, animalTh } from '@/features/v2-taisui/content/animals'
 import type { TaisuiFacts, TaisuiReading } from './types'
 
@@ -29,7 +29,7 @@ export function assembleReading(facts: TaisuiFacts, opts: { member: boolean; sou
       line: ROLE[facts.role.role].line,
     } : null,
     marks: reactions.map((r) => ({ pillar: r.pillar, name: RELATION_NAME[r.kind], where: whereOf(r), tone: TONE[r.kind] })),
-    hits: reactions.map((r) => ({ pillar: r.pillar, at: r.at, kind: r.kind, tone: TONE[r.kind], mine: r.mine, year: r.year, name: RELATION_NAME[r.kind], why: whyOf(r), plain: PLAIN[r.kind] })),
+    hits: reactions.map((r) => ({ pillar: r.pillar, at: r.at, kind: r.kind, tone: TONE[r.kind], mine: r.mine, year: yearCharOf(r), name: RELATION_NAME[r.kind], why: whyOf(r), plain: PLAIN[r.kind] })),
     months: facts.months.map((m) => ({ branch: m.branch, state: m.state })),
     ...(facts.partner ? { partner: { relation: facts.partner.relation } } : {}),
     locked: !opts.member,
