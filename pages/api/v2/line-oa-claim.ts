@@ -29,10 +29,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       res.status(401).json({ reason: "relogin", message: "การเชื่อมต่อ LINE หมดอายุ — ออกจากระบบแล้วเข้าใหม่ด้วย LINE แล้วกดรับอีกครั้ง" })
       return
     }
-    const f = (await fr.json().catch(() => null)) as { friendFlag?: boolean } | null
+    const f = (await fr.json().catch(() => null)) as { friendFlag?: boolean; message?: unknown } | null
     if (!fr.ok || !f) {
-      // No token or member data in logs: only the step and LINE's status (502 on staging, 2026-11-20).
-      console.error("[line-oa-claim] friendship check failed", { status: fr.status, parsed: Boolean(f) })
+      // No token or member data in logs: the step, LINE's status and LINE's own error text (400 on staging, 2026-11-20).
+      const lineSays = typeof f?.message === "string" ? f.message.slice(0, 160) : null
+      console.error("[line-oa-claim] friendship check failed", { status: fr.status, parsed: Boolean(f), lineSays })
       res.status(502).json({ reason: "line_error", message: "เช็กกับ LINE ไม่สำเร็จ ลองใหม่อีกครั้ง" })
       return
     }

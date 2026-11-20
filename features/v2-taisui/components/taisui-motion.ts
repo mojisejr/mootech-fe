@@ -247,6 +247,7 @@ export function startTaisui(root: HTMLElement, api: TaisuiApi): () => void {
   api.stats().then((s) => { if (!s || !s.members) return; members = s.members; $('statN').hidden = false; $('statAsOf').textContent = `นับจากสมาชิกจริง ณ ${new Date(s.asOf).toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: 'numeric' })}`; if (P > 0.89) countUp() })
 
   let P = 0, flowT = 0, sheetOpen = false, gliding = false
+  function heCount() { return reading ? new Set(reading.hits.filter((x) => x.kind === 'six' || x.kind === 'half3' || x.kind === 'stemCombine').map((x) => x.pillar)).size : 0 }
   function careCount() { return reading ? reading.pillars.filter((p) => TONE[p.relation as Relation] === 'care').length : 0 }
   function frame() {
     const vh = stage.clientHeight || innerHeight, vw = stage.clientWidth || innerWidth
@@ -280,7 +281,7 @@ export function startTaisui(root: HTMLElement, api: TaisuiApi): () => void {
     else if (!reading) say('กรอกวันเกิดก่อน แล้วนักษัตรของคุณจะวิ่งออกมาครับ', 'happy')
     else if (p < 0.52) say(`นี่คือนักษัตร ${actors.length} ตัวของคุณ ท่าทางบอกว่าเข้ากับปีมะแมแค่ไหน`, 'happy')
     else if (p < 0.62) say(caps[Math.max(0, spot)] ?? '', 'happy')
-    else if (p < 0.86) { const n = careCount(); say(n ? `ตัวที่เรืองแสงคือของคุณ ปีนี้มี ${n} เสาที่โดนแรงของปี` : 'ตัวที่เรืองแสงคือของคุณ ปีนี้ไม่มีเสาไหนโดนแรงของปีตรงๆ ครับ', n ? 'special' : 'happy') }
+    else if (p < 0.86) { const n = careCount(), h = heCount(); say(n || h ? `ตัวที่เรืองแสงคือของคุณ ปีนี้${n ? `มี ${n} เสาที่โดนแรงของปี` : ''}${n && h ? ' และ' : ''}${h ? `มี ${h} เสาที่ฮะกับปี` : ''}` : 'ตัวที่เรืองแสงคือของคุณ ปีนี้ไม่มีเสาไหนโดนแรงของปีตรงๆ ครับ', n ? 'special' : 'happy') }
     else say(member ? 'อยากรู้ว่าเดือนไหนควรรุก เดือนไหนควรรอ อ่านต่อได้เลยครับ' : 'คำทำนายเต็มกับโคม 12 เดือน ดูได้หลังเข้าสู่ระบบครับ', 'happy')
     updateNext(); updateDock()
   }

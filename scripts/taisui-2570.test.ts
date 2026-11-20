@@ -93,7 +93,7 @@ describe('assembleReading', () => {
     expect(r.draft).toBe(!APPROVED)
     expect(r.partner).toEqual({ relation: 'six' })
     const month = r.full!.readings.find((x) => x.key === 'month')!
-    expect(month.details.map((d) => d.name)).toEqual(['ผั่ว (破)', 'ครึ่งไตรภาคี (半三合)'])
+    expect(month.details.map((d) => d.name)).toEqual(['ผั่ว (破)', 'ภาคี (半三合)'])
     expect(month.details[0].story).toContain('วาระซ่อน') // the Sinse's ผั่ว 丁卯 story: help with poison inside
     expect(month.details[0].why).toBe('丁卯 · 丁 ของปีมาเจอ 卯 ของคุณ · ราศีล่างเสาเดือน')
     expect(month.headline).toBe('การงานและพ่อแม่: มีรอยรั่วเงียบๆ ที่ต้องรีบอุด')
@@ -102,6 +102,12 @@ describe('assembleReading', () => {
 })
 
 describe('content', () => {
+  it('names ฮะ the Sinse way and says what it turns into', () => {
+    const six: ReactionFact = { kind: 'six', name: '六合', pillar: 'year', at: 'bottom', mine: '午', year: '未' }
+    const half: ReactionFact = { kind: 'half3', name: '半三合', pillar: 'day', at: 'bottom', mine: '卯', year: '未' }
+    expect(readingFor('six', 'year', [six]).details[0]).toMatchObject({ name: 'ฮะ (六合)', why: '未 ของปี ฮะ 午 ของคุณ แปรสภาพเป็นธาตุไฟ · ราศีล่างเสาปี' })
+    expect(readingFor('half3', 'day', [half]).details[0].story).toContain('คลังไม้')
+  })
   it('never repeats a card line across two pillars with the same reaction', () => {
     const reacts: ReactionFact[] = (['day', 'month'] as PillarKey[]).map((k) => ({ kind: 'stemClash', name: '天干冲', pillar: k, at: 'top', mine: '癸', year: '丁' }))
     const [d, m] = (['day', 'month'] as PillarKey[]).map((k) => readingFor('stemClash', k, reacts))
