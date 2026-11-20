@@ -23,6 +23,9 @@ body:has(.ts2570){background:#071a36}
 @keyframes ts-me{50%{box-shadow:inset 0 0 0 4px #EBBF30,0 0 0 5px rgba(225,255,0,1),0 0 44px 16px rgba(225,255,0,.75)}}
 .ts2570 .medal.me .ring{box-shadow:0 0 0 6px #E1FF00,0 0 0 14px rgba(225,255,0,.35),0 0 80px 22px rgba(225,255,0,.55)}
 .ts2570 .actor.dim{opacity:.28;filter:grayscale(.7)}
+.ts2570 .pillars h2{position:relative;margin:0 auto 14px;width:max-content;max-width:calc(100% - 32px);padding:2px 14px;border-radius:999px;background:radial-gradient(ellipse at center,rgba(7,26,54,.92) 55%,rgba(7,26,54,0) 100%)}
+.ts2570 .actor .pl{position:relative;padding:1px 8px;border-radius:999px;background:rgba(7,26,54,.78);border:1px solid rgba(201,214,242,.22)}
+.ts2570 .actor .pr{margin-top:2px}
 .ts2570 .actor.lit .fig{transform:scale(1.14);transition:transform .35s var(--ease-out)}
 .ts2570 .yam{margin:6px 0 0 30px;min-height:44px;width:calc(100% - 30px);border-radius:12px;border:1px solid rgba(7,26,54,.2);padding:0 10px;font:inherit;background:#fff;color:var(--ink)}
 .ts2570 .role .dm{display:flex;align-items:center;gap:14px;margin:6px 0 12px}
@@ -119,6 +122,20 @@ body:has(.ts2570){background:#071a36}
 .ts2570 .read .sx summary:focus-visible{outline:3px solid var(--lime);outline-offset:2px;border-radius:14px}
 .ts2570 .read .sx .rx{padding:0 10px 10px}
 @media (prefers-reduced-motion:reduce){.ts2570 .c8,.ts2570 .c8::after,.ts2570 .chart .yc{animation:none!important}}
+.ts2570 .packet-zone{min-height:560px;padding-top:112px}
+.ts2570 .env .body{box-shadow:inset 0 0 0 7px #b71c19,inset 0 0 0 8.5px rgba(235,191,48,.85),0 20px 40px rgba(0,0,0,.4)}
+.ts2570 .env .pocket{inset:30% 0 0 0;clip-path:polygon(0 0,50% 20%,100% 0,100% 100%,0 100%);box-shadow:inset 0 0 0 7px #a51717,inset 0 0 0 8.5px rgba(235,191,48,.7)}
+.ts2570 .env .flap{height:42%;transition:transform .72s cubic-bezier(.45,0,.2,1) .06s,z-index 0s .42s,opacity .5s ease 1.2s;filter:drop-shadow(0 2px 0 rgba(235,191,48,.9)) drop-shadow(0 8px 10px rgba(0,0,0,.22))}
+.ts2570 .env .flap i{clip-path:polygon(0 0,100% 0,100% 40%,57% 95%,50% 100%,43% 95%,0 40%)}
+.ts2570 .env .seal{top:42%}
+.ts2570 .env.dragging .flap{transform:rotateX(var(--lift,0deg));transition:none}
+.ts2570 .env.open .seal{transition:transform .5s cubic-bezier(.22,.8,.24,1),opacity .4s ease .05s;transform:translate(-50%,-50%) translateY(calc(var(--dy,0px) - 48px)) rotate(var(--rot,0deg)) scale(.8);opacity:0}
+.ts2570 .env.open .flap{transform:rotateX(180deg);z-index:0;opacity:0}
+.ts2570 .env.open .card{animation:ts-cardRise 1.8s cubic-bezier(.22,.8,.24,1) .45s forwards}
+.ts2570 .env.open .body,.ts2570 .env.open .pocket{animation:ts-envAway .7s cubic-bezier(.4,0,.2,1) 1.15s forwards}
+@keyframes ts-cardRise{0%{opacity:0;transform:translateY(0)}8%{opacity:1}42%{opacity:1;transform:translateY(-40%)}100%{opacity:1;transform:translateY(-4%) scale(1.06);box-shadow:0 26px 44px rgba(0,0,0,.45),0 0 0 3px rgba(235,191,48,.8)}}
+@keyframes ts-envAway{to{opacity:0;transform:translateY(12%) scale(.97)}}
+@media (prefers-reduced-motion:reduce){.ts2570 .env.open .card{animation:none;opacity:1;transform:translateY(-4%) scale(1.06)}.ts2570 .env.open .body,.ts2570 .env.open .pocket{animation:none;opacity:0}.ts2570 .env .flap,.ts2570 .env.open .seal{transition:none}}
 @media (prefers-reduced-motion:reduce){.ts2570 .z.me{animation:none}.ts2570 .dock{transition:none}}
 .ts2570 .oaToast{position:fixed;left:50%;top:calc(18px + env(safe-area-inset-top));transform:translateX(-50%);z-index:60;width:min(420px,calc(100vw - 32px));display:flex;flex-wrap:wrap;align-items:center;gap:10px;padding:14px 44px 14px 16px;border-radius:18px;background:rgba(7,26,54,.94);border:1px solid rgba(235,191,48,.45);box-shadow:0 10px 30px rgba(0,0,0,.35);color:var(--ivory)}
 .ts2570 .oaToast p{margin:0;flex:1 1 200px;font-size:14px;line-height:1.5}

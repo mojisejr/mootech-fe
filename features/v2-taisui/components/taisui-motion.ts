@@ -196,7 +196,7 @@ export function startTaisui(root: HTMLElement, api: TaisuiApi): () => void {
     lines.textContent = ''
     const g = document.createElementNS(ns, 'g')
     actors.forEach((a, i) => {
-      const r = a.querySelector('.fig')!.getBoundingClientRect(); const x = r.left + r.width / 2 - sr.left, y = r.top - sr.top + 4, cy = (my + y) / 2
+      const r = a.querySelector('.fig')!.getBoundingClientRect(), lb = a.querySelector('.pl')!.getBoundingClientRect(); const x = r.left + r.width / 2 - sr.left, y = lb.top - sr.top - 6, cy = (my + y) / 2
       const pe = document.createElementNS(ns, 'path'); pe.setAttribute('d', `M${mx} ${my} C ${mx} ${cy}, ${x} ${cy}, ${x} ${y}`)
       const gen = flowKind[i] === 'gen'
       pe.setAttribute('stroke', gen ? '#FF8A3D' : '#ff6b6b'); pe.setAttribute('opacity', (t * 0.55).toFixed(2)); lines.appendChild(pe)
@@ -546,7 +546,7 @@ export function startTaisui(root: HTMLElement, api: TaisuiApi): () => void {
   }
   async function openEnv() {
     if (env.classList.contains('open')) return
-    env.classList.remove('dragging'); seal.classList.remove('drag', 'back'); seal.style.removeProperty('--dy'); seal.style.removeProperty('--rot')
+    env.classList.remove('dragging'); seal.classList.remove('drag', 'back'); env.style.removeProperty('--lift')
     env.classList.add('open'); pz.classList.add('open'); try { navigator.vibrate?.([18, 40, 25]) } catch { /* no vibration */ }
     api.track('taisui_packet_open', { member: member ? 1 : 0 })
     if (!member) { $('pkQi').textContent = 'ชี่ 5–10 รออยู่'; $('pkHint').textContent = 'เข้าสู่ระบบเพื่อรับชี่จากซองนี้'; $('pkLogin').hidden = false; return }
@@ -557,8 +557,8 @@ export function startTaisui(root: HTMLElement, api: TaisuiApi): () => void {
   on($('pkLogin'), 'click', () => { api.track('taisui_login_click', { from: 'packet' }); api.login(typed) })
   let y0: number | null = null, moved = 0
   on<PointerEvent>(seal, 'pointerdown', (e) => { if (env.classList.contains('open')) return; y0 = e.clientY; moved = 0; seal.setPointerCapture(e.pointerId); seal.classList.add('drag'); seal.classList.remove('back'); env.classList.add('dragging') })
-  on<PointerEvent>(seal, 'pointermove', (e) => { if (y0 === null) return; const dy = Math.min(0, e.clientY - y0); moved = Math.max(moved, -dy); seal.style.setProperty('--dy', (dy * 0.9).toFixed(0) + 'px'); seal.style.setProperty('--rot', (dy * -0.15).toFixed(1) + 'deg'); if (-dy > 70) { y0 = null; void openEnv() } })
-  const endDrag = () => { if (y0 === null) return; const wasTap = moved < 6; y0 = null; seal.classList.remove('drag'); env.classList.remove('dragging'); if (wasTap) { void openEnv(); return } seal.classList.add('back'); seal.style.removeProperty('--dy'); seal.style.removeProperty('--rot') }
+  on<PointerEvent>(seal, 'pointermove', (e) => { if (y0 === null) return; const dy = Math.min(0, e.clientY - y0); moved = Math.max(moved, -dy); seal.style.setProperty('--dy', (dy * 0.9).toFixed(0) + 'px'); seal.style.setProperty('--rot', (dy * -0.15).toFixed(1) + 'deg'); env.style.setProperty('--lift', (Math.min(70, -dy) * 0.5).toFixed(0) + 'deg'); if (-dy > 70) { y0 = null; void openEnv() } })
+  const endDrag = () => { if (y0 === null) return; const wasTap = moved < 6; y0 = null; seal.classList.remove('drag'); env.classList.remove('dragging'); if (wasTap) { void openEnv(); return } seal.classList.add('back'); seal.style.removeProperty('--dy'); seal.style.removeProperty('--rot'); env.style.removeProperty('--lift') }
   on(seal, 'pointerup', endDrag); on(seal, 'pointercancel', endDrag)
   on<KeyboardEvent>(seal, 'keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); void openEnv() } })
 
