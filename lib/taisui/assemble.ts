@@ -29,7 +29,8 @@ export function assembleReading(facts: TaisuiFacts, opts: { member: boolean; sou
       line: ROLE[facts.role.role].line,
     } : null,
     marks: reactions.map((r) => ({ pillar: r.pillar, name: RELATION_NAME[r.kind], where: whereOf(r), tone: TONE[r.kind] })),
-    hits: reactions.map((r) => ({ pillar: r.pillar, at: r.at, kind: r.kind, tone: TONE[r.kind], mine: r.mine, year: yearCharOf(r), name: RELATION_NAME[r.kind], why: whyOf(r), plain: PLAIN[r.kind] })),
+    hits: reactions.map((r) => ({ pillar: r.pillar, at: r.at, kind: r.kind, tone: TONE[r.kind], mine: r.mine, year: yearCharOf(r), name: RELATION_NAME[r.kind], why: whyOf(r), plain: PLAIN[r.kind], ...(r.into ? { into: r.into } : {}) })),
+    luck: facts.luck ?? null,
     months: facts.months.map((m) => ({ branch: m.branch, state: m.state })),
     ...(facts.partner ? { partner: { relation: facts.partner.relation } } : {}),
     locked: !opts.member,
@@ -37,7 +38,7 @@ export function assembleReading(facts: TaisuiFacts, opts: { member: boolean; sou
   }
   if (opts.member) {
     reading.full = {
-      readings: facts.pillars.map((p) => ({ key: p.key, ...readingFor(p.relation, p.key, reactions, facts.role?.dayMaster) })),
+      readings: facts.pillars.map((p) => ({ key: p.key, ...readingFor(p.relation, p.key, reactions, facts.luck) })),
       monthTips: Object.fromEntries(facts.months.map((m) => [m.branch, `${MONTH_TIP[m.state]}${m.state === 'peak' && m.because.some((b) => b.startsWith('三合')) ? ' เดือนนี้ไตรภาคีครบชุด' : ''}`])),
       plan: facts.pillars.map((p) => planLine(p.relation, p.key)),
     }

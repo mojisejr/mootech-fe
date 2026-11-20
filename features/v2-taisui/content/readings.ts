@@ -17,7 +17,11 @@ export type ElementRole = 'companion' | 'output' | 'wealth' | 'power' | 'resourc
 export type ReactionFact = {
   kind: Exclude<Relation, 'none'>; name: string; pillar: PillarKey; at: 'top' | 'bottom'
   mine: string; year: string; pair?: string; group?: string
+  /** ฮะ only, from bazi: the element and the engine's outcome (source "sinse" when the engine has no element). */
+  into?: { element: string; status: 'transformed' | 'supported' | 'detected' | 'blocked'; source: 'engine' | 'sinse' }
 }
+/** The chart's favourable elements (用神) and elements to avoid (忌神), from the engine, in Thai. */
+export type Luck = { favorable: string[]; avoid: string[] }
 
 export const RELATIONS: Relation[] = ['chong', 'samheng', 'heng', 'hai', 'phua', 'stemClash', 'same', 'six', 'half3', 'stemCombine', 'none']
 
@@ -208,49 +212,40 @@ export function whyOf(r: ReactionFact): string {
   }
   if (r.kind === 'samheng') return `${r.pair ? `${r.pair} ` : ''}ครบสามตัวกับ ${r.year} ของปี · ${where}`
   if (r.kind === 'same') return `${r.year} ของปีตรงกับ ${r.mine} ของคุณ · ${where}`
-  const into = TRANSFORM[`${r.kind}:${r.mine}`]
-  return `${r.year} ของปี ${VERB[r.kind]} ${r.mine} ของคุณ${into ? ` แปรสภาพเป็นธาตุ${into}` : ''} · ${where}`
+  return `${r.year} ของปี ${VERB[r.kind]} ${r.mine} ของคุณ${r.into ? intoWords(r.into) : ''} · ${where}`
 }
 
-/** What a ฮะ with the Goat year turns into (午未 fire; 亥卯未 wood, 未 the wood vault; 丁壬 wood). */
-const STEM_ELEMENT: Record<string, string> = { 甲: 'ไม้', 乙: 'ไม้', 丙: 'ไฟ', 丁: 'ไฟ', 戊: 'ดิน', 己: 'ดิน', 庚: 'ทอง', 辛: 'ทอง', 壬: 'น้ำ', 癸: 'น้ำ' }
-const FEEDS: Record<string, string> = { ไม้: 'ไฟ', ไฟ: 'ดิน', ดิน: 'ทอง', ทอง: 'น้ำ', น้ำ: 'ไม้' }
-const CONTROLS: Record<string, string> = { ไม้: 'ดิน', ดิน: 'น้ำ', น้ำ: 'ไฟ', ไฟ: 'ทอง', ทอง: 'ไม้' }
-
-/** What an element is to the day master: the Sinse's five roles, as the year's fire uses them. */
-export function roleOfElement(element: string, dayMaster: string): ElementRole | null {
-  const me = STEM_ELEMENT[dayMaster]; if (!me || !element) return null
-  if (element === me) return 'companion'
-  if (FEEDS[me] === element) return 'output'
-  if (CONTROLS[me] === element) return 'wealth'
-  if (CONTROLS[element] === me) return 'power'
-  return 'resource'
-}
+export const ELEMENT_EN_TH: Record<string, string> = { wood: 'ไม้', fire: 'ไฟ', earth: 'ดิน', metal: 'ทอง', water: 'น้ำ' }
 
 /** ฮะ in plain words: what joins, and what the new element is to you. */
 export const HE_DOES: Record<string, string> = { six: 'มีคนจับมือ', half3: 'มีคนรวมกลุ่มด้วย', stemCombine: 'คุยกันลงตัว' }
 /** On the wheel: "<animal>ของคุณ<verb>กับแพะ". */
 export const HE_VERB: Record<string, string> = { six: 'จับมือ', half3: 'รวมกลุ่ม' }
-export const HE_TO_YOU: Record<ElementRole, string> = {
-  resource: 'ธาตุนี้ช่วยหนุนคุณ',
-  power: 'แต่ธาตุนี้กดดันคุณนิดๆ อย่ารับงานเกินตัว',
-  wealth: 'เป็นโอกาสเรื่องเงินของคุณ',
-  output: 'ได้ใช้ฝีมือเต็มที่ แต่จะเหนื่อยหน่อย',
-  companion: 'มีเพื่อนร่วมทาง และมีคู่แข่งด้วย',
-}
-export const HE_SHORT: Record<ElementRole, string> = {
-  resource: 'ช่วยหนุนคุณ', power: 'แต่จะกดดันคุณนิดๆ', wealth: 'เป็นโอกาสเรื่องเงิน', output: 'ได้ใช้ฝีมือ แต่เหนื่อยหน่อย', companion: 'มีเพื่อนร่วมทาง',
+
+export type He = { element: string; status: NonNullable<ReactionFact['into']>['status']; tone: 'good' | 'care'; gets: string; toYou: string; short: string }
+
+/**
+ * A ฮะ as bazi reads it from the engine: the element and how far the pair gets (`into`), and whether
+ * that element helps this chart (the engine's 用神 / 忌神 in `luck`). Nothing here is decided on the page.
+ */
+export function heOf(r: { into?: ReactionFact['into'] }, luck: Luck | null | undefined): He | null {
+  const into = r.into; if (!into) return null
+  const element = ELEMENT_EN_TH[into.element]; if (!element) return null
+  const gets = into.status === 'transformed' || into.status === 'blocked' ? `รวมเป็นธาตุ${element}เต็มตัว` : into.status === 'detected' && into.source === 'engine' ? `ได้ธาตุ${element}นิดหน่อย` : `ได้ธาตุ${element}เพิ่ม`
+  const avoid = luck?.avoid.includes(element), favorable = luck?.favorable.includes(element)
+  return {
+    element, status: into.status, tone: avoid ? 'care' : 'good', gets,
+    toYou: avoid ? 'แต่ธาตุนี้ไม่ใช่ธาตุที่ช่วยคุณ อย่ารับงานเกินตัว' : favorable ? 'ธาตุนี้ช่วยหนุนคุณ' : 'เป็นแรงเสริมกลางๆ',
+    short: avoid ? 'แต่ไม่ใช่ธาตุที่ช่วยคุณ' : favorable ? 'ช่วยหนุนคุณ' : '',
+  }
 }
 
-/** A ฮะ with the Goat year, judged against the day master: the element it makes and its role to you. */
-export function heOf(r: { kind: string; mine: string }, dayMaster: string | undefined): { element: string; role: ElementRole | null; tone: 'good' | 'care' } | null {
-  const element = TRANSFORM[`${r.kind}:${r.mine}`]
-  if (!element) return null
-  const role = dayMaster ? roleOfElement(element, dayMaster) : null
-  return { element, role, tone: role === 'power' ? 'care' : 'good' }
+/** The Sinse's chart words for a ฮะ outcome (inside "ดูแบบซินแส" only). */
+function intoWords(into: NonNullable<ReactionFact['into']>): string {
+  const el = ELEMENT_EN_TH[into.element] ?? ''
+  if (into.source === 'sinse') return ` รวมเป็นธาตุ${el} (ตามคำอธิบายของซินแส)`
+  return { transformed: ` แปรสภาพเป็นธาตุ${el}`, blocked: ` ครบชุดสามตัว ธาตุ${el}`, supported: ` มีแรงไปทางธาตุ${el} (ยังไม่แปร)`, detected: ` ธาตุ${el} แรงน้อย` }[into.status]
 }
-
-export const TRANSFORM: Record<string, string> = { 'six:午': 'ไฟ', 'half3:卯': 'ไม้', 'half3:亥': 'ไม้', 'stemCombine:壬': 'ไม้' }
 
 /** Layer 3: two actions per reaction; the page picks two of four by the pillar, so two pillars with
  *  the same reaction do not read the same. */
@@ -295,7 +290,7 @@ export function toneOf(reactions: ReactionFact[]): 'good' | 'care' | 'calm' {
   return reactions.length ? 'good' : 'calm'
 }
 
-export function readingFor(strongest: Relation, key: PillarKey, reactions: ReactionFact[], dayMaster?: string): Reading {
+export function readingFor(strongest: Relation, key: PillarKey, reactions: ReactionFact[], luck?: Luck | null): Reading {
   const mine = reactions.filter((r) => r.pillar === key)
   const area = areaOf(key)
   const details = mine.map((r) => ({ name: RELATION_NAME[r.kind], why: whyOf(r), story: storyOf(r) }))
@@ -307,7 +302,7 @@ export function readingFor(strongest: Relation, key: PillarKey, reactions: React
     actions = [ACTIONS[tone][key][0], acts[at], acts[at + 1]]
   }
   return {
-    headline: (() => { const he = lead ? heOf(lead, dayMaster) : null; return he?.role ? `${area}: ${HE_DOES[lead!.kind]} ได้ธาตุ${he.element}เพิ่ม ${HE_SHORT[he.role]}` : `${area}: ${PLAIN[lead ? lead.kind : 'none']}` })(),
+    headline: (() => { const he = lead ? heOf(lead, luck) : null; return he ? `${area}: ${HE_DOES[lead!.kind]} ${he.gets} ${he.short}`.trim() : `${area}: ${PLAIN[lead ? lead.kind : 'none']}` })(),
     story: lead ? storyOf(lead) : '',
     details,
     actions,
