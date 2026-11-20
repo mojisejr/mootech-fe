@@ -67,7 +67,7 @@ export function startTaisui(root: HTMLElement, api: TaisuiApi): () => void {
   const cleanups: Array<() => void> = []
   // A second start on the same frame (a remount, or React's dev double effect) begins from a clean frame.
   ;['stars', 'sparks', 'lanterns', 'wheel'].forEach((id) => { $(id).textContent = '' })
-  root.querySelectorAll('#wishsky > .fl, .role, .rtabs, .yam, .dock, .oaToast').forEach((n) => n.remove())
+  root.querySelectorAll('#wishsky > .fl, .role, .rtabs, .yam, .dock, .oaToast, .zc').forEach((n) => n.remove())
   const on = <E extends Event>(t: EventTarget, ev: string, fn: (e: E) => void, opts?: AddEventListenerOptions) => {
     t.addEventListener(ev, fn as EventListener, opts)
     cleanups.push(() => t.removeEventListener(ev, fn as EventListener, opts))
@@ -153,7 +153,8 @@ export function startTaisui(root: HTMLElement, api: TaisuiApi): () => void {
 
   // twelve-animal wheel (the goat is the medallion in the middle)
   const wheel = $('wheel')
-  const zs = WHEEL_BRANCHES.map((b) => { const z = el('div', 'z'); const im = el('img'); im.src = animalImage(b, 'ไฟ'); im.alt = ''; im.loading = 'lazy'; z.appendChild(im); wheel.appendChild(z); return { el: z, b } })
+  const zs = WHEEL_BRANCHES.map((b) => { const z = el('div', 'z'); const c = el('span', 'c'); const im = el('img'); im.src = animalImage(b, 'ไฟ'); im.alt = ''; im.loading = 'lazy'; c.appendChild(im); z.appendChild(c); z.appendChild(el('b', 'n', animalTh(b))); wheel.appendChild(z); return { el: z, b } })
+  const zc = el('b', 'zc', 'มะแม · ปีนี้'); zc.setAttribute('aria-hidden', 'true'); $('stage').appendChild(zc)
   let mine = new Set<string>()
 
   // ② actors + ⑤ element flow, from the reading
@@ -269,6 +270,7 @@ export function startTaisui(root: HTMLElement, api: TaisuiApi): () => void {
     const wIn = seg(p, 0.64, 0.7), wOut = seg(p, 0.84, 0.88), wv = wIn * (1 - wOut); wheel.style.opacity = wv.toFixed(2); $('wtitle').style.opacity = wv.toFixed(2)
     const R = Math.min(vw * 0.39, vh * 0.3, 240), cx = vw / 2, cy = vh / 2 - 0.02 * vh, rot = p * 140
     zs.forEach((z, i) => { const a = ((rot + i * (360 / zs.length)) * Math.PI) / 180, r = R * lerp(0.6, 1, wIn); z.el.style.left = cx + Math.cos(a) * r + 'px'; z.el.style.top = cy + Math.sin(a) * r * 0.92 + 'px'; z.el.style.transform = `scale(${mine.has(z.b) && p > 0.72 ? 1.38 : 1})` })
+    zc.style.left = cx + 'px'; zc.style.top = cy + medal.offsetWidth * sc * 0.4 + 'px'; zc.style.opacity = wv.toFixed(2); zc.classList.toggle('me', mine.has('未') && p > 0.72)
     const sIn = seg(p, 0.88, 0.93); $('stat').style.opacity = sIn.toFixed(2); $('toRead').style.pointerEvents = sIn > 0.6 ? 'auto' : 'none'; $('toRead').tabIndex = sIn > 0.6 ? 0 : -1
     if (p > 0.89 && !counted) countUp(); if (p < 0.86 && counted) resetOdo()
     if (sheetOpen) say('ใส่เวลาเกิด แล้วดูฟ้าด้านบนเปลี่ยนตามนะครับ', 'happy')
