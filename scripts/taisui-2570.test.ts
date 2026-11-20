@@ -79,6 +79,8 @@ describe('assembleReading', () => {
     expect(r.role).toMatchObject({ th: 'ดินหยิน', picture: 'ดินสวน', roleTh: 'ส่งเสริมดิถี' })
     expect(r.marks.map((m) => m.name)).toContain('ผั่ว (破)')
     expect(r.marks.find((m) => m.name === 'ผั่ว (破)')?.where).toContain('丁卯')
+    expect(r.hits.find((h) => h.kind === 'phua')).toMatchObject({ pillar: 'day', at: 'bottom', mine: '卯', year: '丁', tone: 'care' })
+    expect(JSON.stringify(r.hits)).not.toMatch(/วาระซ่อน/) // the Sinse's stories stay in the member reading
     expect(r.months).toHaveLength(12)
     expect(JSON.stringify(r)).not.toMatch(/because|startsAt|yearBranch/) // internals stay on the server
   })
@@ -93,10 +95,19 @@ describe('assembleReading', () => {
     const month = r.full!.readings.find((x) => x.key === 'month')!
     expect(month.details.map((d) => d.name)).toEqual(['ผั่ว (破)', 'ครึ่งไตรภาคี (半三合)'])
     expect(month.details[0].story).toContain('วาระซ่อน') // the Sinse's ผั่ว 丁卯 story: help with poison inside
+    expect(month.details[0].why).toBe('丁卯 · 丁 ของปีมาเจอ 卯 ของคุณ · ราศีล่างเสาเดือน')
+    expect(month.headline).toBe('การงานและพ่อแม่: มีรอยรั่วเงียบๆ ที่ต้องรีบอุด')
+    expect(month.story).toBe(month.details[0].story)
   })
 })
 
 describe('content', () => {
+  it('never repeats a card line across two pillars with the same reaction', () => {
+    const reacts: ReactionFact[] = (['day', 'month'] as PillarKey[]).map((k) => ({ kind: 'stemClash', name: '天干冲', pillar: k, at: 'top', mine: '癸', year: '丁' }))
+    const [d, m] = (['day', 'month'] as PillarKey[]).map((k) => readingFor('stemClash', k, reacts))
+    expect(d.actions.filter((a) => m.actions.includes(a))).toEqual([])
+    expect(d.headline).not.toBe(m.headline)
+  })
   it('covers every relation for every pillar', () => {
     for (const rel of RELATIONS) {
       expect(RELATION_IN_SENTENCE[rel]).toBeTruthy()
@@ -105,7 +116,8 @@ describe('content', () => {
         const reacts: ReactionFact[] = rel === 'none' ? [] : [{ kind: rel, name: '', pillar: k, at: 'bottom', mine: '丑', year: '未', group: 'vault' }]
         const rd = readingFor(rel, k, reacts)
         expect(rd.actions).toHaveLength(3)
-        expect(rd.opportunity.length).toBeGreaterThan(10)
+        expect(rd.headline.length).toBeGreaterThan(10)
+        expect(new Set(rd.actions).size).toBe(3)
       }
     }
   })

@@ -26,13 +26,15 @@ export type TaisuiReading = {
   role: { dayMaster: string; th: string; picture: string; roleTh: string; line: string } | null
   /** Free for everyone: the reactions' names and where they land, without the stories. */
   marks: Array<{ pillar: PillarKey; name: string; where: string; tone: 'good' | 'care' | 'calm' }>
+  /** Free for everyone: each reaction as the chart animates it, the year's character flying to yours. */
+  hits: Array<{ pillar: PillarKey; at: 'top' | 'bottom'; kind: Exclude<Relation, 'none'>; tone: 'good' | 'care' | 'calm'; mine: string; year: string; name: string; why: string; plain: string }>
   months: Array<{ branch: string; state: 'peak' | 'care' | 'normal' }>
   partner?: { relation: Relation }
   locked: boolean
   full?: {
     readings: Array<{
-      key: PillarKey; headline: string; opportunity: string; strengths: string; cautions: string; actions: [string, string, string]
-      details: Array<{ name: string; where: string; story: string }>
+      key: PillarKey; headline: string; story: string; actions: [string, string, string]
+      details: Array<{ name: string; why: string; story: string }>
     }>
     monthTips: Record<string, string>
     plan: string[]

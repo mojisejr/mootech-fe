@@ -120,21 +120,79 @@ export const PREVIEW: Record<Relation, [string, string]> = {
   none: ['ปีนิ่ง', 'เดินตามแผน'],
 }
 
-type Reading = { headline: string; opportunity: string; strengths: string; cautions: string; actions: [string, string, string]; details: Array<{ name: string; where: string; story: string }> }
-
-const HEADLINE: Record<Relation, string> = {
-  chong: 'ปีที่มีการเปลี่ยนแปลงฉับพลัน เตรียมแผนไว้ก่อน',
-  samheng: 'ปีที่แรงกดดันซ้อนหลายทาง ต้องใจเย็น',
-  heng: 'ปีที่ต้องระวังภาระที่บั่นทอน',
-  hai: 'ปีที่ต้องระวังเรื่องลับหลัง',
-  phua: 'ปีที่ต้องอุดรอยรั่วจากข้างใน',
-  stemClash: 'ปีที่ความคิดต้องผ่านการกลั่นกรอง',
-  same: 'ปีที่นักษัตรของคุณถูกจับตา',
-  six: 'ปีที่มีคนช่วยเปิดทาง',
-  half3: 'ปีที่โชคมาจากการรวมพลัง',
-  stemCombine: 'ปีที่เจรจาแล้วลงตัว',
-  none: 'ปีที่สงบ เหมาะสะสมผลงาน',
+type Reading = {
+  /** Layer 1, plain words: the pillar's life area and what the year does to it. */
+  headline: string
+  /** The Sinse's story for the strongest reaction on this pillar. */
+  story: string
+  /** Layer 2, for readers who know the chart: each reaction, the characters it joins and where. */
+  details: Array<{ name: string; why: string; story: string }>
+  /** Layer 3: what to do, by the pillar's area and the reaction. */
+  actions: [string, string, string]
 }
+
+/** Layer 1: what the reaction means in plain words. */
+export const PLAIN: Record<Relation, string> = {
+  chong: 'มีเรื่องเปลี่ยนกะทันหัน ของเดิมอาจไม่อยู่ที่เดิม',
+  samheng: 'แรงกดดันมาหลายทางพร้อมกัน',
+  heng: 'มีภาระหนักที่ค่อยๆ บั่นทอนแรง',
+  hai: 'ระวังคนพูดลับหลังหรือเข้าใจผิด',
+  phua: 'มีรอยรั่วเงียบๆ ที่ต้องรีบอุด',
+  stemClash: 'ความคิดของคุณสวนทางกับคนรอบตัว',
+  same: 'ได้ออกหน้าและถูกจับตามากขึ้น',
+  six: 'มีคนจับมือช่วยเปิดทาง',
+  half3: 'รวมทีมแล้วมีแรงส่ง',
+  stemCombine: 'คุยกันง่าย เจรจาลงตัว',
+  none: 'ปีไม่ได้เข้ามาแตะเรื่องนี้โดยตรง เดินตามแผนได้',
+}
+
+/** The pillar's own name, "เสาปี" … "เสายาม". */
+export function pillarName(key: PillarKey): string {
+  return `เสา${AREA[key].label.split(' · ')[0].replace('เกิด', '')}`
+}
+
+/** The pillar's life area alone: "สังคมและผู้ใหญ่". */
+export function areaOf(key: PillarKey): string {
+  return AREA[key].label.split(' · ')[1]
+}
+
+/** Layer 2: which character of the year meets which of yours, and where. The verb sits between them. */
+const VERB: Record<Exclude<Relation, 'none' | 'phua' | 'samheng' | 'same'>, string> = {
+  chong: 'ชง',
+  heng: 'เฮ้ง',
+  hai: 'ไห่',
+  stemClash: 'ปะทะ',
+  six: 'ประสาน',
+  half3: 'รวมกลุ่มกับ',
+  stemCombine: 'ประสาน',
+}
+
+export function whyOf(r: ReactionFact): string {
+  const where = `${AT_TH[r.at]}${pillarName(r.pillar)}`
+  if (r.kind === 'phua') {
+    const meet = r.at === 'top' ? `${r.mine} ของคุณมาเจอ ${r.year} ของปี` : `${r.year} ของปีมาเจอ ${r.mine} ของคุณ`
+    return r.pair ? `${r.pair} · ${meet} · ${where}` : `${meet} · ${where}`
+  }
+  if (r.kind === 'samheng') return `${r.pair ? `${r.pair} ` : ''}ครบสามตัวกับ ${r.year} ของปี · ${where}`
+  if (r.kind === 'same') return `${r.year} ของปีตรงกับ ${r.mine} ของคุณ · ${where}`
+  return `${r.year} ของปี ${VERB[r.kind]} ${r.mine} ของคุณ · ${where}`
+}
+
+/** Layer 3: two actions per reaction; the page picks two of four by the pillar, so two pillars with
+ *  the same reaction do not read the same. */
+const KIND_ACTS: Record<Exclude<Relation, 'none'>, [string, string, string, string]> = {
+  chong: ['เตรียมแผนสำรองไว้กับเรื่องที่อาจเปลี่ยนกะทันหัน', 'เผื่อเงินและเวลาไว้ก่อนเริ่มเรื่องใหม่', 'ถ้าต้องย้ายหรือเปลี่ยน เลือกเองก่อนถูกบังคับ', 'ตรวจรถ บ้าน และเอกสารสำคัญให้พร้อม'],
+  samheng: ['แก้ทีละเรื่อง เริ่มจากเรื่องที่ค้างนานที่สุด', 'จดไว้ว่าใครเกี่ยวกับเรื่องไหน อย่าให้ปนกัน', 'ไม่รับภาระใหม่จนกว่าเรื่องเก่าจะจบ', 'หาคนกลางที่ไว้ใจได้ช่วยดู'],
+  heng: ['ปฏิเสธงานที่เกินแรงอย่างสุภาพ', 'แบ่งภาระให้คนอื่นช่วยถือ', 'อย่าทิ้งความรับผิดชอบแบบหักดิบ', 'พักให้พอก่อนจะหมดแรง'],
+  hai: ['เก็บแชตและเอกสารสำคัญไว้เป็นหลักฐาน', 'ไม่เล่าเรื่องส่วนตัวในกลุ่มใหญ่', 'ถ้ามีข่าวลือ คุยกับต้นเรื่องตรงๆ', 'ทำงานสำคัญให้มีคนรู้เห็น'],
+  phua: ['ไล่ดูรายจ่ายประจำ แล้วตัดตัวที่รั่ว', 'ไม่ค้ำประกันหรือให้ยืมก้อนใหญ่', 'ดูให้ดีก่อนรับความช่วยเหลือที่มาง่าย', 'ซ่อมของที่เริ่มเสียก่อนจะลาม'],
+  stemClash: ['คิดก่อนพูด โดยเฉพาะตอนโกรธ', 'ฟังอีกฝ่ายให้จบก่อนแย้ง', 'เขียนเหตุผลลงกระดาษก่อนตัดสินใจ', 'เรื่องที่เถียงกัน เลื่อนไปคุยวันถัดไป'],
+  same: ['รับบทนำในเรื่องที่ถนัด', 'วางตัวนิ่ง พูดน้อยแต่ทำจริง', 'รักษาคำพูด เพราะมีคนจับตาอยู่', 'ใช้ปีนี้สร้างความน่าเชื่อถือ'],
+  six: ['ชวนคนที่เข้ากันได้เริ่มงานร่วมกัน', 'ขอความช่วยเหลือได้ อย่าเกรงใจเกินไป', 'ตอบแทนคนที่ช่วยให้เป็นกิจจะลักษณะ', 'เปิดรับพาร์ทเนอร์ใหม่'],
+  half3: ['หาทีมที่ใช่แล้วลงมือพร้อมกัน', 'เก็บเรื่องใหญ่ไว้เริ่มในเดือนที่ไตรภาคีครบ', 'เข้ากลุ่มคนในสายงานเดียวกัน', 'แบ่งงานตามความถนัดของแต่ละคน'],
+  stemCombine: ['นัดคุยเรื่องสำคัญที่ค้างไว้', 'ขอเจรจาเงื่อนไขใหม่ได้', 'เสนอไอเดียที่คิดไว้นาน', 'ปิดดีลที่ต้องอาศัยความเข้าใจกัน'],
+}
+const PILLAR_ORDER: PillarKey[] = ['hour', 'day', 'month', 'year']
 
 const ACTIONS: Record<'good' | 'care' | 'calm', Record<PillarKey, [string, string, string]>> = {
   good: {
@@ -165,18 +223,20 @@ export function toneOf(reactions: ReactionFact[]): 'good' | 'care' | 'calm' {
 
 export function readingFor(strongest: Relation, key: PillarKey, reactions: ReactionFact[]): Reading {
   const mine = reactions.filter((r) => r.pillar === key)
-  const cares = mine.filter((r) => TONE[r.kind] === 'care')
-  const helps = mine.filter((r) => TONE[r.kind] === 'good')
-  const area = AREA[key].noun
+  const area = areaOf(key)
+  const details = mine.map((r) => ({ name: RELATION_NAME[r.kind], why: whyOf(r), story: storyOf(r) }))
+  const lead = mine.find((r) => r.kind === strongest) ?? mine[0]
+  const tone = toneOf(mine)
+  let actions: [string, string, string] = ACTIONS[tone][key]
+  if (lead) {
+    const acts = KIND_ACTS[lead.kind]; const at = (PILLAR_ORDER.indexOf(key) * 2) % 4
+    actions = [ACTIONS[tone][key][0], acts[at], acts[at + 1]]
+  }
   return {
-    headline: HEADLINE[strongest],
-    opportunity: helps.length
-      ? `${area}มีแรงหนุนจาก${helps.map((r) => RELATION_NAME[r.kind].split(' (')[0]).join(' และ')} ${storyOf(helps[0])}`
-      : cares.length ? `${area}จะผ่านไปได้ดีถ้ารู้ก่อนว่าแรงของปีเข้ามาตรงไหน แล้ววางแผนรับไว้` : `${area}ไม่มีแรงกระแทกจากปี เป็นจังหวะดีที่จะทำตามแผนให้ต่อเนื่อง`,
-    strengths: helps.length ? MEANING[helps[0].kind] : cares.length ? 'การรู้ล่วงหน้าทำให้คุณเลือกจังหวะได้เอง' : 'ความสม่ำเสมอของคุณจะออกผลชัดเมื่อสิ้นปี',
-    cautions: cares.length ? MEANING[cares[0].kind] : 'ปีนิ่งจนชิน อย่าลืมตั้งเป้าให้ตัวเองท้าทายขึ้นบ้าง',
-    actions: ACTIONS[toneOf(mine)][key],
-    details: mine.map((r) => ({ name: RELATION_NAME[r.kind], where: whereOf(r), story: storyOf(r) })),
+    headline: `${area}: ${PLAIN[lead ? lead.kind : 'none']}`,
+    story: lead ? storyOf(lead) : MEANING.none,
+    details,
+    actions,
   }
 }
 

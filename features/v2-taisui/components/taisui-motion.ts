@@ -4,7 +4,7 @@
 //
 // Member data reaches the DOM only through textContent, attributes and createElement — never as HTML.
 import type { TaisuiReading } from '@/lib/taisui/types'
-import { AREA, FLOW_LINE, MONTH_TIP, PAIR_LINE, RELATION_NAME, TONE, muLine, type Relation } from '../content/readings'
+import { AREA, AT_TH, DAY_MASTER, FLOW_LINE, MONTH_TIP, PAIR_LINE, RELATION_NAME, TONE, areaOf, muLine, pillarName, type Relation } from '../content/readings'
 import { animalImage, animalTh, MONTH_LABEL, WHEEL_BRANCHES } from '../content/animals'
 
 export type Birth = { date: string; time: string | null; gender: 'female' | 'male' }
@@ -67,7 +67,7 @@ export function startTaisui(root: HTMLElement, api: TaisuiApi): () => void {
   const cleanups: Array<() => void> = []
   // A second start on the same frame (a remount, or React's dev double effect) begins from a clean frame.
   ;['stars', 'sparks', 'lanterns', 'wheel'].forEach((id) => { $(id).textContent = '' })
-  root.querySelectorAll('#wishsky > .fl, .role, .rtabs, .yam, .dock, .oaToast, .zc').forEach((n) => n.remove())
+  root.querySelectorAll('#wishsky > .fl, .role, .rtabs, .ylead, .yam, .dock, .oaToast, .zc').forEach((n) => n.remove())
   const on = <E extends Event>(t: EventTarget, ev: string, fn: (e: E) => void, opts?: AddEventListenerOptions) => {
     t.addEventListener(ev, fn as EventListener, opts)
     cleanups.push(() => t.removeEventListener(ev, fn as EventListener, opts))
@@ -377,6 +377,8 @@ export function startTaisui(root: HTMLElement, api: TaisuiApi): () => void {
     $('draftNote').hidden = !r.draft
     renderRole(r)
     tabs.textContent = ''; tabs.hidden = !r.full
+    ylead.hidden = !(r.full && r.role); ylead.textContent = ''
+    if (r.full && r.role) { ylead.appendChild(el('b', undefined, `โทนทั้งปี: ${r.role.roleTh}`)); ylead.appendChild(document.createTextNode(` ${r.role.line}`)) }
     if (!r.full) return
     r.pillars.forEach((p, i) => {
       const tb = el('button', 'rtab' + (i === 0 ? ' on' : '')) as HTMLButtonElement; tb.type = 'button'
@@ -387,15 +389,15 @@ export function startTaisui(root: HTMLElement, api: TaisuiApi): () => void {
       const art = el('article', 'read')
       const hd = el('div', 'hd'); const im = el('img'); im.src = p.image; im.alt = `ตัวละคร${p.animal}ธาตุ${p.element}`; im.loading = 'lazy'; hd.appendChild(im)
       const t = el('div'); t.appendChild(el('div', 'k', `นักษัตร${AREA[p.key].label}`)); t.appendChild(el('div', 't', `${p.animal} · ${RELATION_NAME[p.relation as Relation]}`)); hd.appendChild(t); art.appendChild(hd)
+      // three layers: plain words, then the Sinse's reading of the characters, then what to do
       art.appendChild(el('h3', undefined, rd.headline))
+      art.appendChild(el('p', 'story', rd.story))
       if (rd.details.length) {
+        art.appendChild(el('div', 'k2', 'อ่านแบบซินแส'))
         const dl = el('div', 'rx')
-        rd.details.forEach((d) => { const it = el('div', 'it'); it.appendChild(el('b', undefined, d.name)); it.appendChild(el('small', undefined, d.where)); it.appendChild(el('p', undefined, d.story)); dl.appendChild(it) })
+        rd.details.forEach((d, k) => { const it = el('div', 'it'); it.appendChild(el('b', undefined, d.name)); it.appendChild(el('small', undefined, d.why)); if (k > 0 && d.story !== rd.story) it.appendChild(el('p', undefined, d.story)); dl.appendChild(it) })
         art.appendChild(dl)
       }
-      art.appendChild(el('h3', undefined, 'โอกาสของคุณปีนี้')); art.appendChild(el('p', undefined, rd.opportunity))
-      art.appendChild(el('h3', undefined, 'จุดแข็ง')); art.appendChild(el('p', undefined, rd.strengths))
-      art.appendChild(el('h3', undefined, 'ระวัง')); art.appendChild(el('p', undefined, rd.cautions))
       art.appendChild(el('h3', undefined, 'ทำ 3 อย่างนี้'))
       const ul = el('ul', 'acts'); rd.actions.forEach((a, k) => { const li = el('li'); li.appendChild(el('span', undefined, String(k + 1))); li.appendChild(document.createTextNode(a)); ul.appendChild(li) }); art.appendChild(ul)
       const ask = el('a', 'ask'); ask.href = '/v2/chat'; const mi = el('img'); mi.src = '/images/v2/mascot/personas/mu/happy.png'; mi.alt = ''; ask.appendChild(mi); ask.appendChild(document.createTextNode('ถามเสี่ยวมู่เรื่องนี้ต่อ')); art.appendChild(ask)
@@ -410,6 +412,7 @@ export function startTaisui(root: HTMLElement, api: TaisuiApi): () => void {
     })
   }
   const tabs = el('div', 'rtabs'); tabs.setAttribute('role', 'tablist'); $('reads').before(tabs)
+  const ylead = el('p', 'ylead'); ylead.hidden = true; tabs.before(ylead)
   on($('reads'), 'scroll', () => {
     const box = $('reads'); const w = (box.firstElementChild as HTMLElement | null)?.offsetWidth ?? 1
     const i = Math.round(box.scrollLeft / (w + 12)); tabs.querySelectorAll('.rtab').forEach((t, k) => t.classList.toggle('on', k === i))
@@ -421,16 +424,96 @@ export function startTaisui(root: HTMLElement, api: TaisuiApi): () => void {
     roleSec.textContent = ''; roleSec.hidden = !r.role
     if (!r.role) return
     roleSec.appendChild(el('h2', undefined, 'ปีมะแมทำปฏิกิริยากับดวงคุณตรงไหน'))
+    roleSec.appendChild(renderChart(r))
     const dm = el('div', 'dm')
     dm.appendChild(el('span', 'gz', r.role.dayMaster))
     const t = el('div'); t.appendChild(el('small', undefined, 'ธาตุประจำตัวของคุณ (ดิถี)')); t.appendChild(el('b', undefined, `${r.role.th} · ${r.role.picture}`)); dm.appendChild(t)
     roleSec.appendChild(dm)
     const rl = el('p', 'rl'); rl.appendChild(el('b', undefined, `ไฟของปีเป็น ${r.role.roleTh} ของคุณ `)); rl.appendChild(document.createTextNode(r.role.line)); roleSec.appendChild(rl)
-    const marks = el('ul', 'marks')
-    if (!r.marks.length) marks.appendChild(el('li', 'calm', 'ปีมะแมไม่ได้เข้ามาทำปฏิกิริยากับเสาไหนของคุณโดยตรง'))
-    r.marks.forEach((m) => { const li = el('li', m.tone); li.appendChild(el('b', undefined, m.name)); li.appendChild(el('span', undefined, m.where)); marks.appendChild(li) })
-    roleSec.appendChild(marks)
     roleSec.appendChild(el('p', 'how', 'MuMate อ่านแบบซินแส: ปีใหม่เข้ามาทำปฏิกิริยากับตัวอักษรทั้ง 8 ตัวในดวง ดูว่าเป็นชง เฮ้ง ไห่ ผั่ว หรือซำเฮ้ง ลงเสาไหน ราศีบนหรือราศีล่าง แล้วจึงเล่าว่าเกิดเรื่องอะไร กับใคร'))
+  }
+
+  // the chart's characters, and the year's two flying in to the ones they hit (plan revision 0.9)
+  const HIT_FX: Record<string, string> = { chong: 'clash', stemClash: 'clash', heng: 'press', samheng: 'chain', hai: 'shade', phua: 'crack', same: 'glow', six: 'glow', half3: 'glow', stemCombine: 'glow' }
+  const FX_ALL = ['fx-clash', 'fx-press', 'fx-chain', 'fx-shade', 'fx-crack', 'fx-glow']
+  let chartStop: () => void = () => {}
+  function renderChart(r: TaisuiReading): HTMLElement {
+    chartStop()
+    const box = el('div', 'chart')
+    const yr = el('div', 'yr'); const chips: Record<string, HTMLElement> = {}
+    ;[r.year.stem, r.year.branch].forEach((c) => { const ch = el('span', 'yc', c); chips[c] = ch; yr.appendChild(ch) })
+    yr.appendChild(el('small', undefined, 'ตัวอักษรของปีมะแม 2570'))
+    const again = el('button', 'again', 'ดูอีกครั้ง') as HTMLButtonElement; again.type = 'button'; again.hidden = !r.hits.length; yr.appendChild(again)
+    box.appendChild(yr)
+    const grid = el('div', 'g8'); grid.style.setProperty('--cols', String(r.pillars.length))
+    grid.appendChild(el('span'))
+    r.pillars.forEach((p) => grid.appendChild(el('span', 'ph', pillarName(p.key))))
+    const cells: Record<string, HTMLElement> = {}
+    const cap = el('p', 'cap'); cap.setAttribute('aria-live', 'polite')
+    ;(['top', 'bottom'] as const).forEach((at) => {
+      grid.appendChild(el('span', 'rlab', AT_TH[at]))
+      r.pillars.forEach((p) => {
+        const ch = at === 'top' ? p.stem : p.branch
+        const c = el('button', 'c8' + (at === 'top' && p.key === 'day' ? ' me8' : '')) as HTMLButtonElement; c.type = 'button'
+        c.setAttribute('aria-label', `${AT_TH[at]}${pillarName(p.key)} ${ch}`)
+        c.appendChild(el('b', undefined, ch))
+        c.appendChild(el('small', undefined, at === 'bottom' ? p.animal : p.key === 'day' ? 'ดิถี · คุณ' : DAY_MASTER[p.stem]?.th ?? ''))
+        const mine = r.hits.filter((h) => h.pillar === p.key && h.at === at)
+        on(c, 'click', () => {
+          if (mine.length) { play(mine); return }
+          cap.textContent = ''; cap.appendChild(el('span', undefined, `ปีมะแมไม่ได้ทำปฏิกิริยากับ ${ch} ที่${AT_TH[at]}${pillarName(p.key)}`))
+        })
+        cells[`${p.key}:${at}`] = c; grid.appendChild(c)
+      })
+    })
+    box.appendChild(grid)
+    const tok = el('span', 'tok'); tok.setAttribute('aria-hidden', 'true'); box.appendChild(tok)
+    box.appendChild(cap)
+    box.appendChild(el('p', 'legend', `ราศีบน คือธาตุด้านบนของแต่ละเสา (天干) ราศีล่าง คือนักษัตร (地支) ราศีบนของเสาวันคือดิถี หรือตัวคุณเอง ปีมะแม 2570 มี ${r.year.stem} (ไฟหยิน) กับ ${r.year.branch} (มะแม) เข้ามาทำปฏิกิริยากับตัวอักษร ${r.pillars.length * 2} ตัวนี้ แตะตัวอักษรเพื่อดูทีละจุด`))
+    if (!r.hits.length) cap.appendChild(el('span', undefined, 'ปีมะแมไม่ได้เข้ามาทำปฏิกิริยากับตัวไหนในดวงคุณโดยตรง'))
+
+    let ts: number[] = []
+    const stop = () => { ts.forEach((t) => window.clearTimeout(t)); ts = []; tok.getAnimations?.().forEach((a) => a.cancel()); tok.classList.remove('on') }
+    chartStop = stop
+    type Hit = TaisuiReading['hits'][number]
+    const land = (h: Hit, cell: HTMLElement) => {
+      cell.classList.remove(...FX_ALL); void cell.offsetWidth
+      cell.classList.add('fx-' + HIT_FX[h.kind], 'hit', h.tone)
+      cap.textContent = ''; cap.appendChild(el('b', undefined, h.name)); cap.appendChild(el('span', 'why', h.why)); cap.appendChild(el('span', 'pl', `${areaOf(h.pillar)}: ${h.plain}`))
+      if (h.tone === 'care') { try { navigator.vibrate?.(14) } catch { /* no vibration */ } }
+    }
+    const fly = (h: Hit, done: () => void) => {
+      const cell = cells[`${h.pillar}:${h.at}`]; const from = chips[h.year]
+      if (!cell) { done(); return }
+      if (still || !from || typeof tok.animate !== 'function') { land(h, cell); done(); return }
+      const b = box.getBoundingClientRect(), f = from.getBoundingClientRect(), t = cell.getBoundingClientRect()
+      const x0 = f.left - b.left + f.width / 2, y0 = f.top - b.top + f.height / 2, x1 = t.left - b.left + t.width / 2, y1 = t.top - b.top + t.height / 2
+      tok.textContent = h.year; tok.className = 'tok on ' + h.tone
+      from.classList.remove('go'); void from.offsetWidth; from.classList.add('go')
+      const at = (x: number, y: number, k: number) => `translate(${x}px,${y}px) translate(-50%,-50%) scale(${k})`
+      const a = tok.animate([
+        { transform: at(x0, y0, 1), opacity: 0 },
+        { transform: at(x0, y0, 1.3), opacity: 1, offset: 0.18 },
+        { transform: at((x0 + x1) / 2 + 18, Math.min(y0, y1) - 28, 1.15), opacity: 1, offset: 0.6 },
+        { transform: at(x1, y1, 0.75), opacity: 0.3 },
+      ], { duration: 760, easing: 'cubic-bezier(.45,0,.3,1)' })
+      a.onfinish = () => { tok.classList.remove('on'); land(h, cell); done() }
+    }
+    const summary = () => {
+      const n = new Map<string, number>(); r.hits.forEach((h) => n.set(h.name.split(' (')[0], (n.get(h.name.split(' (')[0]) ?? 0) + 1))
+      cap.textContent = ''; cap.appendChild(el('b', undefined, `ปีมะแมเข้ามา ${r.hits.length} จุดในดวงคุณ`))
+      cap.appendChild(el('span', 'why', Array.from(n).map(([k, c]) => (c > 1 ? `${k} ×${c}` : k)).join(' · ')))
+      cap.appendChild(el('span', 'pl', 'แตะตัวอักษรที่มีกรอบสีเพื่อดูทีละจุด'))
+    }
+    const play = (list: Hit[]) => { stop(); let i = 0; const next = () => { if (i >= list.length) { if (list === r.hits) ts.push(later(summary, 1400)); return } const h = list[i++]; fly(h, () => { ts.push(later(next, 1250)) }) }; next() }
+    on(again, 'click', () => { Object.values(cells).forEach((c) => c.classList.remove(...FX_ALL, 'hit', 'care', 'good', 'calm')); play(r.hits) })
+    if (r.hits.length) {
+      if ('IntersectionObserver' in window) {
+        const io = new IntersectionObserver((es) => es.forEach((e) => { if (e.isIntersecting) { io.disconnect(); ts.push(later(() => play(r.hits), 350)) } }), { threshold: 0.55 })
+        io.observe(grid); cleanups.push(() => io.disconnect())
+      } else play(r.hits)
+    }
+    return box
   }
 
   // bottom dock below the opening: one thumb-reach action for where the reader is
