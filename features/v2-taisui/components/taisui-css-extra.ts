@@ -44,7 +44,18 @@ body:has(.ts2570){background:#071a36}
 .ts2570 .rtab.on{background:var(--lime);color:var(--ink);border-color:var(--lime);font-weight:700}
 .ts2570 .reads{display:flex;gap:12px;overflow-x:auto;scroll-snap-type:x mandatory;scrollbar-width:none;margin:0 -16px;padding:2px 16px 8px;overscroll-behavior-x:contain;-webkit-overflow-scrolling:touch}
 .ts2570 .reads::-webkit-scrollbar{display:none}
-.ts2570 .reads .read{flex:0 0 min(86vw,460px);scroll-snap-align:center}
+.ts2570 .reads .read{flex:0 0 min(86vw,460px);scroll-snap-align:center;display:flex;flex-direction:column}
+.ts2570 .read .hd{min-height:96px}
+.ts2570 .read .hd .rel{display:inline-block;margin-top:4px;padding:2px 10px;border-radius:999px;font-size:13px;font-weight:600;background:rgba(255,255,255,.1);color:var(--ivory)}
+.ts2570 .read .hd .rel.care{background:rgba(255,138,92,.2);color:#ffc2a6}
+.ts2570 .read .hd .rel.good{background:rgba(225,255,0,.16);color:var(--lime)}
+.ts2570 .read .cfoot{margin-top:auto;padding-top:18px;display:grid;gap:10px}
+.ts2570 .read .cfoot .ask,.ts2570 .read .cfoot .line{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;min-height:48px;margin:0;padding:0 18px;border-radius:999px;font:inherit;font-size:15px;font-weight:700;line-height:1.2;text-decoration:none;box-sizing:border-box}
+.ts2570 .read .cfoot .ask{background:rgba(255,255,255,.08);color:var(--ivory);border:1px solid rgba(255,247,230,.35)}
+.ts2570 .read .cfoot .ask img{width:28px;height:28px;background:#fff}
+.ts2570 .read .cfoot .line{background:#06C755;color:#fff;border:0;box-shadow:0 6px 18px rgba(6,199,85,.28)}
+.ts2570 .read .cfoot .ask:active,.ts2570 .read .cfoot .line:active{transform:scale(.98)}
+.ts2570 .read .cfoot .ask:focus-visible,.ts2570 .read .cfoot .line:focus-visible{outline:3px solid var(--lime);outline-offset:2px}
 .ts2570 .rx{display:grid;gap:8px;margin:10px 0 4px}
 .ts2570 .rx .it{padding:10px 12px;border-radius:12px;background:rgba(255,255,255,.07)}
 .ts2570 .rx b{display:block;color:var(--gold)}
@@ -100,6 +111,13 @@ body:has(.ts2570){background:#071a36}
 .ts2570 .ylead b{color:var(--gold)}
 .ts2570 .read .story{margin:6px 0 0;font-size:15px;line-height:1.6}
 .ts2570 .read .k2{margin:14px 0 6px;font-size:12px;color:var(--mist);letter-spacing:.04em}
+.ts2570 .read .sx{margin-top:12px;border-radius:14px;background:rgba(255,255,255,.05);border:1px solid rgba(235,191,48,.3)}
+.ts2570 .read .sx summary{display:flex;align-items:center;justify-content:space-between;min-height:44px;padding:0 14px;font-size:14px;font-weight:600;color:var(--gold);cursor:pointer;list-style:none}
+.ts2570 .read .sx summary::-webkit-details-marker{display:none}
+.ts2570 .read .sx summary::after{content:"";width:8px;height:8px;border-right:2px solid currentColor;border-bottom:2px solid currentColor;transform:rotate(45deg) translateY(-2px);transition:transform .2s}
+.ts2570 .read .sx[open] summary::after{transform:rotate(-135deg)}
+.ts2570 .read .sx summary:focus-visible{outline:3px solid var(--lime);outline-offset:2px;border-radius:14px}
+.ts2570 .read .sx .rx{padding:0 10px 10px}
 @media (prefers-reduced-motion:reduce){.ts2570 .c8,.ts2570 .c8::after,.ts2570 .chart .yc{animation:none!important}}
 @media (prefers-reduced-motion:reduce){.ts2570 .z.me{animation:none}.ts2570 .dock{transition:none}}
 .ts2570 .oaToast{position:fixed;left:50%;top:calc(18px + env(safe-area-inset-top));transform:translateX(-50%);z-index:60;width:min(420px,calc(100vw - 32px));display:flex;flex-wrap:wrap;align-items:center;gap:10px;padding:14px 44px 14px 16px;border-radius:18px;background:rgba(7,26,54,.94);border:1px solid rgba(235,191,48,.45);box-shadow:0 10px 30px rgba(0,0,0,.35);color:var(--ivory)}

@@ -234,7 +234,7 @@ export function readingFor(strongest: Relation, key: PillarKey, reactions: React
   }
   return {
     headline: `${area}: ${PLAIN[lead ? lead.kind : 'none']}`,
-    story: lead ? storyOf(lead) : MEANING.none,
+    story: lead ? storyOf(lead) : '',
     details,
     actions,
   }

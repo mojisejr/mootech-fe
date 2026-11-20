@@ -388,26 +388,28 @@ export function startTaisui(root: HTMLElement, api: TaisuiApi): () => void {
       const rd = r.full!.readings[i]; if (!rd) return
       const art = el('article', 'read')
       const hd = el('div', 'hd'); const im = el('img'); im.src = p.image; im.alt = `ตัวละคร${p.animal}ธาตุ${p.element}`; im.loading = 'lazy'; hd.appendChild(im)
-      const t = el('div'); t.appendChild(el('div', 'k', `นักษัตร${AREA[p.key].label}`)); t.appendChild(el('div', 't', `${p.animal} · ${RELATION_NAME[p.relation as Relation]}`)); hd.appendChild(t); art.appendChild(hd)
+      const t = el('div'); t.appendChild(el('div', 'k', `นักษัตร${AREA[p.key].label}`)); t.appendChild(el('div', 't', p.animal)); t.appendChild(el('span', 'rel ' + TONE[p.relation as Relation], RELATION_NAME[p.relation as Relation])); hd.appendChild(t); art.appendChild(hd)
       // three layers: plain words, then the Sinse's reading of the characters, then what to do
       art.appendChild(el('h3', undefined, rd.headline))
-      art.appendChild(el('p', 'story', rd.story))
+      if (rd.story) art.appendChild(el('p', 'story', rd.story))
       if (rd.details.length) {
-        art.appendChild(el('div', 'k2', 'อ่านแบบซินแส'))
-        const dl = el('div', 'rx')
+        // folded by default: plain readers get an even, short card; chart readers open it
+        const fold = el('details', 'sx'); fold.appendChild(el('summary', undefined, `อ่านแบบซินแส · ${rd.details.length} จุด`))
+        const dl = el('div', 'rx'); fold.appendChild(dl)
         rd.details.forEach((d, k) => { const it = el('div', 'it'); it.appendChild(el('b', undefined, d.name)); it.appendChild(el('small', undefined, d.why)); if (k > 0 && d.story !== rd.story) it.appendChild(el('p', undefined, d.story)); dl.appendChild(it) })
-        art.appendChild(dl)
+        art.appendChild(fold)
       }
       art.appendChild(el('h3', undefined, 'ทำ 3 อย่างนี้'))
       const ul = el('ul', 'acts'); rd.actions.forEach((a, k) => { const li = el('li'); li.appendChild(el('span', undefined, String(k + 1))); li.appendChild(document.createTextNode(a)); ul.appendChild(li) }); art.appendChild(ul)
-      const ask = el('a', 'ask'); ask.href = '/v2/chat'; const mi = el('img'); mi.src = '/images/v2/mascot/personas/mu/happy.png'; mi.alt = ''; ask.appendChild(mi); ask.appendChild(document.createTextNode('ถามเสี่ยวมู่เรื่องนี้ต่อ')); art.appendChild(ask)
+      const ask = el('a', 'ask'); ask.href = '/v2/chat'; const mi = el('img'); mi.src = '/images/v2/mascot/personas/mu/happy.png'; mi.alt = ''; ask.appendChild(mi); ask.appendChild(document.createTextNode('ถามเสี่ยวมู่เรื่องนี้ต่อ'))
+      const foot = el('div', 'cfoot'); foot.appendChild(ask)
       const send = el('button', 'line', `ส่งให้คนเกิดปี${p.animal}ทาง LINE`) as HTMLButtonElement; send.type = 'button'
       on(send, 'click', async () => {
         const u = await api.sendPacket(); const url = u?.url ?? `${window.location.origin}/taisui-2570`
         api.track('taisui_share', { channel: 'line_pillar' })
         window.location.href = `https://line.me/R/msg/text/?${encodeURIComponent(`คนเกิดปี${p.animal} ปีมะแม 2570 ส่งผลกับคุณยังไง มาดูกัน ${url}`)}`
       })
-      art.appendChild(send)
+      foot.appendChild(send); art.appendChild(foot)
       box.appendChild(art)
     })
   }
@@ -615,8 +617,8 @@ export function startTaisui(root: HTMLElement, api: TaisuiApi): () => void {
     if (r.partner) { const rel = el('span'); rel.textContent = PAIR_LINE[r.partner.relation as Relation]; $('pkRel').textContent = ''; $('pkRel').appendChild(rel) }
     const meds = $('meds'); meds.textContent = ''
     r.pillars.forEach((p, i) => { const d = el('div'); d.style.setProperty('--i', String(i)); const im = el('img'); im.src = p.image; im.alt = ''; d.appendChild(im); d.appendChild(document.createTextNode(p.animal)); meds.appendChild(d) })
-    const yearRead = r.full?.readings[r.pillars.length - 1]
-    $('scT').textContent = yearRead ? yearRead.headline : 'ปีมะแมของฉัน'
+    // the share card keeps a short title: the year pillar's two-word preview, not the long card headline
+    $('scT').textContent = member && year ? `${year.preview[0]} · ${year.preview[1]}` : 'ปีมะแมของฉัน'
     $('start').textContent = 'ดูดวงปีมะแมของฉัน'
     $('member').hidden = true
     if (member) void api.lantern(false).then((c) => c && showCount(c.count))
