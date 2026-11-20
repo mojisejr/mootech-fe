@@ -151,6 +151,27 @@ export const PLAIN: Record<Relation, string> = {
   none: 'ปีไม่ได้เข้ามาแตะเรื่องนี้โดยตรง เดินตามแผนได้',
 }
 
+/** The answer first (owner pick A, 2026-11-20): one line for the whole year, by the strongest reaction. */
+export const VERDICT: Record<Relation, string> = {
+  chong: 'ปีแห่งการเปลี่ยนแปลง เตรียมแผนไว้ก่อน',
+  samheng: 'ปีที่แรงกดดันมาหลายทาง ใจเย็นแล้วผ่านได้',
+  heng: 'ปีที่ต้องวางภาระบางอย่างลง',
+  hai: 'ปีที่ต้องระวังเรื่องลับหลัง',
+  phua: 'ปีที่ต้องอุดรอยรั่ว ก่อนไปต่อ',
+  stemClash: 'ปีที่ต้องคิดก่อนพูด',
+  same: 'ปีของคุณเอง ได้ออกหน้า',
+  six: 'ปีที่มีคนจับมือ ได้พลังไฟเพิ่ม',
+  half3: 'ปีที่รวมทีมแล้วได้ธาตุไม้หนุน',
+  stemCombine: 'ปีที่เจรจาลงตัว',
+  none: 'ปีที่สงบ เดินตามแผนได้',
+}
+
+/** The strongest reaction among the pillars, in bazi's order. */
+export function strongestOf(relations: string[]): Relation {
+  for (const k of RELATIONS) if (relations.includes(k)) return k
+  return 'none'
+}
+
 /** The pillar's own name, "เสาปี" … "เสายาม". */
 export function pillarName(key: PillarKey): string {
   return `เสา${AREA[key].label.split(' · ')[0].replace('เกิด', '')}`

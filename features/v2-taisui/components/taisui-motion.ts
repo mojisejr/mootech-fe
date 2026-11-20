@@ -4,7 +4,7 @@
 //
 // Member data reaches the DOM only through textContent, attributes and createElement — never as HTML.
 import type { TaisuiReading } from '@/lib/taisui/types'
-import { AREA, AT_TH, DAY_MASTER, FLOW_LINE, MONTH_TIP, PAIR_LINE, RELATION_NAME, TONE, areaOf, muLine, pillarName, type Relation } from '../content/readings'
+import { AREA, AT_TH, DAY_MASTER, FLOW_LINE, MONTH_TIP, PAIR_LINE, PLAIN, PREVIEW, RELATION_NAME, TONE, VERDICT, areaOf, muLine, pillarName, strongestOf, type Relation } from '../content/readings'
 import { animalImage, animalTh, MONTH_LABEL, WHEEL_BRANCHES } from '../content/animals'
 
 export type Birth = { date: string; time: string | null; gender: 'female' | 'male' }
@@ -269,8 +269,8 @@ export function startTaisui(root: HTMLElement, api: TaisuiApi): () => void {
     const spot = p >= 0.52 && p < 0.62 ? Math.min(actors.length - 1, Math.floor((p - 0.52) / 0.025)) : -1
     actors.forEach((a, i) => { a.classList.toggle('lit', spot === i); a.classList.toggle('dim', spot >= 0 && spot !== i) })
     const wIn = seg(p, 0.64, 0.7), wOut = seg(p, 0.84, 0.88), wv = wIn * (1 - wOut); wheel.style.opacity = wv.toFixed(2); $('wtitle').style.opacity = wv.toFixed(2)
-    const R = Math.min(vw * 0.39, vh * 0.3, 240), cx = vw / 2, cy = vh / 2 - 0.02 * vh, rot = p * 140
-    zs.forEach((z, i) => { const a = ((rot + i * (360 / zs.length)) * Math.PI) / 180, r = R * lerp(0.6, 1, wIn); z.el.style.left = cx + Math.cos(a) * r + 'px'; z.el.style.top = cy + Math.sin(a) * r * 0.92 + 'px'; z.el.style.transform = `scale(${mine.has(z.b) && p > 0.72 ? 1.38 : 1})` })
+    const R = Math.min(vw * 0.39, vh * 0.3, 240), cx = vw / 2, cy = vh / 2 - 0.02 * vh, rot = 90 + 140 * ease(seg(p, 0.6, 0.72)), pop = 1.08
+    zs.forEach((z, i) => { const a = ((rot + i * (360 / zs.length)) * Math.PI) / 180, r = R * lerp(0.6, 1, wIn); z.el.style.left = cx + Math.cos(a) * r + 'px'; z.el.style.top = cy + Math.sin(a) * r * 0.92 + 'px'; z.el.style.transform = `scale(${mine.has(z.b) && p > 0.72 ? pop : 1})` })
     zc.style.left = cx + 'px'; zc.style.top = cy + medal.offsetWidth * sc * 0.4 + 'px'; zc.style.opacity = wv.toFixed(2); zc.classList.toggle('me', mine.has('未') && p > 0.72)
     const sIn = seg(p, 0.88, 0.93); $('stat').style.opacity = sIn.toFixed(2); $('toRead').style.pointerEvents = sIn > 0.6 ? 'auto' : 'none'; $('toRead').tabIndex = sIn > 0.6 ? 0 : -1
     if (p > 0.89 && !counted) countUp(); if (p < 0.86 && counted) resetOdo()
@@ -426,14 +426,38 @@ export function startTaisui(root: HTMLElement, api: TaisuiApi): () => void {
   function renderRole(r: TaisuiReading) {
     roleSec.textContent = ''; roleSec.hidden = !r.role
     if (!r.role) return
-    roleSec.appendChild(el('h2', undefined, 'ปีมะแมทำปฏิกิริยากับดวงคุณตรงไหน'))
-    roleSec.appendChild(renderChart(r))
+    // the answer first: one line for the year, then one plain line per pillar (owner pick A, 2026-11-20)
+    const cares = r.pillars.filter((p) => TONE[p.relation as Relation] === 'care').length
+    const goods = r.pillars.filter((p) => TONE[p.relation as Relation] === 'good').length
+    const vd = el('div', 'verdict')
+    vd.appendChild(el('div', 'k', 'ปีมะแม 2570 ของคุณ'))
+    vd.appendChild(el('h2', undefined, VERDICT[strongestOf(r.pillars.map((p) => p.relation))]))
+    const sub = el('p', 'sub'); sub.appendChild(el('b', undefined, `ไฟของปีเป็น${r.role.roleTh}ของคุณ`)); sub.appendChild(document.createTextNode(' '))
+    sub.appendChild(document.createTextNode(cares || goods ? `${cares ? `ต้องระวัง ${cares} เรื่อง` : ''}${cares && goods ? ' · ' : ''}${goods ? `มีแรงหนุน ${goods} เรื่อง` : ''}` : 'ปีนี้ไม่มีเรื่องไหนโดนแรงของปีตรงๆ'))
+    vd.appendChild(sub)
+    const rows = el('ul', 'prow')
+    r.pillars.slice().reverse().forEach((p, i) => {
+      const tone = TONE[p.relation as Relation]; const li = el('li', tone); li.style.transitionDelay = `${i * 0.12}s`
+      const im = el('img'); im.src = p.image; im.alt = ''; im.loading = 'lazy'; li.appendChild(im)
+      const t = el('div'); t.appendChild(el('small', undefined, `${AREA[p.key].label} · ${p.animal}`))
+      const b = el('b'); b.appendChild(el('i')); b.appendChild(document.createTextNode(PLAIN[p.relation as Relation])); t.appendChild(b)
+      const also = tone === 'care' ? r.hits.find((h) => h.pillar === p.key && TONE[h.kind] === 'good') : undefined
+      if (also) t.appendChild(el('em', 'also', `แต่ ${PREVIEW[also.kind].join(' ')}`))
+      li.appendChild(t); rows.appendChild(li)
+    })
+    vd.appendChild(rows); roleSec.appendChild(vd)
+    if (still || !('IntersectionObserver' in window)) rows.classList.add('in')
+    else { const io = new IntersectionObserver((es) => es.forEach((e) => { if (e.isIntersecting) { rows.classList.add('in'); io.disconnect() } }), { threshold: 0.3 }); io.observe(rows); cleanups.push(() => io.disconnect()) }
+    // the Sinse's reading of the characters, folded: the chart plays when it opens
+    const fold = el('details', 'fold'); const sm = el('summary'); const st = el('div'); st.appendChild(document.createTextNode('ดูแบบซินแส: ปีมะแมโดนตัวอักษรไหน')); st.appendChild(el('small', undefined, 'ผังดวง 8 ตัวอักษร ราศีบน ราศีล่าง และดิถี')); sm.appendChild(st); fold.appendChild(sm)
+    fold.appendChild(renderChart(r))
     const dm = el('div', 'dm')
     dm.appendChild(el('span', 'gz', r.role.dayMaster))
-    const t = el('div'); t.appendChild(el('small', undefined, 'ธาตุประจำตัวของคุณ (ดิถี)')); t.appendChild(el('b', undefined, `${r.role.th} · ${r.role.picture}`)); dm.appendChild(t)
-    roleSec.appendChild(dm)
-    const rl = el('p', 'rl'); rl.appendChild(el('b', undefined, `ไฟของปีเป็น ${r.role.roleTh} ของคุณ `)); rl.appendChild(document.createTextNode(r.role.line)); roleSec.appendChild(rl)
-    roleSec.appendChild(el('p', 'how', 'MuMate อ่านแบบซินแส: ปีใหม่เข้ามาทำปฏิกิริยากับตัวอักษรทั้ง 8 ตัวในดวง ดูว่าเป็นชง เฮ้ง ไห่ ผั่ว หรือซำเฮ้ง ลงเสาไหน ราศีบนหรือราศีล่าง แล้วจึงเล่าว่าเกิดเรื่องอะไร กับใคร'))
+    const dt = el('div'); dt.appendChild(el('small', undefined, 'ธาตุประจำตัวของคุณ (ดิถี)')); dt.appendChild(el('b', undefined, `${r.role.th} · ${r.role.picture}`)); dm.appendChild(dt)
+    fold.appendChild(dm)
+    const rl = el('p', 'rl'); rl.appendChild(el('b', undefined, `ไฟของปีเป็น ${r.role.roleTh} ของคุณ `)); rl.appendChild(document.createTextNode(r.role.line)); fold.appendChild(rl)
+    fold.appendChild(el('p', 'how', 'MuMate อ่านแบบซินแส: ปีใหม่เข้ามาทำปฏิกิริยากับตัวอักษรทั้ง 8 ตัวในดวง ดูว่าเป็นชง เฮ้ง ไห่ ผั่ว หรือซำเฮ้ง ลงเสาไหน ราศีบนหรือราศีล่าง แล้วจึงเล่าว่าเกิดเรื่องอะไร กับใคร'))
+    roleSec.appendChild(fold)
   }
 
   // the chart's characters, and the year's two flying in to the ones they hit (plan revision 0.9)
