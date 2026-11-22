@@ -14,10 +14,10 @@ export function LineOaCard({ onClaimed }: { onClaimed?: () => void }) {
     setMsg(null)
     try {
       const r = await fetch("/api/v2/line-oa-claim", { method: "POST" })
-      const d = (await r.json().catch(() => ({}))) as { awarded?: number; capped?: boolean; message?: string }
+      const d = (await r.json().catch(() => ({}))) as { awarded?: boolean; capped?: boolean; earnedQi?: number; message?: string }
       if (r.ok && d.capped) setMsg({ ok: true, text: "คุณรับรางวัลแอดไลน์ไปแล้ว" })
       else if (r.ok) {
-        setMsg({ ok: true, text: `รับ +${d.awarded ?? 100} Qi เรียบร้อย! ขอบคุณที่เป็นเพื่อนกับ Mumate` })
+        setMsg({ ok: true, text: `รับ +${typeof d.earnedQi === "number" && d.earnedQi > 0 ? d.earnedQi : 100} Qi เรียบร้อย! ขอบคุณที่เป็นเพื่อนกับ Mumate` })
         onClaimed?.()
       } else setMsg({ ok: false, text: d.message ?? `รับไม่สำเร็จ (รหัส ${r.status})` })
     } catch {
