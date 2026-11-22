@@ -4,7 +4,7 @@
 //
 // Member data reaches the DOM only through textContent, attributes and createElement — never as HTML.
 import type { TaisuiReading } from '@/lib/taisui/types'
-import { AREA, AT_TH, DAY_MASTER, FLOW_LINE, MONTH_TIP, PAIR_LINE, HE_DOES, HE_VERB, PLAIN, RELATION_NAME, TONE, VERDICT, areaOf, heOf, muLine, pillarName, strongestOf, type Relation } from '../content/readings'
+import { AREA, AT_TH, DAY_MASTER, MONTH_TIP, PAIR_LINE, HE_DOES, HE_VERB, PLAIN, RELATION_NAME, TONE, VERDICT, areaOf, heOf, pillarCaption, pillarName, strongestOf, type Relation } from '../content/readings'
 import { animalImage, animalTh, MONTH_LABEL, WHEEL_BRANCHES } from '../content/animals'
 
 export type Birth = { date: string; time: string | null; gender: 'female' | 'male' }
@@ -24,7 +24,6 @@ export type TaisuiApi = {
   login: (birth: Birth | null) => void
   openPacket: () => Promise<{ paid: boolean; qi?: number; reason?: string } | null>
   sendPacket: () => Promise<{ url: string } | null>
-  lantern: (release: boolean) => Promise<{ count: number } | null>
   /** The existing once-per-member LINE OA reward (100 QI), checked against LINE on the server. */
   claimOa: () => Promise<OaClaim>
   oaUrl: string
@@ -67,7 +66,7 @@ export function startTaisui(root: HTMLElement, api: TaisuiApi): () => void {
   const cleanups: Array<() => void> = []
   // A second start on the same frame (a remount, or React's dev double effect) begins from a clean frame.
   ;['stars', 'sparks', 'lanterns', 'wheel'].forEach((id) => { $(id).textContent = '' })
-  root.querySelectorAll('#wishsky > .fl, .role, .rtabs, .ylead, .yam, .dock, .oaToast, .zc').forEach((n) => n.remove())
+  root.querySelectorAll('.role, .rtabs, .ylead, .yam, .dock, .oaToast, .zc, .nextcue').forEach((n) => n.remove())
   const on = <E extends Event>(t: EventTarget, ev: string, fn: (e: E) => void, opts?: AddEventListenerOptions) => {
     t.addEventListener(ev, fn as EventListener, opts)
     cleanups.push(() => t.removeEventListener(ev, fn as EventListener, opts))
@@ -179,7 +178,8 @@ export function startTaisui(root: HTMLElement, api: TaisuiApi): () => void {
       row.appendChild(a)
       return a
     })
-    caps = r.pillars.map((p) => `${muLine(p.relation as Relation, p.key, p.animal)} · ${FLOW_LINE[p.flow]}`)
+    // every reaction bazi sends for the pillar, by position (the Sinse's check, revision 0.11)
+    caps = r.pillars.map((p) => pillarCaption(p, r.hits, r.luck))
     flowKind = r.pillars.map((p) => (p.flow === 'controls' || p.flow === 'controlled-by' ? 'ctl' : 'gen'))
     $('pillars').querySelector('h2')!.textContent = r.pillars.length === 4 ? 'นักษัตรทั้ง 4 ตัวของคุณ' : 'นักษัตร 3 ตัวของคุณ'
     mine = new Set(r.mine)
@@ -306,7 +306,8 @@ export function startTaisui(root: HTMLElement, api: TaisuiApi): () => void {
     else if (p < 0.62) say(caps[Math.max(0, spot)] ?? '', 'happy')
     else if (p < 0.86 && p > 0.745 && heLinks.length) say(heLinks.length > 1 ? `เส้นที่วงล้อคือตัวที่เชื่อมกับแพะ: ${heLinks.map((l) => l.short).join(' · ')}` : heLinks[0].sentence, 'special')
     else if (p < 0.86) { const n = careCount(), h = heCount(); say(n || h ? `ตัวที่เรืองแสงคือของคุณ ปีนี้${n ? `มี ${n} เสาที่โดนแรงของปี` : ''}${n && h ? ' และ' : ''}${h ? `มี ${h} เสาที่จับมือกับปี` : ''}` : 'ตัวที่เรืองแสงคือของคุณ ปีนี้ไม่มีเสาไหนโดนแรงของปีตรงๆ ครับ', n ? 'special' : 'happy') }
-    else say(member ? 'อยากรู้ว่าเดือนไหนควรรุก เดือนไหนควรรอ อ่านต่อได้เลยครับ' : 'คำทำนายเต็มกับโคม 12 เดือน ดูได้หลังเข้าสู่ระบบครับ', 'happy')
+    else say(member ? 'อ่านภาพรวมทั้งปีของคุณก่อน แล้วค่อยดูทีละเดือนครับ' : 'คำทำนายเต็มกับโคม 12 เดือน ดูได้หลังเข้าสู่ระบบครับ', 'happy')
+    bub.classList.toggle('dense', p >= 0.52 && p < 0.62 && (caps[Math.max(0, spot)] ?? '').split('\n').length > 2)
     updateNext(); updateDock()
   }
   let ticking = false
@@ -366,7 +367,7 @@ export function startTaisui(root: HTMLElement, api: TaisuiApi): () => void {
     closeSheet(); glideTo(0.3)
   })
   on($('member'), 'click', () => { api.track('taisui_login_click', { from: 'hero' }); api.login(null) })
-  on($('toRead'), 'click', () => { if (member) toSection('moSec'); else { api.track('taisui_login_click', { from: 'count' }); api.login(typed) } })
+  on($('toRead'), 'click', () => { if (member) toSection('yearSec'); else { api.track('taisui_login_click', { from: 'count' }); api.login(typed) } })
   on($('lockLogin'), 'click', () => { api.track('taisui_login_click', { from: 'lock' }); api.login(typed) })
 
   // ⑥ twelve monthly lanterns
@@ -380,10 +381,19 @@ export function startTaisui(root: HTMLElement, api: TaisuiApi): () => void {
       on(b, 'click', () => {
         Array.from(mz.children).forEach((x) => x.setAttribute('aria-pressed', 'false')); b.setAttribute('aria-pressed', 'true')
         const tip = $('mtip'); tip.textContent = ''; tip.appendChild(el('b', undefined, `เดือน${lbl.name} (${lbl.short}) `)); tip.appendChild(document.createTextNode(r.full?.monthTips[m.branch] ?? MONTH_TIP[m.state]))
+        moAt = i; $<HTMLButtonElement>('moPrev').disabled = i === 0; $<HTMLButtonElement>('moNext').disabled = i === r.months.length - 1
       })
       mz.appendChild(b)
     })
   }
+  // ‹ › beside the swipe (team review, revision 0.11)
+  let moAt = 0
+  const moGo = (d: number) => {
+    const items = Array.from(mz.children) as HTMLElement[]; if (!items.length) return
+    const b = items[clamp(moAt + d, 0, items.length - 1)]; b.click()
+    mz.scrollTo({ left: b.offsetLeft - mz.offsetLeft - (mz.clientWidth - b.offsetWidth) / 2, behavior: still ? 'auto' : 'smooth' })
+  }
+  on($('moPrev'), 'click', () => moGo(-1)); on($('moNext'), 'click', () => moGo(1))
   if ('IntersectionObserver' in window) {
     const mo = new IntersectionObserver((es) => es.forEach((en) => {
       if (!en.isIntersecting || !mz.children.length) return
@@ -404,6 +414,7 @@ export function startTaisui(root: HTMLElement, api: TaisuiApi): () => void {
     tabs.textContent = ''; tabs.hidden = !r.full
     ylead.hidden = !(r.full && r.role); ylead.textContent = ''
     if (r.full && r.role) { ylead.appendChild(el('b', undefined, `โทนทั้งปี: ${r.role.roleTh}`)); ylead.appendChild(document.createTextNode(` ${r.role.line}`)) }
+    cue.hidden = !r.full
     if (!r.full) return
     r.pillars.forEach((p, i) => {
       const tb = el('button', 'rtab' + (i === 0 ? ' on' : '')) as HTMLButtonElement; tb.type = 'button'
@@ -427,18 +438,15 @@ export function startTaisui(root: HTMLElement, api: TaisuiApi): () => void {
       art.appendChild(el('h3', undefined, 'ทำ 3 อย่างนี้'))
       const ul = el('ul', 'acts'); rd.actions.forEach((a, k) => { const li = el('li'); li.appendChild(el('span', undefined, String(k + 1))); li.appendChild(document.createTextNode(a)); ul.appendChild(li) }); art.appendChild(ul)
       const ask = el('a', 'ask'); ask.href = '/v2/chat'; const mi = el('img'); mi.src = '/images/v2/mascot/personas/mu/happy.png'; mi.alt = ''; ask.appendChild(mi); ask.appendChild(document.createTextNode('ถามเสี่ยวมู่เรื่องนี้ต่อ'))
-      const foot = el('div', 'cfoot'); foot.appendChild(ask)
-      const send = el('button', 'line', `ส่งให้คนเกิดปี${p.animal}ทาง LINE`) as HTMLButtonElement; send.type = 'button'
-      on(send, 'click', async () => {
-        const u = await api.sendPacket(); const url = u?.url ?? `${window.location.origin}/taisui-2570`
-        api.track('taisui_share', { channel: 'line_pillar' })
-        window.location.href = `https://line.me/R/msg/text/?${encodeURIComponent(`คนเกิดปี${p.animal} ปีมะแม 2570 ส่งผลกับคุณยังไง มาดูกัน ${url}`)}`
-      })
-      foot.appendChild(send); art.appendChild(foot)
+      // the LINE send lives only on the share card (team review, revision 0.11)
+      const foot = el('div', 'cfoot'); foot.appendChild(ask); art.appendChild(foot)
       box.appendChild(art)
     })
   }
   const tabs = el('div', 'rtabs'); tabs.setAttribute('role', 'tablist'); $('reads').before(tabs)
+  // the year is a page of its own; it ends with a cue down to the months
+  const cue = el('button', 'nextcue') as HTMLButtonElement; cue.type = 'button'; cue.hidden = true; cue.appendChild(document.createTextNode('ต่อไป: ดูทีละเดือน')); cue.appendChild(el('i'))
+  $('reads').closest('section')?.appendChild(cue); on(cue, 'click', () => toSection('moSec'))
   const ylead = el('p', 'ylead'); ylead.hidden = true; tabs.before(ylead)
   on($('reads'), 'scroll', () => {
     const box = $('reads'); const w = (box.firstElementChild as HTMLElement | null)?.offsetWidth ?? 1
@@ -446,7 +454,7 @@ export function startTaisui(root: HTMLElement, api: TaisuiApi): () => void {
   }, { passive: true })
 
   // the year's fire to the day master, and where the year lands in the chart: free for everyone
-  const roleSec = el('section', 'sec gut role'); roleSec.hidden = true; $('readT').closest('section')?.before(roleSec)
+  const roleSec = el('section', 'sec gut role'); roleSec.id = 'yearSec'; roleSec.hidden = true; $('readT').closest('section')?.before(roleSec)
   function renderRole(r: TaisuiReading) {
     roleSec.textContent = ''; roleSec.hidden = !r.role
     if (!r.role) return
@@ -455,9 +463,11 @@ export function startTaisui(root: HTMLElement, api: TaisuiApi): () => void {
     const cares = r.pillars.filter((p) => toneOfPillar(p) === 'care').length
     const goods = r.pillars.filter((p) => toneOfPillar(p) === 'good').length
     const vd = el('div', 'verdict')
+    vd.appendChild(el('span', 'pagehd', 'ภาพรวมทั้งปี'))
     vd.appendChild(el('div', 'k', 'ปีมะแม 2570 ของคุณ'))
     vd.appendChild(el('h2', undefined, VERDICT[strongestOf(r.pillars.map((p) => p.relation))]))
-    const sub = el('p', 'sub'); sub.appendChild(el('b', undefined, `ไฟของปีเป็น${r.role.roleTh}ของคุณ`)); sub.appendChild(document.createTextNode(r.luck ? (r.luck.favorable.includes('ไฟ') ? ' และเป็นธาตุที่ช่วยคุณ · ' : r.luck.avoid.includes('ไฟ') ? ' แต่ไม่ใช่ธาตุที่ช่วยคุณ · ' : ' · ') : ' '))
+    // the year's fire in plain words, from bazi's role and 用神 (revision 0.11)
+    const sub = el('p', 'sub'); sub.appendChild(el('b', undefined, r.role.fire)); sub.appendChild(document.createTextNode(' · '))
     sub.appendChild(document.createTextNode(cares || goods ? `${cares ? `ต้องระวัง ${cares} เรื่อง` : ''}${cares && goods ? ' · ' : ''}${goods ? `มีแรงหนุน ${goods} เรื่อง` : ''}` : 'ปีนี้ไม่มีเรื่องไหนโดนแรงของปีตรงๆ'))
     vd.appendChild(sub)
     const rows = el('ul', 'prow')
@@ -477,13 +487,8 @@ export function startTaisui(root: HTMLElement, api: TaisuiApi): () => void {
     else { const io = new IntersectionObserver((es) => es.forEach((e) => { if (e.isIntersecting) { rows.classList.add('in'); io.disconnect() } }), { threshold: 0.3 }); io.observe(rows); cleanups.push(() => io.disconnect()) }
     // the Sinse's reading of the characters, folded: the chart plays when it opens
     const fold = el('details', 'fold'); const sm = el('summary'); const st = el('div'); st.appendChild(document.createTextNode('ดูแบบซินแส: ปีมะแมโดนตัวอักษรไหน')); st.appendChild(el('small', undefined, 'ผังดวง 8 ตัวอักษร ราศีบน ราศีล่าง และดิถี')); sm.appendChild(st); fold.appendChild(sm)
+    // the fold keeps the chart and its caption only (team review, revision 0.11)
     fold.appendChild(renderChart(r))
-    const dm = el('div', 'dm')
-    dm.appendChild(el('span', 'gz', r.role.dayMaster))
-    const dt = el('div'); dt.appendChild(el('small', undefined, 'ธาตุประจำตัวของคุณ (ดิถี)')); dt.appendChild(el('b', undefined, `${r.role.th} · ${r.role.picture}`)); dm.appendChild(dt)
-    fold.appendChild(dm)
-    const rl = el('p', 'rl'); rl.appendChild(el('b', undefined, `ไฟของปีเป็น ${r.role.roleTh} ของคุณ `)); rl.appendChild(document.createTextNode(r.role.line)); fold.appendChild(rl)
-    fold.appendChild(el('p', 'how', 'MuMate อ่านแบบซินแส: ปีใหม่เข้ามาทำปฏิกิริยากับตัวอักษรทั้ง 8 ตัวในดวง ดูว่าเป็นชง เฮ้ง ไห่ ผั่ว หรือซำเฮ้ง ลงเสาไหน ราศีบนหรือราศีล่าง แล้วจึงเล่าว่าเกิดเรื่องอะไร กับใคร'))
     roleSec.appendChild(fold)
   }
 
@@ -523,7 +528,6 @@ export function startTaisui(root: HTMLElement, api: TaisuiApi): () => void {
     box.appendChild(grid)
     const tok = el('span', 'tok'); tok.setAttribute('aria-hidden', 'true'); box.appendChild(tok)
     box.appendChild(cap)
-    box.appendChild(el('p', 'legend', `ราศีบน คือธาตุด้านบนของแต่ละเสา (天干) ราศีล่าง คือนักษัตร (地支) ราศีบนของเสาวันคือดิถี หรือตัวคุณเอง ปีมะแม 2570 มี ${r.year.stem} (ไฟหยิน) กับ ${r.year.branch} (มะแม) เข้ามาทำปฏิกิริยากับตัวอักษร ${r.pillars.length * 2} ตัวนี้ แตะตัวอักษรเพื่อดูทีละจุด`))
     if (!r.hits.length) cap.appendChild(el('span', undefined, 'ปีมะแมไม่ได้เข้ามาทำปฏิกิริยากับตัวไหนในดวงคุณโดยตรง'))
 
     let ts: number[] = []
@@ -574,12 +578,12 @@ export function startTaisui(root: HTMLElement, api: TaisuiApi): () => void {
   const dock = el('div', 'dock'); const dockBtn = el('button', 'btn') as HTMLButtonElement; dockBtn.type = 'button'; dock.appendChild(dockBtn); root.appendChild(dock); cleanups.push(() => dock.remove())
   function updateDock() {
     const below = scrollY > cine.offsetTop + cine.offsetHeight - innerHeight * 0.5
-    dock.classList.toggle('on', below && !sheetOpen)
-    dockBtn.textContent = !reading ? 'ดูดวงปีมะแมของฉัน · ฟรี' : member ? 'ส่งอั่งเปาทาง LINE' : 'เข้าสู่ระบบ LINE ดูคำทำนายเต็ม'
+    // only before a reading and for a visitor's login: members send from the share card (revision 0.11)
+    dock.classList.toggle('on', below && !sheetOpen && !member)
+    dockBtn.textContent = !reading ? 'ดูดวงปีมะแมของฉัน · ฟรี' : 'เข้าสู่ระบบ LINE ดูคำทำนายเต็ม'
   }
   on(dockBtn, 'click', () => {
     if (!reading) { glideTo(0.3, openSheet); return }
-    if (member) { $('sendPk').click(); return }
     api.track('taisui_login_click', { from: 'dock' }); api.login(typed)
   })
 
@@ -614,18 +618,6 @@ export function startTaisui(root: HTMLElement, api: TaisuiApi): () => void {
   on(seal, 'pointerup', endDrag); on(seal, 'pointercancel', endDrag)
   on<KeyboardEvent>(seal, 'keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); void openEnv() } })
 
-  // ④ wish lanterns: only the count is shared, the wish stays in this browser
-  const ws = $('wishsky')
-  for (let w = 0; w < 22; w++) { const o = el('i', 'fl'); o.style.left = 4 + Math.random() * 92 + '%'; o.style.setProperty('--w', (8 + Math.random() * 12).toFixed(0) + 'px'); o.style.animationDuration = 10 + Math.random() * 12 + 's'; o.style.animationDelay = -Math.random() * 20 + 's'; ws.appendChild(o) }
-  const showCount = (n: number) => { $('wishN').textContent = n.toLocaleString('en-US') }
-  on<SubmitEvent>($('wishform'), 'submit', async (e) => {
-    e.preventDefault()
-    const input = $<HTMLInputElement>('wish'); const t = (input.value || 'ขอให้ปีนี้ราบรื่น').trim().slice(0, 40)
-    const m = $('mine'); m.classList.remove('go'); void m.offsetWidth; $('mineTxt').textContent = t; m.classList.add('go'); input.value = ''
-    api.track('taisui_lantern')
-    const r = await api.lantern(true); if (r) showCount(r.count)
-  })
-
   // share card + send a packet
   const sh = $('share')
   if ('IntersectionObserver' in window) { const io = new IntersectionObserver((es) => es.forEach((e) => { if (e.isIntersecting) sh.classList.add('on') }), { threshold: 0.45 }); io.observe(sh); cleanups.push(() => io.disconnect()) } else sh.classList.add('on')
@@ -637,6 +629,10 @@ export function startTaisui(root: HTMLElement, api: TaisuiApi): () => void {
     window.location.href = `https://line.me/R/msg/text/?${encodeURIComponent(`${text} ${r.url}`)}`
     api.track('taisui_share', { channel: 'line' })
   })
+
+  // the shop (revision 0.11): prices, codes and the Planner's order channel are the owner's to set
+  on($('adMu'), 'click', () => api.track('taisui_shop', { item: 'mu' }))
+  on($('adPlan'), 'click', () => { api.track('taisui_shop', { item: 'planner' }); $('adHint').textContent = 'Planner เปิดจองเร็วๆ นี้ เราจะแจ้งทาง LINE ของ MuMate ครับ' })
 
   // the LINE OA reward: asked once per page load as soon as the visitor is a member
   let oaAsked = false, oaWaiting = false
@@ -673,7 +669,6 @@ export function startTaisui(root: HTMLElement, api: TaisuiApi): () => void {
     $('scT').textContent = member && year ? `${year.preview[0]} · ${year.preview[1]}` : 'ปีมะแมของฉัน'
     $('start').textContent = 'ดูดวงปีมะแมของฉัน'
     $('member').hidden = true
-    if (member) void api.lantern(false).then((c) => c && showCount(c.count))
     if (member && !oaAsked) { oaAsked = true; void claimOa() }
     entered = false; frame()
   }
