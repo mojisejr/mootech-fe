@@ -27,6 +27,8 @@ export const ANALYTICS_EVENTS = {
   taisui_share: ['channel'],
   taisui_packet_open: ['member'],
   taisui_lantern: [],
+  /** Shop block clicks (revision 0.11): item is 'mu' or 'planner'. */
+  taisui_shop: ['item'],
   taisui_oa_claim: ['result'],
 } as const satisfies Record<string, readonly string[]>
 

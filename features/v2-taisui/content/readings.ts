@@ -368,3 +368,59 @@ export function muLine(relation: Relation, key: PillarKey, animal: string): stri
   const [a, b] = PREVIEW[relation]
   return `${AREA[key].label.split(' · ')[0]}ของคุณคือ${animal} ${RELATION_IN_SENTENCE[relation]} ${a} ${b}`
 }
+
+/**
+ * The year's fire to the day master in plain words (plan revision 0.11). The role and whether fire is
+ * this chart's 用神 or 忌神 both come from bazi; the page only words them, so a strong day master fed
+ * by fire never reads as "ส่งเสริม … แต่ไม่ช่วย".
+ */
+export const FIRE_PLAIN: Record<ElementRole, { base: string; fav: string; avoid: string }> = {
+  resource: { base: 'ไฟของปีหล่อเลี้ยงตัวคุณ', fav: 'ไฟของปีหล่อเลี้ยงตัวคุณ และเป็นธาตุที่ช่วยคุณ', avoid: 'ไฟของปีหล่อเลี้ยงตัวคุณ แต่ดวงคุณมีพลังพออยู่แล้ว ไฟปีนี้จึงไม่ใช่ตัวช่วยหลัก' },
+  companion: { base: 'ไฟของปีเป็นธาตุเดียวกับคุณ', fav: 'ไฟของปีเป็นธาตุเดียวกับคุณ เหมือนมีเพื่อนร่วมทาง', avoid: 'ไฟของปีเป็นธาตุเดียวกับคุณ แต่ดวงคุณมีพลังพออยู่แล้ว ระวังคู่แข่ง' },
+  output: { base: 'ไฟของปีพาคุณได้ใช้ฝีมือ', fav: 'ไฟของปีให้คุณได้ใช้ฝีมือเต็มที่', avoid: 'ไฟของปีพาคุณใช้แรงมาก แต่ดวงคุณต้องการแรงหนุนก่อน' },
+  wealth: { base: 'ไฟของปีเป็นโอกาสเรื่องเงินของคุณ', fav: 'ไฟของปีเป็นโอกาสเรื่องเงินของคุณ', avoid: 'ไฟของปีมีโอกาสเรื่องเงิน แต่ดวงคุณต้องการแรงหนุนก่อน อย่ารับเกินตัว' },
+  power: { base: 'ไฟของปีเป็นแรงกดดันต่อตัวคุณ', fav: 'ไฟของปีเป็นแรงกดดันที่ช่วยให้คุณเติบโต', avoid: 'ไฟของปีเป็นแรงกดดันต่อตัวคุณ ใจเย็นแล้วผ่านได้' },
+}
+export function fireLine(role: ElementRole, luck: Luck | null | undefined): string {
+  const f = FIRE_PLAIN[role]
+  if (luck?.favorable.includes('ไฟ')) return f.fav
+  if (luck?.avoid.includes('ไฟ')) return f.avoid
+  return f.base
+}
+
+/** The year's character a reaction meets, in a caption: its top 丁 is the year's fire, its bottom 未 is มะแม. */
+export const yearWord = (c: string) => (c === '未' ? 'มะแม' : 'ไฟของปี')
+/** The Sinse's word for each reaction inside a caption line: "<ราศีบน|ราศีล่าง><word><yearWord>". */
+const CAP_WORD: Record<Exclude<Relation, 'none'>, string> = {
+  chong: 'ชงกับ', samheng: 'ครบซำเฮ้งกับ', heng: 'โดนเฮ้งจาก', hai: 'โดนไห่จาก', phua: 'ผั่วกับ', stemClash: 'ปะทะ',
+  same: 'ตรงกับ', six: 'ฮะกับ', half3: 'ฮะกับ', stemCombine: 'ฮะกับ',
+}
+/** How many reactions a caption lists before it points to the chart. */
+export const CAPTION_MAX = 3
+
+/**
+ * Mu's caption for one pillar in the four-animal scene (plan revision 0.11, the Sinse's check of
+ * 2026-11-23): every reaction bazi sends for the pillar, by position and by the year character it
+ * meets, then the year's fire on the top character only when no reaction already names that top.
+ */
+export function pillarCaption(
+  p: { key: PillarKey; animal: string; flow: Flow },
+  hits: Array<{ pillar: PillarKey; at: 'top' | 'bottom'; kind: Exclude<Relation, 'none'>; year: string; into?: ReactionFact['into'] }>,
+  luck: Luck | null | undefined,
+): string {
+  const head = `${AREA[p.key].label.split(' · ')[0]}ของคุณคือ${p.animal}`
+  // top first, as the Sinse reads a pillar; bazi's order (hard reactions first) kept within each
+  const mine = hits.filter((h) => h.pillar === p.key).sort((a, b) => (a.at === b.at ? 0 : a.at === 'top' ? -1 : 1))
+  if (!mine.length) return `${head} ${RELATION_IN_SENTENCE.none}\n${FLOW_LINE[p.flow]}`
+  // short enough that three lines fit under the animals on a 360×640 phone; the cards tell the rest
+  const line = (h: (typeof mine)[number]) => {
+    const he = heOf(h, luck)
+    const says = he ? `${he.gets}${he.tone === 'care' ? ' แต่ไม่ช่วยคุณ' : he.short ? ` ${he.short}` : ''}` : PREVIEW[h.kind][1]
+    return `${AT_TH[h.at]}${CAP_WORD[h.kind]}${yearWord(h.year)} · ${says}`
+  }
+  const shown = mine.length > CAPTION_MAX ? mine.slice(0, CAPTION_MAX - 1) : mine
+  const lines = shown.map(line)
+  if (mine.length > shown.length) lines.push(`และอีก ${mine.length - shown.length} จุด ดูในผังดวงด้านล่าง`)
+  if (!mine.some((h) => h.at === 'top')) lines.push(FLOW_LINE[p.flow])
+  return [head, ...lines].join('\n')
+}

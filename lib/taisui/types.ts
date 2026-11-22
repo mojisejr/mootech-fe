@@ -24,7 +24,7 @@ export type TaisuiReading = {
   }>
   mine: string[]
   /** Free for everyone: the day master as a picture and the year's fire to it. */
-  role: { dayMaster: string; th: string; picture: string; roleTh: string; line: string } | null
+  role: { dayMaster: string; th: string; picture: string; roleTh: string; line: string; /** The year's fire in plain words, from the role and 用神 (revision 0.11). */ fire: string } | null
   /** Free for everyone: the reactions' names and where they land, without the stories. */
   marks: Array<{ pillar: PillarKey; name: string; where: string; tone: 'good' | 'care' | 'calm' }>
   /** Free for everyone: each reaction as the chart animates it, the year's character flying to yours. */

@@ -172,4 +172,31 @@ body:has(.ts2570){background:#071a36}
 .ts2570 .oaToast p{margin:0;flex:1 1 200px;font-size:14px;line-height:1.5}
 .ts2570 .oaToast .btn{animation:none;background:#06C755;color:#fff;padding:10px 16px;font-size:14px;text-decoration:none}
 .ts2570 .oaToast .x{position:absolute;top:6px;right:8px;width:32px;height:32px;border:0;background:none;color:var(--mist);font-size:22px;cursor:pointer}
+/* plan revision 0.11: year then months, one share place, the shop (design/TEAM-REVIEW-2026-11-22.md) */
+.ts2570 #bubT{white-space:pre-line}
+.ts2570 .bubble.dense{font-size:13px;line-height:1.4;padding:8px 12px;gap:6px}
+.ts2570 .pagehd{display:inline-block;width:max-content;align-self:flex-start;margin-bottom:6px;padding:2px 10px;border-radius:999px;font-size:12px;letter-spacing:.04em;color:#071a36;background:var(--gold)}
+.ts2570 .nextcue{display:flex;flex-direction:column;align-items:center;gap:4px;margin:26px auto 0;padding:10px 18px;min-height:48px;border:0;background:none;color:var(--mist);font:inherit;font-size:14px;cursor:pointer}
+.ts2570 .nextcue i{width:14px;height:14px;border-right:2px solid var(--lime);border-bottom:2px solid var(--lime);transform:rotate(45deg);animation:ts-cueDown 1.6s ease-in-out infinite}
+@keyframes ts-cueDown{0%,100%{transform:translateY(-3px) rotate(45deg);opacity:.6}50%{transform:translateY(4px) rotate(45deg);opacity:1}}
+.ts2570 #moSec{min-height:82svh;display:flex;flex-direction:column;justify-content:center}
+.ts2570 .mnav{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:4px}
+.ts2570 .mnav button{width:48px;height:48px;border-radius:50%;border:1px solid rgba(235,191,48,.5);background:rgba(7,26,54,.7);color:var(--gold);font-size:22px;line-height:1;cursor:pointer}
+.ts2570 .mnav button:disabled{opacity:.3;cursor:default}
+.ts2570 .mnav button:focus-visible,.ts2570 .ads .go:focus-visible,.ts2570 .nextcue:focus-visible{outline:3px solid var(--lime);outline-offset:2px}
+.ts2570 .mnav span{font-size:13px;color:var(--mist)}
+.ts2570 .ads{display:grid;gap:14px}
+.ts2570 .ads h2{margin:0 0 4px}
+.ts2570 .ads .ad{display:grid;grid-template-columns:72px 1fr;gap:14px;align-items:center;padding:16px;border-radius:20px;background:linear-gradient(160deg,rgba(255,255,255,.1),rgba(255,255,255,.04));border:1px solid rgba(235,191,48,.35)}
+.ts2570 .ads .ad .ic{width:72px;height:72px;border-radius:18px;display:grid;place-items:center;background:#fff7e6;overflow:hidden}
+.ts2570 .ads .ad .ic img{width:100%;height:100%;object-fit:cover;object-position:50% 20%}
+.ts2570 .ads .ad .book{width:56px;height:70px;border-radius:4px 8px 8px 4px;background:linear-gradient(90deg,#e9dcc3 0 10%,#fffaf0 10%);box-shadow:2px 3px 0 #c9b48a,0 6px 14px rgba(0,0,0,.35);display:grid;place-items:center;font-family:var(--display);font-size:11px;line-height:1.2;color:#7a5a12;text-align:center;padding:4px}
+.ts2570 .ads .ad b{display:block;font-size:17px;line-height:1.35}
+.ts2570 .ads .ad p{margin:4px 0 0;font-size:14px;line-height:1.5;color:var(--mist)}
+.ts2570 .ads .ad ul{margin:6px 0 0;padding-left:1.1em;font-size:13px;line-height:1.55;color:var(--mist)}
+.ts2570 .ads .ad .price{display:inline-block;margin-top:6px;padding:2px 10px;border-radius:999px;font-size:13px;font-weight:600;background:rgba(225,255,0,.14);color:var(--lime)}
+.ts2570 .ads .ad .go{grid-column:1 / -1;display:flex;align-items:center;justify-content:center;min-height:48px;border-radius:999px;border:0;font:inherit;font-weight:700;font-size:16px;background:var(--lime);color:#071a36;text-decoration:none;cursor:pointer}
+.ts2570 .ads .ad .go.alt{background:var(--gold)}
+.ts2570 .foot{font-size:12px;opacity:.75}
+@media (prefers-reduced-motion:reduce){.ts2570 .nextcue i{animation:none}}
 `

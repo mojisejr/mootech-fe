@@ -65,10 +65,6 @@ export function TaisuiScreen({ refCode, sender }: TaisuiScreenProps) {
         const j = (await r.json()) as { code?: string }
         return j.code ? { url: `${window.location.origin}/taisui-2570?ref=${encodeURIComponent(j.code)}&utm_source=packet&utm_medium=share` } : null
       },
-      lantern: async (release) => {
-        const r = release ? await postJson('/api/taisui/lantern', {}) : await fetch('/api/taisui/lantern')
-        return r.ok ? r.json() : null
-      },
       // The existing LINE OA reward (/api/v2/line-oa-claim): pays 100 QI once per member, after LINE confirms
       // the member is the OA's friend right now. Logged in with Google or an expired LINE token → nothing shown.
       claimOa: async (): Promise<OaClaim> => {

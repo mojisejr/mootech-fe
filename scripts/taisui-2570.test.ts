@@ -6,7 +6,7 @@ import { isTaisuiOpen, PRODUCTION_HOST } from '@/lib/taisui/live'
 import { parseBirth } from '@/lib/taisui/server'
 import { assembleReading } from '@/lib/taisui/assemble'
 import type { TaisuiFacts } from '@/lib/taisui/types'
-import { APPROVED, PREVIEW, RELATIONS, RELATION_IN_SENTENCE, heOf, readingFor, type PillarKey, type ReactionFact } from '@/features/v2-taisui/content/readings'
+import { APPROVED, CAPTION_MAX, PREVIEW, RELATIONS, RELATION_IN_SENTENCE, fireLine, heOf, pillarCaption, readingFor, type PillarKey, type ReactionFact } from '@/features/v2-taisui/content/readings'
 import { animalImage, MONTH_LABEL } from '@/features/v2-taisui/content/animals'
 import { leaveReturnMarker, takeReturnPath, TAISUI_RETURN_KEY } from '@/features/v2-taisui/return'
 import { withFreshPass } from '@/features/v2-taisui/fresh-pass'
@@ -163,7 +163,7 @@ describe('content', () => {
 
 describe('the ported page frame', () => {
   it('keeps every element the motion script looks up', () => {
-    for (const id of ['stage', 'cine', 'medal', 'start', 'member', 'row', 'next', 'sheet', 'bdD', 'bdM', 'bdY', 'bt', 'noT', 'months', 'reads', 'lock', 'pkSec', 'seal', 'wishform', 'meds', 'sendPk', 'statN'])
+    for (const id of ['stage', 'cine', 'medal', 'start', 'member', 'row', 'next', 'sheet', 'bdD', 'bdM', 'bdY', 'bt', 'noT', 'months', 'moPrev', 'moNext', 'reads', 'lock', 'pkSec', 'seal', 'meds', 'sendPk', 'adMu', 'adPlan', 'adHint', 'statN'])
       expect(TAISUI_MARKUP).toContain(`id="${id}"`)
     expect(TAISUI_MARKUP).not.toMatch(/img\//)
   })
@@ -180,7 +180,7 @@ describe('the ported page frame', () => {
 
 describe('page events', () => {
   it('are allowlisted and carry no forbidden key', () => {
-    for (const name of ['taisui_open', 'taisui_form_submit', 'taisui_result', 'taisui_login_click', 'taisui_share', 'taisui_packet_open', 'taisui_lantern']) {
+    for (const name of ['taisui_open', 'taisui_form_submit', 'taisui_result', 'taisui_login_click', 'taisui_share', 'taisui_packet_open', 'taisui_shop']) {
       const keys = (ANALYTICS_EVENTS as Record<string, readonly string[]>)[name]
       expect(keys).toBeDefined()
       for (const k of keys) expect(FORBIDDEN_PARAM_KEY.test(k)).toBe(false)
@@ -245,3 +245,68 @@ describe('the LINE OA reward after login', () => {
     expect(TAISUI_MARKUP).toContain('ส่งอั่งเปาทาง LINE')
   })
 })
+
+// The Sinse's check of 2026-11-23, on facts exactly as bazi 0d54694 sends them for a 辛酉 year and
+// 辛卯 month (birth 1981-03-15 10:00, female): the month pillar carries three reactions.
+const SINSE_81 = {"pillars":[{"key":"hour","stem":"乙","branch":"巳","element":"wood","relation":"none","relations":[],"flow":"fed-by"},{"key":"day","stem":"壬","branch":"辰","element":"water","relation":"heng","relations":["刑","天干合"],"flow":"controlled-by"},{"key":"month","stem":"辛","branch":"卯","element":"metal","relation":"phua","relations":["破","天干冲","半三合"],"flow":"controls"},{"key":"year","stem":"辛","branch":"酉","element":"metal","relation":"stemClash","relations":["天干冲"],"flow":"controls"}],"reactions":[{"kind":"heng","name":"刑","pillar":"day","at":"bottom","mine":"辰","year":"未"},{"kind":"phua","name":"破","pillar":"month","at":"bottom","mine":"卯","year":"丁","pair":"丁卯","group":"poison"},{"kind":"stemClash","name":"天干冲","pillar":"month","at":"top","mine":"辛","year":"丁"},{"kind":"stemClash","name":"天干冲","pillar":"year","at":"top","mine":"辛","year":"丁"},{"kind":"half3","name":"半三合","pillar":"month","at":"bottom","mine":"卯","year":"未","into":{"element":"wood","status":"detected","source":"engine"}},{"kind":"stemCombine","name":"天干合","pillar":"day","at":"top","mine":"壬","year":"丁","into":{"element":"wood","status":"supported","source":"engine"}}],"role":{"dayMaster":"壬","dayElement":"water","role":"wealth","th":"โชคลาภ"},"luck":{"favorable":["ทอง","น้ำ"],"avoid":["ดิน","ไม้","ไฟ"]},"mine":["巳","辰","卯","酉"],"year":{"gregorian":2027,"stem":"丁","branch":"未","element":"fire","lichun":"2027-02-04T01:46:18.000Z"},"chart":{"hasHour":true}} as const
+
+describe('the four-animal scene (the Sinse, revision 0.11)', () => {
+  const facts = { ...SINSE_81, months: FACTS.months } as unknown as TaisuiFacts
+  const reading = assembleReading(facts, { member: true, source: 'typed' })
+  const cap = (key: PillarKey) => pillarCaption(reading.pillars.find((p) => p.key === key)!, reading.hits, reading.luck)
+
+  it('reads the 辛卯 month as he does: top ปะทะ the fire, bottom ผั่ว with the fire, bottom ฮะ with มะแม', () => {
+    expect(cap('month').split('\n')).toEqual([
+      'เดือนเกิดของคุณคือเถาะ',
+      'ราศีบนปะทะไฟของปี · คิดก่อนพูด',
+      'ราศีล่างผั่วกับไฟของปี · อุดก่อนจะลาม',
+      'ราศีล่างฮะกับมะแม · ได้ธาตุไม้นิดหน่อย แต่ไม่ช่วยคุณ',
+    ])
+    expect(cap('month')).not.toContain('ผั่วกับปีมะแม')
+  })
+  it('names the fire on the top character only when no reaction already names that top', () => {
+    expect(cap('year')).not.toContain('ไฟของปีคุมราศีบน')
+    expect(cap('hour')).toContain('ราศีบนของเสานี้ส่งแรงให้ไฟของปี')
+  })
+  it('shows every reaction bazi sends for a pillar, up to the cap, for every pillar', () => {
+    for (const p of reading.pillars) {
+      const n = reading.hits.filter((h) => h.pillar === p.key).length
+      const lines = cap(p.key).split('\n').slice(1).filter((l) => /^ราศี(บน|ล่าง)\S* · /.test(l))
+      expect(lines.length).toBe(Math.min(n, n > CAPTION_MAX ? CAPTION_MAX - 1 : n))
+    }
+  })
+  it('points to the chart when a pillar has more than the cap', () => {
+    const many = (['chong', 'heng', 'hai', 'stemClash'] as const).map((kind, i) => ({ pillar: 'month' as const, at: (i === 3 ? 'top' : 'bottom') as 'top' | 'bottom', kind, year: i === 3 ? '丁' : '未' }))
+    const c = pillarCaption({ key: 'month', animal: 'วัว', flow: 'feeds' }, many, null).split('\n')
+    expect(c).toHaveLength(1 + CAPTION_MAX)
+    expect(c[CAPTION_MAX]).toBe('และอีก 2 จุด ดูในผังดวงด้านล่าง')
+  })
+  it('words the year fire from the role and 用神, never as "ส่งเสริม … แต่ไม่ช่วย"', () => {
+    expect(reading.role?.fire).toBe('ไฟของปีมีโอกาสเรื่องเงิน แต่ดวงคุณต้องการแรงหนุนก่อน อย่ารับเกินตัว')
+    expect(fireLine('resource', { favorable: ['ไม้'], avoid: ['ไฟ'] })).toBe('ไฟของปีหล่อเลี้ยงตัวคุณ แต่ดวงคุณมีพลังพออยู่แล้ว ไฟปีนี้จึงไม่ใช่ตัวช่วยหลัก')
+    expect(fireLine('resource', null)).toBe('ไฟของปีหล่อเลี้ยงตัวคุณ')
+    for (const role of ['resource', 'companion', 'output', 'wealth', 'power'] as const)
+      for (const luck of [{ favorable: ['ไฟ'], avoid: [] }, { favorable: [], avoid: ['ไฟ'] }, null])
+        expect(fireLine(role, luck)).not.toMatch(/ส่งเสริม.*แต่ไม่/)
+  })
+})
+
+describe('the page after the team review (revision 0.11)', () => {
+  const order = [...TAISUI_MARKUP.matchAll(/<(?:section|footer)[^>]*?(?:id|aria-labelledby)="(\w+)"/g)].map((m) => m[1])
+  it('puts the year before the months, then the packet, the share card, the shop and the footer', () => {
+    expect(order).toEqual(['cine', 'readT', 'moT', 'pkT', 'share', 'shop'])
+    expect(TAISUI_MARKUP.indexOf('<footer')).toBeGreaterThan(TAISUI_MARKUP.indexOf('id="shop"'))
+  })
+  it('has no wish lanterns and one LINE send, on the share card', async () => {
+    expect(TAISUI_MARKUP).not.toMatch(/wishform|wishsky|ปล่อยโคม/)
+    const fs = await import('node:fs')
+    const motion = fs.readFileSync('features/v2-taisui/components/taisui-motion.ts', 'utf8').split('\n').filter((l) => !l.trim().startsWith('//')).join('\n')
+    expect(TAISUI_MARKUP.match(/ทาง LINE<\/button>/g)).toHaveLength(1)
+    expect(motion).not.toMatch(/ทาง LINE`|'ส่งอั่งเปาทาง LINE'|line_pillar|api\.lantern/)
+  })
+  it('shows no price the owner has not set', () => {
+    const shop = TAISUI_MARKUP.slice(TAISUI_MARKUP.indexOf('id="shop"'), TAISUI_MARKUP.indexOf('<footer'))
+    expect(shop).not.toMatch(/฿|\d+\s*บาท|ลด\s*\d/)
+  })
+})
+
