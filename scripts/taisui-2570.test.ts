@@ -234,8 +234,9 @@ describe('an expired form pass', () => {
 
 describe('the LINE OA reward after login', () => {
   it('shows a payment, offers the add button to a non-friend, and stays quiet otherwise', () => {
-    expect(oaClaimFrom(200, { awarded: 100 })).toEqual({ state: 'paid', qi: 100 })
-    expect(oaClaimFrom(200, { capped: true })).toEqual({ state: 'already' })
+    // bazi /api/qi/earn's real answer: awarded is a boolean, the amount is earnedQi
+    expect(oaClaimFrom(200, { awarded: true, capped: false, earnedQi: 100 })).toEqual({ state: 'paid', qi: 100 })
+    expect(oaClaimFrom(200, { awarded: false, capped: true, earnedQi: 0 })).toEqual({ state: 'already' })
     expect(oaClaimFrom(409, { reason: 'not_friend' })).toEqual({ state: 'not_friend' })
     for (const [status, body] of [[400, { reason: 'not_line' }], [401, { reason: 'relogin' }], [502, null], [409, { reason: 'other' }]] as const) {
       expect(oaClaimFrom(status, body)).toEqual({ state: 'skip' })
