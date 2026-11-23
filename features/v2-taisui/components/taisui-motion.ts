@@ -3,6 +3,8 @@
 // seg(p, a, b). Only transform, opacity and one CSS variable (--n, the night amount) are written per frame.
 //
 // Member data reaches the DOM only through textContent, attributes and createElement — never as HTML.
+import { celebrate } from './taisui-celebrate'
+import { DEEPER_PACKAGES, deeperHref } from '../deeper'
 import type { TaisuiReading } from '@/lib/taisui/types'
 import { AREA, AT_TH, DAY_MASTER, MONTH_TIP, PAIR_LINE, HE_DOES, HE_VERB, PLAIN, RELATION_NAME, TONE, VERDICT, areaOf, heOf, pillarCaption, pillarName, strongestOf, type Relation } from '../content/readings'
 import { animalImage, animalTh, MONTH_LABEL, WHEEL_BRANCHES } from '../content/animals'
@@ -631,7 +633,10 @@ export function startTaisui(root: HTMLElement, api: TaisuiApi): () => void {
   })
 
   // the shop (revision 0.11): prices, codes and the Planner's order channel are the owner's to set
+  // revision 0.12: the เสี่ยวมู่ card tries the chat first; the packages stay a small link
   on($('adMu'), 'click', () => api.track('taisui_shop', { item: 'mu' }))
+  on($('adPkg'), 'click', () => api.track('taisui_shop', { item: 'packages' }))
+  on($('deepStrip'), 'click', () => api.track('taisui_deeper', { from: 'strip' }))
   on($('adPlan'), 'click', () => { api.track('taisui_shop', { item: 'planner' }); $('adHint').textContent = 'Planner เปิดจองเร็วๆ นี้ เราจะแจ้งทาง LINE ของ MuMate ครับ' })
 
   // the LINE OA reward: asked once per page load as soon as the visitor is a member
@@ -647,9 +652,25 @@ export function startTaisui(root: HTMLElement, api: TaisuiApi): () => void {
   async function claimOa() {
     const r = await api.claimOa().catch(() => ({ state: 'skip' as const }))
     api.track('taisui_oa_claim', { result: r.state })
-    if (r.state === 'paid') { oaWaiting = false; showOa(`ได้ +${r.qi} ชี่ จากการเป็นเพื่อน MuMate ใน LINE แล้วครับ`, false); later(() => { oaToast.hidden = true }, 6000) }
+    if (r.state === 'paid') { oaWaiting = false; oaToast.hidden = true; celebrateQi(r.qi) }
     else if (r.state === 'not_friend') showOa('แอด LINE ของ MuMate เป็นเพื่อน รับเพิ่ม 100 ชี่ (ครั้งเดียว)', true)
     else { oaWaiting = false; if (r.state === 'already') oaToast.hidden = true }
+  }
+  // revision 0.12: the paid QI as a bottom sheet, once; its buttons lead to sharing or the year
+  let celDone = false
+  function celebrateQi(qi: number) {
+    if (celDone) return
+    celDone = true
+    api.track('taisui_oa_cel', { action: 'shown' })
+    const close = celebrate(root, {
+      qi, img: '/images/v2/mascot/personas/mu/happy.png', still,
+      deepHref: deeperHref(reading?.chart.source ?? 'typed'),
+      onSend: () => { api.track('taisui_oa_cel', { action: 'send' }); $('sendPk').click() },
+      onRead: () => { api.track('taisui_oa_cel', { action: 'read' }); toSection('yearSec') },
+      onDeep: () => api.track('taisui_deeper', { from: 'sheet' }),
+      onClose: () => undefined,
+    })
+    cleanups.push(close)
   }
   // back from adding the OA: ask again once
   on(document, 'visibilitychange', () => { if (document.visibilityState === 'visible' && oaWaiting) { oaWaiting = false; void claimOa() } })
@@ -669,6 +690,8 @@ export function startTaisui(root: HTMLElement, api: TaisuiApi): () => void {
     $('scT').textContent = member && year ? `${year.preview[0]} · ${year.preview[1]}` : 'ปีมะแมของฉัน'
     $('start').textContent = 'ดูดวงปีมะแมของฉัน'
     $('member').hidden = true
+    // revision 0.12: the deeper reading opens the chat for a saved chart, registration for a typed one
+    const deep = deeperHref(r.chart.source); $<HTMLAnchorElement>('deepStrip').href = deep; $<HTMLAnchorElement>('adMu').href = deep; $<HTMLAnchorElement>('adPkg').href = DEEPER_PACKAGES
     if (member && !oaAsked) { oaAsked = true; void claimOa() }
     entered = false; frame()
   }
