@@ -5,16 +5,32 @@ export const TAISUI_RETURN_KEY = 'taisui:return'
 const MAX_AGE_MS = 30 * 60 * 1000
 const REF_RE = /^MUMATE\d{3,8}$/
 
+// Revision 0.13: a cookie beside the marker lets the /v2 server draw the return screen from the first
+// frame, so home never shows. It carries no member data; Lax is enough for LINE's top-level redirect.
+export const TAISUI_RETURN_COOKIE = 'taisui_return'
+
+function setReturnCookie(on: boolean): void {
+  try {
+    const secure = window.location?.protocol === 'https:' ? '; Secure' : ''
+    document.cookie = `${TAISUI_RETURN_COOKIE}=${on ? '1' : ''}; Path=/; Max-Age=${on ? MAX_AGE_MS / 1000 : 0}; SameSite=Lax${secure}`
+  } catch { /* no cookie: home shows its loading screen after it mounts instead */ }
+}
+
+/** Drop the server-side hint once the return is done or abandoned. */
+export function clearReturnCookie(): void { setReturnCookie(false) }
+
 export function leaveReturnMarker(ref: string | null, now: number = Date.now()): void {
   try {
     window.localStorage.setItem(TAISUI_RETURN_KEY, JSON.stringify({ at: now, ...(ref && REF_RE.test(ref) ? { ref } : {}) }))
   } catch { /* storage off: the member lands on home instead */ }
+  setReturnCookie(true)
 }
 
 /** The path to return to, or null. Takes the marker (one use) only when it is fresh. */
 export function takeReturnPath(now: number = Date.now()): string | null {
   let raw: string | null = null
   try { raw = window.localStorage.getItem(TAISUI_RETURN_KEY) } catch { return null }
+  clearReturnCookie()
   if (!raw) return null
   try { window.localStorage.removeItem(TAISUI_RETURN_KEY) } catch { /* ignore */ }
   try {

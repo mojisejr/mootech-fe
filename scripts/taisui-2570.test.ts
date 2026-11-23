@@ -383,8 +383,35 @@ describe('after a login from the page (revision 0.13)', () => {
   it('shows a loading screen on home instead of home while the return marker is set', async () => {
     const fs = await import('node:fs')
     const home = fs.readFileSync('pages/v2/index.tsx', 'utf8')
-    expect(home).toMatch(/useState\(\(\) => hasReturnMarker\(\)\)/)
-    expect(home).toMatch(/if \(returning\) return <ScreenLoading label="กำลังพากลับไปหน้าปีชง…" \/>/)
-    expect(home.indexOf('if (returning)')).toBeLessThan(home.indexOf('<V2HomeScreen'))
+    // from the very first frame: the server reads the cookie, so the pre-mount skeleton is not home's either
+    expect(home).toMatch(/returning: ctx\.req\.cookies\?\.\[TAISUI_RETURN_COOKIE\] === '1'/)
+    expect(home).toMatch(/if \(showLoading\) return returning \? <ReturnLoading \/> : <HomeSkeleton \/>/)
+    expect(home).toMatch(/useState\(\(\) => fromServer \|\| hasReturnMarker\(\)\)/)
+    expect(home).toMatch(/if \(returning\) return <ReturnLoading \/>/)
+    expect(home.indexOf('if (returning) return <ReturnLoading />')).toBeLessThan(home.indexOf('<V2HomeScreen'))
+    expect(home).toMatch(/if \(returning\) clearReturnCookie\(\)/) // a login that did not finish forgets the way back
+  })
+})
+
+describe('the return cookie (revision 0.13)', () => {
+  const store = new Map<string, string>()
+  let cookies: string[] = []
+  beforeEach(() => {
+    store.clear(); cookies = []
+    vi.stubGlobal('window', { location: { protocol: 'https:' }, localStorage: { getItem: (k: string) => store.get(k) ?? null, setItem: (k: string, v: string) => store.set(k, v), removeItem: (k: string) => store.delete(k) } })
+    vi.stubGlobal('document', { set cookie(v: string) { cookies.push(v) } })
+  })
+  afterEach(() => vi.unstubAllGlobals())
+  it('is set with the marker, short-lived and Lax, and cleared when the way back is taken', async () => {
+    const { leaveReturnMarker, takeReturnPath, TAISUI_RETURN_COOKIE } = await import('@/features/v2-taisui/return')
+    leaveReturnMarker(null, 1_000)
+    expect(cookies[0]).toBe(`${TAISUI_RETURN_COOKIE}=1; Path=/; Max-Age=1800; SameSite=Lax; Secure`)
+    expect(takeReturnPath(2_000)).toBe('/taisui-2570')
+    expect(cookies[1]).toBe(`${TAISUI_RETURN_COOKIE}=; Path=/; Max-Age=0; SameSite=Lax; Secure`)
+  })
+  it('the already-claimed sheet links to the app', async () => {
+    const fs = await import('node:fs')
+    const cel = fs.readFileSync('features/v2-taisui/components/taisui-celebrate.ts', 'utf8')
+    expect(cel).toContain("already ? 'ไปถามเสี่ยวมู่ต่อในแอป ›'")
   })
 })
