@@ -30,6 +30,8 @@ export const ANALYTICS_EVENTS = {
   /** Shop block clicks (revision 0.11): item is 'mu' or 'planner'. */
   taisui_shop: ['item'],
   taisui_oa_claim: ['result'],
+  taisui_oa_cel: ['action'],
+  taisui_deeper: ['from'],
 } as const satisfies Record<string, readonly string[]>
 
 export type AnalyticsEventName = keyof typeof ANALYTICS_EVENTS

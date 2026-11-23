@@ -198,5 +198,46 @@ body:has(.ts2570){background:#071a36}
 .ts2570 .ads .ad .go{grid-column:1 / -1;display:flex;align-items:center;justify-content:center;min-height:48px;border-radius:999px;border:0;font:inherit;font-weight:700;font-size:16px;background:var(--lime);color:#071a36;text-decoration:none;cursor:pointer}
 .ts2570 .ads .ad .go.alt{background:var(--gold)}
 .ts2570 .foot{font-size:12px;opacity:.75}
-@media (prefers-reduced-motion:reduce){.ts2570 .nextcue i{animation:none}}
+/* the 100 QI celebration (revision 0.12): a bottom sheet with เสี่ยวมู่ above it */
+.ts2570 .cel{position:fixed;inset:0;z-index:80;pointer-events:none}
+.ts2570 .cel .celScrim{position:absolute;inset:0;background:rgba(4,14,32,.72);backdrop-filter:blur(3px);opacity:0;transition:opacity .3s;pointer-events:auto}
+.ts2570 .cel.on .celScrim{opacity:1}
+.ts2570 .cel .celFx{position:absolute;inset:0;overflow:hidden;pointer-events:none}
+.ts2570 .cel .celCf{position:absolute;top:-24px;width:9px;height:14px;border-radius:2px;animation:ts-celFall var(--d) cubic-bezier(.25,.6,.45,1) var(--dl) both}
+@keyframes ts-celFall{0%{transform:translate(0,0) rotate(0);opacity:1}80%{opacity:1}100%{transform:translate(var(--dx),calc(100svh + 40px)) rotate(var(--r));opacity:.2}}
+.ts2570 .cel .celCoin{position:absolute;left:var(--x);top:var(--y);width:34px;height:34px;margin:-17px 0 0 -17px;border-radius:50%;display:grid;place-items:center;font:700 12px/1 var(--text);color:#7a4d00;background:radial-gradient(circle at 35% 30%,#fff3b0,#f5c534 45%,#c98a10);box-shadow:0 0 0 2px #fbe08a inset,0 4px 10px rgba(0,0,0,.35);animation:ts-celCoin 1.25s cubic-bezier(.2,.7,.3,1) var(--dl) both}
+@keyframes ts-celCoin{0%{transform:translate(0,0) scale(.3);opacity:0}12%{opacity:1}55%{transform:translate(var(--dx),var(--dy)) scale(1) rotate(var(--r))}100%{transform:translate(calc(var(--dx)*1.1),calc(var(--dy) + 260px)) scale(.8) rotate(calc(var(--r)*2));opacity:0}}
+.ts2570 .cel .celCard{box-sizing:border-box;position:absolute;left:0;right:0;bottom:0;pointer-events:auto;padding:30px max(20px,env(safe-area-inset-left,0px)) calc(20px + env(safe-area-inset-bottom,0px));border-radius:28px 28px 0 0;background:linear-gradient(170deg,#123d73,#0b2a52 60%,#081f3f);color:#fff7e6;border:1px solid rgba(235,191,48,.55);box-shadow:0 -12px 50px rgba(0,0,0,.5);text-align:center;display:grid;justify-items:center;gap:6px;transform:translateY(105%);transition:transform .6s cubic-bezier(.2,1.15,.35,1)}
+.ts2570 .cel.on .celCard{transform:none}
+.ts2570 .cel .celCard:focus{outline:none}
+.ts2570 .cel .celCard::before{content:"";position:absolute;top:10px;left:50%;width:44px;height:5px;margin-left:-22px;border-radius:3px;background:rgba(201,214,242,.4)}
+.ts2570 .cel .celCard>*{max-width:440px;width:100%}
+.ts2570 .cel .celMu{position:absolute;top:-52px;left:50%;margin-left:-46px;width:92px!important;height:92px;border-radius:50%;background:#fff7e6;overflow:hidden;box-shadow:0 0 0 4px #ebbf30,0 0 40px rgba(235,191,48,.6)}
+.ts2570 .cel .celMu img{width:100%;height:100%;object-fit:cover;object-position:50% 18%}
+.ts2570 .cel .celK{margin-top:36px;font-size:14px;color:var(--mist)}
+.ts2570 .cel .celBig{font-family:var(--display);font-size:64px;line-height:1.05;color:var(--lime);text-shadow:0 0 24px rgba(225,255,0,.45);font-variant-numeric:tabular-nums}
+.ts2570 .cel .celBig small{font-size:28px;margin-left:6px;color:var(--gold)}
+.ts2570 .cel .celPop{animation:ts-celPop .35s cubic-bezier(.2,1.6,.4,1)}
+@keyframes ts-celPop{50%{transform:scale(1.18)}}
+.ts2570 .cel .celUse{margin:2px 0 10px;font-size:14px;line-height:1.5;color:var(--mist);max-width:30ch}
+.ts2570 .cel .celActs{display:grid;gap:10px}
+.ts2570 .cel .celActs button{min-height:50px;border-radius:999px;border:0;font:inherit;font-weight:700;font-size:16px;cursor:pointer}
+.ts2570 .cel .celActs .celP{background:#06C755;color:#fff;box-shadow:0 8px 20px rgba(6,199,85,.35)}
+.ts2570 .cel .celActs .celS{background:rgba(255,255,255,.08);color:#fff7e6;border:1px solid rgba(255,247,230,.35)}
+.ts2570 .cel .celDeep{display:inline-flex;align-items:center;justify-content:center;flex-wrap:wrap;gap:4px;min-height:44px;margin-top:4px;color:var(--mist);font-size:14px;text-decoration:none}
+.ts2570 .cel .celDeep b{color:var(--gold);text-decoration:underline;text-underline-offset:3px}
+.ts2570 .cel .celX{position:absolute;top:8px;right:8px;width:44px!important;height:44px;border-radius:50%;border:0;background:none;color:var(--mist);font-size:24px;cursor:pointer}
+.ts2570 .cel button:focus-visible,.ts2570 .cel a:focus-visible{outline:3px solid var(--lime);outline-offset:2px}
+.ts2570 .cel .celLate{opacity:0;transform:translateY(8px);transition:opacity .35s .75s,transform .35s .75s}
+.ts2570 .cel.on .celLate{opacity:1;transform:none}
+/* "อยากรู้ลึกกว่านี้" at the end of the year page, and the packages link on the เสี่ยวมู่ card */
+.ts2570 .deepStrip{display:grid;grid-template-columns:56px 1fr;gap:12px;align-items:center;box-sizing:border-box;width:100%;margin:22px 0 0;padding:14px;border-radius:18px;background:linear-gradient(160deg,rgba(235,191,48,.16),rgba(255,255,255,.04));border:1px solid rgba(235,191,48,.45);color:#fff7e6;text-decoration:none}
+.ts2570 .deepStrip .ic{width:56px;height:56px;border-radius:50%;overflow:hidden;background:#fff7e6;box-shadow:0 0 0 3px #ebbf30}
+.ts2570 .deepStrip .ic img{width:100%;height:100%;object-fit:cover;object-position:50% 18%}
+.ts2570 .deepStrip b{display:block;font-size:16px}
+.ts2570 .deepStrip span{display:block;margin-top:2px;font-size:13px;color:var(--mist)}
+.ts2570 .deepStrip em{font-style:normal;white-space:nowrap;color:var(--lime);font-weight:700}
+.ts2570 .ads .ad .pkLink{grid-column:1 / -1;justify-self:end;display:inline-flex;align-items:center;min-height:44px;color:var(--mist);font-size:13px;text-decoration:underline;text-underline-offset:3px}
+.ts2570 .deepStrip:focus-visible,.ts2570 .ads .ad .pkLink:focus-visible{outline:3px solid var(--lime);outline-offset:2px}
+@media (prefers-reduced-motion:reduce){.ts2570 .nextcue i{animation:none}.ts2570 .cel .celCard,.ts2570 .cel .celScrim,.ts2570 .cel .celLate{transition:none}.ts2570 .cel .celFx{display:none}}
 `

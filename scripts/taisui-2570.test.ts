@@ -311,3 +311,43 @@ describe('the page after the team review (revision 0.11)', () => {
   })
 })
 
+
+describe('the 100 QI celebration (revision 0.12)', () => {
+  it('sends the deeper reading to the chat for a saved chart and to registration for a typed one', async () => {
+    const { deeperHref } = await import('@/features/v2-taisui/deeper')
+    expect(deeperHref('saved')).toBe('/v2/chat')
+    expect(deeperHref('typed')).toBe('/v2/register')
+  })
+  it('ends the year with the deeper strip, for members, before the months', () => {
+    const reads = TAISUI_MARKUP.slice(TAISUI_MARKUP.indexOf('aria-labelledby="readT"'), TAISUI_MARKUP.indexOf('id="moSec"'))
+    expect(reads).toMatch(/<a class="deepStrip" id="deepStrip" href="\/v2\/chat" data-full>/)
+    expect(reads).toContain('อยากรู้ลึกกว่านี้?')
+  })
+  it('lets the เสี่ยวมู่ card try the chat first and keeps the packages as a small link', () => {
+    const shop = TAISUI_MARKUP.slice(TAISUI_MARKUP.indexOf('id="shop"'), TAISUI_MARKUP.indexOf('<footer'))
+    expect(shop).toMatch(/id="adMu" href="\/v2\/chat">ลองถามเสี่ยวมู่</)
+    expect(shop).toMatch(/id="adPkg" href="\/v2\/shop">/)
+  })
+  it('celebrates only a payment, once, with both ways on and no HTML from strings', async () => {
+    const fs = await import('node:fs')
+    const motion = fs.readFileSync('features/v2-taisui/components/taisui-motion.ts', 'utf8')
+    const calls = motion.split('\n').filter((l) => /celebrateQi\(r\.qi\)/.test(l))
+    expect(calls).toHaveLength(1)
+    expect(calls[0]).toContain("r.state === 'paid'")
+    expect(motion).toMatch(/if \(celDone\) return/)
+    expect(motion).toMatch(/onSend: \(\) => \{[^\n]*\$\('sendPk'\)\.click\(\)/)
+    expect(motion).toMatch(/onRead: \(\) => \{[^\n]*toSection\('yearSec'\)/)
+    const cel = fs.readFileSync('features/v2-taisui/components/taisui-celebrate.ts', 'utf8')
+    expect(cel).not.toMatch(/innerHTML|insertAdjacentHTML/)
+    expect(cel).toContain('ส่งอั่งเปาให้เพื่อน')
+    expect(cel).toContain('อ่านคำทำนายเต็มของฉัน')
+  })
+  it('drops confetti and coins under reduced motion', async () => {
+    const { TAISUI_CSS_EXTRA } = await import('@/features/v2-taisui/components/taisui-css-extra')
+    expect(TAISUI_CSS_EXTRA).toMatch(/prefers-reduced-motion:reduce\)\{[^`]*\.ts2570 \.cel \.celFx\{display:none\}/)
+  })
+  it('registers its analytics events', () => {
+    expect(ANALYTICS_EVENTS.taisui_oa_cel).toEqual(['action'])
+    expect(ANALYTICS_EVENTS.taisui_deeper).toEqual(['from'])
+  })
+})
