@@ -415,3 +415,27 @@ describe('the return cookie (revision 0.13)', () => {
     expect(cel).toContain("already ? 'ไปถามเสี่ยวมู่ต่อในแอป ›'")
   })
 })
+
+describe('the guide button never lands on the same stop twice (owner, 2026-11-23)', () => {
+  it('leads from every stop to the following one, even when the address bar shifts progress by about 1%', async () => {
+    const { RESTS, REST_SLACK, nextRestAfter } = await import('@/features/v2-taisui/components/taisui-motion')
+    for (let i = 0; i < RESTS.length - 1; i++) {
+      const at = RESTS[i][0]
+      for (const drift of [-0.01, -0.005, 0, 0.005, 0.01].map((d) => d * at)) {
+        expect(nextRestAfter(at + drift)?.[0]).toBe(RESTS[i + 1][0])
+      }
+    }
+    // the slack must stay under half the tightest gap, or a stop could be skipped
+    const gaps = RESTS.slice(1).map((r, i) => r[0] - RESTS[i][0])
+    expect(REST_SLACK * 2).toBeLessThan(Math.min(...gaps))
+  })
+})
+
+describe('the guide glide and the scene measure progress the same way', () => {
+  it('glides with the stage height, as frame() measures, not the window height', async () => {
+    const fs = await import('node:fs')
+    const motion = fs.readFileSync('features/v2-taisui/components/taisui-motion.ts', 'utf8')
+    expect(motion).toMatch(/const vh = stage\.clientHeight \|\| innerHeight/)
+    expect(motion).toMatch(/const glideTo = [^\n]*cine\.offsetHeight - \(stage\.clientHeight \|\| innerHeight\)\) \* pp/)
+  })
+})

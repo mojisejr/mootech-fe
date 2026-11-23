@@ -48,7 +48,15 @@ const SKIES: Record<string, Sky> = {
 }
 const PRESETS = [2, 6, 8.5, 15, 18, 21]
 const MONTHS_TH = ['มกราคม', 'กุมภาพันธ์', 'มีนาคม', 'เมษายน', 'พฤษภาคม', 'มิถุนายน', 'กรกฎาคม', 'สิงหาคม', 'กันยายน', 'ตุลาคม', 'พฤศจิกายน', 'ธันวาคม']
-const RESTS: Array<[number, string]> = [[0.3, 'ต่อ'], [0.5, 'ดูนักษัตรของฉัน'], [0.5325, 'ดูทีละตัว'], [0.5575, 'ตัวถัดไป'], [0.5825, 'ตัวถัดไป'], [0.6075, 'ตัวสุดท้าย'], [0.77, 'ดูกับ 12 นักษัตร'], [0.92, 'ไปต่อ']]
+export const RESTS: Array<[number, string]> = [[0.3, 'ต่อ'], [0.5, 'ดูนักษัตรของฉัน'], [0.5325, 'ดูทีละตัว'], [0.5575, 'ตัวถัดไป'], [0.5825, 'ตัวถัดไป'], [0.6075, 'ตัวสุดท้าย'], [0.77, 'ดูกับ 12 นักษัตร'], [0.92, 'ไปต่อ']]
+// The guide button's next stop, past the one the reader is on. Half a step of slack (the animals are 0.025
+// apart): on Android the address bar shows and hides while the page glides, which moves the scroll progress
+// by about 1%, and a strict "next rest after P" then lands on the same animal again (owner, 2026-11-23).
+export const REST_SLACK = 0.0125
+export function nextRestAfter(P: number): [number, string] | null {
+  for (const r of RESTS) if (r[0] > P + REST_SLACK) return r
+  return null
+}
 const SEG: Array<[number, number]> = [[0, 0.2], [0.2, 0.4], [0.4, 0.64], [0.64, 0.86], [0.86, 0.94]]
 const FX: Record<'good' | 'care' | 'calm', [string, string]> = { good: ['six', '🎉'], care: ['harm', '😬'], calm: ['none', '🙂'] }
 
@@ -331,7 +339,9 @@ export function startTaisui(root: HTMLElement, api: TaisuiApi): () => void {
     const stp = (t: number) => { if (!gliding) return; if (!t0) t0 = t; const k = Math.min(1, (t - t0) / dur); scrollTo(0, s0 + (to - s0) * ease(k)); if (k < 1) requestAnimationFrame(stp); else { gliding = false; done?.(); armIdle() } }
     requestAnimationFrame(stp)
   }
-  const glideTo = (pp: number, done?: () => void) => glideToY(cine.offsetTop + (cine.offsetHeight - innerHeight) * pp, done)
+  // the same height frame() measures progress with (the sticky stage, 100svh): with innerHeight, Android's
+  // hidden address bar made every glide land about 1% short, so "ตัวถัดไป" glided back to the same spot
+  const glideTo = (pp: number, done?: () => void) => glideToY(cine.offsetTop + (cine.offsetHeight - (stage.clientHeight || innerHeight)) * pp, done)
   const toSection = (id: string) => glideToY($(id).getBoundingClientRect().top + scrollY - 12)
 
   // one guide button inside Mu's bubble
@@ -342,7 +352,7 @@ export function startTaisui(root: HTMLElement, api: TaisuiApi): () => void {
     if (gliding || sheetOpen) return
     nextTo = null
     if (!reading && P >= 0.3 && P < 0.9) { nextTo = 'sheet'; nextBtn.textContent = 'กรอกวันเกิด'; return }
-    if (P >= 0.03 && P < 0.9) for (const [at, label] of RESTS) if (at > P + 0.004) { nextTo = at; nextBtn.textContent = label; break }
+    if (P >= 0.03 && P < 0.9) { const r = nextRestAfter(P); if (r) { nextTo = r[0]; nextBtn.textContent = r[1] } }
   }
   function armIdle() {
     window.clearTimeout(idleT); window.clearTimeout(nudgeT); nextBtn.classList.remove('idle')
