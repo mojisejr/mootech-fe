@@ -6,7 +6,7 @@
 import type { GetServerSideProps } from 'next'
 import { isPaidMember } from '@/lib/v2/tier'
 import { useRouter } from 'next/router'
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { isV2Authenticated } from '@/lib/v2/gate'
 import { useV2AuthGate } from '@/features/auth/hooks/useV2AuthGate'
 import type { AuthStatus } from '@/lib/auth/resolve-auth'
@@ -18,6 +18,7 @@ import { animalFromCompute } from '@/lib/personalization/mascot'
 import { resolveGreetingElementTh } from '@/lib/personalization/compute-source'
 import { AuthLoadingGate } from '@/features/v2-shell/components/AuthLoadingGate'
 import ScreenIdentityStuck from '@/components/screen-identity-stuck'
+import ScreenLoading from '@/components/screen-loading'
 import { HomeSkeleton } from '@/features/v2-home/components/HomeSkeleton'
 import { V2GateForm } from '@/features/v2-shell/components/V2GateForm'
 import { OnboardingCarousel } from '@/features/onboarding/components/OnboardingCarousel'
@@ -93,12 +94,21 @@ function V2HomeRoute({ status }: { status: AuthStatus }) {
     } catch { /* storage ปิด */ }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
-  // ปีชง 2570: logged in from /taisui-2570 → back there once the chart exists (no chart → register first)
+  // ปีชง 2570: logged in from /taisui-2570 → back there once the chart exists (no chart → register first).
+  // Revision 0.13: while that marker is set, a loading screen stands in for home, so the member does not
+  // see home flash before the page (V2HomeRoute mounts only on the client, so localStorage is readable).
+  const [returning, setReturning] = useState(() => hasReturnMarker())
+  useEffect(() => {
+    if (!returning) return
+    const t = setTimeout(() => setReturning(false), 15000) // the user row never came: show home after all
+    return () => clearTimeout(t)
+  }, [returning])
   useEffect(() => {
     if (!user || !hasReturnMarker()) return
-    if (!isBirthProfileComplete(user as Parameters<typeof isBirthProfileComplete>[0])) return
+    if (!isBirthProfileComplete(user as Parameters<typeof isBirthProfileComplete>[0])) { setReturning(false); return }
     const to = takeReturnPath()
     if (to) window.location.assign(to)
+    else setReturning(false)
   }, [user])
   // Zone 1 — daily-fortune + persona data seam. Called unconditionally (before the loading branch) so
   // hook order is stable; graceful by design (no user / bazi error → fortune/persona=null → cards show
@@ -123,6 +133,7 @@ function V2HomeRoute({ status }: { status: AuthStatus }) {
   // user renders the home shell immediately (menubar/header present from frame 1), and `loading` tells
   // Lamun's screen which zones are still grey. This is the P1 fix: no full-screen white gate on data load.
   if (redirecting) return <AuthLoadingGate />
+  if (returning) return <ScreenLoading label="กำลังพากลับไปหน้าปีชง…" />
 
   return (
     <V2HomeScreen

@@ -30,3 +30,18 @@ export function takeReturnPath(now: number = Date.now()): string | null {
 export function hasReturnMarker(): boolean {
   try { return Boolean(window.localStorage.getItem(TAISUI_RETURN_KEY)) } catch { return false }
 }
+
+// Revision 0.13: a login started on the page, so the page may say "already claimed" once when it is back.
+export const TAISUI_QI_ASK_KEY = 'taisui:qi-ask'
+
+export function leaveQiAsk(now: number = Date.now()): void {
+  try { window.localStorage.setItem(TAISUI_QI_ASK_KEY, String(now)) } catch { /* storage off: the page stays quiet */ }
+}
+
+/** True once, within 30 minutes of a login started on the page; the marker is taken either way. */
+export function takeQiAsk(now: number = Date.now()): boolean {
+  let raw: string | null = null
+  try { raw = window.localStorage.getItem(TAISUI_QI_ASK_KEY); window.localStorage.removeItem(TAISUI_QI_ASK_KEY) } catch { return false }
+  const at = Number(raw)
+  return raw !== null && Number.isFinite(at) && now >= at && now - at <= MAX_AGE_MS
+}

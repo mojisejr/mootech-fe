@@ -10,7 +10,7 @@ import type { TaisuiReading } from '@/lib/taisui/types'
 import { LINE_OA_URL } from '@/features/v2-qi/components/LineOaCard'
 import { withFreshPass } from '../fresh-pass'
 import { oaClaimFrom } from '../oa-claim'
-import { leaveReturnMarker } from '../return'
+import { leaveQiAsk, leaveReturnMarker, takeQiAsk } from '../return'
 import { TAISUI_CSS } from './taisui-css'
 import { TAISUI_CSS_EXTRA } from './taisui-css-extra'
 import { TAISUI_MARKUP } from './taisui-markup'
@@ -56,8 +56,10 @@ export function TaisuiScreen({ refCode, sender }: TaisuiScreenProps) {
         if (birth) { try { sessionStorage.setItem(BIRTH_KEY, JSON.stringify(birth)) } catch { /* none */ } }
         if (refCode) { try { if (!localStorage.getItem(REFERRAL_KEY)) localStorage.setItem(REFERRAL_KEY, refCode) } catch { /* none */ } }
         leaveReturnMarker(refCode)
+        leaveQiAsk()
         loginRef.current()
       },
+      justLoggedIn: () => takeQiAsk(),
       openPacket: async () => { if (!refCode) return null; const r = await postJson('/api/taisui/packet', { code: refCode }); return r.ok ? r.json() : null },
       sendPacket: async () => {
         const r = await fetch('/api/referral', { credentials: 'same-origin' })
