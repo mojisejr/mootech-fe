@@ -2,7 +2,7 @@
 // เสี่ยวมู่ above it. Shown only after bazi has paid. Built with createElement and textContent only.
 export type CelebrateOpts = {
   qi: number
-  /** 'already' (revision 0.13): the reward was claimed before; no confetti, no count-up, no chat link. */
+  /** 'already' (revision 0.13): the reward was claimed before; no confetti, no count-up, and a plain link to the chat. */
   kind?: 'paid' | 'already'
   img: string
   still: boolean
@@ -46,7 +46,8 @@ export function celebrate(host: HTMLElement, o: CelebrateOpts): () => void {
   const read = el('button', 'celS', 'อ่านคำทำนายเต็มของฉัน'); read.type = 'button'
   acts.append(send, read); card.appendChild(acts)
   const deep = el('a', 'celDeep celLate') as HTMLAnchorElement; deep.href = o.deepHref
-  deep.appendChild(document.createTextNode('อยากรู้ลึกกว่านี้? ')); deep.appendChild(el('b', undefined, 'ถามเสี่ยวมู่ด้วยชี่ที่เพิ่งได้ ›')); if (!already) card.appendChild(deep)
+  if (already) deep.className = 'celDeep'
+  deep.appendChild(document.createTextNode('อยากรู้ลึกกว่านี้? ')); deep.appendChild(el('b', undefined, already ? 'ไปถามเสี่ยวมู่ต่อในแอป ›' : 'ถามเสี่ยวมู่ด้วยชี่ที่เพิ่งได้ ›')); card.appendChild(deep)
   const x = el('button', 'celX', '×'); x.type = 'button'; x.setAttribute('aria-label', 'ปิด'); card.appendChild(x)
   const fx = el('div', 'celFx'); fx.setAttribute('aria-hidden', 'true')
   root.append(card, fx); host.appendChild(root)

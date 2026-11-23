@@ -18,13 +18,13 @@ import { animalFromCompute } from '@/lib/personalization/mascot'
 import { resolveGreetingElementTh } from '@/lib/personalization/compute-source'
 import { AuthLoadingGate } from '@/features/v2-shell/components/AuthLoadingGate'
 import ScreenIdentityStuck from '@/components/screen-identity-stuck'
-import ScreenLoading from '@/components/screen-loading'
 import { HomeSkeleton } from '@/features/v2-home/components/HomeSkeleton'
 import { V2GateForm } from '@/features/v2-shell/components/V2GateForm'
 import { OnboardingCarousel } from '@/features/onboarding/components/OnboardingCarousel'
 import { endNewcomerGuide } from '@/features/v2-guide/NewcomerCoach'
 import { COURSE_REDEEM_KEY } from '@/features/course/redeem'
-import { hasReturnMarker, takeReturnPath } from '@/features/v2-taisui/return'
+import { clearReturnCookie, hasReturnMarker, takeReturnPath, TAISUI_RETURN_COOKIE } from '@/features/v2-taisui/return'
+import { ReturnLoading } from '@/features/v2-taisui/components/ReturnLoading'
 import { isBirthProfileComplete } from '@/lib/bazi-bridge/input'
 import { V2HomeScreen } from '@/features/v2-home/components/V2HomeScreen'
 // 🔴 TEMPORARY (#249) — #248 removes this import and its one <TeamPreviewResetBadge /> below.
@@ -32,7 +32,7 @@ import { TeamPreviewResetBadge } from '@/features/v2-team-preview/TeamPreviewRes
 
 type Props =
   | { teamAuthed: false; gateError: string | null }
-  | { teamAuthed: true }
+  | { teamAuthed: true; returning: boolean }
 
 export const getServerSideProps: GetServerSideProps<Props> = async (ctx) => {
   ctx.res.setHeader('Cache-Control', 'no-store, must-revalidate')
@@ -40,10 +40,11 @@ export const getServerSideProps: GetServerSideProps<Props> = async (ctx) => {
     const gateError = typeof ctx.query.gate_error === 'string' ? ctx.query.gate_error : null
     return { props: { teamAuthed: false, gateError } }
   }
-  return { props: { teamAuthed: true } }
+  // ปีชง 2570 (revision 0.13): the page's return cookie → draw the return screen from the first frame
+  return { props: { teamAuthed: true, returning: ctx.req.cookies?.[TAISUI_RETURN_COOKIE] === '1' } }
 }
 
-function V2Entry() {
+function V2Entry({ returning }: { returning: boolean }) {
   const router = useRouter()
   const { status, showLoading, identityStuck } = useV2AuthGate()
 
@@ -56,9 +57,11 @@ function V2Entry() {
   // reaches the user at least once — μุน measured it). Gate LOGIC unchanged (บอง 🔒 — do not touch
   // useHasMounted / no useLayoutEffect); only WHAT it renders changes: HomeSkeleton (menu+header+grey
   // zones) instead of the white AuthLoadingGate → that last frame is no longer blank (P1: 0 white frames).
-  if (showLoading) return <HomeSkeleton />
+  if (showLoading) return returning ? <ReturnLoading /> : <HomeSkeleton />
 
   if (status === 'anon') {
+    // the login did not finish: forget the way back
+    if (returning) clearReturnCookie()
     // คนใหม่ (เอ็ม 2026-10-15 "ทำเลย"): จบหน้าแนะนำ → ลองหาธาตุฟรี (ไกด์บังคับกด) → ค่อยสมัคร · คนเก่ากดทางลัดเข้าสู่ระบบ
     return (
       <OnboardingCarousel
@@ -72,14 +75,14 @@ function V2Entry() {
   // status === 'authed' → hand off to the home router (returning→home / no-chart→register, gap C).
   // Pass status down: useV2AuthGate is imported directly HERE (in pages/v2) per the discovery ban;
   // useV2Home takes status, it must not wrap useV2AuthGate itself.
-  return <V2HomeRoute status={status} />
+  return <V2HomeRoute status={status} returning={returning} />
 }
 
 // Authed home: goo's useV2Home does the gap-C routing (has-chart→home / no-chart→/v2/register,
 // loop-safe) + yields greeting + compute-source; useV2Logout gives the logout action Lamun's confirm
 // modal calls; useMascotFromCompute → character path (null → 01.webp fallback). Lamun's V2HomeScreen is
 // presentational (props only). All hooks are called unconditionally before the loading branch.
-function V2HomeRoute({ status }: { status: AuthStatus }) {
+function V2HomeRoute({ status, returning: fromServer }: { status: AuthStatus; returning: boolean }) {
   // useV2Home is the SINGLE owner of the /api/user fetch (#165): it yields the routing/greeting/compute
   // AND the header `profile` + the fetched `user` row, so useHomeFortune reuses that row instead of firing
   // a second UserGetById.
@@ -95,21 +98,23 @@ function V2HomeRoute({ status }: { status: AuthStatus }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
   // ปีชง 2570: logged in from /taisui-2570 → back there once the chart exists (no chart → register first).
-  // Revision 0.13: while that marker is set, a loading screen stands in for home, so the member does not
-  // see home flash before the page (V2HomeRoute mounts only on the client, so localStorage is readable).
-  const [returning, setReturning] = useState(() => hasReturnMarker())
+  // Revision 0.13: while the marker (or the server-read cookie) is set, ReturnLoading stands in for home
+  // from the first frame, so the member never sees home before the page.
+  const [returning, setReturning] = useState(() => fromServer || hasReturnMarker())
   useEffect(() => {
     if (!returning) return
-    const t = setTimeout(() => setReturning(false), 15000) // the user row never came: show home after all
+    const t = setTimeout(() => { clearReturnCookie(); setReturning(false) }, 15000) // the user row never came: show home after all
     return () => clearTimeout(t)
   }, [returning])
   useEffect(() => {
-    if (!user || !hasReturnMarker()) return
-    if (!isBirthProfileComplete(user as Parameters<typeof isBirthProfileComplete>[0])) { setReturning(false); return }
-    const to = takeReturnPath()
+    if (!user) return
+    if (!hasReturnMarker() && !fromServer) { if (returning) setReturning(false); return }
+    if (!isBirthProfileComplete(user as Parameters<typeof isBirthProfileComplete>[0])) { clearReturnCookie(); setReturning(false); return }
+    // the marker holds the packet code; the cookie alone (storage lost) still knows where to go
+    const to = takeReturnPath() ?? (fromServer ? '/taisui-2570' : null)
     if (to) window.location.assign(to)
     else setReturning(false)
-  }, [user])
+  }, [user, fromServer, returning])
   // Zone 1 — daily-fortune + persona data seam. Called unconditionally (before the loading branch) so
   // hook order is stable; graceful by design (no user / bazi error → fortune/persona=null → cards show
   // fallback). Consumes the shared `user` (no second fetch). ONE BFF call returns both fortune and persona.
@@ -133,7 +138,7 @@ function V2HomeRoute({ status }: { status: AuthStatus }) {
   // user renders the home shell immediately (menubar/header present from frame 1), and `loading` tells
   // Lamun's screen which zones are still grey. This is the P1 fix: no full-screen white gate on data load.
   if (redirecting) return <AuthLoadingGate />
-  if (returning) return <ScreenLoading label="กำลังพากลับไปหน้าปีชง…" />
+  if (returning) return <ReturnLoading />
 
   return (
     <V2HomeScreen
@@ -184,7 +189,7 @@ export default function V2HomePage(props: Props) {
   // production even for a gate-authenticated team session. Non-production only, until #248 deletes it.
   return (
     <>
-      <V2Entry />
+      <V2Entry returning={props.returning} />
       {process.env.NODE_ENV !== 'production' && <TeamPreviewResetBadge />}
     </>
   )
