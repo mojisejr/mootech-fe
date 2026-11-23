@@ -214,6 +214,7 @@ body:has(.ts2570){background:#071a36}
 .ts2570 .cel .celCard>*{max-width:440px;width:100%}
 .ts2570 .cel .celMu{position:absolute;top:-52px;left:50%;margin-left:-46px;width:92px!important;height:92px;border-radius:50%;background:#fff7e6;overflow:hidden;box-shadow:0 0 0 4px #ebbf30,0 0 40px rgba(235,191,48,.6)}
 .ts2570 .cel .celMu img{width:100%;height:100%;object-fit:cover;object-position:50% 18%}
+.ts2570 .cel .celT{margin-top:40px;font-family:var(--display);font-size:22px;line-height:1.35;color:var(--lime)}
 .ts2570 .cel .celK{margin-top:36px;font-size:14px;color:var(--mist)}
 .ts2570 .cel .celBig{font-family:var(--display);font-size:64px;line-height:1.05;color:var(--lime);text-shadow:0 0 24px rgba(225,255,0,.45);font-variant-numeric:tabular-nums}
 .ts2570 .cel .celBig small{font-size:28px;margin-left:6px;color:var(--gold)}

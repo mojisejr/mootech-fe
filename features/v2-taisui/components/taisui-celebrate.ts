@@ -2,6 +2,8 @@
 // เสี่ยวมู่ above it. Shown only after bazi has paid. Built with createElement and textContent only.
 export type CelebrateOpts = {
   qi: number
+  /** 'already' (revision 0.13): the reward was claimed before; no confetti, no count-up, no chat link. */
+  kind?: 'paid' | 'already'
   img: string
   still: boolean
   deepHref: string
@@ -28,15 +30,23 @@ export function celebrate(host: HTMLElement, o: CelebrateOpts): () => void {
   const card = el('div', 'celCard')
   card.tabIndex = -1
   const mu = el('div', 'celMu'); const im = el('img'); im.src = o.img; im.alt = 'เสี่ยวมู่'; mu.appendChild(im); card.appendChild(mu)
-  card.appendChild(el('div', 'celK', 'ขอบคุณที่เป็นเพื่อน MuMate ใน LINE'))
-  const big = el('div', 'celBig'); const num = el('span', undefined, o.still ? `+${o.qi}` : '+0'); big.appendChild(num); big.appendChild(el('small', undefined, 'ชี่')); card.appendChild(big)
-  card.appendChild(el('p', 'celUse celLate', 'เข้ากระเป๋าแล้ว ใช้ถามเสี่ยวมู่ต่อได้ เมื่อสิทธิ์ถามฟรีของวันนั้นหมด'))
-  const acts = el('div', 'celActs celLate')
+  const already = o.kind === 'already'
+  const big = el('div', 'celBig'); const num = el('span', undefined, o.still ? `+${o.qi}` : '+0')
+  if (already) {
+    root.setAttribute('aria-label', `รับ ${o.qi} ชี่ไปแล้ว`)
+    card.appendChild(el('div', 'celT', `คุณรับ ${o.qi} ชี่จากการแอด LINE ไปแล้ว`))
+    card.appendChild(el('p', 'celUse', 'สิทธิ์นี้ได้ครั้งเดียวต่อคน · ส่งอั่งเปาให้เพื่อน เพื่อนเปิดซองได้ชี่ 5–10 ชี่'))
+  } else {
+    card.appendChild(el('div', 'celK', 'ขอบคุณที่เป็นเพื่อน MuMate ใน LINE'))
+    big.appendChild(num); big.appendChild(el('small', undefined, 'ชี่')); card.appendChild(big)
+    card.appendChild(el('p', 'celUse celLate', 'เข้ากระเป๋าแล้ว ใช้ถามเสี่ยวมู่ต่อได้ เมื่อสิทธิ์ถามฟรีของวันนั้นหมด'))
+  }
+  const acts = el('div', already ? 'celActs' : 'celActs celLate')
   const send = el('button', 'celP', 'ส่งอั่งเปาให้เพื่อน'); send.type = 'button'
   const read = el('button', 'celS', 'อ่านคำทำนายเต็มของฉัน'); read.type = 'button'
   acts.append(send, read); card.appendChild(acts)
   const deep = el('a', 'celDeep celLate') as HTMLAnchorElement; deep.href = o.deepHref
-  deep.appendChild(document.createTextNode('อยากรู้ลึกกว่านี้? ')); deep.appendChild(el('b', undefined, 'ถามเสี่ยวมู่ด้วยชี่ที่เพิ่งได้ ›')); card.appendChild(deep)
+  deep.appendChild(document.createTextNode('อยากรู้ลึกกว่านี้? ')); deep.appendChild(el('b', undefined, 'ถามเสี่ยวมู่ด้วยชี่ที่เพิ่งได้ ›')); if (!already) card.appendChild(deep)
   const x = el('button', 'celX', '×'); x.type = 'button'; x.setAttribute('aria-label', 'ปิด'); card.appendChild(x)
   const fx = el('div', 'celFx'); fx.setAttribute('aria-hidden', 'true')
   root.append(card, fx); host.appendChild(root)
@@ -53,7 +63,7 @@ export function celebrate(host: HTMLElement, o: CelebrateOpts): () => void {
   document.addEventListener('keydown', onKey)
   requestAnimationFrame(() => requestAnimationFrame(() => { root.classList.add('on'); card.focus({ preventScroll: true }) }))
   try { navigator.vibrate?.([20, 60, 30]) } catch { /* no vibration */ }
-  if (o.still) return remove
+  if (o.still || already) return remove
 
   // count up once the sheet has landed, then pop
   const t0 = performance.now() + 420, dur = 900

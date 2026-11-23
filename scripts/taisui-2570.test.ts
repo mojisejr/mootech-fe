@@ -331,7 +331,7 @@ describe('the 100 QI celebration (revision 0.12)', () => {
   it('celebrates only a payment, once, with both ways on and no HTML from strings', async () => {
     const fs = await import('node:fs')
     const motion = fs.readFileSync('features/v2-taisui/components/taisui-motion.ts', 'utf8')
-    const calls = motion.split('\n').filter((l) => /celebrateQi\(r\.qi\)/.test(l))
+    const calls = motion.split('\n').filter((l) => /celebrateQi\(r\.qi, 'paid'\)/.test(l))
     expect(calls).toHaveLength(1)
     expect(calls[0]).toContain("r.state === 'paid'")
     expect(motion).toMatch(/if \(celDone\) return/)
@@ -349,5 +349,42 @@ describe('the 100 QI celebration (revision 0.12)', () => {
   it('registers its analytics events', () => {
     expect(ANALYTICS_EVENTS.taisui_oa_cel).toEqual(['action'])
     expect(ANALYTICS_EVENTS.taisui_deeper).toEqual(['from'])
+  })
+})
+
+describe('after a login from the page (revision 0.13)', () => {
+  const store = new Map<string, string>()
+  beforeEach(() => {
+    store.clear()
+    vi.stubGlobal('window', { localStorage: { getItem: (k: string) => store.get(k) ?? null, setItem: (k: string, v: string) => store.set(k, v), removeItem: (k: string) => store.delete(k) } })
+  })
+  afterEach(() => vi.unstubAllGlobals())
+  it('says "just logged in" once, only while fresh', async () => {
+    const { leaveQiAsk, takeQiAsk } = await import('@/features/v2-taisui/return')
+    expect(takeQiAsk(5)).toBe(false)
+    leaveQiAsk(1_000)
+    expect(takeQiAsk(2_000)).toBe(true)
+    expect(takeQiAsk(3_000)).toBe(false)
+    leaveQiAsk(0)
+    expect(takeQiAsk(31 * 60 * 1000)).toBe(false)
+  })
+  it('says an already-claimed reward once after that login, and promises the sender nothing', async () => {
+    const fs = await import('node:fs')
+    const motion = fs.readFileSync('features/v2-taisui/components/taisui-motion.ts', 'utf8')
+    expect(motion).toMatch(/r\.state === 'already'\) \{[^\n]*if \(fromLogin\) \{ fromLogin = false; celebrateQi\(100, 'already'\)/)
+    const screen = fs.readFileSync('features/v2-taisui/components/TaisuiScreen.tsx', 'utf8')
+    expect(screen).toMatch(/leaveReturnMarker\(refCode\)\n\s*leaveQiAsk\(\)/)
+    const cel = fs.readFileSync('features/v2-taisui/components/taisui-celebrate.ts', 'utf8')
+    expect(cel).toContain('คุณรับ ${o.qi} ชี่จากการแอด LINE ไปแล้ว')
+    expect(cel).toContain('เพื่อนเปิดซองได้ชี่ 5–10 ชี่')
+    expect(cel).not.toMatch(/คุณได้(รับ)?(อั่งเปา|ชี่)/)
+    expect(cel).toMatch(/if \(o\.still \|\| already\) return remove/)
+  })
+  it('shows a loading screen on home instead of home while the return marker is set', async () => {
+    const fs = await import('node:fs')
+    const home = fs.readFileSync('pages/v2/index.tsx', 'utf8')
+    expect(home).toMatch(/useState\(\(\) => hasReturnMarker\(\)\)/)
+    expect(home).toMatch(/if \(returning\) return <ScreenLoading label="กำลังพากลับไปหน้าปีชง…" \/>/)
+    expect(home.indexOf('if (returning)')).toBeLessThan(home.indexOf('<V2HomeScreen'))
   })
 })

@@ -28,6 +28,8 @@ export type TaisuiApi = {
   sendPacket: () => Promise<{ url: string } | null>
   /** The existing once-per-member LINE OA reward (100 QI), checked against LINE on the server. */
   claimOa: () => Promise<OaClaim>
+  /** True once right after a LINE login started on this page (revision 0.13). */
+  justLoggedIn: () => boolean
   oaUrl: string
   track: (event: string, params?: Record<string, string | number>) => void
   sender: Sender
@@ -641,6 +643,8 @@ export function startTaisui(root: HTMLElement, api: TaisuiApi): () => void {
 
   // the LINE OA reward: asked once per page load as soon as the visitor is a member
   let oaAsked = false, oaWaiting = false
+  let celDone = false
+  let fromLogin: boolean | null = null
   const oaToast = el('div', 'oaToast'); oaToast.setAttribute('role', 'status'); oaToast.hidden = true; root.appendChild(oaToast); cleanups.push(() => oaToast.remove())
   function showOa(text: string, withAdd: boolean) {
     oaToast.textContent = ''
@@ -652,18 +656,22 @@ export function startTaisui(root: HTMLElement, api: TaisuiApi): () => void {
   async function claimOa() {
     const r = await api.claimOa().catch(() => ({ state: 'skip' as const }))
     api.track('taisui_oa_claim', { result: r.state })
-    if (r.state === 'paid') { oaWaiting = false; oaToast.hidden = true; celebrateQi(r.qi) }
+    if (fromLogin === null) fromLogin = api.justLoggedIn()
+    if (r.state === 'paid') { oaWaiting = false; oaToast.hidden = true; fromLogin = false; celebrateQi(r.qi, 'paid') }
     else if (r.state === 'not_friend') showOa('แอด LINE ของ MuMate เป็นเพื่อน รับเพิ่ม 100 ชี่ (ครั้งเดียว)', true)
-    else { oaWaiting = false; if (r.state === 'already') oaToast.hidden = true }
+    else {
+      oaWaiting = false
+      if (r.state === 'already') { oaToast.hidden = true; if (fromLogin) { fromLogin = false; celebrateQi(100, 'already') } }
+    }
   }
   // revision 0.12: the paid QI as a bottom sheet, once; its buttons lead to sharing or the year
-  let celDone = false
-  function celebrateQi(qi: number) {
+  // revision 0.13: right after a login from this page, an already-claimed reward is said once, not hidden
+  function celebrateQi(qi: number, kind: 'paid' | 'already') {
     if (celDone) return
     celDone = true
-    api.track('taisui_oa_cel', { action: 'shown' })
+    api.track('taisui_oa_cel', { action: kind === 'paid' ? 'shown' : 'already' })
     const close = celebrate(root, {
-      qi, img: '/images/v2/mascot/personas/mu/happy.png', still,
+      qi, kind, img: '/images/v2/mascot/personas/mu/happy.png', still,
       deepHref: deeperHref(reading?.chart.source ?? 'typed'),
       onSend: () => { api.track('taisui_oa_cel', { action: 'send' }); $('sendPk').click() },
       onRead: () => { api.track('taisui_oa_cel', { action: 'read' }); toSection('yearSec') },
