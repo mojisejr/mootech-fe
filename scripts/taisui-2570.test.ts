@@ -464,6 +464,9 @@ describe('the team meeting of 2026-11-24 (revision 0.14)', () => {
     expect(motion).not.toMatch(/gate\('count'\)/)
     expect(motion).toMatch(/if \(!member\) \{ const lg = el\('button', 'btn yearLogin', 'เข้าสู่ระบบด้วย LINE · รับ 100 ชี่'\)[^\n]*gate\('year'\)/)
     expect(motion).toMatch(/document\.createTextNode\('ต่อไป: คำทำนายรายเสา'\)[^\n]*\n[^\n]*toSection\('readT'\)/)
+    // a visitor's skip is quiet and goes to the shop; only members get the way to the share card
+    expect(motion).toMatch(/el\('button', 'yearSkip', 'ไว้ทีหลัง · ดูของขวัญปีมะแม ›'\)[\s\S]{0,200}toSection\('shop'\)/)
+    expect(motion).toMatch(/const syncShare = \(\) => \{ toShare\.hidden = !member \}/)
     // one login per box: the floating dock shows only before a reading
     expect(motion).toMatch(/dock\.classList\.toggle\('on', below && !sheetOpen && !member && !reading\)/)
   })

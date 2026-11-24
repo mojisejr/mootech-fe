@@ -289,6 +289,9 @@ body:has(.ts2570){background:#071a36}
 .ts2570 .floatnext[hidden]{display:none}
 @keyframes ts-floatIn{from{opacity:0;transform:translate(-50%,12px)}to{opacity:1;transform:translateX(-50%)}}
 .ts2570 .nextcue:focus-visible,.ts2570 .waynext:focus-visible,.ts2570 .floatnext:focus-visible{outline:3px solid #e1ff00;outline-offset:3px}
+.ts2570 .role .yearSkip{display:block;margin:14px auto 0;min-height:44px;padding:0 12px;border:0;background:none;color:var(--mist);font:inherit;font-size:15px;font-weight:500;text-decoration:underline;text-underline-offset:3px;cursor:pointer}
+.ts2570 .role .yearSkip:focus-visible{outline:3px solid #e1ff00;outline-offset:2px}
+.ts2570 .waynext[hidden]{display:none}
 .ts2570 .role .yearLogin{display:flex;align-items:center;justify-content:center;width:100%;max-width:420px;min-height:52px;margin:24px auto 0;animation:none;font-size:16px}
 /* larger text for older readers (owner, 2026-11-24) */
 .ts2570 .sec{font-size:18px}
