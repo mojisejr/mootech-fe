@@ -135,7 +135,7 @@ export const GUIDE_CHAPTERS: readonly GuideChapter[] = [
         match: ["/v2/element-finder"],
         coach: "มาหาธาตุแท้! ใส่วันเกิด แล้วรับนิสัยตามธาตุ พร้อม wallpaper ไว้ตั้งหน้าจอเสริมดวง แชร์ให้เพื่อนเล่นได้ด้วย",
         steps: [
-          { target: [tid("finder-input"), tid("finder-date")], text: "ใส่วันเกิดตรงนี้" },
+          { target: [tid("finder-date"), tid("finder-input")], text: "ใส่วันเกิดตรงนี้" },
           { target: [tid("finder-submit"), tid("finder-cta")], text: "แล้วกดหาธาตุแท้ของคุณ" },
         ],
       },

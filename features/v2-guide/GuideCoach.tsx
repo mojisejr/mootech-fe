@@ -89,7 +89,9 @@ export function GuideCoach() {
       if (!el) return
       targetRef.current = el
       const r = el.getBoundingClientRect()
-      const off = r.top < 60 || r.bottom > window.innerHeight - 60
+      // เลื่อนเฉพาะตอนปุ่ม "หลุดจอ" จริง — เดิมเช็กขอบบน/ล่างเกินนิดเดียวก็เลื่อน → กล่องที่สูงกว่าจอ (เช่นฟอร์มหาธาตุแท้)
+      // ถูกเลื่อนวนทุก 1.2 วิ และไม่ขึ้นไฮไลต์เลย (ลูกค้าทำภารกิจหาธาตุแท้ไม่ผ่าน 2026-11-24)
+      const off = r.bottom < 60 || r.top > window.innerHeight - 60
       if (off && Date.now() - lastScroll > 1200) {
         lastScroll = Date.now()
         el.scrollIntoView({ block: "center" })

@@ -10,6 +10,7 @@ import { useEffect, useRef, useState } from "react"
 import type { GetServerSideProps } from "next"
 
 import { NewcomerCoach, saveNewcomerBirth, useNewcomer } from "@/features/v2-guide/NewcomerCoach"
+import { reportGuideMission, useGuideProgress } from "@/features/v2-guide/useGuideProgress"
 import { SkyScreen } from "@/features/v2-profile/components/kit"
 import { Menubar } from "@/features/v2-shell/components/Menubar"
 import { ELEMENT_CONTENT, toElementKey, type ElementContent } from "@/features/v2-element-finder/content"
@@ -119,6 +120,17 @@ export default function ElementFinderPage({ ogImage, ogTitle, ogDesc, pageUrl }:
       setError("เชื่อมต่อไม่สำเร็จ ลองใหม่อีกครั้ง"); setPhase("input")
     } finally { timers.forEach((t) => window.clearTimeout(t)) }
   }
+
+  // ภารกิจมือใหม่ "หาธาตุแท้ + wallpaper" ผ่านเมื่อเห็นผลธาตุจริง — ไม่ต้องพึ่งไฮไลต์ของไกด์ (ซึ่งพลาดได้บนมือถือ)
+  // engine จ่าย QI ครั้งเดียว (เรียกซ้ำ = ไม่ได้ซ้ำ) · ยังไม่ล็อกอิน = เรียกไม่ผ่าน เงียบไป
+  const guide = useGuideProgress()
+  const guideReported = useRef(false)
+  useEffect(() => {
+    if (phase !== "result" || newcomer || guideReported.current) return
+    guideReported.current = true
+    guide.markDone("element_finder")
+    void reportGuideMission("guide_element_finder")
+  }, [phase, newcomer, guide])
 
   const reset = () => { setResult(null); setCharacter(""); setWallpaper(null); setPhase("input") }
 
