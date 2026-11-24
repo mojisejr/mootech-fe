@@ -390,7 +390,8 @@ export function startTaisui(root: HTMLElement, api: TaisuiApi): () => void {
   on($('member'), 'click', () => { api.track('taisui_login_click', { from: 'hero' }); api.login(null) })
   // revision 0.14 (team meeting 2026-11-24): two ways on from the count. อ่านแบบเต็ม glides to the shop; อ่านแบบย่อ reads on
   on($('toFull'), 'click', () => { api.track('taisui_way', { pick: 'full' }); toSection('shop') })
-  on($('toShort'), 'click', () => { api.track('taisui_way', { pick: 'short' }); if (member) toSection('yearSec'); else gate('count') })
+  // the short read is free for everyone (owner, 2026-11-24): glide to the year; the login waits at its end
+  on($('toShort'), 'click', () => { api.track('taisui_way', { pick: 'short' }); if (!reading) { glideTo(0.3, openSheet); return } toSection(roleSec.hidden ? 'readT' : 'yearSec') })
   on($('lockLogin'), 'click', () => gate('lock'))
 
   // ⑥ twelve monthly lanterns
@@ -510,6 +511,10 @@ export function startTaisui(root: HTMLElement, api: TaisuiApi): () => void {
     // the fold keeps the chart and its caption only (team review, revision 0.11)
     fold.appendChild(renderChart(r))
     roleSec.appendChild(fold) }
+    // the year ends with the login for a visitor (owner, 2026-11-24), then a way on to the pillars for anyone
+    if (!member) { const lg = el('button', 'btn yearLogin', 'เข้าสู่ระบบด้วย LINE · รับ 100 ชี่') as HTMLButtonElement; lg.type = 'button'; on(lg, 'click', () => gate('year')); roleSec.appendChild(lg) }
+    const wn = el('button', 'waynext') as HTMLButtonElement; wn.type = 'button'; wn.appendChild(document.createTextNode('ต่อไป: คำทำนายรายเสา')); wn.appendChild(el('i'))
+    on(wn, 'click', () => toSection('readT')); roleSec.appendChild(wn)
   }
 
   // the chart's characters, and the year's two flying in to the ones they hit (plan revision 0.9)
@@ -599,7 +604,8 @@ export function startTaisui(root: HTMLElement, api: TaisuiApi): () => void {
   function updateDock() {
     const below = scrollY > cine.offsetTop + cine.offsetHeight - innerHeight * 0.5
     // only before a reading and for a visitor's login: members send from the share card (revision 0.11)
-    dock.classList.toggle('on', below && !sheetOpen && !member)
+    // only before a reading (owner, 2026-11-24): after it, the login lives in its box, not in a second floating button
+    dock.classList.toggle('on', below && !sheetOpen && !member && !reading)
     dockBtn.textContent = !reading ? 'ดูดวงปีมะแมของฉัน · ฟรี' : 'เข้าสู่ระบบ LINE ดูคำทำนายเต็ม'
   }
   on(dockBtn, 'click', () => {

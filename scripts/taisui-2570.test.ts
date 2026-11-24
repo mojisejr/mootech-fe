@@ -459,7 +459,13 @@ describe('the team meeting of 2026-11-24 (revision 0.14)', () => {
     const motion = fs.readFileSync('features/v2-taisui/components/taisui-motion.ts', 'utf8')
     expect(TAISUI_MARKUP).toMatch(/id="toFull"[\s\S]*id="toShort">อ่านแบบย่อ · ฟรี</)
     expect(motion).toMatch(/on\(\$\('toFull'\), 'click', \(\) => \{[^\n]*toSection\('shop'\)/)
-    expect(motion).toMatch(/on\(\$\('toShort'\), 'click', \(\) => \{[^\n]*if \(member\) toSection\('yearSec'\); else gate\('count'\)/)
+    // the short read is free for everyone: it glides to the year, and the login waits at the year's end
+    expect(motion).toMatch(/on\(\$\('toShort'\), 'click', \(\) => \{[^\n]*toSection\(roleSec\.hidden \? 'readT' : 'yearSec'\)/)
+    expect(motion).not.toMatch(/gate\('count'\)/)
+    expect(motion).toMatch(/if \(!member\) \{ const lg = el\('button', 'btn yearLogin', 'เข้าสู่ระบบด้วย LINE · รับ 100 ชี่'\)[^\n]*gate\('year'\)/)
+    expect(motion).toMatch(/document\.createTextNode\('ต่อไป: คำทำนายรายเสา'\)[^\n]*\n[^\n]*toSection\('readT'\)/)
+    // one login per box: the floating dock shows only before a reading
+    expect(motion).toMatch(/dock\.classList\.toggle\('on', below && !sheetOpen && !member && !reading\)/)
   })
   it('cuts the Sinse chart and every card Sinse fold; the card ask goes to the shop', async () => {
     const fs = await import('node:fs')
