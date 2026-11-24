@@ -4,7 +4,8 @@
 //
 // Member data reaches the DOM only through textContent, attributes and createElement — never as HTML.
 import { celebrate } from './taisui-celebrate'
-import { DEEPER_PACKAGES, deeperHref } from '../deeper'
+import { deeperHref } from '../deeper'
+import { PLANS } from '@/features/v2-shop/packages'
 import type { TaisuiReading } from '@/lib/taisui/types'
 import { AREA, AT_TH, DAY_MASTER, MONTH_TIP, PAIR_LINE, HE_DOES, HE_VERB, PLAIN, RELATION_NAME, TONE, VERDICT, areaOf, heOf, pillarCaption, pillarName, strongestOf, type Relation } from '../content/readings'
 import { animalImage, animalTh, MONTH_LABEL, WHEEL_BRANCHES } from '../content/animals'
@@ -17,19 +18,25 @@ const YAM: Array<[string, string]> = [
   ['16:00', 'ยามวอก 15:00–16:59'], ['18:00', 'ยามระกา 17:00–18:59'], ['20:00', 'ยามจอ 19:00–20:59'], ['22:00', 'ยามกุน 21:00–22:59'],
 ]
 export type Sender = { name: string; animal: string; image: string } | null
+/** The Pro yearly offer: checkout link, list price in baht, and whether an owner-set code halves it. */
+export type ProOffer = { href: string; price: number | null; discounted: boolean }
 export type OaClaim = { state: 'paid'; qi: number } | { state: 'already' | 'not_friend' | 'skip' }
 
 export type TaisuiApi = {
   /** Loads the reading: no birth = the logged-in member's saved chart. */
   loadReading: (birth?: Birth) => Promise<{ ok: true; reading: TaisuiReading } | { ok: false; status: number }>
   stats: () => Promise<{ members: number; asOf: string } | null>
-  login: (birth: Birth | null) => void
+  login: (birth: Birth | null, next?: 'shop') => void
   openPacket: () => Promise<{ paid: boolean; qi?: number; reason?: string } | null>
   sendPacket: () => Promise<{ url: string } | null>
   /** The existing once-per-member LINE OA reward (100 QI), checked against LINE on the server. */
   claimOa: () => Promise<OaClaim>
+  /** Revision 0.14: the Pro offer at the end of the page, priced on the server (payment_package) with the owner's code from env. */
+  proOffer: ProOffer
   /** True once right after a LINE login started on this page (revision 0.13). */
   justLoggedIn: () => boolean
+  /** Where a login started on this page asked to land afterwards, taken once. */
+  takeNext: () => 'shop' | null
   oaUrl: string
   track: (event: string, params?: Record<string, string | number>) => void
   sender: Sender
@@ -307,7 +314,7 @@ export function startTaisui(root: HTMLElement, api: TaisuiApi): () => void {
       l.badge.style.setProperty('--s', k > 0.95 && wv > 0.5 ? '1' : '0')
     })
     zc.style.left = cx + 'px'; zc.style.top = cy + medal.offsetWidth * sc * 0.4 + 'px'; zc.style.opacity = wv.toFixed(2); zc.classList.toggle('me', mine.has('未') && p > 0.72)
-    const sIn = seg(p, 0.88, 0.93); $('stat').style.opacity = sIn.toFixed(2); $('toRead').style.pointerEvents = sIn > 0.6 ? 'auto' : 'none'; $('toRead').tabIndex = sIn > 0.6 ? 0 : -1
+    const sIn = seg(p, 0.88, 0.93); $('stat').style.opacity = sIn.toFixed(2); $('two').style.pointerEvents = sIn > 0.6 ? 'auto' : 'none'; $('toFull').tabIndex = $('toShort').tabIndex = sIn > 0.6 ? 0 : -1
     if (p > 0.89 && !counted) countUp(); if (p < 0.86 && counted) resetOdo()
     if (sheetOpen) say('ใส่เวลาเกิด แล้วดูฟ้าด้านบนเปลี่ยนตามนะครับ', 'happy')
     else if (p < 0.05) say(api.sender ? `มีอั่งเปาจาก${api.sender.name}รออยู่ มาดูดวงปีมะแมของคุณกันก่อนครับ` : 'สวัสดีครับ ผมเสี่ยวมู่ มาดูกันว่าปีมะแมส่งผลกับคุณยังไง', 'greet')
@@ -318,7 +325,7 @@ export function startTaisui(root: HTMLElement, api: TaisuiApi): () => void {
     else if (p < 0.62) say(caps[Math.max(0, spot)] ?? '', 'happy')
     else if (p < 0.86 && p > 0.745 && heLinks.length) say(heLinks.length > 1 ? `เส้นที่วงล้อคือตัวที่เชื่อมกับแพะ: ${heLinks.map((l) => l.short).join(' · ')}` : heLinks[0].sentence, 'special')
     else if (p < 0.86) { const n = careCount(), h = heCount(); say(n || h ? `ตัวที่เรืองแสงคือของคุณ ปีนี้${n ? `มี ${n} เสาที่โดนแรงของปี` : ''}${n && h ? ' และ' : ''}${h ? `มี ${h} เสาที่จับมือกับปี` : ''}` : 'ตัวที่เรืองแสงคือของคุณ ปีนี้ไม่มีเสาไหนโดนแรงของปีตรงๆ ครับ', n ? 'special' : 'happy') }
-    else say(member ? 'อ่านภาพรวมทั้งปีของคุณก่อน แล้วค่อยดูทีละเดือนครับ' : 'คำทำนายเต็มกับโคม 12 เดือน ดูได้หลังเข้าสู่ระบบครับ', 'happy')
+    else say(api.proOffer.discounted ? 'เลือกได้เลยครับ อ่านแบบย่อฟรี หรืออ่านแบบเต็มกับ Pro ลด 50%' : 'เลือกได้เลยครับ อ่านแบบย่อฟรี หรืออ่านแบบเต็มกับ Mumate Pro', 'happy')
     bub.classList.toggle('dense', p >= 0.52 && p < 0.62 && (caps[Math.max(0, spot)] ?? '').split('\n').length > 2)
     updateNext(); updateDock()
   }
@@ -381,8 +388,10 @@ export function startTaisui(root: HTMLElement, api: TaisuiApi): () => void {
     closeSheet(); glideTo(0.3)
   })
   on($('member'), 'click', () => { api.track('taisui_login_click', { from: 'hero' }); api.login(null) })
-  on($('toRead'), 'click', () => { if (member) toSection('yearSec'); else { api.track('taisui_login_click', { from: 'count' }); api.login(typed) } })
-  on($('lockLogin'), 'click', () => { api.track('taisui_login_click', { from: 'lock' }); api.login(typed) })
+  // revision 0.14 (team meeting 2026-11-24): two ways on from the count. อ่านแบบเต็ม glides to the shop; อ่านแบบย่อ reads on
+  on($('toFull'), 'click', () => { api.track('taisui_way', { pick: 'full' }); toSection('shop') })
+  on($('toShort'), 'click', () => { api.track('taisui_way', { pick: 'short' }); if (member) toSection('yearSec'); else gate('count') })
+  on($('lockLogin'), 'click', () => gate('lock'))
 
   // ⑥ twelve monthly lanterns
   const mz = $('months')
@@ -442,16 +451,12 @@ export function startTaisui(root: HTMLElement, api: TaisuiApi): () => void {
       // three layers: plain words, then the Sinse's reading of the characters, then what to do
       art.appendChild(el('h3', undefined, rd.headline))
       if (rd.story) art.appendChild(el('p', 'story', rd.story))
-      if (rd.details.length) {
-        // folded by default: plain readers get an even, short card; chart readers open it
-        const fold = el('details', 'sx'); fold.appendChild(el('summary', undefined, `อ่านแบบซินแส · ${rd.details.length} จุด`))
-        const dl = el('div', 'rx'); fold.appendChild(dl)
-        rd.details.forEach((d, k) => { const it = el('div', 'it'); it.appendChild(el('b', undefined, d.name)); it.appendChild(el('small', undefined, d.why)); if (k > 0 && d.story !== rd.story) it.appendChild(el('p', undefined, d.story)); dl.appendChild(it) })
-        art.appendChild(fold)
-      }
+      // revision 0.14: no "อ่านแบบซินแส" fold on any card; the plain lines already name every reaction
       art.appendChild(el('h3', undefined, 'ทำ 3 อย่างนี้'))
       const ul = el('ul', 'acts'); rd.actions.forEach((a, k) => { const li = el('li'); li.appendChild(el('span', undefined, String(k + 1))); li.appendChild(document.createTextNode(a)); ul.appendChild(li) }); art.appendChild(ul)
-      const ask = el('a', 'ask'); ask.href = '/v2/chat'; const mi = el('img'); mi.src = '/images/v2/mascot/personas/mu/happy.png'; mi.alt = ''; ask.appendChild(mi); ask.appendChild(document.createTextNode('ถามเสี่ยวมู่เรื่องนี้ต่อ'))
+      // revision 0.14: the card's ask leads to the offer at the end of the page, not to the chat
+      const ask = el('button', 'ask') as HTMLButtonElement; ask.type = 'button'; ask.textContent = api.proOffer.discounted ? 'อ่านแบบเต็ม · Pro ลด 50% ›' : 'อ่านแบบเต็ม · Mumate Pro ›'
+      on(ask, 'click', () => { api.track('taisui_way', { pick: 'card' }); toSection('shop') })
       // the LINE send lives only on the share card (team review, revision 0.11)
       const foot = el('div', 'cfoot'); foot.appendChild(ask); art.appendChild(foot)
       box.appendChild(art)
@@ -499,11 +504,12 @@ export function startTaisui(root: HTMLElement, api: TaisuiApi): () => void {
     vd.appendChild(rows); roleSec.appendChild(vd)
     if (still || !('IntersectionObserver' in window)) rows.classList.add('in')
     else { const io = new IntersectionObserver((es) => es.forEach((e) => { if (e.isIntersecting) { rows.classList.add('in'); io.disconnect() } }), { threshold: 0.3 }); io.observe(rows); cleanups.push(() => io.disconnect()) }
-    // the Sinse's reading of the characters, folded: the chart plays when it opens
-    const fold = el('details', 'fold'); const sm = el('summary'); const st = el('div'); st.appendChild(document.createTextNode('ดูแบบซินแส: ปีมะแมโดนตัวอักษรไหน')); st.appendChild(el('small', undefined, 'ผังดวง 8 ตัวอักษร ราศีบน ราศีล่าง และดิถี')); sm.appendChild(st); fold.appendChild(sm)
+    // revision 0.14: the Sinse chart is cut from the page (owner, 2026-11-24); renderChart stays for a later return
+    void renderChart
+    if (false as boolean) { const fold = el('details', 'fold'); const sm = el('summary'); const st = el('div'); st.appendChild(document.createTextNode('ดูแบบซินแส: ปีมะแมโดนตัวอักษรไหน')); st.appendChild(el('small', undefined, 'ผังดวง 8 ตัวอักษร ราศีบน ราศีล่าง และดิถี')); sm.appendChild(st); fold.appendChild(sm)
     // the fold keeps the chart and its caption only (team review, revision 0.11)
     fold.appendChild(renderChart(r))
-    roleSec.appendChild(fold)
+    roleSec.appendChild(fold) }
   }
 
   // the chart's characters, and the year's two flying in to the ones they hit (plan revision 0.9)
@@ -598,7 +604,7 @@ export function startTaisui(root: HTMLElement, api: TaisuiApi): () => void {
   }
   on(dockBtn, 'click', () => {
     if (!reading) { glideTo(0.3, openSheet); return }
-    api.track('taisui_login_click', { from: 'dock' }); api.login(typed)
+    gate('dock')
   })
 
   // ③ + ⑧ red packet: drag the seal up to open; a tap also opens it
@@ -646,9 +652,56 @@ export function startTaisui(root: HTMLElement, api: TaisuiApi): () => void {
 
   // the shop (revision 0.11): prices, codes and the Planner's order channel are the owner's to set
   // revision 0.12: the เสี่ยวมู่ card tries the chat first; the packages stay a small link
-  on($('adMu'), 'click', () => api.track('taisui_shop', { item: 'mu' }))
-  on($('adPkg'), 'click', () => api.track('taisui_shop', { item: 'packages' }))
-  on($('deepStrip'), 'click', () => api.track('taisui_deeper', { from: 'strip' }))
+  // revision 0.14: the shop sells Mumate Pro yearly first; the price is the server's, the code the owner's (env)
+  const pro = PLANS.find((x) => x.id === 'pro')
+  pro?.features.forEach((f) => $('adProList').appendChild(el('li', undefined, f)))
+  const offer = api.proOffer
+  const priceBox = $('adPrice'); priceBox.textContent = ''
+  if (offer.price !== null) {
+    if (offer.discounted) { priceBox.appendChild(el('s', undefined, `฿${offer.price.toLocaleString('en-US')}`)); priceBox.appendChild(el('b', undefined, `฿${Math.floor(offer.price / 2).toLocaleString('en-US')}`)) }
+    else priceBox.appendChild(el('b', undefined, `฿${offer.price.toLocaleString('en-US')}`))
+    priceBox.appendChild(document.createTextNode(' / ปี'))
+  }
+  $('adOff').hidden = !offer.discounted
+  const proBtn = $<HTMLAnchorElement>('adPro'); proBtn.href = offer.href; proBtn.textContent = offer.discounted ? 'สมัคร Pro ลด 50%' : 'สมัคร Mumate Pro'
+  $('toFullT').textContent = offer.discounted ? 'อ่านแบบเต็ม · Pro ลด 50%' : 'อ่านแบบเต็ม · Mumate Pro'
+  // a visitor logs in on this page first, so the 100 QI is paid and shown here, then comes back to the shop
+  on(proBtn, 'click', (e) => { api.track('taisui_shop', { item: 'pro' }); if (!member) { e.preventDefault(); gate('pro', 'shop') } })
+
+  // revision 0.14: a short page before LINE login, saying what the login gives
+  function gate(from: string, next?: 'shop') {
+    root.querySelector('.gate')?.remove()
+    api.track('taisui_gate', { from })
+    const g = el('div', 'gate'); g.setAttribute('role', 'dialog'); g.setAttribute('aria-modal', 'true'); g.setAttribute('aria-label', 'เข้าสู่ระบบเพื่ออ่านปีของคุณ')
+    const c = el('div', 'gc')
+    c.appendChild(el('h3', undefined, next === 'shop' ? 'เข้าสู่ระบบก่อนสมัคร Pro' : 'อ่านปีมะแมของคุณต่อ'))
+    c.appendChild(el('p', undefined, 'เข้าสู่ระบบด้วย LINE ครั้งเดียว ใช้เวลาไม่ถึงนาที'))
+    const ul = el('ul'); ['คำทำนายทั้ง 4 เสาของคุณ', 'โคม 12 เดือน ดูว่าเดือนไหนต้องระวัง', 'รับ 100 ชี่ เมื่อเป็นเพื่อน MuMate ใน LINE'].forEach((t) => ul.appendChild(el('li', undefined, t))); c.appendChild(ul)
+    const line = el('button', 'line', 'เข้าสู่ระบบด้วย LINE') as HTMLButtonElement; line.type = 'button'
+    on(line, 'click', () => { api.track('taisui_login_click', { from }); g.remove(); api.login(typed, next) })
+    const later2 = el('button', 'later', 'ไว้ทีหลัง') as HTMLButtonElement; later2.type = 'button'
+    const close = () => { g.remove(); document.removeEventListener('keydown', onKey) }
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') close() }
+    on(later2, 'click', close); on(g, 'click', (e) => { if (e.target === g) close() }); document.addEventListener('keydown', onKey)
+    c.append(line, later2); g.appendChild(c); root.appendChild(g); line.focus({ preventScroll: true })
+    cleanups.push(close)
+  }
+
+  // revision 0.14: every part ends with a way on; the months lead to the shop, the shop to the share card
+  const toShop = el('button', 'waynext') as HTMLButtonElement; toShop.type = 'button'; toShop.appendChild(document.createTextNode('ต่อไป: ของขวัญปีมะแมของคุณ')); toShop.appendChild(el('i'))
+  $('moSec').appendChild(toShop); on(toShop, 'click', () => toSection('shop'))
+  const toShare = el('button', 'waynext') as HTMLButtonElement; toShare.type = 'button'; toShare.appendChild(document.createTextNode('ยังไม่พร้อม? ส่งอั่งเปาให้เพื่อนก่อน')); toShare.appendChild(el('i'))
+  $('shop').appendChild(toShare); on(toShare, 'click', () => toSection('share'))
+  // and while the cards fill a short phone, the same way on floats until the in-page one is in view
+  const fl = el('button', 'floatnext') as HTMLButtonElement; fl.type = 'button'; fl.appendChild(document.createTextNode('ต่อไป: ดูทีละเดือน')); fl.appendChild(el('i')); fl.hidden = true
+  root.appendChild(fl); cleanups.push(() => fl.remove()); on(fl, 'click', () => toSection('moSec'))
+  let readsIn = false, cueIn = false
+  const updFloat = () => { fl.hidden = !(member && readsIn && !cueIn) }
+  if ('IntersectionObserver' in window) {
+    const readSec = $('reads').closest('section')
+    if (readSec) { const io1 = new IntersectionObserver((es) => { readsIn = es[0].isIntersecting; updFloat() }, { threshold: 0.15 }); io1.observe(readSec); cleanups.push(() => io1.disconnect()) }
+    const io2 = new IntersectionObserver((es) => { cueIn = es[0].isIntersecting; updFloat() }); io2.observe(cue); cleanups.push(() => io2.disconnect())
+  }
   on($('adPlan'), 'click', () => { api.track('taisui_shop', { item: 'planner' }); $('adHint').textContent = 'Planner เปิดจองเร็วๆ นี้ เราจะแจ้งทาง LINE ของ MuMate ครับ' })
 
   // the LINE OA reward: asked once per page load as soon as the visitor is a member
@@ -708,8 +761,8 @@ export function startTaisui(root: HTMLElement, api: TaisuiApi): () => void {
     $('scT').textContent = member && year ? `${year.preview[0]} · ${year.preview[1]}` : 'ปีมะแมของฉัน'
     $('start').textContent = 'ดูดวงปีมะแมของฉัน'
     $('member').hidden = true
-    // revision 0.12: the deeper reading opens the chat for a saved chart, registration for a typed one
-    const deep = deeperHref(r.chart.source); $<HTMLAnchorElement>('deepStrip').href = deep; $<HTMLAnchorElement>('adMu').href = deep; $<HTMLAnchorElement>('adPkg').href = DEEPER_PACKAGES
+    // revision 0.14: back from a login that started at the Pro button, land on the shop
+    if (member && api.takeNext() === 'shop') later(() => toSection('shop'), 1400)
     if (member && !oaAsked) { oaAsked = true; void claimOa() }
     entered = false; frame()
   }

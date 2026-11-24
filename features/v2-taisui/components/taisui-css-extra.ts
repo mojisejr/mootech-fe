@@ -240,5 +240,59 @@ body:has(.ts2570){background:#071a36}
 .ts2570 .deepStrip em{font-style:normal;white-space:nowrap;color:var(--lime);font-weight:700}
 .ts2570 .ads .ad .pkLink{grid-column:1 / -1;justify-self:end;display:inline-flex;align-items:center;min-height:44px;color:var(--mist);font-size:13px;text-decoration:underline;text-underline-offset:3px}
 .ts2570 .deepStrip:focus-visible,.ts2570 .ads .ad .pkLink:focus-visible{outline:3px solid var(--lime);outline-offset:2px}
-@media (prefers-reduced-motion:reduce){.ts2570 .nextcue i{animation:none}.ts2570 .cel .celCard,.ts2570 .cel .celScrim,.ts2570 .cel .celLate{transition:none}.ts2570 .cel .celFx{display:none}}
+/* revision 0.14 (team meeting 2026-11-24): the count's two ways on, in the home page's button colours */
+.ts2570 .stat{top:28%}
+.ts2570 .stat .kick{display:block;margin:0 auto 4px;font-size:17px;color:#fff7e6;font-weight:700}
+.ts2570 .stat .fam{margin:6px auto 0;max-width:30ch;font-size:15px;color:var(--mist);line-height:1.5}
+.ts2570 .two{display:grid;gap:10px;width:100%;max-width:340px;margin:16px auto 0;box-sizing:border-box}
+.ts2570 .two button{min-height:52px;border-radius:999px;border:0;font:inherit;font-weight:700;font-size:16px;cursor:pointer;transition:transform .15s}
+.ts2570 .two button:active{transform:scale(.97)}
+.ts2570 .two button:focus-visible{outline:3px solid #fff7e6;outline-offset:3px}
+.ts2570 .two .short{background:#1455A4;color:#E1FF00}
+.ts2570 .two .full{position:relative;overflow:hidden;isolation:isolate;color:#1455A4;background:#E1FF00;box-shadow:0 6px 18px rgba(0,0,0,.25);animation:ts-proGlow 2.6s ease-in-out infinite}
+.ts2570 .two .full small{display:block;font-size:12.5px;font-weight:600;color:#1455A4;opacity:.85}
+@keyframes ts-proGlow{0%,100%{box-shadow:0 6px 18px rgba(0,0,0,.25),0 0 0 0 rgba(225,255,0,.55)}50%{box-shadow:0 6px 18px rgba(0,0,0,.25),0 0 22px 4px rgba(225,255,0,.55)}}
+.ts2570 .two .full::before{content:"";position:absolute;inset:0;z-index:-1;background:linear-gradient(110deg,#E1FF00 0%,#f4ff9a 45%,#E1FF00 60%);background-size:220% 100%;animation:ts-proSheen 3.2s linear infinite}
+@keyframes ts-proSheen{from{background-position:120% 0}to{background-position:-100% 0}}
+.ts2570 .two .full::after{content:"";position:absolute;top:-20%;bottom:-20%;left:-40%;width:28%;z-index:1;background:linear-gradient(100deg,transparent,rgba(255,255,255,.6),transparent);transform:skewX(-22deg);mix-blend-mode:soft-light;animation:ts-proFlash 2.6s cubic-bezier(.4,0,.2,1) .8s infinite;pointer-events:none}
+@keyframes ts-proFlash{0%{left:-40%}45%,100%{left:125%}}
+.ts2570 .two .full .tw{position:absolute;z-index:2;color:#fff;font-size:13px;font-style:normal;line-height:1;text-shadow:0 0 6px #fff,0 0 12px #E1FF00;pointer-events:none;animation:ts-twinkle 1.8s ease-in-out infinite}
+.ts2570 .two .full .tw:nth-of-type(1){top:5px;left:14px}
+.ts2570 .two .full .tw:nth-of-type(2){top:8px;right:18px;font-size:10px;animation-delay:.6s}
+.ts2570 .two .full .tw:nth-of-type(3){bottom:6px;right:34%;font-size:9px;animation-delay:1.2s}
+@keyframes ts-twinkle{0%,100%{opacity:0;transform:scale(.4) rotate(0)}50%{opacity:1;transform:scale(1.1) rotate(45deg)}}
+/* the shop's Pro card, with the package card's crown mark */
+.ts2570 .ads .ad.pro{position:relative;border:2px solid #ebbf30;background:linear-gradient(160deg,rgba(235,191,48,.22),rgba(255,255,255,.05))}
+.ts2570 .ads .ad.pro .off{position:absolute;top:-12px;right:14px;background:#DC2727;color:#fff;font-weight:700;font-size:13px;padding:3px 10px;border-radius:99px}
+.ts2570 .ads .ad.pro .ic{background:none;overflow:visible}
+.ts2570 .ads .ad.pro .mark{display:grid;place-items:center;width:64px;height:64px;border-radius:50%;background:linear-gradient(90deg,#1455A4,#9D85DA);font-size:30px;line-height:1;box-shadow:0 6px 18px rgba(157,133,218,.35)}
+.ts2570 .ads .ad.pro .price{display:block;margin-top:6px;padding:0;border-radius:0;background:none;font-size:15px;color:#fff7e6}
+.ts2570 .ads .ad.pro .price s{color:var(--mist);margin-right:6px;font-size:13px}
+.ts2570 .ads .ad.pro .price b{font-family:var(--display);font-size:24px;color:#e1ff00;font-weight:400}
+.ts2570 .ads .ad.pro ul{margin:8px 0 0;padding-left:18px;font-size:13.5px;color:var(--mist);line-height:1.5}
+/* the short page before LINE login */
+.ts2570 .gate{position:fixed;inset:0;z-index:85;display:flex;align-items:flex-end;background:rgba(4,14,32,.72);backdrop-filter:blur(3px)}
+.ts2570 .gate .gc{box-sizing:border-box;width:100%;max-width:520px;margin:0 auto;padding:26px 20px calc(20px + env(safe-area-inset-bottom,0px));border-radius:28px 28px 0 0;background:linear-gradient(170deg,#123d73,#0b2a52 60%,#081f3f);color:#fff7e6;border:1px solid rgba(235,191,48,.55);text-align:center;animation:ts-gateUp .45s cubic-bezier(.2,1.15,.35,1)}
+@keyframes ts-gateUp{from{transform:translateY(100%)}to{transform:none}}
+.ts2570 .gate h3{margin:0 0 6px;font-family:var(--display);font-weight:400;font-size:22px;color:#e1ff00}
+.ts2570 .gate p{margin:0 0 12px;color:var(--mist);font-size:15px}
+.ts2570 .gate ul{list-style:none;margin:0 auto 16px;padding:0;max-width:300px;text-align:left;display:grid;gap:8px;font-size:15px}
+.ts2570 .gate li::before{content:"✓";color:#06C755;font-weight:700;margin-right:8px}
+.ts2570 .gate .line{width:100%;min-height:52px;border:0;border-radius:999px;background:#06C755;color:#fff;font:inherit;font-weight:700;font-size:17px;cursor:pointer}
+.ts2570 .gate .later{margin-top:8px;min-height:44px;border:0;background:none;color:var(--mist);font:inherit;font-size:14px;cursor:pointer}
+.ts2570 .gate button:focus-visible{outline:3px solid #e1ff00;outline-offset:2px}
+/* one style for every way on: the home page's blue pill with lime text */
+.ts2570 .nextcue,.ts2570 .waynext,.ts2570 .floatnext,.ts2570 .read .cfoot .ask{display:flex;flex-direction:row;align-items:center;justify-content:center;gap:10px;width:fit-content;min-height:48px;margin:22px auto 0;padding:0 24px;border:0;border-radius:999px;background:#1455A4;color:#E1FF00;font:inherit;font-weight:700;font-size:15px;box-shadow:0 6px 18px rgba(0,0,0,.25);cursor:pointer}
+.ts2570 .read .cfoot .ask{width:100%;margin:0}
+.ts2570 .nextcue i,.ts2570 .waynext i,.ts2570 .floatnext i{width:8px;height:8px;border-right:2px solid currentColor;border-bottom:2px solid currentColor;transform:rotate(45deg) translateY(-2px);animation:none}
+.ts2570 .floatnext{position:fixed;left:50%;bottom:calc(16px + env(safe-area-inset-bottom,0px));margin:0;transform:translateX(-50%);z-index:55;box-shadow:0 10px 26px rgba(0,0,0,.45);animation:ts-floatIn .35s ease-out}
+.ts2570 .floatnext[hidden]{display:none}
+@keyframes ts-floatIn{from{opacity:0;transform:translate(-50%,12px)}to{opacity:1;transform:translateX(-50%)}}
+.ts2570 .nextcue:focus-visible,.ts2570 .waynext:focus-visible,.ts2570 .floatnext:focus-visible{outline:3px solid #e1ff00;outline-offset:3px}
+/* larger text for older readers (owner, 2026-11-24) */
+.ts2570 .sec{font-size:18px}
+.ts2570 .sec p,.ts2570 .sec li,.ts2570 .lead{font-size:17px;line-height:1.65}
+.ts2570 .bubble{font-size:16px}
+.ts2570 .sec h2{font-size:26px}
+@media (prefers-reduced-motion:reduce){.ts2570 .two .full,.ts2570 .two .full::before,.ts2570 .two .full::after,.ts2570 .two .full .tw,.ts2570 .gate .gc,.ts2570 .floatnext{animation:none}.ts2570 .two .full::after,.ts2570 .two .full .tw{display:none}.ts2570 .nextcue i{animation:none}.ts2570 .cel .celCard,.ts2570 .cel .celScrim,.ts2570 .cel .celLate{transition:none}.ts2570 .cel .celFx{display:none}}
 `

@@ -163,7 +163,7 @@ describe('content', () => {
 
 describe('the ported page frame', () => {
   it('keeps every element the motion script looks up', () => {
-    for (const id of ['stage', 'cine', 'medal', 'start', 'member', 'row', 'next', 'sheet', 'bdD', 'bdM', 'bdY', 'bt', 'noT', 'months', 'moPrev', 'moNext', 'reads', 'lock', 'pkSec', 'seal', 'meds', 'sendPk', 'adMu', 'adPlan', 'adHint', 'statN'])
+    for (const id of ['stage', 'cine', 'medal', 'start', 'member', 'row', 'next', 'sheet', 'bdD', 'bdM', 'bdY', 'bt', 'noT', 'months', 'moPrev', 'moNext', 'reads', 'lock', 'pkSec', 'seal', 'meds', 'sendPk', 'adPro', 'adPrice', 'adProList', 'adOff', 'toFull', 'toFullT', 'toShort', 'two', 'adPlan', 'adHint', 'statN'])
       expect(TAISUI_MARKUP).toContain(`id="${id}"`)
     expect(TAISUI_MARKUP).not.toMatch(/img\//)
   })
@@ -294,9 +294,9 @@ describe('the four-animal scene (the Sinse, revision 0.11)', () => {
 
 describe('the page after the team review (revision 0.11)', () => {
   const order = [...TAISUI_MARKUP.matchAll(/<(?:section|footer)[^>]*?(?:id|aria-labelledby)="(\w+)"/g)].map((m) => m[1])
-  it('puts the year before the months, then the packet, the share card, the shop and the footer', () => {
-    expect(order).toEqual(['cine', 'readT', 'moT', 'pkT', 'share', 'shop'])
-    expect(TAISUI_MARKUP.indexOf('<footer')).toBeGreaterThan(TAISUI_MARKUP.indexOf('id="shop"'))
+  it('puts the year before the months, then the packet, the shop, the share card and the footer (revision 0.14)', () => {
+    expect(order).toEqual(['cine', 'readT', 'moT', 'pkT', 'shop', 'share'])
+    expect(TAISUI_MARKUP.indexOf('<footer')).toBeGreaterThan(TAISUI_MARKUP.indexOf('id="share"'))
   })
   it('has no wish lanterns and one LINE send, on the share card', async () => {
     expect(TAISUI_MARKUP).not.toMatch(/wishform|wishsky|ปล่อยโคม/)
@@ -305,9 +305,11 @@ describe('the page after the team review (revision 0.11)', () => {
     expect(TAISUI_MARKUP.match(/ทาง LINE<\/button>/g)).toHaveLength(1)
     expect(motion).not.toMatch(/ทาง LINE`|'ส่งอั่งเปาทาง LINE'|line_pillar|api\.lantern/)
   })
-  it('shows no price the owner has not set', () => {
-    const shop = TAISUI_MARKUP.slice(TAISUI_MARKUP.indexOf('id="shop"'), TAISUI_MARKUP.indexOf('<footer'))
-    expect(shop).not.toMatch(/฿|\d+\s*บาท|ลด\s*\d/)
+  it('types no price into the page: the shop prices come from the server (revision 0.14)', () => {
+    const shop = TAISUI_MARKUP.slice(TAISUI_MARKUP.indexOf('id="shop"'), TAISUI_MARKUP.indexOf('</section>', TAISUI_MARKUP.indexOf('id="shop"')))
+    expect(shop).not.toMatch(/฿|\d+\s*บาท/)
+    // the 50% badge is the owner's offer and stays hidden unless the server has the owner's code
+    expect(shop).toMatch(/<span class="off" id="adOff" hidden>ลด 50%<\/span>/)
   })
 })
 
@@ -318,15 +320,8 @@ describe('the 100 QI celebration (revision 0.12)', () => {
     expect(deeperHref('saved')).toBe('/v2/chat')
     expect(deeperHref('typed')).toBe('/v2/register')
   })
-  it('ends the year with the deeper strip, for members, before the months', () => {
-    const reads = TAISUI_MARKUP.slice(TAISUI_MARKUP.indexOf('aria-labelledby="readT"'), TAISUI_MARKUP.indexOf('id="moSec"'))
-    expect(reads).toMatch(/<a class="deepStrip" id="deepStrip" href="\/v2\/chat" data-full>/)
-    expect(reads).toContain('อยากรู้ลึกกว่านี้?')
-  })
-  it('lets the เสี่ยวมู่ card try the chat first and keeps the packages as a small link', () => {
-    const shop = TAISUI_MARKUP.slice(TAISUI_MARKUP.indexOf('id="shop"'), TAISUI_MARKUP.indexOf('<footer'))
-    expect(shop).toMatch(/id="adMu" href="\/v2\/chat">ลองถามเสี่ยวมู่</)
-    expect(shop).toMatch(/id="adPkg" href="\/v2\/shop">/)
+  it('has no deeper strip and no เสี่ยวมู่ card in the shop any more (revision 0.14)', () => {
+    expect(TAISUI_MARKUP).not.toMatch(/deepStrip|id="adMu"|id="adPkg"/)
   })
   it('celebrates only a payment, once, with both ways on and no HTML from strings', async () => {
     const fs = await import('node:fs')
@@ -437,5 +432,62 @@ describe('the guide glide and the scene measure progress the same way', () => {
     const motion = fs.readFileSync('features/v2-taisui/components/taisui-motion.ts', 'utf8')
     expect(motion).toMatch(/const vh = stage\.clientHeight \|\| innerHeight/)
     expect(motion).toMatch(/const glideTo = [^\n]*cine\.offsetHeight - \(stage\.clientHeight \|\| innerHeight\)\) \* pp/)
+  })
+})
+
+describe('the team meeting of 2026-11-24 (revision 0.14)', () => {
+  it('sells Pro yearly from the server price and the owner code, and falls back to the list price', async () => {
+    const { proOfferFrom } = await import('@/lib/taisui/pro-offer')
+    expect(proOfferFrom({ amount: 1590, is_active: true }, 'ANY_CODE1')).toEqual({ href: '/v2/shop/checkout?package_code=V2_PRO_YEARLY&code=ANY_CODE1', price: 1590, discounted: true })
+    expect(proOfferFrom({ amount: '1590', is_active: true }, undefined)).toEqual({ href: '/v2/shop/checkout?package_code=V2_PRO_YEARLY', price: 1590, discounted: false })
+    expect(proOfferFrom({ amount: 1590, is_active: true }, 'bad code; drop')).toMatchObject({ discounted: false })
+    expect(proOfferFrom({ amount: 1590, is_active: false }, 'ANY_CODE1').price).toBeNull()
+    expect(proOfferFrom(null, undefined)).toMatchObject({ price: null, discounted: false })
+  })
+  it('reads the code from the server env, never from this repository', async () => {
+    const fs = await import('node:fs')
+    const page = fs.readFileSync('pages/taisui-2570.tsx', 'utf8')
+    expect(page).toMatch(/process\.env\.TAISUI_PRO_CODE/)
+    expect(page).toMatch(/FROM payment_package WHERE package_code = \$\{TAISUI_PRO_PACKAGE\}/)
+    // no discount code is typed into the page's code: the link gets it only from proOfferFrom(…, env)
+    for (const f of ['features/v2-taisui/components/taisui-motion.ts', 'features/v2-taisui/components/taisui-markup.ts', 'lib/taisui/pro-offer.ts', 'pages/taisui-2570.tsx']) {
+      expect(fs.readFileSync(f, 'utf8')).not.toMatch(/[?&]code=[A-Za-z0-9]/)
+    }
+  })
+  it('offers อ่านแบบย่อ and อ่านแบบเต็ม on the count; อ่านแบบเต็ม lands on the shop', async () => {
+    const fs = await import('node:fs')
+    const motion = fs.readFileSync('features/v2-taisui/components/taisui-motion.ts', 'utf8')
+    expect(TAISUI_MARKUP).toMatch(/id="toFull"[\s\S]*id="toShort">อ่านแบบย่อ · ฟรี</)
+    expect(motion).toMatch(/on\(\$\('toFull'\), 'click', \(\) => \{[^\n]*toSection\('shop'\)/)
+    expect(motion).toMatch(/on\(\$\('toShort'\), 'click', \(\) => \{[^\n]*if \(member\) toSection\('yearSec'\); else gate\('count'\)/)
+  })
+  it('cuts the Sinse chart and every card Sinse fold; the card ask goes to the shop', async () => {
+    const fs = await import('node:fs')
+    const motion = fs.readFileSync('features/v2-taisui/components/taisui-motion.ts', 'utf8')
+    expect(motion).not.toMatch(/el\('details', 'sx'\)/)
+    expect(motion).toMatch(/if \(false as boolean\) \{ const fold = el\('details', 'fold'\)/)
+    expect(motion).toMatch(/const ask = el\('button', 'ask'\)[^\n]*\n[^\n]*toSection\('shop'\)/)
+    expect(motion).not.toMatch(/ask\.href = '\/v2\/chat'/)
+  })
+  it('sends a visitor through the login page before Pro, and back to the shop afterwards', async () => {
+    const fs = await import('node:fs')
+    const motion = fs.readFileSync('features/v2-taisui/components/taisui-motion.ts', 'utf8')
+    expect(motion).toMatch(/if \(!member\) \{ e\.preventDefault\(\); gate\('pro', 'shop'\) \}/)
+    expect(motion).toMatch(/if \(member && api\.takeNext\(\) === 'shop'\) later\(\(\) => toSection\('shop'\)/)
+    const screen = fs.readFileSync('features/v2-taisui/components/TaisuiScreen.tsx', 'utf8')
+    expect(screen).toMatch(/if \(next\) \{ try \{ sessionStorage\.setItem\(NEXT_KEY, next\)/)
+  })
+  it('ends every part with a way on, in one style, and floats it while the cards fill the screen', async () => {
+    const fs = await import('node:fs')
+    const motion = fs.readFileSync('features/v2-taisui/components/taisui-motion.ts', 'utf8')
+    expect(motion).toMatch(/\$\('moSec'\)\.appendChild\(toShop\); on\(toShop, 'click', \(\) => toSection\('shop'\)\)/)
+    expect(motion).toMatch(/\$\('shop'\)\.appendChild\(toShare\); on\(toShare, 'click', \(\) => toSection\('share'\)\)/)
+    expect(motion).toMatch(/fl\.hidden = !\(member && readsIn && !cueIn\)/)
+    const { TAISUI_CSS_EXTRA } = await import('@/features/v2-taisui/components/taisui-css-extra')
+    expect(TAISUI_CSS_EXTRA).toContain('.ts2570 .nextcue,.ts2570 .waynext,.ts2570 .floatnext,.ts2570 .read .cfoot .ask{')
+  })
+  it('registers its analytics events', () => {
+    expect(ANALYTICS_EVENTS.taisui_way).toEqual(['pick'])
+    expect(ANALYTICS_EVENTS.taisui_gate).toEqual(['from'])
   })
 })
