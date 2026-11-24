@@ -513,8 +513,11 @@ export function startTaisui(root: HTMLElement, api: TaisuiApi): () => void {
     roleSec.appendChild(fold) }
     // the year ends with the login for a visitor (owner, 2026-11-24), then a way on to the pillars for anyone
     if (!member) { const lg = el('button', 'btn yearLogin', 'เข้าสู่ระบบด้วย LINE · รับ 100 ชี่') as HTMLButtonElement; lg.type = 'button'; on(lg, 'click', () => gate('year')); roleSec.appendChild(lg) }
-    const wn = el('button', 'waynext') as HTMLButtonElement; wn.type = 'button'; wn.appendChild(document.createTextNode('ต่อไป: คำทำนายรายเสา')); wn.appendChild(el('i'))
-    on(wn, 'click', () => toSection('readT')); roleSec.appendChild(wn)
+    // a member reads on to the pillars; a visitor's next step is the login, so the skip is quiet and leads to the shop
+    if (member) { const wn = el('button', 'waynext') as HTMLButtonElement; wn.type = 'button'; wn.appendChild(document.createTextNode('ต่อไป: คำทำนายรายเสา')); wn.appendChild(el('i'))
+      on(wn, 'click', () => toSection('readT')); roleSec.appendChild(wn) }
+    else { const sk = el('button', 'yearSkip', 'ไว้ทีหลัง · ดูของขวัญปีมะแม ›') as HTMLButtonElement; sk.type = 'button'
+      on(sk, 'click', () => { api.track('taisui_way', { pick: 'skip' }); toSection('shop') }); roleSec.appendChild(sk) }
   }
 
   // the chart's characters, and the year's two flying in to the ones they hit (plan revision 0.9)
@@ -698,6 +701,9 @@ export function startTaisui(root: HTMLElement, api: TaisuiApi): () => void {
   $('moSec').appendChild(toShop); on(toShop, 'click', () => toSection('shop'))
   const toShare = el('button', 'waynext') as HTMLButtonElement; toShare.type = 'button'; toShare.appendChild(document.createTextNode('ยังไม่พร้อม? ส่งอั่งเปาให้เพื่อนก่อน')); toShare.appendChild(el('i'))
   $('shop').appendChild(toShare); on(toShare, 'click', () => toSection('share'))
+  // a visitor cannot send a red packet before logging in (owner, 2026-11-25): the way to the share card is members' only
+  const syncShare = () => { toShare.hidden = !member }
+  syncShare()
   // and while the cards fill a short phone, the same way on floats until the in-page one is in view
   const fl = el('button', 'floatnext') as HTMLButtonElement; fl.type = 'button'; fl.appendChild(document.createTextNode('ต่อไป: ดูทีละเดือน')); fl.appendChild(el('i')); fl.hidden = true
   root.appendChild(fl); cleanups.push(() => fl.remove()); on(fl, 'click', () => toSection('moSec'))
@@ -767,6 +773,7 @@ export function startTaisui(root: HTMLElement, api: TaisuiApi): () => void {
     $('scT').textContent = member && year ? `${year.preview[0]} · ${year.preview[1]}` : 'ปีมะแมของฉัน'
     $('start').textContent = 'ดูดวงปีมะแมของฉัน'
     $('member').hidden = true
+    syncShare()
     // revision 0.14: back from a login that started at the Pro button, land on the shop
     if (member && api.takeNext() === 'shop') later(() => toSection('shop'), 1400)
     if (member && !oaAsked) { oaAsked = true; void claimOa() }
