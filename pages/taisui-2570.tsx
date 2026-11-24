@@ -8,8 +8,12 @@ import { TaisuiScreen } from '@/features/v2-taisui/components/TaisuiScreen'
 import { issueNonce, NONCE_COOKIE } from '@/lib/calculator/nonce'
 import { isTaisuiOpen } from '@/lib/taisui/live'
 import { senderByCode } from '@/lib/taisui/server'
+import { proOfferFrom, TAISUI_PRO_PACKAGE } from '@/lib/taisui/pro-offer'
+import type { ProOffer } from '@/features/v2-taisui/components/taisui-motion'
+import { sql } from 'drizzle-orm'
+import { db } from '@/lib/db'
 
-type Props = { refCode: string | null; sender: { name: string; animal: string; image: string } | null; origin: string }
+type Props = { refCode: string | null; sender: { name: string; animal: string; image: string } | null; origin: string; proOffer: ProOffer }
 
 export const getServerSideProps: GetServerSideProps<Props> = async (ctx) => {
   if (!isTaisuiOpen()) return { notFound: true }
@@ -24,10 +28,14 @@ export const getServerSideProps: GetServerSideProps<Props> = async (ctx) => {
     const s = await senderByCode(raw).catch(() => null)
     if (s) { refCode = raw; sender = { name: s.name, animal: s.animal, image: s.image } }
   }
-  return { props: { refCode, sender, origin } }
+  // revision 0.14: the Pro yearly price from payment_package, the owner's code from env (TAISUI_PRO_CODE)
+  const rowsOf = (x: unknown): Array<{ amount?: unknown; is_active?: unknown }> => (Array.isArray(x) ? x : ((x as { rows?: [] })?.rows ?? []))
+  const pkg = await db.execute(sql`SELECT amount, is_active FROM payment_package WHERE package_code = ${TAISUI_PRO_PACKAGE} LIMIT 1`).then((r) => rowsOf(r)[0] ?? null).catch(() => null)
+  const proOffer = proOfferFrom(pkg, process.env.TAISUI_PRO_CODE)
+  return { props: { refCode, sender, origin, proOffer } }
 }
 
-export default function TaisuiPage({ refCode, sender, origin }: Props) {
+export default function TaisuiPage({ refCode, sender, origin, proOffer }: Props) {
   const title = sender ? `อั่งเปาปีมะแมจาก ${sender.name} · MuMate` : 'ปีมะแม 2570 ส่งผลกับคุณยังไง · MuMate'
   const desc = 'ดูนักษัตรทั้ง 4 ตัวของคุณกับปีมะแมไฟ 丁未 ฟรี พร้อมเดือนที่ควรรุกและควรรอ กับเสี่ยวมู่'
   const image = `${origin}/images/v2/characters/08_มะแม-ไฟ.webp`
@@ -47,7 +55,7 @@ export default function TaisuiPage({ refCode, sender, origin }: Props) {
         {/* eslint-disable-next-line @next/next/no-page-custom-font */}
         <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chonburi&family=IBM+Plex+Sans+Thai:wght@400;500;600;700&display=swap" />
       </Head>
-      <TaisuiScreen refCode={refCode} sender={sender} />
+      <TaisuiScreen refCode={refCode} sender={sender} proOffer={proOffer} />
     </>
   )
 }

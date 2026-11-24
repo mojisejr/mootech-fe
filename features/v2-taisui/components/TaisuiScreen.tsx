@@ -14,17 +14,19 @@ import { leaveQiAsk, leaveReturnMarker, takeQiAsk } from '../return'
 import { TAISUI_CSS } from './taisui-css'
 import { TAISUI_CSS_EXTRA } from './taisui-css-extra'
 import { TAISUI_MARKUP } from './taisui-markup'
-import { startTaisui, type Birth, type OaClaim, type Sender } from './taisui-motion'
+import { startTaisui, type Birth, type OaClaim, type ProOffer, type Sender } from './taisui-motion'
 
-export type TaisuiScreenProps = { refCode: string | null; sender: Sender }
+export type TaisuiScreenProps = { refCode: string | null; sender: Sender; proOffer: ProOffer }
 
 const BIRTH_KEY = 'taisui:birth'
+// revision 0.14: a login started at the Pro button lands back on the shop (same tab, so sessionStorage)
+const NEXT_KEY = 'taisui:next'
 
 async function postJson(url: string, body: unknown): Promise<Response> {
   return fetch(url, { method: 'POST', headers: { 'content-type': 'application/json' }, credentials: 'same-origin', body: JSON.stringify(body) })
 }
 
-export function TaisuiScreen({ refCode, sender }: TaisuiScreenProps) {
+export function TaisuiScreen({ refCode, sender, proOffer }: TaisuiScreenProps) {
   const rootRef = useRef<HTMLDivElement>(null)
   const { onLine } = useV2Login()
   const loginRef = useRef(onLine)
@@ -52,7 +54,8 @@ export function TaisuiScreen({ refCode, sender }: TaisuiScreenProps) {
         return res
       },
       stats: async () => { const r = await fetch('/api/taisui/stats'); return r.ok ? r.json() : null },
-      login: (birth) => {
+      login: (birth, next) => {
+        if (next) { try { sessionStorage.setItem(NEXT_KEY, next) } catch { /* none */ } }
         if (birth) { try { sessionStorage.setItem(BIRTH_KEY, JSON.stringify(birth)) } catch { /* none */ } }
         if (refCode) { try { if (!localStorage.getItem(REFERRAL_KEY)) localStorage.setItem(REFERRAL_KEY, refCode) } catch { /* none */ } }
         leaveReturnMarker(refCode)
@@ -60,6 +63,8 @@ export function TaisuiScreen({ refCode, sender }: TaisuiScreenProps) {
         loginRef.current()
       },
       justLoggedIn: () => takeQiAsk(),
+      takeNext: () => { try { const v = sessionStorage.getItem(NEXT_KEY); sessionStorage.removeItem(NEXT_KEY); return v === 'shop' ? 'shop' : null } catch { return null } },
+      proOffer,
       openPacket: async () => { if (!refCode) return null; const r = await postJson('/api/taisui/packet', { code: refCode }); return r.ok ? r.json() : null },
       sendPacket: async () => {
         const r = await fetch('/api/referral', { credentials: 'same-origin' })
