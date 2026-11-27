@@ -18,12 +18,21 @@
 //   • ปิด (X / แตะพื้นหลัง) = ปิดรอบนี้ (ไม่เด้งซ้ำใน session นี้)
 //   • "ไม่แสดง 7 วัน" = จำใน localStorage 7 วัน
 //   • แตะรูป = ไปหน้าเช็กอิน
+//
+// โปรช่วงเวลา "Limited time" (Home v3 รอบแรก · ประชุม 24 พ.ย. 2569 ข้อ 1):
+//   • มีโปร (GET /api/v2/limited-offer ตอบ offer) → ขึ้นก่อนป๊อปอัปเช็กอิน และใช้โควตา "ครั้งเดียวต่อ session" ร่วมกัน
+//   • ราคาเดิม/ราคาโปรมาจากเซิร์ฟเวอร์ (ตัวคิดเดียวกับ checkout) · นาฬิกานับถอยหลัง = เวลาที่เหลือจริงถึงวันหมดโค้ด
+//     (ไม่ใช่ตัวจับเวลา 15 นาทีแบบในเฟรม — ไม่ทำให้ผู้ใช้เข้าใจว่าโปรหมดทั้งที่ยังใช้ได้) · โค้ดไม่มีวันหมด = ไม่โชว์นาฬิกา
+//   • "ซื้อเลย" = ไป checkout พร้อมโค้ด · "ไว้ก่อน" = ปิดรอบนี้ · หมดเวลาแล้ว (cache เก่า) = ปุ่มซื้อใช้ไม่ได้ ไปร้านแทน
+//   • ยังไม่มี artwork จากน้องเซิน → รอบนี้เป็นการ์ดตัวอักษร/ตัวเลข สีตามชุดของแอป
 import { useEffect, useState } from 'react'
 import Image from 'next/image'
 import { useRouter } from 'next/router'
 import { useCurrentUser } from '@/lib/auth/use-current-user'
 import { checkedInToday, todayBangkok, type Wallet } from '@/features/v2-qi/qi-model'
 import { useTourActive } from '@/features/v2-guide/OnboardingTour'
+import { LIMITED_OFFER_HREF, formatCountdown, parseOffer, type LimitedOffer } from '../limited-offer'
+import { track } from '@/lib/analytics/track'
 
 const CHECKIN = { src: '/images/v2/popup/checkin.png', href: '/v2/qi/checkin', alt: 'เช็กอินทุกวัน รับ Qi ฟรี' }
 const HIDE_KEY = 'mumate:promo-hidden-until' // localStorage: timestamp ที่ให้กลับมาแสดงได้ (ไม่แสดง 7 วัน)
@@ -75,12 +84,29 @@ async function alreadyCheckedInToday(): Promise<boolean> {
   } catch { return false }
 }
 
+// อ่านไม่ได้ = ไม่มีโปร (ทำงานแบบเดิม — ป๊อปอัปเช็กอิน) ไม่เดาจาก response ครึ่ง ๆ กลาง
+async function fetchLimitedOffer(): Promise<LimitedOffer | null> {
+  try {
+    const res = await fetch(LIMITED_OFFER_HREF)
+    return res.ok ? parseOffer(await res.json().catch(() => null)) : null
+  } catch { return null }
+}
+
 export function PromoPopup() {
   const router = useRouter()
   const { status } = useCurrentUser()
-  const [open, setOpen] = useState<'notice' | 'checkin' | null>(null)
+  const [open, setOpen] = useState<'notice' | 'checkin' | 'limited' | null>(null)
+  const [offer, setOffer] = useState<LimitedOffer | null>(null)
+  // นาฬิกาของป๊อปอัปโปร — เดินเฉพาะตอนเปิดและเมื่อโค้ดมีวันหมด (เฟรมเดิมของป๊อปอัปเช็กอินไม่มีนาฬิกา)
+  const [now, setNow] = useState(() => Date.now())
   // ทัวร์แนะนำแอปกำลังเล่น → ป็อปอัปรอก่อน (ไม่บังส่วนที่ส่อง) แล้วค่อยขึ้นหลังจบทัวร์
   const touring = useTourActive()
+
+  useEffect(() => {
+    if (open !== 'limited' || !offer?.endsAt) return
+    const t = setInterval(() => setNow(Date.now()), 1000)
+    return () => clearInterval(t)
+  }, [open, offer?.endsAt])
 
   useEffect(() => {
     if (!isPromoPath(router.pathname)) return
@@ -95,9 +121,16 @@ export function PromoPopup() {
     if (hiddenNow() || shownThisSession()) return
     let alive = true
     const delay = new Promise((resolve) => setTimeout(resolve, 1200))
-    void Promise.all([alreadyCheckedInToday(), delay]).then(([done]) => {
+    // อ่านครั้งเดียว: มีโปร → เด้งโปรก่อน · ไม่มีโปร → เด้งเช็กอินเมื่อยังไม่เช็กอินวันนี้
+    void Promise.all([alreadyCheckedInToday(), delay, fetchLimitedOffer()]).then(([done, , limited]) => {
       if (!alive) return
       try { window.sessionStorage.setItem(SHOWN_KEY, '1') } catch { /* private mode */ }
+      if (limited) {
+        setOffer(limited)
+        setOpen('limited')
+        track('promo_offer_view', { offer: limited.packageCode })
+        return
+      }
       if (!done) setOpen('checkin')
     })
     return () => { alive = false }
@@ -107,6 +140,7 @@ export function PromoPopup() {
     if (open === 'notice') {
       try { window.sessionStorage.setItem(NOTICE_CLOSED_KEY, '1') } catch { /* private mode */ }
     }
+    if (open === 'limited' && offer) track('promo_offer_click', { offer: offer.packageCode, action: 'close' })
     setOpen(null)
   }
   const hide7d = () => {
@@ -118,36 +152,85 @@ export function PromoPopup() {
     setOpen(null)
   }
   const go = () => { setOpen(null); void router.push(CHECKIN.href) }
+  const buyOffer = () => {
+    if (!offer) return
+    track('promo_offer_click', { offer: offer.packageCode, action: 'buy' })
+    setOpen(null)
+    void router.push(offer.href)
+  }
+  const laterOffer = () => {
+    if (offer) track('promo_offer_click', { offer: offer.packageCode, action: 'later' })
+    setOpen(null)
+  }
 
   if (!open || touring) return null
 
   const notice = open === 'notice'
-  const tid = notice ? 'maintenance-notice' : 'promo-popup'
+  const limited = open === 'limited' ? offer : null
+  const tid = notice ? 'maintenance-notice' : limited ? 'promo-offer' : 'promo-popup'
+  const countdown = limited?.endsAt ? formatCountdown(Date.parse(limited.endsAt) - now) : ''
+  const expired = limited?.endsAt !== null && limited?.endsAt !== undefined && countdown === ''
 
   return (
     <div className={`fixed inset-0 z-[75] flex items-center justify-center px-8 ${notice ? 'bg-black/60' : 'bg-black/50'}`} onClick={close} data-testid={`${tid}-scrim`}>
       <div className="relative w-full max-w-[340px]" onClick={(e) => e.stopPropagation()}
-        {...(notice ? { role: 'dialog', 'aria-modal': true, 'aria-label': NOTICE.alt } : {})}>
-        {/* ประกาศ: รูปโปร่งใสมีมาสคอตยื่นเหนือการ์ด — box-shadow วาดเป็นกรอบสี่เหลี่ยมรอบพื้นที่ใสแล้วดูลอย (owner 2026-10-06)
-            จึงใช้ drop-shadow ที่เกาะรูปทรงจริงแทน + พื้นหลังมืดขึ้น (60%) ให้การ์ดสีอ่อนไม่กลืนกับหน้าแอป */}
+        {...(notice || limited ? { role: 'dialog', 'aria-modal': true, 'aria-label': notice ? NOTICE.alt : 'โปรช่วงเวลา' } : {})}>
+        {limited ? (
+          /* การ์ดโปรช่วงเวลา — ราคาทุกบาทมาจากเซิร์ฟเวอร์ · นาฬิกา = เวลาจริงถึงวันหมดโค้ด (รอ artwork จากน้องเซิน) */
+          <div data-testid="promo-offer-card" className="overflow-hidden rounded-[28px] bg-white p-6 text-center shadow-[0_12px_40px_rgba(0,0,0,0.35)]">
+            <p className="text-[12px] font-black uppercase tracking-wider text-v3-cyan">Limited time</p>
+            <h2 className="mt-1 text-[20px] font-black leading-7 text-v3-navy" data-testid="promo-offer-title">
+              {limited.name}{limited.period ? ` ${limited.period}` : ''}
+            </h2>
+            <p className="mt-2 text-[13px] leading-5 text-v3-text-body" data-testid="promo-offer-off">
+              {limited.percentOff > 0 ? `ลด ${limited.percentOff}% จาก ` : 'จาก '}<s>฿{limited.listBaht.toLocaleString('th-TH')}</s>
+            </p>
+            <p className="text-[40px] font-black leading-[48px] text-v3-pumpkin" data-testid="promo-offer-price">฿{limited.priceBaht.toLocaleString('th-TH')}</p>
+            {limited.endsAt && (
+              <p className="mt-1 text-[13px] font-bold text-v3-text-body" data-testid="promo-offer-countdown">
+                {expired ? 'โปรนี้หมดเวลาแล้ว' : `เหลือเวลาอีก ${countdown} น.`}
+              </p>
+            )}
+            <div className="mt-4 flex flex-col gap-2">
+              {expired ? (
+                <button type="button" onClick={() => { setOpen(null); void router.push('/v2/shop') }} data-testid="promo-offer-shop"
+                  className="grid h-12 w-full place-items-center rounded-full bg-v3-sapphire text-[15px] font-bold text-v3-lime">
+                  ดูแพ็กเกจทั้งหมด
+                </button>
+              ) : (
+                <button type="button" onClick={buyOffer} data-testid="promo-offer-buy"
+                  className="grid h-12 w-full place-items-center rounded-full bg-v3-sapphire text-[15px] font-bold text-v3-lime">
+                  ซื้อเลย
+                </button>
+              )}
+              <button type="button" onClick={laterOffer} data-testid="promo-offer-later"
+                className="grid h-11 w-full place-items-center rounded-full border border-v3-border-card bg-white text-[14px] font-bold text-v3-navy">
+                ไว้ก่อน
+              </button>
+            </div>
+          </div>
+        ) : (
         <button type="button" onClick={notice ? close : go} data-testid={`${tid}-image`} aria-label={notice ? NOTICE.alt : CHECKIN.alt}
           className={notice ? 'block w-full drop-shadow-[0_8px_20px_rgba(0,0,0,0.25)]' : 'block w-full overflow-hidden rounded-[24px] shadow-[0_12px_40px_rgba(0,0,0,0.35)]'}>
           {notice
             ? <Image src={NOTICE.src} alt={NOTICE.alt} width={NOTICE.width} height={NOTICE.height} priority className="h-auto w-full object-contain" />
             : <Image src={CHECKIN.src} alt={CHECKIN.alt} width={1000} height={1300} priority className="h-auto w-full object-contain" />}
         </button>
+        )}
 
         <button type="button" onClick={close} aria-label="ปิด" data-testid={`${tid}-close`}
           className="absolute -top-3 -right-3 grid size-9 place-items-center rounded-full bg-white text-v3-navy shadow-lg">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round"><path d="m6 6 12 12M18 6 6 18" /></svg>
         </button>
 
-        {notice ? (
+        {notice && (
           <button type="button" onClick={acknowledge} data-testid="maintenance-notice-ack"
             className="mt-2 block w-full text-center text-[12px] font-medium text-white/80 underline">
             รับทราบ
           </button>
-        ) : (
+        )}
+
+        {!notice && !limited && (
           <button type="button" onClick={hide7d} data-testid="promo-popup-hide"
             className="mt-2 block w-full text-center text-[12px] font-medium text-white/80 underline">
             ไม่แสดงอีกใน 7 วัน

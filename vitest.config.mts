@@ -340,6 +340,7 @@ export default defineConfig({
       'scripts/newbie-guide.test.tsx', // เส้นทางมือใหม่ (การ์ดหน้าหลัก · นับภารกิจ · มาสคอตอธิบาย · ซ่อน)
       'scripts/onboarding-tour.test.tsx', // ทัวร์แนะนำแอป 8 ขั้น (สเปก FTUE 2026-10-14)
       'scripts/newcomer-coach.test.tsx', // คนใหม่หาธาตุก่อนสมัคร (บังคับกด) 2026-10-14
+      'scripts/home-v3-round1.test.tsx', // หน้าหลัก v3 รอบแรก: ชิป QI · ทางลัด 4 ช่อง · ป๊อปอัป Limited time (ประชุม 24 พ.ย. ข้อ 1 · 2026-11-27)
       'scripts/siamsi-page.test.ts', // ไพ่เซียมซีเคี้ยงคุง หน้าในแอป (ยังปิด) 2026-10-15
       'scripts/free-tier-limits.test.tsx', // ฟรี: ปฏิทิน 7 วัน · ไพ่รวม 1 ครั้ง/วัน · แอดวานซ์เบลอ · คะแนนสากล (2026-10-20)
       'scripts/course-video-flow.test.tsx', // ลิงก์ใน /ops → หน้าคอร์ส ready/▶ ดู/ปก+เล่น (2026-10-21)
