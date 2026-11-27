@@ -11,6 +11,7 @@ import { and, eq } from 'drizzle-orm'
 import { db } from '@/lib/db'
 import { pushSubscription } from '@/lib/db/schema'
 import { resolveSessionUserId } from '@/lib/v2/resolve-user'
+import { ensureDailyFortuneReminderRow } from '@/lib/v2/daily-fortune-reminder'
 
 interface SubscribeBody {
   endpoint?: string
@@ -45,6 +46,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           target: [pushSubscription.endpoint],
           set: { userId, p256dh, auth, userAgent },
         })
+      // ประชุม 24 พ.ย. ข้อ 6: คนที่อนุญาต push แล้วควรได้รับแจ้งเตือน "ดวงประจำวัน" ตามเวลาตั้ง — ให้มีแถวเวลา 07:00 ไว้ก่อน
+      // (ไม่ทับเวลาที่ตั้งไว้). best-effort: ตารางยังไม่พร้อมต้องไม่ทำให้การสมัคร push ล้ม
+      try {
+        await ensureDailyFortuneReminderRow(userId)
+      } catch {
+        /* ข้าม — cron จะส่งให้เมื่อผู้ใช้ตั้งเวลาเอง */
+      }
       return res.status(201).json({ ok: true })
     }
 

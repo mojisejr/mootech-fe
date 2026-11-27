@@ -1215,6 +1215,17 @@ export const manifestReminder = pgTable("manifest_reminder", {
 	index("idx_manifest_reminder_hour").on(table.hour).where(sql`enabled = true`),
 ]);
 
+// 0042 — เวลาส่งแจ้งเตือน "ดวงประจำวัน" + ตัวกันส่งซ้ำ (ประชุม 24 พ.ย. 2569 ข้อ 6).
+// สวิตช์เปิด/ปิด "ดวงประจำวัน" ไม่ได้อยู่ที่นี่ — อยู่ที่ engine (bazi_notification_prefs.daily_fortune) ผ่าน /api/notification-prefs
+// cron /api/cron/daily-fortune หาแถวที่ (hour, minute) ตรงเวลาไทยแล้ว mark last_sent_date ก่อนส่ง (at-most-once ต่อวัน) เหมือน manifest_reminder
+export const dailyFortuneReminder = pgTable("daily_fortune_reminder", {
+	userId: varchar("user_id", { length: 36 }).primaryKey().notNull(),
+	hour: integer("hour").default(7).notNull(), // ชั่วโมง (0-23) ตามเวลาไทยที่จะยิง
+	minute: integer("minute").default(0).notNull(), // นาที (0-59) — cron รันทุกนาที จึงยิงตรงนาทีที่ตั้ง
+	lastSentDate: varchar("last_sent_date", { length: 10 }), // YYYY-MM-DD (BKK) กันยิงซ้ำในวันเดียว
+	updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
 // book_order (#3 ซินแสนุ้ย 2026-09-15) — ออเดอร์หนังสือ "Your Life Code" (ฟอร์มในแอป + จ่าย PromptPay).
 // ฟิลด์ตามฟอร์มจริง forms.gle/Lf5f7HUdoj3TvKVk9. รูปแบบ PDF/PHYSICAL (เล่มโชว์ที่อยู่จัดส่ง). status:
 // NEW=สร้างตอนกรอก, PAID=ผูก charge หลังจ่ายสำเร็จ (v2_payment tier_code='BOOK'). ดู migration 0029.
