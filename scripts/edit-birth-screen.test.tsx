@@ -19,6 +19,9 @@ let freeUsed = false
 let patchStatus = 200
 let patchError = 'แต้ม Qi ไม่พอ'
 let walletQi = 30
+// เพศในโปรไฟล์ตอนโหลด (engine) · patchMode = ค่า birthEditMode ที่ engine ตอบ (null = engine ไม่ตัดสินโควตา เช่น แก้เพศอย่างเดียว)
+let profileGender: string | null = null
+let patchMode: 'free' | 'qi' | null | undefined = undefined
 const fetchMock = vi.fn(async (url: string, init?: { method?: string; body?: string }) => {
   const u = String(url)
   const method = init?.method ?? 'GET'
@@ -27,13 +30,14 @@ const fetchMock = vi.fn(async (url: string, init?: { method?: string; body?: str
       ok: true, status: 200,
       json: async () => ({
         anonId: 'u',
-        profile: { displayName: 'x', birthDate: '1995-06-15', birthTime: null, timeUnknown: true },
+        profile: { displayName: 'x', birthDate: '1995-06-15', birthTime: null, timeUnknown: true, ...(profileGender ? { gender: profileGender } : {}) },
         quota: { birthEditFreeUsed: freeUsed, birthEditPriceQi: 150, pendingCorrection: null },
       }),
     }
   }
   if (u.includes('/api/profile') && method === 'PATCH') {
-    return { ok: patchStatus === 200, status: patchStatus, json: async () => (patchStatus === 200 ? { birthEditMode: freeUsed ? 'qi' : 'free' } : { error: patchError }) }
+    const mode = patchMode === undefined ? (freeUsed ? 'qi' : 'free') : patchMode
+    return { ok: patchStatus === 200, status: patchStatus, json: async () => (patchStatus === 200 ? { birthEditMode: mode } : { error: patchError }) }
   }
   if (u.includes('/api/profile') && method === 'POST') {
     return { ok: true, status: 200, json: async () => ({ ok: true, requestId: 'r1' }) }
@@ -52,9 +56,66 @@ beforeEach(() => {
   patchStatus = 200
   patchError = 'แต้ม Qi ไม่พอ'
   walletQi = 30
+  profileGender = null
+  patchMode = undefined
   fetchMock.mockClear()
 })
 afterEach(() => cleanup())
+
+// ประชุม 24 พ.ย. ข้อ 5 — เพศแก้ในจอนี้ร่วมกับวันเกิด (เคสใส่เพศผิดแล้วดวงกลับด้าน ตามหาที่แก้ไม่เจอ).
+//   EB5 แก้เพศ → PATCH มี gender + chart POST มี gender + ข้อความบอกว่าคำนวณใหม่ตามเพศ ❌ ส่งค่าเดิม/เดา MALE
+//   EB6 แก้เพศอย่างเดียวในสถานะ B → บันทึกได้เลย ไม่ต้องปลดล็อกโควตา ไม่โชว์ "ใช้ N QI"
+//   EB7 ไม่แตะเพศ → ไม่ส่ง gender (ค่าที่ไม่ได้แก้ต้องไม่ถูกแตะ)
+describe('เพศในจอแก้วันเกิด (ประชุม 24 พ.ย. ข้อ 5)', () => {
+  const patchBodies = () => fetchMock.mock.calls.filter((c) => (c[1]?.method ?? '') === 'PATCH').map((c) => JSON.parse(String(c[1]?.body)))
+
+  it('EB5 prefill FEMALE → แก้เป็นชาย: PATCH และ chart POST มี gender, บอกว่าคำนวณใหม่ตามเพศ', async () => {
+    profileGender = 'FEMALE'
+    patchMode = null
+    document.cookie = 'cookie-mumate-id=11111111-1111-4111-8111-111111111111; path=/'
+    render(<CookiesProvider><EditBirthScreen /></CookiesProvider>)
+    const sel = await waitFor(() => screen.getByTestId('eb-gender') as HTMLSelectElement)
+    expect(sel.value).toBe('FEMALE')
+    // เลือกได้แค่ชาย/หญิง — "อื่น ๆ" ถูกคำนวณเป็นชายอยู่แล้ว จึงไม่ให้เลือก
+    expect([...sel.options].map((o) => o.value)).toEqual(['', 'MALE', 'FEMALE'])
+    expect((screen.getByTestId('eb-save') as HTMLButtonElement).disabled).toBe(true)
+    fireEvent.change(sel, { target: { value: 'MALE' } })
+    expect((screen.getByTestId('eb-save') as HTMLButtonElement).disabled).toBe(false)
+    fireEvent.click(screen.getByTestId('eb-save'))
+    await waitFor(() => expect(screen.getByTestId('eb-msg').textContent).toContain('คำนวณใหม่ตามเพศแล้ว'))
+    expect(patchBodies()[0].gender).toBe('MALE')
+    const posts = fetchMock.mock.calls.filter((c) => String(c[0]) === '/api/v2/birth-chart')
+    expect(JSON.parse(String(posts[0][1]?.body))).toEqual({ dob: '1995-06-15', time: '', gender: 'MALE' })
+  })
+
+  it('EB6 สิทธิ์ฟรีหมดแล้ว แก้เพศอย่างเดียว → ไม่ต้องปลดล็อก · ไม่มีราคา QI บนปุ่ม', async () => {
+    profileGender = 'MALE'
+    freeUsed = true
+    patchMode = null
+    render(<CookiesProvider><EditBirthScreen /></CookiesProvider>)
+    const sel = await waitFor(() => screen.getByTestId('eb-gender') as HTMLSelectElement)
+    // ก่อนแก้: สถานะ B ปกติ — วันเกิดล็อก + ปุ่มปลดล็อก
+    expect(screen.getByTestId('eb-date-locked')).toBeTruthy()
+    expect(screen.getByTestId('eb-unlock')).toBeTruthy()
+    fireEvent.change(sel, { target: { value: 'FEMALE' } })
+    await waitFor(() => expect(screen.queryByTestId('eb-unlock')).toBeNull())
+    expect(screen.getByTestId('eb-date-locked')).toBeTruthy() // วันเกิดยังล็อกอยู่ — เพศอย่างเดียวที่ปลด
+    expect(screen.getByTestId('eb-save').textContent).toBe('บันทึกการเปลี่ยนแปลง')
+    expect(screen.queryByTestId('eb-after')).toBeNull()
+    fireEvent.click(screen.getByTestId('eb-save'))
+    await waitFor(() => expect(screen.getByTestId('eb-msg').textContent).toContain('ไม่ใช้สิทธิ์แก้วันเกิด'))
+    expect(patchBodies()[0].gender).toBe('FEMALE')
+  })
+
+  it('EB7 ไม่แตะเพศ → PATCH ไม่มี gender แม้โปรไฟล์จะมีค่า (ไม่เดา ไม่ทับค่าเดิม)', async () => {
+    profileGender = 'FEMALE'
+    render(<CookiesProvider><EditBirthScreen /></CookiesProvider>)
+    fireEvent.change(await waitFor(() => screen.getByTestId('eb-province')), { target: { value: 'ตรัง' } })
+    fireEvent.click(screen.getByTestId('eb-save'))
+    await waitFor(() => expect(screen.getByTestId('eb-msg').textContent).toContain('ใช้สิทธิ์แก้ฟรี'))
+    expect(patchBodies()[0].gender).toBeUndefined()
+  })
+})
 
 describe('จอแก้วันเกิด (edit-birth-data ×4)', () => {
   it('สถานะฟรี: ป้าย "ยังไม่ได้ใช้" + ปุ่มยืนยันธรรมดา + ส่ง birth/timeUnknown ไป PATCH', async () => {
@@ -120,8 +181,9 @@ describe('จอแก้วันเกิด (edit-birth-data ×4)', () => {
 
   // mumate-be-retirement-001 slice 1 — after the engine PATCH succeeds, the legacy `user` row is synced and a
   // new result_code minted through the FE route (was mootech-be POST /chinese-horoscope). Only dob/time are
-  // sent: no user_id (session), and no name/surname/picture/gender (this screen does not edit them — the
-  // old call blanked surname and guessed MALE for any gender that was not exactly "FEMALE").
+  // sent: no user_id (session), and no name/surname/picture (this screen does not edit them — the old call
+  // blanked surname and guessed MALE for any gender that was not exactly "FEMALE"). Gender is sent only when
+  // the member changed it here (EB5).
   it('EB4 บันทึกสำเร็จ → POST /api/v2/birth-chart ด้วย dob/time เท่านั้น; 409 → ไม่ยิง', async () => {
     document.cookie = 'cookie-mumate-id=11111111-1111-4111-8111-111111111111; path=/'
     try {
