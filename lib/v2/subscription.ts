@@ -256,6 +256,34 @@ export function decidesWithoutLegacy(tierCode: string): boolean {
   return tierIsPaid(tier) === true
 }
 
+export const YEARLY_PACKAGE_CODES: readonly string[] = ['V2_PLUS_YEARLY', 'V2_PRO_YEARLY']
+
+/**
+ * Does this member hold a YEARLY plan right now? (แผนชีวิตปีใหม่ 2570 — the plan is the bonus of a yearly
+ * plan, team meeting 2026-11-24 item 13.) It asks the SAME winning row every other tier question asks —
+ * picked here by pickActiveSubscriptionRow, never by a second copy of the rule — and then reads that row's
+ * package. A legacy member (member_payment has no tier column) is PRO by #358 and yearly by nature, so it
+ * counts. Fails closed: an unknown tier_code, or anything not paid, answers false.
+ */
+export async function isYearlyMember(userId: string, now: Date = new Date()): Promise<boolean> {
+  const today = bkkDateStr(now)
+  const rows = await db
+    .select()
+    .from(memberSubscription)
+    .where(eq(memberSubscription.userId, userId))
+  const live = pickActiveSubscriptionRow(toSubRows(rows), today)
+  if (live) {
+    const tier = parseTierCode(live.tierCode)
+    if (tier === null) return false
+    if (tierIsPaid(tier) === true) {
+      const pkg = rows.find((r) => r.id === live.id)?.packageCode ?? ''
+      return YEARLY_PACKAGE_CODES.includes(pkg)
+    }
+  }
+  const m = await resolveMembership(userId, now)
+  return !m.isFree
+}
+
 // The DB read: v2 store first. The SQL does ONLY the user narrowing (eq(userId)); the ENTIRE selection rule
 // — status, expiry-vs-today, and ordering — lives in the pure picker so it is ONE copy, exercised by the
 // main `npm test` lane, not split with a half in SQL that only a DB suite could watch (ตู๋ #369 B2; this is

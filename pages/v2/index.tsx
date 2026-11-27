@@ -24,6 +24,7 @@ import { OnboardingCarousel } from '@/features/onboarding/components/OnboardingC
 import { endNewcomerGuide } from '@/features/v2-guide/NewcomerCoach'
 import { COURSE_REDEEM_KEY } from '@/features/course/redeem'
 import { clearReturnCookie, hasReturnMarker, takeReturnPath, TAISUI_RETURN_COOKIE } from '@/features/v2-taisui/return'
+import { NEWYEAR_PATH, takeNewYearReturn } from '@/lib/newyear/return'
 import { ReturnLoading } from '@/features/v2-taisui/components/ReturnLoading'
 import { isBirthProfileComplete } from '@/lib/bazi-bridge/input'
 import { V2HomeScreen } from '@/features/v2-home/components/V2HomeScreen'
@@ -115,6 +116,12 @@ function V2HomeRoute({ status, returning: fromServer }: { status: AuthStatus; re
     if (to) window.location.assign(to)
     else setReturning(false)
   }, [user, fromServer, returning])
+  // แผนชีวิตปีใหม่ 2570: logged in from /v2/newyear → back there at once. Unlike the ปีชง return this does not
+  // wait for the chart: the page takes a typed birth, and the birth the visitor typed rides along in storage.
+  useEffect(() => {
+    if (takeNewYearReturn()) window.location.assign(NEWYEAR_PATH)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
   // Zone 1 — daily-fortune + persona data seam. Called unconditionally (before the loading branch) so
   // hook order is stable; graceful by design (no user / bazi error → fortune/persona=null → cards show
   // fallback). Consumes the shared `user` (no second fetch). ONE BFF call returns both fortune and persona.

@@ -34,6 +34,12 @@ export const ANALYTICS_EVENTS = {
   taisui_deeper: ['from'],
   taisui_way: ['pick'],
   taisui_gate: ['from'],
+  /** แผนชีวิตปีใหม่ 2570 (/v2/newyear, team meeting 2026-11-24 item 13). Flags only — never a birth or a price. */
+  newyear_form_submit: ['time_known'],
+  newyear_result: ['member', 'unlocked'],
+  newyear_unlock_click: ['plan'],
+  newyear_login_click: ['from'],
+  newyear_download: ['format'],
 } as const satisfies Record<string, readonly string[]>
 
 export type AnalyticsEventName = keyof typeof ANALYTICS_EVENTS
