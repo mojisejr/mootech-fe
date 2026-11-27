@@ -12,21 +12,24 @@
 //   • ชิปกรองตามธาตุของเพื่อนแต่ละคน — รายการไม่มีธาตุรายคน (ต้องคำนวณรายคน)
 //   • ชีตจัดการ: รอบแรกมีแค่ "ลบเพื่อน" ซ่อน/บล็อก/รายงานต้องมีตารางใหม่
 //   • แก้ไขข้อมูลเพื่อน — ทำได้จากหน้าดูดวงคู่ (ชีตเพิ่มเพื่อนโหมดแก้ไข) อยู่แล้ว
+// แตะตัวแถว → หน้าดูดวงเพื่อน (ข้อ 2 · FriendFortuneScreen) · ปุ่ม "···" → ชีตจัดการ (ลบ)
 import Head from "next/head"
 import Image from "next/image"
 import Link from "next/link"
-import { useCallback, useEffect, useState, type ReactNode } from "react"
-import { createPortal } from "react-dom"
+import { useCallback, useEffect, useState } from "react"
 
 import { Menubar } from "@/features/v2-shell/components/Menubar"
 import { SheetShell, SkyHeader, SkyScreen } from "@/features/v2-profile/components/kit"
 import type { MissionBoard, Referral } from "@/features/v2-qi/qi-model"
 import { ElementGoalCard } from "./ElementGoalCard"
+import { Portal } from "./Portal"
 import { filterFriends, friendBirthText, friendInitial, friendName, parseFriendRows, type FriendRow } from "../friends-model"
 
 export const FRIENDS_REFERRAL_HREF = "/v2/qi/referral"
 /** ทางเข้าเพิ่มเพื่อนของรอบแรก: หน้าดูดวงเพื่อนร่วมงาน (ชีตเพิ่มเพื่อนอยู่ที่นั่น) */
 export const FRIENDS_COMPAT_HREF = "/v2/service/compatibility/colleague"
+/** แตะแถว → หน้าดูดวงเพื่อนคนนั้น (ข้อ 2) */
+export const friendFortuneHref = (id: string) => `/v2/friends/${encodeURIComponent(id)}`
 const TOAST_MS = 3000
 
 function FriendAvatar({ f, size = 40 }: { f: FriendRow; size?: number }) {
@@ -44,15 +47,9 @@ function FriendAvatar({ f, size = 40 }: { f: FriendRow; size?: number }) {
 const SEARCH_ICON = (
   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#9EA8B8" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden><circle cx="11" cy="11" r="7" /><path d="m20 20-3.5-3.5" /></svg>
 )
-
-/** Overlay ต้องอยู่นอกคอลัมน์เนื้อหาของ SkyScreen (`relative z-10`): ถ้า render ข้างใน z-50 ของชีตจะถูกตีค่า
- *  ภายในกล่อง z-10 แล้วแถบเมนูล่าง (z-40 ระดับราก) ทับปุ่มในชีต — พบตอนไล่บนเบราว์เซอร์จริง: กด "ลบเพื่อน" ไม่ได้
- *  เพราะจุดนั้นถูกแถบ "ปฏิทิน" ครอบอยู่. ทางออกเดียวกับ ComingSoon/InstallGuideSheet: portal ไป body.
- *  ชีตกับ toast โผล่หลังผู้ใช้แตะเท่านั้น (state เริ่ม null) ⇒ SSR ไม่เดินถึงนี่ จึงไม่มี hydration mismatch */
-function Portal({ children }: { children: ReactNode }) {
-  if (typeof document === "undefined") return null
-  return createPortal(children, document.body)
-}
+const MORE_ICON = (
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="#9EA8B8" aria-hidden><circle cx="5" cy="12" r="1.8" /><circle cx="12" cy="12" r="1.8" /><circle cx="19" cy="12" r="1.8" /></svg>
+)
 
 export function FriendsListScreen() {
   // null = ยังไม่รู้ (กำลังโหลด / โหลดไม่สำเร็จ) — "ว่างจริง" คือ [] เสมอ ไม่ปนกับความล้มเหลว
@@ -238,9 +235,10 @@ export function FriendsListScreen() {
           {shown.map((f) => {
             const birth = friendBirthText(f)
             return (
-              <li key={f.id}>
-                <button type="button" onClick={() => { setConfirming(false); setDeleteError(false); setManage(f) }} data-testid={`friends-row-${f.id}`}
-                  className="flex w-full items-center gap-3 rounded-[18px] border border-v3-border-card bg-white px-3 py-3 text-left">
+              <li key={f.id} className="flex items-center gap-1">
+                {/* แตะตัวแถว → หน้าดูดวงเพื่อน (ข้อ 2) · ปุ่ม "···" → ชีตจัดการ (ลบ) */}
+                <Link href={friendFortuneHref(f.id)} data-testid={`friends-row-${f.id}`}
+                  className="flex min-w-0 flex-1 items-center gap-3 rounded-[18px] border border-v3-border-card bg-white px-3 py-3 text-left">
                   <FriendAvatar f={f} />
                   <span className="min-w-0 flex-1">
                     <span className="block truncate text-[15px] font-bold leading-5 text-v3-navy">{friendName(f)}</span>
@@ -248,6 +246,11 @@ export function FriendsListScreen() {
                   </span>
                   {f.is_disable && <span className="flex-none text-[12px] font-medium text-v3-text-muted">เลือกไม่ได้</span>}
                   <span aria-hidden className="flex-none text-[16px] font-bold leading-6 text-v3-text-note">›</span>
+                </Link>
+                <button type="button" onClick={() => { setConfirming(false); setDeleteError(false); setManage(f) }} data-testid={`friends-manage-open-${f.id}`}
+                  aria-label={`จัดการเพื่อน ${friendName(f)}`}
+                  className="grid size-10 flex-none place-items-center rounded-full text-v3-text-body">
+                  {MORE_ICON}
                 </button>
               </li>
             )

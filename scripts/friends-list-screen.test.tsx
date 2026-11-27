@@ -76,6 +76,16 @@ describe('รายชื่อเพื่อน — แหล่งข้อ�
     expect(fetch).toHaveBeenCalledWith('/api/member-with-friend')
   })
 
+  it('แตะตัวแถว → หน้าดูดวงเพื่อนคนนั้น (ข้อ 2) · ปุ่ม ··· แยกกัน', async () => {
+    render(<FriendsListScreen />)
+    const first = await waitFor(() => screen.getByTestId('friends-row-f1'))
+    expect(first.tagName).toBe('A')
+    expect(first.getAttribute('href')).toBe('/v2/friends/f1')
+    expect(screen.getByTestId('friends-manage-open-f1').tagName).toBe('BUTTON')
+    // กดแถวต้องไม่เปิดชีต (ไปหน้าดูดวง) — ชีตเปิดจากปุ่ม ··· เท่านั้น
+    expect(screen.queryByTestId('friends-manage')).toBeNull()
+  })
+
   it('FL6 ไม่ปั้นตัวเลข: ไม่มี "%" ในแถว · วันเกิด parse ไม่ได้ → ไม่มีบรรทัดวันเกิด', async () => {
     render(<FriendsListScreen />)
     const third = await waitFor(() => screen.getByTestId('friends-row-f3'))
@@ -187,7 +197,7 @@ describe('FL4 ลบเพื่อน (ชีตจัดการ)', () => {
 
   it('🔴 กดแถว → ชีต · ยังไม่ยิง DELETE จนกว่าจะกดยืนยัน · ยืนยัน → DELETE id ของแถวนั้น · แถวหาย + toast', async () => {
     render(<FriendsListScreen />)
-    fireEvent.click(await waitFor(() => screen.getByTestId('friends-row-f2')))
+    fireEvent.click(await waitFor(() => screen.getByTestId('friends-manage-open-f2')))
     expect(screen.getByTestId('friends-manage-name').textContent).toBe('มานพ')
     // 🔴 ชีตต้องอยู่นอกคอลัมน์เนื้อหา (portal ไป body): อยู่ข้างในแล้ว z-50 ถูกตีค่าในกล่อง z-10 → แถบเมนูล่างทับปุ่ม
     //    (บั๊กจริงที่เจอตอนไล่บนเบราว์เซอร์: กด "ลบเพื่อน" ไม่ได้เพราะแถบ "ปฏิทิน" ครอบอยู่)
@@ -209,7 +219,7 @@ describe('FL4 ลบเพื่อน (ชีตจัดการ)', () => {
 
   it('กดยกเลิกในขั้นยืนยัน → ไม่ยิง DELETE · ชีตยังเปิด', async () => {
     render(<FriendsListScreen />)
-    fireEvent.click(await waitFor(() => screen.getByTestId('friends-row-f1')))
+    fireEvent.click(await waitFor(() => screen.getByTestId('friends-manage-open-f1')))
     fireEvent.click(screen.getByTestId('friends-manage-delete'))
     fireEvent.click(screen.getByTestId('friends-manage-cancel'))
     expect(screen.queryByTestId('friends-manage-confirm')).toBeNull()
@@ -220,7 +230,7 @@ describe('FL4 ลบเพื่อน (ชีตจัดการ)', () => {
   it('🔴 DELETE ล้ม (500) → บอก "ลบไม่สำเร็จ" ชีตยังเปิด แถวยังอยู่ ไม่มี toast สำเร็จ', async () => {
     stub({ deleteOk: false })
     render(<FriendsListScreen />)
-    fireEvent.click(await waitFor(() => screen.getByTestId('friends-row-f1')))
+    fireEvent.click(await waitFor(() => screen.getByTestId('friends-manage-open-f1')))
     fireEvent.click(screen.getByTestId('friends-manage-delete'))
     fireEvent.click(screen.getByTestId('friends-manage-confirm-delete'))
     await waitFor(() => expect(screen.getByTestId('friends-manage-error').textContent).toContain('ลบไม่สำเร็จ'))
