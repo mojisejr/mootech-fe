@@ -25,6 +25,7 @@ import { InstallAppCard } from "./InstallAppCard"
 import { RedeemCouponCard } from "@/features/v2-qi/components/RedeemCouponCard"
 import { MyCoursesCard, type MyCourse } from "./MyCoursesCard"
 import { COURSES } from "@/lib/course/content"
+import { accountFriendsCard, parseFriendRows, type FriendRow } from "@/features/v2-friends/friends-model"
 
 type Profile = { firstName?: string | null; displayName?: string | null; birthDate?: string | null; birthTime?: string | null; hasAvatar?: boolean | null; avatarUpdatedAt?: string | null }
 // สรุปสิทธิ์จาก /api/qi-entitlements — ใช้คิด "ยังถาม/เปิดไพ่ได้อีกกี่ครั้ง" ให้ตรง (ฟรี + credit + QI)
@@ -42,6 +43,8 @@ const PRO_MONTHLY_THB = 199
 const thb = (n: number) => `฿${Math.round(n).toLocaleString("th-TH")}`
 const TIER_LABEL: Record<string, string> = { free: "Free Tier", plus: "PLUS", pro: "PRO" }
 const ELEMENT_TH: Record<string, string> = { wood: "ไม้", metal: "ทอง", fire: "ไฟ", earth: "ดิน", water: "น้ำ" }
+// สีวงใน avatar stack ของแถวเพื่อน (เฟรม row 55399:5007)
+const STACK_COLORS = ["#63B05F", "#E5A93B", "#D75A3A"]
 
 /** นักษัตร (ปีเกิด) จากปี ค.ศ. ของ birthDate — สำหรับเลือกมาสคอต */
 function nakkasatFromBirth(birthDate?: string | null): string | null {
@@ -87,6 +90,8 @@ export function AccountScreen({ preview }: { preview?: AccountPreview } = {}) {
   // คอร์สที่มีสิทธิ์ (ซื้อ/สมาชิก) — ปุ่มเข้าเรียนจากโปรไฟล์ (เอ็ม 2026-10-21)
   const [myCourses, setMyCourses] = useState<MyCourse[]>([])
   const [referral, setReferral] = useState<Referral | null>(null)
+  // รายชื่อเพื่อนที่บันทึกวันเกิดไว้ (ประชุม 24 พ.ย. ข้อ 3) — null = ยังไม่รู้/โหลดไม่ได้ ไม่ใช่ "ไม่มีเพื่อน"
+  const [savedFriends, setSavedFriends] = useState<FriendRow[] | null>(null)
   const [deletePending, setDeletePending] = useState<string | null>(null)
   const [busyCheckin, setBusyCheckin] = useState(false)
   const [loaded, setLoaded] = useState(!!preview) // wallet/profile โหลดเสร็จ — กันปุ่มเช็คอิน flash ก่อนรู้สถานะจริง
@@ -133,7 +138,8 @@ export function AccountScreen({ preview }: { preview?: AccountPreview } = {}) {
       getJson("/api/payment-package?code=QI_60"),
       getJson("/api/course/calendar"),
       getJson("/api/course/life-matrix"),
-    ]).then(([m, r, del, pack, cCal, cMatrix]) => {
+      getJson("/api/member-with-friend"),
+    ]).then(([m, r, del, pack, cCal, cMatrix, fl]) => {
       // มีสิทธิ์ → เรียนต่อ · ยังไม่มี → ปุ่มซื้อ (คอร์สปฏิทินขายเดี่ยว ฿490 · Life Matrix ได้จากแพ็กรวม/ข้อเสนอ → ไปหน้าคอร์ส)
       const mine: MyCourse[] = []
       for (const [slug, j] of [["calendar", cCal], ["life-matrix", cMatrix]] as const) {
@@ -146,6 +152,8 @@ export function AccountScreen({ preview }: { preview?: AccountPreview } = {}) {
       setMyCourses(mine)
       setBoard(m)
       setReferral(r)
+      // array เปล่า ๆ จาก /api/member-with-friend · อย่างอื่น (ล้ม/{error}) → null = ไม่รู้จำนวน
+      setSavedFriends(parseFriendRows(fl))
       setDeletePending(del?.deletion?.purgeAt ?? null)
       const a = pack?.amount
       const amount = typeof a === "number" ? a : typeof a === "string" ? Number(a) : NaN
@@ -195,7 +203,7 @@ export function AccountScreen({ preview }: { preview?: AccountPreview } = {}) {
   // mission:<id> → ชื่อภารกิจจริง (ไม่งั้นฟีดโชว์ "ภารกิจ first_reading" ดิบ ๆ — บั๊กที่เห็นบน prod 2026-09-07)
   const missionTitles = useMemo(() => new Map((board?.missions ?? []).map((m) => [m.id, m.title])), [board])
   const goals = board?.goals
-  const friends = referral?.invitedCount ?? goals?.referral.invited ?? 0
+  const invitedCount = referral?.invitedCount ?? goals?.referral.invited ?? 0
   const days = last7(today)
   const claimedSet = new Set(history.filter((h) => h.reason === "qi:earn:daily_login").map((h) => h.createdAt.slice(0, 10)))
   // แถว Pro (เฟรม row-mumate-pro): "เดือนนี้จ่ายค่า QI ไป ฿X · Pro ฿199 ใช้ไม่จำกัด ประหยัด ฿Y" — คิดจาก ledger
@@ -204,6 +212,8 @@ export function AccountScreen({ preview }: { preview?: AccountPreview } = {}) {
   const spentThb = qiRate !== null && spentQiThisMonth > 0 ? spentQiThisMonth * qiRate : null
   const proSaving = spentThb !== null && spentThb > PRO_MONTHLY_THB ? spentThb - PRO_MONTHLY_THB : null
   const missingElements = goals ? goals.element.elements.filter((e) => !e.collected).map((e) => ELEMENT_TH[e.key] ?? e.key) : []
+  // การ์ดเพื่อน: นับจากรายชื่อที่บันทึกไว้ (ตรงกับหน้า /v2/friends) · รายชื่อโหลดไม่ได้ → ถอยไปนับจากชวนมาแบบเดิม
+  const friendsCard = accountFriendsCard(savedFriends, invitedCount, missingElements)
 
   // ชื่อ: ชื่อจริงที่ตั้งเอง (engine) → @name (displayName) → ชื่อ LINE → generic
   // Slide 7 — เพิ่ม displayName: ผู้ใช้ที่ตั้ง @name แต่ไม่ได้กรอกชื่อจริง จะได้เห็นชื่อที่ตั้ง ไม่ค้างชื่อ LINE เดิม
@@ -382,16 +392,17 @@ export function AccountScreen({ preview }: { preview?: AccountPreview } = {}) {
           <MyCoursesCard courses={myCourses} />
           {/* การ์ดรวม: เพื่อน + แผน (เฟรม nav-list-card) */}
           <section className="v3-shadow-card flex w-full flex-col overflow-hidden rounded-[24px] bg-white">
-            {/* แถวเพื่อน / 5 ธาตุ (เฟรม row 55399:5007): avatar stack 34px ขอบขาว 2 ซ้อน -12 + วง "+N" + badge 3/5 */}
-            <Link href="/v2/qi/referral" data-testid="account-friends" className="flex items-center gap-3 px-4 py-3.5">
-              {friends > 0 ? (
-                // ยังไม่มีรูป/ชื่อเพื่อนจาก /api/referral (ให้แค่ invitedCount) → วงสีธาตุ+ตัวย่อ "ธ" แทนรูปจริง ไม่ปั้นรูปปลอม
+            {/* แถวเพื่อน / 5 ธาตุ (เฟรม row 55399:5007): avatar stack 34px ขอบขาว 2 ซ้อน -12 + วง "+N" + badge 3/5
+                → พาไปหน้ารายชื่อเพื่อน /v2/friends (ประชุม 24 พ.ย. ข้อ 3) */}
+            <Link href="/v2/friends" data-testid="account-friends" className="flex items-center gap-3 px-4 py-3.5">
+              {friendsCard.has ? (
+                // อักษรแรกของชื่อเพื่อนจริงจากรายชื่อ · รู้แค่จำนวน (รายชื่อโหลดไม่ได้/มีแค่ชวนมา) → วง "ธ" ไม่ปั้นรูปปลอม
                 <span aria-hidden data-testid="account-friends-stack" className="flex flex-none items-center">
-                  {["#63B05F", "#E5A93B", "#D75A3A"].slice(0, Math.min(friends, 3)).map((c, i) => (
-                    <span key={c} className="grid size-[34px] place-items-center rounded-full border-2 border-white text-[12px] font-black text-white" style={{ backgroundColor: c, marginLeft: i === 0 ? 0 : -12 }}>ธ</span>
+                  {friendsCard.stack.map((glyph, i) => (
+                    <span key={i} className="grid size-[34px] place-items-center rounded-full border-2 border-white text-[12px] font-black text-white" style={{ backgroundColor: STACK_COLORS[i % STACK_COLORS.length], marginLeft: i === 0 ? 0 : -12 }}>{glyph}</span>
                   ))}
-                  {friends > 3 ? (
-                    <span className="grid size-[34px] place-items-center rounded-full border-2 border-white text-[13px] font-bold text-v3-lime" style={{ marginLeft: -12, backgroundColor: "rgba(11,48,91,0.6)" }}>+{friends - 3}</span>
+                  {friendsCard.extra > 0 ? (
+                    <span className="grid size-[34px] place-items-center rounded-full border-2 border-white text-[13px] font-bold text-v3-lime" style={{ marginLeft: -12, backgroundColor: "rgba(11,48,91,0.6)" }}>+{friendsCard.extra}</span>
                   ) : null}
                 </span>
               ) : (
@@ -400,19 +411,10 @@ export function AccountScreen({ preview }: { preview?: AccountPreview } = {}) {
                 </span>
               )}
               <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-                {friends > 0 ? (
-                  <>
-                    <p className="text-[14px] font-medium leading-5 text-v3-navy">เพื่อนของคุณ {friends} คน</p>
-                    <p className="text-[12px] leading-[18px] text-v3-text-body">เก็บครบ 5 ธาตุรับ 1,000 QI{missingElements.length ? ` · ยังขาด${missingElements.join("และ")}` : ""}</p>
-                  </>
-                ) : (
-                  <>
-                    <p className="text-[14px] font-medium leading-5 text-v3-navy">สะสมเพื่อนให้ครบ 5 ธาตุ</p>
-                    <p className="text-[12px] leading-[18px] text-v3-text-body">ชวนเพื่อนคนแรก รับ 50 QI</p>
-                  </>
-                )}
+                <p className="text-[14px] font-medium leading-5 text-v3-navy">{friendsCard.title}</p>
+                <p className="text-[12px] leading-[18px] text-v3-text-body">{friendsCard.sub}</p>
               </div>
-              {goals && friends > 0 ? <span data-testid="account-friends-badge" className="flex-none rounded-full bg-v3-sky-tint px-2.5 py-[5px] text-[9px] font-bold leading-none text-v3-sapphire">{goals.element.collected}/5</span> : null}
+              {goals && friendsCard.has ? <span data-testid="account-friends-badge" className="flex-none rounded-full bg-v3-sky-tint px-2.5 py-[5px] text-[9px] font-bold leading-none text-v3-sapphire">{goals.element.collected}/5</span> : null}
               <span className="flex-none text-[16px] font-bold leading-6 text-v3-text-note">›</span>
             </Link>
             {/* ดูทัวร์แนะนำแอปอีกครั้ง (เอ็ม 2026-10-15) — OnboardingTour เริ่มเมื่อเห็น ?tour=replay */}
