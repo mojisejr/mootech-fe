@@ -43,6 +43,11 @@ export const ANALYTICS_EVENTS = {
   /** ป๊อปอัป "Limited time": offer = รหัสแพ็กเกจ (V2_PRO_MONTHLY ฯลฯ) · action = buy | later | close */
   promo_offer_view: ['offer'],
   promo_offer_click: ['offer', 'action'],
+  taisui_wall: ['shown'],
+  taisui_save_birth: ['result'],
+  taisui_packet_way: ['to'],
+  taisui_packet_later: ['from'],
+  taisui_google: ['action'],
 } as const satisfies Record<string, readonly string[]>
 
 export type AnalyticsEventName = keyof typeof ANALYTICS_EVENTS

@@ -1,7 +1,7 @@
 // features/v2-account/components/EditProfileScreen.tsx — /v2/settings/edit-profile (เฟรม `edit-personal-info`)
-// avatar + ชื่อจริง/นามสกุล/เพศ + @name (อ่านอย่างเดียว) + การ์ดวันเกิดล็อก (แก้หน้าอื่น).
-// ⚠️ โมเดลจริงของ engine = firstName/lastName/gender + displayName(อ่านอย่างเดียว) — ไม่มี email/อัปโหลดรูป
-// (เฟรมมีช่องอีเมล/แก้ @name แต่ backend ยังไม่รองรับ → ทำตามโมเดลจริง, สไตล์ตามเฟรม). วันเกิดแยกโควตาที่ /edit-birth.
+// avatar + ชื่อจริง/นามสกุล + @name (แก้ได้) + อีเมล + การ์ดวันเกิด/เพศล็อก (แก้หน้าอื่น).
+// ⚠️ โมเดลจริงของ engine = firstName/lastName/gender + displayName — มีอีเมล/อัปโหลดรูปแล้ว (ต่อยอดภายหลัง).
+// วันเกิดและเพศแยกโควตา/ซิงก์ที่ /edit-birth — เพศย้ายไปที่นั่น (ประชุม 24 พ.ย. ข้อ 5): จอนี้โชว์ค่าอย่างเดียว.
 import Head from "next/head"
 import Link from "next/link"
 import { useCallback, useEffect, useRef, useState } from "react"
@@ -167,11 +167,12 @@ export function EditProfileScreen() {
           return
         }
       }
-      // 2) ข้อมูลอื่น ๆ
+      // 2) ข้อมูลอื่น ๆ — เพศไม่ส่งจากจอนี้แล้ว: ย้ายไปแก้ร่วมกับวันเกิดที่ /v2/settings/edit-birth (ประชุม 24 พ.ย. ข้อ 5)
+      //    เพราะเพศเปลี่ยน = ดวงเปลี่ยนทั้งแผน ต้องอยู่ที่เดียวกับวันเกิด และที่นั่นมีการ sync ค่าลงตารางที่ตัวคำนวณอ่านจริง
       const res = await fetch("/api/profile", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ firstName: firstName.trim(), lastName: lastName.trim(), gender, email: email.trim() }),
+        body: JSON.stringify({ firstName: firstName.trim(), lastName: lastName.trim(), email: email.trim() }),
       })
       const j = (await res.json().catch(() => ({}))) as { error?: string }
       if (res.ok) {
@@ -318,24 +319,6 @@ export function EditProfileScreen() {
                 <input value={lastName} onChange={(e) => setLastName(e.target.value)} placeholder="เช่น ใจดี" data-testid="ep-last-name" className={INPUT} />
               </label>
               <label className="flex flex-col gap-1.5">
-                <span className={LABEL}>เพศ</span>
-                <span className="relative block">
-                  <select
-                    value={gender ?? ""}
-                    onChange={(e) => setGender(e.target.value || null)}
-                    data-testid="ep-gender"
-                    className={INPUT + " w-full appearance-none pr-10 " + (gender ? "text-v3-navy" : "text-v3-placeholder")}
-                  >
-                    <option value="">เลือกเพศ</option>
-                    {GENDERS.map((g) => (
-                      <option key={g.code} value={g.code} className="text-v3-navy">{g.label}</option>
-                    ))}
-                  </select>
-                  <span aria-hidden className="pointer-events-none absolute inset-y-0 right-4 flex items-center text-[14px] text-v3-text-note">⌄</span>
-                </span>
-                <span className={HINT}>ใช้ปรับสำนวนคำทำนาย</span>
-              </label>
-              <label className="flex flex-col gap-1.5">
                 <span className={LABEL}>อีเมล</span>
                 <input value={email} onChange={(e) => setEmail(e.target.value)} type="email" inputMode="email" placeholder="เช่น you@example.com" data-testid="ep-email" className={INPUT} />
                 <span className={HINT}>ใช้ส่งใบเสร็จและไฟล์ข้อมูลของคุณ</span>
@@ -343,7 +326,7 @@ export function EditProfileScreen() {
               {msg && <p data-testid="ep-msg" className="text-[12px] font-bold text-v3-sapphire">{msg}</p>}
             </section>
 
-            {/* linked-card (เฟรม 55399:6086): วันเกิดล็อก — ช่องพื้น bg/subtle + "แก้ในหน้าอื่น ›" 9 brand + hint 9 */}
+            {/* linked-card (เฟรม 55399:6086): วันเกิด+เพศล็อก — ช่องพื้น bg/subtle + "แก้ในหน้าอื่น ›" 9 brand + hint 9 */}
             <section className={CARD} data-testid="ep-birth-link">
               <div className="flex flex-col gap-1.5">
                 <span className={LABEL}>วันเกิดและเวลาเกิด</span>
@@ -354,6 +337,17 @@ export function EditProfileScreen() {
                   <span className="flex-none text-[9px] leading-none text-v3-sapphire">แก้ในหน้าอื่น ›</span>
                 </Link>
                 <span className={HINT}>แยกไปอีกหน้าเพราะการแก้กระทบคำทำนายทั้งแอป</span>
+              </div>
+              {/* เพศย้ายไปแก้ร่วมกับวันเกิดแล้ว (ประชุม 24 พ.ย. ข้อ 5) — ที่นี่โชว์ค่าปัจจุบันอย่างเดียว + ลิงก์ไปหน้าเดียวกัน */}
+              <div className="flex flex-col gap-1.5">
+                <span className={LABEL}>เพศ</span>
+                <Link href="/v2/settings/edit-birth" data-testid="ep-to-gender" className="flex h-[52px] w-full items-center gap-2 rounded-[14px] border border-v3-border-input bg-v3-rose-tint px-4">
+                  <span className="min-w-0 flex-1 truncate text-[14px] leading-[22px] text-v3-text-note" data-testid="ep-gender">
+                    {gender ? (GENDERS.find((g) => g.code === gender)?.label ?? gender) : "ยังไม่ได้ระบุ"}
+                  </span>
+                  <span className="flex-none text-[9px] leading-none text-v3-sapphire">แก้พร้อมวันเกิด ›</span>
+                </Link>
+                <span className={HINT}>เพศมีผลต่อทิศวัยจร จึงแก้ในหน้าเดียวกับวันเกิด</span>
               </div>
             </section>
 

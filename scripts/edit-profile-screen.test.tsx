@@ -50,8 +50,10 @@ describe('จอแก้ข้อมูลส่วนตัว (edit-personal-
     render(<CookiesProvider><EditProfileScreen /></CookiesProvider>)
     const first = await waitFor(() => screen.getByTestId('ep-first-name') as HTMLInputElement)
     expect(first.value).toBe('สมศรี')
-    // เพศ = dropdown (prefill FEMALE)
-    expect((screen.getByTestId('ep-gender') as HTMLSelectElement).value).toBe('FEMALE')
+    // เพศ = แถวโชว์ค่าอย่างเดียว (prefill FEMALE → "หญิง") + ลิงก์ไปแก้ร่วมวันเกิด — ไม่ใช่ dropdown ในจอนี้แล้ว
+    expect(screen.getByTestId('ep-gender').textContent).toBe('หญิง')
+    expect(screen.getByTestId('ep-to-gender').getAttribute('href')).toBe('/v2/settings/edit-birth')
+    expect(screen.getByTestId('ep-gender').tagName).toBe('SPAN') // ค่าโชว์อย่างเดียว — ไม่ใช่ <select> อีกแล้ว
     // @name แก้ได้ในจอนี้แล้ว (prefill จาก engine)
     expect((screen.getByTestId('ep-handle') as HTMLInputElement).value).toBe('somsri_m')
     // ช่อง text = @name/ชื่อ/นามสกุล/อีเมล = 4
@@ -60,16 +62,17 @@ describe('จอแก้ข้อมูลส่วนตัว (edit-personal-
     expect(screen.getByTestId('ep-avatar-input')).toBeTruthy()
   })
 
-  it('EP1 แก้ชื่อ+เพศ แล้วบันทึก → PATCH /api/profile ไม่มี field birth ❌ แตะโควตา', async () => {
+  it('EP1 แก้ชื่อแล้วบันทึก → PATCH /api/profile ไม่มี field birth ❌ แตะโควตา · และไม่ส่งเพศจากจอนี้', async () => {
     render(<CookiesProvider><EditProfileScreen /></CookiesProvider>)
     const last = await waitFor(() => screen.getByTestId('ep-last-name') as HTMLInputElement)
     fireEvent.change(last, { target: { value: 'ใจดี' } })
-    fireEvent.change(screen.getByTestId('ep-gender'), { target: { value: 'OTHER' } })
     fireEvent.click(screen.getByTestId('ep-save'))
     await waitFor(() => expect(screen.getByTestId('ep-msg').textContent).toBe('บันทึกแล้ว'))
     const bodies = patchBodies()
     expect(bodies.length).toBe(1)
-    expect(bodies[0]).toEqual({ firstName: 'สมศรี', lastName: 'ใจดี', gender: 'OTHER', email: '' })
+    // เพศแก้ที่ /v2/settings/edit-birth อย่างเดียว (ประชุม 24 พ.ย. ข้อ 5): จอนี้ส่งแล้วเคยทำให้เพศที่ตัวคำนวณอ่านไม่เปลี่ยน
+    expect(bodies[0]).toEqual({ firstName: 'สมศรี', lastName: 'ใจดี', email: '' })
+    expect(bodies[0].gender).toBeUndefined()
     expect(bodies[0].birth).toBeUndefined()
   })
 

@@ -54,6 +54,9 @@ export type V2LoginApi = {
   loading: boolean
   onLine: () => void
   onGoogle: () => void
+  /** ปีชง 2570 revision 0.15: LINE login that asks LINE for its full add-friend screen (bot_prompt=aggressive),
+   *  for this one login. Every other login keeps the provider's default ("normal"). */
+  onLineFriend: () => void
 }
 
 export function useV2Login(): V2LoginApi {
@@ -64,7 +67,7 @@ export function useV2Login(): V2LoginApi {
   // จะทำใหม่แบบปลอดภัยผ่าน /v2 (ไม่ยัดใน OAuth callbackUrl). safeNextPath คงไว้ (มีเทสต์) แต่ยังไม่ใช้กับ callback.
   const callbackUrl = V2_LOGIN_CALLBACK
 
-  const login = (provider: string) => {
+  const login = (provider: string, authorizeParams?: Record<string, string>) => {
     setCookie(CookieKey.LOGIN_PROVIDER, provider, {
       path: '/',
       maxAge: CONFIG.EXPIRED_TIME_COOKIE,
@@ -96,7 +99,8 @@ export function useV2Login(): V2LoginApi {
     // เอ็ม 2026-09-20: เคยลองใส่ disable_auto_login=true (#727) เพื่อกัน LINE เด้งเปิดแอป — แต่ผลคือมันบังคับ
     // ขึ้นหน้า "อีเมล/รหัสผ่าน" ของ LINE ซึ่งคนที่จำ LINE ไม่ได้เข้ายากมาก. ถอดออก → กลับไปใช้ auto-login ของ
     // LINE (แตะทีเดียวผ่านแอป). ทางที่ลื่นที่สุด = เปิดจากใน LINE (OA rich menu) ให้อยู่ใน in-app browser.
-    void startOAuthRedirect(provider, callbackUrl)
+    // every other login calls exactly as before; only the ปีชง page passes authorize params
+    void (authorizeParams ? startOAuthRedirect(provider, callbackUrl, authorizeParams) : startOAuthRedirect(provider, callbackUrl))
 
     // 🔴 slice 7b (2026-10-01): ถอด "ยิงรอบสองอัตโนมัติหลัง 6 วิ" (#845) ออก. หน้านี้ยัง visible ตลอดช่วงที่ access.line.me
     // กำลังโหลดช้า → รอบสองถูกยิงทับทั้งที่รอบแรกยังไม่จบ → state cookie ถูกเขียนใหม่ → รอบแรกกลับมาด้วย state เก่า →
@@ -110,5 +114,6 @@ export function useV2Login(): V2LoginApi {
     loading,
     onLine: () => login('line'),
     onGoogle: () => login('google'),
+    onLineFriend: () => login('line', { bot_prompt: 'aggressive' }),
   }
 }

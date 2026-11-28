@@ -8,9 +8,23 @@ import { useCallback, useEffect, useState } from 'react'
 
 import { SkyBackdrop, SkyHeader, Toggle } from '@/features/v2-profile/components/kit'
 import { ProfileGate } from '@/features/v2-account/components/ProfileGate'
+import { dailyReminderAccessNote, type DailyReminderAccess } from '@/lib/v2/daily-fortune-access'
 
 const CARD = 'flex w-full flex-col rounded-[24px] bg-white p-5 drop-shadow-[0_4px_15px_rgba(26,38,77,0.12)]'
 const LOCAL_STORE = 'mumate:notif-prefs-v1'
+// ช่วงเวลาที่ให้เลือกสำหรับ "ดวงประจำวัน" (ทุกครึ่งชั่วโมง) — เวลาที่ผู้ใช้เคยตั้งไว้นอกช่วงจะถูกเติมเข้าตัวเลือกให้เอง
+const DAILY_TIME_OPTIONS: string[] = Array.from({ length: 9 }, (_, i) => {
+  const h = 6 + Math.floor(i / 2)
+  const m = i % 2 === 0 ? '00' : '30'
+  return `${String(h).padStart(2, '0')}:${m}`
+})
+const hhmm = (h: number, m: number) => `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`
+
+/** ฝั่ง client: ข้อความรองของแถว "ดวงประจำวัน" จากเวลาที่ตั้ง + สิทธิ์ (null = ยังไม่โหลด → ข้อความเริ่มต้น) */
+export function dailyFortuneSubText(time: { hour: number; minute: number } | null, access: DailyReminderAccess | null): string {
+  const base = `ส่งทุกเช้าเวลา ${time ? hhmm(time.hour, time.minute) : '07:00'} น.`
+  return base + dailyReminderAccessNote(access)
+}
 
 type Prefs = { dailyFortune?: boolean; reminders?: boolean; updates?: boolean }
 type LocalPrefs = {
@@ -105,8 +119,43 @@ export function NotificationsScreen() {
   const [kind, setKind] = useState<'ok' | 'not_authenticated' | 'failed'>('ok')
   const [pushState, setPushState] = useState<'unsupported' | NotificationPermission>('default')
   const [savingKey, setSavingKey] = useState<string | null>(null)
+  // ประชุม 24 พ.ย. ข้อ 6: เวลาส่ง + สิทธิ์ของ "ดวงประจำวัน" (Plus/Pro ทุกวัน · ฟรี 7 วันจากวันสมัคร) — null = ยังไม่โหลด/โหลดไม่ได้
+  const [fortune, setFortune] = useState<{ hour: number; minute: number; access: DailyReminderAccess } | null>(null)
+  const [savingTime, setSavingTime] = useState(false)
 
   const master = local.master
+
+  // โหลดเวลา/สิทธิ์แบบ best-effort — ล้มไม่ควรทำให้ทั้งจอแจ้งเตือนเสีย (แถว "ดวงประจำวัน" ยังใช้ข้อความเริ่มต้น)
+  const loadFortune = useCallback(async () => {
+    try {
+      const res = await fetch('/api/v2/daily-fortune-reminder')
+      const j = (await res.json().catch(() => null)) as { hour?: unknown; minute?: unknown; access?: DailyReminderAccess } | null
+      if (res.ok && typeof j?.hour === 'number' && typeof j?.minute === 'number' && j.access) {
+        setFortune({ hour: j.hour, minute: j.minute, access: j.access })
+      }
+    } catch {
+      /* ignore */
+    }
+  }, [])
+
+  const saveFortuneTime = async (value: string) => {
+    const [h, m] = value.split(':').map(Number)
+    if (!Number.isInteger(h) || !Number.isInteger(m) || savingTime) return
+    setSavingTime(true)
+    try {
+      const res = await fetch('/api/v2/daily-fortune-reminder', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ time: value }),
+      })
+      const j = (await res.json().catch(() => null)) as { hour?: unknown; minute?: unknown; access?: DailyReminderAccess } | null
+      if (res.ok && typeof j?.hour === 'number' && typeof j?.minute === 'number' && j.access) {
+        setFortune({ hour: j.hour, minute: j.minute, access: j.access })
+      }
+    } finally {
+      setSavingTime(false)
+    }
+  }
 
   // ครบภารกิจ enable_notif (best-effort, engine กันซ้ำเอง) — เมื่อเปิดแจ้งเตือนช่องใดช่องหนึ่งจริง
   const reportNotifEnabled = useCallback(() => {
@@ -143,10 +192,11 @@ export function NotificationsScreen() {
 
   useEffect(() => {
     void load()
+    void loadFortune()
     setLocal(readLocal())
     if (typeof Notification !== 'undefined') setPushState(Notification.permission)
     else setPushState('unsupported')
-  }, [load])
+  }, [load, loadFortune])
 
   const saveLocal = (next: LocalPrefs) => {
     setLocal(next)
@@ -226,20 +276,54 @@ export function NotificationsScreen() {
               <section key={g.testId} className={CARD} data-testid={g.testId}>
                 <p className="mb-1 text-[13px] font-black text-v3-navy">{g.title}</p>
                 <div className="flex flex-col divide-y divide-v3-border-card">
-                  {g.items.map((it) => (
-                    <div key={it.testId} className="flex items-center justify-between gap-3 py-3">
-                      <div className="min-w-0 flex-1">
-                        <p className={`text-[14px] font-bold ${master ? 'text-v3-navy' : 'text-v3-text-muted'}`}>{it.title}</p>
-                        {it.sub ? <p className="text-[11px] leading-4 text-v3-text-muted">{it.sub}</p> : null}
+                  {g.items.map((it) => {
+                    const daily = it.testId === 'notif-daily'
+                    const options = daily && fortune && !DAILY_TIME_OPTIONS.includes(hhmm(fortune.hour, fortune.minute))
+                      ? [...DAILY_TIME_OPTIONS, hhmm(fortune.hour, fortune.minute)].sort()
+                      : DAILY_TIME_OPTIONS
+                    return (
+                      <div key={it.testId} className="py-3">
+                        <div className="flex items-center justify-between gap-3">
+                          <div className="min-w-0 flex-1">
+                            <p className={`text-[14px] font-bold ${master ? 'text-v3-navy' : 'text-v3-text-muted'}`}>{it.title}</p>
+                            {it.sub ? (
+                              <p className="text-[11px] leading-4 text-v3-text-muted" data-testid={daily ? 'notif-daily-sub' : undefined}>
+                                {daily ? dailyFortuneSubText(fortune, fortune?.access ?? null) : it.sub}
+                              </p>
+                            ) : null}
+                          </div>
+                          <Toggle
+                            on={isOn(it)}
+                            disabled={!master || savingKey === it.key}
+                            onChange={() => onToggle(it)}
+                            testId={it.testId}
+                          />
+                        </div>
+                        {/* ตั้งเวลาส่ง "ดวงประจำวัน" — โชว์เมื่อเปิดสวิตช์อยู่ · ผู้ใช้ฟรีหมดช่วง 7 วัน → ทางไปอัปเกรด */}
+                        {daily && isOn(it) && (
+                          <div className="mt-2 flex flex-wrap items-center justify-between gap-2 pl-0">
+                            <label className="flex items-center gap-2 text-[12px] font-medium text-v3-text-body">
+                              เวลาส่ง
+                              <select
+                                value={fortune ? hhmm(fortune.hour, fortune.minute) : '07:00'}
+                                disabled={savingTime || !master}
+                                onChange={(e) => void saveFortuneTime(e.target.value)}
+                                data-testid="notif-daily-time"
+                                className="h-8 rounded-full border border-v3-border-card bg-white px-3 text-[12px] font-bold text-v3-navy outline-none"
+                              >
+                                {options.map((t) => <option key={t} value={t}>{t} น.</option>)}
+                              </select>
+                            </label>
+                            {fortune?.access.reason === 'trial_over' && (
+                              <Link href="/v2/shop" data-testid="notif-daily-upgrade" className="text-[12px] font-bold text-v3-cyan">
+                                อัปเกรดเพื่อรับดวงรายวันต่อ →
+                              </Link>
+                            )}
+                          </div>
+                        )}
                       </div>
-                      <Toggle
-                        on={isOn(it)}
-                        disabled={!master || savingKey === it.key}
-                        onChange={() => onToggle(it)}
-                        testId={it.testId}
-                      />
-                    </div>
-                  ))}
+                    )
+                  })}
                 </div>
               </section>
             ))}

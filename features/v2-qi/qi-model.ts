@@ -188,6 +188,8 @@ const SPEND_LABELS: Record<string, string> = {
   // ดูดวงเบอร์ — ชื่อเดียวกับการ์ดบริการ (services.ts) เพื่อไม่ให้ history โชว์ code ดิบ (ผู้ใช้ 2026-09-12)
   phone_reading: "ดูดวงเบอร์มือถือ",
   honeycomb_reading: "ดูดวงเบอร์รังผึ้ง",
+  // ดูดวงเพื่อน (ประชุม 24 พ.ย. ข้อ 2) — ตรงกับ QI_SPEND_LINES.friend_reading ของ engine (30 QI/ครั้ง)
+  friend_reading: "ดูดวงเพื่อน",
 }
 
 /** reason ดิบของ ledger → ข้อความไทยที่คนอ่านออก; ภารกิจอาจส่ง titles map (id → ชื่อ) มาเติม */

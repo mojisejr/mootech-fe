@@ -110,10 +110,11 @@ function V2HomeRoute({ status, returning: fromServer }: { status: AuthStatus; re
   useEffect(() => {
     if (!user) return
     if (!hasReturnMarker() && !fromServer) { if (returning) setReturning(false); return }
-    if (!isBirthProfileComplete(user as Parameters<typeof isBirthProfileComplete>[0])) { clearReturnCookie(); setReturning(false); return }
+    // revision 0.15: a member without a chart goes back too; the page takes the birth and saves it
     // the marker holds the packet code; the cookie alone (storage lost) still knows where to go
     const to = takeReturnPath() ?? (fromServer ? '/taisui-2570' : null)
     if (to) window.location.assign(to)
+    else if (!isBirthProfileComplete(user as Parameters<typeof isBirthProfileComplete>[0])) window.location.replace('/v2/register')
     else setReturning(false)
   }, [user, fromServer, returning])
   // Zone 1 — daily-fortune + persona data seam. Called unconditionally (before the loading branch) so
