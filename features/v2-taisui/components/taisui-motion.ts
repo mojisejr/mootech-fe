@@ -379,14 +379,19 @@ export function startTaisui(root: HTMLElement, api: TaisuiApi): () => void {
   on<SubmitEvent>(sheet, 'submit', async (e) => {
     e.preventDefault()
     const birth = readSheet(); if (!birth) return
-    const btn = sheet.querySelector<HTMLButtonElement>('button[type=submit]')!; btn.disabled = true
+    const btn = sheet.querySelector<HTMLButtonElement>('button[type=submit]')!
+    if (await submitBirth(birth, btn, $('shErr'))) { closeSheet(); glideTo(0.3) }
+  })
+  // one submit for the sheet and the birth wall (revision 0.14): the reading, then the page's own flow
+  async function submitBirth(birth: Birth, btn: HTMLButtonElement, err: HTMLElement): Promise<boolean> {
+    btn.disabled = true
     api.track('taisui_form_submit', { time_known: birth.time ? 1 : 0 })
     const res = await api.loadReading(birth); btn.disabled = false
-    if (!res.ok) { $('shErr').textContent = res.status === 429 ? 'กดถี่ไปหน่อย รอสักครู่แล้วลองใหม่ครับ' : 'ยังดูดวงไม่ได้ ลองใหม่อีกครั้งครับ'; return }
+    if (!res.ok) { err.textContent = res.status === 429 ? 'กดถี่ไปหน่อย รอสักครู่แล้วลองใหม่ครับ' : 'ยังดูดวงไม่ได้ ลองใหม่อีกครั้งครับ'; return false }
     typed = birth
     apply(res.reading)
-    closeSheet(); glideTo(0.3)
-  })
+    return true
+  }
   on($('member'), 'click', () => { api.track('taisui_login_click', { from: 'hero' }); api.login(null) })
   // revision 0.14 (team meeting 2026-11-24): two ways on from the count. อ่านแบบเต็ม glides to the shop; อ่านแบบย่อ reads on
   on($('toFull'), 'click', () => { api.track('taisui_way', { pick: 'full' }); toSection('shop') })
@@ -602,6 +607,51 @@ export function startTaisui(root: HTMLElement, api: TaisuiApi): () => void {
     return box
   }
 
+  // revision 0.14: the birth wall (owner picked B, 2026-11-25). A visitor with no birth cannot scroll past the
+  // opening: everything below is hidden until a birth is given, over a blurred preview of what waits.
+  let wallEl: HTMLElement | null = null
+  function hideWall() { wallEl?.remove(); wallEl = null; root.classList.remove('walled') }
+  function showWall() {
+    if (reading || wallEl) return
+    const w = el('section', 'wall'); w.id = 'wall'; w.setAttribute('aria-labelledby', 'wallT')
+    const t = el('div', 'wtease'); t.setAttribute('aria-hidden', 'true'); t.appendChild(el('div', 'wbig'))
+    for (let i = 0; i < 4; i++) { const r = el('div', 'wrow'); r.appendChild(el('i', 'wav')); const c = el('div'); c.style.flex = '1'; const a = el('div', 'wln'); a.style.width = `${60 + i * 8}%`; const b = el('div', 'wln'); b.style.width = '90%'; b.style.marginTop = '8px'; c.append(a, b); r.appendChild(c); t.appendChild(r) }
+    const mo = el('div', 'wmo'); for (let i = 0; i < 6; i++) mo.appendChild(el('i')); t.appendChild(mo); w.appendChild(t)
+    const card = el('div', 'wcard')
+    card.appendChild(el('span', 'wlk', '🔒 ปีของคุณรออยู่ข้างล่าง'))
+    const h = el('h2', undefined, 'คุณเกิดวันไหน?'); h.id = 'wallT'; card.appendChild(h)
+    card.appendChild(el('p', 'wsub', 'กรอกวันเกิดก่อน แล้วเสี่ยวมู่จะพาไปดูว่าปีมะแมส่งผลกับคุณยังไง ฟรี ไม่ต้องล็อกอิน'))
+    const copy = (src: HTMLSelectElement, label: string) => { const c = src.cloneNode(true) as HTMLSelectElement; c.removeAttribute('id'); c.className = ''; c.value = ''; c.setAttribute('aria-label', label); return c }
+    card.appendChild(el('label', undefined, 'วัน เดือน ปีเกิด (พ.ศ.)'))
+    const three = el('div', 'wthree'); const d = copy(bdD, 'วันเกิด'), m = copy(bdM, 'เดือนเกิด'), y = copy(bdY, 'ปีเกิด'); three.append(d, m, y); card.appendChild(three)
+    card.appendChild(el('label', undefined, 'เวลาเกิด'))
+    const tm = el('div', 'wtm'); const ti = el('input') as HTMLInputElement; ti.type = 'time'; ti.setAttribute('aria-label', 'เวลาเกิด')
+    const chk = el('label', 'wchk'); const nt = el('input') as HTMLInputElement; nt.type = 'checkbox'; chk.append(nt, document.createTextNode('ไม่รู้เวลา')); tm.append(ti, chk); card.appendChild(tm)
+    const ym = copy(yam, 'ช่วงยามที่เกิด (ถ้าพอจำได้)'); ym.classList.add('wym'); ym.hidden = true; card.appendChild(ym)
+    card.appendChild(el('label', undefined, 'เพศ'))
+    const sex = el('div', 'wsex'); let sx = -1
+    sexBtns.forEach((rb, i) => { const b = el('button', undefined, rb.textContent || '') as HTMLButtonElement; b.type = 'button'; b.setAttribute('aria-pressed', 'false'); on(b, 'click', () => { sx = i; sex.querySelectorAll('button').forEach((x, k) => x.setAttribute('aria-pressed', String(k === i))); check() }); sex.appendChild(b) })
+    card.appendChild(sex)
+    const go = el('button', 'wgo', 'ดูปีมะแมของฉัน') as HTMLButtonElement; go.type = 'button'; go.disabled = true
+    const err = el('p', 'werr'); err.setAttribute('role', 'alert')
+    card.append(go, err, el('p', 'whint', 'ใช้เวลาไม่ถึง 10 วินาที'))
+    w.appendChild(card)
+    const check = () => { go.disabled = !(d.value && m.value && y.value && (ti.value || nt.checked) && sx >= 0) }
+    ;[d, m, y].forEach((x) => on(x, 'change', check)); on(ti, 'input', check)
+    on(nt, 'change', () => { ti.disabled = nt.checked; ym.hidden = !nt.checked; check() })
+    on(go, 'click', async () => {
+      const pad = (n: string) => n.padStart(2, '0')
+      const birth: Birth = { date: `${+y.value - 543}-${pad(m.value)}-${pad(d.value)}`, time: nt.checked ? (ym.value || null) : ti.value, gender: sx === 0 ? 'female' : 'male' }
+      err.textContent = ''; go.textContent = 'กำลังคำนวณดวง…'
+      const ok = await submitBirth(birth, go, err)
+      go.textContent = 'ดูปีมะแมของฉัน'
+      if (ok) glideTo(0.3)
+    })
+    $('cine').after(w); wallEl = w; root.classList.add('walled')
+    api.track('taisui_wall', { shown: 1 })
+    cleanups.push(hideWall)
+  }
+
   // bottom dock below the opening: one thumb-reach action for where the reader is
   const dock = el('div', 'dock'); const dockBtn = el('button', 'btn') as HTMLButtonElement; dockBtn.type = 'button'; dock.appendChild(dockBtn); root.appendChild(dock); cleanups.push(() => dock.remove())
   function updateDock() {
@@ -761,6 +811,7 @@ export function startTaisui(root: HTMLElement, api: TaisuiApi): () => void {
   // apply a reading to every scene
   function apply(r: TaisuiReading) {
     reading = r; member = !r.locked
+    hideWall()
     api.track('taisui_result', { pillars: r.pillars.length, member: member ? 1 : 0 })
     renderPillars(r); renderMonths(r); renderReads(r)
     root.querySelectorAll<HTMLElement>('[data-full]').forEach((s) => { s.hidden = !member })
@@ -782,7 +833,8 @@ export function startTaisui(root: HTMLElement, api: TaisuiApi): () => void {
 
   // members with a saved chart: no sheet
   api.track('taisui_open', { ref: api.hasRef ? 1 : 0 })
-  void api.loadReading().then((res) => { if (res.ok) apply(res.reading) })
+  // no saved or typed chart: a visitor stops at the birth wall after the opening (owner, 2026-11-25)
+  void api.loadReading().then((res) => { if (res.ok) apply(res.reading); else showWall() }, () => showWall())
   root.querySelectorAll<HTMLElement>('[data-full]').forEach((s) => { s.hidden = true })
   frame()
 

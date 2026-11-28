@@ -34,6 +34,7 @@ export const ANALYTICS_EVENTS = {
   taisui_deeper: ['from'],
   taisui_way: ['pick'],
   taisui_gate: ['from'],
+  taisui_wall: ['shown'],
 } as const satisfies Record<string, readonly string[]>
 
 export type AnalyticsEventName = keyof typeof ANALYTICS_EVENTS

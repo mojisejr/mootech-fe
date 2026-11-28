@@ -293,6 +293,36 @@ body:has(.ts2570){background:#071a36}
 .ts2570 .role .yearSkip:focus-visible{outline:3px solid #e1ff00;outline-offset:2px}
 .ts2570 .waynext[hidden]{display:none}
 .ts2570 .role .yearLogin{display:flex;align-items:center;justify-content:center;width:100%;max-width:420px;min-height:52px;margin:24px auto 0;animation:none;font-size:16px}
+/* the birth wall (owner picked B, 2026-11-25): a visitor with no birth stops after the opening */
+.ts2570.walled > section:not(#cine):not(.wall),.ts2570.walled > footer,.ts2570.walled .dock{display:none!important}
+.ts2570 .wall{position:relative;min-height:100svh;padding:40px max(16px,env(safe-area-inset-left,0px)) 40px;box-sizing:border-box;overflow:hidden}
+.ts2570 .wall .wtease{position:relative;height:190px;max-width:400px;margin:0 auto -36px;padding:16px 18px;display:grid;align-content:start;gap:14px;opacity:.85;filter:blur(7px);pointer-events:none;user-select:none;-webkit-mask-image:linear-gradient(#000 55%,transparent);mask-image:linear-gradient(#000 55%,transparent)}
+.ts2570 .wall .wrow{display:flex;gap:12px;align-items:center}
+.ts2570 .wall .wav{width:56px;height:56px;border-radius:50%;background:radial-gradient(circle at 40% 35%,#fff7e6,#ebbf30)}
+.ts2570 .wall .wln{height:14px;border-radius:8px;background:#c9d6f2}
+.ts2570 .wall .wbig{height:34px;width:70%;border-radius:10px;background:#e1ff00}
+.ts2570 .wall .wmo{display:flex;gap:10px}.ts2570 .wall .wmo i{width:46px;height:64px;border-radius:14px;background:#DC2727}
+.ts2570 .wall .wcard{position:relative;z-index:1;width:100%;max-width:400px;margin:0 auto;padding:22px 18px 18px;border-radius:26px;background:linear-gradient(170deg,#123d73,#0b2a52 60%,#081f3f);border:1px solid rgba(235,191,48,.5);box-shadow:0 20px 50px rgba(0,0,0,.45);box-sizing:border-box;color:#fff7e6}
+.ts2570 .wall .wlk{display:inline-flex;align-items:center;gap:6px;margin:0 0 8px;padding:4px 12px;border-radius:99px;background:rgba(225,255,0,.14);color:#e1ff00;font-size:13px;font-weight:700}
+.ts2570 .wall h2{margin:0 0 4px;font-family:var(--display);font-weight:400;font-size:26px;line-height:1.3;color:#fff7e6}
+.ts2570 .wall .wsub{margin:0 0 16px;color:var(--mist);font-size:15px;line-height:1.5}
+.ts2570 .wall label{display:block;margin:0 0 6px;color:var(--mist);font-size:14px}
+.ts2570 .wall .wthree{display:grid;grid-template-columns:1.15fr 1.45fr 1.3fr;gap:6px;margin-bottom:14px}
+.ts2570 .wall select,.ts2570 .wall input[type=time]{width:100%;min-height:48px;padding:0 6px;border-radius:12px;border:1px solid rgba(201,214,242,.35);background:#fff7e6;color:#071a36;font:inherit;font-size:16px;box-sizing:border-box}
+.ts2570 .wall .wtm{display:grid;grid-template-columns:1fr auto;gap:10px;align-items:center;margin-bottom:14px}
+.ts2570 .wall .wchk{display:flex;align-items:center;gap:6px;min-height:44px;margin:0;color:var(--mist);font-size:14px;white-space:nowrap}
+.ts2570 .wall .wchk input{width:20px;height:20px}
+.ts2570 .wall .wym{margin:-4px 0 14px}
+.ts2570 .wall .wym[hidden]{display:none}
+.ts2570 .wall .wsex{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:18px}
+.ts2570 .wall .wsex button{min-height:48px;border-radius:999px;border:1px solid rgba(201,214,242,.4);background:none;color:#fff7e6;font:inherit;font-size:16px;cursor:pointer}
+.ts2570 .wall .wsex button[aria-pressed=true]{background:#e1ff00;color:#071a36;border-color:#e1ff00;font-weight:700}
+.ts2570 .wall .wgo{width:100%;min-height:54px;border:0;border-radius:999px;background:#E1FF00;color:#1455A4;font:inherit;font-weight:700;font-size:17px;cursor:pointer;box-shadow:0 8px 22px rgba(225,255,0,.25)}
+.ts2570 .wall .wgo:disabled{opacity:.45;cursor:default;box-shadow:none}
+.ts2570 .wall .werr{margin:10px 0 0;text-align:center;color:#ff8a7a;font-size:14px}
+.ts2570 .wall .werr:empty{display:none}
+.ts2570 .wall .whint{margin:10px 0 0;text-align:center;color:var(--mist);font-size:13px}
+.ts2570 .wall button:focus-visible,.ts2570 .wall select:focus-visible,.ts2570 .wall input:focus-visible{outline:3px solid #e1ff00;outline-offset:2px}
 /* larger text for older readers (owner, 2026-11-24) */
 .ts2570 .sec{font-size:18px}
 .ts2570 .sec p,.ts2570 .sec li,.ts2570 .lead{font-size:17px;line-height:1.65}

@@ -500,3 +500,27 @@ describe('the team meeting of 2026-11-24 (revision 0.14)', () => {
     expect(ANALYTICS_EVENTS.taisui_gate).toEqual(['from'])
   })
 })
+
+describe('the birth wall (owner picked B, 2026-11-25)', () => {
+  it('shows only when the first load finds no chart, and any reading lifts it', async () => {
+    const fs = await import('node:fs')
+    const motion = fs.readFileSync('features/v2-taisui/components/taisui-motion.ts', 'utf8')
+    expect(motion).toMatch(/api\.loadReading\(\)\.then\(\(res\) => \{ if \(res\.ok\) apply\(res\.reading\); else showWall\(\) \}, \(\) => showWall\(\)\)/)
+    expect(motion).toMatch(/reading = r; member = !r\.locked\n    hideWall\(\)/)
+    expect(motion).toMatch(/function showWall\(\) \{\n    if \(reading \|\| wallEl\) return/)
+  })
+  it('hides everything below the opening while it stands, the dock included', async () => {
+    const { TAISUI_CSS_EXTRA } = await import('@/features/v2-taisui/components/taisui-css-extra')
+    expect(TAISUI_CSS_EXTRA).toContain('.ts2570.walled > section:not(#cine):not(.wall),.ts2570.walled > footer,.ts2570.walled .dock{display:none!important}')
+  })
+  it('submits through the same path as the birth sheet', async () => {
+    const fs = await import('node:fs')
+    const motion = fs.readFileSync('features/v2-taisui/components/taisui-motion.ts', 'utf8')
+    expect(motion).toMatch(/if \(await submitBirth\(birth, btn, \$\('shErr'\)\)\) \{ closeSheet\(\); glideTo\(0\.3\) \}/)
+    expect(motion).toMatch(/const ok = await submitBirth\(birth, go, err\)/)
+    expect(motion.match(/api\.loadReading\(birth\)/g)).toHaveLength(1)
+  })
+  it('registers its analytics event', () => {
+    expect(ANALYTICS_EVENTS.taisui_wall).toEqual(['shown'])
+  })
+})
