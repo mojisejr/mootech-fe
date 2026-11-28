@@ -1,9 +1,11 @@
 // scripts/newcomer-coach.test.tsx — คนใหม่ (ยังไม่มีบัญชี) หาธาตุฟรีก่อนสมัคร (เอ็ม 2026-10-14)
-//   NC1 ไกด์ส่องส่วนที่บอก + ข้อความ + ลำดับ x/4 · ไม่มีขั้น = ไม่ขึ้น · หาไม่เจอ = ไม่ขึ้น (ไม่ค้างจอมืด)
+//   NC1 ไกด์ส่องส่วนที่บอก + ข้อความ + ลำดับ x/3 · ไม่มีขั้น = ไม่ขึ้น · หาไม่เจอ = ไม่ขึ้น (ไม่ค้างจอมืด)
 //   NC2 บังคับกด: ฉากกันรอบช่อง กดได้เฉพาะของจริงในช่อง
 //   NC3 ?newcomer=1 → จำทั้ง session · วันเกิดที่กรอกจำไว้ให้หน้าสมัคร · ล้างหลังสมัคร
 //   NC4 หน้าแนะนำ: ปุ่มหน้าสุดท้ายใช้ lastLabel · ทางลัด "มีบัญชีแล้ว? เข้าสู่ระบบ" (คนเก่า)
 //   NC5 ล็อกอินแล้ว (endNewcomerGuide): ปิดไกด์ แต่วันเกิดยังอยู่ให้หน้าสมัคร · ไกด์มีทางออกไปเข้าสู่ระบบ
+//   NC6 ไกด์จบที่ปุ่มคำนวณ — หน้าผลไม่มีขั้น (gafiw 2026-11-27: ขั้น signup เดิมบังคับล็อกอิน ผลธาตุเลยไม่โชว์)
+//       หน้าผลจริงถูกกดผ่านใน scripts/element-finder-newcomer-result.test.tsx (เปิดหน้าจริง) — ที่นี่คือกติกาของขั้น
 import React from 'react'
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, cleanup, fireEvent, waitFor, renderHook } from '@testing-library/react'
@@ -11,7 +13,7 @@ import { render, screen, cleanup, fireEvent, waitFor, renderHook } from '@testin
 Element.prototype.scrollIntoView = vi.fn()
 const realRect = Element.prototype.getBoundingClientRect
 
-import { NEWCOMER_STEPS, NewcomerCoach, clearNewcomer, endNewcomerGuide, readNewcomerBirth, saveNewcomerBirth, useNewcomer } from '@/features/v2-guide/NewcomerCoach'
+import { NEWCOMER_STEPS, NewcomerCoach, clearNewcomer, endNewcomerGuide, newcomerStepFor, readNewcomerBirth, saveNewcomerBirth, useNewcomer } from '@/features/v2-guide/NewcomerCoach'
 import { OnboardingCarousel } from '@/features/onboarding/components/OnboardingCarousel'
 
 beforeEach(() => {
@@ -21,14 +23,15 @@ beforeEach(() => {
 afterEach(() => { cleanup(); Element.prototype.getBoundingClientRect = realRect })
 
 describe('ไกด์คนใหม่ หาธาตุก่อนสมัคร', () => {
-  it('NC1 ส่องขั้นวันเกิด 1/4 · ไม่มีขั้น/หาไม่เจอ = ไม่ขึ้น', async () => {
+  it('NC1 ส่องขั้นวันเกิด 1/3 · ไม่มีขั้น/หาไม่เจอ = ไม่ขึ้น', async () => {
     const { rerender } = render(<><input data-testid="finder-date" /><NewcomerCoach step="date" /></>)
     await waitFor(() => expect(screen.getByTestId('newcomer-spotlight')).toBeTruthy())
     expect(screen.getByTestId('newcomer-text').textContent).toBe(NEWCOMER_STEPS.date.text)
-    expect(screen.getByTestId('newcomer-coach').textContent).toContain('1/4')
+    expect(screen.getByTestId('newcomer-coach').textContent).toContain('1/3')
     rerender(<><input data-testid="finder-date" /><NewcomerCoach step={null} /></>)
     expect(screen.queryByTestId('newcomer-coach')).toBeNull()
-    rerender(<><input data-testid="finder-date" /><NewcomerCoach step="signup" /></>)
+    // ขั้น time ส่อง finder-time-block ซึ่งไม่มีในหน้านี้ → ไม่ขึ้น (ไม่ค้างจอมืด)
+    rerender(<><input data-testid="finder-date" /><NewcomerCoach step="time" /></>)
     await new Promise((r) => setTimeout(r, 300))
     expect(screen.queryByTestId('newcomer-coach')).toBeNull()
   })
@@ -89,5 +92,15 @@ describe('ไกด์คนใหม่ หาธาตุก่อนสมั
 
     render(<><input data-testid="finder-date" /><NewcomerCoach step="date" /></>)
     await waitFor(() => expect(screen.getByTestId('newcomer-login').getAttribute('href')).toBe('/v2/login'))
+  })
+
+  it('NC6 ไกด์จบที่ปุ่มคำนวณ — ระหว่างคำนวณและหน้าผลไม่มีขั้น (ผลโชว์เต็มจอ ไม่บังคับล็อกอิน)', () => {
+    expect(newcomerStepFor({ phase: 'input', birthDate: '', canSubmit: false })).toBe('date')
+    expect(newcomerStepFor({ phase: 'input', birthDate: '2000-09-07', canSubmit: false })).toBe('time')
+    expect(newcomerStepFor({ phase: 'input', birthDate: '2000-09-07', canSubmit: true })).toBe('submit')
+    expect(newcomerStepFor({ phase: 'loading', birthDate: '2000-09-07', canSubmit: true })).toBeNull()
+    expect(newcomerStepFor({ phase: 'result', birthDate: '2000-09-07', canSubmit: true })).toBeNull()
+    // ไม่มีขั้นหลัง submit ให้ใครส่งได้ — ขั้น "signup" ที่เคยล็อกหน้าผลถูกถอดออกจริง ไม่ใช่แค่ไม่ถูกเรียก
+    expect(Object.keys(NEWCOMER_STEPS)).toEqual(['date', 'time', 'submit'])
   })
 })

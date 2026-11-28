@@ -8,18 +8,11 @@ import Link from "next/link"
 import { useCallback, useEffect, useState } from "react"
 
 import { SectionCard, SkyHeader, SkyScreen } from "@/features/v2-profile/components/kit"
+import { ElementGoalCard } from "@/features/v2-friends/components/ElementGoalCard"
 import type { MissionBoard, Referral } from "../qi-model"
 
 const REWARD_INVITER = 50
 const REWARD_FRIEND = 30
-
-const ELEMENTS: Array<{ key: string; label: string; mascot: string; bg: string }> = [
-  { key: "wood", label: "ธาตุไม้", mascot: "mascot-wood", bg: "#E6F4EC" },
-  { key: "metal", label: "ธาตุทอง", mascot: "mascot-metal", bg: "#E1E1E1" },
-  { key: "fire", label: "ธาตุไฟ", mascot: "mascot-fire", bg: "#FBEAE8" },
-  { key: "earth", label: "ธาตุดิน", mascot: "mascot-earth", bg: "#F7EEE1" },
-  { key: "water", label: "ธาตุน้ำ", mascot: "mascot-water", bg: "#E4F1F7" },
-]
 
 const LINK_ICON = <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#464646" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M10 13a5 5 0 0 0 7.5.5l3-3a5 5 0 0 0-7-7l-1.5 1.5M14 11a5 5 0 0 0-7.5-.5l-3 3a5 5 0 0 0 7 7l1.5-1.5" /></svg>
 const MORE_ICON = <svg width="18" height="18" viewBox="0 0 24 24" fill="#464646"><circle cx="5" cy="12" r="1.8" /><circle cx="12" cy="12" r="1.8" /><circle cx="19" cy="12" r="1.8" /></svg>
@@ -98,7 +91,6 @@ export function ReferralHubScreen() {
   const invited = goals?.referral.invited ?? referral?.invitedCount ?? 0
   const earnedQi = goals?.referral.earnedQi ?? invited * REWARD_INVITER
   const collectedKeys = new Set((goals?.element.elements ?? []).filter((e) => e.collected).map((e) => e.key))
-  const missing = ELEMENTS.filter((e) => !collectedKeys.has(e.key)).map((e) => e.label)
 
   return (
     <SkyScreen>
@@ -173,30 +165,8 @@ export function ReferralHubScreen() {
             </div>
           </section>
 
-          {/* เป้า 5 ธาตุ */}
-          <SectionCard className="!rounded-[18px]" testId="referral-element-goal">
-            <div className="flex items-center justify-between">
-              <h2 className="text-[16px] font-bold text-v3-navy">สะสมเพื่อนครบ 5 ธาตุ</h2>
-              <span className="rounded-[10px] bg-v3-qi-earn-bg px-2.5 py-1 text-[14px] font-semibold text-v3-qi-earn">+1,000 QI</span>
-            </div>
-            <div className="mt-2 flex items-start justify-between">
-              {ELEMENTS.map((e) => {
-                const got = collectedKeys.has(e.key)
-                return (
-                  <div key={e.key} className="flex flex-col items-center gap-1.5">
-                    <span className="relative grid size-14 place-items-center overflow-hidden rounded-[16px]" style={{ backgroundColor: e.bg, border: got ? "1px solid #63B05F" : undefined }}>
-                      <Image src={`/images/v2/referral/${e.mascot}.png`} alt="" width={33} height={41} className="h-[41px] w-[33px] object-contain" />
-                      {got ? <img src="/images/v2/referral/success-mark.svg" alt="" aria-hidden className="absolute -right-1 -top-1 size-5" /> : null}
-                    </span>
-                    <span className="text-[13px] font-medium text-v3-navy">{e.label}</span>
-                  </div>
-                )
-              })}
-            </div>
-            <p className="mt-1 text-[12px] leading-[18px] text-v3-text-muted">
-              ธาตุของเพื่อนคำนวณจากวันเกิด{missing.length && missing.length < 5 ? ` ตอนนี้ยังขาด${missing.join(" และ ")}` : ""}
-            </p>
-          </SectionCard>
+          {/* เป้า 5 ธาตุ — การ์ดตัวเดียวกับหน้ารายชื่อเพื่อน (features/v2-friends) */}
+          <ElementGoalCard collectedKeys={collectedKeys} />
 
           {/* เพื่อนที่ชวน (รายชื่อ + โบนัสต่อคน) */}
           {referral.friends && referral.friends.length > 0 ? (

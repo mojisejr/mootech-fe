@@ -5,6 +5,9 @@ import type { OaClaim } from './components/taisui-motion'
 // awarded only says whether it paid (staging showed "+true ชี่" on 2026-11-23).
 export function oaClaimFrom(status: number, body: { awarded?: boolean; capped?: boolean; earnedQi?: number; reason?: string } | null): OaClaim {
   if (status >= 200 && status < 300) return body?.capped || body?.awarded === false ? { state: 'already' } : { state: 'paid', qi: typeof body?.earnedQi === 'number' && body.earnedQi > 0 ? body.earnedQi : 100 }
-  // Logged in with Google (400 not_line), an expired LINE token (401) or a LINE error: nothing to show.
-  return status === 409 && body?.reason === 'not_friend' ? { state: 'not_friend' } : { state: 'skip' }
+  if (status === 409 && body?.reason === 'not_friend') return { state: 'not_friend' }
+  // revision 0.15: logged in with Google (400 not_line) → the page asks them to link LINE first
+  if (status === 400 && body?.reason === 'not_line') return { state: 'google' }
+  // an expired LINE token (401) or a LINE error: nothing to show
+  return { state: 'skip' }
 }
