@@ -9,7 +9,7 @@ import { useRouter } from "next/router"
 import { useEffect, useRef, useState } from "react"
 import type { GetServerSideProps } from "next"
 
-import { NewcomerCoach, saveNewcomerBirth, useNewcomer } from "@/features/v2-guide/NewcomerCoach"
+import { NewcomerCoach, newcomerStepFor, saveNewcomerBirth, useNewcomer } from "@/features/v2-guide/NewcomerCoach"
 import { reportGuideMission, useGuideProgress } from "@/features/v2-guide/useGuideProgress"
 import { SkyScreen } from "@/features/v2-profile/components/kit"
 import { Menubar } from "@/features/v2-shell/components/Menubar"
@@ -93,10 +93,11 @@ export default function ElementFinderPage({ ogImage, ogTitle, ogDesc, pageUrl }:
 
   const canSubmit = /^\d{4}-\d{2}-\d{2}$/.test(birthDate) && (timeUnknown || /^\d{2}:\d{2}$/.test(birthTime))
 
-  // คนใหม่จากหน้าแนะนำ (?newcomer=1): บังคับกดทีละขั้น วันเกิด → เวลา → ดูธาตุ → สมัครฟรี (CTA ไปล็อกอินแทนดวงเต็ม)
+  // คนใหม่จากหน้าแนะนำ (?newcomer=1): บังคับกดทีละขั้น วันเกิด → เวลา → ดูธาตุ · ขั้นถาม newcomerStepFor (หน้าไม่เก็บขั้นเอง)
+  // ไกด์จบที่ปุ่มคำนวณ หน้าผลไม่ล็อก: "สมัครฟรี" เป็น CTA ธรรมดาไปล็อกอิน (gafiw 2026-11-27 — ขั้น signup เดิมบังคับล็อกอิน ผลเลยไม่โชว์)
   const router = useRouter()
   const newcomer = useNewcomer(router.query.newcomer)
-  const coachStep = !newcomer ? null : phase === "input" ? (!birthDate ? "date" : !canSubmit ? "time" : "submit") : phase === "result" ? "signup" : null
+  const coachStep = newcomer ? newcomerStepFor({ phase, birthDate, canSubmit }) : null
 
   const run = async () => {
     if (!canSubmit) return
@@ -307,7 +308,7 @@ export default function ElementFinderPage({ ogImage, ogTitle, ogDesc, pageUrl }:
             </>
           )}
 
-          {/* CTA ดูดวงเต็ม — แถวเดียว: ข้อความ | ป้าย FREE | ปุ่มดูเลย */}
+          {/* CTA ดูดวงเต็ม — แถวเดียว: ข้อความ | ป้าย FREE | ปุ่มดูเลย · คนใหม่ = สมัครฟรี (ไปล็อกอิน) ปุ่มธรรมดา ไม่มีไกด์บังคับ */}
           <Link href={newcomer ? "/v2/login" : "/v2/destiny"} className="flex w-full max-w-md items-center gap-2 rounded-2xl bg-v3-sapphire/10 px-3.5 py-2.5" data-testid="finder-cta">
             <span className="min-w-0 flex-1 truncate text-[12.5px] font-bold text-v3-navy">{newcomer ? "สมัครฟรี ดูดวงเต็ม + รับ QI" : "อยากรู้ลึกกว่านี้? ดูดวงเต็มของคุณ"}</span>
             <FreeBadge />

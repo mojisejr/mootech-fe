@@ -329,6 +329,7 @@ export default defineConfig({
       'scripts/invite-look-code-shape.test.ts', // mumate-fe-db-resilience-001 slice 5 — โค้ดแนะนำเพื่อนรับ 3 ถึง 8 หลัก (3 หลักเต็ม 900 ค่า 2026-11-17)
       'scripts/taisui-2570.test.ts', // ciel-os mumate-taisui-2570-001 — หน้าปีชง 2570: สวิตช์ production · ฟรีกับล็อก · เนื้อหาครบ · กลับหน้าหลังล็อกอิน
       'scripts/newyear-solution.test.tsx', // แผนชีวิตปีใหม่ 2570 (/v2/newyear) ประชุม 24 พ.ย. ข้อ 13 — สวิตช์ production · แถมกับแพ็กรายปี · ราคาจาก payment_package · กลับหน้าแผน
+      'scripts/profile-gender-sync.test.ts', // ประชุม 24 พ.ย. ข้อ 5 — /api/profile ซิงก์เพศลงตาราง user ที่ตัวคำนวณอ่านจริง + ล้าง cache ดวง (เคสใส่เพศผิดแล้วดวงกลับด้าน)
       'scripts/sw-precache-scope.test.ts', // mumate-fe-db-resilience-001 slice 6 — service worker ไม่ precache ทั้ง public/ (เดิม 1,326 ไฟล์ ราว 130 MB ต่อ browser ใหม่)
       'scripts/line-oa-claim.test.ts', // แอด LINE OA รับ 100 Qi — เช็กเพื่อนกับ LINE ก่อนจ่าย + /api/qi-earn บล็อกโค้ดนี้
       'scripts/edit-profile-screen.test.tsx', // ก้อน 3 — edit-personal-info (PATCH engine · @name แก้ได้ + avatar อัปโหลด)
@@ -340,7 +341,15 @@ export default defineConfig({
       'scripts/fengshui-cards.test.tsx', // ไพ่อาถรรพ์ฮวงจุ้ย (FengshuiScreen: สุ่ม 3/1 · คำถาม+คำตอบ · 402→แลก QI)
       'scripts/newbie-guide.test.tsx', // เส้นทางมือใหม่ (การ์ดหน้าหลัก · นับภารกิจ · มาสคอตอธิบาย · ซ่อน)
       'scripts/onboarding-tour.test.tsx', // ทัวร์แนะนำแอป 8 ขั้น (สเปก FTUE 2026-10-14)
+      'scripts/newcomer-coach.test.tsx', // คนใหม่หาธาตุก่อนสมัคร (บังคับกดขั้นกรอก) 2026-10-14
+      'scripts/element-finder-newcomer-result.test.tsx', // ผลธาตุคนใหม่โชว์เต็มจอ ไม่ล็อกไปล็อกอิน — เปิดหน้าจริง (gafiw 2026-11-27)
       'scripts/newcomer-coach.test.tsx', // คนใหม่หาธาตุก่อนสมัคร (บังคับกด) 2026-10-14
+      'scripts/home-v3-round1.test.tsx', // หน้าหลัก v3 รอบแรก: ชิป QI · ทางลัด 4 ช่อง · ป๊อปอัป Limited time (ประชุม 24 พ.ย. ข้อ 1 · 2026-11-27)
+      'scripts/daily-fortune-reminder.test.tsx', // แจ้งเตือนดวงประจำวัน: cron at-most-once · สิทธิ์ฟรี 7 วัน · ตั้งเวลา · sw notificationclick (ประชุม 24 พ.ย. ข้อ 6 · 2026-11-27)
+      'scripts/friends-list-screen.test.tsx', // หน้ารายชื่อเพื่อน /v2/friends + การ์ดเพื่อนบนโปรไฟล์ (ประชุม 24 พ.ย. ข้อ 3 · 2026-11-27)
+      'scripts/friend-reading-route.test.ts', // ดูดวงเพื่อน: ใบเสนอราคา + คำนวณก่อนหักชี + สล็อตฟรี Pro 10 คน (ข้อ 2 · 2026-11-27)
+      'scripts/friend-fortune-screen.test.tsx', // จอดูดวงเพื่อน: ถามราคาก่อน · ยืนยัน 30 ชี · ชีไม่พอ · ไม่หักเมื่อคำนวณล้ม (ข้อ 2 · 2026-11-27)
+      'scripts/qi-earn-allowlist.test.ts', // /api/qi-earn รับเฉพาะรหัสที่ผู้ใช้กดเองได้ (ปิดช่องโหว่รับรางวัลเอง · 2026-11-27)
       'scripts/siamsi-page.test.ts', // ไพ่เซียมซีเคี้ยงคุง หน้าในแอป (ยังปิด) 2026-10-15
       'scripts/free-tier-limits.test.tsx', // ฟรี: ปฏิทิน 7 วัน · ไพ่รวม 1 ครั้ง/วัน · แอดวานซ์เบลอ · คะแนนสากล (2026-10-20)
       'scripts/course-video-flow.test.tsx', // ลิงก์ใน /ops → หน้าคอร์ส ready/▶ ดู/ปก+เล่น (2026-10-21)

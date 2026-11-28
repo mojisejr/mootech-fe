@@ -28,6 +28,7 @@ import { NEWYEAR_PATH, takeNewYearReturn } from '@/lib/newyear/return'
 import { ReturnLoading } from '@/features/v2-taisui/components/ReturnLoading'
 import { isBirthProfileComplete } from '@/lib/bazi-bridge/input'
 import { V2HomeScreen } from '@/features/v2-home/components/V2HomeScreen'
+import { useHomeQi } from '@/features/v2-home/hooks/useHomeQi'
 // 🔴 TEMPORARY (#249) — #248 removes this import and its one <TeamPreviewResetBadge /> below.
 import { TeamPreviewResetBadge } from '@/features/v2-team-preview/TeamPreviewResetBadge'
 
@@ -110,10 +111,11 @@ function V2HomeRoute({ status, returning: fromServer }: { status: AuthStatus; re
   useEffect(() => {
     if (!user) return
     if (!hasReturnMarker() && !fromServer) { if (returning) setReturning(false); return }
-    if (!isBirthProfileComplete(user as Parameters<typeof isBirthProfileComplete>[0])) { clearReturnCookie(); setReturning(false); return }
+    // revision 0.15: a member without a chart goes back too; the page takes the birth and saves it
     // the marker holds the packet code; the cookie alone (storage lost) still knows where to go
     const to = takeReturnPath() ?? (fromServer ? '/taisui-2570' : null)
     if (to) window.location.assign(to)
+    else if (!isBirthProfileComplete(user as Parameters<typeof isBirthProfileComplete>[0])) window.location.replace('/v2/register')
     else setReturning(false)
   }, [user, fromServer, returning])
   // แผนชีวิตปีใหม่ 2570: logged in from /v2/newyear → back there at once. Unlike the ปีชง return this does not
@@ -130,6 +132,9 @@ function V2HomeRoute({ status, returning: fromServer }: { status: AuthStatus; re
   // the SOURCE fix — the hook now reports loading honestly on its own, so the screen no longer has to
   // compose `fortuneLoading || loading.profile` as a belt.
   const { fortune, persona, loading: fortuneLoading } = useHomeFortune(user, loading.profile)
+  // ชิป QI ข้างป้ายระดับ (Home v3 รอบแรก · ข้อ 1): อ่านกระเป๋าหลัง user row มาแล้วเท่านั้น — เรียกไม่มีเงื่อนไข
+  // (ก่อน branch ของ loading) ให้ลำดับ hook คงที่ · null = อ่านไม่ได้ → จอไม่โชว์ชิป ไม่โชว์ 0 ปลอม
+  const qi = useHomeQi(!!user && !loading.profile)
 
   // Mascot glyph = `${นักษัตร}-${ธาตุ}`. The year นักษัตร comes from the compute payload (the birth-year
   // zodiac — unambiguous, both engines agree), but the day-master ธาตุ comes ONLY from bazi's persona
@@ -169,6 +174,7 @@ function V2HomeRoute({ status, returning: fromServer }: { status: AuthStatus; re
       // on an /api/user error the hook settles to phase 'home' with `user: null` (lib/home/loading.ts:27 →
       // loading.profile false), the header un-greyed, and a PAYING member was shown "อัพเกรด".
       membership={profile}
+      qi={qi}
       // ธาตุ line: element ← the compute/mascot source FIRST (so text ธาตุ matches the character),
       // then FALL BACK to bazi's persona.elementTh — defense-in-depth after the compute path proved
       // fragile in prod (the toComputeSource envelope bug hid the element). persona.elementTh is the

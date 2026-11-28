@@ -18,6 +18,7 @@
 
 import type { PrecacheEntry, SerwistGlobalConfig } from "serwist";
 import { Serwist } from "serwist";
+import { focusOrOpenUrl } from "./lib/push/notification-click";
 
 declare global {
   interface WorkerGlobalScope extends SerwistGlobalConfig {
@@ -84,9 +85,12 @@ self.addEventListener("notificationclick", (event) => {
   event.notification.close();
   const url = (event.notification.data as { url?: string } | undefined)?.url ?? "/";
   event.waitUntil(
-    self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((clients) => {
-      const existing = clients.find((c) => "focus" in c);
-      if (existing) return (existing as WindowClient).focus();
+    self.clients.matchAll({ type: "window", includeUncontrolled: true }).then(async (clients) => {
+      // ประชุม 24 พ.ย. ข้อ 6: เดิมถ้ามีหน้าต่างอยู่แล้วจะแค่ focus หน้าเดิม ไม่พาไปหน้าที่แจ้งเตือนชี้
+      // → หน้าต่างโดเมนเดียวกัน: navigate ไป url แล้ว focus · ไม่มีเลย: เปิดใหม่ (logic อยู่ใน lib/push/notification-click.ts)
+      const windows = clients.filter((c): c is WindowClient => "navigate" in c);
+      const existing = await focusOrOpenUrl(windows, url, self.location.origin);
+      if (existing) return existing;
       return self.clients.openWindow(url);
     }),
   );

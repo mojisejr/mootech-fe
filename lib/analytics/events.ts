@@ -40,6 +40,20 @@ export const ANALYTICS_EVENTS = {
   newyear_unlock_click: ['plan'],
   newyear_login_click: ['from'],
   newyear_download: ['format'],
+  /** Home v3 รอบแรก (ประชุม 24 พ.ย. 2569 ข้อ 1). ทางลัด 4 ช่อง: slot = ลำดับช่อง 0-3 · target = key ของทางลัด
+   *  (destiny/calendar/…) — เป็นชื่อฟีเจอร์ ไม่ใช่ข้อมูลผู้ใช้. */
+  home_shortcut_open: ['slot', 'target'],
+  home_shortcut_set: ['slot', 'target'],
+  /** ชิป QI บนหน้าหลัก — นับการกดอย่างเดียว ไม่ส่งยอดชี */
+  home_qi_chip_click: [],
+  /** ป๊อปอัป "Limited time": offer = รหัสแพ็กเกจ (V2_PRO_MONTHLY ฯลฯ) · action = buy | later | close */
+  promo_offer_view: ['offer'],
+  promo_offer_click: ['offer', 'action'],
+  taisui_wall: ['shown'],
+  taisui_save_birth: ['result'],
+  taisui_packet_way: ['to'],
+  taisui_packet_later: ['from'],
+  taisui_google: ['action'],
 } as const satisfies Record<string, readonly string[]>
 
 export type AnalyticsEventName = keyof typeof ANALYTICS_EVENTS

@@ -20,13 +20,16 @@ const YAM: Array<[string, string]> = [
 export type Sender = { name: string; animal: string; image: string } | null
 /** The Pro yearly offer: checkout link, list price in baht, and whether an owner-set code halves it. */
 export type ProOffer = { href: string; price: number | null; discounted: boolean }
-export type OaClaim = { state: 'paid'; qi: number } | { state: 'already' | 'not_friend' | 'skip' }
+export type OaClaim = { state: 'paid'; qi: number } | { state: 'already' | 'not_friend' | 'skip' | 'google' }
+/** Revision 0.15: who is reading (GET /api/taisui/me). level null = a member whose level could not be read. */
+export type Me = { member: false } | { member: true; level: 'free' | 'plus' | 'pro' | null; provider: 'line' | 'google' | null; lineLinked: boolean | null }
+export type Next = 'shop' | 'packet'
 
 export type TaisuiApi = {
   /** Loads the reading: no birth = the logged-in member's saved chart. */
   loadReading: (birth?: Birth) => Promise<{ ok: true; reading: TaisuiReading } | { ok: false; status: number }>
   stats: () => Promise<{ members: number; asOf: string } | null>
-  login: (birth: Birth | null, next?: 'shop') => void
+  login: (birth: Birth | null, next?: Next) => void
   openPacket: () => Promise<{ paid: boolean; qi?: number; reason?: string } | null>
   sendPacket: () => Promise<{ url: string } | null>
   /** The existing once-per-member LINE OA reward (100 QI), checked against LINE on the server. */
@@ -36,7 +39,13 @@ export type TaisuiApi = {
   /** True once right after a LINE login started on this page (revision 0.13). */
   justLoggedIn: () => boolean
   /** Where a login started on this page asked to land afterwards, taken once. */
-  takeNext: () => 'shop' | null
+  takeNext: () => Next | null
+  /** Revision 0.15: who is reading; null when it cannot be told. */
+  me: () => Promise<Me | null>
+  /** Revision 0.15: saves the birth to a member's profile that has none. False when it was not saved. */
+  saveBirth: (birth: Birth) => Promise<boolean>
+  /** Revision 0.15: links LINE to the signed-in (Google) account, then comes back to this page. */
+  linkLineHref: string
   oaUrl: string
   track: (event: string, params?: Record<string, string | number>) => void
   sender: Sender
@@ -95,6 +104,13 @@ export function startTaisui(root: HTMLElement, api: TaisuiApi): () => void {
   const stage = $('stage'), cine = $('cine'), medal = $('medal'), ring = $('ring'), prog = $('prog')
   let reading: TaisuiReading | null = null
   let member = false
+  // revision 0.15: who is reading, read once at the start
+  let me: Me | null = null
+  let needsBirth = false
+  const pendingNext = api.takeNext()
+  let nextShop = pendingNext === 'shop'
+  /** sell = Pro at the list or code price · upgrade = a Plus member · none = Pro, or a member whose level is unknown */
+  const offerKind = (): 'sell' | 'upgrade' | 'none' => (!me || !me.member || me.level === 'free' ? 'sell' : me.level === 'plus' ? 'upgrade' : 'none')
 
   // ① birth-hour sky
   function setSky(h: string, t?: string) {
@@ -317,7 +333,7 @@ export function startTaisui(root: HTMLElement, api: TaisuiApi): () => void {
     const sIn = seg(p, 0.88, 0.93); $('stat').style.opacity = sIn.toFixed(2); $('two').style.pointerEvents = sIn > 0.6 ? 'auto' : 'none'; $('toFull').tabIndex = $('toShort').tabIndex = sIn > 0.6 ? 0 : -1
     if (p > 0.89 && !counted) countUp(); if (p < 0.86 && counted) resetOdo()
     if (sheetOpen) say('ใส่เวลาเกิด แล้วดูฟ้าด้านบนเปลี่ยนตามนะครับ', 'happy')
-    else if (p < 0.05) say(api.sender ? `มีอั่งเปาจาก${api.sender.name}รออยู่ มาดูดวงปีมะแมของคุณกันก่อนครับ` : 'สวัสดีครับ ผมเสี่ยวมู่ มาดูกันว่าปีมะแมส่งผลกับคุณยังไง', 'greet')
+    else if (p < 0.05) say(api.sender && me && !me.member ? `ซองจาก${api.sender.name}รออยู่ครับ เข้าสู่ระบบด้วย LINE แล้วชี่เข้ากระเป๋าทันที` : api.sender ? `มีอั่งเปาจาก${api.sender.name}รออยู่ มาดูดวงปีมะแมของคุณกันก่อนครับ` : 'สวัสดีครับ ผมเสี่ยวมู่ มาดูกันว่าปีมะแมส่งผลกับคุณยังไง', 'greet')
     else if (p < 0.2) say('ฟ้ากำลังเข้าคืนเทศกาล โคมเริ่มจุดแล้วครับ', 'greet')
     else if (p < 0.4) say('丁 คือไฟหยิน 未 คือมะแม ปีนี้จึงเป็นปีมะแมไฟ', 'special')
     else if (!reading) say('กรอกวันเกิดก่อน แล้วนักษัตรของคุณจะวิ่งออกมาครับ', 'happy')
@@ -325,6 +341,8 @@ export function startTaisui(root: HTMLElement, api: TaisuiApi): () => void {
     else if (p < 0.62) say(caps[Math.max(0, spot)] ?? '', 'happy')
     else if (p < 0.86 && p > 0.745 && heLinks.length) say(heLinks.length > 1 ? `เส้นที่วงล้อคือตัวที่เชื่อมกับแพะ: ${heLinks.map((l) => l.short).join(' · ')}` : heLinks[0].sentence, 'special')
     else if (p < 0.86) { const n = careCount(), h = heCount(); say(n || h ? `ตัวที่เรืองแสงคือของคุณ ปีนี้${n ? `มี ${n} เสาที่โดนแรงของปี` : ''}${n && h ? ' และ' : ''}${h ? `มี ${h} เสาที่จับมือกับปี` : ''}` : 'ตัวที่เรืองแสงคือของคุณ ปีนี้ไม่มีเสาไหนโดนแรงของปีตรงๆ ครับ', n ? 'special' : 'happy') }
+    else if (offerKind() === 'none') say(me?.member && me.level === 'pro' ? 'คุณเป็นสมาชิก Pro แล้ว อ่านได้ครบทุกส่วนเลยครับ' : 'อ่านคำทำนายของคุณต่อได้เลยครับ', 'happy')
+    else if (offerKind() === 'upgrade') say(api.proOffer.discounted ? 'อ่านแบบย่อต่อได้เลยครับ หรืออัปเกรดเป็น Pro ลด 50%' : 'อ่านแบบย่อต่อได้เลยครับ หรืออัปเกรดเป็น Mumate Pro', 'happy')
     else say(api.proOffer.discounted ? 'เลือกได้เลยครับ อ่านแบบย่อฟรี หรืออ่านแบบเต็มกับ Pro ลด 50%' : 'เลือกได้เลยครับ อ่านแบบย่อฟรี หรืออ่านแบบเต็มกับ Mumate Pro', 'happy')
     bub.classList.toggle('dense', p >= 0.52 && p < 0.62 && (caps[Math.max(0, spot)] ?? '').split('\n').length > 2)
     updateNext(); updateDock()
@@ -379,14 +397,30 @@ export function startTaisui(root: HTMLElement, api: TaisuiApi): () => void {
   on<SubmitEvent>(sheet, 'submit', async (e) => {
     e.preventDefault()
     const birth = readSheet(); if (!birth) return
-    const btn = sheet.querySelector<HTMLButtonElement>('button[type=submit]')!; btn.disabled = true
+    const btn = sheet.querySelector<HTMLButtonElement>('button[type=submit]')!
+    if (await submitBirth(birth, btn, $('shErr'))) { closeSheet(); glideTo(0.3) }
+  })
+  // one submit for the sheet and the birth wall (revision 0.14): the reading, then the page's own flow
+  async function submitBirth(birth: Birth, btn: HTMLButtonElement, err: HTMLElement): Promise<boolean> {
+    btn.disabled = true
     api.track('taisui_form_submit', { time_known: birth.time ? 1 : 0 })
+    // revision 0.15: a member whose profile has no birth keeps it in the account; on any failure the page
+    // still reads the typed birth, so nobody is stuck at the form
+    if (needsBirth) {
+      const saved = await api.saveBirth(birth).catch(() => false)
+      api.track('taisui_save_birth', { result: saved ? 'saved' : 'failed' })
+      if (saved) {
+        needsBirth = false
+        const r = await api.loadReading()
+        if (r.ok) { btn.disabled = false; typed = birth; apply(r.reading); return true }
+      }
+    }
     const res = await api.loadReading(birth); btn.disabled = false
-    if (!res.ok) { $('shErr').textContent = res.status === 429 ? 'กดถี่ไปหน่อย รอสักครู่แล้วลองใหม่ครับ' : 'ยังดูดวงไม่ได้ ลองใหม่อีกครั้งครับ'; return }
+    if (!res.ok) { err.textContent = res.status === 429 ? 'กดถี่ไปหน่อย รอสักครู่แล้วลองใหม่ครับ' : 'ยังดูดวงไม่ได้ ลองใหม่อีกครั้งครับ'; return false }
     typed = birth
     apply(res.reading)
-    closeSheet(); glideTo(0.3)
-  })
+    return true
+  }
   on($('member'), 'click', () => { api.track('taisui_login_click', { from: 'hero' }); api.login(null) })
   // revision 0.14 (team meeting 2026-11-24): two ways on from the count. อ่านแบบเต็ม glides to the shop; อ่านแบบย่อ reads on
   on($('toFull'), 'click', () => { api.track('taisui_way', { pick: 'full' }); toSection('shop') })
@@ -456,7 +490,7 @@ export function startTaisui(root: HTMLElement, api: TaisuiApi): () => void {
       art.appendChild(el('h3', undefined, 'ทำ 3 อย่างนี้'))
       const ul = el('ul', 'acts'); rd.actions.forEach((a, k) => { const li = el('li'); li.appendChild(el('span', undefined, String(k + 1))); li.appendChild(document.createTextNode(a)); ul.appendChild(li) }); art.appendChild(ul)
       // revision 0.14: the card's ask leads to the offer at the end of the page, not to the chat
-      const ask = el('button', 'ask') as HTMLButtonElement; ask.type = 'button'; ask.textContent = api.proOffer.discounted ? 'อ่านแบบเต็ม · Pro ลด 50% ›' : 'อ่านแบบเต็ม · Mumate Pro ›'
+      const ask = el('button', 'ask') as HTMLButtonElement; ask.type = 'button'; ask.hidden = offerKind() === 'none'; ask.textContent = offerKind() === 'upgrade' ? (api.proOffer.discounted ? 'อัปเกรดเป็น Pro · ลด 50% ›' : 'อัปเกรดเป็น Mumate Pro ›') : api.proOffer.discounted ? 'อ่านแบบเต็ม · Pro ลด 50% ›' : 'อ่านแบบเต็ม · Mumate Pro ›'
       on(ask, 'click', () => { api.track('taisui_way', { pick: 'card' }); toSection('shop') })
       // the LINE send lives only on the share card (team review, revision 0.11)
       const foot = el('div', 'cfoot'); foot.appendChild(ask); art.appendChild(foot)
@@ -602,6 +636,73 @@ export function startTaisui(root: HTMLElement, api: TaisuiApi): () => void {
     return box
   }
 
+  // revision 0.15: a visitor from a red-packet link is asked to log in first; "later" keeps the free path
+  function packetInvite() {
+    const cta = $('cta')
+    const kept = Array.from(cta.children) as HTMLElement[]
+    kept.forEach((c) => { c.hidden = true })
+    const card = el('div', 'pkInv')
+    const who = el('div', 'who')
+    const im = el('img'); im.src = api.sender?.image ?? '/images/v2/mascot/personas/mu/greet.png'; im.alt = ''
+    const t = el('div'); t.append(el('b', undefined, `${api.sender?.name ?? 'เพื่อน'} ส่งอั่งเปาให้คุณ 🧧`), el('span', undefined, 'ในซองมีชี่ 5–10 · แอด LINE รับเพิ่มอีก 100 ชี่'))
+    who.append(im, t); card.appendChild(who)
+    const b = el('button', 'pkLine') as HTMLButtonElement; b.type = 'button'; b.append(el('i', undefined, 'LINE'), document.createTextNode('เข้าสู่ระบบ · แกะซองเลย'))
+    on(b, 'click', () => { api.track('taisui_login_click', { from: 'packet_invite' }); api.login(typed, 'packet') })
+    card.appendChild(b)
+    card.appendChild(el('p', 'pkNote', 'LINE จะถามให้แอด MuMate เป็นเพื่อน กด "เพิ่มเพื่อน" เพื่อรับ 100 ชี่'))
+    const lt = el('button', 'pkLater', 'ไว้ทีหลัง · ดูปีมะแมของฉันก่อน') as HTMLButtonElement; lt.type = 'button'
+    on(lt, 'click', () => { api.track('taisui_packet_later', { from: 'invite' }); card.remove(); lt.remove(); kept.forEach((c) => { c.hidden = false }); $('member').hidden = true; glideTo(0.3) })
+    cta.append(card, lt)
+    cleanups.push(() => { card.remove(); lt.remove(); kept.forEach((c) => { c.hidden = false }) })
+  }
+
+  // revision 0.14: the birth wall (owner picked B, 2026-11-25). A visitor with no birth cannot scroll past the
+  // opening: everything below is hidden until a birth is given, over a blurred preview of what waits.
+  let wallEl: HTMLElement | null = null
+  function hideWall() { wallEl?.remove(); wallEl = null; root.classList.remove('walled') }
+  function showWall() {
+    if (reading || wallEl) return
+    const w = el('section', 'wall'); w.id = 'wall'; w.setAttribute('aria-labelledby', 'wallT')
+    const t = el('div', 'wtease'); t.setAttribute('aria-hidden', 'true'); t.appendChild(el('div', 'wbig'))
+    for (let i = 0; i < 4; i++) { const r = el('div', 'wrow'); r.appendChild(el('i', 'wav')); const c = el('div'); c.style.flex = '1'; const a = el('div', 'wln'); a.style.width = `${60 + i * 8}%`; const b = el('div', 'wln'); b.style.width = '90%'; b.style.marginTop = '8px'; c.append(a, b); r.appendChild(c); t.appendChild(r) }
+    const mo = el('div', 'wmo'); for (let i = 0; i < 6; i++) mo.appendChild(el('i')); t.appendChild(mo); w.appendChild(t)
+    const card = el('div', 'wcard')
+    const mem = Boolean(me?.member)
+    card.appendChild(el('span', 'wlk', mem ? '✓ ล็อกอินแล้ว · ขั้นสุดท้าย' : '🔒 ปีของคุณรออยู่ข้างล่าง'))
+    const h = el('h2', undefined, 'คุณเกิดวันไหน?'); h.id = 'wallT'; card.appendChild(h)
+    card.appendChild(el('p', 'wsub', needsBirth ? 'กรอกครั้งเดียว บันทึกลงบัญชีให้เลย ไม่ต้องไปกรอกในแอปอีก' : mem ? 'กรอกวันเกิด แล้วเสี่ยวมู่จะพาไปดูว่าปีมะแมส่งผลกับคุณยังไง' : 'กรอกวันเกิดก่อน แล้วเสี่ยวมู่จะพาไปดูว่าปีมะแมส่งผลกับคุณยังไง ฟรี ไม่ต้องล็อกอิน'))
+    const copy = (src: HTMLSelectElement, label: string) => { const c = src.cloneNode(true) as HTMLSelectElement; c.removeAttribute('id'); c.className = ''; c.value = ''; c.setAttribute('aria-label', label); return c }
+    card.appendChild(el('label', undefined, 'วัน เดือน ปีเกิด (พ.ศ.)'))
+    const three = el('div', 'wthree'); const d = copy(bdD, 'วันเกิด'), m = copy(bdM, 'เดือนเกิด'), y = copy(bdY, 'ปีเกิด'); three.append(d, m, y); card.appendChild(three)
+    card.appendChild(el('label', undefined, 'เวลาเกิด'))
+    const tm = el('div', 'wtm'); const ti = el('input') as HTMLInputElement; ti.type = 'time'; ti.setAttribute('aria-label', 'เวลาเกิด')
+    const chk = el('label', 'wchk'); const nt = el('input') as HTMLInputElement; nt.type = 'checkbox'; chk.append(nt, document.createTextNode('ไม่รู้เวลา')); tm.append(ti, chk); card.appendChild(tm)
+    const ym = copy(yam, 'ช่วงยามที่เกิด (ถ้าพอจำได้)'); ym.classList.add('wym'); ym.hidden = true; card.appendChild(ym)
+    card.appendChild(el('label', undefined, 'เพศ'))
+    const sex = el('div', 'wsex'); let sx = -1
+    sexBtns.forEach((rb, i) => { const b = el('button', undefined, rb.textContent || '') as HTMLButtonElement; b.type = 'button'; b.setAttribute('aria-pressed', 'false'); on(b, 'click', () => { sx = i; sex.querySelectorAll('button').forEach((x, k) => x.setAttribute('aria-pressed', String(k === i))); check() }); sex.appendChild(b) })
+    card.appendChild(sex)
+    const goLabel = needsBirth ? 'บันทึก แล้วดูปีมะแมของฉัน' : 'ดูปีมะแมของฉัน'
+    const go = el('button', 'wgo', goLabel) as HTMLButtonElement; go.type = 'button'; go.disabled = true
+    const err = el('p', 'werr'); err.setAttribute('role', 'alert')
+    card.append(go, err, el('p', 'whint', needsBirth ? 'แก้ไขได้ทีหลังในโปรไฟล์' : 'ใช้เวลาไม่ถึง 10 วินาที'))
+    w.appendChild(card)
+    const check = () => { go.disabled = !(d.value && m.value && y.value && (ti.value || nt.checked) && sx >= 0) }
+    ;[d, m, y].forEach((x) => on(x, 'change', check)); on(ti, 'input', check)
+    on(nt, 'change', () => { ti.disabled = nt.checked; ym.hidden = !nt.checked; check() })
+    on(go, 'click', async () => {
+      const pad = (n: string) => n.padStart(2, '0')
+      const birth: Birth = { date: `${+y.value - 543}-${pad(m.value)}-${pad(d.value)}`, time: nt.checked ? (ym.value || null) : ti.value, gender: sx === 0 ? 'female' : 'male' }
+      err.textContent = ''; go.textContent = 'กำลังคำนวณดวง…'
+      const ok = await submitBirth(birth, go, err)
+      go.textContent = goLabel
+      if (ok) glideTo(0.3)
+    })
+    $('cine').after(w); wallEl = w; root.classList.add('walled')
+    api.track('taisui_wall', { shown: 1 })
+    cleanups.push(hideWall)
+  }
+
   // bottom dock below the opening: one thumb-reach action for where the reader is
   const dock = el('div', 'dock'); const dockBtn = el('button', 'btn') as HTMLButtonElement; dockBtn.type = 'button'; dock.appendChild(dockBtn); root.appendChild(dock); cleanups.push(() => dock.remove())
   function updateDock() {
@@ -621,7 +722,8 @@ export function startTaisui(root: HTMLElement, api: TaisuiApi): () => void {
   if (api.hasRef) {
     $('pkSec').hidden = false
     if (api.sender) { $('pkFrom').textContent = api.sender.name; $('pkCardFrom').textContent = `อั่งเปาจาก ${api.sender.name}`; $('pkThem').textContent = `${api.sender.name} · ${api.sender.animal}`; $<HTMLImageElement>('pkThemImg').src = api.sender.image }
-    const go = el('button', 'link', 'มีอั่งเปารออยู่ · แกะซอง'); go.type = 'button'; on(go, 'click', () => toSection('pkSec')); $('cta').appendChild(go)
+    // while the birth wall stands the packet is below it, so the link leads to the wall first (revision 0.15)
+    const go = el('button', 'link', 'มีอั่งเปารออยู่ · แกะซอง'); go.type = 'button'; on(go, 'click', () => toSection(wallEl ? 'wall' : 'pkSec')); $('cta').appendChild(go)
   }
   for (let c = 0; c < 16; c++) { const q = el('div', 'coinq', 'Qi'); const an = Math.random() * Math.PI * 2, d = 120 + Math.random() * 120; q.style.setProperty('--dx', Math.cos(an) * d + 'px'); q.style.setProperty('--dy', Math.sin(an) * d - 60 + 'px'); q.style.setProperty('--rot', Math.random() * 540 - 270 + 'deg'); q.style.setProperty('--dl', (Math.random() * 0.25).toFixed(2) + 's'); burst.appendChild(q) }
   for (let f = 0; f < 14; f++) { const fl = el('i', 'flake'); fl.style.left = 10 + Math.random() * 80 + '%'; fl.style.setProperty('--dx', Math.random() * 80 - 40 + 'px'); fl.style.setProperty('--rot', Math.random() * 720 - 360 + 'deg'); fl.style.setProperty('--dl', (Math.random() * 0.6).toFixed(2) + 's'); pz.appendChild(fl) }
@@ -629,15 +731,28 @@ export function startTaisui(root: HTMLElement, api: TaisuiApi): () => void {
     own_packet: 'ซองนี้เป็นของคุณเอง ส่งให้เพื่อนเปิดได้เลยครับ', already_opened: 'คุณเปิดซองของคนนี้ไปแล้วครับ',
     receiver_daily_cap: 'วันนี้รับชี่จากอั่งเปาครบแล้ว พรุ่งนี้มาเปิดใหม่ได้ครับ', sender_daily_cap: 'ซองนี้แจกชี่ครบโควตาวันนี้แล้วครับ', unknown_code: 'ซองนี้หมดอายุหรือไม่ถูกต้องครับ',
   }
+  // revision 0.15: back from the login on the packet card, the packet is opened at once; the envelope then shows that answer
+  let pkDone: { paid: boolean; qi?: number; reason?: string } | null = null
+  const pkGo = el('button', 'waynext pkGo') as HTMLButtonElement; pkGo.type = 'button'; pkGo.hidden = true
+  $('pkLogin').parentElement?.appendChild(pkGo)
+  let pkGoTo: 'send' | 'read' = 'read'
+  on(pkGo, 'click', () => { api.track('taisui_packet_way', { to: pkGoTo }); if (pkGoTo === 'send') $('sendPk').click(); else toSection(reading ? 'yearSec' : 'cine') })
+  function packetAnswer(r: { paid: boolean; qi?: number; reason?: string } | null) {
+    if (r?.paid && r.qi) { $('pkQi').textContent = `+${r.qi} ชี่`; $('pkHint').textContent = `ได้ ${r.qi} ชี่ เข้ากระเป๋าแล้วครับ`; pkGo.hidden = true; return }
+    $('pkQi').textContent = 'ชี่'; $('pkHint').textContent = REASON[r?.reason ?? ''] ?? 'ยังรับชี่ไม่ได้ ลองใหม่อีกครั้งครับ'
+    const send = r?.reason === 'own_packet' || r?.reason === 'already_opened'
+    pkGoTo = send ? 'send' : 'read'
+    pkGo.textContent = r?.reason === 'own_packet' ? 'ส่งซองนี้ให้เพื่อน ›' : r?.reason === 'already_opened' ? 'ส่งซองของคุณต่อให้เพื่อน ›' : 'ไปดูปีมะแมของฉันต่อ ›'
+    pkGo.hidden = false
+  }
   async function openEnv() {
     if (env.classList.contains('open')) return
     env.classList.remove('dragging'); seal.classList.remove('drag', 'back'); env.style.removeProperty('--lift')
     env.classList.add('open'); pz.classList.add('open'); try { navigator.vibrate?.([18, 40, 25]) } catch { /* no vibration */ }
     api.track('taisui_packet_open', { member: member ? 1 : 0 })
     if (!member) { $('pkQi').textContent = 'ชี่ 5–10 รออยู่'; $('pkHint').textContent = 'เข้าสู่ระบบเพื่อรับชี่จากซองนี้'; $('pkLogin').hidden = false; return }
-    const r = await api.openPacket()
-    if (r?.paid && r.qi) { $('pkQi').textContent = `+${r.qi} ชี่`; $('pkHint').textContent = `ได้ ${r.qi} ชี่ เข้ากระเป๋าแล้วครับ` }
-    else { $('pkQi').textContent = 'ชี่'; $('pkHint').textContent = REASON[r?.reason ?? ''] ?? 'ยังรับชี่ไม่ได้ ลองใหม่อีกครั้งครับ' }
+    const r = pkDone ?? await api.openPacket()
+    packetAnswer(r)
   }
   on($('pkLogin'), 'click', () => { api.track('taisui_login_click', { from: 'packet' }); api.login(typed) })
   let y0: number | null = null, moved = 0
@@ -676,6 +791,34 @@ export function startTaisui(root: HTMLElement, api: TaisuiApi): () => void {
   $('toFullT').textContent = offer.discounted ? 'อ่านแบบเต็ม · Pro ลด 50%' : 'อ่านแบบเต็ม · Mumate Pro'
   // a visitor logs in on this page first, so the 100 QI is paid and shown here, then comes back to the shop
   on(proBtn, 'click', (e) => { api.track('taisui_shop', { item: 'pro' }); if (!member) { e.preventDefault(); gate('pro', 'shop') } })
+  // revision 0.15: the page offers only what fits the reader. Pro (or a level we cannot read) sees no Pro offer,
+  // only the red packet and the Planner; Plus sees Pro as an upgrade; a free member and a visitor as before.
+  let fitted = false
+  function fitOffers() {
+    const k = offerKind()
+    if (k === 'sell' || fitted) return
+    fitted = true
+    if (k === 'upgrade') {
+      $('adOff').textContent = 'อัปเกรด ลด 50%'
+      const t = root.querySelector('#adProCard b'); if (t) t.textContent = 'อัปเกรดเป็น Mumate Pro รายปี'
+      proBtn.textContent = 'อัปเกรดเป็น Pro'
+      $('adProList').after(el('small', 'upNote', 'สิทธิ์ Plus ที่เหลือจะสิ้นสุดเมื่ออัปเกรด หน้าชำระเงินแจ้งอีกครั้งก่อนจ่าย'))
+      $('toFullT').textContent = offer.discounted ? 'อัปเกรดเป็น Pro · ลด 50%' : 'อัปเกรดเป็น Mumate Pro'
+    } else {
+      $('adProCard').hidden = true
+      $('toFull').hidden = true
+      $('toShort').textContent = 'อ่านคำทำนายของฉัน ›'
+      const pro = me?.member && me.level === 'pro'
+      if (pro) { const hd = root.querySelector('#shop .pagehd'); if (hd) hd.textContent = 'สำหรับสมาชิก Pro'; const kick = root.querySelector('#stat .kick'); if (kick) kick.textContent = 'สมาชิก Pro 👑 อ่านได้ครบทุกส่วน' }
+      const card = el('div', 'ad'); const ic = el('div', 'ic'); ic.appendChild(el('span', 'pkIc', '🧧')); card.appendChild(ic)
+      const t = el('div'); t.append(el('b', undefined, 'ส่งอั่งเปาชวนเพื่อนดูปีมะแม'), el('p', undefined, 'เพื่อนเปิดซองได้ชี่ 5–10 และรู้ว่าปีนี้เข้ากับคุณแค่ไหน')); card.appendChild(t)
+      const go = el('button', 'go', 'ส่งอั่งเปาให้เพื่อน') as HTMLButtonElement; go.type = 'button'; card.appendChild(go)
+      on(go, 'click', () => { api.track('taisui_shop', { item: 'packet' }); $('sendPk').click() })
+      $('adProCard').after(card)
+      root.querySelectorAll<HTMLElement>('#reads .ask').forEach((a) => { a.hidden = true })
+    }
+    syncShare()
+  }
 
   // revision 0.14: a short page before LINE login, saying what the login gives
   function gate(from: string, next?: 'shop') {
@@ -702,7 +845,7 @@ export function startTaisui(root: HTMLElement, api: TaisuiApi): () => void {
   const toShare = el('button', 'waynext') as HTMLButtonElement; toShare.type = 'button'; toShare.appendChild(document.createTextNode('ยังไม่พร้อม? ส่งอั่งเปาให้เพื่อนก่อน')); toShare.appendChild(el('i'))
   $('shop').appendChild(toShare); on(toShare, 'click', () => toSection('share'))
   // a visitor cannot send a red packet before logging in (owner, 2026-11-25): the way to the share card is members' only
-  const syncShare = () => { toShare.hidden = !member }
+  const syncShare = () => { toShare.hidden = !member || offerKind() === 'none' }
   syncShare()
   // and while the cards fill a short phone, the same way on floats until the in-page one is in view
   const fl = el('button', 'floatnext') as HTMLButtonElement; fl.type = 'button'; fl.appendChild(document.createTextNode('ต่อไป: ดูทีละเดือน')); fl.appendChild(el('i')); fl.hidden = true
@@ -728,11 +871,32 @@ export function startTaisui(root: HTMLElement, api: TaisuiApi): () => void {
     const x = el('button', 'x') as HTMLButtonElement; x.type = 'button'; x.setAttribute('aria-label', 'ปิด'); x.textContent = '×'; on(x, 'click', () => { oaToast.hidden = true }); oaToast.appendChild(x)
     oaToast.hidden = false
   }
-  async function claimOa() {
-    const r = await api.claimOa().catch(() => ({ state: 'skip' as const }))
+  // revision 0.15: a Google login is asked to link LINE to the same account first, then to log in with LINE.
+  // A LINE login before the link could make a second account (lib/auth/ask-before-create.ts).
+  function showGoogle(step: 1 | 2, failed = false) {
+    oaToast.textContent = ''; oaToast.classList.add('gl')
+    oaToast.appendChild(el('p', undefined, failed ? 'เชื่อม LINE ยังไม่สำเร็จ ลองใหม่ หรือเชื่อมที่ ตั้งค่า › บัญชีที่เชื่อม' : step === 1 ? 'คุณเข้าสู่ระบบด้วย Google · ชี่ 100 รับได้ทาง LINE' : 'เชื่อม LINE กับบัญชีนี้แล้ว · อีกขั้นเดียว'))
+    const st = el('div', 'steps')
+    st.append(el('span', step === 1 ? 'on' : 'ok', step === 1 ? '1 เชื่อม LINE' : '1 เชื่อม LINE ✓'), el('span', step === 2 ? 'on' : '', '2 เข้าสู่ระบบด้วย LINE · รับ 100 ชี่'))
+    oaToast.appendChild(st)
+    if (step === 1) {
+      const a = el('a', 'btn', 'เชื่อม LINE กับบัญชีนี้') as HTMLAnchorElement; a.href = api.linkLineHref
+      on(a, 'click', () => api.track('taisui_google', { action: 'link' })); oaToast.appendChild(a)
+    } else {
+      const b = el('button', 'btn', 'เข้าสู่ระบบด้วย LINE รับ 100 ชี่') as HTMLButtonElement; b.type = 'button'
+      on(b, 'click', () => { api.track('taisui_google', { action: 'line_login' }); api.login(typed) }); oaToast.appendChild(b)
+    }
+    oaToast.appendChild(el('small', undefined, step === 1 ? 'เชื่อมแล้วยังเป็นบัญชีเดิม ชี่ ประวัติ และสมาชิกอยู่ครบ ไม่สร้างบัญชีใหม่' : 'LINE นี้เชื่อมกับบัญชีของคุณแล้ว เข้าด้วย LINE ก็เจอบัญชีเดิม'))
+    const x = el('button', 'x') as HTMLButtonElement; x.type = 'button'; x.setAttribute('aria-label', 'ปิด'); x.textContent = '×'; on(x, 'click', () => { oaToast.hidden = true }); oaToast.appendChild(x)
+    oaToast.hidden = false
+    api.track('taisui_google', { action: `shown_${step}` })
+  }
+  async function claimOa(pre?: OaClaim) {
+    const r = pre ?? await api.claimOa().catch(() => ({ state: 'skip' as const }))
     api.track('taisui_oa_claim', { result: r.state })
     if (fromLogin === null) fromLogin = api.justLoggedIn()
     if (r.state === 'paid') { oaWaiting = false; oaToast.hidden = true; fromLogin = false; celebrateQi(r.qi, 'paid') }
+    else if (r.state === 'google') showGoogle(me?.member && me.lineLinked ? 2 : 1, linkFailed)
     else if (r.state === 'not_friend') showOa('แอด LINE ของ MuMate เป็นเพื่อน รับเพิ่ม 100 ชี่ (ครั้งเดียว)', true)
     else {
       oaWaiting = false
@@ -741,7 +905,7 @@ export function startTaisui(root: HTMLElement, api: TaisuiApi): () => void {
   }
   // revision 0.12: the paid QI as a bottom sheet, once; its buttons lead to sharing or the year
   // revision 0.13: right after a login from this page, an already-claimed reward is said once, not hidden
-  function celebrateQi(qi: number, kind: 'paid' | 'already') {
+  function celebrateQi(qi: number, kind: 'paid' | 'already', gifts?: Array<[string, string]>) {
     if (celDone) return
     celDone = true
     api.track('taisui_oa_cel', { action: kind === 'paid' ? 'shown' : 'already' })
@@ -749,7 +913,8 @@ export function startTaisui(root: HTMLElement, api: TaisuiApi): () => void {
       qi, kind, img: '/images/v2/mascot/personas/mu/happy.png', still,
       deepHref: deeperHref(reading?.chart.source ?? 'typed'),
       onSend: () => { api.track('taisui_oa_cel', { action: 'send' }); $('sendPk').click() },
-      onRead: () => { api.track('taisui_oa_cel', { action: 'read' }); toSection('yearSec') },
+      onRead: () => { api.track('taisui_oa_cel', { action: 'read' }); if (reading) toSection('yearSec'); else if (wallEl) toSection('wall'); else glideTo(0.3) },
+      ...(gifts ? { gifts, readLabel: reading ? undefined : 'กรอกวันเกิด ดูปีมะแมของฉัน', noSend: !reading } : {}),
       onDeep: () => api.track('taisui_deeper', { from: 'sheet' }),
       onClose: () => undefined,
     })
@@ -758,9 +923,35 @@ export function startTaisui(root: HTMLElement, api: TaisuiApi): () => void {
   // back from adding the OA: ask again once
   on(document, 'visibilitychange', () => { if (document.visibilityState === 'visible' && oaWaiting) { oaWaiting = false; void claimOa() } })
 
+  // revision 0.15: as soon as the reader is a member, the gifts are paid: the 100 QI and, back from the
+  // packet card's login, the red packet too, shown together in one sheet before the birth
+  async function afterLogin() {
+    if (oaAsked) return
+    oaAsked = true
+    const askPacket = api.hasRef && pendingNext === 'packet'
+    const [pk, oa] = await Promise.all([
+      askPacket ? api.openPacket().catch(() => null) : Promise.resolve(null),
+      api.claimOa().catch(() => ({ state: 'skip' as const } as OaClaim)),
+    ])
+    if (askPacket) pkDone = pk ?? { paid: false }
+    const gifts: Array<[string, string]> = []
+    if (pk?.paid && pk.qi) gifts.push([`+${pk.qi}`, `ชี่ จากอั่งเปาของ${api.sender?.name ?? 'เพื่อน'}`])
+    if (oa.state === 'paid') gifts.push([`+${oa.qi}`, 'ชี่ ที่แอด MuMate เป็นเพื่อนใน LINE'])
+    if (pk?.paid && pk.qi) {
+      api.track('taisui_oa_claim', { result: oa.state })
+      fromLogin = false
+      celebrateQi(gifts.reduce((n, g) => n + Number(g[0].slice(1)), 0), 'paid', gifts)
+      if (oa.state === 'not_friend') showOa('แอด LINE ของ MuMate เป็นเพื่อน รับเพิ่ม 100 ชี่ (ครั้งเดียว)', true)
+      else if (oa.state === 'google') showGoogle(me?.member && me.lineLinked ? 2 : 1, linkFailed)
+      return
+    }
+    await claimOa(oa)
+  }
+
   // apply a reading to every scene
   function apply(r: TaisuiReading) {
     reading = r; member = !r.locked
+    hideWall()
     api.track('taisui_result', { pillars: r.pillars.length, member: member ? 1 : 0 })
     renderPillars(r); renderMonths(r); renderReads(r)
     root.querySelectorAll<HTMLElement>('[data-full]').forEach((s) => { s.hidden = !member })
@@ -775,14 +966,30 @@ export function startTaisui(root: HTMLElement, api: TaisuiApi): () => void {
     $('member').hidden = true
     syncShare()
     // revision 0.14: back from a login that started at the Pro button, land on the shop
-    if (member && api.takeNext() === 'shop') later(() => toSection('shop'), 1400)
-    if (member && !oaAsked) { oaAsked = true; void claimOa() }
+    if (member && nextShop) { nextShop = false; later(() => toSection('shop'), 1400) }
+    if (member && !oaAsked) void afterLogin()
     entered = false; frame()
   }
 
   // members with a saved chart: no sheet
   api.track('taisui_open', { ref: api.hasRef ? 1 : 0 })
-  void api.loadReading().then((res) => { if (res.ok) apply(res.reading) })
+  // no saved or typed chart: a visitor stops at the birth wall after the opening (owner, 2026-11-25)
+  // revision 0.15: who is reading is asked beside the reading, so the offers, the wall and the gifts fit them
+  const q = new URLSearchParams(window.location.search)
+  // back from linking LINE: a merge offer is handled by the app's account screen; a failure is said in the bar
+  if (q.get('merge_offer') === 'line') { window.location.replace('/v2/settings/connected?merge_offer=line'); return () => undefined }
+  const linkFailed = q.has('link_error')
+  if (api.hasRef) root.classList.add('refwait')
+  void Promise.all([api.me().catch(() => null), api.loadReading().catch(() => null)]).then(([m, res]) => {
+    me = m
+    root.classList.remove('refwait')
+    if (api.hasRef && me && !me.member) packetInvite()
+    fitOffers()
+    if (res?.ok) apply(res.reading)
+    else { needsBirth = Boolean(me?.member) && res?.status === 409; showWall() }
+    if (me?.member && !oaAsked) void afterLogin()
+    frame()
+  })
   root.querySelectorAll<HTMLElement>('[data-full]').forEach((s) => { s.hidden = true })
   frame()
 
