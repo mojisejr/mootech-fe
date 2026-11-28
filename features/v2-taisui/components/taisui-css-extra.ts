@@ -329,4 +329,31 @@ body:has(.ts2570){background:#071a36}
 .ts2570 .bubble{font-size:16px}
 .ts2570 .sec h2{font-size:26px}
 @media (prefers-reduced-motion:reduce){.ts2570 .two .full,.ts2570 .two .full::before,.ts2570 .two .full::after,.ts2570 .two .full .tw,.ts2570 .gate .gc,.ts2570 .floatnext{animation:none}.ts2570 .two .full::after,.ts2570 .two .full .tw{display:none}.ts2570 .nextcue i{animation:none}.ts2570 .cel .celCard,.ts2570 .cel .celScrim,.ts2570 .cel .celLate{transition:none}.ts2570 .cel .celFx{display:none}}
+.ts2570.refwait #cta{visibility:hidden}
+.ts2570 .cta:has(.pkInv){width:100%;align-items:stretch}
+.ts2570 .pkInv{width:min(400px,calc(100vw - 32px));margin:0 auto;padding:16px 16px 14px;border-radius:22px;background:linear-gradient(170deg,#c8262a,#9e1418);border:1px solid rgba(235,191,48,.7);box-shadow:0 14px 36px rgba(0,0,0,.4);box-sizing:border-box;color:#fff7e6;text-align:left}
+.ts2570 .pkInv .who{display:flex;gap:12px;align-items:center;margin-bottom:12px}
+.ts2570 .pkInv .who img{width:52px;height:52px;flex:none;border-radius:50%;background:#fff7e6;object-fit:cover;border:2px solid #ebbf30}
+.ts2570 .pkInv .who b{display:block;font-size:18px;line-height:1.35}
+.ts2570 .pkInv .who span{display:block;color:#ffe2a8;font-size:15px;line-height:1.45}
+.ts2570 .pkLine{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;min-height:56px;border:0;border-radius:999px;background:#06C755;color:#fff;font:inherit;font-weight:700;font-size:17px;cursor:pointer;box-shadow:0 8px 20px rgba(6,199,85,.35)}
+.ts2570 .pkLine i{font-style:normal;display:inline-grid;place-items:center;width:30px;height:26px;border-radius:7px;background:#fff;color:#06C755;font-size:11px;font-weight:800}
+.ts2570 .pkNote{margin:8px 0 0;color:#ffe2a8;font-size:14px;line-height:1.5;text-align:center}
+.ts2570 .pkLater{display:block;margin:12px auto 0;padding:8px 14px;border:0;border-radius:99px;background:rgba(255,255,255,.7);color:#123d73;font:inherit;font-weight:600;font-size:15px;text-decoration:underline;text-underline-offset:3px;cursor:pointer}
+.ts2570 .pkLine:focus-visible,.ts2570 .pkLater:focus-visible{outline:3px solid #e1ff00;outline-offset:2px}
+.ts2570 .cel .celGifts{display:grid;gap:8px;margin:6px 0 10px;width:100%}
+.ts2570 .cel .celGifts div{display:flex;align-items:center;gap:12px;padding:10px 14px;border-radius:16px;background:rgba(225,255,0,.1);border:1px solid rgba(225,255,0,.35);text-align:left}
+.ts2570 .cel .celGifts b{font-family:var(--display);font-weight:400;font-size:26px;color:var(--lime);min-width:64px;font-variant-numeric:tabular-nums}
+.ts2570 .cel .celGifts span{font-size:15px;color:var(--cream,#fff7e6);line-height:1.4}
+.ts2570 .oaToast.gl{background:#0b2a52;flex-direction:column;align-items:stretch;gap:0;padding-right:16px}
+.ts2570 .oaToast.gl p{flex:none;padding-right:28px}
+.ts2570 .oaToast.gl .btn{display:block;text-align:center;margin-top:2px;border:0;font:inherit;font-weight:700;cursor:pointer}
+.ts2570 .oaToast.gl small{display:block;margin-top:8px;color:var(--mist);font-size:13px;line-height:1.5}
+.ts2570 .oaToast .steps{display:flex;gap:6px;margin:8px 0 10px;flex-wrap:wrap}
+.ts2570 .oaToast .steps span{padding:4px 10px;border-radius:99px;font-size:13px;border:1px solid rgba(201,214,242,.4);color:var(--mist)}
+.ts2570 .oaToast .steps span.on{background:#e1ff00;color:#071a36;border-color:#e1ff00;font-weight:700}
+.ts2570 .oaToast .steps span.ok{background:rgba(6,199,85,.18);border-color:#06C755;color:#9ff0c0}
+.ts2570 .ad .upNote{display:block;margin-top:8px;color:var(--mist);font-size:13px;line-height:1.5}
+.ts2570 .ad .ic .pkIc{font-size:34px}
+.ts2570 .rowbtn .pkGo{margin-top:10px}
 `

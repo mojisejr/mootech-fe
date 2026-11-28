@@ -238,7 +238,9 @@ describe('the LINE OA reward after login', () => {
     expect(oaClaimFrom(200, { awarded: true, capped: false, earnedQi: 100 })).toEqual({ state: 'paid', qi: 100 })
     expect(oaClaimFrom(200, { awarded: false, capped: true, earnedQi: 0 })).toEqual({ state: 'already' })
     expect(oaClaimFrom(409, { reason: 'not_friend' })).toEqual({ state: 'not_friend' })
-    for (const [status, body] of [[400, { reason: 'not_line' }], [401, { reason: 'relogin' }], [502, null], [409, { reason: 'other' }]] as const) {
+    // revision 0.15: a Google login is told apart, so the page can ask for the LINE link
+    expect(oaClaimFrom(400, { reason: 'not_line' })).toEqual({ state: 'google' })
+    for (const [status, body] of [[400, { reason: 'other' }], [401, { reason: 'relogin' }], [502, null], [409, { reason: 'other' }]] as const) {
       expect(oaClaimFrom(status, body)).toEqual({ state: 'skip' })
     }
   })
@@ -466,7 +468,7 @@ describe('the team meeting of 2026-11-24 (revision 0.14)', () => {
     expect(motion).toMatch(/document\.createTextNode\('ต่อไป: คำทำนายรายเสา'\)[^\n]*\n[^\n]*toSection\('readT'\)/)
     // a visitor's skip is quiet and goes to the shop; only members get the way to the share card
     expect(motion).toMatch(/el\('button', 'yearSkip', 'ไว้ทีหลัง · ดูของขวัญปีมะแม ›'\)[\s\S]{0,200}toSection\('shop'\)/)
-    expect(motion).toMatch(/const syncShare = \(\) => \{ toShare\.hidden = !member \}/)
+    expect(motion).toMatch(/const syncShare = \(\) => \{ toShare\.hidden = !member \|\| offerKind\(\) === 'none' \}/)
     // one login per box: the floating dock shows only before a reading
     expect(motion).toMatch(/dock\.classList\.toggle\('on', below && !sheetOpen && !member && !reading\)/)
   })
@@ -482,7 +484,8 @@ describe('the team meeting of 2026-11-24 (revision 0.14)', () => {
     const fs = await import('node:fs')
     const motion = fs.readFileSync('features/v2-taisui/components/taisui-motion.ts', 'utf8')
     expect(motion).toMatch(/if \(!member\) \{ e\.preventDefault\(\); gate\('pro', 'shop'\) \}/)
-    expect(motion).toMatch(/if \(member && api\.takeNext\(\) === 'shop'\) later\(\(\) => toSection\('shop'\)/)
+    expect(motion).toMatch(/const pendingNext = api\.takeNext\(\)\n  let nextShop = pendingNext === 'shop'/)
+    expect(motion).toMatch(/if \(member && nextShop\) \{ nextShop = false; later\(\(\) => toSection\('shop'\)/)
     const screen = fs.readFileSync('features/v2-taisui/components/TaisuiScreen.tsx', 'utf8')
     expect(screen).toMatch(/if \(next\) \{ try \{ sessionStorage\.setItem\(NEXT_KEY, next\)/)
   })
@@ -505,7 +508,7 @@ describe('the birth wall (owner picked B, 2026-11-25)', () => {
   it('shows only when the first load finds no chart, and any reading lifts it', async () => {
     const fs = await import('node:fs')
     const motion = fs.readFileSync('features/v2-taisui/components/taisui-motion.ts', 'utf8')
-    expect(motion).toMatch(/api\.loadReading\(\)\.then\(\(res\) => \{ if \(res\.ok\) apply\(res\.reading\); else showWall\(\) \}, \(\) => showWall\(\)\)/)
+    expect(motion).toMatch(/if \(res\?\.ok\) apply\(res\.reading\)\n    else \{ needsBirth = Boolean\(me\?\.member\) && res\?\.status === 409; showWall\(\) \}/)
     expect(motion).toMatch(/reading = r; member = !r\.locked\n    hideWall\(\)/)
     expect(motion).toMatch(/function showWall\(\) \{\n    if \(reading \|\| wallEl\) return/)
   })
@@ -522,5 +525,74 @@ describe('the birth wall (owner picked B, 2026-11-25)', () => {
   })
   it('registers its analytics event', () => {
     expect(ANALYTICS_EVENTS.taisui_wall).toEqual(['shown'])
+  })
+})
+
+describe('fit the page to who reads it (revision 0.15)', () => {
+  const read = async (f: string) => (await import('node:fs')).readFileSync(f, 'utf8')
+  it('reads the level from the app membership verdict, and an unknown one offers nothing', async () => {
+    const { levelFrom, providerFrom, chartInputFrom } = await import('@/lib/taisui/me')
+    expect(levelFrom({ isPaid: false, tier: null })).toBe('free')
+    expect(levelFrom({ isPaid: true, tier: 'PRO' })).toBe('pro')
+    expect(levelFrom({ isPaid: true, tier: 'PLUS' })).toBe('plus')
+    expect(levelFrom({ isPaid: true, tier: null })).toBe(null)
+    expect(levelFrom({ isPaid: null, tier: 'PRO' })).toBe(null)
+    expect(levelFrom(null)).toBe(null)
+    expect(providerFrom(' LINE ')).toBe('line')
+    expect(providerFrom('apple')).toBe(null)
+    expect(chartInputFrom({ birthDate: '1990-05-04', birthTime: null, gender: 'female' })).toEqual({ dob: '1990-05-04', time: '', gender: 'FEMALE' })
+    expect(chartInputFrom({ birthDate: '1990-05-04', birthTime: '08:30', gender: 'male' })).toEqual({ dob: '1990-05-04', time: '08:30', gender: 'MALE' })
+  })
+  it('saves a birth only into a profile that has none, through the register write', async () => {
+    const route = await read('pages/api/taisui/save-birth.ts')
+    expect(route).toContain("if (saved === 'none') return res.status(404)")
+    expect(route).toContain("if (saved !== 'incomplete') return res.status(409).json({ code: 'already_saved' })")
+    expect(route).toContain('saveBirthChart(createPostgresBirthChartStore(')
+    expect(route).toContain('resolveRouteMember(req, res)')
+    expect(route).toContain('if (!sameOrigin(req))')
+    const motion = await read('features/v2-taisui/components/taisui-motion.ts')
+    // only after the saved chart answered profile_incomplete, and a failed save still reads the typed birth
+    expect(motion).toContain("needsBirth = Boolean(me?.member) && res?.status === 409")
+    expect(motion).toMatch(/if \(needsBirth\) \{\n      const saved = await api\.saveBirth\(birth\)/)
+  })
+  it('hides the Pro offer from Pro and from an unknown level, and sells Plus an upgrade', async () => {
+    const motion = await read('features/v2-taisui/components/taisui-motion.ts')
+    expect(motion).toContain("const offerKind = (): 'sell' | 'upgrade' | 'none' => (!me || !me.member || me.level === 'free' ? 'sell' : me.level === 'plus' ? 'upgrade' : 'none')")
+    expect(motion).toContain("$('adProCard').hidden = true")
+    expect(motion).toContain("$('toFull').hidden = true")
+    expect(motion).toContain("ask.hidden = offerKind() === 'none'")
+    expect(motion).toContain('สิทธิ์ Plus ที่เหลือจะสิ้นสุดเมื่ออัปเกรด')
+  })
+  it('asks a Google login to link LINE before any LINE login, and hands a merge to the account screen', async () => {
+    const motion = await read('features/v2-taisui/components/taisui-motion.ts')
+    expect(motion).toContain("else if (r.state === 'google') showGoogle(me?.member && me.lineLinked ? 2 : 1, linkFailed)")
+    expect(motion).toMatch(/if \(step === 1\) \{\n      const a = el\('a', 'btn', 'เชื่อม LINE กับบัญชีนี้'\) as HTMLAnchorElement; a\.href = api\.linkLineHref/)
+    expect(motion).toContain("if (q.get('merge_offer') === 'line') { window.location.replace('/v2/settings/connected?merge_offer=line')")
+    const screen = await read('features/v2-taisui/components/TaisuiScreen.tsx')
+    expect(screen).toContain('/api/auth/link/start/line?return_to=')
+  })
+  it('logs in from the page with the full add-friend screen, and only from the page', async () => {
+    const hook = await read('features/auth/hooks/useV2Login.ts')
+    expect(hook).toContain("onLineFriend: () => login('line', { bot_prompt: 'aggressive' })")
+    expect(hook).toContain("onLine: () => login('line'),")
+    const screen = await read('features/v2-taisui/components/TaisuiScreen.tsx')
+    expect(screen).toContain('const { onLineFriend } = useV2Login()')
+  })
+  it('sends a member without a chart back to the page, and to register once the way back expires', async () => {
+    const home = await read('features/auth/hooks/useV2Home.ts')
+    expect(home).toMatch(/if \(isReturningToTaisui\(\)\) return\n          routerRef\.current\.replace\('\/v2\/register'\)/)
+    const page = await read('pages/v2/index.tsx')
+    expect(page).toMatch(/if \(to\) window\.location\.assign\(to\)\n    else if \(!isBirthProfileComplete\(.*\)\) window\.location\.replace\('\/v2\/register'\)/)
+  })
+  it('asks a red-packet visitor to log in first, opens the packet on return, and says why a packet cannot pay', async () => {
+    const motion = await read('features/v2-taisui/components/taisui-motion.ts')
+    expect(motion).toContain("api.login(typed, 'packet')")
+    expect(motion).toContain("const askPacket = api.hasRef && pendingNext === 'packet'")
+    expect(motion).toContain("const r = pkDone ?? await api.openPacket()")
+    expect(motion).toContain("'ส่งซองนี้ให้เพื่อน ›'")
+    expect(motion).toContain("toSection(wallEl ? 'wall' : 'pkSec')")
+  })
+  it('registers its analytics events', () => {
+    for (const e of ['taisui_save_birth', 'taisui_packet_way', 'taisui_packet_later', 'taisui_google'] as const) expect(ANALYTICS_EVENTS[e]).toBeDefined()
   })
 })
