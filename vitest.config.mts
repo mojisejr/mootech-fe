@@ -343,6 +343,7 @@ export default defineConfig({
       'scripts/newcomer-coach.test.tsx', // คนใหม่หาธาตุก่อนสมัคร (บังคับกดขั้นกรอก) 2026-10-14
       'scripts/element-finder-newcomer-result.test.tsx', // ผลธาตุคนใหม่โชว์เต็มจอ ไม่ล็อกไปล็อกอิน — เปิดหน้าจริง (gafiw 2026-11-27)
       'scripts/newcomer-coach.test.tsx', // คนใหม่หาธาตุก่อนสมัคร (บังคับกด) 2026-10-14
+      'scripts/daily-fortune-reminder.test.tsx', // แจ้งเตือนดวงประจำวัน: cron at-most-once · สิทธิ์ฟรี 7 วัน · ตั้งเวลา · sw notificationclick (ประชุม 24 พ.ย. ข้อ 6 · 2026-11-27)
       'scripts/friends-list-screen.test.tsx', // หน้ารายชื่อเพื่อน /v2/friends + การ์ดเพื่อนบนโปรไฟล์ (ประชุม 24 พ.ย. ข้อ 3 · 2026-11-27)
       'scripts/friend-reading-route.test.ts', // ดูดวงเพื่อน: ใบเสนอราคา + คำนวณก่อนหักชี + สล็อตฟรี Pro 10 คน (ข้อ 2 · 2026-11-27)
       'scripts/friend-fortune-screen.test.tsx', // จอดูดวงเพื่อน: ถามราคาก่อน · ยืนยัน 30 ชี · ชีไม่พอ · ไม่หักเมื่อคำนวณล้ม (ข้อ 2 · 2026-11-27)

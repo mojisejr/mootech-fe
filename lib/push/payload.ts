@@ -35,3 +35,13 @@ export function buildManifestPayload(): PushPayload {
     url: "/v2/service/manifest",
   }
 }
+
+// ประชุม 24 พ.ย. 2569 ข้อ 6 — แจ้งเตือน "ดวงประจำวัน" (สวิตช์เดิมในจอแจ้งเตือน · ส่งโดย /api/cron/daily-fortune).
+// ทั่วไปโดยตั้งใจ: ไม่ส่งเนื้อหาดวงใน push (ดวงอยู่ในแอปและ lock หน้าจอไม่ควรโชว์ของส่วนตัว) · deep-link → หน้าหลักที่มีดวงวันนี้
+export function buildDailyFortunePayload(): PushPayload {
+  return {
+    title: "🌞 ถึงเวลาดูดวงวันนี้",
+    body: "เปิดดูดวงประจำวันของคุณก่อนเริ่มวัน",
+    url: "/v2",
+  }
+}
