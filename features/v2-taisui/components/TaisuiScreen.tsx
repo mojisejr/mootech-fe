@@ -14,7 +14,7 @@ import { leaveQiAsk, leaveReturnMarker, takeQiAsk } from '../return'
 import { TAISUI_CSS } from './taisui-css'
 import { TAISUI_CSS_EXTRA } from './taisui-css-extra'
 import { TAISUI_MARKUP } from './taisui-markup'
-import { startTaisui, type Birth, type OaClaim, type ProOffer, type Sender } from './taisui-motion'
+import { startTaisui, type Birth, type Me, type OaClaim, type ProOffer, type Sender } from './taisui-motion'
 
 export type TaisuiScreenProps = { refCode: string | null; sender: Sender; proOffer: ProOffer }
 
@@ -28,9 +28,10 @@ async function postJson(url: string, body: unknown): Promise<Response> {
 
 export function TaisuiScreen({ refCode, sender, proOffer }: TaisuiScreenProps) {
   const rootRef = useRef<HTMLDivElement>(null)
-  const { onLine } = useV2Login()
-  const loginRef = useRef(onLine)
-  loginRef.current = onLine
+  // revision 0.15: logins from this page ask LINE for its full add-friend screen
+  const { onLineFriend } = useV2Login()
+  const loginRef = useRef(onLineFriend)
+  loginRef.current = onLineFriend
 
   useEffect(() => {
     const root = rootRef.current
@@ -63,7 +64,18 @@ export function TaisuiScreen({ refCode, sender, proOffer }: TaisuiScreenProps) {
         loginRef.current()
       },
       justLoggedIn: () => takeQiAsk(),
-      takeNext: () => { try { const v = sessionStorage.getItem(NEXT_KEY); sessionStorage.removeItem(NEXT_KEY); return v === 'shop' ? 'shop' : null } catch { return null } },
+      takeNext: () => { try { const v = sessionStorage.getItem(NEXT_KEY); sessionStorage.removeItem(NEXT_KEY); return v === 'shop' || v === 'packet' ? v : null } catch { return null } },
+      // revision 0.15: who is reading (level and login method), given up after 5 s so the page never waits on it
+      me: async (): Promise<Me | null> => {
+        const ctl = new AbortController(); const t = window.setTimeout(() => ctl.abort(), 5000)
+        try { const r = await fetch('/api/taisui/me', { credentials: 'same-origin', signal: ctl.signal }); return r.ok ? ((await r.json()) as Me) : null } catch { return null } finally { window.clearTimeout(t) }
+      },
+      saveBirth: async (birth: Birth) => {
+        const r = await postJson('/api/taisui/save-birth', { birth })
+        if (r.ok) { try { sessionStorage.removeItem(BIRTH_KEY) } catch { /* none */ } }
+        return r.ok
+      },
+      linkLineHref: `/api/auth/link/start/line?return_to=${encodeURIComponent(typeof window === 'undefined' ? '/taisui-2570' : `${window.location.pathname}${refCode ? `?ref=${encodeURIComponent(refCode)}` : ''}`)}`,
       proOffer,
       openPacket: async () => { if (!refCode) return null; const r = await postJson('/api/taisui/packet', { code: refCode }); return r.ok ? r.json() : null },
       sendPacket: async () => {

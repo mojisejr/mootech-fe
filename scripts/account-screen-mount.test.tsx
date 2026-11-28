@@ -20,7 +20,7 @@ vi.mock('@/features/auth/hooks/useV2User', () => ({
 
 import { AccountScreen } from '@/features/v2-account/components/AccountScreen'
 
-function stubAll({ walletOk = true, qi = 0, history = [] as unknown[], invitedCount = 0, goals = null as unknown, pack = null as unknown } = {}) {
+function stubAll({ walletOk = true, qi = 0, history = [] as unknown[], invitedCount = 0, goals = null as unknown, pack = null as unknown, friends = null as unknown, friendsOk = true } = {}) {
   vi.stubGlobal('fetch', vi.fn((input: RequestInfo | URL) => {
     const url = String(input)
     if (url.includes('/api/qi-wallet')) {
@@ -31,6 +31,10 @@ function stubAll({ walletOk = true, qi = 0, history = [] as unknown[], invitedCo
     if (url.includes('/api/profile')) return Promise.resolve({ ok: true, json: async () => ({ profile: null }) } as Response)
     if (url.includes('/api/missions')) return Promise.resolve({ ok: true, json: async () => ({ missions: [], goals }) } as Response)
     if (url.includes('/api/referral')) return Promise.resolve({ ok: true, json: async () => ({ invitedCount }) } as Response)
+    if (url.includes('/api/member-with-friend')) {
+      // GET /api/member-with-friend ตอบ array เปล่า ๆ (รายชื่อเพื่อนที่บันทึกวันเกิดไว้)
+      return Promise.resolve((friendsOk ? { ok: true, json: async () => friends } : { ok: false, status: 500, json: async () => ({}) }) as Response)
+    }
     if (url.includes('/api/payment-package')) return Promise.resolve(pack ? { ok: true, json: async () => pack } as Response : { ok: false, status: 404, json: async () => ({}) } as Response)
     if (url.includes('/api/v2/account/delete')) return Promise.resolve({ ok: true, json: async () => ({ deletion: null }) } as Response)
     return Promise.resolve({ ok: true, json: async () => ({}) } as Response)
@@ -69,17 +73,45 @@ describe('จอโปรไฟล์ (แดชบอร์ด) ประกอ
   })
 
   // 2026-09-07 Figma parity (55399:5007) — แถวเพื่อน: avatar stack 34px + วง "+N" + badge เก็บแล้ว/5 + copy ตามเฟรม
-  it('แถวเพื่อน: 8 คน → 3 วง + "+5" · badge 3/5 · "ยังขาดไฟและทอง"', async () => {
-    const goals = { referral: { invited: 8 }, element: { collected: 3, elements: [
-      { key: 'wood', collected: true }, { key: 'water', collected: true }, { key: 'earth', collected: true }, { key: 'fire', collected: false }, { key: 'metal', collected: false } ] } }
-    stubAll({ invitedCount: 8, goals })
+  // ประชุม 24 พ.ย. ข้อ 3: การ์ดนับจากรายชื่อที่บันทึกไว้ (ตรงกับหน้า /v2/friends) และพาไปหน้านั้น
+  const GOALS = { referral: { invited: 80 }, element: { collected: 3, elements: [
+    { key: 'wood', collected: true }, { key: 'water', collected: true }, { key: 'earth', collected: true }, { key: 'fire', collected: false }, { key: 'metal', collected: false } ] } }
+  const friend = (id: string, name: string) => ({ id, name, surname: '', picture_url: null, dob: '1995-06-15', time: '09:30', is_remember_time: true, is_member: false, member_id: '', is_disable: false })
+  const stackText = () => Array.from(screen.getByTestId('account-friends-stack').children).map((c) => c.textContent)
+
+  it('แถวเพื่อน: นับจากรายชื่อ 5 คน (ไม่ใช่ชวนมา 80) → 3 วงอักษรแรกของชื่อจริง + "+2" · badge 3/5 · "ยังขาดไฟและทอง" · พาไป /v2/friends', async () => {
+    stubAll({ invitedCount: 80, goals: GOALS, friends: [friend('f1', 'สมศรี'), friend('f2', 'มานพ'), friend('f3', 'วิไล'), friend('f4', 'ประยุทธ์'), friend('f5', 'เอก')] })
     mount()
     await waitFor(() => expect(screen.getByTestId('account-friends-badge').textContent).toBe('3/5'))
-    const stack = screen.getByTestId('account-friends-stack')
-    expect(stack.children).toHaveLength(4)
-    expect(stack.lastElementChild?.textContent).toBe('+5')
-    expect(screen.getByTestId('account-friends').textContent).toContain('เพื่อนของคุณ 8 คน')
+    expect(stackText()).toEqual(['ส', 'ม', 'ว', '+2'])
+    expect(screen.getByTestId('account-friends').textContent).toContain('เพื่อนของคุณ 5 คน')
+    expect(screen.getByTestId('account-friends').getAttribute('href')).toBe('/v2/friends')
     expect(screen.getByTestId('account-friends').textContent).toContain('เก็บครบ 5 ธาตุรับ 1,000 QI · ยังขาดไฟและทอง')
+  })
+
+  it('รายชื่อโหลดไม่ได้ → ถอยไปนับจำนวนชวนมาแบบเดิม (8 คน · วง "ธ") ❌ ไม่วาดสถานะว่างทับความล้มเหลว', async () => {
+    stubAll({ invitedCount: 8, goals: GOALS, friendsOk: false })
+    mount()
+    await waitFor(() => expect(screen.getByTestId('account-friends-badge').textContent).toBe('3/5'))
+    expect(stackText()).toEqual(['ธ', 'ธ', 'ธ', '+5'])
+    expect(screen.getByTestId('account-friends').textContent).toContain('เพื่อนของคุณ 8 คน')
+    expect(screen.getByTestId('account-friends').textContent).not.toContain('ชวนเพื่อนคนแรก')
+  })
+
+  it('รายชื่อว่าง แต่ชวนมา 4 คน → "เพื่อนที่ชวนมา 4 คน" ❌ ไม่พูดว่า "ชวนเพื่อนคนแรก"', async () => {
+    stubAll({ invitedCount: 4, goals: GOALS, friends: [] })
+    mount()
+    await waitFor(() => expect(screen.getByTestId('account-friends').textContent).toContain('เพื่อนที่ชวนมา 4 คน'))
+    expect(screen.getByTestId('account-friends').textContent).not.toContain('ชวนเพื่อนคนแรก')
+    expect(stackText()).toEqual(['ธ', 'ธ', 'ธ', '+1'])
+  })
+
+  it('ไม่มีเพื่อนทั้งสองกลุ่ม → สถานะว่าง ไม่มี stack/badge', async () => {
+    stubAll({ invitedCount: 0, goals: GOALS, friends: [] })
+    mount()
+    await waitFor(() => expect(screen.getByTestId('account-friends').textContent).toContain('สะสมเพื่อนให้ครบ 5 ธาตุ'))
+    expect(screen.queryByTestId('account-friends-stack')).toBeNull()
+    expect(screen.queryByTestId('account-friends-badge')).toBeNull()
   })
 })
 

@@ -1,8 +1,11 @@
 // features/v2-guide/NewcomerCoach.tsx — พาคนใหม่ (ยังไม่มีบัญชี) หาธาตุฟรีก่อนสมัคร (เอ็ม 2026-10-14 "ร่างเลย แล้ว qi ค่อยได้หลังมีบัญชี")
-// หน้าแนะนำ 4 หน้า → /v2/element-finder?newcomer=1 → บังคับกดทีละขั้น (แบบคลิป LINE): วันเกิด → เวลาเกิด → ดูธาตุ → สมัครฟรี
-// บังคับกด = หรี่จอ + กันแตะทุกที่ยกเว้นส่วนที่ส่อง (ผู้ใช้กดของจริงเอง) · ขั้นเลือกจากสถานะหน้า (หน้าส่ง step มา)
+// หน้าแนะนำ 4 หน้า → /v2/element-finder?newcomer=1 → บังคับกดทีละขั้น (แบบคลิป LINE): วันเกิด → เวลาเกิด → ดูธาตุ
+// บังคับกด = หรี่จอ + กันแตะทุกที่ยกเว้นส่วนที่ส่อง (ผู้ใช้กดของจริงเอง) · ขั้นเลือกจากสถานะหน้า (newcomerStepFor — หน้าไม่เก็บขั้นเอง)
 // วันเกิดที่กรอกจำไว้ให้หน้าสมัคร (/v2/register) เติมให้เอง ไม่ต้องกรอกซ้ำ · ยังไม่มี QI (ยังไม่มีบัญชี) — QI มาจากทัวร์หลังสมัคร
-// ภาพ/การเคลื่อนไหวของช่องส่อง = Spotlight (ใช้ร่วมกับทัวร์แนะนำแอป) · ระหว่างคำนวณ (ไม่มีขั้น) ชั้นหายไป แล้วจางเข้าใหม่ตอนผล
+// ภาพ/การเคลื่อนไหวของช่องส่อง = Spotlight (ใช้ร่วมกับทัวร์แนะนำแอป) · ระหว่างคำนวณ (ไม่มีขั้น) ชั้นหายไป และไม่กลับมาอีก
+// 🔴 ไกด์จบที่ปุ่มคำนวณ หน้าผลธาตุไม่มีขั้น (gafiw 2026-11-27 "พอคำนวณแล้วมันบังคับล็อกอินเลย · ไม่ขึ้นแสดงผล"):
+//    ขั้น "signup" เดิมส่องแถว CTA สมัครฟรี → จอดำ 72% ทั้งหน้า wallpaper เลยมองไม่ออก กดสุ่ม/แชร์/บันทึกไม่ได้ ทางออกเดียวคือล็อกอิน
+//    ตอนนี้ "สมัครฟรี ดูดวงเต็ม + รับ QI" เป็น CTA ธรรมดาของหน้าผล ผู้ใช้เลือกกดเอง — สมัครเป็นทางเลือก ไม่ใช่ประตู
 import Link from "next/link"
 import { useEffect, useState } from "react"
 
@@ -71,12 +74,25 @@ export const NEWCOMER_STEPS = {
   date: { target: '[data-testid="finder-date"]', text: "เริ่มจากเลือกวันเกิดของคุณตรงนี้เลย" },
   time: { target: '[data-testid="finder-time-block"]', text: "ใส่เวลาเกิด (ถ้ารู้ จะแม่นขึ้น) หรือติ๊ก \"ไม่ทราบเวลา\"" },
   submit: { target: '[data-testid="finder-submit"]', text: "กดเลย! ดูว่าคุณคือธาตุอะไร" },
-  signup: { target: '[data-testid="finder-cta"]', text: "ชอบไหม? สมัครฟรีด้วย LINE ดูดวงเต็ม + รับพลังชี่ (QI) ฟรี" },
 } satisfies Record<string, NewcomerStep>
 
-const ORDER: (keyof typeof NEWCOMER_STEPS)[] = ["date", "time", "submit", "signup"]
+export type NewcomerStepKey = keyof typeof NEWCOMER_STEPS
 
-export function NewcomerCoach({ step }: { step: keyof typeof NEWCOMER_STEPS | null }) {
+const ORDER: NewcomerStepKey[] = ["date", "time", "submit"]
+
+/** สถานะหน้าหาธาตุที่ใช้เลือกขั้น — หน้าส่งมา หน้าไม่เก็บขั้นไกด์เอง */
+export type FinderGuideState = { phase: "input" | "loading" | "result"; birthDate: string; canSubmit: boolean }
+
+/**
+ * ขั้นของไกด์จากสถานะหน้า — ของเดียวที่หน้าต้องถาม
+ * ระหว่างคำนวณและหน้าผล = null: หน้าผลต้องโชว์เต็มจอ กดสุ่ม/แชร์/บันทึกได้ (สมัครฟรีเป็น CTA ธรรมดาของหน้า)
+ */
+export function newcomerStepFor(s: FinderGuideState): NewcomerStepKey | null {
+  if (s.phase !== "input") return null
+  return !s.birthDate ? "date" : !s.canSubmit ? "time" : "submit"
+}
+
+export function NewcomerCoach({ step }: { step: NewcomerStepKey | null }) {
   const rect = useTrackedRect(
     step,
     () => {

@@ -1,6 +1,9 @@
 // features/v2-account/components/EditBirthScreen.tsx — /v2/settings/edit-birth (เฟรม edit-birth-data ×4)
 // A ฟรี (banner เขียว 1/1) · B ใช้สิทธิ์แล้ว (ช่องล็อก + "ปลดล็อก · N QI" + ยอดหลังแก้) · C กรอกผิดจริง (การ์ดฟ้า → ชีตแจ้งแก้).
 // 🔴 โควตาตัดสินที่ engine เท่านั้น (GET quota + PATCH). PATCH แต้มไม่พอ → 409 → InsufficientQiSheet.
+// ประชุม 24 พ.ย. ข้อ 5: เพศย้ายมาแก้ในจอนี้ร่วมกับวันเกิด (เคสใส่เพศผิดแล้วดวงกลับด้าน — ตามหาที่แก้ไม่เจอ).
+//   เพศแก้ได้ฟรีเสมอ ไม่ติดล็อกโควตา (engine คิด QI เฉพาะเมื่อวัน+เวลาเกิดเปลี่ยน) และส่งไปเฉพาะเมื่อผู้ใช้แก้เท่านั้น
+//   จอนี้เคยเดาเพศเป็น MALE ส่งไป — ค่าที่ไม่ได้แตะต้องไม่ถูกแตะ
 // หมายเหตุ: เฟรมมี "จังหวัดที่เกิด" + "ปลดล็อก" + correction ผ่าน LINE — backend ยังไม่รองรับจังหวัด/ลิงก์ LINE
 //   → ทำตามโมเดลจริง (ฟอร์มวันเกิด/เวลา + คำขอพิจารณาในแอป), สไตล์ตามเฟรม.
 import Head from "next/head"
@@ -45,6 +48,10 @@ export function EditBirthScreen() {
   const [birthTime, setBirthTime] = useState("")
   const [province, setProvince] = useState("")
   const [timeUnknown, setTimeUnknown] = useState(false)
+  // เพศ: '' = ยังไม่ได้เลือก (หรือค่าเดิมเป็น "อื่น ๆ" ซึ่งตัวคำนวณถือเป็นชาย — ให้ผู้ใช้เลือกใหม่เอง ไม่เดาแทน)
+  // initialGender = ค่าตอนโหลด ใช้แยกว่า "ผู้ใช้แก้เพศไหม" — ไม่แก้ = ไม่ส่ง
+  const [gender, setGender] = useState("")
+  const [initialGender, setInitialGender] = useState("")
   // #Bug2 — หลังแก้วันเกิดต้อง recompute chart ฝั่ง FE user row ด้วย (มินต์ result_code ใหม่ → หน้าแรก self-heal)
   const [cookies] = useCookies([CookieKey.MEMBER_ID])
   const [saving, setSaving] = useState(false)
@@ -74,6 +81,9 @@ export function EditBirthScreen() {
       setBirthTime(j.profile?.birthTime ?? "")
       setProvince(j.profile?.birthProvince ?? "")
       setTimeUnknown(j.profile?.timeUnknown ?? false)
+      const g = j.profile?.gender === "MALE" || j.profile?.gender === "FEMALE" ? j.profile.gender : ""
+      setGender(g)
+      setInitialGender(g)
       // ยอด QI ปัจจุบัน สำหรับ preview "เหลือหลังแก้" (สถานะเสียเงิน) — best-effort
       if (j.quota?.birthEditFreeUsed) {
         fetch("/api/qi-wallet").then((r) => (r.ok ? r.json() : null)).then((w) => setWalletQiNow(typeof w?.qi === "number" ? w.qi : null)).catch(() => {})
@@ -87,6 +97,7 @@ export function EditBirthScreen() {
 
   const save = async () => {
     if (!birth) return
+    const genderChanged = gender !== "" && gender !== initialGender
     setSaving(true)
     setMsg(null)
     setInsufficient(false)
@@ -94,7 +105,8 @@ export function EditBirthScreen() {
       const res = await fetch("/api/profile", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ birth, birthTime: timeUnknown ? null : birthTime || null, timeUnknown, birthProvince: province.trim() }),
+        // เพศส่งเฉพาะเมื่อผู้ใช้แก้ (ไม่แก้ = ค่าเดิมอยู่ที่ engine ตามเดิม ไม่ถูกเดาทับ)
+        body: JSON.stringify({ birth, birthTime: timeUnknown ? null : birthTime || null, timeUnknown, birthProvince: province.trim(), ...(genderChanged ? { gender } : {}) }),
       })
       const j = (await res.json().catch(() => ({}))) as { error?: string; birthEditMode?: string }
       if (res.ok) {
@@ -104,11 +116,11 @@ export function EditBirthScreen() {
         // ในหน่วยความจำ ให้กลับไปหน้าแรกแล้วคำนวณใหม่ทันที ไม่ต้องรอ result_code เปลี่ยน
         clearChartCache()
         // 🔴 #Bug2 — sync legacy `user` (dob/time/is_remember_time) + มินต์ result_code ใหม่ผ่าน FE route แทน BE.
-        // ส่งเฉพาะวัน/เวลาเกิด: ชื่อ/นามสกุล/รูป/เพศไม่ได้แก้ในจอนี้ จึงไม่ส่ง (เดิมส่ง surname "" ทับ และเดาเพศเป็น
+        // ส่งเฉพาะวัน/เวลาเกิด (+เพศเมื่อผู้ใช้แก้เพศ): ชื่อ/นามสกุล/รูปไม่ได้แก้ในจอนี้ จึงไม่ส่ง (เดิมส่ง surname "" ทับ และเดาเพศเป็น
         // MALE เมื่อค่าไม่ใช่ "FEMALE"). best-effort: ล้ม = engine บันทึกแล้ว หน้าแรกก็คำนวณจาก engine profile อยู่ดี
         try {
           if ((cookies[CookieKey.MEMBER_ID] as string) ?? "") {
-            await SaveBirthChart({ dob: birth, time: timeUnknown ? "" : birthTime || "" })
+            await SaveBirthChart({ dob: birth, time: timeUnknown ? "" : birthTime || "", ...(genderChanged ? { gender: gender as "MALE" | "FEMALE" } : {}) })
           }
         } catch { /* best-effort — see above */ }
         setMsg(
@@ -116,8 +128,10 @@ export function EditBirthScreen() {
             ? `บันทึกแล้ว — หัก ${quota?.birthEditPriceQi ?? 150} QI ดวงของคุณจะอัปเดตตามวันเกิดใหม่`
             : j.birthEditMode === "free"
               ? "บันทึกแล้ว — ใช้สิทธิ์แก้ฟรี 1 ครั้งของคุณ (ครั้งถัดไปมีค่าใช้จ่าย)"
-              // "legacy" (บัญชียังไม่ตั้ง @name) หรืออื่นๆ ที่ไม่ได้หัก QI
-              : "บันทึกแล้ว — ดวงของคุณจะอัปเดตตามวันเกิดใหม่",
+              : genderChanged
+                ? "บันทึกแล้ว — ดวงของคุณคำนวณใหม่ตามเพศแล้ว ไม่ใช้สิทธิ์แก้วันเกิด"
+                // "legacy" (บัญชียังไม่ตั้ง @name) หรืออื่นๆ ที่ไม่ได้หัก QI
+                : "บันทึกแล้ว — ดวงของคุณจะอัปเดตตามวันเกิดใหม่",
         )
         await load()
       } else if (res.status === 409) {
@@ -144,12 +158,16 @@ export function EditBirthScreen() {
 
   const priceQi = quota?.birthEditPriceQi ?? 150
   const freeUsed = quota?.birthEditFreeUsed === true
-  // dirty-gate: ปุ่มบันทึกใช้ได้เมื่อมีการแก้ไขจากค่าปัจจุบันในระบบ (ตาม Figma)
-  const dirty =
+  // dirty-gate: ปุ่มบันทึกใช้ได้เมื่อมีการแก้ไขจากค่าปัจจุบันในระบบ (ตาม Figma) — นับทั้งวันเกิดและเพศ
+  const birthDirty =
     birth !== ((current?.birthDate ?? "").slice(0, 10)) ||
     birthTime !== (current?.birthTime ?? "") ||
     timeUnknown !== (current?.timeUnknown ?? false) ||
     province !== (current?.birthProvince ?? "")
+  const genderChanged = gender !== "" && gender !== initialGender
+  const dirty = birthDirty || genderChanged
+  // แก้เพศอย่างเดียวในสถานะ B: ไม่ต้องปลดล็อกโควตา (เพศฟรี) → ซ่อนปุ่ม "ปลดล็อก · N QI" ให้บันทึกได้เลย
+  const genderOnly = genderChanged && !birthDirty
 
   const locked = freeUsed && !unlocked
 
@@ -182,6 +200,20 @@ export function EditBirthScreen() {
 
             {/* ฟอร์ม (เฟรม form-card) — ล็อกเมื่อใช้สิทธิ์ฟรีแล้วและยังไม่ปลดล็อก */}
             <section className={CARD} data-testid="eb-form">
+              {/* เพศ — แก้ได้ฟรีเสมอ ไม่ติดล็อกโควตา (engine คิด QI เฉพาะเมื่อวัน+เวลาเกิดเปลี่ยน) · เลือกได้แค่ชาย/หญิง */}
+              <label className="flex flex-col gap-1.5">
+                <span className={LABEL}>เพศ</span>
+                <span className="relative block">
+                  <select value={gender} onChange={(e) => setGender(e.target.value)} data-testid="eb-gender" className={PICKER_ROW + " w-full appearance-none pr-10 outline-none focus:border-v3-navy " + (gender ? "text-v3-navy" : "text-v3-placeholder")}>
+                    <option value="">เลือกเพศ</option>
+                    <option value="MALE" className="text-v3-navy">ชาย</option>
+                    <option value="FEMALE" className="text-v3-navy">หญิง</option>
+                  </select>
+                  <span className="pointer-events-none absolute inset-y-0 right-4 flex items-center"><ChevronDown /></span>
+                </span>
+                <span className={HINT}>เพศมีผลต่อทิศวัยจร ถ้าเคยใส่ผิดแล้วดวงกลับด้าน แก้ตรงนี้ได้ฟรี ไม่ใช้สิทธิ์แก้วันเกิด</span>
+              </label>
+
               {/* วันเกิด — row ไทย + native date picker ทับ */}
               <label className="flex flex-col gap-1.5">
                 <span className={LABEL}>วันเกิด</span>
@@ -244,9 +276,9 @@ export function EditBirthScreen() {
               {msg && <p data-testid="eb-msg" className="text-[12px] font-bold text-v3-sapphire">{msg}</p>}
             </section>
 
-            {/* sticky-footer — A/ฟรี: บันทึก (ดับจนแก้) · B/ล็อก: ปลดล็อก · N QI + ยอดหลังแก้ */}
+            {/* sticky-footer — A/ฟรี: บันทึก (ดับจนแก้) · B/ล็อก: ปลดล็อก · N QI + ยอดหลังแก้ · B แต่แก้เพศอย่างเดียว: บันทึกได้เลย (ฟรี) */}
             <div className="sticky bottom-0 z-20 -mx-4 flex flex-col gap-2 bg-gradient-to-t from-white via-white/95 to-white/0 px-4 pb-[max(1.75rem,env(safe-area-inset-bottom))] pt-3.5">
-              {locked ? (
+              {locked && !genderChanged ? (
                 <>
                   <KitButton onClick={() => setUnlocked(true)} testId="eb-unlock">ปลดล็อกการแก้ไข · {priceQi} QI</KitButton>
                   {walletQiNow !== null && (
@@ -258,9 +290,9 @@ export function EditBirthScreen() {
               ) : (
                 <>
                   <KitButton onClick={() => void save()} disabled={saving || !birth || !dirty} testId="eb-save" className={!dirty ? "!bg-v3-rose-tint !text-v3-text-note !opacity-100" : ""}>
-                    {saving ? "กำลังบันทึก..." : freeUsed ? `บันทึกการเปลี่ยนแปลง (ใช้ ${priceQi} QI)` : "บันทึกการเปลี่ยนแปลง"}
+                    {saving ? "กำลังบันทึก..." : freeUsed && !genderOnly ? `บันทึกการเปลี่ยนแปลง (ใช้ ${priceQi} QI)` : "บันทึกการเปลี่ยนแปลง"}
                   </KitButton>
-                  {freeUsed && walletQiNow !== null ? (
+                  {freeUsed && !genderOnly && walletQiNow !== null ? (
                     <p className="text-center text-[9px] leading-[13px] text-v3-text-note" data-testid="eb-after">
                       ยอดของคุณ {walletQiNow.toLocaleString("th-TH")} QI · เหลือ {Math.max(0, walletQiNow - priceQi).toLocaleString("th-TH")} QI หลังแก้
                     </p>

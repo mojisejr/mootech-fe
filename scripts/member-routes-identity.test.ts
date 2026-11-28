@@ -102,6 +102,7 @@ const ROUTES: Route[] = [
   { path: 'pages/api/v2/manifest/photo', methods: ['GET'] },
   { path: 'pages/api/v2/phone-charge', methods: ['POST'] },
   { path: 'pages/api/v2/daily-fortune-reminder', methods: ['GET', 'POST'], body: { time: '07:30' } },
+  { path: 'pages/api/v2/friends/reading', methods: ['GET', 'POST'], body: { id: 'f-1' } },
 ]
 
 const BODY = {

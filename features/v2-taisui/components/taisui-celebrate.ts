@@ -11,6 +11,11 @@ export type CelebrateOpts = {
   onRead: () => void
   onDeep: () => void
   onClose: () => void
+  /** Revision 0.15: several gifts at once (the red packet and the 100 QI), one row each: [amount, what for]. */
+  gifts?: Array<[string, string]>
+  /** Revision 0.15: before a reading the main button leads to the birth, and the send button waits. */
+  readLabel?: string
+  noSend?: boolean
 }
 
 const COLORS = ['#ebbf30', '#e1ff00', '#ff5a4d', '#fff7e6', '#ff8a3d', '#06C755']
@@ -36,17 +41,26 @@ export function celebrate(host: HTMLElement, o: CelebrateOpts): () => void {
     root.setAttribute('aria-label', `รับ ${o.qi} ชี่ไปแล้ว`)
     card.appendChild(el('div', 'celT', `คุณรับ ${o.qi} ชี่จากการแอด LINE ไปแล้ว`))
     card.appendChild(el('p', 'celUse', 'สิทธิ์นี้ได้ครั้งเดียวต่อคน · ส่งอั่งเปาให้เพื่อน เพื่อนเปิดซองได้ชี่ 5–10 ชี่'))
+  } else if (o.gifts?.length) {
+    card.appendChild(el('div', 'celK', 'ยินดีต้อนรับสู่แก๊งมูเมท!'))
+    const g = el('div', 'celGifts')
+    o.gifts.forEach(([n, t]) => { const r = el('div'); r.append(el('b', undefined, n), el('span', undefined, t)); g.appendChild(r) })
+    card.appendChild(g)
+    card.appendChild(el('p', 'celUse', o.readLabel ? 'เข้ากระเป๋าแล้ว · อีกขั้นเดียว กรอกวันเกิดแล้วดูปีมะแมของคุณ' : 'เข้ากระเป๋าแล้ว ใช้ถามเสี่ยวมู่ต่อได้'))
   } else {
     card.appendChild(el('div', 'celK', 'ขอบคุณที่เป็นเพื่อน MuMate ใน LINE'))
     big.appendChild(num); big.appendChild(el('small', undefined, 'ชี่')); card.appendChild(big)
     card.appendChild(el('p', 'celUse celLate', 'เข้ากระเป๋าแล้ว ใช้ถามเสี่ยวมู่ต่อได้ เมื่อสิทธิ์ถามฟรีของวันนั้นหมด'))
   }
-  const acts = el('div', already ? 'celActs' : 'celActs celLate')
+  const listed = Boolean(o.gifts?.length)
+  const acts = el('div', already || listed ? 'celActs' : 'celActs celLate')
   const send = el('button', 'celP', 'ส่งอั่งเปาให้เพื่อน'); send.type = 'button'
-  const read = el('button', 'celS', 'อ่านคำทำนายเต็มของฉัน'); read.type = 'button'
-  acts.append(send, read); card.appendChild(acts)
+  const read = el('button', o.noSend ? 'celP' : 'celS', o.readLabel ?? 'อ่านคำทำนายเต็มของฉัน'); read.type = 'button'
+  if (o.noSend) acts.append(read); else acts.append(send, read)
+  card.appendChild(acts)
   const deep = el('a', 'celDeep celLate') as HTMLAnchorElement; deep.href = o.deepHref
   if (already) deep.className = 'celDeep'
+  if (listed) deep.hidden = true
   deep.appendChild(document.createTextNode('อยากรู้ลึกกว่านี้? ')); deep.appendChild(el('b', undefined, already ? 'ไปถามเสี่ยวมู่ต่อในแอป ›' : 'ถามเสี่ยวมู่ด้วยชี่ที่เพิ่งได้ ›')); card.appendChild(deep)
   const x = el('button', 'celX', '×'); x.type = 'button'; x.setAttribute('aria-label', 'ปิด'); card.appendChild(x)
   const fx = el('div', 'celFx'); fx.setAttribute('aria-hidden', 'true')
@@ -65,6 +79,7 @@ export function celebrate(host: HTMLElement, o: CelebrateOpts): () => void {
   requestAnimationFrame(() => requestAnimationFrame(() => { root.classList.add('on'); card.focus({ preventScroll: true }) }))
   try { navigator.vibrate?.([20, 60, 30]) } catch { /* no vibration */ }
   if (o.still || already) return remove
+  if (listed) { for (let i = 0; i < 64; i++) { const c = el('i', 'celCf'); c.style.left = `${Math.random() * 100}%`; c.style.background = COLORS[i % COLORS.length]; c.style.setProperty('--dx', `${(Math.random() * 160 - 80).toFixed(0)}px`); c.style.setProperty('--r', `${(Math.random() * 900 - 450).toFixed(0)}deg`); c.style.setProperty('--d', `${(2 + Math.random() * 1.6).toFixed(2)}s`); c.style.setProperty('--dl', `${(0.15 + Math.random() * 0.7).toFixed(2)}s`); fx.appendChild(c) } return remove }
 
   // count up once the sheet has landed, then pop
   const t0 = performance.now() + 420, dur = 900

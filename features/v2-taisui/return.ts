@@ -42,6 +42,15 @@ export function takeReturnPath(now: number = Date.now()): string | null {
   }
 }
 
+/** The server-side hint alone (storage may be off). */
+export function hasReturnCookie(): boolean {
+  try { return document.cookie.split(';').some((c) => c.trim() === `${TAISUI_RETURN_COOKIE}=1`) } catch { return false }
+}
+
+/** Revision 0.15: a member on the way back to the page, chart or not. Home lets the page take the birth
+ *  instead of sending them to registration. */
+export function isReturningToTaisui(): boolean { return hasReturnMarker() || hasReturnCookie() }
+
 /** Peek without taking, for the home page to wait until the member's chart exists. */
 export function hasReturnMarker(): boolean {
   try { return Boolean(window.localStorage.getItem(TAISUI_RETURN_KEY)) } catch { return false }

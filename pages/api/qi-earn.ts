@@ -5,8 +5,14 @@ import { resolveRouteMember } from '@/lib/v2/resolve-user'
 import { baziFetch } from '@/lib/bazi/fetch'
 
 const CODE_RE = /^[a-z0-9_]{1,64}$/i
-// โค้ดที่ต้องผ่านการตรวจฝั่ง server ก่อนจ่าย (เช่น line_oa_add → /api/v2/line-oa-claim เช็กเพื่อน OA กับ LINE) — ห้ามรับตรงจากที่นี่
-const SERVER_VERIFIED_CODES = new Set(["line_oa_add"])
+// 🔴 ALLOWLIST (ปิดช่องโหว่ 2026-11-27 · ประชุม 24 พ.ย. ข้อ 2): เดิมปฏิเสธแค่ line_oa_add แล้วส่งทุกโค้ดที่เหลือต่อไปให้
+// engine ซึ่งกันแค่ "จ่ายซ้ำในรอบเดิม" ไม่ได้ตรวจว่าเหตุการณ์เกิดจริง ⇒ คนที่ล็อกอินยิง POST เองได้ทุกเส้นที่ควรมาจากระบบ
+// (signup · referral_free/plus/pro พร้อม ref มั่ว · wuxing_matrix 1,000 ชี) โดยไม่ต้องทำภารกิจ
+// เหลือไว้เฉพาะรหัสที่ "หน้าเว็บยิงเองโดยชอบ" — เพิ่มรายการใหม่ต้องมีเหตุผลว่าผู้ใช้กดเองได้จริง:
+//   daily_login  ปุ่มเช็คอิน (AccountScreen / QiScreen / QiCheckinScreen) — engine จำกัดวันละ 1 ครั้ง
+//   share        กดแชร์แล้ว (ดวง/ไพ่/แผนที่) — วันละ 1 ครั้ง
+//   install_pwa  เปิดแอปแบบติดตั้งแล้ว (lib/pwa/use-install-reward) — ครั้งเดียวตลอดชีพ
+const SELF_CLAIM_CODES = new Set(["daily_login", "share", "install_pwa"])
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== "POST") {
@@ -22,12 +28,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   const body = (req.body ?? {}) as { code?: string; ref?: string }
   const code = String(body.code ?? "")
   const ref = body.ref ? String(body.ref).slice(0, 200) : undefined
-  if (SERVER_VERIFIED_CODES.has(code)) {
-    res.status(403).json({ error: "code must be claimed via its own endpoint" })
-    return
-  }
   if (!CODE_RE.test(code)) {
     res.status(400).json({ error: "code is required" })
+    return
+  }
+  if (!SELF_CLAIM_CODES.has(code)) {
+    res.status(403).json({ error: "code must be claimed via its own endpoint" })
     return
   }
   const base = process.env.BAZI_BASE_URL || "http://localhost:3000"
