@@ -17,6 +17,7 @@ import { KitButton } from '@/features/v2-profile/components/kit'
 import { useV2User } from '@/features/auth/hooks/useV2User'
 import { bahtOf, methodWord, type FullPaymentRow } from '@/features/v2-account/components/OrdersScreen'
 import { isCoursePackage } from '@/lib/course/content'
+import { takeNewYearAfterPay } from '@/lib/newyear/return'
 import { formatThaiDateAbbr } from '@/lib/v2/thai-date'
 import { RESULT_COPY } from '../result-state'
 import { planNameForTier } from '../packages'
@@ -28,6 +29,10 @@ export const PLAN_SUCCESS_SUBTITLE = 'ขอบคุณที่ให้ Mumat
 export function PlanPaySuccess({ packageCode, charge, order }: { packageCode: string; charge: string; order: string }) {
   const { user } = useV2User()
   const [row, setRow] = useState<FullPaymentRow | null>(null)
+  // แผนชีวิตปีใหม่ 2570: the plan is the bonus of a yearly plan, so someone who left /v2/newyear for this
+  // checkout gets the plan as the next step. The marker is set by that page alone and used once.
+  const [fromNewYear, setFromNewYear] = useState(false)
+  useEffect(() => { setFromNewYear(takeNewYearAfterPay()) }, [])
 
   useEffect(() => {
     let alive = true
@@ -129,6 +134,11 @@ export function PlanPaySuccess({ packageCode, charge, order }: { packageCode: st
       {/* โปรฯ: ชวนเพื่อนใช้ Pro ฟรี 1 เดือน (ฟิว/ซินแส 2026-09-28) */}
       <PlanShareInvite />
 
+      {fromNewYear ? (
+        <KitButton href="/v2/newyear" testId="plan-pay-success-newyear" className="!h-[52px]">
+          เปิดแผนชีวิตปีใหม่ของคุณ
+        </KitButton>
+      ) : null}
       <KitButton href="/v2" testId="plan-pay-success-home" className="!h-[52px]">
         กลับสู่หน้าหลัก
       </KitButton>
