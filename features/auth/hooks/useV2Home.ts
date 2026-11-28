@@ -34,6 +34,7 @@ import { deriveHomeLoading, type HomeLoading } from '@/lib/home/loading'
 import { peekChart, isChartFresh, setChart } from './chart-cache'
 import { needsFirstRun, needsReconsent } from '@/lib/home/first-run-gate'
 import { consumePendingCheckout } from '@/lib/v2/pending-checkout'
+import { isReturningToTaisui } from '@/features/v2-taisui/return'
 
 export type { HomeProfile, HomeLoading }
 
@@ -135,6 +136,9 @@ export function useV2Home(status: AuthStatus): V2Home {
         const { resultCode, isRefreshResult } = resolveReturningResult(u)
         if (!resultCode || isRefreshResult) {
           setPhase('redirecting')
+          // ปีชง 2570 revision 0.15: on the way back to the page, the page takes the birth (pages/v2/index.tsx
+          // sends them there, or on to register if the way back has expired)
+          if (isReturningToTaisui()) return
           routerRef.current.replace('/v2/register')
           return
         }
