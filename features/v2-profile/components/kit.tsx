@@ -8,6 +8,7 @@
 import Image from 'next/image'
 import Link from 'next/link'
 import type { ReactNode } from 'react'
+import { createPortal } from 'react-dom'
 
 /** พื้นท้องฟ้า BG01 ด้านบน + ไล่เฟดลงขาว (สูง ~ครึ่งจอแรกตามเฟรม) */
 export function SkyBackdrop({ height = 460 }: { height?: number }) {
@@ -323,6 +324,17 @@ export function SheetShell({
       </div>
     </div>
   )
+}
+
+/** Overlay (ชีต/ป๊อปอัป) ที่ต้องอยู่เหนือแถบเมนูล่าง ให้ render ผ่านนี้ → ไปอยู่ที่ <body>
+ *
+ *  🔴 ทำไมต้องมี: SkyScreen และหน้าหลักครอบเนื้อหาด้วยกล่อง `relative z-10` — overlay ที่ render อยู่ข้างใน
+ *  แม้เขียน z-50 ก็ถูกตีค่า "ภายในกล่อง z-10" แล้วแถบเมนูล่าง (z-40 ระดับราก) ทับปุ่มในชีต (เจอจริงบนเบราว์เซอร์:
+ *  กดปุ่มในชีตไม่ได้เพราะถูกแถบ "ปฏิทิน" ครอบ) ทางออกเดียวกับ ComingSoon/InstallGuideSheet คือ portal ไป body.
+ *  ใช้กับ overlay ที่โผล่หลังผู้ใช้แตะเท่านั้น (state เริ่มปิด) ⇒ SSR ไม่เดินถึงนี่ จึงไม่มี hydration mismatch */
+export function OverlayPortal({ children }: { children: ReactNode }) {
+  if (typeof document === 'undefined') return null
+  return createPortal(children, document.body)
 }
 
 /** เหรียญ 氣 ซ้อนแนวนอนตามจำนวน (count) — ใช้ qi-coin.png วงกลมโปร่ง ไม่มีกรอบ */

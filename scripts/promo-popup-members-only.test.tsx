@@ -38,6 +38,8 @@ const checkedInYesterday = () => [
 
 const popup = () => screen.queryByTestId('promo-popup-scrim')
 const settle = () => act(async () => { await vi.advanceTimersByTimeAsync(1500) })
+/** คำขอไปยัง endpoint หนึ่ง ๆ (fetch ตัวเดียวใช้ร่วมหลายเรื่องตั้งแต่ Home v3: wallet + โปรช่วงเวลา) */
+const callsTo = (part: string) => fetchMock.mock.calls.filter((c: unknown[]) => String(c[0]).includes(part))
 
 beforeEach(() => {
   vi.useFakeTimers()
@@ -69,8 +71,9 @@ describe('PromoPopup — members only', () => {
     render(<PromoPopup />)
     await settle()
     expect(popup()).not.toBeNull()
-    expect(fetchMock).toHaveBeenCalledTimes(1)
-    expect(String(fetchMock.mock.calls[0][0])).toBe('/api/qi-wallet')
+    // Home v3 (2026-11-27): ตัดสินรอบละ 1 ครั้ง = อ่าน wallet 1 ครั้ง + อ่านโปรช่วงเวลา 1 ครั้ง (ไม่มีโปร → เช็กอินตามเดิม)
+    expect(callsTo('/api/qi-wallet')).toHaveLength(1)
+    expect(callsTo('/api/v2/limited-offer')).toHaveLength(1)
   })
 
   it('stays closed for a member who checked in today, and does not re-read on navigation', async () => {
@@ -83,7 +86,7 @@ describe('PromoPopup — members only', () => {
     rerender(<PromoPopup />)
     await settle()
     expect(popup()).toBeNull()
-    expect(fetchMock).toHaveBeenCalledTimes(1)
+    expect(fetchMock).toHaveBeenCalledTimes(2) // wallet + limited-offer ครั้งเดียว ไม่อ่านซ้ำเมื่อเปลี่ยนหน้า
   })
 
   it('a failed wallet read opens it (worst case = the behaviour before this change)', async () => {
@@ -150,7 +153,7 @@ describe('PromoPopup — unchanged rules', () => {
     rerender(<PromoPopup />)
     await settle()
     expect(popup()).toBeNull()
-    expect(fetchMock).toHaveBeenCalledTimes(1)
+    expect(fetchMock).toHaveBeenCalledTimes(2) // wallet + limited-offer อ่านครั้งเดียวต่อ session ไม่เด้งซ้ำ
   })
 
   it('an excluded path never opens it, even for a member', async () => {

@@ -22,6 +22,8 @@ import { DailyFortuneCard } from '@/features/v2-shell/components/DailyFortuneCar
 import { Spinner } from '@/features/v2-shell/components/Spinner'
 import { InstallPromptSheet } from './InstallPromptSheet'
 import { PromoCarousel } from './PromoCarousel'
+import { ShortcutBar } from './ShortcutBar'
+import { QiChip } from './QiChip'
 
 // Zone 1 daily-fortune (bazi /api/home). goo wires useHomeFortune() → this shape; I compose against it.
 export type DailyFortune = {
@@ -63,6 +65,10 @@ export type V2HomeScreenProps = {
    *  The PAGE composes this from the fetched user row, because that row is where "we could not tell" still
    *  exists — by the time the boolean profile is derived, the distinction is already gone. */
   membership?: MembershipLike | null
+  /** ยอดชีสำหรับชิป QI ข้างป้ายระดับ (Home v3 รอบแรก · ประชุม 24 พ.ย. ข้อ 1).
+   *  undefined (ไม่ส่ง / กำลังโหลด) → บล็อกเทา · null (อ่านไม่ได้) → ไม่โชว์ชิป · number → ยอดจริง
+   *  วางข้างป้ายระดับในแถวเครื่องมือ ไม่เบียดชื่อ: Structure A ให้ชื่อครองความกว้างเต็มบรรทัด (ฟีม: ชื่อห้ามตัด) */
+  qi?: number | null
   /** Per-zone data-loading flags — goo wires from useV2Home. `true` = that zone's data is not in yet →
    *  draw a GREY BLOCK, ❌ NOT the 01.webp mascot fallback (ฟีม: one clean reveal, no fallback-then-swap
    *  flicker). `profile` un-greys when the user row lands; `mascot` (+ ธาตุ) waits for the chart — they
@@ -102,7 +108,7 @@ const PROFILE_FALLBACK: Profile = { pictureUrl: null }
 
 const HERO_FALLBACK = '/images/v2/mascot/01.webp'
 
-export function V2HomeScreen({ greeting, mascotCharacter, fortune, fortuneLoading, element, profile, membership, loading }: V2HomeScreenProps) {
+export function V2HomeScreen({ greeting, mascotCharacter, fortune, fortuneLoading, element, profile, membership, loading, qi }: V2HomeScreenProps) {
   return (
     // page bg = Figma Home 333:6545 fill #F9F4F0 (v3-lemon-chiffon) — the CONTINUOUS ground the whole scroll sits on
     <div className="relative min-h-screen w-full overflow-x-hidden bg-v3-lemon-chiffon font-ibm">
@@ -116,7 +122,9 @@ export function V2HomeScreen({ greeting, mascotCharacter, fortune, fortuneLoadin
 
       {/* ── content column: 393 primary, centred + capped, safe-area top, clears the fixed nav ── */}
       <div className="relative z-10 mx-auto flex w-full max-w-md flex-col px-4 pt-[max(0.75rem,env(safe-area-inset-top))]">
-        <Greeting name={greeting.name} mascotCharacter={mascotCharacter} element={element} profile={profile ?? PROFILE_FALLBACK} membership={membership} loading={loading} />
+        <Greeting name={greeting.name} mascotCharacter={mascotCharacter} element={element} profile={profile ?? PROFILE_FALLBACK} membership={membership} loading={loading} qi={qi} />
+        {/* ทางลัด 4 ช่อง (Home v3 · ข้อ 1): ก่อนการ์ดดวงวันนี้ตามเฟรม · บล็อกเทาจนกว่าจะอ่าน storage ได้หลัง mount */}
+        <ShortcutBar />
         {/* `fortuneLoading` is the WHOLE truth for this card, and that is a deliberate arrangement.
             It briefly wasn't: while the user row was in flight the hook reported loading=false with no
             fortune, so the card fell through to its empty state and announced "ยังไม่มีข้อมูลดวงวันนี้"
@@ -165,7 +173,7 @@ function MascotImg({ src }: { src: string }) {
 // the name beside the right cluster → guaranteed cut. So: row1 = the "สวัสดีคุณ" LABEL (small, faded — a tag,
 // not a headline) + the tools (badge/bell/avatar, no long text so they never squeeze anyone); row2 = the
 // name at FULL width, bold, wrapping up to 2 lines (never truncated); row3 = the element line (unchanged).
-function Greeting({ name, mascotCharacter, element, profile, membership, loading }: { name: string; mascotCharacter: string; element: ElementInfo; profile: Profile; membership?: MembershipLike | null; loading: HomeScreenLoading }) {
+function Greeting({ name, mascotCharacter, element, profile, membership, loading, qi }: { name: string; mascotCharacter: string; element: ElementInfo; profile: Profile; membership?: MembershipLike | null; loading: HomeScreenLoading; qi?: number | null }) {
   return (
     // Home composes the shared right cluster DIRECTLY (<HeaderTools/>) instead of <AppHeader/>'s row.
     // Reason, found by looking at the render rather than the diff: AppHeader lays title and tools side by
@@ -182,6 +190,7 @@ function Greeting({ name, mascotCharacter, element, profile, membership, loading
     <header data-testid="home-header" className="flex flex-col gap-1.5 px-2 py-4 font-ibm">
       <div className="flex items-center gap-2">
         <p className="min-w-0 flex-1 truncate text-sm font-medium leading-5 text-v3-text-muted">สวัสดีคุณ</p>
+        <QiChip qi={qi} />
         {loading.profile ? <HeaderToolsSkeleton /> : (
           <HeaderTools
             membership={membership}
